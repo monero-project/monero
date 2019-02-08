@@ -328,21 +328,21 @@ namespace cryptonote
       *
       * @note see Blockchain::get_blocks(uint64_t, size_t, std::vector<std::pair<cryptonote::blobdata,block>>&, std::vector<transaction>&) const
       */
-     bool get_blocks(uint64_t start_offset, size_t count, std::vector<std::pair<cryptonote::blobdata,block>>& blocks, std::vector<cryptonote::blobdata>& txs) const;
+	 bool get_blocks(uint64_t start_offset, size_t count, std::list<std::pair<cryptonote::blobdata, block>>& blocks, std::list<cryptonote::blobdata>& txs) const;
 
      /**
       * @copydoc Blockchain::get_blocks(uint64_t, size_t, std::vector<std::pair<cryptonote::blobdata,block>>&) const
       *
       * @note see Blockchain::get_blocks(uint64_t, size_t, std::vector<std::pair<cryptonote::blobdata,block>>&) const
       */
-     bool get_blocks(uint64_t start_offset, size_t count, std::vector<std::pair<cryptonote::blobdata,block>>& blocks) const;
+	 bool get_blocks(uint64_t start_offset, size_t count, std::list<std::pair<cryptonote::blobdata, block>>& blocks) const;
 
      /**
       * @copydoc Blockchain::get_blocks(uint64_t, size_t, std::vector<std::pair<cryptonote::blobdata,block>>&) const
       *
       * @note see Blockchain::get_blocks(uint64_t, size_t, std::vector<std::pair<cryptonote::blobdata,block>>&) const
       */
-     bool get_blocks(uint64_t start_offset, size_t count, std::vector<block>& blocks) const;
+	 bool get_blocks(uint64_t start_offset, size_t count, std::list<block>& blocks) const;
 
      /**
       * @copydoc Blockchain::get_blocks(const t_ids_container&, t_blocks_container&, t_missed_container&) const
@@ -445,7 +445,7 @@ namespace cryptonote
       *
       * @note see tx_memory_pool::get_transactions
       */
-     bool get_pool_transactions(std::vector<transaction>& txs, bool include_unrelayed_txes = true) const;
+     bool get_pool_transactions(std::list<transaction>& txs, bool include_unrelayed_txes = true) const;
 
      /**
       * @copydoc tx_memory_pool::get_txpool_backlog
@@ -563,14 +563,25 @@ namespace cryptonote
       * @note see Blockchain::get_block_cumulative_difficulty
       */
      difficulty_type get_block_cumulative_difficulty(uint64_t height) const;
-
+	 /**
+	 * @copydoc Blockchain::get_random_outs_for_amounts
+	 *
+	 * @note see Blockchain::get_random_outs_for_amounts
+	 */
+	 bool get_random_outs_for_amounts(const COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::request& req, COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::response& res) const;
      /**
       * @copydoc Blockchain::get_outs
       *
       * @note see Blockchain::get_outs
       */
      bool get_outs(const COMMAND_RPC_GET_OUTPUTS_BIN::request& req, COMMAND_RPC_GET_OUTPUTS_BIN::response& res) const;
-
+	 /**
+	 *
+	 * @copydoc Blockchain::get_random_rct_outs
+	 *
+	 * @note see Blockchain::get_random_rct_outs
+	 */
+	 bool get_random_rct_outs(const COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS::request& req, COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS::response& res) const;
      /**
       * @copydoc Blockchain::get_output_distribution
       *
@@ -826,7 +837,7 @@ namespace cryptonote
     * @param sec_key The secret key for the service node, unmodified if not a service node
     * @return True if we are a service node
     */
-   bool get_service_node_keys(crypto::public_key &pub_key, crypto::secret_key &sec_key) const;
+	bool get_service_node_keys(crypto::public_key &pub_key, crypto::secret_key &sec_key) const;
 
    /**
     * @brief attempts to submit an uptime proof to the network, if this is running in service node mode

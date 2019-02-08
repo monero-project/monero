@@ -34,6 +34,7 @@
 #include "cryptonote_basic/verification_context.h"
 #include "cryptonote_basic/difficulty.h"
 #include "crypto/hash.h"
+#include "cryptonote_config.h"
 #include "cryptonote_core/service_node_deregister.h"
 
 namespace cryptonote
@@ -682,6 +683,50 @@ namespace cryptonote
     };
   };
   //-----------------------------------------------
+  struct COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS
+  {
+	  struct request
+	  {
+		  std::vector<uint64_t> amounts;
+		  uint64_t              outs_count;
+		  BEGIN_KV_SERIALIZE_MAP()
+			  KV_SERIALIZE(amounts)
+			  KV_SERIALIZE(outs_count)
+		  END_KV_SERIALIZE_MAP()
+	  };
+
+#pragma pack (push, 1)
+	  struct out_entry
+	  {
+		  uint64_t global_amount_index;
+		  crypto::public_key out_key;
+	  };
+#pragma pack(pop)
+
+	  struct outs_for_amount
+	  {
+		  uint64_t amount;
+		  std::list<out_entry> outs;
+
+		  BEGIN_KV_SERIALIZE_MAP()
+			  KV_SERIALIZE(amount)
+			  KV_SERIALIZE_CONTAINER_POD_AS_BLOB(outs)
+		  END_KV_SERIALIZE_MAP()
+	  };
+
+	  struct response
+	  {
+		  std::vector<outs_for_amount> outs;
+		  std::string status;
+		  bool untrusted;
+		  BEGIN_KV_SERIALIZE_MAP()
+			  KV_SERIALIZE(outs)
+			  KV_SERIALIZE(status)
+			  KV_SERIALIZE(untrusted)
+		  END_KV_SERIALIZE_MAP()
+	  };
+  };
+  //-----------------------------------------------
   struct get_outputs_out
   {
     uint64_t amount;
@@ -775,6 +820,39 @@ namespace cryptonote
         KV_SERIALIZE(untrusted)
       END_KV_SERIALIZE_MAP()
     };
+  };
+  //-----------------------------------------------
+  struct COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS
+  {
+	  struct request
+	  {
+		  uint64_t outs_count;
+		  BEGIN_KV_SERIALIZE_MAP()
+			  KV_SERIALIZE(outs_count)
+		  END_KV_SERIALIZE_MAP()
+	  };
+
+#pragma pack (push, 1)
+	  struct out_entry
+	  {
+		  uint64_t amount;
+		  uint64_t global_amount_index;
+		  crypto::public_key out_key;
+		  rct::key commitment;
+	  };
+#pragma pack(pop)
+
+	  struct response
+	  {
+		  std::list<out_entry> outs;
+		  std::string status;
+		  bool untrusted;
+		  BEGIN_KV_SERIALIZE_MAP()
+			  KV_SERIALIZE_CONTAINER_POD_AS_BLOB(outs)
+			  KV_SERIALIZE(status)
+			  KV_SERIALIZE(untrusted)
+		  END_KV_SERIALIZE_MAP()
+	  };
   };
   //-----------------------------------------------
   struct COMMAND_RPC_SEND_RAW_TX
@@ -2409,6 +2487,26 @@ namespace cryptonote
 
 		  BEGIN_KV_SERIALIZE_MAP()
 			  KV_SERIALIZE(service_node_states)
+			  KV_SERIALIZE(status)
+		  END_KV_SERIALIZE_MAP()
+	  };
+  };
+  struct COMMAND_RPC_GET_STAKING_REQUIREMENT
+  {
+	  struct request
+	  {
+		  uint64_t height;
+		  BEGIN_KV_SERIALIZE_MAP()
+			  KV_SERIALIZE(height)
+		  END_KV_SERIALIZE_MAP()
+	  };
+
+	  struct response
+	  {
+		  uint64_t staking_requirement;
+		  std::string status;
+		  BEGIN_KV_SERIALIZE_MAP()
+			  KV_SERIALIZE(staking_requirement)
 			  KV_SERIALIZE(status)
 		  END_KV_SERIALIZE_MAP()
 	  };

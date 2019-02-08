@@ -203,7 +203,7 @@ namespace cryptonote
      *
      * @return false if start_offset > blockchain height, else true
      */
-    bool get_blocks(uint64_t start_offset, size_t count, std::vector<std::pair<cryptonote::blobdata,block>>& blocks, std::vector<cryptonote::blobdata>& txs) const;
+	bool get_blocks(uint64_t start_offset, size_t count, std::list<std::pair<cryptonote::blobdata, block>>& blocks, std::list<cryptonote::blobdata>& txs) const;
 
     /**
      * @brief get blocks from blocks based on start height and count
@@ -214,7 +214,7 @@ namespace cryptonote
      *
      * @return false if start_offset > blockchain height, else true
      */
-    bool get_blocks(uint64_t start_offset, size_t count, std::vector<std::pair<cryptonote::blobdata,block>>& blocks) const;
+	bool get_blocks(uint64_t start_offset, size_t count, std::list<std::pair<cryptonote::blobdata, block>>& blocks) const;
 
     /**
      * @brief compiles a list of all blocks stored as alternative chains
@@ -491,7 +491,15 @@ namespace cryptonote
      * @return the number of mature outputs
      */
     uint64_t get_num_mature_outputs(uint64_t amount) const;
-
+	/**
+	* @brief get random outputs (indices) for an amount
+	*
+	* @param amount the amount
+	* @param count the number of random outputs to choose
+	*
+	* @return the outputs' amount-global indices
+	*/
+	std::vector<uint64_t> get_random_outputs(uint64_t amount, uint64_t count) const;
     /**
      * @brief get the public key for an output
      *
@@ -502,6 +510,21 @@ namespace cryptonote
      */
     crypto::public_key get_output_key(uint64_t amount, uint64_t global_index) const;
 
+	/**
+	* @brief gets random outputs to mix with
+	*
+	* This function takes an RPC request for outputs to mix with
+	* and creates an RPC response with the resultant output indices.
+	*
+	* Outputs to mix with are randomly selected from the utxo set
+	* for each output amount in the request.
+	*
+	* @param req the output amounts and number of mixins to select
+	* @param res return-by-reference the resultant output indices
+	*
+	* @return true
+	*/
+	bool get_random_outs_for_amounts(const COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::request& req, COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::response& res) const;
     /**
      * @brief gets specific outputs to mix with
      *
@@ -527,6 +550,22 @@ namespace cryptonote
      * @param unlocked out - the output's unlocked state
      */
     void get_output_key_mask_unlocked(const uint64_t& amount, const uint64_t& index, crypto::public_key& key, rct::key& mask, bool& unlocked) const;
+	/**
+	* @brief gets random ringct outputs to mix with
+	*
+	* This function takes an RPC request for outputs to mix with
+	* and creates an RPC response with the resultant output indices
+	* and the matching keys.
+	*
+	* Outputs to mix with are randomly selected from the utxo set
+	* for each output amount in the request.
+	*
+	* @param req the output amounts and number of mixins to select
+	* @param res return-by-reference the resultant output indices
+	*
+	* @return true
+	*/
+	bool get_random_rct_outs(const COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS::request& req, COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS::response& res) const;
 
     /**
      * @brief gets per block distribution of outputs of a given amount
@@ -762,7 +801,11 @@ namespace cryptonote
      * @brief Put DB in safe sync mode
      */
     void safesyncmode(const bool onoff);
-
+	/**
+	* @brief Get the nettype
+	* @return the nettype
+	*/
+	network_type nettype() const { return m_nettype; }
     /**
      * @brief set whether or not to show/print time statistics
      *
@@ -1029,8 +1072,10 @@ namespace cryptonote
     BlockchainDB* m_db;
 
     tx_memory_pool& m_tx_pool;
+
     service_nodes::service_node_list& m_service_node_list;
     triton::deregister_vote_pool& m_deregister_vote_pool;
+
     mutable epee::critical_section m_blockchain_lock; // TODO: add here reader/writer lock
 
     // main chain
@@ -1274,8 +1319,24 @@ namespace cryptonote
      * @return false if anything is found wrong with the miner transaction, otherwise true
      */
     bool validate_miner_transaction(const block& b, size_t cumulative_block_weight, uint64_t fee, uint64_t& base_reward, uint64_t already_generated_coins, bool &partial_block_reward, uint8_t version);
+	/**
+	* @brief adds the given output to the requested set of random outputs
+	*
+	* @param result_outs return-by-reference the set the output is to be added to
+	* @param amount the output amount
+	* @param i the output index (indexed to amount)
+	*/
+	void add_out_to_get_random_outs(COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::outs_for_amount& result_outs, uint64_t amount, size_t i) const;
 
-    /**
+	/**
+	* @brief adds the given output to the requested set of random ringct outputs
+	*
+	* @param outs return-by-reference the set the output is to be added to
+	* @param amount the output amount (0 for rct inputs)
+	* @param i the rct output index
+	*/
+	void add_out_to_get_rct_random_outs(std::list<COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS::out_entry>& outs, uint64_t amount, size_t i) const;
+	/**
      * @brief reverts the blockchain to its previous state following a failed switch
      *
      * If Blockchain fails to switch to an alternate chain when it means

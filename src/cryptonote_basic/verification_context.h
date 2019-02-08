@@ -34,44 +34,44 @@ namespace cryptonote
   /************************************************************************/
   /*                                                                      */
   /************************************************************************/
-  struct vote_verification_context
- {
-   bool m_verification_failed;
-   bool m_invalid_block_height;
-   bool m_duplicate_voters;
-   bool m_voters_quorum_index_out_of_bounds;
-   bool m_service_node_index_out_of_bounds;
-   bool m_signature_not_valid;
-   bool m_added_to_pool;
-   bool m_full_tx_deregister_made;
-   bool m_not_enough_votes;
- };
+	struct vote_verification_context
+	{
+		bool m_verification_failed;
+		bool m_invalid_block_height;
+		bool m_duplicate_voters;
+		bool m_voters_quorum_index_out_of_bounds;
+		bool m_service_node_index_out_of_bounds;
+		bool m_signature_not_valid;
+		bool m_added_to_pool;
+		bool m_full_tx_deregister_made;
+		bool m_not_enough_votes;
+	};
 
-  struct tx_verification_context
-  {
-    bool m_should_be_relayed;
-    bool m_verifivation_failed; //bad tx, should drop connection
-    bool m_verifivation_impossible; //the transaction is related with an alternative blockchain
-    bool m_added_to_pool;
-    bool m_low_mixin;
-    bool m_double_spend;
-    bool m_invalid_input;
-    bool m_invalid_output;
-    bool m_too_big;
-    bool m_overspend;
-    bool m_fee_too_low;
-    bool m_not_rct;
-    bool m_invalid_version;
+	struct tx_verification_context
+	{
+		bool m_should_be_relayed;
+		bool m_verifivation_failed; //bad tx, should drop connection
+		bool m_verifivation_impossible; //the transaction is related with an alternative blockchain
+		bool m_added_to_pool;
+		bool m_low_mixin;
+		bool m_double_spend;
+		bool m_invalid_input;
+		bool m_invalid_output;
+		bool m_too_big;
+		bool m_overspend;
+		bool m_fee_too_low;
+		bool m_not_rct;
+		bool m_invalid_version;
 
-    vote_verification_context m_vote_ctx;
-  };
+		vote_verification_context m_vote_ctx;
+	};
 
-  struct block_verification_context
-  {
-    bool m_added_to_main_chain;
-    bool m_verifivation_failed; //bad block, should drop connection
-    bool m_marked_as_orphaned;
-    bool m_already_exists;
-    bool m_partial_block_reward;
-  };
+	struct block_verification_context
+	{
+		bool m_added_to_main_chain;
+		bool m_verifivation_failed; //bad block, should drop connection
+		bool m_marked_as_orphaned;
+		bool m_already_exists;
+		bool m_partial_block_reward;
+	};
 }

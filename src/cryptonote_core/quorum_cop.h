@@ -33,41 +33,46 @@
 
 namespace triton
 {
-  class deregister_vote_pool;
+	class deregister_vote_pool;
 };
 
 namespace cryptonote
 {
-  class core;
+	class core;
 };
 
 namespace service_nodes
 {
-  class quorum_cop
-    : public cryptonote::Blockchain::BlockAddedHook,
-      public cryptonote::Blockchain::BlockchainDetachedHook
-  {
-  public:
-    quorum_cop(cryptonote::core& core, service_nodes::service_node_list& service_node_list);
-    void block_added(const cryptonote::block& block, const std::vector<cryptonote::transaction>& txs);
-    void blockchain_detached(uint64_t height);
-    bool handle_uptime_proof(uint64_t timestamp, const crypto::public_key& pubkey, const crypto::signature& sig);
-    void generate_uptime_proof_request(const crypto::public_key& pubkey, const crypto::secret_key& seckey, cryptonote::NOTIFY_UPTIME_PROOF::request& req) const;
+	class quorum_cop
+		: public cryptonote::Blockchain::BlockAddedHook,
+		public cryptonote::Blockchain::BlockchainDetachedHook,
+		public cryptonote::Blockchain::InitHook
+	{
+	public:
+		quorum_cop(cryptonote::core& core, service_nodes::service_node_list& service_node_list);
 
-    static const uint64_t REORG_SAFETY_BUFFER_IN_BLOCKS = 20;
-    static_assert(REORG_SAFETY_BUFFER_IN_BLOCKS < triton::service_node_deregister::VOTE_LIFETIME_BY_HEIGHT,
-                  "Safety buffer should always be less than the vote lifetime");
-    bool prune_uptime_proof();
-	uint64_t get_uptime_proof(const crypto::public_key &pubkey) const;
+		void init();
+		void block_added(const cryptonote::block& block, const std::vector<cryptonote::transaction>& txs);
+		void blockchain_detached(uint64_t height);
 
-  private:
+		bool handle_uptime_proof(uint64_t timestamp, const crypto::public_key& pubkey, const crypto::signature& sig);
+		void generate_uptime_proof_request(const crypto::public_key& pubkey, const crypto::secret_key& seckey, cryptonote::NOTIFY_UPTIME_PROOF::request& req) const;
 
-    cryptonote::core& m_core;
-    service_node_list& m_service_node_list;
-    uint64_t m_last_height;
+		static const uint64_t REORG_SAFETY_BUFFER_IN_BLOCKS = 20;
+		static_assert(REORG_SAFETY_BUFFER_IN_BLOCKS < triton::service_node_deregister::VOTE_LIFETIME_BY_HEIGHT,
+			"Safety buffer should always be less than the vote lifetime");
+		bool prune_uptime_proof();
 
-    using timestamp = uint64_t;
-    std::unordered_map<crypto::public_key, timestamp> m_uptime_proof_seen;
-    epee::critical_section m_lock;
-  };
+		uint64_t get_uptime_proof(const crypto::public_key &pubkey) const;
+
+	private:
+
+		cryptonote::core& m_core;
+		service_node_list& m_service_node_list;
+		uint64_t m_last_height;
+
+		using timestamp = uint64_t;
+		std::unordered_map<crypto::public_key, timestamp> m_uptime_proof_seen;
+		epee::critical_section m_lock;
+	};
 }

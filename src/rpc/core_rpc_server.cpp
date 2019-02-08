@@ -356,6 +356,78 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_get_random_outs(const COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::request& req, COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::response& res)
+  {
+	  PERF_TIMER(on_get_random_outs);
+	  bool r;
+	  if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS>(invoke_http_mode::BIN, "/getrandom_outs.bin", req, res, r))
+		  return r;
+
+	  res.status = "Failed";
+
+	  if (m_restricted)
+	  {
+		  if (req.amounts.size() > 100 || req.outs_count > MAX_RESTRICTED_FAKE_OUTS_COUNT)
+		  {
+			  res.status = "Too many outs requested";
+			  return true;
+		  }
+	  }
+
+	  if (!m_core.get_random_outs_for_amounts(req, res))
+	  {
+		  return true;
+	  }
+
+	  res.status = CORE_RPC_STATUS_OK;
+	  std::stringstream ss;
+	  typedef COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::outs_for_amount outs_for_amount;
+	  typedef COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::out_entry out_entry;
+	  std::for_each(res.outs.begin(), res.outs.end(), [&](outs_for_amount& ofa)
+	  {
+		  ss << "[" << ofa.amount << "]:";
+		  CHECK_AND_ASSERT_MES(ofa.outs.size(), ; , "internal error: ofa.outs.size() is empty for amount " << ofa.amount);
+		  std::for_each(ofa.outs.begin(), ofa.outs.end(), [&](out_entry& oe)
+		  {
+			  ss << oe.global_amount_index << " ";
+		  });
+		  ss << ENDL;
+	  });
+	  std::string s = ss.str();
+	  LOG_PRINT_L2("COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS: " << ENDL << s);
+	  res.status = CORE_RPC_STATUS_OK;
+	  return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_get_random_rct_outs(const COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS::request& req, COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS::response& res)
+  {
+	  PERF_TIMER(on_get_random_rct_outs);
+	  bool r;
+	  if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS>(invoke_http_mode::BIN, "/getrandom_rctouts.bin", req, res, r))
+		  return r;
+
+	  res.status = "Failed";
+	  if (!m_core.get_random_rct_outs(req, res))
+	  {
+		  return true;
+	  }
+
+	  res.status = CORE_RPC_STATUS_OK;
+	  std::stringstream ss;
+	  typedef COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS::out_entry out_entry;
+	  CHECK_AND_ASSERT_MES(res.outs.size(), true, "internal error: res.outs.size() is empty");
+	  std::for_each(res.outs.begin(), res.outs.end(), [&](out_entry& oe)
+	  {
+		  ss << oe.global_amount_index << " ";
+	  });
+	  ss << ENDL;
+	  std::string s = ss.str();
+	  LOG_PRINT_L2("COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS: " << ENDL << s);
+	  res.status = CORE_RPC_STATUS_OK;
+	  return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_get_outs_bin(const COMMAND_RPC_GET_OUTPUTS_BIN::request& req, COMMAND_RPC_GET_OUTPUTS_BIN::response& res)
   {
     PERF_TIMER(on_get_outs_bin);
@@ -1675,7 +1747,7 @@ namespace cryptonote
     std::vector<crypto::hash> txids;
     if (req.txids.empty())
     {
-      std::vector<transaction> pool_txs;
+      std::list<transaction> pool_txs;
       bool r = m_core.get_pool_transactions(pool_txs);
       if (!r)
       {
@@ -2006,15 +2078,10 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  bool core_rpc_server::on_get_quorum_state(const COMMAND_RPC_GET_QUORUM_STATE::request& req, COMMAND_RPC_GET_QUORUM_STATE::response& res)
- {
+  bool core_rpc_server::on_get_quorum_state(const COMMAND_RPC_GET_QUORUM_STATE::request& req, COMMAND_RPC_GET_QUORUM_STATE::response& res, epee::json_rpc::error& error_resp)
+  {
    PERF_TIMER(on_get_quorum_state);
    bool r;
-
-   if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_GET_QUORUM_STATE>(invoke_http_mode::JON, "/get_quorum_state", req, res, r))
-   {
-     return r;
-   }
 
    const std::shared_ptr<service_nodes::quorum_state> quorum_state = m_core.get_quorum_state(req.height);
    r = (quorum_state != nullptr);
@@ -2032,9 +2099,10 @@ namespace cryptonote
    }
    else
    {
-     res.status  = "Block height: ";
-      res.status += std::to_string(req.height);
-     res.status += ", returned null hash or failed to derive quorum list";
+	   error_resp.code = CORE_RPC_ERROR_CODE_WRONG_PARAM;
+	   error_resp.message = "Block height: ";
+	   error_resp.message += std::to_string(req.height);
+	   error_resp.message += ", returned null hash or failed to derive quorum list";
    }
 
    return r;
@@ -2235,30 +2303,7 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  bool core_rpc_server::on_get_quorum_state_json(const COMMAND_RPC_GET_QUORUM_STATE::request& req, COMMAND_RPC_GET_QUORUM_STATE::response& res, epee::json_rpc::error& error_resp)
-  {
-    PERF_TIMER(on_get_quorum_list_json);
-    bool r;
-    if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_GET_QUORUM_STATE>(invoke_http_mode::JON_RPC, "get_quorum_list", req, res, r))
-    {
-      return r;
-    }
 
-    r = on_get_quorum_state(req, res);
-
-    if (r)
-    {
-      res.status = CORE_RPC_STATUS_OK;
-    }
-    else
-    {
-      error_resp.code    = CORE_RPC_ERROR_CODE_TOO_BIG_HEIGHT;
-      error_resp.message = res.status;
-    }
-
-    return r;
-  }
-  //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_get_service_node_registration_cmd(const COMMAND_RPC_GET_SERVICE_NODE_REGISTRATION_CMD::request& req,
                                                              COMMAND_RPC_GET_SERVICE_NODE_REGISTRATION_CMD::response& res,
                                                              epee::json_rpc::error& error_resp)
@@ -2311,7 +2356,7 @@ namespace cryptonote
 	  {
 		  COMMAND_RPC_GET_SERVICE_NODES::response::entry entry = {};
 		  entry.service_node_pubkey = string_tools::pod_to_hex(pubkey_info.pubkey);
-		  entry.registration_height = pubkey_info.info.registration_height
+		  entry.registration_height = pubkey_info.info.registration_height;
 		  entry.last_reward_block_height = pubkey_info.info.last_reward_block_height;
 		  entry.last_reward_transaction_index = pubkey_info.info.last_reward_transaction_index;
 		  entry.last_uptime_proof = m_core.get_uptime_proof(pubkey_info.pubkey);
@@ -2338,7 +2383,13 @@ namespace cryptonote
 	  return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-
+  bool core_rpc_server::on_get_staking_requirement(const COMMAND_RPC_GET_STAKING_REQUIREMENT::request& req, COMMAND_RPC_GET_STAKING_REQUIREMENT::response& res, epee::json_rpc::error& error_resp)
+  {
+	  PERF_TIMER(on_get_staking_requirement);
+	  res.staking_requirement = service_nodes::get_staking_requirement(nettype(), req.height);
+	  res.status = CORE_RPC_STATUS_OK;
+	  return true;
+  }
   const command_line::arg_descriptor<std::string, false, true, 2> core_rpc_server::arg_rpc_bind_port = {
       "rpc-bind-port"
     , "Port for RPC server"

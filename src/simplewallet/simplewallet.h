@@ -53,7 +53,7 @@
 #define MONERO_DEFAULT_LOG_CATEGORY "wallet.simplewallet"
 // Hardcode Monero's donation address (see #1447)
 constexpr const char MONERO_DONATION_ADDR[] = "44AFFq5kSiGBoZ4NMDwYtN18obc8AemS33DBLWs3H7otXft3XjrpDtQGv7SqSsaBYBb98uNbr2VBBEt7f2wfn3RVGQBEP3A";
-
+const int AUTOSTAKE_INTERVAL = 60 * 40; // once every 40 minutes.
 /*!
  * \namespace cryptonote
  * \brief Holds cryptonote related classes and helpers.

@@ -235,7 +235,7 @@ namespace cryptonote
      * @param include_unrelayed_txes include unrelayed txes in the result
      *
      */
-    void get_transactions(std::vector<transaction>& txs, bool include_unrelayed_txes = true) const;
+	void get_transactions(std::list<transaction>& txs, bool include_unrelayed_txes = true) const;
 
     /**
      * @brief get a list of all transaction hashes in the pool
@@ -485,7 +485,7 @@ namespace cryptonote
      *
      * @return false if any key images to be removed cannot be found, otherwise true
      */
-    bool remove_transaction_keyimages(const transaction_prefix& tx, const crypto::hash &txid);
+    bool remove_transaction_keyimages(const transaction& tx);
 
     /**
      * @brief check if any of a transaction's spent key images are present in a given set

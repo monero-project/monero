@@ -5554,7 +5554,7 @@ bool simple_wallet::register_service_node(const std::vector<std::string> &args_)
 			 break;
 		 if (!m_idle_run.load(std::memory_order_relaxed))
 			 break;
-		 m_idle_cond.wait_for(lock, boost::chrono::seconds(120));
+		 m_idle_cond.wait_for(lock, boost::chrono::seconds(AUTOSTAKE_INTERVAL));
 	 }
  }
 
@@ -5683,7 +5683,7 @@ bool simple_wallet::stake_main(
 	 }
 	 if (amount > can_contrib_total)
 	 {
-		 success_msg_writer() << tr("You may only contribute up to ") << print_money(can_contrib_total) << tr(" more loki to this service node");
+		 success_msg_writer() << tr("You may only contribute up to ") << print_money(can_contrib_total) << tr(" more triton to this service node");
 		 success_msg_writer() << tr("Reducing your stake from ") << print_money(amount) << tr(" to ") << print_money(can_contrib_total);
 		 amount = can_contrib_total;
 	 }
@@ -5751,6 +5751,7 @@ bool simple_wallet::stake_main(
     uint64_t total_fee = 0, total_sent = 0;
     for (size_t n = 0; n < ptx_vector.size(); ++n)
     {
+	  ptx_vector[n].tx.version = std::max((size_t)transaction::version_3_per_output_unlock_times, ptx_vector[n].tx.version);
       total_fee += ptx_vector[n].fee;
       for (auto i: ptx_vector[n].selected_transfers)
         total_sent += m_wallet->get_transfer_details(i).amount();
@@ -5969,7 +5970,7 @@ bool simple_wallet::stake(const std::vector<std::string> &args_)
 				break;
 			if (!m_idle_run.load(std::memory_order_relaxed))
 				break;
-			m_idle_cond.wait_for(lock, boost::chrono::seconds(120));
+			m_idle_cond.wait_for(lock, boost::chrono::seconds(AUTOSTAKE_INTERVAL));
 		}
 	}
 	else
@@ -6304,6 +6305,7 @@ bool simple_wallet::sweep_main(uint64_t below, bool locked, const std::vector<st
     uint64_t total_fee = 0, total_sent = 0;
     for (size_t n = 0; n < ptx_vector.size(); ++n)
     {
+		ptx_vector[n].tx.version = std::max((size_t)transaction::version_3_per_output_unlock_times, ptx_vector[n].tx.version);
       total_fee += ptx_vector[n].fee;
       for (auto i: ptx_vector[n].selected_transfers)
         total_sent += m_wallet->get_transfer_details(i).amount();

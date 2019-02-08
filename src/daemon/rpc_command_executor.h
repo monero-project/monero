@@ -157,6 +157,7 @@ public:
   bool get_service_node_registration_cmd(const std::vector<std::string> &args);
   bool print_sn_key();
   bool print_sn_status();
+  bool print_sr(uint64_t height);
   bool print_sn(const std::vector<std::string> &args);
 
 

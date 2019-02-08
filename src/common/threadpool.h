@@ -38,59 +38,56 @@
 
 namespace tools
 {
-//! A global thread pool
-class threadpool
-{
-public:
-  static threadpool& getInstance() {
-    static threadpool instance;
-    return instance;
-  }
-  static threadpool *getNewForUnitTests(unsigned max_threads = 0) {
-    return new threadpool(max_threads);
-  }
+	//! A global thread pool
+	class threadpool
+	{
+	public:
+		static threadpool& getInstance() {
+			static threadpool instance;
+			return instance;
+		}
+		static threadpool *getNewForUnitTests(unsigned max_threads = 0) {
+			return new threadpool(max_threads);
+		}
 
-  // The waiter lets the caller know when all of its
-  // tasks are completed.
-  class waiter {
-    boost::mutex mt;
-    boost::condition_variable cv;
-    int num;
-    public:
-    void inc();
-    void dec();
-    void wait(threadpool *tpool);  //! Wait for a set of tasks to finish.
-    waiter() : num(0){}
-    ~waiter();
-  };
+		// The waiter lets the caller know when all of its
+		// tasks are completed.
+		class waiter {
+			boost::mutex mt;
+			boost::condition_variable cv;
+			int num;
+		public:
+			void inc();
+			void dec();
+			void wait(threadpool *tpool);  //! Wait for a set of tasks to finish.
+			waiter() : num(0) {}
+			~waiter();
+		};
 
-  // Submit a task to the pool. The waiter pointer may be
-  // NULL if the caller doesn't care to wait for the
-  // task to finish.
-  void submit(waiter *waiter, std::function<void()> f, bool leaf = false);
+		// Submit a task to the pool. The waiter pointer may be
+		// NULL if the caller doesn't care to wait for the
+		// task to finish.
+		void submit(waiter *waiter, std::function<void()> f, bool leaf = false);
 
-  unsigned int get_max_concurrency() const;
+		unsigned int get_max_concurrency() const;
 
-  void stop();
-  void start();
+		~threadpool();
 
-  ~threadpool();
-
-  private:
-    threadpool(unsigned int max_threads = 0);
-    typedef struct entry {
-      waiter *wo;
-      std::function<void()> f;
-      bool leaf;
-    } entry;
-    std::deque<entry> queue;
-    boost::condition_variable has_work;
-    boost::mutex mutex;
-    std::vector<boost::thread> threads;
-    unsigned int active;
-    unsigned int max;
-    bool running;
-    void run(bool flush = false);
-};
+	private:
+		threadpool(unsigned int max_threads = 0);
+		typedef struct entry {
+			waiter *wo;
+			std::function<void()> f;
+			bool leaf;
+		} entry;
+		std::deque<entry> queue;
+		boost::condition_variable has_work;
+		boost::mutex mutex;
+		std::vector<boost::thread> threads;
+		unsigned int active;
+		unsigned int max;
+		bool running;
+		void run(bool flush = false);
+	};
 
 }

@@ -183,7 +183,6 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
   core::core(i_cryptonote_protocol* pprotocol):
               m_mempool(m_blockchain_storage),
-              m_blockchain_storage(m_mempool),
               m_service_node_list(m_blockchain_storage),
               m_blockchain_storage(m_mempool, m_service_node_list, m_deregister_vote_pool),
               m_quorum_cop(*this, m_service_node_list),
@@ -355,24 +354,24 @@ namespace cryptonote
     top_id = m_blockchain_storage.get_tail_id(height);
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::get_blocks(uint64_t start_offset, size_t count, std::vector<std::pair<cryptonote::blobdata,block>>& blocks, std::vector<cryptonote::blobdata>& txs) const
+  bool core::get_blocks(uint64_t start_offset, size_t count, std::list<std::pair<cryptonote::blobdata, block>>& blocks, std::list<cryptonote::blobdata>& txs) const
   {
-    return m_blockchain_storage.get_blocks(start_offset, count, blocks, txs);
+	  return m_blockchain_storage.get_blocks(start_offset, count, blocks, txs);
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::get_blocks(uint64_t start_offset, size_t count, std::vector<std::pair<cryptonote::blobdata,block>>& blocks) const
+  bool core::get_blocks(uint64_t start_offset, size_t count, std::list<std::pair<cryptonote::blobdata, block>>& blocks) const
   {
-    return m_blockchain_storage.get_blocks(start_offset, count, blocks);
+	  return m_blockchain_storage.get_blocks(start_offset, count, blocks);
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::get_blocks(uint64_t start_offset, size_t count, std::vector<block>& blocks) const
+  bool core::get_blocks(uint64_t start_offset, size_t count, std::list<block>& blocks) const
   {
-    std::vector<std::pair<cryptonote::blobdata, cryptonote::block>> bs;
-    if (!m_blockchain_storage.get_blocks(start_offset, count, bs))
-      return false;
-    for (const auto &b: bs)
-      blocks.push_back(b.second);
-    return true;
+	  std::list<std::pair<cryptonote::blobdata, cryptonote::block>> bs;
+	  if (!m_blockchain_storage.get_blocks(start_offset, count, bs))
+		  return false;
+	  for (const auto &b : bs)
+		  blocks.push_back(b.second);
+	  return true;
   }
   //-----------------------------------------------------------------------------------------------
   bool core::get_transactions(const std::vector<crypto::hash>& txs_ids, std::vector<cryptonote::blobdata>& txs, std::vector<crypto::hash>& missed_txs) const
@@ -1125,7 +1124,7 @@ namespace cryptonote
       const uint64_t end = start_offset + count - 1;
       m_blockchain_storage.for_blocks_range(start_offset, end,
         [this, &emission_amount, &total_fee_amount](uint64_t, const crypto::hash& hash, const block& b){
-      std::vector<transaction> txs;
+		  std::vector <transaction> txs;
       std::vector<crypto::hash> missed_txs;
       uint64_t coinbase_amount = get_outs_money_amount(b.miner_tx);
       this->get_transactions(b.tx_hashes, txs, missed_txs);
@@ -1309,9 +1308,19 @@ namespace cryptonote
     return m_blockchain_storage.find_blockchain_supplement(req_start_block, qblock_ids, blocks, total_height, start_height, pruned, get_miner_tx_hash, max_count);
   }
   //-----------------------------------------------------------------------------------------------
+  bool core::get_random_outs_for_amounts(const COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::request& req, COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::response& res) const
+  {
+	  return m_blockchain_storage.get_random_outs_for_amounts(req, res);
+  }
+  //-----------------------------------------------------------------------------------------------
   bool core::get_outs(const COMMAND_RPC_GET_OUTPUTS_BIN::request& req, COMMAND_RPC_GET_OUTPUTS_BIN::response& res) const
   {
     return m_blockchain_storage.get_outs(req, res);
+  }
+  //-----------------------------------------------------------------------------------------------
+  bool core::get_random_rct_outs(const COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS::request& req, COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS::response& res) const
+  {
+	  return m_blockchain_storage.get_random_rct_outs(req, res);
   }
   //-----------------------------------------------------------------------------------------------
   bool core::get_output_distribution(uint64_t amount, uint64_t from_height, uint64_t to_height, uint64_t &start_height, std::vector<uint64_t> &distribution, uint64_t &base) const
@@ -1505,7 +1514,7 @@ namespace cryptonote
     return true;
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::get_pool_transactions(std::vector<transaction>& txs, bool include_sensitive_data) const
+  bool core::get_pool_transactions(std::list<transaction>& txs, bool include_sensitive_data) const
   {
     m_mempool.get_transactions(txs, include_sensitive_data);
     return true;
@@ -1894,11 +1903,11 @@ namespace cryptonote
 	  uint64_t latest_block_height = std::max(get_current_blockchain_height(), get_target_blockchain_height());
 	  uint64_t delta_height = latest_block_height - vote.block_height;
 
-	  if (vote.block_height < latest_block_height && delta_height > loki::service_node_deregister::VOTE_LIFETIME_BY_HEIGHT)
+	  if (vote.block_height < latest_block_height && delta_height >= triton::service_node_deregister::VOTE_LIFETIME_BY_HEIGHT)
 	  {
 		  LOG_PRINT_L1("Received vote for height: " << vote.block_height
 			  << " and service node: " << vote.service_node_index
-			  << ", is older than: " << loki::service_node_deregister::VOTE_LIFETIME_BY_HEIGHT
+			  << ", is older than: " << triton::service_node_deregister::VOTE_LIFETIME_BY_HEIGHT
 			  << " blocks and has been rejected.");
 		  vvc.m_invalid_block_height = true;
 	  }
@@ -1932,25 +1941,27 @@ namespace cryptonote
       blobdata const tx_blob = tx_to_blob(deregister_tx);
 
       result = handle_incoming_tx(tx_blob, tvc, false /*keeped_by_block*/, false /*relayed*/, false /*do_not_relay*/);
-      if (!result || tvc.m_verifivation_failed)
-      {
-        LOG_PRINT_L1("A full deregister tx for height: " << vote.block_height <<
-                     " and service node: " << vote.service_node_index <<
-                     " could not be verified and was not added to the memory pool, reason: " <<
-                     print_tx_verification_context(tvc, &deregister_tx));
+	  if (!result || tvc.m_verifivation_failed)
+	  {
+		  LOG_PRINT_L1("A full deregister tx for height: " << vote.block_height <<
+			  " and service node: " << vote.service_node_index <<
+			  " could not be verified and was not added to the memory pool, reason: " <<
+			  print_tx_verification_context(tvc, &deregister_tx));
+	  }
     }
 
     return result;
   }
-  bool core::get_service_node_keys(crypto::public_key &pub_key, crypto::secret_key &sec_key) const
- {
-   if (m_service_node)
-   {
-     pub_key = m_service_node_pubkey;
-     sec_key = m_service_node_key;
-   }
-   return m_service_node;
- }
+//-----------------------------------------------------------------------------------------------
+bool core::get_service_node_keys(crypto::public_key &pub_key, crypto::secret_key &sec_key) const
+{
+	if (m_service_node)
+	{
+		pub_key = m_service_node_pubkey;
+		sec_key = m_service_node_key;
+	}
+	return m_service_node;
+}
   //-----------------------------------------------------------------------------------------------
   bool core::cmd_prepare_registration(const boost::program_options::variables_map& vm, const std::vector<std::string>& args)
   {

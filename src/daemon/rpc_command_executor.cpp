@@ -616,8 +616,8 @@ bool t_rpc_command_executor::print_quorum_state(uint64_t height)
   }
   else
   {
-    if (!m_rpc_server->on_get_quorum_state_json(req, res, error_resp) || res.status != CORE_RPC_STATUS_OK)
-    {
+	  if (!m_rpc_server->on_get_quorum_state(req, res, error_resp) || res.status != CORE_RPC_STATUS_OK)
+	  {
       tools::fail_msg_writer() << make_error(fail_message, res.status);
       return true;
     }
@@ -2258,6 +2258,37 @@ bool t_rpc_command_executor::print_sn_status()
 	bool result = print_sn({ sn_key_str });
 	return result;
 }
+
+bool t_rpc_command_executor::print_sr(uint64_t height)
+{
+	cryptonote::COMMAND_RPC_GET_STAKING_REQUIREMENT::request req = {};
+	cryptonote::COMMAND_RPC_GET_STAKING_REQUIREMENT::response res = {};
+	std::string fail_message = "Unsuccessful";
+	epee::json_rpc::error error_resp;
+	req.height = height;
+
+	if (m_is_rpc)
+	{
+		if (!m_rpc_client->json_rpc_request(req, res, "get_staking_requirement", fail_message.c_str()))
+		{
+			tools::fail_msg_writer() << make_error(fail_message, res.status);
+			return true;
+		}
+	}
+	else
+	{
+		epee::json_rpc::error error_resp;
+		if (!m_rpc_server->on_get_staking_requirement(req, res, error_resp) || res.status != CORE_RPC_STATUS_OK)
+		{
+			tools::fail_msg_writer() << make_error(fail_message, error_resp.message);
+			return true;
+		}
+	}
+
+	tools::success_msg_writer() << "Staking Requirement: " << cryptonote::print_money(res.staking_requirement);
+	return true;
+}
+
 bool t_rpc_command_executor::print_sn_key()
 {
 	cryptonote::COMMAND_RPC_GET_SERVICE_NODE_KEY::request req = {};
