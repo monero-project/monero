@@ -131,9 +131,9 @@ namespace rct {
         addKeys(pk.mask, pk.mask, bH);
         return make_tuple(sk, pk);
     }
-
-
-    //generates a <secret , public> / Pedersen commitment but takes bH as input
+    
+    
+    //generates a <secret , public> / Pedersen commitment but takes bH as input 
     tuple<ctkey, ctkey> ctskpkGen(const key &bH) {
         ctkey sk, pk;
         skpkGen(sk.dest, pk.dest);
@@ -141,7 +141,7 @@ namespace rct {
         addKeys(pk.mask, pk.mask, bH);
         return make_tuple(sk, pk);
     }
-
+    
     key zeroCommit(xmr_amount amount) {
         key am = d2h(amount);
         key bH = scalarmultH(am);
@@ -349,7 +349,7 @@ namespace rct {
     void cn_fast_hash(key &hash, const void * data, const std::size_t l) {
         keccak((const uint8_t *)data, l, hash.bytes, 32);
     }
-
+    
     void hash_to_scalar(key &hash, const void * data, const std::size_t l) {
         cn_fast_hash(hash, data, l);
         sc_reduce32(hash.bytes);
@@ -359,7 +359,7 @@ namespace rct {
     void cn_fast_hash(key & hash, const key & in) {
         keccak((const uint8_t *)in.bytes, 32, hash.bytes, 32);
     }
-
+    
     void hash_to_scalar(key & hash, const key & in) {
         cn_fast_hash(hash, in);
         sc_reduce32(hash.bytes);
@@ -371,26 +371,26 @@ namespace rct {
         keccak((const uint8_t *)in.bytes, 32, hash.bytes, 32);
         return hash;
     }
-
+    
      key hash_to_scalar(const key & in) {
         key hash = cn_fast_hash(in);
         sc_reduce32(hash.bytes);
         return hash;
      }
-
+    
     //cn_fast_hash for a 128 byte unsigned char
     key cn_fast_hash128(const void * in) {
         key hash;
         keccak((const uint8_t *)in, 128, hash.bytes, 32);
         return hash;
     }
-
+    
     key hash_to_scalar128(const void * in) {
         key hash = cn_fast_hash128(in);
         sc_reduce32(hash.bytes);
         return hash;
     }
-
+    
     //cn_fast_hash for multisig purpose
     //This takes the outputs and commitments
     //and hashes them into a 32 byte sized key
@@ -400,13 +400,13 @@ namespace rct {
         cn_fast_hash(rv, &PC[0], 64*PC.size());
         return rv;
     }
-
+    
     key hash_to_scalar(const ctkeyV &PC) {
         key rv = cn_fast_hash(PC);
         sc_reduce32(rv.bytes);
         return rv;
     }
-
+    
    //cn_fast_hash for a key-vector of arbitrary length
    //this is useful since you take a number of keys
    //put them in the key vector and it concatenates them
@@ -418,7 +418,7 @@ namespace rct {
        //dp(rv);
        return rv;
    }
-
+   
    key hash_to_scalar(const keyV &keys) {
        key rv = cn_fast_hash(keys);
        sc_reduce32(rv.bytes);
@@ -443,24 +443,24 @@ namespace rct {
         ge_p1p1 point2;
         ge_p2 point;
         ge_p3 res;
-        key h = cn_fast_hash(hh);
+        key h = cn_fast_hash(hh); 
         CHECK_AND_ASSERT_THROW_MES_L1(ge_frombytes_vartime(&res, h.bytes) == 0, "ge_frombytes_vartime failed at "+boost::lexical_cast<std::string>(__LINE__));
         ge_p3_to_p2(&point, &res);
         ge_mul8(&point2, &point);
         ge_p1p1_to_p3(&res, &point2);
         ge_p3_tobytes(pointk.bytes, &res);
         return pointk;
-    }
-
+    }    
+    
     key hashToPoint(const key & hh) {
         key pointk;
         ge_p2 point;
         ge_p1p1 point2;
         ge_p3 res;
-        key h = cn_fast_hash(hh);
+        key h = cn_fast_hash(hh); 
         ge_fromfe_frombytes_vartime(&point, h.bytes);
         ge_mul8(&point2, &point);
-        ge_p1p1_to_p3(&res, &point2);
+        ge_p1p1_to_p3(&res, &point2);        
         ge_p3_tobytes(pointk.bytes, &res);
         return pointk;
     }
@@ -469,12 +469,12 @@ namespace rct {
         ge_p2 point;
         ge_p1p1 point2;
         ge_p3 res;
-        key h = cn_fast_hash(hh);
+        key h = cn_fast_hash(hh); 
         ge_fromfe_frombytes_vartime(&point, h.bytes);
         ge_mul8(&point2, &point);
-        ge_p1p1_to_p3(&res, &point2);
+        ge_p1p1_to_p3(&res, &point2);        
         ge_p3_tobytes(pointk.bytes, &res);
-    }
+    }    
 
     //sums a vector of curve points (for scalars use sc_add)
     void sumKeys(key & Csum, const keyV &  Cis) {
@@ -487,38 +487,18 @@ namespace rct {
 
     //Elliptic Curve Diffie Helman: encodes and decodes the amount b and mask a
     // where C= aG + bH
-    static key ecdhHash(const key &k)
-    {
-      char data[38];
-      rct::key hash;
-      memcpy(data, "amount", 6);
-      memcpy(data + 6, &k, sizeof(k));
-      cn_fast_hash(hash, data, sizeof(data));
-      return hash;
-    }
-    static void xor8(key &v, const key &k)
-    {
-      for (int i = 0; i < 8; ++i)
-        v.bytes[i] ^= k.bytes[i];
-    }
-    void ecdhEncode(ecdhTuple & unmasked, const key & sharedSec, bool short_amount) {
+    void ecdhEncode(ecdhTuple & unmasked, const key & sharedSec) {
         key sharedSec1 = hash_to_scalar(sharedSec);
         key sharedSec2 = hash_to_scalar(sharedSec1);
         //encode
         sc_add(unmasked.mask.bytes, unmasked.mask.bytes, sharedSec1.bytes);
-        if (short_amount)
-         xor8(unmasked.amount, ecdhHash(sharedSec));
-       else
-         sc_add(unmasked.amount.bytes, unmasked.amount.bytes, sharedSec2.bytes);
+        sc_add(unmasked.amount.bytes, unmasked.amount.bytes, sharedSec2.bytes);
     }
-    void ecdhDecode(ecdhTuple & masked, const key & sharedSec, bool short_amount) {
+    void ecdhDecode(ecdhTuple & masked, const key & sharedSec) {
         key sharedSec1 = hash_to_scalar(sharedSec);
         key sharedSec2 = hash_to_scalar(sharedSec1);
         //decode
         sc_sub(masked.mask.bytes, masked.mask.bytes, sharedSec1.bytes);
-        if (short_amount)
-         xor8(masked.amount, ecdhHash(sharedSec));
-       else
-         sc_sub(masked.amount.bytes, masked.amount.bytes, sharedSec2.bytes);
+        sc_sub(masked.amount.bytes, masked.amount.bytes, sharedSec2.bytes);
     }
 }
