@@ -1,21 +1,21 @@
 // Copyright (c) 2018, The Monero Project
-// 
+//
 // All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without modification, are
 // permitted provided that the following conditions are met:
-// 
+//
 // 1. Redistributions of source code must retain the above copyright notice, this list of
 //    conditions and the following disclaimer.
-// 
+//
 // 2. Redistributions in binary form must reproduce the above copyright notice, this list
 //    of conditions and the following disclaimer in the documentation and/or other
 //    materials provided with the distribution.
-// 
+//
 // 3. Neither the name of the copyright holder nor the names of its contributors may be
 //    used to endorse or promote products derived from this software without specific
 //    prior written permission.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 // MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -114,7 +114,7 @@ TEST(device, ops)
   ASSERT_EQ(ki0, ki1);
 }
 
-TEST(device, ecdh)
+TEST(device, ecdh32)
 {
   hw::core::device_default dev;
   rct::ecdhTuple tuple, tuple2;
@@ -123,8 +123,24 @@ TEST(device, ecdh)
   tuple.amount = rct::skGen();
   tuple.senderPk = rct::pkGen();
   tuple2 = tuple;
-  dev.ecdhEncode(tuple, key);
-  dev.ecdhDecode(tuple, key);
+  dev.ecdhEncode(tuple, key, false);
+  dev.ecdhDecode(tuple, key, false);
+  ASSERT_EQ(tuple2.mask, tuple.mask);
+  ASSERT_EQ(tuple2.amount, tuple.amount);
+  ASSERT_EQ(tuple2.senderPk, tuple.senderPk);
+}
+
+TEST(device, ecdh8)
+{
+  hw::core::device_default dev;
+  rct::ecdhTuple tuple, tuple2;
+  rct::key key = rct::skGen();
+  tuple.mask = rct::skGen();
+  tuple.amount = rct::skGen();
+  tuple.senderPk = rct::pkGen();
+  tuple2 = tuple;
+  dev.ecdhEncode(tuple, key, true);
+  dev.ecdhDecode(tuple, key, true);
   ASSERT_EQ(tuple2.mask, tuple.mask);
   ASSERT_EQ(tuple2.amount, tuple.amount);
   ASSERT_EQ(tuple2.senderPk, tuple.senderPk);
