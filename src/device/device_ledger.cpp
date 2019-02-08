@@ -1313,7 +1313,10 @@ namespace hw {
         this->controle_device->ecdhEncode(unmasked_x, AKout_x, short_amount);
         #endif
 
-        int offset = set_command_header_noopt(INS_BLIND);
+        int offset = set_command_header(INS_BLIND);
+        //options
+        this->buffer_send[offset] = short_amount?0x02:0x00;
+        offset += 1;        
         // AKout
         memmove(this->buffer_send+offset, AKout.bytes, 32);
         offset += 32;
@@ -1350,8 +1353,10 @@ namespace hw {
         this->controle_device->ecdhDecode(masked_x, AKout_x, short_amount);
         #endif
 
-        int offset = set_command_header_noopt(INS_UNBLIND);
-
+        int offset = set_command_header(INS_UNBLIND);
+        //options
+        this->buffer_send[offset] = short_amount?0x02:0x00;
+        offset += 1;        
         // AKout
         memmove(this->buffer_send+offset, AKout.bytes, 32);
         offset += 32;
@@ -1447,7 +1452,11 @@ namespace hw {
 
         // ======  Aout, Bout, AKout, C, v, k ======
         kv_offset = data_offset;
-        C_offset = kv_offset+ (32*2)*outputs_size;
+        if (type==rct::RCTTypeBulletproof2) {
+          C_offset = kv_offset+ (8)*outputs_size;
+        } else {
+          C_offset = kv_offset+ (32+32)*outputs_size;
+        }
         for ( i = 0; i < outputs_size; i++) {
           ABPkeys outKeys;
           bool found;
@@ -1460,6 +1469,7 @@ namespace hw {
           offset = set_command_header(INS_VALIDATE, 0x02, i+1);
           //options
           this->buffer_send[offset] = (i==outputs_size-1)? 0x00:0x80 ;
+          this->buffer_send[offset] |= (type==rct::RCTTypeBulletproof2)?0x02:0x00;
           offset += 1;
           if (found) {
             //is_subaddress
@@ -1479,20 +1489,31 @@ namespace hw {
             offset+=32;
           } else {
             // dummy: is_subaddress Aout Bout AKout
-            offset += 1+32*3;
+            offset += 2+32*3;
           }
           //C
           memmove(this->buffer_send+offset, data+C_offset,32);
           offset += 32;
           C_offset += 32;
-          //k
-          memmove(this->buffer_send+offset, data+kv_offset,32);
-          offset += 32;
-          kv_offset += 32;
-          //v
-          memmove(this->buffer_send+offset, data+kv_offset,32);
-          offset += 32;
-          kv_offset += 32;
+          if (type==rct::RCTTypeBulletproof2) {
+            //k
+            memset(this->buffer_send+offset, 0, 32);
+            offset += 32;
+            //v
+            memset(this->buffer_send+offset, 0, 32);
+            memmove(this->buffer_send+offset, data+kv_offset,8);
+            offset += 32;
+            kv_offset += 8;
+          } else {
+            //k
+            memmove(this->buffer_send+offset, data+kv_offset,32);
+            offset += 32;
+            kv_offset += 32;
+            //v
+            memmove(this->buffer_send+offset, data+kv_offset,32);
+            offset += 32;
+            kv_offset += 32;
+          }
 
           this->buffer_send[4] = offset-5;
           this->length_send = offset;
