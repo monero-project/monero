@@ -1,21 +1,21 @@
 // Copyright (c) 2014-2018, The Monero Project
-// 
+//
 // All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without modification, are
 // permitted provided that the following conditions are met:
-// 
+//
 // 1. Redistributions of source code must retain the above copyright notice, this list of
 //    conditions and the following disclaimer.
-// 
+//
 // 2. Redistributions in binary form must reproduce the above copyright notice, this list
 //    of conditions and the following disclaimer in the documentation and/or other
 //    materials provided with the distribution.
-// 
+//
 // 3. Neither the name of the copyright holder nor the names of its contributors may be
 //    used to endorse or promote products derived from this software without specific
 //    prior written permission.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 // MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -25,7 +25,7 @@
 // INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 #include <boost/regex.hpp>
@@ -42,6 +42,7 @@
 #include "derive_public_key.h"
 #include "derive_secret_key.h"
 #include "ge_frombytes_vartime.h"
+#include "ge_tobytes.h"
 #include "generate_key_derivation.h"
 #include "generate_key_image.h"
 #include "generate_key_image_helper.h"
@@ -50,6 +51,7 @@
 #include "is_out_to_acc.h"
 #include "subaddress_expand.h"
 #include "sc_reduce32.h"
+#include "sc_check.h"
 #include "cn_fast_hash.h"
 #include "rct_mlsag.h"
 #include "equality.h"
@@ -132,17 +134,17 @@ int main(int argc, char** argv)
   TEST_PERFORMANCE3(filter, p, test_construct_tx, 100, 2, true);
   TEST_PERFORMANCE3(filter, p, test_construct_tx, 100, 10, true);
 
-  TEST_PERFORMANCE4(filter, p, test_construct_tx, 2, 1, true, rct::RangeProofPaddedBulletproof);
-  TEST_PERFORMANCE4(filter, p, test_construct_tx, 2, 2, true, rct::RangeProofPaddedBulletproof);
-  TEST_PERFORMANCE4(filter, p, test_construct_tx, 2, 10, true, rct::RangeProofPaddedBulletproof);
+  TEST_PERFORMANCE5(filter, p, test_construct_tx, 2, 1, true, rct::RangeProofPaddedBulletproof, 2);
+  TEST_PERFORMANCE5(filter, p, test_construct_tx, 2, 2, true, rct::RangeProofPaddedBulletproof, 2);
+  TEST_PERFORMANCE5(filter, p, test_construct_tx, 2, 10, true, rct::RangeProofPaddedBulletproof, 2);
 
-  TEST_PERFORMANCE4(filter, p, test_construct_tx, 10, 1, true, rct::RangeProofPaddedBulletproof);
-  TEST_PERFORMANCE4(filter, p, test_construct_tx, 10, 2, true, rct::RangeProofPaddedBulletproof);
-  TEST_PERFORMANCE4(filter, p, test_construct_tx, 10, 10, true, rct::RangeProofPaddedBulletproof);
+  TEST_PERFORMANCE5(filter, p, test_construct_tx, 10, 1, true, rct::RangeProofPaddedBulletproof, 2);
+  TEST_PERFORMANCE5(filter, p, test_construct_tx, 10, 2, true, rct::RangeProofPaddedBulletproof, 2);
+  TEST_PERFORMANCE5(filter, p, test_construct_tx, 10, 10, true, rct::RangeProofPaddedBulletproof, 2);
 
-  TEST_PERFORMANCE4(filter, p, test_construct_tx, 100, 1, true, rct::RangeProofPaddedBulletproof);
-  TEST_PERFORMANCE4(filter, p, test_construct_tx, 100, 2, true, rct::RangeProofPaddedBulletproof);
-  TEST_PERFORMANCE4(filter, p, test_construct_tx, 100, 10, true, rct::RangeProofPaddedBulletproof);
+  TEST_PERFORMANCE5(filter, p, test_construct_tx, 100, 1, true, rct::RangeProofPaddedBulletproof, 2);
+  TEST_PERFORMANCE5(filter, p, test_construct_tx, 100, 2, true, rct::RangeProofPaddedBulletproof, 2);
+  TEST_PERFORMANCE5(filter, p, test_construct_tx, 100, 10, true, rct::RangeProofPaddedBulletproof, 2);
 
   TEST_PERFORMANCE3(filter, p, test_check_tx_signature, 1, 2, false);
   TEST_PERFORMANCE3(filter, p, test_check_tx_signature, 2, 2, false);
@@ -155,14 +157,14 @@ int main(int argc, char** argv)
   TEST_PERFORMANCE4(filter, p, test_check_tx_signature, 100, 2, true, rct::RangeProofBorromean);
   TEST_PERFORMANCE4(filter, p, test_check_tx_signature, 2, 10, true, rct::RangeProofBorromean);
 
-  TEST_PERFORMANCE4(filter, p, test_check_tx_signature, 2, 2, true, rct::RangeProofPaddedBulletproof);
-  TEST_PERFORMANCE4(filter, p, test_check_tx_signature, 2, 2, true, rct::RangeProofMultiOutputBulletproof);
-  TEST_PERFORMANCE4(filter, p, test_check_tx_signature, 10, 2, true, rct::RangeProofPaddedBulletproof);
-  TEST_PERFORMANCE4(filter, p, test_check_tx_signature, 10, 2, true, rct::RangeProofMultiOutputBulletproof);
-  TEST_PERFORMANCE4(filter, p, test_check_tx_signature, 100, 2, true, rct::RangeProofPaddedBulletproof);
-  TEST_PERFORMANCE4(filter, p, test_check_tx_signature, 100, 2, true, rct::RangeProofMultiOutputBulletproof);
-  TEST_PERFORMANCE4(filter, p, test_check_tx_signature, 2, 10, true, rct::RangeProofPaddedBulletproof);
-  TEST_PERFORMANCE4(filter, p, test_check_tx_signature, 2, 10, true, rct::RangeProofMultiOutputBulletproof);
+  TEST_PERFORMANCE5(filter, p, test_check_tx_signature, 2, 2, true, rct::RangeProofPaddedBulletproof, 2);
+  TEST_PERFORMANCE5(filter, p, test_check_tx_signature, 2, 2, true, rct::RangeProofMultiOutputBulletproof, 2);
+  TEST_PERFORMANCE5(filter, p, test_check_tx_signature, 10, 2, true, rct::RangeProofPaddedBulletproof, 2);
+  TEST_PERFORMANCE5(filter, p, test_check_tx_signature, 10, 2, true, rct::RangeProofMultiOutputBulletproof, 2);
+  TEST_PERFORMANCE5(filter, p, test_check_tx_signature, 100, 2, true, rct::RangeProofPaddedBulletproof, 2);
+  TEST_PERFORMANCE5(filter, p, test_check_tx_signature, 100, 2, true, rct::RangeProofMultiOutputBulletproof, 2);
+  TEST_PERFORMANCE5(filter, p, test_check_tx_signature, 2, 10, true, rct::RangeProofPaddedBulletproof, 2);
+  TEST_PERFORMANCE5(filter, p, test_check_tx_signature, 2, 10, true, rct::RangeProofMultiOutputBulletproof, 2);
 
   TEST_PERFORMANCE3(filter, p, test_check_tx_signature_aggregated_bulletproofs, 2, 2, 64);
   TEST_PERFORMANCE3(filter, p, test_check_tx_signature_aggregated_bulletproofs, 10, 2, 64);
@@ -182,8 +184,10 @@ int main(int argc, char** argv)
   TEST_PERFORMANCE0(filter, p, test_derive_public_key);
   TEST_PERFORMANCE0(filter, p, test_derive_secret_key);
   TEST_PERFORMANCE0(filter, p, test_ge_frombytes_vartime);
+  TEST_PERFORMANCE0(filter, p, test_ge_tobytes);
   TEST_PERFORMANCE0(filter, p, test_generate_keypair);
   TEST_PERFORMANCE0(filter, p, test_sc_reduce32);
+  TEST_PERFORMANCE0(filter, p, test_sc_check);
   TEST_PERFORMANCE1(filter, p, test_signature, false);
   TEST_PERFORMANCE1(filter, p, test_signature, true);
 
@@ -249,6 +253,7 @@ int main(int argc, char** argv)
   TEST_PERFORMANCE1(filter, p, test_crypto_ops, op_scalarmultKey);
   TEST_PERFORMANCE1(filter, p, test_crypto_ops, op_scalarmultH);
   TEST_PERFORMANCE1(filter, p, test_crypto_ops, op_scalarmult8);
+  TEST_PERFORMANCE1(filter, p, test_crypto_ops, op_ge_dsm_precomp);
   TEST_PERFORMANCE1(filter, p, test_crypto_ops, op_ge_double_scalarmult_base_vartime);
   TEST_PERFORMANCE1(filter, p, test_crypto_ops, op_ge_double_scalarmult_precomp_vartime);
   TEST_PERFORMANCE1(filter, p, test_crypto_ops, op_ge_double_scalarmult_precomp_vartime2);
@@ -256,6 +261,8 @@ int main(int argc, char** argv)
   TEST_PERFORMANCE1(filter, p, test_crypto_ops, op_addKeys3);
   TEST_PERFORMANCE1(filter, p, test_crypto_ops, op_addKeys3_2);
   TEST_PERFORMANCE1(filter, p, test_crypto_ops, op_isInMainSubgroup);
+  TEST_PERFORMANCE1(filter, p, test_crypto_ops, op_zeroCommitUncached);
+  TEST_PERFORMANCE1(filter, p, test_crypto_ops, op_zeroCommitCached);
 
   TEST_PERFORMANCE2(filter, p, test_multiexp, multiexp_bos_coster, 2);
   TEST_PERFORMANCE2(filter, p, test_multiexp, multiexp_bos_coster, 4);
