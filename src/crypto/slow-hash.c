@@ -1409,7 +1409,7 @@ static void (*const extra_hashes[4])(const void *, size_t, char *) = {
   hash_extra_blake, hash_extra_groestl, hash_extra_jh, hash_extra_skein
 };
 
-static size_t e2i(const uint8_t* a, size_t count) { return (SWAP64LE(*((uint64_t*)a)) / AES_BLOCK_SIZE) & (count - 1); }
+static size_t e2i(const uint8_t* a) { return (SWAP64LE(*((uint64_t*)a)) & (MEMORY - 1)); }
 
 static void mul(const uint8_t* a, const uint8_t* b, uint8_t* res) {
   uint64_t a0, b0;
@@ -1525,16 +1525,16 @@ void cn_slow_hash(const void *data, size_t length, char *hash, int variant, int 
      * next address  <-+
      */
     /* Iteration 1 */
-    j = e2i(a, MEMORY / AES_BLOCK_SIZE) * AES_BLOCK_SIZE;
+    j = e2i(a);
     copy_block(c1, &long_state[j]);
     aesb_single_round(c1, c1, a);
     VARIANT2_PORTABLE_SHUFFLE_ADD(long_state, j);
     copy_block(&long_state[j], c1);
     xor_blocks(&long_state[j], b);
-    assert(j == e2i(a, MEMORY / AES_BLOCK_SIZE) * AES_BLOCK_SIZE);
+    assert(j == e2i(a));
     VARIANT1_1(&long_state[j]);
     /* Iteration 2 */
-    j = e2i(c1, MEMORY / AES_BLOCK_SIZE) * AES_BLOCK_SIZE;
+    j = e2i(c1);
     copy_block(c2, &long_state[j]);
     VARIANT2_PORTABLE_INTEGER_MATH(c2, c1);
     mul(c1, c2, d);
@@ -1546,7 +1546,7 @@ void cn_slow_hash(const void *data, size_t length, char *hash, int variant, int 
     xor_blocks(c1, c2);
     VARIANT1_2(c2 + 8);
     copy_block(&long_state[j], c2);
-    assert(j == e2i(a, MEMORY / AES_BLOCK_SIZE) * AES_BLOCK_SIZE);
+    assert(j == e2i(a));
     if (variant >= 2) {
       copy_block(b + AES_BLOCK_SIZE, b);
     }
