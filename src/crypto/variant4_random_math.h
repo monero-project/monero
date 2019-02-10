@@ -215,7 +215,7 @@ static inline int v4_random_math_init(struct V4_Instruction* code, const uint64_
 		//
 		// Registers R4-R7 are constant and are treated as having the same value because when we do
 		// the same operation twice with two constant source registers, it can be optimized into a single operation
-		int inst_data[8] = { 0, 1, 2, 3, -1, -1, -1, -1 };
+		uint32_t inst_data[8] = { 0, 1, 2, 3, 0xFFFFFF, 0xFFFFFF, 0xFFFFFF, 0xFFFFFF };
 
 		bool alu_busy[TOTAL_LATENCY + 1][ALU_COUNT];
 		bool is_rotation[V4_INSTRUCTION_COUNT];
