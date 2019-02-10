@@ -809,8 +809,8 @@ PRAGMA_WARNING_DISABLE_VS(4355)
   template<class t_protocol_handler>
   boosted_tcp_server<t_protocol_handler>::boosted_tcp_server( t_connection_type connection_type ) :
     m_state(boost::make_shared<typename connection<t_protocol_handler>::shared_state>()),
-    m_io_service_local_instance(new boost::asio::io_service()),
-    io_service_(*m_io_service_local_instance.get()),
+    m_io_service_local_instance(new worker()),
+    io_service_(m_io_service_local_instance->io_service),
     acceptor_(io_service_),
     default_remote(),
     m_stop_signal_sent(false), m_port(0), 
@@ -919,9 +919,8 @@ POP_WARNINGS
     {
       try
       {
-        size_t cnt = io_service_.run();
-        if (cnt == 0)
-          misc_utils::sleep_no_w(1);
+        io_service_.run();
+        return true;
       }
       catch(const std::exception& ex)
       {
