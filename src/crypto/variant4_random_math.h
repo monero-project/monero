@@ -24,7 +24,7 @@ enum V4_Settings
 enum V4_InstructionList
 {
 	MUL,	// a*b
-	ADD,	// a+b + C, -128 <= C <= 127
+	ADD,	// a+b + C, C is an unsigned 32-bit constant
 	SUB,	// a-b
 	ROR,	// rotate right "a" by "b & 31" bits
 	ROL,	// rotate left "a" by "b & 31" bits
