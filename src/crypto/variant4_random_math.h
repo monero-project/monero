@@ -233,10 +233,17 @@ static inline int v4_random_math_init(struct V4_Instruction* code, const uint64_
 		int num_retries = 0;
 		code_size = 0;
 
+		int total_iterations = 0;
+
 		// Generate random code to achieve minimal required latency for our abstract CPU
 		// Try to get this latency for all 4 registers
 		while (((latency[0] < TOTAL_LATENCY) || (latency[1] < TOTAL_LATENCY) || (latency[2] < TOTAL_LATENCY) || (latency[3] < TOTAL_LATENCY)) && (num_retries < 64))
 		{
+			// Fail-safe to guarantee loop termination
+			++total_iterations;
+			if (total_iterations > 256)
+				break;
+
 			check_data(&data_index, 1, data, sizeof(data));
 
 			const uint8_t c = ((uint8_t*)data)[data_index++];
