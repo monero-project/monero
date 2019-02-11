@@ -225,7 +225,7 @@ extern void aesb_pseudo_round(const uint8_t *in, uint8_t *out, const uint8_t *ex
   } while (0)
 
 #define VARIANT4_RANDOM_MATH_INIT() \
-  v4_reg r[8]; \
+  v4_reg r[9]; \
   struct V4_Instruction code[NUM_INSTRUCTIONS_MAX + 1]; \
   do if (variant >= 4) \
   { \
@@ -251,6 +251,7 @@ extern void aesb_pseudo_round(const uint8_t *in, uint8_t *out, const uint8_t *ex
     V4_REG_LOAD(r + 5, (uint64_t*)(a) + 1); \
     V4_REG_LOAD(r + 6, _b); \
     V4_REG_LOAD(r + 7, _b1); \
+    V4_REG_LOAD(r + 8, (uint64_t*)(_b1) + 1); \
     \
     v4_random_math(code, r); \
   } while (0)

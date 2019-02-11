@@ -144,16 +144,16 @@ static FORCEINLINE void v4_random_math(const struct V4_Instruction* code, v4_reg
 	// Generated program can have 60 + a few more (usually 2-3) instructions to achieve required latency
 	// I've checked all block heights < 10,000,000 and here is the distribution of program sizes:
 	//
-	// 60      28495
-	// 61      106077
-	// 62      2455855
-	// 63      5114930
-	// 64      1020868
-	// 65      1109026
-	// 66      151756
-	// 67      8429
-	// 68      4477
-	// 69      87
+	// 60      27960
+	// 61      105054
+	// 62      2452759
+	// 63      5115997
+	// 64      1022269
+	// 65      1109635
+	// 66      153145
+	// 67      8550
+	// 68      4529
+	// 69      102
 
 	// Unroll 70 instructions here
 	V4_EXEC_10(0);		// instructions 0-9
@@ -208,18 +208,22 @@ static inline int v4_random_math_init(struct V4_Instruction* code, const uint64_
 	size_t data_index = sizeof(data);
 
 	int code_size;
+
+	// There is a small chance (1.8%) that register R8 won't be used in the generated program
+	// So we keep track of it and try again if it's not used
+	bool r8_used;
 	do {
-		int latency[8];
-		int asic_latency[8];
+		int latency[9];
+		int asic_latency[9];
 
 		// Tracks previous instruction and value of the source operand for registers R0-R3 throughout code execution
 		// byte 0: current value of the destination register
 		// byte 1: instruction opcode
 		// byte 2: current value of the source register
 		//
-		// Registers R4-R7 are constant and are treated as having the same value because when we do
+		// Registers R4-R8 are constant and are treated as having the same value because when we do
 		// the same operation twice with two constant source registers, it can be optimized into a single operation
-		uint32_t inst_data[8] = { 0, 1, 2, 3, 0xFFFFFF, 0xFFFFFF, 0xFFFFFF, 0xFFFFFF };
+		uint32_t inst_data[9] = { 0, 1, 2, 3, 0xFFFFFF, 0xFFFFFF, 0xFFFFFF, 0xFFFFFF, 0xFFFFFF };
 
 		bool alu_busy[TOTAL_LATENCY + 1][ALU_COUNT];
 		bool is_rotation[V4_INSTRUCTION_COUNT];
@@ -238,6 +242,7 @@ static inline int v4_random_math_init(struct V4_Instruction* code, const uint64_
 		code_size = 0;
 
 		int total_iterations = 0;
+		r8_used = false;
 
 		// Generate random code to achieve minimal required latency for our abstract CPU
 		// Try to get this latency for all 4 registers
@@ -281,9 +286,9 @@ static inline int v4_random_math_init(struct V4_Instruction* code, const uint64_
 			// Don't do ADD/SUB/XOR with the same register
 			if (((opcode == ADD) || (opcode == SUB) || (opcode == XOR)) && (a == b))
 			{
-				// a is always < 4, so we don't need to check bounds here
-				b = a + 4;
-				src_index = b;
+				// Use register R8 as source instead
+				b = 8;
+				src_index = 8;
 			}
 
 			// Don't do rotation with the same destination twice because it's equal to a single rotation
@@ -363,6 +368,11 @@ static inline int v4_random_math_init(struct V4_Instruction* code, const uint64_
 				code[code_size].src_index = src_index;
 				code[code_size].C = 0;
 
+				if (src_index == 8)
+				{
+					r8_used = true;
+				}
+
 				if (opcode == ADD)
 				{
 					// ADD instruction is implemented as two 1-cycle instructions on a real CPU, so mark ALU as busy for the next cycle too
@@ -414,8 +424,9 @@ static inline int v4_random_math_init(struct V4_Instruction* code, const uint64_
 			++code_size;
 		}
 
-	// There is ~99.8% chance that NUM_INSTRUCTIONS_MIN <= code_size <= NUM_INSTRUCTIONS_MAX here, so second iteration is required rarely
-	}  while ((code_size < NUM_INSTRUCTIONS_MIN) || (code_size > NUM_INSTRUCTIONS_MAX));
+	// There is ~98.15% chance that loop condition is false, so this loop will execute only 1 iteration most of the time
+	// It never does more than 4 iterations for all block heights < 10,000,000
+	}  while (!r8_used || (code_size < NUM_INSTRUCTIONS_MIN) || (code_size > NUM_INSTRUCTIONS_MAX));
 
 	// It's guaranteed that NUM_INSTRUCTIONS_MIN <= code_size <= NUM_INSTRUCTIONS_MAX here
 	// Add final instruction to stop the interpreter
