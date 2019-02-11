@@ -10,8 +10,11 @@ enum V4_Settings
 	TOTAL_LATENCY = 15 * 3,
 	
 	// Always generate at least 60 instructions
-	NUM_INSTRUCTIONS = 60,
-	
+	NUM_INSTRUCTIONS_MIN = 60,
+
+	// Never generate more than 70 instructions (final RET instruction doesn't count here)
+	NUM_INSTRUCTIONS_MAX = 70,
+
 	// Available ALUs for MUL
 	// Modern CPUs typically have only 1 ALU which can do multiplications
 	ALU_COUNT_MUL = 1,
@@ -176,6 +179,7 @@ static FORCEINLINE void check_data(size_t* data_index, const size_t bytes_needed
 }
 
 // Generates as many random math operations as possible with given latency and ALU restrictions
+// "code" array must have space for NUM_INSTRUCTIONS_MAX+1 instructions
 static inline int v4_random_math_init(struct V4_Instruction* code, const uint64_t height)
 {
 	// MUL is 3 cycles, 3-way addition and rotations are 2 cycles, SUB/XOR are 1 cycle
@@ -373,7 +377,7 @@ static inline int v4_random_math_init(struct V4_Instruction* code, const uint64_
 				}
 
 				++code_size;
-				if (code_size >= NUM_INSTRUCTIONS)
+				if (code_size >= NUM_INSTRUCTIONS_MIN)
 				{
 					break;
 				}
@@ -388,7 +392,7 @@ static inline int v4_random_math_init(struct V4_Instruction* code, const uint64_
 		// We need to add a few more MUL and ROR instructions to achieve minimal required latency for ASIC
 		// Get this latency for at least 1 of the 4 registers
 		const int prev_code_size = code_size;
-		while ((asic_latency[0] < TOTAL_LATENCY) && (asic_latency[1] < TOTAL_LATENCY) && (asic_latency[2] < TOTAL_LATENCY) && (asic_latency[3] < TOTAL_LATENCY))
+		while ((code_size < NUM_INSTRUCTIONS_MAX) && (asic_latency[0] < TOTAL_LATENCY) && (asic_latency[1] < TOTAL_LATENCY) && (asic_latency[2] < TOTAL_LATENCY) && (asic_latency[3] < TOTAL_LATENCY))
 		{
 			int min_idx = 0;
 			int max_idx = 0;
@@ -410,9 +414,10 @@ static inline int v4_random_math_init(struct V4_Instruction* code, const uint64_
 			++code_size;
 		}
 
-	// There is ~99.8% chance that code_size >= NUM_INSTRUCTIONS here, so second iteration is required rarely
-	}  while (code_size < NUM_INSTRUCTIONS);
+	// There is ~99.8% chance that NUM_INSTRUCTIONS_MIN <= code_size <= NUM_INSTRUCTIONS_MAX here, so second iteration is required rarely
+	}  while ((code_size < NUM_INSTRUCTIONS_MIN) || (code_size > NUM_INSTRUCTIONS_MAX));
 
+	// It's guaranteed that NUM_INSTRUCTIONS_MIN <= code_size <= NUM_INSTRUCTIONS_MAX here
 	// Add final instruction to stop the interpreter
 	code[code_size].opcode = RET;
 	code[code_size].dst_index = 0;

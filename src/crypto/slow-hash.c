@@ -226,7 +226,7 @@ extern void aesb_pseudo_round(const uint8_t *in, uint8_t *out, const uint8_t *ex
 
 #define VARIANT4_RANDOM_MATH_INIT() \
   v4_reg r[8]; \
-  struct V4_Instruction code[TOTAL_LATENCY * ALU_COUNT + 1]; \
+  struct V4_Instruction code[NUM_INSTRUCTIONS_MAX + 1]; \
   do if (variant >= 4) \
   { \
     for (int i = 0; i < 4; ++i) \
