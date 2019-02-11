@@ -1,5 +1,5 @@
 # Triton
-![Image of Triton](https://xtri.network/wp-content/uploads/2018/11/ProjectTritontextlogo.jpg)
+![Image of Triton](https://cdn.discordapp.com/attachments/402595075949068288/544379818926538763/ProjectTritonwordlogov2.png)
 Freedom for Streamers and Professional Gamers
 
 Project Triton [XTRI] is developing innovative donation platforms for the Online Streaming and ESports industries through blockchain technology
