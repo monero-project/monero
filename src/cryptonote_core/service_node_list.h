@@ -103,7 +103,12 @@ namespace service_nodes
       std::vector<contribution_t> locked_contributions;
 
       contributor_t() = default;
-      contributor_t(uint64_t reserved_, const cryptonote::account_public_address& address_) : amount(0), reserved(reserved_), address(address_) { }
+      contributor_t(uint64_t reserved_, const cryptonote::account_public_address& address_) : reserved(reserved_), address(address_)
+      {
+        *this    = {};
+        reserved = reserved_;
+        address  = address_;
+      }
 
       BEGIN_SERIALIZE()
         VARINT_FIELD(version)
@@ -277,7 +282,7 @@ namespace service_nodes
 
     struct rollback_key_image_blacklist : public rollback_event
     {
-      rollback_key_image_blacklist() { type = key_image_blacklist_type; }
+      rollback_key_image_blacklist() { *this = {}; type = key_image_blacklist_type; }
       rollback_key_image_blacklist(uint64_t block_height, key_image_blacklist_entry const &entry, bool is_adding_to_blacklist);
 
       key_image_blacklist_entry m_entry;
@@ -365,8 +370,8 @@ namespace service_nodes
 
   bool reg_tx_extract_fields(const cryptonote::transaction& tx, std::vector<cryptonote::account_public_address>& addresses, uint64_t& portions_for_operator, std::vector<uint64_t>& portions, uint64_t& expiration_timestamp, crypto::public_key& service_node_key, crypto::signature& signature, crypto::public_key& tx_pub_key);
   bool convert_registration_args(cryptonote::network_type nettype, std::vector<std::string> args, std::vector<cryptonote::account_public_address>& addresses, std::vector<uint64_t>& portions, uint64_t& portions_for_operator, bool& autostake, boost::optional<std::string&> err_msg);
-  bool make_registration_cmd(cryptonote::network_type nettype, const std::vector<std::string> args, const crypto::public_key& service_node_pubkey,
-                             const crypto::secret_key service_node_key, std::string &cmd, bool make_friendly, boost::optional<std::string&> err_msg);
+  bool make_registration_cmd(cryptonote::network_type nettype, const std::vector<std::string>& args, const crypto::public_key& service_node_pubkey,
+                             const crypto::secret_key &service_node_key, std::string &cmd, bool make_friendly, boost::optional<std::string&> err_msg);
 
   const static cryptonote::account_public_address null_address{ crypto::null_pkey, crypto::null_pkey };
   const static std::vector<std::pair<cryptonote::account_public_address, uint64_t>> null_winner =

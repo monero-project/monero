@@ -402,7 +402,7 @@ namespace tx {
 
     // Rsig decision
     auto rsig_data = tsx_data.mutable_rsig_data();
-    m_ct.rsig_type = get_rsig_type(tx.use_bulletproofs, tx.splitted_dsts.size());
+    m_ct.rsig_type = get_rsig_type(tx.v3_use_bulletproofs, tx.splitted_dsts.size());
     rsig_data->set_rsig_type(m_ct.rsig_type);
 
     generate_rsig_batch_sizes(m_ct.grouping_vct, m_ct.rsig_type, tx.splitted_dsts.size());

@@ -1014,7 +1014,7 @@ namespace service_nodes
     //
     {
       assert(m_height == block_height);
-      m_height++;
+      ++m_height;
       const size_t ROLLBACK_EVENT_EXPIRATION_BLOCKS = 30;
       uint64_t cull_height = (block_height < ROLLBACK_EVENT_EXPIRATION_BLOCKS) ? block_height : block_height - ROLLBACK_EVENT_EXPIRATION_BLOCKS;
 
@@ -1808,8 +1808,8 @@ namespace service_nodes
     return true;
   }
 
-  bool make_registration_cmd(cryptonote::network_type nettype, const std::vector<std::string> args, const crypto::public_key& service_node_pubkey,
-                             const crypto::secret_key service_node_key, std::string &cmd, bool make_friendly, boost::optional<std::string&> err_msg)
+  bool make_registration_cmd(cryptonote::network_type nettype, const std::vector<std::string> &args, const crypto::public_key& service_node_pubkey,
+                             const crypto::secret_key &service_node_key, std::string &cmd, bool make_friendly, boost::optional<std::string&> err_msg)
   {
 
     std::vector<cryptonote::account_public_address> addresses;
