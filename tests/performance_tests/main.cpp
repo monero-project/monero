@@ -193,7 +193,10 @@ int main(int argc, char** argv)
 
   TEST_PERFORMANCE2(filter, p, test_wallet2_expand_subaddresses, 50, 200);
 
-  TEST_PERFORMANCE0(filter, p, test_cn_slow_hash);
+  TEST_PERFORMANCE1(filter, p, test_cn_slow_hash, 0);
+  TEST_PERFORMANCE1(filter, p, test_cn_slow_hash, 1);
+  TEST_PERFORMANCE1(filter, p, test_cn_slow_hash, 2);
+  TEST_PERFORMANCE1(filter, p, test_cn_slow_hash, 4);
   TEST_PERFORMANCE1(filter, p, test_cn_fast_hash, 32);
   TEST_PERFORMANCE1(filter, p, test_cn_fast_hash, 16384);
 
