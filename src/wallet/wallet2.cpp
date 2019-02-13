@@ -373,7 +373,7 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
   }
   catch (const std::exception &e)
   {
-    MERROR("Failed to parse tx notify spec");
+    MERROR("Failed to parse tx notify spec: " << e.what());
   }
 
   return wallet;
