@@ -580,7 +580,7 @@ namespace cryptonote
     }
     catch (const std::exception &e)
     {
-      MERROR("Failed to parse block notify spec");
+      MERROR("Failed to parse block notify spec: " << e.what());
     }
 
     try
@@ -590,7 +590,7 @@ namespace cryptonote
     }
     catch (const std::exception &e)
     {
-      MERROR("Failed to parse reorg notify spec");
+      MERROR("Failed to parse reorg notify spec: " << e.what());
     }
 
     try
