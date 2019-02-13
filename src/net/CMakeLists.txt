@@ -30,5 +30,5 @@ set(net_sources error.cpp parse.cpp socks.cpp tor_address.cpp)
 set(net_headers error.h parse.h socks.h tor_address.h)
 
 monero_add_library(net ${net_sources} ${net_headers})
-target_link_libraries(net epee ${Boost_ASIO_LIBRARY})
+target_link_libraries(net common epee ${Boost_ASIO_LIBRARY})
 
