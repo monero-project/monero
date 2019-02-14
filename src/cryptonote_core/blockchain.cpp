@@ -1909,6 +1909,7 @@ bool Blockchain::get_output_distribution(uint64_t amount, uint64_t from_height, 
     return false;
   if (start_height >= db_height || to_height >= db_height)
     return false;
+
   if (amount == 0)
   {
     std::vector<uint64_t> heights;
@@ -1928,6 +1929,11 @@ bool Blockchain::get_output_distribution(uint64_t amount, uint64_t from_height, 
   {
     return m_db->get_output_distribution(amount, start_height, to_height, distribution, base);
   }
+}
+//------------------------------------------------------------------
+bool Blockchain::get_output_blacklist(std::vector<uint64_t> &blacklist) const
+{
+  return m_db->get_output_blacklist(blacklist);
 }
 //------------------------------------------------------------------
 // This function takes a list of block hashes from another node

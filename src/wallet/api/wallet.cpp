@@ -2370,12 +2370,10 @@ PendingTransaction* WalletImpl::stakePending(const std::string& sn_key_str, cons
   /// Note(maxim): need to be careful to call `WalletImpl::disposeTransaction` when it is no longer needed
   PendingTransactionImpl * transaction = new PendingTransactionImpl(*this);
 
-  transaction->m_pending_tx = m_wallet->create_stake_tx(sn_key, addr_info, amount);
-
-  // TODO: provide a more helpful error in this case
-  if (transaction->m_pending_tx.empty())
+  wallet2::stake_result stake_result = m_wallet->create_stake_tx(transaction->m_pending_tx, sn_key, addr_info, amount);
+  if (stake_result != wallet2::stake_result::success)
   {
-    error_msg = "Failed to create a stake transaction";
+    error_msg = "Failed to create a stake transaction: " + stake_result.msg;
     return nullptr;
   }
 

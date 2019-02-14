@@ -467,10 +467,15 @@ TEST(service_nodes, min_stake_amount)
   /// post v11
   hf_version = cryptonote::network_version_11_swarms;
   {
-    /// Should be able to contribute roughly one sixth of the total requirement, but not less
-    const uint64_t reserved = stake_requirement / 2;
-    const uint64_t min_stake = service_nodes::get_min_node_contribution(hf_version, stake_requirement, reserved, 1);
-    ASSERT_EQ(min_stake, stake_requirement / 6);
+    // 50% reserved, with 1 contribution, max of 4- the minimum stake should be (50% / 3)
+    const uint64_t reserved  = stake_requirement / 2;
+    const uint64_t remaining = stake_requirement - reserved;
+    uint64_t min_stake = service_nodes::get_min_node_contribution(hf_version, stake_requirement, reserved, 1 /*num_contributions_locked*/);
+    ASSERT_EQ(min_stake, remaining / 3);
+
+    // As above, but with 2 contributions locked up, minimum stake should be (50% / 2)
+    min_stake = service_nodes::get_min_node_contribution(hf_version, stake_requirement, reserved, 2 /*num_contributions_locked*/);
+    ASSERT_EQ(min_stake, remaining / 2);
   }
 
   {
@@ -478,6 +483,12 @@ TEST(service_nodes, min_stake_amount)
     const uint64_t reserved = stake_requirement / 4;
     const uint64_t min_stake = service_nodes::get_min_node_contribution(hf_version, stake_requirement, reserved, 1);
     ASSERT_FALSE(min_stake <= stake_requirement / 6);
+  }
+
+  {
+    // Cannot contribute less than 25% as first contributor
+    const uint64_t min_stake = service_nodes::get_min_node_contribution(hf_version, stake_requirement, 0, 0/*num_contributions_locked*/);
+    ASSERT_TRUE(min_stake >= stake_requirement / 4);
   }
 
 }
@@ -501,28 +512,31 @@ TEST(service_nodes, service_node_rewards_proportional_to_portions)
 
 TEST(service_nodes, service_node_get_locked_key_image_unlock_height)
 {
-  uint64_t lock_duration = service_nodes::staking_initial_num_lock_blocks(cryptonote::MAINNET);
+  uint64_t lock_duration = service_nodes::staking_num_lock_blocks(cryptonote::MAINNET) / 2;
 
   {
-    uint64_t expected      = lock_duration;
-    uint64_t unlock_height = service_nodes::get_locked_key_image_unlock_height(cryptonote::MAINNET, 0, 100);
+    uint64_t curr_height   = 100;
+    uint64_t expected      = curr_height + lock_duration;
+    uint64_t unlock_height = service_nodes::get_locked_key_image_unlock_height(cryptonote::MAINNET, 0, curr_height);
     ASSERT_EQ(unlock_height, expected);
   }
 
   {
-    uint64_t expected      = lock_duration;
-    uint64_t unlock_height = service_nodes::get_locked_key_image_unlock_height(cryptonote::MAINNET, 0, lock_duration - 1);
+    uint64_t curr_height   = lock_duration - 1;
+    uint64_t expected      = curr_height + lock_duration;
+    uint64_t unlock_height = service_nodes::get_locked_key_image_unlock_height(cryptonote::MAINNET, 0, curr_height);
     ASSERT_EQ(unlock_height, expected);
   }
 
   {
-    uint64_t expected      = lock_duration * 2;
-    uint64_t unlock_height = service_nodes::get_locked_key_image_unlock_height(cryptonote::MAINNET, 0, lock_duration + 100);
+    uint64_t curr_height   = lock_duration + 100;
+    uint64_t expected      = curr_height + lock_duration;
+    uint64_t unlock_height = service_nodes::get_locked_key_image_unlock_height(cryptonote::MAINNET, 0, curr_height);
     ASSERT_EQ(unlock_height, expected);
   }
 
   {
-    uint64_t expected      = lock_duration * 2;
+    uint64_t expected      = lock_duration + lock_duration;
     uint64_t unlock_height = service_nodes::get_locked_key_image_unlock_height(cryptonote::MAINNET, lock_duration, lock_duration);
     ASSERT_EQ(unlock_height, expected);
   }
@@ -530,7 +544,7 @@ TEST(service_nodes, service_node_get_locked_key_image_unlock_height)
   {
     uint64_t register_height = lock_duration + 1;
     uint64_t curr_height     = register_height + 2;
-    uint64_t expected        = register_height + lock_duration;
+    uint64_t expected        = curr_height + lock_duration;
     uint64_t unlock_height   = service_nodes::get_locked_key_image_unlock_height(cryptonote::MAINNET, register_height, curr_height);
     ASSERT_EQ(unlock_height, expected);
   }

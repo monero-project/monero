@@ -2507,12 +2507,10 @@ namespace cryptonote
 
     struct request
     {
-      bool autostake;
       std::string operator_cut;
       std::vector<contribution_t> contributions;
 
       BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(autostake)
         KV_SERIALIZE(operator_cut)
         KV_SERIALIZE(contributions)
       END_KV_SERIALIZE_MAP()
@@ -2679,4 +2677,21 @@ namespace cryptonote
       END_KV_SERIALIZE_MAP()
     };
   };
+
+  struct COMMAND_RPC_GET_OUTPUT_BLACKLIST
+  {
+    struct request { BEGIN_KV_SERIALIZE_MAP() END_KV_SERIALIZE_MAP() };
+    struct response
+    {
+      std::vector<uint64_t> blacklist;
+      std::string status;
+      bool untrusted;
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(blacklist)
+        KV_SERIALIZE(status)
+        KV_SERIALIZE(untrusted)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
 }

@@ -136,12 +136,19 @@ void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const transacti
   {
     tx_hash = *tx_hash_ptr;
   }
+
+  bool has_blacklisted_outputs = false;
   if (tx.version >= 2)
   {
     if (!tx_prunable_hash_ptr)
       tx_prunable_hash = get_transaction_prunable_hash(tx);
     else
       tx_prunable_hash = *tx_prunable_hash_ptr;
+
+    crypto::secret_key secret_tx_key;
+    cryptonote::account_public_address address;
+    if (get_tx_secret_key_from_tx_extra(tx.extra, secret_tx_key) && get_service_node_contributor_from_tx_extra(tx.extra, address))
+      has_blacklisted_outputs = true;
   }
 
   for (const txin_v& tx_input : tx.vin)
@@ -203,6 +210,10 @@ void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const transacti
         tx.version > 1 ? &tx.rct_signatures.outPk[i].mask : NULL);
     }
   }
+
+  if (has_blacklisted_outputs)
+    add_output_blacklist(amount_output_indices);
+
   add_tx_amount_output_indices(tx_id, amount_output_indices);
 }
 

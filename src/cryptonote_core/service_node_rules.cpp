@@ -11,18 +11,18 @@ namespace service_nodes {
 
 uint64_t get_staking_requirement(cryptonote::network_type m_nettype, uint64_t height)
 {
-    if (m_nettype == cryptonote::TESTNET || m_nettype == cryptonote::FAKECHAIN)
-        return COIN * 100;
+  if (m_nettype == cryptonote::TESTNET || m_nettype == cryptonote::FAKECHAIN)
+      return COIN * 100;
 
-    uint64_t hardfork_height = m_nettype == cryptonote::MAINNET ? 101250 : 96210 /* stagenet */;
-    if (height < hardfork_height) height = hardfork_height;
+  uint64_t hardfork_height = m_nettype == cryptonote::MAINNET ? 101250 : 96210 /* stagenet */;
+  if (height < hardfork_height) height = hardfork_height;
 
-    uint64_t height_adjusted = height - hardfork_height;
-    uint64_t base = 10000 * COIN;
-    uint64_t variable = (35000.0 * COIN) / loki::exp2(height_adjusted/129600.0);
-    uint64_t linear_up = (uint64_t)(5 * COIN * height / 2592) + 8000 * COIN;
-    uint64_t flat = 15000 * COIN;
-    return std::max(base + variable, height < 3628800 ? linear_up : flat);
+  uint64_t height_adjusted = height - hardfork_height;
+  uint64_t base = 10000 * COIN;
+  uint64_t variable = (35000.0 * COIN) / loki::exp2(height_adjusted/129600.0);
+  uint64_t linear_up = (uint64_t)(5 * COIN * height / 2592) + 8000 * COIN;
+  uint64_t flat = 15000 * COIN;
+  return std::max(base + variable, height < 3628800 ? linear_up : flat);
 }
 
 uint64_t portions_to_amount(uint64_t portions, uint64_t staking_requirement)
@@ -38,10 +38,11 @@ bool check_service_node_portions(uint8_t hf_version, const std::vector<uint64_t>
   if (portions.size() > MAX_NUMBER_OF_CONTRIBUTORS) return false;
 
   uint64_t reserved = 0;
-  for (auto i = 0u; i < portions.size(); ++i) {
-      const uint64_t min_portions = get_min_node_contribution(hf_version, STAKING_PORTIONS, reserved, i);
-      if (portions[i] < min_portions) return false;
-      reserved += portions[i];
+  for (auto i = 0u; i < portions.size(); ++i)
+  {
+    const uint64_t min_portions = get_min_node_contribution(hf_version, STAKING_PORTIONS, reserved, i);
+    if (portions[i] < min_portions) return false;
+    reserved += portions[i];
   }
 
   return reserved <= STAKING_PORTIONS;
@@ -65,41 +66,35 @@ crypto::hash generate_request_stake_unlock_hash(uint32_t nonce)
 
 uint64_t get_locked_key_image_unlock_height(cryptonote::network_type nettype, uint64_t node_register_height, uint64_t curr_height)
 {
-  uint64_t blocks_to_lock = staking_initial_num_lock_blocks(nettype);
-  if (curr_height < node_register_height)
-  {
-    // Unexpected current_height less than node_register_height, developer error?
-    assert(curr_height >= node_register_height);
-    curr_height = node_register_height;
-  }
-
-  uint64_t delta_height   = curr_height - node_register_height;
-  uint64_t remainder      = delta_height % blocks_to_lock;
-  uint64_t result         = curr_height + blocks_to_lock - remainder;
+  uint64_t blocks_to_lock = staking_num_lock_blocks(nettype);
+  uint64_t result         = curr_height + (blocks_to_lock / 2);
   return result;
 }
 
-
 static uint64_t get_min_node_contribution_pre_v11(uint64_t staking_requirement, uint64_t total_reserved)
 {
-    return std::min(staking_requirement - total_reserved, staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS);
+  return std::min(staking_requirement - total_reserved, staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS);
 }
 
-uint64_t get_min_node_contribution(uint8_t version, uint64_t staking_requirement, uint64_t total_reserved, size_t contrib_count)
+uint64_t get_min_node_contribution(uint8_t version, uint64_t staking_requirement, uint64_t total_reserved, size_t num_contributions)
 {
-    if (version < cryptonote::network_version_11_swarms) {
-        return get_min_node_contribution_pre_v11(staking_requirement, total_reserved);
-    }
+  if (version < cryptonote::network_version_11_swarms)
+    return get_min_node_contribution_pre_v11(staking_requirement, total_reserved);
 
-    const uint64_t needed = staking_requirement - total_reserved;
-    const size_t vacant = MAX_NUMBER_OF_CONTRIBUTORS - contrib_count;
+  const uint64_t needed                 = staking_requirement - total_reserved;
+  const size_t max_num_of_contributions = MAX_NUMBER_OF_CONTRIBUTORS * MAX_KEY_IMAGES_PER_CONTRIBUTOR;
+  assert(max_num_of_contributions > num_contributions);
+  if (max_num_of_contributions <= num_contributions) return 0;
 
-    assert(contrib_count < MAX_NUMBER_OF_CONTRIBUTORS);
-    /// This function is not called when the node is full, but if
-    /// it does in the future, at least we don't cause undefined behaviour
-    if (vacant == 0) return 0;
+  const size_t num_contributions_remaining_avail = max_num_of_contributions - num_contributions;
+  return needed / num_contributions_remaining_avail;
+}
 
-    return needed / vacant;
+uint64_t get_min_node_contribution_in_portions(uint8_t version, uint64_t staking_requirement, uint64_t total_reserved, size_t num_contributions)
+{
+  uint64_t atomic_amount = get_min_node_contribution(version, staking_requirement, total_reserved, num_contributions);
+  uint64_t result        = get_portions_to_make_amount(staking_requirement, atomic_amount);
+  return result;
 }
 
 uint64_t get_portions_to_make_amount(uint64_t staking_requirement, uint64_t amount)

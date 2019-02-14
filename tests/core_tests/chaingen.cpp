@@ -221,7 +221,7 @@ cryptonote::transaction linear_chain_generator::create_registration_tx(const cry
                                                                        const cryptonote::keypair& sn_keys)
 {
   const sn_contributor_t contr = { acc.get_keys().m_account_address, STAKING_PORTIONS };
-  const uint32_t expires = height() + service_nodes::staking_initial_num_lock_blocks(cryptonote::FAKECHAIN);
+  const uint32_t expires = height() + service_nodes::staking_num_lock_blocks(cryptonote::FAKECHAIN);
 
   const auto reg_idx = registration_buffer_.size();
   registration_buffer_.push_back({ expires, sn_keys, contr, { height(), reg_idx } });
@@ -631,7 +631,7 @@ cryptonote::transaction make_registration_tx(std::vector<test_event_entry>& even
     uint64_t amount = service_nodes::portions_to_amount(portions[0], staking_requirement);
 
     cryptonote::transaction tx;
-    const auto unlock_time = new_height + service_nodes::staking_initial_num_lock_blocks(cryptonote::FAKECHAIN);
+    const auto unlock_time = new_height + service_nodes::staking_num_lock_blocks(cryptonote::FAKECHAIN);
 
     std::vector<uint8_t> extra;
     add_service_node_pubkey_to_tx_extra(extra, service_node_keys.pub);

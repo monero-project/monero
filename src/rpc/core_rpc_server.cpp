@@ -1020,6 +1020,33 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+
+  //
+  // Loki
+  //
+  bool core_rpc_server::on_get_output_blacklist_bin(const COMMAND_RPC_GET_OUTPUT_BLACKLIST::request& req, COMMAND_RPC_GET_OUTPUT_BLACKLIST::response& res, const connection_context *ctx)
+  {
+    PERF_TIMER(on_get_output_blacklist_bin);
+
+    bool r;
+    if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_GET_OUTPUT_BLACKLIST>(invoke_http_mode::BIN, "/get_output_blacklist.bin", req, res, r))
+      return r;
+
+    res.status = "Failed";
+    try
+    {
+      m_core.get_output_blacklist(res.blacklist);
+    }
+    catch (const std::exception &e)
+    {
+      res.status = "Failed to get output blacklist";
+      return false;
+    }
+
+    res.status = CORE_RPC_STATUS_OK;
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_getblockcount(const COMMAND_RPC_GETBLOCKCOUNT::request& req, COMMAND_RPC_GETBLOCKCOUNT::response& res, const connection_context *ctx)
   {
     PERF_TIMER(on_getblockcount);
@@ -2443,10 +2470,6 @@ namespace cryptonote
     PERF_TIMER(on_get_service_node_registration_cmd);
 
     std::vector<std::string> args;
-
-    if (req.autostake) {
-      args.push_back("auto");
-    }
 
     uint64_t staking_requirement = service_nodes::get_staking_requirement(m_core.get_nettype(), m_core.get_current_blockchain_height());
 
