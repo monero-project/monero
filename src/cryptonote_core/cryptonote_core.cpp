@@ -1760,7 +1760,7 @@ namespace cryptonote
     for (size_t n = 0; n < sizeof(seconds)/sizeof(seconds[0]); ++n)
     {
       unsigned int b = 0;
-      for (time_t ts: timestamps) b += ts >= now - seconds[n];
+      for (time_t ts: timestamps) b += ts >= (time_t)(now - seconds[n]);
       const double p = probability(b, seconds[n] / DIFFICULTY_TARGET_V2);
       MDEBUG("blocks in the last " << seconds[n] / 60 << " minutes: " << b << " (probability " << p << ")");
       if (p < threshold)

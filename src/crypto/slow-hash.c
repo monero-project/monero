@@ -143,8 +143,8 @@ extern void aesb_pseudo_round(const uint8_t *in, uint8_t *out, const uint8_t *ex
     if (variant >= 4) \
     { \
       chunk1 = veorq_u64(chunk1, chunk2); \
-      _c = veorq_u64(_c, chunk3); \
-      _c = veorq_u64(_c, chunk1); \
+      _c = vreinterpretq_u8_u64(veorq_u64(vreinterpretq_u64_u8(_c), chunk3)); \
+      _c = vreinterpretq_u8_u64(veorq_u64(vreinterpretq_u64_u8(_c), chunk1)); \
     } \
   } while (0)
 
@@ -1425,10 +1425,10 @@ void cn_slow_hash(const void *data, size_t length, char *hash, int variant, int 
       // Iteration 1
       j = state_index(a);
       p = &long_state[j];
-      aesb_single_round(p, p, a);
-      copy_block(c1, p);
+      aesb_single_round(p, c1, a);
 
       VARIANT2_PORTABLE_SHUFFLE_ADD(c1, a, long_state, j);
+      copy_block(p, c1);
       xor_blocks(p, b);
       VARIANT1_1(p);
 
@@ -1439,13 +1439,13 @@ void cn_slow_hash(const void *data, size_t length, char *hash, int variant, int 
 
       copy_block(a1, a);
       VARIANT2_PORTABLE_INTEGER_MATH(c, c1);
-      VARIANT4_RANDOM_MATH(a, c, r, b, b + AES_BLOCK_SIZE);
+      VARIANT4_RANDOM_MATH(a1, c, r, b, b + AES_BLOCK_SIZE);
       mul(c1, c, d);
       VARIANT2_2_PORTABLE();
-      VARIANT2_PORTABLE_SHUFFLE_ADD(c1, a1, long_state, j);
-      sum_half_blocks(a, d);
-      swap_blocks(a, c);
-      xor_blocks(a, c);
+      VARIANT2_PORTABLE_SHUFFLE_ADD(c1, a, long_state, j);
+      sum_half_blocks(a1, d);
+      swap_blocks(a1, c);
+      xor_blocks(a1, c);
       VARIANT1_2(U64(c) + 1);
       copy_block(p, c);
 
@@ -1453,6 +1453,7 @@ void cn_slow_hash(const void *data, size_t length, char *hash, int variant, int 
         copy_block(b + AES_BLOCK_SIZE, b);
       }
       copy_block(b, c1);
+      copy_block(a, a1);
     }
 
     memcpy(text, state.init, INIT_SIZE_BYTE);
@@ -1636,7 +1637,6 @@ void cn_slow_hash(const void *data, size_t length, char *hash, int variant, int 
     xor_blocks(a1, c2);
     VARIANT1_2(c2 + 8);
     copy_block(&long_state[j], c2);
-    assert(j == e2i(a, MEMORY / AES_BLOCK_SIZE) * AES_BLOCK_SIZE);
     if (variant >= 2) {
       copy_block(b + AES_BLOCK_SIZE, b);
     }
