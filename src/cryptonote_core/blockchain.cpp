@@ -489,6 +489,8 @@ bool Blockchain::init(BlockchainDB* db, const network_type nettype, bool offline
   {
     m_long_term_block_weights.push_front(db_height - 1 - m_long_term_block_weights.size());
   }
+  if (!m_long_term_block_weights.empty())
+    m_long_term_block_weights.pop_back();
 
   update_next_cumulative_weight_limit();
 

@@ -5024,6 +5024,9 @@ void BlockchainLMDB::migrate_3_4()
         result = mdb_cursor_open(txn, o_block_info, &c_old);
         if (result)
           throw0(DB_ERROR(lmdb_error("Failed to open a cursor for block_info: ", result).c_str()));
+        result = mdb_cursor_open(txn, m_blocks, &c_blocks);
+        if (result)
+          throw0(DB_ERROR(lmdb_error("Failed to open a cursor for blocks: ", result).c_str()));
         if (!i) {
           MDB_stat db_stat;
           result = mdb_stat(txn, m_block_info, &db_stats);
@@ -5052,8 +5055,9 @@ void BlockchainLMDB::migrate_3_4()
       // get block major version to determine which rule is in place
       if (!past_long_term_weight)
       {
-        MDB_val kb = {}, vb = {};
-        result = mdb_cursor_get(c_blocks, &k, &v, MDB_NEXT);
+        MDB_val_copy<uint64_t> kb(bi.bi_height);
+        MDB_val vb = {};
+        result = mdb_cursor_get(c_blocks, &kb, &vb, MDB_SET);
         if (result)
           throw0(DB_ERROR(lmdb_error("Failed to query m_blocks: ", result).c_str()));
         if (vb.mv_size == 0)
