@@ -39,10 +39,9 @@ enum V4_InstructionList
 // V4_InstructionDefinition is used to generate code from random data
 // Every random sequence of bytes is a valid code
 //
-// There are 8 registers in total:
+// There are 9 registers in total:
 // - 4 variable registers
-// - 4 constant registers initialized from loop variables
-//
+// - 5 constant registers initialized from loop variables
 // This is why dst_index is 2 bits
 enum V4_InstructionDefinition
 {
@@ -201,6 +200,7 @@ static inline int v4_random_math_init(struct V4_Instruction* code, const uint64_
 	memset(data, 0, sizeof(data));
 	uint64_t tmp = SWAP64LE(height);
 	memcpy(data, &tmp, sizeof(uint64_t));
+	data[20] = -38; // change seed
 
 	// Set data_index past the last byte in data
 	// to trigger full data update with blake hash
