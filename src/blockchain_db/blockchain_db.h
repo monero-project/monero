@@ -359,12 +359,14 @@ private:
    *
    * @param blk the block to be added
    * @param block_weight the weight of the block (transactions and all)
+   * @param long_term_block_weight the long term block weight of the block (transactions and all)
    * @param cumulative_difficulty the accumulated difficulty after this block
    * @param coins_generated the number of coins generated total after this block
    * @param blk_hash the hash of the block
    */
   virtual void add_block( const block& blk
                 , size_t block_weight
+                , uint64_t long_term_block_weight
                 , const difficulty_type& cumulative_difficulty
                 , const uint64_t& coins_generated
                 , uint64_t num_rct_outs
@@ -376,7 +378,7 @@ private:
    *
    * The subclass implementing this will remove the block data from the top
    * block in the chain.  The data to be removed is that which was added in
-   * BlockchainDB::add_block(const block& blk, size_t block_weight, const difficulty_type& cumulative_difficulty, const uint64_t& coins_generated, const crypto::hash& blk_hash)
+   * BlockchainDB::add_block(const block& blk, size_t block_weight, uint64_t long_term_block_weight, const difficulty_type& cumulative_difficulty, const uint64_t& coins_generated, const crypto::hash& blk_hash)
    *
    * If any of this cannot be done, the subclass should throw the corresponding
    * subclass of DB_EXCEPTION
@@ -790,6 +792,7 @@ public:
    *
    * @param blk the block to be added
    * @param block_weight the size of the block (transactions and all)
+   * @param long_term_block_weight the long term weight of the block (transactions and all)
    * @param cumulative_difficulty the accumulated difficulty after this block
    * @param coins_generated the number of coins generated total after this block
    * @param txs the transactions in the block
@@ -798,6 +801,7 @@ public:
    */
   virtual uint64_t add_block( const block& blk
                             , size_t block_weight
+                            , uint64_t long_term_block_weight
                             , const difficulty_type& cumulative_difficulty
                             , const uint64_t& coins_generated
                             , const std::vector<transaction>& txs
@@ -984,6 +988,17 @@ public:
    * @return the already generated coins
    */
   virtual uint64_t get_block_already_generated_coins(const uint64_t& height) const = 0;
+
+  /**
+   * @brief fetch a block's long term weight
+   *
+   * If the block does not exist, the subclass should throw BLOCK_DNE
+   *
+   * @param height the height requested
+   *
+   * @return the long term weight
+   */
+  virtual uint64_t get_block_long_term_weight(const uint64_t& height) const = 0;
 
   /**
    * @brief fetch a block's hash

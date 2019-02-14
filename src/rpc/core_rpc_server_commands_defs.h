@@ -1128,6 +1128,7 @@ namespace cryptonote
       uint64_t block_weight;
       uint64_t num_txes;
       std::string pow_hash;
+      uint64_t long_term_weight;
       
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(major_version)
@@ -1146,6 +1147,7 @@ namespace cryptonote
         KV_SERIALIZE_OPT(block_weight, (uint64_t)0)
         KV_SERIALIZE(num_txes)
         KV_SERIALIZE(pow_hash)
+        KV_SERIALIZE_OPT(long_term_weight, (uint64_t)0)
       END_KV_SERIALIZE_MAP()
   };
 

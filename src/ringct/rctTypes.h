@@ -128,7 +128,7 @@ namespace rct {
         key senderPk;
 
         BEGIN_SERIALIZE_OBJECT()
-          FIELD(mask)
+          FIELD(mask) // not saved from v2 BPs
           FIELD(amount)
           // FIELD(senderPk) // not serialized, as we do not use it in monero currently
         END_SERIALIZE()
@@ -230,8 +230,13 @@ namespace rct {
       RCTTypeFull = 1,
       RCTTypeSimple = 2,
       RCTTypeBulletproof = 3,
+      RCTTypeBulletproof2 = 4,
     };
     enum RangeProofType { RangeProofBorromean, RangeProofBulletproof, RangeProofMultiOutputBulletproof, RangeProofPaddedBulletproof };
+    struct RCTConfig {
+      RangeProofType range_proof_type;
+      int bp_version;
+    };
     struct rctSigBase {
         uint8_t type;
         key message;
@@ -248,7 +253,7 @@ namespace rct {
           FIELD(type)
           if (type == RCTTypeNull)
             return true;
-          if (type != RCTTypeFull && type != RCTTypeSimple && type != RCTTypeBulletproof)
+          if (type != RCTTypeFull && type != RCTTypeSimple && type != RCTTypeBulletproof && type != RCTTypeBulletproof2)
             return false;
           VARINT_FIELD(txnFee)
           // inputs/outputs not saved, only here for serialization help
@@ -277,7 +282,19 @@ namespace rct {
             return false;
           for (size_t i = 0; i < outputs; ++i)
           {
-            FIELDS(ecdhInfo[i])
+            if (type == RCTTypeBulletproof2)
+            {
+              ar.begin_object();
+              if (!typename Archive<W>::is_saving())
+                memset(ecdhInfo[i].amount.bytes, 0, sizeof(ecdhInfo[i].amount.bytes));
+              crypto::hash8 &amount = (crypto::hash8&)ecdhInfo[i].amount;
+              FIELD(amount);
+              ar.end_object();
+            }
+            else
+            {
+              FIELDS(ecdhInfo[i])
+            }
             if (outputs - i > 1)
               ar.delimit_array();
           }
@@ -309,12 +326,15 @@ namespace rct {
         {
           if (type == RCTTypeNull)
             return true;
-          if (type != RCTTypeFull && type != RCTTypeSimple && type != RCTTypeBulletproof)
+          if (type != RCTTypeFull && type != RCTTypeSimple && type != RCTTypeBulletproof && type != RCTTypeBulletproof2)
             return false;
-          if (type == RCTTypeBulletproof)
+          if (type == RCTTypeBulletproof || type == RCTTypeBulletproof2)
           {
             uint32_t nbp = bulletproofs.size();
-            FIELD(nbp)
+            if (type == RCTTypeBulletproof2)
+              VARINT_FIELD(nbp)
+            else
+              FIELD(nbp)
             ar.tag("bp");
             ar.begin_array();
             if (nbp > outputs)
@@ -350,7 +370,7 @@ namespace rct {
           ar.begin_array();
           // we keep a byte for size of MGs, because we don't know whether this is
           // a simple or full rct signature, and it's starting to annoy the hell out of me
-          size_t mg_elements = (type == RCTTypeSimple || type == RCTTypeBulletproof) ? inputs : 1;
+          size_t mg_elements = (type == RCTTypeSimple || type == RCTTypeBulletproof || type == RCTTypeBulletproof2) ? inputs : 1;
           PREPARE_CUSTOM_VECTOR_SERIALIZATION(mg_elements, MGs);
           if (MGs.size() != mg_elements)
             return false;
@@ -368,7 +388,7 @@ namespace rct {
             for (size_t j = 0; j < mixin + 1; ++j)
             {
               ar.begin_array();
-              size_t mg_ss2_elements = ((type == RCTTypeSimple || type == RCTTypeBulletproof) ? 1 : inputs) + 1;
+              size_t mg_ss2_elements = ((type == RCTTypeSimple || type == RCTTypeBulletproof || type == RCTTypeBulletproof2) ? 1 : inputs) + 1;
               PREPARE_CUSTOM_VECTOR_SERIALIZATION(mg_ss2_elements, MGs[i].ss[j]);
               if (MGs[i].ss[j].size() != mg_ss2_elements)
                 return false;
@@ -394,7 +414,7 @@ namespace rct {
                ar.delimit_array();
           }
           ar.end_array();
-          if (type == RCTTypeBulletproof)
+          if (type == RCTTypeBulletproof || type == RCTTypeBulletproof2)
           {
             ar.tag("pseudoOuts");
             ar.begin_array();
@@ -418,12 +438,12 @@ namespace rct {
 
         keyV& get_pseudo_outs()
         {
-          return type == RCTTypeBulletproof ? p.pseudoOuts : pseudoOuts;
+          return type == RCTTypeBulletproof || type == RCTTypeBulletproof2 ? p.pseudoOuts : pseudoOuts;
         }
 
         keyV const& get_pseudo_outs() const
         {
-          return type == RCTTypeBulletproof ? p.pseudoOuts : pseudoOuts;
+          return type == RCTTypeBulletproof || type == RCTTypeBulletproof2 ? p.pseudoOuts : pseudoOuts;
         }
     };
 

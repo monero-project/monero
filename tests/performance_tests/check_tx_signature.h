@@ -40,7 +40,7 @@
 
 #include "multi_tx_test_base.h"
 
-template<size_t a_ring_size, size_t a_outputs, bool a_rct, rct::RangeProofType range_proof_type = rct::RangeProofBorromean>
+template<size_t a_ring_size, size_t a_outputs, bool a_rct, rct::RangeProofType range_proof_type = rct::RangeProofBorromean, int bp_version = 2>
 class test_check_tx_signature : private multi_tx_test_base<a_ring_size>
 {
   static_assert(0 < a_ring_size, "ring_size must be greater than 0");
@@ -71,7 +71,8 @@ public:
     std::vector<crypto::secret_key> additional_tx_keys;
     std::unordered_map<crypto::public_key, cryptonote::subaddress_index> subaddresses;
     subaddresses[this->m_miners[this->real_source_idx].get_keys().m_account_address.m_spend_public_key] = {0,0};
-    if (!construct_tx_and_get_tx_key(this->m_miners[this->real_source_idx].get_keys(), subaddresses, this->m_sources, destinations, cryptonote::account_public_address{}, std::vector<uint8_t>(), m_tx, 0, tx_key, additional_tx_keys, rct, range_proof_type))
+    rct::RCTConfig rct_config{range_proof_type, bp_version};
+    if (!construct_tx_and_get_tx_key(this->m_miners[this->real_source_idx].get_keys(), subaddresses, this->m_sources, destinations, cryptonote::account_public_address{}, std::vector<uint8_t>(), m_tx, 0, tx_key, additional_tx_keys, rct, rct_config))
       return false;
 
     get_transaction_prefix_hash(m_tx, m_tx_prefix_hash);
@@ -135,7 +136,7 @@ public:
     m_txes.resize(a_num_txes + (extra_outs > 0 ? 1 : 0));
     for (size_t n = 0; n < a_num_txes; ++n)
     {
-      if (!construct_tx_and_get_tx_key(this->m_miners[this->real_source_idx].get_keys(), subaddresses, this->m_sources, destinations, cryptonote::account_public_address{}, std::vector<uint8_t>(), m_txes[n], 0, tx_key, additional_tx_keys, true, rct::RangeProofPaddedBulletproof))
+      if (!construct_tx_and_get_tx_key(this->m_miners[this->real_source_idx].get_keys(), subaddresses, this->m_sources, destinations, cryptonote::account_public_address{}, std::vector<uint8_t>(), m_txes[n], 0, tx_key, additional_tx_keys, true, {rct::RangeProofPaddedBulletproof, 2}))
         return false;
     }
 
@@ -146,7 +147,7 @@ public:
       for (size_t n = 1; n < extra_outs; ++n)
         destinations.push_back(tx_destination_entry(1, m_alice.get_keys().m_account_address, false));
 
-      if (!construct_tx_and_get_tx_key(this->m_miners[this->real_source_idx].get_keys(), subaddresses, this->m_sources, destinations, cryptonote::account_public_address{}, std::vector<uint8_t>(), m_txes.back(), 0, tx_key, additional_tx_keys, true, rct::RangeProofMultiOutputBulletproof))
+      if (!construct_tx_and_get_tx_key(this->m_miners[this->real_source_idx].get_keys(), subaddresses, this->m_sources, destinations, cryptonote::account_public_address{}, std::vector<uint8_t>(), m_txes.back(), 0, tx_key, additional_tx_keys, true, {rct::RangeProofMultiOutputBulletproof, 2}))
         return false;
     }
 

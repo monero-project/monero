@@ -357,5 +357,7 @@ namespace cryptonote
     bool m_auto_refresh_refreshing;
     std::atomic<bool> m_in_manual_refresh;
     uint32_t m_current_subaddress_account;
+
+    bool m_long_payment_id_support;
   };
 }

@@ -644,9 +644,11 @@ namespace tools
         return false;
       }
 
+      de.original = it->address;
       de.addr = info.address;
       de.is_subaddress = info.is_subaddress;
       de.amount = it->amount;
+      de.is_integrated = info.has_payment_id;
       dsts.push_back(de);
 
       if (info.has_payment_id)

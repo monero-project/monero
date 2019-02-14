@@ -173,6 +173,26 @@ namespace cryptonote
   , "Run a program for each new block, '%s' will be replaced by the block hash"
   , ""
   };
+  static const command_line::arg_descriptor<std::string> arg_reorg_notify = {
+    "reorg-notify"
+  , "Run a program for each reorg, '%s' will be replaced by the split height, "
+    "'%h' will be replaced by the new blockchain height, '%n' will be "
+    "replaced by the number of new blocks in the new chain, and '%d' will be "
+    "replaced by the number of blocks discarded from the old chain"
+  , ""
+  };
+  static const command_line::arg_descriptor<std::string> arg_block_rate_notify = {
+    "block-rate-notify"
+  , "Run a program when the block rate undergoes large fluctuations. This might "
+    "be a sign of large amounts of hash rate going on and off the Monero network, "
+    "and thus be of potential interest in predicting attacks. %t will be replaced "
+    "by the number of minutes for the observation window, %b by the number of "
+    "blocks observed within that window, and %e by the number of blocks that was "
+    "expected in that window. It is suggested that this notification is used to "
+    "automatically increase the number of confirmations required before a payment "
+    "is acted upon."
+  , ""
+  };
 
   //-----------------------------------------------------------------------------------------------
   core::core(i_cryptonote_protocol* pprotocol):
@@ -283,6 +303,8 @@ namespace cryptonote
     command_line::add_arg(desc, arg_disable_dns_checkpoints);
     command_line::add_arg(desc, arg_max_txpool_weight);
     command_line::add_arg(desc, arg_block_notify);
+    command_line::add_arg(desc, arg_reorg_notify);
+    command_line::add_arg(desc, arg_block_rate_notify);
 
     miner::init_options(desc);
     BlockchainDB::init_options(desc);
@@ -562,9 +584,30 @@ namespace cryptonote
       MERROR("Failed to parse block notify spec");
     }
 
+    try
+    {
+      if (!command_line::is_arg_defaulted(vm, arg_reorg_notify))
+        m_blockchain_storage.set_reorg_notify(std::shared_ptr<tools::Notify>(new tools::Notify(command_line::get_arg(vm, arg_reorg_notify).c_str())));
+    }
+    catch (const std::exception &e)
+    {
+      MERROR("Failed to parse reorg notify spec");
+    }
+
+    try
+    {
+      if (!command_line::is_arg_defaulted(vm, arg_block_rate_notify))
+        m_block_rate_notify.reset(new tools::Notify(command_line::get_arg(vm, arg_block_rate_notify).c_str()));
+    }
+    catch (const std::exception &e)
+    {
+      MERROR("Failed to parse block rate notify spec");
+    }
+
     const std::pair<uint8_t, uint64_t> regtest_hard_forks[3] = {std::make_pair(1, 0), std::make_pair(Blockchain::get_hard_fork_heights(MAINNET).back().version, 1), std::make_pair(0, 0)};
     const cryptonote::test_options regtest_test_options = {
-      regtest_hard_forks
+      regtest_hard_forks,
+      0
     };
     const difficulty_type fixed_difficulty = command_line::get_arg(vm, arg_fixed_difficulty);
     r = m_blockchain_storage.init(db.release(), m_nettype, m_offline, regtest ? &regtest_test_options : test_options, fixed_difficulty);
@@ -788,6 +831,7 @@ namespace cryptonote
           }
           break;
         case rct::RCTTypeBulletproof:
+        case rct::RCTTypeBulletproof2:
           if (!is_canonical_bulletproof_layout(rv.p.bulletproofs))
           {
             MERROR_VER("Bulletproof does not have canonical form");
@@ -815,7 +859,7 @@ namespace cryptonote
       {
         if (!tx_info[n].result)
           continue;
-        if (tx_info[n].tx->rct_signatures.type != rct::RCTTypeBulletproof)
+        if (tx_info[n].tx->rct_signatures.type != rct::RCTTypeBulletproof && tx_info[n].tx->rct_signatures.type != rct::RCTTypeBulletproof2)
           continue;
         if (assumed_bad || !rct::verRctSemanticsSimple(tx_info[n].tx->rct_signatures))
         {
@@ -1494,6 +1538,7 @@ namespace cryptonote
     m_txpool_auto_relayer.do_call(boost::bind(&core::relay_txpool_transactions, this));
     m_check_updates_interval.do_call(boost::bind(&core::check_updates, this));
     m_check_disk_space_interval.do_call(boost::bind(&core::check_disk_space, this));
+    m_block_rate_interval.do_call(boost::bind(&core::check_block_rate, this));
     m_miner.on_idle();
     m_mempool.on_idle();
     return true;
@@ -1679,6 +1724,60 @@ namespace cryptonote
       const el::Level level = el::Level::Warning;
       MCLOG_RED(level, "global", "Free space is below 1 GB on " << m_config_folder);
     }
+    return true;
+  }
+  //-----------------------------------------------------------------------------------------------
+  double factorial(unsigned int n)
+  {
+    if (n <= 1)
+      return 1.0;
+    double f = n;
+    while (n-- > 1)
+      f *= n;
+    return f;
+  }
+  //-----------------------------------------------------------------------------------------------
+  static double probability(unsigned int blocks, unsigned int expected)
+  {
+    // https://www.umass.edu/wsp/resources/poisson/#computing
+    return pow(expected, blocks) / (factorial(blocks) * exp(expected));
+  }
+  //-----------------------------------------------------------------------------------------------
+  bool core::check_block_rate()
+  {
+    if (m_offline || m_target_blockchain_height > get_current_blockchain_height())
+    {
+      MDEBUG("Not checking block rate, offline or syncing");
+      return true;
+    }
+
+    static constexpr double threshold = 1. / (864000 / DIFFICULTY_TARGET_V2); // one false positive every 10 days
+
+    const time_t now = time(NULL);
+    const std::vector<time_t> timestamps = m_blockchain_storage.get_last_block_timestamps(60);
+
+    static const unsigned int seconds[] = { 5400, 3600, 1800, 1200, 600 };
+    for (size_t n = 0; n < sizeof(seconds)/sizeof(seconds[0]); ++n)
+    {
+      unsigned int b = 0;
+      for (time_t ts: timestamps) b += ts >= (time_t)(now - seconds[n]);
+      const double p = probability(b, seconds[n] / DIFFICULTY_TARGET_V2);
+      MDEBUG("blocks in the last " << seconds[n] / 60 << " minutes: " << b << " (probability " << p << ")");
+      if (p < threshold)
+      {
+        MWARNING("There were " << b << " blocks in the last " << seconds[n] / 60 << " minutes, there might be large hash rate changes, or we might be partitioned, cut off from the Monero network or under attack. Or it could be just sheer bad luck.");
+
+        std::shared_ptr<tools::Notify> block_rate_notify = m_block_rate_notify;
+        if (block_rate_notify)
+        {
+          auto expected = seconds[n] / DIFFICULTY_TARGET_V2;
+          block_rate_notify->notify("%t", std::to_string(seconds[n] / 60).c_str(), "%b", std::to_string(b).c_str(), "%e", std::to_string(expected).c_str(), NULL);
+        }
+
+        break; // no need to look further
+      }
+    }
+
     return true;
   }
   //-----------------------------------------------------------------------------------------------

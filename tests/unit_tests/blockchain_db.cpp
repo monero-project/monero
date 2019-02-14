@@ -277,10 +277,10 @@ TYPED_TEST(BlockchainDBTest, AddBlock)
   // TODO: need at least one more block to make this reasonable, as the
   // BlockchainDB implementation should not check for parent if
   // no blocks have been added yet (because genesis has no parent).
-  //ASSERT_THROW(this->m_db->add_block(this->m_blocks[1], t_sizes[1], t_diffs[1], t_coins[1], this->m_txs[1]), BLOCK_PARENT_DNE);
+  //ASSERT_THROW(this->m_db->add_block(this->m_blocks[1], t_sizes[1], t_sizes[1], t_diffs[1], t_coins[1], this->m_txs[1]), BLOCK_PARENT_DNE);
 
-  ASSERT_NO_THROW(this->m_db->add_block(this->m_blocks[0], t_sizes[0], t_diffs[0], t_coins[0], this->m_txs[0]));
-  ASSERT_NO_THROW(this->m_db->add_block(this->m_blocks[1], t_sizes[1], t_diffs[1], t_coins[1], this->m_txs[1]));
+  ASSERT_NO_THROW(this->m_db->add_block(this->m_blocks[0], t_sizes[0], t_sizes[0], t_diffs[0], t_coins[0], this->m_txs[0]));
+  ASSERT_NO_THROW(this->m_db->add_block(this->m_blocks[1], t_sizes[1], t_sizes[1], t_diffs[1], t_coins[1], this->m_txs[1]));
 
   block b;
   ASSERT_TRUE(this->m_db->block_exists(get_block_hash(this->m_blocks[0])));
@@ -293,7 +293,7 @@ TYPED_TEST(BlockchainDBTest, AddBlock)
   ASSERT_TRUE(compare_blocks(this->m_blocks[0], b));
 
   // assert that we can't add the same block twice
-  ASSERT_THROW(this->m_db->add_block(this->m_blocks[0], t_sizes[0], t_diffs[0], t_coins[0], this->m_txs[0]), TX_EXISTS);
+  ASSERT_THROW(this->m_db->add_block(this->m_blocks[0], t_sizes[0], t_sizes[0], t_diffs[0], t_coins[0], this->m_txs[0]), TX_EXISTS);
 
   for (auto& h : this->m_blocks[0].tx_hashes)
   {
@@ -317,14 +317,14 @@ TYPED_TEST(BlockchainDBTest, RetrieveBlockData)
   this->get_filenames();
   this->init_hard_fork();
 
-  ASSERT_NO_THROW(this->m_db->add_block(this->m_blocks[0], t_sizes[0], t_diffs[0], t_coins[0], this->m_txs[0]));
+  ASSERT_NO_THROW(this->m_db->add_block(this->m_blocks[0], t_sizes[0], t_sizes[0],  t_diffs[0], t_coins[0], this->m_txs[0]));
 
   ASSERT_EQ(t_sizes[0], this->m_db->get_block_weight(0));
   ASSERT_EQ(t_diffs[0], this->m_db->get_block_cumulative_difficulty(0));
   ASSERT_EQ(t_diffs[0], this->m_db->get_block_difficulty(0));
   ASSERT_EQ(t_coins[0], this->m_db->get_block_already_generated_coins(0));
 
-  ASSERT_NO_THROW(this->m_db->add_block(this->m_blocks[1], t_sizes[1], t_diffs[1], t_coins[1], this->m_txs[1]));
+  ASSERT_NO_THROW(this->m_db->add_block(this->m_blocks[1], t_sizes[1], t_sizes[1], t_diffs[1], t_coins[1], this->m_txs[1]));
   ASSERT_EQ(t_diffs[1] - t_diffs[0], this->m_db->get_block_difficulty(1));
 
   ASSERT_HASH_EQ(get_block_hash(this->m_blocks[0]), this->m_db->get_block_hash_from_height(0));

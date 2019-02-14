@@ -54,6 +54,7 @@ set(unit_tests_sources
   hashchain.cpp
   http.cpp
   keccak.cpp
+  long_term_block_weight.cpp
   main.cpp
   memwipe.cpp
   mlocker.cpp
@@ -61,6 +62,7 @@ set(unit_tests_sources
   mul_div.cpp
   multiexp.cpp
   multisig.cpp
+  notify.cpp
   parse_amount.cpp
   random.cpp
   serialization.cpp
