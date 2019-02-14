@@ -2707,6 +2707,8 @@ simple_wallet::simple_wallet()
                                   "  Set the fee to default/unimportant/normal/elevated/priority.\n "
                                   "confirm-missing-payment-id <1|0> (obsolete)\n "
                                   "ask-password <0|1|2   (or never|action|decrypt)>\n "
+                                  "  action: ask the password before many actions such as transfer, etc\n "
+                                  "  decrypt: same as action, but keeps the spend key encrypted in memory when not needed\n "
                                   "unit <monero|millinero|micronero|nanonero|piconero>\n "
                                   "  Set the default monero (sub-)unit.\n "
                                   "min-outputs-count [n]\n "
