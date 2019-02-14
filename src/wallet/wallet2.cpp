@@ -6084,7 +6084,7 @@ bool wallet2::sign_tx(unsigned_tx_set &exported_txs, std::vector<wallet2::pendin
     if (sd.v3_use_bulletproofs)
     {
       rct_config.range_proof_type = rct::RangeProofPaddedBulletproof;
-      rct_config.bp_version = use_fork_rules(HF_VERSION_SMALLER_BP, 2) ? 2 : 1;
+      rct_config.bp_version = use_fork_rules(HF_VERSION_SMALLER_BP, 5) ? 2 : 1;
     }
     crypto::secret_key tx_key;
     std::vector<crypto::secret_key> additional_tx_keys;
@@ -6561,7 +6561,7 @@ bool wallet2::sign_multisig_tx(multisig_tx_set &exported_txs, std::vector<crypto
     if (sd.v3_use_bulletproofs)
     {
       rct_config.range_proof_type = rct::RangeProofPaddedBulletproof;
-      rct_config.bp_version = use_fork_rules(HF_VERSION_SMALLER_BP, 2) ? 2 : 1;
+      rct_config.bp_version = use_fork_rules(HF_VERSION_SMALLER_BP, 5) ? 2 : 1;
     }
 
     loki_construct_tx_params tx_params = {};
@@ -8505,6 +8505,7 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
   THROW_WALLET_EXCEPTION_IF(!all_are_txin_to_key, error::unexpected_txin_type, tx);
   LOG_PRINT_L2("gathered key images");
 
+  ptx = {};
   ptx.key_images = key_images;
   ptx.fee = fee;
   ptx.dust = 0;
@@ -8523,9 +8524,10 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
   ptx.construction_data.selected_transfers = ptx.selected_transfers;
   ptx.construction_data.extra = tx.extra;
   ptx.construction_data.unlock_time = unlock_time;
-  ptx.construction_data.v2_use_rct = true;
+  ptx.construction_data.v2_use_rct = tx_params.v2_rct;
   ptx.construction_data.v3_use_bulletproofs = !tx.rct_signatures.p.bulletproofs.empty();
   ptx.construction_data.v3_per_output_unlock = tx_params.v3_per_output_unlock;
+  ptx.construction_data.v4_allow_tx_types = tx_params.v4_allow_tx_types;
   ptx.construction_data.dests = dsts;
   // record which subaddress indices are being used as inputs
   ptx.construction_data.subaddr_account = subaddr_account;
@@ -9198,7 +9200,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
   const bool bulletproof = use_fork_rules(get_bulletproof_fork(), 0);
   const rct::RCTConfig rct_config {
     bulletproof ? rct::RangeProofPaddedBulletproof : rct::RangeProofBorromean,
-    bulletproof ? (use_fork_rules(HF_VERSION_SMALLER_BP, 2) ? 2 : 1) : 0
+    bulletproof ? (use_fork_rules(HF_VERSION_SMALLER_BP, 5) ? 2 : 1) : 0
   };
 
   const uint64_t base_fee  = get_base_fee();
@@ -9773,7 +9775,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_from(const crypton
   const bool bulletproof = use_fork_rules(get_bulletproof_fork(), 0);
   const rct::RCTConfig rct_config {
     bulletproof ? rct::RangeProofPaddedBulletproof : rct::RangeProofBorromean,
-    bulletproof ? (use_fork_rules(HF_VERSION_SMALLER_BP, 2) ? 2 : 1) : 0,
+    bulletproof ? (use_fork_rules(HF_VERSION_SMALLER_BP, 5) ? 2 : 1) : 0,
   };
   const uint64_t base_fee  = get_base_fee();
   const uint64_t fee_multiplier = get_fee_multiplier(priority, get_fee_algorithm());
@@ -10018,7 +10020,7 @@ void wallet2::get_hard_fork_info(uint8_t version, uint64_t &earliest_height) con
   throw_on_rpc_response_error(result, "get_hard_fork_info");
 }
 //----------------------------------------------------------------------------------------------------
-bool wallet2::use_fork_rules(uint8_t version, int64_t early_blocks) const
+bool wallet2::use_fork_rules(uint8_t version, uint64_t early_blocks) const
 {
   // TODO: How to get fork rule info from light wallet node?
   if(m_light_wallet)

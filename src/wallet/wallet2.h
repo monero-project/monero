@@ -1094,7 +1094,7 @@ namespace tools
     const transfer_details &get_transfer_details(size_t idx) const;
 
     void get_hard_fork_info(uint8_t version, uint64_t &earliest_height) const;
-    bool use_fork_rules(uint8_t version, int64_t early_blocks = 0) const;
+    bool use_fork_rules(uint8_t version, uint64_t early_blocks = 0) const;
     int get_fee_algorithm() const;
 
     std::string get_wallet_file() const;
