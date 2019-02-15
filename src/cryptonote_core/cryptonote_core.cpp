@@ -1324,11 +1324,6 @@ namespace cryptonote
     m_mempool.set_relayed(txs);
   }
   //-----------------------------------------------------------------------------------------------
-  void core::set_deregister_votes_relayed(const std::vector<service_nodes::deregister_vote>& votes)
-  {
-    m_deregister_vote_pool.set_relayed(votes);
-  }
-  //-----------------------------------------------------------------------------------------------
   bool core::relay_deregister_votes()
   {
     NOTIFY_NEW_DEREGISTER_VOTE::request req;
@@ -1336,7 +1331,8 @@ namespace cryptonote
     if (!req.votes.empty())
     {
       cryptonote_connection_context fake_context = AUTO_VAL_INIT(fake_context);
-      get_protocol()->relay_deregister_votes(req, fake_context);
+      if (get_protocol()->relay_deregister_votes(req, fake_context))
+        m_deregister_vote_pool.set_relayed(req.votes);
     }
 
     return true;

@@ -223,11 +223,6 @@ namespace cryptonote
      virtual void on_transaction_relayed(const cryptonote::blobdata& tx);
 
      /**
-      * @brief mark the deregister vote as having been relayed in the vote pool
-      */
-     virtual void set_deregister_votes_relayed(const std::vector<service_nodes::deregister_vote>& votes);
-
-     /**
       * @brief gets the miner instance
       *
       * @return a reference to the miner instance
