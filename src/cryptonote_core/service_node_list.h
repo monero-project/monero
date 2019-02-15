@@ -60,7 +60,7 @@ namespace service_nodes
       crypto::key_image  key_image;
       uint64_t           amount;
 
-      BEGIN_SERIALIZE()
+      BEGIN_SERIALIZE_OBJECT()
         VARINT_FIELD(version)
         FIELD(key_image_pub_key)
         FIELD(key_image)
@@ -91,7 +91,7 @@ namespace service_nodes
         address  = address_;
       }
 
-      BEGIN_SERIALIZE()
+      BEGIN_SERIALIZE_OBJECT()
         VARINT_FIELD(version)
         VARINT_FIELD(amount)
         VARINT_FIELD(reserved)
@@ -119,7 +119,7 @@ namespace service_nodes
     bool is_fully_funded() const { return total_contributed >= staking_requirement; }
     size_t total_num_locked_contributions() const;
 
-    BEGIN_SERIALIZE()
+    BEGIN_SERIALIZE_OBJECT()
       VARINT_FIELD(version)
       VARINT_FIELD(registration_height)
       VARINT_FIELD(requested_unlock_height)
@@ -144,7 +144,7 @@ namespace service_nodes
     crypto::public_key pubkey;
     service_node_info  info;
 
-    BEGIN_SERIALIZE()
+    BEGIN_SERIALIZE_OBJECT()
       FIELD(pubkey)
       FIELD(info)
     END_SERIALIZE()
