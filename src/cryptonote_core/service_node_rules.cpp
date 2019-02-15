@@ -18,11 +18,19 @@ uint64_t get_staking_requirement(cryptonote::network_type m_nettype, uint64_t he
   if (height < hardfork_height) height = hardfork_height;
 
   uint64_t height_adjusted = height - hardfork_height;
-  uint64_t base = 10000 * COIN;
-  uint64_t variable = (35000.0 * COIN) / loki::exp2(height_adjusted/129600.0);
-  uint64_t linear_up = (uint64_t)(5 * COIN * height / 2592) + 8000 * COIN;
-  uint64_t flat = 15000 * COIN;
-  return std::max(base + variable, height < 3628800 ? linear_up : flat);
+  if (height >= 235987)
+  {
+    uint64_t base     = 15000 * COIN;
+    uint64_t variable = (24721.0 * COIN) / loki::exp2(height_adjusted/129600.0);
+    return base + variable;
+  }
+  else
+  {
+    uint64_t base      = 10000 * COIN;
+    uint64_t variable  = (35000.0 * COIN) / loki::exp2(height_adjusted/129600.0);
+    uint64_t linear_up = (uint64_t)(5 * COIN * height / 2592) + 8000 * COIN;
+    return std::max(base + variable, linear_up);
+  }
 }
 
 uint64_t portions_to_amount(uint64_t portions, uint64_t staking_requirement)
