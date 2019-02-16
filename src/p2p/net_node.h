@@ -404,7 +404,7 @@ namespace nodetool
     bool connect_to_peerlist(const Container& peers);
 
     template <class Container>
-    bool parse_peers_and_add_to_container(const boost::program_options::variables_map& vm, const command_line::arg_descriptor<std::vector<std::string> > & arg, Container& container);
+    bool parse_peers_and_add_to_container(const boost::program_options::variables_map& vm, const command_line::arg_descriptor<std::vector<std::string> > & arg, Container& container, const char *optional_prefix = NULL);
 
     bool set_max_out_peers(network_zone& zone, int64_t max);
     bool set_max_in_peers(network_zone& zone, int64_t max);

@@ -473,7 +473,7 @@ namespace nodetool
     {
       boost::unique_lock<boost::shared_mutex> lock(public_zone.m_seed_nodes_lock);
 
-      if (!parse_peers_and_add_to_container(vm, arg_p2p_seed_node, public_zone.m_seed_nodes))
+      if (!parse_peers_and_add_to_container(vm, arg_p2p_seed_node, public_zone.m_seed_nodes, "moneroseed://"))
         return false;
     }
 
@@ -2670,12 +2670,14 @@ namespace nodetool
   }
 
   template<class t_payload_net_handler> template <class Container>
-  bool node_server<t_payload_net_handler>::parse_peers_and_add_to_container(const boost::program_options::variables_map& vm, const command_line::arg_descriptor<std::vector<std::string> > & arg, Container& container)
+  bool node_server<t_payload_net_handler>::parse_peers_and_add_to_container(const boost::program_options::variables_map& vm, const command_line::arg_descriptor<std::vector<std::string> > & arg, Container& container, const char *optional_prefix)
   {
     std::vector<std::string> perrs = command_line::get_arg(vm, arg);
 
-    for(const std::string& pr_str: perrs)
+    for(std::string pr_str: perrs)
     {
+      if (optional_prefix && boost::starts_with(pr_str, optional_prefix))
+        pr_str = pr_str.substr(strlen(optional_prefix));
       const uint16_t default_port = cryptonote::get_config(m_nettype).P2P_DEFAULT_PORT;
       expect<epee::net_utils::network_address> adr = net::get_network_address(pr_str, default_port);
       if (adr)
