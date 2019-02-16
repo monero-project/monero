@@ -45,6 +45,8 @@ set(crypto_sources
   random.c
   skein.c
   slow-hash.c
+  CryptonightR_JIT.c
+  CryptonightR_template.S
   tree-hash.c)
 
 set(crypto_headers)
@@ -66,7 +68,9 @@ set(crypto_private_headers
   oaes_lib.h
   random.h
   skein.h
-  skein_port.h)
+  skein_port.h
+  CryptonightR_JIT.h
+  CryptonightR_template.h)
 
 monero_private_headers(cncrypto
   ${crypto_private_headers})
@@ -101,4 +105,5 @@ if (ANDROID OR IOS)
   endif()
 endif()
 
-
+# cheat because cmake and ccache hate each other
+set_property(SOURCE CryptonightR_template.S PROPERTY LANGUAGE C)

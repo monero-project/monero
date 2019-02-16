@@ -40,6 +40,10 @@
 #include "oaes_lib.h"
 #include "variant2_int_sqrt.h"
 #include "variant4_random_math.h"
+#include "CryptonightR_JIT.h"
+
+#include <errno.h>
+#include <string.h>
 
 #define MEMORY         (1 << 21) // 2MB scratchpad
 #define ITER           (1 << 20)
@@ -50,6 +54,16 @@
 
 extern void aesb_single_round(const uint8_t *in, uint8_t *out, const uint8_t *expandedKey);
 extern void aesb_pseudo_round(const uint8_t *in, uint8_t *out, const uint8_t *expandedKey);
+
+static void local_abort(const char *msg)
+{
+  fprintf(stderr, "%s\n", msg);
+#ifdef NDEBUG
+  _exit(1);
+#else
+  abort();
+#endif
+}
 
 #define VARIANT1_1(p) \
   do if (variant == 1) \
@@ -253,11 +267,18 @@ extern void aesb_pseudo_round(const uint8_t *in, uint8_t *out, const uint8_t *ex
 #define VARIANT4_RANDOM_MATH_INIT() \
   v4_reg r[9]; \
   struct V4_Instruction code[NUM_INSTRUCTIONS_MAX + 1]; \
+  int jit = use_v4_jit(); \
   do if (variant >= 4) \
   { \
     for (int i = 0; i < 4; ++i) \
       V4_REG_LOAD(r + i, (uint8_t*)(state.hs.w + 12) + sizeof(v4_reg) * i); \
     v4_random_math_init(code, height); \
+    if (jit) \
+    { \
+      int ret = v4_generate_JIT_code(code, hp_jitfunc, 4096); \
+      if (ret < 0) \
+        local_abort("Error generating CryptonightR code"); \
+    } \
   } while (0)
 
 #define VARIANT4_RANDOM_MATH(a, b, r, _b, _b1) \
@@ -279,7 +300,10 @@ extern void aesb_pseudo_round(const uint8_t *in, uint8_t *out, const uint8_t *ex
     V4_REG_LOAD(r + 7, _b1); \
     V4_REG_LOAD(r + 8, (uint64_t*)(_b1) + 1); \
     \
-    v4_random_math(code, r); \
+    if (jit) \
+      (*hp_jitfunc)(r); \
+    else \
+      v4_random_math(code, r); \
     \
     memcpy(t, a, sizeof(uint64_t) * 2); \
     \
@@ -409,6 +433,9 @@ union cn_slow_hash_state
 
 THREADV uint8_t *hp_state = NULL;
 THREADV int hp_allocated = 0;
+THREADV v4_random_math_JIT_func hp_jitfunc = NULL;
+THREADV uint8_t *hp_jitfunc_memory = NULL;
+THREADV int hp_jitfunc_allocated = 0;
 
 #if defined(_MSC_VER)
 #define cpuid(info,x)    __cpuidex(info,x,0)
@@ -465,6 +492,30 @@ STATIC INLINE int force_software_aes(void)
     use = 1;
   }
   return use;
+}
+
+STATIC INLINE int use_v4_jit(void)
+{
+#if defined(__x86_64__)
+  static int use = -1;
+
+  if (use != -1)
+    return use;
+
+  const char *env = getenv("MONERO_USE_CNV4_JIT");
+  if (!env) {
+    use = 0;
+  }
+  else if (!strcmp(env, "0") || !strcmp(env, "no")) {
+    use = 0;
+  }
+  else {
+    use = 1;
+  }
+  return use;
+#else
+  return 0;
+#endif
 }
 
 STATIC INLINE int check_aes_hw(void)
@@ -718,6 +769,33 @@ void slow_hash_allocate_state(void)
         hp_allocated = 0;
         hp_state = (uint8_t *) malloc(MEMORY);
     }
+
+
+#if defined(_MSC_VER) || defined(__MINGW32__)
+    hp_jitfunc_memory = (uint8_t *) VirtualAlloc(hp_jitfunc_memory, 4096 + 4095,
+                                                 MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+#else
+#if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || \
+  defined(__DragonFly__) || defined(__NetBSD__)
+    hp_jitfunc_memory = mmap(0, 4096 + 4095, PROT_READ | PROT_WRITE | PROT_EXEC,
+                    MAP_PRIVATE | MAP_ANON, 0, 0);
+#else
+    hp_jitfunc_memory = mmap(0, 4096 + 4095, PROT_READ | PROT_WRITE | PROT_EXEC,
+                    MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
+#endif
+    if(hp_jitfunc_memory == MAP_FAILED)
+        hp_jitfunc_memory = NULL;
+#endif
+    hp_jitfunc_allocated = 1;
+    if (hp_jitfunc_memory == NULL)
+    {
+        hp_jitfunc_allocated = 0;
+        hp_jitfunc_memory = malloc(4096 + 4095);
+    }
+    hp_jitfunc = (v4_random_math_JIT_func)((size_t)(hp_jitfunc_memory + 4095) & ~4095);
+#if !(defined(_MSC_VER) || defined(__MINGW32__))
+    mprotect(hp_jitfunc, 4096, PROT_READ | PROT_WRITE | PROT_EXEC);
+#endif
 }
 
 /**
@@ -740,8 +818,22 @@ void slow_hash_free_state(void)
 #endif
     }
 
+    if(!hp_jitfunc_allocated)
+        free(hp_jitfunc_memory);
+    else
+    {
+#if defined(_MSC_VER) || defined(__MINGW32__)
+        VirtualFree(hp_jitfunc_memory, 0, MEM_RELEASE);
+#else
+        munmap(hp_jitfunc_memory, 4096 + 4095);
+#endif
+    }
+
     hp_state = NULL;
     hp_allocated = 0;
+    hp_jitfunc = NULL;
+    hp_jitfunc_memory = NULL;
+    hp_jitfunc_allocated = 0;
 }
 
 /**
