@@ -47,7 +47,7 @@
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define WALLET_RPC_VERSION_MAJOR 1
-#define WALLET_RPC_VERSION_MINOR 7
+#define WALLET_RPC_VERSION_MINOR 8
 #define MAKE_WALLET_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define WALLET_RPC_VERSION MAKE_WALLET_RPC_VERSION(WALLET_RPC_VERSION_MAJOR, WALLET_RPC_VERSION_MINOR)
 namespace tools
@@ -63,9 +63,14 @@ namespace wallet_rpc
     {
       uint32_t account_index;
       std::set<uint32_t> address_indices;
+      bool all_accounts;
+      bool used_only;
+
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(account_index)
         KV_SERIALIZE(address_indices)
+        KV_SERIALIZE(all_accounts)
+        KV_SERIALIZE(used_only)
       END_KV_SERIALIZE_MAP()
     };
 
@@ -77,6 +82,7 @@ namespace wallet_rpc
       uint64_t unlocked_balance;
       std::string label;
       uint64_t num_unspent_outputs;
+      bool used;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(address_index)
@@ -85,21 +91,33 @@ namespace wallet_rpc
         KV_SERIALIZE(unlocked_balance)
         KV_SERIALIZE(label)
         KV_SERIALIZE(num_unspent_outputs)
+        KV_SERIALIZE(used)
       END_KV_SERIALIZE_MAP()
     };
 
-    struct response
+    struct per_account_info
     {
       uint64_t 	 balance;
       uint64_t 	 unlocked_balance;
+      uint32_t 	 account_index;
       bool       multisig_import_needed;
       std::vector<per_subaddress_info> per_subaddress;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(balance)
         KV_SERIALIZE(unlocked_balance)
+        KV_SERIALIZE(account_index)
         KV_SERIALIZE(multisig_import_needed)
         KV_SERIALIZE(per_subaddress)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::vector<per_account_info> per_account;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(per_account)
       END_KV_SERIALIZE_MAP()
     };
   };

@@ -337,30 +337,51 @@ namespace tools
     if (!m_wallet) return not_open(er);
     try
     {
-      res.balance = m_wallet->balance(req.account_index);
-      res.unlocked_balance = m_wallet->unlocked_balance(req.account_index);
-      res.multisig_import_needed = m_wallet->multisig() && m_wallet->has_multisig_partial_key_images();
-      std::map<uint32_t, uint64_t> balance_per_subaddress = m_wallet->balance_per_subaddress(req.account_index);
-      std::map<uint32_t, uint64_t> unlocked_balance_per_subaddress = m_wallet->unlocked_balance_per_subaddress(req.account_index);
-      std::vector<tools::wallet2::transfer_details> transfers;
-      m_wallet->get_transfers(transfers);
-      std::set<uint32_t> address_indices = req.address_indices;
-      if (address_indices.empty())
+      uint32_t account_index = req.account_index;
+      // helper loop counter variable
+      uint32_t _index = account_index;
+      if (req.all_accounts)
       {
-        for (const auto& i : balance_per_subaddress)
-          address_indices.insert(i.first);
+        // if all_accounts was requested, get num of all accounts and iterate through them
+        account_index = m_wallet->get_num_subaddress_accounts() - 1;
+        _index = 0;
       }
-      for (uint32_t i : address_indices)
+      for (; _index <= account_index; _index++)
       {
-        wallet_rpc::COMMAND_RPC_GET_BALANCE::per_subaddress_info info;
-        info.address_index = i;
-        cryptonote::subaddress_index index = {req.account_index, info.address_index};
-        info.address = m_wallet->get_subaddress_as_str(index);
-        info.balance = balance_per_subaddress[i];
-        info.unlocked_balance = unlocked_balance_per_subaddress[i];
-        info.label = m_wallet->get_subaddress_label(index);
-        info.num_unspent_outputs = std::count_if(transfers.begin(), transfers.end(), [&](const tools::wallet2::transfer_details& td) { return !td.m_spent && td.m_subaddr_index == index; });
-        res.per_subaddress.push_back(info);
+        wallet_rpc::COMMAND_RPC_GET_BALANCE::per_account_info account_info;
+        account_info.balance = m_wallet->balance(_index);
+        account_info.account_index = _index;
+        account_info.unlocked_balance = m_wallet->unlocked_balance(_index);
+        account_info.multisig_import_needed = m_wallet->multisig() && m_wallet->has_multisig_partial_key_images();
+        std::map<uint32_t, uint64_t> balance_per_subaddress = m_wallet->balance_per_subaddress(_index);
+        std::map<uint32_t, uint64_t> unlocked_balance_per_subaddress = m_wallet->unlocked_balance_per_subaddress(_index);
+        std::vector<tools::wallet2::transfer_details> transfers;
+        m_wallet->get_transfers(transfers);
+        std::set<uint32_t> address_indices = req.address_indices;
+        if (address_indices.empty())
+        {
+          for (const auto& i : balance_per_subaddress)
+            address_indices.insert(i.first);
+        }
+        for (uint32_t i : address_indices)
+        {
+          wallet_rpc::COMMAND_RPC_GET_BALANCE::per_subaddress_info info;
+          cryptonote::subaddress_index index = {_index, info.address_index};
+          info.used = std::find_if(transfers.begin(), transfers.end(), [&](const tools::wallet2::transfer_details& td) { return td.m_subaddr_index == index; }) != transfers.end();
+          info.address_index = i;
+          if (req.used_only && !info.used)
+          {
+            // if only used subs are requested, skip those that are unused.
+            continue;
+          }
+          info.address = m_wallet->get_subaddress_as_str(index);
+          info.balance = balance_per_subaddress[i];
+          info.unlocked_balance = unlocked_balance_per_subaddress[i];
+          info.label = m_wallet->get_subaddress_label(index);
+          info.num_unspent_outputs = std::count_if(transfers.begin(), transfers.end(), [&](const tools::wallet2::transfer_details& td) { return !td.m_spent && td.m_subaddr_index == index; });
+          account_info.per_subaddress.push_back(info);
+        }
+        res.per_account.push_back(account_info);
       }
     }
     catch (const std::exception& e)

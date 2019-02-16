@@ -104,3 +104,5 @@ local.properties
 .idea/
 
 /testnet
+.vscode
+vscode
