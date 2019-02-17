@@ -494,25 +494,26 @@ STATIC INLINE int force_software_aes(void)
   return use;
 }
 
+volatile int use_v4_jit_flag = -1;
+
 STATIC INLINE int use_v4_jit(void)
 {
 #if defined(__x86_64__)
-  static int use = -1;
 
-  if (use != -1)
-    return use;
+  if (use_v4_jit_flag != -1)
+    return use_v4_jit_flag;
 
   const char *env = getenv("MONERO_USE_CNV4_JIT");
   if (!env) {
-    use = 0;
+    use_v4_jit_flag = 0;
   }
   else if (!strcmp(env, "0") || !strcmp(env, "no")) {
-    use = 0;
+    use_v4_jit_flag = 0;
   }
   else {
-    use = 1;
+    use_v4_jit_flag = 1;
   }
-  return use;
+  return use_v4_jit_flag;
 #else
   return 0;
 #endif
