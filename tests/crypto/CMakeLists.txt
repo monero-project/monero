@@ -52,3 +52,17 @@ set_property(TARGET cncrypto-tests
 add_test(
   NAME    cncrypto
   COMMAND cncrypto-tests "${CMAKE_CURRENT_SOURCE_DIR}/tests.txt")
+
+add_executable(cnv4-jit-tests cnv4-jit.c)
+target_link_libraries(cnv4-jit-tests
+  PRIVATE
+    crypto
+    common
+    ${EXTRA_LIBRARIES})
+set_property(TARGET cnv4-jit-tests
+  PROPERTY
+    FOLDER "tests")
+
+add_test(
+  NAME    cnv4-jit
+  COMMAND cnv4-jit-tests 1788000 1789000)

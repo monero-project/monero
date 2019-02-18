@@ -95,5 +95,8 @@ int v4_generate_JIT_code(const struct V4_Instruction* code, v4_random_math_JIT_f
 	}
 
 	APPEND_CODE(epilogue, sizeof(epilogue));
+
+	__builtin___clear_cache((char*)buf, (char*)JIT_code);
+
 	return 0;
 }

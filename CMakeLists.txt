@@ -44,6 +44,8 @@ message(STATUS "CMake version ${CMAKE_VERSION}")
 
 project(monero)
 
+enable_language(C ASM)
+
 function (die msg)
   if (NOT WIN32)
     string(ASCII 27 Esc)
