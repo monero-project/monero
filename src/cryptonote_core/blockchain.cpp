@@ -487,7 +487,8 @@ bool Blockchain::init(BlockchainDB* db, const network_type nettype, bool offline
   const uint64_t nblocks = std::min<uint64_t>(m_long_term_block_weights.capacity(), db_height);
   while (m_long_term_block_weights.size() < nblocks)
   {
-    m_long_term_block_weights.push_front(db_height - 1 - m_long_term_block_weights.size());
+    uint64_t weight = m_db->get_block_long_term_weight(db_height - 1 - m_long_term_block_weights.size());
+    m_long_term_block_weights.push_front(weight);
   }
   m_long_term_block_weights_height = db_height;
 
@@ -3816,7 +3817,8 @@ void Blockchain::pop_from_long_term_block_weights()
   if (m_long_term_block_weights_height + 1 > m_long_term_block_weights.capacity())
   {
     uint64_t block_height = m_long_term_block_weights_height - m_long_term_block_weights.capacity() + 1;
-    m_long_term_block_weights.push_front(block_height);
+    uint64_t weight = m_db->get_block_long_term_weight(block_height);
+    m_long_term_block_weights.push_front(weight);
   }
 }
 //------------------------------------------------------------------
