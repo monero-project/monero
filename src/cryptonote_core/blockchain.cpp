@@ -1330,8 +1330,9 @@ bool Blockchain::create_block_template(block& b, const account_public_address& m
   uint64_t pool_cookie;
 
   m_tx_pool.lock();
-  const auto unlock_guard = epee::misc_utils::create_scope_leave_handler([&]() { m_tx_pool.unlock(); });
+  const auto txpool_unlocker = epee::misc_utils::create_scope_leave_handler([&]() { m_tx_pool.unlock(); });
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
+
   height = m_db->height();
   if (m_btc_valid) {
     // The pool cookie is atomic. The lack of locking is OK, as if it changes
@@ -1420,6 +1421,10 @@ bool Blockchain::create_block_template(block& b, const account_public_address& m
   {
     LOG_ERROR("Creating block template: error: wrongly calculated fee");
   }
+<<<<<<< HEAD
+=======
+
+>>>>>>> 0c0f6034... blockchain: fix block template creation race
   MDEBUG("Creating block template: height " << height <<
       ", median weight " << median_weight <<
       ", already generated coins " << already_generated_coins <<
