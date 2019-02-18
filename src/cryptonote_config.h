@@ -59,7 +59,6 @@ static_assert(STAKING_PORTIONS % 2 == 0, "Use a multiple of two, so that it divi
 static_assert(STAKING_PORTIONS % 3 == 0, "Use a multiple of three, so that it divides easily by three contributors.");
 
 #define STAKING_AUTHORIZATION_EXPIRATION_WINDOW         (60*60*24*7*2)  // 2 weeks
-#define STAKING_AUTHORIZATION_EXPIRATION_AUTOSTAKE      (60*60*24*365*2) // 2 years
 
 #define BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW               11
 

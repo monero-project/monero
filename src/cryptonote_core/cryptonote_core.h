@@ -223,11 +223,6 @@ namespace cryptonote
      virtual void on_transaction_relayed(const cryptonote::blobdata& tx);
 
      /**
-      * @brief mark the deregister vote as having been relayed in the vote pool
-      */
-     virtual void set_deregister_votes_relayed(const std::vector<service_nodes::deregister_vote>& votes);
-
-     /**
       * @brief gets the miner instance
       *
       * @return a reference to the miner instance
@@ -587,6 +582,8 @@ namespace cryptonote
       * @brief get per block distribution of outputs of a given amount
       */
      bool get_output_distribution(uint64_t amount, uint64_t from_height, uint64_t to_height, uint64_t &start_height, std::vector<uint64_t> &distribution, uint64_t &base) const;
+
+     bool get_output_blacklist(std::vector<uint64_t> &blacklist) const;
 
      /**
       * @copydoc miner::pause

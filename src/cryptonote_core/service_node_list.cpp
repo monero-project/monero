@@ -71,11 +71,6 @@ namespace service_nodes
   {
   }
 
-  service_node_list::~service_node_list()
-  {
-    store();
-  }
-
   void service_node_list::register_hooks(service_nodes::quorum_cop &quorum_cop)
   {
     std::lock_guard<boost::recursive_mutex> lock(m_sn_mutex);
@@ -364,7 +359,7 @@ namespace service_nodes
         {
           key_image_blacklist_entry entry = {};
           entry.key_image                 = contribution.key_image;
-          entry.unlock_height             = block_height + staking_initial_num_lock_blocks(m_blockchain.nettype());
+          entry.unlock_height             = block_height + staking_num_lock_blocks(m_blockchain.nettype());
           m_key_image_blacklist.push_back(entry);
 
           const bool adding_to_blacklist = true;
@@ -599,10 +594,6 @@ namespace service_nodes
 
     if (hard_fork_version >= cryptonote::network_version_11_swarms)
     {
-      // TODO(doyle): INF_STAKING(doyle): On the boundary of the hardfork, if
-      // someone submits an old style staking TX, it will fail and lock up
-      // funds. Make sure to put in rules to prevent this.
-
       cryptonote::tx_extra_tx_key_image_proofs key_image_proofs;
       if (!get_tx_key_image_proofs_from_tx_extra(tx.extra, key_image_proofs))
       {
@@ -661,7 +652,7 @@ namespace service_nodes
             unlock_time = tx.output_unlock_times[i];
 
           has_correct_unlock_time = unlock_time < CRYPTONOTE_MAX_BLOCK_NUMBER &&
-                                    unlock_time >= block_height + staking_initial_num_lock_blocks(nettype);
+                                    unlock_time >= block_height + staking_num_lock_blocks(nettype);
         }
 
         if (has_correct_unlock_time)
@@ -695,7 +686,6 @@ namespace service_nodes
 
     int hf_version = m_blockchain.get_hard_fork_version(block_height);
 
-    // check the portions
     if (!check_service_node_portions(hf_version, service_node_portions)) return false;
 
     if (portions_for_operator > STAKING_PORTIONS)
@@ -744,10 +734,10 @@ namespace service_nodes
       return false;
     }
 
-    const uint64_t min_transfer = info.staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS;
+    const uint64_t min_transfer = get_min_node_contribution(hf_version, info.staking_requirement, info.total_reserved, info.total_num_locked_contributions());
     if (parsed_contribution.transferred < min_transfer)
     {
-      MERROR("Register TX: Contribution didn't meet the minimum transfer requirement: " << min_transfer << " on height: " << block_height << " for tx: " << cryptonote::get_transaction_hash(tx));
+      MERROR("Register TX: Contribution transferred: " << parsed_contribution.transferred << " didn't meet the minimum transfer requirement: " << min_transfer << " on height: " << block_height << " for tx: " << cryptonote::get_transaction_hash(tx));
       return false;
     }
 
@@ -836,7 +826,7 @@ namespace service_nodes
         if (hard_fork_version >= cryptonote::network_version_10_bulletproofs)
         {
           service_node_info const &old_info = iter->second;
-          uint64_t expiry_height = old_info.registration_height + staking_initial_num_lock_blocks(m_blockchain.nettype());
+          uint64_t expiry_height = old_info.registration_height + staking_num_lock_blocks(m_blockchain.nettype());
           if (block_height < expiry_height)
             return false;
 
@@ -933,7 +923,7 @@ namespace service_nodes
 
       /// Check that the contribution is large enough
       const uint8_t hf_version = m_blockchain.get_hard_fork_version(block_height);
-      const uint64_t min_contribution = get_min_node_contribution(hf_version, info.staking_requirement, info.total_reserved, contributors.size());
+      const uint64_t min_contribution = get_min_node_contribution(hf_version, info.staking_requirement, info.total_reserved, info.total_num_locked_contributions());
       if (parsed_contribution.transferred < min_contribution)
       {
         LOG_PRINT_L1("Contribution TX: Amount " << parsed_contribution.transferred <<
@@ -979,14 +969,24 @@ namespace service_nodes
     info.last_reward_block_height = block_height;
     info.last_reward_transaction_index = index;
 
+    const size_t max_contributions_per_node = service_nodes::MAX_KEY_IMAGES_PER_CONTRIBUTOR * MAX_NUMBER_OF_CONTRIBUTORS;
     if (hf_version >= cryptonote::network_version_11_swarms)
     {
-      // TODO(doyle): INF_STAKING(doyle): Set a limit on the number of key images allowed
       std::vector<service_node_info::contribution_t> &locked_contributions = contributor.locked_contributions;
-      locked_contributions.reserve(locked_contributions.size() + parsed_contribution.locked_contributions.size());
 
       for (const service_node_info::contribution_t &contribution : parsed_contribution.locked_contributions)
-        contributor.locked_contributions.push_back(contribution);
+      {
+        if (info.total_num_locked_contributions() < max_contributions_per_node)
+          contributor.locked_contributions.push_back(contribution);
+        else
+        {
+          LOG_PRINT_L1("Contribution TX: Already hit the max number of contributions: " << max_contributions_per_node <<
+                       " for contributor: " << cryptonote::get_account_address_as_str(m_blockchain.nettype(), false, contributor.address) <<
+                       " on height: "  << block_height <<
+                       " for tx: " << cryptonote::get_transaction_hash(tx));
+          break;
+        }
+      }
     }
 
     LOG_PRINT_L1("Contribution of " << parsed_contribution.transferred << " received for service node " << pubkey);
@@ -1260,7 +1260,7 @@ namespace service_nodes
   std::vector<crypto::public_key> service_node_list::update_and_get_expired_nodes(const std::vector<cryptonote::transaction> &txs, uint64_t block_height)
   {
     std::vector<crypto::public_key> expired_nodes;
-    uint64_t const lock_blocks = staking_initial_num_lock_blocks(m_blockchain.nettype());
+    uint64_t const lock_blocks = staking_num_lock_blocks(m_blockchain.nettype());
 
     // TODO(loki): This should really use the registration height instead of getting the block and expiring nodes.
     // But there's something subtly off when using registration height causing syncing problems.
@@ -1714,24 +1714,24 @@ namespace service_nodes
     m_height = hardfork_9_from_height;
   }
 
+  size_t service_node_info::total_num_locked_contributions() const
+  {
+    size_t result = 0;
+    for (service_node_info::contributor_t const &contributor : this->contributors)
+      result += contributor.locked_contributions.size();
+    return result;
+  }
+
   bool convert_registration_args(cryptonote::network_type nettype,
-                                 std::vector<std::string> args,
+                                 const std::vector<std::string>& args,
                                  std::vector<cryptonote::account_public_address>& addresses,
                                  std::vector<uint64_t>& portions,
                                  uint64_t& portions_for_operator,
-                                 bool& autostake,
                                  boost::optional<std::string&> err_msg)
   {
-    autostake = false;
-    if (!args.empty() && args[0] == "auto")
-    {
-      autostake = true;
-      args.erase(args.begin());
-    }
-
     if (args.size() % 2 == 0 || args.size() < 3)
     {
-      MERROR(tr("Usage: [auto] <operator cut> <address> <fraction> [<address> <fraction> [...]]]"));
+      MERROR(tr("Usage: <operator cut> <address> <fraction> [<address> <fraction> [...]]]"));
       return false;
     }
     if ((args.size()-1)/ 2 > MAX_NUMBER_OF_CONTRIBUTORS)
@@ -1815,14 +1815,13 @@ namespace service_nodes
     std::vector<cryptonote::account_public_address> addresses;
     std::vector<uint64_t> portions;
     uint64_t operator_portions;
-    bool autostake;
-    if (!convert_registration_args(nettype, args, addresses, portions, operator_portions, autostake, err_msg))
+    if (!convert_registration_args(nettype, args, addresses, portions, operator_portions, err_msg))
     {
       MERROR(tr("Could not convert registration args"));
       return false;
     }
 
-    uint64_t exp_timestamp = time(nullptr) + (autostake ? STAKING_AUTHORIZATION_EXPIRATION_AUTOSTAKE : STAKING_AUTHORIZATION_EXPIRATION_WINDOW);
+    uint64_t exp_timestamp = time(nullptr) + STAKING_AUTHORIZATION_EXPIRATION_WINDOW;
 
     crypto::hash hash;
     bool hashed = cryptonote::get_registration_hash(addresses, operator_portions, portions, exp_timestamp, hash);

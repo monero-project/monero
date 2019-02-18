@@ -1368,11 +1368,6 @@ namespace cryptonote
     m_mempool.set_relayed(txs);
   }
   //-----------------------------------------------------------------------------------------------
-  void core::set_deregister_votes_relayed(const std::vector<service_nodes::deregister_vote>& votes)
-  {
-    m_deregister_vote_pool.set_relayed(votes);
-  }
-  //-----------------------------------------------------------------------------------------------
   bool core::relay_deregister_votes()
   {
     NOTIFY_NEW_DEREGISTER_VOTE::request req;
@@ -1380,7 +1375,8 @@ namespace cryptonote
     if (!req.votes.empty())
     {
       cryptonote_connection_context fake_context = AUTO_VAL_INIT(fake_context);
-      get_protocol()->relay_deregister_votes(req, fake_context);
+      if (get_protocol()->relay_deregister_votes(req, fake_context))
+        m_deregister_vote_pool.set_relayed(req.votes);
     }
 
     return true;
@@ -1409,6 +1405,11 @@ namespace cryptonote
   bool core::get_output_distribution(uint64_t amount, uint64_t from_height, uint64_t to_height, uint64_t &start_height, std::vector<uint64_t> &distribution, uint64_t &base) const
   {
     return m_blockchain_storage.get_output_distribution(amount, from_height, to_height, start_height, distribution, base);
+  }
+  //-----------------------------------------------------------------------------------------------
+  bool core::get_output_blacklist(std::vector<uint64_t> &blacklist) const
+  {
+    return m_blockchain_storage.get_output_blacklist(blacklist);
   }
   //-----------------------------------------------------------------------------------------------
   bool core::get_tx_outputs_gindexs(const crypto::hash& tx_id, std::vector<uint64_t>& indexs) const

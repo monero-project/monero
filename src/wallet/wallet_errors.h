@@ -808,6 +808,14 @@ namespace tools
       }
     };
     //----------------------------------------------------------------------------------------------------
+    struct get_output_blacklist : public wallet_rpc_error
+    {
+      explicit get_output_blacklist(std::string&& loc, const std::string& request)
+        : wallet_rpc_error(std::move(loc), "failed to get output blacklist", request)
+      {
+      }
+    };
+    //----------------------------------------------------------------------------------------------------
     struct wallet_files_doesnt_correspond : public wallet_logic_error
     {
       explicit wallet_files_doesnt_correspond(std::string&& loc, const std::string& keys_file, const std::string& wallet_file)

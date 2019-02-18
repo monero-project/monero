@@ -778,6 +778,7 @@ namespace tools
     void set_subaddress_lookahead(size_t major, size_t minor);
     std::pair<size_t, size_t> get_subaddress_lookahead() const { return {m_subaddress_lookahead_major, m_subaddress_lookahead_minor}; }
     bool contains_address(const cryptonote::account_public_address& address) const;
+    bool contains_key_image(const crypto::key_image& key_image) const;
     bool generate_signature_for_request_stake_unlock(crypto::key_image const &key_image, crypto::signature &signature, uint32_t &nonce) const;
     /*!
      * \brief Tells if the wallet file is deprecated.
@@ -861,7 +862,11 @@ namespace tools
     void get_unconfirmed_payments_out(std::list<std::pair<crypto::hash,wallet2::unconfirmed_transfer_details>>& unconfirmed_payments, const boost::optional<uint32_t>& subaddr_account = boost::none, const std::set<uint32_t>& subaddr_indices = {}) const;
     void get_unconfirmed_payments(std::list<std::pair<crypto::hash,wallet2::pool_payment_details>>& unconfirmed_payments, const boost::optional<uint32_t>& subaddr_account = boost::none, const std::set<uint32_t>& subaddr_indices = {}) const;
 
-    std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry> get_service_nodes(std::vector<std::string> const &pubkeys, boost::optional<std::string> &failed) { return m_node_rpc_proxy.get_service_nodes(pubkeys, failed); }
+    // NOTE(loki): get_all_service_node caches the result, get_service_nodes doesn't
+    std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry> get_all_service_nodes(boost::optional<std::string> &failed)                                          const { return m_node_rpc_proxy.get_all_service_nodes(failed); }
+    std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry> get_service_nodes    (std::vector<std::string> const &pubkeys, boost::optional<std::string> &failed) const { return m_node_rpc_proxy.get_service_nodes(pubkeys, failed); }
+    std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODE_BLACKLISTED_KEY_IMAGES::entry> get_service_node_blacklisted_key_images(boost::optional<std::string> &failed)            const { return m_node_rpc_proxy.get_service_node_blacklisted_key_images(failed); }
+
     uint64_t get_blockchain_current_height() const { return m_light_wallet_blockchain_height ? m_light_wallet_blockchain_height : m_blockchain.size(); }
     void rescan_spent();
     void rescan_blockchain(bool hard, bool refresh = true);
@@ -1049,8 +1054,6 @@ namespace tools
     void device_name(const std::string & device_name) { m_device_name = device_name; }
     const std::string & device_derivation_path() const { return m_device_derivation_path; }
     void device_derivation_path(const std::string &device_derivation_path) { m_device_derivation_path = device_derivation_path; }
-    bool fork_on_autostake() const { return m_fork_on_autostake; }
-    void fork_on_autostake(bool value) { m_fork_on_autostake = value; }
 
     bool get_tx_key(const crypto::hash &txid, crypto::secret_key &tx_key, std::vector<crypto::secret_key> &additional_tx_keys) const;
     void set_tx_key(const crypto::hash &txid, const crypto::secret_key &tx_key, const std::vector<crypto::secret_key> &additional_tx_keys);
@@ -1093,7 +1096,7 @@ namespace tools
     const transfer_details &get_transfer_details(size_t idx) const;
 
     void get_hard_fork_info(uint8_t version, uint64_t &earliest_height) const;
-    bool use_fork_rules(uint8_t version, int64_t early_blocks = 0) const;
+    bool use_fork_rules(uint8_t version, uint64_t early_blocks = 0) const;
     int get_fee_algorithm() const;
 
     std::string get_wallet_file() const;
@@ -1280,11 +1283,34 @@ namespace tools
     bool unblackball_output(const std::pair<uint64_t, uint64_t> &output);
     bool is_output_blackballed(const std::pair<uint64_t, uint64_t> &output) const;
 
-    /// Checks arguments for staking. Modifies the amount to maximum possible if too large,
-    /// but rejects if insufficient. `fraction` is only used to determine the amount if specified zero. 
-    stake_check_result check_stake_allowed(const crypto::public_key& sn_key, const cryptonote::address_parse_info& addr_info, uint64_t& amount, double fraction = 0);
+    enum struct stake_result_status
+    {
+      success,
+      exception_thrown,
+      payment_id_disallowed,
+      subaddress_disallowed,
+      address_must_be_primary,
+      service_node_list_query_failed,
+      service_node_not_registered,
+      network_version_query_failed,
+      network_height_query_failed,
+      service_node_contribution_maxed,
+      service_node_contributors_maxed,
+      service_node_insufficient_contribution,
+      too_many_transactions_constructed,
+    };
 
-    std::vector<wallet2::pending_tx> create_stake_tx(const crypto::public_key& service_node_key, const cryptonote::address_parse_info& addr_info, uint64_t amount);
+    struct stake_result
+    {
+      stake_result_status status;
+      std::string         msg;
+    };
+
+    /// Modifies the `amount` to maximum possible if too large, but rejects if insufficient.
+    /// `fraction` is only used to determine the amount if specified zero.
+    stake_result check_stake_allowed(const crypto::public_key& sn_key, const cryptonote::address_parse_info& addr_info, uint64_t& amount, double fraction = 0);
+    stake_result create_stake_tx    (std::vector<pending_tx> &ptx, const crypto::public_key& service_node_key, const cryptonote::address_parse_info& addr_info, uint64_t amount,
+                                     double amount_fraction = 0, uint32_t priority = 0, uint32_t subaddr_account = 0, std::set<uint32_t> subaddr_indices = {});
 
     // MMS -------------------------------------------------------------------------------------------------
     mms::message_store& get_message_store() { return m_message_store; };
@@ -1369,6 +1395,7 @@ namespace tools
     hw::device& lookup_device(const std::string & device_descriptor);
 
     bool get_rct_distribution(uint64_t &start_height, std::vector<uint64_t> &distribution);
+    bool get_output_blacklist(std::vector<uint64_t> &blacklist);
 
     uint64_t get_segregation_fork_height() const;
     void unpack_multisig_info(const std::vector<std::string>& info,
@@ -1475,7 +1502,6 @@ namespace tools
     std::string m_device_name;
     std::string m_device_derivation_path;
     uint64_t m_device_last_key_image_sync;
-    bool m_fork_on_autostake;
 
     // Aux transaction data from device
     std::unordered_map<crypto::hash, std::string> m_tx_device;

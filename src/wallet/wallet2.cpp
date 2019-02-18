@@ -859,7 +859,7 @@ wallet_keys_unlocker::wallet_keys_unlocker(wallet2 &w, const boost::optional<too
   w(w),
   locked(password != boost::none)
 {
-  if (!locked || w.is_unattended() || w.ask_password() != tools::wallet2::AskPasswordToDecrypt)
+  if (!locked || w.is_unattended() || w.ask_password() != tools::wallet2::AskPasswordToDecrypt || w.watch_only())
   {
     locked = false;
     return;
@@ -944,7 +944,6 @@ wallet2::wallet2(network_type nettype, uint64_t kdf_rounds, bool unattended):
   m_ignore_fractional_outputs(true),
   m_track_uses(false),
   m_is_initialized(false),
-  m_fork_on_autostake(true),
   m_kdf_rounds(kdf_rounds),
   is_old_file_format(false),
   m_watch_only(false),
@@ -3153,6 +3152,50 @@ bool wallet2::get_rct_distribution(uint64_t &start_height, std::vector<uint64_t>
     res.distributions[0].data.distribution[i] += res.distributions[0].data.distribution[i-1];
   start_height = res.distributions[0].data.start_height;
   distribution = std::move(res.distributions[0].data.distribution);
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
+bool wallet2::get_output_blacklist(std::vector<uint64_t> &blacklist)
+{
+  uint32_t rpc_version;
+  boost::optional<std::string> result = m_node_rpc_proxy.get_rpc_version(rpc_version);
+  if (result)
+  {
+    // empty string -> not connection
+    THROW_WALLET_EXCEPTION_IF(result->empty(), tools::error::no_connection_to_daemon, "getversion");
+    THROW_WALLET_EXCEPTION_IF(*result == CORE_RPC_STATUS_BUSY, tools::error::daemon_busy, "getversion");
+    if (*result != CORE_RPC_STATUS_OK)
+    {
+      MDEBUG("Cannot determine daemon RPC version, not requesting output blacklist");
+      return false;
+    }
+  }
+  else
+  {
+    if (rpc_version >= MAKE_CORE_RPC_VERSION(2, 3))
+    {
+      MDEBUG("Daemon is recent enough, not requesting output blacklist");
+    }
+    else
+    {
+      MDEBUG("Daemon is too old, not requesting output  blacklist");
+      return false;
+    }
+  }
+
+  cryptonote::COMMAND_RPC_GET_OUTPUT_BLACKLIST::request req  = {};
+  cryptonote::COMMAND_RPC_GET_OUTPUT_BLACKLIST::response res = {};
+  m_daemon_rpc_mutex.lock();
+  bool r = net_utils::invoke_http_bin("/get_output_blacklist.bin", req, res, m_http_client, rpc_timeout);
+  m_daemon_rpc_mutex.unlock();
+
+  if (!r)
+  {
+    MWARNING("Failed to request output blacklist: no connection to daemon");
+    return false;
+  }
+
+  blacklist = std::move(res.blacklist);
   return true;
 }
 //----------------------------------------------------------------------------------------------------
@@ -5574,14 +5617,20 @@ bool wallet2::is_transfer_unlocked(uint64_t unlock_time, uint64_t block_height, 
       return true;
     }
 
+    cryptonote::account_public_address const primary_address = get_address();
     for (cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry const &entry : service_nodes_states)
     {
       for (cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::contributor const &contributor : entry.contributors)
       {
         address_parse_info address_info = {};
-        cryptonote::get_account_address_from_str(address_info, nettype(), contributor.address);
-        if (!contains_address(address_info.address))
-          break;
+        if (!cryptonote::get_account_address_from_str(address_info, nettype(), contributor.address))
+        {
+          MERROR("Failed to parse string representation of address: " << contributor.address);
+          continue;
+        }
+
+        if (primary_address != address_info.address)
+          continue;
 
         for (cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::contribution const &contribution : contributor.locked_contributions)
         {
@@ -6053,7 +6102,7 @@ bool wallet2::sign_tx(unsigned_tx_set &exported_txs, std::vector<wallet2::pendin
     if (sd.v3_use_bulletproofs)
     {
       rct_config.range_proof_type = rct::RangeProofPaddedBulletproof;
-      rct_config.bp_version = use_fork_rules(HF_VERSION_SMALLER_BP, -10) ? 2 : 1;
+      rct_config.bp_version = use_fork_rules(HF_VERSION_SMALLER_BP, 5) ? 2 : 1;
     }
     crypto::secret_key tx_key;
     std::vector<crypto::secret_key> additional_tx_keys;
@@ -6530,7 +6579,7 @@ bool wallet2::sign_multisig_tx(multisig_tx_set &exported_txs, std::vector<crypto
     if (sd.v3_use_bulletproofs)
     {
       rct_config.range_proof_type = rct::RangeProofPaddedBulletproof;
-      rct_config.bp_version = use_fork_rules(HF_VERSION_SMALLER_BP, -10) ? 2 : 1;
+      rct_config.bp_version = use_fork_rules(HF_VERSION_SMALLER_BP, 5) ? 2 : 1;
     }
 
     loki_construct_tx_params tx_params = {};
@@ -7031,24 +7080,31 @@ bool wallet2::is_output_blackballed(const std::pair<uint64_t, uint64_t> &output)
   catch (const std::exception &e) { return false; }
 }
 
-stake_check_result wallet2::check_stake_allowed(const crypto::public_key& sn_key, const cryptonote::address_parse_info& addr_info, uint64_t& amount, double fraction) {
+wallet2::stake_result wallet2::check_stake_allowed(const crypto::public_key& sn_key, const cryptonote::address_parse_info& addr_info, uint64_t& amount, double fraction)
+{
+  wallet2::stake_result result = {};
+  result.msg.reserve(128);
 
   if (addr_info.has_payment_id)
   {
-    MERROR(tr("Do not use payment ids for staking."));
-    return stake_check_result::not_allowed;
-  }
-
-  if (!this->contains_address(addr_info.address))
-  {
-    MERROR(tr("The specified address is not owned by this wallet."));
-    return stake_check_result::not_allowed;
+    result.status = stake_result_status::payment_id_disallowed;
+    result.msg    = tr("Payment IDs cannot be used in a staking transaction");
+    return result;
   }
 
   if (addr_info.is_subaddress)
   {
-    MERROR(tr("Service nodes do not support subaddresses."));
-    return stake_check_result::not_allowed;
+    result.status = stake_result_status::subaddress_disallowed;
+    result.msg    = tr("Subaddresses cannot be used in a staking transaction");
+    return result;
+  }
+
+  cryptonote::account_public_address const primary_address = get_address();
+  if (primary_address != addr_info.address)
+  {
+    result.status = stake_result_status::address_must_be_primary;
+    result.msg    = tr("The specified address must be owned by this wallet and be the primary address of the wallet");
+    return result;
   }
 
   /// check that the service node is registered
@@ -7056,39 +7112,37 @@ stake_check_result wallet2::check_stake_allowed(const crypto::public_key& sn_key
   const auto& response = this->get_service_nodes({ epee::string_tools::pod_to_hex(sn_key) }, failed);
   if (failed)
   {
-    LOG_ERROR(*failed);
-    return stake_check_result::try_later;
+    result.status = stake_result_status::service_node_list_query_failed;
+    result.msg.reserve(failed->size() + 128);
+    result.msg    = tr("Failed to query daemon for service node list");
+    result.msg    += *failed;
   }
 
   if (response.size() != 1)
   {
-    MERROR(tr("Could not find service node in service node list, please make sure it is registered first."));
-    return stake_check_result::try_later;
+    result.status = stake_result_status::service_node_not_registered;
+    result.msg = tr("Could not find service node in service node list, please make sure it is registered first.");
+    return result;
   }
-
-  const auto& snode_info = response.front();
-
-  if (amount == 0)
-      amount = snode_info.staking_requirement * fraction;
-
-  const bool full = snode_info.contributors.size() >= MAX_NUMBER_OF_CONTRIBUTORS;
-
-  /// maximum to contribute (unless we have some amount reserved for us)
-  uint64_t max_contrib_total = snode_info.staking_requirement - snode_info.total_reserved;
-
-  uint64_t expected_to_contrib = 0;
 
   const boost::optional<uint8_t> res = m_node_rpc_proxy.get_network_version();
-
-  /// Use stricter rules when not sure what version we are on
-  uint8_t hf_version = cryptonote::network_version_9_service_nodes;
-  if (res) {
-    hf_version = *res;
-  } else {
-    MERROR(tr("Could not obtain the current network version, defaulting to v9"));
+  if (!res)
+  {
+    result.status = stake_result_status::network_version_query_failed;
+    result.msg    = tr("Could not query the current network version, try later");
+    return result;
   }
 
-  uint64_t min_contrib_total = service_nodes::get_min_node_contribution(hf_version, snode_info.staking_requirement, snode_info.total_reserved, snode_info.contributors.size());
+  const auto& snode_info  = response.front();
+  if (amount == 0) amount = snode_info.staking_requirement * fraction;
+
+  size_t total_num_locked_contributions = 0;
+  for (COMMAND_RPC_GET_SERVICE_NODES::response::contributor const &contributor : snode_info.contributors)
+    total_num_locked_contributions += contributor.locked_contributions.size();
+
+  uint8_t const hf_version     = *res;
+  uint64_t max_contrib_total   = snode_info.staking_requirement - snode_info.total_reserved;
+  uint64_t min_contrib_total   = service_nodes::get_min_node_contribution(hf_version, snode_info.staking_requirement, snode_info.total_reserved, total_num_locked_contributions);
 
   bool is_preexisting_contributor = false;
   for (const auto& contributor : snode_info.contributors)
@@ -7099,75 +7153,87 @@ stake_check_result wallet2::check_stake_allowed(const crypto::public_key& sn_key
 
     if (info.address == addr_info.address)
     {
-      /// reserved for us, so we can contribute some more
-      max_contrib_total += contributor.reserved - contributor.amount;
-      expected_to_contrib += contributor.reserved - contributor.amount;
-      /// in this case we can contribute as little as we want
-      min_contrib_total = 0;
+      uint64_t const reserved_amount_not_contributed_yet = contributor.reserved - contributor.amount;
+      max_contrib_total  += reserved_amount_not_contributed_yet;
       is_preexisting_contributor = true;
+
+      min_contrib_total = std::max(min_contrib_total, reserved_amount_not_contributed_yet);
+      if (hf_version <= cryptonote::network_version_10_bulletproofs)
+        min_contrib_total = 0; // Allowed to contribute incremental amounts, post v10, we lock key images so each user has a limit on number of contributions
+      break;
     }
   }
 
   if (max_contrib_total == 0)
   {
-    MERROR(tr("You may not contribute any more loki to this service node"));
-    return stake_check_result::not_allowed;
+    result.status = stake_result_status::service_node_contribution_maxed;
+    result.msg = tr("The service node cannot receive any more Loki from this wallet");
+    return result;
   }
 
-  /// a. Check if there is room for us
+  const bool full = snode_info.contributors.size() >= MAX_NUMBER_OF_CONTRIBUTORS;
   if (full && !is_preexisting_contributor)
   {
-      MERROR(tr("This service node already has the maximum number of participants, and the specified address is not one of them."));
-      return stake_check_result::not_allowed;
+    result.status = stake_result_status::service_node_contributors_maxed;
+    result.msg = tr("The service node already has the maximum number of participants and this wallet is not one of them");
+    return result;
   }
 
-  /// b. Check if the amount is too small
   if (amount < min_contrib_total)
   {
-      const uint64_t DUST = MAX_NUMBER_OF_CONTRIBUTORS;
-      if (min_contrib_total - amount <= DUST) {
-          amount = min_contrib_total;
-          MINFO(tr("Seeing as this is insufficient by dust amounts, amount was increased automatically to ") << print_money(min_contrib_total));
-      } else {
-          MERROR(tr("You must contribute at least ") << print_money(min_contrib_total) << tr(" loki to become a contributor for this service node."));
-          return stake_check_result::try_later;
-      }
-
+    const uint64_t DUST = MAX_NUMBER_OF_CONTRIBUTORS;
+    if (min_contrib_total - amount <= DUST)
+    {
+      amount = min_contrib_total;
+      result.msg += tr("Seeing as this is insufficient by dust amounts, amount was increased automatically to ");
+      result.msg += print_money(min_contrib_total);
+      result.msg += "\n";
+    }
+    else
+    {
+      result.status = stake_result_status::service_node_insufficient_contribution;
+      result.msg.reserve(128);
+      result.msg =  tr("You must contribute at least ");
+      result.msg += print_money(min_contrib_total);
+      result.msg += tr(" loki to become a contributor for this service node.");
+      return result;
+    }
   }
 
-  /// c. Check if the amount is too big
   if (amount > max_contrib_total)
   {
-    MINFO(tr("You may only contribute up to ") << print_money(max_contrib_total) << tr(" more loki to this service node."));
-    MINFO(tr("Reducing your stake from ") << print_money(amount) << tr(" to ") << print_money(max_contrib_total));
+    result.msg += tr("You may only contribute up to ");
+    result.msg += print_money(max_contrib_total);
+    result.msg += tr(" more loki to this service node. ");
+    result.msg += tr("Reducing your stake from ");
+    result.msg += print_money(amount);
+    result.msg += tr(" to ");
+    result.msg += print_money(max_contrib_total);
+    result.msg += tr("\n");
     amount = max_contrib_total;
   }
 
-  /// Issue a warning if there is more loki reserved from this contributor
-  if (amount < expected_to_contrib)
-  {
-    MWARNING(tr("Warning: You must contribute ") << print_money(expected_to_contrib)
-                         << tr(" loki to meet your registration requirements for this service node"));
-  }
-
-  return stake_check_result::allowed;
+  result.status = stake_result_status::success;
+  return result;
 }
 
-std::vector<wallet2::pending_tx> wallet2::create_stake_tx(const crypto::public_key& service_node_key, const cryptonote::address_parse_info& addr_info, uint64_t amount)
+wallet2::stake_result wallet2::create_stake_tx(std::vector<pending_tx> &ptx, const crypto::public_key& service_node_key, const cryptonote::address_parse_info& addr_info, uint64_t amount, double amount_fraction, uint32_t priority, uint32_t subaddr_account, std::set<uint32_t> subaddr_indices)
 {
+  wallet2::stake_result result = {};
+  ptx.clear();
+
   try
   {
-    /// check stake parameters (this might adjust the amount)
-    if (check_stake_allowed(service_node_key, addr_info, amount) != stake_check_result::allowed)
-    {
-      LOG_ERROR("Invalid stake parameters");
-      return {};
-    }
+    result = check_stake_allowed(service_node_key, addr_info, amount, amount_fraction);
+    if (result.status != stake_result_status::success)
+      return result;
   }
   catch (const std::exception& e)
   {
-    MERROR(e.what());
-    return {};
+    result.status = stake_result_status::exception_thrown;
+    result.msg = tr("Exception thrown, staking process could not be completed");
+    result.msg += e.what();
+    return result;
   }
 
   const cryptonote::account_public_address& address = addr_info.address;
@@ -7183,35 +7249,46 @@ std::vector<wallet2::pending_tx> wallet2::create_stake_tx(const crypto::public_k
   de.amount = amount;
   dsts.push_back(de);
 
-  const uint64_t staking_requirement_lock_blocks = service_nodes::staking_initial_num_lock_blocks(m_nettype);
-
-  const uint64_t locked_blocks = staking_requirement_lock_blocks + STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS;
-
   std::string err, err2;
   const uint64_t bc_height = std::max(get_daemon_blockchain_height(err),
-                                get_daemon_blockchain_target_height(err2));
+                                      get_daemon_blockchain_target_height(err2));
 
   if (!err.empty() || !err2.empty())
   {
-    LOG_ERROR("unable to get network blockchain height from daemon: " << (err.empty() ? err2 : err));
-    return {};
+    result.msg = tr("Could not query the current network block height, try later: ");
+    result.msg += (err.empty() ? err2 : err);
+    result.status = stake_result_status::network_height_query_failed;
+    return result;
   }
 
-  const uint64_t unlock_at_block = bc_height + locked_blocks;
-  const uint32_t priority = adjust_priority(0);
+  const uint64_t staking_requirement_lock_blocks = service_nodes::staking_num_lock_blocks(m_nettype);
+  const uint64_t locked_blocks = staking_requirement_lock_blocks + STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS;
+  uint64_t unlock_at_block = bc_height + locked_blocks;
+  if (use_fork_rules(cryptonote::network_version_11_swarms, 1))
+    unlock_at_block = 0; // Infinite staking, no time lock
 
-  /// Default values
-  const uint32_t m_current_subaddress_account = 0;
-  std::set<uint32_t> subaddr_indices;
-
-  try {
-    auto ptx_vector = create_transactions_2(dsts, CRYPTONOTE_DEFAULT_TX_MIXIN, unlock_at_block, priority, extra, m_current_subaddress_account, subaddr_indices, true);
-    if (ptx_vector.size() == 1) { return ptx_vector; }
-  } catch (const std::exception& e) {
-    LOG_ERROR("Exception raised on creating tx: " << e.what());
+  try
+  {
+    priority = adjust_priority(priority);
+    ptx = create_transactions_2(dsts, CRYPTONOTE_DEFAULT_TX_MIXIN, unlock_at_block, priority, extra, subaddr_account, subaddr_indices, true);
+  }
+  catch (const std::exception& e)
+  {
+    result.msg = tr("Exception thrown on create tx: ");
+    result.msg += e.what();
+    result.status = stake_result_status::network_height_query_failed;
+    return result;
   }
 
-  return {};
+  if (ptx.size() == 1) result.status = stake_result_status::success;
+  else
+  {
+    result.status = stake_result_status::too_many_transactions_constructed;
+    result.msg    = tr("Constructed too many transations, please sweep_all first");
+    ptx.clear();
+  }
+
+  return result;
 }
 
 bool wallet2::lock_keys_file()
@@ -7392,6 +7469,15 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
         has_rct = true;
         max_rct_index = std::max(max_rct_index, m_transfers[idx].m_global_output_index);
       }
+
+    // TODO(doyle): Write the error message
+    std::vector<uint64_t> output_blacklist;
+    if (bool get_output_blacklist_failed = !get_output_blacklist(output_blacklist))
+    {
+      THROW_WALLET_EXCEPTION_IF(get_output_blacklist_failed, error::get_output_distribution, "Couldn't retrive list of outputs that are to be exlcuded from selection");
+    }
+
+    std::sort(output_blacklist.begin(), output_blacklist.end());
     const bool has_rct_distribution = has_rct && get_rct_distribution(rct_start_height, rct_offsets);
     if (has_rct_distribution)
     {
@@ -7532,7 +7618,26 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
       if (n_rct == 0)
         return rct_offsets[block_offset] ? rct_offsets[block_offset] - 1 : 0;
       MDEBUG("Picking 1/" << n_rct << " in " << (last_block_offset - first_block_offset + 1) << " blocks centered around " << block_offset + rct_start_height);
-      return first_rct + crypto::rand<uint64_t>() % n_rct;
+      
+      uint64_t pick = first_rct + crypto::rand<uint64_t>() % n_rct;
+
+      {
+        double percent_of_outputs_blacklisted = output_blacklist.size() / (double)n_rct;
+        if (static_cast<int>(percent_of_outputs_blacklisted + 1) > 5)
+          MWARNING("More than 5 percent of available outputs are blacklisted, please notify the Loki developers");
+      }
+
+      for (;;)
+      {
+        if (std::binary_search(output_blacklist.begin(), output_blacklist.end(), pick))
+        {
+          pick = first_rct + crypto::rand<uint64_t>() % n_rct;
+        }
+        else
+        {
+          return pick;
+        }
+      }
     };
 
     size_t num_selected_transfers = 0;
@@ -8418,6 +8523,7 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
   THROW_WALLET_EXCEPTION_IF(!all_are_txin_to_key, error::unexpected_txin_type, tx);
   LOG_PRINT_L2("gathered key images");
 
+  ptx = {};
   ptx.key_images = key_images;
   ptx.fee = fee;
   ptx.dust = 0;
@@ -8436,9 +8542,10 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
   ptx.construction_data.selected_transfers = ptx.selected_transfers;
   ptx.construction_data.extra = tx.extra;
   ptx.construction_data.unlock_time = unlock_time;
-  ptx.construction_data.v2_use_rct = true;
+  ptx.construction_data.v2_use_rct = tx_params.v2_rct;
   ptx.construction_data.v3_use_bulletproofs = !tx.rct_signatures.p.bulletproofs.empty();
   ptx.construction_data.v3_per_output_unlock = tx_params.v3_per_output_unlock;
+  ptx.construction_data.v4_allow_tx_types = tx_params.v4_allow_tx_types;
   ptx.construction_data.dests = dsts;
   // record which subaddress indices are being used as inputs
   ptx.construction_data.subaddr_account = subaddr_account;
@@ -9111,7 +9218,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
   const bool bulletproof = use_fork_rules(get_bulletproof_fork(), 0);
   const rct::RCTConfig rct_config {
     bulletproof ? rct::RangeProofPaddedBulletproof : rct::RangeProofBorromean,
-    bulletproof ? (use_fork_rules(HF_VERSION_SMALLER_BP, -10) ? 2 : 1) : 0
+    bulletproof ? (use_fork_rules(HF_VERSION_SMALLER_BP, 5) ? 2 : 1) : 0
   };
 
   const uint64_t base_fee  = get_base_fee();
@@ -9686,7 +9793,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_from(const crypton
   const bool bulletproof = use_fork_rules(get_bulletproof_fork(), 0);
   const rct::RCTConfig rct_config {
     bulletproof ? rct::RangeProofPaddedBulletproof : rct::RangeProofBorromean,
-    bulletproof ? (use_fork_rules(HF_VERSION_SMALLER_BP, -10) ? 2 : 1) : 0,
+    bulletproof ? (use_fork_rules(HF_VERSION_SMALLER_BP, 5) ? 2 : 1) : 0,
   };
   const uint64_t base_fee  = get_base_fee();
   const uint64_t fee_multiplier = get_fee_multiplier(priority, get_fee_algorithm());
@@ -9931,7 +10038,7 @@ void wallet2::get_hard_fork_info(uint8_t version, uint64_t &earliest_height) con
   throw_on_rpc_response_error(result, "get_hard_fork_info");
 }
 //----------------------------------------------------------------------------------------------------
-bool wallet2::use_fork_rules(uint8_t version, int64_t early_blocks) const
+bool wallet2::use_fork_rules(uint8_t version, uint64_t early_blocks) const
 {
   // TODO: How to get fork rule info from light wallet node?
   if(m_light_wallet)
@@ -12678,6 +12785,12 @@ bool wallet2::contains_address(const cryptonote::account_public_address& address
         return true;
   }
   return false;
+}
+//----------------------------------------------------------------------------------------------------
+bool wallet2::contains_key_image(const crypto::key_image& key_image) const {
+  const auto &key_image_it = m_key_images.find(key_image);
+  bool result = (key_image_it != m_key_images.end());
+  return result;
 }
 //----------------------------------------------------------------------------------------------------
 bool wallet2::generate_signature_for_request_stake_unlock(crypto::key_image const &key_image, crypto::signature &signature, uint32_t &nonce) const

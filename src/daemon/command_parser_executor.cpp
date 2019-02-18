@@ -209,8 +209,7 @@ bool t_command_parser_executor::print_sn(const std::vector<std::string>& args)
 
 bool t_command_parser_executor::print_sn_status(const std::vector<std::string>& args)
 {
-  if (!args.empty()) return false;
-  bool result = m_executor.print_sn_status();
+  bool result = m_executor.print_sn_status(args);
   return result;
 }
 

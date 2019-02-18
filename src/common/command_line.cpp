@@ -43,32 +43,39 @@ namespace command_line
     }
   }
 
-  bool is_yes(const std::string& str)
+  static bool str_compare_with_boost(const std::string &str, char const *check_str)
   {
-    if (str == "y" || str == "Y")
-      return true;
-
     boost::algorithm::is_iequal ignore_case{};
-    if (boost::algorithm::equals("yes", str, ignore_case))
+    if (boost::algorithm::equals(check_str, str, ignore_case))
       return true;
-    if (boost::algorithm::equals(command_line::tr("yes"), str, ignore_case))
+    if (boost::algorithm::equals(command_line::tr(check_str), str, ignore_case))
       return true;
 
     return false;
   }
 
+  bool is_yes(const std::string& str)
+  {
+    bool result = (str == "y" || str == "Y") || str_compare_with_boost(str, "yes");
+    return result;
+  }
+
   bool is_no(const std::string& str)
   {
-    if (str == "n" || str == "N")
-      return true;
+    bool result = (str == "n" || str == "N") || str_compare_with_boost(str, "no");
+    return result;
+  }
 
-    boost::algorithm::is_iequal ignore_case{};
-    if (boost::algorithm::equals("no", str, ignore_case))
-      return true;
-    if (boost::algorithm::equals(command_line::tr("no"), str, ignore_case))
-      return true;
+  bool is_cancel(const std::string& str)
+  {
+    bool result = (str == "c" || str == "C") || str_compare_with_boost(str, "cancel");
+    return result;
+  }
 
-    return false;
+  bool is_back(const std::string& str)
+  {
+    bool result = (str == "b" || str == "B") || str_compare_with_boost(str, "back");
+    return result;
   }
 
   const arg_descriptor<bool> arg_help = {"help", "Produce help message"};

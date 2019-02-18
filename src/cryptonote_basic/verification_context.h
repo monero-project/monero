@@ -96,6 +96,10 @@ namespace cryptonote
       KV_SERIALIZE(m_fee_too_low)
       KV_SERIALIZE(m_not_rct)
       KV_SERIALIZE(m_invalid_version)
+      KV_SERIALIZE(m_invalid_type);
+      KV_SERIALIZE(m_key_image_locked_by_snode);
+      KV_SERIALIZE(m_key_image_blacklisted);
+
       KV_SERIALIZE(m_vote_ctx)
     END_KV_SERIALIZE_MAP()
   };

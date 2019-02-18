@@ -36,19 +36,6 @@
 
 namespace service_nodes
 {
-  constexpr size_t QUORUM_SIZE                    = 10;
-  constexpr size_t QUORUM_LIFETIME                = (6 * deregister_vote::DEREGISTER_LIFETIME_BY_HEIGHT);
-  constexpr size_t MIN_VOTES_TO_KICK_SERVICE_NODE = 7;
-  constexpr size_t NTH_OF_THE_NETWORK_TO_TEST     = 100;
-  constexpr size_t MIN_NODES_TO_TEST              = 50;
-  constexpr size_t MAX_SWARM_SIZE                 = 10;
-  // We never create a new swarm unless there are SWARM_BUFFER extra nodes
-  // available in the queue.
-  constexpr size_t SWARM_BUFFER                   = 5;
-  // if a swarm has strictly less nodes than this, it is considered unhealthy
-  // and nearby swarms will mirror it's data. It will disappear, and is already considered gone.
-  constexpr size_t MIN_SWARM_SIZE                 = 5;
-
   class quorum_cop;
 
   struct quorum_state
@@ -64,14 +51,8 @@ namespace service_nodes
 
   using swarm_id_t = uint64_t;
 
-  // TODO(doyle): INF_STAKING(doyle): Review behaviour of existing nodes on the old system when we switch over.
-
   struct service_node_info // registration information
   {
-    // INF_STAKING(doyle): Now that we have locked key images, we should enforce
-    // a minimum staking amount. Currently contributors can contribute piece
-    // meal to a service node, they can trivially attack the network by staking
-    // 1 loki each time to bloat up the key images
     struct contribution_t
     {
       uint8_t            version = version_2_infinite_staking;
@@ -79,7 +60,7 @@ namespace service_nodes
       crypto::key_image  key_image;
       uint64_t           amount;
 
-      BEGIN_SERIALIZE()
+      BEGIN_SERIALIZE_OBJECT()
         VARINT_FIELD(version)
         FIELD(key_image_pub_key)
         FIELD(key_image)
@@ -110,7 +91,7 @@ namespace service_nodes
         address  = address_;
       }
 
-      BEGIN_SERIALIZE()
+      BEGIN_SERIALIZE_OBJECT()
         VARINT_FIELD(version)
         VARINT_FIELD(amount)
         VARINT_FIELD(reserved)
@@ -134,11 +115,11 @@ namespace service_nodes
     swarm_id_t                         swarm_id;
     cryptonote::account_public_address operator_address;
 
-    bool is_fully_funded() const { return total_contributed >= staking_requirement; }
-
     service_node_info() = default;
+    bool is_fully_funded() const { return total_contributed >= staking_requirement; }
+    size_t total_num_locked_contributions() const;
 
-    BEGIN_SERIALIZE()
+    BEGIN_SERIALIZE_OBJECT()
       VARINT_FIELD(version)
       VARINT_FIELD(registration_height)
       VARINT_FIELD(requested_unlock_height)
@@ -163,7 +144,7 @@ namespace service_nodes
     crypto::public_key pubkey;
     service_node_info  info;
 
-    BEGIN_SERIALIZE()
+    BEGIN_SERIALIZE_OBJECT()
       FIELD(pubkey)
       FIELD(info)
     END_SERIALIZE()
@@ -185,9 +166,6 @@ namespace service_nodes
   template<typename T>
   void loki_shuffle(std::vector<T>& a, uint64_t seed);
 
-  static constexpr uint64_t QUEUE_SWARM_ID = 0;
-  static constexpr uint64_t KEY_IMAGE_AWAITING_UNLOCK_HEIGHT = 0;
-
   class service_node_list
     : public cryptonote::Blockchain::BlockAddedHook,
       public cryptonote::Blockchain::BlockchainDetachedHook,
@@ -196,7 +174,6 @@ namespace service_nodes
   {
   public:
     service_node_list(cryptonote::Blockchain& blockchain);
-    ~service_node_list();
     void block_added(const cryptonote::block& block, const std::vector<cryptonote::transaction>& txs) override;
     void blockchain_detached(uint64_t height) override;
     void register_hooks(service_nodes::quorum_cop &quorum_cop);
@@ -369,7 +346,7 @@ namespace service_nodes
   };
 
   bool reg_tx_extract_fields(const cryptonote::transaction& tx, std::vector<cryptonote::account_public_address>& addresses, uint64_t& portions_for_operator, std::vector<uint64_t>& portions, uint64_t& expiration_timestamp, crypto::public_key& service_node_key, crypto::signature& signature, crypto::public_key& tx_pub_key);
-  bool convert_registration_args(cryptonote::network_type nettype, std::vector<std::string> args, std::vector<cryptonote::account_public_address>& addresses, std::vector<uint64_t>& portions, uint64_t& portions_for_operator, bool& autostake, boost::optional<std::string&> err_msg);
+  bool convert_registration_args(cryptonote::network_type nettype, const std::vector<std::string>& args, std::vector<cryptonote::account_public_address>& addresses, std::vector<uint64_t>& portions, uint64_t& portions_for_operator, boost::optional<std::string&> err_msg);
   bool make_registration_cmd(cryptonote::network_type nettype, const std::vector<std::string>& args, const crypto::public_key& service_node_pubkey,
                              const crypto::secret_key &service_node_key, std::string &cmd, bool make_friendly, boost::optional<std::string&> err_msg);
 

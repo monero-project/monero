@@ -539,6 +539,13 @@ namespace cryptonote
     bool get_output_distribution(uint64_t amount, uint64_t from_height, uint64_t to_height, uint64_t &start_height, std::vector<uint64_t> &distribution, uint64_t &base) const;
 
     /**
+     * @brief gets global output indexes that should not be used, i.e. registration tx outputs
+     *
+     * @param return-by-reference blacklist global indexes of rct outputs to ignore
+     */
+    bool get_output_blacklist(std::vector<uint64_t> &blacklist) const;
+
+    /**
      * @brief gets the global indices for outputs from a given transaction
      *
      * This function gets the global indices for all outputs belonging

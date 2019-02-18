@@ -160,7 +160,7 @@ public:
 
   bool print_sn_key();
 
-  bool print_sn_status();
+  bool print_sn_status(const std::vector<std::string>& args);
 
   bool print_sr(uint64_t height);
 
