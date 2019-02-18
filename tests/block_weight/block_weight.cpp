@@ -167,16 +167,9 @@ static void test(test_t t, uint64_t blocks)
 
     if (!bc->update_next_cumulative_weight_limit())
     {
-      fprintf(stderr, "Failed to update cumulative weight limit 2\n");
+      fprintf(stderr, "Failed to update cumulative weight limit\n");
       exit(1);
     }
-    if(0)if (!bc->update_next_cumulative_weight_limit())
-    {
-      fprintf(stderr, "Failed to update cumulative weight limit 2\n");
-      exit(1);
-    }
-uint64_t last = bc->get_db().get_block_long_term_weight(bc->get_db().height() - 1);
-if (last != ltw) std::cout << "Inconsistency at " << h << std::endl;
     std::cout << "H " << h << ", BW " << w << ", EMBW " << effective_block_weight_median << ", LTBW " << ltw << std::endl;
   }
 }
