@@ -83,13 +83,13 @@ namespace epee
 
   boost::mutex &mlocker::mutex()
   {
-    static boost::mutex vmutex;
-    return vmutex;
+    static boost::mutex *vmutex = new boost::mutex();
+    return *vmutex;
   }
   std::map<size_t, unsigned int> &mlocker::map()
   {
-    static std::map<size_t, unsigned int> vmap;
-    return vmap;
+    static std::map<size_t, unsigned int> *vmap = new std::map<size_t, unsigned int>();
+    return *vmap;
   }
 
   size_t mlocker::get_page_size()
