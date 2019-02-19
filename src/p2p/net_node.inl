@@ -403,6 +403,9 @@ namespace nodetool
       full_addrs.insert("74.91.23.186:31180");
       full_addrs.insert("192.187.114.114:31180");
     }
+    else if (nettype == cryptonote::FAKECHAIN)
+    {
+    }
     else
     {
       full_addrs.insert("74.91.23.186:11180");

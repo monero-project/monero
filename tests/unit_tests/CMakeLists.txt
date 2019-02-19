@@ -41,6 +41,7 @@ set(unit_tests_sources
   command_line.cpp
   crypto.cpp
   decompose_amount_into_digits.cpp
+  device.cpp
   dns_resolver.cpp
   epee_boosted_tcp_server.cpp
   epee_levin_protocol_handler_async.cpp
@@ -56,6 +57,7 @@ set(unit_tests_sources
   int-util.cpp
   multisig.cpp
   parse_amount.cpp
+  random.cpp
   serialization.cpp
   sha256.cpp
   slow_memmem.cpp
@@ -89,7 +91,6 @@ target_link_libraries(unit_tests
     wallet
     p2p
     version
-    epee
     ${Boost_CHRONO_LIBRARY}
     ${Boost_THREAD_LIBRARY}
     ${GTEST_LIBRARIES}
