@@ -1934,6 +1934,37 @@ namespace wallet_rpc
     };
   };
 
+  struct COMMAND_RPC_GENERATE_FROM_VIEW_KEY
+  {
+    struct request
+    {
+      uint64_t restore_height;
+      std::string filename;
+      std::string address;
+      std::string viewkey;
+      std::string password;
+
+      BEGIN_KV_SERIALIZE_MAP()
+      KV_SERIALIZE_OPT(restore_height, (uint64_t)0)
+      KV_SERIALIZE(filename)
+      KV_SERIALIZE(address)
+      KV_SERIALIZE(viewkey)
+      KV_SERIALIZE(password)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string address;
+      std::string info;
+
+      BEGIN_KV_SERIALIZE_MAP()
+      KV_SERIALIZE(address)
+      KV_SERIALIZE(info)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
   struct COMMAND_RPC_GENERATE_FROM_KEYS
   {
     struct request
