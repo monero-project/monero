@@ -1108,8 +1108,8 @@ namespace cryptonote
     std::vector<uint64_t> m_timestamps;
     std::vector<difficulty_type> m_difficulties;
     uint64_t m_timestamps_and_difficulties_height;
-    boost::circular_buffer<uint64_t> m_long_term_block_weights;
-    uint64_t m_long_term_block_weights_height;
+    uint64_t m_long_term_block_weights_window;
+    uint64_t m_long_term_effective_median_block_weight;
 
     epee::critical_section m_difficulty_lock;
     crypto::hash m_difficulty_for_next_block_top_hash;
@@ -1506,12 +1506,5 @@ namespace cryptonote
      * At some point, may be used to push an update to miners
      */
     void cache_block_template(const block &b, const cryptonote::account_public_address &address, const blobdata &nonce, const difficulty_type &diff, uint64_t expected_reward, uint64_t pool_cookie);
-
-    /**
-     * @brief pops an entry from long term block weights
-     *
-     * another is added at the other end if necessary
-     */
-    void pop_from_long_term_block_weights();
   };
 }  // namespace cryptonote
