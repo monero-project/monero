@@ -229,7 +229,7 @@ TEST(long_term_block_weight, pop_invariant_max)
 
   for (uint64_t h = 1; h < TEST_LONG_TERM_BLOCK_WEIGHT_WINDOW - 10; ++h)
   {
-    size_t w = h < TEST_LONG_TERM_BLOCK_WEIGHT_WINDOW ? CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V5 : bc->get_current_cumulative_block_weight_limit();
+    size_t w = bc->get_db().height() < TEST_LONG_TERM_BLOCK_WEIGHT_WINDOW ? CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V5 : bc->get_current_cumulative_block_weight_limit();
     uint64_t ltw = bc->get_next_long_term_block_weight(w);
     bc->get_db().add_block(cryptonote::block(), w, ltw, h, h, {});
     ASSERT_TRUE(bc->update_next_cumulative_weight_limit());
@@ -277,7 +277,7 @@ TEST(long_term_block_weight, pop_invariant_random)
 
   for (uint64_t h = 1; h < TEST_LONG_TERM_BLOCK_WEIGHT_WINDOW - 10; ++h)
   {
-    size_t w = h < TEST_LONG_TERM_BLOCK_WEIGHT_WINDOW ? CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V5 : bc->get_current_cumulative_block_weight_limit();
+    size_t w = bc->get_db().height() < TEST_LONG_TERM_BLOCK_WEIGHT_WINDOW ? CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V5 : bc->get_current_cumulative_block_weight_limit();
     uint64_t ltw = bc->get_next_long_term_block_weight(w);
     bc->get_db().add_block(cryptonote::block(), w, ltw, h, h, {});
     ASSERT_TRUE(bc->update_next_cumulative_weight_limit());
@@ -287,7 +287,7 @@ TEST(long_term_block_weight, pop_invariant_random)
   {
     // pop some blocks, then add some more
     int remove = 1 + (n * 17) % 8;
-    int add = (n * 23) % 12;
+    int add = (n * 23) % 123;
 
     // save long term block weights we're about to remove
     uint64_t old_ltbw[16], h0 = bc->get_db().height() - remove - 1;
