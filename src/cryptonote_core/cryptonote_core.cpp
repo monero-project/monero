@@ -426,6 +426,8 @@ namespace cryptonote
     {
       r = init_service_node_key();
       CHECK_AND_ASSERT_MES(r, false, "Failed to create or load service node key");
+	  m_service_node_list.set_my_service_node_keys(&m_service_node_pubkey);
+
     }
     boost::filesystem::path folder(m_config_folder);
     if (m_nettype == FAKECHAIN)
@@ -1245,8 +1247,11 @@ namespace cryptonote
       cryptonote_connection_context fake_context = AUTO_VAL_INIT(fake_context);
       NOTIFY_UPTIME_PROOF::request r;
       m_quorum_cop.generate_uptime_proof_request(m_service_node_pubkey, m_service_node_key, r);
-      get_protocol()->relay_uptime_proof(r, fake_context);
-    }
+	  bool relayed = get_protocol()->relay_uptime_proof(r, fake_context);
+
+	  if (relayed)
+		  MGINFO("Submitted uptime-proof for service node (yours): " << m_service_node_pubkey);
+	}
     return true;
   }
   //-----------------------------------------------------------------------------------------------
@@ -1585,17 +1590,25 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
   void core::do_uptime_proof_call()
   {
-	  std::vector<service_nodes::service_node_pubkey_info> states = get_service_node_list_state({ m_service_node_pubkey });
 
 	  // wait one block before starting uptime proofs.
+	  std::vector<service_nodes::service_node_pubkey_info> const states = get_service_node_list_state({ m_service_node_pubkey });
+
 	  if (!states.empty() && states[0].info.registration_height + 1 < get_current_blockchain_height())
 	  {
-		  m_submit_uptime_proof_interval.do_call(boost::bind(&core::submit_uptime_proof, this));
+		  // Code snippet from Github @Jagerman
+		  m_check_uptime_proof_interval.do_call([&states, this]() {
+			  uint64_t last_uptime = m_quorum_cop.get_uptime_proof(states[0].pubkey);
+			  if (last_uptime <= static_cast<uint64_t>(time(nullptr) - UPTIME_PROOF_FREQUENCY_IN_SECONDS))
+				  this->submit_uptime_proof();
+
+			  return true;
+		  });
 	  }
 	  else
 	  {
-		  // reset the interval so that we're ready when we register.
-		  m_submit_uptime_proof_interval = epee::math_helper::once_a_time_seconds<UPTIME_PROOF_FREQUENCY_IN_SECONDS, true>();
+		  // reset the interval so that we're ready when we register, OR if we get deregistered this primes us up for re-registration in the same session
+		  m_check_uptime_proof_interval = epee::math_helper::once_a_time_seconds<UPTIME_PROOF_BUFFER_IN_SECONDS, true /*start_immediately*/>();
 	  }
   }
   //-----------------------------------------------------------------------------------------------
@@ -1625,8 +1638,11 @@ namespace cryptonote
     m_deregisters_auto_relayer.do_call(boost::bind(&core::relay_deregister_votes, this));
     m_check_updates_interval.do_call(boost::bind(&core::check_updates, this));
     m_check_disk_space_interval.do_call(boost::bind(&core::check_disk_space, this));
-	if (m_service_node)
+	time_t const lifetime = time(nullptr) - get_start_time();
+	if (m_service_node && lifetime > DIFFICULTY_TARGET_V2) // Give us some time to connect to peers before sending uptimes
+	{
 		do_uptime_proof_call();
+	}
 	m_uptime_proof_pruner.do_call(boost::bind(&service_nodes::quorum_cop::prune_uptime_proof, &m_quorum_cop));
     m_block_rate_interval.do_call(boost::bind(&core::check_block_rate, this));
     m_miner.on_idle();

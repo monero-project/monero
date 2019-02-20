@@ -48,7 +48,7 @@ namespace service_nodes
 {
 
 	service_node_list::service_node_list(cryptonote::Blockchain& blockchain)
-		: m_blockchain(blockchain), m_hooks_registered(false), m_height(0), m_db(nullptr)
+		: m_blockchain(blockchain), m_hooks_registered(false), m_height(0), m_db(nullptr), m_service_node_pubkey(nullptr)
 	{
 	}
 
@@ -276,7 +276,14 @@ namespace service_nodes
 		if (iter == m_service_nodes_infos.end())
 			return;
 
-		LOG_PRINT_L1("Deregistration for service node: " << key);
+		if (m_service_node_pubkey && *m_service_node_pubkey == key)
+		{
+			MGINFO_RED("Deregistration for service node (yours): " << key);
+		}
+		else
+		{
+			LOG_PRINT_L1("Deregistration for service node: " << key);
+		}
 
 		m_rollback_events.push_back(std::unique_ptr<rollback_event>(new rollback_change(block_height, key, iter->second)));
 		m_service_nodes_infos.erase(iter);
@@ -377,7 +384,14 @@ namespace service_nodes
 		if (iter != m_service_nodes_infos.end())
 			return;
 
-		LOG_PRINT_L1("New service node registered: " << key << " at block height: " << block_height);
+		if (m_service_node_pubkey && *m_service_node_pubkey == key)
+		{
+			MGINFO_GREEN("New service node registered (yours): " << key << " at block height: " << block_height);
+		}
+		else
+		{
+			LOG_PRINT_L1("New service node registered: " << key << " at block height: " << block_height);
+		}
 
 		m_rollback_events.push_back(std::unique_ptr<rollback_event>(new rollback_new(block_height, key)));
 		m_service_nodes_infos[key] = info;
@@ -975,8 +989,8 @@ namespace service_nodes
 			}
 		}
 
-		LOG_PRINT_L0("Service node data loaded successfully, m_height: " << m_height);
-		LOG_PRINT_L0(m_service_nodes_infos.size() << " nodes and " << m_rollback_events.size() << " rollback events loaded.");
+		MGINFO("Service node data loaded successfully, m_height: " << m_height);
+		MGINFO(m_service_nodes_infos.size() << " nodes and " << m_rollback_events.size() << " rollback events loaded.");
 
 		LOG_PRINT_L1("service_node_list::load() returning success");
 		return true;

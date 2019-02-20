@@ -33,6 +33,9 @@ portions// Copyright (c) 2014-2018, The Monero Project
  *
  * \brief Source file that defines simple_wallet class.
  */
+#ifdef _WIN32
+#define __STDC_FORMAT_MACROS // NOTE(triton): Explicitly define the PRIu64 macro on Mingw
+#endif
 #include <thread>
 #include <iostream>
 #include <sstream>
@@ -5204,9 +5207,7 @@ bool simple_wallet::register_service_node_main(
 	if (!try_connect_to_daemon(true))
       return true;
   }
-	uint64_t fetched_blocks;
-	m_wallet->refresh(0, fetched_blocks);
-}
+	m_wallet->refresh(false);
 
 if (expiration_timestamp <= (uint64_t)time(nullptr) + 600 /* 10 minutes */)
 {
@@ -5850,7 +5851,7 @@ bool simple_wallet::stake_main(
 }
 bool simple_wallet::stake(const std::vector<std::string> &args_)
 {
-	// stake [index=<N1>[,<N2>,...]] [priority] <service node pubkey>
+	// stake [index=<N1>[,<N2>,...]] [priority] <service node pubkey> <contributor address> <amount|percent%>
 
 	if (m_wallet->ask_password() && !get_and_verify_password()) { return true; }
 	if (!try_connect_to_daemon())
@@ -6253,6 +6254,14 @@ bool simple_wallet::sweep_main(uint64_t below, bool locked, const std::vector<st
     fail_msg_writer() << tr("failed to parse address");
     print_usage();
     return true;
+  }
+
+  if (info.is_subaddress)
+  {
+	  fail_msg_writer() << tr("Service nodes doesn't support rewards to subaddresses, cannot stake for address: ")
+		  << local_args[1]
+		  << tr("Please use index=[...] if you want to stake funds from particular subaddresses.");
+	  return true;
   }
 
   if (info.has_payment_id)
