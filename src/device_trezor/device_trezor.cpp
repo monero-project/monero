@@ -393,7 +393,7 @@ namespace trezor {
 
       const bool nonce_required = tdata.tsx_data.has_payment_id() && tdata.tsx_data.payment_id().size() > 0;
       const bool has_nonce = cryptonote::find_tx_extra_field_by_type(tx_extra_fields, nonce);
-      CHECK_AND_ASSERT_THROW_MES(has_nonce == nonce_required, "Transaction nonce presence inconsistent");
+      CHECK_AND_ASSERT_THROW_MES(has_nonce || !nonce_required, "Transaction nonce not present");
 
       if (nonce_required){
         const std::string & payment_id = tdata.tsx_data.payment_id();
