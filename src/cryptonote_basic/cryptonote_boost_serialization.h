@@ -45,7 +45,7 @@
 #include "ringct/rctTypes.h"
 #include "ringct/rctOps.h"
 
-BOOST_CLASS_VERSION(rct::ecdhTuple, 1)
+BOOST_CLASS_VERSION(rct::ecdhTuple, 2)
 
 //namespace cryptonote {
 namespace boost
@@ -249,19 +249,22 @@ namespace boost
   template <class Archive>
   inline void serialize(Archive &a, rct::ecdhTuple &x, const boost::serialization::version_type ver)
   {
-    if (ver < 1)
+    if (ver < 1 || ver == 2)
     {
       a & x.mask;
       a & x.amount;
       return;
     }
-    crypto::hash8 &amount = (crypto::hash8&)x.amount;
-    if (!Archive::is_saving::value)
+    else if (ver < 2)
     {
-      memset(&x.mask, 0, sizeof(x.mask));
-      memset(&x.amount, 0, sizeof(x.amount));
+      crypto::hash8 &amount = (crypto::hash8 &) x.amount;
+      if (!Archive::is_saving::value)
+      {
+        memset(&x.mask, 0, sizeof(x.mask));
+        memset(&x.amount, 0, sizeof(x.amount));
+      }
+      a & amount;
     }
-    a & amount;
   }
 
   template <class Archive>
