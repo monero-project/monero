@@ -7225,7 +7225,7 @@ wallet2::stake_result wallet2::create_stake_tx(std::vector<pending_tx> &ptx, con
   add_service_node_contributor_to_tx_extra(extra, address);
 
   vector<cryptonote::tx_destination_entry> dsts;
-  cryptonote::tx_destination_entry de;
+  cryptonote::tx_destination_entry de = {};
   de.addr = address;
   de.is_subaddress = false;
   de.amount = amount;
@@ -7247,7 +7247,15 @@ wallet2::stake_result wallet2::create_stake_tx(std::vector<pending_tx> &ptx, con
   const uint64_t locked_blocks = staking_requirement_lock_blocks + STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS;
   uint64_t unlock_at_block = bc_height + locked_blocks;
   if (use_fork_rules(cryptonote::network_version_11_swarms, 1))
+  {
     unlock_at_block = 0; // Infinite staking, no time lock
+    if (subaddr_account != 0)
+    {
+      result.msg = tr("Infinite staking does not allow staking from a subaddress");
+      result.status = stake_result_status::subaddress_disallowed;
+      return result;
+    }
+  }
 
   try
   {

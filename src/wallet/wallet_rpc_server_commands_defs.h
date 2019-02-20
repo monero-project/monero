@@ -2190,5 +2190,55 @@ namespace wallet_rpc
     };
   };
 
+  struct COMMAND_RPC_STAKE
+  {
+    struct request
+    {
+      std::string        destination;
+      uint64_t           amount;
+      std::set<uint32_t> subaddr_indices;
+      std::string        service_node_key;
+      uint32_t           priority;
+      bool               get_tx_key;
+      bool               do_not_relay;
+      bool               get_tx_hex;
+      bool               get_tx_metadata;
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE_OPT(subaddr_indices, {});
+        KV_SERIALIZE    (destination);
+        KV_SERIALIZE    (amount);
+        KV_SERIALIZE    (service_node_key);
+        KV_SERIALIZE_OPT(priority,        (uint32_t)0);
+        KV_SERIALIZE    (get_tx_key)
+        KV_SERIALIZE_OPT(do_not_relay,    false)
+        KV_SERIALIZE_OPT(get_tx_hex,      false)
+        KV_SERIALIZE_OPT(get_tx_metadata, false)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string tx_hash;
+      std::string tx_key;
+      uint64_t amount;
+      uint64_t fee;
+      std::string tx_blob;
+      std::string tx_metadata;
+      std::string multisig_txset;
+      std::string unsigned_txset;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(tx_hash)
+        KV_SERIALIZE(tx_key)
+        KV_SERIALIZE(amount)
+        KV_SERIALIZE(fee)
+        KV_SERIALIZE(tx_blob)
+        KV_SERIALIZE(tx_metadata)
+        KV_SERIALIZE(multisig_txset)
+        KV_SERIALIZE(unsigned_txset)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
 }
 }
