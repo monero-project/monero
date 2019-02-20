@@ -2242,7 +2242,7 @@ namespace wallet_rpc
 
   struct COMMAND_RPC_VALIDATE_ADDRESS
   {
-    struct request_t
+    struct request
     {
       std::string address;
       bool any_net_type;
@@ -2254,9 +2254,10 @@ namespace wallet_rpc
         KV_SERIALIZE_OPT(allow_openalias, false)
       END_KV_SERIALIZE_MAP()
     };
-    typedef epee::misc_utils::struct_init<request_t> request;
+    // TODO(doyle): FIXME(loki): When the associated commit from upstream Monero is merged
+    // typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response_t
+    struct response
     {
       bool valid;
       bool integrated;
@@ -2272,7 +2273,7 @@ namespace wallet_rpc
         KV_SERIALIZE(openalias_address)
       END_KV_SERIALIZE_MAP()
     };
-    typedef epee::misc_utils::struct_init<response_t> response;
+    // typedef epee::misc_utils::struct_init<response_t> response;
   };
 
 }
