@@ -110,7 +110,8 @@ Dates are provided in the format YYYY-MM-DD.
 | 1546000                        | 2018-04-06 | v7                | v0.12.0.0              | v0.12.3.0                  | Cryptonight variant 1, ringsize >= 7, sorted inputs
 | 1685555                        | 2018-10-18 | v8                | v0.13.0.0              | v0.13.0.0                  | max transaction size at half the penalty free block size, bulletproofs enabled, cryptonight variant 2, fixed ringsize [11](https://youtu.be/KOO5S4vxi0o)
 | 1686275                        | 2018-10-19 | v9                | v0.13.0.0              | v0.13.0.0                  | bulletproofs required
-| XXXXXXX                        | 2019-04-XX | XX                | XXXXXXXXX              | XXXXXXXXX                  | X
+| 1788000                        | 2019-03-09 | v10               | v0.14.0.0              | v0.14.0.0                  | New PoW based on Cryptonight-R, new block weight algorithm, slightly more efficient RingCT format
+| 1788720                        | 2019-03-10 | v11               | v0.14.0.0              | v0.14.0.0                  | forbid old RingCT transaction format
 
 X's indicate that these details have not been determined as of commit date.
 
@@ -179,7 +180,7 @@ invokes cmake commands as needed.
 * Change to the root of the source code directory, change to the most recent release branch, and build:
 
         cd monero
-        git checkout v0.13.0.4
+        git checkout v0.14.0.0
         make
 
     *Optional*: If your machine has several cores and enough memory, enable
@@ -241,7 +242,7 @@ Tested on a Raspberry Pi Zero with a clean install of minimal Raspbian Stretch (
 ```
         git clone https://github.com/monero-project/monero.git
 	cd monero
-	git checkout tags/v0.13.0.4
+	git checkout tags/v0.14.0.0
 ```
 * Build:
 ```
@@ -338,9 +339,9 @@ application.
 	
         cd monero
 
-* If you would like a specific [version/tag](https://github.com/monero-project/monero/tags), do a git checkout for that version. eg. 'v0.13.0.0'. If you dont care about the version and just want binaries from master, skip this step:
+* If you would like a specific [version/tag](https://github.com/monero-project/monero/tags), do a git checkout for that version. eg. 'v0.14.0.0'. If you dont care about the version and just want binaries from master, skip this step:
 	
-        git checkout v0.13.0.4
+        git checkout v0.14.0.0
 
 * If you are on a 64-bit system, run:
 
