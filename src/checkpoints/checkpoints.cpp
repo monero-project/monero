@@ -79,7 +79,23 @@ namespace cryptonote
     add_checkpoint(300,"ace104d1eac739e05788a3e304c270a69f9e0ca6175888e01c65f6c36eac7e22");
     add_checkpoint(400,"37cff9f1432e29938b59b3e7a03ed1a8b687567185d0b7c4fc16f1492a6fc6f2");
     add_checkpoint(500,"1728b36b6e122d5dd4fa0771504a8b28b42b72fc31e876859c0ae8894a17d644");
+<<<<<<< HEAD
     add_checkpoint(600,"560fdf9acbe419f626eb24675fa31a228d567c3bc317ad69afc1359a78d95ed0");
+=======
+	add_checkpoint(1000, "99c15f776abcf7f3503d7fdb46c442180c3339ad1a11e712ffdb3abe3f0efe33");
+	add_checkpoint(2000, "79d91356d014b0738060071789a1a42d92546c291f7265d69b59ab2945029ee3");
+	add_checkpoint(3000, "8eb26476daf8f8c6cd7cfdc9ede3098a71e96dd686289025abba5b7c49e44776");
+	add_checkpoint(5000, "4ec06bc529bda640aef055aa3c4677d7cee97e6df4e49c5c685f317a51053be6");
+	add_checkpoint(7500, "ff98ff532ad49726ae2fc9a621d9b03ab1e4afdc8b8b9391a99c587e610ca820");
+	add_checkpoint(10000, "7229f2a4ecb7186ff89033fca1ef90e459fdb7655fa232e5776d0756609dc0eb");
+	add_checkpoint(15000, "9cd32503a1328e3f8110110f86eb829753f6ed81322abd48872fbcecc2f8ad05");
+	add_checkpoint(20000, "59eb5decfb889e735d1c53fc382738e8f9e1c8a958d791e27c8e68454224e282");
+	add_checkpoint(25000, "46bab31af66503ba8e1b0c68558e379d55a2c1014fce8f9e858a5af3f590f06a");
+	add_checkpoint(30000, "98666629df23137db3dd7ea2ec07982b00fc9963eecf52b4eb843e210b8db382");
+	add_checkpoint(35000, "35901eeb1084e38f48a9e67201ff9a427828e8a4f942da822cf0d5d97d4d4119");
+	add_checkpoint(40000, "d429c64a64e76a2ec557a8083a10d4dca7e77fb94162be4105f8249960460b17");
+  add_checkpoint(45000, "e632e631eeb62c94c40c19c9eb5f04d11f634477e9293cde889a4478c85ef16f");
+>>>>>>> 6e5eb06... Seed Nodes & Checkpoints
 
   }
   //---------------------------------------------------------------------------
