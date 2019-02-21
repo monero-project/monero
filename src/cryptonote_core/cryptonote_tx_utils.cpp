@@ -691,21 +691,23 @@ namespace cryptonote
     size_t output_index = 0;
 
     tx_extra_tx_key_image_proofs key_image_proofs;
-    bool found_change = false;
+    bool found_change_already = false;
     for(const tx_destination_entry& dst_entr: destinations)
     {
       CHECK_AND_ASSERT_MES(dst_entr.amount > 0 || tx.version > 1, false, "Destination with wrong amount: " << dst_entr.amount);
       crypto::public_key out_eph_public_key;
 
-      hwdev.generate_output_ephemeral_keys(tx.version, found_change, sender_account_keys, txkey_pub, tx_key,
+      bool this_dst_is_change_addr = false;
+      hwdev.generate_output_ephemeral_keys(tx.version, this_dst_is_change_addr, sender_account_keys, txkey_pub, tx_key,
                                            dst_entr, change_addr, output_index,
                                            need_additional_txkeys, additional_tx_keys,
                                            additional_tx_public_keys, amount_keys, out_eph_public_key);
 
       if (tx.version > 2)
       {
-        if (change_addr && *change_addr == dst_entr && !found_change)
+        if (change_addr && *change_addr == dst_entr && this_dst_is_change_addr && !found_change_already)
         {
+          found_change_already = true;
           tx.output_unlock_times.push_back(0); // 0 unlock time for change
         }
         else
