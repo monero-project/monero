@@ -2445,6 +2445,70 @@ size_t BlockchainLMDB::get_block_weight(const uint64_t& height) const
   return ret;
 }
 
+std::vector<uint64_t> BlockchainLMDB::get_block_info_64bit_fields(uint64_t start_height, size_t count, off_t offset) const
+{
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  check_open();
+
+  TXN_PREFIX_RDONLY();
+  RCURSOR(block_info);
+
+  const uint64_t h = height();
+  if (start_height >= h)
+    throw0(DB_ERROR(("Height " + std::to_string(start_height) + " not in blockchain").c_str()));
+
+  std::vector<uint64_t> ret;
+  ret.reserve(count);
+
+  MDB_val v;
+  uint64_t range_begin = 0, range_end = 0;
+  for (uint64_t height = start_height; height < h && count--; ++height)
+  {
+    if (height >= range_begin && height < range_end)
+    {
+      // nothing to do
+    }
+    else
+    {
+      int result = 0;
+      if (range_end > 0)
+      {
+        MDB_val k2;
+        result = mdb_cursor_get(m_cur_block_info, &k2, &v, MDB_NEXT_MULTIPLE);
+        range_begin = ((const mdb_block_info*)v.mv_data)->bi_height;
+        range_end = range_begin + v.mv_size / sizeof(mdb_block_info); // whole records please
+        if (height < range_begin || height >= range_end)
+          throw0(DB_ERROR(("Height " + std::to_string(height) + " not included in multiple record range: " + std::to_string(range_begin) + "-" + std::to_string(range_end)).c_str()));
+      }
+      else
+      {
+        v.mv_size = sizeof(uint64_t);
+        v.mv_data = (void*)&height;
+        result = mdb_cursor_get(m_cur_block_info, (MDB_val *)&zerokval, &v, MDB_GET_BOTH);
+        range_begin = height;
+        range_end = range_begin + 1;
+      }
+      if (result)
+        throw0(DB_ERROR(lmdb_error("Error attempting to retrieve block_info from the db: ", result).c_str()));
+    }
+    const mdb_block_info *bi = ((const mdb_block_info *)v.mv_data) + (height - range_begin);
+    ret.push_back(*(const uint64_t*)(((const char*)bi) + offset));
+  }
+
+  TXN_POSTFIX_RDONLY();
+  return ret;
+}
+
+std::vector<uint64_t> BlockchainLMDB::get_block_weights(uint64_t start_height, size_t count) const
+{
+  return get_block_info_64bit_fields(start_height, count, offsetof(mdb_block_info, bi_weight));
+}
+
+std::vector<uint64_t> BlockchainLMDB::get_long_term_block_weights(uint64_t start_height, size_t count) const
+{
+  return get_block_info_64bit_fields(start_height, count, offsetof(mdb_block_info, bi_long_term_block_weight));
+}
+
 difficulty_type BlockchainLMDB::get_block_cumulative_difficulty(const uint64_t& height) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__ << "  height: " << height);

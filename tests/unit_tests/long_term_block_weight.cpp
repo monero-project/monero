@@ -64,6 +64,18 @@ public:
   virtual uint64_t height() const override { return blocks.size(); }
   virtual size_t get_block_weight(const uint64_t &h) const override { return blocks[h].weight; }
   virtual uint64_t get_block_long_term_weight(const uint64_t &h) const override { return blocks[h].long_term_weight; }
+  virtual std::vector<uint64_t> get_block_weights(uint64_t start_height, size_t count) const override {
+    std::vector<uint64_t> ret;
+    ret.reserve(count);
+    while (count-- && start_height < blocks.size()) ret.push_back(blocks[start_height++].weight);
+    return ret;
+  }
+  virtual std::vector<uint64_t> get_long_term_block_weights(uint64_t start_height, size_t count) const override {
+    std::vector<uint64_t> ret;
+    ret.reserve(count);
+    while (count-- && start_height < blocks.size()) ret.push_back(blocks[start_height++].long_term_weight);
+    return ret;
+  }
   virtual crypto::hash top_block_hash(uint64_t *block_height = NULL) const override {
     uint64_t h = height();
     crypto::hash top = crypto::null_hash;

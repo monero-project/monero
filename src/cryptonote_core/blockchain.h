@@ -1288,12 +1288,23 @@ namespace cryptonote
     /**
      * @brief gets recent block weights for median calculation
      *
-     * get the block weights of the last <count> blocks, and return by reference <sz>.
+     * get the block weights of the last <count> blocks, and return by reference <weights>.
      *
-     * @param sz return-by-reference the list of weights
+     * @param weights return-by-reference the list of weights
      * @param count the number of blocks to get weights for
      */
     void get_last_n_blocks_weights(std::vector<uint64_t>& weights, size_t count) const;
+
+    /**
+     * @brief gets recent block long term weights for median calculation
+     *
+     * get the block long term weights of the last <count> blocks, and return by reference <weights>.
+     *
+     * @param weights return-by-reference the list of weights
+     * @param start_height the block height of the first block to query
+     * @param count the number of blocks to get weights for
+     */
+    void get_long_term_block_weights(std::vector<uint64_t>& weights, uint64_t start_height, size_t count) const;
 
     /**
      * @brief checks if a transaction is unlocked (its outputs spendable)
