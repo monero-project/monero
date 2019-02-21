@@ -1168,15 +1168,17 @@ void Blockchain::get_last_n_blocks_sizes(std::vector<uint64_t>& sz, size_t count
   if(h == 0)
     return;
 
-  m_db->block_txn_start(true);
   // add size of last <count> blocks to vector <sz> (or less, if blockchain size < count)
   size_t start_offset = h - std::min<size_t>(h, count);
-  sz.reserve(sz.size() + h - start_offset);
-  for(size_t i = start_offset; i < h; i++)
-  {
-    sz.push_back(m_db->get_block_size(i));
-  }
-  m_db->block_txn_stop();
+  sz = m_db->get_block_sizes(start_offset, count);
+}
+//------------------------------------------------------------------
+void Blockchain::get_long_term_block_sizes(std::vector<uint64_t>& sz, uint64_t start_height, size_t count) const
+{
+  LOG_PRINT_L3("Blockchain::" << __func__);
+  CRITICAL_REGION_LOCAL(m_blockchain_lock);
+
+  sz = m_db->get_long_term_block_sizes(start_height, count);
 }
 //------------------------------------------------------------------
 uint64_t Blockchain::get_current_cumulative_blocksize_limit() const
@@ -3604,9 +3606,7 @@ uint64_t Blockchain::get_next_long_term_block_size(uint64_t block_size) const
     return block_size;
 
   std::vector<uint64_t> sizes;
-  sizes.resize(nblocks);
-  for (uint64_t h = 0; h < nblocks; ++h)
-    sizes[h] = m_db->get_block_long_term_size(db_height - nblocks + h);
+  get_long_term_block_sizes(sizes, db_height - nblocks, nblocks);
   uint64_t long_term_median = epee::misc_utils::median(sizes);
   uint64_t long_term_effective_median_block_size = std::max<uint64_t>(CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V1, long_term_median);
 
@@ -3650,9 +3650,7 @@ bool Blockchain::update_next_cumulative_size_limit(uint64_t *long_term_effective
       uint64_t nblocks = std::min<uint64_t>(m_long_term_block_sizes_window, db_height);
       if (nblocks == db_height)
         --nblocks;
-      sizes.resize(nblocks);
-      for (uint64_t h = 0; h < nblocks; ++h)
-        sizes[h] = m_db->get_block_long_term_size(db_height - nblocks + h - 1);
+      get_long_term_block_sizes(sizes, db_height - nblocks - 1, nblocks);
       new_sizes = sizes;
       long_term_median = epee::misc_utils::median(sizes);
     }

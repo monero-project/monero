@@ -948,6 +948,17 @@ public:
   virtual size_t get_block_size(const uint64_t& height) const = 0;
 
   /**
+   * @brief fetch the last N blocks' sizes
+   *
+   * If there are fewer than N blocks, the returned array will be smaller than N
+   *
+   * @param count the number of blocks requested
+   *
+   * @return the sizes
+   */
+  virtual std::vector<uint64_t> get_block_sizes(uint64_t start_height, size_t count) const = 0;
+
+  /**
    * @brief fetch a block's cumulative difficulty
    *
    * The subclass should return the cumulative difficulty of the block with the
@@ -999,6 +1010,17 @@ public:
    * @return the long term size
    */
   virtual uint64_t get_block_long_term_size(const uint64_t& height) const = 0;
+
+  /**
+   * @brief fetch the last N blocks' long term sizes
+   *
+   * If there are fewer than N blocks, the returned array will be smaller than N
+   *
+   * @param count the number of blocks requested
+   *
+   * @return the sizes
+   */
+  virtual std::vector<uint64_t> get_long_term_block_sizes(uint64_t start_height, size_t count) const = 0;
 
   /**
    * @brief fetch a block's hash

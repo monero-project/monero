@@ -1226,6 +1226,17 @@ namespace cryptonote
     void get_last_n_blocks_sizes(std::vector<uint64_t>& sz, size_t count) const;
 
     /**
+     * @brief gets recent block long term sizes for median calculation
+     *
+     * get the block long term sizes of the last <count> blocks, and return by reference <sz>.
+     *
+     * @param sz return-by-reference the list of sizes
+     * @param start_height the block height of the first block to query
+     * @param count the number of blocks to get sizes for
+     */
+    void get_long_term_block_sizes(std::vector<uint64_t>& sz, uint64_t start_height, size_t count) const;
+
+    /**
      * @brief checks if a transaction is unlocked (its outputs spendable)
      *
      * This function checks to see if a transaction is unlocked.

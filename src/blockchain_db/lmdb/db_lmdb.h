@@ -207,6 +207,8 @@ public:
 
   virtual size_t get_block_size(const uint64_t& height) const;
 
+  virtual std::vector<uint64_t> get_block_sizes(uint64_t start_height, size_t count) const;
+
   virtual difficulty_type get_block_cumulative_difficulty(const uint64_t& height) const;
 
   virtual difficulty_type get_block_difficulty(const uint64_t& height) const;
@@ -214,6 +216,8 @@ public:
   virtual uint64_t get_block_already_generated_coins(const uint64_t& height) const;
 
   virtual uint64_t get_block_long_term_size(const uint64_t& height) const;
+
+  virtual std::vector<uint64_t> get_long_term_block_sizes(uint64_t start_height, size_t count) const;
 
   virtual crypto::hash get_block_hash_from_height(const uint64_t& height) const;
 
@@ -384,6 +388,8 @@ private:
   virtual bool is_read_only() const;
 
   virtual uint64_t get_database_size() const;
+
+  std::vector<uint64_t> get_block_info_64bit_fields(uint64_t start_height, size_t count, off_t offset) const;
 
   // fix up anything that may be wrong due to past bugs
   virtual void fixup();
