@@ -99,7 +99,7 @@ private:
       hard_forks, \
       window, \
     }; \
-    get_test_options(): hard_forks{{std::make_pair(1, (uint64_t)0), std::make_pair((uint8_t)hf_version, (uint64_t)LONG_TERM_BLOCK_WEIGHT_WINDOW), std::make_pair((uint8_t)0, (uint64_t)0)}} {} \
+    get_test_options(): hard_forks{{std::make_pair(cryptonote::network_version_7, (uint64_t)0), std::make_pair((uint8_t)hf_version, (uint64_t)LONG_TERM_BLOCK_WEIGHT_WINDOW)}} {} \
   } opts; \
   cryptonote::Blockchain *bc = &bc_objects.m_blockchain; \
   bool r = bc->init(new TestDB(), cryptonote::FAKECHAIN, true, &opts.test_options, 0); \
@@ -121,13 +121,13 @@ static uint32_t lcg()
 
 static void test(test_t t, uint64_t blocks)
 {
-  PREFIX(10);
+  PREFIX(HF_VERSION_LONG_TERM_BLOCK_WEIGHT);
 
   for (uint64_t h = 0; h < LONG_TERM_BLOCK_WEIGHT_WINDOW; ++h)
   {
     cryptonote::block b;
-    b.major_version = 1;
-    b.minor_version = 1;
+    b.major_version = cryptonote::network_version_7;
+    b.minor_version = cryptonote::network_version_7;
     bc->get_db().add_block(std::move(b), 300000, 300000, bc->get_db().height(), bc->get_db().height(), {});
     if (!bc->update_next_cumulative_weight_limit())
     {
@@ -160,8 +160,8 @@ static void test(test_t t, uint64_t blocks)
     }
     uint64_t ltw = bc->get_next_long_term_block_weight(w);
     cryptonote::block b;
-    b.major_version = 10;
-    b.minor_version = 10;
+    b.major_version = HF_VERSION_LONG_TERM_BLOCK_WEIGHT;
+    b.minor_version = HF_VERSION_LONG_TERM_BLOCK_WEIGHT;
     bc->get_db().add_block(std::move(b), w, ltw, bc->get_db().height(), bc->get_db().height(), {});
 
     if (!bc->update_next_cumulative_weight_limit())

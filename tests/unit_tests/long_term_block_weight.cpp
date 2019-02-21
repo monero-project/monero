@@ -96,7 +96,7 @@ static uint32_t lcg()
       hard_forks, \
       window, \
     }; \
-    get_test_options(): hard_forks{{std::make_pair(1, (uint64_t)0), std::make_pair((uint8_t)hf_version, (uint64_t)1), std::make_pair((uint8_t)0, (uint64_t)0)}} {} \
+    get_test_options(): hard_forks{{std::make_pair(cryptonote::network_version_7, (uint64_t)0), std::make_pair((uint8_t)hf_version, (uint64_t)1)}} {} \
   } opts; \
   cryptonote::Blockchain *bc = &bc_objects.m_blockchain; \
   bool r = bc->init(new ::TestDB(), cryptonote::FAKECHAIN, true, &opts.test_options, 0); \
@@ -133,7 +133,7 @@ TEST(long_term_block_weight, identical_before_fork)
 
 TEST(long_term_block_weight, identical_after_fork_before_long_term_window)
 {
-  PREFIX(10);
+  PREFIX(HF_VERSION_LONG_TERM_BLOCK_WEIGHT);
 
   for (uint64_t h = 1; h <= TEST_LONG_TERM_BLOCK_WEIGHT_WINDOW; ++h)
   {
@@ -150,7 +150,7 @@ TEST(long_term_block_weight, identical_after_fork_before_long_term_window)
 
 TEST(long_term_block_weight, ceiling_at_30000000)
 {
-  PREFIX(10);
+  PREFIX(HF_VERSION_LONG_TERM_BLOCK_WEIGHT);
 
   for (uint64_t h = 0; h < TEST_LONG_TERM_BLOCK_WEIGHT_WINDOW + TEST_LONG_TERM_BLOCK_WEIGHT_WINDOW / 2 - 1; ++h)
   {
@@ -165,7 +165,7 @@ TEST(long_term_block_weight, ceiling_at_30000000)
 
 TEST(long_term_block_weight, multi_pop)
 {
-  PREFIX(10);
+  PREFIX(HF_VERSION_LONG_TERM_BLOCK_WEIGHT);
 
   for (uint64_t h = 1; h <= TEST_LONG_TERM_BLOCK_WEIGHT_WINDOW + 20; ++h)
   {
@@ -200,7 +200,7 @@ TEST(long_term_block_weight, multi_pop)
 
 TEST(long_term_block_weight, multiple_updates)
 {
-  PREFIX(10);
+  PREFIX(HF_VERSION_LONG_TERM_BLOCK_WEIGHT);
 
   for (uint64_t h = 1; h <= 3 * TEST_LONG_TERM_BLOCK_WEIGHT_WINDOW; ++h)
   {
@@ -224,7 +224,7 @@ TEST(long_term_block_weight, multiple_updates)
 
 TEST(long_term_block_weight, pop_invariant_max)
 {
-  PREFIX(10);
+  PREFIX(HF_VERSION_LONG_TERM_BLOCK_WEIGHT);
 
   for (uint64_t h = 1; h < TEST_LONG_TERM_BLOCK_WEIGHT_WINDOW - 10; ++h)
   {
@@ -272,7 +272,7 @@ TEST(long_term_block_weight, pop_invariant_max)
 
 TEST(long_term_block_weight, pop_invariant_random)
 {
-  PREFIX(10);
+  PREFIX(HF_VERSION_LONG_TERM_BLOCK_WEIGHT);
 
   for (uint64_t h = 1; h < TEST_LONG_TERM_BLOCK_WEIGHT_WINDOW - 10; ++h)
   {
@@ -332,7 +332,7 @@ TEST(long_term_block_weight, pop_invariant_random)
 
 TEST(long_term_block_weight, long_growth_spike_and_drop)
 {
-  PREFIX(10);
+  PREFIX(HF_VERSION_LONG_TERM_BLOCK_WEIGHT);
 
   uint64_t long_term_effective_median_block_weight;
 
