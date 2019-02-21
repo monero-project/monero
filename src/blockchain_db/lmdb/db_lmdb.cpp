@@ -4748,6 +4748,7 @@ void BlockchainLMDB::migrate_2_3()
       throw0(DB_ERROR(lmdb_error("Failed to delete old block_info table: ", result).c_str()));
 
     RENAME_DB("block_infn");
+    mdb_dbi_close(m_env, m_block_info);
 
     lmdb_db_open(txn, "block_info", MDB_INTEGERKEY | MDB_CREATE | MDB_DUPSORT | MDB_DUPFIXED, m_block_info, "Failed to open db handle for block_infn");
     mdb_set_dupsort(txn, m_block_info, compare_uint64);
