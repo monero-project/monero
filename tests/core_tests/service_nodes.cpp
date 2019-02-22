@@ -169,9 +169,12 @@ bool gen_service_nodes::check_registered(cryptonote::core& c, size_t ev_index, c
   r = find_block_chain(events, chain, mtx, get_block_hash(blocks.back()));
   CHECK_TEST_CONDITION(r);
 
+  // Expect the change to have unlock time of 0, and we get that back immediately ~0.8 loki
+  // 101 (balance) - 100 (stake) - 0.2 (test fee) = 0.8 loki
+  const uint64_t unlocked_balance    = get_unlocked_balance(alice, blocks, mtx);
   const uint64_t staking_requirement = MK_COINS(100);
 
-  CHECK_EQ(MK_COINS(101) - TESTS_DEFAULT_FEE - staking_requirement, get_unlocked_balance(alice, blocks, mtx));
+  CHECK_EQ(MK_COINS(101) - TESTS_DEFAULT_FEE - staking_requirement, unlocked_balance);
 
   /// check that alice is registered
   const auto info_v = c.get_service_node_list_state({m_alice_service_node_keys.pub});

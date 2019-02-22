@@ -57,6 +57,7 @@ namespace cryptonote
 {
    struct test_options {
      const std::vector<std::pair<uint8_t, uint64_t>> hard_forks;
+     const size_t long_term_block_weight_window;
    };
 
   extern const command_line::arg_descriptor<std::string, false, true, 2> arg_data_dir;
@@ -1179,6 +1180,8 @@ namespace cryptonote
      bool m_fluffy_blocks_enabled;
      bool m_offline;
      bool m_pad_transactions;
+
+     std::shared_ptr<tools::Notify> m_block_rate_notify;
    };
 }
 

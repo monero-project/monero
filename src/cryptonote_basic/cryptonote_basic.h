@@ -422,8 +422,8 @@ namespace cryptonote
   /************************************************************************/
   struct block_header
   {
-    uint8_t major_version;
-    uint8_t minor_version;  // now used as a voting mechanism, rather than how this particular block is built
+    uint8_t major_version = cryptonote::network_version_7;
+    uint8_t minor_version = cryptonote::network_version_7;  // now used as a voting mechanism, rather than how this particular block is built
     uint64_t timestamp;
     crypto::hash  prev_id;
     uint32_t nonce;
