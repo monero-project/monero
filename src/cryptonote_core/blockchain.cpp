@@ -2640,8 +2640,8 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
 
   // Min/Max Type/Version Check
   {
-    size_t min_version = transaction::get_min_version_for_hf(hf_version);
-    size_t max_version = transaction::get_max_version_for_hf(hf_version);
+    size_t min_version = transaction::get_min_version_for_hf(hf_version, nettype());
+    size_t max_version = transaction::get_max_version_for_hf(hf_version, nettype());
 
     if (hf_version >= network_version_11_swarms)
       tvc.m_invalid_type    |= (tx.type > transaction::type_key_image_unlock);
