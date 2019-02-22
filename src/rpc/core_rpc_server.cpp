@@ -875,11 +875,30 @@ namespace cryptonote
     res.active = lMiner.is_mining();
     res.is_background_mining_enabled = lMiner.get_is_background_mining_enabled();
     
+    res.block_target = m_core.get_blockchain_storage().get_current_hard_fork_version() < 2 ? DIFFICULTY_TARGET_V1 : DIFFICULTY_TARGET_V2;
     if ( lMiner.is_mining() ) {
       res.speed = lMiner.get_speed();
       res.threads_count = lMiner.get_threads_count();
-      const account_public_address& lMiningAdr = lMiner.get_mining_address();
-      res.address = get_account_address_as_str(nettype(), false, lMiningAdr);
+      res.block_reward = lMiner.get_block_reward();
+    }
+    const account_public_address& lMiningAdr = lMiner.get_mining_address();
+    res.address = get_account_address_as_str(nettype(), false, lMiningAdr);
+    const uint8_t major_version = m_core.get_blockchain_storage().get_current_hard_fork_version();
+    const unsigned variant = major_version >= 7 ? major_version - 6 : 0;
+    switch (variant)
+    {
+      case 0: res.pow_algorithm = "Cryptonight"; break;
+      case 1: res.pow_algorithm = "CNv1 (Cryptonight variant 1)"; break;
+      case 2: case 3: res.pow_algorithm = "CNv2 (Cryptonight variant 2)"; break;
+      case 4: case 5: res.pow_algorithm = "CNv4 (Cryptonight variant 4)"; break;
+      default: res.pow_algorithm = "I'm not sure actually"; break;
+    }
+    if (res.is_background_mining_enabled)
+    {
+      res.bg_idle_threshold = lMiner.get_idle_threshold();
+      res.bg_min_idle_seconds = lMiner.get_min_idle_seconds();
+      res.bg_ignore_battery = lMiner.get_ignore_battery();
+      res.bg_target = lMiner.get_mining_target();
     }
 
     res.status = CORE_RPC_STATUS_OK;

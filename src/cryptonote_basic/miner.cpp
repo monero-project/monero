@@ -115,7 +115,8 @@ namespace cryptonote
     m_min_idle_seconds(BACKGROUND_MINING_DEFAULT_MIN_IDLE_INTERVAL_IN_SECONDS),
     m_idle_threshold(BACKGROUND_MINING_DEFAULT_IDLE_THRESHOLD_PERCENTAGE),
     m_mining_target(BACKGROUND_MINING_DEFAULT_MINING_TARGET_PERCENTAGE),
-    m_miner_extra_sleep(BACKGROUND_MINING_DEFAULT_MINER_EXTRA_SLEEP_MILLIS)
+    m_miner_extra_sleep(BACKGROUND_MINING_DEFAULT_MINER_EXTRA_SLEEP_MILLIS),
+    m_block_reward(0)
   {
 
   }
@@ -126,12 +127,13 @@ namespace cryptonote
     catch (...) { /* ignore */ }
   }
   //-----------------------------------------------------------------------------------------------------
-  bool miner::set_block_template(const block& bl, const difficulty_type& di, uint64_t height)
+  bool miner::set_block_template(const block& bl, const difficulty_type& di, uint64_t height, uint64_t block_reward)
   {
     CRITICAL_REGION_LOCAL(m_template_lock);
     m_template = bl;
     m_diffic = di;
     m_height = height;
+    m_block_reward = block_reward;
     ++m_template_no;
     m_starter_nonce = crypto::rand<uint32_t>();
     return true;
@@ -163,7 +165,7 @@ namespace cryptonote
       LOG_ERROR("Failed to get_block_template(), stopping mining");
       return false;
     }
-    set_block_template(bl, di, height);
+    set_block_template(bl, di, height, expected_reward);
     return true;
   }
   //-----------------------------------------------------------------------------------------------------
@@ -295,6 +297,7 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------------
   bool miner::start(const account_public_address& adr, size_t threads_count, const boost::thread::attributes& attrs, bool do_background, bool ignore_battery)
   {
+    m_block_reward = 0;
     m_mine_address = adr;
     m_threads_total = static_cast<uint32_t>(threads_count);
     m_starter_nonce = crypto::rand<uint32_t>();

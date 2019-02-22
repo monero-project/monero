@@ -461,7 +461,7 @@ bool t_rpc_command_executor::show_status() {
     % get_sync_percentage(ires)
     % (ires.testnet ? "testnet" : ires.stagenet ? "stagenet" : "mainnet")
     % bootstrap_msg
-    % (!has_mining_info ? "mining info unavailable" : mining_busy ? "syncing" : mres.active ? ( ( mres.is_background_mining_enabled ? "smart " : "" ) + std::string("mining at ") + get_mining_speed(mres.speed) + std::string(" to ") + mres.address ) : "not mining")
+    % (!has_mining_info ? "mining info unavailable" : mining_busy ? "syncing" : mres.active ? ( ( mres.is_background_mining_enabled ? "smart " : "" ) + std::string("mining at ") + get_mining_speed(mres.speed)) : "not mining")
     % get_mining_speed(ires.difficulty / ires.target)
     % (unsigned)hfres.version
     % get_fork_extra_info(hfres.earliest_height, net_height, ires.target)
@@ -482,6 +482,81 @@ bool t_rpc_command_executor::show_status() {
   }
 
   tools::success_msg_writer() << str.str();
+
+  return true;
+}
+
+bool t_rpc_command_executor::mining_status() {
+  cryptonote::COMMAND_RPC_MINING_STATUS::request mreq;
+  cryptonote::COMMAND_RPC_MINING_STATUS::response mres;
+  epee::json_rpc::error error_resp;
+  bool has_mining_info = true;
+
+  std::string fail_message = "Problem fetching info";
+
+  bool mining_busy = false;
+  if (m_is_rpc)
+  {
+    // mining info is only available non unrestricted RPC mode
+    has_mining_info = m_rpc_client->rpc_request(mreq, mres, "/mining_status", fail_message.c_str());
+  }
+  else
+  {
+    if (!m_rpc_server->on_mining_status(mreq, mres))
+    {
+      tools::fail_msg_writer() << fail_message.c_str();
+      return true;
+    }
+
+    if (mres.status == CORE_RPC_STATUS_BUSY)
+    {
+      mining_busy = true;
+    }
+    else if (mres.status != CORE_RPC_STATUS_OK)
+    {
+      tools::fail_msg_writer() << make_error(fail_message, mres.status);
+      return true;
+    }
+  }
+
+  if (!has_mining_info)
+  {
+    tools::fail_msg_writer() << "Mining info unavailable";
+    return true;
+  }
+
+  if (mining_busy || !mres.active)
+  {
+    tools::msg_writer() << "Not currently mining";
+  }
+  else
+  {
+    tools::msg_writer() << "Mining at " << get_mining_speed(mres.speed) << " with " << mres.threads_count << " threads";
+  }
+
+  if (mres.active || mres.is_background_mining_enabled)
+  {
+    tools::msg_writer() << "PoW algorithm: " << mres.pow_algorithm;
+    tools::msg_writer() << "Mining address: " << mres.address;
+  }
+
+  if (mres.is_background_mining_enabled)
+  {
+    tools::msg_writer() << "Smart mining enabled:";
+    tools::msg_writer() << "  Target: " << (unsigned)mres.bg_target << "% CPU";
+    tools::msg_writer() << "  Idle threshold: " << (unsigned)mres.bg_idle_threshold << "% CPU";
+    tools::msg_writer() << "  Min idle time: " << (unsigned)mres.bg_min_idle_seconds << " seconds";
+    tools::msg_writer() << "  Ignore battery: " << (mres.bg_ignore_battery ? "yes" : "no");
+  }
+
+  if (!mining_busy && mres.active)
+  {
+    uint64_t daily = 86400ull / mres.block_target * mres.block_reward;
+    uint64_t monthly = 86400ull / mres.block_target * 30.5 * mres.block_reward;
+    uint64_t yearly = 86400ull / mres.block_target * 356 * mres.block_reward;
+    tools::msg_writer() << "Expected: " << cryptonote::print_money(daily) << " monero daily, "
+        << cryptonote::print_money(monthly) << " monero monthly, " << cryptonote::print_money(yearly) << " yearly";
+  }
 
   return true;
 }
