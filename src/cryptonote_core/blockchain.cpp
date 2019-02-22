@@ -2649,7 +2649,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
     tvc.m_invalid_version = tx.version < min_version || tx.version > max_version;
     if (tvc.m_invalid_version || tvc.m_invalid_type)
     {
-      if (tvc.m_invalid_version) MERROR_VER("TX Invalid version: " << tx.version << " for hardfork: " << hf_version);
+      if (tvc.m_invalid_version) MERROR_VER("TX Invalid version: " << tx.version << " for hardfork: " << hf_version << " min/max version:  " << min_version << "/" << max_version);
       if (tvc.m_invalid_type)    MERROR_VER("TX Invalid type for hardfork: " << hf_version);
       return false;
     }
