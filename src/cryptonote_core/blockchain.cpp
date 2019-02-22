@@ -2649,8 +2649,8 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
 
   // Min/Max Type/Version Check
   {
-    size_t min_version = transaction::get_min_version_for_hf(hf_version);
-    size_t max_version = transaction::get_max_version_for_hf(hf_version);
+    size_t min_version = transaction::get_min_version_for_hf(hf_version, nettype());
+    size_t max_version = transaction::get_max_version_for_hf(hf_version, nettype());
 
     if (hf_version >= network_version_11_swarms)
       tvc.m_invalid_type    |= (tx.type > transaction::type_key_image_unlock);
@@ -2658,7 +2658,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
     tvc.m_invalid_version = tx.version < min_version || tx.version > max_version;
     if (tvc.m_invalid_version || tvc.m_invalid_type)
     {
-      if (tvc.m_invalid_version) MERROR_VER("TX Invalid version: " << tx.version << " for hardfork: " << hf_version);
+      if (tvc.m_invalid_version) MERROR_VER("TX Invalid version: " << tx.version << " for hardfork: " << hf_version << " min/max version:  " << min_version << "/" << max_version);
       if (tvc.m_invalid_type)    MERROR_VER("TX Invalid type for hardfork: " << hf_version);
       return false;
     }
