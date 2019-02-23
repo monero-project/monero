@@ -34,15 +34,6 @@
 
 #include "hash-ops.h"
 
-#ifdef _MSC_VER
-#include <malloc.h>
-#elif !defined(__FreeBSD__) && !defined(__OpenBSD__) && !defined(__DragonFly__) \
-  && !defined(__NetBSD__)
- #include <alloca.h>
-#else
- #include <stdlib.h>
-#endif
-
 /*** 
 * Round to power of two, for count>=3 and for count being not too large (as reasonable for tree hash calculations)
 */
@@ -91,9 +82,8 @@ void tree_hash(const char (*hashes)[HASH_SIZE], size_t count, char *root_hash) {
 
     size_t cnt = tree_hash_cnt( count );
 
-    char (*ints)[HASH_SIZE];
-    size_t ints_size = cnt * HASH_SIZE;
-    ints = alloca(ints_size); 	memset( ints , 0 , ints_size);  // allocate, and zero out as extra protection for using uninitialized mem
+    char ints[cnt][HASH_SIZE];
+    memset(ints, 0 , sizeof(ints));  // zero out as extra protection for using uninitialized mem
 
     memcpy(ints, hashes, (2 * cnt - count) * HASH_SIZE);
 
