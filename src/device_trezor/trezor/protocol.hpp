@@ -92,11 +92,14 @@ namespace protocol{
 // Crypto / encryption
 namespace crypto {
 namespace chacha {
+  // Constants as defined in RFC 7539.
+  const unsigned IV_SIZE = 12;
+  const unsigned TAG_SIZE = 16;  // crypto_aead_chacha20poly1305_IETF_ABYTES;
 
   /**
    * Chacha20Poly1305 decryption with tag verification. RFC 7539.
    */
-  void decrypt(const void* ciphertext, size_t length, const uint8_t* key, const uint8_t* iv, char* plaintext);
+  void decrypt(const void* ciphertext, size_t length, const uint8_t* key, const uint8_t* iv, char* plaintext, size_t *plaintext_len=nullptr);
 
 }
 }
@@ -129,6 +132,14 @@ namespace ki {
                            const std::vector<tools::wallet2::transfer_details> & transfers,
                            std::shared_ptr<messages::monero::MoneroKeyImageExportInitRequest> & req);
 
+  /**
+   * Processes Live refresh step response, parses KI, checks the signature
+   */
+  void live_refresh_ack(const ::crypto::secret_key & view_key_priv,
+                        const ::crypto::public_key& out_key,
+                        const std::shared_ptr<messages::monero::MoneroLiveRefreshStepAck> & ack,
+                        ::cryptonote::keypair& in_ephemeral,
+                        ::crypto::key_image& ki);
 }
 
 // Cold transaction signing
@@ -153,6 +164,7 @@ namespace tx {
   std::string hash_addr(const MoneroAccountPublicAddress * addr, boost::optional<uint64_t> amount = boost::none, boost::optional<bool> is_subaddr = boost::none);
   std::string hash_addr(const std::string & spend_key, const std::string & view_key, boost::optional<uint64_t> amount = boost::none, boost::optional<bool> is_subaddr = boost::none);
   std::string hash_addr(const ::crypto::public_key * spend_key, const ::crypto::public_key * view_key, boost::optional<uint64_t> amount = boost::none, boost::optional<bool> is_subaddr = boost::none);
+  ::crypto::secret_key compute_enc_key(const ::crypto::secret_key & private_view_key, const std::string & aux, const std::string & salt);
 
   typedef boost::variant<rct::rangeSig, rct::Bulletproof> rsig_v;
 
@@ -164,8 +176,8 @@ namespace tx {
     TsxData tsx_data;
     tx_construction_data tx_data;
     cryptonote::transaction tx;
-    bool in_memory;
     unsigned rsig_type;
+    int bp_version;
     std::vector<uint64_t> grouping_vct;
     std::shared_ptr<MoneroRsigData> rsig_param;
     size_t cur_input_idx;
@@ -206,6 +218,7 @@ namespace tx {
     const unsigned_tx_set * m_unsigned_tx;
     hw::tx_aux_data * m_aux_data;
 
+    unsigned m_client_version;
     bool m_multisig;
 
     const tx_construction_data & cur_tx(){
@@ -215,6 +228,9 @@ namespace tx {
 
     void extract_payment_id();
     void compute_integrated_indices(TsxData * tsx_data);
+    bool should_compute_bp_now() const;
+    void compute_bproof(messages::monero::MoneroTransactionRsigData & rsig_data);
+    void process_bproof(rct::Bulletproof & bproof);
 
   public:
     Signer(wallet_shim * wallet2, const unsigned_tx_set * unsigned_tx, size_t tx_idx = 0, hw::tx_aux_data * aux_data = nullptr);
@@ -238,6 +254,9 @@ namespace tx {
     std::shared_ptr<messages::monero::MoneroTransactionSetOutputRequest> step_set_output(size_t idx);
     void step_set_output_ack(std::shared_ptr<const messages::monero::MoneroTransactionSetOutputAck> ack);
 
+    std::shared_ptr<messages::monero::MoneroTransactionSetOutputRequest> step_rsig(size_t idx);
+    void step_set_rsig_ack(std::shared_ptr<const messages::monero::MoneroTransactionSetOutputAck> ack);
+
     std::shared_ptr<messages::monero::MoneroTransactionAllOutSetRequest> step_all_outs_set();
     void step_all_outs_set_ack(std::shared_ptr<const messages::monero::MoneroTransactionAllOutSetAck> ack, hw::device &hwdev);
 
@@ -249,8 +268,8 @@ namespace tx {
 
     std::string store_tx_aux_info();
 
-    bool in_memory() const {
-      return m_ct.in_memory;
+    unsigned client_version() const {
+      return m_client_version;
     }
 
     bool is_simple() const {
@@ -290,6 +309,18 @@ namespace tx {
     }
   };
 
+  // TX Key decryption
+  void load_tx_key_data(hw::device_cold::tx_key_data_t & res, const std::string & data);
+
+  std::shared_ptr<messages::monero::MoneroGetTxKeyRequest> get_tx_key(
+      const hw::device_cold::tx_key_data_t & tx_data);
+
+  void get_tx_key_ack(
+      std::vector<::crypto::secret_key> & tx_keys,
+      const std::string & tx_prefix_hash,
+      const ::crypto::secret_key & view_key_priv,
+      std::shared_ptr<const messages::monero::MoneroGetTxKeyAck> ack
+  );
 }
 
 }
