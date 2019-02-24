@@ -75,12 +75,14 @@ namespace nodetool
     peerid_type id;
     int64_t last_seen;
     uint32_t pruning_seed;
+    uint16_t rpc_port;
 
     BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE(adr)
       KV_SERIALIZE(id)
       KV_SERIALIZE(last_seen)
       KV_SERIALIZE_OPT(pruning_seed, (uint32_t)0)
+      KV_SERIALIZE_OPT(rpc_port, (uint16_t)0)
     END_KV_SERIALIZE_MAP()
   };
   typedef peerlist_entry_base<epee::net_utils::network_address> peerlist_entry;
@@ -126,7 +128,11 @@ namespace nodetool
     ss << std::setfill ('0') << std::setw (8) << std::hex << std::noshowbase;
     for(const peerlist_entry& pe: pl)
     {
-      ss << pe.id << "\t" << pe.adr.str() << " \tpruning seed " << pe.pruning_seed << " \tlast_seen: " << epee::misc_utils::get_time_interval_string(now_time - pe.last_seen) << std::endl;
+      ss << pe.id << "\t" << pe.adr.str() 
+        << " \trpc port " << (pe.rpc_port > 0 ? std::to_string(pe.rpc_port) : "-")
+        << " \tpruning seed " << pe.pruning_seed 
+        << " \tlast_seen: " << epee::misc_utils::get_time_interval_string(now_time - pe.last_seen) 
+        << std::endl;
     }
     return ss.str();
   }
@@ -157,6 +163,7 @@ namespace nodetool
     uuid network_id;                   
     uint64_t local_time;
     uint32_t my_port;
+    uint16_t rpc_port;
     peerid_type peer_id;
 
     BEGIN_KV_SERIALIZE_MAP()
@@ -164,6 +171,7 @@ namespace nodetool
       KV_SERIALIZE(peer_id)
       KV_SERIALIZE(local_time)
       KV_SERIALIZE(my_port)
+      KV_SERIALIZE_OPT(rpc_port, (uint16_t)(0))
     END_KV_SERIALIZE_MAP()
   };
   
@@ -209,7 +217,7 @@ namespace nodetool
             {
               const epee::net_utils::network_address  &na = p.adr;
               const epee::net_utils::ipv4_network_address &ipv4 = na.as<const epee::net_utils::ipv4_network_address>();
-              local_peerlist.push_back(peerlist_entry_base<network_address_old>({{ipv4.ip(), ipv4.port()}, p.id, p.last_seen, p.pruning_seed}));
+              local_peerlist.push_back(peerlist_entry_base<network_address_old>({{ipv4.ip(), ipv4.port()}, p.id, p.last_seen, p.pruning_seed, p.rpc_port}));
             }
             else
               MDEBUG("Not including in legacy peer list: " << p.adr.str());
@@ -224,7 +232,7 @@ namespace nodetool
             std::vector<peerlist_entry_base<network_address_old>> local_peerlist;
             epee::serialization::selector<is_store>::serialize_stl_container_pod_val_as_blob(local_peerlist, stg, hparent_section, "local_peerlist");
             for (const auto &p: local_peerlist)
-              ((response&)this_ref).local_peerlist_new.push_back(peerlist_entry({epee::net_utils::ipv4_network_address(p.adr.ip, p.adr.port), p.id, p.last_seen, p.pruning_seed}));
+              ((response&)this_ref).local_peerlist_new.push_back(peerlist_entry({epee::net_utils::ipv4_network_address(p.adr.ip, p.adr.port), p.id, p.last_seen, p.pruning_seed, p.rpc_port}));
           }
         }
       END_KV_SERIALIZE_MAP()
@@ -466,7 +474,3 @@ namespace nodetool
   }
 
 }
-
-BOOST_CLASS_VERSION(nodetool::peerlist_entry, 1)
-
-

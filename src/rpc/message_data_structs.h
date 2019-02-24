@@ -78,6 +78,7 @@ namespace rpc
     uint64_t id;
     uint32_t ip;
     uint16_t port;
+    uint16_t rpc_port;
     uint64_t last_seen;
     uint32_t pruning_seed;
   };

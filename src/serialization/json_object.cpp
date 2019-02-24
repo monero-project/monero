@@ -570,6 +570,7 @@ void toJsonValue(rapidjson::Document& doc, const cryptonote::connection_info& in
 
   INSERT_INTO_JSON_OBJECT(val, doc, ip, info.ip);
   INSERT_INTO_JSON_OBJECT(val, doc, port, info.port);
+  INSERT_INTO_JSON_OBJECT(val, doc, rpc_port, info.rpc_port);
 
   INSERT_INTO_JSON_OBJECT(val, doc, peer_id, info.peer_id);
 
@@ -604,6 +605,7 @@ void fromJsonValue(const rapidjson::Value& val, cryptonote::connection_info& inf
 
   GET_FROM_JSON_OBJECT(val, info.ip, ip);
   GET_FROM_JSON_OBJECT(val, info.port, port);
+  GET_FROM_JSON_OBJECT(val, info.rpc_port, rpc_port);
 
   GET_FROM_JSON_OBJECT(val, info.peer_id, peer_id);
 
@@ -733,6 +735,7 @@ void toJsonValue(rapidjson::Document& doc, const cryptonote::rpc::peer& peer, ra
   INSERT_INTO_JSON_OBJECT(val, doc, id, peer.id);
   INSERT_INTO_JSON_OBJECT(val, doc, ip, peer.ip);
   INSERT_INTO_JSON_OBJECT(val, doc, port, peer.port);
+  INSERT_INTO_JSON_OBJECT(val, doc, rpc_port, peer.rpc_port);
   INSERT_INTO_JSON_OBJECT(val, doc, last_seen, peer.last_seen);
   INSERT_INTO_JSON_OBJECT(val, doc, pruning_seed, peer.pruning_seed);
 }
@@ -748,6 +751,7 @@ void fromJsonValue(const rapidjson::Value& val, cryptonote::rpc::peer& peer)
   GET_FROM_JSON_OBJECT(val, peer.id, id);
   GET_FROM_JSON_OBJECT(val, peer.ip, ip);
   GET_FROM_JSON_OBJECT(val, peer.port, port);
+  GET_FROM_JSON_OBJECT(val, peer.rpc_port, rpc_port);
   GET_FROM_JSON_OBJECT(val, peer.last_seen, last_seen);
   GET_FROM_JSON_OBJECT(val, peer.pruning_seed, pruning_seed);
 }
