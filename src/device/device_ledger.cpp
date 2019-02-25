@@ -1186,7 +1186,7 @@ namespace hw {
       const crypto::public_key                 &txkey_pub_x                    = txkey_pub;
       const crypto::secret_key                 &tx_key_x                       = tx_key;
       const cryptonote::tx_destination_entry   &dst_entr_x                     = dst_entr;
-      const boost::optional<cryptonote::account_public_address> &change_addr_x = change_addr;
+      const boost::optional<cryptonote::tx_destination_entry> &change_addr_x   = change_addr;
       const size_t                             &output_index_x                 = output_index;
       const bool                               &need_additional_txkeys_x       = need_additional_txkeys;
       const std::vector<crypto::secret_key>    &additional_tx_keys_x           = additional_tx_keys;
@@ -1208,7 +1208,7 @@ namespace hw {
       const crypto::secret_key *sec;
       bool &is_change = found_change; // NOTE(loki): Alias our param into theirs so we don't have to change much code.
 
-      if (change_addr && dst_entr.addr == *change_addr)
+      if (change_addr && dst_entr == *change_addr && !is_change)
       {
         // sending change to yourself; derivation = a*R
         is_change = true;
@@ -1216,7 +1216,6 @@ namespace hw {
       }
       else
       {
-        is_change = false;
         if (dst_entr.is_subaddress && need_additional_txkeys) {
           sec = &additional_txkey.sec;
         } else {
