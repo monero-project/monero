@@ -95,7 +95,7 @@ bool gen_bp_tx_validation_base::generate_with(std::vector<test_event_entry>& eve
   // old style TX's on the fork height. So make sure we create one block so that
   // the block containing bulletproofs txes, which is 1 block after the fork
   // height, is tested with BP logic
-  generator.m_hf_version = cryptonote::network_version_11_swarms;
+  generator.m_hf_version = cryptonote::network_version_11_infinite_staking;
   {
     block blk;
     CHECK_AND_ASSERT_MES(generator.construct_block_manually(blk, blk_last, miner_account,

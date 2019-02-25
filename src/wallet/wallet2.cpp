@@ -5557,7 +5557,7 @@ bool wallet2::is_transfer_unlocked(uint64_t unlock_time, uint64_t block_height, 
   if(block_height + CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE > get_blockchain_current_height())
     return false;
 
-  if (!use_fork_rules(cryptonote::network_version_11_swarms))
+  if (!use_fork_rules(cryptonote::network_version_11_infinite_staking))
     return true;
 
   if (!key_image) // TODO(loki): Try make all callees always pass in a key image for accuracy
@@ -7245,7 +7245,7 @@ wallet2::stake_result wallet2::create_stake_tx(std::vector<pending_tx> &ptx, con
   const uint64_t staking_requirement_lock_blocks = service_nodes::staking_num_lock_blocks(m_nettype);
   const uint64_t locked_blocks = staking_requirement_lock_blocks + STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS;
   uint64_t unlock_at_block = bc_height + locked_blocks;
-  if (use_fork_rules(cryptonote::network_version_11_swarms, 1))
+  if (use_fork_rules(cryptonote::network_version_11_infinite_staking, 1))
   {
     unlock_at_block = 0; // Infinite staking, no time lock
     if (subaddr_account != 0)
@@ -8196,7 +8196,7 @@ void wallet2::transfer_selected(const std::vector<cryptonote::tx_destination_ent
   // TODO(loki): This should be replaced with a NodeRPCProxy function to get the
   // current hardfork version
   loki_construct_tx_params tx_params = {};
-  tx_params.v4_allow_tx_types        = use_fork_rules(network_version_11_swarms, 5);
+  tx_params.v4_allow_tx_types        = use_fork_rules(network_version_11_infinite_staking, 5);
   tx_params.v3_per_output_unlock     = use_fork_rules(network_version_9_service_nodes, 5);
   tx_params.v2_rct                   = false;
   bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), m_subaddresses, sources, splitted_dsts, change_dts, extra, tx, unlock_time, tx_key, additional_tx_keys, {}, m_multisig ? &msout : NULL, tx_params);
@@ -8436,7 +8436,7 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
   // TODO(loki): This should be replaced with a NodeRPCProxy function to get the
   // current hardfork version. Then use the constructor to get the rules?
   loki_construct_tx_params tx_params = {};
-  tx_params.v4_allow_tx_types    = use_fork_rules(network_version_11_swarms, 5);
+  tx_params.v4_allow_tx_types    = use_fork_rules(network_version_11_infinite_staking, 5);
   tx_params.v3_per_output_unlock = use_fork_rules(network_version_9_service_nodes, 5);
   tx_params.v3_is_staking_tx     = is_staking_tx;
   tx_params.v2_rct               = true;

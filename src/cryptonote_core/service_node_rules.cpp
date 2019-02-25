@@ -86,7 +86,7 @@ static uint64_t get_min_node_contribution_pre_v11(uint64_t staking_requirement, 
 
 uint64_t get_min_node_contribution(uint8_t version, uint64_t staking_requirement, uint64_t total_reserved, size_t num_contributions)
 {
-  if (version < cryptonote::network_version_11_swarms)
+  if (version < cryptonote::network_version_11_infinite_staking)
     return get_min_node_contribution_pre_v11(staking_requirement, total_reserved);
 
   const uint64_t needed                 = staking_requirement - total_reserved;
