@@ -382,7 +382,7 @@ void test_generator::get_block_chain(std::vector<cryptonote::block>& blockchain,
   std::reverse(blockchain.begin(), blockchain.end());
 }
 
-void test_generator::get_last_n_block_weights(std::vector<size_t>& block_weights, const crypto::hash& head, size_t n) const
+void test_generator::get_last_n_block_weights(std::vector<uint64_t>& block_weights, const crypto::hash& head, size_t n) const
 {
   std::vector<block_info> blockchain;
   get_block_chain(blockchain, head, n);
@@ -582,7 +582,7 @@ bool test_generator::construct_block_manually(block& blk, const block& prev_bloc
 
   size_t height = get_block_height(prev_block) + 1;
   uint64_t already_generated_coins = get_already_generated_coins(prev_block);
-  std::vector<size_t> block_weights;
+  std::vector<uint64_t> block_weights;
   get_last_n_block_weights(block_weights, get_block_hash(prev_block), CRYPTONOTE_REWARD_BLOCKS_WINDOW);
   if (actual_params & bf_miner_tx)
   {

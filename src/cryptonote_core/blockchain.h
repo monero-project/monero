@@ -1347,7 +1347,7 @@ namespace cryptonote
      * @param sz return-by-reference the list of weights
      * @param count the number of blocks to get weights for
      */
-    void get_last_n_blocks_weights(std::vector<size_t>& weights, size_t count) const;
+    void get_last_n_blocks_weights(std::vector<uint64_t>& weights, size_t count) const;
 
     /**
      * @brief checks if a transaction is unlocked (its outputs spendable)

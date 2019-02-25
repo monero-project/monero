@@ -1200,7 +1200,7 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
   }
 
   uint64_t height = cryptonote::get_block_height(b);
-  std::vector<size_t> last_blocks_weights;
+  std::vector<uint64_t> last_blocks_weights;
   get_last_n_blocks_weights(last_blocks_weights, CRYPTONOTE_REWARD_BLOCKS_WINDOW);
 
   loki_block_reward_context block_reward_context = {};
@@ -1265,7 +1265,7 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
 }
 //------------------------------------------------------------------
 // get the block weights of the last <count> blocks, and return by reference <sz>.
-void Blockchain::get_last_n_blocks_weights(std::vector<size_t>& weights, size_t count) const
+void Blockchain::get_last_n_blocks_weights(std::vector<uint64_t>& weights, size_t count) const
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
@@ -3199,7 +3199,7 @@ uint64_t Blockchain::get_dynamic_base_fee_estimate(uint64_t grace_blocks) const
     grace_blocks = CRYPTONOTE_REWARD_BLOCKS_WINDOW - 1;
 
   const uint64_t min_block_weight = get_min_block_weight(version);
-  std::vector<size_t> weights;
+  std::vector<uint64_t> weights;
   get_last_n_blocks_weights(weights, CRYPTONOTE_REWARD_BLOCKS_WINDOW - grace_blocks);
   weights.reserve(grace_blocks);
   for (size_t i = 0; i < grace_blocks; ++i)
@@ -3836,7 +3836,7 @@ bool Blockchain::update_next_cumulative_weight_limit(uint64_t *long_term_effecti
 
   if (hf_version < HF_VERSION_LONG_TERM_BLOCK_WEIGHT)
   {
-    std::vector<size_t> weights;
+    std::vector<uint64_t> weights;
     get_last_n_blocks_weights(weights, CRYPTONOTE_REWARD_BLOCKS_WINDOW);
     m_current_block_cumul_weight_median = epee::misc_utils::median(weights);
     long_term_block_weight = weights.back();

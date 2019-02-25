@@ -204,7 +204,7 @@ public:
   void get_block_chain(std::vector<block_info>& blockchain,        const crypto::hash& head, size_t n) const;
   void get_block_chain(std::vector<cryptonote::block>& blockchain, const crypto::hash& head, size_t n) const;
 
-  void get_last_n_block_weights(std::vector<size_t>& block_weights, const crypto::hash& head, size_t n) const;
+  void get_last_n_block_weights(std::vector<uint64_t>& block_weights, const crypto::hash& head, size_t n) const;
   uint64_t get_already_generated_coins(const crypto::hash& blk_id) const;
   uint64_t get_already_generated_coins(const cryptonote::block& blk) const;
 
