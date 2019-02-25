@@ -187,6 +187,18 @@ namespace
     return buf;
   }
 
+  bool input_line_and_parse_yes_no_result(char const *prompt)
+  {
+	  std::string prompt_yes_no = std::string(prompt) + " (Y/Yes/N/No): ";
+	  std::string result = input_line(prompt_yes_no);
+
+	  if (std::cin.eof())
+		  return false;
+
+	  return command_line::is_yes(result);
+  }
+
+
   boost::optional<tools::password_container> password_prompter(const char *prompt, bool verify)
   {
 #ifdef HAVE_READLINE
@@ -5312,7 +5324,7 @@ catch (const std::exception &e)
   de.is_subaddress = false;
   de.amount = amount_payable_by_operator;
   dsts.push_back(de);
-
+  bool submitted_to_network = false;
  try
  {
    // figure out what tx will be necessary
@@ -5415,6 +5427,7 @@ catch (const std::exception &e)
    else
    {
      commit_or_save(ptx_vector, m_do_not_relay);
+	 submitted_to_network = true;
    }
  }
  catch (const std::exception& e)
@@ -5426,10 +5439,27 @@ catch (const std::exception &e)
    LOG_ERROR("unknown error");
    fail_msg_writer() << tr("unknown error");
  }
-
+ if (submitted_to_network && !autostake)
+ {
+	 success_msg_writer() << tr("Wait for transaction to be included in a block before registration is complete.\n")
+		 << tr("Use the print_sn command in the daemon to check the status.");
+ }
  return true;
 }
 //----------------------------------------------------------------------------------------------------
+static bool prompt_autostaking_non_trusted_contributors_warning()
+{
+	success_msg_writer(false/*color*/)
+		<< tr("Auto staking to a reserved service node with non-trusted contributors may lock up your loki for the staking duration "
+			"if they do not restake after service node expiration.")
+		<< tr("\n\nIf this behaviour is not desirable, please reuse the staking command without the auto command");
+
+	bool result = input_line_and_parse_yes_no_result("Accept auto staking towards a reserved service node");
+	return result;
+}
+
+//----------------------------------------------------------------------------------------------------
+
 bool simple_wallet::register_service_node(const std::vector<std::string> &args_)
 {
 
@@ -5534,6 +5564,12 @@ bool simple_wallet::register_service_node(const std::vector<std::string> &args_)
 
  if (autostake)
  {
+	 bool is_open_service_node = portions_for_operator != STAKING_PORTIONS;
+	 if (is_open_service_node || portions.size() > 1)
+	 {
+		 if (!prompt_autostaking_non_trusted_contributors_warning())
+			 return true;
+	 }
 	 stop();
 	 m_idle_thread.join();
 	 success_msg_writer(false) << please_wait_to_be_included_in_block_msg;
@@ -5571,20 +5607,23 @@ bool simple_wallet::register_service_node(const std::vector<std::string> &args_)
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::stake_main(
 	const crypto::public_key& service_node_key,
-	const cryptonote::account_public_address& address,
+	const cryptonote::address_parse_info& parse_info, ,
 	uint32_t priority,
 	std::set<uint32_t>& subaddr_indices,
 	uint64_t amount,
 	double amount_fraction,
 	bool autostake)
 {
-
 	if (autostake)
 	{
 		if (!try_connect_to_daemon(true))
 			return true;
-
-
+	}
+	// sanity check address is not subaddress incase this gets called somewhere else that assumes it can be
+	if (parse_info.is_subaddress)
+	{
+		fail_msg_writer() << tr("Cannot stake from a subaddress");
+		return false;
 	}
 	uint64_t fetched_blocks;
 	m_wallet->refresh(0, fetched_blocks);
@@ -5640,38 +5679,40 @@ bool simple_wallet::stake_main(
 		 return true;
 	 }
 
-	 const auto& response = m_wallet->get_service_nodes({ epee::string_tools::pod_to_hex(service_node_key) });
-	 bool full = false;
+	 const auto& snode_info = response.service_node_states.front();
 
 	 const uint64_t DUST = MAX_NUMBER_OF_CONTRIBUTORS;
 
 	 if (amount == 0)
 		 amount = snode_info.staking_requirement * amount_fraction;
 
+	 const bool full = snode_info.contributors.size() >= MAX_NUMBER_OF_CONTRIBUTORS;
 	 uint64_t can_contrib_total = 0;
 	 uint64_t must_contrib_total = 0;
-	 if (snode_info.contributors.size() < MAX_NUMBER_OF_CONTRIBUTORS)
+	 if (!full)
+	 {
 		 can_contrib_total = snode_info.staking_requirement - snode_info.total_reserved;
-	 else
-		 full = true;
+		 must_contrib_total = service_nodes::get_min_node_contribution(snode_info.staking_requirement, snode_info.total_reserved);
+	 }
 
+	 bool is_preexisting_contributor = false;
 	 for (const auto& contributor : snode_info.contributors)
 	 {
 		 address_parse_info info;
 		 if (!cryptonote::get_account_address_from_str(info, m_wallet->nettype(), contributor.address))
 			 info.address = service_nodes::null_address;
 
-		 if (info.address == address)
+		 if (info.address == parse_info.address)
 		 {
 			 uint64_t max_increase_reserve = snode_info.staking_requirement - snode_info.total_reserved;
 			 uint64_t max_increase_amount_to = contributor.reserved + max_increase_reserve;
 			 can_contrib_total = max_increase_amount_to - contributor.amount;
 			 must_contrib_total = contributor.reserved - contributor.amount;
-			 full = false;
+			 is_preexisting_contributor = true;
 		 }
 	 }
 
-	 if (full)
+	 if (full && !is_preexisting_contributor)
 	 {
 		 fail_msg_writer() << tr("This service node already has the maximum number of participants, and the specified address is not one of them");
 		 return true;
@@ -5690,7 +5731,9 @@ bool simple_wallet::stake_main(
 	 }
 	 if (amount < must_contrib_total)
 	 {
-		 success_msg_writer() << tr("Warning: You must contribute ") << print_money(must_contrib_total) << tr(" triton to meet your registration requirements for this service node");
+		if (is_preexisting_contributor)
+			success_msg_writer() << tr("Warning: You must contribute ") << print_money(must_contrib_total) << tr(" loki to meet your registration requirements for this service node");
+
 		 if (amount == 0)
 		 {
 			 amount = must_contrib_total;
@@ -5700,11 +5743,15 @@ bool simple_wallet::stake_main(
 			 success_msg_writer() << tr("You have only specified ") << print_money(amount);
 			 if (must_contrib_total - amount <= DUST)
 			 {
-				 success_msg_writer() << tr("Seeing as this is only a little bit, amount was increased automatically");
 				 amount = must_contrib_total;
+				 success_msg_writer() << tr("Seeing as this is insufficient by dust amounts, amount was increased automatically to ") << print_money(must_contrib_total);
+
 			 }
-			 else if (autostake)
+			 else if (!is_preexisting_contributor || autostake)
 			 {
+				 if (!is_preexisting_contributor)
+					 fail_msg_writer() << tr("You must contribute atleast ") << print_money(must_contrib_total) << tr(" loki to become a contributor for this service node");
+
 				 return true;
 			 }
 		 }
@@ -5720,11 +5767,11 @@ bool simple_wallet::stake_main(
 
  add_service_node_pubkey_to_tx_extra(extra, service_node_key);
 
- add_service_node_contributor_to_tx_extra(extra, address);
+ add_service_node_contributor_to_tx_extra(extra, parse_info.address);
 
  vector<cryptonote::tx_destination_entry> dsts;
  cryptonote::tx_destination_entry de;
- de.addr = address;
+ de.addr = parse_info.address;
  de.is_subaddress = false;
 
  de.amount = amount;
@@ -5930,6 +5977,7 @@ bool simple_wallet::stake(const std::vector<std::string> &args_)
 		}
 	}
 
+	std::string const &address_str = local_args[1];
 	cryptonote::address_parse_info info;
 	if (!cryptonote::get_account_address_from_str_or_url(info, m_wallet->nettype(), local_args[1], oa_prompter))
 	{
@@ -5951,6 +5999,52 @@ bool simple_wallet::stake(const std::vector<std::string> &args_)
 
 	if (autostake)
 	{
+		{
+			const auto& response = m_wallet->get_service_nodes({ epee::string_tools::pod_to_hex(service_node_key) });
+			if (response.service_node_states.size() != 1)
+			{
+				fail_msg_writer() << tr("Could not find service node in service node list, please make sure it is registered first.");
+				return false;
+			}
+
+			const auto& snode_info = response.service_node_states.front();
+			bool preexisting_contributor = false;
+			for (const auto& contributor : snode_info.contributors)
+			{
+				preexisting_contributor = (contributor.address == address_str);
+				if (preexisting_contributor) break;
+			}
+
+			if (!preexisting_contributor)
+			{
+				// NOTE: Disallowed since there isn't a sensible way to recalculate the portions of the staker reliably
+				fail_msg_writer() << tr("Autostaking is disallowed for contributors who did not reserve a spot in a service node");
+				return false;
+			}
+
+			// Autostaking in reserved pools warning
+			if (snode_info.contributors.size() > 1 && !prompt_autostaking_non_trusted_contributors_warning())
+			{
+				return true;
+			}
+		}
+
+		if (amount_fraction == 0) // Fixed amount loki warning
+		{
+			success_msg_writer(false/*color*/) << tr("You're autostaking to a service node using a fixed amount of loki: ")
+				<< print_money(amount)
+				<< tr(".\nThe staking requirement will be different after the service node expires. Staking a fixed amount "
+					"may change your percentage of stake towards the service node and consequently your block reward allocation.")
+				<< tr("\n\nIf this behaviour is not desirable, please reuse the staking command with a percentage sign.");
+
+			if (!input_line_and_parse_yes_no_result("Accept staking with a fixed amount of triton"))
+			{
+				fail_msg_writer() << tr("Staking transaction with fixed loki specified cancelled.");
+				return true;
+			}
+
+			success_msg_writer(false/*color*/) << "\n";
+		}
 		stop();
 		m_idle_thread.join();
 #ifndef WIN32
@@ -5967,7 +6061,7 @@ bool simple_wallet::stake(const std::vector<std::string> &args_)
 			boost::unique_lock<boost::mutex> lock(m_idle_mutex);
 			if (!m_idle_run.load(std::memory_order_relaxed))
 				break;
-			if (!register_service_node_main(service_node_key_as_str, expiration_timestamp, address, priority, portions, extra, subaddr_indices, autostake))
+			if (!stake_main(service_node_key, info, priority, subaddr_indices, amount, amount_fraction, autostake))
 				break;
 			if (!m_idle_run.load(std::memory_order_relaxed))
 				break;
@@ -5977,7 +6071,7 @@ bool simple_wallet::stake(const std::vector<std::string> &args_)
 	else
 	{
 		LOCK_IDLE_SCOPE();
-		stake_main(service_node_key, info.address, priority, subaddr_indices, amount, amount_fraction, autostake);
+		stake_main(service_node_key, info, priority, subaddr_indices, amount, amount_fraction, autostake);
 	}
 
   return true;
