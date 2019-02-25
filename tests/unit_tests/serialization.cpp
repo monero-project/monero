@@ -667,6 +667,12 @@ TEST(Serialization, serializes_ringct_types)
   ASSERT_TRUE(blob == blob2);
 }
 
+// TODO(loki): These tests are broken because they rely on testnet which has
+// since been restarted, and so the genesis block of these predefined wallets
+// are broken
+//             - 2019-02-25 Doyle
+
+#if 0
 TEST(Serialization, portability_wallet)
 {
   const cryptonote::network_type nettype = cryptonote::TESTNET;
@@ -1313,3 +1319,4 @@ TEST(Serialization, portability_signed_tx)
   ASSERT_TRUE(epee::string_tools::pod_to_hex(ki1) == "21dfe89b3dbde221eccd9b71e7f6383c81f9ada224a670956c895b230749a8d8");
   ASSERT_TRUE(epee::string_tools::pod_to_hex(ki2) == "92194cadfbb4f1317d25d39d6216cbf1030a2170a3edb47b5f008345a879150d");
 }
+#endif
