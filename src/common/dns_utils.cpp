@@ -232,13 +232,24 @@ public:
     char *str;
 };
 
+static void add_anchors(ub_ctx *ctx)
+{
+  const char * const *ds = ::get_builtin_ds();
+  while (*ds)
+  {
+    MINFO("adding trust anchor: " << *ds);
+    ub_ctx_add_ta(ctx, string_copy(*ds++));
+  }
+}
+
 DNSResolver::DNSResolver() : m_data(new DNSResolverData())
 {
   int use_dns_public = 0;
   std::vector<std::string> dns_public_addr;
-  if (auto res = getenv("DNS_PUBLIC"))
+  const char *DNS_PUBLIC = getenv("DNS_PUBLIC");
+  if (DNS_PUBLIC)
   {
-    dns_public_addr = tools::dns_utils::parse_dns_public(res);
+    dns_public_addr = tools::dns_utils::parse_dns_public(DNS_PUBLIC);
     if (!dns_public_addr.empty())
     {
       MGINFO("Using public DNS server(s): " << boost::join(dns_public_addr, ", ") << " (TCP)");
@@ -266,11 +277,28 @@ DNSResolver::DNSResolver() : m_data(new DNSResolverData())
     ub_ctx_hosts(m_data->m_ub_context, NULL);
   }
 
-  const char * const *ds = ::get_builtin_ds();
-  while (*ds)
+  add_anchors(m_data->m_ub_context);
+
+  if (!DNS_PUBLIC)
   {
-    MINFO("adding trust anchor: " << *ds);
-    ub_ctx_add_ta(m_data->m_ub_context, string_copy(*ds++));
+    // if no DNS_PUBLIC specified, we try a lookup to what we know
+    // should be a valid DNSSEC record, and switch to known good
+    // DNSSEC resolvers if verification fails
+    bool available, valid;
+    static const char *probe_hostname = "updates.moneropulse.org";
+    auto records = get_txt_record(probe_hostname, available, valid);
+    if (!valid)
+    {
+      MINFO("Failed to verify DNSSEC record from " << probe_hostname << ", falling back to TCP with well known DNSSEC resolvers");
+      ub_ctx_delete(m_data->m_ub_context);
+      m_data->m_ub_context = ub_ctx_create();
+      add_anchors(m_data->m_ub_context);
+      dns_public_addr = tools::dns_utils::parse_dns_public(DNS_PUBLIC);
+      for (const auto &ip: dns_public_addr)
+        ub_ctx_set_fwd(m_data->m_ub_context, string_copy(ip.c_str()));
+      ub_ctx_set_option(m_data->m_ub_context, string_copy("do-udp:"), string_copy("no"));
+      ub_ctx_set_option(m_data->m_ub_context, string_copy("do-tcp:"), string_copy("yes"));
+    }
   }
 }
 
