@@ -478,6 +478,7 @@ namespace nodetool
     extern const command_line::arg_descriptor<std::vector<std::string> > arg_proxy;
     extern const command_line::arg_descriptor<std::vector<std::string> > arg_anonymous_inbound;
     extern const command_line::arg_descriptor<bool> arg_p2p_hide_my_port;
+    extern const command_line::arg_descriptor<bool> arg_no_sync;
 
     extern const command_line::arg_descriptor<bool>        arg_no_igd;
     extern const command_line::arg_descriptor<bool>        arg_offline;

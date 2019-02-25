@@ -103,6 +103,7 @@ namespace nodetool
     command_line::add_arg(desc, arg_proxy);
     command_line::add_arg(desc, arg_anonymous_inbound);
     command_line::add_arg(desc, arg_p2p_hide_my_port);
+    command_line::add_arg(desc, arg_no_sync);
     command_line::add_arg(desc, arg_no_igd);
     command_line::add_arg(desc, arg_out_peers);
     command_line::add_arg(desc, arg_in_peers);
@@ -309,6 +310,9 @@ namespace nodetool
 
     if(command_line::has_arg(vm, arg_p2p_hide_my_port))
       m_hide_my_port = true;
+
+    if (command_line::has_arg(vm, arg_no_sync))
+      m_payload_handler.set_no_sync(true);
 
     if ( !set_max_out_peers(public_zone, command_line::get_arg(vm, arg_out_peers) ) )
       return false;

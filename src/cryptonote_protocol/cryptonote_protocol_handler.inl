@@ -72,7 +72,8 @@ namespace cryptonote
                                                                                                               m_p2p(p_net_layout),
                                                                                                               m_syncronized_connections_count(0),
                                                                                                               m_synchronized(offline),
-                                                                                                              m_stopping(false)
+                                                                                                              m_stopping(false),
+                                                                                                              m_no_sync(false)
 
   {
     if(!m_p2p)
@@ -374,6 +375,13 @@ namespace cryptonote
     m_core.set_target_blockchain_height((hshd.current_height));
     }
     MINFO(context << "Remote blockchain height: " << hshd.current_height << ", id: " << hshd.top_id);
+
+    if (m_no_sync)
+    {
+      context.m_state = cryptonote_connection_context::state_normal;
+      return true;
+    }
+
     context.m_state = cryptonote_connection_context::state_synchronizing;
     //let the socket to send response to handshake, but request callback, to let send request data after response
     LOG_PRINT_CCONTEXT_L2("requesting callback");
