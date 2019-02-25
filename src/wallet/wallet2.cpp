@@ -755,9 +755,8 @@ uint64_t calculate_fee(bool use_per_byte_fee, const cryptonote::transaction &tx,
     return calculate_fee(base_fee, blob_size, fee_multiplier);
 }
 
-crypto::hash8 get_short_payment_id(const tools::wallet2::pending_tx &ptx, hw::device &hwdev)
+bool get_short_payment_id(crypto::hash8 &payment_id8, const tools::wallet2::pending_tx &ptx, hw::device &hwdev)
 {
-  crypto::hash8 payment_id8 = null_hash8;
   std::vector<tx_extra_field> tx_extra_fields;
   parse_tx_extra(ptx.tx.extra, tx_extra_fields); // ok if partially parsed
   cryptonote::tx_extra_nonce extra_nonce;
@@ -768,19 +767,19 @@ crypto::hash8 get_short_payment_id(const tools::wallet2::pending_tx &ptx, hw::de
       if (ptx.dests.empty())
       {
         MWARNING("Encrypted payment id found, but no destinations public key, cannot decrypt");
-        return crypto::null_hash8;
+        return false;
       }
-      hwdev.decrypt_payment_id(payment_id8, ptx.dests[0].addr.m_view_public_key, ptx.tx_key);
+      return hwdev.decrypt_payment_id(payment_id8, ptx.dests[0].addr.m_view_public_key, ptx.tx_key);
     }
   }
-  return payment_id8;
+  return false;
 }
 
 tools::wallet2::tx_construction_data get_construction_data_with_decrypted_short_payment_id(const tools::wallet2::pending_tx &ptx, hw::device &hwdev)
 {
   tools::wallet2::tx_construction_data construction_data = ptx.construction_data;
-  crypto::hash8 payment_id = get_short_payment_id(ptx,hwdev);
-  if (payment_id != null_hash8)
+  crypto::hash8 payment_id = null_hash8;
+  if (get_short_payment_id(payment_id, ptx, hwdev))
   {
     // Remove encrypted
     remove_field_from_tx_extra(construction_data.extra, typeid(cryptonote::tx_extra_nonce));
@@ -7243,7 +7242,7 @@ wallet2::stake_result wallet2::create_stake_tx(std::vector<pending_tx> &ptx, con
   add_service_node_contributor_to_tx_extra(extra, address);
 
   vector<cryptonote::tx_destination_entry> dsts;
-  cryptonote::tx_destination_entry de;
+  cryptonote::tx_destination_entry de = {};
   de.addr = address;
   de.is_subaddress = false;
   de.amount = amount;
@@ -7265,7 +7264,15 @@ wallet2::stake_result wallet2::create_stake_tx(std::vector<pending_tx> &ptx, con
   const uint64_t locked_blocks = staking_requirement_lock_blocks + STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS;
   uint64_t unlock_at_block = bc_height + locked_blocks;
   if (use_fork_rules(cryptonote::network_version_11_swarms, 1))
+  {
     unlock_at_block = 0; // Infinite staking, no time lock
+    if (subaddr_account != 0)
+    {
+      result.msg = tr("Infinite staking does not allow staking from a subaddress");
+      result.status = stake_result_status::subaddress_disallowed;
+      return result;
+    }
+  }
 
   try
   {

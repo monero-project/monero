@@ -683,7 +683,6 @@ namespace tools
 
     if (!payment_id.empty())
     {
-
       /* Just to clarify */
       const std::string& payment_id_str = payment_id;
 
@@ -3744,12 +3743,106 @@ namespace tools
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_validate_address(const wallet_rpc::COMMAND_RPC_VALIDATE_ADDRESS::request& req, wallet_rpc::COMMAND_RPC_VALIDATE_ADDRESS::response& res, epee::json_rpc::error& er, const connection_context *ctx)
+  {
+    cryptonote::address_parse_info info;
+    static const struct { cryptonote::network_type type; const char *stype; } net_types[] = {
+      { cryptonote::MAINNET, "mainnet" },
+      { cryptonote::TESTNET, "testnet" },
+      { cryptonote::STAGENET, "stagenet" },
+    };
+    for (const auto &net_type: net_types)
+    {
+      if (!req.any_net_type && net_type.type != m_wallet->nettype())
+        continue;
+      if (req.allow_openalias)
+      {
+        std::string address;
+        res.valid = get_account_address_from_str_or_url(info, net_type.type, req.address,
+          [&er, &address](const std::string &url, const std::vector<std::string> &addresses, bool dnssec_valid)->std::string {
+            if (!dnssec_valid)
+            {
+              er.message = std::string("Invalid DNSSEC for ") + url;
+              return {};
+            }
+            if (addresses.empty())
+            {
+              er.message = std::string("No Loki address found at ") + url;
+              return {};
+            }
+            address = addresses[0];
+            return address;
+          });
+        if (res.valid)
+          res.openalias_address = address;
+      }
+      else
+      {
+        res.valid = cryptonote::get_account_address_from_str(info, net_type.type, req.address);
+      }
+      if (res.valid)
+      {
+        res.integrated = info.has_payment_id;
+        res.subaddress = info.is_subaddress;
+        res.nettype = net_type.stype;
+        return true;
+      }
+    }
+
+    er.code = WALLET_RPC_ERROR_CODE_WRONG_ADDRESS;
+    er.message = std::string("Invalid address");
+    return false;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::on_get_version(const wallet_rpc::COMMAND_RPC_GET_VERSION::request& req, wallet_rpc::COMMAND_RPC_GET_VERSION::response& res, epee::json_rpc::error& er, const connection_context *ctx)
   {
     res.version = WALLET_RPC_VERSION;
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+
+  //
+  // Loki
+  //
+  bool wallet_rpc_server::on_stake(const wallet_rpc::COMMAND_RPC_STAKE::request& req, wallet_rpc::COMMAND_RPC_STAKE::response& res, epee::json_rpc::error& er, const connection_context *ctx)
+  {
+    if (!m_wallet) return not_open(er);
+    if (m_restricted)
+    {
+      er.code    = WALLET_RPC_ERROR_CODE_DENIED;
+      er.message = "Staking command is unavailable in restricted mode.";
+      return false;
+    }
+
+    crypto::public_key snode_key             = {};
+    cryptonote::address_parse_info addr_info = {};
+    if (!cryptonote::get_account_address_from_str(addr_info, m_wallet->nettype(), req.destination))
+    {
+      er.code    = WALLET_RPC_ERROR_CODE_WRONG_ADDRESS;
+      er.message = std::string("Unparsable address given: ") + req.destination;
+      return false;
+    }
+
+    if (!epee::string_tools::hex_to_pod(req.service_node_key, snode_key))
+    {
+      er.code    = WALLET_RPC_ERROR_CODE_WRONG_KEY;
+      er.message = std::string("Unparsable service node key given: ") + req.service_node_key;
+      return false;
+    }
+
+    // NOTE(loki): Pre-emptively set subaddr_account to 0. We don't support onwards from Infinite Staking which is when this call was implemented.
+    std::vector<tools::wallet2::pending_tx> ptx;
+    tools::wallet2::stake_result stake_result = m_wallet->create_stake_tx(ptx, snode_key, addr_info, req.amount, 0 /*amount_fraction*/, req.priority, 0 /*subaddr_account*/, req.subaddr_indices);
+    if (stake_result.status != tools::wallet2::stake_result_status::success)
+    {
+      er.code    = WALLET_RPC_ERROR_CODE_TX_NOT_POSSIBLE;
+      er.message = stake_result.msg;
+      return false;
+    }
+
+    return fill_response(ptx, req.get_tx_key, res.tx_key, res.amount, res.fee, res.multisig_txset, res.unsigned_txset, req.do_not_relay,
+        res.tx_hash, req.get_tx_hex, res.tx_blob, req.get_tx_metadata, res.tx_metadata, er);
+  }
 }
 
 class t_daemon

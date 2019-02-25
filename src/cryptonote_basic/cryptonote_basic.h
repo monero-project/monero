@@ -164,8 +164,8 @@ namespace cryptonote
       version_3_per_output_unlock_times,
       version_4_tx_types,
     };
-    static version get_min_version_for_hf(int hf_version);
-    static version get_max_version_for_hf(int hf_version);
+    static version get_min_version_for_hf(int hf_version, cryptonote::network_type nettype = MAINNET);
+    static version get_max_version_for_hf(int hf_version, cryptonote::network_type nettype = MAINNET);
 
     // tx information
     size_t   version;
@@ -422,8 +422,8 @@ namespace cryptonote
   /************************************************************************/
   struct block_header
   {
-    uint8_t major_version;
-    uint8_t minor_version;  // now used as a voting mechanism, rather than how this particular block is built
+    uint8_t major_version = cryptonote::network_version_7;
+    uint8_t minor_version = cryptonote::network_version_7;  // now used as a voting mechanism, rather than how this particular block is built
     uint64_t timestamp;
     crypto::hash  prev_id;
     uint32_t nonce;
@@ -511,8 +511,10 @@ namespace cryptonote
     }
   };
   //---------------------------------------------------------------
-  inline enum transaction_prefix::version transaction_prefix::get_max_version_for_hf(int hf_version)
+  inline enum transaction_prefix::version transaction_prefix::get_max_version_for_hf(int hf_version, cryptonote::network_type nettype)
   {
+    (void)nettype;
+
     if (hf_version >= cryptonote::network_version_7 && hf_version <= cryptonote::network_version_8)
       return transaction::version_2;
 
@@ -522,8 +524,16 @@ namespace cryptonote
     return transaction::version_4_tx_types;
   }
 
-  inline enum transaction_prefix::version transaction_prefix::get_min_version_for_hf(int hf_version)
+  inline enum transaction_prefix::version transaction_prefix::get_min_version_for_hf(int hf_version, cryptonote::network_type nettype)
   {
+    // NOTE(loki): Add an exception for testnet as there was a TX v2 on Testnet.
+    // TODO(loki): We can remove this one day when/if we reboot testnet
+    if (nettype == TESTNET)
+    {
+      if (hf_version == cryptonote::network_version_10_bulletproofs)
+        return transaction::version_2;
+    }
+
     if (hf_version >= cryptonote::network_version_7 && hf_version <= cryptonote::network_version_9_service_nodes)
       return transaction::version_2;
 
