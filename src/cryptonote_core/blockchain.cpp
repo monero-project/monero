@@ -3846,21 +3846,22 @@ bool Blockchain::update_next_cumulative_weight_limit(uint64_t *long_term_effecti
   {
     const uint64_t block_weight = m_db->get_block_weight(db_height - 1);
 
-    std::vector<uint64_t> weights;
-    uint64_t nblocks = std::min<uint64_t>(m_long_term_block_weights_window, db_height);
-
-    uint64_t starting_block = 0;
-    if (nblocks == db_height) // NOTE(loki): get_block_long_term_weight subtracts 1, so don't process the 0th height otherwise underflow
+    std::vector<uint64_t> weights, new_weights;
+    uint64_t long_term_median;
+    if (db_height == 1)
     {
-      starting_block++;
-      nblocks--;
+      long_term_median = CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V5;
+    }
+    else
+    {
+      const uint64_t nblocks = std::min<uint64_t>(m_long_term_block_weights_window, db_height - 1);
+      weights.resize(nblocks);
+      for (uint64_t h = 0; h < nblocks; ++h)
+        weights[h] = m_db->get_block_long_term_weight(db_height - nblocks + h);
+      new_weights = weights;
+      long_term_median = epee::misc_utils::median(weights);
     }
 
-    weights.resize(nblocks);
-    for (uint64_t h = starting_block, weight_index = 0; weight_index < nblocks; ++h, weight_index++)
-      weights[weight_index] = m_db->get_block_long_term_weight(db_height - nblocks + h - 1);
-    std::vector<uint64_t> new_weights = weights;
-    uint64_t long_term_median = epee::misc_utils::median(weights);
     m_long_term_effective_median_block_weight = std::max<uint64_t>(CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V5, long_term_median);
 
     uint64_t short_term_constraint = m_long_term_effective_median_block_weight + m_long_term_effective_median_block_weight * 2 / 5;
