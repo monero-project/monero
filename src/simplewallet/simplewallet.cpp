@@ -5769,7 +5769,7 @@ bool simple_wallet::register_service_node_main(
     if (response.size() >= 1)
     {
       bool can_reregister = false;
-      if (m_wallet->use_fork_rules(cryptonote::network_version_11_swarms, 1))
+      if (m_wallet->use_fork_rules(cryptonote::network_version_11_infinite_staking, 1))
         unlock_block = 0; // Infinite staking, no time lock
       else if (m_wallet->use_fork_rules(cryptonote::network_version_10_bulletproofs, 0))
       {

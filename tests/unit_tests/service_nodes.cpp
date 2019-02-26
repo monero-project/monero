@@ -380,7 +380,7 @@ TEST(service_nodes, min_portions)
   }
 
   // ===== After hard fork v11 =====
-  hf_version = cryptonote::network_version_11_swarms;
+  hf_version = cryptonote::network_version_11_infinite_staking;
 
   {
     ASSERT_FALSE(service_nodes::check_service_node_portions(hf_version, {0, STAKING_PORTIONS}));
@@ -465,7 +465,7 @@ TEST(service_nodes, min_stake_amount)
   }
 
   /// post v11
-  hf_version = cryptonote::network_version_11_swarms;
+  hf_version = cryptonote::network_version_11_infinite_staking;
   {
     // 50% reserved, with 1 contribution, max of 4- the minimum stake should be (50% / 3)
     const uint64_t reserved  = stake_requirement / 2;

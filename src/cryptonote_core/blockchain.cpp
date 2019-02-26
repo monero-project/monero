@@ -2652,7 +2652,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
     size_t min_version = transaction::get_min_version_for_hf(hf_version, nettype());
     size_t max_version = transaction::get_max_version_for_hf(hf_version, nettype());
 
-    if (hf_version >= network_version_11_swarms)
+    if (hf_version >= network_version_11_infinite_staking)
       tvc.m_invalid_type    |= (tx.type > transaction::type_key_image_unlock);
 
     tvc.m_invalid_version = tx.version < min_version || tx.version > max_version;
@@ -2738,7 +2738,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
       //
       // Service Node Checks
       //
-      if (hf_version >= cryptonote::network_version_11_swarms)
+      if (hf_version >= cryptonote::network_version_11_infinite_staking)
       {
         const std::vector<service_nodes::key_image_blacklist_entry> &blacklist = m_service_node_list.get_blacklisted_key_images();
         for (const auto &entry : blacklist)
@@ -3772,9 +3772,9 @@ leave:
 bool Blockchain::prune_blockchain(uint32_t pruning_seed)
 {
   uint8_t hf_version = m_hardfork->get_current_version();
-  if (hf_version < 10)
+  if (hf_version < cryptonote::network_version_11_infinite_staking)
   {
-    MERROR("Most of the network will only be ready for pruned blockchains from v10, not pruning");
+    MERROR("Most of the network will only be ready for pruned blockchains from v11, not pruning");
     return false;
   }
   return m_db->prune_blockchain(pruning_seed);
