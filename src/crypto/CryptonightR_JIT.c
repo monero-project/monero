@@ -54,6 +54,7 @@ static const uint8_t epilogue[] = {
 
 int v4_generate_JIT_code(const struct V4_Instruction* code, v4_random_math_JIT_func buf, const size_t buf_size)
 {
+#if defined __i386 || defined __x86_64__
 	uint8_t* JIT_code = (uint8_t*) buf;
 	const uint8_t* JIT_code_end = JIT_code + buf_size;
 
@@ -103,4 +104,7 @@ int v4_generate_JIT_code(const struct V4_Instruction* code, v4_random_math_JIT_f
 	__builtin___clear_cache((char*)buf, (char*)JIT_code);
 
 	return 0;
+#else
+	return 1;
+#endif
 }
