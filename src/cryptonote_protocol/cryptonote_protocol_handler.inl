@@ -1371,6 +1371,7 @@ skip:
   {
     m_idle_peer_kicker.do_call(boost::bind(&t_cryptonote_protocol_handler<t_core>::kick_idle_peers, this));
     m_standby_checker.do_call(boost::bind(&t_cryptonote_protocol_handler<t_core>::check_standby_peers, this));
+    m_sync_search_checker.do_call(boost::bind(&t_cryptonote_protocol_handler<t_core>::update_sync_search, this));
     return m_core.on_idle();
   }
   //------------------------------------------------------------------------------------------------------------------------
@@ -1396,6 +1397,47 @@ skip:
       }
       return true;
     });
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------
+  template<class t_core>
+  bool t_cryptonote_protocol_handler<t_core>::update_sync_search()
+  {
+    const uint64_t target = m_core.get_target_blockchain_height();
+    const uint64_t height = m_core.get_current_blockchain_height();
+    if (target > height) // if we're not synced yet, don't do it
+      return true;
+
+    MTRACE("Checking for outgoing syncing peers...");
+    unsigned n_syncing = 0, n_synced = 0;
+    boost::uuids::uuid last_synced_peer_id(boost::uuids::nil_uuid());
+    m_p2p->for_each_connection([&](cryptonote_connection_context& context, nodetool::peerid_type peer_id, uint32_t support_flags)->bool
+    {
+      if (!peer_id || context.m_is_income) // only consider connected outgoing peers
+        return true;
+      if (context.m_state == cryptonote_connection_context::state_synchronizing)
+        ++n_syncing;
+      if (context.m_state == cryptonote_connection_context::state_normal)
+      {
+        ++n_synced;
+        if (!context.m_anchor)
+          last_synced_peer_id = context.m_connection_id;
+      }
+      return true;
+    });
+    MTRACE(n_syncing << " syncing, " << n_synced << " synced");
+
+    // if we're at max out peers, and not enough are syncing
+    if (n_synced + n_syncing >= m_max_out_peers && n_syncing < P2P_DEFAULT_SYNC_SEARCH_CONNECTIONS_COUNT && last_synced_peer_id != boost::uuids::nil_uuid())
+    {
+      if (!m_p2p->for_connection(last_synced_peer_id, [&](cryptonote_connection_context& ctx, nodetool::peerid_type peer_id, uint32_t f)->bool{
+        MINFO(ctx << "dropping synced peer, " << n_syncing << " syncing, " << n_synced << " synced");
+        drop_connection(ctx, false, false);
+        return true;
+      }))
+        MDEBUG("Failed to find peer we wanted to drop");
+    }
+
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------
