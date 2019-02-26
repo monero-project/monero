@@ -18,10 +18,10 @@ uint64_t get_staking_requirement(cryptonote::network_type m_nettype, uint64_t he
   if (height < hardfork_height) height = hardfork_height;
 
   uint64_t height_adjusted = height - hardfork_height;
-  if (height >= 235987)
+  if (height >= 230704)
   {
     uint64_t base     = 15000 * COIN;
-    uint64_t variable = (24721.0 * COIN) / loki::exp2(height_adjusted/129600.0);
+    uint64_t variable = (25007.0 * COIN) / loki::exp2(height_adjusted/129600.0);
     return base + variable;
   }
   else
