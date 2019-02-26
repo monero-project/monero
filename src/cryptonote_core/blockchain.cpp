@@ -106,10 +106,11 @@ static const struct {
   time_t time;
 } testnet_hard_forks[] = {
   // version 7 from the start of the blockchain, inhereted from Monero testnet
-  { network_version_7,               1, 0, 1533631121 },
-  { network_version_8,               2, 0, 1533631122 },
-  { network_version_9_service_nodes, 3, 0, 1533631123 },
-  { network_version_10_bulletproofs, 47096, 0, 1542681077 }, // 2018-11-20 13:30 AEDT
+  { network_version_7,                   1,      0, 1533631121 },
+  { network_version_8,                   2,      0, 1533631122 },
+  { network_version_9_service_nodes,     3,      0, 1533631123 },
+  { network_version_10_bulletproofs,     47096,  0, 1542681077 }, // 2018-11-20 13:30 AEDT
+  { network_version_11_infinite_staking, 117133, 0, 1551223964 }, // 2019-02-27 12:30 AEDT
 };
 
 static const struct {
@@ -119,10 +120,11 @@ static const struct {
   time_t time;
 } stagenet_hard_forks[] = {
   // version 7 from the start of the blockchain, inhereted from Monero testnet
-  { network_version_7,               1,     0, 1341378000 },
-  { network_version_8,               64324, 0, 1533006000 },
-  { network_version_9_service_nodes, 96210, 0, 1536840000 },
-  { network_version_10_bulletproofs, 96211, 0, 1536840120 },
+  { network_version_7,                   1,      0, 1341378000 },
+  { network_version_8,                   64324,  0, 1533006000 },
+  { network_version_9_service_nodes,     96210,  0, 1536840000 },
+  { network_version_10_bulletproofs,     96211,  0, 1536840120 },
+  { network_version_11_infinite_staking, 147029, 0, 1551223964 }, // 2019-02-27 12:30 AEDT
 };
 
 //------------------------------------------------------------------
