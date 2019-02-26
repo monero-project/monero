@@ -18,10 +18,10 @@ uint64_t get_staking_requirement(cryptonote::network_type m_nettype, uint64_t he
   if (height < hardfork_height) height = hardfork_height;
 
   uint64_t height_adjusted = height - hardfork_height;
-  if (height >= 235987)
+  if (height >= 230704)
   {
     uint64_t base     = 15000 * COIN;
-    uint64_t variable = (24721.0 * COIN) / loki::exp2(height_adjusted/129600.0);
+    uint64_t variable = (25007.0 * COIN) / loki::exp2(height_adjusted/129600.0);
     return base + variable;
   }
   else
@@ -86,7 +86,7 @@ static uint64_t get_min_node_contribution_pre_v11(uint64_t staking_requirement, 
 
 uint64_t get_min_node_contribution(uint8_t version, uint64_t staking_requirement, uint64_t total_reserved, size_t num_contributions)
 {
-  if (version < cryptonote::network_version_11_swarms)
+  if (version < cryptonote::network_version_11_infinite_staking)
     return get_min_node_contribution_pre_v11(staking_requirement, total_reserved);
 
   const uint64_t needed                 = staking_requirement - total_reserved;

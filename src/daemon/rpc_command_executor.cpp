@@ -2175,7 +2175,7 @@ static std::string make_printable_service_node_list_state(cryptonote::network_ty
     {
       uint64_t const now = time(nullptr);
       uint64_t expiry_height = 0;
-      if (hard_fork_version >= cryptonote::network_version_11_swarms)
+      if (hard_fork_version >= cryptonote::network_version_11_infinite_staking)
       {
         expiry_height = entry.requested_unlock_height;
       }

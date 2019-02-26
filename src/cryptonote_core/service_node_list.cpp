@@ -351,7 +351,7 @@ namespace service_nodes
     m_rollback_events.push_back(std::unique_ptr<rollback_event>(new rollback_change(block_height, key, iter->second)));
 
     int hard_fork_version = m_blockchain.get_hard_fork_version(block_height);
-    if (hard_fork_version >= cryptonote::network_version_11_swarms)
+    if (hard_fork_version >= cryptonote::network_version_11_infinite_staking)
     {
       for (const auto &contributor : iter->second.contributors)
       {
@@ -592,7 +592,7 @@ namespace service_nodes
     hw::device& hwdev               = hw::get_device("default");
     parsed_contribution.transferred = 0;
 
-    if (hard_fork_version >= cryptonote::network_version_11_swarms)
+    if (hard_fork_version >= cryptonote::network_version_11_infinite_staking)
     {
       cryptonote::tx_extra_tx_key_image_proofs key_image_proofs;
       if (!get_tx_key_image_proofs_from_tx_extra(tx.extra, key_image_proofs))
@@ -805,7 +805,7 @@ namespace service_nodes
       return false;
 
     int hard_fork_version = m_blockchain.get_hard_fork_version(block_height);
-    if (hard_fork_version >= cryptonote::network_version_11_swarms)
+    if (hard_fork_version >= cryptonote::network_version_11_infinite_staking)
     {
       // NOTE(loki): Grace period is not used anymore with infinite staking. So, if someone somehow reregisters, we just ignore it
       const auto iter = m_service_nodes_infos.find(key);
@@ -970,7 +970,7 @@ namespace service_nodes
     info.last_reward_transaction_index = index;
 
     const size_t max_contributions_per_node = service_nodes::MAX_KEY_IMAGES_PER_CONTRIBUTOR * MAX_NUMBER_OF_CONTRIBUTORS;
-    if (hf_version >= cryptonote::network_version_11_swarms)
+    if (hf_version >= cryptonote::network_version_11_infinite_staking)
     {
       std::vector<service_node_info::contribution_t> &locked_contributions = contributor.locked_contributions;
 
@@ -1306,7 +1306,7 @@ namespace service_nodes
         service_node_info &info             = it->second;
         int const hf_version                = m_blockchain.get_hard_fork_version(info.registration_height);
 
-        if (hf_version >= cryptonote::network_version_11_swarms)
+        if (hf_version >= cryptonote::network_version_11_infinite_staking)
         {
           if (info.requested_unlock_height != KEY_IMAGE_AWAITING_UNLOCK_HEIGHT && block_height > info.requested_unlock_height)
             expired_nodes.push_back(snode_key);

@@ -74,7 +74,7 @@ namespace
   bool construct_max_weight_block(test_generator& generator, block& blk, const block& blk_prev, const account_base& miner_account,
     size_t median_block_count = CRYPTONOTE_REWARD_BLOCKS_WINDOW)
   {
-    std::vector<size_t> block_weights;
+    std::vector<uint64_t> block_weights;
     generator.get_last_n_block_weights(block_weights, get_block_hash(blk_prev), median_block_count);
 
     size_t median = misc_utils::median(block_weights);
@@ -190,7 +190,7 @@ bool gen_block_reward::generate(std::vector<test_event_entry>& events) const
     size_t txs_1_weight = get_transaction_weight(tx_1) + get_transaction_weight(tx_2);
     uint64_t txs_fee = get_tx_fee(tx_1) + get_tx_fee(tx_2);
 
-    std::vector<size_t> block_weights;
+    std::vector<uint64_t> block_weights;
     generator.get_last_n_block_weights(block_weights, get_block_hash(blk_7), CRYPTONOTE_REWARD_BLOCKS_WINDOW);
     size_t median = misc_utils::median(block_weights);
 

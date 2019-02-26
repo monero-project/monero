@@ -188,7 +188,7 @@ namespace cryptonote
     loki_construct_tx_params(int hf_version)
     {
       *this = {};
-      v4_allow_tx_types    = (hf_version >= cryptonote::network_version_11_swarms);
+      v4_allow_tx_types    = (hf_version >= cryptonote::network_version_11_infinite_staking);
       v3_per_output_unlock = (hf_version >= cryptonote::network_version_9_service_nodes);
       v2_rct               = (hf_version >= cryptonote::network_version_7);
     }

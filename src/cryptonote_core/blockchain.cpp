@@ -1199,7 +1199,7 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
   }
 
   uint64_t height = cryptonote::get_block_height(b);
-  std::vector<size_t> last_blocks_weights;
+  std::vector<uint64_t> last_blocks_weights;
   get_last_n_blocks_weights(last_blocks_weights, CRYPTONOTE_REWARD_BLOCKS_WINDOW);
 
   loki_block_reward_context block_reward_context = {};
@@ -1264,7 +1264,7 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
 }
 //------------------------------------------------------------------
 // get the block weights of the last <count> blocks, and return by reference <sz>.
-void Blockchain::get_last_n_blocks_weights(std::vector<size_t>& weights, size_t count) const
+void Blockchain::get_last_n_blocks_weights(std::vector<uint64_t>& weights, size_t count) const
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
@@ -2651,7 +2651,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
     size_t min_version = transaction::get_min_version_for_hf(hf_version, nettype());
     size_t max_version = transaction::get_max_version_for_hf(hf_version, nettype());
 
-    if (hf_version >= network_version_11_swarms)
+    if (hf_version >= network_version_11_infinite_staking)
       tvc.m_invalid_type    |= (tx.type > transaction::type_key_image_unlock);
 
     tvc.m_invalid_version = tx.version < min_version || tx.version > max_version;
@@ -2737,7 +2737,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
       //
       // Service Node Checks
       //
-      if (hf_version >= cryptonote::network_version_11_swarms)
+      if (hf_version >= cryptonote::network_version_11_infinite_staking)
       {
         const std::vector<service_nodes::key_image_blacklist_entry> &blacklist = m_service_node_list.get_blacklisted_key_images();
         for (const auto &entry : blacklist)
@@ -3198,7 +3198,7 @@ uint64_t Blockchain::get_dynamic_base_fee_estimate(uint64_t grace_blocks) const
     grace_blocks = CRYPTONOTE_REWARD_BLOCKS_WINDOW - 1;
 
   const uint64_t min_block_weight = get_min_block_weight(version);
-  std::vector<size_t> weights;
+  std::vector<uint64_t> weights;
   get_last_n_blocks_weights(weights, CRYPTONOTE_REWARD_BLOCKS_WINDOW - grace_blocks);
   weights.reserve(grace_blocks);
   for (size_t i = 0; i < grace_blocks; ++i)
@@ -3771,9 +3771,9 @@ leave:
 bool Blockchain::prune_blockchain(uint32_t pruning_seed)
 {
   uint8_t hf_version = m_hardfork->get_current_version();
-  if (hf_version < 10)
+  if (hf_version < cryptonote::network_version_11_infinite_staking)
   {
-    MERROR("Most of the network will only be ready for pruned blockchains from v10, not pruning");
+    MERROR("Most of the network will only be ready for pruned blockchains from v11, not pruning");
     return false;
   }
   return m_db->prune_blockchain(pruning_seed);
@@ -3835,7 +3835,7 @@ bool Blockchain::update_next_cumulative_weight_limit(uint64_t *long_term_effecti
 
   if (hf_version < HF_VERSION_LONG_TERM_BLOCK_WEIGHT)
   {
-    std::vector<size_t> weights;
+    std::vector<uint64_t> weights;
     get_last_n_blocks_weights(weights, CRYPTONOTE_REWARD_BLOCKS_WINDOW);
     m_current_block_cumul_weight_median = epee::misc_utils::median(weights);
     long_term_block_weight = weights.back();

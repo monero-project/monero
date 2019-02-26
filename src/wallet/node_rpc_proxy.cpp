@@ -28,6 +28,7 @@
 
 #include "node_rpc_proxy.h"
 #include "storages/http_abstract_invoke.h"
+#include <boost/thread.hpp>
 
 using namespace epee;
 
@@ -280,7 +281,7 @@ std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry> NodeRPCP
     return result;
 
   {
-    std::lock_guard<boost::mutex> lock(m_daemon_rpc_mutex);
+    boost::lock_guard<boost::mutex> lock(m_daemon_rpc_mutex);
     if (m_all_service_nodes_cached_height != height)
     {
       cryptonote::COMMAND_RPC_GET_SERVICE_NODES::request req = {};
@@ -326,7 +327,7 @@ std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODE_BLACKLISTED_KEY_IMAGES::ent
     return result;
 
   {
-    std::lock_guard<boost::mutex> lock(m_daemon_rpc_mutex);
+    boost::lock_guard<boost::mutex> lock(m_daemon_rpc_mutex);
     if (m_service_node_blacklisted_key_images_cached_height != height)
     {
       cryptonote::COMMAND_RPC_GET_SERVICE_NODE_BLACKLISTED_KEY_IMAGES::request req = {};
