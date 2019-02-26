@@ -30,8 +30,8 @@ env:
 #    - HOST=i686-w64-mingw32 PACKAGES="python3 nsis g++-mingw-w64-i686"
 # i686 Linux
 #    - HOST=i686-pc-linux-gnu PACKAGES="gperf cmake g++-multilib bc python3-zmq" RUN_TESTS=true
-# Win64
-    - HOST=x86_64-w64-mingw32 PACKAGES="cmake python3 nsis g++-mingw-w64-x86-64 wine-binfmt wine64 bc" RUN_TESTS=true
+# Win64 TODO(loki): We should run tests on Windows and Mac as well. But windows doesn't work out of the box and I assume mac doesn't either.
+    - HOST=x86_64-w64-mingw32 PACKAGES="cmake python3 nsis g++-mingw-w64-x86-64 wine-binfmt wine64 bc"
 # x86_64 Linux
     - HOST=x86_64-unknown-linux-gnu PACKAGES="gperf cmake python3-zmq libdbus-1-dev libharfbuzz-dev" RUN_TESTS=true
 # Cross-Mac
