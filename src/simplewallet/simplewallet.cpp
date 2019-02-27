@@ -3328,7 +3328,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
     fail_msg_writer() << tr("Can't specify more than one of --testnet and --stagenet");
     return false;
   }
-  network_type nettype = testnet ? TESTNET : stagenet ? STAGENET : MAINNET;
+  network_type const nettype = testnet ? TESTNET : stagenet ? STAGENET : MAINNET;
 
   epee::wipeable_string multisig_keys;
 

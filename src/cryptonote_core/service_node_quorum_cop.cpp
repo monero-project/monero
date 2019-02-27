@@ -169,8 +169,12 @@ namespace service_nodes
 
     uint64_t height = m_core.get_current_blockchain_height();
     int version     = m_core.get_hard_fork_version(height);
-    if (version >= cryptonote::network_version_10_bulletproofs && proof.snode_version_major != 2)
-      return false; // NOTE: Only care about major version for now
+
+    // NOTE: Only care about major version for now
+    if (version == cryptonote::network_version_11_infinite_staking && proof.snode_version_major < 3)
+      return false;
+    else if (version == cryptonote::network_version_10_bulletproofs && proof.snode_version_major < 2)
+      return false;
 
     CRITICAL_REGION_LOCAL(m_lock);
     if (m_uptime_proof_seen[pubkey] >= now - (UPTIME_PROOF_FREQUENCY_IN_SECONDS / 2))

@@ -2296,7 +2296,7 @@ static std::string make_printable_service_node_list_state(cryptonote::network_ty
       result.append("\n");
   }
 
-  return std::move(result);
+  return result;
 }
 
 bool t_rpc_command_executor::print_sn(const std::vector<std::string> &args)
