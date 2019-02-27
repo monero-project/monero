@@ -552,7 +552,7 @@ typedef std::ostream ostream_t;
 typedef unsigned int EnumType;
 typedef unsigned short VerboseLevel;
 typedef unsigned long int LineNumber;
-typedef std::shared_ptr<base::Storage> StoragePointer;
+typedef base::Storage *StoragePointer;
 typedef std::shared_ptr<LogDispatchCallback> LogDispatchCallbackPtr;
 typedef std::shared_ptr<PerformanceTrackingCallback> PerformanceTrackingCallbackPtr;
 typedef std::shared_ptr<LoggerRegistrationCallback> LoggerRegistrationCallbackPtr;
@@ -2463,7 +2463,7 @@ class VRegistry : base::NoCopy, public base::threading::ThreadSafe {
 
   void setModules(const char* modules);
 
-  bool allowed(Level level, const char* category);
+  bool allowed(Level level, const std::string &category);
 
   bool allowed(base::type::VerboseLevel vlevel, const char* file);
 
@@ -2734,7 +2734,7 @@ class Storage : base::NoCopy, public base::threading::ThreadSafe {
     return it->second;
   }
 
-  static el::base::type::StoragePointer getELPP();
+  static el::base::type::StoragePointer &getELPP();
 
  private:
   base::RegisteredHitCounters* m_registeredHitCounters;
@@ -3290,6 +3290,7 @@ class Writer : base::NoCopy {
 
   Writer& construct(Logger* logger, bool needLock = true);
   Writer& construct(int count, const char* loggerIds, ...);
+  Writer& construct(const char *loggerId);
  protected:
   LogMessage* m_msg;
   Level m_level;
@@ -3305,6 +3306,7 @@ class Writer : base::NoCopy {
   friend class el::Helpers;
 
   void initializeLogger(const std::string& loggerId, bool lookup = true, bool needLock = true);
+  void initializeLogger(Logger *logger, bool needLock = true);
   void processDispatch();
   void triggerDispatch(void);
 };
@@ -4613,9 +4615,10 @@ el::base::debug::CrashHandler elCrashHandler(ELPP_USE_DEF_CRASH_HANDLER); \
 }
 
 #if ELPP_ASYNC_LOGGING
-#  define INITIALIZE_EASYLOGGINGPP ELPP_INIT_EASYLOGGINGPP(NULL)
+#  define INITIALIZE_EASYLOGGINGPP ELPP_INIT_EASYLOGGINGPP(new el::base::Storage(el::LogBuilderPtr(new el::base::DefaultLogBuilder()),\
+new el::base::AsyncDispatchWorker()))
 #else
-#  define INITIALIZE_EASYLOGGINGPP ELPP_INIT_EASYLOGGINGPP(NULL)
+#  define INITIALIZE_EASYLOGGINGPP ELPP_INIT_EASYLOGGINGPP(new el::base::Storage(el::LogBuilderPtr(new el::base::DefaultLogBuilder())))
 #endif  // ELPP_ASYNC_LOGGING
 #define INITIALIZE_NULL_EASYLOGGINGPP \
 namespace el {\

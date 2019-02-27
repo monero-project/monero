@@ -48,7 +48,7 @@
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define WALLET_RPC_VERSION_MAJOR 1
-#define WALLET_RPC_VERSION_MINOR 6
+#define WALLET_RPC_VERSION_MINOR 8
 #define MAKE_WALLET_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define WALLET_RPC_VERSION MAKE_WALLET_RPC_VERSION(WALLET_RPC_VERSION_MAJOR, WALLET_RPC_VERSION_MINOR)
 namespace tools
@@ -1566,7 +1566,10 @@ namespace wallet_rpc
   {
     struct request
     {
+      bool requested_only;
+
       BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE_OPT(requested_only, false);
       END_KV_SERIALIZE_MAP()
     };
 
@@ -1932,6 +1935,43 @@ namespace wallet_rpc
     };
   };
 
+  struct COMMAND_RPC_RESTORE_DETERMINISTIC_WALLET
+  {
+    struct request
+    {
+      uint64_t restore_height;
+      std::string filename;
+      std::string seed;
+      std::string seed_offset;
+      std::string password;
+      std::string language;
+
+      BEGIN_KV_SERIALIZE_MAP()
+      KV_SERIALIZE_OPT(restore_height, (uint64_t)0)
+      KV_SERIALIZE(filename)
+      KV_SERIALIZE(seed)
+      KV_SERIALIZE(seed_offset)
+      KV_SERIALIZE(password)
+      KV_SERIALIZE(language)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string address;
+      std::string seed;
+      std::string info;
+      bool was_deprecated;
+
+      BEGIN_KV_SERIALIZE_MAP()
+      KV_SERIALIZE(address)
+      KV_SERIALIZE(seed)
+      KV_SERIALIZE(info)
+      KV_SERIALIZE(was_deprecated)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+  
   struct COMMAND_RPC_IS_MULTISIG
   {
     struct request
@@ -2148,6 +2188,92 @@ namespace wallet_rpc
         KV_SERIALIZE(version)
       END_KV_SERIALIZE_MAP()
     };
+  };
+
+  struct COMMAND_RPC_STAKE
+  {
+    struct request
+    {
+      std::string        destination;
+      uint64_t           amount;
+      std::set<uint32_t> subaddr_indices;
+      std::string        service_node_key;
+      uint32_t           priority;
+      bool               get_tx_key;
+      bool               do_not_relay;
+      bool               get_tx_hex;
+      bool               get_tx_metadata;
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE_OPT(subaddr_indices, {});
+        KV_SERIALIZE    (destination);
+        KV_SERIALIZE    (amount);
+        KV_SERIALIZE    (service_node_key);
+        KV_SERIALIZE_OPT(priority,        (uint32_t)0);
+        KV_SERIALIZE    (get_tx_key)
+        KV_SERIALIZE_OPT(do_not_relay,    false)
+        KV_SERIALIZE_OPT(get_tx_hex,      false)
+        KV_SERIALIZE_OPT(get_tx_metadata, false)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string tx_hash;
+      std::string tx_key;
+      uint64_t amount;
+      uint64_t fee;
+      std::string tx_blob;
+      std::string tx_metadata;
+      std::string multisig_txset;
+      std::string unsigned_txset;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(tx_hash)
+        KV_SERIALIZE(tx_key)
+        KV_SERIALIZE(amount)
+        KV_SERIALIZE(fee)
+        KV_SERIALIZE(tx_blob)
+        KV_SERIALIZE(tx_metadata)
+        KV_SERIALIZE(multisig_txset)
+        KV_SERIALIZE(unsigned_txset)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_VALIDATE_ADDRESS
+  {
+    struct request
+    {
+      std::string address;
+      bool any_net_type;
+      bool allow_openalias;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(address)
+        KV_SERIALIZE_OPT(any_net_type, false)
+        KV_SERIALIZE_OPT(allow_openalias, false)
+      END_KV_SERIALIZE_MAP()
+    };
+    // TODO(doyle): FIXME(loki): When the associated commit from upstream Monero is merged
+    // typedef epee::misc_utils::struct_init<request_t> request;
+
+    struct response
+    {
+      bool valid;
+      bool integrated;
+      bool subaddress;
+      std::string nettype;
+      std::string openalias_address;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(valid)
+        KV_SERIALIZE(integrated)
+        KV_SERIALIZE(subaddress)
+        KV_SERIALIZE(nettype)
+        KV_SERIALIZE(openalias_address)
+      END_KV_SERIALIZE_MAP()
+    };
+    // typedef epee::misc_utils::struct_init<response_t> response;
   };
 
 }

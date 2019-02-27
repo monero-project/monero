@@ -68,21 +68,23 @@ namespace nodetool
     bool deinit();
     size_t get_white_peers_count(){CRITICAL_REGION_LOCAL(m_peerlist_lock); return m_peers_white.size();}
     size_t get_gray_peers_count(){CRITICAL_REGION_LOCAL(m_peerlist_lock); return m_peers_gray.size();}
-    bool merge_peerlist(const std::list<peerlist_entry>& outer_bs);
-    bool get_peerlist_head(std::list<peerlist_entry>& bs_head, uint32_t depth = P2P_DEFAULT_PEERS_IN_HANDSHAKE);
-    bool get_peerlist_full(std::list<peerlist_entry>& pl_gray, std::list<peerlist_entry>& pl_white);
+    bool merge_peerlist(const std::vector<peerlist_entry>& outer_bs);
+    bool get_peerlist_head(std::vector<peerlist_entry>& bs_head, uint32_t depth = P2P_DEFAULT_PEERS_IN_HANDSHAKE);
+    bool get_peerlist_full(std::vector<peerlist_entry>& pl_gray, std::vector<peerlist_entry>& pl_white);
     bool get_white_peer_by_index(peerlist_entry& p, size_t i);
     bool get_gray_peer_by_index(peerlist_entry& p, size_t i);
+    template<typename F> bool foreach(bool white, const F &f);
     bool append_with_peer_white(const peerlist_entry& pr);
     bool append_with_peer_gray(const peerlist_entry& pr);
     bool append_with_peer_anchor(const anchor_peerlist_entry& ple);
-    bool set_peer_just_seen(peerid_type peer, const epee::net_utils::network_address& addr);
+    bool set_peer_just_seen(peerid_type peer, const epee::net_utils::network_address& addr, uint32_t pruning_seed);
     bool set_peer_unreachable(const peerlist_entry& pr);
     bool is_host_allowed(const epee::net_utils::network_address &address);
     bool get_random_gray_peer(peerlist_entry& pe);
     bool remove_from_peer_gray(const peerlist_entry& pe);
     bool get_and_empty_anchor_peerlist(std::vector<anchor_peerlist_entry>& apl);
     bool remove_from_peer_anchor(const epee::net_utils::network_address& addr);
+    bool remove_from_peer_white(const peerlist_entry& pe);
     
   private:
     struct by_time{};
@@ -265,7 +267,7 @@ namespace nodetool
   }
   //--------------------------------------------------------------------------------------------------
   inline 
-  bool peerlist_manager::merge_peerlist(const std::list<peerlist_entry>& outer_bs)
+  bool peerlist_manager::merge_peerlist(const std::vector<peerlist_entry>& outer_bs)
   {
     CRITICAL_REGION_LOCAL(m_peerlist_lock);
     for(const peerlist_entry& be:  outer_bs)
@@ -315,12 +317,13 @@ namespace nodetool
   }
   //--------------------------------------------------------------------------------------------------
   inline 
-  bool peerlist_manager::get_peerlist_head(std::list<peerlist_entry>& bs_head, uint32_t depth)
+  bool peerlist_manager::get_peerlist_head(std::vector<peerlist_entry>& bs_head, uint32_t depth)
   {
     
     CRITICAL_REGION_LOCAL(m_peerlist_lock);
     peers_indexed::index<by_time>::type& by_time_index=m_peers_white.get<by_time>();
     uint32_t cnt = 0;
+    bs_head.reserve(depth);
     for(const peers_indexed::value_type& vl: boost::adaptors::reverse(by_time_index))
     {
       if(!vl.last_seen)
@@ -335,16 +338,18 @@ namespace nodetool
   }
   //--------------------------------------------------------------------------------------------------
   inline
-  bool peerlist_manager::get_peerlist_full(std::list<peerlist_entry>& pl_gray, std::list<peerlist_entry>& pl_white)
+  bool peerlist_manager::get_peerlist_full(std::vector<peerlist_entry>& pl_gray, std::vector<peerlist_entry>& pl_white)
   {    
     CRITICAL_REGION_LOCAL(m_peerlist_lock);
     peers_indexed::index<by_time>::type& by_time_index_gr=m_peers_gray.get<by_time>();
+    pl_gray.resize(pl_gray.size() + by_time_index_gr.size());
     for(const peers_indexed::value_type& vl: boost::adaptors::reverse(by_time_index_gr))
     {
       pl_gray.push_back(vl);      
     }
 
     peers_indexed::index<by_time>::type& by_time_index_wt=m_peers_white.get<by_time>();
+    pl_white.resize(pl_white.size() + by_time_index_wt.size());
     for(const peers_indexed::value_type& vl: boost::adaptors::reverse(by_time_index_wt))
     {
       pl_white.push_back(vl);      
@@ -353,8 +358,19 @@ namespace nodetool
     return true;
   }
   //--------------------------------------------------------------------------------------------------
+  template<typename F> inline
+  bool peerlist_manager::foreach(bool white, const F &f)
+  {
+    CRITICAL_REGION_LOCAL(m_peerlist_lock);
+    peers_indexed::index<by_time>::type& by_time_index = white ? m_peers_white.get<by_time>() : m_peers_gray.get<by_time>();
+    for(const peers_indexed::value_type& vl: boost::adaptors::reverse(by_time_index))
+      if (!f(vl))
+        return false;
+    return true;
+  }
+  //--------------------------------------------------------------------------------------------------
   inline
-  bool peerlist_manager::set_peer_just_seen(peerid_type peer, const epee::net_utils::network_address& addr)
+  bool peerlist_manager::set_peer_just_seen(peerid_type peer, const epee::net_utils::network_address& addr, uint32_t pruning_seed)
   {
     TRY_ENTRY();
     CRITICAL_REGION_LOCAL(m_peerlist_lock);
@@ -363,6 +379,7 @@ namespace nodetool
     ple.adr = addr;
     ple.id = peer;
     ple.last_seen = time(NULL);
+    ple.pruning_seed = pruning_seed;
     return append_with_peer_white(ple);
     CATCH_ENTRY_L0("peerlist_manager::set_peer_just_seen()", false);
   }
@@ -463,6 +480,24 @@ namespace nodetool
     return true;
 
     CATCH_ENTRY_L0("peerlist_manager::get_random_gray_peer()", false);
+  }
+  //--------------------------------------------------------------------------------------------------
+  inline
+  bool peerlist_manager::remove_from_peer_white(const peerlist_entry& pe)
+  {
+    TRY_ENTRY();
+
+    CRITICAL_REGION_LOCAL(m_peerlist_lock);
+
+    peers_indexed::index_iterator<by_addr>::type iterator = m_peers_white.get<by_addr>().find(pe.adr);
+
+    if (iterator != m_peers_white.get<by_addr>().end()) {
+      m_peers_white.erase(iterator);
+    }
+
+    return true;
+
+    CATCH_ENTRY_L0("peerlist_manager::remove_from_peer_white()", false);
   }
   //--------------------------------------------------------------------------------------------------
   inline

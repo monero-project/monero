@@ -34,17 +34,16 @@
 
 #include <boost/program_options/options_description.hpp>
 #include <boost/program_options/variables_map.hpp>
-#include <boost/interprocess/sync/file_lock.hpp>
 
 #include "cryptonote_protocol/cryptonote_protocol_handler_common.h"
 #include "storages/portable_storage_template_helper.h"
 #include "common/download.h"
 #include "common/command_line.h"
-#include "service_node_deregister.h"
 #include "tx_pool.h"
 #include "blockchain.h"
+#include "service_node_deregister.h"
 #include "service_node_list.h"
-#include "quorum_cop.h"
+#include "service_node_quorum_cop.h"
 #include "cryptonote_basic/miner.h"
 #include "cryptonote_basic/connection_context.h"
 #include "cryptonote_basic/cryptonote_stat_info.h"
@@ -58,6 +57,7 @@ namespace cryptonote
 {
    struct test_options {
      const std::vector<std::pair<uint8_t, uint64_t>> hard_forks;
+     const size_t long_term_block_weight_window;
    };
 
   extern const command_line::arg_descriptor<std::string, false, true, 2> arg_data_dir;
@@ -66,6 +66,7 @@ namespace cryptonote
   extern const command_line::arg_descriptor<bool, false> arg_regtest_on;
   extern const command_line::arg_descriptor<difficulty_type> arg_fixed_difficulty;
   extern const command_line::arg_descriptor<bool> arg_offline;
+  extern const command_line::arg_descriptor<size_t> arg_block_download_max_size;
 
   /************************************************************************/
   /*                                                                      */
@@ -223,11 +224,6 @@ namespace cryptonote
      virtual void on_transaction_relayed(const cryptonote::blobdata& tx);
 
      /**
-      * @brief mark the deregister vote as having been relayed in the vote pool
-      */
-     virtual void set_deregister_votes_relayed(const std::vector<loki::service_node_deregister::vote>& votes);
-
-     /**
       * @brief gets the miner instance
       *
       * @return a reference to the miner instance
@@ -258,13 +254,12 @@ namespace cryptonote
       * a miner instance with parameters given on the command line (or defaults)
       *
       * @param vm command line parameters
-      * @param config_subdir subdirectory for config storage
       * @param test_options configuration options for testing
       * @param get_checkpoints if set, will be called to get checkpoints data, must return checkpoints data pointer and size or nullptr if there ain't any checkpoints for specific network type
       *
       * @return false if one of the init steps fails, otherwise true
       */
-     bool init(const boost::program_options::variables_map& vm, const char *config_subdir = NULL, const test_options *test_options = NULL, const GetCheckpointsCallback& get_checkpoints = nullptr);
+     bool init(const boost::program_options::variables_map& vm, const test_options *test_options = NULL, const GetCheckpointsCallback& get_checkpoints = nullptr);
 
      /**
       * @copydoc Blockchain::reset_and_set_genesis_block
@@ -371,6 +366,13 @@ namespace cryptonote
       * @note see Blockchain::get_transactions
       */
      bool get_transactions(const std::vector<crypto::hash>& txs_ids, std::vector<cryptonote::blobdata>& txs, std::vector<crypto::hash>& missed_txs) const;
+
+     /**
+      * @copydoc Blockchain::get_transactions
+      *
+      * @note see Blockchain::get_transactions
+      */
+     bool get_split_transactions_blobs(const std::vector<crypto::hash>& txs_ids, std::vector<std::tuple<crypto::hash, cryptonote::blobdata, crypto::hash, cryptonote::blobdata>>& txs, std::vector<crypto::hash>& missed_txs) const;
 
      /**
       * @copydoc Blockchain::get_transactions
@@ -552,6 +554,7 @@ namespace cryptonote
       * @note see Blockchain::get_tx_outputs_gindexs
       */
      bool get_tx_outputs_gindexs(const crypto::hash& tx_id, std::vector<uint64_t>& indexs) const;
+     bool get_tx_outputs_gindexs(const crypto::hash& tx_id, size_t n_txes, std::vector<std::vector<uint64_t>>& indexs) const;
 
      /**
       * @copydoc Blockchain::get_tail_id
@@ -580,6 +583,8 @@ namespace cryptonote
       * @brief get per block distribution of outputs of a given amount
       */
      bool get_output_distribution(uint64_t amount, uint64_t from_height, uint64_t to_height, uint64_t &start_height, std::vector<uint64_t> &distribution, uint64_t &base) const;
+
+     bool get_output_blacklist(std::vector<uint64_t> &blacklist) const;
 
      /**
       * @copydoc miner::pause
@@ -773,6 +778,13 @@ namespace cryptonote
      bool fluffy_blocks_enabled() const { return m_fluffy_blocks_enabled; }
 
      /**
+      * @brief get whether transaction relay should be padded
+      *
+      * @return whether transaction relay should be padded
+      */
+     bool pad_transactions() const { return m_pad_transactions; }
+
+     /**
       * @brief check a set of hashes against the precompiled hash set
       *
       * @return number of usable blocks
@@ -803,11 +815,16 @@ namespace cryptonote
      const std::shared_ptr<const service_nodes::quorum_state> get_quorum_state(uint64_t height) const;
 
      /**
-      * @brief Get a snapshot of the service node list state at the time of the call.
+      * @brief Get a non owning reference to the list of blacklisted key images
+      */
+     const std::vector<service_nodes::key_image_blacklist_entry> &get_service_node_blacklisted_key_images() const;
+
+     /**
+      * @brief get a snapshot of the service node list state at the time of the call.
       *
       * @param service_node_pubkeys pubkeys to search, if empty this indicates get all the pubkeys
       *
-      * @return All the service nodes that can be matched from pubkeys in param
+      * @return all the service nodes that can be matched from pubkeys in param
       */
      std::vector<service_nodes::service_node_pubkey_info> get_service_node_list_state(const std::vector<crypto::public_key>& service_node_pubkeys) const;
 
@@ -826,7 +843,7 @@ namespace cryptonote
 
       * @return Whether the vote was added to the partial deregister pool
       */
-     bool add_deregister_vote(const loki::service_node_deregister::vote& vote, vote_verification_context &vvc);
+     bool add_deregister_vote(const service_nodes::deregister_vote& vote, vote_verification_context &vvc);
 
      /**
       * @brief Get the keypair for this service node.
@@ -838,6 +855,14 @@ namespace cryptonote
       * @return True if we are a service node
       */
      bool get_service_node_keys(crypto::public_key &pub_key, crypto::secret_key &sec_key) const;
+
+     /**
+      * @brief Get the public key of every service node.
+      *
+      * @param keys The container in which to return the keys
+      * @param fully_funded_nodes_only Only return nodes that are funded and hence working on the network
+      */
+     void get_all_service_nodes_public_keys(std::vector<crypto::public_key>& keys, bool fully_funded_nodes_only) const;
 
      /**
       * @brief attempts to submit an uptime proof to the network, if this is running in service node mode
@@ -855,19 +880,50 @@ namespace cryptonote
       */
      uint64_t get_uptime_proof(const crypto::public_key &key) const;
 
+     /*
+      * @brief get the blockchain pruning seed
+      *
+      * @return the blockchain pruning seed
+      */
+     uint32_t get_blockchain_pruning_seed() const;
+
+     /**
+      * @brief prune the blockchain
+      *
+      * @param pruning_seed the seed to use to prune the chain (0 for default, highly recommended)
+      *
+      * @return true iff success
+      */
+     bool prune_blockchain(uint32_t pruning_seed = 0);
+
+     /**
+      * @brief incrementally prunes blockchain
+      *
+      * @return true on success, false otherwise
+      */
+     bool update_blockchain_pruning();
+
+     /**
+      * @brief checks the blockchain pruning if enabled
+      *
+      * @return true on success, false otherwise
+      */
+     bool check_blockchain_pruning();
+
    private:
 
      /**
       * @copydoc add_new_tx(transaction&, tx_verification_context&, bool)
       *
       * @param tx_hash the transaction's hash
+      * @param blob the transaction as a blob
       * @param tx_prefix_hash the transaction prefix' hash
       * @param tx_weight the weight of the transaction
       * @param relayed whether or not the transaction was relayed to us
       * @param do_not_relay whether to prevent the transaction from being relayed
       *
       */
-     bool add_new_tx(transaction& tx, const crypto::hash& tx_hash, const crypto::hash& tx_prefix_hash, size_t tx_weight, tx_verification_context& tvc, bool keeped_by_block, bool relayed, bool do_not_relay);
+     bool add_new_tx(transaction& tx, const crypto::hash& tx_hash, const cryptonote::blobdata &blob, const crypto::hash& tx_prefix_hash, size_t tx_weight, tx_verification_context& tvc, bool keeped_by_block, bool relayed, bool do_not_relay);
 
      /**
       * @brief add a new transaction to the transaction pool
@@ -1054,11 +1110,12 @@ namespace cryptonote
 
      uint64_t m_test_drop_download_height = 0; //!< height under which to drop incoming blocks, if doing so
 
-     loki::deregister_vote_pool m_deregister_vote_pool;
      tx_memory_pool m_mempool; //!< transaction pool instance
      Blockchain m_blockchain_storage; //!< Blockchain instance
-     service_nodes::service_node_list m_service_node_list;
-     service_nodes::quorum_cop m_quorum_cop;
+
+     service_nodes::deregister_vote_pool m_deregister_vote_pool;
+     service_nodes::service_node_list    m_service_node_list;
+     service_nodes::quorum_cop           m_quorum_cop;
 
      i_cryptonote_protocol* m_pprotocol; //!< cryptonote protocol instance
 
@@ -1081,6 +1138,7 @@ namespace cryptonote
      epee::math_helper::once_a_time_seconds<UPTIME_PROOF_BUFFER_IN_SECONDS, true> m_check_uptime_proof_interval; //!< interval for checking our own uptime proof
      epee::math_helper::once_a_time_seconds<30, true> m_uptime_proof_pruner;
      epee::math_helper::once_a_time_seconds<90, false> m_block_rate_interval; //!< interval for checking block rate
+     epee::math_helper::once_a_time_seconds<60*60*5, true> m_blockchain_pruning_interval; //!< interval for incremental blockchain pruning
 
      std::atomic<bool> m_starter_message_showed; //!< has the "daemon will sync now" message been shown?
 
@@ -1121,6 +1179,9 @@ namespace cryptonote
 
      bool m_fluffy_blocks_enabled;
      bool m_offline;
+     bool m_pad_transactions;
+
+     std::shared_ptr<tools::Notify> m_block_rate_notify;
    };
 }
 

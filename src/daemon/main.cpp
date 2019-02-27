@@ -217,6 +217,16 @@ int main(int argc, char const * argv[])
     // after logs initialized
     tools::create_directories_if_necessary(data_dir.string());
 
+#ifdef STACK_TRACE
+    tools::set_stack_trace_log(log_file_path.filename().string());
+#endif // STACK_TRACE
+
+    if (!command_line::is_arg_defaulted(vm, daemon_args::arg_max_concurrency))
+      tools::set_max_concurrency(command_line::get_arg(vm, daemon_args::arg_max_concurrency));
+
+    // logging is now set up
+    MGINFO("Loki '" << LOKI_RELEASE_NAME << "' (v" << LOKI_VERSION_FULL << ")");
+
     // If there are positional options, we're running a daemon command
     {
       auto command = command_line::get_arg(vm, daemon_args::arg_command);
@@ -276,16 +286,6 @@ int main(int argc, char const * argv[])
         }
       }
     }
-
-#ifdef STACK_TRACE
-    tools::set_stack_trace_log(log_file_path.filename().string());
-#endif // STACK_TRACE
-
-    if (!command_line::is_arg_defaulted(vm, daemon_args::arg_max_concurrency))
-      tools::set_max_concurrency(command_line::get_arg(vm, daemon_args::arg_max_concurrency));
-
-    // logging is now set up
-    MGINFO("Loki '" << LOKI_RELEASE_NAME << "' (v" << LOKI_VERSION_FULL << ")");
 
     MINFO("Moving from main() into the daemonize now.");
 

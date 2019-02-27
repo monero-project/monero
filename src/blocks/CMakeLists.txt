@@ -39,7 +39,7 @@ foreach(BLOB_NAME checkpoints testnet_blocks stagenet_blocks)
             cd ${CMAKE_CURRENT_BINARY_DIR} && 
             echo "'#include\t<stddef.h>'" > ${OUTPUT_C_SOURCE} &&
             echo "'const\tunsigned\tchar\t${BLOB_NAME}[]={'" >> ${OUTPUT_C_SOURCE} &&
-            od -v -An -tu1 ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_DAT_FILE} | sed -e "'s/[0-9]\\{1,\\}/&,/g'" -e "'$$s/.$$//'" >> ${OUTPUT_C_SOURCE} &&
+            od -v -An -tx1 ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_DAT_FILE} | sed -e "'s/[0-9a-fA-F]\\{1,\\}/0x&,/g'" -e "'$$s/.$$//'" >> ${OUTPUT_C_SOURCE} &&
             echo "'};'" >> ${OUTPUT_C_SOURCE} &&
             echo "'const\tsize_t\t${BLOB_NAME}_len\t=\tsizeof(${BLOB_NAME});'" >> ${OUTPUT_C_SOURCE}
     )

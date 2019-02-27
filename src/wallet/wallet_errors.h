@@ -123,7 +123,7 @@ namespace tools
       "failed to get hashes",
       "failed to get out indices",
       "failed to get random outs",
-      "failed to get service_node_list",
+      "failed to get service node data",
     };
     enum failed_rpc_request_message_indices
     {
@@ -216,6 +216,14 @@ namespace tools
     struct password_needed : public wallet_runtime_error
     {
       explicit password_needed(std::string&& loc, const std::string &msg = "Password needed")
+        : wallet_runtime_error(std::move(loc), msg)
+      {
+      }
+    };
+    //----------------------------------------------------------------------------------------------------
+    struct password_entry_failed : public wallet_runtime_error
+    {
+      explicit password_entry_failed(std::string&& loc, const std::string &msg = "Password entry failed")
         : wallet_runtime_error(std::move(loc), msg)
       {
       }
@@ -800,6 +808,14 @@ namespace tools
       }
     };
     //----------------------------------------------------------------------------------------------------
+    struct get_output_blacklist : public wallet_rpc_error
+    {
+      explicit get_output_blacklist(std::string&& loc, const std::string& request)
+        : wallet_rpc_error(std::move(loc), "failed to get output blacklist", request)
+      {
+      }
+    };
+    //----------------------------------------------------------------------------------------------------
     struct wallet_files_doesnt_correspond : public wallet_logic_error
     {
       explicit wallet_files_doesnt_correspond(std::string&& loc, const std::string& keys_file, const std::string& wallet_file)
@@ -815,6 +831,31 @@ namespace tools
     private:
       std::string m_keys_file;
       std::string m_wallet_file;
+    };
+    //----------------------------------------------------------------------------------------------------
+    struct mms_error : public wallet_logic_error
+    {
+    protected:
+      explicit mms_error(std::string&& loc, const std::string& message)
+        : wallet_logic_error(std::move(loc), message)
+      {
+      }
+    };
+    //----------------------------------------------------------------------------------------------------
+    struct no_connection_to_bitmessage : public mms_error
+    {
+      explicit no_connection_to_bitmessage(std::string&& loc, const std::string& address)
+        : mms_error(std::move(loc), "no connection to PyBitmessage at address " + address)
+      {
+      }
+    };
+    //----------------------------------------------------------------------------------------------------
+    struct bitmessage_api_error : public mms_error
+    {
+      explicit bitmessage_api_error(std::string&& loc, const std::string& error_string)
+        : mms_error(std::move(loc), "PyBitmessage returned " + error_string)
+      {
+      }
     };
     //----------------------------------------------------------------------------------------------------
 

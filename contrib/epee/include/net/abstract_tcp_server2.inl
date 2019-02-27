@@ -32,16 +32,13 @@
 
 
 
-//#include "net_utils_base.h"
-#include <boost/lambda/bind.hpp>
+#include <boost/bind.hpp>
 #include <boost/foreach.hpp>
-#include <boost/lambda/lambda.hpp>
 #include <boost/uuid/random_generator.hpp>
 #include <boost/chrono.hpp>
 #include <boost/utility/value_init.hpp>
 #include <boost/asio/deadline_timer.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp> // TODO
-#include <boost/thread/thread.hpp> // TODO
 #include <boost/thread/condition_variable.hpp> // TODO
 #include "warnings.h"
 #include "string_tools.h"
@@ -247,7 +244,8 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     //_dbg3("[sock " << socket_.native_handle() << "] add_ref 2, m_peer_number=" << mI->m_peer_number);
     if(m_was_shutdown)
       return false;
-    m_self_refs.push_back(self);
+    ++m_reference_count;
+    m_self_ref = std::move(self);
     return true;
     CATCH_ENTRY_L0("connection<t_protocol_handler>::add_ref()", false);
   }
@@ -259,10 +257,12 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     boost::shared_ptr<connection<t_protocol_handler> >  back_connection_copy;
     LOG_TRACE_CC(context, "[sock " << socket_.native_handle() << "] release");
     CRITICAL_REGION_BEGIN(m_self_refs_lock);
-    CHECK_AND_ASSERT_MES(m_self_refs.size(), false, "[sock " << socket_.native_handle() << "] m_self_refs empty at connection<t_protocol_handler>::release() call");
-    //erasing from container without additional copy can cause start deleting object, including m_self_refs
-    back_connection_copy = m_self_refs.back();
-    m_self_refs.pop_back();
+    CHECK_AND_ASSERT_MES(m_reference_count, false, "[sock " << socket_.native_handle() << "] m_reference_count already at 0 at connection<t_protocol_handler>::release() call");
+    // is this the last reference?
+    if (--m_reference_count == 0) {
+        // move the held reference to a local variable, keeping the object alive until the function terminates
+        std::swap(back_connection_copy, m_self_ref);
+    }
     CRITICAL_REGION_END();
     return true;
     CATCH_ENTRY_L0("connection<t_protocol_handler>::release()", false);
@@ -312,6 +312,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 			CRITICAL_REGION_LOCAL(m_throttle_speed_in_mutex);
 			m_throttle_speed_in.handle_trafic_exact(bytes_transferred);
 			context.m_current_speed_down = m_throttle_speed_in.get_current_speed();
+			context.m_max_speed_down = std::max(context.m_max_speed_down, context.m_current_speed_down);
 		}
     
     {
@@ -514,6 +515,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 		CRITICAL_REGION_LOCAL(m_throttle_speed_out_mutex);
 		m_throttle_speed_out.handle_trafic_exact(cb);
 		context.m_current_speed_up = m_throttle_speed_out.get_current_speed();
+		context.m_max_speed_up = std::max(context.m_max_speed_up, context.m_current_speed_up);
 	}
 
     //_info("[sock " << socket_.native_handle() << "] SEND " << cb);
@@ -1107,11 +1109,12 @@ POP_WARNINGS
     {
     if (!e)
     {
-		if (m_connection_type == e_connection_type_RPC) {
-			MDEBUG("New server for RPC connections");
-			new_connection_->setRpcStation(); // hopefully this is not needed actually
-		}
-		connection_ptr conn(std::move(new_connection_));
+      if (m_connection_type == e_connection_type_RPC)
+      {
+	MDEBUG("New server for RPC connections");
+	new_connection_->setRpcStation(); // hopefully this is not needed actually
+      }
+      connection_ptr conn(std::move(new_connection_));
       new_connection_.reset(new connection<t_protocol_handler>(io_service_, m_config, m_sock_count, m_sock_number, m_pfilter, m_connection_type));
       acceptor_.async_accept(new_connection_->socket(),
         boost::bind(&boosted_tcp_server<t_protocol_handler>::handle_accept, this,
@@ -1133,6 +1136,14 @@ POP_WARNINGS
     {
       MERROR("Exception in boosted_tcp_server<t_protocol_handler>::handle_accept: " << e.what());
     }
+
+    // error path, if e or exception
+    _erro("Some problems at accept: " << e.message() << ", connections_count = " << m_sock_count);
+    misc_utils::sleep_no_w(100);
+    new_connection_.reset(new connection<t_protocol_handler>(io_service_, m_config, m_sock_count, m_sock_number, m_pfilter, m_connection_type));
+    acceptor_.async_accept(new_connection_->socket(),
+      boost::bind(&boosted_tcp_server<t_protocol_handler>::handle_accept, this,
+      boost::asio::placeholders::error));
   }
   //---------------------------------------------------------------------------------
   template<class t_protocol_handler>
@@ -1157,6 +1168,7 @@ POP_WARNINGS
 
       conn->start(true, 1 < m_threads_count);
       conn->save_dbg_log();
+      return;
     }
     else
     {
@@ -1171,9 +1183,9 @@ POP_WARNINGS
     // error path, if e or exception
     _erro("Some problems at accept: " << e.message() << ", connections_count = " << m_sock_count);
     misc_utils::sleep_no_w(100);
-    new_connection_.reset(new connection<t_protocol_handler>(io_service_, m_config, m_sock_count, m_sock_number, m_pfilter, m_connection_type));
-    acceptor_.async_accept(new_connection_->socket(),
-      boost::bind(&boosted_tcp_server<t_protocol_handler>::handle_accept, this,
+    new_connection_v6.reset(new connection<t_protocol_handler>(io_service_, m_config, m_sock_count, m_sock_number, m_pfilter, m_connection_type));
+    acceptor_v6.async_accept(new_connection_v6->socket(),
+      boost::bind(&boosted_tcp_server<t_protocol_handler>::handle_accept_v6, this,
       boost::asio::placeholders::error));
   }
   //---------------------------------------------------------------------------------

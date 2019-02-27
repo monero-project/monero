@@ -2,33 +2,42 @@
 
 ## Messages rebuild
 
-Install `protoc` for your distribution.
+Install `protoc` for your distribution. Requirements:
 
 - `protobuf-compiler`
 - `libprotobuf-dev`
-- `libprotoc-dev`
-- `python-protobuf`
+- `python`
 
-Python 3 is required. If you don't have python 3 quite an easy way is
-to use [pyenv].
 
-It is also advised to create own python virtual environment so dependencies
-are installed in this project-related virtual environment.
+Soft requirement: Python 3, can be easily installed with [pyenv].
+If Python 3 is used there are no additional python dependencies.
+
+Since Cmake 3.12 the `FindPython` module is used to locate the Python 
+interpreter in your system. It preferably searches for Python 3, if none
+is found, it searches for Python 2. 
+
+Lower version of the cmake uses another module which does not guarantee 
+ordering. If you want to override the selected python you can do it in 
+the following way:
 
 ```bash
-python -m venv /
-```
+export TREZOR_PYTHON=`which python3`
+``` 
+ 
 
-Make sure your python has `protobuf` package installed
+### Python 2.7+
+
+Python 3 has `tempfile.TemporaryDirectory` available but Python 2 lacks
+this class so the message generation code uses `backports.tempfile` package
+bundled in the repository.
+
+The minimal Python versions are 2.7 and 3.4
+
+### Regenerate messages
 
 ```bash
-pip install protobuf
-```
-
-Regenerate messages:
-
-```
-./venv/bin/python3 src/device_trezor/trezor/tools/build_protob.py
+cd src/device_trezor/trezor
+python tools/build_protob.py
 ```
 
 The messages regeneration is done also automatically via cmake.

@@ -29,6 +29,7 @@
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 #pragma once
+#include <array>
 #include <boost/thread.hpp>
 #include <boost/program_options/options_description.hpp>
 #include <boost/program_options/variables_map.hpp>
@@ -38,7 +39,9 @@
 
 #include "cryptonote_config.h"
 #include "warnings.h"
-#include "net/levin_server_cp2.h"
+#include "net/abstract_tcp_server2.h"
+#include "net/levin_protocol_handler.h"
+#include "net/levin_protocol_handler_async.h"
 #include "p2p_protocol_defs.h"
 #include "storages/levin_abstract_invoke2.h"
 #include "net_peerlist.h"
@@ -125,6 +128,11 @@ namespace nodetool
     virtual bool block_host(const epee::net_utils::network_address &adress, time_t seconds = P2P_IP_BLOCKTIME);
     virtual bool unblock_host(const epee::net_utils::network_address &address);
     virtual std::map<std::string, time_t> get_blocked_hosts() { CRITICAL_REGION_LOCAL(m_blocked_hosts_lock); return m_blocked_hosts; }
+
+    virtual void add_used_stripe_peer(const typename t_payload_net_handler::connection_context &context);
+    virtual void remove_used_stripe_peer(const typename t_payload_net_handler::connection_context &context);
+    virtual void clear_used_stripe_peers();
+
   private:
     const std::vector<std::string> m_seed_nodes_list =
     {
@@ -176,10 +184,10 @@ namespace nodetool
     virtual void on_connection_close(p2p_connection_context& context);
     virtual void callback(p2p_connection_context& context);
     //----------------- i_p2p_endpoint -------------------------------------------------------------
-    virtual bool relay_notify_to_list(int command, const std::string& data_buff, const std::list<boost::uuids::uuid> &connections);
-    virtual bool relay_notify_to_all(int command, const std::string& data_buff, const epee::net_utils::connection_context_base& context);
-    virtual bool invoke_command_to_peer(int command, const std::string& req_buff, std::string& resp_buff, const epee::net_utils::connection_context_base& context);
-    virtual bool invoke_notify_to_peer(int command, const std::string& req_buff, const epee::net_utils::connection_context_base& context);
+    virtual bool relay_notify_to_list(int command, const epee::span<const uint8_t> data_buff, const std::list<boost::uuids::uuid> &connections);
+    virtual bool relay_notify_to_all(int command, const epee::span<const uint8_t> data_buff, const epee::net_utils::connection_context_base& context);
+    virtual bool invoke_command_to_peer(int command, const epee::span<const uint8_t> req_buff, std::string& resp_buff, const epee::net_utils::connection_context_base& context);
+    virtual bool invoke_notify_to_peer(int command, const epee::span<const uint8_t> req_buff, const epee::net_utils::connection_context_base& context);
     virtual bool drop_connection(const epee::net_utils::connection_context_base& context);
     virtual void request_callback(const epee::net_utils::connection_context_base& context);
     virtual void for_each_connection(std::function<bool(typename t_payload_net_handler::connection_context&, peerid_type, uint32_t)> f);
@@ -193,12 +201,12 @@ namespace nodetool
         const boost::program_options::variables_map& vm
       );
     bool idle_worker();
-    bool handle_remote_peerlist(const std::list<peerlist_entry>& peerlist, time_t local_time, const epee::net_utils::connection_context_base& context);
+    bool handle_remote_peerlist(const std::vector<peerlist_entry>& peerlist, time_t local_time, const epee::net_utils::connection_context_base& context);
     bool get_local_node_data(basic_node_data& node_data);
     //bool get_local_handshake_data(handshake_data& hshd);
 
-    bool merge_peerlist_with_local(const std::list<peerlist_entry>& bs);
-    bool fix_time_delta(std::list<peerlist_entry>& local_peerlist, time_t local_time, int64_t& delta);
+    bool merge_peerlist_with_local(const std::vector<peerlist_entry>& bs);
+    bool fix_time_delta(std::vector<peerlist_entry>& local_peerlist, time_t local_time, int64_t& delta);
 
     bool connections_maker();
     bool peer_sync_idle_maker();
@@ -234,7 +242,13 @@ namespace nodetool
     bool parse_peers_and_add_to_container(const boost::program_options::variables_map& vm, const command_line::arg_descriptor<std::vector<std::string> > & arg, Container& container);
 
     bool set_max_out_peers(const boost::program_options::variables_map& vm, int64_t max);
+    bool get_max_out_peers() const { return m_config.m_net_config.max_out_connection_count; }
+    bool get_current_out_peers() const { return m_current_number_of_out_peers; }
+
     bool set_max_in_peers(const boost::program_options::variables_map& vm, int64_t max);
+    bool get_max_in_peers() const { return m_config.m_net_config.max_in_connection_count; }
+    bool get_current_in_peers() const { return m_current_number_of_in_peers; }
+
     bool set_tos_flag(const boost::program_options::variables_map& vm, int limit);
 
     bool set_rate_up_limit(const boost::program_options::variables_map& vm, int64_t limit);
@@ -339,11 +353,14 @@ namespace nodetool
     epee::critical_section m_host_fails_score_lock;
     std::map<std::string, uint64_t> m_host_fails_score;
 
+    boost::mutex m_used_stripe_peers_mutex;
+    std::array<std::list<epee::net_utils::network_address>, 1 << CRYPTONOTE_PRUNING_LOG_STRIPES> m_used_stripe_peers;
+
     cryptonote::network_type m_nettype;
   };
 
-    const int64_t default_limit_up = 2048;    // kB/s
-    const int64_t default_limit_down = 8192;  // kB/s
+    const int64_t default_limit_up = P2P_DEFAULT_LIMIT_RATE_UP;      // kB/s
+    const int64_t default_limit_down = P2P_DEFAULT_LIMIT_RATE_DOWN;  // kB/s
     extern const command_line::arg_descriptor<std::string> arg_p2p_bind_ip;
     extern const command_line::arg_descriptor<std::string> arg_p2p_bind_ipv6_address;
     extern const command_line::arg_descriptor<std::string, false, true, 2> arg_p2p_bind_port;

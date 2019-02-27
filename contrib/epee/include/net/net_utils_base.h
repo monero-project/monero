@@ -296,6 +296,8 @@ namespace net_utils
     uint64_t m_send_cnt;
     double m_current_speed_down;
     double m_current_speed_up;
+    double m_max_speed_down;
+    double m_max_speed_up;
 
     connection_context_base(boost::uuids::uuid connection_id,
                             const network_address &remote_address, bool is_income,
@@ -310,7 +312,9 @@ namespace net_utils
                                             m_recv_cnt(recv_cnt),
                                             m_send_cnt(send_cnt),
                                             m_current_speed_down(0),
-                                            m_current_speed_up(0)
+                                            m_current_speed_up(0),
+                                            m_max_speed_down(0),
+                                            m_max_speed_up(0)
     {}
 
     connection_context_base(): m_connection_id(),
@@ -322,7 +326,9 @@ namespace net_utils
                                m_recv_cnt(0),
                                m_send_cnt(0),
                                m_current_speed_down(0),
-                               m_current_speed_up(0)
+                               m_current_speed_up(0),
+                               m_max_speed_down(0),
+                               m_max_speed_up(0)
     {}
 
     connection_context_base& operator=(const connection_context_base& a)

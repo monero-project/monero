@@ -170,6 +170,7 @@ int main(int argc, char* argv[])
     return 1;
   }
 
+  bool full;
   cryptonote::block block;
   cryptonote::transaction tx;
   std::vector<cryptonote::tx_extra_field> fields;
@@ -180,11 +181,9 @@ int main(int argc, char* argv[])
   }
   else if (cryptonote::parse_and_validate_tx_from_blob(blob, tx) || cryptonote::parse_and_validate_tx_base_from_blob(blob, tx))
   {
-/*
     if (tx.pruned)
       std::cout << "Parsed pruned transaction:" << std::endl;
     else
-*/
       std::cout << "Parsed transaction:" << std::endl;
     std::cout << cryptonote::obj_to_json_str(tx) << std::endl;
 
@@ -201,9 +200,9 @@ int main(int argc, char* argv[])
       std::cout << "No fields were found in tx_extra" << std::endl;
     }
   }
-  else if (cryptonote::parse_tx_extra(std::vector<uint8_t>(blob.begin(), blob.end()), fields) && !fields.empty())
+  else if (((full = cryptonote::parse_tx_extra(std::vector<uint8_t>(blob.begin(), blob.end()), fields)) || true) && !fields.empty())
   {
-    std::cout << "Parsed tx_extra:" << std::endl;
+    std::cout << "Parsed" << (full ? "" : " partial") << " tx_extra:" << std::endl;
     print_extra_fields(fields);
   }
   else

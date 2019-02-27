@@ -70,8 +70,9 @@ namespace {
     }
     else
     {
-      return std::string{p_error_text};
+      std::string ret{p_error_text};
       LocalFree(p_error_text);
+      return ret;
     }
   }
 

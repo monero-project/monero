@@ -35,7 +35,10 @@ set(wallet_sources
   wallet2.cpp
   wallet_args.cpp
   ringdb.cpp
-  node_rpc_proxy.cpp)
+  node_rpc_proxy.cpp
+  message_store.cpp
+  message_transporter.cpp
+)
 
 set(wallet_private_headers
   wallet2.h
@@ -45,7 +48,9 @@ set(wallet_private_headers
   wallet_rpc_server_commands_defs.h
   wallet_rpc_server_error_codes.h
   ringdb.h
-  node_rpc_proxy.h)
+  node_rpc_proxy.h
+  message_store.h
+  message_transporter.h)
 
 loki_private_headers(wallet
   ${wallet_private_headers})
@@ -69,41 +74,43 @@ target_link_libraries(wallet
   PRIVATE
     ${EXTRA_LIBRARIES})
 
-set(wallet_rpc_sources
-  wallet_rpc_server.cpp)
+if (NOT LOKI_DAEMON_AND_WALLET_ONLY)
+  set(wallet_rpc_sources
+    wallet_rpc_server.cpp)
 
-set(wallet_rpc_headers)
+  set(wallet_rpc_headers)
 
-set(wallet_rpc_private_headers
-  wallet_rpc_server.h)
+  set(wallet_rpc_private_headers
+    wallet_rpc_server.h)
 
-loki_private_headers(wallet_rpc_server
-  ${wallet_rpc_private_headers})
-loki_add_executable(wallet_rpc_server
-  ${wallet_rpc_sources}
-  ${wallet_rpc_headers}
-  ${wallet_rpc_private_headers})
+  loki_private_headers(wallet_rpc_server
+    ${wallet_rpc_private_headers})
+  loki_add_executable(wallet_rpc_server
+    ${wallet_rpc_sources}
+    ${wallet_rpc_headers}
+    ${wallet_rpc_private_headers})
 
-target_link_libraries(wallet_rpc_server
-  PRIVATE
-    wallet
-    rpc_base
-    cryptonote_core
-    cncrypto
-    common
-    version
-    daemonizer
-    ${EPEE_READLINE}
-    ${Boost_CHRONO_LIBRARY}
-    ${Boost_PROGRAM_OPTIONS_LIBRARY}
-    ${Boost_FILESYSTEM_LIBRARY}
-    ${Boost_THREAD_LIBRARY}
-    ${CMAKE_THREAD_LIBS_INIT}
-    ${EXTRA_LIBRARIES})
-set_property(TARGET wallet_rpc_server
-  PROPERTY
-    OUTPUT_NAME "loki-wallet-rpc")
-install(TARGETS wallet_rpc_server DESTINATION bin)
+  target_link_libraries(wallet_rpc_server
+    PRIVATE
+      wallet
+      rpc_base
+      cryptonote_core
+      cncrypto
+      common
+      version
+      daemonizer
+      ${EPEE_READLINE}
+      ${Boost_CHRONO_LIBRARY}
+      ${Boost_PROGRAM_OPTIONS_LIBRARY}
+      ${Boost_FILESYSTEM_LIBRARY}
+      ${Boost_THREAD_LIBRARY}
+      ${CMAKE_THREAD_LIBS_INIT}
+      ${EXTRA_LIBRARIES})
+  set_property(TARGET wallet_rpc_server
+    PROPERTY
+      OUTPUT_NAME "loki-wallet-rpc")
+  install(TARGETS wallet_rpc_server DESTINATION bin)
+endif()
 
 
 # build and install libwallet_merged only if we building for GUI
@@ -135,6 +142,12 @@ if (BUILD_GUI_DEPS)
     endif()
     install(TARGETS wallet_merged
         ARCHIVE DESTINATION ${lib_folder})
+
+    install(FILES ${TREZOR_DEP_LIBS}
+            DESTINATION ${lib_folder})
+    file(WRITE "trezor_link_flags.txt" ${TREZOR_DEP_LINKER})
+    install(FILES "trezor_link_flags.txt"
+            DESTINATION ${lib_folder})
 endif()
 
 add_subdirectory(api)

@@ -12,7 +12,6 @@
 #include <unistd.h>
 #include <stdexcept>
 #include <string>
-#include <sys/stat.h>
 
 #ifndef TMPDIR
 #define TMPDIR "/tmp"

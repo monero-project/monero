@@ -79,6 +79,7 @@ namespace rpc
     uint32_t ip;
     uint16_t port;
     uint64_t last_seen;
+    uint32_t pruning_seed;
   };
 
   struct tx_in_pool
@@ -191,6 +192,7 @@ namespace rpc
     uint64_t block_size_median;
     uint64_t block_weight_median;
     uint64_t start_time;
+    std::string version;
   };
 
   struct output_distribution

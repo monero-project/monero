@@ -26,12 +26,12 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#include "service_node_quorum_cop.h"
 #include "service_node_deregister.h"
 #include "service_node_list.h"
 #include "cryptonote_config.h"
 #include "cryptonote_core.h"
 #include "version.h"
-#include "quorum_cop.h"
 
 #undef LOKI_DEFAULT_LOG_CATEGORY
 #define LOKI_DEFAULT_LOG_CATEGORY "quorum_cop"
@@ -82,10 +82,10 @@ namespace service_nodes
 
     uint64_t const latest_height = std::max(m_core.get_current_blockchain_height(), m_core.get_target_blockchain_height());
 
-    if (latest_height < loki::service_node_deregister::VOTE_LIFETIME_BY_HEIGHT)
+    if (latest_height < service_nodes::deregister_vote::VOTE_LIFETIME_BY_HEIGHT)
       return;
 
-    uint64_t const execute_justice_from_height = latest_height - loki::service_node_deregister::VOTE_LIFETIME_BY_HEIGHT;
+    uint64_t const execute_justice_from_height = latest_height - service_nodes::deregister_vote::VOTE_LIFETIME_BY_HEIGHT;
     if (height < execute_justice_from_height)
       return;
 
@@ -121,11 +121,11 @@ namespace service_nodes
         if (!vote_off_node)
           continue;
 
-        loki::service_node_deregister::vote vote = {};
+        service_nodes::deregister_vote vote = {};
         vote.block_height        = m_last_height;
         vote.service_node_index  = node_index;
         vote.voters_quorum_index = my_index_in_quorum;
-        vote.signature           = loki::service_node_deregister::sign_vote(vote.block_height, vote.service_node_index, my_pubkey, my_seckey);
+        vote.signature           = service_nodes::deregister_vote::sign_vote(vote.block_height, vote.service_node_index, my_pubkey, my_seckey);
 
         cryptonote::vote_verification_context vvc = {};
         if (!m_core.add_deregister_vote(vote, vvc))
@@ -163,8 +163,12 @@ namespace service_nodes
 
     uint64_t height = m_core.get_current_blockchain_height();
     int version     = m_core.get_hard_fork_version(height);
-    if (version >= cryptonote::network_version_10_bulletproofs && proof.snode_version_major != 2)
-      return false; // NOTE: Only care about major version for now
+
+    // NOTE: Only care about major version for now
+    if (version == cryptonote::network_version_11_infinite_staking_bulletproofs && proof.snode_version_major < 3)
+      return false;
+    else if (version == cryptonote::network_version_10_bulletproofs && proof.snode_version_major < 2)
+      return false;
 
     CRITICAL_REGION_LOCAL(m_lock);
     if (m_uptime_proof_seen[pubkey] >= now - (UPTIME_PROOF_FREQUENCY_IN_SECONDS / 2))

@@ -52,9 +52,8 @@ public:
   ~PerformanceTimer();
   void pause();
   void resume();
-
-  uint64_t value() const { return ticks; }
-void set(uint64_t v){ticks=v;}
+  void reset();
+  uint64_t value() const;
 
 protected:
   uint64_t ticks;
@@ -65,7 +64,7 @@ protected:
 class LoggingPerformanceTimer: public PerformanceTimer
 {
 public:
-  LoggingPerformanceTimer(const std::string &s, const std::string &cat, uint64_t unit, el::Level l = el::Level::Debug);
+  LoggingPerformanceTimer(const std::string &s, const std::string &cat, uint64_t unit, el::Level l = el::Level::Info);
   ~LoggingPerformanceTimer();
 
 private:

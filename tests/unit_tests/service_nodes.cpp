@@ -78,88 +78,42 @@ TEST(service_nodes, staking_requirement)
 
   // Check the requirements are decreasing
   {
-    uint64_t height = 250000;
+    uint64_t height = 209250;
     int64_t mainnet_requirement  = (int64_t)service_nodes::get_staking_requirement(cryptonote::MAINNET, height);
-    int64_t stagenet_requirement = (int64_t)service_nodes::get_staking_requirement(cryptonote::STAGENET, height);
 
-    int64_t  mainnet_expected = (int64_t)((25796 * COIN) + 364642307);
+    int64_t  mainnet_expected = (int64_t)((29643 * COIN) + 670390000);
     int64_t  mainnet_delta    = std::abs(mainnet_requirement - mainnet_expected);
     ASSERT_LT(mainnet_delta, atomic_epsilon);
-
-    int64_t stagenet_expected = (int64_t)((25376 * COIN) + 249888366);
-    int64_t stagenet_delta    = std::abs(stagenet_requirement - stagenet_expected);
-    ASSERT_LT(stagenet_delta, atomic_epsilon);
   }
 
-  // Bottom of the curve, generally this should be the lowest the staking requirement will be
+  // On the boundary when the scheme switches over to a smooth emissions curve to 15k
   {
-    uint64_t height = 1036800;
+    uint64_t height = 230704;
     int64_t  mainnet_requirement  = (int64_t)service_nodes::get_staking_requirement(cryptonote::MAINNET, height);
-    int64_t  stagenet_requirement = (int64_t)service_nodes::get_staking_requirement(cryptonote::STAGENET, height);
 
-    int64_t  mainnet_expected = (int64_t)((10234 * COIN) + 967482165);
+    int64_t  mainnet_expected = (int64_t)((27513 * COIN) + 267300000);
     int64_t  mainnet_delta    = std::abs(mainnet_requirement - mainnet_expected);
     ASSERT_LT(mainnet_delta, atomic_epsilon);
-
-    int64_t  stagenet_expected = (int64_t)((10228 * COIN) + 718366740);
-    int64_t  stagenet_delta    = std::abs(stagenet_requirement - stagenet_expected);
-    ASSERT_LT(stagenet_delta, atomic_epsilon);
   }
 
-  // RHS of Rewards Formula, 1st part
-  // Where the two equations should meet and staking formula equalizes
+  // Check requirements are decreasing after switching over to new requirements curve
   {
-    uint64_t height = 1166400;
-    uint64_t mainnet_requirement  = service_nodes::get_staking_requirement(cryptonote::MAINNET, height);
-    uint64_t stagenet_requirement = service_nodes::get_staking_requirement(cryptonote::STAGENET, height);
-    ASSERT_EQ(mainnet_requirement,  (10250 * COIN));
-    ASSERT_EQ(stagenet_requirement, (10250 * COIN));
-  }
-
-  // Checking the requirements still equal
-  {
-    uint64_t height = 1296000;
-    uint64_t mainnet_requirement  = service_nodes::get_staking_requirement(cryptonote::MAINNET, height);
-    uint64_t stagenet_requirement = service_nodes::get_staking_requirement(cryptonote::STAGENET, height);
-
-    ASSERT_EQ(mainnet_requirement,  (10500 * COIN));
-    ASSERT_EQ(stagenet_requirement, (10500 * COIN));
-  }
-
-  // Checking we are approaching 15000
-  {
-    uint64_t height = 3000000;
+    uint64_t height = 706050;
     int64_t  mainnet_requirement  = (int64_t)service_nodes::get_staking_requirement(cryptonote::MAINNET, height);
-    int64_t  stagenet_requirement = (int64_t)service_nodes::get_staking_requirement(cryptonote::STAGENET, height);
 
-    int64_t  mainnet_expected = (int64_t)((13787 * COIN) + 37037037);
+    int64_t  mainnet_expected = (int64_t)((15984 * COIN) + 588930000);
     int64_t  mainnet_delta    = std::abs(mainnet_requirement - mainnet_expected);
     ASSERT_LT(mainnet_delta, atomic_epsilon);
-
-    int64_t  stagenet_expected = (int64_t)((13787 * COIN) + 37037037);
-    int64_t  stagenet_delta    = std::abs(stagenet_requirement - stagenet_expected);
-    ASSERT_LT(stagenet_delta, atomic_epsilon);
   }
 
-  // RHS of Rewards Formula, 2nd part
-  // Last part of formula maxes out at 15000 if height > 3628800
+  // Check approaching 15k requirement
   {
-    uint64_t height = 3628800;
-    uint64_t mainnet_requirement  = service_nodes::get_staking_requirement(cryptonote::MAINNET, height);
-    uint64_t stagenet_requirement = service_nodes::get_staking_requirement(cryptonote::STAGENET, height);
+    uint64_t height = 3643650;
+    int64_t  mainnet_requirement  = (int64_t)service_nodes::get_staking_requirement(cryptonote::MAINNET, height);
 
-    ASSERT_EQ(mainnet_requirement,  (15000 * COIN));
-    ASSERT_EQ(stagenet_requirement, (15000 * COIN));
-  }
-
-  // Check we stay capped at 15000
-  {
-    uint64_t height = 4082400;
-    uint64_t mainnet_requirement  = service_nodes::get_staking_requirement(cryptonote::MAINNET, height);
-    uint64_t stagenet_requirement = service_nodes::get_staking_requirement(cryptonote::STAGENET, height);
-
-    ASSERT_EQ(mainnet_requirement,  (15000 * COIN));
-    ASSERT_EQ(stagenet_requirement, (15000 * COIN));
+    int64_t  mainnet_expected = (int64_t)((15000 * COIN) + 150000);
+    int64_t  mainnet_delta    = std::abs(mainnet_requirement - mainnet_expected);
+    ASSERT_LT(mainnet_delta, atomic_epsilon);
   }
 }
 
@@ -182,15 +136,15 @@ TEST(service_nodes, vote_validation)
   }
 
   // Valid vote
-  loki::service_node_deregister::vote valid_vote = {};
+  service_nodes::deregister_vote valid_vote = {};
   {
     valid_vote.block_height         = 10;
     valid_vote.service_node_index   = 1;
     valid_vote.voters_quorum_index  = voter_index;
-    valid_vote.signature            = loki::service_node_deregister::sign_vote(valid_vote.block_height, valid_vote.service_node_index, service_node_voter.pub, service_node_voter.sec);
+    valid_vote.signature            = service_nodes::deregister_vote::sign_vote(valid_vote.block_height, valid_vote.service_node_index, service_node_voter.pub, service_node_voter.sec);
 
     cryptonote::vote_verification_context vvc = {};
-    bool result = loki::service_node_deregister::verify_vote(cryptonote::MAINNET, valid_vote, vvc, state);
+    bool result = service_nodes::deregister_vote::verify_vote(cryptonote::MAINNET, valid_vote, vvc, state);
     if (!result)
       printf("%s\n", cryptonote::print_vote_verification_context(vvc, &valid_vote));
 
@@ -201,10 +155,10 @@ TEST(service_nodes, vote_validation)
   {
     auto vote                = valid_vote;
     vote.voters_quorum_index = state.quorum_nodes.size() + 10;
-    vote.signature           = loki::service_node_deregister::sign_vote(vote.block_height, vote.service_node_index, service_node_voter.pub, service_node_voter.sec);
+    vote.signature           = service_nodes::deregister_vote::sign_vote(vote.block_height, vote.service_node_index, service_node_voter.pub, service_node_voter.sec);
 
     cryptonote::vote_verification_context vvc = {};
-    bool result = loki::service_node_deregister::verify_vote(cryptonote::MAINNET, vote, vvc, state);
+    bool result = service_nodes::deregister_vote::verify_vote(cryptonote::MAINNET, vote, vvc, state);
     ASSERT_FALSE(result);
   }
 
@@ -212,10 +166,10 @@ TEST(service_nodes, vote_validation)
   {
     auto vote               = valid_vote;
     vote.service_node_index = state.nodes_to_test.size() + 10;
-    vote.signature          = loki::service_node_deregister::sign_vote(vote.block_height, vote.service_node_index, service_node_voter.pub, service_node_voter.sec);
+    vote.signature          = service_nodes::deregister_vote::sign_vote(vote.block_height, vote.service_node_index, service_node_voter.pub, service_node_voter.sec);
 
     cryptonote::vote_verification_context vvc = {};
-    bool result = loki::service_node_deregister::verify_vote(cryptonote::MAINNET, vote, vvc, state);
+    bool result = service_nodes::deregister_vote::verify_vote(cryptonote::MAINNET, vote, vvc, state);
     ASSERT_FALSE(result);
   }
 
@@ -223,10 +177,10 @@ TEST(service_nodes, vote_validation)
   {
     auto vote                       = valid_vote;
     cryptonote::keypair other_voter = cryptonote::keypair::generate(hw::get_device("default"));
-    vote.signature                  = loki::service_node_deregister::sign_vote(vote.block_height, vote.service_node_index, other_voter.pub, other_voter.sec);
+    vote.signature                  = service_nodes::deregister_vote::sign_vote(vote.block_height, vote.service_node_index, other_voter.pub, other_voter.sec);
 
     cryptonote::vote_verification_context vvc = {};
-    bool result = loki::service_node_deregister::verify_vote(cryptonote::MAINNET, vote, vvc, state);
+    bool result = service_nodes::deregister_vote::verify_vote(cryptonote::MAINNET, vote, vvc, state);
     ASSERT_FALSE(result);
   }
 }
@@ -262,12 +216,12 @@ TEST(service_nodes, tx_extra_deregister_validation)
       cryptonote::tx_extra_service_node_deregister::vote vote = {};
 
       vote.voters_quorum_index = i;
-      vote.signature           = loki::service_node_deregister::sign_vote(valid_deregister.block_height, valid_deregister.service_node_index, voter->pub, voter->sec);
+      vote.signature           = service_nodes::deregister_vote::sign_vote(valid_deregister.block_height, valid_deregister.service_node_index, voter->pub, voter->sec);
       valid_deregister.votes.push_back(vote);
     }
 
     cryptonote::vote_verification_context vvc = {};
-    bool result = loki::service_node_deregister::verify_deregister(cryptonote::MAINNET, valid_deregister, vvc, state);
+    bool result = service_nodes::deregister_vote::verify_deregister(cryptonote::MAINNET, valid_deregister, vvc, state);
     if (!result)
       printf("%s\n", cryptonote::print_vote_verification_context(vvc));
     ASSERT_TRUE(result);
@@ -280,7 +234,7 @@ TEST(service_nodes, tx_extra_deregister_validation)
       deregister.votes.pop_back();
 
     cryptonote::vote_verification_context vvc = {};
-    bool result = loki::service_node_deregister::verify_deregister(cryptonote::MAINNET, deregister, vvc, state);
+    bool result = service_nodes::deregister_vote::verify_deregister(cryptonote::MAINNET, deregister, vvc, state);
     ASSERT_FALSE(result);
   }
 
@@ -290,7 +244,7 @@ TEST(service_nodes, tx_extra_deregister_validation)
     deregister.votes[0] = deregister.votes[1];
 
     cryptonote::vote_verification_context vvc = {};
-    bool result = loki::service_node_deregister::verify_deregister(cryptonote::MAINNET, deregister, vvc, state);
+    bool result = service_nodes::deregister_vote::verify_deregister(cryptonote::MAINNET, deregister, vvc, state);
     ASSERT_FALSE(result);
   }
 
@@ -300,7 +254,7 @@ TEST(service_nodes, tx_extra_deregister_validation)
     deregister.votes[0].signature = deregister.votes[1].signature;
 
     cryptonote::vote_verification_context vvc = {};
-    bool result = loki::service_node_deregister::verify_deregister(cryptonote::MAINNET, deregister, vvc, state);
+    bool result = service_nodes::deregister_vote::verify_deregister(cryptonote::MAINNET, deregister, vvc, state);
     ASSERT_FALSE(result);
   }
 
@@ -310,7 +264,7 @@ TEST(service_nodes, tx_extra_deregister_validation)
     deregister.votes[0].voters_quorum_index = state.quorum_nodes.size() + 10;
 
     cryptonote::vote_verification_context vvc = {};
-    bool result = loki::service_node_deregister::verify_deregister(cryptonote::MAINNET, deregister, vvc, state);
+    bool result = service_nodes::deregister_vote::verify_deregister(cryptonote::MAINNET, deregister, vvc, state);
     ASSERT_FALSE(result);
   }
 
@@ -320,34 +274,37 @@ TEST(service_nodes, tx_extra_deregister_validation)
     deregister.service_node_index = state.nodes_to_test.size() + 10;
 
     cryptonote::vote_verification_context vvc = {};
-    bool result = loki::service_node_deregister::verify_deregister(cryptonote::MAINNET, deregister, vvc, state);
+    bool result = service_nodes::deregister_vote::verify_deregister(cryptonote::MAINNET, deregister, vvc, state);
     ASSERT_FALSE(result);
   }
 }
 
 TEST(service_nodes, min_portions)
 {
+
+  uint8_t hf_version = cryptonote::network_version_9_service_nodes;
   // Test new contributors can *NOT* stake to a registration with under 25% of the total stake if there is more than 25% available.
   {
-    ASSERT_FALSE(service_nodes::check_service_node_portions({0, STAKING_PORTIONS}));
+    ASSERT_FALSE(service_nodes::check_service_node_portions(hf_version, {0, STAKING_PORTIONS}));
   }
 
   {
     const auto small = MIN_PORTIONS - 1;
     const auto rest = STAKING_PORTIONS - small;
-    ASSERT_FALSE(service_nodes::check_service_node_portions({small, rest}));
+    ASSERT_FALSE(service_nodes::check_service_node_portions(hf_version, {small, rest}));
   }
 
   {
+    /// TODO: fix this test
     const auto small = MIN_PORTIONS - 1;
     const auto rest = STAKING_PORTIONS - small - STAKING_PORTIONS / 2;
-    ASSERT_FALSE(service_nodes::check_service_node_portions({STAKING_PORTIONS / 2, small, rest}));
+    ASSERT_FALSE(service_nodes::check_service_node_portions(hf_version, {STAKING_PORTIONS / 2, small, rest}));
   }
 
   {
     const auto small = MIN_PORTIONS - 1;
     const auto rest = STAKING_PORTIONS - small - 2 * MIN_PORTIONS;
-    ASSERT_FALSE(service_nodes::check_service_node_portions({MIN_PORTIONS, MIN_PORTIONS, small, rest}));
+    ASSERT_FALSE(service_nodes::check_service_node_portions(hf_version, {MIN_PORTIONS, MIN_PORTIONS, small, rest}));
   }
 
   // Test new contributors *CAN* stake as the last person with under 25% if there is less than 25% available.
@@ -356,7 +313,7 @@ TEST(service_nodes, min_portions)
   {
     const auto large = 4 * (STAKING_PORTIONS / 5);
     const auto rest = STAKING_PORTIONS - large;
-    bool result = service_nodes::check_service_node_portions({large, rest});
+    bool result = service_nodes::check_service_node_portions(hf_version, {large, rest});
     ASSERT_TRUE(result);
   }
 
@@ -364,7 +321,7 @@ TEST(service_nodes, min_portions)
   {
     const auto half = STAKING_PORTIONS / 2 - 1;
     const auto rest = STAKING_PORTIONS - 2 * half;
-    bool result = service_nodes::check_service_node_portions({half, half, rest});
+    bool result = service_nodes::check_service_node_portions(hf_version, {half, half, rest});
     ASSERT_TRUE(result);
   }
 
@@ -372,8 +329,120 @@ TEST(service_nodes, min_portions)
   {
     const auto third = STAKING_PORTIONS / 3 - 1;
     const auto rest = STAKING_PORTIONS - 3 * third;
-    bool result = service_nodes::check_service_node_portions({third, third, third, rest});
+    bool result = service_nodes::check_service_node_portions(hf_version, {third, third, third, rest});
     ASSERT_TRUE(result);
+  }
+
+  // ===== After hard fork v11 =====
+  hf_version = cryptonote::network_version_11_infinite_staking;
+
+  {
+    ASSERT_FALSE(service_nodes::check_service_node_portions(hf_version, {0, STAKING_PORTIONS}));
+  }
+
+  {
+    const auto small = MIN_PORTIONS - 1;
+    const auto rest = STAKING_PORTIONS - small;
+    ASSERT_FALSE(service_nodes::check_service_node_portions(hf_version, {small, rest}));
+  }
+
+  {
+    const auto small = STAKING_PORTIONS / 8;
+    const auto rest = STAKING_PORTIONS - small - STAKING_PORTIONS / 2;
+    ASSERT_FALSE(service_nodes::check_service_node_portions(hf_version, {STAKING_PORTIONS / 2, small, rest}));
+  }
+
+  {
+    const auto small = MIN_PORTIONS - 1;
+    const auto rest = STAKING_PORTIONS - small - 2 * MIN_PORTIONS;
+    ASSERT_FALSE(service_nodes::check_service_node_portions(hf_version, {MIN_PORTIONS, MIN_PORTIONS, small, rest}));
+  }
+
+  // Test new contributors *CAN* stake as the last person with under 25% if there is less than 25% available.
+
+  // Two contributers
+  {
+    const auto large = 4 * (STAKING_PORTIONS / 5);
+    const auto rest = STAKING_PORTIONS - large;
+    bool result = service_nodes::check_service_node_portions(hf_version, {large, rest});
+    ASSERT_TRUE(result);
+  }
+
+  // Three contributers
+  {
+    const auto half = STAKING_PORTIONS / 2 - 1;
+    const auto rest = STAKING_PORTIONS - 2 * half;
+    bool result = service_nodes::check_service_node_portions(hf_version, {half, half, rest});
+    ASSERT_TRUE(result);
+  }
+
+  // Four contributers
+  {
+    const auto third = STAKING_PORTIONS / 3 - 1;
+    const auto rest = STAKING_PORTIONS - 3 * third;
+    bool result = service_nodes::check_service_node_portions(hf_version, {third, third, third, rest});
+    ASSERT_TRUE(result);
+  }
+
+  // New test for hf_v11: allow less than 25% stake in the presence of large existing contributions
+  {
+    const auto large = STAKING_PORTIONS / 2;
+    const auto small_1 = STAKING_PORTIONS / 6;
+    const auto small_2 = STAKING_PORTIONS / 6;
+    const auto rest = STAKING_PORTIONS - large - small_1 - small_2;
+    bool result = service_nodes::check_service_node_portions(hf_version, {large, small_1, small_2, rest});
+    ASSERT_TRUE(result);
+  }
+
+}
+
+
+// Test minimum stake contributions (should test pre and post this change)
+TEST(service_nodes, min_stake_amount)
+{
+  uint64_t height = 101250;
+  const uint64_t stake_requirement = service_nodes::get_staking_requirement(cryptonote::MAINNET, height);
+
+  /// pre v11
+  uint8_t hf_version = cryptonote::network_version_9_service_nodes;
+
+  {
+    const uint64_t reserved = stake_requirement / 2;
+    const uint64_t min_stake = service_nodes::get_min_node_contribution(hf_version, stake_requirement, reserved, 1);
+    ASSERT_EQ(min_stake, stake_requirement / 4);
+  }
+
+  {
+    const uint64_t reserved = 5 * stake_requirement / 6;
+    const uint64_t min_stake = service_nodes::get_min_node_contribution(hf_version, stake_requirement, reserved, 1);
+    ASSERT_EQ(min_stake, stake_requirement / 6);
+  }
+
+  /// post v11
+  hf_version = cryptonote::network_version_11_infinite_staking;
+  {
+    // 50% reserved, with 1 contribution, max of 4- the minimum stake should be (50% / 3)
+    const uint64_t reserved  = stake_requirement / 2;
+    const uint64_t remaining = stake_requirement - reserved;
+    uint64_t min_stake = service_nodes::get_min_node_contribution(hf_version, stake_requirement, reserved, 1 /*num_contributions_locked*/);
+    ASSERT_EQ(min_stake, remaining / 3);
+
+    // As above, but with 2 contributions locked up, minimum stake should be (50% / 2)
+    min_stake = service_nodes::get_min_node_contribution(hf_version, stake_requirement, reserved, 2 /*num_contributions_locked*/);
+    ASSERT_EQ(min_stake, remaining / 2);
+  }
+
+  {
+    /// Cannot contribute less than 25% under normal circumstances
+    const uint64_t reserved = stake_requirement / 4;
+    const uint64_t min_stake = service_nodes::get_min_node_contribution(hf_version, stake_requirement, reserved, 1);
+    ASSERT_FALSE(min_stake <= stake_requirement / 6);
+  }
+
+  {
+    // Cannot contribute less than 25% as first contributor
+    const uint64_t min_stake = service_nodes::get_min_node_contribution(hf_version, stake_requirement, 0, 0/*num_contributions_locked*/);
+    ASSERT_TRUE(min_stake >= stake_requirement / 4);
   }
 
 }
@@ -381,7 +450,6 @@ TEST(service_nodes, min_portions)
 // Test service node receive rewards proportionate to the amount they contributed.
 TEST(service_nodes, service_node_rewards_proportional_to_portions)
 {
-
   {
     const auto reward_a = cryptonote::get_portion_of_reward(MIN_PORTIONS, COIN);
     const auto reward_b = cryptonote::get_portion_of_reward(3 * MIN_PORTIONS, COIN);
@@ -394,4 +462,44 @@ TEST(service_nodes, service_node_rewards_proportional_to_portions)
     ASSERT_TRUE(2 * reward_a == reward_b);
   }
 
+}
+
+TEST(service_nodes, service_node_get_locked_key_image_unlock_height)
+{
+  uint64_t lock_duration = service_nodes::staking_num_lock_blocks(cryptonote::MAINNET) / 2;
+
+  {
+    uint64_t curr_height   = 100;
+    uint64_t expected      = curr_height + lock_duration;
+    uint64_t unlock_height = service_nodes::get_locked_key_image_unlock_height(cryptonote::MAINNET, 0, curr_height);
+    ASSERT_EQ(unlock_height, expected);
+  }
+
+  {
+    uint64_t curr_height   = lock_duration - 1;
+    uint64_t expected      = curr_height + lock_duration;
+    uint64_t unlock_height = service_nodes::get_locked_key_image_unlock_height(cryptonote::MAINNET, 0, curr_height);
+    ASSERT_EQ(unlock_height, expected);
+  }
+
+  {
+    uint64_t curr_height   = lock_duration + 100;
+    uint64_t expected      = curr_height + lock_duration;
+    uint64_t unlock_height = service_nodes::get_locked_key_image_unlock_height(cryptonote::MAINNET, 0, curr_height);
+    ASSERT_EQ(unlock_height, expected);
+  }
+
+  {
+    uint64_t expected      = lock_duration + lock_duration;
+    uint64_t unlock_height = service_nodes::get_locked_key_image_unlock_height(cryptonote::MAINNET, lock_duration, lock_duration);
+    ASSERT_EQ(unlock_height, expected);
+  }
+
+  {
+    uint64_t register_height = lock_duration + 1;
+    uint64_t curr_height     = register_height + 2;
+    uint64_t expected        = curr_height + lock_duration;
+    uint64_t unlock_height   = service_nodes::get_locked_key_image_unlock_height(cryptonote::MAINNET, register_height, curr_height);
+    ASSERT_EQ(unlock_height, expected);
+  }
 }

@@ -56,22 +56,22 @@ namespace
     {
     }
 
-    virtual int invoke(int command, const std::string& in_buff, std::string& buff_out, test_levin_connection_context& context)
+    virtual int invoke(int command, const epee::span<const uint8_t> in_buff, std::string& buff_out, test_levin_connection_context& context)
     {
       m_invoke_counter.inc();
       boost::unique_lock<boost::mutex> lock(m_mutex);
       m_last_command = command;
-      m_last_in_buf = in_buff;
+      m_last_in_buf = std::string((const char*)in_buff.data(), in_buff.size());
       buff_out = m_invoke_out_buf;
       return m_return_code;
     }
 
-    virtual int notify(int command, const std::string& in_buff, test_levin_connection_context& context)
+    virtual int notify(int command, const epee::span<const uint8_t> in_buff, test_levin_connection_context& context)
     {
       m_notify_counter.inc();
       boost::unique_lock<boost::mutex> lock(m_mutex);
       m_last_command = command;
-      m_last_in_buf = in_buff;
+      m_last_in_buf = std::string((const char*)in_buff.data(), in_buff.size());
       return m_return_code;
     }
 
@@ -294,7 +294,7 @@ TEST_F(positive_test_connection_to_levin_protocol_handler_calls, handler_initial
 TEST_F(positive_test_connection_to_levin_protocol_handler_calls, concurent_handler_initialization_and_destruction_is_correct)
 {
   const size_t connection_count = 10000;
-  auto create_and_destroy_connections = [this, connection_count]()
+  auto create_and_destroy_connections = [this]()
   {
     std::vector<test_connection_ptr> connections(connection_count);
     for (size_t i = 0; i < connection_count; ++i)

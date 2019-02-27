@@ -1,9 +1,9 @@
 #include "readline_buffer.h"
 #include <readline/readline.h>
 #include <readline/history.h>
-#include <unistd.h>
 #include <iostream>
-#include <boost/thread.hpp>
+#include <boost/thread/mutex.hpp>
+#include <boost/thread/lock_guard.hpp>
 #include <boost/algorithm/string.hpp>
 
 static void install_line_handler();
@@ -114,7 +114,7 @@ int rdln::readline_buffer::sync()
   int end = 0, point = 0;
 #endif
 
-  if (rl_end || *rl_prompt)
+  if (rl_end || (rl_prompt && *rl_prompt))
   {
 #if RL_READLINE_VERSION >= 0x0700
     rl_clear_visible_line();
@@ -137,7 +137,7 @@ int rdln::readline_buffer::sync()
   while ( this->snextc() != EOF );
 
 #if RL_READLINE_VERSION < 0x0700
-  if (end || *rl_prompt)
+  if (end || (rl_prompt && *rl_prompt))
   {
     rl_restore_prompt();
     rl_line_buffer = line;

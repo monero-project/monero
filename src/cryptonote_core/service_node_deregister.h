@@ -47,33 +47,27 @@ namespace cryptonote
 namespace service_nodes
 {
   struct quorum_state;
-};
 
-namespace loki
-{
-  namespace service_node_deregister
+  struct deregister_vote
   {
-    const uint64_t VOTE_LIFETIME_BY_HEIGHT       = (60 * 60 * 2) / DIFFICULTY_TARGET_V2;
-    const uint64_t DEREGISTER_LIFETIME_BY_HEIGHT = VOTE_LIFETIME_BY_HEIGHT;
+    static const uint64_t VOTE_LIFETIME_BY_HEIGHT       = BLOCKS_EXPECTED_IN_HOURS(2);
+    static const uint64_t DEREGISTER_LIFETIME_BY_HEIGHT = VOTE_LIFETIME_BY_HEIGHT;
 
-    struct vote
-    {
-      uint64_t          block_height;
-      uint32_t          service_node_index;
-      uint32_t          voters_quorum_index;
-      crypto::signature signature;
-    };
+    uint64_t          block_height;
+    uint32_t          service_node_index;
+    uint32_t          voters_quorum_index;
+    crypto::signature signature;
 
-    crypto::signature sign_vote(uint64_t block_height, uint32_t service_node_index, const crypto::public_key& pub, const crypto::secret_key& sec);
-    bool verify_vote_signature (uint64_t block_height, uint32_t service_node_index, crypto::public_key p, crypto::signature s);
-    bool verify_votes_signature(uint64_t block_height, uint32_t service_node_index, const std::vector<std::pair<crypto::public_key, crypto::signature>>& keys_and_sigs);
+    static crypto::signature sign_vote(uint64_t block_height, uint32_t service_node_index, const crypto::public_key& pub, const crypto::secret_key& sec);
+    static bool verify_vote_signature (uint64_t block_height, uint32_t service_node_index, crypto::public_key const &p, crypto::signature const &s);
+    static bool verify_votes_signature(uint64_t block_height, uint32_t service_node_index, const std::vector<std::pair<crypto::public_key, crypto::signature>>& keys_and_sigs);
 
-    bool verify_deregister(cryptonote::network_type nettype, const cryptonote::tx_extra_service_node_deregister& deregister,
-                           cryptonote::vote_verification_context& vvc,
-                           const service_nodes::quorum_state &quorum);
+    static bool verify_deregister(cryptonote::network_type nettype, const cryptonote::tx_extra_service_node_deregister& deregister,
+                                  cryptonote::vote_verification_context& vvc,
+                                  const service_nodes::quorum_state &quorum);
 
-    bool verify_vote(cryptonote::network_type nettype, const vote& v, cryptonote::vote_verification_context &vvc,
-                     const service_nodes::quorum_state &quorum);
+    static bool verify_vote(cryptonote::network_type nettype, const deregister_vote& v, cryptonote::vote_verification_context &vvc,
+                            const service_nodes::quorum_state &quorum);
   };
 
   class deregister_vote_pool
@@ -82,27 +76,25 @@ namespace loki
       /**
        *  @return True if vote was valid and in the pool already or just added (check vote verfication for specific case).
        */
-      bool add_vote(const service_node_deregister::vote& new_vote,
+      bool add_vote(const deregister_vote& new_vote,
                     cryptonote::vote_verification_context& vvc,
                     const service_nodes::quorum_state &quorum_state,
                     cryptonote::transaction &tx);
 
       // TODO(loki): Review relay behaviour and all the cases when it should be triggered
-      void                                       set_relayed         (const std::vector<service_node_deregister::vote>& votes);
-      void                                       remove_expired_votes(uint64_t height);
-      void                                       remove_used_votes   (std::vector<cryptonote::transaction> const &txs);
-      std::vector<service_node_deregister::vote> get_relayable_votes () const;
+      void                         set_relayed         (const std::vector<deregister_vote>& votes);
+      void                         remove_expired_votes(uint64_t height);
+      void                         remove_used_votes   (std::vector<cryptonote::transaction> const &txs);
+      std::vector<deregister_vote> get_relayable_votes () const;
 
       cryptonote::network_type m_nettype = cryptonote::UNDEFINED;
 
     private:
-      struct deregister
+      struct deregister_pool_entry
       {
-          deregister(uint64_t time_last_sent_p2p, service_node_deregister::vote vote)
-            : m_time_last_sent_p2p(time_last_sent_p2p), m_vote(vote) {}
-
-          uint64_t m_time_last_sent_p2p;
-          service_node_deregister::vote m_vote;
+        deregister_pool_entry(uint64_t time_last_sent_p2p, deregister_vote vote) : m_time_last_sent_p2p(time_last_sent_p2p), m_vote(vote) {}
+        uint64_t        m_time_last_sent_p2p;
+        deregister_vote m_vote;
       };
 
       struct deregister_group
@@ -130,8 +122,8 @@ namespace loki
         }
       };
 
-      std::unordered_map<deregister_group, std::vector<deregister>, deregister_group_hasher> m_deregisters;
+      std::unordered_map<deregister_group, std::vector<deregister_pool_entry>, deregister_group_hasher> m_deregisters;
       mutable epee::critical_section m_lock;
   };
-}; // namespace loki
+}; // namespace service_nodes
 

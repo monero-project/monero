@@ -123,30 +123,31 @@ bool gen_service_nodes::generate(std::vector<test_event_entry> &events) const
 {
 
   linear_chain_generator gen(events);
-  gen.create_genesis_block();                           //  1
+  gen.create_genesis_block();
 
   const auto miner = gen.first_miner();
   const auto alice = gen.create_account();
 
-  gen.rewind_until_v9();                                //  3
-  gen.rewind_blocks_n(10);                              // 13
+  const get_test_options<gen_service_nodes> test_options = {};
+  gen.rewind_until_version(test_options.hard_forks, network_version_9_service_nodes);
+  gen.rewind_blocks_n(10);
 
-  gen.rewind_blocks();                                  // 13 + N
+  gen.rewind_blocks();
 
   const auto tx0 = gen.create_tx(miner, alice, MK_COINS(101));
-  gen.create_block({tx0});                              // 14 + N
+  gen.create_block({tx0});
 
-  gen.rewind_blocks();                                  // 14 + 2N
+  gen.rewind_blocks();
 
   const auto reg_tx = gen.create_registration_tx(alice, m_alice_service_node_keys);
 
-  gen.create_block({reg_tx});                           // 15 + 2N
+  gen.create_block({reg_tx});
 
   DO_CALLBACK(events, "check_registered");
 
-  for (auto i = 0u; i < service_nodes::get_staking_requirement_lock_blocks(cryptonote::FAKECHAIN); ++i) {
+  for (auto i = 0u; i < service_nodes::staking_num_lock_blocks(cryptonote::FAKECHAIN); ++i) {
     gen.create_block();
-  } // 15 + 2N + M
+  }
 
   DO_CALLBACK(events, "check_expired");
 
@@ -168,9 +169,12 @@ bool gen_service_nodes::check_registered(cryptonote::core& c, size_t ev_index, c
   r = find_block_chain(events, chain, mtx, get_block_hash(blocks.back()));
   CHECK_TEST_CONDITION(r);
 
+  // Expect the change to have unlock time of 0, and we get that back immediately ~0.8 loki
+  // 101 (balance) - 100 (stake) - 0.2 (test fee) = 0.8 loki
+  const uint64_t unlocked_balance    = get_unlocked_balance(alice, blocks, mtx);
   const uint64_t staking_requirement = MK_COINS(100);
 
-  CHECK_EQ(MK_COINS(101) - TESTS_DEFAULT_FEE - staking_requirement, get_unlocked_balance(alice, blocks, mtx));
+  CHECK_EQ(MK_COINS(101) - TESTS_DEFAULT_FEE - staking_requirement, unlocked_balance);
 
   /// check that alice is registered
   const auto info_v = c.get_service_node_list_state({m_alice_service_node_keys.pub});
@@ -185,7 +189,7 @@ bool gen_service_nodes::check_expired(cryptonote::core& c, size_t ev_index, cons
 
   cryptonote::account_base alice = boost::get<cryptonote::account_base>(events[1]);
 
-  const auto stake_lock_time = service_nodes::get_staking_requirement_lock_blocks(cryptonote::FAKECHAIN);
+  const auto stake_lock_time = service_nodes::staking_num_lock_blocks(cryptonote::FAKECHAIN);
 
   std::vector<block> blocks;
   size_t count = 15 + (2 * CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW) + stake_lock_time;
@@ -222,7 +226,8 @@ bool test_prefer_deregisters::generate(std::vector<test_event_entry> &events)
   const auto miner = gen.first_miner();
   const auto alice = gen.create_account();
 
-  gen.rewind_until_v9();
+  const get_test_options<test_prefer_deregisters> test_options = {};
+  gen.rewind_until_version(test_options.hard_forks, network_version_9_service_nodes);
 
   /// give miner some outputs to spend and unlock them
   gen.rewind_blocks_n(60);
@@ -279,7 +284,7 @@ bool test_prefer_deregisters::check_prefer_deregisters(cryptonote::core& c, size
 
   const auto deregister_count =
     std::count_if(full_blk.tx_hashes.begin(), full_blk.tx_hashes.end(), [&mtx](const crypto::hash& tx_hash) {
-      return mtx[tx_hash]->is_deregister;
+      return mtx[tx_hash]->get_type() == cryptonote::transaction::type_deregister;
     });
 
   /// test that there are more transactions in tx pool
@@ -305,7 +310,8 @@ bool test_zero_fee_deregister::generate(std::vector<test_event_entry> &events)
 
   gen.create_genesis_block();
 
-  gen.rewind_until_v9();
+  const get_test_options<test_zero_fee_deregister> test_options = {};
+  gen.rewind_until_version(test_options.hard_forks, network_version_9_service_nodes);
 
   /// give miner some outputs to spend and unlock them
   gen.rewind_blocks_n(20);
@@ -332,7 +338,7 @@ bool test_zero_fee_deregister::generate(std::vector<test_event_entry> &events)
 
 // Test if a person registers onto the network and they get included in the nodes to test (i.e. heights 0, 5, 10). If
 // they get dereigstered in the nodes to test, height 5, and rejoin the network before height 10 (and are in the nodes
-// to test), they don't get deregistered. This scenario will most likely happen with an autostaker.
+// to test), they don't get deregistered.
 test_deregister_safety_buffer::test_deregister_safety_buffer() {
   REGISTER_CALLBACK_METHOD(test_deregister_safety_buffer, mark_invalid_tx);
 }
@@ -347,7 +353,8 @@ bool test_deregister_safety_buffer::generate(std::vector<test_event_entry> &even
 
   const auto miner = gen.first_miner();
 
-  gen.rewind_until_v9();
+  const get_test_options<test_deregister_safety_buffer> test_options = {};
+  gen.rewind_until_version(test_options.hard_forks, network_version_9_service_nodes);
 
   /// give miner some outputs to spend and unlock them
   gen.rewind_blocks_n(40);
@@ -455,7 +462,8 @@ bool test_deregisters_on_split::generate(std::vector<test_event_entry> &events)
   linear_chain_generator gen(events);
   gen.create_genesis_block();
 
-  gen.rewind_until_v9();
+  const get_test_options<test_deregisters_on_split> test_options = {};
+  gen.rewind_until_version(test_options.hard_forks, network_version_9_service_nodes);
 
   /// generate some outputs and unlock them
   gen.rewind_blocks_n(20);
@@ -515,7 +523,7 @@ bool test_deregisters_on_split::test_on_split(cryptonote::core& c, size_t ev_ind
   /// obtain the expected deregister from events
   const size_t dereg_idx = 68;
   auto dereg_tx = boost::get<cryptonote::transaction>(events.at(dereg_idx));
-  CHECK_AND_ASSERT_MES(dereg_tx.is_deregister, false, "event is not a deregister transaction");
+  CHECK_AND_ASSERT_MES(dereg_tx.get_type() == cryptonote::transaction::type_deregister, false, "event is not a deregister transaction");
 
   const auto expected_tx_hash = get_transaction_hash(dereg_tx);
 
@@ -560,7 +568,8 @@ bool deregister_too_old::generate(std::vector<test_event_entry>& events)
   linear_chain_generator gen(events);
   gen.create_genesis_block();
 
-  gen.rewind_until_v9();
+  const get_test_options<deregister_too_old> test_options = {};
+  gen.rewind_until_version(test_options.hard_forks, network_version_9_service_nodes);
 
   /// generate some outputs and unlock them
   gen.rewind_blocks_n(20);
@@ -581,7 +590,7 @@ bool deregister_too_old::generate(std::vector<test_event_entry>& events)
   const auto dereg_tx = gen.build_deregister(pk).build();
 
   /// create enough block to make deregistrations invalid (60 - 1 blocks)
-  gen.rewind_blocks_n(loki::service_node_deregister::DEREGISTER_LIFETIME_BY_HEIGHT-1);
+  gen.rewind_blocks_n(service_nodes::deregister_vote::DEREGISTER_LIFETIME_BY_HEIGHT-1);
 
   /// In the real world, this transaction should not make it into a block, but in this case we do try to add it (as in
   /// tests we must add specify transactions manually), which should exercise the same validation code and reject the
@@ -680,12 +689,13 @@ bool sn_test_rollback::test_registrations(cryptonote::core& c, size_t ev_index, 
 
     CHECK_TEST_CONDITION(event_a.type() == typeid(cryptonote::transaction));
     const auto dereg_tx = boost::get<cryptonote::transaction>(event_a);
-    CHECK_TEST_CONDITION(dereg_tx.is_deregister);
+    CHECK_TEST_CONDITION(dereg_tx.get_type() == transaction::type_deregister);
 
     tx_extra_service_node_deregister deregistration;
     get_service_node_deregister_from_tx_extra(dereg_tx.extra, deregistration);
 
     const auto quorum_state = c.get_quorum_state(deregistration.block_height);
+    CHECK_TEST_CONDITION(quorum_state);
     const auto pk_a = quorum_state->nodes_to_test.at(deregistration.service_node_index);
 
     /// Check present
@@ -757,7 +767,7 @@ bool test_swarms_basic::generate(std::vector<test_event_entry>& events)
     return false;
   }
 
-  gen.continue_until_version(test_options.hard_forks, network_version_10_bulletproofs);
+  gen.rewind_until_version(test_options.hard_forks, network_version_10_bulletproofs);
 
   /// test that we now have swarms
   DO_CALLBACK(events, "test_initial_swarms");

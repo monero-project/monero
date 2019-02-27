@@ -69,6 +69,7 @@ namespace cryptonote
     struct account_public_address;
     struct account_keys;
     struct subaddress_index;
+    struct tx_destination_entry;
 }
 
 namespace hw {
@@ -79,6 +80,14 @@ namespace hw {
                                     std::string(" (device.hpp line ")+std::to_string(__LINE__)+std::string(").")); \
            return false;
     }
+
+    class i_device_callback {
+    public:
+        virtual void on_button_request() {}
+        virtual void on_pin_request(epee::wipeable_string & pin) {}
+        virtual void on_passphrase_request(bool on_device, epee::wipeable_string & passphrase) {}
+        virtual ~i_device_callback() = default;
+    };
 
     class device {
     protected:
@@ -129,6 +138,8 @@ namespace hw {
         virtual device_type get_type() const = 0;
 
         virtual device_protocol_t device_protocol() const { return PROTOCOL_DEFAULT; };
+        virtual void set_callback(i_device_callback * callback) {};
+        virtual void set_derivation_path(const std::string &derivation_path) {};
 
         /* ======================================================================= */
         /*  LOCKER                                                                 */
@@ -198,12 +209,15 @@ namespace hw {
             return encrypt_payment_id(payment_id, public_key, secret_key);
         }
 
-        virtual bool  ecdhEncode(rct::ecdhTuple & unmasked, const rct::key & sharedSec) = 0;
-        virtual bool  ecdhDecode(rct::ecdhTuple & masked, const rct::key & sharedSec) = 0;
+        virtual bool  ecdhEncode(rct::ecdhTuple & unmasked, const rct::key & sharedSec, bool short_amount) = 0;
+        virtual bool  ecdhDecode(rct::ecdhTuple & masked, const rct::key & sharedSec, bool short_amount) = 0;
 
-        virtual bool  add_output_key_mapping(const crypto::public_key &Aout, const crypto::public_key &Bout, const bool is_subaddress, const size_t real_output_index,
-                                             const rct::key &amount_key,  const crypto::public_key &out_eph_public_key) = 0;
-
+        virtual bool  generate_output_ephemeral_keys(const size_t tx_version, bool &found_change, const cryptonote::account_keys &sender_account_keys, const crypto::public_key &txkey_pub,  const crypto::secret_key &tx_key,
+                                                     const cryptonote::tx_destination_entry &dst_entr, const boost::optional<cryptonote::tx_destination_entry> &change_addr, const size_t output_index,
+                                                     const bool &need_additional_txkeys, const std::vector<crypto::secret_key> &additional_tx_keys,
+                                                     std::vector<crypto::public_key> &additional_tx_public_keys,
+                                                     std::vector<rct::key> &amount_keys,
+                                                     crypto::public_key &out_eph_public_key) = 0;
 
         virtual bool  mlsag_prehash(const std::string &blob, size_t inputs_size, size_t outputs_size, const rct::keyV &hashes, const rct::ctkeyV &outPk, rct::key &prehash) = 0;
         virtual bool  mlsag_prepare(const rct::key &H, const rct::key &xx, rct::key &a, rct::key &aG, rct::key &aHP, rct::key &rvII) = 0;

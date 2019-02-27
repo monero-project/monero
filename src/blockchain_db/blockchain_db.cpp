@@ -136,12 +136,19 @@ void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const transacti
   {
     tx_hash = *tx_hash_ptr;
   }
+
+  bool has_blacklisted_outputs = false;
   if (tx.version >= 2)
   {
     if (!tx_prunable_hash_ptr)
       tx_prunable_hash = get_transaction_prunable_hash(tx);
     else
       tx_prunable_hash = *tx_prunable_hash_ptr;
+
+    crypto::secret_key secret_tx_key;
+    cryptonote::account_public_address address;
+    if (get_tx_secret_key_from_tx_extra(tx.extra, secret_tx_key) && get_service_node_contributor_from_tx_extra(tx.extra, address))
+      has_blacklisted_outputs = true;
   }
 
   for (const txin_v& tx_input : tx.vin)
@@ -171,7 +178,7 @@ void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const transacti
 
   uint64_t tx_id = add_transaction_data(blk_hash, tx, tx_hash, tx_prunable_hash);
 
-  std::vector<uint64_t> amount_output_indices;
+  std::vector<uint64_t> amount_output_indices(tx.vout.size());
 
   // iterate tx.vout using indices instead of C++11 foreach syntax because
   // we need the index
@@ -194,20 +201,25 @@ void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const transacti
       cryptonote::tx_out vout = tx.vout[i];
       const rct::key commitment = rct::zeroCommit(vout.amount);
       vout.amount = 0;
-      amount_output_indices.push_back(add_output(tx_hash, vout, i, unlock_time,
-        &commitment));
+      amount_output_indices[i] = add_output(tx_hash, vout, i, unlock_time,
+        &commitment);
     }
     else
     {
-      amount_output_indices.push_back(add_output(tx_hash, tx.vout[i], i, unlock_time,
-        tx.version > 1 ? &tx.rct_signatures.outPk[i].mask : NULL));
+      amount_output_indices[i] = add_output(tx_hash, tx.vout[i], i, unlock_time,
+        tx.version > 1 ? &tx.rct_signatures.outPk[i].mask : NULL);
     }
   }
+
+  if (has_blacklisted_outputs)
+    add_output_blacklist(amount_output_indices);
+
   add_tx_amount_output_indices(tx_id, amount_output_indices);
 }
 
 uint64_t BlockchainDB::add_block( const block& blk
                                 , size_t block_weight
+                                , uint64_t long_term_block_weight
                                 , const difficulty_type& cumulative_difficulty
                                 , const uint64_t& coins_generated
                                 , const std::vector<transaction>& txs
@@ -253,7 +265,7 @@ uint64_t BlockchainDB::add_block( const block& blk
 
   // call out to subclass implementation to add the block & metadata
   time1 = epee::misc_utils::get_tick_count();
-  add_block(blk, block_weight, cumulative_difficulty, coins_generated, num_rct_outs, blk_hash);
+  add_block(blk, block_weight, long_term_block_weight, cumulative_difficulty, coins_generated, num_rct_outs, blk_hash);
   TIME_MEASURE_FINISH(time1);
   time_add_block1 += time1;
 
@@ -279,7 +291,10 @@ void BlockchainDB::pop_block(block& blk, std::vector<transaction>& txs)
 
   for (const auto& h : boost::adaptors::reverse(blk.tx_hashes))
   {
-    txs.push_back(get_tx(h));
+    cryptonote::transaction tx;
+    if (!get_tx(h, tx) && !get_pruned_tx(h, tx))
+      throw DB_ERROR("Failed to get pruned or unpruned transaction from the db");
+    txs.push_back(std::move(tx));
     remove_transaction(h);
   }
   remove_transaction(get_transaction_hash(blk.miner_tx));
@@ -292,7 +307,7 @@ bool BlockchainDB::is_open() const
 
 void BlockchainDB::remove_transaction(const crypto::hash& tx_hash)
 {
-  transaction tx = get_tx(tx_hash);
+  transaction tx = get_pruned_tx(tx_hash);
 
   for (const txin_v& tx_input : tx.vin)
   {
@@ -337,6 +352,17 @@ bool BlockchainDB::get_tx(const crypto::hash& h, cryptonote::transaction &tx) co
   return true;
 }
 
+bool BlockchainDB::get_pruned_tx(const crypto::hash& h, cryptonote::transaction &tx) const
+{
+  blobdata bd;
+  if (!get_pruned_tx_blob(h, bd))
+    return false;
+  if (!parse_and_validate_tx_base_from_blob(bd, tx))
+    throw DB_ERROR("Failed to parse transaction base from blob retrieved from the db");
+
+  return true;
+}
+
 transaction BlockchainDB::get_tx(const crypto::hash& h) const
 {
   transaction tx;
@@ -348,8 +374,15 @@ transaction BlockchainDB::get_tx(const crypto::hash& h) const
 uint64_t BlockchainDB::get_output_unlock_time(const uint64_t amount, const uint64_t amount_index) const
 {
   output_data_t odata = get_output_key(amount, amount_index);
-
   return odata.unlock_time;
+}
+
+transaction BlockchainDB::get_pruned_tx(const crypto::hash& h) const
+{
+  transaction tx;
+  if (!get_pruned_tx(h, tx))
+    throw TX_DNE(std::string("pruned tx with hash ").append(epee::string_tools::pod_to_hex(h)).append(" not found in db").c_str());
+  return tx;
 }
 
 void BlockchainDB::reset_stats()

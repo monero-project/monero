@@ -45,6 +45,7 @@ namespace
   const command_line::arg_descriptor<bool>        arg_service_nodes               = {"service_nodes", ""};
   const command_line::arg_descriptor<bool>        arg_test_transactions           = {"test_transactions", ""};
   const command_line::arg_descriptor<std::string> arg_filter                      = { "filter", "Regular expression filter for which tests to run" };
+  const command_line::arg_descriptor<bool>        arg_list_tests                  = {"list_tests", ""};
 }
 
 int main(int argc, char* argv[])
@@ -66,6 +67,7 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_options, arg_service_nodes);
   command_line::add_arg(desc_options, arg_test_transactions);
   command_line::add_arg(desc_options, arg_filter);
+  command_line::add_arg(desc_options, arg_list_tests);
 
   po::variables_map vm;
   bool r = command_line::handle_error_helper(desc_options, [&]()
@@ -89,6 +91,7 @@ int main(int argc, char* argv[])
   size_t tests_count = 0;
   std::vector<std::string> failed_tests;
   std::string tests_folder = command_line::get_arg(vm, arg_test_data_path);
+  bool list_tests = false;
   if (command_line::get_arg(vm, arg_generate_test_data))
   {
     GENERATE("chain001.dat", gen_simple_chain_001);
@@ -103,15 +106,16 @@ int main(int argc, char* argv[])
   }
   else
   {
+    list_tests = command_line::get_arg(vm, arg_list_tests);
     const bool run_all = !command_line::get_arg(vm, arg_service_nodes);
 
     if (run_all) {
       MLOG(el::Level::Info, "Running all tests\n");
     }
 
-
     if (run_all || command_line::get_arg(vm, arg_service_nodes))
     {
+#if 1
       GENERATE_AND_PLAY(gen_service_nodes);
       GENERATE_AND_PLAY(test_prefer_deregisters);
       GENERATE_AND_PLAY(test_zero_fee_deregister);
@@ -120,10 +124,12 @@ int main(int argc, char* argv[])
       GENERATE_AND_PLAY(deregister_too_old);
       GENERATE_AND_PLAY(sn_test_rollback);
       GENERATE_AND_PLAY(test_swarms_basic);
+#endif
     }
 
     if (run_all)
     {
+#if 1
       GENERATE_AND_PLAY(gen_batched_governance_reward); // Loki Governance
 
       GENERATE_AND_PLAY(gen_simple_chain_001);
@@ -183,10 +189,10 @@ int main(int argc, char* argv[])
       GENERATE_AND_PLAY(gen_multisig_tx_invalid_33_1__no_threshold);
       GENERATE_AND_PLAY(gen_multisig_tx_invalid_33_1_2_no_threshold);
       GENERATE_AND_PLAY(gen_multisig_tx_invalid_33_1_3_no_threshold);
-      GENERATE_AND_PLAY(gen_multisig_tx_valid_24_1_no_signers);
-      GENERATE_AND_PLAY(gen_multisig_tx_valid_25_1_no_signers);
-      GENERATE_AND_PLAY(gen_multisig_tx_valid_48_1_no_signers);
-      GENERATE_AND_PLAY(gen_multisig_tx_valid_48_1_23_no_threshold);
+      GENERATE_AND_PLAY(gen_multisig_tx_invalid_24_1_no_signers);
+      GENERATE_AND_PLAY(gen_multisig_tx_invalid_25_1_no_signers);
+      GENERATE_AND_PLAY(gen_multisig_tx_invalid_48_1_no_signers);
+      GENERATE_AND_PLAY(gen_multisig_tx_invalid_48_1_23_no_threshold);
 
       // Bulletproof Tests
       GENERATE_AND_PLAY(gen_bp_tx_valid_1);
@@ -204,6 +210,7 @@ int main(int argc, char* argv[])
       GENERATE_AND_PLAY(gen_bp_tx_invalid_too_many_proofs);
       GENERATE_AND_PLAY(gen_bp_tx_invalid_wrong_amount);
       GENERATE_AND_PLAY(gen_bp_tx_invalid_borromean_type);
+#endif
     }
 
       // TODO(loki): Tests we need to fix
@@ -235,9 +242,9 @@ int main(int argc, char* argv[])
 
       GENERATE_AND_PLAY(gen_v2_tx_mixable_0_mixin);
       GENERATE_AND_PLAY(gen_v2_tx_mixable_low_mixin);
-  //    GENERATE_AND_PLAY(gen_v2_tx_unmixable_only);
-  //    GENERATE_AND_PLAY(gen_v2_tx_unmixable_one);
-  //    GENERATE_AND_PLAY(gen_v2_tx_unmixable_two);
+      GENERATE_AND_PLAY(gen_v2_tx_unmixable_only);
+      GENERATE_AND_PLAY(gen_v2_tx_unmixable_one);
+      GENERATE_AND_PLAY(gen_v2_tx_unmixable_two);
       GENERATE_AND_PLAY(gen_v2_tx_dust);
 
       GENERATE_AND_PLAY(gen_rct_tx_valid_from_pre_rct);
@@ -290,9 +297,12 @@ int main(int argc, char* argv[])
 #endif
 
     el::Level level = (failed_tests.empty() ? el::Level::Info : el::Level::Error);
-    MLOG(level, "\nREPORT:");
-    MLOG(level, "  Test run: " << tests_count);
-    MLOG(level, "  Failures: " << failed_tests.size());
+    if (!list_tests)
+    {
+      MLOG(level, "\nREPORT:");
+      MLOG(level, "  Test run: " << tests_count);
+      MLOG(level, "  Failures: " << failed_tests.size());
+    }
     if (!failed_tests.empty())
     {
       MLOG(level, "FAILED TESTS:");

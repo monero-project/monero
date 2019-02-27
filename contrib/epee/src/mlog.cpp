@@ -40,6 +40,7 @@
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string.hpp>
 #include "string_tools.h"
+#include "misc_os_dependent.h"
 #include "misc_log_ex.h"
 
 #undef LOKI_DEFAULT_LOG_CATEGORY
@@ -58,12 +59,7 @@ static std::string generate_log_filename(const char *base)
   char tmp[200];
   struct tm tm;
   time_t now = time(NULL);
-  if
-#ifdef WIN32
-  (!gmtime_s(&tm, &now))
-#else
-  (!gmtime_r(&now, &tm))
-#endif
+  if (!epee::misc_utils::get_gmt_time(now, tm))
     snprintf(tmp, sizeof(tmp), "part-%u", ++fallback_counter);
   else
     strftime(tmp, sizeof(tmp), "%Y-%m-%d-%H-%M-%S", &tm);
@@ -107,7 +103,7 @@ static const char *get_default_categories(int level)
       categories = "*:WARNING,net:FATAL,net.http:FATAL,net.p2p:FATAL,net.cn:FATAL,global:INFO,verify:FATAL,stacktrace:INFO,logging:INFO,msgwriter:INFO";
       break;
     case 1:
-      categories = "*:INFO,global:INFO,stacktrace:INFO,logging:INFO,msgwriter:INFO";
+      categories = "*:INFO,global:INFO,stacktrace:INFO,logging:INFO,msgwriter:INFO,perf.*:DEBUG";
       break;
     case 2:
       categories = "*:DEBUG";

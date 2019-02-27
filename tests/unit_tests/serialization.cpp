@@ -550,12 +550,10 @@ TEST(Serialization, serializes_ringct_types)
 
   ecdh0.mask = rct::skGen();
   ecdh0.amount = rct::skGen();
-  ecdh0.senderPk = rct::skGen();
   ASSERT_TRUE(serialization::dump_binary(ecdh0, blob));
   ASSERT_TRUE(serialization::parse_binary(blob, ecdh1));
   ASSERT_TRUE(!memcmp(&ecdh0.mask, &ecdh1.mask, sizeof(ecdh0.mask)));
   ASSERT_TRUE(!memcmp(&ecdh0.amount, &ecdh1.amount, sizeof(ecdh0.amount)));
-  // senderPk is not serialized
 
   for (size_t n = 0; n < 64; ++n)
   {
@@ -591,7 +589,8 @@ TEST(Serialization, serializes_ringct_types)
   rct::skpkGen(Sk, Pk);
   destinations.push_back(Pk);
   //compute rct data with mixin 500
-  s0 = rct::genRct(rct::zero(), sc, pc, destinations, amounts, amount_keys, NULL, NULL, 3, hw::get_device("default"));
+  const rct::RCTConfig rct_config{ rct::RangeProofPaddedBulletproof, 0 };
+  s0 = rct::genRct(rct::zero(), sc, pc, destinations, amounts, amount_keys, NULL, NULL, 3, rct_config, hw::get_device("default"));
 
   mg0 = s0.p.MGs[0];
   ASSERT_TRUE(serialization::dump_binary(mg0, blob));
@@ -668,6 +667,12 @@ TEST(Serialization, serializes_ringct_types)
   ASSERT_TRUE(blob == blob2);
 }
 
+// TODO(loki): These tests are broken because they rely on testnet which has
+// since been restarted, and so the genesis block of these predefined wallets
+// are broken
+//             - 2019-02-25 Doyle
+
+#if 0
 TEST(Serialization, portability_wallet)
 {
   const cryptonote::network_type nettype = cryptonote::TESTNET;
@@ -946,6 +951,7 @@ inline void serialize(Archive &a, unsigned_tx_set &x, const boost::serialization
 }
 TEST(Serialization, portability_unsigned_tx)
 {
+  // TODO(loki): We updated testnet genesis, is broken
   const bool restricted = false;
   tools::wallet2 w(cryptonote::TESTNET, restricted);
 
@@ -1090,7 +1096,7 @@ TEST(Serialization, portability_unsigned_tx)
 
   // tcd.{unlock_time, use_rct}
   ASSERT_TRUE(tcd.unlock_time == 0);
-  ASSERT_TRUE(tcd.use_rct);
+  // ASSERT_TRUE(tcd.use_rct);
 
   // tcd.dests
   ASSERT_TRUE(tcd.dests.size() == 1);
@@ -1295,7 +1301,7 @@ TEST(Serialization, portability_signed_tx)
 
   // ptx.construction_data.{unlock_time, use_rct}
   ASSERT_TRUE(tcd.unlock_time == 0);
-  ASSERT_TRUE(tcd.use_rct);
+  // ASSERT_TRUE(tcd.use_rct);
 
   // ptx.construction_data.dests
   ASSERT_TRUE(tcd.dests.size() == 1);
@@ -1313,3 +1319,4 @@ TEST(Serialization, portability_signed_tx)
   ASSERT_TRUE(epee::string_tools::pod_to_hex(ki1) == "21dfe89b3dbde221eccd9b71e7f6383c81f9ada224a670956c895b230749a8d8");
   ASSERT_TRUE(epee::string_tools::pod_to_hex(ki2) == "92194cadfbb4f1317d25d39d6216cbf1030a2170a3edb47b5f008345a879150d");
 }
+#endif

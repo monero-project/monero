@@ -48,6 +48,8 @@ namespace command_line
   bool is_yes(const std::string& str);
   //! \return True if `str` is `is_iequal("n" || "no" || `tr("no"))`.
   bool is_no(const std::string& str);
+  bool is_cancel(const std::string& str);
+  bool is_back(const std::string& str);
 
   template<typename T, bool required = false, bool dependent = false, int NUM_DEPS = 1>
   struct arg_descriptor;

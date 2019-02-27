@@ -954,6 +954,12 @@ uint64_t WalletImpl::approximateBlockChainHeight() const
 {
     return m_wallet->get_approximate_blockchain_height();
 }
+
+uint64_t WalletImpl::estimateBlockChainHeight() const
+{
+    return m_wallet->estimate_blockchain_height();
+}
+
 uint64_t WalletImpl::daemonBlockChainHeight() const
 {
     if(m_wallet->light_wallet()) {
@@ -1161,7 +1167,7 @@ std::string WalletImpl::getSubaddressLabel(uint32_t accountIndex, uint32_t addre
     }
     catch (const std::exception &e)
     {
-        LOG_ERROR("Error getting subaddress label: ") << e.what();
+        LOG_ERROR("Error getting subaddress label: " << e.what());
         setStatusError(string(tr("Failed to get subaddress label: ")) + e.what());
         return "";
     }
@@ -1174,7 +1180,7 @@ void WalletImpl::setSubaddressLabel(uint32_t accountIndex, uint32_t addressIndex
     }
     catch (const std::exception &e)
     {
-        LOG_ERROR("Error setting subaddress label: ") << e.what();
+        LOG_ERROR("Error setting subaddress label: " << e.what());
         setStatusError(string(tr("Failed to set subaddress label: ")) + e.what());
     }
 }
@@ -1191,7 +1197,7 @@ string WalletImpl::getMultisigInfo() const {
         clearStatus();
         return m_wallet->get_multisig_info();
     } catch (const exception& e) {
-        LOG_ERROR("Error on generating multisig info: ") << e.what();
+        LOG_ERROR("Error on generating multisig info: " << e.what());
         setStatusError(string(tr("Failed to get multisig info: ")) + e.what());
     }
 
@@ -1208,7 +1214,7 @@ string WalletImpl::makeMultisig(const vector<string>& info, uint32_t threshold) 
 
         return m_wallet->make_multisig(epee::wipeable_string(m_password), info, threshold);
     } catch (const exception& e) {
-        LOG_ERROR("Error on making multisig wallet: ") << e.what();
+        LOG_ERROR("Error on making multisig wallet: " << e.what());
         setStatusError(string(tr("Failed to make multisig: ")) + e.what());
     }
 
@@ -1222,7 +1228,7 @@ std::string WalletImpl::exchangeMultisigKeys(const std::vector<std::string> &inf
 
         return m_wallet->exchange_multisig_keys(epee::wipeable_string(m_password), info);
     } catch (const exception& e) {
-        LOG_ERROR("Error on exchanging multisig keys: ") << e.what();
+        LOG_ERROR("Error on exchanging multisig keys: " << e.what());
         setStatusError(string(tr("Failed to make multisig: ")) + e.what());
     }
 
@@ -1240,7 +1246,7 @@ bool WalletImpl::finalizeMultisig(const vector<string>& extraMultisigInfo) {
 
         setStatusError(tr("Failed to finalize multisig wallet creation"));
     } catch (const exception& e) {
-        LOG_ERROR("Error on finalizing multisig wallet creation: ") << e.what();
+        LOG_ERROR("Error on finalizing multisig wallet creation: " << e.what());
         setStatusError(string(tr("Failed to finalize multisig wallet creation: ")) + e.what());
     }
 
@@ -1256,7 +1262,7 @@ bool WalletImpl::exportMultisigImages(string& images) {
         images = epee::string_tools::buff_to_hex_nodelimer(blob);
         return true;
     } catch (const exception& e) {
-        LOG_ERROR("Error on exporting multisig images: ") << e.what();
+        LOG_ERROR("Error on exporting multisig images: " << e.what());
         setStatusError(string(tr("Failed to export multisig images: ")) + e.what());
     }
 
@@ -1284,7 +1290,7 @@ size_t WalletImpl::importMultisigImages(const vector<string>& images) {
 
         return m_wallet->import_multisig(blobs);
     } catch (const exception& e) {
-        LOG_ERROR("Error on importing multisig images: ") << e.what();
+        LOG_ERROR("Error on importing multisig images: " << e.what());
         setStatusError(string(tr("Failed to import multisig images: ")) + e.what());
     }
 
@@ -1298,7 +1304,7 @@ bool WalletImpl::hasMultisigPartialKeyImages() const {
 
         return m_wallet->has_multisig_partial_key_images();
     } catch (const exception& e) {
-        LOG_ERROR("Error on checking for partial multisig key images: ") << e.what();
+        LOG_ERROR("Error on checking for partial multisig key images: " << e.what());
         setStatusError(string(tr("Failed to check for partial multisig key images: ")) + e.what());
     }
 
@@ -1326,7 +1332,7 @@ PendingTransaction* WalletImpl::restoreMultisigTransaction(const string& signDat
 
         return ptx;
     } catch (exception& e) {
-        LOG_ERROR("Error on restoring multisig transaction: ") << e.what();
+        LOG_ERROR("Error on restoring multisig transaction: " << e.what());
         setStatusError(string(tr("Failed to restore multisig transaction: ")) + e.what());
     }
 
@@ -1413,9 +1419,11 @@ PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, const 
             if (amount) {
                 vector<cryptonote::tx_destination_entry> dsts;
                 cryptonote::tx_destination_entry de;
+                de.original = dst_addr;
                 de.addr = info.address;
                 de.amount = *amount;
                 de.is_subaddress = info.is_subaddress;
+                de.is_integrated = info.has_payment_id;
                 dsts.push_back(de);
                 transaction->m_pending_tx = m_wallet->create_transactions_2(dsts, fake_outs_count, 0 /* unlock_time */,
                                                                           adjusted_priority,
@@ -2331,31 +2339,43 @@ bool WalletImpl::isKeysFileLocked()
     return m_wallet->is_keys_file_locked();
 }
 
-PendingTransaction* WalletImpl::stakePending(const std::string& sn_key_str, const std::string& address_str, const std::string& amount_str)
+PendingTransaction* WalletImpl::stakePending(const std::string& sn_key_str, const std::string& address_str, const std::string& amount_str, std::string& error_msg)
 {
   crypto::public_key sn_key;
-  if (!epee::string_tools::hex_to_pod(sn_key_str, sn_key)) {
-    LOG_ERROR("failed to parse service node pubkey");
+  if (!epee::string_tools::hex_to_pod(sn_key_str, sn_key))
+  {
+    error_msg = "Failed to parse service node pubkey";
+    LOG_ERROR(error_msg);
     return nullptr;
   }
 
   cryptonote::address_parse_info addr_info;
-  if (!cryptonote::get_account_address_from_str_or_url(addr_info, m_wallet->nettype(), address_str)) {
-    LOG_ERROR("failed to parse address");
+  if (!cryptonote::get_account_address_from_str_or_url(addr_info, m_wallet->nettype(), address_str))
+  {
+    error_msg = "Failed to parse the contributor's address";
+    LOG_ERROR(error_msg);
     return nullptr;
   }
 
   uint64_t amount;
-  if (!cryptonote::parse_amount(amount, amount_str)) {
-    LOG_ERROR("amount is wrong: " << amount_str << ", " << "expected number from " << print_money(1)
-              << " to " << print_money(std::numeric_limits<uint64_t>::max()));
+  if (!cryptonote::parse_amount(amount, amount_str))
+  {
+    stringstream str;
+    str << boost::format("Incorrect amount: %1%, expected a nubmber from %2% to %3%") % amount_str % print_money(1) % print_money(std::numeric_limits<uint64_t>::max());
+    error_msg = str.str();
+    LOG_ERROR(error_msg);
     return nullptr;
   }
 
   /// Note(maxim): need to be careful to call `WalletImpl::disposeTransaction` when it is no longer needed
   PendingTransactionImpl * transaction = new PendingTransactionImpl(*this);
 
-  transaction->m_pending_tx = m_wallet->create_stake_tx(sn_key, addr_info, amount);
+  wallet2::stake_result stake_result = m_wallet->create_stake_tx(transaction->m_pending_tx, sn_key, addr_info, amount);
+  if (stake_result != wallet2::stake_result::success)
+  {
+    error_msg = "Failed to create a stake transaction: " + stake_result.msg;
+    return nullptr;
+  }
 
   return transaction;
 }
