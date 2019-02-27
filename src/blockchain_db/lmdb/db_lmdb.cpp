@@ -3933,6 +3933,9 @@ bool BlockchainLMDB::get_output_blacklist(std::vector<uint64_t> &blacklist) cons
 
 void BlockchainLMDB::add_output_blacklist(std::vector<uint64_t> const &blacklist)
 {
+  if (blacklist.size() == 0)
+    return;
+
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
 
