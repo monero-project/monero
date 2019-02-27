@@ -46,8 +46,11 @@ set(crypto_sources
   skein.c
   slow-hash.c
   CryptonightR_JIT.c
-  CryptonightR_template.S
   tree-hash.c)
+
+if(ARCH_ID STREQUAL "i386" OR ARCH_ID STREQUAL "x86_64" OR ARCH_ID STREQUAL "x86-64")
+list(APPEND crypto_sources CryptonightR_template.S)
+endif()
 
 set(crypto_headers)
 
