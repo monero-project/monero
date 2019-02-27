@@ -31,6 +31,8 @@
 #pragma once
 
 #include <device_trezor/device_trezor.hpp>
+#include <wallet/api/wallet2_api.h>
+#include "daemon.h"
 #include "../core_tests/chaingen.h"
 #include "../core_tests/wallet_tools.h"
 
@@ -50,29 +52,48 @@ public:
   gen_trezor_base(const gen_trezor_base &other);
   virtual ~gen_trezor_base() {};
 
-  void setup_args(const std::string & trezor_path, bool heavy_tests=false);
+  virtual void setup_args(const std::string & trezor_path, bool heavy_tests=false);
   virtual bool generate(std::vector<test_event_entry>& events);
   virtual void load(std::vector<test_event_entry>& events);       // load events, init test obj
-  void fix_hf(std::vector<test_event_entry>& events);
-  void update_trackers(std::vector<test_event_entry>& events);
+  virtual void fix_hf(std::vector<test_event_entry>& events);
+  virtual void update_trackers(std::vector<test_event_entry>& events);
 
-  void fork(gen_trezor_base & other);                             // fork generated chain to another test
-  void clear();                                                   // clears m_events, bt, generator, hforks
-  void add_shared_events(std::vector<test_event_entry>& events);  // m_events -> events
-  void test_setup(std::vector<test_event_entry>& events);         // init setup env, wallets
+  virtual void fork(gen_trezor_base & other);                             // fork generated chain to another test
+  virtual void clear();                                                   // clears m_events, bt, generator, hforks
+  virtual void add_shared_events(std::vector<test_event_entry>& events);  // m_events -> events
+  virtual void test_setup(std::vector<test_event_entry>& events);         // init setup env, wallets
 
-  void test_trezor_tx(std::vector<test_event_entry>& events,
+  virtual void add_transactions_to_events(
+      std::vector<test_event_entry>& events,
+      test_generator &generator,
+      const std::vector<cryptonote::transaction> &txs);
+
+  virtual void test_trezor_tx(
+      std::vector<test_event_entry>& events,
       std::vector<tools::wallet2::pending_tx>& ptxs,
       std::vector<cryptonote::address_parse_info>& dsts_info,
       test_generator &generator,
       std::vector<tools::wallet2*> wallets,
       bool is_sweep=false);
 
-  crypto::hash head_hash() { return get_block_hash(m_head); }
-  cryptonote::block head_block() { return m_head; }
-  bool heavy_tests() { return m_heavy_tests; }
+  virtual void test_get_tx(
+      std::vector<test_event_entry>& events,
+      std::vector<tools::wallet2*> wallets,
+      const std::vector<tools::wallet2::pending_tx> &ptxs,
+      const std::vector<std::string> &aux_tx_info);
+
+  virtual void mine_and_test(std::vector<test_event_entry>& events);
+
+  virtual void set_hard_fork(uint8_t hf);
+
+  crypto::hash head_hash() const { return get_block_hash(m_head); }
+  cryptonote::block head_block() const { return m_head; }
+  bool heavy_tests() const { return m_heavy_tests; }
   void rct_config(rct::RCTConfig rct_config) { m_rct_config = rct_config; }
-  uint8_t cur_hf(){ return m_hard_forks.size() > 0 ? m_hard_forks.back().first : 0; }
+  uint8_t cur_hf() const { return m_hard_forks.size() > 0 ? m_hard_forks.back().first : 0; }
+  cryptonote::network_type nettype() const { return m_network_type; }
+  std::shared_ptr<mock_daemon> daemon() const { return m_daemon; }
+  void daemon(std::shared_ptr<mock_daemon> daemon){ m_daemon = std::move(daemon); }
 
   // Static configuration
   static const uint64_t m_ts_start;
@@ -84,19 +105,26 @@ public:
   static const std::string  m_alice_view_private;
 
 protected:
-  void setup_trezor();
-  void init_fields();
+  virtual void setup_trezor();
+  virtual void init_fields();
+  virtual void update_client_settings();
+  virtual bool verify_tx_key(const ::crypto::secret_key & tx_priv, const ::crypto::public_key & tx_pub, const subaddresses_t & subs);
 
   test_generator m_generator;
   block_tracker m_bt;
+  cryptonote::network_type m_network_type;
+  std::shared_ptr<mock_daemon> m_daemon;
 
+  uint8_t m_top_hard_fork;
   v_hardforks_t m_hard_forks;
   cryptonote::block m_head;
   std::vector<test_event_entry> m_events;
 
   std::string m_trezor_path;
   bool m_heavy_tests;
+  bool m_test_get_tx_key;
   rct::RCTConfig m_rct_config;
+  bool m_live_refresh_enabled;
 
   cryptonote::account_base m_miner_account;
   cryptonote::account_base m_bob_account;
@@ -113,6 +141,7 @@ protected:
   void serialize(Archive & ar, const unsigned int /*version*/)
   {
     ar & m_generator;
+    ar & m_network_type;
   }
 };
 
@@ -169,7 +198,47 @@ protected:
   rct::RCTConfig m_rct_config;
 };
 
+// Trezor device ship to track actual method calls.
+class device_trezor_test : public hw::trezor::device_trezor {
+public:
+  size_t m_tx_sign_ctr;
+  size_t m_compute_key_image_ctr;
+
+  device_trezor_test();
+
+  void clear_test_counters();
+  void setup_for_tests(const std::string & trezor_path, const std::string & seed, cryptonote::network_type network_type);
+
+  bool compute_key_image(const ::cryptonote::account_keys &ack, const ::crypto::public_key &out_key,
+                         const ::crypto::key_derivation &recv_derivation, size_t real_output_index,
+                         const ::cryptonote::subaddress_index &received_index, ::cryptonote::keypair &in_ephemeral,
+                         ::crypto::key_image &ki) override;
+
+protected:
+  void tx_sign(hw::wallet_shim *wallet, const ::tools::wallet2::unsigned_tx_set &unsigned_tx, size_t idx,
+               hw::tx_aux_data &aux_data, std::shared_ptr<hw::trezor::protocol::tx::Signer> &signer) override;
+};
+
+// Tests
 class gen_trezor_ki_sync : public gen_trezor_base
+{
+public:
+  bool generate(std::vector<test_event_entry>& events) override;
+};
+
+class gen_trezor_ki_sync_with_refresh : public gen_trezor_ki_sync
+{
+public:
+  bool generate(std::vector<test_event_entry>& events) override;
+};
+
+class gen_trezor_ki_sync_without_refresh : public gen_trezor_ki_sync
+{
+public:
+  bool generate(std::vector<test_event_entry>& events) override;
+};
+
+class gen_trezor_live_refresh : public gen_trezor_base
 {
 public:
   bool generate(std::vector<test_event_entry>& events) override;
@@ -245,4 +314,16 @@ class gen_trezor_many_utxo : public gen_trezor_base
 {
 public:
   bool generate(std::vector<test_event_entry>& events) override;
+};
+
+// Wallet::API tests
+class wallet_api_tests : public gen_trezor_base
+{
+public:
+  virtual ~wallet_api_tests();
+  void init();
+  bool generate(std::vector<test_event_entry>& events) override;
+
+protected:
+  boost::filesystem::path m_wallet_dir;
 };

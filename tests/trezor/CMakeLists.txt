@@ -27,11 +27,15 @@
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 set(trezor_tests_sources
+        tools.cpp
+        daemon.cpp
         trezor_tests.cpp
         ../core_tests/chaingen.cpp
         ../core_tests/wallet_tools.cpp)
 
 set(trezor_tests_headers
+        tools.h
+        daemon.h
         trezor_tests.h
         ../core_tests/chaingen.h
         ../core_tests/wallet_tools.h)
@@ -50,6 +54,15 @@ target_link_libraries(trezor_tests
     device
     device_trezor
     wallet
+    wallet_api
+    rpc
+    cryptonote_protocol
+    daemon_rpc_server
+    ${Boost_CHRONO_LIBRARY}
+    ${Boost_FILESYSTEM_LIBRARY}
+    ${Boost_PROGRAM_OPTIONS_LIBRARY}
+    ${Boost_SYSTEM_LIBRARY}
+    ${ZMQ_LIB}
     ${CMAKE_THREAD_LIBS_INIT}
     ${EXTRA_LIBRARIES})
 
