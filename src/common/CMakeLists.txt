@@ -44,6 +44,7 @@ set(common_sources
   password.cpp
   perf_timer.cpp
   pruning.cpp
+  scoped_message_writer.cpp
   spawn.cpp
   threadpool.cpp
   updates.cpp
@@ -72,6 +73,7 @@ set(common_private_headers
   expect.h
   loki.h
   http_connection.h
+  loki_integration_test_hooks.h
   notify.h
   pod-class.h
   pruning.h
@@ -111,6 +113,7 @@ target_link_libraries(common
     ${Boost_CHRONO_LIBRARY}
   PRIVATE
     ${OPENSSL_LIBRARIES}
+    ${EPEE_READLINE}
     ${EXTRA_LIBRARIES})
 
 #monero_install_headers(common
