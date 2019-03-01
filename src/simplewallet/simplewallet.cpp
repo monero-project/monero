@@ -6233,6 +6233,8 @@ bool simple_wallet::request_stake_unlock(const std::vector<std::string> &args_)
     add_tx_key_image_unlock_to_tx_extra(ptx.tx.extra, unlock);
   }
 
+  if (!command_line::is_yes(input_line("Is this okay?", true)))
+    return true;
 
   // TODO(doyle): INF_STAKING(doyle): Do we support staking in these modes?
   if (m_wallet->multisig())
