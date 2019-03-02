@@ -3129,7 +3129,7 @@ namespace tools
     }
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  bool wallet_rpc_server::on_generate_from_view_key(const wallet_rpc::COMMAND_RPC_GENERATE_FROM_KEYS::request &req, wallet_rpc::COMMAND_RPC_GENERATE_FROM_KEYS::response &res, epee::json_rpc::error &er, const connection_context *ctx)
+  bool wallet_rpc_server::on_generate_from_keys(const wallet_rpc::COMMAND_RPC_GENERATE_FROM_KEYS::request &req, wallet_rpc::COMMAND_RPC_GENERATE_FROM_KEYS::response &res, epee::json_rpc::error &er, const connection_context *ctx)
   {
     if (m_wallet_dir.empty())
     {
@@ -3245,12 +3245,14 @@ namespace tools
           return false;
         }
         wal->generate(wallet_file, std::move(rc.second).password(), info.address, spendkey, viewkey, false);
+        res.info = "Wallet has been generated successfully.";
       }
       else
       {
         wal->generate(wallet_file, std::move(rc.second).password(), info.address, viewkey, false);
+        res.info = "Watch-only wallet has been generated successfully.";
       }
-      MINFO("Wallet has been restored.\n");
+      MINFO("Wallet has been generated.\n");
     }
     catch (const std::exception &e)
     {
@@ -3292,20 +3294,7 @@ namespace tools
     }
     m_wallet = wal.release();
     res.address = m_wallet->get_account().get_public_address_str(m_wallet->nettype());
-    res.info = "Wallet has been restored successfully.";
     return true;
-  }
-  //------------------------------------------------------------------------------------------------------------------------------
-  bool wallet_rpc_server::on_generate_from_keys(const wallet_rpc::COMMAND_RPC_GENERATE_FROM_KEYS::request &req, wallet_rpc::COMMAND_RPC_GENERATE_FROM_KEYS::response &res, epee::json_rpc::error &er, const connection_context *ctx)
-  {
-    // early check for mandatory fields
-    if (req.spendkey.empty())
-    {
-      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
-      er.message = "field 'spendkey' is mandatory. Please provide a spend key you want to restore from.";
-      return false;
-    }
-    return wallet_rpc_server::on_generate_from_view_key(req, res, er, ctx);
   }
   //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::on_restore_deterministic_wallet(const wallet_rpc::COMMAND_RPC_RESTORE_DETERMINISTIC_WALLET::request &req, wallet_rpc::COMMAND_RPC_RESTORE_DETERMINISTIC_WALLET::response &res, epee::json_rpc::error &er, const connection_context *ctx)
