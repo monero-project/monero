@@ -10,7 +10,7 @@ cache:
 env:
   global:
     - MAKEJOBS=-j3
-    - RUN_TESTS=false
+    - RUN_TESTS=false # TODO(loki): Unused
     - BOOST_TEST_RANDOM=1$TRAVIS_BUILD_ID
     - CCACHE_SIZE=100M
     - CCACHE_TEMPDIR=/tmp/.ccache-temp
@@ -26,14 +26,10 @@ env:
     - HOST=arm-linux-gnueabihf PACKAGES="python3 gperf g++-arm-linux-gnueabihf"
 # ARM v8
     - HOST=aarch64-linux-gnu PACKAGES="python3 gperf g++-aarch64-linux-gnu"
-# i686 Win
-#    - HOST=i686-w64-mingw32 PACKAGES="python3 nsis g++-mingw-w64-i686"
-# i686 Linux
-#    - HOST=i686-pc-linux-gnu PACKAGES="gperf cmake g++-multilib bc python3-zmq" RUN_TESTS=true
-# Win64 TODO(loki): We should run tests on Windows and Mac as well. But windows doesn't work out of the box and I assume mac doesn't either.
+# Win64 TODO(loki): We should run tests on all platforms. Windows doesn't work out of the box and I assume mac doesn't either though
     - HOST=x86_64-w64-mingw32 PACKAGES="cmake python3 nsis g++-mingw-w64-x86-64 wine-binfmt wine64 bc"
 # x86_64 Linux
-    - HOST=x86_64-unknown-linux-gnu PACKAGES="gperf cmake python3-zmq libdbus-1-dev libharfbuzz-dev" RUN_TESTS=true
+    - HOST=x86_64-unknown-linux-gnu PACKAGES="gperf cmake python3-zmq libdbus-1-dev libharfbuzz-dev"
 # Cross-Mac
     - HOST=x86_64-apple-darwin11 PACKAGES="cmake imagemagick libcap-dev librsvg2-bin libz-dev libbz2-dev libtiff-tools python-dev python3-setuptools-git" OSX_SDK=10.11
 
@@ -59,8 +55,10 @@ script:
     - export TRAVIS_COMMIT_LOG=`git log --format=fuller -1`
     - OUTDIR=$BASE_OUTDIR/$TRAVIS_PULL_REQUEST/$TRAVIS_JOB_NUMBER-$HOST
     - if [ -z "$NO_DEPENDS" ]; then $DOCKER_EXEC ccache --max-size=$CCACHE_SIZE; fi
-    - if [ "$RUN_TESTS" = true ]; then $DOCKER_EXEC bash -c "mkdir build && cd build && cmake -D BUILD_TESTS=ON CMAKE_BUILD_TYPE=Debug -DCMAKE_TOOLCHAIN_FILE=$TRAVIS_BUILD_DIR/contrib/depends/$HOST/share/toolchain.cmake .. && make $MAKEJOBS && make $MAKEJOBS ARGS=\"-E libwallet_api_tests\" test"; fi
-    - if [ "$RUN_TESTS" = false ]; then $DOCKER_EXEC bash -c "mkdir build && cd build && cmake -DCMAKE_TOOLCHAIN_FILE=$TRAVIS_BUILD_DIR/contrib/depends/$HOST/share/toolchain.cmake .. && make $MAKEJOBS"; fi
+    # TODO(loki): Tests push the build > 50mins and so doesn't give us useful metrics on the CI.
+    # - if [ "$RUN_TESTS" = true ]; then $DOCKER_EXEC bash -c "mkdir build && cd build && cmake -D BUILD_TESTS=ON CMAKE_BUILD_TYPE=Debug -DCMAKE_TOOLCHAIN_FILE=$TRAVIS_BUILD_DIR/contrib/depends/$HOST/share/toolchain.cmake .. && make $MAKEJOBS && make $MAKEJOBS ARGS=\"-E libwallet_api_tests\" test"; fi
+    # - if [ "$RUN_TESTS" = false ]; then $DOCKER_EXEC bash -c "mkdir build && cd build && cmake -DCMAKE_TOOLCHAIN_FILE=$TRAVIS_BUILD_DIR/contrib/depends/$HOST/share/toolchain.cmake .. && make $MAKEJOBS"; fi
+    - $DOCKER_EXEC bash -c "mkdir build && cd build && cmake -DCMAKE_TOOLCHAIN_FILE=$TRAVIS_BUILD_DIR/contrib/depends/$HOST/share/toolchain.cmake .. && make $MAKEJOBS"
     - export LD_LIBRARY_PATH=$TRAVIS_BUILD_DIR/contrib/depends/$HOST/lib
 after_script:
     - echo $TRAVIS_COMMIT_RANGE
