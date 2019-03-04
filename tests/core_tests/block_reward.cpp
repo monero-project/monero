@@ -37,7 +37,7 @@ using namespace cryptonote;
 namespace
 {
   bool construct_miner_tx_by_weight(transaction& miner_tx, uint64_t height, uint64_t already_generated_coins,
-    const account_public_address& miner_address, std::vector<size_t>& block_weights, size_t target_tx_weight,
+    const account_public_address& miner_address, std::vector<uint64_t>& block_weights, size_t target_tx_weight,
     size_t target_block_weight, uint64_t fee = 0)
   {
     if (!construct_miner_tx(height, misc_utils::median(block_weights), already_generated_coins, target_block_weight, fee, miner_address, miner_tx))

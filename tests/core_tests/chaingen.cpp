@@ -408,7 +408,7 @@ uint64_t test_generator::get_already_generated_coins(const cryptonote::block& bl
   return get_already_generated_coins(blk_hash);
 }
 
-void test_generator::add_block(const cryptonote::block& blk, size_t txs_weight, std::vector<size_t>& block_weights, uint64_t already_generated_coins)
+void test_generator::add_block(const cryptonote::block& blk, size_t txs_weight, std::vector<uint64_t>& block_weights, uint64_t already_generated_coins)
 {
   const size_t block_weight = txs_weight + get_transaction_weight(blk.miner_tx);
 
@@ -454,7 +454,7 @@ static void manual_calc_batched_governance(const test_generator &generator, cons
 
 bool test_generator::construct_block(cryptonote::block& blk, uint64_t height, const crypto::hash& prev_id,
                                      const cryptonote::account_base& miner_acc, uint64_t timestamp, uint64_t already_generated_coins,
-                                     std::vector<size_t>& block_weights, const std::list<cryptonote::transaction>& tx_list,
+                                     std::vector<uint64_t>& block_weights, const std::list<cryptonote::transaction>& tx_list,
                                      const crypto::public_key& sn_pub_key /* = crypto::null_key */, const std::vector<sn_contributor_t>& sn_infos)
 {
   /// a temporary workaround
@@ -545,7 +545,7 @@ bool test_generator::construct_block(cryptonote::block& blk, uint64_t height, co
 
 bool test_generator::construct_block(cryptonote::block& blk, const cryptonote::account_base& miner_acc, uint64_t timestamp)
 {
-  std::vector<size_t> block_weights;
+  std::vector<uint64_t> block_weights;
   std::list<cryptonote::transaction> tx_list;
   return construct_block(blk, 0, null_hash, miner_acc, timestamp, 0, block_weights, tx_list);
 }
@@ -560,7 +560,7 @@ bool test_generator::construct_block(cryptonote::block& blk, const cryptonote::b
   // Keep difficulty unchanged
   uint64_t timestamp = blk_prev.timestamp + DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN;
   uint64_t already_generated_coins = get_already_generated_coins(prev_id);
-  std::vector<size_t> block_weights;
+  std::vector<uint64_t> block_weights;
   get_last_n_block_weights(block_weights, prev_id, CRYPTONOTE_REWARD_BLOCKS_WINDOW);
 
   return construct_block(blk, height, prev_id, miner_acc, timestamp, already_generated_coins, block_weights, tx_list, sn_pub_key, sn_infos);
