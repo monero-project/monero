@@ -1,7 +1,6 @@
 # Anonymity Networks with Monero
 
-Currently only Tor has been integrated into Monero. Providing support for
-Kovri/I2P should be minimal, but has not yet been attempted. The usage of
+Currently only Tor and I2P have been integrated into Monero. The usage of
 these networks is still considered experimental - there are a few pessimistic
 cases where privacy is leaked. The design is intended to maximize privacy of
 the source of a transaction by broadcasting it over an anonymity network, while
@@ -23,8 +22,8 @@ connections enabled.
 
 ## P2P Commands
 
-Only handshakes, peer timed syncs, and transaction broadcast messages are
-supported over anonymity networks. If one `--add-exclusive-node` onion address
+Only handshakes, peer timed syncs and transaction broadcast messages are
+supported over anonymity networks. If one `--add-exclusive-node` p2p address
 is specified, then no syncing will take place and only transaction broadcasting
 can occur. It is therefore recommended that `--add-exclusive-node` be combined
 with additional exclusive IPv4 address(es).
@@ -47,9 +46,9 @@ separate process. On most systems the configuration will look like:
 
 which tells `monerod` that ".onion" p2p addresses can be forwarded to a socks
 proxy at IP 127.0.0.1 port 9050 with a max of 10 outgoing connections and
-".i2p" p2p addresses can be forwarded to a socks proxy at IP 127.0.0.1 port 9000
-with the default max outgoing connections. Since there are no seed nodes for
-anonymity connections, peers must be manually specified:
+".b32.i2p" p2p addresses can be forwarded to a socks proxy at IP 127.0.0.1 port
+9000 with the default max outgoing connections. Since there are no seed nodes
+for anonymity connections, peers must be manually specified:
 
 > `--add-exclusive-node rveahdfho7wo4b2m.onion:28083`
 > `--add-peer rveahdfho7wo4b2m.onion:28083`
@@ -64,27 +63,28 @@ Receiving anonymity connections is done through the option
 `--anonymous-inbound`. This option tells `monerod` the inbound address, network
 type, and max connections:
 
-> `--anonymous-inbound rveahdfho7wo4b2m.onion:28083,127.0.0.28083,25`
-> `--anonymous-inbound foobar.i2p:5000,127.0.0.1:30000`
+> `--anonymous-inbound rveahdfho7wo4b2m.onion:28083,127.0.0.1:28083,25`
+> `--anonymous-inbound cmeua5767mz2q5jsaelk2rxhf67agrwuetaso5dzbenyzwlbkg2q.b32.i2p:5000,127.0.0.1:30000`
 
 which tells `monerod` that a max of 25 inbound Tor connections are being
 received at address "rveahdfho7wo4b2m.onion:28083" and forwarded to `monerod`
 localhost port 28083, and a default max I2P connections are being received at
-address "foobar.i2p:5000" and forwarded to `monerod` localhost port 30000.
+address "cmeua5767mz2q5jsaelk2rxhf67agrwuetaso5dzbenyzwlbkg2q.b32.i2p:5000" and
+forwarded to `monerod` localhost port 30000.
 These addresses will be shared with outgoing peers, over the same network type,
 otherwise the peer will not be notified of the peer address by the proxy.
 
 ### Network Types
 
-#### Tor
+#### Tor & I2P
 
-Options `--add-exclusive-node` and `--add-peer` recognize ".onion" addresses,
-and will properly forward those addresses to the proxy provided with
-`--proxy tor,...`.
+Options `--add-exclusive-node` and `--add-peer` recognize ".onion" and
+".b32.i2p" addresses, and will properly forward those addresses to the proxy
+provided with `--proxy tor,...` or `--proxy i2p,...`.
 
-Option `--anonymous-inbound` also recognizes ".onion" addresses, and will
-automatically be sent out to outgoing Tor connections so the peer can
-distribute the address to its other peers.
+Option `--anonymous-inbound` also recognizes ".onion" and ".b32.i2p" addresses,
+and will automatically be sent out to outgoing Tor/I2P connections so the peer
+can distribute the address to its other peers.
 
 ##### Configuration
 
@@ -99,11 +99,8 @@ This will store key information in `/var/lib/tor/data/monero` and will forward
 `/usr/lib/tor/data/monero/hostname` will contain the ".onion" address for use
 with `--anonymous-inbound`.
 
-#### Kovri/I2P
-
-Support for this network has not been implemented. Using ".i2p" addresses or
-specifying "i2p" will currently generate an error.
-
+I2P must be configured with a standard server tunnel. Configuration differs by
+I2P implementation.
 
 ## Privacy Limitations
 
@@ -132,11 +129,11 @@ more difficult.
 ### Bandwidth Usage
 
 An ISP can passively monitor `monerod` connections from a node and observe when
-a transaction is sent over a Tor/Kovri connection via timing analysis + size of
-data sent during that timeframe. Kovri should provide better protection against
+a transaction is sent over a Tor/I2P connection via timing analysis + size of
+data sent during that timeframe. I2P should provide better protection against
 this attack - its connections are not circuit based. However, if a node is
-only using Kovri for broadcasting Monero transactions, the total aggregate of
-Kovri/I2P data would also leak information.
+only using I2P for broadcasting Monero transactions, the total aggregate of
+I2P data would also leak information.
 
 #### Mitigation
 
@@ -165,15 +162,15 @@ simply a best effort attempt.
 ### Active Bandwidth Shaping
 
 An attacker could attempt to bandwidth shape traffic in an attempt to determine
-the source of a Tor/Kovri/I2P connection. There isn't great mitigation against
-this, but Kovri/I2P should provide better protection against this attack since
+the source of a Tor/I2P connection. There isn't great mitigation against
+this, but I2P should provide better protection against this attack since
 the connections are not circuit based.
 
 #### Mitigation
 
-The best mitigiation is to use Kovri/I2P instead of Tor. However, Kovri/I2P
+The best mitigiation is to use I2P instead of Tor. However, I2P
 has a smaller set of users (less cover traffic) and academic reviews, so there
 is a tradeoff in potential isses. Also, anyone attempting this strategy really
 wants to uncover a user, it seems unlikely that this would be performed against
-every Tor/Kovri/I2P user.
+every Tor/I2P user.
 

@@ -37,11 +37,11 @@
 namespace net
 {
     /*!
-      Identifies onion and IPv4 addresses and returns them as a generic
+      Identifies onion, i2p and IPv4 addresses and returns them as a generic
       `network_address`. If the type is unsupported, it might be a hostname,
       and `error() == net::error::kUnsupportedAddress` is returned.
 
-      \param address An onion address, ipv4 address or hostname. Hostname
+      \param address An onion address, i2p address, ipv4 address or hostname. Hostname
           will return an error.
       \param default_port If `address` does not specify a port, this value
           will be used.

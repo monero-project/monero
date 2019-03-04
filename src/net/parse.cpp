@@ -29,6 +29,7 @@
 #include "parse.h"
 
 #include "net/tor_address.h"
+#include "net/i2p_address.h"
 #include "string_tools.h"
 
 namespace net
@@ -43,7 +44,7 @@ namespace net
         if (host.ends_with(".onion"))
             return tor_address::make(address, default_port);
         if (host.ends_with(".i2p"))
-            return make_error_code(net::error::invalid_i2p_address); // not yet implemented (prevent public DNS lookup)
+            return i2p_address::make(address, default_port);
 
         std::uint16_t port = default_port;
         if (host.size() < address.size())

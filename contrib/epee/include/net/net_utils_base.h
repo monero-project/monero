@@ -47,6 +47,7 @@
 namespace net
 {
 	class tor_address;
+	class i2p_address;
 }
 
 namespace epee
@@ -196,7 +197,7 @@ namespace net_utils
 		template<typename Type> const Type &as() const { return as_mutable<const Type>(); }
 
 		BEGIN_KV_SERIALIZE_MAP()
-			// need to `#include "net/tor_address.h"` when serializing `network_address`
+			// need to `#include "net/[i2p|tor]_address.h"` when serializing `network_address`
 			static constexpr std::integral_constant<bool, is_store> is_store_{};
 
 			std::uint8_t type = std::uint8_t(is_store ? this_ref.get_type_id() : address_type::invalid);
@@ -209,6 +210,8 @@ namespace net_utils
 					return this_ref.template serialize_addr<ipv4_network_address>(is_store_, stg, hparent_section);
 				case address_type::tor:
 					return this_ref.template serialize_addr<net::tor_address>(is_store_, stg, hparent_section);
+				case address_type::i2p:
+					return this_ref.template serialize_addr<net::i2p_address>(is_store_, stg, hparent_section);
 				case address_type::invalid:
 				default:
 					break;

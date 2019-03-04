@@ -46,13 +46,14 @@
 #include "net/socks.h"
 #include "net/parse.h"
 #include "net/tor_address.h"
+#include "net/i2p_address.h"
 #include "p2p/p2p_protocol_defs.h"
 #include "string_tools.h"
 
 namespace
 {
     constexpr const boost::chrono::milliseconds future_poll_interval{500};
-    constexpr const std::chrono::seconds tor_connect_timeout{P2P_DEFAULT_TOR_CONNECT_TIMEOUT};
+    constexpr const std::chrono::seconds socks_connect_timeout{P2P_DEFAULT_SOCKS_CONNECT_TIMEOUT};
 
     std::int64_t get_max_connections(const boost::iterator_range<boost::string_ref::const_iterator> value) noexcept
     {
@@ -89,6 +90,9 @@ namespace
         {
         case net::tor_address::get_type_id():
             set = client->set_connect_command(remote.as<net::tor_address>());
+            break;
+        case net::i2p_address::get_type_id():
+            set = client->set_connect_command(remote.as<net::i2p_address>());
             break;
         default:
             MERROR("Unsupported network address in socks_connect");
@@ -177,6 +181,9 @@ namespace nodetool
             case epee::net_utils::zone::tor:
                 proxies.back().zone = epee::net_utils::zone::tor;
                 break;
+            case epee::net_utils::zone::i2p:
+                proxies.back().zone = epee::net_utils::zone::i2p;
+                break;
             default:
                 MERROR("Invalid network for --" << arg_proxy.name);
                 return boost::none;
@@ -234,6 +241,10 @@ namespace nodetool
             case net::tor_address::get_type_id():
                 inbounds.back().our_address = std::move(*our_address);
                 inbounds.back().default_remote = net::tor_address::unknown();
+                break;
+            case net::i2p_address::get_type_id():
+                inbounds.back().our_address = std::move(*our_address);
+                inbounds.back().default_remote = net::i2p_address::unknown();
                 break;
             default:
                 MERROR("Invalid inbound address (" << address << ") for --" << arg_anonymous_inbound.name << ": " << (our_address ? "invalid type" : our_address.error().message()));
@@ -308,7 +319,7 @@ namespace nodetool
         const auto start = std::chrono::steady_clock::now();
         while (socks_result.wait_for(future_poll_interval) == boost::future_status::timeout)
         {
-            if (tor_connect_timeout < std::chrono::steady_clock::now() - start)
+            if (socks_connect_timeout < std::chrono::steady_clock::now() - start)
             {
                 MERROR("Timeout on socks connect (" << proxy << " to " << remote.str() << ")");
                 return boost::none;
