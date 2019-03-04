@@ -611,6 +611,24 @@ int main(int argc, char* argv[])
       }
       already_pruned = true;
     }
+    if (n == 0)
+    {
+      const uint64_t blockchain_height = core_storage[0]->get_current_blockchain_height();
+      const crypto::hash hash = core_storage[0]->get_block_id_by_height(blockchain_height - 1);
+      cryptonote::block block;
+      if (core_storage[0]->get_block_by_hash(hash, block))
+      {
+        if (block.major_version < 10)
+        {
+          time_t now = time(NULL);
+          if (now < 1555286400) // 15 april 2019
+          {
+            MERROR("Pruning before v10 will confuse peers. Wait for v10 first");
+            return 1;
+          }
+        }
+      }
+    }
   }
   core_storage[0]->deinit();
   core_storage[0].reset(NULL);
