@@ -1439,7 +1439,7 @@ bool Blockchain::create_block_template(block& b, const account_public_address& m
         b.miner_tx.extra.resize(b.miner_tx.extra.size() - 1);
         if (cumulative_weight != txs_weight + get_transaction_weight(b.miner_tx))
         {
-          //fuck, not lucky, -1 makes varint-counter size smaller, in that case we continue to grow with cumulative_weight
+          //not lucky, -1 makes varint-counter size smaller, in that case we continue to grow with cumulative_weight
           MDEBUG("Miner tx creation has no luck with delta_extra size = " << delta << " and " << delta - 1);
           cumulative_weight += delta - 1;
           continue;
