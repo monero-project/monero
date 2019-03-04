@@ -15,12 +15,11 @@ define $(package)_config_cmds
 endef
 
 define $(package)_build_cmds
-  $(MAKE) -C src libprotobuf.la all
+  $(MAKE) -C src
 endef
 
 define $(package)_stage_cmds
-  $(MAKE) DESTDIR=$($(package)_staging_dir) -C src install install-libLTLIBRARIES install-nobase_includeHEADERS &&\
-  $(MAKE) DESTDIR=$($(package)_staging_dir) install-pkgconfigDATA
+  $(MAKE) DESTDIR=$($(package)_staging_dir) -C src install
 endef
 
 define $(package)_postprocess_cmds
