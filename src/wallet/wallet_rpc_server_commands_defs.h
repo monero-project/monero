@@ -1418,6 +1418,7 @@ namespace wallet_rpc
       uint64_t max_height;
       uint32_t account_index;
       std::set<uint32_t> subaddr_indices;
+      bool all_accounts;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(in);
@@ -1430,6 +1431,7 @@ namespace wallet_rpc
         KV_SERIALIZE_OPT(max_height, (uint64_t)CRYPTONOTE_MAX_BLOCK_NUMBER);
         KV_SERIALIZE(account_index);
         KV_SERIALIZE(subaddr_indices);
+        KV_SERIALIZE_OPT(all_accounts, false);
       END_KV_SERIALIZE_MAP()
     };
 
