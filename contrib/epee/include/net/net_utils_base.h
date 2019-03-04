@@ -241,6 +241,7 @@ namespace net_utils
     const network_address m_remote_address;
     const bool     m_is_income;
     const time_t   m_started;
+    const time_t   m_ssl;
     time_t   m_last_recv;
     time_t   m_last_send;
     uint64_t m_recv_cnt;
@@ -251,13 +252,14 @@ namespace net_utils
     double m_max_speed_up;
 
     connection_context_base(boost::uuids::uuid connection_id,
-                            const network_address &remote_address, bool is_income,
+                            const network_address &remote_address, bool is_income, bool ssl,
                             time_t last_recv = 0, time_t last_send = 0,
                             uint64_t recv_cnt = 0, uint64_t send_cnt = 0):
                                             m_connection_id(connection_id),
                                             m_remote_address(remote_address),
                                             m_is_income(is_income),
                                             m_started(time(NULL)),
+                                            m_ssl(ssl),
                                             m_last_recv(last_recv),
                                             m_last_send(last_send),
                                             m_recv_cnt(recv_cnt),
@@ -272,6 +274,7 @@ namespace net_utils
                                m_remote_address(),
                                m_is_income(false),
                                m_started(time(NULL)),
+                               m_ssl(false),
                                m_last_recv(0),
                                m_last_send(0),
                                m_recv_cnt(0),
@@ -284,17 +287,17 @@ namespace net_utils
 
     connection_context_base& operator=(const connection_context_base& a)
     {
-      set_details(a.m_connection_id, a.m_remote_address, a.m_is_income);
+      set_details(a.m_connection_id, a.m_remote_address, a.m_is_income, a.m_ssl);
       return *this;
     }
     
   private:
     template<class t_protocol_handler>
     friend class connection;
-    void set_details(boost::uuids::uuid connection_id, const network_address &remote_address, bool is_income)
+    void set_details(boost::uuids::uuid connection_id, const network_address &remote_address, bool is_income, bool ssl)
     {
       this->~connection_context_base();
-      new(this) connection_context_base(connection_id, remote_address, is_income);
+      new(this) connection_context_base(connection_id, remote_address, is_income, ssl);
     }
 
 	};

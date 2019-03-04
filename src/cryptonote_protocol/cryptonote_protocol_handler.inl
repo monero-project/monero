@@ -268,6 +268,7 @@ namespace cryptonote
       cnx.current_upload = cntxt.m_current_speed_up / 1024;
 
       cnx.connection_id = epee::string_tools::pod_to_hex(cntxt.m_connection_id);
+      cnx.ssl = cntxt.m_ssl;
 
       cnx.height = cntxt.m_remote_blockchain_height;
       cnx.pruning_seed = cntxt.m_pruning_seed;

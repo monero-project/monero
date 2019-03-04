@@ -63,6 +63,10 @@ namespace
   const command_line::arg_descriptor<bool> arg_restricted = {"restricted-rpc", "Restricts to view-only commands", false};
   const command_line::arg_descriptor<std::string> arg_wallet_dir = {"wallet-dir", "Directory for newly created wallets"};
   const command_line::arg_descriptor<bool> arg_prompt_for_password = {"prompt-for-password", "Prompts for password when not provided", false};
+  const command_line::arg_descriptor<std::string> arg_rpc_ssl = {"rpc-ssl", tools::wallet2::tr("Enable SSL on wallet RPC connections: enabled|disabled|autodetect"), "autodetect"};
+  const command_line::arg_descriptor<std::string> arg_rpc_ssl_private_key = {"rpc-ssl-private-key", tools::wallet2::tr("Path to a PEM format private key"), ""};
+  const command_line::arg_descriptor<std::string> arg_rpc_ssl_certificate = {"rpc-ssl-certificate", tools::wallet2::tr("Path to a PEM format certificate"), ""};
+  const command_line::arg_descriptor<std::vector<std::string>> arg_rpc_ssl_allowed_certificates = {"rpc-ssl-allowed-certificates", tools::wallet2::tr("List of paths to PEM format certificates of allowed RPC servers (all allowed if empty)")};
 
   constexpr const char default_rpc_username[] = "monero";
 
@@ -233,10 +237,32 @@ namespace tools
       assert(bool(http_login));
     } // end auth enabled
 
+    auto rpc_ssl_private_key = command_line::get_arg(vm, arg_rpc_ssl_private_key);
+    auto rpc_ssl_certificate = command_line::get_arg(vm, arg_rpc_ssl_certificate);
+    auto rpc_ssl_allowed_certificates = command_line::get_arg(vm, arg_rpc_ssl_allowed_certificates);
+    auto rpc_ssl = command_line::get_arg(vm, arg_rpc_ssl);
+    epee::net_utils::ssl_support_t rpc_ssl_support;
+    if (!epee::net_utils::ssl_support_from_string(rpc_ssl_support, rpc_ssl))
+    {
+      MERROR("Invalid argument for " << std::string(arg_rpc_ssl.name));
+      return false;
+    }
+    std::list<std::string> allowed_certificates;
+    for (const std::string &path: rpc_ssl_allowed_certificates)
+    {
+        allowed_certificates.push_back({});
+        if (!epee::file_io_utils::load_file_to_string(path, allowed_certificates.back()))
+        {
+          MERROR("Failed to load certificate: " << path);
+          allowed_certificates.back() = std::string();
+        }
+    }
+
     m_net_server.set_threads_prefix("RPC");
     auto rng = [](size_t len, uint8_t *ptr) { return crypto::rand(len, ptr); };
     return epee::http_server_impl_base<wallet_rpc_server, connection_context>::init(
-      rng, std::move(bind_port), std::move(rpc_config->bind_ip), std::move(rpc_config->access_control_origins), std::move(http_login)
+      rng, std::move(bind_port), std::move(rpc_config->bind_ip), std::move(rpc_config->access_control_origins), std::move(http_login),
+      rpc_ssl_support, std::make_pair(rpc_ssl_private_key, rpc_ssl_certificate), allowed_certificates
     );
   }
   //------------------------------------------------------------------------------------------------------------------------------
@@ -3933,6 +3959,10 @@ int main(int argc, char** argv) {
   command_line::add_arg(desc_params, arg_from_json);
   command_line::add_arg(desc_params, arg_wallet_dir);
   command_line::add_arg(desc_params, arg_prompt_for_password);
+  command_line::add_arg(desc_params, arg_rpc_ssl);
+  command_line::add_arg(desc_params, arg_rpc_ssl_private_key);
+  command_line::add_arg(desc_params, arg_rpc_ssl_certificate);
+  command_line::add_arg(desc_params, arg_rpc_ssl_allowed_certificates);
 
   daemonizer::init_options(hidden_options, desc_params);
   desc_params.add(hidden_options);
