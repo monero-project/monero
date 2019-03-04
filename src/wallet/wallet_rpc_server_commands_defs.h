@@ -63,14 +63,17 @@ namespace wallet_rpc
     {
       uint32_t account_index;
       std::set<uint32_t> address_indices;
+      bool all_accounts;
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(account_index)
         KV_SERIALIZE(address_indices)
+        KV_SERIALIZE_OPT(all_accounts, false);
       END_KV_SERIALIZE_MAP()
     };
 
     struct per_subaddress_info
     {
+      uint32_t account_index;
       uint32_t address_index;
       std::string address;
       uint64_t balance;
@@ -79,6 +82,7 @@ namespace wallet_rpc
       uint64_t num_unspent_outputs;
 
       BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(account_index)
         KV_SERIALIZE(address_index)
         KV_SERIALIZE(address)
         KV_SERIALIZE(balance)
