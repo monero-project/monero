@@ -447,9 +447,9 @@ bool Blockchain::init(BlockchainDB* db, const network_type nettype, bool offline
   uint64_t top_block_timestamp = m_db->get_top_block_timestamp();
   uint64_t timestamp_diff = time(NULL) - top_block_timestamp;
 
-  // genesis block has no timestamp, could probably change it to have timestamp of 1341378000...
+  // genesis block has no timestamp, could probably change it to have timestamp of 1397818133...
   if(!top_block_timestamp)
-    timestamp_diff = time(NULL) - 1341378000;
+    timestamp_diff = time(NULL) - 1397818133;
 
   // create general purpose async service queue
 
