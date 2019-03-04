@@ -118,6 +118,9 @@ static const struct {
 
   // version 10 starts from block 1788000, which is on or around the 9th of March, 2019. Fork time finalised on 2019-02-10.
   { 10, 1788000, 0, 1549792439 },
+
+  // version 11 starts from block 1788720, which is on or around the 10th of March, 2019. Fork time finalised on 2019-02-15.
+  { 11, 1788720, 0, 1550225678 },
 };
 static const uint64_t mainnet_hard_fork_version_1_till = 1009826;
 
@@ -143,6 +146,7 @@ static const struct {
   { 8, 1057058, 0, 1533211200 },
   { 9, 1057778, 0, 1533297600 },
   { 10, 1154318, 0, 1550153694 },
+  { 11, 1155038, 0, 1550225678 },
 };
 static const uint64_t testnet_hard_fork_version_1_till = 624633;
 
@@ -165,6 +169,7 @@ static const struct {
   { 8, 176456, 0, 1537821770 },
   { 9, 177176, 0, 1537821771 },
   { 10, 269000, 0, 1550153694 },
+  { 11, 269720, 0, 1550225678 },
 };
 
 //------------------------------------------------------------------
@@ -2540,7 +2545,19 @@ bool Blockchain::check_tx_outputs(const transaction& tx, tx_verification_context
     if (tx.version >= 2) {
       if (tx.rct_signatures.type == rct::RCTTypeBulletproof2)
       {
-        MERROR_VER("Bulletproofs v2 are not allowed before v" << HF_VERSION_SMALLER_BP);
+        MERROR_VER("Ringct type " << (unsigned)rct::RCTTypeBulletproof2 << " is not allowed before v" << HF_VERSION_SMALLER_BP);
+        tvc.m_invalid_output = true;
+        return false;
+      }
+    }
+  }
+
+  // from v11, allow only bulletproofs v2
+  if (hf_version > HF_VERSION_SMALLER_BP) {
+    if (tx.version >= 2) {
+      if (tx.rct_signatures.type == rct::RCTTypeBulletproof)
+      {
+        MERROR_VER("Ringct type " << (unsigned)rct::RCTTypeBulletproof << " is not allowed from v" << (HF_VERSION_SMALLER_BP + 1));
         tvc.m_invalid_output = true;
         return false;
       }
