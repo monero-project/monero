@@ -27,6 +27,7 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 
+#include "version.h"
 #include "device_ledger.hpp"
 #include "log.hpp"
 #include "ringct/rctOps.h"
@@ -173,6 +174,7 @@ namespace hw {
     #define INS_SET_SIGNATURE_MODE              0x72
     #define INS_GET_ADDITIONAL_KEY              0x74
     #define INS_STEALTH                         0x76
+    #define INS_GEN_COMMITMENT_MASK             0x77
     #define INS_BLIND                           0x78
     #define INS_UNBLIND                         0x7A
     #define INS_GEN_TXOUT_KEYS                  0x7B
@@ -295,8 +297,14 @@ namespace hw {
     }
 
     bool device_ledger::reset() {
-        send_simple(INS_RESET);
-        return true;
+      reset_buffer();
+      int offset = set_command_header_noopt(INS_RESET);
+      memmove(this->buffer_send+offset, MONERO_VERSION, strlen(MONERO_VERSION));
+      offset += strlen(MONERO_VERSION);
+      this->buffer_send[4] = offset-5;
+      this->length_send = offset;
+      this->exchange();      
+      return true;
     }
      
     unsigned int device_ledger::exchange(unsigned int ok, unsigned int mask) {
@@ -307,9 +315,9 @@ namespace hw {
 
       this->length_recv -= 2;
       this->sw = (this->buffer_recv[length_recv]<<8) | this->buffer_recv[length_recv+1];
+      logRESP();
       ASSERT_SW(this->sw,ok,msk);
 
-      logRESP();
       return this->sw;
     }
 
@@ -1157,13 +1165,18 @@ namespace hw {
       const cryptonote::account_keys           sender_account_keys_x          = sender_account_keys;
       memmove((void*)sender_account_keys_x.m_view_secret_key.data, dbg_viewkey.data, 32);
 
-      const crypto::public_key                 &txkey_pub_x                    = txkey_pub;
-      const crypto::secret_key                 &tx_key_x                       = tx_key;
-      const cryptonote::tx_destination_entry   &dst_entr_x                     = dst_entr;
-      const boost::optional<cryptonote::account_public_address> &change_addr_x = change_addr;
-      const size_t                             &output_index_x                 = output_index;
-      const bool                               &need_additional_txkeys_x       = need_additional_txkeys;
-      const std::vector<crypto::secret_key>    &additional_tx_keys_x           = additional_tx_keys;
+      const crypto::public_key                 txkey_pub_x                    = txkey_pub;
+      const crypto::secret_key                 tx_key_x                       = hw::ledger::decrypt(tx_key);
+      const cryptonote::tx_destination_entry   dst_entr_x                     = dst_entr;
+      const boost::optional<cryptonote::account_public_address> change_addr_x = change_addr;
+      const size_t                             output_index_x                 = output_index;
+      const bool                               need_additional_txkeys_x       = need_additional_txkeys;
+      
+      std::vector<crypto::secret_key>    additional_tx_keys_x;
+      for (const auto k: additional_tx_keys) {
+        additional_tx_keys_x.push_back(hw::ledger::decrypt(k));
+      }
+      
       std::vector<crypto::public_key>          additional_tx_public_keys_x;
       std::vector<rct::key>                    amount_keys_x;
       crypto::public_key                       out_eph_public_key_x;
@@ -1206,6 +1219,9 @@ namespace hw {
       offset += 4;
       //tx_sec
       memmove(&this->buffer_send[offset], sec->data, 32);
+      offset += 32;
+      //tx_pub
+      memmove(&this->buffer_send[offset], txkey_pub.data, 32);
       offset += 32;
       //Aout
       memmove(&this->buffer_send[offset], dst_entr.addr.m_view_public_key.data, 32);
@@ -1264,7 +1280,7 @@ namespace hw {
       #ifdef DEBUG_HWDEVICE
       hw::ledger::check32("generate_output_ephemeral_keys", "amount_key", (const char*)amount_keys_x.back().bytes, (const char*)hw::ledger::decrypt(amount_keys.back()).bytes);
       if (need_additional_txkeys) {
-        hw::ledger::check32("generate_output_ephemeral_keys", "additional_tx_key", additional_tx_keys_x.back().data, additional_tx_keys.back().data);
+        hw::ledger::check32("generate_output_ephemeral_keys", "additional_tx_key", additional_tx_public_keys_x.back().data, additional_tx_public_keys.back().data);
       }
       hw::ledger::check32("generate_output_ephemeral_keys", "out_eph_public_key", out_eph_public_key_x.data, out_eph_public_key.data);
       #endif
@@ -1277,6 +1293,32 @@ namespace hw {
                                                 const rct::key &amount_key,  const crypto::public_key &out_eph_public_key)  {
         key_map.add(ABPkeys(rct::pk2rct(Aout),rct::pk2rct(Bout), is_subaddress, is_change, need_additional, real_output_index, rct::pk2rct(out_eph_public_key), amount_key));
         return true;
+    }
+
+    rct::key device_ledger::genCommitmentMask(const rct::key &AKout) {
+        #ifdef DEBUG_HWDEVICE
+        const rct::key AKout_x =  hw::ledger::decrypt(AKout);
+        rct::key mask_x;
+        mask_x = this->controle_device->genCommitmentMask(AKout_x);
+        #endif
+
+        rct::key mask;
+        int offset = set_command_header_noopt(INS_GEN_COMMITMENT_MASK);
+        // AKout
+        memmove(this->buffer_send+offset, AKout.bytes, 32);
+        offset += 32;
+
+        this->buffer_send[4] = offset-5;
+        this->length_send = offset;
+        this->exchange();
+
+        memmove(mask.bytes, &this->buffer_recv[0],  32);
+
+        #ifdef DEBUG_HWDEVICE
+        hw::ledger::check32("genCommitmentMask", "mask", (const char*)mask_x.bytes, (const char*)mask.bytes);
+        #endif
+        
+        return mask;
     }
 
     bool  device_ledger::ecdhEncode(rct::ecdhTuple & unmasked, const rct::key & AKout, bool short_amount) {
@@ -1310,6 +1352,7 @@ namespace hw {
         memmove(unmasked.mask.bytes,  &this->buffer_recv[32], 32);
 
         #ifdef DEBUG_HWDEVICE
+        MDEBUG("ecdhEncode: Akout: "<<AKout_x);
         hw::ledger::check32("ecdhEncode", "amount", (char*)unmasked_x.amount.bytes, (char*)unmasked.amount.bytes);
         hw::ledger::check32("ecdhEncode", "mask", (char*)unmasked_x.mask.bytes, (char*)unmasked.mask.bytes);
 
@@ -1350,6 +1393,7 @@ namespace hw {
         memmove(masked.mask.bytes,  &this->buffer_recv[32], 32);
 
         #ifdef DEBUG_HWDEVICE
+        MDEBUG("ecdhEncode: Akout: "<<AKout_x);
         hw::ledger::check32("ecdhDecode", "amount", (char*)masked_x.amount.bytes, (char*)masked.amount.bytes);
         hw::ledger::check32("ecdhDecode", "mask", (char*)masked_x.mask.bytes,(char*) masked.mask.bytes);
         #endif
