@@ -93,7 +93,7 @@ namespace net_utils
                             m_deadline(m_io_service), 
                             m_shutdowned(0),
                             m_ssl_support(epee::net_utils::ssl_support_t::e_ssl_support_autodetect),
-                            m_ctx({boost::asio::ssl::context(boost::asio::ssl::context::sslv23), {}}),
+                            m_ctx({boost::asio::ssl::context(boost::asio::ssl::context::tlsv12), {}}),
                             m_ssl_socket(new boost::asio::ssl::stream<boost::asio::ip::tcp::socket>(m_io_service,m_ctx.context))
 		{
 			
@@ -118,12 +118,12 @@ namespace net_utils
 			catch(...) { /* ignore */ }
 		}
 
-		inline void set_ssl(epee::net_utils::ssl_support_t ssl_support = epee::net_utils::ssl_support_t::e_ssl_support_autodetect, const std::pair<std::string, std::string> &private_key_and_certificate_path = {}, const std::list<std::string> &allowed_certificates = std::list<std::string>(), bool allow_any_cert = false)
+		inline void set_ssl(epee::net_utils::ssl_support_t ssl_support = epee::net_utils::ssl_support_t::e_ssl_support_autodetect, const std::pair<std::string, std::string> &private_key_and_certificate_path = {}, std::list<std::string> allowed_certificates = {}, std::vector<std::vector<uint8_t>> allowed_fingerprints = {}, bool allow_any_cert = false)
 		{
 			if (ssl_support == epee::net_utils::ssl_support_t::e_ssl_support_disabled)
-				m_ctx = {boost::asio::ssl::context(boost::asio::ssl::context::sslv23), {}};
+				m_ctx = {boost::asio::ssl::context(boost::asio::ssl::context::tlsv12), {}, {}};
 			else
-				m_ctx = create_ssl_context(private_key_and_certificate_path, allowed_certificates, allow_any_cert);
+				m_ctx = create_ssl_context(private_key_and_certificate_path, std::move(allowed_certificates), std::move(allowed_fingerprints), allow_any_cert);
 			m_ssl_support = ssl_support;
 		}
 
