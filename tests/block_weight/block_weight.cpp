@@ -72,11 +72,13 @@ public:
   virtual uint64_t height() const override { return blocks.size(); }
   virtual size_t get_block_weight(const uint64_t &h) const override { return blocks[h].weight; }
   virtual uint64_t get_block_long_term_weight(const uint64_t &h) const override { return blocks[h].long_term_weight; }
-  virtual crypto::hash top_block_hash() const override {
+  virtual crypto::hash top_block_hash(uint64_t *block_height = NULL) const override {
     uint64_t h = height();
     crypto::hash top = crypto::null_hash;
     if (h)
       *(uint64_t*)&top = h - 1;
+    if (block_height)
+      *block_height = h - 1;
     return top;
   }
   virtual void pop_block(cryptonote::block &blk, std::vector<cryptonote::transaction> &txs) override { blocks.pop_back(); }
@@ -129,7 +131,7 @@ static void test(test_t t, uint64_t blocks)
     cryptonote::block b;
     b.major_version = 1;
     b.minor_version = 1;
-    bc->get_db().add_block(b, 300000, 300000, bc->get_db().height(), bc->get_db().height(), {});
+    bc->get_db().add_block(std::make_pair(b, ""), 300000, 300000, bc->get_db().height(), bc->get_db().height(), {});
     if (!bc->update_next_cumulative_weight_limit())
     {
       fprintf(stderr, "Failed to update cumulative weight limit 1\n");
@@ -163,7 +165,7 @@ static void test(test_t t, uint64_t blocks)
     cryptonote::block b;
     b.major_version = 10;
     b.minor_version = 10;
-    bc->get_db().add_block(std::move(b), w, ltw, bc->get_db().height(), bc->get_db().height(), {});
+    bc->get_db().add_block(std::make_pair(std::move(b), ""), w, ltw, bc->get_db().height(), bc->get_db().height(), {});
 
     if (!bc->update_next_cumulative_weight_limit())
     {
