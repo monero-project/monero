@@ -42,7 +42,7 @@
 namespace mms
 {
 
-struct transport_message
+struct transport_message_t
 {
   cryptonote::account_public_address source_monero_address;
   std::string source_transport_address;
@@ -78,6 +78,7 @@ struct transport_message
     KV_SERIALIZE(transport_id)
   END_KV_SERIALIZE_MAP()
 };
+typedef epee::misc_utils::struct_init<transport_message_t> transport_message;
 
 class message_transporter
 {
