@@ -8,7 +8,11 @@
 // - Call v4_generate_JIT_code with "buf" pointed to memory allocated on previous step
 // - Call the generated code instead of "v4_random_math(code, r)", omit the "code" parameter
 
-typedef void (*v4_random_math_JIT_func)(uint32_t* r) __attribute__((sysv_abi));
+typedef void (*v4_random_math_JIT_func)(uint32_t* r)
+#if defined __i386 || defined __x86_64__
+__attribute__((sysv_abi))
+#endif
+;
 
 // Given the random math sequence, generates machine code (x86-64) for it
 // Returns 0 if code was generated successfully

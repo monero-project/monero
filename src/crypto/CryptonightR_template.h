@@ -1,6 +1,8 @@
 #ifndef CRYPTONIGHTR_TEMPLATE_H
 #define CRYPTONIGHTR_TEMPLATE_H
 
+#if defined __i386 || defined __x86_64__
+
 void CryptonightR_instruction0(void);
 void CryptonightR_instruction1(void);
 void CryptonightR_instruction2(void);
@@ -1035,5 +1037,7 @@ const void* instructions_mov[257] = {
 	CryptonightR_instruction_mov255,
 	CryptonightR_instruction_mov256,
 };
+
+#endif
 
 #endif // CRYPTONIGHTR_TEMPLATE_H

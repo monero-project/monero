@@ -65,6 +65,31 @@ static void local_abort(const char *msg)
 #endif
 }
 
+volatile int use_v4_jit_flag = -1;
+
+static inline int use_v4_jit(void)
+{
+#if defined(__x86_64__)
+
+  if (use_v4_jit_flag != -1)
+    return use_v4_jit_flag;
+
+  const char *env = getenv("MONERO_USE_CNV4_JIT");
+  if (!env) {
+    use_v4_jit_flag = 0;
+  }
+  else if (!strcmp(env, "0") || !strcmp(env, "no")) {
+    use_v4_jit_flag = 0;
+  }
+  else {
+    use_v4_jit_flag = 1;
+  }
+  return use_v4_jit_flag;
+#else
+  return 0;
+#endif
+}
+
 #define VARIANT1_1(p) \
   do if (variant == 1) \
   { \
@@ -492,31 +517,6 @@ STATIC INLINE int force_software_aes(void)
     use = 1;
   }
   return use;
-}
-
-volatile int use_v4_jit_flag = -1;
-
-STATIC INLINE int use_v4_jit(void)
-{
-#if defined(__x86_64__)
-
-  if (use_v4_jit_flag != -1)
-    return use_v4_jit_flag;
-
-  const char *env = getenv("MONERO_USE_CNV4_JIT");
-  if (!env) {
-    use_v4_jit_flag = 0;
-  }
-  else if (!strcmp(env, "0") || !strcmp(env, "no")) {
-    use_v4_jit_flag = 0;
-  }
-  else {
-    use_v4_jit_flag = 1;
-  }
-  return use_v4_jit_flag;
-#else
-  return 0;
-#endif
 }
 
 STATIC INLINE int check_aes_hw(void)
@@ -1028,6 +1028,8 @@ void slow_hash_free_state(void)
 #endif
 
 #define U64(x) ((uint64_t *) (x))
+
+#define hp_jitfunc ((v4_random_math_JIT_func)NULL)
 
 STATIC INLINE void xor64(uint64_t *a, const uint64_t b)
 {
@@ -1573,6 +1575,8 @@ void cn_slow_hash(const void *data, size_t length, char *hash, int variant, int 
 
 #else
 // Portable implementation as a fallback
+
+#define hp_jitfunc ((v4_random_math_JIT_func)NULL)
 
 void slow_hash_allocate_state(void)
 {
