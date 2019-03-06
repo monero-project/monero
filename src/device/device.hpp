@@ -189,6 +189,8 @@ namespace hw {
             return encrypt_payment_id(payment_id, public_key, secret_key);
         }
 
+        virtual rct::key genCommitmentMask(const rct::key &amount_key) = 0;
+
         virtual bool  ecdhEncode(rct::ecdhTuple & unmasked, const rct::key & sharedSec, bool short_amount) = 0;
         virtual bool  ecdhDecode(rct::ecdhTuple & masked, const rct::key & sharedSec, bool short_amount) = 0;
 
