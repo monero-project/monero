@@ -205,6 +205,7 @@ namespace config
   std::string const GOVERNANCE_WALLET_ADDRESS[] =
   {
     "LCFxT37LAogDn1jLQKf4y7aAqfi21DjovX9qyijaLYQSdrxY1U5VGcnMJMjWrD9RhjeK5Lym67wZ73uh9AujXLQ1RKmXEyL", // hardfork v7-10
+    "LDBEN6Ut4NkMwyaXWZ7kBEAx8X64o6YtDhLXUP26uLHyYT4nFmcaPU2Z2fauqrhTLh4Qfr61pUUZVLaTHqAdycETKM1STrz", // hardfork v11
   };
 
   namespace testnet
@@ -336,6 +337,11 @@ namespace cryptonote
       {
         if (nettype == FAKECHAIN)
           mainnet.GOVERNANCE_REWARD_INTERVAL_IN_BLOCKS = 100;
+
+        if (hard_fork_version <= network_version_10_bulletproofs)
+          mainnet.GOVERNANCE_WALLET_ADDRESS = &::config::GOVERNANCE_WALLET_ADDRESS[0];
+        else
+          mainnet.GOVERNANCE_WALLET_ADDRESS = &::config::GOVERNANCE_WALLET_ADDRESS[1];
 
         return mainnet;
       }
