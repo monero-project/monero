@@ -35,7 +35,6 @@
 #include <string>
 #include <cfenv>
 
-#include "warnings.h"
 #include "crypto/hash.h"
 #include "crypto/variant2_int_sqrt.h"
 #include "../io.h"
@@ -44,41 +43,32 @@ using namespace std;
 using namespace crypto;
 typedef crypto::hash chash;
 
-PUSH_WARNINGS
-DISABLE_VS_WARNINGS(4297)
-extern "C" {
-  static void hash_tree(const void *data, size_t length, char *hash) {
-    if ((length & 31) != 0) {
-      throw ios_base::failure("Invalid input length for tree_hash");
-    }
-    tree_hash((const char (*)[crypto::HASH_SIZE]) data, length >> 5, hash);
-  }
-  static void cn_slow_hash_0(const void *data, size_t length, char *hash) {
-    cn_pow_hash_v1 ctx;
-    return ctx.hash(data, length, hash);
-  }
-  static void cn_slow_hash_1(const void *data, size_t length, char *hash) {
-    cn_pow_hash_v2 ctx;
-    return ctx.hash(data, length, hash);
-  }
-}
-POP_WARNINGS
+#define X_MACRO \
+    HASH_X_MACRO(invalid,         "INVALID") \
+    HASH_X_MACRO(fast,            "fast") \
+    HASH_X_MACRO(tree,            "tree") \
+    HASH_X_MACRO(extra_blake,     "extra-blake") \
+    HASH_X_MACRO(extra_groestl,   "extra-groestl") \
+    HASH_X_MACRO(extra_jh,        "extra-jh") \
+    HASH_X_MACRO(extra_skein,     "extra-skein") \
+    HASH_X_MACRO(heavy_v1,        "heavy-v1") \
+    HASH_X_MACRO(heavy_v2,        "heavy-v2") \
+    HASH_X_MACRO(turtle_light_v2, "turtle-light-v2") \
+    HASH_X_MACRO(count,           "INVALID_COUNT")
 
-extern "C" typedef void hash_f(const void *, size_t, char *);
-struct hash_func {
-  const string name;
-  hash_f &f;
-} hashes[] = {{"fast", cn_fast_hash}, {"slow", cn_slow_hash_0}, {"tree", hash_tree},
-  {"extra-blake", hash_extra_blake}, {"extra-groestl", hash_extra_groestl},
-  {"extra-jh", hash_extra_jh}, {"extra-skein", hash_extra_skein},
-  {"slow-1", cn_slow_hash_1}};
+#define HASH_X_MACRO(hash_type, str) hash_type,
+enum struct hash_type { X_MACRO };
+#undef HASH_X_MACRO
+
+#define HASH_X_MACRO(hash_type, cmd_line_str) cmd_line_str,
+char const *hash_type_str[] { X_MACRO };
+#undef HASH_X_MACRO
+#undef X_MACRO
 
 int test_variant2_int_sqrt();
 int test_variant2_int_sqrt_ref();
 
 int main(int argc, char *argv[]) {
-  hash_f *f;
-  hash_func *hf;
   fstream input;
   vector<char> data;
   chash expected, actual;
@@ -118,16 +108,23 @@ int main(int argc, char *argv[]) {
     cerr << "Wrong number of arguments" << endl;
     return 1;
   }
-  for (hf = hashes;; hf++) {
-    if (hf >= &hashes[sizeof(hashes) / sizeof(hash_func)]) {
-      cerr << "Unknown function" << endl;
-      return 1;
-    }
-    if (argv[1] == hf->name) {
-      f = &hf->f;
+
+  hash_type type = hash_type::invalid;
+  for (size_t hash_type_index = 0; hash_type_index < static_cast<size_t>(hash_type::count); ++hash_type_index)
+  {
+    if (strcmp(argv[1], hash_type_str[hash_type_index]) == 0)
+    {
+      type = static_cast<hash_type>(hash_type_index);
       break;
     }
   }
+
+  if (type == hash_type::invalid)
+  {
+    cerr << "Unknown hashing function" << endl;
+    return 1;
+  }
+
   input.open(argv[2], ios_base::in);
   for (;;) {
     ++test;
@@ -139,7 +136,36 @@ int main(int argc, char *argv[]) {
     input.exceptions(ios_base::badbit | ios_base::failbit | ios_base::eofbit);
     input.clear(input.rdstate());
     get(input, data);
-    f(data.data(), data.size(), (char *) &actual);
+
+    void const *buf   = data.data();
+    size_t len        = data.size();
+    auto *actual_byte_ptr = reinterpret_cast<char *>(&actual);
+    switch(type)
+    {
+      case hash_type::fast: cn_fast_hash(buf, len, actual_byte_ptr); break;
+      case hash_type::tree:
+      {
+        if ((len & 31) != 0)
+          throw ios_base::failure("Invalid input length for tree_hash");
+        tree_hash((const char (*)[crypto::HASH_SIZE]) buf, len >> 5, actual_byte_ptr);
+      }
+      break;
+
+      case hash_type::extra_blake:     hash_extra_blake  (buf, len, actual_byte_ptr); break;
+      case hash_type::extra_groestl:   hash_extra_groestl(buf, len, actual_byte_ptr); break;
+      case hash_type::extra_jh:        hash_extra_jh     (buf, len, actual_byte_ptr); break;
+      case hash_type::extra_skein:     hash_extra_skein  (buf, len, actual_byte_ptr); break;
+      case hash_type::heavy_v1:        cn_slow_hash      (buf, len, actual, cn_slow_hash_type::heavy_v1); break;
+      case hash_type::heavy_v2:        cn_slow_hash      (buf, len, actual, cn_slow_hash_type::heavy_v2); break;
+      case hash_type::turtle_light_v2: cn_slow_hash      (buf, len, actual, cn_slow_hash_type::turtle_lite_v2); break;
+
+      default:
+      {
+        cerr << "Unknown hashing function" << endl;
+        return 1;
+      }
+    };
+
     if (expected != actual) {
       size_t i;
       cerr << "Hash mismatch on test " << test << endl << "Input: ";
