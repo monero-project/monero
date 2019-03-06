@@ -79,6 +79,7 @@ using namespace epee;
 #include "device_trezor/device_trezor.hpp"
 
 #include "cryptonote_core/service_node_rules.h"
+#include "common/loki_integration_test_hooks.h"
 
 extern "C"
 {
@@ -216,6 +217,11 @@ struct options {
   const command_line::arg_descriptor<std::string> daemon_login = {"daemon-login", tools::wallet2::tr("Specify username[:password] for daemon RPC client"), "", true};
   const command_line::arg_descriptor<bool> testnet = {"testnet", tools::wallet2::tr("For testnet. Daemon must also be launched with --testnet flag"), false};
   const command_line::arg_descriptor<bool> stagenet = {"stagenet", tools::wallet2::tr("For stagenet. Daemon must also be launched with --stagenet flag"), false};
+
+#if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
+  const command_line::arg_descriptor<bool> fakenet = {"fakenet", tools::wallet2::tr("For loki integration tests, fakenet"), false};
+#endif
+
   const command_line::arg_descriptor<std::string, false, true, 2> shared_ringdb_dir = {
     "shared-ringdb-dir", tools::wallet2::tr("Set shared ring database path"),
     get_default_ringdb_path(),
@@ -276,7 +282,16 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
 {
   const bool testnet = command_line::get_arg(vm, opts.testnet);
   const bool stagenet = command_line::get_arg(vm, opts.stagenet);
-  const network_type nettype = testnet ? TESTNET : stagenet ? STAGENET : MAINNET;
+  network_type nettype = testnet ? TESTNET : stagenet ? STAGENET : MAINNET;
+
+#if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
+  if (command_line::get_arg(vm, opts.fakenet))
+  {
+    assert(!testnet &&!stagenet); // NOTE(loki): Developer error
+    nettype = FAKECHAIN;
+  }
+#endif
+
   const uint64_t kdf_rounds = command_line::get_arg(vm, opts.kdf_rounds);
   THROW_WALLET_EXCEPTION_IF(kdf_rounds == 0, tools::error::wallet_internal_error, "KDF rounds must not be 0");
 
@@ -993,6 +1008,9 @@ void wallet2::init_options(boost::program_options::options_description& desc_par
   command_line::add_arg(desc_params, opts.daemon_login);
   command_line::add_arg(desc_params, opts.testnet);
   command_line::add_arg(desc_params, opts.stagenet);
+#if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
+  command_line::add_arg(desc_params, opts.fakenet);
+#endif
   command_line::add_arg(desc_params, opts.shared_ringdb_dir);
   command_line::add_arg(desc_params, opts.kdf_rounds);
   mms::message_store::init_options(desc_params);
@@ -1132,7 +1150,7 @@ bool wallet2::get_multisig_seed(epee::wipeable_string& seed, const epee::wipeabl
   if (!passphrase.empty())
   {
     crypto::secret_key key;
-    crypto::cn_slow_hash(passphrase.data(), passphrase.size(), (crypto::hash&)key);
+    crypto::cn_slow_hash(passphrase.data(), passphrase.size(), (crypto::hash&)key, crypto::cn_slow_hash_type::heavy_v1);
     sc_reduce32((unsigned char*)key.data);
     data = encrypt(data, key, true);
   }
@@ -1402,7 +1420,7 @@ static uint64_t decodeRct(const rct::rctSig & rv, const crypto::key_derivation &
   }
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::scan_output(const cryptonote::transaction &tx, const crypto::public_key &tx_pub_key, size_t vout_index, tx_scan_info_t &tx_scan_info, std::vector<tx_money_got_in_out> &tx_money_got_in_outs, std::vector<size_t> &outs, bool pool)
+void wallet2::scan_output(const cryptonote::transaction &tx, bool miner_tx, const crypto::public_key &tx_pub_key, size_t vout_index, tx_scan_info_t &tx_scan_info, std::vector<tx_money_got_in_out> &tx_money_got_in_outs, std::vector<size_t> &outs, bool pool)
 {
   THROW_WALLET_EXCEPTION_IF(vout_index >= tx.vout.size(), error::wallet_internal_error, "Invalid vout index");
 
@@ -1435,8 +1453,9 @@ void wallet2::scan_output(const cryptonote::transaction &tx, const crypto::publi
         error::wallet_internal_error, "key_image generated ephemeral public key not matched with output_key");
   }
 
+  THROW_WALLET_EXCEPTION_IF(std::find(outs.begin(), outs.end(), vout_index) != outs.end(), error::wallet_internal_error, "Same output cannot be added twice");
   outs.push_back(vout_index);
-  if (tx_scan_info.money_transfered == 0)
+  if (tx_scan_info.money_transfered == 0 && !miner_tx)
   {
     tx_scan_info.money_transfered = tools::decodeRct(tx.rct_signatures, tx_scan_info.received->derivation, vout_index, tx_scan_info.mask, m_account.get_device());
   }
@@ -1657,7 +1676,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
         if (tx_scan_info[i].received)
         {
           hwdev.conceal_derivation(tx_scan_info[i].received->derivation, tx_pub_key, additional_tx_pub_keys.data, derivation, additional_derivations);
-          scan_output(tx, tx_pub_key, i, tx_scan_info[i], tx_money_got_in_outs, outs, pool);
+          scan_output(tx, miner_tx, tx_pub_key, i, tx_scan_info[i], tx_money_got_in_outs, outs, pool);
         }
       }
     }
@@ -1673,7 +1692,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
           boost::unique_lock<hw::device> hwdev_lock (hwdev);
           hwdev.set_mode(hw::device::NONE);
           hwdev.conceal_derivation(tx_scan_info[i].received->derivation, tx_pub_key, additional_tx_pub_keys.data, derivation, additional_derivations);
-          scan_output(tx, tx_pub_key, i, tx_scan_info[i], tx_money_got_in_outs, outs, pool);
+          scan_output(tx, miner_tx, tx_pub_key, i, tx_scan_info[i], tx_money_got_in_outs, outs, pool);
         }
       }
     }
@@ -11710,6 +11729,7 @@ uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_imag
         THROW_WALLET_EXCEPTION_IF(!r, error::wallet_internal_error, "Failed to generate key derivation");
       }
       size_t output_index = 0;
+      bool miner_tx = cryptonote::is_coinbase(spent_tx);
       for (const cryptonote::tx_out& out : spent_tx.vout)
       {
         tx_scan_info_t tx_scan_info;
@@ -11717,11 +11737,13 @@ uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_imag
         THROW_WALLET_EXCEPTION_IF(tx_scan_info.error, error::wallet_internal_error, "check_acc_out_precomp failed");
         if (tx_scan_info.received)
         {
-          if (tx_scan_info.money_transfered == 0)
+          if (tx_scan_info.money_transfered == 0 && !miner_tx)
           {
             rct::key mask;
             tx_scan_info.money_transfered = tools::decodeRct(spent_tx.rct_signatures, tx_scan_info.received->derivation, output_index, mask, hwdev);
           }
+          THROW_WALLET_EXCEPTION_IF(tx_money_got_in_outs >= std::numeric_limits<uint64_t>::max() - tx_scan_info.money_transfered,
+              error::wallet_internal_error, "Overflow in received amounts");
           tx_money_got_in_outs += tx_scan_info.money_transfered;
         }
         ++output_index;
@@ -12718,6 +12740,8 @@ uint64_t wallet2::get_segregation_fork_height() const
     return TESTNET_SEGREGATION_FORK_HEIGHT;
   if (m_nettype == STAGENET)
     return STAGENET_SEGREGATION_FORK_HEIGHT;
+  if (m_nettype == FAKECHAIN)
+    return SEGREGATION_FORK_HEIGHT;
   THROW_WALLET_EXCEPTION_IF(m_nettype != MAINNET, tools::error::wallet_internal_error, "Invalid network type");
 
   if (m_segregation_height > 0)

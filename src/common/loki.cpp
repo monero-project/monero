@@ -23,6 +23,9 @@
 #include <cfloat>
 #include <cmath>
 
+#include <algorithm>
+#include <vector>
+
 // TODO(loki): This is temporary until we switch to integer math for calculating
 // block rewards. We provide the specific implementation to minimise the risk of
 // different results from math functions across different std libraries.
@@ -506,11 +509,11 @@ static const char zbase32_alpha[] = {'y', 'b', 'n', 'd', 'r', 'f', 'g', '8',
                                      'a', '3', '4', '5', 'h', '7', '6', '9'};
 
 /// adapted from i2pd
-template <typename v, typename stack_t>
-const char* base32z_encode(const v& value, stack_t &stack)
+template <typename stack_t>
+const char* base32z_encode(const std::vector<uint8_t>& value, stack_t &stack)
 {
   size_t ret = 0, pos = 1;
-  int bits = 8, tmp = value[0];
+  uint32_t bits = 8, tmp = value[0];
   size_t len = value.size();
   while(ret < sizeof(stack) && (bits > 0 || pos < len))
   {
@@ -543,12 +546,39 @@ const char* base32z_encode(const v& value, stack_t &stack)
   return &stack[0];
 }
 
+constexpr uint8_t hex_to_nibble(const char & ch)
+{
+  return ( ch >= '0' && ch <= '9') ? ch - 48 : ((ch >= 'A' && ch <= 'F' ) ? ch - 55 : ((ch >= 'a' && ch <= 'f' ) ? ch - 87 : 0));
+}
+
+constexpr uint8_t hexpair_to_byte(const char & hi, const char & lo)
+{
+  return hex_to_nibble(hi) << 4 | hex_to_nibble(lo);
+}
+
 std::string loki::hex64_to_base32z(const std::string &src)
 {
   assert(src.size() <= 64); // NOTE: Developer error, update function if you need more. This is intended for 64 char snode pubkeys
-  char buf[128] = {};
+  // decode to binary
+  std::vector<uint8_t> bin;
+  // odd sized is invalid
+  if(src.size() & 1)
+    return "";
+  {
+    auto itr = src.begin();
+    while(itr != src.end())
+    {
+      const char hi = *itr;
+      ++itr;
+      const char lo = *itr;
+      ++itr;
+      bin.emplace_back(hexpair_to_byte(hi,lo));
+    }
+  }
+  // encode to base32z
+  char buf[64] = {0};
   std::string result;
-  if (char const *dest = base32z_encode(src, buf))
+  if (char const *dest = base32z_encode(bin, buf))
     result = dest;
 
   return result;

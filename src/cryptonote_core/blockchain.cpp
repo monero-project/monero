@@ -86,44 +86,39 @@ DISABLE_VS_WARNINGS(4267)
 // used to overestimate the block reward when estimating a per kB to use
 #define BLOCK_REWARD_OVERESTIMATE (10 * 1000000000000)
 
-static const struct {
+struct hard_fork_record
+{
   uint8_t version;
   uint64_t height;
   uint8_t threshold;
   time_t time;
-} mainnet_hard_forks[] = {
-  // version 7 from the start of the blockchain, inhereted from Monero mainnet
-  { network_version_7,               1,      0, 1503046577 },
-  { network_version_8,               64324,  0, 1533006000 },
-  { network_version_9_service_nodes, 101250, 0, 1537444800 },
-  { network_version_10_bulletproofs, 161849, 0, 1544743800 }, // 2018-12-13 23:30UTC
 };
 
-static const struct {
-  uint8_t version;
-  uint64_t height;
-  uint8_t threshold;
-  time_t time;
-} testnet_hard_forks[] = {
-  // version 7 from the start of the blockchain, inhereted from Monero testnet
-  { network_version_7,                   1,      0, 1533631121 },
-  { network_version_8,                   2,      0, 1533631122 },
-  { network_version_9_service_nodes,     3,      0, 1533631123 },
-  { network_version_10_bulletproofs,     47096,  0, 1542681077 }, // 2018-11-20 13:30 AEDT
-  { network_version_11_infinite_staking, 117133, 0, 1551223964 }, // 2019-02-27 12:30 AEDT
-};
-
-static const struct {
-  uint8_t version;
-  uint64_t height;
-  uint8_t threshold;
-  time_t time;
-} stagenet_hard_forks[] = {
-  // version 7 from the start of the blockchain, inhereted from Monero testnet
-  { network_version_7,                   1,      0, 1341378000 },
+// version 7 from the start of the blockchain, inhereted from Monero mainnet
+static const hard_fork_record mainnet_hard_forks[] =
+{
+  { network_version_7,                   1,      0, 1503046577 },
   { network_version_8,                   64324,  0, 1533006000 },
-  { network_version_9_service_nodes,     96210,  0, 1536840000 },
-  { network_version_10_bulletproofs,     96211,  0, 1536840120 },
+  { network_version_9_service_nodes,     101250, 0, 1537444800 },
+  { network_version_10_bulletproofs,     161849, 0, 1544743800 }, // 2018-12-13 23:30UTC
+  { network_version_11_infinite_staking, 230704, 0, 1553047200 }, // 2019-03-20 13:00AEDT
+};
+
+static const hard_fork_record testnet_hard_forks[] =
+{
+  { network_version_7,                   1, 0, 1533631121 },
+  { network_version_8,                   2, 0, 1533631122 },
+  { network_version_9_service_nodes,     3, 0, 1533631123 },
+  { network_version_10_bulletproofs,     4, 0, 1542681077 },
+  { network_version_11_infinite_staking, 5, 0, 1551223964 },
+};
+
+static const hard_fork_record stagenet_hard_forks[] =
+{
+  { network_version_7,                   1,     0, 1341378000 },
+  { network_version_8,                   64324, 0, 1533006000 },
+  { network_version_9_service_nodes,     96210, 0, 1536840000 },
+  { network_version_10_bulletproofs,     96211, 0, 1536840120 },
   { network_version_11_infinite_staking, 147029, 0, 1551223964 }, // 2019-02-27 12:30 AEDT
 };
 
@@ -338,47 +333,52 @@ bool Blockchain::init(BlockchainDB* db, const network_type nettype, bool offline
 
   m_db = db;
 
+#if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
+  // NOTE(doyle): Passing in test options in integration mode means we're
+  // overriding fork heights for any nettype in our integration tests using
+  // a command line argument. So m_nettype should just be nettype. In
+  // non-integration test mode passing in test options means you started the
+  // daemon with --regtest OR you're running core_tests. So don't run core tests
+  // in integration mode or --regtest
+  m_nettype = nettype;
+#else
   m_nettype = test_options != NULL ? FAKECHAIN : nettype;
+#endif
+
   m_offline = offline;
   m_fixed_difficulty = fixed_difficulty;
+  if (m_hardfork == nullptr)
+    m_hardfork = new HardFork(*db, 7);
 
-  if (m_nettype == FAKECHAIN)
+#define LOKI_ARRAY_COUNT(array) (sizeof(array)/sizeof(array[0]))
+  if (test_options) // Fakechain mode or in integration testing mode we're overriding hardfork dates
   {
-    assert(test_options->hard_forks.size() > 0);
-    if (m_hardfork == nullptr)
-      m_hardfork = new HardFork(*db, test_options->hard_forks[0].first);
-
-    for (size_t n = 0; n < test_options->hard_forks.size(); ++n) {
+    for (auto n = 0u; n < test_options->hard_forks.size(); ++n)
+    {
       const auto& hf = test_options->hard_forks.at(n);
       m_hardfork->add_fork(hf.first, hf.second, 0, n + 1);
     }
   }
   else
   {
-    if (m_hardfork == nullptr)
-    {
-      if (m_nettype == STAGENET)
-        m_hardfork = new HardFork(*db, 7);
-      else if (m_nettype == TESTNET)
-        m_hardfork = new HardFork(*db, 7);
-      else
-        m_hardfork = new HardFork(*db, 7);
-    }
+    hard_fork_record const *hf_record = mainnet_hard_forks;
+    int hf_record_num_entries         = LOKI_ARRAY_COUNT(mainnet_hard_forks);
 
     if (m_nettype == TESTNET)
     {
-      for (size_t n = 0; n < sizeof(testnet_hard_forks) / sizeof(testnet_hard_forks[0]); ++n)
-        m_hardfork->add_fork(testnet_hard_forks[n].version, testnet_hard_forks[n].height, testnet_hard_forks[n].threshold, testnet_hard_forks[n].time);
+      hf_record             = testnet_hard_forks;
+      hf_record_num_entries = LOKI_ARRAY_COUNT(testnet_hard_forks);
     }
     else if (m_nettype == STAGENET)
     {
-      for (size_t n = 0; n < sizeof(stagenet_hard_forks) / sizeof(stagenet_hard_forks[0]); ++n)
-        m_hardfork->add_fork(stagenet_hard_forks[n].version, stagenet_hard_forks[n].height, stagenet_hard_forks[n].threshold, stagenet_hard_forks[n].time);
+      hf_record             = stagenet_hard_forks;
+      hf_record_num_entries = LOKI_ARRAY_COUNT(stagenet_hard_forks);
     }
-    else
+
+    for (int n = 0; n < hf_record_num_entries; ++n)
     {
-      for (size_t n = 0; n < sizeof(mainnet_hard_forks) / sizeof(mainnet_hard_forks[0]); ++n)
-        m_hardfork->add_fork(mainnet_hard_forks[n].version, mainnet_hard_forks[n].height, mainnet_hard_forks[n].threshold, mainnet_hard_forks[n].time);
+      hard_fork_record const *record = hf_record + n;
+      m_hardfork->add_fork(record->version, record->height, record->threshold, record->time);
     }
   }
 
@@ -3847,13 +3847,24 @@ bool Blockchain::update_next_cumulative_weight_limit(uint64_t *long_term_effecti
   {
     const uint64_t block_weight = m_db->get_block_weight(db_height - 1);
 
-    std::vector<uint64_t> weights;
-    const uint64_t nblocks = std::min<uint64_t>(m_long_term_block_weights_window, db_height);
-    weights.resize(nblocks);
-    for (uint64_t h = 0; h < nblocks; ++h)
-      weights[h] = m_db->get_block_long_term_weight(db_height - nblocks + h - 1);
-    std::vector<uint64_t> new_weights = weights;
-    uint64_t long_term_median = epee::misc_utils::median(weights);
+    std::vector<uint64_t> weights, new_weights;
+    uint64_t long_term_median;
+    if (db_height == 1)
+    {
+      long_term_median = CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V5;
+    }
+    else
+    {
+      uint64_t nblocks = std::min<uint64_t>(m_long_term_block_weights_window, db_height);
+      if (nblocks == db_height)
+        --nblocks;
+      weights.resize(nblocks);
+      for (uint64_t h = 0; h < nblocks; ++h)
+        weights[h] = m_db->get_block_long_term_weight(db_height - nblocks + h - 1);
+      new_weights = weights;
+      long_term_median = epee::misc_utils::median(weights);
+    }
+
     m_long_term_effective_median_block_weight = std::max<uint64_t>(CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V5, long_term_median);
 
     uint64_t short_term_constraint = m_long_term_effective_median_block_weight + m_long_term_effective_median_block_weight * 2 / 5;

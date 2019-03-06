@@ -1448,9 +1448,16 @@ namespace cryptonote
   //---------------------------------------------------------------
   bool get_block_longhash(const block& b, crypto::hash& res, uint64_t height)
   {
-    blobdata bd = get_block_hashing_blob(b);
-    const int cn_variant = b.major_version >= 7 ? b.major_version - 6 : 0;
-    crypto::cn_slow_hash(bd.data(), bd.size(), res, cn_variant);
+    const blobdata bd                 = get_block_hashing_blob(b);
+    const int hf_version              = b.major_version;
+    crypto::cn_slow_hash_type cn_type = cn_slow_hash_type::heavy_v1;
+
+    if (hf_version >= network_version_11_infinite_staking)
+      cn_type = cn_slow_hash_type::turtle_lite_v2;
+    else if (hf_version >= network_version_7)
+      cn_type = crypto::cn_slow_hash_type::heavy_v2;
+
+    crypto::cn_slow_hash(bd.data(), bd.size(), res, cn_type);
     return true;
   }
   //---------------------------------------------------------------
@@ -1555,7 +1562,7 @@ namespace cryptonote
   crypto::secret_key encrypt_key(crypto::secret_key key, const epee::wipeable_string &passphrase)
   {
     crypto::hash hash;
-    crypto::cn_slow_hash(passphrase.data(), passphrase.size(), hash);
+    crypto::cn_slow_hash(passphrase.data(), passphrase.size(), hash, crypto::cn_slow_hash_type::heavy_v1);
     sc_add((unsigned char*)key.data, (const unsigned char*)key.data, (const unsigned char*)hash.data);
     return key;
   }
@@ -1563,7 +1570,7 @@ namespace cryptonote
   crypto::secret_key decrypt_key(crypto::secret_key key, const epee::wipeable_string &passphrase)
   {
     crypto::hash hash;
-    crypto::cn_slow_hash(passphrase.data(), passphrase.size(), hash);
+    crypto::cn_slow_hash(passphrase.data(), passphrase.size(), hash, crypto::cn_slow_hash_type::heavy_v1);
     sc_sub((unsigned char*)key.data, (const unsigned char*)key.data, (const unsigned char*)hash.data);
     return key;
   }
