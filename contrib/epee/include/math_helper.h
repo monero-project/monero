@@ -243,6 +243,7 @@ namespace math_helper
       present = present << 32;
       present |= fileTime.dwLowDateTime;
       present /= 10;  // mic-sec
+      return present;
 #else
       struct timeval tv;
       gettimeofday(&tv, NULL);
