@@ -756,10 +756,10 @@ void slow_hash_allocate_state(void)
 #if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || \
   defined(__DragonFly__) || defined(__NetBSD__)
     hp_state = mmap(0, MEMORY, PROT_READ | PROT_WRITE,
-                    MAP_PRIVATE | MAP_ANON, 0, 0);
+                    MAP_PRIVATE | MAP_ANON, -1, 0);
 #else
     hp_state = mmap(0, MEMORY, PROT_READ | PROT_WRITE,
-                    MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, 0, 0);
+                    MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0);
 #endif
     if(hp_state == MAP_FAILED)
         hp_state = NULL;
@@ -778,11 +778,16 @@ void slow_hash_allocate_state(void)
 #else
 #if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || \
   defined(__DragonFly__) || defined(__NetBSD__)
-    hp_jitfunc_memory = mmap(0, 4096 + 4095, PROT_READ | PROT_WRITE | PROT_EXEC,
-                    MAP_PRIVATE | MAP_ANON, 0, 0);
+#ifdef __NetBSD__
+#define RESERVED_FLAGS PROT_MPROTECT(PROT_EXEC)
 #else
-    hp_jitfunc_memory = mmap(0, 4096 + 4095, PROT_READ | PROT_WRITE | PROT_EXEC,
-                    MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
+#define RESERVED_FLAGS 0
+#endif
+    hp_jitfunc_memory = mmap(0, 4096 + 4096, PROT_READ | PROT_WRITE | RESERVED_FLAGS,
+                    MAP_PRIVATE | MAP_ANON, -1, 0);
+#else
+    hp_jitfunc_memory = mmap(0, 4096 + 4096, PROT_READ | PROT_WRITE | PROT_EXEC,
+                    MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 #endif
     if(hp_jitfunc_memory == MAP_FAILED)
         hp_jitfunc_memory = NULL;
@@ -794,9 +799,6 @@ void slow_hash_allocate_state(void)
         hp_jitfunc_memory = malloc(4096 + 4095);
     }
     hp_jitfunc = (v4_random_math_JIT_func)((size_t)(hp_jitfunc_memory + 4095) & ~4095);
-#if !(defined(_MSC_VER) || defined(__MINGW32__))
-    mprotect(hp_jitfunc, 4096, PROT_READ | PROT_WRITE | PROT_EXEC);
-#endif
 }
 
 /**
