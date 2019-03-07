@@ -1,5 +1,5 @@
 #include <string.h>
-#include <error.h>
+#include <errno.h>
 #include <time.h>
 #include <algorithm>
 #include <boost/algorithm/string.hpp>
