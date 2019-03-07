@@ -56,7 +56,6 @@ add_test(
 add_executable(cnv4-jit-tests cnv4-jit.c)
 target_link_libraries(cnv4-jit-tests
   PRIVATE
-    crypto
     common
     ${EXTRA_LIBRARIES})
 set_property(TARGET cnv4-jit-tests
