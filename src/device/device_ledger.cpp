@@ -303,7 +303,17 @@ namespace hw {
       offset += strlen(MONERO_VERSION);
       this->buffer_send[4] = offset-5;
       this->length_send = offset;
-      this->exchange();      
+      this->exchange();
+
+      ASSERT_X(this->length_recv>=3, "Communication error, less than three bytes received. Check your application version.");
+
+      unsigned int device_version = 0;
+      device_version = VERSION(this->buffer_recv[0], this->buffer_recv[1], this->buffer_recv[2]);
+  
+      ASSERT_X (device_version >= MINIMAL_APP_VERSION,  
+                "Unsupported device application version: " << VERSION_MAJOR(device_version)<<"."<<VERSION_MINOR(device_version)<<"."<<VERSION_MICRO(device_version) << 
+                " At least " << MINIMAL_APP_VERSION_MAJOR<<"."<<MINIMAL_APP_VERSION_MINOR<<"."<<MINIMAL_APP_VERSION_MICRO<<" is required.");
+     
       return true;
     }
      
