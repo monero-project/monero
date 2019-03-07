@@ -41,6 +41,18 @@ namespace hw {
 
     namespace ledger {
 
+    /* Minimal supported version */
+    #define MINIMAL_APP_VERSION_MAJOR    1
+    #define MINIMAL_APP_VERSION_MINOR    3
+    #define MINIMAL_APP_VERSION_MICRO    1
+
+    #define VERSION(M,m,u)       ((M)<<16|(m)<<8|(u))
+    #define VERSION_MAJOR(v)     (((v)>>16)&0xFF)
+    #define VERSION_MINOR(v)     (((v)>>8)&0xFF)
+    #define VERSION_MICRO(v)     (((v)>>0)&0xFF)
+    
+    #define MINIMAL_APP_VERSION   VERSION(MINIMAL_APP_VERSION_MAJOR, MINIMAL_APP_VERSION_MINOR, MINIMAL_APP_VERSION_MICRO)
+
     void register_all(std::map<std::string, std::unique_ptr<device>> &registry);
 
     #ifdef WITH_DEVICE_LEDGER
