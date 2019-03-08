@@ -74,22 +74,23 @@ bool create_ssl_certificate(EVP_PKEY *&pkey, X509 *&cert)
 {
   MGINFO("Generating SSL certificate");
   pkey = EVP_PKEY_new();
-  openssl_pkey pkey_deleter{pkey};
   if (!pkey)
   {
     MERROR("Failed to create new private key");
     return false;
   }
+
+  openssl_pkey pkey_deleter{pkey};
   RSA *rsa = RSA_generate_key(4096, RSA_F4, NULL, NULL);
   if (!rsa)
   {
     MERROR("Error generating RSA private key");
     return false;
   }
-  if (EVP_PKEY_assign_RSA(pkey, rsa) <= 0)
+  if (EVP_PKEY_assign_RSA(pkey, rsa) <= 0)  // The RSA will be automatically freed when the EVP_PKEY structure is freed.
   {
-    RSA_free(rsa);
     MERROR("Error assigning RSA private key");
+    RSA_free(rsa);
     return false;
   }
 
@@ -117,6 +118,7 @@ bool create_ssl_certificate(EVP_PKEY *&pkey, X509 *&cert)
     X509_free(cert);
     return false;
   }
+  (void)pkey_deleter.release();
   return true;
 }
 
