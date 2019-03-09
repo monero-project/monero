@@ -81,7 +81,7 @@ public:
 
   bool print_sr(const std::vector<std::string>& args);
 
-  bool prepare_registration();
+  bool prepare_sn();
 
   bool print_sn(const std::vector<std::string>& args);
 

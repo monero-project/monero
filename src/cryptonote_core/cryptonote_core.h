@@ -838,7 +838,7 @@ namespace cryptonote
      * @param vm The command line variable map.
      * @return whether or not the command was able to prepare the registration.
      */
-    bool cmd_prepare_registration(const boost::program_options::variables_map& vm, const std::vector<std::string>& args);
+    bool cmd_prepare_sn(const boost::program_options::variables_map& vm, const std::vector<std::string>& args);
     /**
     * @brief Return the account associated to this service node.
     * @param pub_key The public key for the service node, unmodified if not a service node

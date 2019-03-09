@@ -2365,7 +2365,7 @@ static uint64_t get_actual_amount(uint64_t amount, uint64_t portions)
 	return resultlo;
 }
 
-bool t_rpc_command_executor::prepare_registration()
+bool t_rpc_command_executor::prepare_sn()
 {
 	std::string categories = mlog_get_categories();
 	mlog_set_categories("");
@@ -2375,7 +2375,7 @@ bool t_rpc_command_executor::prepare_registration()
 
 	if (m_is_rpc)
 	{
-		std::cout << "Cannot prepare registration over RPC" << std::endl;
+		std::cout << "Cannot prepare sn over RPC" << std::endl;
 		mlog_set_categories(categories.c_str());
 		return true;
 	}

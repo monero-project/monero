@@ -1983,7 +1983,7 @@ bool core::get_service_node_keys(crypto::public_key &pub_key, crypto::secret_key
 	return m_service_node;
 }
   //-----------------------------------------------------------------------------------------------
-  bool core::cmd_prepare_registration(const boost::program_options::variables_map& vm, const std::vector<std::string>& args)
+  bool core::cmd_prepare_sn(const boost::program_options::variables_map& vm, const std::vector<std::string>& args)
   {
     bool r = handle_command_line(vm);
     CHECK_AND_ASSERT_MES(r, false, "Unable to parse command line arguments");

@@ -165,9 +165,9 @@ bool t_command_parser_executor::print_sr(const std::vector<std::string>& args)
 	bool result = m_executor.print_sr(height);
 	return result;
 }
-bool t_command_parser_executor::prepare_registration()
+bool t_command_parser_executor::prepare_sn()
 {
-	bool result = m_executor.prepare_registration();
+	bool result = m_executor.prepare_sn();
 	return result;
 }
 bool t_command_parser_executor::print_sn(const std::vector<std::string>& args)
