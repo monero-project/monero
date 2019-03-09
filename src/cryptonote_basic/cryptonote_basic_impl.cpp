@@ -89,6 +89,17 @@ namespace cryptonote {
   }
   //-----------------------------------------------------------------------------------------------
    bool get_block_reward(size_t median_weight, size_t current_block_weight, uint64_t already_generated_coins, uint64_t &reward, uint8_t version) {
+	   if (version == 0) {
+		   reward = 0;
+		   return true;
+	   }
+	   const uint64_t premine = TRITON_SWAP;
+	   if (median_weight > 0 && already_generated_coins < premine && version < 2) {
+		   reward = premine / 7;
+		   MERROR(print_money(premine / 7));
+
+		   return true;
+	   }
    static_assert(DIFFICULTY_TARGET_V2%60==0&&DIFFICULTY_TARGET_V1%60==0,"difficulty targets must be a multiple of 60");
    const int target = DIFFICULTY_TARGET_V2;
    const int target_minutes = target / 60;
