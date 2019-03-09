@@ -796,6 +796,10 @@ difficulty_type Blockchain::get_difficulty_for_next_block()
   std::vector<difficulty_type> difficulties;
   auto height = m_db->height();
 
+  if (height == 0) {
+	  return 1000;
+  }
+
   uint8_t version = get_current_hard_fork_version();
   size_t difficulty_blocks_count;
     difficulty_blocks_count = DIFFICULTY_BLOCKS_COUNT_V3;
