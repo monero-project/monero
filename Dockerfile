@@ -185,8 +185,14 @@ RUN set -ex && \
     rm -rf /var/lib/apt
 COPY --from=builder /src/build/release/bin /usr/local/bin/
 
+# Create monero user
+RUN adduser --system --group --disabled-password monero && \
+	mkdir -p /wallet /home/monero/.bitmonero && \
+	chown -R monero:monero /home/monero/.bitmonero && \
+	chown -R monero:monero /wallet
+
 # Contains the blockchain
-VOLUME /root/.bitmonero
+VOLUME /home/monero/.bitmonero
 
 # Generate your wallet via accessing the container and run:
 # cd /wallet
@@ -195,6 +201,9 @@ VOLUME /wallet
 
 EXPOSE 18080
 EXPOSE 18081
+
+# switch to user monero
+USER monero
 
 ENTRYPOINT ["monerod", "--p2p-bind-ip=0.0.0.0", "--p2p-bind-port=18080", "--rpc-bind-ip=0.0.0.0", "--rpc-bind-port=18081", "--non-interactive", "--confirm-external-bind"]
 
