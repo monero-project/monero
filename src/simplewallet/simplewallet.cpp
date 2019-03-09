@@ -4274,7 +4274,7 @@ boost::optional<epee::wipeable_string> simple_wallet::on_get_password(const char
   return pwd_container->password();
 }
 //----------------------------------------------------------------------------------------------------
-bool simple_wallet::refresh_main(uint64_t start_height, bool reset, bool is_init)
+bool simple_wallet::refresh_main(uint64_t start_height, enum ResetType reset, bool is_init)
 {
 	if (!try_connect_to_daemon(is_init))
 		return true;
@@ -4361,7 +4361,7 @@ bool simple_wallet::refresh(const std::vector<std::string>& args)
         start_height = 0;
     }
   }
-  return refresh_main(start_height, false);
+  return refresh_main(start_height, ResetNone);
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::show_balance_unlocked(bool detailed)
@@ -8090,15 +8090,29 @@ bool simple_wallet::unspent_outputs(const std::vector<std::string> &args_)
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::rescan_blockchain(const std::vector<std::string> &args_)
 {
-  message_writer() << tr("Warning: this will lose any information which can not be recovered from the blockchain.");
-  message_writer() << tr("This includes destination addresses, tx secret keys, tx notes, etc");
-  std::string confirm = input_line(tr("Rescan anyway ? (Y/Yes/N/No): "));
-  if(!std::cin.eof())
-  {
-    if (!command_line::is_yes(confirm))
-      return true;
-  }
-  return refresh_main(0, true);
+	bool hard = false;
+	if (!args_.empty())
+	{
+		if (args_[0] != "hard")
+		{
+			fail_msg_writer() << tr("usage: rescan_bc [hard]");
+			return true;
+		}
+		hard = true;
+	}
+
+	if (hard)
+	{
+		message_writer() << tr("Warning: this will lose any information which can not be recovered from the blockchain.");
+		message_writer() << tr("This includes destination addresses, tx secret keys, tx notes, etc");
+		std::string confirm = input_line(tr("Rescan anyway ? (Y/Yes/N/No): "));
+		if (!std::cin.eof())
+		{
+			if (!command_line::is_yes(confirm))
+				return true;
+		}
+	}
+  return refresh_main(0,hard ? ResetHard : ResetSoft, true);
 }
 //----------------------------------------------------------------------------------------------------
 void simple_wallet::wallet_idle_thread()
@@ -8146,7 +8160,7 @@ bool simple_wallet::run()
   // check and display warning, but go on anyway
   try_connect_to_daemon();
 
-  refresh_main(0, false, true);
+  refresh_main(0, ResetNone, true);
 
   m_auto_refresh_enabled = m_wallet->auto_refresh();
   m_idle_thread = boost::thread([&]{wallet_idle_thread();});
