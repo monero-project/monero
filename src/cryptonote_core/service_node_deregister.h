@@ -41,6 +41,7 @@
 namespace cryptonote
 {
 	struct vote_verification_context;
+	struct tx_extra_service_node_deregister;
 };
 
 namespace service_nodes

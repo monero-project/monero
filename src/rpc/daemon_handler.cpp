@@ -180,7 +180,7 @@ namespace rpc
     // if any missing from blockchain, check in tx pool
     if (!missed_vec.empty())
     {
-      std::list<cryptonote::transaction> pool_txs;
+      std::vector<cryptonote::transaction> pool_txs;
 
       m_core.get_pool_transactions(pool_txs);
 

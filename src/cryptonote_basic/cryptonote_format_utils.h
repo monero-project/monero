@@ -31,6 +31,7 @@
 #pragma once
 #include "blobdatatype.h"
 #include "cryptonote_basic_impl.h"
+#include "tx_extra.h"
 #include "account.h"
 #include "subaddress_index.h"
 #include "include_base_utils.h"

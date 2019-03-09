@@ -30,6 +30,7 @@
 #include "service_node_list.h"
 #include "cryptonote_config.h"
 #include "cryptonote_core.h"
+#include "version.h"
 #include "quorum_cop.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
@@ -146,15 +147,28 @@ namespace service_nodes
 		return result;
 	}
 
-	bool quorum_cop::handle_uptime_proof(uint64_t timestamp, const crypto::public_key& pubkey, const crypto::signature& sig)
+	bool quorum_cop::handle_uptime_proof(const cryptonote::NOTIFY_UPTIME_PROOF::request &proof)
 	{
 		uint64_t now = time(nullptr);
+
+		uint64_t timestamp = proof.timestamp;
+		const crypto::public_key& pubkey = proof.pubkey;
+		const crypto::signature& sig = proof.sig;
+
 
 		if ((timestamp < now - UPTIME_PROOF_BUFFER_IN_SECONDS) || (timestamp > now + UPTIME_PROOF_BUFFER_IN_SECONDS))
 			return false;
 
 		if (!m_core.is_service_node(pubkey))
 			return false;
+
+		if (!(proof.snode_version_major == 4 &&
+			proof.snode_version_minor == 0 &&
+			proof.snode_version_patch == 0))
+		{
+			return false;
+		}
+
 
 		CRITICAL_REGION_LOCAL(m_lock);
 		if (m_uptime_proof_seen[pubkey] >= now - (UPTIME_PROOF_FREQUENCY_IN_SECONDS / 2))
@@ -170,6 +184,9 @@ namespace service_nodes
 
 	void generate_uptime_proof_request(const crypto::public_key& pubkey, const crypto::secret_key& seckey, cryptonote::NOTIFY_UPTIME_PROOF::request& req)
 	{
+		req.snode_version_major = static_cast<uint16_t>(TRITON_VERSION_MAJOR);
+		req.snode_version_minor = static_cast<uint16_t>(TRITON_VERSION_MINOR);
+		req.snode_version_patch = static_cast<uint16_t>(TRITON_VERSION_PATCH);
 		req.timestamp = time(nullptr);
 		req.pubkey = pubkey;
 

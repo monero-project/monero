@@ -36,6 +36,23 @@
 
 namespace cryptonote
 {
+	keypair  get_deterministic_keypair_from_height(uint64_t height);
+
+	uint64_t get_portion_of_reward(uint64_t portions, uint64_t total_service_node_reward);
+	uint64_t service_node_reward_formula(uint64_t base_reward, int hard_fork_version);
+
+	struct triton_miner_tx_context // NOTE(triton): All the custom fields required by Triton to use construct_miner_tx
+	{
+		using stake_portions = uint64_t;
+
+		triton_miner_tx_context(network_type type = MAINNET,
+			crypto::public_key winner = crypto::null_pkey,
+			std::vector<std::pair<account_public_address, stake_portions>> winner_info = {});
+
+		network_type                                                   nettype;
+		crypto::public_key                                             snode_winner_key;
+		std::vector<std::pair<account_public_address, stake_portions>> snode_winner_info;  // NOTE: If empty we use service_nodes::null_winner
+	};
   //---------------------------------------------------------------
   bool construct_miner_tx(
         size_t height,
@@ -46,15 +63,47 @@ namespace cryptonote
         const account_public_address &miner_address,
         transaction& tx,
         const blobdata& extra_nonce = blobdata(),
-        size_t max_outs = 999,
         uint8_t hard_fork_version = 1,
-        const crypto::public_key& service_node_key = crypto::null_pkey,
-        const std::vector<std::pair<account_public_address, uint64_t>>& service_node_info={ std::pair<account_public_address, uint64_t>({ crypto::null_pkey, crypto::null_pkey }, STAKING_PORTIONS) }
-    );
-    keypair get_deterministic_keypair_from_height(uint64_t height);
+	  const triton_miner_tx_context &miner_context = {});
 
-  uint64_t get_service_node_reward(uint64_t height, uint64_t base_reward, int hard_fork_version);
   uint64_t get_portion_of_reward(uint64_t portions, uint64_t total_service_node_reward);
+
+  struct block_reward_parts
+  {
+	  // TODO(triton): There can be a difference between the total reward and the
+	  // reward paid out to the service node? This would mean that a user can
+	  // specify less portions but still contribute the full amount?
+	  // Or was this just a sanity check? I don't think the first case is possible
+	  uint64_t service_node_total;
+	  uint64_t service_node_paid;
+
+	  uint64_t base_miner;
+	  uint64_t base_miner_fee;
+
+	  // NOTE: Post hardfork 10, adjusted base reward is the block reward with the
+	  // governance amount removed. We still need the original base reward, so
+	  // that we can calculate the 50% on the whole base amount, that should be
+	  // allocated for the service node and fees.
+
+	  // If this block contains the batched governance payment, this is
+	  // included in the adjusted base reward.
+
+	  // Before hardfork 10, this is the same value as original_base_reward
+	  uint64_t adjusted_base_reward;
+	  uint64_t original_base_reward;
+
+	  uint64_t miner_reward() { return base_miner + base_miner_fee; }
+  };
+
+  struct triton_block_reward_context
+  {
+	  using portions = uint64_t;
+	  uint64_t                                                 height;
+	  uint64_t                                                 fee;
+	  std::vector<std::pair<account_public_address, portions>> snode_winner_info;  // Optional: Check contributor portions add up, else set empty to use service_nodes::null_winner
+  };
+
+  bool get_triton_block_reward(size_t median_weight, size_t current_block_weight, uint64_t already_generated_coins, int hard_fork_version, block_reward_parts &result, const triton_block_reward_context &triton_context);
 
   struct tx_source_entry
   {
@@ -109,16 +158,17 @@ namespace cryptonote
   };
 
   //---------------------------------------------------------------
+  
   crypto::public_key get_destination_view_key_pub(const std::vector<tx_destination_entry> &destinations, const boost::optional<cryptonote::tx_destination_entry>& change_addr);
   bool construct_tx(const account_keys& sender_account_keys, std::vector<tx_source_entry> &sources, const std::vector<tx_destination_entry>& destinations, const boost::optional<cryptonote::tx_destination_entry>& change_addr, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time, bool is_staking = false, bool per_output_unlock = false);
-  bool construct_tx_with_tx_key(const account_keys& sender_account_keys, const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses, std::vector<tx_source_entry>& sources, std::vector<tx_destination_entry>& destinations, const boost::optional<cryptonote::tx_destination_entry>& change_addr, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time, const crypto::secret_key &tx_key, const std::vector<crypto::secret_key> &additional_tx_keys, bool rct = false, rct::RangeProofType  range_proof_type = rct::RangeProofBorromean, rct::multisig_out *msout = NULL, bool per_output_unlock = false, bool shuffle_outs = true);
-  bool construct_tx_and_get_tx_key(const account_keys& sender_account_keys, const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses, std::vector<tx_source_entry>& sources, std::vector<tx_destination_entry>& destinations, const boost::optional<cryptonote::tx_destination_entry>& change_addr, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time, crypto::secret_key &tx_key, std::vector<crypto::secret_key> &additional_tx_keys, bool rct = false, rct::RangeProofType  range_proof_type = rct::RangeProofBorromean, rct::multisig_out *msout = NULL,bool is_staking_tx = false, bool per_output_unlock = false);
+  bool construct_tx_with_tx_key(const account_keys& sender_account_keys, const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses, std::vector<tx_source_entry>& sources, std::vector<tx_destination_entry>& destinations, const boost::optional<cryptonote::tx_destination_entry>& change_addr, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time, const crypto::secret_key &tx_key, const std::vector<crypto::secret_key> &additional_tx_keys, bool rct = false, rct::RangeProofType range_proof_type = rct::RangeProofBorromean, rct::multisig_out *msout = NULL, bool per_output_unlock = false, bool shuffle_outs = true);
+  bool construct_tx_and_get_tx_key(const account_keys& sender_account_keys, const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses, std::vector<tx_source_entry>& sources, std::vector<tx_destination_entry>& destinations, const boost::optional<cryptonote::tx_destination_entry>& change_addr, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time, crypto::secret_key &tx_key, std::vector<crypto::secret_key> &additional_tx_keys, bool rct = false, rct::RangeProofType range_proof_type = rct::RangeProofBorromean, rct::multisig_out *msout = NULL, bool is_staking_tx = false, bool per_output_unlock = false);
 
   bool generate_genesis_block(
-      block& bl
-    , std::string const & genesis_tx
-    , uint32_t nonce
-    );
+	  block& bl
+	  , std::string const & genesis_tx
+	  , uint32_t nonce
+  );
 
 }
 

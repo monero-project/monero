@@ -97,6 +97,13 @@ namespace cryptonote
   /************************************************************************/
   class Blockchain
   {
+	  enum version
+	  {
+		  version_2 = 2,
+		  version_3,
+		  version_4,
+		  version_5_swarms,
+	  };
   public:
     /**
      * @brief Now-defunct (TODO: remove) struct from in-memory blockchain
@@ -141,7 +148,7 @@ namespace cryptonote
    class ValidateMinerTxHook
    {
    public:
-     virtual bool validate_miner_tx(const crypto::hash& prev_id, const cryptonote::transaction& miner_tx, uint64_t height, int hard_fork_version, uint64_t base_reward) const = 0;
+	  virtual bool validate_miner_tx(const crypto::hash& prev_id, const cryptonote::transaction& miner_tx, uint64_t height, int hard_fork_version, block_reward_parts const &reward_parts) const = 0;
    };
 
     /**

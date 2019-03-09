@@ -53,7 +53,6 @@
 #define MONERO_DEFAULT_LOG_CATEGORY "wallet.simplewallet"
 // Hardcode Monero's donation address (see #1447)
 constexpr const char MONERO_DONATION_ADDR[] = "44AFFq5kSiGBoZ4NMDwYtN18obc8AemS33DBLWs3H7otXft3XjrpDtQGv7SqSsaBYBb98uNbr2VBBEt7f2wfn3RVGQBEP3A";
-const int AUTOSTAKE_INTERVAL = 60 * 40; // once every 40 minutes.
 /*!
  * \namespace cryptonote
  * \brief Holds cryptonote related classes and helpers.
@@ -83,6 +82,9 @@ namespace cryptonote
     std::string get_commands_str();
     std::string get_command_usage(const std::vector<std::string> &args);
   private:
+
+	  enum ResetType { ResetNone, ResetSoft, ResetHard };
+
     bool handle_command_line(const boost::program_options::variables_map& vm);
 
     bool run_console_handler();
@@ -139,6 +141,8 @@ namespace cryptonote
     bool set_subaddress_lookahead(const std::vector<std::string> &args = std::vector<std::string>());
     bool set_segregation_height(const std::vector<std::string> &args = std::vector<std::string>());
     bool set_ignore_fractional_outputs(const std::vector<std::string> &args = std::vector<std::string>());
+	bool set_fork_on_autostake(const std::vector<std::string> &args = std::vector<std::string>());
+
     bool help(const std::vector<std::string> &args = std::vector<std::string>());
     bool start_mining(const std::vector<std::string> &args);
     bool stop_mining(const std::vector<std::string> &args);
@@ -238,6 +242,31 @@ namespace cryptonote
     bool print_ring_members(const std::vector<tools::wallet2::pending_tx>& ptx_vector, std::ostream& ostr);
     std::string get_prompt() const;
     bool print_seed(bool encrypted);
+
+	struct transfer_view
+	{
+		struct dest_output
+		{
+			std::string wallet_addr;
+			uint64_t    amount;
+			uint64_t    unlock_time;
+		};
+
+		boost::variant<uint64_t, std::string> block;
+		uint64_t timestamp;
+		tools::pay_type type;
+		bool confirmed;
+		bool unlocked;
+		uint64_t amount;
+		crypto::hash hash;
+		std::string payment_id;
+		uint64_t fee;
+		std::vector<dest_output> outputs;
+		std::set<uint32_t> index;
+		std::string note;
+	};
+	bool get_transfers(std::vector<std::string>& args_, std::vector<transfer_view>& transfers);
+
 
     /*!
      * \brief Prints the seed with a nice message

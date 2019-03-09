@@ -235,7 +235,7 @@ namespace cryptonote
      * @param include_unrelayed_txes include unrelayed txes in the result
      *
      */
-	void get_transactions(std::list<transaction>& txs, bool include_unrelayed_txes = true) const;
+	void get_transactions(std::vector<transaction>& txs, bool include_unrelayed_txes = true) const;
 
     /**
      * @brief get a list of all transaction hashes in the pool

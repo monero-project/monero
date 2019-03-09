@@ -35,6 +35,7 @@ set(common_sources
   download.cpp
   error.cpp
   expect.cpp
+  exp2.cpp
   util.cpp
   i18n.cpp
   notify.cpp
@@ -62,6 +63,7 @@ set(common_private_headers
   download.h
   error.h
   expect.h
+  exp2.h
   http_connection.h
   int-util.h
   notify.h

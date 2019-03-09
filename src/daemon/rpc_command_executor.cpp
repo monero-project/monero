@@ -2041,12 +2041,12 @@ bool t_rpc_command_executor::get_service_node_registration_cmd(const std::vector
 		}
     }
 
-}
 tools::success_msg_writer() << res.registration_cmd;
+
 return true;
 }
 
-static void print_service_node_list_state(std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry *> list)
+static void print_service_node_list_state(cryptonote::network_type nettype, int hard_fork_version, uint64_t *curr_height, std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry *> list)
 {
 	const char indent1[] = "    ";
 	const char indent2[] = "        ";
@@ -2068,23 +2068,22 @@ static void print_service_node_list_state(std::vector<cryptonote::COMMAND_RPC_GE
 
 		// Print Expiry Info
 		{
-			uint64_t expiry_height = entry.registration_height;
-
-			expiry_height += (nettype == cryptonote::TESTNET) ? STAKING_REQUIREMENT_LOCK_BLOCKS_TESTNET : STAKING_REQUIREMENT_LOCK_BLOCKS;
+			uint64_t expiry_height = entry.registration_height + service_nodes::get_staking_requirement_lock_blocks(nettype);
+			if (hard_fork_version >= 5)
+				expiry_height += STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS;
 
 			if (curr_height)
 			{
 				uint64_t now = time(nullptr);
 				uint64_t delta_height = expiry_height - *curr_height;
 				uint64_t expiry_epoch_time = now + (delta_height * DIFFICULTY_TARGET_V2);
+
 				tools::msg_writer() << indent2 << "Registration Height/Expiry Height: " << entry.registration_height << "/" << expiry_height << " (in " << delta_height << " blocks)";
 				tools::msg_writer() << indent2 << "Expiry Date (Estimated UTC): " << get_date_time(expiry_epoch_time) << " (" << get_human_time_ago(expiry_epoch_time, now) << ")";
-
 			}
 			else
 			{
 				tools::msg_writer() << indent2 << "Registration Height/Expiry Height: " << entry.registration_height << " / " << expiry_height << " (in ?? blocks) ";
-				<< " or if auto staking " << expiry_height_auto_stake << " (in ?? blocks)";
 				tools::msg_writer() << indent2 << "Expiry Date (Estimated UTC): ?? (Could not get current blockchain height)";
 			}
 		}
@@ -2136,12 +2135,24 @@ bool t_rpc_command_executor::print_sn(const std::vector<std::string> &args)
 
 	cryptonote::network_type nettype = cryptonote::UNDEFINED;
 	uint64_t *curr_height = nullptr;
+	int hard_fork_version = 4;
 	if (m_is_rpc)
 	{
 		if (!m_rpc_client->rpc_request(get_info_req, get_info_res, "/getinfo", fail_message.c_str())) 
 		{
 			tools::fail_msg_writer() << make_error(fail_message, get_info_res.status);
 			return true;
+		}
+		{
+			cryptonote::COMMAND_RPC_HARD_FORK_INFO::request  hard_fork_info_req = {};
+			cryptonote::COMMAND_RPC_HARD_FORK_INFO::response hard_fork_info_res = {};
+			if (!m_rpc_client->json_rpc_request(hard_fork_info_req, hard_fork_info_res, "hard_fork_info", fail_message.c_str()))
+			{
+				tools::fail_msg_writer() << make_error(fail_message, hard_fork_info_res.status);
+				return true;
+			}
+
+			hard_fork_version = hard_fork_info_res.version;
 		}
 		if (!m_rpc_client->json_rpc_request(req, res, "get_service_nodes", fail_message.c_str()))
 		{
@@ -2157,6 +2168,18 @@ bool t_rpc_command_executor::print_sn(const std::vector<std::string> &args)
 	{
 		if (m_rpc_server->on_get_info(get_info_req, get_info_res) || get_info_res.status == CORE_RPC_STATUS_OK)
 			curr_height = &get_info_res.height;
+
+		{
+			cryptonote::COMMAND_RPC_HARD_FORK_INFO::request  hard_fork_info_req = {};
+			cryptonote::COMMAND_RPC_HARD_FORK_INFO::response hard_fork_info_res = {};
+			if (!m_rpc_server->on_hard_fork_info(hard_fork_info_req, hard_fork_info_res, error_resp) || hard_fork_info_res.status != CORE_RPC_STATUS_OK)
+			{
+				tools::fail_msg_writer() << make_error(fail_message, error_resp.message);
+				return true;
+			}
+			hard_fork_version = hard_fork_info_res.version;
+		}
+
 		if (!m_rpc_server->on_get_service_nodes(req, res, error_resp) || res.status != CORE_RPC_STATUS_OK)
 		{
 			tools::fail_msg_writer() << make_error(fail_message, error_resp.message);
@@ -2188,10 +2211,6 @@ bool t_rpc_command_executor::print_sn(const std::vector<std::string> &args)
 		if (b_remaining == a_remaining)
 			return b->portions_for_operator < a->portions_for_operator;
 
-		uint64_t *curr_height = nullptr;
-		cryptonote::COMMAND_RPC_GET_HEIGHT::request height_req = {};
-		cryptonote::COMMAND_RPC_GET_HEIGHT::response height_res = {};
-		m_rpc_server->on_get_height(height_req, height_res);
 		return b_remaining < a_remaining;
 	});
 
@@ -2199,14 +2218,14 @@ bool t_rpc_command_executor::print_sn(const std::vector<std::string> &args)
 	if (unregistered.size() > 0)
 	{
 		tools::msg_writer() << "Service Node Unregistered State[" << unregistered.size() << "]";
-		print_service_node_list_state(nettype, curr_height, unregistered);
+		print_service_node_list_state(nettype, hard_fork_version, curr_height, unregistered);
 	}
 
 
 	if (registered.size() > 0)
 	{
 		tools::msg_writer() << "Service Node Registration State[" << registered.size() << "]";
-		print_service_node_list_state(m_rpc_server->nettype(), curr_height, registered);
+		print_service_node_list_state(nettype, hard_fork_version, curr_height, registered);
 	}
 
 	if (unregistered.size() == 0 && registered.size() == 0)
@@ -2457,7 +2476,15 @@ bool t_rpc_command_executor::prepare_registration()
 			return true;
 		}
 
-		operating_cost_portions = (operating_cost_percent / 100.0) * STAKING_PORTIONS;
+		// Fix for truncation issue when operator cut = 100 for a pool Service Node.
+		if (operating_cost_percent == 100.0)
+		{
+			operating_cost_portions = STAKING_PORTIONS;
+		}
+		else
+		{
+			operating_cost_portions = (operating_cost_percent / 100.0) * STAKING_PORTIONS;
+		}
 
 		const uint64_t  min_contribution_portions = std::min(portions_remaining, MIN_PORTIONS);
 

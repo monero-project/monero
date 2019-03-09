@@ -815,8 +815,8 @@ namespace cryptonote
         continue;
       }
 
-      if (tx_info[n].tx->version < 2)
-        continue;
+	  if (tx_info[n].tx->version < 2 || tx_info[n].tx->is_deregister_tx())
+		  continue;
       const rct::rctSig &rv = tx_info[n].tx->rct_signatures;
       switch (rv.type) {
         case rct::RCTTypeNull:
@@ -1030,8 +1030,8 @@ namespace cryptonote
       MERROR_VER("tx with invalid outputs, rejected for tx id= " << get_transaction_hash(tx));
       return false;
     }
-    if (tx.version >= transaction::version_2 && !tx.is_deregister_tx())
-    {
+	if (tx.version >= transaction::version_2)
+	{
       if (tx.rct_signatures.outPk.size() != tx.vout.size())
       {
         MERROR_VER("tx with mismatched vout/outPk count, rejected for tx id= " << get_transaction_hash(tx));
@@ -1261,9 +1261,9 @@ namespace cryptonote
 	  return result;
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::handle_uptime_proof(uint64_t timestamp, const crypto::public_key& pubkey, const crypto::signature& sig)
+  bool core::handle_uptime_proof(const NOTIFY_UPTIME_PROOF::request &proof)
   {
-    return m_quorum_cop.handle_uptime_proof(timestamp, pubkey, sig);
+	  return m_quorum_cop.handle_uptime_proof(proof);
   }
   //-----------------------------------------------------------------------------------------------
   void core::on_transaction_relayed(const cryptonote::blobdata& tx_blob)
@@ -1519,7 +1519,7 @@ namespace cryptonote
     return true;
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::get_pool_transactions(std::list<transaction>& txs, bool include_sensitive_data) const
+  bool core::get_pool_transactions(std::vector<transaction>& txs, bool include_sensitive_data) const
   {
     m_mempool.get_transactions(txs, include_sensitive_data);
     return true;

@@ -114,8 +114,8 @@ namespace cryptonote
      *
      * @return true if we haven't seen it before and thus need to relay.
      */
-    bool handle_uptime_proof(uint64_t timestamp, const crypto::public_key& pubkey, const crypto::signature& sig);
-     /**
+	 bool handle_uptime_proof(const NOTIFY_UPTIME_PROOF::request &proof);
+	 /**
       * @brief handles an incoming transaction
       *
       * Parses an incoming transaction and, if nothing is obviously wrong,
@@ -445,7 +445,7 @@ namespace cryptonote
       *
       * @note see tx_memory_pool::get_transactions
       */
-     bool get_pool_transactions(std::list<transaction>& txs, bool include_unrelayed_txes = true) const;
+     bool get_pool_transactions(std::vector<transaction>& txs, bool include_unrelayed_txes = true) const;
 
      /**
       * @copydoc tx_memory_pool::get_txpool_backlog

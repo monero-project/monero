@@ -126,7 +126,7 @@ namespace cryptonote
      return false;
    }
 
-   std::list<transaction> pool_txs;
+   std::vector<transaction> pool_txs;
    get_transactions(pool_txs);
    for (const transaction& pool_tx : pool_txs)
    {
@@ -744,10 +744,11 @@ namespace cryptonote
     return m_blockchain.get_txpool_tx_count(include_unrelayed_txes);
   }
   //---------------------------------------------------------------------------------
-  void tx_memory_pool::get_transactions(std::list<transaction>& txs, bool include_unrelayed_txes) const
+  void tx_memory_pool::get_transactions(std::vector<transaction>& txs, bool include_unrelayed_txes) const
   {
 	  CRITICAL_REGION_LOCAL(m_transactions_lock);
 	  CRITICAL_REGION_LOCAL1(m_blockchain);
+	  txs.reserve(m_blockchain.get_txpool_tx_count(include_unrelayed_txes));
 	  m_blockchain.for_all_txpool_txes([&txs](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata *bd) {
 		  transaction tx;
 		  if (!parse_and_validate_tx_from_blob(*bd, tx))
@@ -1251,7 +1252,11 @@ namespace cryptonote
     fee = 0;
 
     //baseline empty block
-    get_block_reward(median_weight, total_weight, already_generated_coins, best_coinbase, version);
+	triton_block_reward_context block_reward_context = {};
+
+	block_reward_parts reward_parts = {};
+	get_triton_block_reward(median_weight, total_weight, already_generated_coins, version, reward_parts, block_reward_context);
+	best_coinbase = reward_parts.base_miner;
 
 
     size_t max_total_weight_pre_v5 = (130 * median_weight) / 100 - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE;
@@ -1284,14 +1289,14 @@ namespace cryptonote
       // start using the optimal filling algorithm from v5
       if (version >= 5)
       {
-        // If we're getting lower coinbase tx,
-        // stop including more tx
-        uint64_t block_reward;
-        if(!get_block_reward(median_weight, total_weight + meta.weight, already_generated_coins, block_reward, version))
+		  block_reward_parts reward_parts_other = {};
+		  if (!get_triton_block_reward(median_weight, total_weight + meta.weight, already_generated_coins, version, reward_parts_other, block_reward_context))
+
         {
           LOG_PRINT_L2("  would exceed maximum block weight");
           continue;
         }
+		uint64_t block_reward = reward_parts_other.base_miner;
         coinbase = block_reward + fee + meta.fee;
         if (coinbase < template_accept_threshold(best_coinbase))
         {

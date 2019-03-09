@@ -167,14 +167,27 @@ int main(int argc, char* argv[])
   // tx_memory_pool, Blockchain's constructor takes tx_memory_pool object.
   LOG_PRINT_L0("Initializing source blockchain (BlockchainDB)");
   const std::string input = command_line::get_arg(vm, arg_input);
-  std::unique_ptr<Blockchain> core_storage;
-  tx_memory_pool m_mempool(*core_storage);
-  core_storage.reset(new Blockchain(m_mempool));
+  // This is done this way because of the circular constructors.
+  struct BlockchainObjects
+  {
+	  Blockchain m_blockchain;
+	  tx_memory_pool m_mempool;
+	  service_nodes::service_node_list m_service_node_list;
+	  triton::deregister_vote_pool m_deregister_vote_pool;
+	  BlockchainObjects() :
+		  m_blockchain(m_mempool, m_service_node_list, m_deregister_vote_pool),
+		  m_service_node_list(m_blockchain),
+		  m_mempool(m_blockchain) { }
+  };
+  BlockchainObjects* blockchain_objects = new BlockchainObjects();
+  Blockchain* core_storage;
+  tx_memory_pool& m_mempool = blockchain_objects->m_mempool;
+  core_storage = &(blockchain_objects->m_blockchain);
   BlockchainDB* db = new_db(db_type);
   if (db == NULL)
   {
-    LOG_ERROR("Attempted to use non-existent database type: " << db_type);
-    throw std::runtime_error("Attempting to use non-existent database type");
+	  LOG_ERROR("Attempted to use non-existent database type: " << db_type);
+	  throw std::runtime_error("Attempting to use non-existent database type");
   }
   LOG_PRINT_L0("database: " << db_type);
 
@@ -183,12 +196,12 @@ int main(int argc, char* argv[])
 
   try
   {
-    db->open(filename, DBF_RDONLY);
+	  db->open(filename, DBF_RDONLY);
   }
   catch (const std::exception& e)
   {
-    LOG_PRINT_L0("Error opening database: " << e.what());
-    return 1;
+	  LOG_PRINT_L0("Error opening database: " << e.what());
+	  return 1;
   }
   r = core_storage->init(db, net_type);
 
@@ -199,61 +212,61 @@ int main(int argc, char* argv[])
 
   size_t done = 0;
   std::unordered_map<output_data, std::list<reference>> outputs;
-  std::unordered_map<uint64_t,uint64_t> indices;
+  std::unordered_map<uint64_t, uint64_t> indices;
 
   LOG_PRINT_L0("Reading blockchain from " << input);
   core_storage->for_all_transactions([&](const crypto::hash &hash, const cryptonote::transaction &tx)->bool
   {
-    const bool coinbase = tx.vin.size() == 1 && tx.vin[0].type() == typeid(txin_gen);
-    const uint64_t height = core_storage->get_db().get_tx_block_height(hash);
+	  const bool coinbase = tx.vin.size() == 1 && tx.vin[0].type() == typeid(txin_gen);
+	  const uint64_t height = core_storage->get_db().get_tx_block_height(hash);
 
-    // create new outputs
-    for (const auto &out: tx.vout)
-    {
-      if (opt_rct_only && out.amount)
-        continue;
-      uint64_t index = indices[out.amount]++;
-      output_data od(out.amount, indices[out.amount], coinbase, height);
-      auto itb = outputs.emplace(od, std::list<reference>());
-      itb.first->first.info(coinbase, height);
-    }
+	  // create new outputs
+	  for (const auto &out : tx.vout)
+	  {
+		  if (opt_rct_only && out.amount)
+			  continue;
+		  uint64_t index = indices[out.amount]++;
+		  output_data od(out.amount, indices[out.amount], coinbase, height);
+		  auto itb = outputs.emplace(od, std::list<reference>());
+		  itb.first->first.info(coinbase, height);
+	  }
 
-    for (const auto &in: tx.vin)
-    {
-      if (in.type() != typeid(txin_to_key))
-        continue;
-      const auto &txin = boost::get<txin_to_key>(in);
-      if (opt_rct_only && txin.amount != 0)
-        continue;
+	  for (const auto &in : tx.vin)
+	  {
+		  if (in.type() != typeid(txin_to_key))
+			  continue;
+		  const auto &txin = boost::get<txin_to_key>(in);
+		  if (opt_rct_only && txin.amount != 0)
+			  continue;
 
-      const std::vector<uint64_t> absolute = cryptonote::relative_output_offsets_to_absolute(txin.key_offsets);
-      for (size_t n = 0; n < txin.key_offsets.size(); ++n)
-      {
-        output_data od(txin.amount, absolute[n], coinbase, height);
-        outputs[od].push_back(reference(height, txin.key_offsets.size(), n));
-      }
-    }
-    return true;
+		  const std::vector<uint64_t> absolute = cryptonote::relative_output_offsets_to_absolute(txin.key_offsets);
+		  for (size_t n = 0; n < txin.key_offsets.size(); ++n)
+		  {
+			  output_data od(txin.amount, absolute[n], coinbase, height);
+			  outputs[od].push_back(reference(height, txin.key_offsets.size(), n));
+		  }
+	  }
+	  return true;
   }, true);
 
   std::unordered_map<uint64_t, uint64_t> counts;
   size_t total = 0;
-  for (const auto &out: outputs)
+  for (const auto &out : outputs)
   {
-    counts[out.second.size()]++;
-    total++;
+	  counts[out.second.size()]++;
+	  total++;
   }
   if (total > 0)
   {
-    for (const auto &c: counts)
-    {
-      float percent = 100.f * c.second / total;
-      MINFO(std::to_string(c.second) << " outputs used " << c.first << " times (" << percent << "%)");
-    }
+	  for (const auto &c : counts)
+	  {
+		  float percent = 100.f * c.second / total;
+		  MINFO(std::to_string(c.second) << " outputs used " << c.first << " times (" << percent << "%)");
+	  }
   }
   else
   {
-    MINFO("No outputs to process");
+	  MINFO("No outputs to process");
   }
 
   LOG_PRINT_L0("Blockchain usage exported OK");
