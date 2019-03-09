@@ -839,8 +839,13 @@ difficulty_type Blockchain::get_difficulty_for_next_block()
     m_difficulties = difficulties;
   }
   size_t target = DIFFICULTY_TARGET_V2;
-  difficulty_type diff = 1000;
-  
+  difficulty_type diff = 0;
+  if (get_current_hard_fork_version() != 0 && get_current_hard_fork_version() < 4 && m_db->height() < 235) {
+	  diff = 1000;
+  }
+  else {
+	  diff = next_difficulty(timestamps, difficulties, target);
+  }
   return diff;
 }
 //------------------------------------------------------------------
@@ -1247,7 +1252,7 @@ bool Blockchain::create_block_template(block& b, const account_public_address& m
   CHECK_AND_ASSERT_MES(diffic, false, "difficulty overhead.");
 
   median_weight = m_current_block_cumul_weight_limit / 2;
-  already_generated_coins = m_db->get_block_already_generated_coins(height - 1);
+  already_generated_coins = height > 1 ?  m_db->get_block_already_generated_coins(height - 1) : 0;
 
   CRITICAL_REGION_END();
 
