@@ -1,5 +1,6 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
+from __future__ import print_function
 import sys
 import subprocess
 
@@ -10,11 +11,11 @@ else:
   first = [sys.argv[1]]
   second = [sys.argv[2]]
 
-print 'running: ', first
+print('running: ', first)
 S0 = subprocess.check_output(first, stderr=subprocess.STDOUT)
-print 'running: ', second
+print('running: ', second)
 S1 = subprocess.check_output(second, stderr=subprocess.STDOUT)
-print 'comparing'
+print('comparing')
 if S0 != S1:
   sys.exit(1)
 sys.exit(0)
