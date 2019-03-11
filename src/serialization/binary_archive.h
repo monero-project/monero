@@ -146,7 +146,8 @@ struct binary_archive<false> : public binary_archive_base<std::istream, false>
   void serialize_uvarint(T &v)
   {
     typedef std::istreambuf_iterator<char> it;
-    tools::read_varint(it(stream_), it(), v); // XXX handle failure
+    if (tools::read_varint(it(stream_), it(), v) < 0)
+      stream_.setstate(std::ios_base::failbit);
   }
 
   void begin_array(size_t &s)
