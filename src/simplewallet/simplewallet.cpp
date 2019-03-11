@@ -6101,6 +6101,22 @@ bool simple_wallet::stake(const std::vector<std::string> &args_)
   return true;
 }
 //----------------------------------------------------------------------------------------------------
+static std::string get_human_readable_timespan(std::chrono::seconds seconds)
+{
+  uint64_t ts = seconds.count();
+  if (ts < 60)
+    return std::to_string(ts) + sw::tr(" seconds");
+  if (ts < 3600)
+    return std::to_string((uint64_t)(ts / 60)) + sw::tr(" minutes");
+  if (ts < 3600 * 24)
+    return std::to_string((uint64_t)(ts / 3600)) + sw::tr(" hours");
+  if (ts < 3600 * 24 * 30.5)
+    return std::to_string((uint64_t)(ts / (3600 * 24))) + sw::tr(" days");
+  if (ts < 3600 * 24 * 365.25)
+    return std::to_string((uint64_t)(ts / (3600 * 24 * 30.5))) + sw::tr(" months");
+  return sw::tr("a long time");
+}
+//----------------------------------------------------------------------------------------------------
 bool simple_wallet::request_stake_unlock(const std::vector<std::string> &args_)
 {
   if (!try_connect_to_daemon())
@@ -6176,26 +6192,6 @@ bool simple_wallet::request_stake_unlock(const std::vector<std::string> &args_)
 
     cryptonote::tx_extra_tx_key_image_unlock unlock = {};
     {
-      std::string msg_buf;
-      msg_buf.reserve(512);
-
-      COMMAND_RPC_GET_SERVICE_NODES::response::contribution const &contribution = (*contributions)[0];
-      if (node_info.requested_unlock_height != 0)
-      {
-        msg_buf.append("Key image: ");
-        msg_buf.append(contribution.key_image);
-        msg_buf.append(" has already been requested to be unlocked, unlocking at height: ");
-        msg_buf.append(std::to_string(node_info.requested_unlock_height));
-        fail_msg_writer() << msg_buf;
-        return true;
-      }
-
-      msg_buf.append("You are requesting to unlock a stake of: ");
-      msg_buf.append(cryptonote::print_money(contribution.amount));
-      msg_buf.append(" Loki from the service node network.\nThis will deactivate the service node: ");
-      msg_buf.append(node_info.service_node_pubkey);
-      msg_buf.append(" and schedule the service node for expiration and unlock all other contributions as well.\n\n");
-
       uint64_t curr_height = 0;
       {
         std::string err_msg;
@@ -6207,10 +6203,41 @@ bool simple_wallet::request_stake_unlock(const std::vector<std::string> &args_)
         }
       }
 
-      // TODO(doyle): INF_STAKING(doyle): We should estimate the days/hours for users
+      std::string msg_buf;
+      msg_buf.reserve(512);
+
+      COMMAND_RPC_GET_SERVICE_NODES::response::contribution const &contribution = (*contributions)[0];
+      if (node_info.requested_unlock_height != 0)
+      {
+        msg_buf.append("Key image: ");
+        msg_buf.append(contribution.key_image);
+        msg_buf.append(" has already been requested to be unlocked, unlocking at height: ");
+        msg_buf.append(std::to_string(node_info.requested_unlock_height));
+        msg_buf.append(" (about ");
+        msg_buf.append(get_human_readable_timespan(std::chrono::seconds((node_info.requested_unlock_height - curr_height) * DIFFICULTY_TARGET_V2)));
+        msg_buf.append(")");
+        fail_msg_writer() << msg_buf;
+        return true;
+      }
+
+      msg_buf.append("You are requesting to unlock a stake of: ");
+      msg_buf.append(cryptonote::print_money(contribution.amount));
+      msg_buf.append(" Loki from the service node network.\nThis will schedule the service node: ");
+      msg_buf.append(node_info.service_node_pubkey);
+      msg_buf.append(" for deactivation.");
+      if (node_info.contributors.size() > 1) {
+          msg_buf.append(" The stakes of the service node's ");
+          msg_buf.append(std::to_string(node_info.contributors.size() - 1));
+          msg_buf.append(" other contributors will unlock at the same time.");
+      }
+      msg_buf.append("\n\n");
+
       uint64_t unlock_height = service_nodes::get_locked_key_image_unlock_height(m_wallet->nettype(), node_info.registration_height, curr_height);
       msg_buf.append("You will continue receiving rewards until the service node expires at the estimated height: ");
       msg_buf.append(std::to_string(unlock_height));
+      msg_buf.append(" (about ");
+      msg_buf.append(get_human_readable_timespan(std::chrono::seconds((unlock_height - curr_height) * DIFFICULTY_TARGET_V2)));
+      msg_buf.append(")");
 
       cryptonote::blobdata binary_buf;
       if(!string_tools::parse_hexstr_to_binbuff(contribution.key_image, binary_buf) || binary_buf.size() != sizeof(crypto::key_image))
@@ -7763,22 +7790,6 @@ bool simple_wallet::check_reserve_proof(const std::vector<std::string> &args)
     fail_msg_writer() << e.what();
   }
   return true;
-}
-//----------------------------------------------------------------------------------------------------
-static std::string get_human_readable_timespan(std::chrono::seconds seconds)
-{
-  uint64_t ts = seconds.count();
-  if (ts < 60)
-    return std::to_string(ts) + sw::tr(" seconds");
-  if (ts < 3600)
-    return std::to_string((uint64_t)(ts / 60)) + sw::tr(" minutes");
-  if (ts < 3600 * 24)
-    return std::to_string((uint64_t)(ts / 3600)) + sw::tr(" hours");
-  if (ts < 3600 * 24 * 30.5)
-    return std::to_string((uint64_t)(ts / (3600 * 24))) + sw::tr(" days");
-  if (ts < 3600 * 24 * 365.25)
-    return std::to_string((uint64_t)(ts / (3600 * 24 * 30.5))) + sw::tr(" months");
-  return sw::tr("a long time");
 }
 //----------------------------------------------------------------------------------------------------
 // mutates local_args as it parses and consumes arguments
