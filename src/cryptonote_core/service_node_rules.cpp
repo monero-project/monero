@@ -10,18 +10,27 @@ namespace service_nodes {
 
 	uint64_t get_staking_requirement(cryptonote::network_type m_nettype, uint64_t height)
 	{
-		if (height <= 580)
+		if (m_nettype != cryptonote::MAINNET)
 			return COIN * 100;
 
-		uint64_t hardfork_height = m_nettype == cryptonote::MAINNET ? 101250 : 581 /* testnet */;
+		uint64_t hardfork_height = m_nettype == cryptonote::MAINNET ? 101250 : 581 /* stagenet */;
 		if (height < hardfork_height) height = hardfork_height;
 
 		uint64_t height_adjusted = height - hardfork_height;
-		uint64_t base = 10000 * COIN;
-		uint64_t variable = (3500.0 * COIN) / triton::exp2(height_adjusted / 129600.0);
-		uint64_t linear_up = (uint64_t)(5 * COIN * height / 480) + 80000 * COIN;
-		uint64_t flat = 15000 * COIN;
-		return std::max(base + variable, height < 175200 ? linear_up : flat);
+		uint64_t base = 0, variable = 0;
+		if (height >= 1752000)
+		{
+			base = 15000 * COIN;
+			variable = (25007.0 * COIN) / triton::exp2(height_adjusted / 129600.0);
+		}
+		else
+		{
+			base = 10000 * COIN;
+			variable = (30000.0 * COIN) / triton::exp2(height_adjusted / 129600.0);
+		}
+
+		uint64_t result = base + variable;
+		return result;
 	}
 
 	uint64_t portions_to_amount(uint64_t portions, uint64_t staking_requirement)

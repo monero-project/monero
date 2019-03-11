@@ -7,7 +7,7 @@ namespace service_nodes {
 		switch (nettype) {
 		case cryptonote::TESTNET: return 1440;
 		case cryptonote::FAKECHAIN: return 30;
-		default: return 21600;
+		default: return 44640;
 		}
 	}
 
