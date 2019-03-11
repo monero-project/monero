@@ -257,6 +257,7 @@ namespace
   const char* USAGE_REGISTER_SERVICE_NODE("register_service_node [index=<N1>[,<N2>,...]] [priority] <operator cut> <address1> <fraction1> [<address2> <fraction2> [...]] <expiration timestamp> <pubkey> <signature>");
   const char* USAGE_STAKE("stake [index=<N1>[,<N2>,...]] [priority] <service node pubkey> <amount|percent%>");
   const char* USAGE_REQUEST_STAKE_UNLOCK("request_stake_unlock <service_node_pubkey>");
+  const char* USAGE_PRINT_LOCKED_STAKES("print_locked_stakes");
 
 #if defined (LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
   std::string input_line(const std::string& prompt, bool yesno = false)
@@ -3032,7 +3033,7 @@ simple_wallet::simple_wallet()
                            tr("Request a stake currently locked in a Service Node to be unlocked on the network"));
   m_cmd_binder.set_handler("print_locked_stakes",
                            boost::bind(&simple_wallet::print_locked_stakes, this, _1),
-                           tr(""),
+                           tr(USAGE_PRINT_LOCKED_STAKES),
                            tr("Print stakes currently locked on the Service Node network"));
 }
 //----------------------------------------------------------------------------------------------------
