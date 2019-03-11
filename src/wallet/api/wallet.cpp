@@ -1429,7 +1429,9 @@ PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, const 
             }
 
             if (multisig().isMultisig) {
-                transaction->m_signers = m_wallet->make_multisig_tx_set(transaction->m_pending_tx).m_signers;
+                auto tx_set = m_wallet->make_multisig_tx_set(transaction->m_pending_tx);
+                transaction->m_pending_tx = tx_set.m_ptx;
+                transaction->m_signers = tx_set.m_signers;
             }
         } catch (const tools::error::daemon_busy&) {
             // TODO: make it translatable with "tr"?
