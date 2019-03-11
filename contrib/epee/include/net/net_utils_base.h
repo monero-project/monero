@@ -47,6 +47,7 @@
 namespace net
 {
 	class tor_address;
+	class i2p_address;
 }
 
 namespace epee
@@ -196,7 +197,7 @@ namespace net_utils
 		template<typename Type> const Type &as() const { return as_mutable<const Type>(); }
 
 		BEGIN_KV_SERIALIZE_MAP()
-			// need to `#include "net/tor_address.h"` when serializing `network_address`
+			// need to `#include "net/[i2p|tor]_address.h"` when serializing `network_address`
 			static constexpr std::integral_constant<bool, is_store> is_store_{};
 
 			std::uint8_t type = std::uint8_t(is_store ? this_ref.get_type_id() : address_type::invalid);
@@ -209,6 +210,8 @@ namespace net_utils
 					return this_ref.template serialize_addr<ipv4_network_address>(is_store_, stg, hparent_section);
 				case address_type::tor:
 					return this_ref.template serialize_addr<net::tor_address>(is_store_, stg, hparent_section);
+				case address_type::i2p:
+					return this_ref.template serialize_addr<net::i2p_address>(is_store_, stg, hparent_section);
 				case address_type::invalid:
 				default:
 					break;
@@ -241,6 +244,7 @@ namespace net_utils
     const network_address m_remote_address;
     const bool     m_is_income;
     const time_t   m_started;
+    const time_t   m_ssl;
     time_t   m_last_recv;
     time_t   m_last_send;
     uint64_t m_recv_cnt;
@@ -251,13 +255,14 @@ namespace net_utils
     double m_max_speed_up;
 
     connection_context_base(boost::uuids::uuid connection_id,
-                            const network_address &remote_address, bool is_income,
+                            const network_address &remote_address, bool is_income, bool ssl,
                             time_t last_recv = 0, time_t last_send = 0,
                             uint64_t recv_cnt = 0, uint64_t send_cnt = 0):
                                             m_connection_id(connection_id),
                                             m_remote_address(remote_address),
                                             m_is_income(is_income),
                                             m_started(time(NULL)),
+                                            m_ssl(ssl),
                                             m_last_recv(last_recv),
                                             m_last_send(last_send),
                                             m_recv_cnt(recv_cnt),
@@ -272,6 +277,7 @@ namespace net_utils
                                m_remote_address(),
                                m_is_income(false),
                                m_started(time(NULL)),
+                               m_ssl(false),
                                m_last_recv(0),
                                m_last_send(0),
                                m_recv_cnt(0),
@@ -284,17 +290,17 @@ namespace net_utils
 
     connection_context_base& operator=(const connection_context_base& a)
     {
-      set_details(a.m_connection_id, a.m_remote_address, a.m_is_income);
+      set_details(a.m_connection_id, a.m_remote_address, a.m_is_income, a.m_ssl);
       return *this;
     }
     
   private:
     template<class t_protocol_handler>
     friend class connection;
-    void set_details(boost::uuids::uuid connection_id, const network_address &remote_address, bool is_income)
+    void set_details(boost::uuids::uuid connection_id, const network_address &remote_address, bool is_income, bool ssl)
     {
       this->~connection_context_base();
-      new(this) connection_context_base(connection_id, remote_address, is_income);
+      new(this) connection_context_base(connection_id, remote_address, is_income, ssl);
     }
 
 	};

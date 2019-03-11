@@ -152,6 +152,10 @@ namespace cryptonote
 
   };
 
+  template<typename T> static inline unsigned int getpos(T &ar) { return 0; }
+  template<> inline unsigned int getpos(binary_archive<true> &ar) { return ar.stream().tellp(); }
+  template<> inline unsigned int getpos(binary_archive<false> &ar) { return ar.stream().tellg(); }
+
   class transaction_prefix
   {
 
@@ -203,9 +207,12 @@ namespace cryptonote
 
     bool pruned;
 
+    std::atomic<unsigned int> unprunable_size;
+    std::atomic<unsigned int> prefix_size;
+
     transaction();
-    transaction(const transaction &t): transaction_prefix(t), hash_valid(false), blob_size_valid(false), signatures(t.signatures), rct_signatures(t.rct_signatures), pruned(t.pruned) { if (t.is_hash_valid()) { hash = t.hash; set_hash_valid(true); } if (t.is_blob_size_valid()) { blob_size = t.blob_size; set_blob_size_valid(true); } }
-    transaction &operator=(const transaction &t) { transaction_prefix::operator=(t); set_hash_valid(false); set_blob_size_valid(false); signatures = t.signatures; rct_signatures = t.rct_signatures; if (t.is_hash_valid()) { hash = t.hash; set_hash_valid(true); } if (t.is_blob_size_valid()) { blob_size = t.blob_size; set_blob_size_valid(true); } pruned = t.pruned; return *this; }
+    transaction(const transaction &t): transaction_prefix(t), hash_valid(false), blob_size_valid(false), signatures(t.signatures), rct_signatures(t.rct_signatures), pruned(t.pruned), unprunable_size(t.unprunable_size.load()), prefix_size(t.prefix_size.load()) { if (t.is_hash_valid()) { hash = t.hash; set_hash_valid(true); } if (t.is_blob_size_valid()) { blob_size = t.blob_size; set_blob_size_valid(true); } }
+    transaction &operator=(const transaction &t) { transaction_prefix::operator=(t); set_hash_valid(false); set_blob_size_valid(false); signatures = t.signatures; rct_signatures = t.rct_signatures; if (t.is_hash_valid()) { hash = t.hash; set_hash_valid(true); } if (t.is_blob_size_valid()) { blob_size = t.blob_size; set_blob_size_valid(true); } pruned = t.pruned; unprunable_size = t.unprunable_size.load(); prefix_size = t.prefix_size.load(); return *this; }
     virtual ~transaction();
     void set_null();
     void invalidate_hashes();
@@ -223,10 +230,18 @@ namespace cryptonote
         set_blob_size_valid(false);
       }
 
+      const unsigned int start_pos = getpos(ar);
+
       FIELDS(*static_cast<transaction_prefix *>(this))
+
+      if (std::is_same<Archive<W>, binary_archive<W>>())
+        prefix_size = getpos(ar) - start_pos;
 
       if (version == 1)
       {
+        if (std::is_same<Archive<W>, binary_archive<W>>())
+          unprunable_size = getpos(ar) - start_pos;
+
         ar.tag("signatures");
         ar.begin_array();
         PREPARE_CUSTOM_VECTOR_SERIALIZATION(vin.size(), signatures);
@@ -265,6 +280,10 @@ namespace cryptonote
           bool r = rct_signatures.serialize_rctsig_base(ar, vin.size(), vout.size());
           if (!r || !ar.stream().good()) return false;
           ar.end_object();
+
+          if (std::is_same<Archive<W>, binary_archive<W>>())
+            unprunable_size = getpos(ar) - start_pos;
+
           if (!pruned && rct_signatures.type != rct::RCTTypeNull)
           {
             ar.tag("rctsig_prunable");
@@ -329,6 +348,8 @@ namespace cryptonote
     set_hash_valid(false);
     set_blob_size_valid(false);
     pruned = false;
+    unprunable_size = 0;
+    prefix_size = 0;
   }
 
   inline

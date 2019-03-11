@@ -389,6 +389,25 @@ TEST(ToHex, String)
 
 }
 
+TEST(FromHex, String)
+{
+    // the source data to encode and decode
+    std::vector<uint8_t> source{{ 0x00, 0xFF, 0x0F, 0xF0 }};
+
+    // encode and decode the data
+    auto hex = epee::to_hex::string({ source.data(), source.size() });
+    auto decoded = epee::from_hex::vector(hex);
+
+    // encoded should be twice the size and should decode to the exact same data
+    EXPECT_EQ(source.size() * 2, hex.size());
+    EXPECT_EQ(source, decoded);
+
+    // we will now create a padded hex string, we want to explicitly allow
+    // decoding it this way also, ignoring spaces and colons between the numbers
+    hex.assign("00:ff 0f:f0");
+    EXPECT_EQ(source, epee::from_hex::vector(hex));
+}
+
 TEST(ToHex, Array)
 {
   EXPECT_EQ(

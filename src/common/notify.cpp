@@ -48,7 +48,7 @@ Notify::Notify(const char *spec)
 {
   CHECK_AND_ASSERT_THROW_MES(spec, "Null spec");
 
-  boost::split(args, spec, boost::is_any_of(" "));
+  boost::split(args, spec, boost::is_any_of(" \t"), boost::token_compress_on);
   CHECK_AND_ASSERT_THROW_MES(args.size() > 0, "Failed to parse spec");
   if (strchr(spec, '\'') || strchr(spec, '\"') || strchr(spec, '\\'))
     MWARNING("A notification spec contains a quote or backslash: note that these are handled verbatim, which may not be the intent");

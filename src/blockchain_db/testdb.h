@@ -33,9 +33,11 @@
 #include <string>
 #include <vector>
 #include <map>
-#include "gtest/gtest.h"
 
-#include "blockchain_db/blockchain_db.h"
+#include "blockchain_db.h"
+
+namespace cryptonote
+{
 
 class BaseTestDB: public cryptonote::BlockchainDB {
 public:
@@ -73,10 +75,11 @@ public:
   virtual cryptonote::difficulty_type get_block_cumulative_difficulty(const uint64_t& height) const { return 10; }
   virtual cryptonote::difficulty_type get_block_difficulty(const uint64_t& height) const { return 0; }
   virtual uint64_t get_block_already_generated_coins(const uint64_t& height) const { return 10000000000; }
+  virtual uint64_t get_block_long_term_weight(const uint64_t& height) const { return 128; }
   virtual crypto::hash get_block_hash_from_height(const uint64_t& height) const { return crypto::hash(); }
   virtual std::vector<cryptonote::block> get_blocks_range(const uint64_t& h1, const uint64_t& h2) const { return std::vector<cryptonote::block>(); }
   virtual std::vector<crypto::hash> get_hashes_range(const uint64_t& h1, const uint64_t& h2) const { return std::vector<crypto::hash>(); }
-  virtual crypto::hash top_block_hash() const { return crypto::hash(); }
+  virtual crypto::hash top_block_hash(uint64_t *block_height = NULL) const { if (block_height) *block_height = 0; return crypto::hash(); }
   virtual cryptonote::block get_top_block() const { return cryptonote::block(); }
   virtual uint64_t height() const { return 1; }
   virtual bool tx_exists(const crypto::hash& h) const { return false; }
@@ -99,7 +102,7 @@ public:
   virtual std::vector<std::vector<uint64_t>> get_tx_amount_output_indices(const uint64_t tx_index, size_t n_txes) const { return std::vector<std::vector<uint64_t>>(); }
   virtual bool has_key_image(const crypto::key_image& img) const { return false; }
   virtual void remove_block() { }
-  virtual uint64_t add_transaction_data(const crypto::hash& blk_hash, const cryptonote::transaction& tx, const crypto::hash& tx_hash, const crypto::hash& tx_prunable_hash) {return 0;}
+  virtual uint64_t add_transaction_data(const crypto::hash& blk_hash, const std::pair<cryptonote::transaction, cryptonote::blobdata>& tx, const crypto::hash& tx_hash, const crypto::hash& tx_prunable_hash) {return 0;}
   virtual void remove_transaction_data(const crypto::hash& tx_hash, const cryptonote::transaction& tx) {}
   virtual uint64_t add_output(const crypto::hash& tx_hash, const cryptonote::tx_out& tx_output, const uint64_t& local_index, const uint64_t unlock_time, const rct::key *commitment) {return 0;}
   virtual void add_tx_amount_output_indices(const uint64_t tx_index, const std::vector<uint64_t>& amount_output_indices) {}
@@ -128,6 +131,7 @@ public:
 
   virtual void add_block( const cryptonote::block& blk
                         , size_t block_weight
+                        , uint64_t long_term_block_weight
                         , const cryptonote::difficulty_type& cumulative_difficulty
                         , const uint64_t& coins_generated
                         , uint64_t num_rct_outs
@@ -145,3 +149,4 @@ public:
   virtual void prune_outputs(uint64_t amount) {}
 };
 
+}

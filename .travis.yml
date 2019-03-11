@@ -10,16 +10,12 @@ cache:
 env:
   global:
     - MAKEJOBS=-j3
-    - RUN_TESTS=false
-    - BOOST_TEST_RANDOM=1$TRAVIS_BUILD_ID
     - CCACHE_SIZE=100M
     - CCACHE_TEMPDIR=/tmp/.ccache-temp
     - CCACHE_COMPRESS=1
     - CCACHE_DIR=$HOME/.ccache
     - BASE_OUTDIR=$TRAVIS_BUILD_DIR/out
     - SDK_URL=https://bitcoincore.org/depends-sources/sdks
-    - PYTHON_DEBUG=1
-    - WINEDEBUG=fixme-all
     - DOCKER_PACKAGES="build-essential libtool cmake autotools-dev automake pkg-config bsdmainutils curl git ca-certificates ccache"
   matrix:
 # ARM v7
@@ -27,20 +23,20 @@ env:
 # ARM v8
     - HOST=aarch64-linux-gnu PACKAGES="python3 gperf g++-aarch64-linux-gnu"
 # i686 Win
-    - HOST=i686-w64-mingw32 PACKAGES="python3 nsis g++-mingw-w64-i686"
+    - HOST=i686-w64-mingw32 DEP_OPTS="NO_QT=1" PACKAGES="python3 g++-mingw-w64-i686 qttools5-dev-tools"
 # i686 Linux
-    - HOST=i686-pc-linux-gnu PACKAGES="gperf cmake g++-multilib bc python3-zmq" RUN_TESTS=true
+    - HOST=i686-pc-linux-gnu PACKAGES="gperf cmake g++-multilib python3-zmq"
 # Win64
-    - HOST=x86_64-w64-mingw32 PACKAGES="cmake python3 nsis g++-mingw-w64-x86-64 wine-binfmt wine64 bc" RUN_TESTS=true
+    - HOST=x86_64-w64-mingw32 DEP_OPTS="NO_QT=1" PACKAGES="cmake python3 g++-mingw-w64-x86-64 qttools5-dev-tools"
 # x86_64 Linux
-    - HOST=x86_64-unknown-linux-gnu PACKAGES="gperf cmake python3-zmq libdbus-1-dev libharfbuzz-dev" RUN_TESTS=true
+    - HOST=x86_64-unknown-linux-gnu PACKAGES="gperf cmake python3-zmq libdbus-1-dev libharfbuzz-dev"
 # Cross-Mac
     - HOST=x86_64-apple-darwin11 PACKAGES="cmake imagemagick libcap-dev librsvg2-bin libz-dev libbz2-dev libtiff-tools python-dev python3-setuptools-git" OSX_SDK=10.11
 
 before_install:
     - export PATH=$(echo $PATH | tr ':' "\n" | sed '/\/opt\/python/d' | tr "\n" ":" | sed "s|::|:|g")
 install:
-    - env | grep -E '^(CCACHE_|WINEDEBUG|DISPLAY|BOOST_TEST_RANDOM|CONFIG_SHELL)' | tee /tmp/env
+    - env | grep -E '^(CCACHE_|DISPLAY|CONFIG_SHELL)' | tee /tmp/env
     - if [[ $HOST = *-mingw32 ]]; then DOCKER_ADMIN="--cap-add SYS_ADMIN"; fi
     - DOCKER_ID=$(docker run $DOCKER_ADMIN -idt --mount type=bind,src=$TRAVIS_BUILD_DIR,dst=$TRAVIS_BUILD_DIR --mount type=bind,src=$CCACHE_DIR,dst=$CCACHE_DIR -w $TRAVIS_BUILD_DIR --env-file /tmp/env ubuntu:18.04)
     - DOCKER_EXEC="docker exec $DOCKER_ID"

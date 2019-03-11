@@ -162,7 +162,7 @@ namespace trezor {
         m_session(boost::none),
         m_device_info(boost::none)
     {
-      m_http_client.set_server(m_bridge_host, boost::none, false);
+      m_http_client.set_server(m_bridge_host, boost::none, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
     }
 
     virtual ~BridgeTransport() = default;

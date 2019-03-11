@@ -36,6 +36,7 @@
 #ifndef INCLUDED_throttle_detail_hpp
 #define INCLUDED_throttle_detail_hpp
 
+#include <boost/circular_buffer.hpp>
 #include "network_throttle.hpp"
 
 namespace epee
@@ -61,7 +62,7 @@ class network_throttle : public i_network_throttle {
 		network_time_seconds m_slot_size; // the size of one slot. TODO: now hardcoded for 1 second e.g. in time_to_slot()
 		// TODO for big window size, for performance better the substract on change of m_last_sample_time instead of recalculating average of eg >100 elements
 
-		std::vector< packet_info > m_history; // the history of bw usage
+		boost::circular_buffer< packet_info > m_history; // the history of bw usage
 		network_time_seconds m_last_sample_time; // time of last history[0] - so we know when to rotate the buffer
 		network_time_seconds m_start_time; // when we were created
 		bool m_any_packet_yet; // did we yet got any packet to count

@@ -99,7 +99,7 @@ struct binary_archive<false> : public binary_archive_base<std::istream, false>
 {
 
   explicit binary_archive(stream_type &s) : base_type(s) {
-    stream_type::streampos pos = stream_.tellg();
+    stream_type::pos_type pos = stream_.tellg();
     stream_.seekg(0, std::ios_base::end);
     eof_pos_ = stream_.tellg();
     stream_.seekg(pos);

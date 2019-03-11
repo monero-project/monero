@@ -44,7 +44,7 @@ namespace mms
 namespace bitmessage_rpc
 {
 
-  struct message_info
+  struct message_info_t
   {
     uint32_t encodingType;
     std::string toAddress;
@@ -66,8 +66,9 @@ namespace bitmessage_rpc
       KV_SERIALIZE(subject)
     END_KV_SERIALIZE_MAP()
   };
+  typedef epee::misc_utils::struct_init<message_info_t> message_info;
 
-  struct inbox_messages_response
+  struct inbox_messages_response_t
   {
     std::vector<message_info> inboxMessages;
 
@@ -75,6 +76,7 @@ namespace bitmessage_rpc
       KV_SERIALIZE(inboxMessages)
     END_KV_SERIALIZE_MAP()
   };
+  typedef epee::misc_utils::struct_init<inbox_messages_response_t> inbox_messages_response;
 
 }
 
@@ -116,7 +118,11 @@ bool message_transporter::receive_messages(const std::vector<std::string> &desti
 
   std::string json = get_str_between_tags(answer, "<string>", "</string>");
   bitmessage_rpc::inbox_messages_response bitmessage_res;
-  epee::serialization::load_t_from_json(bitmessage_res, json);
+  if (!epee::serialization::load_t_from_json(bitmessage_res, json))
+  {
+    MERROR("Failed to deserialize messages");
+    return true;
+  }
   size_t size = bitmessage_res.inboxMessages.size();
   messages.clear();
 
@@ -138,8 +144,10 @@ bool message_transporter::receive_messages(const std::vector<std::string> &desti
         std::string message_body = epee::string_encoding::base64_decode(message_info.message);
         // Second Base64-decoding: The MMS uses Base64 to hide non-textual data in its JSON from Bitmessage
         json = epee::string_encoding::base64_decode(message_body);
-        epee::serialization::load_t_from_json(message, json);
-        is_mms_message = true;
+        if (!epee::serialization::load_t_from_json(message, json))
+          MERROR("Failed to deserialize message");
+        else
+          is_mms_message = true;
       }
       catch(const std::exception& e)
       {

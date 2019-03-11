@@ -37,6 +37,7 @@
 #include <boost/multi_index/global_fun.hpp>
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>
+#include <boost/circular_buffer.hpp>
 #include <atomic>
 #include <functional>
 #include <unordered_map>
@@ -229,11 +230,12 @@ namespace cryptonote
     /**
      * @brief performs some preprocessing on a group of incoming blocks to speed up verification
      *
-     * @param blocks a list of incoming blocks
+     * @param blocks_entry a list of incoming blocks
+     * @param blocks the parsed blocks
      *
      * @return false on erroneous blocks, else true
      */
-    bool prepare_handle_incoming_blocks(const std::vector<block_complete_entry>  &blocks);
+    bool prepare_handle_incoming_blocks(const std::vector<block_complete_entry>  &blocks_entry, std::vector<block> &blocks);
 
     /**
      * @brief incoming blocks post-processing, cleanup, and disk sync
@@ -631,6 +633,13 @@ namespace cryptonote
     uint64_t get_current_cumulative_block_weight_limit() const;
 
     /**
+     * @brief gets the long term block weight for a new block
+     *
+     * @return the long term block weight
+     */
+    uint64_t get_next_long_term_block_weight(uint64_t block_weight) const;
+
+    /**
      * @brief gets the block weight median based on recent blocks (same window as for the limit)
      *
      * @return the median
@@ -994,7 +1003,9 @@ namespace cryptonote
      */
     void pop_blocks(uint64_t nblocks);
 
+#ifndef IN_UNIT_TESTS
   private:
+#endif
 
     // TODO: evaluate whether or not each of these typedefs are left over from blockchain_storage
     typedef std::unordered_map<crypto::hash, size_t> blocks_by_id_index;
@@ -1047,6 +1058,8 @@ namespace cryptonote
     std::vector<uint64_t> m_timestamps;
     std::vector<difficulty_type> m_difficulties;
     uint64_t m_timestamps_and_difficulties_height;
+    uint64_t m_long_term_block_weights_window;
+    uint64_t m_long_term_effective_median_block_weight;
 
     epee::critical_section m_difficulty_lock;
     crypto::hash m_difficulty_for_next_block_top_hash;
@@ -1280,7 +1293,7 @@ namespace cryptonote
      * @param sz return-by-reference the list of weights
      * @param count the number of blocks to get weights for
      */
-    void get_last_n_blocks_weights(std::vector<size_t>& weights, size_t count) const;
+    void get_last_n_blocks_weights(std::vector<uint64_t>& weights, size_t count) const;
 
     /**
      * @brief checks if a transaction is unlocked (its outputs spendable)
@@ -1379,10 +1392,12 @@ namespace cryptonote
     /**
      * @brief calculate the block weight limit for the next block to be added
      *
+     * @param long_term_effective_median_block_weight optionally return that value
+     *
      * @return true
      */
-    bool update_next_cumulative_weight_limit();
-    void return_tx_to_pool(std::vector<transaction> &txs);
+    bool update_next_cumulative_weight_limit(uint64_t *long_term_effective_median_block_weight = NULL);
+    void return_tx_to_pool(std::vector<std::pair<transaction, blobdata>> &txs);
 
     /**
      * @brief make sure a transaction isn't attempting a double-spend

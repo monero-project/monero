@@ -81,7 +81,7 @@ namespace demo
 	{
 		const static int ID = 1000;
 
-		struct request
+		struct request_t
 		{		
       std::string example_string_data;
       some_test_data sub;
@@ -91,9 +91,10 @@ namespace demo
         KV_SERIALIZE(sub)
       END_KV_SERIALIZE_MAP()
 		};
+      typedef epee::misc_utils::struct_init<request_t> request;
 
 
-		struct response
+		struct response_t
 		{
 			bool 	 m_success; 
       std::list<some_test_data> subs;
@@ -104,6 +105,7 @@ namespace demo
       END_KV_SERIALIZE_MAP()
 		};
 	};
+      typedef epee::misc_utils::struct_init<response_t> response;
 
 
 
@@ -111,7 +113,7 @@ namespace demo
 	{
 		const static int ID = 1001;
 
-    struct request
+    struct request_t
     {		
       std::string example_string_data2;
 
@@ -119,8 +121,9 @@ namespace demo
         KV_SERIALIZE(example_string_data2)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response
+    struct response_t
     {
       bool 	 m_success; 
 
@@ -129,6 +132,7 @@ namespace demo
         KV_SERIALIZE(m_success)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
 	};
 
 
