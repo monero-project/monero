@@ -9954,6 +9954,16 @@ bool simple_wallet::mms(const std::vector<std::string> &args)
 {
   try
   {
+    m_wallet->get_multisig_wallet_state();
+  }
+  catch(const std::exception &e)
+  {
+    fail_msg_writer() << tr("MMS not available in this wallet");
+    return true;
+  }
+
+  try
+  {
     mms::message_store& ms = m_wallet->get_message_store();
     if (args.size() == 0)
     {
