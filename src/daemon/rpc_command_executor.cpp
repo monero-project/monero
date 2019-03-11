@@ -2655,7 +2655,7 @@ bool t_rpc_command_executor::prepare_registration()
       if (!m_rpc_client->rpc_request(req, res, "/getinfo", info_fail_message.c_str()))
         return true;
 
-      if (!m_rpc_client->rpc_request(hf_req, hf_res, "hard_fork_info", info_fail_message.c_str()))
+      if (!m_rpc_client->json_rpc_request(hf_req, hf_res, "hard_fork_info", info_fail_message.c_str()))
         return true;
 
       if      (res.mainnet) nettype  = cryptonote::MAINNET;
