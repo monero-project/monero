@@ -136,12 +136,12 @@ namespace net_utils
 			catch(...) { /* ignore */ }
 		}
 
-		inline void set_ssl(epee::net_utils::ssl_support_t ssl_support = epee::net_utils::ssl_support_t::e_ssl_support_autodetect, const std::pair<std::string, std::string> &private_key_and_certificate_path = {}, std::list<std::string> allowed_certificates = {}, std::vector<std::vector<uint8_t>> allowed_fingerprints = {}, bool allow_any_cert = false)
+		inline void set_ssl(epee::net_utils::ssl_support_t ssl_support = epee::net_utils::ssl_support_t::e_ssl_support_autodetect, const std::pair<std::string, std::string> &private_key_and_certificate_path = {}, const std::string &ca_path = {}, std::vector<std::vector<uint8_t>> allowed_fingerprints = {}, bool allow_any_cert = false)
 		{
 			if (ssl_support == epee::net_utils::ssl_support_t::e_ssl_support_disabled)
 				m_ctx = {boost::asio::ssl::context(boost::asio::ssl::context::tlsv12), {}, {}};
 			else
-				m_ctx = create_ssl_context(private_key_and_certificate_path, std::move(allowed_certificates), std::move(allowed_fingerprints), allow_any_cert);
+				m_ctx = create_ssl_context(private_key_and_certificate_path, ca_path, std::move(allowed_fingerprints), allow_any_cert);
 			m_ssl_support = ssl_support;
 		}
 
@@ -212,8 +212,6 @@ namespace net_utils
 
 				// Set SSL options
 				// disable sslv2
-				m_ctx.context.set_options(boost::asio::ssl::context::default_workarounds | boost::asio::ssl::context::no_sslv2);
-				m_ctx.context.set_default_verify_paths();
 				m_ssl_socket.reset(new boost::asio::ssl::stream<boost::asio::ip::tcp::socket>(m_io_service, m_ctx.context));
 
 				// Get a list of endpoints corresponding to the server name.

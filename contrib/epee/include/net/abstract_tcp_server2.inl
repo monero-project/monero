@@ -941,14 +941,14 @@ PRAGMA_WARNING_DISABLE_VS(4355)
   }
   //---------------------------------------------------------------------------------
   template<class t_protocol_handler>
-  bool boosted_tcp_server<t_protocol_handler>::init_server(uint32_t port, const std::string address, epee::net_utils::ssl_support_t ssl_support, const std::pair<std::string, std::string> &private_key_and_certificate_path, const std::list<std::string> &allowed_certificates, const std::vector<std::vector<uint8_t>> &allowed_fingerprints, bool allow_any_cert)
+  bool boosted_tcp_server<t_protocol_handler>::init_server(uint32_t port, const std::string address, epee::net_utils::ssl_support_t ssl_support, const std::pair<std::string, std::string> &private_key_and_certificate_path, const std::string &ca_file, const std::vector<std::vector<uint8_t>> &allowed_fingerprints, bool allow_any_cert)
   {
     TRY_ENTRY();
     m_stop_signal_sent = false;
     m_port = port;
     m_address = address;
     if (ssl_support != epee::net_utils::ssl_support_t::e_ssl_support_disabled)
-      m_ssl_context = create_ssl_context(private_key_and_certificate_path, allowed_certificates, allowed_fingerprints, allow_any_cert);
+      m_ssl_context = create_ssl_context(private_key_and_certificate_path, ca_file, allowed_fingerprints, allow_any_cert);
     // Open the acceptor with the option to reuse the address (i.e. SO_REUSEADDR).
     boost::asio::ip::tcp::resolver resolver(io_service_);
     boost::asio::ip::tcp::resolver::query query(address, boost::lexical_cast<std::string>(port), boost::asio::ip::tcp::resolver::query::canonical_name);
@@ -982,7 +982,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 PUSH_WARNINGS
 DISABLE_GCC_WARNING(maybe-uninitialized)
   template<class t_protocol_handler>
-  bool boosted_tcp_server<t_protocol_handler>::init_server(const std::string port, const std::string& address, epee::net_utils::ssl_support_t ssl_support, const std::pair<std::string, std::string> &private_key_and_certificate_path, const std::list<std::string> &allowed_certificates, const std::vector<std::vector<uint8_t>> &allowed_fingerprints, bool allow_any_cert)
+  bool boosted_tcp_server<t_protocol_handler>::init_server(const std::string port, const std::string& address, epee::net_utils::ssl_support_t ssl_support, const std::pair<std::string, std::string> &private_key_and_certificate_path, const std::string &ca_file, const std::vector<std::vector<uint8_t>> &allowed_fingerprints, bool allow_any_cert)
   {
     uint32_t p = 0;
 
@@ -990,7 +990,7 @@ DISABLE_GCC_WARNING(maybe-uninitialized)
       MERROR("Failed to convert port no = " << port);
       return false;
     }
-    return this->init_server(p, address, ssl_support, private_key_and_certificate_path, allowed_certificates, allowed_fingerprints, allow_any_cert);
+    return this->init_server(p, address, ssl_support, private_key_and_certificate_path, ca_file, allowed_fingerprints, allow_any_cert);
   }
 POP_WARNINGS
   //---------------------------------------------------------------------------------

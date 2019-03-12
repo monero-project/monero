@@ -61,7 +61,7 @@ namespace epee
       boost::optional<net_utils::http::login> user = boost::none,
       epee::net_utils::ssl_support_t ssl_support = epee::net_utils::ssl_support_t::e_ssl_support_autodetect,
       const std::pair<std::string, std::string> &private_key_and_certificate_path = {},
-      std::list<std::string> allowed_certificates = {},
+      const std::string &ca_path = {},
       std::vector<std::vector<uint8_t>> allowed_fingerprints = {},
       bool allow_any_cert = false)
     {
@@ -80,7 +80,7 @@ namespace epee
       m_net_server.get_config_object().m_user = std::move(user);
 
       MGINFO("Binding on " << bind_ip << ":" << bind_port);
-      bool res = m_net_server.init_server(bind_port, bind_ip, ssl_support, private_key_and_certificate_path, std::move(allowed_certificates), std::move(allowed_fingerprints), allow_any_cert);
+      bool res = m_net_server.init_server(bind_port, bind_ip, ssl_support, private_key_and_certificate_path, ca_path, std::move(allowed_fingerprints), allow_any_cert);
       if(!res)
       {
         LOG_ERROR("Failed to bind server");

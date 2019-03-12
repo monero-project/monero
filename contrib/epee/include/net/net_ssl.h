@@ -31,10 +31,11 @@
 
 #include <stdint.h>
 #include <string>
-#include <list>
+#include <vector>
 #include <boost/utility/string_ref.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/ssl.hpp>
+#include <boost/system/error_code.hpp>
 
 namespace epee
 {
@@ -49,7 +50,7 @@ namespace net_utils
 	struct ssl_context_t
 	{
 		boost::asio::ssl::context context;
-		std::list<std::string> allowed_certificates;
+		std::string ca_path;
 		std::vector<std::vector<uint8_t>> allowed_fingerprints;
 		bool allow_any_cert;
 	};
@@ -57,7 +58,7 @@ namespace net_utils
         // https://security.stackexchange.com/questions/34780/checking-client-hello-for-https-classification
 	constexpr size_t get_ssl_magic_size() { return 9; }
 	bool is_ssl(const unsigned char *data, size_t len);
-	ssl_context_t create_ssl_context(const std::pair<std::string, std::string> &private_key_and_certificate_path, std::list<std::string> allowed_certificates, std::vector<std::vector<uint8_t>> allowed_fingerprints, bool allow_any_cert);
+	ssl_context_t create_ssl_context(const std::pair<std::string, std::string> &private_key_and_certificate_path, const std::string &ca_path, std::vector<std::vector<uint8_t>> allowed_fingerprints, bool allow_any_cert);
 	void use_ssl_certificate(ssl_context_t &ssl_context, const std::pair<std::string, std::string> &private_key_and_certificate_path);
 	bool is_certificate_allowed(boost::asio::ssl::verify_context &ctx, const ssl_context_t &ssl_context);
 	bool ssl_handshake(boost::asio::ssl::stream<boost::asio::ip::tcp::socket> &socket, boost::asio::ssl::stream_base::handshake_type type, const epee::net_utils::ssl_context_t &ssl_context);

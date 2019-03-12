@@ -77,12 +77,28 @@ namespace
     }
   };
   using openssl_bignum = std::unique_ptr<BIGNUM, openssl_bignum_free>;
+
+  boost::system::error_code load_ca_file(boost::asio::ssl::context& ctx, const std::string& path)
+  {
+    SSL_CTX* const ssl_ctx = ctx.native_handle(); // could be moved from context
+    if (ssl_ctx == nullptr)
+      return {boost::asio::error::invalid_argument};
+
+    if (!SSL_CTX_load_verify_locations(ssl_ctx, path.c_str(), nullptr))
+    {
+      return boost::system::error_code{
+        int(::ERR_get_error()), boost::asio::error::get_ssl_category()
+      };
+    }
+    return boost::system::error_code{};
+  }
 }
 
 namespace epee
 {
 namespace net_utils
 {
+
 
 // https://stackoverflow.com/questions/256405/programmatically-create-x509-certificate-using-openssl
 bool create_ssl_certificate(EVP_PKEY *&pkey, X509 *&cert)
@@ -155,9 +171,9 @@ bool create_ssl_certificate(EVP_PKEY *&pkey, X509 *&cert)
   return true;
 }
 
-ssl_context_t create_ssl_context(const std::pair<std::string, std::string> &private_key_and_certificate_path, std::list<std::string> allowed_certificates, std::vector<std::vector<uint8_t>> allowed_fingerprints, bool allow_any_cert)
+ssl_context_t create_ssl_context(const std::pair<std::string, std::string> &private_key_and_certificate_path, const std::string &ca_path, std::vector<std::vector<uint8_t>> allowed_fingerprints, bool allow_any_cert)
 {
-  ssl_context_t ssl_context{boost::asio::ssl::context(boost::asio::ssl::context::tlsv12), std::move(allowed_certificates), std::move(allowed_fingerprints)};
+  ssl_context_t ssl_context{boost::asio::ssl::context(boost::asio::ssl::context::tlsv12), std::move(ca_path), std::move(allowed_fingerprints)};
 
   // only allow tls v1.2 and up
   ssl_context.context.set_options(boost::asio::ssl::context::default_workarounds);
@@ -186,7 +202,15 @@ ssl_context_t create_ssl_context(const std::pair<std::string, std::string> &priv
 #ifdef SSL_OP_NO_COMPRESSION
   SSL_CTX_set_options(ctx, SSL_OP_NO_COMPRESSION);
 #endif
-  ssl_context.context.set_default_verify_paths();
+
+  if (!ssl_context.ca_path.empty())
+  {
+    const boost::system::error_code err = load_ca_file(ssl_context.context, ssl_context.ca_path);
+    if (err)
+      throw boost::system::system_error{err, "Failed to load user CA file at " + ssl_context.ca_path};
+  }
+  else if (allowed_fingerprints.empty())
+    ssl_context.context.set_default_verify_paths(); // only use system-CAs if no user-supplied cert info
 
   CHECK_AND_ASSERT_THROW_MES(private_key_and_certificate_path.first.empty() == private_key_and_certificate_path.second.empty(), "private key and certificate must be either both given or both empty");
   if (private_key_and_certificate_path.second.empty())
@@ -237,21 +261,21 @@ bool is_ssl(const unsigned char *data, size_t len)
 
 bool is_certificate_allowed(boost::asio::ssl::verify_context &ctx, const ssl_context_t &ssl_context)
 {
-  X509_STORE_CTX *sctx = ctx.native_handle();
-  if (!sctx)
-  {
-    MERROR("Error getting verify_context handle");
-    return false;
-  }
-  X509 *cert =X509_STORE_CTX_get_current_cert(sctx);
-  if (!cert)
-  {
-    MERROR("No certificate found in verify_context");
-    return false;
-  }
-
   // can we check the certificate against a list of fingerprints?
   if (!ssl_context.allowed_fingerprints.empty()) {
+    X509_STORE_CTX *sctx = ctx.native_handle();
+    if (!sctx)
+    {
+      MERROR("Error getting verify_context handle");
+      return false;
+    }
+    X509 *cert =X509_STORE_CTX_get_current_cert(sctx);
+    if (!cert)
+    {
+      MERROR("No certificate found in verify_context");
+      return false;
+    }
+
     // buffer for the certificate digest and the size of the result
     std::vector<uint8_t> digest(EVP_MAX_MD_SIZE);
     unsigned int size{ 0 };
@@ -270,52 +294,20 @@ bool is_certificate_allowed(boost::asio::ssl::verify_context &ctx, const ssl_con
       return true;
   }
 
-  if (!ssl_context.allowed_certificates.empty()) {
-    BIO *bio_cert = BIO_new(BIO_s_mem());
-    bool success = PEM_write_bio_X509(bio_cert, cert);
-    if (!success)
-    {
-      BIO_free(bio_cert);
-      MERROR("Failed to print certificate");
-      return false;
-    }
-    BUF_MEM *buf = NULL;
-    BIO_get_mem_ptr(bio_cert, &buf);
-    if (!buf || !buf->data || !buf->length)
-    {
-      BIO_free(bio_cert);
-      MERROR("Failed to write certificate: " << ERR_get_error());
-      return false;
-    }
-    std::string certificate(std::string(buf->data, buf->length));
-    BIO_free(bio_cert);
-    if (std::find(ssl_context.allowed_certificates.begin(), ssl_context.allowed_certificates.end(), certificate) != ssl_context.allowed_certificates.end())
-      return true;
-  }
-
-  // if either checklist is non-empty we must have failed it
-  return ssl_context.allowed_fingerprints.empty() && ssl_context.allowed_certificates.empty();
+  return ssl_context.allowed_fingerprints.empty() && ssl_context.ca_path.empty();
 }
 
 bool ssl_handshake(boost::asio::ssl::stream<boost::asio::ip::tcp::socket> &socket, boost::asio::ssl::stream_base::handshake_type type, const epee::net_utils::ssl_context_t &ssl_context)
 {
   bool verified = false;
   socket.next_layer().set_option(boost::asio::ip::tcp::no_delay(true));
+
   socket.set_verify_mode(boost::asio::ssl::verify_peer);
   socket.set_verify_callback([&](bool preverified, boost::asio::ssl::verify_context &ctx)
   {
-    if (!preverified)
-    {
-      const int err = X509_STORE_CTX_get_error(ctx.native_handle());
-      const int depth = X509_STORE_CTX_get_error_depth(ctx.native_handle());
-      if (err != X509_V_ERR_DEPTH_ZERO_SELF_SIGNED_CERT || depth != 0)
-      {
-        MERROR("Invalid SSL certificate, error " << err << " at depth " << depth << ", connection dropped");
-        return false;
-      }
-    }
-    if (!ssl_context.allow_any_cert && !is_certificate_allowed(ctx, ssl_context))
-    {
+    // preverified means it passed system or user CA check. System CA is never loaded
+    // when fingerprints are whitelisted.
+    if (!preverified && !ssl_context.allow_any_cert && !is_certificate_allowed(ctx, ssl_context)) {
       MERROR("Certificate is not in the allowed list, connection droppped");
       return false;
     }
