@@ -32,8 +32,8 @@ from .rpc import JSONRPC
 
 class Wallet(object):
 
-    def __init__(self, protocol='http', host='127.0.0.1', port=18083, path='/json_rpc'):
-        self.rpc = JSONRPC('{protocol}://{host}:{port}{path}'.format(protocol=protocol, host=host, port=port, path=path))
+    def __init__(self, protocol='http', host='127.0.0.1', port=18083):
+        self.rpc = JSONRPC('{protocol}://{host}:{port}'.format(protocol=protocol, host=host, port=port))
 
     def make_uniform_destinations(self, address, transfer_amount, transfer_number_of_destinations=1):
         destinations = []
@@ -60,7 +60,7 @@ class Wallet(object):
         }
         if(len(payment_id) > 0):
             transfer['params'].update({'payment_id' : payment_id})
-        return self.rpc.send_request(transfer)   
+        return self.rpc.send_json_rpc_request(transfer)   
 
     def transfer_split(self, destinations, ringsize=7, payment_id=''):
         print(destinations)
@@ -77,7 +77,7 @@ class Wallet(object):
         }
         if(len(payment_id) > 0):
             transfer['params'].update({'payment_id' : payment_id})
-        return self.rpc.send_request(transfer)   
+        return self.rpc.send_json_rpc_request(transfer)   
 
     def create_wallet(self, index=''):
         create_wallet = {
@@ -90,7 +90,7 @@ class Wallet(object):
             'jsonrpc': '2.0', 
             'id': '0'
         }
-        return self.rpc.send_request(create_wallet)
+        return self.rpc.send_json_rpc_request(create_wallet)
 
     def get_balance(self):
         get_balance = {
@@ -98,7 +98,7 @@ class Wallet(object):
             'jsonrpc': '2.0', 
             'id': '0'
         }
-        return self.rpc.send_request(get_balance)
+        return self.rpc.send_json_rpc_request(get_balance)
 
     def sweep_dust(self):
         sweep_dust = {
@@ -106,7 +106,7 @@ class Wallet(object):
             'jsonrpc': '2.0', 
             'id': '0'   
         }
-        return self.rpc.send_request(sweep_dust)
+        return self.rpc.send_json_rpc_request(sweep_dust)
 
     def sweep_all(self, address):
         sweep_all = {
@@ -117,4 +117,4 @@ class Wallet(object):
             'jsonrpc': '2.0', 
             'id': '0'
         }
-        return self.rpc.send_request(sweep_all)
+        return self.rpc.send_json_rpc_request(sweep_all)
