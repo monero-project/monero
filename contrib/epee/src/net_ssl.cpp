@@ -302,18 +302,33 @@ bool ssl_handshake(boost::asio::ssl::stream<boost::asio::ip::tcp::socket> &socke
   bool verified = false;
   socket.next_layer().set_option(boost::asio::ip::tcp::no_delay(true));
 
-  socket.set_verify_mode(boost::asio::ssl::verify_peer);
-  socket.set_verify_callback([&](bool preverified, boost::asio::ssl::verify_context &ctx)
+  /* Using system-wide CA store for client verification is funky - there is
+     no expected hostname for server to verify against. If server doesn't have
+     specific whitelisted certificates for client, don't require client to
+     send certificate at all. */
+  const bool no_verification = ssl_context.allow_any_cert ||
+    (type == boost::asio::ssl::stream_base::server && ssl_context.allowed_fingerprints.empty() && ssl_context.ca_path.empty());
+
+  /* According to OpenSSL documentation (and SSL specifications), server must
+     always send certificate unless "anonymous" cipher mode is used which are
+     disabled by default. Either way, the certificate is never inspected. */
+  if (no_verification)
+    socket.set_verify_mode(boost::asio::ssl::verify_none);
+  else
   {
-    // preverified means it passed system or user CA check. System CA is never loaded
-    // when fingerprints are whitelisted.
-    if (!preverified && !ssl_context.allow_any_cert && !is_certificate_allowed(ctx, ssl_context)) {
-      MERROR("Certificate is not in the allowed list, connection droppped");
-      return false;
-    }
-    verified = true;
-    return true;
-  });
+    socket.set_verify_mode(boost::asio::ssl::verify_peer);
+    socket.set_verify_callback([&](bool preverified, boost::asio::ssl::verify_context &ctx)
+    {
+      // preverified means it passed system or user CA check. System CA is never loaded
+      // when fingerprints are whitelisted.
+      if (!preverified && !is_certificate_allowed(ctx, ssl_context)) {
+        MERROR("Certificate is not in the allowed list, connection droppped");
+        return false;
+      }
+      verified = true;
+      return true;
+    });
+  }
 
   boost::system::error_code ec;
   socket.handshake(type, ec);
@@ -322,7 +337,7 @@ bool ssl_handshake(boost::asio::ssl::stream<boost::asio::ip::tcp::socket> &socke
     MERROR("handshake failed, connection dropped: " << ec.message());
     return false;
   }
-  if (!ssl_context.allow_any_cert && !verified)
+  if (!no_verification && !verified)
   {
     MERROR("Peer did not provide a certificate in the allowed list, connection dropped");
     return false;
