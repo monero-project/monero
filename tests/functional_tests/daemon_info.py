@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 # Copyright (c) 2018 The Monero Project
 # 
 # All rights reserved.
@@ -26,58 +28,62 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import requests
-import json
+"""Test daemon RPC calls
 
-class Response(dict):
-    def __init__(self, d):
-        for k in d.keys():
-            if type(d[k]) == dict:
-                self[k] = Response(d[k])
-            elif type(d[k]) == list:
-                self[k] = []
-                for i in range(len(d[k])):
-                    if type(d[k][i]) == dict:
-                        self[k].append(Response(d[k][i]))
-                    else:
-                        self[k].append(d[k][i])
-            else:
-                self[k] = d[k]
+Test the following RPCs:
+    - get_info
+    - hard_fork_info
 
-    def __getattr__(self, key):
-        return self[key]
-    def __setattr__(self, key, value):
-        self[key] = value
-    def __eq__(self, other):
-        if type(other) == dict:
-            return self == Response(other)
-        if self.keys() != other.keys():
-            return False
-        for k in self.keys():
-            if self[k] != other[k]:
-                return False
-        return True
+"""
 
-class JSONRPC(object):
-    def __init__(self, url):
-        self.url = url
+from test_framework.daemon import Daemon
 
-    def send_request(self, path, inputs, result_field = None):
-        res = requests.post(
-            self.url + path,
-            data=json.dumps(inputs),
-            headers={'content-type': 'application/json'})
-        res = res.json()
-        
-        assert 'error' not in res, res
+class DaemonGetInfoTest():
+    def run_test(self):
+        self._test_hardfork_info()
+        self._test_get_info()
 
-        if result_field:
-            res = res[result_field]
+    def _test_hardfork_info(self):
+        print('Test hard_fork_info')
 
-        return Response(res)
+        daemon = Daemon()
+        res = daemon.hard_fork_info()
 
-    def send_json_rpc_request(self, inputs):
-        return self.send_request("/json_rpc", inputs, 'result')
+        # hard_fork version should be set at height 1
+        assert 'earliest_height' in res.keys()
+        #assert res['earliest_height'] == 1;
+        assert res.earliest_height == 1
+
+    def _test_get_info(self):
+        print('Test get_info')
+
+        daemon = Daemon()
+        res = daemon.get_info()
+
+        # difficulty should be set to 1 for this test
+        assert 'difficulty' in res.keys()
+        assert res.difficulty == 1;
+
+        # nettype should not be TESTNET
+        assert 'testnet' in res.keys()
+        assert res.testnet == False;
+
+        # nettype should not be STAGENET
+        assert 'stagenet' in res.keys()
+        assert res.stagenet == False;
+
+        # nettype should be FAKECHAIN
+        assert 'nettype' in res.keys()
+        assert res.nettype == "fakechain";
+
+        # free_space should be > 0
+        assert 'free_space' in res.keys()
+        assert res.free_space > 0
+
+        # height should be greater or equal to 1
+        assert 'height' in res.keys()
+        assert res.height >= 1
 
 
-
+if __name__ == '__main__':
+    DaemonGetInfoTest().run_test()

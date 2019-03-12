@@ -32,8 +32,8 @@ from .rpc import JSONRPC
 
 class Daemon(object):
 
-    def __init__(self, protocol='http', host='127.0.0.1', port=18081, path='/json_rpc'):
-        self.rpc = JSONRPC('{protocol}://{host}:{port}{path}'.format(protocol=protocol, host=host, port=port, path=path))
+    def __init__(self, protocol='http', host='127.0.0.1', port=18081):
+        self.rpc = JSONRPC('{protocol}://{host}:{port}'.format(protocol=protocol, host=host, port=port))
 
     def getblocktemplate(self, address):
         getblocktemplate = {
@@ -45,7 +45,7 @@ class Daemon(object):
             'jsonrpc': '2.0', 
             'id': '0'
         }
-        return self.rpc.send_request(getblocktemplate)
+        return self.rpc.send_json_rpc_request(getblocktemplate)
 
     def submitblock(self, block):
         submitblock = {
@@ -54,7 +54,7 @@ class Daemon(object):
             'jsonrpc': '2.0', 
             'id': '0'
         }    
-        return self.rpc.send_request(submitblock)
+        return self.rpc.send_json_rpc_request(submitblock)
 
     def getblock(self, height=0):
         getblock = {
@@ -65,7 +65,39 @@ class Daemon(object):
             'jsonrpc': '2.0', 
             'id': '0'
         }
-        return self.rpc.send_request(getblock)
+        return self.rpc.send_json_rpc_request(getblock)
+
+    def getlastblockheader(self):
+        getlastblockheader = {
+            'method': 'getlastblockheader',
+            'params': {
+            },
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(getlastblockheader)
+
+    def getblockheaderbyhash(self, hash):
+        getblockheaderbyhash = {
+            'method': 'getblockheaderbyhash',
+            'params': {
+                'hash': hash,
+            },
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(getblockheaderbyhash)
+
+    def getblockheaderbyheight(self, height):
+        getblockheaderbyheight = {
+            'method': 'getblockheaderbyheight',
+            'params': {
+                'height': height,
+            },
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(getblockheaderbyheight)
 
     def get_connections(self):
         get_connections = {
@@ -73,7 +105,7 @@ class Daemon(object):
             'jsonrpc': '2.0', 
             'id': '0'
         }
-        return self.rpc.send_request(get_connections)
+        return self.rpc.send_json_rpc_request(get_connections)
 
     def get_info(self):
         get_info = {
@@ -81,7 +113,7 @@ class Daemon(object):
                 'jsonrpc': '2.0', 
                 'id': '0'
         }    
-        return self.rpc.send_request(get_info)    
+        return self.rpc.send_json_rpc_request(get_info)
 
     def hard_fork_info(self):
         hard_fork_info = {
@@ -89,7 +121,7 @@ class Daemon(object):
                 'jsonrpc': '2.0', 
                 'id': '0'
         }    
-        return self.rpc.send_request(hard_fork_info)    
+        return self.rpc.send_json_rpc_request(hard_fork_info)
 
     def generateblocks(self, address, blocks=1):
         generateblocks = {
@@ -102,4 +134,18 @@ class Daemon(object):
             'jsonrpc': '2.0', 
             'id': '0'
         }
-        return self.rpc.send_request(generateblocks)
+        return self.rpc.send_json_rpc_request(generateblocks)
+
+    def get_height(self):
+        get_height = {
+                'method': 'get_height',
+                'jsonrpc': '2.0',
+                'id': '0'
+        }
+        return self.rpc.send_request("/get_height", get_height)
+
+    def pop_blocks(self, nblocks = 1):
+        pop_blocks = {
+            'nblocks' : nblocks,
+        }
+        return self.rpc.send_request("/pop_blocks", pop_blocks)
