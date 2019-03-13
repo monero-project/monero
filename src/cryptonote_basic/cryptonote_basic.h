@@ -514,7 +514,6 @@ namespace cryptonote
   inline enum transaction_prefix::version transaction_prefix::get_max_version_for_hf(int hf_version, cryptonote::network_type nettype)
   {
     (void)nettype;
-
     if (hf_version >= cryptonote::network_version_7 && hf_version <= cryptonote::network_version_8)
       return transaction::version_2;
 
@@ -526,9 +525,8 @@ namespace cryptonote
 
   inline enum transaction_prefix::version transaction_prefix::get_min_version_for_hf(int hf_version, cryptonote::network_type nettype)
   {
-    // NOTE(loki): Add an exception for testnet as there was a TX v2 on Testnet.
-    // TODO(loki): We can remove this one day when/if we reboot testnet
-    if (nettype == TESTNET)
+    // NOTE(loki): Add an exception for mainnet as there are v2's on mainnet.
+    if (nettype == MAINNET)
     {
       if (hf_version == cryptonote::network_version_10_bulletproofs)
         return transaction::version_2;
