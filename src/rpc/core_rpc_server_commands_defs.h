@@ -364,6 +364,7 @@ namespace cryptonote
       uint64_t block_height;
       uint64_t block_timestamp;
       std::vector<uint64_t> output_indices;
+      bool relayed;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(tx_hash)
@@ -377,6 +378,7 @@ namespace cryptonote
         KV_SERIALIZE(block_height)
         KV_SERIALIZE(block_timestamp)
         KV_SERIALIZE(output_indices)
+        KV_SERIALIZE(relayed)
       END_KV_SERIALIZE_MAP()
     };
 
