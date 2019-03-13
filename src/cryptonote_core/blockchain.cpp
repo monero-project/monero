@@ -101,7 +101,7 @@ static const hard_fork_record mainnet_hard_forks[] =
   { network_version_8,                   64324,  0, 1533006000 },
   { network_version_9_service_nodes,     101250, 0, 1537444800 },
   { network_version_10_bulletproofs,     161849, 0, 1544743800 }, // 2018-12-13 23:30UTC
-  { network_version_11_infinite_staking, 230704, 0, 1553047200 }, // 2019-03-20 13:00AEDT
+  { network_version_11_infinite_staking, 234767, 0, 1554170400 }, // 2019-03-26 13:00AEDT
 };
 
 static const hard_fork_record testnet_hard_forks[] =
