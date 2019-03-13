@@ -2477,9 +2477,11 @@ namespace cryptonote
     {
       std::vector<std::string> args;
       bool make_friendly; // Provide information about how to use the command in the result
+      uint64_t staking_requirement;
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(args)
         KV_SERIALIZE(make_friendly)
+        KV_SERIALIZE(staking_requirement)
       END_KV_SERIALIZE_MAP()
     };
 
@@ -2511,10 +2513,12 @@ namespace cryptonote
     {
       std::string operator_cut;
       std::vector<contribution_t> contributions;
+      uint64_t staking_requirement;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(operator_cut)
         KV_SERIALIZE(contributions)
+        KV_SERIALIZE(staking_requirement)
       END_KV_SERIALIZE_MAP()
     };
 

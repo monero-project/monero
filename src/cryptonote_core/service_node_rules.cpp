@@ -93,7 +93,7 @@ uint64_t get_min_node_contribution(uint8_t version, uint64_t staking_requirement
   const uint64_t needed                 = staking_requirement - total_reserved;
   const size_t max_num_of_contributions = MAX_NUMBER_OF_CONTRIBUTORS * MAX_KEY_IMAGES_PER_CONTRIBUTOR;
   assert(max_num_of_contributions > num_contributions);
-  if (max_num_of_contributions <= num_contributions) return 0;
+  if (max_num_of_contributions <= num_contributions) return UINT64_MAX;
 
   const size_t num_contributions_remaining_avail = max_num_of_contributions - num_contributions;
   return needed / num_contributions_remaining_avail;
@@ -102,7 +102,7 @@ uint64_t get_min_node_contribution(uint8_t version, uint64_t staking_requirement
 uint64_t get_min_node_contribution_in_portions(uint8_t version, uint64_t staking_requirement, uint64_t total_reserved, size_t num_contributions)
 {
   uint64_t atomic_amount = get_min_node_contribution(version, staking_requirement, total_reserved, num_contributions);
-  uint64_t result        = get_portions_to_make_amount(staking_requirement, atomic_amount);
+  uint64_t result        = (atomic_amount == UINT64_MAX) ? UINT64_MAX : (get_portions_to_make_amount(staking_requirement, atomic_amount));
   return result;
 }
 
