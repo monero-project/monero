@@ -319,6 +319,8 @@ namespace tools
 
     entry.type = "out";
     entry.subaddr_index = { pd.m_subaddr_account, 0 };
+    for (uint32_t i: pd.m_subaddr_indices)
+      entry.subaddr_indices.push_back({pd.m_subaddr_account, i});
     entry.address = m_wallet->get_subaddress_as_str({pd.m_subaddr_account, 0});
     set_confirmations(entry, m_wallet->get_blockchain_current_height(), m_wallet->get_last_block_reward());
   }
@@ -339,6 +341,8 @@ namespace tools
     entry.note = m_wallet->get_tx_note(txid);
     entry.type = is_failed ? "failed" : "pending";
     entry.subaddr_index = { pd.m_subaddr_account, 0 };
+    for (uint32_t i: pd.m_subaddr_indices)
+      entry.subaddr_indices.push_back({pd.m_subaddr_account, i});
     entry.address = m_wallet->get_subaddress_as_str({pd.m_subaddr_account, 0});
     set_confirmations(entry, m_wallet->get_blockchain_current_height(), m_wallet->get_last_block_reward());
   }
