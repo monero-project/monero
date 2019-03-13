@@ -3177,6 +3177,7 @@ bool t_rpc_command_executor::prepare_registration()
 
     req.args = args;
     req.make_friendly = true;
+    req.staking_requirement = staking_requirement;
     if (m_is_rpc)
     {
       if (!m_rpc_client->json_rpc_request(req, res, "get_service_node_registration_cmd_raw", fail_message))

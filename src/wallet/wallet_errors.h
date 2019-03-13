@@ -124,6 +124,7 @@ namespace tools
       "failed to get out indices",
       "failed to get random outs",
       "failed to get service node data",
+      "failed to get hard fork version",
     };
     enum failed_rpc_request_message_indices
     {
@@ -132,6 +133,7 @@ namespace tools
       get_out_indices_error_message_index,
       get_outs_error_message_index,
       get_service_nodes_error_message_index,
+      get_hard_fork_version_error_message_index,
     };
 
     template<typename Base, int msg_index>
@@ -447,6 +449,8 @@ namespace tools
       {
       }
     };
+    //----------------------------------------------------------------------------------------------------
+    typedef failed_rpc_request<transfer_error, get_hard_fork_version_error_message_index> get_hard_fork_version_error;
     //----------------------------------------------------------------------------------------------------
     typedef failed_rpc_request<transfer_error, get_outs_error_message_index> get_outs_error;
     //----------------------------------------------------------------------------------------------------

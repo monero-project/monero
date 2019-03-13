@@ -1095,7 +1095,9 @@ namespace tools
     size_t get_num_transfer_details() const { return m_transfers.size(); }
     const transfer_details &get_transfer_details(size_t idx) const;
 
-    void get_hard_fork_info(uint8_t version, uint64_t &earliest_height) const;
+    void get_hard_fork_info (uint8_t version, uint64_t &earliest_height) const;
+    boost::optional<uint8_t> get_hard_fork_version() const { return m_node_rpc_proxy.get_hardfork_version(); }
+
     bool use_fork_rules(uint8_t version, uint64_t early_blocks = 0) const;
     int get_fee_algorithm() const;
 

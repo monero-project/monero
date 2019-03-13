@@ -7130,7 +7130,7 @@ wallet2::stake_result wallet2::check_stake_allowed(const crypto::public_key& sn_
     return result;
   }
 
-  const boost::optional<uint8_t> res = m_node_rpc_proxy.get_network_version();
+  const boost::optional<uint8_t> res = m_node_rpc_proxy.get_hardfork_version();
   if (!res)
   {
     result.status = stake_result_status::network_version_query_failed;
@@ -7145,9 +7145,9 @@ wallet2::stake_result wallet2::check_stake_allowed(const crypto::public_key& sn_
   for (COMMAND_RPC_GET_SERVICE_NODES::response::contributor const &contributor : snode_info.contributors)
     total_num_locked_contributions += contributor.locked_contributions.size();
 
-  uint8_t const hf_version     = *res;
-  uint64_t max_contrib_total   = snode_info.staking_requirement - snode_info.total_reserved;
-  uint64_t min_contrib_total   = service_nodes::get_min_node_contribution(hf_version, snode_info.staking_requirement, snode_info.total_reserved, total_num_locked_contributions);
+  uint8_t const hf_version   = *res;
+  uint64_t max_contrib_total = snode_info.staking_requirement - snode_info.total_reserved;
+  uint64_t min_contrib_total = service_nodes::get_min_node_contribution(hf_version, snode_info.staking_requirement, snode_info.total_reserved, total_num_locked_contributions);
 
   bool is_preexisting_contributor = false;
   for (const auto& contributor : snode_info.contributors)
@@ -8457,14 +8457,11 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
   LOG_PRINT_L2("constructing tx");
   auto sources_copy = sources;
 
-  // TODO(loki): This should be replaced with a NodeRPCProxy function to get the
-  // current hardfork version. Then use the constructor to get the rules?
-  loki_construct_tx_params tx_params = {};
-  tx_params.v4_allow_tx_types    = use_fork_rules(network_version_11_infinite_staking, 5);
-  tx_params.v3_per_output_unlock = use_fork_rules(network_version_9_service_nodes, 5);
-  tx_params.v3_is_staking_tx     = is_staking_tx;
-  tx_params.v2_rct               = true;
+  boost::optional<uint8_t> hf_version = get_hard_fork_version();
+  THROW_WALLET_EXCEPTION_IF(!hf_version, error::get_hard_fork_version_error, "Failed to query current hard fork version");
 
+  loki_construct_tx_params tx_params(*hf_version);
+  tx_params.v3_is_staking_tx = is_staking_tx;
   bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), m_subaddresses, sources, splitted_dsts, change_dts, extra, tx, unlock_time, tx_key, additional_tx_keys, rct_config, m_multisig ? &msout : NULL, tx_params);
 
   LOG_PRINT_L2("constructed tx, r="<<r);

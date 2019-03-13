@@ -159,7 +159,7 @@ boost::optional<std::string> NodeRPCProxy::get_earliest_height(uint8_t version, 
   return boost::optional<std::string>();
 }
 
-boost::optional<uint8_t> NodeRPCProxy::get_network_version() const
+boost::optional<uint8_t> NodeRPCProxy::get_hardfork_version() const
 {
   cryptonote::COMMAND_RPC_HARD_FORK_INFO::request req = AUTO_VAL_INIT(req);
   cryptonote::COMMAND_RPC_HARD_FORK_INFO::response resp = AUTO_VAL_INIT(resp);

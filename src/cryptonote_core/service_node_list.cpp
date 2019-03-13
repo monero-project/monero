@@ -651,8 +651,8 @@ namespace service_nodes
           if (tx.version >= cryptonote::transaction::version_3_per_output_unlock_times)
             unlock_time = tx.output_unlock_times[i];
 
-          has_correct_unlock_time = unlock_time < CRYPTONOTE_MAX_BLOCK_NUMBER &&
-                                    unlock_time >= block_height + staking_num_lock_blocks(nettype);
+          uint64_t min_height = block_height + staking_num_lock_blocks(nettype);
+          has_correct_unlock_time = unlock_time < CRYPTONOTE_MAX_BLOCK_NUMBER && unlock_time >= min_height;
         }
 
         if (has_correct_unlock_time)
@@ -1722,109 +1722,124 @@ namespace service_nodes
     return result;
   }
 
-  bool convert_registration_args(cryptonote::network_type nettype,
-                                 const std::vector<std::string>& args,
-                                 std::vector<cryptonote::account_public_address>& addresses,
-                                 std::vector<uint64_t>& portions,
-                                 uint64_t& portions_for_operator,
-                                 boost::optional<std::string&> err_msg)
+  converted_registration_args convert_registration_args(cryptonote::network_type nettype,
+                                                        const std::vector<std::string>& args,
+                                                        uint64_t staking_requirement,
+                                                        int hf_version)
   {
+    converted_registration_args result = {};
     if (args.size() % 2 == 0 || args.size() < 3)
     {
-      MERROR(tr("Usage: <operator cut> <address> <fraction> [<address> <fraction> [...]]]"));
-      return false;
+      result.err_msg = tr("Usage: <operator cut> <address> <fraction> [<address> <fraction> [...]]]");
+      return result;
     }
+
     if ((args.size()-1)/ 2 > MAX_NUMBER_OF_CONTRIBUTORS)
     {
-      std::string msg = tr("Exceeds the maximum number of contributors, which is ") + std::to_string(MAX_NUMBER_OF_CONTRIBUTORS);
-      if (err_msg) *err_msg = msg;
-      MERROR(tr("Exceeds the maximum number of contributors, which is ") << MAX_NUMBER_OF_CONTRIBUTORS);
-      return false;
+      result.err_msg = tr("Exceeds the maximum number of contributors, which is ") + std::to_string(MAX_NUMBER_OF_CONTRIBUTORS);
+      return result;
     }
-    addresses.clear();
-    portions.clear();
+
     try
     {
-      portions_for_operator = boost::lexical_cast<uint64_t>(args[0]);
-      if (portions_for_operator > STAKING_PORTIONS)
+      result.portions_for_operator = boost::lexical_cast<uint64_t>(args[0]);
+      if (result.portions_for_operator > STAKING_PORTIONS)
       {
-        MERROR(tr("Invalid portion amount: ") << args[0] << tr(". ") << tr("Must be between 0 and ") << STAKING_PORTIONS);
-        return false;
+        result.err_msg = tr("Invalid portion amount: ") + args[0] + tr(". Must be between 0 and ") + std::to_string(STAKING_PORTIONS);
+        return result;
       }
     }
     catch (const std::exception &e)
     {
-      MERROR(tr("Invalid portion amount: ") << args[0] << tr(". ") << tr("Must be between 0 and ") << STAKING_PORTIONS);
-      return false;
+      result.err_msg = tr("Invalid portion amount: ") + args[0] + tr(". Must be between 0 and ") + std::to_string(STAKING_PORTIONS);
+      return result;
     }
-    uint64_t portions_left = STAKING_PORTIONS;
-    for (size_t i = 1; i < args.size(); i += 2)
+
+    size_t const OPERATOR_ARG_INDEX     = 1;
+    uint64_t amount_payable_by_operator = 0;
+    uint64_t total_reserved             = 0;
+    for (size_t i = OPERATOR_ARG_INDEX, num_contributions = 0;
+         i < args.size();
+         i += 2, ++num_contributions)
     {
       cryptonote::address_parse_info info;
       if (!cryptonote::get_account_address_from_str(info, nettype, args[i]))
       {
-        std::string msg = tr("failed to parse address: ") + args[i];
-        if (err_msg) *err_msg = msg;
-        MERROR(msg);
-        return false;
+        result.err_msg = tr("Failed to parse address: ") + args[i];
+        return result;
       }
 
       if (info.has_payment_id)
       {
-        MERROR(tr("can't use a payment id for staking tx"));
-        return false;
+        result.err_msg = tr("Can't use a payment id for staking tx");
+        return result;
       }
 
       if (info.is_subaddress)
       {
-        std::string msg = tr("can't use a subaddress for staking tx");
-        if (err_msg) *err_msg = msg;
-        MERROR(msg);
-        return false;
+        result.err_msg = tr("Can't use a subaddress for staking tx");
+        return result;
       }
-
-      addresses.push_back(info.address);
 
       try
       {
         uint64_t num_portions = boost::lexical_cast<uint64_t>(args[i+1]);
-        uint64_t min_portions = std::min(portions_left, MIN_PORTIONS);
-        if (num_portions < min_portions || num_portions > portions_left)
+        uint64_t min_portions = get_min_node_contribution_in_portions(hf_version, staking_requirement, total_reserved, num_contributions);
+        if (num_portions < min_portions)
         {
-          if (err_msg) *err_msg = "invalid amount for contributor " + args[i];
-          MERROR(tr("Invalid portion amount: ") << args[i+1] << tr(". ") << tr("The contributors must each have at least 25%, except for the last contributor which may have the remaining amount"));
-          return false;
+          result.err_msg = tr("Invalid amount for contributor: ") + args[i] + tr(", with portion amount: ") + args[i+1] + tr(". The contributors must each have at least 25%, except for the last contributor which may have the remaining amount");
+          return result;
         }
-        portions_left -= num_portions;
-        portions.push_back(num_portions);
+
+        if (min_portions == UINT64_MAX)
+        {
+          result.err_msg = tr("Too many contributors specified, you can only split a node with up to: ") + std::to_string(MAX_NUMBER_OF_CONTRIBUTORS) + tr(" people.");
+          return result;
+        }
+
+        result.addresses.push_back(info.address);
+        result.portions.push_back(num_portions);
+        uint64_t loki_amount = service_nodes::portions_to_amount(num_portions, staking_requirement);
+        total_reserved      += loki_amount;
       }
       catch (const std::exception &e)
       {
-        if (err_msg) *err_msg = "invalid amount for contributor " + args[i];
-        MERROR(tr("Invalid portion amount: ") << args[i+1] << tr(". ") << tr("The contributors must each have at least 25%, except for the last contributor which may have the remaining amount"));
-        return false;
+        result.err_msg = tr("Invalid amount for contributor: ") + args[i] + tr(", with portion amount that could not be converted to a number: ") + args[i+1];
+        return result;
       }
     }
-    return true;
+
+    uint64_t amount_left = staking_requirement - total_reserved;
+    const uint64_t DUST  = MAX_NUMBER_OF_CONTRIBUTORS;
+    if (amount_left <= DUST)
+      result.portions[0] += amount_left;
+
+    result.success = true;
+    return result;
   }
 
-  bool make_registration_cmd(cryptonote::network_type nettype, const std::vector<std::string> &args, const crypto::public_key& service_node_pubkey,
-                             const crypto::secret_key &service_node_key, std::string &cmd, bool make_friendly, boost::optional<std::string&> err_msg)
+  bool make_registration_cmd(cryptonote::network_type nettype,
+      int hf_version,
+      uint64_t staking_requirement,
+      const std::vector<std::string>& args,
+      const crypto::public_key& service_node_pubkey,
+      const crypto::secret_key &service_node_key,
+      std::string &cmd,
+      bool make_friendly,
+      boost::optional<std::string&> err_msg)
   {
 
-    std::vector<cryptonote::account_public_address> addresses;
-    std::vector<uint64_t> portions;
-    uint64_t operator_portions;
-    if (!convert_registration_args(nettype, args, addresses, portions, operator_portions, err_msg))
+    converted_registration_args converted_args = convert_registration_args(nettype, args, staking_requirement, hf_version);
+    if (!converted_args.success)
     {
-      MERROR(tr("Could not convert registration args"));
+      MERROR(tr("Could not convert registration args, reason: ") << converted_args.err_msg);
       return false;
     }
 
     uint64_t exp_timestamp = time(nullptr) + STAKING_AUTHORIZATION_EXPIRATION_WINDOW;
 
     crypto::hash hash;
-    bool hashed = cryptonote::get_registration_hash(addresses, operator_portions, portions, exp_timestamp, hash);
+    bool hashed = cryptonote::get_registration_hash(converted_args.addresses, converted_args.portions_for_operator, converted_args.portions, exp_timestamp, hash);
     if (!hashed)
     {
       MERROR(tr("Could not make registration hash from addresses and portions"));
