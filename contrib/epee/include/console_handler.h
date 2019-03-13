@@ -357,6 +357,7 @@ eof:
           if (m_stdin_reader.eos())
           {
             MGINFO("EOF on stdin, exiting");
+            std::cout << std::endl;
             break;
           }
           if (!get_line_ret)
