@@ -578,14 +578,14 @@ namespace service_nodes
 
     if (!cryptonote::get_tx_secret_key_from_tx_extra(tx.extra, parsed_contribution.tx_key))
     {
-      MERROR("Contribution TX: There was a service node contributor but no secret key in the tx extra on height: " << block_height << " for tx: " << get_transaction_hash(tx));
+      LOG_PRINT_L1("Contribution TX: There was a service node contributor but no secret key in the tx extra on height: " << block_height << " for tx: " << get_transaction_hash(tx));
       return false;
     }
 
     crypto::key_derivation derivation;
     if (!crypto::generate_key_derivation(parsed_contribution.address.m_view_public_key, parsed_contribution.tx_key, derivation))
     {
-      MERROR("Contribution TX: Failed to generate key derivation on height: " << block_height << " for tx: " << get_transaction_hash(tx));
+      LOG_PRINT_L1("Contribution TX: Failed to generate key derivation on height: " << block_height << " for tx: " << get_transaction_hash(tx));
       return false;
     }
 
@@ -597,7 +597,7 @@ namespace service_nodes
       cryptonote::tx_extra_tx_key_image_proofs key_image_proofs;
       if (!get_tx_key_image_proofs_from_tx_extra(tx.extra, key_image_proofs))
       {
-        MERROR("Contribution TX: Didn't have key image proofs in the tx_extra, rejected on height: " << block_height << " for tx: " << get_transaction_hash(tx));
+        LOG_PRINT_L1("Contribution TX: Didn't have key image proofs in the tx_extra, rejected on height: " << block_height << " for tx: " << get_transaction_hash(tx));
         return false;
       }
 
@@ -611,14 +611,14 @@ namespace service_nodes
         {
           if (!hwdev.derive_public_key(derivation, output_index, parsed_contribution.address.m_spend_public_key, ephemeral_pub_key))
           {
-            MERROR("Contribution TX: Could not derive TX ephemeral key on height: " << block_height << " for tx: " << get_transaction_hash(tx) << " for output: " << output_index);
+            LOG_PRINT_L1("Contribution TX: Could not derive TX ephemeral key on height: " << block_height << " for tx: " << get_transaction_hash(tx) << " for output: " << output_index);
             continue;
           }
 
           const auto& out_to_key = boost::get<cryptonote::txout_to_key>(tx.vout[output_index].target);
           if (out_to_key.key != ephemeral_pub_key)
           {
-            MERROR("Contribution TX: Derived TX ephemeral key did not match tx stored key on height: " << block_height << " for tx: " << get_transaction_hash(tx) << " for output: " << output_index);
+            LOG_PRINT_L1("Contribution TX: Derived TX ephemeral key did not match tx stored key on height: " << block_height << " for tx: " << get_transaction_hash(tx) << " for output: " << output_index);
             continue;
           }
         }
@@ -677,10 +677,10 @@ namespace service_nodes
 
     if (service_node_portions.size() != service_node_addresses.size() || service_node_portions.empty())
     {
-      MERROR("Register TX: Extracted portions size: (" << service_node_portions.size() <<
-             ") was empty or did not match address size: (" << service_node_addresses.size() <<
-             ") on height: " << block_height <<
-             " for tx: " << cryptonote::get_transaction_hash(tx));
+      LOG_PRINT_L1("Register TX: Extracted portions size: (" << service_node_portions.size() <<
+                   ") was empty or did not match address size: (" << service_node_addresses.size() <<
+                   ") on height: " << block_height <<
+                   " for tx: " << cryptonote::get_transaction_hash(tx));
       return false;
     }
 
@@ -690,10 +690,10 @@ namespace service_nodes
 
     if (portions_for_operator > STAKING_PORTIONS)
     {
-      MERROR("Register TX: Operator portions: " << portions_for_operator <<
-             " exceeded staking portions: " << STAKING_PORTIONS <<
-             " on height: " << block_height <<
-             " for tx: " << cryptonote::get_transaction_hash(tx));
+      LOG_PRINT_L1("Register TX: Operator portions: " << portions_for_operator <<
+                   " exceeded staking portions: " << STAKING_PORTIONS <<
+                   " on height: " << block_height <<
+                   " for tx: " << cryptonote::get_transaction_hash(tx));
       return false;
     }
 
@@ -702,22 +702,22 @@ namespace service_nodes
     crypto::hash hash;
     if (!get_registration_hash(service_node_addresses, portions_for_operator, service_node_portions, expiration_timestamp, hash))
     {
-      MERROR("Register TX: Failed to extract registration hash, on height: " << block_height << " for tx: " << cryptonote::get_transaction_hash(tx));
+      LOG_PRINT_L1("Register TX: Failed to extract registration hash, on height: " << block_height << " for tx: " << cryptonote::get_transaction_hash(tx));
       return false;
     }
 
     if (!crypto::check_key(service_node_key) || !crypto::check_signature(hash, service_node_key, signature))
     {
-      MERROR("Register TX: Has invalid key and/or signature, on height: " << block_height << " for tx: " << cryptonote::get_transaction_hash(tx));
+      LOG_PRINT_L1("Register TX: Has invalid key and/or signature, on height: " << block_height << " for tx: " << cryptonote::get_transaction_hash(tx));
       return false;
     }
 
     if (expiration_timestamp < block_timestamp)
     {
-      MERROR("Register TX: Has expired. The block timestamp: " << block_timestamp <<
-             " is greater than the expiration timestamp: " << expiration_timestamp <<
-             " on height: " << block_height <<
-             " for tx:" << cryptonote::get_transaction_hash(tx));
+      LOG_PRINT_L1("Register TX: Has expired. The block timestamp: " << block_timestamp <<
+                   " is greater than the expiration timestamp: " << expiration_timestamp <<
+                   " on height: " << block_height <<
+                   " for tx:" << cryptonote::get_transaction_hash(tx));
       return false;
     }
 
@@ -730,14 +730,14 @@ namespace service_nodes
     parsed_tx_contribution parsed_contribution = {};
     if (!get_contribution(m_blockchain.nettype(), hf_version, tx, block_height, parsed_contribution))
     {
-      MERROR("Register TX: Had service node registration fields, but could not decode contribution on height: " << block_height << " for tx: " << cryptonote::get_transaction_hash(tx));
+      LOG_PRINT_L1("Register TX: Had service node registration fields, but could not decode contribution on height: " << block_height << " for tx: " << cryptonote::get_transaction_hash(tx));
       return false;
     }
 
     const uint64_t min_transfer = get_min_node_contribution(hf_version, info.staking_requirement, info.total_reserved, info.total_num_locked_contributions());
     if (parsed_contribution.transferred < min_transfer)
     {
-      MERROR("Register TX: Contribution transferred: " << parsed_contribution.transferred << " didn't meet the minimum transfer requirement: " << min_transfer << " on height: " << block_height << " for tx: " << cryptonote::get_transaction_hash(tx));
+      LOG_PRINT_L1("Register TX: Contribution transferred: " << parsed_contribution.transferred << " didn't meet the minimum transfer requirement: " << min_transfer << " on height: " << block_height << " for tx: " << cryptonote::get_transaction_hash(tx));
       return false;
     }
 
@@ -747,10 +747,10 @@ namespace service_nodes
 
     if (total_num_of_addr > MAX_NUMBER_OF_CONTRIBUTORS)
     {
-      MERROR("Register TX: Number of participants: " << total_num_of_addr <<
-             " exceeded the max number of contributors: " << MAX_NUMBER_OF_CONTRIBUTORS <<
-             " on height: " << block_height <<
-             " for tx: " << cryptonote::get_transaction_hash(tx));
+      LOG_PRINT_L1("Register TX: Number of participants: " << total_num_of_addr <<
+                   " exceeded the max number of contributors: " << MAX_NUMBER_OF_CONTRIBUTORS <<
+                   " on height: " << block_height <<
+                   " for tx: " << cryptonote::get_transaction_hash(tx));
       return false;
     }
 
@@ -778,7 +778,7 @@ namespace service_nodes
       auto iter = std::find(service_node_addresses.begin(), service_node_addresses.begin() + i, service_node_addresses[i]);
       if (iter != service_node_addresses.begin() + i)
       {
-        MERROR("Register TX: There was a duplicate participant for service node on height: " << block_height << " for tx: " << cryptonote::get_transaction_hash(tx));
+        LOG_PRINT_L1("Register TX: There was a duplicate participant for service node on height: " << block_height << " for tx: " << cryptonote::get_transaction_hash(tx));
         return false;
       }
 
@@ -874,7 +874,7 @@ namespace service_nodes
     const int hf_version = m_blockchain.get_hard_fork_version(block_height);
     if (!get_contribution(m_blockchain.nettype(), hf_version, tx, block_height, parsed_contribution))
     {
-      MERROR("Contribution TX: Could not decode contribution for service node: " << pubkey << " on height: " << block_height << " for tx: " << cryptonote::get_transaction_hash(tx));
+      LOG_PRINT_L1("Contribution TX: Could not decode contribution for service node: " << pubkey << " on height: " << block_height << " for tx: " << cryptonote::get_transaction_hash(tx));
       return;
     }
 
@@ -900,7 +900,7 @@ namespace service_nodes
 
     if (!cryptonote::get_tx_secret_key_from_tx_extra(tx.extra, parsed_contribution.tx_key))
     {
-      MERROR("Contribution TX: Failed to get tx secret key from contribution received on height: "  << block_height << " for tx: " << cryptonote::get_transaction_hash(tx));
+      LOG_PRINT_L1("Contribution TX: Failed to get tx secret key from contribution received on height: "  << block_height << " for tx: " << cryptonote::get_transaction_hash(tx));
       return;
     }
 
@@ -1117,14 +1117,14 @@ namespace service_nodes
         service_node_info &node_info = (*it).second;
         if (node_info.requested_unlock_height != KEY_IMAGE_AWAITING_UNLOCK_HEIGHT)
         {
-          MERROR("Unlock TX: Node already requested an unlock at height: " << node_info.requested_unlock_height << " rejected on height: " << block_height << " for tx: " << get_transaction_hash(tx));
+          LOG_PRINT_L1("Unlock TX: Node already requested an unlock at height: " << node_info.requested_unlock_height << " rejected on height: " << block_height << " for tx: " << get_transaction_hash(tx));
           continue;
         }
 
         cryptonote::tx_extra_tx_key_image_unlock unlock;
         if (!cryptonote::get_tx_key_image_unlock_from_tx_extra(tx.extra, unlock))
         {
-          MERROR("Unlock TX: Didn't have key image unlock in the tx_extra, rejected on height: " << block_height << " for tx: " << get_transaction_hash(tx));
+          LOG_PRINT_L1("Unlock TX: Didn't have key image unlock in the tx_extra, rejected on height: " << block_height << " for tx: " << get_transaction_hash(tx));
           continue;
         }
 
@@ -1146,7 +1146,7 @@ namespace service_nodes
             crypto::hash const hash = service_nodes::generate_request_stake_unlock_hash(unlock.nonce);
             if (!crypto::check_signature(hash, locked_contribution->key_image_pub_key, unlock.signature))
             {
-              MERROR("Unlock TX: Couldn't verify key image unlock in the tx_extra, rejected on height: " << block_height << " for tx: " << get_transaction_hash(tx));
+              LOG_PRINT_L1("Unlock TX: Couldn't verify key image unlock in the tx_extra, rejected on height: " << block_height << " for tx: " << get_transaction_hash(tx));
               early_exit = true;
               break;
             }
@@ -1219,7 +1219,7 @@ namespace service_nodes
 
             if (it == m_key_image_blacklist.end())
             {
-              MERROR("Could not find blacklisted key image to remove");
+              LOG_PRINT_L1("Could not find blacklisted key image to remove");
               rollback_applied = false;
               break;
             }
