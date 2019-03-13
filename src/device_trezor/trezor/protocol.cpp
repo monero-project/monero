@@ -410,8 +410,8 @@ namespace tx {
     }
   }
 
-  static unsigned get_rsig_type(bool use_bulletproof, size_t num_outputs){
-    if (!use_bulletproof){
+  static unsigned get_rsig_type(const rct::RCTConfig &rct_config, size_t num_outputs){
+    if (rct_config.range_proof_type == rct::RangeProofBorromean){
       return rct::RangeProofBorromean;
     } else if (num_outputs > BULLETPROOF_MAX_OUTPUTS){
       return rct::RangeProofMultiOutputBulletproof;
@@ -506,9 +506,9 @@ namespace tx {
 
     // Rsig decision
     auto rsig_data = tsx_data.mutable_rsig_data();
-    m_ct.rsig_type = get_rsig_type(tx.use_bulletproofs, tx.splitted_dsts.size());
+    m_ct.rsig_type = get_rsig_type(tx.rct_config, tx.splitted_dsts.size());
     rsig_data->set_rsig_type(m_ct.rsig_type);
-    if (tx.use_bulletproofs){
+    if (tx.rct_config.range_proof_type != rct::RangeProofBorromean){
       m_ct.bp_version = (m_aux_data->bp_version ? m_aux_data->bp_version.get() : 1);
       rsig_data->set_bp_version((uint32_t) m_ct.bp_version);
     }
