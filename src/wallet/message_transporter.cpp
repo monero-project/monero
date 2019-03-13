@@ -96,7 +96,7 @@ void message_transporter::set_options(const std::string &bitmessage_address, con
   }
   m_bitmessage_login = bitmessage_login;
 
-  m_http_client->set_server(address_parts.host, std::to_string(address_parts.port), boost::none);
+  m_http_client->set_server(address_parts.host, std::to_string(address_parts.port), boost::none, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
 }
 
 bool message_transporter::receive_messages(const std::vector<std::string> &destination_transport_addresses,
