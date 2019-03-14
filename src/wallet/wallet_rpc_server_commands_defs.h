@@ -2282,6 +2282,50 @@ namespace wallet_rpc
     };
   };
 
+  struct COMMAND_RPC_REQUEST_STAKE_UNLOCK
+  {
+    struct request
+    {
+      std::string service_node_key;
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(service_node_key);
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      bool unlocked;
+      std::string msg;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(unlocked)
+        KV_SERIALIZE(msg)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_CAN_REQUEST_STAKE_UNLOCK
+  {
+    struct request
+    {
+      std::string service_node_key;
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(service_node_key);
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      bool can_unlock;
+      std::string msg;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(can_unlock)
+        KV_SERIALIZE(msg)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
   struct COMMAND_RPC_VALIDATE_ADDRESS
   {
     struct request

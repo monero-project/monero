@@ -3876,6 +3876,69 @@ namespace tools
     return fill_response(ptx_vector, req.get_tx_key, res.tx_key, res.amount, res.fee, res.multisig_txset, res.unsigned_txset, req.do_not_relay,
         res.tx_hash, req.get_tx_hex, res.tx_blob, req.get_tx_metadata, res.tx_metadata, er);
   }
+
+  bool wallet_rpc_server::on_can_request_stake_unlock(const wallet_rpc::COMMAND_RPC_CAN_REQUEST_STAKE_UNLOCK::request& req, wallet_rpc::COMMAND_RPC_CAN_REQUEST_STAKE_UNLOCK::response& res, epee::json_rpc::error& er, const connection_context *ctx)
+  {
+    if (!m_wallet) return not_open(er);
+    if (m_restricted)
+    {
+      er.code    = WALLET_RPC_ERROR_CODE_DENIED;
+      er.message = "Can request stake unlock is unavailable in restricted mode.";
+      return false;
+    }
+
+    crypto::public_key snode_key             = {};
+    if (!epee::string_tools::hex_to_pod(req.service_node_key, snode_key))
+    {
+      er.code    = WALLET_RPC_ERROR_CODE_WRONG_KEY;
+      er.message = std::string("Unparsable service node key given: ") + req.service_node_key;
+      return false;
+    }
+
+    tools::wallet2::request_stake_unlock_result unlock_result = m_wallet->can_request_stake_unlock(snode_key);
+    res.can_unlock = unlock_result.success;
+    res.msg        = unlock_result.msg;
+    return true;
+  }
+
+  // TODO(loki): Deprecate this and make it return the TX as hex? Then just transfer it as normal? But these have no fees and or amount .. so maybe not?
+  bool wallet_rpc_server::on_request_stake_unlock(const wallet_rpc::COMMAND_RPC_REQUEST_STAKE_UNLOCK::request& req, wallet_rpc::COMMAND_RPC_REQUEST_STAKE_UNLOCK::response& res, epee::json_rpc::error& er, const connection_context *ctx)
+  {
+    if (!m_wallet) return not_open(er);
+    if (m_restricted)
+    {
+      er.code    = WALLET_RPC_ERROR_CODE_DENIED;
+      er.message = "Can request stake unlock is unavailable in restricted mode.";
+      return false;
+    }
+
+    crypto::public_key snode_key             = {};
+    if (!epee::string_tools::hex_to_pod(req.service_node_key, snode_key))
+    {
+      er.code    = WALLET_RPC_ERROR_CODE_WRONG_KEY;
+      er.message = std::string("Unparsable service node key given: ") + req.service_node_key;
+      return false;
+    }
+
+    tools::wallet2::request_stake_unlock_result unlock_result = m_wallet->can_request_stake_unlock(snode_key);
+    if (unlock_result.success)
+    {
+      try
+      {
+        m_wallet->commit_tx(unlock_result.ptx);
+      }
+      catch(const std::exception &e)
+      {
+        er.code = WALLET_RPC_ERROR_CODE_GENERIC_TRANSFER_ERROR;
+        er.message = "Failed to commit tx.";
+        return false;
+      }
+    }
+
+    res.unlocked = unlock_result.success;
+    res.msg      = unlock_result.msg;
+    return res.unlocked;
+  }
 }
 
 class t_daemon

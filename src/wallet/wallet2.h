@@ -1345,6 +1345,14 @@ namespace tools
     };
     register_service_node_result create_register_service_node_tx(const std::vector<std::string> &args_, uint32_t subaddr_account = 0);
 
+    struct request_stake_unlock_result
+    {
+      bool        success;
+      std::string msg;
+      pending_tx  ptx;
+    };
+    request_stake_unlock_result can_request_stake_unlock(const crypto::public_key &sn_key);
+
     // MMS -------------------------------------------------------------------------------------------------
     mms::message_store& get_message_store() { return m_message_store; };
     const mms::message_store& get_message_store() const { return m_message_store; };

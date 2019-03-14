@@ -7545,6 +7545,129 @@ wallet2::register_service_node_result wallet2::create_register_service_node_tx(c
   }
 }
 
+wallet2::request_stake_unlock_result wallet2::can_request_stake_unlock(const crypto::public_key &sn_key)
+{
+  request_stake_unlock_result result = {};
+  result.ptx.tx.version              = cryptonote::transaction::version_4_tx_types;
+  if (!result.ptx.tx.set_type(cryptonote::transaction::type_key_image_unlock))
+  {
+    result.msg = tr("Failed to construct a key image unlock transaction");
+    return result;
+  }
+
+  std::string const sn_key_as_str = epee::string_tools::pod_to_hex(sn_key);
+  {
+    using namespace cryptonote;
+    boost::optional<std::string> failed;
+    const std::vector<COMMAND_RPC_GET_SERVICE_NODES::response::entry> response = get_service_nodes({sn_key_as_str}, failed);
+    if (failed)
+    {
+      result.msg = *failed;
+      return result;
+    }
+
+    if (response.empty())
+    {
+      result.msg = tr("No service node is known for: ") + sn_key_as_str;
+      return result;
+    }
+
+    cryptonote::account_public_address const primary_address = get_address();
+    std::vector<COMMAND_RPC_GET_SERVICE_NODES::response::contribution> const *contributions = nullptr;
+    COMMAND_RPC_GET_SERVICE_NODES::response::entry const &node_info                         = response[0];
+    for (COMMAND_RPC_GET_SERVICE_NODES::response::contributor const &contributor : node_info.contributors)
+    {
+      address_parse_info address_info = {};
+      cryptonote::get_account_address_from_str(address_info, nettype(), contributor.address);
+
+      if (address_info.address != primary_address)
+        continue;
+
+      contributions = &contributor.locked_contributions;
+      break;
+    }
+
+    if (!contributions)
+    {
+      result.msg = tr("No contributions recognised by this wallet in service node: ") + sn_key_as_str;
+      return result;
+    }
+
+    if (contributions->empty())
+    {
+      result.msg = tr("Unexpected 0 contributions in service node for this wallet ") + sn_key_as_str;
+      return result;
+    }
+
+    cryptonote::tx_extra_tx_key_image_unlock unlock = {};
+    {
+      uint64_t curr_height = 0;
+      {
+        std::string err_msg;
+        curr_height = get_daemon_blockchain_height(err_msg);
+        if (!err_msg.empty())
+        {
+          result.msg = tr("unable to get network blockchain height from daemon: ") + err_msg;
+          return result;
+        }
+      }
+
+      result.msg.reserve(1024);
+      COMMAND_RPC_GET_SERVICE_NODES::response::contribution const &contribution = (*contributions)[0];
+      if (node_info.requested_unlock_height != 0)
+      {
+        result.msg.append("Key image: ");
+        result.msg.append(contribution.key_image);
+        result.msg.append(" has already been requested to be unlocked, unlocking at height: ");
+        result.msg.append(std::to_string(node_info.requested_unlock_height));
+        result.msg.append(" (about ");
+        result.msg.append(tools::get_human_readable_timespan(std::chrono::seconds((node_info.requested_unlock_height - curr_height) * DIFFICULTY_TARGET_V2)));
+        result.msg.append(")");
+        return result;
+      }
+
+      result.msg.append("You are requesting to unlock a stake of: ");
+      result.msg.append(cryptonote::print_money(contribution.amount));
+      result.msg.append(" Loki from the service node network.\nThis will schedule the service node: ");
+      result.msg.append(node_info.service_node_pubkey);
+      result.msg.append(" for deactivation.");
+      if (node_info.contributors.size() > 1) {
+          result.msg.append(" The stakes of the service node's ");
+          result.msg.append(std::to_string(node_info.contributors.size() - 1));
+          result.msg.append(" other contributors will unlock at the same time.");
+      }
+      result.msg.append("\n\n");
+
+      uint64_t unlock_height = service_nodes::get_locked_key_image_unlock_height(nettype(), node_info.registration_height, curr_height);
+      result.msg.append("You will continue receiving rewards until the service node expires at the estimated height: ");
+      result.msg.append(std::to_string(unlock_height));
+      result.msg.append(" (about ");
+      result.msg.append(tools::get_human_readable_timespan(std::chrono::seconds((unlock_height - curr_height) * DIFFICULTY_TARGET_V2)));
+      result.msg.append(")");
+
+      cryptonote::blobdata binary_buf;
+      if(!string_tools::parse_hexstr_to_binbuff(contribution.key_image, binary_buf) || binary_buf.size() != sizeof(crypto::key_image))
+      {
+        result.msg = tr("Failed to parse hex representation of key image: ") + contribution.key_image;
+        return result;
+      }
+
+      unlock.key_image = *reinterpret_cast<const crypto::key_image*>(binary_buf.data());
+      if (!generate_signature_for_request_stake_unlock(unlock.key_image, unlock.signature, unlock.nonce))
+      {
+        result.msg = tr("Failed to generate signature to sign request. The key image: ") + contribution.key_image + (" doesn't belong to this wallet");
+        return result;
+      }
+    }
+
+    add_service_node_pubkey_to_tx_extra(result.ptx.tx.extra, sn_key);
+    add_tx_key_image_unlock_to_tx_extra(result.ptx.tx.extra, unlock);
+  }
+
+  result.success = true;
+  return result;
+}
+
 bool wallet2::lock_keys_file()
 {
   if (m_keys_file_locker)

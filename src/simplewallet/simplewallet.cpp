@@ -5878,22 +5878,6 @@ bool simple_wallet::stake(const std::vector<std::string> &args_)
   return true;
 }
 //----------------------------------------------------------------------------------------------------
-static std::string get_human_readable_timespan(std::chrono::seconds seconds)
-{
-  uint64_t ts = seconds.count();
-  if (ts < 60)
-    return std::to_string(ts) + sw::tr(" seconds");
-  if (ts < 3600)
-    return std::to_string((uint64_t)(ts / 60)) + sw::tr(" minutes");
-  if (ts < 3600 * 24)
-    return std::to_string((uint64_t)(ts / 3600)) + sw::tr(" hours");
-  if (ts < 3600 * 24 * 30.5)
-    return std::to_string((uint64_t)(ts / (3600 * 24))) + sw::tr(" days");
-  if (ts < 3600 * 24 * 365.25)
-    return std::to_string((uint64_t)(ts / (3600 * 24 * 30.5))) + sw::tr(" months");
-  return sw::tr("a long time");
-}
-//----------------------------------------------------------------------------------------------------
 bool simple_wallet::request_stake_unlock(const std::vector<std::string> &args_)
 {
   if (!try_connect_to_daemon())
@@ -5913,128 +5897,15 @@ bool simple_wallet::request_stake_unlock(const std::vector<std::string> &args_)
   }
 
   SCOPED_WALLET_UNLOCK();
-
-  std::vector<tools::wallet2::pending_tx> ptx_vector;
+  tools::wallet2::request_stake_unlock_result unlock_result = m_wallet->can_request_stake_unlock(snode_key);
+  if (unlock_result.success)
   {
-    ptx_vector.push_back({});
-    tools::wallet2::pending_tx &ptx = ptx_vector.back();
-    ptx.tx.version                  = cryptonote::transaction::version_4_tx_types;
-    if (!ptx.tx.set_type(cryptonote::transaction::type_key_image_unlock))
-    {
-      fail_msg_writer() << tr("Failed to construct a key image unlock transaction");
-      return true;
-    }
-
-    using namespace cryptonote;
-    boost::optional<std::string> failed;
-    const std::vector<COMMAND_RPC_GET_SERVICE_NODES::response::entry> response = m_wallet->get_service_nodes({args_[0]}, failed);
-    if (failed)
-    {
-      fail_msg_writer() << *failed;
-      return true;
-    }
-
-    if (response.empty())
-    {
-      fail_msg_writer() << tr("No service node is known for: ") << args_[0];
-      return true;
-    }
-
-    cryptonote::account_public_address const primary_address = m_wallet->get_address();
-    std::vector<COMMAND_RPC_GET_SERVICE_NODES::response::contribution> const *contributions = nullptr;
-    COMMAND_RPC_GET_SERVICE_NODES::response::entry const &node_info                         = response[0];
-    for (COMMAND_RPC_GET_SERVICE_NODES::response::contributor const &contributor : node_info.contributors)
-    {
-      address_parse_info address_info = {};
-      cryptonote::get_account_address_from_str(address_info, m_wallet->nettype(), contributor.address);
-
-      if (address_info.address != primary_address)
-        continue;
-
-      contributions = &contributor.locked_contributions;
-      break;
-    }
-
-    if (!contributions)
-    {
-      fail_msg_writer() << tr("No contributions recognised by this wallet in service node: ") << args_[0];
-      return true;
-    }
-
-    if (contributions->empty())
-    {
-      fail_msg_writer() << tr("Unexpected 0 contributions in service node for this wallet ") << args_[0];
-      return true;
-    }
-
-    cryptonote::tx_extra_tx_key_image_unlock unlock = {};
-    {
-      uint64_t curr_height = 0;
-      {
-        std::string err_msg;
-        curr_height = m_wallet->get_daemon_blockchain_height(err_msg);
-        if (!err_msg.empty())
-        {
-          fail_msg_writer() << tr("unable to get network blockchain height from daemon: ") << err_msg;
-          return true;
-        }
-      }
-
-      std::string msg_buf;
-      msg_buf.reserve(512);
-
-      COMMAND_RPC_GET_SERVICE_NODES::response::contribution const &contribution = (*contributions)[0];
-      if (node_info.requested_unlock_height != 0)
-      {
-        msg_buf.append("Key image: ");
-        msg_buf.append(contribution.key_image);
-        msg_buf.append(" has already been requested to be unlocked, unlocking at height: ");
-        msg_buf.append(std::to_string(node_info.requested_unlock_height));
-        msg_buf.append(" (about ");
-        msg_buf.append(get_human_readable_timespan(std::chrono::seconds((node_info.requested_unlock_height - curr_height) * DIFFICULTY_TARGET_V2)));
-        msg_buf.append(")");
-        fail_msg_writer() << msg_buf;
-        return true;
-      }
-
-      msg_buf.append("You are requesting to unlock a stake of: ");
-      msg_buf.append(cryptonote::print_money(contribution.amount));
-      msg_buf.append(" Loki from the service node network.\nThis will schedule the service node: ");
-      msg_buf.append(node_info.service_node_pubkey);
-      msg_buf.append(" for deactivation.");
-      if (node_info.contributors.size() > 1) {
-          msg_buf.append(" The stakes of the service node's ");
-          msg_buf.append(std::to_string(node_info.contributors.size() - 1));
-          msg_buf.append(" other contributors will unlock at the same time.");
-      }
-      msg_buf.append("\n\n");
-
-      uint64_t unlock_height = service_nodes::get_locked_key_image_unlock_height(m_wallet->nettype(), node_info.registration_height, curr_height);
-      msg_buf.append("You will continue receiving rewards until the service node expires at the estimated height: ");
-      msg_buf.append(std::to_string(unlock_height));
-      msg_buf.append(" (about ");
-      msg_buf.append(get_human_readable_timespan(std::chrono::seconds((unlock_height - curr_height) * DIFFICULTY_TARGET_V2)));
-      msg_buf.append(")");
-
-      cryptonote::blobdata binary_buf;
-      if(!string_tools::parse_hexstr_to_binbuff(contribution.key_image, binary_buf) || binary_buf.size() != sizeof(crypto::key_image))
-      {
-        fail_msg_writer() << tr("Failed to parse hex representation of key image: ") << contribution.key_image;
-        return true;
-      }
-
-      unlock.key_image = *reinterpret_cast<const crypto::key_image*>(binary_buf.data());
-      if (!m_wallet->generate_signature_for_request_stake_unlock(unlock.key_image, unlock.signature, unlock.nonce))
-      {
-        fail_msg_writer() << tr("Failed to generate signature to sign request. The key image: ") << contribution.key_image << (" doesn't belong to this wallet");
-        return true;
-      }
-
-      success_msg_writer() << msg_buf;
-    }
-
-    add_service_node_pubkey_to_tx_extra(ptx.tx.extra, snode_key);
-    add_tx_key_image_unlock_to_tx_extra(ptx.tx.extra, unlock);
+    tools::msg_writer() << unlock_result.msg;
+  }
+  else
+  {
+    fail_msg_writer() << unlock_result.msg;
+    return true;
   }
 
   if (!command_line::is_yes(input_line("Is this okay?", true)))
@@ -6047,6 +5918,7 @@ bool simple_wallet::request_stake_unlock(const std::vector<std::string> &args_)
     return true;
   }
 
+  std::vector<tools::wallet2::pending_tx> ptx_vector = {unlock_result.ptx};
   if (m_wallet->watch_only())
   {
     if (m_wallet->save_tx(ptx_vector, "unsigned_loki_tx"))
@@ -9252,9 +9124,9 @@ bool simple_wallet::show_transfer(const std::vector<std::string> &args)
         uint64_t current_time = static_cast<uint64_t>(time(NULL));
         uint64_t threshold = current_time + CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_SECONDS_V2;
         if (threshold >= pd.m_unlock_time)
-          success_msg_writer() << "unlocked for " << get_human_readable_timespan(std::chrono::seconds(threshold - pd.m_unlock_time));
+          success_msg_writer() << "unlocked for " << tools::get_human_readable_timespan(std::chrono::seconds(threshold - pd.m_unlock_time));
         else
-          success_msg_writer() << "locked for " << get_human_readable_timespan(std::chrono::seconds(pd.m_unlock_time - threshold));
+          success_msg_writer() << "locked for " << tools::get_human_readable_timespan(std::chrono::seconds(pd.m_unlock_time - threshold));
       }
       success_msg_writer() << "Address index: " << pd.m_subaddr_index.minor;
       success_msg_writer() << "Note: " << m_wallet->get_tx_note(txid);
@@ -9301,9 +9173,9 @@ bool simple_wallet::show_transfer(const std::vector<std::string> &args)
         uint64_t current_time = static_cast<uint64_t>(time(NULL));
         uint64_t threshold = current_time + CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_SECONDS_V2;
         if (threshold >= pd.m_unlock_time)
-          success_msg_writer() << "unlocked for " << get_human_readable_timespan(std::chrono::seconds(threshold - pd.m_unlock_time));
+          success_msg_writer() << "unlocked for " << tools::get_human_readable_timespan(std::chrono::seconds(threshold - pd.m_unlock_time));
         else
-          success_msg_writer() << "locked for " << get_human_readable_timespan(std::chrono::seconds(pd.m_unlock_time - threshold));
+          success_msg_writer() << "locked for " << tools::get_human_readable_timespan(std::chrono::seconds(pd.m_unlock_time - threshold));
       }
       success_msg_writer() << "Note: " << m_wallet->get_tx_note(txid);
       return true;
@@ -9650,7 +9522,7 @@ void simple_wallet::list_mms_messages(const std::vector<mms::message> &messages)
             m.wallet_height %
             m.round %
             ms.message_state_to_string(m.state) %
-            (tools::get_human_readable_timestamp(m.modified) + ", " + get_human_readable_timespan(std::chrono::seconds(now - m.modified)) + tr(" ago"));
+            (tools::get_human_readable_timestamp(m.modified) + ", " + tools::get_human_readable_timespan(std::chrono::seconds(now - m.modified)) + tr(" ago"));
   }
 }
 
@@ -9716,7 +9588,7 @@ void simple_wallet::show_message(const mms::message &m)
   message_writer() << tr("In/out: ") << ms.message_direction_to_string(m.direction);
   message_writer() << tr("Type: ") << ms.message_type_to_string(m.type);
   message_writer() << tr("State: ") << boost::format(tr("%s since %s, %s ago")) %
-          ms.message_state_to_string(m.state) % tools::get_human_readable_timestamp(m.modified) % get_human_readable_timespan(std::chrono::seconds(now - m.modified));
+          ms.message_state_to_string(m.state) % tools::get_human_readable_timestamp(m.modified) % tools::get_human_readable_timespan(std::chrono::seconds(now - m.modified));
   if (m.sent == 0)
   {
     message_writer() << tr("Sent: Never");
@@ -9724,7 +9596,7 @@ void simple_wallet::show_message(const mms::message &m)
   else
   {
     message_writer() << boost::format(tr("Sent: %s, %s ago")) %
-            tools::get_human_readable_timestamp(m.sent) % get_human_readable_timespan(std::chrono::seconds(now - m.sent));
+            tools::get_human_readable_timestamp(m.sent) % tools::get_human_readable_timespan(std::chrono::seconds(now - m.sent));
   }
   message_writer() << tr("Authorized signer: ") << ms.signer_to_string(signer, 100);
   message_writer() << tr("Content size: ") << m.content.length() << tr(" bytes");
