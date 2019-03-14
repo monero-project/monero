@@ -118,3 +118,110 @@ class Wallet(object):
             'id': '0'
         }
         return self.rpc.send_json_rpc_request(sweep_all)
+
+    def get_address(self, account_index = 0, subaddresses = []):
+        get_address = {
+            'method': 'get_address',
+            'params' : {
+                'account_index' : account_index,
+                'address_index': subaddresses
+            },
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(get_address)
+
+    def create_account(self, label = ""):
+        create_account = {
+            'method': 'create_account',
+            'params' : {
+                'label': label
+            },
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(create_account)
+
+    def create_address(self, account_index = 0, label = ""):
+        create_address = {
+            'method': 'create_address',
+            'params' : {
+                'account_index': account_index,
+                'label': label
+            },
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(create_address)
+
+    def label_address(self, subaddress_index, label):
+        label_address = {
+            'method': 'label_address',
+            'params' : {
+                'index': { 'major': subaddress_index[0], 'minor': subaddress_index[1]},
+                'label': label
+            },
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(label_address)
+
+    def label_account(self, account_index, label):
+        label_account = {
+            'method': 'label_account',
+            'params' : {
+                'account_index': account_index,
+                'label': label
+            },
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(label_account)
+
+    def get_address_index(self, address):
+        get_address_index = {
+            'method': 'get_address_index',
+            'params' : {
+                'address': address
+            },
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(get_address_index)
+
+    def query_key(self, key_type):
+        query_key = {
+            'method': 'query_key',
+            'params' : {
+                'key_type': key_type
+            },
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(query_key)
+
+    def restore_deterministic_wallet(self, seed = '', seed_offset = '', filename = '', restore_height = 0, password = '', language = ''):
+        restore_deterministic_wallet = {
+            'method': 'restore_deterministic_wallet',
+            'params' : {
+                'restore_height': restore_height,
+                'filename': filename,
+                'seed': seed,
+                'seed_offset': seed_offset,
+                'password': password,
+                'language': language
+            },
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(restore_deterministic_wallet)
+
+    def close_wallet(self):
+        close_wallet = {
+            'method': 'close_wallet',
+            'params' : {
+            },
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(close_wallet)
