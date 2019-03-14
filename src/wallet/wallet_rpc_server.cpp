@@ -3831,8 +3831,7 @@ namespace tools
     }
 
     // NOTE(loki): Pre-emptively set subaddr_account to 0. We don't support onwards from Infinite Staking which is when this call was implemented.
-    std::vector<tools::wallet2::pending_tx> ptx;
-    tools::wallet2::stake_result stake_result = m_wallet->create_stake_tx(ptx, snode_key, addr_info, req.amount, 0 /*amount_fraction*/, req.priority, 0 /*subaddr_account*/, req.subaddr_indices);
+    tools::wallet2::stake_result stake_result = m_wallet->create_stake_tx(snode_key, addr_info, req.amount, 0 /*amount_fraction*/, req.priority, 0 /*subaddr_account*/, req.subaddr_indices);
     if (stake_result.status != tools::wallet2::stake_result_status::success)
     {
       er.code    = WALLET_RPC_ERROR_CODE_TX_NOT_POSSIBLE;
@@ -3840,7 +3839,41 @@ namespace tools
       return false;
     }
 
-    return fill_response(ptx, req.get_tx_key, res.tx_key, res.amount, res.fee, res.multisig_txset, res.unsigned_txset, req.do_not_relay,
+    std::vector<tools::wallet2::pending_tx> ptx_vector = {stake_result.ptx};
+    return fill_response(ptx_vector, req.get_tx_key, res.tx_key, res.amount, res.fee, res.multisig_txset, res.unsigned_txset, req.do_not_relay,
+        res.tx_hash, req.get_tx_hex, res.tx_blob, req.get_tx_metadata, res.tx_metadata, er);
+  }
+
+  bool wallet_rpc_server::on_register_service_node(const wallet_rpc::COMMAND_RPC_REGISTER_SERVICE_NODE::request& req, wallet_rpc::COMMAND_RPC_REGISTER_SERVICE_NODE::response& res, epee::json_rpc::error& er, const connection_context *ctx)
+  {
+    if (!m_wallet) return not_open(er);
+    if (m_restricted)
+    {
+      er.code    = WALLET_RPC_ERROR_CODE_DENIED;
+      er.message = "Register service node command is unavailable in restricted mode.";
+      return false;
+    }
+
+    std::vector<std::string> args;
+    boost::split(args, req.register_service_node_str, boost::is_any_of(" "));
+
+    if (args.size() > 0)
+    {
+      if (args[0] == "register_service_node")
+        args.erase(args.begin());
+    }
+
+    // NOTE(loki): Pre-emptively set subaddr_account to 0. We don't support onwards from Infinite Staking which is when this call was implemented.
+    tools::wallet2::register_service_node_result register_result = m_wallet->create_register_service_node_tx(args, 0 /*subaddr_account*/);
+    if (register_result.status != tools::wallet2::register_service_node_result_status::success)
+    {
+      er.code    = WALLET_RPC_ERROR_CODE_TX_NOT_POSSIBLE;
+      er.message = register_result.msg;
+      return false;
+    }
+
+    std::vector<tools::wallet2::pending_tx> ptx_vector = {register_result.ptx};
+    return fill_response(ptx_vector, req.get_tx_key, res.tx_key, res.amount, res.fee, res.multisig_txset, res.unsigned_txset, req.do_not_relay,
         res.tx_hash, req.get_tx_hex, res.tx_blob, req.get_tx_metadata, res.tx_metadata, er);
   }
 }

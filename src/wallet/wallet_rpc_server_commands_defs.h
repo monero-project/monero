@@ -2240,6 +2240,48 @@ namespace wallet_rpc
     };
   };
 
+  struct COMMAND_RPC_REGISTER_SERVICE_NODE
+  {
+    struct request
+    {
+      std::string register_service_node_str;
+      bool        get_tx_key;
+      bool        do_not_relay;
+      bool        get_tx_hex;
+      bool        get_tx_metadata;
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(register_service_node_str);
+        KV_SERIALIZE(get_tx_key)
+        KV_SERIALIZE_OPT(do_not_relay,    false)
+        KV_SERIALIZE_OPT(get_tx_hex,      false)
+        KV_SERIALIZE_OPT(get_tx_metadata, false)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string tx_hash;
+      std::string tx_key;
+      uint64_t amount;
+      uint64_t fee;
+      std::string tx_blob;
+      std::string tx_metadata;
+      std::string multisig_txset;
+      std::string unsigned_txset;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(tx_hash)
+        KV_SERIALIZE(tx_key)
+        KV_SERIALIZE(amount)
+        KV_SERIALIZE(fee)
+        KV_SERIALIZE(tx_blob)
+        KV_SERIALIZE(tx_metadata)
+        KV_SERIALIZE(multisig_txset)
+        KV_SERIALIZE(unsigned_txset)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
   struct COMMAND_RPC_VALIDATE_ADDRESS
   {
     struct request
