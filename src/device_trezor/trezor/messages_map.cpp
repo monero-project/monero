@@ -33,6 +33,10 @@
 #include "messages/messages-management.pb.h"
 #include "messages/messages-monero.pb.h"
 
+#ifdef WITH_TREZOR_DEBUGGING
+#include "messages/messages-debug.pb.h"
+#endif
+
 using namespace std;
 using namespace hw::trezor;
 
@@ -45,6 +49,9 @@ namespace trezor
       "hw.trezor.messages.",
       "hw.trezor.messages.common.",
       "hw.trezor.messages.management.",
+#ifdef WITH_TREZOR_DEBUGGING
+      "hw.trezor.messages.debug.",
+#endif
       "hw.trezor.messages.monero."
   };
 
@@ -67,6 +74,10 @@ namespace trezor
     hw::trezor::messages::common::Success::default_instance();
     hw::trezor::messages::management::Cancel::default_instance();
     hw::trezor::messages::monero::MoneroGetAddress::default_instance();
+
+#ifdef WITH_TREZOR_DEBUGGING
+    hw::trezor::messages::debug::DebugLinkDecision::default_instance();
+#endif
 
     google::protobuf::Descriptor const * desc = nullptr;
     for(const string &text : PACKAGES){

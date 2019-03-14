@@ -67,6 +67,12 @@ set(trezor_private_headers)
 if(DEVICE_TREZOR_READY)
     message(STATUS "Trezor support enabled")
 
+    if(USE_DEVICE_TREZOR_DEBUG)
+        list(APPEND trezor_headers trezor/debug_link.hpp trezor/messages/messages-debug.pb.h)
+        list(APPEND trezor_sources trezor/debug_link.cpp trezor/messages/messages-debug.pb.cc)
+        message(STATUS "Trezor debugging enabled")
+    endif()
+
     monero_private_headers(device_trezor
             ${device_private_headers})
 
