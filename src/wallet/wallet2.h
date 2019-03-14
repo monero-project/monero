@@ -1306,13 +1306,52 @@ namespace tools
     {
       stake_result_status status;
       std::string         msg;
+      pending_tx          ptx;
     };
 
     /// Modifies the `amount` to maximum possible if too large, but rejects if insufficient.
     /// `fraction` is only used to determine the amount if specified zero.
     stake_result check_stake_allowed(const crypto::public_key& sn_key, const cryptonote::address_parse_info& addr_info, uint64_t& amount, double fraction = 0);
-    stake_result create_stake_tx    (std::vector<pending_tx> &ptx, const crypto::public_key& service_node_key, const cryptonote::address_parse_info& addr_info, uint64_t amount,
+    stake_result create_stake_tx    (const crypto::public_key& service_node_key, const cryptonote::address_parse_info& addr_info, uint64_t amount,
                                      double amount_fraction = 0, uint32_t priority = 0, uint32_t subaddr_account = 0, std::set<uint32_t> subaddr_indices = {});
+
+    enum struct register_service_node_result_status
+    {
+      success,
+      insufficient_num_args,
+      subaddr_indices_parse_fail,
+      network_height_query_failed,
+      network_version_query_failed,
+      convert_registration_args_failed,
+      registration_timestamp_expired,
+      registration_timestamp_parse_fail,
+      service_node_key_parse_fail,
+      service_node_signature_parse_fail,
+      service_node_register_serialize_to_tx_extra_fail,
+      first_address_must_be_primary_address,
+      service_node_list_query_failed,
+      service_node_cannot_reregister,
+      insufficient_portions,
+      wallet_not_synced,
+      too_many_transactions_constructed,
+      exception_thrown,
+    };
+
+    struct register_service_node_result
+    {
+      register_service_node_result_status status;
+      std::string                         msg;
+      pending_tx                          ptx;
+    };
+    register_service_node_result create_register_service_node_tx(const std::vector<std::string> &args_, uint32_t subaddr_account = 0);
+
+    struct request_stake_unlock_result
+    {
+      bool        success;
+      std::string msg;
+      pending_tx  ptx;
+    };
+    request_stake_unlock_result can_request_stake_unlock(const crypto::public_key &sn_key);
 
     // MMS -------------------------------------------------------------------------------------------------
     mms::message_store& get_message_store() { return m_message_store; };
@@ -1544,6 +1583,19 @@ namespace tools
     std::shared_ptr<tools::Notify> m_tx_notify;
     std::unique_ptr<wallet_device_callback> m_device_callback;
   };
+
+  // TODO(loki): Hmm. We need this here because we make register_service_node do
+  // parsing on the wallet2 side instead of simplewallet. This is so that
+  // register_service_node RPC command doesn't make it the wallet_rpc's
+  // responsibility to parse out the string returned from the daemon. We're
+  // purposely abstracting that complexity out to just wallet2's responsibility.
+
+  // TODO(loki): The better question is if anyone is ever going to try use
+  // register service node funded by multiple subaddresses. This is unlikely.
+  extern const std::array<const char* const, 5> allowed_priority_strings;
+  bool parse_subaddress_indices(const std::string& arg, std::set<uint32_t>& subaddr_indices, std::string *err_msg = nullptr);
+  bool parse_priority          (const std::string& arg, uint32_t& priority);
+
 }
 BOOST_CLASS_VERSION(tools::wallet2, 28)
 BOOST_CLASS_VERSION(tools::wallet2::transfer_details, 11)

@@ -82,6 +82,7 @@ using namespace epee;
 #include <boost/algorithm/string.hpp>
 #include <boost/asio.hpp>
 #include <openssl/sha.h>
+#include "i18n.h"
 
 #undef LOKI_DEFAULT_LOG_CATEGORY
 #define LOKI_DEFAULT_LOG_CATEGORY "util"
@@ -1063,5 +1064,21 @@ std::string get_nix_version_display_string()
     misc_utils::get_gmt_time(tt, tm);
     strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", &tm);
     return std::string(buffer);
+  }
+
+  std::string get_human_readable_timespan(std::chrono::seconds seconds)
+  {
+    uint64_t ts = seconds.count();
+    if (ts < 60)
+      return std::to_string(ts) + tr(" seconds");
+    if (ts < 3600)
+      return std::to_string((uint64_t)(ts / 60)) + tr(" minutes");
+    if (ts < 3600 * 24)
+      return std::to_string((uint64_t)(ts / 3600)) + tr(" hours");
+    if (ts < 3600 * 24 * 30.5)
+      return std::to_string((uint64_t)(ts / (3600 * 24))) + tr(" days");
+    if (ts < 3600 * 24 * 365.25)
+      return std::to_string((uint64_t)(ts / (3600 * 24 * 30.5))) + tr(" months");
+    return tr("a long time");
   }
 }

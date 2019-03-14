@@ -39,6 +39,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <chrono>
 
 #ifdef _WIN32
 #include "windows.h"
@@ -244,4 +245,5 @@ namespace tools
   void closefrom(int fd);
 
   std::string get_human_readable_timestamp(uint64_t ts);
+  std::string get_human_readable_timespan(std::chrono::seconds seconds);
 }
