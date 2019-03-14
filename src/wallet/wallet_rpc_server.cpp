@@ -250,11 +250,16 @@ namespace tools
     auto rpc_ssl_ca_file = command_line::get_arg(vm, arg_rpc_ssl_ca_certificates);
     auto rpc_ssl_allowed_fingerprints = command_line::get_arg(vm, arg_rpc_ssl_allowed_fingerprints);
     auto rpc_ssl = command_line::get_arg(vm, arg_rpc_ssl);
-    epee::net_utils::ssl_support_t rpc_ssl_support;
-    if (!epee::net_utils::ssl_support_from_string(rpc_ssl_support, rpc_ssl))
+    epee::net_utils::ssl_support_t rpc_ssl_support = epee::net_utils::ssl_support_t::e_ssl_support_enabled;
+
+    // user specified CA file or fingeprints implies enabled SSL by default
+    if ((rpc_ssl_ca_file.empty() && rpc_ssl_allowed_fingerprints.empty()) || !command_line::is_arg_defaulted(vm, arg_rpc_ssl))
     {
-      MERROR("Invalid argument for " << std::string(arg_rpc_ssl.name));
-      return false;
+      if (!epee::net_utils::ssl_support_from_string(rpc_ssl_support, rpc_ssl))
+      {
+        MERROR("Invalid argument for " << std::string(arg_rpc_ssl.name));
+        return false;
+      }
     }
 
     std::vector<std::vector<uint8_t>> allowed_fingerprints{ rpc_ssl_allowed_fingerprints.size() };
