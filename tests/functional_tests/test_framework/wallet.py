@@ -225,3 +225,13 @@ class Wallet(object):
             'id': '0'
         }
         return self.rpc.send_json_rpc_request(close_wallet)
+
+    def refresh(self):
+        refresh = {
+            'method': 'refresh',
+            'params' : {
+            },
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(refresh)
