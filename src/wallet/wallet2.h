@@ -689,16 +689,10 @@ namespace tools
       boost::asio::ip::tcp::endpoint proxy = {},
       uint64_t upper_transaction_weight_limit = 0,
       bool trusted_daemon = true,
-      epee::net_utils::ssl_support_t ssl_support = epee::net_utils::ssl_support_t::e_ssl_support_autodetect,
-      const std::pair<std::string, std::string> &private_key_and_certificate_path = {},
-      std::string ca_file = {}, const std::vector<std::vector<uint8_t>> &allowed_fingerprints = {},
-      bool allow_any_cert = false);
+      epee::net_utils::ssl_options_t ssl_options = epee::net_utils::ssl_support_t::e_ssl_support_autodetect);
     bool set_daemon(std::string daemon_address = "http://localhost:8080",
       boost::optional<epee::net_utils::http::login> daemon_login = boost::none, bool trusted_daemon = true,
-      epee::net_utils::ssl_support_t ssl_support = epee::net_utils::ssl_support_t::e_ssl_support_autodetect,
-      const std::pair<std::string, std::string> &private_key_and_certificate_path = {},
-      std::string ca_file = {}, const std::vector<std::vector<uint8_t>> &allowed_fingerprints = {},
-      bool allow_any_cert = false);
+      epee::net_utils::ssl_options_t ssl_options = epee::net_utils::ssl_support_t::e_ssl_support_autodetect);
 
     void stop() { m_run.store(false, std::memory_order_relaxed); m_message_store.stop(); }
 

@@ -149,21 +149,29 @@ namespace cryptonote
     if (rpc_config->login)
       http_login.emplace(std::move(rpc_config->login->username), std::move(rpc_config->login->password).password());
 
-    const std::string ssl_private_key = command_line::get_arg(vm, arg_rpc_ssl_private_key);
-    const std::string ssl_certificate = command_line::get_arg(vm, arg_rpc_ssl_certificate);
-    std::string ssl_ca_path = command_line::get_arg(vm, arg_rpc_ssl_ca_certificates);
+    epee::net_utils::ssl_options_t ssl_options = epee::net_utils::ssl_support_t::e_ssl_support_autodetect;
+    if (command_line::get_arg(vm, arg_rpc_ssl_allow_any_cert))
+      ssl_options.verification = epee::net_utils::ssl_verification_t::none;
+    else
+    {
+      std::string ssl_ca_path = command_line::get_arg(vm, arg_rpc_ssl_ca_certificates);
+      const std::vector<std::string> ssl_allowed_fingerprint_strings = command_line::get_arg(vm, arg_rpc_ssl_allowed_fingerprints);
+      std::vector<std::vector<uint8_t>> ssl_allowed_fingerprints{ ssl_allowed_fingerprint_strings.size() };
+      std::transform(ssl_allowed_fingerprint_strings.begin(), ssl_allowed_fingerprint_strings.end(), ssl_allowed_fingerprints.begin(), epee::from_hex::vector);
 
-    const std::vector<std::string> ssl_allowed_fingerprint_strings = command_line::get_arg(vm, arg_rpc_ssl_allowed_fingerprints);
-    std::vector<std::vector<uint8_t>> ssl_allowed_fingerprints{ ssl_allowed_fingerprint_strings.size() };
-    std::transform(ssl_allowed_fingerprint_strings.begin(), ssl_allowed_fingerprint_strings.end(), ssl_allowed_fingerprints.begin(), epee::from_hex::vector);
-    const bool ssl_allow_any_cert = command_line::get_arg(vm, arg_rpc_ssl_allow_any_cert);
+      if (!ssl_ca_path.empty() || !ssl_allowed_fingerprints.empty())
+        ssl_options = epee::net_utils::ssl_options_t{std::move(ssl_allowed_fingerprints), std::move(ssl_ca_path)};
+    }
+
+    ssl_options.auth = epee::net_utils::ssl_authentication_t{
+      command_line::get_arg(vm, arg_rpc_ssl_private_key), command_line::get_arg(vm, arg_rpc_ssl_certificate)
+    };
 
     // user specified CA file or fingeprints implies enabled SSL by default
-    epee::net_utils::ssl_support_t ssl_support = epee::net_utils::ssl_support_t::e_ssl_support_enabled;
-    if ((ssl_allowed_fingerprints.empty() && ssl_ca_path.empty()) || !command_line::is_arg_defaulted(vm, arg_rpc_ssl))
+    if (ssl_options.verification != epee::net_utils::ssl_verification_t::user_certificates || !command_line::is_arg_defaulted(vm, arg_rpc_ssl))
     {
       const std::string ssl = command_line::get_arg(vm, arg_rpc_ssl);
-      if (!epee::net_utils::ssl_support_from_string(ssl_support, ssl))
+      if (!epee::net_utils::ssl_support_from_string(ssl_options.support, ssl))
       {
         MFATAL("Invalid RPC SSL support: " << ssl);
         return false;
@@ -172,8 +180,7 @@ namespace cryptonote
 
     auto rng = [](size_t len, uint8_t *ptr){ return crypto::rand(len, ptr); };
     return epee::http_server_impl_base<core_rpc_server, connection_context>::init(
-      rng, std::move(port), std::move(rpc_config->bind_ip), std::move(rpc_config->access_control_origins), std::move(http_login),
-      ssl_support, std::make_pair(ssl_private_key, ssl_certificate), std::move(ssl_ca_path), std::move(ssl_allowed_fingerprints), ssl_allow_any_cert
+      rng, std::move(port), std::move(rpc_config->bind_ip), std::move(rpc_config->access_control_origins), std::move(http_login), std::move(ssl_options)
     );
   }
   //------------------------------------------------------------------------------------------------------------------------------

@@ -90,10 +90,10 @@ namespace net_utils
   public:
     typedef typename t_protocol_handler::connection_context t_connection_context;
 
-    struct shared_state : socket_stats
+    struct shared_state : connection_basic_shared_state
     {
       shared_state()
-        : socket_stats(), pfilter(nullptr), config()
+        : connection_basic_shared_state(), pfilter(nullptr), config()
       {}
 
       i_connection_filter* pfilter;
@@ -104,14 +104,12 @@ namespace net_utils
     explicit connection( boost::asio::io_service& io_service,
                         boost::shared_ptr<shared_state> state,
 			t_connection_type connection_type,
-			epee::net_utils::ssl_support_t ssl_support,
-			ssl_context_t &ssl_context);
+			epee::net_utils::ssl_support_t ssl_support);
 
     explicit connection( boost::asio::ip::tcp::socket&& sock,
 			 boost::shared_ptr<shared_state> state,
 			t_connection_type connection_type,
-			epee::net_utils::ssl_support_t ssl_support,
-			ssl_context_t &ssl_context);
+			epee::net_utils::ssl_support_t ssl_support);
 
 
 
@@ -228,8 +226,8 @@ namespace net_utils
     std::map<std::string, t_connection_type> server_type_map;
     void create_server_type_map();
 
-    bool init_server(uint32_t port, const std::string address = "0.0.0.0", epee::net_utils::ssl_support_t ssl_support = epee::net_utils::ssl_support_t::e_ssl_support_autodetect, const std::pair<std::string, std::string> &private_key_and_certificate_path = std::make_pair(std::string(), std::string()), const std::string &ca_file = {}, const std::vector<std::vector<uint8_t>> &allowed_fingerprints = {}, bool allow_any_cert = false);
-    bool init_server(const std::string port,  const std::string& address = "0.0.0.0", epee::net_utils::ssl_support_t ssl_support = epee::net_utils::ssl_support_t::e_ssl_support_autodetect, const std::pair<std::string, std::string> &private_key_and_certificate_path = std::make_pair(std::string(), std::string()), const std::string &ca_file = {}, const std::vector<std::vector<uint8_t>> &allowed_fingerprints = {}, bool allow_any_cert = false);
+    bool init_server(uint32_t port, const std::string address = "0.0.0.0", ssl_options_t ssl_options = ssl_support_t::e_ssl_support_autodetect);
+    bool init_server(const std::string port,  const std::string& address = "0.0.0.0", ssl_options_t ssl_options = ssl_support_t::e_ssl_support_autodetect);
 
     /// Run the server's io_service loop.
     bool run_server(size_t threads_count, bool wait = true, const boost::thread::attributes& attrs = boost::thread::attributes());
@@ -380,8 +378,6 @@ namespace net_utils
 
     boost::mutex connections_mutex;
     std::set<connection_ptr> connections_;
-
-    ssl_context_t m_ssl_context;
   }; // class <>boosted_tcp_server
 
 

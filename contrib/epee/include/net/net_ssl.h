@@ -46,23 +46,71 @@ namespace net_utils
 		e_ssl_support_enabled,
 		e_ssl_support_autodetect,
 	};
-  
-	struct ssl_context_t
-	{
-		boost::asio::ssl::context context;
-		std::string ca_path;
-		std::vector<std::vector<uint8_t>> allowed_fingerprints;
-		bool allow_any_cert;
-	};
+
+  enum class ssl_verification_t : uint8_t
+  {
+    none = 0,         //!< Do not verify peer.
+    system_ca,        //!< Verify peer via system ca only (do not inspect user certificates)
+    user_certificates //!< Verify peer via user certificate(s) only.
+  };
+
+  struct ssl_authentication_t
+  {
+    std::string private_key_path; //!< Private key used for authentication
+    std::string certificate_path; //!< Certificate used for authentication to peer.
+
+    //! Load `private_key_path` and `certificate_path` into `ssl_context`.
+    void use_ssl_certificate(boost::asio::ssl::context &ssl_context) const;
+  };
+
+  /*!
+    \note `verification != disabled && support == disabled` is currently
+      "allowed" via public interface but obviously invalid configuation.
+   */
+  class ssl_options_t
+  {
+    // force sorted behavior in private
+    std::vector<std::vector<std::uint8_t>> fingerprints_;
+
+  public:
+    std::string ca_path;
+    ssl_authentication_t auth;
+    ssl_support_t support;
+    ssl_verification_t verification;
+
+    //! Verification is set to system ca unless SSL is disabled.
+    ssl_options_t(ssl_support_t support)
+      : fingerprints_(),
+        ca_path(),
+        auth(),
+        support(support),
+        verification(support == ssl_support_t::e_ssl_support_disabled ? ssl_verification_t::none : ssl_verification_t::system_ca)
+    {}
+
+    //! Provide user fingerprints and/or ca path. Enables SSL and user_certificate verification
+    ssl_options_t(std::vector<std::vector<std::uint8_t>> fingerprints, std::string ca_path);
+
+    ssl_options_t(const ssl_options_t&) = default;
+    ssl_options_t(ssl_options_t&&) = default;
+
+    ssl_options_t& operator=(const ssl_options_t&) = default;
+    ssl_options_t& operator=(ssl_options_t&&) = default;
+
+    //! \return False iff ssl is disabled, otherwise true.
+    explicit operator bool() const noexcept { return support != ssl_support_t::e_ssl_support_disabled; }
+
+    //! Search against internal fingerprints. Always false if `behavior() != user_certificate_check`.
+    bool has_fingerprint(boost::asio::ssl::verify_context &ctx) const;
+
+    boost::asio::ssl::context create_context() const;
+
+    bool handshake(boost::asio::ssl::stream<boost::asio::ip::tcp::socket> &socket, boost::asio::ssl::stream_base::handshake_type type) const;
+  };
 
         // https://security.stackexchange.com/questions/34780/checking-client-hello-for-https-classification
 	constexpr size_t get_ssl_magic_size() { return 9; }
 	bool is_ssl(const unsigned char *data, size_t len);
-	ssl_context_t create_ssl_context(const std::pair<std::string, std::string> &private_key_and_certificate_path, const std::string &ca_path, std::vector<std::vector<uint8_t>> allowed_fingerprints, bool allow_any_cert);
-	void use_ssl_certificate(ssl_context_t &ssl_context, const std::pair<std::string, std::string> &private_key_and_certificate_path);
-	bool is_certificate_allowed(boost::asio::ssl::verify_context &ctx, const ssl_context_t &ssl_context);
-	bool ssl_handshake(boost::asio::ssl::stream<boost::asio::ip::tcp::socket> &socket, boost::asio::ssl::stream_base::handshake_type type, const epee::net_utils::ssl_context_t &ssl_context);
-        bool ssl_support_from_string(ssl_support_t &ssl, boost::string_ref s);
+	bool ssl_support_from_string(ssl_support_t &ssl, boost::string_ref s);
 }
 }
 
