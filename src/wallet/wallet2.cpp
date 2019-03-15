@@ -580,6 +580,8 @@ std::pair<std::unique_ptr<tools::wallet2>, tools::password_container> generate_f
     wallet.reset(make_basic(vm, unattended, opts, password_prompter).release());
     wallet->set_refresh_from_block_height(field_scan_from_height);
     wallet->explicit_refresh_from_block_height(field_scan_from_height_found);
+    if (!old_language.empty())
+      wallet->set_seed_language(old_language);
 
     try
     {
