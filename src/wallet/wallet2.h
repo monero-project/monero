@@ -62,6 +62,7 @@
 #include "common/password.h"
 #include "node_rpc_proxy.h"
 #include "message_store.h"
+#include "wallet_light_rpc.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "wallet.wallet2"
@@ -1167,11 +1168,11 @@ namespace tools
     // fetch txs and store in m_payments
     void light_wallet_get_address_txs();
     // get_address_info
-    bool light_wallet_get_address_info(cryptonote::COMMAND_RPC_GET_ADDRESS_INFO::response &response);
+    bool light_wallet_get_address_info(tools::COMMAND_RPC_GET_ADDRESS_INFO::response &response);
     // Login. new_address is true if address hasn't been used on lw node before.
     bool light_wallet_login(bool &new_address);
     // Send an import request to lw node. returns info about import fee, address and payment_id
-    bool light_wallet_import_wallet_request(cryptonote::COMMAND_RPC_IMPORT_WALLET_REQUEST::response &response);
+    bool light_wallet_import_wallet_request(tools::COMMAND_RPC_IMPORT_WALLET_REQUEST::response &response);
     // get random outputs from light wallet server
     void light_wallet_get_outs(std::vector<std::vector<get_outs_entry>> &outs, const std::vector<size_t> &selected_transfers, size_t fake_outputs_count);
     // Parse rct string
