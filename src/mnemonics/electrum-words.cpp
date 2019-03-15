@@ -340,9 +340,7 @@ namespace crypto
         const size_t expected = len * 3 / 32;
         if (seed.size() == expected/2)
         {
-          dst += ' ';                    // if electrum 12-word seed, duplicate
-          dst += dst;                    // if electrum 12-word seed, duplicate
-          dst.pop_back();                // trailing space
+          dst.append(dst.data(), dst.size()); // if electrum 12-word seed, duplicate
         }
       }
 
