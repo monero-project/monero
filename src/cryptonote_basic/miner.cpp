@@ -106,6 +106,7 @@ namespace cryptonote
     m_thread_index(0),
     m_phandler(phandler),
     m_height(0),
+    m_threads_active(0),
     m_pausers_count(0),
     m_threads_total(0),
     m_starter_nonce(0),
@@ -264,8 +265,8 @@ namespace cryptonote
     {
       CRITICAL_REGION_LOCAL(m_threads_lock);
       boost::interprocess::ipcdetail::atomic_write32(&m_stop, 1);
-      for(boost::thread& th: m_threads)
-        th.join();
+      while (m_threads_active > 0)
+        misc_utils::sleep_no_w(100);
       m_threads.clear();
     }
     boost::interprocess::ipcdetail::atomic_write32(&m_stop, 0);
@@ -447,10 +448,11 @@ namespace cryptonote
 
     // In case background mining was active and the miner threads are waiting
     // on the background miner to signal start. 
-    m_is_background_mining_started_cond.notify_all();
-
-    for(boost::thread& th: m_threads)
-      th.join();
+    while (m_threads_active > 0)
+    {
+      m_is_background_mining_started_cond.notify_all();
+      misc_utils::sleep_no_w(100);
+    }
 
     // The background mining thread could be sleeping for a long time, so we
     // interrupt it just in case
@@ -589,6 +591,7 @@ namespace cryptonote
     }
     slow_hash_free_state();
     MGINFO("Miner thread stopped ["<< th_local_index << "]");
+    --m_threads_active;
     return true;
   }
   //-----------------------------------------------------------------------------------------------------
