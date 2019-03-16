@@ -4040,6 +4040,7 @@ int main(int argc, char** argv) {
   command_line::add_arg(desc_params, arg_rpc_ssl_private_key);
   command_line::add_arg(desc_params, arg_rpc_ssl_certificate);
   command_line::add_arg(desc_params, arg_rpc_ssl_allowed_certificates);
+  command_line::add_arg(desc_params, arg_rpc_ssl_allowed_fingerprints);
 
   daemonizer::init_options(hidden_options, desc_params);
   desc_params.add(hidden_options);
