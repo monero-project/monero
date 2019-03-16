@@ -47,37 +47,58 @@ class Wallet(object):
             destinations.append({'amount':transfer_amounts[i],'address':addresses[i]})
         return destinations
 
-    def transfer(self, destinations, ringsize=7, payment_id=''):
+    def transfer(self, destinations, account_index = 0, subaddr_indices = [], priority = 0, ring_size = 0, unlock_time = 0, payment_id = '', get_tx_key = True, do_not_relay = False, get_tx_hex = False, get_tx_metadata = False):
         transfer = {
             'method': 'transfer',
             'params': {
                 'destinations': destinations,
-                'mixin' : ringsize - 1,
-                'get_tx_key' : True
+                'account_index': account_index,
+                'subaddr_indices': subaddr_indices,
+                'priority': priority,
+                'ring_size' : ring_size,
+                'unlock_time' : unlock_time,
+                'payment_id' : payment_id,
+                'get_tx_key' : get_tx_key,
+                'do_not_relay' : do_not_relay,
+                'get_tx_hex' : get_tx_hex,
+                'get_tx_metadata' : get_tx_metadata,
             },
             'jsonrpc': '2.0', 
             'id': '0'    
         }
-        if(len(payment_id) > 0):
-            transfer['params'].update({'payment_id' : payment_id})
         return self.rpc.send_json_rpc_request(transfer)   
 
-    def transfer_split(self, destinations, ringsize=7, payment_id=''):
-        print(destinations)
+    def transfer_split(self, destinations, account_index = 0, subaddr_indices = [], priority = 0, ring_size = 0, unlock_time = 0, payment_id = '', get_tx_key = True, do_not_relay = False, get_tx_hex = False, get_tx_metadata = False):
         transfer = {
             "method": "transfer_split",
             "params": {
-                "destinations": destinations,
-                "mixin" : ringsize - 1,
-                "get_tx_key" : True,
-                "new_algorithm" : True
+                'destinations': destinations,
+                'account_index': account_index,
+                'subaddr_indices': subaddr_indices,
+                'priority': priority,
+                'ring_size' : ring_size,
+                'unlock_time' : unlock_time,
+                'payment_id' : payment_id,
+                'get_tx_key' : get_tx_key,
+                'do_not_relay' : do_not_relay,
+                'get_tx_hex' : get_tx_hex,
+                'get_tx_metadata' : get_tx_metadata,
             },
             "jsonrpc": "2.0", 
             "id": "0"    
         }
-        if(len(payment_id) > 0):
-            transfer['params'].update({'payment_id' : payment_id})
         return self.rpc.send_json_rpc_request(transfer)   
+
+    def describe_transfer(self, unsigned_txset):
+        describe_transfer = {
+            'method': 'describe_transfer',
+            'params': {
+                'unsigned_txset': unsigned_txset,
+            },
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(describe_transfer)
 
     def create_wallet(self, index=''):
         create_wallet = {
@@ -235,3 +256,37 @@ class Wallet(object):
             'id': '0'
         }
         return self.rpc.send_json_rpc_request(refresh)
+
+    def incoming_transfers(self, transfer_type='all', account_index = 0, subaddr_indices = []):
+        incoming_transfers = {
+            'method': 'incoming_transfers',
+            'params' : {
+                'transfer_type': transfer_type,
+                'account_index': account_index,
+                'subaddr_indices': subaddr_indices,
+            },
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(incoming_transfers)
+
+    def get_transfers(self, in_ = True, out = True, pending = True, failed = True, pool = True, min_height = None, max_height = None, account_index = 0, subaddr_indices = [], all_accounts = False):
+        get_transfers = {
+            'method': 'get_transfers',
+            'params' : {
+                'in': in_,
+                'out': out,
+                'pending': pending,
+                'failed': failed,
+                'pool': pool,
+                'min_height': min_height,
+                'max_height': max_height,
+                'filter_by_height': min_height or max_height,
+                'account_index': account_index,
+                'subaddr_indices': subaddr_indices,
+                'all_accounts': all_accounts,
+            },
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(get_transfers)

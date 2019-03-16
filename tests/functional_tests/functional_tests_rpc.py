@@ -9,7 +9,7 @@ import socket
 import string
 
 USAGE = 'usage: functional_tests_rpc.py <python> <srcdir> <builddir> [<tests-to-run> | all]'
-DEFAULT_TESTS = ['daemon_info', 'blockchain', 'wallet_address', 'mining']
+DEFAULT_TESTS = ['daemon_info', 'blockchain', 'wallet_address', 'mining', 'transfer']
 try:
   python = sys.argv[1]
   srcdir = sys.argv[2]
