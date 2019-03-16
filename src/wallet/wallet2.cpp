@@ -3589,13 +3589,16 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
     m_multisig_derivations.clear();
     m_always_confirm_transfers = false;
     m_print_ring_members = false;
+    m_store_tx_info = true;
     m_default_mixin = 0;
     m_default_priority = 0;
     m_auto_refresh = true;
     m_refresh_type = RefreshType::RefreshDefault;
+    m_refresh_from_block_height = 0;
     m_confirm_missing_payment_id = true;
     m_confirm_non_default_ring_size = true;
     m_ask_password = AskPasswordToDecrypt;
+    cryptonote::set_default_decimal_point(CRYPTONOTE_DISPLAY_DECIMAL_POINT);
     m_min_output_count = 0;
     m_min_output_value = 0;
     m_merge_destinations = false;
