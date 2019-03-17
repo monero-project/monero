@@ -97,7 +97,7 @@ Dates are provided in the format YYYY-MM-DD.
 | Software upgrade block height | Date       | Fork version | Minimum Aeon version | Recommended Aeon version | Details                                                                            |  
 | ------------------------------ | -----------| ----------------- | ---------------------- | -------------------------- | ---------------------------------------------------------------------------------- |
 | 592000                        | 2015-08-04 | v1 (exceptional, version not bumped)      | v0.9.0.0                 | v0.9.14.0                     | blocktime = 240 seconds, CryptoNight-Lite, lower mining priority for ringsize < 3       |
-| 963500                        | 2018-06-03 | v7                | v0.12.0.0                 | v0.12.8.0-aeon                    | Rebase to Monero's latest codebase with RingCT disabled, CryptoNight-Lite variant 1, limited use of ringsize 1, ban ringsize 2   |
+| 963500                        | 2018-06-03 | v7                | v0.12.0.0                 | v0.12.9.0-aeon                    | Rebase to Monero's latest codebase with RingCT disabled, CryptoNight-Lite variant 1, limited use of ringsize 1, ban ringsize 2   |
 
 ## Compiling Aeon from source
 
@@ -162,7 +162,7 @@ invokes cmake commands as needed.
 * Change to the root of the source code directory, change to the most recent release tag, and build:
 
         cd aeon
-        git checkout v0.12.8.0-aeon
+        git checkout v0.12.9.0-aeon
         make
 
     *Optional*: If your machine has several cores and enough memory, enable
@@ -226,7 +226,7 @@ Tested on a Raspberry Pi Zero with a clean install of minimal Raspbian Stretch (
 ```
         git clone https://github.com/aeonix/aeon.git
 	cd aeon
-	git checkout tags/v0.12.8.0-aeon
+	git checkout tags/v0.12.9.0-aeon
 ```
 * Build:
 ```
@@ -323,9 +323,9 @@ application.
 	
         cd aeon
 
-* If you would like a specific [version/tag](https://github.com/aeonix/aeon/tags), do a git checkout for that version. eg. 'v0.12.8.0-aeon'. If you dont care about the version and just want binaries from master, skip this step:
+* If you would like a specific [version/tag](https://github.com/aeonix/aeon/tags), do a git checkout for that version. eg. 'v0.12.9.0-aeon'. If you dont care about the version and just want binaries from master, skip this step:
 	
-        git checkout v0.12.8.0-aeon
+        git checkout v0.12.9.0-aeon
 
 * If you are on a 64-bit system, run:
 
