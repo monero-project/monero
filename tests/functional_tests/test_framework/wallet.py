@@ -290,3 +290,26 @@ class Wallet(object):
             'id': '0'
         }
         return self.rpc.send_json_rpc_request(get_transfers)
+
+    def make_integrated_address(self, standard_address = '', payment_id = ''):
+        make_integrated_address = {
+            'method': 'make_integrated_address',
+            'params' : {
+                'standard_address': standard_address,
+                'payment_id': payment_id,
+            },
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(make_integrated_address)
+
+    def split_integrated_address(self, integrated_address):
+        split_integrated_address = {
+            'method': 'split_integrated_address',
+            'params' : {
+                'integrated_address': integrated_address,
+            },
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(split_integrated_address)
