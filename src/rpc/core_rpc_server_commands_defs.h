@@ -1055,7 +1055,14 @@ namespace cryptonote
       uint64_t speed;
       uint32_t threads_count;
       std::string address;
+      std::string pow_algorithm;
       bool is_background_mining_enabled;
+      uint8_t bg_idle_threshold;
+      uint8_t bg_min_idle_seconds;
+      bool bg_ignore_battery;
+      uint8_t bg_target;
+      uint32_t block_target;
+      uint64_t block_reward;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(status)
@@ -1063,7 +1070,14 @@ namespace cryptonote
         KV_SERIALIZE(speed)
         KV_SERIALIZE(threads_count)
         KV_SERIALIZE(address)
+        KV_SERIALIZE(pow_algorithm)
         KV_SERIALIZE(is_background_mining_enabled)
+        KV_SERIALIZE(bg_idle_threshold)
+        KV_SERIALIZE(bg_min_idle_seconds)
+        KV_SERIALIZE(bg_ignore_battery)
+        KV_SERIALIZE(bg_target)
+        KV_SERIALIZE(block_target)
+        KV_SERIALIZE(block_reward)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;
