@@ -204,7 +204,7 @@ VOLUME /root/.loki
 # loki-wallet-cli
 VOLUME /wallet
 
-EXPOSE 22020
-EXPOSE 22020
+EXPOSE 22022
+EXPOSE 22023
 
 ENTRYPOINT ["lokid", "--p2p-bind-ip=0.0.0.0", "--p2p-bind-port=22022", "--rpc-bind-ip=0.0.0.0", "--rpc-bind-port=22023", "--non-interactive", "--confirm-external-bind"]

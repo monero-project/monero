@@ -448,10 +448,10 @@ The produced binaries still link libc dynamically. If the binary is compiled on 
         docker build --build-arg NPROC=1 -t loki .
 
         # either run in foreground
-        docker run -it -v /loki/chain:/root/.loki -v /loki/wallet:/wallet -p 22020:22020 loki
+        docker run -it -v /loki/chain:/root/.loki -v /loki/wallet:/wallet -p 22022:22022 loki
 
         # or in background
-        docker run -it -d -v /loki/chain:/root/.loki -v /loki/wallet:/wallet -p 22020:22020 loki
+        docker run -it -d -v /loki/chain:/root/.loki -v /loki/wallet:/wallet -p 22022:22022 loki
 
 * The build needs 3 GB space.
 * Wait one  hour or more
