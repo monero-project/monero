@@ -168,3 +168,24 @@ class Daemon(object):
         mining_status = {
         }
         return self.rpc.send_request('/mining_status', mining_status)
+
+    def get_transaction_pool(self):
+        get_transaction_pool = {
+        }
+        return self.rpc.send_request('/get_transaction_pool', get_transaction_pool)
+
+    def get_transaction_pool_hashes(self):
+        get_transaction_pool_hashes = {
+        }
+        return self.rpc.send_request('/get_transaction_pool_hashes', get_transaction_pool_hashes)
+
+    def flush_txpool(self, txids = []):
+        flush_txpool = {
+            'method': 'flush_txpool',
+            'params': {
+                'txids': txids
+            },
+            'jsonrpc': '2.0',
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(flush_txpool)
