@@ -47,9 +47,9 @@ These builds are of the master branch, which is used for active development and 
 | Ubuntu 16.04          |  amd64   | [![Ubuntu 16.04 amd64](https://build.getmonero.org/png?builder=monero-static-ubuntu-amd64)](https://build.getmonero.org/builders/monero-static-ubuntu-amd64)
 | Ubuntu 16.04          |  armv7   | [![Ubuntu 16.04 armv7](https://build.getmonero.org/png?builder=monero-static-ubuntu-arm7)](https://build.getmonero.org/builders/monero-static-ubuntu-arm7)
 | Debian Stable         |  armv8   | [![Debian armv8](https://build.getmonero.org/png?builder=monero-static-debian-armv8)](https://build.getmonero.org/builders/monero-static-debian-armv8)
-| OSX 10.11             |  amd64   | [![OSX 10.11 amd64](https://build.getmonero.org/png?builder=monero-static-osx-10.11)](https://build.getmonero.org/builders/monero-static-osx-10.11)
-| OSX 10.12             |  amd64   | [![OSX 10.12 amd64](https://build.getmonero.org/png?builder=monero-static-osx-10.12)](https://build.getmonero.org/builders/monero-static-osx-10.12)
-| OSX 10.13             |  amd64   | [![OSX 10.13 amd64](https://build.getmonero.org/png?builder=monero-static-osx-10.13)](https://build.getmonero.org/builders/monero-static-osx-10.13)
+| macOS 10.11             |  amd64   | [![macOS 10.11 amd64](https://build.getmonero.org/png?builder=monero-static-osx-10.11)](https://build.getmonero.org/builders/monero-static-osx-10.11)
+| macOS 10.12             |  amd64   | [![macOS 10.12 amd64](https://build.getmonero.org/png?builder=monero-static-osx-10.12)](https://build.getmonero.org/builders/monero-static-osx-10.12)
+| macOS 10.13             |  amd64   | [![macOS 10.13 amd64](https://build.getmonero.org/png?builder=monero-static-osx-10.13)](https://build.getmonero.org/builders/monero-static-osx-10.13)
 | FreeBSD 11            |  amd64   | [![FreeBSD 11 amd64](https://build.getmonero.org/png?builder=monero-static-freebsd64)](https://build.getmonero.org/builders/monero-static-freebsd64)
 | DragonFly BSD 4.6     |  amd64   | [![DragonFly BSD amd64](https://build.getmonero.org/png?builder=monero-static-dragonflybsd-amd64)](https://build.getmonero.org/builders/monero-static-dragonflybsd-amd64)
 | Windows (MSYS2/MinGW) |  i686    | [![Windows (MSYS2/MinGW) i686](https://build.getmonero.org/png?builder=monero-static-win32)](https://build.getmonero.org/builders/monero-static-win32)
@@ -194,7 +194,7 @@ If you already have a repo cloned, initialize and update:
 Monero uses the CMake build system and a top-level [Makefile](Makefile) that
 invokes cmake commands as needed.
 
-#### On Linux and OS X
+#### On Linux and macOS
 
 * Install the dependencies
 * Change to the root of the source code directory, change to the most recent release branch, and build:
@@ -208,7 +208,7 @@ invokes cmake commands as needed.
     this to be worthwhile, the machine should have one core and about 2GB of RAM
     available per thread.
 
-    *Note*: If cmake can not find zmq.hpp file on OS X, installing `zmq.hpp` from
+    *Note*: If cmake can not find zmq.hpp file on macOS, installing `zmq.hpp` from
     https://github.com/zeromq/cppzmq to `/usr/local/include` should fix that error.
 
     *Note*: The instructions above will compile the most stable release of the
