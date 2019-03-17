@@ -330,7 +330,7 @@ bool ssl_options_t::handshake(boost::asio::ssl::stream<boost::asio::ip::tcp::soc
     socket.set_verify_mode(boost::asio::ssl::verify_none);
   else
   {
-    socket.set_verify_mode(boost::asio::ssl::verify_peer);
+    socket.set_verify_mode(boost::asio::ssl::verify_peer | boost::asio::ssl::verify_fail_if_no_peer_cert);
     socket.set_verify_callback([&](bool preverified, boost::asio::ssl::verify_context &ctx)
     {
       // preverified means it passed system or user CA check. System CA is never loaded
