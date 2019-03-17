@@ -65,6 +65,11 @@ namespace
       reasons += ", ";
     reasons += reason;
   }
+
+  uint64_t round_up(uint64_t value, uint64_t quantum)
+  {
+    return (value + quantum - 1) / quantum * quantum;
+  }
 }
 
 namespace cryptonote
@@ -247,7 +252,9 @@ namespace cryptonote
       boost::shared_lock<boost::shared_mutex> lock(m_bootstrap_daemon_mutex);
       res.was_bootstrap_ever_used = m_was_bootstrap_ever_used;
     }
-    res.database_size = restricted ? 0 : m_core.get_blockchain_storage().get_db().get_database_size();
+    res.database_size = m_core.get_blockchain_storage().get_db().get_database_size();
+    if (restricted)
+      res.database_size = round_up(res.database_size, 5ull* 1024 * 1024 * 1024);
     res.update_available = restricted ? false : m_core.is_update_available();
     res.version = restricted ? "" : MONERO_VERSION;
     return true;
