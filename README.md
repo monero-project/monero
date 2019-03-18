@@ -213,32 +213,35 @@ application.
 
 **Preparing the build environment**
 
-* Download and install the [MSYS2 installer](https://www.msys2.org), either the 64-bit or the 32-bit package, depending on your system.
-* Open the MSYS shell via the `MSYS2 Shell` shortcut
+* Download and install the [MSYS2 installer](https://www.msys2.org), either the 64-bit (x86_64) or the 32-bit (i686) package, depending on your system.
+* Note: Installation must be on the C drive and root directory as result of [Monero issue 3167](https://github.com/monero-project/monero/issues/3167).
+* Open the MSYS shell via the `MSYS2 MSYS` shortcut in the Start Menu or "C:\msys64\msys2_shell.cmd -msys"
 * Update packages using pacman:  
 
         pacman -Syu  
 
-* Exit the MSYS shell using Alt+F4  
-* Edit the properties for the `MSYS2 Shell` shortcut changing "msys2_shell.bat" to "msys2_shell.cmd -mingw64" for 64-bit builds or "msys2_shell.cmd -mingw32" for 32-bit builds
-* Restart MSYS shell via modified shortcut and update packages again using pacman:  
+* Exit the MSYS shell using Alt+F4 when you get a warning stating: "terminate MSYS2 without returning to shell and check for updates again/for example close your terminal window instead of calling exit"
+
+* Open the MSYS MinGW shell via the `MSYS2 MinGW 64-bit` shortcut or "C:\msys64\msys2_shell.cmd -mingw64" for 64-bit builds or via the `MSYS2 MinGW 32-bit` shortcut or "C:\msys64\msys2_shell.cmd -mingw32" for 32-bit builds 
+
+* Update packages again using pacman: 
 
         pacman -Syu  
-
 
 * Install dependencies:
 
     To build for 64-bit Windows:
 
-        pacman -S mingw-w64-x86_64-toolchain make mingw-w64-x86_64-cmake mingw-w64-x86_64-boost mingw-w64-x86_64-openssl mingw-w64-x86_64-zeromq mingw-w64-x86_64-libsodium mingw-w64-x86_64-hidapi
+        pacman -S mingw-w64-x86_64-toolchain make mingw-w64-x86_64-cmake mingw-w64-x86_64-boost mingw-w64-x86_64-openssl mingw-w64-x86_64-zeromq mingw-w64-x86_64-libsodium mingw-w64-x86_64-hidapi git
 
     To build for 32-bit Windows:
 
-        pacman -S mingw-w64-i686-toolchain make mingw-w64-i686-cmake mingw-w64-i686-boost mingw-w64-i686-openssl mingw-w64-i686-zeromq mingw-w64-i686-libsodium mingw-w64-i686-hidapi
+        pacman -S mingw-w64-i686-toolchain make mingw-w64-i686-cmake mingw-w64-i686-boost mingw-w64-i686-openssl mingw-w64-i686-zeromq mingw-w64-i686-libsodium mingw-w64-i686-hidapi git
 
-* Open the MingW shell via `MinGW-w64-Win64 Shell` shortcut on 64-bit Windows
-  or `MinGW-w64-Win64 Shell` shortcut on 32-bit Windows. Note that if you are
-  running 64-bit Windows, you will have both 64-bit and 32-bit MinGW shells.
+* Close and reopen the MSYS MinGW shell via `MSYS2 MinGW 64-bit` shortcut on
+  64-bit Windows or `MSYS2 MinGW 32-bit` shortcut on 32-bit Windows. Note 
+  that if you are running 64-bit Windows, you will have both 64-bit and
+  32-bit MinGW shells.
 
 **Cloning**
 
@@ -250,9 +253,9 @@ application.
 
 * Change to the cloned directory, run:
 	
-        cd git
+        cd ~/loki
 
-* If you would like a specific [version/tag](https://github.com/loki-project/loki/tags), do a git checkout for that version. eg. 'v2.0.3'. If you dont care about the version and just want binaries from master, skip this step:
+* **Optional**: if you would like a specific [version/tag](https://github.com/loki-project/loki/tags), do a git checkout for that version. eg. 'v2.0.3'. If you dont care about the version and just want binaries from master, skip this step:
 	
         git checkout v2.0.3
 
@@ -264,7 +267,7 @@ application.
 
         make release-static-win32
 
-* The resulting executables can be found in `build/release/bin`
+* The resulting executables can be found in `build/<MinGW version>/<loki version>/release/bin`
 
 * **Optional**: to build Windows binaries suitable for debugging on a 64-bit system, run:
 
@@ -274,7 +277,7 @@ application.
 
         make debug-static-win32
 
-* The resulting executables can be found in `build/debug/bin`
+* The resulting executables can be found in `build/<MinGW version>/<loki version>/debug/bin`
 
 ### On FreeBSD:
 
