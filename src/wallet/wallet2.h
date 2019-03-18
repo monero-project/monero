@@ -640,6 +640,8 @@ namespace tools
     bool deinit();
     bool init(bool rpc, std::string daemon_address = "http://localhost:8080",
       boost::optional<epee::net_utils::http::login> daemon_login = boost::none, uint64_t upper_transaction_size_limit = 0, bool ssl = false, bool trusted_daemon = false);
+    bool set_daemon(std::string daemon_address = "http://localhost:8080",
+      boost::optional<epee::net_utils::http::login> daemon_login = boost::none, bool ssl = false, bool trusted_daemon = false);
 
     void stop() { m_run.store(false, std::memory_order_relaxed); }
 
