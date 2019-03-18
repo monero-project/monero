@@ -281,12 +281,12 @@ gen_batched_governance_reward::gen_batched_governance_reward()
 static uint64_t expected_total_governance_paid = 0;
 bool gen_batched_governance_reward::generate(std::vector<test_event_entry>& events) const
 {
-  const get_test_options<gen_batched_governance_reward> test_options = {};
   const config_t &network = cryptonote::get_config(cryptonote::FAKECHAIN, network_version_10_bulletproofs);
 
-  linear_chain_generator batched_governance_generator(events);
+  const get_test_options<gen_batched_governance_reward> test_options = {};
+  linear_chain_generator batched_governance_generator(events, test_options.hard_forks);
   {
-    batched_governance_generator.rewind_until_version(test_options.hard_forks, network_version_10_bulletproofs);
+    batched_governance_generator.rewind_until_version(network_version_10_bulletproofs);
 
     uint64_t blocks_to_gen = network.GOVERNANCE_REWARD_INTERVAL_IN_BLOCKS - batched_governance_generator.height();
     batched_governance_generator.rewind_blocks_n(blocks_to_gen);
@@ -297,8 +297,8 @@ bool gen_batched_governance_reward::generate(std::vector<test_event_entry>& even
     // you don't atleast progress and generate blocks from hf8 you will run into
     // problems
     std::vector<test_event_entry> unused_events;
-    linear_chain_generator no_batched_governance_generator(unused_events);
-    no_batched_governance_generator.rewind_until_version(test_options.hard_forks, network_version_9_service_nodes);
+    linear_chain_generator no_batched_governance_generator(unused_events, test_options.hard_forks);
+    no_batched_governance_generator.rewind_until_version(network_version_9_service_nodes);
 
     while(no_batched_governance_generator.height() < batched_governance_generator.height())
       no_batched_governance_generator.create_block();

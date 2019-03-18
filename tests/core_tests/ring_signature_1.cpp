@@ -54,8 +54,8 @@ namespace
 
 bool gen_ring_signature_1::generate(std::vector<test_event_entry>& events) const
 {
-
-  linear_chain_generator gen(events);
+  const get_test_options<gen_ring_signature_1> test_options = {};
+  linear_chain_generator gen(events, test_options.hard_forks);
   gen.create_genesis_block();
 
   const auto miner = gen.first_miner();

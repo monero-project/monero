@@ -59,6 +59,8 @@ namespace service_nodes
 
     uint64_t get_uptime_proof(const crypto::public_key &pubkey) const;
 
+    void generate_uptime_proof_request(cryptonote::NOTIFY_UPTIME_PROOF::request& req) const;
+
   private:
 
     cryptonote::core& m_core;
@@ -68,6 +70,4 @@ namespace service_nodes
     std::unordered_map<crypto::public_key, timestamp> m_uptime_proof_seen;
     mutable epee::critical_section m_lock;
   };
-
-  void generate_uptime_proof_request(const crypto::public_key& pubkey, const crypto::secret_key& seckey, cryptonote::NOTIFY_UPTIME_PROOF::request& req);
 }

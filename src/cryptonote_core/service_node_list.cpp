@@ -1313,6 +1313,10 @@ namespace service_nodes
         }
         else // Version 10 Bulletproofs
         {
+          /// Note: this code exhibits a sublte unintended behaviour: a snode that
+          /// registered in hardfork 9 and was scheduled for deregistration in hardfork 10
+          /// will have its life is slightly prolonged by the "grace period", although it might
+          /// look like we use the registration height to determine the expiry height.
           uint64_t node_expiry_height = info.registration_height + lock_blocks + STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS;
           if (block_height > node_expiry_height)
             expired_nodes.push_back(snode_key);

@@ -267,6 +267,9 @@ public:
   void add_registrations(const std::vector<sn_registration>& regs);
 
   void remove_node(const crypto::public_key& pk);
+
+  void handle_deregistrations(const std::vector<crypto::public_key>& dereg_buffer);
+
 };
 
 /// Service node and its index
@@ -288,18 +291,23 @@ class linear_chain_generator
   private:
     test_generator gen_;
     std::vector<test_event_entry>& events_;
+    const std::vector<std::pair<uint8_t, uint64_t>> hard_forks_;
     std::vector<cryptonote::block> blocks_;
 
     sn_list sn_list_;
 
-    /// keep new registrations here until the next block
+    /// keep new registrations and deregistrations here until the next block
     std::vector<sn_registration> registration_buffer_;
+    std::vector<crypto::public_key> deregistration_buffer_;
 
     cryptonote::account_base first_miner_;
 
+    /// Get hardfork version at specified height
+    uint8_t get_hf_version_at(uint64_t height) const;
+
   public:
-    linear_chain_generator(std::vector<test_event_entry> &events)
-      : gen_(), events_(events)
+    linear_chain_generator(std::vector<test_event_entry> &events, const std::vector<std::pair<uint8_t, uint64_t>> &hard_forks)
+      : gen_(), events_(events), hard_forks_(hard_forks)
     { }
 
     uint64_t                              height() const { return get_block_height(blocks_.back()); }
@@ -315,7 +323,7 @@ class linear_chain_generator
 
     int get_hf_version() const;
 
-    void rewind_until_version(const std::vector<std::pair<uint8_t, uint64_t>> &hard_forks, int hard_fork_version);
+    void rewind_until_version(int hard_fork_version);
     void rewind_blocks_n(int n);
     void rewind_blocks();
 
@@ -342,9 +350,9 @@ class linear_chain_generator
 
     QuorumState get_quorum_idxs(uint64_t height) const;
 
-    cryptonote::transaction create_deregister_tx(const crypto::public_key& pk, uint64_t height, const std::vector<sn_idx>& voters, uint64_t fee = 0) const;
+    cryptonote::transaction create_deregister_tx(const crypto::public_key& pk, uint64_t height, const std::vector<sn_idx>& voters, uint64_t fee, bool commit);
 
-    dereg_tx_builder build_deregister(const crypto::public_key& pk);
+    dereg_tx_builder build_deregister(const crypto::public_key& pk, bool commit = true);
 
     crypto::public_key get_test_pk(uint32_t idx) const;
 
@@ -366,9 +374,12 @@ class dereg_tx_builder {
 
   boost::optional<const std::vector<sn_idx>&> voters_ = boost::none;
 
+  /// whether to actually remove SN from the list
+  bool commit_;
+
   public:
-    dereg_tx_builder(linear_chain_generator& gen, const crypto::public_key& pk)
-      : gen_(gen), pk_(pk)
+    dereg_tx_builder(linear_chain_generator& gen, const crypto::public_key& pk, bool commit)
+      : gen_(gen), pk_(pk), commit_(commit)
     {}
 
     dereg_tx_builder&& with_height(uint64_t height) {
@@ -391,7 +402,7 @@ class dereg_tx_builder {
     {
       const auto height = height_ ? *height_ : gen_.height();
       const auto voters = voters_ ? *voters_ : gen_.get_quorum_idxs(height).voters;
-      return gen_.create_deregister_tx(pk_, height, voters, fee_.value_or(0));
+      return gen_.create_deregister_tx(pk_, height, voters, fee_.value_or(0), commit_);
     }
 
 };

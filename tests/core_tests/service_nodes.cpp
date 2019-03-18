@@ -122,14 +122,14 @@ gen_service_nodes::gen_service_nodes()
 bool gen_service_nodes::generate(std::vector<test_event_entry> &events) const
 {
 
-  linear_chain_generator gen(events);
+  const get_test_options<gen_service_nodes> test_options = {};
+  linear_chain_generator gen(events, test_options.hard_forks);
   gen.create_genesis_block();
 
   const auto miner = gen.first_miner();
   const auto alice = gen.create_account();
 
-  const get_test_options<gen_service_nodes> test_options = {};
-  gen.rewind_until_version(test_options.hard_forks, network_version_9_service_nodes);
+  gen.rewind_until_version(network_version_9_service_nodes);
   gen.rewind_blocks_n(10);
 
   gen.rewind_blocks();
@@ -219,15 +219,15 @@ test_prefer_deregisters::test_prefer_deregisters() {
 //-----------------------------------------------------------------------------------------------------
 bool test_prefer_deregisters::generate(std::vector<test_event_entry> &events)
 {
-  linear_chain_generator gen(events);
+  const get_test_options<test_prefer_deregisters> test_options = {};
+  linear_chain_generator gen(events, test_options.hard_forks);
 
   gen.create_genesis_block();
 
   const auto miner = gen.first_miner();
   const auto alice = gen.create_account();
 
-  const get_test_options<test_prefer_deregisters> test_options = {};
-  gen.rewind_until_version(test_options.hard_forks, network_version_9_service_nodes);
+  gen.rewind_until_version(network_version_9_service_nodes);
 
   /// give miner some outputs to spend and unlock them
   gen.rewind_blocks_n(60);
@@ -306,12 +306,12 @@ test_zero_fee_deregister::test_zero_fee_deregister() {
 bool test_zero_fee_deregister::generate(std::vector<test_event_entry> &events)
 {
 
-  linear_chain_generator gen(events);
+  const get_test_options<test_zero_fee_deregister> test_options = {};
+  linear_chain_generator gen(events, test_options.hard_forks);
 
   gen.create_genesis_block();
 
-  const get_test_options<test_zero_fee_deregister> test_options = {};
-  gen.rewind_until_version(test_options.hard_forks, network_version_9_service_nodes);
+  gen.rewind_until_version(network_version_9_service_nodes);
 
   /// give miner some outputs to spend and unlock them
   gen.rewind_blocks_n(20);
@@ -347,14 +347,14 @@ bool test_deregister_safety_buffer::generate(std::vector<test_event_entry> &even
 {
   DEFINE_TESTS_ERROR_CONTEXT("test_deregister_safety_buffer::generate");
 
-  linear_chain_generator gen(events);
+  const get_test_options<test_deregister_safety_buffer> test_options = {};
+  linear_chain_generator gen(events, test_options.hard_forks);
 
   gen.create_genesis_block();
 
   const auto miner = gen.first_miner();
 
-  const get_test_options<test_deregister_safety_buffer> test_options = {};
-  gen.rewind_until_version(test_options.hard_forks, network_version_9_service_nodes);
+  gen.rewind_until_version(network_version_9_service_nodes);
 
   /// give miner some outputs to spend and unlock them
   gen.rewind_blocks_n(40);
@@ -418,7 +418,6 @@ bool test_deregister_safety_buffer::generate(std::vector<test_event_entry> &even
   {
     const auto dereg_tx = gen.build_deregister(pk).with_height(heightA).build();
     gen.create_block({dereg_tx});
-    gen.deregister(pk);
   }
 
   /// Register the node again
@@ -459,11 +458,11 @@ test_deregisters_on_split::test_deregisters_on_split()
 //-----------------------------------------------------------------------------------------------------
 bool test_deregisters_on_split::generate(std::vector<test_event_entry> &events)
 {
-  linear_chain_generator gen(events);
+  const get_test_options<test_deregisters_on_split> test_options = {};
+  linear_chain_generator gen(events, test_options.hard_forks);
   gen.create_genesis_block();
 
-  const get_test_options<test_deregisters_on_split> test_options = {};
-  gen.rewind_until_version(test_options.hard_forks, network_version_9_service_nodes);
+  gen.rewind_until_version(network_version_9_service_nodes);
 
   /// generate some outputs and unlock them
   gen.rewind_blocks_n(20);
@@ -492,10 +491,10 @@ bool test_deregisters_on_split::generate(std::vector<test_event_entry> &events)
   const auto dereg_A = gen.build_deregister(pk).with_voters(quorumA).with_height(split_height).build();
 
   /// create deregistration on alt chain (B)
-  auto quorumB = gen.get_quorum_idxs(split_height).voters;
+  auto quorumB = fork.get_quorum_idxs(split_height).voters;
   quorumB.erase(quorumB.begin() + 1); /// remove second voter
   SET_EVENT_VISITOR_SETT(events, event_visitor_settings::set_txs_keeped_by_block, true);
-  const auto dereg_B = gen.build_deregister(pk).with_voters(quorumB).with_height(split_height).build(); /// events[68]
+  const auto dereg_B = fork.build_deregister(pk).with_voters(quorumB).with_height(split_height).build(); /// events[68]
   SET_EVENT_VISITOR_SETT(events, event_visitor_settings::set_txs_keeped_by_block, false);
 
   /// continue main chain with deregister A
@@ -503,9 +502,6 @@ bool test_deregisters_on_split::generate(std::vector<test_event_entry> &events)
 
   /// continue alt chain with deregister B
   fork.create_block({ dereg_B });
-
-  /// actually remove pk form the local service node list
-  fork.deregister(pk);
 
   /// one more block on alt chain to switch
   fork.create_block();
@@ -565,11 +561,11 @@ deregister_too_old::deregister_too_old()
 //-----------------------------------------------------------------------------------------------------
 bool deregister_too_old::generate(std::vector<test_event_entry>& events)
 {
-  linear_chain_generator gen(events);
+  const get_test_options<deregister_too_old> test_options = {};
+  linear_chain_generator gen(events, test_options.hard_forks);
   gen.create_genesis_block();
 
-  const get_test_options<deregister_too_old> test_options = {};
-  gen.rewind_until_version(test_options.hard_forks, network_version_9_service_nodes);
+  gen.rewind_until_version(network_version_9_service_nodes);
 
   /// generate some outputs and unlock them
   gen.rewind_blocks_n(20);
@@ -585,9 +581,9 @@ bool deregister_too_old::generate(std::vector<test_event_entry>& events)
 
   gen.create_block(reg_txs);
 
-  // create a deregister for this height
+  // create a deregister for this height (without committing)
   const auto pk = gen.get_test_pk(0);
-  const auto dereg_tx = gen.build_deregister(pk).build();
+  const auto dereg_tx = gen.build_deregister(pk, false).build();
 
   /// create enough block to make deregistrations invalid (60 - 1 blocks)
   gen.rewind_blocks_n(service_nodes::deregister_vote::DEREGISTER_LIFETIME_BY_HEIGHT-1);
@@ -610,11 +606,11 @@ sn_test_rollback::sn_test_rollback()
 //-----------------------------------------------------------------------------------------------------
 bool sn_test_rollback::generate(std::vector<test_event_entry>& events)
 {
-  linear_chain_generator gen(events);
+  const get_test_options<sn_test_rollback> test_options = {};
+  linear_chain_generator gen(events, test_options.hard_forks);
   gen.create_genesis_block();
 
-  const get_test_options<sn_test_rollback> test_options = {};
-  gen.rewind_until_version(test_options.hard_forks, network_version_9_service_nodes);
+  gen.rewind_until_version(network_version_9_service_nodes);
 
   /// generate some outputs and unlock them
   gen.rewind_blocks_n(20);
@@ -643,7 +639,6 @@ bool sn_test_rollback::generate(std::vector<test_event_entry>& events)
     const auto pk = gen.get_test_pk(0);
     const auto dereg_tx = gen.build_deregister(pk).build();
     gen.create_block({dereg_tx});
-    gen.deregister(pk);
   }
 
   /// create a new service node (B) in the next block
@@ -738,10 +733,10 @@ test_swarms_basic::test_swarms_basic() {
 
 bool test_swarms_basic::generate(std::vector<test_event_entry>& events)
 {
-  linear_chain_generator gen(events);
-
   const get_test_options<test_swarms_basic> test_options = {};
-  gen.rewind_until_version(test_options.hard_forks, network_version_9_service_nodes);
+  linear_chain_generator gen(events, test_options.hard_forks);
+
+  gen.rewind_until_version(network_version_9_service_nodes);
 
   /// Create some service nodes before hf version 10
   constexpr size_t init_sn_count = 16;
@@ -767,7 +762,7 @@ bool test_swarms_basic::generate(std::vector<test_event_entry>& events)
     return false;
   }
 
-  gen.rewind_until_version(test_options.hard_forks, network_version_10_bulletproofs);
+  gen.rewind_until_version(network_version_10_bulletproofs);
 
   /// test that we now have swarms
   DO_CALLBACK(events, "test_initial_swarms");
@@ -793,6 +788,9 @@ bool test_swarms_basic::generate(std::vector<test_event_entry>& events)
   gen.create_block(dereg_txs);
 
   DO_CALLBACK(events, "test_after_deregisters");
+
+  /// test (implicitly) that deregistered nodes do not receive rewards
+  gen.rewind_blocks_n(5);
 
   return true;
 }

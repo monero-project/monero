@@ -1358,7 +1358,7 @@ namespace cryptonote
     {
       cryptonote_connection_context fake_context = AUTO_VAL_INIT(fake_context);
       NOTIFY_UPTIME_PROOF::request r;
-      service_nodes::generate_uptime_proof_request(m_service_node_pubkey, m_service_node_key, r);
+      m_quorum_cop.generate_uptime_proof_request(r);
       bool relayed = get_protocol()->relay_uptime_proof(r, fake_context);
 
       if (relayed)
