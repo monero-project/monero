@@ -4033,6 +4033,40 @@ namespace tools
     return false;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_set_daemon(const wallet_rpc::COMMAND_RPC_SET_DAEMON::request& req, wallet_rpc::COMMAND_RPC_SET_DAEMON::response& res, epee::json_rpc::error& er, const connection_context *ctx)
+  {
+    if (!m_wallet) return not_open(er);
+    if (m_restricted)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_DENIED;
+      er.message = "Command unavailable in restricted mode.";
+      return false;
+    }
+    epee::net_utils::ssl_support_t ssl_support;
+    if (!epee::net_utils::ssl_support_from_string(ssl_support, req.ssl_support))
+    {
+      er.code = WALLET_RPC_ERROR_CODE_NO_DAEMON_CONNECTION;
+      er.message = std::string("Invalid ssl support mode");
+      return false;
+    }
+    std::vector<std::vector<uint8_t>> ssl_allowed_fingerprints;
+    ssl_allowed_fingerprints.reserve(req.ssl_allowed_fingerprints.size());
+    for (const std::string &fp: req.ssl_allowed_fingerprints)
+    {
+      ssl_allowed_fingerprints.push_back({});
+      std::vector<uint8_t> &v = ssl_allowed_fingerprints.back();
+      for (auto c: fp)
+        v.push_back(c);
+    }
+    if (!m_wallet->set_daemon(req.address, boost::none, req.trusted, ssl_support, std::make_pair(req.ssl_private_key_path, req.ssl_certificate_path), req.ssl_allowed_certificates, ssl_allowed_fingerprints, req.ssl_allow_any_cert))
+    {
+      er.code = WALLET_RPC_ERROR_CODE_NO_DAEMON_CONNECTION;
+      er.message = std::string("Unable to set daemon");
+      return false;
+    }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::on_get_version(const wallet_rpc::COMMAND_RPC_GET_VERSION::request& req, wallet_rpc::COMMAND_RPC_GET_VERSION::response& res, epee::json_rpc::error& er, const connection_context *ctx)
   {
     res.version = WALLET_RPC_VERSION;
