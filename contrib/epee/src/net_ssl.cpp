@@ -313,7 +313,6 @@ bool ssl_options_t::has_fingerprint(boost::asio::ssl::verify_context &ctx) const
 
 bool ssl_options_t::handshake(boost::asio::ssl::stream<boost::asio::ip::tcp::socket> &socket, boost::asio::ssl::stream_base::handshake_type type) const
 {
-  bool verified = false;
   socket.next_layer().set_option(boost::asio::ip::tcp::no_delay(true));
 
   /* Using system-wide CA store for client verification is funky - there is
@@ -335,11 +334,16 @@ bool ssl_options_t::handshake(boost::asio::ssl::stream<boost::asio::ip::tcp::soc
     {
       // preverified means it passed system or user CA check. System CA is never loaded
       // when fingerprints are whitelisted.
-      if (!preverified && verification == ssl_verification_t::user_certificates && !has_fingerprint(ctx)) {
-        MERROR("Certificate is not in the allowed list, connection droppped");
-        return false;
+      if (!preverified && !has_fingerprint(ctx))
+      {
+        // autodetect will reconnect without SSL - warn and keep connection encrypted
+        if (support != ssl_support_t::e_ssl_support_autodetect)
+        {
+          MERROR("SSL certificate is not in the allowed list, connection droppped");
+          return false;
+        }
+        MWARNING("SSL peer has not been verified");
       }
-      verified = true;
       return true;
     });
   }
@@ -348,12 +352,7 @@ bool ssl_options_t::handshake(boost::asio::ssl::stream<boost::asio::ip::tcp::soc
   socket.handshake(type, ec);
   if (ec)
   {
-    MERROR("handshake failed, connection dropped: " << ec.message());
-    return false;
-  }
-  if (verification == ssl_verification_t::none && !verified)
-  {
-    MERROR("Peer did not provide a certificate in the allowed list, connection dropped");
+    MERROR("SSL handshake failed, connection dropped: " << ec.message());
     return false;
   }
   MDEBUG("SSL handshake success");

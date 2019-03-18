@@ -104,6 +104,12 @@ namespace net_utils
 
     boost::asio::ssl::context create_context() const;
 
+    /*! \note If `this->support == autodetect && this->verification != none`,
+          then the handshake will not fail when peer verification fails. The
+          assumption is that a re-connect will be attempted, so a warning is
+          logged instead of failure.
+        \return True if the SSL handshake completes with peer verification
+          settings. */
     bool handshake(boost::asio::ssl::stream<boost::asio::ip::tcp::socket> &socket, boost::asio::ssl::stream_base::handshake_type type) const;
   };
 
