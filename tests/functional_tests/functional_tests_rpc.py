@@ -33,35 +33,46 @@ try:
 except:
   tests = DEFAULT_TESTS
 
-monerod = [builddir + "/bin/monerod", "--regtest", "--fixed-difficulty", "1", "--offline", "--no-igd", "--non-interactive", "--disable-dns-checkpoints", "--check-updates", "disabled", "--rpc-ssl", "disabled", "--log-level", "1"]
-wallet = [builddir + "/bin/monero-wallet-rpc", "--wallet-dir", builddir + "/functional-tests-directory", "--rpc-bind-port", "18083", "--disable-rpc-login", "--rpc-ssl", "disabled", "--daemon-ssl", "disabled", "--log-level", "1"]
+N_MONERODS = 1
+N_WALLETS = 3
 
-monerod_output = open(builddir + '/tests/functional_tests/monerod.log', 'a+')
-wallet_output = open(builddir + '/tests/functional_tests/wallet.log', 'a+')
+monerod_base = [builddir + "/bin/monerod", "--regtest", "--fixed-difficulty", "1", "--offline", "--no-igd", "--p2p-bind-port", "monerod_p2p_port", "--rpc-bind-port", "monerod_rpc_port", "--zmq-rpc-bind-port", "monerod_zmq_port", "--non-interactive", "--disable-dns-checkpoints", "--check-updates", "disabled", "--rpc-ssl", "disabled", "--log-level", "1"]
+wallet_base = [builddir + "/bin/monero-wallet-rpc", "--wallet-dir", builddir + "/functional-tests-directory", "--rpc-bind-port", "wallet_port", "--disable-rpc-login", "--rpc-ssl", "disabled", "--daemon-ssl", "disabled", "--daemon-port", "18180", "--log-level", "1"]
+
+command_lines = []
+processes = []
+outputs = []
+ports = []
+
+for i in range(N_MONERODS):
+  command_lines.append([str(18180+i) if x == "monerod_rpc_port" else str(18280+i) if x == "monerod_p2p_port" else str(18380+i) if x == "monerod_zmq_port" else x for x in monerod_base])
+  outputs.append(open(builddir + '/tests/functional_tests/monerod' + str(i) + '.log', 'a+'))
+  ports.append(18180+i)
+
+for i in range(N_WALLETS):
+  command_lines.append([str(18090+i) if x == "wallet_port" else x for x in wallet_base])
+  outputs.append(open(builddir + '/tests/functional_tests/wallet' + str(i) + '.log', 'a+'))
+  ports.append(18090+i)
 
 print('Starting servers...')
-monerod_process = None
-wallet_process = None
 try:
-  #print 'Running: ' + str(monerod)
-  monerod_process = subprocess.Popen(monerod, stdout = monerod_output)
-  #print 'Running: ' + str(wallet)
-  wallet_process = subprocess.Popen(wallet, stdout = wallet_output)
+  for i in range(len(command_lines)):
+    #print('Running: ' + str(command_lines[i]))
+    processes.append(subprocess.Popen(command_lines[i], stdout = outputs[i]))
 except Exception, e:
   print('Error: ' + str(e))
   sys.exit(1)
 
 def kill():
-  try: wallet_process.send_signal(SIGTERM)
-  except: pass
-  try: monerod_process.send_signal(SIGTERM)
-  except: pass
+  for i in range(len(processes)):
+    try: processes[i].send_signal(SIGTERM)
+    except: pass
 
 # wait for error/startup
 for i in range(10):
   time.sleep(1)
   all_open = True
-  for port in [18081, 18083]:
+  for port in ports:
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.settimeout(1)
     if s.connect_ex(('127.0.0.1', port)) != 0:
@@ -95,20 +106,22 @@ kill()
 
 # wait for exit, the poll method does not work (https://bugs.python.org/issue2475) so we wait, possibly forever if the process hangs
 if True:
-  wallet_process.wait()
-  monerod_process.wait()
+  for p in processes:
+    p.wait()
 else:
   for i in range(10):
-    wallet_process.poll()
-    monerod_process.poll()
-    if wallet_process.returncode and monerod_process.returncode:
-      print('Both done: ' + str(wallet_process.returncode) + ' and ' + str(monerod_process.returncode))
+    n_returncode = 0
+    for p in processes:
+      p.poll()
+      if p.returncode:
+        n_returncode += 1
+    if n_returncode == len(processes):
+      print('All done: ' + string.join([x.returncode for x in processes], ', '))
       break
     time.sleep(1)
-  if not wallet_process.returncode:
-    print('Failed to stop monero-wallet-rpc')
-  if not monerod_process.returncode:
-    print('Failed to stop monerod')
+  for p in processes:
+    if not p.returncode:
+      print('Failed to stop process')
 
 if len(FAIL) == 0:
   print('Done, ' + str(len(PASS)) + '/' + str(len(tests)) + ' tests passed')
