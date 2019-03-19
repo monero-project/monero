@@ -41,6 +41,7 @@ class TransferTest():
         self.create(0)
         self.mine()
         self.transfer()
+        self.check_get_bulk_payments()
 
     def create(self, idx):
         print 'Creating wallet'
@@ -286,6 +287,42 @@ class TransferTest():
         assert e.confirmations == 1
         assert e.amount == 1200000000000
         assert e.fee == fee
+
+    def check_get_bulk_payments(self):
+        print('Checking get_bulk_payments')
+
+        daemon = Daemon()
+        res = daemon.get_info()
+        height = res.height
+
+        wallet = Wallet()
+
+        self.create(0)
+        wallet.refresh()
+        res = wallet.get_bulk_payments()
+        assert len(res.payments) >= 83 # at least 83 coinbases
+        res = wallet.get_bulk_payments(payment_ids = ['1234500000012345abcde00000abcdeff1234500000012345abcde00000abcde'])
+        assert 'payments' not in res or len(res.payments) == 0
+        res = wallet.get_bulk_payments(min_block_height = height)
+        assert 'payments' not in res or len(res.payments) == 0
+        res = wallet.get_bulk_payments(min_block_height = height - 40)
+        assert len(res.payments) >= 39 # coinbases
+
+        self.create(1)
+        wallet.refresh()
+        res = wallet.get_bulk_payments()
+        assert len(res.payments) >= 2 # two txes were sent
+        res = wallet.get_bulk_payments(payment_ids = ['1234500000012345abcde00000abcdeff1234500000012345abcde00000abcde'])
+        assert len(res.payments) >= 2 # two txes were sent with that payment id
+        res = wallet.get_bulk_payments(payment_ids = ['ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'])
+        assert 'payments' not in res or len(res.payments) == 0 # none with that payment id
+
+        self.create(2)
+        wallet.refresh()
+        res = wallet.get_bulk_payments()
+        assert len(res.payments) >= 1 # one tx was sent
+        res = wallet.get_bulk_payments(payment_ids = ['1'*64, '1234500000012345abcde00000abcdeff1234500000012345abcde00000abcde', '2'*64])
+        assert len(res.payments) >= 1 # one tx was sent
 
 if __name__ == '__main__':
     TransferTest().run_test()

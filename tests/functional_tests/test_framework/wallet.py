@@ -89,6 +89,18 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(transfer)   
 
+    def get_bulk_payments(self, payment_ids = [], min_block_height = 0):
+        get_bulk_payments = {
+            'method': 'get_bulk_payments',
+            'params': {
+                'payment_ids': payment_ids,
+                'min_block_height': min_block_height,
+            },
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(get_bulk_payments)
+
     def describe_transfer(self, unsigned_txset):
         describe_transfer = {
             'method': 'describe_transfer',
