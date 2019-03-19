@@ -190,7 +190,7 @@ namespace
   const char* USAGE_CHECK_RESERVE_PROOF("check_reserve_proof <address> <signature_file> [<message>]");
   const char* USAGE_SHOW_TRANSFERS("show_transfers [in|out|pending|failed|pool|coinbase] [index=<N1>[,<N2>,...]] [<min_height> [<max_height>]]");
   const char* USAGE_UNSPENT_OUTPUTS("unspent_outputs [index=<N1>[,<N2>,...]] [<min_amount> [<max_amount>]]");
-  const char* USAGE_RESCAN_BC("rescan_bc [hard]");
+  const char* USAGE_RESCAN_BC("rescan_bc [hard|soft|keep_ki] [start_height=0]");
   const char* USAGE_SET_TX_NOTE("set_tx_note <txid> [free text note]");
   const char* USAGE_GET_TX_NOTE("get_tx_note <txid>");
   const char* USAGE_GET_DESCRIPTION("get_description");
@@ -4748,8 +4748,16 @@ bool simple_wallet::refresh_main(uint64_t start_height, enum ResetType reset, bo
 
   LOCK_IDLE_SCOPE();
 
+  crypto::hash transfer_hash_pre{};
+  uint64_t height_pre, height_post;
+
   if (reset != ResetNone)
-    m_wallet->rescan_blockchain(reset == ResetHard, false);
+  {
+    if (reset == ResetSoftKeepKI)
+      height_pre = m_wallet->hash_m_transfers(-1, transfer_hash_pre);
+
+    m_wallet->rescan_blockchain(reset == ResetHard, false, reset == ResetSoftKeepKI);
+  }
 
 #ifdef HAVE_READLINE
   rdln::suspend_readline pause_readline;
@@ -4766,6 +4774,18 @@ bool simple_wallet::refresh_main(uint64_t start_height, enum ResetType reset, bo
     m_in_manual_refresh.store(true, std::memory_order_relaxed);
     epee::misc_utils::auto_scope_leave_caller scope_exit_handler = epee::misc_utils::create_scope_leave_handler([&](){m_in_manual_refresh.store(false, std::memory_order_relaxed);});
     m_wallet->refresh(m_wallet->is_trusted_daemon(), start_height, fetched_blocks, received_money);
+
+    if (reset == ResetSoftKeepKI)
+    {
+      m_wallet->finish_rescan_bc_keep_key_images(height_pre, transfer_hash_pre);
+
+      height_post = m_wallet->get_num_transfer_details();
+      if (height_pre != height_post)
+      {
+        message_writer() << tr("New transfer received since rescan was started. Key images are incomplete.");
+      }
+    }
+
     ok = true;
     // Clear line "Height xxx of xxx"
     std::cout << "\r                                                                \r";
@@ -7773,18 +7793,43 @@ bool simple_wallet::unspent_outputs(const std::vector<std::string> &args_)
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::rescan_blockchain(const std::vector<std::string> &args_)
 {
-  bool hard = false;
+  uint64_t start_height = 0;
+  ResetType reset_type = ResetSoft;
+
   if (!args_.empty())
   {
-    if (args_[0] != "hard")
+    if (args_[0] == "hard")
+    {
+      reset_type = ResetHard;
+    }
+    else if (args_[0] == "soft")
+    {
+      reset_type = ResetSoft;
+    }
+    else if (args_[0] == "keep_ki")
+    {
+      reset_type = ResetSoftKeepKI;
+    }
+    else
     {
       PRINT_USAGE(USAGE_RESCAN_BC);
       return true;
     }
-    hard = true;
+
+    if (args_.size() > 1)
+    {
+      try
+      {
+        start_height = boost::lexical_cast<uint64_t>( args_[1] );
+      }
+      catch(const boost::bad_lexical_cast &)
+      {
+        start_height = 0;
+      }
+    }
   }
 
-  if (hard)
+  if (reset_type == ResetHard)
   {
     message_writer() << tr("Warning: this will lose any information which can not be recovered from the blockchain.");
     message_writer() << tr("This includes destination addresses, tx secret keys, tx notes, etc");
@@ -7795,7 +7840,20 @@ bool simple_wallet::rescan_blockchain(const std::vector<std::string> &args_)
         return true;
     }
   }
-  return refresh_main(0, hard ? ResetHard : ResetSoft, true);
+
+  const uint64_t wallet_from_height = m_wallet->get_refresh_from_block_height();
+  if (start_height > wallet_from_height)
+  {
+    message_writer() << tr("Warning: your restore height is higher than wallet restore height: ") << wallet_from_height;
+    std::string confirm = input_line(tr("Rescan anyway ? (Y/Yes/N/No): "));
+    if(!std::cin.eof())
+    {
+      if (!command_line::is_yes(confirm))
+        return true;
+    }
+  }
+
+  return refresh_main(start_height, reset_type, true);
 }
 //----------------------------------------------------------------------------------------------------
 void simple_wallet::check_for_messages()
