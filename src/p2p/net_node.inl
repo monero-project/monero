@@ -436,11 +436,10 @@ namespace nodetool
     else
     {
       full_addrs.insert("13.55.199.36:22022");   // Sydney A Box
-	    full_addrs.insert("162.243.164.223:22022"); //Jeff's i2p.rocks
-	    full_addrs.insert("192.250.236.196:22022"); //Rangeproof Test VPSC Box
-	    full_addrs.insert("162.208.9.194:22022");  // Simon's spare
-	    full_addrs.insert("162.208.9.194:22022");  // OVH(1) is bae
-  	  full_addrs.insert("51.38.133.145:22022");  // OVH(2) is bae
+      full_addrs.insert("162.243.164.223:22022"); //Jeff's i2p.rocks
+      full_addrs.insert("192.250.236.196:22022"); //Rangeproof Test VPSC Box
+      full_addrs.insert("144.217.243.15:22022");  // OVH(1)
+      full_addrs.insert("51.38.133.145:22022");  // OVH(2)
     }
     return full_addrs;
   }
