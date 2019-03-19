@@ -482,3 +482,27 @@ class Wallet(object):
             'id': '0'
         }
         return self.rpc.send_json_rpc_request(get_tx_key)
+
+    def sign(self, data):
+        sign = {
+            'method': 'sign',
+            'params' : {
+                'data': data,
+            },
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(sign)
+
+    def verify(self, data, address, signature):
+        verify = {
+            'method': 'verify',
+            'params' : {
+                'data': data,
+                'address': address,
+                'signature': signature,
+            },
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(verify)
