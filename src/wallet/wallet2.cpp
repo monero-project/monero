@@ -6349,17 +6349,17 @@ bool wallet2::save_multisig_tx(const std::vector<pending_tx>& ptx_vector, const 
   return epee::file_io_utils::save_string_to_file(filename, ciphertext);
 }
 //----------------------------------------------------------------------------------------------------
-bool wallet2::load_multisig_tx(cryptonote::blobdata s, multisig_tx_set &exported_txs, std::function<bool(const multisig_tx_set&)> accept_func)
+bool wallet2::parse_multisig_tx_from_str(std::string multisig_tx_st, multisig_tx_set &exported_txs) const
 {
   const size_t magiclen = strlen(MULTISIG_UNSIGNED_TX_PREFIX);
-  if (strncmp(s.c_str(), MULTISIG_UNSIGNED_TX_PREFIX, magiclen))
+  if (strncmp(multisig_tx_st.c_str(), MULTISIG_UNSIGNED_TX_PREFIX, magiclen))
   {
     LOG_PRINT_L0("Bad magic from multisig tx data");
     return false;
   }
   try
   {
-    s = decrypt_with_view_secret_key(std::string(s, magiclen));
+    multisig_tx_st = decrypt_with_view_secret_key(std::string(multisig_tx_st, magiclen));
   }
   catch (const std::exception &e)
   {
@@ -6368,7 +6368,7 @@ bool wallet2::load_multisig_tx(cryptonote::blobdata s, multisig_tx_set &exported
   }
   try
   {
-    std::istringstream iss(s);
+    std::istringstream iss(multisig_tx_st);
     boost::archive::portable_binary_iarchive ar(iss);
     ar >> exported_txs;
   }
@@ -6388,6 +6388,17 @@ bool wallet2::load_multisig_tx(cryptonote::blobdata s, multisig_tx_set &exported
     for (size_t idx: ptx.construction_data.selected_transfers)
       CHECK_AND_ASSERT_MES(idx < m_transfers.size(), false, "Transfer index out of range");
     CHECK_AND_ASSERT_MES(ptx.construction_data.sources.size() == ptx.tx.vin.size(), false, "Mismatched sources/vin sizes");
+  }
+
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
+bool wallet2::load_multisig_tx(cryptonote::blobdata s, multisig_tx_set &exported_txs, std::function<bool(const multisig_tx_set&)> accept_func)
+{
+  if(!parse_multisig_tx_from_str(s, exported_txs))
+  {
+    LOG_PRINT_L0("Failed to parse multisig transaction from string");
+    return false;
   }
 
   LOG_PRINT_L1("Loaded multisig tx unsigned data from binary: " << exported_txs.m_ptx.size() << " transactions");

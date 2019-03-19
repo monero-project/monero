@@ -1074,29 +1074,59 @@ namespace tools
       er.message = "command not supported by watch-only wallet";
       return false;
     }
-
-    tools::wallet2::unsigned_tx_set exported_txs;
-    try
+    if(req.unsigned_txset.empty() && req.multisig_txset.empty())
     {
-      cryptonote::blobdata blob;
-      if (!epee::string_tools::parse_hexstr_to_binbuff(req.unsigned_txset, blob))
-      {
-        er.code = WALLET_RPC_ERROR_CODE_BAD_HEX;
-        er.message = "Failed to parse hex.";
-        return false;
-      }
-      if(!m_wallet->parse_unsigned_tx_from_str(blob, exported_txs))
-      {
-        er.code = WALLET_RPC_ERROR_CODE_BAD_UNSIGNED_TX_DATA;
-        er.message = "cannot load unsigned_txset";
-        return false;
-      }
-    }
-    catch (const std::exception &e)
-    {
-      er.code = WALLET_RPC_ERROR_CODE_BAD_UNSIGNED_TX_DATA;
-      er.message = "failed to parse unsigned transfers: " + std::string(e.what());
+      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.message = "no txset provided";
       return false;
+    }
+
+    std::vector <wallet2::tx_construction_data> tx_constructions;
+    if (!req.unsigned_txset.empty()) {
+      try {
+        tools::wallet2::unsigned_tx_set exported_txs;
+        cryptonote::blobdata blob;
+        if (!epee::string_tools::parse_hexstr_to_binbuff(req.unsigned_txset, blob)) {
+          er.code = WALLET_RPC_ERROR_CODE_BAD_HEX;
+          er.message = "Failed to parse hex.";
+          return false;
+        }
+        if (!m_wallet->parse_unsigned_tx_from_str(blob, exported_txs)) {
+          er.code = WALLET_RPC_ERROR_CODE_BAD_UNSIGNED_TX_DATA;
+          er.message = "cannot load unsigned_txset";
+          return false;
+        }
+        tx_constructions = exported_txs.txes;
+      }
+      catch (const std::exception &e) {
+        er.code = WALLET_RPC_ERROR_CODE_BAD_UNSIGNED_TX_DATA;
+        er.message = "failed to parse unsigned transfers: " + std::string(e.what());
+        return false;
+      }
+    } else if (!req.multisig_txset.empty()) {
+      try {
+        tools::wallet2::multisig_tx_set exported_txs;
+        cryptonote::blobdata blob;
+        if (!epee::string_tools::parse_hexstr_to_binbuff(req.multisig_txset, blob)) {
+          er.code = WALLET_RPC_ERROR_CODE_BAD_HEX;
+          er.message = "Failed to parse hex.";
+          return false;
+        }
+        if (!m_wallet->parse_multisig_tx_from_str(blob, exported_txs)) {
+          er.code = WALLET_RPC_ERROR_CODE_BAD_MULTISIG_TX_DATA;
+          er.message = "cannot load multisig_txset";
+          return false;
+        }
+
+        for (size_t n = 0; n < exported_txs.m_ptx.size(); ++n) {
+          tx_constructions.push_back(exported_txs.m_ptx[n].construction_data);
+        }
+      }
+      catch (const std::exception &e) {
+        er.code = WALLET_RPC_ERROR_CODE_BAD_MULTISIG_TX_DATA;
+        er.message = "failed to parse multisig transfers: " + std::string(e.what());
+        return false;
+      }
     }
 
     std::vector<tools::wallet2::pending_tx> ptx;
@@ -1105,9 +1135,9 @@ namespace tools
       // gather info to ask the user
       std::unordered_map<cryptonote::account_public_address, std::pair<std::string, uint64_t>> dests;
       int first_known_non_zero_change_index = -1;
-      for (size_t n = 0; n < exported_txs.txes.size(); ++n)
+      for (size_t n = 0; n < tx_constructions.size(); ++n)
       {
-        const tools::wallet2::tx_construction_data &cd = exported_txs.txes[n];
+        const tools::wallet2::tx_construction_data &cd = tx_constructions[n];
         res.desc.push_back({0, 0, std::numeric_limits<uint32_t>::max(), 0, {}, "", 0, "", 0, 0, ""});
         wallet_rpc::COMMAND_RPC_DESCRIBE_TRANSFER::transfer_description &desc = res.desc.back();
 
@@ -1171,7 +1201,7 @@ namespace tools
           {
             if (first_known_non_zero_change_index == -1)
               first_known_non_zero_change_index = n;
-            const tools::wallet2::tx_construction_data &cdn = exported_txs.txes[first_known_non_zero_change_index];
+            const tools::wallet2::tx_construction_data &cdn = tx_constructions[first_known_non_zero_change_index];
             if (memcmp(&cd.change_dts.addr, &cdn.change_dts.addr, sizeof(cd.change_dts.addr)))
             {
               er.code = WALLET_RPC_ERROR_CODE_BAD_UNSIGNED_TX_DATA;
@@ -1199,7 +1229,7 @@ namespace tools
 
         if (desc.change_amount > 0)
         {
-          const tools::wallet2::tx_construction_data &cd0 = exported_txs.txes[0];
+          const tools::wallet2::tx_construction_data &cd0 = tx_constructions[0];
           desc.change_address = get_account_address_as_str(m_wallet->nettype(), cd0.subaddr_account > 0, cd0.change_dts.addr);
         }
 
