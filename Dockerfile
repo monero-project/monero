@@ -25,10 +25,13 @@ RUN set -ex && \
 
 WORKDIR /usr/local
 
+ENV CFLAGS='-fPIC'
+ENV CXXFLAGS='-fPIC'
+
 #Cmake
-ARG CMAKE_VERSION=3.13.0
-ARG CMAKE_VERSION_DOT=v3.13
-ARG CMAKE_HASH=4058b2f1a53c026564e8936698d56c3b352d90df067b195cb749a97a3d273c90 
+ARG CMAKE_VERSION=3.14.0
+ARG CMAKE_VERSION_DOT=v3.14
+ARG CMAKE_HASH=aa76ba67b3c2af1946701f847073f4652af5cbd9f141f221c97af99127e75502
 RUN set -ex \
     && curl -s -O https://cmake.org/files/${CMAKE_VERSION_DOT}/cmake-${CMAKE_VERSION}.tar.gz \
     && echo "${CMAKE_HASH}  cmake-${CMAKE_VERSION}.tar.gz" | sha256sum -c \
@@ -39,41 +42,41 @@ RUN set -ex \
     && make install
 
 ## Boost
-ARG BOOST_VERSION=1_68_0
-ARG BOOST_VERSION_DOT=1.68.0
-ARG BOOST_HASH=7f6130bc3cf65f56a618888ce9d5ea704fa10b462be126ad053e80e553d6d8b7
+ARG BOOST_VERSION=1_69_0
+ARG BOOST_VERSION_DOT=1.69.0
+ARG BOOST_HASH=8f32d4617390d1c2d16f26a27ab60d97807b35440d45891fa340fc2648b04406
 RUN set -ex \
     && curl -s -L -o  boost_${BOOST_VERSION}.tar.bz2 https://dl.bintray.com/boostorg/release/${BOOST_VERSION_DOT}/source/boost_${BOOST_VERSION}.tar.bz2 \
     && echo "${BOOST_HASH}  boost_${BOOST_VERSION}.tar.bz2" | sha256sum -c \
     && tar -xvf boost_${BOOST_VERSION}.tar.bz2 \
     && cd boost_${BOOST_VERSION} \
     && ./bootstrap.sh \
-    && ./b2 --build-type=minimal link=static runtime-link=static --with-chrono --with-date_time --with-filesystem --with-program_options --with-regex --with-serialization --with-system --with-thread --with-locale threading=multi threadapi=pthread cflags="-fPIC" cxxflags="-fPIC" stage
+    && ./b2 --build-type=minimal link=static runtime-link=static --with-chrono --with-date_time --with-filesystem --with-program_options --with-regex --with-serialization --with-system --with-thread --with-locale threading=multi threadapi=pthread cflags="$CFLAGS" cxxflags="$CXXFLAGS" stage
 ENV BOOST_ROOT /usr/local/boost_${BOOST_VERSION}
 
 # OpenSSL
-ARG OPENSSL_VERSION=1.1.0j
-ARG OPENSSL_HASH=31bec6c203ce1a8e93d5994f4ed304c63ccf07676118b6634edded12ad1b3246
+ARG OPENSSL_VERSION=1.1.1b
+ARG OPENSSL_HASH=5c557b023230413dfb0756f3137a13e6d726838ccd1430888ad15bfb2b43ea4b
 RUN set -ex \
     && curl -s -O https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz \
     && echo "${OPENSSL_HASH}  openssl-${OPENSSL_VERSION}.tar.gz" | sha256sum -c \
     && tar -xzf openssl-${OPENSSL_VERSION}.tar.gz \
     && cd openssl-${OPENSSL_VERSION} \
-    && ./Configure linux-x86_64 no-shared --static -fPIC \
+    && ./Configure linux-x86_64 no-shared --static "$CFLAGS" \
     && make build_generated \
     && make libcrypto.a \
     && make install
 ENV OPENSSL_ROOT_DIR=/usr/local/openssl-${OPENSSL_VERSION}
 
 # ZMQ
-ARG ZMQ_VERSION=v4.2.5
-ARG ZMQ_HASH=d062edd8c142384792955796329baf1e5a3377cd
+ARG ZMQ_VERSION=v4.3.1
+ARG ZMQ_HASH=2cb1240db64ce1ea299e00474c646a2453a8435b
 RUN set -ex \
     && git clone https://github.com/zeromq/libzmq.git -b ${ZMQ_VERSION} \
     && cd libzmq \
     && test `git rev-parse HEAD` = ${ZMQ_HASH} || exit 1 \
     && ./autogen.sh \
-    && CFLAGS="-fPIC" CXXFLAGS="-fPIC" ./configure --enable-static --disable-shared \
+    && ./configure --enable-static --disable-shared \
     && make \
     && make install \
     && ldconfig
@@ -88,39 +91,39 @@ RUN set -ex \
     && mv *.hpp /usr/local/include
 
 # Readline
-ARG READLINE_VERSION=7.0
-ARG READLINE_HASH=750d437185286f40a369e1e4f4764eda932b9459b5ec9a731628393dd3d32334
+ARG READLINE_VERSION=8.0
+ARG READLINE_HASH=e339f51971478d369f8a053a330a190781acb9864cf4c541060f12078948e461
 RUN set -ex \
     && curl -s -O https://ftp.gnu.org/gnu/readline/readline-${READLINE_VERSION}.tar.gz \
     && echo "${READLINE_HASH}  readline-${READLINE_VERSION}.tar.gz" | sha256sum -c \
     && tar -xzf readline-${READLINE_VERSION}.tar.gz \
     && cd readline-${READLINE_VERSION} \
-    && CFLAGS="-fPIC" CXXFLAGS="-fPIC" ./configure \
+    && ./configure \
     && make \
     && make install
 
 # Sodium
-ARG SODIUM_VERSION=1.0.16
-ARG SODIUM_HASH=675149b9b8b66ff44152553fb3ebf9858128363d
+ARG SODIUM_VERSION=1.0.17
+ARG SODIUM_HASH=b732443c442239c2e0184820e9b23cca0de0828c
 RUN set -ex \
     && git clone https://github.com/jedisct1/libsodium.git -b ${SODIUM_VERSION} \
     && cd libsodium \
     && test `git rev-parse HEAD` = ${SODIUM_HASH} || exit 1 \
     && ./autogen.sh \
-    && CFLAGS="-fPIC" CXXFLAGS="-fPIC" ./configure \
+    && ./configure \
     && make \
     && make check \
     && make install
 
 # Udev
-ARG UDEV_VERSION=v3.2.6
-ARG UDEV_HASH=0c35b136c08d64064efa55087c54364608e65ed6
+ARG UDEV_VERSION=v3.2.7
+ARG UDEV_HASH=4758e346a14126fc3a964de5831e411c27ebe487
 RUN set -ex \
     && git clone https://github.com/gentoo/eudev -b ${UDEV_VERSION} \
     && cd eudev \
     && test `git rev-parse HEAD` = ${UDEV_HASH} || exit 1 \
     && ./autogen.sh \
-    && CFLAGS="-fPIC" CXXFLAGS="-fPIC" ./configure --disable-gudev --disable-introspection --disable-hwdb --disable-manpages --disable-shared \
+    && ./configure --disable-gudev --disable-introspection --disable-hwdb --disable-manpages --disable-shared \
     && make \
     && make install
 
@@ -132,7 +135,7 @@ RUN set -ex \
     && cd libusb \
     && test `git rev-parse HEAD` = ${USB_HASH} || exit 1 \
     && ./autogen.sh \
-    && CFLAGS="-fPIC" CXXFLAGS="-fPIC" ./configure --disable-shared \
+    && ./configure --disable-shared \
     && make \
     && make install
 
@@ -144,20 +147,20 @@ RUN set -ex \
     && cd hidapi \
     && test `git rev-parse HEAD` = ${HIDAPI_HASH} || exit 1 \
     && ./bootstrap \
-    && CFLAGS="-fPIC" CXXFLAGS="-fPIC" ./configure --enable-static --disable-shared \
+    && ./configure --enable-static --disable-shared \
     && make \
     && make install
 
 # Protobuf
-ARG PROTOBUF_VERSION=v3.6.1
-ARG PROTOBUF_HASH=48cb18e5c419ddd23d9badcfe4e9df7bde1979b2
+ARG PROTOBUF_VERSION=v3.7.0
+ARG PROTOBUF_HASH=582743bf40c5d3639a70f98f183914a2c0cd0680
 RUN set -ex \
     && git clone https://github.com/protocolbuffers/protobuf -b ${PROTOBUF_VERSION} \
     && cd protobuf \
     && test `git rev-parse HEAD` = ${PROTOBUF_HASH} || exit 1 \
     && git submodule update --init --recursive \
     && ./autogen.sh \
-    && CFLAGS="-fPIC" CXXFLAGS="-fPIC" ./configure --enable-static --disable-shared \
+    && ./configure --enable-static --disable-shared \
     && make \
     && make install \
     && ldconfig
