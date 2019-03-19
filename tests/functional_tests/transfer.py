@@ -71,8 +71,19 @@ class TransferTest():
         print("Creating transfer to self")
 
         dst = {'address': '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 'amount': 1000000000000}
-
         payment_id = '1234500000012345abcde00000abcdeff1234500000012345abcde00000abcde'
+
+        print ('Checking short payment IDs cannot be used when not in an integrated address')
+        ok = False
+        try: wallet.transfer([dst], ring_size = 11, payment_id = '1234567812345678', get_tx_key = False)
+        except: ok = True
+        assert ok
+
+        print ('Checking empty destination is rejected')
+        ok = False
+        try: wallet.transfer([], ring_size = 11, get_tx_key = False)
+        except: ok = True
+        assert ok
 
         res = wallet.transfer([dst], ring_size = 11, payment_id = payment_id, get_tx_key = False)
         assert len(res.tx_hash) == 32*2
@@ -134,10 +145,10 @@ class TransferTest():
         assert e.double_spend_seen == False
         assert e.confirmations == 1
 
-        print("Creating transfer to another")
+        print("Creating transfer to another, manual relay")
 
         dst = {'address': '44Kbx4sJ7JDRDV5aAhLJzQCjDz2ViLRduE3ijDZu3osWKBjMGkV1XPk4pfDUMqt1Aiezvephdqm6YD19GKFD9ZcXVUTp6BW', 'amount': 1000000000000}
-        res = wallet.transfer([dst], ring_size = 11, payment_id = payment_id, get_tx_key = True)
+        res = wallet.transfer([dst], ring_size = 11, payment_id = payment_id, get_tx_key = True, do_not_relay = True, get_tx_hex = True)
         assert len(res.tx_hash) == 32*2
         txid = res.tx_hash
         assert len(res.tx_key) == 32*2
@@ -145,11 +156,22 @@ class TransferTest():
         amount = res.amount
         assert res.fee > 0
         fee = res.fee
-        assert len(res.tx_blob) == 0
+        assert len(res.tx_blob) > 0
         assert len(res.tx_metadata) == 0
         assert len(res.multisig_txset) == 0
         assert len(res.unsigned_txset) == 0
-        unsigned_txset = res.unsigned_txset
+        tx_blob = res.tx_blob
+
+        res = daemon.send_raw_transaction(tx_blob)
+        assert res.not_relayed == False
+        assert res.low_mixin == False
+        assert res.double_spend == False
+        assert res.invalid_input == False
+        assert res.invalid_output == False
+        assert res.too_big == False
+        assert res.overspend == False
+        assert res.fee_too_low == False
+        assert res.not_rct == False
 
         self.create(1)
         wallet.refresh()
@@ -288,6 +310,29 @@ class TransferTest():
         assert e.amount == 1200000000000
         assert e.fee == fee
 
+        print('Sending to integrated address')
+        self.create(0)
+        wallet.refresh()
+        res = wallet.get_balance()
+        i_pid = '1111111122222222'
+        res = wallet.make_integrated_address(standard_address = '44Kbx4sJ7JDRDV5aAhLJzQCjDz2ViLRduE3ijDZu3osWKBjMGkV1XPk4pfDUMqt1Aiezvephdqm6YD19GKFD9ZcXVUTp6BW', payment_id = i_pid)
+        i_address = res.integrated_address
+        res = wallet.transfer([{'address': i_address, 'amount': 200000000}])
+        assert len(res.tx_hash) == 32*2
+        i_txid = res.tx_hash
+        assert len(res.tx_key) == 32*2
+        assert res.amount == 200000000
+        i_amount = res.amount
+        assert res.fee > 0
+        fee = res.fee
+        assert len(res.tx_blob) == 0
+        assert len(res.tx_metadata) == 0
+        assert len(res.multisig_txset) == 0
+        assert len(res.unsigned_txset) == 0
+
+        daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 1)
+
+
     def check_get_bulk_payments(self):
         print('Checking get_bulk_payments')
 
@@ -311,11 +356,13 @@ class TransferTest():
         self.create(1)
         wallet.refresh()
         res = wallet.get_bulk_payments()
-        assert len(res.payments) >= 2 # two txes were sent
+        assert len(res.payments) >= 3 # two txes to standard address were sent, plus one to integrated address
         res = wallet.get_bulk_payments(payment_ids = ['1234500000012345abcde00000abcdeff1234500000012345abcde00000abcde'])
         assert len(res.payments) >= 2 # two txes were sent with that payment id
         res = wallet.get_bulk_payments(payment_ids = ['ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'])
         assert 'payments' not in res or len(res.payments) == 0 # none with that payment id
+        res = wallet.get_bulk_payments(payment_ids = ['1111111122222222' + '0'*48])
+        assert len(res.payments) >= 1 # one tx to integrated address
 
         self.create(2)
         wallet.refresh()
