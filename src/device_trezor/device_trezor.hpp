@@ -30,18 +30,21 @@
 #ifndef MONERO_DEVICE_TREZOR_H
 #define MONERO_DEVICE_TREZOR_H
 
+#include "trezor.hpp"
+#include "device/device.hpp"
 
+#ifdef WITH_DEVICE_TREZOR
 #include <cstddef>
 #include <string>
-#include "device/device.hpp"
-#include "device/device_default.hpp"
-#include "device/device_cold.hpp"
 #include <boost/scope_exit.hpp>
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/recursive_mutex.hpp>
+
+#include "device/device_default.hpp"
+#include "device/device_cold.hpp"
 #include "cryptonote_config.h"
-#include "trezor.hpp"
 #include "device_trezor_base.hpp"
+#endif
 
 namespace hw {
 namespace trezor {
