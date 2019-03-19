@@ -585,8 +585,8 @@ bool deregister_too_old::generate(std::vector<test_event_entry>& events)
   const auto pk = gen.get_test_pk(0);
   const auto dereg_tx = gen.build_deregister(pk, false).build();
 
-  /// create enough block to make deregistrations invalid (60 - 1 blocks)
-  gen.rewind_blocks_n(service_nodes::deregister_vote::DEREGISTER_LIFETIME_BY_HEIGHT-1);
+  /// create enough blocks to make deregistrations invalid (60 blocks)
+  gen.rewind_blocks_n(service_nodes::deregister_vote::DEREGISTER_LIFETIME_BY_HEIGHT);
 
   /// In the real world, this transaction should not make it into a block, but in this case we do try to add it (as in
   /// tests we must add specify transactions manually), which should exercise the same validation code and reject the
@@ -771,7 +771,7 @@ bool test_swarms_basic::generate(std::vector<test_event_entry>& events)
   for (auto i = init_sn_count; i < SN_KEYS_COUNT; ++i) {
     const auto sn = get_static_keys(i);
     const auto tx = gen.create_registration_tx(gen.first_miner(), sn);
-    gen.create_block({tx}); 
+    gen.create_block({tx});
   }
 
   /// test that another swarm has been created

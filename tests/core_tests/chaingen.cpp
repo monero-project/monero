@@ -245,18 +245,19 @@ cryptonote::transaction linear_chain_generator::create_registration_tx(const cry
                                                                        const cryptonote::keypair& sn_keys)
 {
   const sn_contributor_t contr = { acc.get_keys().m_account_address, STAKING_PORTIONS };
-  uint32_t expires = height() + service_nodes::staking_num_lock_blocks(cryptonote::FAKECHAIN);
+  const uint32_t reg_height = height() + 1;
+  uint32_t expires = reg_height + service_nodes::staking_num_lock_blocks(cryptonote::FAKECHAIN);
 
   /// Account for some inconsistency in service_nodes::staking_num_lock_blocks
   /// on the boundary between hardforks 9 and 10
-  if (get_hf_version() == cryptonote::network_version_9_service_nodes &&
-      get_hf_version_at(expires) == cryptonote::network_version_10_bulletproofs)
+  if ((get_hf_version() == cryptonote::network_version_9_service_nodes && get_hf_version_at(expires) == cryptonote::network_version_10_bulletproofs)
+      || get_hf_version() == cryptonote::network_version_10_bulletproofs)
   {
     expires += STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS;
   }
 
   const auto reg_idx = registration_buffer_.size();
-  registration_buffer_.push_back({ expires, sn_keys, contr, { height(), reg_idx } });
+  registration_buffer_.push_back({ expires, sn_keys, contr, { reg_height, reg_idx } });
   return make_default_registration_tx(events_, acc, sn_keys, blocks_.back(), gen_.m_hf_version);
 }
 
@@ -366,7 +367,7 @@ inline void sn_list::expire_old(uint64_t height)
 {
   /// remove_if is stable, no need for re-sorting
   const auto new_end = std::remove_if(
-    sn_owners_.begin(), sn_owners_.end(), [height](const sn_registration& reg) { return height > reg.valid_until; });
+    sn_owners_.begin(), sn_owners_.end(), [height](const sn_registration& reg) { return height >= reg.valid_until; });
 
   sn_owners_.erase(new_end, sn_owners_.end());
 }
@@ -391,6 +392,7 @@ inline const boost::optional<crypto::public_key> sn_list::get_winner_pk(uint64_t
     });
 
   it->last_reward.height = height;
+  it->last_reward.priority = UINT32_MAX;
 
   return it->keys.pub;
 }

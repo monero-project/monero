@@ -1389,8 +1389,10 @@ namespace service_nodes
     crypto::public_key winner = select_winner();
 
     crypto::public_key check_winner_pubkey = cryptonote::get_service_node_winner_from_tx_extra(miner_tx.extra);
-    if (check_winner_pubkey != winner)
+    if (check_winner_pubkey != winner) {
+      MERROR("Service node reward winner is incorrect");
       return false;
+    }
 
     const std::vector<std::pair<cryptonote::account_public_address, uint64_t>> addresses_and_portions = get_winner_addresses_and_portions();
     
