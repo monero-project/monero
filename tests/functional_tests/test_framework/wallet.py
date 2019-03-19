@@ -237,6 +237,22 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(restore_deterministic_wallet)
 
+    def generate_from_keys(self, restore_height = 0, filename = "", password = "", address = "", spendkey = "", viewkey = ""):
+        generate_from_keys = {
+            'method': 'generate_from_keys',
+            'params' : {
+                'restore_height': restore_height,
+                'filename': filename,
+                'address': address,
+                'spendkey': spendkey,
+                'viewkey': viewkey,
+                'password': password,
+            },
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(generate_from_keys)
+
     def close_wallet(self):
         close_wallet = {
             'method': 'close_wallet',
@@ -313,3 +329,156 @@ class Wallet(object):
             'id': '0'
         }
         return self.rpc.send_json_rpc_request(split_integrated_address)
+
+    def auto_refresh(self, enable, period = 0):
+        auto_refresh = {
+            'method': 'auto_refresh',
+            'params' : {
+                'enable': enable,
+                'period': period
+            },
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(auto_refresh)
+
+    def set_daemon(self, address, trusted = False, ssl_support = "autodetect", ssl_private_key_path = "", ssl_certificate_path = "", ssl_allowed_certificates = [], ssl_allowed_fingerprints = [], ssl_allow_any_cert = False):
+        set_daemon = {
+            'method': 'set_daemon',
+            'params' : {
+                'address': address,
+                'trusted': trusted,
+                'ssl_support': ssl_support,
+                'ssl_private_key_path': ssl_private_key_path,
+                'ssl_certificate_path': ssl_certificate_path,
+                'ssl_allowed_certificates': ssl_allowed_certificates,
+                'ssl_allowed_fingerprints': ssl_allowed_fingerprints,
+                'ssl_allow_any_cert': ssl_allow_any_cert,
+            },
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(set_daemon)
+
+    def is_multisig(self):
+        is_multisig = {
+            'method': 'is_multisig',
+            'params' : {
+            },
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(is_multisig)
+
+    def prepare_multisig(self):
+        prepare_multisig = {
+            'method': 'prepare_multisig',
+            'params' : {
+            },
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(prepare_multisig)
+
+    def make_multisig(self, multisig_info, threshold, password = ''):
+        make_multisig = {
+            'method': 'make_multisig',
+            'params' : {
+                'multisig_info': multisig_info,
+                'threshold': threshold,
+                'password': password,
+            },
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(make_multisig)
+
+    def exchange_multisig_keys(self, multisig_info, password = ''):
+        exchange_multisig_keys = {
+            'method': 'exchange_multisig_keys',
+            'params' : {
+                'multisig_info': multisig_info,
+                'password': password,
+            },
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(exchange_multisig_keys)
+
+    def export_multisig_info(self):
+        export_multisig_info = {
+            'method': 'export_multisig_info',
+            'params' : {
+            },
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(export_multisig_info)
+
+    def import_multisig_info(self, info = []):
+        import_multisig_info = {
+            'method': 'import_multisig_info',
+            'params' : {
+                'info': info
+            },
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(import_multisig_info)
+
+    def sign_multisig(self, tx_data_hex):
+        sign_multisig = {
+            'method': 'sign_multisig',
+            'params' : {
+                'tx_data_hex': tx_data_hex
+            },
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(sign_multisig)
+
+    def submit_multisig(self, tx_data_hex):
+        submit_multisig = {
+            'method': 'submit_multisig',
+            'params' : {
+                'tx_data_hex': tx_data_hex
+            },
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(submit_multisig)
+
+    def sign_transfer(self, unsigned_txset, export_raw = False, get_tx_keys = False):
+        sign_transfer = {
+            'method': 'sign_transfer',
+            'params' : {
+                'unsigned_txset': unsigned_txset,
+                'export_raw': export_raw,
+                'get_tx_keys': get_tx_keys,
+            },
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(sign_transfer)
+
+    def submit_transfer(self, tx_data_hex):
+        submit_transfer = {
+            'method': 'submit_transfer',
+            'params' : {
+                'tx_data_hex': tx_data_hex,
+            },
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(submit_transfer)
+
+    def get_tx_key(self, txid):
+        get_tx_key = {
+            'method': 'get_tx_key',
+            'params' : {
+                'txid': txid,
+            },
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(get_tx_key)
