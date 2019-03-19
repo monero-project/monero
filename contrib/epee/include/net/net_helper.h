@@ -174,7 +174,7 @@ namespace net_utils
 					// SSL Options
 					if (ssl_support == epee::net_utils::ssl_support_t::e_ssl_support_enabled || ssl_support == epee::net_utils::ssl_support_t::e_ssl_support_autodetect)
 					{
-						if (!m_ssl_options.handshake(*m_ssl_socket, boost::asio::ssl::stream_base::client))
+						if (!m_ssl_options.handshake(*m_ssl_socket, boost::asio::ssl::stream_base::client, addr))
 						{
 							if (ssl_support == epee::net_utils::ssl_support_t::e_ssl_support_autodetect)
 							{

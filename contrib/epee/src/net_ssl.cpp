@@ -311,7 +311,7 @@ bool ssl_options_t::has_fingerprint(boost::asio::ssl::verify_context &ctx) const
   return false;
 }
 
-bool ssl_options_t::handshake(boost::asio::ssl::stream<boost::asio::ip::tcp::socket> &socket, boost::asio::ssl::stream_base::handshake_type type) const
+bool ssl_options_t::handshake(boost::asio::ssl::stream<boost::asio::ip::tcp::socket> &socket, boost::asio::ssl::stream_base::handshake_type type, const std::string& host) const
 {
   socket.next_layer().set_option(boost::asio::ip::tcp::no_delay(true));
 
@@ -330,11 +330,20 @@ bool ssl_options_t::handshake(boost::asio::ssl::stream<boost::asio::ip::tcp::soc
   else
   {
     socket.set_verify_mode(boost::asio::ssl::verify_peer | boost::asio::ssl::verify_fail_if_no_peer_cert);
-    socket.set_verify_callback([&](bool preverified, boost::asio::ssl::verify_context &ctx)
+
+    // in case server is doing "virtual" domains, set hostname
+    SSL* const ssl_ctx = socket.native_handle();
+    if (type == boost::asio::ssl::stream_base::client && !host.empty() && ssl_ctx)
+      SSL_set_tlsext_host_name(ssl_ctx, host.c_str());
+
+    socket.set_verify_callback([&](const bool preverified, boost::asio::ssl::verify_context &ctx)
     {
       // preverified means it passed system or user CA check. System CA is never loaded
       // when fingerprints are whitelisted.
-      if (!preverified && !has_fingerprint(ctx))
+      const bool verified = preverified &&
+        (verification != ssl_verification_t::system_ca || host.empty() || boost::asio::ssl::rfc2818_verification(host)(preverified, ctx));
+
+      if (!verified && !has_fingerprint(ctx))
       {
         // autodetect will reconnect without SSL - warn and keep connection encrypted
         if (support != ssl_support_t::e_ssl_support_autodetect)

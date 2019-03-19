@@ -108,9 +108,21 @@ namespace net_utils
           then the handshake will not fail when peer verification fails. The
           assumption is that a re-connect will be attempted, so a warning is
           logged instead of failure.
+
+        \note It is strongly encouraged that clients using `system_ca`
+          verification provide a non-empty `host` for rfc2818 verification.
+
+        \param socket Used in SSL handshake and verification
+        \param type Client or server
+        \param host This parameter is only used when
+          `type == client && !host.empty()`. The value is sent to the server for
+          situations where multiple hostnames are being handled by a server. If
+          `verification == system_ca` the client also does a rfc2818 check to
+          ensure that the server certificate is to the provided hostname.
+
         \return True if the SSL handshake completes with peer verification
           settings. */
-    bool handshake(boost::asio::ssl::stream<boost::asio::ip::tcp::socket> &socket, boost::asio::ssl::stream_base::handshake_type type) const;
+    bool handshake(boost::asio::ssl::stream<boost::asio::ip::tcp::socket> &socket, boost::asio::ssl::stream_base::handshake_type type, const std::string& host = {}) const;
   };
 
         // https://security.stackexchange.com/questions/34780/checking-client-hello-for-https-classification
