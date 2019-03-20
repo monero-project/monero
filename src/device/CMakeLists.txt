@@ -1,4 +1,4 @@
-# Copyright (c) 2018, The Loki Project
+# Copyright (c) 2018, The Beldex Project
 # Copyright (c) 2014-2017, The Monero Project
 #
 # All rights reserved.
@@ -60,10 +60,10 @@ endif()
 set(device_private_headers)
 
 
-loki_private_headers(device
+beldex_private_headers(device
   ${device_private_headers})
 
-loki_add_library(device
+beldex_add_library(device
   ${device_sources}
   ${device_headers}
   ${device_private_headers})

@@ -1,9 +1,9 @@
 Gitian building
 ================
 
-*Setup instructions for a Gitian build of Loki using a VM or physical system.*
+*Setup instructions for a Gitian build of Beldex using a VM or physical system.*
 
-Gitian is the deterministic build process that is used to build the Loki CLI
+Gitian is the deterministic build process that is used to build the Beldex CLI
 executables. It provides a way to be reasonably sure that the
 executables are really built from the git source. It also makes sure that
 the same, tested dependencies are used and statically built into the executable.
@@ -92,7 +92,7 @@ fork the gitian.sigs repository and clone it on your host machine,
 or pass the signed assert file back to your build machine.
 
 ```
-git clone git@github.com:loki-project/gitian.sigs.git
+git clone git@github.com:Beldex-Coin/gitian.sigs.git
 git remote add loki-user git@github.com:loki-user/gitian.sigs.git
 ```
 
@@ -117,7 +117,7 @@ gpg --output $VERSION-win-unsigned/$NAME/loki-win-$VERSION-build.assert.sig --de
 ```
 
 Make a pull request (both the `.assert` and `.assert.sig` files) to the
-[loki-project/gitian.sigs](https://github.com/loki-project/gitian.sigs/) repository:
+[Beldex-Coin/gitian.sigs](https://github.com/Beldex-Coin/gitian.sigs/) repository:
 
 ```
 git checkout -b 2.0.0

@@ -1,5 +1,5 @@
 // Copyright (c) 2014-2018, The Monero Project
-// Copyright (c)      2018, The Loki Project
+// Copyright (c)      2018, The Beldex Project
 // 
 // All rights reserved.
 // 
@@ -36,8 +36,8 @@
 #include "common/loki_integration_test_hooks.h"
 
 
-#undef LOKI_DEFAULT_LOG_CATEGORY
-#define LOKI_DEFAULT_LOG_CATEGORY "daemon"
+#undef BELDEX_DEFAULT_LOG_CATEGORY
+#define BELDEX_DEFAULT_LOG_CATEGORY "daemon"
 
 namespace daemonize {
 
@@ -109,7 +109,7 @@ t_command_server::t_command_server(
       "print_sn_key"
     , std::bind(&t_command_parser_executor::print_sn_key, &m_parser, p::_1)
     , "print_sn_key"
-    , "Print this daemon's service node key, if it is one and launched in service node mode."
+    , "Print this daemon's master node key, if it is one and launched in master node mode."
     );
   m_command_lookup.set_handler(
       "print_sr"
@@ -121,19 +121,19 @@ t_command_server::t_command_server(
       "prepare_registration"
     , std::bind(&t_command_parser_executor::prepare_registration, &m_parser)
     , "prepare_registration"
-    , "Interactive prompt to prepare a service node registration command. The resulting registration command can be run in the command-line wallet to send the registration to the blockchain."
+    , "Interactive prompt to prepare a master node registration command. The resulting registration command can be run in the command-line wallet to send the registration to the blockchain."
     );
   m_command_lookup.set_handler(
       "print_sn"
     , std::bind(&t_command_parser_executor::print_sn, &m_parser, p::_1)
     , "print_sn [<pubkey> [...]] [+json]"
-    , "Print service node registration info for the current height"
+    , "Print master node registration info for the current height"
     );
   m_command_lookup.set_handler(
       "print_sn_status"
     , std::bind(&t_command_parser_executor::print_sn_status, &m_parser, p::_1)
     , "print_sn_status [+json]"
-    , "Print service node registration info for this service node"
+    , "Print master node registration info for this master node"
     );
   m_command_lookup.set_handler(
       "is_key_image_spent"
@@ -360,7 +360,7 @@ bool t_command_server::process_command_vec(const std::vector<std::string>& cmd)
   return result;
 }
 
-#if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
+#if defined(BELDEX_ENABLE_INTEGRATION_TEST_HOOKS)
 #include <thread>
 #endif
 
@@ -368,7 +368,7 @@ bool t_command_server::start_handling(std::function<void(void)> exit_handler)
 {
   if (m_is_rpc) return false;
 
-#if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
+#if defined(BELDEX_ENABLE_INTEGRATION_TEST_HOOKS)
   auto handle_shared_mem_ins_and_outs = [&]()
   {
     // TODO(doyle): Hack, don't hook into input until the daemon has completely initialised, i.e. you can print the status
@@ -426,7 +426,7 @@ bool t_command_server::help(const std::vector<std::string>& args)
 std::string t_command_server::get_commands_str()
 {
   std::stringstream ss;
-  ss << "Loki '" << LOKI_RELEASE_NAME << "' (v" << LOKI_VERSION_FULL << ")" << std::endl;
+  ss << "Beldex '" << BELDEX_RELEASE_NAME << "' (v" << BELDEX_VERSION_FULL << ")" << std::endl;
   ss << "Commands: " << std::endl;
   std::string usage = m_command_lookup.get_usage();
   boost::replace_all(usage, "\n", "\n  ");

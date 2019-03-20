@@ -1,4 +1,4 @@
-// Copyright (c)      2018, The Loki Project
+// Copyright (c)      2018, The Beldex Project
 //
 // All rights reserved.
 //

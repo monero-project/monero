@@ -158,7 +158,7 @@ namespace cryptonote
         MAP_JON_RPC_WE_IF("prune_blockchain",    on_prune_blockchain,           COMMAND_RPC_PRUNE_BLOCKCHAIN, !m_restricted)
 
         //
-        // Loki
+        // Beldex
         //
         MAP_JON_RPC_WE("get_quorum_state",                       on_get_quorum_state, COMMAND_RPC_GET_QUORUM_STATE)
         MAP_JON_RPC_WE("get_quorum_state_batched",               on_get_quorum_state_batched, COMMAND_RPC_GET_QUORUM_STATE_BATCHED)
@@ -209,7 +209,7 @@ namespace cryptonote
     bool on_pop_blocks(const COMMAND_RPC_POP_BLOCKS::request& req, COMMAND_RPC_POP_BLOCKS::response& res, const connection_context *ctx = NULL);
 
     //
-    // Loki
+    // Beldex
     //
     bool on_get_output_blacklist_bin(const COMMAND_RPC_GET_OUTPUT_BLACKLIST::request& req, COMMAND_RPC_GET_OUTPUT_BLACKLIST::response& res, const connection_context *ctx = NULL);
 
@@ -242,7 +242,7 @@ namespace cryptonote
     bool on_prune_blockchain(const COMMAND_RPC_PRUNE_BLOCKCHAIN::request& req, COMMAND_RPC_PRUNE_BLOCKCHAIN::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx = NULL);
 
     //
-    // Loki
+    // Beldex
     //
     bool on_get_quorum_state(const COMMAND_RPC_GET_QUORUM_STATE::request& req, COMMAND_RPC_GET_QUORUM_STATE::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx = NULL);
     bool on_get_quorum_state_batched(const COMMAND_RPC_GET_QUORUM_STATE_BATCHED::request& req, COMMAND_RPC_GET_QUORUM_STATE_BATCHED::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx = NULL);

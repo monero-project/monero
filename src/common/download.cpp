@@ -1,5 +1,5 @@
 // Copyright (c) 2017-2018, The Monero Project
-// Copyright (c)      2018, The Loki Project
+// Copyright (c)      2018, The Beldex Project
 // 
 // All rights reserved.
 // 
@@ -35,8 +35,8 @@
 #include "net/http_client.h"
 #include "download.h"
 
-#undef LOKI_DEFAULT_LOG_CATEGORY
-#define LOKI_DEFAULT_LOG_CATEGORY "net.dl"
+#undef BELDEX_DEFAULT_LOG_CATEGORY
+#define BELDEX_DEFAULT_LOG_CATEGORY "net.dl"
 
 namespace tools
 {

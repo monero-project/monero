@@ -136,7 +136,12 @@ namespace nodetool
   private:
     const std::vector<std::string> m_seed_nodes_list =
     {
-      // TODO(loki): "seeds.loki.network"
+      // TODO(beldex): "seeds.loki.network"
+	  "35.207.13.80:19090",
+      "35.211.123.115:19090",
+      "35.228.216.218:19090",
+      "35.228.9.140:19090",
+      "35.229.161.161:19090"
     };
 
     bool islimitup=false;

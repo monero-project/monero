@@ -1,5 +1,5 @@
 // Copyright (c) 2014-2018, The Monero Project
-// Copyright (c)      2018, The Loki Project
+// Copyright (c)      2018, The Beldex Project
 //
 // All rights reserved.
 //
@@ -45,8 +45,8 @@ using namespace epee;
 #include "common/dns_utils.h"
 #include "common/loki.h"
 
-#undef LOKI_DEFAULT_LOG_CATEGORY
-#define LOKI_DEFAULT_LOG_CATEGORY "cn"
+#undef BELDEX_DEFAULT_LOG_CATEGORY
+#define BELDEX_DEFAULT_LOG_CATEGORY "cn"
 
 namespace cryptonote {
 
@@ -91,24 +91,23 @@ namespace cryptonote {
   bool get_base_block_reward(size_t median_weight, size_t current_block_weight, uint64_t already_generated_coins, uint64_t &reward, uint8_t version, uint64_t height) {
 
     //premine reward
-    if (already_generated_coins == 0)
+    if (height == 1)
     {
-      reward = 22500000000000000;
+      reward = 1400000000000000000;
       return true;
     }
 
-    static_assert(DIFFICULTY_TARGET_V2%60==0,"difficulty targets must be a multiple of 60");
+	static_assert(DIFFICULTY_TARGET_V2%60==0&&DIFFICULTY_TARGET_V1%60==0,"difficulty targets must be a multiple of 60");
+    const int target = version < 2 ? DIFFICULTY_TARGET_V1 : DIFFICULTY_TARGET_V2;
+    const int target_minutes = target / 60;
+    const int emission_speed_factor = EMISSION_SPEED_FACTOR_PER_MINUTE - (target_minutes-1);
 
-    uint64_t emission_supply_component = (already_generated_coins * EMISSION_SUPPLY_MULTIPLIER) / EMISSION_SUPPLY_DIVISOR;
-    uint64_t base_reward = (EMISSION_LINEAR_BASE - emission_supply_component) / EMISSION_DIVISOR;
-
-    // Check if we just overflowed
-    if (emission_supply_component > EMISSION_LINEAR_BASE) {
-      base_reward = 0;
+    uint64_t base_reward = (MONEY_SUPPLY - already_generated_coins) >> emission_speed_factor;
+    if (base_reward < FINAL_SUBSIDY_PER_MINUTE*target_minutes)
+    {
+      base_reward = FINAL_SUBSIDY_PER_MINUTE*target_minutes;
     }
 
-    if (version >= 8)
-      base_reward = 28000000000.0 + 100000000000.0 / loki::exp2(height / (720.0 * 90.0)); // halve every 90 days.
 
     uint64_t full_reward_zone = get_min_block_weight(version);
 

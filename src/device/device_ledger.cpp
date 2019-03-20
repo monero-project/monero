@@ -1,5 +1,5 @@
 // Copyright (c) 2017-2018, The Monero Project
-// Copyright (c)      2018, The Loki Project
+// Copyright (c)      2018, The Beldex Project
 // 
 // All rights reserved.
 // 
@@ -44,8 +44,8 @@ namespace hw {
 
   #ifdef WITH_DEVICE_LEDGER
 
-    #undef LOKI_DEFAULT_LOG_CATEGORY
-    #define LOKI_DEFAULT_LOG_CATEGORY "device.ledger"
+    #undef BELDEX_DEFAULT_LOG_CATEGORY
+    #define BELDEX_DEFAULT_LOG_CATEGORY "device.ledger"
 
     /* ===================================================================== */
     /* ===                           Debug                              ==== */
@@ -1206,7 +1206,7 @@ namespace hw {
 
       //compute derivation, out_eph_public_key, and amount key in one shot on device, to ensure checkable link
       const crypto::secret_key *sec;
-      bool &is_change = found_change; // NOTE(loki): Alias our param into theirs so we don't have to change much code.
+      bool &is_change = found_change; // NOTE(beldex): Alias our param into theirs so we don't have to change much code.
 
       if (change_addr && dst_entr == *change_addr && !is_change)
       {

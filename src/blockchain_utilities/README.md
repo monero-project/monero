@@ -1,7 +1,7 @@
-# Loki Blockchain Utilities
+# Beldex Blockchain Utilities
 
 Copyright (c) 2014-2018, The Monero Project
-Copyright (c)      2018, The Loki Project
+Copyright (c)      2018, The Beldex Project
 
 ## Introduction
 
@@ -15,13 +15,13 @@ See also each utility's "--help" option.
 
 `$ loki-blockchain-export`
 
-This loads the existing blockchain and exports it to `$LOKI_DATA_DIR/export/blockchain.raw`
+This loads the existing blockchain and exports it to `$BELDEX_DATA_DIR/export/blockchain.raw`
 
 ### Import the exported file
 
 `$ loki-blockchain-import`
 
-This imports blocks from `$LOKI_DATA_DIR/export/blockchain.raw` (exported using the
+This imports blocks from `$BELDEX_DATA_DIR/export/blockchain.raw` (exported using the
 `loki-blockchain-export` tool as described above) into the current database.
 
 Defaults: `--batch on`, `--batch size 20000`, `--verify on`

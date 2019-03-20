@@ -33,8 +33,8 @@
 #include "levin_base.h"
 #include "int-util.h"
 
-#undef LOKI_DEFAULT_LOG_CATEGORY
-#define LOKI_DEFAULT_LOG_CATEGORY "net"
+#undef BELDEX_DEFAULT_LOG_CATEGORY
+#define BELDEX_DEFAULT_LOG_CATEGORY "net"
 
 namespace epee
 {

@@ -607,7 +607,7 @@ struct Wallet
     static uint64_t amountFromDouble(double amount);
     static std::string genPaymentId();
     static bool paymentIdValid(const std::string &paiment_id);
-    /// Check if the string represents a valid public key (regardless of whether the service node actually exists or not)
+    /// Check if the string represents a valid public key (regardless of whether the master node actually exists or not)
     static bool serviceNodePubkeyValid(const std::string &str);
     static bool addressValid(const std::string &str, NetworkType nettype);
     static bool addressValid(const std::string &str, bool testnet)          // deprecated

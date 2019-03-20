@@ -1,4 +1,4 @@
-# Copyright (c) 2018, The Loki Project
+# Copyright (c) 2018, The Beldex Project
 # Copyright (c) 2014-2018, The Monero Project
 #
 # All rights reserved.
@@ -50,9 +50,9 @@ set(mnemonics_private_headers
   esperanto.h
   lojban.h)
 
-loki_private_headers(mnemonics
+beldex_private_headers(mnemonics
   ${mnemonics_private_headers})
-loki_add_library(mnemonics
+beldex_add_library(mnemonics
   ${mnemonics_sources}
   ${mnemonics_headers}
   ${mnemonics_private_headers})

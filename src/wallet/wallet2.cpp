@@ -1,5 +1,5 @@
 // Copyright (c) 2014-2018, The Monero Project
-// Copyright (c)      2018, The Loki Project
+// Copyright (c)      2018, The Beldex Project
 // 
 // All rights reserved.
 // 
@@ -91,8 +91,8 @@ using namespace std;
 using namespace crypto;
 using namespace cryptonote;
 
-#undef LOKI_DEFAULT_LOG_CATEGORY
-#define LOKI_DEFAULT_LOG_CATEGORY "wallet.wallet2"
+#undef BELDEX_DEFAULT_LOG_CATEGORY
+#define BELDEX_DEFAULT_LOG_CATEGORY "wallet.wallet2"
 
 // used to choose when to stop adding outputs to a tx
 #define APPROXIMATE_INPUT_BYTES 80
@@ -104,9 +104,9 @@ using namespace cryptonote;
 #define CHACHA8_KEY_TAIL 0x8c
 #define CACHE_KEY_TAIL 0x8d
 
-#define UNSIGNED_TX_PREFIX "Loki unsigned tx set\004"
-#define SIGNED_TX_PREFIX "Loki signed tx set\004"
-#define MULTISIG_UNSIGNED_TX_PREFIX "Loki multisig unsigned tx set\001"
+#define UNSIGNED_TX_PREFIX "Beldex unsigned tx set\004"
+#define SIGNED_TX_PREFIX "Beldex signed tx set\004"
+#define MULTISIG_UNSIGNED_TX_PREFIX "Beldex multisig unsigned tx set\001"
 
 #define RECENT_OUTPUT_RATIO (0.5) // 50% of outputs are from the recent zone
 #define RECENT_OUTPUT_DAYS (1.8) // last 1.8 day makes up the recent zone (taken from monerolink.pdf, Miller et al)
@@ -117,11 +117,11 @@ using namespace cryptonote;
 
 #define SECOND_OUTPUT_RELATEDNESS_THRESHOLD 0.0f
 
-#define KEY_IMAGE_EXPORT_FILE_MAGIC "Loki key image export\002"
+#define KEY_IMAGE_EXPORT_FILE_MAGIC "Beldex key image export\002"
 
-#define MULTISIG_EXPORT_FILE_MAGIC "Loki multisig export\001"
+#define MULTISIG_EXPORT_FILE_MAGIC "Beldex multisig export\001"
 
-#define OUTPUT_EXPORT_FILE_MAGIC "Loki output export\003"
+#define OUTPUT_EXPORT_FILE_MAGIC "Beldex output export\003"
 
 #define SEGREGATION_FORK_HEIGHT 99999999
 #define TESTNET_SEGREGATION_FORK_HEIGHT 99999999
@@ -219,7 +219,7 @@ struct options {
   const command_line::arg_descriptor<bool> testnet = {"testnet", tools::wallet2::tr("For testnet. Daemon must also be launched with --testnet flag"), false};
   const command_line::arg_descriptor<bool> stagenet = {"stagenet", tools::wallet2::tr("For stagenet. Daemon must also be launched with --stagenet flag"), false};
 
-#if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
+#if defined(BELDEX_ENABLE_INTEGRATION_TEST_HOOKS)
   const command_line::arg_descriptor<bool> fakenet = {"fakenet", tools::wallet2::tr("For loki integration tests, fakenet"), false};
 #endif
 
@@ -285,10 +285,10 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
   const bool stagenet = command_line::get_arg(vm, opts.stagenet);
   network_type nettype = testnet ? TESTNET : stagenet ? STAGENET : MAINNET;
 
-#if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
+#if defined(BELDEX_ENABLE_INTEGRATION_TEST_HOOKS)
   if (command_line::get_arg(vm, opts.fakenet))
   {
-    assert(!testnet &&!stagenet); // NOTE(loki): Developer error
+    assert(!testnet &&!stagenet); // NOTE(beldex): Developer error
     nettype = FAKECHAIN;
   }
 #endif
@@ -1009,7 +1009,7 @@ void wallet2::init_options(boost::program_options::options_description& desc_par
   command_line::add_arg(desc_params, opts.daemon_login);
   command_line::add_arg(desc_params, opts.testnet);
   command_line::add_arg(desc_params, opts.stagenet);
-#if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
+#if defined(BELDEX_ENABLE_INTEGRATION_TEST_HOOKS)
   command_line::add_arg(desc_params, opts.fakenet);
 #endif
   command_line::add_arg(desc_params, opts.shared_ringdb_dir);
@@ -1151,7 +1151,7 @@ bool wallet2::get_multisig_seed(epee::wipeable_string& seed, const epee::wipeabl
   if (!passphrase.empty())
   {
     crypto::secret_key key;
-    crypto::cn_slow_hash(passphrase.data(), passphrase.size(), (crypto::hash&)key, crypto::cn_slow_hash_type::heavy_v1);
+    crypto::cn_slow_hash(passphrase.data(), passphrase.size(), (crypto::hash&)key);
     sc_reduce32((unsigned char*)key.data);
     data = encrypt(data, key, true);
   }
@@ -1561,7 +1561,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
   // stored into m_transfers so we cannot determine if the entry in m_transfers
   // came from this transaction or a previous transaction.
 
-  // TODO(loki): This case might be feasible at all where a key image is
+  // TODO(beldex): This case might be feasible at all where a key image is
   // duplicated in the _same_ tx in different output indexes, because the
   // algorithm for making a key image uses the output index. Investigate, and if
   // it's not feasible to construct a malicious one without absolutely breaking
@@ -1652,10 +1652,10 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
       continue;
     }
 
-    // NOTE(loki): (miner_tx && m_refresh_type == RefreshOptimiseCoinbase) used
+    // NOTE(beldex): (miner_tx && m_refresh_type == RefreshOptimiseCoinbase) used
     // to be an optimisation step that checks if the first output was destined
     // for us otherwise skip. This is not possible for us because our
-    // block-reward now always has more than 1 output, mining, service node
+    // block-reward now always has more than 1 output, mining, master node
     // and governance rewards which can all have different dest addresses, so we
     // always need to check all outputs.
     if ((tx.vout.size() > 1 && tools::threadpool::getInstance().get_max_concurrency() > 1 && !is_out_data_ptr) ||
@@ -5585,7 +5585,7 @@ bool wallet2::is_transfer_unlocked(uint64_t unlock_time, uint64_t block_height, 
   if (!use_fork_rules(cryptonote::network_version_11_infinite_staking))
     return true;
 
-  if (!key_image) // TODO(loki): Try make all callees always pass in a key image for accuracy
+  if (!key_image) // TODO(beldex): Try make all callees always pass in a key image for accuracy
     return true;
 
   blobdata binary_buf;
@@ -5595,7 +5595,7 @@ bool wallet2::is_transfer_unlocked(uint64_t unlock_time, uint64_t block_height, 
     std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODE_BLACKLISTED_KEY_IMAGES::entry> blacklist = m_node_rpc_proxy.get_service_node_blacklisted_key_images(failed);
     if (failed)
     {
-      LOG_PRINT_L1("Failed to query service node for blacklisted transfers, assuming transfer not blacklisted, reason: " << *failed);
+      LOG_PRINT_L1("Failed to query master node for blacklisted transfers, assuming transfer not blacklisted, reason: " << *failed);
       return true;
     }
 
@@ -5619,7 +5619,7 @@ bool wallet2::is_transfer_unlocked(uint64_t unlock_time, uint64_t block_height, 
     std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry> service_nodes_states = m_node_rpc_proxy.get_all_service_nodes(failed);
     if (failed)
     {
-      LOG_PRINT_L1("Failed to query service node for locked transfers, assuming transfer not locked, reason: " << *failed);
+      LOG_PRINT_L1("Failed to query master node for locked transfers, assuming transfer not locked, reason: " << *failed);
       return true;
     }
 
@@ -6114,7 +6114,7 @@ bool wallet2::sign_tx(unsigned_tx_set &exported_txs, std::vector<wallet2::pendin
     std::vector<crypto::secret_key> additional_tx_keys;
     rct::multisig_out msout;
 
-    loki_construct_tx_params tx_params = {};
+    beldex_construct_tx_params tx_params = {};
     tx_params.v4_allow_tx_types        = sd.v4_allow_tx_types;
     tx_params.v3_per_output_unlock     = sd.v3_per_output_unlock;
     tx_params.v2_rct                   = sd.v2_use_rct;
@@ -6588,7 +6588,7 @@ bool wallet2::sign_multisig_tx(multisig_tx_set &exported_txs, std::vector<crypto
       rct_config.bp_version = use_fork_rules(HF_VERSION_SMALLER_BP, 5) ? 2 : 1;
     }
 
-    loki_construct_tx_params tx_params = {};
+    beldex_construct_tx_params tx_params = {};
     tx_params.v4_allow_tx_types        = sd.v4_allow_tx_types;
     tx_params.v3_per_output_unlock     = sd.v3_per_output_unlock;
     tx_params.v2_rct                   = sd.v2_use_rct;
@@ -7088,7 +7088,7 @@ bool wallet2::is_output_blackballed(const std::pair<uint64_t, uint64_t> &output)
 
 static const char *ERR_MSG_NETWORK_VERSION_QUERY_FAILED = tr("Could not query the current network version, try later");
 static const char *ERR_MSG_NETWORK_HEIGHT_QUERY_FAILED = tr("Could not query the current network block height, try later: ");
-static const char *ERR_MSG_SERVICE_NODE_LIST_QUERY_FAILED = tr("Failed to query daemon for service node list");
+static const char *ERR_MSG_SERVICE_NODE_LIST_QUERY_FAILED = tr("Failed to query daemon for master node list");
 static const char *ERR_MSG_TOO_MANY_TXS_CONSTRUCTED = tr("Constructed too many transations, please sweep_all first");
 static const char *ERR_MSG_EXCEPTION_THROWN = tr("Exception thrown, staking process could not be completed");
 
@@ -7119,7 +7119,7 @@ wallet2::stake_result wallet2::check_stake_allowed(const crypto::public_key& sn_
     return result;
   }
 
-  /// check that the service node is registered
+  /// check that the master node is registered
   boost::optional<std::string> failed;
   const auto& response = this->get_service_nodes({ epee::string_tools::pod_to_hex(sn_key) }, failed);
   if (failed)
@@ -7133,7 +7133,7 @@ wallet2::stake_result wallet2::check_stake_allowed(const crypto::public_key& sn_
   if (response.size() != 1)
   {
     result.status = stake_result_status::service_node_not_registered;
-    result.msg    = tr("Could not find service node in service node list, please make sure it is registered first.");
+    result.msg    = tr("Could not find master node in master node list, please make sure it is registered first.");
     return result;
   }
 
@@ -7179,7 +7179,7 @@ wallet2::stake_result wallet2::check_stake_allowed(const crypto::public_key& sn_
   if (max_contrib_total == 0)
   {
     result.status = stake_result_status::service_node_contribution_maxed;
-    result.msg = tr("The service node cannot receive any more Loki from this wallet");
+    result.msg = tr("The master node cannot receive any more Beldex from this wallet");
     return result;
   }
 
@@ -7187,7 +7187,7 @@ wallet2::stake_result wallet2::check_stake_allowed(const crypto::public_key& sn_
   if (full && !is_preexisting_contributor)
   {
     result.status = stake_result_status::service_node_contributors_maxed;
-    result.msg = tr("The service node already has the maximum number of participants and this wallet is not one of them");
+    result.msg = tr("The master node already has the maximum number of participants and this wallet is not one of them");
     return result;
   }
 
@@ -7207,7 +7207,7 @@ wallet2::stake_result wallet2::check_stake_allowed(const crypto::public_key& sn_
       result.msg.reserve(128);
       result.msg =  tr("You must contribute at least ");
       result.msg += print_money(min_contrib_total);
-      result.msg += tr(" loki to become a contributor for this service node.");
+      result.msg += tr(" loki to become a contributor for this master node.");
       return result;
     }
   }
@@ -7216,7 +7216,7 @@ wallet2::stake_result wallet2::check_stake_allowed(const crypto::public_key& sn_
   {
     result.msg += tr("You may only contribute up to ");
     result.msg += print_money(max_contrib_total);
-    result.msg += tr(" more loki to this service node. ");
+    result.msg += tr(" more loki to this master node. ");
     result.msg += tr("Reducing your stake from ");
     result.msg += print_money(amount);
     result.msg += tr(" to ");
@@ -7344,7 +7344,7 @@ wallet2::register_service_node_result wallet2::create_register_service_node_tx(c
     {
       result.status = register_service_node_result_status::insufficient_num_args;
       result.msg += tr("\nPrepare this command in the daemon with the prepare_registration command");
-      result.msg += tr("\nThis command must be run from the daemon that will be acting as a service node");
+      result.msg += tr("\nThis command must be run from the daemon that will be acting as a master node");
       return result;
     }
   }
@@ -7400,7 +7400,7 @@ wallet2::register_service_node_result wallet2::create_register_service_node_tx(c
     result.status = register_service_node_result_status::first_address_must_be_primary_address;
     result.msg = tr(
                     "The first reserved address for this registration does not belong to this wallet.\n"
-                    "Service node operator must specify an address owned by this wallet for service node registration."
+                    "Master node operator must specify an address owned by this wallet for master node registration."
                    );
     return result;
   }
@@ -7438,14 +7438,14 @@ wallet2::register_service_node_result wallet2::create_register_service_node_tx(c
     if (!epee::string_tools::hex_to_pod(local_args[key_index], service_node_key))
     {
       result.status = register_service_node_result_status::service_node_key_parse_fail;
-      result.msg = tr("Failed to parse service node pubkey");
+      result.msg = tr("Failed to parse master node pubkey");
       return result;
     }
 
     if (!epee::string_tools::hex_to_pod(local_args[signature_index], signature))
     {
       result.status = register_service_node_result_status::service_node_signature_parse_fail;
-      result.msg = tr("Failed to parse service node signature");
+      result.msg = tr("Failed to parse master node signature");
       return result;
     }
 
@@ -7457,7 +7457,7 @@ wallet2::register_service_node_result wallet2::create_register_service_node_tx(c
   if (!add_service_node_register_to_tx_extra(extra, converted_args.addresses, converted_args.portions_for_operator, converted_args.portions, expiration_timestamp, signature))
   {
     result.status = register_service_node_result_status::service_node_register_serialize_to_tx_extra_fail;
-    result.msg    = tr("Failed to serialize service node registration tx extra");
+    result.msg    = tr("Failed to serialize master node registration tx extra");
     return result;
   }
 
@@ -7496,7 +7496,7 @@ wallet2::register_service_node_result wallet2::create_register_service_node_tx(c
         if (!can_reregister)
         {
           result.status = register_service_node_result_status::service_node_cannot_reregister;
-          result.msg    = tr("This service node is already registered");
+          result.msg    = tr("This master node is already registered");
           return result;
         }
       }
@@ -7516,7 +7516,7 @@ wallet2::register_service_node_result wallet2::create_register_service_node_tx(c
 
     try
     {
-      // NOTE(loki): We know the address should always be a primary address and has no payment id, so we can ignore the subaddress/payment id field here
+      // NOTE(beldex): We know the address should always be a primary address and has no payment id, so we can ignore the subaddress/payment id field here
       cryptonote::address_parse_info dest = {};
       dest.address                        = address;
 
@@ -7568,7 +7568,7 @@ wallet2::request_stake_unlock_result wallet2::can_request_stake_unlock(const cry
 
     if (response.empty())
     {
-      result.msg = tr("No service node is known for: ") + sn_key_as_str;
+      result.msg = tr("No master node is known for: ") + sn_key_as_str;
       return result;
     }
 
@@ -7589,13 +7589,13 @@ wallet2::request_stake_unlock_result wallet2::can_request_stake_unlock(const cry
 
     if (!contributions)
     {
-      result.msg = tr("No contributions recognised by this wallet in service node: ") + sn_key_as_str;
+      result.msg = tr("No contributions recognised by this wallet in master node: ") + sn_key_as_str;
       return result;
     }
 
     if (contributions->empty())
     {
-      result.msg = tr("Unexpected 0 contributions in service node for this wallet ") + sn_key_as_str;
+      result.msg = tr("Unexpected 0 contributions in master node for this wallet ") + sn_key_as_str;
       return result;
     }
 
@@ -7628,18 +7628,18 @@ wallet2::request_stake_unlock_result wallet2::can_request_stake_unlock(const cry
 
       result.msg.append("You are requesting to unlock a stake of: ");
       result.msg.append(cryptonote::print_money(contribution.amount));
-      result.msg.append(" Loki from the service node network.\nThis will schedule the service node: ");
+      result.msg.append(" Beldex from the master node network.\nThis will schedule the master node: ");
       result.msg.append(node_info.service_node_pubkey);
       result.msg.append(" for deactivation.");
       if (node_info.contributors.size() > 1) {
-          result.msg.append(" The stakes of the service node's ");
+          result.msg.append(" The stakes of the master node's ");
           result.msg.append(std::to_string(node_info.contributors.size() - 1));
           result.msg.append(" other contributors will unlock at the same time.");
       }
       result.msg.append("\n\n");
 
       uint64_t unlock_height = service_nodes::get_locked_key_image_unlock_height(nettype(), node_info.registration_height, curr_height);
-      result.msg.append("You will continue receiving rewards until the service node expires at the estimated height: ");
+      result.msg.append("You will continue receiving rewards until the master node expires at the estimated height: ");
       result.msg.append(std::to_string(unlock_height));
       result.msg.append(" (about ");
       result.msg.append(tools::get_human_readable_timespan(std::chrono::seconds((unlock_height - curr_height) * DIFFICULTY_TARGET_V2)));
@@ -8001,7 +8001,7 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
       {
         double percent_of_outputs_blacklisted = output_blacklist.size() / (double)n_rct;
         if (static_cast<int>(percent_of_outputs_blacklisted + 1) > 5)
-          MWARNING("More than 5 percent of available outputs are blacklisted, please notify the Loki developers");
+          MWARNING("More than 5 percent of available outputs are blacklisted, please notify the Beldex developers");
       }
 
       for (;;)
@@ -8308,7 +8308,7 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
           [](const get_outputs_out &a, const get_outputs_out &b) { return a.index < b.index; });
     }
 
-    if (ELPP->vRegistry()->allowed(el::Level::Debug, LOKI_DEFAULT_LOG_CATEGORY))
+    if (ELPP->vRegistry()->allowed(el::Level::Debug, BELDEX_DEFAULT_LOG_CATEGORY))
     {
       std::map<uint64_t, std::set<uint64_t>> outs;
       for (const auto &i: req.outputs)
@@ -8579,11 +8579,11 @@ void wallet2::transfer_selected(const std::vector<cryptonote::tx_destination_ent
   rct::multisig_out msout;
   LOG_PRINT_L2("constructing tx");
 
-  // TODO(loki): We don't really need this function anymore, only the rct
+  // TODO(beldex): We don't really need this function anymore, only the rct
   // version. Do core tests rely on this? And if so do we even care?
-  // TODO(loki): This should be replaced with a NodeRPCProxy function to get the
+  // TODO(beldex): This should be replaced with a NodeRPCProxy function to get the
   // current hardfork version
-  loki_construct_tx_params tx_params = {};
+  beldex_construct_tx_params tx_params = {};
   tx_params.v4_allow_tx_types        = use_fork_rules(network_version_11_infinite_staking, 5);
   tx_params.v3_per_output_unlock     = use_fork_rules(network_version_9_service_nodes, 5);
   tx_params.v2_rct                   = false;
@@ -8824,7 +8824,7 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
   boost::optional<uint8_t> hf_version = get_hard_fork_version();
   THROW_WALLET_EXCEPTION_IF(!hf_version, error::get_hard_fork_version_error, "Failed to query current hard fork version");
 
-  loki_construct_tx_params tx_params(*hf_version);
+  beldex_construct_tx_params tx_params(*hf_version);
   tx_params.v3_is_staking_tx = is_staking_tx;
   bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), m_subaddresses, sources, splitted_dsts, change_dts, extra, tx, unlock_time, tx_key, additional_tx_keys, rct_config, m_multisig ? &msout : NULL, tx_params);
 
@@ -9335,7 +9335,7 @@ void wallet2::light_wallet_get_address_txs()
     address_tx.m_block_height = t.height;
     address_tx.m_unlock_time  = t.unlock_time;
     address_tx.m_timestamp = t.timestamp;
-    address_tx.m_type  = t.coinbase ? pay_type::miner : pay_type::in; // TODO(loki): Only accounts for miner, but wait, do we even care about this code? Looks like openmonero code
+    address_tx.m_type  = t.coinbase ? pay_type::miner : pay_type::in; // TODO(beldex): Only accounts for miner, but wait, do we even care about this code? Looks like openmonero code
     address_tx.m_mempool  = t.mempool;
     m_light_wallet_address_txs.emplace(tx_hash,address_tx);
 
@@ -9349,7 +9349,7 @@ void wallet2::light_wallet_get_address_txs()
       payment.m_block_height = t.height;
       payment.m_unlock_time  = t.unlock_time;
       payment.m_timestamp = t.timestamp;
-      payment.m_type = t.coinbase ? pay_type::miner : pay_type::in; // TODO(loki): Only accounts for miner, but wait, do we even care about this code? Looks like openmonero code
+      payment.m_type = t.coinbase ? pay_type::miner : pay_type::in; // TODO(beldex): Only accounts for miner, but wait, do we even care about this code? Looks like openmonero code
         
       if (t.mempool) {   
         if (std::find(unconfirmed_payments_txs.begin(), unconfirmed_payments_txs.end(), tx_hash) == unconfirmed_payments_txs.end()) {
@@ -12821,7 +12821,7 @@ std::string wallet2::make_uri(const std::string &address, const std::string &pay
     }
   }
 
-  std::string uri = "loki:" + address;
+  std::string uri = "beldex:" + address;
   unsigned int n_fields = 0;
 
   if (!payment_id.empty())
@@ -12850,9 +12850,9 @@ std::string wallet2::make_uri(const std::string &address, const std::string &pay
 //----------------------------------------------------------------------------------------------------
 bool wallet2::parse_uri(const std::string &uri, std::string &address, std::string &payment_id, uint64_t &amount, std::string &tx_description, std::string &recipient_name, std::vector<std::string> &unknown_parameters, std::string &error)
 {
-  if (uri.substr(0, 5) != "loki:")
+  if (uri.substr(0, 5) != "beldex:")
   {
-    error = std::string("URI has wrong scheme (expected \"loki:\"): ") + uri;
+    error = std::string("URI has wrong scheme (expected \"beldex:\"): ") + uri;
     return false;
   }
 

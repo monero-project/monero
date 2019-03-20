@@ -1,4 +1,4 @@
-// Copyright (c)      2018, The Loki Project
+// Copyright (c)      2018, The Beldex Project
 //
 // All rights reserved.
 //
@@ -104,7 +104,7 @@ namespace service_nodes
     uint8_t                            version;
     uint64_t                           registration_height;
     uint64_t                           requested_unlock_height;
-    // block_height and transaction_index are to record when the service node last received a reward.
+    // block_height and transaction_index are to record when the master node last received a reward.
     uint64_t                           last_reward_block_height;
     uint32_t                           last_reward_transaction_index;
     std::vector<contributor_t>         contributors;
@@ -164,7 +164,7 @@ namespace service_nodes
   };
 
   template<typename T>
-  void loki_shuffle(std::vector<T>& a, uint64_t seed);
+  void beldex_shuffle(std::vector<T>& a, uint64_t seed);
 
   class service_node_list
     : public cryptonote::Blockchain::BlockAddedHook,

@@ -6,7 +6,7 @@
 #include "cryptonote_core/service_node_list.h"
 #include "cryptonote_core/service_node_deregister.h"
 
-// NOTE(loki): This is done this way because of the circular constructors.
+// NOTE(beldex): This is done this way because of the circular constructors.
 struct blockchain_objects_t
 {
   cryptonote::Blockchain m_blockchain;

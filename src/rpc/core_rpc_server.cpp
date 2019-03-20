@@ -1,5 +1,5 @@
 // Copyright (c) 2014-2018, The Monero Project
-// Copyright (c)      2018, The Loki Project
+// Copyright (c)      2018, The Beldex Project
 //
 // All rights reserved.
 //
@@ -52,8 +52,8 @@ using namespace epee;
 #include "p2p/net_node.h"
 #include "version.h"
 
-#undef LOKI_DEFAULT_LOG_CATEGORY
-#define LOKI_DEFAULT_LOG_CATEGORY "daemon.rpc"
+#undef BELDEX_DEFAULT_LOG_CATEGORY
+#define BELDEX_DEFAULT_LOG_CATEGORY "daemon.rpc"
 
 #define MAX_RESTRICTED_FAKE_OUTS_COUNT 40
 #define MAX_RESTRICTED_GLOBAL_FAKE_OUTS_COUNT 5000
@@ -210,7 +210,7 @@ namespace cryptonote
     }
     res.database_size = restricted ? 0 : m_core.get_blockchain_storage().get_db().get_database_size();
     res.update_available = restricted ? false : m_core.is_update_available();
-    res.version = restricted ? "" : LOKI_VERSION;
+    res.version = restricted ? "" : BELDEX_VERSION;
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
@@ -1022,7 +1022,7 @@ namespace cryptonote
   //------------------------------------------------------------------------------------------------------------------------------
 
   //
-  // Loki
+  // Beldex
   //
   bool core_rpc_server::on_get_output_blacklist_bin(const COMMAND_RPC_GET_OUTPUT_BLACKLIST::request& req, COMMAND_RPC_GET_OUTPUT_BLACKLIST::response& res, const connection_context *ctx)
   {
@@ -1689,7 +1689,7 @@ namespace cryptonote
     }
     res.database_size = restricted ? 0 : m_core.get_blockchain_storage().get_db().get_database_size();
     res.update_available = restricted ? false : m_core.is_update_available();
-    res.version = restricted ? "" : LOKI_VERSION;
+    res.version = restricted ? "" : BELDEX_VERSION;
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
@@ -2010,7 +2010,7 @@ namespace cryptonote
   bool core_rpc_server::on_update(const COMMAND_RPC_UPDATE::request& req, COMMAND_RPC_UPDATE::response& res, const connection_context *ctx)
   {
     PERF_TIMER(on_update);
-    static const char software[] = "loki";
+    static const char software[] = "beldex";
 #ifdef BUILD_TAG
     static const char buildtag[] = BOOST_PP_STRINGIZE(BUILD_TAG);
     static const char subdir[] = "cli";
@@ -2031,7 +2031,7 @@ namespace cryptonote
       res.status = "Error checking for updates";
       return true;
     }
-    if (tools::vercmp(version.c_str(), LOKI_VERSION) <= 0)
+    if (tools::vercmp(version.c_str(), BELDEX_VERSION) <= 0)
     {
       res.update = false;
       res.status = CORE_RPC_STATUS_OK;
@@ -2345,7 +2345,7 @@ namespace cryptonote
     };
 
   //
-  // Loki
+  // Beldex
   //
   bool core_rpc_server::on_get_quorum_state(const COMMAND_RPC_GET_QUORUM_STATE::request& req, COMMAND_RPC_GET_QUORUM_STATE::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx)
   {
@@ -2445,7 +2445,7 @@ namespace cryptonote
     if (!m_core.get_service_node_keys(service_node_pubkey, service_node_key))
     {
       error_resp.code    = CORE_RPC_ERROR_CODE_WRONG_PARAM;
-      error_resp.message = "Daemon has not been started in service node mode, please relaunch with --service-node flag.";
+      error_resp.message = "Daemon has not been started in master node mode, please relaunch with --service-node flag.";
       return false;
     }
 
@@ -2539,7 +2539,7 @@ namespace cryptonote
     else
     {
       error_resp.code    = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
-      error_resp.message = "Daemon queried is not a service node or did not launch with --service-node";
+      error_resp.message = "Daemon queried is not a master node or did not launch with --service-node";
       return false;
     }
 

@@ -1,5 +1,5 @@
 // Copyright (c) 2014-2018, The Monero Project
-// Copyright (c)      2018, The Loki Project
+// Copyright (c)      2018, The Beldex Project
 //
 // All rights reserved.
 //
@@ -41,8 +41,8 @@ using namespace epee;
 
 #include "common/loki_integration_test_hooks.h"
 
-#undef LOKI_DEFAULT_LOG_CATEGORY
-#define LOKI_DEFAULT_LOG_CATEGORY "checkpoints"
+#undef BELDEX_DEFAULT_LOG_CATEGORY
+#define BELDEX_DEFAULT_LOG_CATEGORY "checkpoints"
 
 namespace cryptonote
 {
@@ -172,16 +172,12 @@ namespace cryptonote
       case UNDEFINED:
         break;
       case MAINNET:
-#if !defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
-        ADD_CHECKPOINT(0,     "08ff156d993012b0bdf2816c4bee47c9bbc7930593b70ee02574edddf15ee933");
-        ADD_CHECKPOINT(1,     "647997953a5ea9b5ab329c2291d4cbb08eed587c287e451eeeb2c79bab9b940f");
-        ADD_CHECKPOINT(10,    "4a7cd8b9bff380d48d6f3533a5e0509f8589cc77d18218b3f7218846e77738fc");
-        ADD_CHECKPOINT(100,   "01b8d33a50713ff837f8ad7146021b8e3060e0316b5e4afc407e46cdb50b6760");
-        ADD_CHECKPOINT(1000,  "5e3b0a1f931885bc0ab1d6ecdc625816576feae29e2f9ac94c5ccdbedb1465ac");
-        ADD_CHECKPOINT(86535, "52b7c5a60b97bf1efbf0d63a0aa1a313e8f0abe4627eb354b0c5a73cb1f4391e");
-        ADD_CHECKPOINT(97407, "504af73abbaba85a14ddc16634658bf4dcc241dc288b1eaad09e216836b71023");
-        ADD_CHECKPOINT(98552, "2058d5c675bd91284f4996435593499c9ab84a5a0f569f57a86cde2e815e57da");
-        ADD_CHECKPOINT(144650,"a1ab207afc790675070ecd7aac874eb0691eb6349ea37c44f8f58697a5d6cbc4");
+#if !defined(BELDEX_ENABLE_INTEGRATION_TEST_HOOKS)
+        ADD_CHECKPOINT(1,     "a9eedcc8ad75c40acbed366a64029d0bf1c1b282ec0ca1d28213b9d386c2b81f");
+	    ADD_CHECKPOINT(10,    "a4014ffa8d32fe14bba3c6d8fc2bf8d3766615ee9ba779a075219a067257216c");
+        ADD_CHECKPOINT(100,   "450a6fdade242c8afa8db3414a45a94371bf320470f95408a12122a64b836ee1");
+        ADD_CHECKPOINT(1000,  "c023df332f7f6f7fcc8e2d1e5f57791a3a8e0b4c18eabb5b4362cdfea559c4a3");
+        ADD_CHECKPOINT(10000, "2ba23579a88eb51c3b6f942f7a9d4551949dc9c0f28bb9828a1b31b86be7530e");
 #endif
         break;
     }

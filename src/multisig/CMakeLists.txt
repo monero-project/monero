@@ -1,4 +1,4 @@
-# Copyright (c) 2018, The Loki Project
+# Copyright (c) 2018, The Beldex Project
 # Copyright (c) 2017-2018, The Monero Project
 #
 # All rights reserved.
@@ -35,10 +35,10 @@ set(multisig_headers)
 set(multisig_private_headers
   multisig.h)
 
-loki_private_headers(multisig
+beldex_private_headers(multisig
   ${multisig_private_headers})
 
-loki_add_library(multisig
+beldex_add_library(multisig
   ${multisig_sources}
   ${multisig_headers}
   ${multisig_private_headers})

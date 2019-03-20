@@ -120,7 +120,7 @@ uint64_t get_portions_to_make_amount(uint64_t staking_requirement, uint64_t amou
 static bool get_portions_from_percent(double cur_percent, uint64_t& portions) {
   if(cur_percent < 0.0 || cur_percent > 100.0) return false;
 
-  // Fix for truncation issue when operator cut = 100 for a pool Service Node.
+  // Fix for truncation issue when operator cut = 100 for a pool Master Node.
   if (cur_percent == 100.0)
   {
     portions = STAKING_PORTIONS;

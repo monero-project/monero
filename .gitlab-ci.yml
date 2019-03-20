@@ -26,14 +26,14 @@ build:osx:
   script:
     - sw_vers
     - export USE_SINGLE_BUILDDIR=1
-    - source ~/Builds/loki_env.sh
+    - source ~/Builds/beldex_env.sh
     - make -j4 release-static-mac-x86_64
   artifacts:
     paths:
       - "build/release/bin"
 
 build:linux:
-  image: registry.gitlab.com/lokiproject/loki:latest
+  image: registry.gitlab.com/lokiproject/beldex:latest
   tags:
     - ubuntu
   stage: build

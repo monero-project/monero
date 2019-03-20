@@ -336,7 +336,7 @@ bool gen_tx_has_inputs_no_outputs::generate(std::vector<test_event_entry>& event
   TxBuilder(events, tx, blk_money_unlocked, miner_account, miner_account, MK_COINS(1), cryptonote::network_version_7).build();
   tx.vout.clear();
 
-  DO_CALLBACK(events, "mark_invalid_tx"); // NOTE(loki): This used to be valid in Monero pre RCT, but not anymore with our transactions because we start with RCT type TXs
+  DO_CALLBACK(events, "mark_invalid_tx"); // NOTE(beldex): This used to be valid in Monero pre RCT, but not anymore with our transactions because we start with RCT type TXs
   events.push_back(tx);
   return true;
 }
@@ -415,7 +415,7 @@ bool gen_tx_key_offset_points_to_foreign_key::generate(std::vector<test_event_en
   txin_to_key& bob_in_to_key        = boost::get<txin_to_key>(bob_tx.vin.front());
   bob_in_to_key.key_offsets.front() = sources_alice.front().outputs.back().first;
 
-  // TODO(loki): This used to be first(), but in the debugger bob's front() is
+  // TODO(beldex): This used to be first(), but in the debugger bob's front() is
   // 0 and alice's front() is 0 .. sooo ??  Reassigning the first offset
   // wouldn't change the test.  Now this test returns the same error as
   // gen_tx_sender_key_offset_not_exist so I don't think this test is correct
@@ -450,7 +450,7 @@ bool gen_tx_mixed_key_offset_not_exist::generate(std::vector<test_event_entry>& 
 {
   uint64_t ts_start = 1338224400;
 
-  // TODO(loki): This test looks broken. step2_fill_inputs calls
+  // TODO(beldex): This test looks broken. step2_fill_inputs calls
   // generate_key_image_helper() which returns false and doesn't write to the TX
   // if it fails. This test fails and early outs before the the key image is
   // even made so, we can't really test putting this onto the chain? This would
@@ -485,7 +485,7 @@ bool gen_tx_mixed_key_offset_not_exist::generate(std::vector<test_event_entry>& 
   events.push_back(builder.m_tx);
 #endif
 
-  // Loki version
+  // Beldex version
 #if 0
   GENERATE_ACCOUNT  (miner_account);
   MAKE_GENESIS_BLOCK(events, blk_tail, miner_account, ts_start);
@@ -654,7 +654,7 @@ bool gen_tx_output_with_zero_amount::generate(std::vector<test_event_entry>& eve
   REWIND_BLOCKS_N   (events, blk_money_unlocked, blk_tail,           miner_account, 40);
   REWIND_BLOCKS     (events, blk_head,           blk_money_unlocked, miner_account);
 
-  // TODO(loki): Hmm. Can't use TxBuilder approach because RCT masks amounts
+  // TODO(beldex): Hmm. Can't use TxBuilder approach because RCT masks amounts
   // after it's constructed, so vout amounts is already zero. It seems to be
   // valid to be able to send a transaction whos output is zero, so this test
   // might not be valid anymore post RCT.

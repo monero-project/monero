@@ -1,5 +1,5 @@
 // Copyright (c) 2017-2018, The Monero Project
-// Copyright (c)      2018, The Loki Project
+// Copyright (c)      2018, The Beldex Project
 // 
 // All rights reserved.
 // 
@@ -54,8 +54,8 @@ using namespace cryptonote;
 using boost::lexical_cast;
 namespace po = boost::program_options;
 
-#undef LOKI_DEFAULT_LOG_CATEGORY
-#define LOKI_DEFAULT_LOG_CATEGORY "wallet.gen_multisig"
+#undef BELDEX_DEFAULT_LOG_CATEGORY
+#define BELDEX_DEFAULT_LOG_CATEGORY "wallet.gen_multisig"
 
 namespace genms
 {

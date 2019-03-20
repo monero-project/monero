@@ -1,4 +1,4 @@
-# Copyright (c) 2018, The Loki Project
+# Copyright (c) 2018, The Beldex Project
 # Copyright (c) 2014-2018, The Monero Project
 #
 # All rights reserved.
@@ -45,10 +45,7 @@ set(crypto_sources
   oaes_lib.c
   random.c
   skein.c
-  cn_heavy_hash_hard_arm.cpp
-  cn_heavy_hash_hard_intel.cpp
-  cn_heavy_hash_soft.cpp
-  cn_turtle_hash.c
+  slow-hash.c
   tree-hash.c)
 
 set(crypto_headers)
@@ -70,12 +67,11 @@ set(crypto_private_headers
   oaes_lib.h
   random.h
   skein.h
-  skein_port.h
-  cn_heavy_hash.hpp)
+  skein_port.h)
 
-loki_private_headers(cncrypto
+beldex_private_headers(cncrypto
   ${crypto_private_headers})
-loki_add_library(cncrypto
+beldex_add_library(cncrypto
   ${crypto_sources}
   ${crypto_headers}
   ${crypto_private_headers})
@@ -86,6 +82,16 @@ target_link_libraries(cncrypto
     ${SODIUM_LIBRARY}
   PRIVATE
     ${EXTRA_LIBRARIES})
+
+	if (ARM)
+  option(NO_OPTIMIZED_MULTIPLY_ON_ARM
+	   "Compute multiply using generic C implementation instead of ARM ASM" OFF)
+  if(NO_OPTIMIZED_MULTIPLY_ON_ARM)
+    message(STATUS "Using generic C implementation for multiply")
+    set_property(SOURCE slow-hash.c
+      PROPERTY COMPILE_DEFINITIONS "NO_OPTIMIZED_MULTIPLY_ON_ARM")
+  endif()
+endif()
 
 # Because of the way Qt works on android with JNI, the code does not live in the main android thread
 # So this code runs with a 1 MB default stack size. 

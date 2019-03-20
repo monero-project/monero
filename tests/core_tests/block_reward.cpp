@@ -293,7 +293,7 @@ bool gen_batched_governance_reward::generate(std::vector<test_event_entry>& even
   }
 
   {
-    // NOTE(loki): Since hard fork 8 we have an emissions curve change, so if
+    // NOTE(beldex): Since hard fork 8 we have an emissions curve change, so if
     // you don't atleast progress and generate blocks from hf8 you will run into
     // problems
     std::vector<test_event_entry> unused_events;
@@ -303,7 +303,7 @@ bool gen_batched_governance_reward::generate(std::vector<test_event_entry>& even
     while(no_batched_governance_generator.height() < batched_governance_generator.height())
       no_batched_governance_generator.create_block();
 
-    // NOTE(loki): Skip the last block as that is the batched payout height, we
+    // NOTE(beldex): Skip the last block as that is the batched payout height, we
     // don't include the governance reward of that height, that gets picked up
     // in the next batch.
     const std::vector<cryptonote::block>& blockchain = no_batched_governance_generator.blocks();

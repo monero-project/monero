@@ -1,4 +1,4 @@
-# Copyright (c) 2018, The Loki Project
+# Copyright (c) 2018, The Beldex Project
 # Copyright (c) 2014-2018, The Monero Project
 #
 # All rights reserved.
@@ -35,9 +35,9 @@ set(simplewallet_headers)
 set(simplewallet_private_headers
   simplewallet.h)
 
-loki_private_headers(simplewallet
+beldex_private_headers(simplewallet
   ${simplewallet_private_headers})
-loki_add_executable(simplewallet
+beldex_add_executable(simplewallet
   ${simplewallet_sources}
   ${simplewallet_headers}
   ${simplewallet_private_headers})
@@ -63,5 +63,5 @@ target_link_libraries(simplewallet
     ${EXTRA_LIBRARIES})
 set_property(TARGET simplewallet
   PROPERTY
-    OUTPUT_NAME "loki-wallet-cli")
+    OUTPUT_NAME "beldex-wallet-cli")
 install(TARGETS simplewallet DESTINATION bin)

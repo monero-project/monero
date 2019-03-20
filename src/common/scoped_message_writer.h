@@ -67,8 +67,8 @@ public:
     , m_bright(bright)
     , m_log_level(log_level)
   {
-#if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
-    m_color = epee::console_color_default; // NOTE(loki): No ANSI color codes in the output. Makes parsing harder.
+#if defined(BELDEX_ENABLE_INTEGRATION_TEST_HOOKS)
+    m_color = epee::console_color_default; // NOTE(beldex): No ANSI color codes in the output. Makes parsing harder.
 #endif
     m_oss << prefix;
   }

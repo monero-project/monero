@@ -91,22 +91,22 @@ namespace
     TEST_ALREADY_GENERATED_COINS(MONEY_SUPPLY - ((1 << 20) - 1), UINT64_C(0));
   }
 
-  TEST_F(block_reward_and_already_generated_coins, reward_parity_between_orig_and_loki_algo)
+  TEST_F(block_reward_and_already_generated_coins, reward_parity_between_orig_and_beldex_algo)
   {
     uint64_t already_generated_coins = UINT64_C(22500000000000000)+116*720*90;
     m_block_reward_calc_success      = true;
 
     cryptonote::block_reward_parts        reward_parts_v7   = {};
-    cryptonote::loki_block_reward_context reward_context_v7 = {};
-    m_block_reward_calc_success &= get_loki_block_reward(0, current_block_weight, already_generated_coins, 7, reward_parts_v7, reward_context_v7);
+    cryptonote::beldex_block_reward_context reward_context_v7 = {};
+    m_block_reward_calc_success &= get_beldex_block_reward(0, current_block_weight, already_generated_coins, 7, reward_parts_v7, reward_context_v7);
 
     cryptonote::block_reward_parts        reward_parts_v8   = {};
-    cryptonote::loki_block_reward_context reward_context_v8 = {};
-    m_block_reward_calc_success &= get_loki_block_reward(0, current_block_weight, already_generated_coins, 8, reward_parts_v8, reward_context_v8);
+    cryptonote::beldex_block_reward_context reward_context_v8 = {};
+    m_block_reward_calc_success &= get_beldex_block_reward(0, current_block_weight, already_generated_coins, 8, reward_parts_v8, reward_context_v8);
 
     cryptonote::block_reward_parts        reward_parts_v9   = {};
-    cryptonote::loki_block_reward_context reward_context_v9 = {};
-    m_block_reward_calc_success &= get_loki_block_reward(0, current_block_weight, already_generated_coins, 9, reward_parts_v9, reward_context_v9);
+    cryptonote::beldex_block_reward_context reward_context_v9 = {};
+    m_block_reward_calc_success &= get_beldex_block_reward(0, current_block_weight, already_generated_coins, 9, reward_parts_v9, reward_context_v9);
 
     uint64_t reward_v7_orig = 0;
     m_block_reward_calc_success &= cryptonote::get_base_block_reward(0, current_block_weight, already_generated_coins, reward_v7_orig, 7, 0);

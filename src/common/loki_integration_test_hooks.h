@@ -1,11 +1,11 @@
-#if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
+#if defined(BELDEX_ENABLE_INTEGRATION_TEST_HOOKS)
 
 #if defined _WIN32
 #error "Need to implement semaphores for Windows Layer"
 #endif
 
-#ifndef LOKI_INTEGRATION_TEST_HOOKS_H
-#define LOKI_INTEGRATION_TEST_HOOKS_H
+#ifndef BELDEX_INTEGRATION_TEST_HOOKS_H
+#define BELDEX_INTEGRATION_TEST_HOOKS_H
 
 //
 // Header
@@ -43,12 +43,12 @@ extern bool core_is_idle;
 
 }; // namespace loki
 
-#endif // LOKI_INTEGRATION_TEST_HOOKS_H
+#endif // BELDEX_INTEGRATION_TEST_HOOKS_H
 
 //
 // CPP Implementation
 //
-#ifdef LOKI_INTEGRATION_TEST_HOOKS_IMPLEMENTATION
+#ifdef BELDEX_INTEGRATION_TEST_HOOKS_IMPLEMENTATION
 #include <string.h>
 #include <assert.h>
 #include <chrono>
@@ -130,7 +130,7 @@ void loki::init_integration_test_context(const std::string &base_name)
     if (once_only)
     {
       once_only = false;
-      printf("Loki Integration Test: Shared memory %s has not been created yet, blocking ...\n", global_stdin_shared_mem->Path().c_str());
+      printf("Beldex Integration Test: Shared memory %s has not been created yet, blocking ...\n", global_stdin_shared_mem->Path().c_str());
     }
   }
 
@@ -139,12 +139,12 @@ void loki::init_integration_test_context(const std::string &base_name)
   global_stdout_ready_semaphore = sem_open(global_stdout_ready_semaphore_name.c_str(), O_CREAT, 0600, 0);
   global_stdin_ready_semaphore = sem_open(global_stdin_ready_semaphore_name.c_str(), O_CREAT, 0600, 0);
 
-  if (!global_stdin_semaphore_handle)  fprintf(stderr, "Loki Integration Test: Failed to initialise global_stdin_semaphore_handle\n");
-  if (!global_stdout_semaphore_handle) fprintf(stderr, "Loki Integration Test: Failed to initialise global_stdout_semaphore_handle\n");
-  if (!global_stdout_ready_semaphore) fprintf(stderr, "Loki Integration Test: Failed to initialise global_stdout_ready_semaphore_handle\n");
-  if (!global_stdin_ready_semaphore) fprintf(stderr, "Loki Integration Test: Failed to initialise global_stdin_ready_semaphore_handle\n");
+  if (!global_stdin_semaphore_handle)  fprintf(stderr, "Beldex Integration Test: Failed to initialise global_stdin_semaphore_handle\n");
+  if (!global_stdout_semaphore_handle) fprintf(stderr, "Beldex Integration Test: Failed to initialise global_stdout_semaphore_handle\n");
+  if (!global_stdout_ready_semaphore) fprintf(stderr, "Beldex Integration Test: Failed to initialise global_stdout_ready_semaphore_handle\n");
+  if (!global_stdin_ready_semaphore) fprintf(stderr, "Beldex Integration Test: Failed to initialise global_stdin_ready_semaphore_handle\n");
 
-  printf("Loki Integration Test: Hooks initialised into shared memory, %s, %s, %s, %s, %s, %s\n",
+  printf("Beldex Integration Test: Hooks initialised into shared memory, %s, %s, %s, %s, %s, %s\n",
       stdin_name.c_str(),
       stdout_name.c_str(),
       global_stdin_semaphore_name.c_str(),
@@ -277,6 +277,6 @@ void loki::write_redirected_stdout_to_shared_mem()
   use_redirected_cout();
 }
 
-#endif // LOKI_INTEGRATION_TEST_HOOKS_IMPLEMENTATION
-#endif // LOKI_ENABLE_INTEGRATION_TEST_HOOKS
+#endif // BELDEX_INTEGRATION_TEST_HOOKS_IMPLEMENTATION
+#endif // BELDEX_ENABLE_INTEGRATION_TEST_HOOKS
 

@@ -1,5 +1,5 @@
 // Copyright (c) 2014-2018, The Monero Project
-// Copyright (c)      2018, The Loki Project
+// Copyright (c)      2018, The Beldex Project
 //
 // All rights reserved.
 //
@@ -48,8 +48,8 @@
 #include <string>
 #include <numeric>
 
-#undef LOKI_DEFAULT_LOG_CATEGORY
-#define LOKI_DEFAULT_LOG_CATEGORY "daemon"
+#undef BELDEX_DEFAULT_LOG_CATEGORY
+#define BELDEX_DEFAULT_LOG_CATEGORY "daemon"
 
 namespace daemonize {
 
@@ -61,7 +61,7 @@ namespace {
   {
     std::cout << prompt << std::flush;
     std::string result;
-#if defined (LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
+#if defined (BELDEX_ENABLE_INTEGRATION_TEST_HOOKS)
     loki::write_redirected_stdout_to_shared_mem();
     loki::fixed_buffer buffer = loki::read_from_stdin_shared_mem();
     result.reserve(buffer.len);
@@ -695,14 +695,14 @@ bool t_rpc_command_executor::print_quorum_state(uint64_t height)
     }
   }
 
-  tools::msg_writer() << "Quorum Service Nodes [" << res.quorum_nodes.size() << "]";
+  tools::msg_writer() << "Quorum Master Nodes [" << res.quorum_nodes.size() << "]";
   for (size_t i = 0; i < res.quorum_nodes.size(); i++)
   {
     const std::string &entry = res.quorum_nodes[i];
     tools::msg_writer() << "[" << i << "] " << entry;
   }
 
-  tools::msg_writer() << "Service Nodes To Test [" << res.nodes_to_test.size() << "]";
+  tools::msg_writer() << "Master Nodes To Test [" << res.nodes_to_test.size() << "]";
   for (size_t i = 0; i < res.nodes_to_test.size(); i++)
   {
     const std::string &entry = res.nodes_to_test[i];
@@ -1280,8 +1280,8 @@ bool t_rpc_command_executor::stop_daemon()
 //# ifdef WIN32
 //    // Stop via service API
 //    // TODO - this is only temporary!  Get rid of hard-coded constants!
-//    bool ok = windows::stop_service("Loki Daemon");
-//    ok = windows::uninstall_service("Loki Daemon");
+//    bool ok = windows::stop_service("Beldex Daemon");
+//    ok = windows::uninstall_service("Beldex Daemon");
 //    //bool ok = windows::stop_service(SERVICE_NAME);
 //    //ok = windows::uninstall_service(SERVICE_NAME);
 //    if (ok)
@@ -1325,10 +1325,10 @@ bool t_rpc_command_executor::print_status()
   bool daemon_is_alive = m_rpc_client->check_connection();
 
   if(daemon_is_alive) {
-    tools::success_msg_writer() << "lokid is running";
+    tools::success_msg_writer() << "beldexd is running";
   }
   else {
-    tools::fail_msg_writer() << "lokid is NOT running";
+    tools::fail_msg_writer() << "beldexd is NOT running";
   }
 
   return true;
@@ -2154,7 +2154,7 @@ static std::string make_printable_service_node_list_state(cryptonote::network_ty
       result.append(indent1);
       result.append("[");
       result.append(std::to_string(i));
-      result.append("] Service Node: ");
+      result.append("] Master Node: ");
       result.append(entry.service_node_pubkey);
       result.append("\n");
 
@@ -2252,7 +2252,7 @@ static std::string make_printable_service_node_list_state(cryptonote::network_ty
       result.append("\n");
     }
 
-    if (is_registered) // Print service node tests
+    if (is_registered) // Print master node tests
     {
       epee::console_colors uptime_proof_color = (entry.last_uptime_proof == 0) ? epee::console_color_red : epee::console_color_green;
 
@@ -2435,11 +2435,11 @@ bool t_rpc_command_executor::print_sn(const std::vector<std::string> &args)
           if (i < args[i].size() - 1) buffer.append(", ");
         }
 
-        tools::msg_writer() << "No service node is currently known on the network: " << buffer;
+        tools::msg_writer() << "No master node is currently known on the network: " << buffer;
       }
       else
       {
-        tools::msg_writer() << "No service node is currently known on the network";
+        tools::msg_writer() << "No master node is currently known on the network";
       }
 
       return true;
@@ -2451,8 +2451,8 @@ bool t_rpc_command_executor::print_sn(const std::vector<std::string> &args)
     if (unregistered.size() > 0) unregistered_print_data = make_printable_service_node_list_state(nettype, hard_fork_version, curr_height, unregistered);
     if (registered.size() > 0) registered_print_data = make_printable_service_node_list_state(nettype, hard_fork_version, curr_height, registered);
 
-    tools::msg_writer() << "Service Node Unregistered State [" << unregistered.size() << "]\n" << unregistered_print_data << "\n"
-                        << "Service Node Registration State [" << registered.size() << "]\n"   << registered_print_data;
+    tools::msg_writer() << "Master Node Unregistered State [" << unregistered.size() << "]\n" << unregistered_print_data << "\n"
+                        << "Master Node Registration State [" << registered.size() << "]\n"   << registered_print_data;
     return true;
 }
 
@@ -2582,7 +2582,7 @@ bool t_rpc_command_executor::print_sn_key()
     }
   }
 
-  std::string const msg_buf = "Service Node Public Key: " + res.service_node_pubkey;
+  std::string const msg_buf = "Master Node Public Key: " + res.service_node_pubkey;
   tools::success_msg_writer() << msg_buf;
   return true;
 }
@@ -2617,11 +2617,11 @@ bool t_rpc_command_executor::prepare_registration()
   };
   auto scoped_log_cats = std::unique_ptr<clear_log_categories>(new clear_log_categories());
 
-  // Check if the daemon was started in Service Node or not
+  // Check if the daemon was started in Master Node or not
   {
     cryptonote::COMMAND_RPC_GET_SERVICE_NODE_KEY::request keyreq = {};
     cryptonote::COMMAND_RPC_GET_SERVICE_NODE_KEY::response keyres = {};
-    std::string const fail_msg = "Cannot get service node key. Make sure you are running daemon with --service-node flag";
+    std::string const fail_msg = "Cannot get master node key. Make sure you are running daemon with --service-node flag";
 
     if (m_is_rpc)
     {
@@ -2713,7 +2713,7 @@ bool t_rpc_command_executor::prepare_registration()
       uint64_t delta = now - header.timestamp;
       if (delta > (60 * 60))
       {
-        tools::fail_msg_writer() << "The last block this Service Node knows about was at least " << get_human_time_ago(header.timestamp, now)
+        tools::fail_msg_writer() << "The last block this Master Node knows about was at least " << get_human_time_ago(header.timestamp, now)
                                  << "\nYour node is possibly desynced from the network or still syncing to the network."
                                  << "\n\nRegistering this node may result in a deregistration due to being out of date with the network\n";
       }
@@ -2724,7 +2724,7 @@ bool t_rpc_command_executor::prepare_registration()
       uint64_t delta = block_height - header.height;
       if (delta > 15)
       {
-        tools::fail_msg_writer() << "The last block this Service Node synced is " << delta << " blocks away from the longest chain we know about."
+        tools::fail_msg_writer() << "The last block this Master Node synced is " << delta << " blocks away from the longest chain we know about."
                                  << "\n\nRegistering this node may result in a deregistration due to being out of date with the network\n";
       }
     }
@@ -3072,7 +3072,7 @@ bool t_rpc_command_executor::prepare_registration()
         if (amount_left > DUST)
         {
           std::cout << "Your total reservations do not equal the staking requirement." << std::endl;
-          std::cout << "You will leave the remaining portion of " << cryptonote::print_money(amount_left) << " " << cryptonote::get_unit() << " open to contributions from anyone, and the Service Node will not activate until the full staking requirement is filled." << std::endl;
+          std::cout << "You will leave the remaining portion of " << cryptonote::print_money(amount_left) << " " << cryptonote::get_unit() << " open to contributions from anyone, and the Master Node will not activate until the full staking requirement is filled." << std::endl;
 
           last_input_result = input_line_yes_no_back_cancel("Is this ok?\n");
           if(last_input_result == input_line_result::no || last_input_result == input_line_result::cancel)

@@ -90,7 +90,7 @@ bool gen_bp_tx_validation_base::generate_with(std::vector<test_event_entry>& eve
     blk_r = blk_last;
   }
 
-  // NOTE(loki): Submit one more block. On the fork height, we allow exactly the
+  // NOTE(beldex): Submit one more block. On the fork height, we allow exactly the
   // forking block to contain borromean TX's, due to some clients constructing
   // old style TX's on the fork height. So make sure we create one block so that
   // the block containing bulletproofs txes, which is 1 block after the fork
@@ -128,7 +128,7 @@ bool gen_bp_tx_validation_base::generate_with(std::vector<test_event_entry>& eve
     fill_tx_sources_and_multi_destinations(events, blk_last, from, to, amounts_paid, amounts_paid_len, TESTS_DEFAULT_FEE, CRYPTONOTE_DEFAULT_TX_MIXIN, sources, destinations, &change_amount);
     tx_destination_entry change_addr{change_amount, from.get_keys().m_account_address, false /* is subaddr */ };
 
-    // NOTE(loki): Monero tests presume the generated TX doesn't have change so remove it from our output.
+    // NOTE(beldex): Monero tests presume the generated TX doesn't have change so remove it from our output.
     for (auto it = destinations.begin(); it != destinations.end(); ++it)
     {
       if (it->amount != change_amount) continue;
@@ -149,7 +149,7 @@ bool gen_bp_tx_validation_base::generate_with(std::vector<test_event_entry>& eve
       return false;
     }
 
-    loki_construct_tx_params tx_params(generator.m_hf_version);
+    beldex_construct_tx_params tx_params(generator.m_hf_version);
     if (!cryptonote::construct_tx_and_get_tx_key(
         from.get_keys(),
         subaddresses,
@@ -253,7 +253,7 @@ bool gen_bp_tx_validation_base::check_bp(const cryptonote::transaction &tx, size
 // have 1 output. So my fix is to make it so we don't generate a tx that makes
 // too high of a fee from the change amount.
 
-// Further addendum. In Loki hardfork 10, we also introduce batching governance
+// Further addendum. In Beldex hardfork 10, we also introduce batching governance
 // payments- so most block heights will remove the governance output from the
 // reward. So if we send less than the governance amount (~6ish loki from the
 // start of the chain), then we'll eclipse the reward again and overflow, so

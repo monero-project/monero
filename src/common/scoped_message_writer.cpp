@@ -1,9 +1,9 @@
 #include "scoped_message_writer.h"
 
-#define LOKI_INTEGRATION_TEST_HOOKS_IMPLEMENTATION
+#define BELDEX_INTEGRATION_TEST_HOOKS_IMPLEMENTATION
 #include "common/loki_integration_test_hooks.h"
 
-// NOTE(loki): This file only exists because I need a way to hook into the
+// NOTE(beldex): This file only exists because I need a way to hook into the
 // message writer for integration tests. Originally this was a header only file,
 // which means it needs to know the implementation of
 // loki_integration_test_hooks.h functions which isn't possible to expose in
@@ -16,7 +16,7 @@ tools::scoped_message_writer::~scoped_message_writer()
   {
     m_flush = false;
 
-#if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
+#if defined(BELDEX_ENABLE_INTEGRATION_TEST_HOOKS)
     std::cout << m_oss.str();
     loki::write_redirected_stdout_to_shared_mem();
     return;

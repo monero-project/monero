@@ -1,4 +1,4 @@
-# Copyright (c) 2018, The Loki Project
+# Copyright (c) 2018, The Beldex Project
 # Copyright (c) 2014-2018, The Monero Project
 #
 # All rights reserved.
@@ -35,8 +35,8 @@ source_group(p2p FILES ${P2P})
 
 #add_library(p2p ${P2P})
 
-#loki_private_headers(p2p ${P2P})
-loki_add_library(p2p ${P2P})
+#beldex_private_headers(p2p ${P2P})
+beldex_add_library(p2p ${P2P})
 target_link_libraries(p2p
   PUBLIC
     version

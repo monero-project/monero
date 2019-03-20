@@ -1,5 +1,5 @@
 // Copyright (c) 2014-2018, The Monero Project
-// Copyright (c)      2018, The Loki Project
+// Copyright (c)      2018, The Beldex Project
 // 
 // All rights reserved.
 // 
@@ -54,8 +54,8 @@ using namespace epee;
 #include "rpc/core_rpc_server_commands_defs.h"
 #include "daemonizer/daemonizer.h"
 
-#undef LOKI_DEFAULT_LOG_CATEGORY
-#define LOKI_DEFAULT_LOG_CATEGORY "wallet.rpc"
+#undef BELDEX_DEFAULT_LOG_CATEGORY
+#define BELDEX_DEFAULT_LOG_CATEGORY "wallet.rpc"
 
 namespace
 {
@@ -65,7 +65,7 @@ namespace
   const command_line::arg_descriptor<std::string> arg_wallet_dir = {"wallet-dir", "Directory for newly created wallets"};
   const command_line::arg_descriptor<bool> arg_prompt_for_password = {"prompt-for-password", "Prompts for password when not provided", false};
 
-  constexpr const char default_rpc_username[] = "loki";
+  constexpr const char default_rpc_username[] = "beldex";
 
   boost::optional<tools::password_container> password_prompter(const char *prompt, bool verify)
   {
@@ -635,7 +635,7 @@ namespace tools
           }
           if (addresses.empty())
           {
-            er.message = std::string("No Loki address found at ") + url;
+            er.message = std::string("No Beldex address found at ") + url;
             return {};
           }
           return addresses[0];
@@ -1865,7 +1865,7 @@ namespace tools
         }
         if (addresses.empty())
         {
-          er.message = std::string("No Loki address found at ") + url;
+          er.message = std::string("No Beldex address found at ") + url;
           return {};
         }
         return addresses[0];
@@ -2651,7 +2651,7 @@ namespace tools
         }
         if (addresses.empty())
         {
-          er.message = std::string("No Loki address found at ") + url;
+          er.message = std::string("No Beldex address found at ") + url;
           return {};
         }
         return addresses[0];
@@ -3767,7 +3767,7 @@ namespace tools
             }
             if (addresses.empty())
             {
-              er.message = std::string("No Loki address found at ") + url;
+              er.message = std::string("No Beldex address found at ") + url;
               return {};
             }
             address = addresses[0];
@@ -3802,7 +3802,7 @@ namespace tools
   //------------------------------------------------------------------------------------------------------------------------------
 
   //
-  // Loki
+  // Beldex
   //
   bool wallet_rpc_server::on_stake(const wallet_rpc::COMMAND_RPC_STAKE::request& req, wallet_rpc::COMMAND_RPC_STAKE::response& res, epee::json_rpc::error& er, const connection_context *ctx)
   {
@@ -3826,11 +3826,11 @@ namespace tools
     if (!epee::string_tools::hex_to_pod(req.service_node_key, snode_key))
     {
       er.code    = WALLET_RPC_ERROR_CODE_WRONG_KEY;
-      er.message = std::string("Unparsable service node key given: ") + req.service_node_key;
+      er.message = std::string("Unparsable master node key given: ") + req.service_node_key;
       return false;
     }
 
-    // NOTE(loki): Pre-emptively set subaddr_account to 0. We don't support onwards from Infinite Staking which is when this call was implemented.
+    // NOTE(beldex): Pre-emptively set subaddr_account to 0. We don't support onwards from Infinite Staking which is when this call was implemented.
     tools::wallet2::stake_result stake_result = m_wallet->create_stake_tx(snode_key, addr_info, req.amount, 0 /*amount_fraction*/, req.priority, 0 /*subaddr_account*/, req.subaddr_indices);
     if (stake_result.status != tools::wallet2::stake_result_status::success)
     {
@@ -3850,7 +3850,7 @@ namespace tools
     if (m_restricted)
     {
       er.code    = WALLET_RPC_ERROR_CODE_DENIED;
-      er.message = "Register service node command is unavailable in restricted mode.";
+      er.message = "Register master node command is unavailable in restricted mode.";
       return false;
     }
 
@@ -3863,7 +3863,7 @@ namespace tools
         args.erase(args.begin());
     }
 
-    // NOTE(loki): Pre-emptively set subaddr_account to 0. We don't support onwards from Infinite Staking which is when this call was implemented.
+    // NOTE(beldex): Pre-emptively set subaddr_account to 0. We don't support onwards from Infinite Staking which is when this call was implemented.
     tools::wallet2::register_service_node_result register_result = m_wallet->create_register_service_node_tx(args, 0 /*subaddr_account*/);
     if (register_result.status != tools::wallet2::register_service_node_result_status::success)
     {
@@ -3891,7 +3891,7 @@ namespace tools
     if (!epee::string_tools::hex_to_pod(req.service_node_key, snode_key))
     {
       er.code    = WALLET_RPC_ERROR_CODE_WRONG_KEY;
-      er.message = std::string("Unparsable service node key given: ") + req.service_node_key;
+      er.message = std::string("Unparsable master node key given: ") + req.service_node_key;
       return false;
     }
 
@@ -3901,7 +3901,7 @@ namespace tools
     return true;
   }
 
-  // TODO(loki): Deprecate this and make it return the TX as hex? Then just transfer it as normal? But these have no fees and or amount .. so maybe not?
+  // TODO(beldex): Deprecate this and make it return the TX as hex? Then just transfer it as normal? But these have no fees and or amount .. so maybe not?
   bool wallet_rpc_server::on_request_stake_unlock(const wallet_rpc::COMMAND_RPC_REQUEST_STAKE_UNLOCK::request& req, wallet_rpc::COMMAND_RPC_REQUEST_STAKE_UNLOCK::response& res, epee::json_rpc::error& er, const connection_context *ctx)
   {
     if (!m_wallet) return not_open(er);
@@ -3916,7 +3916,7 @@ namespace tools
     if (!epee::string_tools::hex_to_pod(req.service_node_key, snode_key))
     {
       er.code    = WALLET_RPC_ERROR_CODE_WRONG_KEY;
-      er.message = std::string("Unparsable service node key given: ") + req.service_node_key;
+      er.message = std::string("Unparsable master node key given: ") + req.service_node_key;
       return false;
     }
 

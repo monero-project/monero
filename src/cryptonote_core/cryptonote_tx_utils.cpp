@@ -137,7 +137,7 @@ namespace cryptonote
   const int SERVICE_NODE_BASE_REWARD_DIVISOR = 2;
   uint64_t governance_reward_formula(uint64_t base_reward)
   {
-    return base_reward / GOVERNANCE_BASE_REWARD_DIVISOR;
+    return 0;// NO governance planned
   }
 
   bool block_has_governance_output(network_type nettype, cryptonote::block const &block)
@@ -148,19 +148,7 @@ namespace cryptonote
 
   bool height_has_governance_output(network_type nettype, int hard_fork_version, uint64_t height)
   {
-    if (height == 0)
-      return false;
-
-    if (hard_fork_version <= network_version_9_service_nodes)
-      return true;
-
-    const cryptonote::config_t &network = cryptonote::get_config(nettype, hard_fork_version);
-    if (height % network.GOVERNANCE_REWARD_INTERVAL_IN_BLOCKS != 0)
-    {
-      return false;
-    }
-
-    return true;
+    return false;// NO governance planned
   }
 
   uint64_t derive_governance_from_block_reward(network_type nettype, const cryptonote::block &block)
@@ -181,7 +169,7 @@ namespace cryptonote
     static_assert(SERVICE_NODE_BASE_REWARD_DIVISOR == 2 &&
                   GOVERNANCE_BASE_REWARD_DIVISOR == 20,
                   "Anytime this changes, you should revisit this code and "
-                  "check, because we rely on the service node reward being 50\% "
+                  "check, because we rely on the master node reward being 50\% "
                   "of the base reward, and does not receive any fees. This isn't "
                   "exactly intuitive and so changes to the reward structure may "
                   "make this assumption invalid.");
@@ -194,7 +182,7 @@ namespace cryptonote
     for (tx_out const &output : block.miner_tx.vout) actual_reward += output.amount;
 
     CHECK_AND_ASSERT_MES(block_reward <= actual_reward, false,
-        "Rederiving the base block reward from the service node reward "
+        "Rederiving the base block reward from the master node reward "
         "exceeded the actual amount paid in the block, derived block reward: "
         << block_reward << ", actual reward: " << actual_reward);
 
@@ -223,7 +211,7 @@ namespace cryptonote
     return reward;
   }
 
-  loki_miner_tx_context::loki_miner_tx_context(network_type type, crypto::public_key const &winner, std::vector<std::pair<account_public_address, stake_portions>> const &winner_info)
+  beldex_miner_tx_context::beldex_miner_tx_context(network_type type, crypto::public_key const &winner, std::vector<std::pair<account_public_address, stake_portions>> const &winner_info)
     : nettype(type)
     , snode_winner_key(winner)
     , snode_winner_info(winner_info)
@@ -241,7 +229,7 @@ namespace cryptonote
       transaction& tx,
       const blobdata& extra_nonce,
       uint8_t hard_fork_version,
-      const loki_miner_tx_context &miner_tx_context)
+      const beldex_miner_tx_context &miner_tx_context)
   {
     tx.vin.clear();
     tx.vout.clear();
@@ -264,7 +252,7 @@ namespace cryptonote
     if (!sort_tx_extra(tx.extra, tx.extra))
       return false;
 
-    keypair gov_key = get_deterministic_keypair_from_height(height); // NOTE: Always need since we use same key for service node
+    keypair gov_key = get_deterministic_keypair_from_height(height); // NOTE: Always need since we use same key for master node
     if (already_generated_coins != 0)
     {
       add_tx_pub_key_to_extra(tx, gov_key.pub);
@@ -275,14 +263,14 @@ namespace cryptonote
     txin_gen in;
     in.height = height;
 
-    loki_block_reward_context block_reward_context = {};
+    beldex_block_reward_context block_reward_context = {};
     block_reward_context.fee                       = fee;
     block_reward_context.height                    = height;
     block_reward_context.snode_winner_info         = miner_tx_context.snode_winner_info;
     block_reward_context.batched_governance        = miner_tx_context.batched_governance;
 
     block_reward_parts reward_parts;
-    if(!get_loki_block_reward(median_weight, current_block_weight, already_generated_coins, hard_fork_version, reward_parts, block_reward_context))
+    if(!get_beldex_block_reward(median_weight, current_block_weight, already_generated_coins, hard_fork_version, reward_parts, block_reward_context))
     {
       LOG_PRINT_L0("Failed to calculate block reward");
       return false;
@@ -314,7 +302,7 @@ namespace cryptonote
       tx.output_unlock_times.push_back(height + CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW);
     }
 
-    if (hard_fork_version >= network_version_9_service_nodes) // Service Node Reward
+    if (hard_fork_version >= network_version_9_service_nodes) // Master Node Reward
     {
       for (size_t i = 0; i < service_node_info.size(); i++)
       {
@@ -379,11 +367,11 @@ namespace cryptonote
     return true;
   }
 
-  bool get_loki_block_reward(size_t median_weight, size_t current_block_weight, uint64_t already_generated_coins, int hard_fork_version, block_reward_parts &result, const loki_block_reward_context &loki_context)
+  bool get_beldex_block_reward(size_t median_weight, size_t current_block_weight, uint64_t already_generated_coins, int hard_fork_version, block_reward_parts &result, const beldex_block_reward_context &beldex_context)
   {
     result = {};
     uint64_t base_reward;
-    if (!get_base_block_reward(median_weight, current_block_weight, already_generated_coins, base_reward, hard_fork_version, loki_context.height))
+    if (!get_base_block_reward(median_weight, current_block_weight, already_generated_coins, base_reward, hard_fork_version, beldex_context.height))
     {
       MERROR("Failed to calculate base block reward");
       return false;
@@ -404,8 +392,8 @@ namespace cryptonote
     //TODO: declining governance reward schedule
     result.original_base_reward = base_reward;
     result.service_node_total   = service_node_reward_formula(base_reward, hard_fork_version);
-    if (loki_context.snode_winner_info.empty()) result.service_node_paid = calculate_sum_of_portions(service_nodes::null_winner,     result.service_node_total);
-    else                                        result.service_node_paid = calculate_sum_of_portions(loki_context.snode_winner_info, result.service_node_total);
+    if (beldex_context.snode_winner_info.empty()) result.service_node_paid = calculate_sum_of_portions(service_nodes::null_winner,     result.service_node_total);
+    else                                        result.service_node_paid = calculate_sum_of_portions(beldex_context.snode_winner_info, result.service_node_total);
 
     result.adjusted_base_reward = result.original_base_reward;
     if (hard_fork_version >= network_version_10_bulletproofs)
@@ -414,7 +402,7 @@ namespace cryptonote
       // reward as they are not included and batched into a later block. If we
       // calculated a (governance reward > 0), then this is the batched height,
       // add it to the adjusted base reward afterwards
-      result.governance            = loki_context.batched_governance;
+      result.governance            = beldex_context.batched_governance;
       result.adjusted_base_reward -= governance_reward_formula(result.original_base_reward);
 
       if (result.governance > 0)
@@ -426,7 +414,7 @@ namespace cryptonote
     }
 
     result.base_miner     = result.adjusted_base_reward - (result.governance + result.service_node_paid);
-    result.base_miner_fee = loki_context.fee;
+    result.base_miner_fee = beldex_context.fee;
     return true;
   }
 
@@ -456,7 +444,7 @@ namespace cryptonote
     return addr.m_view_public_key;
   }
   //---------------------------------------------------------------
-  bool construct_tx_with_tx_key(const account_keys& sender_account_keys, const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses, std::vector<tx_source_entry>& sources, std::vector<tx_destination_entry>& destinations, const boost::optional<tx_destination_entry>& change_addr, const std::vector<uint8_t> &extra, transaction& tx, uint64_t unlock_time, const crypto::secret_key &tx_key, const std::vector<crypto::secret_key> &additional_tx_keys, const rct::RCTConfig &rct_config, rct::multisig_out *msout, bool shuffle_outs, const loki_construct_tx_params tx_params)
+  bool construct_tx_with_tx_key(const account_keys& sender_account_keys, const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses, std::vector<tx_source_entry>& sources, std::vector<tx_destination_entry>& destinations, const boost::optional<tx_destination_entry>& change_addr, const std::vector<uint8_t> &extra, transaction& tx, uint64_t unlock_time, const crypto::secret_key &tx_key, const std::vector<crypto::secret_key> &additional_tx_keys, const rct::RCTConfig &rct_config, rct::multisig_out *msout, bool shuffle_outs, const beldex_construct_tx_params tx_params)
   {
     hw::device &hwdev = sender_account_keys.get_device();
 
@@ -719,8 +707,8 @@ namespace cryptonote
       if (tx_params.v3_is_staking_tx)
       {
         CHECK_AND_ASSERT_MES(dst_entr.addr == sender_account_keys.m_account_address, false, "A staking contribution must return back to the original sendee otherwise the pre-calculated key image is incorrect");
-        CHECK_AND_ASSERT_MES(dst_entr.is_subaddress == false, false, "Staking back to a subaddress is not allowed"); // TODO(loki): Maybe one day, revisit this
-        CHECK_AND_ASSERT_MES(need_additional_txkeys == false, false, "Staking TX's can not required additional TX Keys"); // TODO(loki): Maybe one day, revisit this
+        CHECK_AND_ASSERT_MES(dst_entr.is_subaddress == false, false, "Staking back to a subaddress is not allowed"); // TODO(beldex): Maybe one day, revisit this
+        CHECK_AND_ASSERT_MES(need_additional_txkeys == false, false, "Staking TX's can not required additional TX Keys"); // TODO(beldex): Maybe one day, revisit this
 
         if (!(change_addr && *change_addr == dst_entr))
         {
@@ -940,7 +928,7 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------
-  bool construct_tx_and_get_tx_key(const account_keys& sender_account_keys, const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses, std::vector<tx_source_entry>& sources, std::vector<tx_destination_entry>& destinations, const boost::optional<cryptonote::tx_destination_entry>& change_addr, const std::vector<uint8_t> &extra, transaction& tx, uint64_t unlock_time, crypto::secret_key &tx_key, std::vector<crypto::secret_key> &additional_tx_keys, const rct::RCTConfig &rct_config, rct::multisig_out *msout, loki_construct_tx_params const tx_params)
+  bool construct_tx_and_get_tx_key(const account_keys& sender_account_keys, const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses, std::vector<tx_source_entry>& sources, std::vector<tx_destination_entry>& destinations, const boost::optional<cryptonote::tx_destination_entry>& change_addr, const std::vector<uint8_t> &extra, transaction& tx, uint64_t unlock_time, crypto::secret_key &tx_key, std::vector<crypto::secret_key> &additional_tx_keys, const rct::RCTConfig &rct_config, rct::multisig_out *msout, beldex_construct_tx_params const tx_params)
   {
     hw::device &hwdev = sender_account_keys.get_device();
     hwdev.open_tx(tx_key);
@@ -975,7 +963,7 @@ namespace cryptonote
      rct_config.range_proof_type  = (hf_version < network_version_10_bulletproofs) ?  rct::RangeProofBorromean : rct::RangeProofPaddedBulletproof;
      rct_config.bp_version        = (hf_version < HF_VERSION_SMALLER_BP) ? 1 : 0;
 
-     loki_construct_tx_params tx_params(hf_version);
+     beldex_construct_tx_params tx_params(hf_version);
      tx_params.v3_is_staking_tx = is_staking;
 
      return construct_tx_and_get_tx_key(sender_account_keys, subaddresses, sources, destinations_copy, change_addr, extra, tx, unlock_time, tx_key, additional_tx_keys, rct_config, NULL, tx_params);
@@ -995,8 +983,8 @@ namespace cryptonote
     CHECK_AND_ASSERT_MES(r, false, "failed to parse coinbase tx from hard coded blob");
     r = parse_and_validate_tx_from_blob(tx_bl, bl.miner_tx);
     CHECK_AND_ASSERT_MES(r, false, "failed to parse coinbase tx from hard coded blob");
-    bl.major_version = 7;
-    bl.minor_version = 7;
+    bl.major_version = 1;
+    bl.minor_version = 0;
     bl.timestamp = 0;
     bl.nonce = nonce;
     miner::find_nonce_for_given_block(bl, 1, 0);

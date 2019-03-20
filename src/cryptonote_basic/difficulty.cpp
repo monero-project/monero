@@ -1,5 +1,5 @@
 // Copyright (c) 2014-2018, The Monero Project
-// Copyright (c)      2018, The Loki Project
+// Copyright (c)      2018, The Beldex Project
 //
 // All rights reserved.
 //
@@ -36,13 +36,14 @@
 #include <vector>
 
 #include "common/loki.h"
+#include "include_base_utils.h"
 #include "int-util.h"
 #include "crypto/hash.h"
 #include "cryptonote_config.h"
 #include "difficulty.h"
 
-#undef LOKI_DEFAULT_LOG_CATEGORY
-#define LOKI_DEFAULT_LOG_CATEGORY "difficulty"
+#undef BELDEX_DEFAULT_LOG_CATEGORY
+#define BELDEX_DEFAULT_LOG_CATEGORY "difficulty"
 
 namespace cryptonote {
 
@@ -139,7 +140,7 @@ namespace cryptonote {
   // Do not use "if solvetime < 1 then solvetime = 1" which allows a catastrophic exploit.
   // Do not sort timestamps.  "Solvetimes" and "LWMA" variables must allow negatives.
   // Do not use MTP as most recent block.  Do not use (POW)Limits, filtering, or tempering.
-  // Do not forget to set N (aka DIFFICULTY_WINDOW in Cryptonote) to recommendation below.
+  // Do not forget to set N (aka DIFFICULTY_WINDOW_V2 in Cryptonote) to recommendation below.
   // The nodes' future time limit (FTL) aka CRYPTONOTE_BLOCK_FUTURE_TIME_LIMIT needs to
   // be reduced from 60*60*2 to 500 seconds to prevent timestamp manipulation from miner's with 
   //  > 50% hash power.  If this is too small, it can be increased to 1000 at a cost in protection.
@@ -148,7 +149,7 @@ namespace cryptonote {
 
 
   difficulty_type next_difficulty_v2(std::vector<std::uint64_t> timestamps, std::vector<difficulty_type> cumulative_difficulties, size_t target_seconds, bool use_old_lwma) {
-
+	LOG_PRINT_L2("next_difficulty_v2");
     const int64_t T = static_cast<int64_t>(target_seconds);
 
     size_t N = DIFFICULTY_WINDOW_V2 - 1;
@@ -207,4 +208,51 @@ namespace cryptonote {
 
     return next_difficulty;
   }
+  
+ difficulty_type next_difficulty(std::vector<std::uint64_t> timestamps, std::vector<difficulty_type> cumulative_difficulties, size_t target_seconds) {
+
+    if(timestamps.size() > DIFFICULTY_WINDOW_V2)
+    {
+      timestamps.resize(DIFFICULTY_WINDOW_V2);
+      cumulative_difficulties.resize(DIFFICULTY_WINDOW_V2);
+    }
+
+
+    size_t length = timestamps.size();
+    assert(length == cumulative_difficulties.size());
+    if (length <= 1) {
+      return 1;
+    }
+    static_assert(DIFFICULTY_WINDOW_V2 >= 2, "Window is too small");
+    assert(length <= DIFFICULTY_WINDOW_V2);
+    sort(timestamps.begin(), timestamps.end());
+    size_t cut_begin, cut_end;
+    static_assert(2 * DIFFICULTY_CUT <= DIFFICULTY_WINDOW_V2 - 2, "Cut length is too large");
+    if (length <= DIFFICULTY_WINDOW_V2 - 2 * DIFFICULTY_CUT) {
+      cut_begin = 0;
+      cut_end = length;
+    } else {
+      cut_begin = (length - (DIFFICULTY_WINDOW_V2 - 2 * DIFFICULTY_CUT) + 1) / 2;
+      cut_end = cut_begin + (DIFFICULTY_WINDOW_V2 - 2 * DIFFICULTY_CUT);
+    }
+    assert(/*cut_begin >= 0 &&*/ cut_begin + 2 <= cut_end && cut_end <= length);
+    uint64_t time_span = timestamps[cut_end - 1] - timestamps[cut_begin];
+    if (time_span == 0) {
+      time_span = 1;
+    }
+    difficulty_type total_work = cumulative_difficulties[cut_end - 1] - cumulative_difficulties[cut_begin];
+    assert(total_work > 0);
+    uint64_t low, high;
+    mul(total_work, target_seconds, low, high);
+	LOG_PRINT_L2("next_difficultyLOG time_span: " << time_span << " low:" << low << " (low + time_span - 1) / time_span:" << ((low + time_span - 1) / time_span));
+    // blockchain errors "difficulty overhead" if this function returns zero.
+    // TODO: consider throwing an exception instead
+    if (high != 0 || low + time_span - 1 < low) {
+      return 0;
+    }
+    return (low + time_span - 1) / time_span;
+  }
+  
+  
 }
+

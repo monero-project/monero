@@ -1,5 +1,5 @@
 // Copyright (c) 2014-2018, The Monero Project
-// Copyright (c)      2018, The Loki Project
+// Copyright (c)      2018, The Beldex Project
 //
 // All rights reserved.
 //
@@ -60,8 +60,8 @@ using namespace epee;
 
 #include "common/loki_integration_test_hooks.h"
 
-#undef LOKI_DEFAULT_LOG_CATEGORY
-#define LOKI_DEFAULT_LOG_CATEGORY "cn"
+#undef BELDEX_DEFAULT_LOG_CATEGORY
+#define BELDEX_DEFAULT_LOG_CATEGORY "cn"
 
 DISABLE_VS_WARNINGS(4355)
 
@@ -159,7 +159,7 @@ namespace cryptonote
   };
   static const command_line::arg_descriptor<std::string> arg_check_updates = {
     "check-updates"
-  , "Check for new versions of loki: [disabled|notify|download|update]"
+  , "Check for new versions of beldex: [disabled|notify|download|update]"
   , "notify"
   };
   static const command_line::arg_descriptor<bool> arg_fluffy_blocks  = {
@@ -184,7 +184,7 @@ namespace cryptonote
   };
   static const command_line::arg_descriptor<bool> arg_service_node  = {
     "service-node"
-  , "Run as a service node"
+  , "Run as a master node"
   };
   static const command_line::arg_descriptor<std::string> arg_block_notify = {
     "block-notify"
@@ -336,7 +336,7 @@ namespace cryptonote
     command_line::add_arg(desc, arg_reorg_notify);
     command_line::add_arg(desc, arg_block_rate_notify);
 
-#if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
+#if defined(BELDEX_ENABLE_INTEGRATION_TEST_HOOKS)
     command_line::add_arg(desc, loki::arg_integration_test_hardforks_override);
     command_line::add_arg(desc, loki::arg_integration_test_shared_mem_name);
 #endif
@@ -459,7 +459,7 @@ namespace cryptonote
   {
     start_time = std::time(nullptr);
 
-#if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
+#if defined(BELDEX_ENABLE_INTEGRATION_TEST_HOOKS)
     const std::string arg_integration_test_override_hardforks = command_line::get_arg(vm, loki::arg_integration_test_hardforks_override);
 
     std::vector<std::pair<uint8_t, uint64_t>> integration_test_hardforks;
@@ -513,7 +513,7 @@ namespace cryptonote
     if (m_service_node)
     {
       r = init_service_node_key();
-      CHECK_AND_ASSERT_MES(r, false, "Failed to create or load service node key");
+      CHECK_AND_ASSERT_MES(r, false, "Failed to create or load master node key");
       m_service_node_list.set_my_service_node_keys(&m_service_node_pubkey);
     }
 
@@ -532,7 +532,7 @@ namespace cryptonote
       if (boost::filesystem::exists(old_files / "blockchain.bin"))
       {
         MWARNING("Found old-style blockchain.bin in " << old_files.string());
-        MWARNING("Loki now uses a new format. You can either remove blockchain.bin to start syncing");
+        MWARNING("Beldex now uses a new format. You can either remove blockchain.bin to start syncing");
         MWARNING("the blockchain anew, or use loki-blockchain-export and loki-blockchain-import to");
         MWARNING("convert your existing blockchain.bin to the new format. See README.md for instructions.");
         return false;
@@ -559,7 +559,7 @@ namespace cryptonote
 
     if (m_nettype == FAKECHAIN)
     {
-#if !defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS) // In integration mode, don't delete the DB. This should be explicitly done in the tests. Otherwise the more likely behaviour is persisting the DB across multiple daemons in the same test.
+#if !defined(BELDEX_ENABLE_INTEGRATION_TEST_HOOKS) // In integration mode, don't delete the DB. This should be explicitly done in the tests. Otherwise the more likely behaviour is persisting the DB across multiple daemons in the same test.
       // reset the db by removing the database file before opening it
       if (!db->remove_data_file(filename))
       {
@@ -733,6 +733,7 @@ namespace cryptonote
       MERROR("Invalid argument to --dns-versions-check: " << check_updates_string);
       return false;
     }
+	check_updates_level = UPDATES_DISABLED; // NO update checking, todo(beldex)!
 
     r = m_miner.init(vm, m_nettype);
     CHECK_AND_ASSERT_MES(r, false, "Failed to initialize miner instance");
@@ -757,7 +758,7 @@ namespace cryptonote
       bool r = epee::file_io_utils::load_file_to_string(keypath, keystr);
       memcpy(&unwrap(unwrap(m_service_node_key)), keystr.data(), sizeof(m_service_node_key));
       wipeable_string wipe(keystr);
-      CHECK_AND_ASSERT_MES(r, false, "failed to load service node key from file");
+      CHECK_AND_ASSERT_MES(r, false, "failed to load master node key from file");
 
       r = crypto::secret_key_to_public_key(m_service_node_key, m_service_node_pubkey);
       CHECK_AND_ASSERT_MES(r, false, "failed to generate pubkey from secret key");
@@ -771,13 +772,13 @@ namespace cryptonote
       std::string keystr(reinterpret_cast<const char *>(&m_service_node_key), sizeof(m_service_node_key));
       bool r = epee::file_io_utils::save_string_to_file(keypath, keystr);
       wipeable_string wipe(keystr);
-      CHECK_AND_ASSERT_MES(r, false, "failed to save service node key to file");
+      CHECK_AND_ASSERT_MES(r, false, "failed to save master node key to file");
 
       using namespace boost::filesystem;
       permissions(keypath, owner_read);
     }
 
-    MGINFO_YELLOW("Service node pubkey is " << epee::string_tools::pod_to_hex(m_service_node_pubkey));
+    MGINFO_YELLOW("Master node pubkey is " << epee::string_tools::pod_to_hex(m_service_node_pubkey));
 
     return true;
   }
@@ -921,7 +922,8 @@ namespace cryptonote
         tx_info[n].result = false;
         continue;
       }
-
+      if (tx_info[n].tx->version < 2)
+        continue;
       if (tx_info[n].tx->get_type() != transaction::type_standard)
         continue;
       const rct::rctSig &rv = tx_info[n].tx->rct_signatures;
@@ -1362,7 +1364,7 @@ namespace cryptonote
       bool relayed = get_protocol()->relay_uptime_proof(r, fake_context);
 
       if (relayed)
-        MGINFO("Submitted uptime-proof for service node (yours): " << m_service_node_pubkey);
+        MGINFO("Submitted uptime-proof for master node (yours): " << m_service_node_pubkey);
     }
     return true;
   }
@@ -1724,7 +1726,7 @@ namespace cryptonote
     {
       std::string main_message;
       if (m_offline)
-        main_message = "The daemon is running offline and will not attempt to sync to the Loki network.";
+        main_message = "The daemon is running offline and will not attempt to sync to the Beldex network.";
       else
         main_message = "The daemon will start synchronizing with the network. This may take a long time to complete.";
       MGINFO_YELLOW(ENDL << "**********************************************************************" << ENDL
@@ -1758,7 +1760,7 @@ namespace cryptonote
     m_miner.on_idle();
     m_mempool.on_idle();
 
-#if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
+#if defined(BELDEX_ENABLE_INTEGRATION_TEST_HOOKS)
     loki::core_is_idle = true;
 #endif
 
@@ -1809,7 +1811,7 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
   bool core::check_updates()
   {
-    static const char software[] = "loki";
+    static const char software[] = "beldex";
 #ifdef BUILD_TAG
     static const char buildtag[] = BOOST_PP_STRINGIZE(BUILD_TAG);
     static const char subdir[] = "cli"; // because it can never be simple
@@ -1829,7 +1831,7 @@ namespace cryptonote
     if (!tools::check_updates(software, buildtag, version, hash))
       return false;
 
-    if (tools::vercmp(version.c_str(), LOKI_VERSION) <= 0)
+    if (tools::vercmp(version.c_str(), BELDEX_VERSION) <= 0)
     {
       m_update_available = false;
       return true;
@@ -1972,7 +1974,7 @@ namespace cryptonote
       return true;
     }
 
-#if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
+#if defined(BELDEX_ENABLE_INTEGRATION_TEST_HOOKS)
     MDEBUG("Not checking block rate, integration test mode");
     return true;
 #endif
@@ -1992,7 +1994,7 @@ namespace cryptonote
       MDEBUG("blocks in the last " << seconds[n] / 60 << " minutes: " << b << " (probability " << p << ")");
       if (p < threshold)
       {
-        MWARNING("There were " << b << " blocks in the last " << seconds[n] / 60 << " minutes, there might be large hash rate changes, or we might be partitioned, cut off from the Loki network or under attack. Or it could be just sheer bad luck.");
+        MWARNING("There were " << b << " blocks in the last " << seconds[n] / 60 << " minutes, there might be large hash rate changes, or we might be partitioned, cut off from the Beldex network or under attack. Or it could be just sheer bad luck.");
 
         std::shared_ptr<tools::Notify> block_rate_notify = m_block_rate_notify;
         if (block_rate_notify)
@@ -2070,7 +2072,7 @@ namespace cryptonote
     if (vote.block_height < latest_block_height && delta_height >= service_nodes::deregister_vote::VOTE_LIFETIME_BY_HEIGHT)
     {
       LOG_PRINT_L1("Received vote for height: " << vote.block_height
-                << " and service node: "     << vote.service_node_index
+                << " and master node: "     << vote.service_node_index
                 << ", is older than: "       << service_nodes::deregister_vote::VOTE_LIFETIME_BY_HEIGHT
                 << " blocks and has been rejected.");
       vvc.m_invalid_block_height = true;
@@ -2078,7 +2080,7 @@ namespace cryptonote
     else if (vote.block_height > latest_block_height)
     {
       LOG_PRINT_L1("Received vote for height: " << vote.block_height
-                << " and service node: "     << vote.service_node_index
+                << " and master node: "     << vote.service_node_index
                 << ", is newer than: "       << latest_block_height
                 << " (latest block height) and has been rejected.");
       vvc.m_invalid_block_height = true;
@@ -2110,7 +2112,7 @@ namespace cryptonote
       if (!result || tvc.m_verifivation_failed)
       {
         LOG_PRINT_L1("A full deregister tx for height: " << vote.block_height <<
-                     " and service node: " << vote.service_node_index <<
+                     " and master node: " << vote.service_node_index <<
                      " could not be verified and was not added to the memory pool, reason: " <<
                      print_tx_verification_context(tvc, &deregister_tx));
       }

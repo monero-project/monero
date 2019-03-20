@@ -1,5 +1,5 @@
 // Copyright (c) 2014-2018, The Monero Project
-// Copyright (c)      2018, The Loki Project
+// Copyright (c)      2018, The Beldex Project
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without modification, are
@@ -44,8 +44,8 @@
 #include "profile_tools.h"
 #include "ringct/rctOps.h"
 
-#undef LOKI_DEFAULT_LOG_CATEGORY
-#define LOKI_DEFAULT_LOG_CATEGORY "blockchain.db.lmdb"
+#undef BELDEX_DEFAULT_LOG_CATEGORY
+#define BELDEX_DEFAULT_LOG_CATEGORY "blockchain.db.lmdb"
 
 
 #if defined(__i386) || defined(__x86_64)
@@ -1450,7 +1450,7 @@ void BlockchainLMDB::open(const std::string& filename, const int db_flags)
         mdb_env_close(m_env);
         m_open = false;
         MFATAL("Existing lmdb database needs to be converted, which cannot be done on a read-only database.");
-        MFATAL("Please run lokid once to convert the database.");
+        MFATAL("Please run beldexd once to convert the database.");
         return;
       }
       // Note that there was a schema change within version 0 as well.
@@ -5161,7 +5161,7 @@ void BlockchainLMDB::set_service_node_data(const std::string& data)
   int result;
   result = mdb_cursor_put(m_cur_service_node_data, &k, &blob, 0);
   if (result)
-    throw0(DB_ERROR(lmdb_error("Failed to add service node data to db transaction: ", result).c_str()));
+    throw0(DB_ERROR(lmdb_error("Failed to add master node data to db transaction: ", result).c_str()));
 }
 
 bool BlockchainLMDB::get_service_node_data(std::string& data)
@@ -5186,7 +5186,7 @@ bool BlockchainLMDB::get_service_node_data(std::string& data)
   }
   else if (result)
   {
-    throw0(DB_ERROR(lmdb_error("DB error attempting to get service node data", result).c_str()));
+    throw0(DB_ERROR(lmdb_error("DB error attempting to get master node data", result).c_str()));
   }
 
   data.assign(reinterpret_cast<const char*>(v.mv_data), v.mv_size);
@@ -5208,7 +5208,7 @@ void BlockchainLMDB::clear_service_node_data()
   if ((result = mdb_cursor_get(m_cur_service_node_data, &k, NULL, MDB_SET)))
     return;
   if ((result = mdb_cursor_del(m_cur_service_node_data, 0)))
-      throw1(DB_ERROR(lmdb_error("Failed to add removal of service node data to db transaction: ", result).c_str()));
+      throw1(DB_ERROR(lmdb_error("Failed to add removal of master node data to db transaction: ", result).c_str()));
 }
 
 }  // namespace cryptonote

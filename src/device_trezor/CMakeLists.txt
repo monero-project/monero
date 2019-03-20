@@ -67,10 +67,10 @@ set(trezor_private_headers)
 if(DEVICE_TREZOR_READY)
     message(STATUS "Trezor support enabled")
 
-    loki_private_headers(device_trezor
+    beldex_private_headers(device_trezor
             ${device_private_headers})
 
-    loki_add_library(device_trezor
+    beldex_add_library(device_trezor
             ${trezor_sources}
             ${trezor_headers}
             ${trezor_private_headers})
@@ -91,7 +91,7 @@ if(DEVICE_TREZOR_READY)
 
 else()
     message(STATUS "Trezor support disabled")
-    loki_private_headers(device_trezor)
-    loki_add_library(device_trezor device_trezor.cpp)
+    beldex_private_headers(device_trezor)
+    beldex_add_library(device_trezor device_trezor.cpp)
     target_link_libraries(device_trezor PUBLIC cncrypto)
 endif()

@@ -34,8 +34,8 @@
 #include "net/net_parse_helpers.h"
 #include <algorithm>
 
-#undef LOKI_DEFAULT_LOG_CATEGORY
-#define LOKI_DEFAULT_LOG_CATEGORY "wallet.mms"
+#undef BELDEX_DEFAULT_LOG_CATEGORY
+#define BELDEX_DEFAULT_LOG_CATEGORY "wallet.mms"
 #define PYBITMESSAGE_DEFAULT_API_PORT 8442
 
 namespace mms

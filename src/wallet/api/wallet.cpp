@@ -1,5 +1,5 @@
 // Copyright (c) 2014-2018, The Monero Project
-// Copyright (c)      2018, The Loki Project
+// Copyright (c)      2018, The Beldex Project
 //
 // All rights reserved.
 //
@@ -30,7 +30,7 @@
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 #ifdef _WIN32
- #define __STDC_FORMAT_MACROS // NOTE(loki): Explicitly define the PRIu64 macro on Mingw
+ #define __STDC_FORMAT_MACROS // NOTE(beldex): Explicitly define the PRIu64 macro on Mingw
 #endif
 
 #include "wallet.h"
@@ -59,8 +59,8 @@
 using namespace std;
 using namespace cryptonote;
 
-#undef LOKI_DEFAULT_LOG_CATEGORY
-#define LOKI_DEFAULT_LOG_CATEGORY "WalletAPI"
+#undef BELDEX_DEFAULT_LOG_CATEGORY
+#define BELDEX_DEFAULT_LOG_CATEGORY "WalletAPI"
 
 namespace Monero {
 
@@ -368,19 +368,19 @@ void Wallet::init(const char *argv0, const char *default_log_base_name, const st
 }
 
 void Wallet::debug(const std::string &category, const std::string &str) {
-    MCDEBUG(category.empty() ? LOKI_DEFAULT_LOG_CATEGORY : category.c_str(), str);
+    MCDEBUG(category.empty() ? BELDEX_DEFAULT_LOG_CATEGORY : category.c_str(), str);
 }
 
 void Wallet::info(const std::string &category, const std::string &str) {
-    MCINFO(category.empty() ? LOKI_DEFAULT_LOG_CATEGORY : category.c_str(), str);
+    MCINFO(category.empty() ? BELDEX_DEFAULT_LOG_CATEGORY : category.c_str(), str);
 }
 
 void Wallet::warning(const std::string &category, const std::string &str) {
-    MCWARNING(category.empty() ? LOKI_DEFAULT_LOG_CATEGORY : category.c_str(), str);
+    MCWARNING(category.empty() ? BELDEX_DEFAULT_LOG_CATEGORY : category.c_str(), str);
 }
 
 void Wallet::error(const std::string &category, const std::string &str) {
-    MCERROR(category.empty() ? LOKI_DEFAULT_LOG_CATEGORY : category.c_str(), str);
+    MCERROR(category.empty() ? BELDEX_DEFAULT_LOG_CATEGORY : category.c_str(), str);
 }
 
 ///////////////////////// WalletImpl implementation ////////////////////////
@@ -2344,7 +2344,7 @@ PendingTransaction* WalletImpl::stakePending(const std::string& sn_key_str, cons
   crypto::public_key sn_key;
   if (!epee::string_tools::hex_to_pod(sn_key_str, sn_key))
   {
-    error_msg = "Failed to parse service node pubkey";
+    error_msg = "Failed to parse master node pubkey";
     LOG_ERROR(error_msg);
     return nullptr;
   }

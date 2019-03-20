@@ -73,8 +73,8 @@ file(COPY
   data/wallet_testnet.keys
   data/wallet_testnet
   data/outputs
-  data/unsigned_loki_tx
-  data/signed_loki_tx
+  data/unsigned_beldex_tx
+  data/signed_beldex_tx
   DESTINATION data)
 
 add_subdirectory(core_tests)

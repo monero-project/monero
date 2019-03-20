@@ -26,7 +26,7 @@
 #include <algorithm>
 #include <vector>
 
-// TODO(loki): This is temporary until we switch to integer math for calculating
+// TODO(beldex): This is temporary until we switch to integer math for calculating
 // block rewards. We provide the specific implementation to minimise the risk of
 // different results from math functions across different std libraries.
 static_assert(std::numeric_limits<double>::is_iec559, "We require IEEE standard compliant doubles.");
@@ -501,7 +501,7 @@ loki::round (double x)
   return z;
 }
 
-// adapted from Lokinet llarp/encode.hpp
+// adapted from Beldexnet llarp/encode.hpp
 // from  https://en.wikipedia.org/wiki/Base32#z-base-32
 static const char zbase32_alpha[] = {'y', 'b', 'n', 'd', 'r', 'f', 'g', '8',
                                      'e', 'j', 'k', 'm', 'c', 'p', 'q', 'x',

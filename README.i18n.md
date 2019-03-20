@@ -1,9 +1,9 @@
-Loki daemon internationalization
+Beldex daemon internationalization
 ==================================
 
-The Loki command line tools can be translated in various languages. If you wish to contribute and need help/support, contact the [Loki Localization Workgroup on Taiga](https://taiga.getloki.org/project/erciccione-loki-localization/) or come chat on `#loki-translations` (Freenode/IRC, riot/matrix, MatterMost)
+The Beldex command line tools can be translated in various languages. If you wish to contribute and need help/support, contact the [Beldex Localization Workgroup on Taiga](https://taiga.getloki.org/project/erciccione-loki-localization/) or come chat on `#loki-translations` (Freenode/IRC, riot/matrix, MatterMost)
 
-In order to use the same translation workflow as the [Loki GUI](https://github.com/loki-project/loki-gui), they use Qt Linguist translation files.  However, to avoid the dependencies on Qt this normally implies, they use a custom loader to read those files at runtime.
+In order to use the same translation workflow as the [Beldex GUI](https://github.com/Beldex-Coin/loki-gui), they use Qt Linguist translation files.  However, to avoid the dependencies on Qt this normally implies, they use a custom loader to read those files at runtime.
 
 ### Tools for translators
 
@@ -19,11 +19,11 @@ To update ts files after changing source code:
 
 To add a new language, eg Spanish (ISO code es):
 
-    cp translations/loki.ts translations/loki_es.ts
+    cp translations/loki.ts translations/beldex_es.ts
 
 To edit translations for Spanish:
 
-    linguist translations/loki_es.ts
+    linguist translations/beldex_es.ts
 
 To build translations after modifying them:
 

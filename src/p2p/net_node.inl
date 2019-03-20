@@ -1,5 +1,5 @@
 // Copyright (c) 2014-2018, The Monero Project
-// Copyright (c)      2018, The Loki Project
+// Copyright (c)      2018, The Beldex Project
 //
 // All rights reserved.
 //
@@ -56,8 +56,8 @@
 #include <miniupnp/miniupnpc/upnpcommands.h>
 #include <miniupnp/miniupnpc/upnperrors.h>
 
-#undef LOKI_DEFAULT_LOG_CATEGORY
-#define LOKI_DEFAULT_LOG_CATEGORY "net.p2p"
+#undef BELDEX_DEFAULT_LOG_CATEGORY
+#define BELDEX_DEFAULT_LOG_CATEGORY "net.p2p"
 
 #define NET_MAKE_IP(b1,b2,b3,b4)  ((LPARAM)(((DWORD)(b1)<<24)+((DWORD)(b2)<<16)+((DWORD)(b3)<<8)+((DWORD)(b4))))
 
@@ -424,23 +424,24 @@ namespace nodetool
     std::set<std::string> full_addrs;
     if (nettype == cryptonote::TESTNET)
     {
-      full_addrs.insert("52.63.146.137:38156");
+		full_addrs.insert("35.237.127.119:29090");
+        full_addrs.insert("35.211.199.127:29090");
+        full_addrs.insert("35.237.54.104:29090");
     }
     else if (nettype == cryptonote::STAGENET)
     {
-      full_addrs.insert("13.211.225.142:38153");
+      
     }
     else if (nettype == cryptonote::FAKECHAIN)
     {
     }
     else
     {
-      full_addrs.insert("13.55.199.36:22022");   // Sydney A Box
-	    full_addrs.insert("162.243.164.223:22022"); //Jeff's i2p.rocks
-	    full_addrs.insert("192.250.236.196:22022"); //Rangeproof Test VPSC Box
-	    full_addrs.insert("162.208.9.194:22022");  // Simon's spare
-	    full_addrs.insert("162.208.9.194:22022");  // OVH(1) is bae
-  	  full_addrs.insert("51.38.133.145:22022");  // OVH(2) is bae
+      full_addrs.insert("35.207.13.80:19090");
+      full_addrs.insert("35.211.123.115:19090");
+      full_addrs.insert("35.228.216.218:19090");
+      full_addrs.insert("35.228.9.140:19090");
+      full_addrs.insert("35.229.161.161:19090");
     }
     return full_addrs;
   }
@@ -1563,7 +1564,7 @@ namespace nodetool
     }
     rsp.connections_count = m_net_server.get_config_object().get_connections_count();
     rsp.incoming_connections_count = rsp.connections_count - get_outgoing_connections_count();
-    rsp.version = LOKI_VERSION_FULL;
+    rsp.version = BELDEX_VERSION_FULL;
     rsp.os_version = tools::get_os_version_string();
     m_payload_handler.get_stat_info(rsp.payload_info);
     return 1;

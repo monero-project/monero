@@ -806,7 +806,7 @@ namespace cryptonote
      bool offline() const { return m_offline; }
 
      /**
-      * @brief Get the deterministic list of service node's public keys for quorum testing
+      * @brief Get the deterministic list of master node's public keys for quorum testing
       *
       * @param height Block height to deterministically recreate the quorum list from
 
@@ -820,44 +820,44 @@ namespace cryptonote
      const std::vector<service_nodes::key_image_blacklist_entry> &get_service_node_blacklisted_key_images() const;
 
      /**
-      * @brief get a snapshot of the service node list state at the time of the call.
+      * @brief get a snapshot of the master node list state at the time of the call.
       *
       * @param service_node_pubkeys pubkeys to search, if empty this indicates get all the pubkeys
       *
-      * @return all the service nodes that can be matched from pubkeys in param
+      * @return all the master nodes that can be matched from pubkeys in param
       */
      std::vector<service_nodes::service_node_pubkey_info> get_service_node_list_state(const std::vector<crypto::public_key>& service_node_pubkeys) const;
 
     /**
-      * @brief get whether `pubkey` is known as a service node
+      * @brief get whether `pubkey` is known as a master node
       *
       * @param pubkey the public key to test
       *
-      * @return whether `pubkey` is known as a service node
+      * @return whether `pubkey` is known as a master node
       */
     bool is_service_node(const crypto::public_key& pubkey) const;
      /**
-      * @brief Add a vote to deregister a service node from network
+      * @brief Add a vote to deregister a master node from network
       *
-      * @param vote The vote for deregistering a service node.
+      * @param vote The vote for deregistering a master node.
 
       * @return Whether the vote was added to the partial deregister pool
       */
      bool add_deregister_vote(const service_nodes::deregister_vote& vote, vote_verification_context &vvc);
 
      /**
-      * @brief Get the keypair for this service node.
+      * @brief Get the keypair for this master node.
 
-      * @param pub_key The public key for the service node, unmodified if not a service node
+      * @param pub_key The public key for the master node, unmodified if not a master node
 
-      * @param sec_key The secret key for the service node, unmodified if not a service node
+      * @param sec_key The secret key for the master node, unmodified if not a master node
 
-      * @return True if we are a service node
+      * @return True if we are a master node
       */
      bool get_service_node_keys(crypto::public_key &pub_key, crypto::secret_key &sec_key) const;
 
      /**
-      * @brief Get the public key of every service node.
+      * @brief Get the public key of every master node.
       *
       * @param keys The container in which to return the keys
       * @param fully_funded_nodes_only Only return nodes that are funded and hence working on the network
@@ -865,16 +865,16 @@ namespace cryptonote
      void get_all_service_nodes_public_keys(std::vector<crypto::public_key>& keys, bool fully_funded_nodes_only) const;
 
      /**
-      * @brief attempts to submit an uptime proof to the network, if this is running in service node mode
+      * @brief attempts to submit an uptime proof to the network, if this is running in master node mode
       *
       * @return true
       */
      bool submit_uptime_proof();
 
      /**
-      * @brief Try find the uptime proof from the service node.
+      * @brief Try find the uptime proof from the master node.
       *
-      * @param key The public key of the service node
+      * @param key The public key of the master node
       *
       * @return 0 if no uptime proof found, otherwise the timestamp it last received in epoch time
       */
@@ -1088,7 +1088,7 @@ namespace cryptonote
      bool check_disk_space();
 
      /**
-      * @brief Initializes service node key by loading or creating.
+      * @brief Initializes master node key by loading or creating.
       *
       * @return true on success, false otherwise
       */

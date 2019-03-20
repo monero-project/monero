@@ -1,4 +1,4 @@
-// Copyright (c) 2018, The Loki Project
+// Copyright (c) 2018, The Beldex Project
 // 
 // All rights reserved.
 // 
@@ -36,7 +36,7 @@
 
 TEST(service_nodes, staking_requirement)
 {
-  // TODO(loki): The current reference values here for the staking requirement
+  // TODO(beldex): The current reference values here for the staking requirement
   // at certain heights has been derived from excel, so we have to use an
   // epsilon for dust amounts as amounts are off by a bit. When we switch to
   // integer math we can remove the need for this. Doyle - 2018-08-28
@@ -162,7 +162,7 @@ TEST(service_nodes, vote_validation)
     ASSERT_FALSE(result);
   }
 
-  // Voters service node index out of bounds
+  // Voters master node index out of bounds
   {
     auto vote               = valid_vote;
     vote.service_node_index = state.nodes_to_test.size() + 10;
@@ -268,7 +268,7 @@ TEST(service_nodes, tx_extra_deregister_validation)
     ASSERT_FALSE(result);
   }
 
-  // Deregister service node index is out of bounds
+  // Deregister master node index is out of bounds
   {
     auto deregister               = valid_deregister;
     deregister.service_node_index = state.nodes_to_test.size() + 10;
@@ -447,7 +447,7 @@ TEST(service_nodes, min_stake_amount)
 
 }
 
-// Test service node receive rewards proportionate to the amount they contributed.
+// Test master node receive rewards proportionate to the amount they contributed.
 TEST(service_nodes, service_node_rewards_proportional_to_portions)
 {
   {

@@ -43,8 +43,8 @@ packages:
 - "libprotobuf-dev"
 - "python3-zmq"
 remotes:
-- "url": "https://github.com/loki-project/loki.git"
-  "dir": "loki"
+- "url": "https://github.com/Beldex-Coin/loki.git"
+  "dir": "beldex"
 files: []
 script: |
 

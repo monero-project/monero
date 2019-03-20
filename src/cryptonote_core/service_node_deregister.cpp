@@ -1,4 +1,4 @@
-// Copyright (c)      2018, The Loki Project
+// Copyright (c)      2018, The Beldex Project
 //
 // All rights reserved.
 //
@@ -42,8 +42,8 @@
 #include <string>
 #include <vector>
 
-#undef LOKI_DEFAULT_LOG_CATEGORY
-#define LOKI_DEFAULT_LOG_CATEGORY "service_nodes"
+#undef BELDEX_DEFAULT_LOG_CATEGORY
+#define BELDEX_DEFAULT_LOG_CATEGORY "service_nodes"
 
 namespace service_nodes
 {
@@ -95,7 +95,7 @@ namespace service_nodes
     if (deregister.service_node_index >= quorum_state.nodes_to_test.size())
     {
       vvc.m_service_node_index_out_of_bounds = true;
-      LOG_PRINT_L1("Service node index in deregister vote was out of bounds: " << deregister.service_node_index << ", expected to be in range of: [0, " << quorum_state.nodes_to_test.size() << ")");
+      LOG_PRINT_L1("Master node index in deregister vote was out of bounds: " << deregister.service_node_index << ", expected to be in range of: [0, " << quorum_state.nodes_to_test.size() << ")");
       return false;
     }
 

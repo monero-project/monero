@@ -1,4 +1,4 @@
-# Copyright (c) 2018, The Loki Project
+# Copyright (c) 2018, The Beldex Project
 # Copyright (c) 2016-2018, The Monero Project
 #
 # All rights reserved.
@@ -40,9 +40,9 @@ set(ringct_basic_private_headers
   multiexp.h
   bulletproofs.h)
 
-loki_private_headers(ringct_basic
+beldex_private_headers(ringct_basic
   ${crypto_private_headers})
-loki_add_library(ringct_basic
+beldex_add_library(ringct_basic
   ${ringct_basic_sources}
   ${ringct_basic_private_headers})
 target_link_libraries(ringct_basic
@@ -63,9 +63,9 @@ set(ringct_private_headers
   rctSigs.h
 )
 
-loki_private_headers(ringct
+beldex_private_headers(ringct
   ${crypto_private_headers})
-loki_add_library(ringct
+beldex_add_library(ringct
   ${ringct_sources}
   ${ringct_headers}
   ${ringct_private_headers})

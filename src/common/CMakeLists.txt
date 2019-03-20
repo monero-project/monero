@@ -1,4 +1,4 @@
-# Copyright (c) 2018, The Loki Project
+# Copyright (c) 2018, The Beldex Project
 # Copyright (c) 2014-2018, The Monero Project
 #
 # All rights reserved.
@@ -93,9 +93,9 @@ set(common_private_headers
   aligned.h
   combinator.h)
 
-loki_private_headers(common
+beldex_private_headers(common
   ${common_private_headers})
-loki_add_library(common
+beldex_add_library(common
   ${common_sources}
   ${common_headers}
   ${common_private_headers}

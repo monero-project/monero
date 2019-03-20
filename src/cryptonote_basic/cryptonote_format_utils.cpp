@@ -1,5 +1,5 @@
 // Copyright (c) 2014-2018, The Monero Project
-// Copyright (c)      2018, The Loki Project
+// Copyright (c)      2018, The Beldex Project
 // 
 // All rights reserved.
 // 
@@ -45,8 +45,8 @@
 
 using namespace epee;
 
-#undef LOKI_DEFAULT_LOG_CATEGORY
-#define LOKI_DEFAULT_LOG_CATEGORY "cn"
+#undef BELDEX_DEFAULT_LOG_CATEGORY
+#define BELDEX_DEFAULT_LOG_CATEGORY "cn"
 
 #define ENCRYPTED_PAYMENT_ID_TAIL 0x8d
 
@@ -677,7 +677,7 @@ namespace cryptonote
     std::ostringstream oss;
     binary_archive<true> ar(oss);
     bool r = ::do_serialize(ar, field);
-    CHECK_AND_ASSERT_MES(r, false, "failed to serialize tx extra service node deregister");
+    CHECK_AND_ASSERT_MES(r, false, "failed to serialize tx extra master node deregister");
     std::string tx_extra_str = oss.str();
     size_t pos = tx_extra.size();
     tx_extra.resize(tx_extra.size() + tx_extra_str.size());
@@ -1116,7 +1116,7 @@ namespace cryptonote
     switch (decimal_point)
     {
       case 9:
-        return "loki";
+        return "beldex";
       case 6:
         return "megarok";
       case 3:
@@ -1163,8 +1163,8 @@ namespace cryptonote
     if (tvc.m_not_rct)                   bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "TX is not a valid RCT TX., ");
     if (tvc.m_invalid_version)           bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "TX has invalid version, ");
     if (tvc.m_invalid_type)              bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "TX has invalid type, ");
-    if (tvc.m_key_image_locked_by_snode) bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Key image is locked by service node, ");
-    if (tvc.m_key_image_blacklisted)     bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Key image is blacklisted on the service node network, ");
+    if (tvc.m_key_image_locked_by_snode) bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Key image is locked by master node, ");
+    if (tvc.m_key_image_blacklisted)     bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Key image is blacklisted on the master node network, ");
 
     if (tx)
     {
@@ -1191,7 +1191,7 @@ namespace cryptonote
     if (vvc.m_invalid_block_height)              bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Invalid block height: %s, ",              vote ? std::to_string(vote->block_height).c_str() : "??");
     if (vvc.m_duplicate_voters)                  bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Voters quorum index was duplicated: %s, ",vote ? std::to_string(vote->voters_quorum_index).c_str() : "??");
     if (vvc.m_voters_quorum_index_out_of_bounds) bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Voters quorum index out of bounds: %s, ", vote ? std::to_string(vote->voters_quorum_index).c_str() : "??");
-    if (vvc.m_service_node_index_out_of_bounds)  bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Service node index out of bounds: %s, ",  vote ? std::to_string(vote->service_node_index).c_str() : "??");
+    if (vvc.m_service_node_index_out_of_bounds)  bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Master node index out of bounds: %s, ",  vote ? std::to_string(vote->service_node_index).c_str() : "??");
     if (vvc.m_signature_not_valid)               bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Signature not valid, ");
     if (vvc.m_added_to_pool)                     bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Added to pool, ");
     if (vvc.m_full_tx_deregister_made)           bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Full TX deregister made, ");
@@ -1450,14 +1450,9 @@ namespace cryptonote
   {
     const blobdata bd                 = get_block_hashing_blob(b);
     const int hf_version              = b.major_version;
-    crypto::cn_slow_hash_type cn_type = cn_slow_hash_type::heavy_v1;
-
-    if (hf_version >= network_version_11_infinite_staking)
-      cn_type = cn_slow_hash_type::turtle_lite_v2;
-    else if (hf_version >= network_version_7)
-      cn_type = crypto::cn_slow_hash_type::heavy_v2;
-
-    crypto::cn_slow_hash(bd.data(), bd.size(), res, cn_type);
+    
+    const int cn_variant = hf_version >= 7 ? hf_version - 6 : 0;
+    crypto::cn_slow_hash(bd.data(), bd.size(), res, cn_variant);	
     return true;
   }
   //---------------------------------------------------------------
@@ -1562,7 +1557,7 @@ namespace cryptonote
   crypto::secret_key encrypt_key(crypto::secret_key key, const epee::wipeable_string &passphrase)
   {
     crypto::hash hash;
-    crypto::cn_slow_hash(passphrase.data(), passphrase.size(), hash, crypto::cn_slow_hash_type::heavy_v1);
+    crypto::cn_slow_hash(passphrase.data(), passphrase.size(), hash);
     sc_add((unsigned char*)key.data, (const unsigned char*)key.data, (const unsigned char*)hash.data);
     return key;
   }
@@ -1570,7 +1565,7 @@ namespace cryptonote
   crypto::secret_key decrypt_key(crypto::secret_key key, const epee::wipeable_string &passphrase)
   {
     crypto::hash hash;
-    crypto::cn_slow_hash(passphrase.data(), passphrase.size(), hash, crypto::cn_slow_hash_type::heavy_v1);
+    crypto::cn_slow_hash(passphrase.data(), passphrase.size(), hash);
     sc_sub((unsigned char*)key.data, (const unsigned char*)key.data, (const unsigned char*)hash.data);
     return key;
   }

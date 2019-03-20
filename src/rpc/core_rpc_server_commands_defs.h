@@ -971,7 +971,7 @@ namespace cryptonote
   {
     struct request
     {
-      bool fully_funded_nodes_only; // Return keys for service nodes if they are funded and working on the network
+      bool fully_funded_nodes_only; // Return keys for master nodes if they are funded and working on the network
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_OPT(fully_funded_nodes_only, (bool)true)
       END_KV_SERIALIZE_MAP()
@@ -979,7 +979,7 @@ namespace cryptonote
 
     struct response
     {
-      std::vector<std::string> keys; // NOTE: Returns as base32z of the hex key, for Lokinet internal usage
+      std::vector<std::string> keys; // NOTE: Returns as base32z of the hex key, for Beldexnet internal usage
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(keys)
       END_KV_SERIALIZE_MAP()
@@ -2403,7 +2403,7 @@ namespace cryptonote
   };
 
   //
-  // Loki
+  // Beldex
   //
   struct COMMAND_RPC_GET_QUORUM_STATE
   {
@@ -2557,7 +2557,7 @@ namespace cryptonote
   {
     struct request
     {
-      std::vector<std::string> service_node_pubkeys; // pass empty vector to get all the service nodes
+      std::vector<std::string> service_node_pubkeys; // pass empty vector to get all the master nodes
       bool include_json;
       
       BEGIN_KV_SERIALIZE_MAP()

@@ -333,12 +333,12 @@ namespace rpc
       if (tvc.m_key_image_locked_by_snode)
       {
         if (!res.error_details.empty()) res.error_details += " and ";
-        res.error_details = "tx uses outputs that are locked by the service node network";
+        res.error_details = "tx uses outputs that are locked by the master node network";
       }
       if (tvc.m_key_image_blacklisted)
       {
         if (!res.error_details.empty()) res.error_details += " and ";
-        res.error_details = "tx uses a key image that has been temporarily blacklisted by the service node network";
+        res.error_details = "tx uses a key image that has been temporarily blacklisted by the master node network";
       }
       if (res.error_details.empty())
       {
@@ -458,7 +458,7 @@ namespace rpc
     res.info.block_size_limit = res.info.block_weight_limit = m_core.get_blockchain_storage().get_current_cumulative_block_weight_limit();
     res.info.block_size_median = res.info.block_weight_median = m_core.get_blockchain_storage().get_current_cumulative_block_weight_median();
     res.info.start_time = (uint64_t)m_core.get_start_time();
-    res.info.version = LOKI_VERSION;
+    res.info.version = BELDEX_VERSION;
 
     res.status = Message::STATUS_OK;
     res.error_details = "";

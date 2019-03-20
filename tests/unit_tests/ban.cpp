@@ -89,7 +89,7 @@ public:
   bool prune_blockchain(uint32_t pruning_seed = 0) { return true; }
   void stop() {}
 
-  // TODO(loki): Write tests
+  // TODO(beldex): Write tests
   bool add_deregister_vote(const service_nodes::deregister_vote& vote, cryptonote::vote_verification_context &vvc) { return true; }
 };
 

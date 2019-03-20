@@ -38,8 +38,8 @@
 
 #pragma comment(lib, "Ws2_32.lib")
 
-#undef LOKI_DEFAULT_LOG_CATEGORY
-#define LOKI_DEFAULT_LOG_CATEGORY "net"
+#undef BELDEX_DEFAULT_LOG_CATEGORY
+#define BELDEX_DEFAULT_LOG_CATEGORY "net"
 
 namespace epee 
 {
