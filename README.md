@@ -140,7 +140,7 @@ build the library binary manually. This can be done with the following command `
 [2] libnorm-dev is needed if your zmq library was built with libnorm, and not needed otherwise
 
 Install all dependencies at once on Debian/Ubuntu: 
-``` sudo apt update && sudo apt install build-essential cmake git pkg-config libboost-all-dev libssl-dev libzmq3-dev libunbound-dev libsodium-dev libunwind8-dev liblzma-dev libreadline6-dev libldns-dev libexpat1-dev doxygen graphviz libpcsclite-dev libpgm-dev```
+``` sudo apt update && sudo apt install build-essential cmake git pkg-config libboost-all-dev libssl-dev libzmq3-dev libunbound-dev libsodium-dev libunwind8-dev liblzma-dev libreadline6-dev libldns-dev libexpat1-dev doxygen graphviz libpcsclite-dev libpgm-dev libnorm-dev```
 ### Cloning the repository
 
 Clone recursively to pull-in needed submodule(s):
