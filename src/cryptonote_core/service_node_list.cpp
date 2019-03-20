@@ -1882,8 +1882,7 @@ namespace service_nodes
       char buffer[128];
       strftime(buffer, sizeof(buffer), "%Y-%m-%d %I:%M:%S %p", &tm);
       stream << tr("This registration expires at ") << buffer << tr(".\n");
-      stream << tr("This should be in about 2 weeks, or two years for autostaking.\n");
-      stream << tr("If it isn't, check this computer's clock.\n");
+      stream << tr("This should be in about 2 weeks, if it isn't, check this computer's clock.\n");
       stream << tr("Please submit your registration into the blockchain before this time or it will be invalid.");
     }
 
