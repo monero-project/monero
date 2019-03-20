@@ -1327,7 +1327,7 @@ namespace cryptonote
             std::string progress_message = "";
             if (current_blockchain_height < target_blockchain_height)
             {
-              uint64_t completion_percent = (current_blockchain_height * 100 / target_blockchain_height);
+              uint8_t completion_percent = (current_blockchain_height * 100 / target_blockchain_height);
               if (completion_percent == 100) // never show 100% if not actually up to date
                 completion_percent = 99;
               progress_message = " (" + std::to_string(completion_percent) + "%, "
