@@ -252,7 +252,7 @@ boost::asio::ssl::context ssl_options_t::create_context() const
 void ssl_authentication_t::use_ssl_certificate(boost::asio::ssl::context &ssl_context) const
 {
   ssl_context.use_private_key_file(private_key_path, boost::asio::ssl::context::pem);
-  ssl_context.use_certificate_file(certificate_path, boost::asio::ssl::context::pem);
+  ssl_context.use_certificate_chain_file(certificate_path);
 }
 
 bool is_ssl(const unsigned char *data, size_t len)
