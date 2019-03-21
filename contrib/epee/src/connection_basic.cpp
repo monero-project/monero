@@ -173,7 +173,6 @@ connection_basic::~connection_basic() noexcept(false) {
 	std::string remote_addr_str = "?";
 	try { boost::system::error_code e; remote_addr_str = socket().remote_endpoint(e).address().to_string(); } catch(...){} ;
 	_note("Destructing connection #"<<mI->m_peer_number << " to " << remote_addr_str);
-try { throw 0; } catch(...){}
 }
 
 void connection_basic::set_rate_up_limit(uint64_t limit) {
