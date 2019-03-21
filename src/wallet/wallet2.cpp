@@ -9570,8 +9570,9 @@ void wallet2::check_tx_key(const crypto::hash &txid, const crypto::secret_key &t
 
   std::vector<crypto::key_derivation> additional_derivations;
   additional_derivations.resize(additional_tx_keys.size());
+  hw::device &hwdev =  m_account.get_device();
   for (size_t i = 0; i < additional_tx_keys.size(); ++i)
-    THROW_WALLET_EXCEPTION_IF(!crypto::generate_key_derivation(address.m_view_public_key, additional_tx_keys[i], additional_derivations[i]), error::wallet_internal_error,
+    THROW_WALLET_EXCEPTION_IF(!hwdev.generate_key_derivation(address.m_view_public_key, additional_tx_keys[i], additional_derivations[i]), error::wallet_internal_error,
       "Failed to generate key derivation from supplied parameters");
 
   check_tx_key_helper(txid, derivation, additional_derivations, address, received, in_pool, confirmations);
@@ -9667,6 +9668,8 @@ void wallet2::check_tx_key_helper(const crypto::hash &txid, const crypto::key_de
 
 std::string wallet2::get_tx_proof(const crypto::hash &txid, const cryptonote::account_public_address &address, bool is_subaddress, const std::string &message)
 {
+  hw::device &hwdev = m_account.get_device();
+  rct::key  aP;
   // determine if the address is found in the subaddress hash table (i.e. whether the proof is outbound or inbound)
   const bool is_out = m_subaddresses.count(address.m_spend_public_key) == 0;
 
@@ -9688,30 +9691,34 @@ std::string wallet2::get_tx_proof(const crypto::hash &txid, const cryptonote::ac
     shared_secret.resize(num_sigs);
     sig.resize(num_sigs);
 
-    shared_secret[0] = rct::rct2pk(rct::scalarmultKey(rct::pk2rct(address.m_view_public_key), rct::sk2rct(tx_key)));
+    hwdev.scalarmultKey(aP, rct::pk2rct(address.m_view_public_key), rct::sk2rct(tx_key));
+    shared_secret[0] = rct::rct2pk(aP);
     crypto::public_key tx_pub_key;
     if (is_subaddress)
     {
-      tx_pub_key = rct2pk(rct::scalarmultKey(rct::pk2rct(address.m_spend_public_key), rct::sk2rct(tx_key)));
-      crypto::generate_tx_proof(prefix_hash, tx_pub_key, address.m_view_public_key, address.m_spend_public_key, shared_secret[0], tx_key, sig[0]);
+      hwdev.scalarmultKey(aP, rct::pk2rct(address.m_spend_public_key), rct::sk2rct(tx_key));
+      tx_pub_key = rct2pk(aP);
+      hwdev.generate_tx_proof(prefix_hash, tx_pub_key, address.m_view_public_key, address.m_spend_public_key, shared_secret[0], tx_key, sig[0]);
     }
     else
     {
-      crypto::secret_key_to_public_key(tx_key, tx_pub_key);
-      crypto::generate_tx_proof(prefix_hash, tx_pub_key, address.m_view_public_key, boost::none, shared_secret[0], tx_key, sig[0]);
+      hwdev.secret_key_to_public_key(tx_key, tx_pub_key);
+      hwdev.generate_tx_proof(prefix_hash, tx_pub_key, address.m_view_public_key, boost::none, shared_secret[0], tx_key, sig[0]);
     }
     for (size_t i = 1; i < num_sigs; ++i)
     {
-      shared_secret[i] = rct::rct2pk(rct::scalarmultKey(rct::pk2rct(address.m_view_public_key), rct::sk2rct(additional_tx_keys[i - 1])));
+      hwdev.scalarmultKey(aP, rct::pk2rct(address.m_view_public_key), rct::sk2rct(additional_tx_keys[i - 1]));
+      shared_secret[i] = rct::rct2pk(aP);
       if (is_subaddress)
       {
-        tx_pub_key = rct2pk(rct::scalarmultKey(rct::pk2rct(address.m_spend_public_key), rct::sk2rct(additional_tx_keys[i - 1])));
-        crypto::generate_tx_proof(prefix_hash, tx_pub_key, address.m_view_public_key, address.m_spend_public_key, shared_secret[i], additional_tx_keys[i - 1], sig[i]);
+        hwdev.scalarmultKey(aP, rct::pk2rct(address.m_spend_public_key), rct::sk2rct(additional_tx_keys[i - 1]));
+        tx_pub_key = rct2pk(aP);
+        hwdev.generate_tx_proof(prefix_hash, tx_pub_key, address.m_view_public_key, address.m_spend_public_key, shared_secret[i], additional_tx_keys[i - 1], sig[i]);
       }
       else
       {
-        crypto::secret_key_to_public_key(additional_tx_keys[i - 1], tx_pub_key);
-        crypto::generate_tx_proof(prefix_hash, tx_pub_key, address.m_view_public_key, boost::none, shared_secret[i], additional_tx_keys[i - 1], sig[i]);
+        hwdev.secret_key_to_public_key(additional_tx_keys[i - 1], tx_pub_key);
+        hwdev.generate_tx_proof(prefix_hash, tx_pub_key, address.m_view_public_key, boost::none, shared_secret[i], additional_tx_keys[i - 1], sig[i]);
       }
     }
     sig_str = std::string("OutProofV1");
@@ -9752,25 +9759,27 @@ std::string wallet2::get_tx_proof(const crypto::hash &txid, const cryptonote::ac
     sig.resize(num_sigs);
 
     const crypto::secret_key& a = m_account.get_keys().m_view_secret_key;
-    shared_secret[0] = rct::rct2pk(rct::scalarmultKey(rct::pk2rct(tx_pub_key), rct::sk2rct(a)));
+    hwdev.scalarmultKey(aP, rct::pk2rct(tx_pub_key), rct::sk2rct(a));
+    shared_secret[0] =  rct2pk(aP);
     if (is_subaddress)
     {
-      crypto::generate_tx_proof(prefix_hash, address.m_view_public_key, tx_pub_key, address.m_spend_public_key, shared_secret[0], a, sig[0]);
+      hwdev.generate_tx_proof(prefix_hash, address.m_view_public_key, tx_pub_key, address.m_spend_public_key, shared_secret[0], a, sig[0]);
     }
     else
     {
-      crypto::generate_tx_proof(prefix_hash, address.m_view_public_key, tx_pub_key, boost::none, shared_secret[0], a, sig[0]);
+      hwdev.generate_tx_proof(prefix_hash, address.m_view_public_key, tx_pub_key, boost::none, shared_secret[0], a, sig[0]);
     }
     for (size_t i = 1; i < num_sigs; ++i)
     {
-      shared_secret[i] = rct::rct2pk(rct::scalarmultKey(rct::pk2rct(additional_tx_pub_keys[i - 1]), rct::sk2rct(a)));
+      hwdev.scalarmultKey(aP,rct::pk2rct(additional_tx_pub_keys[i - 1]), rct::sk2rct(a));
+      shared_secret[i] = rct2pk(aP);
       if (is_subaddress)
       {
-        crypto::generate_tx_proof(prefix_hash, address.m_view_public_key, additional_tx_pub_keys[i - 1], address.m_spend_public_key, shared_secret[i], a, sig[i]);
+        hwdev.generate_tx_proof(prefix_hash, address.m_view_public_key, additional_tx_pub_keys[i - 1], address.m_spend_public_key, shared_secret[i], a, sig[i]);
       }
       else
       {
-        crypto::generate_tx_proof(prefix_hash, address.m_view_public_key, additional_tx_pub_keys[i - 1], boost::none, shared_secret[i], a, sig[i]);
+        hwdev.generate_tx_proof(prefix_hash, address.m_view_public_key, additional_tx_pub_keys[i - 1], boost::none, shared_secret[i], a, sig[i]);
       }
     }
     sig_str = std::string("InProofV1");
@@ -9779,10 +9788,10 @@ std::string wallet2::get_tx_proof(const crypto::hash &txid, const cryptonote::ac
 
   // check if this address actually received any funds
   crypto::key_derivation derivation;
-  THROW_WALLET_EXCEPTION_IF(!crypto::generate_key_derivation(shared_secret[0], rct::rct2sk(rct::I), derivation), error::wallet_internal_error, "Failed to generate key derivation");
+  THROW_WALLET_EXCEPTION_IF(!hwdev.generate_key_derivation(shared_secret[0], rct::rct2sk(rct::I), derivation), error::wallet_internal_error, "Failed to generate key derivation");
   std::vector<crypto::key_derivation> additional_derivations(num_sigs - 1);
   for (size_t i = 1; i < num_sigs; ++i)
-    THROW_WALLET_EXCEPTION_IF(!crypto::generate_key_derivation(shared_secret[i], rct::rct2sk(rct::I), additional_derivations[i - 1]), error::wallet_internal_error, "Failed to generate key derivation");
+    THROW_WALLET_EXCEPTION_IF(!hwdev.generate_key_derivation(shared_secret[i], rct::rct2sk(rct::I), additional_derivations[i - 1]), error::wallet_internal_error, "Failed to generate key derivation");
   uint64_t received;
   bool in_pool;
   uint64_t confirmations;
@@ -9799,6 +9808,8 @@ std::string wallet2::get_tx_proof(const crypto::hash &txid, const cryptonote::ac
 
 bool wallet2::check_tx_proof(const crypto::hash &txid, const cryptonote::account_public_address &address, bool is_subaddress, const std::string &message, const std::string &sig_str, uint64_t &received, bool &in_pool, uint64_t &confirmations)
 {
+  hw::device &hwdev = m_account.get_device();
+
   const bool is_out = sig_str.substr(0, 3) == "Out";
   const std::string header = is_out ? "OutProofV1" : "InProofV1";
   const size_t header_len = header.size();
@@ -9900,12 +9911,12 @@ bool wallet2::check_tx_proof(const crypto::hash &txid, const cryptonote::account
     // obtain key derivation by multiplying scalar 1 to the shared secret
     crypto::key_derivation derivation;
     if (good_signature[0])
-      THROW_WALLET_EXCEPTION_IF(!crypto::generate_key_derivation(shared_secret[0], rct::rct2sk(rct::I), derivation), error::wallet_internal_error, "Failed to generate key derivation");
+      THROW_WALLET_EXCEPTION_IF(!hwdev.generate_key_derivation(shared_secret[0], rct::rct2sk(rct::I), derivation), error::wallet_internal_error, "Failed to generate key derivation");
 
     std::vector<crypto::key_derivation> additional_derivations(num_sigs - 1);
     for (size_t i = 1; i < num_sigs; ++i)
       if (good_signature[i])
-        THROW_WALLET_EXCEPTION_IF(!crypto::generate_key_derivation(shared_secret[i], rct::rct2sk(rct::I), additional_derivations[i - 1]), error::wallet_internal_error, "Failed to generate key derivation");
+        THROW_WALLET_EXCEPTION_IF(!hwdev.generate_key_derivation(shared_secret[i], rct::rct2sk(rct::I), additional_derivations[i - 1]), error::wallet_internal_error, "Failed to generate key derivation");
 
     check_tx_key_helper(txid, derivation, additional_derivations, address, received, in_pool, confirmations);
     return true;
