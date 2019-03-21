@@ -84,7 +84,7 @@ namespace cryptonote
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define CORE_RPC_VERSION_MAJOR 2
-#define CORE_RPC_VERSION_MINOR 4
+#define CORE_RPC_VERSION_MINOR 5
 #define MAKE_CORE_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define CORE_RPC_VERSION MAKE_CORE_RPC_VERSION(CORE_RPC_VERSION_MAJOR, CORE_RPC_VERSION_MINOR)
 
@@ -1013,6 +1013,39 @@ namespace cryptonote
   };
 
     
+  //-----------------------------------------------
+  struct COMMAND_RPC_GET_NET_STATS
+  {
+    struct request_t
+    {
+
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<request_t> request;
+
+
+    struct response_t
+    {
+      std::string status;
+      uint64_t start_time;
+      uint64_t total_packets_in;
+      uint64_t total_bytes_in;
+      uint64_t total_packets_out;
+      uint64_t total_bytes_out;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+        KV_SERIALIZE(start_time)
+        KV_SERIALIZE(total_packets_in)
+        KV_SERIALIZE(total_bytes_in)
+        KV_SERIALIZE(total_packets_out)
+        KV_SERIALIZE(total_bytes_out)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<response_t> response;
+  };
+
   //-----------------------------------------------
   struct COMMAND_RPC_STOP_MINING
   {

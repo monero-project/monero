@@ -78,6 +78,11 @@ t_command_server::t_command_server(
     , "Print the current connections."
     );
   m_command_lookup.set_handler(
+      "print_net_stats"
+    , std::bind(&t_command_parser_executor::print_net_stats, &m_parser, p::_1)
+    , "Print network statistics."
+    );
+  m_command_lookup.set_handler(
       "print_bc"
     , std::bind(&t_command_parser_executor::print_blockchain_info, &m_parser, p::_1)
     , "print_bc <begin_height> [<end_height>]"

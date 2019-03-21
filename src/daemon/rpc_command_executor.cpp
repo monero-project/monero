@@ -627,6 +627,66 @@ bool t_rpc_command_executor::print_connections() {
   return true;
 }
 
+bool t_rpc_command_executor::print_net_stats()
+{
+  cryptonote::COMMAND_RPC_GET_NET_STATS::request net_stats_req;
+  cryptonote::COMMAND_RPC_GET_NET_STATS::response net_stats_res;
+  cryptonote::COMMAND_RPC_GET_LIMIT::request limit_req;
+  cryptonote::COMMAND_RPC_GET_LIMIT::response limit_res;
+
+  std::string fail_message = "Unsuccessful";
+
+  if (m_is_rpc)
+  {
+    if (!m_rpc_client->json_rpc_request(net_stats_req, net_stats_res, "get_net_stats", fail_message.c_str()))
+    {
+      return true;
+    }
+    if (!m_rpc_client->json_rpc_request(limit_req, limit_res, "get_limit", fail_message.c_str()))
+    {
+      return true;
+    }
+  }
+  else
+  {
+    if (!m_rpc_server->on_get_net_stats(net_stats_req, net_stats_res) || net_stats_res.status != CORE_RPC_STATUS_OK)
+    {
+      tools::fail_msg_writer() << make_error(fail_message, net_stats_res.status);
+      return true;
+    }
+    if (!m_rpc_server->on_get_limit(limit_req, limit_res) || limit_res.status != CORE_RPC_STATUS_OK)
+    {
+      tools::fail_msg_writer() << make_error(fail_message, limit_res.status);
+      return true;
+    }
+  }
+
+  uint64_t seconds = (uint64_t)time(NULL) - net_stats_res.start_time;
+  uint64_t average = seconds > 0 ? net_stats_res.total_bytes_in / seconds : 0;
+  uint64_t limit = limit_res.limit_down * 1024;   // convert to bytes, as limits are always kB/s
+  double percent = (double)average / (double)limit * 100.0;
+  tools::success_msg_writer() << boost::format("Received %u bytes (%s) in %u packets, average %s/s = %.2f%% of the limit of %s/s")
+    % net_stats_res.total_bytes_in
+    % tools::get_human_readable_bytes(net_stats_res.total_bytes_in)
+    % net_stats_res.total_packets_in
+    % tools::get_human_readable_bytes(average)
+    % percent
+    % tools::get_human_readable_bytes(limit);
+
+  average = seconds > 0 ? net_stats_res.total_bytes_out / seconds : 0;
+  limit = limit_res.limit_up * 1024;
+  percent = (double)average / (double)limit * 100.0;
+  tools::success_msg_writer() << boost::format("Sent %u bytes (%s) in %u packets, average %s/s = %.2f%% of the limit of %s/s")
+    % net_stats_res.total_bytes_out
+    % tools::get_human_readable_bytes(net_stats_res.total_bytes_out)
+    % net_stats_res.total_packets_out
+    % tools::get_human_readable_bytes(average)
+    % percent
+    % tools::get_human_readable_bytes(limit);
+
+  return true;
+}
+
 bool t_rpc_command_executor::print_blockchain_info(uint64_t start_block_index, uint64_t end_block_index) {
   cryptonote::COMMAND_RPC_GET_BLOCK_HEADERS_RANGE::request req;
   cryptonote::COMMAND_RPC_GET_BLOCK_HEADERS_RANGE::response res;
