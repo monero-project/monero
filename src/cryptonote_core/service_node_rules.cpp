@@ -9,7 +9,7 @@
 namespace service_nodes {
 
 
-uint64_t get_staking_requirement(cryptonote::network_type m_nettype, uint64_t height)
+uint64_t get_staking_requirement(cryptonote::network_type m_nettype, uint64_t height, int hf_version)
 {
   if (m_nettype == cryptonote::TESTNET || m_nettype == cryptonote::FAKECHAIN)
       return COIN * 100;
@@ -19,7 +19,7 @@ uint64_t get_staking_requirement(cryptonote::network_type m_nettype, uint64_t he
 
   uint64_t height_adjusted = height - hardfork_height;
   uint64_t base = 0, variable = 0;
-  if (height >= 230704)
+  if (hf_version >= cryptonote::network_version_11_infinite_staking)
   {
     base     = 15000 * COIN;
     variable = (25007.0 * COIN) / loki::exp2(height_adjusted/129600.0);

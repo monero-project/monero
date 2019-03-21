@@ -723,7 +723,7 @@ namespace service_nodes
 
     // check the initial contribution exists
 
-    info.staking_requirement = get_staking_requirement(m_blockchain.nettype(), block_height);
+    info.staking_requirement = get_staking_requirement(m_blockchain.nettype(), block_height, hf_version);
 
     cryptonote::account_public_address address;
 

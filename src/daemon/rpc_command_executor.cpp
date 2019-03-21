@@ -2731,8 +2731,8 @@ bool t_rpc_command_executor::prepare_registration()
   }
 
   const uint64_t staking_requirement =
-    std::max(service_nodes::get_staking_requirement(nettype, block_height),
-             service_nodes::get_staking_requirement(nettype, block_height + 30 * 24)); // allow 1 day
+    std::max(service_nodes::get_staking_requirement(nettype, block_height, hf_version),
+             service_nodes::get_staking_requirement(nettype, block_height + 30 * 24, hf_version)); // allow 1 day
 
   // anything less than DUST will be added to operator stake
   const uint64_t DUST = MAX_NUMBER_OF_CONTRIBUTORS;
