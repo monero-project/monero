@@ -678,7 +678,7 @@ cryptonote::transaction make_registration_tx(std::vector<test_event_entry>& even
                                              uint8_t hf_version)
 {
     const auto new_height = cryptonote::get_block_height(head) + 1;
-    const auto staking_requirement = service_nodes::get_staking_requirement(cryptonote::FAKECHAIN, new_height);
+    const auto staking_requirement = service_nodes::get_staking_requirement(cryptonote::FAKECHAIN, new_height, hf_version);
 
     uint64_t amount = service_nodes::portions_to_amount(portions[0], staking_requirement);
 
