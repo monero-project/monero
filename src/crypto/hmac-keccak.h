@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2019, The Monero Project
+// Copyright (c) 2014-2018, The Monero Project
 //
 // All rights reserved.
 //
@@ -25,53 +25,35 @@
 // INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+#ifndef HMAC_KECCAK_H
+#define HMAC_KECCAK_H
+
+#include "keccak.h"
+
+// HMAC RFC 2104 with Keccak-256 base hash function
 //
-// Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
+// B = KECCAK_BLOCKLEN = 136 B
+// L = HASH_SIZE = 32 B
+//
+// Note this is not HMAC-SHA3 as SHA3 and Keccak differs in
+// the padding constant.
 
-#include "wallet/api/wallet2_api.h"
-#include "wallet/wallet2.h"
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-#include <string>
-#include <vector>
+typedef struct {
+  KECCAK_CTX inner;
+  KECCAK_CTX outer;
+} hmac_keccak_state;
 
+void hmac_keccak_init(hmac_keccak_state *S, const uint8_t *_key, size_t keylen);
+void hmac_keccak_update(hmac_keccak_state *S, const uint8_t *data, size_t datalen);
+void hmac_keccak_finish(hmac_keccak_state *S, uint8_t *digest);
+void hmac_keccak_hash(uint8_t *out, const uint8_t *key, size_t keylen, const uint8_t *in, size_t inlen);
 
-namespace Monero {
-
-class WalletImpl;
-class PendingTransactionImpl : public PendingTransaction
-{
-public:
-    PendingTransactionImpl(WalletImpl &wallet);
-    ~PendingTransactionImpl();
-    int status() const override;
-    std::string errorString() const override;
-    bool commit(const std::string &filename = "", bool overwrite = false) override;
-    uint64_t amount() const override;
-    uint64_t dust() const override;
-    uint64_t fee() const override;
-    std::vector<std::string> txid() const override;
-    uint64_t txCount() const override;
-    std::vector<uint32_t> subaddrAccount() const override;
-    std::vector<std::set<uint32_t>> subaddrIndices() const override;
-    // TODO: continue with interface;
-
-    std::string multisigSignData() override;
-    void signMultisigTx() override;
-    std::vector<std::string> signersKeys() const override;
-
-private:
-    friend class WalletImpl;
-    WalletImpl &m_wallet;
-
-    int  m_status;
-    std::string m_errorString;
-    std::vector<tools::wallet2::pending_tx> m_pending_tx;
-    std::unordered_set<crypto::public_key> m_signers;
-    std::vector<std::string> m_tx_device_aux;
-    std::vector<crypto::key_image> m_key_images;
-};
-
-
+#ifdef __cplusplus
 }
-
-namespace Bitmonero = Monero;
+#endif
+#endif //HMAC_KECCAK_H

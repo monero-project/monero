@@ -17,7 +17,6 @@ void wallet_accessor_test::set_account(tools::wallet2 * wallet, cryptonote::acco
 {
   wallet->clear();
   wallet->m_account = account;
-  wallet->m_nettype = MAINNET;
 
   wallet->m_key_device_type = account.get_device().get_type();
   wallet->m_account_public_address = account.get_keys().m_account_address;

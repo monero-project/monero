@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2019, The Monero Project
+// Copyright (c) 2014-2018, The Monero Project
 //
 // All rights reserved.
 //
@@ -25,53 +25,57 @@
 // INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
-#include "wallet/api/wallet2_api.h"
-#include "wallet/wallet2.h"
+#include "hmac-keccak.h"
+#include "memwipe.h"
 
-#include <string>
-#include <vector>
+#define KECCAK_BLOCKLEN 136
+#define HASH_SIZE 32
 
+void hmac_keccak_init(hmac_keccak_state *S, const uint8_t *_key, size_t keylen) {
+  const uint8_t *key = _key;
+  uint8_t keyhash[HASH_SIZE];
+  uint8_t pad[KECCAK_BLOCKLEN];
+  uint64_t i;
 
-namespace Monero {
+  if (keylen > KECCAK_BLOCKLEN) {
+    keccak(key, keylen, keyhash, HASH_SIZE);
+    key = keyhash;
+    keylen = HASH_SIZE;
+  }
 
-class WalletImpl;
-class PendingTransactionImpl : public PendingTransaction
-{
-public:
-    PendingTransactionImpl(WalletImpl &wallet);
-    ~PendingTransactionImpl();
-    int status() const override;
-    std::string errorString() const override;
-    bool commit(const std::string &filename = "", bool overwrite = false) override;
-    uint64_t amount() const override;
-    uint64_t dust() const override;
-    uint64_t fee() const override;
-    std::vector<std::string> txid() const override;
-    uint64_t txCount() const override;
-    std::vector<uint32_t> subaddrAccount() const override;
-    std::vector<std::set<uint32_t>> subaddrIndices() const override;
-    // TODO: continue with interface;
+  keccak_init(&S->inner);
+  memset(pad, 0x36, KECCAK_BLOCKLEN);
+  for (i = 0; i < keylen; ++i) {
+    pad[i] ^= key[i];
+  }
+  keccak_update(&S->inner, pad, KECCAK_BLOCKLEN);
 
-    std::string multisigSignData() override;
-    void signMultisigTx() override;
-    std::vector<std::string> signersKeys() const override;
+  keccak_init(&S->outer);
+  memset(pad, 0x5c, KECCAK_BLOCKLEN);
+  for (i = 0; i < keylen; ++i) {
+    pad[i] ^= key[i];
+  }
+  keccak_update(&S->outer, pad, KECCAK_BLOCKLEN);
 
-private:
-    friend class WalletImpl;
-    WalletImpl &m_wallet;
-
-    int  m_status;
-    std::string m_errorString;
-    std::vector<tools::wallet2::pending_tx> m_pending_tx;
-    std::unordered_set<crypto::public_key> m_signers;
-    std::vector<std::string> m_tx_device_aux;
-    std::vector<crypto::key_image> m_key_images;
-};
-
-
+  memwipe(keyhash, HASH_SIZE);
 }
 
-namespace Bitmonero = Monero;
+void hmac_keccak_update(hmac_keccak_state *S, const uint8_t *data, size_t datalen) {
+  keccak_update(&S->inner, data, datalen);
+}
+
+void hmac_keccak_finish(hmac_keccak_state *S, uint8_t *digest) {
+  uint8_t ihash[HASH_SIZE];
+  keccak_finish(&S->inner, ihash);
+  keccak_update(&S->outer, ihash, HASH_SIZE);
+  keccak_finish(&S->outer, digest);
+  memwipe(ihash, HASH_SIZE);
+}
+
+void hmac_keccak_hash(uint8_t *out, const uint8_t *key, size_t keylen, const uint8_t *in, size_t inlen) {
+  hmac_keccak_state S;
+  hmac_keccak_init(&S, key, keylen);
+  hmac_keccak_update(&S, in, inlen);
+  hmac_keccak_finish(&S, out);
+}

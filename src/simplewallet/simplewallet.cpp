@@ -2049,7 +2049,7 @@ bool simple_wallet::cold_sign_tx(const std::vector<tools::wallet2::pending_tx>& 
   m_wallet->cold_tx_aux_import(exported_txs.ptx, tx_aux);
 
   // import key images
-  return m_wallet->import_key_images(exported_txs.key_images);
+  return m_wallet->import_key_images(exported_txs, 0, true);
 }
 
 bool simple_wallet::set_always_confirm_transfers(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
@@ -4686,12 +4686,12 @@ boost::optional<epee::wipeable_string> simple_wallet::on_get_password(const char
   return pwd_container->password();
 }
 //----------------------------------------------------------------------------------------------------
-void simple_wallet::on_button_request()
+void simple_wallet::on_device_button_request(uint64_t code)
 {
   message_writer(console_color_white, false) << tr("Device requires attention");
 }
 //----------------------------------------------------------------------------------------------------
-void simple_wallet::on_pin_request(epee::wipeable_string & pin)
+boost::optional<epee::wipeable_string> simple_wallet::on_device_pin_request()
 {
 #ifdef HAVE_READLINE
   rdln::suspend_readline pause_readline;
@@ -4699,14 +4699,14 @@ void simple_wallet::on_pin_request(epee::wipeable_string & pin)
   std::string msg = tr("Enter device PIN");
   auto pwd_container = tools::password_container::prompt(false, msg.c_str());
   THROW_WALLET_EXCEPTION_IF(!pwd_container, tools::error::password_entry_failed, tr("Failed to read device PIN"));
-  pin = pwd_container->password();
+  return pwd_container->password();
 }
 //----------------------------------------------------------------------------------------------------
-void simple_wallet::on_passphrase_request(bool on_device, epee::wipeable_string & passphrase)
+boost::optional<epee::wipeable_string> simple_wallet::on_device_passphrase_request(bool on_device)
 {
   if (on_device){
     message_writer(console_color_white, true) << tr("Please enter the device passphrase on the device");
-    return;
+    return boost::none;
   }
 
 #ifdef HAVE_READLINE
@@ -4715,13 +4715,13 @@ void simple_wallet::on_passphrase_request(bool on_device, epee::wipeable_string 
   std::string msg = tr("Enter device passphrase");
   auto pwd_container = tools::password_container::prompt(false, msg.c_str());
   THROW_WALLET_EXCEPTION_IF(!pwd_container, tools::error::password_entry_failed, tr("Failed to read device passphrase"));
-  passphrase = pwd_container->password();
+  return pwd_container->password();
 }
 //----------------------------------------------------------------------------------------------------
 void simple_wallet::on_refresh_finished(uint64_t start_height, uint64_t fetched_blocks, bool is_init, bool received_money)
 {
   // Key image sync after the first refresh
-  if (!m_wallet->get_account().get_device().has_tx_cold_sign()) {
+  if (!m_wallet->get_account().get_device().has_tx_cold_sign() || m_wallet->get_account().get_device().has_ki_live_refresh()) {
     return;
   }
 
@@ -6772,7 +6772,7 @@ bool simple_wallet::get_tx_key(const std::vector<std::string> &args_)
 {
   std::vector<std::string> local_args = args_;
 
-  if (m_wallet->key_on_device())
+  if (m_wallet->key_on_device() && m_wallet->get_account().get_device().get_type() != hw::device::TREZOR)
   {
     fail_msg_writer() << tr("command not supported by HW wallet");
     return true;
@@ -6793,7 +6793,9 @@ bool simple_wallet::get_tx_key(const std::vector<std::string> &args_)
 
   crypto::secret_key tx_key;
   std::vector<crypto::secret_key> additional_tx_keys;
-  if (m_wallet->get_tx_key(txid, tx_key, additional_tx_keys))
+
+  bool found_tx_key = m_wallet->get_tx_key(txid, tx_key, additional_tx_keys);
+  if (found_tx_key)
   {
     ostringstream oss;
     oss << epee::string_tools::pod_to_hex(tx_key);
@@ -6869,7 +6871,7 @@ bool simple_wallet::set_tx_key(const std::vector<std::string> &args_)
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::get_tx_proof(const std::vector<std::string> &args)
 {
-  if (m_wallet->key_on_device())
+  if (m_wallet->key_on_device() && m_wallet->get_account().get_device().get_type() != hw::device::TREZOR)
   {
     fail_msg_writer() << tr("command not supported by HW wallet");
     return true;

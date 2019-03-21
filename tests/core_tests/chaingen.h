@@ -754,7 +754,7 @@ struct get_test_options {
 };
 //--------------------------------------------------------------------------
 template<class t_test_class>
-inline bool do_replay_events_get_core(std::vector<test_event_entry>& events, cryptonote::core **core)
+inline bool do_replay_events_get_core(std::vector<test_event_entry>& events, cryptonote::core *core)
 {
   boost::program_options::options_description desc("Allowed options");
   cryptonote::core::init_options(desc);
@@ -768,8 +768,7 @@ inline bool do_replay_events_get_core(std::vector<test_event_entry>& events, cry
   if (!r)
     return false;
 
-  *core = new cryptonote::core(nullptr);
-  auto & c = **core;
+  auto & c = *core;
 
   // FIXME: make sure that vm has arg_testnet_on set to true or false if
   // this test needs for it to be so.
@@ -825,9 +824,9 @@ inline bool replay_events_through_core_validate(std::vector<test_event_entry>& e
 template<class t_test_class>
 inline bool do_replay_events(std::vector<test_event_entry>& events)
 {
-  cryptonote::core * core;
+  cryptonote::core core(nullptr);
   bool ret = do_replay_events_get_core<t_test_class>(events, &core);
-  core->deinit();
+  core.deinit();
   return ret;
 }
 //--------------------------------------------------------------------------
