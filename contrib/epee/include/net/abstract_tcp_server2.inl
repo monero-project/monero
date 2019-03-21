@@ -58,6 +58,12 @@
 #define DEFAULT_TIMEOUT_MS_REMOTE 300000 // 5 minutes
 #define TIMEOUT_EXTRA_MS_PER_BYTE 0.2
 
+#if BOOST_VERSION >= 107000
+#define GET_IO_SERVICE(s) ((boost::asio::io_context&)(s).get_executor().context())
+#else
+#define GET_IO_SERVICE(s) ((s).get_io_service())
+#endif
+
 PRAGMA_WARNING_PUSH
 namespace epee
 {
@@ -99,7 +105,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 		m_connection_type( connection_type ),
 		m_throttle_speed_in("speed_in", "throttle_speed_in"),
 		m_throttle_speed_out("speed_out", "throttle_speed_out"),
-		m_timer(socket_.get_io_service()),
+		m_timer(GET_IO_SERVICE(socket_)),
 		m_local(false),
 		m_ready_to_close(false)
   {
@@ -243,7 +249,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
   template<class t_protocol_handler>
   boost::asio::io_service& connection<t_protocol_handler>::get_io_service()
   {
-    return socket().get_io_service();
+    return GET_IO_SERVICE(socket());
   }
   //---------------------------------------------------------------------------------
   template<class t_protocol_handler>
@@ -487,7 +493,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     if(!m_is_multithreaded)
     {
       //single thread model, we can wait in blocked call
-      size_t cnt = socket().get_io_service().run_one();
+      size_t cnt = GET_IO_SERVICE(socket()).run_one();
       if(!cnt)//service is going to quit
         return false;
     }else
@@ -497,7 +503,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
       //if no handlers were called
       //TODO: Maybe we need to have have critical section + event + callback to upper protocol to
       //ask it inside(!) critical region if we still able to go in event wait...
-      size_t cnt = socket().get_io_service().poll_one();
+      size_t cnt = GET_IO_SERVICE(socket()).poll_one();
       if(!cnt)
         misc_utils::sleep_no_w(1);
     }
@@ -1207,7 +1213,7 @@ POP_WARNINGS
   template<class t_protocol_handler>
   bool boosted_tcp_server<t_protocol_handler>::add_connection(t_connection_context& out, boost::asio::ip::tcp::socket&& sock, network_address real_remote, epee::net_utils::ssl_support_t ssl_support)
   {
-    if(std::addressof(get_io_service()) == std::addressof(sock.get_io_service()))
+    if(std::addressof(get_io_service()) == std::addressof(GET_IO_SERVICE(sock)))
     {
       connection_ptr conn(new connection<t_protocol_handler>(std::move(sock), m_state, m_connection_type, ssl_support, m_ssl_context));
       if(conn->start(false, 1 < m_threads_count, std::move(real_remote)))
