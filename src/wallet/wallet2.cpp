@@ -7380,6 +7380,7 @@ wallet2::register_service_node_result wallet2::create_register_service_node_tx(c
     {
       result.status = register_service_node_result_status::network_version_query_failed;
       result.msg    = ERR_MSG_NETWORK_VERSION_QUERY_FAILED;
+      return result;
     }
 
     staking_requirement = service_nodes::get_staking_requirement(nettype(), bc_height, *hf_version);
