@@ -303,7 +303,17 @@ namespace hw {
       offset += strlen(MONERO_VERSION);
       this->buffer_send[4] = offset-5;
       this->length_send = offset;
-      this->exchange();      
+      this->exchange();
+
+      ASSERT_X(this->length_recv>=3, "Communication error, less than three bytes received. Check your application version.");
+
+      unsigned int device_version = 0;
+      device_version = VERSION(this->buffer_recv[0], this->buffer_recv[1], this->buffer_recv[2]);
+  
+      ASSERT_X (device_version >= MINIMAL_APP_VERSION,  
+                "Unsupported device application version: " << VERSION_MAJOR(device_version)<<"."<<VERSION_MINOR(device_version)<<"."<<VERSION_MICRO(device_version) << 
+                " At least " << MINIMAL_APP_VERSION_MAJOR<<"."<<MINIMAL_APP_VERSION_MINOR<<"."<<MINIMAL_APP_VERSION_MICRO<<" is required.");
+     
       return true;
     }
      
@@ -1184,30 +1194,13 @@ namespace hw {
                                                             additional_tx_public_keys_x, amount_keys_x, out_eph_public_key_x);
       #endif
 
+
+      ASSERT_X(tx_version > 1, "TX version not supported"<<tx_version);
+
       // make additional tx pubkey if necessary
       cryptonote::keypair additional_txkey;
       if (need_additional_txkeys) {
           additional_txkey.sec = additional_tx_keys[output_index];
-      }
-
-      //compute derivation, out_eph_public_key, and amount key in one shot on device, to ensure checkable link
-      const crypto::secret_key *sec;
-      bool is_change;
-
-      if (change_addr && dst_entr.addr == *change_addr)
-      {
-        // sending change to yourself; derivation = a*R
-        is_change = true;
-        sec = &sender_account_keys.m_view_secret_key;
-      }
-      else
-      {
-        is_change = false;
-        if (dst_entr.is_subaddress && need_additional_txkeys) {
-          sec = &additional_txkey.sec;
-        } else {
-          sec = &tx_key;
-        }
       }
 
       int offset = set_command_header_noopt(INS_GEN_TXOUT_KEYS);
@@ -1217,10 +1210,10 @@ namespace hw {
       this->buffer_send[offset+2] = tx_version>>8;
       this->buffer_send[offset+3] = tx_version>>0;
       offset += 4;
-      //tx_sec
-      memmove(&this->buffer_send[offset], sec->data, 32);
+      //tx_key
+      memmove(&this->buffer_send[offset], tx_key.data, 32);
       offset += 32;
-      //tx_pub
+      //txkey_pub
       memmove(&this->buffer_send[offset], txkey_pub.data, 32);
       offset += 32;
       //Aout
@@ -1236,6 +1229,7 @@ namespace hw {
       this->buffer_send[offset+3] = output_index>>0;
       offset += 4;
       //is_change,
+      bool is_change = (change_addr && dst_entr.addr == *change_addr);
       this->buffer_send[offset] = is_change;
       offset++;
       //is_subaddress
@@ -1244,6 +1238,13 @@ namespace hw {
       //need_additional_key
       this->buffer_send[offset] = need_additional_txkeys;
       offset++;
+      //additional_tx_key
+      if (need_additional_txkeys) {
+        memmove(&this->buffer_send[offset], additional_txkey.sec.data, 32);
+      } else {
+        memset(&this->buffer_send[offset], 0, 32);
+      }
+      offset += 32;
 
       this->buffer_send[4] = offset-5;
       this->length_send = offset;
@@ -1251,15 +1252,8 @@ namespace hw {
 
       offset = 0;
       unsigned int recv_len = this->length_recv;
-      if (need_additional_txkeys)
-      {
-        ASSERT_X(recv_len>=32, "Not enought data from device");
-        memmove(additional_txkey.pub.data, &this->buffer_recv[offset], 32);
-        additional_tx_public_keys.push_back(additional_txkey.pub);
-        offset += 32;
-        recv_len -= 32;
-      }
-      if (tx_version > 1)
+      
+      //if (tx_version > 1)
       {
         ASSERT_X(recv_len>=32, "Not enought data from device");
         crypto::secret_key scalar1;
@@ -1271,6 +1265,16 @@ namespace hw {
       ASSERT_X(recv_len>=32, "Not enought data from device");
       memmove(out_eph_public_key.data, &this->buffer_recv[offset], 32);
       recv_len -= 32;
+      offset += 32;
+
+      if (need_additional_txkeys)
+      {
+        ASSERT_X(recv_len>=32, "Not enought data from device");
+        memmove(additional_txkey.pub.data, &this->buffer_recv[offset], 32);
+        additional_tx_public_keys.push_back(additional_txkey.pub);
+        offset += 32;
+        recv_len -= 32;
+      }
 
       // add ABPkeys
       this->add_output_key_mapping(dst_entr.addr.m_view_public_key, dst_entr.addr.m_spend_public_key, dst_entr.is_subaddress, is_change,
@@ -1278,6 +1282,7 @@ namespace hw {
                                    amount_keys.back(), out_eph_public_key);
 
       #ifdef DEBUG_HWDEVICE
+      log_hexbuffer("generate_output_ephemeral_keys: clear amount_key", (const char*)hw::ledger::decrypt(amount_keys.back()).bytes, 32);
       hw::ledger::check32("generate_output_ephemeral_keys", "amount_key", (const char*)amount_keys_x.back().bytes, (const char*)hw::ledger::decrypt(amount_keys.back()).bytes);
       if (need_additional_txkeys) {
         hw::ledger::check32("generate_output_ephemeral_keys", "additional_tx_key", additional_tx_public_keys_x.back().data, additional_tx_public_keys.back().data);
