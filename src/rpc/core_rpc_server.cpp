@@ -2473,7 +2473,8 @@ namespace cryptonote
 
     std::vector<std::string> args;
 
-    uint64_t staking_requirement = service_nodes::get_staking_requirement(m_core.get_nettype(), m_core.get_current_blockchain_height());
+    uint64_t const curr_height   = m_core.get_current_blockchain_height();
+    uint64_t staking_requirement = service_nodes::get_staking_requirement(m_core.get_nettype(), curr_height, m_core.get_hard_fork_version(curr_height));
 
     {
       uint64_t portions_cut;
@@ -2650,7 +2651,7 @@ namespace cryptonote
   bool core_rpc_server::on_get_staking_requirement(const COMMAND_RPC_GET_STAKING_REQUIREMENT::request& req, COMMAND_RPC_GET_STAKING_REQUIREMENT::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx)
   {
     PERF_TIMER(on_get_staking_requirement);
-    res.staking_requirement = service_nodes::get_staking_requirement(m_core.get_nettype(), req.height);
+    res.staking_requirement = service_nodes::get_staking_requirement(m_core.get_nettype(), req.height, m_core.get_hard_fork_version(req.height));
     res.status = CORE_RPC_STATUS_OK;
     return true;
   }
