@@ -495,6 +495,73 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(get_tx_key)
 
+    def check_tx_key(self, txid = '', tx_key = '', address = ''):
+        check_tx_key = {
+            'method': 'check_tx_key',
+            'params' : {
+                'txid': txid,
+                'tx_key': tx_key,
+                'address': address,
+            },
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(check_tx_key)
+
+    def get_tx_proof(self, txid = '', address = '', message = ''):
+        get_tx_proof = {
+            'method': 'get_tx_proof',
+            'params' : {
+                'txid': txid,
+                'address': address,
+                'message': message,
+            },
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(get_tx_proof)
+
+    def check_tx_proof(self, txid = '', address = '', message = '', signature = ''):
+        check_tx_proof = {
+            'method': 'check_tx_proof',
+            'params' : {
+                'txid': txid,
+                'address': address,
+                'message': message,
+                'signature': signature,
+            },
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(check_tx_proof)
+
+    def get_reserve_proof(self, all_ = True, account_index = 0, amount = 0, message = ''):
+        get_reserve_proof = {
+            'method': 'get_reserve_proof',
+            'params' : {
+                'all': all_,
+                'account_index': account_index,
+                'amount': amount,
+                'message': message,
+            },
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(get_reserve_proof)
+
+    def check_reserve_proof(self, address = '', message = '', signature = ''):
+        check_reserve_proof = {
+            'method': 'check_reserve_proof',
+            'params' : {
+                'address': address,
+                'message': message,
+                'signature': signature,
+            },
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(check_reserve_proof)
+
     def sign(self, data):
         sign = {
             'method': 'sign',
