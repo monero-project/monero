@@ -1269,15 +1269,17 @@ void Blockchain::get_last_n_blocks_weights(std::vector<uint64_t>& weights, size_
   if(h == 0)
     return;
 
-  m_db->block_txn_start(true);
   // add weight of last <count> blocks to vector <weights> (or less, if blockchain size < count)
   size_t start_offset = h - std::min<size_t>(h, count);
-  weights.reserve(weights.size() + h - start_offset);
-  for(size_t i = start_offset; i < h; i++)
-  {
-    weights.push_back(m_db->get_block_weight(i));
-  }
-  m_db->block_txn_stop();
+  weights = m_db->get_block_weights(start_offset, count);
+}
+//------------------------------------------------------------------
+void Blockchain::get_long_term_block_weights(std::vector<uint64_t>& weights, uint64_t start_height, size_t count) const
+{
+  LOG_PRINT_L3("Blockchain::" << __func__);
+  CRITICAL_REGION_LOCAL(m_blockchain_lock);
+
+  weights = m_db->get_long_term_block_weights(start_height, count);
 }
 //------------------------------------------------------------------
 uint64_t Blockchain::get_current_cumulative_block_weight_limit() const
@@ -3804,9 +3806,7 @@ uint64_t Blockchain::get_next_long_term_block_weight(uint64_t block_weight) cons
     return block_weight;
 
   std::vector<uint64_t> weights;
-  weights.resize(nblocks);
-  for (uint64_t h = 0; h < nblocks; ++h)
-    weights[h] = m_db->get_block_long_term_weight(db_height - nblocks + h);
+  get_long_term_block_weights(weights, db_height - nblocks, nblocks);
   uint64_t long_term_median = epee::misc_utils::median(weights);
   uint64_t long_term_effective_median_block_weight = std::max<uint64_t>(CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V5, long_term_median);
 
@@ -3850,9 +3850,7 @@ bool Blockchain::update_next_cumulative_weight_limit(uint64_t *long_term_effecti
       uint64_t nblocks = std::min<uint64_t>(m_long_term_block_weights_window, db_height);
       if (nblocks == db_height)
         --nblocks;
-      weights.resize(nblocks);
-      for (uint64_t h = 0; h < nblocks; ++h)
-        weights[h] = m_db->get_block_long_term_weight(db_height - nblocks + h - 1);
+      get_long_term_block_weights(weights, db_height - nblocks - 1, nblocks);
       new_weights = weights;
       long_term_median = epee::misc_utils::median(weights);
     }
