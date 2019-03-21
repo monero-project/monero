@@ -27,21 +27,6 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 
-
-/* Note about debug:
- * To debug Device you can def the following :
- * #define DEBUG_HWDEVICE
- *   Activate debug mechanism:
- *     - Add more trace
- *     - All computation done by device are checked by default device.
- *       Required IODUMMYCRYPT_HWDEVICE or IONOCRYPT_HWDEVICE for fully working
- * #define IODUMMYCRYPT_HWDEVICE 1
- *     - It assumes sensitive data encryption is is off on device side. a XOR with 0x55. This allow Ledger Class to make check on clear value
- * #define IONOCRYPT_HWDEVICE 1
- *     - It assumes sensitive data encryption is off on device side.
- */
-
-
 #pragma once
 
 #include "crypto/crypto.h"
@@ -210,6 +195,10 @@ namespace hw {
         /* ======================================================================= */
         /*                               TRANSACTION                               */
         /* ======================================================================= */
+
+        virtual void generate_tx_proof(const crypto::hash &prefix_hash, 
+                                       const crypto::public_key &R, const crypto::public_key &A, const boost::optional<crypto::public_key> &B, const crypto::public_key &D, const crypto::secret_key &r, 
+                                       crypto::signature &sig) = 0;
 
         virtual bool  open_tx(crypto::secret_key &tx_key) = 0;
 
