@@ -42,4 +42,4 @@ target_link_libraries(block_weight
 
 add_test(
   NAME    block_weight
-  COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/compare.py ${CMAKE_CURRENT_SOURCE_DIR}/block_weight.py ${CMAKE_CURRENT_BINARY_DIR}/block_weight)
+  COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/compare.py ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/block_weight.py ${CMAKE_CURRENT_BINARY_DIR}/block_weight)

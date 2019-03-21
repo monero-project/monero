@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 # Simulate a maximal block attack on the Monero network
 # This uses the scheme proposed by ArticMine
 # Written by Sarang Nother
