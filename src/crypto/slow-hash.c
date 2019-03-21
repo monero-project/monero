@@ -76,7 +76,7 @@ static inline int use_v4_jit(void)
 
   const char *env = getenv("MONERO_USE_CNV4_JIT");
   if (!env) {
-    use_v4_jit_flag = 0;
+    use_v4_jit_flag = 1;
   }
   else if (!strcmp(env, "0") || !strcmp(env, "no")) {
     use_v4_jit_flag = 0;
