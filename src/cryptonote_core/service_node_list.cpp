@@ -100,7 +100,6 @@ namespace service_nodes
 
     uint64_t current_height = m_blockchain.get_current_blockchain_height();
     bool loaded = load();
-
     if (loaded && m_height == current_height) return;
 
     if (!loaded || m_height > current_height) clear(true);
