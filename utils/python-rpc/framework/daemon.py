@@ -217,3 +217,24 @@ class Daemon(object):
             'id': '0'
         }
         return self.rpc.send_json_rpc_request(get_version)
+
+    def get_bans(self):
+        get_bans = {
+            'method': 'get_bans',
+            'params': {
+            },
+            'jsonrpc': '2.0',
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(get_bans)
+
+    def set_bans(self, bans = []):
+        set_bans = {
+            'method': 'set_bans',
+            'params': {
+                'bans': bans
+            },
+            'jsonrpc': '2.0',
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(set_bans)
