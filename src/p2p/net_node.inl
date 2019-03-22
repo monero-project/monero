@@ -502,7 +502,7 @@ namespace nodetool
     else
     {
       memcpy(&m_network_id, &::config::NETWORK_ID, 16);
-      if (m_exclusive_peers.empty())
+      if (m_exclusive_peers.empty() && !m_offline)
       {
       // for each hostname in the seed nodes list, attempt to DNS resolve and
       // add the result addresses as seed nodes
