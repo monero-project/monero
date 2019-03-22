@@ -38,7 +38,7 @@ Test the following RPCs:
 
 """
 
-from test_framework.wallet import Wallet
+from framework.wallet import Wallet
 
 class IntegratedAddressTest():
     def run_test(self):

@@ -36,7 +36,7 @@ Test the following RPCs:
 
 """
 
-from test_framework.daemon import Daemon
+from framework.daemon import Daemon
 
 class DaemonGetInfoTest():
     def run_test(self):

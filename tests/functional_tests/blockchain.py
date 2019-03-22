@@ -41,7 +41,7 @@ Test the following RPCs:
 
 """
 
-from test_framework.daemon import Daemon
+from framework.daemon import Daemon
 
 class BlockchainTest():
     def run_test(self):

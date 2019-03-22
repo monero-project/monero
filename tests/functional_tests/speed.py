@@ -42,8 +42,8 @@ import time
 from time import sleep
 from decimal import Decimal
 
-from test_framework.daemon import Daemon
-from test_framework.wallet import Wallet
+from framework.daemon import Daemon
+from framework.wallet import Wallet
 
 
 class SpeedTest():

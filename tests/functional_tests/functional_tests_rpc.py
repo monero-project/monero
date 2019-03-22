@@ -7,6 +7,7 @@ import subprocess
 from signal import SIGTERM
 import socket
 import string
+import os
 
 USAGE = 'usage: functional_tests_rpc.py <python> <srcdir> <builddir> [<tests-to-run> | all]'
 DEFAULT_TESTS = ['daemon_info', 'blockchain', 'wallet_address', 'integrated_address', 'mining', 'transfer', 'txpool', 'multisig', 'cold_signing', 'sign_message', 'proofs']
@@ -56,6 +57,11 @@ for i in range(N_WALLETS):
 
 print('Starting servers...')
 try:
+  PYTHONPATH = os.environ['PYTHONPATH'] if 'PYTHONPATH' in os.environ else ''
+  if len(PYTHONPATH) > 0:
+    PYTHONPATH += ':'
+  PYTHONPATH += '../../utils/python-rpc'
+  os.environ['PYTHONPATH'] = PYTHONPATH
   for i in range(len(command_lines)):
     #print('Running: ' + str(command_lines[i]))
     processes.append(subprocess.Popen(command_lines[i], stdout = outputs[i]))

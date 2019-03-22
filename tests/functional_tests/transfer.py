@@ -33,8 +33,8 @@ import time
 """Test simple transfers
 """
 
-from test_framework.daemon import Daemon
-from test_framework.wallet import Wallet
+from framework.daemon import Daemon
+from framework.wallet import Wallet
 
 class TransferTest():
     def run_test(self):

@@ -38,8 +38,8 @@ Test the following RPCs:
     - mining_status
 """
 
-from test_framework.daemon import Daemon
-from test_framework.wallet import Wallet
+from framework.daemon import Daemon
+from framework.wallet import Wallet
 
 class MiningTest():
     def run_test(self):

@@ -33,8 +33,8 @@ import time
 """Test misc proofs (tx key, send, receive, reserve)
 """
 
-from test_framework.daemon import Daemon
-from test_framework.wallet import Wallet
+from framework.daemon import Daemon
+from framework.wallet import Wallet
 
 class ProofsTest():
     def run_test(self):
