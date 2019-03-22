@@ -60,7 +60,7 @@ try:
   PYTHONPATH = os.environ['PYTHONPATH'] if 'PYTHONPATH' in os.environ else ''
   if len(PYTHONPATH) > 0:
     PYTHONPATH += ':'
-  PYTHONPATH += '../../utils/python-rpc'
+  PYTHONPATH += srcdir + '/../../utils/python-rpc'
   os.environ['PYTHONPATH'] = PYTHONPATH
   for i in range(len(command_lines)):
     #print('Running: ' + str(command_lines[i]))

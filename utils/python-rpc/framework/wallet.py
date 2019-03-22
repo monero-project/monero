@@ -590,3 +590,11 @@ class Wallet(object):
             'id': '0'
         }
         return self.rpc.send_json_rpc_request(verify)
+
+    def get_version(self):
+        get_version = {
+            'method': 'get_version',
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(get_version)
