@@ -74,13 +74,13 @@ Initial Gitian Setup
 The `gitian-build.py` script will checkout different release tags, so it's best to copy it:
 
 ```bash
-cp loki/contrib/gitian/gitian-build.py .
+cp beldex/contrib/gitian/gitian-build.py .
 ```
 
 Setup the required environment, you only need to do this once:
 
 ```
-./gitian-build.py --setup loki-user x.x.x
+./gitian-build.py --setup beldex-user x.x.x
 ```
 
 Where `loki-user` is your Github name and `x.x.x` is the version tag you want to build.
@@ -93,14 +93,14 @@ or pass the signed assert file back to your build machine.
 
 ```
 git clone git@github.com:Beldex-Coin/gitian.sigs.git
-git remote add loki-user git@github.com:loki-user/gitian.sigs.git
+git remote add beldex-user git@github.com:loki-user/gitian.sigs.git
 ```
 
 Build Binaries
 -----------------------------
 To build the most recent tag:
 
- `./gitian-build.py --detach-sign --no-commit -b loki-user 2.0.0`
+ `./gitian-build.py --detach-sign --no-commit -b beldex-user 2.0.0`
 
 To speed up the build, use `-j 5 -m 5000` as the first arguments, where `5` is the number of CPU's you allocated to the VM plus one, and 5000 is a little bit less than then the MB's of RAM you allocated. If there is memory corruption on your machine, try to tweak these values.
 

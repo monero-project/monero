@@ -34,9 +34,9 @@ curl --header 'PRIVATE-TOKEN: '"$TOKEN" "https://gitlab.com/api/v4/projects/7515
     build=$(echo $line | cut -d' ' -f2)
     curl -L --header 'PRIVATE-TOKEN: '"$TOKEN" "https://gitlab.com/lokiproject/loki/-/jobs/$id/artifacts/download" -o artifacts-$build.zip
     unzip artifacts-$build.zip
-    mv build/release/bin loki-$build-x64-$version
-    zip -r loki-$build-x64-$version.zip loki-$build-x64-$version
+    mv build/release/bin beldex-$build-x64-$version
+    zip -r beldex-$build-x64-$version.zip beldex-$build-x64-$version
   done
 
 echo '#### sha256sum'
-sha256sum loki-*-x64-$version.zip
+sha256sum beldex-*-x64-$version.zip

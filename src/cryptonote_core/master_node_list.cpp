@@ -100,7 +100,6 @@ namespace master_nodes
 
     uint64_t current_height = m_blockchain.get_current_blockchain_height();
     bool loaded = load();
-
     if (loaded && m_height == current_height) return;
 
     if (!loaded || m_height > current_height) clear(true);
@@ -723,7 +722,7 @@ namespace master_nodes
 
     // check the initial contribution exists
 
-    info.staking_requirement = get_staking_requirement(m_blockchain.nettype(), block_height);
+    info.staking_requirement = get_staking_requirement(m_blockchain.nettype(), block_height, hf_version);
 
     cryptonote::account_public_address address;
 
@@ -1313,6 +1312,10 @@ namespace master_nodes
         }
         else // Version 10 Bulletproofs
         {
+          /// Note: this code exhibits a sublte unintended behaviour: a snode that
+          /// registered in hardfork 9 and was scheduled for deregistration in hardfork 10
+          /// will have its life is slightly prolonged by the "grace period", although it might
+          /// look like we use the registration height to determine the expiry height.
           uint64_t node_expiry_height = info.registration_height + lock_blocks + STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS;
           if (block_height > node_expiry_height)
             expired_nodes.push_back(snode_key);

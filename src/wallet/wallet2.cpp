@@ -220,7 +220,7 @@ struct options {
   const command_line::arg_descriptor<bool> stagenet = {"stagenet", tools::wallet2::tr("For stagenet. Daemon must also be launched with --stagenet flag"), false};
 
 #if defined(BELDEX_ENABLE_INTEGRATION_TEST_HOOKS)
-  const command_line::arg_descriptor<bool> fakenet = {"fakenet", tools::wallet2::tr("For loki integration tests, fakenet"), false};
+  const command_line::arg_descriptor<bool> fakenet = {"fakenet", tools::wallet2::tr("For beldex integration tests, fakenet"), false};
 #endif
 
   const command_line::arg_descriptor<std::string, false, true, 2> shared_ringdb_dir = {
@@ -1433,8 +1433,8 @@ void wallet2::scan_output(const cryptonote::transaction &tx, bool miner_tx, cons
     if (!m_encrypt_keys_after_refresh)
     {
       boost::optional<epee::wipeable_string> pwd = m_callback->on_get_password(pool ? "output found in pool" : "output received");
-      THROW_WALLET_EXCEPTION_IF(!pwd, error::password_needed, tr("Password is needed to compute key image for incoming loki"));
-      THROW_WALLET_EXCEPTION_IF(!verify_password(*pwd), error::password_needed, tr("Invalid password: password is needed to compute key image for incoming loki"));
+      THROW_WALLET_EXCEPTION_IF(!pwd, error::password_needed, tr("Password is needed to compute key image for incoming beldex"));
+      THROW_WALLET_EXCEPTION_IF(!verify_password(*pwd), error::password_needed, tr("Invalid password: password is needed to compute key image for incoming beldex"));
       decrypt_keys(*pwd);
       m_encrypt_keys_after_refresh = *pwd;
     }
@@ -6783,7 +6783,7 @@ int wallet2::get_fee_algorithm() const
 uint64_t wallet2::adjust_mixin(uint64_t mixin) const
 {
   if (mixin != 9) {
-    MWARNING("Requested ring size " << (mixin + 1) << " incorrect for loki, using 10");
+    MWARNING("Requested ring size " << (mixin + 1) << " incorrect for beldex, using 10");
     mixin = 9;
   }
   return mixin;
@@ -7092,7 +7092,7 @@ static const char *ERR_MSG_MASTER_NODE_LIST_QUERY_FAILED = tr("Failed to query d
 static const char *ERR_MSG_TOO_MANY_TXS_CONSTRUCTED = tr("Constructed too many transations, please sweep_all first");
 static const char *ERR_MSG_EXCEPTION_THROWN = tr("Exception thrown, staking process could not be completed");
 
-wallet2::stake_result wallet2::check_stake_allowed(const crypto::public_key& sn_key, const cryptonote::address_parse_info& addr_info, uint64_t& amount, double fraction)
+wallet2::stake_result wallet2::check_stake_allowed(const crypto::public_key& mn_key, const cryptonote::address_parse_info& addr_info, uint64_t& amount, double fraction)
 {
   wallet2::stake_result result = {};
   result.msg.reserve(128);
@@ -7121,7 +7121,7 @@ wallet2::stake_result wallet2::check_stake_allowed(const crypto::public_key& sn_
 
   /// check that the master node is registered
   boost::optional<std::string> failed;
-  const auto& response = this->get_master_nodes({ epee::string_tools::pod_to_hex(sn_key) }, failed);
+  const auto& response = this->get_master_nodes({ epee::string_tools::pod_to_hex(mn_key) }, failed);
   if (failed)
   {
     result.status = stake_result_status::master_node_list_query_failed;
@@ -7207,7 +7207,7 @@ wallet2::stake_result wallet2::check_stake_allowed(const crypto::public_key& sn_
       result.msg.reserve(128);
       result.msg =  tr("You must contribute at least ");
       result.msg += print_money(min_contrib_total);
-      result.msg += tr(" loki to become a contributor for this master node.");
+      result.msg += tr(" beldex to become a contributor for this master node.");
       return result;
     }
   }
@@ -7216,7 +7216,7 @@ wallet2::stake_result wallet2::check_stake_allowed(const crypto::public_key& sn_
   {
     result.msg += tr("You may only contribute up to ");
     result.msg += print_money(max_contrib_total);
-    result.msg += tr(" more loki to this master node. ");
+    result.msg += tr(" more beldex to this master node. ");
     result.msg += tr("Reducing your stake from ");
     result.msg += print_money(amount);
     result.msg += tr(" to ");
@@ -7375,14 +7375,15 @@ wallet2::register_master_node_result wallet2::create_register_master_node_tx(con
       }
     }
 
-    staking_requirement = master_nodes::get_staking_requirement(nettype(), bc_height);
     boost::optional<uint8_t> hf_version = get_hard_fork_version();
     if (!hf_version)
     {
       result.status = register_master_node_result_status::network_version_query_failed;
       result.msg    = ERR_MSG_NETWORK_VERSION_QUERY_FAILED;
+      return result;
     }
 
+    staking_requirement = master_nodes::get_staking_requirement(nettype(), bc_height, *hf_version);
     std::vector<std::string> const registration_args(local_args.begin(), local_args.begin() + local_args.size() - 3);
     converted_args = master_nodes::convert_registration_args(nettype(), registration_args, staking_requirement, *hf_version);
 
@@ -7545,7 +7546,7 @@ wallet2::register_master_node_result wallet2::create_register_master_node_tx(con
   }
 }
 
-wallet2::request_stake_unlock_result wallet2::can_request_stake_unlock(const crypto::public_key &sn_key)
+wallet2::request_stake_unlock_result wallet2::can_request_stake_unlock(const crypto::public_key &mn_key)
 {
   request_stake_unlock_result result = {};
   result.ptx.tx.version              = cryptonote::transaction::version_4_tx_types;
@@ -7555,11 +7556,11 @@ wallet2::request_stake_unlock_result wallet2::can_request_stake_unlock(const cry
     return result;
   }
 
-  std::string const sn_key_as_str = epee::string_tools::pod_to_hex(sn_key);
+  std::string const mn_key_as_str = epee::string_tools::pod_to_hex(mn_key);
   {
     using namespace cryptonote;
     boost::optional<std::string> failed;
-    const std::vector<COMMAND_RPC_GET_MASTER_NODES::response::entry> response = get_master_nodes({sn_key_as_str}, failed);
+    const std::vector<COMMAND_RPC_GET_MASTER_NODES::response::entry> response = get_master_nodes({mn_key_as_str}, failed);
     if (failed)
     {
       result.msg = *failed;
@@ -7568,7 +7569,7 @@ wallet2::request_stake_unlock_result wallet2::can_request_stake_unlock(const cry
 
     if (response.empty())
     {
-      result.msg = tr("No master node is known for: ") + sn_key_as_str;
+      result.msg = tr("No master node is known for: ") + mn_key_as_str;
       return result;
     }
 
@@ -7589,13 +7590,13 @@ wallet2::request_stake_unlock_result wallet2::can_request_stake_unlock(const cry
 
     if (!contributions)
     {
-      result.msg = tr("No contributions recognised by this wallet in master node: ") + sn_key_as_str;
+      result.msg = tr("No contributions recognised by this wallet in master node: ") + mn_key_as_str;
       return result;
     }
 
     if (contributions->empty())
     {
-      result.msg = tr("Unexpected 0 contributions in master node for this wallet ") + sn_key_as_str;
+      result.msg = tr("Unexpected 0 contributions in master node for this wallet ") + mn_key_as_str;
       return result;
     }
 
@@ -7660,7 +7661,7 @@ wallet2::request_stake_unlock_result wallet2::can_request_stake_unlock(const cry
       }
     }
 
-    add_master_node_pubkey_to_tx_extra(result.ptx.tx.extra, sn_key);
+    add_master_node_pubkey_to_tx_extra(result.ptx.tx.extra, mn_key);
     add_tx_key_image_unlock_to_tx_extra(result.ptx.tx.extra, unlock);
   }
 

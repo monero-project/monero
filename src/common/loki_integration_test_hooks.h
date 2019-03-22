@@ -19,7 +19,7 @@
 #include "command_line.h"
 #include "shoom.h"
 
-namespace loki
+namespace beldex
 {
 struct fixed_buffer
 {
@@ -41,7 +41,7 @@ extern const command_line::arg_descriptor<std::string, false> arg_integration_te
 extern boost::mutex integration_test_mutex;
 extern bool core_is_idle;
 
-}; // namespace loki
+}; // namespace beldex
 
 #endif // BELDEX_INTEGRATION_TEST_HOOKS_H
 
@@ -70,7 +70,7 @@ static sem_t              *global_stdout_semaphore_handle;
 static sem_t              *global_stdout_ready_semaphore;
 static sem_t              *global_stdin_ready_semaphore;
 
-namespace loki
+namespace beldex
 {
 bool core_is_idle;
 const command_line::arg_descriptor<std::string, false> arg_integration_test_hardforks_override = {
@@ -89,7 +89,7 @@ const command_line::arg_descriptor<std::string, false> arg_integration_test_shar
 
 boost::mutex integration_test_mutex;
 
-} // namespace loki
+} // namespace beldex
 
 std::string global_stdin_semaphore_name;
 std::string global_stdout_semaphore_name;

@@ -201,7 +201,7 @@ VOLUME /root/.loki
 
 # Generate your wallet via accessing the container and run:
 # cd /wallet
-# loki-wallet-cli
+# beldex-wallet-cli
 VOLUME /wallet
 
 EXPOSE 19090

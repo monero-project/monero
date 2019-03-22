@@ -1311,7 +1311,7 @@ namespace tools
 
     /// Modifies the `amount` to maximum possible if too large, but rejects if insufficient.
     /// `fraction` is only used to determine the amount if specified zero.
-    stake_result check_stake_allowed(const crypto::public_key& sn_key, const cryptonote::address_parse_info& addr_info, uint64_t& amount, double fraction = 0);
+    stake_result check_stake_allowed(const crypto::public_key& mn_key, const cryptonote::address_parse_info& addr_info, uint64_t& amount, double fraction = 0);
     stake_result create_stake_tx    (const crypto::public_key& master_node_key, const cryptonote::address_parse_info& addr_info, uint64_t amount,
                                      double amount_fraction = 0, uint32_t priority = 0, uint32_t subaddr_account = 0, std::set<uint32_t> subaddr_indices = {});
 
@@ -1351,7 +1351,7 @@ namespace tools
       std::string msg;
       pending_tx  ptx;
     };
-    request_stake_unlock_result can_request_stake_unlock(const crypto::public_key &sn_key);
+    request_stake_unlock_result can_request_stake_unlock(const crypto::public_key &mn_key);
 
     // MMS -------------------------------------------------------------------------------------------------
     mms::message_store& get_message_store() { return m_message_store; };

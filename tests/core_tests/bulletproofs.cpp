@@ -255,10 +255,10 @@ bool gen_bp_tx_validation_base::check_bp(const cryptonote::transaction &tx, size
 
 // Further addendum. In Beldex hardfork 10, we also introduce batching governance
 // payments- so most block heights will remove the governance output from the
-// reward. So if we send less than the governance amount (~6ish loki from the
+// reward. So if we send less than the governance amount (~6ish beldex from the
 // start of the chain), then we'll eclipse the reward again and overflow, so
 // most of these tests have again been modified to ensure that we use atleast
-// 6 loki from the block reward.
+// 6 beldex from the block reward.
 //  - 2018/10/29
 
 bool gen_bp_tx_valid_1::generate(std::vector<test_event_entry>& events) const

@@ -13,13 +13,13 @@ See also each utility's "--help" option.
 
 ### Export an existing blockchain database
 
-`$ loki-blockchain-export`
+`$ beldex-blockchain-export`
 
 This loads the existing blockchain and exports it to `$BELDEX_DATA_DIR/export/blockchain.raw`
 
 ### Import the exported file
 
-`$ loki-blockchain-import`
+`$ beldex-blockchain-import`
 
 This imports blocks from `$BELDEX_DATA_DIR/export/blockchain.raw` (exported using the
 `loki-blockchain-export` tool as described above) into the current database.
@@ -35,10 +35,10 @@ the `loki-blockchain-import` command again, and it will restart from where it le
 
 ```bash
 ## use default settings to import blockchain.raw into database
-$ loki-blockchain-import
+$ beldex-blockchain-import
 
 ## fast import with large batch size, database mode "fastest", verification off
-$ loki-blockchain-import --batch-size 20000 --database lmdb#fastest --verify off
+$ beldex-blockchain-import --batch-size 20000 --database lmdb#fastest --verify off
 
 ```
 
@@ -81,9 +81,9 @@ LMDB flags (more than one may be specified):
 ## Examples:
 
 ```
-$ loki-blockchain-import --database lmdb#fastest
+$ beldex-blockchain-import --database lmdb#fastest
 
-$ loki-blockchain-import --database lmdb#nosync
+$ beldex-blockchain-import --database lmdb#nosync
 
-$ loki-blockchain-import --database lmdb#nosync,nometasync
+$ beldex-blockchain-import --database lmdb#nosync,nometasync
 ```

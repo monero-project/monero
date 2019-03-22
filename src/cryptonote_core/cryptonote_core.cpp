@@ -533,7 +533,7 @@ namespace cryptonote
       {
         MWARNING("Found old-style blockchain.bin in " << old_files.string());
         MWARNING("Beldex now uses a new format. You can either remove blockchain.bin to start syncing");
-        MWARNING("the blockchain anew, or use loki-blockchain-export and loki-blockchain-import to");
+        MWARNING("the blockchain anew, or use beldex-blockchain-export and beldex-blockchain-import to");
         MWARNING("convert your existing blockchain.bin to the new format. See README.md for instructions.");
         return false;
       }
@@ -1360,7 +1360,7 @@ namespace cryptonote
     {
       cryptonote_connection_context fake_context = AUTO_VAL_INIT(fake_context);
       NOTIFY_UPTIME_PROOF::request r;
-      master_nodes::generate_uptime_proof_request(m_master_node_pubkey, m_master_node_key, r);
+      m_quorum_cop.generate_uptime_proof_request(r);
       bool relayed = get_protocol()->relay_uptime_proof(r, fake_context);
 
       if (relayed)

@@ -296,8 +296,8 @@ bool Wallet::paymentIdValid(const string &paiment_id)
 
 bool Wallet::masterNodePubkeyValid(const std::string &str)
 {
-    crypto::public_key sn_key;
-    return epee::string_tools::hex_to_pod(str, sn_key);
+    crypto::public_key mn_key;
+    return epee::string_tools::hex_to_pod(str, mn_key);
 }
 
 bool Wallet::addressValid(const std::string &str, NetworkType nettype)
@@ -2339,10 +2339,10 @@ bool WalletImpl::isKeysFileLocked()
     return m_wallet->is_keys_file_locked();
 }
 
-PendingTransaction* WalletImpl::stakePending(const std::string& sn_key_str, const std::string& address_str, const std::string& amount_str, std::string& error_msg)
+PendingTransaction* WalletImpl::stakePending(const std::string& mn_key_str, const std::string& address_str, const std::string& amount_str, std::string& error_msg)
 {
-  crypto::public_key sn_key;
-  if (!epee::string_tools::hex_to_pod(sn_key_str, sn_key))
+  crypto::public_key mn_key;
+  if (!epee::string_tools::hex_to_pod(mn_key_str, mn_key))
   {
     error_msg = "Failed to parse master node pubkey";
     LOG_ERROR(error_msg);
@@ -2370,7 +2370,7 @@ PendingTransaction* WalletImpl::stakePending(const std::string& sn_key_str, cons
   /// Note(maxim): need to be careful to call `WalletImpl::disposeTransaction` when it is no longer needed
   PendingTransactionImpl * transaction = new PendingTransactionImpl(*this);
 
-  wallet2::stake_result stake_result = m_wallet->create_stake_tx(transaction->m_pending_tx, sn_key, addr_info, amount);
+  wallet2::stake_result stake_result = m_wallet->create_stake_tx(transaction->m_pending_tx, mn_key, addr_info, amount);
   if (stake_result != wallet2::stake_result::success)
   {
     error_msg = "Failed to create a stake transaction: " + stake_result.msg;

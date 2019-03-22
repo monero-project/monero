@@ -129,7 +129,7 @@ script: |
   chmod +x ${WRAP_DIR}/${prog}
   done
 
-  cd loki
+  cd beldex
   BASEPREFIX=`pwd`/contrib/depends
   # Build dependencies for each host
   for i in $HOSTS; do

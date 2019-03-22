@@ -94,6 +94,7 @@ struct hard_fork_record
   time_t time;
 };
 
+// TODO(doyle): Move this out into a globally accessible object
 // version 7 from the start of the blockchain, inhereted from Monero mainnet
 static const hard_fork_record mainnet_hard_forks[] =
 {
@@ -2495,7 +2496,7 @@ bool Blockchain::check_tx_outputs(const transaction& tx, tx_verification_context
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
 
   for (const auto &o: tx.vout) {
-    if (tx.version>=2 && o.amount != 0) { // in a v2 tx, all outputs must have 0 amount NOTE(beldex): All loki tx's are atleast v2 from the beginning
+    if (tx.version>=2 && o.amount != 0) { // in a v2 tx, all outputs must have 0 amount NOTE(beldex): All beldex tx's are atleast v2 from the beginning
       tvc.m_invalid_output = true;
 	  LOG_PRINT_L0("o.amount!=0");
       return false;

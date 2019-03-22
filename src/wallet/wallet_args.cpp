@@ -154,7 +154,7 @@ namespace wallet_args
       if (command_line::get_arg(vm, command_line::arg_help))
       {
         Print(print) << "Beldex '" << BELDEX_RELEASE_NAME << "' (v" << BELDEX_VERSION_FULL << ")" << ENDL;
-        Print(print) << wallet_args::tr("This is the command line loki wallet. It needs to connect to a loki\n"
+        Print(print) << wallet_args::tr("This is the command line beldex wallet. It needs to connect to a beldex\n"
 												  "daemon to work correctly.") << ENDL;
         Print(print) << wallet_args::tr("Usage:") << ENDL << "  " << usage;
         Print(print) << desc_all;

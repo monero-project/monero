@@ -36,6 +36,6 @@ namespace loki
 double      round           (double);
 double      exp2            (double);
 std::string hex64_to_base32z(std::string const& src);
-}; // namespace Beldex
+};
 
 #endif // BELDEX_H
