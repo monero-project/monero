@@ -2526,8 +2526,9 @@ bool Blockchain::check_tx_outputs(const transaction& tx, tx_verification_context
 		}
 	}
   }
-  else
-  {
+
+  if (hf_version> network_version_8){
+	  if (tx.version >= 2) {
     const bool borromean = rct::is_rct_borromean(tx.rct_signatures.type);
     if (borromean)
     {
@@ -2547,8 +2548,10 @@ bool Blockchain::check_tx_outputs(const transaction& tx, tx_verification_context
         tvc.m_invalid_output = true;
         return false;
       }
+	}
     }
   }
+  
 
   if (hf_version < HF_VERSION_SMALLER_BP) // from v11, allow bulletproofs v2
   {
