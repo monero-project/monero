@@ -106,6 +106,19 @@ class Daemon(object):
         }
         return self.rpc.send_json_rpc_request(getblockheaderbyheight)
 
+    def getblockheadersrange(self, start_height, end_height, fill_pow_hash = False):
+        getblockheadersrange = {
+            'method': 'getblockheadersrange',
+            'params': {
+                'start_height': start_height,
+                'end_height': end_height,
+                'fill_pow_hash': fill_pow_hash,
+            },
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(getblockheadersrange)
+
     def get_connections(self):
         get_connections = {
             'method': 'get_connections',
