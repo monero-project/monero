@@ -327,11 +327,7 @@ namespace cryptonote
     // Governance Distribution
     if (already_generated_coins != 0)
     {
-      if (reward_parts.governance == 0)
-      {
-        CHECK_AND_ASSERT_MES(hard_fork_version >= network_version_10_bulletproofs, false, "Governance reward can NOT be 0 before hardfork 10, hard_fork_version: " << hard_fork_version);
-      }
-      else
+      if (hard_fork_version >= network_version_10_bulletproofs && reward_parts.governance != 0)
       {
         cryptonote::address_parse_info governance_wallet_address;
         cryptonote::get_account_address_from_str(governance_wallet_address, nettype, *cryptonote::get_config(nettype, hard_fork_version).GOVERNANCE_WALLET_ADDRESS);

@@ -111,7 +111,7 @@ static const hard_fork_record testnet_hard_forks[] =
   { 1, 1, 0, 1548750273 },
   { network_version_7, 10, 0, 1548750283 },
   { network_version_8, 2180, 0, 1549966391 },
-  { network_version_11_infinite_staking, 50000, 0, 1554000000 }
+  { network_version_11_infinite_staking, 33160, 0, 1563265465}
 };
 static const uint64_t testnet_hard_fork_version_1_till = 9;
 
@@ -2515,14 +2515,16 @@ bool Blockchain::check_tx_outputs(const transaction& tx, tx_verification_context
 
   // from v10, allow bulletproofs
   const uint8_t hf_version = m_hardfork->get_current_version();
-  if (hf_version < network_version_10_bulletproofs) {
-    const bool bulletproof = rct::is_rct_bulletproof(tx.rct_signatures.type);
-    if (bulletproof || !tx.rct_signatures.p.bulletproofs.empty())
-    {
-      LOG_PRINT_L0("Bulletproofs are not allowed before v10");
-      tvc.m_invalid_output = true;
-      return false;
-    }
+  if (hf_version < network_version_8) {
+	if (tx.version >= 2) {
+       const bool bulletproof = rct::is_rct_bulletproof(tx.rct_signatures.type);
+	   if (bulletproof || !tx.rct_signatures.p.bulletproofs.empty())
+		{
+		  LOG_PRINT_L0("Bulletproofs are not allowed before v8");
+		  tvc.m_invalid_output = true;
+		  return false;
+		}
+	}
   }
   else
   {
@@ -2918,7 +2920,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
     }
 
     // for bulletproofs, check they're only multi-output after v8
-    if (rct::is_rct_bulletproof(rv.type) && hf_version < network_version_10_bulletproofs)
+    if (rct::is_rct_bulletproof(rv.type) && hf_version < network_version_8)
     {
       for (const rct::Bulletproof &proof: rv.p.bulletproofs)
       {
