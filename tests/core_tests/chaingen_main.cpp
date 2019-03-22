@@ -42,7 +42,7 @@ namespace
   const command_line::arg_descriptor<bool>        arg_generate_test_data          = {"generate_test_data", ""};
   const command_line::arg_descriptor<bool>        arg_play_test_data              = {"play_test_data", ""};
   const command_line::arg_descriptor<bool>        arg_generate_and_play_test_data = {"generate_and_play_test_data", ""};
-  const command_line::arg_descriptor<bool>        arg_service_nodes               = {"service_nodes", ""};
+  const command_line::arg_descriptor<bool>        arg_master_nodes               = {"master_nodes", ""};
   const command_line::arg_descriptor<bool>        arg_test_transactions           = {"test_transactions", ""};
   const command_line::arg_descriptor<std::string> arg_filter                      = { "filter", "Regular expression filter for which tests to run" };
   const command_line::arg_descriptor<bool>        arg_list_tests                  = {"list_tests", ""};
@@ -64,7 +64,7 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_options, arg_generate_test_data);
   command_line::add_arg(desc_options, arg_play_test_data);
   command_line::add_arg(desc_options, arg_generate_and_play_test_data);
-  command_line::add_arg(desc_options, arg_service_nodes);
+  command_line::add_arg(desc_options, arg_master_nodes);
   command_line::add_arg(desc_options, arg_test_transactions);
   command_line::add_arg(desc_options, arg_filter);
   command_line::add_arg(desc_options, arg_list_tests);
@@ -107,16 +107,16 @@ int main(int argc, char* argv[])
   else
   {
     list_tests = command_line::get_arg(vm, arg_list_tests);
-    const bool run_all = !command_line::get_arg(vm, arg_service_nodes);
+    const bool run_all = !command_line::get_arg(vm, arg_master_nodes);
 
     if (run_all) {
       MLOG(el::Level::Info, "Running all tests\n");
     }
 
-    if (run_all || command_line::get_arg(vm, arg_service_nodes))
+    if (run_all || command_line::get_arg(vm, arg_master_nodes))
     {
 #if 1
-      GENERATE_AND_PLAY(gen_service_nodes);
+      GENERATE_AND_PLAY(gen_master_nodes);
       GENERATE_AND_PLAY(test_prefer_deregisters);
       GENERATE_AND_PLAY(test_zero_fee_deregister);
       GENERATE_AND_PLAY(test_deregister_safety_buffer);

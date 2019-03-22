@@ -35,7 +35,7 @@
 #include "cryptonote_basic/difficulty.h"
 #include "crypto/hash.h"
 #include "cryptonote_config.h"
-#include "cryptonote_core/service_node_deregister.h"
+#include "cryptonote_core/master_node_deregister.h"
 #include "rpc/rpc_handler.h"
 #include "common/varint.h"
 #include "common/perf_timer.h"
@@ -967,7 +967,7 @@ namespace cryptonote
 
 
   //-----------------------------------------------
-  struct COMMAND_RPC_GET_ALL_SERVICE_NODES_KEYS
+  struct COMMAND_RPC_GET_ALL_MASTER_NODES_KEYS
   {
     struct request
     {
@@ -2471,7 +2471,7 @@ namespace cryptonote
     };
   };
 
-  struct COMMAND_RPC_GET_SERVICE_NODE_REGISTRATION_CMD_RAW
+  struct COMMAND_RPC_GET_MASTER_NODE_REGISTRATION_CMD_RAW
   {
     struct request
     {
@@ -2497,7 +2497,7 @@ namespace cryptonote
     };
   };
 
-  struct COMMAND_RPC_GET_SERVICE_NODE_REGISTRATION_CMD
+  struct COMMAND_RPC_GET_MASTER_NODE_REGISTRATION_CMD
   {
     struct contribution_t {
       std::string address;
@@ -2534,7 +2534,7 @@ namespace cryptonote
     };
   };
 
-  struct COMMAND_RPC_GET_SERVICE_NODE_KEY
+  struct COMMAND_RPC_GET_MASTER_NODE_KEY
   {
     struct request
     {
@@ -2544,24 +2544,24 @@ namespace cryptonote
 
     struct response
     {
-      std::string service_node_pubkey;
+      std::string master_node_pubkey;
       std::string status;
       BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(service_node_pubkey)
+        KV_SERIALIZE(master_node_pubkey)
         KV_SERIALIZE(status)
       END_KV_SERIALIZE_MAP()
     };
   };
 
-  struct COMMAND_RPC_GET_SERVICE_NODES
+  struct COMMAND_RPC_GET_MASTER_NODES
   {
     struct request
     {
-      std::vector<std::string> service_node_pubkeys; // pass empty vector to get all the master nodes
+      std::vector<std::string> master_node_pubkeys; // pass empty vector to get all the master nodes
       bool include_json;
       
       BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(service_node_pubkeys);
+        KV_SERIALIZE(master_node_pubkeys);
         KV_SERIALIZE(include_json);
       END_KV_SERIALIZE_MAP()
     };
@@ -2598,7 +2598,7 @@ namespace cryptonote
 
       struct entry
       {
-        std::string               service_node_pubkey;
+        std::string               master_node_pubkey;
         uint64_t                  registration_height;
         uint64_t                  requested_unlock_height;
         uint64_t                  last_reward_block_height;
@@ -2612,7 +2612,7 @@ namespace cryptonote
         std::string               operator_address;
 
         BEGIN_KV_SERIALIZE_MAP()
-            KV_SERIALIZE(service_node_pubkey)
+            KV_SERIALIZE(master_node_pubkey)
             KV_SERIALIZE(registration_height)
             KV_SERIALIZE(requested_unlock_height)
             KV_SERIALIZE(last_reward_block_height)
@@ -2627,12 +2627,12 @@ namespace cryptonote
         END_KV_SERIALIZE_MAP()
       };
 
-      std::vector<entry> service_node_states;
+      std::vector<entry> master_node_states;
       std::string        status;
       std::string        as_json;
 
       BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(service_node_states)
+        KV_SERIALIZE(master_node_states)
         KV_SERIALIZE(status)
         KV_SERIALIZE(as_json)
       END_KV_SERIALIZE_MAP()
@@ -2660,7 +2660,7 @@ namespace cryptonote
     };
   };
 
-  struct COMMAND_RPC_GET_SERVICE_NODE_BLACKLISTED_KEY_IMAGES
+  struct COMMAND_RPC_GET_MASTER_NODE_BLACKLISTED_KEY_IMAGES
   {
     struct request
     {

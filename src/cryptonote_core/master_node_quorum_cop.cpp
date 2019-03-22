@@ -26,9 +26,9 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include "service_node_quorum_cop.h"
-#include "service_node_deregister.h"
-#include "service_node_list.h"
+#include "master_node_quorum_cop.h"
+#include "master_node_deregister.h"
+#include "master_node_list.h"
 #include "cryptonote_config.h"
 #include "cryptonote_core.h"
 #include "version.h"
@@ -38,7 +38,7 @@
 #undef BELDEX_DEFAULT_LOG_CATEGORY
 #define BELDEX_DEFAULT_LOG_CATEGORY "quorum_cop"
 
-namespace service_nodes
+namespace master_nodes
 {
   quorum_cop::quorum_cop(cryptonote::core& core)
     : m_core(core), m_last_height(0)
@@ -71,7 +71,7 @@ namespace service_nodes
 
     crypto::public_key my_pubkey;
     crypto::secret_key my_seckey;
-    if (!m_core.get_service_node_keys(my_pubkey, my_seckey))
+    if (!m_core.get_master_node_keys(my_pubkey, my_seckey))
       return;
 
     time_t const now          = time(nullptr);
@@ -88,10 +88,10 @@ namespace service_nodes
 
     uint64_t const latest_height = std::max(m_core.get_current_blockchain_height(), m_core.get_target_blockchain_height());
 
-    if (latest_height < service_nodes::deregister_vote::VOTE_LIFETIME_BY_HEIGHT)
+    if (latest_height < master_nodes::deregister_vote::VOTE_LIFETIME_BY_HEIGHT)
       return;
 
-    uint64_t const execute_justice_from_height = latest_height - service_nodes::deregister_vote::VOTE_LIFETIME_BY_HEIGHT;
+    uint64_t const execute_justice_from_height = latest_height - master_nodes::deregister_vote::VOTE_LIFETIME_BY_HEIGHT;
     if (height < execute_justice_from_height)
       return;
 
@@ -127,11 +127,11 @@ namespace service_nodes
         if (!vote_off_node)
           continue;
 
-        service_nodes::deregister_vote vote = {};
+        master_nodes::deregister_vote vote = {};
         vote.block_height        = m_last_height;
-        vote.service_node_index  = node_index;
+        vote.master_node_index  = node_index;
         vote.voters_quorum_index = my_index_in_quorum;
-        vote.signature           = service_nodes::deregister_vote::sign_vote(vote.block_height, vote.service_node_index, my_pubkey, my_seckey);
+        vote.signature           = master_nodes::deregister_vote::sign_vote(vote.block_height, vote.master_node_index, my_pubkey, my_seckey);
 
         cryptonote::vote_verification_context vvc = {};
         if (!m_core.add_deregister_vote(vote, vvc))
@@ -164,7 +164,7 @@ namespace service_nodes
     if ((timestamp < now - UPTIME_PROOF_BUFFER_IN_SECONDS) || (timestamp > now + UPTIME_PROOF_BUFFER_IN_SECONDS))
       return false;
 
-    if (!m_core.is_service_node(pubkey))
+    if (!m_core.is_master_node(pubkey))
       return false;
 
     uint64_t height = m_core.get_current_blockchain_height();

@@ -4,9 +4,9 @@
 #include <vector>
 #include <boost/lexical_cast.hpp>
 
-#include "service_node_rules.h"
+#include "master_node_rules.h"
 
-namespace service_nodes {
+namespace master_nodes {
 
 
 uint64_t get_staking_requirement(cryptonote::network_type m_nettype, uint64_t height)
@@ -42,7 +42,7 @@ uint64_t portions_to_amount(uint64_t portions, uint64_t staking_requirement)
   return resultlo;
 }
 
-bool check_service_node_portions(uint8_t hf_version, const std::vector<uint64_t>& portions)
+bool check_master_node_portions(uint8_t hf_version, const std::vector<uint64_t>& portions)
 {
   if (portions.size() > MAX_NUMBER_OF_CONTRIBUTORS) return false;
 
@@ -152,4 +152,4 @@ bool get_portions_from_percent_str(std::string cut_str, uint64_t& portions) {
 
   return get_portions_from_percent(cut_percent, portions);
 }
-} // namespace service_nodes
+} // namespace master_nodes

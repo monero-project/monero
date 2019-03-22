@@ -38,7 +38,7 @@ set(core_tests_sources
   integer_overflow.cpp
   multisig.cpp
   ring_signature_1.cpp
-  service_nodes.cpp
+  master_nodes.cpp
   transaction_tests.cpp
   tx_validation.cpp
   v2_tests.cpp
@@ -57,7 +57,7 @@ set(core_tests_headers
   integer_overflow.h
   multisig.h
   ring_signature_1.h
-  service_nodes.h
+  master_nodes.h
   transaction_tests.h
   tx_validation.h
   v2_tests.h

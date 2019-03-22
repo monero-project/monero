@@ -44,7 +44,7 @@ using namespace epee;
 #include "ringct/rctSigs.h"
 #include "multisig/multisig.h"
 #include "int-util.h"
-#include "cryptonote_core/service_node_list.h"
+#include "cryptonote_core/master_node_list.h"
 
 using namespace crypto;
 
@@ -134,7 +134,7 @@ namespace cryptonote
   }
 
   const int GOVERNANCE_BASE_REWARD_DIVISOR   = 20;
-  const int SERVICE_NODE_BASE_REWARD_DIVISOR = 2;
+  const int MASTER_NODE_BASE_REWARD_DIVISOR = 2;
   uint64_t governance_reward_formula(uint64_t base_reward)
   {
     return 0;// NO governance planned
@@ -166,7 +166,7 @@ namespace cryptonote
       snode_reward += output.amount;
     }
 
-    static_assert(SERVICE_NODE_BASE_REWARD_DIVISOR == 2 &&
+    static_assert(MASTER_NODE_BASE_REWARD_DIVISOR == 2 &&
                   GOVERNANCE_BASE_REWARD_DIVISOR == 20,
                   "Anytime this changes, you should revisit this code and "
                   "check, because we rely on the master node reward being 50\% "
@@ -174,7 +174,7 @@ namespace cryptonote
                   "exactly intuitive and so changes to the reward structure may "
                   "make this assumption invalid.");
 
-    uint64_t base_reward  = snode_reward * SERVICE_NODE_BASE_REWARD_DIVISOR;
+    uint64_t base_reward  = snode_reward * MASTER_NODE_BASE_REWARD_DIVISOR;
     uint64_t governance   = governance_reward_formula(base_reward);
     uint64_t block_reward = base_reward - governance;
 
@@ -190,24 +190,24 @@ namespace cryptonote
     return result;
   }
 
-  uint64_t service_node_reward_formula(uint64_t base_reward, int hard_fork_version)
+  uint64_t master_node_reward_formula(uint64_t base_reward, int hard_fork_version)
   {
-    return hard_fork_version >= 9 ? (base_reward / SERVICE_NODE_BASE_REWARD_DIVISOR) : 0;
+    return hard_fork_version >= 9 ? (base_reward / MASTER_NODE_BASE_REWARD_DIVISOR) : 0;
   }
 
-  uint64_t get_portion_of_reward(uint64_t portions, uint64_t total_service_node_reward)
+  uint64_t get_portion_of_reward(uint64_t portions, uint64_t total_master_node_reward)
   {
     uint64_t hi, lo, rewardhi, rewardlo;
-    lo = mul128(total_service_node_reward, portions, &hi);
+    lo = mul128(total_master_node_reward, portions, &hi);
     div128_64(hi, lo, STAKING_PORTIONS, &rewardhi, &rewardlo);
     return rewardlo;
   }
 
-  static uint64_t calculate_sum_of_portions(const std::vector<std::pair<cryptonote::account_public_address, uint64_t>>& portions, uint64_t total_service_node_reward)
+  static uint64_t calculate_sum_of_portions(const std::vector<std::pair<cryptonote::account_public_address, uint64_t>>& portions, uint64_t total_master_node_reward)
   {
     uint64_t reward = 0;
     for (size_t i = 0; i < portions.size(); i++)
-      reward += get_portion_of_reward(portions[i].second, total_service_node_reward);
+      reward += get_portion_of_reward(portions[i].second, total_master_node_reward);
     return reward;
   }
 
@@ -236,13 +236,13 @@ namespace cryptonote
     tx.extra.clear();
     tx.output_unlock_times.clear();
     tx.type = transaction::type_standard;
-    tx.version = (hard_fork_version >= network_version_9_service_nodes) ? transaction::version_3_per_output_unlock_times : transaction::version_2;
+    tx.version = (hard_fork_version >= network_version_9_master_nodes) ? transaction::version_3_per_output_unlock_times : transaction::version_2;
 
     const network_type                                              nettype           = miner_tx_context.nettype;
-    const crypto::public_key                                       &service_node_key  = miner_tx_context.snode_winner_key;
-    const std::vector<std::pair<account_public_address, uint64_t>> &service_node_info =
+    const crypto::public_key                                       &master_node_key  = miner_tx_context.snode_winner_key;
+    const std::vector<std::pair<account_public_address, uint64_t>> &master_node_info =
       miner_tx_context.snode_winner_info.empty() ?
-      service_nodes::null_winner : miner_tx_context.snode_winner_info;
+      master_nodes::null_winner : miner_tx_context.snode_winner_info;
 
     keypair txkey = keypair::generate(hw::get_device("default"));
     add_tx_pub_key_to_extra(tx, txkey.pub);
@@ -258,7 +258,7 @@ namespace cryptonote
       add_tx_pub_key_to_extra(tx, gov_key.pub);
     }
 
-    add_service_node_winner_to_tx_extra(tx.extra, service_node_key);
+    add_master_node_winner_to_tx_extra(tx.extra, master_node_key);
 
     txin_gen in;
     in.height = height;
@@ -302,22 +302,22 @@ namespace cryptonote
       tx.output_unlock_times.push_back(height + CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW);
     }
 
-    if (hard_fork_version >= network_version_9_service_nodes) // Master Node Reward
+    if (hard_fork_version >= network_version_9_master_nodes) // Master Node Reward
     {
-      for (size_t i = 0; i < service_node_info.size(); i++)
+      for (size_t i = 0; i < master_node_info.size(); i++)
       {
         crypto::key_derivation derivation = AUTO_VAL_INIT(derivation);
         crypto::public_key out_eph_public_key = AUTO_VAL_INIT(out_eph_public_key);
-        bool r = crypto::generate_key_derivation(service_node_info[i].first.m_view_public_key, gov_key.sec, derivation);
-        CHECK_AND_ASSERT_MES(r, false, "while creating outs: failed to generate_key_derivation(" << service_node_info[i].first.m_view_public_key << ", " << gov_key.sec << ")");
-        r = crypto::derive_public_key(derivation, 1+i, service_node_info[i].first.m_spend_public_key, out_eph_public_key);
-        CHECK_AND_ASSERT_MES(r, false, "while creating outs: failed to derive_public_key(" << derivation << ", " << (1+i) << ", "<< service_node_info[i].first.m_spend_public_key << ")");
+        bool r = crypto::generate_key_derivation(master_node_info[i].first.m_view_public_key, gov_key.sec, derivation);
+        CHECK_AND_ASSERT_MES(r, false, "while creating outs: failed to generate_key_derivation(" << master_node_info[i].first.m_view_public_key << ", " << gov_key.sec << ")");
+        r = crypto::derive_public_key(derivation, 1+i, master_node_info[i].first.m_spend_public_key, out_eph_public_key);
+        CHECK_AND_ASSERT_MES(r, false, "while creating outs: failed to derive_public_key(" << derivation << ", " << (1+i) << ", "<< master_node_info[i].first.m_spend_public_key << ")");
 
         txout_to_key tk;
         tk.key = out_eph_public_key;
 
         tx_out out;
-        summary_amounts += out.amount = get_portion_of_reward(service_node_info[i].second, reward_parts.service_node_total);
+        summary_amounts += out.amount = get_portion_of_reward(master_node_info[i].second, reward_parts.master_node_total);
         out.target = tk;
         tx.vout.push_back(out);
         tx.output_unlock_times.push_back(height + CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW);
@@ -354,7 +354,7 @@ namespace cryptonote
       }
     }
 
-    uint64_t expected_amount = reward_parts.miner_reward() + reward_parts.governance + reward_parts.service_node_paid;
+    uint64_t expected_amount = reward_parts.miner_reward() + reward_parts.governance + reward_parts.master_node_paid;
     CHECK_AND_ASSERT_MES(summary_amounts == expected_amount, false, "Failed to construct miner tx, summary_amounts = " << summary_amounts << " not equal total block_reward = " << expected_amount);
 
     //lock
@@ -391,9 +391,9 @@ namespace cryptonote
 
     //TODO: declining governance reward schedule
     result.original_base_reward = base_reward;
-    result.service_node_total   = service_node_reward_formula(base_reward, hard_fork_version);
-    if (beldex_context.snode_winner_info.empty()) result.service_node_paid = calculate_sum_of_portions(service_nodes::null_winner,     result.service_node_total);
-    else                                        result.service_node_paid = calculate_sum_of_portions(beldex_context.snode_winner_info, result.service_node_total);
+    result.master_node_total   = master_node_reward_formula(base_reward, hard_fork_version);
+    if (beldex_context.snode_winner_info.empty()) result.master_node_paid = calculate_sum_of_portions(master_nodes::null_winner,     result.master_node_total);
+    else                                        result.master_node_paid = calculate_sum_of_portions(beldex_context.snode_winner_info, result.master_node_total);
 
     result.adjusted_base_reward = result.original_base_reward;
     if (hard_fork_version >= network_version_10_bulletproofs)
@@ -413,7 +413,7 @@ namespace cryptonote
       result.governance = governance_reward_formula(result.original_base_reward);
     }
 
-    result.base_miner     = result.adjusted_base_reward - (result.governance + result.service_node_paid);
+    result.base_miner     = result.adjusted_base_reward - (result.governance + result.master_node_paid);
     result.base_miner_fee = beldex_context.fee;
     return true;
   }

@@ -160,7 +160,7 @@ namespace cryptonote
     bool transfer(const std::vector<std::string> &args);
     bool locked_transfer(const std::vector<std::string> &args);
     bool stake(const std::vector<std::string> &args_);
-    bool register_service_node(const std::vector<std::string> &args_);
+    bool register_master_node(const std::vector<std::string> &args_);
     bool request_stake_unlock(const std::vector<std::string> &args_);
     bool print_locked_stakes(const std::vector<std::string> &args_);
     bool print_locked_stakes_main(const std::vector<std::string> &args_, bool print_result);
@@ -249,8 +249,8 @@ namespace cryptonote
     bool version(const std::vector<std::string>& args);
     bool cold_sign_tx(const std::vector<tools::wallet2::pending_tx>& ptx_vector, tools::wallet2::signed_tx_set &exported_txs, std::vector<cryptonote::address_parse_info> &dsts_info, std::function<bool(const tools::wallet2::signed_tx_set &)> accept_func);
 
-    bool register_service_node_main(
-        const std::vector<std::string>& service_node_key_as_str,
+    bool register_master_node_main(
+        const std::vector<std::string>& master_node_key_as_str,
         const cryptonote::account_public_address& address,
         uint32_t priority,
         const std::vector<uint64_t>& portions,

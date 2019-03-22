@@ -106,12 +106,12 @@ struct event_visitor_settings
 {
   int valid_mask;
   bool txs_keeped_by_block;
-  crypto::secret_key service_node_key;
+  crypto::secret_key master_node_key;
 
   enum settings
   {
     set_txs_keeped_by_block = 1 << 0,
-    set_service_node_key = 1 << 1
+    set_master_node_key = 1 << 1
   };
 
   event_visitor_settings(int a_valid_mask = 0, bool a_txs_keeped_by_block = false)
@@ -120,10 +120,10 @@ struct event_visitor_settings
   {
   }
 
-  static event_visitor_settings make_set_service_node_key(const crypto::secret_key& a_service_node_key)
+  static event_visitor_settings make_set_master_node_key(const crypto::secret_key& a_master_node_key)
   {
-    event_visitor_settings settings(set_service_node_key);
-    settings.service_node_key = a_service_node_key;
+    event_visitor_settings settings(set_master_node_key);
+    settings.master_node_key = a_master_node_key;
     return settings;
   }
 
@@ -135,7 +135,7 @@ private:
   {
     ar & valid_mask;
     ar & txs_keeped_by_block;
-    ar & service_node_key;
+    ar & master_node_key;
   }
 };
 
@@ -324,7 +324,7 @@ class linear_chain_generator
                                       uint64_t amount,
                                       uint64_t fee = TESTS_DEFAULT_FEE);
 
-    cryptonote::transaction create_registration_tx(const cryptonote::account_base& acc, const cryptonote::keypair& sn_keys);
+    cryptonote::transaction create_registration_tx(const cryptonote::account_base& acc, const cryptonote::keypair& mn_keys);
 
     cryptonote::transaction create_registration_tx();
 
@@ -925,7 +925,7 @@ inline bool do_replay_file(const std::string& filename)
 
 cryptonote::transaction make_registration_tx(std::vector<test_event_entry>& events,
                                              const cryptonote::account_base& account,
-                                             const cryptonote::keypair& service_node_keys,
+                                             const cryptonote::keypair& master_node_keys,
                                              uint64_t operator_cut,
                                              const std::vector<cryptonote::account_public_address>& addresses,
                                              const std::vector<uint64_t>& portions,
@@ -934,7 +934,7 @@ cryptonote::transaction make_registration_tx(std::vector<test_event_entry>& even
 
 cryptonote::transaction make_default_registration_tx(std::vector<test_event_entry>& events,
                                                      const cryptonote::account_base& account,
-                                                     const cryptonote::keypair& service_node_keys,
+                                                     const cryptonote::keypair& master_node_keys,
                                                      const cryptonote::block& head,
                                                      uint8_t hf_version);
 
@@ -942,7 +942,7 @@ cryptonote::transaction make_default_registration_tx(std::vector<test_event_entr
 cryptonote::transaction make_deregistration_tx(const std::vector<test_event_entry>& events,
                                                const cryptonote::account_base& account,
                                                const cryptonote::block& head,
-                                               const cryptonote::tx_extra_service_node_deregister& deregister, uint8_t hf_version, uint64_t fee);
+                                               const cryptonote::tx_extra_master_node_deregister& deregister, uint8_t hf_version, uint64_t fee);
 
 // NOTE(beldex): These macros assume hardfork version 7 and are from the old Monero testing code
 #define MAKE_TX_MIX(VEC_EVENTS, TX_NAME, FROM, TO, AMOUNT, NMIX, HEAD)                       \

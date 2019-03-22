@@ -2,12 +2,12 @@
 
 #include "crypto/crypto.h"
 #include "cryptonote_config.h"
-#include "service_node_deregister.h"
+#include "master_node_deregister.h"
 
-namespace service_nodes {
+namespace master_nodes {
   constexpr size_t   QUORUM_SIZE                      = 10;
   constexpr size_t   QUORUM_LIFETIME                  = (6 * deregister_vote::DEREGISTER_LIFETIME_BY_HEIGHT);
-  constexpr size_t   MIN_VOTES_TO_KICK_SERVICE_NODE   = 7;
+  constexpr size_t   MIN_VOTES_TO_KICK_MASTER_NODE   = 7;
   constexpr size_t   NTH_OF_THE_NETWORK_TO_TEST       = 100;
   constexpr size_t   MIN_NODES_TO_TEST                = 50;
   constexpr size_t   MAX_SWARM_SIZE                   = 10;
@@ -44,7 +44,7 @@ uint64_t portions_to_amount(uint64_t portions, uint64_t staking_requirement);
 
 /// Check if portions are sufficiently large (provided the contributions
 /// are made in the specified order) and don't exceed the required amount
-bool check_service_node_portions(uint8_t version, const std::vector<uint64_t>& portions);
+bool check_master_node_portions(uint8_t version, const std::vector<uint64_t>& portions);
 
 crypto::hash generate_request_stake_unlock_hash(uint32_t nonce);
 uint64_t     get_locked_key_image_unlock_height(cryptonote::network_type nettype, uint64_t node_register_height, uint64_t curr_height);

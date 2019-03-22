@@ -158,15 +158,15 @@ public:
 
   bool pop_blocks(uint64_t num_blocks);
 
-  bool print_sn_key();
+  bool print_mn_key();
 
-  bool print_sn_status(const std::vector<std::string>& args);
+  bool print_mn_status(const std::vector<std::string>& args);
 
   bool print_sr(uint64_t height);
 
   bool prepare_registration();
 
-  bool print_sn(const std::vector<std::string> &args);
+  bool print_mn(const std::vector<std::string> &args);
 
   bool prune_blockchain();
 

@@ -43,7 +43,7 @@
 #include "common_defines.h"
 #include "common/util.h"
 
-#include "cryptonote_core/service_node_rules.h"
+#include "cryptonote_core/master_node_rules.h"
 
 #include "mnemonics/electrum-words.h"
 #include "mnemonics/english.h"
@@ -294,7 +294,7 @@ bool Wallet::paymentIdValid(const string &paiment_id)
     return false;
 }
 
-bool Wallet::serviceNodePubkeyValid(const std::string &str)
+bool Wallet::masterNodePubkeyValid(const std::string &str)
 {
     crypto::public_key sn_key;
     return epee::string_tools::hex_to_pod(str, sn_key);

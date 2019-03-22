@@ -69,7 +69,7 @@ set(unit_tests_sources
   pruning.cpp
   random.cpp
   serialization.cpp
-  service_nodes.cpp
+  master_nodes.cpp
   sha256.cpp
   slow_memmem.cpp
   subaddress.cpp

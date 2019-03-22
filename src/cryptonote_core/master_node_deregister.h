@@ -41,10 +41,10 @@
 namespace cryptonote
 {
   struct vote_verification_context;
-  struct tx_extra_service_node_deregister;
+  struct tx_extra_master_node_deregister;
 };
 
-namespace service_nodes
+namespace master_nodes
 {
   struct quorum_state;
 
@@ -54,20 +54,20 @@ namespace service_nodes
     static const uint64_t DEREGISTER_LIFETIME_BY_HEIGHT = VOTE_LIFETIME_BY_HEIGHT;
 
     uint64_t          block_height;
-    uint32_t          service_node_index;
+    uint32_t          master_node_index;
     uint32_t          voters_quorum_index;
     crypto::signature signature;
 
-    static crypto::signature sign_vote(uint64_t block_height, uint32_t service_node_index, const crypto::public_key& pub, const crypto::secret_key& sec);
-    static bool verify_vote_signature (uint64_t block_height, uint32_t service_node_index, crypto::public_key const &p, crypto::signature const &s);
-    static bool verify_votes_signature(uint64_t block_height, uint32_t service_node_index, const std::vector<std::pair<crypto::public_key, crypto::signature>>& keys_and_sigs);
+    static crypto::signature sign_vote(uint64_t block_height, uint32_t master_node_index, const crypto::public_key& pub, const crypto::secret_key& sec);
+    static bool verify_vote_signature (uint64_t block_height, uint32_t master_node_index, crypto::public_key const &p, crypto::signature const &s);
+    static bool verify_votes_signature(uint64_t block_height, uint32_t master_node_index, const std::vector<std::pair<crypto::public_key, crypto::signature>>& keys_and_sigs);
 
-    static bool verify_deregister(cryptonote::network_type nettype, const cryptonote::tx_extra_service_node_deregister& deregister,
+    static bool verify_deregister(cryptonote::network_type nettype, const cryptonote::tx_extra_master_node_deregister& deregister,
                                   cryptonote::vote_verification_context& vvc,
-                                  const service_nodes::quorum_state &quorum);
+                                  const master_nodes::quorum_state &quorum);
 
     static bool verify_vote(cryptonote::network_type nettype, const deregister_vote& v, cryptonote::vote_verification_context &vvc,
-                            const service_nodes::quorum_state &quorum);
+                            const master_nodes::quorum_state &quorum);
   };
 
   class deregister_vote_pool
@@ -78,7 +78,7 @@ namespace service_nodes
        */
       bool add_vote(const deregister_vote& new_vote,
                     cryptonote::vote_verification_context& vvc,
-                    const service_nodes::quorum_state &quorum_state,
+                    const master_nodes::quorum_state &quorum_state,
                     cryptonote::transaction &tx);
 
       // TODO(beldex): Review relay behaviour and all the cases when it should be triggered
@@ -100,12 +100,12 @@ namespace service_nodes
       struct deregister_group
       {
         uint64_t block_height;
-        uint32_t service_node_index;
+        uint32_t master_node_index;
         time_t   time_group_created;
 
         bool operator==(const deregister_group &other) const
         {
-          bool result = (block_height == other.block_height) && (service_node_index == other.service_node_index);
+          bool result = (block_height == other.block_height) && (master_node_index == other.master_node_index);
           return result;
         }
       };
@@ -116,7 +116,7 @@ namespace service_nodes
         {
           size_t res = 17;
           res = res * 31 + std::hash<uint64_t>()(deregister.block_height);
-          res = res * 31 + std::hash<uint32_t>()(deregister.service_node_index);
+          res = res * 31 + std::hash<uint32_t>()(deregister.master_node_index);
           res = res * 31 + std::hash<uint32_t>()(deregister.time_group_created);
           return res;
         }
@@ -125,5 +125,5 @@ namespace service_nodes
       std::unordered_map<deregister_group, std::vector<deregister_pool_entry>, deregister_group_hasher> m_deregisters;
       mutable epee::critical_section m_lock;
   };
-}; // namespace service_nodes
+}; // namespace master_nodes
 

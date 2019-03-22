@@ -59,7 +59,7 @@ template<> struct get_test_options<gen_batched_governance_reward>
 {
   const std::vector<std::pair<uint8_t, uint64_t>> hard_forks = { std::make_pair(cryptonote::network_version_7,               0),
                                                                  std::make_pair(cryptonote::network_version_8,               1),
-                                                                 std::make_pair(cryptonote::network_version_9_service_nodes, 2),
+                                                                 std::make_pair(cryptonote::network_version_9_master_nodes, 2),
                                                                  std::make_pair(cryptonote::network_version_10_bulletproofs, 3) };
   const cryptonote::test_options test_options = { hard_forks };
 };

@@ -29,15 +29,15 @@
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 #include "chaingen.h"
-#include "service_nodes.h"
-#include "cryptonote_core/service_node_list.h"
+#include "master_nodes.h"
+#include "cryptonote_core/master_node_list.h"
 
 using namespace std;
 
 using namespace epee;
 using namespace cryptonote;
 
-static const std::pair<const char*, const char*> service_node_keys[] = {
+static const std::pair<const char*, const char*> master_node_keys[] = {
   { "1c09e237e7f451ee5df4ea6db970ba0b17597d788106df0c3b436a8ff8c94806",
     "06d471cbb6d67cae5002f18dd1c46ae6307b474b6fad4d720bd639513438f219" },
   { "8336af81ddffa292122064b8ffa26977b76efdcfa441604b6013f43dd8e90101",
@@ -90,18 +90,18 @@ static const std::pair<const char*, const char*> service_node_keys[] = {
     "30660777ff79db10e735be0c79732d0cbd15d5812a59e3467fb6b4a7bc71a601" }
 };
 
-static const auto SN_KEYS_COUNT = sizeof(service_node_keys) / sizeof(service_node_keys[0]);
+static const auto MN_KEYS_COUNT = sizeof(master_node_keys) / sizeof(master_node_keys[0]);
 
-static_assert(SN_KEYS_COUNT == 25, "Need to adjust the key count (for readability)");
+static_assert(MN_KEYS_COUNT == 25, "Need to adjust the key count (for readability)");
 
 cryptonote::keypair get_static_keys(size_t idx) {
 
-  if (idx >= SN_KEYS_COUNT) { MERROR("out of bounds"); throw std::exception(); }
+  if (idx >= MN_KEYS_COUNT) { MERROR("out of bounds"); throw std::exception(); }
 
   cryptonote::keypair keypair;
 
-  epee::string_tools::hex_to_pod(service_node_keys[idx].first, keypair.sec);
-  epee::string_tools::hex_to_pod(service_node_keys[idx].second, keypair.pub);
+  epee::string_tools::hex_to_pod(master_node_keys[idx].first, keypair.sec);
+  epee::string_tools::hex_to_pod(master_node_keys[idx].second, keypair.pub);
 
   return keypair;
 }
@@ -110,16 +110,16 @@ cryptonote::keypair get_static_keys(size_t idx) {
 //-----------------------------------------------------------------------------------------------------
 //---------------------------------- Generate Master Nodes -------------------------------------------
 //-----------------------------------------------------------------------------------------------------
-gen_service_nodes::gen_service_nodes()
+gen_master_nodes::gen_master_nodes()
 {
   /// NOTE: we don't generate random keys here, because the verification will call its own constructor
-  m_alice_service_node_keys = get_static_keys(0);
+  m_alice_master_node_keys = get_static_keys(0);
 
-  REGISTER_CALLBACK("check_registered", gen_service_nodes::check_registered);
-  REGISTER_CALLBACK("check_expired", gen_service_nodes::check_expired);
+  REGISTER_CALLBACK("check_registered", gen_master_nodes::check_registered);
+  REGISTER_CALLBACK("check_expired", gen_master_nodes::check_expired);
 }
 //-----------------------------------------------------------------------------------------------------
-bool gen_service_nodes::generate(std::vector<test_event_entry> &events) const
+bool gen_master_nodes::generate(std::vector<test_event_entry> &events) const
 {
 
   linear_chain_generator gen(events);
@@ -128,8 +128,8 @@ bool gen_service_nodes::generate(std::vector<test_event_entry> &events) const
   const auto miner = gen.first_miner();
   const auto alice = gen.create_account();
 
-  const get_test_options<gen_service_nodes> test_options = {};
-  gen.rewind_until_version(test_options.hard_forks, network_version_9_service_nodes);
+  const get_test_options<gen_master_nodes> test_options = {};
+  gen.rewind_until_version(test_options.hard_forks, network_version_9_master_nodes);
   gen.rewind_blocks_n(10);
 
   gen.rewind_blocks();
@@ -139,13 +139,13 @@ bool gen_service_nodes::generate(std::vector<test_event_entry> &events) const
 
   gen.rewind_blocks();
 
-  const auto reg_tx = gen.create_registration_tx(alice, m_alice_service_node_keys);
+  const auto reg_tx = gen.create_registration_tx(alice, m_alice_master_node_keys);
 
   gen.create_block({reg_tx});
 
   DO_CALLBACK(events, "check_registered");
 
-  for (auto i = 0u; i < service_nodes::staking_num_lock_blocks(cryptonote::FAKECHAIN); ++i) {
+  for (auto i = 0u; i < master_nodes::staking_num_lock_blocks(cryptonote::FAKECHAIN); ++i) {
     gen.create_block();
   }
 
@@ -154,9 +154,9 @@ bool gen_service_nodes::generate(std::vector<test_event_entry> &events) const
   return true;
 }
 //-----------------------------------------------------------------------------------------------------
-bool gen_service_nodes::check_registered(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry> &events)
+bool gen_master_nodes::check_registered(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry> &events)
 {
-  DEFINE_TESTS_ERROR_CONTEXT("gen_service_nodes::check_registered");
+  DEFINE_TESTS_ERROR_CONTEXT("gen_master_nodes::check_registered");
 
   cryptonote::account_base alice = boost::get<cryptonote::account_base>(events[1]);
 
@@ -177,19 +177,19 @@ bool gen_service_nodes::check_registered(cryptonote::core& c, size_t ev_index, c
   CHECK_EQ(MK_COINS(101) - TESTS_DEFAULT_FEE - staking_requirement, unlocked_balance);
 
   /// check that alice is registered
-  const auto info_v = c.get_service_node_list_state({m_alice_service_node_keys.pub});
+  const auto info_v = c.get_master_node_list_state({m_alice_master_node_keys.pub});
   CHECK_EQ(info_v.empty(), false);
 
   return true;
 }
 //-----------------------------------------------------------------------------------------------------
-bool gen_service_nodes::check_expired(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry> &events)
+bool gen_master_nodes::check_expired(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry> &events)
 {
-  DEFINE_TESTS_ERROR_CONTEXT("gen_service_nodes::check_expired");
+  DEFINE_TESTS_ERROR_CONTEXT("gen_master_nodes::check_expired");
 
   cryptonote::account_base alice = boost::get<cryptonote::account_base>(events[1]);
 
-  const auto stake_lock_time = service_nodes::staking_num_lock_blocks(cryptonote::FAKECHAIN);
+  const auto stake_lock_time = master_nodes::staking_num_lock_blocks(cryptonote::FAKECHAIN);
 
   std::vector<block> blocks;
   size_t count = 15 + (2 * CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW) + stake_lock_time;
@@ -201,7 +201,7 @@ bool gen_service_nodes::check_expired(cryptonote::core& c, size_t ev_index, cons
   CHECK_TEST_CONDITION(r);
 
   /// check that alice's registration expired
-  const auto info_v = c.get_service_node_list_state({m_alice_service_node_keys.pub});
+  const auto info_v = c.get_master_node_list_state({m_alice_master_node_keys.pub});
   CHECK_EQ(info_v.empty(), true);
 
   /// check that alice received some master node rewards (TODO: check the balance precisely)
@@ -227,7 +227,7 @@ bool test_prefer_deregisters::generate(std::vector<test_event_entry> &events)
   const auto alice = gen.create_account();
 
   const get_test_options<test_prefer_deregisters> test_options = {};
-  gen.rewind_until_version(test_options.hard_forks, network_version_9_service_nodes);
+  gen.rewind_until_version(test_options.hard_forks, network_version_9_master_nodes);
 
   /// give miner some outputs to spend and unlock them
   gen.rewind_blocks_n(60);
@@ -311,7 +311,7 @@ bool test_zero_fee_deregister::generate(std::vector<test_event_entry> &events)
   gen.create_genesis_block();
 
   const get_test_options<test_zero_fee_deregister> test_options = {};
-  gen.rewind_until_version(test_options.hard_forks, network_version_9_service_nodes);
+  gen.rewind_until_version(test_options.hard_forks, network_version_9_master_nodes);
 
   /// give miner some outputs to spend and unlock them
   gen.rewind_blocks_n(20);
@@ -354,27 +354,27 @@ bool test_deregister_safety_buffer::generate(std::vector<test_event_entry> &even
   const auto miner = gen.first_miner();
 
   const get_test_options<test_deregister_safety_buffer> test_options = {};
-  gen.rewind_until_version(test_options.hard_forks, network_version_9_service_nodes);
+  gen.rewind_until_version(test_options.hard_forks, network_version_9_master_nodes);
 
   /// give miner some outputs to spend and unlock them
   gen.rewind_blocks_n(40);
   gen.rewind_blocks();
 
   /// save generated keys here
-  std::vector<cryptonote::keypair> used_sn_keys;
+  std::vector<cryptonote::keypair> used_mn_keys;
 
   /// register 21 random master nodes
   std::vector<cryptonote::transaction> reg_txs;
 
-  constexpr auto SERVICE_NODES_NEEDED = service_nodes::QUORUM_SIZE * 2 + 1;
-  static_assert(SN_KEYS_COUNT >= SERVICE_NODES_NEEDED, "not enough pre-computed master node keys");
+  constexpr auto MASTER_NODES_NEEDED = master_nodes::QUORUM_SIZE * 2 + 1;
+  static_assert(MN_KEYS_COUNT >= MASTER_NODES_NEEDED, "not enough pre-computed master node keys");
 
-  for (auto i = 0u; i < SERVICE_NODES_NEEDED; ++i)
+  for (auto i = 0u; i < MASTER_NODES_NEEDED; ++i)
   {
-    const auto sn_keys = get_static_keys(i);
-    used_sn_keys.push_back(sn_keys);
+    const auto mn_keys = get_static_keys(i);
+    used_mn_keys.push_back(mn_keys);
 
-    const auto tx = gen.create_registration_tx(miner, sn_keys);
+    const auto tx = gen.create_registration_tx(miner, mn_keys);
     reg_txs.push_back(tx);
   }
 
@@ -385,7 +385,7 @@ bool test_deregister_safety_buffer::generate(std::vector<test_event_entry> &even
   /// Note: would've used sets, but need `less` for public keys etc.
   std::vector<crypto::public_key> sn_set_A;
 
-  for (const auto& sn : gen.get_quorum_idxs(heightA).to_test) {
+  for (const auto& mn : gen.get_quorum_idxs(heightA).to_test) {
     sn_set_A.push_back(sn.sn_pk);
   }
 
@@ -398,14 +398,14 @@ bool test_deregister_safety_buffer::generate(std::vector<test_event_entry> &even
 
   std::vector<crypto::public_key> sn_set_B;
 
-  for (const auto& sn : gen.get_quorum_idxs(heightB).to_test) {
+  for (const auto& mn : gen.get_quorum_idxs(heightB).to_test) {
     sn_set_B.push_back(sn.sn_pk);
   }
 
   /// Guaranteed to contain at least one element
   std::vector<crypto::public_key> tested_twice;
 
-  for (const auto& sn : sn_set_A) {
+  for (const auto& mn : sn_set_A) {
     if (std::find(sn_set_B.begin(), sn_set_B.end(), sn) != sn_set_B.end()) {
       tested_twice.push_back(sn);
     }
@@ -424,11 +424,11 @@ bool test_deregister_safety_buffer::generate(std::vector<test_event_entry> &even
   /// Register the node again
   {
     // find secret key for pk:
-    auto it = std::find_if(used_sn_keys.begin(), used_sn_keys.end(), [&pk](const cryptonote::keypair& keys) {
+    auto it = std::find_if(used_mn_keys.begin(), used_mn_keys.end(), [&pk](const cryptonote::keypair& keys) {
       return keys.pub == pk;
     });
 
-    if (it == used_sn_keys.end()) { MERROR("SN pub key not found in generated keys"); return false; };
+    if (it == used_mn_keys.end()) { MERROR("MN pub key not found in generated keys"); return false; };
 
     const auto tx = gen.create_registration_tx(miner, *it);
     gen.create_block({tx});
@@ -463,7 +463,7 @@ bool test_deregisters_on_split::generate(std::vector<test_event_entry> &events)
   gen.create_genesis_block();
 
   const get_test_options<test_deregisters_on_split> test_options = {};
-  gen.rewind_until_version(test_options.hard_forks, network_version_9_service_nodes);
+  gen.rewind_until_version(test_options.hard_forks, network_version_9_master_nodes);
 
   /// generate some outputs and unlock them
   gen.rewind_blocks_n(20);
@@ -472,7 +472,7 @@ bool test_deregisters_on_split::generate(std::vector<test_event_entry> &events)
   /// register 12 random master nodes
   std::vector<cryptonote::transaction> reg_txs;
   for (auto i = 0; i < 12; ++i) {
-    const auto sn = get_static_keys(i);
+    const auto mn = get_static_keys(i);
     const auto tx = gen.create_registration_tx(gen.first_miner(), sn);
     reg_txs.push_back(tx);
   }
@@ -569,7 +569,7 @@ bool deregister_too_old::generate(std::vector<test_event_entry>& events)
   gen.create_genesis_block();
 
   const get_test_options<deregister_too_old> test_options = {};
-  gen.rewind_until_version(test_options.hard_forks, network_version_9_service_nodes);
+  gen.rewind_until_version(test_options.hard_forks, network_version_9_master_nodes);
 
   /// generate some outputs and unlock them
   gen.rewind_blocks_n(20);
@@ -578,7 +578,7 @@ bool deregister_too_old::generate(std::vector<test_event_entry>& events)
   /// register 11 master nodes (10 voters and 1 to test)
   std::vector<cryptonote::transaction> reg_txs;
   for (auto i = 0; i < 11; ++i) {
-    const auto sn = get_static_keys(i);
+    const auto mn = get_static_keys(i);
     const auto tx = gen.create_registration_tx(gen.first_miner(), sn);
     reg_txs.push_back(tx);
   }
@@ -590,7 +590,7 @@ bool deregister_too_old::generate(std::vector<test_event_entry>& events)
   const auto dereg_tx = gen.build_deregister(pk).build();
 
   /// create enough block to make deregistrations invalid (60 - 1 blocks)
-  gen.rewind_blocks_n(service_nodes::deregister_vote::DEREGISTER_LIFETIME_BY_HEIGHT-1);
+  gen.rewind_blocks_n(master_nodes::deregister_vote::DEREGISTER_LIFETIME_BY_HEIGHT-1);
 
   /// In the real world, this transaction should not make it into a block, but in this case we do try to add it (as in
   /// tests we must add specify transactions manually), which should exercise the same validation code and reject the
@@ -614,7 +614,7 @@ bool sn_test_rollback::generate(std::vector<test_event_entry>& events)
   gen.create_genesis_block();
 
   const get_test_options<sn_test_rollback> test_options = {};
-  gen.rewind_until_version(test_options.hard_forks, network_version_9_service_nodes);
+  gen.rewind_until_version(test_options.hard_forks, network_version_9_master_nodes);
 
   /// generate some outputs and unlock them
   gen.rewind_blocks_n(20);
@@ -625,7 +625,7 @@ bool sn_test_rollback::generate(std::vector<test_event_entry>& events)
   /// register some master nodes
   std::vector<cryptonote::transaction> reg_txs;
   for (auto i = 0; i < init_sn_count; ++i) {
-    const auto sn = get_static_keys(i);
+    const auto mn = get_static_keys(i);
     const auto tx = gen.create_registration_tx(gen.first_miner(), sn);
     reg_txs.push_back(tx);
   }
@@ -648,7 +648,7 @@ bool sn_test_rollback::generate(std::vector<test_event_entry>& events)
 
   /// create a new master node (B) in the next block
   {
-    const auto sn = get_static_keys(init_sn_count);
+    const auto mn = get_static_keys(init_sn_count);
     const auto tx = gen.create_registration_tx(gen.first_miner(), sn);
     gen.create_block({tx});
   }
@@ -664,7 +664,7 @@ bool sn_test_rollback::generate(std::vector<test_event_entry>& events)
   return true;
 }
 
-using sn_info_t = service_nodes::service_node_pubkey_info;
+using sn_info_t = master_nodes::master_node_pubkey_info;
 
 static bool contains(const std::vector<sn_info_t>& infos, const crypto::public_key& key)
 {
@@ -678,7 +678,7 @@ bool sn_test_rollback::test_registrations(cryptonote::core& c, size_t ev_index, 
 
   DEFINE_TESTS_ERROR_CONTEXT("sn_test_rollback::test_registrations");
 
-  const auto sn_list = c.get_service_node_list_state({});
+  const auto sn_list = c.get_master_node_list_state({});
 
   /// Test that node A is still registered
   {
@@ -691,12 +691,12 @@ bool sn_test_rollback::test_registrations(cryptonote::core& c, size_t ev_index, 
     const auto dereg_tx = boost::get<cryptonote::transaction>(event_a);
     CHECK_TEST_CONDITION(dereg_tx.get_type() == transaction::type_deregister);
 
-    tx_extra_service_node_deregister deregistration;
-    get_service_node_deregister_from_tx_extra(dereg_tx.extra, deregistration);
+    tx_extra_master_node_deregister deregistration;
+    get_master_node_deregister_from_tx_extra(dereg_tx.extra, deregistration);
 
     const auto quorum_state = c.get_quorum_state(deregistration.block_height);
     CHECK_TEST_CONDITION(quorum_state);
-    const auto pk_a = quorum_state->nodes_to_test.at(deregistration.service_node_index);
+    const auto pk_a = quorum_state->nodes_to_test.at(deregistration.master_node_index);
 
     /// Check present
     const bool found_a = contains(sn_list, pk_a);
@@ -712,7 +712,7 @@ bool sn_test_rollback::test_registrations(cryptonote::core& c, size_t ev_index, 
     const auto reg_tx = boost::get<cryptonote::transaction>(event_b);
 
     crypto::public_key pk_b;
-    if (!cryptonote::get_service_node_pubkey_from_tx_extra(reg_tx.extra, pk_b)) {
+    if (!cryptonote::get_master_node_pubkey_from_tx_extra(reg_tx.extra, pk_b)) {
       MERROR("Could not get master node key from tx extra");
       return false;
     }
@@ -741,7 +741,7 @@ bool test_swarms_basic::generate(std::vector<test_event_entry>& events)
   linear_chain_generator gen(events);
 
   const get_test_options<test_swarms_basic> test_options = {};
-  gen.rewind_until_version(test_options.hard_forks, network_version_9_service_nodes);
+  gen.rewind_until_version(test_options.hard_forks, network_version_9_master_nodes);
 
   /// Create some master nodes before hf version 10
   constexpr size_t init_sn_count = 16;
@@ -752,7 +752,7 @@ bool test_swarms_basic::generate(std::vector<test_event_entry>& events)
   /// register some master nodes
   std::vector<cryptonote::transaction> reg_txs;
   for (auto i = 0u; i < init_sn_count; ++i) {
-    const auto sn = get_static_keys(i);
+    const auto mn = get_static_keys(i);
     const auto tx = gen.create_registration_tx(gen.first_miner(), sn);
     reg_txs.push_back(tx);
   }
@@ -762,7 +762,7 @@ bool test_swarms_basic::generate(std::vector<test_event_entry>& events)
   /// create a few blocks with active master nodes
   gen.rewind_blocks_n(5);
 
-  if (gen.get_hf_version() != network_version_9_service_nodes) {
+  if (gen.get_hf_version() != network_version_9_master_nodes) {
     std::cerr << "wrong hf version\n";
     return false;
   }
@@ -773,8 +773,8 @@ bool test_swarms_basic::generate(std::vector<test_event_entry>& events)
   DO_CALLBACK(events, "test_initial_swarms");
 
   /// rewind some blocks and register more master nodes
-  for (auto i = init_sn_count; i < SN_KEYS_COUNT; ++i) {
-    const auto sn = get_static_keys(i);
+  for (auto i = init_sn_count; i < MN_KEYS_COUNT; ++i) {
+    const auto mn = get_static_keys(i);
     const auto tx = gen.create_registration_tx(gen.first_miner(), sn);
     gen.create_block({tx}); 
   }
@@ -784,7 +784,7 @@ bool test_swarms_basic::generate(std::vector<test_event_entry>& events)
 
   /// deregister a few snodes and test that both swarms are alive
   std::vector<cryptonote::transaction> dereg_txs;
-  for (auto i = 0u; i < service_nodes::SWARM_BUFFER; ++i) {
+  for (auto i = 0u; i < master_nodes::SWARM_BUFFER; ++i) {
     const auto pk = gen.get_test_pk(i);
     const auto tx = gen.build_deregister(pk).build();
     dereg_txs.push_back(tx);
@@ -802,9 +802,9 @@ bool test_swarms_basic::test_initial_swarms(cryptonote::core& c, size_t ev_index
   DEFINE_TESTS_ERROR_CONTEXT("test_swarms_basic::test_initial_swarms");
 
   /// Check that there is one active swarm and the swarm queue is not empty
-  const auto sn_list = c.get_service_node_list_state({});
+  const auto sn_list = c.get_master_node_list_state({});
 
-  std::map<service_nodes::swarm_id_t, std::vector<crypto::public_key>> swarms;
+  std::map<master_nodes::swarm_id_t, std::vector<crypto::public_key>> swarms;
 
   for (const auto& entry : sn_list) {
     const auto id = entry.info.swarm_id;
@@ -814,12 +814,12 @@ bool test_swarms_basic::test_initial_swarms(cryptonote::core& c, size_t ev_index
   /// One of the swarms represent a queue
   CHECK_EQ(swarms.size(), 2);
 
-  const size_t queue_size = swarms.at(service_nodes::QUEUE_SWARM_ID).size();
+  const size_t queue_size = swarms.at(master_nodes::QUEUE_SWARM_ID).size();
 
   /// No deregisters, so the swarms queue should be full
-  CHECK_TEST_CONDITION(queue_size > service_nodes::SWARM_BUFFER);
+  CHECK_TEST_CONDITION(queue_size > master_nodes::SWARM_BUFFER);
   /// We shouldn't have too many nodes in the queue
-  CHECK_TEST_CONDITION(queue_size < service_nodes::SWARM_BUFFER + service_nodes::MAX_SWARM_SIZE);
+  CHECK_TEST_CONDITION(queue_size < master_nodes::SWARM_BUFFER + master_nodes::MAX_SWARM_SIZE);
 
   return true;
 }
@@ -828,9 +828,9 @@ bool test_swarms_basic::test_with_more_sn(cryptonote::core& c, size_t ev_index, 
 {
   DEFINE_TESTS_ERROR_CONTEXT("test_swarms_basic::test_with_more_sn");
 
-  const auto sn_list = c.get_service_node_list_state({});
+  const auto sn_list = c.get_master_node_list_state({});
 
-  std::map<service_nodes::swarm_id_t, std::vector<crypto::public_key>> swarms;
+  std::map<master_nodes::swarm_id_t, std::vector<crypto::public_key>> swarms;
 
   for (const auto& entry : sn_list) {
     const auto id = entry.info.swarm_id;
@@ -846,9 +846,9 @@ bool test_swarms_basic::test_after_deregisters(cryptonote::core& c, size_t ev_in
 {
   DEFINE_TESTS_ERROR_CONTEXT("test_swarms_basic::test_after_deregisters");
 
-  const auto sn_list = c.get_service_node_list_state({});
+  const auto sn_list = c.get_master_node_list_state({});
 
-  std::map<service_nodes::swarm_id_t, std::vector<crypto::public_key>> swarms;
+  std::map<master_nodes::swarm_id_t, std::vector<crypto::public_key>> swarms;
 
   for (const auto& entry : sn_list) {
     const auto id = entry.info.swarm_id;
@@ -856,7 +856,7 @@ bool test_swarms_basic::test_after_deregisters(cryptonote::core& c, size_t ev_in
   }
 
   /// The two swarms are still active, but the queue in now showing in the swarms
-  CHECK_TEST_CONDITION(swarms.find(service_nodes::QUEUE_SWARM_ID) == swarms.end());
+  CHECK_TEST_CONDITION(swarms.find(master_nodes::QUEUE_SWARM_ID) == swarms.end());
   CHECK_EQ(swarms.size(), 2);
 
   return true;

@@ -3823,10 +3823,10 @@ namespace tools
       return false;
     }
 
-    if (!epee::string_tools::hex_to_pod(req.service_node_key, snode_key))
+    if (!epee::string_tools::hex_to_pod(req.master_node_key, snode_key))
     {
       er.code    = WALLET_RPC_ERROR_CODE_WRONG_KEY;
-      er.message = std::string("Unparsable master node key given: ") + req.service_node_key;
+      er.message = std::string("Unparsable master node key given: ") + req.master_node_key;
       return false;
     }
 
@@ -3844,7 +3844,7 @@ namespace tools
         res.tx_hash, req.get_tx_hex, res.tx_blob, req.get_tx_metadata, res.tx_metadata, er);
   }
 
-  bool wallet_rpc_server::on_register_service_node(const wallet_rpc::COMMAND_RPC_REGISTER_SERVICE_NODE::request& req, wallet_rpc::COMMAND_RPC_REGISTER_SERVICE_NODE::response& res, epee::json_rpc::error& er, const connection_context *ctx)
+  bool wallet_rpc_server::on_register_master_node(const wallet_rpc::COMMAND_RPC_REGISTER_MASTER_NODE::request& req, wallet_rpc::COMMAND_RPC_REGISTER_MASTER_NODE::response& res, epee::json_rpc::error& er, const connection_context *ctx)
   {
     if (!m_wallet) return not_open(er);
     if (m_restricted)
@@ -3855,17 +3855,17 @@ namespace tools
     }
 
     std::vector<std::string> args;
-    boost::split(args, req.register_service_node_str, boost::is_any_of(" "));
+    boost::split(args, req.register_master_node_str, boost::is_any_of(" "));
 
     if (args.size() > 0)
     {
-      if (args[0] == "register_service_node")
+      if (args[0] == "register_master_node")
         args.erase(args.begin());
     }
 
     // NOTE(beldex): Pre-emptively set subaddr_account to 0. We don't support onwards from Infinite Staking which is when this call was implemented.
-    tools::wallet2::register_service_node_result register_result = m_wallet->create_register_service_node_tx(args, 0 /*subaddr_account*/);
-    if (register_result.status != tools::wallet2::register_service_node_result_status::success)
+    tools::wallet2::register_master_node_result register_result = m_wallet->create_register_master_node_tx(args, 0 /*subaddr_account*/);
+    if (register_result.status != tools::wallet2::register_master_node_result_status::success)
     {
       er.code    = WALLET_RPC_ERROR_CODE_TX_NOT_POSSIBLE;
       er.message = register_result.msg;
@@ -3888,10 +3888,10 @@ namespace tools
     }
 
     crypto::public_key snode_key             = {};
-    if (!epee::string_tools::hex_to_pod(req.service_node_key, snode_key))
+    if (!epee::string_tools::hex_to_pod(req.master_node_key, snode_key))
     {
       er.code    = WALLET_RPC_ERROR_CODE_WRONG_KEY;
-      er.message = std::string("Unparsable master node key given: ") + req.service_node_key;
+      er.message = std::string("Unparsable master node key given: ") + req.master_node_key;
       return false;
     }
 
@@ -3913,10 +3913,10 @@ namespace tools
     }
 
     crypto::public_key snode_key             = {};
-    if (!epee::string_tools::hex_to_pod(req.service_node_key, snode_key))
+    if (!epee::string_tools::hex_to_pod(req.master_node_key, snode_key))
     {
       er.code    = WALLET_RPC_ERROR_CODE_WRONG_KEY;
-      er.message = std::string("Unparsable master node key given: ") + req.service_node_key;
+      er.message = std::string("Unparsable master node key given: ") + req.master_node_key;
       return false;
     }
 

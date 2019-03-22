@@ -124,8 +124,8 @@ namespace cryptonote
 
     if (tx_type == transaction::type_deregister)
     {
-      tx_extra_service_node_deregister deregister;
-      if (!get_service_node_deregister_from_tx_extra(tx.extra, deregister))
+      tx_extra_master_node_deregister deregister;
+      if (!get_master_node_deregister_from_tx_extra(tx.extra, deregister))
       {
         MERROR("Could not get master node deregister from tx, possibly corrupt tx in your blockchain, rejecting malformed deregister");
         return true;
@@ -138,15 +138,15 @@ namespace cryptonote
         if (pool_tx.get_type() != transaction::type_deregister)
           continue;
 
-        tx_extra_service_node_deregister pool_tx_deregister;
-        if (!get_service_node_deregister_from_tx_extra(pool_tx.extra, pool_tx_deregister))
+        tx_extra_master_node_deregister pool_tx_deregister;
+        if (!get_master_node_deregister_from_tx_extra(pool_tx.extra, pool_tx_deregister))
         {
           MERROR("Could not get master node deregister from tx, possibly corrupt tx in your blockchain");
           continue;
         }
 
         if ((pool_tx_deregister.block_height       == deregister.block_height) &&
-            (pool_tx_deregister.service_node_index == deregister.service_node_index))
+            (pool_tx_deregister.master_node_index == deregister.master_node_index))
         {
           return true;
         }

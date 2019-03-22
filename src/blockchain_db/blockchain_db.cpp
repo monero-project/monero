@@ -147,7 +147,7 @@ void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const transacti
 
     crypto::secret_key secret_tx_key;
     cryptonote::account_public_address address;
-    if (get_tx_secret_key_from_tx_extra(tx.extra, secret_tx_key) && get_service_node_contributor_from_tx_extra(tx.extra, address))
+    if (get_tx_secret_key_from_tx_extra(tx.extra, secret_tx_key) && get_master_node_contributor_from_tx_extra(tx.extra, address))
       has_blacklisted_outputs = true;
   }
 

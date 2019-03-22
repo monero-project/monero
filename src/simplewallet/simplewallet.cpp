@@ -59,8 +59,8 @@
 #include "common/scoped_message_writer.h"
 #include "common/loki_integration_test_hooks.h"
 #include "cryptonote_protocol/cryptonote_protocol_handler.h"
-#include "cryptonote_core/service_node_deregister.h"
-#include "cryptonote_core/service_node_list.h"
+#include "cryptonote_core/master_node_deregister.h"
+#include "cryptonote_core/master_node_list.h"
 #include "simplewallet.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "storages/http_abstract_invoke.h"
@@ -253,9 +253,9 @@ namespace
   //
   // Beldex
   //
-  const char* USAGE_REGISTER_SERVICE_NODE("register_service_node [index=<N1>[,<N2>,...]] [priority] <operator cut> <address1> <fraction1> [<address2> <fraction2> [...]] <expiration timestamp> <pubkey> <signature>");
+  const char* USAGE_REGISTER_MASTER_NODE("register_master_node [index=<N1>[,<N2>,...]] [priority] <operator cut> <address1> <fraction1> [<address2> <fraction2> [...]] <expiration timestamp> <pubkey> <signature>");
   const char* USAGE_STAKE("stake [index=<N1>[,<N2>,...]] [priority] <master node pubkey> <amount|percent%>");
-  const char* USAGE_REQUEST_STAKE_UNLOCK("request_stake_unlock <service_node_pubkey>");
+  const char* USAGE_REQUEST_STAKE_UNLOCK("request_stake_unlock <master_node_pubkey>");
   const char* USAGE_PRINT_LOCKED_STAKES("print_locked_stakes");
 
 #if defined (BELDEX_ENABLE_INTEGRATION_TEST_HOOKS)
@@ -2981,9 +2981,9 @@ simple_wallet::simple_wallet()
   //
   // Beldex
   //
-  m_cmd_binder.set_handler("register_service_node",
-                           boost::bind(&simple_wallet::register_service_node, this, _1),
-                           tr(USAGE_REGISTER_SERVICE_NODE),
+  m_cmd_binder.set_handler("register_master_node",
+                           boost::bind(&simple_wallet::register_master_node, this, _1),
+                           tr(USAGE_REGISTER_MASTER_NODE),
                            tr("Send <amount> to this wallet's main account, locked for the required staking time plus a small buffer. If the parameter \"index<N1>[,<N2>,...]\" is specified, the wallet stakes outputs received by those address indices. <priority> is the priority of the stake. The higher the priority, the higher the transaction fee. Valid values in priority order (from lowest to highest) are: unimportant, normal, elevated, priority. If omitted, the default value (see the command \"set priority\") is used."));
   m_cmd_binder.set_handler("stake",
                            boost::bind(&simple_wallet::stake, this, _1),
@@ -5709,23 +5709,23 @@ bool simple_wallet::locked_sweep_all(const std::vector<std::string> &args_)
   return sweep_main(0, true, args_);
 }
 //----------------------------------------------------------------------------------------------------
-bool simple_wallet::register_service_node(const std::vector<std::string> &args_)
+bool simple_wallet::register_master_node(const std::vector<std::string> &args_)
 {
   if (!try_connect_to_daemon())
     return true;
 
   SCOPED_WALLET_UNLOCK()
-  tools::wallet2::register_service_node_result result = m_wallet->create_register_service_node_tx(args_, m_current_subaddress_account);
-  if (result.status != tools::wallet2::register_service_node_result_status::success)
+  tools::wallet2::register_master_node_result result = m_wallet->create_register_master_node_tx(args_, m_current_subaddress_account);
+  if (result.status != tools::wallet2::register_master_node_result_status::success)
   {
     fail_msg_writer() << result.msg;
-    if (result.status == tools::wallet2::register_service_node_result_status::insufficient_num_args ||
-        result.status == tools::wallet2::register_service_node_result_status::service_node_key_parse_fail ||
-        result.status == tools::wallet2::register_service_node_result_status::service_node_signature_parse_fail ||
-        result.status == tools::wallet2::register_service_node_result_status::subaddr_indices_parse_fail ||
-        result.status == tools::wallet2::register_service_node_result_status::convert_registration_args_failed)
+    if (result.status == tools::wallet2::register_master_node_result_status::insufficient_num_args ||
+        result.status == tools::wallet2::register_master_node_result_status::master_node_key_parse_fail ||
+        result.status == tools::wallet2::register_master_node_result_status::master_node_signature_parse_fail ||
+        result.status == tools::wallet2::register_master_node_result_status::subaddr_indices_parse_fail ||
+        result.status == tools::wallet2::register_master_node_result_status::convert_registration_args_failed)
     {
-      fail_msg_writer() << USAGE_REGISTER_SERVICE_NODE;
+      fail_msg_writer() << USAGE_REGISTER_MASTER_NODE;
     }
     return true;
   }
@@ -5762,7 +5762,7 @@ bool simple_wallet::stake(const std::vector<std::string> &args_)
   //
   // Parse Arguments from Args
   //
-  crypto::public_key service_node_key = {};
+  crypto::public_key master_node_key = {};
   uint32_t priority = 0;
   std::set<uint32_t> subaddr_indices = {};
   uint64_t amount = 0;
@@ -5790,7 +5790,7 @@ bool simple_wallet::stake(const std::vector<std::string> &args_)
       return true;
     }
 
-    if (!epee::string_tools::hex_to_pod(local_args[0], service_node_key))
+    if (!epee::string_tools::hex_to_pod(local_args[0], master_node_key))
     {
       fail_msg_writer() << tr("failed to parse master node pubkey");
       return true;
@@ -5839,7 +5839,7 @@ bool simple_wallet::stake(const std::vector<std::string> &args_)
 
       time_t begin_construct_time = time(nullptr);
 
-      tools::wallet2::stake_result stake_result = m_wallet->create_stake_tx(service_node_key, info, amount, amount_fraction, priority, m_current_subaddress_account, subaddr_indices);
+      tools::wallet2::stake_result stake_result = m_wallet->create_stake_tx(master_node_key, info, amount, amount_fraction, priority, m_current_subaddress_account, subaddr_indices);
       if (stake_result.status != tools::wallet2::stake_result_status::success)
       {
         fail_msg_writer() << stake_result.msg;
@@ -5956,7 +5956,7 @@ bool simple_wallet::print_locked_stakes_main(const std::vector<std::string> &arg
   {
     using namespace cryptonote;
     boost::optional<std::string> failed;
-    const std::vector<COMMAND_RPC_GET_SERVICE_NODES::response::entry> response = m_wallet->get_all_service_nodes(failed);
+    const std::vector<COMMAND_RPC_GET_MASTER_NODES::response::entry> response = m_wallet->get_all_master_nodes(failed);
     if (failed)
     {
       fail_msg_writer() << *failed;
@@ -5964,10 +5964,10 @@ bool simple_wallet::print_locked_stakes_main(const std::vector<std::string> &arg
     }
 
     cryptonote::account_public_address const primary_address = m_wallet->get_address();
-    for (COMMAND_RPC_GET_SERVICE_NODES::response::entry const &node_info : response)
+    for (COMMAND_RPC_GET_MASTER_NODES::response::entry const &node_info : response)
     {
       bool only_once = true;
-      for (COMMAND_RPC_GET_SERVICE_NODES::response::contributor const &contributor : node_info.contributors)
+      for (COMMAND_RPC_GET_MASTER_NODES::response::contributor const &contributor : node_info.contributors)
       {
         address_parse_info address_info = {};
         if (!cryptonote::get_account_address_from_str(address_info, m_wallet->nettype(), contributor.address))
@@ -5981,7 +5981,7 @@ bool simple_wallet::print_locked_stakes_main(const std::vector<std::string> &arg
 
         for (size_t i = 0; i < contributor.locked_contributions.size(); ++i)
         {
-          COMMAND_RPC_GET_SERVICE_NODES::response::contribution const &contribution = contributor.locked_contributions[i];
+          COMMAND_RPC_GET_MASTER_NODES::response::contribution const &contribution = contributor.locked_contributions[i];
           has_locked_stakes = true;
 
           if (!print_result)
@@ -5992,11 +5992,11 @@ bool simple_wallet::print_locked_stakes_main(const std::vector<std::string> &arg
           {
             only_once = false;
             msg_buf.append("Master Node: ");
-            msg_buf.append(node_info.service_node_pubkey);
+            msg_buf.append(node_info.master_node_pubkey);
             msg_buf.append("\n");
 
             msg_buf.append("Unlock Height: ");
-            if (node_info.requested_unlock_height == service_nodes::KEY_IMAGE_AWAITING_UNLOCK_HEIGHT)
+            if (node_info.requested_unlock_height == master_nodes::KEY_IMAGE_AWAITING_UNLOCK_HEIGHT)
                 msg_buf.append("Unlock not requested yet");
             else
                 msg_buf.append(std::to_string(node_info.requested_unlock_height));
@@ -6030,7 +6030,7 @@ bool simple_wallet::print_locked_stakes_main(const std::vector<std::string> &arg
   {
     using namespace cryptonote;
     boost::optional<std::string> failed;
-    const std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODE_BLACKLISTED_KEY_IMAGES::entry> response = m_wallet->get_service_node_blacklisted_key_images(failed);
+    const std::vector<cryptonote::COMMAND_RPC_GET_MASTER_NODE_BLACKLISTED_KEY_IMAGES::entry> response = m_wallet->get_master_node_blacklisted_key_images(failed);
     if (failed)
     {
       fail_msg_writer() << *failed;
@@ -6042,7 +6042,7 @@ bool simple_wallet::print_locked_stakes_main(const std::vector<std::string> &arg
     binary_buf.reserve(sizeof(crypto::key_image));
     for (size_t i = 0; i < response.size(); ++i)
     {
-      COMMAND_RPC_GET_SERVICE_NODE_BLACKLISTED_KEY_IMAGES::entry const &entry = response[i];
+      COMMAND_RPC_GET_MASTER_NODE_BLACKLISTED_KEY_IMAGES::entry const &entry = response[i];
       binary_buf.clear();
       if(!epee::string_tools::parse_hexstr_to_binbuff(entry.key_image, binary_buf) || binary_buf.size() != sizeof(crypto::key_image))
       {
@@ -6338,7 +6338,7 @@ bool simple_wallet::sweep_main_internal(sweep_type_t sweep_type, std::vector<too
   if (sweep_type == sweep_type_t::register_stake && submitted_to_network)
   {
     success_msg_writer() << tr("Wait for transaction to be included in a block before registration is complete.\n")
-                         << tr("Use the print_sn command in the daemon to check the status.");
+                         << tr("Use the print_mn command in the daemon to check the status.");
   }
 
   return true;
@@ -7577,7 +7577,7 @@ bool simple_wallet::get_transfers(std::vector<std::string>& local_args, std::vec
       // NOTE(beldex): Technically we don't allow custom unlock times per output
       // yet. So if we detect _any_ output that has the staking lock time, then
       // we can assume it's a staking transfer
-      const uint64_t staking_duration = service_nodes::staking_num_lock_blocks(m_wallet->nettype());
+      const uint64_t staking_duration = master_nodes::staking_num_lock_blocks(m_wallet->nettype());
       bool locked = false;
 
       tools::pay_type type = tools::pay_type::out;
@@ -7740,7 +7740,7 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
         case tools::pay_type::miner:        color = console_color_cyan; break;
         case tools::pay_type::governance:   color = console_color_cyan; break;
         case tools::pay_type::stake:        color = console_color_blue; break;
-        case tools::pay_type::service_node: color = console_color_cyan; break;
+        case tools::pay_type::master_node: color = console_color_cyan; break;
         default:                            color = console_color_magenta; break;
       }
     }
@@ -7762,7 +7762,7 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
 
         if (transfer.type == tools::pay_type::in ||
             transfer.type == tools::pay_type::governance ||
-            transfer.type == tools::pay_type::service_node ||
+            transfer.type == tools::pay_type::master_node ||
             transfer.type == tools::pay_type::miner)
           destinations += output.wallet_addr.substr(0, 6);
         else
@@ -7838,7 +7838,7 @@ bool simple_wallet::export_transfers(const std::vector<std::string>& args_)
       {
         case tools::pay_type::in:
         case tools::pay_type::miner:
-        case tools::pay_type::service_node:
+        case tools::pay_type::master_node:
         case tools::pay_type::governance:
           running_balance += transfer.amount;
           break;

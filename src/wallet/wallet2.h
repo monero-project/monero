@@ -148,7 +148,7 @@ namespace tools
     out,
     stake,
     miner,
-    service_node,
+    master_node,
     governance
   };
 
@@ -161,7 +161,7 @@ namespace tools
       case pay_type::out:          return "out";
       case pay_type::stake:        return "stake";
       case pay_type::miner:        return "miner";
-      case pay_type::service_node: return "snode";
+      case pay_type::master_node: return "snode";
       case pay_type::governance:   return "gov";
       default: assert(false);      return "xxxxx";
     }
@@ -356,7 +356,7 @@ namespace tools
       pay_type m_type;
       cryptonote::subaddress_index m_subaddr_index;
 
-      bool is_coinbase() const { return ((m_type == pay_type::miner) || (m_type == pay_type::service_node) || (m_type == pay_type::governance)); }
+      bool is_coinbase() const { return ((m_type == pay_type::miner) || (m_type == pay_type::master_node) || (m_type == pay_type::governance)); }
     };
 
     struct address_tx : payment_details
@@ -862,10 +862,10 @@ namespace tools
     void get_unconfirmed_payments_out(std::list<std::pair<crypto::hash,wallet2::unconfirmed_transfer_details>>& unconfirmed_payments, const boost::optional<uint32_t>& subaddr_account = boost::none, const std::set<uint32_t>& subaddr_indices = {}) const;
     void get_unconfirmed_payments(std::list<std::pair<crypto::hash,wallet2::pool_payment_details>>& unconfirmed_payments, const boost::optional<uint32_t>& subaddr_account = boost::none, const std::set<uint32_t>& subaddr_indices = {}) const;
 
-    // NOTE(beldex): get_all_service_node caches the result, get_service_nodes doesn't
-    std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry> get_all_service_nodes(boost::optional<std::string> &failed)                                          const { return m_node_rpc_proxy.get_all_service_nodes(failed); }
-    std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry> get_service_nodes    (std::vector<std::string> const &pubkeys, boost::optional<std::string> &failed) const { return m_node_rpc_proxy.get_service_nodes(pubkeys, failed); }
-    std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODE_BLACKLISTED_KEY_IMAGES::entry> get_service_node_blacklisted_key_images(boost::optional<std::string> &failed)            const { return m_node_rpc_proxy.get_service_node_blacklisted_key_images(failed); }
+    // NOTE(beldex): get_all_master_node caches the result, get_master_nodes doesn't
+    std::vector<cryptonote::COMMAND_RPC_GET_MASTER_NODES::response::entry> get_all_master_nodes(boost::optional<std::string> &failed)                                          const { return m_node_rpc_proxy.get_all_master_nodes(failed); }
+    std::vector<cryptonote::COMMAND_RPC_GET_MASTER_NODES::response::entry> get_master_nodes    (std::vector<std::string> const &pubkeys, boost::optional<std::string> &failed) const { return m_node_rpc_proxy.get_master_nodes(pubkeys, failed); }
+    std::vector<cryptonote::COMMAND_RPC_GET_MASTER_NODE_BLACKLISTED_KEY_IMAGES::entry> get_master_node_blacklisted_key_images(boost::optional<std::string> &failed)            const { return m_node_rpc_proxy.get_master_node_blacklisted_key_images(failed); }
 
     uint64_t get_blockchain_current_height() const { return m_light_wallet_blockchain_height ? m_light_wallet_blockchain_height : m_blockchain.size(); }
     void rescan_spent();
@@ -1292,13 +1292,13 @@ namespace tools
       payment_id_disallowed,
       subaddress_disallowed,
       address_must_be_primary,
-      service_node_list_query_failed,
-      service_node_not_registered,
+      master_node_list_query_failed,
+      master_node_not_registered,
       network_version_query_failed,
       network_height_query_failed,
-      service_node_contribution_maxed,
-      service_node_contributors_maxed,
-      service_node_insufficient_contribution,
+      master_node_contribution_maxed,
+      master_node_contributors_maxed,
+      master_node_insufficient_contribution,
       too_many_transactions_constructed,
     };
 
@@ -1312,10 +1312,10 @@ namespace tools
     /// Modifies the `amount` to maximum possible if too large, but rejects if insufficient.
     /// `fraction` is only used to determine the amount if specified zero.
     stake_result check_stake_allowed(const crypto::public_key& sn_key, const cryptonote::address_parse_info& addr_info, uint64_t& amount, double fraction = 0);
-    stake_result create_stake_tx    (const crypto::public_key& service_node_key, const cryptonote::address_parse_info& addr_info, uint64_t amount,
+    stake_result create_stake_tx    (const crypto::public_key& master_node_key, const cryptonote::address_parse_info& addr_info, uint64_t amount,
                                      double amount_fraction = 0, uint32_t priority = 0, uint32_t subaddr_account = 0, std::set<uint32_t> subaddr_indices = {});
 
-    enum struct register_service_node_result_status
+    enum struct register_master_node_result_status
     {
       success,
       insufficient_num_args,
@@ -1325,25 +1325,25 @@ namespace tools
       convert_registration_args_failed,
       registration_timestamp_expired,
       registration_timestamp_parse_fail,
-      service_node_key_parse_fail,
-      service_node_signature_parse_fail,
-      service_node_register_serialize_to_tx_extra_fail,
+      master_node_key_parse_fail,
+      master_node_signature_parse_fail,
+      master_node_register_serialize_to_tx_extra_fail,
       first_address_must_be_primary_address,
-      service_node_list_query_failed,
-      service_node_cannot_reregister,
+      master_node_list_query_failed,
+      master_node_cannot_reregister,
       insufficient_portions,
       wallet_not_synced,
       too_many_transactions_constructed,
       exception_thrown,
     };
 
-    struct register_service_node_result
+    struct register_master_node_result
     {
-      register_service_node_result_status status;
+      register_master_node_result_status status;
       std::string                         msg;
       pending_tx                          ptx;
     };
-    register_service_node_result create_register_service_node_tx(const std::vector<std::string> &args_, uint32_t subaddr_account = 0);
+    register_master_node_result create_register_master_node_tx(const std::vector<std::string> &args_, uint32_t subaddr_account = 0);
 
     struct request_stake_unlock_result
     {
@@ -1584,9 +1584,9 @@ namespace tools
     std::unique_ptr<wallet_device_callback> m_device_callback;
   };
 
-  // TODO(beldex): Hmm. We need this here because we make register_service_node do
+  // TODO(beldex): Hmm. We need this here because we make register_master_node do
   // parsing on the wallet2 side instead of simplewallet. This is so that
-  // register_service_node RPC command doesn't make it the wallet_rpc's
+  // register_master_node RPC command doesn't make it the wallet_rpc's
   // responsibility to parse out the string returned from the daemon. We're
   // purposely abstracting that complexity out to just wallet2's responsibility.
 

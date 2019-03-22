@@ -46,11 +46,11 @@ NodeRPCProxy::NodeRPCProxy(epee::net_utils::http::http_simple_client &http_clien
 
 void NodeRPCProxy::invalidate()
 {
-  m_service_node_blacklisted_key_images_cached_height = 0;
-  m_service_node_blacklisted_key_images.clear();
+  m_master_node_blacklisted_key_images_cached_height = 0;
+  m_master_node_blacklisted_key_images.clear();
 
-  m_all_service_nodes_cached_height = 0;
-  m_all_service_nodes.clear();
+  m_all_master_nodes_cached_height = 0;
+  m_all_master_nodes.clear();
 
   m_height = 0;
   for (size_t n = 0; n < 256; ++n)
@@ -238,16 +238,16 @@ boost::optional<std::string> NodeRPCProxy::get_fee_quantization_mask(uint64_t &f
   return boost::optional<std::string>();
 }
 
-std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry> NodeRPCProxy::get_service_nodes(std::vector<std::string> const &pubkeys, boost::optional<std::string> &failed) const
+std::vector<cryptonote::COMMAND_RPC_GET_MASTER_NODES::response::entry> NodeRPCProxy::get_master_nodes(std::vector<std::string> const &pubkeys, boost::optional<std::string> &failed) const
 {
-  std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry> result;
+  std::vector<cryptonote::COMMAND_RPC_GET_MASTER_NODES::response::entry> result;
 
-  cryptonote::COMMAND_RPC_GET_SERVICE_NODES::request req = {};
-  cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response res = {};
-  req.service_node_pubkeys = pubkeys;
+  cryptonote::COMMAND_RPC_GET_MASTER_NODES::request req = {};
+  cryptonote::COMMAND_RPC_GET_MASTER_NODES::response res = {};
+  req.master_node_pubkeys = pubkeys;
 
   m_daemon_rpc_mutex.lock();
-  bool r = epee::net_utils::invoke_http_json_rpc("/json_rpc", "get_service_nodes", req, res, m_http_client, rpc_timeout);
+  bool r = epee::net_utils::invoke_http_json_rpc("/json_rpc", "get_master_nodes", req, res, m_http_client, rpc_timeout);
   m_daemon_rpc_mutex.unlock();
   if (!r)
   {
@@ -267,13 +267,13 @@ std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry> NodeRPCP
     return result;
   }
 
-  result = std::move(res.service_node_states);
+  result = std::move(res.master_node_states);
   return result;
 }
 
-std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry> NodeRPCProxy::get_all_service_nodes(boost::optional<std::string> &failed) const
+std::vector<cryptonote::COMMAND_RPC_GET_MASTER_NODES::response::entry> NodeRPCProxy::get_all_master_nodes(boost::optional<std::string> &failed) const
 {
-  std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry> result;
+  std::vector<cryptonote::COMMAND_RPC_GET_MASTER_NODES::response::entry> result;
 
   uint64_t height;
   failed = get_height(height);
@@ -282,12 +282,12 @@ std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry> NodeRPCP
 
   {
     boost::lock_guard<boost::mutex> lock(m_daemon_rpc_mutex);
-    if (m_all_service_nodes_cached_height != height)
+    if (m_all_master_nodes_cached_height != height)
     {
-      cryptonote::COMMAND_RPC_GET_SERVICE_NODES::request req = {};
-      cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response res = {};
+      cryptonote::COMMAND_RPC_GET_MASTER_NODES::request req = {};
+      cryptonote::COMMAND_RPC_GET_MASTER_NODES::response res = {};
 
-      bool r = epee::net_utils::invoke_http_json_rpc("/json_rpc", "get_all_service_nodes", req, res, m_http_client, rpc_timeout);
+      bool r = epee::net_utils::invoke_http_json_rpc("/json_rpc", "get_all_master_nodes", req, res, m_http_client, rpc_timeout);
 
       if (!r)
       {
@@ -307,19 +307,19 @@ std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry> NodeRPCP
         return result;
       }
 
-      m_all_service_nodes_cached_height = height;
-      m_all_service_nodes = std::move(res.service_node_states);
+      m_all_master_nodes_cached_height = height;
+      m_all_master_nodes = std::move(res.master_node_states);
     }
 
-    result = m_all_service_nodes;
+    result = m_all_master_nodes;
   }
 
   return result;
 }
 
-std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODE_BLACKLISTED_KEY_IMAGES::entry> NodeRPCProxy::get_service_node_blacklisted_key_images(boost::optional<std::string> &failed) const
+std::vector<cryptonote::COMMAND_RPC_GET_MASTER_NODE_BLACKLISTED_KEY_IMAGES::entry> NodeRPCProxy::get_master_node_blacklisted_key_images(boost::optional<std::string> &failed) const
 {
-  std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODE_BLACKLISTED_KEY_IMAGES::entry> result;
+  std::vector<cryptonote::COMMAND_RPC_GET_MASTER_NODE_BLACKLISTED_KEY_IMAGES::entry> result;
 
   uint64_t height;
   failed = get_height(height);
@@ -328,12 +328,12 @@ std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODE_BLACKLISTED_KEY_IMAGES::ent
 
   {
     boost::lock_guard<boost::mutex> lock(m_daemon_rpc_mutex);
-    if (m_service_node_blacklisted_key_images_cached_height != height)
+    if (m_master_node_blacklisted_key_images_cached_height != height)
     {
-      cryptonote::COMMAND_RPC_GET_SERVICE_NODE_BLACKLISTED_KEY_IMAGES::request req = {};
-      cryptonote::COMMAND_RPC_GET_SERVICE_NODE_BLACKLISTED_KEY_IMAGES::response res = {};
+      cryptonote::COMMAND_RPC_GET_MASTER_NODE_BLACKLISTED_KEY_IMAGES::request req = {};
+      cryptonote::COMMAND_RPC_GET_MASTER_NODE_BLACKLISTED_KEY_IMAGES::response res = {};
 
-      bool r = epee::net_utils::invoke_http_json_rpc("/json_rpc", "get_service_node_blacklisted_key_images", req, res, m_http_client, rpc_timeout);
+      bool r = epee::net_utils::invoke_http_json_rpc("/json_rpc", "get_master_node_blacklisted_key_images", req, res, m_http_client, rpc_timeout);
 
       if (!r)
       {
@@ -353,11 +353,11 @@ std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODE_BLACKLISTED_KEY_IMAGES::ent
         return result;
       }
 
-      m_service_node_blacklisted_key_images_cached_height = height;
-      m_service_node_blacklisted_key_images               = std::move(res.blacklist);
+      m_master_node_blacklisted_key_images_cached_height = height;
+      m_master_node_blacklisted_key_images               = std::move(res.blacklist);
     }
 
-    result = m_service_node_blacklisted_key_images;
+    result = m_master_node_blacklisted_key_images;
   }
 
   return result;

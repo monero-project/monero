@@ -35,10 +35,10 @@
 /*                                                                      */
 /************************************************************************/
 
-class test_service_nodes_base : public test_chain_unit_base {};
+class test_master_nodes_base : public test_chain_unit_base {};
 
 template<>
-struct get_test_options<test_service_nodes_base>
+struct get_test_options<test_master_nodes_base>
 {
   const std::vector<std::pair<uint8_t, uint64_t>> hard_forks = { std::make_pair(7, 0),
                                                                  std::make_pair(8, 1),
@@ -46,29 +46,29 @@ struct get_test_options<test_service_nodes_base>
   const cryptonote::test_options test_options = { hard_forks };
 };
 
-class gen_service_nodes : public test_service_nodes_base
+class gen_master_nodes : public test_master_nodes_base
 {
 public:
-  gen_service_nodes();
+  gen_master_nodes();
   bool generate(std::vector<test_event_entry> &events) const;
   bool check_registered(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry> &events);
   bool check_expired(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry> &events);
 private:
-  cryptonote::keypair m_alice_service_node_keys;
+  cryptonote::keypair m_alice_master_node_keys;
 };
 
-template<> struct get_test_options<gen_service_nodes>: public get_test_options<test_service_nodes_base> {};
+template<> struct get_test_options<gen_master_nodes>: public get_test_options<test_master_nodes_base> {};
 
-class test_prefer_deregisters : public test_service_nodes_base
+class test_prefer_deregisters : public test_master_nodes_base
 {
 public:
   test_prefer_deregisters();
   bool generate(std::vector<test_event_entry> &events);
   bool check_prefer_deregisters(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry> &events);
 };
-template<> struct get_test_options<test_prefer_deregisters>: public get_test_options<test_service_nodes_base> {};
+template<> struct get_test_options<test_prefer_deregisters>: public get_test_options<test_master_nodes_base> {};
 
-class test_zero_fee_deregister : public test_service_nodes_base
+class test_zero_fee_deregister : public test_master_nodes_base
 {
   size_t m_invalid_tx_index;
 
@@ -93,9 +93,9 @@ public:
   }
 };
 
-template<> struct get_test_options<test_zero_fee_deregister>: public get_test_options<test_service_nodes_base> {};
+template<> struct get_test_options<test_zero_fee_deregister>: public get_test_options<test_master_nodes_base> {};
 
-class test_deregister_safety_buffer : public test_service_nodes_base
+class test_deregister_safety_buffer : public test_master_nodes_base
 {
   size_t m_invalid_tx_index;
 
@@ -121,9 +121,9 @@ public:
   }
 };
 
-template<> struct get_test_options<test_deregister_safety_buffer>: public get_test_options<test_service_nodes_base> {};
+template<> struct get_test_options<test_deregister_safety_buffer>: public get_test_options<test_master_nodes_base> {};
 
-class test_deregisters_on_split : public test_service_nodes_base
+class test_deregisters_on_split : public test_master_nodes_base
 {
 
   size_t m_invalid_tx_index;
@@ -151,7 +151,7 @@ public:
   }
 };
 
-template<> struct get_test_options<test_deregisters_on_split>: public get_test_options<test_service_nodes_base> {};
+template<> struct get_test_options<test_deregisters_on_split>: public get_test_options<test_master_nodes_base> {};
 
 class deregister_too_old : public test_chain_unit_base
 {
@@ -179,7 +179,7 @@ public:
 };
 
 
-template<> struct get_test_options<deregister_too_old>: public get_test_options<test_service_nodes_base> {};
+template<> struct get_test_options<deregister_too_old>: public get_test_options<test_master_nodes_base> {};
 //-------------------------------------------------------------------------------------------
 class sn_test_rollback : public test_chain_unit_base
 {
@@ -190,11 +190,11 @@ public:
   bool test_registrations(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry> &events);
 };
 
-template<> struct get_test_options<sn_test_rollback>: public get_test_options<test_service_nodes_base> {};
+template<> struct get_test_options<sn_test_rollback>: public get_test_options<test_master_nodes_base> {};
 
 //-------------------------------------------------------------------------------------------
 
-class test_swarms_basic : public test_service_nodes_base
+class test_swarms_basic : public test_master_nodes_base
 {
 public:
   test_swarms_basic();

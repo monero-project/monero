@@ -34,7 +34,7 @@
 #include "serialization/keyvalue_serialization.h"
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "cryptonote_basic/blobdatatype.h"
-#include "cryptonote_core/service_node_deregister.h"
+#include "cryptonote_core/master_node_deregister.h"
 
 namespace cryptonote
 {
@@ -299,7 +299,7 @@ namespace cryptonote
 
     struct request
     {
-      std::vector<service_nodes::deregister_vote> votes;
+      std::vector<master_nodes::deregister_vote> votes;
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_CONTAINER_POD_AS_BLOB(votes)
       END_KV_SERIALIZE_MAP()

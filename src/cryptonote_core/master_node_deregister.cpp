@@ -26,8 +26,8 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include "service_node_deregister.h"
-#include "service_node_list.h"
+#include "master_node_deregister.h"
+#include "master_node_list.h"
 #include "cryptonote_basic/tx_extra.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "cryptonote_basic/verification_context.h"
@@ -43,17 +43,17 @@
 #include <vector>
 
 #undef BELDEX_DEFAULT_LOG_CATEGORY
-#define BELDEX_DEFAULT_LOG_CATEGORY "service_nodes"
+#define BELDEX_DEFAULT_LOG_CATEGORY "master_nodes"
 
-namespace service_nodes
+namespace master_nodes
 {
-  static crypto::hash make_hash_from(uint64_t block_height, uint32_t service_node_index)
+  static crypto::hash make_hash_from(uint64_t block_height, uint32_t master_node_index)
   {
-    const int buf_size = sizeof(block_height) + sizeof(service_node_index);
+    const int buf_size = sizeof(block_height) + sizeof(master_node_index);
     char buf[buf_size];
 
     memcpy(buf, reinterpret_cast<void *>(&block_height), sizeof(block_height));
-    memcpy(buf + sizeof(block_height), reinterpret_cast<void *>(&service_node_index), sizeof(service_node_index));
+    memcpy(buf + sizeof(block_height), reinterpret_cast<void *>(&master_node_index), sizeof(master_node_index));
 
     crypto::hash result;
     crypto::cn_fast_hash(buf, buf_size, result);
@@ -61,22 +61,22 @@ namespace service_nodes
     return result;
   }
 
-  crypto::signature deregister_vote::sign_vote(uint64_t block_height, uint32_t service_node_index, const crypto::public_key& pub, const crypto::secret_key& sec)
+  crypto::signature deregister_vote::sign_vote(uint64_t block_height, uint32_t master_node_index, const crypto::public_key& pub, const crypto::secret_key& sec)
   {
     crypto::signature result;
-    crypto::generate_signature(make_hash_from(block_height, service_node_index), pub, sec, result);
+    crypto::generate_signature(make_hash_from(block_height, master_node_index), pub, sec, result);
     return result;
   }
 
-  bool deregister_vote::verify_vote_signature(uint64_t block_height, uint32_t service_node_index, crypto::public_key const &p, crypto::signature const &s)
+  bool deregister_vote::verify_vote_signature(uint64_t block_height, uint32_t master_node_index, crypto::public_key const &p, crypto::signature const &s)
   {
     std::vector<std::pair<crypto::public_key, crypto::signature>> keys_and_sigs{ std::make_pair(p, s) };
-    return verify_votes_signature(block_height, service_node_index, keys_and_sigs);
+    return verify_votes_signature(block_height, master_node_index, keys_and_sigs);
   }
 
-  bool deregister_vote::verify_votes_signature(uint64_t block_height, uint32_t service_node_index, const std::vector<std::pair<crypto::public_key, crypto::signature>>& keys_and_sigs)
+  bool deregister_vote::verify_votes_signature(uint64_t block_height, uint32_t master_node_index, const std::vector<std::pair<crypto::public_key, crypto::signature>>& keys_and_sigs)
   {
-    crypto::hash hash = make_hash_from(block_height, service_node_index);
+    crypto::hash hash = make_hash_from(block_height, master_node_index);
     for (auto& key_and_sig : keys_and_sigs)
     {
       if (!crypto::check_signature(hash, key_and_sig.first, key_and_sig.second))
@@ -88,14 +88,14 @@ namespace service_nodes
     return true;
   }
 
-  static bool verify_votes_helper(cryptonote::network_type nettype, const cryptonote::tx_extra_service_node_deregister& deregister,
+  static bool verify_votes_helper(cryptonote::network_type nettype, const cryptonote::tx_extra_master_node_deregister& deregister,
                                   cryptonote::vote_verification_context &vvc,
-                                  const service_nodes::quorum_state &quorum_state)
+                                  const master_nodes::quorum_state &quorum_state)
   {
-    if (deregister.service_node_index >= quorum_state.nodes_to_test.size())
+    if (deregister.master_node_index >= quorum_state.nodes_to_test.size())
     {
-      vvc.m_service_node_index_out_of_bounds = true;
-      LOG_PRINT_L1("Master node index in deregister vote was out of bounds: " << deregister.service_node_index << ", expected to be in range of: [0, " << quorum_state.nodes_to_test.size() << ")");
+      vvc.m_master_node_index_out_of_bounds = true;
+      LOG_PRINT_L1("Master node index in deregister vote was out of bounds: " << deregister.master_node_index << ", expected to be in range of: [0, " << quorum_state.nodes_to_test.size() << ")");
       return false;
     }
 
@@ -103,7 +103,7 @@ namespace service_nodes
     std::vector<int8_t> quorum_set;
 
     std::vector<std::pair<crypto::public_key, crypto::signature>> keys_and_sigs;
-    for (const cryptonote::tx_extra_service_node_deregister::vote& vote : deregister.votes)
+    for (const cryptonote::tx_extra_master_node_deregister::vote& vote : deregister.votes)
     {
       if (vote.voters_quorum_index >= quorum.size())
       {
@@ -123,7 +123,7 @@ namespace service_nodes
       keys_and_sigs.push_back(std::make_pair(quorum[vote.voters_quorum_index], vote.signature));
     }
 
-    bool r = deregister_vote::verify_votes_signature(deregister.block_height, deregister.service_node_index, keys_and_sigs);
+    bool r = deregister_vote::verify_votes_signature(deregister.block_height, deregister.master_node_index, keys_and_sigs);
     if (!r)
     {
       LOG_PRINT_L1("Invalid signatures for votes");
@@ -133,11 +133,11 @@ namespace service_nodes
     return r;
   }
 
-  bool deregister_vote::verify_deregister(cryptonote::network_type nettype, const cryptonote::tx_extra_service_node_deregister& deregister,
+  bool deregister_vote::verify_deregister(cryptonote::network_type nettype, const cryptonote::tx_extra_master_node_deregister& deregister,
                                                   cryptonote::vote_verification_context &vvc,
-                                                  const service_nodes::quorum_state &quorum_state)
+                                                  const master_nodes::quorum_state &quorum_state)
   {
-    if (deregister.votes.size() < service_nodes::MIN_VOTES_TO_KICK_SERVICE_NODE)
+    if (deregister.votes.size() < master_nodes::MIN_VOTES_TO_KICK_MASTER_NODE)
     {
       LOG_PRINT_L1("Not enough votes");
       vvc.m_not_enough_votes = true;
@@ -149,12 +149,12 @@ namespace service_nodes
   }
 
   bool deregister_vote::verify_vote(cryptonote::network_type nettype, const deregister_vote& v, cryptonote::vote_verification_context &vvc,
-                                    const service_nodes::quorum_state &quorum_state)
+                                    const master_nodes::quorum_state &quorum_state)
   {
-    cryptonote::tx_extra_service_node_deregister deregister;
+    cryptonote::tx_extra_master_node_deregister deregister;
     deregister.block_height = v.block_height;
-    deregister.service_node_index = v.service_node_index;
-    deregister.votes.push_back(cryptonote::tx_extra_service_node_deregister::vote{ v.signature, v.voters_quorum_index });
+    deregister.master_node_index = v.master_node_index;
+    deregister.votes.push_back(cryptonote::tx_extra_master_node_deregister::vote{ v.signature, v.voters_quorum_index });
     return verify_votes_helper(nettype, deregister, vvc, quorum_state);
   }
 
@@ -167,7 +167,7 @@ namespace service_nodes
     {
       deregister_group desired_group   = {};
       desired_group.block_height       = find_vote.block_height;
-      desired_group.service_node_index = find_vote.service_node_index;
+      desired_group.master_node_index = find_vote.master_node_index;
 
       auto deregister_entry = m_deregisters.find(desired_group);
       if (deregister_entry != m_deregisters.end())
@@ -212,7 +212,7 @@ namespace service_nodes
 
   bool deregister_vote_pool::add_vote(const deregister_vote& new_vote,
                                       cryptonote::vote_verification_context& vvc,
-                                      const service_nodes::quorum_state &quorum_state,
+                                      const master_nodes::quorum_state &quorum_state,
                                       cryptonote::transaction &tx)
   {
     if (!deregister_vote::verify_vote(m_nettype, new_vote, vvc, quorum_state))
@@ -227,7 +227,7 @@ namespace service_nodes
     {
       deregister_group desired_group   = {};
       desired_group.block_height       = new_vote.block_height;
-      desired_group.service_node_index = new_vote.service_node_index;
+      desired_group.master_node_index = new_vote.master_node_index;
       deregister_votes                 = &m_deregisters[desired_group];
     }
 
@@ -246,22 +246,22 @@ namespace service_nodes
       vvc.m_added_to_pool = true;
       deregister_votes->emplace_back(deregister_pool_entry(0 /*time_last_sent_p2p*/, new_vote));
 
-      if (deregister_votes->size() >= service_nodes::MIN_VOTES_TO_KICK_SERVICE_NODE)
+      if (deregister_votes->size() >= master_nodes::MIN_VOTES_TO_KICK_MASTER_NODE)
       {
-        cryptonote::tx_extra_service_node_deregister deregister;
+        cryptonote::tx_extra_master_node_deregister deregister;
         deregister.block_height       = new_vote.block_height;
-        deregister.service_node_index = new_vote.service_node_index;
+        deregister.master_node_index = new_vote.master_node_index;
         deregister.votes.reserve(deregister_votes->size());
 
         for (const auto& entry : *deregister_votes)
         {
-          cryptonote::tx_extra_service_node_deregister::vote tx_vote = {};
+          cryptonote::tx_extra_master_node_deregister::vote tx_vote = {};
           tx_vote.signature           = entry.m_vote.signature;
           tx_vote.voters_quorum_index = entry.m_vote.voters_quorum_index;
           deregister.votes.push_back(tx_vote);
         }
 
-        vvc.m_full_tx_deregister_made = cryptonote::add_service_node_deregister_to_tx_extra(tx.extra, deregister);
+        vvc.m_full_tx_deregister_made = cryptonote::add_master_node_deregister_to_tx_extra(tx.extra, deregister);
         if (vvc.m_full_tx_deregister_made)
         {
           tx.version = cryptonote::transaction::version_3_per_output_unlock_times;
@@ -285,8 +285,8 @@ namespace service_nodes
       if (tx.get_type() != cryptonote::transaction::type_deregister)
         continue;
 
-      cryptonote::tx_extra_service_node_deregister deregister;
-      if (!get_service_node_deregister_from_tx_extra(tx.extra, deregister))
+      cryptonote::tx_extra_master_node_deregister deregister;
+      if (!get_master_node_deregister_from_tx_extra(tx.extra, deregister))
       {
         LOG_ERROR("Could not get deregister from tx, possibly corrupt tx");
         continue;
@@ -294,7 +294,7 @@ namespace service_nodes
 
       deregister_group desired_group   = {};
       desired_group.block_height       = deregister.block_height;
-      desired_group.service_node_index = deregister.service_node_index;
+      desired_group.master_node_index = deregister.master_node_index;
       m_deregisters.erase(desired_group);
     }
   }
@@ -321,5 +321,5 @@ namespace service_nodes
       }
     }
   }
-}; // namespace service_nodes
+}; // namespace master_nodes
 

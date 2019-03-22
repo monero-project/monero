@@ -259,7 +259,7 @@ namespace cryptonote
   {
     network_version_7 = 7,
     network_version_8,
-    network_version_9_service_nodes, // Proof Of Stake w/ Master Nodes
+    network_version_9_master_nodes, // Proof Of Stake w/ Master Nodes
     network_version_10_bulletproofs, // Bulletproofs, Master Node Grace Registration Period, Batched Governance
     network_version_11_infinite_staking,
   };
@@ -347,7 +347,7 @@ namespace cryptonote
 
       case TESTNET:
       {
-        if (hard_fork_version <= network_version_9_service_nodes)
+        if (hard_fork_version <= network_version_9_master_nodes)
           testnet.GOVERNANCE_WALLET_ADDRESS = &::config::testnet::GOVERNANCE_WALLET_ADDRESS[0];
         else
           testnet.GOVERNANCE_WALLET_ADDRESS = &::config::testnet::GOVERNANCE_WALLET_ADDRESS[0];
@@ -357,7 +357,7 @@ namespace cryptonote
 
       case STAGENET:
       {
-        if (hard_fork_version <= network_version_9_service_nodes)
+        if (hard_fork_version <= network_version_9_master_nodes)
           stagenet.GOVERNANCE_WALLET_ADDRESS = &::config::stagenet::GOVERNANCE_WALLET_ADDRESS[0];
         else
           stagenet.GOVERNANCE_WALLET_ADDRESS = &::config::stagenet::GOVERNANCE_WALLET_ADDRESS[0];

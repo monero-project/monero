@@ -106,9 +106,9 @@ t_command_server::t_command_server(
     , "Print the quorum state for the block height."
     );
   m_command_lookup.set_handler(
-      "print_sn_key"
-    , std::bind(&t_command_parser_executor::print_sn_key, &m_parser, p::_1)
-    , "print_sn_key"
+      "print_mn_key"
+    , std::bind(&t_command_parser_executor::print_mn_key, &m_parser, p::_1)
+    , "print_mn_key"
     , "Print this daemon's master node key, if it is one and launched in master node mode."
     );
   m_command_lookup.set_handler(
@@ -124,15 +124,15 @@ t_command_server::t_command_server(
     , "Interactive prompt to prepare a master node registration command. The resulting registration command can be run in the command-line wallet to send the registration to the blockchain."
     );
   m_command_lookup.set_handler(
-      "print_sn"
-    , std::bind(&t_command_parser_executor::print_sn, &m_parser, p::_1)
-    , "print_sn [<pubkey> [...]] [+json]"
+      "print_mn"
+    , std::bind(&t_command_parser_executor::print_mn, &m_parser, p::_1)
+    , "print_mn [<pubkey> [...]] [+json]"
     , "Print master node registration info for the current height"
     );
   m_command_lookup.set_handler(
-      "print_sn_status"
-    , std::bind(&t_command_parser_executor::print_sn_status, &m_parser, p::_1)
-    , "print_sn_status [+json]"
+      "print_mn_status"
+    , std::bind(&t_command_parser_executor::print_mn_status, &m_parser, p::_1)
+    , "print_mn_status [+json]"
     , "Print master node registration info for this master node"
     );
   m_command_lookup.set_handler(

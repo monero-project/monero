@@ -46,8 +46,8 @@ namespace cryptonote
   bool     height_has_governance_output         (network_type nettype, int hard_fork_version, uint64_t height);
   uint64_t derive_governance_from_block_reward  (network_type nettype, const cryptonote::block &block);
 
-  uint64_t get_portion_of_reward                (uint64_t portions, uint64_t total_service_node_reward);
-  uint64_t service_node_reward_formula          (uint64_t base_reward, int hard_fork_version);
+  uint64_t get_portion_of_reward                (uint64_t portions, uint64_t total_master_node_reward);
+  uint64_t master_node_reward_formula          (uint64_t base_reward, int hard_fork_version);
 
   struct beldex_miner_tx_context // NOTE(beldex): All the custom fields required by Beldex to use construct_miner_tx
   {
@@ -59,7 +59,7 @@ namespace cryptonote
 
     network_type                                                   nettype;
     crypto::public_key                                             snode_winner_key;
-    std::vector<std::pair<account_public_address, stake_portions>> snode_winner_info;  // NOTE: If empty we use service_nodes::null_winner
+    std::vector<std::pair<account_public_address, stake_portions>> snode_winner_info;  // NOTE: If empty we use master_nodes::null_winner
     uint64_t                                                       batched_governance; // NOTE: 0 until hardfork v10, then use blockchain::calc_batched_governance_reward
   };
 
@@ -77,8 +77,8 @@ namespace cryptonote
 
   struct block_reward_parts
   {
-    uint64_t service_node_total;
-    uint64_t service_node_paid;
+    uint64_t master_node_total;
+    uint64_t master_node_paid;
 
     uint64_t governance;
     uint64_t base_miner;
@@ -105,7 +105,7 @@ namespace cryptonote
     uint64_t                                                 height;
     uint64_t                                                 fee;
     uint64_t                                                 batched_governance; // Optional: 0 hardfork v10, then must be calculated using blockchain::calc_batched_governance_reward
-    std::vector<std::pair<account_public_address, portions>> snode_winner_info;  // Optional: Check contributor portions add up, else set empty to use service_nodes::null_winner
+    std::vector<std::pair<account_public_address, portions>> snode_winner_info;  // Optional: Check contributor portions add up, else set empty to use master_nodes::null_winner
   };
 
   // NOTE(beldex): I would combine this into get_base_block_reward, but
@@ -189,7 +189,7 @@ namespace cryptonote
     {
       *this = {};
       v4_allow_tx_types    = (hf_version >= cryptonote::network_version_11_infinite_staking);
-      v3_per_output_unlock = (hf_version >= cryptonote::network_version_9_service_nodes);
+      v3_per_output_unlock = (hf_version >= cryptonote::network_version_9_master_nodes);
       v2_rct               = (hf_version >= cryptonote::network_version_7);
     }
   };

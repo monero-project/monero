@@ -517,7 +517,7 @@ namespace cryptonote
     if (hf_version >= cryptonote::network_version_7 && hf_version <= cryptonote::network_version_8)
       return transaction::version_2;
 
-    if (hf_version >= cryptonote::network_version_9_service_nodes && hf_version <= cryptonote::network_version_10_bulletproofs)
+    if (hf_version >= cryptonote::network_version_9_master_nodes && hf_version <= cryptonote::network_version_10_bulletproofs)
       return transaction::version_3_per_output_unlock_times;
 
     return transaction::version_4_tx_types;
@@ -532,8 +532,8 @@ namespace cryptonote
         return transaction::version_2;
     }
 
-    if (hf_version >= cryptonote::network_version_7 && hf_version <= cryptonote::network_version_9_service_nodes)
-      return transaction::version_2;
+    if (hf_version >= cryptonote::network_version_7 && hf_version <= cryptonote::network_version_9_master_nodes)
+      return transaction::version_1;
 
     if (hf_version == cryptonote::network_version_10_bulletproofs)
       return transaction::version_3_per_output_unlock_times;

@@ -58,7 +58,7 @@
 #include "cryptonote_basic/hardfork.h"
 #include "blockchain_db/blockchain_db.h"
 
-namespace service_nodes { class service_node_list; class deregister_vote_pool; };
+namespace master_nodes { class master_node_list; class deregister_vote_pool; };
 namespace tools { class Notify; }
 
 namespace cryptonote
@@ -144,7 +144,7 @@ namespace cryptonote
      *
      * @param tx_pool a reference to the transaction pool to be kept by the Blockchain
      */
-    Blockchain(tx_memory_pool& tx_pool, service_nodes::service_node_list& service_node_list, service_nodes::deregister_vote_pool &deregister_vote_pool);
+    Blockchain(tx_memory_pool& tx_pool, master_nodes::master_node_list& master_node_list, master_nodes::deregister_vote_pool &deregister_vote_pool);
 
     /**
      * @brief Blockchain destructor
@@ -1074,8 +1074,8 @@ namespace cryptonote
 
     tx_memory_pool& m_tx_pool;
 
-    service_nodes::service_node_list&    m_service_node_list;
-    service_nodes::deregister_vote_pool& m_deregister_vote_pool;
+    master_nodes::master_node_list&    m_master_node_list;
+    master_nodes::deregister_vote_pool& m_deregister_vote_pool;
 
     mutable epee::critical_section m_blockchain_lock; // TODO: add here reader/writer lock
 

@@ -2197,7 +2197,7 @@ namespace wallet_rpc
       std::string        destination;
       uint64_t           amount;
       std::set<uint32_t> subaddr_indices;
-      std::string        service_node_key;
+      std::string        master_node_key;
       uint32_t           priority;
       bool               get_tx_key;
       bool               do_not_relay;
@@ -2207,7 +2207,7 @@ namespace wallet_rpc
         KV_SERIALIZE_OPT(subaddr_indices, {});
         KV_SERIALIZE    (destination);
         KV_SERIALIZE    (amount);
-        KV_SERIALIZE    (service_node_key);
+        KV_SERIALIZE    (master_node_key);
         KV_SERIALIZE_OPT(priority,        (uint32_t)0);
         KV_SERIALIZE    (get_tx_key)
         KV_SERIALIZE_OPT(do_not_relay,    false)
@@ -2240,17 +2240,17 @@ namespace wallet_rpc
     };
   };
 
-  struct COMMAND_RPC_REGISTER_SERVICE_NODE
+  struct COMMAND_RPC_REGISTER_MASTER_NODE
   {
     struct request
     {
-      std::string register_service_node_str;
+      std::string register_master_node_str;
       bool        get_tx_key;
       bool        do_not_relay;
       bool        get_tx_hex;
       bool        get_tx_metadata;
       BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(register_service_node_str);
+        KV_SERIALIZE(register_master_node_str);
         KV_SERIALIZE(get_tx_key)
         KV_SERIALIZE_OPT(do_not_relay,    false)
         KV_SERIALIZE_OPT(get_tx_hex,      false)
@@ -2286,9 +2286,9 @@ namespace wallet_rpc
   {
     struct request
     {
-      std::string service_node_key;
+      std::string master_node_key;
       BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(service_node_key);
+        KV_SERIALIZE(master_node_key);
       END_KV_SERIALIZE_MAP()
     };
 
@@ -2308,9 +2308,9 @@ namespace wallet_rpc
   {
     struct request
     {
-      std::string service_node_key;
+      std::string master_node_key;
       BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(service_node_key);
+        KV_SERIALIZE(master_node_key);
       END_KV_SERIALIZE_MAP()
     };
 
