@@ -38,54 +38,67 @@ from test_framework.wallet import Wallet
 
 class TransferTest():
     def run_test(self):
-        self.create(0)
+        self.create()
         self.mine()
         self.transfer()
         self.check_get_bulk_payments()
 
-    def create(self, idx):
-        print 'Creating wallet'
-        wallet = Wallet()
-        # close the wallet if any, will throw if none is loaded
-        try: wallet.close_wallet()
-        except: pass
+    def create(self):
+        print 'Creating wallets'
         seeds = [
           'velvet lymph giddy number token physics poetry unquoted nibs useful sabotage limits benches lifestyle eden nitrogen anvil fewest avoid batch vials washing fences goat unquoted',
           'peeled mixture ionic radar utopia puddle buying illness nuns gadget river spout cavernous bounced paradise drunk looking cottage jump tequila melting went winter adjust spout',
           'dilute gutter certain antics pamphlet macro enjoy left slid guarded bogeys upload nineteen bomb jubilee enhanced irritate turnip eggs swung jukebox loudly reduce sedan slid',
         ]
-        res = wallet.restore_deterministic_wallet(seed = seeds[idx])
+        self.wallet = [None] * len(seeds)
+        for i in range(len(seeds)):
+            self.wallet[i] = Wallet(idx = i)
+            # close the wallet if any, will throw if none is loaded
+            try: self.wallet[i].close_wallet()
+            except: pass
+            res = self.wallet[i].restore_deterministic_wallet(seed = seeds[i])
 
     def mine(self):
         print("Mining some blocks")
         daemon = Daemon()
-        wallet = Wallet()
 
         daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 80)
-        wallet.refresh()
+        for i in range(len(self.wallet)):
+            self.wallet[i].refresh()
 
     def transfer(self):
         daemon = Daemon()
-        wallet = Wallet()
 
         print("Creating transfer to self")
 
         dst = {'address': '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 'amount': 1000000000000}
         payment_id = '1234500000012345abcde00000abcdeff1234500000012345abcde00000abcde'
 
+        start_balances = [0] * len(self.wallet)
+        running_balances = [0] * len(self.wallet)
+        for i in range(len(self.wallet)):
+          res = self.wallet[i].get_balance()
+          start_balances[i] = res.balance
+          running_balances[i] = res.balance
+          assert res.unlocked_balance <= res.balance
+          if i == 0:
+            assert res.blocks_to_unlock == 59 # we've been mining to it
+          else:
+            assert res.blocks_to_unlock == 0
+
         print ('Checking short payment IDs cannot be used when not in an integrated address')
         ok = False
-        try: wallet.transfer([dst], ring_size = 11, payment_id = '1234567812345678', get_tx_key = False)
+        try: self.wallet[0].transfer([dst], ring_size = 11, payment_id = '1234567812345678', get_tx_key = False)
         except: ok = True
         assert ok
 
         print ('Checking empty destination is rejected')
         ok = False
-        try: wallet.transfer([], ring_size = 11, get_tx_key = False)
+        try: self.wallet[0].transfer([], ring_size = 11, get_tx_key = False)
         except: ok = True
         assert ok
 
-        res = wallet.transfer([dst], ring_size = 11, payment_id = payment_id, get_tx_key = False)
+        res = self.wallet[0].transfer([dst], ring_size = 11, payment_id = payment_id, get_tx_key = False)
         assert len(res.tx_hash) == 32*2
         txid = res.tx_hash
         assert len(res.tx_key) == 0
@@ -99,12 +112,12 @@ class TransferTest():
         assert len(res.unsigned_txset) == 0
         unsigned_txset = res.unsigned_txset
 
-        wallet.refresh()
+        self.wallet[0].refresh()
 
         res = daemon.get_info()
         height = res.height
 
-        res = wallet.get_transfers()
+        res = self.wallet[0].get_transfers()
         assert len(res['in']) == height - 1 # coinbases
         assert not 'out' in res or len(res.out) == 0 # not mined yet
         assert len(res.pending) == 1
@@ -123,10 +136,21 @@ class TransferTest():
         assert e.double_spend_seen == False
         assert e.confirmations == 0
 
-        daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 1)
-        wallet.refresh()
+        running_balances[0] -= 1000000000000 + fee
 
-        res = wallet.get_transfers()
+        res = self.wallet[0].get_balance()
+        assert res.balance == running_balances[0]
+        assert res.unlocked_balance <= res.balance
+        assert res.blocks_to_unlock == 59
+
+        daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 1)
+        res = daemon.getlastblockheader()
+        running_balances[0] += res.block_header.reward
+        self.wallet[0].refresh()
+
+        running_balances[0] += 1000000000000
+
+        res = self.wallet[0].get_transfers()
         assert len(res['in']) == height # coinbases
         assert len(res.out) == 1 # not mined yet
         assert not 'pending' in res or len(res.pending) == 0
@@ -145,10 +169,15 @@ class TransferTest():
         assert e.double_spend_seen == False
         assert e.confirmations == 1
 
+        res = self.wallet[0].get_balance()
+        assert res.balance == running_balances[0]
+        assert res.unlocked_balance <= res.balance
+        assert res.blocks_to_unlock == 59
+
         print("Creating transfer to another, manual relay")
 
         dst = {'address': '44Kbx4sJ7JDRDV5aAhLJzQCjDz2ViLRduE3ijDZu3osWKBjMGkV1XPk4pfDUMqt1Aiezvephdqm6YD19GKFD9ZcXVUTp6BW', 'amount': 1000000000000}
-        res = wallet.transfer([dst], ring_size = 11, payment_id = payment_id, get_tx_key = True, do_not_relay = True, get_tx_hex = True)
+        res = self.wallet[0].transfer([dst], ring_size = 11, payment_id = payment_id, get_tx_key = True, do_not_relay = True, get_tx_hex = True)
         assert len(res.tx_hash) == 32*2
         txid = res.tx_hash
         assert len(res.tx_key) == 32*2
@@ -173,10 +202,16 @@ class TransferTest():
         assert res.fee_too_low == False
         assert res.not_rct == False
 
-        self.create(1)
-        wallet.refresh()
+        self.wallet[0].refresh()
 
-        res = wallet.get_transfers()
+        res = self.wallet[0].get_balance()
+        assert res.balance == running_balances[0]
+        assert res.unlocked_balance <= res.balance
+        assert res.blocks_to_unlock == 59
+
+        self.wallet[1].refresh()
+
+        res = self.wallet[1].get_transfers()
         assert not 'in' in res or len(res['in']) == 0
         assert not 'out' in res or len(res.out) == 0
         assert not 'pending' in res or len(res.pending) == 0
@@ -196,9 +231,13 @@ class TransferTest():
         assert e.fee == fee
 
         daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 1)
-        wallet.refresh()
+        res = daemon.getlastblockheader()
+        running_balances[0] -= 1000000000000 + fee
+        running_balances[0] += res.block_header.reward
+        self.wallet[1].refresh()
+        running_balances[1] += 1000000000000
 
-        res = wallet.get_transfers()
+        res = self.wallet[1].get_transfers()
         assert len(res['in']) == 1
         assert not 'out' in res or len(res.out) == 0
         assert not 'pending' in res or len(res.pending) == 0
@@ -217,15 +256,19 @@ class TransferTest():
         assert e.amount == amount
         assert e.fee == fee
 
+        res = self.wallet[1].get_balance()
+        assert res.balance == running_balances[1]
+        assert res.unlocked_balance <= res.balance
+        assert res.blocks_to_unlock == 9
+
         print 'Creating multi out transfer'
 
-        self.create(0)
-        wallet.refresh()
+        self.wallet[0].refresh()
 
         dst0 = {'address': '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 'amount': 1000000000000}
         dst1 = {'address': '44Kbx4sJ7JDRDV5aAhLJzQCjDz2ViLRduE3ijDZu3osWKBjMGkV1XPk4pfDUMqt1Aiezvephdqm6YD19GKFD9ZcXVUTp6BW', 'amount': 1100000000000}
         dst2 = {'address': '46r4nYSevkfBUMhuykdK3gQ98XDqDTYW1hNLaXNvjpsJaSbNtdXh1sKMsdVgqkaihChAzEy29zEDPMR3NHQvGoZCLGwTerK', 'amount': 1200000000000}
-        res = wallet.transfer([dst0, dst1, dst2], ring_size = 11, payment_id = payment_id, get_tx_key = True)
+        res = self.wallet[0].transfer([dst0, dst1, dst2], ring_size = 11, payment_id = payment_id, get_tx_key = True)
         assert len(res.tx_hash) == 32*2
         txid = res.tx_hash
         assert len(res.tx_key) == 32*2
@@ -239,10 +282,22 @@ class TransferTest():
         assert len(res.unsigned_txset) == 0
         unsigned_txset = res.unsigned_txset
 
-        daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 1)
-        wallet.refresh()
+        running_balances[0] -= 1000000000000 + 1100000000000 + 1200000000000 + fee
 
-        res = wallet.get_transfers()
+        res = self.wallet[0].get_balance()
+        assert res.balance == running_balances[0]
+        assert res.unlocked_balance <= res.balance
+        assert res.blocks_to_unlock == 59
+
+        daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 1)
+        res = daemon.getlastblockheader()
+        running_balances[0] += res.block_header.reward
+        running_balances[0] += 1000000000000
+        running_balances[1] += 1100000000000
+        running_balances[2] += 1200000000000
+        self.wallet[0].refresh()
+
+        res = self.wallet[0].get_transfers()
         assert len(res['in']) == height + 2
         assert len(res.out) == 3
         assert not 'pending' in res or len(res.pending) == 0
@@ -264,9 +319,13 @@ class TransferTest():
         assert e.amount == amount
         assert e.fee == fee
 
-        self.create(1)
-        wallet.refresh()
-        res = wallet.get_transfers()
+        res = self.wallet[0].get_balance()
+        assert res.balance == running_balances[0]
+        assert res.unlocked_balance <= res.balance
+        assert res.blocks_to_unlock == 59
+
+        self.wallet[1].refresh()
+        res = self.wallet[1].get_transfers()
         assert len(res['in']) == 2
         assert not 'out' in res or len(res.out) == 0
         assert not 'pending' in res or len(res.pending) == 0
@@ -287,9 +346,13 @@ class TransferTest():
         assert e.amount == 1100000000000
         assert e.fee == fee
 
-        self.create(2)
-        wallet.refresh()
-        res = wallet.get_transfers()
+        res = self.wallet[1].get_balance()
+        assert res.balance == running_balances[1]
+        assert res.unlocked_balance <= res.balance
+        assert res.blocks_to_unlock == 9
+
+        self.wallet[2].refresh()
+        res = self.wallet[2].get_transfers()
         assert len(res['in']) == 1
         assert not 'out' in res or len(res.out) == 0
         assert not 'pending' in res or len(res.pending) == 0
@@ -310,14 +373,18 @@ class TransferTest():
         assert e.amount == 1200000000000
         assert e.fee == fee
 
+        res = self.wallet[2].get_balance()
+        assert res.balance == running_balances[2]
+        assert res.unlocked_balance <= res.balance
+        assert res.blocks_to_unlock == 9
+
         print('Sending to integrated address')
-        self.create(0)
-        wallet.refresh()
-        res = wallet.get_balance()
+        self.wallet[0].refresh()
+        res = self.wallet[0].get_balance()
         i_pid = '1111111122222222'
-        res = wallet.make_integrated_address(standard_address = '44Kbx4sJ7JDRDV5aAhLJzQCjDz2ViLRduE3ijDZu3osWKBjMGkV1XPk4pfDUMqt1Aiezvephdqm6YD19GKFD9ZcXVUTp6BW', payment_id = i_pid)
+        res = self.wallet[0].make_integrated_address(standard_address = '44Kbx4sJ7JDRDV5aAhLJzQCjDz2ViLRduE3ijDZu3osWKBjMGkV1XPk4pfDUMqt1Aiezvephdqm6YD19GKFD9ZcXVUTp6BW', payment_id = i_pid)
         i_address = res.integrated_address
-        res = wallet.transfer([{'address': i_address, 'amount': 200000000}])
+        res = self.wallet[0].transfer([{'address': i_address, 'amount': 200000000}])
         assert len(res.tx_hash) == 32*2
         i_txid = res.tx_hash
         assert len(res.tx_key) == 32*2
@@ -330,7 +397,57 @@ class TransferTest():
         assert len(res.multisig_txset) == 0
         assert len(res.unsigned_txset) == 0
 
+        running_balances[0] -= 200000000 + fee
+
+        res = self.wallet[0].get_balance()
+        assert res.balance == running_balances[0]
+        assert res.unlocked_balance <= res.balance
+        assert res.blocks_to_unlock == 59
+
         daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 1)
+        res = daemon.getlastblockheader()
+        running_balances[0] += res.block_header.reward
+        running_balances[1] += 200000000
+
+        self.wallet[0].refresh()
+        res = self.wallet[0].get_balance()
+        assert res.balance == running_balances[0]
+        assert res.unlocked_balance <= res.balance
+        assert res.blocks_to_unlock == 59
+
+        self.wallet[1].refresh()
+        res = self.wallet[1].get_balance()
+        assert res.balance == running_balances[1]
+        assert res.unlocked_balance <= res.balance
+        assert res.blocks_to_unlock == 9
+
+        self.wallet[2].refresh()
+        res = self.wallet[2].get_balance()
+        assert res.balance == running_balances[2]
+        assert res.unlocked_balance <= res.balance
+        assert res.blocks_to_unlock == 8
+
+        daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 1)
+        res = daemon.getlastblockheader()
+        running_balances[0] += res.block_header.reward
+
+        self.wallet[0].refresh()
+        res = self.wallet[0].get_balance()
+        assert res.balance == running_balances[0]
+        assert res.unlocked_balance <= res.balance
+        assert res.blocks_to_unlock == 59
+
+        self.wallet[1].refresh()
+        res = self.wallet[1].get_balance()
+        assert res.balance == running_balances[1]
+        assert res.unlocked_balance <= res.balance
+        assert res.blocks_to_unlock == 8
+
+        self.wallet[2].refresh()
+        res = self.wallet[2].get_balance()
+        assert res.balance == running_balances[2]
+        assert res.unlocked_balance <= res.balance
+        assert res.blocks_to_unlock == 7
 
 
     def check_get_bulk_payments(self):
@@ -340,35 +457,30 @@ class TransferTest():
         res = daemon.get_info()
         height = res.height
 
-        wallet = Wallet()
-
-        self.create(0)
-        wallet.refresh()
-        res = wallet.get_bulk_payments()
+        self.wallet[0].refresh()
+        res = self.wallet[0].get_bulk_payments()
         assert len(res.payments) >= 83 # at least 83 coinbases
-        res = wallet.get_bulk_payments(payment_ids = ['1234500000012345abcde00000abcdeff1234500000012345abcde00000abcde'])
+        res = self.wallet[0].get_bulk_payments(payment_ids = ['1234500000012345abcde00000abcdeff1234500000012345abcde00000abcde'])
         assert 'payments' not in res or len(res.payments) == 0
-        res = wallet.get_bulk_payments(min_block_height = height)
+        res = self.wallet[0].get_bulk_payments(min_block_height = height)
         assert 'payments' not in res or len(res.payments) == 0
-        res = wallet.get_bulk_payments(min_block_height = height - 40)
+        res = self.wallet[0].get_bulk_payments(min_block_height = height - 40)
         assert len(res.payments) >= 39 # coinbases
 
-        self.create(1)
-        wallet.refresh()
-        res = wallet.get_bulk_payments()
+        self.wallet[1].refresh()
+        res = self.wallet[1].get_bulk_payments()
         assert len(res.payments) >= 3 # two txes to standard address were sent, plus one to integrated address
-        res = wallet.get_bulk_payments(payment_ids = ['1234500000012345abcde00000abcdeff1234500000012345abcde00000abcde'])
+        res = self.wallet[1].get_bulk_payments(payment_ids = ['1234500000012345abcde00000abcdeff1234500000012345abcde00000abcde'])
         assert len(res.payments) >= 2 # two txes were sent with that payment id
-        res = wallet.get_bulk_payments(payment_ids = ['ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'])
+        res = self.wallet[1].get_bulk_payments(payment_ids = ['ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'])
         assert 'payments' not in res or len(res.payments) == 0 # none with that payment id
-        res = wallet.get_bulk_payments(payment_ids = ['1111111122222222' + '0'*48])
+        res = self.wallet[1].get_bulk_payments(payment_ids = ['1111111122222222' + '0'*48])
         assert len(res.payments) >= 1 # one tx to integrated address
 
-        self.create(2)
-        wallet.refresh()
-        res = wallet.get_bulk_payments()
+        self.wallet[2].refresh()
+        res = self.wallet[2].get_bulk_payments()
         assert len(res.payments) >= 1 # one tx was sent
-        res = wallet.get_bulk_payments(payment_ids = ['1'*64, '1234500000012345abcde00000abcdeff1234500000012345abcde00000abcde', '2'*64])
+        res = self.wallet[2].get_bulk_payments(payment_ids = ['1'*64, '1234500000012345abcde00000abcdeff1234500000012345abcde00000abcde', '2'*64])
         assert len(res.payments) >= 1 # one tx was sent
 
 if __name__ == '__main__':
