@@ -142,6 +142,16 @@ namespace cryptonote
   std::string print_money(uint64_t amount, unsigned int decimal_point = -1);
   //---------------------------------------------------------------
   template<class t_object>
+  bool t_serializable_object_from_blob(t_object& to, const blobdata& b_blob)
+  {
+    std::stringstream ss;
+    ss << b_blob;
+    binary_archive<false> ba(ss);
+    bool r = ::serialization::serialize(ba, to);
+    return r;
+  }
+  //---------------------------------------------------------------
+  template<class t_object>
   bool t_serializable_object_to_blob(const t_object& to, blobdata& b_blob)
   {
     std::stringstream ss;

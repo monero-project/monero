@@ -35,12 +35,13 @@ class Daemon(object):
     def __init__(self, protocol='http', host='127.0.0.1', port=0, idx=0):
         self.rpc = JSONRPC('{protocol}://{host}:{port}'.format(protocol=protocol, host=host, port=port if port else 18180+idx))
 
-    def getblocktemplate(self, address):
+    def getblocktemplate(self, address, prev_block = ""):
         getblocktemplate = {
             'method': 'getblocktemplate',
             'params': {
                 'wallet_address': address,
-                'reserve_size' : 1
+                'reserve_size' : 1,
+                'prev_block' : prev_block,
             },
             'jsonrpc': '2.0', 
             'id': '0'
@@ -143,13 +144,15 @@ class Daemon(object):
         }    
         return self.rpc.send_json_rpc_request(hard_fork_info)
 
-    def generateblocks(self, address, blocks=1):
+    def generateblocks(self, address, blocks=1, prev_block = "", starting_nonce = 0):
         generateblocks = {
             'method': 'generateblocks',
             'params': {
                 'amount_of_blocks' : blocks,
                 'reserve_size' : 20,
-                'wallet_address': address
+                'wallet_address': address,
+                'prev_block': prev_block,
+                'starting_nonce': starting_nonce,
             },
             'jsonrpc': '2.0', 
             'id': '0'
@@ -238,3 +241,62 @@ class Daemon(object):
             'id': '0'
         }
         return self.rpc.send_json_rpc_request(set_bans)
+
+    def get_transactions(self, txs_hashes = [], decode_as_json = False, prune = False, split = False):
+        get_transactions = {
+            'txs_hashes': txs_hashes,
+            'decode_as_json': decode_as_json,
+            'prune': prune,
+            'split': split,
+        }
+        return self.rpc.send_request('/get_transactions', get_transactions)
+
+    def get_outs(self, outputs = [], get_txid = False):
+        get_outs = {
+            'outputs': outputs,
+            'get_txid': get_txid,
+        }
+        return self.rpc.send_request('/get_outs', get_outs)
+
+    def get_coinbase_tx_sum(self, height, count):
+        get_coinbase_tx_sum = {
+            'method': 'get_coinbase_tx_sum',
+            'params': {
+                'height': height,
+                'count': count,
+            },
+            'jsonrpc': '2.0',
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(get_coinbase_tx_sum)
+
+    def get_output_distribution(self, amounts = [], from_height = 0, to_height = 0, cumulative = False, binary = False, compress = False):
+        get_output_distribution = {
+            'method': 'get_output_distribution',
+            'params': {
+                'amounts': amounts,
+                'from_height': from_height,
+                'to_height': to_height,
+                'cumulative': cumulative,
+                'binary': binary,
+                'compress': compress,
+            },
+            'jsonrpc': '2.0',
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(get_output_distribution)
+
+    def get_output_histogram(self, amounts = [], min_count = 0, max_count = 0, unlocked = False, recent_cutoff = 0):
+        get_output_histogram = {
+            'method': 'get_output_histogram',
+            'params': {
+                'amounts': amounts,
+                'min_count': min_count,
+                'max_count': max_count,
+                'unlocked': unlocked,
+                'recent_cutoff': recent_cutoff,
+            },
+            'jsonrpc': '2.0',
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(get_output_histogram)
