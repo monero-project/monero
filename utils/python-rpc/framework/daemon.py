@@ -300,3 +300,15 @@ class Daemon(object):
             'id': '0'
         }
         return self.rpc.send_json_rpc_request(get_output_histogram)
+
+    def set_log_level(self, level):
+        set_log_level = {
+            'level': level,
+        }
+        return self.rpc.send_request('/set_log_level', set_log_level)
+
+    def set_log_categories(self, categories = ''):
+        set_log_categories = {
+            'categories': categories,
+        }
+        return self.rpc.send_request('/set_log_categories', set_log_categories)
