@@ -46,6 +46,7 @@ set(crypto_sources
   random.c
   skein.c
   slow-hash.c
+  cn_turtle_hash.c
   tree-hash.c)
 
 set(crypto_headers)
