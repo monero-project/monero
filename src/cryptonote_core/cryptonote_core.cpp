@@ -921,6 +921,7 @@ namespace cryptonote
         catch (const std::exception &e)
         {
           MERROR_VER("Exception in handle_incoming_tx_pre: " << e.what());
+          tvc[i].m_verifivation_failed = true;
           results[i].res = false;
         }
       });
@@ -951,6 +952,7 @@ namespace cryptonote
           catch (const std::exception &e)
           {
             MERROR_VER("Exception in handle_incoming_tx_post: " << e.what());
+            tvc[i].m_verifivation_failed = true;
             results[i].res = false;
           }
         });
