@@ -4981,7 +4981,7 @@ bool simple_wallet::show_incoming_transfers(const std::vector<std::string>& args
         std::vector<uint64_t> heights;
         for (const auto &e: td.m_uses) heights.push_back(e.first);
         const std::pair<std::string, std::string> line = show_outputs_line(heights, blockchain_height, td.m_spent_height);
-        extra_string += tr("Heights: ") + line.first + "\n" + line.second;
+        extra_string += std::string("\n    ") + tr("Used at heights: ") + line.first + "\n    " + line.second;
       }
       message_writer(td.m_spent ? console_color_magenta : console_color_green, false) <<
         boost::format("%21s%8s%12s%8s%16u%68s%16u%s") %
