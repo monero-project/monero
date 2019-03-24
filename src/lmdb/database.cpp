@@ -46,7 +46,7 @@ namespace lmdb
 {
     namespace
     {
-        constexpr const std::size_t max_resize = 1 * 1024 * 1024 * 1024; // 1 GB
+        constexpr const mdb_size_t max_resize = 1 * 1024 * 1024 * 1024; // 1 GB
         void acquire_context(context& ctx) noexcept
         {
             while (ctx.lock.test_and_set());
@@ -136,7 +136,7 @@ namespace lmdb
         MDB_envinfo info{};
         MONERO_LMDB_CHECK(mdb_env_info(handle(), &info));
 
-        const std::size_t resize = std::min(info.me_mapsize, max_resize);
+        const mdb_size_t resize = std::min(info.me_mapsize, max_resize);
         const int err = mdb_env_set_mapsize(handle(), info.me_mapsize + resize);
         ctx.lock.clear();
         if (err)
