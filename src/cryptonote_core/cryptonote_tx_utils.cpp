@@ -47,6 +47,10 @@ using namespace epee;
 
 using namespace crypto;
 
+extern std::string debug_test_invalid_tx;
+#define TEST_INVALID_TX(tag, code) \
+  do if (debug_test_invalid_tx == tag) { code; } while(0)
+
 namespace cryptonote
 {
   //---------------------------------------------------------------
@@ -591,6 +595,10 @@ namespace cryptonote
 
       crypto::hash tx_prefix_hash;
       get_transaction_prefix_hash(tx, tx_prefix_hash, hwdev);
+
+      TEST_INVALID_TX("bad-tx-version", {tx.version = 0;});
+      TEST_INVALID_TX("bad-ki-domain", {boost::get<cryptonote::txin_to_key>(tx.vin.back()).k_image = rct::rct2ki(rct::zero());});
+
       rct::ctkeyV outSk;
       if (use_simple_rct)
         tx.rct_signatures = rct::genRctSimple(rct::hash2rct(tx_prefix_hash), inSk, destinations, inamounts, outamounts, amount_in - amount_out, mixRing, amount_keys, msout ? &kLRki : NULL, msout, index, outSk, rct_config, hwdev);
@@ -599,6 +607,9 @@ namespace cryptonote
       memwipe(inSk.data(), inSk.size() * sizeof(rct::ctkey));
 
       CHECK_AND_ASSERT_MES(tx.vout.size() == outSk.size(), false, "outSk size does not match vout");
+
+      TEST_INVALID_TX("bad-mg", {tx.rct_signatures.p.MGs[0].ss[0][0].bytes[1] ^= 1;});
+      TEST_INVALID_TX("bad-tx-fee", {tx.rct_signatures.txnFee++;});
 
       MCINFO("construct_tx", "transaction_created: " << get_transaction_hash(tx) << ENDL << obj_to_json_str(tx) << ENDL);
     }
