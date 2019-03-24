@@ -54,7 +54,7 @@ int SignatureFuzzer::init()
 
   try
   {
-    wallet.init("");
+    wallet.init("", boost::none, 0, true, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
     wallet.set_subaddress_lookahead(1, 1);
     wallet.generate("", "", spendkey, true, false);
 
