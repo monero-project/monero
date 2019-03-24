@@ -42,6 +42,7 @@ const char* const GetTransactions::name = "get_transactions";
 const char* const KeyImagesSpent::name = "key_images_spent";
 const char* const GetTxGlobalOutputIndices::name = "get_tx_global_output_indices";
 const char* const SendRawTx::name = "send_raw_tx";
+const char* const SendRawTxHex::name = "send_raw_tx_hex";
 const char* const StartMining::name = "start_mining";
 const char* const StopMining::name = "stop_mining";
 const char* const MiningStatus::name = "mining_status";
@@ -290,6 +291,22 @@ rapidjson::Value SendRawTx::Response::toJson(rapidjson::Document& doc) const
 void SendRawTx::Response::fromJson(rapidjson::Value& val)
 {
   GET_FROM_JSON_OBJECT(val, relayed, relayed);
+}
+
+rapidjson::Value SendRawTxHex::Request::toJson(rapidjson::Document& doc) const
+{
+  auto val = Message::toJson(doc);
+
+  INSERT_INTO_JSON_OBJECT(val, doc, tx_as_hex, tx_as_hex);
+  INSERT_INTO_JSON_OBJECT(val, doc, relay, relay);
+
+  return val;
+}
+
+void SendRawTxHex::Request::fromJson(rapidjson::Value& val)
+{
+  GET_FROM_JSON_OBJECT(val, tx_as_hex, tx_as_hex);
+  GET_FROM_JSON_OBJECT(val, relay, relay);
 }
 
 rapidjson::Value StartMining::Request::toJson(rapidjson::Document& doc) const
