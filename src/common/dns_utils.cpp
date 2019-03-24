@@ -293,9 +293,8 @@ DNSResolver::DNSResolver() : m_data(new DNSResolverData())
       ub_ctx_delete(m_data->m_ub_context);
       m_data->m_ub_context = ub_ctx_create();
       add_anchors(m_data->m_ub_context);
-      dns_public_addr = tools::dns_utils::parse_dns_public(DNS_PUBLIC);
-      for (const auto &ip: dns_public_addr)
-        ub_ctx_set_fwd(m_data->m_ub_context, string_copy(ip.c_str()));
+      for (const auto &ip: DEFAULT_DNS_PUBLIC_ADDR)
+        ub_ctx_set_fwd(m_data->m_ub_context, string_copy(ip));
       ub_ctx_set_option(m_data->m_ub_context, string_copy("do-udp:"), string_copy("no"));
       ub_ctx_set_option(m_data->m_ub_context, string_copy("do-tcp:"), string_copy("yes"));
     }
