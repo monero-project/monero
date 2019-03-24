@@ -104,6 +104,22 @@ class ColdSigningTest():
         unsigned_txset = res.unsigned_txset
 
         print 'Signing transaction with cold wallet'
+        res = self.cold_wallet.describe_transfer(unsigned_txset = unsigned_txset)
+        assert len(res.desc) == 1
+        desc = res.desc[0]
+        assert desc.amount_in >= amount + fee
+        assert desc.amount_out == desc.amount_in - fee
+        assert desc.ring_size == 11
+        assert desc.unlock_time == 0
+        assert desc.payment_id == payment_id
+        assert desc.change_amount == desc.amount_in - 1000000000000 - fee
+        assert desc.change_address == '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
+        assert desc.fee == fee
+        assert len(desc.recipients) == 1
+        rec = desc.recipients[0]
+        assert rec.address == '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
+        assert rec.amount == 1000000000000
+
         res = self.cold_wallet.sign_transfer(unsigned_txset)
         assert len(res.signed_txset) > 0
         signed_txset = res.signed_txset

@@ -101,11 +101,12 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(get_bulk_payments)
 
-    def describe_transfer(self, unsigned_txset):
+    def describe_transfer(self, unsigned_txset = '', multisig_txset = ''):
         describe_transfer = {
             'method': 'describe_transfer',
             'params': {
                 'unsigned_txset': unsigned_txset,
+                'multisig_txset': multisig_txset,
             },
             'jsonrpc': '2.0', 
             'id': '0'
