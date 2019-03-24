@@ -374,7 +374,7 @@ namespace tools
       std::vector<uint8_t> extra;
       uint64_t unlock_time;
       bool use_rct;
-      bool use_bulletproofs;
+      rct::RCTConfig rct_config;
       std::vector<cryptonote::tx_destination_entry> dests; // original setup, does not include change
       uint32_t subaddr_account;   // subaddress account of your wallet to be used in this transfer
       std::set<uint32_t> subaddr_indices;  // set of address indices used as inputs in this transfer
@@ -387,7 +387,7 @@ namespace tools
         FIELD(extra)
         FIELD(unlock_time)
         FIELD(use_rct)
-        FIELD(use_bulletproofs)
+        FIELD(rct_config)
         FIELD(dests)
         FIELD(subaddr_account)
         FIELD(subaddr_indices)
@@ -1491,7 +1491,7 @@ BOOST_CLASS_VERSION(tools::wallet2::address_book_row, 17)
 BOOST_CLASS_VERSION(tools::wallet2::reserve_proof_entry, 0)
 BOOST_CLASS_VERSION(tools::wallet2::unsigned_tx_set, 0)
 BOOST_CLASS_VERSION(tools::wallet2::signed_tx_set, 1)
-BOOST_CLASS_VERSION(tools::wallet2::tx_construction_data, 3)
+BOOST_CLASS_VERSION(tools::wallet2::tx_construction_data, 4)
 BOOST_CLASS_VERSION(tools::wallet2::pending_tx, 3)
 BOOST_CLASS_VERSION(tools::wallet2::multisig_sig, 0)
 
@@ -1860,11 +1860,27 @@ namespace boost
       a & x.subaddr_account;
       a & x.subaddr_indices;
       if (ver < 2)
+      {
+        if (!typename Archive::is_saving())
+          x.rct_config = { rct::RangeProofBorromean, 0 };
         return;
+      }
       a & x.selected_transfers;
       if (ver < 3)
+      {
+        if (!typename Archive::is_saving())
+          x.rct_config = { rct::RangeProofBorromean, 0 };
         return;
-      a & x.use_bulletproofs;
+      }
+      if (ver < 4)
+      {
+        bool use_bulletproofs = x.rct_config.range_proof_type != rct::RangeProofBorromean;
+        a & use_bulletproofs;
+        if (!typename Archive::is_saving())
+          x.rct_config = { use_bulletproofs ? rct::RangeProofBulletproof : rct::RangeProofBorromean, 0 };
+        return;
+      }
+      a & x.rct_config;
     }
 
     template <class Archive>

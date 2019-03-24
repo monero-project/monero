@@ -339,6 +339,13 @@ namespace boost
     if (x.type == rct::RCTTypeBulletproof || x.type == rct::RCTTypeBulletproof2)
       a & x.p.pseudoOuts;
   }
+
+  template <class Archive>
+  inline void serialize(Archive &a, rct::RCTConfig &x, const boost::serialization::version_type ver)
+  {
+    a & x.range_proof_type;
+    a & x.bp_version;
+  }
 }
 }
 

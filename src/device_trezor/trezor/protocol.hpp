@@ -281,7 +281,7 @@ namespace tx {
     }
 
     bool is_req_bulletproof() const {
-      return m_ct.tx_data.use_bulletproofs;
+      return m_ct.tx_data.rct_config.range_proof_type != rct::RangeProofBorromean;
     }
 
     bool is_bulletproof() const {
