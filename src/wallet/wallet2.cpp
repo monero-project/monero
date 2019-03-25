@@ -9408,7 +9408,7 @@ bool wallet2::sanity_check(const std::vector<wallet2::pending_tx> &ptx_vector, s
     THROW_WALLET_EXCEPTION_IF(ptx.change_dts.addr != ptx_vector[0].change_dts.addr, error::wallet_internal_error,
         "Change goes to several different addresses");
   const auto it = m_subaddresses.find(ptx_vector[0].change_dts.addr.m_spend_public_key);
-  THROW_WALLET_EXCEPTION_IF(it == m_subaddresses.end(), error::wallet_internal_error, "Change address is not ours");
+  THROW_WALLET_EXCEPTION_IF(change > 0 && it == m_subaddresses.end(), error::wallet_internal_error, "Change address is not ours");
 
   required[ptx_vector[0].change_dts.addr].first += change;
   required[ptx_vector[0].change_dts.addr].second = ptx_vector[0].change_dts.is_subaddress;
@@ -9724,8 +9724,14 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_from(const crypton
   }
 
   uint64_t a = 0;
-  for (size_t idx: unused_transfers_indices) a += m_transfers[idx].amount();
-  for (size_t idx: unused_dust_indices) a += m_transfers[idx].amount();
+  for (const TX &tx: txes)
+  {
+    for (size_t idx: tx.selected_transfers)
+    {
+      a += m_transfers[idx].amount();
+    }
+    a -= tx.ptx.fee;
+  }
   std::vector<cryptonote::tx_destination_entry> synthetic_dsts(1, cryptonote::tx_destination_entry("", a, address, is_subaddress));
   THROW_WALLET_EXCEPTION_IF(!sanity_check(ptx_vector, synthetic_dsts), error::wallet_internal_error, "Created transaction(s) failed sanity check");
 
