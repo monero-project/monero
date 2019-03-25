@@ -125,13 +125,13 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(describe_transfer)
 
-    def create_wallet(self, index=''):
+    def create_wallet(self, filename='', password = '', language = 'English'):
         create_wallet = {
             'method': 'create_wallet',
             'params': {
-                'filename': 'testWallet' + index,
-                'password' : '',
-                'language' : 'English'
+                'filename': filename,
+                'password': password,
+                'language': language
             },
             'jsonrpc': '2.0', 
             'id': '0'
@@ -622,6 +622,16 @@ class Wallet(object):
             'id': '0'
         }
         return self.rpc.send_json_rpc_request(relay_tx)
+
+    def get_languages(self):
+        get_languages = {
+            'method': 'get_languages',
+            'params': {
+            },
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(get_languages)
 
     def get_version(self):
         get_version = {
