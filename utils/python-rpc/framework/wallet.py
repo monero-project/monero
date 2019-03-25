@@ -159,11 +159,23 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(sweep_dust)
 
-    def sweep_all(self, address):
+    def sweep_all(self, address = '', account_index = 0, subaddr_indices = [], priority = 0, ring_size = 0, outputs = 1, unlock_time = 0, payment_id = '', get_tx_keys = False, below_amount = 0, do_not_relay = False, get_tx_hex = False, get_tx_metadata = False):
         sweep_all = {
             'method': 'sweep_all',
             'params' : {
-                'address' : ''
+                'address' : address,
+                'account_index' : account_index,
+                'subaddr_indices' : subaddr_indices,
+                'priority' : priority,
+                'ring_size' : ring_size,
+                'outputs' : outputs,
+                'unlock_time' : unlock_time,
+                'payment_id' : payment_id,
+                'get_tx_keys' : get_tx_keys,
+                'below_amount' : below_amount,
+                'do_not_relay' : do_not_relay,
+                'get_tx_hex' : get_tx_hex,
+                'get_tx_metadata' : get_tx_metadata,
             },
             'jsonrpc': '2.0', 
             'id': '0'
