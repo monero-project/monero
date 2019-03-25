@@ -111,7 +111,7 @@ static const hard_fork_record testnet_hard_forks[] =
   { 1, 1, 0, 1548750273 },
   { network_version_7, 10, 0, 1548750283 },
   { network_version_8, 2180, 0, 1549966391 },
-  { network_version_7, 25275, 0, 1553526000}  // Monday, March 25, 2019 3:00:00 PM GMT
+  { network_version_7, 25275, 0, 1553526000},  // Monday, March 25, 2019 3:00:00 PM GMT
   { network_version_11_infinite_staking, 34395, 0, 1553526000} // Sunday, April 7, 2019 7:00:00 AM GMT
 };
 static const uint64_t testnet_hard_fork_version_1_till = 9;
