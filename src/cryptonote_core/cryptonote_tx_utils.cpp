@@ -133,24 +133,21 @@ namespace cryptonote
     return correct_key == output_key;
   }
 
-  const int GOVERNANCE_BASE_REWARD_DIVISOR   = 20;
-  const int MASTER_NODE_BASE_REWARD_DIVISOR = 2;
+  
+  const uint64_t MASTER_NODE_BASE_REWARD_PERCENTAGE = 90;
+
+  
+  double get_MasterNode_Divisor(const int hard_fork_version)
+  {
+       return 100.0 / MASTER_NODE_BASE_REWARD_PERCENTAGE;
+  }
+  
+
   uint64_t governance_reward_formula(uint64_t base_reward)
   {
     return 0;// NO governance planned
   }
-
-  bool block_has_governance_output(network_type nettype, cryptonote::block const &block)
-  {
-    bool result = height_has_governance_output(nettype, block.major_version, get_block_height(block));
-    return result;
-  }
-
-  bool height_has_governance_output(network_type nettype, int hard_fork_version, uint64_t height)
-  {
-    return false;// NO governance planned
-  }
-
+  
   uint64_t derive_governance_from_block_reward(network_type nettype, const cryptonote::block &block)
   {
     uint64_t result       = 0;
@@ -188,12 +185,30 @@ namespace cryptonote
 
     result = governance;
     return result;
+  }  
+
+  bool block_has_governance_output(network_type nettype, cryptonote::block const &block)
+  {
+    bool result = height_has_governance_output(nettype, block.major_version, get_block_height(block));
+    return result;
   }
+
+  bool height_has_governance_output(network_type nettype, int hard_fork_version, uint64_t height)
+  {
+    return false;// NO governance planned
+  }
+
+  
 
   uint64_t master_node_reward_formula(uint64_t base_reward, int hard_fork_version)
   {
-    return hard_fork_version >= 9 ? (base_reward / MASTER_NODE_BASE_REWARD_DIVISOR) : 0;
+    uint64_t reward = 0;
+    if(hard_fork_version >= 11)
+        reward = (base_reward / 10) * (MASTER_NODE_BASE_REWARD_PERCENTAGE/10) ;
+	return reward;
   }
+
+
 
   uint64_t get_portion_of_reward(uint64_t portions, uint64_t total_master_node_reward)
   {
