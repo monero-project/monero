@@ -89,6 +89,12 @@ class ColdSigningTest():
         dst = {'address': '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 'amount': 1000000000000}
         payment_id = '1234500000012345abcde00000abcdeff1234500000012345abcde00000abcde'
 
+        self.hot_wallet.refresh()
+        res = self.hot_wallet.export_outputs()
+        self.cold_wallet.import_outputs(res.outputs_data_hex)
+        res = self.cold_wallet.export_key_images(True)
+        self.hot_wallet.import_key_images(res.signed_key_images, offset = res.offset)
+
         res = self.hot_wallet.transfer([dst], ring_size = 11, payment_id = payment_id, get_tx_key = False)
         assert len(res.tx_hash) == 32*2
         txid = res.tx_hash

@@ -645,6 +645,50 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(get_languages)
 
+    def export_outputs(self):
+        export_outputs = {
+            'method': 'export_outputs',
+            'params': {
+            },
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(export_outputs)
+
+    def import_outputs(self, outputs_data_hex):
+        import_outputs = {
+            'method': 'import_outputs',
+            'params': {
+                'outputs_data_hex': outputs_data_hex
+            },
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(import_outputs)
+
+    def export_key_images(self, all_ = False):
+        export_key_images = {
+            'method': 'export_key_images',
+            'params': {
+                'all': all_
+            },
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(export_key_images)
+
+    def import_key_images(self, signed_key_images, offset = 0):
+        import_key_images = {
+            'method': 'import_key_images',
+            'params': {
+                'offset': offset,
+                'signed_key_images': signed_key_images,
+            },
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(import_key_images)
+
     def get_version(self):
         get_version = {
             'method': 'get_version',
