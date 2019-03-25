@@ -224,7 +224,10 @@ class BlockchainTest():
     def _test_alt_chains(self):
         print('Testing alt chains')
         daemon = Daemon()
+        res = daemon.get_alt_blocks_hashes()
+        starting_alt_blocks = res.blks_hashes if 'blks_hashes' in res else []
         res = daemon.get_info()
+        root_block_hash = res.top_block_hash
         height = res.height
         prev_hash = res.top_block_hash
         res_template = daemon.getblocktemplate('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm')
@@ -247,15 +250,23 @@ class BlockchainTest():
 
         print 'mining 3 on 1'
         # three more on [1]
+        chain1 = []
         res = daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 3, prev_block = alt_blocks[1], starting_nonce = nonce)
         assert res.height == height + 3
         assert len(res.blocks) == 3
         blk_hash = res.blocks[2]
         res = daemon.getblockheaderbyhash(blk_hash)
         nonce = res.block_header.nonce
-        print('mined 3 blocks to height ' + str(height + 3))
         assert not res.block_header.orphan_status
         nonce += 1
+        chain1.append(blk_hash)
+        chain1.append(res.block_header.prev_hash)
+
+        print('Checking alt blocks match')
+        res = daemon.get_alt_blocks_hashes()
+        assert len(res.blks_hashes) == len(starting_alt_blocks) + 4
+        for txid in alt_blocks:
+            assert txid in res.blks_hashes or txid == alt_blocks[1]
 
         print 'mining 4 on 3'
         # 4 more on [3], the chain will reorg when we mine the 4th
@@ -276,6 +287,28 @@ class BlockchainTest():
         res = daemon.get_info()
         assert res.height == height + 5
         assert res.top_block_hash == prev_block
+
+        print('Checking alt blocks match')
+        res = daemon.get_alt_blocks_hashes()
+        blks_hashes = res.blks_hashes
+        assert len(blks_hashes) == len(starting_alt_blocks) + 7
+        for txid in alt_blocks:
+            assert txid in blks_hashes or txid == alt_blocks[3]
+        for txid in chain1:
+            assert txid in blks_hashes
+
+        res = daemon.get_alternate_chains()
+        assert len(res.chains) == 4
+        tips = [chain.block_hash for chain in res.chains]
+        for txid in tips:
+            assert txid in blks_hashes
+        for chain in res.chains:
+            assert chain.length in [1, 4]
+            assert chain.length == len(chain.block_hashes)
+            assert chain.height == height + chain.length - 1 # all happen start at the same height
+            assert chain.main_chain_parent_block == root_block_hash
+        for txid in [alt_blocks[0], alt_blocks[2], alt_blocks[4]]:
+          assert len([chain for chain in res.chains if chain.block_hash == txid]) == 1
 
 
 if __name__ == '__main__':

@@ -312,3 +312,18 @@ class Daemon(object):
             'categories': categories,
         }
         return self.rpc.send_request('/set_log_categories', set_log_categories)
+
+    def get_alt_blocks_hashes(self):
+        get_alt_blocks_hashes = {
+        }
+        return self.rpc.send_request('/get_alt_blocks_hashes', get_alt_blocks_hashes)
+
+    def get_alternate_chains(self):
+        get_alternate_chains = {
+            'method': 'get_alternate_chains',
+            'params': {
+            },
+            'jsonrpc': '2.0',
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(get_alternate_chains)
