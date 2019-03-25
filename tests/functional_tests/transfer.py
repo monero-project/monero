@@ -62,9 +62,14 @@ class TransferTest():
         print("Mining some blocks")
         daemon = Daemon()
 
+        res = daemon.get_info()
+        height = res.height
+
         daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 80)
         for i in range(len(self.wallet)):
             self.wallet[i].refresh()
+            res = self.wallet[i].get_height()
+            assert res.height == height + 80
 
     def transfer(self):
         daemon = Daemon()
@@ -168,6 +173,27 @@ class TransferTest():
         assert e.address == '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
         assert e.double_spend_seen == False
         assert e.confirmations == 1
+
+        res = self.wallet[0].get_height()
+        wallet_height = res.height
+        res = self.wallet[0].get_transfer_by_txid(txid)
+        assert len(res.transfers) == 1
+        assert res.transfers[0] == res.transfer
+        t = res.transfer
+        assert t.txid == txid
+        assert t.payment_id == payment_id
+        assert t.height == wallet_height - 1
+        assert t.timestamp > 0
+        assert t.amount == 0 # to self, so it's just "pay a fee" really
+        assert t.fee == fee
+        assert t.note == ''
+        assert len(t.destinations) == 1
+        assert t.destinations[0] == {'address': '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 'amount': 1000000000000}
+        assert t.type == 'out'
+        assert t.unlock_time == 0
+        assert t.address == '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
+        assert t.double_spend_seen == False
+        assert t.confirmations == 1
 
         res = self.wallet[0].get_balance()
         assert res.balance == running_balances[0]

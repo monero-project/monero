@@ -89,6 +89,18 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(transfer)   
 
+    def get_transfer_by_txid(self, txid, account_index = 0):
+        get_transfer_by_txid = {
+            'method': 'get_transfer_by_txid',
+            'params': {
+                'txid': txid,
+                'account_index': account_index,
+            },
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(get_transfer_by_txid)
+
     def get_bulk_payments(self, payment_ids = [], min_block_height = 0):
         get_bulk_payments = {
             'method': 'get_bulk_payments',
@@ -591,6 +603,25 @@ class Wallet(object):
             'id': '0'
         }
         return self.rpc.send_json_rpc_request(verify)
+
+    def get_height(self):
+        get_height = {
+            'method': 'get_height',
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(get_height)
+
+    def relay_tx(self, hex_):
+        relay_tx = {
+            'method': 'relay_tx',
+            'params': {
+                'hex': hex_,
+            },
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(relay_tx)
 
     def get_version(self):
         get_version = {
