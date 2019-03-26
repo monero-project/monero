@@ -1280,6 +1280,8 @@ void Blockchain::get_long_term_block_weights(std::vector<uint64_t>& weights, uin
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
 
+  PERF_TIMER(get_long_term_block_weights);
+
   if (count == 0)
     return;
 
@@ -1295,10 +1297,30 @@ void Blockchain::get_long_term_block_weights(std::vector<uint64_t>& weights, uin
 
   if (cached)
   {
+    MTRACE("requesting " << count << " from " << start_height << ", cached");
     weights = m_long_term_block_weights_cache;
     return;
   }
 
+  // in the vast majority of uncached cases, most is still cached,
+  // as we just move the window one block up:
+  if (tip_height > 0 && count == m_long_term_block_weights_cache.size() && tip_height < blockchain_height)
+  {
+    crypto::hash old_tip_hash = m_db->get_block_hash_from_height(tip_height - 1);
+    if (old_tip_hash == m_long_term_block_weights_cache_tip_hash)
+    {
+      weights = m_long_term_block_weights_cache;
+      for (size_t i = 1; i < weights.size(); ++i)
+        weights[i - 1] = weights[i];
+      MTRACE("requesting " << count << " from " << start_height << ", incremental");
+      weights.back() = m_db->get_block_long_term_weight(tip_height);
+      m_long_term_block_weights_cache = weights;
+      m_long_term_block_weights_cache_tip_hash = tip_hash;
+      return;
+    }
+  }
+
+  MTRACE("requesting " << count << " from " << start_height << ", uncached");
   weights = m_db->get_long_term_block_weights(start_height, count);
   m_long_term_block_weights_cache = weights;
   m_long_term_block_weights_cache_tip_hash = tip_hash;
