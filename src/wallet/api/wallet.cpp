@@ -449,6 +449,11 @@ WalletImpl::~WalletImpl()
     close(false); // do not store wallet as part of the closing activities
     // Stop refresh thread
     stopRefresh();
+
+    if (m_wallet2Callback->getListener()) {
+      m_wallet2Callback->getListener()->onSetWallet(nullptr);
+    }
+
     LOG_PRINT_L1(__FUNCTION__ << " finished");
 }
 
