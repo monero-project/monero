@@ -430,7 +430,9 @@ namespace nodetool
     }
     else if (nettype == cryptonote::STAGENET)
     {
-      
+		full_addrs.insert("35.237.218.150:39090");
+        full_addrs.insert("35.243.157.236:39090");
+        full_addrs.insert("35.237.118.17:39090");
     }
     else if (nettype == cryptonote::FAKECHAIN)
     {
