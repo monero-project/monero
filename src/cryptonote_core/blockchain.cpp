@@ -139,6 +139,7 @@ Blockchain::Blockchain(tx_memory_pool& tx_pool) :
   m_enforce_dns_checkpoints(false), m_max_prepare_blocks_threads(4), m_db_sync_on_blocks(true), m_db_sync_threshold(1), m_db_sync_mode(db_async), m_db_default_sync(false), m_fast_sync(true), m_show_time_stats(false), m_sync_counter(0), m_bytes_to_sync(0), m_cancel(false),
   m_long_term_block_sizes_window(CRYPTONOTE_LONG_TERM_BLOCK_SIZE_WINDOW_SIZE),
   m_long_term_effective_median_block_size(0),
+  m_long_term_block_sizes_cache_tip_hash(crypto::null_hash),
   m_difficulty_for_next_block_top_hash(crypto::null_hash),
   m_difficulty_for_next_block(1),
   m_btc_valid(false)
@@ -1178,7 +1179,28 @@ void Blockchain::get_long_term_block_sizes(std::vector<uint64_t>& sz, uint64_t s
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
 
+  if (count == 0)
+    return;
+
+  bool cached = false;
+  uint64_t blockchain_height = m_db->height();
+  uint64_t tip_height = start_height + count - 1;
+  crypto::hash tip_hash = crypto::null_hash;
+  if (tip_height < blockchain_height && count == m_long_term_block_sizes_cache.size())
+  {
+    tip_hash = m_db->get_block_hash_from_height(tip_height);
+    cached = tip_hash == m_long_term_block_sizes_cache_tip_hash;
+  }
+
+  if (cached)
+  {
+    sz = m_long_term_block_sizes_cache;
+    return;
+  }
+
   sz = m_db->get_long_term_block_sizes(start_height, count);
+  m_long_term_block_sizes_cache = sz;
+  m_long_term_block_sizes_cache_tip_hash = tip_hash;
 }
 //------------------------------------------------------------------
 uint64_t Blockchain::get_current_cumulative_blocksize_limit() const
