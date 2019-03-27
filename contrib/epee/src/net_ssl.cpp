@@ -46,8 +46,7 @@ namespace
   {
     void operator()(BIO* ptr) const noexcept
     {
-      if (ptr)
-        BIO_free(ptr);
+      BIO_free(ptr);
     }
   };
   using openssl_bio = std::unique_ptr<BIO, openssl_bio_free>;
@@ -56,12 +55,28 @@ namespace
   {
     void operator()(EVP_PKEY* ptr) const noexcept
     {
-      if (ptr)
-        EVP_PKEY_free(ptr);
+      EVP_PKEY_free(ptr);
     }
   };
   using openssl_pkey = std::unique_ptr<EVP_PKEY, openssl_pkey_free>;
 
+  struct openssl_rsa_free
+  {
+    void operator()(RSA* ptr) const noexcept
+    {
+      RSA_free(ptr);
+    }
+  };
+  using openssl_rsa = std::unique_ptr<RSA, openssl_rsa_free>;
+
+  struct openssl_bignum_free
+  {
+    void operator()(BIGNUM* ptr) const noexcept
+    {
+      BN_free(ptr);
+    }
+  };
+  using openssl_bignum = std::unique_ptr<BIGNUM, openssl_bignum_free>;
 }
 
 namespace epee
@@ -81,18 +96,36 @@ bool create_ssl_certificate(EVP_PKEY *&pkey, X509 *&cert)
   }
 
   openssl_pkey pkey_deleter{pkey};
-  RSA *rsa = RSA_generate_key(4096, RSA_F4, NULL, NULL);
+  openssl_rsa rsa{RSA_new()};
   if (!rsa)
+  {
+    MERROR("Error allocating RSA private key");
+    return false;
+  }
+
+  openssl_bignum exponent{BN_new()};
+  if (!exponent)
+  {
+    MERROR("Error allocating exponent");
+    return false;
+  }
+
+  BN_set_word(exponent.get(), RSA_F4);
+
+  if (RSA_generate_key_ex(rsa.get(), 4096, exponent.get(), nullptr) != 1)
   {
     MERROR("Error generating RSA private key");
     return false;
   }
-  if (EVP_PKEY_assign_RSA(pkey, rsa) <= 0)  // The RSA will be automatically freed when the EVP_PKEY structure is freed.
+
+  if (EVP_PKEY_assign_RSA(pkey, rsa.get()) <= 0)
   {
     MERROR("Error assigning RSA private key");
-    RSA_free(rsa);
     return false;
   }
+
+  // the RSA key is now managed by the EVP_PKEY structure
+  (void)rsa.release();
 
   cert = X509_new();
   if (!cert)
