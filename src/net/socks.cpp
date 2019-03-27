@@ -221,7 +221,7 @@ namespace socks
     };
 
     client::client(stream_type::socket&& proxy, socks::version ver)
-      : proxy_(std::move(proxy)), strand_(proxy_.get_io_service()), buffer_size_(0), buffer_(), ver_(ver)
+      : proxy_(std::move(proxy)), strand_(GET_IO_SERVICE(proxy_)), buffer_size_(0), buffer_(), ver_(ver)
     {}
 
     client::~client() {}
