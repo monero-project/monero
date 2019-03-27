@@ -63,6 +63,7 @@ target_link_libraries(wallet
     cryptonote_core
     mnemonics
     device_trezor
+    net
     ${LMDB_LIBRARY}
     ${Boost_CHRONO_LIBRARY}
     ${Boost_SERIALIZATION_LIBRARY}
