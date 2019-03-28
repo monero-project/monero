@@ -10423,10 +10423,9 @@ bool wallet2::use_fork_rules(uint8_t version, uint64_t early_blocks) const
   throw_on_rpc_response_error(result, "get_hard_fork_info");
 
   bool close_enough = height >= earliest_height - early_blocks; // start using the rules that many blocks beforehand
-  if (early_blocks > 0 && (earliest_height - early_blocks) > earliest_height)
-  {
+  if (early_blocks > earliest_height) // Start using rules early if early_blocks would underflow earliest_height, in prev calc
     close_enough = true;
-  }
+
   if (close_enough)
     LOG_PRINT_L2("Using v" << (unsigned)version << " rules");
   else
