@@ -194,17 +194,6 @@ namespace service_nodes
     req.snode_version_minor = static_cast<uint16_t>(LOKI_VERSION_MINOR);
     req.snode_version_patch = static_cast<uint16_t>(LOKI_VERSION_PATCH);
 
-    // 2.0.x will only accept a v10 uptime proof with a snode_version_major == 2 instead of >= 2, so
-    // if we're sending such a proof fake the version as 2.3.x instead of 3.0.x to keep 2.0.x nodes
-    // happy with forwarding the proof.
-    // (This code can be safely deleted after the v11 hard fork has happened)
-    uint64_t height = m_core.get_current_blockchain_height();
-    int version     = m_core.get_hard_fork_version(height);
-    if (version == cryptonote::network_version_10_bulletproofs) {
-        req.snode_version_minor = req.snode_version_major;
-        req.snode_version_major = 2;
-    }
-
     crypto::public_key pubkey;
     crypto::secret_key seckey;
     m_core.get_service_node_keys(pubkey, seckey);
