@@ -1869,7 +1869,7 @@ namespace service_nodes
             addr_to_portion.portions += needed;
       }
 
-      if (addr_to_portion.portions < min_portions || addr_to_portion.portions > portions_left)
+      if (addr_to_portion.portions < min_portions || (addr_to_portion.portions - portions_to_steal) > portions_left)
       {
         result.err_msg = tr("Invalid amount for contributor: ") + args[i] + tr(", with portion amount: ") + args[i+1] + tr(". The contributors must each have at least 25%, except for the last contributor which may have the remaining amount");
         return result;
