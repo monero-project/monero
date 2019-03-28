@@ -31,6 +31,7 @@
 
 #include <string>
 
+#define LOKI_RPC_DOC_INTROSPECT
 #define LOKI_ARRAY_COUNT(array) sizeof(array)/sizeof(array[0])
 
 namespace loki
