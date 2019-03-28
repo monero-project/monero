@@ -7484,9 +7484,7 @@ wallet2::register_service_node_result wallet2::create_register_service_node_tx(c
       if (response.size() >= 1)
       {
         bool can_reregister = false;
-        if (use_fork_rules(cryptonote::network_version_11_infinite_staking, 1))
-          unlock_block = 0; // Infinite staking, no time lock
-        else if (use_fork_rules(cryptonote::network_version_10_bulletproofs, 0))
+        if (use_fork_rules(cryptonote::network_version_10_bulletproofs, 0))
         {
           cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry const &node_info = response[0];
           uint64_t expiry_height = node_info.registration_height + staking_requirement_lock_blocks;
@@ -7503,6 +7501,9 @@ wallet2::register_service_node_result wallet2::create_register_service_node_tx(c
       }
     }
   }
+
+  if (use_fork_rules(cryptonote::network_version_11_infinite_staking, 1))
+    unlock_block = 0;
 
   //
   // Create Register Transaction
