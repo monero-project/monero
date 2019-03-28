@@ -171,9 +171,9 @@ namespace service_nodes
     int version     = m_core.get_hard_fork_version(height);
 
     // NOTE: Only care about major version for now
-    if (version == cryptonote::network_version_11_infinite_staking && proof.snode_version_major < 3)
+    if (version >= cryptonote::network_version_11_infinite_staking && proof.snode_version_major < 3)
       return false;
-    else if (version == cryptonote::network_version_10_bulletproofs && proof.snode_version_major < 2)
+    else if (version >= cryptonote::network_version_10_bulletproofs && proof.snode_version_major < 2)
       return false;
 
     CRITICAL_REGION_LOCAL(m_lock);
