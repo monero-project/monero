@@ -7513,11 +7513,26 @@ wallet2::register_service_node_result wallet2::create_register_service_node_tx(c
   // Create Register Transaction
   //
   {
+    uint64_t amount_payable_by_operator = 0;
+    {
+      const uint64_t DUST                 = MAX_NUMBER_OF_CONTRIBUTORS;
+      uint64_t amount_left                = staking_requirement;
+      for (size_t i = 0; i < converted_args.portions.size(); i++)
+      {
+        uint64_t amount = service_nodes::portions_to_amount(staking_requirement, converted_args.portions[i]);
+        if (i == 0) amount_payable_by_operator += amount;
+        amount_left -= amount;
+      }
+
+      if (amount_left <= DUST)
+        amount_payable_by_operator += amount_left;
+    }
+
     vector<cryptonote::tx_destination_entry> dsts;
     cryptonote::tx_destination_entry de;
     de.addr = address;
     de.is_subaddress = false;
-    de.amount = service_nodes::portions_to_amount(converted_args.portions[0], staking_requirement);
+    de.amount = amount_payable_by_operator;
     dsts.push_back(de);
 
     try

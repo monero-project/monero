@@ -2832,7 +2832,7 @@ bool t_rpc_command_executor::prepare_registration()
         state.addresses.push_back(address_str); // the addresses will be validated later down the line
         state.contributions.push_back(STAKING_PORTIONS);
         state.portions_remaining = 0;
-        state.total_reserved_contributions += get_actual_amount(staking_requirement, STAKING_PORTIONS);
+        state.total_reserved_contributions += STAKING_PORTIONS;
         state.prev_step = step;
         step            = register_step::final_summary;
         state_stack.push(state);
@@ -3023,7 +3023,7 @@ bool t_rpc_command_executor::prepare_registration()
       {
         const uint64_t amount_left         = staking_requirement - state.total_reserved_contributions;
         uint64_t min_contribution_portions = service_nodes::get_min_node_contribution_in_portions(hf_version, staking_requirement, state.total_reserved_contributions, state.contributions.size());
-        const uint64_t min_contribution    = get_amount_to_make_portions(staking_requirement, min_contribution_portions);
+        const uint64_t min_contribution    = service_nodes::portions_to_amount(staking_requirement, min_contribution_portions);
 
         std::cout << "The minimum amount possible to contribute is " << cryptonote::print_money(min_contribution) << " " << cryptonote::get_unit() << std::endl;
         std::cout << "There is " << cryptonote::print_money(amount_left) << " " << cryptonote::get_unit() << " left to meet the staking requirement." << std::endl;

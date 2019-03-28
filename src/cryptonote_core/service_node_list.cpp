@@ -1758,9 +1758,14 @@ namespace service_nodes
       return result;
     }
 
+    struct addr_to_portion_t
+    {
+      cryptonote::address_parse_info info;
+      uint64_t portions;
+    };
+
+    std::vector<addr_to_portion_t> addr_to_portions;
     size_t const OPERATOR_ARG_INDEX     = 1;
-    uint64_t amount_payable_by_operator = 0;
-    uint64_t total_reserved             = 0;
     for (size_t i = OPERATOR_ARG_INDEX, num_contributions = 0;
          i < args.size();
          i += 2, ++num_contributions)
@@ -1787,23 +1792,7 @@ namespace service_nodes
       try
       {
         uint64_t num_portions = boost::lexical_cast<uint64_t>(args[i+1]);
-        uint64_t min_portions = get_min_node_contribution_in_portions(hf_version, staking_requirement, total_reserved, num_contributions);
-        if (num_portions < min_portions)
-        {
-          result.err_msg = tr("Invalid amount for contributor: ") + args[i] + tr(", with portion amount: ") + args[i+1] + tr(". The contributors must each have at least 25%, except for the last contributor which may have the remaining amount");
-          return result;
-        }
-
-        if (min_portions == UINT64_MAX)
-        {
-          result.err_msg = tr("Too many contributors specified, you can only split a node with up to: ") + std::to_string(MAX_NUMBER_OF_CONTRIBUTORS) + tr(" people.");
-          return result;
-        }
-
-        result.addresses.push_back(info.address);
-        result.portions.push_back(num_portions);
-        uint64_t loki_amount = service_nodes::portions_to_amount(num_portions, staking_requirement);
-        total_reserved      += loki_amount;
+        addr_to_portions.push_back({info, num_portions});
       }
       catch (const std::exception &e)
       {
@@ -1812,10 +1801,93 @@ namespace service_nodes
       }
     }
 
-    uint64_t amount_left = staking_requirement - total_reserved;
-    const uint64_t DUST  = MAX_NUMBER_OF_CONTRIBUTORS;
-    if (amount_left <= DUST)
-      result.portions[0] += amount_left;
+    //
+    // FIXME(doyle): FIXME(loki) !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    // This is temporary code to redistribute the insufficient portion dust
+    // amounts between contributors. It should be removed in HF12.
+    //
+    std::array<uint64_t, MAX_NUMBER_OF_CONTRIBUTORS * service_nodes::MAX_KEY_IMAGES_PER_CONTRIBUTOR> excess_portions;
+    std::array<uint64_t, MAX_NUMBER_OF_CONTRIBUTORS * service_nodes::MAX_KEY_IMAGES_PER_CONTRIBUTOR> min_contributions;
+    {
+      // NOTE: Calculate excess portions from each contributor
+      uint64_t loki_reserved = 0;
+      for (size_t index = 0; index < addr_to_portions.size(); ++index)
+      {
+        addr_to_portion_t const &addr_to_portion = addr_to_portions[index];
+        uint64_t min_contribution_portions       = service_nodes::get_min_node_contribution_in_portions(hf_version, staking_requirement, loki_reserved, index);
+        uint64_t loki_amount                     = service_nodes::portions_to_amount(staking_requirement, addr_to_portion.portions);
+        loki_reserved                           += loki_amount;
+
+        uint64_t excess = 0;
+        if (addr_to_portion.portions > min_contribution_portions)
+          excess = addr_to_portion.portions - min_contribution_portions;
+
+        min_contributions[index] = min_contribution_portions;
+        excess_portions[index]   = excess;
+      }
+    }
+
+    uint64_t portions_left  = STAKING_PORTIONS;
+    uint64_t total_reserved = 0;
+    for (size_t i = 0; i < addr_to_portions.size(); ++i)
+    {
+      addr_to_portion_t &addr_to_portion = addr_to_portions[i];
+      uint64_t min_portions = get_min_node_contribution_in_portions(hf_version, staking_requirement, total_reserved, i);
+
+      uint64_t portions_to_steal = 0;
+      if (addr_to_portion.portions < min_portions)
+      {
+          // NOTE: Steal dust portions from other contributor if we fall below
+          // the minimum by a dust amount.
+          uint64_t needed             = min_portions - addr_to_portion.portions;
+          const uint64_t FUDGE_FACTOR = 10;
+          const uint64_t DUST_UNIT    = (STAKING_PORTIONS / staking_requirement);
+          const uint64_t DUST         = DUST_UNIT * FUDGE_FACTOR;
+          if (needed > DUST)
+            continue;
+
+          for (size_t sub_index = 0; sub_index < addr_to_portions.size(); sub_index++)
+          {
+            if (i == sub_index) continue;
+            uint64_t &contributor_excess = excess_portions[sub_index];
+            if (contributor_excess > 0)
+            {
+              portions_to_steal = std::min(needed, contributor_excess);
+              addr_to_portion.portions += portions_to_steal;
+              contributor_excess -= portions_to_steal;
+              needed -= portions_to_steal;
+              result.portions[sub_index] -= portions_to_steal;
+
+              if (needed == 0)
+                break;
+            }
+          }
+
+          // NOTE: Operator is sending in the minimum amount and it falls below
+          // the minimum by dust, just increase the portions so it passes
+          if (needed > 0 && addr_to_portions.size() < MAX_NUMBER_OF_CONTRIBUTORS * service_nodes::MAX_KEY_IMAGES_PER_CONTRIBUTOR)
+            addr_to_portion.portions += needed;
+      }
+
+      if (addr_to_portion.portions < min_portions || addr_to_portion.portions > portions_left)
+      {
+        result.err_msg = tr("Invalid amount for contributor: ") + args[i] + tr(", with portion amount: ") + args[i+1] + tr(". The contributors must each have at least 25%, except for the last contributor which may have the remaining amount");
+        return result;
+      }
+
+      if (min_portions == UINT64_MAX)
+      {
+        result.err_msg = tr("Too many contributors specified, you can only split a node with up to: ") + std::to_string(MAX_NUMBER_OF_CONTRIBUTORS) + tr(" people.");
+        return result;
+      }
+
+      portions_left -= addr_to_portion.portions;
+      portions_left += portions_to_steal;
+      result.addresses.push_back(addr_to_portion.info.address);
+      result.portions.push_back(addr_to_portion.portions);
+      uint64_t loki_amount = service_nodes::portions_to_amount(addr_to_portion.portions, staking_requirement);
+      total_reserved      += loki_amount;
+    }
 
     result.success = true;
     return result;
