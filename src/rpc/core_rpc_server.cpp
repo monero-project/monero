@@ -1772,15 +1772,15 @@ namespace cryptonote
     PERF_TIMER(on_get_bans);
 
     auto now = time(nullptr);
-    std::map<std::string, time_t> blocked_hosts = m_p2p.get_blocked_hosts();
-    for (std::map<std::string, time_t>::const_iterator i = blocked_hosts.begin(); i != blocked_hosts.end(); ++i)
+    std::map<epee::net_utils::network_address, time_t> blocked_hosts = m_p2p.get_blocked_hosts();
+    for (std::map<epee::net_utils::network_address, time_t>::const_iterator i = blocked_hosts.begin(); i != blocked_hosts.end(); ++i)
     {
       if (i->second > now) {
         COMMAND_RPC_GETBANS::ban b;
-        b.host = i->first;
+        b.host = i->first.host_str();
         b.ip = 0;
         uint32_t ip;
-        if (epee::string_tools::get_ip_int32_from_string(ip, i->first))
+        if (epee::string_tools::get_ip_int32_from_string(ip, b.host))
           b.ip = ip;
         b.seconds = i->second - now;
         res.bans.push_back(b);

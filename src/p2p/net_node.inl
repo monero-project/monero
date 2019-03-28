@@ -158,7 +158,7 @@ namespace nodetool
   bool node_server<t_payload_net_handler>::is_remote_host_allowed(const epee::net_utils::network_address &address)
   {
     CRITICAL_REGION_LOCAL(m_blocked_hosts_lock);
-    auto it = m_blocked_hosts.find(address.host_str());
+    auto it = m_blocked_hosts.find(address);
     if(it == m_blocked_hosts.end())
       return true;
     if(time(nullptr) >= it->second)
@@ -184,7 +184,7 @@ namespace nodetool
       limit = std::numeric_limits<time_t>::max();
     else
       limit = now + seconds;
-    m_blocked_hosts[addr.host_str()] = limit;
+    m_blocked_hosts[addr] = limit;
 
     // drop any connection to that address. This should only have to look into
     // the zone related to the connection, but really make sure everything is
@@ -214,7 +214,7 @@ namespace nodetool
   bool node_server<t_payload_net_handler>::unblock_host(const epee::net_utils::network_address &address)
   {
     CRITICAL_REGION_LOCAL(m_blocked_hosts_lock);
-    auto i = m_blocked_hosts.find(address.host_str());
+    auto i = m_blocked_hosts.find(address);
     if (i == m_blocked_hosts.end())
       return false;
     m_blocked_hosts.erase(i);
