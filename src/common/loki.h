@@ -31,6 +31,8 @@
 
 #include <string>
 
+#define LOKI_ARRAY_COUNT(array) sizeof(array)/sizeof(array[0])
+
 namespace loki
 {
 double      round           (double);
