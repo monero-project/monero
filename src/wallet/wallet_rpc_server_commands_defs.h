@@ -37,6 +37,8 @@
 #include "crypto/hash.h"
 #include "wallet_rpc_server_error_codes.h"
 
+#include "common/loki.h"
+
 #undef LOKI_DEFAULT_LOG_CATEGORY
 #define LOKI_DEFAULT_LOG_CATEGORY "wallet.rpc"
 
