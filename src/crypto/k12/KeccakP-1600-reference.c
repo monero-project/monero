@@ -182,8 +182,6 @@ void KeccakP1600_OverwriteWithZeroes(void *state, unsigned int byteCount)
 
 /* ---------------------------------------------------------------- */
 
-static void fromBytesToWords(tKeccakLane *stateAsWords, const unsigned char *state);
-static void fromWordsToBytes(unsigned char *state, const tKeccakLane *stateAsWords);
 void KeccakP1600OnWords(tKeccakLane *state, unsigned int nrRounds);
 void KeccakP1600Round(tKeccakLane *state, unsigned int indexRound);
 static void theta(tKeccakLane *A);
@@ -253,26 +251,6 @@ void KeccakP1600_Permute_24rounds(void *state)
 #ifdef KeccakReference
     displayStateAsBytes(1, "State after permutation", (const unsigned char *)state, 1600);
 #endif
-}
-
-static void fromBytesToWords(tKeccakLane *stateAsWords, const unsigned char *state)
-{
-    unsigned int i, j;
-
-    for(i=0; i<nrLanes; i++) {
-        stateAsWords[i] = 0;
-        for(j=0; j<(64/8); j++)
-            stateAsWords[i] |= (tKeccakLane)(state[i*(64/8)+j]) << (8*j);
-    }
-}
-
-static void fromWordsToBytes(unsigned char *state, const tKeccakLane *stateAsWords)
-{
-    unsigned int i, j;
-
-    for(i=0; i<nrLanes; i++)
-        for(j=0; j<(64/8); j++)
-            state[i*(64/8)+j] = (unsigned char)((stateAsWords[i] >> (8*j)) & 0xFF);
 }
 
 void KeccakP1600OnWords(tKeccakLane *state, unsigned int nrRounds)
