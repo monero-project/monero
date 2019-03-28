@@ -112,6 +112,9 @@ static const struct {
   // versions 2, 3, 4, 5 and 6 are skipped, in favor of reducing the cost of adopting the POW change and other consensus updates from Monero
   // version 7 starts from block 44000, which is on or around the 24th of March, 2018.
   { 7, 44000, 0, 1521900000, 0 },
+
+  // version 8 (PoW change to k12) starts from block 112000 with reset diff 500 million
+  { 8, 112000, 0, 1553869222, 500000000 },
 };
 static const uint64_t testnet_hard_fork_version_1_till = 43999;
 
