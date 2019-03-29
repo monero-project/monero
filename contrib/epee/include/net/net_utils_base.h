@@ -41,7 +41,7 @@
 #define MONERO_DEFAULT_LOG_CATEGORY "net"
 
 #ifndef MAKE_IP
-#define MAKE_IP( a1, a2, a3, a4 )	(a1|(a2<<8)|(a3<<16)|(a4<<24))
+#define MAKE_IP( a1, a2, a3, a4 )	(a1|(a2<<8)|(a3<<16)|(((uint32_t)a4)<<24))
 #endif
 
 #if BOOST_VERSION >= 107000
@@ -105,6 +105,53 @@ namespace net_utils
 	inline bool operator>(const ipv4_network_address& lhs, const ipv4_network_address& rhs) noexcept
 	{ return rhs.less(lhs); }
 	inline bool operator>=(const ipv4_network_address& lhs, const ipv4_network_address& rhs) noexcept
+	{ return !lhs.less(rhs); }
+
+	class ipv4_network_subnet
+	{
+		uint32_t m_ip;
+		uint8_t m_mask;
+
+	public:
+		constexpr ipv4_network_subnet() noexcept
+			: ipv4_network_subnet(0, 0)
+		{}
+
+		constexpr ipv4_network_subnet(uint32_t ip, uint8_t mask) noexcept
+			: m_ip(ip), m_mask(mask) {}
+
+		bool equal(const ipv4_network_subnet& other) const noexcept;
+		bool less(const ipv4_network_subnet& other) const noexcept;
+		constexpr bool is_same_host(const ipv4_network_subnet& other) const noexcept
+		{ return subnet() == other.subnet(); }
+                bool matches(const ipv4_network_address &address) const;
+
+		constexpr uint32_t subnet() const noexcept { return m_ip & ~(0xffffffffull << m_mask); }
+		std::string str() const;
+		std::string host_str() const;
+		bool is_loopback() const;
+		bool is_local() const;
+		static constexpr address_type get_type_id() noexcept { return address_type::invalid; }
+		static constexpr zone get_zone() noexcept { return zone::public_; }
+		static constexpr bool is_blockable() noexcept { return true; }
+
+		BEGIN_KV_SERIALIZE_MAP()
+			KV_SERIALIZE(m_ip)
+			KV_SERIALIZE(m_mask)
+		END_KV_SERIALIZE_MAP()
+	};
+
+	inline bool operator==(const ipv4_network_subnet& lhs, const ipv4_network_subnet& rhs) noexcept
+	{ return lhs.equal(rhs); }
+	inline bool operator!=(const ipv4_network_subnet& lhs, const ipv4_network_subnet& rhs) noexcept
+	{ return !lhs.equal(rhs); }
+	inline bool operator<(const ipv4_network_subnet& lhs, const ipv4_network_subnet& rhs) noexcept
+	{ return lhs.less(rhs); }
+	inline bool operator<=(const ipv4_network_subnet& lhs, const ipv4_network_subnet& rhs) noexcept
+	{ return !rhs.less(lhs); }
+	inline bool operator>(const ipv4_network_subnet& lhs, const ipv4_network_subnet& rhs) noexcept
+	{ return rhs.less(lhs); }
+	inline bool operator>=(const ipv4_network_subnet& lhs, const ipv4_network_subnet& rhs) noexcept
 	{ return !lhs.less(rhs); }
 
 	class network_address

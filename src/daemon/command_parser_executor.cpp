@@ -596,6 +596,13 @@ bool t_command_parser_executor::unban(const std::vector<std::string>& args)
   return m_executor.unban(ip);
 }
 
+bool t_command_parser_executor::banned(const std::vector<std::string>& args)
+{
+  if (args.size() != 1) return false;
+  std::string address = args[0];
+  return m_executor.banned(address);
+}
+
 bool t_command_parser_executor::flush_txpool(const std::vector<std::string>& args)
 {
   if (args.size() > 1) return false;

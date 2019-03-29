@@ -243,8 +243,14 @@ t_command_server::t_command_server(
     m_command_lookup.set_handler(
       "unban"
     , std::bind(&t_command_parser_executor::unban, &m_parser, p::_1)
-    , "unban <IP>"
+    , "unban <address>"
     , "Unban a given <IP>."
+    );
+    m_command_lookup.set_handler(
+      "banned"
+    , std::bind(&t_command_parser_executor::banned, &m_parser, p::_1)
+    , "banned <address>"
+    , "Check whether an <address> is banned."
     );
     m_command_lookup.set_handler(
       "flush_txpool"
