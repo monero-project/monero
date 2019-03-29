@@ -76,7 +76,8 @@ namespace service_nodes
       /**
        *  @return True if vote was valid and in the pool already or just added (check vote verfication for specific case).
        */
-      bool add_vote(const deregister_vote& new_vote,
+      bool add_vote(const int hf_version,
+                    const deregister_vote& new_vote,
                     cryptonote::vote_verification_context& vvc,
                     const service_nodes::quorum_state &quorum_state,
                     cryptonote::transaction &tx);
