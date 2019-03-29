@@ -12969,4 +12969,14 @@ void wallet2::finish_rescan_bc_keep_key_images(uint64_t transfer_height, const c
     m_transfers[it->second].m_key_image_known = true;
   }
 }
+//----------------------------------------------------------------------------------------------------
+uint64_t wallet2::get_bytes_sent() const
+{
+  return m_http_client.get_bytes_sent();
+}
+//----------------------------------------------------------------------------------------------------
+uint64_t wallet2::get_bytes_received() const
+{
+  return m_http_client.get_bytes_received();
+}
 }

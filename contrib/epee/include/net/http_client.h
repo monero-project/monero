@@ -444,6 +444,16 @@ namespace net_utils
 				return handle_reciev(timeout);
 			}
 			//---------------------------------------------------------------------------
+			uint64_t get_bytes_sent() const
+			{
+				return m_net_client.get_bytes_sent();
+			}
+			//---------------------------------------------------------------------------
+			uint64_t get_bytes_received() const
+			{
+				return m_net_client.get_bytes_received();
+			}
+			//---------------------------------------------------------------------------
 		private: 
 			//---------------------------------------------------------------------------
 			inline bool handle_reciev(std::chrono::milliseconds timeout)
