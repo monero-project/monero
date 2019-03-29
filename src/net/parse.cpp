@@ -58,4 +58,27 @@ namespace net
             return {epee::net_utils::ipv4_network_address{ip, port}};
         return make_error_code(net::error::unsupported_address);
     }
+
+    expect<epee::net_utils::ipv4_network_subnet>
+    get_ipv4_subnet_address(const boost::string_ref address, bool allow_implicit_32)
+    {
+        uint32_t mask = 32;
+        const boost::string_ref::size_type slash = address.find_first_of('/');
+        if (slash != boost::string_ref::npos)
+        {
+            if (!epee::string_tools::get_xtype_from_string(mask, std::string{address.substr(slash + 1)}))
+                return make_error_code(net::error::invalid_mask);
+            if (mask > 32)
+                return make_error_code(net::error::invalid_mask);
+        }
+        else if (!allow_implicit_32)
+            return make_error_code(net::error::invalid_mask);
+
+        std::uint32_t ip = 0;
+        boost::string_ref S(address.data(), slash != boost::string_ref::npos ? slash : address.size());
+        if (!epee::string_tools::get_ip_int32_from_string(ip, std::string(S)))
+            return make_error_code(net::error::invalid_host);
+
+        return {epee::net_utils::ipv4_network_subnet{ip, (uint8_t)mask}};
+    }
 }

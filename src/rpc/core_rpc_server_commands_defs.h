@@ -2035,6 +2035,33 @@ namespace cryptonote
     typedef epee::misc_utils::struct_init<response_t> response;
   };
 
+  struct COMMAND_RPC_BANNED
+  {
+    struct request_t
+    {
+      std::string address;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(address)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<request_t> request;
+
+    struct response_t
+    {
+      std::string status;
+      bool banned;
+      uint32_t seconds;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+        KV_SERIALIZE(banned)
+        KV_SERIALIZE(seconds)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<response_t> response;
+  };
+
   LOKI_RPC_DOC_INTROSPECT
   // Flush tx ids from transaction pool..
   struct COMMAND_RPC_FLUSH_TRANSACTION_POOL
