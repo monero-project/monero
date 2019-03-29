@@ -2832,7 +2832,7 @@ bool t_rpc_command_executor::prepare_registration()
         state.addresses.push_back(address_str); // the addresses will be validated later down the line
         state.contributions.push_back(STAKING_PORTIONS);
         state.portions_remaining = 0;
-        state.total_reserved_contributions += STAKING_PORTIONS;
+        state.total_reserved_contributions += staking_requirement;
         state.prev_step = step;
         step            = register_step::final_summary;
         state_stack.push(state);
