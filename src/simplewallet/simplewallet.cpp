@@ -4749,8 +4749,7 @@ bool simple_wallet::refresh_main(uint64_t start_height, enum ResetType reset, bo
   LOCK_IDLE_SCOPE();
 
   crypto::hash transfer_hash_pre{};
-  uint64_t height_pre, height_post;
-
+  uint64_t height_pre = 0, height_post;
   if (reset != ResetNone)
   {
     if (reset == ResetSoftKeepKI)
