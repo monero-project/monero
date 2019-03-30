@@ -5627,19 +5627,12 @@ bool wallet2::is_transfer_unlocked(uint64_t unlock_time, uint64_t block_height, 
       return true;
     }
 
-    cryptonote::account_public_address const primary_address = get_address();
+    const std::string primary_address = get_address_as_str();
     for (cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry const &entry : service_nodes_states)
     {
       for (cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::contributor const &contributor : entry.contributors)
       {
-        address_parse_info address_info = {};
-        if (!cryptonote::get_account_address_from_str(address_info, nettype(), contributor.address))
-        {
-          MERROR("Failed to parse string representation of address: " << contributor.address);
-          continue;
-        }
-
-        if (primary_address != address_info.address)
+        if (primary_address != contributor.address)
           continue;
 
         for (cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::contribution const &contribution : contributor.locked_contributions)
