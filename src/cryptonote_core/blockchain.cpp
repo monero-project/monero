@@ -1326,6 +1326,7 @@ bool Blockchain::create_block_template(block& b, const account_public_address& m
       m_btc.timestamp = time(NULL); // update timestamp unconditionally
       b = m_btc;
       diffic = m_btc_difficulty;
+      height = m_btc_height;
       expected_reward = m_btc_expected_reward;
       return true;
     }
@@ -1470,7 +1471,7 @@ bool Blockchain::create_block_template(block& b, const account_public_address& m
         ", cumulative weight " << cumulative_weight << " is now good");
 #endif
 
-    cache_block_template(b, miner_address, ex_nonce, diffic, expected_reward, pool_cookie);
+    cache_block_template(b, miner_address, ex_nonce, diffic, height, expected_reward, pool_cookie);
     return true;
   }
   LOG_ERROR("Failed to create_block_template with " << 10 << " tries");
@@ -4838,13 +4839,14 @@ void Blockchain::invalidate_block_template_cache()
   m_btc_valid = false;
 }
 
-void Blockchain::cache_block_template(const block &b, const cryptonote::account_public_address &address, const blobdata &nonce, const difficulty_type &diff, uint64_t expected_reward, uint64_t pool_cookie)
+void Blockchain::cache_block_template(const block &b, const cryptonote::account_public_address &address, const blobdata &nonce, const difficulty_type &diff, uint64_t height, uint64_t expected_reward, uint64_t pool_cookie)
 {
   MDEBUG("Setting block template cache");
   m_btc = b;
   m_btc_address = address;
   m_btc_nonce = nonce;
   m_btc_difficulty = diff;
+  m_btc_height = height;
   m_btc_expected_reward = expected_reward;
   m_btc_pool_cookie = pool_cookie;
   m_btc_valid = true;
