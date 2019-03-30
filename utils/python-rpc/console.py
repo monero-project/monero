@@ -63,5 +63,14 @@ if 'status' in res:
 else:
   rpc = wallet.Wallet(port=port)
 
+# add tab completion if we can: https://stackoverflow.com/questions/246725
+try:
+  import readline
+except:
+  pass
+else:
+  import rlcompleter
+  readline.parse_and_bind('tab: complete')
+
 print('Connected to %s RPC on port %u' % ('daemon' if 'status' in res else 'wallet', port))
 print('The \'rpc\' object may now be used to use the API')
