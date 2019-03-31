@@ -2174,17 +2174,17 @@ static void append_printable_master_node_list_entry(cryptonote::network_type net
     }
     else if (hard_fork_version >= cryptonote::network_version_10_bulletproofs)
     {
-        expiry_height = entry.registration_height + service_nodes::staking_num_lock_blocks(nettype);
+        expiry_height = entry.registration_height + master_nodes::staking_num_lock_blocks(nettype);
         expiry_height += STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS;
     }
     else
     {
-        expiry_height = entry.registration_height + service_nodes::staking_num_lock_blocks(nettype);
+        expiry_height = entry.registration_height + master_nodes::staking_num_lock_blocks(nettype);
     }
 
     buffer.append(indent2);
     buffer.append("Register/Expiry Height: ");
-    if (expiry_height == service_nodes::KEY_IMAGE_AWAITING_UNLOCK_HEIGHT)
+    if (expiry_height == master_nodes::KEY_IMAGE_AWAITING_UNLOCK_HEIGHT)
     {
         buffer.append("Staking Infinitely (stake unlock not requested yet)\n");
     }
@@ -2232,7 +2232,7 @@ static void append_printable_master_node_list_entry(cryptonote::network_type net
     buffer.append("\n");
   }
 
-  if (is_registered) // Print service node tests
+  if (is_registered) // Print master node tests
   {
     epee::console_colors uptime_proof_color = (entry.last_uptime_proof == 0) ? epee::console_color_red : epee::console_color_green;
 
@@ -2397,7 +2397,7 @@ bool t_rpc_command_executor::print_mn(const std::vector<std::string> &args)
 
     using hard_fork_height = uint64_t;
     std::array<hard_fork_height, cryptonote::network_version_count> hf_heights = {};
-    for (size_t version = cryptonote::network_version_9_service_nodes; version < hf_heights.size(); ++version)
+    for (size_t version = cryptonote::network_version_9_master_nodes; version < hf_heights.size(); ++version)
     {
       cryptonote::COMMAND_RPC_HARD_FORK_INFO::request  request  = {};
       cryptonote::COMMAND_RPC_HARD_FORK_INFO::response response = {};
@@ -2449,7 +2449,7 @@ bool t_rpc_command_executor::print_mn(const std::vector<std::string> &args)
     {
       cryptonote::COMMAND_RPC_GET_MASTER_NODES::response::entry const &entry = (*registered[i]);
       size_t hf_version = find_closest_hardfork(hf_heights, entry.registration_height);
-      append_printable_service_node_list_entry(nettype, hf_version, curr_height, i, entry, registered_print_data);
+      append_printable_master_node_list_entry(nettype, hf_version, curr_height, i, entry, registered_print_data);
       if (i < registered.size())
         registered_print_data.append("\n");
     }

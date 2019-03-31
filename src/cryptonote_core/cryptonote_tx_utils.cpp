@@ -134,7 +134,7 @@ namespace cryptonote
   }
 
   
-  const uint64_t MASTER_NODE_BASE_REWARD_PERCENTAGE = 90;
+  const uint64_t MASTER_NODE_BASE_REWARD_PERCENTAGE = 95;
 
   
   double get_MasterNode_Divisor(const int hard_fork_version)

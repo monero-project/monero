@@ -123,7 +123,7 @@ namespace tools
       "Failed to get hashes",
       "Failed to get out indices",
       "Failed to get random outs",
-      "Failed to get service node data",
+      "Failed to get master node data",
       "Failed to get hard fork version",
     };
     enum failed_rpc_request_message_indices

@@ -7512,7 +7512,7 @@ wallet2::register_master_node_result wallet2::create_register_master_node_tx(con
       uint64_t amount_left                = staking_requirement;
       for (size_t i = 0; i < converted_args.portions.size(); i++)
       {
-        uint64_t amount = service_nodes::portions_to_amount(staking_requirement, converted_args.portions[i]);
+        uint64_t amount = master_nodes::portions_to_amount(staking_requirement, converted_args.portions[i]);
         if (i == 0) amount_payable_by_operator += amount;
         amount_left -= amount;
       }
@@ -11571,7 +11571,7 @@ uint64_t wallet2::get_daemon_blockchain_target_height(string &err)
 uint64_t wallet2::get_approximate_blockchain_height() const
 {
   const int seconds_per_block         = DIFFICULTY_TARGET_V2;
-  const time_t epochTimeMiningStarted = (m_nettype == TESTNET || m_nettype == STAGENET ?  1551950093: 1525067730) + (60 * 60 * 24 * 7); // 2018-04-30 ~3:55PM + 1 week to be conservative.
+  const time_t epochTimeMiningStarted = (m_nettype == TESTNET || m_nettype == STAGENET ?  1554065000: 1548893666) + (60 * 60 * 24 * 7); //time + 1 week to be conservative.
   const time_t currentTime            = time(NULL);
   uint64_t approx_blockchain_height   = (currentTime < epochTimeMiningStarted) ? 0 : (currentTime - epochTimeMiningStarted)/seconds_per_block;
   LOG_PRINT_L2("Calculated blockchain height: " << approx_blockchain_height);

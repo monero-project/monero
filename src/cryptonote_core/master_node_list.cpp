@@ -1806,16 +1806,16 @@ namespace master_nodes
     // This is temporary code to redistribute the insufficient portion dust
     // amounts between contributors. It should be removed in HF12.
     //
-    std::array<uint64_t, MAX_NUMBER_OF_CONTRIBUTORS * service_nodes::MAX_KEY_IMAGES_PER_CONTRIBUTOR> excess_portions;
-    std::array<uint64_t, MAX_NUMBER_OF_CONTRIBUTORS * service_nodes::MAX_KEY_IMAGES_PER_CONTRIBUTOR> min_contributions;
+    std::array<uint64_t, MAX_NUMBER_OF_CONTRIBUTORS * master_nodes::MAX_KEY_IMAGES_PER_CONTRIBUTOR> excess_portions;
+    std::array<uint64_t, MAX_NUMBER_OF_CONTRIBUTORS * master_nodes::MAX_KEY_IMAGES_PER_CONTRIBUTOR> min_contributions;
     {
       // NOTE: Calculate excess portions from each contributor
       uint64_t loki_reserved = 0;
       for (size_t index = 0; index < addr_to_portions.size(); ++index)
       {
         addr_to_portion_t const &addr_to_portion = addr_to_portions[index];
-        uint64_t min_contribution_portions       = service_nodes::get_min_node_contribution_in_portions(hf_version, staking_requirement, loki_reserved, index);
-        uint64_t loki_amount                     = service_nodes::portions_to_amount(staking_requirement, addr_to_portion.portions);
+        uint64_t min_contribution_portions       = master_nodes::get_min_node_contribution_in_portions(hf_version, staking_requirement, loki_reserved, index);
+        uint64_t loki_amount                     = master_nodes::portions_to_amount(staking_requirement, addr_to_portion.portions);
         loki_reserved                           += loki_amount;
 
         uint64_t excess = 0;
@@ -1865,7 +1865,7 @@ namespace master_nodes
 
           // NOTE: Operator is sending in the minimum amount and it falls below
           // the minimum by dust, just increase the portions so it passes
-          if (needed > 0 && addr_to_portions.size() < MAX_NUMBER_OF_CONTRIBUTORS * service_nodes::MAX_KEY_IMAGES_PER_CONTRIBUTOR)
+          if (needed > 0 && addr_to_portions.size() < MAX_NUMBER_OF_CONTRIBUTORS * master_nodes::MAX_KEY_IMAGES_PER_CONTRIBUTOR)
             addr_to_portion.portions += needed;
       }
 
@@ -1885,7 +1885,7 @@ namespace master_nodes
       portions_left += portions_to_steal;
       result.addresses.push_back(addr_to_portion.info.address);
       result.portions.push_back(addr_to_portion.portions);
-      uint64_t loki_amount = service_nodes::portions_to_amount(addr_to_portion.portions, staking_requirement);
+      uint64_t loki_amount = master_nodes::portions_to_amount(addr_to_portion.portions, staking_requirement);
       total_reserved      += loki_amount;
     }
 

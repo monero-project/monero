@@ -108,18 +108,19 @@ static const uint64_t mainnet_hard_fork_version_1_till = 9;
 
 static const hard_fork_record testnet_hard_forks[] =
 {
-  { 1, 1, 0, 1553535721 },
-  { network_version_7, 10, 0, 1553535722 },
+  { 1, 1, 0, 1554065000 },
+  { network_version_7, 10, 0, 1554065120 },
   { network_version_11_infinite_staking, 9000, 0, 1554616800} // Sunday, April 7, 2019 6:00:00 AM
 };
 static const uint64_t testnet_hard_fork_version_1_till = 9;
 
 static const hard_fork_record stagenet_hard_forks[] =
 {
-  { 1, 1, 0, 1553535721 },
-  { network_version_7, 2, 0, 1553535722 },
-  { network_version_11_infinite_staking, 11, 0, 1553535723 }
+  { 1, 1, 0, 1554065000 },
+  { network_version_7, 10, 0, 1554065120 },
+  { network_version_11_infinite_staking, 11, 0, 1554065240 }
 };
+static const uint64_t stagenet_hard_fork_version_1_till = 9;
 
 //------------------------------------------------------------------
 Blockchain::Blockchain(tx_memory_pool& tx_pool, master_nodes::master_node_list& master_node_list, master_nodes::deregister_vote_pool& deregister_vote_pool):
@@ -349,7 +350,7 @@ bool Blockchain::init(BlockchainDB* db, const network_type nettype, bool offline
   if (m_hardfork == nullptr)
   {
     if (m_nettype ==  FAKECHAIN || m_nettype == STAGENET)
-      m_hardfork = new HardFork(*db, 1, 0);
+      m_hardfork = new HardFork(*db, 1, stagenet_hard_fork_version_1_till);
     else if (m_nettype == TESTNET)
       m_hardfork = new HardFork(*db, 1, testnet_hard_fork_version_1_till);
     else
