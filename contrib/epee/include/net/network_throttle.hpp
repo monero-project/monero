@@ -152,7 +152,8 @@ class i_network_throttle {
 		virtual size_t get_recommended_size_of_planned_transport() const =0; // what should be the recommended limit of data size that we can transport over current network_throttle in near future
 
 		virtual double get_time_seconds() const =0; // a timer
-        virtual void logger_handle_net(const std::string &filename, double time, size_t size)=0;
+		virtual void logger_handle_net(const std::string &filename, double time, size_t size)=0;
+		virtual void get_stats(uint64_t &total_packets, uint64_t &total_bytes) const =0;
 
 
 };
