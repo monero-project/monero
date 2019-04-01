@@ -2936,7 +2936,7 @@ namespace tools
       er.message = "Invalid filename";
       return false;
     }
-    std::string wallet_file = m_wallet_dir + "/" + req.filename;
+    std::string wallet_file = req.filename.empty() ? "" : (m_wallet_dir + "/" + req.filename);
     {
       std::vector<std::string> languages;
       crypto::ElectrumWords::get_language_list(languages);
@@ -3221,12 +3221,6 @@ namespace tools
     }
 
     // early check for mandatory fields
-    if (req.filename.empty())
-    {
-      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
-      er.message = "field 'filename' is mandatory. Please provide a filename to save the restored wallet to.";
-      return false;
-    }
     if (req.viewkey.empty())
     {
       er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
@@ -3255,7 +3249,7 @@ namespace tools
       er.message = "Invalid filename";
       return false;
     }
-    std::string wallet_file = m_wallet_dir + "/" + req.filename;
+    std::string wallet_file = req.filename.empty() ? "" : (m_wallet_dir + "/" + req.filename);
     // check if wallet file already exists
     if (!wallet_file.empty())
     {
@@ -3365,7 +3359,8 @@ namespace tools
     {
       try
       {
-        m_wallet->store();
+        if (!wallet_file.empty())
+          m_wallet->store();
       }
       catch (const std::exception &e)
       {
@@ -3389,12 +3384,6 @@ namespace tools
     }
 
     // early check for mandatory fields
-    if (req.filename.empty())
-    {
-      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
-      er.message = "field 'filename' is mandatory. Please provide a filename to save the restored wallet to.";
-      return false;
-    }
     if (req.seed.empty())
     {
       er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
@@ -3417,7 +3406,7 @@ namespace tools
       er.message = "Invalid filename";
       return false;
     }
-    std::string wallet_file = m_wallet_dir + "/" + req.filename;
+    std::string wallet_file = req.filename.empty() ? "" : (m_wallet_dir + "/" + req.filename);
     // check if wallet file already exists
     if (!wallet_file.empty())
     {

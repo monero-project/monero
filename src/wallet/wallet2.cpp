@@ -3539,7 +3539,8 @@ void wallet2::change_password(const std::string &filename, const epee::wipeable_
     decrypt_keys(original_password);
   setup_keys(new_password);
   rewrite(filename, new_password);
-  store();
+  if (!filename.empty())
+    store();
 }
 //----------------------------------------------------------------------------------------------------
 /*!
@@ -5228,7 +5229,8 @@ std::string wallet2::path() const
 //----------------------------------------------------------------------------------------------------
 void wallet2::store()
 {
-  store_to("", epee::wipeable_string());
+  if (!m_wallet_file.empty())
+    store_to("", epee::wipeable_string());
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::store_to(const std::string &path, const epee::wipeable_string &password)
