@@ -300,7 +300,10 @@ namespace cryptonote
           MCLOG_RED(el::Level::Warning, "global", context << " peer claims higher version that we think (" <<
               (unsigned)hshd.top_version << " for " << (hshd.current_height - 1) << " instead of " << (unsigned)version <<
               ") - we may be forked from the network and a software upgrade may be needed");
-        return false;
+        MINFO("global" << context << " peer claims higher version that we think (" <<
+              (unsigned)hshd.top_version << " for " << (hshd.current_height - 1) << " instead of " << (unsigned)version <<
+              ") - we may be forked from the network and a software upgrade may be needed. ideal:" << (unsigned) m_core.get_ideal_hard_fork_version());
+		return false;
       }
     }
 
@@ -310,7 +313,7 @@ namespace cryptonote
       const uint32_t log_stripes = tools::get_pruning_log_stripes(hshd.pruning_seed);
       if (log_stripes != CRYPTONOTE_PRUNING_LOG_STRIPES || tools::get_pruning_stripe(hshd.pruning_seed) > (1u << log_stripes))
       {
-        MWARNING(context << " peer claim unexpected pruning seed " << epee::string_tools::to_string_hex(hshd.pruning_seed) << ", disconnecting");
+        MINFO("ERROR " << context << " peer claim unexpected pruning seed " << epee::string_tools::to_string_hex(hshd.pruning_seed) << ", disconnecting");
         return false;
       }
     }

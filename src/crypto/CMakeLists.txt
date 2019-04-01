@@ -46,8 +46,9 @@ set(crypto_sources
   random.c
   skein.c
   slow-hash.c
-  cn_turtle_hash.c
-  tree-hash.c)
+  cn_conceal.cpp
+  tree-hash.c
+  aux_hash.c)
 
 set(crypto_headers)
 
@@ -68,7 +69,11 @@ set(crypto_private_headers
   oaes_lib.h
   random.h
   skein.h
-  skein_port.h)
+  aux_hash.h
+  cn_conceal.hpp
+  skein_port.h
+  soft_aes.hpp
+  coin_algos.hpp)
 
 beldex_private_headers(cncrypto
   ${crypto_private_headers})

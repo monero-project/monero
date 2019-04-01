@@ -38,6 +38,7 @@
 #include "generic-ops.h"
 #include "hex.h"
 #include "span.h"
+#include <boost/align/aligned_alloc.hpp>
 
 namespace crypto {
 
@@ -70,14 +71,16 @@ namespace crypto {
     cn_fast_hash(data, length, reinterpret_cast<char *>(&h));
     return h;
   }
-
+  
+  
   enum struct cn_slow_hash_type
   {
       heavy_v0,
 	  heavy_v7,
       heavy_v8,
-      turtle_lite_v2,
+      cn_conceal_v0
   };
+  
   
   inline void cn_slow_hash(const void *data, std::size_t length, hash &hash, cn_slow_hash_type type) {
     
@@ -93,20 +96,10 @@ namespace crypto {
       case cn_slow_hash_type::heavy_v8:
 		cn_slow_hash(data, length, reinterpret_cast<char *>(&hash), 2, 0/*prehashed*/);
       break;
-
-      case cn_slow_hash_type::turtle_lite_v2:
+      case cn_slow_hash_type::cn_conceal_v0:
       default:
       {
-         const uint32_t CN_TURTLE_PAGE_SIZE = 262144;
-         const uint32_t CN_TURTLE_SCRATCHPAD = 262144;
-         const uint32_t CN_TURTLE_ITERATIONS = 131072;
-         cn_turtle_hash(data,
-             length,
-             hash.data,
-             1, // light
-             2, // variant
-             0, // pre-hashed
-             CN_TURTLE_PAGE_SIZE, CN_TURTLE_SCRATCHPAD, CN_TURTLE_ITERATIONS);
+		  crypto::cn_conceal_slow_hash_v0(data, length, hash.data);
       }
       break;
     }

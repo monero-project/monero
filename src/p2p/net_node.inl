@@ -812,15 +812,15 @@ namespace nodetool
 
         if(rsp.node_data.peer_id == m_config.m_peer_id)
         {
-          LOG_DEBUG_CC(context, "Connection to self detected, dropping connection");
+          LOG_WARNING_CC(context, "Connection to self detected, dropping connection");
           hsh_result = false;
           return;
         }
         LOG_INFO_CC(context, "New connection handshaked, pruning seed " << epee::string_tools::to_string_hex(context.m_pruning_seed));
-        LOG_DEBUG_CC(context, " COMMAND_HANDSHAKE INVOKED OK");
+        LOG_WARNING_CC(context, " COMMAND_HANDSHAKE INVOKED OK");
       }else
       {
-        LOG_DEBUG_CC(context, " COMMAND_HANDSHAKE(AND CLOSE) INVOKED OK");
+        LOG_WARNING_CC(context, " COMMAND_HANDSHAKE(AND CLOSE) INVOKED OK");
       }
       context_ = context;
     }, P2P_DEFAULT_HANDSHAKE_INVOKE_TIMEOUT);
