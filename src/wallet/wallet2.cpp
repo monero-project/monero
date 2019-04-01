@@ -2455,7 +2455,7 @@ void wallet2::process_parsed_blocks(uint64_t start_height, const std::vector<cry
         " (height " + std::to_string(start_height) + "), local block id at this height: " +
         string_tools::pod_to_hex(m_blockchain[current_index]));
 
-      detach_blockchain(current_index);
+      detach_blockchain(current_index, output_tracker_cache);
       process_new_blockchain_entry(bl, blocks[i], parsed_blocks[i], bl_id, current_index, tx_cache_data, tx_cache_data_offset, output_tracker_cache);
     }
     else
@@ -3047,7 +3047,7 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
 
       // if we've got at least 10 blocks to refresh, assume we're starting
       // a long refresh, and setup a tracking output cache if we need to
-      if (m_track_uses && !output_tracker_cache && next_blocks.size() >= 10)
+      if (m_track_uses && (!output_tracker_cache || output_tracker_cache->empty()) && next_blocks.size() >= 10)
         output_tracker_cache = create_output_tracker_cache();
 
       // switch to the new blocks from the daemon
@@ -3188,7 +3188,7 @@ bool wallet2::get_rct_distribution(uint64_t &start_height, std::vector<uint64_t>
   return true;
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::detach_blockchain(uint64_t height)
+void wallet2::detach_blockchain(uint64_t height, std::map<std::pair<uint64_t, uint64_t>, size_t> *output_tracker_cache)
 {
   LOG_PRINT_L0("Detaching blockchain on height " << height);
 
@@ -3209,6 +3209,15 @@ void wallet2::detach_blockchain(uint64_t height)
       set_unspent(i);
     }
   }
+
+  for (transfer_details &td: m_transfers)
+  {
+    while (!td.m_uses.empty() && td.m_uses.back().first >= height)
+      td.m_uses.pop_back();
+  }
+
+  if (output_tracker_cache)
+    output_tracker_cache->clear();
 
   auto it = std::find_if(m_transfers.begin(), m_transfers.end(), [&](const transfer_details& td){return td.m_block_height >= height;});
   size_t i_start = it - m_transfers.begin();
