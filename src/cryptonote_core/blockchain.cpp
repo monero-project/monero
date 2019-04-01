@@ -645,6 +645,8 @@ block Blockchain::pop_block_from_blockchain()
   block popped_block;
   std::vector<transaction> popped_txs;
 
+  CHECK_AND_ASSERT_THROW_MES(m_db->height() > 1, "Cannot pop the genesis block");
+
   try
   {
     m_db->pop_block(popped_block, popped_txs);
