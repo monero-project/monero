@@ -7092,6 +7092,7 @@ static const char *ERR_MSG_EXCEPTION_THROWN = tr("Exception thrown, staking proc
 wallet2::stake_result wallet2::check_stake_allowed(const crypto::public_key& sn_key, const cryptonote::address_parse_info& addr_info, uint64_t& amount, double fraction)
 {
   wallet2::stake_result result = {};
+  result.status                = wallet2::stake_result_status::invalid;
   result.msg.reserve(128);
 
   if (addr_info.has_payment_id)
@@ -7125,6 +7126,7 @@ wallet2::stake_result wallet2::check_stake_allowed(const crypto::public_key& sn_
     result.msg.reserve(failed->size() + 128);
     result.msg    = ERR_MSG_NETWORK_VERSION_QUERY_FAILED;
     result.msg    += *failed;
+    return result;
   }
 
   if (response.size() != 1)
@@ -7229,6 +7231,7 @@ wallet2::stake_result wallet2::check_stake_allowed(const crypto::public_key& sn_
 wallet2::stake_result wallet2::create_stake_tx(const crypto::public_key& service_node_key, const cryptonote::address_parse_info& addr_info, uint64_t amount, double amount_fraction, uint32_t priority, uint32_t subaddr_account, std::set<uint32_t> subaddr_indices)
 {
   wallet2::stake_result result = {};
+  result.status                = wallet2::stake_result_status::invalid;
 
   try
   {
@@ -7306,6 +7309,7 @@ wallet2::stake_result wallet2::create_stake_tx(const crypto::public_key& service
     return result;
   }
 
+  assert(result.status != stake_result_status::invalid);
   return result;
 }
 
@@ -7313,6 +7317,7 @@ wallet2::register_service_node_result wallet2::create_register_service_node_tx(c
 {
   std::vector<std::string> local_args = args_;
   register_service_node_result result = {};
+  result.status                       = register_service_node_result_status::invalid;
 
   //
   // Parse Tx Args
@@ -7349,6 +7354,14 @@ wallet2::register_service_node_result wallet2::create_register_service_node_tx(c
   //
   // Parse Registration Contributor Args
   //
+  boost::optional<uint8_t> hf_version = get_hard_fork_version();
+  if (!hf_version)
+  {
+    result.status = register_service_node_result_status::network_version_query_failed;
+    result.msg    = ERR_MSG_NETWORK_VERSION_QUERY_FAILED;
+    return result;
+  }
+
   uint64_t staking_requirement = 0, bc_height = 0;
   service_nodes::converted_registration_args converted_args = {};
   {
@@ -7370,14 +7383,6 @@ wallet2::register_service_node_result wallet2::create_register_service_node_tx(c
         result.msg    = tr("Wallet is not synced. Please synchronise your wallet to the blockchain");
         return result;
       }
-    }
-
-    boost::optional<uint8_t> hf_version = get_hard_fork_version();
-    if (!hf_version)
-    {
-      result.status = register_service_node_result_status::network_version_query_failed;
-      result.msg    = ERR_MSG_NETWORK_VERSION_QUERY_FAILED;
-      return result;
     }
 
     staking_requirement = service_nodes::get_staking_requirement(nettype(), bc_height, *hf_version);
@@ -7481,7 +7486,7 @@ wallet2::register_service_node_result wallet2::create_register_service_node_tx(c
       if (response.size() >= 1)
       {
         bool can_reregister = false;
-        if (use_fork_rules(cryptonote::network_version_10_bulletproofs, 0))
+        if (*hf_version == cryptonote::network_version_10_bulletproofs)
         {
           cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry const &node_info = response[0];
           uint64_t expiry_height = node_info.registration_height + staking_requirement_lock_blocks;
@@ -7553,10 +7558,10 @@ wallet2::register_service_node_result wallet2::create_register_service_node_tx(c
       result.msg += e.what();
       return result;
     }
-
-    result.status = register_service_node_result_status::success;
-    return result;
   }
+
+  assert(result.status != register_service_node_result_status::invalid);
+  return result;
 }
 
 wallet2::request_stake_unlock_result wallet2::can_request_stake_unlock(const crypto::public_key &sn_key)
@@ -7861,12 +7866,9 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
         max_rct_index = std::max(max_rct_index, m_transfers[idx].m_global_output_index);
       }
 
-    // TODO(doyle): Write the error message
     std::vector<uint64_t> output_blacklist;
     if (bool get_output_blacklist_failed = !get_output_blacklist(output_blacklist))
-    {
-      THROW_WALLET_EXCEPTION_IF(get_output_blacklist_failed, error::get_output_distribution, "Couldn't retrive list of outputs that are to be exlcuded from selection");
-    }
+      THROW_WALLET_EXCEPTION_IF(get_output_blacklist_failed, error::get_output_blacklist, "Couldn't retrive list of outputs that are to be exlcuded from selection");
 
     std::sort(output_blacklist.begin(), output_blacklist.end());
     const bool has_rct_distribution = has_rct && get_rct_distribution(rct_start_height, rct_offsets);
