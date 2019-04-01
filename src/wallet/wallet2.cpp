@@ -7092,6 +7092,7 @@ static const char *ERR_MSG_EXCEPTION_THROWN = tr("Exception thrown, staking proc
 wallet2::stake_result wallet2::check_stake_allowed(const crypto::public_key& sn_key, const cryptonote::address_parse_info& addr_info, uint64_t& amount, double fraction)
 {
   wallet2::stake_result result = {};
+  result.status                = wallet2::stake_result_status::invalid;
   result.msg.reserve(128);
 
   if (addr_info.has_payment_id)
@@ -7230,6 +7231,7 @@ wallet2::stake_result wallet2::check_stake_allowed(const crypto::public_key& sn_
 wallet2::stake_result wallet2::create_stake_tx(const crypto::public_key& service_node_key, const cryptonote::address_parse_info& addr_info, uint64_t amount, double amount_fraction, uint32_t priority, uint32_t subaddr_account, std::set<uint32_t> subaddr_indices)
 {
   wallet2::stake_result result = {};
+  result.status                = wallet2::stake_result_status::invalid;
 
   try
   {
@@ -7315,6 +7317,7 @@ wallet2::register_service_node_result wallet2::create_register_service_node_tx(c
 {
   std::vector<std::string> local_args = args_;
   register_service_node_result result = {};
+  result.status                       = register_service_node_result_status::invalid;
 
   //
   // Parse Tx Args
