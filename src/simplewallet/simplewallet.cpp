@@ -239,6 +239,9 @@ namespace
   const char* USAGE_MARK_OUTPUT_SPENT("mark_output_spent <amount>/<offset> | <filename> [add]");
   const char* USAGE_MARK_OUTPUT_UNSPENT("mark_output_unspent <amount>/<offset>");
   const char* USAGE_IS_OUTPUT_SPENT("is_output_spent <amount>/<offset>");
+  const char* USAGE_FREEZE("freeze <key_image>");
+  const char* USAGE_THAW("thaw <key_image>");
+  const char* USAGE_FROZEN("frozen <key_image>");
   const char* USAGE_VERSION("version");
   const char* USAGE_HELP("help [<command>]");
 
@@ -2027,6 +2030,74 @@ bool simple_wallet::save_known_rings(const std::vector<std::string> &args)
   return true;
 }
 
+bool simple_wallet::freeze_thaw(const std::vector<std::string> &args, bool freeze)
+{
+  if (args.empty())
+  {
+    fail_msg_writer() << boost::format(tr("usage: %s <key_image>|<pubkey>")) % (freeze ? "freeze" : "thaw");
+    return true;
+  }
+  crypto::key_image ki;
+  if (!epee::string_tools::hex_to_pod(args[0], ki))
+  {
+    fail_msg_writer() << tr("failed to parse key image");
+    return true;
+  }
+  try
+  {
+    if (freeze)
+      m_wallet->freeze(ki);
+    else
+      m_wallet->thaw(ki);
+  }
+  catch (const std::exception &e)
+  {
+    fail_msg_writer() << e.what();
+    return true;
+  }
+
+  return true;
+}
+
+bool simple_wallet::freeze(const std::vector<std::string> &args)
+{
+  return freeze_thaw(args, true);
+}
+
+bool simple_wallet::thaw(const std::vector<std::string> &args)
+{
+  return freeze_thaw(args, false);
+}
+
+bool simple_wallet::frozen(const std::vector<std::string> &args)
+{
+  if (args.empty())
+  {
+    size_t ntd = m_wallet->get_num_transfer_details();
+    for (size_t i = 0; i < ntd; ++i)
+    {
+      if (!m_wallet->frozen(i))
+        continue;
+      const tools::wallet2::transfer_details &td = m_wallet->get_transfer_details(i);
+      message_writer() << tr("Frozen: ") << td.m_key_image << " " << cryptonote::print_money(td.amount());
+    }
+  }
+  else
+  {
+    crypto::key_image ki;
+    if (!epee::string_tools::hex_to_pod(args[0], ki))
+    {
+      fail_msg_writer() << tr("failed to parse key image");
+      return true;
+    }
+    if (m_wallet->frozen(ki))
+      message_writer() << tr("Frozen: ") << ki;
+    else
+      message_writer() << tr("Not frozen: ") << ki;
+  }
+  return true;
+}
+
 bool simple_wallet::version(const std::vector<std::string> &args)
 {
   message_writer() << "Monero '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")";
@@ -2602,7 +2673,7 @@ simple_wallet::simple_wallet()
                            tr(USAGE_INCOMING_TRANSFERS),
                            tr("Show the incoming transfers, all or filtered by availability and address index.\n\n"
                               "Output format:\n"
-                              "Amount, Spent(\"T\"|\"F\"), \"locked\"|\"unlocked\", RingCT, Global Index, Transaction Hash, Address Index, [Public Key, Key Image] "));
+                              "Amount, Spent(\"T\"|\"F\"), \"frozen\"|\"locked\"|\"unlocked\", RingCT, Global Index, Transaction Hash, Address Index, [Public Key, Key Image] "));
   m_cmd_binder.set_handler("payments",
                            boost::bind(&simple_wallet::show_payments, this, _1),
                            tr(USAGE_PAYMENTS),
@@ -3014,6 +3085,18 @@ simple_wallet::simple_wallet()
                            boost::bind(&simple_wallet::blackballed, this, _1),
                            tr(USAGE_IS_OUTPUT_SPENT),
                            tr("Checks whether an output is marked as spent"));
+  m_cmd_binder.set_handler("freeze",
+                           boost::bind(&simple_wallet::freeze, this, _1),
+                           tr(USAGE_FREEZE),
+                           tr("Freeze a single output by key image so it will not be used"));
+  m_cmd_binder.set_handler("thaw",
+                           boost::bind(&simple_wallet::thaw, this, _1),
+                           tr(USAGE_THAW),
+                           tr("Thaw a single output by key image so it may be used again"));
+  m_cmd_binder.set_handler("frozen",
+                           boost::bind(&simple_wallet::frozen, this, _1),
+                           tr(USAGE_FROZEN),
+                           tr("Checks whether a given output is currently frozen by key image"));
   m_cmd_binder.set_handler("version",
                            boost::bind(&simple_wallet::version, this, _1),
                            tr(USAGE_VERSION),
@@ -4989,7 +5072,7 @@ bool simple_wallet::show_incoming_transfers(const std::vector<std::string>& args
         boost::format("%21s%8s%12s%8s%16u%68s%16u%s") %
         print_money(td.amount()) %
         (td.m_spent ? tr("T") : tr("F")) %
-        (m_wallet->is_transfer_unlocked(td) ? tr("unlocked") : tr("locked")) %
+        (m_wallet->frozen(td) ? tr("[frozen]") : m_wallet->is_transfer_unlocked(td) ? tr("unlocked") : tr("locked")) %
         (td.is_rct() ? tr("RingCT") : tr("-")) %
         td.m_global_output_index %
         td.m_txid %
