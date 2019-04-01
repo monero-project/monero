@@ -2437,5 +2437,39 @@ namespace wallet_rpc
     typedef epee::misc_utils::struct_init<response_t> response;
   };
 
+  struct COMMAND_RPC_SET_DAEMON
+  {
+    struct request_t
+    {
+      std::string address;
+      bool trusted;
+      std::string ssl_support; // disabled, enabled, autodetect
+      std::string ssl_private_key_path;
+      std::string ssl_certificate_path;
+      std::list<std::string> ssl_allowed_certificates;
+      std::vector<std::string> ssl_allowed_fingerprints;
+      bool ssl_allow_any_cert;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(address)
+        KV_SERIALIZE_OPT(trusted, false)
+        KV_SERIALIZE_OPT(ssl_support, (std::string)"autodetect")
+        KV_SERIALIZE(ssl_private_key_path)
+        KV_SERIALIZE(ssl_certificate_path)
+        KV_SERIALIZE(ssl_allowed_certificates)
+        KV_SERIALIZE(ssl_allowed_fingerprints)
+        KV_SERIALIZE_OPT(ssl_allow_any_cert, false)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<request_t> request;
+
+    struct response_t
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<response_t> response;
+  };
+
 }
 }
