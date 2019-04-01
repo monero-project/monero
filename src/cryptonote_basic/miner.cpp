@@ -435,14 +435,15 @@ namespace cryptonote
   {
     MTRACE("Miner has received stop signal");
 
-    if (!is_mining())
+    CRITICAL_REGION_LOCAL(m_threads_lock);
+    bool mining = !m_threads.empty();
+    if (!mining)
     {
       MTRACE("Not mining - nothing to stop" );
       return true;
     }
 
     send_stop_signal();
-    CRITICAL_REGION_LOCAL(m_threads_lock);
 
     // In case background mining was active and the miner threads are waiting
     // on the background miner to signal start. 
