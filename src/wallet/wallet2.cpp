@@ -512,7 +512,7 @@ std::pair<std::unique_ptr<tools::wallet2>, tools::password_container> generate_f
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, filename, std::string, String, true, std::string());
 
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, scan_from_height, uint64_t, Uint64, false, 0);
-    const bool recover = field_scan_from_height_found;
+    const bool recover = true;
 
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, password, std::string, String, false, std::string());
 
