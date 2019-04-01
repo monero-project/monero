@@ -7351,6 +7351,14 @@ wallet2::register_service_node_result wallet2::create_register_service_node_tx(c
   //
   // Parse Registration Contributor Args
   //
+  boost::optional<uint8_t> hf_version = get_hard_fork_version();
+  if (!hf_version)
+  {
+    result.status = register_service_node_result_status::network_version_query_failed;
+    result.msg    = ERR_MSG_NETWORK_VERSION_QUERY_FAILED;
+    return result;
+  }
+
   uint64_t staking_requirement = 0, bc_height = 0;
   service_nodes::converted_registration_args converted_args = {};
   {
@@ -7372,14 +7380,6 @@ wallet2::register_service_node_result wallet2::create_register_service_node_tx(c
         result.msg    = tr("Wallet is not synced. Please synchronise your wallet to the blockchain");
         return result;
       }
-    }
-
-    boost::optional<uint8_t> hf_version = get_hard_fork_version();
-    if (!hf_version)
-    {
-      result.status = register_service_node_result_status::network_version_query_failed;
-      result.msg    = ERR_MSG_NETWORK_VERSION_QUERY_FAILED;
-      return result;
     }
 
     staking_requirement = service_nodes::get_staking_requirement(nettype(), bc_height, *hf_version);
@@ -7483,7 +7483,7 @@ wallet2::register_service_node_result wallet2::create_register_service_node_tx(c
       if (response.size() >= 1)
       {
         bool can_reregister = false;
-        if (use_fork_rules(cryptonote::network_version_10_bulletproofs, 0))
+        if (*hf_version == cryptonote::network_version_10_bulletproofs)
         {
           cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry const &node_info = response[0];
           uint64_t expiry_height = node_info.registration_height + staking_requirement_lock_blocks;
