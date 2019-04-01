@@ -2175,7 +2175,7 @@ bool t_rpc_command_executor::check_blockchain_pruning()
 
     if (res.pruning_seed)
     {
-      tools::success_msg_writer() << "Blockchain pruning checked";
+      tools::success_msg_writer() << "Blockchain is pruned";
     }
     else
     {
