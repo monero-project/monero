@@ -125,8 +125,6 @@ namespace service_nodes
         missed_txs.clear();
 
         const cryptonote::block& block = block_pair.second;
-        std::vector<cryptonote::transaction> txs;
-        std::vector<crypto::hash> missed_txs;
         if (!m_blockchain.get_transactions(block.tx_hashes, txs, missed_txs))
         {
           MERROR("Unable to get transactions for block " << block.hash);
