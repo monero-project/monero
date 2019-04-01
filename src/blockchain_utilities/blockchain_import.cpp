@@ -294,7 +294,8 @@ int import_from_file(cryptonote::core& core, const std::string& import_file_path
   }
 
   // 4 byte magic + (currently) 1024 byte header structures
-  bootstrap.seek_to_first_chunk(import_file);
+  uint8_t major_version, minor_version;
+  bootstrap.seek_to_first_chunk(import_file, major_version, minor_version);
 
   std::string str1;
   char buffer1[1024];
@@ -415,7 +416,23 @@ int import_from_file(cryptonote::core& core, const std::string& import_file_path
     {
       str1.assign(buffer_block, chunk_size);
       bootstrap::block_package bp;
-      if (! ::serialization::parse_binary(str1, bp))
+      bool res;
+      if (major_version == 0)
+      {
+        bootstrap::block_package_1 bp1;
+        res = ::serialization::parse_binary(str1, bp1);
+        if (res)
+        {
+          bp.block = std::move(bp1.block);
+          bp.txs = std::move(bp1.txs);
+          bp.block_weight = bp1.block_weight;
+          bp.cumulative_difficulty = bp1.cumulative_difficulty;
+          bp.coins_generated = bp1.coins_generated;
+        }
+      }
+      else
+        res = ::serialization::parse_binary(str1, bp);
+      if (!res)
         throw std::runtime_error("Error in deserialization of chunk");
 
       int display_interval = 1000;

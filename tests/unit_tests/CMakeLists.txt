@@ -43,6 +43,7 @@ set(unit_tests_sources
   crypto.cpp
   decompose_amount_into_digits.cpp
   device.cpp
+  difficulty.cpp
   dns_resolver.cpp
   epee_boosted_tcp_server.cpp
   epee_levin_protocol_handler_async.cpp

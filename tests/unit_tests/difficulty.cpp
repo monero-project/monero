@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2019, The Monero Project
+// Copyright (c) 2019, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -25,62 +25,44 @@
 // INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
-// Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
-#include <cstdint>
-#include <cstdlib>
-#include <cstring>
-#include <limits>
-#include "crypto/hash.h"
+#include "gtest/gtest.h"
 #include "cryptonote_basic/difficulty.h"
 
-using namespace std;
-using cryptonote::check_hash;
+static cryptonote::difficulty_type MKDIFF(uint64_t high, uint64_t low)
+{
+  cryptonote::difficulty_type d = high;
+  d = (d << 64) | low;
+  return d;
+}
 
-int main(int argc, char *argv[]) {
+static crypto::hash MKHASH(uint64_t high, uint64_t low)
+{
+  cryptonote::difficulty_type hash_target = high;
+  hash_target = (hash_target << 64) | low;
+  boost::multiprecision::uint256_t hash_value = std::numeric_limits<boost::multiprecision::uint256_t>::max() / hash_target;
   crypto::hash h;
-  for (cryptonote::difficulty_type diff = 1;; diff += 1 + (diff >> 8)) {
-    for (uint16_t b = 0; b < 256; b++) {
-      memset(&h, b, sizeof(crypto::hash));
-      if (check_hash(h, diff) != (b == 0 || diff <= 255 / b)) {
-        return 1;
-      }
-      if (b > 0) {
-        memset(&h, 0, sizeof(crypto::hash));
-        ((char *) &h)[31] = b;
-        if (check_hash(h, diff) != (diff <= 255 / b)) {
-          return 2;
-        }
-      }
-    }
-    if (diff < numeric_limits<uint64_t>::max() / 256) {
-      uint64_t val = 0;
-      for (int i = 31; i >= 0; i--) {
-        val = val * 256 + 255;
-        ((char *) &h)[i] = static_cast<char>(static_cast<uint64_t>(val / diff));
-        val %= diff.convert_to<uint64_t>();
-      }
-      if (check_hash(h, diff) != true) {
-        return 3;
-      }
-      if (diff > 1) {
-        for (int i = 0;; i++) {
-          if (i >= 32) {
-            abort();
-          }
-          if (++((char *) &h)[i] != 0) {
-            break;
-          }
-        }
-        if (check_hash(h, diff) != false) {
-          return 4;
-        }
-      }
-    }
-    if (diff + 1 + (diff >> 8) < diff) {
-      break;
-    }
-  }
-  return 0;
+  ((uint64_t*)&h)[0] = hash_value.convert_to<uint64_t>();
+  hash_value >>= 64;
+  ((uint64_t*)&h)[1] = hash_value.convert_to<uint64_t>();
+  hash_value >>= 64;
+  ((uint64_t*)&h)[2] = hash_value.convert_to<uint64_t>();
+  hash_value >>= 64;
+  ((uint64_t*)&h)[3] = hash_value.convert_to<uint64_t>();
+  return h;
+}
+
+TEST(difficulty, check_hash)
+{
+  ASSERT_TRUE(cryptonote::check_hash(MKHASH(0, 1), MKDIFF(0, 1)));
+  ASSERT_FALSE(cryptonote::check_hash(MKHASH(0, 1), MKDIFF(0, 2)));
+
+  ASSERT_TRUE(cryptonote::check_hash(MKHASH(0, 0xffffffffffffffff), MKDIFF(0, 0xffffffffffffffff)));
+  ASSERT_FALSE(cryptonote::check_hash(MKHASH(0, 0xffffffffffffffff), MKDIFF(1, 0)));
+
+  ASSERT_TRUE(cryptonote::check_hash(MKHASH(1, 1), MKDIFF(1, 1)));
+  ASSERT_FALSE(cryptonote::check_hash(MKHASH(1, 1), MKDIFF(1, 2)));
+
+  ASSERT_TRUE(cryptonote::check_hash(MKHASH(0xffffffffffffffff, 1), MKDIFF(0xffffffffffffffff, 1)));
+  ASSERT_FALSE(cryptonote::check_hash(MKHASH(0xffffffffffffffff, 1), MKDIFF(0xffffffffffffffff, 2)));
 }

@@ -653,7 +653,7 @@ namespace cryptonote
      *
      * @return the difficulty
      */
-    uint64_t block_difficulty(uint64_t i) const;
+    difficulty_type block_difficulty(uint64_t i) const;
 
     /**
      * @brief gets blocks based on a list of block hashes

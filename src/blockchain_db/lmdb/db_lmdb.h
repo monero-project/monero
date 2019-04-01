@@ -418,6 +418,9 @@ private:
   // migrate from DB version 3 to 4
   void migrate_3_4();
 
+  // migrate from DB version 4 to 5
+  void migrate_4_5();
+
   void cleanup_batch();
 
 private:
