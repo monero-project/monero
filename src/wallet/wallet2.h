@@ -1287,6 +1287,7 @@ namespace tools
 
     enum struct stake_result_status
     {
+      invalid,
       success,
       exception_thrown,
       payment_id_disallowed,
@@ -1317,6 +1318,7 @@ namespace tools
 
     enum struct register_service_node_result_status
     {
+      invalid,
       success,
       insufficient_num_args,
       subaddr_indices_parse_fail,

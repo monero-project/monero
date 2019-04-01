@@ -7125,6 +7125,7 @@ wallet2::stake_result wallet2::check_stake_allowed(const crypto::public_key& sn_
     result.msg.reserve(failed->size() + 128);
     result.msg    = ERR_MSG_NETWORK_VERSION_QUERY_FAILED;
     result.msg    += *failed;
+    return result;
   }
 
   if (response.size() != 1)
@@ -7306,6 +7307,7 @@ wallet2::stake_result wallet2::create_stake_tx(const crypto::public_key& service
     return result;
   }
 
+  assert(result.status != stake_result_status::invalid);
   return result;
 }
 
@@ -7553,10 +7555,10 @@ wallet2::register_service_node_result wallet2::create_register_service_node_tx(c
       result.msg += e.what();
       return result;
     }
-
-    result.status = register_service_node_result_status::success;
-    return result;
   }
+
+  assert(result.status != register_service_node_result_status::invalid);
+  return result;
 }
 
 wallet2::request_stake_unlock_result wallet2::can_request_stake_unlock(const crypto::public_key &sn_key)
