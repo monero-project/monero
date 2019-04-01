@@ -116,7 +116,9 @@ typedef cryptonote::simple_wallet sw;
 #define LONG_PAYMENT_ID_SUPPORT_CHECK() \
   do { \
     if (!m_long_payment_id_support) { \
-      fail_msg_writer() << tr("Long payment IDs are obsolete. Use --long-payment-id-support if you really must use one, and warn the recipient they are using an obsolete feature that will disappear in the future."); \
+      fail_msg_writer() << tr("Warning: Long payment IDs are obsolete."); \
+      fail_msg_writer() << tr("Long payment IDs are not encrypted on the blockchain, and will harm your privacy."); \
+      fail_msg_writer() << tr("Use --long-payment-id-support if you really must use one, and warn the recipient they are using an obsolete feature that will disappear in the future."); \
       return true; \
     } \
   } while(0)
@@ -149,7 +151,7 @@ namespace
   const command_line::arg_descriptor<bool> arg_create_address_file = {"create-address-file", sw::tr("Create an address file for new wallets"), false};
   const command_line::arg_descriptor<std::string> arg_subaddress_lookahead = {"subaddress-lookahead", tools::wallet2::tr("Set subaddress lookahead sizes to <major>:<minor>"), ""};
   const command_line::arg_descriptor<bool> arg_use_english_language_names = {"use-english-language-names", sw::tr("Display English language names"), false};
-  const command_line::arg_descriptor<bool> arg_long_payment_id_support = {"long-payment-id-support", sw::tr("Support obsolete long (unencrypted) payment ids"), false};
+  const command_line::arg_descriptor<bool> arg_long_payment_id_support = {"long-payment-id-support-bad-for-privacy", sw::tr("Support obsolete long (unencrypted) payment ids (using them harms your privacy)"), false};
 
   const command_line::arg_descriptor< std::vector<std::string> > arg_command = {"command", ""};
 
@@ -5355,7 +5357,7 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
       r = add_extra_nonce_to_tx_extra(extra, extra_nonce);
       local_args.pop_back();
       payment_id_seen = true;
-      message_writer() << tr("Unencrypted payment IDs are bad for privacy: ask the recipient to use subaddresses instead");
+      message_writer() << tr("Warning: Unencrypted payment IDs will harm your privacy: ask the recipient to use subaddresses instead");
     }
     if(!r)
     {
@@ -5465,7 +5467,7 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
       {
         LONG_PAYMENT_ID_SUPPORT_CHECK();
         set_payment_id_to_tx_extra_nonce(extra_nonce, payment_id);
-        message_writer() << tr("Unencrypted payment IDs are bad for privacy: ask the recipient to use subaddresses instead");
+        message_writer() << tr("Warning: Unencrypted payment IDs will harm your privacy: ask the recipient to use subaddresses instead");
       }
       else
       {
