@@ -7863,12 +7863,9 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
         max_rct_index = std::max(max_rct_index, m_transfers[idx].m_global_output_index);
       }
 
-    // TODO(doyle): Write the error message
     std::vector<uint64_t> output_blacklist;
     if (bool get_output_blacklist_failed = !get_output_blacklist(output_blacklist))
-    {
-      THROW_WALLET_EXCEPTION_IF(get_output_blacklist_failed, error::get_output_distribution, "Couldn't retrive list of outputs that are to be exlcuded from selection");
-    }
+      THROW_WALLET_EXCEPTION_IF(get_output_blacklist_failed, error::get_output_blacklist, "Couldn't retrive list of outputs that are to be exlcuded from selection");
 
     std::sort(output_blacklist.begin(), output_blacklist.end());
     const bool has_rct_distribution = has_rct && get_rct_distribution(rct_start_height, rct_offsets);
