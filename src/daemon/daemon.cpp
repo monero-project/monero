@@ -115,6 +115,7 @@ t_daemon::t_daemon(t_daemon && other)
   {
     mp_internals = std::move(other.mp_internals);
     other.mp_internals.reset(nullptr);
+    public_rpc_port = other.public_rpc_port;
   }
 }
 
@@ -125,6 +126,7 @@ t_daemon & t_daemon::operator=(t_daemon && other)
   {
     mp_internals = std::move(other.mp_internals);
     other.mp_internals.reset(nullptr);
+    public_rpc_port = other.public_rpc_port;
   }
   return *this;
 }
