@@ -2750,6 +2750,7 @@ namespace cryptonote
         uint64_t                  last_reward_block_height;      // The last height at which this Service Node received a reward.
         uint32_t                  last_reward_transaction_index; // When multiple Service Nodes register on the same height, the order the transaction arrive dictate the order you receive rewards.
         uint64_t                  last_uptime_proof;             // The last time this Service Node's uptime proof was relayed by atleast 1 Service Node other than itself in unix epoch time.
+        std::vector<uint16_t>     service_node_version;          // The major, minor, patch version of the Service Node respectively.
         std::vector<contributor>  contributors;                  // Array of contributors, contributing to this Service Node.
         uint64_t                  total_contributed;             // The total amount of Loki in atomic units contributed to this Service Node.
         uint64_t                  total_reserved;                // The total amount of Loki in atomic units reserved in this Service Node.
@@ -2764,6 +2765,7 @@ namespace cryptonote
             KV_SERIALIZE(last_reward_block_height)
             KV_SERIALIZE(last_reward_transaction_index)
             KV_SERIALIZE(last_uptime_proof)
+            KV_SERIALIZE(service_node_version)
             KV_SERIALIZE(contributors)
             KV_SERIALIZE(total_contributed)
             KV_SERIALIZE(total_reserved)

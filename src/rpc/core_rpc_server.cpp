@@ -2599,12 +2599,15 @@ namespace cryptonote
     {
       COMMAND_RPC_GET_SERVICE_NODES::response::entry entry = {};
 
+      const auto proof = m_core.get_uptime_proof(pubkey_info.pubkey);
+
       entry.service_node_pubkey           = string_tools::pod_to_hex(pubkey_info.pubkey);
       entry.registration_height           = pubkey_info.info.registration_height;
       entry.requested_unlock_height       = pubkey_info.info.requested_unlock_height;
       entry.last_reward_block_height      = pubkey_info.info.last_reward_block_height;
       entry.last_reward_transaction_index = pubkey_info.info.last_reward_transaction_index;
-      entry.last_uptime_proof             = m_core.get_uptime_proof(pubkey_info.pubkey);
+      entry.last_uptime_proof             = proof.timestamp;
+      entry.service_node_version          = {proof.version_major, proof.version_minor, proof.version_patch};
 
       entry.contributors.reserve(pubkey_info.info.contributors.size());
 

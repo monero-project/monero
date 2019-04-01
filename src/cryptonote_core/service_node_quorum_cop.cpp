@@ -177,14 +177,14 @@ namespace service_nodes
       return false;
 
     CRITICAL_REGION_LOCAL(m_lock);
-    if (m_uptime_proof_seen[pubkey] >= now - (UPTIME_PROOF_FREQUENCY_IN_SECONDS / 2))
+    if (m_uptime_proof_seen[pubkey].timestamp >= now - (UPTIME_PROOF_FREQUENCY_IN_SECONDS / 2))
       return false; // already received one uptime proof for this node recently.
 
     crypto::hash hash = make_hash(pubkey, timestamp);
     if (!crypto::check_signature(hash, pubkey, sig))
       return false;
 
-    m_uptime_proof_seen[pubkey] = now;
+    m_uptime_proof_seen[pubkey] = {now, proof.snode_version_major, proof.snode_version_minor, proof.snode_version_patch};
     return true;
   }
 
@@ -222,27 +222,26 @@ namespace service_nodes
     const uint64_t prune_from_timestamp = now - UPTIME_PROOF_MAX_TIME_IN_SECONDS;
     CRITICAL_REGION_LOCAL(m_lock);
 
-    for (auto it = m_uptime_proof_seen.begin(); it != m_uptime_proof_seen.end();)
+    std::vector<crypto::public_key> to_remove;
+    for (const auto &proof : m_uptime_proof_seen)
     {
-      if (it->second < prune_from_timestamp)
-        it = m_uptime_proof_seen.erase(it);
-      else
-        it++;
+      if (proof.second.timestamp < prune_from_timestamp)
+        to_remove.push_back(proof.first);
     }
+    for (const auto &pk : to_remove)
+      m_uptime_proof_seen.erase(pk);
 
     return true;
   }
 
-  uint64_t quorum_cop::get_uptime_proof(const crypto::public_key &pubkey) const
+  proof_info quorum_cop::get_uptime_proof(const crypto::public_key &pubkey) const
   {
 
     CRITICAL_REGION_LOCAL(m_lock);
-    const auto& it = m_uptime_proof_seen.find(pubkey);
+    const auto it = m_uptime_proof_seen.find(pubkey);
     if (it == m_uptime_proof_seen.end())
-    {
-      return 0;
-    }
+      return {};
 
-    return (*it).second;
+    return it->second;
   }
 }

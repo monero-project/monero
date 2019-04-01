@@ -876,9 +876,9 @@ namespace cryptonote
       *
       * @param key The public key of the service node
       *
-      * @return 0 if no uptime proof found, otherwise the timestamp it last received in epoch time
+      * @return proof_info struct containing the uptime proof epoch timestamp and version if proof found, otherwise all 0s.
       */
-     uint64_t get_uptime_proof(const crypto::public_key &key) const;
+     service_nodes::proof_info get_uptime_proof(const crypto::public_key &key) const;
 
      /*
       * @brief get the blockchain pruning seed

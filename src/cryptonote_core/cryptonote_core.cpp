@@ -1367,10 +1367,9 @@ namespace cryptonote
     return true;
   }
   //-----------------------------------------------------------------------------------------------
-  uint64_t core::get_uptime_proof(const crypto::public_key &key) const
+  service_nodes::proof_info core::get_uptime_proof(const crypto::public_key &key) const
   {
-    uint64_t result = m_quorum_cop.get_uptime_proof(key);
-    return result;
+    return m_quorum_cop.get_uptime_proof(key);
   }
   //-----------------------------------------------------------------------------------------------
   bool core::handle_uptime_proof(const NOTIFY_UPTIME_PROOF::request &proof)
@@ -1704,7 +1703,7 @@ namespace cryptonote
     {
       // Code snippet from Github @Jagerman
       m_check_uptime_proof_interval.do_call([&states, this](){
-        uint64_t last_uptime = m_quorum_cop.get_uptime_proof(states[0].pubkey);
+        uint64_t last_uptime = m_quorum_cop.get_uptime_proof(states[0].pubkey).timestamp;
         if (last_uptime <= static_cast<uint64_t>(time(nullptr) - UPTIME_PROOF_FREQUENCY_IN_SECONDS))
           this->submit_uptime_proof();
 
