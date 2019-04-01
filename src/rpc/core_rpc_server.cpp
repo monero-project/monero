@@ -193,7 +193,9 @@ namespace cryptonote
     if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_GET_HEIGHT>(invoke_http_mode::JON, "/getheight", req, res, r))
       return r;
 
-    res.height = m_core.get_current_blockchain_height();
+    crypto::hash hash;
+    m_core.get_blockchain_top(res.height, hash);
+    res.hash = string_tools::pod_to_hex(hash);
     res.status = CORE_RPC_STATUS_OK;
     return true;
   }
