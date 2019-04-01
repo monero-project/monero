@@ -32,9 +32,9 @@
 
 #include <stdlib.h>
 #include "include_base_utils.h"
+#include "common/threadpool.h"
 #include <random>
 #include <boost/thread/mutex.hpp>
-#include <boost/thread/thread.hpp>
 #include <boost/algorithm/string/join.hpp>
 #include <boost/optional.hpp>
 using namespace epee;
@@ -523,16 +523,16 @@ bool load_txt_records_from_dns(std::vector<std::string> &good_records, const std
   size_t first_index = dis(gen);
 
   // send all requests in parallel
-  std::vector<boost::thread> threads(dns_urls.size());
   std::deque<bool> avail(dns_urls.size(), false), valid(dns_urls.size(), false);
+  tools::threadpool& tpool = tools::threadpool::getInstance();
+  tools::threadpool::waiter waiter;
   for (size_t n = 0; n < dns_urls.size(); ++n)
   {
-    threads[n] = boost::thread([n, dns_urls, &records, &avail, &valid](){
+    tpool.submit(&waiter,[n, dns_urls, &records, &avail, &valid](){
       records[n] = tools::DNSResolver::instance().get_txt_record(dns_urls[n], avail[n], valid[n]); 
     });
   }
-  for (size_t n = 0; n < dns_urls.size(); ++n)
-    threads[n].join();
+  waiter.wait(&tpool);
 
   size_t cur_index = first_index;
   do
