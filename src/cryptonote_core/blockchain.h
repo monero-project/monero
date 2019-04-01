@@ -1060,6 +1060,8 @@ namespace cryptonote
     uint64_t m_timestamps_and_difficulties_height;
     uint64_t m_long_term_block_weights_window;
     uint64_t m_long_term_effective_median_block_weight;
+    mutable crypto::hash m_long_term_block_weights_cache_tip_hash;
+    mutable std::vector<uint64_t> m_long_term_block_weights_cache;
 
     epee::critical_section m_difficulty_lock;
     crypto::hash m_difficulty_for_next_block_top_hash;
