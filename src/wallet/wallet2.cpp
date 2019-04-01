@@ -5566,16 +5566,10 @@ bool wallet2::sign_tx(unsigned_tx_set &exported_txs, std::vector<wallet2::pendin
     LOG_PRINT_L1(" " << (n+1) << ": " << sd.sources.size() << " inputs, ring size " << sd.sources[0].outputs.size());
     signed_txes.ptx.push_back(pending_tx());
     tools::wallet2::pending_tx &ptx = signed_txes.ptx.back();
-    rct::RCTConfig rct_config = { rct::RangeProofBorromean, 0 };
-    if (sd.use_bulletproofs)
-    {
-      rct_config.range_proof_type = rct::RangeProofPaddedBulletproof;
-      rct_config.bp_version = use_fork_rules(HF_VERSION_SMALLER_BP, -10) ? 2 : 1;
-    }
     crypto::secret_key tx_key;
     std::vector<crypto::secret_key> additional_tx_keys;
     rct::multisig_out msout;
-    bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), m_subaddresses, sd.sources, sd.splitted_dsts, sd.change_dts.addr, sd.extra, ptx.tx, sd.unlock_time, tx_key, additional_tx_keys, sd.use_rct, rct_config, m_multisig ? &msout : NULL);
+    bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), m_subaddresses, sd.sources, sd.splitted_dsts, sd.change_dts.addr, sd.extra, ptx.tx, sd.unlock_time, tx_key, additional_tx_keys, sd.use_rct, sd.rct_config, m_multisig ? &msout : NULL);
     THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sd.sources, sd.splitted_dsts, sd.unlock_time, m_nettype);
     // we don't test tx size, because we don't know the current limit, due to not having a blockchain,
     // and it's a bit pointless to fail there anyway, since it'd be a (good) guess only. We sign anyway,
@@ -5988,16 +5982,7 @@ bool wallet2::sign_multisig_tx(multisig_tx_set &exported_txs, std::vector<crypto
     cryptonote::transaction tx;
     rct::multisig_out msout = ptx.multisig_sigs.front().msout;
     auto sources = sd.sources;
-    rct::RCTConfig rct_config = { rct::RangeProofBorromean, 0 };
-    if (sd.use_bulletproofs)
-    {
-      rct_config.range_proof_type = rct::RangeProofBulletproof;
-      for (const rct::Bulletproof &proof: ptx.tx.rct_signatures.p.bulletproofs)
-        if (proof.V.size() > 1)
-          rct_config.range_proof_type = rct::RangeProofPaddedBulletproof;
-      rct_config.bp_version = use_fork_rules(HF_VERSION_SMALLER_BP, -10) ? 2 : 1;
-    }
-    bool r = cryptonote::construct_tx_with_tx_key(m_account.get_keys(), m_subaddresses, sources, sd.splitted_dsts, ptx.change_dts.addr, sd.extra, tx, sd.unlock_time, ptx.tx_key, ptx.additional_tx_keys, sd.use_rct, rct_config, &msout, false);
+    bool r = cryptonote::construct_tx_with_tx_key(m_account.get_keys(), m_subaddresses, sources, sd.splitted_dsts, ptx.change_dts.addr, sd.extra, tx, sd.unlock_time, ptx.tx_key, ptx.additional_tx_keys, sd.use_rct, sd.rct_config, &msout, false);
     THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sd.sources, sd.splitted_dsts, sd.unlock_time, m_nettype);
 
     THROW_WALLET_EXCEPTION_IF(get_transaction_prefix_hash (tx) != get_transaction_prefix_hash(ptx.tx),
@@ -7658,6 +7643,7 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
   ptx.construction_data.subaddr_indices.clear();
   for (size_t idx: selected_transfers)
     ptx.construction_data.subaddr_indices.insert(m_transfers[idx].m_subaddr_index.minor);
+  ptx.construction_data.rct_config = rct_config;
   LOG_PRINT_L2("transfer_selected_rct done");
 }
 

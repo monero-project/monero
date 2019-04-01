@@ -236,6 +236,11 @@ namespace rct {
     struct RCTConfig {
       RangeProofType range_proof_type;
       int bp_version;
+
+      BEGIN_SERIALIZE_OBJECT()
+      FIELD(range_proof_type)
+      FIELD(bp_version)
+      END_SERIALIZE()
     };
     struct rctSigBase {
         uint8_t type;
