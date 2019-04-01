@@ -6873,11 +6873,6 @@ bool simple_wallet::set_tx_key(const std::vector<std::string> &args_)
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::get_tx_proof(const std::vector<std::string> &args)
 {
-  if (m_wallet->key_on_device() && m_wallet->get_account().get_device().get_type() != hw::device::TREZOR)
-  {
-    fail_msg_writer() << tr("command not supported by HW wallet");
-    return true;
-  }
   if (args.size() != 2 && args.size() != 3)
   {
     PRINT_USAGE(USAGE_GET_TX_PROOF);

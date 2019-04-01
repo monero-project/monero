@@ -40,6 +40,19 @@
 
 namespace hw {
 
+    /* Note about debug:
+     * To debug Device you can def the following :
+     * #define DEBUG_HWDEVICE
+     *   Activate debug mechanism:
+     *     - Add more trace
+     *     - All computation done by device are checked by default device.
+     *       Required IODUMMYCRYPT_HWDEVICE or IONOCRYPT_HWDEVICE for fully working
+     * #define IODUMMYCRYPT_HWDEVICE 1
+     *     - It assumes sensitive data encryption is is off on device side. a XOR with 0x55. This allow Ledger Class to make check on clear value
+     * #define IONOCRYPT_HWDEVICE 1
+     *     - It assumes sensitive data encryption is off on device side.
+     */
+
     void buffer_to_str(char *to_buff,  size_t to_len, const char *buff, size_t len) ;
     void log_hexbuffer(const std::string &msg,  const char* buff, size_t len);
     void log_message(const std::string &msg, const std::string &info );
