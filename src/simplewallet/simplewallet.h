@@ -168,7 +168,7 @@ namespace cryptonote
 
     enum class sweep_type_t { stake, register_stake, all_or_below, single };
     bool sweep_main_internal(sweep_type_t sweep_type, std::vector<tools::wallet2::pending_tx> &ptx_vector, cryptonote::address_parse_info const &dest);
-    bool sweep_main(uint64_t below, bool locked, const std::vector<std::string> &args);
+    bool sweep_main(uint64_t below, bool locked, const std::vector<std::string> &args, tools::wallet2::sweep_style_t sweep_style = tools::wallet2::sweep_style_t::normal);
     bool sweep_all(const std::vector<std::string> &args);
     bool sweep_below(const std::vector<std::string> &args);
     bool sweep_single(const std::vector<std::string> &args);
