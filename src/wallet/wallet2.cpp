@@ -5628,8 +5628,6 @@ bool wallet2::is_transfer_unlocked(uint64_t unlock_time, uint64_t block_height, 
       return true;
     }
 
-==== BASE ====
-    const std::string primary_address = get_address_as_str();
     for (cryptonote::COMMAND_RPC_GET_MASTER_NODES::response::entry const &entry : master_nodes_states)
     {
       for (cryptonote::COMMAND_RPC_GET_MASTER_NODES::response::contributor const &contributor : entry.contributors)
@@ -7560,11 +7558,7 @@ wallet2::register_master_node_result wallet2::create_register_master_node_tx(con
       result.msg += e.what();
       return result;
     }
-==== BASE ====
 
-    result.status = register_master_node_result_status::success;
-    return result;
-==== BASE ====
   }
 
   assert(result.status != register_master_node_result_status::invalid);

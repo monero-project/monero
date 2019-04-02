@@ -54,9 +54,9 @@ public:
   boost::optional<std::string> get_fee_quantization_mask(uint64_t &fee_quantization_mask) const;
   boost::optional<uint8_t>     get_hardfork_version() const;
 
-  std::vector<cryptonote::COMMAND_RPC_GET_MASTER_NODES::response::entry>             get_MASTER_NODES(std::vector<std::string> const &pubkeys, boost::optional<std::string> &failed) const;
-  std::vector<cryptonote::COMMAND_RPC_GET_MASTER_NODES::response::entry>             get_all_MASTER_NODES(boost::optional<std::string> &failed) const;
-  std::vector<cryptonote::COMMAND_RPC_GET_MASTER_NODES::response::entry>             get_contributed_MASTER_NODES(const std::string &contributor, boost::optional<std::string> &failed) const;
+  std::vector<cryptonote::COMMAND_RPC_GET_MASTER_NODES::response::entry>             get_master_nodes(std::vector<std::string> const &pubkeys, boost::optional<std::string> &failed) const;
+  std::vector<cryptonote::COMMAND_RPC_GET_MASTER_NODES::response::entry>             get_all_master_nodes(boost::optional<std::string> &failed) const;
+  std::vector<cryptonote::COMMAND_RPC_GET_MASTER_NODES::response::entry>             get_contributed_master_nodes(const std::string &contributor, boost::optional<std::string> &failed) const;
   std::vector<cryptonote::COMMAND_RPC_GET_MASTER_NODE_BLACKLISTED_KEY_IMAGES::entry> get_master_node_blacklisted_key_images(boost::optional<std::string> &failed) const;
 
 private:
@@ -68,14 +68,14 @@ private:
   mutable uint64_t m_master_node_blacklisted_key_images_cached_height;
   mutable std::vector<cryptonote::COMMAND_RPC_GET_MASTER_NODE_BLACKLISTED_KEY_IMAGES::entry> m_master_node_blacklisted_key_images;
 
-  bool update_all_MASTER_NODES_cache(uint64_t height, boost::optional<std::string> &failed) const;
+  bool update_all_master_nodes_cache(uint64_t height, boost::optional<std::string> &failed) const;
 
-  mutable uint64_t m_all_MASTER_NODES_cached_height;
-  mutable std::vector<cryptonote::COMMAND_RPC_GET_MASTER_NODES::response::entry> m_all_MASTER_NODES;
+  mutable uint64_t m_all_master_nodes_cached_height;
+  mutable std::vector<cryptonote::COMMAND_RPC_GET_MASTER_NODES::response::entry> m_all_master_nodes;
 
-  mutable uint64_t m_contributed_MASTER_NODES_cached_height;
-  mutable std::string m_contributed_MASTER_NODES_cached_address;
-  mutable std::vector<cryptonote::COMMAND_RPC_GET_MASTER_NODES::response::entry> m_contributed_MASTER_NODES;
+  mutable uint64_t m_contributed_master_nodes_cached_height;
+  mutable std::string m_contributed_master_nodes_cached_address;
+  mutable std::vector<cryptonote::COMMAND_RPC_GET_MASTER_NODES::response::entry> m_contributed_master_nodes;
 
   mutable uint64_t m_height;
   mutable uint64_t m_earliest_height[256];
