@@ -17,6 +17,7 @@
 #pragma GCC target ("aes,sse2")
 #include <x86intrin.h>
 #if !defined(HAS_WIN_INTRIN_API)
+#include <cpuid.h>
 static inline uint64_t _umul128(uint64_t a, uint64_t b, uint64_t* hi)
 {
     unsigned __int128 r = (unsigned __int128)a * (unsigned __int128)b;
