@@ -154,37 +154,37 @@ cryptonote::block linear_chain_generator::create_block_on_fork(const cryptonote:
 
   const auto height = get_block_height(prev) + 1;
 
-  const auto& winner_pk = sn_list_.get_winner_pk(height);
+  const auto& winner_pk = mn_list_.get_winner_pk(height);
 
-  const auto& sn_pk = winner_pk ? *winner_pk : crypto::null_pkey;
+  const auto& mn_pk = winner_pk ? *winner_pk : crypto::null_pkey;
 
-  std::vector<sn_contributor_t> contribs = { { { crypto::null_pkey, crypto::null_pkey }, STAKING_PORTIONS } };
+  std::vector<mn_contributor_t> contribs = { { { crypto::null_pkey, crypto::null_pkey }, STAKING_PORTIONS } };
 
   if (winner_pk) {
-    const auto& reg = sn_list_.find_registration(*winner_pk);
+    const auto& reg = mn_list_.find_registration(*winner_pk);
     if (reg) {
       contribs = { reg->contribution };
     }
   }
 
   cryptonote::block blk;
-  gen_.construct_block(blk, prev, first_miner_, { txs.begin(), txs.end() }, sn_pk, contribs);
+  gen_.construct_block(blk, prev, first_miner_, { txs.begin(), txs.end() }, mn_pk, contribs);
   events_.push_back(blk);
 
   /// now we can add mn from the buffer to be used in consequent nodes
-  sn_list_.add_registrations(registration_buffer_);
+  mn_list_.add_registrations(registration_buffer_);
   registration_buffer_.clear();
 
-  sn_list_.handle_deregistrations(deregistration_buffer_);
+  mn_list_.handle_deregistrations(deregistration_buffer_);
   deregistration_buffer_.clear();
 
   /// Note: depending on whether we check in hf9 or later, beldex assignes different meaning to
   /// "expiration height": in hf9 it expires nodes at their expiration height; after hf9 --
   /// a the expiration height + 1.
   if (get_hf_version() == network_version_9_master_nodes) {
-    sn_list_.expire_old(height);
+    mn_list_.expire_old(height);
   } else {
-    sn_list_.expire_old(height - 1);
+    mn_list_.expire_old(height - 1);
   }
 
   return blk;
@@ -192,7 +192,7 @@ cryptonote::block linear_chain_generator::create_block_on_fork(const cryptonote:
 
 QuorumState linear_chain_generator::get_quorum_idxs(const cryptonote::block& block) const
 {
-  if (sn_list_.size() <= master_nodes::QUORUM_SIZE) {
+  if (mn_list_.size() <= master_nodes::QUORUM_SIZE) {
     std::cerr << "Not enough master nodes\n";
     return {};
   }
@@ -203,7 +203,7 @@ QuorumState linear_chain_generator::get_quorum_idxs(const cryptonote::block& blo
     const crypto::hash block_hash = cryptonote::get_block_hash(block);
     std::memcpy(&seed, block_hash.data, std::min(sizeof(seed), sizeof(block_hash.data)));
 
-    pub_keys_indexes.resize(sn_list_.size());
+    pub_keys_indexes.resize(mn_list_.size());
     for (size_t i = 0; i < pub_keys_indexes.size(); i++) {
       pub_keys_indexes[i] = i;
     }
@@ -214,11 +214,11 @@ QuorumState linear_chain_generator::get_quorum_idxs(const cryptonote::block& blo
   QuorumState quorum;
 
   for (auto i = 0u; i < master_nodes::QUORUM_SIZE; ++i) {
-    quorum.voters.push_back({ sn_list_.at(pub_keys_indexes[i]).keys.pub, i });
+    quorum.voters.push_back({ mn_list_.at(pub_keys_indexes[i]).keys.pub, i });
   }
 
   for (auto i = master_nodes::QUORUM_SIZE; i < pub_keys_indexes.size(); ++i) {
-    quorum.to_test.push_back({ sn_list_.at(pub_keys_indexes[i]).keys.pub, i });
+    quorum.to_test.push_back({ mn_list_.at(pub_keys_indexes[i]).keys.pub, i });
   }
 
   return quorum;
@@ -244,7 +244,7 @@ cryptonote::transaction linear_chain_generator::create_tx(const cryptonote::acco
 cryptonote::transaction linear_chain_generator::create_registration_tx(const cryptonote::account_base& acc,
                                                                        const cryptonote::keypair& mn_keys)
 {
-  const sn_contributor_t contr = { acc.get_keys().m_account_address, STAKING_PORTIONS };
+  const mn_contributor_t contr = { acc.get_keys().m_account_address, STAKING_PORTIONS };
   uint32_t expires = height() + master_nodes::staking_num_lock_blocks(cryptonote::FAKECHAIN);
 
   /// Account for some inconsistency in master_nodes::staking_num_lock_blocks
@@ -269,7 +269,7 @@ cryptonote::transaction linear_chain_generator::create_registration_tx()
 
 cryptonote::transaction linear_chain_generator::create_deregister_tx(const crypto::public_key& pk,
                                                                      uint64_t height,
-                                                                     const std::vector<sn_idx>& voters,
+                                                                     const std::vector<mn_idx>& voters,
                                                                      uint64_t fee,
                                                                      bool commit)
 {
@@ -286,7 +286,7 @@ cryptonote::transaction linear_chain_generator::create_deregister_tx(const crypt
   /// need to create MIN_VOTES_TO_KICK_MASTER_NODE (7) votes
   for (const auto voter : voters) {
 
-    const auto reg = sn_list_.find_registration(voter.sn_pk);
+    const auto reg = mn_list_.find_registration(voter.mn_pk);
 
     if (!reg) return {};
 
@@ -311,7 +311,7 @@ crypto::public_key linear_chain_generator::get_test_pk(uint32_t idx) const
 {
   const auto& to_test = get_quorum_idxs(height()).to_test;
 
-  return to_test.at(idx).sn_pk;
+  return to_test.at(idx).mn_pk;
 }
 
 boost::optional<uint32_t> linear_chain_generator::get_idx_in_tested(const crypto::public_key& pk, uint64_t height) const
@@ -319,74 +319,74 @@ boost::optional<uint32_t> linear_chain_generator::get_idx_in_tested(const crypto
   const auto& to_test = get_quorum_idxs(height).to_test;
 
   for (const auto& mn : to_test) {
-    if (sn.sn_pk == pk) return sn.idx_in_quorum - master_nodes::QUORUM_SIZE;
+    if (mn.mn_pk == pk) return mn.idx_in_quorum - master_nodes::QUORUM_SIZE;
   }
 
   return boost::none;
 }
 
 void linear_chain_generator::deregister(const crypto::public_key& pk) {
-  sn_list_.remove_node(pk);
+  mn_list_.remove_node(pk);
 }
 
-inline void sn_list::remove_node(const crypto::public_key& pk)
+inline void mn_list::remove_node(const crypto::public_key& pk)
 {
   const auto it =
-    std::find_if(sn_owners_.begin(), sn_owners_.end(), [pk](const sn_registration& sn) { return sn.keys.pub == pk; });
-  if (it != sn_owners_.end()) sn_owners_.erase(it); else abort();
+    std::find_if(mn_owners_.begin(), mn_owners_.end(), [pk](const mn_registration& mn) { return mn.keys.pub == pk; });
+  if (it != mn_owners_.end()) mn_owners_.erase(it); else abort();
 }
 
-inline void sn_list::add_registrations(const std::vector<sn_registration>& regs)
+inline void mn_list::add_registrations(const std::vector<mn_registration>& regs)
 {
-  sn_owners_.insert(sn_owners_.begin(), regs.begin(), regs.end());
+  mn_owners_.insert(mn_owners_.begin(), regs.begin(), regs.end());
 
-  std::sort(sn_owners_.begin(), sn_owners_.end(),
-  [](const sn_registration &a, const sn_registration &b) {
+  std::sort(mn_owners_.begin(), mn_owners_.end(),
+  [](const mn_registration &a, const mn_registration &b) {
     return memcmp(reinterpret_cast<const void*>(&a.keys.pub), reinterpret_cast<const void*>(&b.keys.pub),
     sizeof(a.keys.pub)) < 0;
   });
 }
 
-void sn_list::handle_deregistrations(const std::vector<crypto::public_key>& dereg_buffer)
+void mn_list::handle_deregistrations(const std::vector<crypto::public_key>& dereg_buffer)
 {
-  const auto size_before = sn_owners_.size();
-  auto end_it = sn_owners_.end();
+  const auto size_before = mn_owners_.size();
+  auto end_it = mn_owners_.end();
 
   for (const auto pk : dereg_buffer) {
-    end_it = std::remove_if(sn_owners_.begin(), end_it, [&pk](const sn_registration& sn) {
-      return sn.keys.pub == pk;
+    end_it = std::remove_if(mn_owners_.begin(), end_it, [&pk](const mn_registration& mn) {
+      return mn.keys.pub == pk;
     });
   }
 
-  sn_owners_.erase(end_it, sn_owners_.end());
-  assert(sn_owners_.size() == size_before - dereg_buffer.size());
+  mn_owners_.erase(end_it, mn_owners_.end());
+  assert(mn_owners_.size() == size_before - dereg_buffer.size());
 }
 
-inline void sn_list::expire_old(uint64_t height)
+inline void mn_list::expire_old(uint64_t height)
 {
   /// remove_if is stable, no need for re-sorting
   const auto new_end = std::remove_if(
-    sn_owners_.begin(), sn_owners_.end(), [height](const sn_registration& reg) { return height > reg.valid_until; });
+    mn_owners_.begin(), mn_owners_.end(), [height](const mn_registration& reg) { return height > reg.valid_until; });
 
-  sn_owners_.erase(new_end, sn_owners_.end());
+  mn_owners_.erase(new_end, mn_owners_.end());
 }
 
-inline const boost::optional<sn_registration> sn_list::find_registration(const crypto::public_key& pk) const
+inline const boost::optional<mn_registration> mn_list::find_registration(const crypto::public_key& pk) const
 {
   const auto it =
-    std::find_if(sn_owners_.begin(), sn_owners_.end(), [pk](const sn_registration& sn) { return sn.keys.pub == pk; });
+    std::find_if(mn_owners_.begin(), mn_owners_.end(), [pk](const mn_registration& mn) { return mn.keys.pub == pk; });
 
-  if (it == sn_owners_.end()) return boost::none;
+  if (it == mn_owners_.end()) return boost::none;
 
   return *it;
 }
 
-inline const boost::optional<crypto::public_key> sn_list::get_winner_pk(uint64_t height)
+inline const boost::optional<crypto::public_key> mn_list::get_winner_pk(uint64_t height)
 {
-  if (sn_owners_.empty()) return boost::none;
+  if (mn_owners_.empty()) return boost::none;
 
   auto it =
-    std::min_element(sn_owners_.begin(), sn_owners_.end(), [](const sn_registration& lhs, const sn_registration& rhs) {
+    std::min_element(mn_owners_.begin(), mn_owners_.end(), [](const mn_registration& lhs, const mn_registration& rhs) {
       return lhs.last_reward < rhs.last_reward;
     });
 
@@ -505,7 +505,7 @@ static void manual_calc_batched_governance(const test_generator &generator, cons
 bool test_generator::construct_block(cryptonote::block& blk, uint64_t height, const crypto::hash& prev_id,
                                      const cryptonote::account_base& miner_acc, uint64_t timestamp, uint64_t already_generated_coins,
                                      std::vector<uint64_t>& block_weights, const std::list<cryptonote::transaction>& tx_list,
-                                     const crypto::public_key& sn_pub_key /* = crypto::null_key */, const std::vector<sn_contributor_t>& sn_infos)
+                                     const crypto::public_key& mn_pub_key /* = crypto::null_key */, const std::vector<mn_contributor_t>& mn_infos)
 {
   /// a temporary workaround
   blk.major_version = m_hf_version;
@@ -535,7 +535,7 @@ bool test_generator::construct_block(cryptonote::block& blk, uint64_t height, co
   blk.miner_tx = AUTO_VAL_INIT(blk.miner_tx);
   size_t target_block_weight = txs_weight + get_transaction_weight(blk.miner_tx);
 
-  cryptonote::beldex_miner_tx_context miner_tx_context(cryptonote::FAKECHAIN, sn_pub_key, sn_infos);
+  cryptonote::beldex_miner_tx_context miner_tx_context(cryptonote::FAKECHAIN, mn_pub_key, mn_infos);
   manual_calc_batched_governance(*this, prev_id, miner_tx_context, m_hf_version, height);
 
   while (true)
@@ -603,7 +603,7 @@ bool test_generator::construct_block(cryptonote::block& blk, const cryptonote::a
 bool test_generator::construct_block(cryptonote::block& blk, const cryptonote::block& blk_prev,
                                      const cryptonote::account_base& miner_acc,
                                      const std::list<cryptonote::transaction>& tx_list/* = {}*/,
-                                     const crypto::public_key& sn_pub_key /* = crypto::null_key */, const std::vector<sn_contributor_t>& sn_infos)
+                                     const crypto::public_key& mn_pub_key /* = crypto::null_key */, const std::vector<mn_contributor_t>& mn_infos)
 {
   uint64_t height = boost::get<txin_gen>(blk_prev.miner_tx.vin.front()).height + 1;
   crypto::hash prev_id = get_block_hash(blk_prev);
@@ -613,7 +613,7 @@ bool test_generator::construct_block(cryptonote::block& blk, const cryptonote::b
   std::vector<uint64_t> block_weights;
   get_last_n_block_weights(block_weights, prev_id, CRYPTONOTE_REWARD_BLOCKS_WINDOW);
 
-  return construct_block(blk, height, prev_id, miner_acc, timestamp, already_generated_coins, block_weights, tx_list, sn_pub_key, sn_infos);
+  return construct_block(blk, height, prev_id, miner_acc, timestamp, already_generated_coins, block_weights, tx_list, mn_pub_key, mn_infos);
 }
 
 bool test_generator::construct_block_manually(block& blk, const block& prev_block, const account_base& miner_acc,
@@ -752,7 +752,7 @@ struct output_index {
     size_t out_no; // index of out in transaction
     size_t idx;
     bool spent;
-    bool is_sn_reward = false;
+    bool is_mn_reward = false;
     const cryptonote::block *p_blk;
     const cryptonote::transaction *p_tx;
 
@@ -888,12 +888,12 @@ bool init_output_indices(output_index_vec& outs, output_vec& outs_mine, const st
                     const auto gov_key = cryptonote::get_deterministic_keypair_from_height(height);
 
                     const bool to_acc_regular = is_out_to_acc(from.get_keys(), boost::get<txout_to_key>(out.target), get_tx_pub_key_from_extra(tx), get_additional_tx_pub_keys_from_extra(tx), j);
-                    const bool to_acc_sn_reward = to_acc_regular ? false : is_out_to_acc(from.get_keys(), boost::get<txout_to_key>(out.target), gov_key.pub, {}, j);
+                    const bool to_acc_mn_reward = to_acc_regular ? false : is_out_to_acc(from.get_keys(), boost::get<txout_to_key>(out.target), gov_key.pub, {}, j);
 
-                    if (to_acc_regular || to_acc_sn_reward) {
+                    if (to_acc_regular || to_acc_mn_reward) {
                       outs_mine.push_back(tx_global_idx);
                         auto& oi = outs.back();
-                        oi.is_sn_reward = to_acc_sn_reward;
+                        oi.is_mn_reward = to_acc_mn_reward;
                         if (oi.amount == 0) {
                           oi.amount = get_amount(from, tx, j);
                           oi.mask = tx.rct_signatures.outPk[j].mask;
@@ -925,7 +925,7 @@ bool init_spent_output_indices(output_index_vec& outs,
         std::unordered_map<crypto::public_key, cryptonote::subaddress_index> subaddresses;
         subaddresses[from.get_keys().m_account_address.m_spend_public_key] = {0,0};
 
-        const auto tx_pk = oi.is_sn_reward ? get_deterministic_keypair_from_height(oi.blk_height).pub
+        const auto tx_pk = oi.is_mn_reward ? get_deterministic_keypair_from_height(oi.blk_height).pub
                                            : get_tx_pub_key_from_extra(*oi.p_tx);
 
         generate_key_image_helper(from.get_keys(),

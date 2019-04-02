@@ -181,16 +181,16 @@ public:
 
 template<> struct get_test_options<deregister_too_old>: public get_test_options<test_master_nodes_base> {};
 //-------------------------------------------------------------------------------------------
-class sn_test_rollback : public test_chain_unit_base
+class mn_test_rollback : public test_chain_unit_base
 {
 
 public:
-  sn_test_rollback();
+  mn_test_rollback();
   bool generate(std::vector<test_event_entry>& events);
   bool test_registrations(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry> &events);
 };
 
-template<> struct get_test_options<sn_test_rollback>: public get_test_options<test_master_nodes_base> {};
+template<> struct get_test_options<mn_test_rollback>: public get_test_options<test_master_nodes_base> {};
 
 //-------------------------------------------------------------------------------------------
 
@@ -201,7 +201,7 @@ public:
   bool generate(std::vector<test_event_entry>& events);
 
   bool test_initial_swarms(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry> &events);
-  bool test_with_more_sn(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry> &events);
+  bool test_with_more_mn(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry> &events);
   bool test_after_deregisters(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry> &events);
 };
 

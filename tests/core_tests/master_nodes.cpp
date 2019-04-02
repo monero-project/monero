@@ -383,10 +383,10 @@ bool test_deregister_safety_buffer::generate(std::vector<test_event_entry> &even
   const auto heightA = gen.height();
 
   /// Note: would've used sets, but need `less` for public keys etc.
-  std::vector<crypto::public_key> sn_set_A;
+  std::vector<crypto::public_key> mn_set_A;
 
   for (const auto& mn : gen.get_quorum_idxs(heightA).to_test) {
-    sn_set_A.push_back(sn.sn_pk);
+    mn_set_A.push_back(mn.mn_pk);
   }
 
   /// create 5 blocks and find public key to be tested twice
@@ -396,18 +396,18 @@ bool test_deregister_safety_buffer::generate(std::vector<test_event_entry> &even
 
   const auto heightB = gen.height();
 
-  std::vector<crypto::public_key> sn_set_B;
+  std::vector<crypto::public_key> mn_set_B;
 
   for (const auto& mn : gen.get_quorum_idxs(heightB).to_test) {
-    sn_set_B.push_back(sn.sn_pk);
+    mn_set_B.push_back(mn.mn_pk);
   }
 
   /// Guaranteed to contain at least one element
   std::vector<crypto::public_key> tested_twice;
 
-  for (const auto& mn : sn_set_A) {
-    if (std::find(sn_set_B.begin(), sn_set_B.end(), sn) != sn_set_B.end()) {
-      tested_twice.push_back(sn);
+  for (const auto& mn : mn_set_A) {
+    if (std::find(mn_set_B.begin(), mn_set_B.end(), mn) != mn_set_B.end()) {
+      tested_twice.push_back(mn);
     }
   }
 
@@ -472,7 +472,7 @@ bool test_deregisters_on_split::generate(std::vector<test_event_entry> &events)
   std::vector<cryptonote::transaction> reg_txs;
   for (auto i = 0; i < 12; ++i) {
     const auto mn = get_static_keys(i);
-    const auto tx = gen.create_registration_tx(gen.first_miner(), sn);
+    const auto tx = gen.create_registration_tx(gen.first_miner(), mn);
     reg_txs.push_back(tx);
   }
 
@@ -575,7 +575,7 @@ bool deregister_too_old::generate(std::vector<test_event_entry>& events)
   std::vector<cryptonote::transaction> reg_txs;
   for (auto i = 0; i < 11; ++i) {
     const auto mn = get_static_keys(i);
-    const auto tx = gen.create_registration_tx(gen.first_miner(), sn);
+    const auto tx = gen.create_registration_tx(gen.first_miner(), mn);
     reg_txs.push_back(tx);
   }
 
@@ -599,14 +599,14 @@ bool deregister_too_old::generate(std::vector<test_event_entry>& events)
 //-----------------------------------------------------------------------------------------------------
 //---------------------------- Test Rollback System for Master Nodes ---------------------------------
 //-----------------------------------------------------------------------------------------------------
-sn_test_rollback::sn_test_rollback()
+mn_test_rollback::mn_test_rollback()
 {
-  REGISTER_CALLBACK("test_registrations", sn_test_rollback::test_registrations);
+  REGISTER_CALLBACK("test_registrations", mn_test_rollback::test_registrations);
 }
 //-----------------------------------------------------------------------------------------------------
-bool sn_test_rollback::generate(std::vector<test_event_entry>& events)
+bool mn_test_rollback::generate(std::vector<test_event_entry>& events)
 {
-  const get_test_options<sn_test_rollback> test_options = {};
+  const get_test_options<mn_test_rollback> test_options = {};
   linear_chain_generator gen(events, test_options.hard_forks);
   gen.create_genesis_block();
 
@@ -616,13 +616,13 @@ bool sn_test_rollback::generate(std::vector<test_event_entry>& events)
   gen.rewind_blocks_n(20);
   gen.rewind_blocks();
 
-  constexpr auto init_sn_count = 11;
+  constexpr auto init_mn_count = 11;
 
   /// register some master nodes
   std::vector<cryptonote::transaction> reg_txs;
-  for (auto i = 0; i < init_sn_count; ++i) {
+  for (auto i = 0; i < init_mn_count; ++i) {
     const auto mn = get_static_keys(i);
-    const auto tx = gen.create_registration_tx(gen.first_miner(), sn);
+    const auto tx = gen.create_registration_tx(gen.first_miner(), mn);
     reg_txs.push_back(tx);
   }
 
@@ -643,8 +643,8 @@ bool sn_test_rollback::generate(std::vector<test_event_entry>& events)
 
   /// create a new master node (B) in the next block
   {
-    const auto mn = get_static_keys(init_sn_count);
-    const auto tx = gen.create_registration_tx(gen.first_miner(), sn);
+    const auto mn = get_static_keys(init_mn_count);
+    const auto tx = gen.create_registration_tx(gen.first_miner(), mn);
     gen.create_block({tx});
   }
 
@@ -659,21 +659,21 @@ bool sn_test_rollback::generate(std::vector<test_event_entry>& events)
   return true;
 }
 
-using sn_info_t = master_nodes::master_node_pubkey_info;
+using mn_info_t = master_nodes::master_node_pubkey_info;
 
-static bool contains(const std::vector<sn_info_t>& infos, const crypto::public_key& key)
+static bool contains(const std::vector<mn_info_t>& infos, const crypto::public_key& key)
 {
   const auto it =
-    std::find_if(infos.begin(), infos.end(), [&key](const sn_info_t& info) { return info.pubkey == key; });
+    std::find_if(infos.begin(), infos.end(), [&key](const mn_info_t& info) { return info.pubkey == key; });
   return it != infos.end();
 }
 
-bool sn_test_rollback::test_registrations(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry> &events)
+bool mn_test_rollback::test_registrations(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry> &events)
 {
 
-  DEFINE_TESTS_ERROR_CONTEXT("sn_test_rollback::test_registrations");
+  DEFINE_TESTS_ERROR_CONTEXT("mn_test_rollback::test_registrations");
 
-  const auto sn_list = c.get_master_node_list_state({});
+  const auto mn_list = c.get_master_node_list_state({});
 
   /// Test that node A is still registered
   {
@@ -694,7 +694,7 @@ bool sn_test_rollback::test_registrations(cryptonote::core& c, size_t ev_index, 
     const auto pk_a = quorum_state->nodes_to_test.at(deregistration.master_node_index);
 
     /// Check present
-    const bool found_a = contains(sn_list, pk_a);
+    const bool found_a = contains(mn_list, pk_a);
     CHECK_AND_ASSERT_MES(found_a, false, "Node deregistered in alt chain is not found in the main chain after reorg.");
   }
 
@@ -713,7 +713,7 @@ bool sn_test_rollback::test_registrations(cryptonote::core& c, size_t ev_index, 
     }
 
     /// Check not present
-    const bool found_b = contains(sn_list, pk_b);
+    const bool found_b = contains(mn_list, pk_b);
     CHECK_AND_ASSERT_MES(!found_b, false, "Node registered in alt chain is present in the main chain after reorg.");
   }
 
@@ -727,7 +727,7 @@ bool sn_test_rollback::test_registrations(cryptonote::core& c, size_t ev_index, 
 
 test_swarms_basic::test_swarms_basic() {
   REGISTER_CALLBACK("test_initial_swarms", test_swarms_basic::test_initial_swarms);
-  REGISTER_CALLBACK("test_with_more_sn", test_swarms_basic::test_with_more_sn);
+  REGISTER_CALLBACK("test_with_more_mn", test_swarms_basic::test_with_more_mn);
   REGISTER_CALLBACK("test_after_deregisters", test_swarms_basic::test_after_deregisters);
 }
 
@@ -737,16 +737,16 @@ bool test_swarms_basic::generate(std::vector<test_event_entry>& events)
   linear_chain_generator gen(events, test_options.hard_forks);
 
   /// Create some master nodes before hf version 10
-  constexpr size_t init_sn_count = 16;
+  constexpr size_t init_mn_count = 16;
 
   gen.rewind_blocks_n(100);
   gen.rewind_blocks();
 
   /// register some master nodes
   std::vector<cryptonote::transaction> reg_txs;
-  for (auto i = 0u; i < init_sn_count; ++i) {
+  for (auto i = 0u; i < init_mn_count; ++i) {
     const auto mn = get_static_keys(i);
-    const auto tx = gen.create_registration_tx(gen.first_miner(), sn);
+    const auto tx = gen.create_registration_tx(gen.first_miner(), mn);
     reg_txs.push_back(tx);
   }
 
@@ -766,16 +766,16 @@ bool test_swarms_basic::generate(std::vector<test_event_entry>& events)
   DO_CALLBACK(events, "test_initial_swarms");
 
   /// rewind some blocks and register more master nodes
-  for (auto i = init_sn_count; i < MN_KEYS_COUNT; ++i) {
+  for (auto i = init_mn_count; i < MN_KEYS_COUNT; ++i) {
     const auto mn = get_static_keys(i);
-    const auto tx = gen.create_registration_tx(gen.first_miner(), sn);
+    const auto tx = gen.create_registration_tx(gen.first_miner(), mn);
     gen.create_block({tx}); 
   }
 
   /// test that another swarm has been created
-  DO_CALLBACK(events, "test_with_more_sn");
+  DO_CALLBACK(events, "test_with_more_mn");
 
-  /// deregister a few snodes and test that both swarms are alive
+  /// deregister a few mnodes and test that both swarms are alive
   std::vector<cryptonote::transaction> dereg_txs;
   for (auto i = 0u; i < master_nodes::SWARM_BUFFER; ++i) {
     const auto pk = gen.get_test_pk(i);
@@ -798,11 +798,11 @@ bool test_swarms_basic::test_initial_swarms(cryptonote::core& c, size_t ev_index
   DEFINE_TESTS_ERROR_CONTEXT("test_swarms_basic::test_initial_swarms");
 
   /// Check that there is one active swarm and the swarm queue is not empty
-  const auto sn_list = c.get_master_node_list_state({});
+  const auto mn_list = c.get_master_node_list_state({});
 
   std::map<master_nodes::swarm_id_t, std::vector<crypto::public_key>> swarms;
 
-  for (const auto& entry : sn_list) {
+  for (const auto& entry : mn_list) {
     const auto id = entry.info.swarm_id;
     swarms[id].push_back(entry.pubkey);
   }
@@ -820,15 +820,15 @@ bool test_swarms_basic::test_initial_swarms(cryptonote::core& c, size_t ev_index
   return true;
 }
 
-bool test_swarms_basic::test_with_more_sn(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry> &events)
+bool test_swarms_basic::test_with_more_mn(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry> &events)
 {
-  DEFINE_TESTS_ERROR_CONTEXT("test_swarms_basic::test_with_more_sn");
+  DEFINE_TESTS_ERROR_CONTEXT("test_swarms_basic::test_with_more_mn");
 
-  const auto sn_list = c.get_master_node_list_state({});
+  const auto mn_list = c.get_master_node_list_state({});
 
   std::map<master_nodes::swarm_id_t, std::vector<crypto::public_key>> swarms;
 
-  for (const auto& entry : sn_list) {
+  for (const auto& entry : mn_list) {
     const auto id = entry.info.swarm_id;
     swarms[id].push_back(entry.pubkey);
   }
@@ -842,11 +842,11 @@ bool test_swarms_basic::test_after_deregisters(cryptonote::core& c, size_t ev_in
 {
   DEFINE_TESTS_ERROR_CONTEXT("test_swarms_basic::test_after_deregisters");
 
-  const auto sn_list = c.get_master_node_list_state({});
+  const auto mn_list = c.get_master_node_list_state({});
 
   std::map<master_nodes::swarm_id_t, std::vector<crypto::public_key>> swarms;
 
-  for (const auto& entry : sn_list) {
+  for (const auto& entry : mn_list) {
     const auto id = entry.info.swarm_id;
     swarms[id].push_back(entry.pubkey);
   }

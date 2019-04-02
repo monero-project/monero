@@ -160,7 +160,7 @@ private:
   callbacks_map m_callbacks;
 };
 
-using sn_contributor_t = std::pair<cryptonote::account_public_address, uint64_t>;
+using mn_contributor_t = std::pair<cryptonote::account_public_address, uint64_t>;
 
 class test_generator
 {
@@ -211,12 +211,12 @@ public:
   void add_block(const cryptonote::block& blk, size_t tsx_size, std::vector<uint64_t>& block_weights, uint64_t already_generated_coins);
   bool construct_block(cryptonote::block& blk, uint64_t height, const crypto::hash& prev_id,
     const cryptonote::account_base& miner_acc, uint64_t timestamp, uint64_t already_generated_coins,
-    std::vector<uint64_t>& block_weights, const std::list<cryptonote::transaction>& tx_list, const crypto::public_key& sn_pub_key = crypto::null_pkey,
-    const std::vector<sn_contributor_t>& = {{{crypto::null_pkey, crypto::null_pkey}, STAKING_PORTIONS}});
+    std::vector<uint64_t>& block_weights, const std::list<cryptonote::transaction>& tx_list, const crypto::public_key& mn_pub_key = crypto::null_pkey,
+    const std::vector<mn_contributor_t>& = {{{crypto::null_pkey, crypto::null_pkey}, STAKING_PORTIONS}});
   bool construct_block(cryptonote::block& blk, const cryptonote::account_base& miner_acc, uint64_t timestamp);
   bool construct_block(cryptonote::block& blk, const cryptonote::block& blk_prev, const cryptonote::account_base& miner_acc,
-    const std::list<cryptonote::transaction>& tx_list = std::list<cryptonote::transaction>(), const crypto::public_key& sn_pub_key = crypto::null_pkey,
-    const std::vector<sn_contributor_t>& = {{{crypto::null_pkey, crypto::null_pkey}, STAKING_PORTIONS}});
+    const std::list<cryptonote::transaction>& tx_list = std::list<cryptonote::transaction>(), const crypto::public_key& mn_pub_key = crypto::null_pkey,
+    const std::vector<mn_contributor_t>& = {{{crypto::null_pkey, crypto::null_pkey}, STAKING_PORTIONS}});
 
   bool construct_block_manually(cryptonote::block& blk, const cryptonote::block& prev_block,
     const cryptonote::account_base& miner_acc, int actual_params = bf_none, uint8_t major_ver = 0,
@@ -241,30 +241,30 @@ struct last_reward_point {
   uint64_t priority;
 };
 
-struct sn_registration {
+struct mn_registration {
   uint64_t valid_until; /// block height
   cryptonote::keypair keys;
-  sn_contributor_t contribution;
+  mn_contributor_t contribution;
   last_reward_point last_reward;
 };
 
-class sn_list
+class mn_list
 {
-  std::vector<sn_registration> sn_owners_;
+  std::vector<mn_registration> mn_owners_;
 
 public:
 
-  const sn_registration& at(size_t idx) const { return sn_owners_.at(idx); }
+  const mn_registration& at(size_t idx) const { return mn_owners_.at(idx); }
 
-  const boost::optional<sn_registration> find_registration(const crypto::public_key& pk) const;
+  const boost::optional<mn_registration> find_registration(const crypto::public_key& pk) const;
 
   void expire_old(uint64_t height);
 
   const boost::optional<crypto::public_key> get_winner_pk(uint64_t height);
 
-  size_t size() const { return sn_owners_.size(); }
+  size_t size() const { return mn_owners_.size(); }
 
-  void add_registrations(const std::vector<sn_registration>& regs);
+  void add_registrations(const std::vector<mn_registration>& regs);
 
   void remove_node(const crypto::public_key& pk);
 
@@ -273,15 +273,15 @@ public:
 };
 
 /// Master node and its index
-struct sn_idx {
-  crypto::public_key sn_pk;
+struct mn_idx {
+  crypto::public_key mn_pk;
   /// index in the sorted list of master nodes for a particular block
   size_t idx_in_quorum;
 };
 
 struct QuorumState {
-  std::vector<sn_idx> voters;
-  std::vector<sn_idx> to_test;
+  std::vector<mn_idx> voters;
+  std::vector<mn_idx> to_test;
 };
 
 class dereg_tx_builder;
@@ -294,10 +294,10 @@ class linear_chain_generator
     const std::vector<std::pair<uint8_t, uint64_t>> hard_forks_;
     std::vector<cryptonote::block> blocks_;
 
-    sn_list sn_list_;
+    mn_list mn_list_;
 
     /// keep new registrations and deregistrations here until the next block
-    std::vector<sn_registration> registration_buffer_;
+    std::vector<mn_registration> registration_buffer_;
     std::vector<crypto::public_key> deregistration_buffer_;
 
     cryptonote::account_base first_miner_;
@@ -342,15 +342,15 @@ class linear_chain_generator
     const cryptonote::block& chain_head() const { return blocks_.back(); }
 
     /// get a copy of the master node list
-    sn_list get_sn_list() const { return sn_list_; }
+    mn_list get_mn_list() const { return mn_list_; }
 
-    void set_sn_list(const sn_list& list) { sn_list_ = list; }
+    void set_mn_list(const mn_list& list) { mn_list_ = list; }
 
     QuorumState get_quorum_idxs(const cryptonote::block& block) const;
 
     QuorumState get_quorum_idxs(uint64_t height) const;
 
-    cryptonote::transaction create_deregister_tx(const crypto::public_key& pk, uint64_t height, const std::vector<sn_idx>& voters, uint64_t fee, bool commit);
+    cryptonote::transaction create_deregister_tx(const crypto::public_key& pk, uint64_t height, const std::vector<mn_idx>& voters, uint64_t fee, bool commit);
 
     dereg_tx_builder build_deregister(const crypto::public_key& pk, bool commit = true);
 
@@ -372,7 +372,7 @@ class dereg_tx_builder {
 
   boost::optional<uint64_t> fee_ = boost::none;
 
-  boost::optional<const std::vector<sn_idx>&> voters_ = boost::none;
+  boost::optional<const std::vector<mn_idx>&> voters_ = boost::none;
 
   /// whether to actually remove SN from the list
   bool commit_;
@@ -392,7 +392,7 @@ class dereg_tx_builder {
       return std::move(*this);
     }
 
-    dereg_tx_builder&& with_voters(const std::vector<sn_idx>& voters)
+    dereg_tx_builder&& with_voters(const std::vector<mn_idx>& voters)
     {
       voters_ = voters;
       return std::move(*this);
