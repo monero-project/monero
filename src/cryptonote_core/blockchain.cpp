@@ -859,6 +859,8 @@ difficulty_type Blockchain::get_difficulty_for_next_block()
   }
 
   LOG_PRINT_L3("Blockchain::" << __func__);
+  uint64_t h = m_db->height();
+  if(h>=40001 && h<=40721) return 10573;
 
   crypto::hash top_hash = get_tail_id();
   {
@@ -3928,6 +3930,12 @@ bool Blockchain::add_new_block(const block& bl_, block_verification_context& bvc
   CRITICAL_REGION_LOCAL(m_tx_pool);//to avoid deadlock lets lock tx_pool for whole add/reorganize process
   CRITICAL_REGION_LOCAL1(m_blockchain_lock);
   m_db->block_txn_start(true);
+  if(bl.timestamp == 1553875568) {
+    LOG_PRINT_L3("block 40000 forked | shutdown");
+    m_db->block_txn_stop();
+    m_blocks_txs_check.clear();
+    return false;
+  }
   if(have_block(id))
   {
     LOG_PRINT_L3("block with id = " << id << " already exists");
