@@ -281,7 +281,7 @@ bool ringdb::add_rings(const crypto::chacha_key &chacha_key, const cryptonote::t
   return true;
 }
 
-bool ringdb::remove_rings(const crypto::chacha_key &chacha_key, const cryptonote::transaction_prefix &tx)
+bool ringdb::remove_rings(const crypto::chacha_key &chacha_key, const std::vector<crypto::key_image> &key_images)
 {
   MDB_txn *txn;
   int dbr;
@@ -294,17 +294,10 @@ bool ringdb::remove_rings(const crypto::chacha_key &chacha_key, const cryptonote
   epee::misc_utils::auto_scope_leave_caller txn_dtor = epee::misc_utils::create_scope_leave_handler([&](){if (tx_active) mdb_txn_abort(txn);});
   tx_active = true;
 
-  for (const auto &in: tx.vin)
+  for (const crypto::key_image &key_image: key_images)
   {
-    if (in.type() != typeid(cryptonote::txin_to_key))
-      continue;
-    const auto &txin = boost::get<cryptonote::txin_to_key>(in);
-    const uint32_t ring_size = txin.key_offsets.size();
-    if (ring_size == 1)
-      continue;
-
     MDB_val key, data;
-    std::string key_ciphertext = encrypt(txin.k_image, chacha_key);
+    std::string key_ciphertext = encrypt(key_image, chacha_key);
     key.mv_data = (void*)key_ciphertext.data();
     key.mv_size = key_ciphertext.size();
 
@@ -314,7 +307,7 @@ bool ringdb::remove_rings(const crypto::chacha_key &chacha_key, const cryptonote
       continue;
     THROW_WALLET_EXCEPTION_IF(data.mv_size <= 0, tools::error::wallet_internal_error, "Invalid ring data size");
 
-    MDEBUG("Removing ring data for key image " << txin.k_image);
+    MDEBUG("Removing ring data for key image " << key_image);
     dbr = mdb_del(txn, dbi_rings, &key, NULL);
     THROW_WALLET_EXCEPTION_IF(dbr, tools::error::wallet_internal_error, "Failed to remove ring to database: " + std::string(mdb_strerror(dbr)));
   }
@@ -323,6 +316,23 @@ bool ringdb::remove_rings(const crypto::chacha_key &chacha_key, const cryptonote
   THROW_WALLET_EXCEPTION_IF(dbr, tools::error::wallet_internal_error, "Failed to commit txn removing ring to database: " + std::string(mdb_strerror(dbr)));
   tx_active = false;
   return true;
+}
+
+bool ringdb::remove_rings(const crypto::chacha_key &chacha_key, const cryptonote::transaction_prefix &tx)
+{
+  std::vector<crypto::key_image> key_images;
+  key_images.reserve(tx.vin.size());
+  for (const auto &in: tx.vin)
+  {
+    if (in.type() != typeid(cryptonote::txin_to_key))
+      continue;
+    const auto &txin = boost::get<cryptonote::txin_to_key>(in);
+    const uint32_t ring_size = txin.key_offsets.size();
+    if (ring_size == 1)
+      continue;
+    key_images.push_back(txin.k_image);
+  }
+  return remove_rings(chacha_key, key_images);
 }
 
 bool ringdb::get_ring(const crypto::chacha_key &chacha_key, const crypto::key_image &key_image, std::vector<uint64_t> &outs)

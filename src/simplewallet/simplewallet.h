@@ -234,6 +234,7 @@ namespace cryptonote
     bool mms(const std::vector<std::string>& args);
     bool print_ring(const std::vector<std::string>& args);
     bool set_ring(const std::vector<std::string>& args);
+    bool unset_ring(const std::vector<std::string>& args);
     bool save_known_rings(const std::vector<std::string>& args);
     bool blackball(const std::vector<std::string>& args);
     bool unblackball(const std::vector<std::string>& args);
