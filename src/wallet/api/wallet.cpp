@@ -938,7 +938,7 @@ bool WalletImpl::lightWalletImportWalletRequest(std::string &payment_id, uint64_
 {
   try
   {
-    cryptonote::COMMAND_RPC_IMPORT_WALLET_REQUEST::response response;
+    tools::COMMAND_RPC_IMPORT_WALLET_REQUEST::response response;
     if(!m_wallet->light_wallet_import_wallet_request(response)){
       setStatusError(tr("Failed to send import wallet request"));
       return false;
@@ -2173,7 +2173,7 @@ void WalletImpl::pendingTxPostProcess(PendingTransactionImpl * pending)
 
 bool WalletImpl::doInit(const string &daemon_address, uint64_t upper_transaction_size_limit, bool ssl)
 {
-    if (!m_wallet->init(daemon_address, m_daemon_login, tcp::endpoint{}, upper_transaction_size_limit))
+    if (!m_wallet->init(daemon_address, m_daemon_login, boost::asio::ip::tcp::endpoint{}, upper_transaction_size_limit))
        return false;
 
     // in case new wallet, this will force fast-refresh (pulling hashes instead of blocks)
