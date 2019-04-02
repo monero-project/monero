@@ -100,15 +100,15 @@ static const hard_fork_record mainnet_hard_forks[] =
 {
 	{ 1, 1, 0, 1548750273 },
 	{ network_version_7, 10, 0, 1548750283 },
-	{ network_version_8, 40000, 0, 1553875568 } //2019-03-29 16:06:08
+	{ network_version_8, 40000, 0, 1559474448 } 
 };
 static const uint64_t mainnet_hard_fork_version_1_till = 9;
 
 static const hard_fork_record testnet_hard_forks[] =
 {
   { 1, 1, 0, 1554197086},
-  { network_version_7, 10, 0, 1554198213},
-  { network_version_8, 11, 0, 1554198408} 
+  { network_version_7, 10, 0, 1559474448 },
+  { network_version_8, 11, 0, 1559474449 } 
 };
 static const uint64_t testnet_hard_fork_version_1_till = 9;
 
@@ -117,7 +117,7 @@ static const hard_fork_record stagenet_hard_forks[] =
   { 1, 1, 0, 1554065000 },
   { network_version_7, 10, 0, 1554065120 },
   { network_version_8, 11, 0, 1554065240 },
-  { network_version_11_infinite_staking, 12, 0, 1554065360 }
+  { network_version_11_infinite_staking, 12, 0, 1559474448 }
 };
 static const uint64_t stagenet_hard_fork_version_1_till = 9;
 
