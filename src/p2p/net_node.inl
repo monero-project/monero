@@ -830,7 +830,7 @@ namespace nodetool
     if(!max_index)
       return 0;
 
-    size_t x = crypto::rand<size_t>()%(max_index+1);
+    size_t x = crypto::rand_idx(max_index+1);
     size_t res = (x*x*x)/(max_index*max_index); //parabola \/
     MDEBUG("Random connection index=" << res << "(x="<< x << ", max_index=" << max_index << ")");
     return res;
@@ -1104,7 +1104,7 @@ namespace nodetool
         local_peers_count = m_peerlist.get_gray_peers_count();
         if (!local_peers_count)
           return false;
-        random_index = crypto::rand<size_t>() % local_peers_count;
+        random_index = crypto::rand_idx(local_peers_count);
       }
 
       CHECK_AND_ASSERT_MES(random_index < local_peers_count, false, "random_starter_index < peers_local.size() failed!!");
@@ -1153,7 +1153,7 @@ namespace nodetool
         return true;
 
       size_t try_count = 0;
-      size_t current_index = crypto::rand<size_t>()%m_seed_nodes.size();
+      size_t current_index = crypto::rand_idx(m_seed_nodes.size());
       while(true)
       {
         if(m_net_server.is_stop_signal_sent())
