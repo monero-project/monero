@@ -60,13 +60,14 @@ namespace
 
 #define HW_TREZOR_NAME "Trezor"
 #define TREZOR_ACCOUNT_ORDERING &m_miner_account, &m_alice_account, &m_bob_account, &m_eve_account
-#define TREZOR_COMMON_TEST_CASE(genclass, CORE, BASE)                                                           \
+#define TREZOR_COMMON_TEST_CASE(genclass, CORE, BASE)  do {                                                     \
   rollback_chain(CORE, BASE.head_block());                                                                      \
   {                                                                                                             \
     genclass ctest;                                                                                             \
     BASE.fork(ctest);                                                                                           \
     GENERATE_AND_PLAY_INSTANCE(genclass, ctest, *(CORE));                                                       \
-  }
+  }                                                                                                             \
+} while(0)
 
 #define TREZOR_SETUP_CHAIN(NAME) do {                                                                           \
   ++tests_count;                                                                                                \
@@ -82,6 +83,11 @@ static device_trezor_test *trezor_device = nullptr;
 static device_trezor_test *ensure_trezor_test_device();
 static void rollback_chain(cryptonote::core * core, const cryptonote::block & head);
 static void setup_chain(cryptonote::core * core, gen_trezor_base & trezor_base, std::string chain_path, bool fix_chain, const po::variables_map & vm_core);
+
+static long get_env_long(const char * flag_name, boost::optional<long> def = boost::none){
+  const char *env_data = getenv(flag_name);
+  return env_data ? atol(env_data) : (def ? def.get() : 0);
+}
 
 int main(int argc, char* argv[])
 {
@@ -127,12 +133,13 @@ int main(int argc, char* argv[])
     const bool heavy_tests = command_line::get_arg(vm, arg_heavy_tests);
     const bool fix_chain = command_line::get_arg(vm, arg_fix_chain);
 
-    hw::register_device(HW_TREZOR_NAME, ensure_trezor_test_device());
-    // hw::trezor::register_all();  // We use our shim instead.
+    hw::register_device(HW_TREZOR_NAME, ensure_trezor_test_device());  // shim device for call tracking
 
     // Bootstrapping common chain & accounts
-    const uint8_t initial_hf = 9;
-    const uint8_t max_hf = 10;
+    const uint8_t initial_hf =  (uint8_t)get_env_long("TEST_MIN_HF", 11);
+    const uint8_t max_hf = (uint8_t)get_env_long("TEST_MAX_HF", 11);
+    MINFO("Test versions " << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL);
+    MINFO("Testing hardforks [" << (int)initial_hf << ", " << (int)max_hf << "]");
 
     cryptonote::core core_obj(nullptr);
     cryptonote::core * const core = &core_obj;
@@ -150,16 +157,20 @@ int main(int argc, char* argv[])
     mock_daemon::default_options(vm_core);
 
     // Transaction tests
-    for(uint8_t hf=initial_hf; hf <= max_hf; ++hf)
+    for(uint8_t hf=initial_hf; hf <= max_hf + 1; ++hf)
     {
-      MDEBUG("Transaction tests for HF " << (int)hf);
-      if (hf > initial_hf)
+      if (hf > initial_hf || hf > max_hf)
       {
         daemon->stop_and_deinit();
         daemon = nullptr;
         trezor_base.daemon(nullptr);
+        if (hf > max_hf)
+        {
+          break;
+        }
       }
 
+      MDEBUG("Transaction tests for HF " << (int)hf);
       trezor_base.set_hard_fork(hf);
       TREZOR_SETUP_CHAIN(std::string("HF") + std::to_string((int)hf));
 
@@ -196,7 +207,6 @@ int main(int argc, char* argv[])
       TREZOR_COMMON_TEST_CASE(gen_trezor_many_utxo, core, trezor_base);
     }
 
-    daemon->stop();
     core->deinit();
     el::Level level = (failed_tests.empty() ? el::Level::Info : el::Level::Error);
     MLOG(level, "\nREPORT:");
@@ -225,6 +235,7 @@ static void rollback_chain(cryptonote::core * core, const cryptonote::block & he
 
   crypto::hash head_hash = get_block_hash(head), cur_hash{};
   uint64_t height = get_block_height(head), cur_height=0;
+  MDEBUG("Rollbacking to " << height << " to hash " << head_hash);
 
   do {
     core->get_blockchain_top(cur_height, cur_hash);
@@ -593,7 +604,7 @@ gen_trezor_base::gen_trezor_base(){
 gen_trezor_base::gen_trezor_base(const gen_trezor_base &other):
     m_generator(other.m_generator), m_bt(other.m_bt), m_miner_account(other.m_miner_account),
     m_bob_account(other.m_bob_account), m_alice_account(other.m_alice_account), m_eve_account(other.m_eve_account),
-    m_hard_forks(other.m_hard_forks), m_trezor(other.m_trezor), m_rct_config(other.m_rct_config),
+    m_hard_forks(other.m_hard_forks), m_trezor(other.m_trezor), m_rct_config(other.m_rct_config), m_top_hard_fork(other.m_top_hard_fork),
     m_heavy_tests(other.m_heavy_tests), m_test_get_tx_key(other.m_test_get_tx_key), m_live_refresh_enabled(other.m_live_refresh_enabled),
     m_network_type(other.m_network_type), m_daemon(other.m_daemon)
 {
@@ -625,6 +636,7 @@ void gen_trezor_base::fork(gen_trezor_base & other)
   other.m_events = m_events;
   other.m_head = m_head;
   other.m_hard_forks = m_hard_forks;
+  other.m_top_hard_fork = m_top_hard_fork;
   other.m_trezor_path = m_trezor_path;
   other.m_heavy_tests = m_heavy_tests;
   other.m_rct_config = m_rct_config;
@@ -806,8 +818,6 @@ bool gen_trezor_base::generate(std::vector<test_event_entry>& events)
   // RCT transactions, wallets have to be used
   wallet_tools::process_transactions(m_wl_alice.get(), events, blk_5r, m_bt);
   wallet_tools::process_transactions(m_wl_bob.get(), events, blk_5r, m_bt);
-  MDEBUG("Available funds on Alice: " << get_available_funds(m_wl_alice.get()));
-  MDEBUG("Available funds on Bob: " << get_available_funds(m_wl_bob.get()));
 
   // Send Alice -> Bob, manually constructed. Simple TX test, precondition.
   cryptonote::transaction tx_1;
@@ -827,7 +837,12 @@ bool gen_trezor_base::generate(std::vector<test_event_entry>& events)
   CHECK_AND_ASSERT_THROW_MES(resx, "tx_1 semantics failed");
   CHECK_AND_ASSERT_THROW_MES(resy, "tx_1 non-semantics failed");
 
-  REWIND_BLOCKS_HF(events, blk_6r, blk_6, m_miner_account, CUR_HF);
+  REWIND_BLOCKS_N_HF(events, blk_6r, blk_6, m_miner_account, 10, CUR_HF);
+  wallet_tools::process_transactions(m_wl_alice.get(), events, blk_6, m_bt);
+  wallet_tools::process_transactions(m_wl_bob.get(), events, blk_6, m_bt);
+  MDEBUG("Available funds on Alice: " << get_available_funds(m_wl_alice.get()));
+  MDEBUG("Available funds on Bob: " << get_available_funds(m_wl_bob.get()));
+
   m_head = blk_6r;
   m_events = events;
   return true;
@@ -889,15 +904,44 @@ void gen_trezor_base::load(std::vector<test_event_entry>& events)
   MDEBUG("Available funds on Bob: " << get_available_funds(m_wl_bob.get()));
 }
 
+void gen_trezor_base::rewind_blocks(std::vector<test_event_entry>& events, size_t rewind_n, uint8_t hf)
+{
+  auto & generator = m_generator;  // macro shortcut
+  REWIND_BLOCKS_N_HF(events, blk_new, m_head, m_miner_account, rewind_n, hf);
+  m_head = blk_new;
+  m_events = events;
+  MDEBUG("Blocks rewound: " << rewind_n << ", #blocks: " << num_blocks(events) << ", #events: " << events.size());
+
+  wallet_tools::process_transactions(m_wl_alice.get(), events, m_head, m_bt);
+  wallet_tools::process_transactions(m_wl_bob.get(), events, m_head, m_bt);
+}
+
 void gen_trezor_base::fix_hf(std::vector<test_event_entry>& events)
 {
   // If current test requires higher hard-fork, move it up
   const auto current_hf = m_hard_forks.back().first;
-  if (m_rct_config.bp_version == 2 && current_hf < 10){
+
+  if (current_hf > m_top_hard_fork)
+  {
+    throw std::runtime_error("Generated chain hardfork is higher than desired maximum");
+  }
+
+  if (m_rct_config.bp_version == 2 && m_top_hard_fork < 10)
+  {
+    throw std::runtime_error("Desired maximum is too low for BPv2");
+  }
+
+  if (current_hf < m_top_hard_fork)
+  {
     auto hardfork_height = num_blocks(events);
-    ADD_HARDFORK(m_hard_forks, 10, hardfork_height);
+    ADD_HARDFORK(m_hard_forks, m_top_hard_fork, hardfork_height);
     add_top_hfork(events, m_hard_forks);
-    MDEBUG("Hardfork height: " << hardfork_height);
+    MDEBUG("Hardfork added at height: " << hardfork_height << ", from " << (int)current_hf << " to " << (int)m_top_hard_fork);
+
+    if (current_hf < 10)
+    { // buffer blocks, add 10 to apply v10 rules
+      rewind_blocks(events, 10, m_top_hard_fork);
+    }
   }
 }
 
@@ -934,10 +978,9 @@ void gen_trezor_base::add_transactions_to_events(
 {
   // If current test requires higher hard-fork, move it up
   const auto current_hf = m_hard_forks.back().first;
-  const uint8_t tx_hf = m_rct_config.bp_version == 2 ? 10 : 9;
-  if (tx_hf > current_hf){
-    throw std::runtime_error("Too late for HF change");
-  }
+  const uint8_t tx_hf = m_top_hard_fork;
+  CHECK_AND_ASSERT_THROW_MES(tx_hf <= current_hf, "Too late for HF change: " << (int)tx_hf << " current: " << (int)current_hf);
+  CHECK_AND_ASSERT_THROW_MES(m_rct_config.bp_version < 2 || tx_hf >= 10, "HF too low for BPv2: " << (int)tx_hf);
 
   std::list<cryptonote::transaction> tx_list;
   for(const auto & tx : txs)
@@ -1406,7 +1449,7 @@ tsx_builder * tsx_builder::construct_pending_tx(tools::wallet2::pending_tx &ptx,
   ptx.construction_data.extra = tx.extra;
   ptx.construction_data.unlock_time = 0;
   ptx.construction_data.use_rct = true;
-  ptx.construction_data.use_bulletproofs = true;
+  ptx.construction_data.rct_config = m_rct_config;
   ptx.construction_data.dests = m_destinations_orig;
 
   ptx.construction_data.subaddr_account = 0;
@@ -1808,7 +1851,7 @@ bool wallet_api_tests::generate(std::vector<test_event_entry>& events)
   CHECK_AND_ASSERT_THROW_MES(w->init(daemon()->rpc_addr(), 0), "Wallet init fail");
   CHECK_AND_ASSERT_THROW_MES(w->refresh(), "Refresh fail");
   uint64_t balance = w->balance(0);
-  MINFO("Balance: " << balance);
+  MDEBUG("Balance: " << balance);
   CHECK_AND_ASSERT_THROW_MES(w->status() == Monero::PendingTransaction::Status_Ok, "Status nok");
 
   auto addr = get_address(m_eve_account);
