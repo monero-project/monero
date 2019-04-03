@@ -48,10 +48,8 @@ TEST(master_nodes, staking_requirement)
   // Try underflow
   {
     uint64_t height = 100;
-==== BASE ====
-    uint64_t mainnet_requirement   = master_nodes::get_staking_requirement(cryptonote::MAINNET, height);
-    uint64_t stagenet_requirement  = master_nodes::get_staking_requirement(cryptonote::STAGENET, height);
-==== BASE ====
+    uint64_t mainnet_requirement   = master_nodes::get_staking_requirement(cryptonote::MAINNET, height,11);
+    uint64_t stagenet_requirement  = master_nodes::get_staking_requirement(cryptonote::STAGENET, height,11);
     ASSERT_EQ(stagenet_requirement, (45000 * COIN));
     ASSERT_EQ(mainnet_requirement,  (45000 * COIN));
   }
@@ -59,9 +57,7 @@ TEST(master_nodes, staking_requirement)
   // Starting height for stagenet
   {
     uint64_t height = 96210;
-==== BASE ====
-    uint64_t stagenet_requirement  = master_nodes::get_staking_requirement(cryptonote::STAGENET, height);
-==== BASE ====
+    uint64_t stagenet_requirement  = master_nodes::get_staking_requirement(cryptonote::STAGENET, height,11);
     ASSERT_EQ(stagenet_requirement, (45000 * COIN));
   }
 
@@ -70,10 +66,8 @@ TEST(master_nodes, staking_requirement)
     // NOTE: The maximum staking requirement is 50,000, in atomic units is 50,000,000,000,000 < int64 range (2^63-1)
     // so casting is safe.
     uint64_t height = 101250;
-==== BASE ====
-    int64_t mainnet_requirement  = (int64_t)master_nodes::get_staking_requirement(cryptonote::MAINNET, height);
-    int64_t stagenet_requirement = (int64_t)master_nodes::get_staking_requirement(cryptonote::STAGENET, height);
-==== BASE ====
+    int64_t mainnet_requirement  = (int64_t)master_nodes::get_staking_requirement(cryptonote::MAINNET, height,11);
+    int64_t stagenet_requirement = (int64_t)master_nodes::get_staking_requirement(cryptonote::STAGENET, height,11);
 
     ASSERT_EQ(mainnet_requirement,  (45000 * COIN));
 
@@ -85,10 +79,7 @@ TEST(master_nodes, staking_requirement)
   // Check the requirements are decreasing
   {
     uint64_t height = 209250;
-==== BASE ====
-    int64_t mainnet_requirement  = (int64_t)master_nodes::get_staking_requirement(cryptonote::MAINNET, height);
-==== BASE ====
-
+    int64_t mainnet_requirement  = (int64_t)master_nodes::get_staking_requirement(cryptonote::MAINNET, height,11);
     int64_t  mainnet_expected = (int64_t)((29643 * COIN) + 670390000);
     int64_t  mainnet_delta    = std::abs(mainnet_requirement - mainnet_expected);
     ASSERT_LT(mainnet_delta, atomic_epsilon);
@@ -96,10 +87,8 @@ TEST(master_nodes, staking_requirement)
 
   // Sliftly after the boundary when the scheme switches over to a smooth emissions curve to 15k
   {
-==== BASE ====
     uint64_t height = 230704;
-    int64_t  mainnet_requirement  = (int64_t)master_nodes::get_staking_requirement(cryptonote::MAINNET, height);
-==== BASE ====
+    int64_t  mainnet_requirement  = (int64_t)master_nodes::get_staking_requirement(cryptonote::MAINNET, height,11);
 
     int64_t  mainnet_expected = (int64_t)((27164 * COIN) + 648610000);
     int64_t  mainnet_delta    = std::abs(mainnet_requirement - mainnet_expected);
@@ -109,9 +98,7 @@ TEST(master_nodes, staking_requirement)
   // Check requirements are decreasing after switching over to new requirements curve
   {
     uint64_t height = 706050;
-==== BASE ====
-    int64_t  mainnet_requirement  = (int64_t)master_nodes::get_staking_requirement(cryptonote::MAINNET, height);
-==== BASE ====
+    int64_t  mainnet_requirement  = (int64_t)master_nodes::get_staking_requirement(cryptonote::MAINNET, height,11);
 
     int64_t  mainnet_expected = (int64_t)((15984 * COIN) + 588930000);
     int64_t  mainnet_delta    = std::abs(mainnet_requirement - mainnet_expected);
@@ -121,9 +108,7 @@ TEST(master_nodes, staking_requirement)
   // Check approaching 15k requirement
   {
     uint64_t height = 3643650;
-==== BASE ====
-    int64_t  mainnet_requirement  = (int64_t)master_nodes::get_staking_requirement(cryptonote::MAINNET, height);
-==== BASE ====
+    int64_t  mainnet_requirement  = (int64_t)master_nodes::get_staking_requirement(cryptonote::MAINNET, height,11);
 
     int64_t  mainnet_expected = (int64_t)((15000 * COIN) + 150000);
     int64_t  mainnet_delta    = std::abs(mainnet_requirement - mainnet_expected);
