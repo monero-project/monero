@@ -1139,6 +1139,8 @@ TEST_F(WalletManagerMainnetTest, RecoverAndRefreshWalletMainNetAsync)
 
 int main(int argc, char** argv)
 {
+    TRY_ENTRY();
+
     tools::on_startup();
     // we can override default values for "TESTNET_DAEMON_ADDRESS" and "WALLETS_ROOT_DIR"
 
@@ -1173,4 +1175,5 @@ int main(int argc, char** argv)
     ::testing::InitGoogleTest(&argc, argv);
     Monero::WalletManagerFactory::setLogLevel(Monero::WalletManagerFactory::LogLevel_Max);
     return RUN_ALL_TESTS();
+    CATCH_ENTRY_L0("main", 1);
 }
