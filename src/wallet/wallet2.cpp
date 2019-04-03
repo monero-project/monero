@@ -7866,11 +7866,6 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
         max_rct_index = std::max(max_rct_index, m_transfers[idx].m_global_output_index);
       }
 
-    std::vector<uint64_t> output_blacklist;
-    if (bool get_output_blacklist_failed = !get_output_blacklist(output_blacklist))
-      THROW_WALLET_EXCEPTION_IF(get_output_blacklist_failed, error::get_output_blacklist, "Couldn't retrive list of outputs that are to be exlcuded from selection");
-
-    std::sort(output_blacklist.begin(), output_blacklist.end());
     const bool has_rct_distribution = has_rct && get_rct_distribution(rct_start_height, rct_offsets);
     if (has_rct_distribution)
     {
@@ -7879,6 +7874,18 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
           error::get_output_distribution, "Not enough rct outputs");
       THROW_WALLET_EXCEPTION_IF(rct_offsets.back() <= max_rct_index,
           error::get_output_distribution, "Daemon reports suspicious number of rct outputs");
+    }
+
+    std::vector<uint64_t> output_blacklist;
+    if (bool get_output_blacklist_failed = !get_output_blacklist(output_blacklist))
+      THROW_WALLET_EXCEPTION_IF(get_output_blacklist_failed, error::get_output_blacklist, "Couldn't retrive list of outputs that are to be exlcuded from selection");
+
+    std::sort(output_blacklist.begin(), output_blacklist.end());
+    if (output_blacklist.size() * 0.05 > (double)rct_offsets.size())
+    {
+      MWARNING("More than 5% of outputs are blacklisted ("
+               << output_blacklist.size() << "/" << rct_offsets.size()
+               << "), please notify the Loki developers");
     }
 
     // get histogram for the amounts we need
@@ -8011,26 +8018,7 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
       if (n_rct == 0)
         return rct_offsets[block_offset] ? rct_offsets[block_offset] - 1 : 0;
       MDEBUG("Picking 1/" << n_rct << " in " << (last_block_offset - first_block_offset + 1) << " blocks centered around " << block_offset + rct_start_height);
-      
-      uint64_t pick = first_rct + crypto::rand<uint64_t>() % n_rct;
-
-      {
-        double percent_of_outputs_blacklisted = output_blacklist.size() / (double)n_rct;
-        if (static_cast<int>(percent_of_outputs_blacklisted + 1) > 5)
-          MWARNING("More than 5 percent of available outputs are blacklisted, please notify the Loki developers");
-      }
-
-      for (;;)
-      {
-        if (std::binary_search(output_blacklist.begin(), output_blacklist.end(), pick))
-        {
-          pick = first_rct + crypto::rand<uint64_t>() % n_rct;
-        }
-        else
-        {
-          return pick;
-        }
-      }
+      return first_rct + crypto::rand<uint64_t>() % n_rct;
     };
 
     size_t num_selected_transfers = 0;
@@ -8204,20 +8192,20 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
 
         // while we still need more mixins
         uint64_t num_usable_outs = num_outs;
-        bool allow_blackballed = false;
+        bool allow_blackballed_or_blacklisted = false;
         while (num_found < requested_outputs_count)
         {
           // if we've gone through every possible output, we've gotten all we can
           if (seen_indices.size() == num_usable_outs)
           {
-            // there is a first pass which rejects blackballed outputs, then a second pass
-            // which allows them if we don't have enough non blackballed outputs to reach
-            // the required amount of outputs (since consensus does not care about blackballed
+            // there is a first pass which rejects blackballed/listed outputs, then a second pass
+            // which allows them if we don't have enough non blackballed/list outputs to reach
+            // the required amount of outputs (since consensus does not care about blackballed/listed
             // outputs, we still need to reach the minimum ring size)
-            if (allow_blackballed)
+            if (allow_blackballed_or_blacklisted)
               break;
-            MINFO("Not enough output not marked as spent, we'll allow outputs marked as spent");
-            allow_blackballed = true;
+            MINFO("Not enough output not marked as spent, we'll allow outputs marked as spent and outputs with known destinations and amounts");
+            allow_blackballed_or_blacklisted = true;
             num_usable_outs = num_outs;
           }
 
@@ -8293,10 +8281,14 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
 
           if (seen_indices.count(i))
             continue;
-          if (!allow_blackballed && is_output_blackballed(std::make_pair(amount, i))) // don't add blackballed outputs
+          if (!allow_blackballed_or_blacklisted)
           {
-            --num_usable_outs;
-            continue;
+            if (is_output_blackballed(std::make_pair(amount, i)) ||
+                std::binary_search(output_blacklist.begin(), output_blacklist.end(), i))
+            {
+              --num_usable_outs;
+              continue;
+            }
           }
           seen_indices.emplace(i);
 
