@@ -511,9 +511,21 @@ namespace cryptonote
     }
   };
   //---------------------------------------------------------------
+  inline static cryptonote::network_type validate_nettype(cryptonote::network_type nettype)
+  {
+    cryptonote::network_type result = nettype;
+    assert(result != UNDEFINED);
+    if (result == UNDEFINED)
+    {
+      LOG_ERROR("Min/Max version query network type unexpectedly set to UNDEFINED, defaulting to MAINNET");
+      result = MAINNET;
+    }
+    return result;
+  }
+
   inline enum transaction_prefix::version transaction_prefix::get_max_version_for_hf(int hf_version, cryptonote::network_type nettype)
   {
-    (void)nettype;
+    nettype = validate_nettype(nettype);
     if (hf_version >= cryptonote::network_version_7 && hf_version <= cryptonote::network_version_8)
       return transaction::version_2;
 
@@ -525,8 +537,8 @@ namespace cryptonote
 
   inline enum transaction_prefix::version transaction_prefix::get_min_version_for_hf(int hf_version, cryptonote::network_type nettype)
   {
-    // NOTE(loki): Add an exception for mainnet as there are v2's on mainnet.
-    if (nettype == MAINNET)
+    nettype = validate_nettype(nettype);
+    if (nettype == MAINNET) // NOTE(loki): Add an exception for mainnet as there are v2's on mainnet.
     {
       if (hf_version == cryptonote::network_version_10_bulletproofs)
         return transaction::version_2;

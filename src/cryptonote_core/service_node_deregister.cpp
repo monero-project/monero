@@ -134,8 +134,8 @@ namespace service_nodes
   }
 
   bool deregister_vote::verify_deregister(cryptonote::network_type nettype, const cryptonote::tx_extra_service_node_deregister& deregister,
-                                                  cryptonote::vote_verification_context &vvc,
-                                                  const service_nodes::quorum_state &quorum_state)
+                                          cryptonote::vote_verification_context &vvc,
+                                          const service_nodes::quorum_state &quorum_state)
   {
     if (deregister.votes.size() < service_nodes::MIN_VOTES_TO_KICK_SERVICE_NODE)
     {
@@ -210,7 +210,8 @@ namespace service_nodes
     return result;
   }
 
-  bool deregister_vote_pool::add_vote(const deregister_vote& new_vote,
+  bool deregister_vote_pool::add_vote(const int hf_version,
+                                      const deregister_vote& new_vote,
                                       cryptonote::vote_verification_context& vvc,
                                       const service_nodes::quorum_state &quorum_state,
                                       cryptonote::transaction &tx)
@@ -264,12 +265,12 @@ namespace service_nodes
         vvc.m_full_tx_deregister_made = cryptonote::add_service_node_deregister_to_tx_extra(tx.extra, deregister);
         if (vvc.m_full_tx_deregister_made)
         {
-          tx.version = cryptonote::transaction::version_3_per_output_unlock_times;
+          tx.version = cryptonote::transaction::get_max_version_for_hf(hf_version, m_nettype);
           tx.type    = cryptonote::transaction::type_deregister;
         }
         else
         {
-          LOG_PRINT_L1("Could not create version 3 deregistration transaction from votes");
+          LOG_PRINT_L1("Could not create deregistration transaction from votes");
         }
       }
     }

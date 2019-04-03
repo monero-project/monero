@@ -729,7 +729,7 @@ cryptonote::transaction make_deregistration_tx(const std::vector<test_event_entr
 
   if (fee) TxBuilder(events, tx, head, account, account, amount, hf_version).with_fee(fee).with_extra(extra).with_per_output_unlock(true).build();
 
-  tx.version = cryptonote::transaction::version_3_per_output_unlock_times;
+  tx.version = cryptonote::transaction::get_max_version_for_hf(hf_version, cryptonote::FAKECHAIN);
   tx.type = cryptonote::transaction::type_deregister;
 
   return tx;

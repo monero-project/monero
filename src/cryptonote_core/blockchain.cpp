@@ -2937,21 +2937,21 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
       tx_extra_service_node_deregister deregister;
       if (!get_service_node_deregister_from_tx_extra(tx.extra, deregister))
       {
-        MERROR_VER("TX version deregister did not have the deregister metadata in the tx_extra");
+        MERROR_VER("Deregister TX did not have the deregister metadata in the tx_extra");
         return false;
       }
 
       const std::shared_ptr<const service_nodes::quorum_state> quorum_state = m_service_node_list.get_quorum_state(deregister.block_height);
       if (!quorum_state)
       {
-        MERROR_VER("TX version 3 deregister_tx could not get quorum for height: " << deregister.block_height);
+        MERROR_VER("Deregister TX could not get quorum for height: " << deregister.block_height);
         return false;
       }
 
       if (!service_nodes::deregister_vote::verify_deregister(nettype(), deregister, tvc.m_vote_ctx, *quorum_state))
       {
         tvc.m_verifivation_failed = true;
-        MERROR_VER("tx " << get_transaction_hash(tx) << ": version 3 deregister_tx could not be completely verified reason: " << print_vote_verification_context(tvc.m_vote_ctx));
+        MERROR_VER("tx " << get_transaction_hash(tx) << ": deregister tx could not be completely verified reason: " << print_vote_verification_context(tvc.m_vote_ctx));
         return false;
       }
 
