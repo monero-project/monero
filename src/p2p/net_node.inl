@@ -1259,7 +1259,7 @@ namespace nodetool
         }
       }
       else
-        random_index = crypto::rand<size_t>() % filtered.size();
+        random_index = crypto::rand_idx(filtered.size());
 
       CHECK_AND_ASSERT_MES(random_index < filtered.size(), false, "random_index < filtered.size() failed!!");
       random_index = filtered[random_index];
@@ -1313,7 +1313,7 @@ namespace nodetool
         return true;
 
       size_t try_count = 0;
-      size_t current_index = crypto::rand<size_t>()%m_seed_nodes.size();
+      size_t current_index = crypto::rand_idx(m_seed_nodes.size());
       const net_server& server = m_network_zones.at(epee::net_utils::zone::public_).m_net_server;
       while(true)
       {
