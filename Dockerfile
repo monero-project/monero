@@ -82,7 +82,7 @@ RUN set -ex \
 ARG NCURSES_VERSION=6.1
 ARG READLINE_HASH=750d437185286f40a369e1e4f4764eda932b9459b5ec9a731628393dd3d32334
 RUN set -ex \
-    && curl -s -O ftp://ftp.invisible-island.net/ncurses/ncurses-6.1.tar.gz \
+    && curl -s -O https://storage.googleapis.com/ncurses/ncurses-6.1.tar.gz \
     && tar -xzf ncurses-${NCURSES_VERSION}.tar.gz \
     && cd ncurses-${NCURSES_VERSION} \
     && CFLAGS="-fPIC" CXXFLAGS="-P -fPIC" ./configure --enable-termcap --with-termlib \
