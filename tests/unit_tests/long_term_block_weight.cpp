@@ -76,6 +76,11 @@ public:
     while (count-- && start_height < blocks.size()) ret.push_back(blocks[start_height++].long_term_weight);
     return ret;
   }
+  virtual crypto::hash get_block_hash_from_height(const uint64_t &height) const override {
+    crypto::hash hash = crypto::null_hash;
+    *(uint64_t*)&hash = height;
+    return hash;
+  }
   virtual crypto::hash top_block_hash(uint64_t *block_height = NULL) const override {
     uint64_t h = height();
     crypto::hash top = crypto::null_hash;
