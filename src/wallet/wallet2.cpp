@@ -264,6 +264,7 @@ struct options {
   const command_line::arg_descriptor<std::string> hw_device = {"hw-device", tools::wallet2::tr("HW device to use"), ""};
   const command_line::arg_descriptor<std::string> hw_device_derivation_path = {"hw-device-deriv-path", tools::wallet2::tr("HW device wallet derivation path (e.g., SLIP-10)"), ""};
   const command_line::arg_descriptor<std::string> tx_notify = { "tx-notify" , "Run a program for each new incoming transaction, '%s' will be replaced by the transaction hash" , "" };
+  const command_line::arg_descriptor<bool> no_dns = {"no-dns", tools::wallet2::tr("Do not use DNS"), false};
 };
 
 void do_prepare_file_names(const std::string& file_path, std::string& keys_file, std::string& wallet_file, std::string &mms_file)
@@ -437,6 +438,9 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
   wallet->get_message_store().set_options(vm);
   wallet->device_name(device_name);
   wallet->device_derivation_path(device_derivation_path);
+
+  if (command_line::get_arg(vm, opts.no_dns))
+    wallet->enable_dns(false);
 
   try
   {
@@ -1057,7 +1061,8 @@ wallet2::wallet2(network_type nettype, uint64_t kdf_rounds, bool unattended):
   m_encrypt_keys_after_refresh(boost::none),
   m_unattended(unattended),
   m_devices_registered(false),
-  m_device_last_key_image_sync(0)
+  m_device_last_key_image_sync(0),
+  m_use_dns(true)
 {
 }
 
@@ -1111,6 +1116,7 @@ void wallet2::init_options(boost::program_options::options_description& desc_par
   command_line::add_arg(desc_params, opts.hw_device);
   command_line::add_arg(desc_params, opts.hw_device_derivation_path);
   command_line::add_arg(desc_params, opts.tx_notify);
+  command_line::add_arg(desc_params, opts.no_dns);
 }
 
 std::pair<std::unique_ptr<wallet2>, tools::password_container> wallet2::make_from_json(const boost::program_options::variables_map& vm, bool unattended, const std::string& json_file, const std::function<boost::optional<tools::password_container>(const char *, bool)> &password_prompter)
@@ -12774,8 +12780,7 @@ uint64_t wallet2::get_segregation_fork_height() const
   if (m_segregation_height > 0)
     return m_segregation_height;
 
-  static const bool use_dns = true;
-  if (use_dns)
+  if (m_use_dns)
   {
     // All four MoneroPulse domains have DNSSEC on and valid
     static const std::vector<std::string> dns_urls = {
