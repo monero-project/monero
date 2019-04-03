@@ -73,7 +73,7 @@ public:
     // deprecated: use recoverFromKeysWithPassword() instead
     bool recoverFromKeys(const std::string &path,
                             const std::string &language,
-                            const std::string &address_string, 
+                            const std::string &address_string,
                             const std::string &viewkey_string,
                             const std::string &spendkey_string = "");
     bool recoverFromDevice(const std::string &path,
@@ -115,7 +115,7 @@ public:
     bool refresh() override;
     void refreshAsync() override;
     bool rescanBlockchain() override;
-    void rescanBlockchainAsync() override;    
+    void rescanBlockchainAsync() override;
     void setAutoRefreshInterval(int millis) override;
     int autoRefreshInterval() const override;
     void setRefreshFromBlockHeight(uint64_t refresh_from_block_height) override;
@@ -135,6 +135,8 @@ public:
     void addSubaddress(uint32_t accountIndex, const std::string& label) override;
     std::string getSubaddressLabel(uint32_t accountIndex, uint32_t addressIndex) const override;
     void setSubaddressLabel(uint32_t accountIndex, uint32_t addressIndex, const std::string &label) override;
+    
+    PendingTransaction* stakePending(const std::string& service_node_key, const std::string& address, const std::string& amount) override;
 
     MultisigState multisig() const override;
     std::string getMultisigInfo() const override;
@@ -212,7 +214,7 @@ private:
 
 private:
     friend class PendingTransactionImpl;
-    friend class UnsignedTransactionImpl;    
+    friend class UnsignedTransactionImpl;
     friend class TransactionHistoryImpl;
     friend struct Wallet2CallbackImpl;
     friend class AddressBookImpl;
@@ -260,4 +262,3 @@ private:
 namespace Bitmonero = Monero;
 
 #endif
-

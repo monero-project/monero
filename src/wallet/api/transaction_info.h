@@ -35,7 +35,11 @@
 namespace Monero {
 
 class TransactionHistoryImpl;
-
+enum class reward_type {
+    unspecified,
+    service_node,
+    miner
+};
 class TransactionInfoImpl : public TransactionInfo
 {
 public:
@@ -60,11 +64,13 @@ public:
     virtual const std::vector<Transfer> &transfers() const override;
     virtual uint64_t confirmations() const override;
     virtual uint64_t unlockTime() const override;
-
+    bool isServiceNodeReward() const override;
+     bool isMinerReward() const override;
 private:
     int         m_direction;
     bool        m_pending;
     bool        m_failed;
+    reward_type m_reward_type;                 // may have a value rather than `unspecified` after hf 10
     uint64_t    m_amount;
     uint64_t    m_fee;
     uint64_t    m_blockheight;
