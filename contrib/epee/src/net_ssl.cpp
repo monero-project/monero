@@ -285,8 +285,10 @@ bool ssl_options_t::has_fingerprint(boost::asio::ssl::verify_context &ctx) const
       MERROR("Error getting verify_context handle");
       return false;
     }
-    X509 *cert =X509_STORE_CTX_get_current_cert(sctx);
-    if (!cert)
+
+    X509* cert = nullptr;
+    const STACK_OF(X509)* chain = X509_STORE_CTX_get_chain(sctx);
+    if (!chain || sk_X509_num(chain) < 1 || !(cert = sk_X509_value(chain, 0)))
     {
       MERROR("No certificate found in verify_context");
       return false;
