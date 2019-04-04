@@ -51,7 +51,8 @@ namespace net_utils
   {
     none = 0,         //!< Do not verify peer.
     system_ca,        //!< Verify peer via system ca only (do not inspect user certificates)
-    user_certificates //!< Verify peer via user certificate(s) only.
+    user_certificates,//!< Verify peer via specific (non-chain) certificate(s) only.
+    user_ca           //!< Verify peer via specific (possibly chain) certificate(s) only.
   };
 
   struct ssl_authentication_t

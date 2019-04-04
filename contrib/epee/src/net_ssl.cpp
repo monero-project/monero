@@ -221,6 +221,9 @@ boost::asio::ssl::context ssl_options_t::create_context() const
       ssl_context.set_default_verify_paths();
       break;
     case ssl_verification_t::user_certificates:
+      ssl_context.set_verify_depth(0);
+      /* fallthrough */
+    case ssl_verification_t::user_ca:
       if (!ca_path.empty())
       {
         const boost::system::error_code err = load_ca_file(ssl_context, ca_path);
