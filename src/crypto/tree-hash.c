@@ -30,6 +30,7 @@
 
 #include <assert.h>
 #include <stddef.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "hash-ops.h"
@@ -82,23 +83,24 @@ void tree_hash(const char (*hashes)[HASH_SIZE], size_t count, char *root_hash) {
 
     size_t cnt = tree_hash_cnt( count );
 
-    char ints[cnt][HASH_SIZE];
-    memset(ints, 0 , sizeof(ints));  // zero out as extra protection for using uninitialized mem
+    char *ints = calloc(cnt, HASH_SIZE);  // zero out as extra protection for using uninitialized mem
+    assert(ints);
 
     memcpy(ints, hashes, (2 * cnt - count) * HASH_SIZE);
 
     for (i = 2 * cnt - count, j = 2 * cnt - count; j < cnt; i += 2, ++j) {
-      cn_fast_hash(hashes[i], 64, ints[j]);
+      cn_fast_hash(hashes[i], 64, ints + j * HASH_SIZE);
     }
     assert(i == count);
 
     while (cnt > 2) {
       cnt >>= 1;
       for (i = 0, j = 0; j < cnt; i += 2, ++j) {
-        cn_fast_hash(ints[i], 64, ints[j]);
+        cn_fast_hash(ints + i * HASH_SIZE, 64, ints + j * HASH_SIZE);
       }
     }
 
-    cn_fast_hash(ints[0], 64, root_hash);
+    cn_fast_hash(ints, 64, root_hash);
+    free(ints);
   }
 }
