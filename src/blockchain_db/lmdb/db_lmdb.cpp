@@ -2513,6 +2513,58 @@ std::vector<uint64_t> BlockchainLMDB::get_block_info_64bit_fields(uint64_t start
   return ret;
 }
 
+uint64_t BlockchainLMDB::get_max_block_size()
+{
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  check_open();
+
+  TXN_PREFIX_RDONLY();
+  RCURSOR(properties)
+  MDB_val_str(k, "max_block_size");
+  MDB_val v;
+  int result = mdb_cursor_get(m_cur_properties, &k, &v, MDB_SET);
+  if (result == MDB_NOTFOUND)
+    return std::numeric_limits<uint64_t>::max();
+  if (result)
+    throw0(DB_ERROR(lmdb_error("Failed to retrieve max block size: ", result).c_str()));
+  if (v.mv_size != sizeof(uint64_t))
+    throw0(DB_ERROR("Failed to retrieve or create max block size: unexpected value size"));
+  uint64_t max_block_size;
+  memcpy(&max_block_size, v.mv_data, sizeof(max_block_size));
+  TXN_POSTFIX_RDONLY();
+  return max_block_size;
+}
+
+void BlockchainLMDB::add_max_block_size(uint64_t sz)
+{
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  check_open();
+  mdb_txn_cursors *m_cursors = &m_wcursors;
+
+  CURSOR(properties)
+
+  MDB_val_str(k, "max_block_size");
+  MDB_val v;
+  int result = mdb_cursor_get(m_cur_properties, &k, &v, MDB_SET);
+  if (result && result != MDB_NOTFOUND)
+    throw0(DB_ERROR(lmdb_error("Failed to retrieve max block size: ", result).c_str()));
+  uint64_t max_block_size = 0;
+  if (result == 0)
+  {
+    if (v.mv_size != sizeof(uint64_t))
+      throw0(DB_ERROR("Failed to retrieve or create max block size: unexpected value size"));
+    memcpy(&max_block_size, v.mv_data, sizeof(max_block_size));
+  }
+  if (sz > max_block_size)
+    max_block_size = sz;
+  v.mv_data = (void*)&max_block_size;
+  v.mv_size = sizeof(max_block_size);
+  result = mdb_cursor_put(m_cur_properties, &k, &v, 0);
+  if (result)
+    throw0(DB_ERROR(lmdb_error("Failed to set max_block_size: ", result).c_str()));
+}
+
+
 std::vector<uint64_t> BlockchainLMDB::get_block_weights(uint64_t start_height, size_t count) const
 {
   return get_block_info_64bit_fields(start_height, count, offsetof(mdb_block_info, bi_weight));

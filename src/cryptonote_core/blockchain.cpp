@@ -3872,6 +3872,8 @@ bool Blockchain::update_next_cumulative_weight_limit(uint64_t *long_term_effecti
 
   LOG_PRINT_L3("Blockchain::" << __func__);
 
+  m_db->block_txn_start(false);
+
   // when we reach this, the last hf version is not yet written to the db
   const uint64_t db_height = m_db->height();
   const uint8_t hf_version = get_current_hard_fork_version();
@@ -3933,6 +3935,10 @@ bool Blockchain::update_next_cumulative_weight_limit(uint64_t *long_term_effecti
 
   if (long_term_effective_median_block_weight)
     *long_term_effective_median_block_weight = m_long_term_effective_median_block_weight;
+
+  m_db->add_max_block_size(m_current_block_cumul_weight_limit);
+
+  m_db->block_txn_stop();
 
   return true;
 }
