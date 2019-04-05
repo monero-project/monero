@@ -249,6 +249,13 @@ struct Wallet2CallbackImpl : public tools::i_wallet2_callback
       }
     }
 
+    virtual void on_device_button_pressed()
+    {
+      if (m_listener) {
+        m_listener->onDeviceButtonPressed();
+      }
+    }
+
     virtual boost::optional<epee::wipeable_string> on_device_pin_request()
     {
       if (m_listener) {
