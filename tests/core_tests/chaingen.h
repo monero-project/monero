@@ -643,7 +643,15 @@ public:
     log_event("cryptonote::block");
 
     cryptonote::block_verification_context bvc = AUTO_VAL_INIT(bvc);
-    m_c.handle_incoming_block(t_serializable_object_to_blob(b), &b, bvc);
+    cryptonote::blobdata bd = t_serializable_object_to_blob(b);
+    std::vector<cryptonote::block> pblocks;
+    if (m_c.prepare_handle_incoming_blocks(std::vector<cryptonote::block_complete_entry>(1, {bd, {}}), pblocks))
+    {
+      m_c.handle_incoming_block(bd, &b, bvc);
+      m_c.cleanup_handle_incoming_blocks();
+    }
+    else
+      bvc.m_verifivation_failed = true;
     bool r = check_block_verification_context(bvc, m_ev_index, b, m_validator);
     CHECK_AND_NO_ASSERT_MES(r, false, "block verification context check failed");
     return r;
@@ -666,7 +674,14 @@ public:
     log_event("serialized_block");
 
     cryptonote::block_verification_context bvc = AUTO_VAL_INIT(bvc);
-    m_c.handle_incoming_block(sr_block.data, NULL, bvc);
+    std::vector<cryptonote::block> pblocks;
+    if (m_c.prepare_handle_incoming_blocks(std::vector<cryptonote::block_complete_entry>(1, {sr_block.data, {}}), pblocks))
+    {
+      m_c.handle_incoming_block(sr_block.data, NULL, bvc);
+      m_c.cleanup_handle_incoming_blocks();
+    }
+    else
+      bvc.m_verifivation_failed = true;
 
     cryptonote::block blk;
     std::stringstream ss;
