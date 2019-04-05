@@ -5821,7 +5821,7 @@ bool simple_wallet::stake(const std::vector<std::string> &args_)
     {
       if (!cryptonote::parse_amount(amount, local_args[1]) || amount == 0)
       {
-        fail_msg_writer() << tr("amount is wrong: ") << local_args[2] <<
+        fail_msg_writer() << tr("amount is wrong: ") << local_args[1] <<
           ", " << tr("expected number from ") << print_money(1) << " to " << print_money(std::numeric_limits<uint64_t>::max());
         return true;
       }
