@@ -10,15 +10,9 @@ Portions Copyright (c) 2012-2013 The Cryptonote developers.
 
 ## Development resources
 
-- Web: [beldex.network](https://beldex.network)
-- Telegram: [t.me/BeldexCommunity](https://t.me/BeldexCommunity)
-- Mail: [team@beldex.network](mailto:team@beldex.network)
+- Web: [beldexcoin.com](https://beldexcoin.com)
+- Telegram: [t.me/beldexcoin](https://t.me/beldexcoin)
 - GitHub: [https://github.com/Beldex-Coin/beldex](https://github.com/Beldex-Coin/beldex)
-- Discord: [https://discord.gg/67GXfD6](https://discord.gg/67GXfD6)
-
-## Vulnerability disclosure
-
-- Check out our [Vulnerability Response Process](https://Beldex-Coin.github.io/beldex-docs/Contributing/VULNERABILITY_RESPONSE_BELDEX), encourages prompt disclosure of any Vulnerabilities
 
 ## Information
 
