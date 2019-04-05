@@ -239,4 +239,19 @@ namespace cryptonote {
     return res.convert_to<difficulty_type>();
   }
 
+  std::string hex(difficulty_type v)
+  {
+    static const char chars[] = "0123456789abcdef";
+    std::string s;
+    while (v > 0)
+    {
+      s.push_back(chars[(v & 0xf).convert_to<unsigned>()]);
+      v >>= 4;
+    }
+    if (s.empty())
+      s += "0";
+    std::reverse(s.begin(), s.end());
+    return "0x" + s;
+  }
+
 }

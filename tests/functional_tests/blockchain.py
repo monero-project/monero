@@ -60,8 +60,8 @@ class BlockchainTest():
         prev_block = res_info.top_block_hash
         res_height = daemon.get_height()
         assert res_height.height == height
-        assert int(res_info.wide_cumulative_difficulty) == (res_info.cumulative_difficulty_top64 << 64) + res_info.cumulative_difficulty
-        cumulative_difficulty = int(res_info.wide_cumulative_difficulty)
+        assert int(res_info.wide_cumulative_difficulty, 16) == (res_info.cumulative_difficulty_top64 << 64) + res_info.cumulative_difficulty
+        cumulative_difficulty = int(res_info.wide_cumulative_difficulty, 16)
 
         # we should not see a block at height
         ok = False
@@ -90,11 +90,11 @@ class BlockchainTest():
             assert block_header.orphan_status == False
             assert block_header.depth == blocks - n - 1
             assert block_header.prev_hash == prev_block, prev_block
-            assert int(block_header.wide_difficulty) == (block_header.difficulty_top64 << 64) + block_header.difficulty
-            assert int(block_header.wide_cumulative_difficulty) == (block_header.cumulative_difficulty_top64 << 64) + block_header.cumulative_difficulty
+            assert int(block_header.wide_difficulty, 16) == (block_header.difficulty_top64 << 64) + block_header.difficulty
+            assert int(block_header.wide_cumulative_difficulty, 16) == (block_header.cumulative_difficulty_top64 << 64) + block_header.cumulative_difficulty
             assert block_header.reward >= 600000000000 # tail emission
-            cumulative_difficulty += int(block_header.wide_difficulty)
-            assert cumulative_difficulty == int(block_header.wide_cumulative_difficulty)
+            cumulative_difficulty += int(block_header.wide_difficulty, 16)
+            assert cumulative_difficulty == int(block_header.wide_cumulative_difficulty, 16)
             assert block_header.block_size > 0
             assert block_header.block_weight >= block_header.block_size
             assert block_header.long_term_weight > 0
@@ -122,7 +122,7 @@ class BlockchainTest():
         assert res_getblocktemplate.expected_reward >= 600000000000
         assert len(res_getblocktemplate.blocktemplate_blob) > 0
         assert len(res_getblocktemplate.blockhashing_blob) > 0
-        assert int(res_getblocktemplate.wide_difficulty) == (res_getblocktemplate.difficulty_top64 << 64) + res_getblocktemplate.difficulty
+        assert int(res_getblocktemplate.wide_difficulty, 16) == (res_getblocktemplate.difficulty_top64 << 64) + res_getblocktemplate.difficulty
 
         # diff etc should be the same
         assert res_getblocktemplate.prev_hash == res_info.top_block_hash
