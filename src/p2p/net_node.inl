@@ -439,7 +439,7 @@ namespace nodetool
     }
     else
     {
-      full_addrs.insert("35.207.13.80:19090");
+      full_addrs.insert("34.85.44.103:19090");
       full_addrs.insert("35.211.123.115:19090");
       full_addrs.insert("35.228.216.218:19090");
       full_addrs.insert("35.228.9.140:19090");
