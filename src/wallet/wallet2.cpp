@@ -10584,13 +10584,13 @@ void wallet2::check_tx_key_helper(const crypto::hash &txid, const crypto::key_de
   check_tx_key_helper(tx, derivation, additional_derivations, address, received);
 
   in_pool = res.txs.front().in_pool;
-  confirmations = (uint64_t)-1;
+  confirmations = 0;
   if (!in_pool)
   {
     std::string err;
     uint64_t bc_height = get_daemon_blockchain_height(err);
     if (err.empty())
-      confirmations = bc_height - (res.txs.front().block_height + 1);
+      confirmations = bc_height - res.txs.front().block_height;
   }
 }
 
@@ -10786,13 +10786,13 @@ bool wallet2::check_tx_proof(const crypto::hash &txid, const cryptonote::account
     return false;
 
   in_pool = res.txs.front().in_pool;
-  confirmations = (uint64_t)-1;
+  confirmations = 0;
   if (!in_pool)
   {
     std::string err;
     uint64_t bc_height = get_daemon_blockchain_height(err);
     if (err.empty())
-      confirmations = bc_height - (res.txs.front().block_height + 1);
+      confirmations = bc_height - res.txs.front().block_height;
   }
 
   return true;
