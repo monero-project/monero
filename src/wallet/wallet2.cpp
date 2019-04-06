@@ -4146,6 +4146,17 @@ bool wallet2::query_device(hw::device::device_type& device_type, const std::stri
   return true;
 }
 
+void wallet2::init_type(hw::device::device_type device_type)
+{
+  m_account_public_address = m_account.get_keys().m_account_address;
+  m_watch_only = false;
+  m_multisig = false;
+  m_multisig_threshold = 0;
+  m_multisig_signers.clear();
+  m_original_keys_available = false;
+  m_key_device_type = device_type;
+}
+
 /*!
  * \brief  Generates a wallet or restores one.
  * \param  wallet_              Name of wallet file
@@ -4215,17 +4226,14 @@ void wallet2::generate(const std::string& wallet_, const epee::wipeable_string& 
   m_account.make_multisig(view_secret_key, spend_secret_key, spend_public_key, multisig_keys);
   m_account.finalize_multisig(spend_public_key);
 
-  m_account_public_address = m_account.get_keys().m_account_address;
-  m_watch_only = false;
+  // Not possible to restore a multisig wallet that is able to activate the MMS
+  // (because the original keys are not (yet) part of the restore info), so
+  // keep m_original_keys_available to false
+  init_type(hw::device::device_type::SOFTWARE);
   m_multisig = true;
   m_multisig_threshold = threshold;
   m_multisig_signers = multisig_signers;
-  m_key_device_type = hw::device::device_type::SOFTWARE;
   setup_keys(password);
-
-  // Not possible to restore a multisig wallet that is able to activate the MMS
-  // (because the original keys are not (yet) part of the restore info)
-  m_original_keys_available = false;
 
   create_keys_file(wallet_, false, password, m_nettype != MAINNET || create_address_file);
   setup_new_blockchain();
@@ -4259,13 +4267,7 @@ crypto::secret_key wallet2::generate(const std::string& wallet_, const epee::wip
 
   crypto::secret_key retval = m_account.generate(recovery_param, recover, two_random);
 
-  m_account_public_address = m_account.get_keys().m_account_address;
-  m_watch_only = false;
-  m_multisig = false;
-  m_multisig_threshold = 0;
-  m_multisig_signers.clear();
-  m_original_keys_available = false;
-  m_key_device_type = hw::device::device_type::SOFTWARE;
+  init_type(hw::device::device_type::SOFTWARE);
   setup_keys(password);
 
   // calculate a starting refresh height
@@ -4348,13 +4350,9 @@ void wallet2::generate(const std::string& wallet_, const epee::wipeable_string& 
   }
 
   m_account.create_from_viewkey(account_public_address, viewkey);
-  m_account_public_address = account_public_address;
+  init_type(hw::device::device_type::SOFTWARE);
   m_watch_only = true;
-  m_multisig = false;
-  m_multisig_threshold = 0;
-  m_multisig_signers.clear();
-  m_original_keys_available = false;
-  m_key_device_type = hw::device::device_type::SOFTWARE;
+  m_account_public_address = account_public_address;
   setup_keys(password);
 
   create_keys_file(wallet_, true, password, m_nettype != MAINNET || create_address_file);
@@ -4389,13 +4387,8 @@ void wallet2::generate(const std::string& wallet_, const epee::wipeable_string& 
   }
 
   m_account.create_from_keys(account_public_address, spendkey, viewkey);
+  init_type(hw::device::device_type::SOFTWARE);
   m_account_public_address = account_public_address;
-  m_watch_only = false;
-  m_multisig = false;
-  m_multisig_threshold = 0;
-  m_multisig_signers.clear();
-  m_original_keys_available = false;
-  m_key_device_type = hw::device::device_type::SOFTWARE;
   setup_keys(password);
 
   create_keys_file(wallet_, false, password, create_address_file);
@@ -4430,13 +4423,7 @@ void wallet2::restore(const std::string& wallet_, const epee::wipeable_string& p
   hwdev.set_callback(get_device_callback());
 
   m_account.create_from_device(hwdev);
-  m_key_device_type = m_account.get_device().get_type();
-  m_account_public_address = m_account.get_keys().m_account_address;
-  m_watch_only = false;
-  m_multisig = false;
-  m_multisig_threshold = 0;
-  m_multisig_signers.clear();
-  m_original_keys_available = false;
+  init_type(m_account.get_device().get_type());
   setup_keys(password);
   m_device_name = device_name;
 
@@ -4568,10 +4555,9 @@ std::string wallet2::make_multisig(const epee::wipeable_string &password,
       "Failed to create multisig wallet due to bad keys");
   memwipe(&spend_skey, sizeof(rct::key));
 
-  m_account_public_address = m_account.get_keys().m_account_address;
-  m_watch_only = false;
+  init_type(hw::device::device_type::SOFTWARE);
+  m_original_keys_available = true;
   m_multisig = true;
-  m_key_device_type = hw::device::device_type::SOFTWARE;
   m_multisig_threshold = threshold;
   m_multisig_signers = multisig_signers;
   ++m_multisig_rounds_passed;
