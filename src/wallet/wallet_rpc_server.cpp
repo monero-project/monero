@@ -2916,7 +2916,8 @@ namespace tools
   //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::on_get_languages(const wallet_rpc::COMMAND_RPC_GET_LANGUAGES::request& req, wallet_rpc::COMMAND_RPC_GET_LANGUAGES::response& res, epee::json_rpc::error& er, const connection_context *ctx)
   {
-    crypto::ElectrumWords::get_language_list(res.languages);
+    crypto::ElectrumWords::get_language_list(res.languages, true);
+    crypto::ElectrumWords::get_language_list(res.languages_local, false);
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
@@ -2947,14 +2948,19 @@ namespace tools
     std::string wallet_file = req.filename.empty() ? "" : (m_wallet_dir + "/" + req.filename);
     {
       std::vector<std::string> languages;
-      crypto::ElectrumWords::get_language_list(languages);
+      crypto::ElectrumWords::get_language_list(languages, false);
       std::vector<std::string>::iterator it;
 
       it = std::find(languages.begin(), languages.end(), req.language);
       if (it == languages.end())
       {
+        crypto::ElectrumWords::get_language_list(languages, true);
+        it = std::find(languages.begin(), languages.end(), req.language);
+      }
+      if (it == languages.end())
+      {
         er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
-        er.message = "Unknown language";
+        er.message = "Unknown language: " + req.language;
         return false;
       }
     }
