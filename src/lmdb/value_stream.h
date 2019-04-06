@@ -43,7 +43,7 @@ namespace lmdb
             \throw std::system_error if unexpected LMDB error.
             \return 0 if `cur == nullptr`, otherwise count of values at current key.
         */
-        std::size_t count(MDB_cursor* cur);
+        mdb_size_t count(MDB_cursor* cur);
 
         /*!
             Calls `mdb_cursor_get` and does some error checking.
