@@ -113,9 +113,9 @@ using namespace cryptonote;
 
 #define OUTPUT_EXPORT_FILE_MAGIC "Aeon output export\003"
 
-#define SEGREGATION_FORK_HEIGHT std::numeric_limits<uint64_t>::max();   // no known fork attack yet
-#define TESTNET_SEGREGATION_FORK_HEIGHT 1000000
-#define STAGENET_SEGREGATION_FORK_HEIGHT 1000000
+#define SEGREGATION_FORK_HEIGHT std::numeric_limits<uint64_t>::max()
+#define TESTNET_SEGREGATION_FORK_HEIGHT std::numeric_limits<uint64_t>::max()
+#define STAGENET_SEGREGATION_FORK_HEIGHT std::numeric_limits<uint64_t>::max()
 #define SEGREGATION_FORK_VICINITY 1500 /* blocks */
 
 #define FIRST_REFRESH_GRANULARITY     1024
@@ -6466,15 +6466,50 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
     uint64_t rct_start_height;
     std::vector<uint64_t> rct_offsets;
     bool has_rct = false;
+    bool has_nonrct = false;
     for (size_t idx: selected_transfers)
+    {
       if (m_transfers[idx].is_rct())
-        { has_rct = true; break; }
+        { has_rct = true; }
+      else
+        { has_nonrct = true; }
+      if (has_rct && has_nonrct) break;
+    }
     const bool has_rct_distribution = has_rct && get_rct_distribution(rct_start_height, rct_offsets);
     if (has_rct_distribution)
     {
       // check we're clear enough of rct start, to avoid corner cases below
       THROW_WALLET_EXCEPTION_IF(rct_offsets.size() <= CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE,
           error::get_output_distribution, "Not enough rct outputs");
+    }
+
+    std::unordered_map<uint64_t, std::vector<uint64_t>> nonrct_distributions;
+    if (has_nonrct)
+    {
+      cryptonote::COMMAND_RPC_GET_OUTPUT_DISTRIBUTION::request req = AUTO_VAL_INIT(req);
+      cryptonote::COMMAND_RPC_GET_OUTPUT_DISTRIBUTION::response res = AUTO_VAL_INIT(res);
+      for(size_t idx: selected_transfers)
+      {
+        if (!m_transfers[idx].is_rct())
+          req.amounts.push_back(m_transfers[idx].amount());
+      }
+      std::string err;
+      const uint64_t bc_height = get_daemon_blockchain_height(err) - 1;
+      const uint64_t blocks_in_a_year = 60*60*24*365/DIFFICULTY_TARGET_V2;  // assumes more than a year has passed since the change of block time
+      req.from_height = bc_height > blocks_in_a_year ? bc_height - blocks_in_a_year : 0;
+      req.cumulative = true;
+      m_daemon_rpc_mutex.lock();
+      bool r = net_utils::invoke_http_json_rpc("/json_rpc", "get_output_distribution", req, res, m_http_client, rpc_timeout);
+      m_daemon_rpc_mutex.unlock();
+      THROW_WALLET_EXCEPTION_IF(!r, error::get_output_distribution, "Failed to request output distribution: no connection to daemon");
+      THROW_WALLET_EXCEPTION_IF(res.status == CORE_RPC_STATUS_BUSY, error::get_output_distribution, "Failed to request output distribution: daemon is busy");
+      THROW_WALLET_EXCEPTION_IF(res.status != CORE_RPC_STATUS_OK, error::get_output_distribution, "Failed to request output distribution: " + res.status);
+      THROW_WALLET_EXCEPTION_IF(res.distributions.size() != req.amounts.size(), error::get_output_distribution, "Failed to request output distribution: " + std::to_string(req.amounts.size()) + " requested, " + std::to_string(res.distributions.size()) + " returned");
+      for (size_t i = 0; i < req.amounts.size(); ++i)
+      {
+        THROW_WALLET_EXCEPTION_IF(req.amounts[i] != res.distributions[i].amount, error::get_output_distribution, "Failed to request output distribution: requested amount " + print_money(req.amounts[i]) + ", returned amount " + print_money(res.distributions[i].amount));
+        nonrct_distributions[req.amounts[i]] = std::move(res.distributions[i].distribution);
+      }
     }
 
     // get histogram for the amounts we need
@@ -6597,7 +6632,6 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
 
       const bool output_is_pre_fork = td.m_block_height < segregation_fork_height;
       uint64_t num_outs = 0, num_recent_outs = 0;
-      uint64_t num_post_fork_outs = 0;
       float pre_fork_num_out_ratio = 0.0f;
       float post_fork_num_out_ratio = 0.0f;
 
@@ -6646,7 +6680,6 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
             }
           }
         }
-        num_post_fork_outs = num_outs - segregation_limit[amount].first;
       }
 
       if (use_histogram)
@@ -6782,49 +6815,42 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
               type = "gamma";
             }
           }
-          else if (num_found - 1 < recent_outputs_count) // -1 to account for the real one we seeded with
-          {
-            // triangular distribution over [a,b) with a=0, mode c=b=up_index_limit
-            uint64_t r = crypto::rand<uint64_t>() % ((uint64_t)1 << 53);
-            double frac = std::sqrt((double)r / ((uint64_t)1 << 53));
-            i = (uint64_t)(frac*num_recent_outs) + num_outs - num_recent_outs;
-            // just in case rounding up to 1 occurs after calc
-            if (i == num_outs)
-              --i;
-            type = "recent";
-          }
-          else if (num_found -1 < recent_outputs_count + pre_fork_outputs_count)
-          {
-            // triangular distribution over [a,b) with a=0, mode c=b=up_index_limit
-            uint64_t r = crypto::rand<uint64_t>() % ((uint64_t)1 << 53);
-            double frac = std::sqrt((double)r / ((uint64_t)1 << 53));
-            i = (uint64_t)(frac*segregation_limit[amount].first);
-            // just in case rounding up to 1 occurs after calc
-            if (i == num_outs)
-              --i;
-            type = " pre-fork";
-          }
-          else if (num_found -1 < recent_outputs_count + pre_fork_outputs_count + post_fork_outputs_count)
-          {
-            // triangular distribution over [a,b) with a=0, mode c=b=up_index_limit
-            uint64_t r = crypto::rand<uint64_t>() % ((uint64_t)1 << 53);
-            double frac = std::sqrt((double)r / ((uint64_t)1 << 53));
-            i = (uint64_t)(frac*num_post_fork_outs) + segregation_limit[amount].first;
-            // just in case rounding up to 1 occurs after calc
-            if (i == num_post_fork_outs+segregation_limit[amount].first)
-              --i;
-            type = "post-fork";
-          }
           else
           {
-            // triangular distribution over [a,b) with a=0, mode c=b=up_index_limit
-            uint64_t r = crypto::rand<uint64_t>() % ((uint64_t)1 << 53);
-            double frac = std::sqrt((double)r / ((uint64_t)1 << 53));
-            i = (uint64_t)(frac*num_outs);
-            // just in case rounding up to 1 occurs after calc
-            if (i == num_outs)
-              --i;
-            type = "triangular";
+            // gamma selection for non-ringct outputs
+            THROW_WALLET_EXCEPTION_IF(nonrct_distributions[amount].size() <= 1, error::wallet_internal_error, "bad nonrct distribution size: " + std::to_string(nonrct_distributions[amount].size()));
+            const size_t blocks_to_consider = nonrct_distributions[amount].size() - 1;
+            THROW_WALLET_EXCEPTION_IF(nonrct_distributions[amount].back() < nonrct_distributions[amount].front(), error::wallet_internal_error, "bad nonrct distribution: front=" + std::to_string(nonrct_distributions[amount].front()) + ", back=" + std::to_string(nonrct_distributions[amount].back()));
+            const uint64_t outputs_to_consider = nonrct_distributions[amount].back() - nonrct_distributions[amount].front();
+            THROW_WALLET_EXCEPTION_IF(outputs_to_consider == 0, error::wallet_internal_error, "no ouputs created for the last " + std::to_string(blocks_to_consider) + " blocks");
+            const double average_output_time = DIFFICULTY_TARGET_V2 * blocks_to_consider / outputs_to_consider;
+            MDEBUG("amount=" << print_money(amount) << ", blocks_to_consider=" << blocks_to_consider << ", outputs_to_consider=" << outputs_to_consider << ", average_output_time=" << average_output_time);
+            auto pick_gamma_nonrct = [&]()
+            {
+              double x = gamma(engine);
+              x = exp(x);
+              uint64_t output_index = x / average_output_time;
+              if (output_index >= num_outs)
+                return std::numeric_limits<uint64_t>::max(); // bad pick
+              output_index = num_outs - 1 - output_index;
+              return output_index;
+            };
+
+            if (num_found - 1 < pre_fork_outputs_count)
+            {
+              do i = pick_gamma_nonrct(); while (i >= segregation_limit[amount].first);
+              type = "pre-fork gamma-nonrct";
+            }
+            else if (num_found - 1 < pre_fork_outputs_count + post_fork_outputs_count)
+            {
+              do i = pick_gamma_nonrct(); while (i < segregation_limit[amount].first || i >= num_outs);
+              type = "post-fork gamma-nonrct";
+            }
+            else
+            {
+              do i = pick_gamma_nonrct(); while (i >= num_outs);
+              type = "gamma-nonrct";
+            }
           }
 
           if (seen_indices.count(i))
