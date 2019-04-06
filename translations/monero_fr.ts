@@ -669,8 +669,8 @@
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="3312"/>
-        <source>--restore-deterministic-wallet uses --generate-new-wallet, not --wallet-file</source>
-        <translation>--restore-deterministic-wallet utilise --generate-new-wallet, pas --wallet-file</translation>
+        <source>--restore-from-seed uses --generate-new-wallet, not --wallet-file</source>
+        <translation>--restore-from-seed utilise --generate-new-wallet, pas --wallet-file</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="3341"/>
@@ -2586,8 +2586,8 @@ Sinon, vous prouvez le plus petit solde supérieur à &lt;montant&gt; dans votre
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="3304"/>
-        <source>can&apos;t specify both --restore-deterministic-wallet or --restore-multisig-wallet and --non-deterministic</source>
-        <translation>impossible de spécifier à la fois --restore-deterministic-wallet ou --restore-multisig-wallet et --non-deterministic</translation>
+        <source>can&apos;t specify both --restore-from-seed or --restore-multisig-wallet and --non-deterministic</source>
+        <translation>impossible de spécifier à la fois --restore-from-seed ou --restore-multisig-wallet et --non-deterministic</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="3310"/>

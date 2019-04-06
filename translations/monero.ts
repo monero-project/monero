@@ -1794,7 +1794,7 @@ Key Image, &quot;absolute&quot;, list of rings</source>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="3304"/>
-        <source>can&apos;t specify both --restore-deterministic-wallet or --restore-multisig-wallet and --non-deterministic</source>
+        <source>can&apos;t specify both --restore-from-seed or --restore-multisig-wallet and --non-deterministic</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1804,7 +1804,7 @@ Key Image, &quot;absolute&quot;, list of rings</source>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="3312"/>
-        <source>--restore-deterministic-wallet uses --generate-new-wallet, not --wallet-file</source>
+        <source>--restore-from-seed uses --generate-new-wallet, not --wallet-file</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
