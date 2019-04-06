@@ -6654,7 +6654,7 @@ bool simple_wallet::accept_loaded_tx(const std::function<size_t()> get_num_txes,
     {
       const tx_destination_entry &entry = cd.splitted_dsts[d];
       std::string address, standard_address = get_account_address_as_str(m_wallet->nettype(), entry.is_subaddress, entry.addr);
-      if (has_encrypted_payment_id && !entry.is_subaddress)
+      if (has_encrypted_payment_id && !entry.is_subaddress && standard_address != entry.original)
       {
         address = get_account_integrated_address_as_str(m_wallet->nettype(), entry.addr, payment_id8);
         address += std::string(" (" + standard_address + " with encrypted payment id " + epee::string_tools::pod_to_hex(payment_id8) + ")");

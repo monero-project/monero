@@ -1173,7 +1173,7 @@ namespace tools
         {
           const cryptonote::tx_destination_entry &entry = cd.splitted_dsts[d];
           std::string address = cryptonote::get_account_address_as_str(m_wallet->nettype(), entry.is_subaddress, entry.addr);
-          if (has_encrypted_payment_id && !entry.is_subaddress)
+          if (has_encrypted_payment_id && !entry.is_subaddress && address != entry.original)
             address = cryptonote::get_account_integrated_address_as_str(m_wallet->nettype(), entry.addr, payment_id8);
           auto i = dests.find(entry.addr);
           if (i == dests.end())
