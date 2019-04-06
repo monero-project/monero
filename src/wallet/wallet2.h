@@ -533,6 +533,8 @@ namespace tools
       std::vector<cryptonote::tx_extra_field> tx_extra_fields;
       std::vector<is_out_data> primary;
       std::vector<is_out_data> additional;
+
+      bool empty() const { return tx_extra_fields.empty() && primary.empty() && additional.empty(); }
     };
 
     /*!
@@ -1296,6 +1298,7 @@ namespace tools
      */
     bool load_keys(const std::string& keys_file_name, const epee::wipeable_string& password);
     void process_new_transaction(const crypto::hash &txid, const cryptonote::transaction& tx, const std::vector<uint64_t> &o_indices, uint64_t height, uint64_t ts, bool miner_tx, bool pool, bool double_spend_seen, const tx_cache_data &tx_cache_data, std::map<std::pair<uint64_t, uint64_t>, size_t> *output_tracker_cache = NULL);
+    bool should_skip_block(const cryptonote::block &b, uint64_t height) const;
     void process_new_blockchain_entry(const cryptonote::block& b, const cryptonote::block_complete_entry& bche, const parsed_block &parsed_block, const crypto::hash& bl_id, uint64_t height, const std::vector<tx_cache_data> &tx_cache_data, size_t tx_cache_data_offset, std::map<std::pair<uint64_t, uint64_t>, size_t> *output_tracker_cache = NULL);
     void detach_blockchain(uint64_t height, std::map<std::pair<uint64_t, uint64_t>, size_t> *output_tracker_cache = NULL);
     void get_short_chain_history(std::list<crypto::hash>& ids, uint64_t granularity = 1) const;
