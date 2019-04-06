@@ -33,6 +33,8 @@ from .rpc import JSONRPC
 class Wallet(object):
 
     def __init__(self, protocol='http', host='127.0.0.1', port=0, idx=0):
+        self.host = host
+        self.port = port
         self.rpc = JSONRPC('{protocol}://{host}:{port}'.format(protocol=protocol, host=host, port=port if port else 18090+idx))
 
     def make_uniform_destinations(self, address, transfer_amount, transfer_number_of_destinations=1):
