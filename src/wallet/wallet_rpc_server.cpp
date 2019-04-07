@@ -4060,13 +4060,7 @@ namespace tools
       er.message = "Command unavailable in restricted mode.";
       return false;
     }
-    epee::net_utils::ssl_options_t ssl_options = epee::net_utils::ssl_support_t::e_ssl_support_enabled;
-    if (!epee::net_utils::ssl_support_from_string(ssl_options.support, req.ssl_support))
-    {
-      er.code = WALLET_RPC_ERROR_CODE_NO_DAEMON_CONNECTION;
-      er.message = std::string("Invalid ssl support mode");
-      return false;
-    }
+   
     std::vector<std::vector<uint8_t>> ssl_allowed_fingerprints;
     ssl_allowed_fingerprints.reserve(req.ssl_allowed_fingerprints.size());
     for (const std::string &fp: req.ssl_allowed_fingerprints)
@@ -4076,14 +4070,29 @@ namespace tools
       for (auto c: fp)
         v.push_back(c);
     }
+
+    epee::net_utils::ssl_options_t ssl_options = epee::net_utils::ssl_support_t::e_ssl_support_enabled;
     if (req.ssl_allow_any_cert)
       ssl_options.verification = epee::net_utils::ssl_verification_t::none;
     else if (!ssl_allowed_fingerprints.empty() || !req.ssl_ca_file.empty())
       ssl_options = epee::net_utils::ssl_options_t{std::move(ssl_allowed_fingerprints), std::move(req.ssl_ca_file)};
 
+    if (!epee::net_utils::ssl_support_from_string(ssl_options.support, req.ssl_support))
+    {
+      er.code = WALLET_RPC_ERROR_CODE_NO_DAEMON_CONNECTION;
+      er.message = std::string("Invalid ssl support mode");
+      return false;
+    }
+
     ssl_options.auth = epee::net_utils::ssl_authentication_t{
       std::move(req.ssl_private_key_path), std::move(req.ssl_certificate_path)
     };
+
+    if (ssl_options.support == epee::net_utils::ssl_support_t::e_ssl_support_enabled && !ssl_options.has_strong_verification(boost::string_ref{}))
+    {
+      er.code = WALLET_RPC_ERROR_CODE_NO_DAEMON_CONNECTION;
+      er.message = "SSL is enabled but no user certificate or fingerprints were provided";
+    }
 
     if (!m_wallet->set_daemon(req.address, boost::none, req.trusted, std::move(ssl_options)))
     {

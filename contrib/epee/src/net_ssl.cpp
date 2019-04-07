@@ -278,6 +278,25 @@ bool is_ssl(const unsigned char *data, size_t len)
   return false;
 }
 
+bool ssl_options_t::has_strong_verification(boost::string_ref host) const noexcept
+{
+  // onion and i2p addresses contain information about the server cert
+  // which both authenticates and encrypts
+  if (host.ends_with(".onion") || host.ends_with(".i2p"))
+    return true;
+  switch (verification)
+  {
+    default:
+    case ssl_verification_t::none:
+    case ssl_verification_t::system_ca:
+      return false;
+    case ssl_verification_t::user_certificates:
+    case ssl_verification_t::user_ca:
+      break;
+  }
+  return true;
+}
+
 bool ssl_options_t::has_fingerprint(boost::asio::ssl::verify_context &ctx) const
 {
   // can we check the certificate against a list of fingerprints?

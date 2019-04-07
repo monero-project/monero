@@ -315,6 +315,7 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
   const uint64_t kdf_rounds = command_line::get_arg(vm, opts.kdf_rounds);
   THROW_WALLET_EXCEPTION_IF(kdf_rounds == 0, tools::error::wallet_internal_error, "KDF rounds must not be 0");
 
+  const bool use_proxy = command_line::has_arg(vm, opts.proxy);
   auto daemon_address = command_line::get_arg(vm, opts.daemon_address);
   auto daemon_host = command_line::get_arg(vm, opts.daemon_host);
   auto daemon_port = command_line::get_arg(vm, opts.daemon_port);
@@ -382,22 +383,24 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
   if (daemon_address.empty())
     daemon_address = std::string("http://") + daemon_host + ":" + std::to_string(daemon_port);
 
-  boost::asio::ip::tcp::endpoint proxy{};
-  if (command_line::has_arg(vm, opts.proxy))
   {
-    namespace ip = boost::asio::ip;
     const boost::string_ref real_daemon = boost::string_ref{daemon_address}.substr(0, daemon_address.rfind(':'));
 
-    // onion and i2p addresses contain information about the server cert
-    // which both authenticates and encrypts
-    const bool unencrypted_proxy =
-      !real_daemon.ends_with(".onion") && !real_daemon.ends_with(".i2p") &&
-      daemon_ssl_ca_file.empty() && daemon_ssl_allowed_fingerprints.empty();
+    const bool verification_required =
+      ssl_options.support == epee::net_utils::ssl_support_t::e_ssl_support_enabled || use_proxy;
+
     THROW_WALLET_EXCEPTION_IF(
-      unencrypted_proxy,
+      verification_required && !ssl_options.has_strong_verification(real_daemon),
       tools::error::wallet_internal_error,
-      std::string{"Use of --"} + opts.proxy.name + " requires --" + opts.daemon_ssl_ca_certificates.name + " or --" + opts.daemon_ssl_allowed_fingerprints.name + " or use of a .onion/.i2p domain"
+      tools::wallet2::tr("Enabling --") + std::string{use_proxy ? opts.proxy.name : opts.daemon_ssl.name} + tools::wallet2::tr(" requires --") +
+        opts.daemon_ssl_ca_certificates.name + tools::wallet2::tr(" or --") + opts.daemon_ssl_allowed_fingerprints.name + tools::wallet2::tr(" or use of a .onion/.i2p domain")
     );
+  }
+
+  boost::asio::ip::tcp::endpoint proxy{};
+  if (use_proxy)
+  {
+    namespace ip = boost::asio::ip;
 
     const auto proxy_address = command_line::get_arg(vm, opts.proxy);
 
