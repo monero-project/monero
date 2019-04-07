@@ -194,7 +194,11 @@ int check_flush(cryptonote::core &core, std::vector<block_complete_entry> &block
   core.prevalidate_block_hashes(core.get_blockchain_storage().get_db().height(), hashes);
 
   std::vector<block> pblocks;
-  core.prepare_handle_incoming_blocks(blocks, pblocks);
+  if (!core.prepare_handle_incoming_blocks(blocks, pblocks))
+  {
+    MERROR("Failed to prepare to add blocks");
+    return 1;
+  }
   if (!pblocks.empty() && pblocks.size() != blocks.size())
   {
     MERROR("Unexpected parsed blocks size");
