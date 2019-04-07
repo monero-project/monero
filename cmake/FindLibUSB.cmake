@@ -99,9 +99,18 @@ if ( LibUSB_FOUND )
     check_library_exists ( "${LibUSB_LIBRARIES}" libusb_get_device_list "" LibUSB_VERSION_1.0 )
     check_library_exists ( "${LibUSB_LIBRARIES}" libusb_get_port_numbers "" LibUSB_VERSION_1.0.16 )
 
+    if((STATIC AND UNIX AND NOT APPLE) OR (DEPENDS AND CMAKE_SYSTEM_NAME STREQUAL "Linux"))
+        find_library(LIBUDEV_LIBRARY udev)
+        if(LIBUDEV_LIBRARY)
+            set(LibUSB_LIBRARIES "${LibUSB_LIBRARIES};${LIBUDEV_LIBRARY}")
+        else()
+            message(WARNING "libudev library not found, binaries may fail to link.")
+        endif()
+    endif()
+
     # Library 1.0.16+ compilation test.
     # The check_library_exists does not work well on Apple with shared libs.
-    if (APPLE OR LibUSB_VERSION_1.0.16)
+    if (APPLE OR LibUSB_VERSION_1.0.16 OR STATIC)
         if (APPLE)
             if(DEPENDS)
                 list(APPEND TEST_COMPILE_EXTRA_LIBRARIES "-framework Foundation -framework IOKit")
