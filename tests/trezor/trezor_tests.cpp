@@ -293,7 +293,7 @@ static bool init_core_replay_events(std::vector<test_event_entry>& events, crypt
 
   // Hardforks can be specified in events.
   v_hardforks_t hardforks;
-  cryptonote::test_options test_options_tmp{};
+  cryptonote::test_options test_options_tmp{nullptr, 0};
   const cryptonote::test_options * test_options_ = &gto.test_options;
   if (extract_hard_forks(events, hardforks)){
     hardforks.push_back(std::make_pair((uint8_t)0, (uint64_t)0));  // terminator
