@@ -34,6 +34,7 @@ set(cryptonote_core_sources
   service_node_list.cpp
   service_node_deregister.cpp
   service_node_quorum_cop.cpp
+  service_node_swarm.cpp
   tx_pool.cpp
   cryptonote_tx_utils.cpp)
 
@@ -45,6 +46,7 @@ set(cryptonote_core_private_headers
   service_node_rules.h
   service_node_list.h
   service_node_quorum_cop.h
+  service_node_swarm.h
   cryptonote_core.h
   service_node_deregister.h
   tx_pool.h

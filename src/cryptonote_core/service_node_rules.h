@@ -4,6 +4,8 @@
 #include "cryptonote_config.h"
 #include "service_node_deregister.h"
 
+#include <random>
+
 namespace service_nodes {
   constexpr size_t   QUORUM_SIZE                      = 10;
   constexpr size_t   QUORUM_LIFETIME                  = (6 * deregister_vote::DEREGISTER_LIFETIME_BY_HEIGHT);
@@ -17,11 +19,22 @@ namespace service_nodes {
   // if a swarm has strictly less nodes than this, it is considered unhealthy
   // and nearby swarms will mirror it's data. It will disappear, and is already considered gone.
   constexpr size_t   MIN_SWARM_SIZE                   = 5;
+  constexpr size_t   IDEAL_SWARM_MARGIN               = 2;
+  constexpr size_t   IDEAL_SWARM_SIZE                 = MIN_SWARM_SIZE + IDEAL_SWARM_MARGIN;
+  constexpr size_t   EXCESS_BASE                      = MIN_SWARM_SIZE;
+  constexpr size_t   NEW_SWARM_SIZE                   = IDEAL_SWARM_SIZE;
+  // The lower swarm percentile that will be randomly filled with new service nodes
+  constexpr size_t   FILL_SWARM_LOWER_PERCENTILE      = 25;
+  // Redistribute decommissioned snodes to the smallest swarms
+  constexpr size_t   DECOMMISSIONED_REDISTRIBUTION_LOWER_PERCENTILE = 0;
+  // The upper swarm percentile that will be randomly selected during stealing
+  constexpr size_t   STEALING_SWARM_UPPER_PERCENTILE  = 75;
   constexpr int      MAX_KEY_IMAGES_PER_CONTRIBUTOR   = 1;
   constexpr uint64_t QUEUE_SWARM_ID                   = 0;
   constexpr uint64_t KEY_IMAGE_AWAITING_UNLOCK_HEIGHT = 0;
 
-
+  using swarm_id_t = uint64_t;
+  constexpr swarm_id_t   UNASSIGNED_SWARM_ID          = UINT64_MAX;
 
 inline uint64_t staking_num_lock_blocks(cryptonote::network_type nettype)
 {
@@ -53,5 +66,5 @@ uint64_t     get_locked_key_image_unlock_height(cryptonote::network_type nettype
 uint64_t get_portions_to_make_amount(uint64_t staking_requirement, uint64_t amount);
 
 bool get_portions_from_percent_str(std::string cut_str, uint64_t& portions);
-
+uint64_t uniform_distribution_portable(std::mt19937_64& mersenne_twister, uint64_t n);
 }

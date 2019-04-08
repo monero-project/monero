@@ -70,6 +70,7 @@ set(unit_tests_sources
   random.cpp
   serialization.cpp
   service_nodes.cpp
+  service_nodes_swarm.cpp
   sha256.cpp
   slow_memmem.cpp
   subaddress.cpp

@@ -49,8 +49,6 @@ namespace service_nodes
     END_SERIALIZE()
   };
 
-  using swarm_id_t = uint64_t;
-
   struct service_node_info // registration information
   {
     struct contribution_t
@@ -166,7 +164,17 @@ namespace service_nodes
   };
 
   template<typename T>
-  void loki_shuffle(std::vector<T>& a, uint64_t seed);
+  void loki_shuffle(std::vector<T>& a, uint64_t seed)
+  {
+    if (a.size() <= 1) return;
+    std::mt19937_64 mersenne_twister(seed);
+    for (size_t i = 1; i < a.size(); i++)
+    {
+      size_t j = (size_t)uniform_distribution_portable(mersenne_twister, i+1);
+      if (i != j)
+        std::swap(a[i], a[j]);
+    }
+  }
 
   class service_node_list
     : public cryptonote::Blockchain::BlockAddedHook,

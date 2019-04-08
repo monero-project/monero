@@ -202,7 +202,9 @@ public:
 
   bool test_initial_swarms(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry> &events);
   bool test_with_more_sn(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry> &events);
-  bool test_after_deregisters(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry> &events);
+  bool test_with_one_more_sn(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry> &events);
+  bool test_after_first_deregisters(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry> &events);
+  bool test_after_final_deregisters(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry> &events);
 };
 
 template<>

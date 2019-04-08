@@ -41,6 +41,7 @@
 
 #include "service_node_list.h"
 #include "service_node_rules.h"
+#include "service_node_swarm.h"
 
 #undef LOKI_DEFAULT_LOG_CATEGORY
 #define LOKI_DEFAULT_LOG_CATEGORY "service_nodes"
@@ -56,14 +57,6 @@ namespace service_nodes
       return service_node_info::version_1_swarms;
 
     return service_node_info::version_2_infinite_staking;
-  }
-
-  static uint64_t uniform_distribution_portable(std::mt19937_64& mersenne_twister, uint64_t n)
-  {
-    uint64_t secureMax = mersenne_twister.max() - mersenne_twister.max() % n;
-    uint64_t x;
-    do x = mersenne_twister(); while (x >= secureMax);
-    return  x / (secureMax / n);
   }
 
   service_node_list::service_node_list(cryptonote::Blockchain& blockchain)
@@ -369,207 +362,6 @@ namespace service_nodes
     return true;
   }
 
-  static uint64_t get_new_swarm_id(const std::vector<swarm_id_t>& ids)
-  {
-
-    // UINT64_MAX is reserved for unassigned swarms
-    constexpr uint64_t MAX_ID = UINT64_MAX - 1;
-
-    auto all_ids = ids; // make a copy
-    if (all_ids.empty()) return 0;
-    if (all_ids.size() == 1) return MAX_ID / 2;
-
-    std::sort(all_ids.begin(), all_ids.end());
-
-    uint64_t max_dist = 0;
-    // The new swarm that is the farthest from its right neighbour
-    uint64_t best_idx = 0;
-
-    for (auto idx = 0u; idx < all_ids.size() - 1; ++idx)
-    {
-      const uint64_t dist = all_ids[idx+1] - all_ids[idx];
-
-      if (dist > max_dist)
-      {
-        max_dist = dist;
-        best_idx = idx;
-      }
-    }
-
-    // Handle the special case involving the gap between the
-    // rightmost and the leftmost swarm due to wrapping.
-    // Note that we are adding 1 as we treat 0 and MAX_ID as *one* apart
-    const uint64_t dist = MAX_ID - all_ids.back() + all_ids.front() + 1;
-    if (dist > max_dist)
-    {
-      max_dist = dist;
-      best_idx = all_ids.size() - 1;
-    }
-
-    const uint64_t diff = max_dist / 2; /// how much to add to an existing id
-    const uint64_t to_max = MAX_ID - all_ids[best_idx]; /// how much we can add not overflow
-
-    if (diff > to_max)
-    {
-      return diff - to_max - 1; // again, assuming MAX_ID + 1 = 0
-    }
-
-    return all_ids[best_idx] + diff;
-  }
-
-  static std::vector<swarm_id_t> get_all_swarms(const std::map<swarm_id_t, std::vector<crypto::public_key>>& swarm_to_snodes)
-  {
-    std::vector<swarm_id_t> all_swarms;
-    all_swarms.reserve(swarm_to_snodes.size());
-    for (const auto& entry : swarm_to_snodes) {
-      all_swarms.push_back(entry.first);
-    }
-    return all_swarms;
-  }
-
-  static crypto::public_key pop_random_snode(std::mt19937_64& mt, std::vector<crypto::public_key>& vec)
-  {
-    const auto idx = uniform_distribution_portable(mt, vec.size());
-    const auto sn_pk = vec.at(idx);
-    auto it = vec.begin();
-    std::advance(it, idx);
-    vec.erase(it);
-    return sn_pk;
-  }
-
-
-  static void calc_swarm_changes(std::map<swarm_id_t, std::vector<crypto::public_key>>& swarm_to_snodes, uint64_t seed)
-  {
-    std::mt19937_64 mersenne_twister(seed);
-
-    std::vector<crypto::public_key> swarm_buffer = swarm_to_snodes[QUEUE_SWARM_ID];
-    swarm_to_snodes.erase(QUEUE_SWARM_ID);
-
-    auto all_swarms = get_all_swarms(swarm_to_snodes);
-    std::sort(all_swarms.begin(), all_swarms.end());
-
-    loki_shuffle(all_swarms, seed);
-
-    const auto cmp_swarm_sizes =
-      [&swarm_to_snodes](swarm_id_t lhs, swarm_id_t rhs) {
-        return swarm_to_snodes.at(lhs).size() < swarm_to_snodes.at(rhs).size();
-      };
-
-    /// 1. If there are any swarms that are about to dissapear -> try to fill them first
-    std::vector<swarm_id_t> starving_swarms;
-    {
-      std::copy_if(all_swarms.begin(),
-                   all_swarms.end(),
-                   std::back_inserter(starving_swarms),
-                   [&swarm_to_snodes](swarm_id_t id) { return swarm_to_snodes.at(id).size() < MIN_SWARM_SIZE; });
-
-      for (const auto swarm_id : starving_swarms) {
-
-        const size_t needed = MIN_SWARM_SIZE - swarm_to_snodes.at(swarm_id).size();
-
-        for (auto j = 0u; j < needed && !swarm_buffer.empty(); ++j) {
-          const auto sn_pk = pop_random_snode(mersenne_twister, swarm_buffer);
-          swarm_to_snodes.at(swarm_id).push_back(sn_pk);
-        }
-
-        if (swarm_buffer.empty()) break;
-      }
-    }
-
-    /// 2. Any starving swarms still left? If yes, steal nodes from larger swarms
-    {
-      bool can_continue = true; /// whether there are still large swarms to steal from
-      for (const auto swarm_id : starving_swarms) {
-
-        if (swarm_to_snodes.at(swarm_id).size() == MIN_SWARM_SIZE) continue;
-
-        const auto needed = MIN_SWARM_SIZE - swarm_to_snodes.at(swarm_id).size();
-
-          for (auto i = 0u; i < needed; ++i) {
-
-            const auto large_swarm =
-              *std::max_element(all_swarms.begin(), all_swarms.end(), cmp_swarm_sizes);
-
-            if (swarm_to_snodes.at(large_swarm).size() <= MIN_SWARM_SIZE) {
-              can_continue = false;
-              break;
-            }
-
-            const crypto::public_key sn_pk = pop_random_snode(mersenne_twister, swarm_to_snodes.at(large_swarm));
-            swarm_to_snodes.at(swarm_id).push_back(sn_pk);
-        }
-
-        if (!can_continue) break;
-      }
-
-    }
-
-    /// 3. Fill in "unsaturated" swarms (with fewer than max nodes) starting from smallest
-    {
-      while (!swarm_buffer.empty() && !all_swarms.empty()) {
-
-        const swarm_id_t smallest_swarm = *std::min_element(all_swarms.begin(), all_swarms.end(), cmp_swarm_sizes);
-
-        std::vector<crypto::public_key>& swarm = swarm_to_snodes.at(smallest_swarm);
-
-        if (swarm.size() == MAX_SWARM_SIZE) break;
-
-        const auto sn_pk = pop_random_snode(mersenne_twister, swarm_buffer);
-        swarm.push_back(sn_pk);
-      }
-    }
-
-    /// 4. If there are still enough nodes for MAX_SWARM_SIZE + some safety buffer, create a new swarm
-    while (swarm_buffer.size() >= MAX_SWARM_SIZE + SWARM_BUFFER) {
-
-      /// shuffle the queue and select MAX_SWARM_SIZE last elements
-      const auto new_swarm_id = get_new_swarm_id(all_swarms);
-
-      loki_shuffle(swarm_buffer, seed + new_swarm_id);
-
-      std::vector<crypto::public_key> selected_snodes;
-
-      for (auto i = 0u; i < MAX_SWARM_SIZE; ++i) {
-
-        /// get next node from the buffer
-        const crypto::public_key fresh_snode = swarm_buffer.back();
-        swarm_buffer.pop_back();
-
-        /// Try replacing nodes in existing swarms
-        if (swarm_to_snodes.size() > 0) {
-          /// a. Select a random swarm
-          const uint64_t swarm_idx = uniform_distribution_portable(mersenne_twister, swarm_to_snodes.size());
-          auto it = swarm_to_snodes.begin();
-          std::advance(it, swarm_idx);
-          std::vector<crypto::public_key>& selected_swarm = it->second;
-
-          /// b. Select a random snode
-          const crypto::public_key snode = pop_random_snode(mersenne_twister, selected_swarm);
-
-          /// c. Swap that node with a node in the queue, the old node will form a new swarm
-          selected_snodes.push_back(snode);
-          selected_swarm.push_back(fresh_snode);
-        } else {
-          /// If there are no existing swarms, create the first swarm directly from the queue
-          selected_snodes.push_back(fresh_snode);
-        }
-      }
-
-      swarm_to_snodes.insert({new_swarm_id, std::move(selected_snodes)});
-    }
-
-    /// 5. If there is a swarm with less than MIN_SWARM_SIZE, decommission that swarm (should almost never happen due to the safety buffer).
-    for (auto entry : swarm_to_snodes) {
-      if (entry.second.size() < MIN_SWARM_SIZE) {
-        LOG_PRINT_L1("swarm " << entry.first << " is DECOMMISSIONED");
-        /// TODO: move data to other swarms, then put snodes back in the queue
-      }
-    }
-
-    /// 6. Put nodes from the buffer back to the "buffer agnostic" data structure
-    swarm_to_snodes.insert({QUEUE_SWARM_ID, std::move(swarm_buffer)});
-  }
-
   void service_node_list::update_swarms(uint64_t height) {
 
     crypto::hash hash = m_blockchain.get_block_id_by_height(height);
@@ -577,7 +369,7 @@ namespace service_nodes
     std::memcpy(&seed, hash.data, sizeof(seed));
 
     /// Gather existing swarms from infos
-    std::map<swarm_id_t, std::vector<crypto::public_key>> existing_swarms;
+    swarm_snode_map_t existing_swarms;
 
     for (const auto& entry : m_service_nodes_infos) {
       const auto id = entry.second.swarm_id;
@@ -802,7 +594,7 @@ namespace service_nodes
     info.version = get_min_service_node_info_version_for_hf(hf_version);
 
     if (info.version >= service_node_info::version_1_swarms)
-      info.swarm_id = QUEUE_SWARM_ID; /// new nodes go into a "queue swarm"
+      info.swarm_id = UNASSIGNED_SWARM_ID;
 
     info.contributors.clear();
 
@@ -1467,19 +1259,6 @@ namespace service_nodes
     }
 
     return true;
-  }
-
-  template<typename T>
-  void loki_shuffle(std::vector<T>& a, uint64_t seed)
-  {
-    if (a.size() <= 1) return;
-    std::mt19937_64 mersenne_twister(seed);
-    for (size_t i = 1; i < a.size(); i++)
-    {
-      size_t j = (size_t)uniform_distribution_portable(mersenne_twister, i+1);
-      if (i != j)
-        std::swap(a[i], a[j]);
-    }
   }
 
   void service_node_list::store_quorum_state_from_rewards_list(uint64_t height)
