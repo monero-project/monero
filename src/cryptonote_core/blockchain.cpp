@@ -351,7 +351,6 @@ bool Blockchain::init(BlockchainDB* db, const network_type nettype, bool offline
   if (m_hardfork == nullptr)
     m_hardfork = new HardFork(*db, 7);
 
-#define LOKI_ARRAY_COUNT(array) (sizeof(array)/sizeof(array[0]))
   if (test_options) // Fakechain mode or in integration testing mode we're overriding hardfork dates
   {
     for (auto n = 0u; n < test_options->hard_forks.size(); ++n)
