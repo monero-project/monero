@@ -262,7 +262,8 @@ namespace cryptonote
     };
   };
 
-  // Can't call, Not in core_rpc_server.h.
+  LOKI_RPC_DOC_INTROSPECT
+  // TODO: Undocumented light wallet RPC call
   struct COMMAND_RPC_GET_ADDRESS_TXS
   {
       struct request
@@ -348,7 +349,8 @@ namespace cryptonote
   };
 
 
-  // Can't call, Not in core_rpc_server.h.
+  LOKI_RPC_DOC_INTROSPECT
+  // TODO: Undocumented light wallet RPC call
   struct COMMAND_RPC_GET_ADDRESS_INFO
   {
       struct request
@@ -406,7 +408,8 @@ namespace cryptonote
   };
 
 
-  // Can't call, Not in core_rpc_server.h.
+  LOKI_RPC_DOC_INTROSPECT
+  // TODO: Undocumented light wallet RPC call
   struct COMMAND_RPC_GET_UNSPENT_OUTS
   {
       struct request
@@ -476,7 +479,8 @@ namespace cryptonote
       };
   };
 
-  // Can't call, Not in core_rpc_server.h.
+  LOKI_RPC_DOC_INTROSPECT
+  // TODO: Undocumented light wallet RPC call
   struct COMMAND_RPC_GET_RANDOM_OUTS
   {
       struct request
@@ -526,7 +530,8 @@ namespace cryptonote
       };
   };
 
-  // Can't call, Not in core_rpc_server.h.
+  LOKI_RPC_DOC_INTROSPECT
+  // TODO: Undocumented light wallet RPC call
   struct COMMAND_RPC_SUBMIT_RAW_TX
   {
       struct request
@@ -555,7 +560,8 @@ namespace cryptonote
       };
   };
 
-  // Can't call, Not in core_rpc_server.h.
+  LOKI_RPC_DOC_INTROSPECT
+  // TODO: Undocumented light wallet RPC call
   struct COMMAND_RPC_LOGIN
   {
       struct request
@@ -585,7 +591,8 @@ namespace cryptonote
       };
   };
 
-  // Can't call, Not in core_rpc_server.h.
+  LOKI_RPC_DOC_INTROSPECT
+  // TODO: Undocumented light wallet RPC call
   struct COMMAND_RPC_IMPORT_WALLET_REQUEST
   {
       struct request

@@ -36,6 +36,8 @@
 #include "cryptonote_basic/blobdatatype.h"
 #include "cryptonote_core/service_node_deregister.h"
 
+#include "common/loki.h"
+
 namespace cryptonote
 {
 
@@ -111,6 +113,7 @@ namespace cryptonote
   /************************************************************************/
   /*                                                                      */
   /************************************************************************/
+  LOKI_RPC_DOC_INTROSPECT
   struct block_complete_entry
   {
     blobdata block;
