@@ -198,8 +198,8 @@ namespace net_utils
     std::map<std::string, t_connection_type> server_type_map;
     void create_server_type_map();
 
-    bool init_server(uint32_t port, const std::string address = "0.0.0.0", uint32_t port_ipv6 = 0, const std::string address_v6 = "::", bool use_ipv6 = false);
-    bool init_server(const std::string port,  const std::string& address = "0.0.0.0", const std::string& port_ipv6 = "", const std::string address_v6 = "::", bool use_ipv6 = false);
+    bool init_server(uint32_t port, const std::string address = "0.0.0.0");
+    bool init_server(const std::string port,  const std::string& address = "0.0.0.0");
 
     /// Run the server's io_service loop.
     bool run_server(size_t threads_count, bool wait = true, const boost::thread::attributes& attrs = boost::thread::attributes());
@@ -227,7 +227,6 @@ namespace net_utils
     typename t_protocol_handler::config_type& get_config_object(){return m_config;}
 
     int get_binded_port(){return m_port;}
-    int get_binded_port_ipv6(){return m_port_ipv6;}
 
     long get_connections_count() const
     {
@@ -301,7 +300,6 @@ namespace net_utils
     bool worker_thread();
     /// Handle completion of an asynchronous accept operation.
     void handle_accept(const boost::system::error_code& e);
-    void handle_accept_v6(const boost::system::error_code& e);
 
     bool is_thread_worker();
 
@@ -311,15 +309,12 @@ namespace net_utils
 
     /// Acceptor used to listen for incoming connections.
     boost::asio::ip::tcp::acceptor acceptor_;
-    boost::asio::ip::tcp::acceptor acceptor_v6;
 
     std::atomic<bool> m_stop_signal_sent;
     uint32_t m_port;
-    uint32_t m_port_ipv6;
 	std::atomic<long> m_sock_count;
 	std::atomic<long> m_sock_number;
     std::string m_address;
-    std::string m_address_v6;
     std::string m_thread_name_prefix; //TODO: change to enum server_type, now used
     size_t m_threads_count;
     i_connection_filter* m_pfilter;
@@ -332,7 +327,6 @@ namespace net_utils
 
     /// The next connection to be accepted
     connection_ptr new_connection_;
-    connection_ptr new_connection_v6;
 
     boost::mutex connections_mutex;
     std::set<connection_ptr> connections_;

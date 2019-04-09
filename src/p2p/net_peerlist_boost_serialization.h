@@ -60,9 +60,6 @@ namespace boost
         case epee::net_utils::ipv4_network_address::ID:
 	  do_serialize(a, na, epee::net_utils::ipv4_network_address{0, 0});
 	  break; 
-        case epee::net_utils::ipv6_network_address::ID:
-	  do_serialize(a, na, epee::net_utils::ipv6_network_address{"", 0});
-	  break; 
         default:
           throw std::runtime_error("Unsupported network address type");
       }
@@ -76,17 +73,6 @@ namespace boost
       a & port;
       if (!typename Archive::is_saving())
         na = epee::net_utils::ipv4_network_address{ip, port};
-    }
-
-    template <class Archive, class ver_type>
-    inline void serialize(Archive &a, epee::net_utils::ipv6_network_address& na, const ver_type ver)
-    {
-      std::string ip{na.ip()};
-      uint16_t port{na.port()};
-      a & ip;
-      a & port;
-      if (!typename Archive::is_saving())
-        na = epee::net_utils::ipv6_network_address{ip, port};
     }
 
     template <class Archive, class ver_type>

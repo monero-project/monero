@@ -197,42 +197,6 @@ POP_WARNINGS
     return true;
   }
 
-  inline bool parse_ipv6_peer_from_string(std::string& ip, uint16_t& port, const std::string& address)
-  {
-    //parse ip and address
-
-    size_t last_colon_position = 0;
-
-    if (address.find("::") == std::string::npos) return false;
-
-    last_colon_position = address.find_last_of(':');
-
-    if (address[last_colon_position - 1] == ':')
-    {
-      ip = address;
-      port = 0;
-      return true;
-    }
-
-    std::string ip_str, port_str;
-    if(last_colon_position == std::string::npos || last_colon_position == (address.size() - 1))
-    {
-      return false;
-    }
-    else
-    {
-      ip = address.substr(0, last_colon_position);
-      port_str = address.substr(last_colon_position + 1, address.size());
-      if (port_str.size() == 0) return false;
-    }
-
-    if(!get_xtype_from_string(port, port_str))
-    {
-      return false;
-    }
-    return true;
-  }
-
 	inline std::string num_to_string_fast(int64_t val)
 	{
 		/*

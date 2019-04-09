@@ -136,120 +136,53 @@ namespace net_utils
 				//////////////////////////////////////////////////////////////////////////
 
 				boost::asio::ip::tcp::resolver resolver(m_io_service);
-
-				boost::asio::ip::tcp::resolver::iterator iterator;
+				boost::asio::ip::tcp::resolver::query query(boost::asio::ip::tcp::v4(), addr, port, boost::asio::ip::tcp::resolver::query::canonical_name);
+				boost::asio::ip::tcp::resolver::iterator iterator = resolver.resolve(query);
 				boost::asio::ip::tcp::resolver::iterator end;
-
-				boost::asio::ip::tcp::resolver::query query6(boost::asio::ip::tcp::v4(), addr, port, boost::asio::ip::tcp::resolver::query::canonical_name);
-
-				boost::system::error_code resolve_error;
-
-				try
+				if(iterator == end)
 				{
-				  iterator = resolver.resolve(query6, resolve_error);
+					LOG_ERROR("Failed to resolve " << addr);
+					return false;
 				}
-				//resolving ipv4 address as ipv6 throws, catch here and move on
-				catch (const boost::system::system_error& e)
-				{
-				  if (resolve_error != boost::asio::error::host_not_found &&
-				      resolve_error != boost::asio::error::host_not_found_try_again)
-				  {
-				    throw;
-				  }
+
+				//////////////////////////////////////////////////////////////////////////
+
+				//boost::asio::ip::tcp::endpoint remote_endpoint(boost::asio::ip::address::from_string(addr.c_str()), port);
+				boost::asio::ip::tcp::endpoint remote_endpoint(*iterator);
+
+				m_ssl_socket.next_layer().open(remote_endpoint.protocol());
+				if(bind_ip != "0.0.0.0" && bind_ip != "0" && bind_ip != "" )
+        {
+					boost::asio::ip::tcp::endpoint local_endpoint(boost::asio::ip::address::from_string(addr.c_str()), 0);
+					m_ssl_socket.next_layer().bind(local_endpoint);
 				}
-				catch (...)
-				{
-				  throw;
-				}
+
+				m_deadline.expires_from_now(timeout);
 
 				boost::system::error_code ec = boost::asio::error::would_block;
-
-				if (iterator != end)
-				{
-				  boost::asio::ip::tcp::endpoint remote_endpoint(*iterator);
-				  m_ssl_socket.next_layer().open(remote_endpoint.protocol());
-
-				  if(bind_ip != "0.0.0.0" && bind_ip != "0" && bind_ip != "" )
-				  {
-				    boost::asio::ip::tcp::endpoint local_endpoint(boost::asio::ip::address::from_string(addr.c_str()), 0);
-				    m_ssl_socket.next_layer().bind(local_endpoint);
-				  }
-
-				  m_deadline.expires_from_now(timeout);
-				  m_ssl_socket.next_layer().async_connect(remote_endpoint, boost::lambda::var(ec) = boost::lambda::_1);
-				  while (ec == boost::asio::error::would_block)
-				  {	
-				    m_io_service.run_one(); 
-				  }
-				  
-				  if (!ec && m_ssl_socket.next_layer().is_open())
-				  {
-				    m_connected = true;
-				    m_deadline.expires_at(std::chrono::steady_clock::time_point::max());
-				  }
-				  else
-				  {
-				    MWARNING("Some problems at connect, message: " << ec.message());
-				  }
-				}
-				else
-				{
-				  MWARNING("Failed to resolve (IPv4) " << addr);
+				m_ssl_socket.next_layer().async_connect(remote_endpoint, boost::lambda::var(ec) = boost::lambda::_1);
+				while (ec == boost::asio::error::would_block)
+				{	
+					m_io_service.run_one(); 
 				}
 
-				if (!m_connected)
+				if (!ec && m_ssl_socket.next_layer().is_open())
+ 				{
+					m_connected = true;
+					m_deadline.expires_at(std::chrono::steady_clock::time_point::max());
+					// SSL Options
+					if(m_ssl) {
+						// Disable verification of host certificate
+						m_ssl_socket.set_verify_mode(boost::asio::ssl::verify_peer);
+						// Handshake
+						m_ssl_socket.next_layer().set_option(boost::asio::ip::tcp::no_delay(true));
+						m_ssl_socket.handshake(boost::asio::ssl::stream_base::client);
+					}
+					return true;
+        }else
 				{
-				  if (m_ssl_socket.next_layer().is_open())
-				  {
-				    m_ssl_socket.next_layer().close();
-				  }
-
-				  boost::asio::ip::tcp::resolver::query query(boost::asio::ip::tcp::v6(), addr, port, boost::asio::ip::tcp::resolver::query::canonical_name);
-				  iterator = resolver.resolve(query);
-
-				  if (iterator != end)
-				  {
-
-				    boost::asio::ip::tcp::endpoint remote_endpoint(*iterator);
-				    m_ssl_socket.next_layer().open(remote_endpoint.protocol());
-
-				    m_ssl_socket.next_layer().async_connect(remote_endpoint, boost::lambda::var(ec) = boost::lambda::_1);
-				    while (ec == boost::asio::error::would_block)
-				    {	
-				      m_io_service.run_one(); 
-				    }
-
-				    if (!ec && m_ssl_socket.next_layer().is_open())
-				    {
-				      m_connected = true;
-				      m_deadline.expires_at(std::chrono::steady_clock::time_point::max());
-				    }
-				    else
-				    {
-				      MWARNING("Some problems at connect, message: " << ec.message());
-				    }
-				  }
-				  else
-				  {
-				    MWARNING("Failed to resolve (IPv6) " << addr);
-				  }
-				}
-
-				if (m_connected)
-				{
-				  // SSL Options
-				  if(m_ssl) {
-				    // Disable verification of host certificate
-				    m_ssl_socket.set_verify_mode(boost::asio::ssl::verify_peer);
-				    // Handshake
-				    m_ssl_socket.next_layer().set_option(boost::asio::ip::tcp::no_delay(true));
-				    m_ssl_socket.handshake(boost::asio::ssl::stream_base::client);
-				  }
-				  return true;
-				}
-				else
-				{
-				  return false;
+					MWARNING("Some problems at connect, message: " << ec.message());
+					return false;
 				}
 
 			}

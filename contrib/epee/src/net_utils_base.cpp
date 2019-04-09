@@ -24,22 +24,6 @@ namespace epee { namespace net_utils
 	bool ipv4_network_address::is_local() const { return net_utils::is_ip_local(ip()); }
 
 
-	const uint8_t ipv6_network_address::ID;
-
-	bool ipv6_network_address::equal(const ipv6_network_address& other) const noexcept
-	{ return is_same_host(other) && port() == other.port(); }
-
-	bool ipv6_network_address::less(const ipv6_network_address& other) const noexcept
-	{ return is_same_host(other) ? port() < other.port() : ip() < other.ip(); }
-
-	std::string ipv6_network_address::str() const
-	{ return ip() + ":" + std::to_string(port()); }
-
-	std::string ipv6_network_address::host_str() const { return ip(); }
-	bool ipv6_network_address::is_loopback() const { return net_utils::is_ipv6_loopback(ip()); }
-	bool ipv6_network_address::is_local() const { return net_utils::is_ipv6_local(ip()); }
-
-
 	bool network_address::equal(const network_address& other) const
 	{
 		// clang typeid workaround
@@ -78,19 +62,11 @@ namespace epee { namespace net_utils
 	{
 		uint32_t ip;
 		uint16_t port;
-		std::string ipv6_ip;
 		if (epee::string_tools::parse_peer_from_string(ip, port, string))
 		{
 			if (default_port && !port)
 				port = default_port;
 			address = ipv4_network_address{ip, port};
-			return true;
-		}
-		else if (epee::string_tools::parse_ipv6_peer_from_string(ipv6_ip, port, string))
-		{
-			if (default_port && !port)
-				port = default_port;
-			address = ipv6_network_address{ipv6_ip, port};
 			return true;
 		}
 		return false;
