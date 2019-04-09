@@ -483,7 +483,6 @@ See [README.i18n.md](README.i18n.md).
 
 ## Using Tor
 
-While Loki isn't made to integrate with Tor, it can be used wrapped with torsocks, by
 > There is a new, still experimental, [integration with Tor](ANONYMITY_NETWORKS.md). The
 > feature allows connecting over IPv4 and Tor simulatenously - IPv4 is used for
 > relaying blocks and relaying transactions received by peers whereas Tor is
