@@ -9,7 +9,6 @@ import math
 
 MEDIAN_WINDOW_SMALL = 100 # number of recent blocks for median computation
 MEDIAN_WINDOW_BIG = 5000
-MULTIPLIER_SMALL = 1.4 # multipliers for determining weights
 MULTIPLIER_BIG = 50.0
 MEDIAN_THRESHOLD = 300*1000 # initial value for median (scaled kB -> B)
 lcg_seed = 0
