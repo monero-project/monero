@@ -46,7 +46,7 @@ namespace
 
 class TestDB: public cryptonote::BaseTestDB {
 public:
-  virtual uint64_t height() const { return blocks.size(); }
+  virtual uint64_t height() const override { return blocks.size(); }
   virtual void add_block( const block& blk
                         , size_t block_weight
                         , uint64_t long_term_block_weight
@@ -54,19 +54,19 @@ public:
                         , const uint64_t& coins_generated
                         , uint64_t num_rct_outs
                         , const crypto::hash& blk_hash
-                        ) {
+                        ) override {
     blocks.push_back(blk);
   }
-  virtual void remove_block() { blocks.pop_back(); }
-  virtual block get_block_from_height(const uint64_t& height) const {
+  virtual void remove_block() override { blocks.pop_back(); }
+  virtual block get_block_from_height(const uint64_t& height) const override {
     return blocks.at(height);
   }
-  virtual void set_hard_fork_version(uint64_t height, uint8_t version) {
+  virtual void set_hard_fork_version(uint64_t height, uint8_t version) override {
     if (versions.size() <= height) 
       versions.resize(height+1); 
     versions[height] = version;
   }
-  virtual uint8_t get_hard_fork_version(uint64_t height) const {
+  virtual uint8_t get_hard_fork_version(uint64_t height) const override {
     return versions.at(height);
   }
 
