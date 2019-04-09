@@ -56,6 +56,11 @@ namespace cryptonote
     static const command_line::arg_descriptor<std::string, false, true, 2> arg_rpc_bind_port;
     static const command_line::arg_descriptor<std::string> arg_rpc_restricted_bind_port;
     static const command_line::arg_descriptor<bool> arg_restricted_rpc;
+    static const command_line::arg_descriptor<std::string> arg_rpc_ssl;
+    static const command_line::arg_descriptor<std::string> arg_rpc_ssl_private_key;
+    static const command_line::arg_descriptor<std::string> arg_rpc_ssl_certificate;
+    static const command_line::arg_descriptor<std::vector<std::string>> arg_rpc_ssl_allowed_certificates;
+    static const command_line::arg_descriptor<bool> arg_rpc_ssl_allow_any_cert;
     static const command_line::arg_descriptor<std::string> arg_bootstrap_daemon_address;
     static const command_line::arg_descriptor<std::string> arg_bootstrap_daemon_login;
 
