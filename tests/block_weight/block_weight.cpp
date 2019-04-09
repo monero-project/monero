@@ -175,8 +175,6 @@ static void test(test_t t, uint64_t blocks)
 
 int main()
 {
-  mlog_configure("", false);
-  mlog_set_categories("");
   test(test_max, 2 * LONG_TERM_BLOCK_WEIGHT_WINDOW);
   test(test_lcg, 9 * LONG_TERM_BLOCK_WEIGHT_WINDOW);
   test(test_min, 1 * LONG_TERM_BLOCK_WEIGHT_WINDOW);

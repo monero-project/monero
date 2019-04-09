@@ -33,7 +33,7 @@
 #include "cryptonote_core/cryptonote_core.h"
 #include "cryptonote_core/tx_pool.h"
 #include "cryptonote_core/blockchain.h"
-#include "testdb.h"
+#include "blockchain_db/testdb.h"
 
 #include "blockchain_utilities/blockchain_objects.h"
 #include "cryptonote_core/service_node_list.h"
@@ -47,7 +47,7 @@ static const size_t test_distribution_size = sizeof(test_distribution) / sizeof(
 namespace
 {
 
-class TestDB: public BaseTestDB
+class TestDB: public cryptonote::BaseTestDB
 {
 public:
   TestDB(size_t bc_height = test_distribution_size): blockchain_height(bc_height) { m_open = true; }

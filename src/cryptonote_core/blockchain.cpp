@@ -675,7 +675,6 @@ block Blockchain::pop_block_from_blockchain()
   m_check_txin_table.clear();
 
   CHECK_AND_ASSERT_THROW_MES(update_next_cumulative_weight_limit(), "Error updating next cumulative weight limit");
-
   m_tx_pool.on_blockchain_dec(m_db->height()-1, get_tail_id());
   invalidate_block_template_cache();
 

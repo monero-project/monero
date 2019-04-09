@@ -30,7 +30,6 @@
 
 #include <boost/filesystem.hpp>
 #include <boost/format.hpp>
-#include <boost/current_function.hpp>
 #include <boost/circular_buffer.hpp>
 #include <memory>  // std::unique_ptr
 #include <cstring>  // memcpy
@@ -4980,7 +4979,6 @@ void BlockchainLMDB::migrate_3_4()
   char *ptr;
   bool past_long_term_weight = false;
 
-
   do {
     LOG_PRINT_L1("migrating block info:");
 
@@ -5141,7 +5139,7 @@ void BlockchainLMDB::migrate(const uint32_t oldversion)
   case 3:
     migrate_3_4(); /* FALLTHRU */
   default:
-    ;
+    break;
   }
 }
 
