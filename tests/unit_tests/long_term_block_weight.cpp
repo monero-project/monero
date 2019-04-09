@@ -198,9 +198,10 @@ TEST(long_term_block_weight, multi_pop)
   const uint64_t effective_median = bc->get_current_cumulative_block_weight_median();
   const uint64_t effective_limit = bc->get_current_cumulative_block_weight_limit();
 
-  for (uint64_t h = 0; h < 4; ++h)
+  const uint64_t num_pop = 4;
+  for (uint64_t h = 0; h < num_pop; ++h)
   {
-    size_t w = h < TEST_LONG_TERM_BLOCK_WEIGHT_WINDOW ? CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V5 : bc->get_current_cumulative_block_weight_limit();
+    size_t w = bc->get_current_cumulative_block_weight_limit();
     uint64_t ltw = bc->get_next_long_term_block_weight(w);
     bc->get_db().add_block(std::make_pair(cryptonote::block(), ""), w, ltw, h, h, {});
     ASSERT_TRUE(bc->update_next_cumulative_weight_limit());
@@ -208,10 +209,8 @@ TEST(long_term_block_weight, multi_pop)
 
   cryptonote::block b;
   std::vector<cryptonote::transaction> txs;
-  bc->get_db().pop_block(b, txs);
-  bc->get_db().pop_block(b, txs);
-  bc->get_db().pop_block(b, txs);
-  bc->get_db().pop_block(b, txs);
+  for (uint64_t h = 0; h < num_pop; ++h)
+    bc->get_db().pop_block(b, txs);
   ASSERT_TRUE(bc->update_next_cumulative_weight_limit());
 
   ASSERT_EQ(effective_median, bc->get_current_cumulative_block_weight_median());
@@ -294,9 +293,11 @@ TEST(long_term_block_weight, pop_invariant_random)
 {
   PREFIX(10);
 
-  for (uint64_t h = 1; h < TEST_LONG_TERM_BLOCK_WEIGHT_WINDOW - 10; ++h)
+  for (uint64_t h = 1; h < 2 * TEST_LONG_TERM_BLOCK_WEIGHT_WINDOW - 10; ++h)
   {
-    size_t w = bc->get_db().height() < TEST_LONG_TERM_BLOCK_WEIGHT_WINDOW ? CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V5 : bc->get_current_cumulative_block_weight_limit();
+    lcg_seed = bc->get_db().height();
+    uint32_t r = lcg();
+    size_t w = bc->get_db().height() < TEST_LONG_TERM_BLOCK_WEIGHT_WINDOW ? CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V5 : (r % bc->get_current_cumulative_block_weight_limit());
     uint64_t ltw = bc->get_next_long_term_block_weight(w);
     bc->get_db().add_block(std::make_pair(cryptonote::block(), ""), w, ltw, h, h, {});
     ASSERT_TRUE(bc->update_next_cumulative_weight_limit());
