@@ -41,6 +41,7 @@
 #include <boost/noncopyable.hpp>
 #include <boost/shared_ptr.hpp>
 #include <atomic>
+#include <cassert>
 #include <map>
 #include <memory>
 
@@ -87,14 +88,25 @@ namespace net_utils
   {
   public:
     typedef typename t_protocol_handler::connection_context t_connection_context;
+
+    struct shared_state : socket_stats
+    {
+      shared_state()
+        : socket_stats(), pfilter(nullptr), config()
+      {}
+
+      i_connection_filter* pfilter;
+      typename t_protocol_handler::config_type config;
+    };
+
     /// Construct a connection with the given io_service.
-   
     explicit connection( boost::asio::io_service& io_service,
-			typename t_protocol_handler::config_type& config, 
-			std::atomic<long> &ref_sock_count,  // the ++/-- counter 
-			std::atomic<long> &sock_number, // the only increasing ++ number generator
-			i_connection_filter * &pfilter
-			,t_connection_type connection_type);
+                        boost::shared_ptr<shared_state> state,
+			t_connection_type connection_type);
+
+    explicit connection( boost::asio::ip::tcp::socket&& sock,
+                        boost::shared_ptr<shared_state> state,
+			t_connection_type connection_type);
 
     virtual ~connection() noexcept(false);
     /// Get the socket associated with the connection.
@@ -102,6 +114,9 @@ namespace net_utils
 
     /// Start the first asynchronous operation for the connection.
     bool start(bool is_income, bool is_multithreaded);
+
+    // `real_remote` is the actual endpoint (if connection is to proxy, etc.)
+    bool start(bool is_income, bool is_multithreaded, network_address real_remote);
 
     void get_context(t_connection_context& context_){context_ = context;}
 
@@ -148,7 +163,6 @@ namespace net_utils
     //boost::array<char, 1024> buffer_;
 
     t_connection_context context;
-    i_connection_filter* &m_pfilter;
 
 	// TODO what do they mean about wait on destructor?? --rfree :
     //this should be the last one, because it could be wait on destructor, while other activities possible on other threads
@@ -210,7 +224,9 @@ namespace net_utils
     /// Stop the server.
     void send_stop_signal();
 
-    bool is_stop_signal_sent();
+    bool is_stop_signal_sent() const noexcept { return m_stop_signal_sent; };
+
+    const std::atomic<bool>& get_stop_signal() const noexcept { return m_stop_signal_sent; }
 
     void set_threads_prefix(const std::string& prefix_name);
 
@@ -220,17 +236,28 @@ namespace net_utils
 
     void set_connection_filter(i_connection_filter* pfilter);
 
+    void set_default_remote(epee::net_utils::network_address remote)
+    {
+      default_remote = std::move(remote);
+    }
+
+    bool add_connection(t_connection_context& out, boost::asio::ip::tcp::socket&& sock, network_address real_remote);
     bool connect(const std::string& adr, const std::string& port, uint32_t conn_timeot, t_connection_context& cn, const std::string& bind_ip = "0.0.0.0");
     template<class t_callback>
     bool connect_async(const std::string& adr, const std::string& port, uint32_t conn_timeot, const t_callback &cb, const std::string& bind_ip = "0.0.0.0");
 
-    typename t_protocol_handler::config_type& get_config_object(){return m_config;}
+    typename t_protocol_handler::config_type& get_config_object()
+    {
+      assert(m_state != nullptr); // always set in constructor
+      return m_state->config;
+    }
 
     int get_binded_port(){return m_port;}
 
     long get_connections_count() const
     {
-      auto connections_count = (m_sock_count > 0) ? (m_sock_count - 1) : 0; // Socket count minus listening socket
+      assert(m_state != nullptr); // always set in constructor
+      auto connections_count = m_state->sock_count > 0 ? (m_state->sock_count - 1) : 0; // Socket count minus listening socket
       return connections_count;
     }
 
@@ -292,9 +319,6 @@ namespace net_utils
       return true;
     }
 
-  protected:
-    typename t_protocol_handler::config_type m_config;
-
   private:
     /// Run the server's io_service loop.
     bool worker_thread();
@@ -303,21 +327,21 @@ namespace net_utils
 
     bool is_thread_worker();
 
+    const boost::shared_ptr<typename connection<t_protocol_handler>::shared_state> m_state;
+
     /// The io_service used to perform asynchronous operations.
     std::unique_ptr<boost::asio::io_service> m_io_service_local_instance;
     boost::asio::io_service& io_service_;    
 
     /// Acceptor used to listen for incoming connections.
     boost::asio::ip::tcp::acceptor acceptor_;
+    epee::net_utils::network_address default_remote;
 
     std::atomic<bool> m_stop_signal_sent;
     uint32_t m_port;
-	std::atomic<long> m_sock_count;
-	std::atomic<long> m_sock_number;
     std::string m_address;
     std::string m_thread_name_prefix; //TODO: change to enum server_type, now used
     size_t m_threads_count;
-    i_connection_filter* m_pfilter;
     std::vector<boost::shared_ptr<boost::thread> > m_threads;
     boost::thread::id m_main_thread_id;
     critical_section m_threads_lock;
