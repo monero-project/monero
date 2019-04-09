@@ -1,9 +1,16 @@
 # Set the system name, either Darwin, Linux, or Windows
 SET(CMAKE_SYSTEM_NAME @depends@)
-SET(CMAKE_BUILD_TYPE release)
+SET(CMAKE_BUILD_TYPE @release_type@)
 
-SET(STATIC true)
-SET(UNBOUND_STATIC true)
+OPTION(STATIC "Link libraries statically" ON)
+OPTION(TREZOR_DEBUG "Main trezor debugging switch" OFF)
+OPTION(BUILD_TESTS "Build tests." OFF)
+
+SET(STATIC ON)
+SET(UNBOUND_STATIC ON)
+
+SET(BUILD_TESTS @build_tests@)
+SET(TREZOR_DEBUG @build_tests@)
 
 # where is the target environment 
 SET(CMAKE_FIND_ROOT_PATH @prefix@ /usr)
