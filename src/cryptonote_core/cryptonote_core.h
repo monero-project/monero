@@ -49,7 +49,6 @@
 #include "cryptonote_basic/cryptonote_stat_info.h"
 #include "warnings.h"
 #include "crypto/hash.h"
-
 PUSH_WARNINGS
 DISABLE_VS_WARNINGS(4355)
 
@@ -910,6 +909,13 @@ namespace cryptonote
       */
      bool check_blockchain_pruning();
 
+     /**
+      * @brief attempt to relay the pooled deregister votes
+      *
+      * @return true, necessary for binding this function to a periodic invoker
+      */
+     bool relay_deregister_votes();
+
    private:
 
      /**
@@ -1065,13 +1071,6 @@ namespace cryptonote
       * @return true
       */
      bool relay_txpool_transactions();
-
-     /**
-      * @brief attempt to relay the pooled deregister votes
-      *
-      * @return true, necessary for binding this function to a periodic invoker
-      */
-     bool relay_deregister_votes();
 
      /**
       * @brief checks DNS versions

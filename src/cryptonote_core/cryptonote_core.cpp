@@ -352,9 +352,9 @@ namespace cryptonote
       const bool testnet = command_line::get_arg(vm, arg_testnet_on);
       const bool stagenet = command_line::get_arg(vm, arg_stagenet_on);
       m_nettype = testnet ? TESTNET : stagenet ? STAGENET : MAINNET;
-      m_deregister_vote_pool.m_nettype = m_nettype;
     }
 
+    m_deregister_vote_pool.m_nettype = m_nettype;
     m_config_folder = command_line::get_arg(vm, arg_data_dir);
 
     auto data_dir = boost::filesystem::path(m_config_folder);
