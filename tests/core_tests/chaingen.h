@@ -718,7 +718,7 @@ public:
       blk = cryptonote::block();
     }
     bool r = check_block_verification_context(bvc, m_ev_index, blk, m_validator);
-    CHECK_AND_NO_ASSERT_MES(r, false, "block verification context check failed");
+    CHECK_AND_NO_ASSERT_MES(r, false, "serialized block verification context check failed");
     return true;
   }
 
