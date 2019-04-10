@@ -446,38 +446,21 @@ namespace wallet_rpc
   // Returns the wallet's current block height.
   struct COMMAND_RPC_GET_HEIGHT
   {
-    struct request
+    struct request_t
     {
       BEGIN_KV_SERIALIZE_MAP()
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response
+    struct response_t
     {
-<<<<<<< HEAD
       uint64_t  height; // The current wallet's blockchain height. If the wallet has been offline for a long time, it may need to catch up with the daemon.
-
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(height)
       END_KV_SERIALIZE_MAP()
-=======
-      struct request_t
-      {
-        BEGIN_KV_SERIALIZE_MAP()
-        END_KV_SERIALIZE_MAP()
-      };
-      typedef epee::misc_utils::struct_init<request_t> request;
-
-      struct response_t
-      {
-        uint64_t  height;
-        BEGIN_KV_SERIALIZE_MAP()
-          KV_SERIALIZE(height)
-        END_KV_SERIALIZE_MAP()
-      };
-      typedef epee::misc_utils::struct_init<response_t> response;
->>>>>>> 5fb4a9719cb799ae59e04cda0a3d760be969d7e8
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   struct transfer_destination
@@ -2171,14 +2154,9 @@ namespace wallet_rpc
         KV_SERIALIZE(language)
       END_KV_SERIALIZE_MAP()
     };
-<<<<<<< HEAD
-
-    struct response
-=======
     typedef epee::misc_utils::struct_init<request_t> request;
 
     struct response_t
->>>>>>> 5fb4a9719cb799ae59e04cda0a3d760be969d7e8
     {
       BEGIN_KV_SERIALIZE_MAP()
       END_KV_SERIALIZE_MAP()
@@ -2202,14 +2180,9 @@ namespace wallet_rpc
         KV_SERIALIZE(password)
       END_KV_SERIALIZE_MAP()
     };
-<<<<<<< HEAD
-
-    struct response
-=======
     typedef epee::misc_utils::struct_init<request_t> request;
 
     struct response_t
->>>>>>> 5fb4a9719cb799ae59e04cda0a3d760be969d7e8
     {
       BEGIN_KV_SERIALIZE_MAP()
       END_KV_SERIALIZE_MAP()
@@ -2250,14 +2223,9 @@ namespace wallet_rpc
         KV_SERIALIZE(new_password)
       END_KV_SERIALIZE_MAP()
     };
-<<<<<<< HEAD
-
-    struct response
-=======
     typedef epee::misc_utils::struct_init<request_t> request;
 
     struct response_t
->>>>>>> 5fb4a9719cb799ae59e04cda0a3d760be969d7e8
     {
       BEGIN_KV_SERIALIZE_MAP()
       END_KV_SERIALIZE_MAP()
@@ -2568,7 +2536,7 @@ namespace wallet_rpc
   // Stake for Service Node.
   struct COMMAND_RPC_STAKE
   {
-    struct request
+    struct request_t
     {
       std::string        destination;      // Primary Public address that the rewards will go to.
       uint64_t           amount;           // Amount of Loki to stake in atomic units.
@@ -2592,8 +2560,9 @@ namespace wallet_rpc
         KV_SERIALIZE_OPT(get_tx_metadata, false)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response
+    struct response_t
     {
       std::string tx_hash;        // Publically searchable transaction hash.
       std::string tx_key;         // Transaction key if `get_tx_key` is `true`, otherwise, blank string.
@@ -2615,13 +2584,14 @@ namespace wallet_rpc
         KV_SERIALIZE(unsigned_txset)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
   // Register Service Node.
   struct COMMAND_RPC_REGISTER_SERVICE_NODE
   {
-    struct request
+    struct request_t
     {
       std::string register_service_node_str; // String supplied by the prepare_registration command.
       bool        get_tx_key;                // (Optional) Return the transaction key after sending.
@@ -2637,8 +2607,9 @@ namespace wallet_rpc
         KV_SERIALIZE_OPT(get_tx_metadata, false)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response
+    struct response_t
     {
       std::string tx_hash;        // Publically searchable transaction hash.
       std::string tx_key;         // Transaction key if get_tx_key is true, otherwise, blank string.
@@ -2660,13 +2631,14 @@ namespace wallet_rpc
         KV_SERIALIZE(unsigned_txset)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
   // Request to unlock stake by deregistering Service Node.
   struct COMMAND_RPC_REQUEST_STAKE_UNLOCK
   {
-    struct request
+    struct request_t
     {
       std::string service_node_key; // Service Node Public Key.
 
@@ -2674,8 +2646,9 @@ namespace wallet_rpc
         KV_SERIALIZE(service_node_key);
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response
+    struct response_t
     {
       bool unlocked;   // States if stake has been unlocked.
       std::string msg; // Information on the unlocking process.
@@ -2685,13 +2658,14 @@ namespace wallet_rpc
         KV_SERIALIZE(msg)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
   
   LOKI_RPC_DOC_INTROSPECT
   // Check if Service Node can unlock it's stake.
   struct COMMAND_RPC_CAN_REQUEST_STAKE_UNLOCK
   {
-    struct request
+    struct request_t
     {
       std::string service_node_key; // Service node public address.
 
@@ -2699,8 +2673,9 @@ namespace wallet_rpc
         KV_SERIALIZE(service_node_key);
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response
+    struct response_t
     {
       bool can_unlock; // States if the stake can be locked.
       std::string msg; // Information on the unlocking process.
@@ -2710,13 +2685,14 @@ namespace wallet_rpc
         KV_SERIALIZE(msg)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
   
   LOKI_RPC_DOC_INTROSPECT
   // Parse an address to validate if it's a valid Loki address.
   struct COMMAND_RPC_VALIDATE_ADDRESS
   {
-    struct request
+    struct request_t
     {
       std::string address;  // Address to check.
       bool any_net_type;    // 
@@ -2728,10 +2704,9 @@ namespace wallet_rpc
         KV_SERIALIZE_OPT(allow_openalias, false)
       END_KV_SERIALIZE_MAP()
     };
-    // TODO(doyle): FIXME(loki): When the associated commit from upstream Monero is merged
-    // typedef epee::misc_utils::struct_init<request_t> request;
+    typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response
+    struct response_t
     {
       bool valid;                    // States if it is a valid Loki address.
       bool integrated;               // States if it is an integrated address.
@@ -2747,7 +2722,7 @@ namespace wallet_rpc
         KV_SERIALIZE(openalias_address)
       END_KV_SERIALIZE_MAP()
     };
-    // typedef epee::misc_utils::struct_init<response_t> response;
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 }
 }
