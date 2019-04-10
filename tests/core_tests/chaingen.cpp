@@ -1146,3 +1146,21 @@ bool test_chain_unit_base::verify(const std::string& cb_name, cryptonote::core& 
   }
   return cb_it->second(c, ev_index, events);
 }
+
+bool test_chain_unit_base::check_block_verification_context(const cryptonote::block_verification_context& bvc, size_t event_idx, const cryptonote::block& /*blk*/)
+{
+  return !bvc.m_verifivation_failed;
+}
+
+bool test_chain_unit_base::check_tx_verification_context(const cryptonote::tx_verification_context& tvc, bool /*tx_added*/, size_t /*event_index*/, const cryptonote::transaction& /*tx*/)
+{
+  return !tvc.m_verifivation_failed;
+}
+
+bool test_chain_unit_base::check_tx_verification_context_array(const std::vector<cryptonote::tx_verification_context>& tvcs, size_t /*tx_added*/, size_t /*event_index*/, const std::vector<cryptonote::transaction>& /*txs*/)
+{
+  for (const cryptonote::tx_verification_context &tvc: tvcs)
+    if (tvc.m_verifivation_failed)
+      return false;
+  return true;
+}
