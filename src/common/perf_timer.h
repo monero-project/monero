@@ -54,6 +54,7 @@ public:
   void resume();
   void reset();
   uint64_t value() const;
+  operator uint64_t() const { return value(); }
 
 protected:
   uint64_t ticks;
