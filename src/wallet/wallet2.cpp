@@ -40,6 +40,7 @@
 #include <boost/asio/ip/address.hpp>
 #include <boost/range/adaptor/transformed.hpp>
 #include <boost/preprocessor/stringize.hpp>
+#include <openssl/evp.h>
 #include "include_base_utils.h"
 using namespace epee;
 
@@ -137,6 +138,8 @@ using namespace cryptonote;
 
 static const std::string MULTISIG_SIGNATURE_MAGIC = "SigMultisigPkV1";
 static const std::string MULTISIG_EXTRA_INFO_MAGIC = "MultisigxV1";
+
+static const std::string ASCII_OUTPUT_MAGIC = "MoneroAsciiDataV1";
 
 namespace
 {
@@ -1143,7 +1146,8 @@ wallet2::wallet2(network_type nettype, uint64_t kdf_rounds, bool unattended):
   m_device_last_key_image_sync(0),
   m_use_dns(true),
   m_offline(false),
-  m_rpc_version(0)
+  m_rpc_version(0),
+  m_export_format(ExportFormat::Binary)
 {
 }
 
@@ -3647,6 +3651,9 @@ bool wallet2::store_keys(const std::string& keys_file_name, const epee::wipeable
   value2.SetInt(m_original_keys_available ? 1 : 0);
   json.AddMember("original_keys_available", value2, json.GetAllocator());
 
+  value2.SetInt(m_export_format);
+  json.AddMember("export_format", value2, json.GetAllocator());
+
   value2.SetUint(1);
   json.AddMember("encrypted_secret_keys", value2, json.GetAllocator());
 
@@ -3684,7 +3691,7 @@ bool wallet2::store_keys(const std::string& keys_file_name, const epee::wipeable
   std::string tmp_file_name = keys_file_name + ".new";
   std::string buf;
   r = ::serialization::dump_binary(keys_file_data, buf);
-  r = r && epee::file_io_utils::save_string_to_file(tmp_file_name, buf);
+  r = r && save_to_file(tmp_file_name, buf);
   CHECK_AND_ASSERT_MES(r, false, "failed to generate wallet keys file " << tmp_file_name);
 
   unlock_keys_file();
@@ -3741,7 +3748,7 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
   wallet2::keys_file_data keys_file_data;
   std::string buf;
   bool encrypted_secret_keys = false;
-  bool r = epee::file_io_utils::load_file_to_string(keys_file_name, buf);
+  bool r = load_from_file(keys_file_name, buf);
   THROW_WALLET_EXCEPTION_IF(!r, error::file_read_error, keys_file_name);
 
   // Decrypt the contents
@@ -3754,7 +3761,6 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
   crypto::chacha20(keys_file_data.account_data.data(), keys_file_data.account_data.size(), key, keys_file_data.iv, &account_data[0]);
   if (json.Parse(account_data.c_str()).HasParseError() || !json.IsObject())
     crypto::chacha8(keys_file_data.account_data.data(), keys_file_data.account_data.size(), key, keys_file_data.iv, &account_data[0]);
-
   // The contents should be JSON if the wallet follows the new format.
   if (json.Parse(account_data.c_str()).HasParseError())
   {
@@ -3793,6 +3799,7 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
     m_subaddress_lookahead_major = SUBADDRESS_LOOKAHEAD_MAJOR;
     m_subaddress_lookahead_minor = SUBADDRESS_LOOKAHEAD_MINOR;
     m_original_keys_available = false;
+    m_export_format = ExportFormat::Binary;
     m_device_name = "";
     m_device_derivation_path = "";
     m_key_device_type = hw::device::device_type::SOFTWARE;
@@ -3954,6 +3961,9 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, encrypted_secret_keys, uint32_t, Uint, false, false);
     encrypted_secret_keys = field_encrypted_secret_keys;
 
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, export_format, ExportFormat, Int, false, Binary);
+    m_export_format = field_export_format;
+
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, device_name, std::string, String, false, std::string());
     if (m_device_name.empty())
     {
@@ -4101,7 +4111,7 @@ bool wallet2::verify_password(const std::string& keys_file_name, const epee::wip
   wallet2::keys_file_data keys_file_data;
   std::string buf;
   bool encrypted_secret_keys = false;
-  bool r = epee::file_io_utils::load_file_to_string(keys_file_name, buf);
+  bool r = load_from_file(keys_file_name, buf);
   THROW_WALLET_EXCEPTION_IF(!r, error::file_read_error, keys_file_name);
 
   // Decrypt the contents
@@ -4186,7 +4196,7 @@ void wallet2::create_keys_file(const std::string &wallet_, bool watch_only, cons
 
     if (create_address_file)
     {
-      r = file_io_utils::save_string_to_file(m_wallet_file + ".address.txt", m_account.get_public_address_str(m_nettype));
+      r = save_to_file(m_wallet_file + ".address.txt", m_account.get_public_address_str(m_nettype), true);
       if(!r) MERROR("String with address text not saved");
     }
   }
@@ -4208,7 +4218,7 @@ bool wallet2::query_device(hw::device::device_type& device_type, const std::stri
   rapidjson::Document json;
   wallet2::keys_file_data keys_file_data;
   std::string buf;
-  bool r = epee::file_io_utils::load_file_to_string(keys_file_name, buf);
+  bool r = load_from_file(keys_file_name, buf);
   THROW_WALLET_EXCEPTION_IF(!r, error::file_read_error, keys_file_name);
 
   // Decrypt the contents
@@ -4757,7 +4767,7 @@ std::string wallet2::exchange_multisig_keys(const epee::wipeable_string &passwor
 
       if (boost::filesystem::exists(m_wallet_file + ".address.txt"))
       {
-        r = file_io_utils::save_string_to_file(m_wallet_file + ".address.txt", m_account.get_public_address_str(m_nettype));
+        r = save_to_file(m_wallet_file + ".address.txt", m_account.get_public_address_str(m_nettype), true);
         if(!r) MERROR("String with address text not saved");
       }
     }
@@ -5266,7 +5276,7 @@ void wallet2::load(const std::string& wallet_, const epee::wipeable_string& pass
   {
     wallet2::cache_file_data cache_file_data;
     std::string buf;
-    bool r = epee::file_io_utils::load_file_to_string(m_wallet_file, buf, std::numeric_limits<size_t>::max());
+    bool r = load_from_file(m_wallet_file, buf, std::numeric_limits<size_t>::max());
     THROW_WALLET_EXCEPTION_IF(!r, error::file_read_error, m_wallet_file);
 
     // try to read it as an encrypted cache
@@ -5501,7 +5511,7 @@ void wallet2::store_to(const std::string &path, const epee::wipeable_string &pas
     {
       // save address to the new file
       const std::string address_file = m_wallet_file + ".address.txt";
-      r = file_io_utils::save_string_to_file(address_file, m_account.get_public_address_str(m_nettype));
+      r = save_to_file(address_file, m_account.get_public_address_str(m_nettype), true);
       THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, m_wallet_file);
     }
     // remove old wallet file
@@ -5536,7 +5546,7 @@ void wallet2::store_to(const std::string &path, const epee::wipeable_string &pas
     binary_archive<true> oar(oss);
     bool success = ::serialization::serialize(oar, cache_file_data);
     if (success) {
-        success = epee::file_io_utils::save_string_to_file(new_file, oss.str());
+        success = save_to_file(new_file, oss.str());
     }
     THROW_WALLET_EXCEPTION_IF(!success, error::file_save_error, new_file);
 #else
@@ -6164,7 +6174,7 @@ bool wallet2::save_tx(const std::vector<pending_tx>& ptx_vector, const std::stri
   std::string ciphertext = dump_tx_to_str(ptx_vector);
   if (ciphertext.empty())
     return false;
-  return epee::file_io_utils::save_string_to_file(filename, ciphertext);
+  return save_to_file(filename, ciphertext);
 }
 //----------------------------------------------------------------------------------------------------
 std::string wallet2::dump_tx_to_str(const std::vector<pending_tx> &ptx_vector) const
@@ -6206,7 +6216,7 @@ bool wallet2::load_unsigned_tx(const std::string &unsigned_filename, unsigned_tx
     LOG_PRINT_L0("File " << unsigned_filename << " does not exist: " << errcode);
     return false;
   }
-  if (!epee::file_io_utils::load_file_to_string(unsigned_filename.c_str(), s))
+  if (!load_from_file(unsigned_filename.c_str(), s))
   {
     LOG_PRINT_L0("Failed to load from " << unsigned_filename);
     return false;
@@ -6427,7 +6437,7 @@ bool wallet2::sign_tx(unsigned_tx_set &exported_txs, const std::string &signed_f
     return false;
   }
 
-  if (!epee::file_io_utils::save_string_to_file(signed_filename, ciphertext))
+  if (!save_to_file(signed_filename, ciphertext))
   {
     LOG_PRINT_L0("Failed to save file to " << signed_filename);
     return false;
@@ -6439,7 +6449,7 @@ bool wallet2::sign_tx(unsigned_tx_set &exported_txs, const std::string &signed_f
     {
       std::string tx_as_hex = epee::string_tools::buff_to_hex_nodelimer(tx_to_blob(signed_txes.ptx[i].tx));
       std::string raw_filename = signed_filename + "_raw" + (signed_txes.ptx.size() == 1 ? "" : ("_" + std::to_string(i)));
-      if (!epee::file_io_utils::save_string_to_file(raw_filename, tx_as_hex))
+      if (!save_to_file(raw_filename, tx_as_hex))
       {
         LOG_PRINT_L0("Failed to save file to " << raw_filename);
         return false;
@@ -6487,7 +6497,7 @@ bool wallet2::load_tx(const std::string &signed_filename, std::vector<tools::wal
     return false;
   }
 
-  if (!epee::file_io_utils::load_file_to_string(signed_filename.c_str(), s))
+  if (!load_from_file(signed_filename.c_str(), s))
   {
     LOG_PRINT_L0("Failed to load from " << signed_filename);
     return false;
@@ -6618,7 +6628,7 @@ bool wallet2::save_multisig_tx(const multisig_tx_set &txs, const std::string &fi
   std::string ciphertext = save_multisig_tx(txs);
   if (ciphertext.empty())
     return false;
-  return epee::file_io_utils::save_string_to_file(filename, ciphertext);
+  return save_to_file(filename, ciphertext);
 }
 //----------------------------------------------------------------------------------------------------
 wallet2::multisig_tx_set wallet2::make_multisig_tx_set(const std::vector<pending_tx>& ptx_vector) const
@@ -6646,7 +6656,7 @@ bool wallet2::save_multisig_tx(const std::vector<pending_tx>& ptx_vector, const 
   std::string ciphertext = save_multisig_tx(ptx_vector);
   if (ciphertext.empty())
     return false;
-  return epee::file_io_utils::save_string_to_file(filename, ciphertext);
+  return save_to_file(filename, ciphertext);
 }
 //----------------------------------------------------------------------------------------------------
 bool wallet2::parse_multisig_tx_from_str(std::string multisig_tx_st, multisig_tx_set &exported_txs) const
@@ -6737,7 +6747,7 @@ bool wallet2::load_multisig_tx_from_file(const std::string &filename, multisig_t
     LOG_PRINT_L0("File " << filename << " does not exist: " << errcode);
     return false;
   }
-  if (!epee::file_io_utils::load_file_to_string(filename.c_str(), s))
+  if (!load_from_file(filename.c_str(), s))
   {
     LOG_PRINT_L0("Failed to load from " << filename);
     return false;
@@ -11633,7 +11643,7 @@ bool wallet2::export_key_images(const std::string &filename, bool all) const
   // encrypt data, keep magic plaintext
   PERF_TIMER(export_key_images_encrypt);
   std::string ciphertext = encrypt_with_view_secret_key(data);
-  return epee::file_io_utils::save_string_to_file(filename, magic + ciphertext);    
+  return save_to_file(filename, magic + ciphertext);
 }
 
 //----------------------------------------------------------------------------------------------------
@@ -11698,7 +11708,7 @@ uint64_t wallet2::import_key_images(const std::string &filename, uint64_t &spent
 {
   PERF_TIMER(import_key_images_fsu);
   std::string data;
-  bool r = epee::file_io_utils::load_file_to_string(filename, data);
+  bool r = load_from_file(filename, data);
 
   THROW_WALLET_EXCEPTION_IF(!r, error::wallet_internal_error, std::string(tr("failed to read file ")) + filename);
 
@@ -13100,6 +13110,83 @@ void wallet2::throw_on_rpc_response_error(const boost::optional<std::string> &st
 
   THROW_WALLET_EXCEPTION_IF(*status == CORE_RPC_STATUS_BUSY, tools::error::daemon_busy, method);
   THROW_WALLET_EXCEPTION_IF(*status != CORE_RPC_STATUS_OK, tools::error::wallet_generic_rpc_error, method, m_trusted_daemon ? *status : "daemon error");
+}
+//----------------------------------------------------------------------------------------------------
+
+bool wallet2::save_to_file(const std::string& path_to_file, const std::string& raw, bool is_printable) const
+{
+  if (is_printable || m_export_format == ExportFormat::Binary)
+  {
+    return epee::file_io_utils::save_string_to_file(path_to_file, raw);
+  }
+
+  FILE *fp = fopen(path_to_file.c_str(), "w+");
+  // Save the result b/c we need to close the fp before returning success/failure.
+  int write_result = PEM_write(fp, ASCII_OUTPUT_MAGIC.c_str(), "", (const unsigned char *) raw.c_str(), raw.length());
+  fclose(fp);
+
+  if (write_result == 0)
+  {
+    return false;
+  }
+  else
+  {
+    return true;
+  }
+}
+//----------------------------------------------------------------------------------------------------
+
+bool wallet2::load_from_file(const std::string& path_to_file, std::string& target_str,
+                             size_t max_size)
+{
+  std::string data;
+  bool r = epee::file_io_utils::load_file_to_string(path_to_file, data, max_size);
+  if (!r)
+  {
+    return false;
+  }
+
+  if (!boost::algorithm::contains(boost::make_iterator_range(data.begin(), data.end()), ASCII_OUTPUT_MAGIC))
+  {
+    // It's NOT our ascii dump.
+    target_str = std::move(data);
+    return true;
+  }
+
+  // Creating a BIO and calling PEM_read_bio instead of simpler PEM_read
+  // to avoid reading the file from disk twice.
+  BIO* b = BIO_new_mem_buf((const void*) data.data(), data.length());
+
+  char *name = NULL;
+  char *header = NULL;
+  unsigned char *openssl_data = NULL;
+  long len = 0;
+
+  // Save the result b/c we need to free the data before returning success/failure.
+  int success = PEM_read_bio(b, &name, &header, &openssl_data, &len);
+
+  try
+  {
+    target_str = std::string((const char*) openssl_data, len);
+  }
+  catch (...)
+  {
+    success = 0;
+  }
+
+  OPENSSL_free((void *) name);
+  OPENSSL_free((void *) header);
+  OPENSSL_free((void *) openssl_data);
+  BIO_free(b);
+
+  if (success == 0)
+  {
+    return false;
+  }
+  else
+  {
+    return true;
+  }
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::hash_m_transfer(const transfer_details & transfer, crypto::hash &hash) const
