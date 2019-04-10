@@ -192,7 +192,11 @@ namespace service_nodes
 
     // TODO(doyle): Rate-limiting: A better threshold value that follows suite with transaction relay time back-off
     const time_t now       = time(NULL);
+#if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
     const time_t THRESHOLD = 60 * 2;
+#else
+    const time_t THRESHOLD = 0;
+#endif
 
     std::vector<deregister_vote> result;
     for (const auto &deregister_entry : m_deregisters)

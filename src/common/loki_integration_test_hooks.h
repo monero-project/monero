@@ -165,6 +165,7 @@ uint32_t const MSG_MAGIC_BYTES = 0x7428da3f;
 void write_to_stdout_shared_mem(char const *buf, int buf_len)
 {
   assert(global_stdout_shared_mem);
+  assert(buf_len < loki::fixed_buffer::SIZE);
 
   int sem_value = 0;
   sem_getvalue(global_stdout_ready_semaphore, &sem_value);

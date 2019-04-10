@@ -343,6 +343,16 @@ t_command_server::t_command_server(
     , std::bind(&t_command_parser_executor::check_blockchain_pruning, &m_parser, p::_1)
     , "Check the blockchain pruning."
     );
+
+#if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
+    m_command_lookup.set_handler(
+      "relay_votes_and_uptime", std::bind([rpc_server](std::vector<std::string> const &args) {
+        rpc_server->on_relay_uptime_and_votes();
+        return true;
+      }, p::_1)
+    , ""
+    );
+#endif
 }
 
 bool t_command_server::process_command_str(const std::string& cmd)
@@ -373,7 +383,7 @@ bool t_command_server::start_handling(std::function<void(void)> exit_handler)
   {
     // TODO(doyle): Hack, don't hook into input until the daemon has completely initialised, i.e. you can print the status
     while(!loki::core_is_idle) {}
-    mlog_set_categories("");
+    mlog_set_categories(""); // TODO(doyle): We shouldn't have to do this.
 
     for (;;)
     {

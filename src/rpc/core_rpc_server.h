@@ -261,6 +261,16 @@ namespace cryptonote
     bool on_get_staking_requirement(const COMMAND_RPC_GET_STAKING_REQUIREMENT::request& req, COMMAND_RPC_GET_STAKING_REQUIREMENT::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx = NULL);
     //-----------------------
 
+#if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
+    void on_relay_uptime_and_votes()
+    {
+      m_core.submit_uptime_proof();
+      m_core.relay_deregister_votes();
+      std::cout << "Votes and uptime relayed";
+      loki::write_redirected_stdout_to_shared_mem();
+    }
+#endif
+
 private:
     bool check_core_busy();
     bool check_core_ready();
