@@ -70,6 +70,9 @@ build the library binary manually. This can be done with the following command `
 Debian / Ubuntu one liner for all dependencies  
 ``` sudo apt update && sudo apt install build-essential cmake pkg-config libboost-all-dev libssl-dev libzmq3-dev libunbound-dev libsodium-dev libunwind8-dev liblzma-dev libreadline6-dev libldns-dev libexpat1-dev doxygen graphviz libpgm-dev```
 
+FreeBSD one liner for required to build dependencies
+```pkg install git gmake cmake pkgconf boost-libs cppzmq libsodium```
+
 ### Cloning the repository
 
 Clone recursively to pull-in needed submodule(s):
@@ -255,9 +258,9 @@ application.
 	
         cd ~/loki
 
-* **Optional**: if you would like a specific [version/tag](https://github.com/loki-project/loki/tags), do a git checkout for that version. eg. 'v2.0.3'. If you dont care about the version and just want binaries from master, skip this step:
+* **Optional**: if you would like a specific [version/tag](https://github.com/loki-project/loki/tags), do a git checkout for that version. eg. 'v3.0.4'. If you dont care about the version and just want binaries from master, skip this step:
 	
-        git checkout v2.0.3
+        git checkout v3.0.4
 
 * If you are on a 64-bit system, run:
 
@@ -281,7 +284,9 @@ application.
 
 ### On FreeBSD:
 
-The project can be built from scratch by following instructions for Linux above. If you are running loki in a jail you need to add the flag: `allow.sysvipc=1` to your jail configuration, otherwise lmdb will throw the error message: `Failed to open lmdb environment: Function not implemented`.
+The project can be built from scratch by following instructions for Linux above(but use `gmake` instead of `make`). If you are running loki in a jail you need to add the flag: `allow.sysvipc=1` to your jail configuration, otherwise lmdb will throw the error message: `Failed to open lmdb environment: Function not implemented`.
+
+We expect to add Loki into the ports tree in the near future, which will aid in managing installations using ports or packages.
 
 ### On OpenBSD:
 
