@@ -1135,8 +1135,8 @@ namespace tools
     bool verify_with_public_key(const std::string &data, const crypto::public_key &public_key, const std::string &signature) const;
 
     // Import/Export wallet data
-    std::pair<size_t, std::vector<tools::wallet2::transfer_details>> export_outputs() const;
-    std::string export_outputs_to_str() const;
+    std::pair<size_t, std::vector<tools::wallet2::transfer_details>> export_outputs(bool all = false) const;
+    std::string export_outputs_to_str(bool all = false) const;
     size_t import_outputs(const std::pair<size_t, std::vector<tools::wallet2::transfer_details>> &outputs);
     size_t import_outputs_from_str(const std::string &outputs_st);
     payment_container export_payments() const;
