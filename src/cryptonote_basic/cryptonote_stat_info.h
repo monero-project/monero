@@ -34,7 +34,7 @@
 
 namespace cryptonote
 {
-  struct core_stat_info
+  struct core_stat_info_t
   {
     uint64_t tx_pool_size;
     uint64_t blockchain_height;
@@ -50,4 +50,5 @@ namespace cryptonote
       KV_SERIALIZE(top_block_id_str)
     END_KV_SERIALIZE_MAP()
   };
+  typedef epee::misc_utils::struct_init<core_stat_info_t> core_stat_info;
 }

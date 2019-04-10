@@ -1516,7 +1516,6 @@ PendingTransaction *WalletImpl::createSweepUnmixableTransaction()
 
 {
     clearStatus();
-    vector<cryptonote::tx_destination_entry> dsts;
     cryptonote::tx_destination_entry de;
 
     PendingTransactionImpl * transaction = new PendingTransactionImpl(*this);

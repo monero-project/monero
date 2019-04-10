@@ -2192,9 +2192,6 @@ namespace tools
 
     try
     {
-      uint64_t received;
-      bool in_pool;
-      uint64_t confirmations;
       res.good = m_wallet->check_tx_proof(txid, info.address, info.is_subaddress, req.message, req.signature, res.received, res.in_pool, res.confirmations);
     }
     catch (const std::exception &e)
@@ -2911,8 +2908,6 @@ namespace tools
       std::vector<std::string> languages;
       crypto::ElectrumWords::get_language_list(languages);
       std::vector<std::string>::iterator it;
-      std::string wallet_file;
-      char *ptr;
 
       it = std::find(languages.begin(), languages.end(), req.language);
       if (it == languages.end())

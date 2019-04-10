@@ -62,7 +62,7 @@ namespace tests
   {
     const static int ID = 1000;
 
-    struct request
+    struct request_t
     {		
 
       std::string example_string_data;
@@ -75,9 +75,9 @@ namespace tests
         SERIALIZE_T(sub)
       END_NAMED_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
-
-    struct response
+    struct response_t
     {
       bool 	 m_success; 
       uint64_t example_id_data;
@@ -89,13 +89,14 @@ namespace tests
         SERIALIZE_STL_CONTAINER_T(subs)
       END_NAMED_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   struct COMMAND_EXAMPLE_2
   {
     const static int ID = 1001;
 
-    struct request
+    struct request_t
     {		
       std::string example_string_data2;
       uint64_t example_id_data;
@@ -105,8 +106,9 @@ namespace tests
         SERIALIZE_STL_ANSI_STRING(example_string_data2)
       END_NAMED_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response
+    struct response_t
     {
       bool m_success; 
       uint64_t example_id_data;
@@ -116,6 +118,7 @@ namespace tests
         SERIALIZE_POD(m_success)
       END_NAMED_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
   typedef boost::uuids::uuid uuid;
 
