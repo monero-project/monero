@@ -68,15 +68,18 @@ namespace wallet_rpc
     {
       uint32_t account_index;             // Return balance for this account.
       std::set<uint32_t> address_indices; // (Optional) Return balance detail for those subaddresses.
+      bool all_accounts;                  // If true, return balance for all accounts, subaddr_indices and account_index are ignored
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(account_index)
         KV_SERIALIZE(address_indices)
+        KV_SERIALIZE_OPT(all_accounts, false);
       END_KV_SERIALIZE_MAP()
     };
 
     struct per_subaddress_info
     {
+      uint32_t account_index;       // Index of the account in the wallet.
       uint32_t address_index;       // Index of the subaddress in the account.
       std::string address;          // Address at this index. Base58 representation of the public keys.
       uint64_t balance;             // Balance for the subaddress (locked or unlocked).
@@ -85,6 +88,7 @@ namespace wallet_rpc
       uint64_t num_unspent_outputs; // Number of unspent outputs available for the subaddress.
 
       BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(account_index)
         KV_SERIALIZE(address_index)
         KV_SERIALIZE(address)
         KV_SERIALIZE(balance)
@@ -1527,11 +1531,13 @@ namespace wallet_rpc
       bool pending;                       // (Optional) Include pending transfers.
       bool failed;                        // (Optional) Include failed transfers.
       bool pool;                          // (Optional) Include transfers from the daemon's transaction pool.
+
       bool filter_by_height;              // (Optional) Filter transfers by block height.
       uint64_t min_height;                // (Optional) Minimum block height to scan for transfers, if filtering by height is enabled.
       uint64_t max_height;                // (Optional) Maximum block height to scan for transfers, if filtering by height is enabled (defaults to max block height).
       uint32_t account_index;             // (Optional) Index of the account to query for transfers. (defaults to 0)
       std::set<uint32_t> subaddr_indices; // (Optional) List of subaddress indices to query for transfers. (defaults to 0)
+      bool all_accounts;                  // If true, return transfers for all accounts, subaddr_indices and account_index are ignored
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(in);
@@ -1544,6 +1550,7 @@ namespace wallet_rpc
         KV_SERIALIZE_OPT(max_height, (uint64_t)CRYPTONOTE_MAX_BLOCK_NUMBER);
         KV_SERIALIZE(account_index);
         KV_SERIALIZE(subaddr_indices);
+        KV_SERIALIZE_OPT(all_accounts, false);
       END_KV_SERIALIZE_MAP()
     };
 
@@ -2558,6 +2565,5 @@ namespace wallet_rpc
     };
     // typedef epee::misc_utils::struct_init<response_t> response;
   };
-
 }
 }

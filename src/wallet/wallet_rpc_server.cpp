@@ -364,30 +364,54 @@ namespace tools
     if (!m_wallet) return not_open(er);
     try
     {
-      res.balance = m_wallet->balance(req.account_index);
-      res.unlocked_balance = m_wallet->unlocked_balance(req.account_index);
+      res.balance = req.all_accounts ? m_wallet->balance_all() : m_wallet->balance(req.account_index);
+      res.unlocked_balance = req.all_accounts ? m_wallet->unlocked_balance_all() : m_wallet->unlocked_balance(req.account_index);
       res.multisig_import_needed = m_wallet->multisig() && m_wallet->has_multisig_partial_key_images();
-      std::map<uint32_t, uint64_t> balance_per_subaddress = m_wallet->balance_per_subaddress(req.account_index);
-      std::map<uint32_t, uint64_t> unlocked_balance_per_subaddress = m_wallet->unlocked_balance_per_subaddress(req.account_index);
+      std::map<uint32_t, std::map<uint32_t, uint64_t>> balance_per_subaddress_per_account;
+      std::map<uint32_t, std::map<uint32_t, uint64_t>> unlocked_balance_per_subaddress_per_account;
+      if (req.all_accounts)
+      {
+        for (uint32_t account_index = 0; account_index < m_wallet->get_num_subaddress_accounts(); ++account_index)
+        {
+          balance_per_subaddress_per_account[account_index] = m_wallet->balance_per_subaddress(account_index);
+          unlocked_balance_per_subaddress_per_account[account_index] = m_wallet->unlocked_balance_per_subaddress(account_index);
+        }
+      }
+      else
+      {
+        balance_per_subaddress_per_account[req.account_index] = m_wallet->balance_per_subaddress(req.account_index);
+        unlocked_balance_per_subaddress_per_account[req.account_index] = m_wallet->unlocked_balance_per_subaddress(req.account_index);
+      }
       std::vector<tools::wallet2::transfer_details> transfers;
       m_wallet->get_transfers(transfers);
-      std::set<uint32_t> address_indices = req.address_indices;
-      if (address_indices.empty())
+      for (const auto& p : balance_per_subaddress_per_account)
       {
-        for (const auto& i : balance_per_subaddress)
-          address_indices.insert(i.first);
-      }
-      for (uint32_t i : address_indices)
-      {
-        wallet_rpc::COMMAND_RPC_GET_BALANCE::per_subaddress_info info;
-        info.address_index = i;
-        cryptonote::subaddress_index index = {req.account_index, info.address_index};
-        info.address = m_wallet->get_subaddress_as_str(index);
-        info.balance = balance_per_subaddress[i];
-        info.unlocked_balance = unlocked_balance_per_subaddress[i];
-        info.label = m_wallet->get_subaddress_label(index);
-        info.num_unspent_outputs = std::count_if(transfers.begin(), transfers.end(), [&](const tools::wallet2::transfer_details& td) { return !td.m_spent && td.m_subaddr_index == index; });
-        res.per_subaddress.push_back(info);
+        uint32_t account_index = p.first;
+        std::map<uint32_t, uint64_t> balance_per_subaddress = p.second;
+        std::map<uint32_t, uint64_t> unlocked_balance_per_subaddress = unlocked_balance_per_subaddress_per_account[account_index];
+        std::set<uint32_t> address_indices;
+        if (!req.all_accounts && !req.address_indices.empty())
+        {
+          address_indices = req.address_indices;
+        }
+        else
+        {
+          for (const auto& i : balance_per_subaddress)
+            address_indices.insert(i.first);
+        }
+        for (uint32_t i : address_indices)
+        {
+          wallet_rpc::COMMAND_RPC_GET_BALANCE::per_subaddress_info info;
+          info.account_index = account_index;
+          info.address_index = i;
+          cryptonote::subaddress_index index = {info.account_index, info.address_index};
+          info.address = m_wallet->get_subaddress_as_str(index);
+          info.balance = balance_per_subaddress[i];
+          info.unlocked_balance = unlocked_balance_per_subaddress[i];
+          info.label = m_wallet->get_subaddress_label(index);
+          info.num_unspent_outputs = std::count_if(transfers.begin(), transfers.end(), [&](const tools::wallet2::transfer_details& td) { return !td.m_spent && td.m_subaddr_index == index; });
+          res.per_subaddress.emplace_back(std::move(info));
+        }
       }
     }
     catch (const std::exception& e)
@@ -2309,10 +2333,18 @@ namespace tools
       max_height = req.max_height <= max_height ? req.max_height : max_height;
     }
 
+    boost::optional<uint32_t> account_index = req.account_index;
+    std::set<uint32_t> subaddr_indices = req.subaddr_indices;
+    if (req.all_accounts)
+    {
+      account_index = boost::none;
+      subaddr_indices.clear();
+    }
+
     if (req.in)
     {
       std::list<std::pair<crypto::hash, tools::wallet2::payment_details>> payments;
-      m_wallet->get_payments(payments, min_height, max_height, req.account_index, req.subaddr_indices);
+      m_wallet->get_payments(payments, min_height, max_height, account_index, subaddr_indices);
       for (std::list<std::pair<crypto::hash, tools::wallet2::payment_details>>::const_iterator i = payments.begin(); i != payments.end(); ++i) {
         res.in.push_back(wallet_rpc::transfer_entry());
         fill_transfer_entry(res.in.back(), i->second.m_tx_hash, i->first, i->second);
@@ -2322,7 +2354,7 @@ namespace tools
     if (req.out)
     {
       std::list<std::pair<crypto::hash, tools::wallet2::confirmed_transfer_details>> payments;
-      m_wallet->get_payments_out(payments, min_height, max_height, req.account_index, req.subaddr_indices);
+      m_wallet->get_payments_out(payments, min_height, max_height, account_index, subaddr_indices);
       for (std::list<std::pair<crypto::hash, tools::wallet2::confirmed_transfer_details>>::const_iterator i = payments.begin(); i != payments.end(); ++i) {
         res.out.push_back(wallet_rpc::transfer_entry());
         fill_transfer_entry(res.out.back(), i->first, i->second);
@@ -2331,7 +2363,7 @@ namespace tools
 
     if (req.pending || req.failed) {
       std::list<std::pair<crypto::hash, tools::wallet2::unconfirmed_transfer_details>> upayments;
-      m_wallet->get_unconfirmed_payments_out(upayments, req.account_index, req.subaddr_indices);
+      m_wallet->get_unconfirmed_payments_out(upayments, account_index, subaddr_indices);
       for (std::list<std::pair<crypto::hash, tools::wallet2::unconfirmed_transfer_details>>::const_iterator i = upayments.begin(); i != upayments.end(); ++i) {
         const tools::wallet2::unconfirmed_transfer_details &pd = i->second;
         bool is_failed = pd.m_state == tools::wallet2::unconfirmed_transfer_details::failed;
@@ -2348,7 +2380,7 @@ namespace tools
       m_wallet->update_pool_state();
 
       std::list<std::pair<crypto::hash, tools::wallet2::pool_payment_details>> payments;
-      m_wallet->get_unconfirmed_payments(payments, req.account_index, req.subaddr_indices);
+      m_wallet->get_unconfirmed_payments(payments, account_index, subaddr_indices);
       for (std::list<std::pair<crypto::hash, tools::wallet2::pool_payment_details>>::const_iterator i = payments.begin(); i != payments.end(); ++i) {
         res.pool.push_back(wallet_rpc::transfer_entry());
         fill_transfer_entry(res.pool.back(), i->first, i->second);
