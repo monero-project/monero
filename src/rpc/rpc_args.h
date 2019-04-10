@@ -52,6 +52,9 @@ namespace cryptonote
       descriptors& operator=(descriptors&&) = delete;
 
       const command_line::arg_descriptor<std::string> rpc_bind_ip;
+      const command_line::arg_descriptor<std::string> rpc_bind_ipv6_address;
+      const command_line::arg_descriptor<bool> rpc_use_ipv6;
+      const command_line::arg_descriptor<bool> rpc_require_ipv4;
       const command_line::arg_descriptor<std::string> rpc_login;
       const command_line::arg_descriptor<bool> confirm_external_bind;
       const command_line::arg_descriptor<std::string> rpc_access_control_origins;
@@ -76,6 +79,9 @@ namespace cryptonote
     static boost::optional<epee::net_utils::ssl_options_t> process_ssl(const boost::program_options::variables_map& vm, const bool any_cert_option = false);
 
     std::string bind_ip;
+    std::string bind_ipv6_address;
+    bool use_ipv6;
+    bool require_ipv4;
     std::vector<std::string> access_control_origins;
     boost::optional<tools::login> login; // currently `boost::none` if unspecified by user
     epee::net_utils::ssl_options_t ssl_options = epee::net_utils::ssl_support_t::e_ssl_support_enabled;
