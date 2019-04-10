@@ -40,6 +40,10 @@
 #include "p2p/net_node.h"
 #include "cryptonote_protocol/cryptonote_protocol_handler.h"
 
+#if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
+#include "common/loki_integration_test_hooks.h"
+#endif
+
 // yes, epee doesn't properly use its full namespace when calling its
 // functions from macros.  *sigh*
 using namespace epee;
