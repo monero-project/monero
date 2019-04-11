@@ -102,11 +102,13 @@ namespace cryptonote
       uint64_t 	 height;
       std::string status;
       bool untrusted;
+      std::string hash;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(height)
         KV_SERIALIZE(status)
         KV_SERIALIZE(untrusted)
+        KV_SERIALIZE(hash)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;
