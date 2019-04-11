@@ -175,8 +175,12 @@ library archives (`.a`).
 build the library binary manually. This can be done with the following command ```sudo apt-get install libgtest-dev && cd /usr/src/gtest && sudo cmake . && sudo make && sudo mv libg* /usr/lib/ ```
 [2] libnorm-dev is needed if your zmq library was built with libnorm, and not needed otherwise
 
-Debian / Ubuntu one liner for all dependencies  
+Install all dependencies at once on Debian/Ubuntu:
+
 ``` sudo apt update && sudo apt install build-essential cmake pkg-config libboost-all-dev libssl-dev libzmq3-dev libunbound-dev libsodium-dev libunwind8-dev liblzma-dev libreadline6-dev libldns-dev libexpat1-dev doxygen graphviz libpgm-dev```
+
+Install all dependencies at once on macOS:
+``` brew update && brew install cmake pkg-config openssl boost hidapi zmq libpgm unbound libsodium miniupnpc readline ldns expat doxygen graphviz protobuf ```
 
 FreeBSD one liner for required to build dependencies
 ```pkg install git gmake cmake pkgconf boost-libs cppzmq libsodium```
