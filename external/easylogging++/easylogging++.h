@@ -2776,7 +2776,7 @@ class DefaultLogDispatchCallback : public LogDispatchCallback {
   void handle(const LogDispatchData* data);
  private:
   const LogDispatchData* m_data;
-  void dispatch(base::type::string_t&& logLine);
+  void dispatch(base::type::string_t&& rawLine, base::type::string_t&& logLine);
 };
 #if ELPP_ASYNC_LOGGING
 class AsyncLogDispatchCallback : public LogDispatchCallback {

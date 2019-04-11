@@ -2337,6 +2337,19 @@ base::threading::Mutex& LogDispatchCallback::fileHandle(const LogDispatchData* d
 namespace base {
 // DefaultLogDispatchCallback
 
+const char* convertToChar(Level level) {
+  // Do not use switch over strongly typed enums because Intel C++ compilers dont support them yet.
+  if (level == Level::Global) return "G";
+  if (level == Level::Debug) return "D";
+  if (level == Level::Info) return "I";
+  if (level == Level::Warning) return "W";
+  if (level == Level::Error) return "E";
+  if (level == Level::Fatal) return "F";
+  if (level == Level::Verbose) return "V";
+  if (level == Level::Trace) return "T";
+  return "?";
+}
+
 void DefaultLogDispatchCallback::handle(const LogDispatchData* data) {
 #if defined(ELPP_THREAD_SAFE)
 #if 0
@@ -2345,11 +2358,15 @@ void DefaultLogDispatchCallback::handle(const LogDispatchData* data) {
 #endif
 #endif
   m_data = data;
-  dispatch(m_data->logMessage()->logger()->logBuilder()->build(m_data->logMessage(),
+  base::TypedConfigurations* tc = m_data->logMessage()->logger()->typedConfigurations();
+  const base::LogFormat* logFormat = &tc->logFormat(m_data->logMessage()->level());
+  dispatch(base::utils::DateTime::getDateTime(logFormat->dateTimeFormat().c_str(), &tc->subsecondPrecision(m_data->logMessage()->level()))
+      + "\t" + convertToChar(m_data->logMessage()->level()) + " " + m_data->logMessage()->message() + "\n",
+      m_data->logMessage()->logger()->logBuilder()->build(m_data->logMessage(),
            m_data->dispatchAction() == base::DispatchAction::NormalLog || m_data->dispatchAction() == base::DispatchAction::FileOnlyLog));
 }
 
-void DefaultLogDispatchCallback::dispatch(base::type::string_t&& logLine) {
+void DefaultLogDispatchCallback::dispatch(base::type::string_t&& rawLine, base::type::string_t&& logLine) {
   if (m_data->dispatchAction() == base::DispatchAction::NormalLog || m_data->dispatchAction() == base::DispatchAction::FileOnlyLog) {
     if (m_data->logMessage()->logger()->m_typedConfigurations->toFile(m_data->logMessage()->level())) {
       base::type::fstream_t* fs = m_data->logMessage()->logger()->m_typedConfigurations->fileStream(
@@ -2376,8 +2393,8 @@ void DefaultLogDispatchCallback::dispatch(base::type::string_t&& logLine) {
     if (m_data->dispatchAction() != base::DispatchAction::FileOnlyLog) {
       if (m_data->logMessage()->logger()->m_typedConfigurations->toStandardOutput(m_data->logMessage()->level())) {
         if (ELPP->hasFlag(LoggingFlag::ColoredTerminalOutput))
-          m_data->logMessage()->logger()->logBuilder()->convertToColoredOutput(&logLine, m_data->logMessage()->level());
-        ELPP_COUT << ELPP_COUT_LINE(logLine);
+          m_data->logMessage()->logger()->logBuilder()->convertToColoredOutput(&rawLine, m_data->logMessage()->level());
+        ELPP_COUT << ELPP_COUT_LINE(rawLine);
       }
     }
   }
