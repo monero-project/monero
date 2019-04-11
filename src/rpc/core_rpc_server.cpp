@@ -204,6 +204,7 @@ namespace cryptonote
 
     crypto::hash hash;
     m_core.get_blockchain_top(res.height, hash);
+    ++res.height; // block height to chain height
     res.hash = string_tools::pod_to_hex(hash);
     res.status = CORE_RPC_STATUS_OK;
     return true;
