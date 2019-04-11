@@ -125,6 +125,7 @@ namespace cryptonote
     uint64_t m_height;
     volatile uint32_t m_thread_index; 
     volatile uint32_t m_threads_total;
+    std::atomic<uint32_t> m_threads_active;
     std::atomic<int32_t> m_pausers_count;
     epee::critical_section m_miners_count_lock;
 
