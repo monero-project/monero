@@ -176,8 +176,15 @@ namespace nodetool
     if(!addr.is_blockable())
       return false;
 
+    const time_t now = time(nullptr);
+
     CRITICAL_REGION_LOCAL(m_blocked_hosts_lock);
-    m_blocked_hosts[addr.host_str()] = time(nullptr) + seconds;
+    time_t limit;
+    if (now > std::numeric_limits<time_t>::max() - seconds)
+      limit = std::numeric_limits<time_t>::max();
+    else
+      limit = now + seconds;
+    m_blocked_hosts[addr.host_str()] = limit;
 
     // drop any connection to that address. This should only have to look into
     // the zone related to the connection, but really make sure everything is
