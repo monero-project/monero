@@ -456,6 +456,7 @@ namespace cryptonote
     // interrupt it just in case
     m_background_mining_thread.interrupt();
     m_background_mining_thread.join();
+    m_is_background_mining_enabled = false;
 
     MINFO("Mining has been stopped, " << m_threads.size() << " finished" );
     m_threads.clear();
@@ -747,10 +748,10 @@ namespace cryptonote
         uint8_t idle_percentage = get_percent_of_total(idle_diff, total_diff);
         uint8_t process_percentage = get_percent_of_total(process_diff, total_diff);
 
-        MGINFO("idle percentage is " << unsigned(idle_percentage) << "\%, miner percentage is " << unsigned(process_percentage) << "\%, ac power : " << on_ac_power);
+        MDEBUG("idle percentage is " << unsigned(idle_percentage) << "\%, miner percentage is " << unsigned(process_percentage) << "\%, ac power : " << on_ac_power);
         if( idle_percentage + process_percentage < get_idle_threshold() || !on_ac_power )
         {
-          MGINFO("cpu is " << unsigned(idle_percentage) << "% idle, idle threshold is " << unsigned(get_idle_threshold()) << "\%, ac power : " << on_ac_power << ", background mining stopping, thanks for your contribution!");
+          MINFO("cpu is " << unsigned(idle_percentage) << "% idle, idle threshold is " << unsigned(get_idle_threshold()) << "\%, ac power : " << on_ac_power << ", background mining stopping, thanks for your contribution!");
           m_is_background_mining_started = false;
 
           // reset process times
@@ -788,10 +789,10 @@ namespace cryptonote
         uint64_t idle_diff = (current_idle_time - prev_idle_time);
         uint8_t idle_percentage = get_percent_of_total(idle_diff, total_diff);
 
-        MGINFO("idle percentage is " << unsigned(idle_percentage));
+        MDEBUG("idle percentage is " << unsigned(idle_percentage));
         if( idle_percentage >= get_idle_threshold() && on_ac_power )
         {
-          MGINFO("cpu is " << unsigned(idle_percentage) << "% idle, idle threshold is " << unsigned(get_idle_threshold()) << "\%, ac power : " << on_ac_power << ", background mining started, good luck!");
+          MINFO("cpu is " << unsigned(idle_percentage) << "% idle, idle threshold is " << unsigned(get_idle_threshold()) << "\%, ac power : " << on_ac_power << ", background mining started, good luck!");
           m_is_background_mining_started = true;
           m_is_background_mining_started_cond.notify_all();
 
@@ -1049,7 +1050,12 @@ namespace cryptonote
 
       if (boost::logic::indeterminate(on_battery))
       {
-        LOG_ERROR("couldn't query power status from " << power_supply_class_path);
+        static bool error_shown = false;
+        if (!error_shown)
+        {
+          LOG_ERROR("couldn't query power status from " << power_supply_class_path);
+          error_shown = true;
+        }
       }
       return on_battery;
 

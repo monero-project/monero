@@ -973,6 +973,7 @@ namespace cryptonote
     const miner& lMiner = m_core.get_miner();
     res.active = lMiner.is_mining();
     res.is_background_mining_enabled = lMiner.get_is_background_mining_enabled();
+    store_difficulty(m_core.get_blockchain_storage().get_difficulty_for_next_block(), res.difficulty, res.wide_difficulty, res.difficulty_top64);
     
     res.block_target = m_core.get_blockchain_storage().get_current_hard_fork_version() < 2 ? DIFFICULTY_TARGET_V1 : DIFFICULTY_TARGET_V2;
     if ( lMiner.is_mining() ) {

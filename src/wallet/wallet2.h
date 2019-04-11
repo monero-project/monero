@@ -194,6 +194,12 @@ namespace tools
       AskPasswordToDecrypt = 2,
     };
 
+    enum BackgroundMiningSetupType {
+      BackgroundMiningMaybe = 0,
+      BackgroundMiningYes = 1,
+      BackgroundMiningNo = 2,
+    };
+
     static const char* tr(const char* str);
 
     static bool has_testnet_option(const boost::program_options::variables_map& vm);
@@ -1010,6 +1016,8 @@ namespace tools
     void confirm_non_default_ring_size(bool always) { m_confirm_non_default_ring_size = always; }
     bool track_uses() const { return m_track_uses; }
     void track_uses(bool value) { m_track_uses = value; }
+    BackgroundMiningSetupType setup_background_mining() const { return m_setup_background_mining; }
+    void setup_background_mining(BackgroundMiningSetupType value) { m_setup_background_mining = value; }
     const std::string & device_name() const { return m_device_name; }
     void device_name(const std::string & device_name) { m_device_name = device_name; }
     const std::string & device_derivation_path() const { return m_device_derivation_path; }
@@ -1451,6 +1459,7 @@ namespace tools
     uint64_t m_segregation_height;
     bool m_ignore_fractional_outputs;
     bool m_track_uses;
+    BackgroundMiningSetupType m_setup_background_mining;
     bool m_is_initialized;
     NodeRPCProxy m_node_rpc_proxy;
     std::unordered_set<crypto::hash> m_scanned_pool_txs[2];

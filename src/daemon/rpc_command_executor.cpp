@@ -551,11 +551,12 @@ bool t_rpc_command_executor::mining_status() {
     tools::msg_writer() << "  Ignore battery: " << (mres.bg_ignore_battery ? "yes" : "no");
   }
 
-  if (!mining_busy && mres.active)
+  if (!mining_busy && mres.active && mres.speed > 0 && mres.block_target > 0 && mres.difficulty > 0)
   {
-    uint64_t daily = 86400ull / mres.block_target * mres.block_reward;
-    uint64_t monthly = 86400ull / mres.block_target * 30.5 * mres.block_reward;
-    uint64_t yearly = 86400ull / mres.block_target * 356 * mres.block_reward;
+    double ratio = mres.speed * mres.block_target / mres.difficulty;
+    uint64_t daily = 86400ull / mres.block_target * mres.block_reward * ratio;
+    uint64_t monthly = 86400ull / mres.block_target * 30.5 * mres.block_reward * ratio;
+    uint64_t yearly = 86400ull / mres.block_target * 356 * mres.block_reward * ratio;
     tools::msg_writer() << "Expected: " << cryptonote::print_money(daily) << " monero daily, "
         << cryptonote::print_money(monthly) << " monero monthly, " << cryptonote::print_money(yearly) << " yearly";
   }
