@@ -3819,12 +3819,6 @@ leave:
 //------------------------------------------------------------------
 bool Blockchain::prune_blockchain(uint32_t pruning_seed)
 {
-  uint8_t hf_version = m_hardfork->get_current_version();
-  if (hf_version < 10)
-  {
-    MERROR("Most of the network will only be ready for pruned blockchains from v10, not pruning");
-    return false;
-  }
   return m_db->prune_blockchain(pruning_seed);
 }
 //------------------------------------------------------------------
