@@ -149,6 +149,9 @@ public:
   virtual bool update_pruning() { return true; }
   virtual bool check_pruning() { return true; }
   virtual void prune_outputs(uint64_t amount) {}
+
+  virtual uint64_t get_max_block_size() { return 100000000; }
+  virtual void add_max_block_size(uint64_t sz) { }
 };
 
 }

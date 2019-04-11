@@ -1514,6 +1514,20 @@ public:
   virtual bool check_pruning() = 0;
 
   /**
+   * @brief get the max block size
+   */
+  virtual uint64_t get_max_block_size() = 0;
+
+  /**
+   * @brief add a new max block size
+   *
+   * The max block size will be the maximum of sz and the current block size
+   *
+   * @param: sz the block size
+   */
+
+  virtual void add_max_block_size(uint64_t sz) = 0;
+  /**
    * @brief runs a function over all txpool transactions
    *
    * The subclass should run the passed function for each txpool tx it has
