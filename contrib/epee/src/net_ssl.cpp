@@ -77,12 +77,28 @@ namespace
     }
   };
   using openssl_bignum = std::unique_ptr<BIGNUM, openssl_bignum_free>;
+
+  boost::system::error_code load_ca_file(boost::asio::ssl::context& ctx, const std::string& path)
+  {
+    SSL_CTX* const ssl_ctx = ctx.native_handle(); // could be moved from context
+    if (ssl_ctx == nullptr)
+      return {boost::asio::error::invalid_argument};
+
+    if (!SSL_CTX_load_verify_locations(ssl_ctx, path.c_str(), nullptr))
+    {
+      return boost::system::error_code{
+        int(::ERR_get_error()), boost::asio::error::get_ssl_category()
+      };
+    }
+    return boost::system::error_code{};
+  }
 }
 
 namespace epee
 {
 namespace net_utils
 {
+
 
 // https://stackoverflow.com/questions/256405/programmatically-create-x509-certificate-using-openssl
 bool create_ssl_certificate(EVP_PKEY *&pkey, X509 *&cert)
@@ -155,22 +171,34 @@ bool create_ssl_certificate(EVP_PKEY *&pkey, X509 *&cert)
   return true;
 }
 
-ssl_context_t create_ssl_context(const std::pair<std::string, std::string> &private_key_and_certificate_path, std::list<std::string> allowed_certificates, std::vector<std::vector<uint8_t>> allowed_fingerprints, bool allow_any_cert)
+ssl_options_t::ssl_options_t(std::vector<std::vector<std::uint8_t>> fingerprints, std::string ca_path)
+  : fingerprints_(std::move(fingerprints)),
+    ca_path(std::move(ca_path)),
+    auth(),
+    support(ssl_support_t::e_ssl_support_enabled),
+    verification(ssl_verification_t::user_certificates)
 {
-  ssl_context_t ssl_context{boost::asio::ssl::context(boost::asio::ssl::context::tlsv12), std::move(allowed_certificates), std::move(allowed_fingerprints)};
+  std::sort(fingerprints_.begin(), fingerprints_.end());
+}
+
+boost::asio::ssl::context ssl_options_t::create_context() const
+{
+  boost::asio::ssl::context ssl_context{boost::asio::ssl::context::tlsv12};
+  if (!bool(*this))
+    return ssl_context;
 
   // only allow tls v1.2 and up
-  ssl_context.context.set_options(boost::asio::ssl::context::default_workarounds);
-  ssl_context.context.set_options(boost::asio::ssl::context::no_sslv2);
-  ssl_context.context.set_options(boost::asio::ssl::context::no_sslv3);
-  ssl_context.context.set_options(boost::asio::ssl::context::no_tlsv1);
-  ssl_context.context.set_options(boost::asio::ssl::context::no_tlsv1_1);
+  ssl_context.set_options(boost::asio::ssl::context::default_workarounds);
+  ssl_context.set_options(boost::asio::ssl::context::no_sslv2);
+  ssl_context.set_options(boost::asio::ssl::context::no_sslv3);
+  ssl_context.set_options(boost::asio::ssl::context::no_tlsv1);
+  ssl_context.set_options(boost::asio::ssl::context::no_tlsv1_1);
 
   // only allow a select handful of tls v1.3 and v1.2 ciphers to be used
-  SSL_CTX_set_cipher_list(ssl_context.context.native_handle(), "ECDHE-ECDSA-CHACHA20-POLY1305-SHA256:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES256-SHA384:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-CHACHA20-POLY1305");
+  SSL_CTX_set_cipher_list(ssl_context.native_handle(), "ECDHE-ECDSA-CHACHA20-POLY1305-SHA256:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES256-SHA384:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-CHACHA20-POLY1305");
 
   // set options on the SSL context for added security
-  SSL_CTX *ctx = ssl_context.context.native_handle();
+  SSL_CTX *ctx = ssl_context.native_handle();
   CHECK_AND_ASSERT_THROW_MES(ctx, "Failed to get SSL context");
   SSL_CTX_clear_options(ctx, SSL_OP_LEGACY_SERVER_CONNECT); // SSL_CTX_SET_OPTIONS(3)
   SSL_CTX_set_session_cache_mode(ctx, SSL_SESS_CACHE_OFF); // https://stackoverflow.com/questions/22378442
@@ -186,10 +214,29 @@ ssl_context_t create_ssl_context(const std::pair<std::string, std::string> &priv
 #ifdef SSL_OP_NO_COMPRESSION
   SSL_CTX_set_options(ctx, SSL_OP_NO_COMPRESSION);
 #endif
-  ssl_context.context.set_default_verify_paths();
 
-  CHECK_AND_ASSERT_THROW_MES(private_key_and_certificate_path.first.empty() == private_key_and_certificate_path.second.empty(), "private key and certificate must be either both given or both empty");
-  if (private_key_and_certificate_path.second.empty())
+  switch (verification)
+  {
+    case ssl_verification_t::system_ca:
+      ssl_context.set_default_verify_paths();
+      break;
+    case ssl_verification_t::user_certificates:
+      ssl_context.set_verify_depth(0);
+      /* fallthrough */
+    case ssl_verification_t::user_ca:
+      if (!ca_path.empty())
+      {
+        const boost::system::error_code err = load_ca_file(ssl_context, ca_path);
+        if (err)
+          throw boost::system::system_error{err, "Failed to load user CA file at " + ca_path};
+      }
+      break;
+    default:
+      break;
+  }
+
+  CHECK_AND_ASSERT_THROW_MES(auth.private_key_path.empty() == auth.certificate_path.empty(), "private key and certificate must be either both given or both empty");
+  if (auth.private_key_path.empty())
   {
     EVP_PKEY *pkey;
     X509 *cert;
@@ -200,19 +247,15 @@ ssl_context_t create_ssl_context(const std::pair<std::string, std::string> &priv
     EVP_PKEY_free(pkey);
   }
   else
-  {
-    ssl_context.context.use_private_key_file(private_key_and_certificate_path.first, boost::asio::ssl::context::pem);
-    ssl_context.context.use_certificate_file(private_key_and_certificate_path.second, boost::asio::ssl::context::pem);
-  }
-  ssl_context.allow_any_cert = allow_any_cert;
+    auth.use_ssl_certificate(ssl_context);
 
   return ssl_context;
 }
 
-void use_ssl_certificate(ssl_context_t &ssl_context, const std::pair<std::string, std::string> &private_key_and_certificate_path)
+void ssl_authentication_t::use_ssl_certificate(boost::asio::ssl::context &ssl_context) const
 {
-  ssl_context.context.use_private_key_file(private_key_and_certificate_path.first, boost::asio::ssl::context::pem);
-  ssl_context.context.use_certificate_file(private_key_and_certificate_path.second, boost::asio::ssl::context::pem);
+  ssl_context.use_private_key_file(private_key_path, boost::asio::ssl::context::pem);
+  ssl_context.use_certificate_chain_file(certificate_path);
 }
 
 bool is_ssl(const unsigned char *data, size_t len)
@@ -235,23 +278,44 @@ bool is_ssl(const unsigned char *data, size_t len)
   return false;
 }
 
-bool is_certificate_allowed(boost::asio::ssl::verify_context &ctx, const ssl_context_t &ssl_context)
+bool ssl_options_t::has_strong_verification(boost::string_ref host) const noexcept
 {
-  X509_STORE_CTX *sctx = ctx.native_handle();
-  if (!sctx)
+  // onion and i2p addresses contain information about the server cert
+  // which both authenticates and encrypts
+  if (host.ends_with(".onion") || host.ends_with(".i2p"))
+    return true;
+  switch (verification)
   {
-    MERROR("Error getting verify_context handle");
-    return false;
+    default:
+    case ssl_verification_t::none:
+    case ssl_verification_t::system_ca:
+      return false;
+    case ssl_verification_t::user_certificates:
+    case ssl_verification_t::user_ca:
+      break;
   }
-  X509 *cert =X509_STORE_CTX_get_current_cert(sctx);
-  if (!cert)
-  {
-    MERROR("No certificate found in verify_context");
-    return false;
-  }
+  return true;
+}
 
+bool ssl_options_t::has_fingerprint(boost::asio::ssl::verify_context &ctx) const
+{
   // can we check the certificate against a list of fingerprints?
-  if (!ssl_context.allowed_fingerprints.empty()) {
+  if (!fingerprints_.empty()) {
+    X509_STORE_CTX *sctx = ctx.native_handle();
+    if (!sctx)
+    {
+      MERROR("Error getting verify_context handle");
+      return false;
+    }
+
+    X509* cert = nullptr;
+    const STACK_OF(X509)* chain = X509_STORE_CTX_get_chain(sctx);
+    if (!chain || sk_X509_num(chain) < 1 || !(cert = sk_X509_value(chain, 0)))
+    {
+      MERROR("No certificate found in verify_context");
+      return false;
+    }
+
     // buffer for the certificate digest and the size of the result
     std::vector<uint8_t> digest(EVP_MAX_MD_SIZE);
     unsigned int size{ 0 };
@@ -265,74 +329,63 @@ bool is_certificate_allowed(boost::asio::ssl::verify_context &ctx, const ssl_con
     // strip unnecessary bytes from the digest
     digest.resize(size);
 
-    // is the certificate fingerprint inside the list of allowed fingerprints?
-    if (std::find(ssl_context.allowed_fingerprints.begin(), ssl_context.allowed_fingerprints.end(), digest) != ssl_context.allowed_fingerprints.end())
-      return true;
+    return std::binary_search(fingerprints_.begin(), fingerprints_.end(), digest);
   }
 
-  if (!ssl_context.allowed_certificates.empty()) {
-    BIO *bio_cert = BIO_new(BIO_s_mem());
-    bool success = PEM_write_bio_X509(bio_cert, cert);
-    if (!success)
-    {
-      BIO_free(bio_cert);
-      MERROR("Failed to print certificate");
-      return false;
-    }
-    BUF_MEM *buf = NULL;
-    BIO_get_mem_ptr(bio_cert, &buf);
-    if (!buf || !buf->data || !buf->length)
-    {
-      BIO_free(bio_cert);
-      MERROR("Failed to write certificate: " << ERR_get_error());
-      return false;
-    }
-    std::string certificate(std::string(buf->data, buf->length));
-    BIO_free(bio_cert);
-    if (std::find(ssl_context.allowed_certificates.begin(), ssl_context.allowed_certificates.end(), certificate) != ssl_context.allowed_certificates.end())
-      return true;
-  }
-
-  // if either checklist is non-empty we must have failed it
-  return ssl_context.allowed_fingerprints.empty() && ssl_context.allowed_certificates.empty();
+  return false;
 }
 
-bool ssl_handshake(boost::asio::ssl::stream<boost::asio::ip::tcp::socket> &socket, boost::asio::ssl::stream_base::handshake_type type, const epee::net_utils::ssl_context_t &ssl_context)
+bool ssl_options_t::handshake(boost::asio::ssl::stream<boost::asio::ip::tcp::socket> &socket, boost::asio::ssl::stream_base::handshake_type type, const std::string& host) const
 {
-  bool verified = false;
   socket.next_layer().set_option(boost::asio::ip::tcp::no_delay(true));
-  socket.set_verify_mode(boost::asio::ssl::verify_peer);
-  socket.set_verify_callback([&](bool preverified, boost::asio::ssl::verify_context &ctx)
+
+  /* Using system-wide CA store for client verification is funky - there is
+     no expected hostname for server to verify against. If server doesn't have
+     specific whitelisted certificates for client, don't require client to
+     send certificate at all. */
+  const bool no_verification = verification == ssl_verification_t::none ||
+    (type == boost::asio::ssl::stream_base::server && fingerprints_.empty() && ca_path.empty());
+
+  /* According to OpenSSL documentation (and SSL specifications), server must
+     always send certificate unless "anonymous" cipher mode is used which are
+     disabled by default. Either way, the certificate is never inspected. */
+  if (no_verification)
+    socket.set_verify_mode(boost::asio::ssl::verify_none);
+  else
   {
-    if (!preverified)
+    socket.set_verify_mode(boost::asio::ssl::verify_peer | boost::asio::ssl::verify_fail_if_no_peer_cert);
+
+    // in case server is doing "virtual" domains, set hostname
+    SSL* const ssl_ctx = socket.native_handle();
+    if (type == boost::asio::ssl::stream_base::client && !host.empty() && ssl_ctx)
+      SSL_set_tlsext_host_name(ssl_ctx, host.c_str());
+
+    socket.set_verify_callback([&](const bool preverified, boost::asio::ssl::verify_context &ctx)
     {
-      const int err = X509_STORE_CTX_get_error(ctx.native_handle());
-      const int depth = X509_STORE_CTX_get_error_depth(ctx.native_handle());
-      if (err != X509_V_ERR_DEPTH_ZERO_SELF_SIGNED_CERT || depth != 0)
+      // preverified means it passed system or user CA check. System CA is never loaded
+      // when fingerprints are whitelisted.
+      const bool verified = preverified &&
+        (verification != ssl_verification_t::system_ca || host.empty() || boost::asio::ssl::rfc2818_verification(host)(preverified, ctx));
+
+      if (!verified && !has_fingerprint(ctx))
       {
-        MERROR("Invalid SSL certificate, error " << err << " at depth " << depth << ", connection dropped");
-        return false;
+        // autodetect will reconnect without SSL - warn and keep connection encrypted
+        if (support != ssl_support_t::e_ssl_support_autodetect)
+        {
+          MERROR("SSL certificate is not in the allowed list, connection droppped");
+          return false;
+        }
+        MWARNING("SSL peer has not been verified");
       }
-    }
-    if (!ssl_context.allow_any_cert && !is_certificate_allowed(ctx, ssl_context))
-    {
-      MERROR("Certificate is not in the allowed list, connection droppped");
-      return false;
-    }
-    verified = true;
-    return true;
-  });
+      return true;
+    });
+  }
 
   boost::system::error_code ec;
   socket.handshake(type, ec);
   if (ec)
   {
-    MERROR("handshake failed, connection dropped: " << ec.message());
-    return false;
-  }
-  if (!ssl_context.allow_any_cert && !verified)
-  {
-    MERROR("Peer did not provide a certificate in the allowed list, connection dropped");
+    MERROR("SSL handshake failed, connection dropped: " << ec.message());
     return false;
   }
   MDEBUG("SSL handshake success");
