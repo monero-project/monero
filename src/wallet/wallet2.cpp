@@ -7094,6 +7094,43 @@ bool wallet2::set_ring(const crypto::key_image &key_image, const std::vector<uin
   catch (const std::exception &e) { return false; }
 }
 
+bool wallet2::unset_ring(const std::vector<crypto::key_image> &key_images)
+{
+  if (!m_ringdb)
+    return false;
+
+  try { return m_ringdb->remove_rings(get_ringdb_key(), key_images); }
+  catch (const std::exception &e) { return false; }
+}
+
+bool wallet2::unset_ring(const crypto::hash &txid)
+{
+  if (!m_ringdb)
+    return false;
+
+  COMMAND_RPC_GET_TRANSACTIONS::request req;
+  COMMAND_RPC_GET_TRANSACTIONS::response res;
+  req.txs_hashes.push_back(epee::string_tools::pod_to_hex(txid));
+  req.decode_as_json = false;
+  req.prune = true;
+  m_daemon_rpc_mutex.lock();
+  bool ok = epee::net_utils::invoke_http_json("/gettransactions", req, res, m_http_client);
+  m_daemon_rpc_mutex.unlock();
+  THROW_WALLET_EXCEPTION_IF(!ok, error::wallet_internal_error, "Failed to get transaction from daemon");
+  if (res.txs.empty())
+    return false;
+  THROW_WALLET_EXCEPTION_IF(res.txs.size(), error::wallet_internal_error, "Failed to get transaction from daemon");
+
+  cryptonote::transaction tx;
+  crypto::hash tx_hash;
+  if (!get_pruned_tx(res.txs.front(), tx, tx_hash))
+    return false;
+  THROW_WALLET_EXCEPTION_IF(tx_hash != txid, error::wallet_internal_error, "Failed to get the right transaction from daemon");
+
+  try { return m_ringdb->remove_rings(get_ringdb_key(), tx); }
+  catch (const std::exception &e) { return false; }
+}
+
 bool wallet2::find_and_save_rings(bool force)
 {
   if (!force && m_ring_history_saved)
