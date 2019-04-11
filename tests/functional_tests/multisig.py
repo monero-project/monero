@@ -129,6 +129,7 @@ class MultisigTest():
           addresses.append(res.address)
       for i in range(N_total):
         assert addresses[i] == expected_address
+      self.wallet_address = expected_address
 
       for i in range(N_total):
         res = self.wallet[i].is_multisig()
@@ -181,6 +182,22 @@ class MultisigTest():
 
         for i in range(len(signers[1:])):
           print('Signing multisig transaction with wallet ' + str(signers[i+1]))
+          res = self.wallet[signers[i+1]].describe_transfer(multisig_txset = multisig_txset)
+          assert len(res.desc) == 1
+          desc = res.desc[0]
+          assert desc.amount_in >= amount + fee
+          assert desc.amount_out == desc.amount_in - fee
+          assert desc.ring_size == 11
+          assert desc.unlock_time == 0
+          assert desc.payment_id == '0000000000000000'
+          assert desc.change_amount == desc.amount_in - 1000000000000 - fee
+          assert desc.change_address == self.wallet_address
+          assert desc.fee == fee
+          assert len(desc.recipients) == 1
+          rec = desc.recipients[0]
+          assert rec.address == '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
+          assert rec.amount == 1000000000000
+
           res = self.wallet[signers[i+1]].sign_multisig(multisig_txset)
           multisig_txset = res.tx_data_hex
           assert len(res.tx_hash_list if 'tx_hash_list' in res else []) == (i == len(signers[1:]) - 1)

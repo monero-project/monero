@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+#encoding=utf-8
 
 # Copyright (c) 2019 The Monero Project
 # 
@@ -45,6 +46,8 @@ class WalletAddressTest():
       self.check_main_address()
       self.check_keys()
       self.create_subaddresses()
+      self.open_close()
+      self.languages()
 
     def create(self):
         print 'Creating wallet'
@@ -147,6 +150,53 @@ class WalletAddressTest():
         assert res.index == {'major': 0, 'minor': 1}
         res = wallet.get_address_index('82pP87g1Vkd3LUMssBCumk3MfyEsFqLAaGDf6oxddu61EgSFzt8gCwUD4tr3kp9TUfdPs2CnpD7xLZzyC1Ei9UsW3oyCWDf')
         assert res.index == {'major': 1, 'minor': 0}
+
+    def open_close(self):
+        print 'Testing open/close'
+        wallet = Wallet()
+
+        res = wallet.get_address()
+        assert res.address == '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
+
+        wallet.close_wallet()
+        ok = False
+        try: res = wallet.get_address()
+        except: ok = True
+        assert ok
+
+        wallet.restore_deterministic_wallet(seed = 'peeled mixture ionic radar utopia puddle buying illness nuns gadget river spout cavernous bounced paradise drunk looking cottage jump tequila melting went winter adjust spout')
+        res = wallet.get_address()
+        assert res.address == '44Kbx4sJ7JDRDV5aAhLJzQCjDz2ViLRduE3ijDZu3osWKBjMGkV1XPk4pfDUMqt1Aiezvephdqm6YD19GKFD9ZcXVUTp6BW'
+
+        wallet.close_wallet()
+        ok = False
+        try: wallet.get_address()
+        except: ok = True
+        assert ok
+
+        wallet.restore_deterministic_wallet(seed = 'velvet lymph giddy number token physics poetry unquoted nibs useful sabotage limits benches lifestyle eden nitrogen anvil fewest avoid batch vials washing fences goat unquoted')
+        res = wallet.get_address()
+        assert res.address == '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
+
+    def languages(self):
+        print('Testing languages')
+        wallet = Wallet()
+        res = wallet.get_languages()
+        assert 'English' in res.languages
+        assert 'English' in res.languages_local
+        assert 'Dutch' in res.languages
+        assert 'Nederlands' in res.languages_local
+        assert 'Japanese' in res.languages
+        assert u'日本語' in res.languages_local
+        try: wallet.close_wallet()
+        except: pass
+        languages = res.languages
+        for language in languages:
+            print 'Creating ' + str(language) + ' wallet'
+            wallet.create_wallet(filename = '', language = language)
+            res = wallet.query_key('mnemonic')
+            wallet.close_wallet()
+
 
 if __name__ == '__main__':
     WalletAddressTest().run_test()

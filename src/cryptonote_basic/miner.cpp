@@ -576,7 +576,8 @@ namespace cryptonote
         //we lucky!
         ++m_config.current_extra_message_index;
         MGINFO_GREEN("Found block " << get_block_hash(b) << " at height " << height << " for difficulty: " << local_diff);
-        if(!m_phandler->handle_block_found(b))
+        cryptonote::block_verification_context bvc;
+        if(!m_phandler->handle_block_found(b, bvc) || !bvc.m_added_to_main_chain)
         {
           --m_config.current_extra_message_index;
         }else

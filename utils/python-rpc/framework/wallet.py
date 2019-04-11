@@ -33,6 +33,8 @@ from .rpc import JSONRPC
 class Wallet(object):
 
     def __init__(self, protocol='http', host='127.0.0.1', port=0, idx=0):
+        self.host = host
+        self.port = port
         self.rpc = JSONRPC('{protocol}://{host}:{port}'.format(protocol=protocol, host=host, port=port if port else 18090+idx))
 
     def make_uniform_destinations(self, address, transfer_amount, transfer_number_of_destinations=1):
@@ -89,6 +91,18 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(transfer)   
 
+    def get_transfer_by_txid(self, txid, account_index = 0):
+        get_transfer_by_txid = {
+            'method': 'get_transfer_by_txid',
+            'params': {
+                'txid': txid,
+                'account_index': account_index,
+            },
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(get_transfer_by_txid)
+
     def get_bulk_payments(self, payment_ids = [], min_block_height = 0):
         get_bulk_payments = {
             'method': 'get_bulk_payments',
@@ -101,24 +115,25 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(get_bulk_payments)
 
-    def describe_transfer(self, unsigned_txset):
+    def describe_transfer(self, unsigned_txset = '', multisig_txset = ''):
         describe_transfer = {
             'method': 'describe_transfer',
             'params': {
                 'unsigned_txset': unsigned_txset,
+                'multisig_txset': multisig_txset,
             },
             'jsonrpc': '2.0', 
             'id': '0'
         }
         return self.rpc.send_json_rpc_request(describe_transfer)
 
-    def create_wallet(self, index=''):
+    def create_wallet(self, filename='', password = '', language = 'English'):
         create_wallet = {
             'method': 'create_wallet',
             'params': {
-                'filename': 'testWallet' + index,
-                'password' : '',
-                'language' : 'English'
+                'filename': filename,
+                'password': password,
+                'language': language
             },
             'jsonrpc': '2.0', 
             'id': '0'
@@ -146,11 +161,23 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(sweep_dust)
 
-    def sweep_all(self, address):
+    def sweep_all(self, address = '', account_index = 0, subaddr_indices = [], priority = 0, ring_size = 0, outputs = 1, unlock_time = 0, payment_id = '', get_tx_keys = False, below_amount = 0, do_not_relay = False, get_tx_hex = False, get_tx_metadata = False):
         sweep_all = {
             'method': 'sweep_all',
             'params' : {
-                'address' : ''
+                'address' : address,
+                'account_index' : account_index,
+                'subaddr_indices' : subaddr_indices,
+                'priority' : priority,
+                'ring_size' : ring_size,
+                'outputs' : outputs,
+                'unlock_time' : unlock_time,
+                'payment_id' : payment_id,
+                'get_tx_keys' : get_tx_keys,
+                'below_amount' : below_amount,
+                'do_not_relay' : do_not_relay,
+                'get_tx_hex' : get_tx_hex,
+                'get_tx_metadata' : get_tx_metadata,
             },
             'jsonrpc': '2.0', 
             'id': '0'
@@ -590,6 +617,79 @@ class Wallet(object):
             'id': '0'
         }
         return self.rpc.send_json_rpc_request(verify)
+
+    def get_height(self):
+        get_height = {
+            'method': 'get_height',
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(get_height)
+
+    def relay_tx(self, hex_):
+        relay_tx = {
+            'method': 'relay_tx',
+            'params': {
+                'hex': hex_,
+            },
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(relay_tx)
+
+    def get_languages(self):
+        get_languages = {
+            'method': 'get_languages',
+            'params': {
+            },
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(get_languages)
+
+    def export_outputs(self):
+        export_outputs = {
+            'method': 'export_outputs',
+            'params': {
+            },
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(export_outputs)
+
+    def import_outputs(self, outputs_data_hex):
+        import_outputs = {
+            'method': 'import_outputs',
+            'params': {
+                'outputs_data_hex': outputs_data_hex
+            },
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(import_outputs)
+
+    def export_key_images(self, all_ = False):
+        export_key_images = {
+            'method': 'export_key_images',
+            'params': {
+                'all': all_
+            },
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(export_key_images)
+
+    def import_key_images(self, signed_key_images, offset = 0):
+        import_key_images = {
+            'method': 'import_key_images',
+            'params': {
+                'offset': offset,
+                'signed_key_images': signed_key_images,
+            },
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(import_key_images)
 
     def get_version(self):
         get_version = {
