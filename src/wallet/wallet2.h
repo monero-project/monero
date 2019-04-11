@@ -1258,6 +1258,9 @@ namespace tools
     bool frozen(const crypto::key_image &ki) const;
     bool frozen(const transfer_details &td) const;
 
+    uint64_t get_bytes_sent() const;
+    uint64_t get_bytes_received() const;
+
     // MMS -------------------------------------------------------------------------------------------------
     mms::message_store& get_message_store() { return m_message_store; };
     const mms::message_store& get_message_store() const { return m_message_store; };
