@@ -285,7 +285,7 @@ namespace service_nodes
   void deregister_vote_pool::remove_used_votes(std::vector<cryptonote::transaction> const &txs)
   {
     CRITICAL_REGION_LOCAL(m_lock);
-    for (const cryptonote::transaction &tx : txs)
+    for (const auto &tx : txs)
     {
       if (tx.get_type() != cryptonote::transaction::type_deregister)
         continue;

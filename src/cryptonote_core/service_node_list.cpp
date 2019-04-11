@@ -124,7 +124,7 @@ namespace service_nodes
           return;
         }
 
-        block_added_generic(block, txs);
+        process_block(block, txs);
       }
     }
   }
@@ -821,13 +821,12 @@ namespace service_nodes
   void service_node_list::block_added(const cryptonote::block& block, const std::vector<cryptonote::transaction>& txs)
   {
     std::lock_guard<boost::recursive_mutex> lock(m_sn_mutex);
-    block_added_generic(block, txs);
+    process_block(block, txs);
     store();
   }
 
 
-  template<typename T>
-  void service_node_list::block_added_generic(const cryptonote::block& block, const T& txs)
+  void service_node_list::process_block(const cryptonote::block& block, const std::vector<cryptonote::transaction>& txs)
   {
     uint64_t block_height = cryptonote::get_block_height(block);
     int hard_fork_version = m_blockchain.get_hard_fork_version(block_height);

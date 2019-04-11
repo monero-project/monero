@@ -322,11 +322,9 @@ namespace service_nodes
     bool process_registration_tx(const cryptonote::transaction& tx, uint64_t block_timestamp, uint64_t block_height, uint32_t index);
     void process_contribution_tx(const cryptonote::transaction& tx, uint64_t block_height, uint32_t index);
     bool process_deregistration_tx(const cryptonote::transaction& tx, uint64_t block_height);
+    void process_block(const cryptonote::block& block, const std::vector<cryptonote::transaction>& txs);
 
     std::vector<crypto::public_key> get_service_nodes_pubkeys() const;
-
-    template<typename T>
-    void block_added_generic(const cryptonote::block& block, const T& txs);
 
     bool contribution_tx_output_has_correct_unlock_time(const cryptonote::transaction& tx, size_t i, uint64_t block_height) const;
 

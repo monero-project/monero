@@ -44,7 +44,7 @@ public:
   BaseTestDB() {}
   virtual void add_block(const cryptonote::block& blk, size_t block_weight, uint64_t long_term_block_weight, const cryptonote::difficulty_type& cumulative_difficulty, const uint64_t& coins_generated , uint64_t num_rct_outs, const crypto::hash& blk_hash) override { }
   virtual void remove_block() override { }
-  virtual uint64_t add_transaction_data(const crypto::hash& blk_hash, const cryptonote::transaction& tx, const crypto::hash& tx_hash, const crypto::hash& tx_prunable_hash) override {return 0;}
+  virtual uint64_t add_transaction_data(const crypto::hash& blk_hash, const std::pair<transaction, blobdata>& tx, const crypto::hash& tx_hash, const crypto::hash& tx_prunable_hash) override {return 0;}
   virtual void remove_transaction_data(const crypto::hash& tx_hash, const cryptonote::transaction& tx) override {}
   virtual void add_tx_amount_output_indices(const uint64_t tx_index, const std::vector<uint64_t>& amount_output_indices) override {}
   virtual void add_spent_key(const crypto::key_image& k_image) override {}
@@ -84,7 +84,7 @@ public:
   virtual crypto::hash get_block_hash_from_height(const uint64_t& height) const override { return crypto::hash(); }
   virtual std::vector<cryptonote::block> get_blocks_range(const uint64_t& h1, const uint64_t& h2) const override { return std::vector<cryptonote::block>(); }
   virtual std::vector<crypto::hash> get_hashes_range(const uint64_t& h1, const uint64_t& h2) const override { return std::vector<crypto::hash>(); }
-  virtual crypto::hash top_block_hash() const override { return crypto::hash(); }
+  virtual crypto::hash top_block_hash(uint64_t *block_height = NULL) const override { return crypto::hash(); }
   virtual cryptonote::block get_top_block() const override { return cryptonote::block(); }
   virtual uint64_t height() const override { return 1; }
   virtual bool tx_exists(const crypto::hash& h) const override { return false; }

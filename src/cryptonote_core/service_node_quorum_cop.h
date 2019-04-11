@@ -30,6 +30,7 @@
 
 #include "blockchain.h"
 #include "cryptonote_protocol/cryptonote_protocol_handler_common.h"
+#include "cryptonote_basic/blobdatatype.h"
 
 namespace cryptonote
 {

@@ -197,7 +197,7 @@ bool tests::proxy_core::handle_incoming_txs(const std::vector<blobdata>& tx_blob
     return true;
 }
 
-bool tests::proxy_core::handle_incoming_block(const cryptonote::blobdata& block_blob, cryptonote::block_verification_context& bvc, bool update_miner_blocktemplate) {
+bool tests::proxy_core::handle_incoming_block(const cryptonote::blobdata& block_blob, const cryptonote::block *block_, cryptonote::block_verification_context& bvc, bool update_miner_blocktemplate) {
     block b = AUTO_VAL_INIT(b);
 
     if(!parse_and_validate_block_from_blob(block_blob, b)) {
