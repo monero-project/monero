@@ -98,7 +98,8 @@ namespace hw {
 
       void init();  
       void connect(void *params);
-      void connect(unsigned int vid, unsigned  int pid, boost::optional<int> interface_number, boost::optional<unsigned short> usage_page);
+      void connect(const std::vector<hid_conn_params> &conn);
+      hid_device  *connect(unsigned int vid, unsigned  int pid, boost::optional<int> interface_number, boost::optional<unsigned short> usage_page);
       bool connected() const;
       int  exchange(unsigned char *command, unsigned int cmd_len, unsigned char *response, unsigned int max_resp_len, bool user_input);
       void disconnect();

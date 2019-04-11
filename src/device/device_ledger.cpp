@@ -389,10 +389,15 @@ namespace hw {
       MDEBUG( "Device "<<this->id <<" HIDUSB inited");
       return true;
     }
+    
+    static const std::vector<hw::io::hid_conn_params> known_devices {
+        {0x2c97, 0x0001, 0, 0xffa0}, 
+        {0x2c97, 0x0004, 0, 0xffa0},       
+    };
 
     bool device_ledger::connect(void) {
       this->disconnect();
-      hw_device.connect(0x2c97, 0x0001, 0, 0xffa0);
+      hw_device.connect(known_devices);
       this->reset();
       #ifdef DEBUG_HWDEVICE
       cryptonote::account_public_address pubkey;
