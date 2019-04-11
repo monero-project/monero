@@ -154,13 +154,19 @@ bool create_ssl_certificate(std::string &pkey_buffer, std::string &cert_buffer)
   return success;
 }
 
-ssl_context_t create_ssl_context(const std::pair<std::string, std::string> &private_key_and_certificate_path, std::list<std::string> allowed_certificates, bool allow_any_cert)
+ssl_context_t create_ssl_context(const std::pair<std::string, std::string> &private_key_and_certificate_path, std::list<std::string> allowed_certificates, std::vector<std::vector<uint8_t>> allowed_fingerprints, bool allow_any_cert)
 {
-  ssl_context_t ssl_context({boost::asio::ssl::context(boost::asio::ssl::context::sslv23), std::move(allowed_certificates)});
+  ssl_context_t ssl_context{boost::asio::ssl::context(boost::asio::ssl::context::tlsv12), std::move(allowed_certificates), std::move(allowed_fingerprints)};
 
-  // disable sslv2
-  ssl_context.context.set_options(boost::asio::ssl::context::default_workarounds | boost::asio::ssl::context::no_sslv2);
-  ssl_context.context.set_default_verify_paths();
+  // only allow tls v1.2 and up
+  ssl_context.context.set_options(boost::asio::ssl::context::default_workarounds);
+  ssl_context.context.set_options(boost::asio::ssl::context::no_sslv2);
+  ssl_context.context.set_options(boost::asio::ssl::context::no_sslv3);
+  ssl_context.context.set_options(boost::asio::ssl::context::no_tlsv1);
+  ssl_context.context.set_options(boost::asio::ssl::context::no_tlsv1_1);
+
+  // only allow a select handful of tls v1.3 and v1.2 ciphers to be used
+  SSL_CTX_set_cipher_list(ssl_context.context.native_handle(), "ECDHE-ECDSA-CHACHA20-POLY1305-SHA256:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES256-SHA384:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-CHACHA20-POLY1305");
 
   // set options on the SSL context for added security
   SSL_CTX *ctx = ssl_context.context.native_handle();
@@ -179,7 +185,7 @@ ssl_context_t create_ssl_context(const std::pair<std::string, std::string> &priv
 #ifdef SSL_OP_NO_COMPRESSION
   SSL_CTX_set_options(ctx, SSL_OP_NO_COMPRESSION);
 #endif
-  SSL_CTX_set_options(ctx, SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 | SSL_OP_NO_TLSv1 | SSL_OP_NO_TLSv1_1); // https://github.com/ssllabs/research/wiki/SSL-and-TLS-Deployment-Best-Practices
+  ssl_context.context.set_default_verify_paths();
 
   CHECK_AND_ASSERT_THROW_MES(private_key_and_certificate_path.first.empty() == private_key_and_certificate_path.second.empty(), "private key and certificate must be either both given or both empty");
   if (private_key_and_certificate_path.second.empty())
@@ -225,7 +231,7 @@ bool is_ssl(const unsigned char *data, size_t len)
   return false;
 }
 
-bool is_certificate_allowed(boost::asio::ssl::verify_context &ctx, const std::list<std::string> &allowed_certificates)
+bool is_certificate_allowed(boost::asio::ssl::verify_context &ctx, const ssl_context_t &ssl_context)
 {
   X509_STORE_CTX *sctx = ctx.native_handle();
   if (!sctx)
@@ -240,23 +246,51 @@ bool is_certificate_allowed(boost::asio::ssl::verify_context &ctx, const std::li
     return false;
   }
 
-  BIO *bio_cert = BIO_new(BIO_s_mem());
-  openssl_bio bio_cert_deleter{bio_cert};
-  bool success = PEM_write_bio_X509(bio_cert, cert);
-  if (!success)
-  {
-    MERROR("Failed to print certificate");
-    return false;
+  // can we check the certificate against a list of fingerprints?
+  if (!ssl_context.allowed_fingerprints.empty()) {
+    // buffer for the certificate digest and the size of the result
+    std::vector<uint8_t> digest(EVP_MAX_MD_SIZE);
+    unsigned int size{ 0 };
+
+    // create the digest from the certificate
+    if (!X509_digest(cert, EVP_sha1(), digest.data(), &size)) {
+      MERROR("Failed to create certificate fingerprint");
+      return false;
+    }
+
+    // strip unnecessary bytes from the digest
+    digest.resize(size);
+
+    // is the certificate fingerprint inside the list of allowed fingerprints?
+    if (std::find(ssl_context.allowed_fingerprints.begin(), ssl_context.allowed_fingerprints.end(), digest) != ssl_context.allowed_fingerprints.end())
+      return true;
   }
-  BUF_MEM *buf = NULL;
-  BIO_get_mem_ptr(bio_cert, &buf);
-  if (!buf || !buf->data || !buf->length)
-  {
-    MERROR("Failed to write certificate: " << ERR_get_error());
-    return false;
+
+  if (!ssl_context.allowed_certificates.empty()) {
+    BIO *bio_cert = BIO_new(BIO_s_mem());
+    bool success = PEM_write_bio_X509(bio_cert, cert);
+    if (!success)
+    {
+      BIO_free(bio_cert);
+      MERROR("Failed to print certificate");
+      return false;
+    }
+    BUF_MEM *buf = NULL;
+    BIO_get_mem_ptr(bio_cert, &buf);
+    if (!buf || !buf->data || !buf->length)
+    {
+      BIO_free(bio_cert);
+      MERROR("Failed to write certificate: " << ERR_get_error());
+      return false;
+    }
+    std::string certificate(std::string(buf->data, buf->length));
+    BIO_free(bio_cert);
+    if (std::find(ssl_context.allowed_certificates.begin(), ssl_context.allowed_certificates.end(), certificate) != ssl_context.allowed_certificates.end())
+      return true;
   }
-  std::string certificate(std::string(buf->data, buf->length));
-  return std::find(allowed_certificates.begin(), allowed_certificates.end(), certificate) != allowed_certificates.end();
+
+  // if either checklist is non-empty we must have failed it
+  return ssl_context.allowed_fingerprints.empty() && ssl_context.allowed_certificates.empty();
 }
 
 bool ssl_handshake(boost::asio::ssl::stream<boost::asio::ip::tcp::socket> &socket, boost::asio::ssl::stream_base::handshake_type type, const epee::net_utils::ssl_context_t &ssl_context)
@@ -276,7 +310,7 @@ bool ssl_handshake(boost::asio::ssl::stream<boost::asio::ip::tcp::socket> &socke
         return false;
       }
     }
-    if (!ssl_context.allow_any_cert && !ssl_context.allowed_certificates.empty() && !is_certificate_allowed(ctx, ssl_context.allowed_certificates))
+    if (!ssl_context.allow_any_cert && !is_certificate_allowed(ctx, ssl_context))
     {
       MERROR("Certificate is not in the allowed list, connection droppped");
       return false;
@@ -289,7 +323,7 @@ bool ssl_handshake(boost::asio::ssl::stream<boost::asio::ip::tcp::socket> &socke
   socket.handshake(type, ec);
   if (ec)
   {
-    MERROR("handshake failed, connection dropped");
+    MERROR("handshake failed, connection dropped: " << ec.message());
     return false;
   }
   if (!ssl_context.allow_any_cert && !verified)

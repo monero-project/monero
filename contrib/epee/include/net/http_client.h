@@ -278,6 +278,7 @@ namespace net_utils
 			epee::net_utils::ssl_support_t m_ssl_support;
 			std::pair<std::string, std::string> m_ssl_private_key_and_certificate_path;
 			std::list<std::string> m_ssl_allowed_certificates;
+			std::vector<std::vector<uint8_t>> m_ssl_allowed_fingerprints;
 			bool m_ssl_allow_any_cert;
 
 		public:
@@ -302,16 +303,16 @@ namespace net_utils
 			const std::string &get_host() const { return m_host_buff; };
 			const std::string &get_port() const { return m_port; };
 
-			bool set_server(const std::string& address, boost::optional<login> user, epee::net_utils::ssl_support_t ssl_support = epee::net_utils::ssl_support_t::e_ssl_support_autodetect, const std::pair<std::string, std::string> &private_key_and_certificate_path = {}, const std::list<std::string> &allowed_ssl_certificates = {}, bool allow_any_cert = false)
+			bool set_server(const std::string& address, boost::optional<login> user, epee::net_utils::ssl_support_t ssl_support = epee::net_utils::ssl_support_t::e_ssl_support_autodetect, const std::pair<std::string, std::string> &private_key_and_certificate_path = {}, const std::list<std::string> &allowed_ssl_certificates = {}, const std::vector<std::vector<uint8_t>> &allowed_ssl_fingerprints = {}, bool allow_any_cert = false)
 			{
 				http::url_content parsed{};
 				const bool r = parse_url(address, parsed);
 				CHECK_AND_ASSERT_MES(r, false, "failed to parse url: " << address);
-				set_server(std::move(parsed.host), std::to_string(parsed.port), std::move(user), ssl_support, private_key_and_certificate_path, allowed_ssl_certificates, allow_any_cert);
+				set_server(std::move(parsed.host), std::to_string(parsed.port), std::move(user), ssl_support, private_key_and_certificate_path, allowed_ssl_certificates, allowed_ssl_fingerprints, allow_any_cert);
 				return true;
 			}
 
-			void set_server(std::string host, std::string port, boost::optional<login> user, epee::net_utils::ssl_support_t ssl_support = epee::net_utils::ssl_support_t::e_ssl_support_autodetect, const std::pair<std::string, std::string> &private_key_and_certificate_path = {}, const std::list<std::string> &allowed_ssl_certificates = {}, bool allow_any_cert = false)
+			void set_server(std::string host, std::string port, boost::optional<login> user, epee::net_utils::ssl_support_t ssl_support = epee::net_utils::ssl_support_t::e_ssl_support_autodetect, const std::pair<std::string, std::string> &private_key_and_certificate_path = {}, const std::list<std::string> &allowed_ssl_certificates = {}, const std::vector<std::vector<uint8_t>> &allowed_ssl_fingerprints = {}, bool allow_any_cert = false)
 			{
 				CRITICAL_REGION_LOCAL(m_lock);
 				disconnect();
@@ -321,8 +322,9 @@ namespace net_utils
 				m_ssl_support = ssl_support;
 				m_ssl_private_key_and_certificate_path = private_key_and_certificate_path;
 				m_ssl_allowed_certificates = allowed_ssl_certificates;
+				m_ssl_allowed_fingerprints = allowed_ssl_fingerprints;
 				m_ssl_allow_any_cert = allow_any_cert;
-				m_net_client.set_ssl(m_ssl_support, m_ssl_private_key_and_certificate_path, m_ssl_allowed_certificates, m_ssl_allow_any_cert);
+				m_net_client.set_ssl(m_ssl_support, m_ssl_private_key_and_certificate_path, m_ssl_allowed_certificates, m_ssl_allowed_fingerprints, m_ssl_allow_any_cert);
 			}
 
       bool connect(std::chrono::milliseconds timeout)
