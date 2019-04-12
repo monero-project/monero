@@ -762,7 +762,11 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     m_timer.cancel();
     boost::system::error_code ignored_ec;
     if (m_ssl_support == epee::net_utils::ssl_support_t::e_ssl_support_enabled)
-      socket_.shutdown(ignored_ec);
+    {
+      const shared_state &state = static_cast<const shared_state&>(get_state());
+      if (!state.stop_signal_sent)
+        socket_.shutdown(ignored_ec);
+    }
     socket().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ignored_ec);
     if (!m_host.empty())
     {
@@ -1130,6 +1134,8 @@ POP_WARNINGS
   void boosted_tcp_server<t_protocol_handler>::send_stop_signal()
   {
     m_stop_signal_sent = true;
+    typename connection<t_protocol_handler>::shared_state *state = static_cast<typename connection<t_protocol_handler>::shared_state*>(m_state.get());
+    state->stop_signal_sent = true;
     TRY_ENTRY();
     connections_mutex.lock();
     for (auto &c: connections_)

@@ -93,11 +93,12 @@ namespace net_utils
     struct shared_state : connection_basic_shared_state
     {
       shared_state()
-        : connection_basic_shared_state(), pfilter(nullptr), config()
+        : connection_basic_shared_state(), pfilter(nullptr), config(), stop_signal_sent(false)
       {}
 
       i_connection_filter* pfilter;
       typename t_protocol_handler::config_type config;
+      bool stop_signal_sent;
     };
 
     /// Construct a connection with the given io_service.
