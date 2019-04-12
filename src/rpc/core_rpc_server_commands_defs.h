@@ -1115,7 +1115,14 @@ namespace cryptonote
       uint64_t speed;                    // Mining power in hashes per seconds.
       uint32_t threads_count;            // Number of running mining threads.
       std::string address;               // Account address daemon is mining to. Empty if not mining.
+      std::string pow_algorithm;         // Current hashing algorithm name
       bool is_background_mining_enabled; // States if the mining is running in background (`true`) or foreground (`false`).
+      uint8_t bg_idle_threshold;         // Background mining, the minimum amount of time in average the CPU should idle in percentage.
+      uint8_t bg_min_idle_seconds;       // Background mining, how long the minimum amount of time is for the idle threshold.
+      bool bg_ignore_battery;            // Background mining, if true mining does not adjust power depending on battery percentage remaining.
+      uint8_t bg_target;                 // Background mining, how much percentage of CPU(?) to consume, default 40%.
+      uint32_t block_target;             // The expected time to solve per block, i.e. DIFFICULTY_TARGET_V2
+      uint64_t block_reward;             // Block reward for the current block being mined.
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(status)
@@ -1123,7 +1130,14 @@ namespace cryptonote
         KV_SERIALIZE(speed)
         KV_SERIALIZE(threads_count)
         KV_SERIALIZE(address)
+        KV_SERIALIZE(pow_algorithm)
         KV_SERIALIZE(is_background_mining_enabled)
+        KV_SERIALIZE(bg_idle_threshold)
+        KV_SERIALIZE(bg_min_idle_seconds)
+        KV_SERIALIZE(bg_ignore_battery)
+        KV_SERIALIZE(bg_target)
+        KV_SERIALIZE(block_target)
+        KV_SERIALIZE(block_reward)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;
