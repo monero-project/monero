@@ -1406,7 +1406,7 @@ tsx_builder * tsx_builder::construct_pending_tx(tools::wallet2::pending_tx &ptx,
   ptx.construction_data.extra = tx.extra;
   ptx.construction_data.unlock_time = 0;
   ptx.construction_data.use_rct = true;
-  ptx.construction_data.use_bulletproofs = true;
+  ptx.construction_data.rct_config = m_rct_config;
   ptx.construction_data.dests = m_destinations_orig;
 
   ptx.construction_data.subaddr_account = 0;
