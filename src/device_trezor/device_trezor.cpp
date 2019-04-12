@@ -137,7 +137,7 @@ namespace trezor {
         }
 
         auto current_time = std::chrono::steady_clock::now();
-        if (current_time - m_last_live_refresh_time <= std::chrono::seconds(20))
+        if (current_time - m_last_live_refresh_time <= std::chrono::minutes(5))
         {
           continue;
         }

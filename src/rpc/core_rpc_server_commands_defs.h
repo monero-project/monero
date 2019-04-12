@@ -109,11 +109,13 @@ namespace cryptonote
       uint64_t height;    // The current blockchain height according to the queried daemon.
       std::string status; // Generic RPC error code. "OK" is the success value.
       bool untrusted;     // If the result is obtained using bootstrap mode, and therefore not trusted `true`, or otherwise `false`.
+      std::string hash;   // Hash of the block at the current height
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(height)
         KV_SERIALIZE(status)
         KV_SERIALIZE(untrusted)
+        KV_SERIALIZE(hash)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;
@@ -933,6 +935,7 @@ namespace cryptonote
       uint8_t bg_target;                 // Background mining, how much percentage of CPU(?) to consume, default 40%.
       uint32_t block_target;             // The expected time to solve per block, i.e. DIFFICULTY_TARGET_V2
       uint64_t block_reward;             // Block reward for the current block being mined.
+      uint64_t difficulty;               // The difficulty for the current block being mined.
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(status)
@@ -948,6 +951,7 @@ namespace cryptonote
         KV_SERIALIZE(bg_target)
         KV_SERIALIZE(block_target)
         KV_SERIALIZE(block_reward)
+        KV_SERIALIZE(difficulty)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;

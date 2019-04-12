@@ -1384,6 +1384,7 @@ bool Blockchain::create_block_template(block& b, const account_public_address& m
       m_btc.timestamp = time(NULL); // update timestamp unconditionally
       b = m_btc;
       diffic = m_btc_difficulty;
+      height = m_btc_height;
       expected_reward = m_btc_expected_reward;
       return true;
     }
@@ -1539,7 +1540,7 @@ bool Blockchain::create_block_template(block& b, const account_public_address& m
         ", cumulative weight " << cumulative_weight << " is now good");
 #endif
 
-    cache_block_template(b, miner_address, ex_nonce, diffic, expected_reward, pool_cookie);
+    cache_block_template(b, miner_address, ex_nonce, diffic, height, expected_reward, pool_cookie);
     return true;
   }
   LOG_ERROR("Failed to create_block_template with " << 10 << " tries");
@@ -3858,12 +3859,6 @@ leave:
 //------------------------------------------------------------------
 bool Blockchain::prune_blockchain(uint32_t pruning_seed)
 {
-  uint8_t hf_version = m_hardfork->get_current_version();
-  if (hf_version < cryptonote::network_version_11_infinite_staking)
-  {
-    MERROR("Most of the network will only be ready for pruned blockchains from v11, not pruning");
-    return false;
-  }
   return m_db->prune_blockchain(pruning_seed);
 }
 //------------------------------------------------------------------
@@ -3912,6 +3907,8 @@ bool Blockchain::update_next_cumulative_weight_limit(uint64_t *long_term_effecti
   PERF_TIMER(update_next_cumulative_weight_limit);
 
   LOG_PRINT_L3("Blockchain::" << __func__);
+
+  m_db->block_txn_start(false);
 
   // when we reach this, the last hf version is not yet written to the db
   const uint64_t db_height = m_db->height();
@@ -3974,6 +3971,10 @@ bool Blockchain::update_next_cumulative_weight_limit(uint64_t *long_term_effecti
 
   if (long_term_effective_median_block_weight)
     *long_term_effective_median_block_weight = m_long_term_effective_median_block_weight;
+
+  m_db->add_max_block_size(m_current_block_cumul_weight_limit);
+
+  m_db->block_txn_stop();
 
   return true;
 }
@@ -4975,13 +4976,14 @@ void Blockchain::invalidate_block_template_cache()
   m_btc_valid = false;
 }
 
-void Blockchain::cache_block_template(const block &b, const cryptonote::account_public_address &address, const blobdata &nonce, const difficulty_type &diff, uint64_t expected_reward, uint64_t pool_cookie)
+void Blockchain::cache_block_template(const block &b, const cryptonote::account_public_address &address, const blobdata &nonce, const difficulty_type &diff, uint64_t height, uint64_t expected_reward, uint64_t pool_cookie)
 {
   MDEBUG("Setting block template cache");
   m_btc = b;
   m_btc_address = address;
   m_btc_nonce = nonce;
   m_btc_difficulty = diff;
+  m_btc_height = height;
   m_btc_expected_reward = expected_reward;
   m_btc_pool_cookie = pool_cookie;
   m_btc_valid = true;

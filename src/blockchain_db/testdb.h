@@ -149,6 +149,9 @@ public:
 
   virtual cryptonote::transaction get_pruned_tx(const crypto::hash& h) const override { return {}; };
   virtual bool get_tx(const crypto::hash& h, cryptonote::transaction &tx) const override { return false; }
+
+  virtual uint64_t get_max_block_size() override { return 100000000; }
+  virtual void add_max_block_size(uint64_t sz) override { }
 };
 
 }
