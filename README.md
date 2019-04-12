@@ -262,7 +262,7 @@ application.
 	
         cd ~/loki
 
-* **Optional**: if you would like a specific [version/tag](https://github.com/loki-project/loki/tags), do a git checkout for that version. eg. 'v3.0.4'. If you dont care about the version and just want binaries from master, skip this step:
+* **Optional**: if you would like a specific [version/tag](https://github.com/loki-project/loki/tags), do a git checkout for that version. eg. 'v3.0.4'. If you don't care about the version and just want binaries from master, skip this step:
 	
         git checkout v3.0.4
 
