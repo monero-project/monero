@@ -3,6 +3,7 @@
 # This uses the scheme proposed by ArticMine
 # Written by Sarang Nother
 # Copyright (c) 2019 The Monero Project
+from __future__ import print_function
 import sys
 import math
 
@@ -67,7 +68,7 @@ def run(t, blocks):
       lt_weights.append(min(max_weight,int(ltembw + int(ltembw * 2 / 5))))
 
       #print "H %u, r %u, BW %u, EMBW %u, LTBW %u, LTEMBW %u, ltmedian %u" % (block, r, max_weight, embw, lt_weights[-1], ltembw, ltmedian)
-      print "H %u, BW %u, EMBW %u, LTBW %u" % (block, max_weight, embw, lt_weights[-1])
+      print("H %u, BW %u, EMBW %u, LTBW %u" % (block, max_weight, embw, lt_weights[-1]))
 
 run(0, 2 * MEDIAN_WINDOW_BIG)
 run(1, 9 * MEDIAN_WINDOW_BIG)
