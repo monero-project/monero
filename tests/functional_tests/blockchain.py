@@ -46,6 +46,7 @@ from framework.daemon import Daemon
 class BlockchainTest():
     def run_test(self):
         self._test_generateblocks(5)
+        self._test_alt_chains()
 
     def _test_generateblocks(self, blocks):
         assert blocks >= 2
@@ -151,6 +152,163 @@ class BlockchainTest():
         try: daemon.getblock(height + blocks - 1)
         except: ok = True
         assert ok
+
+        # get transactions
+        res = daemon.get_info()
+        assert res.height == height + blocks - 1
+        nblocks = height + blocks - 1
+        res = daemon.getblockheadersrange(0, nblocks - 1)
+        assert len(res.headers) == nblocks
+        assert res.headers[-1] == block_header
+        txids = [x.miner_tx_hash for x in res.headers]
+        res = daemon.get_transactions(txs_hashes = txids)
+        assert len(res.txs) == nblocks
+        assert not 'missed_txs' in res or len(res.missed_txs) == 0
+        running_output_index = 0
+        for i in range(len(txids)):
+            tx = res.txs[i]
+            assert tx.tx_hash == txids[i]
+            assert not tx.double_spend_seen
+            assert not tx.in_pool
+            assert tx.block_height == i
+            if i > 0:
+                for idx in tx.output_indices:
+                    assert idx == running_output_index
+                    running_output_index += 1
+                res_out = daemon.get_outs([{'amount': 0, 'index': i} for i in tx.output_indices], get_txid = True)
+                assert len(res_out.outs) == len(tx.output_indices)
+                for out in res_out.outs:
+                    assert len(out.key) == 64
+                    assert len(out.mask) == 64
+                    assert not out.unlocked
+                    assert out.height == i + 1
+                    assert out.txid == txids[i + 1]
+
+        for i in range(height + nblocks - 1):
+            res_sum = daemon.get_coinbase_tx_sum(i, 1)
+            res_header = daemon.getblockheaderbyheight(i)
+            assert res_sum.emission_amount == res_header.block_header.reward
+
+        res = daemon.get_coinbase_tx_sum(0, 1)
+        assert res.emission_amount == 17592186044415
+        assert res.fee_amount == 0
+        sum_blocks = height + nblocks - 1
+        res = daemon.get_coinbase_tx_sum(0, sum_blocks)
+        extrapolated = 17592186044415 + 17592186044415 * 2 * (sum_blocks - 1)
+        assert res.emission_amount < extrapolated and res.emission_amount > extrapolated - 1e12
+        assert res.fee_amount == 0
+        sum_blocks_emission = res.emission_amount
+        res = daemon.get_coinbase_tx_sum(1, sum_blocks)
+        assert res.emission_amount == sum_blocks_emission - 17592186044415
+        assert res.fee_amount == 0
+
+        res = daemon.get_output_distribution([0, 1, 17592186044415], 0, 0)
+        assert len(res.distributions) == 3
+        for a in range(3):
+            assert res.distributions[a].amount == [0, 1, 17592186044415][a]
+            assert res.distributions[a].start_height == 0
+            assert res.distributions[a].base == 0
+            assert len(res.distributions[a].distribution) == height + nblocks - 1
+            assert res.distributions[a].binary == False
+            for i in range(height + nblocks - 1):
+                assert res.distributions[a].distribution[i] == (1 if i > 0 and a == 0 else 1 if a == 2 and i == 0 else 0)
+
+        res = daemon.get_output_histogram([], min_count = 0, max_count = 0)
+        assert len(res.histogram) == 2
+        for i in range(2):
+            assert res.histogram[i].amount in [0, 17592186044415]
+            assert res.histogram[i].total_instances in [height + nblocks - 2, 1]
+            assert res.histogram[i].unlocked_instances == 0
+            assert res.histogram[i].recent_instances == 0
+
+    def _test_alt_chains(self):
+        print('Testing alt chains')
+        daemon = Daemon()
+        res = daemon.get_alt_blocks_hashes()
+        starting_alt_blocks = res.blks_hashes if 'blks_hashes' in res else []
+        res = daemon.get_info()
+        root_block_hash = res.top_block_hash
+        height = res.height
+        prev_hash = res.top_block_hash
+        res_template = daemon.getblocktemplate('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm')
+        nonce = 0
+
+        # 5 siblings
+        alt_blocks = [None] * 5
+        for i in range(len(alt_blocks)):
+            res = daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 1, prev_block = prev_hash, starting_nonce = nonce)
+            assert res.height == height
+            assert len(res.blocks) == 1
+            txid = res.blocks[0]
+            res = daemon.getblockheaderbyhash(txid)
+            nonce = res.block_header.nonce
+            print('mined ' + ('alt' if res.block_header.orphan_status else 'tip') + ' block ' + str(height) + ', nonce ' + str(nonce))
+            assert res.block_header.prev_hash == prev_hash
+            assert res.block_header.orphan_status == (i > 0)
+            alt_blocks[i] = txid
+            nonce += 1
+
+        print 'mining 3 on 1'
+        # three more on [1]
+        chain1 = []
+        res = daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 3, prev_block = alt_blocks[1], starting_nonce = nonce)
+        assert res.height == height + 3
+        assert len(res.blocks) == 3
+        blk_hash = res.blocks[2]
+        res = daemon.getblockheaderbyhash(blk_hash)
+        nonce = res.block_header.nonce
+        assert not res.block_header.orphan_status
+        nonce += 1
+        chain1.append(blk_hash)
+        chain1.append(res.block_header.prev_hash)
+
+        print('Checking alt blocks match')
+        res = daemon.get_alt_blocks_hashes()
+        assert len(res.blks_hashes) == len(starting_alt_blocks) + 4
+        for txid in alt_blocks:
+            assert txid in res.blks_hashes or txid == alt_blocks[1]
+
+        print 'mining 4 on 3'
+        # 4 more on [3], the chain will reorg when we mine the 4th
+        top_block_hash = blk_hash
+        prev_block = alt_blocks[3]
+        for i in range(4):
+            res = daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 1, prev_block = prev_block)
+            assert res.height == height + 1 + i
+            assert len(res.blocks) == 1
+            prev_block = res.blocks[-1]
+            res = daemon.getblockheaderbyhash(res.blocks[-1])
+            assert res.block_header.orphan_status == (i < 3)
+
+            res = daemon.get_info()
+            assert res.height == ((height + 4) if i < 3 else height + 5)
+            assert res.top_block_hash == (top_block_hash if i < 3 else prev_block)
+
+        res = daemon.get_info()
+        assert res.height == height + 5
+        assert res.top_block_hash == prev_block
+
+        print('Checking alt blocks match')
+        res = daemon.get_alt_blocks_hashes()
+        blks_hashes = res.blks_hashes
+        assert len(blks_hashes) == len(starting_alt_blocks) + 7
+        for txid in alt_blocks:
+            assert txid in blks_hashes or txid == alt_blocks[3]
+        for txid in chain1:
+            assert txid in blks_hashes
+
+        res = daemon.get_alternate_chains()
+        assert len(res.chains) == 4
+        tips = [chain.block_hash for chain in res.chains]
+        for txid in tips:
+            assert txid in blks_hashes
+        for chain in res.chains:
+            assert chain.length in [1, 4]
+            assert chain.length == len(chain.block_hashes)
+            assert chain.height == height + chain.length - 1 # all happen start at the same height
+            assert chain.main_chain_parent_block == root_block_hash
+        for txid in [alt_blocks[0], alt_blocks[2], alt_blocks[4]]:
+          assert len([chain for chain in res.chains if chain.block_hash == txid]) == 1
 
 
 if __name__ == '__main__':

@@ -636,9 +636,11 @@ namespace cryptonote
     struct request_t
     {
       std::vector<get_outputs_out> outputs; // Array of structure `get_outputs_out`.
+      bool get_txid;                        // Request the TXID/hash of the transaction as well.
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(outputs)
+        KV_SERIALIZE(get_txid)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
@@ -1015,10 +1017,12 @@ namespace cryptonote
     {
       uint64_t reserve_size;      // Max 255 bytes
       std::string wallet_address; // Address of wallet to receive coinbase transactions if block is successfully mined.
+      std::string prev_block;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(reserve_size)
         KV_SERIALIZE(wallet_address)
+        KV_SERIALIZE(prev_block)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
@@ -1074,21 +1078,27 @@ namespace cryptonote
     {
       uint64_t amount_of_blocks; 
       std::string wallet_address;
+      std::string prev_block;
+      uint32_t starting_nonce;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(amount_of_blocks)
         KV_SERIALIZE(wallet_address)
+        KV_SERIALIZE(prev_block)
+        KV_SERIALIZE_OPT(starting_nonce, (uint32_t)0)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
 
     struct response_t
     {
-      uint64_t    height;
+      uint64_t height;
+      std::vector<std::string> blocks;
       std::string status; // General RPC error code. "OK" means everything looks good.
-
+      
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(height)
+        KV_SERIALIZE(blocks)
         KV_SERIALIZE(status)
       END_KV_SERIALIZE_MAP()
     };

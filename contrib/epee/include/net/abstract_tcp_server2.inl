@@ -95,6 +95,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 	: 
 		connection_basic(std::move(sock), state, ssl_support),
 		m_protocol_handler(this, check_and_get(state).config, context),
+		buffer_ssl_init_fill(0),
 		m_connection_type( connection_type ),
 		m_throttle_speed_in("speed_in", "throttle_speed_in"),
 		m_throttle_speed_out("speed_out", "throttle_speed_out"),

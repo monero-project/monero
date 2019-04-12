@@ -133,3 +133,5 @@ if len(FAIL) == 0:
   print('Done, ' + str(len(PASS)) + '/' + str(len(tests)) + ' tests passed')
 else:
   print('Done, ' + str(len(FAIL)) + '/' + str(len(tests)) + ' tests failed: ' + string.join(FAIL, ', '))
+
+sys.exit(0 if len(FAIL) == 0 else 1)

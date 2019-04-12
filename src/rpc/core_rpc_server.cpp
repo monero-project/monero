@@ -483,6 +483,7 @@ namespace cryptonote
 
     cryptonote::COMMAND_RPC_GET_OUTPUTS_BIN::request req_bin;
     req_bin.outputs = req.outputs;
+    req_bin.get_txid = req.get_txid;
     cryptonote::COMMAND_RPC_GET_OUTPUTS_BIN::response res_bin;
     if(!m_core.get_outs(req_bin, res_bin))
     {
@@ -1256,7 +1257,18 @@ namespace cryptonote
     block b;
     cryptonote::blobdata blob_reserve;
     blob_reserve.resize(req.reserve_size, 0);
-    if(!m_core.get_block_template(b, info.address, res.difficulty, res.height, res.expected_reward, blob_reserve))
+    cryptonote::difficulty_type wdiff;
+    crypto::hash prev_block;
+    if (!req.prev_block.empty())
+    {
+      if (!epee::string_tools::hex_to_pod(req.prev_block, prev_block))
+      {
+        error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
+        error_resp.message = "Invalid prev_block";
+        return false;
+      }
+    }
+    if(!m_core.get_block_template(b, req.prev_block.empty() ? NULL : &prev_block, info.address, wdiff, res.height, res.expected_reward, blob_reserve))
     {
       error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
       error_resp.message = "Internal error: failed to create block template";
@@ -1341,7 +1353,8 @@ namespace cryptonote
       return false;
     }
 
-    if(!m_core.handle_block_found(b))
+    block_verification_context bvc;
+    if(!m_core.handle_block_found(b, bvc))
     {
       error_resp.code = CORE_RPC_ERROR_CODE_BLOCK_NOT_ACCEPTED;
       error_resp.message = "Block not accepted";
@@ -1373,16 +1386,18 @@ namespace cryptonote
 
     template_req.reserve_size = 1;
     template_req.wallet_address = req.wallet_address;
+    template_req.prev_block = req.prev_block;
     submit_req.push_back(boost::value_initialized<std::string>());
     res.height = m_core.get_blockchain_storage().get_current_blockchain_height();
 
-    bool r;
+    bool r = CORE_RPC_STATUS_OK;
 
     for(size_t i = 0; i < req.amount_of_blocks; i++)
     {
       r = on_getblocktemplate(template_req, template_res, error_resp, ctx);
       res.status = template_res.status;
-
+      template_req.prev_block.clear();
+      
       if (!r) return false;
 
       blobdata blockblob;
@@ -1399,6 +1414,7 @@ namespace cryptonote
         error_resp.message = "Wrong block blob";
         return false;
       }
+      b.nonce = req.starting_nonce;
       miner::find_nonce_for_given_block(b, template_res.difficulty, template_res.height);
 
       submit_req.front() = string_tools::buff_to_hex_nodelimer(block_to_blob(b));
@@ -1407,6 +1423,8 @@ namespace cryptonote
 
       if (!r) return false;
 
+      res.blocks.push_back(epee::string_tools::pod_to_hex(get_block_hash(b)));
+      template_req.prev_block = res.blocks.back();
       res.height = template_res.height;
     }
 

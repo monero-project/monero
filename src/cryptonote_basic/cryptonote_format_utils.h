@@ -173,6 +173,16 @@ namespace cryptonote
   char const *print_vote_verification_context(vote_verification_context const &vvc, service_nodes::deregister_vote const *vote = nullptr);
   //---------------------------------------------------------------
   template<class t_object>
+  bool t_serializable_object_from_blob(t_object& to, const blobdata& b_blob)
+  {
+    std::stringstream ss;
+    ss << b_blob;
+    binary_archive<false> ba(ss);
+    bool r = ::serialization::serialize(ba, to);
+    return r;
+  }
+  //---------------------------------------------------------------
+  template<class t_object>
   bool t_serializable_object_to_blob(const t_object& to, blobdata& b_blob)
   {
     std::stringstream ss;

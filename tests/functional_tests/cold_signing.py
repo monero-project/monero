@@ -89,6 +89,12 @@ class ColdSigningTest():
         dst = {'address': '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 'amount': 1000000000000}
         payment_id = '1234500000012345abcde00000abcdeff1234500000012345abcde00000abcde'
 
+        self.hot_wallet.refresh()
+        res = self.hot_wallet.export_outputs()
+        self.cold_wallet.import_outputs(res.outputs_data_hex)
+        res = self.cold_wallet.export_key_images(True)
+        self.hot_wallet.import_key_images(res.signed_key_images, offset = res.offset)
+
         res = self.hot_wallet.transfer([dst], ring_size = 11, payment_id = payment_id, get_tx_key = False)
         assert len(res.tx_hash) == 32*2
         txid = res.tx_hash
@@ -104,6 +110,22 @@ class ColdSigningTest():
         unsigned_txset = res.unsigned_txset
 
         print 'Signing transaction with cold wallet'
+        res = self.cold_wallet.describe_transfer(unsigned_txset = unsigned_txset)
+        assert len(res.desc) == 1
+        desc = res.desc[0]
+        assert desc.amount_in >= amount + fee
+        assert desc.amount_out == desc.amount_in - fee
+        assert desc.ring_size == 11
+        assert desc.unlock_time == 0
+        assert desc.payment_id == payment_id
+        assert desc.change_amount == desc.amount_in - 1000000000000 - fee
+        assert desc.change_address == '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
+        assert desc.fee == fee
+        assert len(desc.recipients) == 1
+        rec = desc.recipients[0]
+        assert rec.address == '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
+        assert rec.amount == 1000000000000
+
         res = self.cold_wallet.sign_transfer(unsigned_txset)
         assert len(res.signed_txset) > 0
         signed_txset = res.signed_txset

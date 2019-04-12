@@ -252,6 +252,7 @@ namespace cryptonote
     bool thaw(const std::vector<std::string>& args);
     bool frozen(const std::vector<std::string>& args);
     bool net_stats(const std::vector<std::string>& args);
+    bool welcome(const std::vector<std::string>& args);
     bool version(const std::vector<std::string>& args);
 
     bool register_service_node_main(
