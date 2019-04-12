@@ -408,10 +408,10 @@ namespace rct {
         return res;
     }
 
-    //Computes aL where L is the curve order
-    bool isInMainSubgroup(const key & a) {
+    //Computes lA where l is the curve order
+    bool isInMainSubgroup(const key & A) {
         ge_p3 p3;
-        return toPointCheckOrder(&p3, a.bytes);
+        return toPointCheckOrder(&p3, A.bytes);
     }
 
     //Curve addition / subtractions
