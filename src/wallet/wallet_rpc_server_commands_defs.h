@@ -47,7 +47,7 @@
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define WALLET_RPC_VERSION_MAJOR 1
-#define WALLET_RPC_VERSION_MINOR 5
+#define WALLET_RPC_VERSION_MINOR 6
 #define MAKE_WALLET_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define WALLET_RPC_VERSION MAKE_WALLET_RPC_VERSION(WALLET_RPC_VERSION_MAJOR, WALLET_RPC_VERSION_MINOR)
 namespace tools
@@ -2201,6 +2201,45 @@ namespace wallet_rpc
     struct response
     {
       BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_SET_LOG_LEVEL
+  {
+    struct request
+    {
+      int8_t level;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(level)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_SET_LOG_CATEGORIES
+  {
+    struct request
+    {
+      std::string categories;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(categories)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string categories;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(categories)
       END_KV_SERIALIZE_MAP()
     };
   };
