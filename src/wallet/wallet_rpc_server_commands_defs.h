@@ -2234,7 +2234,44 @@ namespace wallet_rpc
   };
 
   LOKI_RPC_DOC_INTROSPECT
-  // 
+  // Restore a wallet using the private spend key, view key and public address.
+  struct COMMAND_RPC_GENERATE_FROM_KEYS
+  {
+    struct request_t
+    {
+      uint64_t restore_height; // Height in which to start scanning the blockchain for transactions into and out of this Wallet.
+      std::string filename;    // Set the name of the wallet.
+      std::string address;     // The public address of the wallet.
+      std::string spendkey;    // The private spend key of the wallet
+      std::string viewkey;     // The private view key of the wallet.
+      std::string password;    // Set password for Wallet.
+
+      BEGIN_KV_SERIALIZE_MAP()
+      KV_SERIALIZE_OPT(restore_height, (uint64_t)0)
+      KV_SERIALIZE(filename)
+      KV_SERIALIZE(address)
+      KV_SERIALIZE(spendkey)
+      KV_SERIALIZE(viewkey)
+      KV_SERIALIZE(password)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<request_t> request;
+
+    struct response_t
+    {
+      std::string address;
+      std::string info;
+
+      BEGIN_KV_SERIALIZE_MAP()
+      KV_SERIALIZE(address)
+      KV_SERIALIZE(info)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<response_t> response;
+  };
+
+  LOKI_RPC_DOC_INTROSPECT
+  // Restore a wallet using the seed words.
   struct COMMAND_RPC_RESTORE_DETERMINISTIC_WALLET
   {
     struct request_t
