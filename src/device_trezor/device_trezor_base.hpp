@@ -47,14 +47,15 @@
 #endif
 
 //automatic lock one more level on device ensuring the current thread is allowed to use it
-#define AUTO_LOCK_CMD() \
+#define TREZOR_AUTO_LOCK_CMD() \
   /* lock both mutexes without deadlock*/ \
   boost::lock(device_locker, command_locker); \
   /* make sure both already-locked mutexes are unlocked at the end of scope */ \
   boost::lock_guard<boost::recursive_mutex> lock1(device_locker, boost::adopt_lock); \
   boost::lock_guard<boost::mutex> lock2(command_locker, boost::adopt_lock)
 
-  
+#define TREZOR_AUTO_LOCK_DEVICE() boost::lock_guard<boost::recursive_mutex> lock1_device(device_locker)
+
 namespace hw {
 namespace trezor {
 
@@ -62,14 +63,14 @@ namespace trezor {
   class device_trezor_base;
 
 #ifdef WITH_TREZOR_DEBUGGING
-    class trezor_debug_callback {
+    class trezor_debug_callback : public hw::i_device_callback {
     public:
       trezor_debug_callback()=default;
       explicit trezor_debug_callback(std::shared_ptr<Transport> & debug_transport);
 
-      void on_button_request();
-      void on_pin_request(epee::wipeable_string &pin);
-      void on_passphrase_request(bool on_device, epee::wipeable_string &passphrase);
+      void on_button_request(uint64_t code=0) override;
+      boost::optional<epee::wipeable_string> on_pin_request() override;
+      boost::optional<epee::wipeable_string> on_passphrase_request(bool on_device) override;
       void on_passphrase_state_request(const std::string &state);
       void on_disconnect();
     protected:
@@ -95,6 +96,8 @@ namespace trezor {
       std::vector<unsigned int> m_wallet_deriv_path;
       std::string m_device_state;  // returned after passphrase entry, session
       std::shared_ptr<messages::management::Features> m_features;  // features from the last device reset
+      boost::optional<epee::wipeable_string> m_pin;
+      boost::optional<epee::wipeable_string> m_passphrase;
 
       cryptonote::network_type network_type;
 
@@ -109,11 +112,11 @@ namespace trezor {
       // Internal methods
       //
 
-      void require_connected();
-      void require_initialized();
+      void require_connected() const;
+      void require_initialized() const;
       void call_ping_unsafe();
       void test_ping();
-      void device_state_reset_unsafe();
+      virtual void device_state_reset_unsafe();
       void ensure_derivation_path() noexcept;
 
       // Communication methods
@@ -264,6 +267,15 @@ namespace trezor {
     }
 
     void set_derivation_path(const std::string &deriv_path) override;
+
+    virtual bool has_ki_live_refresh(void) const override { return false; }
+
+    virtual void set_pin(const epee::wipeable_string & pin) override {
+      m_pin = pin;
+    }
+    virtual void set_passphrase(const epee::wipeable_string & passphrase) override {
+      m_passphrase = passphrase;
+    }
 
     /* ======================================================================= */
     /*                              SETUP/TEARDOWN                             */

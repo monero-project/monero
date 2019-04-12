@@ -89,6 +89,8 @@ public:
     std::string errorString() const override;
     void statusWithErrorString(int& status, std::string& errorString) const override;
     bool setPassword(const std::string &password) override;
+    bool setDevicePin(const std::string &password) override;
+    bool setDevicePassphrase(const std::string &password) override;
     std::string address(uint32_t accountIndex = 0, uint32_t addressIndex = 0) const override;
     std::string integratedAddress(const std::string &payment_id) const override;
     std::string secretViewKey() const override;
@@ -200,6 +202,7 @@ public:
     virtual bool lockKeysFile() override;
     virtual bool unlockKeysFile() override;
     virtual bool isKeysFileLocked() override;
+    virtual uint64_t coldKeyImageSync(uint64_t &spent, uint64_t &unspent) override;
 
 private:
     void clearStatus() const;
@@ -211,6 +214,7 @@ private:
     bool daemonSynced() const;
     void stopRefresh();
     bool isNewWallet() const;
+    void pendingTxPostProcess(PendingTransactionImpl * pending);
     bool doInit(const std::string &daemon_address, uint64_t upper_transaction_size_limit = 0, bool ssl = false);
 
 private:
