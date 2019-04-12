@@ -653,9 +653,11 @@ namespace wallet_rpc
     struct request_t
     {
       std::string unsigned_txset; // Set of unsigned tx returned by "transfer" or "transfer_split" methods.
+      std::string multisig_txset; // Set of unsigned multisig txes returned by "transfer" or "transfer_split" methods
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(unsigned_txset)
+        KV_SERIALIZE(multisig_txset)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
