@@ -89,7 +89,7 @@ namespace cryptonote
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define CORE_RPC_VERSION_MAJOR 2
-#define CORE_RPC_VERSION_MINOR 4
+#define CORE_RPC_VERSION_MINOR 5
 #define MAKE_CORE_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define CORE_RPC_VERSION MAKE_CORE_RPC_VERSION(CORE_RPC_VERSION_MAJOR, CORE_RPC_VERSION_MINOR)
 
@@ -826,6 +826,41 @@ namespace cryptonote
     typedef epee::misc_utils::struct_init<response_t> response;
   };
 
+  //-----------------------------------------------
+  LOKI_RPC_DOC_INTROSPECT
+  struct COMMAND_RPC_GET_NET_STATS
+  {
+    struct request_t
+    {
+
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<request_t> request;
+
+
+    struct response_t
+    {
+      std::string status;
+      uint64_t start_time;
+      uint64_t total_packets_in;
+      uint64_t total_bytes_in;
+      uint64_t total_packets_out;
+      uint64_t total_bytes_out;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+        KV_SERIALIZE(start_time)
+        KV_SERIALIZE(total_packets_in)
+        KV_SERIALIZE(total_bytes_in)
+        KV_SERIALIZE(total_packets_out)
+        KV_SERIALIZE(total_bytes_out)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<response_t> response;
+  };
+
+  //-----------------------------------------------
   LOKI_RPC_DOC_INTROSPECT
   // Retrieve all Service Node Keys.
   struct COMMAND_RPC_GET_ALL_SERVICE_NODES_KEYS
@@ -1077,6 +1112,7 @@ namespace cryptonote
       uint64_t num_txes;                      // Number of transactions in the block, not counting the coinbase tx.
       std::string pow_hash;                   // The hash of the block's proof of work.
       uint64_t long_term_weight;              // Long term weight of the block.
+      std::string miner_tx_hash;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(major_version)
@@ -1097,6 +1133,7 @@ namespace cryptonote
         KV_SERIALIZE(num_txes)
         KV_SERIALIZE(pow_hash)
         KV_SERIALIZE_OPT(long_term_weight, (uint64_t)0)
+        KV_SERIALIZE(miner_tx_hash)
       END_KV_SERIALIZE_MAP()
   };
 

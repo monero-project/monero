@@ -136,6 +136,8 @@ network_throttle::network_throttle(const std::string &nameshort, const std::stri
 	m_target_speed = 16 * 1024; // other defaults are probably defined in the command-line parsing code when this class is used e.g. as main global throttle
 	m_last_sample_time = 0;
 	m_history.resize(m_window_size);
+	m_total_packets = 0;
+	m_total_bytes = 0;
 }
 
 void network_throttle::set_name(const std::string &name) 
@@ -192,6 +194,8 @@ void network_throttle::_handle_trafic_exact(size_t packet_size, size_t orginal_s
 	calculate_times_struct cts ;  calculate_times(packet_size, cts , false, -1);
 	calculate_times_struct cts2;  calculate_times(packet_size, cts2, false, 5);
 	m_history.front().m_size += packet_size;
+	m_total_packets++;
+	m_total_bytes += packet_size;
 
 	std::ostringstream oss; oss << "["; 	for (auto sample: m_history) oss << sample.m_size << " ";	 oss << "]" << std::ends;
 	std::string history_str = oss.str();
@@ -351,6 +355,12 @@ double network_throttle::get_current_speed() const {
 	
 	return bytes_transferred / ((m_history.size() - 1) * m_slot_size);
 }
+
+void network_throttle::get_stats(uint64_t &total_packets, uint64_t &total_bytes) const {
+	total_packets = m_total_packets;
+	total_bytes = m_total_bytes;
+}
+
 
 } // namespace
 } // namespace

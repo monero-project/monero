@@ -81,6 +81,7 @@ using namespace epee;
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/asio.hpp>
+#include <boost/format.hpp>
 #include <openssl/sha.h>
 #include "i18n.h"
 
@@ -1080,5 +1081,39 @@ std::string get_nix_version_display_string()
     if (ts < 3600 * 24 * 365.25)
       return std::to_string((uint64_t)(ts / (3600 * 24 * 30.5))) + tr(" months");
     return tr("a long time");
+  }
+
+  std::string get_human_readable_bytes(uint64_t bytes)
+  {
+    // Use 1024 for "kilo", 1024*1024 for "mega" and so on instead of the more modern and standard-conforming
+    // 1000, 1000*1000 and so on, to be consistent with other Monero code that also uses base 2 units
+    struct byte_map
+    {
+        const char* const format;
+        const std::uint64_t bytes;
+    };
+
+    static constexpr const byte_map sizes[] =
+    {
+        {"%.0f B", 1024},
+        {"%.2f KB", 1024 * 1024},
+        {"%.2f MB", std::uint64_t(1024) * 1024 * 1024},
+        {"%.2f GB", std::uint64_t(1024) * 1024 * 1024 * 1024},
+        {"%.2f TB", std::uint64_t(1024) * 1024 * 1024 * 1024 * 1024}
+    };
+
+    struct bytes_less
+    {
+        bool operator()(const byte_map& lhs, const byte_map& rhs) const noexcept
+        {
+            return lhs.bytes < rhs.bytes;
+        }
+    };
+
+    const auto size = std::upper_bound(
+        std::begin(sizes), std::end(sizes) - 1, byte_map{"", bytes}, bytes_less{}
+    );
+    const std::uint64_t divisor = size->bytes / 1024;
+    return (boost::format(size->format) % (double(bytes) / divisor)).str();
   }
 }

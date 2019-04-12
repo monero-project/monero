@@ -128,6 +128,13 @@ bool t_command_parser_executor::print_connections(const std::vector<std::string>
   return m_executor.print_connections();
 }
 
+bool t_command_parser_executor::print_net_stats(const std::vector<std::string>& args)
+{
+  if (!args.empty()) return false;
+
+  return m_executor.print_net_stats();
+}
+
 bool t_command_parser_executor::print_blockchain_info(const std::vector<std::string>& args)
 {
   if(!args.size())

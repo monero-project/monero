@@ -66,6 +66,8 @@ class network_throttle : public i_network_throttle {
 		network_time_seconds m_last_sample_time; // time of last history[0] - so we know when to rotate the buffer
 		network_time_seconds m_start_time; // when we were created
 		bool m_any_packet_yet; // did we yet got any packet to count
+		uint64_t m_total_packets;
+		uint64_t m_total_bytes;
 
 		std::string m_name; // my name for debug and logs
 		std::string m_nameshort; // my name for debug and logs (used in log file name)
@@ -95,6 +97,7 @@ class network_throttle : public i_network_throttle {
 		virtual size_t get_recommended_size_of_planned_transport() const; ///< what should be the size (bytes) of next data block to be transported
 		virtual size_t get_recommended_size_of_planned_transport_window(double force_window) const;  ///< ditto, but for given windows time frame
 		virtual double get_current_speed() const;
+		virtual void get_stats(uint64_t &total_packets, uint64_t &total_bytes) const;
 
 	private:
 		virtual network_time_seconds time_to_slot(network_time_seconds t) const { return std::floor( t ); } // convert exact time eg 13.7 to rounded time for slot number in history 13
