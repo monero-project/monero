@@ -508,7 +508,7 @@ namespace tx {
     auto rsig_data = tsx_data.mutable_rsig_data();
     m_ct.rsig_type = get_rsig_type(tx.v3_use_bulletproofs, tx.splitted_dsts.size());
     rsig_data->set_rsig_type(m_ct.rsig_type);
-    if (tx.use_bulletproofs){
+    if (tx.v3_use_bulletproofs){
       m_ct.bp_version = (m_aux_data->bp_version ? m_aux_data->bp_version.get() : 1);
       rsig_data->set_bp_version((uint32_t) m_ct.bp_version);
     }
