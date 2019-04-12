@@ -4729,7 +4729,7 @@ bool simple_wallet::refresh_main(uint64_t start_height, enum ResetType reset, bo
   LOCK_IDLE_SCOPE();
 
   crypto::hash transfer_hash_pre{};
-  uint64_t height_pre, height_post;
+  uint64_t height_pre = 0, height_post = 0;
 
   if (reset != ResetNone)
   {
@@ -10369,6 +10369,16 @@ void simple_wallet::mms_auto_config(const std::vector<std::string> &args)
 
 bool simple_wallet::mms(const std::vector<std::string> &args)
 {
+  try
+  {
+    m_wallet->get_multisig_wallet_state();
+  }
+  catch(const std::exception &e)
+  {
+    fail_msg_writer() << tr("MMS not available in this wallet");
+    return true;
+  }
+
   try
   {
     mms::message_store& ms = m_wallet->get_message_store();

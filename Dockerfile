@@ -196,8 +196,14 @@ RUN set -ex && \
     rm -rf /var/lib/apt
 COPY --from=builder /src/build/release/bin /usr/local/bin/
 
+# Create loki user
+RUN adduser --system --group --disabled-password loki && \
+	mkdir -p /wallet /home/loki/.loki && \
+	chown -R loki:loki /home/loki/.loki && \
+	chown -R loki:loki /wallet
+
 # Contains the blockchain
-VOLUME /root/.loki
+VOLUME /home/loki/.loki
 
 # Generate your wallet via accessing the container and run:
 # cd /wallet
@@ -207,4 +213,8 @@ VOLUME /wallet
 EXPOSE 22022
 EXPOSE 22023
 
+# switch to user monero
+USER loki
+
 ENTRYPOINT ["lokid", "--p2p-bind-ip=0.0.0.0", "--p2p-bind-port=22022", "--rpc-bind-ip=0.0.0.0", "--rpc-bind-port=22023", "--non-interactive", "--confirm-external-bind"]
+
