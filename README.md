@@ -88,7 +88,7 @@ If you already have a repo cloned, initialize and update:
 Loki uses the CMake build system and a top-level [Makefile](Makefile) that
 invokes cmake commands as needed.
 
-#### On Linux and OS X
+#### On Linux and macOS
 
 * Install the dependencies
 * Change to the root of the source code directory, change to the most recent release branch, and build:
@@ -102,7 +102,7 @@ invokes cmake commands as needed.
     this to be worthwhile, the machine should have one core and about 2GB of RAM
     available per thread.
 
-    *Note*: If cmake can not find zmq.hpp file on OS X, installing `zmq.hpp` from
+    *Note*: If cmake can not find zmq.hpp file on macOS, installing `zmq.hpp` from
     https://github.com/zeromq/cppzmq to `/usr/local/include` should fix that error.
 
     *Note*: The instructions above will compile the most stable release of the
