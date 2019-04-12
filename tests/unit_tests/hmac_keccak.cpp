@@ -88,7 +88,8 @@ static void test_keccak_hmac(const size_t * chunks)
   uint8_t key_buff[1024];
   uint8_t res_exp[32];
   uint8_t res_comp[32];
-  const size_t len_chunks = chunks ? sizeof(chunks) / sizeof(*chunks) : 0;
+  size_t len_chunks = 0;
+  for(; chunks && chunks[len_chunks] > 0; ++len_chunks);
 
   for (size_t i = 0; i < (sizeof(keccak_hmac_vectors) / sizeof(*keccak_hmac_vectors)); i++)
   {
@@ -124,29 +125,29 @@ static void test_keccak_hmac(const size_t * chunks)
 
 TEST(keccak_hmac, )
 {
-  test_keccak_hmac({});
+  test_keccak_hmac(nullptr);
 }
 
 TEST(keccak_hmac, 1)
 {
-  static const size_t chunks[] = {1};
+  static const size_t chunks[] = {1, 0};
   test_keccak_hmac(chunks);
 }
 
 TEST(keccak_hmac, 1_20)
 {
-  static const size_t chunks[] = {1, 20};
+  static const size_t chunks[] = {1, 20, 0};
   test_keccak_hmac(chunks);
 }
 
 TEST(keccak_hmac, 136_1)
 {
-  static const size_t chunks[] = {136, 1};
+  static const size_t chunks[] = {136, 1, 0};
   test_keccak_hmac(chunks);
 }
 
 TEST(keccak_hmac, 137_1)
 {
-  static const size_t chunks[] = {137, 1};
+  static const size_t chunks[] = {137, 1, 0};
   test_keccak_hmac(chunks);
 }

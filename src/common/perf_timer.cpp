@@ -89,7 +89,7 @@ namespace tools
 namespace tools
 {
 
-el::Level performance_timer_log_level = el::Level::Debug;
+el::Level performance_timer_log_level = el::Level::Info;
 
 static __thread std::vector<LoggingPerformanceTimer*> *performance_timers = NULL;
 
@@ -98,8 +98,8 @@ void set_performance_timer_log_level(el::Level level)
   if (level != el::Level::Debug && level != el::Level::Trace && level != el::Level::Info
    && level != el::Level::Warning && level != el::Level::Error && level != el::Level::Fatal)
   {
-    MERROR("Wrong log level: " << el::LevelHelper::convertToString(level) << ", using Debug");
-    level = el::Level::Debug;
+    MERROR("Wrong log level: " << el::LevelHelper::convertToString(level) << ", using Info");
+    level = el::Level::Info;
   }
   performance_timer_log_level = level;
 }

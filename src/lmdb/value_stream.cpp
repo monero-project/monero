@@ -36,9 +36,9 @@ namespace lmdb
 {
     namespace stream
     {
-        std::size_t count(MDB_cursor* cur)
+        mdb_size_t count(MDB_cursor* cur)
         {
-            std::size_t out = 0;
+            mdb_size_t out = 0;
             if (cur)
             {
                 const int rc = mdb_cursor_count(cur, &out);
