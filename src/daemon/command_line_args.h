@@ -96,6 +96,12 @@ namespace daemon_args
   , 0
   };
 
+  const command_line::arg_descriptor<bool> arg_public_node = {
+    "public-node"
+  , "Allow other users to use the node as a remote (restricted RPC mode, view-only commands) and advertise it over P2P"
+  , false
+  };
+
   const command_line::arg_descriptor<std::string> arg_zmq_rpc_bind_ip   = {
     "zmq-rpc-bind-ip"
       , "IP for ZMQ RPC server to listen on"
