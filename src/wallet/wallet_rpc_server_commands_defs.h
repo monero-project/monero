@@ -87,6 +87,7 @@ namespace wallet_rpc
       uint64_t unlocked_balance;    // Unlocked funds are those funds that are sufficiently deep enough in the loki blockchain to be considered safe to spend.
       std::string label;            // Label for the subaddress.
       uint64_t num_unspent_outputs; // Number of unspent outputs available for the subaddress.
+      uint64_t blocks_to_unlock;    // The number of blocks remaining for the balance to unlock
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(account_index)
@@ -96,6 +97,7 @@ namespace wallet_rpc
         KV_SERIALIZE(unlocked_balance)
         KV_SERIALIZE(label)
         KV_SERIALIZE(num_unspent_outputs)
+        KV_SERIALIZE(blocks_to_unlock)
       END_KV_SERIALIZE_MAP()
     };
 
@@ -105,12 +107,14 @@ namespace wallet_rpc
       uint64_t 	 unlocked_balance;                     // Unlocked funds are those funds that are sufficiently deep enough in the loki blockchain to be considered safe to spend.
       bool       multisig_import_needed;               // True if importing multisig data is needed for returning a correct balance.
       std::vector<per_subaddress_info> per_subaddress; // Balance information for each subaddress in an account.
+      uint64_t blocks_to_unlock;                       // The number of blocks remaining for the balance to unlock
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(balance)
         KV_SERIALIZE(unlocked_balance)
         KV_SERIALIZE(multisig_import_needed)
         KV_SERIALIZE(per_subaddress)
+        KV_SERIALIZE(blocks_to_unlock)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;

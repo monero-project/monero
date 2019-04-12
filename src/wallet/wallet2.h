@@ -826,13 +826,13 @@ namespace tools
 
     // locked & unlocked balance of given or current subaddress account
     uint64_t balance(uint32_t subaddr_index_major) const;
-    uint64_t unlocked_balance(uint32_t subaddr_index_major) const;
+    uint64_t unlocked_balance(uint32_t subaddr_index_major, uint64_t *blocks_to_unlock = NULL) const;
     // locked & unlocked balance per subaddress of given or current subaddress account
     std::map<uint32_t, uint64_t> balance_per_subaddress(uint32_t subaddr_index_major) const;
-    std::map<uint32_t, uint64_t> unlocked_balance_per_subaddress(uint32_t subaddr_index_major) const;
+    std::map<uint32_t, std::pair<uint64_t, uint64_t>> unlocked_balance_per_subaddress(uint32_t subaddr_index_major) const;
     // all locked & unlocked balances of all subaddress accounts
     uint64_t balance_all() const;
-    uint64_t unlocked_balance_all() const;
+    uint64_t unlocked_balance_all(uint64_t *blocks_to_unlock = NULL) const;
     template<typename T>
     void transfer_selected(const std::vector<cryptonote::tx_destination_entry>& dsts, const std::vector<size_t>& selected_transfers, size_t fake_outputs_count,
       std::vector<std::vector<tools::wallet2::get_outs_entry>> &outs,
@@ -1311,6 +1311,8 @@ namespace tools
     bool get_ring(const crypto::key_image &key_image, std::vector<uint64_t> &outs);
     bool get_rings(const crypto::hash &txid, std::vector<std::pair<crypto::key_image, std::vector<uint64_t>>> &outs);
     bool set_ring(const crypto::key_image &key_image, const std::vector<uint64_t> &outs, bool relative);
+    bool unset_ring(const std::vector<crypto::key_image> &key_images);
+    bool unset_ring(const crypto::hash &txid);
     bool find_and_save_rings(bool force = true);
 
     bool blackball_output(const std::pair<uint64_t, uint64_t> &output);

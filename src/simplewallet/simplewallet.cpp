@@ -246,6 +246,7 @@ namespace
   const char* USAGE_MMS_AUTO_CONFIG("mms auto_config <auto_config_token>");
   const char* USAGE_PRINT_RING("print_ring <key_image> | <txid>");
   const char* USAGE_SET_RING("set_ring <filename> | ( <key_image> absolute|relative <index> [<index>...] )");
+  const char* USAGE_UNSET_RING("unset_ring <txid> | ( <key_image> [<key_image>...] )");
   const char* USAGE_SAVE_KNOWN_RINGS("save_known_rings");
   const char* USAGE_MARK_OUTPUT_SPENT("mark_output_spent <amount>/<offset> | <filename> [add]");
   const char* USAGE_MARK_OUTPUT_UNSPENT("mark_output_unspent <amount>/<offset>");
@@ -1882,6 +1883,38 @@ bool simple_wallet::set_ring(const std::vector<std::string> &args)
   return true;
 }
 
+bool simple_wallet::unset_ring(const std::vector<std::string> &args)
+{
+  crypto::hash txid;
+  std::vector<crypto::key_image> key_images;
+
+  if (args.size() < 1)
+  {
+    PRINT_USAGE(USAGE_UNSET_RING);
+    return true;
+  }
+
+  key_images.resize(args.size());
+  for (size_t i = 0; i < args.size(); ++i)
+  {
+    if (!epee::string_tools::hex_to_pod(args[i], key_images[i]))
+    {
+      fail_msg_writer() << tr("Invalid key image or txid");
+      return true;
+    }
+  }
+  static_assert(sizeof(crypto::hash) == sizeof(crypto::key_image), "hash and key_image must have the same size");
+  memcpy(&txid, &key_images[0], sizeof(txid));
+
+  if (!m_wallet->unset_ring(key_images) && !m_wallet->unset_ring(txid))
+  {
+    fail_msg_writer() << tr("failed to unset ring");
+    return true;
+  }
+
+  return true;
+}
+
 bool simple_wallet::blackball(const std::vector<std::string> &args)
 {
   uint64_t amount = std::numeric_limits<uint64_t>::max(), offset, num_offsets;
@@ -3064,6 +3097,10 @@ simple_wallet::simple_wallet()
                            boost::bind(&simple_wallet::set_ring, this, _1),
                            tr(USAGE_SET_RING),
                            tr("Set the ring used for a given key image, so it can be reused in a fork"));
+  m_cmd_binder.set_handler("unset_ring",
+                           boost::bind(&simple_wallet::unset_ring, this, _1),
+                           tr(USAGE_UNSET_RING),
+                           tr("Unsets the ring used for a given key image or transaction"));
   m_cmd_binder.set_handler("save_known_rings",
                            boost::bind(&simple_wallet::save_known_rings, this, _1),
                            tr(USAGE_SAVE_KNOWN_RINGS),
@@ -5090,10 +5127,15 @@ bool simple_wallet::show_balance_unlocked(bool detailed)
   success_msg_writer() << tr("Currently selected account: [") << m_current_subaddress_account << tr("] ") << m_wallet->get_subaddress_label({m_current_subaddress_account, 0});
   const std::string tag = m_wallet->get_account_tags().second[m_current_subaddress_account];
   success_msg_writer() << tr("Tag: ") << (tag.empty() ? std::string{tr("(No tag assigned)")} : tag);
+  uint64_t blocks_to_unlock;
+  uint64_t unlocked_balance = m_wallet->unlocked_balance(m_current_subaddress_account, &blocks_to_unlock);
+  std::string unlock_time_message;
+  if (blocks_to_unlock > 0)
+    unlock_time_message = (boost::format(" (%lu block(s) to unlock)") % blocks_to_unlock).str();
   success_msg_writer() << tr("Balance: ") << print_money(m_wallet->balance(m_current_subaddress_account)) << ", "
-    << tr("unlocked balance: ") << print_money(m_wallet->unlocked_balance(m_current_subaddress_account)) << extra;
+    << tr("unlocked balance: ") << print_money(unlocked_balance) << unlock_time_message << extra;
   std::map<uint32_t, uint64_t> balance_per_subaddress = m_wallet->balance_per_subaddress(m_current_subaddress_account);
-  std::map<uint32_t, uint64_t> unlocked_balance_per_subaddress = m_wallet->unlocked_balance_per_subaddress(m_current_subaddress_account);
+  std::map<uint32_t, std::pair<uint64_t, uint64_t>> unlocked_balance_per_subaddress = m_wallet->unlocked_balance_per_subaddress(m_current_subaddress_account);
   if (!detailed || balance_per_subaddress.empty())
     return true;
   success_msg_writer() << tr("Balance per address:");
@@ -5105,7 +5147,7 @@ bool simple_wallet::show_balance_unlocked(bool detailed)
     cryptonote::subaddress_index subaddr_index = {m_current_subaddress_account, i.first};
     std::string address_str = m_wallet->get_subaddress_as_str(subaddr_index).substr(0, 6);
     uint64_t num_unspent_outputs = std::count_if(transfers.begin(), transfers.end(), [&subaddr_index](const tools::wallet2::transfer_details& td) { return !td.m_spent && td.m_subaddr_index == subaddr_index; });
-    success_msg_writer() << boost::format(tr("%8u %6s %21s %21s %7u %21s")) % i.first % address_str % print_money(i.second) % print_money(unlocked_balance_per_subaddress[i.first]) % num_unspent_outputs % m_wallet->get_subaddress_label(subaddr_index);
+    success_msg_writer() << boost::format(tr("%8u %6s %21s %21s %7u %21s")) % i.first % address_str % print_money(i.second) % print_money(unlocked_balance_per_subaddress[i.first].first) % num_unspent_outputs % m_wallet->get_subaddress_label(subaddr_index);
   }
   return true;
 }
@@ -5443,7 +5485,7 @@ bool simple_wallet::print_ring_members(const std::vector<tools::wallet2::pending
       }
       const cryptonote::tx_source_entry& source = *sptr;
 
-      ostr << boost::format(tr("\nInput %llu/%llu: amount=%s")) % (i + 1) % tx.vin.size() % print_money(source.amount);
+      ostr << boost::format(tr("\nInput %llu/%llu (%s): amount=%s")) % (i + 1) % tx.vin.size() % epee::string_tools::pod_to_hex(in_key.k_image) % print_money(source.amount);
       // convert relative offsets of ring member keys into absolute offsets (indices) associated with the amount
       std::vector<uint64_t> absolute_offsets = cryptonote::relative_output_offsets_to_absolute(in_key.key_offsets);
       // get block heights from which those ring member keys originated

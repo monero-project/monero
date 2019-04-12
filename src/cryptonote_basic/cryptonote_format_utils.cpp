@@ -1332,8 +1332,6 @@ namespace cryptonote
     // prefix
     get_transaction_prefix_hash(t, hashes[0]);
 
-    transaction &tt = const_cast<transaction&>(t);
-
     const blobdata blob = tx_to_blob(t);
 
     // TODO(loki): Not sure if this is the right fix, we may just want to set

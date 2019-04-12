@@ -45,6 +45,7 @@ namespace tools
     ~ringdb();
 
     bool add_rings(const crypto::chacha_key &chacha_key, const cryptonote::transaction_prefix &tx);
+    bool remove_rings(const crypto::chacha_key &chacha_key, const std::vector<crypto::key_image> &key_images);
     bool remove_rings(const crypto::chacha_key &chacha_key, const cryptonote::transaction_prefix &tx);
     bool get_ring(const crypto::chacha_key &chacha_key, const crypto::key_image &key_image, std::vector<uint64_t> &outs);
     bool set_ring(const crypto::chacha_key &chacha_key, const crypto::key_image &key_image, const std::vector<uint64_t> &outs, bool relative);
