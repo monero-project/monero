@@ -56,6 +56,7 @@ set(unit_tests_sources
   keccak.cpp
   logging.cpp
   long_term_block_weight.cpp
+  lmdb.cpp
   main.cpp
   memwipe.cpp
   mlocker.cpp
@@ -103,6 +104,7 @@ target_link_libraries(unit_tests
     cryptonote_protocol
     cryptonote_core
     blockchain_db
+    lmdb_lib
     rpc
     net
     serialization
