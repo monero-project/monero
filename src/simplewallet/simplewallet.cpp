@@ -3189,10 +3189,11 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("net_stats",
                            boost::bind(&simple_wallet::net_stats, this, _1),
                            tr(USAGE_NET_STATS),
+                           tr("Prints simple network stats"));
   m_cmd_binder.set_handler("welcome",
                            boost::bind(&simple_wallet::welcome, this, _1),
                            tr(USAGE_WELCOME),
-                           tr("Prints simple network stats"));
+                           tr("Prints basic info about Monero for first time users"));
   m_cmd_binder.set_handler("version",
                            boost::bind(&simple_wallet::version, this, _1),
                            tr(USAGE_VERSION),
