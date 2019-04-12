@@ -282,6 +282,8 @@ DNSResolver::DNSResolver() : m_data(new DNSResolverData())
 
   if (!DNS_PUBLIC)
   {
+    // TODO(loki): Don't probe moneropulse for Loki
+#if 0
     // if no DNS_PUBLIC specified, we try a lookup to what we know
     // should be a valid DNSSEC record, and switch to known good
     // DNSSEC resolvers if verification fails
@@ -300,6 +302,7 @@ DNSResolver::DNSResolver() : m_data(new DNSResolverData())
       ub_ctx_set_option(m_data->m_ub_context, string_copy("do-udp:"), string_copy("no"));
       ub_ctx_set_option(m_data->m_ub_context, string_copy("do-tcp:"), string_copy("yes"));
     }
+#endif
   }
 }
 
