@@ -68,6 +68,10 @@ integration:
 	mkdir -p $(builddir)/integration
 	cd $(builddir)/integration && cmake -D CMAKE_BUILD_TYPE=Debug -D BUILD_INTEGRATION=ON $(topdir) &&  $(MAKE)
 
+debug-test-trezor:
+	mkdir -p $(builddir)/debug
+	cd $(builddir)/debug && cmake -D BUILD_TESTS=ON -D TREZOR_DEBUG=ON -D CMAKE_BUILD_TYPE=Debug $(topdir) &&  $(MAKE) && $(MAKE) ARGS="-E libwallet_api_tests" test
+
 debug-all:
 	mkdir -p $(builddir)/debug
 	cd $(builddir)/debug && cmake -D BUILD_TESTS=ON -D BUILD_SHARED_LIBS=OFF -D CMAKE_BUILD_TYPE=Debug $(topdir) && $(MAKE)

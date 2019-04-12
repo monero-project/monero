@@ -2,6 +2,12 @@
 import os
 import subprocess
 import sys
+import argparse
+
+
+parser = argparse.ArgumentParser()
+parser.add_argument("-d", "--debug-msg", default=False, action="store_const", const=True, help="Build debug messages")
+args = parser.parse_args()
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 ROOT_DIR = os.path.abspath(os.path.join(CWD, "..", "..", "..", ".."))
@@ -24,6 +30,10 @@ try:
         "messages-management.proto",
         "messages-monero.proto",
     ]
+
+    if args.debug_msg:
+        selected += ["messages-debug.proto"]
+
     proto_srcs = [os.path.join(TREZOR_COMMON, "protob", x) for x in selected]
     exec_args = [
         sys.executable,

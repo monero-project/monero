@@ -141,7 +141,7 @@ namespace
   {
     std::vector<tx_source_entry> sources;
     std::vector<tx_destination_entry> destinations;
-    fill_tx_sources_and_destinations(events, blk_head, from, to, amount, TESTS_DEFAULT_FEE, 0, sources, destinations);
+    fill_tx_sources_and_destinations(events, blk_head, from, get_address(to), amount, TESTS_DEFAULT_FEE, 0, sources, destinations);
 
     tx_builder builder;
     builder.step1_init(cryptonote::network_version_7, unlock_time);
@@ -192,7 +192,7 @@ bool gen_tx_big_version::generate(std::vector<test_event_entry>& events) const
 
   std::vector<tx_source_entry> sources;
   std::vector<tx_destination_entry> destinations;
-  fill_tx_sources_and_destinations(events, blk_money_unlocked, miner_account, miner_account, MK_COINS(1), TESTS_DEFAULT_FEE, 0, sources, destinations);
+  fill_tx_sources_and_destinations(events, blk_money_unlocked, miner_account, get_address(miner_account), MK_COINS(1), TESTS_DEFAULT_FEE, 0, sources, destinations);
 
   transaction tx = {};
   TxBuilder(events, tx, blk_money_unlocked, miner_account, miner_account, MK_COINS(1), -1).build();
@@ -353,7 +353,7 @@ bool gen_tx_invalid_input_amount::generate(std::vector<test_event_entry>& events
   std::vector<tx_source_entry>      sources;
   std::vector<tx_destination_entry> destinations;
   uint64_t                          change_amount;
-  fill_tx_sources_and_destinations(events, blk_money_unlocked, miner_account, miner_account, MK_COINS(1), TESTS_DEFAULT_FEE, CRYPTONOTE_DEFAULT_TX_MIXIN, sources, destinations, &change_amount);
+  fill_tx_sources_and_destinations(events, blk_money_unlocked, miner_account, get_address(miner_account), MK_COINS(1), TESTS_DEFAULT_FEE, CRYPTONOTE_DEFAULT_TX_MIXIN, sources, destinations, &change_amount);
   sources.front().amount++;
 
   transaction tx = {};
@@ -376,7 +376,7 @@ bool gen_tx_input_wo_key_offsets::generate(std::vector<test_event_entry>& events
 
   std::vector<tx_source_entry> sources;
   std::vector<tx_destination_entry> destinations;
-  fill_tx_sources_and_destinations(events, blk_money_unlocked, miner_account, miner_account, MK_COINS(1), TESTS_DEFAULT_FEE, CRYPTONOTE_DEFAULT_TX_MIXIN, sources, destinations);
+  fill_tx_sources_and_destinations(events, blk_money_unlocked, miner_account, get_address(miner_account), MK_COINS(1), TESTS_DEFAULT_FEE, CRYPTONOTE_DEFAULT_TX_MIXIN, sources, destinations);
 
   transaction tx = {};
   TxBuilder(events, tx, blk_money_unlocked, miner_account, miner_account, MK_COINS(1), cryptonote::network_version_7).build();
@@ -410,7 +410,7 @@ bool gen_tx_key_offset_points_to_foreign_key::generate(std::vector<test_event_en
 
   std::vector<tx_source_entry>      sources_alice;
   std::vector<tx_destination_entry> destinations_alice;
-  fill_tx_sources_and_destinations(events, blk_money_unlocked, alice_account, miner_account, MK_COINS(15) + 1 - TESTS_DEFAULT_FEE, TESTS_DEFAULT_FEE, CRYPTONOTE_DEFAULT_TX_MIXIN, sources_alice, destinations_alice);
+  fill_tx_sources_and_destinations(events, blk_money_unlocked, alice_account, get_address(miner_account), MK_COINS(15) + 1 - TESTS_DEFAULT_FEE, TESTS_DEFAULT_FEE, CRYPTONOTE_DEFAULT_TX_MIXIN, sources_alice, destinations_alice);
 
   txin_to_key& bob_in_to_key        = boost::get<txin_to_key>(bob_tx.vin.front());
   bob_in_to_key.key_offsets.front() = sources_alice.front().outputs.back().first;
@@ -662,7 +662,7 @@ bool gen_tx_output_with_zero_amount::generate(std::vector<test_event_entry>& eve
   std::vector<tx_source_entry>      sources;
   std::vector<tx_destination_entry> destinations;
   uint64_t                          change_amount;
-  fill_tx_sources_and_destinations(events, blk_money_unlocked, miner_account, miner_account, MK_COINS(1), TESTS_DEFAULT_FEE, CRYPTONOTE_DEFAULT_TX_MIXIN, sources, destinations, &change_amount);
+  fill_tx_sources_and_destinations(events, blk_money_unlocked, miner_account, get_address(miner_account), MK_COINS(1), TESTS_DEFAULT_FEE, CRYPTONOTE_DEFAULT_TX_MIXIN, sources, destinations, &change_amount);
 
   for (tx_destination_entry &entry : destinations)
     entry.amount = 0;
