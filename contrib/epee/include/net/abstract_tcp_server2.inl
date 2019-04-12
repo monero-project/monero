@@ -58,11 +58,6 @@
 #define DEFAULT_TIMEOUT_MS_REMOTE 300000 // 5 minutes
 #define TIMEOUT_EXTRA_MS_PER_BYTE 0.2
 
-#if BOOST_VERSION >= 107000
-#define GET_IO_SERVICE(s) ((boost::asio::io_context&)(s).get_executor().context())
-#else
-#define GET_IO_SERVICE(s) ((s).get_io_service())
-#endif
 
 PRAGMA_WARNING_PUSH
 namespace epee
