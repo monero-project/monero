@@ -1,5 +1,5 @@
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 // Copyright (c) 2014-2018, The Aeon Project
 // Copyright (c) 2018, The TurtleCoin Developers
 //
