@@ -165,6 +165,14 @@ BEGIN_RPC_MESSAGE_CLASS(SendRawTx);
   END_RPC_MESSAGE_RESPONSE;
 END_RPC_MESSAGE_CLASS;
 
+BEGIN_RPC_MESSAGE_CLASS(SendRawTxHex);
+  BEGIN_RPC_MESSAGE_REQUEST;
+    std::string tx_as_hex;
+    bool relay;
+  END_RPC_MESSAGE_REQUEST;
+  using Response = SendRawTx::Response;
+END_RPC_MESSAGE_CLASS;
+
 BEGIN_RPC_MESSAGE_CLASS(StartMining);
   BEGIN_RPC_MESSAGE_REQUEST;
     std::string miner_address;

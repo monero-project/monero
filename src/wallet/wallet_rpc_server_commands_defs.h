@@ -1452,21 +1452,22 @@ namespace wallet_rpc
   // 
   struct transfer_entry
   {
-    std::string txid;                             // Transaction ID for this transfer.
-    std::string payment_id;                       // Payment ID for this transfer.
-    uint64_t height;                              // Height of the first block that confirmed this transfer (0 if not mined yet).
-    uint64_t timestamp;                           // UNIX timestamp for when this transfer was first confirmed in a block (or timestamp submission if not mined yet).
-    uint64_t amount;                              // Amount transferred.
-    uint64_t fee;                                 // Transaction fee for this transfer.
-    std::string note;                             // Note about this transfer.
-    std::list<transfer_destination> destinations; // Array of transfer destinations.
-    std::string type;                             // Type of transfer, one of the following: "in", "out", "pending", "failed", "pool".
-    uint64_t unlock_time;                         // Number of blocks until transfer is safely spendable.
-    cryptonote::subaddress_index subaddr_index;   // Major & minor index, account and subaddress index respectively.
-    std::string address;                          // Address that transferred the funds.
-    bool double_spend_seen;                       // True if the key image(s) for the transfer have been seen before.
-    uint64_t confirmations;                       // Number of block mined since the block containing this transaction (or block height at which the transaction should be added to a block if not yet confirmed).
-    uint64_t suggested_confirmations_threshold;   // Estimation of the confirmations needed for the transaction to be included in a block.
+    std::string txid;                                          // Transaction ID for this transfer.
+    std::string payment_id;                                    // Payment ID for this transfer.
+    uint64_t height;                                           // Height of the first block that confirmed this transfer (0 if not mined yet).
+    uint64_t timestamp;                                        // UNIX timestamp for when this transfer was first confirmed in a block (or timestamp submission if not mined yet).
+    uint64_t amount;                                           // Amount transferred.
+    uint64_t fee;                                              // Transaction fee for this transfer.
+    std::string note;                                          // Note about this transfer.
+    std::list<transfer_destination> destinations;              // Array of transfer destinations.
+    std::string type;                                          // Type of transfer, one of the following: "in", "out", "pending", "failed", "pool".
+    uint64_t unlock_time;                                      // Number of blocks until transfer is safely spendable.
+    cryptonote::subaddress_index subaddr_index;                // Major & minor index, account and subaddress index respectively.
+    std::vector<cryptonote::subaddress_index> subaddr_indices;
+    std::string address;                                       // Address that transferred the funds.
+    bool double_spend_seen;                                    // True if the key image(s) for the transfer have been seen before.
+    uint64_t confirmations;                                    // Number of block mined since the block containing this transaction (or block height at which the transaction should be added to a block if not yet confirmed).
+    uint64_t suggested_confirmations_threshold;                // Estimation of the confirmations needed for the transaction to be included in a block.
 
     BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE(txid);
@@ -1480,6 +1481,7 @@ namespace wallet_rpc
       KV_SERIALIZE(type);
       KV_SERIALIZE(unlock_time)
       KV_SERIALIZE(subaddr_index);
+      KV_SERIALIZE(subaddr_indices);
       KV_SERIALIZE(address);
       KV_SERIALIZE(double_spend_seen)
       KV_SERIALIZE_OPT(confirmations, (uint64_t)0)
