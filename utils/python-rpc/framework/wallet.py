@@ -184,6 +184,27 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(sweep_all)
 
+    def sweep_single(self, address = '', priority = 0, ring_size = 0, outputs = 1, unlock_time = 0, payment_id = '', get_tx_keys = False, key_image = "", do_not_relay = False, get_tx_hex = False, get_tx_metadata = False):
+        sweep_single = {
+            'method': 'sweep_single',
+            'params' : {
+                'address' : address,
+                'priority' : priority,
+                'ring_size' : ring_size,
+                'outputs' : outputs,
+                'unlock_time' : unlock_time,
+                'payment_id' : payment_id,
+                'get_tx_keys' : get_tx_keys,
+                'key_image' : key_image,
+                'do_not_relay' : do_not_relay,
+                'get_tx_hex' : get_tx_hex,
+                'get_tx_metadata' : get_tx_metadata,
+            },
+            'jsonrpc': '2.0',
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(sweep_single)
+
     def get_address(self, account_index = 0, subaddresses = []):
         get_address = {
             'method': 'get_address',
