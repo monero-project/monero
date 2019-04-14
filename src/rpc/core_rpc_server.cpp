@@ -1393,11 +1393,9 @@ namespace cryptonote
     submit_req.push_back(boost::value_initialized<std::string>());
     res.height = m_core.get_blockchain_storage().get_current_blockchain_height();
 
-    bool r = CORE_RPC_STATUS_OK;
-
     for(size_t i = 0; i < req.amount_of_blocks; i++)
     {
-      r = on_getblocktemplate(template_req, template_res, error_resp, ctx);
+      bool r = on_getblocktemplate(template_req, template_res, error_resp, ctx);
       res.status = template_res.status;
       template_req.prev_block.clear();
       
