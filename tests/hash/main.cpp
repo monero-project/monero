@@ -35,6 +35,7 @@
 #include <string>
 #include <cfenv>
 
+#include "misc_log_ex.h"
 #include "warnings.h"
 #include "crypto/hash.h"
 #include "crypto/variant2_int_sqrt.h"
@@ -89,6 +90,8 @@ int test_variant2_int_sqrt();
 int test_variant2_int_sqrt_ref();
 
 int main(int argc, char *argv[]) {
+  TRY_ENTRY();
+
   hash_f *f;
   hash_func *hf;
   fstream input;
@@ -183,6 +186,7 @@ int main(int argc, char *argv[]) {
     }
   }
   return error ? 1 : 0;
+  CATCH_ENTRY_L0("main", 1);
 }
 
 #if defined(__x86_64__) || (defined(_MSC_VER) && defined(_WIN64))

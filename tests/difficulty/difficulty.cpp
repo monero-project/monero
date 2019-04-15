@@ -36,6 +36,7 @@
 #include <algorithm>
 #include <stdexcept>
 
+#include "misc_log_ex.h"
 #include "cryptonote_config.h"
 #include "cryptonote_basic/difficulty.h"
 
@@ -82,6 +83,8 @@ static int test_wide_difficulty(const char *filename)
 }
 
 int main(int argc, char *argv[]) {
+    TRY_ENTRY();
+
     if (argc < 2) {
         cerr << "Wrong arguments" << endl;
         return 1;
@@ -136,4 +139,6 @@ int main(int argc, char *argv[]) {
         data.clear(fstream::badbit);
     }
     return 0;
+
+    CATCH_ENTRY_L0("main", 1);
 }
