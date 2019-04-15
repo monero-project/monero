@@ -9627,14 +9627,16 @@ bool wallet2::sanity_check(const std::vector<wallet2::pending_tx> &ptx_vector, s
     change -= r.second.first;
   MDEBUG("Adding " << cryptonote::print_money(change) << " expected change");
 
+  // for all txes that have actual change, check change is coming back to the sending wallet
   for (const pending_tx &ptx: ptx_vector)
-    THROW_WALLET_EXCEPTION_IF(ptx.change_dts.addr != ptx_vector[0].change_dts.addr, error::wallet_internal_error,
-        "Change goes to several different addresses");
-  const auto it = m_subaddresses.find(ptx_vector[0].change_dts.addr.m_spend_public_key);
-  THROW_WALLET_EXCEPTION_IF(change > 0 && it == m_subaddresses.end(), error::wallet_internal_error, "Change address is not ours");
-
-  required[ptx_vector[0].change_dts.addr].first += change;
-  required[ptx_vector[0].change_dts.addr].second = ptx_vector[0].change_dts.is_subaddress;
+  {
+    if (ptx.change_dts.amount == 0)
+      continue;
+    THROW_WALLET_EXCEPTION_IF(m_subaddresses.find(ptx.change_dts.addr.m_spend_public_key) == m_subaddresses.end(),
+         error::wallet_internal_error, "Change address is not ours");
+    required[ptx.change_dts.addr].first += ptx.change_dts.amount;
+    required[ptx.change_dts.addr].second = ptx.change_dts.is_subaddress;
+  }
 
   for (const auto &r: required)
   {
