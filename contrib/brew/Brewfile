@@ -1,0 +1,34 @@
+# Brewfile for Monero
+# A homebrew Brewfile installs all required dependencies in one shot
+# see https://coderwall.com/p/afmnbq/homebrew-s-new-feature-brewfiles
+#     https://github.com/Homebrew/homebrew-bundle
+# execute brew bundle in the directory containing the Brewfile
+
+tap "homebrew/bundle"
+tap "homebrew/cask"
+tap "homebrew/cask-versions"
+tap "homebrew/core"
+
+brew "autoconf"
+brew "autogen"
+brew "automake"
+brew "binutils"
+brew "coreutils"
+brew "cmake"
+brew "pkg-config"
+brew "boost"
+brew "openssl"
+brew "hidapi"
+brew "zmq"
+brew "libpgm"
+brew "unbound"
+brew "libsodium"
+brew "miniupnpc"
+brew "readline"
+brew "ldns"
+brew "expat"
+brew "doxygen"
+brew "graphviz"
+brew "libunwind-headers"
+brew "xz"
+brew "protobuf"
