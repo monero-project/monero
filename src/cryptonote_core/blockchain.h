@@ -37,13 +37,13 @@
 #include <boost/multi_index/global_fun.hpp>
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>
-#include <boost/circular_buffer.hpp>
 #include <atomic>
 #include <unordered_map>
 #include <unordered_set>
 
 #include "syncobj.h"
 #include "string_tools.h"
+#include "rolling_median.h"
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "common/util.h"
 #include "cryptonote_protocol/cryptonote_protocol_defs.h"
@@ -991,7 +991,7 @@ namespace cryptonote
     uint64_t m_long_term_block_sizes_window;
     uint64_t m_long_term_effective_median_block_size;
     mutable crypto::hash m_long_term_block_sizes_cache_tip_hash;
-    mutable std::vector<uint64_t> m_long_term_block_sizes_cache;
+    mutable epee::misc_utils::rolling_median_t<uint64_t> m_long_term_block_sizes_cache_rolling_median;
 
     epee::critical_section m_difficulty_lock;
     crypto::hash m_difficulty_for_next_block_top_hash;
@@ -1228,15 +1228,18 @@ namespace cryptonote
     void get_last_n_blocks_sizes(std::vector<uint64_t>& sz, size_t count) const;
 
     /**
-     * @brief gets recent block long term sizes for median calculation
+     * @brief gets block long term size median
+     * @brief gets block long term size median
      *
-     * get the block long term sizes of the last <count> blocks, and return by reference <sz>.
+     * get the block long term size median of <count> blocks starting at <start_height>
+     * get the block long term size median of <count> blocks starting at <start_height>
      *
-     * @param sz return-by-reference the list of sizes
      * @param start_height the block height of the first block to query
      * @param count the number of blocks to get sizes for
+     *
+     * @return the long term median block size
      */
-    void get_long_term_block_sizes(std::vector<uint64_t>& sz, uint64_t start_height, size_t count) const;
+    uint64_t get_long_term_block_size_median(uint64_t start_height, size_t count) const;
 
     /**
      * @brief checks if a transaction is unlocked (its outputs spendable)
