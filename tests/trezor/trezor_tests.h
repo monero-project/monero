@@ -84,6 +84,8 @@ public:
 
   virtual void mine_and_test(std::vector<test_event_entry>& events);
 
+  virtual void rewind_blocks(std::vector<test_event_entry>& events, size_t rewind_n, uint8_t hf);
+
   virtual void set_hard_fork(uint8_t hf);
 
   crypto::hash head_hash() const { return get_block_hash(m_head); }

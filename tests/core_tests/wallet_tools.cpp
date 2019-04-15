@@ -135,7 +135,7 @@ bool wallet_tools::fill_tx_sources(tools::wallet2 * wallet, std::vector<cryptono
         }
       }
 
-      MINFO("Selected " << i << " from tx: " << dump_keys(td.m_txid.data)
+      MDEBUG("Selected " << i << " from tx: " << dump_keys(td.m_txid.data)
                         << " ki: " << dump_keys(td.m_key_image.data)
                         << " amnt: " << td.amount()
                         << " rct: " << td.is_rct()
