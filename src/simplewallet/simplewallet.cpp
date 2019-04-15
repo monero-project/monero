@@ -5081,7 +5081,7 @@ bool simple_wallet::refresh_main(uint64_t start_height, enum ResetType reset, bo
       }
     }
 
-    m_has_locked_key_images = print_locked_stakes_main({}, false /*print_result*/);
+    m_has_locked_key_images = query_locked_stakes(false /*print_result*/);
     ok = true;
     // Clear line "Height xxx of xxx"
     std::cout << "\r                                                                \r";
@@ -6289,7 +6289,7 @@ bool simple_wallet::request_stake_unlock(const std::vector<std::string> &args_)
   return true;
 }
 //----------------------------------------------------------------------------------------------------
-bool simple_wallet::print_locked_stakes_main(const std::vector<std::string> &args_, bool print_result)
+bool simple_wallet::query_locked_stakes(bool print_result)
 {
   if (!try_connect_to_daemon())
     return false;
@@ -6433,13 +6433,10 @@ bool simple_wallet::print_locked_stakes_main(const std::vector<std::string> &arg
   return has_locked_stakes;
 }
 //----------------------------------------------------------------------------------------------------
-bool simple_wallet::print_locked_stakes(const std::vector<std::string> &args_)
+bool simple_wallet::print_locked_stakes(const std::vector<std::string>& /*args*/)
 {
-  if (!try_connect_to_daemon())
-    return false;
   SCOPED_WALLET_UNLOCK();
-
-  print_locked_stakes_main(args_, true/*print_result*/);
+  query_locked_stakes(true/*print_result*/);
   return true;
 }
 //----------------------------------------------------------------------------------------------------
