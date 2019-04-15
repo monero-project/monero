@@ -137,7 +137,7 @@ script: |
     if [ -d "$EXTRA_INCLUDES" ]; then
       export HOST_ID_SALT="$EXTRA_INCLUDES"
     fi
-    make ${MAKEOPTS} -C ${BASEPREFIX} HOST="${i}" -j 4 V=1
+    make ${MAKEOPTS} -C ${BASEPREFIX} HOST="${i}" V=1
     unset HOST_ID_SALT
   done
 
