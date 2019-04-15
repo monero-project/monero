@@ -992,6 +992,12 @@ void wallet_device_callback::on_button_request(uint64_t code)
     wallet->on_device_button_request(code);
 }
 
+void wallet_device_callback::on_button_pressed()
+{
+  if (wallet)
+    wallet->on_device_button_pressed();
+}
+
 boost::optional<epee::wipeable_string> wallet_device_callback::on_pin_request()
 {
   if (wallet)
@@ -12944,6 +12950,12 @@ void wallet2::on_device_button_request(uint64_t code)
 {
   if (nullptr != m_callback)
     m_callback->on_device_button_request(code);
+}
+//----------------------------------------------------------------------------------------------------
+void wallet2::on_device_button_pressed()
+{
+  if (nullptr != m_callback)
+    m_callback->on_device_button_pressed();
 }
 //----------------------------------------------------------------------------------------------------
 boost::optional<epee::wipeable_string> wallet2::on_device_pin_request()

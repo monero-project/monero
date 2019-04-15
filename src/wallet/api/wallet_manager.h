@@ -40,7 +40,7 @@ class WalletManagerImpl : public WalletManager
 public:
     Wallet * createWallet(const std::string &path, const std::string &password,
                           const std::string &language, NetworkType nettype, uint64_t kdf_rounds = 1) override;
-    Wallet * openWallet(const std::string &path, const std::string &password, NetworkType nettype, uint64_t kdf_rounds = 1) override;
+    Wallet * openWallet(const std::string &path, const std::string &password, NetworkType nettype, uint64_t kdf_rounds = 1, WalletListener * listener = nullptr) override;
     virtual Wallet * recoveryWallet(const std::string &path,
                                        const std::string &password,
                                        const std::string &mnemonic,
@@ -72,7 +72,8 @@ public:
                                             const std::string &deviceName,
                                             uint64_t restoreHeight = 0,
                                             const std::string &subaddressLookahead = "",
-                                            uint64_t kdf_rounds = 1) override;
+                                            uint64_t kdf_rounds = 1,
+                                            WalletListener * listener = nullptr) override;
     virtual bool closeWallet(Wallet *wallet, bool store = true) override;
     bool walletExists(const std::string &path) override;
     bool verifyWalletPassword(const std::string &keys_file_name, const std::string &password, bool no_spend_key, uint64_t kdf_rounds = 1) const override;

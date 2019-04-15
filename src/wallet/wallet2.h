@@ -105,6 +105,7 @@ namespace tools
     virtual void on_lw_money_spent(uint64_t height, const crypto::hash &txid, uint64_t amount) {}
     // Device callbacks
     virtual void on_device_button_request(uint64_t code) {}
+    virtual void on_device_button_pressed() {}
     virtual boost::optional<epee::wipeable_string> on_device_pin_request() { return boost::none; }
     virtual boost::optional<epee::wipeable_string> on_device_passphrase_request(bool on_device) { return boost::none; }
     virtual void on_device_progress(const hw::device_progress& event) {};
@@ -118,6 +119,7 @@ namespace tools
   public:
     wallet_device_callback(wallet2 * wallet): wallet(wallet) {};
     void on_button_request(uint64_t code=0) override;
+    void on_button_pressed() override;
     boost::optional<epee::wipeable_string> on_pin_request() override;
     boost::optional<epee::wipeable_string> on_passphrase_request(bool on_device) override;
     void on_progress(const hw::device_progress& event) override;
@@ -1378,6 +1380,7 @@ namespace tools
 
     wallet_device_callback * get_device_callback();
     void on_device_button_request(uint64_t code);
+    void on_device_button_pressed();
     boost::optional<epee::wipeable_string> on_device_pin_request();
     boost::optional<epee::wipeable_string> on_device_passphrase_request(bool on_device);
     void on_device_progress(const hw::device_progress& event);

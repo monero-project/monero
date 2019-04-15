@@ -249,6 +249,13 @@ struct Wallet2CallbackImpl : public tools::i_wallet2_callback
       }
     }
 
+    virtual void on_device_button_pressed()
+    {
+      if (m_listener) {
+        m_listener->onDeviceButtonPressed();
+      }
+    }
+
     virtual boost::optional<epee::wipeable_string> on_device_pin_request()
     {
       if (m_listener) {
@@ -449,6 +456,11 @@ WalletImpl::~WalletImpl()
     close(false); // do not store wallet as part of the closing activities
     // Stop refresh thread
     stopRefresh();
+
+    if (m_wallet2Callback->getListener()) {
+      m_wallet2Callback->getListener()->onSetWallet(nullptr);
+    }
+
     LOG_PRINT_L1(__FUNCTION__ << " finished");
 }
 
