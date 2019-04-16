@@ -1629,6 +1629,11 @@ namespace cryptonote
     return m_blockchain_storage.get_tail_id();
   }
   //-----------------------------------------------------------------------------------------------
+  float core::get_blockchain_height_plausibility(uint64_t height) const
+  {
+    return m_blockchain_storage.get_blockchain_height_plausibility(height);
+  }
+  //-----------------------------------------------------------------------------------------------
   difficulty_type core::get_block_cumulative_difficulty(uint64_t height) const
   {
     return m_blockchain_storage.get_db().get_block_cumulative_difficulty(height);

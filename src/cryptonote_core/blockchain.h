@@ -1010,6 +1010,8 @@ namespace cryptonote
 
     void cancel();
 
+    float get_blockchain_height_plausibility(uint64_t height) const;
+
     /**
      * @brief called when we see a tx originating from a block
      *

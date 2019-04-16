@@ -885,6 +885,15 @@ namespace cryptonote
       */
      bool get_txpool_complement(const std::vector<crypto::hash> &hashes, std::vector<cryptonote::blobdata> &txes);
 
+     /**
+      * @brief checks how likely a given blockchain height is at the current time
+      *
+      * @param height the height to check
+      *
+      * @return a 0-1 probability
+      */
+     float get_blockchain_height_plausibility(uint64_t height) const;
+
    private:
 
      /**

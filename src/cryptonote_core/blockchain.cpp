@@ -85,6 +85,22 @@ DISABLE_VS_WARNINGS(4267)
 // used to overestimate the block reward when estimating a per kB to use
 #define BLOCK_REWARD_OVERESTIMATE (10 * 1000000000000)
 
+namespace
+{
+  uint64_t get_genesis_block_time(cryptonote::network_type nettype)
+  {
+    static const time_t start_time = time(NULL);
+    switch (nettype)
+    {
+      case MAINNET: return 1397818133;
+      case TESTNET: return 1410294960;
+      case STAGENET: return 1518931965;
+      default:
+      case FAKECHAIN: return start_time;
+    }
+  }
+}
+
 //------------------------------------------------------------------
 Blockchain::Blockchain(tx_memory_pool& tx_pool) :
   m_db(), m_tx_pool(tx_pool), m_hardfork(NULL), m_timestamps_and_difficulties_height(0), m_reset_timestamps_and_difficulties_height(true), m_current_block_cumul_weight_limit(0), m_current_block_cumul_weight_median(0),
@@ -368,7 +384,7 @@ bool Blockchain::init(BlockchainDB* db, const network_type nettype, bool offline
 
   // genesis block has no timestamp, could probably change it to have timestamp of 1397818133...
   if(!top_block_timestamp)
-    timestamp_diff = time(NULL) - 1397818133;
+    timestamp_diff = time(NULL) - get_genesis_block_time(m_nettype);
 
   // create general purpose async service queue
 
@@ -5375,6 +5391,21 @@ std::vector<std::pair<Blockchain::block_extended_info,std::vector<crypto::hash>>
 void Blockchain::cancel()
 {
   m_cancel = true;
+}
+
+float Blockchain::get_blockchain_height_plausibility(uint64_t height) const
+{
+  if (m_nettype != MAINNET)
+    return 1.0f;
+  const uint64_t last_block_v1 = mainnet_hard_forks[1].height - 1;
+  const uint64_t diff_v2 = height > last_block_v1 ? height - last_block_v1 : 0;
+  const uint64_t dead_reckoning_lifetime = std::min(height, last_block_v1) * DIFFICULTY_TARGET_V1 + diff_v2 * DIFFICULTY_TARGET_V2;
+  const time_t now = time(NULL);
+  const uint64_t lifetime = now - get_genesis_block_time(m_nettype);
+  const float diff = std::abs((float)lifetime - (float)dead_reckoning_lifetime);
+  const float rawp = 1.0f - diff / lifetime;
+  const float p = rawp < 0.0f ? 0.0f : rawp;
+  return p;
 }
 
 #if defined(PER_BLOCK_CHECKPOINT)
