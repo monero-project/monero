@@ -29,6 +29,7 @@
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import time
+import json
 
 """Test simple transfers
 """
@@ -43,6 +44,7 @@ class TransferTest():
         self.transfer()
         self.check_get_bulk_payments()
         self.check_double_spend_detection()
+        self.sweep_single()
 
     def create(self):
         print 'Creating wallets'
@@ -568,6 +570,54 @@ class TransferTest():
         tx = [tx for tx in res.txs if tx.tx_hash == txes[0][0]][0]
         assert tx.in_pool
         assert tx.double_spend_seen
+
+    def sweep_single(self):
+        daemon = Daemon()
+
+        print("Sending single output")
+
+        daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 1)
+        self.wallet[0].refresh()
+        res = self.wallet[0].incoming_transfers(transfer_type = 'available')
+        for t in res.transfers:
+            assert not t.spent
+        assert len(res.transfers) > 8 # we mined a lot
+        index = 8
+        assert not res.transfers[index].spent
+        assert res.transfers[index].amount > 0
+        ki = res.transfers[index].key_image
+        amount = res.transfers[index].amount
+        daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 10) # ensure unlocked
+        self.wallet[0].refresh()
+        res = self.wallet[0].get_balance()
+        balance = res.balance
+        res = self.wallet[0].incoming_transfers(transfer_type = 'all')
+        res = self.wallet[0].sweep_single('44Kbx4sJ7JDRDV5aAhLJzQCjDz2ViLRduE3ijDZu3osWKBjMGkV1XPk4pfDUMqt1Aiezvephdqm6YD19GKFD9ZcXVUTp6BW', key_image = ki)
+        assert len(res.tx_hash) == 64
+        tx_hash = res.tx_hash
+        daemon.generateblocks('44Kbx4sJ7JDRDV5aAhLJzQCjDz2ViLRduE3ijDZu3osWKBjMGkV1XPk4pfDUMqt1Aiezvephdqm6YD19GKFD9ZcXVUTp6BW', 1)
+        self.wallet[0].refresh()
+        res = self.wallet[0].get_balance()
+        new_balance = res.balance
+        res = daemon.get_transactions([tx_hash], decode_as_json = True)
+        assert len(res.txs) == 1
+        tx = res.txs[0]
+        assert tx.tx_hash == tx_hash
+        assert not tx.in_pool
+        assert len(tx.as_json) > 0
+        try:
+            j = json.loads(tx.as_json)
+        except:
+            j = None
+        assert j
+        assert new_balance == balance - amount
+        assert len(j['vin']) == 1
+        assert j['vin'][0]['key']['k_image'] == ki
+        self.wallet[0].refresh()
+        res = self.wallet[0].incoming_transfers(transfer_type = 'available')
+        assert len([t for t in res.transfers if t.key_image == ki]) == 0
+        res = self.wallet[0].incoming_transfers(transfer_type = 'unavailable')
+        assert len([t for t in res.transfers if t.key_image == ki]) == 1
 
 
 if __name__ == '__main__':
