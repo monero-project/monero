@@ -55,9 +55,13 @@ public:
   virtual bool batch_start(uint64_t batch_num_blocks=0, uint64_t batch_bytes=0) { return true; }
   virtual void batch_stop() {}
   virtual void set_batch_transactions(bool) {}
-  virtual void block_txn_start(bool readonly=false) {}
-  virtual void block_txn_stop() {}
-  virtual void block_txn_abort() {}
+  virtual void block_wtxn_start() {}
+  virtual void block_wtxn_stop() {}
+  virtual void block_wtxn_abort() {}
+  virtual bool block_rtxn_start() const { return true; }
+  virtual void block_rtxn_stop() const {}
+  virtual void block_rtxn_abort() const {}
+
   virtual void drop_hard_fork_info() {}
   virtual bool block_exists(const crypto::hash& h, uint64_t *height) const { return false; }
   virtual cryptonote::blobdata get_block_blob_from_height(const uint64_t& height) const { return cryptonote::t_serializable_object_to_blob(get_block_from_height(height)); }
