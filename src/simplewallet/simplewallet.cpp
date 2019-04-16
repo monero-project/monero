@@ -118,7 +118,7 @@ typedef cryptonote::simple_wallet sw;
     if (!m_long_payment_id_support) { \
       fail_msg_writer() << tr("Warning: Long payment IDs are obsolete."); \
       fail_msg_writer() << tr("Long payment IDs are not encrypted on the blockchain, and will harm your privacy."); \
-      fail_msg_writer() << tr("Use --long-payment-id-support if you really must use one, and warn the recipient they are using an obsolete feature that will disappear in the future."); \
+      fail_msg_writer() << tr("Use --long-payment-id-support-bad-for-privacy if you really must use one, and warn the recipient they are using an obsolete feature that will disappear in the future."); \
       return true; \
     } \
   } while(0)
