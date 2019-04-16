@@ -433,17 +433,12 @@ namespace cryptonote
     if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_GET_HASHES_FAST>(invoke_http_mode::BIN, "/gethashes.bin", req, res, r))
       return r;
 
-    NOTIFY_RESPONSE_CHAIN_ENTRY::request resp;
-
-    resp.start_height = req.start_height;
-    if(!m_core.find_blockchain_supplement(req.block_ids, resp))
+    res.start_height = req.start_height;
+    if(!m_core.get_blockchain_storage().find_blockchain_supplement(req.block_ids, res.m_block_ids, res.start_height, res.current_height, false))
     {
       res.status = "Failed";
       return false;
     }
-    res.current_height = resp.total_height;
-    res.start_height = resp.start_height;
-    res.m_block_ids = std::move(resp.m_block_ids);
 
     res.status = CORE_RPC_STATUS_OK;
     return true;

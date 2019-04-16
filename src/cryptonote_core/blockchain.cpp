@@ -2285,7 +2285,7 @@ bool Blockchain::get_transactions(const t_ids_container& txs_ids, t_tx_container
 // Find the split point between us and foreign blockchain and return
 // (by reference) the most recent common block hash along with up to
 // BLOCKS_IDS_SYNCHRONIZING_DEFAULT_COUNT additional (more recent) hashes.
-bool Blockchain::find_blockchain_supplement(const std::list<crypto::hash>& qblock_ids, std::vector<crypto::hash>& hashes, uint64_t& start_height, uint64_t& current_height) const
+bool Blockchain::find_blockchain_supplement(const std::list<crypto::hash>& qblock_ids, std::vector<crypto::hash>& hashes, uint64_t& start_height, uint64_t& current_height, bool clip_pruned) const
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
@@ -2298,9 +2298,13 @@ bool Blockchain::find_blockchain_supplement(const std::list<crypto::hash>& qbloc
 
   db_rtxn_guard rtxn_guard(m_db);
   current_height = get_current_blockchain_height();
-  const uint32_t pruning_seed = get_blockchain_pruning_seed();
-  start_height = tools::get_next_unpruned_block_height(start_height, current_height, pruning_seed);
-  uint64_t stop_height = tools::get_next_pruned_block_height(start_height, current_height, pruning_seed);
+  uint64_t stop_height = current_height;
+  if (clip_pruned)
+  {
+    const uint32_t pruning_seed = get_blockchain_pruning_seed();
+    start_height = tools::get_next_unpruned_block_height(start_height, current_height, pruning_seed);
+    stop_height = tools::get_next_pruned_block_height(start_height, current_height, pruning_seed);
+  }
   size_t count = 0;
   hashes.reserve(std::min((size_t)(stop_height - start_height), (size_t)BLOCKS_IDS_SYNCHRONIZING_DEFAULT_COUNT));
   for(size_t i = start_height; i < stop_height && count < BLOCKS_IDS_SYNCHRONIZING_DEFAULT_COUNT; i++, count++)
@@ -2316,7 +2320,7 @@ bool Blockchain::find_blockchain_supplement(const std::list<crypto::hash>& qbloc
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
 
-  bool result = find_blockchain_supplement(qblock_ids, resp.m_block_ids, resp.start_height, resp.total_height);
+  bool result = find_blockchain_supplement(qblock_ids, resp.m_block_ids, resp.start_height, resp.total_height, true);
   if (result)
   {
     cryptonote::difficulty_type wide_cumulative_difficulty = m_db->get_block_cumulative_difficulty(resp.total_height - 1);
@@ -3894,6 +3898,10 @@ leave:
 //------------------------------------------------------------------
 bool Blockchain::prune_blockchain(uint32_t pruning_seed)
 {
+  m_tx_pool.lock();
+  epee::misc_utils::auto_scope_leave_caller unlocker = epee::misc_utils::create_scope_leave_handler([&](){m_tx_pool.unlock();});
+  CRITICAL_REGION_LOCAL(m_blockchain_lock);
+
   return m_db->prune_blockchain(pruning_seed);
 }
 //------------------------------------------------------------------
