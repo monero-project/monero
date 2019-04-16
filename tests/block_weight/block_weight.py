@@ -9,7 +9,6 @@ import math
 
 MEDIAN_WINDOW_SMALL = 100 # number of recent blocks for median computation
 MEDIAN_WINDOW_BIG = 5000
-MULTIPLIER_SMALL = 1.4 # multipliers for determining weights
 MULTIPLIER_BIG = 50.0
 MEDIAN_THRESHOLD = 300*1000 # initial value for median (scaled kB -> B)
 lcg_seed = 0
@@ -24,9 +23,9 @@ def get_median(vec):
     #temp = vec
     temp = sorted(vec)
     if len(temp) % 2 == 1:
-        return temp[len(temp)/2]
+        return temp[len(temp)//2]
     else:
-        return int((temp[len(temp)/2]+temp[len(temp)/2-1])/2)
+        return int((temp[len(temp)//2]+temp[len(temp)//2-1])//2)
 
 def LCG():
   global lcg_seed

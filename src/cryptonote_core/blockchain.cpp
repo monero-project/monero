@@ -3986,7 +3986,6 @@ bool Blockchain::update_next_cumulative_weight_limit(uint64_t *long_term_effecti
     new_weights[0] = long_term_block_weight;
     long_term_median = epee::misc_utils::median(new_weights);
     m_long_term_effective_median_block_weight = std::max<uint64_t>(CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V5, long_term_median);
-    short_term_constraint = m_long_term_effective_median_block_weight + m_long_term_effective_median_block_weight * 2 / 5;
 
     weights.clear();
     get_last_n_blocks_weights(weights, CRYPTONOTE_REWARD_BLOCKS_WINDOW);
