@@ -257,11 +257,7 @@ int main(int argc, char const * argv[])
     bf::path log_file_path {data_dir / std::string(CRYPTONOTE_NAME ".log")};
     if (!command_line::is_arg_defaulted(vm, daemon_args::arg_log_file))
       log_file_path = command_line::get_arg(vm, daemon_args::arg_log_file);
-#ifdef __WIN32
-    if (!strchr(log_file_path.c_str(), '/') && !strchr(log_file_path.c_str(), '\\'))
-#else
-    if (!strchr(log_file_path.c_str(), '/'))
-#endif
+    if (!log_file_path.has_parent_path())
       log_file_path = bf::absolute(log_file_path, relative_path_base);
     mlog_configure(log_file_path.string(), true, command_line::get_arg(vm, daemon_args::arg_max_log_file_size), command_line::get_arg(vm, daemon_args::arg_max_log_files));
 
