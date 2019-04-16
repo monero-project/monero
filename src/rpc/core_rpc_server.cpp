@@ -1296,7 +1296,10 @@ namespace cryptonote
       LOG_ERROR("Failed to find tx pub key in blockblob");
       return false;
     }
-    res.reserved_offset += sizeof(tx_pub_key) + 2; //2 bytes: tag for TX_EXTRA_NONCE(1 byte), counter in TX_EXTRA_NONCE(1 byte)
+    if (req.reserve_size)
+      res.reserved_offset += sizeof(tx_pub_key) + 2; //2 bytes: tag for TX_EXTRA_NONCE(1 byte), counter in TX_EXTRA_NONCE(1 byte)
+    else
+      res.reserved_offset = 0;
     if(res.reserved_offset + req.reserve_size > block_blob.size())
     {
       error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
