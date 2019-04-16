@@ -553,7 +553,7 @@ bool t_rpc_command_executor::mining_status() {
 
   if (!mining_busy && mres.active && mres.speed > 0 && mres.block_target > 0 && mres.difficulty > 0)
   {
-    double ratio = mres.speed * mres.block_target / mres.difficulty;
+    double ratio = mres.speed * mres.block_target / (double)mres.difficulty;
     uint64_t daily = 86400ull / mres.block_target * mres.block_reward * ratio;
     uint64_t monthly = 86400ull / mres.block_target * 30.5 * mres.block_reward * ratio;
     uint64_t yearly = 86400ull / mres.block_target * 356 * mres.block_reward * ratio;
