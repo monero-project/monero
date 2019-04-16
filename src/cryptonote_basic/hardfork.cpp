@@ -185,26 +185,8 @@ void HardFork::init()
   else
     height = 1;
 
-  bool populate = false;
-  try
-  {
-    db.get_hard_fork_version(0);
-  }
-  catch (...) { populate = true; }
-  if (populate) {
-    MINFO("The DB has no hard fork info, reparsing from start");
-    height = 1;
-  }
-  MDEBUG("reorganizing from " << height);
-  if (populate) {
-    reorganize_from_chain_height(height);
-    // reorg will not touch the genesis block, use this as a flag for populating done
-    db.set_hard_fork_version(0, original_version);
-  }
-  else {
-    rescan_from_chain_height(height);
-  }
-  MDEBUG("reorganization done");
+  rescan_from_chain_height(height);
+  MDEBUG("init done");
 }
 
 uint8_t HardFork::get_block_version(uint64_t height) const
