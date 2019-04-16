@@ -2373,6 +2373,7 @@ namespace cryptonote
         return false;
       }
       res.pruning_seed = m_core.get_blockchain_pruning_seed();
+      res.pruned = res.pruning_seed != 0;
     }
     catch (const std::exception &e)
     {
