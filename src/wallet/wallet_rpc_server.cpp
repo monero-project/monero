@@ -1835,14 +1835,12 @@ namespace tools
     wallet2::transfer_container transfers;
     m_wallet->get_transfers(transfers);
 
-    bool transfers_found = false;
     for (const auto& td : transfers)
     {
       if (!filter || available != td.m_spent)
       {
         if (req.account_index != td.m_subaddr_index.major || (!req.subaddr_indices.empty() && req.subaddr_indices.count(td.m_subaddr_index.minor) == 0))
           continue;
-        transfers_found = true;
         wallet_rpc::transfer_details rpc_transfers;
         rpc_transfers.amount       = td.amount();
         rpc_transfers.spent        = td.m_spent;
