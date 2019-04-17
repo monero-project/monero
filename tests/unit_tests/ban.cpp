@@ -93,7 +93,18 @@ typedef nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<test_cor
 
 static bool is_blocked(Server &server, const epee::net_utils::network_address &address, time_t *t = NULL)
 {
-  return server.is_host_blocked(address.host_str(), t);
+  const std::string host = address.host_str();
+  std::map<std::string, time_t> hosts = server.get_blocked_hosts();
+  for (auto rec: hosts)
+  {
+    if (rec.first == host)
+    {
+      if (t)
+        *t = rec.second;
+      return true;
+    }
+  }
+  return false;
 }
 
 TEST(ban, add)
