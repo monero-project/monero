@@ -32,7 +32,7 @@
 
 #include <list>
 #include <numeric>
-#include <boost/timer.hpp>
+#include <boost/timer/timer.hpp>
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/random_generator.hpp>
 
