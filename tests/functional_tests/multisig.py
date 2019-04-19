@@ -38,6 +38,7 @@ from framework.wallet import Wallet
 
 class MultisigTest():
     def run_test(self):
+        self.reset()
         self.mine('493DsrfJPqiN3Suv9RcRDoZEbQtKZX1sNcGPA3GhkKYEEmivk8kjQrTdRdVc4ZbmzWJuE157z9NNUKmF2VDfdYDR3CziGMk', 5)
         self.mine('42jSRGmmKN96V2j3B8X2DbiNThBXW1tSi1rW1uwkqbyURenq3eC3yosNm8HEMdHuWwKMFGzMUB3RCTvcTaW9kHpdRPP7p5y', 5)
         self.mine('47fF32AdrmXG84FcPY697uZdd42pMMGiH5UpiTRTt3YX2pZC7t7wkzEMStEicxbQGRfrYvAAYxH6Fe8rnD56EaNwUgxRd53', 5)
@@ -67,6 +68,12 @@ class MultisigTest():
         txid = self.transfer([1, 2])
         self.import_multisig_info([0, 1, 2, 3], 6)
         self.check_transaction(txid)
+
+    def reset(self):
+        print 'Resetting blockchain'
+        daemon = Daemon()
+        daemon.pop_blocks(1000)
+        daemon.flush_txpool()
 
     def mine(self, address, blocks):
         print("Mining some blocks")
