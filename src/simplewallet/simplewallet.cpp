@@ -245,17 +245,18 @@ namespace
   const char* USAGE_FROZEN("frozen <key_image>");
   const char* USAGE_NET_STATS("net_stats");
   const char* USAGE_WELCOME("welcome");
+  const char* USAGE_CONFIGURE("configure");
   const char* USAGE_VERSION("version");
   const char* USAGE_HELP("help [<command>]");
 
-  std::string input_line(const std::string& prompt, bool yesno = false)
+  std::string input_line(const std::string& prompt, const std::vector<std::string> &values = {})
   {
 #ifdef HAVE_READLINE
     rdln::suspend_readline pause_readline;
 #endif
     std::cout << prompt;
-    if (yesno)
-      std::cout << "  (Y/Yes/N/No)";
+    if (!values.empty())
+      std::cout << "  (" << boost::algorithm::join(values, "/") << ")";
     std::cout << ": " << std::flush;
 
     std::string buf;
@@ -266,6 +267,11 @@ namespace
 #endif
 
     return epee::string_tools::trim(buf);
+  }
+
+  std::string input_line(const std::string& prompt, bool yesno)
+  {
+    return input_line(prompt, yesno ? std::vector<std::string>{"Y", "Yes", "N", "No"} : std::vector<std::string>({}));
   }
 
   epee::wipeable_string input_secure_line(const char *prompt)
@@ -2154,7 +2160,120 @@ bool simple_wallet::welcome(const std::vector<std::string> &args)
   message_writer() << tr("Flaws in Monero may be discovered in the future, and attacks may be developed to peek under some");
   message_writer() << tr("of the layers of privacy Monero provides. Be safe and practice defense in depth.");
   message_writer() << "";
+  message_writer() << tr("You may want to run 'configure' to setup your wallet's settings.");
+  message_writer() << "";
   message_writer() << tr("Welcome to Monero and financial privacy. For more information, see https://getmonero.org/");
+  return true;
+}
+
+bool simple_wallet::configure(const std::vector<std::string> &args)
+{
+  const auto pwd_container = get_and_verify_password();
+  if (!pwd_container)
+    return true;
+
+  class to_string: public boost::static_visitor<std::string>
+  {
+  public:
+    std::string operator()(const uint64_t &v0) const { return std::to_string(v0); }
+    std::string operator()(const uint32_t &v0) const { return std::to_string(v0); }
+    std::string operator()(const bool &v0) const { return v0 ? "1" : "0"; }
+    std::string operator()(const std::pair<uint32_t, std::vector<std::pair<uint32_t, std::string>>> &v0) const {
+      for (const auto &e: v0.second)
+        if (e.first == v0.first)
+          return e.second;
+      CHECK_AND_ASSERT_THROW_MES(true, "Invalid value");
+      return {};
+    }
+    std::string operator()(const std::string &v0) const { return v0; }
+    std::string operator()(const std::pair<bool, uint64_t> &v0) const { return cryptonote::print_money(v0.second); }
+  };
+  class allowed_values: public boost::static_visitor<std::vector<std::string>>
+  {
+  public:
+    std::vector<std::string> operator()(const uint64_t &v0) const { return {}; }
+    std::vector<std::string> operator()(const uint32_t &v0) const { return {}; }
+    std::vector<std::string> operator()(const bool &v0) const { return {"Y", "Yes", "N", "No"}; }
+    std::vector<std::string> operator()(const std::pair<uint32_t, std::vector<std::pair<uint32_t, std::string>>> &v0) const {
+      std::vector<std::string> values;
+      values.resize(v0.second.size());
+      for (size_t i = 0; i < v0.second.size(); ++i)
+        values[i] = v0.second[i].second;
+      return values;
+    }
+    std::vector<std::string> operator()(const std::string &v0) const { return {}; }
+    std::vector<std::string> operator()(const std::pair<bool, uint64_t> &v0) const { return {}; }
+  };
+  class input: public boost::static_visitor<bool>
+  {
+    std::string line;
+  public:
+    input(std::string s): line(std::move(s)) {}
+    bool operator()(uint64_t &v0) const
+    {
+      return string_tools::get_xtype_from_string(v0, line);
+    }
+    bool operator()(uint32_t &v0) const
+    {
+      return string_tools::get_xtype_from_string(v0, line);
+    }
+    bool operator()(bool &v0) const
+    {
+      return parse_bool(line, v0);
+    }
+    bool operator()(std::pair<uint32_t, std::vector<std::pair<uint32_t, std::string>>> &v0) const
+    {
+      for (size_t i = 0; i < v0.second.size(); ++i)
+      {
+        if (boost::algorithm::iequals(v0.second[i].second, line))
+        {
+          v0.first = v0.second[i].first;
+          return true;
+        }
+      }
+      return false;
+    }
+    bool operator()(std::string &v0) const
+    {
+      return true;
+    }
+    bool operator()(std::pair<bool, uint64_t> &v0) const
+    {
+      return cryptonote::parse_amount(v0.second, line);
+    }
+  };
+  message_writer() << tr("Wallet configuration:");
+  auto v = m_wallet->configure(*pwd_container);
+
+  for (auto &v0: v)
+  {
+    const std::string &text = v0.first;
+    std::string prefix = "";
+    message_writer() << "";
+    if (!text.empty())
+    {
+      message_writer() << text;
+      prefix = "    ";
+    }
+    for (auto &e: v0.second)
+    {
+      std::string prompt = prefix + std::string(std::get<0>(e)) + tr(" [ENTER to leave it to ") + boost::apply_visitor(to_string(), std::get<1>(e)) + "]";
+      while (1)
+      {
+        std::string line = input_line(prompt, boost::apply_visitor(allowed_values(), std::get<1>(e)));
+        if (std::cin.eof())
+          return false;
+        if (line.empty())
+          break;
+        if (boost::apply_visitor(input(std::move(line)), std::get<1>(e)))
+          break;
+        fail_msg_writer() << tr("Invalid value, please enter an empty line to keep the current value, or one of: ") << boost::algorithm::join(boost::apply_visitor(allowed_values(), std::get<1>(e)), "/");
+      }
+    }
+  }
+
+  m_wallet->on_configuration_changed(v, *pwd_container);
+
   return true;
 }
 
@@ -3194,6 +3313,10 @@ simple_wallet::simple_wallet()
                            boost::bind(&simple_wallet::welcome, this, _1),
                            tr(USAGE_WELCOME),
                            tr("Prints basic info about Monero for first time users"));
+  m_cmd_binder.set_handler("configure",
+                           boost::bind(&simple_wallet::configure, this, _1),
+                           tr(USAGE_CONFIGURE),
+                           tr("Interactive configuration of wallet settings"));
   m_cmd_binder.set_handler("version",
                            boost::bind(&simple_wallet::version, this, _1),
                            tr(USAGE_VERSION),

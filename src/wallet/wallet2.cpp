@@ -13099,4 +13099,136 @@ uint64_t wallet2::get_bytes_received() const
 {
   return m_http_client.get_bytes_received();
 }
+//----------------------------------------------------------------------------------------------------
+std::vector<std::pair<std::string, std::vector<std::tuple<const char*, tools::wallet2::configuration_element_t, tools::wallet2::configuration_function_t>>>> wallet2::configure(const password_container &pwd_container)
+{
+  std::vector<std::pair<std::string, std::vector<std::tuple<const char*, configuration_element_t, configuration_function_t>>>> v;
+
+#define SET(type, var) \
+  [&](const configuration_element_t &v0, const password_container &pwd_container) { \
+    bool changed = false; \
+    type tmp = boost::get<type>(v0); \
+    if (tmp != var) { \
+      var = tmp; \
+      changed = true; \
+    } \
+    return changed; \
+  }
+
+#define SET_enum(type, var) \
+  [&](const configuration_element_t &v0, const password_container &pwd_container) { \
+    bool changed = false; \
+    type tmp = (type)boost::get<std::pair<uint32_t, std::vector<std::pair<uint32_t, std::string>>>>(v0).first; \
+    if (tmp != var) { \
+      var = tmp; \
+      changed = true; \
+    } \
+    return changed; \
+  }
+
+  v.push_back({"", {{tr("Always prompt before sending a transaction"), m_always_confirm_transfers, SET(bool, m_always_confirm_transfers)}}});
+
+  v.push_back({"", {{tr("Print ring members before sending a transaction"), m_print_ring_members, SET(bool, m_print_ring_members)}}});
+
+  v.push_back({"", {{tr("Store transaction secret keys in wallet cache for future use"), m_store_tx_info, SET(bool, m_store_tx_info)}}});
+
+  v.push_back({"", {{tr("Default priority"), std::make_pair(m_default_priority, std::vector<std::pair<uint32_t, std::string>>({{0, "Default"}, {1, "Unimportant"}, {2, "Normal"}, {3, "Elevated"}, {4, "Priority"}})), SET_enum(uint32_t, m_default_priority)}}});
+
+  v.push_back({"", {{tr("Automatically keep to date with the node"), m_auto_refresh, SET(bool, m_auto_refresh)}}});
+
+  v.push_back({"", {{tr("Refresh type"), std::make_pair(m_refresh_type, std::vector<std::pair<uint32_t, std::string>>({{RefreshFull, "Full"}, {RefreshOptimizeCoinbase, "Optimize coinbase"}, {RefreshNoCoinbase, "No coinbase"}})), SET_enum(RefreshType, m_refresh_type)}}});
+
+  v.push_back({"", {{tr("Refresh from block height"), m_refresh_from_block_height, SET(uint64_t, m_refresh_from_block_height)}}});
+
+  v.push_back({"", {{tr("Confirm missing payment ID"), m_confirm_missing_payment_id, SET(bool, m_confirm_missing_payment_id)}}});
+
+  v.push_back({"", {{tr("Ask password"), std::make_pair(m_ask_password, std::vector<std::pair<uint32_t, std::string>>({{AskPasswordNever, "Never"}, {AskPasswordOnAction, "Action"}, {AskPasswordToDecrypt, "Decrypt"}})), [&](const configuration_element_t &v0, const password_container &pwd_container) {
+    bool changed = false;
+    AskPasswordType tmp = (AskPasswordType)boost::get<std::pair<uint32_t, std::vector<std::pair<uint32_t, std::string>>>>(v0).first;
+    if (tmp != m_ask_password) {
+      if (m_ask_password == AskPasswordToDecrypt && tmp != AskPasswordToDecrypt)
+        decrypt_keys(pwd_container.password());
+      else if (m_ask_password != AskPasswordToDecrypt && tmp == AskPasswordToDecrypt)
+        encrypt_keys(pwd_container.password());
+      m_ask_password = tmp;
+      changed = true;
+    }
+    return changed;
+  }}}});
+
+#if 0
+  // This one is probably best left out for now
+  v.push_back({tr("You can display amounts in a different unit. Monero is the canonical one, but you can choose to display millineros (there are 1000 of them in a Monero), etc. The unit all follow the Systeme International standard."), {{tr("Unit"), std::make_pair(cryptonote::get_default_decimal_point(), std::vector<std::pair<uint32_t, std::string>>({{12, "Monero"}, {9, "millinero"}, {6, "micronero"}, {3, "nanonero"}, {0, "piconero"}})), [&](const configuration_element_t &v0, const password_container &pwd_container) {
+    bool changed = false;
+    uint32_t decimal_point = boost::get<std::pair<uint32_t, std::vector<std::pair<uint32_t, std::string>>>>(v0).first;
+    if (decimal_point != cryptonote::get_default_decimal_point())
+    {
+      cryptonote::set_default_decimal_point(decimal_point);
+      changed = true;
+    }
+    return changed;
+  }}}});
+#endif
+
+  v.push_back({tr("The monero wallet will usually try to consolidate outputs when you send monero. This will tend to concentrate your monero in few larger coins. If you usually need to send several transactions in short order, this can be counter productive as more of your balance will be locked waiting for confirmations. To mitigate this, you can set the wallet to avoid doing so if it would result in fewer than a certain amount of coins of a certain amount. For example, setting the count to 5 and the amount to 2 means that the wallet will try to keep at least 5 coins of 2+ monero."), {{tr("Minimum output count"), m_min_output_count, [&](const configuration_element_t &v0, const password_container &pwd_container) {
+    bool changed = false;
+    if (boost::get<uint32_t>(v0) != m_min_output_count)
+    {
+      m_min_output_count = boost::get<uint32_t>(v0);
+      changed = true;
+    }
+    return changed;
+  }}, {tr("Minimum output value"), std::make_pair(true, m_min_output_value), [&](const configuration_element_t &v0, const password_container &pwd_container) {
+    bool changed = false;
+    if (boost::get<std::pair<bool, uint64_t>>(v0).second != m_min_output_value)
+    {
+      m_min_output_count = boost::get<std::pair<bool, uint64_t>>(v0).second;
+      changed = true;
+    }
+    return changed;
+  }}}});
+
+  v.push_back({"", {{tr("Always merge destinations to the same recipient"), m_merge_destinations, SET(bool, m_merge_destinations)}}});
+
+  v.push_back({"", {{tr("Check current network transaction backlog and prompt if the fee is not high enough to ensure prompt confirmation in case of congestion"), m_confirm_backlog, SET(bool, m_confirm_backlog)}}});
+
+  v.push_back({"", {{tr("How many blocks before confirmation is acceptable in case of network congestion"), m_confirm_backlog_threshold, SET(bool, m_confirm_backlog_threshold)}}});
+
+  v.push_back({"", {{tr("Prompt before overwriting another file when exporting data"), m_confirm_export_overwrite, SET(bool, m_confirm_export_overwrite)}}});
+
+  v.push_back({"", {{tr("Automatically try to use minimum fee when there is no network congestion"), m_auto_low_priority, SET(bool, m_auto_low_priority)}}});
+
+  v.push_back({"", {{tr("Never try to use too small an output in a transaction. Too small here refers to a value less than the increase in transaction fee needed to spend it (ie, it does not even pay for itself)."), m_ignore_fractional_outputs, SET(bool, m_ignore_fractional_outputs)}}});
+
+  v.push_back({"", {{tr("Track uses of your outputs on the blockchain. Other Monero users' transactions can use your outputs in their ring signatures. This option lets you keep track of them to see when an observer can see your coins are 'possibly spent'"), m_track_uses, SET(bool, m_track_uses)}}});
+
+  v.push_back({"", {{tr("Enable background mining. This helps the Monero network and makes you eligible for receiving newly created monero. This is low key mining method which will only happen once your computer is idle, and will not run if and when your computer is running on battery. If you don't want to decide yet, select 'Unsure'."), std::make_pair(m_setup_background_mining, std::vector<std::pair<uint32_t, std::string>>({{BackgroundMiningYes, "Yes"}, {BackgroundMiningNo, "No"}, {BackgroundMiningMaybe, "Unsure"}})), SET_enum(BackgroundMiningSetupType, m_setup_background_mining)}}});
+
+#if 0
+  // Seems best left out, too complex
+  v.push_back{{tr("Account lookahead"), m_subaddress_lookahead_major}, {tr("Subaddress lookahead"), std::make_pair(true, m_subaddress_lookahead_minor)}};
+  if (!f(tr("The Monero wallet keeps track of accounts and subaddresses by looking ahead a certain steps. You can enlarge those (to be less likely to miss any use), or decrease them (saving memory)."), v)) return;
+  if (m_subaddress_lookahead_major != boost::get<uint32_t>(v[0].second) || m_subaddress_lookahead_minor != boost::get<uint32_t>(v[1].second))
+  {
+    m_subaddress_lookahead_major = boost::get<uint32_t>(v[0].second);
+    m_subaddress_lookahead_minor = boost::get<uint32_t>(v[1].second);
+    rewrite(m_keys_file, pwd_container.password());
+  }
+#endif
+
+  return v;
+}
+//----------------------------------------------------------------------------------------------------
+void wallet2::on_configuration_changed(const std::vector<std::pair<std::string, std::vector<std::tuple<const char*, tools::wallet2::configuration_element_t, tools::wallet2::configuration_function_t>>>> &v, const password_container &pwd_container)
+{
+  bool changed = false;
+  for (const auto &e: v)
+  {
+    for (auto &x: e.second)
+      changed |= std::get<2>(x)(std::get<1>(x), pwd_container);
+  }
+  if (changed)
+    rewrite(m_keys_file, pwd_container.password());
+}
+//----------------------------------------------------------------------------------------------------
 }
