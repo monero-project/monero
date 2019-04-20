@@ -67,11 +67,13 @@ class Daemon(object):
         }    
         return self.rpc.send_json_rpc_request(submitblock)
 
-    def getblock(self, height=0):
+    def getblock(self, hash = '', height = 0, fill_pow_hash = False):
         getblock = {
             'method': 'getblock',
             'params': {
-                'height': height
+                'hash': hash,
+                'height': height,
+                'fill_pow_hash': fill_pow_hash,
             },
             'jsonrpc': '2.0', 
             'id': '0'
