@@ -1573,6 +1573,11 @@ private:
 
     static std::string get_default_daemon_address() { CRITICAL_REGION_LOCAL(default_daemon_address_lock); return default_daemon_address; }
 
+    typedef boost::variant<uint64_t, uint32_t, std::pair<bool, uint64_t>, std::pair<uint32_t, std::vector<std::pair<uint32_t, std::string>>>, bool, std::string> configuration_element_t;
+    typedef std::function<bool(const configuration_element_t&, const password_container&)> configuration_function_t;
+    std::vector<std::pair<std::string, std::vector<std::tuple<const char*, tools::wallet2::configuration_element_t, configuration_function_t>>>> configure(const password_container &pwd_container);
+    void on_configuration_changed(const std::vector<std::pair<std::string, std::vector<std::tuple<const char*, tools::wallet2::configuration_element_t, tools::wallet2::configuration_function_t>>>> &v, const password_container &pwd_container);
+
   private:
     /*!
      * \brief  Stores wallet information to wallet file.
