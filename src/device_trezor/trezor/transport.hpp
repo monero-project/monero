@@ -303,6 +303,11 @@ namespace trezor {
   void enumerate(t_transport_vect & res);
 
   /**
+   * Sorts found transports by TREZOR_PATH environment variable.
+   */
+  void sort_transports_by_env(t_transport_vect & res);
+
+  /**
    * Transforms path to the transport
    */
   std::shared_ptr<Transport> transport(const std::string & path);
