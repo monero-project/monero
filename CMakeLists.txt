@@ -200,6 +200,7 @@ if(NOT MANUAL_SUBMODULES)
     check_submodule(external/unbound)
     check_submodule(external/rapidjson)
     check_submodule(external/trezor-common)
+    check_submodule(external/randomx)
   endif()
 endif()
 

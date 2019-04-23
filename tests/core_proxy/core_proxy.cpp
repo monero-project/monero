@@ -209,7 +209,7 @@ bool tests::proxy_core::handle_incoming_block(const cryptonote::blobdata& block_
     crypto::hash lh;
     cout << "BLOCK" << endl << endl;
     cout << (h = get_block_hash(b)) << endl;
-    cout << (lh = get_block_longhash(b, 0)) << endl;
+    cout << (lh = get_block_longhash(NULL, b, 0, 0)) << endl;
     cout << get_transaction_hash(b.miner_tx) << endl;
     cout << ::get_object_blobsize(b.miner_tx) << endl;
     //cout << string_tools::buff_to_hex_nodelimer(block_blob) << endl;
@@ -236,7 +236,7 @@ void tests::proxy_core::get_blockchain_top(uint64_t& height, crypto::hash& top_i
 bool tests::proxy_core::init(const boost::program_options::variables_map& /*vm*/) {
     generate_genesis_block(m_genesis, config::GENESIS_TX, config::GENESIS_NONCE);
     crypto::hash h = get_block_hash(m_genesis);
-    add_block(h, get_block_longhash(m_genesis, 0), m_genesis, block_to_blob(m_genesis));
+    add_block(h, get_block_longhash(NULL, m_genesis, 0, 0), m_genesis, block_to_blob(m_genesis));
     return true;
 }
 

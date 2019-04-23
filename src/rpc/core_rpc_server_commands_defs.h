@@ -894,6 +894,8 @@ namespace cryptonote
       uint64_t reserved_offset;
       uint64_t expected_reward;
       std::string prev_hash;
+      std::string seed_hash;
+      std::string next_seed_hash;
       blobdata blocktemplate_blob;
       blobdata blockhashing_blob;
       std::string status;
@@ -911,6 +913,8 @@ namespace cryptonote
         KV_SERIALIZE(blockhashing_blob)
         KV_SERIALIZE(status)
         KV_SERIALIZE(untrusted)
+        KV_SERIALIZE(seed_hash)
+        KV_SERIALIZE(next_seed_hash)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;
