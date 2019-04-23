@@ -343,6 +343,11 @@ t_command_server::t_command_server(
     , std::bind(&t_command_parser_executor::check_blockchain_pruning, &m_parser, p::_1)
     , "Check the blockchain pruning."
     );
+    m_command_lookup.set_handler(
+      "print_checkpoints"
+    , std::bind(&t_command_parser_executor::print_checkpoints, &m_parser, p::_1)
+    , ""
+    );
 
 #if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
     m_command_lookup.set_handler(

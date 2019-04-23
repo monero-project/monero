@@ -48,6 +48,21 @@ namespace service_nodes
 {
   struct quorum_uptime_proof;
 
+  struct checkpoint_vote
+  {
+    uint64_t          block_height;
+    crypto::hash      block_hash;
+    uint32_t          voters_quorum_index;
+    crypto::signature signature;
+    uint64_t          time_last_sent_p2p;
+  };
+
+  struct voter_to_signature
+  {
+    uint16_t          quorum_index;
+    crypto::signature signature;
+  };
+
   struct deregister_vote
   {
     static const uint64_t VOTE_LIFETIME_BY_HEIGHT       = BLOCKS_EXPECTED_IN_HOURS(2);

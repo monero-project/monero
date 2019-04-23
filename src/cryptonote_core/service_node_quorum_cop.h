@@ -89,6 +89,9 @@ namespace service_nodes
     void block_added(const cryptonote::block& block, const std::vector<cryptonote::transaction>& txs) override;
     void blockchain_detached(uint64_t height) override;
 
+    void process_uptime_quorum    (cryptonote::block const &block);
+    void process_checkpoint_quorum(cryptonote::block const &block);
+
     bool handle_uptime_proof(const cryptonote::NOTIFY_UPTIME_PROOF::request &proof);
 
     static const uint64_t REORG_SAFETY_BUFFER_IN_BLOCKS = 20;
@@ -103,7 +106,7 @@ namespace service_nodes
   private:
 
     cryptonote::core& m_core;
-    uint64_t m_last_height;
+    uint64_t m_uptime_proof_height;
 
     std::unordered_map<crypto::public_key, proof_info> m_uptime_proof_seen;
     mutable epee::critical_section m_lock;

@@ -135,6 +135,7 @@ Blockchain::Blockchain(tx_memory_pool& tx_pool, service_nodes::service_node_list
   m_deregister_vote_pool(deregister_vote_pool),
   m_btc_valid(false)
 {
+  m_checkpoint_pool.reserve(service_nodes::QUORUM_SIZE * 4 /*blocks*/);
   LOG_PRINT_L3("Blockchain::" << __func__);
 }
 //------------------------------------------------------------------
@@ -1617,8 +1618,8 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
     bei.bl = b;
     bei.height = alt_chain.size() ? it_prev->second.height + 1 : m_db->get_block_height(b.prev_id) + 1;
 
-    bool is_a_checkpoint;
-    if(!m_checkpoints.check_block(bei.height, id, is_a_checkpoint))
+    bool is_a_checkpoint = false;
+    if(!m_checkpoints.check_block(bei.height, id, &is_a_checkpoint))
     {
       LOG_ERROR("CHECKPOINT VALIDATION FAILED");
       bvc.m_verifivation_failed = true;
@@ -3529,6 +3530,7 @@ leave:
       bvc.m_verifivation_failed = true;
       goto leave;
     }
+
   }
 
   TIME_MEASURE_FINISH(longhash_calculating_time);
@@ -3899,6 +3901,7 @@ bool Blockchain::update_next_cumulative_weight_limit(uint64_t *long_term_effecti
 //------------------------------------------------------------------
 bool Blockchain::add_new_block(const block& bl_, block_verification_context& bvc)
 {
+
   LOG_PRINT_L3("Blockchain::" << __func__);
   //copy block here to let modify block.target
   block bl = bl_;
@@ -3935,27 +3938,25 @@ bool Blockchain::add_new_block(const block& bl_, block_verification_context& bvc
 //      caller decide course of action.
 void Blockchain::check_against_checkpoints(const checkpoints& points, bool enforce)
 {
-  const auto& pts = points.get_points();
-  bool stop_batch;
-
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
-  stop_batch = m_db->batch_start();
-  for (const auto& pt : pts)
-  {
-    // if the checkpoint is for a block we don't have yet, move on
-    if (pt.first >= m_db->height())
-    {
-      continue;
-    }
+  bool stop_batch = m_db->batch_start();
 
-    if (!points.check_block(pt.first, m_db->get_block_hash_from_height(pt.first)))
+  for (const auto& checkpoint_it : points.get_points())
+  {
+    uint64_t block_height          = checkpoint_it.first;
+    checkpoint_t const &checkpoint = checkpoint_it.second;
+
+    if (block_height >= m_db->height()) // if the checkpoint is for a block we don't have yet, move on
+      break;
+
+    if (!points.check_block(block_height, m_db->get_block_hash_from_height(block_height), nullptr))
     {
       // if asked to enforce checkpoints, roll back to a couple of blocks before the checkpoint
       if (enforce)
       {
         LOG_ERROR("Local blockchain failed to pass a checkpoint, rolling back!");
         std::list<block> empty;
-        rollback_blockchain_switching(empty, pt.first - 2);
+        rollback_blockchain_switching(empty, block_height- 2);
       }
       else
       {
@@ -3963,6 +3964,7 @@ void Blockchain::check_against_checkpoints(const checkpoints& points, bool enfor
       }
     }
   }
+
   if (stop_batch)
     m_db->batch_stop();
 }
@@ -4001,7 +4003,21 @@ bool Blockchain::update_checkpoints(const std::string& file_path, bool check_dns
   }
 
   check_against_checkpoints(m_checkpoints, true);
+  return true;
+}
+//------------------------------------------------------------------
+bool Blockchain::add_checkpoint_vote(service_nodes::checkpoint_vote const &vote)
+{
+  crypto::hash const canonical_block_hash = get_block_id_by_height(vote.block_height);
+  if (vote.block_hash != canonical_block_hash)
+  {
+    // NOTE: Vote is not for a block on the canonical chain, check if it's part
+    // of an alternative chain
+    if (m_alternative_chains.find(vote.block_hash) == m_alternative_chains.end())
+      return false;
+  }
 
+  m_checkpoints.add_checkpoint_vote(vote);
   return true;
 }
 //------------------------------------------------------------------
@@ -4018,7 +4034,7 @@ void Blockchain::block_longhash_worker(uint64_t height, const epee::span<const b
   for (const auto & block : blocks)
   {
     if (m_cancel)
-       break;
+      break;
     crypto::hash id = get_block_hash(block);
     crypto::hash pow = get_block_longhash(block, height++);
     map.emplace(id, pow);
@@ -4393,7 +4409,7 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
       waiter.wait(&tpool);
 
       if (m_cancel)
-         return false;
+        return false;
 
       for (const auto & map : maps)
       {
@@ -4434,11 +4450,11 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
   std::vector<std::pair<cryptonote::transaction, crypto::hash>> txes(total_txs);
 
 #define SCAN_TABLE_QUIT(m) \
-        do { \
-            MERROR_VER(m) ;\
-            m_scan_table.clear(); \
-            return false; \
-        } while(0); \
+  do { \
+    MERROR_VER(m) ;\
+    m_scan_table.clear(); \
+    return false; \
+  } while(0); \
 
   // generate sorted tables for all amounts and absolute offsets
   size_t tx_index = 0, block_index = 0;

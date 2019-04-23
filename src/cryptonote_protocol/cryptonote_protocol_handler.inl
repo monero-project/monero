@@ -757,6 +757,50 @@ namespace cryptonote
   }
   //------------------------------------------------------------------------------------------------------------------------  
   template<class t_core>
+  int t_cryptonote_protocol_handler<t_core>::handle_notify_new_checkpoint_vote(int command, NOTIFY_NEW_CHECKPOINT_VOTE::request& arg, cryptonote_connection_context& context)
+  {
+    MLOG_P2P_MESSAGE("Received NOTIFY_NEW_CHECKPOINT_VOTE (" << arg.votes.size() << " txes)");
+
+    if(context.m_state != cryptonote_connection_context::state_normal)
+      return 1;
+
+    if(!is_synchronized())
+    {
+      LOG_DEBUG_CC(context, "Received new checkpoint vote while syncing, ignored");
+      return 1;
+    }
+
+    for(auto it = arg.votes.begin(); it != arg.votes.end();)
+    {
+      cryptonote::vote_verification_context vvc = {};
+      m_core.add_checkpoint_vote(*it, vvc);
+
+      if (vvc.m_verification_failed)
+      {
+        LOG_PRINT_CCONTEXT_L1("Checkpoint vote verification failed, dropping connection");
+        drop_connection(context, false /*add_fail*/, false /*flush_all_spans i.e. delete cached block data from this peer*/);
+        return 1;
+      }
+
+      if (vvc.m_added_to_pool)
+      {
+        it++;
+      }
+      else
+      {
+        it = arg.votes.erase(it);
+      }
+    }
+
+    if (arg.votes.size())
+    {
+      relay_checkpoint_votes(arg, context);
+    }
+
+    return 1;
+  }
+  //------------------------------------------------------------------------------------------------------------------------  
+  template<class t_core>
   int t_cryptonote_protocol_handler<t_core>::handle_request_fluffy_missing_tx(int command, NOTIFY_REQUEST_FLUFFY_MISSING_TX::request& arg, cryptonote_connection_context& context)
   {
     MLOG_P2P_MESSAGE("Received NOTIFY_REQUEST_FLUFFY_MISSING_TX (" << arg.missing_tx_indices.size() << " txes), block hash " << arg.block_hash);
@@ -2152,6 +2196,13 @@ skip:
   bool t_cryptonote_protocol_handler<t_core>::relay_deregister_votes(NOTIFY_NEW_DEREGISTER_VOTE::request& arg, cryptonote_connection_context& exclude_context)
   {
     bool result = relay_post_notify<NOTIFY_NEW_DEREGISTER_VOTE>(arg, exclude_context);
+    return result;
+  }
+  //------------------------------------------------------------------------------------------------------------------------
+  template<class t_core>
+  bool t_cryptonote_protocol_handler<t_core>::relay_checkpoint_votes(NOTIFY_NEW_CHECKPOINT_VOTE::request& arg, cryptonote_connection_context& exclude_context)
+  {
+    bool result = relay_post_notify<NOTIFY_NEW_CHECKPOINT_VOTE>(arg, exclude_context);
     return result;
   }
   //------------------------------------------------------------------------------------------------------------------------

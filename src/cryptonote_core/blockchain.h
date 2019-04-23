@@ -92,6 +92,23 @@ namespace cryptonote
   class Blockchain
   {
   public:
+    void debug__print_checkpoints()
+    {
+      const std::map<uint64_t, checkpoint_t> &checkpoint_map = m_checkpoints.get_points();
+      if (checkpoint_map.empty())
+      {
+          std::cout << "Checkpoint: None available" << std::endl;
+      }
+      else
+      {
+        for (auto const &it : checkpoint_map)
+        {
+          checkpoint_t const &checkpoint = it.second;
+          std::cout << "Checkpoint [" << it.first << "]" << ((checkpoint.type == checkpoint_type::service_node) ? "Service Node" : "Predefined") << std::endl;
+        }
+      }
+    }
+
     /**
      * @brief Now-defunct (TODO: remove) struct from in-memory blockchain
      */
@@ -753,6 +770,15 @@ namespace cryptonote
      */
     bool update_checkpoints(const std::string& file_path, bool check_dns);
 
+    // TODO(doyle): CHECKPOINTING(doyle):
+    struct service_node_checkpoint_pool_entry
+    {
+      uint64_t                                    height;
+      std::vector<service_nodes::checkpoint_vote> votes;
+    };
+
+    std::vector<service_node_checkpoint_pool_entry> m_checkpoint_pool;
+    bool add_checkpoint_vote(service_nodes::checkpoint_vote const &vote);
 
     // user options, must be called before calling init()
 

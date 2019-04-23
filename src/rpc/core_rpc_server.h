@@ -40,6 +40,11 @@
 #include "p2p/net_node.h"
 #include "cryptonote_protocol/cryptonote_protocol_handler.h"
 
+#if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
+#include "common/loki_integration_test_hooks.h"
+#endif
+
+
 // yes, epee doesn't properly use its full namespace when calling its
 // functions from macros.  *sigh*
 using namespace epee;
@@ -255,6 +260,8 @@ namespace cryptonote
     bool on_get_all_service_nodes(const COMMAND_RPC_GET_SERVICE_NODES::request& req, COMMAND_RPC_GET_SERVICE_NODES::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx = NULL);
     bool on_get_staking_requirement(const COMMAND_RPC_GET_STAKING_REQUIREMENT::request& req, COMMAND_RPC_GET_STAKING_REQUIREMENT::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx = NULL);
     //-----------------------
+
+    void on_get_checkpoints() { m_core.debug__print_checkpoints(); }
 
 #if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
     void on_relay_uptime_and_votes()
