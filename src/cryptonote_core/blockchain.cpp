@@ -147,6 +147,7 @@ static const struct {
   { 9, 1057778, 0, 1533297600 },
   { 10, 1154318, 0, 1550153694 },
   { 11, 1155038, 0, 1550225678 },
+  { 12, 1212880, 0, 1558044000 },	/* FIXME: set actual height and datestamp */
 };
 static const uint64_t testnet_hard_fork_version_1_till = 624633;
 
@@ -1117,6 +1118,7 @@ bool Blockchain::switch_to_alternative_blockchain(std::list<block_extended_info>
   }
 
   m_hardfork->reorganize_from_chain_height(split_height);
+  get_block_longhash_reorg(split_height);
 
   std::shared_ptr<tools::Notify> reorg_notify = m_reorg_notify;
   if (reorg_notify)
@@ -1762,7 +1764,30 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
     difficulty_type current_diff = get_next_difficulty_for_alternative_chain(alt_chain, bei);
     CHECK_AND_ASSERT_MES(current_diff, false, "!!!!!!! DIFFICULTY OVERHEAD !!!!!!!");
     crypto::hash proof_of_work = null_hash;
-    get_block_longhash(bei.bl, proof_of_work, bei.height);
+    if (b.major_version >= RX_BLOCK_VERSION)
+    {
+      crypto::hash seedhash = null_hash;
+      uint64_t seedheight = rx_seedheight(bei.height);
+      // seedblock is on the alt chain somewhere
+      if (alt_chain.size() && alt_chain.front().height <= seedheight)
+      {
+        for (auto it=alt_chain.begin(); it != alt_chain.end(); it++)
+        {
+          if (it->height == seedheight+1)
+          {
+            seedhash = it->bl.prev_id;
+            break;
+          }
+        }
+      } else
+      {
+        seedhash = get_block_id_by_height(seedheight);
+      }
+      get_altblock_longhash(bei.bl, proof_of_work, get_current_blockchain_height(), bei.height, seedheight, seedhash);
+    } else
+    {
+      get_block_longhash(this, bei.bl, proof_of_work, bei.height, 0);
+    }
     if(!check_hash(proof_of_work, current_diff))
     {
       MERROR_VER("Block with id: " << id << std::endl << " for alternative chain, does not have enough proof of work: " << proof_of_work << std::endl << " expected difficulty: " << current_diff);
@@ -3679,7 +3704,7 @@ leave:
       proof_of_work = it->second;
     }
     else
-      proof_of_work = get_block_longhash(bl, blockchain_height);
+      proof_of_work = get_block_longhash(this, bl, blockchain_height, 0);
 
     // validate proof_of_work versus difficulty target
     if(!check_hash(proof_of_work, current_diffic))
@@ -4182,7 +4207,7 @@ void Blockchain::block_longhash_worker(uint64_t height, const epee::span<const b
     if (m_cancel)
        break;
     crypto::hash id = get_block_hash(block);
-    crypto::hash pow = get_block_longhash(block, height++);
+    crypto::hash pow = get_block_longhash(this, block, height++, 0);
     map.emplace(id, pow);
   }
 
