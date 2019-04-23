@@ -448,6 +448,7 @@ namespace net_utils
                     {
                       MTRACE("Connection err_code eof.");
                       //connection closed there, empty
+                      buff.clear();
                       return true;
                     }
 
