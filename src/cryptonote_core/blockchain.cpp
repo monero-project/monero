@@ -2800,6 +2800,19 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
 
   const uint8_t hf_version = m_hardfork->get_current_version();
 
+  if (hf_version >= HF_VERSION_MIN_2_OUTPUTS)
+  {
+    if (tx.version >= 2)
+    {
+      if (tx.vout.size() < 2)
+      {
+        MERROR_VER("Tx " << get_transaction_hash(tx) << " has fewer than two outputs");
+        tvc.m_too_few_outputs = true;
+        return false;
+      }
+    }
+  }
+
   // from hard fork 2, we require mixin at least 2 unless one output cannot mix with 2 others
   // if one output cannot mix with 2 others, we accept at most 1 output that can mix
   if (hf_version >= 2)

@@ -213,6 +213,8 @@ namespace
         add_reason(reason, "invalid input");
       if (res.invalid_output)
         add_reason(reason, "invalid output");
+      if (res.too_few_outputs)
+        add_reason(reason, "too few outputs");
       if (res.too_big)
         add_reason(reason, "too big");
       if (res.overspend)

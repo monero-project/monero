@@ -564,6 +564,7 @@ class TransferTest():
         assert res.overspend == False
         assert res.fee_too_low == False
         assert res.not_rct == False
+        assert res.too_few_outputs == False
 
         res = daemon.get_transactions([txes[0][0]])
         assert len(res.txs) >= 1
