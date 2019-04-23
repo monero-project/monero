@@ -98,6 +98,7 @@ FAIL = []
 for test in tests:
   try:
     print('[TEST STARTED] ' + test)
+    sys.stdout.flush()
     cmd = [python, srcdir + '/' + test + ".py"]
     subprocess.check_call(cmd)
     PASS.append(test)
