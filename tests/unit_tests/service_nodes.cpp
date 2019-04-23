@@ -123,7 +123,7 @@ TEST(service_nodes, vote_validation)
   cryptonote::keypair service_node_voter = cryptonote::keypair::generate(hw::get_device("default"));
   int voter_index = 0;
 
-  service_nodes::quorum_state state = {};
+  service_nodes::quorum_uptime_proof state = {};
   {
     state.quorum_nodes.resize(10);
     state.nodes_to_test.resize(state.quorum_nodes.size());
@@ -191,7 +191,7 @@ TEST(service_nodes, tx_extra_deregister_validation)
   const size_t num_voters = 10;
   cryptonote::keypair voters[num_voters] = {};
 
-  service_nodes::quorum_state state = {};
+  service_nodes::quorum_uptime_proof state = {};
   {
     state.quorum_nodes.resize(num_voters);
     state.nodes_to_test.resize(num_voters);

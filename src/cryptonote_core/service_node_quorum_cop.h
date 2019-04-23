@@ -29,6 +29,7 @@
 #pragma once
 
 #include "blockchain.h"
+#include "serialization/serialization.h"
 #include "cryptonote_protocol/cryptonote_protocol_handler_common.h"
 
 namespace cryptonote
@@ -42,6 +43,38 @@ namespace service_nodes
   {
       uint64_t timestamp;
       uint16_t version_major, version_minor, version_patch;
+  };
+
+  struct quorum_checkpointing
+  {
+    std::vector<crypto::public_key> quorum_nodes;
+    BEGIN_SERIALIZE()
+      FIELD(quorum_nodes)
+    END_SERIALIZE()
+  };
+
+  struct quorum_uptime_proof
+  {
+    std::vector<crypto::public_key> quorum_nodes;
+    std::vector<crypto::public_key> nodes_to_test;
+
+    BEGIN_SERIALIZE()
+      FIELD(quorum_nodes)
+      FIELD(nodes_to_test)
+    END_SERIALIZE()
+  };
+
+  struct quorum_manager
+  {
+    std::shared_ptr<const quorum_uptime_proof>  uptime_proof;
+    std::shared_ptr<const quorum_checkpointing> checkpointing;
+  };
+
+  enum struct quorum_type
+  {
+    uptime_proof = 0,
+    checkpointing,
+    count,
   };
 
   class quorum_cop

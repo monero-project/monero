@@ -692,9 +692,9 @@ bool sn_test_rollback::test_registrations(cryptonote::core& c, size_t ev_index, 
     tx_extra_service_node_deregister deregistration;
     get_service_node_deregister_from_tx_extra(dereg_tx.extra, deregistration);
 
-    const auto quorum_state = c.get_quorum_state(deregistration.block_height);
-    CHECK_TEST_CONDITION(quorum_state);
-    const auto pk_a = quorum_state->nodes_to_test.at(deregistration.service_node_index);
+    const auto uptime_quorum = c.get_uptime_quorum(deregistration.block_height);
+    CHECK_TEST_CONDITION(uptime_quorum);
+    const auto pk_a = uptime_quorum->nodes_to_test.at(deregistration.service_node_index);
 
     /// Check present
     const bool found_a = contains(sn_list, pk_a);

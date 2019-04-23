@@ -104,7 +104,7 @@ namespace service_nodes
       if (m_core.get_hard_fork_version(m_last_height) < 9)
         continue;
 
-      const std::shared_ptr<const quorum_state> state = m_core.get_quorum_state(m_last_height);
+      const std::shared_ptr<const quorum_uptime_proof> state = m_core.get_uptime_quorum(m_last_height);
       if (!state)
       {
         // TODO(loki): Fatal error

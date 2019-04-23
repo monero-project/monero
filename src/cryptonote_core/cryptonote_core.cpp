@@ -2039,9 +2039,9 @@ namespace cryptonote
     return si.available;
   }
   //-----------------------------------------------------------------------------------------------
-  const std::shared_ptr<const service_nodes::quorum_state> core::get_quorum_state(uint64_t height) const
+  const std::shared_ptr<const service_nodes::quorum_uptime_proof> core::get_uptime_quorum(uint64_t height) const
   {
-    return m_service_node_list.get_quorum_state(height);
+    return m_service_node_list.get_uptime_quorum(height);
   }
   //-----------------------------------------------------------------------------------------------
   bool core::is_service_node(const crypto::public_key& pubkey) const
@@ -2089,8 +2089,8 @@ namespace cryptonote
       return false;
     }
 
-    const auto quorum_state = m_service_node_list.get_quorum_state(vote.block_height);
-    if (!quorum_state)
+    const auto uptime_quorum = m_service_node_list.get_uptime_quorum(vote.block_height);
+    if (!uptime_quorum)
     {
       vvc.m_verification_failed  = true;
       vvc.m_invalid_block_height = true;
@@ -2100,7 +2100,7 @@ namespace cryptonote
 
     cryptonote::transaction deregister_tx;
     int hf_version = m_blockchain_storage.get_current_hard_fork_version();
-    bool result    = m_deregister_vote_pool.add_vote(hf_version, vote, vvc, *quorum_state, deregister_tx);
+    bool result    = m_deregister_vote_pool.add_vote(hf_version, vote, vvc, *uptime_quorum, deregister_tx);
     if (result && vvc.m_full_tx_deregister_made)
     {
       tx_verification_context tvc = AUTO_VAL_INIT(tvc);
