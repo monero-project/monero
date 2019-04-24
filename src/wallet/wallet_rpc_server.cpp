@@ -4176,7 +4176,7 @@ namespace tools
     {
       er.code = WALLET_RPC_ERROR_CODE_INVALID_LOG_LEVEL;
       er.message = "Error: log level not valid";
-      return true;
+      return false;
     }
     mlog_set_log_level(req.level);
     return true;
