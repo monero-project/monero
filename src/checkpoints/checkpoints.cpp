@@ -195,23 +195,6 @@ namespace cryptonote
     {
       if (curr_checkpoint->signatures.size() > service_nodes::MIN_VOTES_TO_CHECKPOINT) // TODO(doyle): Quorum SuperMajority variable
       {
-        // NOTE: Adding a new checkpoint, we can no longer reorg back past the
-        // 2nd closest service node checkpoint OR the 1st non service node
-        // checkpoint.
-
-        // Push up the reorg limit, don't allow blocks older than a checkpoint
-        // if it is not a service node checkpoint. They are hardcoded in the
-        // code for a reason. NOTE: Loki disables DNS checkpoints for now.
-        uint64_t reorg_sentinel_height = 0;
-        int num_checkpoints = 0;
-        for (auto it = m_points.rbegin(); it != m_points.rend() && num_checkpoints < 2; it++, num_checkpoints++)
-        {
-          reorg_sentinel_height                         = it->first;
-          checkpoint_t const &reorg_sentinel_checkpoint = it->second;
-          if (reorg_sentinel_checkpoint.type == checkpoint_type::predefined_or_dns) break;
-        }
-
-        m_oldest_possible_reorg_limit = reorg_sentinel_height + 1;
         m_points[vote.block_height]   = *curr_checkpoint;
         candidate_checkpoints.erase(curr_checkpoint);
       }
@@ -246,11 +229,35 @@ namespace cryptonote
     if (0 == block_height)
       return false;
 
-    auto it = m_points.upper_bound(blockchain_height);
+    CRITICAL_REGION_LOCAL(m_lock);
+    std::map<uint64_t, checkpoint_t>::const_iterator it = m_points.upper_bound(blockchain_height);
     if (it == m_points.begin()) // Is blockchain_height before the first checkpoint?
       return true;
 
-    bool result = block_height >= m_oldest_possible_reorg_limit;
+    --it; // move the iterator to the first checkpoint that is <= my height
+    uint64_t sentinel_reorg_height = it->first;
+    if (it->second.type == checkpoint_type::service_node)
+    {
+      // NOTE: The current checkpoint is a service node checkpoint. Go back
+      // 1 checkpoint, which will either be another service node checkpoint or
+      // a predefined one.
+
+      // If it's a service node checkpoint, this is the 2nd newest checkpoint,
+      // so we can't reorg past that height. If it's predefined, that's ok as
+      // well, we can't reorg past that height so irrespective, always accept
+      // the height of this next checkpoint.
+      if (it == m_points.begin())
+      {
+        return true; // NOTE: Only one service node checkpoint recorded, we can override this checkpoint.
+      }
+      else
+      {
+        --it;
+        sentinel_reorg_height = it->first;
+      }
+    }
+
+    bool result = sentinel_reorg_height < block_height;
     return result;
   }
   //---------------------------------------------------------------------------
