@@ -229,7 +229,7 @@ namespace cryptonote
   {
     auto it = m_points.find(height);
     bool found  = (it != m_points.end());
-    if (*is_a_checkpoint) *is_a_checkpoint = found;
+    if (is_a_checkpoint) *is_a_checkpoint = found;
 
     if(!found)
       return true;
