@@ -330,3 +330,14 @@ class Daemon(object):
             'id': '0'
         }
         return self.rpc.send_json_rpc_request(get_alternate_chains)
+
+    def get_fee_estimate(self, grace_blocks = 0):
+        get_fee_estimate = {
+            'method': 'get_fee_estimate',
+            'params': {
+                'grace_blocks': grace_blocks,
+            },
+            'jsonrpc': '2.0',
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(get_fee_estimate)
