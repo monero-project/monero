@@ -221,6 +221,8 @@ namespace
         add_reason(reason, "fee too low");
       if (res.not_rct)
         add_reason(reason, "tx is not ringct");
+      if (res.sanity_check_failed)
+        add_reason(reason, "tx sanity check failed");
       if (res.not_relayed)
         add_reason(reason, "tx was not relayed");
       return reason;
