@@ -45,8 +45,15 @@ from framework.daemon import Daemon
 
 class BlockchainTest():
     def run_test(self):
+        self.reset()
         self._test_generateblocks(5)
         self._test_alt_chains()
+
+    def reset(self):
+        print 'Resetting blockchain'
+        daemon = Daemon()
+        daemon.pop_blocks(1000)
+        daemon.flush_txpool()
 
     def _test_generateblocks(self, blocks):
         assert blocks >= 2

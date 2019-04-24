@@ -38,12 +38,19 @@ from framework.wallet import Wallet
 
 class ProofsTest():
     def run_test(self):
+        self.reset()
         self.mine('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 80)
         self.create_wallets()
         txid, tx_key, amount = self.transfer()
         self.check_tx_key(txid, tx_key, amount)
         self.check_tx_proof(txid, amount)
         self.check_reserve_proof()
+
+    def reset(self):
+        print 'Resetting blockchain'
+        daemon = Daemon()
+        daemon.pop_blocks(1000)
+        daemon.flush_txpool()
 
     def mine(self, address, blocks):
         print("Mining some blocks")

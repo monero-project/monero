@@ -292,8 +292,7 @@ void HardFork::on_block_popped(uint64_t nblocks)
   const uint64_t new_chain_height = db.height();
   const uint64_t old_chain_height = new_chain_height + nblocks;
   uint8_t version;
-  uint64_t height;
-  for (height = old_chain_height - 1; height >= new_chain_height; --height)
+  for (uint64_t height = old_chain_height - 1; height >= new_chain_height; --height)
   {
     version = versions.back();
     last_versions[version]--;
@@ -305,7 +304,7 @@ void HardFork::on_block_popped(uint64_t nblocks)
 
   // does not take voting into account
   for (current_fork_index = heights.size() - 1; current_fork_index > 0; --current_fork_index)
-    if (height >= heights[current_fork_index].height)
+    if (new_chain_height >= heights[current_fork_index].height)
       break;
 }
 
