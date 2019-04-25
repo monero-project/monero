@@ -84,36 +84,43 @@ bool get_output_distribution(uint64_t amount, uint64_t from, uint64_t to, uint64
   return r && bc->get_output_distribution(amount, from, to, start_height, distribution, base);
 }
 
+crypto::hash get_block_hash(uint64_t height)
+{
+  crypto::hash hash;
+  *((uint64_t*)&hash) = height;
+  return hash;
+}
+
 TEST(output_distribution, extend)
 {
   boost::optional<cryptonote::rpc::output_distribution_data> res;
 
-  res = cryptonote::rpc::RpcHandler::get_output_distribution(::get_output_distribution, 0, 28, 29, false);
+  res = cryptonote::rpc::RpcHandler::get_output_distribution(::get_output_distribution, 0, 28, 29, ::get_block_hash, false, test_distribution_size);
   ASSERT_TRUE(res != boost::none);
   ASSERT_EQ(res->distribution.size(), 2);
   ASSERT_EQ(res->distribution, std::vector<uint64_t>({5, 0}));
 
-  res = cryptonote::rpc::RpcHandler::get_output_distribution(::get_output_distribution, 0, 28, 29, true);
+  res = cryptonote::rpc::RpcHandler::get_output_distribution(::get_output_distribution, 0, 28, 29, ::get_block_hash, true, test_distribution_size);
   ASSERT_TRUE(res != boost::none);
   ASSERT_EQ(res->distribution.size(), 2);
   ASSERT_EQ(res->distribution, std::vector<uint64_t>({55, 55}));
 
-  res = cryptonote::rpc::RpcHandler::get_output_distribution(::get_output_distribution, 0, 28, 30, false);
+  res = cryptonote::rpc::RpcHandler::get_output_distribution(::get_output_distribution, 0, 28, 30, ::get_block_hash, false, test_distribution_size);
   ASSERT_TRUE(res != boost::none);
   ASSERT_EQ(res->distribution.size(), 3);
   ASSERT_EQ(res->distribution, std::vector<uint64_t>({5, 0, 2}));
 
-  res = cryptonote::rpc::RpcHandler::get_output_distribution(::get_output_distribution, 0, 28, 30, true);
+  res = cryptonote::rpc::RpcHandler::get_output_distribution(::get_output_distribution, 0, 28, 30, ::get_block_hash, true, test_distribution_size);
   ASSERT_TRUE(res != boost::none);
   ASSERT_EQ(res->distribution.size(), 3);
   ASSERT_EQ(res->distribution, std::vector<uint64_t>({55, 55, 57}));
 
-  res = cryptonote::rpc::RpcHandler::get_output_distribution(::get_output_distribution, 0, 28, 31, false);
+  res = cryptonote::rpc::RpcHandler::get_output_distribution(::get_output_distribution, 0, 28, 31, ::get_block_hash, false, test_distribution_size);
   ASSERT_TRUE(res != boost::none);
   ASSERT_EQ(res->distribution.size(), 4);
   ASSERT_EQ(res->distribution, std::vector<uint64_t>({5, 0, 2, 3}));
 
-  res = cryptonote::rpc::RpcHandler::get_output_distribution(::get_output_distribution, 0, 28, 31, true);
+  res = cryptonote::rpc::RpcHandler::get_output_distribution(::get_output_distribution, 0, 28, 31, ::get_block_hash, true, test_distribution_size);
   ASSERT_TRUE(res != boost::none);
   ASSERT_EQ(res->distribution.size(), 4);
   ASSERT_EQ(res->distribution, std::vector<uint64_t>({55, 55, 57, 60}));
@@ -123,7 +130,7 @@ TEST(output_distribution, one)
 {
   boost::optional<cryptonote::rpc::output_distribution_data> res;
 
-  res = cryptonote::rpc::RpcHandler::get_output_distribution(::get_output_distribution, 0, 0, 0, false);
+  res = cryptonote::rpc::RpcHandler::get_output_distribution(::get_output_distribution, 0, 0, 0, ::get_block_hash, false, test_distribution_size);
   ASSERT_TRUE(res != boost::none);
   ASSERT_EQ(res->distribution.size(), 1);
   ASSERT_EQ(res->distribution.back(), 0);
@@ -133,7 +140,7 @@ TEST(output_distribution, full_cumulative)
 {
   boost::optional<cryptonote::rpc::output_distribution_data> res;
 
-  res = cryptonote::rpc::RpcHandler::get_output_distribution(::get_output_distribution, 0, 0, 31, true);
+  res = cryptonote::rpc::RpcHandler::get_output_distribution(::get_output_distribution, 0, 0, 31, ::get_block_hash, true, test_distribution_size);
   ASSERT_TRUE(res != boost::none);
   ASSERT_EQ(res->distribution.size(), 32);
   ASSERT_EQ(res->distribution.back(), 60);
@@ -143,7 +150,7 @@ TEST(output_distribution, full_noncumulative)
 {
   boost::optional<cryptonote::rpc::output_distribution_data> res;
 
-  res = cryptonote::rpc::RpcHandler::get_output_distribution(::get_output_distribution, 0, 0, 31, false);
+  res = cryptonote::rpc::RpcHandler::get_output_distribution(::get_output_distribution, 0, 0, 31, ::get_block_hash, false, test_distribution_size);
   ASSERT_TRUE(res != boost::none);
   ASSERT_EQ(res->distribution.size(), 32);
   for (size_t i = 0; i < 32; ++i)
@@ -154,7 +161,7 @@ TEST(output_distribution, part_cumulative)
 {
   boost::optional<cryptonote::rpc::output_distribution_data> res;
 
-  res = cryptonote::rpc::RpcHandler::get_output_distribution(::get_output_distribution, 0, 4, 8, true);
+  res = cryptonote::rpc::RpcHandler::get_output_distribution(::get_output_distribution, 0, 4, 8, ::get_block_hash, true, test_distribution_size);
   ASSERT_TRUE(res != boost::none);
   ASSERT_EQ(res->distribution.size(), 5);
   ASSERT_EQ(res->distribution, std::vector<uint64_t>({0, 1, 6, 7, 11}));
@@ -164,7 +171,7 @@ TEST(output_distribution, part_noncumulative)
 {
   boost::optional<cryptonote::rpc::output_distribution_data> res;
 
-  res = cryptonote::rpc::RpcHandler::get_output_distribution(::get_output_distribution, 0, 4, 8, false);
+  res = cryptonote::rpc::RpcHandler::get_output_distribution(::get_output_distribution, 0, 4, 8, ::get_block_hash, false, test_distribution_size);
   ASSERT_TRUE(res != boost::none);
   ASSERT_EQ(res->distribution.size(), 5);
   ASSERT_EQ(res->distribution, std::vector<uint64_t>({0, 1, 5, 1, 4}));
