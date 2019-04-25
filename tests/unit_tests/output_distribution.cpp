@@ -62,6 +62,13 @@ public:
     return d;
   }
 
+  std::vector<uint64_t> get_block_weights(uint64_t start_offset, size_t count) const override
+  {
+    std::vector<uint64_t> weights;
+    while (count--) weights.push_back(1);
+    return weights;
+  }
+
   uint64_t blockchain_height;
 };
 
