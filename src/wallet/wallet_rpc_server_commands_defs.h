@@ -2469,6 +2469,7 @@ namespace wallet_rpc
       bool trusted;
       std::string ssl_support; // disabled, enabled, autodetect
       std::string ssl_private_key_path;
+      std::string ssl_private_key_passphrase;
       std::string ssl_certificate_path;
       std::string ssl_ca_file;
       std::vector<std::string> ssl_allowed_fingerprints;
@@ -2479,6 +2480,7 @@ namespace wallet_rpc
         KV_SERIALIZE_OPT(trusted, false)
         KV_SERIALIZE_OPT(ssl_support, (std::string)"autodetect")
         KV_SERIALIZE(ssl_private_key_path)
+        KV_SERIALIZE(ssl_private_key_passphrase)
         KV_SERIALIZE(ssl_certificate_path)
         KV_SERIALIZE(ssl_ca_file)
         KV_SERIALIZE(ssl_allowed_fingerprints)

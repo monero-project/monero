@@ -28,6 +28,7 @@
 // 
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
+#include <boost/algorithm/string.hpp>
 #include "include_base_utils.h"
 #include "string_tools.h"
 using namespace epee;
@@ -91,6 +92,8 @@ namespace cryptonote
     command_line::add_arg(desc, arg_restricted_rpc);
     command_line::add_arg(desc, arg_rpc_ssl);
     command_line::add_arg(desc, arg_rpc_ssl_private_key);
+    command_line::add_arg(desc, arg_rpc_ssl_private_key_passphrase);
+    command_line::add_arg(desc, arg_rpc_ssl_private_key_passphrase_file);
     command_line::add_arg(desc, arg_rpc_ssl_certificate);
     command_line::add_arg(desc, arg_rpc_ssl_ca_certificates);
     command_line::add_arg(desc, arg_rpc_ssl_allowed_fingerprints);
@@ -164,8 +167,27 @@ namespace cryptonote
         ssl_options = epee::net_utils::ssl_options_t{std::move(ssl_allowed_fingerprints), std::move(ssl_ca_path)};
     }
 
+    epee::wipeable_string private_key_passphrase;
+    std::string passphrase_file = command_line::get_arg(vm, arg_rpc_ssl_private_key_passphrase_file);
+    if (!passphrase_file.empty())
+    {
+      std::string passphrase;
+      if (!epee::file_io_utils::load_file_to_string(passphrase_file, passphrase))
+      {
+        MERROR("Failed to load passphrase");
+        return false;
+      }
+
+      // Remove line breaks the user might have inserted
+      boost::trim_right_if(passphrase, boost::is_any_of("\r\n"));
+      private_key_passphrase = passphrase;
+      memwipe(&passphrase[0], passphrase.size());
+    }
+    else
+      private_key_passphrase = command_line::get_arg(vm, arg_rpc_ssl_private_key_passphrase);
+
     ssl_options.auth = epee::net_utils::ssl_authentication_t{
-      command_line::get_arg(vm, arg_rpc_ssl_private_key), command_line::get_arg(vm, arg_rpc_ssl_certificate)
+      command_line::get_arg(vm, arg_rpc_ssl_private_key), private_key_passphrase, command_line::get_arg(vm, arg_rpc_ssl_certificate)
     };
 
     // user specified CA file or fingeprints implies enabled SSL by default
@@ -2432,6 +2454,18 @@ namespace cryptonote
   const command_line::arg_descriptor<std::string> core_rpc_server::arg_rpc_ssl_private_key = {
       "rpc-ssl-private-key"
     , "Path to a PEM format private key"
+    , ""
+    };
+
+  const command_line::arg_descriptor<std::string> core_rpc_server::arg_rpc_ssl_private_key_passphrase = {
+      "rpc-ssl-private-key-passphrase"
+    , "Passphrase to decrypt the PEM format private key"
+    , ""
+    };
+
+  const command_line::arg_descriptor<std::string> core_rpc_server::arg_rpc_ssl_private_key_passphrase_file = {
+      "rpc-ssl-private-key-passphrase-file"
+    , "File containing the passphrase to decrypt the PEM format private key"
     , ""
     };
 

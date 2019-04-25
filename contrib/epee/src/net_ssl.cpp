@@ -254,6 +254,10 @@ boost::asio::ssl::context ssl_options_t::create_context() const
 
 void ssl_authentication_t::use_ssl_certificate(boost::asio::ssl::context &ssl_context) const
 {
+  if (!private_key_passphrase.empty())
+    ssl_context.set_password_callback([this](size_t max_length, boost::asio::ssl::context::password_purpose purpose)->std::string{
+      return std::string(private_key_passphrase.data(), private_key_passphrase.size());
+    });
   ssl_context.use_private_key_file(private_key_path, boost::asio::ssl::context::pem);
   ssl_context.use_certificate_chain_file(certificate_path);
 }

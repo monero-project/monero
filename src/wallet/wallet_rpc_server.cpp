@@ -67,6 +67,8 @@ namespace
   const command_line::arg_descriptor<bool> arg_prompt_for_password = {"prompt-for-password", "Prompts for password when not provided", false};
   const command_line::arg_descriptor<std::string> arg_rpc_ssl = {"rpc-ssl", tools::wallet2::tr("Enable SSL on wallet RPC connections: enabled|disabled|autodetect"), "autodetect"};
   const command_line::arg_descriptor<std::string> arg_rpc_ssl_private_key = {"rpc-ssl-private-key", tools::wallet2::tr("Path to a PEM format private key"), ""};
+  const command_line::arg_descriptor<std::string> arg_rpc_ssl_private_key_passphrase = {"rpc-ssl-private-key-passphrase", tools::wallet2::tr("Passphrase to decrypt the PEM format private key"), ""};
+  const command_line::arg_descriptor<std::string> arg_rpc_ssl_private_key_passphrase_file = {"rpc-ssl-private-key-passphrase-file", tools::wallet2::tr("File with the passphrase to decrypt the PEM format private key"), ""};
   const command_line::arg_descriptor<std::string> arg_rpc_ssl_certificate = {"rpc-ssl-certificate", tools::wallet2::tr("Path to a PEM format certificate"), ""};
   const command_line::arg_descriptor<std::string> arg_rpc_ssl_ca_certificates = {"rpc-ssl-ca-certificates", tools::wallet2::tr("Path to file containing concatenated PEM format certificate(s) to replace system CA(s).")};
   const command_line::arg_descriptor<std::vector<std::string>> arg_rpc_ssl_allowed_fingerprints = {"rpc-ssl-allowed-fingerprints", tools::wallet2::tr("List of certificate fingerprints to allow")};
@@ -244,6 +246,8 @@ namespace tools
     } // end auth enabled
 
     auto rpc_ssl_private_key = command_line::get_arg(vm, arg_rpc_ssl_private_key);
+    auto rpc_ssl_private_key_passphrase = command_line::get_arg(vm, arg_rpc_ssl_private_key_passphrase);
+    auto rpc_ssl_private_key_passphrase_file = command_line::get_arg(vm, arg_rpc_ssl_private_key_passphrase_file);
     auto rpc_ssl_certificate = command_line::get_arg(vm, arg_rpc_ssl_certificate);
     auto rpc_ssl_ca_file = command_line::get_arg(vm, arg_rpc_ssl_ca_certificates);
     auto rpc_ssl_allowed_fingerprints = command_line::get_arg(vm, arg_rpc_ssl_allowed_fingerprints);
@@ -270,8 +274,27 @@ namespace tools
       }
     }
 
+    epee::wipeable_string private_key_passphrase;
+    std::string passphrase_file = command_line::get_arg(vm, arg_rpc_ssl_private_key_passphrase_file);
+    if (!passphrase_file.empty())
+    {
+      std::string passphrase;
+      if (!epee::file_io_utils::load_file_to_string(passphrase_file, passphrase))
+      {
+        MERROR("Failed to load passphrase");
+        return false;
+      }
+
+      // Remove line breaks the user might have inserted
+      boost::trim_right_if(passphrase, boost::is_any_of("\r\n"));
+      private_key_passphrase = passphrase;
+      memwipe(&passphrase[0], passphrase.size());
+    }
+    else
+      private_key_passphrase = command_line::get_arg(vm, arg_rpc_ssl_private_key_passphrase);
+
     rpc_ssl_options.auth = epee::net_utils::ssl_authentication_t{
-      std::move(rpc_ssl_private_key), std::move(rpc_ssl_certificate)
+      std::move(rpc_ssl_private_key), std::move(private_key_passphrase), std::move(rpc_ssl_certificate)
     };
 
     m_auto_refresh_period = DEFAULT_AUTO_REFRESH_PERIOD;
@@ -4146,7 +4169,7 @@ namespace tools
     }
 
     ssl_options.auth = epee::net_utils::ssl_authentication_t{
-      std::move(req.ssl_private_key_path), std::move(req.ssl_certificate_path)
+      std::move(req.ssl_private_key_path), std::move(req.ssl_private_key_passphrase), std::move(req.ssl_certificate_path)
     };
 
     if (ssl_options.support == epee::net_utils::ssl_support_t::e_ssl_support_enabled && !ssl_options.has_strong_verification(boost::string_ref{}))
@@ -4395,6 +4418,8 @@ int main(int argc, char** argv) {
   command_line::add_arg(desc_params, arg_prompt_for_password);
   command_line::add_arg(desc_params, arg_rpc_ssl);
   command_line::add_arg(desc_params, arg_rpc_ssl_private_key);
+  command_line::add_arg(desc_params, arg_rpc_ssl_private_key_passphrase);
+  command_line::add_arg(desc_params, arg_rpc_ssl_private_key_passphrase_file);
   command_line::add_arg(desc_params, arg_rpc_ssl_certificate);
   command_line::add_arg(desc_params, arg_rpc_ssl_ca_certificates);
   command_line::add_arg(desc_params, arg_rpc_ssl_allowed_fingerprints);

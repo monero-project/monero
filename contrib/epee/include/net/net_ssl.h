@@ -36,6 +36,7 @@
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/ssl.hpp>
 #include <boost/system/error_code.hpp>
+#include "wipeable_string.h"
 
 namespace epee
 {
@@ -58,6 +59,7 @@ namespace net_utils
   struct ssl_authentication_t
   {
     std::string private_key_path; //!< Private key used for authentication
+    epee::wipeable_string private_key_passphrase; //!< Private key passphrase (optional)
     std::string certificate_path; //!< Certificate used for authentication to peer.
 
     //! Load `private_key_path` and `certificate_path` into `ssl_context`.
@@ -133,6 +135,8 @@ namespace net_utils
 	constexpr size_t get_ssl_magic_size() { return 9; }
 	bool is_ssl(const unsigned char *data, size_t len);
 	bool ssl_support_from_string(ssl_support_t &ssl, boost::string_ref s);
+
+    bool create_ssl_certificate(EVP_PKEY *&pkey, X509 *&cert);
 }
 }
 

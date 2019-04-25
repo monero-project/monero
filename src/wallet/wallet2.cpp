@@ -244,6 +244,8 @@ struct options {
   const command_line::arg_descriptor<std::string> daemon_login = {"daemon-login", tools::wallet2::tr("Specify username[:password] for daemon RPC client"), "", true};
   const command_line::arg_descriptor<std::string> daemon_ssl = {"daemon-ssl", tools::wallet2::tr("Enable SSL on daemon RPC connections: enabled|disabled|autodetect"), "autodetect"};
   const command_line::arg_descriptor<std::string> daemon_ssl_private_key = {"daemon-ssl-private-key", tools::wallet2::tr("Path to a PEM format private key"), ""};
+  const command_line::arg_descriptor<std::string> daemon_ssl_private_key_passphrase = {"daemon-ssl-private-key-passphrase", tools::wallet2::tr("Passphrase to decrypt the PEM format private key"), ""};
+  const command_line::arg_descriptor<std::string> daemon_ssl_private_key_passphrase_file = {"daemon-ssl-private-key-passphrase_file", tools::wallet2::tr("File containing the passphrase to decrypt the PEM format private key"), ""};
   const command_line::arg_descriptor<std::string> daemon_ssl_certificate = {"daemon-ssl-certificate", tools::wallet2::tr("Path to a PEM format certificate"), ""};
   const command_line::arg_descriptor<std::string> daemon_ssl_ca_certificates = {"daemon-ssl-ca-certificates", tools::wallet2::tr("Path to file containing concatenated PEM format certificate(s) to replace system CA(s).")};
   const command_line::arg_descriptor<std::vector<std::string>> daemon_ssl_allowed_fingerprints = {"daemon-ssl-allowed-fingerprints", tools::wallet2::tr("List of valid fingerprints of allowed RPC servers")};
@@ -326,6 +328,8 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
   auto device_name = command_line::get_arg(vm, opts.hw_device);
   auto device_derivation_path = command_line::get_arg(vm, opts.hw_device_derivation_path);
   auto daemon_ssl_private_key = command_line::get_arg(vm, opts.daemon_ssl_private_key);
+  auto daemon_ssl_private_key_passphrase = command_line::get_arg(vm, opts.daemon_ssl_private_key_passphrase);
+  auto daemon_ssl_private_key_passphrase_file = command_line::get_arg(vm, opts.daemon_ssl_private_key_passphrase_file);
   auto daemon_ssl_certificate = command_line::get_arg(vm, opts.daemon_ssl_certificate);
   auto daemon_ssl_ca_file = command_line::get_arg(vm, opts.daemon_ssl_ca_certificates);
   auto daemon_ssl_allowed_fingerprints = command_line::get_arg(vm, opts.daemon_ssl_allowed_fingerprints);
@@ -355,8 +359,24 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
        tools::wallet2::tr("Invalid argument for ") + std::string(opts.daemon_ssl.name));
   }
 
+  epee::wipeable_string private_key_passphrase;
+  std::string passphrase_file = command_line::get_arg(vm, opts.daemon_ssl_private_key_passphrase_file);
+  if (!passphrase_file.empty())
+  {
+    std::string passphrase;
+    bool r = epee::file_io_utils::load_file_to_string(passphrase_file, passphrase);
+    THROW_WALLET_EXCEPTION_IF(!r, tools::error::wallet_internal_error, "Failed to load passphrase");
+
+    // Remove line breaks the user might have inserted
+    boost::trim_right_if(passphrase, boost::is_any_of("\r\n"));
+    private_key_passphrase = passphrase;
+    memwipe(&passphrase[0], passphrase.size());
+  }
+  else
+    private_key_passphrase = command_line::get_arg(vm, opts.daemon_ssl_private_key_passphrase);
+
   ssl_options.auth = epee::net_utils::ssl_authentication_t{
-    std::move(daemon_ssl_private_key), std::move(daemon_ssl_certificate)
+    std::move(daemon_ssl_private_key), std::move(private_key_passphrase), std::move(daemon_ssl_certificate)
   };
 
   THROW_WALLET_EXCEPTION_IF(!daemon_address.empty() && !daemon_host.empty() && 0 != daemon_port,
@@ -1170,6 +1190,8 @@ void wallet2::init_options(boost::program_options::options_description& desc_par
   command_line::add_arg(desc_params, opts.daemon_login);
   command_line::add_arg(desc_params, opts.daemon_ssl);
   command_line::add_arg(desc_params, opts.daemon_ssl_private_key);
+  command_line::add_arg(desc_params, opts.daemon_ssl_private_key_passphrase);
+  command_line::add_arg(desc_params, opts.daemon_ssl_private_key_passphrase_file);
   command_line::add_arg(desc_params, opts.daemon_ssl_certificate);
   command_line::add_arg(desc_params, opts.daemon_ssl_ca_certificates);
   command_line::add_arg(desc_params, opts.daemon_ssl_allowed_fingerprints);
