@@ -13,13 +13,11 @@ A clear and concise description of what the bug is.
 **To Reproduce**
 Steps to reproduce the behavior:
 
-**Expected behaviour** 
+**Expected behaviour**
 What is the expected behaviour if the steps above are followed:
 
 **Current Behaviour**
 What is the current behaviour if the steps to reproduce are followed:
-
-**Describe the bug**
 
 **Screenshots or Logs**
 If applicable, add screenshots or logs to help explain your problem.
