@@ -43,6 +43,7 @@ class MultisigTest():
         self.mine('42jSRGmmKN96V2j3B8X2DbiNThBXW1tSi1rW1uwkqbyURenq3eC3yosNm8HEMdHuWwKMFGzMUB3RCTvcTaW9kHpdRPP7p5y', 5)
         self.mine('47fF32AdrmXG84FcPY697uZdd42pMMGiH5UpiTRTt3YX2pZC7t7wkzEMStEicxbQGRfrYvAAYxH6Fe8rnD56EaNwUgxRd53', 5)
         self.mine('44SKxxLQw929wRF6BA9paQ1EWFshNnKhXM3qz6Mo3JGDE2YG3xyzVutMStEicxbQGRfrYvAAYxH6Fe8rnD56EaNwUiqhcwR', 5)
+        self.mine('4ADHswEU3XBUee8pudBkZQd9beJainqNo1BQKkHJujAEPJyQrLj9U4dNm8HEMdHuWwKMFGzMUB3RCTvcTaW9kHpdRUDxgjW', 5)
         self.mine('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 60)
 
         self.create_multisig_wallets(2, 2, '493DsrfJPqiN3Suv9RcRDoZEbQtKZX1sNcGPA3GhkKYEEmivk8kjQrTdRdVc4ZbmzWJuE157z9NNUKmF2VDfdYDR3CziGMk')
@@ -55,6 +56,12 @@ class MultisigTest():
         self.import_multisig_info([0, 2], 5)
         txid = self.transfer([0, 2])
         self.import_multisig_info([0, 1, 2], 6)
+        self.check_transaction(txid)
+
+        self.create_multisig_wallets(3, 3, '4ADHswEU3XBUee8pudBkZQd9beJainqNo1BQKkHJujAEPJyQrLj9U4dNm8HEMdHuWwKMFGzMUB3RCTvcTaW9kHpdRUDxgjW')
+        self.import_multisig_info([2, 0, 1], 5)
+        txid = self.transfer([2, 1, 0])
+        self.import_multisig_info([0, 2, 1], 6)
         self.check_transaction(txid)
 
         self.create_multisig_wallets(3, 4, '47fF32AdrmXG84FcPY697uZdd42pMMGiH5UpiTRTt3YX2pZC7t7wkzEMStEicxbQGRfrYvAAYxH6Fe8rnD56EaNwUgxRd53')
