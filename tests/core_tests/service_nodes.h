@@ -70,7 +70,7 @@ template<> struct get_test_options<test_prefer_deregisters>: public get_test_opt
 
 class test_zero_fee_deregister : public test_service_nodes_base
 {
-  size_t m_invalid_tx_index;
+  size_t m_invalid_tx_index = 0;
 
 public:
   test_zero_fee_deregister();
@@ -97,7 +97,7 @@ template<> struct get_test_options<test_zero_fee_deregister>: public get_test_op
 
 class test_deregister_safety_buffer : public test_service_nodes_base
 {
-  size_t m_invalid_tx_index;
+  size_t m_invalid_tx_index = 0;
 
 public:
 
@@ -126,7 +126,7 @@ template<> struct get_test_options<test_deregister_safety_buffer>: public get_te
 class test_deregisters_on_split : public test_service_nodes_base
 {
 
-  size_t m_invalid_tx_index;
+  size_t m_invalid_tx_index = 0;
 
 public:
   test_deregisters_on_split();
@@ -155,7 +155,7 @@ template<> struct get_test_options<test_deregisters_on_split>: public get_test_o
 
 class deregister_too_old : public test_chain_unit_base
 {
-  size_t m_invalid_block_index;
+  size_t m_invalid_block_index = 0;
 
 public:
   deregister_too_old();
