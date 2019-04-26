@@ -162,20 +162,6 @@ namespace cryptonote
     bool init_default_checkpoints(network_type nettype);
 
     /**
-     * @brief load new checkpoints
-     *
-     * Loads new checkpoints from the specified json file, as well as
-     * (optionally) from DNS.
-     *
-     * @param json_hashfile_fullpath path to the json checkpoints file
-     * @param nettype network type
-     * @param dns whether or not to load DNS checkpoints
-     *
-     * @return true if loading successful and no conflicts
-     */
-    bool load_new_checkpoints(const std::string &json_hashfile_fullpath, network_type nettype=MAINNET, bool dns=true);
-
-    /**
      * @brief load new checkpoints from json
      *
      * @param json_hashfile_fullpath path to the json checkpoints file
@@ -183,15 +169,6 @@ namespace cryptonote
      * @return true if loading successful and no conflicts
      */
     bool load_checkpoints_from_json(const std::string &json_hashfile_fullpath);
-
-    /**
-     * @brief load new checkpoints from DNS
-     *
-     * @param nettype network type
-     *
-     * @return true if loading successful and no conflicts
-     */
-    bool load_checkpoints_from_dns(network_type nettype = MAINNET);
 
   private:
     std::unordered_map<uint64_t, std::vector<checkpoint_t>> m_staging_points; // Incomplete service node checkpoints being voted on

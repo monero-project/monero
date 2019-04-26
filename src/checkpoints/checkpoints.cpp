@@ -339,34 +339,16 @@ namespace cryptonote
       uint64_t height;
       height = it->height;
       if (height <= prev_max_height) {
-	LOG_PRINT_L1("ignoring checkpoint height " << height);
+        LOG_PRINT_L1("ignoring checkpoint height " << height);
       } else {
-	std::string blockhash = it->hash;
-	LOG_PRINT_L1("Adding checkpoint height " << height << ", hash=" << blockhash);
-	ADD_CHECKPOINT(height, blockhash);
+        std::string blockhash = it->hash;
+        LOG_PRINT_L1("Adding checkpoint height " << height << ", hash=" << blockhash);
+        ADD_CHECKPOINT(height, blockhash);
       }
       ++it;
     }
 
     return true;
-  }
-
-  bool checkpoints::load_checkpoints_from_dns(network_type nettype)
-  {
-    return true;
-  }
-
-  bool checkpoints::load_new_checkpoints(const std::string &json_hashfile_fullpath, network_type nettype, bool dns)
-  {
-    bool result;
-
-    result = load_checkpoints_from_json(json_hashfile_fullpath);
-    if (dns)
-    {
-      result &= load_checkpoints_from_dns(nettype);
-    }
-
-    return result;
   }
 }
 
