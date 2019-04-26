@@ -3202,6 +3202,31 @@ bool simple_wallet::set_setup_background_mining(const std::vector<std::string> &
   return true;
 }
 
+bool simple_wallet::set_default_change_address(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
+{
+  const auto pwd_container = get_and_verify_password();
+  if (pwd_container)
+  {
+    if (args[1] == "default")
+    {
+      m_wallet->reset_default_change_address();
+    }
+    else
+    {
+      cryptonote::address_parse_info info;
+      bool valid = cryptonote::get_account_address_from_str(info, m_wallet->nettype(), args[1]);
+      if (!valid)
+      {
+        fail_msg_writer() << tr("Invalid address");
+        return true;
+      }
+      m_wallet->default_change_address({info.address, info.is_subaddress});
+    }
+    m_wallet->rewrite(m_wallet_file, pwd_container->password());
+  }
+  return true;
+}
+
 bool simple_wallet::set_device_name(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
   const auto pwd_container = get_and_verify_password();
@@ -3598,7 +3623,9 @@ simple_wallet::simple_wallet()
                                   "credits-target <unsigned int>\n"
                                   "  The RPC payment credits balance to target (0 for default).\n "
                                   "inactivity-lock-timeout <unsigned int>\n "
-                                  "  How many seconds to wait before locking the wallet (0 to disable)."));
+                                  "  How many seconds to wait before locking the wallet (0 to disable).\n"
+                                  "default-change-address <n>\n"
+                                  "  Either an address to use for any change, or the word \"default\" to default to the sending account."));
   m_cmd_binder.set_handler("encrypted_seed",
                            boost::bind(&simple_wallet::on_command, this, &simple_wallet::encrypted_seed, _1),
                            tr("Display the encrypted Electrum-style mnemonic seed."));
@@ -4019,6 +4046,8 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
     success_msg_writer() << "auto-mine-for-rpc-payment-threshold = " << m_wallet->auto_mine_for_rpc_payment_threshold();
     success_msg_writer() << "credits-target = " << m_wallet->credits_target();
     success_msg_writer() << "load-deprecated-formats = " << m_wallet->load_deprecated_formats();
+    const boost::optional<std::pair<cryptonote::account_public_address, bool>> &dca = m_wallet->get_default_change_address();
+    success_msg_writer() << "default-change-address = " << (dca ? cryptonote::get_account_address_as_str(m_wallet->nettype(), dca->second, dca->first): std::string(""));
     return true;
   }
   else
@@ -4078,6 +4107,7 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
     CHECK_SIMPLE_VARIABLE("ignore-outputs-below", set_ignore_outputs_below, tr("amount"));
     CHECK_SIMPLE_VARIABLE("track-uses", set_track_uses, tr("0 or 1"));
     CHECK_SIMPLE_VARIABLE("inactivity-lock-timeout", set_inactivity_lock_timeout, tr("unsigned integer (seconds, 0 to disable)"));
+    CHECK_SIMPLE_VARIABLE("default-change-address", set_default_change_address, tr("an address or \"default\" to default to the sending account"));
     CHECK_SIMPLE_VARIABLE("setup-background-mining", set_setup_background_mining, tr("1/yes or 0/no"));
     CHECK_SIMPLE_VARIABLE("device-name", set_device_name, tr("<device_name[:device_spec]>"));
     CHECK_SIMPLE_VARIABLE("export-format", set_export_format, tr("\"binary\" or \"ascii\""));

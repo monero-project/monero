@@ -1248,6 +1248,10 @@ private:
     void setup_background_mining(BackgroundMiningSetupType value) { m_setup_background_mining = value; }
     uint32_t inactivity_lock_timeout() const { return m_inactivity_lock_timeout; }
     void inactivity_lock_timeout(uint32_t seconds) { m_inactivity_lock_timeout = seconds; }
+    const boost::optional<std::pair<cryptonote::account_public_address, bool>> &get_default_change_address() const { return m_default_change_address; }
+    void default_change_address(const std::pair<cryptonote::account_public_address, bool> &address) { m_default_change_address = address; }
+    void reset_default_change_address() { m_default_change_address = boost::none; }
+    void default_change_address(const std::string &address);
     const std::string & device_name() const { return m_device_name; }
     void device_name(const std::string & device_name) { m_device_name = device_name; }
     const std::string & device_derivation_path() const { return m_device_derivation_path; }
@@ -1773,6 +1777,7 @@ private:
     BackgroundMiningSetupType m_setup_background_mining;
     bool m_persistent_rpc_client_id;
     float m_auto_mine_for_rpc_payment_threshold;
+    boost::optional<std::pair<cryptonote::account_public_address, bool>> m_default_change_address;
     bool m_is_initialized;
     NodeRPCProxy m_node_rpc_proxy;
     std::unordered_set<crypto::hash> m_scanned_pool_txs[2];
