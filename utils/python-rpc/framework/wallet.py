@@ -350,6 +350,34 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(close_wallet)
 
+    def change_wallet_password(self, old_password, new_password):
+        change_wallet_password = {
+            'method': 'change_wallet_password',
+            'params' : {
+                'old_password': old_password,
+                'new_password': new_password,
+            },
+            'jsonrpc': '2.0',
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(change_wallet_password)
+
+    def store(self):
+        store = {
+            'method': 'store',
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(store)
+
+    def stop_wallet(self):
+        stop_wallet = {
+            'method': 'stop_wallet',
+            'jsonrpc': '2.0',
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(stop_wallet)
+
     def refresh(self):
         refresh = {
             'method': 'refresh',
@@ -805,6 +833,62 @@ class Wallet(object):
             'id': '0'
         }
         return self.rpc.send_json_rpc_request(validate_address)
+
+    def get_accounts(self, tag):
+        get_accounts = {
+            'method': 'get_accounts',
+            'params': {
+                'tag': tag,
+            },
+            'jsonrpc': '2.0',
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(get_accounts)
+
+    def get_account_tags(self):
+        get_account_tags = {
+            'method': 'get_account_tags',
+            'params': {
+            },
+            'jsonrpc': '2.0',
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(get_account_tags)
+
+    def tag_accounts(self, tag, accounts = []):
+        tag_accounts = {
+            'method': 'tag_accounts',
+            'params': {
+                'tag': tag,
+                'accounts': accounts,
+            },
+            'jsonrpc': '2.0',
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(tag_accounts)
+
+    def untag_accounts(self, accounts = []):
+        untag_accounts = {
+            'method': 'untag_accounts',
+            'params': {
+                'accounts': accounts,
+            },
+            'jsonrpc': '2.0',
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(untag_accounts)
+
+    def set_account_tag_description(self, tag, description):
+        set_account_tag_description = {
+            'method': 'set_account_tag_description',
+            'params': {
+                'tag': tag,
+                'description': description,
+            },
+            'jsonrpc': '2.0',
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(set_account_tag_description)
 
     def start_mining(self, threads_count, do_background_mining = False, ignore_battery = False):
         start_mining = {

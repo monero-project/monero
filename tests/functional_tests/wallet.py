@@ -29,26 +29,46 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-"""Test transaction creation RPC calls
-
-Test the following RPCs:
-    - [TODO: many tests still need to be written]
-
+"""Test basic wallet functionality
 """
 
 from __future__ import print_function
+import os
+import errno
+
 from framework.wallet import Wallet
 from framework.daemon import Daemon
 
-class WalletAddressTest():
+class WalletTest():
     def run_test(self):
       self.reset()
       self.create()
       self.check_main_address()
       self.check_keys()
       self.create_subaddresses()
+      self.tags()
       self.open_close()
       self.languages()
+      self.change_password()
+      self.store()
+
+    def remove_file(self, name):
+        WALLET_DIRECTORY = os.environ['WALLET_DIRECTORY']
+        assert WALLET_DIRECTORY != ''
+        try:
+            os.unlink(WALLET_DIRECTORY + '/' + name)
+        except OSError, e:
+            if e.errno != errno.ENOENT:
+                raise
+
+    def remove_wallet_files(self, name):
+        for suffix in ['', '.keys']:
+            self.remove_file(name + suffix)
+
+    def file_exists(self, name):
+        WALLET_DIRECTORY = os.environ['WALLET_DIRECTORY']
+        assert WALLET_DIRECTORY != ''
+        return os.path.isfile(WALLET_DIRECTORY + '/' + name)
 
     def reset(self):
         print('Resetting blockchain')
@@ -158,6 +178,81 @@ class WalletAddressTest():
         res = wallet.get_address_index('82pP87g1Vkd3LUMssBCumk3MfyEsFqLAaGDf6oxddu61EgSFzt8gCwUD4tr3kp9TUfdPs2CnpD7xLZzyC1Ei9UsW3oyCWDf')
         assert res.index == {'major': 1, 'minor': 0}
 
+        res = wallet.label_account(0, "main")
+
+    def tags(self):
+        print 'Testing tags'
+        wallet = Wallet()
+        res = wallet.get_account_tags()
+        assert not 'account_tags' in res or len(res.account_tags) == 0
+        ok = False
+        try: res = wallet.get_accounts('tag')
+        except: ok = True
+        assert ok or not 'subaddress_accounts' in res or res.subaddress_accounts == 0
+        wallet.tag_accounts('tag0', [1])
+        res = wallet.get_account_tags()
+        assert len(res.account_tags) == 1
+        assert res.account_tags[0].tag == 'tag0'
+        assert res.account_tags[0].label == ''
+        assert res.account_tags[0].accounts == [1]
+        res = wallet.get_accounts('tag0')
+        assert len(res.subaddress_accounts) == 1
+        assert res.subaddress_accounts[0].account_index == 1
+        assert res.subaddress_accounts[0].base_address == '82pP87g1Vkd3LUMssBCumk3MfyEsFqLAaGDf6oxddu61EgSFzt8gCwUD4tr3kp9TUfdPs2CnpD7xLZzyC1Ei9UsW3oyCWDf'
+        assert res.subaddress_accounts[0].balance == 0
+        assert res.subaddress_accounts[0].unlocked_balance == 0
+        assert res.subaddress_accounts[0].label == 'idx1_new'
+        assert res.subaddress_accounts[0].tag == 'tag0'
+        wallet.untag_accounts([0])
+        res = wallet.get_account_tags()
+        assert len(res.account_tags) == 1
+        assert res.account_tags[0].tag == 'tag0'
+        assert res.account_tags[0].label == ''
+        assert res.account_tags[0].accounts == [1]
+        wallet.untag_accounts([1])
+        res = wallet.get_account_tags()
+        assert not 'account_tags' in res or len(res.account_tags) == 0
+        wallet.tag_accounts('tag0', [0])
+        wallet.tag_accounts('tag1', [1])
+        res = wallet.get_account_tags()
+        assert len(res.account_tags) == 2
+        x = [x for x in res.account_tags if x.tag == 'tag0']
+        assert len(x) == 1
+        assert x[0].tag == 'tag0'
+        assert x[0].label == ''
+        assert x[0].accounts == [0]
+        x = [x for x in res.account_tags if x.tag == 'tag1']
+        assert len(x) == 1
+        assert x[0].tag == 'tag1'
+        assert x[0].label == ''
+        assert x[0].accounts == [1]
+        wallet.tag_accounts('tagA', [0, 1])
+        res = wallet.get_account_tags()
+        assert len(res.account_tags) == 1
+        assert res.account_tags[0].tag == 'tagA'
+        assert res.account_tags[0].label == ''
+        assert res.account_tags[0].accounts == [0, 1]
+        wallet.tag_accounts('tagB', [1, 0])
+        res = wallet.get_account_tags()
+        assert len(res.account_tags) == 1
+        assert res.account_tags[0].tag == 'tagB'
+        assert res.account_tags[0].label == ''
+        assert res.account_tags[0].accounts == [0, 1]
+        wallet.set_account_tag_description('tagB', 'tag B')
+        res = wallet.get_account_tags()
+        assert len(res.account_tags) == 1
+        assert res.account_tags[0].tag == 'tagB'
+        assert res.account_tags[0].label == 'tag B'
+        assert res.account_tags[0].accounts == [0, 1]
+        res = wallet.get_accounts('tagB')
+        assert len(res.subaddress_accounts) == 2
+        subaddress_accounts = []
+        for x in res.subaddress_accounts:
+            assert x.balance == 0
+            assert x.unlocked_balance == 0
+            subaddress_accounts.append((x.account_index, x.base_address, x.label))
+        assert sorted(subaddress_accounts) == [(0, '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 'main'), (1, '82pP87g1Vkd3LUMssBCumk3MfyEsFqLAaGDf6oxddu61EgSFzt8gCwUD4tr3kp9TUfdPs2CnpD7xLZzyC1Ei9UsW3oyCWDf', 'idx1_new')]
+
     def open_close(self):
         print('Testing open/close')
         wallet = Wallet()
@@ -205,6 +300,65 @@ class WalletAddressTest():
             res = wallet.query_key('mnemonic')
             wallet.close_wallet()
 
+    def change_password(self):
+        print 'Testing password change'
+        wallet = Wallet()
+
+        # close the wallet if any, will throw if none is loaded
+        try: wallet.close_wallet()
+        except: pass
+
+        self.remove_wallet_files('test1')
+
+        seed = 'velvet lymph giddy number token physics poetry unquoted nibs useful sabotage limits benches lifestyle eden nitrogen anvil fewest avoid batch vials washing fences goat unquoted'
+        res = wallet.restore_deterministic_wallet(seed = seed, filename = 'test1')
+        assert res.address == '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
+        assert res.seed == seed
+
+        wallet.close_wallet()
+        res = wallet.open_wallet('test1', password = '')
+        res = wallet.get_address()
+        assert res.address == '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
+
+        res = wallet.change_wallet_password(old_password = '', new_password = 'foo')
+        wallet.close_wallet()
+
+        ok = False
+        try: res = wallet.open_wallet('test1', password = '')
+        except: ok = True
+        assert ok
+
+        res = wallet.open_wallet('test1', password = 'foo')
+        res = wallet.get_address()
+        assert res.address == '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
+
+        self.remove_wallet_files('test1')
+
+    def store(self):
+        print 'Testing store'
+        wallet = Wallet()
+
+        # close the wallet if any, will throw if none is loaded
+        try: wallet.close_wallet()
+        except: pass
+
+        self.remove_wallet_files('test1')
+
+        seed = 'velvet lymph giddy number token physics poetry unquoted nibs useful sabotage limits benches lifestyle eden nitrogen anvil fewest avoid batch vials washing fences goat unquoted'
+        res = wallet.restore_deterministic_wallet(seed = seed, filename = 'test1')
+        assert res.address == '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
+        assert res.seed == seed
+
+        self.remove_file('test1')
+        assert self.file_exists('test1.keys')
+        assert not self.file_exists('test1')
+        wallet.store()
+        assert self.file_exists('test1.keys')
+        assert self.file_exists('test1')
+
+        wallet.close_wallet()
+        self.remove_wallet_files('test1')
+
 
 if __name__ == '__main__':
-    WalletAddressTest().run_test()
+    WalletTest().run_test()
