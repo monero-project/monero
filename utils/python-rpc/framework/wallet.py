@@ -781,6 +781,29 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(validate_address)
 
+    def start_mining(self, threads_count, do_background_mining = False, ignore_battery = False):
+        start_mining = {
+            'method': 'start_mining',
+            'jsonrpc': '2.0',
+            'params': {
+                'threads_count': threads_count,
+                'do_background_mining': do_background_mining,
+                'ignore_battery': ignore_battery,
+            },
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(start_mining)
+
+    def stop_mining(self):
+        stop_mining = {
+            'method': 'stop_mining',
+            'jsonrpc': '2.0',
+            'params': {
+            },
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(stop_mining)
+
     def get_version(self):
         get_version = {
             'method': 'get_version',
