@@ -622,6 +622,31 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(check_tx_proof)
 
+    def get_spend_proof(self, txid = '', message = ''):
+        get_spend_proof = {
+            'method': 'get_spend_proof',
+            'params' : {
+                'txid': txid,
+                'message': message,
+            },
+            'jsonrpc': '2.0',
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(get_spend_proof)
+
+    def check_spend_proof(self, txid = '', message = '', signature = ''):
+        check_spend_proof = {
+            'method': 'check_spend_proof',
+            'params' : {
+                'txid': txid,
+                'message': message,
+                'signature': signature,
+            },
+            'jsonrpc': '2.0',
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(check_spend_proof)
+
     def get_reserve_proof(self, all_ = True, account_index = 0, amount = 0, message = ''):
         get_reserve_proof = {
             'method': 'get_reserve_proof',
