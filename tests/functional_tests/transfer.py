@@ -44,6 +44,7 @@ class TransferTest():
         self.mine()
         self.transfer()
         self.check_get_bulk_payments()
+        self.check_get_payments()
         self.check_double_spend_detection()
         self.sweep_dust()
         self.sweep_single()
@@ -523,6 +524,28 @@ class TransferTest():
 
         res = self.wallet[1].get_bulk_payments(["1111111122222222"])
         assert len(res.payments) >= 1 # we have one of these
+
+    def check_get_payments(self):
+        print('Checking get_payments')
+
+        daemon = Daemon()
+        res = daemon.get_info()
+        height = res.height
+
+        self.wallet[0].refresh()
+        self.wallet[1].refresh()
+
+        res = self.wallet[0].get_payments('1234500000012345abcde00000abcdeff1234500000012345abcde00000abcde')
+        assert 'payments' not in res or len(res.payments) == 0
+
+        res = self.wallet[1].get_payments('1234500000012345abcde00000abcdeff1234500000012345abcde00000abcde')
+        assert len(res.payments) >= 2
+
+        res = self.wallet[1].get_payments('ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff')
+        assert 'payments' not in res or len(res.payments) == 0
+
+        res = self.wallet[1].get_payments(payment_id = '1111111122222222' + '0'*48)
+        assert len(res.payments) >= 1 # one tx to integrated address
 
     def check_double_spend_detection(self):
         print('Checking double spend detection')
