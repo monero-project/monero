@@ -45,6 +45,7 @@ class TransferTest():
         self.transfer()
         self.check_get_bulk_payments()
         self.check_double_spend_detection()
+        self.sweep_dust()
         self.sweep_single()
         self.check_destinations()
 
@@ -582,6 +583,13 @@ class TransferTest():
         tx = [tx for tx in res.txs if tx.tx_hash == txes[0][0]][0]
         assert tx.in_pool
         assert tx.double_spend_seen
+
+    def sweep_dust(self):
+        print("Sweeping dust")
+        daemon = Daemon()
+        self.wallet[0].refresh()
+        res = self.wallet[0].sweep_dust()
+        assert not 'tx_hash_list' in res or len(res.tx_hash_list) == 0 # there's just one, but it cannot meet the fee
 
     def sweep_single(self):
         daemon = Daemon()

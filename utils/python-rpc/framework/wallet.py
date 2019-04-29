@@ -142,9 +142,15 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(get_balance)
 
-    def sweep_dust(self):
+    def sweep_dust(self, get_tx_keys = True, do_not_relay = False, get_tx_hex = False, get_tx_metadata = False):
         sweep_dust = {
             'method': 'sweep_dust',
+            'params': {
+                'get_tx_keys': get_tx_keys,
+                'do_not_relay': do_not_relay,
+                'get_tx_hex': get_tx_hex,
+                'get_tx_metadata': get_tx_metadata,
+            },
             'jsonrpc': '2.0', 
             'id': '0'   
         }
