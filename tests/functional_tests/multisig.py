@@ -46,6 +46,8 @@ class MultisigTest():
         self.mine('4ADHswEU3XBUee8pudBkZQd9beJainqNo1BQKkHJujAEPJyQrLj9U4dNm8HEMdHuWwKMFGzMUB3RCTvcTaW9kHpdRUDxgjW', 5)
         self.mine('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 60)
 
+        self.test_states()
+
         self.create_multisig_wallets(2, 2, '493DsrfJPqiN3Suv9RcRDoZEbQtKZX1sNcGPA3GhkKYEEmivk8kjQrTdRdVc4ZbmzWJuE157z9NNUKmF2VDfdYDR3CziGMk')
         self.import_multisig_info([1, 0], 5)
         txid = self.transfer([1, 0])
@@ -152,6 +154,72 @@ class MultisigTest():
         assert res.threshold == M_threshold
         assert res.total == N_total
 
+    def test_states(self):
+        print('Testing multisig states')
+        seeds = [
+            'velvet lymph giddy number token physics poetry unquoted nibs useful sabotage limits benches lifestyle eden nitrogen anvil fewest avoid batch vials washing fences goat unquoted',
+            'peeled mixture ionic radar utopia puddle buying illness nuns gadget river spout cavernous bounced paradise drunk looking cottage jump tequila melting went winter adjust spout',
+            'dilute gutter certain antics pamphlet macro enjoy left slid guarded bogeys upload nineteen bomb jubilee enhanced irritate turnip eggs swung jukebox loudly reduce sedan slid',
+        ]
+        info = []
+        wallet = [None, None, None]
+        for i in range(3):
+            wallet[i] = Wallet(idx = i)
+            try: wallet[i].close_wallet()
+            except: pass
+            res = wallet[i].restore_deterministic_wallet(seed = seeds[i])
+            res = wallet[i].is_multisig()
+            assert not res.multisig
+            res = wallet[i].prepare_multisig()
+            assert len(res.multisig_info) > 0
+            info.append(res.multisig_info)
+
+        for i in range(3):
+            ok = False
+            try: res = wallet[i].finalize_multisig(info)
+            except: ok = True
+            assert ok
+            ok = False
+            try: res = wallet[i].exchange_multisig_keys(info)
+            except: ok = True
+            assert ok
+            res = wallet[i].is_multisig()
+            assert not res.multisig
+
+        res = wallet[0].make_multisig(info[0:2], 2)
+        res = wallet[0].is_multisig()
+        assert res.multisig
+        assert res.ready
+
+        ok = False
+        try: res = wallet[0].finalize_multisig(info)
+        except: ok = True
+        assert ok
+
+        ok = False
+        try: res = wallet[0].prepare_multisig()
+        except: ok = True
+        assert ok
+
+        ok = False
+        try: res = wallet[0].make_multisig(info[0:2], 2)
+        except: ok = True
+        assert ok
+
+        res = wallet[1].make_multisig(info, 2)
+        res = wallet[1].is_multisig()
+        assert res.multisig
+        assert not res.ready
+
+        ok = False
+        try: res = wallet[1].prepare_multisig()
+        except: ok = True
+        assert ok
+
+        ok = False
+        try: res = wallet[1].make_multisig(info[0:2], 2)
+        except: ok = True
+        assert ok
 
     def import_multisig_info(self, signers, expected_outputs):
         assert len(signers) >= 2
