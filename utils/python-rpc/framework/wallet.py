@@ -37,18 +37,6 @@ class Wallet(object):
         self.port = port
         self.rpc = JSONRPC('{protocol}://{host}:{port}'.format(protocol=protocol, host=host, port=port if port else 18090+idx))
 
-    def make_uniform_destinations(self, address, transfer_amount, transfer_number_of_destinations=1):
-        destinations = []
-        for i in range(transfer_number_of_destinations):
-            destinations.append({"amount":transfer_amount,"address":address})
-        return destinations
-
-    def make_destinations(self, addresses, transfer_amounts):
-        destinations = []
-        for i in range(len(addresses)):
-            destinations.append({'amount':transfer_amounts[i],'address':addresses[i]})
-        return destinations
-
     def transfer(self, destinations, account_index = 0, subaddr_indices = [], priority = 0, ring_size = 0, unlock_time = 0, payment_id = '', get_tx_key = True, do_not_relay = False, get_tx_hex = False, get_tx_metadata = False):
         transfer = {
             'method': 'transfer',
