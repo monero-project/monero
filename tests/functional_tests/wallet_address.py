@@ -198,8 +198,9 @@ class WalletAddressTest():
         try: wallet.close_wallet()
         except: pass
         languages = res.languages
-        for language in languages:
-            print('Creating ' + str(language) + ' wallet')
+        languages_local = res.languages_local
+        for language in languages + languages_local:
+            print('Creating ' + language.encode('utf8') + ' wallet')
             wallet.create_wallet(filename = '', language = language)
             res = wallet.query_key('mnemonic')
             wallet.close_wallet()
