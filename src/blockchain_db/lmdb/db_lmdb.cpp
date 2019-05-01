@@ -44,6 +44,9 @@
 #include "profile_tools.h"
 #include "ringct/rctOps.h"
 
+#include "checkpoints/checkpoints.h"
+#include "cryptonote_core/service_node_rules.h"
+
 #undef LOKI_DEFAULT_LOG_CATEGORY
 #define LOKI_DEFAULT_LOG_CATEGORY "blockchain.db.lmdb"
 
@@ -175,26 +178,27 @@ namespace
 
 /* DB schema:
  *
- * Table            Key          Data
- * -----            ---          ----
- * blocks           block ID     block blob
- * block_heights    block hash   block height
- * block_info       block ID     {block metadata}
+ * Table             Key          Data
+ * -----             ---          ----
+ * blocks            block ID     block blob
+ * block_heights     block hash   block height
+ * block_info        block ID     {block metadata}
+ * block_checkpoints block height [{block height, block hash, num signatures, [signatures, ..]}, ...]
  *
- * txs_pruned       txn ID       pruned txn blob
- * txs_prunable     txn ID       prunable txn blob
- * txs_prunable_hash txn ID      prunable txn hash
- * txs_prunable_tip txn ID       height
- * tx_indices       txn hash     {txn ID, metadata}
- * tx_outputs       txn ID       [txn amount output indices]
+ * txs_pruned        txn ID       pruned txn blob
+ * txs_prunable      txn ID       prunable txn blob
+ * txs_prunable_hash txn ID       prunable txn hash
+ * txs_prunable_tip  txn ID       height
+ * tx_indices        txn hash     {txn ID, metadata}
+ * tx_outputs        txn ID       [txn amount output indices]
  *
- * output_txs       output ID    {txn hash, local index}
- * output_amounts   amount       [{amount output index, metadata}...]
+ * output_txs        output ID    {txn hash, local index}
+ * output_amounts    amount       [{amount output index, metadata}...]
  *
- * spent_keys       input hash   -
+ * spent_keys        input hash   -
  *
- * txpool_meta      txn hash     txn metadata
- * txpool_blob      txn hash     txn blob
+ * txpool_meta       txn hash     txn metadata
+ * txpool_blob       txn hash     txn blob
  *
  * Note: where the data items are of uniform size, DUPFIXED tables have
  * been used to save space. In most of these cases, a dummy "zerokval"
@@ -207,6 +211,7 @@ namespace
 const char* const LMDB_BLOCKS = "blocks";
 const char* const LMDB_BLOCK_HEIGHTS = "block_heights";
 const char* const LMDB_BLOCK_INFO = "block_info";
+const char* const LMDB_BLOCK_CHECKPOINTS = "block_checkpoints";
 
 const char* const LMDB_TXS = "txs";
 const char* const LMDB_TXS_PRUNED = "txs_pruned";
@@ -307,6 +312,15 @@ typedef struct mdb_block_info_3
 } mdb_block_info_3;
 
 typedef mdb_block_info_3 mdb_block_info;
+
+#pragma pack(push, 1)
+struct blk_checkpoint_header
+{
+  uint64_t     height;
+  crypto::hash block_hash;
+  size_t       num_signatures;
+};
+#pragma pack(pop)
 
 typedef struct blk_height {
     crypto::hash bh_hash;
@@ -1310,7 +1324,7 @@ void BlockchainLMDB::open(const std::string& filename, const int db_flags)
   // set up lmdb environment
   if ((result = mdb_env_create(&m_env)))
     throw0(DB_ERROR(lmdb_error("Failed to create lmdb environment: ", result).c_str()));
-  if ((result = mdb_env_set_maxdbs(m_env, 20)))
+  if ((result = mdb_env_set_maxdbs(m_env, 21)))
     throw0(DB_ERROR(lmdb_error("Failed to set max number of dbs: ", result).c_str()));
 
   int threads = tools::get_max_concurrency();
@@ -1367,6 +1381,7 @@ void BlockchainLMDB::open(const std::string& filename, const int db_flags)
 
   lmdb_db_open(txn, LMDB_BLOCK_INFO, MDB_INTEGERKEY | MDB_CREATE | MDB_DUPSORT | MDB_DUPFIXED, m_block_info, "Failed to open db handle for m_block_info");
   lmdb_db_open(txn, LMDB_BLOCK_HEIGHTS, MDB_INTEGERKEY | MDB_CREATE | MDB_DUPSORT | MDB_DUPFIXED, m_block_heights, "Failed to open db handle for m_block_heights");
+  lmdb_db_open(txn, LMDB_BLOCK_CHECKPOINTS, MDB_INTEGERKEY | MDB_CREATE,  m_block_checkpoints, "Failed to open db handle for m_block_checkpoints");
 
   lmdb_db_open(txn, LMDB_TXS, MDB_INTEGERKEY | MDB_CREATE, m_txs, "Failed to open db handle for m_txs");
   lmdb_db_open(txn, LMDB_TXS_PRUNED, MDB_INTEGERKEY | MDB_CREATE, m_txs_pruned, "Failed to open db handle for m_txs_pruned");
@@ -1400,6 +1415,7 @@ void BlockchainLMDB::open(const std::string& filename, const int db_flags)
 
   mdb_set_dupsort(txn, m_spent_keys, compare_hash32);
   mdb_set_dupsort(txn, m_block_heights, compare_hash32);
+  mdb_set_compare(txn, m_block_checkpoints, compare_uint64);
   mdb_set_dupsort(txn, m_tx_indices, compare_hash32);
   mdb_set_dupsort(txn, m_output_amounts, compare_uint64);
   mdb_set_dupsort(txn, m_output_txs, compare_uint64);
@@ -1561,6 +1577,8 @@ void BlockchainLMDB::reset()
     throw0(DB_ERROR(lmdb_error("Failed to drop m_block_info: ", result).c_str()));
   if (auto result = mdb_drop(txn, m_block_heights, 0))
     throw0(DB_ERROR(lmdb_error("Failed to drop m_block_heights: ", result).c_str()));
+  if (auto result = mdb_drop(txn, m_block_checkpoints, 0))
+    throw0(DB_ERROR(lmdb_error("Failed to drop m_block_checkpoints: ", result).c_str()));
   if (auto result = mdb_drop(txn, m_txs_pruned, 0))
     throw0(DB_ERROR(lmdb_error("Failed to drop m_txs_pruned: ", result).c_str()));
   if (auto result = mdb_drop(txn, m_txs_prunable, 0))
@@ -3609,6 +3627,149 @@ uint64_t BlockchainLMDB::add_block(const block& blk, size_t block_weight, uint64
 
   return ++m_height;
 }
+
+void BlockchainLMDB::update_block_checkpoint(checkpoint_t const &checkpoint)
+{
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  blk_checkpoint_header header = {};
+  header.height                = checkpoint.height;
+  header.block_hash            = checkpoint.block_hash;
+  header.num_signatures        = checkpoint.signatures.size();
+
+  size_t const MAX_BYTES_REQUIRED   = sizeof(header) + (sizeof(*checkpoint.signatures.data()) * service_nodes::QUORUM_SIZE);
+  uint8_t buffer[MAX_BYTES_REQUIRED];
+
+  size_t const bytes_for_signatures = sizeof(*checkpoint.signatures.data()) * header.num_signatures;
+  size_t const actual_bytes_used    = sizeof(header) + bytes_for_signatures;
+  if (actual_bytes_used > MAX_BYTES_REQUIRED)
+  {
+    LOG_PRINT_L0("Unexpected pre-calculated maximum number of bytes: " << MAX_BYTES_REQUIRED << ", is insufficient to store signatures requiring: " << actual_bytes_used << " bytes");
+    assert(actual_bytes_used <= MAX_BYTES_REQUIRED);
+    return;
+  }
+
+  uint8_t *buffer_ptr = buffer;
+  memcpy(buffer_ptr, (void *)&header, sizeof(header));
+  buffer_ptr += sizeof(header);
+
+  memcpy(buffer_ptr, (void *)checkpoint.signatures.data(), bytes_for_signatures);
+  buffer_ptr += bytes_for_signatures;
+
+  // Bounds check memcpy
+  {
+    uint8_t const *end = buffer + MAX_BYTES_REQUIRED;
+    if (buffer_ptr > end)
+    {
+      LOG_PRINT_L0("Unexpected memcpy bounds overflow on update_block_checkpoint");
+      assert(buffer_ptr <= end);
+      return;
+    }
+  }
+
+  check_open();
+  mdb_txn_cursors *m_cursors = &m_wcursors;
+  CURSOR(block_checkpoints);
+
+  MDB_val_set(key, checkpoint.height);
+  MDB_val value = {};
+  value.mv_size = actual_bytes_used;
+  value.mv_data = buffer;
+  int ret = mdb_cursor_put(m_cur_block_checkpoints, &key, &value, 0);
+  if (ret)
+    throw0(DB_ERROR(lmdb_error("Failed to update block checkpoint in db transaction: ", ret).c_str()));
+}
+
+bool BlockchainLMDB::get_block_checkpoint_internal(uint64_t height, checkpoint_t &checkpoint, MDB_cursor_op op) const
+{
+  TXN_PREFIX_RDONLY();
+  RCURSOR(block_checkpoints);
+
+  MDB_val_set(key, height);
+  MDB_val value = {};
+  int ret = mdb_cursor_get(m_cur_block_checkpoints, &key, &value, op);
+  if (ret == MDB_SUCCESS)
+  {
+    auto const *header     = static_cast<blk_checkpoint_header const *>(value.mv_data);
+    auto const *signatures = reinterpret_cast<service_nodes::voter_to_signature *>(static_cast<uint8_t *>(value.mv_data) + sizeof(*header));
+
+    checkpoint            = {};
+    checkpoint.height     = header->height;
+    checkpoint.type       = (header->num_signatures > 0 ) ? checkpoint_type::service_node : checkpoint_type::hardcoded;
+    checkpoint.block_hash = header->block_hash;
+    checkpoint.signatures.reserve(header->num_signatures);
+    for (size_t i = 0; i < header->num_signatures; ++i)
+    {
+      service_nodes::voter_to_signature const *signature = signatures + i;
+      checkpoint.signatures.push_back(*signature);
+    }
+  }
+
+  TXN_POSTFIX_RDONLY();
+  if (ret != MDB_SUCCESS && ret != MDB_NOTFOUND)
+    throw0(DB_ERROR(lmdb_error("Failed to get block checkpoint: ", ret).c_str()));
+
+  bool result = (ret == MDB_SUCCESS);
+  return result;
+}
+
+bool BlockchainLMDB::get_block_checkpoint(uint64_t height, checkpoint_t &checkpoint) const
+{
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  check_open();
+  bool result = get_block_checkpoint_internal(height, checkpoint, MDB_SET_KEY);
+  return result;
+}
+
+bool BlockchainLMDB::get_top_checkpoint(checkpoint_t &checkpoint) const
+{
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  check_open();
+  bool result = get_block_checkpoint_internal(0, checkpoint, MDB_LAST);
+  return result;
+}
+
+std::vector<checkpoint_t> BlockchainLMDB::get_checkpoints_range(uint64_t start, uint64_t end, size_t num_desired_checkpoints) const
+{
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  check_open();
+  std::vector<checkpoint_t> result;
+
+  checkpoint_t top_checkpoint = {};
+  if (get_top_checkpoint(top_checkpoint))
+  {
+    if (top_checkpoint.height < std::min(start, end))
+      return result;
+  }
+
+  if (num_desired_checkpoints == 0)
+    num_desired_checkpoints = std::numeric_limits<decltype(num_desired_checkpoints)>::max();
+  else
+    result.reserve(num_desired_checkpoints);
+
+  for (uint64_t height = start;
+       height != end && result.size() < num_desired_checkpoints;
+       )
+  {
+    checkpoint_t checkpoint;
+    if (get_block_checkpoint(height, checkpoint))
+      result.push_back(checkpoint);
+
+    if (end >= start) height++;
+    else height--;
+  }
+
+  if (result.size() < num_desired_checkpoints)
+  {
+    // NOTE: Inclusive of end height
+    checkpoint_t checkpoint;
+    if (get_block_checkpoint(end, checkpoint))
+      result.push_back(checkpoint);
+  }
+
+
+  return result;
+}
+
 
 void BlockchainLMDB::pop_block(block& blk, std::vector<transaction>& txs)
 {

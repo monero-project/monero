@@ -45,16 +45,40 @@ namespace cryptonote
   struct Blockchain;
   enum struct checkpoint_type
   {
-    predefined_or_dns,
+    hardcoded,
     service_node,
   };
 
   struct checkpoint_t
   {
     checkpoint_type                                type;
+    uint64_t                                       height;
     crypto::hash                                   block_hash;
     std::vector<service_nodes::voter_to_signature> signatures; // Only service node checkpoints use signatures
   };
+
+  struct height_to_hash
+  {
+    uint64_t height; //!< the height of the checkpoint
+    std::string hash; //!< the hash for the checkpoint
+        BEGIN_KV_SERIALIZE_MAP()
+          KV_SERIALIZE(height)
+          KV_SERIALIZE(hash)
+        END_KV_SERIALIZE_MAP()
+  };
+
+  /**
+   * @brief struct for loading many checkpoints from json
+   */
+  struct height_to_hash_json {
+    std::vector<height_to_hash> hashlines; //!< the checkpoint lines from the file
+        BEGIN_KV_SERIALIZE_MAP()
+          KV_SERIALIZE(hashlines)
+        END_KV_SERIALIZE_MAP()
+  };
+
+  crypto::hash get_newest_hardcoded_checkpoint(cryptonote::network_type nettype, uint64_t *height);
+  bool         load_checkpoints_from_json     (const std::string &json_hashfile_fullpath, std::vector<height_to_hash> &checkpoint_hashes);
 
   /**
    * @brief A container for blockchain checkpoints
@@ -135,45 +159,16 @@ namespace cryptonote
     uint64_t get_max_height() const;
 
     /**
-     * @brief gets the checkpoints container
-     *
-     * @return a const reference to the checkpoints container
-     */
-    std::map<uint64_t, checkpoint_t> get_points() const { return m_points; };
-
-    /**
-     * @brief checks if our checkpoints container conflicts with another
-     *
-     * A conflict refers to a case where both checkpoint sets have a checkpoint
-     * for a specific height but their hashes for that height do not match.
-     *
-     * @param other the other checkpoints instance to check against
-     *
-     * @return false if any conflict is found, otherwise true
-     */
-    bool check_for_conflicts(const checkpoints& other) const;
-
-    /**
      * @brief loads the default main chain checkpoints
      * @param nettype network type
      *
      * @return true unless adding a checkpoint fails
      */
-    bool init_default_checkpoints(network_type nettype);
-
-    /**
-     * @brief load new checkpoints from json
-     *
-     * @param json_hashfile_fullpath path to the json checkpoints file
-     *
-     * @return true if loading successful and no conflicts
-     */
-    bool load_checkpoints_from_json(const std::string &json_hashfile_fullpath);
+    bool init(network_type nettype, struct BlockchainDB *db);
 
   private:
+    BlockchainDB                                           *m_db;
     std::unordered_map<uint64_t, std::vector<checkpoint_t>> m_staging_points; // Incomplete service node checkpoints being voted on
-    std::map<uint64_t, checkpoint_t>                        m_points; //!< the checkpoints container
-    mutable epee::critical_section                          m_lock;
   };
 
 }

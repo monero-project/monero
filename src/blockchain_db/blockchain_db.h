@@ -98,6 +98,7 @@
 
 namespace cryptonote
 {
+struct checkpoint_t;
 
 /** a pair of <transaction hash, output index>, typedef for convenience */
 typedef std::pair<crypto::hash, uint64_t> tx_out_index;
@@ -805,6 +806,13 @@ public:
                             , const uint64_t& coins_generated
                             , const std::vector<transaction>& txs
                             );
+
+  virtual void update_block_checkpoint(checkpoint_t const &checkpoint) = 0;
+  virtual bool get_block_checkpoint   (uint64_t height, checkpoint_t &checkpoint) const = 0;
+  virtual bool get_top_checkpoint     (checkpoint_t &checkpoint) const = 0;
+
+  // num_desired_checkpoints: set to 0 to collect as many checkpoints as possible
+  virtual std::vector<checkpoint_t> get_checkpoints_range(uint64_t start, uint64_t end, size_t num_desired_checkpoints = 0) const = 0;
 
   /**
    * @brief checks if a block exists
