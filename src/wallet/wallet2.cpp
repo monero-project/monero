@@ -986,6 +986,12 @@ void wallet_device_callback::on_button_request(uint64_t code)
     wallet->on_device_button_request(code);
 }
 
+void wallet_device_callback::on_button_pressed()
+{
+  if (wallet)
+    wallet->on_device_button_pressed();
+}
+
 boost::optional<epee::wipeable_string> wallet_device_callback::on_pin_request()
 {
   if (wallet)
@@ -5942,7 +5948,7 @@ namespace
   {
     CHECK_AND_ASSERT_MES(!vec.empty(), T(), "Vector must be non-empty");
 
-    size_t idx = crypto::rand<size_t>() % vec.size();
+    size_t idx = crypto::rand_idx(vec.size());
     return pop_index (vec, idx);
   }
 
@@ -6045,7 +6051,7 @@ size_t wallet2::pop_best_value_from(const transfer_container &transfers, std::ve
   }
   else
   {
-    idx = crypto::rand<size_t>() % candidates.size();
+    idx = crypto::rand_idx(candidates.size());
   }
   return pop_index (unused_indices, candidates[idx]);
 }
@@ -8320,7 +8326,7 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
       if (n_rct == 0)
         return rct_offsets[block_offset] ? rct_offsets[block_offset] - 1 : 0;
       MDEBUG("Picking 1/" << n_rct << " in " << (last_block_offset - first_block_offset + 1) << " blocks centered around " << block_offset + rct_start_height);
-      return first_rct + crypto::rand<uint64_t>() % n_rct;
+      return first_rct + crypto::rand_idx(n_rct);
     };
 
     size_t num_selected_transfers = 0;
@@ -10407,14 +10413,16 @@ bool wallet2::sanity_check(const std::vector<wallet2::pending_tx> &ptx_vector, s
     change -= r.second.first;
   MDEBUG("Adding " << cryptonote::print_money(change) << " expected change");
 
+  // for all txes that have actual change, check change is coming back to the sending wallet
   for (const pending_tx &ptx: ptx_vector)
-    THROW_WALLET_EXCEPTION_IF(ptx.change_dts.addr != ptx_vector[0].change_dts.addr, error::wallet_internal_error,
-        "Change goes to several different addresses");
-  const auto it = m_subaddresses.find(ptx_vector[0].change_dts.addr.m_spend_public_key);
-  THROW_WALLET_EXCEPTION_IF(change > 0 && it == m_subaddresses.end(), error::wallet_internal_error, "Change address is not ours");
-
-  required[ptx_vector[0].change_dts.addr].first += change;
-  required[ptx_vector[0].change_dts.addr].second = ptx_vector[0].change_dts.is_subaddress;
+  {
+    if (ptx.change_dts.amount == 0)
+      continue;
+    THROW_WALLET_EXCEPTION_IF(m_subaddresses.find(ptx.change_dts.addr.m_spend_public_key) == m_subaddresses.end(),
+         error::wallet_internal_error, "Change address is not ours");
+    required[ptx.change_dts.addr].first += ptx.change_dts.amount;
+    required[ptx.change_dts.addr].second = ptx.change_dts.is_subaddress;
+  }
 
   for (const auto &r: required)
   {
@@ -10483,7 +10491,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_all(uint64_t below
     if (unused_transfer_dust_indices_per_subaddr.count(0) == 1 && unused_transfer_dust_indices_per_subaddr.size() > 1)
       unused_transfer_dust_indices_per_subaddr.erase(0);
     auto i = unused_transfer_dust_indices_per_subaddr.begin();
-    std::advance(i, crypto::rand<size_t>() % unused_transfer_dust_indices_per_subaddr.size());
+    std::advance(i, crypto::rand_idx(unused_transfer_dust_indices_per_subaddr.size()));
     unused_transfers_indices = i->second.first;
     unused_dust_indices = i->second.second;
     LOG_PRINT_L2("Spending from subaddress index " << i->first);
@@ -13747,6 +13755,12 @@ void wallet2::on_device_button_request(uint64_t code)
 {
   if (nullptr != m_callback)
     m_callback->on_device_button_request(code);
+}
+//----------------------------------------------------------------------------------------------------
+void wallet2::on_device_button_pressed()
+{
+  if (nullptr != m_callback)
+    m_callback->on_device_button_pressed();
 }
 //----------------------------------------------------------------------------------------------------
 boost::optional<epee::wipeable_string> wallet2::on_device_pin_request()

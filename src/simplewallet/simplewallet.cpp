@@ -3155,7 +3155,7 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("welcome",
                            boost::bind(&simple_wallet::welcome, this, _1),
                            tr(USAGE_WELCOME),
-                           "Display the welcome message for the wallet");
+                           tr("Display the welcome message for the wallet"));
   m_cmd_binder.set_handler("version",
                            boost::bind(&simple_wallet::version, this, _1),
                            tr(USAGE_VERSION),
@@ -5045,7 +5045,6 @@ bool simple_wallet::refresh_main(uint64_t start_height, enum ResetType reset, bo
 
   crypto::hash transfer_hash_pre{};
   uint64_t height_pre = 0, height_post = 0;
-
   if (reset != ResetNone)
   {
     if (reset == ResetSoftKeepKI)

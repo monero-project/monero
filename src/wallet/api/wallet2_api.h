@@ -37,6 +37,7 @@
 #include <set>
 #include <ctime>
 #include <iostream>
+#include <stdexcept>
 
 //  Public interface for libwallet library
 namespace Monero {
@@ -339,6 +340,7 @@ protected:
     bool m_indeterminate;
 };
 
+struct Wallet;
 struct WalletListener
 {
     virtual ~WalletListener() = 0;
@@ -383,7 +385,12 @@ struct WalletListener
     /**
      * @brief called by device if the action is required
      */
-    virtual void onDeviceButtonRequest(uint64_t code) {}
+    virtual void onDeviceButtonRequest(uint64_t code) { (void)code; }
+
+    /**
+     * @brief called by device if the button was pressed
+     */
+    virtual void onDeviceButtonPressed() { }
 
     /**
      * @brief called by device when PIN is needed
@@ -403,7 +410,12 @@ struct WalletListener
     /**
      * @brief Signalizes device operation progress
      */
-    virtual void onDeviceProgress(const DeviceProgress & event) {};
+    virtual void onDeviceProgress(const DeviceProgress & event) { (void)event; };
+
+    /**
+     * @brief If the listener is created before the wallet this enables to set created wallet object
+     */
+    virtual void onSetWallet(Wallet * wallet) { (void)wallet; };
 };
 
 
@@ -442,8 +454,8 @@ struct Wallet
     //! returns both error and error string atomically. suggested to use in instead of status() and errorString()
     virtual void statusWithErrorString(int& status, std::string& errorString) const = 0;
     virtual bool setPassword(const std::string &password) = 0;
-    virtual bool setDevicePin(const std::string &password) { return false; };
-    virtual bool setDevicePassphrase(const std::string &password) { return false; };
+    virtual bool setDevicePin(const std::string &pin) { (void)pin; return false; };
+    virtual bool setDevicePassphrase(const std::string &passphrase) { (void)passphrase; return false; };
     virtual std::string address(uint32_t accountIndex = 0, uint32_t addressIndex = 0) const = 0;
     std::string mainAddress() const { return address(0, 0); }
     virtual std::string path() const = 0;
@@ -1027,9 +1039,10 @@ struct WalletManagerBase
      * \param  password       Password of wallet file
      * \param  nettype        Network type
      * \param  kdf_rounds     Number of rounds for key derivation function
+     * \param  listener       Wallet listener to set to the wallet after creation
      * \return                Wallet instance (Wallet::status() needs to be called to check if opened successfully)
      */
-    virtual Wallet * openWallet(const std::string &path, const std::string &password, NetworkType nettype, uint64_t kdf_rounds = 1) = 0;
+    virtual Wallet * openWallet(const std::string &path, const std::string &password, NetworkType nettype, uint64_t kdf_rounds = 1, WalletListener * listener = nullptr) = 0;
     Wallet * openWallet(const std::string &path, const std::string &password, bool testnet = false)     // deprecated
     {
         return openWallet(path, password, testnet ? TESTNET : MAINNET);
@@ -1141,6 +1154,7 @@ struct WalletManagerBase
      * \param  restoreHeight        restore from start height (0 sets to current height)
      * \param  subaddressLookahead  Size of subaddress lookahead (empty sets to some default low value)
      * \param  kdf_rounds           Number of rounds for key derivation function
+     * \param  listener             Wallet listener to set to the wallet after creation
      * \return                      Wallet instance (Wallet::status() needs to be called to check if recovered successfully)
      */
     virtual Wallet * createWalletFromDevice(const std::string &path,
@@ -1149,7 +1163,8 @@ struct WalletManagerBase
                                             const std::string &deviceName,
                                             uint64_t restoreHeight = 0,
                                             const std::string &subaddressLookahead = "",
-                                            uint64_t kdf_rounds = 1) = 0;
+                                            uint64_t kdf_rounds = 1,
+                                            WalletListener * listener = nullptr) = 0;
 
     /*!
      * \brief Closes wallet. In case operation succeeded, wallet object deleted. in case operation failed, wallet object not deleted

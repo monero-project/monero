@@ -98,6 +98,7 @@ namespace trezor {
       std::shared_ptr<messages::management::Features> m_features;  // features from the last device reset
       boost::optional<epee::wipeable_string> m_pin;
       boost::optional<epee::wipeable_string> m_passphrase;
+      messages::MessageType m_last_msg_type;
 
       cryptonote::network_type network_type;
 
@@ -311,6 +312,7 @@ namespace trezor {
 
     // Protocol callbacks
     void on_button_request(GenericMessage & resp, const messages::common::ButtonRequest * msg);
+    void on_button_pressed();
     void on_pin_request(GenericMessage & resp, const messages::common::PinMatrixRequest * msg);
     void on_passphrase_request(GenericMessage & resp, const messages::common::PassphraseRequest * msg);
     void on_passphrase_state_request(GenericMessage & resp, const messages::common::PassphraseStateRequest * msg);
