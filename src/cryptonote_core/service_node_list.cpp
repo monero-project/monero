@@ -1450,9 +1450,8 @@ namespace service_nodes
     CHECK_AND_ASSERT_MES(r, false, "Failed to store service node info: failed to serialize data");
 
     std::string blob = ss.str();
-    m_db->block_txn_start(false/*readonly*/);
+    cryptonote::db_wtxn_guard txn_guard(m_db);
     m_db->set_service_node_data(blob);
-    m_db->block_txn_stop();
 
     return true;
   }
@@ -1493,13 +1492,11 @@ namespace service_nodes
     data_members_for_serialization data_in;
     std::string blob;
 
-    m_db->block_txn_start(true/*readonly*/);
+    cryptonote::db_rtxn_guard txn_guard(m_db);
     if (!m_db->get_service_node_data(blob))
     {
-      m_db->block_txn_stop();
       return false;
     }
-    m_db->block_txn_stop();
 
     ss << blob;
     binary_archive<false> ba(ss);
@@ -1575,9 +1572,8 @@ namespace service_nodes
     m_transient_state = {};
     if (m_db && delete_db_entry)
     {
-      m_db->block_txn_start(false/*readonly*/);
+      cryptonote::db_wtxn_guard txn_guard(m_db);
       m_db->clear_service_node_data();
-      m_db->block_txn_stop();
     }
 
     uint64_t hardfork_9_from_height = 0;

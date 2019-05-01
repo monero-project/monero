@@ -314,8 +314,7 @@ namespace cryptonote
     *this = {};
     m_db = db;
 
-    m_db->block_txn_start();
-    epee::misc_utils::auto_scope_leave_caller scope_exit_handler = epee::misc_utils::create_scope_leave_handler([&](){m_db->block_txn_stop();});
+    db_wtxn_guard txn_guard(m_db);
 #if !defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
     if (nettype == MAINNET)
     {

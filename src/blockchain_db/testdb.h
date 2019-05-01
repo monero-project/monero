@@ -65,9 +65,14 @@ public:
   virtual bool batch_start(uint64_t batch_num_blocks, uint64_t batch_bytes) override { return true; }
   virtual void batch_stop() override {}
   virtual void set_batch_transactions(bool) override {}
-  virtual void block_txn_start(bool readonly=false) override {}
-  virtual void block_txn_stop() override {}
-  virtual void block_txn_abort() override {}
+
+  virtual void block_wtxn_start() {}
+  virtual void block_wtxn_stop() {}
+  virtual void block_wtxn_abort() {}
+  virtual bool block_rtxn_start() const { return true; }
+  virtual void block_rtxn_stop() const {}
+  virtual void block_rtxn_abort() const {}
+
   virtual bool block_exists(const crypto::hash& h, uint64_t *height) const override { return false; }
   virtual void update_block_checkpoint(struct checkpoint_t const &checkpoint) override {}
   virtual bool get_block_checkpoint   (uint64_t height, struct checkpoint_t &checkpoint) const override { return false; }

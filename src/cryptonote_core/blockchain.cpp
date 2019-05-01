@@ -401,6 +401,7 @@ bool Blockchain::init(BlockchainDB* db, const network_type nettype, bool offline
     block bl;
     block_verification_context bvc = boost::value_initialized<block_verification_context>();
     generate_genesis_block(bl, get_config(m_nettype).GENESIS_TX, get_config(m_nettype).GENESIS_NONCE);
+    db_wtxn_guard wtxn_guard(m_db);
     add_new_block(bl, bvc);
     CHECK_AND_ASSERT_MES(!bvc.m_verifivation_failed, false, "Failed to add genesis block to blockchain");
   }
@@ -416,7 +417,8 @@ bool Blockchain::init(BlockchainDB* db, const network_type nettype, bool offline
     m_db->fixup();
   }
 
-  m_db->block_txn_start(true);
+  db_rtxn_guard rtxn_guard(m_db);
+
   // check how far behind we are
   uint64_t top_block_timestamp = m_db->get_top_block_timestamp();
   uint64_t timestamp_diff = time(NULL) - top_block_timestamp;
@@ -437,7 +439,8 @@ bool Blockchain::init(BlockchainDB* db, const network_type nettype, bool offline
 #endif
 
   MINFO("Blockchain initialized. last block: " << m_db->height() - 1 << ", " << epee::misc_utils::get_time_interval_string(timestamp_diff) << " time ago, current difficulty: " << get_difficulty_for_next_block());
-  m_db->block_txn_stop();
+
+  rtxn_guard.stop();
 
   uint64_t num_popped_blocks = 0;
   while (!m_db->is_read_only())
@@ -491,8 +494,11 @@ bool Blockchain::init(BlockchainDB* db, const network_type nettype, bool offline
   if (test_options && test_options->long_term_block_weight_window)
     m_long_term_block_weights_window = test_options->long_term_block_weight_window;
 
-  if (!update_next_cumulative_weight_limit())
-    return false;
+  {
+    db_txn_guard txn_guard(m_db, m_db->is_read_only());
+    if (!update_next_cumulative_weight_limit())
+      return false;
+  }
 
   for (InitHook* hook : m_init_hooks)
     hook->init();
@@ -705,6 +711,7 @@ bool Blockchain::reset_and_set_genesis_block(const block& b)
   for (InitHook* hook : m_init_hooks)
     hook->init();
 
+  db_wtxn_guard wtxn_guard(m_db);
   block_verification_context bvc = boost::value_initialized<block_verification_context>();
   add_new_block(b, bvc);
   if (!update_next_cumulative_weight_limit())
@@ -752,7 +759,7 @@ bool Blockchain::get_short_chain_history(std::list<crypto::hash>& ids) const
   if(!sz)
     return true;
 
-  m_db->block_txn_start(true);
+  db_rtxn_guard rtxn_guard(m_db);
   bool genesis_included = false;
   uint64_t current_back_offset = 1;
   while(current_back_offset < sz)
@@ -779,7 +786,6 @@ bool Blockchain::get_short_chain_history(std::list<crypto::hash>& ids) const
   {
     ids.push_back(m_db->get_block_hash_from_height(0));
   }
-  m_db->block_txn_stop();
 
   return true;
 }
@@ -1891,7 +1897,7 @@ bool Blockchain::handle_get_objects(NOTIFY_REQUEST_GET_OBJECTS::request& arg, NO
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
-  m_db->block_txn_start(true);
+  db_rtxn_guard rtxn_guard (m_db);
   rsp.current_blockchain_height = get_current_blockchain_height();
   std::vector<std::pair<cryptonote::blobdata,block>> blocks;
   get_blocks(arg.blocks, blocks, rsp.missed_ids);
@@ -1918,7 +1924,6 @@ bool Blockchain::handle_get_objects(NOTIFY_REQUEST_GET_OBJECTS::request& arg, NO
       // as done below if any standalone transactions were requested
       // and missed.
       rsp.missed_ids.insert(rsp.missed_ids.end(), missed_tx_ids.begin(), missed_tx_ids.end());
-      m_db->block_txn_stop();
       return false;
     }
 
@@ -1928,7 +1933,6 @@ bool Blockchain::handle_get_objects(NOTIFY_REQUEST_GET_OBJECTS::request& arg, NO
   //get and pack other transactions, if needed
   get_transactions_blobs(arg.txs, rsp.txs, rsp.missed_ids);
 
-  m_db->block_txn_stop();
   return true;
 }
 //------------------------------------------------------------------
@@ -2093,14 +2097,13 @@ bool Blockchain::find_blockchain_supplement(const std::list<crypto::hash>& qbloc
     return false;
   }
 
-  m_db->block_txn_start(true);
+  db_rtxn_guard rtxn_guard(m_db);
   // make sure that the last block in the request's block list matches
   // the genesis block
   auto gen_hash = m_db->get_block_hash_from_height(0);
   if(qblock_ids.back() != gen_hash)
   {
     MCERROR("net.p2p", "Client sent wrong NOTIFY_REQUEST_CHAIN: genesis block mismatch: " << std::endl << "id: " << qblock_ids.back() << ", " << std::endl << "expected: " << gen_hash << "," << std::endl << " dropping connection");
-	m_db->block_txn_abort();
     return false;
   }
 
@@ -2118,11 +2121,9 @@ bool Blockchain::find_blockchain_supplement(const std::list<crypto::hash>& qbloc
     catch (const std::exception& e)
     {
       MWARNING("Non-critical error trying to find block by hash in BlockchainDB, hash: " << *bl_it);
-	  m_db->block_txn_abort();
       return false;
     }
   }
-  m_db->block_txn_stop();
 
   // this should be impossible, as we checked that we share the genesis block,
   // but just in case...
@@ -2313,7 +2314,7 @@ bool Blockchain::find_blockchain_supplement(const std::list<crypto::hash>& qbloc
     return false;
   }
 
-  m_db->block_txn_start(true);
+  db_rtxn_guard rtxn_guard(m_db);
   current_height = get_current_blockchain_height();
   const uint32_t pruning_seed = get_blockchain_pruning_seed();
   start_height = tools::get_next_unpruned_block_height(start_height, current_height, pruning_seed);
@@ -2325,7 +2326,6 @@ bool Blockchain::find_blockchain_supplement(const std::list<crypto::hash>& qbloc
     hashes.push_back(m_db->get_block_hash_from_height(i));
   }
 
-  m_db->block_txn_stop();
   return true;
 }
 
@@ -2368,7 +2368,7 @@ bool Blockchain::find_blockchain_supplement(const uint64_t req_start_block, cons
     }
   }
 
-  m_db->block_txn_start(true);
+  db_rtxn_guard rtxn_guard(m_db);
   total_height = get_current_blockchain_height();
   size_t count = 0, size = 0;
   blocks.reserve(std::min(std::min(max_count, (size_t)10000), (size_t)(total_height - start_height)));
@@ -2394,7 +2394,6 @@ bool Blockchain::find_blockchain_supplement(const uint64_t req_start_block, cons
       blocks.back().second.push_back(std::make_pair(b.tx_hashes[i], std::move(txs[i])));
     }
   }
-  m_db->block_txn_stop();
   return true;
 }
 //------------------------------------------------------------------
@@ -3552,7 +3551,7 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
 
   static bool seen_future_version = false;
 
-  m_db->block_txn_start(true);
+  db_rtxn_guard rtxn_guard(m_db);
   uint64_t blockchain_height;
   const crypto::hash top_hash = get_tail_id(blockchain_height);
   ++blockchain_height; // block height to chain height
@@ -3561,7 +3560,6 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
     MERROR_VER("Block with id: " << id << std::endl << "has wrong prev_id: " << bl.prev_id << std::endl << "expected: " << top_hash);
     bvc.m_verifivation_failed = true;
 leave:
-    m_db->block_txn_stop();
     return false;
   }
 
@@ -3845,7 +3843,7 @@ leave:
   if(precomputed)
     block_processing_time += m_fake_pow_calc_time;
 
-  m_db->block_txn_stop();
+  rtxn_guard.stop();
   TIME_MEASURE_START(addblock);
   uint64_t new_height = 0;
   if (!bvc.m_verifivation_failed)
@@ -3988,8 +3986,6 @@ bool Blockchain::update_next_cumulative_weight_limit(uint64_t *long_term_effecti
 
   LOG_PRINT_L3("Blockchain::" << __func__);
 
-  m_db->block_txn_start(false);
-
   // when we reach this, the last hf version is not yet written to the db
   const uint64_t db_height = m_db->height();
   const uint8_t hf_version = get_current_hard_fork_version();
@@ -4052,9 +4048,8 @@ bool Blockchain::update_next_cumulative_weight_limit(uint64_t *long_term_effecti
   if (long_term_effective_median_block_weight)
     *long_term_effective_median_block_weight = m_long_term_effective_median_block_weight;
 
-  m_db->add_max_block_size(m_current_block_cumul_weight_limit);
-
-  m_db->block_txn_stop();
+  if (!m_db->is_read_only())
+    m_db->add_max_block_size(m_current_block_cumul_weight_limit);
 
   return true;
 }
@@ -4066,12 +4061,11 @@ bool Blockchain::add_new_block(const block& bl, block_verification_context& bvc)
   crypto::hash id = get_block_hash(bl);
   CRITICAL_REGION_LOCAL(m_tx_pool);//to avoid deadlock lets lock tx_pool for whole add/reorganize process
   CRITICAL_REGION_LOCAL1(m_blockchain_lock);
-  m_db->block_txn_start(true);
+  db_rtxn_guard rtxn_guard(m_db);
   if(have_block(id))
   {
     LOG_PRINT_L3("block with id = " << id << " already exists");
     bvc.m_already_exists = true;
-    m_db->block_txn_stop();
     m_blocks_txs_check.clear();
     return false;
   }
@@ -4081,14 +4075,14 @@ bool Blockchain::add_new_block(const block& bl, block_verification_context& bvc)
   {
     //chain switching or wrong block
     bvc.m_added_to_main_chain = false;
-    m_db->block_txn_stop();
+    rtxn_guard.stop();
     bool r = handle_alternative_block(bl, id, bvc);
     m_blocks_txs_check.clear();
     return r;
     //never relay alternative blocks
   }
 
-  m_db->block_txn_stop();
+  rtxn_guard.stop();
   return handle_block_to_main_chain(bl, id, bvc);
 }
 //------------------------------------------------------------------
