@@ -83,6 +83,14 @@ else()
   set(_Backtrace_STD_ARGS Backtrace_LIBRARY ${_Backtrace_STD_ARGS})
 endif()
 
+message(STATUS "Backtrace_LIBRARY: ${Backtrace_LIBRARY}")
+if(Backtrace_LIBRARY STREQUAL "NOTFOUND")
+  set(Backtrace_LIBRARY "")
+endif()
+if(Backtrace_LIBRARY STREQUAL "Backtrace_LIBRARY-NOTFOUND")
+  set(Backtrace_LIBRARY "")
+endif()
+
 set(Backtrace_LIBRARIES ${Backtrace_LIBRARY})
 set(Backtrace_HEADER "${_Backtrace_HEADER_TRY}" CACHE STRING "Header providing backtrace(3) facility")
 
