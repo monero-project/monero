@@ -999,7 +999,7 @@ template<typename t_test_class>
 struct get_test_options {
   const std::vector<std::pair<uint8_t, uint64_t>> hard_forks = {{7, 0}};
   const cryptonote::test_options test_options = {
-    hard_forks
+    hard_forks, 0
   };
 };
 //--------------------------------------------------------------------------

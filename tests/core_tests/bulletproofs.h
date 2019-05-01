@@ -103,7 +103,7 @@ struct get_test_options<gen_bp_tx_validation_base> {
   };
 
   const cryptonote::test_options test_options = {
-    hard_forks
+    hard_forks, 0
   };
 };
 

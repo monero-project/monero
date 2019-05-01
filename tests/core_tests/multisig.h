@@ -84,7 +84,7 @@ template<>
 struct get_test_options<gen_multisig_tx_validation_base> {
   const std::vector<std::pair<uint8_t, uint64_t>> hard_forks = {std::make_pair(7, 0)};
   const cryptonote::test_options test_options = {
-    hard_forks
+    hard_forks, 0
   };
 };
 
