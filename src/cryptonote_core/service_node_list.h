@@ -261,7 +261,7 @@ namespace service_nodes
 
     struct rollback_key_image_blacklist : public rollback_event
     {
-      rollback_key_image_blacklist() { *this = {}; type = key_image_blacklist_type; }
+      rollback_key_image_blacklist() { type = key_image_blacklist_type; }
       rollback_key_image_blacklist(uint64_t block_height, key_image_blacklist_entry const &entry, bool is_adding_to_blacklist);
 
       key_image_blacklist_entry m_entry;
