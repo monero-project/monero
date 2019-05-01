@@ -54,8 +54,8 @@ inline bool do_serialize(Archive<true>& ar, cryptonote::difficulty_type &diff)
 {
   if (!ar.stream().good())
     return false;
-  const uint64_t hi = (diff >> 64).convert_to<uint64_t>();
-  const uint64_t lo = (diff << 64 >> 64).convert_to<uint64_t>();
+  const uint64_t hi = ((diff >> 64) & 0xffffffffffffffff).convert_to<uint64_t>();
+  const uint64_t lo = (diff & 0xffffffffffffffff).convert_to<uint64_t>();
   ar.serialize_varint(hi);
   ar.serialize_varint(lo);
   if (!ar.stream().good())

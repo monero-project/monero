@@ -42,13 +42,13 @@ static crypto::hash MKHASH(uint64_t high, uint64_t low)
   hash_target = (hash_target << 64) | low;
   boost::multiprecision::uint256_t hash_value = std::numeric_limits<boost::multiprecision::uint256_t>::max() / hash_target;
   crypto::hash h;
-  ((uint64_t*)&h)[0] = hash_value.convert_to<uint64_t>();
+  ((uint64_t*)&h)[0] = (hash_value & 0xffffffffffffffff).convert_to<uint64_t>();
   hash_value >>= 64;
-  ((uint64_t*)&h)[1] = hash_value.convert_to<uint64_t>();
+  ((uint64_t*)&h)[1] = (hash_value & 0xffffffffffffffff).convert_to<uint64_t>();
   hash_value >>= 64;
-  ((uint64_t*)&h)[2] = hash_value.convert_to<uint64_t>();
+  ((uint64_t*)&h)[2] = (hash_value & 0xffffffffffffffff).convert_to<uint64_t>();
   hash_value >>= 64;
-  ((uint64_t*)&h)[3] = hash_value.convert_to<uint64_t>();
+  ((uint64_t*)&h)[3] = (hash_value & 0xffffffffffffffff).convert_to<uint64_t>();
   return h;
 }
 
