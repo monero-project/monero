@@ -61,7 +61,7 @@ int main(int argc, char *argv[]) {
       for (int i = 31; i >= 0; i--) {
         val = val * 256 + 255;
         ((char *) &h)[i] = static_cast<char>(static_cast<uint64_t>(val / diff));
-        val %= diff.convert_to<uint64_t>();
+        val %= (diff & 0xffffffffffffffff).convert_to<uint64_t>();
       }
       if (check_hash(h, diff) != true) {
         return 3;

@@ -365,11 +365,11 @@ namespace boost
     else
     {
       // store high part
-      cryptonote::difficulty_type x_ = x >> 64;
+      cryptonote::difficulty_type x_ = (x >> 64) & 0xffffffffffffffff;
       uint64_t v = x_.convert_to<uint64_t>();
       a & v;
       // store low part
-      x_ = x << 64 >> 64;
+      x_ = x & 0xffffffffffffffff;
       v = x_.convert_to<uint64_t>();
       a & v;
     }

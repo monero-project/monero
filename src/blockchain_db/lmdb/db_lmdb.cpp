@@ -770,8 +770,8 @@ void BlockchainLMDB::add_block(const block& blk, size_t block_weight, uint64_t l
   bi.bi_timestamp = blk.timestamp;
   bi.bi_coins = coins_generated;
   bi.bi_weight = block_weight;
-  bi.bi_diff_hi = (cumulative_difficulty >> 64).convert_to<uint64_t>();
-  bi.bi_diff_lo = (cumulative_difficulty << 64 >> 64).convert_to<uint64_t>();
+  bi.bi_diff_hi = ((cumulative_difficulty >> 64) & 0xffffffffffffffff).convert_to<uint64_t>();
+  bi.bi_diff_lo = (cumulative_difficulty & 0xffffffffffffffff).convert_to<uint64_t>();
   bi.bi_hash = blk_hash;
   bi.bi_cum_rct = num_rct_outs;
   if (blk.major_version >= 4)

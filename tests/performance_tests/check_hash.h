@@ -44,13 +44,13 @@ public:
     difficulty = difficulty_high;
     difficulty = (difficulty << 64) | difficulty_low;
     boost::multiprecision::uint256_t hash_value =  std::numeric_limits<boost::multiprecision::uint256_t>::max() / hash_target;
-    ((uint64_t*)&hash)[0] = (hash_value << 64 >> 64).convert_to<uint64_t>();
+    ((uint64_t*)&hash)[0] = (hash_value & 0xffffffffffffffff).convert_to<uint64_t>();
     hash_value >>= 64;
-    ((uint64_t*)&hash)[1] = (hash_value << 64 >> 64).convert_to<uint64_t>();
+    ((uint64_t*)&hash)[1] = (hash_value & 0xffffffffffffffff).convert_to<uint64_t>();
     hash_value >>= 64;
-    ((uint64_t*)&hash)[2] = (hash_value << 64 >> 64).convert_to<uint64_t>();
+    ((uint64_t*)&hash)[2] = (hash_value & 0xffffffffffffffff).convert_to<uint64_t>();
     hash_value >>= 64;
-    ((uint64_t*)&hash)[3] = (hash_value << 64 >> 64).convert_to<uint64_t>();
+    ((uint64_t*)&hash)[3] = (hash_value & 0xffffffffffffffff).convert_to<uint64_t>();
     return true;
   }
 
