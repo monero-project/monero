@@ -1742,6 +1742,8 @@ mdb_strerror(int err)
 		NULL, err, 0, ptr, MSGSIZE, (va_list *)buf+MSGSIZE);
 	return ptr;
 #else
+	if (err < 0)
+		return "Invalid error code";
 	return strerror(err);
 #endif
 }

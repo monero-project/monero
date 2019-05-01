@@ -32,6 +32,7 @@
 
 #include <iostream>
 #include <vector>
+#include <stdexcept>
 
 namespace tools {
 
