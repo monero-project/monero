@@ -890,6 +890,32 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(set_account_tag_description)
 
+    def make_uri(self, address = '', payment_id = '', amount = 0, tx_description = '', recipient_name = ''):
+        make_uri = {
+            'method': 'make_uri',
+            'jsonrpc': '2.0',
+            'params': {
+                'address': address,
+                'payment_id': payment_id,
+                'amount': amount,
+                'tx_description': tx_description,
+                'recipient_name': recipient_name,
+            },
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(make_uri)
+
+    def parse_uri(self, uri):
+        parse_uri = {
+            'method': 'parse_uri',
+            'jsonrpc': '2.0',
+            'params': {
+                'uri': uri,
+            },
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(parse_uri)
+
     def add_address_book(self, address = '', payment_id = '', description = ''):
         add_address_book = {
             'method': 'add_address_book',
