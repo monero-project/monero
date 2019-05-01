@@ -2824,6 +2824,108 @@ namespace tools
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_edit_address_book(const wallet_rpc::COMMAND_RPC_EDIT_ADDRESS_BOOK_ENTRY::request& req, wallet_rpc::COMMAND_RPC_EDIT_ADDRESS_BOOK_ENTRY::response& res, epee::json_rpc::error& er, const connection_context *ctx)
+  {
+    if (!m_wallet) return not_open(er);
+    if (m_restricted)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_DENIED;
+      er.message = "Command unavailable in restricted mode.";
+      return false;
+    }
+
+    const auto ab = m_wallet->get_address_book();
+    if (req.index >= ab.size())
+    {
+      er.code = WALLET_RPC_ERROR_CODE_WRONG_INDEX;
+      er.message = "Index out of range: " + std::to_string(req.index);
+      return false;
+    }
+
+    tools::wallet2::address_book_row entry = ab[req.index];
+
+    cryptonote::address_parse_info info;
+    crypto::hash payment_id = crypto::null_hash;
+    if (req.set_address)
+    {
+      er.message = "";
+      if(!get_account_address_from_str_or_url(info, m_wallet->nettype(), req.address,
+        [&er](const std::string &url, const std::vector<std::string> &addresses, bool dnssec_valid)->std::string {
+          if (!dnssec_valid)
+          {
+            er.message = std::string("Invalid DNSSEC for ") + url;
+            return {};
+          }
+          if (addresses.empty())
+          {
+            er.message = std::string("No Monero address found at ") + url;
+            return {};
+          }
+          return addresses[0];
+        }))
+      {
+        er.code = WALLET_RPC_ERROR_CODE_WRONG_ADDRESS;
+        if (er.message.empty())
+          er.message = std::string("WALLET_RPC_ERROR_CODE_WRONG_ADDRESS: ") + req.address;
+        return false;
+      }
+      entry.m_address = info.address;
+      entry.m_is_subaddress = info.is_subaddress;
+      if (info.has_payment_id)
+      {
+        memcpy(entry.m_payment_id.data, info.payment_id.data, 8);
+        memset(entry.m_payment_id.data + 8, 0, 24);
+      }
+    }
+
+    if (req.set_payment_id)
+    {
+      if (req.payment_id.empty())
+      {
+        payment_id = crypto::null_hash;
+      }
+      else
+      {
+        if (req.set_address && info.has_payment_id)
+        {
+          er.code = WALLET_RPC_ERROR_CODE_WRONG_PAYMENT_ID;
+          er.message = "Separate payment ID given with integrated address";
+          return false;
+        }
+
+        if (!wallet2::parse_long_payment_id(req.payment_id, payment_id))
+        {
+          crypto::hash8 spid;
+          if (!wallet2::parse_short_payment_id(req.payment_id, spid))
+          {
+            er.code = WALLET_RPC_ERROR_CODE_WRONG_PAYMENT_ID;
+            er.message = "Payment id has invalid format: \"" + req.payment_id + "\", expected 64 character string";
+            return false;
+          }
+          else
+          {
+            er.code = WALLET_RPC_ERROR_CODE_WRONG_PAYMENT_ID;
+            er.message = "Payment id has invalid format: standalone short payment IDs are forbidden, they must be part of an integrated address";
+            return false;
+          }
+        }
+      }
+
+      entry.m_payment_id = payment_id;
+    }
+
+    if (req.set_description)
+      entry.m_description = req.description;
+
+    if (!m_wallet->set_address_book_row(req.index, entry.m_address, entry.m_payment_id, entry.m_description, entry.m_is_subaddress))
+    {
+      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.message = "Failed to edit address book entry";
+      return false;
+    }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::on_delete_address_book(const wallet_rpc::COMMAND_RPC_DELETE_ADDRESS_BOOK_ENTRY::request& req, wallet_rpc::COMMAND_RPC_DELETE_ADDRESS_BOOK_ENTRY::response& res, epee::json_rpc::error& er, const connection_context *ctx)
   {
     if (!m_wallet) return not_open(er);

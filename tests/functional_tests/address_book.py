@@ -29,10 +29,6 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import os
-import time
-import errno
-
 """Test wallet address book RPC
 """
 
@@ -67,6 +63,10 @@ class AddressBookTest():
         assert ok
         ok = False
         try: wallet.delete_address_book(0)
+        except: ok = True
+        assert ok
+        ok = False
+        try: wallet.edit_address_book(0, description = '')
         except: ok = True
         assert ok
 
@@ -220,13 +220,78 @@ class AddressBookTest():
         assert len(res.entries) == 1
         assert res.entries[0].address == '87KfgTZ8ER5D3Frefqnrqif11TjVsTPaTcp37kqqKMrdDRUhpJRczeR7KiBmSHF32UJLP3HHhKUDmEQyJrv2mV8yFDCq8eB'
 
+        # edit
+        res = wallet.get_address_book([1])
+        assert len(res.entries) == 1
+        e = res.entries[0]
+        assert e.index == 1
+        assert e.address == '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
+        assert e.payment_id == '0' * 64
+        assert e.description == u'あまやかす'
+        res = wallet.edit_address_book(1, payment_id = '1' * 64)
+        res = wallet.get_address_book([1])
+        assert len(res.entries) == 1
+        e = res.entries[0]
+        assert e.index == 1
+        assert e.address == '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
+        assert e.payment_id == '1' * 64
+        assert e.description == u'あまやかす'
+        res = wallet.edit_address_book(1, description = '')
+        res = wallet.get_address_book([1])
+        assert len(res.entries) == 1
+        e = res.entries[0]
+        assert e.index == 1
+        assert e.address == '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
+        assert e.payment_id == '1' * 64
+        assert e.description == ''
+        res = wallet.edit_address_book(1, description = 'えんしゅう')
+        res = wallet.get_address_book([1])
+        assert len(res.entries) == 1
+        e = res.entries[0]
+        assert e.index == 1
+        assert e.address == '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
+        assert e.payment_id == '1' * 64
+        assert e.description == u'えんしゅう'
+        res = wallet.edit_address_book(1, address = '44AFFq5kSiGBoZ4NMDwYtN18obc8AemS33DBLWs3H7otXft3XjrpDtQGv7SqSsaBYBb98uNbr2VBBEt7f2wfn3RVGQBEP3A')
+        res = wallet.get_address_book([1])
+        assert len(res.entries) == 1
+        e = res.entries[0]
+        assert e.index == 1
+        assert e.address == '44AFFq5kSiGBoZ4NMDwYtN18obc8AemS33DBLWs3H7otXft3XjrpDtQGv7SqSsaBYBb98uNbr2VBBEt7f2wfn3RVGQBEP3A'
+        assert e.payment_id == '1' * 64
+        assert e.description == u'えんしゅう'
+        res = wallet.edit_address_book(1, payment_id = '')
+        res = wallet.get_address_book([1])
+        assert len(res.entries) == 1
+        e = res.entries[0]
+        assert e.index == 1
+        assert e.address == '44AFFq5kSiGBoZ4NMDwYtN18obc8AemS33DBLWs3H7otXft3XjrpDtQGv7SqSsaBYBb98uNbr2VBBEt7f2wfn3RVGQBEP3A'
+        assert e.payment_id == '0' * 64
+        assert e.description == u'えんしゅう'
+        ok = False
+        try: res = wallet.edit_address_book(1, address = '')
+        except: ok = True
+        assert ok
+        ok = False
+        try: res = wallet.edit_address_book(1, payment_id = 'asdnd')
+        except: ok = True
+        assert ok
+        ok = False
+        try: res = wallet.edit_address_book(1, address = 'address')
+        except: ok = True
+        assert ok
+        res = wallet.edit_address_book(1)
+        res = wallet.get_address_book([1])
+        assert len(res.entries) == 1
+        assert e == res.entries[0]
+
         # empty
         wallet.delete_address_book(4)
         wallet.delete_address_book(0)
         res = wallet.get_address_book([0]) # entries above the deleted one collapse one slot up
         assert len(res.entries) == 1
-        assert res.entries[0].address == '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
-        assert res.entries[0].description == u'あまやかす'
+        assert res.entries[0].address == '44AFFq5kSiGBoZ4NMDwYtN18obc8AemS33DBLWs3H7otXft3XjrpDtQGv7SqSsaBYBb98uNbr2VBBEt7f2wfn3RVGQBEP3A'
+        assert res.entries[0].description == u'えんしゅう'
         wallet.delete_address_book(2)
         wallet.delete_address_book(0)
         wallet.delete_address_book(0)

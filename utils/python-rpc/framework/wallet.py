@@ -903,6 +903,23 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(add_address_book)
 
+    def edit_address_book(self, index, address = None, payment_id = None, description = None):
+        edit_address_book = {
+            'method': 'edit_address_book',
+            'jsonrpc': '2.0',
+            'params': {
+                'index': index,
+                'set_address': address != None,
+                'address': address or '',
+                'set_payment_id': payment_id != None,
+                'payment_id': payment_id or '',
+                'set_description': description != None,
+                'description': description or '',
+            },
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(edit_address_book)
+
     def get_address_book(self, entries = []):
         get_address_book = {
             'method': 'get_address_book',
