@@ -30,16 +30,32 @@
 
 #pragma once
 #include <map>
+#include <vector>
+
 #include "misc_log_ex.h"
 #include "crypto/hash.h"
 #include "cryptonote_config.h"
+#include "cryptonote_core/service_node_deregister.h"
 
 #define ADD_CHECKPOINT(h, hash)  CHECK_AND_ASSERT(add_checkpoint(h,  hash), false);
 #define JSON_HASH_FILE_NAME "checkpoints.json"
 
-
 namespace cryptonote
 {
+  struct Blockchain;
+  enum struct checkpoint_type
+  {
+    predefined_or_dns,
+    service_node,
+  };
+
+  struct checkpoint_t
+  {
+    checkpoint_type                                type;
+    crypto::hash                                   block_hash;
+    std::vector<service_nodes::voter_to_signature> signatures; // Only service node checkpoints use signatures
+  };
+
   /**
    * @brief A container for blockchain checkpoints
    *
@@ -50,12 +66,6 @@ namespace cryptonote
   class checkpoints
   {
   public:
-
-    /**
-     * @brief default constructor
-     */
-    checkpoints();
-
     /**
      * @brief adds a checkpoint to the container
      *
@@ -67,6 +77,8 @@ namespace cryptonote
      *         otherwise returns true
      */
     bool add_checkpoint(uint64_t height, const std::string& hash_str);
+
+    bool add_checkpoint_vote(service_nodes::checkpoint_vote const &vote);
 
     /**
      * @brief checks if there is a checkpoint in the future
@@ -90,23 +102,19 @@ namespace cryptonote
      *
      * @param height the height to be checked
      * @param h the hash to be checked
-     * @param is_a_checkpoint return-by-reference if there is a checkpoint at the given height
+     * @param blockchain the blockchain to query ancestor blocks from the current height
+     * @param is_a_checkpoint optional return-by-pointer if there is a checkpoint at the given height
      *
      * @return true if there is no checkpoint at the given height,
      *         true if the passed parameters match the stored checkpoint,
      *         false otherwise
      */
-    bool check_block(uint64_t height, const crypto::hash& h, bool& is_a_checkpoint) const;
-
-    /**
-     * @overload
-     */
-    bool check_block(uint64_t height, const crypto::hash& h) const;
+    bool check_block(uint64_t height, const crypto::hash& h, bool *is_a_checkpoint = nullptr) const;
 
     /**
      * @brief checks if alternate chain blocks should be kept for a given height
      *
-     * this basically says if the blockchain is smaller than the first
+     *m this basically says if the blockchain is smaller than the first
      * checkpoint then alternate blocks are allowed.  Alternatively, if the
      * last checkpoint *before* the end of the current chain is also before
      * the block to be added, then this is fine.
@@ -131,7 +139,7 @@ namespace cryptonote
      *
      * @return a const reference to the checkpoints container
      */
-    const std::map<uint64_t, crypto::hash>& get_points() const;
+    std::map<uint64_t, checkpoint_t> get_points() const { return m_points; };
 
     /**
      * @brief checks if our checkpoints container conflicts with another
@@ -154,20 +162,6 @@ namespace cryptonote
     bool init_default_checkpoints(network_type nettype);
 
     /**
-     * @brief load new checkpoints
-     *
-     * Loads new checkpoints from the specified json file, as well as
-     * (optionally) from DNS.
-     *
-     * @param json_hashfile_fullpath path to the json checkpoints file
-     * @param nettype network type
-     * @param dns whether or not to load DNS checkpoints
-     *
-     * @return true if loading successful and no conflicts
-     */
-    bool load_new_checkpoints(const std::string &json_hashfile_fullpath, network_type nettype=MAINNET, bool dns=true);
-
-    /**
      * @brief load new checkpoints from json
      *
      * @param json_hashfile_fullpath path to the json checkpoints file
@@ -176,17 +170,10 @@ namespace cryptonote
      */
     bool load_checkpoints_from_json(const std::string &json_hashfile_fullpath);
 
-    /**
-     * @brief load new checkpoints from DNS
-     *
-     * @param nettype network type
-     *
-     * @return true if loading successful and no conflicts
-     */
-    bool load_checkpoints_from_dns(network_type nettype = MAINNET);
-
   private:
-    std::map<uint64_t, crypto::hash> m_points; //!< the checkpoints container
+    std::unordered_map<uint64_t, std::vector<checkpoint_t>> m_staging_points; // Incomplete service node checkpoints being voted on
+    std::map<uint64_t, checkpoint_t>                        m_points; //!< the checkpoints container
+    mutable epee::critical_section                          m_lock;
   };
 
 }

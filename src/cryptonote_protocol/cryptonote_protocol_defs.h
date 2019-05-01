@@ -347,4 +347,20 @@ namespace cryptonote
       END_KV_SERIALIZE_MAP()
     };
   };
+
+  /************************************************************************/
+  /*                                                                      */
+  /************************************************************************/
+  struct NOTIFY_NEW_CHECKPOINT_VOTE
+  {
+    const static int ID = BC_COMMANDS_POOL_BASE + 12;
+
+    struct request
+    {
+      std::vector<service_nodes::checkpoint_vote> votes;
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE_CONTAINER_POD_AS_BLOB(votes)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
 }

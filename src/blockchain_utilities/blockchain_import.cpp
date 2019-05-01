@@ -768,7 +768,6 @@ int main(int argc, char* argv[])
   try
   {
 
-  core.disable_dns_checkpoints(true);
 #if defined(PER_BLOCK_CHECKPOINT)
   const GetCheckpointsCallback& get_checkpoints = blocks::GetCheckpointsData;
 #else

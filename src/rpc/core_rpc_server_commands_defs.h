@@ -2744,6 +2744,7 @@ namespace cryptonote
         uint64_t                  total_reserved;                // The total amount of Loki in atomic units reserved in this Service Node.
         uint64_t                  staking_requirement;           // The staking requirement in atomic units that is required to be contributed to become a Service Node.
         uint64_t                  portions_for_operator;         // The operator percentage cut to take from each reward expressed in portions, see cryptonote_config.h's STAKING_PORTIONS.
+        uint64_t                  swarm_id;                      // The identifier of the Service Node's current swarm.
         std::string               operator_address;              // The wallet address of the operator to which the operator cut of the staking reward is sent to.
 
         BEGIN_KV_SERIALIZE_MAP()
@@ -2759,16 +2760,22 @@ namespace cryptonote
             KV_SERIALIZE(total_reserved)
             KV_SERIALIZE(staking_requirement)
             KV_SERIALIZE(portions_for_operator)
+            KV_SERIALIZE(swarm_id)
             KV_SERIALIZE(operator_address)
         END_KV_SERIALIZE_MAP()
       };
 
       std::vector<entry> service_node_states; // Array of service node registration information
+      uint64_t    height;                     // Current block's height.
+      std::string block_hash;                 // Current block's hash.
       std::string status;                     // Generic RPC error code. "OK" is the success value.
       std::string as_json;                    // If `include_json` is set in the request, this contains the json representation of the `entry` data structure
 
+
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(service_node_states)
+        KV_SERIALIZE(height)
+        KV_SERIALIZE(block_hash)
         KV_SERIALIZE(status)
         KV_SERIALIZE(as_json)
       END_KV_SERIALIZE_MAP()

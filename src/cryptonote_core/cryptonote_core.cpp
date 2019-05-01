@@ -111,10 +111,6 @@ namespace cryptonote
     "offline"
   , "Do not listen for peers, nor connect to any"
   };
-  const command_line::arg_descriptor<bool> arg_disable_dns_checkpoints = {
-    "disable-dns-checkpoints"
-  , "Do not retrieve checkpoints from DNS"
-  };
   const command_line::arg_descriptor<size_t> arg_block_download_max_size  = {
     "block-download-max-size"
   , "Set maximum size of block download queue in bytes (0 for default)"
@@ -134,11 +130,6 @@ namespace cryptonote
     "test-dbg-lock-sleep"
   , "Sleep time in ms, defaults to 0 (off), used to debug before/after locking mutex. Values 100 to 1000 are good for tests."
   , 0
-  };
-  static const command_line::arg_descriptor<bool> arg_dns_checkpoints  = {
-    "enforce-dns-checkpointing"
-  , "checkpoints from DNS server will be enforced"
-  , false
   };
   static const command_line::arg_descriptor<uint64_t> arg_fast_block_sync = {
     "fast-block-sync"
@@ -230,9 +221,7 @@ namespace cryptonote
               m_starter_message_showed(false),
               m_target_blockchain_height(0),
               m_checkpoints_path(""),
-              m_last_dns_checkpoints_update(0),
               m_last_json_checkpoints_update(0),
-              m_disable_dns_checkpoints(false),
               m_update_download(0),
               m_nettype(UNDEFINED),
               m_update_available(false),
@@ -248,41 +237,18 @@ namespace cryptonote
     else
       m_pprotocol = &m_protocol_stub;
   }
-  //-----------------------------------------------------------------------------------
-  void core::set_checkpoints(checkpoints&& chk_pts)
-  {
-    m_blockchain_storage.set_checkpoints(std::move(chk_pts));
-  }
-  //-----------------------------------------------------------------------------------
-  void core::set_checkpoints_file_path(const std::string& path)
-  {
-    m_checkpoints_path = path;
-  }
-  //-----------------------------------------------------------------------------------
-  void core::set_enforce_dns_checkpoints(bool enforce_dns)
-  {
-    m_blockchain_storage.set_enforce_dns_checkpoints(enforce_dns);
-  }
   //-----------------------------------------------------------------------------------------------
   bool core::update_checkpoints()
   {
-    if (m_nettype != MAINNET || m_disable_dns_checkpoints) return true;
-
+    if (m_nettype != MAINNET) return true;
     if (m_checkpoints_updating.test_and_set()) return true;
 
     bool res = true;
-    if (time(NULL) - m_last_dns_checkpoints_update >= 3600)
+    if (time(NULL) - m_last_json_checkpoints_update >= 600)
     {
-      res = m_blockchain_storage.update_checkpoints(m_checkpoints_path, true);
-      m_last_dns_checkpoints_update = time(NULL);
+      res = m_blockchain_storage.update_checkpoints(m_checkpoints_path);
       m_last_json_checkpoints_update = time(NULL);
     }
-    else if (time(NULL) - m_last_json_checkpoints_update >= 600)
-    {
-      res = m_blockchain_storage.update_checkpoints(m_checkpoints_path, false);
-      m_last_json_checkpoints_update = time(NULL);
-    }
-
     m_checkpoints_updating.clear();
 
     // if anything fishy happened getting new checkpoints, bring down the house
@@ -319,7 +285,6 @@ namespace cryptonote
     command_line::add_arg(desc, arg_stagenet_on);
     command_line::add_arg(desc, arg_regtest_on);
     command_line::add_arg(desc, arg_fixed_difficulty);
-    command_line::add_arg(desc, arg_dns_checkpoints);
     command_line::add_arg(desc, arg_prep_blocks_threads);
     command_line::add_arg(desc, arg_fast_block_sync);
     command_line::add_arg(desc, arg_show_time_stats);
@@ -329,7 +294,6 @@ namespace cryptonote
     command_line::add_arg(desc, arg_no_fluffy_blocks);
     command_line::add_arg(desc, arg_test_dbg_lock_sleep);
     command_line::add_arg(desc, arg_offline);
-    command_line::add_arg(desc, arg_disable_dns_checkpoints);
     command_line::add_arg(desc, arg_block_download_max_size);
     command_line::add_arg(desc, arg_max_txpool_weight);
     command_line::add_arg(desc, arg_service_node);
@@ -362,28 +326,25 @@ namespace cryptonote
 
     auto data_dir = boost::filesystem::path(m_config_folder);
 
-    if (m_nettype == MAINNET)
+    // Init Checkpoints
     {
       cryptonote::checkpoints checkpoints;
       if (!checkpoints.init_default_checkpoints(m_nettype))
       {
         throw std::runtime_error("Failed to initialize checkpoints");
       }
-      set_checkpoints(std::move(checkpoints));
+      m_blockchain_storage.set_checkpoints(std::move(checkpoints));
 
       boost::filesystem::path json(JSON_HASH_FILE_NAME);
       boost::filesystem::path checkpoint_json_hashfile_fullpath = data_dir / json;
 
-      set_checkpoints_file_path(checkpoint_json_hashfile_fullpath.string());
+      m_checkpoints_path = checkpoint_json_hashfile_fullpath.string();
     }
 
-
-    set_enforce_dns_checkpoints(command_line::get_arg(vm, arg_dns_checkpoints));
     test_drop_download_height(command_line::get_arg(vm, arg_test_drop_download_height));
     m_fluffy_blocks_enabled = !get_arg(vm, arg_no_fluffy_blocks);
     m_pad_transactions = get_arg(vm, arg_pad_transactions);
     m_offline = get_arg(vm, arg_offline);
-    m_disable_dns_checkpoints = get_arg(vm, arg_disable_dns_checkpoints);
     if (!command_line::is_arg_defaulted(vm, arg_fluffy_blocks))
       MWARNING(arg_fluffy_blocks.name << " is obsolete, it is now default");
 
@@ -719,9 +680,9 @@ namespace cryptonote
 
     MGINFO("Loading checkpoints");
 
-    // load json & DNS checkpoints, and verify them
+    // load json checkpoints and verify them
     // with respect to what blocks we already have
-    CHECK_AND_ASSERT_MES(update_checkpoints(), false, "One or more checkpoints loaded from json or dns conflicted with existing checkpoints.");
+    CHECK_AND_ASSERT_MES(update_checkpoints(), false, "One or more checkpoints loaded from json conflicted with existing checkpoints.");
 
    // DNS versions checking
     if (check_updates_string == "disabled")
@@ -1408,6 +1369,42 @@ namespace cryptonote
     return true;
   }
   //-----------------------------------------------------------------------------------------------
+  bool core::relay_checkpoint_votes()
+  {
+    const time_t now = time(nullptr);
+
+    // Get relayable votes
+    NOTIFY_NEW_CHECKPOINT_VOTE::request req = {};
+
+    std::vector<service_nodes::checkpoint_vote *> relayed_votes;
+    for (Blockchain::service_node_checkpoint_pool_entry &pool_entry: m_blockchain_storage.m_checkpoint_pool)
+    {
+      for (service_nodes::checkpoint_vote &vote : pool_entry.votes)
+      {
+        const time_t elapsed         = now - vote.time_last_sent_p2p;
+        const time_t RELAY_THRESHOLD = 60 * 2;
+        if (elapsed > RELAY_THRESHOLD)
+        {
+          relayed_votes.push_back(&vote);
+          req.votes.push_back(vote);
+        }
+      }
+    }
+
+    // Relay and update timestamp of when we last sent the vote
+    if (!req.votes.empty())
+    {
+      cryptonote_connection_context fake_context = AUTO_VAL_INIT(fake_context);
+      if (get_protocol()->relay_checkpoint_votes(req, fake_context))
+      {
+        for (service_nodes::checkpoint_vote *vote : relayed_votes)
+          vote->time_last_sent_p2p = now;
+      }
+    }
+
+    return true;
+  }
+  //-----------------------------------------------------------------------------------------------
   bool core::get_block_template(block& b, const account_public_address& adr, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, const blobdata& ex_nonce)
   {
     return m_blockchain_storage.create_block_template(b, adr, diffic, height, expected_reward, ex_nonce);
@@ -1771,6 +1768,7 @@ namespace cryptonote
     m_fork_moaner.do_call(boost::bind(&core::check_fork_time, this));
     m_txpool_auto_relayer.do_call(boost::bind(&core::relay_txpool_transactions, this));
     m_deregisters_auto_relayer.do_call(boost::bind(&core::relay_deregister_votes, this));
+    m_checkpoint_auto_relayer.do_call(boost::bind(&core::relay_checkpoint_votes, this));
     // m_check_updates_interval.do_call(boost::bind(&core::check_updates, this));
     m_check_disk_space_interval.do_call(boost::bind(&core::check_disk_space, this));
     m_block_rate_interval.do_call(boost::bind(&core::check_block_rate, this));
@@ -2085,9 +2083,14 @@ namespace cryptonote
     return si.available;
   }
   //-----------------------------------------------------------------------------------------------
-  const std::shared_ptr<const service_nodes::quorum_state> core::get_quorum_state(uint64_t height) const
+  const std::shared_ptr<const service_nodes::quorum_uptime_proof> core::get_uptime_quorum(uint64_t height) const
   {
-    return m_service_node_list.get_quorum_state(height);
+    return m_service_node_list.get_uptime_quorum(height);
+  }
+  //-----------------------------------------------------------------------------------------------
+  const std::shared_ptr<const service_nodes::quorum_checkpointing> core::get_checkpointing_quorum(uint64_t height) const
+  {
+    return m_service_node_list.get_checkpointing_quorum(height);
   }
   //-----------------------------------------------------------------------------------------------
   bool core::is_service_node(const crypto::public_key& pubkey) const
@@ -2135,8 +2138,8 @@ namespace cryptonote
       return false;
     }
 
-    const auto quorum_state = m_service_node_list.get_quorum_state(vote.block_height);
-    if (!quorum_state)
+    const auto uptime_quorum = m_service_node_list.get_uptime_quorum(vote.block_height);
+    if (!uptime_quorum)
     {
       vvc.m_verification_failed  = true;
       vvc.m_invalid_block_height = true;
@@ -2146,7 +2149,7 @@ namespace cryptonote
 
     cryptonote::transaction deregister_tx;
     int hf_version = m_blockchain_storage.get_current_hard_fork_version();
-    bool result    = m_deregister_vote_pool.add_vote(hf_version, vote, vvc, *quorum_state, deregister_tx);
+    bool result    = m_deregister_vote_pool.add_vote(hf_version, vote, vvc, *uptime_quorum, deregister_tx);
     if (result && vvc.m_full_tx_deregister_made)
     {
       tx_verification_context tvc = AUTO_VAL_INIT(tvc);
@@ -2163,6 +2166,82 @@ namespace cryptonote
     }
 
     return result;
+  }
+  //-----------------------------------------------------------------------------------------------
+  bool core::add_checkpoint_vote(const service_nodes::checkpoint_vote& vote, vote_verification_context &vvc)
+  {
+    // TODO(doyle): Not in this function but, need to add code for culling old
+    // checkpoints from the "staging" checkpoint pool.
+
+    // TODO(doyle): This is repeated logic for deregister votes and
+    // checkpointing votes, it is worth considering merging the two into
+    // a generic voting structure
+
+    // Check Vote Age
+    {
+      uint64_t const latest_height = std::max(get_current_blockchain_height(), get_target_blockchain_height());
+      if (vote.block_height >= latest_height)
+        return false;
+
+      uint64_t vote_age = latest_height - vote.block_height;
+      if (vote_age > ((service_nodes::CHECKPOINT_INTERVAL * 3) - 1))
+        return false;
+    }
+
+    // Validate Vote
+    {
+      const std::shared_ptr<const service_nodes::quorum_uptime_proof> state = get_uptime_quorum(vote.block_height);
+      if (!state)
+      {
+        // TODO(loki): Fatal error
+        LOG_ERROR("Quorum state for height: " << vote.block_height << " was not cached in daemon!");
+        return false;
+      }
+
+      if (vote.voters_quorum_index >= state->quorum_nodes.size())
+      {
+        LOG_PRINT_L1("TODO(doyle): CHECKPOINTING(doyle): Writeme");
+        return false;
+      }
+
+      // NOTE(loki): We don't validate that the hash belongs to a valid block
+      // just yet, just that the signature is valid.
+      crypto::public_key const &voters_pub_key = state->quorum_nodes[vote.voters_quorum_index];
+      if (!crypto::check_signature(vote.block_hash, voters_pub_key, vote.signature))
+      {
+        LOG_PRINT_L1("TODO(doyle): CHECKPOINTING(doyle): Writeme");
+        return false;
+      }
+    }
+
+    // TODO(doyle): CHECKPOINTING(doyle): We need to check the hash they're voting on matches across votes
+    // Get Matching Checkpoint
+    std::vector<Blockchain::service_node_checkpoint_pool_entry> &checkpoint_pool = m_blockchain_storage.m_checkpoint_pool;
+    auto it = std::find_if(checkpoint_pool.begin(), checkpoint_pool.end(), [&vote](Blockchain::service_node_checkpoint_pool_entry const &checkpoint) {
+        return (checkpoint.height == vote.block_height);
+    });
+
+    if (it == checkpoint_pool.end())
+    {
+      Blockchain::service_node_checkpoint_pool_entry pool_entry = {};
+      pool_entry.height                                         = vote.block_height;
+      checkpoint_pool.push_back(pool_entry);
+      it = (checkpoint_pool.end() - 1);
+    }
+
+    // Add Vote if Unique to Checkpoint
+    Blockchain::service_node_checkpoint_pool_entry &pool_entry = (*it);
+    auto vote_it = std::find_if(pool_entry.votes.begin(), pool_entry.votes.end(), [&vote](service_nodes::checkpoint_vote const &preexisting_vote) {
+        return (preexisting_vote.voters_quorum_index == vote.voters_quorum_index);
+    });
+
+    if (vote_it == pool_entry.votes.end())
+    {
+      m_blockchain_storage.add_checkpoint_vote(vote);
+      pool_entry.votes.push_back(vote);
+    }
+
+    return true;
   }
   //-----------------------------------------------------------------------------------------------
   bool core::get_service_node_keys(crypto::public_key &pub_key, crypto::secret_key &sec_key) const

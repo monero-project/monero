@@ -82,6 +82,8 @@ namespace cryptonote
    {
    public:
 
+     void debug__print_checkpoints() { m_blockchain_storage.debug__print_checkpoints(); }
+
       /**
        * @brief constructor
        *
@@ -410,34 +412,6 @@ namespace cryptonote
       * @param pprotocol the pointer to set ours as
       */
      void set_cryptonote_protocol(i_cryptonote_protocol* pprotocol);
-
-     /**
-      * @copydoc Blockchain::set_checkpoints
-      *
-      * @note see Blockchain::set_checkpoints()
-      */
-     void set_checkpoints(checkpoints&& chk_pts);
-
-     /**
-      * @brief set the file path to read from when loading checkpoints
-      *
-      * @param path the path to set ours as
-      */
-     void set_checkpoints_file_path(const std::string& path);
-
-     /**
-      * @brief set whether or not we enforce DNS checkpoints
-      *
-      * @param enforce_dns enforce DNS checkpoints or not
-      */
-     void set_enforce_dns_checkpoints(bool enforce_dns);
-
-     /**
-      * @brief set whether or not to enable or disable DNS checkpoints
-      *
-      * @param disble whether to disable DNS checkpoints
-      */
-     void disable_dns_checkpoints(bool disable = true) { m_disable_dns_checkpoints = disable; }
 
      /**
       * @copydoc tx_memory_pool::have_tx
@@ -814,7 +788,16 @@ namespace cryptonote
 
       * @return Null shared ptr if quorum has not been determined yet for height
       */
-     const std::shared_ptr<const service_nodes::quorum_state> get_quorum_state(uint64_t height) const;
+     const std::shared_ptr<const service_nodes::quorum_uptime_proof> get_uptime_quorum(uint64_t height) const;
+
+     /**
+      * @brief Get the deterministic list of service node's public keys for nodes responsible for checkpointing
+      *
+      * @param height Block height to deterministically recreate the quorum list from
+
+      * @return Null shared ptr if quorum has not been determined yet for height
+      */
+     const std::shared_ptr<const service_nodes::quorum_checkpointing> get_checkpointing_quorum(uint64_t height) const;
 
      /**
       * @brief Get a non owning reference to the list of blacklisted key images
@@ -830,14 +813,15 @@ namespace cryptonote
       */
      std::vector<service_nodes::service_node_pubkey_info> get_service_node_list_state(const std::vector<crypto::public_key>& service_node_pubkeys) const;
 
-    /**
-      * @brief get whether `pubkey` is known as a service node
-      *
-      * @param pubkey the public key to test
-      *
-      * @return whether `pubkey` is known as a service node
-      */
-    bool is_service_node(const crypto::public_key& pubkey) const;
+     /**
+       * @brief get whether `pubkey` is known as a service node
+       *
+       * @param pubkey the public key to test
+       *
+       * @return whether `pubkey` is known as a service node
+       */
+     bool is_service_node(const crypto::public_key& pubkey) const;
+
      /**
       * @brief Add a vote to deregister a service node from network
       *
@@ -846,6 +830,16 @@ namespace cryptonote
       * @return Whether the vote was added to the partial deregister pool
       */
      bool add_deregister_vote(const service_nodes::deregister_vote& vote, vote_verification_context &vvc);
+
+     /**
+      * @brief TODO(doyle): CHECKPOINTING(doyle):
+      *
+      * @param TODO(doyle): CHECKPOINTING(doyle):
+
+      * @return
+      */
+     bool add_checkpoint_vote(const service_nodes::checkpoint_vote& vote, vote_verification_context &vvc);
+
 
      /**
       * @brief Get the keypair for this service node.
@@ -1075,6 +1069,13 @@ namespace cryptonote
      bool relay_txpool_transactions();
 
      /**
+      * @brief attempt to relay the pooled checkpoint votes
+      *
+      * @return true, necessary for binding this function to a periodic invoker
+      */
+     bool relay_checkpoint_votes();
+
+     /**
       * @brief checks DNS versions
       *
       * @return true on success, false otherwise
@@ -1133,13 +1134,15 @@ namespace cryptonote
      epee::math_helper::once_a_time_seconds<60*60*12, false> m_store_blockchain_interval; //!< interval for manual storing of Blockchain, if enabled
      epee::math_helper::once_a_time_seconds<60*60*2, true> m_fork_moaner; //!< interval for checking HardFork status
      epee::math_helper::once_a_time_seconds<60*2, false> m_txpool_auto_relayer; //!< interval for checking re-relaying txpool transactions
-     epee::math_helper::once_a_time_seconds<60*2, false> m_deregisters_auto_relayer; //!< interval for checking re-relaying deregister votes
      epee::math_helper::once_a_time_seconds<60*60*12, true> m_check_updates_interval; //!< interval for checking for new versions
      epee::math_helper::once_a_time_seconds<60*10, true> m_check_disk_space_interval; //!< interval for checking for disk space
      epee::math_helper::once_a_time_seconds<UPTIME_PROOF_BUFFER_IN_SECONDS, true> m_check_uptime_proof_interval; //!< interval for checking our own uptime proof
      epee::math_helper::once_a_time_seconds<30, true> m_uptime_proof_pruner;
      epee::math_helper::once_a_time_seconds<90, false> m_block_rate_interval; //!< interval for checking block rate
      epee::math_helper::once_a_time_seconds<60*60*5, true> m_blockchain_pruning_interval; //!< interval for incremental blockchain pruning
+
+     epee::math_helper::once_a_time_seconds<60*2, false> m_deregisters_auto_relayer;
+     epee::math_helper::once_a_time_seconds<60*2, false> m_checkpoint_auto_relayer;
 
      std::atomic<bool> m_starter_message_showed; //!< has the "daemon will sync now" message been shown?
 
@@ -1150,11 +1153,9 @@ namespace cryptonote
      std::atomic<bool> m_update_available;
 
      std::string m_checkpoints_path; //!< path to json checkpoints file
-     time_t m_last_dns_checkpoints_update; //!< time when dns checkpoints were last updated
      time_t m_last_json_checkpoints_update; //!< time when json checkpoints were last updated
 
      std::atomic_flag m_checkpoints_updating; //!< set if checkpoints are currently updating to avoid multiple threads attempting to update at once
-     bool m_disable_dns_checkpoints;
 
      bool m_service_node;
      crypto::secret_key m_service_node_key;

@@ -92,6 +92,23 @@ namespace cryptonote
   class Blockchain
   {
   public:
+    void debug__print_checkpoints()
+    {
+      const std::map<uint64_t, checkpoint_t> &checkpoint_map = m_checkpoints.get_points();
+      if (checkpoint_map.empty())
+      {
+          std::cout << "Checkpoint: None available" << std::endl;
+      }
+      else
+      {
+        for (auto const &it : checkpoint_map)
+        {
+          checkpoint_t const &checkpoint = it.second;
+          std::cout << "Checkpoint [" << it.first << "]" << ((checkpoint.type == checkpoint_type::service_node) ? "Service Node" : "Predefined") << std::endl;
+        }
+      }
+    }
+
     /**
      * @brief Now-defunct (TODO: remove) struct from in-memory blockchain
      */
@@ -747,15 +764,23 @@ namespace cryptonote
     void set_enforce_dns_checkpoints(bool enforce);
 
     /**
-     * @brief loads new checkpoints from a file and optionally from DNS
+     * @brief loads new checkpoints from a file
      *
      * @param file_path the path of the file to look for and load checkpoints from
-     * @param check_dns whether or not to check for new DNS-based checkpoints
      *
      * @return false if any enforced checkpoint type fails to load, otherwise true
      */
-    bool update_checkpoints(const std::string& file_path, bool check_dns);
+    bool update_checkpoints(const std::string& file_path);
 
+    // TODO(doyle): CHECKPOINTING(doyle):
+    struct service_node_checkpoint_pool_entry
+    {
+      uint64_t                                    height;
+      std::vector<service_nodes::checkpoint_vote> votes;
+    };
+
+    std::vector<service_node_checkpoint_pool_entry> m_checkpoint_pool;
+    bool add_checkpoint_vote(service_nodes::checkpoint_vote const &vote);
 
     // user options, must be called before calling init()
 
@@ -1136,8 +1161,6 @@ namespace cryptonote
     std::vector<ValidateMinerTxHook*> m_validate_miner_tx_hooks;
 
     checkpoints m_checkpoints;
-    bool m_enforce_dns_checkpoints;
-
     HardFork *m_hardfork;
 
     network_type m_nettype;

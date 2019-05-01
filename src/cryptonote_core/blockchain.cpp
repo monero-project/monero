@@ -126,7 +126,7 @@ static const hard_fork_record stagenet_hard_forks[] =
 //------------------------------------------------------------------
 Blockchain::Blockchain(tx_memory_pool& tx_pool, service_nodes::service_node_list& service_node_list, service_nodes::deregister_vote_pool& deregister_vote_pool):
   m_db(), m_tx_pool(tx_pool), m_hardfork(NULL), m_timestamps_and_difficulties_height(0), m_current_block_cumul_weight_limit(0), m_current_block_cumul_weight_median(0),
-  m_enforce_dns_checkpoints(false), m_max_prepare_blocks_threads(4), m_db_sync_on_blocks(true), m_db_sync_threshold(1), m_db_sync_mode(db_async), m_db_default_sync(false), m_fast_sync(true), m_show_time_stats(false), m_sync_counter(0), m_bytes_to_sync(0), m_cancel(false),
+  m_max_prepare_blocks_threads(4), m_db_sync_on_blocks(true), m_db_sync_threshold(1), m_db_sync_mode(db_async), m_db_default_sync(false), m_fast_sync(true), m_show_time_stats(false), m_sync_counter(0), m_bytes_to_sync(0), m_cancel(false),
   m_long_term_block_weights_window(CRYPTONOTE_LONG_TERM_BLOCK_WEIGHT_WINDOW_SIZE),
   m_long_term_effective_median_block_weight(0),
   m_long_term_block_weights_cache_tip_hash(crypto::null_hash),
@@ -136,6 +136,7 @@ Blockchain::Blockchain(tx_memory_pool& tx_pool, service_nodes::service_node_list
   m_deregister_vote_pool(deregister_vote_pool),
   m_btc_valid(false)
 {
+  m_checkpoint_pool.reserve(service_nodes::QUORUM_SIZE * 4 /*blocks*/);
   LOG_PRINT_L3("Blockchain::" << __func__);
 }
 //------------------------------------------------------------------
@@ -1742,8 +1743,8 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
       return false;
     }
 
-    bool is_a_checkpoint;
-    if(!m_checkpoints.check_block(bei.height, id, is_a_checkpoint))
+    bool is_a_checkpoint = false;
+    if(!m_checkpoints.check_block(bei.height, id, &is_a_checkpoint))
     {
       LOG_ERROR("CHECKPOINT VALIDATION FAILED");
       bvc.m_verifivation_failed = true;
@@ -3076,14 +3077,14 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
         return false;
       }
 
-      const std::shared_ptr<const service_nodes::quorum_state> quorum_state = m_service_node_list.get_quorum_state(deregister.block_height);
-      if (!quorum_state)
+      const std::shared_ptr<const service_nodes::quorum_uptime_proof> uptime_quorum = m_service_node_list.get_uptime_quorum(deregister.block_height);
+      if (!uptime_quorum)
       {
         MERROR_VER("Deregister TX could not get quorum for height: " << deregister.block_height);
         return false;
       }
 
-      if (!service_nodes::deregister_vote::verify_deregister(nettype(), deregister, tvc.m_vote_ctx, *quorum_state))
+      if (!service_nodes::deregister_vote::verify_deregister(nettype(), deregister, tvc.m_vote_ctx, *uptime_quorum))
       {
         tvc.m_verifivation_failed = true;
         MERROR_VER("tx " << get_transaction_hash(tx) << ": deregister tx could not be completely verified reason: " << print_vote_verification_context(tvc.m_vote_ctx));
@@ -3146,15 +3147,15 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
           continue;
         }
 
-        const std::shared_ptr<const service_nodes::quorum_state> existing_deregister_quorum_state = m_service_node_list.get_quorum_state(existing_deregister.block_height);
-        if (!existing_deregister_quorum_state)
+        const std::shared_ptr<const service_nodes::quorum_uptime_proof> existing_uptime_quorum = m_service_node_list.get_uptime_quorum(existing_deregister.block_height);
+        if (!existing_uptime_quorum)
         {
-          MERROR_VER("could not get quorum state for recent deregister tx");
+          MERROR_VER("could not get uptime quorum for recent deregister tx");
           continue;
         }
 
-        if (existing_deregister_quorum_state->nodes_to_test[existing_deregister.service_node_index] ==
-            quorum_state->nodes_to_test[deregister.service_node_index])
+        if (existing_uptime_quorum->nodes_to_test[existing_deregister.service_node_index] ==
+            uptime_quorum->nodes_to_test[deregister.service_node_index])
         {
           MERROR_VER("Already seen this deregister tx (aka double spend)");
           tvc.m_double_spend = true;
@@ -3672,6 +3673,7 @@ leave:
       bvc.m_verifivation_failed = true;
       goto leave;
     }
+
   }
 
   TIME_MEASURE_FINISH(longhash_calculating_time);
@@ -4056,6 +4058,7 @@ bool Blockchain::update_next_cumulative_weight_limit(uint64_t *long_term_effecti
 //------------------------------------------------------------------
 bool Blockchain::add_new_block(const block& bl, block_verification_context& bvc)
 {
+
   LOG_PRINT_L3("Blockchain::" << __func__);
   crypto::hash id = get_block_hash(bl);
   CRITICAL_REGION_LOCAL(m_tx_pool);//to avoid deadlock lets lock tx_pool for whole add/reorganize process
@@ -4090,28 +4093,25 @@ bool Blockchain::add_new_block(const block& bl, block_verification_context& bvc)
 //      caller decide course of action.
 void Blockchain::check_against_checkpoints(const checkpoints& points, bool enforce)
 {
-  const auto& pts = points.get_points();
-  bool stop_batch;
-
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
-  stop_batch = m_db->batch_start();
-  const uint64_t blockchain_height = m_db->height();
-  for (const auto& pt : pts)
-  {
-    // if the checkpoint is for a block we don't have yet, move on
-    if (pt.first >= blockchain_height)
-    {
-      continue;
-    }
+  bool stop_batch = m_db->batch_start();
 
-    if (!points.check_block(pt.first, m_db->get_block_hash_from_height(pt.first)))
+  for (const auto& checkpoint_it : points.get_points())
+  {
+    uint64_t block_height          = checkpoint_it.first;
+    checkpoint_t const &checkpoint = checkpoint_it.second;
+
+    if (block_height >= m_db->height()) // if the checkpoint is for a block we don't have yet, move on
+      break;
+
+    if (!points.check_block(block_height, m_db->get_block_hash_from_height(block_height), nullptr))
     {
       // if asked to enforce checkpoints, roll back to a couple of blocks before the checkpoint
       if (enforce)
       {
         LOG_ERROR("Local blockchain failed to pass a checkpoint, rolling back!");
         std::list<block> empty;
-        rollback_blockchain_switching(empty, pt.first - 2);
+        rollback_blockchain_switching(empty, block_height- 2);
       }
       else
       {
@@ -4119,6 +4119,7 @@ void Blockchain::check_against_checkpoints(const checkpoints& points, bool enfor
       }
     }
   }
+
   if (stop_batch)
     m_db->batch_stop();
 }
@@ -4126,46 +4127,28 @@ void Blockchain::check_against_checkpoints(const checkpoints& points, bool enfor
 // returns false if any of the checkpoints loading returns false.
 // That should happen only if a checkpoint is added that conflicts
 // with an existing checkpoint.
-bool Blockchain::update_checkpoints(const std::string& file_path, bool check_dns)
+bool Blockchain::update_checkpoints(const std::string& file_path)
 {
   if (!m_checkpoints.load_checkpoints_from_json(file_path))
-  {
-      return false;
-  }
-
-  // if we're checking both dns and json, load checkpoints from dns.
-  // if we're not hard-enforcing dns checkpoints, handle accordingly
-  if (m_enforce_dns_checkpoints && check_dns && !m_offline)
-  {
-    if (!m_checkpoints.load_checkpoints_from_dns())
-    {
-      return false;
-    }
-  }
-  else if (check_dns && !m_offline)
-  {
-    checkpoints dns_points;
-    dns_points.load_checkpoints_from_dns();
-    if (m_checkpoints.check_for_conflicts(dns_points))
-    {
-      check_against_checkpoints(dns_points, false);
-    }
-    else
-    {
-      MERROR("One or more checkpoints fetched from DNS conflicted with existing checkpoints!");
-    }
-  }
-
+    return false;
   check_against_checkpoints(m_checkpoints, true);
-
   return true;
 }
 //------------------------------------------------------------------
-void Blockchain::set_enforce_dns_checkpoints(bool enforce_checkpoints)
+bool Blockchain::add_checkpoint_vote(service_nodes::checkpoint_vote const &vote)
 {
-  m_enforce_dns_checkpoints = enforce_checkpoints;
-}
+  crypto::hash const canonical_block_hash = get_block_id_by_height(vote.block_height);
+  if (vote.block_hash != canonical_block_hash)
+  {
+    // NOTE: Vote is not for a block on the canonical chain, check if it's part
+    // of an alternative chain
+    if (m_alternative_chains.find(vote.block_hash) == m_alternative_chains.end())
+      return false;
+  }
 
+  m_checkpoints.add_checkpoint_vote(vote);
+  return true;
+}
 //------------------------------------------------------------------
 void Blockchain::block_longhash_worker(uint64_t height, const epee::span<const block> &blocks, std::unordered_map<crypto::hash, crypto::hash> &map) const
 {
@@ -4174,7 +4157,7 @@ void Blockchain::block_longhash_worker(uint64_t height, const epee::span<const b
   for (const auto & block : blocks)
   {
     if (m_cancel)
-       break;
+      break;
     crypto::hash id = get_block_hash(block);
     crypto::hash pow = get_block_longhash(block, height++);
     map.emplace(id, pow);
@@ -4546,7 +4529,7 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
       waiter.wait(&tpool);
 
       if (m_cancel)
-         return false;
+        return false;
 
       for (const auto & map : maps)
       {
@@ -4587,11 +4570,11 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
   std::vector<std::pair<cryptonote::transaction, crypto::hash>> txes(total_txs);
 
 #define SCAN_TABLE_QUIT(m) \
-        do { \
-            MERROR_VER(m) ;\
-            m_scan_table.clear(); \
-            return false; \
-        } while(0); \
+  do { \
+    MERROR_VER(m) ;\
+    m_scan_table.clear(); \
+    return false; \
+  } while(0); \
 
   // generate sorted tables for all amounts and absolute offsets
   size_t tx_index = 0, block_index = 0;

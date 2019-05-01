@@ -33,22 +33,10 @@
 #include "serialization/serialization.h"
 #include "cryptonote_core/service_node_rules.h"
 #include "cryptonote_core/service_node_deregister.h"
+#include "cryptonote_core/service_node_quorum_cop.h"
 
 namespace service_nodes
 {
-  class quorum_cop;
-
-  struct quorum_state
-  {
-    std::vector<crypto::public_key> quorum_nodes;
-    std::vector<crypto::public_key> nodes_to_test;
-
-    BEGIN_SERIALIZE()
-      FIELD(quorum_nodes)
-      FIELD(nodes_to_test)
-    END_SERIALIZE()
-  };
-
   struct service_node_info // registration information
   {
     struct contribution_t
@@ -71,6 +59,7 @@ namespace service_nodes
       version_0,
       version_1_swarms,
       version_2_infinite_staking,
+      version_3_checkpointing,
     };
 
     struct contributor_t
@@ -198,9 +187,11 @@ namespace service_nodes
     void update_swarms(uint64_t height);
 
     /// Note(maxim): this should not affect thread-safety as the returned object is const
-    const std::shared_ptr<const quorum_state> get_quorum_state(uint64_t height) const;
+    const std::shared_ptr<const quorum_uptime_proof>  get_uptime_quorum       (uint64_t height) const;
+    const std::shared_ptr<const quorum_checkpointing> get_checkpointing_quorum(uint64_t height) const;
+
     std::vector<service_node_pubkey_info> get_service_node_list_state(const std::vector<crypto::public_key> &service_node_pubkeys) const;
-    const std::vector<key_image_blacklist_entry> &get_blacklisted_key_images() const { return m_key_image_blacklist; }
+    const std::vector<key_image_blacklist_entry> &get_blacklisted_key_images() const { return m_transient_state.key_image_blacklist; }
 
     void set_db_pointer(cryptonote::BlockchainDB* db);
     void set_my_service_node_keys(crypto::public_key const *pub_key);
@@ -283,16 +274,19 @@ namespace service_nodes
     };
     typedef boost::variant<rollback_change, rollback_new, prevent_rollback, rollback_key_image_blacklist> rollback_event_variant;
 
-    struct quorum_state_for_serialization
+    struct quorum_for_serialization
     {
       uint8_t version;
       uint64_t height;
-      quorum_state state;
+      quorum_uptime_proof  uptime_quorum;
+      quorum_checkpointing checkpointing_quorum;
 
       BEGIN_SERIALIZE()
         FIELD(version)
         FIELD(height)
-        FIELD(state)
+        FIELD(uptime_quorum)
+        if (version >= service_node_info::version_3_checkpointing)
+          FIELD(checkpointing_quorum)
       END_SERIALIZE()
     };
 
@@ -300,7 +294,7 @@ namespace service_nodes
     {
       uint8_t version;
       uint64_t height;
-      std::vector<quorum_state_for_serialization> quorum_states;
+      std::vector<quorum_for_serialization> quorum_states;
       std::vector<service_node_pubkey_info> infos;
       std::vector<rollback_event_variant> events;
       std::vector<key_image_blacklist_entry> key_image_blacklist;
@@ -327,8 +321,7 @@ namespace service_nodes
     std::vector<crypto::public_key> get_service_nodes_pubkeys() const;
 
     bool contribution_tx_output_has_correct_unlock_time(const cryptonote::transaction& tx, size_t i, uint64_t block_height) const;
-
-    void store_quorum_state_from_rewards_list(uint64_t height);
+    void generate_quorums(cryptonote::block const &block);
 
     bool is_registration_tx(const cryptonote::transaction& tx, uint64_t block_timestamp, uint64_t block_height, uint32_t index, crypto::public_key& key, service_node_info& info) const;
     std::vector<crypto::public_key> update_and_get_expired_nodes(const std::vector<cryptonote::transaction> &txs, uint64_t block_height);
@@ -337,20 +330,20 @@ namespace service_nodes
     bool load();
 
     mutable boost::recursive_mutex m_sn_mutex;
-    std::unordered_map<crypto::public_key, service_node_info> m_service_nodes_infos;
-    std::list<std::unique_ptr<rollback_event>> m_rollback_events;
-    cryptonote::Blockchain& m_blockchain;
-    bool m_hooks_registered;
+    cryptonote::Blockchain&        m_blockchain;
+    bool                           m_hooks_registered;
+    crypto::public_key const      *m_service_node_pubkey;
+    cryptonote::BlockchainDB      *m_db;
 
     using block_height = uint64_t;
-    block_height m_height;
-
-    crypto::public_key const *m_service_node_pubkey;
-    cryptonote::BlockchainDB* m_db;
-
-    std::vector<key_image_blacklist_entry> m_key_image_blacklist;
-    std::map<block_height, std::shared_ptr<const quorum_state>> m_quorum_states;
-
+    struct
+    {
+      std::unordered_map<crypto::public_key, service_node_info>   service_nodes_infos;
+      std::vector<key_image_blacklist_entry>                      key_image_blacklist;
+      std::map<block_height, quorum_manager>                      quorum_states;
+      std::list<std::unique_ptr<rollback_event>>                  rollback_events;
+      block_height                                                height;
+    } m_transient_state;
   };
 
   bool reg_tx_extract_fields(const cryptonote::transaction& tx, std::vector<cryptonote::account_public_address>& addresses, uint64_t& portions_for_operator, std::vector<uint64_t>& portions, uint64_t& expiration_timestamp, crypto::public_key& service_node_key, crypto::signature& signature, crypto::public_key& tx_pub_key);

@@ -798,6 +798,50 @@ namespace cryptonote
   }
   //------------------------------------------------------------------------------------------------------------------------  
   template<class t_core>
+  int t_cryptonote_protocol_handler<t_core>::handle_notify_new_checkpoint_vote(int command, NOTIFY_NEW_CHECKPOINT_VOTE::request& arg, cryptonote_connection_context& context)
+  {
+    MLOG_P2P_MESSAGE("Received NOTIFY_NEW_CHECKPOINT_VOTE (" << arg.votes.size() << " txes)");
+
+    if(context.m_state != cryptonote_connection_context::state_normal)
+      return 1;
+
+    if(!is_synchronized())
+    {
+      LOG_DEBUG_CC(context, "Received new checkpoint vote while syncing, ignored");
+      return 1;
+    }
+
+    for(auto it = arg.votes.begin(); it != arg.votes.end();)
+    {
+      cryptonote::vote_verification_context vvc = {};
+      m_core.add_checkpoint_vote(*it, vvc);
+
+      if (vvc.m_verification_failed)
+      {
+        LOG_PRINT_CCONTEXT_L1("Checkpoint vote verification failed, dropping connection");
+        drop_connection(context, false /*add_fail*/, false /*flush_all_spans i.e. delete cached block data from this peer*/);
+        return 1;
+      }
+
+      if (vvc.m_added_to_pool)
+      {
+        it++;
+      }
+      else
+      {
+        it = arg.votes.erase(it);
+      }
+    }
+
+    if (arg.votes.size())
+    {
+      relay_checkpoint_votes(arg, context);
+    }
+
+    return 1;
+  }
+  //------------------------------------------------------------------------------------------------------------------------  
+  template<class t_core>
   int t_cryptonote_protocol_handler<t_core>::handle_request_fluffy_missing_tx(int command, NOTIFY_REQUEST_FLUFFY_MISSING_TX::request& arg, cryptonote_connection_context& context)
   {
     MLOG_P2P_MESSAGE("Received NOTIFY_REQUEST_FLUFFY_MISSING_TX (" << arg.missing_tx_indices.size() << " txes), block hash " << arg.block_hash);
@@ -2249,20 +2293,22 @@ skip:
   template<class t_core>
   bool t_cryptonote_protocol_handler<t_core>::relay_deregister_votes(NOTIFY_NEW_DEREGISTER_VOTE::request& arg, cryptonote_connection_context& exclude_context)
   {
-    LOG_PRINT_L2("[" << epee::net_utils::print_connection_context_short(exclude_context) << "] post relay " << typeid(NOTIFY_NEW_DEREGISTER_VOTE).name() << " -->");
-    std::string arg_buff;
-    epee::serialization::store_t_to_binary(arg, arg_buff);
-
-    std::vector<std::pair<epee::net_utils::zone, boost::uuids::uuid>> connections;
-    m_p2p->for_each_connection([this, &exclude_context, &connections](connection_context& context, nodetool::peerid_type peer_id, uint32_t support_flags)
-    {
-      epee::net_utils::zone zone = context.m_remote_address.get_zone();
-      if (peer_id && exclude_context.m_connection_id != context.m_connection_id && zone == epee::net_utils::zone::public_)
-        connections.push_back({zone, context.m_connection_id});
-      return true;
-    });
-
-    return m_p2p->relay_notify_to_list(NOTIFY_NEW_DEREGISTER_VOTE::ID, epee::strspan<uint8_t>(arg_buff), std::move(connections));
+    bool result = relay_on_public_network_generic<NOTIFY_NEW_DEREGISTER_VOTE>(arg, exclude_context);
+    return result;
+  }
+  //------------------------------------------------------------------------------------------------------------------------
+  template<class t_core>
+  bool t_cryptonote_protocol_handler<t_core>::relay_uptime_proof(NOTIFY_UPTIME_PROOF::request& arg, cryptonote_connection_context& exclude_context)
+  {
+    bool result = relay_on_public_network_generic<NOTIFY_UPTIME_PROOF>(arg, exclude_context);
+    return result;
+  }
+  //------------------------------------------------------------------------------------------------------------------------
+  template<class t_core>
+  bool t_cryptonote_protocol_handler<t_core>::relay_checkpoint_votes(NOTIFY_NEW_CHECKPOINT_VOTE::request& arg, cryptonote_connection_context& exclude_context)
+  {
+    bool result = relay_on_public_network_generic<NOTIFY_NEW_CHECKPOINT_VOTE>(arg, exclude_context);
+    return result;
   }
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core>
@@ -2332,25 +2378,6 @@ skip:
       m_p2p->relay_notify_to_list(NOTIFY_NEW_TRANSACTIONS::ID, epee::strspan<uint8_t>(fullBlob), std::move(connections));
     }
     return true;
-  }
-  //------------------------------------------------------------------------------------------------------------------------
-  template<class t_core>
-  bool t_cryptonote_protocol_handler<t_core>::relay_uptime_proof(NOTIFY_UPTIME_PROOF::request& arg, cryptonote_connection_context& exclude_context)
-  {
-    LOG_PRINT_L2("[" << epee::net_utils::print_connection_context_short(exclude_context) << "] post relay " << typeid(NOTIFY_UPTIME_PROOF).name() << " -->");
-    std::string arg_buff;
-    epee::serialization::store_t_to_binary(arg, arg_buff);
-
-    std::vector<std::pair<epee::net_utils::zone, boost::uuids::uuid>> connections;
-    m_p2p->for_each_connection([this, &exclude_context, &connections](connection_context& context, nodetool::peerid_type peer_id, uint32_t support_flags)
-    {
-      epee::net_utils::zone zone = context.m_remote_address.get_zone();
-      if (peer_id && exclude_context.m_connection_id != context.m_connection_id && zone == epee::net_utils::zone::public_)
-        connections.push_back({zone, context.m_connection_id});
-      return true;
-    });
-
-    return m_p2p->relay_notify_to_list(NOTIFY_UPTIME_PROOF::ID, epee::strspan<uint8_t>(arg_buff), std::move(connections));
   }
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core>

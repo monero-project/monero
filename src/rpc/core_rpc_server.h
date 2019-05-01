@@ -269,6 +269,8 @@ namespace cryptonote
     bool on_get_staking_requirement(const COMMAND_RPC_GET_STAKING_REQUIREMENT::request& req, COMMAND_RPC_GET_STAKING_REQUIREMENT::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx = NULL);
     //-----------------------
 
+    void on_get_checkpoints() { m_core.debug__print_checkpoints(); }
+
 #if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
     void on_relay_uptime_and_votes()
     {

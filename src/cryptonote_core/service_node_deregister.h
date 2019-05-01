@@ -47,7 +47,22 @@ namespace cryptonote
 
 namespace service_nodes
 {
-  struct quorum_state;
+  struct quorum_uptime_proof;
+
+  struct checkpoint_vote
+  {
+    uint64_t          block_height;
+    crypto::hash      block_hash;
+    uint32_t          voters_quorum_index;
+    crypto::signature signature;
+    uint64_t          time_last_sent_p2p;
+  };
+
+  struct voter_to_signature
+  {
+    uint16_t          quorum_index;
+    crypto::signature signature;
+  };
 
   struct deregister_vote
   {
@@ -65,10 +80,10 @@ namespace service_nodes
 
     static bool verify_deregister(cryptonote::network_type nettype, const cryptonote::tx_extra_service_node_deregister& deregister,
                                   cryptonote::vote_verification_context& vvc,
-                                  const service_nodes::quorum_state &quorum);
+                                  const service_nodes::quorum_uptime_proof &quorum);
 
     static bool verify_vote(cryptonote::network_type nettype, const deregister_vote& v, cryptonote::vote_verification_context &vvc,
-                            const service_nodes::quorum_state &quorum);
+                            const service_nodes::quorum_uptime_proof &quorum);
   };
 
   class deregister_vote_pool
@@ -80,7 +95,7 @@ namespace service_nodes
       bool add_vote(const int hf_version,
                     const deregister_vote& new_vote,
                     cryptonote::vote_verification_context& vvc,
-                    const service_nodes::quorum_state &quorum_state,
+                    const service_nodes::quorum_uptime_proof &uptime_quorum,
                     cryptonote::transaction &tx);
 
       // TODO(loki): Review relay behaviour and all the cases when it should be triggered
