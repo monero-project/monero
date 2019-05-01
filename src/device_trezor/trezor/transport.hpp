@@ -163,15 +163,7 @@ namespace trezor {
   public:
     BridgeTransport(
         boost::optional<std::string> device_path = boost::none,
-        boost::optional<std::string> bridge_host = boost::none):
-        m_device_path(device_path),
-        m_bridge_host(bridge_host ? bridge_host.get() : DEFAULT_BRIDGE),
-        m_response(boost::none),
-        m_session(boost::none),
-        m_device_info(boost::none)
-    {
-      m_http_client.set_server(m_bridge_host, boost::none, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
-    }
+        boost::optional<std::string> bridge_host = boost::none);
 
     virtual ~BridgeTransport() = default;
 

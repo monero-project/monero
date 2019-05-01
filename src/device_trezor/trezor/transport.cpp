@@ -223,6 +223,11 @@ namespace trezor{
     msg = msg_wrap;
   }
 
+  static void assert_port_number(uint32_t port)
+  {
+    CHECK_AND_ASSERT_THROW_MES(port >= 1024 && port < 65535, "Invalid port number: " << port);
+  }
+
   Transport::Transport(): m_open_counter(0) {
 
   }
@@ -262,6 +267,29 @@ namespace trezor{
   //
 
   const char * BridgeTransport::PATH_PREFIX = "bridge:";
+
+  BridgeTransport::BridgeTransport(
+        boost::optional<std::string> device_path,
+        boost::optional<std::string> bridge_host):
+    m_device_path(device_path),
+    m_bridge_host(bridge_host ? bridge_host.get() : DEFAULT_BRIDGE),
+    m_response(boost::none),
+    m_session(boost::none),
+    m_device_info(boost::none)
+    {
+      const char *env_bridge_port = nullptr;
+      if (!bridge_host && (env_bridge_port = getenv("TREZOR_BRIDGE_PORT")) != nullptr)
+      {
+        uint16_t bridge_port;
+        CHECK_AND_ASSERT_THROW_MES(epee::string_tools::get_xtype_from_string(bridge_port, env_bridge_port), "Invalid bridge port: " << env_bridge_port);
+        assert_port_number(bridge_port);
+
+        m_bridge_host = std::string("127.0.0.1:") + boost::lexical_cast<std::string>(env_bridge_port);
+        MDEBUG("Bridge host: " << m_bridge_host);
+      }
+
+      m_http_client.set_server(m_bridge_host, boost::none, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
+    }
 
   std::string BridgeTransport::get_path() const {
     if (!m_device_path){
@@ -401,28 +429,40 @@ namespace trezor{
   const char * UdpTransport::DEFAULT_HOST = "127.0.0.1";
   const int UdpTransport::DEFAULT_PORT = 21324;
 
+  static void parse_udp_path(std::string &host, int &port, std::string path)
+  {
+    if (boost::starts_with(path, UdpTransport::PATH_PREFIX))
+    {
+      path = path.substr(strlen(UdpTransport::PATH_PREFIX));
+    }
+
+    auto delim = path.find(':');
+    if (delim == std::string::npos) {
+      host = path;
+    } else {
+      host = path.substr(0, delim);
+      port = std::stoi(path.substr(delim + 1));
+    }
+  }
+
   UdpTransport::UdpTransport(boost::optional<std::string> device_path,
                              boost::optional<std::shared_ptr<Protocol>> proto) :
       m_io_service(), m_deadline(m_io_service)
   {
+    m_device_host = DEFAULT_HOST;
     m_device_port = DEFAULT_PORT;
+    const char *env_trezor_path = nullptr;
+
     if (device_path) {
-      const std::string device_str = device_path.get();
-      auto delim = device_str.find(':');
-      if (delim == std::string::npos) {
-        m_device_host = device_str;
-      } else {
-        m_device_host = device_str.substr(0, delim);
-        m_device_port = std::stoi(device_str.substr(delim + 1));
-      }
+      parse_udp_path(m_device_host, m_device_port, device_path.get());
+    } else if ((env_trezor_path = getenv("TREZOR_PATH")) != nullptr && boost::starts_with(env_trezor_path, UdpTransport::PATH_PREFIX)){
+      parse_udp_path(m_device_host, m_device_port, std::string(env_trezor_path));
+      MDEBUG("Applied TREZOR_PATH: " << m_device_host << ":" << m_device_port);
     } else {
       m_device_host = DEFAULT_HOST;
     }
 
-    if (m_device_port <= 1024 || m_device_port > 65535){
-      throw std::invalid_argument("Port number invalid");
-    }
-
+    assert_port_number((uint32_t)m_device_port);
     if (m_device_host != "localhost" && m_device_host != DEFAULT_HOST){
       throw std::invalid_argument("Local endpoint allowed only");
     }
