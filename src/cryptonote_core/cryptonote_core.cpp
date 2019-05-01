@@ -243,6 +243,7 @@ namespace cryptonote
     if (m_nettype != MAINNET) return true;
     if (m_checkpoints_updating.test_and_set()) return true;
 
+    // load json checkpoints every 10min and verify them with respect to what blocks we already have
     bool res = true;
     if (time(NULL) - m_last_json_checkpoints_update >= 600)
     {
@@ -321,25 +322,7 @@ namespace cryptonote
       m_nettype = testnet ? TESTNET : stagenet ? STAGENET : MAINNET;
     }
 
-    m_deregister_vote_pool.m_nettype = m_nettype;
     m_config_folder = command_line::get_arg(vm, arg_data_dir);
-
-    auto data_dir = boost::filesystem::path(m_config_folder);
-
-    // Init Checkpoints
-    {
-      cryptonote::checkpoints checkpoints;
-      if (!checkpoints.init_default_checkpoints(m_nettype))
-      {
-        throw std::runtime_error("Failed to initialize checkpoints");
-      }
-      m_blockchain_storage.set_checkpoints(std::move(checkpoints));
-
-      boost::filesystem::path json(JSON_HASH_FILE_NAME);
-      boost::filesystem::path checkpoint_json_hashfile_fullpath = data_dir / json;
-
-      m_checkpoints_path = checkpoint_json_hashfile_fullpath.string();
-    }
 
     test_drop_download_height(command_line::get_arg(vm, arg_test_drop_download_height));
     m_fluffy_blocks_enabled = !get_arg(vm, arg_no_fluffy_blocks);
@@ -661,8 +644,21 @@ namespace cryptonote
     const difficulty_type fixed_difficulty = command_line::get_arg(vm, arg_fixed_difficulty);
 
     BlockchainDB *initialized_db = db.release();
-    m_service_node_list.set_db_pointer(initialized_db);
-    m_service_node_list.register_hooks(m_quorum_cop);
+    // Service Nodes
+    {
+      m_service_node_list.set_db_pointer(initialized_db);
+      m_service_node_list.register_hooks(m_quorum_cop);
+      m_deregister_vote_pool.m_nettype = m_nettype;
+    }
+
+    // Checkpoints
+    {
+      auto data_dir = boost::filesystem::path(m_config_folder);
+      boost::filesystem::path json(JSON_HASH_FILE_NAME);
+      boost::filesystem::path checkpoint_json_hashfile_fullpath = data_dir / json;
+      m_checkpoints_path = checkpoint_json_hashfile_fullpath.string();
+    }
+
     r = m_blockchain_storage.init(initialized_db, m_nettype, m_offline, regtest ? &regtest_test_options : test_options, fixed_difficulty, get_checkpoints);
 
     r = m_mempool.init(max_txpool_weight);
@@ -679,9 +675,6 @@ namespace cryptonote
     block_sync_size = command_line::get_arg(vm, arg_block_sync_size);
 
     MGINFO("Loading checkpoints");
-
-    // load json checkpoints and verify them
-    // with respect to what blocks we already have
     CHECK_AND_ASSERT_MES(update_checkpoints(), false, "One or more checkpoints loaded from json conflicted with existing checkpoints.");
 
    // DNS versions checking
@@ -1571,7 +1564,6 @@ namespace cryptonote
   bool core::handle_incoming_block(const blobdata& block_blob, const block *b, block_verification_context& bvc, bool update_miner_blocktemplate)
   {
     TRY_ENTRY();
-
     bvc = boost::value_initialized<block_verification_context>();
 
     if (!check_incoming_block_size(block_blob))
@@ -1583,9 +1575,7 @@ namespace cryptonote
     if (((size_t)-1) <= 0xffffffff && block_blob.size() >= 0x3fffffff)
       MWARNING("This block's size is " << block_blob.size() << ", closing on the 32 bit limit");
 
-    // load json & DNS checkpoints every 10min/hour respectively,
-    // and verify them with respect to what blocks we already have
-    CHECK_AND_ASSERT_MES(update_checkpoints(), false, "One or more checkpoints loaded from json or dns conflicted with existing checkpoints.");
+    CHECK_AND_ASSERT_MES(update_checkpoints(), false, "One or more checkpoints loaded from json conflicted with existing checkpoints.");
 
     block lb;
     if (!b)

@@ -38,38 +38,94 @@
 #include "cryptonote_core/service_node_rules.h"
 #include <vector>
 #include "syncobj.h"
+#include "blockchain_db/blockchain_db.h"
 
 using namespace epee;
 
 #include "common/loki_integration_test_hooks.h"
+#include "common/loki.h"
 
 #undef LOKI_DEFAULT_LOG_CATEGORY
 #define LOKI_DEFAULT_LOG_CATEGORY "checkpoints"
 
 namespace cryptonote
 {
-  /**
-   * @brief struct for loading a checkpoint from json
-   */
-  struct t_hashline
+  height_to_hash const HARDCODED_MAINNET_CHECKPOINTS[] =
   {
-    uint64_t height; //!< the height of the checkpoint
-    std::string hash; //!< the hash for the checkpoint
-        BEGIN_KV_SERIALIZE_MAP()
-          KV_SERIALIZE(height)
-          KV_SERIALIZE(hash)
-        END_KV_SERIALIZE_MAP()
+    {0,      "08ff156d993012b0bdf2816c4bee47c9bbc7930593b70ee02574edddf15ee933"},
+    {1,      "647997953a5ea9b5ab329c2291d4cbb08eed587c287e451eeeb2c79bab9b940f"},
+    {10,     "4a7cd8b9bff380d48d6f3533a5e0509f8589cc77d18218b3f7218846e77738fc"},
+    {100,    "01b8d33a50713ff837f8ad7146021b8e3060e0316b5e4afc407e46cdb50b6760"},
+    {1000,   "5e3b0a1f931885bc0ab1d6ecdc625816576feae29e2f9ac94c5ccdbedb1465ac"},
+    {86535,  "52b7c5a60b97bf1efbf0d63a0aa1a313e8f0abe4627eb354b0c5a73cb1f4391e"},
+    {97407,  "504af73abbaba85a14ddc16634658bf4dcc241dc288b1eaad09e216836b71023"},
+    {98552,  "2058d5c675bd91284f4996435593499c9ab84a5a0f569f57a86cde2e815e57da"},
+    {144650, "a1ab207afc790675070ecd7aac874eb0691eb6349ea37c44f8f58697a5d6cbc4"},
   };
 
-  /**
-   * @brief struct for loading many checkpoints from json
-   */
-  struct t_hash_json {
-    std::vector<t_hashline> hashlines; //!< the checkpoint lines from the file
-        BEGIN_KV_SERIALIZE_MAP()
-          KV_SERIALIZE(hashlines)
-        END_KV_SERIALIZE_MAP()
-  };
+  crypto::hash get_newest_hardcoded_checkpoint(cryptonote::network_type nettype, uint64_t *height)
+  {
+    crypto::hash result = crypto::null_hash;
+    *height = 0;
+    if (nettype != MAINNET)
+      return result;
+
+    uint64_t last_index         = loki::array_count(HARDCODED_MAINNET_CHECKPOINTS) - 1;
+    height_to_hash const &entry = HARDCODED_MAINNET_CHECKPOINTS[last_index];
+
+    if (epee::string_tools::hex_to_pod(entry.hash, result))
+      *height = entry.height;
+
+    return result;
+  }
+
+  bool load_checkpoints_from_json(const std::string &json_hashfile_fullpath, std::vector<height_to_hash> &checkpoint_hashes)
+  {
+    boost::system::error_code errcode;
+    if (! (boost::filesystem::exists(json_hashfile_fullpath, errcode)))
+    {
+      LOG_PRINT_L1("Blockchain checkpoints file not found");
+      return true;
+    }
+
+    height_to_hash_json hashes;
+    if (!epee::serialization::load_t_from_json_file(hashes, json_hashfile_fullpath))
+    {
+      MERROR("Error loading checkpoints from " << json_hashfile_fullpath);
+      return false;
+    }
+
+    checkpoint_hashes = std::move(hashes.hashlines);
+    return true;
+  }
+
+  static bool get_checkpoint_from_db_safe(BlockchainDB const *db, uint64_t height, checkpoint_t &checkpoint)
+  {
+    try
+    {
+      return db->get_block_checkpoint(height, checkpoint);
+    }
+    catch (const std::exception &e)
+    {
+      MERROR("Get block checkpoint from DB failed at height: " << height << ", what = " << e.what());
+      return false;
+    }
+  }
+
+  static bool update_checkpoint_in_db_safe(BlockchainDB *db, checkpoint_t &checkpoint)
+  {
+    try
+    {
+      db->update_block_checkpoint(checkpoint);
+    }
+    catch (const std::exception& e)
+    {
+      MERROR("Failed to add checkpoint with hash: " << checkpoint.block_hash << " at height: " << checkpoint.height << ", what = " << e.what());
+      return false;
+    }
+
+    return true;
+  }
 
   //---------------------------------------------------------------------------
   bool checkpoints::add_checkpoint(uint64_t height, const std::string& hash_str)
@@ -78,22 +134,21 @@ namespace cryptonote
     bool r         = epee::string_tools::hex_to_pod(hash_str, h);
     CHECK_AND_ASSERT_MES(r, false, "Failed to parse checkpoint hash string into binary representation!");
 
-    CRITICAL_REGION_LOCAL(m_lock);
-    if (m_points.count(height)) // return false if adding at a height we already have AND the hash is different
+    checkpoint_t checkpoint = {};
+    if (get_checkpoint_from_db_safe(m_db, height, checkpoint))
     {
-      checkpoint_t const &checkpoint = m_points[height];
-      crypto::hash const &curr_hash  = checkpoint.block_hash;
+      crypto::hash const &curr_hash = checkpoint.block_hash;
       CHECK_AND_ASSERT_MES(h == curr_hash, false, "Checkpoint at given height already exists, and hash for new checkpoint was different!");
     }
     else
     {
-      checkpoint_t checkpoint = {};
-      checkpoint.type         = checkpoint_type::predefined_or_dns;
+      checkpoint.height       = height;
+      checkpoint.type         = checkpoint_type::hardcoded;
       checkpoint.block_hash   = h;
-      m_points[height]        = checkpoint;
+      r = update_checkpoint_in_db_safe(m_db, checkpoint);
     }
 
-    return true;
+    return r;
   }
   //---------------------------------------------------------------------------
   static bool add_vote_if_unique(checkpoint_t &checkpoint, service_nodes::checkpoint_vote const &vote)
@@ -136,33 +191,10 @@ namespace cryptonote
       return true;
 #endif
 
-    CRITICAL_REGION_LOCAL(m_lock);
-    std::array<int, service_nodes::QUORUM_SIZE> unique_vote_set = {};
-    auto pre_existing_checkpoint_it = m_points.find(vote.block_height);
-    if (pre_existing_checkpoint_it != m_points.end())
-    {
-      checkpoint_t &checkpoint = pre_existing_checkpoint_it->second;
-      if (checkpoint.type == checkpoint_type::predefined_or_dns)
-        return true;
-
-      if (checkpoint.block_hash == vote.block_hash)
-      {
-        bool added = add_vote_if_unique(checkpoint, vote);
-        return added;
-      }
-
-      for (service_nodes::voter_to_signature const &vote_to_sig : checkpoint.signatures)
-      {
-        if (vote_to_sig.quorum_index > unique_vote_set.size()) // TODO(doyle): Sanity check, remove once universal vote verifying function is written
-          return false;
-        ++unique_vote_set[vote_to_sig.quorum_index];
-      }
-
-    }
-
     // TODO(doyle): Double work. Factor into a generic vote checker as we already have one in service node deregister
-    std::vector<checkpoint_t> &candidate_checkpoints    = m_staging_points[vote.block_height];
-    std::vector<checkpoint_t>::iterator curr_checkpoint = candidate_checkpoints.end();
+    std::array<int, service_nodes::QUORUM_SIZE> unique_vote_set = {};
+    std::vector<checkpoint_t> &candidate_checkpoints            = m_staging_points[vote.block_height];
+    std::vector<checkpoint_t>::iterator curr_checkpoint         = candidate_checkpoints.end();
     for (auto it = candidate_checkpoints.begin(); it != candidate_checkpoints.end(); it++)
     {
       checkpoint_t const &checkpoint = *it;
@@ -185,6 +217,7 @@ namespace cryptonote
     if (curr_checkpoint == candidate_checkpoints.end())
     {
       checkpoint_t new_checkpoint = {};
+      new_checkpoint.height       = vote.block_height;
       new_checkpoint.type         = checkpoint_type::service_node;
       new_checkpoint.block_hash   = vote.block_hash;
       candidate_checkpoints.push_back(new_checkpoint);
@@ -193,10 +226,9 @@ namespace cryptonote
 
     if (add_vote_if_unique(*curr_checkpoint, vote))
     {
-      if (curr_checkpoint->signatures.size() > service_nodes::MIN_VOTES_TO_CHECKPOINT) // TODO(doyle): Quorum SuperMajority variable
+      if (curr_checkpoint->signatures.size() > service_nodes::MIN_VOTES_TO_CHECKPOINT)
       {
-        m_points[vote.block_height]   = *curr_checkpoint;
-        candidate_checkpoints.erase(curr_checkpoint);
+        update_checkpoint_in_db_safe(m_db, *curr_checkpoint);
       }
     }
 
@@ -205,19 +237,23 @@ namespace cryptonote
   //---------------------------------------------------------------------------
   bool checkpoints::is_in_checkpoint_zone(uint64_t height) const
   {
-    return !m_points.empty() && (height <= (--m_points.end())->first);
+    uint64_t top_checkpoint_height = 0;
+    checkpoint_t top_checkpoint;
+    if (m_db->get_top_checkpoint(top_checkpoint))
+      top_checkpoint_height = top_checkpoint.height;
+
+    return height <= top_checkpoint_height;
   }
   //---------------------------------------------------------------------------
   bool checkpoints::check_block(uint64_t height, const crypto::hash& h, bool* is_a_checkpoint) const
   {
-    auto it = m_points.find(height);
-    bool found  = (it != m_points.end());
+    checkpoint_t checkpoint;
+    bool found = get_checkpoint_from_db_safe(m_db, height, checkpoint);
     if (is_a_checkpoint) *is_a_checkpoint = found;
 
     if(!found)
       return true;
 
-    checkpoint_t const &checkpoint = it->second;
     bool result = checkpoint.block_hash == h;
     if (result) MINFO   ("CHECKPOINT PASSED FOR HEIGHT " << height << " " << h);
     else        MWARNING("CHECKPOINT FAILED FOR HEIGHT " << height << ". EXPECTED HASH " << checkpoint.block_hash << "FETCHED HASH: " << h);
@@ -229,32 +265,34 @@ namespace cryptonote
     if (0 == block_height)
       return false;
 
-    CRITICAL_REGION_LOCAL(m_lock);
-    std::map<uint64_t, checkpoint_t>::const_iterator it = m_points.upper_bound(blockchain_height);
-    if (it == m_points.begin()) // Is blockchain_height before the first checkpoint?
+    size_t num_desired_checkpoints = 2;
+    std::vector<checkpoint_t> checkpoints = m_db->get_checkpoints_range(blockchain_height, 0, num_desired_checkpoints);
+
+    if (checkpoints.size() == 0) // No checkpoints recorded yet for blocks preceeding blockchain_height
       return true;
 
-    --it; // move the iterator to the first checkpoint that is <= my height
-    uint64_t sentinel_reorg_height = it->first;
-    if (it->second.type == checkpoint_type::service_node)
+    uint64_t sentinel_reorg_height = 0;
+    if (checkpoints[0].type == checkpoint_type::service_node) // checkpoint[0] is the first closest checkpoint that is <= my height
     {
       // NOTE: The current checkpoint is a service node checkpoint. Go back
       // 1 checkpoint, which will either be another service node checkpoint or
       // a predefined one.
-
-      // If it's a service node checkpoint, this is the 2nd newest checkpoint,
-      // so we can't reorg past that height. If it's predefined, that's ok as
-      // well, we can't reorg past that height so irrespective, always accept
-      // the height of this next checkpoint.
-      if (it == m_points.begin())
+      if (checkpoints.size() == 1)
       {
         return true; // NOTE: Only one service node checkpoint recorded, we can override this checkpoint.
       }
       else
       {
-        --it;
-        sentinel_reorg_height = it->first;
+        // If it's a service node checkpoint, this is the 2nd newest checkpoint,
+        // so we can't reorg past that height. If it's predefined, that's ok as
+        // well, we can't reorg past that height so irrespective, always accept
+        // the height of this next checkpoint.
+        sentinel_reorg_height = checkpoints[1].height;
       }
+    }
+    else
+    {
+      sentinel_reorg_height = checkpoints[0].height;
     }
 
     bool result = sentinel_reorg_height < block_height;
@@ -264,91 +302,33 @@ namespace cryptonote
   uint64_t checkpoints::get_max_height() const
   {
     uint64_t result = 0;
-    if (m_points.size() > 0)
-    {
-      auto last_it = m_points.rbegin();
-      result = last_it->first;
-    }
+    checkpoint_t top_checkpoint;
+    if (m_db->get_top_checkpoint(top_checkpoint))
+      result = top_checkpoint.height;
 
     return result;
   }
   //---------------------------------------------------------------------------
-  bool checkpoints::check_for_conflicts(const checkpoints& other) const
+  bool checkpoints::init(network_type nettype, struct BlockchainDB *db)
   {
-    for (auto& pt : other.get_points())
-    {
-      if (m_points.count(pt.first))
-      {
-        checkpoint_t const &our_checkpoint   = m_points.at(pt.first);
-        checkpoint_t const &their_checkpoint = pt.second;
-        CHECK_AND_ASSERT_MES(our_checkpoint.block_hash == their_checkpoint.block_hash, false, "Checkpoint at given height already exists, and hash for new checkpoint was different!");
-      }
-    }
-    return true;
-  }
+    *this = {};
+    m_db = db;
 
-  bool checkpoints::init_default_checkpoints(network_type nettype)
-  {
-    switch (nettype) {
-      case STAGENET:
-        break;
-      case TESTNET:
-        break;
-      case FAKECHAIN:
-        break;
-      case UNDEFINED:
-        break;
-      case MAINNET:
+    m_db->block_txn_start();
+    epee::misc_utils::auto_scope_leave_caller scope_exit_handler = epee::misc_utils::create_scope_leave_handler([&](){m_db->block_txn_stop();});
 #if !defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
-        ADD_CHECKPOINT(0,     "08ff156d993012b0bdf2816c4bee47c9bbc7930593b70ee02574edddf15ee933");
-        ADD_CHECKPOINT(1,     "647997953a5ea9b5ab329c2291d4cbb08eed587c287e451eeeb2c79bab9b940f");
-        ADD_CHECKPOINT(10,    "4a7cd8b9bff380d48d6f3533a5e0509f8589cc77d18218b3f7218846e77738fc");
-        ADD_CHECKPOINT(100,   "01b8d33a50713ff837f8ad7146021b8e3060e0316b5e4afc407e46cdb50b6760");
-        ADD_CHECKPOINT(1000,  "5e3b0a1f931885bc0ab1d6ecdc625816576feae29e2f9ac94c5ccdbedb1465ac");
-        ADD_CHECKPOINT(86535, "52b7c5a60b97bf1efbf0d63a0aa1a313e8f0abe4627eb354b0c5a73cb1f4391e");
-        ADD_CHECKPOINT(97407, "504af73abbaba85a14ddc16634658bf4dcc241dc288b1eaad09e216836b71023");
-        ADD_CHECKPOINT(98552, "2058d5c675bd91284f4996435593499c9ab84a5a0f569f57a86cde2e815e57da");
-        ADD_CHECKPOINT(144650,"a1ab207afc790675070ecd7aac874eb0691eb6349ea37c44f8f58697a5d6cbc4");
-#endif
-        break;
-    }
-    return true;
-  }
-
-  bool checkpoints::load_checkpoints_from_json(const std::string &json_hashfile_fullpath)
-  {
-    boost::system::error_code errcode;
-    if (! (boost::filesystem::exists(json_hashfile_fullpath, errcode)))
+    if (nettype == MAINNET)
     {
-      LOG_PRINT_L1("Blockchain checkpoints file not found");
-      return true;
-    }
-
-    LOG_PRINT_L1("Adding checkpoints from blockchain hashfile");
-
-    uint64_t prev_max_height = get_max_height();
-    LOG_PRINT_L1("Hard-coded max checkpoint height is " << prev_max_height);
-    t_hash_json hashes;
-    if (!epee::serialization::load_t_from_json_file(hashes, json_hashfile_fullpath))
-    {
-      MERROR("Error loading checkpoints from " << json_hashfile_fullpath);
-      return false;
-    }
-    for (std::vector<t_hashline>::const_iterator it = hashes.hashlines.begin(); it != hashes.hashlines.end(); )
-    {
-      uint64_t height;
-      height = it->height;
-      if (height <= prev_max_height) {
-        LOG_PRINT_L1("ignoring checkpoint height " << height);
-      } else {
-        std::string blockhash = it->hash;
-        LOG_PRINT_L1("Adding checkpoint height " << height << ", hash=" << blockhash);
-        ADD_CHECKPOINT(height, blockhash);
+      for (size_t i = 0; i < loki::array_count(HARDCODED_MAINNET_CHECKPOINTS); ++i)
+      {
+        height_to_hash const &checkpoint = HARDCODED_MAINNET_CHECKPOINTS[i];
+        ADD_CHECKPOINT(checkpoint.height, checkpoint.hash);
       }
-      ++it;
     }
+#endif
 
     return true;
   }
+
 }
 

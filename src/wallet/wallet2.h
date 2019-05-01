@@ -1528,7 +1528,6 @@ namespace tools
     std::unordered_map<crypto::hash, confirmed_transfer_details> m_confirmed_txs;
     std::unordered_multimap<crypto::hash, pool_payment_details> m_unconfirmed_payments;
     std::unordered_map<crypto::hash, crypto::secret_key> m_tx_keys;
-    cryptonote::checkpoints m_checkpoints;
     std::unordered_map<crypto::hash, std::vector<crypto::secret_key>> m_additional_tx_keys;
 
     transfer_container m_transfers;
