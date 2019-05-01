@@ -10,7 +10,7 @@ import string
 import os
 
 USAGE = 'usage: functional_tests_rpc.py <python> <srcdir> <builddir> [<tests-to-run> | all]'
-DEFAULT_TESTS = ['bans', 'daemon_info', 'blockchain', 'wallet', 'integrated_address', 'mining', 'transfer', 'txpool', 'multisig', 'cold_signing', 'sign_message', 'proofs', 'get_output_distribution']
+DEFAULT_TESTS = ['bans', 'daemon_info', 'blockchain', 'wallet', 'integrated_address', 'mining', 'transfer', 'txpool', 'multisig', 'cold_signing', 'sign_message', 'proofs', 'get_output_distribution', 'address_book']
 try:
   python = sys.argv[1]
   srcdir = sys.argv[2]

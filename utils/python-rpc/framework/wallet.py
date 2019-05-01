@@ -890,6 +890,41 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(set_account_tag_description)
 
+    def add_address_book(self, address = '', payment_id = '', description = ''):
+        add_address_book = {
+            'method': 'add_address_book',
+            'jsonrpc': '2.0',
+            'params': {
+                'address': address,
+                'payment_id': payment_id,
+                'description': description,
+            },
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(add_address_book)
+
+    def get_address_book(self, entries = []):
+        get_address_book = {
+            'method': 'get_address_book',
+            'jsonrpc': '2.0',
+            'params': {
+                'entries': entries,
+            },
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(get_address_book)
+
+    def delete_address_book(self, index):
+        delete_address_book = {
+            'method': 'delete_address_book',
+            'jsonrpc': '2.0',
+            'params': {
+                'index': index,
+            },
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(delete_address_book)
+
     def start_mining(self, threads_count, do_background_mining = False, ignore_battery = False):
         start_mining = {
             'method': 'start_mining',
