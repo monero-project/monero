@@ -55,7 +55,7 @@ namespace {
                     break; // map to nothing generic
                 case MDB_PAGE_NOTFOUND:
                 case MDB_CORRUPTED:
-                    return std::errc::state_not_recoverable;
+                    return std::errc::bad_address;
                 case MDB_PANIC:
                 case MDB_VERSION_MISMATCH:
                 case MDB_INVALID:
