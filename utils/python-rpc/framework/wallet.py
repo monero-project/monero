@@ -911,6 +911,29 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(rescan_spent)
 
+    def set_attribute(self, key, value):
+        set_attribute = {
+            'method': 'set_attribute',
+            'jsonrpc': '2.0',
+            'params': {
+                'key': key,
+                'value': value,
+            },
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(set_attribute)
+
+    def get_attribute(self, key):
+        get_attribute = {
+            'method': 'get_attribute',
+            'jsonrpc': '2.0',
+            'params': {
+                'key': key,
+            },
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(get_attribute)
+
     def make_uri(self, address = '', payment_id = '', amount = 0, tx_description = '', recipient_name = ''):
         make_uri = {
             'method': 'make_uri',

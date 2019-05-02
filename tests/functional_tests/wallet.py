@@ -47,6 +47,7 @@ class WalletTest():
       self.check_keys()
       self.create_subaddresses()
       self.tags()
+      self.attributes()
       self.open_close()
       self.languages()
       self.change_password()
@@ -252,6 +253,28 @@ class WalletTest():
             assert x.unlocked_balance == 0
             subaddress_accounts.append((x.account_index, x.base_address, x.label))
         assert sorted(subaddress_accounts) == [(0, '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 'main'), (1, '82pP87g1Vkd3LUMssBCumk3MfyEsFqLAaGDf6oxddu61EgSFzt8gCwUD4tr3kp9TUfdPs2CnpD7xLZzyC1Ei9UsW3oyCWDf', 'idx1_new')]
+
+    def attributes(self):
+        print 'Testing attributes'
+        wallet = Wallet()
+
+        ok = False
+        try: res = wallet.get_attribute('foo')
+        except: ok = True
+        assert ok
+        res = wallet.set_attribute('foo', 'bar')
+        res = wallet.get_attribute('foo')
+        assert res.value == 'bar'
+        res = wallet.set_attribute('foo', 'いっしゅん')
+        res = wallet.get_attribute('foo')
+        assert res.value == u'いっしゅん'
+        ok = False
+        try: res = wallet.get_attribute('いちりゅう')
+        except: ok = True
+        assert ok
+        res = wallet.set_attribute('いちりゅう', 'いっぽう')
+        res = wallet.get_attribute('いちりゅう')
+        assert res.value == u'いっぽう'
 
     def open_close(self):
         print('Testing open/close')
