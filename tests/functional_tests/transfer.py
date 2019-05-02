@@ -49,6 +49,7 @@ class TransferTest():
         self.sweep_dust()
         self.sweep_single()
         self.check_destinations()
+        self.check_rescan()
 
     def reset(self):
         print('Resetting blockchain')
@@ -718,7 +719,45 @@ class TransferTest():
                 daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 1)
                 self.wallet[0].refresh()
 
+    def check_rescan(self):
+        daemon = Daemon()
 
+        print('Testing rescan_spent')
+        res = self.wallet[0].incoming_transfers(transfer_type = 'all')
+        transfers = res.transfers
+        res = self.wallet[0].rescan_spent()
+        res = self.wallet[0].incoming_transfers(transfer_type = 'all')
+        assert transfers == res.transfers
+
+        for hard in [False, True]:
+            print('Testing %s rescan_blockchain' % ('hard' if hard else 'soft'))
+            res = self.wallet[0].incoming_transfers(transfer_type = 'all')
+            transfers = res.transfers
+            res = self.wallet[0].get_transfers()
+            t_in = res['in']
+            t_out = res.out
+            res = self.wallet[0].rescan_blockchain(hard = hard)
+            res = self.wallet[0].incoming_transfers(transfer_type = 'all')
+            assert transfers == res.transfers
+            res = self.wallet[0].get_transfers()
+            assert t_in == res['in']
+            # some information can not be recovered for out txes
+            unrecoverable_fields = ['payment_id', 'destinations', 'note']
+            old_t_out = []
+            for x in t_out:
+                e = {}
+                for k in x.keys():
+                    if not k in unrecoverable_fields:
+                        e[k] = x[k]
+                old_t_out.append(e)
+            new_t_out = []
+            for x in res.out:
+                e = {}
+                for k in x.keys():
+                    if not k in unrecoverable_fields:
+                        e[k] = x[k]
+                new_t_out.append(e)
+            assert sorted(old_t_out) == sorted(new_t_out)
 
 
 if __name__ == '__main__':

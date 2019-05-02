@@ -890,6 +890,27 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(set_account_tag_description)
 
+    def rescan_blockchain(self, hard = False):
+        rescan_blockchain = {
+            'method': 'rescan_blockchain',
+            'jsonrpc': '2.0',
+            'params': {
+                'hard': hard,
+            },
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(rescan_blockchain)
+
+    def rescan_spent(self):
+        rescan_spent = {
+            'method': 'rescan_spent',
+            'jsonrpc': '2.0',
+            'params': {
+            },
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(rescan_spent)
+
     def make_uri(self, address = '', payment_id = '', amount = 0, tx_description = '', recipient_name = ''):
         make_uri = {
             'method': 'make_uri',
