@@ -2201,11 +2201,13 @@ namespace wallet_rpc
     struct request_t
     {
       std::string filename; // Wallet name stored in "–-wallet-dir".
-      std::string password; // (Optional) only needed if the wallet has a password defined.
+      std::string password; // The wallet password, set as "" if there's no password
+      bool autosave_current; // (Optional: Default true): If a pre-existing wallet is open, save to disk before opening the new wallet.
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(filename)
         KV_SERIALIZE(password)
+        KV_SERIALIZE_OPT(autosave_current, true)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
@@ -2224,7 +2226,10 @@ namespace wallet_rpc
   {
     struct request_t
     {
+      bool autosave_current; // Save the wallet state on close
+
       BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE_OPT(autosave_current, true)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
@@ -2267,12 +2272,13 @@ namespace wallet_rpc
   {
     struct request_t
     {
-      uint64_t restore_height; // Height in which to start scanning the blockchain for transactions into and out of this Wallet.
+      uint64_t restore_height; // (Optional: Default 0) Height in which to start scanning the blockchain for transactions into and out of this Wallet.
       std::string filename;    // Set the name of the wallet.
       std::string address;     // The public address of the wallet.
       std::string spendkey;    // The private spend key of the wallet
       std::string viewkey;     // The private view key of the wallet.
       std::string password;    // Set password for Wallet.
+      bool autosave_current;   // (Optional: Default true): If a pre-existing wallet is open, save to disk before opening the new wallet.
 
       BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE_OPT(restore_height, (uint64_t)0)
@@ -2281,6 +2287,7 @@ namespace wallet_rpc
       KV_SERIALIZE(spendkey)
       KV_SERIALIZE(viewkey)
       KV_SERIALIZE(password)
+      KV_SERIALIZE_OPT(autosave_current, true)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
@@ -2310,6 +2317,7 @@ namespace wallet_rpc
       std::string seed_offset; // 
       std::string password;    // Set password for Wallet.
       std::string language;    // Set language for the wallet.
+      bool autosave_current;   // (Optional: Default true): If a pre-existing wallet is open, save to disk before opening the new wallet.
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_OPT(restore_height, (uint64_t)0)
@@ -2318,6 +2326,7 @@ namespace wallet_rpc
         KV_SERIALIZE(seed_offset)
         KV_SERIALIZE(password)
         KV_SERIALIZE(language)
+        KV_SERIALIZE_OPT(autosave_current, true)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
