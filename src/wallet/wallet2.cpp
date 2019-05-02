@@ -39,6 +39,7 @@
 #include <boost/algorithm/string/join.hpp>
 #include <boost/asio/ip/address.hpp>
 #include <boost/range/adaptor/transformed.hpp>
+#include <boost/preprocessor/stringize.hpp>
 #include "include_base_utils.h"
 using namespace epee;
 
@@ -343,6 +344,11 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
   {
     std::vector<std::vector<uint8_t>> ssl_allowed_fingerprints{ daemon_ssl_allowed_fingerprints.size() };
     std::transform(daemon_ssl_allowed_fingerprints.begin(), daemon_ssl_allowed_fingerprints.end(), ssl_allowed_fingerprints.begin(), epee::from_hex::vector);
+    for (const auto &fpr: daemon_ssl_allowed_fingerprints)
+    {
+      THROW_WALLET_EXCEPTION_IF(fpr.size() != SSL_FINGERPRINT_SIZE, tools::error::wallet_internal_error,
+          "SHA-256 fingerprint should be " BOOST_PP_STRINGIZE(SSL_FINGERPRINT_SIZE) " bytes long.");
+    }
 
     ssl_options = epee::net_utils::ssl_options_t{
       std::move(ssl_allowed_fingerprints), std::move(daemon_ssl_ca_file)
