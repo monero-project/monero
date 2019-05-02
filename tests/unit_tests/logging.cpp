@@ -44,7 +44,10 @@ static void init()
 
 static void cleanup()
 {
+  // windows does not let files be deleted if still in use, so leave droppings there
+#ifndef _WIN32
   boost::filesystem::remove(log_filename);
+#endif
 }
 
 static size_t nlines(const std::string &str)

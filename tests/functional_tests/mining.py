@@ -43,8 +43,15 @@ from framework.wallet import Wallet
 
 class MiningTest():
     def run_test(self):
+        self.reset()
         self.create()
         self.mine()
+
+    def reset(self):
+        print 'Resetting blockchain'
+        daemon = Daemon()
+        daemon.pop_blocks(1000)
+        daemon.flush_txpool()
 
     def create(self):
         print 'Creating wallet'

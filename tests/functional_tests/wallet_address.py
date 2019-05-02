@@ -39,15 +39,23 @@ Test the following RPCs:
 """
 
 from framework.wallet import Wallet
+from framework.daemon import Daemon
 
 class WalletAddressTest():
     def run_test(self):
+      self.reset()
       self.create()
       self.check_main_address()
       self.check_keys()
       self.create_subaddresses()
       self.open_close()
       self.languages()
+
+    def reset(self):
+        print 'Resetting blockchain'
+        daemon = Daemon()
+        daemon.pop_blocks(1000)
+        daemon.flush_txpool()
 
     def create(self):
         print 'Creating wallet'

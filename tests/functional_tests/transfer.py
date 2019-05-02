@@ -39,12 +39,19 @@ from framework.wallet import Wallet
 
 class TransferTest():
     def run_test(self):
+        self.reset()
         self.create()
         self.mine()
         self.transfer()
         self.check_get_bulk_payments()
         self.check_double_spend_detection()
         self.sweep_single()
+
+    def reset(self):
+        print 'Resetting blockchain'
+        daemon = Daemon()
+        daemon.pop_blocks(1000)
+        daemon.flush_txpool()
 
     def create(self):
         print 'Creating wallets'
