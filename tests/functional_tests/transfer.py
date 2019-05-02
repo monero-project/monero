@@ -49,6 +49,7 @@ class TransferTest():
         self.sweep_dust()
         self.sweep_single()
         self.check_destinations()
+        self.check_tx_notes()
         self.check_rescan()
 
     def reset(self):
@@ -718,6 +719,23 @@ class TransferTest():
             if i == 0:
                 daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 1)
                 self.wallet[0].refresh()
+
+    def check_tx_notes(self):
+        daemon = Daemon()
+
+        print('Testing tx notes')
+        res = self.wallet[0].get_transfers()
+        assert len(res['in']) > 0
+        in_txid = res['in'][0].txid
+        assert len(res['out']) > 0
+        out_txid = res['out'][0].txid
+        res = self.wallet[0].get_tx_notes([in_txid, out_txid])
+        assert res.notes == ['', '']
+        res = self.wallet[0].set_tx_notes([in_txid, out_txid], ['in txid', 'out txid'])
+        res = self.wallet[0].get_tx_notes([in_txid, out_txid])
+        assert res.notes == ['in txid', 'out txid']
+        res = self.wallet[0].get_tx_notes([out_txid, in_txid])
+        assert res.notes == ['out txid', 'in txid']
 
     def check_rescan(self):
         daemon = Daemon()

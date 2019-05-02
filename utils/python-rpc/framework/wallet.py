@@ -911,6 +911,29 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(rescan_spent)
 
+    def set_tx_notes(self, txids = [], notes = []):
+        set_tx_notes = {
+            'method': 'set_tx_notes',
+            'jsonrpc': '2.0',
+            'params': {
+                'txids': txids,
+                'notes': notes,
+            },
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(set_tx_notes)
+
+    def get_tx_notes(self, txids = []):
+        get_tx_notes = {
+            'method': 'get_tx_notes',
+            'jsonrpc': '2.0',
+            'params': {
+                'txids': txids,
+            },
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(get_tx_notes)
+
     def set_attribute(self, key, value):
         set_attribute = {
             'method': 'set_attribute',
