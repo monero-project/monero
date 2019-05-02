@@ -274,6 +274,7 @@ namespace net_utils
 			reciev_machine_state m_state;
 			chunked_state m_chunked_state;
 			std::string m_chunked_cache;
+			bool m_auto_connect;
 			critical_section m_lock;
 
 		public:
@@ -291,6 +292,7 @@ namespace net_utils
 				, m_state()
 				, m_chunked_state()
 				, m_chunked_cache()
+				, m_auto_connect(true)
 				, m_lock()
 			{}
 
@@ -314,6 +316,11 @@ namespace net_utils
 				m_port = std::move(port);
                                 m_auth = user ? http_client_auth{std::move(*user)} : http_client_auth{};
 				m_net_client.set_ssl(std::move(ssl_options));
+			}
+
+			void set_auto_connect(bool auto_connect)
+			{
+				m_auto_connect = auto_connect;
 			}
 
 			template<typename F>
@@ -367,6 +374,11 @@ namespace net_utils
 				CRITICAL_REGION_LOCAL(m_lock);
 				if(!is_connected())
 				{
+					if (!m_auto_connect)
+					{
+						MWARNING("Auto connect attempt to " << m_host_buff << ":" << m_port << " disabled");
+						return false;
+					}
 					MDEBUG("Reconnecting...");
 					if(!connect(timeout))
 					{

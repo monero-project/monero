@@ -3373,7 +3373,7 @@ bool t_rpc_command_executor::prune_blockchain()
         }
     }
 
-    tools::success_msg_writer() << "Blockchain pruned: seed " << epee::string_tools::to_string_hex(res.pruning_seed);
+    tools::success_msg_writer() << "Blockchain pruned";
     return true;
 }
 
