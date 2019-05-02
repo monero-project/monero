@@ -87,12 +87,10 @@ namespace
   void set_confirmations(tools::wallet_rpc::transfer_entry &entry, uint64_t blockchain_height, uint64_t block_reward)
   {
     if (entry.height >= blockchain_height || (entry.height == 0 && (!strcmp(entry.type.c_str(), "pending") || !strcmp(entry.type.c_str(), "pool"))))
-    {
       entry.confirmations = 0;
-      entry.suggested_confirmations_threshold = 0;
-      return;
-    }
-    entry.confirmations = blockchain_height - entry.height;
+    else
+      entry.confirmations = blockchain_height - entry.height;
+
     if (block_reward == 0)
       entry.suggested_confirmations_threshold = 0;
     else
@@ -1848,6 +1846,7 @@ namespace tools
         rpc_transfers.tx_hash      = epee::string_tools::pod_to_hex(td.m_txid);
         rpc_transfers.subaddr_index = {td.m_subaddr_index.major, td.m_subaddr_index.minor};
         rpc_transfers.key_image    = td.m_key_image_known ? epee::string_tools::pod_to_hex(td.m_key_image) : "";
+        rpc_transfers.unlocked     = m_wallet->is_transfer_unlocked(td);
         res.transfers.push_back(rpc_transfers);
       }
     }
