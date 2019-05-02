@@ -412,10 +412,11 @@ namespace trezor {
       CHECK_AND_ASSERT_THROW_MES(msg, "Empty message");
       MDEBUG("on_button_request, code: " << msg->code());
 
+      TREZOR_CALLBACK(on_button_request, msg->code());
+
       messages::common::ButtonAck ack;
       write_raw(&ack);
 
-      TREZOR_CALLBACK(on_button_request, msg->code());
       resp = read_raw();
     }
 

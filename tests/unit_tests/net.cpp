@@ -546,7 +546,7 @@ namespace
             connected(false)
         {
             acceptor.open(boost::asio::ip::tcp::v4());
-            acceptor.bind(stream_type::endpoint{boost::asio::ip::tcp::v4(), 0});
+            acceptor.bind(stream_type::endpoint{boost::asio::ip::address_v4::loopback(), 0});
             acceptor.listen();
             acceptor.async_accept(server, [this] (boost::system::error_code error) {
                 this->connected = true;
@@ -621,7 +621,8 @@ TEST(socks_client, connect_command)
     ASSERT_TRUE(test_client->set_connect_command("example.com", 8080));
     EXPECT_FALSE(test_client->buffer().empty());
     ASSERT_TRUE(net::socks::client::connect_and_send(std::move(test_client), io.acceptor.local_endpoint()));
-    while (!io.connected);
+    while (!io.connected)
+        ASSERT_FALSE(called);
 
     const std::uint8_t expected_bytes[] = {
         4, 1, 0x1f, 0x90, 0x00, 0x00, 0x00, 0x01, 0x00,
@@ -657,7 +658,8 @@ TEST(socks_client, connect_command_failed)
     );
     EXPECT_FALSE(test_client->buffer().empty());
     ASSERT_TRUE(net::socks::client::connect_and_send(std::move(test_client), io.acceptor.local_endpoint()));
-    while (!io.connected);
+    while (!io.connected)
+        ASSERT_FALSE(called);
 
     const std::uint8_t expected_bytes[] = {
         4, 1, 0x0b, 0xb8, 0x00, 0x00, 0x13, 0x88, 0x00
@@ -713,7 +715,8 @@ TEST(socks_client, resolve_command)
     ASSERT_TRUE(test_client->set_resolve_command("example.com"));
     EXPECT_FALSE(test_client->buffer().empty());
     ASSERT_TRUE(net::socks::client::connect_and_send(test_client, io.acceptor.local_endpoint()));
-    while (!io.connected);
+    while (!io.connected)
+        ASSERT_EQ(0u, test_client->called_);
 
     const std::uint8_t expected_bytes[] = {
         4, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00,
@@ -753,7 +756,8 @@ TEST(socks_connector, host)
     boost::unique_future<boost::asio::ip::tcp::socket> sock =
         net::socks::connector{io.acceptor.local_endpoint()}("example.com", "8080", timeout);
 
-    while (!io.connected);
+    while (!io.connected)
+        ASSERT_FALSE(sock.is_ready());
     const std::uint8_t expected_bytes[] = {
         4, 1, 0x1f, 0x90, 0x00, 0x00, 0x00, 0x01, 0x00,
         'e', 'x', 'a', 'm', 'p', 'l', 'e', '.', 'c', 'o', 'm', 0x00
@@ -779,7 +783,8 @@ TEST(socks_connector, ipv4)
     boost::unique_future<boost::asio::ip::tcp::socket> sock =
         net::socks::connector{io.acceptor.local_endpoint()}("250.88.125.99", "8080", timeout);
 
-    while (!io.connected);
+    while (!io.connected)
+        ASSERT_FALSE(sock.is_ready());
     const std::uint8_t expected_bytes[] = {
         4, 1, 0x1f, 0x90, 0xfa, 0x58, 0x7d, 0x63, 0x00
     };
@@ -804,7 +809,8 @@ TEST(socks_connector, error)
     boost::unique_future<boost::asio::ip::tcp::socket> sock =
         net::socks::connector{io.acceptor.local_endpoint()}("250.88.125.99", "8080", timeout);
 
-    while (!io.connected);
+    while (!io.connected)
+        ASSERT_FALSE(sock.is_ready());
     const std::uint8_t expected_bytes[] = {
         4, 1, 0x1f, 0x90, 0xfa, 0x58, 0x7d, 0x63, 0x00
     };
