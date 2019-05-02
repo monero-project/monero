@@ -31,11 +31,13 @@
 #include <libusb.h>
 #endif
 
+#include <algorithm>
 #include <boost/endian/conversion.hpp>
 #include <boost/asio/io_service.hpp>
 #include <boost/asio/ip/udp.hpp>
 #include <boost/date_time/posix_time/posix_time_types.hpp>
 #include <boost/format.hpp>
+#include "common/apply_permutation.h"
 #include "transport.hpp"
 #include "messages/messages-common.pb.h"
 
@@ -93,6 +95,47 @@ namespace trezor{
     const uint32_t mask_2 = (1 << bits_2) - 1;
     CHECK_AND_ASSERT_THROW_MES(major <= mask_1 && minor <= mask_2 && patch <= mask_2, "Version numbers overflow packing scheme");
     return patch | (((uint64_t)minor) << bits_2) | (((uint64_t)major) << (bits_1 + bits_2));
+  }
+
+  typedef struct {
+    uint16_t trezor_type;
+    uint16_t id_vendor;
+    uint16_t id_product;
+  } trezor_usb_desc_t;
+
+  static trezor_usb_desc_t TREZOR_DESC_T1 = {1, 0x534C, 0x0001};
+  static trezor_usb_desc_t TREZOR_DESC_T2 = {2, 0x1209, 0x53C1};
+  static trezor_usb_desc_t TREZOR_DESC_T2_BL = {3, 0x1209, 0x53C0};
+
+  static trezor_usb_desc_t TREZOR_DESCS[] = {
+      TREZOR_DESC_T1,
+      TREZOR_DESC_T2,
+      TREZOR_DESC_T2_BL,
+  };
+
+  static size_t TREZOR_DESCS_LEN = sizeof(TREZOR_DESCS)/sizeof(TREZOR_DESCS[0]);
+
+  static ssize_t get_device_idx(uint16_t id_vendor, uint16_t id_product){
+    for(size_t i = 0; i < TREZOR_DESCS_LEN; ++i){
+      if (TREZOR_DESCS[i].id_vendor == id_vendor && TREZOR_DESCS[i].id_product == id_product){
+        return i;
+      }
+    }
+
+    return -1;
+  }
+
+  static bool is_device_supported(ssize_t device_idx){
+    CHECK_AND_ASSERT_THROW_MES(device_idx < (ssize_t)TREZOR_DESCS_LEN, "Device desc idx too big");
+    if (device_idx < 0){
+      return false;
+    }
+
+#ifdef TREZOR_1_SUPPORTED
+    return true;
+#else
+    return TREZOR_DESCS[device_idx].trezor_type != 1;
+#endif
   }
 
   //
@@ -312,6 +355,24 @@ namespace trezor{
     for(rapidjson::Value::ConstValueIterator itr = bridge_res.Begin(); itr != bridge_res.End(); ++itr){
       auto element = itr->GetObject();
       auto t = std::make_shared<BridgeTransport>(boost::make_optional(json_get_string(element["path"])));
+
+      auto itr_vendor = element.FindMember("vendor");
+      auto itr_product = element.FindMember("product");
+      if (itr_vendor != element.MemberEnd() && itr_product != element.MemberEnd()
+        && itr_vendor->value.IsNumber() && itr_product->value.IsNumber()){
+        try {
+          const auto id_vendor = (uint16_t) itr_vendor->value.GetUint64();
+          const auto id_product = (uint16_t) itr_product->value.GetUint64();
+          const auto device_idx = get_device_idx(id_vendor, id_product);
+          if (!is_device_supported(device_idx)){
+            MDEBUG("Device with idx " << device_idx << " is not supported. Vendor: " << id_vendor << ", product: " << id_product);
+            continue;
+          }
+        } catch(const std::exception &e){
+          MERROR("Could not detect vendor & product: " << e.what());
+        }
+      }
+
       t->m_device_info.emplace();
       t->m_device_info->CopyFrom(*itr, t->m_device_info->GetAllocator());
       res.push_back(t);
@@ -710,24 +771,20 @@ namespace trezor{
 #ifdef WITH_DEVICE_TREZOR_WEBUSB
 
   static bool is_trezor1(libusb_device_descriptor * info){
-    return info->idVendor == 0x534C && info->idProduct == 0x0001;
+    return info->idVendor == TREZOR_DESC_T1.id_vendor && info->idProduct == TREZOR_DESC_T1.id_product;
   }
 
   static bool is_trezor2(libusb_device_descriptor * info){
-    return info->idVendor == 0x1209 && info->idProduct == 0x53C1;
+    return info->idVendor == TREZOR_DESC_T2.id_vendor && info->idProduct == TREZOR_DESC_T2.id_product;
   }
 
   static bool is_trezor2_bl(libusb_device_descriptor * info){
-    return info->idVendor == 0x1209 && info->idProduct == 0x53C0;
+    return info->idVendor == TREZOR_DESC_T2_BL.id_vendor && info->idProduct == TREZOR_DESC_T2_BL.id_product;
   }
 
-  static uint8_t get_trezor_dev_mask(libusb_device_descriptor * info){
-    uint8_t mask = 0;
+  static ssize_t get_trezor_dev_id(libusb_device_descriptor *info){
     CHECK_AND_ASSERT_THROW_MES(info, "Empty device descriptor");
-    mask |= is_trezor1(info) ? 1 : 0;
-    mask |= is_trezor2(info) ? 2 : 0;
-    mask |= is_trezor2_bl(info) ? 4 : 0;
-    return mask;
+    return get_device_idx(info->idVendor, info->idProduct);
   }
 
   static void set_libusb_log(libusb_context *ctx){
@@ -844,12 +901,12 @@ namespace trezor{
         continue;
       }
 
-      const auto trezor_mask = get_trezor_dev_mask(&desc);
-      if (!trezor_mask){
+      const auto trezor_dev_idx = get_trezor_dev_id(&desc);
+      if (!is_device_supported(trezor_dev_idx)){
         continue;
       }
 
-      MTRACE("Found Trezor device: " << desc.idVendor << ":" << desc.idProduct << " mask " << (int)trezor_mask);
+      MTRACE("Found Trezor device: " << desc.idVendor << ":" << desc.idProduct << " dev_idx " << (int)trezor_dev_idx);
 
       auto t = std::make_shared<WebUsbTransport>(boost::make_optional(&desc));
       t->m_bus_id = libusb_get_bus_number(devs[i]);
@@ -909,8 +966,8 @@ namespace trezor{
         continue;
       }
 
-      const auto trezor_mask = get_trezor_dev_mask(&desc);
-      if (!trezor_mask) {
+      const auto trezor_dev_idx = get_trezor_dev_id(&desc);
+      if (!is_device_supported(trezor_dev_idx)){
         continue;
       }
 
@@ -921,7 +978,7 @@ namespace trezor{
       get_libusb_ports(devs[i], path);
 
       MTRACE("Found Trezor device: " << desc.idVendor << ":" << desc.idProduct
-                                     << ", mask: " << (int)trezor_mask
+                                     << ", dev_idx: " << (int)trezor_dev_idx
                                      << ". path: " << get_usb_path(bus_id, path));
 
       if (bus_id == m_bus_id && path == m_port_numbers) {
@@ -1108,6 +1165,39 @@ namespace trezor{
       MERROR("UdpTransport enumeration failed:" << e.what());
     }
 #endif
+  }
+
+  void sort_transports_by_env(t_transport_vect & res){
+    const char *env_trezor_path = getenv("TREZOR_PATH");
+    if (!env_trezor_path){
+      return;
+    }
+    
+    // Sort transports by the longest matching prefix with TREZOR_PATH
+    std::string trezor_path(env_trezor_path);
+    std::vector<size_t> match_idx(res.size());
+    std::vector<size_t> path_permutation(res.size());
+
+    for(size_t i = 0; i < res.size(); ++i){
+      auto cpath = res[i]->get_path();
+      std::string * s1 = &trezor_path;
+      std::string * s2 = &cpath;
+      
+      // first has to be shorter in std::mismatch(). Returns first non-matching iterators.
+      if (s1->size() >= s2->size()){
+        std::swap(s1, s2);
+      }
+
+      const auto mism = std::mismatch(s1->begin(), s1->end(), s2->begin());
+      match_idx[i] = mism.first - s1->begin();
+      path_permutation[i] = i;
+    }
+
+    std::sort(path_permutation.begin(), path_permutation.end(), [&](const size_t i0, const size_t i1) {
+      return match_idx[i0] > match_idx[i1];
+    });
+
+    tools::apply_permutation(path_permutation, res);
   }
 
   std::shared_ptr<Transport> transport(const std::string & path){
