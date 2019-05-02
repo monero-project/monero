@@ -1247,7 +1247,7 @@ private:
      */
     const char* const ATTRIBUTE_DESCRIPTION = "wallet2.description";
     void set_attribute(const std::string &key, const std::string &value);
-    std::string get_attribute(const std::string &key) const;
+    bool get_attribute(const std::string &key, std::string &value) const;
 
     crypto::public_key get_multisig_signer_public_key(const crypto::secret_key &spend_skey) const;
     crypto::public_key get_multisig_signer_public_key() const;
