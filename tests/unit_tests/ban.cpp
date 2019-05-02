@@ -98,10 +98,6 @@ typedef nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<test_cor
 
 static bool is_blocked(Server &server, const epee::net_utils::network_address &address, time_t *t = NULL)
 {
-  // TODO(loki): There's an upstream commit that refactors out the following code into the one-liner that is ifdef'd out here.
-#if 0
-  return server.is_host_blocked(address.host_str(), t);
-#else
   const std::string host = address.host_str();
   std::map<std::string, time_t> hosts = server.get_blocked_hosts();
   for (auto rec: hosts)
@@ -114,7 +110,6 @@ static bool is_blocked(Server &server, const epee::net_utils::network_address &a
     }
   }
   return false;
-#endif
 }
 
 TEST(ban, add)

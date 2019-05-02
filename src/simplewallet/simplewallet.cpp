@@ -4071,6 +4071,14 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
   if (welcome)
     message_writer(console_color_yellow, true) << tr("If you are new to Loki, type \"welcome\" for a brief overview.");
 
+  if (m_long_payment_id_support)
+  {
+    message_writer(console_color_red, false) <<
+        tr("WARNING: obsolete long payment IDs are enabled. Sending transactions with those payment IDs are bad for your privacy.");
+    message_writer(console_color_red, false) <<
+        tr("It is recommended that you do not use them, and ask recipients who ask for one to not endanger your privacy.");
+  }
+
   return true;
 }
 //----------------------------------------------------------------------------------------------------
