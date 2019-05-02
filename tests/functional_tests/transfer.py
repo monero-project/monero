@@ -118,7 +118,7 @@ class TransferTest():
         except: ok = True
         assert ok
 
-        res = self.wallet[0].transfer([dst], ring_size = 11, payment_id = payment_id, get_tx_key = False)
+        res = self.wallet[0].transfer([dst], ring_size = 11, payment_id = payment_id, get_tx_key = False, get_tx_hex = True)
         assert len(res.tx_hash) == 32*2
         txid = res.tx_hash
         assert len(res.tx_key) == 0
@@ -126,11 +126,18 @@ class TransferTest():
         amount = res.amount
         assert res.fee > 0
         fee = res.fee
-        assert len(res.tx_blob) == 0
+        assert len(res.tx_blob) > 0
+        blob_size = len(res.tx_blob) // 2
         assert len(res.tx_metadata) == 0
         assert len(res.multisig_txset) == 0
         assert len(res.unsigned_txset) == 0
         unsigned_txset = res.unsigned_txset
+
+        res = daemon.get_fee_estimate(10)
+        assert res.fee > 0
+        assert res.quantization_mask > 0
+        expected_fee = (res.fee * 1 * blob_size + res.quantization_mask - 1) // res.quantization_mask * res.quantization_mask
+        assert abs(1 - fee / expected_fee) < 0.01
 
         self.wallet[0].refresh()
 
