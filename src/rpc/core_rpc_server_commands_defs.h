@@ -2070,7 +2070,7 @@ namespace cryptonote
     struct response_t
     {
       std::string status;
-      std::list<chain_info> chains;
+      std::vector<chain_info> chains;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(status)

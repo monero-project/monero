@@ -1861,7 +1861,9 @@ bool t_rpc_command_executor::alt_chain_info(const std::string &tip)
   if (tip.empty())
   {
     tools::msg_writer() << boost::lexical_cast<std::string>(res.chains.size()) << " alternate chains found:";
-    for (const auto &chain: res.chains)
+    auto chains = res.chains;
+    std::sort(chains.begin(), chains.end(), [](const cryptonote::COMMAND_RPC_GET_ALTERNATE_CHAINS::chain_info &info0, cryptonote::COMMAND_RPC_GET_ALTERNATE_CHAINS::chain_info &info1){ return info0.height < info1.height; });
+    for (const auto &chain: chains)
     {
       uint64_t start_height = (chain.height - chain.length + 1);
       tools::msg_writer() << chain.length << " blocks long, from height " << start_height << " (" << (ires.height - start_height - 1)
