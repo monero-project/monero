@@ -43,6 +43,7 @@ using namespace epee;
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "cryptonote_basic/account.h"
 #include "cryptonote_basic/cryptonote_basic_impl.h"
+#include "cryptonote_core/tx_sanity_check.h"
 #include "misc_language.h"
 #include "net/parse.h"
 #include "storages/http_abstract_invoke.h"
@@ -832,6 +833,14 @@ namespace cryptonote
       return true;
     }
 
+    if (req.do_sanity_checks && !cryptonote::tx_sanity_check(m_core.get_blockchain_storage(), tx_blob))
+    {
+      res.status = "Failed";
+      res.reason = "Sanity check failed";
+      res.sanity_check_failed = true;
+      return true;
+    }
+
     cryptonote_connection_context fake_context = AUTO_VAL_INIT(fake_context);
     tx_verification_context tvc = AUTO_VAL_INIT(tvc);
     if(!m_core.handle_incoming_tx(tx_blob, tvc, false, false, req.do_not_relay) || tvc.m_verifivation_failed)
@@ -1394,11 +1403,9 @@ namespace cryptonote
     submit_req.push_back(boost::value_initialized<std::string>());
     res.height = m_core.get_blockchain_storage().get_current_blockchain_height();
 
-    bool r = CORE_RPC_STATUS_OK;
-
     for(size_t i = 0; i < req.amount_of_blocks; i++)
     {
-      r = on_getblocktemplate(template_req, template_res, error_resp, ctx);
+      bool r = on_getblocktemplate(template_req, template_res, error_resp, ctx);
       res.status = template_res.status;
       template_req.prev_block.clear();
       

@@ -684,11 +684,13 @@ namespace cryptonote
     struct request_t
     {
       std::string tx_as_hex; // Full transaction information as hexidecimal string.
-      bool do_not_relay;     // Stop relaying transaction to other nodes (default is `false`).
+      bool do_not_relay;     // (Optional: Default false) Stop relaying transaction to other nodes.
+      bool do_sanity_checks; // (Optional: Default true) Verify TX params have sane values.
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(tx_as_hex)
         KV_SERIALIZE_OPT(do_not_relay, false)
+        KV_SERIALIZE_OPT(do_sanity_checks, true)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
@@ -701,11 +703,13 @@ namespace cryptonote
       bool not_relayed;   // Transaction was not relayed (true) or relayed (false).
       bool untrusted;     // States if the result is obtained using the bootstrap mode, and is therefore not trusted (`true`), or when the daemon is fully synced (`false`).
       tx_verification_context tvc;
+      bool sanity_check_failed;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(status)
         KV_SERIALIZE(reason)
         KV_SERIALIZE(not_relayed)
+        KV_SERIALIZE(sanity_check_failed)
         KV_SERIALIZE(untrusted)
         KV_SERIALIZE(tvc)
       END_KV_SERIALIZE_MAP()

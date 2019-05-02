@@ -428,9 +428,10 @@ namespace net_utils
 			
 				handler_obj hndlr(ec, bytes_transfered);
 
-				char local_buff[10000] = {0};
+				static const size_t max_size = 16384;
+				buff.resize(max_size);
 				
-				async_read(local_buff, sizeof(local_buff), boost::asio::transfer_at_least(1), hndlr);
+				async_read(&buff[0], max_size, boost::asio::transfer_at_least(1), hndlr);
 
 				// Block until the asynchronous operation has completed.
 				while (ec == boost::asio::error::would_block && !boost::interprocess::ipcdetail::atomic_read32(&m_shutdowned))
@@ -463,7 +464,7 @@ namespace net_utils
 					return false;*/
 
 				m_bytes_received += bytes_transfered;
-				buff.assign(local_buff, bytes_transfered);
+				buff.resize(bytes_transfered);
 				return true;
 			}
 
