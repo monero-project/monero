@@ -33,8 +33,8 @@
 #include "misc_log_ex.h"
 #include "net/net_ssl.h"
 
-#undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "net.ssl"
+#undef LOKI_DEFAULT_LOG_CATEGORY
+#define LOKI_DEFAULT_LOG_CATEGORY "net.ssl"
 
 // openssl genrsa -out /tmp/KEY 4096
 // openssl req -new -key /tmp/KEY -out /tmp/REQ

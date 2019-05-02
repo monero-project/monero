@@ -33,8 +33,8 @@
 #include "blockchain.h"
 #include "tx_sanity_check.h"
 
-#undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "verify"
+#undef LOKI_DEFAULT_LOG_CATEGORY
+#define LOKI_DEFAULT_LOG_CATEGORY "verify"
 
 namespace cryptonote
 {
