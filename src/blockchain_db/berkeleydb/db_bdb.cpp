@@ -1654,36 +1654,6 @@ tx_out_index BlockchainBDB::get_output_tx_and_index(const uint64_t& amount, cons
     return indices[0];
 }
 
-std::vector<uint64_t> BlockchainBDB::get_tx_output_indices(const crypto::hash& h) const
-{
-    LOG_PRINT_L3("BlockchainBDB::" << __func__);
-    check_open();
-    std::vector<uint64_t> index_vec;
-
-    bdb_cur cur(DB_DEFAULT_TX, m_tx_outputs);
-
-    Dbt_copy<crypto::hash> k(h);
-    Dbt_copy<uint32_t> v;
-    auto result = cur->get(&k, &v, DB_SET);
-    if (result == DB_NOTFOUND)
-        throw1(OUTPUT_DNE("Attempting to get an output by tx hash and tx index, but output not found"));
-    else if (result)
-        throw0(DB_ERROR("DB error attempting to get an output"));
-
-    db_recno_t num_elems = 0;
-    cur->count(&num_elems, 0);
-
-    for (uint64_t i = 0; i < num_elems; ++i)
-    {
-        index_vec.push_back(v);
-        cur->get(&k, &v, DB_NEXT_DUP);
-    }
-
-    cur.close();
-
-    return index_vec;
-}
-
 std::vector<uint64_t> BlockchainBDB::get_tx_amount_output_indices(const crypto::hash& h) const
 {
     LOG_PRINT_L3("BlockchainBDB::" << __func__);
