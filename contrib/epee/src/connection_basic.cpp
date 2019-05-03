@@ -274,6 +274,12 @@ void connection_basic::do_send_handler_write_from_queue( const boost::system::er
 	MTRACE("handler_write (after write, from queue="<<q_len<<") - before ASIO write, for packet="<<cb<<" B (after sleep)");
 }
 
+std::string connection_basic::get_ssl_info() {
+  if (m_ssl_support != epee::net_utils::ssl_support_t::e_ssl_support_enabled)
+    return "";
+  return epee::net_utils::get_ssl_info(socket_);
+}
+
 void connection_basic::logger_handle_net_read(size_t size) { // network data read
 }
 

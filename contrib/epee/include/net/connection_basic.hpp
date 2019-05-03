@@ -172,6 +172,8 @@ class connection_basic { // not-templated base class for rapid developmet of som
 		void logger_handle_net_write(size_t size); // network data written
 		void logger_handle_net_read(size_t size); // network data read
 
+		std::string get_ssl_info();
+
 		// config for rate limit
 		
 		static void set_rate_up_limit(uint64_t limit);

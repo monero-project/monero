@@ -601,6 +601,11 @@ namespace net_utils
 			return m_bytes_received;
 		}
 
+		std::string get_ssl_info() const
+		{
+			return epee::net_utils::get_ssl_info(*m_ssl_socket);
+		}
+
 	private:
 
 		void check_deadline()

@@ -10143,7 +10143,7 @@ bool simple_wallet::status(const std::vector<std::string> &args)
   {
     bool synced = local_height == bc_height;
     success_msg_writer() << "Refreshed " << local_height << "/" << bc_height << ", " << (synced ? "synced" : "syncing")
-        << ", daemon RPC v" << get_version_string(version) << ", " << (ssl ? "SSL" : "no SSL");
+        << ", daemon RPC v" << get_version_string(version) << ", " << (ssl ? "SSL (" + m_wallet->get_ssl_info() + ")" : "no SSL");
   }
   else
   {

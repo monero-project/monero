@@ -52,6 +52,7 @@ public:
   bool is_connected(bool *ssl = NULL) { return true; }
   uint64_t get_bytes_sent() const  { return 1; }
   uint64_t get_bytes_received() const { return 1; }
+  std::string get_ssl_info() const { return ""; }
 
   void set_test_data(const std::string &s) { data = s; }
 

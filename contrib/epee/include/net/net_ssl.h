@@ -148,6 +148,8 @@ namespace net_utils
 
   //! Store private key for `ssl` at `base + ".key"` unencrypted and certificate for `ssl` at `base + ".crt"`.
   boost::system::error_code store_ssl_keys(boost::asio::ssl::context& ssl, const boost::filesystem::path& base);
+
+	std::string get_ssl_info(boost::asio::ssl::stream<boost::asio::ip::tcp::socket> &socket);
 }
 }
 

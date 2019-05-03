@@ -1550,6 +1550,7 @@ private:
 
     uint64_t get_bytes_sent() const;
     uint64_t get_bytes_received() const;
+    std::string get_ssl_info();
 
     // MMS -------------------------------------------------------------------------------------------------
     mms::message_store& get_message_store() { return m_message_store; };
