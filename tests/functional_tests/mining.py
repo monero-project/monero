@@ -48,6 +48,7 @@ class MiningTest():
         self.create()
         self.mine(True)
         self.mine(False)
+        self.submitblock()
 
     def reset(self):
         print('Resetting blockchain')
@@ -139,6 +140,33 @@ class MiningTest():
             res = wallet.stop_mining()
         res_status = daemon.mining_status()
         assert res_status.active == False
+
+    def submitblock(self):
+        print "Test submitblock"
+
+        daemon = Daemon()
+        res = daemon.get_height()
+        height = res.height
+        res = daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 5)
+        assert len(res.blocks) == 5
+        hashes = res.blocks
+        blocks = []
+        for block_hash in hashes:
+            res = daemon.getblock(hash = block_hash)
+            assert len(res.blob) > 0 and len(res.blob) % 2 == 0
+            blocks.append(res.blob)
+        res = daemon.get_height()
+        assert res.height == height + 5
+        res = daemon.pop_blocks(5)
+        res = daemon.get_height()
+        assert res.height == height
+        for i in range(len(hashes)):
+            block_hash = hashes[i]
+            assert len(block_hash) == 64
+            res = daemon.submitblock(blocks[i])
+            res = daemon.get_height()
+            assert res.height == height + i + 1
+            assert res.hash == block_hash
 
 
 if __name__ == '__main__':
