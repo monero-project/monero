@@ -149,6 +149,11 @@ public:
     bool hasMultisigPartialKeyImages() const override;
     PendingTransaction*  restoreMultisigTransaction(const std::string& signData) override;
 
+    PendingTransaction * createTransactionMultDest(const std::vector<std::string> &dst_addr, const std::string &payment_id,
+                                        optional<std::vector<uint64_t>> amount, uint32_t mixin_count,
+                                        PendingTransaction::Priority priority = PendingTransaction::Priority_Low,
+                                        uint32_t subaddr_account = 0,
+                                        std::set<uint32_t> subaddr_indices = {}) override;
     PendingTransaction * createTransaction(const std::string &dst_addr, const std::string &payment_id,
                                         optional<uint64_t> amount, uint32_t mixin_count,
                                         PendingTransaction::Priority priority = PendingTransaction::Priority_Low,
