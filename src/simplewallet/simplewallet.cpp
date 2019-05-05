@@ -253,8 +253,8 @@ namespace
   //
   // Loki
   //
-  const char* USAGE_REGISTER_SERVICE_NODE("register_service_node [index=<N1>[,<N2>,...]] [priority] <operator cut> <address1> <fraction1> [<address2> <fraction2> [...]] <expiration timestamp> <pubkey> <signature>");
-  const char* USAGE_STAKE("stake [index=<N1>[,<N2>,...]] [priority] <service node pubkey> <amount|percent%>");
+  const char* USAGE_REGISTER_SERVICE_NODE("register_service_node [index=<N1>[,<N2>,...]] [<priority>] <operator cut> <address1> <fraction1> [<address2> <fraction2> [...]] <expiration timestamp> <pubkey> <signature>");
+  const char* USAGE_STAKE("stake [index=<N1>[,<N2>,...]] [<priority>] <service node pubkey> <amount|percent%>");
   const char* USAGE_REQUEST_STAKE_UNLOCK("request_stake_unlock <service_node_pubkey>");
   const char* USAGE_PRINT_LOCKED_STAKES("print_locked_stakes");
 
@@ -2986,15 +2986,15 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("register_service_node",
                            boost::bind(&simple_wallet::register_service_node, this, _1),
                            tr(USAGE_REGISTER_SERVICE_NODE),
-                           tr("Send <amount> to this wallet's main account, locked for the required staking time plus a small buffer. If the parameter \"index<N1>[,<N2>,...]\" is specified, the wallet stakes outputs received by those address indices. <priority> is the priority of the stake. The higher the priority, the higher the transaction fee. Valid values in priority order (from lowest to highest) are: unimportant, normal, elevated, priority. If omitted, the default value (see the command \"set priority\") is used."));
+                           tr("Send <amount> to this wallet's main account and lock it as an operator stake for a new Service Node. This command is typically generated on the Service Node via the `prepare_registration' lokid command. The optional index= and <priority> parameters work as in the `transfer' command."));
   m_cmd_binder.set_handler("stake",
                            boost::bind(&simple_wallet::stake, this, _1),
                            tr(USAGE_STAKE),
-                           tr("Send all unlocked balance to an address. If the parameter \"index<N1>[,<N2>,...]\" is specified, the wallet sweeps outputs received by those address indices. If omitted, the wallet randomly chooses an address index to be used. If the parameter \"outputs=<N>\" is specified and  N > 0, wallet splits the transaction into N even outputs."));
+                           tr("Send a transfer to this wallet's main account and lock it as a contribution stake to the given Service Node (which must be registered and awaiting contributions). The stake amount may be specified either as a fixed amount or as a percentage of the Service Node's total stake. The optional index= and <priority> parameters work as in the `transfer' command."));
   m_cmd_binder.set_handler("request_stake_unlock",
                            boost::bind(&simple_wallet::request_stake_unlock, this, _1),
                            tr(USAGE_REQUEST_STAKE_UNLOCK),
-                           tr("Request a stake currently locked in a Service Node to be unlocked on the network"));
+                           tr("Request a stake currently locked in the given Service Node to be unlocked on the network"));
   m_cmd_binder.set_handler("print_locked_stakes",
                            boost::bind(&simple_wallet::print_locked_stakes, this, _1),
                            tr(USAGE_PRINT_LOCKED_STAKES),
