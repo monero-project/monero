@@ -30,6 +30,7 @@
 
 #include <unistd.h>
 #include <cstdio>
+#include <wchar.h>
 
 #ifdef __GLIBC__
 #include <gnu/libc-version.h>
@@ -67,6 +68,7 @@ using namespace epee;
 #include "memwipe.h"
 #include "cryptonote_config.h"
 #include "net/http_client.h"                        // epee::net_utils::...
+#include "readline_buffer.h"
 
 #ifdef WIN32
 #ifndef STRSAFE_NO_DEPRECATE
@@ -1117,6 +1119,164 @@ std::string get_nix_version_display_string()
     );
     const std::uint64_t divisor = size->bytes / 1024;
     return (boost::format(size->format) % (double(bytes) / divisor)).str();
+  }
+
+  void clear_screen()
+  {
+    std::cout << "\033[2K" << std::flush; // clear whole line
+    std::cout << "\033c" << std::flush; // clear current screen and scrollback
+    std::cout << "\033[2J" << std::flush; // clear current screen only, scrollback is still around
+    std::cout << "\033[3J" << std::flush; // does nothing, should clear current screen and scrollback
+    std::cout << "\033[1;1H" << std::flush; // move cursor top/left
+    std::cout << "\r                                                \r" << std::flush; // erase odd chars if the ANSI codes were printed raw
+#ifdef _WIN32
+    COORD coord{0, 0};
+    CONSOLE_SCREEN_BUFFER_INFO csbi;
+    HANDLE h = GetStdHandle(STD_OUTPUT_HANDLE);
+    if (GetConsoleScreenBufferInfo(h, &csbi))
+    {
+      DWORD cbConSize = csbi.dwSize.X * csbi.dwSize.Y, w;
+      FillConsoleOutputCharacter(h, (TCHAR)' ', cbConSize, coord, &w);
+      if (GetConsoleScreenBufferInfo(h, &csbi))
+        FillConsoleOutputAttribute(h, csbi.wAttributes, cbConSize, coord, &w);
+      SetConsoleCursorPosition(h, coord);
+    }
+#endif
+  }
+
+  std::pair<std::string, size_t> get_string_prefix_by_width(const std::string &s, size_t columns)
+  {
+    std::string sc = "";
+    size_t avail = s.size();
+    const char *ptr = s.data();
+    wint_t cp = 0;
+    int bytes = 1;
+    size_t sw = 0;
+    char wbuf[8], *wptr;
+    while (avail--)
+    {
+      if ((*ptr & 0x80) == 0)
+      {
+        cp = *ptr++;
+        bytes = 1;
+      }
+      else if ((*ptr & 0xe0) == 0xc0)
+      {
+        if (avail < 1)
+        {
+          MERROR("Invalid UTF-8");
+          return std::make_pair(s, s.size());
+        }
+        cp = (*ptr++ & 0x1f) << 6;
+        cp |= *ptr++ & 0x3f;
+        --avail;
+        bytes = 2;
+      }
+      else if ((*ptr & 0xf0) == 0xe0)
+      {
+        if (avail < 2)
+        {
+          MERROR("Invalid UTF-8");
+          return std::make_pair(s, s.size());
+        }
+        cp = (*ptr++ & 0xf) << 12;
+        cp |= (*ptr++ & 0x3f) << 6;
+        cp |= *ptr++ & 0x3f;
+        avail -= 2;
+        bytes = 3;
+      }
+      else if ((*ptr & 0xf8) == 0xf0)
+      {
+        if (avail < 3)
+        {
+          MERROR("Invalid UTF-8");
+          return std::make_pair(s, s.size());
+        }
+        cp = (*ptr++ & 0x7) << 18;
+        cp |= (*ptr++ & 0x3f) << 12;
+        cp |= (*ptr++ & 0x3f) << 6;
+        cp |= *ptr++ & 0x3f;
+        avail -= 3;
+        bytes = 4;
+      }
+      else
+      {
+        MERROR("Invalid UTF-8");
+        return std::make_pair(s, s.size());
+      }
+
+      wptr = wbuf;
+      switch (bytes)
+      {
+        case 1: *wptr++ = cp; break;
+        case 2: *wptr++ = 0xc0 | (cp >> 6); *wptr++ = 0x80 | (cp & 0x3f); break;
+        case 3: *wptr++ = 0xe0 | (cp >> 12); *wptr++ = 0x80 | ((cp >> 6) & 0x3f); *wptr++ = 0x80 | (cp & 0x3f); break;
+        case 4: *wptr++ = 0xf0 | (cp >> 18); *wptr++ = 0x80 | ((cp >> 12) & 0x3f); *wptr++ = 0x80 | ((cp >> 6) & 0x3f); *wptr++ = 0x80 | (cp & 0x3f); break;
+        default: MERROR("Invalid UTF-8"); return std::make_pair(s, s.size());
+      }
+      *wptr = 0;
+      sc += std::string(wbuf, bytes);
+#ifdef _WIN32
+      int cpw = 1; // Guess who does not implement wcwidth
+#else
+      int cpw = wcwidth(cp);
+#endif
+      if (cpw > 0)
+      {
+        if (cpw > (int)columns)
+          break;
+        columns -= cpw;
+        sw += cpw;
+      }
+      cp = 0;
+      bytes = 1;
+    }
+    return std::make_pair(sc, sw);
+  }
+
+  size_t get_string_width(const std::string &s)
+  {
+    return get_string_prefix_by_width(s, 999999999).second;
+  };
+
+  std::vector<std::pair<std::string, size_t>> split_string_by_width(const std::string &s, size_t columns)
+  {
+    std::vector<std::string> words;
+    std::vector<std::pair<std::string, size_t>> lines;
+    boost::split(words, s, boost::is_any_of(" "), boost::token_compress_on);
+    // split large "words"
+    for (size_t i = 0; i < words.size(); ++i)
+    {
+      for (;;)
+      {
+        std::string prefix = get_string_prefix_by_width(words[i], columns).first;
+        if (prefix == words[i])
+          break;
+        words[i] = words[i].substr(prefix.size());
+        words.insert(words.begin() + i, prefix);
+      }
+    }
+
+    lines.push_back(std::make_pair("", 0));
+    while (!words.empty())
+    {
+      const size_t word_len = get_string_width(words.front());
+      size_t line_len = get_string_width(lines.back().first);
+      if (line_len > 0 && line_len + 1 + word_len > columns)
+      {
+        lines.push_back(std::make_pair("", 0));
+        line_len = 0;
+      }
+      if (line_len > 0)
+      {
+        lines.back().first += " ";
+        lines.back().second++;
+      }
+      lines.back().first += words.front();
+      lines.back().second += word_len;
+      words.erase(words.begin());
+    }
+    return lines;
   }
 
 }

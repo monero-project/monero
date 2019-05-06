@@ -40,5 +40,7 @@ namespace rdln
     readline_buffer* m_buffer;
     bool m_restart;
   };
+
+  void clear_screen();
 }
 
