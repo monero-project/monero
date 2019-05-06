@@ -115,10 +115,14 @@ namespace trezor {
 
         MDEBUG("Enumerating Trezor devices...");
         enumerate(trans);
+        sort_transports_by_env(trans);
 
-        MDEBUG("Enumeration yielded " << trans.size() << " devices");
+        MDEBUG("Enumeration yielded " << trans.size() << " Trezor devices");
         for (auto &cur : trans) {
           MDEBUG("  device: " << *(cur.get()));
+        }
+
+        for (auto &cur : trans) {
           std::string cur_path = cur->get_path();
           if (boost::starts_with(cur_path, this->name)) {
             MDEBUG("Device Match: " << cur_path);

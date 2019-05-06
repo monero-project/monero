@@ -321,7 +321,7 @@ bool ssl_options_t::has_fingerprint(boost::asio::ssl::verify_context &ctx) const
     unsigned int size{ 0 };
 
     // create the digest from the certificate
-    if (!X509_digest(cert, EVP_sha1(), digest.data(), &size)) {
+    if (!X509_digest(cert, EVP_sha256(), digest.data(), &size)) {
       MERROR("Failed to create certificate fingerprint");
       return false;
     }

@@ -32,6 +32,7 @@
 #include <boost/asio/ip/address.hpp>
 #include <boost/filesystem/operations.hpp>
 #include <boost/algorithm/string.hpp>
+#include <boost/preprocessor/stringize.hpp>
 #include <cstdint>
 #include "include_base_utils.h"
 using namespace epee;
@@ -255,6 +256,14 @@ namespace tools
     {
       std::vector<std::vector<uint8_t>> allowed_fingerprints{ rpc_ssl_allowed_fingerprints.size() };
       std::transform(rpc_ssl_allowed_fingerprints.begin(), rpc_ssl_allowed_fingerprints.end(), allowed_fingerprints.begin(), epee::from_hex::vector);
+      for (const auto &fpr: rpc_ssl_allowed_fingerprints)
+      {
+        if (fpr.size() != SSL_FINGERPRINT_SIZE)
+        {
+          MERROR("SHA-256 fingerprint should be " BOOST_PP_STRINGIZE(SSL_FINGERPRINT_SIZE) " bytes long.");
+          return false;
+        }
+      }
 
       rpc_ssl_options = epee::net_utils::ssl_options_t{
         std::move(allowed_fingerprints), std::move(rpc_ssl_ca_file)
@@ -4067,9 +4076,10 @@ namespace tools
       { cryptonote::TESTNET, "testnet" },
       { cryptonote::STAGENET, "stagenet" },
     };
+    if (!req.any_net_type && !m_wallet) return not_open(er);
     for (const auto &net_type: net_types)
     {
-      if (!req.any_net_type && net_type.type != m_wallet->nettype())
+      if (!req.any_net_type && (!m_wallet || net_type.type != m_wallet->nettype()))
         continue;
       if (req.allow_openalias)
       {
@@ -4151,6 +4161,7 @@ namespace tools
     {
       er.code = WALLET_RPC_ERROR_CODE_NO_DAEMON_CONNECTION;
       er.message = "SSL is enabled but no user certificate or fingerprints were provided";
+      return false;
     }
 
     if (!m_wallet->set_daemon(req.address, boost::none, req.trusted, std::move(ssl_options)))
@@ -4175,7 +4186,7 @@ namespace tools
     {
       er.code = WALLET_RPC_ERROR_CODE_INVALID_LOG_LEVEL;
       er.message = "Error: log level not valid";
-      return true;
+      return false;
     }
     mlog_set_log_level(req.level);
     return true;
