@@ -8109,8 +8109,30 @@ bool wallet2::tx_add_fake_output(std::vector<std::vector<tools::wallet2::get_out
   // check the keys are valid
   if (!rct::isInMainSubgroup(rct::pk2rct(output_public_key)))
   {
-    MWARNING("Key " << output_public_key << " at index " << global_index << " is not in the main subgroup");
-    return false;
+    // TODO(loki): FIXME(loki): Payouts to the null service node address are
+    // transactions constructed with an invalid public key and fail this check.
+
+    // Technically we should not be mixing them- but in test environments like
+    // stagenet/testnet where there may be extended periods of time where there
+    // are many payouts to the null service node, then during fake output
+    // selection they are considered invalid.
+
+    // And upon removing all of them, we end up with insufficient outputs to
+    // construct a valid mixin for the transaction. This causes construction to
+    // spuriously fail reliably on such networks.
+
+    // So for now, let it slide on test networks. Ideally we want to fix this,
+    // such that we never include them for "correctness" of the network.
+
+    // For mainnet though, enforce this check. If we start failing to construct
+    // transaction(s) on the mainnet due to invalid keys then we want to know
+    // and address it, as it is at the moment mainnet is not affected by this
+    // and so we want the added correctness this check offers.
+    if (nettype() == cryptonote::MAINNET)
+    {
+      MWARNING("Key " << output_public_key << " at index " << global_index << " is not in the main subgroup");
+      return false;
+    }
   }
   if (!rct::isInMainSubgroup(mask))
   {
