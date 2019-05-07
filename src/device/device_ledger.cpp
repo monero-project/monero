@@ -307,8 +307,8 @@ namespace hw {
     bool device_ledger::reset() {
       reset_buffer();
       int offset = set_command_header_noopt(INS_RESET);
-      memmove(this->buffer_send+offset, MONERO_VERSION, strlen(MONERO_VERSION));
-      offset += strlen(MONERO_VERSION);
+      memmove(this->buffer_send+offset, LOKI_VERSION, strlen(LOKI_VERSION));
+      offset += strlen(LOKI_VERSION);
       this->buffer_send[4] = offset-5;
       this->length_send = offset;
       this->exchange();
