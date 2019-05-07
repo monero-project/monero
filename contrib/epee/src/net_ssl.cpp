@@ -78,6 +78,24 @@ namespace
   };
   using openssl_bignum = std::unique_ptr<BIGNUM, openssl_bignum_free>;
 
+  struct openssl_ec_key_free
+  {
+    void operator()(EC_KEY* ptr) const noexcept
+    {
+      EC_KEY_free(ptr);
+    }
+  };
+  using openssl_ec_key = std::unique_ptr<EC_KEY, openssl_ec_key_free>;
+
+  struct openssl_group_free
+  {
+    void operator()(EC_GROUP* ptr) const noexcept
+    {
+      EC_GROUP_free(ptr);
+    }
+  };
+  using openssl_group = std::unique_ptr<EC_GROUP, openssl_group_free>;
+
   boost::system::error_code load_ca_file(boost::asio::ssl::context& ctx, const std::string& path)
   {
     SSL_CTX* const ssl_ctx = ctx.native_handle(); // could be moved from context
@@ -101,7 +119,7 @@ namespace net_utils
 
 
 // https://stackoverflow.com/questions/256405/programmatically-create-x509-certificate-using-openssl
-bool create_ssl_certificate(EVP_PKEY *&pkey, X509 *&cert)
+bool create_rsa_ssl_certificate(EVP_PKEY *&pkey, X509 *&cert)
 {
   MGINFO("Generating SSL certificate");
   pkey = EVP_PKEY_new();
@@ -171,6 +189,87 @@ bool create_ssl_certificate(EVP_PKEY *&pkey, X509 *&cert)
   return true;
 }
 
+bool create_ec_ssl_certificate(EVP_PKEY *&pkey, X509 *&cert, int type)
+{
+  MGINFO("Generating SSL certificate");
+  pkey = EVP_PKEY_new();
+  if (!pkey)
+  {
+    MERROR("Failed to create new private key");
+    return false;
+  }
+
+  openssl_pkey pkey_deleter{pkey};
+  openssl_ec_key ec_key{EC_KEY_new()};
+  if (!ec_key)
+  {
+    MERROR("Error allocating EC private key");
+    return false;
+  }
+
+  EC_GROUP *group = EC_GROUP_new_by_curve_name(type);
+  if (!group)
+  {
+    MERROR("Error getting EC group " << type);
+    return false;
+  }
+  openssl_group group_deleter{group};
+
+  EC_GROUP_set_asn1_flag(group, OPENSSL_EC_NAMED_CURVE); 
+  EC_GROUP_set_point_conversion_form(group, POINT_CONVERSION_UNCOMPRESSED);
+
+  if (!EC_GROUP_check(group, NULL))
+  {
+    MERROR("Group failed check: " << ERR_reason_error_string(ERR_get_error()));
+    return false;
+  }
+  if (EC_KEY_set_group(ec_key.get(), group) != 1)
+  {
+    MERROR("Error setting EC group");
+    return false;
+  }
+  if (EC_KEY_generate_key(ec_key.get()) != 1)
+  {
+    MERROR("Error generating EC private key");
+    return false;
+  }
+  if (EVP_PKEY_assign_EC_KEY(pkey, ec_key.get()) <= 0)
+  {
+    MERROR("Error assigning EC private key");
+    return false;
+  }
+
+  // the key is now managed by the EVP_PKEY structure
+  (void)ec_key.release();
+
+  cert = X509_new();
+  if (!cert)
+  {
+    MERROR("Failed to create new X509 certificate");
+    return false;
+  }
+  ASN1_INTEGER_set(X509_get_serialNumber(cert), 1);
+  X509_gmtime_adj(X509_get_notBefore(cert), 0);
+  X509_gmtime_adj(X509_get_notAfter(cert), 3600 * 24 * 182); // half a year
+  if (!X509_set_pubkey(cert, pkey))
+  {
+    MERROR("Error setting pubkey on certificate");
+    X509_free(cert);
+    return false;
+  }
+  X509_NAME *name = X509_get_subject_name(cert);
+  X509_set_issuer_name(cert, name);
+
+  if (X509_sign(cert, pkey, EVP_sha256()) == 0)
+  {
+    MERROR("Error signing certificate");
+    X509_free(cert);
+    return false;
+  }
+  (void)pkey_deleter.release();
+  return true;
+}
+
 ssl_options_t::ssl_options_t(std::vector<std::vector<std::uint8_t>> fingerprints, std::string ca_path)
   : fingerprints_(std::move(fingerprints)),
     ca_path(std::move(ca_path)),
@@ -195,7 +294,7 @@ boost::asio::ssl::context ssl_options_t::create_context() const
   ssl_context.set_options(boost::asio::ssl::context::no_tlsv1_1);
 
   // only allow a select handful of tls v1.3 and v1.2 ciphers to be used
-  SSL_CTX_set_cipher_list(ssl_context.native_handle(), "ECDHE-ECDSA-CHACHA20-POLY1305-SHA256:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES256-SHA384:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-CHACHA20-POLY1305");
+  SSL_CTX_set_cipher_list(ssl_context.native_handle(), "ECDHE-ECDSA-CHACHA20-POLY1305-SHA256:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-SHA256");
 
   // set options on the SSL context for added security
   SSL_CTX *ctx = ssl_context.native_handle();
@@ -214,6 +313,10 @@ boost::asio::ssl::context ssl_options_t::create_context() const
 #ifdef SSL_OP_NO_COMPRESSION
   SSL_CTX_set_options(ctx, SSL_OP_NO_COMPRESSION);
 #endif
+#ifdef SSL_OP_CIPHER_SERVER_PREFERENCE
+  SSL_CTX_set_options(ctx, SSL_OP_CIPHER_SERVER_PREFERENCE);
+#endif
+  SSL_CTX_set_ecdh_auto(ctx, 1);
 
   switch (verification)
   {
@@ -240,11 +343,29 @@ boost::asio::ssl::context ssl_options_t::create_context() const
   {
     EVP_PKEY *pkey;
     X509 *cert;
-    CHECK_AND_ASSERT_THROW_MES(create_ssl_certificate(pkey, cert), "Failed to create certificate");
+    bool ok = false;
+
+#ifdef USE_EXTRA_EC_CERT
+    CHECK_AND_ASSERT_THROW_MES(create_ec_ssl_certificate(pkey, cert, NID_secp256k1), "Failed to create certificate");
     CHECK_AND_ASSERT_THROW_MES(SSL_CTX_use_certificate(ctx, cert), "Failed to use generated certificate");
+    if (!SSL_CTX_use_PrivateKey(ctx, pkey))
+      MERROR("Failed to use generated EC private key for " << NID_secp256k1);
+    else
+      ok = true;
     // don't free the cert, the CTX owns it now
-    CHECK_AND_ASSERT_THROW_MES(SSL_CTX_use_PrivateKey(ctx, pkey), "Failed to use generated private key");
     EVP_PKEY_free(pkey);
+#endif
+
+    CHECK_AND_ASSERT_THROW_MES(create_rsa_ssl_certificate(pkey, cert), "Failed to create certificate");
+    CHECK_AND_ASSERT_THROW_MES(SSL_CTX_use_certificate(ctx, cert), "Failed to use generated certificate");
+    if (!SSL_CTX_use_PrivateKey(ctx, pkey))
+      MERROR("Failed to use generated RSA private key for RSA");
+    else
+      ok = true;
+    // don't free the cert, the CTX owns it now
+    EVP_PKEY_free(pkey);
+
+    CHECK_AND_ASSERT_THROW_MES(ok, "Failed to use any generated certificate");
   }
   else
     auth.use_ssl_certificate(ssl_context);
