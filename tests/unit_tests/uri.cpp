@@ -144,9 +144,7 @@ TEST(uri, bad_payment_id)
 
 TEST(uri, short_payment_id)
 {
-  PARSE_URI("monero:" TEST_ADDRESS"?tx_payment_id=1234567890123456", true);
-  ASSERT_EQ(address, TEST_ADDRESS);
-  ASSERT_EQ(payment_id, "1234567890123456");
+  PARSE_URI("monero:" TEST_ADDRESS"?tx_payment_id=1234567890123456", false);
 }
 
 TEST(uri, long_payment_id)
