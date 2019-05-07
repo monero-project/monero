@@ -2325,8 +2325,8 @@ bool Blockchain::find_blockchain_supplement(const std::list<crypto::hash>& qbloc
   if (result)
   {
     cryptonote::difficulty_type wide_cumulative_difficulty = m_db->get_block_cumulative_difficulty(resp.total_height - 1);
-    resp.cumulative_difficulty = (wide_cumulative_difficulty << 64 >> 64).convert_to<uint64_t>();
-    resp.cumulative_difficulty_top64 = (wide_cumulative_difficulty >> 64).convert_to<uint64_t>();
+    resp.cumulative_difficulty = (wide_cumulative_difficulty & 0xffffffffffffffff).convert_to<uint64_t>();
+    resp.cumulative_difficulty_top64 = ((wide_cumulative_difficulty >> 64) & 0xffffffffffffffff).convert_to<uint64_t>();
   }
 
   return result;

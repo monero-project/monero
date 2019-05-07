@@ -124,7 +124,7 @@ int main(int argc, char *argv[]) {
         cryptonote::difficulty_type wide_res = cryptonote::next_difficulty(
             std::vector<uint64_t>(timestamps.begin() + begin, timestamps.begin() + end),
             std::vector<cryptonote::difficulty_type>(wide_cumulative_difficulties.begin() + begin, wide_cumulative_difficulties.begin() + end), DEFAULT_TEST_DIFFICULTY_TARGET);
-        if (wide_res.convert_to<uint64_t>() != res) {
+        if ((wide_res & 0xffffffffffffffff).convert_to<uint64_t>() != res) {
             cerr << "Wrong wide difficulty for block " << n << endl
                 << "Expected: " << res << endl
                 << "Found: " << wide_res << endl;

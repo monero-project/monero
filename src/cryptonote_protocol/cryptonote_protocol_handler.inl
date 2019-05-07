@@ -410,8 +410,8 @@ namespace cryptonote
     m_core.get_blockchain_top(hshd.current_height, hshd.top_id);
     hshd.top_version = m_core.get_ideal_hard_fork_version(hshd.current_height);
     difficulty_type wide_cumulative_difficulty = m_core.get_block_cumulative_difficulty(hshd.current_height);
-    hshd.cumulative_difficulty = (wide_cumulative_difficulty << 64 >> 64).convert_to<uint64_t>();
-    hshd.cumulative_difficulty_top64 = (wide_cumulative_difficulty >> 64).convert_to<uint64_t>();
+    hshd.cumulative_difficulty = (wide_cumulative_difficulty & 0xffffffffffffffff).convert_to<uint64_t>();
+    hshd.cumulative_difficulty_top64 = ((wide_cumulative_difficulty >> 64) & 0xffffffffffffffff).convert_to<uint64_t>();
     hshd.current_height +=1;
     hshd.pruning_seed = m_core.get_blockchain_pruning_seed();
     return true;
