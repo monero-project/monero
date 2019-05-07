@@ -37,7 +37,6 @@
 #include <boost/multi_index/global_fun.hpp>
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>
-#include <boost/circular_buffer.hpp>
 #include <atomic>
 #include <functional>
 #include <unordered_map>
@@ -46,6 +45,7 @@
 #include "span.h"
 #include "syncobj.h"
 #include "string_tools.h"
+#include "rolling_median.h"
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "common/util.h"
 #include "cryptonote_protocol/cryptonote_protocol_defs.h"
@@ -1064,7 +1064,7 @@ namespace cryptonote
     uint64_t m_long_term_block_weights_window;
     uint64_t m_long_term_effective_median_block_weight;
     mutable crypto::hash m_long_term_block_weights_cache_tip_hash;
-    mutable std::vector<uint64_t> m_long_term_block_weights_cache;
+    mutable epee::misc_utils::rolling_median_t<uint64_t> m_long_term_block_weights_cache_rolling_median;
 
     epee::critical_section m_difficulty_lock;
     crypto::hash m_difficulty_for_next_block_top_hash;
@@ -1314,15 +1314,16 @@ namespace cryptonote
     void get_last_n_blocks_weights(std::vector<uint64_t>& weights, size_t count) const;
 
     /**
-     * @brief gets recent block long term weights for median calculation
+     * @brief gets block long term weight median
      *
-     * get the block long term weights of the last <count> blocks, and return by reference <weights>.
+     * get the block long term weight median of <count> blocks starting at <start_height>
      *
-     * @param weights return-by-reference the list of weights
      * @param start_height the block height of the first block to query
      * @param count the number of blocks to get weights for
+     *
+     * @return the long term median block weight
      */
-    void get_long_term_block_weights(std::vector<uint64_t>& weights, uint64_t start_height, size_t count) const;
+    uint64_t get_long_term_block_weight_median(uint64_t start_height, size_t count) const;
 
     /**
      * @brief checks if a transaction is unlocked (its outputs spendable)
