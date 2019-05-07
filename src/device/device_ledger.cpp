@@ -1386,7 +1386,6 @@ namespace hw {
       this->buffer_send[offset+3] = output_index>>0;
       offset += 4;
       //is_change,
-      bool is_change = (change_addr && dst_entr.addr == *change_addr);
       this->buffer_send[offset] = is_change;
       offset++;
       //is_subaddress
