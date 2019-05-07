@@ -2814,20 +2814,20 @@ namespace tools
       }
 
       crypto::hash long_payment_id;
-      crypto::hash8 short_payment_id;
 
       if (!wallet2::parse_long_payment_id(req.payment_id, payment_id))
       {
         if (!wallet2::parse_short_payment_id(req.payment_id, info.payment_id))
         {
           er.code = WALLET_RPC_ERROR_CODE_WRONG_PAYMENT_ID;
-          er.message = "Payment id has invalid format: \"" + req.payment_id + "\", expected 16 or 64 character string";
+          er.message = "Payment id has invalid format: \"" + req.payment_id + "\", expected 64 character string";
           return false;
         }
         else
         {
-          memcpy(payment_id.data, info.payment_id.data, 8);
-          memset(payment_id.data + 8, 0, 24);
+          er.code = WALLET_RPC_ERROR_CODE_WRONG_PAYMENT_ID;
+          er.message = "Payment id has invalid format: standalone short payment IDs are forbidden, they must be part of an integrated address";
+          return false;
         }
       }
     }
