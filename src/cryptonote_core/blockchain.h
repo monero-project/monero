@@ -92,24 +92,13 @@ namespace cryptonote
   {
   public:
     /**
-     * @brief Now-defunct (TODO: remove) struct from in-memory blockchain
-     */
-    struct transaction_chain_entry
-    {
-      transaction tx;
-      uint64_t m_keeper_block_height;
-      size_t m_blob_size;
-      std::vector<uint64_t> m_global_output_indexes;
-    };
-
-    /**
      * @brief container for passing a block and metadata about it on the blockchain
      */
     struct block_extended_info
     {
       block   bl; //!< the block
       uint64_t height; //!< the height of the block in the blockchain
-      size_t block_cumulative_weight; //!< the weight of the block
+      uint64_t block_cumulative_weight; //!< the weight of the block
       difficulty_type cumulative_difficulty; //!< the accumulated difficulty after that block
       uint64_t already_generated_coins; //!< the total coins minted after that block
     };
@@ -1011,19 +1000,11 @@ namespace cryptonote
 #endif
 
     // TODO: evaluate whether or not each of these typedefs are left over from blockchain_storage
-    typedef std::unordered_map<crypto::hash, size_t> blocks_by_id_index;
-
-    typedef std::unordered_map<crypto::hash, transaction_chain_entry> transactions_container;
-
     typedef std::unordered_set<crypto::key_image> key_images_container;
 
     typedef std::vector<block_extended_info> blocks_container;
 
     typedef std::unordered_map<crypto::hash, block_extended_info> blocks_ext_by_hash;
-
-    typedef std::unordered_map<crypto::hash, block> blocks_by_hash;
-
-    typedef std::map<uint64_t, std::vector<std::pair<crypto::hash, size_t>>> outputs_container; //crypto::hash - tx hash, size_t - index of out in transaction
 
 
     BlockchainDB* m_db;
@@ -1033,7 +1014,6 @@ namespace cryptonote
     mutable epee::critical_section m_blockchain_lock; // TODO: add here reader/writer lock
 
     // main chain
-    transactions_container m_transactions;
     size_t m_current_block_cumul_weight_limit;
     size_t m_current_block_cumul_weight_median;
 
@@ -1073,9 +1053,6 @@ namespace cryptonote
     boost::asio::io_service m_async_service;
     boost::thread_group m_async_pool;
     std::unique_ptr<boost::asio::io_service::work> m_async_work_idle;
-
-    // all alternative chains
-    blocks_ext_by_hash m_alternative_chains; // crypto::hash -> block_extended_info
 
     // some invalid blocks
     blocks_ext_by_hash m_invalid_blocks;     // crypto::hash -> block_extended_info
@@ -1183,7 +1160,7 @@ namespace cryptonote
      *
      * @return false if the reorganization fails, otherwise true
      */
-    bool switch_to_alternative_blockchain(std::list<blocks_ext_by_hash::const_iterator>& alt_chain, bool discard_disconnected_chain);
+    bool switch_to_alternative_blockchain(std::list<block_extended_info>& alt_chain, bool discard_disconnected_chain);
 
     /**
      * @brief removes the most recent block from the blockchain
@@ -1246,7 +1223,7 @@ namespace cryptonote
      *
      * @return true on success, false otherwise
      */
-    bool build_alt_chain(const crypto::hash &prev_id, std::list<blocks_ext_by_hash::const_iterator>& alt_chain, std::vector<uint64_t> &timestamps, block_verification_context& bvc) const;
+    bool build_alt_chain(const crypto::hash &prev_id, std::list<block_extended_info>& alt_chain, std::vector<uint64_t> &timestamps, block_verification_context& bvc) const;
 
     /**
      * @brief gets the difficulty requirement for a new block on an alternate chain
@@ -1256,7 +1233,7 @@ namespace cryptonote
      *
      * @return the difficulty requirement
      */
-    difficulty_type get_next_difficulty_for_alternative_chain(const std::list<blocks_ext_by_hash::const_iterator>& alt_chain, block_extended_info& bei) const;
+    difficulty_type get_next_difficulty_for_alternative_chain(const std::list<block_extended_info>& alt_chain, block_extended_info& bei) const;
 
     /**
      * @brief sanity checks a miner transaction before validating an entire block
