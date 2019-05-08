@@ -672,11 +672,38 @@ bool t_command_parser_executor::alt_chain_info(const std::vector<std::string>& a
 {
   if(args.size() > 1)
   {
-    std::cout << "usage: alt_chain_info [block_hash]" << std::endl;
+    std::cout << "usage: alt_chain_info [block_hash|>N|-N]" << std::endl;
     return false;
   }
 
-  return m_executor.alt_chain_info(args.size() == 1 ? args[0] : "");
+  std::string tip;
+  size_t above = 0;
+  uint64_t last_blocks = 0;
+  if (args.size() == 1)
+  {
+    if (args[0].size() > 0 && args[0][0] == '>')
+    {
+      if (!epee::string_tools::get_xtype_from_string(above, args[0].c_str() + 1))
+      {
+        std::cout << "invalid above parameter" << std::endl;
+        return false;
+      }
+    }
+    else if (args[0].size() > 0 && args[0][0] == '-')
+    {
+      if (!epee::string_tools::get_xtype_from_string(last_blocks, args[0].c_str() + 1))
+      {
+        std::cout << "invalid last_blocks parameter" << std::endl;
+        return false;
+      }
+    }
+    else
+    {
+      tip = args[0];
+    }
+  }
+
+  return m_executor.alt_chain_info(tip, above, last_blocks);
 }
 
 bool t_command_parser_executor::print_blockchain_dynamic_stats(const std::vector<std::string>& args)

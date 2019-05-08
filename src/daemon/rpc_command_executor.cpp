@@ -1823,7 +1823,7 @@ bool t_rpc_command_executor::print_coinbase_tx_sum(uint64_t height, uint64_t cou
   return true;
 }
 
-bool t_rpc_command_executor::alt_chain_info(const std::string &tip)
+bool t_rpc_command_executor::alt_chain_info(const std::string &tip, size_t above, uint64_t last_blocks)
 {
   cryptonote::COMMAND_RPC_GET_INFO::request ireq;
   cryptonote::COMMAND_RPC_GET_INFO::response ires;
@@ -1860,12 +1860,24 @@ bool t_rpc_command_executor::alt_chain_info(const std::string &tip)
 
   if (tip.empty())
   {
-    tools::msg_writer() << boost::lexical_cast<std::string>(res.chains.size()) << " alternate chains found:";
     auto chains = res.chains;
     std::sort(chains.begin(), chains.end(), [](const cryptonote::COMMAND_RPC_GET_ALTERNATE_CHAINS::chain_info &info0, cryptonote::COMMAND_RPC_GET_ALTERNATE_CHAINS::chain_info &info1){ return info0.height < info1.height; });
-    for (const auto &chain: chains)
+    std::vector<size_t> display;
+    for (size_t i = 0; i < chains.size(); ++i)
     {
-      uint64_t start_height = (chain.height - chain.length + 1);
+      const auto &chain = chains[i];
+      if (chain.length <= above)
+        continue;
+      const uint64_t start_height = (chain.height - chain.length + 1);
+      if (last_blocks > 0 && ires.height - 1 - start_height >= last_blocks)
+        continue;
+      display.push_back(i);
+    }
+    tools::msg_writer() << boost::lexical_cast<std::string>(display.size()) << " alternate chains found:";
+    for (const size_t idx: display)
+    {
+      const auto &chain = chains[idx];
+      const uint64_t start_height = (chain.height - chain.length + 1);
       tools::msg_writer() << chain.length << " blocks long, from height " << start_height << " (" << (ires.height - start_height - 1)
           << " deep), diff " << chain.difficulty << ": " << chain.block_hash;
     }
