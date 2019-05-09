@@ -1509,6 +1509,34 @@ namespace cryptonote
     uint64_t weight;
     uint64_t fee;
     uint64_t time_in_pool;
+
+    BEGIN_KV_SERIALIZE_MAP()
+      KV_SERIALIZE(weight)
+      KV_SERIALIZE(fee)
+      KV_SERIALIZE(time_in_pool)
+    END_KV_SERIALIZE_MAP()
+  };
+
+  struct COMMAND_RPC_GET_TRANSACTION_POOL_BACKLOG_BIN
+  {
+    struct request_t: public rpc_access_request_base
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE_PARENT(rpc_access_request_base)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<request_t> request;
+
+    struct response_t: public rpc_access_response_base
+    {
+      std::vector<tx_backlog_entry> backlog;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE_PARENT(rpc_access_response_base)
+        KV_SERIALIZE_CONTAINER_POD_AS_BLOB(backlog)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   struct COMMAND_RPC_GET_TRANSACTION_POOL_BACKLOG
@@ -1527,7 +1555,7 @@ namespace cryptonote
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_access_response_base)
-        KV_SERIALIZE_CONTAINER_POD_AS_BLOB(backlog)
+        KV_SERIALIZE(backlog)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;
