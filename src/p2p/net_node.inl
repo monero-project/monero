@@ -111,7 +111,6 @@ namespace nodetool
     command_line::add_arg(desc, arg_limit_rate_up);
     command_line::add_arg(desc, arg_limit_rate_down);
     command_line::add_arg(desc, arg_limit_rate);
-    command_line::add_arg(desc, arg_save_graph);
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
@@ -290,11 +289,6 @@ namespace nodetool
           m_command_line_peers.push_back(pe);
         }
       }
-    }
-
-    if(command_line::has_arg(vm, arg_save_graph))
-    {
-      set_save_graph(true);
     }
 
     if (command_line::has_arg(vm,arg_p2p_add_exclusive_node))
