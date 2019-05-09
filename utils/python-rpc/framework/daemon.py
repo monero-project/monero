@@ -344,3 +344,9 @@ class Daemon(object):
             'id': '0'
         }
         return self.rpc.send_json_rpc_request(get_fee_estimate)
+
+    def is_key_image_spent(self, key_images = []):
+        is_key_image_spent = {
+            'key_images': key_images,
+        }
+        return self.rpc.send_request('/is_key_image_spent', is_key_image_spent)

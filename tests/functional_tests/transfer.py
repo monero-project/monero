@@ -51,6 +51,7 @@ class TransferTest():
         self.check_destinations()
         self.check_tx_notes()
         self.check_rescan()
+        self.check_is_key_image_spent()
 
     def reset(self):
         print('Resetting blockchain')
@@ -643,11 +644,19 @@ class TransferTest():
         self.wallet[0].refresh()
         res = self.wallet[0].get_balance()
         balance = res.balance
-        res = self.wallet[0].incoming_transfers(transfer_type = 'all')
+        res = daemon.is_key_image_spent([ki])
+        assert len(res.spent_status) == 1
+        assert res.spent_status[0] == 0
         res = self.wallet[0].sweep_single('44Kbx4sJ7JDRDV5aAhLJzQCjDz2ViLRduE3ijDZu3osWKBjMGkV1XPk4pfDUMqt1Aiezvephdqm6YD19GKFD9ZcXVUTp6BW', key_image = ki)
         assert len(res.tx_hash) == 64
         tx_hash = res.tx_hash
+        res = daemon.is_key_image_spent([ki])
+        assert len(res.spent_status) == 1
+        assert res.spent_status[0] == 2
         daemon.generateblocks('44Kbx4sJ7JDRDV5aAhLJzQCjDz2ViLRduE3ijDZu3osWKBjMGkV1XPk4pfDUMqt1Aiezvephdqm6YD19GKFD9ZcXVUTp6BW', 1)
+        res = daemon.is_key_image_spent([ki])
+        assert len(res.spent_status) == 1
+        assert res.spent_status[0] == 1
         self.wallet[0].refresh()
         res = self.wallet[0].get_balance()
         new_balance = res.balance
@@ -783,6 +792,41 @@ class TransferTest():
                         e[k] = x[k]
                 new_t_out.append(e)
             assert sorted(old_t_out) == sorted(new_t_out)
+
+    def check_is_key_image_spent(self):
+        daemon = Daemon()
+
+        print('Testing is_key_image_spent')
+        res = self.wallet[0].incoming_transfers(transfer_type = 'all')
+        transfers = res.transfers
+        ki = [x.key_image for x in transfers]
+        expected = [1 if x.spent else 0 for x in transfers]
+        res = daemon.is_key_image_spent(ki)
+        assert res.spent_status == expected
+
+        res = self.wallet[0].incoming_transfers(transfer_type = 'available')
+        transfers = res.transfers
+        ki = [x.key_image for x in transfers]
+        expected = [0 for x in transfers]
+        res = daemon.is_key_image_spent(ki)
+        assert res.spent_status == expected
+
+        res = self.wallet[0].incoming_transfers(transfer_type = 'unavailable')
+        transfers = res.transfers
+        ki = [x.key_image for x in transfers]
+        expected = [1 for x in transfers]
+        res = daemon.is_key_image_spent(ki)
+        assert res.spent_status == expected
+
+        ki = [ki[-1]] * 5
+        expected = [1] * len(ki)
+        res = daemon.is_key_image_spent(ki)
+        assert res.spent_status == expected
+
+        ki = ['2'*64, '1'*64]
+        expected = [0, 0]
+        res = daemon.is_key_image_spent(ki)
+        assert res.spent_status == expected
 
 
 if __name__ == '__main__':
