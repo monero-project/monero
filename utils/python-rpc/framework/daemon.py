@@ -208,6 +208,11 @@ class Daemon(object):
         }
         return self.rpc.send_request('/get_transaction_pool_hashes', get_transaction_pool_hashes)
 
+    def get_transaction_pool_stats(self):
+        get_transaction_pool_stats = {
+        }
+        return self.rpc.send_request('/get_transaction_pool_stats', get_transaction_pool_stats)
+
     def flush_txpool(self, txids = []):
         flush_txpool = {
             'method': 'flush_txpool',

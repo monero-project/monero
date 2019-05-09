@@ -81,6 +81,26 @@ class TransferTest():
 
         return txes
 
+    def check_empty_pool(self):
+        daemon = Daemon()
+
+        res = daemon.get_transaction_pool_hashes()
+        assert not 'tx_hashes' in res or len(res.tx_hashes) == 0
+        res = daemon.get_transaction_pool_stats()
+        assert res.pool_stats.bytes_total == 0
+        assert res.pool_stats.bytes_min == 0
+        assert res.pool_stats.bytes_max == 0
+        assert res.pool_stats.bytes_med == 0
+        assert res.pool_stats.fee_total == 0
+        assert res.pool_stats.oldest == 0
+        assert res.pool_stats.txs_total == 0
+        assert res.pool_stats.num_failing == 0
+        assert res.pool_stats.num_10m == 0
+        assert res.pool_stats.num_not_relayed == 0
+        assert res.pool_stats.histo_98pc == 0
+        assert not 'histo' in res.pool_stats or len(res.pool_stats.histo) == 0
+        assert res.pool_stats.num_double_spends == 0
+
     def check_txpool(self):
         daemon = Daemon()
         wallet = Wallet()
@@ -88,6 +108,8 @@ class TransferTest():
         res = daemon.get_info()
         height = res.height
         txpool_size = res.tx_pool_size
+
+        self.check_empty_pool()
 
         txes = self.create_txes('46r4nYSevkfBUMhuykdK3gQ98XDqDTYW1hNLaXNvjpsJaSbNtdXh1sKMsdVgqkaihChAzEy29zEDPMR3NHQvGoZCLGwTerK', 5)
 
@@ -97,6 +119,10 @@ class TransferTest():
 
         res = daemon.get_transaction_pool()
         assert len(res.transactions) == txpool_size
+        total_bytes = 0
+        total_fee = 0
+        min_bytes = 99999999999999
+        max_bytes = 0
         for txid in txes.keys():
             x = [x for x in res.transactions if x.id_hash == txid]
             assert len(x) == 1
@@ -110,8 +136,25 @@ class TransferTest():
             assert x.fee == txes[txid].fee
             assert x.tx_blob == txes[txid].tx_blob
 
+            total_bytes += x.blob_size
+            total_fee += x.fee
+            min_bytes = min(min_bytes, x.blob_size)
+            max_bytes = max(max_bytes, x.blob_size)
+
         res = daemon.get_transaction_pool_hashes()
         assert sorted(res.tx_hashes) == sorted(txes.keys())
+
+        res = daemon.get_transaction_pool_stats()
+        assert res.pool_stats.bytes_total == total_bytes
+        assert res.pool_stats.bytes_min == min_bytes
+        assert res.pool_stats.bytes_max == max_bytes
+        assert res.pool_stats.bytes_med >= min_bytes and res.pool_stats.bytes_med <= max_bytes
+        assert res.pool_stats.fee_total == total_fee
+        assert res.pool_stats.txs_total == len(txes)
+        assert res.pool_stats.num_failing == 0
+        assert res.pool_stats.num_10m == 0
+        assert res.pool_stats.num_not_relayed == 0
+        assert res.pool_stats.num_double_spends == 0
 
         print('Flushing 2 transactions')
         txes_keys = list(txes.keys())
@@ -127,6 +170,42 @@ class TransferTest():
         res = daemon.get_transaction_pool_hashes()
         assert sorted(res.tx_hashes) == sorted(new_keys)
 
+        res = daemon.get_transaction_pool()
+        assert len(res.transactions) == len(new_keys)
+        total_bytes = 0
+        total_fee = 0
+        min_bytes = 99999999999999
+        max_bytes = 0
+        for txid in new_keys:
+            x = [x for x in res.transactions if x.id_hash == txid]
+            assert len(x) == 1
+            x = x[0]
+            assert x.kept_by_block == False
+            assert x.last_failed_id_hash == '0'*64
+            assert x.double_spend_seen == False
+            assert x.weight >= x.blob_size
+
+            assert x.blob_size * 2 == len(txes[txid].tx_blob)
+            assert x.fee == txes[txid].fee
+            assert x.tx_blob == txes[txid].tx_blob
+
+            total_bytes += x.blob_size
+            total_fee += x.fee
+            min_bytes = min(min_bytes, x.blob_size)
+            max_bytes = max(max_bytes, x.blob_size)
+
+        res = daemon.get_transaction_pool_stats()
+        assert res.pool_stats.bytes_total == total_bytes
+        assert res.pool_stats.bytes_min == min_bytes
+        assert res.pool_stats.bytes_max == max_bytes
+        assert res.pool_stats.bytes_med >= min_bytes and res.pool_stats.bytes_med <= max_bytes
+        assert res.pool_stats.fee_total == total_fee
+        assert res.pool_stats.txs_total == len(new_keys)
+        assert res.pool_stats.num_failing == 0
+        assert res.pool_stats.num_10m == 0
+        assert res.pool_stats.num_not_relayed == 0
+        assert res.pool_stats.num_double_spends == 0
+
         print('Flushing unknown transactions')
         unknown_txids = ['1'*64, '2'*64, '3'*64]
         daemon.flush_txpool(unknown_txids)
@@ -139,6 +218,8 @@ class TransferTest():
         assert not 'transactions' in res or len(res.transactions) == txpool_size - 5
         res = daemon.get_transaction_pool_hashes()
         assert not 'tx_hashes' in res or len(res.tx_hashes) == 0
+
+        self.check_empty_pool()
 
         print('Popping block')
         daemon.pop_blocks(1)
@@ -158,6 +239,9 @@ class TransferTest():
             assert x.blob_size * 2 == len(txes[txid].tx_blob)
             assert x.fee == txes[txid].fee
             assert x.tx_blob == txes[txid].tx_blob
+
+        daemon.flush_txpool()
+        self.check_empty_pool()
 
 
 if __name__ == '__main__':
