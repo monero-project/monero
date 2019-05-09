@@ -1872,50 +1872,6 @@ namespace cryptonote
   };
 
   LOKI_RPC_DOC_INTROSPECT
-  // Obsolete. Conserved here for reference.
-  struct COMMAND_RPC_START_SAVE_GRAPH
-  {
-    struct request_t
-    {
-      BEGIN_KV_SERIALIZE_MAP()
-      END_KV_SERIALIZE_MAP()
-    };
-    typedef epee::misc_utils::struct_init<request_t> request;
-    
-    struct response_t
-    {
-	  std::string status; // General RPC error code. "OK" means everything looks good.
-
-      BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(status)
-      END_KV_SERIALIZE_MAP()
-    };
-    typedef epee::misc_utils::struct_init<response_t> response;
-  };
-
-  LOKI_RPC_DOC_INTROSPECT
-  // Obsolete. Conserved here for reference.
-  struct COMMAND_RPC_STOP_SAVE_GRAPH
-  {
-    struct request_t
-    {
-      BEGIN_KV_SERIALIZE_MAP()
-      END_KV_SERIALIZE_MAP()
-    };
-    typedef epee::misc_utils::struct_init<request_t> request;
-    
-    struct response_t
-    {
-	  std::string status; // General RPC error code. "OK" means everything looks good.
-
-      BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(status)
-      END_KV_SERIALIZE_MAP()
-    };
-    typedef epee::misc_utils::struct_init<response_t> response;
-  };
-
-  LOKI_RPC_DOC_INTROSPECT
   // Look up information regarding hard fork voting and readiness.
   struct COMMAND_RPC_HARD_FORK_INFO
   {
