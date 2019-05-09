@@ -1884,6 +1884,7 @@ bool t_rpc_command_executor::alt_chain_info(const std::string &tip, size_t above
   }
   else
   {
+    const uint64_t now = time(NULL);
     const auto i = std::find_if(res.chains.begin(), res.chains.end(), [&tip](cryptonote::COMMAND_RPC_GET_ALTERNATE_CHAINS::chain_info &info){ return info.block_hash == tip; });
     if (i != res.chains.end())
     {
@@ -1895,6 +1896,49 @@ bool t_rpc_command_executor::alt_chain_info(const std::string &tip, size_t above
       for (const std::string &block_id: chain.block_hashes)
         tools::msg_writer() << "  " << block_id;
       tools::msg_writer() << "Chain parent on main chain: " << chain.main_chain_parent_block;
+      cryptonote::COMMAND_RPC_GET_BLOCK_HEADER_BY_HASH::request bhreq;
+      cryptonote::COMMAND_RPC_GET_BLOCK_HEADER_BY_HASH::response bhres;
+      bhreq.hashes = chain.block_hashes;
+      bhreq.hashes.push_back(chain.main_chain_parent_block);
+      bhreq.fill_pow_hash = false;
+      if (m_is_rpc)
+      {
+        if (!m_rpc_client->json_rpc_request(bhreq, bhres, "getblockheaderbyhash", fail_message.c_str()))
+        {
+          return true;
+        }
+      }
+      else
+      {
+        if (!m_rpc_server->on_get_block_header_by_hash(bhreq, bhres, error_resp))
+        {
+          tools::fail_msg_writer() << make_error(fail_message, res.status);
+          return true;
+        }
+      }
+      if (bhres.block_headers.size() != chain.length + 1)
+      {
+        tools::fail_msg_writer() << "Failed to get block header info for alt chain";
+        return true;
+      }
+      uint64_t t0 = bhres.block_headers.front().timestamp, t1 = t0;
+      for (const cryptonote::block_header_response &block_header: bhres.block_headers)
+      {
+        t0 = std::min<uint64_t>(t0, block_header.timestamp);
+        t1 = std::max<uint64_t>(t1, block_header.timestamp);
+      }
+      const uint64_t dt = t1 - t0;
+      const uint64_t age = std::max(dt, t0 < now ? now - t0 : 0);
+      tools::msg_writer() << "Age: " << tools::get_human_readable_timespan(age);
+      if (chain.length > 1)
+      {
+        tools::msg_writer() << "Time span: " << tools::get_human_readable_timespan(dt);
+        cryptonote::difficulty_type start_difficulty = bhres.block_headers.back().difficulty;
+        if (start_difficulty > 0)
+          tools::msg_writer() << "Approximated " << 100.f * DIFFICULTY_TARGET_V2 * chain.length / dt << "% of network hash rate";
+        else
+          tools::fail_msg_writer() << "Bad cmumulative difficulty reported by dameon";
+      }
     }
     else
       tools::fail_msg_writer() << "Block hash " << tip << " is not the tip of any known alternate chain";

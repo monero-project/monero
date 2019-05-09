@@ -1068,6 +1068,23 @@ std::string get_nix_version_display_string()
     return std::string(buffer);
   }
 
+  std::string get_human_readable_timespan(uint64_t seconds)
+  {
+    if (seconds < 60)
+      return std::to_string(seconds) + " seconds";
+    if (seconds < 3600)
+      return std::to_string((uint64_t)(seconds / 60)) + " minutes";
+    if (seconds < 3600 * 24)
+      return std::to_string((uint64_t)(seconds / 3600)) + " hours";
+    if (seconds < 3600 * 24 * 30.5)
+      return std::to_string((uint64_t)(seconds / (3600 * 24))) + " days";
+    if (seconds < 3600 * 24 * 365.25)
+      return std::to_string((uint64_t)(seconds / (3600 * 24 * 30.5))) + " months";
+    if (seconds < 3600 * 24 * 365.25 * 100)
+      return std::to_string((uint64_t)(seconds / (3600 * 24 * 30.5 * 365.25))) + " years";
+    return "a long time";
+  }
+
   std::string get_human_readable_bytes(uint64_t bytes)
   {
     // Use 1024 for "kilo", 1024*1024 for "mega" and so on instead of the more modern and standard-conforming

@@ -88,11 +88,12 @@ class Daemon(object):
         }
         return self.rpc.send_json_rpc_request(getlastblockheader)
 
-    def getblockheaderbyhash(self, hash):
+    def getblockheaderbyhash(self, hash = "", hashes = []):
         getblockheaderbyhash = {
             'method': 'getblockheaderbyhash',
             'params': {
                 'hash': hash,
+                'hashes': hashes,
             },
             'jsonrpc': '2.0', 
             'id': '0'
