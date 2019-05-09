@@ -350,3 +350,8 @@ class Daemon(object):
             'key_images': key_images,
         }
         return self.rpc.send_request('/is_key_image_spent', is_key_image_spent)
+
+    def save_bc(self):
+        save_bc = {
+        }
+        return self.rpc.send_request('/save_bc', save_bc)
