@@ -324,12 +324,14 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     
     if (!e)
     {
+        double current_speed_down;
 		{
 			CRITICAL_REGION_LOCAL(m_throttle_speed_in_mutex);
 			m_throttle_speed_in.handle_trafic_exact(bytes_transferred);
-			context.m_current_speed_down = m_throttle_speed_in.get_current_speed();
-			context.m_max_speed_down = std::max(context.m_max_speed_down, context.m_current_speed_down);
+			current_speed_down = m_throttle_speed_in.get_current_speed();
 		}
+        context.m_current_speed_down = current_speed_down;
+        context.m_max_speed_down = std::max(context.m_max_speed_down, current_speed_down);
     
     {
 			CRITICAL_REGION_LOCAL(	epee::net_utils::network_throttle_manager::network_throttle_manager::m_lock_get_global_throttle_in );
@@ -599,12 +601,14 @@ PRAGMA_WARNING_DISABLE_VS(4355)
       return false;
     if(m_was_shutdown)
       return false;
+    double current_speed_up;
     {
 		CRITICAL_REGION_LOCAL(m_throttle_speed_out_mutex);
 		m_throttle_speed_out.handle_trafic_exact(cb);
-		context.m_current_speed_up = m_throttle_speed_out.get_current_speed();
-		context.m_max_speed_up = std::max(context.m_max_speed_up, context.m_current_speed_up);
+		current_speed_up = m_throttle_speed_out.get_current_speed();
 	}
+    context.m_current_speed_up = current_speed_up;
+    context.m_max_speed_up = std::max(context.m_max_speed_up, current_speed_up);
 
     //_info("[sock " << socket().native_handle() << "] SEND " << cb);
     context.m_last_send = time(NULL);
