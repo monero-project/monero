@@ -250,7 +250,7 @@ namespace net_utils
     const network_address m_remote_address;
     const bool     m_is_income;
     const time_t   m_started;
-    const time_t   m_ssl;
+    const bool      m_ssl;
     time_t   m_last_recv;
     time_t   m_last_send;
     uint64_t m_recv_cnt;
