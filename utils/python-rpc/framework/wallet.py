@@ -838,11 +838,12 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(validate_address)
 
-    def get_accounts(self, tag):
+    def get_accounts(self, tag, strict_balances = False):
         get_accounts = {
             'method': 'get_accounts',
             'params': {
                 'tag': tag,
+                'strict_balances': strict_balances,
             },
             'jsonrpc': '2.0',
             'id': '0'
