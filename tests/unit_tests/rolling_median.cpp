@@ -69,7 +69,7 @@ TEST(rolling_median, series)
   v.reserve(100);
   for (int i = 0; i < 10000; ++i)
   {
-    uint64_t r = rand();
+    uint64_t r = crypto::rand<uint64_t>();
     v.push_back(r);
     if (v.size() > 100)
       v.erase(v.begin());
@@ -87,7 +87,7 @@ TEST(rolling_median, clear_whole)
   median.reserve(10000);
   for (int i = 0; i < 10000; ++i)
   {
-    random.push_back(rand());
+    random.push_back(crypto::rand<uint64_t>());
     m.insert(random.back());
     median.push_back(m.median());
   }
@@ -107,7 +107,7 @@ TEST(rolling_median, clear_partway)
   median.reserve(10000);
   for (int i = 0; i < 10000; ++i)
   {
-    random.push_back(rand());
+    random.push_back(crypto::rand<uint64_t>());
     m.insert(random.back());
     median.push_back(m.median());
   }
@@ -126,7 +126,7 @@ TEST(rolling_median, order)
   random.reserve(1000);
   for (int i = 0; i < 1000; ++i)
   {
-    random.push_back(rand());
+    random.push_back(crypto::rand<uint64_t>());
     m.insert(random.back());
   }
   const uint64_t med = m.median();

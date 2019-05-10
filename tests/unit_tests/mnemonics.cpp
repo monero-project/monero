@@ -82,7 +82,7 @@ namespace
     crypto::secret_key randkey;
     for (size_t ii = 0; ii < sizeof(randkey); ++ii)
     {
-      randkey.data[ii] = rand();
+      randkey.data[ii] = crypto::rand<uint8_t>();
     }
     crypto::ElectrumWords::bytes_to_words(randkey, w_seed, language.get_language_name());
     seed = std::string(w_seed.data(), w_seed.size());
