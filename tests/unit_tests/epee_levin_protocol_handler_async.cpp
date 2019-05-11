@@ -140,12 +140,12 @@ namespace
     }
 
     // Implement epee::net_utils::i_service_endpoint interface
-    virtual bool do_send(const void* ptr, size_t cb)
+    virtual bool do_send(epee::byte_slice message)
     {
       //std::cout << "test_connection::do_send()" << std::endl;
       m_send_counter.inc();
       boost::unique_lock<boost::mutex> lock(m_mutex);
-      m_last_send_data.append(reinterpret_cast<const char*>(ptr), cb);
+      m_last_send_data.append(reinterpret_cast<const char*>(message.data()), message.size());
       return m_send_return;
     }
 
@@ -367,8 +367,8 @@ TEST_F(positive_test_connection_to_levin_protocol_handler_calls, handler_process
   // Parse send data
   std::string send_data = conn->last_send_data();
   epee::levin::bucket_head2 resp_head;
-  resp_head = *reinterpret_cast<const epee::levin::bucket_head2*>(send_data.data());
   ASSERT_LT(sizeof(resp_head), send_data.size());
+  std::memcpy(std::addressof(resp_head), send_data.data(), sizeof(resp_head));
   std::string out_data = send_data.substr(sizeof(resp_head));
 
   // Check sent response

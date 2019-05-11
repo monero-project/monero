@@ -149,11 +149,11 @@ namespace
     }
 
     // Implement epee::net_utils::i_service_endpoint interface
-    virtual bool do_send(const void* ptr, size_t cb)
+    virtual bool do_send(epee::byte_slice message)
     {
       m_send_counter.inc();
       boost::unique_lock<boost::mutex> lock(m_mutex);
-      m_last_send_data.append(reinterpret_cast<const char*>(ptr), cb);
+      m_last_send_data.append(reinterpret_cast<const char*>(message.data()), message.size());
       return m_send_return;
     }
 

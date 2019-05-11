@@ -136,7 +136,6 @@ public:
   critical_section m_local_inv_buff_lock;
   std::string m_local_inv_buff;
 
-  critical_section m_send_lock;
   critical_section m_call_lock;
 
   volatile uint32_t m_wait_count;
@@ -260,6 +259,34 @@ public:
     return handler->is_timer_started();
   }
   template<class callback_t> friend struct anvoke_handler;
+
+  static bucket_head2 make_header(uint32_t command, uint64_t msg_size, uint32_t flags, bool expect_response) noexcept
+  {
+    bucket_head2 head = {0};
+    head.m_signature = SWAP64LE(LEVIN_SIGNATURE);
+    head.m_have_to_return_data = expect_response;
+    head.m_cb = SWAP64LE(msg_size);
+
+    head.m_command = SWAP32LE(command);
+    head.m_protocol_version = SWAP32LE(LEVIN_PROTOCOL_VER_1);
+    head.m_flags = SWAP32LE(flags);
+    return head;
+  }
+
+  bool send_message(uint32_t command, epee::span<const uint8_t> in_buff, uint32_t flags, bool expect_response)
+  {
+    const bucket_head2 head = make_header(command, in_buff.size(), flags, expect_response);
+    if(!m_pservice_endpoint->do_send(byte_slice{as_byte_span(head), in_buff}))
+      return false;
+
+    MDEBUG(m_connection_context << "LEVIN_PACKET_SENT. [len=" << head.m_cb
+        << ", flags" << head.m_flags
+        << ", r?=" << head.m_have_to_return_data
+        <<", cmd = " << head.m_command
+        << ", ver=" << head.m_protocol_version);
+    return true;
+  }
+
 public:
   async_protocol_handler(net_utils::i_service_endpoint* psnd_hndlr, 
     config_type& config, 
@@ -458,37 +485,22 @@ public:
             if(m_current_head.m_have_to_return_data)
             {
               std::string return_buff;
-              m_current_head.m_return_code = m_config.m_pcommands_handler->invoke(
-                                                                  m_current_head.m_command, 
-                                                                  buff_to_invoke, 
-                                                                  return_buff, 
-                                                                  m_connection_context);
-              m_current_head.m_cb = return_buff.size();
-              m_current_head.m_have_to_return_data = false;
-              m_current_head.m_protocol_version = LEVIN_PROTOCOL_VER_1;
-              m_current_head.m_flags = LEVIN_PACKET_RESPONSE;
-#if BYTE_ORDER == LITTLE_ENDIAN
-              std::string send_buff((const char*)&m_current_head, sizeof(m_current_head));
-#else
-              bucket_head2 head = m_current_head;
-              head.m_signature = SWAP64LE(head.m_signature);
-              head.m_cb = SWAP64LE(head.m_cb);
-              head.m_command = SWAP32LE(head.m_command);
-              head.m_return_code = SWAP32LE(head.m_return_code);
-              head.m_flags = SWAP32LE(head.m_flags);
-              head.m_protocol_version = SWAP32LE(head.m_protocol_version);
-              std::string send_buff((const char*)&head, sizeof(head));
-#endif
-              send_buff += return_buff;
-              CRITICAL_REGION_BEGIN(m_send_lock);
-              if(!m_pservice_endpoint->do_send(send_buff.data(), send_buff.size()))
+              const uint32_t return_code = m_config.m_pcommands_handler->invoke(
+                m_current_head.m_command, buff_to_invoke, return_buff, m_connection_context
+              );
+
+	      bucket_head2 head = make_header(m_current_head.m_command, return_buff.size(), LEVIN_PACKET_RESPONSE, false);
+	      head.m_return_code = SWAP32LE(return_code);
+	      return_buff.insert(0, reinterpret_cast<const char*>(&head), sizeof(head));
+
+              if(!m_pservice_endpoint->do_send(byte_slice{std::move(return_buff)}))
                 return false;
-              CRITICAL_REGION_END();
-              MDEBUG(m_connection_context << "LEVIN_PACKET_SENT. [len=" << m_current_head.m_cb
-                << ", flags" << m_current_head.m_flags 
-                << ", r?=" << m_current_head.m_have_to_return_data 
-                <<", cmd = " << m_current_head.m_command 
-                << ", ver=" << m_current_head.m_protocol_version);
+
+              MDEBUG(m_connection_context << "LEVIN_PACKET_SENT. [len=" << head.m_cb
+                << ", flags" << head.m_flags
+                << ", r?=" << head.m_have_to_return_data
+                <<", cmd = " << head.m_command
+                << ", ver=" << head.m_protocol_version);
             }
             else
               m_config.m_pcommands_handler->notify(m_current_head.m_command, buff_to_invoke, m_connection_context);
@@ -584,26 +596,10 @@ public:
         break;
       }
 
-      bucket_head2 head = {0};
-      head.m_signature = SWAP64LE(LEVIN_SIGNATURE);
-      head.m_cb = SWAP64LE(in_buff.size());
-      head.m_have_to_return_data = true;
-
-      head.m_flags = SWAP32LE(LEVIN_PACKET_REQUEST);
-      head.m_command = SWAP32LE(command);
-      head.m_protocol_version = SWAP32LE(LEVIN_PROTOCOL_VER_1);
-
       boost::interprocess::ipcdetail::atomic_write32(&m_invoke_buf_ready, 0);
-      CRITICAL_REGION_BEGIN(m_send_lock);
-      CRITICAL_REGION_LOCAL1(m_invoke_response_handlers_lock);
-      if(!m_pservice_endpoint->do_send(&head, sizeof(head)))
-      {
-        LOG_ERROR_CC(m_connection_context, "Failed to do_send");
-        err_code = LEVIN_ERROR_CONNECTION;
-        break;
-      }
+      CRITICAL_REGION_BEGIN(m_invoke_response_handlers_lock);
 
-      if(!m_pservice_endpoint->do_send(in_buff.data(), in_buff.size()))
+      if(!send_message(command, in_buff, LEVIN_PACKET_REQUEST, true))
       {
         LOG_ERROR_CC(m_connection_context, "Failed to do_send");
         err_code = LEVIN_ERROR_CONNECTION;
@@ -642,35 +638,13 @@ public:
     if(m_deletion_initiated)
       return LEVIN_ERROR_CONNECTION_DESTROYED;
 
-    bucket_head2 head = {0};
-    head.m_signature = SWAP64LE(LEVIN_SIGNATURE);
-    head.m_cb = SWAP64LE(in_buff.size());
-    head.m_have_to_return_data = true;
-
-    head.m_flags = SWAP32LE(LEVIN_PACKET_REQUEST);
-    head.m_command = SWAP32LE(command);
-    head.m_protocol_version = SWAP32LE(LEVIN_PROTOCOL_VER_1);
-
     boost::interprocess::ipcdetail::atomic_write32(&m_invoke_buf_ready, 0);
-    CRITICAL_REGION_BEGIN(m_send_lock);
-    if(!m_pservice_endpoint->do_send(&head, sizeof(head)))
+
+    if (!send_message(command, in_buff, LEVIN_PACKET_REQUEST, true))
     {
-      LOG_ERROR_CC(m_connection_context, "Failed to do_send");
+      LOG_ERROR_CC(m_connection_context, "Failed to send request");
       return LEVIN_ERROR_CONNECTION;
     }
-
-    if(!m_pservice_endpoint->do_send(in_buff.data(), in_buff.size()))
-    {
-      LOG_ERROR_CC(m_connection_context, "Failed to do_send");
-      return LEVIN_ERROR_CONNECTION;
-    }
-    CRITICAL_REGION_END();
-
-    MDEBUG(m_connection_context << "LEVIN_PACKET_SENT. [len=" << head.m_cb
-                            << ", f=" << head.m_flags 
-                            << ", r?=" << head.m_have_to_return_data 
-                            << ", cmd = " << head.m_command 
-                            << ", ver=" << head.m_protocol_version);
 
     uint64_t ticks_start = misc_utils::get_tick_count();
     size_t prev_size = 0;
@@ -716,32 +690,11 @@ public:
     if(m_deletion_initiated)
       return LEVIN_ERROR_CONNECTION_DESTROYED;
 
-    bucket_head2 head = {0};
-    head.m_signature = SWAP64LE(LEVIN_SIGNATURE);
-    head.m_have_to_return_data = false;
-    head.m_cb = SWAP64LE(in_buff.size());
-
-    head.m_command = SWAP32LE(command);
-    head.m_protocol_version = SWAP32LE(LEVIN_PROTOCOL_VER_1);
-    head.m_flags = SWAP32LE(LEVIN_PACKET_REQUEST);
-    CRITICAL_REGION_BEGIN(m_send_lock);
-    if(!m_pservice_endpoint->do_send(&head, sizeof(head)))
+    if (!send_message(command, in_buff, LEVIN_PACKET_REQUEST, false))
     {
-      LOG_ERROR_CC(m_connection_context, "Failed to do_send()");
+      LOG_ERROR_CC(m_connection_context, "Failed to send notify message");
       return -1;
     }
-
-    if(!m_pservice_endpoint->do_send(in_buff.data(), in_buff.size()))
-    {
-      LOG_ERROR_CC(m_connection_context, "Failed to do_send()");
-      return -1;
-    }
-    CRITICAL_REGION_END();
-    LOG_DEBUG_CC(m_connection_context, "LEVIN_PACKET_SENT. [len=" << head.m_cb <<
-      ", f=" << head.m_flags << 
-      ", r?=" << head.m_have_to_return_data <<
-      ", cmd = " << head.m_command << 
-      ", ver=" << head.m_protocol_version);
 
     return 1;
   }
