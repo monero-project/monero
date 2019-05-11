@@ -1660,7 +1660,24 @@ public:
   /**
    * @brief fix up anything that may be wrong due to past bugs
    */
-  virtual void fixup();
+  enum struct fixup_type
+  {
+    standard,
+    calculate_difficulty,
+  };
+
+  struct fixup_context
+  {
+    fixup_type type;
+    union
+    {
+      struct
+      {
+        uint64_t start_height;
+      } calculate_difficulty_params;
+    };
+  };
+  virtual void fixup(fixup_context const context = {});
 
   virtual bool get_output_blacklist(std::vector<uint64_t> &blacklist) const = 0;
   virtual void add_output_blacklist(std::vector<uint64_t> const &blacklist) = 0;

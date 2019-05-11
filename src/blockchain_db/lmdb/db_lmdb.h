@@ -403,7 +403,7 @@ private:
   virtual uint64_t get_database_size() const;
 
   // fix up anything that may be wrong due to past bugs
-  virtual void fixup();
+  virtual void fixup(fixup_context const context);
 
   // migrate from older DB version to current
   void migrate(const uint32_t oldversion);
