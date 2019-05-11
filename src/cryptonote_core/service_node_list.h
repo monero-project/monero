@@ -119,7 +119,6 @@ namespace service_nodes
     bool is_fully_funded() const { return total_contributed >= staking_requirement; }
     size_t total_num_locked_contributions() const;
 
-    int                                dummy; // FIXME(doyle)
     BEGIN_SERIALIZE_OBJECT()
       VARINT_FIELD(version)
       VARINT_FIELD(registration_height)
@@ -137,7 +136,6 @@ namespace service_nodes
       {
         VARINT_FIELD(swarm_id)
       }
-      VARINT_FIELD(dummy)
     END_SERIALIZE()
   };
 
