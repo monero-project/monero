@@ -255,7 +255,7 @@ namespace tools
     {
       std::vector<std::vector<uint8_t>> allowed_fingerprints{ rpc_ssl_allowed_fingerprints.size() };
       std::transform(rpc_ssl_allowed_fingerprints.begin(), rpc_ssl_allowed_fingerprints.end(), allowed_fingerprints.begin(), epee::from_hex::vector);
-      for (const auto &fpr: rpc_ssl_allowed_fingerprints)
+      for (const auto &fpr: allowed_fingerprints)
       {
         if (fpr.size() != SSL_FINGERPRINT_SIZE)
         {
