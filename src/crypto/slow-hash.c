@@ -331,12 +331,7 @@ static inline int use_v4_jit(void)
     \
     if (jit){ \
       uint8_t* tmp = (uint8_t*)hp_jitfunc; \
-      if (sizeof(void*) == sizeof(uint32_t)){ \
-        tmp+=4092; \
-      }\
-      else if (sizeof(void*) == sizeof(uint64_t)){\
-        tmp+=4088; \
-      }\
+      tmp += 4096 - sizeof(void*); \
       (*(v4_random_math_JIT_func)tmp)(r); \
     } \
     else \

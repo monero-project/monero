@@ -140,7 +140,7 @@ int ppcJIT_load(void* execmem, uint32_t* code, uint64_t INST_LEN){
     }
   }
   if(idx >= INST_LEN){
-     printf("JIT BUFFER FILLED UP!\n");
+     MERROR("JIT BUFFER FILLED UP!\n");
      return -1;
   }
   for (idx = 0; code[idx] != 0x00000000; ++idx){
@@ -224,7 +224,7 @@ int v4_generate_JIT_code(const struct V4_Instruction* code, v4_random_math_JIT_f
 
 	return 0;
 #elif defined __PPC__ || defined __PPC64__
-    printf("Started compiling PPC64 JIT at %p\n",buf);
+    MDEBUG("Started compiling PPC64 JIT at %p\n",buf);
     uint32_t* JIT_code = (uint32_t*) buf;
     uint64_t INST_LEN = (uint64_t)(buf_size / sizeof(uint32_t));
     
@@ -232,18 +232,17 @@ int v4_generate_JIT_code(const struct V4_Instruction* code, v4_random_math_JIT_f
     //use end of buffer to store pointer to beginning of buffer (weirdness of the BE ppc abi)
     size_t l = buf_size/sizeof(void*);
     if (sizeof(void*) == sizeof(uint32_t)){
-        *(JIT_code+l-1) = JIT_code;
+        *(JIT_code+l-1) = (uint32_t)JIT_code;
     }
     else if(sizeof(void*) == sizeof(uint64_t)){
-        uint64_t* fP = (uint64_t*)JIT_code;
-        *(fP+l-1) = (uint64_t)JIT_code;
+        *((uint64_t*)JIT_code+l-1) = (uint64_t)JIT_code;
     }
     #endif
 
-    uint8_t regN[] = {4,5,6,7,8,9,10,11,12};
-    uint8_t r0 = 0;
+    static const uint8_t regN[] = {4,5,6,7,8,9,10,11,12};
+    static const uint8_t r0 = 0;
     ppcJIT_load(JIT_code,prologue,INST_LEN); 
-    for (uint32_t i = 0; i < 70; ++i)
+    for (uint32_t i = 0;; ++i)
     {
         uint8_t dst = code[i].dst_index;
         uint8_t src = code[i].src_index;
