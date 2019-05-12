@@ -109,8 +109,11 @@ namespace service_nodes
     LOG_PRINT_L0("This may take some time...");
 
     std::vector<std::pair<cryptonote::blobdata, cryptonote::block>> blocks;
-    while (m_transient_state.height < current_height)
+    for (uint64_t i = 0; m_transient_state.height < current_height; i++)
     {
+      if (i > 0 && i % 10 == 0)
+          LOG_PRINT_L0("... scanning height " << m_transient_state.height);
+
       blocks.clear();
       if (!m_blockchain.get_blocks(m_transient_state.height, 1000, blocks))
       {
@@ -137,6 +140,7 @@ namespace service_nodes
         block_added_generic(block, txs);
       }
     }
+    LOG_PRINT_L0("Done recalculating service nodes list");
   }
 
   std::vector<crypto::public_key> service_node_list::get_service_nodes_pubkeys() const
