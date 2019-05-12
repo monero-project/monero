@@ -3,6 +3,26 @@
 Copyright (c) 2014-2018 The Monero Project.   
 Portions Copyright (c) 2012-2013 The Cryptonote developers.
 
+## Table of Contents
+
+  - [Development resources](#development-resources)
+  - [Vulnerability response](#vulnerability-response)
+  - [Research](#research)
+  - [Announcements](#announcements)
+  - [Translations](#translations)
+  - [Build](#build)
+    - [IMPORTANT](#important)
+  - [Coverage](#coverage)
+  - [Introduction](#introduction)
+  - [About this project](#about-this-project)
+  - [Supporting the project](#supporting-the-project)
+  - [License](#license)
+  - [Contributing](#contributing)
+  - [Scheduled software upgrades](#scheduled-software-upgrades)
+  - [Release staging schedule and protocol](#release-staging-schedule-and-protocol)
+  - [Compiling Monero from source](#compiling-monero-from-source)
+    - [Dependencies](#dependencies)
+
 ## Development resources
 
 - Web: [getmonero.org](https://getmonero.org)
