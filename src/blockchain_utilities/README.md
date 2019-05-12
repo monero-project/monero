@@ -79,7 +79,7 @@ LMDB flags (more than one may be specified):
 
 ## Examples:
 
-```
+```bash
 $ monero-blockchain-import --database lmdb#fastest
 
 $ monero-blockchain-import --database lmdb#nosync

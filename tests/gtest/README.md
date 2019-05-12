@@ -14,15 +14,19 @@ Suppose you put Google Test in directory `${GTEST_DIR}`.  To build it,
 create a library build target (or a project as called by Visual Studio
 and Xcode) to compile
 
-    ${GTEST_DIR}/src/gtest-all.cc
+```bash
+${GTEST_DIR}/src/gtest-all.cc
+```
 
 with `${GTEST_DIR}/include` in the system header search path and `${GTEST_DIR}`
 in the normal header search path.  Assuming a Linux-like system and gcc,
 something like the following will do:
 
-    g++ -isystem ${GTEST_DIR}/include -I${GTEST_DIR} \
-        -pthread -c ${GTEST_DIR}/src/gtest-all.cc
-    ar -rv libgtest.a gtest-all.o
+```bash
+g++ -isystem ${GTEST_DIR}/include -I${GTEST_DIR} \
+    -pthread -c ${GTEST_DIR}/src/gtest-all.cc
+ar -rv libgtest.a gtest-all.o
+```
 
 (We need `-pthread` as Google Test uses threads.)
 
@@ -30,8 +34,10 @@ Next, you should compile your test source file with
 `${GTEST_DIR}/include` in the system header search path, and link it
 with gtest and any other necessary libraries:
 
-    g++ -isystem ${GTEST_DIR}/include -pthread path/to/your_test.cc libgtest.a \
-        -o your_test
+```bash
+g++ -isystem ${GTEST_DIR}/include -pthread path/to/your_test.cc libgtest.a \
+    -o your_test
+```
 
 As an example, the make/ directory contains a Makefile that you can
 use to build Google Test on systems where GNU make is available
@@ -43,9 +49,11 @@ script.
 If the default settings are correct for your environment, the
 following commands should succeed:
 
-    cd ${GTEST_DIR}/make
-    make
-    ./sample1_unittest
+```bash
+cd ${GTEST_DIR}/make
+make
+./sample1_unittest
+```
 
 If you see errors, try to tweak the contents of `make/Makefile` to make
 them go away.  There are instructions in `make/Makefile` on how to do
@@ -62,14 +70,18 @@ CMake works by generating native makefiles or build projects that can
 be used in the compiler environment of your choice.  The typical
 workflow starts with:
 
-    mkdir mybuild       # Create a directory to hold the build output.
-    cd mybuild
-    cmake ${GTEST_DIR}  # Generate native build scripts.
+```bash
+mkdir mybuild       # Create a directory to hold the build output.
+cd mybuild
+cmake ${GTEST_DIR}  # Generate native build scripts.
+```
 
 If you want to build Google Test's samples, you should replace the
 last command with
 
-    cmake -Dgtest_build_samples=ON ${GTEST_DIR}
+```bash
+cmake -Dgtest_build_samples=ON ${GTEST_DIR}
+```
 
 If you are on a \*nix system, you should now see a Makefile in the
 current directory.  Just type 'make' to build gtest.
@@ -108,7 +120,9 @@ end up in your selected build directory (selected in the Xcode
 "Preferences..." -> "Building" pane and defaults to xcode/build).
 Alternatively, at the command line, enter:
 
-    xcodebuild
+```bash
+xcodebuild
+```
 
 This will build the "Release" configuration of gtest.framework in your
 default build location.  See the "xcodebuild" man page for more
@@ -152,18 +166,24 @@ tell Google Test to use the same TR1 tuple library the rest of your
 project uses, or the two tuple implementations will clash.  To do
 that, add
 
-    -DGTEST_USE_OWN_TR1_TUPLE=0
+```bash
+-DGTEST_USE_OWN_TR1_TUPLE=0
+```
 
 to the compiler flags while compiling Google Test and your tests.  If
 you want to force Google Test to use its own tuple library, just add
 
-    -DGTEST_USE_OWN_TR1_TUPLE=1
+```bash
+-DGTEST_USE_OWN_TR1_TUPLE=1
+```
 
 to the compiler flags instead.
 
 If you don't want Google Test to use tuple at all, add
 
-    -DGTEST_HAS_TR1_TUPLE=0
+```bash
+-DGTEST_HAS_TR1_TUPLE=0
+```
 
 and all features using tuple will be disabled.
 
@@ -177,11 +197,15 @@ macro to see whether this is the case (yes if the macro is `#defined` to
 If Google Test doesn't correctly detect whether pthread is available
 in your environment, you can force it with
 
-    -DGTEST_HAS_PTHREAD=1
+```bash
+-DGTEST_HAS_PTHREAD=1
+```
 
 or
 
-    -DGTEST_HAS_PTHREAD=0
+```bash
+-DGTEST_HAS_PTHREAD=0
+```
 
 When Google Test uses pthread, you may need to add flags to your
 compiler and/or linker to select the pthread library, or you'll get
@@ -198,7 +222,9 @@ as a shared library (known as a DLL on Windows) if you prefer.
 
 To compile *gtest* as a shared library, add
 
-    -DGTEST_CREATE_SHARED_LIBRARY=1
+```bash
+-DGTEST_CREATE_SHARED_LIBRARY=1
+```
 
 to the compiler flags.  You'll also need to tell the linker to produce
 a shared library instead - consult your linker's manual for how to do
@@ -206,7 +232,9 @@ it.
 
 To compile your *tests* that use the gtest shared library, add
 
-    -DGTEST_LINKED_AS_SHARED_LIBRARY=1
+```bash
+-DGTEST_LINKED_AS_SHARED_LIBRARY=1
+```
 
 to the compiler flags.
 
@@ -229,18 +257,24 @@ conflict.
 Specifically, if both Google Test and some other code define macro
 FOO, you can add
 
-    -DGTEST_DONT_DEFINE_FOO=1
+```bash
+-DGTEST_DONT_DEFINE_FOO=1
+```
 
 to the compiler flags to tell Google Test to change the macro's name
 from `FOO` to `GTEST_FOO`.  Currently `FOO` can be `FAIL`, `SUCCEED`,
 or `TEST`.  For example, with `-DGTEST_DONT_DEFINE_TEST=1`, you'll
 need to write
 
-    GTEST_TEST(SomeTest, DoesThis) { ... }
+```c++
+GTEST_TEST(SomeTest, DoesThis) { ... }
+```
 
 instead of
 
-    TEST(SomeTest, DoesThis) { ... }
+```c++
+TEST(SomeTest, DoesThis) { ... }
+```
 
 in order to define a test.
 
@@ -254,9 +288,11 @@ To make sure your changes work as intended and don't break existing
 functionality, you'll want to compile and run Google Test's own tests.
 For that you can use CMake:
 
-    mkdir mybuild
-    cd mybuild
-    cmake -Dgtest_build_tests=ON ${GTEST_DIR}
+```bash
+mkdir mybuild
+cd mybuild
+cmake -Dgtest_build_tests=ON ${GTEST_DIR}
+```
 
 Make sure you have Python installed, as some of Google Test's tests
 are written in Python.  If the cmake command complains about not being
@@ -264,12 +300,16 @@ able to find Python (`Could NOT find PythonInterp (missing:
 PYTHON_EXECUTABLE)`), try telling it explicitly where your Python
 executable can be found:
 
-    cmake -DPYTHON_EXECUTABLE=path/to/python -Dgtest_build_tests=ON ${GTEST_DIR}
+```bash
+cmake -DPYTHON_EXECUTABLE=path/to/python -Dgtest_build_tests=ON ${GTEST_DIR}
+```
 
 Next, you can build Google Test and all of its own tests.  On \*nix,
 this is usually done by 'make'.  To run the tests, do
 
-    make test
+```bash
+make test
+```
 
 All tests should pass.
 

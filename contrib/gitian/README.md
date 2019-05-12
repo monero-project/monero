@@ -119,7 +119,7 @@ In order to sign gitian builds on your host machine, which has your PGP key,
 fork the gitian.sigs repository and clone it on your host machine, 
 or pass the signed assert file back to your build machine.
 
-```
+```bash
 git clone git@github.com:monero-project/gitian.sigs.git
 git remote add fluffypony git@github.com:fluffypony/gitian.sigs.git
 ```
@@ -156,9 +156,9 @@ git push --set-upstream $NAME v0.14.0
 ```
 
 ```bash
-    gpg --detach-sign ${VERSION}-linux/${SIGNER}/monero-linux-*-build.assert
-    gpg --detach-sign ${VERSION}-win-unsigned/${SIGNER}/monero-win-*-build.assert
-    gpg --detach-sign ${VERSION}-osx-unsigned/${SIGNER}/monero-osx-*-build.assert
+gpg --detach-sign ${VERSION}-linux/${SIGNER}/monero-linux-*-build.assert
+gpg --detach-sign ${VERSION}-win-unsigned/${SIGNER}/monero-win-*-build.assert
+gpg --detach-sign ${VERSION}-osx-unsigned/${SIGNER}/monero-osx-*-build.assert
 ```
 
 More Build Options
