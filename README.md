@@ -816,7 +816,7 @@ Type `run` to run monerod
 
 There are two tools available:
 
-* ASAN
+#### ASAN
 
 Configure Monero with the -D SANITIZE=ON cmake flag, eg:
 
@@ -826,7 +826,7 @@ cd build/debug && cmake -D SANITIZE=ON -D CMAKE_BUILD_TYPE=Debug ../..
 
 You can then run the monero tools normally. Performance will typically halve.
 
-* valgrind
+#### valgrind
 
 Install valgrind and run as `valgrind /path/to/monerod`. It will be very slow.
 
