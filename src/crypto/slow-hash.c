@@ -310,9 +310,7 @@ static inline int use_v4_jit(void)
     } \
   } while (0)
 
-
-
-#if (defined(__PPC__) || defined(__PPC64__)) && (__BYTE_ORDER == __BIG_ENDIAN)
+#if (defined(__PPC__) || defined(__PPC64__)) && (__BYTE_ORDER ==__BIG_ENDIAN)
 #define VARIANT4_RANDOM_MATH(a, b, r, _b, _b1) \
   do if (variant >= 4) \
   { \
@@ -332,10 +330,8 @@ static inline int use_v4_jit(void)
     V4_REG_LOAD(r + 7, _b1); \
     V4_REG_LOAD(r + 8, (uint64_t*)(_b1) + 1); \
     \
-    if (jit){ \
-      v4_random_math_JIT_func BEfunc = (v4_random_math_JIT_func)((uint8_t*)hp_jitfunc + 4096 - sizeof(void*)) ; \
-      BEfunc(r); \
-    } \
+    if (jit) \
+      ((v4_random_math_JIT_func)((uint8_t*)hp_jitfunc + 4096 - sizeof(void*)))(r); \
     else \
       v4_random_math(code, r); \
     \
@@ -350,44 +346,6 @@ static inline int use_v4_jit(void)
     } \
     memcpy(a, t, sizeof(uint64_t) * 2); \
   } while (0)
-#elif (defined(__PPC__) || defined(__PPC64__)) && (__BYTE_ORDER == __LITTLE_ENDIAN)
-#define VARIANT4_RANDOM_MATH(a, b, r, _b, _b1) \
-  do if (variant >= 4) \
-  { \
-    uint64_t t[2]; \
-    memcpy(t, b, sizeof(uint64_t)); \
-    \
-    if (sizeof(v4_reg) == sizeof(uint32_t)) \
-      t[0] ^= SWAP64LE((r[0] + r[1]) | ((uint64_t)(r[2] + r[3]) << 32)); \
-    else \
-      t[0] ^= SWAP64LE((r[0] + r[1]) ^ (r[2] + r[3])); \
-    \
-    memcpy(b, t, sizeof(uint64_t)); \
-    \
-    V4_REG_LOAD(r + 4, a); \
-    V4_REG_LOAD(r + 5, (uint64_t*)(a) + 1); \
-    V4_REG_LOAD(r + 6, _b); \
-    V4_REG_LOAD(r + 7, _b1); \
-    V4_REG_LOAD(r + 8, (uint64_t*)(_b1) + 1); \
-    \
-    if (jit){ \
-      hp_jitfunc(r); \
-    } \
-    else \
-      v4_random_math(code, r); \
-    \
-    memcpy(t, a, sizeof(uint64_t) * 2); \
-    \
-    if (sizeof(v4_reg) == sizeof(uint32_t)) { \
-      t[0] ^= SWAP64LE(r[2] | ((uint64_t)(r[3]) << 32)); \
-      t[1] ^= SWAP64LE(r[0] | ((uint64_t)(r[1]) << 32)); \
-    } else { \
-      t[0] ^= SWAP64LE(r[2] ^ r[3]); \
-      t[1] ^= SWAP64LE(r[0] ^ r[1]); \
-    } \
-    memcpy(a, t, sizeof(uint64_t) * 2); \
-  } while (0)
-
 #else
 #define VARIANT4_RANDOM_MATH(a, b, r, _b, _b1) \
   do if (variant >= 4) \
@@ -424,7 +382,6 @@ static inline int use_v4_jit(void)
     } \
     memcpy(a, t, sizeof(uint64_t) * 2); \
   } while (0)
-
 #endif
 
 #if !defined NO_AES && (defined(__x86_64__) || (defined(_MSC_VER) && defined(_WIN64)))
@@ -1665,17 +1622,16 @@ void cn_slow_hash(const void *data, size_t length, char *hash, int variant, int 
 #include <sys/mman.h>
 //#include <SSE2ALTIVEC.h>
 // PPC64 implementation just a copy of the portable one for now, plus the JIT. 
+
 v4_random_math_JIT_func hp_jitfunc = NULL;
 uint8_t *hp_jitfunc_memory = NULL;
 
 void slow_hash_allocate_state(void)
 {
-    if(hp_jitfunc_memory != NULL) return;
-
-    hp_jitfunc_memory = mmap(NULL, 4096, PROT_READ | PROT_WRITE | PROT_EXEC, 
-		             MAP_PRIVATE | MAP_ANON, -1, 0);
-    hp_jitfunc = (v4_random_math_JIT_func)hp_jitfunc_memory;
-    //printf("Allocated JIT mem %p\n",hp_jitfunc);
+  if(hp_jitfunc_memory != NULL) return;
+  hp_jitfunc_memory = mmap(NULL, 4096, PROT_READ | PROT_WRITE | PROT_EXEC, 
+                           MAP_PRIVATE | MAP_ANON, -1, 0);
+  hp_jitfunc = (v4_random_math_JIT_func)hp_jitfunc_memory;
   return;
 }
 

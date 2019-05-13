@@ -226,7 +226,6 @@ int v4_generate_JIT_code(const struct V4_Instruction* code, v4_random_math_JIT_f
     if(buf == NULL){
        return -1;
     }
-    printf("Started compiling PPC64 JIT at %p\n",buf);
     uint32_t* JIT_code = (uint32_t*) buf;
     uint64_t INST_LEN = (uint64_t)(buf_size / sizeof(uint32_t));
     
