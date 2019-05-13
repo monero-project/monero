@@ -804,7 +804,7 @@ gdb /path/to/monerod /path/to/dumpfile`
 
 Print the stack trace with `bt`
 
-* To run monero within gdb:
+#### To run monero within gdb:
 
 Type `gdb /path/to/monerod`
 
