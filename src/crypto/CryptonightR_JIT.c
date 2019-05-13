@@ -204,8 +204,7 @@ int v4_generate_JIT_code(const struct V4_Instruction* code, v4_random_math_JIT_f
 	__builtin___clear_cache((char*)buf, (char*)JIT_code);
 
 	return 0;
-#elif defined __PPC__ || defined __PPC64__
-    //printf("Compiling JIT at %p\n",buf);
+#elif defined(__PPC__) || defined(__PPC64__)
     uint8_t* JIT_code = (uint8_t*) buf;
     const uint8_t* JIT_code_end = JIT_code + buf_size;
     static const uint8_t regN[] = {4,5,6,7,8,9,10,11,12};
