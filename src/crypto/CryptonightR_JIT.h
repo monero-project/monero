@@ -16,7 +16,6 @@ __attribute__((sysv_abi))
 
 #if defined __PPC__ || defined __PPC64__
 uint32_t ppcgen_op(uint32_t op,uint32_t a0, uint32_t a1, uint32_t a2 );
-int ppcJIT_load(void* execmem, uint32_t* code,size_t buf_size);
 #endif
 
 

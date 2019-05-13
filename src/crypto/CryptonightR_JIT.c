@@ -61,7 +61,6 @@ static const uint32_t prologue[] = {
 0x81430018,//      lwz 10,24(3)
 0x8163001C,//      lwz 11,28(3)
 0x81830020,//      lwz 12,32(3)
-0x0000000 //end stream
 };
 
 static const uint32_t epilogue[] ={
@@ -77,7 +76,6 @@ static const uint32_t epilogue[] ={
 0xe8010010,  //ld r0,16(r1) load lr from stack to r0
 0x7c0803a6,  //restore link register
 0x4e800020, //jump to lr
-0x00000000 //end stream
 };
 
 #define ppcD(d)    (d << 21)
@@ -130,28 +128,9 @@ uint32_t ppcgen_op(uint32_t op,uint32_t a0, uint32_t a1, uint32_t a2 ){
   return op;
 }
 
-int ppcJIT_load(void* execmem, uint32_t* code, uint64_t INST_LEN){
-  uint64_t idx = 0;
-  uint32_t* inst = (uint32_t*)execmem;
-  for (;idx < INST_LEN; ++idx){
-    if (inst[idx] == 0x00000000){
-      inst = inst+idx;
-      break;
-    }
-  }
-  if(idx >= INST_LEN){
-     return -1;
-  }
-  for (idx = 0; code[idx] != 0x00000000; ++idx){
-    inst[idx] = code[idx];
-  }
-  return 0;
-}
-
 #endif //end ppc helper functions
 
 
-#if defined __i386 || defined __x86_64__
 #define APPEND_CODE(src, size) \
 	do { \
 		if (JIT_code + (size) > JIT_code_end) \
@@ -159,9 +138,12 @@ int ppcJIT_load(void* execmem, uint32_t* code, uint64_t INST_LEN){
 		memcpy(JIT_code, (src), (size)); \
 		JIT_code += (size); \
 	} while (0)
-#endif
+
 int v4_generate_JIT_code(const struct V4_Instruction* code, v4_random_math_JIT_func buf, const size_t buf_size)
 {
+ 	if(buf == NULL){
+       	    return -1;
+        }
 #if defined __i386 || defined __x86_64__
 	uint8_t* JIT_code = (uint8_t*) buf;
 	const uint8_t* JIT_code_end = JIT_code + buf_size;
@@ -223,39 +205,36 @@ int v4_generate_JIT_code(const struct V4_Instruction* code, v4_random_math_JIT_f
 
 	return 0;
 #elif defined __PPC__ || defined __PPC64__
-    if(buf == NULL){
-       return -1;
-    }
-    uint32_t* JIT_code = (uint32_t*) buf;
-    uint64_t INST_LEN = (uint64_t)(buf_size / sizeof(uint32_t));
-    
+    //printf("Compiling JIT at %p\n",buf);
+    uint8_t* JIT_code = (uint8_t*) buf;
+    const uint8_t* JIT_code_end = JIT_code + buf_size;
+    static const uint8_t regN[] = {4,5,6,7,8,9,10,11,12};
+    static const uint8_t r0 = 0;
+
     #if __BYTE_ORDER == __BIG_ENDIAN
     //use end of buffer to store pointer to beginning of buffer (weirdness of the BE ppc abi)
     size_t l = buf_size/sizeof(void*);
     if (sizeof(void*) == sizeof(uint32_t)){
-        *(JIT_code+l-1) = (uint32_t)JIT_code;
+        *((uint32_t*)buf+l-1) = (uint32_t)buf;
     }
     else if(sizeof(void*) == sizeof(uint64_t)){
-        *((uint64_t*)JIT_code+l-1) = (uint64_t)JIT_code;
+        *((uint64_t*)buf+l-1) = (uint64_t)buf;
     }
     #endif
 
-    static const uint8_t regN[] = {4,5,6,7,8,9,10,11,12};
-    static const uint8_t r0 = 0;
-    ppcJIT_load(JIT_code,prologue,INST_LEN); 
+    APPEND_CODE(prologue,sizeof(prologue));
     for (uint32_t i = 0;; ++i)
     {
         uint8_t dst = code[i].dst_index;
         uint8_t src = code[i].src_index;
-        uint32_t tmp[] = {0,0,0,0,0,0,0,0};
+        uint32_t tmp[] = {0,0,0,0};
         int16_t* C;
-        int retv = 0;
         switch (code[i].opcode)
         {
             case MUL:
                 tmp[0] = ppcgen_op(ppcMULLW,regN[dst],regN[dst],regN[src]);
-                retv = ppcJIT_load(JIT_code,tmp,INST_LEN);
-                break;
+                APPEND_CODE(tmp,1*sizeof(uint32_t));
+		break;
             case ADD:
                 C = (int16_t*)&code[i].C;
                 #if __BYTE_ORDER == __BIG_ENDIAN
@@ -266,35 +245,34 @@ int v4_generate_JIT_code(const struct V4_Instruction* code, v4_random_math_JIT_f
                 int16_t lo = C[0];
                 #endif
                 tmp[0] = ppcgen_op(ppcADD,regN[dst],regN[dst],regN[src]); 
-                if(lo < 0) hi+=1;
-                tmp[1] = ppcgen_op(ppcADDIS,regN[dst],regN[dst],hi); // load upper 16bits
-                tmp[2] = ppcgen_op(ppcADDI,regN[dst],regN[dst],lo); // load lower 16bits
-                retv = ppcJIT_load(JIT_code,tmp,INST_LEN);
+                if(lo < 0) hi+=1;                                     //compensate ADDI sign extension to 32bits
+                tmp[1] = ppcgen_op(ppcADDIS,regN[dst],regN[dst],hi);  // sum upper 16bits
+                tmp[2] = ppcgen_op(ppcADDI,regN[dst],regN[dst],lo);   // sum lower 16bits
+                APPEND_CODE(tmp,3*sizeof(uint32_t));
                 break;
             case SUB:
                 tmp[0] = ppcgen_op(ppcSUBF,regN[dst],regN[src],regN[dst]);
-                retv = ppcJIT_load(JIT_code,tmp,INST_LEN);
+                APPEND_CODE(tmp,1*sizeof(uint32_t));
                 break;
             case ROR:
                 tmp[0] = ppcgen_op(ppcNEG,r0,regN[src],0);
                 tmp[1] = ppcgen_op(ppcROTLW,regN[dst],regN[dst],r0);
-                retv = ppcJIT_load(JIT_code,tmp,INST_LEN);
+                APPEND_CODE(tmp,2*sizeof(uint32_t));
                 break;
             case ROL:
                 tmp[0] = ppcgen_op(ppcROTLW,regN[dst],regN[dst],regN[src]);
-                retv = ppcJIT_load(JIT_code,tmp,INST_LEN);
+                APPEND_CODE(tmp,1*sizeof(uint32_t));
                 break;
             case XOR:
                 tmp[0] = ppcgen_op(ppcXOR,regN[dst],regN[dst],regN[src]);
-                retv = ppcJIT_load(JIT_code,tmp,INST_LEN);
-                break;
+                APPEND_CODE(tmp,1*sizeof(uint32_t));
+       		break;
             case RET:
-                retv = ppcJIT_load(JIT_code,epilogue,INST_LEN);
+                APPEND_CODE(epilogue,sizeof(epilogue));
                 return 0;
             default:
                 return -1;
         }
-        if(retv != 0) return -1;
     }
 //end ppc64
 #else
