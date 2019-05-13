@@ -933,7 +933,7 @@ void cn_slow_hash(const void *data, size_t length, char *hash, int variant, int 
 
     // this isn't supposed to happen, but guard against it for now.
     if(hp_state == NULL)
-        vslow_hash_allocate_state();
+        slow_hash_allocate_state();
 
     // locals to avoid constant TLS dereferencing
     uint8_t *local_hp_state = hp_state;
