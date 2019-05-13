@@ -241,13 +241,13 @@ namespace
 
       m_in_data.assign(256, 't');
 
-      m_req_head.m_signature = LEVIN_SIGNATURE;
-      m_req_head.m_cb = m_in_data.size();
+      m_req_head.m_signature = SWAP64LE(LEVIN_SIGNATURE);
+      m_req_head.m_cb = SWAP64LE(m_in_data.size());
       m_req_head.m_have_to_return_data = true;
-      m_req_head.m_command = expected_command;
-      m_req_head.m_return_code = LEVIN_OK;
-      m_req_head.m_flags = LEVIN_PACKET_REQUEST;
-      m_req_head.m_protocol_version = LEVIN_PROTOCOL_VER_1;
+      m_req_head.m_command = SWAP32LE(expected_command);
+      m_req_head.m_return_code = SWAP32LE(LEVIN_OK);
+      m_req_head.m_flags = SWAP32LE(LEVIN_PACKET_REQUEST);
+      m_req_head.m_protocol_version = SWAP32LE(LEVIN_PROTOCOL_VER_1);
 
       m_commands_handler.return_code(expected_return_code);
       m_commands_handler.invoke_out_buf(m_expected_invoke_out_buf);
@@ -337,12 +337,12 @@ TEST_F(positive_test_connection_to_levin_protocol_handler_calls, handler_process
   std::string in_data(256, 'q');
 
   epee::levin::bucket_head2 req_head;
-  req_head.m_signature = LEVIN_SIGNATURE;
-  req_head.m_cb = in_data.size();
+  req_head.m_signature = SWAP64LE(LEVIN_SIGNATURE);
+  req_head.m_cb = SWAP64LE(in_data.size());
   req_head.m_have_to_return_data = true;
-  req_head.m_command = expected_command;
-  req_head.m_flags = LEVIN_PACKET_REQUEST;
-  req_head.m_protocol_version = LEVIN_PROTOCOL_VER_1;
+  req_head.m_command = SWAP32LE(expected_command);
+  req_head.m_flags = SWAP32LE(LEVIN_PACKET_REQUEST);
+  req_head.m_protocol_version = SWAP32LE(LEVIN_PROTOCOL_VER_1);
 
   std::string buf(reinterpret_cast<const char*>(&req_head), sizeof(req_head));
   buf += in_data;
@@ -373,13 +373,13 @@ TEST_F(positive_test_connection_to_levin_protocol_handler_calls, handler_process
 
   // Check sent response
   ASSERT_EQ(expected_out_data, out_data);
-  ASSERT_EQ(LEVIN_SIGNATURE, resp_head.m_signature);
-  ASSERT_EQ(expected_command, resp_head.m_command);
-  ASSERT_EQ(expected_return_code, resp_head.m_return_code);
-  ASSERT_EQ(expected_out_data.size(), resp_head.m_cb);
+  ASSERT_EQ(LEVIN_SIGNATURE, SWAP64LE(resp_head.m_signature));
+  ASSERT_EQ(expected_command, SWAP32LE(resp_head.m_command));
+  ASSERT_EQ(expected_return_code, SWAP32LE(resp_head.m_return_code));
+  ASSERT_EQ(expected_out_data.size(), SWAP64LE(resp_head.m_cb));
   ASSERT_FALSE(resp_head.m_have_to_return_data);
-  ASSERT_EQ(LEVIN_PROTOCOL_VER_1, resp_head.m_protocol_version);
-  ASSERT_TRUE(0 != (resp_head.m_flags & LEVIN_PACKET_RESPONSE));
+  ASSERT_EQ(SWAP32LE(LEVIN_PROTOCOL_VER_1), resp_head.m_protocol_version);
+  ASSERT_TRUE(0 != (SWAP32LE(resp_head.m_flags) & LEVIN_PACKET_RESPONSE));
 }
 
 TEST_F(positive_test_connection_to_levin_protocol_handler_calls, handler_processes_handle_read_as_notify)
@@ -392,12 +392,12 @@ TEST_F(positive_test_connection_to_levin_protocol_handler_calls, handler_process
   std::string in_data(256, 'e');
 
   epee::levin::bucket_head2 req_head;
-  req_head.m_signature = LEVIN_SIGNATURE;
-  req_head.m_cb = in_data.size();
+  req_head.m_signature = SWAP64LE(LEVIN_SIGNATURE);
+  req_head.m_cb = SWAP64LE(in_data.size());
   req_head.m_have_to_return_data = false;
-  req_head.m_command = expected_command;
-  req_head.m_flags = LEVIN_PACKET_REQUEST;
-  req_head.m_protocol_version = LEVIN_PROTOCOL_VER_1;
+  req_head.m_command = SWAP32LE(expected_command);
+  req_head.m_flags = SWAP32LE(LEVIN_PACKET_REQUEST);
+  req_head.m_protocol_version = SWAP32LE(LEVIN_PROTOCOL_VER_1);
 
   std::string buf(reinterpret_cast<const char*>(&req_head), sizeof(req_head));
   buf += in_data;
@@ -618,7 +618,7 @@ TEST_F(test_levin_protocol_handler__hanle_recv_with_invalid_data, handles_two_re
 
 TEST_F(test_levin_protocol_handler__hanle_recv_with_invalid_data, handles_unexpected_response)
 {
-  m_req_head.m_flags = LEVIN_PACKET_RESPONSE;
+  m_req_head.m_flags = SWAP32LE(LEVIN_PACKET_RESPONSE);
   prepare_buf();
 
   ASSERT_FALSE(m_conn->m_protocol_handler.handle_recv(m_buf.data(), m_buf.size()));
