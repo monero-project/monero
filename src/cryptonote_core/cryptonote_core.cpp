@@ -2022,6 +2022,29 @@ namespace cryptonote
     return m_mempool.get_complement(hashes, txes);
   }
   //-----------------------------------------------------------------------------------------------
+  std::pair<unsigned int, double> core::get_block_rate(uint64_t seconds)
+  {
+    const time_t now = time(NULL);
+    const std::vector<time_t> timestamps = m_blockchain_storage.get_last_block_timestamps(3 * seconds / DIFFICULTY_TARGET_V2);
+
+    unsigned int b = 0;
+    const time_t time_boundary = now - static_cast<time_t>(seconds);
+    for (time_t ts: timestamps) b += ts >= time_boundary;
+    const double p = probability(b, seconds / DIFFICULTY_TARGET_V2);
+    MDEBUG("blocks in the last " << seconds / 60 << " minutes: " << b << " (probability " << p << ")");
+    return std::make_pair(b, p);
+  }
+  //-----------------------------------------------------------------------------------------------
+  std::vector<double> core::get_block_rate_probabilities(uint64_t seconds, unsigned int max_blocks) const
+  {
+    std::vector<double> p;
+    p.reserve(max_blocks + 1);
+    const uint64_t expected = seconds / DIFFICULTY_TARGET_V2;
+    for (unsigned int b = 0; b < max_blocks; ++b)
+      p.push_back(probability(b, expected));
+    return p;
+  }
+  //-----------------------------------------------------------------------------------------------
   bool core::update_blockchain_pruning()
   {
     return m_blockchain_storage.update_blockchain_pruning();

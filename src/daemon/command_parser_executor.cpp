@@ -1075,4 +1075,20 @@ show_list:
   return true;
 }
 
+bool t_command_parser_executor::block_rate(const std::vector<std::string>& args)
+{
+  uint64_t seconds = 60 * 60;
+  if (!args.empty())
+  {
+    try { seconds = boost::lexical_cast<uint64_t>(args[0]); }
+    catch (...) { std::cout << "Invalid number of seconds" << std::endl; return true; }
+  }
+  if (seconds > 5400)
+  {
+    std::cout << "Interval too large" << std::endl;
+    return true;
+  }
+  return m_executor.block_rate(seconds);
+}
+
 } // namespace daemonize

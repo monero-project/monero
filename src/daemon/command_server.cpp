@@ -336,6 +336,12 @@ t_command_server::t_command_server(
     , "flush_cache [bad-txs] [bad-blocks]"
     , "Flush the specified cache(s)."
     );
+    m_command_lookup.set_handler(
+      "block_rate"
+    , std::bind(&t_command_parser_executor::block_rate, &m_parser, p::_1)
+    , "block_rate [<seconds>]"
+    , "Report on the block rate in the last N seconds."
+    );
 }
 
 bool t_command_server::process_command_str(const std::string& cmd)

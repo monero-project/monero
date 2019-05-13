@@ -2545,4 +2545,42 @@ bool t_rpc_command_executor::version()
     return true;
 }
 
+bool t_rpc_command_executor::block_rate(uint64_t seconds)
+{
+    cryptonote::COMMAND_RPC_GET_BLOCK_RATE::request req;
+    cryptonote::COMMAND_RPC_GET_BLOCK_RATE::response res;
+    std::string fail_message = "Unsuccessful";
+    epee::json_rpc::error error_resp;
+
+    req.seconds.push_back(seconds);
+
+    if (m_is_rpc)
+    {
+        if (!m_rpc_client->json_rpc_request(req, res, "get_block_rate", fail_message.c_str()))
+        {
+            return true;
+        }
+    }
+    else
+    {
+        if (!m_rpc_server->on_get_block_rate(req, res, error_resp) || res.status != CORE_RPC_STATUS_OK)
+        {
+            tools::fail_msg_writer() << make_error(fail_message, res.status);
+            return true;
+        }
+    }
+
+    if (res.results.size() != 1 || res.results.front().seconds != req.seconds.front())
+    {
+        tools::fail_msg_writer() << "Bad reply from daemon";
+        return true;
+    }
+    const auto &entry = res.results.front();
+    tools::msg_writer() << entry.actual << " blocks in the last " << entry.seconds << " seconds (" << entry.expected << " expected, " << 100. * entry.probability << "% probability)";
+    for (size_t i = 0; i < entry.probabilities.size(); ++i)
+      tools::msg_writer() << "P(" << (i <= entry.expected ? "<= " : ">= ") << i << " blocks): " << 100. * entry.probabilities[i] << "%";
+
+    return true;
+}
+
 }// namespace daemonize

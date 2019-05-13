@@ -894,6 +894,41 @@ namespace cryptonote
       */
      float get_blockchain_height_plausibility(uint64_t height) const;
 
+     /**
+      * @brief returns the block rate in the last N seconds, as well as the
+      * probability of that block rate
+      *
+      * @param seconds the interval in which to check
+      *
+      * @return the rate and a 0-1 probability
+      */
+     std::pair<unsigned int, double> get_block_rate(uint64_t seconds);
+
+     /**
+      * @brief returns the probabilities for a set of block rates
+      *
+      * @param seconds the interval for which to calculate probabilities
+      * @max_blocks how many probabilities to include (from 0 to max_blocks)
+      *
+      * Note that the probabilities are not for each exact rate, but for
+      * deviating up to to that rate. That is, if the block rate being
+      * assessed is higher than the expected block rate, this is the
+      * probability of the actual block rate being higher or equal to
+      * the assessed block rate. If the block rate being assessed is
+      * lower then the expected block rate, this is the probability of
+      * the actual block rate being lower or equal to the assessed
+      * block rate. For example, when assessing a block rate of 10 blocks
+      * for 1200 seconds, then the probability for 11 blocks will be the
+      * cumulative probability for 11, 12, 13, etc to infinity (in practice,
+      * clamped at a level where probabilities become too small to matter).
+      * Likewise, the probability for 2 blocks over those 1200 seconds is
+      * the cumulative probability for 2, 1, and 0 blocks). This means the
+      * cumulative sum of the returned vector does not equal 1.
+      *
+      * @return a set of 0-1 probabilities
+      */
+     std::vector<double> get_block_rate_probabilities(uint64_t seconds, unsigned int max_blocks) const;
+
    private:
 
      /**

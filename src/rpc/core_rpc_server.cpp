@@ -3304,6 +3304,45 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_get_block_rate(const COMMAND_RPC_GET_BLOCK_RATE::request& req, COMMAND_RPC_GET_BLOCK_RATE::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx)
+  {
+    RPC_TRACKER(get_block_rate);
+    const bool restricted = m_restricted && ctx;
+    if (restricted)
+    {
+      if (req.seconds.size() > 4)
+      {
+        error_resp.code = CORE_RPC_ERROR_CODE_RESTRICTED;
+        error_resp.message = "Too many time intervals";
+        return false;
+      }
+      for (auto seconds: req.seconds)
+      {
+        if (seconds > 1 * 3600)
+        {
+          error_resp.code = CORE_RPC_ERROR_CODE_RESTRICTED;
+          error_resp.message = "Time interval too large";
+          return false;
+        }
+      }
+    }
+
+    res.results.reserve(req.seconds.size());
+    for (auto seconds: req.seconds)
+    {
+      res.results.push_back({});
+      auto &entry = res.results.back();
+      const auto p = m_core.get_block_rate(seconds);
+      entry.seconds = seconds;
+      entry.expected = seconds / DIFFICULTY_TARGET_V2;
+      entry.actual = p.first;
+      entry.probability = p.second;
+      entry.probabilities = m_core.get_block_rate_probabilities(seconds, 3 * (entry.expected + 1));
+    }
+    res.status = CORE_RPC_STATUS_OK;
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_rpc_access_submit_nonce(const COMMAND_RPC_ACCESS_SUBMIT_NONCE::request& req, COMMAND_RPC_ACCESS_SUBMIT_NONCE::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx)
   {
     RPC_TRACKER(rpc_access_submit_nonce);
