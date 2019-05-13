@@ -29,6 +29,7 @@
 #pragma once
 
 #include "string_tools.h"
+#include "int-util.h"
 #include "cryptonote_basic/difficulty.h"
 
 template<uint64_t hash_target_high, uint64_t hash_target_low, uint64_t difficulty_high, uint64_t difficulty_low>
@@ -44,13 +45,18 @@ public:
     difficulty = difficulty_high;
     difficulty = (difficulty << 64) | difficulty_low;
     boost::multiprecision::uint256_t hash_value =  std::numeric_limits<boost::multiprecision::uint256_t>::max() / hash_target;
-    ((uint64_t*)&hash)[0] = (hash_value & 0xffffffffffffffff).convert_to<uint64_t>();
+    uint64_t val;
+    val = (hash_value & 0xffffffffffffffff).convert_to<uint64_t>();
+    ((uint64_t*)&hash)[0] = SWAP64LE(val);
     hash_value >>= 64;
-    ((uint64_t*)&hash)[1] = (hash_value & 0xffffffffffffffff).convert_to<uint64_t>();
+    val = (hash_value & 0xffffffffffffffff).convert_to<uint64_t>();
+    ((uint64_t*)&hash)[1] = SWAP64LE(val);
     hash_value >>= 64;
-    ((uint64_t*)&hash)[2] = (hash_value & 0xffffffffffffffff).convert_to<uint64_t>();
+    val = (hash_value & 0xffffffffffffffff).convert_to<uint64_t>();
+    ((uint64_t*)&hash)[2] = SWAP64LE(val);
     hash_value >>= 64;
-    ((uint64_t*)&hash)[3] = (hash_value & 0xffffffffffffffff).convert_to<uint64_t>();
+    val = (hash_value & 0xffffffffffffffff).convert_to<uint64_t>();
+    ((uint64_t*)&hash)[3] = SWAP64LE(val);
     return true;
   }
 

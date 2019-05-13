@@ -27,6 +27,7 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "gtest/gtest.h"
+#include "int-util.h"
 #include "cryptonote_basic/difficulty.h"
 
 static cryptonote::difficulty_type MKDIFF(uint64_t high, uint64_t low)
@@ -42,13 +43,18 @@ static crypto::hash MKHASH(uint64_t high, uint64_t low)
   hash_target = (hash_target << 64) | low;
   boost::multiprecision::uint256_t hash_value = std::numeric_limits<boost::multiprecision::uint256_t>::max() / hash_target;
   crypto::hash h;
-  ((uint64_t*)&h)[0] = (hash_value & 0xffffffffffffffff).convert_to<uint64_t>();
+  uint64_t val;
+  val = (hash_value & 0xffffffffffffffff).convert_to<uint64_t>();
+  ((uint64_t*)&h)[0] = SWAP64LE(val);
   hash_value >>= 64;
-  ((uint64_t*)&h)[1] = (hash_value & 0xffffffffffffffff).convert_to<uint64_t>();
+  val = (hash_value & 0xffffffffffffffff).convert_to<uint64_t>();
+  ((uint64_t*)&h)[1] = SWAP64LE(val);
   hash_value >>= 64;
-  ((uint64_t*)&h)[2] = (hash_value & 0xffffffffffffffff).convert_to<uint64_t>();
+  val = (hash_value & 0xffffffffffffffff).convert_to<uint64_t>();
+  ((uint64_t*)&h)[2] = SWAP64LE(val);
   hash_value >>= 64;
-  ((uint64_t*)&h)[3] = (hash_value & 0xffffffffffffffff).convert_to<uint64_t>();
+  val = (hash_value & 0xffffffffffffffff).convert_to<uint64_t>();
+  ((uint64_t*)&h)[3] = SWAP64LE(val);
   return h;
 }
 
