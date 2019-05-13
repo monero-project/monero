@@ -140,7 +140,6 @@ int ppcJIT_load(void* execmem, uint32_t* code, uint64_t INST_LEN){
     }
   }
   if(idx >= INST_LEN){
-     printf("JIT BUFFER FILLED UP!\n");
      return -1;
   }
   for (idx = 0; code[idx] != 0x00000000; ++idx){
@@ -225,7 +224,6 @@ int v4_generate_JIT_code(const struct V4_Instruction* code, v4_random_math_JIT_f
 	return 0;
 #elif defined __PPC__ || defined __PPC64__
     if(buf == NULL){
-       printf("NULL BUFFER!\n");
        return -1;
     }
     printf("Started compiling PPC64 JIT at %p\n",buf);

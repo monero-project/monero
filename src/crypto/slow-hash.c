@@ -333,8 +333,8 @@ static inline int use_v4_jit(void)
     V4_REG_LOAD(r + 8, (uint64_t*)(_b1) + 1); \
     \
     if (jit){ \
-      hp_jitfunc = (v4_random_math_JIT_func)((uint8_t*)hp_jitfunc + 4096 - sizeof(void*)) ; \
-      hp_jitfunc(r); \
+      v4_random_math_JIT_func BEfunc = (v4_random_math_JIT_func)((uint8_t*)hp_jitfunc + 4096 - sizeof(void*)) ; \
+      BEfunc(r); \
     } \
     else \
       v4_random_math(code, r); \
