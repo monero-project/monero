@@ -13,10 +13,6 @@ namespace service_nodes {
   constexpr size_t   MIN_VOTES_TO_CHECKPOINT          = MIN_VOTES_TO_KICK_SERVICE_NODE;
   constexpr size_t   NTH_OF_THE_NETWORK_TO_TEST       = 100;
   constexpr size_t   MIN_NODES_TO_TEST                = 50;
-  constexpr size_t   MAX_SWARM_SIZE                   = 10;
-  // We never create a new swarm unless there are SWARM_BUFFER extra nodes
-  // available in the queue.
-  constexpr size_t   SWARM_BUFFER                     = 5;
   // if a swarm has strictly less nodes than this, it is considered unhealthy
   // and nearby swarms will mirror it's data. It will disappear, and is already considered gone.
   constexpr size_t   MIN_SWARM_SIZE                   = 5;
@@ -31,7 +27,6 @@ namespace service_nodes {
   // The upper swarm percentile that will be randomly selected during stealing
   constexpr size_t   STEALING_SWARM_UPPER_PERCENTILE  = 75;
   constexpr int      MAX_KEY_IMAGES_PER_CONTRIBUTOR   = 1;
-  constexpr uint64_t QUEUE_SWARM_ID                   = 0;
   constexpr uint64_t KEY_IMAGE_AWAITING_UNLOCK_HEIGHT = 0;
   constexpr uint64_t CHECKPOINT_INTERVAL              = 4;
 
