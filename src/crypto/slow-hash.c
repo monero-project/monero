@@ -136,8 +136,8 @@ static inline int use_v4_jit(void)
   { \
     U64(b)[2] = state.hs.w[8] ^ state.hs.w[10]; \
     U64(b)[3] = state.hs.w[9] ^ state.hs.w[11]; \
-    division_result = state.hs.w[12]; \
-    sqrt_result = state.hs.w[13]; \
+    division_result = SWAP64LE(state.hs.w[12]); \
+    sqrt_result = SWAP64LE(state.hs.w[13]); \
   } while (0)
 
 #define VARIANT2_PORTABLE_INIT() \
@@ -210,7 +210,7 @@ static inline int use_v4_jit(void)
     uint64_t b0[2]; \
     memcpy_swap64le(b0, b, 2); \
     chunk2[0] = SWAP64LE(chunk1_old[0] + b0[0]); \
-    chunk2[1] = SWAP64LE(SWAP64LE(chunk1_old[1]) + b0[1]); \
+    chunk2[1] = SWAP64LE(chunk1_old[1] + b0[1]); \
     if (variant >= 4) \
     { \
       uint64_t out_copy[2]; \
