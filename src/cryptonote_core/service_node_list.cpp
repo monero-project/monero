@@ -381,9 +381,11 @@ namespace service_nodes
     /// Gather existing swarms from infos
     swarm_snode_map_t existing_swarms;
 
-    for (const auto& entry : m_transient_state.service_nodes_infos) {
-      const auto id = entry.second.swarm_id;
-      existing_swarms[id].push_back(entry.first);
+    const std::vector<crypto::public_key> sorted_sn_pubkeys = get_service_nodes_pubkeys();
+
+    for (const crypto::public_key& pk : sorted_sn_pubkeys) {
+      const service_node_info& info = m_transient_state.service_nodes_infos.at(pk);
+      existing_swarms[info.swarm_id].push_back(pk);
     }
 
     calc_swarm_changes(existing_swarms, seed);
