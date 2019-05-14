@@ -14,6 +14,11 @@ __attribute__((sysv_abi))
 #endif
 ;
 
+#if defined __PPC__ || defined __PPC64__
+uint32_t ppcgen_op(uint32_t op,uint32_t a0, uint32_t a1, uint32_t a2 );
+#endif
+
+
 // Given the random math sequence, generates machine code (x86-64) for it
 // Returns 0 if code was generated successfully
 // Returns -1 if provided buffer was too small
