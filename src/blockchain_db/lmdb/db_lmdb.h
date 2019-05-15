@@ -323,12 +323,12 @@ public:
   void batch_stop() override;
   void batch_abort();
 
-  void block_wtxn_start();
-  void block_wtxn_stop();
-  void block_wtxn_abort();
-  bool block_rtxn_start() const;
-  void block_rtxn_stop() const;
-  void block_rtxn_abort() const;
+  void block_wtxn_start() override;
+  void block_wtxn_stop() override;
+  void block_wtxn_abort() override;
+  bool block_rtxn_start() const override;
+  void block_rtxn_stop() const override;
+  void block_rtxn_abort() const override;
 
   bool block_rtxn_start(MDB_txn **mtxn, mdb_txn_cursors **mcur) const;
 
@@ -375,7 +375,7 @@ private:
 
   void remove_block() override;
 
-  uint64_t add_transaction_data(const crypto::hash& blk_hash, const std::pair<transaction, blobdata>& tx, const crypto::hash& tx_hash, const crypto::hash& tx_prunable_hash);
+  uint64_t add_transaction_data(const crypto::hash& blk_hash, const std::pair<transaction, blobdata>& tx, const crypto::hash& tx_hash, const crypto::hash& tx_prunable_hash) override;
 
   void remove_transaction_data(const crypto::hash& tx_hash, const transaction& tx) override;
 
