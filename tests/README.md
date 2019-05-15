@@ -2,7 +2,7 @@
 
 To run all tests, run:
 
-```
+```bash
 cd /path/to/monero
 make [-jn] debug-test # where n is number of compiler processes
 ```
@@ -17,7 +17,7 @@ Tests are located in `tests/core_tests/`, and follow a straightforward naming co
 
 To run only Monero's core tests (after building):
 
-```
+```bash
 cd build/debug/tests/core_tests
 ctest
 ```
@@ -36,7 +36,7 @@ Tests correspond to components under `src/crypto/`. A quick comparison reveals t
 
 To run only Monero's crypto tests (after building):
 
-```
+```bash
 cd build/debug/tests/crypto
 ctest
 ```
@@ -53,13 +53,13 @@ To run the same tests on a release build, replace `debug` with `release`.
 Functional tests are located under the `tests/functional` directory.
 
 First, run a regtest daemon in the offline mode and with a fixed difficulty:
-```
+```bash
 monerod --regtest --offline --fixed-difficulty 1
 ```
 Alternatively, you can run multiple daemons and let them connect with each other by using `--add-exclusive-node`. In this case, make sure that the same fixed difficulty is given to all the daemons.
 
 Next, restore a mainnet wallet with the following seed and restore height 0 (the file path doesn't matter):
-```
+```bash
 velvet lymph giddy number token physics poetry unquoted nibs useful sabotage limits benches lifestyle eden nitrogen anvil fewest avoid batch vials washing fences goat unquoted
 ```
 
@@ -77,7 +77,7 @@ Hash tests exist under `tests/hash`, and include a set of target hashes in text 
 
 To run only Monero's hash tests (after building):
 
-```
+```bash
 cd build/debug/tests/hash
 ctest
 ```
@@ -98,7 +98,7 @@ Performance tests are located in `tests/performance_tests`, and test features fo
 
 To run only Monero's performance tests (after building):
 
-```
+```bash
 cd build/debug/tests/performance_tests
 ./performance_tests
 ```
@@ -115,7 +115,7 @@ Unit tests are defined under the `tests/unit_tests` directory. Independent compo
 
 To run only Monero's unit tests (after building):
 
-```
+```bash
 cd build/debug/tests/unit_tests
 ctest
 ```
