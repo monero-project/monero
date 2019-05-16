@@ -352,7 +352,7 @@ boost::asio::ssl::context ssl_options_t::create_context() const
       MERROR("Failed to use generated EC private key for " << NID_secp256k1);
     else
       ok = true;
-    // don't free the cert, the CTX owns it now
+    X509_free(cert);
     EVP_PKEY_free(pkey);
 #endif
 
@@ -362,7 +362,7 @@ boost::asio::ssl::context ssl_options_t::create_context() const
       MERROR("Failed to use generated RSA private key for RSA");
     else
       ok = true;
-    // don't free the cert, the CTX owns it now
+    X509_free(cert);
     EVP_PKEY_free(pkey);
 
     CHECK_AND_ASSERT_THROW_MES(ok, "Failed to use any generated certificate");
