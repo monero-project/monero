@@ -258,7 +258,7 @@ portable_binary_iarchive::load_impl(boost::intmax_t & l, char maxsize){
     this->primitive_base_t::load_binary(cptr, size);
 
     #if BOOST_ENDIAN_BIG_BYTE
-        if(m_flags & endian_little)
+        if((m_flags & endian_little) || (!(m_flags & endian_big)))
     #else
         if(m_flags & endian_big)
     #endif
@@ -343,6 +343,8 @@ portable_binary_iarchive::init(unsigned int flags){
         );
         #endif
     }
+    if (!(m_flags & (endian_little | endian_big)))
+      m_flags |= endian_little;
     unsigned char x;
     load(x);
     m_flags = x << CHAR_BIT;
