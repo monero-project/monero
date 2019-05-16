@@ -119,7 +119,7 @@ In order to sign gitian builds on your host machine, which has your PGP key,
 fork the gitian.sigs repository and clone it on your host machine, 
 or pass the signed assert file back to your build machine.
 
-```
+```bash
 git clone git@github.com:loki-project/gitian.sigs.git
 git remote add loki-user git@github.com:loki-user/gitian.sigs.git
 ```
@@ -156,9 +156,9 @@ git push --set-upstream $NAME v3.0.4
 ```
 
 ```bash
-    gpg --detach-sign ${VERSION}-linux/${SIGNER}/loki-linux-*-build.assert
-    gpg --detach-sign ${VERSION}-win-unsigned/${SIGNER}/loki-win-*-build.assert
-    gpg --detach-sign ${VERSION}-osx-unsigned/${SIGNER}/loki-osx-*-build.assert
+gpg --detach-sign ${VERSION}-linux/${SIGNER}/loki-linux-*-build.assert
+gpg --detach-sign ${VERSION}-win-unsigned/${SIGNER}/loki-win-*-build.assert
+gpg --detach-sign ${VERSION}-osx-unsigned/${SIGNER}/loki-osx-*-build.assert
 ```
 
 More Build Options

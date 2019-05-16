@@ -5,7 +5,7 @@
 </p>
 
 Copyright (c) 2018 The Loki Project.   
-Portions Copyright (c) 2014-2018 The Monero Project.   
+Portions Copyright (c) 2014-2019 The Monero Project.   
 Portions Copyright (c) 2012-2013 The Cryptonote developers.
 
 ## Development resources
@@ -97,9 +97,11 @@ invokes cmake commands as needed.
 * Install the dependencies
 * Change to the root of the source code directory, change to the most recent release branch, and build:
 
-        cd loki
-        git checkout master
-        make
+    ```bash
+    cd loki
+    git checkout master
+    make
+    ```
 
     *Optional*: If your machine has several cores and enough memory, enable
     parallel build by running `make -j<number of threads>` instead of `make`. For
@@ -123,23 +125,31 @@ invokes cmake commands as needed.
 
 * **Optional**: build and run the test suite to verify the binaries:
 
-        make release-test
+    ```bash
+    make release-test
+    ```
 
     *NOTE*: `core_tests` test may take a few hours to complete.
 
 * **Optional**: to build binaries suitable for debugging:
 
-         make debug
+    ```bash
+    make debug
+    ```
 
 * **Optional**: to build statically-linked binaries:
 
-         make release-static
+    ```bash
+    make release-static
+    ```
 
 Dependencies need to be built with -fPIC. Static libraries usually aren't, so you may have to build them yourself with -fPIC. Refer to their documentation for how to build them.
 
 * **Optional**: build documentation in `doc/html` (omit `HAVE_DOT=YES` if `graphviz` is not installed):
 
-        HAVE_DOT=YES doxygen Doxyfile
+    ```bash
+    HAVE_DOT=YES doxygen Doxyfile
+    ```
 
 #### On the Raspberry Pi
 
@@ -150,24 +160,30 @@ Tested on a Raspberry Pi Zero with a clean install of minimal Raspbian Stretch (
 * Install the dependencies for Loki from the 'Debian' column in the table above.
 
 * Increase the system swap size:
-```
-	sudo /etc/init.d/dphys-swapfile stop  
-	sudo nano /etc/dphys-swapfile  
-	CONF_SWAPSIZE=2048
-	sudo /etc/init.d/dphys-swapfile start  
-```
+
+    ```bash
+    sudo /etc/init.d/dphys-swapfile stop  
+    sudo nano /etc/dphys-swapfile  
+    CONF_SWAPSIZE=2048
+    sudo /etc/init.d/dphys-swapfile start
+    ```
+
 * If using an external hard disk without an external power supply, ensure it gets enough power to avoid hardware issues when syncing, by adding the line "max_usb_current=1" to /boot/config.txt
 
-* Clone loki and checkout most recent release version:
-```
-        git clone https://github.com/loki-project/loki.git
-	cd loki
-	git checkout master
-```
+* Clone Loki and checkout the most recent release version:
+
+    ```bash
+    git clone https://github.com/loki-project/loki.git
+    cd loki
+    git checkout master
+    ```
+
 * Build:
-```
-        make release
-```
+
+    ```bash
+    make release
+    ```
+
 * Wait 4-6 hours
 
 * The resulting executables can be found in `build/release/bin`
@@ -184,28 +200,33 @@ If you are using the older Raspbian Jessie image, compiling Loki is a bit more c
 
 * As before, `apt-get update && apt-get upgrade` to install all of the latest software, and increase the system swap size
 
-```
-	sudo /etc/init.d/dphys-swapfile stop  
-	sudo nano /etc/dphys-swapfile  
-	CONF_SWAPSIZE=2048  
-	sudo /etc/init.d/dphys-swapfile start  
-```
+    ```bash
+    sudo /etc/init.d/dphys-swapfile stop
+    sudo nano /etc/dphys-swapfile
+    CONF_SWAPSIZE=2048
+    sudo /etc/init.d/dphys-swapfile start
+    ```
+
 
 * Then, install the dependencies for Loki except `libunwind` and `libboost-all-dev`
 
 * Install the latest version of boost (this may first require invoking `apt-get remove --purge libboost*` to remove a previous version if you're not using a clean install):
-```
-	cd  
-	wget https://sourceforge.net/projects/boost/files/boost/1.64.0/boost_1_64_0.tar.bz2  
-	tar xvfo boost_1_64_0.tar.bz2  
-	cd boost_1_64_0  
-	./bootstrap.sh  
-	sudo ./b2  
-```
+
+    ```bash
+    cd
+    wget https://sourceforge.net/projects/boost/files/boost/1.64.0/boost_1_64_0.tar.bz2
+    tar xvfo boost_1_64_0.tar.bz2
+    cd boost_1_64_0
+    ./bootstrap.sh
+    sudo ./b2
+    ```
+
 * Wait ~8 hours
-```
-	sudo ./bjam cxxflags=-fPIC cflags=-fPIC -a install
-```
+
+    ```bash    
+    sudo ./bjam cxxflags=-fPIC cflags=-fPIC -a install
+    ```
+
 * Wait ~4 hours
 
 * From here, follow the [general Raspberry Pi instructions](#on-the-raspberry-pi) from the "Clone loki and checkout most recent release version" step.
@@ -225,11 +246,15 @@ application.
 * Open the MSYS shell via the `MSYS2 MSYS` shortcut in the Start Menu or "C:\msys64\msys2_shell.cmd -msys"
 * Update packages using pacman:  
 
-        pacman -Syu  
+    ```bash
+    pacman -Syu
+    ```
 
 * Exit the MSYS shell using Alt+F4 when you get a warning stating: "terminate MSYS2 without returning to shell and check for updates again/for example close your terminal window instead of calling exit"
 
-* Open the MSYS MinGW shell via the `MSYS2 MinGW 64-bit` shortcut or "C:\msys64\msys2_shell.cmd -mingw64" for 64-bit builds or via the `MSYS2 MinGW 32-bit` shortcut or "C:\msys64\msys2_shell.cmd -mingw32" for 32-bit builds 
+    ```bash
+    pacman -Syu
+    ```
 
 * Update packages again using pacman: 
 
@@ -239,11 +264,15 @@ application.
 
     To build for 64-bit Windows:
 
-        pacman -S mingw-w64-x86_64-toolchain make mingw-w64-x86_64-cmake mingw-w64-x86_64-boost mingw-w64-x86_64-openssl mingw-w64-x86_64-zeromq mingw-w64-x86_64-libsodium mingw-w64-x86_64-hidapi git
+    ```bash
+    pacman -S mingw-w64-x86_64-toolchain make mingw-w64-x86_64-cmake mingw-w64-x86_64-boost mingw-w64-x86_64-openssl mingw-w64-x86_64-zeromq mingw-w64-x86_64-libsodium mingw-w64-x86_64-hidapi
+    ```
 
     To build for 32-bit Windows:
 
-        pacman -S mingw-w64-i686-toolchain make mingw-w64-i686-cmake mingw-w64-i686-boost mingw-w64-i686-openssl mingw-w64-i686-zeromq mingw-w64-i686-libsodium mingw-w64-i686-hidapi git
+    ```bash
+    pacman -S mingw-w64-i686-toolchain make mingw-w64-i686-cmake mingw-w64-i686-boost mingw-w64-i686-openssl mingw-w64-i686-zeromq mingw-w64-i686-libsodium mingw-w64-i686-hidapi
+    ```
 
 * Close and reopen the MSYS MinGW shell via `MSYS2 MinGW 64-bit` shortcut on
   64-bit Windows or `MSYS2 MinGW 32-bit` shortcut on 32-bit Windows. Note 
@@ -254,35 +283,49 @@ application.
 
 * To git clone, run:
 
-        git clone --recursive https://github.com/loki-project/loki.git
+    ```bash
+    git clone --recursive https://github.com/loki-project/loki.git
+    ```
 
 **Building**
 
 * Change to the cloned directory, run:
 	
-        cd ~/loki
+    ```bash
+    cd loki
+    ```
 
-* **Optional**: if you would like a specific [version/tag](https://github.com/loki-project/loki/tags), do a git checkout for that version. eg. 'v3.0.4'. If you don't care about the version and just want binaries from master, skip this step:
+* If you would like a specific [version/tag](https://github.com/loki-project/loki/tags), do a git checkout for that version. eg. 'v3.0.0'. If you don't care about the version and just want binaries from master, skip this step:
 	
-        git checkout v3.0.4
+    ```bash
+    git checkout v0.14.1.0
+    ```
 
 * If you are on a 64-bit system, run:
 
-        make release-static-win64
+    ```bash
+    make release-static-win64
+    ```
 
 * If you are on a 32-bit system, run:
 
-        make release-static-win32
+    ```bash
+    make release-static-win32
+    ```
 
 * The resulting executables can be found in `build/<MinGW version>/<loki version>/release/bin`
 
 * **Optional**: to build Windows binaries suitable for debugging on a 64-bit system, run:
 
-        make debug-static-win64
+    ```bash
+    make debug-static-win64
+    ```
 
 * **Optional**: to build Windows binaries suitable for debugging on a 32-bit system, run:
 
-        make debug-static-win32
+    ```bash
+    make debug-static-win32
+    ```
 
 * The resulting executables can be found in `build/<MinGW version>/<loki version>/debug/bin`
 
@@ -322,7 +365,7 @@ We assume you are compiling with a non-root user and you have `doas` enabled.
 
 Note: do not use the boost package provided by OpenBSD, as we are installing boost to `/usr/local`.
 
-```
+```bash
 # Create boost building directory
 mkdir ~/boost
 cd ~/boost
@@ -358,7 +401,7 @@ Build the cppzmq bindings.
 
 We assume you are compiling with a non-root user and you have `doas` enabled.
 
-```
+```bash
 # Create cppzmq building directory
 mkdir ~/cppzmq
 cd ~/cppzmq
@@ -378,7 +421,10 @@ cmake ..
 doas make install
 ```
 
-Build loki: `env DEVELOPER_LOCAL_TOOLS=1 BOOST_ROOT=/usr/local make release-static`
+Build Loki:
+```bash
+env DEVELOPER_LOCAL_TOOLS=1 BOOST_ROOT=/usr/local make release-static
+```
 
 #### OpenBSD >= 6.4
 
@@ -401,23 +447,27 @@ Then you need to increase the data ulimit size to 2GB and try again: `ulimit -d 
 
 The default Solaris linker can't be used, you have to install GNU ld, then run cmake manually with the path to your copy of GNU ld:
 
-        mkdir -p build/release
-        cd build/release
-        cmake -DCMAKE_LINKER=/path/to/ld -D CMAKE_BUILD_TYPE=Release ../..
-        cd ../..
+```bash
+mkdir -p build/release
+cd build/release
+cmake -DCMAKE_LINKER=/path/to/ld -D CMAKE_BUILD_TYPE=Release ../..
+cd ../..
+```
 
 Then you can run make as usual.
 
 ### On Linux for Android (using docker):
 
-        # Build image (for ARM 32-bit)
-        docker build -f utils/build_scripts/android32.Dockerfile -t loki-android .
-        # Build image (for ARM 64-bit)
-        docker build -f utils/build_scripts/android64.Dockerfile -t loki-android .
-        # Create container
-        docker create -it --name loki-android loki-android bash
-        # Get binaries
-        docker cp loki-android:/src/build/release/bin .
+```bash
+# Build image (for ARM 32-bit)
+docker build -f utils/build_scripts/android32.Dockerfile -t loki-android .
+# Build image (for ARM 64-bit)
+docker build -f utils/build_scripts/android64.Dockerfile -t loki-android .
+# Create container
+docker create -it --name loki-android loki-android bash
+# Get binaries
+docker cp loki-android:/src/build/release/bin .
+```
 
 ### Building portable statically linked binaries
 
@@ -436,12 +486,18 @@ By default, in either dynamically or statically linked builds, binaries target t
 You can also cross-compile static binaries on Linux for Windows and macOS with the `depends` system.
 
 * ```make depends target=x86_64-linux-gnu``` for 64-bit linux binaries.
-* ```make depends target=x86_64-w64-mingw32``` for 64-bit windows binaries. Requires: python3 g++-mingw-w64-x86-64 wine1.6 bc
-* ```make depends target=x86_64-apple-darwin11``` for macOS binaries. Requires: cmake imagemagick libcap-dev librsvg2-bin libz-dev libbz2-dev libtiff-tools python-dev
-* ```make depends target=i686-linux-gnu``` for 32-bit linux binaries. Requires: g++-multilib bc
-* ```make depends target=i686-w64-mingw32``` for 32-bit windows binaries. Requires: python3 g++-mingw-w64-i686
-* ```make depends target=arm-linux-gnueabihf``` for armv7 binaries. Requires: g++-arm-linux-gnueabihf
-* ```make depends target=aarch64-linux-gnu``` for armv8 binaries. Requires: g++-aarch64-linux-gnu
+* ```make depends target=x86_64-w64-mingw32``` for 64-bit windows binaries.
+  * Requires: `python3 g++-mingw-w64-x86-64 wine1.6 bc`
+* ```make depends target=x86_64-apple-darwin11``` for macOS binaries.
+  * Requires: `cmake imagemagick libcap-dev librsvg2-bin libz-dev libbz2-dev libtiff-tools python-dev`
+* ```make depends target=i686-linux-gnu``` for 32-bit linux binaries.
+  * Requires: `g++-multilib bc`
+* ```make depends target=i686-w64-mingw32``` for 32-bit windows binaries.
+  * Requires: `python3 g++-mingw-w64-i686`
+* ```make depends target=arm-linux-gnueabihf``` for armv7 binaries.
+  * Requires: `g++-arm-linux-gnueabihf`
+* ```make depends target=aarch64-linux-gnu``` for armv8 binaries.
+  * Requires: `g++-aarch64-linux-gnu`
 
 The required packages are the names for each toolchain on apt. Depending on your distro, they may have different names.
 
@@ -451,19 +507,25 @@ The produced binaries still link libc dynamically. If the binary is compiled on 
 
 ## Installing Loki from a package
 
+**DISCLAIMER: These packages are not part of this repository or maintained by this project's contributors, and as such, do not go through the same review process to ensure their trustworthiness and security.**
+
+Packages are available for
+
 * Docker
 
-        # Build using all available cores
-        docker build -t loki .
-
-        # or build using a specific number of cores (reduce RAM requirement)
-        docker build --build-arg NPROC=1 -t loki .
-
-        # either run in foreground
-        docker run -it -v /loki/chain:/root/.loki -v /loki/wallet:/wallet -p 22022:22022 loki
-
-        # or in background
-        docker run -it -d -v /loki/chain:/root/.loki -v /loki/wallet:/wallet -p 22022:22022 loki
+    ```bash
+    # Build using all available cores
+    docker build -t loki .
+    
+    # or build using a specific number of cores (reduce RAM requirement)
+    docker build --build-arg NPROC=1 -t loki .
+    
+    # either run in foreground
+    docker run -it -v /loki/chain:/root/.bitloki -v /loki/wallet:/wallet -p 18080:18080 loki
+    
+    # or in background
+    docker run -it -d -v /loki/chain:/root/.bitloki -v /loki/wallet:/wallet -p 18080:18080 loki
+    ```
 
 * The build needs 3 GB space.
 * Wait one  hour or more
@@ -474,7 +536,9 @@ The build places the binary in `bin/` sub-directory within the build directory
 from which cmake was invoked (repository root by default). To run in
 foreground:
 
-    ./bin/lokid
+```bash
+./bin/lokid
+```
 
 To list all available options, run `./bin/lokid --help`.  Options can be
 specified either on the command line or in a configuration file passed by the
@@ -484,7 +548,19 @@ of the argument without the leading dashes, for example `log-level=1`.
 
 To run in background:
 
-    ./bin/lokid --log-file lokid.log --detach
+```bash
+./bin/lokid --log-file lokid.log --detach
+```
+
+To run as a systemd service, copy
+[lokid.service](utils/systemd/lokid.service) to `/etc/systemd/system/` and
+[lokid.conf](utils/conf/lokid.conf) to `/etc/`. The [example
+service](utils/systemd/lokid.service) assumes that the user `loki` exists
+and its home is the data directory specified in the [example
+config](utils/conf/lokid.conf).
+
+If you're on Mac, you may need to add the `--max-concurrency 1` option to
+loki-wallet-cli, and possibly lokid, if you get crashes refreshing.
 
 ## Internationalization
 
@@ -522,7 +598,9 @@ setting the following configuration parameters and environment variables:
 
 Example command line to start lokid through Tor:
 
-    DNS_PUBLIC=tcp torsocks lokid --p2p-bind-ip 127.0.0.1 --no-igd
+```bash
+DNS_PUBLIC=tcp torsocks lokid --p2p-bind-ip 127.0.0.1 --no-igd
+```
 
 ### Using Tor on Tails
 
@@ -530,9 +608,11 @@ TAILS ships with a very restrictive set of firewall rules. Therefore, you need
 to add a rule to allow this connection too, in addition to telling torsocks to
 allow inbound connections. Full example:
 
-    sudo iptables -I OUTPUT 2 -p tcp -d 127.0.0.1 -m tcp --dport 18081 -j ACCEPT
-    DNS_PUBLIC=tcp torsocks ./lokid --p2p-bind-ip 127.0.0.1 --no-igd --rpc-bind-ip 127.0.0.1 \
-        --data-dir /home/amnesia/Persistent/your/directory/to/the/blockchain
+```bash
+sudo iptables -I OUTPUT 2 -p tcp -d 127.0.0.1 -m tcp --dport 18081 -j ACCEPT
+DNS_PUBLIC=tcp torsocks ./lokid --p2p-bind-ip 127.0.0.1 --no-igd --rpc-bind-ip 127.0.0.1 \
+    --data-dir /home/amnesia/Persistent/your/directory/to/the/blockchain
+```
 
 ## Debugging
 
@@ -542,13 +622,13 @@ This section contains general instructions for debugging failed installs or prob
 
 We generally use the tool `gdb` (GNU debugger) to provide stack trace functionality, and `ulimit` to provide core dumps in builds which crash or segfault.
 
-* To use gdb in order to obtain a stack trace for a build that has stalled:
+* To use `gdb` in order to obtain a stack trace for a build that has stalled:
 
 Run the build.
 
 Once it stalls, enter the following command:
 
-```
+```bash
 gdb /path/to/lokid `pidof lokid`
 ```
 
@@ -566,11 +646,13 @@ When it terminates with an output along the lines of "Segmentation fault (core d
 
 You can now analyse this core dump with `gdb` as follows:
 
-`gdb /path/to/lokid /path/to/dumpfile`
+```bash
+gdb /path/to/lokid /path/to/dumpfile`
+```
 
 Print the stack trace with `bt`
 
-* To run loki within gdb:
+#### To run Loki within gdb:
 
 Type `gdb /path/to/lokid`
 
@@ -582,15 +664,17 @@ Type `run` to run lokid
 
 There are two tools available:
 
-* ASAN
+#### ASAN
 
 Configure Loki with the -D SANITIZE=ON cmake flag, eg:
 
-    cd build/debug && cmake -D SANITIZE=ON -D CMAKE_BUILD_TYPE=Debug ../..
+```bash
+cd build/debug && cmake -D SANITIZE=ON -D CMAKE_BUILD_TYPE=Debug ../..
+```
 
 You can then run the loki tools normally. Performance will typically halve.
 
-* valgrind
+#### valgrind
 
 Install valgrind and run as `valgrind /path/to/lokid`. It will be very slow.
 
@@ -600,7 +684,9 @@ Instructions for debugging suspected blockchain corruption as per @HYC
 
 There is an `mdb_stat` command in the LMDB source that can print statistics about the database but it's not routinely built. This can be built with the following command:
 
-`cd ~/loki/external/db_drivers/liblmdb && make`
+```bash
+cd ~/loki/external/db_drivers/liblmdb && make
+```
 
 The output of `mdb_stat -ea <path to blockchain dir>` will indicate inconsistencies in the blocks, block_heights and block_info table.
 
