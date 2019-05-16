@@ -326,6 +326,7 @@ namespace tools
     entry.timestamp = pd.m_timestamp;
     entry.amount = pd.m_amount;
     entry.unlock_time = pd.m_unlock_time;
+    entry.locked = !m_wallet->is_transfer_unlocked(pd.m_unlock_time, pd.m_block_height);
     entry.fee = pd.m_fee;
     entry.note = m_wallet->get_tx_note(pd.m_tx_hash);
     entry.type = pd.m_coinbase ? "block" : "in";
@@ -344,6 +345,7 @@ namespace tools
     entry.height = pd.m_block_height;
     entry.timestamp = pd.m_timestamp;
     entry.unlock_time = pd.m_unlock_time;
+    entry.locked = !m_wallet->is_transfer_unlocked(pd.m_unlock_time, pd.m_block_height);
     entry.fee = pd.m_amount_in - pd.m_amount_out;
     uint64_t change = pd.m_change == (uint64_t)-1 ? 0 : pd.m_change; // change may not be known
     entry.amount = pd.m_amount_in - change - entry.fee;
@@ -377,6 +379,7 @@ namespace tools
     entry.fee = pd.m_amount_in - pd.m_amount_out;
     entry.amount = pd.m_amount_in - pd.m_change - entry.fee;
     entry.unlock_time = pd.m_tx.unlock_time;
+    entry.locked = true;
     entry.note = m_wallet->get_tx_note(txid);
 
     for (const auto &d: pd.m_dests) {
@@ -405,6 +408,7 @@ namespace tools
     entry.timestamp = pd.m_timestamp;
     entry.amount = pd.m_amount;
     entry.unlock_time = pd.m_unlock_time;
+    entry.locked = true;
     entry.fee = pd.m_fee;
     entry.note = m_wallet->get_tx_note(pd.m_tx_hash);
     entry.double_spend_seen = ppd.m_double_spend_seen;
@@ -1698,6 +1702,7 @@ namespace tools
       rpc_payment.amount       = payment.m_amount;
       rpc_payment.block_height = payment.m_block_height;
       rpc_payment.unlock_time  = payment.m_unlock_time;
+      rpc_payment.locked       = !m_wallet->is_transfer_unlocked(payment.m_unlock_time, payment.m_block_height);
       rpc_payment.subaddr_index = payment.m_subaddr_index;
       rpc_payment.address      = m_wallet->get_subaddress_as_str(payment.m_subaddr_index);
       res.payments.push_back(rpc_payment);
@@ -1727,6 +1732,7 @@ namespace tools
         rpc_payment.unlock_time  = payment.second.m_unlock_time;
         rpc_payment.subaddr_index = payment.second.m_subaddr_index;
         rpc_payment.address      = m_wallet->get_subaddress_as_str(payment.second.m_subaddr_index);
+        rpc_payment.locked       = !m_wallet->is_transfer_unlocked(payment.second.m_unlock_time, payment.second.m_block_height);
         res.payments.push_back(std::move(rpc_payment));
       }
 
@@ -1781,6 +1787,7 @@ namespace tools
         rpc_payment.unlock_time  = payment.m_unlock_time;
         rpc_payment.subaddr_index = payment.m_subaddr_index;
         rpc_payment.address      = m_wallet->get_subaddress_as_str(payment.m_subaddr_index);
+        rpc_payment.locked       = !m_wallet->is_transfer_unlocked(payment.m_unlock_time, payment.m_block_height);
         res.payments.push_back(std::move(rpc_payment));
       }
     }
