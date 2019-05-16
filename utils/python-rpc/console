@@ -1,0 +1,3 @@
+#!/bin/sh
+
+env python -i $(dirname $0)/console.py "$@"

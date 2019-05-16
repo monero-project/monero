@@ -67,8 +67,15 @@ library archives (`.a`).
 build the library binary manually. This can be done with the following command ```sudo apt-get install libgtest-dev && cd /usr/src/gtest && sudo cmake . && sudo make && sudo mv libg* /usr/lib/ ```
 [2] libnorm-dev is needed if your zmq library was built with libnorm, and not needed otherwise
 
-Debian / Ubuntu one liner for all dependencies  
+Install all dependencies at once on Debian/Ubuntu:
+
 ``` sudo apt update && sudo apt install build-essential cmake pkg-config libboost-all-dev libssl-dev libzmq3-dev libunbound-dev libsodium-dev libunwind8-dev liblzma-dev libreadline6-dev libldns-dev libexpat1-dev doxygen graphviz libpgm-dev```
+
+Install all dependencies at once on macOS with the provided Brewfile:
+``` brew update && brew bundle --file=contrib/brew/Brewfile ```
+
+FreeBSD one liner for required to build dependencies
+```pkg install git gmake cmake pkgconf boost-libs cppzmq libsodium```
 
 ### Cloning the repository
 
@@ -85,7 +92,7 @@ If you already have a repo cloned, initialize and update:
 Loki uses the CMake build system and a top-level [Makefile](Makefile) that
 invokes cmake commands as needed.
 
-#### On Linux and OS X
+#### On Linux and macOS
 
 * Install the dependencies
 * Change to the root of the source code directory, change to the most recent release branch, and build:
@@ -99,7 +106,7 @@ invokes cmake commands as needed.
     this to be worthwhile, the machine should have one core and about 2GB of RAM
     available per thread.
 
-    *Note*: If cmake can not find zmq.hpp file on OS X, installing `zmq.hpp` from
+    *Note*: If cmake can not find zmq.hpp file on macOS, installing `zmq.hpp` from
     https://github.com/zeromq/cppzmq to `/usr/local/include` should fix that error.
 
     *Note*: The instructions above will compile the most stable release of the
@@ -255,9 +262,9 @@ application.
 	
         cd ~/loki
 
-* **Optional**: if you would like a specific [version/tag](https://github.com/loki-project/loki/tags), do a git checkout for that version. eg. 'v2.0.3'. If you dont care about the version and just want binaries from master, skip this step:
+* **Optional**: if you would like a specific [version/tag](https://github.com/loki-project/loki/tags), do a git checkout for that version. eg. 'v3.0.4'. If you don't care about the version and just want binaries from master, skip this step:
 	
-        git checkout v2.0.3
+        git checkout v3.0.4
 
 * If you are on a 64-bit system, run:
 
@@ -281,7 +288,9 @@ application.
 
 ### On FreeBSD:
 
-The project can be built from scratch by following instructions for Linux above. If you are running loki in a jail you need to add the flag: `allow.sysvipc=1` to your jail configuration, otherwise lmdb will throw the error message: `Failed to open lmdb environment: Function not implemented`.
+The project can be built from scratch by following instructions for Linux above(but use `gmake` instead of `make`). If you are running loki in a jail you need to add the flag: `allow.sysvipc=1` to your jail configuration, otherwise lmdb will throw the error message: `Failed to open lmdb environment: Function not implemented`.
+
+We expect to add Loki into the ports tree in the near future, which will aid in managing installations using ports or packages.
 
 ### On OpenBSD:
 
@@ -377,9 +386,9 @@ You will need to add a few packages to your system. `pkg_add cmake gmake zeromq 
 
 The doxygen and graphviz packages are optional and require the xbase set.
 
-Build monero: `env DEVELOPER_LOCAL_TOOLS=1 BOOST_ROOT=/usr/local gmake release-static`
+Build loki: `env DEVELOPER_LOCAL_TOOLS=1 BOOST_ROOT=/usr/local gmake release-static`
 
-Note: you may encounter the following error, when compiling the latest version of monero as a normal user:
+Note: you may encounter the following error, when compiling the latest version of loki as a normal user:
 
 ```
 LLVM ERROR: out of memory
@@ -482,6 +491,12 @@ To run in background:
 See [README.i18n.md](README.i18n.md).
 
 ## Using Tor
+
+> There is a new, still experimental, [integration with Tor](ANONYMITY_NETWORKS.md). The
+> feature allows connecting over IPv4 and Tor simulatenously - IPv4 is used for
+> relaying blocks and relaying transactions received by peers whereas Tor is
+> used solely for relaying transactions received over local RPC. This provides
+> privacy and better protection against surrounding node (sybil) attacks.
 
 While Loki isn't made to integrate with Tor, it can be used wrapped with torsocks, by
 setting the following configuration parameters and environment variables:

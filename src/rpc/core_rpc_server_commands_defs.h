@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 //
 // All rights reserved.
 //
@@ -89,7 +89,7 @@ namespace cryptonote
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define CORE_RPC_VERSION_MAJOR 2
-#define CORE_RPC_VERSION_MINOR 3
+#define CORE_RPC_VERSION_MINOR 6
 #define MAKE_CORE_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define CORE_RPC_VERSION MAKE_CORE_RPC_VERSION(CORE_RPC_VERSION_MAJOR, CORE_RPC_VERSION_MINOR)
 
@@ -97,24 +97,28 @@ namespace cryptonote
   // Get the node's current height.
   struct COMMAND_RPC_GET_HEIGHT
   {
-    struct request
+    struct request_t
     {
       BEGIN_KV_SERIALIZE_MAP()
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response
+    struct response_t
     {
       uint64_t height;    // The current blockchain height according to the queried daemon.
       std::string status; // Generic RPC error code. "OK" is the success value.
       bool untrusted;     // If the result is obtained using bootstrap mode, and therefore not trusted `true`, or otherwise `false`.
+      std::string hash;   // Hash of the block at the current height
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(height)
         KV_SERIALIZE(status)
         KV_SERIALIZE(untrusted)
+        KV_SERIALIZE(hash)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
@@ -122,7 +126,7 @@ namespace cryptonote
   struct COMMAND_RPC_GET_BLOCKS_FAST
   {
 
-    struct request
+    struct request_t
     {
       std::list<crypto::hash> block_ids; // First 10 blocks id goes sequential, next goes in pow(2,n) offset, like 2, 4, 8, 16, 32, 64 and so on, and the last one is always genesis block
       uint64_t    start_height;          // The starting block's height.
@@ -136,6 +140,7 @@ namespace cryptonote
         KV_SERIALIZE_OPT(no_miner_tx, false)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
     struct tx_output_indices
     {
@@ -155,7 +160,7 @@ namespace cryptonote
       END_KV_SERIALIZE_MAP()
     };
 
-    struct response
+    struct response_t
     {
       std::vector<block_complete_entry> blocks;         // Array of block complete entries
       uint64_t    start_height;                         // The starting block's height.
@@ -173,14 +178,14 @@ namespace cryptonote
         KV_SERIALIZE(untrusted) 
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
   // Get blocks by height. Binary request.
   struct COMMAND_RPC_GET_BLOCKS_BY_HEIGHT
   {
-
-    struct request
+    struct request_t
     {
       std::vector<uint64_t> heights;         // List of block heights
 
@@ -188,8 +193,9 @@ namespace cryptonote
         KV_SERIALIZE(heights)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response
+    struct response_t
     {
       std::vector<block_complete_entry> blocks; // Array of block complete entries
       std::string status;                       // General RPC error code. "OK" means everything looks good.
@@ -201,6 +207,7 @@ namespace cryptonote
         KV_SERIALIZE(untrusted)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
 
@@ -208,24 +215,26 @@ namespace cryptonote
   // Get the known blocks hashes which are not on the main chain.
   struct COMMAND_RPC_GET_ALT_BLOCKS_HASHES
   {
-    struct request
+    struct request_t
     {
-      BEGIN_KV_SERIALIZE_MAP()
-      END_KV_SERIALIZE_MAP()
+        BEGIN_KV_SERIALIZE_MAP()
+        END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response
+    struct response_t
     {
-      std::vector<std::string> blks_hashes; // List of alternative blocks hashes to main chain.
-      std::string status;                   // General RPC error code. "OK" means everything looks good.
-      bool untrusted;                       // States if the result is obtained using the bootstrap mode, and is therefore not trusted (`true`), or when the daemon is fully synced (`false`).
+        std::vector<std::string> blks_hashes; // List of alternative blocks hashes to main chain.
+        std::string status;                   // General RPC error code. "OK" means everything looks good.
+        bool untrusted;                       // States if the result is obtained using the bootstrap mode, and is therefore not trusted (`true`), or when the daemon is fully synced (`false`).
 
-      BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(blks_hashes)
-        KV_SERIALIZE(status)
-        KV_SERIALIZE(untrusted)
-      END_KV_SERIALIZE_MAP()
+        BEGIN_KV_SERIALIZE_MAP()
+            KV_SERIALIZE(blks_hashes)
+            KV_SERIALIZE(status)
+            KV_SERIALIZE(untrusted)
+        END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
@@ -233,7 +242,7 @@ namespace cryptonote
   struct COMMAND_RPC_GET_HASHES_FAST
   {
 
-    struct request
+    struct request_t
     {
       std::list<crypto::hash> block_ids; // First 10 blocks id goes sequential, next goes in pow(2,n) offset, like 2, 4, 8, 16, 32, 64 and so on, and the last one is always genesis block */
       uint64_t    start_height;          // The starting block's height.
@@ -243,8 +252,9 @@ namespace cryptonote
         KV_SERIALIZE(start_height)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response
+    struct response_t
     {
       std::vector<crypto::hash> m_block_ids; // Binary array of hashes, See block_ids above.
       uint64_t    start_height;              // The starting block's height.
@@ -260,230 +270,13 @@ namespace cryptonote
         KV_SERIALIZE(untrusted)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
-  // TODO: Undocumented light wallet RPC call
-  struct COMMAND_RPC_GET_ADDRESS_TXS
-  {
-      struct request
-      {
-        std::string address;      // Address of wallet to receive tx information. 
-        std::string view_key;     // View key of Address.
-
-        BEGIN_KV_SERIALIZE_MAP()
-          KV_SERIALIZE(address)
-          KV_SERIALIZE(view_key)
-        END_KV_SERIALIZE_MAP()
-      };
-
-      struct spent_output 
-      {
-        uint64_t amount;        // Amount transferred.
-        std::string key_image;  // Unique cryptographic key associated with output.
-        std::string tx_pub_key; // Pubkey associated with transaction.
-        uint64_t out_index;     // Index for transaction.
-        uint32_t mixin;         // The number of other signatures (aside from yours) in the ring signature that authorises the transaction.
-
-        BEGIN_KV_SERIALIZE_MAP()
-          KV_SERIALIZE(amount)
-          KV_SERIALIZE(key_image)
-          KV_SERIALIZE(tx_pub_key)
-          KV_SERIALIZE(out_index)
-          KV_SERIALIZE(mixin)
-        END_KV_SERIALIZE_MAP()
-      };
-
-      struct transaction
-      {
-        uint64_t id;                            // The transaction identifier.
-        std::string hash;                       // The hash of this transaction.
-        uint64_t timestamp;                     // The unix time at which the block was recorded into the blockchain.
-        uint64_t total_received;                // Total Loki received in atomic units.
-        uint64_t total_sent;                    // Total loki sent in atomic units.
-        uint64_t unlock_time;                   // Unlock time in blocks.
-        uint64_t height;                        // Block height transaction was made.
-        std::list<spent_output> spent_outputs;  // List of spent outputs.
-        std::string payment_id;                 // The payment ID of the transaction.
-        bool coinbase;                          // States if the transaction is a coinbase transaction. `true` if the transaction is coinbase, `false` if not.
-        bool mempool;                           // States if the transaction is sitting in the mempool. `true if the transaction is, `false` if not.
-        uint32_t mixin;                         // The number of other signatures (aside from yours) in the ring signature that authorises the transaction.
-
-        BEGIN_KV_SERIALIZE_MAP()
-          KV_SERIALIZE(id)
-          KV_SERIALIZE(hash)
-          KV_SERIALIZE(timestamp)
-          KV_SERIALIZE(total_received)
-          KV_SERIALIZE(total_sent)
-          KV_SERIALIZE(unlock_time)
-          KV_SERIALIZE(height)
-          KV_SERIALIZE(spent_outputs)
-          KV_SERIALIZE(payment_id)
-          KV_SERIALIZE(coinbase)
-          KV_SERIALIZE(mempool)
-          KV_SERIALIZE(mixin)
-        END_KV_SERIALIZE_MAP()
-      };
-
-      struct response
-      {
-        //std::list<std::string> txs_as_json;
-        uint64_t total_received;                 // Total Loki received in atomic units.
-        uint64_t total_received_unlocked = 0;    // OpenMonero only
-        uint64_t scanned_height;                 // 
-        std::vector<transaction> transactions;
-        uint64_t blockchain_height;
-        uint64_t scanned_block_height;
-        std::string status;
-
-        BEGIN_KV_SERIALIZE_MAP()
-          KV_SERIALIZE(total_received)
-          KV_SERIALIZE(total_received_unlocked)
-          KV_SERIALIZE(scanned_height)
-          KV_SERIALIZE(transactions)
-          KV_SERIALIZE(blockchain_height)
-          KV_SERIALIZE(scanned_block_height)
-          KV_SERIALIZE(status)
-        END_KV_SERIALIZE_MAP()
-      };
-  };
-
-
-  LOKI_RPC_DOC_INTROSPECT
-  // TODO: Undocumented light wallet RPC call
-  struct COMMAND_RPC_GET_ADDRESS_INFO
-  {
-      struct request
-      {
-        std::string address;
-        std::string view_key;
-
-        BEGIN_KV_SERIALIZE_MAP()
-          KV_SERIALIZE(address)
-          KV_SERIALIZE(view_key)
-        END_KV_SERIALIZE_MAP()
-      };
-
-      struct spent_output
-      {
-        uint64_t amount;
-        std::string key_image;
-        std::string tx_pub_key;
-        uint64_t  out_index;
-        uint32_t  mixin;
-
-        BEGIN_KV_SERIALIZE_MAP()
-          KV_SERIALIZE(amount)
-          KV_SERIALIZE(key_image)
-          KV_SERIALIZE(tx_pub_key)
-          KV_SERIALIZE(out_index)
-          KV_SERIALIZE(mixin)
-        END_KV_SERIALIZE_MAP()
-      };
-
-      struct response
-      {
-        uint64_t locked_funds;
-        uint64_t total_received;
-        uint64_t total_sent;
-        uint64_t scanned_height;
-        uint64_t scanned_block_height;
-        uint64_t start_height;
-        uint64_t transaction_height;
-        uint64_t blockchain_height;
-        std::list<spent_output> spent_outputs;
-
-        BEGIN_KV_SERIALIZE_MAP()
-          KV_SERIALIZE(locked_funds)
-          KV_SERIALIZE(total_received)
-          KV_SERIALIZE(total_sent)
-          KV_SERIALIZE(scanned_height)
-          KV_SERIALIZE(scanned_block_height)
-          KV_SERIALIZE(start_height)
-          KV_SERIALIZE(transaction_height)
-          KV_SERIALIZE(blockchain_height)
-          KV_SERIALIZE(spent_outputs)
-        END_KV_SERIALIZE_MAP()
-      };
-  };
-
-
-  LOKI_RPC_DOC_INTROSPECT
-  // TODO: Undocumented light wallet RPC call
-  struct COMMAND_RPC_GET_UNSPENT_OUTS
-  {
-      struct request
-      {
-        std::string amount;
-        std::string address;
-        std::string view_key;
-        // OpenMonero specific
-        uint64_t mixin;
-        bool use_dust;
-        std::string dust_threshold;
-
-        BEGIN_KV_SERIALIZE_MAP()
-          KV_SERIALIZE(amount)
-          KV_SERIALIZE(address)
-          KV_SERIALIZE(view_key)
-          KV_SERIALIZE(mixin)
-          KV_SERIALIZE(use_dust)
-          KV_SERIALIZE(dust_threshold)
-        END_KV_SERIALIZE_MAP()
-      };
-
-      struct output 
-      {
-        uint64_t amount;
-        std::string public_key;
-        uint64_t  index;
-        uint64_t global_index;
-        std::string rct;
-        std::string tx_hash;
-        std::string tx_pub_key;
-        std::string tx_prefix_hash;
-        std::vector<std::string> spend_key_images;
-        uint64_t timestamp;
-        uint64_t height;
-
-        BEGIN_KV_SERIALIZE_MAP()
-          KV_SERIALIZE(amount)
-          KV_SERIALIZE(public_key)
-          KV_SERIALIZE(index)
-          KV_SERIALIZE(global_index)
-          KV_SERIALIZE(rct)
-          KV_SERIALIZE(tx_hash)
-          KV_SERIALIZE(tx_pub_key)
-          KV_SERIALIZE(tx_prefix_hash)
-          KV_SERIALIZE(spend_key_images)
-          KV_SERIALIZE(timestamp)
-          KV_SERIALIZE(height)
-        END_KV_SERIALIZE_MAP()
-      };
-
-      struct response
-      {
-        uint64_t amount;
-        std::list<output> outputs;
-        uint64_t per_kb_fee;
-        std::string status;
-        std::string reason;
-
-        BEGIN_KV_SERIALIZE_MAP()
-          KV_SERIALIZE(amount)
-          KV_SERIALIZE(outputs)
-          KV_SERIALIZE(per_kb_fee)
-          KV_SERIALIZE(status)
-          KV_SERIALIZE(reason)
-        END_KV_SERIALIZE_MAP()
-      };
-  };
-
-  LOKI_RPC_DOC_INTROSPECT
-  // TODO: Undocumented light wallet RPC call
   struct COMMAND_RPC_GET_RANDOM_OUTS
   {
-      struct request
+      struct request_t
       {
         std::vector<std::string> amounts;
         uint32_t count;
@@ -493,9 +286,10 @@ namespace cryptonote
           KV_SERIALIZE(count)
         END_KV_SERIALIZE_MAP()
       };
-
-      struct output 
-      {
+      typedef epee::misc_utils::struct_init<request_t> request;
+    
+      
+      struct output {
         std::string public_key;
         uint64_t global_index;
         std::string rct; // 64+64+64 characters long (<rct commit> + <encrypted mask> + <rct amount>)
@@ -517,8 +311,8 @@ namespace cryptonote
           KV_SERIALIZE(outputs)
         END_KV_SERIALIZE_MAP()
       };
-
-      struct response
+      
+      struct response_t
       {
         std::vector<amount_out> amount_outs;
         std::string Error;
@@ -528,13 +322,14 @@ namespace cryptonote
           KV_SERIALIZE(Error)
         END_KV_SERIALIZE_MAP()
       };
+      typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
   // TODO: Undocumented light wallet RPC call
   struct COMMAND_RPC_SUBMIT_RAW_TX
   {
-      struct request
+      struct request_t
       {
         std::string address;
         std::string view_key;
@@ -546,9 +341,10 @@ namespace cryptonote
           KV_SERIALIZE(tx)
         END_KV_SERIALIZE_MAP()
       };
-
-
-      struct response
+      typedef epee::misc_utils::struct_init<request_t> request;
+    
+      
+      struct response_t
       {
         std::string status;
         std::string error;
@@ -558,13 +354,14 @@ namespace cryptonote
           KV_SERIALIZE(error)
         END_KV_SERIALIZE_MAP()
       };
+      typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
   // TODO: Undocumented light wallet RPC call
   struct COMMAND_RPC_LOGIN
   {
-      struct request
+      struct request_t
       {
         std::string address;
         std::string view_key;
@@ -576,8 +373,9 @@ namespace cryptonote
           KV_SERIALIZE(create_account)
         END_KV_SERIALIZE_MAP()
       };
+      typedef epee::misc_utils::struct_init<request_t> request;
 
-      struct response
+      struct response_t
       {
         std::string status;
         std::string reason;
@@ -589,13 +387,14 @@ namespace cryptonote
           KV_SERIALIZE(new_address)
         END_KV_SERIALIZE_MAP()
       };
+      typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
   // TODO: Undocumented light wallet RPC call
   struct COMMAND_RPC_IMPORT_WALLET_REQUEST
   {
-      struct request
+      struct request_t
       {
         std::string address;
         std::string view_key;
@@ -605,9 +404,9 @@ namespace cryptonote
           KV_SERIALIZE(view_key)
         END_KV_SERIALIZE_MAP()
       };
+      typedef epee::misc_utils::struct_init<request_t> request;
 
-
-      struct response
+      struct response_t
       {
         std::string payment_id;
         uint64_t import_fee;
@@ -625,13 +424,14 @@ namespace cryptonote
           KV_SERIALIZE(status)
         END_KV_SERIALIZE_MAP()
       };
+      typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
   // Look up one or more transactions by hash.
   struct COMMAND_RPC_GET_TRANSACTIONS
   {
-    struct request
+    struct request_t
     {
       std::vector<std::string> txs_hashes; // List of transaction hashes to look up.
       bool decode_as_json;                 // Optional (`false` by default). If set true, the returned transaction information will be decoded rather than binary.
@@ -645,6 +445,7 @@ namespace cryptonote
         KV_SERIALIZE_OPT(split, false)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
     struct entry
     {
@@ -659,6 +460,7 @@ namespace cryptonote
       uint64_t block_height;                // Block height including the transaction.
       uint64_t block_timestamp;             // Unix time at chich the block has been added to the blockchain.
       std::vector<uint64_t> output_indices; // List of transaction indexes.
+      bool relayed;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(tx_hash)
@@ -669,13 +471,20 @@ namespace cryptonote
         KV_SERIALIZE(as_json)
         KV_SERIALIZE(in_pool)
         KV_SERIALIZE(double_spend_seen)
-        KV_SERIALIZE(block_height)
-        KV_SERIALIZE(block_timestamp)
-        KV_SERIALIZE(output_indices)
+        if (!this_ref.in_pool)
+        {
+          KV_SERIALIZE(block_height)
+          KV_SERIALIZE(block_timestamp)
+          KV_SERIALIZE(output_indices)
+        }
+        else
+        {
+          KV_SERIALIZE(relayed)
+        }
       END_KV_SERIALIZE_MAP()
     };
 
-    struct response
+    struct response_t
     {
       // older compatibility stuff
       std::vector<std::string> txs_as_hex;  // Full transaction information as a hex string (old compatibility parameter)
@@ -698,6 +507,7 @@ namespace cryptonote
         KV_SERIALIZE(untrusted)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
@@ -711,7 +521,7 @@ namespace cryptonote
       SPENT_IN_POOL = 2,
     };
 
-    struct request
+    struct request_t
     {
       std::vector<std::string> key_images; // List of key image hex strings to check.
 
@@ -719,9 +529,10 @@ namespace cryptonote
         KV_SERIALIZE(key_images)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
 
-    struct response
+    struct response_t
     {
       std::vector<int> spent_status; // List of statuses for each image checked. Statuses are follows: 0 = unspent, 1 = spent in blockchain, 2 = spent in transaction pool
       std::string status;            // General RPC error code. "OK" means everything looks good.
@@ -733,6 +544,7 @@ namespace cryptonote
         KV_SERIALIZE(untrusted)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
 
@@ -740,7 +552,7 @@ namespace cryptonote
   // Get global outputs of transactions. Binary request.
   struct COMMAND_RPC_GET_TX_GLOBAL_OUTPUTS_INDEXES
   {
-    struct request
+    struct request_t
     {
       crypto::hash txid; // Binary txid.
 
@@ -748,9 +560,10 @@ namespace cryptonote
         KV_SERIALIZE_VAL_POD_AS_BLOB(txid)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
 
-    struct response
+    struct response_t
     {
       std::vector<uint64_t> o_indexes; // List of output indexes
       std::string status;              // General RPC error code. "OK" means everything looks good.
@@ -762,6 +575,7 @@ namespace cryptonote
         KV_SERIALIZE(untrusted)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
@@ -780,7 +594,7 @@ namespace cryptonote
   // Get outputs. Binary request.
   struct COMMAND_RPC_GET_OUTPUTS_BIN
   {
-    struct request
+    struct request_t
     {
       std::vector<get_outputs_out> outputs; // Array of structure `get_outputs_out`.
       bool get_txid;                        // TXID
@@ -790,6 +604,7 @@ namespace cryptonote
         KV_SERIALIZE_OPT(get_txid, true)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
     struct outkey
     {
@@ -808,7 +623,7 @@ namespace cryptonote
       END_KV_SERIALIZE_MAP()
     };
 
-    struct response
+    struct response_t
     {
       std::vector<outkey> outs; // List of outkey information.
       std::string status;       // General RPC error code. "OK" means everything looks good.
@@ -820,19 +635,23 @@ namespace cryptonote
         KV_SERIALIZE(untrusted)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
   struct COMMAND_RPC_GET_OUTPUTS
   {
-    struct request
+    struct request_t
     {
       std::vector<get_outputs_out> outputs; // Array of structure `get_outputs_out`.
+      bool get_txid;                        // Request the TXID/hash of the transaction as well.
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(outputs)
+        KV_SERIALIZE(get_txid)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
     struct outkey
     {
@@ -851,7 +670,7 @@ namespace cryptonote
       END_KV_SERIALIZE_MAP()
     };
 
-    struct response
+    struct response_t
     {
       std::vector<outkey> outs; // List of outkey information.
       std::string status;       // General RPC error code. "OK" means everything looks good.
@@ -863,47 +682,54 @@ namespace cryptonote
         KV_SERIALIZE(untrusted)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
   // Broadcast a raw transaction to the network.
   struct COMMAND_RPC_SEND_RAW_TX
   {
-    struct request
+    struct request_t
     {
       std::string tx_as_hex; // Full transaction information as hexidecimal string.
-      bool do_not_relay;     // Stop relaying transaction to other nodes (default is `false`).
+      bool do_not_relay;     // (Optional: Default false) Stop relaying transaction to other nodes.
+      bool do_sanity_checks; // (Optional: Default true) Verify TX params have sane values.
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(tx_as_hex)
         KV_SERIALIZE_OPT(do_not_relay, false)
+        KV_SERIALIZE_OPT(do_sanity_checks, true)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
 
-    struct response
+    struct response_t
     {
       std::string status; // General RPC error code. "OK" means everything looks good. Any other value means that something went wrong.
       std::string reason; // Additional information. Currently empty or "Not relayed" if transaction was accepted but not relayed.
       bool not_relayed;   // Transaction was not relayed (true) or relayed (false).
       bool untrusted;     // States if the result is obtained using the bootstrap mode, and is therefore not trusted (`true`), or when the daemon is fully synced (`false`).
       tx_verification_context tvc;
+      bool sanity_check_failed;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(status)
         KV_SERIALIZE(reason)
         KV_SERIALIZE(not_relayed)
+        KV_SERIALIZE(sanity_check_failed)
         KV_SERIALIZE(untrusted)
         KV_SERIALIZE(tvc)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
   // Start mining on the daemon.
   struct COMMAND_RPC_START_MINING
   {
-    struct request
+    struct request_t
     {
       std::string miner_address;        // Account address to mine to.
       uint64_t    threads_count;        // Number of mining thread to run.
@@ -917,8 +743,9 @@ namespace cryptonote
         KV_SERIALIZE(ignore_battery)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response
+    struct response_t
     {
       std::string status; // General RPC error code. "OK" means everything looks good. Any other value means that something went wrong.
 
@@ -926,19 +753,21 @@ namespace cryptonote
         KV_SERIALIZE(status)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
   // Retrieve general information about the state of your node and the network.
   struct COMMAND_RPC_GET_INFO
   {
-    struct request
+    struct request_t
     {
       BEGIN_KV_SERIALIZE_MAP()
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response
+    struct response_t
     {
       std::string status;                   // General RPC error code. "OK" means everything looks good.
       uint64_t height;                      // Current length of longest chain known to daemon.
@@ -1010,40 +839,79 @@ namespace cryptonote
         KV_SERIALIZE(version)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
+  //-----------------------------------------------
+  LOKI_RPC_DOC_INTROSPECT
+  struct COMMAND_RPC_GET_NET_STATS
+  {
+    struct request_t
+    {
+
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<request_t> request;
+
+
+    struct response_t
+    {
+      std::string status;
+      uint64_t start_time;
+      uint64_t total_packets_in;
+      uint64_t total_bytes_in;
+      uint64_t total_packets_out;
+      uint64_t total_bytes_out;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+        KV_SERIALIZE(start_time)
+        KV_SERIALIZE(total_packets_in)
+        KV_SERIALIZE(total_bytes_in)
+        KV_SERIALIZE(total_packets_out)
+        KV_SERIALIZE(total_bytes_out)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<response_t> response;
+  };
+
+  //-----------------------------------------------
   LOKI_RPC_DOC_INTROSPECT
   // Retrieve all Service Node Keys.
   struct COMMAND_RPC_GET_ALL_SERVICE_NODES_KEYS
   {
-    struct request
+    struct request_t
     {
       bool fully_funded_nodes_only; // Return keys for service nodes if they are funded and working on the network
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_OPT(fully_funded_nodes_only, (bool)true)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response
+    struct response_t
     {
       std::vector<std::string> keys; // Returns as base32z of the hex key, for Lokinet internal usage
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(keys)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
   // Stop mining on the daemon.
   struct COMMAND_RPC_STOP_MINING
   {
-    struct request
+    struct request_t
     {
       BEGIN_KV_SERIALIZE_MAP()
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response
+    struct response_t
     {
       std::string status; // General RPC error code. "OK" means everything looks good. Any other value means that something went wrong.
 
@@ -1051,26 +919,37 @@ namespace cryptonote
         KV_SERIALIZE(status)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
   // Get the mining status of the daemon.
   struct COMMAND_RPC_MINING_STATUS
   {
-    struct request
+    struct request_t
     {
       BEGIN_KV_SERIALIZE_MAP()
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response
+
+    struct response_t
     {
       std::string status;                // General RPC error code. "OK" means everything looks good. Any other value means that something went wrong.
       bool active;                       // States if mining is enabled (`true`) or disabled (`false`).
       uint64_t speed;                    // Mining power in hashes per seconds.
       uint32_t threads_count;            // Number of running mining threads.
       std::string address;               // Account address daemon is mining to. Empty if not mining.
+      std::string pow_algorithm;         // Current hashing algorithm name
       bool is_background_mining_enabled; // States if the mining is running in background (`true`) or foreground (`false`).
+      uint8_t bg_idle_threshold;         // Background mining, the minimum amount of time in average the CPU should idle in percentage.
+      uint8_t bg_min_idle_seconds;       // Background mining, how long the minimum amount of time is for the idle threshold.
+      bool bg_ignore_battery;            // Background mining, if true mining does not adjust power depending on battery percentage remaining.
+      uint8_t bg_target;                 // Background mining, how much percentage of CPU(?) to consume, default 40%.
+      uint32_t block_target;             // The expected time to solve per block, i.e. DIFFICULTY_TARGET_V2
+      uint64_t block_reward;             // Block reward for the current block being mined.
+      uint64_t difficulty;               // The difficulty for the current block being mined.
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(status)
@@ -1078,9 +957,18 @@ namespace cryptonote
         KV_SERIALIZE(speed)
         KV_SERIALIZE(threads_count)
         KV_SERIALIZE(address)
+        KV_SERIALIZE(pow_algorithm)
         KV_SERIALIZE(is_background_mining_enabled)
+        KV_SERIALIZE(bg_idle_threshold)
+        KV_SERIALIZE(bg_min_idle_seconds)
+        KV_SERIALIZE(bg_ignore_battery)
+        KV_SERIALIZE(bg_target)
+        KV_SERIALIZE(block_target)
+        KV_SERIALIZE(block_reward)
+        KV_SERIALIZE(difficulty)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
@@ -1088,13 +976,14 @@ namespace cryptonote
   // however it does a sync to flush the filesystem cache onto the disk for safety purposes against Operating System or Hardware crashes.
   struct COMMAND_RPC_SAVE_BC
   {
-    struct request
+    struct request_t
     {
       BEGIN_KV_SERIALIZE_MAP()
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response
+    struct response_t
     {
       std::string status; // General RPC error code. "OK" means everything looks good. Any other value means that something went wrong.
 
@@ -1102,6 +991,7 @@ namespace cryptonote
         KV_SERIALIZE(status)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
@@ -1110,7 +1000,7 @@ namespace cryptonote
   {
     typedef std::list<std::string> request;
 
-    struct response
+    struct response_t
     {
       uint64_t count;     // Number of blocks in longest chain seen by the node.
       std::string status; // General RPC error code. "OK" means everything looks good.
@@ -1120,6 +1010,7 @@ namespace cryptonote
         KV_SERIALIZE(status)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
@@ -1134,18 +1025,21 @@ namespace cryptonote
   // Get a block template on which mining a new block.
   struct COMMAND_RPC_GETBLOCKTEMPLATE
   {
-    struct request
+    struct request_t
     {
       uint64_t reserve_size;      // Max 255 bytes
       std::string wallet_address; // Address of wallet to receive coinbase transactions if block is successfully mined.
+      std::string prev_block;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(reserve_size)
         KV_SERIALIZE(wallet_address)
+        KV_SERIALIZE(prev_block)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response
+    struct response_t
     {
       uint64_t difficulty;         // Difficulty of next block.
       uint64_t height;             // Height on which to mine.
@@ -1169,6 +1063,7 @@ namespace cryptonote
         KV_SERIALIZE(untrusted)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
@@ -1176,8 +1071,7 @@ namespace cryptonote
   struct COMMAND_RPC_SUBMITBLOCK
   {
     typedef std::vector<std::string> request; // Block blob data - array of strings; list of block blobs which have been mined. See get_block_template to get a blob on which to mine.
-
-    struct response
+    struct response_t
     {
       std::string status; // Block submit status.
 
@@ -1185,33 +1079,42 @@ namespace cryptonote
         KV_SERIALIZE(status)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
   // Developer only.
   struct COMMAND_RPC_GENERATEBLOCKS
   {
-    struct request
+    struct request_t
     {
       uint64_t amount_of_blocks; 
       std::string wallet_address;
+      std::string prev_block;
+      uint32_t starting_nonce;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(amount_of_blocks)
         KV_SERIALIZE(wallet_address)
+        KV_SERIALIZE(prev_block)
+        KV_SERIALIZE_OPT(starting_nonce, (uint32_t)0)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response
+    struct response_t
     {
-      uint64_t height;    
+      uint64_t height;
+      std::vector<std::string> blocks;
       std::string status; // General RPC error code. "OK" means everything looks good.
-
+      
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(height)
+        KV_SERIALIZE(blocks)
         KV_SERIALIZE(status)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
@@ -1235,6 +1138,7 @@ namespace cryptonote
       uint64_t num_txes;                      // Number of transactions in the block, not counting the coinbase tx.
       std::string pow_hash;                   // The hash of the block's proof of work.
       uint64_t long_term_weight;              // Long term weight of the block.
+      std::string miner_tx_hash;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(major_version)
@@ -1255,6 +1159,7 @@ namespace cryptonote
         KV_SERIALIZE(num_txes)
         KV_SERIALIZE(pow_hash)
         KV_SERIALIZE_OPT(long_term_weight, (uint64_t)0)
+        KV_SERIALIZE(miner_tx_hash)
       END_KV_SERIALIZE_MAP()
   };
 
@@ -1262,7 +1167,7 @@ namespace cryptonote
   // Block header information for the most recent block is easily retrieved with this method. No inputs are needed.
   struct COMMAND_RPC_GET_LAST_BLOCK_HEADER
   {
-    struct request
+    struct request_t
     {
       bool fill_pow_hash; // Tell the daemon if it should fill out pow_hash field.
 
@@ -1270,8 +1175,9 @@ namespace cryptonote
         KV_SERIALIZE_OPT(fill_pow_hash, false);
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response
+    struct response_t
     {
       std::string status;                 // General RPC error code. "OK" means everything looks good.
       block_header_response block_header; // A structure containing block header information.
@@ -1283,13 +1189,14 @@ namespace cryptonote
         KV_SERIALIZE(untrusted)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
   // Block header information can be retrieved using either a block's hash or height. This method includes a block's hash as an input parameter to retrieve basic information about the block.
   struct COMMAND_RPC_GET_BLOCK_HEADER_BY_HASH
   {
-    struct request
+    struct request_t
     {
       std::string hash;   // The block's SHA256 hash.
       bool fill_pow_hash; // Tell the daemon if it should fill out pow_hash field.
@@ -1299,8 +1206,9 @@ namespace cryptonote
         KV_SERIALIZE_OPT(fill_pow_hash, false);
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response
+    struct response_t
     {
       std::string status;                 // General RPC error code. "OK" means everything looks good.
       block_header_response block_header; // A structure containing block header information.
@@ -1312,13 +1220,14 @@ namespace cryptonote
         KV_SERIALIZE(untrusted)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
   // Similar to get_block_header_by_hash above, this method includes a block's height as an input parameter to retrieve basic information about the block.
   struct COMMAND_RPC_GET_BLOCK_HEADER_BY_HEIGHT
   {
-    struct request
+    struct request_t
     {
       uint64_t height;    // The block's height.
       bool fill_pow_hash; // Tell the daemon if it should fill out pow_hash field.
@@ -1328,8 +1237,9 @@ namespace cryptonote
         KV_SERIALIZE_OPT(fill_pow_hash, false);
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response
+    struct response_t
     {
       std::string status;                 // General RPC error code. "OK" means everything looks good.
       block_header_response block_header; // A structure containing block header information.
@@ -1341,6 +1251,7 @@ namespace cryptonote
         KV_SERIALIZE(untrusted)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
@@ -1348,7 +1259,7 @@ namespace cryptonote
   // For full block information, both lookups use the same method, but with different input parameters.
   struct COMMAND_RPC_GET_BLOCK
   {
-    struct request
+    struct request_t
     {
       std::string hash;   // The block's hash.
       uint64_t height;    // The block's height.
@@ -1360,8 +1271,9 @@ namespace cryptonote
         KV_SERIALIZE_OPT(fill_pow_hash, false);
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response
+    struct response_t
     {
       std::string status;                 // General RPC error code. "OK" means everything looks good.
       block_header_response block_header; // A structure containing block header information. See get_last_block_header.
@@ -1381,6 +1293,7 @@ namespace cryptonote
         KV_SERIALIZE(untrusted)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
@@ -1390,16 +1303,17 @@ namespace cryptonote
     std::string host;      // IP address in string format.
     uint32_t ip;           // IP address in integer format.
     uint16_t port;         // TCP port the peer is using to connect to loki network.
+    uint16_t rpc_port;     // RPC port the peer is using
     uint64_t last_seen;    // Unix time at which the peer has been seen for the last time
     uint32_t pruning_seed; //
 
     peer() = default;
 
-    peer(uint64_t id, const std::string &host, uint64_t last_seen, uint32_t pruning_seed)
-      : id(id), host(host), ip(0), port(0), last_seen(last_seen), pruning_seed(pruning_seed)
+    peer(uint64_t id, const std::string &host, uint64_t last_seen, uint32_t pruning_seed, uint16_t rpc_port)
+      : id(id), host(host), ip(0), port(0), rpc_port(rpc_port), last_seen(last_seen), pruning_seed(pruning_seed)
     {}
-    peer(uint64_t id, uint32_t ip, uint16_t port, uint64_t last_seen, uint32_t pruning_seed)
-      : id(id), host(std::to_string(ip)), ip(ip), port(port), last_seen(last_seen), pruning_seed(pruning_seed)
+    peer(uint64_t id, uint32_t ip, uint16_t port, uint64_t last_seen, uint32_t pruning_seed, uint16_t rpc_port)
+      : id(id), host(std::to_string(ip)), ip(ip), port(port), rpc_port(rpc_port), last_seen(last_seen), pruning_seed(pruning_seed)
     {}
 
     BEGIN_KV_SERIALIZE_MAP()
@@ -1407,6 +1321,7 @@ namespace cryptonote
       KV_SERIALIZE(host)
       KV_SERIALIZE(ip)
       KV_SERIALIZE(port)
+      KV_SERIALIZE_OPT(rpc_port, (uint16_t)0)
       KV_SERIALIZE(last_seen)
       KV_SERIALIZE_OPT(pruning_seed, (uint32_t)0)
     END_KV_SERIALIZE_MAP()
@@ -1416,13 +1331,14 @@ namespace cryptonote
   // Get the known peers list.
   struct COMMAND_RPC_GET_PEER_LIST
   {
-    struct request
+    struct request_t
     {
       BEGIN_KV_SERIALIZE_MAP()
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response
+    struct response_t
     {
       std::string status;           // General RPC error code. "OK" means everything looks good. Any other value means that something went wrong.
       std::vector<peer> white_list; // Array of online peer structure.
@@ -1434,13 +1350,14 @@ namespace cryptonote
         KV_SERIALIZE(gray_list)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
   // Set the log hash rate display mode.
   struct COMMAND_RPC_SET_LOG_HASH_RATE
   {
-    struct request
+    struct request_t
     {
       bool visible; // States if hash rate logs should be visible (true) or hidden (false)
 
@@ -1448,21 +1365,23 @@ namespace cryptonote
         KV_SERIALIZE(visible)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response
+    struct response_t
     {
       std::string status; // General RPC error code. "OK" means everything looks good. Any other value means that something went wrong.
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(status)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
   // Set the daemon log level. By default, log level is set to `0`.
   struct COMMAND_RPC_SET_LOG_LEVEL
   {
-    struct request
+    struct request_t
     {
       int8_t level; // Daemon log level to set from `0` (less verbose) to `4` (most verbose)
 
@@ -1470,14 +1389,16 @@ namespace cryptonote
         KV_SERIALIZE(level)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response
+    struct response_t
     {
       std::string status; // General RPC error code. "OK" means everything looks good. Any other value means that something went wrong.
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(status)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
@@ -1492,7 +1413,7 @@ namespace cryptonote
   // Setting the categories to "" prevent any logs to be outputed.
   struct COMMAND_RPC_SET_LOG_CATEGORIES
   {
-    struct request
+    struct request_t
     {
       std::string categories; // Optional, daemon log categories to enable
 
@@ -1500,8 +1421,9 @@ namespace cryptonote
         KV_SERIALIZE(categories)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response
+    struct response_t
     {
       std::string status;     // General RPC error code. "OK" means everything looks good. Any other value means that something went wrong.
       std::string categories; // Daemon log enabled categories
@@ -1511,6 +1433,7 @@ namespace cryptonote
         KV_SERIALIZE(categories)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
@@ -1570,13 +1493,14 @@ namespace cryptonote
   // as well as spent key image information for the txpool in the node's memory.
   struct COMMAND_RPC_GET_TRANSACTION_POOL
   {
-    struct request
+    struct request_t
     {
       BEGIN_KV_SERIALIZE_MAP()
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response
+    struct response_t
     {
       std::string status;                                 // General RPC error code. "OK" means everything looks good.
       std::vector<tx_info> transactions;                  // List of transactions in the mempool are not in a block on the main chain at the moment:
@@ -1590,19 +1514,21 @@ namespace cryptonote
         KV_SERIALIZE(untrusted)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
   // Get hashes from transaction pool. Binary request.
   struct COMMAND_RPC_GET_TRANSACTION_POOL_HASHES_BIN
   {
-    struct request
+    struct request_t
     {
       BEGIN_KV_SERIALIZE_MAP()
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response
+    struct response_t
     {
       std::string status;                  // General RPC error code. "OK" means everything looks good.
       std::vector<crypto::hash> tx_hashes; // List of transaction hashes,
@@ -1614,19 +1540,21 @@ namespace cryptonote
         KV_SERIALIZE(untrusted)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
   // Get hashes from transaction pool.
   struct COMMAND_RPC_GET_TRANSACTION_POOL_HASHES
   {
-    struct request
+    struct request_t
     {
       BEGIN_KV_SERIALIZE_MAP()
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response
+    struct response_t
     {
       std::string status;                 // General RPC error code. "OK" means everything looks good.
       std::vector<std::string> tx_hashes; // List of transaction hashes,
@@ -1638,6 +1566,7 @@ namespace cryptonote
         KV_SERIALIZE(untrusted)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
@@ -1652,13 +1581,14 @@ namespace cryptonote
   // Get all transaction pool backlog.
   struct COMMAND_RPC_GET_TRANSACTION_POOL_BACKLOG
   {
-    struct request
+    struct request_t
     {
       BEGIN_KV_SERIALIZE_MAP()
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response
+    struct response_t
     {
       std::string status;                    // General RPC error code. "OK" means everything looks good.
       std::vector<tx_backlog_entry> backlog; // Array of structures tx_backlog_entry (in binary form):
@@ -1670,6 +1600,7 @@ namespace cryptonote
         KV_SERIALIZE(untrusted)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
@@ -1724,13 +1655,14 @@ namespace cryptonote
   // Get the transaction pool statistics.
   struct COMMAND_RPC_GET_TRANSACTION_POOL_STATS
   {
-    struct request
+    struct request_t
     {
       BEGIN_KV_SERIALIZE_MAP()
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response
+    struct response_t
     {
       std::string status;      // General RPC error code. "OK" means everything looks good.
       txpool_stats pool_stats; // List of pool stats:
@@ -1742,19 +1674,21 @@ namespace cryptonote
         KV_SERIALIZE(untrusted)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
   // Retrieve information about incoming and outgoing connections to your node.
   struct COMMAND_RPC_GET_CONNECTIONS
   {
-    struct request
+    struct request_t
     {
       BEGIN_KV_SERIALIZE_MAP()
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response
+    struct response_t
     {
       std::string status; // General RPC error code. "OK" means everything looks good.
       std::list<connection_info> connections; // List of all connections and their info:
@@ -1764,7 +1698,7 @@ namespace cryptonote
         KV_SERIALIZE(connections)
       END_KV_SERIALIZE_MAP()
     };
-
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
@@ -1773,7 +1707,7 @@ namespace cryptonote
   // parameters to retrieve basic information about the range of blocks.
   struct COMMAND_RPC_GET_BLOCK_HEADERS_RANGE
   {
-    struct request
+    struct request_t
     {
       uint64_t start_height; // The starting block's height.
       uint64_t end_height;   // The ending block's height.
@@ -1785,8 +1719,9 @@ namespace cryptonote
         KV_SERIALIZE_OPT(fill_pow_hash, false);
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response
+    struct response_t
     {
       std::string status;                         // General RPC error code. "OK" means everything looks good.
       std::vector<block_header_response> headers; // Array of block_header (a structure containing block header information. See get_last_block_header).
@@ -1798,19 +1733,21 @@ namespace cryptonote
         KV_SERIALIZE(untrusted)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
   // Send a command to the daemon to safely disconnect and shut down.
   struct COMMAND_RPC_STOP_DAEMON
   {
-    struct request
+    struct request_t
     {
       BEGIN_KV_SERIALIZE_MAP()
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response
+    struct response_t
     {
       std::string status; // General RPC error code. "OK" means everything looks good.
 
@@ -1818,18 +1755,20 @@ namespace cryptonote
         KV_SERIALIZE(status)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   // Not in core_rpc_server.h. Can't call.
   struct COMMAND_RPC_FAST_EXIT
   {
-	struct request
+    struct request_t
     {
       BEGIN_KV_SERIALIZE_MAP()
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response
+    struct response_t
     {
 	  std::string status; // General RPC error code. "OK" means everything looks good.
 
@@ -1837,19 +1776,21 @@ namespace cryptonote
         KV_SERIALIZE(status)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
   // Get daemon bandwidth limits.
   struct COMMAND_RPC_GET_LIMIT
   {
-    struct request
+    struct request_t
     {
       BEGIN_KV_SERIALIZE_MAP()
       END_KV_SERIALIZE_MAP()
     };
 
-    struct response
+    typedef epee::misc_utils::struct_init<request_t> request;
+    struct response_t
     {
       std::string status;  // General RPC error code. "OK" means everything looks good.
       uint64_t limit_up;   // Upload limit in kBytes per second.
@@ -1863,13 +1804,14 @@ namespace cryptonote
         KV_SERIALIZE(untrusted)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
   // Set daemon bandwidth limits.
   struct COMMAND_RPC_SET_LIMIT
   {
-    struct request
+    struct request_t
     {
       int64_t limit_down;  // Download limit in kBytes per second (-1 reset to default, 0 don't change the current limit)
       int64_t limit_up;    // Upload limit in kBytes per second (-1 reset to default, 0 don't change the current limit)
@@ -1879,8 +1821,9 @@ namespace cryptonote
         KV_SERIALIZE(limit_up)
       END_KV_SERIALIZE_MAP()
     };
-
-    struct response
+    typedef epee::misc_utils::struct_init<request_t> request;
+    
+    struct response_t
     {
       std::string status; // General RPC error code. "OK" means everything looks good.
       int64_t limit_up;   // Upload limit in kBytes per second.
@@ -1892,21 +1835,23 @@ namespace cryptonote
         KV_SERIALIZE(limit_down)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
   // Limit number of Outgoing peers.
   struct COMMAND_RPC_OUT_PEERS
   {
-	struct request
+    struct request_t
     {
 	  uint64_t out_peers; // Max number of outgoing peers
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(out_peers)
       END_KV_SERIALIZE_MAP()
     };
-
-    struct response
+    typedef epee::misc_utils::struct_init<request_t> request;
+    
+    struct response_t
     {
       std::string status; // General RPC error code. "OK" means everything looks good.
 
@@ -1914,21 +1859,23 @@ namespace cryptonote
         KV_SERIALIZE(status)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
   // Limit number of Incoming peers.
   struct COMMAND_RPC_IN_PEERS
   {
-    struct request
+    struct request_t
     {
       uint64_t in_peers;
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(in_peers)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response
+    struct response_t
     {
       std::string status; // General RPC error code. "OK" means everything looks good.
 
@@ -1936,19 +1883,21 @@ namespace cryptonote
         KV_SERIALIZE(status)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
   // Obsolete. Conserved here for reference.
   struct COMMAND_RPC_START_SAVE_GRAPH
   {
-	struct request
+    struct request_t
     {
       BEGIN_KV_SERIALIZE_MAP()
       END_KV_SERIALIZE_MAP()
     };
-
-    struct response
+    typedef epee::misc_utils::struct_init<request_t> request;
+    
+    struct response_t
     {
 	  std::string status; // General RPC error code. "OK" means everything looks good.
 
@@ -1956,19 +1905,21 @@ namespace cryptonote
         KV_SERIALIZE(status)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
   // Obsolete. Conserved here for reference.
   struct COMMAND_RPC_STOP_SAVE_GRAPH
   {
-	struct request
+    struct request_t
     {
       BEGIN_KV_SERIALIZE_MAP()
       END_KV_SERIALIZE_MAP()
     };
-
-    struct response
+    typedef epee::misc_utils::struct_init<request_t> request;
+    
+    struct response_t
     {
 	  std::string status; // General RPC error code. "OK" means everything looks good.
 
@@ -1976,13 +1927,14 @@ namespace cryptonote
         KV_SERIALIZE(status)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
   // Look up information regarding hard fork voting and readiness.
   struct COMMAND_RPC_HARD_FORK_INFO
   {
-    struct request
+    struct request_t
     {
       uint8_t version; // The major block version for the fork.
 
@@ -1990,8 +1942,9 @@ namespace cryptonote
         KV_SERIALIZE(version)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response
+    struct response_t
     {
       uint8_t version;          // The major block version for the fork.
       bool enabled;             // Tells if hard fork is enforced.
@@ -2017,6 +1970,7 @@ namespace cryptonote
         KV_SERIALIZE(untrusted)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
@@ -2036,13 +1990,14 @@ namespace cryptonote
       END_KV_SERIALIZE_MAP()
     };
 
-    struct request
+    struct request_t
     {
       BEGIN_KV_SERIALIZE_MAP()
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response
+    struct response_t
     {
       std::string status;    // General RPC error code. "OK" means everything looks good.
       std::vector<ban> bans; // List of banned nodes:
@@ -2052,6 +2007,7 @@ namespace cryptonote
         KV_SERIALIZE(bans)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
@@ -2073,7 +2029,7 @@ namespace cryptonote
       END_KV_SERIALIZE_MAP()
     };
 
-    struct request
+    struct request_t
     {
       std::vector<ban> bans; // List of nodes to ban.
 
@@ -2081,8 +2037,9 @@ namespace cryptonote
         KV_SERIALIZE(bans)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response
+    struct response_t
     {
       std::string status; // General RPC error code. "OK" means everything looks good.
 
@@ -2090,13 +2047,14 @@ namespace cryptonote
         KV_SERIALIZE(status)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
   // Flush tx ids from transaction pool..
   struct COMMAND_RPC_FLUSH_TRANSACTION_POOL
   {
-    struct request
+    struct request_t
     {
       std::vector<std::string> txids; // Optional, list of transactions IDs to flush from pool (all tx ids flushed if empty).
 
@@ -2104,8 +2062,9 @@ namespace cryptonote
         KV_SERIALIZE(txids)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response
+    struct response_t
     {
       std::string status; // General RPC error code. "OK" means everything looks good.
 
@@ -2113,6 +2072,7 @@ namespace cryptonote
         KV_SERIALIZE(status)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
@@ -2120,7 +2080,7 @@ namespace cryptonote
   // gives the number of outputs on the chain for that amount. RingCT outputs counts as 0 amount.
   struct COMMAND_RPC_GET_OUTPUT_HISTOGRAM
   {
-    struct request
+    struct request_t
     {
       std::vector<uint64_t> amounts; // list of amounts in Atomic Units.
       uint64_t min_count;            // The minimum amounts you are requesting.
@@ -2136,6 +2096,7 @@ namespace cryptonote
         KV_SERIALIZE(recent_cutoff);
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
     struct entry
     {
@@ -2156,7 +2117,7 @@ namespace cryptonote
       entry() {}
     };
 
-    struct response
+    struct response_t
     {
       std::string status;           // General RPC error code. "OK" means everything looks good.
       std::vector<entry> histogram; // List of histogram entries:
@@ -2168,19 +2129,21 @@ namespace cryptonote
         KV_SERIALIZE(untrusted)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
   // Get node current version.
   struct COMMAND_RPC_GET_VERSION
   {
-    struct request
+    struct request_t
     {
       BEGIN_KV_SERIALIZE_MAP()
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response
+    struct response_t
     {
       std::string status; // General RPC error code. "OK" means everything looks good.
       uint32_t version;   // Node current version.
@@ -2192,13 +2155,14 @@ namespace cryptonote
         KV_SERIALIZE(untrusted)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
   // Get the coinbase amount and the fees amount for n last blocks starting at particular height.
   struct COMMAND_RPC_GET_COINBASE_TX_SUM
   {
-    struct request
+    struct request_t
     {
       uint64_t height; // Block height from which getting the amounts.
       uint64_t count;  // Number of blocks to include in the sum.
@@ -2208,8 +2172,9 @@ namespace cryptonote
         KV_SERIALIZE(count);
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response
+    struct response_t
     {
       std::string status;       // General RPC error code. "OK" means everything looks good.
       uint64_t emission_amount; // Amount of coinbase reward in atomic units.
@@ -2221,13 +2186,14 @@ namespace cryptonote
         KV_SERIALIZE(fee_amount)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
   // Gives an estimation on fees per kB.
   struct COMMAND_RPC_GET_BASE_FEE_ESTIMATE
   {
-    struct request
+    struct request_t
     {
       uint64_t grace_blocks; // Optional
 
@@ -2235,8 +2201,9 @@ namespace cryptonote
         KV_SERIALIZE(grace_blocks)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response
+    struct response_t
     {
       std::string status;         // General RPC error code. "OK" means everything looks good.
       uint64_t fee;               // Amount of fees estimated per kB in atomic units
@@ -2250,17 +2217,19 @@ namespace cryptonote
         KV_SERIALIZE(untrusted)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
   // Display alternative chains seen by the node.
   struct COMMAND_RPC_GET_ALTERNATE_CHAINS
   {
-    struct request
+    struct request_t
     {
       BEGIN_KV_SERIALIZE_MAP()
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
     struct chain_info
     {
@@ -2281,7 +2250,7 @@ namespace cryptonote
       END_KV_SERIALIZE_MAP()
     };
 
-    struct response
+    struct response_t
     {
       std::string status;           // General RPC error code. "OK" means everything looks good.
       std::list<chain_info> chains; // Array of Chains.
@@ -2291,13 +2260,14 @@ namespace cryptonote
         KV_SERIALIZE(chains)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
   // Update daemon.
   struct COMMAND_RPC_UPDATE
   {
-    struct request
+    struct request_t
     {
       std::string command; // Command to use, either check or download.
       std::string path;    // Optional, path where to download the update.
@@ -2307,8 +2277,9 @@ namespace cryptonote
         KV_SERIALIZE(path);
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response
+    struct response_t
     {
       std::string status;   // General RPC error code. "OK" means everything looks good.
       bool update;          // States if an update is available to download (`true`) or not (`false`).
@@ -2328,13 +2299,14 @@ namespace cryptonote
         KV_SERIALIZE(path)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
   // Relay a list of transaction IDs.
   struct COMMAND_RPC_RELAY_TX
   {
-    struct request
+    struct request_t
     {
       std::vector<std::string> txids; // Optional, list of transactions IDs to flush from pool (all tx ids flushed if empty).
 
@@ -2342,8 +2314,9 @@ namespace cryptonote
         KV_SERIALIZE(txids)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response
+    struct response_t
     {
       std::string status; // General RPC error code. "OK" means everything looks good.
 
@@ -2351,17 +2324,19 @@ namespace cryptonote
         KV_SERIALIZE(status)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
   // Get synchronisation information.
   struct COMMAND_RPC_SYNC_INFO
   {
-    struct request
+    struct request_t
     {
       BEGIN_KV_SERIALIZE_MAP()
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
     struct peer
     {
@@ -2393,7 +2368,7 @@ namespace cryptonote
       END_KV_SERIALIZE_MAP()
     };
 
-    struct response
+    struct response_t
     {
       std::string status;                // General RPC error code. "OK" means everything looks good. Any other value means that something went wrong.
       uint64_t height;                   // Block height.
@@ -2413,12 +2388,13 @@ namespace cryptonote
         KV_SERIALIZE(overview)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
   struct COMMAND_RPC_GET_OUTPUT_DISTRIBUTION
   {
-    struct request
+    struct request_t
     {
       std::vector<uint64_t> amounts; // Amounts to look for in atomic units.
       uint64_t from_height;          // (optional, default is 0) starting height to check from.
@@ -2436,6 +2412,7 @@ namespace cryptonote
         KV_SERIALIZE_OPT(compress, false)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
     struct distribution
     {
@@ -2479,7 +2456,7 @@ namespace cryptonote
       END_KV_SERIALIZE_MAP()
     };
 
-    struct response
+    struct response_t
     {
       std::string status;                      // General RPC error code. "OK" means everything looks good.
       std::vector<distribution> distributions; // 
@@ -2491,12 +2468,13 @@ namespace cryptonote
         KV_SERIALIZE(untrusted)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
   struct COMMAND_RPC_POP_BLOCKS
   {
-    struct request
+    struct request_t
     {
       uint64_t nblocks; // Number of blocks in that span.
 
@@ -2504,8 +2482,9 @@ namespace cryptonote
         KV_SERIALIZE(nblocks);
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response
+    struct response_t
     {
       std::string status; // General RPC error code. "OK" means everything looks good.
       uint64_t height;
@@ -2515,12 +2494,13 @@ namespace cryptonote
         KV_SERIALIZE(height)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
   struct COMMAND_RPC_PRUNE_BLOCKCHAIN
   {
-    struct request
+    struct request_t
     {
       bool check;
 
@@ -2528,17 +2508,21 @@ namespace cryptonote
         KV_SERIALIZE_OPT(check, false)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response
+    struct response_t
     {
+      bool pruned;
       uint32_t pruning_seed;
       std::string status;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(status)
+        KV_SERIALIZE(pruned)
         KV_SERIALIZE(pruning_seed)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
 
@@ -2547,15 +2531,16 @@ namespace cryptonote
   // who are voting, and the list of public keys of the nodes who are being tested.
   struct COMMAND_RPC_GET_QUORUM_STATE
   {
-    struct request
+    struct request_t
     {
       uint64_t height; // The height to query the quorum state for.
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(height)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response
+    struct response_t
     {
       std::string status;                     // Generic RPC error code. "OK" is the success value.
       std::vector<std::string> quorum_nodes;  // Array of public keys identifying service nodes which are being tested for the queried height.
@@ -2569,6 +2554,7 @@ namespace cryptonote
         KV_SERIALIZE(untrusted)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
@@ -2576,7 +2562,7 @@ namespace cryptonote
   // who are voting, and the list of public keys of the nodes who are being tested.
   struct COMMAND_RPC_GET_QUORUM_STATE_BATCHED
   {
-    struct request
+    struct request_t
     {
       uint64_t height_begin; // The starting height (inclusive) to query the quorum state for.
       uint64_t height_end;   // The ending height (inclusive) to query the quorum state for.
@@ -2586,6 +2572,7 @@ namespace cryptonote
         KV_SERIALIZE(height_end)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
     struct response_entry
     {
@@ -2600,7 +2587,7 @@ namespace cryptonote
       END_KV_SERIALIZE_MAP()
     };
 
-    struct response
+    struct response_t
     {
       std::string status;                         // Generic RPC error code. "OK" is the success value.
       std::vector<response_entry> quorum_entries; // Array of quorums that was requested.
@@ -2612,12 +2599,13 @@ namespace cryptonote
         KV_SERIALIZE(untrusted)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
   struct COMMAND_RPC_GET_SERVICE_NODE_REGISTRATION_CMD_RAW
   {
-    struct request
+    struct request_t
     {
       std::vector<std::string> args; // (Developer) The arguments used in raw registration, i.e. portions
       bool make_friendly;            // Provide information about how to use the command in the result.
@@ -2629,8 +2617,9 @@ namespace cryptonote
         KV_SERIALIZE(staking_requirement)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response
+    struct response_t
     {
       std::string status;           // Generic RPC error code. "OK" is the success value.
       std::string registration_cmd; // The command to execute in the wallet CLI to register the queried daemon as a Service Node.
@@ -2640,6 +2629,7 @@ namespace cryptonote
         KV_SERIALIZE(registration_cmd)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
@@ -2656,7 +2646,7 @@ namespace cryptonote
       END_KV_SERIALIZE_MAP()
     };
 
-    struct request
+    struct request_t
     {
       std::string operator_cut;                  // The percentage of cut per reward the operator receives expressed as a string, i.e. "1.1%"
       std::vector<contribution_t> contributions; // Array of contributors for this Service Node
@@ -2668,8 +2658,9 @@ namespace cryptonote
         KV_SERIALIZE(staking_requirement)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response
+    struct response_t
     {
       std::string status;           // Generic RPC error code. "OK" is the success value.
       std::string registration_cmd; // The command to execute in the wallet CLI to register the queried daemon as a Service Node.
@@ -2679,6 +2670,7 @@ namespace cryptonote
         KV_SERIALIZE(registration_cmd)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
@@ -2686,13 +2678,14 @@ namespace cryptonote
   // The daemon must be started in --service-node mode otherwise this RPC command will fail.
   struct COMMAND_RPC_GET_SERVICE_NODE_KEY
   {
-    struct request
+    struct request_t
     {
       BEGIN_KV_SERIALIZE_MAP()
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response
+    struct response_t
     {
       std::string service_node_pubkey; // The queried daemon's service node key.
       std::string status;              // Generic RPC error code. "OK" is the success value.
@@ -2702,13 +2695,14 @@ namespace cryptonote
         KV_SERIALIZE(status)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
   // Get information on Service Nodes.
   struct COMMAND_RPC_GET_SERVICE_NODES
   {
-    struct request
+    struct request_t
     {
       std::vector<std::string> service_node_pubkeys; // Array of public keys of active Service Nodes to get information about. Pass the empty array to query all Service Nodes.
       bool include_json;                             // When set, the response's as_json member is filled out.
@@ -2718,8 +2712,9 @@ namespace cryptonote
         KV_SERIALIZE(include_json);
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response
+    struct response_t
     {
       struct contribution
       {
@@ -2799,6 +2794,7 @@ namespace cryptonote
         KV_SERIALIZE(as_json)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
@@ -2807,7 +2803,7 @@ namespace cryptonote
   // `--stagenet` or `--testnet` flags respectively.
   struct COMMAND_RPC_GET_STAKING_REQUIREMENT
   {
-    struct request
+    struct request_t
     {
       uint64_t height; // The height to query the staking requirement for.
 
@@ -2815,8 +2811,9 @@ namespace cryptonote
         KV_SERIALIZE(height)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response
+    struct response_t
     {
       uint64_t staking_requirement; // The staking requirement in Loki, in atomic units.
       std::string status;           // Generic RPC error code. "OK" is the success value.
@@ -2826,17 +2823,19 @@ namespace cryptonote
         KV_SERIALIZE(status)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
   // Get information on blacklisted Service Node key images.
   struct COMMAND_RPC_GET_SERVICE_NODE_BLACKLISTED_KEY_IMAGES
   {
-    struct request
+    struct request_t
     {
       BEGIN_KV_SERIALIZE_MAP()
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
     struct entry
     {
@@ -2849,7 +2848,7 @@ namespace cryptonote
       END_KV_SERIALIZE_MAP()
     };
 
-    struct response
+    struct response_t
     {
       std::vector<entry> blacklist; // Array of blacklisted key images, i.e. unspendable transactions
       std::string status;           // Generic RPC error code. "OK" is the success value.
@@ -2859,19 +2858,21 @@ namespace cryptonote
         KV_SERIALIZE(status)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   LOKI_RPC_DOC_INTROSPECT
   // Get information on output blacklist.
   struct COMMAND_RPC_GET_OUTPUT_BLACKLIST
   {
-    struct request 
+    struct request_t
     {
-    	BEGIN_KV_SERIALIZE_MAP() 
-    	END_KV_SERIALIZE_MAP() 
+      BEGIN_KV_SERIALIZE_MAP() 
+      END_KV_SERIALIZE_MAP() 
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response
+    struct response_t
     {
       std::vector<uint64_t> blacklist; // (Developer): Array of indexes from the global output list, corresponding to blacklisted key images.
       std::string status;              // Generic RPC error code. "OK" is the success value.
@@ -2883,5 +2884,6 @@ namespace cryptonote
         KV_SERIALIZE(untrusted)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 }

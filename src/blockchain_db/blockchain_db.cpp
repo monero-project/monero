@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 // Copyright (c)      2018, The Loki Project
 // 
 // All rights reserved.
@@ -122,8 +122,10 @@ void BlockchainDB::pop_block()
   pop_block(blk, txs);
 }
 
-void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const transaction& tx, const crypto::hash* tx_hash_ptr, const crypto::hash* tx_prunable_hash_ptr)
+void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const std::pair<transaction, blobdata>& txp, const crypto::hash* tx_hash_ptr, const crypto::hash* tx_prunable_hash_ptr)
 {
+  const transaction &tx = txp.first;
+
   bool miner_tx = false;
   crypto::hash tx_hash, tx_prunable_hash;
   if (!tx_hash_ptr)
@@ -141,7 +143,7 @@ void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const transacti
   if (tx.version >= 2)
   {
     if (!tx_prunable_hash_ptr)
-      tx_prunable_hash = get_transaction_prunable_hash(tx);
+      tx_prunable_hash = get_transaction_prunable_hash(tx, &txp.second);
     else
       tx_prunable_hash = *tx_prunable_hash_ptr;
 
@@ -176,7 +178,7 @@ void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const transacti
     }
   }
 
-  uint64_t tx_id = add_transaction_data(blk_hash, tx, tx_hash, tx_prunable_hash);
+  uint64_t tx_id = add_transaction_data(blk_hash, txp, tx_hash, tx_prunable_hash);
 
   std::vector<uint64_t> amount_output_indices(tx.vout.size());
 
@@ -217,19 +219,19 @@ void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const transacti
   add_tx_amount_output_indices(tx_id, amount_output_indices);
 }
 
-uint64_t BlockchainDB::add_block( const block& blk
+uint64_t BlockchainDB::add_block( const std::pair<block, blobdata>& blck
                                 , size_t block_weight
                                 , uint64_t long_term_block_weight
                                 , const difficulty_type& cumulative_difficulty
                                 , const uint64_t& coins_generated
-                                , const std::vector<transaction>& txs
+                                , const std::vector<std::pair<transaction, blobdata>>& txs
                                 )
 {
+  const block &blk = blck.first;
+
   // sanity
   if (blk.tx_hashes.size() != txs.size())
     throw std::runtime_error("Inconsistent tx/hashes sizes");
-
-  block_txn_start(false);
 
   TIME_MEASURE_START(time1);
   crypto::hash blk_hash = get_block_hash(blk);
@@ -243,17 +245,17 @@ uint64_t BlockchainDB::add_block( const block& blk
   time1 = epee::misc_utils::get_tick_count();
 
   uint64_t num_rct_outs = 0;
-  add_transaction(blk_hash, blk.miner_tx);
+  add_transaction(blk_hash, std::make_pair(blk.miner_tx, tx_to_blob(blk.miner_tx)));
   if (blk.miner_tx.version >= 2)
     num_rct_outs += blk.miner_tx.vout.size();
 
   int tx_i = 0;
   crypto::hash tx_hash = crypto::null_hash;
-  for (const transaction& tx : txs)
+  for (const std::pair<transaction, blobdata>& tx : txs)
   {
     tx_hash = blk.tx_hashes[tx_i];
     add_transaction(blk_hash, tx, &tx_hash);
-    for (const auto &vout: tx.vout)
+    for (const auto &vout: tx.first.vout)
     {
       if (vout.amount == 0)
         ++num_rct_outs;
@@ -270,8 +272,6 @@ uint64_t BlockchainDB::add_block( const block& blk
   time_add_block1 += time1;
 
   m_hardfork->add(blk, prev_height);
-
-  block_txn_stop();
 
   ++num_calls;
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 // Copyright (c)      2018, The Loki Project
 //
 // All rights reserved.
@@ -76,11 +76,6 @@ namespace cryptonote {
     if (version < 5)
       return CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V2;
     return CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V5;
-  }
-  //-----------------------------------------------------------------------------------------------
-  size_t get_max_block_size()
-  {
-    return CRYPTONOTE_MAX_BLOCK_SIZE;
   }
   //-----------------------------------------------------------------------------------------------
   size_t get_max_tx_size()

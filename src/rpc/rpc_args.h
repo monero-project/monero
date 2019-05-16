@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 //
 // All rights reserved.
 //
@@ -51,8 +51,6 @@ namespace cryptonote
       descriptors& operator=(descriptors&&) = delete;
 
       const command_line::arg_descriptor<std::string> rpc_bind_ip;
-      const command_line::arg_descriptor<std::string> rpc_bind_ipv6_address;
-      const command_line::arg_descriptor<bool> rpc_use_ipv6;
       const command_line::arg_descriptor<std::string> rpc_login;
       const command_line::arg_descriptor<bool> confirm_external_bind;
       const command_line::arg_descriptor<std::string> rpc_access_control_origins;
@@ -65,8 +63,6 @@ namespace cryptonote
     static boost::optional<rpc_args> process(const boost::program_options::variables_map& vm);
 
     std::string bind_ip;
-    std::string bind_ipv6_address;
-    bool use_ipv6;
     std::vector<std::string> access_control_origins;
     boost::optional<tools::login> login; // currently `boost::none` if unspecified by user
   };

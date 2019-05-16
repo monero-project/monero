@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -37,6 +37,7 @@
 #include <set>
 #include <ctime>
 #include <iostream>
+#include <stdexcept>
 
 //  Public interface for libwallet library
 namespace Monero {
@@ -326,6 +327,20 @@ struct MultisigState {
     uint32_t total;
 };
 
+
+struct DeviceProgress {
+    DeviceProgress(): m_progress(0), m_indeterminate(false) {}
+    DeviceProgress(double progress, bool indeterminate=false): m_progress(progress), m_indeterminate(indeterminate) {}
+
+    virtual double progress() const { return m_progress; }
+    virtual bool indeterminate() const { return m_indeterminate; }
+
+protected:
+    double m_progress;
+    bool m_indeterminate;
+};
+
+struct Wallet;
 struct WalletListener
 {
     virtual ~WalletListener() = 0;
@@ -366,6 +381,41 @@ struct WalletListener
      * @brief refreshed - called when wallet refreshed by background thread or explicitly refreshed by calling "refresh" synchronously
      */
     virtual void refreshed() = 0;
+
+    /**
+     * @brief called by device if the action is required
+     */
+    virtual void onDeviceButtonRequest(uint64_t code) { (void)code; }
+
+    /**
+     * @brief called by device if the button was pressed
+     */
+    virtual void onDeviceButtonPressed() { }
+
+    /**
+     * @brief called by device when PIN is needed
+     */
+    virtual optional<std::string> onDevicePinRequest() {
+        throw std::runtime_error("Not supported");
+    }
+
+    /**
+     * @brief called by device when passphrase entry is needed
+     */
+    virtual optional<std::string> onDevicePassphraseRequest(bool on_device) {
+        if (!on_device) throw std::runtime_error("Not supported");
+        return optional<std::string>();
+    }
+
+    /**
+     * @brief Signalizes device operation progress
+     */
+    virtual void onDeviceProgress(const DeviceProgress & event) { (void)event; };
+
+    /**
+     * @brief If the listener is created before the wallet this enables to set created wallet object
+     */
+    virtual void onSetWallet(Wallet * wallet) { (void)wallet; };
 };
 
 
@@ -377,7 +427,8 @@ struct Wallet
 {
     enum Device {
         Device_Software = 0,
-        Device_Ledger = 1
+        Device_Ledger = 1,
+        Device_Trezor = 2
     };
 
     enum Status {
@@ -403,6 +454,8 @@ struct Wallet
     //! returns both error and error string atomically. suggested to use in instead of status() and errorString()
     virtual void statusWithErrorString(int& status, std::string& errorString) const = 0;
     virtual bool setPassword(const std::string &password) = 0;
+    virtual bool setDevicePin(const std::string &pin) { (void)pin; return false; };
+    virtual bool setDevicePassphrase(const std::string &passphrase) { (void)passphrase; return false; };
     virtual std::string address(uint32_t accountIndex = 0, uint32_t addressIndex = 0) const = 0;
     std::string mainAddress() const { return address(0, 0); }
     virtual std::string path() const = 0;
@@ -954,6 +1007,9 @@ struct Wallet
 
     /// Prepare a staking transaction; return nullptr on failure
     virtual PendingTransaction* stakePending(const std::string& service_node_key, const std::string& address, const std::string& amount, std::string& error_msg) = 0;
+
+    //! cold-device protocol key image sync
+    virtual uint64_t coldKeyImageSync(uint64_t &spent, uint64_t &unspent) = 0;
 };
 
 /**
@@ -983,9 +1039,10 @@ struct WalletManagerBase
      * \param  password       Password of wallet file
      * \param  nettype        Network type
      * \param  kdf_rounds     Number of rounds for key derivation function
+     * \param  listener       Wallet listener to set to the wallet after creation
      * \return                Wallet instance (Wallet::status() needs to be called to check if opened successfully)
      */
-    virtual Wallet * openWallet(const std::string &path, const std::string &password, NetworkType nettype, uint64_t kdf_rounds = 1) = 0;
+    virtual Wallet * openWallet(const std::string &path, const std::string &password, NetworkType nettype, uint64_t kdf_rounds = 1, WalletListener * listener = nullptr) = 0;
     Wallet * openWallet(const std::string &path, const std::string &password, bool testnet = false)     // deprecated
     {
         return openWallet(path, password, testnet ? TESTNET : MAINNET);
@@ -1097,6 +1154,7 @@ struct WalletManagerBase
      * \param  restoreHeight        restore from start height (0 sets to current height)
      * \param  subaddressLookahead  Size of subaddress lookahead (empty sets to some default low value)
      * \param  kdf_rounds           Number of rounds for key derivation function
+     * \param  listener             Wallet listener to set to the wallet after creation
      * \return                      Wallet instance (Wallet::status() needs to be called to check if recovered successfully)
      */
     virtual Wallet * createWalletFromDevice(const std::string &path,
@@ -1105,7 +1163,8 @@ struct WalletManagerBase
                                             const std::string &deviceName,
                                             uint64_t restoreHeight = 0,
                                             const std::string &subaddressLookahead = "",
-                                            uint64_t kdf_rounds = 1) = 0;
+                                            uint64_t kdf_rounds = 1,
+                                            WalletListener * listener = nullptr) = 0;
 
     /*!
      * \brief Closes wallet. In case operation succeeded, wallet object deleted. in case operation failed, wallet object not deleted

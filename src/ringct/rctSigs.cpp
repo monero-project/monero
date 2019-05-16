@@ -79,12 +79,12 @@ namespace
 }
 
 namespace rct {
-    Bulletproof proveRangeBulletproof(keyV &C, keyV &masks, const std::vector<uint64_t> &amounts, epee::span<const key> sk)
+    Bulletproof proveRangeBulletproof(keyV &C, keyV &masks, const std::vector<uint64_t> &amounts, epee::span<const key> sk, hw::device &hwdev)
     {
         CHECK_AND_ASSERT_THROW_MES(amounts.size() == sk.size(), "Invalid amounts/sk sizes");
         masks.resize(amounts.size());
         for (size_t i = 0; i < masks.size(); ++i)
-            masks[i] = genCommitmentMask(sk[i]);
+            masks[i] = hwdev.genCommitmentMask(sk[i]);
         Bulletproof proof = bulletproof_PROVE(amounts, masks);
         CHECK_AND_ASSERT_THROW_MES(proof.V.size() == amounts.size(), "V does not have the expected size");
         C = proof.V;
@@ -469,7 +469,6 @@ namespace rct {
     //Ver:    
     //   verifies the above sig is created corretly
     mgSig proveRctMG(const key &message, const ctkeyM & pubs, const ctkeyV & inSk, const ctkeyV &outSk, const ctkeyV & outPk, const multisig_kLRki *kLRki, key *mscout, unsigned int index, const key &txnFeeKey, hw::device &hwdev) {
-        mgSig mg;
         //setup vars
         size_t cols = pubs.size();
         CHECK_AND_ASSERT_THROW_MES(cols >= 1, "Empty pubs");
@@ -527,7 +526,6 @@ namespace rct {
     //       a_out, Cout is for the output commitment
     //       index is the signing index..
     mgSig proveRctMGSimple(const key &message, const ctkeyV & pubs, const ctkey & inSk, const key &a , const key &Cout, const multisig_kLRki *kLRki, key *mscout, unsigned int index, hw::device &hwdev) {
-        mgSig mg;
         //setup vars
         size_t rows = 1;
         size_t cols = pubs.size();
@@ -697,6 +695,7 @@ namespace rct {
           CHECK_AND_ASSERT_THROW_MES(mixRing[n].size() == inSk.size(), "Bad mixRing size");
         }
         CHECK_AND_ASSERT_THROW_MES((kLRki && msout) || (!kLRki && !msout), "Only one of kLRki/msout is present");
+        CHECK_AND_ASSERT_THROW_MES(inSk.size() < 2, "genRct is not suitable for 2+ rings");
 
         rctSig rv;
         rv.type = RCTTypeFull;
@@ -793,7 +792,6 @@ namespace rct {
         rv.p.bulletproofs.clear();
         if (bulletproof)
         {
-            std::vector<uint64_t> proof_amounts;
             size_t n_amounts = outamounts.size();
             size_t amounts_proved = 0;
             if (rct_config.range_proof_type == RangeProofPaddedBulletproof)
@@ -807,7 +805,7 @@ namespace rct {
                 else
                 {
                     const epee::span<const key> keys{&amount_keys[0], amount_keys.size()};
-                    rv.p.bulletproofs.push_back(proveRangeBulletproof(C, masks, outamounts, keys));
+                    rv.p.bulletproofs.push_back(proveRangeBulletproof(C, masks, outamounts, keys, hwdev));
                     #ifdef DBG
                     CHECK_AND_ASSERT_THROW_MES(verBulletproof(rv.p.bulletproofs.back()), "verBulletproof failed on newly created proof");
                     #endif
@@ -836,7 +834,7 @@ namespace rct {
                 else
                 {
                     const epee::span<const key> keys{&amount_keys[amounts_proved], batch_size};
-                    rv.p.bulletproofs.push_back(proveRangeBulletproof(C, masks, batch_amounts, keys));
+                    rv.p.bulletproofs.push_back(proveRangeBulletproof(C, masks, batch_amounts, keys, hwdev));
                 #ifdef DBG
                     CHECK_AND_ASSERT_THROW_MES(verBulletproof(rv.p.bulletproofs.back()), "verBulletproof failed on newly created proof");
                 #endif

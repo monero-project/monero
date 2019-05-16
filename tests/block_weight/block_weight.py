@@ -3,12 +3,12 @@
 # This uses the scheme proposed by ArticMine
 # Written by Sarang Nother
 # Copyright (c) 2019 The Monero Project
+from __future__ import print_function
 import sys
 import math
 
 MEDIAN_WINDOW_SMALL = 100 # number of recent blocks for median computation
 MEDIAN_WINDOW_BIG = 5000
-MULTIPLIER_SMALL = 1.4 # multipliers for determining weights
 MULTIPLIER_BIG = 50.0
 MEDIAN_THRESHOLD = 300*1000 # initial value for median (scaled kB -> B)
 lcg_seed = 0
@@ -23,9 +23,9 @@ def get_median(vec):
     #temp = vec
     temp = sorted(vec)
     if len(temp) % 2 == 1:
-        return temp[len(temp)/2]
+        return temp[len(temp)//2]
     else:
-        return int((temp[len(temp)/2]+temp[len(temp)/2-1])/2)
+        return int((temp[len(temp)//2]+temp[len(temp)//2-1])//2)
 
 def LCG():
   global lcg_seed
@@ -67,7 +67,7 @@ def run(t, blocks):
       lt_weights.append(min(max_weight,int(ltembw + int(ltembw * 2 / 5))))
 
       #print "H %u, r %u, BW %u, EMBW %u, LTBW %u, LTEMBW %u, ltmedian %u" % (block, r, max_weight, embw, lt_weights[-1], ltembw, ltmedian)
-      print "H %u, BW %u, EMBW %u, LTBW %u" % (block, max_weight, embw, lt_weights[-1])
+      print("H %u, BW %u, EMBW %u, LTBW %u" % (block, max_weight, embw, lt_weights[-1]))
 
 run(0, 2 * MEDIAN_WINDOW_BIG)
 run(1, 9 * MEDIAN_WINDOW_BIG)

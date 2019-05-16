@@ -42,13 +42,14 @@ namespace misc_utils
     // 4: alpha
     // 8: whitespace
     // 16: allowed in float but doesn't necessarily mean it's a float
+    // 32: \ and " (end of verbatim string)
     static const constexpr uint8_t lut[256]={
       0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 8, 8, 8, 8, 0, 0, // 16
       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // 32
-      8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 16, 0, 16, 18, 0, // 48
+      8, 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 16, 0, 16, 18, 0, // 48
       17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 0, 0, 0, 0, 0, 0, // 64
       0, 4, 4, 4, 4, 22, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, // 80
-      4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 0, 0, 0, 0, 0, // 96
+      4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 0, 32, 0, 0, 0, // 96
       0, 4, 4, 4, 4, 22, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, // 112
       4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 0, 0, 0, 0, 0, // 128
       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -130,7 +131,7 @@ namespace misc_utils
         std::string::const_iterator it = star_end_string;
         ++it;
         std::string::const_iterator fi = it;
-        while (fi != buf_end && *fi != '\\' && *fi != '\"')
+        while (fi != buf_end && ((lut[(uint8_t)*fi] & 32)) == 0)
           ++fi;
         val.assign(it, fi);
         val.reserve(std::distance(star_end_string, buf_end));

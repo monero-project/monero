@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -94,6 +94,12 @@ namespace daemon_args
     "max-concurrency"
   , "Max number of threads to use for a parallel job"
   , 0
+  };
+
+  const command_line::arg_descriptor<bool> arg_public_node = {
+    "public-node"
+  , "Allow other users to use the node as a remote (restricted RPC mode, view-only commands) and advertise it over P2P"
+  , false
   };
 
   const command_line::arg_descriptor<std::string> arg_zmq_rpc_bind_ip   = {

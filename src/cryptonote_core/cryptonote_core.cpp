@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 // Copyright (c)      2018, The Loki Project
 //
 // All rights reserved.
@@ -68,6 +68,9 @@ DISABLE_VS_WARNINGS(4355)
 #define MERROR_VER(x) MCERROR("verify", x)
 
 #define BAD_SEMANTICS_TXES_MAX_SIZE 100
+
+// basically at least how many bytes the block itself serializes to without the miner tx
+#define BLOCK_SIZE_SANITY_LEEWAY 100
 
 namespace cryptonote
 {
@@ -783,7 +786,7 @@ namespace cryptonote
     return false;
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::handle_incoming_tx_pre(const blobdata& tx_blob, tx_verification_context& tvc, cryptonote::transaction &tx, crypto::hash &tx_hash, crypto::hash &tx_prefixt_hash, bool keeped_by_block, bool relayed, bool do_not_relay)
+  bool core::handle_incoming_tx_pre(const blobdata& tx_blob, tx_verification_context& tvc, cryptonote::transaction &tx, crypto::hash &tx_hash, bool keeped_by_block, bool relayed, bool do_not_relay)
   {
     tvc = boost::value_initialized<tx_verification_context>();
 
@@ -796,9 +799,8 @@ namespace cryptonote
     }
 
     tx_hash = crypto::null_hash;
-    tx_prefixt_hash = crypto::null_hash;
 
-    if(!parse_tx_from_blob(tx, tx_hash, tx_prefixt_hash, tx_blob))
+    if(!parse_tx_from_blob(tx, tx_hash, tx_blob))
     {
       LOG_PRINT_L1("WRONG TRANSACTION BLOB, Failed to parse, rejected");
       tvc.m_verifivation_failed = true;
@@ -821,7 +823,7 @@ namespace cryptonote
     return true;
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::handle_incoming_tx_post(const blobdata& tx_blob, tx_verification_context& tvc, cryptonote::transaction &tx, crypto::hash &tx_hash, crypto::hash &tx_prefixt_hash, bool keeped_by_block, bool relayed, bool do_not_relay)
+  bool core::handle_incoming_tx_post(const blobdata& tx_blob, tx_verification_context& tvc, cryptonote::transaction &tx, crypto::hash &tx_hash, bool keeped_by_block, bool relayed, bool do_not_relay)
   {
     if(!check_tx_syntax(tx))
     {
@@ -955,7 +957,7 @@ namespace cryptonote
     TRY_ENTRY();
     CRITICAL_REGION_LOCAL(m_incoming_tx_lock);
 
-    struct result { bool res; cryptonote::transaction tx; crypto::hash hash; crypto::hash prefix_hash; };
+    struct result { bool res; cryptonote::transaction tx; crypto::hash hash; };
     std::vector<result> results(tx_blobs.size());
 
     tvc.resize(tx_blobs.size());
@@ -966,11 +968,12 @@ namespace cryptonote
       tpool.submit(&waiter, [&, i, it] {
         try
         {
-          results[i].res = handle_incoming_tx_pre(*it, tvc[i], results[i].tx, results[i].hash, results[i].prefix_hash, keeped_by_block, relayed, do_not_relay);
+          results[i].res = handle_incoming_tx_pre(*it, tvc[i], results[i].tx, results[i].hash, keeped_by_block, relayed, do_not_relay);
         }
         catch (const std::exception &e)
         {
           MERROR_VER("Exception in handle_incoming_tx_pre: " << e.what());
+          tvc[i].m_verifivation_failed = true;
           results[i].res = false;
         }
       });
@@ -996,11 +999,12 @@ namespace cryptonote
         tpool.submit(&waiter, [&, i, it] {
           try
           {
-            results[i].res = handle_incoming_tx_post(*it, tvc[i], results[i].tx, results[i].hash, results[i].prefix_hash, keeped_by_block, relayed, do_not_relay);
+            results[i].res = handle_incoming_tx_post(*it, tvc[i], results[i].tx, results[i].hash, keeped_by_block, relayed, do_not_relay);
           }
           catch (const std::exception &e)
           {
             MERROR_VER("Exception in handle_incoming_tx_post: " << e.what());
+            tvc[i].m_verifivation_failed = true;
             results[i].res = false;
           }
         });
@@ -1032,7 +1036,7 @@ namespace cryptonote
         continue;
 
       const size_t weight = get_transaction_weight(results[i].tx, it->size());
-      ok &= add_new_tx(results[i].tx, results[i].hash, tx_blobs[i], results[i].prefix_hash, weight, tvc[i], keeped_by_block, relayed, do_not_relay);
+      ok &= add_new_tx(results[i].tx, results[i].hash, tx_blobs[i], weight, tvc[i], keeped_by_block, relayed, do_not_relay);
       if(tvc[i].m_verifivation_failed)
       {
         MERROR_VER("Transaction verification failed: " << results[i].hash);
@@ -1257,11 +1261,10 @@ namespace cryptonote
   bool core::add_new_tx(transaction& tx, tx_verification_context& tvc, bool keeped_by_block, bool relayed, bool do_not_relay)
   {
     crypto::hash tx_hash = get_transaction_hash(tx);
-    crypto::hash tx_prefix_hash = get_transaction_prefix_hash(tx);
     blobdata bl;
     t_serializable_object_to_blob(tx, bl);
     size_t tx_weight = get_transaction_weight(tx, bl.size());
-    return add_new_tx(tx, tx_hash, bl, tx_prefix_hash, tx_weight, tvc, keeped_by_block, relayed, do_not_relay);
+    return add_new_tx(tx, tx_hash, bl, tx_weight, tvc, keeped_by_block, relayed, do_not_relay);
   }
   //-----------------------------------------------------------------------------------------------
   size_t core::get_blockchain_total_transactions() const
@@ -1269,7 +1272,7 @@ namespace cryptonote
     return m_blockchain_storage.get_total_transactions();
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::add_new_tx(transaction& tx, const crypto::hash& tx_hash, const cryptonote::blobdata &blob, const crypto::hash& tx_prefix_hash, size_t tx_weight, tx_verification_context& tvc, bool keeped_by_block, bool relayed, bool do_not_relay)
+  bool core::add_new_tx(transaction& tx, const crypto::hash& tx_hash, const cryptonote::blobdata &blob, size_t tx_weight, tx_verification_context& tvc, bool keeped_by_block, bool relayed, bool do_not_relay)
   {
     if(m_mempool.have_tx(tx_hash))
     {
@@ -1335,8 +1338,8 @@ namespace cryptonote
   {
     std::vector<std::pair<crypto::hash, cryptonote::blobdata>> txs;
     cryptonote::transaction tx;
-    crypto::hash tx_hash, tx_prefix_hash;
-    if (!parse_and_validate_tx_from_blob(tx_blob, tx, tx_hash, tx_prefix_hash))
+    crypto::hash tx_hash;
+    if (!parse_and_validate_tx_from_blob(tx_blob, tx, tx_hash))
     {
       LOG_ERROR("Failed to parse relayed transaction");
       return;
@@ -1400,6 +1403,11 @@ namespace cryptonote
     return m_blockchain_storage.create_block_template(b, adr, diffic, height, expected_reward, ex_nonce);
   }
   //-----------------------------------------------------------------------------------------------
+  bool core::get_block_template(block& b, const crypto::hash *prev_block, const account_public_address& adr, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, const blobdata& ex_nonce)
+  {
+    return m_blockchain_storage.create_block_template(b, prev_block, adr, diffic, height, expected_reward, ex_nonce);
+  }
+  //-----------------------------------------------------------------------------------------------
   bool core::find_blockchain_supplement(const std::list<crypto::hash>& qblock_ids, NOTIFY_RESPONSE_CHAIN_ENTRY::request& resp) const
   {
     return m_blockchain_storage.find_blockchain_supplement(qblock_ids, resp);
@@ -1458,9 +1466,9 @@ namespace cryptonote
     return bce;
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::handle_block_found(block& b)
+  bool core::handle_block_found(block& b, block_verification_context &bvc)
   {
-    block_verification_context bvc = boost::value_initialized<block_verification_context>();
+    bvc = boost::value_initialized<block_verification_context>();
     m_miner.pause();
     std::vector<block_complete_entry> blocks;
     try
@@ -1472,7 +1480,13 @@ namespace cryptonote
       m_miner.resume();
       return false;
     }
-    prepare_handle_incoming_blocks(blocks);
+    std::vector<block> pblocks;
+    if (!prepare_handle_incoming_blocks(blocks, pblocks))
+    {
+      MERROR("Block found, but failed to prepare to add");
+      m_miner.resume();
+      return false;
+    }
     m_blockchain_storage.add_new_block(b, bvc);
     cleanup_handle_incoming_blocks(true);
     //anyway - update miner template
@@ -1504,7 +1518,7 @@ namespace cryptonote
 
       m_pprotocol->relay_block(arg, exclude_context);
     }
-    return bvc.m_added_to_main_chain;
+    return true;
   }
   //-----------------------------------------------------------------------------------------------
   void core::on_synchronized()
@@ -1523,10 +1537,14 @@ namespace cryptonote
   }
 
   //-----------------------------------------------------------------------------------------------
-  bool core::prepare_handle_incoming_blocks(const std::vector<block_complete_entry> &blocks)
+  bool core::prepare_handle_incoming_blocks(const std::vector<block_complete_entry> &blocks_entry, std::vector<block> &blocks)
   {
     m_incoming_tx_lock.lock();
-    m_blockchain_storage.prepare_handle_incoming_blocks(blocks);
+    if (!m_blockchain_storage.prepare_handle_incoming_blocks(blocks_entry, blocks))
+    {
+      cleanup_handle_incoming_blocks(false);
+      return false;
+    }
     return true;
   }
 
@@ -1543,28 +1561,35 @@ namespace cryptonote
   }
 
   //-----------------------------------------------------------------------------------------------
-  bool core::handle_incoming_block(const blobdata& block_blob, block_verification_context& bvc, bool update_miner_blocktemplate)
+  bool core::handle_incoming_block(const blobdata& block_blob, const block *b, block_verification_context& bvc, bool update_miner_blocktemplate)
   {
     TRY_ENTRY();
+    bvc = boost::value_initialized<block_verification_context>();
+
+    if (!check_incoming_block_size(block_blob))
+    {
+      bvc.m_verifivation_failed = true;
+      return false;
+    }
+
+    if (((size_t)-1) <= 0xffffffff && block_blob.size() >= 0x3fffffff)
+      MWARNING("This block's size is " << block_blob.size() << ", closing on the 32 bit limit");
+
     CHECK_AND_ASSERT_MES(update_checkpoints(), false, "One or more checkpoints loaded from json conflicted with existing checkpoints.");
 
-    bvc = boost::value_initialized<block_verification_context>();
-    if(block_blob.size() > get_max_block_size())
+    block lb;
+    if (!b)
     {
-      LOG_PRINT_L1("WRONG BLOCK BLOB, too big size " << block_blob.size() << ", rejected");
-      bvc.m_verifivation_failed = true;
-      return false;
+      crypto::hash block_hash;
+      if(!parse_and_validate_block_from_blob(block_blob, lb, block_hash))
+      {
+        LOG_PRINT_L1("Failed to parse and validate new block");
+        bvc.m_verifivation_failed = true;
+        return false;
+      }
+      b = &lb;
     }
-
-    block b = AUTO_VAL_INIT(b);
-    if(!parse_and_validate_block_from_blob(block_blob, b))
-    {
-      LOG_PRINT_L1("Failed to parse and validate new block");
-      bvc.m_verifivation_failed = true;
-      return false;
-    }
-
-    add_new_block(b, bvc);
+    add_new_block(*b, bvc);
     if(update_miner_blocktemplate && bvc.m_added_to_main_chain)
        update_miner_block_template();
     return true;
@@ -1576,9 +1601,13 @@ namespace cryptonote
   // block_blob
   bool core::check_incoming_block_size(const blobdata& block_blob) const
   {
-    if(block_blob.size() > get_max_block_size())
+    // note: we assume block weight is always >= block blob size, so we check incoming
+    // blob size against the block weight limit, which acts as a sanity check without
+    // having to parse/weigh first; in fact, since the block blob is the block header
+    // plus the tx hashes, the weight will typically be much larger than the blob size
+    if(block_blob.size() > m_blockchain_storage.get_current_cumulative_block_weight_limit() + BLOCK_SIZE_SANITY_LEEWAY)
     {
-      LOG_PRINT_L1("WRONG BLOCK BLOB, too big size " << block_blob.size() << ", rejected");
+      LOG_PRINT_L1("WRONG BLOCK BLOB, sanity check failed on size " << block_blob.size() << ", rejected");
       return false;
     }
     return true;
@@ -1604,9 +1633,9 @@ namespace cryptonote
     return m_blockchain_storage.have_block(id);
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::parse_tx_from_blob(transaction& tx, crypto::hash& tx_hash, crypto::hash& tx_prefix_hash, const blobdata& blob) const
+  bool core::parse_tx_from_blob(transaction& tx, crypto::hash& tx_hash, const blobdata& blob) const
   {
-    return parse_and_validate_tx_from_blob(blob, tx, tx_hash, tx_prefix_hash);
+    return parse_and_validate_tx_from_blob(blob, tx, tx_hash);
   }
   //-----------------------------------------------------------------------------------------------
   bool core::check_tx_syntax(const transaction& tx) const
@@ -1755,6 +1784,9 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
   bool core::check_fork_time()
   {
+    if (m_nettype == FAKECHAIN)
+      return true;
+
     HardFork::State state = m_blockchain_storage.get_hard_fork_state();
     const el::Level level = el::Level::Warning;
     switch (state) {
@@ -1946,15 +1978,31 @@ namespace cryptonote
     return f;
   }
   //-----------------------------------------------------------------------------------------------
-  static double probability(unsigned int blocks, unsigned int expected)
+  static double probability1(unsigned int blocks, unsigned int expected)
   {
     // https://www.umass.edu/wsp/resources/poisson/#computing
     return pow(expected, blocks) / (factorial(blocks) * exp(expected));
   }
   //-----------------------------------------------------------------------------------------------
+  static double probability(unsigned int blocks, unsigned int expected)
+  {
+    double p = 0.0;
+    if (blocks <= expected)
+    {
+      for (unsigned int b = 0; b <= blocks; ++b)
+        p += probability1(b, expected);
+    }
+    else if (blocks > expected)
+    {
+      for (unsigned int b = blocks; b <= expected * 3 /* close enough */; ++b)
+        p += probability1(b, expected);
+    }
+    return p;
+  }
+  //-----------------------------------------------------------------------------------------------
   bool core::check_block_rate()
   {
-    if (m_offline || m_target_blockchain_height > get_current_blockchain_height())
+    if (m_offline || m_nettype == FAKECHAIN || m_target_blockchain_height > get_current_blockchain_height())
     {
       MDEBUG("Not checking block rate, offline or syncing");
       return true;

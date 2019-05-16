@@ -36,6 +36,7 @@
 #include <algorithm>
 #include <stdexcept>
 
+#include "misc_log_ex.h"
 #include "cryptonote_config.h"
 #include "cryptonote_basic/difficulty.h"
 
@@ -44,7 +45,9 @@ using namespace std;
 #define DEFAULT_TEST_DIFFICULTY_TARGET        120
 
 int main(int argc, char *argv[]) {
-    if (argc != 2) {
+    TRY_ENTRY();
+
+    if (argc < 2) {
         cerr << "Wrong arguments" << endl;
         return 1;
     }
@@ -80,4 +83,6 @@ int main(int argc, char *argv[]) {
         data.clear(fstream::badbit);
     }
     return 0;
+
+    CATCH_ENTRY_L0("main", 1);
 }

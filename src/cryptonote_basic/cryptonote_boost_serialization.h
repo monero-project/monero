@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -354,6 +354,13 @@ namespace boost
     a & x.p.MGs;
     if (x.type == rct::RCTTypeBulletproof || x.type == rct::RCTTypeBulletproof2)
       a & x.p.pseudoOuts;
+  }
+
+  template <class Archive>
+  inline void serialize(Archive &a, rct::RCTConfig &x, const boost::serialization::version_type ver)
+  {
+    a & x.range_proof_type;
+    a & x.bp_version;
   }
 }
 }

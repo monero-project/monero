@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2018, The Monero Project
+// Copyright (c) 2017-2019, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -141,7 +141,7 @@ namespace rpc
 
     auto& chain = m_core.get_blockchain_storage();
 
-    if (!chain.find_blockchain_supplement(req.known_hashes, res.hashes, res.start_height, res.current_height))
+    if (!chain.find_blockchain_supplement(req.known_hashes, res.hashes, res.start_height, res.current_height, false))
     {
       res.status = Message::STATUS_FAILED;
       res.error_details = "Blockchain::find_blockchain_supplement() returned false";
@@ -263,20 +263,43 @@ namespace rpc
 
   void DaemonHandler::handle(const SendRawTx::Request& req, SendRawTx::Response& res)
   {
-    auto tx_blob = cryptonote::tx_to_blob(req.tx);
+    handleTxBlob(cryptonote::tx_to_blob(req.tx), req.relay, res);
+  }
+
+  void DaemonHandler::handle(const SendRawTxHex::Request& req, SendRawTxHex::Response& res)
+  {
+    std::string tx_blob;
+    if(!epee::string_tools::parse_hexstr_to_binbuff(req.tx_as_hex, tx_blob))
+    {
+      MERROR("[SendRawTxHex]: Failed to parse tx from hexbuff: " << req.tx_as_hex);
+      res.status = Message::STATUS_FAILED;
+      res.error_details = "Invalid hex";
+      return;
+    }
+    handleTxBlob(tx_blob, req.relay, res);
+  }
+
+  void DaemonHandler::handleTxBlob(const std::string& tx_blob, bool relay, SendRawTx::Response& res)
+  {
+    if (!m_p2p.get_payload_object().is_synchronized())
+    {
+      res.status = Message::STATUS_FAILED;
+      res.error_details = "Not ready to accept transactions; try again later";
+      return;
+    }
 
     cryptonote_connection_context fake_context = AUTO_VAL_INIT(fake_context);
     tx_verification_context tvc = AUTO_VAL_INIT(tvc);
 
-    if(!m_core.handle_incoming_tx(tx_blob, tvc, false, false, !req.relay) || tvc.m_verifivation_failed)
+    if(!m_core.handle_incoming_tx(tx_blob, tvc, false, false, !relay) || tvc.m_verifivation_failed)
     {
       if (tvc.m_verifivation_failed)
       {
-        LOG_PRINT_L0("[on_send_raw_tx]: tx verification failed");
+        MERROR("[SendRawTx]: tx verification failed");
       }
       else
       {
-        LOG_PRINT_L0("[on_send_raw_tx]: Failed to process tx");
+        MERROR("[SendRawTx]: Failed to process tx");
       }
       res.status = Message::STATUS_FAILED;
       res.error_details = "";
@@ -348,9 +371,9 @@ namespace rpc
       return;
     }
 
-    if(!tvc.m_should_be_relayed || !req.relay)
+    if(!tvc.m_should_be_relayed || !relay)
     {
-      LOG_PRINT_L0("[on_send_raw_tx]: tx accepted, but not relayed");
+      MERROR("[SendRawTx]: tx accepted, but not relayed");
       res.error_details = "Not relayed";
       res.relayed = false;
       res.status = Message::STATUS_OK;
@@ -443,13 +466,13 @@ namespace rpc
 
     res.info.alt_blocks_count = chain.get_alternative_blocks_count();
 
-    uint64_t total_conn = m_p2p.get_connections_count();
-    res.info.outgoing_connections_count = m_p2p.get_outgoing_connections_count();
+    uint64_t total_conn = m_p2p.get_public_connections_count();
+    res.info.outgoing_connections_count = m_p2p.get_public_outgoing_connections_count();
     res.info.incoming_connections_count = total_conn - res.info.outgoing_connections_count;
 
-    res.info.white_peerlist_size = m_p2p.get_peerlist_manager().get_white_peers_count();
+    res.info.white_peerlist_size = m_p2p.get_public_white_peers_count();
 
-    res.info.grey_peerlist_size = m_p2p.get_peerlist_manager().get_gray_peers_count();
+    res.info.grey_peerlist_size = m_p2p.get_public_gray_peers_count();
 
     res.info.mainnet = m_core.get_nettype() == MAINNET;
     res.info.testnet = m_core.get_nettype() == TESTNET;
@@ -850,6 +873,7 @@ namespace rpc
       REQ_RESP_TYPES_MACRO(request_type, KeyImagesSpent, req_json, resp_message, handle);
       REQ_RESP_TYPES_MACRO(request_type, GetTxGlobalOutputIndices, req_json, resp_message, handle);
       REQ_RESP_TYPES_MACRO(request_type, SendRawTx, req_json, resp_message, handle);
+      REQ_RESP_TYPES_MACRO(request_type, SendRawTxHex, req_json, resp_message, handle);
       REQ_RESP_TYPES_MACRO(request_type, GetInfo, req_json, resp_message, handle);
       REQ_RESP_TYPES_MACRO(request_type, StartMining, req_json, resp_message, handle);
       REQ_RESP_TYPES_MACRO(request_type, StopMining, req_json, resp_message, handle);

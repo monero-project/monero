@@ -128,7 +128,7 @@ namespace service_nodes
           return;
         }
 
-        block_added_generic(block, txs);
+        process_block(block, txs);
       }
     }
   }
@@ -833,13 +833,12 @@ namespace service_nodes
   void service_node_list::block_added(const cryptonote::block& block, const std::vector<cryptonote::transaction>& txs)
   {
     std::lock_guard<boost::recursive_mutex> lock(m_sn_mutex);
-    block_added_generic(block, txs);
+    process_block(block, txs);
     store();
   }
 
 
-  template<typename T>
-  void service_node_list::block_added_generic(const cryptonote::block& block, const T& txs)
+  void service_node_list::process_block(const cryptonote::block& block, const std::vector<cryptonote::transaction>& txs)
   {
     uint64_t block_height = cryptonote::get_block_height(block);
     int hard_fork_version = m_blockchain.get_hard_fork_version(block_height);
@@ -1453,9 +1452,8 @@ namespace service_nodes
     CHECK_AND_ASSERT_MES(r, false, "Failed to store service node info: failed to serialize data");
 
     std::string blob = ss.str();
-    m_db->block_txn_start(false/*readonly*/);
+    cryptonote::db_wtxn_guard txn_guard(m_db);
     m_db->set_service_node_data(blob);
-    m_db->block_txn_stop();
 
     return true;
   }
@@ -1496,13 +1494,11 @@ namespace service_nodes
     data_members_for_serialization data_in;
     std::string blob;
 
-    m_db->block_txn_start(true/*readonly*/);
+    cryptonote::db_rtxn_guard txn_guard(m_db);
     if (!m_db->get_service_node_data(blob))
     {
-      m_db->block_txn_stop();
       return false;
     }
-    m_db->block_txn_stop();
 
     ss << blob;
     binary_archive<false> ba(ss);
@@ -1578,9 +1574,8 @@ namespace service_nodes
     m_transient_state = {};
     if (m_db && delete_db_entry)
     {
-      m_db->block_txn_start(false/*readonly*/);
+      cryptonote::db_wtxn_guard txn_guard(m_db);
       m_db->clear_service_node_data();
-      m_db->block_txn_stop();
     }
 
     uint64_t hardfork_9_from_height = 0;

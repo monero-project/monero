@@ -33,6 +33,7 @@
 #include <boost/asio/io_service.hpp>
 #include <typeinfo>
 #include <type_traits>
+#include "enums.h"
 #include "serialization/keyvalue_serialization.h"
 #include "misc_log_ex.h"
 
@@ -42,6 +43,18 @@
 #ifndef MAKE_IP
 #define MAKE_IP( a1, a2, a3, a4 )	(a1|(a2<<8)|(a3<<16)|(a4<<24))
 #endif
+
+#if BOOST_VERSION >= 107000
+#define GET_IO_SERVICE(s) ((boost::asio::io_context&)(s).get_executor().context())
+#else
+#define GET_IO_SERVICE(s) ((s).get_io_service())
+#endif
+
+namespace net
+{
+	class tor_address;
+	class i2p_address;
+}
 
 namespace epee
 {
@@ -53,6 +66,10 @@ namespace net_utils
 		uint16_t m_port;
 
 	public:
+		constexpr ipv4_network_address() noexcept
+			: ipv4_network_address(0, 0)
+		{}
+
 		constexpr ipv4_network_address(uint32_t ip, uint16_t port) noexcept
 			: m_ip(ip), m_port(port) {}
 
@@ -67,9 +84,10 @@ namespace net_utils
 		std::string host_str() const;
 		bool is_loopback() const;
 		bool is_local() const;
-		static constexpr uint8_t get_type_id() noexcept { return ID; }
+		static constexpr address_type get_type_id() noexcept { return address_type::ipv4; }
+		static constexpr zone get_zone() noexcept { return zone::public_; }
+		static constexpr bool is_blockable() noexcept { return true; }
 
-		static const uint8_t ID = 1;
 		BEGIN_KV_SERIALIZE_MAP()
 			KV_SERIALIZE(m_ip)
 			KV_SERIALIZE(m_port)
@@ -89,48 +107,6 @@ namespace net_utils
 	inline bool operator>=(const ipv4_network_address& lhs, const ipv4_network_address& rhs) noexcept
 	{ return !lhs.less(rhs); }
 
-	class ipv6_network_address
-	{
-		std::string m_ip;
-		uint16_t m_port;
-
-	public:
-		ipv6_network_address(const std::string& ip, uint16_t port) noexcept
-			: m_ip(ip), m_port(port) {}
-
-		bool equal(const ipv6_network_address& other) const noexcept;
-		bool less(const ipv6_network_address& other) const noexcept;
-		bool is_same_host(const ipv6_network_address& other) const noexcept
-		{ return ip() == other.ip(); }
-
-		std::string ip() const noexcept { return m_ip; }
-		uint16_t port() const noexcept { return m_port; }
-		std::string str() const;
-		std::string host_str() const;
-		bool is_loopback() const;
-		bool is_local() const;
-		static constexpr uint8_t get_type_id() noexcept { return ID; }
-
-		static const uint8_t ID = 2;
-		BEGIN_KV_SERIALIZE_MAP()
-			KV_SERIALIZE(m_ip)
-			KV_SERIALIZE(m_port)
-		END_KV_SERIALIZE_MAP()
-	};
-
-	inline bool operator==(const ipv6_network_address& lhs, const ipv6_network_address& rhs) noexcept
-	{ return lhs.equal(rhs); }
-	inline bool operator!=(const ipv6_network_address& lhs, const ipv6_network_address& rhs) noexcept
-	{ return !lhs.equal(rhs); }
-	inline bool operator<(const ipv6_network_address& lhs, const ipv6_network_address& rhs) noexcept
-	{ return lhs.less(rhs); }
-	inline bool operator<=(const ipv6_network_address& lhs, const ipv6_network_address& rhs) noexcept
-	{ return !rhs.less(lhs); }
-	inline bool operator>(const ipv6_network_address& lhs, const ipv6_network_address& rhs) noexcept
-	{ return rhs.less(lhs); }
-	inline bool operator>=(const ipv6_network_address& lhs, const ipv6_network_address& rhs) noexcept
-	{ return !lhs.less(rhs); }
-
 	class network_address
 	{
 		struct interface
@@ -145,7 +121,9 @@ namespace net_utils
 			virtual std::string host_str() const = 0;
 			virtual bool is_loopback() const = 0;
 			virtual bool is_local() const = 0;
-			virtual uint8_t get_type_id() const = 0;
+			virtual address_type get_type_id() const = 0;
+			virtual zone get_zone() const = 0;
+			virtual bool is_blockable() const = 0;
 		};
 
 		template<typename T>
@@ -173,7 +151,9 @@ namespace net_utils
 			virtual std::string host_str() const override { return value.host_str(); }
 			virtual bool is_loopback() const override { return value.is_loopback(); }
 			virtual bool is_local() const override { return value.is_local(); }
-			virtual uint8_t get_type_id() const override { return value.get_type_id(); }
+			virtual address_type get_type_id() const override { return value.get_type_id(); }
+			virtual zone get_zone() const override { return value.get_zone(); }
+			virtual bool is_blockable() const override { return value.is_blockable(); }
 		};
 
 		std::shared_ptr<interface> self;
@@ -188,6 +168,23 @@ namespace net_utils
 				throw std::bad_cast{};
 			return static_cast<implementation<Type_>*>(self_)->value;
 		}
+
+		template<typename T, typename t_storage>
+		bool serialize_addr(std::false_type, t_storage& stg, typename t_storage::hsection hparent)
+		{
+			T addr{};
+			if (!epee::serialization::selector<false>::serialize(addr, stg, hparent, "addr"))
+				return false;
+			*this = std::move(addr);
+			return true;
+		}
+
+		template<typename T, typename t_storage>
+		bool serialize_addr(std::true_type, t_storage& stg, typename t_storage::hsection hparent) const
+		{
+			return epee::serialization::selector<true>::serialize(as<T>(), stg, hparent, "addr");
+		}
+
 	public:
 		network_address() : self(nullptr) {}
 		template<typename T>
@@ -200,69 +197,34 @@ namespace net_utils
 		std::string host_str() const { return self ? self->host_str() : "<none>"; }
 		bool is_loopback() const { return self ? self->is_loopback() : false; }
 		bool is_local() const { return self ? self->is_local() : false; }
-		uint8_t get_type_id() const { return self ? self->get_type_id() : 0; }
+		address_type get_type_id() const { return self ? self->get_type_id() : address_type::invalid; }
+		zone get_zone() const { return self ? self->get_zone() : zone::invalid; }
+		bool is_blockable() const { return self ? self->is_blockable() : false; }
 		template<typename Type> const Type &as() const { return as_mutable<const Type>(); }
 
 		BEGIN_KV_SERIALIZE_MAP()
-			uint8_t type = is_store ? this_ref.get_type_id() : 0;
+			// need to `#include "net/[i2p|tor]_address.h"` when serializing `network_address`
+			static constexpr std::integral_constant<bool, is_store> is_store_{};
+
+			std::uint8_t type = std::uint8_t(is_store ? this_ref.get_type_id() : address_type::invalid);
 			if (!epee::serialization::selector<is_store>::serialize(type, stg, hparent_section, "type"))
 				return false;
-			switch (type)
+
+			switch (address_type(type))
 			{
-				case ipv4_network_address::ID:
-				{
-					if (!is_store)
-					{
-						const_cast<network_address&>(this_ref) = ipv4_network_address{0, 0};
-						auto &addr = this_ref.template as_mutable<ipv4_network_address>();
-						if (epee::serialization::selector<is_store>::serialize(addr, stg, hparent_section, "addr"))
-							MDEBUG("Found as addr: " << this_ref.str());
-						else if (epee::serialization::selector<is_store>::serialize(addr, stg, hparent_section, "template as<ipv4_network_address>()"))
-							MDEBUG("Found as template as<ipv4_network_address>(): " << this_ref.str());
-						else if (epee::serialization::selector<is_store>::serialize(addr, stg, hparent_section, "template as_mutable<ipv4_network_address>()"))
-							MDEBUG("Found as template as_mutable<ipv4_network_address>(): " << this_ref.str());
-						else
-						{
-							MWARNING("Address not found");
-							return false;
-						}
-					}
-					else
-					{
-						auto &addr = this_ref.template as_mutable<ipv4_network_address>();
-						if (!epee::serialization::selector<is_store>::serialize(addr, stg, hparent_section, "addr"))
-							return false;
-					}
+				case address_type::ipv4:
+					return this_ref.template serialize_addr<ipv4_network_address>(is_store_, stg, hparent_section);
+				case address_type::tor:
+					return this_ref.template serialize_addr<net::tor_address>(is_store_, stg, hparent_section);
+				case address_type::i2p:
+					return this_ref.template serialize_addr<net::i2p_address>(is_store_, stg, hparent_section);
+				case address_type::invalid:
+				default:
 					break;
-				}
-				case ipv6_network_address::ID:
-				{
-					if (!is_store)
-					{
-						const_cast<network_address&>(this_ref) = ipv6_network_address{"", 0};
-						auto &addr = this_ref.template as_mutable<ipv6_network_address>();
-						if (epee::serialization::selector<is_store>::serialize(addr, stg, hparent_section, "addr"))
-							MDEBUG("Found as addr: " << this_ref.str());
-						else if (epee::serialization::selector<is_store>::serialize(addr, stg, hparent_section, "template as<ipv6_network_address>()"))
-							MDEBUG("Found as template as<ipv6_network_address>(): " << this_ref.str());
-						else if (epee::serialization::selector<is_store>::serialize(addr, stg, hparent_section, "template as_mutable<ipv6_network_address>()"))
-							MDEBUG("Found as template as_mutable<ipv6_network_address>(): " << this_ref.str());
-						else
-						{
-							MWARNING("Address not found");
-							return false;
-						}
-					}
-					else
-					{
-						auto &addr = this_ref.template as_mutable<ipv6_network_address>();
-						if (!epee::serialization::selector<is_store>::serialize(addr, stg, hparent_section, "addr"))
-							return false;
-					}
-					break;
-				}
-				default: MERROR("Unsupported network address type: " << (unsigned)type); return false;
 			}
+
+			MERROR("Unsupported network address type: " << (unsigned)type);
+			return false;
 		END_KV_SERIALIZE_MAP()
 	};
 
@@ -279,8 +241,6 @@ namespace net_utils
 	inline bool operator>=(const network_address& lhs, const network_address& rhs)
 	{ return !lhs.less(rhs); }
 
-	bool create_network_address(network_address &address, const std::string &string, uint16_t default_port = 0);
-
 	/************************************************************************/
 	/*                                                                      */
 	/************************************************************************/
@@ -290,6 +250,7 @@ namespace net_utils
     const network_address m_remote_address;
     const bool     m_is_income;
     const time_t   m_started;
+    const time_t   m_ssl;
     time_t   m_last_recv;
     time_t   m_last_send;
     uint64_t m_recv_cnt;
@@ -300,13 +261,14 @@ namespace net_utils
     double m_max_speed_up;
 
     connection_context_base(boost::uuids::uuid connection_id,
-                            const network_address &remote_address, bool is_income,
+                            const network_address &remote_address, bool is_income, bool ssl,
                             time_t last_recv = 0, time_t last_send = 0,
                             uint64_t recv_cnt = 0, uint64_t send_cnt = 0):
                                             m_connection_id(connection_id),
                                             m_remote_address(remote_address),
                                             m_is_income(is_income),
                                             m_started(time(NULL)),
+                                            m_ssl(ssl),
                                             m_last_recv(last_recv),
                                             m_last_send(last_send),
                                             m_recv_cnt(recv_cnt),
@@ -318,9 +280,10 @@ namespace net_utils
     {}
 
     connection_context_base(): m_connection_id(),
-                               m_remote_address(ipv4_network_address{0,0}),
+                               m_remote_address(),
                                m_is_income(false),
                                m_started(time(NULL)),
+                               m_ssl(false),
                                m_last_recv(0),
                                m_last_send(0),
                                m_recv_cnt(0),
@@ -333,17 +296,17 @@ namespace net_utils
 
     connection_context_base& operator=(const connection_context_base& a)
     {
-      set_details(a.m_connection_id, a.m_remote_address, a.m_is_income);
+      set_details(a.m_connection_id, a.m_remote_address, a.m_is_income, a.m_ssl);
       return *this;
     }
     
   private:
     template<class t_protocol_handler>
     friend class connection;
-    void set_details(boost::uuids::uuid connection_id, const network_address &remote_address, bool is_income)
+    void set_details(boost::uuids::uuid connection_id, const network_address &remote_address, bool is_income, bool ssl)
     {
       this->~connection_context_base();
-      new(this) connection_context_base(connection_id, remote_address, is_income);
+      new(this) connection_context_base(connection_id, remote_address, is_income, ssl);
     }
 
 	};

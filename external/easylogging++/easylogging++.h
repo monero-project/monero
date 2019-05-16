@@ -1,17 +1,16 @@
 //
 //  Bismillah ar-Rahmaan ar-Raheem
 //
-//  Easylogging++ v9.96.5
+//  Easylogging++ v9.96.7
 //  Single-header only, cross-platform logging library for C++ applications
 //
-//  Copyright (c) 2012-2018 Muflihun Labs
+//  Copyright (c) 2012-2018 Zuhd Web Services
 //  Copyright (c) 2012-2018 @abumusamq
 //
 //  This library is released under the MIT Licence.
-//  https://github.com/muflihun/easyloggingpp/blob/master/LICENSE
+//  https://github.com/zuhd-org/easyloggingpp/blob/master/LICENSE
 //
-//  https://github.com/muflihun/easyloggingpp
-//  https://muflihun.github.io/easyloggingpp
+//  https://zuhd.org
 //  http://muflihun.com
 //
 
@@ -758,10 +757,12 @@ static const char* kDefaultLoggerId                        =      ELPP_DEFAULT_L
 static const char* kDefaultLoggerId                        =      "default";
 #endif
 
+#if defined(ELPP_FEATURE_ALL) || defined(ELPP_FEATURE_PERFORMANCE_TRACKING)
 #ifdef ELPP_DEFAULT_PERFORMANCE_LOGGER
 static const char* kPerformanceLoggerId                    =      ELPP_DEFAULT_PERFORMANCE_LOGGER;
 #else
 static const char* kPerformanceLoggerId                    =      "performance";
+#endif // ELPP_DEFAULT_PERFORMANCE_LOGGER
 #endif
 
 #if defined(ELPP_SYSLOG)
@@ -2776,7 +2777,7 @@ class DefaultLogDispatchCallback : public LogDispatchCallback {
   void handle(const LogDispatchData* data);
  private:
   const LogDispatchData* m_data;
-  void dispatch(base::type::string_t&& logLine);
+  void dispatch(base::type::string_t&& rawLine, base::type::string_t&& logLine);
 };
 #if ELPP_ASYNC_LOGGING
 class AsyncLogDispatchCallback : public LogDispatchCallback {
@@ -3836,7 +3837,7 @@ class Helpers : base::StaticClass {
     return ELPP->hasCustomFormatSpecifier(formatSpecifier);
   }
   static inline void validateFileRolling(Logger* logger, Level level) {
-    if (logger == nullptr) return;
+    if (ELPP == nullptr || logger == nullptr) return;
     logger->m_typedConfigurations->validateFileRolling(level, ELPP->preRollOutCallback());
   }
 };

@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -203,6 +203,13 @@ namespace cryptonote
                                       std::vector<crypto::public_key> &additional_tx_public_keys,
                                       std::vector<rct::key> &amount_keys,
                                       crypto::public_key &out_eph_public_key);
+
+  bool generate_output_ephemeral_keys(const size_t tx_version, const cryptonote::account_keys &sender_account_keys, const crypto::public_key &txkey_pub,  const crypto::secret_key &tx_key,
+                                      const cryptonote::tx_destination_entry &dst_entr, const boost::optional<cryptonote::account_public_address> &change_addr, const size_t output_index,
+                                      const bool &need_additional_txkeys, const std::vector<crypto::secret_key> &additional_tx_keys,
+                                      std::vector<crypto::public_key> &additional_tx_public_keys,
+                                      std::vector<rct::key> &amount_keys,
+                                      crypto::public_key &out_eph_public_key) ;
 
   bool generate_genesis_block(
       block& bl

@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 // Copyright (c)      2018, The Loki Project
 // 
 // All rights reserved.
@@ -85,7 +85,7 @@ namespace cryptonote
     std::string get_command_usage(const std::vector<std::string> &args);
   private:
 
-    enum ResetType { ResetNone, ResetSoft, ResetHard };
+    enum ResetType { ResetNone, ResetSoft, ResetHard, ResetSoftKeepKI };
 
     bool handle_command_line(const boost::program_options::variables_map& vm);
 
@@ -103,7 +103,7 @@ namespace cryptonote
     boost::optional<epee::wipeable_string> new_wallet(const boost::program_options::variables_map& vm,
         const epee::wipeable_string &multisig_keys, const std::string &old_language);
     boost::optional<epee::wipeable_string> new_wallet(const boost::program_options::variables_map& vm);
-    bool open_wallet(const boost::program_options::variables_map& vm);
+    boost::optional<epee::wipeable_string> open_wallet(const boost::program_options::variables_map& vm);
     bool close_wallet();
 
     bool viewkey(const std::vector<std::string> &args = std::vector<std::string>());
@@ -144,6 +144,7 @@ namespace cryptonote
     bool set_segregation_height(const std::vector<std::string> &args = std::vector<std::string>());
     bool set_ignore_fractional_outputs(const std::vector<std::string> &args = std::vector<std::string>());
     bool set_track_uses(const std::vector<std::string> &args = std::vector<std::string>());
+    bool set_setup_background_mining(const std::vector<std::string> &args = std::vector<std::string>());
     bool set_device_name(const std::vector<std::string> &args = std::vector<std::string>());
     bool help(const std::vector<std::string> &args = std::vector<std::string>());
     bool start_mining(const std::vector<std::string> &args);
@@ -162,8 +163,8 @@ namespace cryptonote
     bool stake(const std::vector<std::string> &args_);
     bool register_service_node(const std::vector<std::string> &args_);
     bool request_stake_unlock(const std::vector<std::string> &args_);
-    bool print_locked_stakes(const std::vector<std::string> &args_);
-    bool print_locked_stakes_main(const std::vector<std::string> &args_, bool print_result);
+    bool print_locked_stakes(const std::vector<std::string>& /*args*/);
+    bool query_locked_stakes(bool print_result);
     bool locked_sweep_all(const std::vector<std::string> &args);
 
     enum class sweep_type_t { stake, register_stake, all_or_below, single };
@@ -242,12 +243,17 @@ namespace cryptonote
     bool mms(const std::vector<std::string>& args);
     bool print_ring(const std::vector<std::string>& args);
     bool set_ring(const std::vector<std::string>& args);
+    bool unset_ring(const std::vector<std::string>& args);
     bool save_known_rings(const std::vector<std::string>& args);
     bool blackball(const std::vector<std::string>& args);
     bool unblackball(const std::vector<std::string>& args);
     bool blackballed(const std::vector<std::string>& args);
+    bool freeze(const std::vector<std::string>& args);
+    bool thaw(const std::vector<std::string>& args);
+    bool frozen(const std::vector<std::string>& args);
+    bool net_stats(const std::vector<std::string>& args);
+    bool welcome(const std::vector<std::string>& args);
     bool version(const std::vector<std::string>& args);
-    bool cold_sign_tx(const std::vector<tools::wallet2::pending_tx>& ptx_vector, tools::wallet2::signed_tx_set &exported_txs, std::vector<cryptonote::address_parse_info> &dsts_info, std::function<bool(const tools::wallet2::signed_tx_set &)> accept_func);
 
     bool register_service_node_main(
         const std::vector<std::string>& service_node_key_as_str,
@@ -259,6 +265,7 @@ namespace cryptonote
         uint64_t bc_height,
         uint64_t staking_requirement);
 
+    bool cold_sign_tx(const std::vector<tools::wallet2::pending_tx>& ptx_vector, tools::wallet2::signed_tx_set &exported_txs, std::vector<cryptonote::address_parse_info> &dsts_info, std::function<bool(const tools::wallet2::signed_tx_set &)> accept_func);
     uint64_t get_daemon_blockchain_height(std::string& err);
     bool try_connect_to_daemon(bool silent = false, uint32_t* version = nullptr);
     bool ask_wallet_create_if_needed();
@@ -271,6 +278,7 @@ namespace cryptonote
     void key_images_sync_intern();
     void on_refresh_finished(uint64_t start_height, uint64_t fetched_blocks, bool is_init, bool received_money);
     std::pair<std::string, std::string> show_outputs_line(const std::vector<uint64_t> &heights, uint64_t blockchain_height, uint64_t highlight_height = std::numeric_limits<uint64_t>::max()) const;
+    bool freeze_thaw(const std::vector<std::string>& args, bool freeze);
 
     struct transfer_view
     {
@@ -317,6 +325,13 @@ namespace cryptonote
      */
     void commit_or_save(std::vector<tools::wallet2::pending_tx>& ptx_vector, bool do_not_relay);
 
+    /*!
+     * \brief checks whether background mining is enabled, and asks to configure it if not
+     */
+    void check_background_mining(const epee::wipeable_string &password);
+    void start_background_mining();
+    void stop_background_mining();
+
     //----------------- i_wallet2_callback ---------------------
     virtual void on_new_block(uint64_t height, const cryptonote::block& block);
     virtual void on_money_received(uint64_t height, const crypto::hash &txid, const cryptonote::transaction& tx, uint64_t amount, const cryptonote::subaddress_index& subaddr_index);
@@ -324,9 +339,9 @@ namespace cryptonote
     virtual void on_money_spent(uint64_t height, const crypto::hash &txid, const cryptonote::transaction& in_tx, uint64_t amount, const cryptonote::transaction& spend_tx, const cryptonote::subaddress_index& subaddr_index);
     virtual void on_skip_transaction(uint64_t height, const crypto::hash &txid, const cryptonote::transaction& tx);
     virtual boost::optional<epee::wipeable_string> on_get_password(const char *reason);
-    virtual void on_button_request();
-    virtual void on_pin_request(epee::wipeable_string & pin);
-    virtual void on_passphrase_request(bool on_device, epee::wipeable_string & passphrase);
+    virtual void on_device_button_request(uint64_t code);
+    virtual boost::optional<epee::wipeable_string> on_device_pin_request();
+    virtual boost::optional<epee::wipeable_string> on_device_passphrase_request(bool on_device);
     //----------------------------------------------------------
 
     friend class refresh_progress_reporter_t;

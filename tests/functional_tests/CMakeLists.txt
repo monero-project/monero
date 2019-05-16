@@ -49,6 +49,13 @@ target_link_libraries(functional_tests
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${CMAKE_THREAD_LIBS_INIT}
     ${EXTRA_LIBRARIES})
-set_property(TARGET functional_tests
-  PROPERTY
-    FOLDER "tests")
+
+execute_process(COMMAND ${PYTHON_EXECUTABLE} "-c" "import requests; print('OK')" OUTPUT_VARIABLE REQUESTS_OUTPUT OUTPUT_STRIP_TRAILING_WHITESPACE)
+if (REQUESTS_OUTPUT STREQUAL "OK")
+  add_test(
+    NAME    functional_tests_rpc
+    COMMAND ${PYTHON_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/functional_tests_rpc.py" "${PYTHON_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_BINARY_DIR}" all)
+else()
+  message(WARNING "functional_tests_rpc skipped, needs the 'requests' python module")
+  set(CTEST_CUSTOM_TESTS_IGNORE ${CTEST_CUSTOM_TESTS_IGNORE} functional_tests_rpc)
+endif()

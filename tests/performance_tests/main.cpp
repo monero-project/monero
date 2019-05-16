@@ -77,10 +77,12 @@ int main(int argc, char** argv)
   const command_line::arg_descriptor<bool> arg_verbose = { "verbose", "Verbose output", false };
   const command_line::arg_descriptor<bool> arg_stats = { "stats", "Including statistics (min/median)", false };
   const command_line::arg_descriptor<unsigned> arg_loop_multiplier = { "loop-multiplier", "Run for that many times more loops", 1 };
+  const command_line::arg_descriptor<std::string> arg_timings_database = { "timings-database", "Keep timings history in a file" };
   command_line::add_arg(desc_options, arg_filter);
   command_line::add_arg(desc_options, arg_verbose);
   command_line::add_arg(desc_options, arg_stats);
   command_line::add_arg(desc_options, arg_loop_multiplier);
+  command_line::add_arg(desc_options, arg_timings_database);
 
   po::variables_map vm;
   bool r = command_line::handle_error_helper(desc_options, [&]()
@@ -93,7 +95,10 @@ int main(int argc, char** argv)
     return 1;
 
   const std::string filter = tools::glob_to_regex(command_line::get_arg(vm, arg_filter));
+  const std::string timings_database = command_line::get_arg(vm, arg_timings_database);
   Params p;
+  if (!timings_database.empty())
+    p.td = TimingsDatabase(timings_database);
   p.verbose = command_line::get_arg(vm, arg_verbose);
   p.stats = command_line::get_arg(vm, arg_stats);
   p.loop_multiplier = command_line::get_arg(vm, arg_loop_multiplier);

@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2018, The Monero Project
+// Copyright (c) 2017-2019, The Monero Project
 //
 // All rights reserved.
 //
@@ -61,6 +61,8 @@ namespace trezor {
   namespace http = epee::net_utils::http;
 
   const std::string DEFAULT_BRIDGE = "127.0.0.1:21325";
+
+  uint64_t pack_version(uint32_t major, uint32_t minor=0, uint32_t patch=0);
 
   // Base HTTP comm serialization.
   bool t_serialize(const std::string & in, std::string & out);
@@ -134,7 +136,7 @@ namespace trezor {
 
   class Transport {
   public:
-    Transport() = default;
+    Transport();
     virtual ~Transport() = default;
 
     virtual bool ping() { return false; };
@@ -144,10 +146,16 @@ namespace trezor {
     virtual void close(){};
     virtual void write(const google::protobuf::Message & req) =0;
     virtual void read(std::shared_ptr<google::protobuf::Message> & msg, messages::MessageType * msg_type=nullptr) =0;
+    virtual std::shared_ptr<Transport> find_debug() { return nullptr; };
 
     virtual void write_chunk(const void * buff, size_t size) { };
     virtual size_t read_chunk(void * buff, size_t size) { return 0; };
     virtual std::ostream& dump(std::ostream& o) const { return o << "Transport<>"; }
+  protected:
+    long m_open_counter;
+
+    virtual bool pre_open();
+    virtual bool pre_close();
   };
 
   // Bridge transport
@@ -155,15 +163,7 @@ namespace trezor {
   public:
     BridgeTransport(
         boost::optional<std::string> device_path = boost::none,
-        boost::optional<std::string> bridge_host = boost::none):
-        m_device_path(device_path),
-        m_bridge_host(bridge_host ? bridge_host.get() : DEFAULT_BRIDGE),
-        m_response(boost::none),
-        m_session(boost::none),
-        m_device_info(boost::none)
-    {
-      m_http_client.set_server(m_bridge_host, boost::none, false);
-    }
+        boost::optional<std::string> bridge_host = boost::none);
 
     virtual ~BridgeTransport() = default;
 
@@ -212,6 +212,7 @@ namespace trezor {
 
     void open() override;
     void close() override;
+    std::shared_ptr<Transport> find_debug() override;
 
     void write(const google::protobuf::Message &req) override;
     void read(std::shared_ptr<google::protobuf::Message> & msg, messages::MessageType * msg_type=nullptr) override;
@@ -259,6 +260,7 @@ namespace trezor {
 
     void open() override;
     void close() override;
+    std::shared_ptr<Transport> find_debug() override;
 
     void write(const google::protobuf::Message &req) override;
     void read(std::shared_ptr<google::protobuf::Message> & msg, messages::MessageType * msg_type=nullptr) override;
@@ -274,7 +276,6 @@ namespace trezor {
     int get_interface() const;
     unsigned char get_endpoint() const;
 
-    int m_conn_count;
     std::shared_ptr<Protocol> m_proto;
 
     libusb_context        *m_usb_session;
@@ -285,7 +286,7 @@ namespace trezor {
     int m_bus_id;
     int m_device_addr;
 
-#ifdef WITH_TREZOR_DEBUG
+#ifdef WITH_TREZOR_DEBUGGING
     bool m_debug_mode;
 #endif
   };
@@ -302,6 +303,11 @@ namespace trezor {
   void enumerate(t_transport_vect & res);
 
   /**
+   * Sorts found transports by TREZOR_PATH environment variable.
+   */
+  void sort_transports_by_env(t_transport_vect & res);
+
+  /**
    * Transforms path to the transport
    */
   std::shared_ptr<Transport> transport(const std::string & path);
@@ -309,7 +315,7 @@ namespace trezor {
   /**
    * Transforms path to the particular transport
    */
-  template<class t_transport>
+  template<class t_transport=Transport>
   std::shared_ptr<t_transport> transport_typed(const std::string & path){
     auto t = transport(path);
     if (!t){
@@ -362,7 +368,7 @@ namespace trezor {
    * @throws UnexpectedMessageException if the response message type is different than expected.
    * Exception contains message type and the message itself.
    */
-  template<class t_message>
+  template<class t_message=google::protobuf::Message>
   std::shared_ptr<t_message>
       exchange_message(Transport & transport, const google::protobuf::Message & req,
                        boost::optional<messages::MessageType> resp_type = boost::none)

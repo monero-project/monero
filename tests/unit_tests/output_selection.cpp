@@ -101,3 +101,120 @@ TEST(select_outputs, order)
   PICK(1); // then the one that's on the same height
 }
 
+#define MKOFFSETS(N, n) \
+  offsets.resize(N); \
+  size_t n_outs = 0; \
+  for (auto &offset: offsets) \
+  { \
+    offset = n_outs += (n); \
+  }
+
+TEST(select_outputs, gamma)
+{
+  std::vector<uint64_t> offsets;
+
+  MKOFFSETS(300000, 1);
+  tools::gamma_picker picker(offsets);
+  std::vector<double> ages(100000);
+  double age_scale = 120. * (offsets.size() / (double)n_outs);
+  for (size_t i = 0; i < ages.size(); )
+  {
+    uint64_t o = picker.pick();
+    if (o >= n_outs)
+      continue;
+    ages[i] = (n_outs - 1 - o) * age_scale;
+    ASSERT_GE(ages[i], 0);
+    ASSERT_LE(ages[i], offsets.size() * 120);
+    ++i;
+  }
+  double median = epee::misc_utils::median(ages);
+  MDEBUG("median age: " << median / 86400. << " days");
+  ASSERT_GE(median, 1.3 * 86400);
+  ASSERT_LE(median, 1.4 * 86400);
+}
+
+TEST(select_outputs, density)
+{
+  static const size_t NPICKS = 1000000;
+  std::vector<uint64_t> offsets;
+
+  MKOFFSETS(300000, 1 + (rand() & 0x1f));
+  tools::gamma_picker picker(offsets);
+
+  std::vector<int> picks(/*n_outs*/offsets.size(), 0);
+  for (int i = 0; i < NPICKS; )
+  {
+    uint64_t o = picker.pick();
+    if (o >= n_outs)
+      continue;
+    auto it = std::lower_bound(offsets.begin(), offsets.end(), o);
+    auto idx = std::distance(offsets.begin(), it);
+    ASSERT_LT(idx, picks.size());
+    ++picks[idx];
+    ++i;
+  }
+
+  for (int d = 1; d < 0x20; ++d)
+  {
+    // count the number of times an output in a block of d outputs was selected
+    // count how many outputs are in a block of d outputs
+    size_t count_selected = 0, count_chain = 0;
+    for (size_t i = 0; i < offsets.size(); ++i)
+    {
+      size_t n_outputs = offsets[i] - (i == 0 ? 0 : offsets[i - 1]);
+      if (n_outputs == d)
+      {
+        count_selected += picks[i];
+        count_chain += d;
+      }
+    }
+    float selected_ratio = count_selected / (float)NPICKS;
+    float chain_ratio = count_chain / (float)n_outs;
+    MDEBUG(count_selected << "/" << NPICKS << " outputs selected in blocks of density " << d << ", " << 100.0f * selected_ratio << "%");
+    MDEBUG(count_chain << "/" << offsets.size() << " outputs in blocks of density " << d << ", " << 100.0f * chain_ratio << "%");
+    ASSERT_LT(fabsf(selected_ratio - chain_ratio), 0.02f);
+  }
+}
+
+TEST(select_outputs, same_distribution)
+{
+  static const size_t NPICKS = 1000000;
+  std::vector<uint64_t> offsets;
+
+  MKOFFSETS(300000, 1 + (rand() & 0x1f));
+  tools::gamma_picker picker(offsets);
+
+  std::vector<int> chain_picks(offsets.size(), 0);
+  std::vector<int> output_picks(n_outs, 0);
+  for (int i = 0; i < NPICKS; )
+  {
+    uint64_t o = picker.pick();
+    if (o >= n_outs)
+      continue;
+    auto it = std::lower_bound(offsets.begin(), offsets.end(), o);
+    auto idx = std::distance(offsets.begin(), it);
+    ASSERT_LT(idx, chain_picks.size());
+    ++chain_picks[idx];
+    ++output_picks[o];
+    ++i;
+  }
+
+  // scale them both to 0-100
+  std::vector<int> chain_norm(100, 0), output_norm(100, 0);
+  for (size_t i = 0; i < output_picks.size(); ++i)
+    output_norm[i * 100 / output_picks.size()] += output_picks[i];
+  for (size_t i = 0; i < chain_picks.size(); ++i)
+    chain_norm[i * 100 / chain_picks.size()] += chain_picks[i];
+
+  double max_dev = 0.0, avg_dev = 0.0;
+  for (size_t i = 0; i < 100; ++i)
+  {
+    const double diff = (double)output_norm[i] - (double)chain_norm[i];
+    double dev = fabs(2.0 * diff / (output_norm[i] + chain_norm[i]));
+    ASSERT_LT(dev, 0.1);
+    avg_dev += dev;
+  }
+  avg_dev /= 100;
+  MDEBUG("avg_dev: " << avg_dev);
+  ASSERT_LT(avg_dev, 0.015);
+}

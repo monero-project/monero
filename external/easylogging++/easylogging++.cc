@@ -1,17 +1,16 @@
 //
 //  Bismillah ar-Rahmaan ar-Raheem
 //
-//  Easylogging++ v9.96.5
+//  Easylogging++ v9.96.7
 //  Cross-platform logging library for C++ applications
 //
-//  Copyright (c) 2012-2018 Muflihun Labs
+//  Copyright (c) 2012-2018 Zuhd Web Services
 //  Copyright (c) 2012-2018 @abumusamq
 //
 //  This library is released under the MIT Licence.
-//  https://github.com/muflihun/easyloggingpp/blob/master/LICENSE
+//  https://github.com/zuhd-org/easyloggingpp/blob/master/LICENSE
 //
-//  https://github.com/muflihun/easyloggingpp
-//  https://muflihun.github.io/easyloggingpp
+//  https://zuhd.org
 //  http://muflihun.com
 //
 
@@ -962,7 +961,7 @@ void Str::replaceFirstWithEscape(base::type::string_t& str, const base::type::st
   std::size_t foundAt = base::type::string_t::npos;
   while ((foundAt = str.find(replaceWhat, foundAt + 1)) != base::type::string_t::npos) {
     if (foundAt > 0 && str[foundAt - 1] == base::consts::kFormatSpecifierChar) {
-      str.erase(foundAt > 0 ? foundAt - 1 : 0, 1);
+      str.erase(foundAt - 1, 1);
       ++foundAt;
     } else {
       str.replace(foundAt, replaceWhat.length(), replaceWith);
@@ -1531,7 +1530,7 @@ void LogFormat::parseFromFormat(const base::type::string_t& userFormat) {
         if (hasFlag(flag)) {
           // If we already have flag we remove the escape chars so that '%%' is turned to '%'
           // even after specifier resolution - this is because we only replaceFirst specifier
-          formatCopy.erase(foundAt > 0 ? foundAt - 1 : 0, 1);
+          formatCopy.erase(foundAt - 1, 1);
           ++foundAt;
         }
       } else {
@@ -2206,20 +2205,26 @@ Storage::Storage(const LogBuilderPtr& defaultLogBuilder) :
   m_registeredLoggers(new base::RegisteredLoggers(defaultLogBuilder)),
   m_flags(ELPP_DEFAULT_LOGGING_FLAGS),
   m_vRegistry(new base::VRegistry(0, &m_flags)),
+
 #if ELPP_ASYNC_LOGGING
   m_asyncLogQueue(new base::AsyncLogQueue()),
   m_asyncDispatchWorker(asyncDispatchWorker),
 #endif  // ELPP_ASYNC_LOGGING
+
   m_preRollOutCallback(base::defaultPreRollOutCallback) {
   // Register default logger
   m_registeredLoggers->get(std::string(base::consts::kDefaultLoggerId));
   // We register default logger anyway (worse case it's not going to register) just in case
   m_registeredLoggers->get("default");
+
+#if defined(ELPP_FEATURE_ALL) || defined(ELPP_FEATURE_PERFORMANCE_TRACKING)
   // Register performance logger and reconfigure format
   Logger* performanceLogger = m_registeredLoggers->get(std::string(base::consts::kPerformanceLoggerId));
   m_registeredLoggers->get("performance");
   performanceLogger->configurations()->setGlobally(ConfigurationType::Format, std::string("%datetime %level %msg"));
   performanceLogger->reconfigure();
+#endif // defined(ELPP_FEATURE_ALL) || defined(ELPP_FEATURE_PERFORMANCE_TRACKING)
+
 #if defined(ELPP_SYSLOG)
   // Register syslog logger and reconfigure format
   Logger* sysLogLogger = m_registeredLoggers->get(std::string(base::consts::kSysLogLoggerId));
@@ -2337,6 +2342,19 @@ base::threading::Mutex& LogDispatchCallback::fileHandle(const LogDispatchData* d
 namespace base {
 // DefaultLogDispatchCallback
 
+const char* convertToChar(Level level) {
+  // Do not use switch over strongly typed enums because Intel C++ compilers dont support them yet.
+  if (level == Level::Global) return "G";
+  if (level == Level::Debug) return "D";
+  if (level == Level::Info) return "I";
+  if (level == Level::Warning) return "W";
+  if (level == Level::Error) return "E";
+  if (level == Level::Fatal) return "F";
+  if (level == Level::Verbose) return "V";
+  if (level == Level::Trace) return "T";
+  return "?";
+}
+
 void DefaultLogDispatchCallback::handle(const LogDispatchData* data) {
 #if defined(ELPP_THREAD_SAFE)
 #if 0
@@ -2345,11 +2363,15 @@ void DefaultLogDispatchCallback::handle(const LogDispatchData* data) {
 #endif
 #endif
   m_data = data;
-  dispatch(m_data->logMessage()->logger()->logBuilder()->build(m_data->logMessage(),
+  base::TypedConfigurations* tc = m_data->logMessage()->logger()->typedConfigurations();
+  const base::LogFormat* logFormat = &tc->logFormat(m_data->logMessage()->level());
+  dispatch(base::utils::DateTime::getDateTime(logFormat->dateTimeFormat().c_str(), &tc->subsecondPrecision(m_data->logMessage()->level()))
+      + "\t" + convertToChar(m_data->logMessage()->level()) + " " + m_data->logMessage()->message() + "\n",
+      m_data->logMessage()->logger()->logBuilder()->build(m_data->logMessage(),
            m_data->dispatchAction() == base::DispatchAction::NormalLog || m_data->dispatchAction() == base::DispatchAction::FileOnlyLog));
 }
 
-void DefaultLogDispatchCallback::dispatch(base::type::string_t&& logLine) {
+void DefaultLogDispatchCallback::dispatch(base::type::string_t&& rawLine, base::type::string_t&& logLine) {
   if (m_data->dispatchAction() == base::DispatchAction::NormalLog || m_data->dispatchAction() == base::DispatchAction::FileOnlyLog) {
     if (m_data->logMessage()->logger()->m_typedConfigurations->toFile(m_data->logMessage()->level())) {
       base::type::fstream_t* fs = m_data->logMessage()->logger()->m_typedConfigurations->fileStream(
@@ -2376,8 +2398,8 @@ void DefaultLogDispatchCallback::dispatch(base::type::string_t&& logLine) {
     if (m_data->dispatchAction() != base::DispatchAction::FileOnlyLog) {
       if (m_data->logMessage()->logger()->m_typedConfigurations->toStandardOutput(m_data->logMessage()->level())) {
         if (ELPP->hasFlag(LoggingFlag::ColoredTerminalOutput))
-          m_data->logMessage()->logger()->logBuilder()->convertToColoredOutput(&logLine, m_data->logMessage()->level());
-        ELPP_COUT << ELPP_COUT_LINE(logLine);
+          m_data->logMessage()->logger()->logBuilder()->convertToColoredOutput(&rawLine, m_data->logMessage()->level());
+        ELPP_COUT << ELPP_COUT_LINE(rawLine);
       }
     }
   }
@@ -3279,11 +3301,11 @@ const std::string &Loggers::getFilenameCommonPrefix() {
 // VersionInfo
 
 const std::string VersionInfo::version(void) {
-  return std::string("9.96.5");
+  return std::string("9.96.7");
 }
 /// @brief Release date of current version
 const std::string VersionInfo::releaseDate(void) {
-  return std::string("07-09-2018 0950hrs");
+  return std::string("24-11-2018 0728hrs");
 }
 
 } // namespace el

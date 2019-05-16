@@ -32,6 +32,9 @@
 #include "enableable.h"
 #include "keyvalue_serialization_overloads.h"
 
+#undef LOKI_DEFAULT_LOG_CATEGORY
+#define LOKI_DEFAULT_LOG_CATEGORY "serialization"
+
 namespace epee
 {
   /************************************************************************/

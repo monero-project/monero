@@ -2,7 +2,7 @@
 /// @author rfree (current maintainer/user in monero.cc project - most of code is from CryptoNote)
 /// @brief This is the original cryptonote protocol network-events handler, modified by us
 
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -115,6 +115,7 @@ namespace cryptonote
     void stop();
     void on_connection_close(cryptonote_connection_context &context);
     void set_max_out_peers(unsigned int max) { m_max_out_peers = max; }
+    void set_no_sync(bool value) { m_no_sync = value; }
     std::string get_peers_overview() const;
     std::pair<uint32_t, uint32_t> get_next_needed_pruning_stripe() const;
     bool needs_new_sync_connections() const;
@@ -133,6 +134,25 @@ namespace cryptonote
     int handle_notify_new_checkpoint_vote(int command, NOTIFY_NEW_CHECKPOINT_VOTE::request& arg, cryptonote_connection_context& context);
 
     //----------------- i_bc_protocol_layout ---------------------------------------
+    template<class T>
+    bool relay_on_public_network_generic(typename T::request& arg, cryptonote_connection_context& exclude_context)
+    {
+      LOG_PRINT_L2("[" << epee::net_utils::print_connection_context_short(exclude_context) << "] post relay " << typeid(T).name() << " -->");
+      std::string arg_buff;
+      epee::serialization::store_t_to_binary(arg, arg_buff);
+
+      std::vector<std::pair<epee::net_utils::zone, boost::uuids::uuid>> connections;
+      m_p2p->for_each_connection([this, &exclude_context, &connections](connection_context& context, nodetool::peerid_type peer_id, uint32_t support_flags)
+      {
+        epee::net_utils::zone zone = context.m_remote_address.get_zone();
+        if (peer_id && exclude_context.m_connection_id != context.m_connection_id && zone == epee::net_utils::zone::public_)
+          connections.push_back({zone, context.m_connection_id});
+        return true;
+      });
+
+      return m_p2p->relay_notify_to_list(T::ID, epee::strspan<uint8_t>(arg_buff), std::move(connections));
+    }
+
     virtual bool relay_block(NOTIFY_NEW_BLOCK::request& arg, cryptonote_connection_context& exclude_context);
     virtual bool relay_transactions(NOTIFY_NEW_TRANSACTIONS::request& arg, cryptonote_connection_context& exclude_context);
     virtual bool relay_deregister_votes(NOTIFY_NEW_DEREGISTER_VOTE::request& arg, cryptonote_connection_context& exclude_context);
@@ -148,6 +168,7 @@ namespace cryptonote
     void drop_connection(cryptonote_connection_context &context, bool add_fail, bool flush_all_spans);
     bool kick_idle_peers();
     bool check_standby_peers();
+    bool update_sync_search();
     int try_add_next_blocks(cryptonote_connection_context &context);
     void notify_new_stripe(cryptonote_connection_context &context, uint32_t stripe);
     void skip_unneeded_hashes(cryptonote_connection_context& context, bool check_block_queue) const;
@@ -159,10 +180,12 @@ namespace cryptonote
     std::atomic<uint32_t> m_syncronized_connections_count;
     std::atomic<bool> m_synchronized;
     std::atomic<bool> m_stopping;
+    std::atomic<bool> m_no_sync;
     boost::mutex m_sync_lock;
     block_queue m_block_queue;
     epee::math_helper::once_a_time_seconds<30> m_idle_peer_kicker;
     epee::math_helper::once_a_time_milliseconds<100> m_standby_checker;
+    epee::math_helper::once_a_time_seconds<101> m_sync_search_checker;
     std::atomic<unsigned int> m_max_out_peers;
     tools::PerformanceTimer m_sync_timer, m_add_timer;
     uint64_t m_last_add_end_time;
@@ -182,15 +205,6 @@ namespace cryptonote
         epee::serialization::store_t_to_binary(arg, blob);
         //handler_response_blocks_now(blob.size()); // XXX
         return m_p2p->invoke_notify_to_peer(t_parameter::ID, epee::strspan<uint8_t>(blob), context);
-      }
-
-      template<class t_parameter>
-      bool relay_post_notify(typename t_parameter::request& arg, cryptonote_connection_context& exclude_context)
-      {
-        LOG_PRINT_L2("[" << epee::net_utils::print_connection_context_short(exclude_context) << "] post relay " << typeid(t_parameter).name() << " -->");
-        std::string arg_buff;
-        epee::serialization::store_t_to_binary(arg, arg_buff);
-        return m_p2p->relay_notify_to_all(t_parameter::ID, epee::strspan<uint8_t>(arg_buff), exclude_context);
       }
   };
 

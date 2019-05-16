@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 //
 // All rights reserved.
 //
@@ -61,7 +61,7 @@ namespace cryptonote
   class txCompare
   {
   public:
-    bool operator()(const tx_by_fee_and_receive_time_entry& a, const tx_by_fee_and_receive_time_entry& b)
+    bool operator()(const tx_by_fee_and_receive_time_entry& a, const tx_by_fee_and_receive_time_entry& b) const
     {
       std::string ahash(a.second.data, sizeof(a.second.data));
       std::string bhash(b.second.data, sizeof(b.second.data));
@@ -131,6 +131,7 @@ namespace cryptonote
      *
      * @param id the hash of the transaction
      * @param tx return-by-reference the transaction taken
+     * @param txblob return-by-reference the transaction as a blob
      * @param tx_weight return-by-reference the transaction's weight
      * @param fee the transaction fee
      * @param relayed return-by-reference was transaction relayed to us by the network?
@@ -139,7 +140,7 @@ namespace cryptonote
      *
      * @return true unless the transaction cannot be found in the pool
      */
-    bool take_tx(const crypto::hash &id, transaction &tx, size_t& tx_weight, uint64_t& fee, bool &relayed, bool &do_not_relay, bool &double_spend_seen);
+    bool take_tx(const crypto::hash &id, transaction &tx, cryptonote::blobdata &txblob, size_t& tx_weight, uint64_t& fee, bool &relayed, bool &do_not_relay, bool &double_spend_seen);
 
     /**
      * @brief checks if the pool has a transaction with the given hash

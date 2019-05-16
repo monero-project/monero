@@ -124,6 +124,9 @@ int main(int argc, char* argv[])
       GENERATE_AND_PLAY(deregister_too_old);
       GENERATE_AND_PLAY(sn_test_rollback);
       GENERATE_AND_PLAY(test_swarms_basic);
+#else
+      GENERATE_AND_PLAY(test_deregisters_on_split);
+      GENERATE_AND_PLAY(sn_test_rollback);
 #endif
     }
 

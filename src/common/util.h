@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -146,7 +146,7 @@ namespace tools
   bool create_directories_if_necessary(const std::string& path);
   /*! \brief std::rename wrapper for nix and something strange for windows.
    */
-  std::error_code replace_file(const std::string& replacement_name, const std::string& replaced_name);
+  std::error_code replace_file(const std::string& old_name, const std::string& new_name);
 
   bool sanitize_locale();
 
@@ -246,4 +246,5 @@ namespace tools
 
   std::string get_human_readable_timestamp(uint64_t ts);
   std::string get_human_readable_timespan(std::chrono::seconds seconds);
+  std::string get_human_readable_bytes(uint64_t bytes);
 }

@@ -596,7 +596,6 @@ bool deregister_too_old::generate(std::vector<test_event_entry>& events)
   /// block
   DO_CALLBACK(events, "mark_invalid_block");
   gen.create_block({dereg_tx});
-
   return true;
 }
 //-----------------------------------------------------------------------------------------------------

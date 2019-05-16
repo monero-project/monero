@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 //
 // All rights reserved.
 //
@@ -405,7 +405,7 @@ private:
    * @param tx_prunable_hash the hash of the prunable part of the transaction
    * @return the transaction ID
    */
-  virtual uint64_t add_transaction_data(const crypto::hash& blk_hash, const transaction& tx, const crypto::hash& tx_hash, const crypto::hash& tx_prunable_hash) = 0;
+  virtual uint64_t add_transaction_data(const crypto::hash& blk_hash, const std::pair<transaction, blobdata>& tx, const crypto::hash& tx_hash, const crypto::hash& tx_prunable_hash) = 0;
 
   /**
    * @brief remove data about a transaction
@@ -533,7 +533,7 @@ protected:
    * @param tx_hash_ptr the hash of the transaction, if already calculated
    * @param tx_prunable_hash_ptr the hash of the prunable part of the transaction, if already calculated
    */
-  void add_transaction(const crypto::hash& blk_hash, const transaction& tx, const crypto::hash* tx_hash_ptr = NULL, const crypto::hash* tx_prunable_hash_ptr = NULL);
+  void add_transaction(const crypto::hash& blk_hash, const std::pair<transaction, blobdata>& tx, const crypto::hash* tx_hash_ptr = NULL, const crypto::hash* tx_prunable_hash_ptr = NULL);
 
   mutable uint64_t time_tx_exists = 0;  //!< a performance metric
   uint64_t time_commit1 = 0;  //!< a performance metric
@@ -771,9 +771,12 @@ public:
    */
   virtual void set_batch_transactions(bool) = 0;
 
-  virtual void block_txn_start(bool readonly=false) = 0;
-  virtual void block_txn_stop() = 0;
-  virtual void block_txn_abort() = 0;
+  virtual void block_wtxn_start() = 0;
+  virtual void block_wtxn_stop() = 0;
+  virtual void block_wtxn_abort() = 0;
+  virtual bool block_rtxn_start() const = 0;
+  virtual void block_rtxn_stop() const = 0;
+  virtual void block_rtxn_abort() const = 0;
 
   virtual void set_hard_fork(HardFork* hf);
 
@@ -799,12 +802,12 @@ public:
    *
    * @return the height of the chain post-addition
    */
-  virtual uint64_t add_block( const block& blk
+  virtual uint64_t add_block( const std::pair<block, blobdata>& blk
                             , size_t block_weight
                             , uint64_t long_term_block_weight
                             , const difficulty_type& cumulative_difficulty
                             , const uint64_t& coins_generated
-                            , const std::vector<transaction>& txs
+                            , const std::vector<std::pair<transaction, blobdata>>& txs
                             );
 
   virtual void update_block_checkpoint(checkpoint_t const &checkpoint) = 0;
@@ -955,6 +958,17 @@ public:
   virtual size_t get_block_weight(const uint64_t& height) const = 0;
 
   /**
+   * @brief fetch the last N blocks' weights
+   *
+   * If there are fewer than N blocks, the returned array will be smaller than N
+   *
+   * @param count the number of blocks requested
+   *
+   * @return the weights
+   */
+  virtual std::vector<uint64_t> get_block_weights(uint64_t start_height, size_t count) const = 0;
+
+  /**
    * @brief fetch a block's cumulative difficulty
    *
    * The subclass should return the cumulative difficulty of the block with the
@@ -1006,6 +1020,17 @@ public:
    * @return the long term weight
    */
   virtual uint64_t get_block_long_term_weight(const uint64_t& height) const = 0;
+
+  /**
+   * @brief fetch the last N blocks' long term weights
+   *
+   * If there are fewer than N blocks, the returned array will be smaller than N
+   *
+   * @param count the number of blocks requested
+   *
+   * @return the weights
+   */
+  virtual std::vector<uint64_t> get_long_term_block_weights(uint64_t start_height, size_t count) const = 0;
 
   /**
    * @brief fetch a block's hash
@@ -1060,9 +1085,11 @@ public:
    *
    * The subclass should return the hash of the most recent block
    *
+   * @param block_height if non NULL, returns the height of that block (ie, the blockchain height minus 1)
+   *
    * @return the top block's hash
    */
-  virtual crypto::hash top_block_hash() const = 0;
+  virtual crypto::hash top_block_hash(uint64_t *block_height = NULL) const = 0;
 
   /**
    * @brief fetch the top block
@@ -1514,6 +1541,20 @@ public:
   virtual bool check_pruning() = 0;
 
   /**
+   * @brief get the max block size
+   */
+  virtual uint64_t get_max_block_size() = 0;
+
+  /**
+   * @brief add a new max block size
+   *
+   * The max block size will be the maximum of sz and the current block size
+   *
+   * @param: sz the block size
+   */
+
+  virtual void add_max_block_size(uint64_t sz) = 0;
+  /**
    * @brief runs a function over all txpool transactions
    *
    * The subclass should run the passed function for each txpool tx it has
@@ -1690,6 +1731,52 @@ public:
   mutable epee::critical_section m_synchronization_lock;  //!< A lock, currently for when BlockchainLMDB needs to resize the backing db file
 
 };  // class BlockchainDB
+
+class db_txn_guard
+{
+public:
+  db_txn_guard(BlockchainDB *db, bool readonly): db(db), readonly(readonly), active(false)
+  {
+    if (readonly)
+    {
+      active = db->block_rtxn_start();
+    }
+    else
+    {
+      db->block_wtxn_start();
+      active = true;
+    }
+  }
+  virtual ~db_txn_guard()
+  {
+    if (active)
+      stop();
+  }
+  void stop()
+  {
+    if (readonly)
+      db->block_rtxn_stop();
+    else
+      db->block_wtxn_stop();
+    active = false;
+  }
+  void abort()
+  {
+    if (readonly)
+      db->block_rtxn_abort();
+    else
+      db->block_wtxn_abort();
+    active = false;
+  }
+
+private:
+  BlockchainDB *db;
+  bool readonly;
+  bool active;
+};
+
+class db_rtxn_guard: public db_txn_guard { public: db_rtxn_guard(BlockchainDB *db): db_txn_guard(db, true) {} };
+class db_wtxn_guard: public db_txn_guard { public: db_wtxn_guard(BlockchainDB *db): db_txn_guard(db, false) {} };
 
 BlockchainDB *new_db(const std::string& db_type);
 

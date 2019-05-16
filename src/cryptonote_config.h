@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -38,9 +38,9 @@
 #define CRYPTONOTE_DNS_TIMEOUT_MS                       20000
 
 #define CRYPTONOTE_MAX_BLOCK_NUMBER                     500000000
-#define CRYPTONOTE_MAX_BLOCK_SIZE                       500000000  // block header blob limit, never used!
 #define CRYPTONOTE_GETBLOCKTEMPLATE_MAX_BLOCK_SIZE	196608 //size of block (bytes) that is the maximum that miners will produce
-#define CRYPTONOTE_MAX_TX_SIZE                          1000000000
+#define CRYPTONOTE_MAX_TX_SIZE                          1000000
+#define CRYPTONOTE_MAX_TX_PER_BLOCK                     0x10000000
 #define CRYPTONOTE_PUBLIC_ADDRESS_TEXTBLOB_VER          0
 #define CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW            30
 #define CURRENT_BLOCK_MAJOR_VERSION                     7
@@ -133,11 +133,13 @@ static_assert(STAKING_PORTIONS % 3 == 0, "Use a multiple of three, so that it di
 #define P2P_DEFAULT_PACKET_MAX_SIZE                     50000000     //50000000 bytes maximum packet size
 #define P2P_DEFAULT_PEERS_IN_HANDSHAKE                  250
 #define P2P_DEFAULT_CONNECTION_TIMEOUT                  5000       //5 seconds
+#define P2P_DEFAULT_SOCKS_CONNECT_TIMEOUT               45         // seconds
 #define P2P_DEFAULT_PING_CONNECTION_TIMEOUT             2000       //2 seconds
 #define P2P_DEFAULT_INVOKE_TIMEOUT                      60*2*1000  //2 minutes
 #define P2P_DEFAULT_HANDSHAKE_INVOKE_TIMEOUT            5000       //5 seconds
 #define P2P_DEFAULT_WHITELIST_CONNECTIONS_PERCENT       70
 #define P2P_DEFAULT_ANCHOR_CONNECTIONS_COUNT            2
+#define P2P_DEFAULT_SYNC_SEARCH_CONNECTIONS_COUNT       2
 #define P2P_DEFAULT_LIMIT_RATE_UP                       2048       // kB/s
 #define P2P_DEFAULT_LIMIT_RATE_DOWN                     8192       // kB/s
 

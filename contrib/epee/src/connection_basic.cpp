@@ -47,8 +47,14 @@
 // TODO:
 #include "net/network_throttle-detail.hpp"
 
+#if BOOST_VERSION >= 107000
+#define GET_IO_SERVICE(s) ((boost::asio::io_context&)(s).get_executor().context())
+#else
+#define GET_IO_SERVICE(s) ((s).get_io_service())
+#endif
+
 #undef LOKI_DEFAULT_LOG_CATEGORY
-#define LOKI_DEFAULT_LOG_CATEGORY "net.p2p"
+#define LOKI_DEFAULT_LOG_CATEGORY "net.conn"
 
 // ################################################################################################
 // local (TU local) headers
@@ -58,6 +64,15 @@ namespace epee
 {
 namespace net_utils
 {
+
+namespace
+{
+	boost::asio::ssl::context& get_context(connection_basic_shared_state* state)
+	{
+		CHECK_AND_ASSERT_THROW_MES(state != nullptr, "state shared_ptr cannot be null");
+		return state->ssl_context;
+	}
+}
 
   std::string to_string(t_connection_type type)
   {
@@ -103,7 +118,7 @@ namespace net_utils
 // connection_basic_pimpl
 // ================================================================================================
 	
-connection_basic_pimpl::connection_basic_pimpl(const std::string &name) : m_throttle(name) { }
+connection_basic_pimpl::connection_basic_pimpl(const std::string &name) : m_throttle(name), m_peer_number(0) { }
 
 // ================================================================================================
 // connection_basic
@@ -113,29 +128,58 @@ connection_basic_pimpl::connection_basic_pimpl(const std::string &name) : m_thro
 int connection_basic_pimpl::m_default_tos;
 
 // methods:
-connection_basic::connection_basic(boost::asio::io_service& io_service, std::atomic<long> &ref_sock_count, std::atomic<long> &sock_number)
-	: 
+connection_basic::connection_basic(boost::asio::ip::tcp::socket&& sock, boost::shared_ptr<connection_basic_shared_state> state, ssl_support_t ssl_support)
+	:
+	m_state(std::move(state)),
 	mI( new connection_basic_pimpl("peer") ),
-	strand_(io_service),
-	socket_(io_service),
-	m_want_close_connection(false), 
+	strand_(GET_IO_SERVICE(sock)),
+	socket_(GET_IO_SERVICE(sock), get_context(m_state.get())),
+	m_want_close_connection(false),
 	m_was_shutdown(false),
-	m_ref_sock_count(ref_sock_count)
-{ 
-	++ref_sock_count; // increase the global counter
-	mI->m_peer_number = sock_number.fetch_add(1); // use, and increase the generated number
+	m_ssl_support(ssl_support)
+{
+	// add nullptr checks if removed
+	assert(m_state != nullptr); // release runtime check in get_context
+
+        socket_.next_layer() = std::move(sock);
+
+	++(m_state->sock_count); // increase the global counter
+	mI->m_peer_number = m_state->sock_number.fetch_add(1); // use, and increase the generated number
 
 	std::string remote_addr_str = "?";
-	try { boost::system::error_code e; remote_addr_str = socket_.remote_endpoint(e).address().to_string(); } catch(...){} ;
+	try { boost::system::error_code e; remote_addr_str = socket().remote_endpoint(e).address().to_string(); } catch(...){} ;
 
-	_note("Spawned connection p2p#"<<mI->m_peer_number<<" to " << remote_addr_str << " currently we have sockets count:" << m_ref_sock_count);
+	_note("Spawned connection #"<<mI->m_peer_number<<" to " << remote_addr_str << " currently we have sockets count:" << m_state->sock_count);
+}
+
+connection_basic::connection_basic(boost::asio::io_service &io_service, boost::shared_ptr<connection_basic_shared_state> state, ssl_support_t ssl_support)
+	:
+	m_state(std::move(state)),
+	mI( new connection_basic_pimpl("peer") ),
+	strand_(io_service),
+	socket_(io_service, get_context(m_state.get())),
+	m_want_close_connection(false),
+	m_was_shutdown(false),
+	m_ssl_support(ssl_support)
+{
+	// add nullptr checks if removed
+	assert(m_state != nullptr); // release runtime check in get_context
+
+	++(m_state->sock_count); // increase the global counter
+	mI->m_peer_number = m_state->sock_number.fetch_add(1); // use, and increase the generated number
+
+	std::string remote_addr_str = "?";
+	try { boost::system::error_code e; remote_addr_str = socket().remote_endpoint(e).address().to_string(); } catch(...){} ;
+
+	_note("Spawned connection #"<<mI->m_peer_number<<" to " << remote_addr_str << " currently we have sockets count:" << m_state->sock_count);
 }
 
 connection_basic::~connection_basic() noexcept(false) {
+	--(m_state->sock_count);
+
 	std::string remote_addr_str = "?";
-	m_ref_sock_count--;
-	try { boost::system::error_code e; remote_addr_str = socket_.remote_endpoint(e).address().to_string(); } catch(...){} ;
-	_note("Destructing connection p2p#"<<mI->m_peer_number << " to " << remote_addr_str);
+	try { boost::system::error_code e; remote_addr_str = socket().remote_endpoint(e).address().to_string(); } catch(...){} ;
+	_note("Destructing connection #"<<mI->m_peer_number << " to " << remote_addr_str);
 }
 
 void connection_basic::set_rate_up_limit(uint64_t limit) {

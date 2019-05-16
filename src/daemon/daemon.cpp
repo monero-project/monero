@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 // Copyright (c)      2018, The Loki Project
 // 
 // All rights reserved.
@@ -97,9 +97,11 @@ void t_daemon::init_options(boost::program_options::options_description & option
 }
 
 t_daemon::t_daemon(
-    boost::program_options::variables_map const & vm
+    boost::program_options::variables_map const & vm,
+    uint16_t public_rpc_port
   )
-  : mp_internals{new t_internals{vm}}
+  : mp_internals{new t_internals{vm}},
+  public_rpc_port(public_rpc_port)
 {
   zmq_rpc_bind_port = command_line::get_arg(vm, daemon_args::arg_zmq_rpc_bind_port);
   zmq_rpc_bind_address = command_line::get_arg(vm, daemon_args::arg_zmq_rpc_bind_ip);
@@ -114,6 +116,7 @@ t_daemon::t_daemon(t_daemon && other)
   {
     mp_internals = std::move(other.mp_internals);
     other.mp_internals.reset(nullptr);
+    public_rpc_port = other.public_rpc_port;
   }
 }
 
@@ -124,6 +127,7 @@ t_daemon & t_daemon::operator=(t_daemon && other)
   {
     mp_internals = std::move(other.mp_internals);
     other.mp_internals.reset(nullptr);
+    public_rpc_port = other.public_rpc_port;
   }
   return *this;
 }
@@ -187,6 +191,12 @@ bool t_daemon::run(bool interactive)
     MINFO(std::string("ZMQ server started at ") + zmq_rpc_bind_address
           + ":" + zmq_rpc_bind_port + ".");
 
+    if (public_rpc_port > 0)
+    {
+      MGINFO("Public RPC port " << public_rpc_port << " will be advertised to other peers over P2P");
+      mp_internals->p2p.get().set_rpc_port(public_rpc_port);
+    }
+    
     mp_internals->p2p.run(); // blocks until p2p goes down
 
     if (rpc_commands)

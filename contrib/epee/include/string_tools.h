@@ -42,6 +42,8 @@
 #include <type_traits>
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string/predicate.hpp>
+#include "misc_log_ex.h"
+#include "storages/parserse_base_utils.h"
 #include "hex.h"
 #include "memwipe.h"
 #include "mlocker.h"
@@ -126,7 +128,7 @@ DISABLE_GCC_WARNING(maybe-uninitialized)
     {
       for (char c : str_id)
       {
-        if (!std::isdigit(c))
+        if (!epee::misc_utils::parse::isdigit(c))
           return false;
       }
     }
@@ -191,42 +193,6 @@ POP_WARNINGS
     }
 
     if(p != std::string::npos && !get_xtype_from_string(port, port_str))
-    {
-      return false;
-    }
-    return true;
-  }
-
-  inline bool parse_ipv6_peer_from_string(std::string& ip, uint16_t& port, const std::string& address)
-  {
-    //parse ip and address
-
-    size_t last_colon_position = 0;
-
-    if (address.find("::") == std::string::npos) return false;
-
-    last_colon_position = address.find_last_of(':');
-
-    if (address[last_colon_position - 1] == ':')
-    {
-      ip = address;
-      port = 0;
-      return true;
-    }
-
-    std::string ip_str, port_str;
-    if(last_colon_position == std::string::npos || last_colon_position == (address.size() - 1))
-    {
-      return false;
-    }
-    else
-    {
-      ip = address.substr(0, last_colon_position);
-      port_str = address.substr(last_colon_position + 1, address.size());
-      if (port_str.size() == 0) return false;
-    }
-
-    if(!get_xtype_from_string(port, port_str))
     {
       return false;
     }
