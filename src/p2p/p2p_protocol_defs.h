@@ -81,7 +81,8 @@ namespace nodetool
     BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE(adr)
       KV_SERIALIZE(id)
-      KV_SERIALIZE(last_seen)
+      if (!is_store || this_ref.last_seen != 0)
+        KV_SERIALIZE_OPT(last_seen, (int64_t)0)
       KV_SERIALIZE_OPT(pruning_seed, (uint32_t)0)
       KV_SERIALIZE_OPT(rpc_port, (uint16_t)0)
     END_KV_SERIALIZE_MAP()
@@ -132,7 +133,7 @@ namespace nodetool
       ss << pe.id << "\t" << pe.adr.str() 
         << " \trpc port " << (pe.rpc_port > 0 ? std::to_string(pe.rpc_port) : "-")
         << " \tpruning seed " << pe.pruning_seed 
-        << " \tlast_seen: " << epee::misc_utils::get_time_interval_string(now_time - pe.last_seen) 
+        << " \tlast_seen: " << (pe.last_seen == 0 ? std::string("never") : epee::misc_utils::get_time_interval_string(now_time - pe.last_seen))
         << std::endl;
     }
     return ss.str();
