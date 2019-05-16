@@ -29,7 +29,11 @@
 #ifndef _LEVIN_BASE_H_
 #define _LEVIN_BASE_H_
 
+#include <cstdint>
+
+#include "byte_slice.h"
 #include "net_utils_base.h"
+#include "span.h"
 
 #define LEVIN_SIGNATURE  0x0101010101012101LL  //Bender's nightmare
 
@@ -72,6 +76,8 @@ namespace levin
 
 #define LEVIN_PACKET_REQUEST			0x00000001
 #define LEVIN_PACKET_RESPONSE		0x00000002
+#define LEVIN_PACKET_BEGIN		0x00000004
+#define LEVIN_PACKET_END		0x00000008
   
 
 #define LEVIN_PROTOCOL_VER_0         0
@@ -118,9 +124,30 @@ namespace levin
     }
   }
 
+  //! \return Intialized levin header.
+  bucket_head2 make_header(uint32_t command, uint64_t msg_size, uint32_t flags, bool expect_response) noexcept;
 
+  //! \return A levin notification message.
+  byte_slice make_notify(int command, epee::span<const std::uint8_t> payload);
+
+  /*! Generate a dummy levin message.
+
+      \param noise_bytes Total size of the returned `byte_slice`.
+      \return `nullptr` if `noise_size` is smaller than the levin header.
+        Otherwise, a dummy levin message. */
+  byte_slice make_noise_notify(std::size_t noise_bytes);
+
+  /*! Generate 1+ levin messages that are identical to the noise message size.
+
+   \param noise Each levin message will be identical to the size of this
+      message. The bytes from this message will be used for padding.
+   \return `nullptr` if `noise.size()` is less than the levin header size.
+      Otherwise, a levin notification message OR 2+ levin fragment messages.
+      Each message is `noise.size()` in length. */
+  byte_slice make_fragmented_notify(const byte_slice& noise, int command, epee::span<const std::uint8_t> payload);
 }
 }
 
 
 #endif //_LEVIN_BASE_H_
+

@@ -425,6 +425,95 @@ TEST_F(positive_test_connection_to_levin_protocol_handler_calls, handler_process
   ASSERT_EQ(3, m_commands_handler.callback_counter());
 }
 
+TEST_F(positive_test_connection_to_levin_protocol_handler_calls, handler_processes_handle_read_as_dummy)
+{
+  // Setup
+  const int expected_command = 4673261;
+  const std::string in_data(256, 'e');
+
+  const epee::byte_slice noise = epee::levin::make_noise_notify(1024);
+  const epee::byte_slice notify = epee::levin::make_notify(expected_command, epee::strspan<std::uint8_t>(in_data));
+
+  test_connection_ptr conn = create_connection();
+
+  // Test
+  ASSERT_TRUE(conn->m_protocol_handler.handle_recv(noise.data(), noise.size()));
+
+  // Check connection and levin_commands_handler states
+  ASSERT_EQ(0u, m_commands_handler.notify_counter());
+  ASSERT_EQ(0u, m_commands_handler.invoke_counter());
+  ASSERT_EQ(-1, m_commands_handler.last_command());
+  ASSERT_TRUE(m_commands_handler.last_in_buf().empty());
+  ASSERT_EQ(0u, conn->send_counter());
+  ASSERT_TRUE(conn->last_send_data().empty());
+
+
+  ASSERT_TRUE(conn->m_protocol_handler.handle_recv(notify.data(), notify.size()));
+
+  // Check connection and levin_commands_handler states
+  ASSERT_EQ(1u, m_commands_handler.notify_counter());
+  ASSERT_EQ(0u, m_commands_handler.invoke_counter());
+  ASSERT_EQ(expected_command, m_commands_handler.last_command());
+  ASSERT_EQ(in_data, m_commands_handler.last_in_buf());
+  ASSERT_EQ(0u, conn->send_counter());
+  ASSERT_TRUE(conn->last_send_data().empty());
+}
+
+TEST_F(positive_test_connection_to_levin_protocol_handler_calls, handler_processes_handle_read_as_fragment)
+{
+  // Setup
+  const int expected_command = 4673261;
+  const int expected_fragmented_command = 46732;
+  const std::string in_data(256, 'e');
+  std::string in_fragmented_data(1024 * 4, 'c');
+
+  const epee::byte_slice noise = epee::levin::make_noise_notify(1024);
+  const epee::byte_slice notify = epee::levin::make_notify(expected_command, epee::strspan<std::uint8_t>(in_data));
+  epee::byte_slice fragmented = epee::levin::make_fragmented_notify(noise, expected_fragmented_command, epee::strspan<std::uint8_t>(in_fragmented_data));
+
+  EXPECT_EQ(5u, fragmented.size() / 1024);
+  EXPECT_EQ(0u, fragmented.size() % 1024);
+
+  test_connection_ptr conn = create_connection();
+
+  while (!fragmented.empty())
+  {
+    if ((fragmented.size() / 1024) % 2 == 1)
+    {
+      ASSERT_TRUE(conn->m_protocol_handler.handle_recv(notify.data(), notify.size()));
+    }
+
+    ASSERT_EQ(3u - (fragmented.size() / 2048), m_commands_handler.notify_counter());
+    ASSERT_EQ(0u, m_commands_handler.invoke_counter());
+    ASSERT_EQ(expected_command, m_commands_handler.last_command());
+    ASSERT_EQ(in_data, m_commands_handler.last_in_buf());
+    ASSERT_EQ(0u, conn->send_counter());
+    ASSERT_TRUE(conn->last_send_data().empty());
+
+    epee::byte_slice next = fragmented.take_slice(1024);
+    ASSERT_TRUE(conn->m_protocol_handler.handle_recv(next.data(), next.size()));
+  }
+
+  in_fragmented_data.resize(((1024 - sizeof(epee::levin::bucket_head2)) * 5) - sizeof(epee::levin::bucket_head2)); // add padding zeroes
+  ASSERT_EQ(4u, m_commands_handler.notify_counter());
+  ASSERT_EQ(0u, m_commands_handler.invoke_counter());
+  ASSERT_EQ(expected_fragmented_command, m_commands_handler.last_command());
+  ASSERT_EQ(in_fragmented_data, m_commands_handler.last_in_buf());
+  ASSERT_EQ(0u, conn->send_counter());
+  ASSERT_TRUE(conn->last_send_data().empty());
+
+
+  ASSERT_TRUE(conn->m_protocol_handler.handle_recv(notify.data(), notify.size()));
+
+  ASSERT_EQ(5u, m_commands_handler.notify_counter());
+  ASSERT_EQ(0u, m_commands_handler.invoke_counter());
+  ASSERT_EQ(expected_command, m_commands_handler.last_command());
+  ASSERT_EQ(in_data, m_commands_handler.last_in_buf());
+  ASSERT_EQ(0u, conn->send_counter());
+  ASSERT_TRUE(conn->last_send_data().empty());
+}
+
+
 TEST_F(test_levin_protocol_handler__hanle_recv_with_invalid_data, handles_big_packet_1)
 {
   std::string buf("yyyyyy");
@@ -530,6 +619,22 @@ TEST_F(test_levin_protocol_handler__hanle_recv_with_invalid_data, handles_two_re
 TEST_F(test_levin_protocol_handler__hanle_recv_with_invalid_data, handles_unexpected_response)
 {
   m_req_head.m_flags = LEVIN_PACKET_RESPONSE;
+  prepare_buf();
+
+  ASSERT_FALSE(m_conn->m_protocol_handler.handle_recv(m_buf.data(), m_buf.size()));
+}
+
+TEST_F(test_levin_protocol_handler__hanle_recv_with_invalid_data, handles_short_fragment)
+{
+  m_req_head.m_cb = 1;
+  m_req_head.m_flags = LEVIN_PACKET_BEGIN;
+  m_req_head.m_command = 0;
+  m_in_data.resize(1);
+  prepare_buf();
+
+  ASSERT_TRUE(m_conn->m_protocol_handler.handle_recv(m_buf.data(), m_buf.size()));
+
+  m_req_head.m_flags = LEVIN_PACKET_END;
   prepare_buf();
 
   ASSERT_FALSE(m_conn->m_protocol_handler.handle_recv(m_buf.data(), m_buf.size()));

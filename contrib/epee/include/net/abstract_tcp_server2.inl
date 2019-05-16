@@ -68,7 +68,7 @@ namespace epee
 namespace net_utils
 {
   template<typename T>
-  T& check_and_get(boost::shared_ptr<T>& ptr)
+  T& check_and_get(std::shared_ptr<T>& ptr)
   {
     CHECK_AND_ASSERT_THROW_MES(bool(ptr), "shared_state cannot be null");
     return *ptr;
@@ -81,7 +81,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 
   template<class t_protocol_handler>
   connection<t_protocol_handler>::connection( boost::asio::io_service& io_service,
-                boost::shared_ptr<shared_state> state,
+                std::shared_ptr<shared_state> state,
 		t_connection_type connection_type,
 		ssl_support_t ssl_support
 	)
@@ -91,13 +91,13 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 
   template<class t_protocol_handler>
   connection<t_protocol_handler>::connection( boost::asio::ip::tcp::socket&& sock,
-                boost::shared_ptr<shared_state> state,
+                std::shared_ptr<shared_state> state,
 		t_connection_type connection_type,
 		ssl_support_t ssl_support
 	)
 	: 
 		connection_basic(std::move(sock), state, ssl_support),
-		m_protocol_handler(this, check_and_get(state).config, context),
+		m_protocol_handler(this, check_and_get(state), context),
 		buffer_ssl_init_fill(0),
 		m_connection_type( connection_type ),
 		m_throttle_speed_in("speed_in", "throttle_speed_in"),
@@ -378,7 +378,6 @@ PRAGMA_WARNING_DISABLE_VS(4355)
       if(!recv_res)
       {  
         //_info("[sock " << socket().native_handle() << "] protocol_want_close");
-
         //some error in protocol, protocol handler ask to close connection
         boost::interprocess::ipcdetail::atomic_write32(&m_want_close_connection, 1);
         bool do_shutdown = false;
@@ -601,7 +600,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     double current_speed_up;
     {
 		CRITICAL_REGION_LOCAL(m_throttle_speed_out_mutex);
-		m_throttle_speed_out.handle_trafic_exact(cb);
+		m_throttle_speed_out.handle_trafic_exact(chunk.size());
 		current_speed_up = m_throttle_speed_out.get_current_speed();
 	}
     context.m_current_speed_up = current_speed_up;
@@ -665,7 +664,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
         auto size_now = m_send_que.front().size();
         MDEBUG("do_send_chunk() NOW SENSD: packet="<<size_now<<" B");
         if (speed_limit_is_enabled())
-			do_send_handler_write( chunk.data(), chunk.size() ); // (((H)))
+			do_send_handler_write( m_send_que.back().data(), m_send_que.back().size() ); // (((H)))
 
         CHECK_AND_ASSERT_MES( size_now == m_send_que.front().size(), false, "Unexpected queue size");
         reset_timer(get_default_timeout(), false);
@@ -893,7 +892,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 
   template<class t_protocol_handler>
   boosted_tcp_server<t_protocol_handler>::boosted_tcp_server( t_connection_type connection_type ) :
-    m_state(boost::make_shared<typename connection<t_protocol_handler>::shared_state>()),
+    m_state(std::make_shared<typename connection<t_protocol_handler>::shared_state>()),
     m_io_service_local_instance(new worker()),
     io_service_(m_io_service_local_instance->io_service),
     acceptor_(io_service_),
@@ -912,7 +911,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 
   template<class t_protocol_handler>
   boosted_tcp_server<t_protocol_handler>::boosted_tcp_server(boost::asio::io_service& extarnal_io_service, t_connection_type connection_type) :
-    m_state(boost::make_shared<typename connection<t_protocol_handler>::shared_state>()),
+    m_state(std::make_shared<typename connection<t_protocol_handler>::shared_state>()),
     io_service_(extarnal_io_service),
     acceptor_(io_service_),
     acceptor_ipv6(io_service_),
