@@ -194,6 +194,9 @@ namespace cryptonote {
   }
 
   bool check_hash(const crypto::hash &hash, difficulty_type difficulty) {
+    crypto::hash null_hash = AUTO_VAL_INIT(null_hash);
+    if (hash == null_hash)
+      return false;
     if (difficulty <= max64bit) // if can convert to small difficulty - do it
       return check_hash_64(hash, difficulty.convert_to<std::uint64_t>());
     else
