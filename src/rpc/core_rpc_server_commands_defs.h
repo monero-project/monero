@@ -87,7 +87,7 @@ namespace cryptonote
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define CORE_RPC_VERSION_MAJOR 2
-#define CORE_RPC_VERSION_MINOR 9
+#define CORE_RPC_VERSION_MINOR 10
 #define MAKE_CORE_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define CORE_RPC_VERSION MAKE_CORE_RPC_VERSION(CORE_RPC_VERSION_MAJOR, CORE_RPC_VERSION_MINOR)
 
@@ -2053,11 +2053,13 @@ namespace cryptonote
     {
       std::string status;
       uint32_t version;
+      bool release;
       bool untrusted;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(status)
         KV_SERIALIZE(version)
+        KV_SERIALIZE(release)
         KV_SERIALIZE(untrusted)
       END_KV_SERIALIZE_MAP()
     };
