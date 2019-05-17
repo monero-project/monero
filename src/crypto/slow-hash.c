@@ -69,7 +69,7 @@ volatile int use_v4_jit_flag = -1;
 
 static inline int use_v4_jit(void)
 {
-#if defined(__x86_64__)
+#if defined(__x86_64__) || defined(__PPC__) || defined(__PPC64__)
 
   if (use_v4_jit_flag != -1)
     return use_v4_jit_flag;
@@ -137,8 +137,8 @@ static inline int use_v4_jit(void)
   { \
     U64(b)[2] = state.hs.w[8] ^ state.hs.w[10]; \
     U64(b)[3] = state.hs.w[9] ^ state.hs.w[11]; \
-    division_result = state.hs.w[12]; \
-    sqrt_result = state.hs.w[13]; \
+    division_result = SWAP64LE(state.hs.w[12]); \
+    sqrt_result = SWAP64LE(state.hs.w[13]); \
   } while (0)
 
 #define VARIANT2_PORTABLE_INIT() \
@@ -211,7 +211,7 @@ static inline int use_v4_jit(void)
     uint64_t b0[2]; \
     memcpy_swap64le(b0, b, 2); \
     chunk2[0] = SWAP64LE(chunk1_old[0] + b0[0]); \
-    chunk2[1] = SWAP64LE(SWAP64LE(chunk1_old[1]) + b0[1]); \
+    chunk2[1] = SWAP64LE(chunk1_old[1] + b0[1]); \
     if (variant >= 4) \
     { \
       uint64_t out_copy[2]; \
@@ -306,6 +306,43 @@ static inline int use_v4_jit(void)
     } \
   } while (0)
 
+#if (defined(__PPC__) || defined(__PPC64__)) && (BYTE_ORDER == BIG_ENDIAN)
+#define VARIANT4_RANDOM_MATH(a, b, r, _b, _b1) \
+  do if (variant >= 4) \
+  { \
+    uint64_t t[2]; \
+    memcpy(t, b, sizeof(uint64_t)); \
+    \
+    if (sizeof(v4_reg) == sizeof(uint32_t)) \
+      t[0] ^= SWAP64LE((r[0] + r[1]) | ((uint64_t)(r[2] + r[3]) << 32)); \
+    else \
+      t[0] ^= SWAP64LE((r[0] + r[1]) ^ (r[2] + r[3])); \
+    \
+    memcpy(b, t, sizeof(uint64_t)); \
+    \
+    V4_REG_LOAD(r + 4, a); \
+    V4_REG_LOAD(r + 5, (uint64_t*)(a) + 1); \
+    V4_REG_LOAD(r + 6, _b); \
+    V4_REG_LOAD(r + 7, _b1); \
+    V4_REG_LOAD(r + 8, (uint64_t*)(_b1) + 1); \
+    \
+    if (jit) \
+      ((v4_random_math_JIT_func)((uint8_t*)hp_jitfunc + 4096 - sizeof(void*)))(r); \
+    else \
+      v4_random_math(code, r); \
+    \
+    memcpy(t, a, sizeof(uint64_t) * 2); \
+    \
+    if (sizeof(v4_reg) == sizeof(uint32_t)) { \
+      t[0] ^= SWAP64LE(r[2] | ((uint64_t)(r[3]) << 32)); \
+      t[1] ^= SWAP64LE(r[0] | ((uint64_t)(r[1]) << 32)); \
+    } else { \
+      t[0] ^= SWAP64LE(r[2] ^ r[3]); \
+      t[1] ^= SWAP64LE(r[0] ^ r[1]); \
+    } \
+    memcpy(a, t, sizeof(uint64_t) * 2); \
+  } while (0)
+#else
 #define VARIANT4_RANDOM_MATH(a, b, r, _b, _b1) \
   do if (variant >= 4) \
   { \
@@ -341,7 +378,7 @@ static inline int use_v4_jit(void)
     } \
     memcpy(a, t, sizeof(uint64_t) * 2); \
   } while (0)
-
+#endif
 
 #if !defined NO_AES && (defined(__x86_64__) || (defined(_MSC_VER) && defined(_WIN64)))
 // Optimised code below, uses x86-specific intrinsics, SSE2, AES-NI
@@ -1578,6 +1615,229 @@ void cn_slow_hash(const void *data, size_t length, char *hash, int variant, int 
 #endif
 }
 #endif /* !aarch64 || !crypto */
+
+#elif defined(__PPC__) || defined(__PPC64__)
+#include <sys/mman.h>
+v4_random_math_JIT_func hp_jitfunc = NULL;
+uint8_t *hp_jitfunc_memory = NULL;
+int hp_jitfunc_allocated = 0;
+
+void slow_hash_allocate_state(void)
+{
+
+
+#if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || \
+defined(__DragonFly__) || defined(__NetBSD__)
+#ifdef __NetBSD__
+#define RESERVED_FLAGS PROT_MPROTECT(PROT_EXEC)
+#else
+#define RESERVED_FLAGS 0
+#endif
+    hp_jitfunc_memory = mmap(0, 4096 + 4096, PROT_READ | PROT_WRITE | RESERVED_FLAGS,
+                    MAP_PRIVATE | MAP_ANON, -1, 0);
+#else
+    hp_jitfunc_memory = mmap(0, 4096 + 4096, PROT_READ | PROT_WRITE | PROT_EXEC,
+                    MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+#endif
+    if(hp_jitfunc_memory == MAP_FAILED)
+        hp_jitfunc_memory = NULL;
+    hp_jitfunc_allocated = 1;
+    if (hp_jitfunc_memory == NULL)
+    {
+        hp_jitfunc_allocated = 0;
+        hp_jitfunc_memory = malloc(4096 + 4095);
+    }
+    hp_jitfunc = (v4_random_math_JIT_func)((size_t)(hp_jitfunc_memory + 4095) & ~4095);
+  return;
+}
+
+void slow_hash_free_state(void)
+{
+  if(!hp_jitfunc_allocated)
+      free(hp_jitfunc_memory);
+  else
+  {
+     munmap(hp_jitfunc_memory, 4096 + 4095);
+  }
+  hp_jitfunc = NULL;
+  hp_jitfunc_memory = NULL;
+  hp_jitfunc_allocated = 0;
+  return;
+}
+
+static void (*const extra_hashes[4])(const void *, size_t, char *) = {
+  hash_extra_blake, hash_extra_groestl, hash_extra_jh, hash_extra_skein
+};
+
+static size_t e2i(const uint8_t* a, size_t count) { return (SWAP64LE(*((uint64_t*)a)) / AES_BLOCK_SIZE) & (count - 1); }
+
+static void mul(const uint8_t* a, const uint8_t* b, uint8_t* res) {
+  uint64_t a0, b0;
+  uint64_t hi, lo;
+
+  a0 = SWAP64LE(((uint64_t*)a)[0]);
+  b0 = SWAP64LE(((uint64_t*)b)[0]);
+  lo = mul128(a0, b0, &hi);
+  ((uint64_t*)res)[0] = SWAP64LE(hi);
+  ((uint64_t*)res)[1] = SWAP64LE(lo);
+}
+
+static void sum_half_blocks(uint8_t* a, const uint8_t* b) {
+  uint64_t a0, a1, b0, b1;
+
+  a0 = SWAP64LE(((uint64_t*)a)[0]);
+  a1 = SWAP64LE(((uint64_t*)a)[1]);
+  b0 = SWAP64LE(((uint64_t*)b)[0]);
+  b1 = SWAP64LE(((uint64_t*)b)[1]);
+  a0 += b0;
+  a1 += b1;
+  ((uint64_t*)a)[0] = SWAP64LE(a0);
+  ((uint64_t*)a)[1] = SWAP64LE(a1);
+}
+#define U64(x) ((uint64_t *) (x))
+
+static void copy_block(uint8_t* dst, const uint8_t* src) {
+  memcpy(dst, src, AES_BLOCK_SIZE);
+}
+
+static void swap_blocks(uint8_t *a, uint8_t *b){
+  uint64_t t[2];
+  U64(t)[0] = U64(a)[0];
+  U64(t)[1] = U64(a)[1];
+  U64(a)[0] = U64(b)[0];
+  U64(a)[1] = U64(b)[1];
+  U64(b)[0] = U64(t)[0];
+  U64(b)[1] = U64(t)[1];
+}
+
+static void xor_blocks(uint8_t* a, const uint8_t* b) {
+  size_t i;
+  for (i = 0; i < AES_BLOCK_SIZE; i++) {
+    a[i] ^= b[i];
+  }
+}
+
+static void xor64(uint8_t* left, const uint8_t* right)
+{
+  size_t i;
+  for (i = 0; i < 8; ++i)
+  {
+    left[i] ^= right[i];
+  }
+}
+
+#pragma pack(push, 1)
+union cn_slow_hash_state {
+  union hash_state hs;
+  struct {
+    uint8_t k[64];
+    uint8_t init[INIT_SIZE_BYTE];
+  };
+};
+#pragma pack(pop)
+
+void cn_slow_hash(const void *data, size_t length, char *hash, int variant, int prehashed, uint64_t height) {
+#ifndef FORCE_USE_HEAP
+  uint8_t long_state[MEMORY];
+#else
+  uint8_t *long_state = (uint8_t *)malloc(MEMORY);
+#endif
+
+  union cn_slow_hash_state state;
+  uint8_t text[INIT_SIZE_BYTE];
+  uint8_t a[AES_BLOCK_SIZE];
+  uint8_t a1[AES_BLOCK_SIZE];
+  uint8_t b[AES_BLOCK_SIZE * 2];
+  uint8_t c1[AES_BLOCK_SIZE];
+  uint8_t c2[AES_BLOCK_SIZE];
+  uint8_t d[AES_BLOCK_SIZE];
+  size_t i, j;
+  uint8_t aes_key[AES_KEY_SIZE];
+  oaes_ctx *aes_ctx;
+
+  if (prehashed) {
+    memcpy(&state.hs, data, length);
+  } else {
+    hash_process(&state.hs, data, length);
+  }
+  memcpy(text, state.init, INIT_SIZE_BYTE);
+  memcpy(aes_key, state.hs.b, AES_KEY_SIZE);
+  aes_ctx = (oaes_ctx *) oaes_alloc();
+  if(hp_jitfunc_memory == NULL)
+    slow_hash_allocate_state();
+  // locals to avoid constant TLS dereferencing
+  v4_random_math_JIT_func local_hp_jitfunc = hp_jitfunc;
+
+  VARIANT1_PORTABLE_INIT();
+  VARIANT2_PORTABLE_INIT();
+  VARIANT4_RANDOM_MATH_INIT();
+
+  oaes_key_import_data(aes_ctx, aes_key, AES_KEY_SIZE);
+  for (i = 0; i < MEMORY / INIT_SIZE_BYTE; i++) {
+    for (j = 0; j < INIT_SIZE_BLK; j++) {
+      aesb_pseudo_round(&text[AES_BLOCK_SIZE * j], &text[AES_BLOCK_SIZE * j], aes_ctx->key->exp_data);
+    }
+    memcpy(&long_state[i * INIT_SIZE_BYTE], text, INIT_SIZE_BYTE);
+  }
+
+  for (i = 0; i < AES_BLOCK_SIZE; i++) {
+    a[i] = state.k[     i] ^ state.k[AES_BLOCK_SIZE * 2 + i];
+    b[i] = state.k[AES_BLOCK_SIZE + i] ^ state.k[AES_BLOCK_SIZE * 3 + i];
+  }
+
+  for (i = 0; i < ITER / 2; i++) {
+    /* Dependency chain: address -> read value ------+
+     * written value <-+ hard function (AES or MUL) <+
+     * next address  <-+
+     */
+    /* Iteration 1 */
+    j = e2i(a, MEMORY / AES_BLOCK_SIZE) * AES_BLOCK_SIZE;
+    copy_block(c1, &long_state[j]);
+    aesb_single_round(c1, c1, a);
+    VARIANT2_PORTABLE_SHUFFLE_ADD(c1, a, long_state, j);
+    copy_block(&long_state[j], c1);
+    xor_blocks(&long_state[j], b);
+    assert(j == e2i(a, MEMORY / AES_BLOCK_SIZE) * AES_BLOCK_SIZE);
+    VARIANT1_1(&long_state[j]);
+    /* Iteration 2 */
+    j = e2i(c1, MEMORY / AES_BLOCK_SIZE) * AES_BLOCK_SIZE;
+    copy_block(c2, &long_state[j]);
+    copy_block(a1, a);
+    VARIANT2_PORTABLE_INTEGER_MATH(c2, c1);
+    VARIANT4_RANDOM_MATH(a1, c2, r, b, b + AES_BLOCK_SIZE);
+    mul(c1, c2, d);
+    VARIANT2_2_PORTABLE();
+    VARIANT2_PORTABLE_SHUFFLE_ADD(c1, a, long_state, j);
+    sum_half_blocks(a1, d);
+    swap_blocks(a1, c2);
+    xor_blocks(a1, c2);
+    VARIANT1_2(c2 + 8);
+    copy_block(&long_state[j], c2);
+    if (variant >= 2) {
+      copy_block(b + AES_BLOCK_SIZE, b);
+    }
+    copy_block(b, c1);
+    copy_block(a, a1);
+  }
+
+  memcpy(text, state.init, INIT_SIZE_BYTE);
+  oaes_key_import_data(aes_ctx, &state.hs.b[32], AES_KEY_SIZE);
+  for (i = 0; i < MEMORY / INIT_SIZE_BYTE; i++) {
+    for (j = 0; j < INIT_SIZE_BLK; j++) {
+      xor_blocks(&text[j * AES_BLOCK_SIZE], &long_state[i * INIT_SIZE_BYTE + j * AES_BLOCK_SIZE]);
+      aesb_pseudo_round(&text[AES_BLOCK_SIZE * j], &text[AES_BLOCK_SIZE * j], aes_ctx->key->exp_data);
+    }
+  }
+  memcpy(state.init, text, INIT_SIZE_BYTE);
+  hash_permutation(&state.hs);
+  /*memcpy(hash, &state, 32);*/
+  extra_hashes[state.hs.b[0] & 3](&state, 200, hash);
+  oaes_free((OAES_CTX **) &aes_ctx);
+
+#ifdef FORCE_USE_HEAP
+  free(long_state);
+#endif
+}
 
 #else
 // Portable implementation as a fallback
