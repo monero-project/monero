@@ -148,7 +148,8 @@ namespace net_utils
 		static constexpr bool is_blockable() noexcept { return true; }
 
 		BEGIN_KV_SERIALIZE_MAP()
-			KV_SERIALIZE(m_ip)
+			uint32_t ip = SWAP32LE(this_ref.m_ip);
+			epee::serialization::selector<is_store>::serialize(ip, stg, hparent_section, "ip");
 			KV_SERIALIZE(m_mask)
 		END_KV_SERIALIZE_MAP()
 	};
