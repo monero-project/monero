@@ -48,6 +48,7 @@ int main(int argc, char *argv[]) {
 
   for (i = 1; i < argc; i++) {
     if ((fp = fopen(argv[i], "rb")) == NULL) {
+      fclose(foutput);
       exit(EXIT_FAILURE);
     } else {
       fprintf(foutput, "static const std::string translation_file_name_%d = \"%s\";\n", i, argv[i]);
