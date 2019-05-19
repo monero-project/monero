@@ -4,14 +4,10 @@ namespace service_nodes {
 
 inline uint64_t get_staking_requirement_lock_blocks(cryptonote::network_type nettype)
 {
-constexpr static uint32_t STAKING_REQUIREMENT_LOCK_BLOCKS         = 30*24*30;
-constexpr static uint32_t STAKING_REQUIREMENT_LOCK_BLOCKS_TESTNET = 30*24*2;
-constexpr static uint32_t STAKING_REQUIREMENT_LOCK_BLOCKS_FAKENET = 30;
-
 switch(nettype) {
-    case cryptonote::TESTNET: return STAKING_REQUIREMENT_LOCK_BLOCKS_TESTNET;
-    case cryptonote::FAKECHAIN: return STAKING_REQUIREMENT_LOCK_BLOCKS_FAKENET;
-    default: return STAKING_REQUIREMENT_LOCK_BLOCKS;
+    case cryptonote::TESTNET: return 1440;
+    case cryptonote::FAKECHAIN: return 30;
+    default: return 20160;
 }
 }
 
