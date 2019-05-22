@@ -4123,7 +4123,11 @@ namespace tools
       std::move(req.ssl_private_key_path), std::move(req.ssl_certificate_path)
     };
 
-    if (ssl_options.support == epee::net_utils::ssl_support_t::e_ssl_support_enabled && !ssl_options.has_strong_verification(boost::string_ref{}))
+    const bool verification_required =
+      ssl_options.verification != epee::net_utils::ssl_verification_t::none &&
+      ssl_options.support == epee::net_utils::ssl_support_t::e_ssl_support_enabled;
+
+    if (verification_required && !ssl_options.has_strong_verification(boost::string_ref{}))
     {
       er.code = WALLET_RPC_ERROR_CODE_NO_DAEMON_CONNECTION;
       er.message = "SSL is enabled but no user certificate or fingerprints were provided";
