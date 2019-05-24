@@ -754,6 +754,21 @@ public:
   virtual void batch_stop() = 0;
 
   /**
+   * @brief aborts a batch transaction
+   *
+   * If the subclass implements batching, this function should abort the
+   * batch it is currently on.
+   *
+   * If no batch is in-progress, this function should throw a DB_ERROR.
+   * This exception may change in the future if it is deemed necessary to
+   * have a more granular exception type for this scenario.
+   *
+   * If any of this cannot be done, the subclass should throw the corresponding
+   * subclass of DB_EXCEPTION
+   */
+  virtual void batch_abort() = 0;
+
+  /**
    * @brief sets whether or not to batch transactions
    *
    * If the subclass implements batching, this function tells it to begin
