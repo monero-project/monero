@@ -1246,10 +1246,11 @@ namespace cryptonote
      *
      * @param b the block containing the miner transaction
      * @param height the height at which the block will be added
+     * @param hf_version the consensus rules to apply
      *
      * @return false if anything is found wrong with the miner transaction, otherwise true
      */
-    bool prevalidate_miner_transaction(const block& b, uint64_t height);
+    bool prevalidate_miner_transaction(const block& b, uint64_t height, uint8_t hf_version);
 
     /**
      * @brief validates a miner (coinbase) transaction
