@@ -152,6 +152,7 @@ class Wallet(object):
             'id': '0'
         }
         return self.rpc.send_json_rpc_request(get_balance)
+    getbalance = get_balance
 
     def sweep_dust(self, get_tx_keys = True, do_not_relay = False, get_tx_hex = False, get_tx_metadata = False):
         sweep_dust = {
@@ -166,6 +167,7 @@ class Wallet(object):
             'id': '0'   
         }
         return self.rpc.send_json_rpc_request(sweep_dust)
+    sweep_unmixable = sweep_dust
 
     def sweep_all(self, address = '', account_index = 0, subaddr_indices = [], priority = 0, ring_size = 0, outputs = 1, unlock_time = 0, payment_id = '', get_tx_keys = False, below_amount = 0, do_not_relay = False, get_tx_hex = False, get_tx_metadata = False):
         sweep_all = {
@@ -222,6 +224,7 @@ class Wallet(object):
             'id': '0'
         }
         return self.rpc.send_json_rpc_request(get_address)
+    getaddress = get_address
 
     def create_account(self, label = ""):
         create_account = {
@@ -733,6 +736,7 @@ class Wallet(object):
             'id': '0'
         }
         return self.rpc.send_json_rpc_request(get_height)
+    getheight = get_height
 
     def relay_tx(self, hex_):
         relay_tx = {
