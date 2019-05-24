@@ -1102,6 +1102,9 @@ namespace cryptonote
     uint64_t m_btc_expected_reward;
     bool m_btc_valid;
 
+
+    bool m_batch_success;
+
     std::shared_ptr<tools::Notify> m_block_notify;
     std::shared_ptr<tools::Notify> m_reorg_notify;
 

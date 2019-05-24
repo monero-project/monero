@@ -54,6 +54,7 @@ public:
   virtual void unlock() override { }
   virtual bool batch_start(uint64_t batch_num_blocks=0, uint64_t batch_bytes=0) override { return true; }
   virtual void batch_stop() override {}
+  virtual void batch_abort() override {}
   virtual void set_batch_transactions(bool) override {}
   virtual void block_wtxn_start() override {}
   virtual void block_wtxn_stop() override {}
