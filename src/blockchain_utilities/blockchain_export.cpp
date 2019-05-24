@@ -177,7 +177,7 @@ int main(int argc, char* argv[])
   }
   r = core_storage->init(db, opt_testnet ? cryptonote::TESTNET : opt_stagenet ? cryptonote::STAGENET : cryptonote::MAINNET);
 
-  if (core_storage->get_blockchain_pruning_seed())
+  if (core_storage->get_blockchain_pruning_seed() && !opt_blocks_dat)
   {
     LOG_PRINT_L0("Blockchain is pruned, cannot export");
     return 1;
