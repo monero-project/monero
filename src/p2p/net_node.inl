@@ -2829,6 +2829,9 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::has_too_many_connections(const epee::net_utils::network_address &address)
   {
+    if (address.is_loopback() || address.is_local())
+      return false; // always allow local
+
     if (address.get_zone() != epee::net_utils::zone::public_)
       return false; // Unable to determine how many connections from host
 
