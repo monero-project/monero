@@ -465,9 +465,11 @@ We expect to add Monero into the ports tree in the near future, which will aid i
 
 You will need to add a few packages to your system. `pkg_add cmake gmake zeromq cppzmq libiconv boost`.
 
+If you would like to run the test suite, you will also need to add the py-requests package to your system.
+
 The doxygen and graphviz packages are optional and require the xbase set.
 
-Build monero: `gmake release-static`
+Build monero: `env DEVELOPER_LIBUNBOUND_OLD=1 gmake release-static`
 
 Note: you may encounter the following error, when compiling the latest version of monero as a normal user:
 
