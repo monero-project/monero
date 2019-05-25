@@ -5474,27 +5474,6 @@ void Blockchain::load_compiled_in_block_hashes(const GetCheckpointsCallback& get
         }
         m_blocks_hash_check.resize(m_blocks_hash_of_hashes.size() * HASH_OF_HASHES_STEP, std::make_pair(crypto::null_hash, 0));
         MINFO(nblocks << " block hashes loaded");
-
-        // FIXME: clear tx_pool because the process might have been
-        // terminated and caused it to store txs kept by blocks.
-        // The core will not call check_tx_inputs(..) for these
-        // transactions in this case. Consequently, the sanity check
-        // for tx hashes will fail in handle_block_to_main_chain(..)
-        CRITICAL_REGION_LOCAL(m_tx_pool);
-
-        std::vector<transaction> txs;
-        m_tx_pool.get_transactions(txs, true);
-
-        size_t tx_weight;
-        uint64_t fee;
-        bool relayed, do_not_relay, double_spend_seen, pruned;
-        transaction pool_tx;
-        blobdata txblob;
-        for(const transaction &tx : txs)
-        {
-          crypto::hash tx_hash = get_transaction_hash(tx);
-          m_tx_pool.take_tx(tx_hash, pool_tx, txblob, tx_weight, fee, relayed, do_not_relay, double_spend_seen, pruned);
-        }
       }
     }
   }
