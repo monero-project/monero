@@ -380,7 +380,7 @@ static void get_metric_prefix(cryptonote::difficulty_type hr, double& hr_d, char
     prefix = 0;
     return;
   }
-  static const char metric_prefixes[4] = { 'k', 'M', 'G', 'T' };
+  static const char metric_prefixes[] = { 'k', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y' };
   for (size_t i = 0; i < sizeof(metric_prefixes); ++i)
   {
     if (hr < 1000000)
