@@ -28,6 +28,8 @@
 #ifndef _MISC_LOG_EX_H_
 #define _MISC_LOG_EX_H_
 
+#ifdef __cplusplus
+
 #include <string>
 
 #include "easylogging++.h"
@@ -220,4 +222,28 @@ void set_console_color(int color, bool bright);
 void reset_console_color();
 
 }
+
+extern "C"
+{
+
+#endif
+
+#ifdef __GNUC__
+#define ATTRIBUTE_PRINTF __attribute__((format(printf, 2, 3)))
+#else
+#define ATTRIBUTE_PRINTF
+#endif
+
+bool merror(const char *category, const char *format, ...) ATTRIBUTE_PRINTF;
+bool mwarning(const char *category, const char *format, ...) ATTRIBUTE_PRINTF;
+bool minfo(const char *category, const char *format, ...) ATTRIBUTE_PRINTF;
+bool mdebug(const char *category, const char *format, ...) ATTRIBUTE_PRINTF;
+bool mtrace(const char *category, const char *format, ...) ATTRIBUTE_PRINTF;
+
+#ifdef __cplusplus
+
+}
+
+#endif
+
 #endif //_MISC_LOG_EX_H_
