@@ -2371,7 +2371,7 @@ PendingTransaction* WalletImpl::stakePending(const std::string& sn_key_str, cons
   PendingTransactionImpl * transaction = new PendingTransactionImpl(*this);
 
   wallet2::stake_result stake_result = m_wallet->create_stake_tx(transaction->m_pending_tx, sn_key, addr_info, amount);
-  if (stake_result != wallet2::stake_result::success)
+  if (stake_result != wallet2::stake_result_status::success)
   {
     error_msg = "Failed to create a stake transaction: " + stake_result.msg;
     return nullptr;
