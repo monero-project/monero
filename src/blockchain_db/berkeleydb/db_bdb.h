@@ -407,7 +407,7 @@ private:
 
   //
   // fix up anything that may be wrong due to past bugs
-  virtual void fixup();
+  virtual void fixup(fixup_context const context);
 
   virtual void set_service_node_data(const std::string& data);
   virtual bool get_service_node_data(std::string& data);

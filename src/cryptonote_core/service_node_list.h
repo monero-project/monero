@@ -207,6 +207,7 @@ namespace service_nodes
         new_type,
         prevent_type,
         key_image_blacklist_type,
+        key_image_unlock,
       };
 
       rollback_event() = default;
@@ -272,7 +273,19 @@ namespace service_nodes
         FIELD(m_was_adding_to_blacklist)
       END_SERIALIZE()
     };
-    typedef boost::variant<rollback_change, rollback_new, prevent_rollback, rollback_key_image_blacklist> rollback_event_variant;
+
+    struct rollback_key_image_unlock : public rollback_event
+    {
+      rollback_key_image_unlock() { type = key_image_unlock; }
+      rollback_key_image_unlock(uint64_t block_height, crypto::public_key const &key);
+      crypto::public_key m_key;
+
+      BEGIN_SERIALIZE()
+        FIELDS(*static_cast<rollback_event *>(this))
+        FIELDS(m_key)
+      END_SERIALIZE()
+    };
+    typedef boost::variant<rollback_change, rollback_new, prevent_rollback, rollback_key_image_blacklist, rollback_key_image_unlock> rollback_event_variant;
 
     struct quorum_for_serialization
     {
@@ -381,3 +394,4 @@ VARIANT_TAG(binary_archive, service_nodes::service_node_list::rollback_change, 0
 VARIANT_TAG(binary_archive, service_nodes::service_node_list::rollback_new, 0xa2);
 VARIANT_TAG(binary_archive, service_nodes::service_node_list::prevent_rollback, 0xa3);
 VARIANT_TAG(binary_archive, service_nodes::service_node_list::rollback_key_image_blacklist, 0xa4);
+VARIANT_TAG(binary_archive, service_nodes::service_node_list::rollback_key_image_unlock, 0xa5);
