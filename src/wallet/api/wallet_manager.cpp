@@ -284,7 +284,6 @@ double WalletManagerImpl::miningHashRate()
     cryptonote::COMMAND_RPC_MINING_STATUS::request mreq;
     cryptonote::COMMAND_RPC_MINING_STATUS::response mres;
 
-    epee::net_utils::http::http_simple_client http_client;
     if (!epee::net_utils::invoke_http_json("/mining_status", mreq, mres, m_http_client))
       return 0.0;
     if (!mres.active)
