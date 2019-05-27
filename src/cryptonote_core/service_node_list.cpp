@@ -988,6 +988,7 @@ namespace service_nodes
               break;
             }
 
+            m_transient_state.rollback_events.push_back(std::unique_ptr<rollback_event>(new rollback_key_image_unlock(block_height, snode_key)));
             node_info.requested_unlock_height = unlock_height;
             early_exit = true;
           }
@@ -1065,6 +1066,20 @@ namespace service_nodes
           {
             m_transient_state.key_image_blacklist.push_back(rollback->m_entry);
           }
+        }
+        break;
+
+        case rollback_event::key_image_unlock:
+        {
+          auto *rollback = reinterpret_cast<rollback_key_image_unlock *>(event);
+          auto iter = m_transient_state.service_nodes_infos.find(rollback->m_key);
+          if (iter == m_transient_state.service_nodes_infos.end())
+          {
+            MERROR("Could not find service node pubkey in rollback key image unlock");
+            rollback_applied = false;
+            break;
+          }
+          iter->second.requested_unlock_height = KEY_IMAGE_AWAITING_UNLOCK_HEIGHT;
         }
         break;
 
@@ -1387,6 +1402,11 @@ namespace service_nodes
   {
   }
 
+  service_node_list::rollback_key_image_unlock::rollback_key_image_unlock(uint64_t block_height, crypto::public_key const &key)
+    : service_node_list::rollback_event(block_height, key_image_unlock), m_key(key)
+  {
+  }
+
   bool service_node_list::store()
   {
     int hf_version = m_blockchain.get_current_hard_fork_version();
@@ -1433,6 +1453,7 @@ namespace service_nodes
           case rollback_event::new_type:                 data_to_store.events.push_back(*reinterpret_cast<rollback_new *>(event_ptr.get())); break;
           case rollback_event::prevent_type:             data_to_store.events.push_back(*reinterpret_cast<prevent_rollback *>(event_ptr.get())); break;
           case rollback_event::key_image_blacklist_type: data_to_store.events.push_back(*reinterpret_cast<rollback_key_image_blacklist *>(event_ptr.get())); break;
+          case rollback_event::key_image_unlock:         data_to_store.events.push_back(*reinterpret_cast<rollback_key_image_unlock *>(event_ptr.get())); break;
           default:
             MERROR("On storing service node data, unknown rollback event type encountered");
             return false;
@@ -1552,6 +1573,13 @@ namespace service_nodes
       {
         const auto& from = boost::get<rollback_key_image_blacklist>(event);
         auto *i = new rollback_key_image_blacklist();
+        *i = from;
+        m_transient_state.rollback_events.push_back(std::unique_ptr<rollback_event>(i));
+      }
+      else if (event.type() == typeid(rollback_key_image_unlock))
+      {
+        const auto& from = boost::get<rollback_key_image_unlock>(event);
+        auto *i = new rollback_key_image_unlock();
         *i = from;
         m_transient_state.rollback_events.push_back(std::unique_ptr<rollback_event>(i));
       }
