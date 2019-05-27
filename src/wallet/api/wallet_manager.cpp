@@ -227,9 +227,6 @@ std::string WalletManagerImpl::errorString() const
 
 void WalletManagerImpl::setDaemonAddress(const std::string &address)
 {
-    m_daemonAddress = address;
-    if(m_http_client.is_connected())
-        m_http_client.disconnect();
     m_http_client.set_server(address, boost::none);
 }
 
