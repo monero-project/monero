@@ -56,6 +56,14 @@
 #include "checkpoints/checkpoints.h"
 #include "cryptonote_basic/hardfork.h"
 #include "blockchain_db/blockchain_db.h"
+namespace service_nodes
+{
+  class service_node_list;
+};
+namespace triton
+{
+  class deregister_vote_pool;
+};
 
 namespace tools { class Notify; }
 
@@ -75,11 +83,11 @@ namespace cryptonote
     db_nosync //!< Leave syncing up to the backing db (safest, but slowest because of disk I/O)
   };
 
-  /** 
+  /**
    * @brief Callback routine that returns checkpoints data for specific network type
-   * 
+   *
    * @param network network type
-   * 
+   *
    * @return checkpoints data, empty span if there ain't any checkpoints for specific network type
    */
   typedef std::function<const epee::span<const unsigned char>(cryptonote::network_type network)> GetCheckpointsCallback;
@@ -89,6 +97,13 @@ namespace cryptonote
   /************************************************************************/
   class Blockchain
   {
+	  enum version
+	  {
+		  version_2 = 2,
+		  version_3,
+		  version_4,
+		  version_5_swarms,
+	  };
   public:
     /**
      * @brief Now-defunct (TODO: remove) struct from in-memory blockchain
@@ -112,13 +127,36 @@ namespace cryptonote
       difficulty_type cumulative_difficulty; //!< the accumulated difficulty after that block
       uint64_t already_generated_coins; //!< the total coins minted after that block
     };
+    class BlockAddedHook
+   {
+   public:
+     virtual void block_added(const block& block, const std::vector<transaction>& txs) = 0;
+   };
+
+   class BlockchainDetachedHook
+   {
+   public:
+     virtual void blockchain_detached(uint64_t height) = 0;
+   };
+
+   class InitHook
+   {
+   public:
+     virtual void init() = 0;
+   };
+
+   class ValidateMinerTxHook
+   {
+   public:
+	  virtual bool validate_miner_tx(const crypto::hash& prev_id, const cryptonote::transaction& miner_tx, uint64_t height, int hard_fork_version, block_reward_parts const &reward_parts) const = 0;
+   };
 
     /**
      * @brief Blockchain constructor
      *
      * @param tx_pool a reference to the transaction pool to be kept by the Blockchain
      */
-    Blockchain(tx_memory_pool& tx_pool);
+     Blockchain(tx_memory_pool& tx_pool, service_nodes::service_node_list& service_node_list, triton::deregister_vote_pool &deregister_vote_pool);
 
     /**
      * @brief Initialize the Blockchain state
@@ -172,7 +210,7 @@ namespace cryptonote
      *
      * @return false if start_offset > blockchain height, else true
      */
-    bool get_blocks(uint64_t start_offset, size_t count, std::vector<std::pair<cryptonote::blobdata,block>>& blocks, std::vector<cryptonote::blobdata>& txs) const;
+	bool get_blocks(uint64_t start_offset, size_t count, std::list<std::pair<cryptonote::blobdata, block>>& blocks, std::list<cryptonote::blobdata>& txs) const;
 
     /**
      * @brief get blocks from blocks based on start height and count
@@ -183,7 +221,7 @@ namespace cryptonote
      *
      * @return false if start_offset > blockchain height, else true
      */
-    bool get_blocks(uint64_t start_offset, size_t count, std::vector<std::pair<cryptonote::blobdata,block>>& blocks) const;
+	bool get_blocks(uint64_t start_offset, size_t count, std::list<std::pair<cryptonote::blobdata, block>>& blocks) const;
 
     /**
      * @brief compiles a list of all blocks stored as alternative chains
@@ -300,6 +338,7 @@ namespace cryptonote
      * @return the target
      */
     difficulty_type get_difficulty_for_next_block();
+
 
     /**
      * @brief adds a block to the blockchain
@@ -459,7 +498,15 @@ namespace cryptonote
      * @return the number of mature outputs
      */
     uint64_t get_num_mature_outputs(uint64_t amount) const;
-
+	/**
+	* @brief get random outputs (indices) for an amount
+	*
+	* @param amount the amount
+	* @param count the number of random outputs to choose
+	*
+	* @return the outputs' amount-global indices
+	*/
+	std::vector<uint64_t> get_random_outputs(uint64_t amount, uint64_t count) const;
     /**
      * @brief get the public key for an output
      *
@@ -470,6 +517,21 @@ namespace cryptonote
      */
     crypto::public_key get_output_key(uint64_t amount, uint64_t global_index) const;
 
+	/**
+	* @brief gets random outputs to mix with
+	*
+	* This function takes an RPC request for outputs to mix with
+	* and creates an RPC response with the resultant output indices.
+	*
+	* Outputs to mix with are randomly selected from the utxo set
+	* for each output amount in the request.
+	*
+	* @param req the output amounts and number of mixins to select
+	* @param res return-by-reference the resultant output indices
+	*
+	* @return true
+	*/
+	bool get_random_outs_for_amounts(const COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::request& req, COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::response& res) const;
     /**
      * @brief gets specific outputs to mix with
      *
@@ -495,6 +557,22 @@ namespace cryptonote
      * @param unlocked out - the output's unlocked state
      */
     void get_output_key_mask_unlocked(const uint64_t& amount, const uint64_t& index, crypto::public_key& key, rct::key& mask, bool& unlocked) const;
+	/**
+	* @brief gets random ringct outputs to mix with
+	*
+	* This function takes an RPC request for outputs to mix with
+	* and creates an RPC response with the resultant output indices
+	* and the matching keys.
+	*
+	* Outputs to mix with are randomly selected from the utxo set
+	* for each output amount in the request.
+	*
+	* @param req the output amounts and number of mixins to select
+	* @param res return-by-reference the resultant output indices
+	*
+	* @return true
+	*/
+	bool get_random_rct_outs(const COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS::request& req, COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS::response& res) const;
 
     /**
      * @brief gets per block distribution of outputs of a given amount
@@ -730,7 +808,11 @@ namespace cryptonote
      * @brief Put DB in safe sync mode
      */
     void safesyncmode(const bool onoff);
-
+	/**
+	* @brief Get the nettype
+	* @return the nettype
+	*/
+	network_type nettype() const { return m_nettype; }
     /**
      * @brief set whether or not to show/print time statistics
      *
@@ -809,7 +891,7 @@ namespace cryptonote
      * @param earliest_height the earliest height at which <version> is allowed
      * @param voting which version this node is voting for/using
      *
-     * @return whether the version queried is enabled 
+     * @return whether the version queried is enabled
      */
     bool get_hard_fork_voting_info(uint8_t version, uint32_t &window, uint32_t &votes, uint32_t &threshold, uint64_t &earliest_height, uint8_t &voting) const;
 
@@ -963,6 +1045,13 @@ namespace cryptonote
      * Used for handling txes from historical blocks in a fast way
      */
     void on_new_tx_from_block(const cryptonote::transaction &tx);
+    /**
+    * @brief add a hook for processing new blocks and rollbacks for reorgs
+    */
+   void hook_block_added(BlockAddedHook& block_added_hook);
+   void hook_blockchain_detached(BlockchainDetachedHook& blockchain_detached_hook);
+   void hook_init(InitHook& init_hook);
+   void hook_validate_miner_tx(ValidateMinerTxHook& validate_miner_tx_hook);
 
     /**
      * @brief returns the timestamps of the last N blocks
@@ -990,6 +1079,9 @@ namespace cryptonote
     BlockchainDB* m_db;
 
     tx_memory_pool& m_tx_pool;
+
+    service_nodes::service_node_list& m_service_node_list;
+    triton::deregister_vote_pool& m_deregister_vote_pool;
 
     mutable epee::critical_section m_blockchain_lock; // TODO: add here reader/writer lock
 
@@ -1036,7 +1128,10 @@ namespace cryptonote
 
     // some invalid blocks
     blocks_ext_by_hash m_invalid_blocks;     // crypto::hash -> block_extended_info
-
+    std::vector<BlockAddedHook*> m_block_added_hooks;
+    std::vector<BlockchainDetachedHook*> m_blockchain_detached_hooks;
+    std::vector<InitHook*> m_init_hooks;
+    std::vector<ValidateMinerTxHook*> m_validate_miner_tx_hooks;
 
     checkpoints m_checkpoints;
     bool m_enforce_dns_checkpoints;
@@ -1231,8 +1326,24 @@ namespace cryptonote
      * @return false if anything is found wrong with the miner transaction, otherwise true
      */
     bool validate_miner_transaction(const block& b, size_t cumulative_block_weight, uint64_t fee, uint64_t& base_reward, uint64_t already_generated_coins, bool &partial_block_reward, uint8_t version);
+	/**
+	* @brief adds the given output to the requested set of random outputs
+	*
+	* @param result_outs return-by-reference the set the output is to be added to
+	* @param amount the output amount
+	* @param i the output index (indexed to amount)
+	*/
+	void add_out_to_get_random_outs(COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::outs_for_amount& result_outs, uint64_t amount, size_t i) const;
 
-    /**
+	/**
+	* @brief adds the given output to the requested set of random ringct outputs
+	*
+	* @param outs return-by-reference the set the output is to be added to
+	* @param amount the output amount (0 for rct inputs)
+	* @param i the rct output index
+	*/
+	void add_out_to_get_rct_random_outs(std::list<COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS::out_entry>& outs, uint64_t amount, size_t i) const;
+	/**
      * @brief reverts the blockchain to its previous state following a failed switch
      *
      * If Blockchain fails to switch to an alternate chain when it means
@@ -1266,7 +1377,7 @@ namespace cryptonote
      *
      * @return true if spendable, otherwise false
      */
-    bool is_tx_spendtime_unlocked(uint64_t unlock_time) const;
+     bool is_output_spendtime_unlocked(uint64_t unlock_time) const;
 
     /**
      * @brief stores an invalid block in a separate container
@@ -1386,7 +1497,7 @@ namespace cryptonote
      * A (possibly empty) set of block hashes can be compiled into the
      * monero daemon binary.  This function loads those hashes into
      * a useful state.
-     * 
+     *
      * @param get_checkpoints if set, will be called to get checkpoints data
      */
     void load_compiled_in_block_hashes(const GetCheckpointsCallback& get_checkpoints);

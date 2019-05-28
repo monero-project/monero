@@ -35,12 +35,14 @@ set(common_sources
   download.cpp
   error.cpp
   expect.cpp
+  exp2.cpp
   util.cpp
   i18n.cpp
   notify.cpp
   password.cpp
   perf_timer.cpp
   spawn.cpp
+  rules.cpp
   threadpool.cpp
   updates.cpp
   aligned.c)
@@ -61,6 +63,7 @@ set(common_private_headers
   download.h
   error.h
   expect.h
+  exp2.h
   http_connection.h
   int-util.h
   notify.h
@@ -74,6 +77,7 @@ set(common_private_headers
   password.h
   perf_timer.h
   spawn.h
+  rules.h
   stack_trace.h
   threadpool.h
   updates.h

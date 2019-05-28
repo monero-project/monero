@@ -1,21 +1,21 @@
 // Copyright (c) 2014-2018, The Monero Project
-// 
+//
 // All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without modification, are
 // permitted provided that the following conditions are met:
-// 
+//
 // 1. Redistributions of source code must retain the above copyright notice, this list of
 //    conditions and the following disclaimer.
-// 
+//
 // 2. Redistributions in binary form must reproduce the above copyright notice, this list
 //    of conditions and the following disclaimer in the documentation and/or other
 //    materials provided with the distribution.
-// 
+//
 // 3. Neither the name of the copyright holder nor the names of its contributors may be
 //    used to endorse or promote products derived from this software without specific
 //    prior written permission.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 // MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -25,7 +25,7 @@
 // INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 #pragma once
@@ -80,6 +80,7 @@ namespace tools
     //         tx_not_possible
     //         not_enough_outs_to_mix
     //         tx_not_constructed
+    //         vote_rejected
     //         tx_rejected
     //         tx_sum_overflow
     //         tx_too_big
@@ -122,15 +123,17 @@ namespace tools
       "failed to get blocks",
       "failed to get hashes",
       "failed to get out indices",
-      "failed to get random outs"
+	  "failed to get random outs",
+	  "failed to get service_node_list",
     };
     enum failed_rpc_request_message_indices
     {
       get_blocks_error_message_index,
       get_hashes_error_message_index,
       get_out_indices_error_message_index,
-      get_outs_error_message_index
-    };
+      get_outs_error_message_index,
+	  get_service_nodes_error_message_index
+	};
 
     template<typename Base, int msg_index>
     struct failed_rpc_request : public Base
@@ -379,6 +382,8 @@ namespace tools
     //----------------------------------------------------------------------------------------------------
     typedef failed_rpc_request<refresh_error, get_blocks_error_message_index> get_blocks_error;
     //----------------------------------------------------------------------------------------------------
+	typedef failed_rpc_request<refresh_error, get_service_nodes_error_message_index> get_service_nodes_error;
+	//----------------------------------------------------------------------------------------------------
     typedef failed_rpc_request<refresh_error, get_hashes_error_message_index> get_hashes_error;
     //----------------------------------------------------------------------------------------------------
     typedef failed_rpc_request<refresh_error, get_out_indices_error_message_index> get_out_indices_error;
@@ -645,6 +650,34 @@ namespace tools
 
     private:
       cryptonote::transaction m_tx;
+      std::string m_status;
+      std::string m_reason;
+    };
+    //----------------------------------------------------------------------------------------------------
+    struct vote_rejected : public transfer_error
+    {
+      explicit vote_rejected(std::string&& loc, const std::string& status, const std::string& reason)
+        : transfer_error(std::move(loc), "vote was rejected by daemon")
+        , m_status(status)
+        , m_reason(reason)
+      {
+      }
+
+      const std::string& status() const { return m_status; }
+      const std::string& reason() const { return m_reason; }
+
+      std::string to_string() const
+      {
+        std::ostringstream ss;
+        ss << transfer_error::to_string() << ", status = " << m_status;
+        if (!m_reason.empty())
+        {
+          ss << " (" << m_reason << ")";
+        }
+        return ss.str();
+      }
+
+    private:
       std::string m_status;
       std::string m_reason;
     };
