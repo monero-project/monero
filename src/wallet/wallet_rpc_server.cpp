@@ -520,6 +520,7 @@ namespace tools
       }
       tools::wallet2::transfer_container transfers;
       m_wallet->get_transfers(transfers);
+      res.addresses.reserve(req_address_index.size());
       for (uint32_t i : req_address_index)
       {
         THROW_WALLET_EXCEPTION_IF(i >= m_wallet->get_num_subaddresses(req.account_index), error::address_index_outofbound);
