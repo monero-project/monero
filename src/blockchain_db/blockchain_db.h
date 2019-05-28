@@ -600,7 +600,7 @@ public:
    *
    * @return true if open/ready, otherwise false
    */
-  bool is_open() const;
+  bool is_open() const { return m_open; }
 
   /**
    * @brief close the BlockchainDB
