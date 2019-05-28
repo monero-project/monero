@@ -1348,7 +1348,12 @@ namespace cryptonote
     }
     else
     {
-      hashes[1] = crypto::null_hash;
+      transaction &tt = const_cast<transaction&>(t);
+      std::stringstream ss;
+      binary_archive<true> ba(ss);
+      bool r = tt.rct_signatures.serialize_rctsig_base(ba, t.vin.size(), t.vout.size());
+      CHECK_AND_ASSERT_MES(r, false, "Failed to serialize rct signatures base");
+      cryptonote::get_blob_hash(ss.str(), hashes[1]);
     }
 
     // prunable rct
