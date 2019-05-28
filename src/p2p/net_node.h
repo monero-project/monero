@@ -245,7 +245,9 @@ namespace nodetool
     size_t get_zone_count() const { return m_network_zones.size(); }
 
     void change_max_out_public_peers(size_t count);
+    uint32_t get_max_out_public_peers() const;
     void change_max_in_public_peers(size_t count);
+    uint32_t get_max_in_public_peers() const;
     virtual bool block_host(const epee::net_utils::network_address &adress, time_t seconds = P2P_IP_BLOCKTIME);
     virtual bool unblock_host(const epee::net_utils::network_address &address);
     virtual std::map<std::string, time_t> get_blocked_hosts() { CRITICAL_REGION_LOCAL(m_blocked_hosts_lock); return m_blocked_hosts; }
