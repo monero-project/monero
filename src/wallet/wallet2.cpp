@@ -1137,7 +1137,8 @@ wallet2::wallet2(network_type nettype, uint64_t kdf_rounds, bool unattended):
   m_devices_registered(false),
   m_device_last_key_image_sync(0),
   m_use_dns(true),
-  m_offline(false)
+  m_offline(false),
+  m_ssl_options(epee::net_utils::ssl_support_t::e_ssl_support_autodetect)
 {
 }
 
@@ -1246,6 +1247,7 @@ bool wallet2::set_daemon(std::string daemon_address, boost::optional<epee::net_u
   m_daemon_address = std::move(daemon_address);
   m_daemon_login = std::move(daemon_login);
   m_trusted_daemon = trusted_daemon;
+  m_node_rpc_proxy.invalidate();
 
   MINFO("setting daemon to " << get_daemon_address());
   return m_http_client.set_server(get_daemon_address(), get_daemon_login(), std::move(ssl_options));
@@ -1258,6 +1260,7 @@ bool wallet2::init(std::string daemon_address, boost::optional<epee::net_utils::
   m_upper_transaction_weight_limit = upper_transaction_weight_limit;
   if (proxy != boost::asio::ip::tcp::endpoint{})
     m_http_client.set_connector(net::socks::connector{std::move(proxy)});
+  m_ssl_options = ssl_options;
   return set_daemon(daemon_address, daemon_login, trusted_daemon, std::move(ssl_options));
 }
 //----------------------------------------------------------------------------------------------------
@@ -5170,15 +5173,34 @@ bool wallet2::check_connection(uint32_t *version, bool *ssl, uint32_t timeout)
       return m_light_wallet_connected;
   }
 
+  bool rpc_failed = false, reconnection_made = false;
+again:
   {
     boost::lock_guard<boost::recursive_mutex> lock(m_daemon_rpc_mutex);
-    if(!m_http_client.is_connected(ssl))
+    if(rpc_failed || !m_http_client.is_connected(ssl))
     {
+      MDEBUG("rpc_failed " << rpc_failed << ", is connected " << m_http_client.is_connected(ssl) << ", reconnecting");
       m_node_rpc_proxy.invalidate();
       if (!m_http_client.connect(std::chrono::milliseconds(timeout)))
-        return false;
+      {
+        if (!m_http_client.set_server(get_daemon_address(), get_daemon_login(), m_ssl_options))
+        {
+          MERROR("set_server failed");
+          return false;
+        }
+        if (!m_http_client.connect(std::chrono::milliseconds(timeout)))
+        {
+          MERROR("reconnection failed");
+          return false;
+        }
+      }
       if(!m_http_client.is_connected(ssl))
+      {
+        MERROR("reconnection success, but not connected");
         return false;
+      }
+      MINFO("reconnection made");
+      reconnection_made = true;
     }
   }
 
@@ -5188,6 +5210,13 @@ bool wallet2::check_connection(uint32_t *version, bool *ssl, uint32_t timeout)
     cryptonote::COMMAND_RPC_GET_VERSION::response resp_t = AUTO_VAL_INIT(resp_t);
     bool r = invoke_http_json_rpc("/json_rpc", "get_version", req_t, resp_t);
     if(!r) {
+      MDEBUG("version RPC failed");
+      if (!reconnection_made)
+      {
+        MDEBUG("trying again with rpc_failed = true");
+        rpc_failed = true;
+        goto again;
+      }
       *version = 0;
       return false;
     }

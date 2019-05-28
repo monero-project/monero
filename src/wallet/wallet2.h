@@ -1543,6 +1543,8 @@ private:
 
     std::shared_ptr<tools::Notify> m_tx_notify;
     std::unique_ptr<wallet_device_callback> m_device_callback;
+
+    epee::net_utils::ssl_options_t m_ssl_options;
   };
 }
 BOOST_CLASS_VERSION(tools::wallet2, 28)
