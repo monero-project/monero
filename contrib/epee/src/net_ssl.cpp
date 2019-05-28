@@ -491,6 +491,7 @@ bool ssl_options_t::handshake(
   /* According to OpenSSL documentation (and SSL specifications), server must
      always send certificate unless "anonymous" cipher mode is used which are
      disabled by default. Either way, the certificate is never inspected. */
+  bool failed = false;
   if (no_verification)
     socket.set_verify_mode(boost::asio::ssl::verify_none);
   else
@@ -515,6 +516,7 @@ bool ssl_options_t::handshake(
         if (support != ssl_support_t::e_ssl_support_autodetect)
         {
           MERROR("SSL certificate is not in the allowed list, connection dropped");
+          failed = true;
           return false;
         }
         MWARNING("SSL peer has not been verified");
@@ -550,6 +552,11 @@ bool ssl_options_t::handshake(
   if (ec)
   {
     MERROR("SSL handshake failed, connection dropped: " << ec.message());
+    return false;
+  }
+  if (failed)
+  {
+    MERROR("SSL handshake failed, connection dropped");
     return false;
   }
   MDEBUG("SSL handshake success");
