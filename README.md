@@ -295,10 +295,10 @@ application.
     cd loki
     ```
 
-* If you would like a specific [version/tag](https://github.com/loki-project/loki/tags), do a git checkout for that version. eg. 'v3.0.0'. If you don't care about the version and just want binaries from master, skip this step:
+* If you would like a specific [version/tag](https://github.com/loki-project/loki/tags), do a git checkout for that version. eg. 'v3.0.6'. If you don't care about the version and just want binaries from master, skip this step:
 	
     ```bash
-    git checkout v0.14.1.0
+    git checkout v3.0.6
     ```
 
 * If you are on a 64-bit system, run:
@@ -521,10 +521,10 @@ Packages are available for
     docker build --build-arg NPROC=1 -t loki .
     
     # either run in foreground
-    docker run -it -v /loki/chain:/root/.bitloki -v /loki/wallet:/wallet -p 18080:18080 loki
+    docker run -it -v /loki/chain:/root/.loki -v /loki/wallet:/wallet -p 22022:22022 loki
     
     # or in background
-    docker run -it -d -v /loki/chain:/root/.bitloki -v /loki/wallet:/wallet -p 18080:18080 loki
+    docker run -it -d -v /loki/chain:/root/.loki -v /loki/wallet:/wallet -p 22022:22022 loki
     ```
 
 * The build needs 3 GB space.
@@ -609,7 +609,7 @@ to add a rule to allow this connection too, in addition to telling torsocks to
 allow inbound connections. Full example:
 
 ```bash
-sudo iptables -I OUTPUT 2 -p tcp -d 127.0.0.1 -m tcp --dport 18081 -j ACCEPT
+sudo iptables -I OUTPUT 2 -p tcp -d 127.0.0.1 -m tcp --dport 22023 -j ACCEPT
 DNS_PUBLIC=tcp torsocks ./lokid --p2p-bind-ip 127.0.0.1 --no-igd --rpc-bind-ip 127.0.0.1 \
     --data-dir /home/amnesia/Persistent/your/directory/to/the/blockchain
 ```
