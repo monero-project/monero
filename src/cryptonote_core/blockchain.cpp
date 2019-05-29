@@ -368,8 +368,6 @@ bool Blockchain::init(BlockchainDB* db, const network_type nettype, bool offline
   }
   m_hardfork->init();
 
-  
-
   m_db->set_hard_fork(m_hardfork);
 
   // if the blockchain is new, add the genesis block
@@ -466,10 +464,11 @@ bool Blockchain::init(BlockchainDB* db, const network_type nettype, bool offline
     m_hardfork->reorganize_from_chain_height(get_current_blockchain_height());
     m_tx_pool.on_blockchain_dec(m_db->height()-1, get_tail_id());
   }
+   for (InitHook* hook : m_init_hooks)
+    hook->init();
 
   update_next_cumulative_weight_limit();
-  for (InitHook* hook : m_init_hooks)
-    hook->init();
+ 
   return true;
 }
 //------------------------------------------------------------------
@@ -1121,54 +1120,65 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
   for (auto& o: b.miner_tx.vout)
     money_in_use += o.amount;
   partial_block_reward = false;
-
-  if (b.miner_tx.vout.size() == 0) {
-	  MERROR_VER("miner tx has no outputs");
-	  return false;
+  if(version == 1){
+    return true;
   }
+  if (version == 3) {
+    for (auto &o: b.miner_tx.vout) {
+      if (!is_valid_decomposed_amount(o.amount)) {
+        MERROR_VER("miner tx output " << print_money(o.amount) << " is not a valid decomposed amount");
+        return false;
+      }
+    }
+  }
+	uint64_t height = cryptonote::get_block_height(b);
 
-  uint64_t height = cryptonote::get_block_height(b);
-
-
-
-  std::vector<size_t> last_blocks_weights;
+  std::vector<uint64_t> last_blocks_weights;
   get_last_n_blocks_weights(last_blocks_weights, CRYPTONOTE_REWARD_BLOCKS_WINDOW);
   triton_block_reward_context block_reward_context = {};
-  block_reward_context.fee                       = fee;
-  block_reward_context.height                    = height;
+	block_reward_context.fee = fee;
+	block_reward_context.height = height;
 
 
-  block_reward_parts reward_parts;
-  if (!get_triton_block_reward(epee::misc_utils::median(last_blocks_weights), cumulative_block_weight, already_generated_coins, version, reward_parts, block_reward_context))
+	block_reward_parts reward_parts;
+	if (!get_triton_block_reward(epee::misc_utils::median(last_blocks_weights), cumulative_block_weight, already_generated_coins, version, reward_parts, block_reward_context))
+	{
+		MERROR_VER("block weight " << cumulative_block_weight << " is bigger than allowed for this blockchain");
+		return false;
+	}
+
+
+	for (ValidateMinerTxHook* hook : m_validate_miner_tx_hooks)
+	{
+		if (!hook->validate_miner_tx(b.prev_id, b.miner_tx, m_db->height(), version, reward_parts))
+			return false;
+	}
+
+	base_reward = reward_parts.adjusted_base_reward;
+  if(base_reward + fee < money_in_use)
   {
-    MERROR_VER("block weight " << cumulative_block_weight << " is bigger than allowed for this blockchain");
+    MERROR_VER("coinbase transaction spend too much money (" << print_money(money_in_use) << "). Block reward is " << print_money(base_reward + fee) << "(" << print_money(base_reward) << "+" << print_money(fee) << ")");
     return false;
   }
-
-
-  for (ValidateMinerTxHook* hook : m_validate_miner_tx_hooks)
+  // From hard fork 2, we allow a miner to claim less block reward than is allowed, in case a miner wants less dust
+  if (m_hardfork->get_current_version() < 2)
   {
-	  if (!hook->validate_miner_tx(b.prev_id, b.miner_tx, m_db->height(), version, reward_parts))
-		  return false;
+    if(base_reward + fee != money_in_use)
+    {
+      MDEBUG("coinbase transaction doesn't use full amount of block reward:  spent: " << money_in_use << ",  block reward " << base_reward + fee << "(" << base_reward << "+" << fee << ")");
+      return false;
+    }
   }
-
-  base_reward = reward_parts.adjusted_base_reward;
-  if(base_reward + fee < money_in_use && height > 0)
+  else
   {
-	  MERROR_VER("coinbase transaction spend too much money (" << print_money(money_in_use) << "). Block reward is " << print_money(base_reward) << "(" << print_money(base_reward) << "+" << print_money(fee) << ")");
-	  return false;
+    // from hard fork 2, since a miner can claim less than the full block reward, we update the base_reward
+    // to show the amount of coins that were actually generated, the remainder will be pushed back for later
+    // emission. This modifies the emission curve very slightly.
+    CHECK_AND_ASSERT_MES(money_in_use - fee <= base_reward, false, "base reward calculation bug");
+    if(base_reward + fee != money_in_use)
+      partial_block_reward = true;
+    base_reward = money_in_use - fee;
   }
-
-  // since a miner can claim less than the full block reward, we update the base_reward
-  // to show the amount of coins that were actually generated, the remainder will be pushed back for later
-  // emission. This modifies the emission curve very slightly.
-
-  if(height > 0)
-	CHECK_AND_ASSERT_MES(money_in_use - fee <= base_reward, false, "base reward calculation bug");
-  if (base_reward != money_in_use)
-	  partial_block_reward = true;
-  base_reward = money_in_use - fee;
-
   return true;
 }
 //------------------------------------------------------------------
@@ -3876,12 +3886,12 @@ leave:
   {
     LOG_ERROR("Blocks that failed verification should not reach here");
   }
-  for (BlockAddedHook* hook : m_block_added_hooks)
-   hook->block_added(bl, txs);
-  TIME_MEASURE_FINISH(addblock);
-
   // do this after updating the hard fork state since the weight limit may change due to fork
   update_next_cumulative_weight_limit();
+
+for (BlockAddedHook* hook : m_block_added_hooks)
+   hook->block_added(bl, txs);
+  TIME_MEASURE_FINISH(addblock);
 
   MINFO("+++++ BLOCK SUCCESSFULLY ADDED" << std::endl << "id:\t" << id << std::endl << "PoW:\t" << proof_of_work << std::endl << "HEIGHT " << new_height-1 << ", difficulty:\t" << current_diffic << std::endl << "block reward: " << print_money(fee_summary + base_reward) << "(" << print_money(base_reward) << " + " << print_money(fee_summary) << "), coinbase_weight: " << coinbase_weight << ", cumulative weight: " << cumulative_block_weight << ", " << block_processing_time << "(" << target_calculating_time << "/" << longhash_calculating_time << ")ms");
   if(m_show_time_stats)

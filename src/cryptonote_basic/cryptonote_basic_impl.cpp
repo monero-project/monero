@@ -89,61 +89,59 @@ namespace cryptonote {
   }
   //-----------------------------------------------------------------------------------------------
    bool get_block_reward(size_t median_weight, size_t current_block_weight, uint64_t already_generated_coins, uint64_t &reward, uint8_t version) {
-	   if (version == 0) {
+	    if (version == 0) {
 		   reward = 0;
 		   return true;
 	   }
+     
 	   const uint64_t premine = TRITON_SWAP;
 	   if (median_weight > 0 && already_generated_coins < premine && version < 2) {
 		   reward = premine / 7;
-		   MERROR(print_money(premine / 7));
-
 		   return true;
 	   }
-   static_assert(DIFFICULTY_TARGET_V2%60==0&&DIFFICULTY_TARGET_V1%60==0,"difficulty targets must be a multiple of 60");
-   const int target = DIFFICULTY_TARGET_V2;
-   const int target_minutes = target / 60;
-   const int emission_speed_factor = EMISSION_SPEED_FACTOR_PER_MINUTE;
 
-   uint64_t base_reward = (MONEY_SUPPLY - already_generated_coins) >> emission_speed_factor;
+     static_assert(DIFFICULTY_TARGET_V2 % 60 == 0 && DIFFICULTY_TARGET_V1 % 60 == 0, "difficulty targets must be a multiple of 60");
+	   const int target = DIFFICULTY_TARGET_V2;
+	   const int target_minutes = target / 60;
+	   const int emission_speed_factor = EMISSION_SPEED_FACTOR_PER_MINUTE;
+	   uint64_t base_reward = (MONEY_SUPPLY - already_generated_coins) >> emission_speed_factor;
 
+	   uint64_t full_reward_zone = get_min_block_weight(version);
 
-   uint64_t full_reward_zone = get_min_block_weight(version);
+	   //make it soft
+	   if (median_weight < full_reward_zone) {
+		   median_weight = full_reward_zone;
+	   }
 
-    //make it soft
-    if (median_weight < full_reward_zone) {
-      median_weight = full_reward_zone;
-    }
+	   if (current_block_weight <= median_weight) {
+		   reward = base_reward;
+		   return true;
+	   }
 
-    if (current_block_weight <= median_weight) {
-      reward = base_reward;
-      return true;
-    }
+	   if (current_block_weight > 2 * median_weight) {
+		   MERROR("Block cumulative weight is too big: " << current_block_weight << ", expected less than " << 2 * median_weight);
+		   return false;
+	   }
 
-    if(current_block_weight > 2 * median_weight) {
-      MERROR("Block cumulative weight is too big: " << current_block_weight << ", expected less than " << 2 * median_weight);
-      return false;
-    }
+	   assert(median_weight < std::numeric_limits<uint32_t>::max());
+	   assert(current_block_weight < std::numeric_limits<uint32_t>::max());
 
-    assert(median_weight < std::numeric_limits<uint32_t>::max());
-    assert(current_block_weight < std::numeric_limits<uint32_t>::max());
+	   uint64_t product_hi;
+	   // BUGFIX: 32-bit saturation bug (e.g. ARM7), the result was being
+	   // treated as 32-bit by default.
+	   uint64_t multiplicand = 2 * median_weight - current_block_weight;
+	   multiplicand *= current_block_weight;
+	   uint64_t product_lo = mul128(base_reward, multiplicand, &product_hi);
 
-    uint64_t product_hi;
-    // BUGFIX: 32-bit saturation bug (e.g. ARM7), the result was being
-    // treated as 32-bit by default.
-    uint64_t multiplicand = 2 * median_weight - current_block_weight;
-    multiplicand *= current_block_weight;
-    uint64_t product_lo = mul128(base_reward, multiplicand, &product_hi);
+	   uint64_t reward_hi;
+	   uint64_t reward_lo;
+	   div128_32(product_hi, product_lo, static_cast<uint32_t>(median_weight), &reward_hi, &reward_lo);
+	   div128_32(reward_hi, reward_lo, static_cast<uint32_t>(median_weight), &reward_hi, &reward_lo);
+	   assert(0 == reward_hi);
+	   assert(reward_lo < base_reward);
 
-    uint64_t reward_hi;
-    uint64_t reward_lo;
-    div128_32(product_hi, product_lo, static_cast<uint32_t>(median_weight), &reward_hi, &reward_lo);
-    div128_32(reward_hi, reward_lo, static_cast<uint32_t>(median_weight), &reward_hi, &reward_lo);
-    assert(0 == reward_hi);
-    assert(reward_lo < base_reward);
-
-    reward = reward_lo;
-    return true;
+	   reward = reward_lo;
+	   return true;
   }
   //------------------------------------------------------------------------------------
   uint8_t get_account_address_checksum(const public_address_outer_blob& bl)
