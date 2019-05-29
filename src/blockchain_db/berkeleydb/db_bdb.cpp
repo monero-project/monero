@@ -2286,11 +2286,11 @@ bool BlockchainBDB::is_read_only() const
   return false;
 }
 
-void BlockchainBDB::fixup()
+void BlockchainBDB::fixup(fixup_context const context)
 {
   LOG_PRINT_L3("BlockchainBDB::" << __func__);
   // Always call parent as well
-  BlockchainDB::fixup();
+  BlockchainDB::fixup(context);
 }
 
 void BlockchainBDB::set_service_node_data(const std::string& data)

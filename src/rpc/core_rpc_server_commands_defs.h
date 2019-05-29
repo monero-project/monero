@@ -2698,6 +2698,31 @@ namespace cryptonote
     typedef epee::misc_utils::struct_init<response_t> response;
   };
 
+  struct COMMAND_RPC_PERFORM_BLOCKCHAIN_TEST
+  {
+    struct request
+    {
+      uint64_t max_height;
+      uint64_t seed;
+
+      BEGIN_KV_SERIALIZE_MAP()
+      KV_SERIALIZE(max_height)
+      KV_SERIALIZE(seed)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string status;
+      uint64_t res_height;
+
+      BEGIN_KV_SERIALIZE_MAP()
+      KV_SERIALIZE(status)
+      KV_SERIALIZE(res_height)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
   LOKI_RPC_DOC_INTROSPECT
   // Get information on Service Nodes.
   struct COMMAND_RPC_GET_SERVICE_NODES

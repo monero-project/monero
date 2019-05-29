@@ -210,6 +210,11 @@ namespace cryptonote
   , ""
   };
 
+  const command_line::arg_descriptor<uint64_t> arg_recalculate_difficulty = {
+    "recalculate-difficulty",
+    "Recalculate per-block difficulty starting from the height specified",
+    0};
+
   //-----------------------------------------------------------------------------------------------
   core::core(i_cryptonote_protocol* pprotocol):
               m_mempool(m_blockchain_storage),
@@ -304,6 +309,7 @@ namespace cryptonote
     command_line::add_arg(desc, arg_reorg_notify);
     command_line::add_arg(desc, arg_block_rate_notify);
 
+    command_line::add_arg(desc, arg_recalculate_difficulty);
 #if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
     command_line::add_arg(desc, loki::arg_integration_test_hardforks_override);
     command_line::add_arg(desc, loki::arg_integration_test_shared_mem_name);
@@ -660,6 +666,15 @@ namespace cryptonote
     }
 
     r = m_blockchain_storage.init(initialized_db, m_nettype, m_offline, regtest ? &regtest_test_options : test_options, fixed_difficulty, get_checkpoints);
+
+    if (!command_line::is_arg_defaulted(vm, arg_recalculate_difficulty))
+    {
+      uint64_t recalc_diff_from_block = command_line::get_arg(vm, arg_recalculate_difficulty);
+      cryptonote::BlockchainDB::fixup_context context  = {};
+      context.type                                     = cryptonote::BlockchainDB::fixup_type::calculate_difficulty;
+      context.calculate_difficulty_params.start_height = recalc_diff_from_block;
+      initialized_db->fixup(context);
+    }
 
     r = m_mempool.init(max_txpool_weight);
     CHECK_AND_ASSERT_MES(r, false, "Failed to initialize memory pool");

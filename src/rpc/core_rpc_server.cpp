@@ -30,6 +30,7 @@
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 #include <boost/preprocessor/stringize.hpp>
+#include <boost/endian/conversion.hpp>
 #include "include_base_utils.h"
 #include "string_tools.h"
 using namespace epee;
@@ -2786,6 +2787,99 @@ namespace cryptonote
     auto req_all = req;
     req_all.service_node_pubkeys.clear();
     return on_get_service_nodes(req_all, res, error_resp);
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  /// Start with seed and perform a series of computation arriving at the answer
+  static uint64_t perform_blockchain_test_routine(const cryptonote::core& core,
+                                                  uint64_t max_height,
+                                                  uint64_t seed)
+  {
+    /// Should be sufficiently large to make it impractical
+    /// to query remote nodes
+    constexpr size_t NUM_ITERATIONS = 1000;
+
+    std::mt19937_64 mt(seed);
+
+    crypto::hash hash;
+
+    uint64_t height = seed;
+
+    for (auto i = 0u; i < NUM_ITERATIONS; ++i)
+    {
+      height = height % (max_height + 1);
+
+      hash = core.get_block_id_by_height(height);
+
+      using blob_t = cryptonote::blobdata;
+      using block_pair_t = std::pair<blob_t, block>;
+
+      /// pick a random byte from the block blob
+      std::vector<block_pair_t> blocks;
+      std::vector<blob_t> txs;
+      if (!core.get_blockchain_storage().get_blocks(height, 1, blocks, txs)) {
+        MERROR("Could not query block at requested height: " << height);
+        return 0;
+      }
+      const blob_t &blob = blocks.at(0).first;
+      const uint64_t byte_idx = service_nodes::uniform_distribution_portable(mt, blob.size());
+      uint8_t byte = blob[byte_idx];
+
+      /// pick a random byte from a random transaction blob if found
+      if (!txs.empty()) {
+        const uint64_t tx_idx = service_nodes::uniform_distribution_portable(mt, txs.size());
+        const blob_t &tx_blob = txs[tx_idx];
+
+        /// not sure if this can be empty, so check to be safe
+        if (!tx_blob.empty()) {
+          const uint64_t byte_idx = service_nodes::uniform_distribution_portable(mt, tx_blob.size());
+          const uint8_t tx_byte = tx_blob[byte_idx];
+          byte ^= tx_byte;
+        }
+
+      }
+
+      {
+        /// reduce hash down to 8 bytes
+        uint64_t n[4];
+        std::memcpy(n, hash.data, sizeof(n));
+        for (auto &ni : n) {
+          boost::endian::little_to_native_inplace(ni);
+        }
+
+        /// Note that byte (obviously) only affects the lower byte
+        /// of height, but that should be sufficient in this case
+        height = n[0] ^ n[1] ^ n[2] ^ n[3] ^ byte;
+      }
+
+    }
+
+    return height;
+  }
+
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_perform_blockchain_test(const COMMAND_RPC_PERFORM_BLOCKCHAIN_TEST::request& req,
+                                                   COMMAND_RPC_PERFORM_BLOCKCHAIN_TEST::response& res,
+                                                   epee::json_rpc::error& error_resp,
+                                                   const connection_context* ctx)
+  {
+    PERF_TIMER(on_perform_blockchain_test);
+
+
+    uint64_t max_height = req.max_height;
+    uint64_t seed = req.seed;
+
+    if (m_core.get_current_blockchain_height() <= max_height) {
+      error_resp.code = CORE_RPC_ERROR_CODE_TOO_BIG_HEIGHT;
+      res.status = "Requested block height too big.";
+      return true;
+    }
+
+    uint64_t res_height = perform_blockchain_test_routine(m_core, max_height, seed);
+
+    res.status = CORE_RPC_STATUS_OK;
+    res.res_height = res_height;
+
+    return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_get_staking_requirement(const COMMAND_RPC_GET_STAKING_REQUIREMENT::request& req, COMMAND_RPC_GET_STAKING_REQUIREMENT::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx)
