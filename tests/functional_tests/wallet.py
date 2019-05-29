@@ -58,7 +58,7 @@ class WalletTest():
         assert WALLET_DIRECTORY != ''
         try:
             os.unlink(WALLET_DIRECTORY + '/' + name)
-        except OSError, e:
+        except OSError as e:
             if e.errno != errno.ENOENT:
                 raise
 
@@ -183,7 +183,7 @@ class WalletTest():
         res = wallet.label_account(0, "main")
 
     def tags(self):
-        print 'Testing tags'
+        print('Testing tags')
         wallet = Wallet()
         res = wallet.get_account_tags()
         assert not 'account_tags' in res or len(res.account_tags) == 0
@@ -256,7 +256,7 @@ class WalletTest():
         assert sorted(subaddress_accounts) == [(0, '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 'main'), (1, '82pP87g1Vkd3LUMssBCumk3MfyEsFqLAaGDf6oxddu61EgSFzt8gCwUD4tr3kp9TUfdPs2CnpD7xLZzyC1Ei9UsW3oyCWDf', 'idx1_new')]
 
     def attributes(self):
-        print 'Testing attributes'
+        print('Testing attributes')
         wallet = Wallet()
 
         ok = False
@@ -319,13 +319,13 @@ class WalletTest():
         languages = res.languages
         languages_local = res.languages_local
         for language in languages + languages_local:
-            print('Creating ' + language.encode('utf8') + ' wallet')
+            print('Creating ' + language + ' wallet')
             wallet.create_wallet(filename = '', language = language)
             res = wallet.query_key('mnemonic')
             wallet.close_wallet()
 
     def change_password(self):
-        print 'Testing password change'
+        print('Testing password change')
         wallet = Wallet()
 
         # close the wallet if any, will throw if none is loaded
@@ -359,7 +359,7 @@ class WalletTest():
         self.remove_wallet_files('test1')
 
     def store(self):
-        print 'Testing store'
+        print('Testing store')
         wallet = Wallet()
 
         # close the wallet if any, will throw if none is loaded

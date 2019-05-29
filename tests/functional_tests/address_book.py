@@ -32,6 +32,7 @@
 """Test wallet address book RPC
 """
 
+from __future__ import print_function
 from framework.wallet import Wallet
 
 class AddressBookTest():
@@ -40,7 +41,7 @@ class AddressBookTest():
       self.test_address_book()
 
     def create(self):
-        print 'Creating wallet'
+        print('Creating wallet')
         wallet = Wallet()
         # close the wallet if any, will throw if none is loaded
         try: wallet.close_wallet()
@@ -51,7 +52,7 @@ class AddressBookTest():
         assert res.seed == seed
 
     def test_address_book(self):
-        print 'Testing address book'
+        print('Testing address book')
         wallet = Wallet()
 
         # empty at start

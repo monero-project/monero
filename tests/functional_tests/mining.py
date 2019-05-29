@@ -143,7 +143,7 @@ class MiningTest():
         assert res_status.active == False
 
     def submitblock(self):
-        print "Test submitblock"
+        print("Test submitblock")
 
         daemon = Daemon()
         res = daemon.get_height()

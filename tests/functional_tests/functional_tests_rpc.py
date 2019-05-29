@@ -10,7 +10,7 @@ import string
 import os
 
 USAGE = 'usage: functional_tests_rpc.py <python> <srcdir> <builddir> [<tests-to-run> | all]'
-DEFAULT_TESTS = ['bans', 'daemon_info', 'blockchain', 'wallet', 'integrated_address', 'mining', 'transfer', 'txpool', 'multisig', 'cold_signing', 'sign_message', 'proofs', 'get_output_distribution', 'address_book', 'uri']
+DEFAULT_TESTS = ['address_book', 'bans', 'blockchain', 'cold_signing', 'daemon_info', 'get_output_distribution', 'integrated_address', 'mining', 'multisig', 'proofs', 'sign_message', 'transfer', 'txpool', 'uri', 'validate_address', 'wallet']
 try:
   python = sys.argv[1]
   srcdir = sys.argv[2]
@@ -135,6 +135,6 @@ else:
 if len(FAIL) == 0:
   print('Done, ' + str(len(PASS)) + '/' + str(len(tests)) + ' tests passed')
 else:
-  print('Done, ' + str(len(FAIL)) + '/' + str(len(tests)) + ' tests failed: ' + string.join(FAIL, ', '))
+  print('Done, ' + str(len(FAIL)) + '/' + str(len(tests)) + ' tests failed: ' + ', '.join(FAIL))
 
 sys.exit(0 if len(FAIL) == 0 else 1)

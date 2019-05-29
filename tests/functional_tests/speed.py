@@ -48,7 +48,7 @@ from framework.wallet import Wallet
 
 class SpeedTest():
     def reset(self):
-        print 'Resetting blockchain'
+        print('Resetting blockchain')
         daemon = Daemon()
         res = daemon.get_height()
         daemon.pop_blocks(res.height - 1)

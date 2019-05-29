@@ -792,7 +792,7 @@ class TransferTest():
                     if not k in unrecoverable_fields:
                         e[k] = x[k]
                 new_t_out.append(e)
-            assert sorted(old_t_out) == sorted(new_t_out)
+            assert sorted(old_t_out, key = lambda k: k['txid']) == sorted(new_t_out, key = lambda k: k['txid'])
 
     def check_is_key_image_spent(self):
         daemon = Daemon()
