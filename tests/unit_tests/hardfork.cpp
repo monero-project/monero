@@ -176,7 +176,7 @@ static cryptonote::block mkblock(const HardFork &hf, uint64_t height, uint8_t vo
 TEST(major, Only)
 {
   TestDB db;
-  HardFork hf(db, 1, 0, 0, 0, 1, 0); // no voting
+  HardFork hf(db, 1, 0, 1, 0); // no voting
 
   //                      v  h  t
   ASSERT_TRUE(hf.add_fork(1, 0, 0));
@@ -210,8 +210,6 @@ TEST(empty_hardforks, Success)
 
   ASSERT_TRUE(hf.add_fork(1, 0, 0));
   hf.init();
-  ASSERT_TRUE(hf.get_state(time(NULL)) == HardFork::Ready);
-  ASSERT_TRUE(hf.get_state(time(NULL) + 3600*24*400) == HardFork::Ready);
 
   for (uint64_t h = 0; h <= 10; ++h) {
     db.add_block(mkblock(hf, h, 1), 0, 0, 0, 0, crypto::hash());
@@ -239,7 +237,7 @@ TEST(ordering, Success)
 TEST(check_for_height, Success)
 {
   TestDB db;
-  HardFork hf(db, 1, 0, 0, 0, 1, 0); // no voting
+  HardFork hf(db, 1, 0, 1, 0); // no voting
 
   ASSERT_TRUE(hf.add_fork(1, 0, 0));
   ASSERT_TRUE(hf.add_fork(2, 5, 1));
@@ -289,33 +287,10 @@ TEST(get, next_version)
   }
 }
 
-TEST(states, Success)
-{
-  TestDB db;
-  HardFork hf(db);
-
-  ASSERT_TRUE(hf.add_fork(1, 0, 0));
-  ASSERT_TRUE(hf.add_fork(2, BLOCKS_PER_YEAR, SECONDS_PER_YEAR));
-
-  ASSERT_TRUE(hf.get_state(0) == HardFork::Ready);
-  ASSERT_TRUE(hf.get_state(SECONDS_PER_YEAR / 2) == HardFork::Ready);
-  ASSERT_TRUE(hf.get_state(SECONDS_PER_YEAR + HardFork::DEFAULT_UPDATE_TIME / 2) == HardFork::Ready);
-  ASSERT_TRUE(hf.get_state(SECONDS_PER_YEAR + (HardFork::DEFAULT_UPDATE_TIME + HardFork::DEFAULT_FORKED_TIME) / 2) == HardFork::UpdateNeeded);
-  ASSERT_TRUE(hf.get_state(SECONDS_PER_YEAR + HardFork::DEFAULT_FORKED_TIME * 2) == HardFork::LikelyForked);
-
-  ASSERT_TRUE(hf.add_fork(3, BLOCKS_PER_YEAR * 5, SECONDS_PER_YEAR * 5));
-
-  ASSERT_TRUE(hf.get_state(0) == HardFork::Ready);
-  ASSERT_TRUE(hf.get_state(SECONDS_PER_YEAR / 2) == HardFork::Ready);
-  ASSERT_TRUE(hf.get_state(SECONDS_PER_YEAR + HardFork::DEFAULT_UPDATE_TIME / 2) == HardFork::Ready);
-  ASSERT_TRUE(hf.get_state(SECONDS_PER_YEAR + (HardFork::DEFAULT_UPDATE_TIME + HardFork::DEFAULT_FORKED_TIME) / 2) == HardFork::Ready);
-  ASSERT_TRUE(hf.get_state(SECONDS_PER_YEAR + HardFork::DEFAULT_FORKED_TIME * 2) == HardFork::Ready);
-}
-
 TEST(steps_asap, Success)
 {
   TestDB db;
-  HardFork hf(db, 1,0,1,1,1);
+  HardFork hf(db, 1,0,1);
 
   //                 v  h  t
   ASSERT_TRUE(hf.add_fork(1, 0, 0));
@@ -344,7 +319,7 @@ TEST(steps_asap, Success)
 TEST(steps_1, Success)
 {
   TestDB db;
-  HardFork hf(db, 1,0,1,1,1);
+  HardFork hf(db, 1,0,1);
 
   ASSERT_TRUE(hf.add_fork(1, 0, 0));
   for (int n = 1 ; n < 10; ++n)
@@ -365,7 +340,7 @@ TEST(reorganize, Same)
 {
   for (int history = 1; history <= 12; ++history) {
     TestDB db;
-    HardFork hf(db, 1, 0, 1, 1, history, 100);
+    HardFork hf(db, 1, 0, history, 100);
 
     //                 v  h  t
     ASSERT_TRUE(hf.add_fork(1, 0, 0));
@@ -394,7 +369,7 @@ TEST(reorganize, Same)
 TEST(reorganize, Changed)
 {
   TestDB db;
-  HardFork hf(db, 1, 0, 1, 1, 4, 100);
+  HardFork hf(db, 1, 0, 4, 100);
 
   //                 v  h  t
   ASSERT_TRUE(hf.add_fork(1, 0, 0));
@@ -443,7 +418,7 @@ TEST(voting, threshold)
 {
   for (int threshold = 87; threshold <= 88; ++threshold) {
     TestDB db;
-    HardFork hf(db, 1, 0, 1, 1, 8, threshold);
+    HardFork hf(db, 1, 0, 8, threshold);
 
     //                 v  h  t
     ASSERT_TRUE(hf.add_fork(1, 0, 0));
@@ -472,7 +447,7 @@ TEST(voting, different_thresholds)
 {
   for (int threshold = 87; threshold <= 88; ++threshold) {
     TestDB db;
-    HardFork hf(db, 1, 0, 1, 1, 4, 50); // window size 4
+    HardFork hf(db, 1, 0, 4, 50); // window size 4
 
     //                 v  h  t
     ASSERT_TRUE(hf.add_fork(1, 0, 0));
@@ -499,7 +474,7 @@ TEST(voting, different_thresholds)
 TEST(voting, info)
 {
   TestDB db;
-  HardFork hf(db, 1, 0, 1, 1, 4, 50); // window size 4, default threshold 50%
+  HardFork hf(db, 1, 0, 4, 50); // window size 4, default threshold 50%
 
   //                      v  h  ts
   ASSERT_TRUE(hf.add_fork(1, 0,  0));
@@ -548,7 +523,7 @@ TEST(voting, info)
 TEST(new_blocks, denied)
 {
     TestDB db;
-    HardFork hf(db, 1, 0, 1, 1, 4, 50);
+    HardFork hf(db, 1, 0, 4, 50);
 
     //                 v  h  t
     ASSERT_TRUE(hf.add_fork(1, 0, 0));
@@ -571,7 +546,7 @@ TEST(new_blocks, denied)
 TEST(new_version, early)
 {
     TestDB db;
-    HardFork hf(db, 1, 0, 1, 1, 4, 50);
+    HardFork hf(db, 1, 0, 4, 50);
 
     //                 v  h  t
     ASSERT_TRUE(hf.add_fork(1, 0, 0));
@@ -591,7 +566,7 @@ TEST(new_version, early)
 TEST(reorganize, changed)
 {
     TestDB db;
-    HardFork hf(db, 1, 0, 1, 1, 4, 50);
+    HardFork hf(db, 1, 0, 4, 50);
 
     //                 v  h  t
     ASSERT_TRUE(hf.add_fork(1, 0, 0));
@@ -642,7 +617,7 @@ TEST(reorganize, changed)
 TEST(get, higher)
 {
     TestDB db;
-    HardFork hf(db, 1, 0, 1, 1, 4, 50);
+    HardFork hf(db, 1, 0, 4, 50);
 
     //                 v  h  t
     ASSERT_TRUE(hf.add_fork(1, 0, 0));
@@ -663,7 +638,7 @@ TEST(get, higher)
 TEST(get, earliest_ideal_height)
 {
     TestDB db;
-    HardFork hf(db, 1, 0, 1, 1, 4, 50);
+    HardFork hf(db, 1, 0, 4, 50);
 
     //                      v  h  t
     ASSERT_TRUE(hf.add_fork(1, 0, 0));
@@ -688,7 +663,7 @@ TEST(get, earliest_ideal_height)
 TEST(get, last_diff_reset)
 {
     TestDB db;
-    HardFork hf(db, 1, 0, 1, 1, 4, 50);
+    HardFork hf(db, 1, 0, 4, 50);
 
     //                      version,  height, threshold, timestamp, diff_reset_value
     ASSERT_TRUE(hf.add_fork(1, 0, 0, 0, 0));

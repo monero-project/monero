@@ -54,12 +54,10 @@ static uint8_t get_block_version(const cryptonote::block &b)
   return b.major_version;
 }
 
-HardFork::HardFork(cryptonote::BlockchainDB &db, uint8_t original_version, uint64_t original_version_till_height, time_t forked_time, time_t update_time, uint64_t window_size, uint8_t default_threshold_percent):
+HardFork::HardFork(cryptonote::BlockchainDB &db, uint8_t original_version, uint64_t original_version_till_height, uint64_t window_size, uint8_t default_threshold_percent):
   db(db),
   original_version(original_version),
   original_version_till_height(original_version_till_height),
-  forked_time(forked_time),
-  update_time(update_time),
   window_size(window_size),
   default_threshold_percent(default_threshold_percent)
 {
@@ -318,27 +316,6 @@ int HardFork::get_voted_fork_index(uint64_t height) const
     }
   }
   return current_fork_index;
-}
-
-HardFork::State HardFork::get_state(time_t t) const
-{
-  CRITICAL_REGION_LOCAL(lock);
-
-  // no hard forks setup yet
-  if (heights.size() <= 1)
-    return Ready;
-
-  time_t t_last_fork = heights.back().time;
-  if (t >= t_last_fork + forked_time)
-    return LikelyForked;
-  if (t >= t_last_fork + update_time)
-    return UpdateNeeded;
-  return Ready;
-}
-
-HardFork::State HardFork::get_state() const
-{
-  return get_state(time(NULL));
 }
 
 uint8_t HardFork::get(uint64_t height) const

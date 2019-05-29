@@ -749,13 +749,6 @@ namespace cryptonote
     void set_show_time_stats(bool stats) { m_show_time_stats = stats; }
 
     /**
-     * @brief gets the hardfork voting state object
-     *
-     * @return the HardFork object
-     */
-    HardFork::State get_hard_fork_state() const;
-
-    /**
      * @brief gets the hardfork heights of given network
      *
      * @return the HardFork object

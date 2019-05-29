@@ -4493,11 +4493,6 @@ void Blockchain::safesyncmode(const bool onoff)
   }
 }
 
-HardFork::State Blockchain::get_hard_fork_state() const
-{
-  return m_hardfork->get_state();
-}
-
 const std::vector<HardFork::Params>& Blockchain::get_hard_fork_heights(network_type nettype)
 {
   static const std::vector<HardFork::Params> mainnet_heights = []()
