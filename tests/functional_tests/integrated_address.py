@@ -28,8 +28,6 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import time
-
 """Test integrated address RPC calls
 
 Test the following RPCs:
@@ -38,6 +36,7 @@ Test the following RPCs:
 
 """
 
+from __future__ import print_function
 from framework.wallet import Wallet
 
 class IntegratedAddressTest():
@@ -46,7 +45,7 @@ class IntegratedAddressTest():
       self.check()
 
     def create(self):
-        print 'Creating wallet'
+        print('Creating wallet')
         wallet = Wallet()
         # close the wallet if any, will throw if none is loaded
         try: wallet.close_wallet()
@@ -59,7 +58,7 @@ class IntegratedAddressTest():
     def check(self):
         wallet = Wallet()
 
-        print 'Checking local address'
+        print('Checking local address')
         res = wallet.make_integrated_address(payment_id = '0123456789abcdef')
         assert res.integrated_address == '4CMe2PUhs4J4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfSbLRB61BQVATzerHGj'
         assert res.payment_id == '0123456789abcdef'
@@ -67,7 +66,7 @@ class IntegratedAddressTest():
         assert res.standard_address == '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
         assert res.payment_id == '0123456789abcdef'
 
-        print 'Checking different address'
+        print('Checking different address')
         res = wallet.make_integrated_address(standard_address = '46r4nYSevkfBUMhuykdK3gQ98XDqDTYW1hNLaXNvjpsJaSbNtdXh1sKMsdVgqkaihChAzEy29zEDPMR3NHQvGoZCLGwTerK', payment_id = '1122334455667788')
         assert res.integrated_address == '4GYjoMG9Y2BBUMhuykdK3gQ98XDqDTYW1hNLaXNvjpsJaSbNtdXh1sKMsdVgqkaihChAzEy29zEDPMR3NHQvGoZCVSs1ZojwrDCGS5rUuo'
         assert res.payment_id == '1122334455667788'
@@ -75,7 +74,7 @@ class IntegratedAddressTest():
         assert res.standard_address == '46r4nYSevkfBUMhuykdK3gQ98XDqDTYW1hNLaXNvjpsJaSbNtdXh1sKMsdVgqkaihChAzEy29zEDPMR3NHQvGoZCLGwTerK'
         assert res.payment_id == '1122334455667788'
 
-        print 'Checking bad payment id'
+        print('Checking bad payment id')
         fails = 0
         try: wallet.make_integrated_address(standard_address = '46r4nYSevkfBUMhuykdK3gQ98XDqDTYW1hNLaXNvjpsJaSbNtdXh1sKMsdVgqkaihChAzEy29zEDPMR3NHQvGoZCLGwTerK', payment_id = '11223344556677880')
         except: fails += 1
@@ -89,7 +88,7 @@ class IntegratedAddressTest():
         except: fails += 1
         assert fails == 5
 
-        print 'Checking bad standard address'
+        print('Checking bad standard address')
         fails = 0
         try: wallet.make_integrated_address(standard_address = '46r4nYSevkfBUMhuykdK3gQ98XDqDTYW1hNLaXNvjpsJaSbNtdXh1sKMsdVgqkaihChAzEy29zEDPMR3NHQvGoZCLGwTerr', payment_id = '1122334455667788')
         except: fails += 1
