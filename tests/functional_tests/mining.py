@@ -28,6 +28,7 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+from __future__ import print_function
 import time
 
 """Test daemon mining RPC calls
@@ -48,13 +49,13 @@ class MiningTest():
         self.mine()
 
     def reset(self):
-        print 'Resetting blockchain'
+        print('Resetting blockchain')
         daemon = Daemon()
         daemon.pop_blocks(1000)
         daemon.flush_txpool()
 
     def create(self):
-        print 'Creating wallet'
+        print('Creating wallet')
         wallet = Wallet()
         # close the wallet if any, will throw if none is loaded
         try: wallet.close_wallet()
@@ -62,7 +63,7 @@ class MiningTest():
         res = wallet.restore_deterministic_wallet(seed = 'velvet lymph giddy number token physics poetry unquoted nibs useful sabotage limits benches lifestyle eden nitrogen anvil fewest avoid batch vials washing fences goat unquoted')
 
     def mine(self):
-        print "Test mining"
+        print("Test mining")
 
         daemon = Daemon()
         wallet = Wallet()

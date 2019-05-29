@@ -28,7 +28,7 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import time
+from __future__ import print_function
 
 """Test message signing/verification RPC calls
 
@@ -46,7 +46,7 @@ class MessageSigningTest():
       self.check_signing()
 
     def create(self):
-        print 'Creating wallets'
+        print('Creating wallets')
         seeds = [
             'velvet lymph giddy number token physics poetry unquoted nibs useful sabotage limits benches lifestyle eden nitrogen anvil fewest avoid batch vials washing fences goat unquoted',
             'peeled mixture ionic radar utopia puddle buying illness nuns gadget river spout cavernous bounced paradise drunk looking cottage jump tequila melting went winter adjust spout',
@@ -66,7 +66,7 @@ class MessageSigningTest():
             assert res.seed == seeds[i]
 
     def check_signing(self):
-        print 'Signing/verifing messages'
+        print('Signing/verifing messages')
         messages = ['foo', '']
         for message in messages:
             res = self.wallet[0].sign(message)

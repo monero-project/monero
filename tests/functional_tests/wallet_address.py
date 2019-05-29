@@ -29,8 +29,6 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import time
-
 """Test transaction creation RPC calls
 
 Test the following RPCs:
@@ -38,6 +36,7 @@ Test the following RPCs:
 
 """
 
+from __future__ import print_function
 from framework.wallet import Wallet
 from framework.daemon import Daemon
 
@@ -52,13 +51,13 @@ class WalletAddressTest():
       self.languages()
 
     def reset(self):
-        print 'Resetting blockchain'
+        print('Resetting blockchain')
         daemon = Daemon()
         daemon.pop_blocks(1000)
         daemon.flush_txpool()
 
     def create(self):
-        print 'Creating wallet'
+        print('Creating wallet')
         wallet = Wallet()
         # close the wallet if any, will throw if none is loaded
         try: wallet.close_wallet()
@@ -69,7 +68,7 @@ class WalletAddressTest():
         assert res.seed == seed
 
     def check_main_address(self):
-        print 'Getting address'
+        print('Getting address')
         wallet = Wallet()
         res = wallet.get_address()
         assert res.address == '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', res
@@ -79,7 +78,7 @@ class WalletAddressTest():
         assert res.addresses[0].used == False
 
     def check_keys(self):
-        print 'Checking keys'
+        print('Checking keys')
         wallet = Wallet()
         res = wallet.query_key('view_key')
         assert res.key == '49774391fa5e8d249fc2c5b45dadef13534bf2483dede880dac88f061e809100'
@@ -89,7 +88,7 @@ class WalletAddressTest():
         assert res.key == 'velvet lymph giddy number token physics poetry unquoted nibs useful sabotage limits benches lifestyle eden nitrogen anvil fewest avoid batch vials washing fences goat unquoted'
 
     def create_subaddresses(self):
-        print 'Creating subaddresses'
+        print('Creating subaddresses')
         wallet = Wallet()
         res = wallet.create_account("idx1")
         assert res.account_index == 1, res
@@ -160,7 +159,7 @@ class WalletAddressTest():
         assert res.index == {'major': 1, 'minor': 0}
 
     def open_close(self):
-        print 'Testing open/close'
+        print('Testing open/close')
         wallet = Wallet()
 
         res = wallet.get_address()
@@ -200,7 +199,7 @@ class WalletAddressTest():
         except: pass
         languages = res.languages
         for language in languages:
-            print 'Creating ' + str(language) + ' wallet'
+            print('Creating ' + str(language) + ' wallet')
             wallet.create_wallet(filename = '', language = language)
             res = wallet.query_key('mnemonic')
             wallet.close_wallet()
