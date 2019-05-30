@@ -1317,8 +1317,8 @@ void wallet2::scan_output(const cryptonote::transaction &tx, const crypto::publi
 		if (!m_encrypt_keys_after_refresh)
 		{
 			boost::optional<epee::wipeable_string> pwd = m_callback->on_get_password("output received");
-			THROW_WALLET_EXCEPTION_IF(!pwd, error::password_needed, tr("Password is needed to compute key image for incoming loki"));
-			THROW_WALLET_EXCEPTION_IF(!verify_password(*pwd), error::password_needed, tr("Invalid password: password is needed to compute key image for incoming loki"));
+			THROW_WALLET_EXCEPTION_IF(!pwd, error::password_needed, tr("Password is needed to compute key image for incoming triton"));
+			THROW_WALLET_EXCEPTION_IF(!verify_password(*pwd), error::password_needed, tr("Invalid password: password is needed to compute key image for incoming triton"));
 			decrypt_keys(*pwd);
 			m_encrypt_keys_after_refresh = *pwd;
 		}
@@ -6669,14 +6669,14 @@ bool wallet2::check_stake_allowed(const crypto::public_key& sn_key, const crypto
 
   /// b. Check if the amount is too small
   if (amount < min_contrib_total) {
-      LOG_ERROR("You must contribute at least " << print_money(min_contrib_total) << " loki to become a contributor for this service node.");
+      LOG_ERROR("You must contribute at least " << print_money(min_contrib_total) << " triton to become a contributor for this service node.");
       return false;
   }
 
   /// c. Check if the amount is too big
   if (amount > max_contrib_total)
   {
-    LOG_ERROR("You may only contribute up to ") << print_money(max_contrib_total) << tr(" more loki to this service node") << std::endl;
+    LOG_ERROR("You may only contribute up to ") << print_money(max_contrib_total) << tr(" more triton to this service node") << std::endl;
     LOG_ERROR("Reducing your stake from ") << print_money(amount) << tr(" to ") << print_money(max_contrib_total) << std::endl;
     amount = max_contrib_total;
   }

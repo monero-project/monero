@@ -5422,26 +5422,26 @@ bool simple_wallet::register_service_node_main(
 		// actually commit the transactions
 		if (m_wallet->multisig())
 		{
-			bool r = m_wallet->save_multisig_tx(ptx_vector, "multisig_loki_tx");
+			bool r = m_wallet->save_multisig_tx(ptx_vector, "multisig_triton_tx");
 			if (!r)
 			{
 				fail_msg_writer() << tr("Failed to write transaction(s) to file");
 			}
 			else
 			{
-				success_msg_writer(true) << tr("Unsigned transaction(s) successfully written to file: ") << "multisig_loki_tx";
+				success_msg_writer(true) << tr("Unsigned transaction(s) successfully written to file: ") << "multisig_triton_tx";
 			}
 		}
 		else if (m_wallet->watch_only())
 		{
-			bool r = m_wallet->save_tx(ptx_vector, "unsigned_loki_tx");
+			bool r = m_wallet->save_tx(ptx_vector, "unsigned_triton_tx");
 			if (!r)
 			{
 				fail_msg_writer() << tr("Failed to write transaction(s) to file");
 			}
 			else
 			{
-				success_msg_writer(true) << tr("Unsigned transaction(s) successfully written to file: ") << "unsigned_loki_tx";
+				success_msg_writer(true) << tr("Unsigned transaction(s) successfully written to file: ") << "unsigned_triton_tx";
 			}
 		}
 		else
@@ -5488,7 +5488,7 @@ static const char ASK_PASSWORD_MUST_BE_OFF_MSG[] = "Cannot autostake with ask-pa
 static bool prompt_autostaking_non_trusted_contributors_warning()
 {
 	success_msg_writer(false/*color*/)
-		<< tr("Auto staking to a reserved service node with non-trusted contributors may lock up your loki for the staking duration "
+		<< tr("Auto staking to a reserved service node with non-trusted contributors may lock up your triton for the staking duration "
 			"if they do not restake after service node expiration.")
 		<< tr("\n\nIf this behaviour is not desirable, please reuse the staking command without the auto command");
 	bool result = input_line_and_parse_yes_no_result("Accept auto staking towards a reserved service node");
@@ -5767,7 +5767,7 @@ bool simple_wallet::stake_main(
 	 if (amount < must_contrib_total)
 	 {
 		if (is_preexisting_contributor)
-			success_msg_writer() << tr("Warning: You must contribute ") << print_money(must_contrib_total) << tr(" loki to meet your registration requirements for this service node");
+			success_msg_writer() << tr("Warning: You must contribute ") << print_money(must_contrib_total) << tr(" triton to meet your registration requirements for this service node");
 
 		 if (amount == 0)
 		 {
@@ -5785,7 +5785,7 @@ bool simple_wallet::stake_main(
 			 else if (!is_preexisting_contributor || autostake)
 			 {
 				 if (!is_preexisting_contributor)
-					 fail_msg_writer() << tr("You must contribute atleast ") << print_money(must_contrib_total) << tr(" loki to become a contributor for this service node");
+					 fail_msg_writer() << tr("You must contribute atleast ") << print_money(must_contrib_total) << tr(" triton to become a contributor for this service node");
 
 				 return true;
 			 }
@@ -6066,7 +6066,7 @@ bool simple_wallet::stake(const std::vector<std::string> &args_)
 
 		if (amount_fraction == 0) // Fixed amount loki warning
 		{
-			success_msg_writer(false/*color*/) << tr("You're autostaking to a service node using a fixed amount of loki: ")
+			success_msg_writer(false/*color*/) << tr("You're autostaking to a service node using a fixed amount of triton: ")
 				<< print_money(amount)
 				<< tr(".\nThe staking requirement will be different after the service node expires. Staking a fixed amount "
 					"may change your percentage of stake towards the service node and consequently your block reward allocation.")
@@ -6074,7 +6074,7 @@ bool simple_wallet::stake(const std::vector<std::string> &args_)
 
 			if (!input_line_and_parse_yes_no_result("Accept staking with a fixed amount of triton"))
 			{
-				fail_msg_writer() << tr("Staking transaction with fixed loki specified cancelled.");
+				fail_msg_writer() << tr("Staking transaction with fixed triton specified cancelled.");
 				return true;
 			}
 
