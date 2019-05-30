@@ -671,16 +671,9 @@
         <translation>entier non signé</translation>
     </message>
     <message>
-        <location filename="../src/simplewallet/simplewallet.cpp" line="2789"/>
-        <source>NOTE: the following 25 words can be used to recover access to your wallet. Write them down and store them somewhere safe and secure. Please do not store them in your email or on file storage services outside of your immediate control.
-</source>
-        <translation>VEUILLEZ NOTER&#xa0;: les 25 mots suivants peuvent être utilisés pour restaurer votre portefeuille. Veuillez les écrire sur papier et les garder dans un endroit sûr. Ne les gardez pas dans un courriel ou dans un service de stockage de fichiers hors de votre contrôle.
-</translation>
-    </message>
-    <message>
-        <location filename="../src/simplewallet/simplewallet.cpp" line="2869"/>
-        <source>--restore-deterministic-wallet uses --generate-new-wallet, not --wallet-file</source>
-        <translation>--restore-deterministic-wallet utilise --generate-new-wallet, pas --wallet-file</translation>
+        <location filename="../src/simplewallet/simplewallet.cpp" line="3312"/>
+        <source>--restore-from-seed uses --generate-new-wallet, not --wallet-file</source>
+        <translation>--restore-from-seed utilise --generate-new-wallet, pas --wallet-file</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="2898"/>
@@ -2033,9 +2026,9 @@ Sinon, vous prouvez le plus petit solde supérieur à &lt;montant&gt; dans votre
         <translation>Aucun portefeuille avec ce nom trouvé. Confirmer la création d&apos;un nouveau portefeuille nommé&#xa0;: </translation>
     </message>
     <message>
-        <location filename="../src/simplewallet/simplewallet.cpp" line="2861"/>
-        <source>can&apos;t specify both --restore-deterministic-wallet or --restore-multisig-wallet and --non-deterministic</source>
-        <translation>impossible de spécifier à la fois --restore-deterministic-wallet ou --restore-multisig-wallet et --non-deterministic</translation>
+        <location filename="../src/simplewallet/simplewallet.cpp" line="3304"/>
+        <source>can&apos;t specify both --restore-from-seed or --restore-multisig-wallet and --non-deterministic</source>
+        <translation>impossible de spécifier à la fois --restore-from-seed ou --restore-multisig-wallet et --non-deterministic</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="2867"/>
@@ -2124,16 +2117,16 @@ Sinon, vous prouvez le plus petit solde supérieur à &lt;montant&gt; dans votre
 To start synchronizing with the daemon, use the &quot;refresh&quot; command.
 Use the &quot;help&quot; command to see the list of available commands.
 Use &quot;help &lt;command&gt;&quot; to see a command&apos;s documentation.
-Always use the &quot;exit&quot; command when closing monero-wallet-cli to save 
-your current session&apos;s state. Otherwise, you might need to synchronize 
+Always use the &quot;exit&quot; command when closing monero-wallet-cli to save
+your current session&apos;s state. Otherwise, you might need to synchronize
 your wallet again (your wallet keys are NOT at risk in any case).
 </source>
         <translation>Votre portefeuille a été généré !
 Pour commencer la synchronisation avec le démon, utilisez la commande &quot;refresh&quot;.
 Utilisez la commande &quot;help&quot; pour voir la liste des commandes disponibles.
 Utilisez &quot;help &lt;commande&gt;&quot; pour voir la documentation d&apos;une commande.
-Utilisez toujours la commande &quot;exit&quot; pour fermer monero-wallet-cli pour sauvegarder 
-l&apos;état de votre session. Sinon, vous pourriez avoir besoin de synchroniser 
+Utilisez toujours la commande &quot;exit&quot; pour fermer monero-wallet-cli pour sauvegarder
+l&apos;état de votre session. Sinon, vous pourriez avoir besoin de synchroniser
 votre portefeuille à nouveau (mais les clés de votre portefeuille ne risquent rien).
 </translation>
     </message>

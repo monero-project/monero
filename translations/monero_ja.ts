@@ -538,14 +538,8 @@
         <translation>符号無しの整数</translation>
     </message>
     <message>
-        <location filename="../src/simplewallet/simplewallet.cpp" line="2041"/>
-        <source>NOTE: the following 25 words can be used to recover access to your wallet. Write them down and store them somewhere safe and secure. Please do not store them in your email or on file storage services outside of your immediate control.
-</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/simplewallet/simplewallet.cpp" line="2092"/>
-        <source>--restore-deterministic-wallet uses --generate-new-wallet, not --wallet-file</source>
+        <location filename="../src/simplewallet/simplewallet.cpp" line="3312"/>
+        <source>--restore-from-seed uses --generate-new-wallet, not --wallet-file</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1761,8 +1755,8 @@ If the &quot;tag_description&quot; argument is specified, the tag &lt;tag_name&g
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/simplewallet/simplewallet.cpp" line="1743"/>
-        <source>check_spend_proof &lt;txid&gt; &lt;signature_file&gt; [&lt;message&gt;]</source>
+        <location filename="../src/simplewallet/simplewallet.cpp" line="3304"/>
+        <source>can&apos;t specify both --restore-from-seed or --restore-multisig-wallet and --non-deterministic</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1828,8 +1822,15 @@ Otherwise, you prove the reserve of the smallest possible amount above &lt;amoun
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/simplewallet/simplewallet.cpp" line="1772"/>
-        <source>get_tx_note &lt;txid&gt;</source>
+        <location filename="../src/simplewallet/simplewallet.cpp" line="4036"/>
+        <source>Your wallet has been generated!
+To start synchronizing with the daemon, use the &quot;refresh&quot; command.
+Use the &quot;help&quot; command to see the list of available commands.
+Use &quot;help &lt;command&gt;&quot; to see a command&apos;s documentation.
+Always use the &quot;exit&quot; command when closing monero-wallet-cli to save
+your current session&apos;s state. Otherwise, you might need to synchronize
+your wallet again (your wallet keys are NOT at risk in any case).
+</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
