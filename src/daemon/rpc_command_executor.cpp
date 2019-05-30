@@ -337,6 +337,7 @@ bool t_rpc_command_executor::show_difficulty() {
   tools::success_msg_writer() <<   "BH: " << res.height
                               << ", TH: " << res.top_block_hash
                               << ", DIFF: " << res.difficulty
+                              << ", CUM_DIFF: " << res.cumulative_difficulty
                               << ", HR: " << res.difficulty / res.target << " H/s";
 
   return true;
