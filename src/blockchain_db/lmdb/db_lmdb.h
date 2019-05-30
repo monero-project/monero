@@ -218,6 +218,10 @@ public:
 
   virtual uint64_t get_block_already_generated_coins(const uint64_t& height) const;
 
+  virtual uint64_t get_block_long_term_weight(const uint64_t& height) const;
+
+  virtual std::vector<uint64_t> get_long_term_block_weights(uint64_t start_height, size_t count) const;
+
   virtual crypto::hash get_block_hash_from_height(const uint64_t& height) const;
 
   virtual std::vector<block> get_blocks_range(const uint64_t& h1, const uint64_t& h2) const;
@@ -279,6 +283,7 @@ public:
 
   virtual uint64_t add_block( const block& blk
                             , size_t block_weight
+                            , uint64_t long_term_block_weight
                             , const difficulty_type& cumulative_difficulty
                             , const uint64_t& coins_generated
                             , const std::vector<transaction>& txs
@@ -323,6 +328,7 @@ private:
 
   virtual void add_block( const block& blk
                 , size_t block_weight
+                , uint64_t long_term_block_weight
                 , const difficulty_type& cumulative_difficulty
                 , const uint64_t& coins_generated
                 , uint64_t num_rct_outs
@@ -386,6 +392,8 @@ private:
 
   virtual uint64_t get_database_size() const;
 
+  std::vector<uint64_t> get_block_info_64bit_fields(uint64_t start_height, size_t count, off_t offset) const;
+  
   // fix up anything that may be wrong due to past bugs
   virtual void fixup();
 
@@ -400,6 +408,9 @@ private:
 
   // migrate from DB version 2 to 3
   void migrate_2_3();
+
+  // migrate from DB version 3 to 4
+  void migrate_3_4();
 
   void cleanup_batch();
   virtual void set_service_node_data(const std::string& data);

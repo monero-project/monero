@@ -5660,7 +5660,7 @@ bool simple_wallet::stake_main(
 		fail_msg_writer() << tr("Cannot stake from a subaddress");
 		return false;
 	}
-	
+
 
  uint64_t staking_requirement_lock_blocks = (m_wallet->nettype() == cryptonote::TESTNET ? STAKING_REQUIREMENT_LOCK_BLOCKS_TESTNET : STAKING_REQUIREMENT_LOCK_BLOCKS);
  uint64_t locked_blocks = staking_requirement_lock_blocks + STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS;
@@ -6387,7 +6387,7 @@ bool simple_wallet::sweep_main(uint64_t below, bool locked, const std::vector<st
 
   if (info.is_subaddress)
   {
-	  fail_msg_writer() << tr("Service nodes doesn't support rewards to subaddresses, cannot stake for address: ")
+	  fail_msg_writer() << tr("Service nodes do not support rewards to subaddresses, cannot stake for address: ")
 		  << local_args[1]
 		  << tr("Please use index=[...] if you want to stake funds from particular subaddresses.");
 	  return true;

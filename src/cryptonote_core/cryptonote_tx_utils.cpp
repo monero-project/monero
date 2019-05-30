@@ -152,7 +152,12 @@ namespace cryptonote
 	  tx.extra.clear();
 	  tx.output_unlock_times.clear();
 	  tx.is_deregister = false;
-	  tx.version = (hard_fork_version >= 5) ? transaction::version_3_per_output_unlock_times : transaction::version_2;
+  if(hard_fork_version >= 5)
+	   tx.version =  3;
+    if(hard_fork_version < 4)
+      tx.version = 2;
+    if(hard_fork_version < 3)
+      tx.version = 1;
 
 	  const network_type                                             nettype = miner_tx_context.nettype;
 	  const crypto::public_key                                       &service_node_key = miner_tx_context.snode_winner_key;
@@ -317,10 +322,6 @@ namespace cryptonote
       return change_addr->addr.m_view_public_key;
     return addr.m_view_public_key;
   }
-
-
-
-
   //---------------------------------------------------------------
   bool construct_tx_with_tx_key(const account_keys& sender_account_keys, const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses, std::vector<tx_source_entry>& sources, std::vector<tx_destination_entry>& destinations, const boost::optional<cryptonote::tx_destination_entry>& change_addr, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time, const crypto::secret_key &tx_key, const std::vector<crypto::secret_key> &additional_tx_keys, bool rct, rct::RangeProofType range_proof_type, rct::multisig_out *msout, bool per_output_unlock, bool shuffle_outs)
   {
