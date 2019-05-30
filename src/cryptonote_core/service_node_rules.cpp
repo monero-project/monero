@@ -13,12 +13,12 @@ namespace service_nodes {
 		if (m_nettype != cryptonote::MAINNET)
 			return COIN * 100;
 
-		uint64_t hardfork_height = m_nettype == cryptonote::MAINNET ? 101250 : 581 /* stagenet */;
+		uint64_t hardfork_height = m_nettype == cryptonote::MAINNET ? 106750 : 581 /* stagenet */;
 		if (height < hardfork_height) height = hardfork_height;
 
 		uint64_t height_adjusted = height - hardfork_height;
 		uint64_t base = 0, variable = 0;
-		if (height >= 1752000)
+		if (height >= 506750)
 		{
 			base = 15000 * COIN;
 			variable = (25007.0 * COIN) / triton::exp2(height_adjusted / 129600.0);
