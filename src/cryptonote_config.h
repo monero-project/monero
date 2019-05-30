@@ -52,7 +52,7 @@
 
 
 #define STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS          20
-#define STAKING_REQUIREMENT_LOCK_BLOCKS                 (30*24*30)
+#define STAKING_REQUIREMENT_LOCK_BLOCKS                 (20160)
 #define STAKING_REQUIREMENT_LOCK_BLOCKS_TESTNET         (30*24*2)
 #define STAKING_RELOCK_WINDOW_BLOCKS                    (30*6)
 #define STAKING_PORTIONS                                UINT64_C(0xfffffffffffffffc)
