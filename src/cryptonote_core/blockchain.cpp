@@ -4393,65 +4393,48 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
   bool blocks_exist = false;
   tools::threadpool& tpool = tools::threadpool::getInstance();
   unsigned threads = tpool.get_max_concurrency();
-  blocks.resize(blocks_entry.size());
+
+  // limit threads, default limit = 4
+  if(threads > m_max_prepare_blocks_threads)
+    threads = m_max_prepare_blocks_threads;
+
+  blocks.reserve(blocks_entry.size());
 
   if (1)
   {
-    // limit threads, default limit = 4
-    if(threads > m_max_prepare_blocks_threads)
-      threads = m_max_prepare_blocks_threads;
-
-    unsigned int batches = blocks_entry.size() / threads;
-    unsigned int extra = blocks_entry.size() % threads;
-    MDEBUG("block_batches: " << batches);
-    std::vector<std::unordered_map<crypto::hash, crypto::hash>> maps(threads);
-    auto it = blocks_entry.begin();
-    unsigned blockidx = 0;
-
     const crypto::hash tophash = m_db->top_block_hash();
-    for (unsigned i = 0; i < threads; i++)
+    for (auto it = blocks_entry.begin(); it != blocks_entry.end(); it++)
     {
-      for (unsigned int j = 0; j < batches; j++, ++blockidx)
-      {
-        block &block = blocks[blockidx];
-        crypto::hash block_hash;
-
-        if (!parse_and_validate_block_from_blob(it->block, block, block_hash))
-          return false;
-
-        // check first block and skip all blocks if its not chained properly
-        if (blockidx == 0)
-        {
-          if (block.prev_id != tophash)
-          {
-            MDEBUG("Skipping prepare blocks. New blocks don't belong to chain.");
-            blocks.clear();
-            return true;
-          }
-        }
-        if (have_block(block_hash))
-          blocks_exist = true;
-
-        std::advance(it, 1);
-      }
-    }
-
-    for (unsigned i = 0; i < extra && !blocks_exist; i++, blockidx++)
-    {
-      block &block = blocks[blockidx];
+      block block = {};
       crypto::hash block_hash;
 
       if (!parse_and_validate_block_from_blob(it->block, block, block_hash))
         return false;
 
+      // check first block and skip all blocks if its not chained properly
+      if (it == blocks_entry.begin())
+      {
+        if (block.prev_id != tophash)
+        {
+          MDEBUG("Skipping prepare blocks. New blocks don't belong to chain.");
+          blocks.clear();
+          return true;
+        }
+      }
+
       if (have_block(block_hash))
         blocks_exist = true;
 
-      std::advance(it, 1);
+      blocks.push_back(std::move(block));
     }
 
     if (!blocks_exist)
     {
+      std::vector<std::unordered_map<crypto::hash, crypto::hash>> maps(threads);
+      unsigned int batches = blocks_entry.size() / threads;
+      unsigned int extra = blocks_entry.size() % threads;
+      MDEBUG("block_batches: " << batches);
+
       m_blocks_longhash_table.clear();
       uint64_t thread_height = height;
       tools::threadpool::waiter waiter;
