@@ -80,7 +80,7 @@ LMDB flags (more than one may be specified):
 
 ## Examples:
 
-```
+```bash
 $ loki-blockchain-import --database lmdb#fastest
 
 $ loki-blockchain-import --database lmdb#nosync

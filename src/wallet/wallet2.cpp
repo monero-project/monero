@@ -335,7 +335,7 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
   {
     std::vector<std::vector<uint8_t>> ssl_allowed_fingerprints{ daemon_ssl_allowed_fingerprints.size() };
     std::transform(daemon_ssl_allowed_fingerprints.begin(), daemon_ssl_allowed_fingerprints.end(), ssl_allowed_fingerprints.begin(), epee::from_hex::vector);
-    for (const auto &fpr: daemon_ssl_allowed_fingerprints)
+    for (const auto &fpr: ssl_allowed_fingerprints)
     {
       THROW_WALLET_EXCEPTION_IF(fpr.size() != SSL_FINGERPRINT_SIZE, tools::error::wallet_internal_error,
           "SHA-256 fingerprint should be " BOOST_PP_STRINGIZE(SSL_FINGERPRINT_SIZE) " bytes long.");
@@ -991,7 +991,7 @@ uint64_t gamma_picker::pick()
   const uint64_t n_rct = rct_offsets[index] - first_rct;
   if (n_rct == 0)
     return std::numeric_limits<uint64_t>::max(); // bad pick
-  MDEBUG("Picking 1/" << n_rct << " in block " << index);
+  MTRACE("Picking 1/" << n_rct << " in block " << index);
   return first_rct + crypto::rand_idx(n_rct);
 };
 
@@ -8535,7 +8535,7 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
         }
       }
 
-      if (num_outs <= requested_outputs_count && !existing_ring_found)
+      if (num_outs <= requested_outputs_count)
       {
         for (uint64_t i = 0; i < num_outs; i++)
           req.outputs.push_back({amount, i});
@@ -8561,6 +8561,8 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
         // while we still need more mixins
         uint64_t num_usable_outs = num_outs;
         bool allow_blackballed_or_blacklisted = false;
+        MDEBUG("Starting gamma picking with " << num_outs << ", num_usable_outs " << num_usable_outs
+            << ", requested_outputs_count " << requested_outputs_count);
         while (num_found < requested_outputs_count)
         {
           // if we've gone through every possible output, we've gotten all we can
@@ -8664,6 +8666,7 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
           picks[type].insert(i);
           req.outputs.push_back({amount, i});
           ++num_found;
+          MDEBUG("picked " << i << ", " << num_found << " now picked");
         }
 
         for (const auto &pick: picks)

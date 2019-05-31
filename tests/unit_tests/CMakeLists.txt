@@ -71,6 +71,7 @@ set(unit_tests_sources
   parse_amount.cpp
   pruning.cpp
   random.cpp
+  rolling_median.cpp
   serialization.cpp
   service_nodes.cpp
   service_nodes_swarm.cpp

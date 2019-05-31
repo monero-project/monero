@@ -102,7 +102,7 @@ namespace nodetool
     size_t get_white_peers_count(){CRITICAL_REGION_LOCAL(m_peerlist_lock); return m_peers_white.size();}
     size_t get_gray_peers_count(){CRITICAL_REGION_LOCAL(m_peerlist_lock); return m_peers_gray.size();}
     bool merge_peerlist(const std::vector<peerlist_entry>& outer_bs);
-    bool get_peerlist_head(std::vector<peerlist_entry>& bs_head, uint32_t depth = P2P_DEFAULT_PEERS_IN_HANDSHAKE);
+    bool get_peerlist_head(std::vector<peerlist_entry>& bs_head, bool anonymize, uint32_t depth = P2P_DEFAULT_PEERS_IN_HANDSHAKE);
     void get_peerlist(std::vector<peerlist_entry>& pl_gray, std::vector<peerlist_entry>& pl_white);
     void get_peerlist(peerlist_types& peers);
     bool get_white_peer_by_index(peerlist_entry& p, size_t i);
@@ -263,23 +263,40 @@ namespace nodetool
   }
   //--------------------------------------------------------------------------------------------------
   inline 
-  bool peerlist_manager::get_peerlist_head(std::vector<peerlist_entry>& bs_head, uint32_t depth)
+  bool peerlist_manager::get_peerlist_head(std::vector<peerlist_entry>& bs_head, bool anonymize, uint32_t depth)
   {
-    
     CRITICAL_REGION_LOCAL(m_peerlist_lock);
     peers_indexed::index<by_time>::type& by_time_index=m_peers_white.get<by_time>();
     uint32_t cnt = 0;
-    bs_head.reserve(depth);
+
+    // picks a random set of peers within the first 120%, rather than a set of the first 100%.
+    // The intent is that if someone asks twice, they can't easily tell:
+    // - this address was not in the first list, but is in the second, so the only way this can be
+    // is if its last_seen was recently reset, so this means the target node recently had a new
+    // connection to that address
+    // - this address was in the first list, and not in the second, which means either the address
+    // was moved to the gray list (if it's not accessibe, which the attacker can check if
+    // the address accepts incoming connections) or it was the oldest to still fit in the 250 items,
+    // so its last_seen is old.
+    const uint32_t pick_depth = anonymize ? depth + depth / 5 : depth;
+    bs_head.reserve(pick_depth);
     for(const peers_indexed::value_type& vl: boost::adaptors::reverse(by_time_index))
     {
-      if(!vl.last_seen)
-        continue;
-
-      if(cnt++ >= depth)
+      if(cnt++ >= pick_depth)
         break;
 
       bs_head.push_back(vl);
     }
+
+    if (anonymize)
+    {
+      std::random_shuffle(bs_head.begin(), bs_head.end());
+      if (bs_head.size() > depth)
+        bs_head.resize(depth);
+      for (auto &e: bs_head)
+        e.last_seen = 0;
+    }
+
     return true;
   }
   //--------------------------------------------------------------------------------------------------
