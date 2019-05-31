@@ -5683,8 +5683,30 @@ void wallet2::get_payments(const crypto::hash& payment_id, std::list<wallet2::pa
   });
 }
 //----------------------------------------------------------------------------------------------------
+void wallet2::get_payments_min_height_inclusive(
+                std::list<std::pair<crypto::hash,wallet2::payment_details>>& payments,
+                payment_container& actual_payments,
+                uint64_t min_height,
+                uint64_t max_height,
+                const boost::optional<uint32_t>& subaddr_account,
+                const std::set<uint32_t>& subaddr_indices) const
+{
+  auto range = std::make_pair(actual_payments.begin(), actual_payments.end());
+  std::for_each(range.first, range.second, [&payments, &min_height, &max_height, &subaddr_account, &subaddr_indices](const payment_container::value_type& x) {
+    if (min_height <= x.second.m_block_height && max_height >= x.second.m_block_height &&
+      (!subaddr_account || *subaddr_account == x.second.m_subaddr_index.major) &&
+      (subaddr_indices.empty() || subaddr_indices.count(x.second.m_subaddr_index.minor) == 1))
+    {
+      payments.push_back(x);
+    }
+  });
+}
+//----------------------------------------------------------------------------------------------------
 void wallet2::get_payments(std::list<std::pair<crypto::hash,wallet2::payment_details>>& payments, uint64_t min_height, uint64_t max_height, const boost::optional<uint32_t>& subaddr_account, const std::set<uint32_t>& subaddr_indices) const
 {
+  //get_payments_min_height_inclusive(payments, m_payments, ++min_height, max_height, subaddr_account, subaddr_indices);
+  // TODO Remove everything below and instead call the function above, with min_height incremented in order to reflect the original (erroneous) behaviour
+
   auto range = std::make_pair(m_payments.begin(), m_payments.end());
   std::for_each(range.first, range.second, [&payments, &min_height, &max_height, &subaddr_account, &subaddr_indices](const payment_container::value_type& x) {
     if (min_height < x.second.m_block_height && max_height >= x.second.m_block_height &&
