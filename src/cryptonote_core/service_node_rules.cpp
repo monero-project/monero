@@ -1,6 +1,6 @@
 #include "cryptonote_config.h"
 #include "common/exp2.h"
-#include "common/int-util.h"
+#include "int-util.h"
 #include <vector>
 
 #include "service_node_rules.h"

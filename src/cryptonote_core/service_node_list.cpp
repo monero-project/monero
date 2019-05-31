@@ -34,7 +34,7 @@
 #include "wallet/wallet2.h"
 #include "cryptonote_tx_utils.h"
 #include "cryptonote_basic/tx_extra.h"
-#include "common/int-util.h"
+#include "int-util.h"
 #include "common/scoped_message_writer.h"
 #include "common/i18n.h"
 #include "quorum_cop.h"

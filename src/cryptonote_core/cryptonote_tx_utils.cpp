@@ -43,7 +43,7 @@ using namespace epee;
 #include "crypto/hash.h"
 #include "ringct/rctSigs.h"
 #include "multisig/multisig.h"
-#include "common/int-util.h"
+#include "int-util.h"
 #include "cryptonote_core/service_node_list.h"
 
 using namespace crypto;

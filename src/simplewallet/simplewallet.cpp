@@ -70,7 +70,7 @@
 #include "wallet/wallet_args.h"
 #include "version.h"
 #include <stdexcept>
-#include "common/int-util.h"
+#include "int-util.h"
 #include "common/threadpool.h"
 #include "daemonizer/posix_fork.h"
 #ifndef WIN32
