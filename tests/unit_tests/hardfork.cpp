@@ -135,7 +135,7 @@ public:
   virtual output_data_t get_output_key(const uint64_t& amount, const uint64_t& index) const { return output_data_t(); };
   virtual void get_output_key(const uint64_t &amount, const std::vector<uint64_t> &offsets, std::vector<output_data_t> &outputs, bool allow_partial = false) const {};
   virtual void add_block( const block& blk
-                        , size_t block_weight
+                        , uint64_t block_weight
                         , const difficulty_type& cumulative_difficulty
                         , const uint64_t& coins_generated
                         , uint64_t num_rct_outs

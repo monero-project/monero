@@ -205,8 +205,8 @@ void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const transacti
 }
 
 uint64_t BlockchainDB::add_block( const block& blk
+                                , uint64_t block_weight
                                 , uint64_t long_term_block_weight
-                                , size_t block_weight
                                 , const difficulty_type& cumulative_difficulty
                                 , const uint64_t& coins_generated
                                 , const std::vector<transaction>& txs

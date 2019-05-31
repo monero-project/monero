@@ -282,7 +282,7 @@ public:
   virtual bool for_all_outputs(uint64_t amount, const std::function<bool(uint64_t height)> &f) const;
 
   virtual uint64_t add_block( const block& blk
-                            , size_t block_weight
+                            , uint64_t block_weight
                             , uint64_t long_term_block_weight
                             , const difficulty_type& cumulative_difficulty
                             , const uint64_t& coins_generated
@@ -327,7 +327,7 @@ private:
   uint64_t get_estimated_batch_size(uint64_t batch_num_blocks, uint64_t batch_bytes) const;
 
   virtual void add_block( const block& blk
-                , size_t block_weight
+                , uint64_t block_weight
                 , uint64_t long_term_block_weight
                 , const difficulty_type& cumulative_difficulty
                 , const uint64_t& coins_generated
@@ -393,7 +393,7 @@ private:
   virtual uint64_t get_database_size() const;
 
   std::vector<uint64_t> get_block_info_64bit_fields(uint64_t start_height, size_t count, off_t offset) const;
-  
+
   // fix up anything that may be wrong due to past bugs
   virtual void fixup();
 

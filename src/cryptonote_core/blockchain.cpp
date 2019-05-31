@@ -471,7 +471,7 @@ bool Blockchain::init(BlockchainDB* db, const network_type nettype, bool offline
 
   if (!update_next_cumulative_weight_limit())
     return false;
- 
+
   return true;
 }
 //------------------------------------------------------------------
@@ -1357,7 +1357,7 @@ bool Blockchain::create_block_template(block& b, const account_public_address& m
   //make blocks coin-base tx looks close to real coinbase tx to get truthful blob weight
   uint8_t hf_version = m_hardfork->get_current_version();
 
- 
+
   triton_miner_tx_context miner_tx_context(m_nettype,
 	  m_service_node_list.select_winner(b.prev_id),
 	  m_service_node_list.get_winner_addresses_and_portions(b.prev_id));
@@ -3378,7 +3378,7 @@ uint64_t Blockchain::get_dynamic_base_fee_estimate(uint64_t grace_blocks) const
     grace_blocks = CRYPTONOTE_REWARD_BLOCKS_WINDOW - 1;
 
   const uint64_t min_block_weight = get_min_block_weight(version);
-  std::vector<size_t> weights;
+  std::vector<uint64_t> weights;
   get_last_n_blocks_weights(weights, CRYPTONOTE_REWARD_BLOCKS_WINDOW - grace_blocks);
   weights.reserve(grace_blocks);
   for (size_t i = 0; i < grace_blocks; ++i)
