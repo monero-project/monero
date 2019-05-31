@@ -41,7 +41,6 @@
 #include "blockchain.h"
 #include "blockchain_db/blockchain_db.h"
 #include "cryptonote_basic/cryptonote_boost_serialization.h"
-#include "cryptonote_core/service_node_deregister.h"
 #include "cryptonote_config.h"
 #include "cryptonote_basic/miner.h"
 #include "misc_language.h"
@@ -56,7 +55,7 @@
 #include "ringct/rctSigs.h"
 #include "common/perf_timer.h"
 #include "common/notify.h"
-#include "service_node_deregister.h"
+#include "service_node_voting.h"
 #include "service_node_list.h"
 #include "common/varint.h"
 #include "common/pruning.h"
@@ -124,7 +123,7 @@ static const hard_fork_record stagenet_hard_forks[] =
 };
 
 //------------------------------------------------------------------
-Blockchain::Blockchain(tx_memory_pool& tx_pool, service_nodes::service_node_list& service_node_list, service_nodes::deregister_vote_pool& deregister_vote_pool):
+Blockchain::Blockchain(tx_memory_pool& tx_pool, service_nodes::service_node_list& service_node_list):
   m_db(), m_tx_pool(tx_pool), m_hardfork(NULL), m_timestamps_and_difficulties_height(0), m_current_block_cumul_weight_limit(0), m_current_block_cumul_weight_median(0),
   m_max_prepare_blocks_threads(4), m_db_sync_on_blocks(true), m_db_sync_threshold(1), m_db_sync_mode(db_async), m_db_default_sync(false), m_fast_sync(true), m_show_time_stats(false), m_sync_counter(0), m_bytes_to_sync(0), m_cancel(false),
   m_long_term_block_weights_window(CRYPTONOTE_LONG_TERM_BLOCK_WEIGHT_WINDOW_SIZE),
@@ -133,10 +132,8 @@ Blockchain::Blockchain(tx_memory_pool& tx_pool, service_nodes::service_node_list
   m_difficulty_for_next_block_top_hash(crypto::null_hash),
   m_difficulty_for_next_block(1),
   m_service_node_list(service_node_list),
-  m_deregister_vote_pool(deregister_vote_pool),
   m_btc_valid(false)
 {
-  m_checkpoint_pool.reserve(service_nodes::QUORUM_SIZE * 4 /*blocks*/);
   LOG_PRINT_L3("Blockchain::" << __func__);
 }
 //------------------------------------------------------------------
@@ -3083,14 +3080,14 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
         return false;
       }
 
-      const std::shared_ptr<const service_nodes::quorum_uptime_proof> uptime_quorum = m_service_node_list.get_uptime_quorum(deregister.block_height);
-      if (!uptime_quorum)
+      const std::shared_ptr<const service_nodes::testing_quorum> quorum = m_service_node_list.get_testing_quorum(service_nodes::quorum_type::deregister, deregister.block_height);
+      if (!quorum)
       {
         MERROR_VER("Deregister TX could not get quorum for height: " << deregister.block_height);
         return false;
       }
 
-      if (!service_nodes::deregister_vote::verify_deregister(nettype(), deregister, tvc.m_vote_ctx, *uptime_quorum))
+      if (!service_nodes::verify_tx_deregister(deregister, tvc.m_vote_ctx, *quorum))
       {
         tvc.m_verifivation_failed = true;
         MERROR_VER("tx " << get_transaction_hash(tx) << ": deregister tx could not be completely verified reason: " << print_vote_verification_context(tvc.m_vote_ctx));
@@ -3112,11 +3109,11 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
         }
 
         uint64_t delta_height = curr_height - deregister.block_height;
-        if (delta_height >= service_nodes::deregister_vote::DEREGISTER_LIFETIME_BY_HEIGHT)
+        if (delta_height >= service_nodes::DEREGISTER_TX_LIFETIME_IN_BLOCKS)
         {
           LOG_PRINT_L1("Received deregister tx for height: " << deregister.block_height
                        << " and service node: "     << deregister.service_node_index
-                       << ", is older than: "       << service_nodes::deregister_vote::DEREGISTER_LIFETIME_BY_HEIGHT
+                       << ", is older than: "       << service_nodes::DEREGISTER_TX_LIFETIME_IN_BLOCKS
                        << " blocks and has been rejected. The current height is: " << curr_height);
           tvc.m_vote_ctx.m_invalid_block_height = true;
           tvc.m_verifivation_failed             = true;
@@ -3125,7 +3122,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
       }
 
       const uint64_t height            = deregister.block_height;
-      const size_t num_blocks_to_check = service_nodes::deregister_vote::DEREGISTER_LIFETIME_BY_HEIGHT;
+      const size_t num_blocks_to_check = service_nodes::DEREGISTER_TX_LIFETIME_IN_BLOCKS;
 
       std::vector<std::pair<cryptonote::blobdata,block>> blocks;
       std::vector<cryptonote::blobdata> txs;
@@ -3153,15 +3150,15 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
           continue;
         }
 
-        const std::shared_ptr<const service_nodes::quorum_uptime_proof> existing_uptime_quorum = m_service_node_list.get_uptime_quorum(existing_deregister.block_height);
-        if (!existing_uptime_quorum)
+        const std::shared_ptr<const service_nodes::testing_quorum> existing_quorum = m_service_node_list.get_testing_quorum(service_nodes::quorum_type::deregister, existing_deregister.block_height);
+        if (!existing_quorum)
         {
           MERROR_VER("could not get uptime quorum for recent deregister tx");
           continue;
         }
 
-        if (existing_uptime_quorum->nodes_to_test[existing_deregister.service_node_index] ==
-            uptime_quorum->nodes_to_test[deregister.service_node_index])
+        if (existing_quorum->workers[existing_deregister.service_node_index] ==
+            quorum->workers[deregister.service_node_index])
         {
           MERROR_VER("Already seen this deregister tx (aka double spend)");
           tvc.m_double_spend = true;
@@ -3923,15 +3920,6 @@ leave:
   get_difficulty_for_next_block(); // just to cache it
   invalidate_block_template_cache();
 
-  // New height is the height of the block we just mined. We want (new_height
-  // + 1) because our age checks for deregister votes is now (age >=
-  // DEREGISTER_VOTE_LIFETIME_BY_HEIGHT) where age is derived from
-  // get_current_blockchain_height() which gives you the height that you are
-  // currently mining for, i.e. (new_height + 1). Otherwise peers will silently
-  // drop connection from each other when they go around P2Ping votes.
-  m_deregister_vote_pool.remove_expired_votes(new_height + 1);
-  m_deregister_vote_pool.remove_used_votes(only_txs);
-
   std::shared_ptr<tools::Notify> block_notify = m_block_notify;
   if (block_notify)
     block_notify->notify("%s", epee::string_tools::pod_to_hex(id).c_str(), NULL);
@@ -4164,19 +4152,10 @@ bool Blockchain::update_checkpoints(const std::string& file_path)
   return result;
 }
 //------------------------------------------------------------------
-bool Blockchain::add_checkpoint_vote(service_nodes::checkpoint_vote const &vote)
+bool Blockchain::update_checkpoint(cryptonote::checkpoint_t const &checkpoint)
 {
-  crypto::hash const canonical_block_hash = get_block_id_by_height(vote.block_height);
-  if (vote.block_hash != canonical_block_hash)
-  {
-    // NOTE: Vote is not for a block on the canonical chain, check if it's part
-    // of an alternative chain
-    if (m_alternative_chains.find(vote.block_hash) == m_alternative_chains.end())
-      return false;
-  }
-
-  m_checkpoints.add_checkpoint_vote(vote);
-  return true;
+  bool result = m_checkpoints.update_checkpoint(checkpoint);
+  return result;
 }
 //------------------------------------------------------------------
 void Blockchain::block_longhash_worker(uint64_t height, const epee::span<const block> &blocks, std::unordered_map<crypto::hash, crypto::hash> &map) const

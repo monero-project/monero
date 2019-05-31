@@ -32,7 +32,7 @@ set(cryptonote_core_sources
   cryptonote_core.cpp
   service_node_rules.cpp
   service_node_list.cpp
-  service_node_deregister.cpp
+  service_node_voting.cpp
   service_node_quorum_cop.cpp
   service_node_swarm.cpp
   tx_pool.cpp
@@ -49,7 +49,7 @@ set(cryptonote_core_private_headers
   service_node_quorum_cop.h
   service_node_swarm.h
   cryptonote_core.h
-  service_node_deregister.h
+  service_node_voting.h
   tx_pool.h
   tx_sanity_check.h
   cryptonote_tx_utils.h)

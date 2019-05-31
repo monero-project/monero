@@ -34,12 +34,9 @@
 #include "p2p/net_node.inl"
 #include "cryptonote_protocol/cryptonote_protocol_handler.h"
 #include "cryptonote_protocol/cryptonote_protocol_handler.inl"
+#include "cryptonote_core/blockchain.h"
 
 #define MAKE_IPV4_ADDRESS(a,b,c,d) epee::net_utils::ipv4_network_address{MAKE_IP(a,b,c,d),0}
-
-namespace cryptonote {
-  class blockchain_storage;
-}
 
 class test_core
 {
@@ -63,7 +60,7 @@ public:
   bool on_idle(){return true;}
   bool find_blockchain_supplement(const std::list<crypto::hash>& qblock_ids, cryptonote::NOTIFY_RESPONSE_CHAIN_ENTRY::request& resp){return true;}
   bool handle_get_objects(cryptonote::NOTIFY_REQUEST_GET_OBJECTS::request& arg, cryptonote::NOTIFY_RESPONSE_GET_OBJECTS::request& rsp, cryptonote::cryptonote_connection_context& context){return true;}
-  cryptonote::blockchain_storage &get_blockchain_storage() { throw std::runtime_error("Called invalid member function: please never call get_blockchain_storage on the TESTING class test_core."); }
+  cryptonote::Blockchain &get_blockchain_storage() { throw std::runtime_error("Called invalid member function: please never call get_blockchain_storage on the TESTING class test_core."); }
   bool get_test_drop_download() const {return true;}
   bool get_test_drop_download_height() const {return true;}
   bool prepare_handle_incoming_blocks(const std::vector<cryptonote::block_complete_entry>  &blocks_entry, std::vector<cryptonote::block> &blocks) { return true; }
@@ -90,8 +87,7 @@ public:
   void stop() {}
 
   // TODO(loki): Write tests
-  bool add_deregister_vote(const service_nodes::deregister_vote& vote, cryptonote::vote_verification_context &vvc) { return true; }
-  bool add_checkpoint_vote(const service_nodes::checkpoint_vote& vote, cryptonote::vote_verification_context &vvc) { return true; }
+  bool add_service_node_vote(const service_nodes::quorum_vote_t& vote, cryptonote::vote_verification_context &vvc) { return false; }
 };
 
 typedef nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<test_core>> Server;

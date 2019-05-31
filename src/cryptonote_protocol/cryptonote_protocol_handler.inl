@@ -798,23 +798,23 @@ namespace cryptonote
   }
   //------------------------------------------------------------------------------------------------------------------------  
   template<class t_core>
-  int t_cryptonote_protocol_handler<t_core>::handle_notify_new_checkpoint_vote(int command, NOTIFY_NEW_CHECKPOINT_VOTE::request& arg, cryptonote_connection_context& context)
+  int t_cryptonote_protocol_handler<t_core>::handle_notify_new_service_node_vote(int command, NOTIFY_NEW_SERVICE_NODE_VOTE::request& arg, cryptonote_connection_context& context)
   {
-    MLOG_P2P_MESSAGE("Received NOTIFY_NEW_CHECKPOINT_VOTE (" << arg.votes.size() << " txes)");
+    MLOG_P2P_MESSAGE("Received NOTIFY_NEW_SERVICE_NODE_VOTE (" << arg.votes.size() << " txes)");
 
     if(context.m_state != cryptonote_connection_context::state_normal)
       return 1;
 
     if(!is_synchronized())
     {
-      LOG_DEBUG_CC(context, "Received new checkpoint vote while syncing, ignored");
+      LOG_DEBUG_CC(context, "Received new service node vote while syncing, ignored");
       return 1;
     }
 
     for(auto it = arg.votes.begin(); it != arg.votes.end();)
     {
       cryptonote::vote_verification_context vvc = {};
-      m_core.add_checkpoint_vote(*it, vvc);
+      m_core.add_service_node_vote(*it, vvc);
 
       if (vvc.m_verification_failed)
       {
@@ -834,9 +834,7 @@ namespace cryptonote
     }
 
     if (arg.votes.size())
-    {
-      relay_checkpoint_votes(arg, context);
-    }
+      relay_service_node_votes(arg, context);
 
     return 1;
   }
@@ -921,6 +919,11 @@ namespace cryptonote
   int t_cryptonote_protocol_handler<t_core>::handle_notify_new_deregister_vote(int command, NOTIFY_NEW_DEREGISTER_VOTE::request& arg, cryptonote_connection_context& context)
   {
     MLOG_P2P_MESSAGE("Received NOTIFY_NEW_DEREGISTER_VOTE (" << arg.votes.size() << " txes)");
+    if (m_core.get_blockchain_storage().get_current_hard_fork_version() >= cryptonote::network_version_12_checkpointing)
+    {
+      LOG_DEBUG_CC(context, "Received new deregister vote in HF12, reject. We have a new style of voting");
+      return 1;
+    }
 
     if(context.m_state != cryptonote_connection_context::state_normal)
       return 1;
@@ -934,7 +937,9 @@ namespace cryptonote
     for(auto it = arg.votes.begin(); it != arg.votes.end();)
     {
       cryptonote::vote_verification_context vvc = {};
-      m_core.add_deregister_vote(*it, vvc);
+      service_nodes::legacy_deregister_vote const &legacy_vote = (*it);
+      service_nodes::quorum_vote_t const vote = service_nodes::convert_legacy_deregister_vote(legacy_vote);
+      m_core.add_service_node_vote(vote, vvc);
 
       if (vvc.m_verification_failed)
       {
@@ -2305,9 +2310,9 @@ skip:
   }
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core>
-  bool t_cryptonote_protocol_handler<t_core>::relay_checkpoint_votes(NOTIFY_NEW_CHECKPOINT_VOTE::request& arg, cryptonote_connection_context& exclude_context)
+  bool t_cryptonote_protocol_handler<t_core>::relay_service_node_votes(NOTIFY_NEW_SERVICE_NODE_VOTE::request& arg, cryptonote_connection_context& exclude_context)
   {
-    bool result = relay_on_public_network_generic<NOTIFY_NEW_CHECKPOINT_VOTE>(arg, exclude_context);
+    bool result = relay_on_public_network_generic<NOTIFY_NEW_SERVICE_NODE_VOTE>(arg, exclude_context);
     return result;
   }
   //------------------------------------------------------------------------------------------------------------------------

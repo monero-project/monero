@@ -3747,7 +3747,7 @@ void BlockchainLMDB::update_block_checkpoint(checkpoint_t const &checkpoint)
   header.block_hash            = checkpoint.block_hash;
   header.num_signatures        = checkpoint.signatures.size();
 
-  size_t const MAX_BYTES_REQUIRED   = sizeof(header) + (sizeof(*checkpoint.signatures.data()) * service_nodes::QUORUM_SIZE);
+  size_t const MAX_BYTES_REQUIRED   = sizeof(header) + (sizeof(*checkpoint.signatures.data()) * service_nodes::CHECKPOINT_QUORUM_SIZE);
   uint8_t buffer[MAX_BYTES_REQUIRED];
 
   size_t const bytes_for_signatures = sizeof(*checkpoint.signatures.data()) * header.num_signatures;

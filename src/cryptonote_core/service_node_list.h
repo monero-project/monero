@@ -28,12 +28,14 @@
 
 #pragma once
 
-#include "blockchain.h"
 #include <boost/variant.hpp>
 #include "serialization/serialization.h"
+#include "cryptonote_basic/cryptonote_basic_impl.h"
 #include "cryptonote_core/service_node_rules.h"
-#include "cryptonote_core/service_node_deregister.h"
+#include "cryptonote_core/service_node_voting.h"
 #include "cryptonote_core/service_node_quorum_cop.h"
+
+namespace cryptonote { struct Blockchain; struct BlockchainDB; }
 
 namespace service_nodes
 {
@@ -166,16 +168,15 @@ namespace service_nodes
   }
 
   class service_node_list
-    : public cryptonote::Blockchain::BlockAddedHook,
-      public cryptonote::Blockchain::BlockchainDetachedHook,
-      public cryptonote::Blockchain::InitHook,
-      public cryptonote::Blockchain::ValidateMinerTxHook
+    : public cryptonote::BlockAddedHook,
+      public cryptonote::BlockchainDetachedHook,
+      public cryptonote::InitHook,
+      public cryptonote::ValidateMinerTxHook
   {
   public:
     service_node_list(cryptonote::Blockchain& blockchain);
     void block_added(const cryptonote::block& block, const std::vector<cryptonote::transaction>& txs) override;
     void blockchain_detached(uint64_t height) override;
-    void register_hooks(service_nodes::quorum_cop &quorum_cop);
     void init() override;
     bool validate_miner_tx(const crypto::hash& prev_id, const cryptonote::transaction& miner_tx, uint64_t height, int hard_fork_version, cryptonote::block_reward_parts const &base_reward) const override;
     std::vector<std::pair<cryptonote::account_public_address, uint64_t>> get_winner_addresses_and_portions() const;
@@ -187,8 +188,7 @@ namespace service_nodes
     void update_swarms(uint64_t height);
 
     /// Note(maxim): this should not affect thread-safety as the returned object is const
-    const std::shared_ptr<const quorum_uptime_proof>  get_uptime_quorum       (uint64_t height) const;
-    const std::shared_ptr<const quorum_checkpointing> get_checkpointing_quorum(uint64_t height) const;
+    std::shared_ptr<const testing_quorum> get_testing_quorum(quorum_type type, uint64_t height) const;
 
     std::vector<service_node_pubkey_info> get_service_node_list_state(const std::vector<crypto::public_key> &service_node_pubkeys) const;
     const std::vector<key_image_blacklist_entry> &get_blacklisted_key_images() const { return m_transient_state.key_image_blacklist; }
@@ -289,17 +289,16 @@ namespace service_nodes
 
     struct quorum_for_serialization
     {
-      uint8_t version;
-      uint64_t height;
-      quorum_uptime_proof  uptime_quorum;
-      quorum_checkpointing checkpointing_quorum;
+      uint8_t        version;
+      uint64_t       height;
+      testing_quorum quorums[(size_t)quorum_type::count];
 
       BEGIN_SERIALIZE()
         FIELD(version)
         FIELD(height)
-        FIELD(uptime_quorum)
+        FIELD_N("deregister_quorum", quorums[(size_t)quorum_type::deregister])
         if (version >= service_node_info::version_3_checkpointing)
-          FIELD(checkpointing_quorum)
+          FIELD_N("checkpointing_quorum", quorums[(size_t)quorum_type::checkpointing])
       END_SERIALIZE()
     };
 
@@ -344,7 +343,6 @@ namespace service_nodes
 
     mutable boost::recursive_mutex m_sn_mutex;
     cryptonote::Blockchain&        m_blockchain;
-    bool                           m_hooks_registered;
     crypto::public_key const      *m_service_node_pubkey;
     cryptonote::BlockchainDB      *m_db;
 

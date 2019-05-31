@@ -369,7 +369,7 @@ bool test_deregister_safety_buffer::generate(std::vector<test_event_entry> &even
   /// register 21 random service nodes
   std::vector<cryptonote::transaction> reg_txs;
 
-  constexpr auto SERVICE_NODES_NEEDED = service_nodes::QUORUM_SIZE * 2 + 1;
+  constexpr auto SERVICE_NODES_NEEDED = service_nodes::DEREGISTER_QUORUM_SIZE * 2 + 1;
   static_assert(SN_KEYS_COUNT >= SERVICE_NODES_NEEDED, "not enough pre-computed service node keys");
 
   for (auto i = 0u; i < SERVICE_NODES_NEEDED; ++i)
@@ -589,7 +589,7 @@ bool deregister_too_old::generate(std::vector<test_event_entry>& events)
   const auto dereg_tx = gen.build_deregister(pk, false).build();
 
   /// create enough blocks to make deregistrations invalid (60 blocks)
-  gen.rewind_blocks_n(service_nodes::deregister_vote::DEREGISTER_LIFETIME_BY_HEIGHT);
+  gen.rewind_blocks_n(service_nodes::DEREGISTER_TX_LIFETIME_IN_BLOCKS);
 
   /// In the real world, this transaction should not make it into a block, but in this case we do try to add it (as in
   /// tests we must add specify transactions manually), which should exercise the same validation code and reject the
@@ -691,9 +691,9 @@ bool sn_test_rollback::test_registrations(cryptonote::core& c, size_t ev_index, 
     tx_extra_service_node_deregister deregistration;
     get_service_node_deregister_from_tx_extra(dereg_tx.extra, deregistration);
 
-    const auto uptime_quorum = c.get_uptime_quorum(deregistration.block_height);
+    const auto uptime_quorum = c.get_testing_quorum(service_nodes::quorum_type::deregister, deregistration.block_height);
     CHECK_TEST_CONDITION(uptime_quorum);
-    const auto pk_a = uptime_quorum->nodes_to_test.at(deregistration.service_node_index);
+    const auto pk_a = uptime_quorum->workers.at(deregistration.service_node_index);
 
     /// Check present
     const bool found_a = contains(sn_list, pk_a);

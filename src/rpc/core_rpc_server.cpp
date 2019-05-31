@@ -2479,18 +2479,18 @@ namespace cryptonote
     PERF_TIMER(on_get_quorum_state);
     bool r;
 
-    const auto uptime_quorum = m_core.get_uptime_quorum(req.height);
+    const auto uptime_quorum = m_core.get_testing_quorum(service_nodes::quorum_type::deregister, req.height);
     r = (uptime_quorum != nullptr);
     if (r)
     {
       res.status = CORE_RPC_STATUS_OK;
-      res.quorum_nodes.reserve (uptime_quorum->quorum_nodes.size());
-      res.nodes_to_test.reserve(uptime_quorum->nodes_to_test.size());
+      res.quorum_nodes.reserve (uptime_quorum->validators.size());
+      res.nodes_to_test.reserve(uptime_quorum->workers.size());
 
-      for (const auto &key : uptime_quorum->quorum_nodes)
+      for (const auto &key : uptime_quorum->validators)
         res.quorum_nodes.push_back(epee::string_tools::pod_to_hex(key));
 
-      for (const auto &key : uptime_quorum->nodes_to_test)
+      for (const auto &key : uptime_quorum->workers)
         res.nodes_to_test.push_back(epee::string_tools::pod_to_hex(key));
     }
     else
@@ -2525,7 +2525,7 @@ namespace cryptonote
     res.quorum_entries.reserve(height_end - height_begin + 1);
     for (auto h = height_begin; h <= height_end; ++h)
     {
-      const auto uptime_quorum = m_core.get_uptime_quorum(h);
+      const auto uptime_quorum = m_core.get_testing_quorum(service_nodes::quorum_type::deregister, h);
 
       if (!uptime_quorum) {
         failed_height = h;
@@ -2537,13 +2537,13 @@ namespace cryptonote
       auto &entry = res.quorum_entries.back();
 
       entry.height = h;
-      entry.quorum_nodes.reserve(uptime_quorum->quorum_nodes.size());
-      entry.nodes_to_test.reserve(uptime_quorum->nodes_to_test.size());
+      entry.quorum_nodes.reserve(uptime_quorum->validators.size());
+      entry.nodes_to_test.reserve(uptime_quorum->workers.size());
 
-      for (const auto &key : uptime_quorum->quorum_nodes)
+      for (const auto &key : uptime_quorum->validators)
         entry.quorum_nodes.push_back(epee::string_tools::pod_to_hex(key));
 
-      for (const auto &key : uptime_quorum->nodes_to_test)
+      for (const auto &key : uptime_quorum->workers)
         entry.nodes_to_test.push_back(epee::string_tools::pod_to_hex(key));
 
     }

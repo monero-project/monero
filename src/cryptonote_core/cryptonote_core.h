@@ -41,7 +41,7 @@
 #include "common/command_line.h"
 #include "tx_pool.h"
 #include "blockchain.h"
-#include "service_node_deregister.h"
+#include "service_node_voting.h"
 #include "service_node_list.h"
 #include "service_node_quorum_cop.h"
 #include "cryptonote_basic/miner.h"
@@ -783,22 +783,14 @@ namespace cryptonote
      bool offline() const { return m_offline; }
 
      /**
-      * @brief Get the deterministic list of service node's public keys for quorum testing
+      * @brief Get the deterministic quorum of service node's public keys responsible for the specified quorum type
       *
+      * @param type The quorum type to retrieve
       * @param height Block height to deterministically recreate the quorum list from
 
       * @return Null shared ptr if quorum has not been determined yet for height
       */
-     const std::shared_ptr<const service_nodes::quorum_uptime_proof> get_uptime_quorum(uint64_t height) const;
-
-     /**
-      * @brief Get the deterministic list of service node's public keys for nodes responsible for checkpointing
-      *
-      * @param height Block height to deterministically recreate the quorum list from
-
-      * @return Null shared ptr if quorum has not been determined yet for height
-      */
-     const std::shared_ptr<const service_nodes::quorum_checkpointing> get_checkpointing_quorum(uint64_t height) const;
+     std::shared_ptr<const service_nodes::testing_quorum> get_testing_quorum(service_nodes::quorum_type type, uint64_t height) const;
 
      /**
       * @brief Get a non owning reference to the list of blacklisted key images
@@ -824,23 +816,13 @@ namespace cryptonote
      bool is_service_node(const crypto::public_key& pubkey) const;
 
      /**
-      * @brief Add a vote to deregister a service node from network
+      * @brief Add a service node vote
       *
       * @param vote The vote for deregistering a service node.
 
-      * @return Whether the vote was added to the partial deregister pool
-      */
-     bool add_deregister_vote(const service_nodes::deregister_vote& vote, vote_verification_context &vvc);
-
-     /**
-      * @brief TODO(doyle): CHECKPOINTING(doyle):
-      *
-      * @param TODO(doyle): CHECKPOINTING(doyle):
-
       * @return
       */
-     bool add_checkpoint_vote(const service_nodes::checkpoint_vote& vote, vote_verification_context &vvc);
-
+     bool add_service_node_vote(const service_nodes::quorum_vote_t& vote, vote_verification_context &vvc);
 
      /**
       * @brief Get the keypair for this service node.
@@ -908,11 +890,11 @@ namespace cryptonote
      bool check_blockchain_pruning();
 
      /**
-      * @brief attempt to relay the pooled deregister votes
+      * @brief attempt to relay the pooled checkpoint votes
       *
       * @return true, necessary for binding this function to a periodic invoker
       */
-     bool relay_deregister_votes();
+     bool relay_service_node_votes();
 
    private:
 
@@ -1070,13 +1052,6 @@ namespace cryptonote
      bool relay_txpool_transactions();
 
      /**
-      * @brief attempt to relay the pooled checkpoint votes
-      *
-      * @return true, necessary for binding this function to a periodic invoker
-      */
-     bool relay_checkpoint_votes();
-
-     /**
       * @brief checks DNS versions
       *
       * @return true on success, false otherwise
@@ -1116,9 +1091,8 @@ namespace cryptonote
      tx_memory_pool m_mempool; //!< transaction pool instance
      Blockchain m_blockchain_storage; //!< Blockchain instance
 
-     service_nodes::deregister_vote_pool m_deregister_vote_pool;
-     service_nodes::service_node_list    m_service_node_list;
-     service_nodes::quorum_cop           m_quorum_cop;
+     service_nodes::service_node_list m_service_node_list;
+     service_nodes::quorum_cop        m_quorum_cop;
 
      i_cryptonote_protocol* m_pprotocol; //!< cryptonote protocol instance
 
@@ -1141,9 +1115,7 @@ namespace cryptonote
      epee::math_helper::once_a_time_seconds<30, true> m_uptime_proof_pruner;
      epee::math_helper::once_a_time_seconds<90, false> m_block_rate_interval; //!< interval for checking block rate
      epee::math_helper::once_a_time_seconds<60*60*5, true> m_blockchain_pruning_interval; //!< interval for incremental blockchain pruning
-
-     epee::math_helper::once_a_time_seconds<60*2, false> m_deregisters_auto_relayer;
-     epee::math_helper::once_a_time_seconds<60*2, false> m_checkpoint_auto_relayer;
+     epee::math_helper::once_a_time_seconds<60*2, false> m_service_node_vote_relayer;
 
      std::atomic<bool> m_starter_message_showed; //!< has the "daemon will sync now" message been shown?
 

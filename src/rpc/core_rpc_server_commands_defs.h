@@ -35,7 +35,7 @@
 #include "cryptonote_basic/difficulty.h"
 #include "crypto/hash.h"
 #include "cryptonote_config.h"
-#include "cryptonote_core/service_node_deregister.h"
+#include "cryptonote_core/service_node_voting.h"
 #include "rpc/rpc_handler.h"
 #include "common/varint.h"
 #include "common/perf_timer.h"

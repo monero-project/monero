@@ -281,7 +281,7 @@ namespace cryptonote
     void on_relay_uptime_and_votes()
     {
       m_core.submit_uptime_proof();
-      m_core.relay_deregister_votes();
+      m_core.relay_service_node_votes();
       std::cout << "Votes and uptime relayed";
       loki::write_redirected_stdout_to_shared_mem();
     }

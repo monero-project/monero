@@ -41,7 +41,7 @@
 #include "crypto/hash.h"
 #include "ringct/rctSigs.h"
 #include "cryptonote_basic/verification_context.h"
-#include "cryptonote_core/service_node_deregister.h"
+#include "cryptonote_core/service_node_voting.h"
 
 using namespace epee;
 
@@ -1199,21 +1199,27 @@ namespace cryptonote
     return buf;
   }
   //---------------------------------------------------------------
-  char const *print_vote_verification_context(vote_verification_context const &vvc, service_nodes::deregister_vote const *vote)
+  char const *print_vote_verification_context(vote_verification_context const &vvc, service_nodes::quorum_vote_t const *vote)
   {
     static char buf[2048];
     buf[0] = 0;
 
     char *bufPtr = buf;
     char *bufEnd = buf + sizeof(buf);
-    if (vvc.m_invalid_block_height)              bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Invalid block height: %s, ",              vote ? std::to_string(vote->block_height).c_str() : "??");
-    if (vvc.m_duplicate_voters)                  bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Voters quorum index was duplicated: %s, ",vote ? std::to_string(vote->voters_quorum_index).c_str() : "??");
-    if (vvc.m_voters_quorum_index_out_of_bounds) bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Voters quorum index out of bounds: %s, ", vote ? std::to_string(vote->voters_quorum_index).c_str() : "??");
-    if (vvc.m_service_node_index_out_of_bounds)  bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Service node index out of bounds: %s, ",  vote ? std::to_string(vote->service_node_index).c_str() : "??");
-    if (vvc.m_signature_not_valid)               bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Signature not valid, ");
-    if (vvc.m_added_to_pool)                     bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Added to pool, ");
-    if (vvc.m_full_tx_deregister_made)           bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Full TX deregister made, ");
-    if (vvc.m_not_enough_votes)                  bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Not enough votes, ");
+    if (vvc.m_invalid_block_height)          bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Invalid block height: %s, ",          vote ? std::to_string(vote->block_height).c_str() : "??");
+    if (vvc.m_duplicate_voters)              bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Index in group was duplicated: %s, ", vote ? std::to_string(vote->index_in_group).c_str() : "??");
+    if (vvc.m_validator_index_out_of_bounds) bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Validator index out of bounds");
+    if (vvc.m_worker_index_out_of_bounds)    bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Worker index out of bounds: %s, ",    vote ? std::to_string(vote->deregister.worker_index).c_str() : "??");
+    if (vvc.m_signature_not_valid)           bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Signature not valid, ");
+    if (vvc.m_added_to_pool)                 bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Added to pool, ");
+    if (vvc.m_not_enough_votes)              bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Not enough votes, ");
+    if (vvc.m_incorrect_voting_group)
+    {
+      bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Incorrect voting group specified");
+      if (vote)
+        bufPtr += snprintf(bufPtr, bufEnd - bufPtr, ": %s", (vote->group == service_nodes::quorum_group::validator) ? "validator" : "worker");
+      bufPtr += snprintf(bufPtr, bufEnd - bufPtr, ", ");
+    }
 
     if (bufPtr != buf)
     {

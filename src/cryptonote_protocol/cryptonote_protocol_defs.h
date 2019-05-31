@@ -34,9 +34,14 @@
 #include "serialization/keyvalue_serialization.h"
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "cryptonote_basic/blobdatatype.h"
-#include "cryptonote_core/service_node_deregister.h"
 
 #include "common/loki.h"
+
+namespace service_nodes
+{
+  struct legacy_deregister_vote;
+  struct quorum_vote_t;
+};
 
 namespace cryptonote
 {
@@ -309,11 +314,14 @@ namespace cryptonote
   /************************************************************************/
   struct NOTIFY_NEW_DEREGISTER_VOTE
   {
+    // TODO(doyle): We need to remove this code post fork, pre checkpointing
+    // fork which revamps the voting system, we need to continue accepting
+    // deregisters using the old system.
     const static int ID = BC_COMMANDS_POOL_BASE + 10;
 
     struct request
     {
-      std::vector<service_nodes::deregister_vote> votes;
+      std::vector<service_nodes::legacy_deregister_vote> votes;
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_CONTAINER_POD_AS_BLOB(votes)
       END_KV_SERIALIZE_MAP()
@@ -351,13 +359,12 @@ namespace cryptonote
   /************************************************************************/
   /*                                                                      */
   /************************************************************************/
-  struct NOTIFY_NEW_CHECKPOINT_VOTE
+  struct NOTIFY_NEW_SERVICE_NODE_VOTE
   {
     const static int ID = BC_COMMANDS_POOL_BASE + 12;
-
     struct request
     {
-      std::vector<service_nodes::checkpoint_vote> votes;
+      std::vector<service_nodes::quorum_vote_t> votes;
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_CONTAINER_POD_AS_BLOB(votes)
       END_KV_SERIALIZE_MAP()
