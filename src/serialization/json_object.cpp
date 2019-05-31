@@ -566,6 +566,7 @@ void toJsonValue(rapidjson::Document& doc, const cryptonote::connection_info& in
   INSERT_INTO_JSON_OBJECT(val, doc, incoming, info.incoming);
   INSERT_INTO_JSON_OBJECT(val, doc, localhost, info.localhost);
   INSERT_INTO_JSON_OBJECT(val, doc, local_ip, info.local_ip);
+  INSERT_INTO_JSON_OBJECT(val, doc, address_type, info.address_type);
 
   INSERT_INTO_JSON_OBJECT(val, doc, ip, info.ip);
   INSERT_INTO_JSON_OBJECT(val, doc, port, info.port);
@@ -601,6 +602,7 @@ void fromJsonValue(const rapidjson::Value& val, cryptonote::connection_info& inf
   GET_FROM_JSON_OBJECT(val, info.incoming, incoming);
   GET_FROM_JSON_OBJECT(val, info.localhost, localhost);
   GET_FROM_JSON_OBJECT(val, info.local_ip, local_ip);
+  GET_FROM_JSON_OBJECT(val, info.address_type, address_type);
 
   GET_FROM_JSON_OBJECT(val, info.ip, ip);
   GET_FROM_JSON_OBJECT(val, info.port, port);
