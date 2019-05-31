@@ -35,7 +35,7 @@
 #include <stdio.h>
 #include <unistd.h>
 
-#include "common/int-util.h"
+#include "int-util.h"
 #include "hash-ops.h"
 #include "oaes_lib.h"
 #include "variant2_int_sqrt.h"

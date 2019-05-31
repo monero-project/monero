@@ -65,7 +65,6 @@ set(common_private_headers
   expect.h
   exp2.h
   http_connection.h
-  int-util.h
   notify.h
   pod-class.h
   rpc_client.h

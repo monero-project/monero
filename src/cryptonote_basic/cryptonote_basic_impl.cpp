@@ -40,7 +40,7 @@ using namespace epee;
 #include "misc_language.h"
 #include "common/base58.h"
 #include "crypto/hash.h"
-#include "common/int-util.h"
+#include "int-util.h"
 #include "common/dns_utils.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
