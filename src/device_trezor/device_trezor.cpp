@@ -200,6 +200,10 @@ namespace trezor {
       }
     }
 
+    void device_trezor::display_address(const cryptonote::subaddress_index& index, const boost::optional<crypto::hash8> &payment_id) {
+      get_address(index, payment_id, true);
+    }
+
     /* ======================================================================= */
     /*  Helpers                                                                */
     /* ======================================================================= */
@@ -209,8 +213,12 @@ namespace trezor {
     /* ======================================================================= */
 
     std::shared_ptr<messages::monero::MoneroAddress> device_trezor::get_address(
+        const boost::optional<cryptonote::subaddress_index> & subaddress,
+        const boost::optional<crypto::hash8> & payment_id,
+        bool show_address,
         const boost::optional<std::vector<uint32_t>> & path,
         const boost::optional<cryptonote::network_type> & network_type){
+      CHECK_AND_ASSERT_THROW_MES(!payment_id || !subaddress || subaddress->is_zero(), "Subaddress cannot be integrated");
       TREZOR_AUTO_LOCK_CMD();
       require_connected();
       device_state_reset_unsafe();
@@ -218,6 +226,14 @@ namespace trezor {
 
       auto req = std::make_shared<messages::monero::MoneroGetAddress>();
       this->set_msg_addr<messages::monero::MoneroGetAddress>(req.get(), path, network_type);
+      req->set_show_display(show_address);
+      if (subaddress){
+        req->set_account(subaddress->major);
+        req->set_minor(subaddress->minor);
+      }
+      if (payment_id){
+        req->set_payment_id(std::string(payment_id->data, 8));
+      }
 
       auto response = this->client_exchange<messages::monero::MoneroAddress>(req);
       MTRACE("Get address response received");

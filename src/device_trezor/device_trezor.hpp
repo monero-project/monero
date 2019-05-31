@@ -110,6 +110,7 @@ namespace trezor {
       /* ======================================================================= */
       bool  get_public_address(cryptonote::account_public_address &pubkey) override;
       bool  get_secret_keys(crypto::secret_key &viewkey , crypto::secret_key &spendkey) override;
+      void  display_address(const cryptonote::subaddress_index& index, const boost::optional<crypto::hash8> &payment_id) override;
 
       /* ======================================================================= */
       /*                              TREZOR PROTOCOL                            */
@@ -119,6 +120,9 @@ namespace trezor {
        * Get address. Throws.
        */
       std::shared_ptr<messages::monero::MoneroAddress> get_address(
+          const boost::optional<cryptonote::subaddress_index> & subaddress = boost::none,
+          const boost::optional<crypto::hash8> & payment_id = boost::none,
+          bool show_address = false,
           const boost::optional<std::vector<uint32_t>> & path = boost::none,
           const boost::optional<cryptonote::network_type> & network_type = boost::none);
 
