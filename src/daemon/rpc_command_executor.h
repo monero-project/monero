@@ -43,6 +43,7 @@
 #include "common/common_fwd.h"
 #include "common/rpc_client.h"
 #include "cryptonote_basic/cryptonote_basic.h"
+#include "net/net_fwd.h"
 #include "rpc/core_rpc_server.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
@@ -61,6 +62,7 @@ public:
       uint32_t ip
     , uint16_t port
     , const boost::optional<tools::login>& user
+    , const epee::net_utils::ssl_options_t& ssl_options
     , bool is_rpc = true
     , cryptonote::core_rpc_server* rpc_server = NULL
     );
