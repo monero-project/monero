@@ -5702,17 +5702,23 @@ void wallet2::get_payments_min_height_inclusive(
   });
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::get_payments(std::list<std::pair<crypto::hash,wallet2::payment_details>>& payments, uint64_t min_height, uint64_t max_height, const boost::optional<uint32_t>& subaddr_account, const std::set<uint32_t>& subaddr_indices) const
+void wallet2::get_payments(std::list<std::pair<crypto::hash,wallet2::payment_details>>& payments,
+    uint64_t min_height, uint64_t max_height, const boost::optional<uint32_t>& subaddr_account, const std::set<uint32_t>& subaddr_indices) const
 {
   // min_height is incremented in order to reflect the original (erroneous) behaviour
   get_payments_min_height_inclusive(payments, m_payments, ++min_height, max_height, subaddr_account, subaddr_indices);
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::get_payments_out(std::list<std::pair<crypto::hash,wallet2::confirmed_transfer_details>>& confirmed_payments,
-    uint64_t min_height, uint64_t max_height, const boost::optional<uint32_t>& subaddr_account, const std::set<uint32_t>& subaddr_indices) const
+void wallet2::get_payments_out_min_height_inclusive(
+                std::list<std::pair<crypto::hash,wallet2::confirmed_transfer_details>>& confirmed_payments,
+                const std::unordered_map<crypto::hash, confirmed_transfer_details>& actual_confirmed_txs,
+                uint64_t min_height,
+                uint64_t max_height,
+                const boost::optional<uint32_t>& subaddr_account,
+                const std::set<uint32_t>& subaddr_indices) const
 {
-  for (auto i = m_confirmed_txs.begin(); i != m_confirmed_txs.end(); ++i) {
-    if (i->second.m_block_height <= min_height || i->second.m_block_height > max_height)
+  for (auto i = actual_confirmed_txs.begin(); i != actual_confirmed_txs.end(); ++i) {
+    if (i->second.m_block_height < min_height || i->second.m_block_height > max_height)
       continue;
     if (subaddr_account && *subaddr_account != i->second.m_subaddr_account)
       continue;
@@ -5720,6 +5726,13 @@ void wallet2::get_payments_out(std::list<std::pair<crypto::hash,wallet2::confirm
       continue;
     confirmed_payments.push_back(*i);
   }
+}
+//----------------------------------------------------------------------------------------------------
+void wallet2::get_payments_out(std::list<std::pair<crypto::hash,wallet2::confirmed_transfer_details>>& confirmed_payments,
+    uint64_t min_height, uint64_t max_height, const boost::optional<uint32_t>& subaddr_account, const std::set<uint32_t>& subaddr_indices) const
+{
+  // min_height is incremented in order to reflect the original (erroneous) behaviour
+  get_payments_out_min_height_inclusive(confirmed_payments, m_confirmed_txs, ++min_height, max_height, subaddr_account, subaddr_indices);
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::get_unconfirmed_payments_out(std::list<std::pair<crypto::hash,wallet2::unconfirmed_transfer_details>>& unconfirmed_payments, const boost::optional<uint32_t>& subaddr_account, const std::set<uint32_t>& subaddr_indices) const
