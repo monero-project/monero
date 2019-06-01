@@ -28,11 +28,10 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import time
-
 """Test get_output_distribution RPC
 """
 
+from __future__ import print_function
 from framework.daemon import Daemon
 from framework.wallet import Wallet
 
@@ -43,7 +42,7 @@ class GetOutputDistributionTest():
         self.test_get_output_distribution()
 
     def reset(self):
-        print 'Resetting blockchain'
+        print('Resetting blockchain')
         daemon = Daemon()
         daemon.pop_blocks(1000)
         daemon.flush_txpool()
@@ -56,7 +55,7 @@ class GetOutputDistributionTest():
         res = self.wallet.restore_deterministic_wallet(seed = 'velvet lymph giddy number token physics poetry unquoted nibs useful sabotage limits benches lifestyle eden nitrogen anvil fewest avoid batch vials washing fences goat unquoted')
 
     def test_get_output_distribution(self):
-        print "Test get_output_distribution"
+        print("Test get_output_distribution")
 
         daemon = Daemon()
 

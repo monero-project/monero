@@ -28,6 +28,7 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+from __future__ import print_function
 import time
 
 """Test peer baning RPC calls
@@ -42,7 +43,7 @@ from framework.daemon import Daemon
 
 class BanTest():
     def run_test(self):
-        print 'Testing bans'
+        print('Testing bans')
 
         daemon = Daemon()
         res = daemon.get_bans()
