@@ -213,5 +213,14 @@ class GetOutputDistributionTest():
             assert d.distribution[h] == 0
 
 
+class Guard:
+    def __enter__(self):
+        for i in range(4):
+            Wallet(idx = i).auto_refresh(False)
+    def __exit__(self, exc_type, exc_value, traceback):
+        for i in range(4):
+            Wallet(idx = i).auto_refresh(True)
+
 if __name__ == '__main__':
-    GetOutputDistributionTest().run_test()
+    with Guard() as guard:
+        GetOutputDistributionTest().run_test()
