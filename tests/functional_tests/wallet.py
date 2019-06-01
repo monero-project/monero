@@ -33,6 +33,7 @@
 """
 
 from __future__ import print_function
+import sys
 import os
 import errno
 
@@ -319,7 +320,7 @@ class WalletTest():
         languages = res.languages
         languages_local = res.languages_local
         for language in languages + languages_local:
-            print('Creating ' + language + ' wallet')
+            sys.stdout.write('Creating ' + language + ' wallet\n')
             wallet.create_wallet(filename = '', language = language)
             res = wallet.query_key('mnemonic')
             wallet.close_wallet()

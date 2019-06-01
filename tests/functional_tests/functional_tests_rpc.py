@@ -64,6 +64,7 @@ try:
   PYTHONPATH += srcdir + '/../../utils/python-rpc'
   os.environ['PYTHONPATH'] = PYTHONPATH
   os.environ['WALLET_DIRECTORY'] = WALLET_DIRECTORY
+  os.environ['PYTHONIOENCODING'] = 'utf-8'
   for i in range(len(command_lines)):
     #print('Running: ' + str(command_lines[i]))
     processes.append(subprocess.Popen(command_lines[i], stdout = outputs[i]))
