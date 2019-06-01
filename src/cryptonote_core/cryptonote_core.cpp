@@ -675,8 +675,14 @@ namespace cryptonote
     {
       // display a message if the blockchain is not pruned yet
       if (m_blockchain_storage.get_current_blockchain_height() > 1 && !m_blockchain_storage.get_blockchain_pruning_seed())
+      {
         MGINFO("Pruning blockchain...");
-      CHECK_AND_ASSERT_MES(m_blockchain_storage.prune_blockchain(), false, "Failed to prune blockchain");
+        CHECK_AND_ASSERT_MES(m_blockchain_storage.prune_blockchain(), false, "Failed to prune blockchain");
+      }
+      else
+      {
+        CHECK_AND_ASSERT_MES(m_blockchain_storage.update_blockchain_pruning(), false, "Failed to update blockchain pruning");
+      }
     }
 
     return load_state_data();
