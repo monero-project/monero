@@ -686,7 +686,7 @@ namespace cryptonote
       if (rx_needhash(height, &seed_height)) {
         crypto::hash hash;
         if (pbc != NULL)
-          hash = pbc->get_block_id_by_height(seed_height);
+          hash = pbc->get_pending_block_id_by_height(seed_height);
         else
           memset(&hash, 0, sizeof(hash));  // only happens when generating genesis block
         rx_seedhash(seed_height, hash.data, miners);
