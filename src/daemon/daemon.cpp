@@ -45,6 +45,7 @@
 #include "daemon/command_server.h"
 #include "daemon/command_server.h"
 #include "daemon/command_line_args.h"
+#include "net/net_ssl.h"
 #include "version.h"
 
 using namespace epee;
@@ -163,7 +164,7 @@ bool t_daemon::run(bool interactive)
     if (interactive && mp_internals->rpcs.size())
     {
       // The first three variables are not used when the fourth is false
-      rpc_commands.reset(new daemonize::t_command_server(0, 0, boost::none, false, mp_internals->rpcs.front()->get_server()));
+      rpc_commands.reset(new daemonize::t_command_server(0, 0, boost::none, epee::net_utils::ssl_support_t::e_ssl_support_disabled, false, mp_internals->rpcs.front()->get_server()));
       rpc_commands->start_handling(std::bind(&daemonize::t_daemon::stop_p2p, this));
     }
 
