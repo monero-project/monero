@@ -317,4 +317,51 @@ namespace tools
       typedef epee::misc_utils::struct_init<response_t> response;
   };
   //-----------------------------------------------
+  struct COMMAND_RPC_GET_RANDOM_OUTS
+  {
+      struct request_t
+      {
+        std::vector<std::string> amounts;
+        uint32_t count;
+
+        BEGIN_KV_SERIALIZE_MAP()
+          KV_SERIALIZE(amounts)
+          KV_SERIALIZE(count)
+        END_KV_SERIALIZE_MAP()
+      };
+      typedef epee::misc_utils::struct_init<request_t> request;
+
+      struct output {
+        std::string public_key;
+        uint64_t global_index;
+        std::string rct; // 64+64+64 characters long (<rct commit> + <encrypted mask> + <rct amount>)
+
+        BEGIN_KV_SERIALIZE_MAP()
+          KV_SERIALIZE(public_key)
+          KV_SERIALIZE(global_index)
+          KV_SERIALIZE(rct)
+        END_KV_SERIALIZE_MAP()
+      };
+
+      struct amount_out {
+        uint64_t amount;
+        std::vector<output> outputs;
+        BEGIN_KV_SERIALIZE_MAP()
+          KV_SERIALIZE(amount)
+          KV_SERIALIZE(outputs)
+        END_KV_SERIALIZE_MAP()
+      };
+
+      struct response_t
+      {
+        std::vector<amount_out> amount_outs;
+        std::string Error;
+        BEGIN_KV_SERIALIZE_MAP()
+          KV_SERIALIZE(amount_outs)
+          KV_SERIALIZE(Error)
+        END_KV_SERIALIZE_MAP()
+      };
+      typedef epee::misc_utils::struct_init<response_t> response;
+  };
+  //-----------------------------------------------
 }
