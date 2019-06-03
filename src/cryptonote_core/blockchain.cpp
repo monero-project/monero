@@ -1265,6 +1265,23 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
     }
   }
 
+  if (version >= cryptonote::network_version_12_checkpointing)
+  {
+    if (b.miner_tx.type != transaction::type_standard)
+    {
+      MERROR("Coinbase invalid transaction type for coinbase transaction.");
+      return false;
+    }
+
+    size_t min_version = transaction::get_min_version_for_hf(version, nettype());
+    size_t max_version = transaction::get_max_version_for_hf(version, nettype());
+    if (b.miner_tx.version < min_version || b.miner_tx.version > max_version)
+    {
+      MERROR_VER("Coinbase invalid version: " << b.miner_tx.version << " for hardfork: " << version << " min/max version:  " << min_version << "/" << max_version);
+      return false;
+    }
+  }
+
   base_reward = reward_parts.adjusted_base_reward;
   if(base_reward + fee < money_in_use)
   {

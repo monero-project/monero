@@ -243,14 +243,15 @@ namespace cryptonote
       uint8_t hard_fork_version,
       const loki_miner_tx_context &miner_tx_context)
   {
+    const network_type nettype = miner_tx_context.nettype;
+
     tx.vin.clear();
     tx.vout.clear();
     tx.extra.clear();
     tx.output_unlock_times.clear();
     tx.type = transaction::type_standard;
-    tx.version = (hard_fork_version >= network_version_9_service_nodes) ? transaction::version_3_per_output_unlock_times : transaction::version_2;
+    tx.version = transaction::get_min_version_for_hf(hard_fork_version, nettype);
 
-    const network_type                                              nettype           = miner_tx_context.nettype;
     const crypto::public_key                                       &service_node_key  = miner_tx_context.snode_winner_key;
     const std::vector<std::pair<account_public_address, uint64_t>> &service_node_info =
       miner_tx_context.snode_winner_info.empty() ?
