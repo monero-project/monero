@@ -1133,17 +1133,20 @@ namespace cryptonote
     return true;
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::is_key_image_spent(const crypto::key_image &key_image) const
+  bool core::is_key_image_spent(const crypto::key_image &key_image, uint64_t *height) const
   {
-    return m_blockchain_storage.have_tx_keyimg_as_spent(key_image);
+    return m_blockchain_storage.have_tx_keyimg_as_spent(key_image, height);
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::are_key_images_spent(const std::vector<crypto::key_image>& key_im, std::vector<bool> &spent) const
+  bool core::are_key_images_spent(const std::vector<crypto::key_image>& key_im, std::vector<std::pair<bool, uint64_t>> &spent) const
   {
     spent.clear();
+    spent.reserve(key_im.size());
     for(auto& ki: key_im)
     {
-      spent.push_back(m_blockchain_storage.have_tx_keyimg_as_spent(ki));
+      uint64_t height;
+      bool s = m_blockchain_storage.have_tx_keyimg_as_spent(ki, &height);
+      spent.push_back(std::make_pair(s, height));
     }
     return true;
   }

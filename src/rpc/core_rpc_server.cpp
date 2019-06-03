@@ -1047,7 +1047,7 @@ namespace cryptonote
       }
       key_images.push_back(*reinterpret_cast<const crypto::key_image*>(b.data()));
     }
-    std::vector<bool> spent_status;
+    std::vector<std::pair<bool, uint64_t>> spent_status;
     bool r = m_core.are_key_images_spent(key_images, spent_status);
     if(!r)
     {
@@ -1055,8 +1055,18 @@ namespace cryptonote
       return true;
     }
     res.spent_status.clear();
+    res.spent_status.reserve(spent_status.size());
+    res.new_spent_status.clear();
+    res.new_spent_status.reserve(spent_status.size());
     for (size_t n = 0; n < spent_status.size(); ++n)
-      res.spent_status.push_back(spent_status[n] ? COMMAND_RPC_IS_KEY_IMAGE_SPENT::SPENT_IN_BLOCKCHAIN : COMMAND_RPC_IS_KEY_IMAGE_SPENT::UNSPENT);
+    {
+      const std::pair<bool, uint64_t> &s = spent_status[n];
+      res.spent_status.push_back(s.first ? COMMAND_RPC_IS_KEY_IMAGE_SPENT::SPENT_IN_BLOCKCHAIN : COMMAND_RPC_IS_KEY_IMAGE_SPENT::UNSPENT);
+      COMMAND_RPC_IS_KEY_IMAGE_SPENT::entry e;
+      e.spent = s.first;
+      e.height = s.first ? s.second : 0;
+      res.new_spent_status.push_back(e);
+    }
 
     // check the pool too
     std::vector<cryptonote::tx_info> txs;
@@ -1081,6 +1091,7 @@ namespace cryptonote
             if (key_images[n] == spent_key_image)
             {
               res.spent_status[n] = COMMAND_RPC_IS_KEY_IMAGE_SPENT::SPENT_IN_POOL;
+              res.new_spent_status[n].spent = true;
               break;
             }
           }

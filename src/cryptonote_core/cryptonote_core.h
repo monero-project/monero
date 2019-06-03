@@ -721,7 +721,7 @@ namespace cryptonote
       *
       * @note see Blockchain::have_tx_keyimg_as_spent
       */
-     bool is_key_image_spent(const crypto::key_image& key_im) const;
+     bool is_key_image_spent(const crypto::key_image& key_im, uint64_t *height = NULL) const;
 
      /**
       * @brief check if multiple key images are spent
@@ -733,7 +733,7 @@ namespace cryptonote
       *
       * @return true
       */
-     bool are_key_images_spent(const std::vector<crypto::key_image>& key_im, std::vector<bool> &spent) const;
+     bool are_key_images_spent(const std::vector<crypto::key_image>& key_im, std::vector<std::pair<bool, uint64_t>> &spent) const;
 
      /**
       * @brief check if multiple key images are spent in the transaction pool

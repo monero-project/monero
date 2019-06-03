@@ -279,7 +279,7 @@ public:
 
   virtual std::vector<std::vector<uint64_t>> get_tx_amount_output_indices(const uint64_t tx_id, size_t n_txes) const;
 
-  virtual bool has_key_image(const crypto::key_image& img) const;
+  virtual bool has_key_image(const crypto::key_image& img, uint64_t *height = NULL) const;
 
   virtual void add_txpool_tx(const crypto::hash &txid, const cryptonote::blobdata_ref &blob, const txpool_tx_meta_t& meta);
   virtual void update_txpool_tx(const crypto::hash &txid, const txpool_tx_meta_t& meta);
@@ -394,7 +394,7 @@ private:
 
   virtual void prune_outputs(uint64_t amount);
 
-  virtual void add_spent_key(const crypto::key_image& k_image);
+  virtual void add_spent_key(const crypto::key_image& k_image, uint64_t height);
 
   virtual void remove_spent_key(const crypto::key_image& k_image);
 
@@ -439,6 +439,9 @@ private:
 
   // migrate from DB version 4 to 5
   void migrate_4_5();
+
+  // migrate from DB version 5 to 6
+  void migrate_5_6();
 
   void cleanup_batch();
 

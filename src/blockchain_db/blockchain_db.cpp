@@ -158,7 +158,7 @@ void BlockchainDB::pop_block()
   pop_block(blk, txs);
 }
 
-void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const std::pair<transaction, blobdata_ref>& txp, const crypto::hash* tx_hash_ptr, const crypto::hash* tx_prunable_hash_ptr)
+void BlockchainDB::add_transaction(const crypto::hash& blk_hash, uint64_t block_height, const std::pair<transaction, blobdata_ref>& txp, const crypto::hash* tx_hash_ptr, const crypto::hash* tx_prunable_hash_ptr)
 {
   const transaction &tx = txp.first;
 
@@ -186,7 +186,7 @@ void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const std::pair
   {
     if (tx_input.type() == typeid(txin_to_key))
     {
-      add_spent_key(boost::get<txin_to_key>(tx_input).k_image);
+      add_spent_key(boost::get<txin_to_key>(tx_input).k_image, block_height);
     }
     else if (tx_input.type() == typeid(txin_gen))
     {
@@ -261,7 +261,7 @@ uint64_t BlockchainDB::add_block( const std::pair<block, blobdata>& blck
 
   uint64_t num_rct_outs = 0;
   blobdata miner_bd = tx_to_blob(blk.miner_tx);
-  add_transaction(blk_hash, std::make_pair(blk.miner_tx, blobdata_ref(miner_bd)));
+  add_transaction(blk_hash, prev_height, std::make_pair(blk.miner_tx, blobdata_ref(miner_bd)));
   if (blk.miner_tx.version == 2)
     num_rct_outs += blk.miner_tx.vout.size();
   int tx_i = 0;
@@ -269,7 +269,7 @@ uint64_t BlockchainDB::add_block( const std::pair<block, blobdata>& blck
   for (const std::pair<transaction, blobdata_ref>& tx : txs)
   {
     tx_hash = blk.tx_hashes[tx_i];
-    add_transaction(blk_hash, tx, &tx_hash);
+    add_transaction(blk_hash, prev_height, tx, &tx_hash);
     for (const auto &vout: tx.first.vout)
     {
       if (vout.amount == 0)
@@ -989,7 +989,7 @@ void BlockchainDB::fixup()
         if (!has_key_image(ki))
         {
           LOG_PRINT_L1("Fixup: adding missing spent key " << ki);
-          add_spent_key(ki);
+          add_spent_key(ki, 685498);
         }
       }
     }
@@ -1002,7 +1002,7 @@ void BlockchainDB::fixup()
         if (!has_key_image(ki))
         {
           LOG_PRINT_L1("Fixup: adding missing spent key " << ki);
-          add_spent_key(ki);
+          add_spent_key(ki, 202612);
         }
       }
     }

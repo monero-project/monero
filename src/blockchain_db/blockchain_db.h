@@ -225,6 +225,7 @@ class DB_ERROR : public DB_EXCEPTION
   public:
     DB_ERROR() : DB_EXCEPTION("Generic DB Error") { }
     DB_ERROR(const char* s) : DB_EXCEPTION(s) { }
+    DB_ERROR(const std::string& s) : DB_EXCEPTION(s.c_str()) { }
 };
 
 /**
@@ -511,8 +512,9 @@ private:
    * subclass of DB_EXCEPTION
    *
    * @param k_image the spent key image to store
+   * @param height the height at which that key image is spent
    */
-  virtual void add_spent_key(const crypto::key_image& k_image) = 0;
+  virtual void add_spent_key(const crypto::key_image& k_image, uint64_t height) = 0;
 
   /**
    * @brief remove a spent key
@@ -563,11 +565,12 @@ protected:
    * added.
    *
    * @param blk_hash hash of the block which has the transaction
+   * @param block_height the height of the block which has the transaction
    * @param tx the transaction to add
    * @param tx_hash_ptr the hash of the transaction, if already calculated
    * @param tx_prunable_hash_ptr the hash of the prunable part of the transaction, if already calculated
    */
-  void add_transaction(const crypto::hash& blk_hash, const std::pair<transaction, blobdata_ref>& tx, const crypto::hash* tx_hash_ptr = NULL, const crypto::hash* tx_prunable_hash_ptr = NULL);
+  void add_transaction(const crypto::hash& blk_hash, uint64_t block_height, const std::pair<transaction, blobdata_ref>& tx, const crypto::hash* tx_hash_ptr = NULL, const crypto::hash* tx_prunable_hash_ptr = NULL);
 
   mutable uint64_t time_tx_exists = 0;  //!< a performance metric
   uint64_t time_commit1 = 0;  //!< a performance metric
@@ -1503,10 +1506,11 @@ public:
    * @brief check if a key image is stored as spent
    *
    * @param img the key image to check for
+   * @param height if spent, returns the height at which the key image was spent (optional)
    *
    * @return true if the image is present, otherwise false
    */
-  virtual bool has_key_image(const crypto::key_image& img) const = 0;
+  virtual bool has_key_image(const crypto::key_image& img, uint64_t *height = NULL) const = 0;
 
   /**
    * @brief add a txpool transaction

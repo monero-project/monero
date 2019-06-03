@@ -277,7 +277,7 @@ namespace cryptonote
      *
      * @return true if the key image is already spent in the blockchain, else false
      */
-    bool have_tx_keyimg_as_spent(const crypto::key_image &key_im) const;
+    bool have_tx_keyimg_as_spent(const crypto::key_image &key_im, uint64_t *height = NULL) const;
 
     /**
      * @brief get the current height of the blockchain

@@ -117,14 +117,14 @@ bool Blockchain::have_tx(const crypto::hash &id) const
   return m_db->tx_exists(id);
 }
 //------------------------------------------------------------------
-bool Blockchain::have_tx_keyimg_as_spent(const crypto::key_image &key_im) const
+bool Blockchain::have_tx_keyimg_as_spent(const crypto::key_image &key_im, uint64_t *height) const
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   // WARNING: this function does not take m_blockchain_lock, and thus should only call read only
   // m_db functions which do not depend on one another (ie, no getheight + gethash(height-1), as
   // well as not accessing class members, even read only (ie, m_invalid_blocks). The caller must
   // lock if it is otherwise needed.
-  return  m_db->has_key_image(key_im);
+  return  m_db->has_key_image(key_im, height);
 }
 //------------------------------------------------------------------
 // This function makes sure that each "input" in an input (mixins) exists

@@ -1113,7 +1113,16 @@ bool t_rpc_command_executor::is_key_image_spent(const crypto::key_image &ki) {
   if (1 == res.spent_status.size())
   {
     // first as hex
-    tools::success_msg_writer() << ki << ": " << (res.spent_status.front() ? "spent" : "unspent") << (res.spent_status.front() == cryptonote::COMMAND_RPC_IS_KEY_IMAGE_SPENT::SPENT_IN_POOL ? " (in pool)" : "");
+    if (res.new_spent_status.front().spent)
+    {
+      const uint64_t height = res.new_spent_status.front().height;
+      if (height)
+        tools::success_msg_writer() << ki << ": " << "spent at height " + std::to_string(height);
+      else
+        tools::success_msg_writer() << ki << ": " << "spent in pool";
+    }
+    else
+      tools::success_msg_writer() << ki << ": " << "unspent";
   }
   else
   {

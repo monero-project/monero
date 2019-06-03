@@ -295,7 +295,7 @@ namespace rpc
   {
     res.spent_status.resize(req.key_images.size(), KeyImagesSpent::STATUS::UNSPENT);
 
-    std::vector<bool> chain_spent_status;
+    std::vector<std::pair<bool, uint64_t>> chain_spent_status;
     std::vector<bool> pool_spent_status;
 
     m_core.are_key_images_spent(req.key_images, chain_spent_status);
@@ -310,7 +310,7 @@ namespace rpc
 
     for(size_t i=0; i < req.key_images.size(); i++)
     {
-      if ( chain_spent_status[i] )
+      if ( chain_spent_status[i].first )
       {
         res.spent_status[i] = KeyImagesSpent::STATUS::SPENT_IN_BLOCKCHAIN;
       }

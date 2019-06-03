@@ -54,7 +54,7 @@ using epee::string_tools::pod_to_hex;
 using namespace crypto;
 
 // Increase when the DB structure changes
-#define VERSION 5
+#define VERSION 6
 
 namespace
 {
@@ -197,7 +197,7 @@ namespace
  * output_txs       output ID    {txn hash, local index}
  * output_amounts   amount       [{amount output index, metadata}...]
  *
- * spent_keys       input hash   -
+ * spent_keys       input hash   block height
  *
  * txpool_meta      txn hash     txn metadata
  * txpool_blob      txn hash     txn blob
@@ -332,6 +332,11 @@ typedef struct blk_height {
     crypto::hash bh_hash;
     uint64_t bh_height;
 } blk_height;
+
+typedef struct spent_key_entry {
+  crypto::key_image key_image;
+  uint64_t height;
+} spent_key_entry;
 
 typedef struct pre_rct_outkey {
     uint64_t amount_index;
@@ -1217,7 +1222,7 @@ void BlockchainLMDB::prune_outputs(uint64_t amount)
   }
 }
 
-void BlockchainLMDB::add_spent_key(const crypto::key_image& k_image)
+void BlockchainLMDB::add_spent_key(const crypto::key_image& k_image, uint64_t height)
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -1225,7 +1230,8 @@ void BlockchainLMDB::add_spent_key(const crypto::key_image& k_image)
 
   CURSOR(spent_keys)
 
-  MDB_val k = {sizeof(k_image), (void *)&k_image};
+  spent_key_entry ske = {k_image, height};
+  MDB_val_set(k, ske);
   if (auto result = mdb_cursor_put(m_cur_spent_keys, (MDB_val *)&zerokval, &k, MDB_NODUPDATA)) {
     if (result == MDB_KEYEXIST)
       throw1(KEY_IMAGE_EXISTS("Attempting to add spent key image that's already in the db"));
@@ -1242,8 +1248,9 @@ void BlockchainLMDB::remove_spent_key(const crypto::key_image& k_image)
 
   CURSOR(spent_keys)
 
-  MDB_val k = {sizeof(k_image), (void *)&k_image};
-  auto result = mdb_cursor_get(m_cur_spent_keys, (MDB_val *)&zerokval, &k, MDB_GET_BOTH);
+  spent_key_entry ske = {k_image, 0};
+  MDB_val_set(skev, ske);
+  auto result = mdb_cursor_get(m_cur_spent_keys, (MDB_val *)&zerokval, &skev, MDB_GET_BOTH);
   if (result != 0 && result != MDB_NOTFOUND)
       throw1(DB_ERROR(lmdb_error("Error finding spent key to remove", result).c_str()));
   if (!result)
@@ -3453,7 +3460,7 @@ std::vector<std::vector<uint64_t>> BlockchainLMDB::get_tx_amount_output_indices(
   return amount_output_indices_set;
 }
 
-bool BlockchainLMDB::has_key_image(const crypto::key_image& img) const
+bool BlockchainLMDB::has_key_image(const crypto::key_image& img, uint64_t *height) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -3464,7 +3471,24 @@ bool BlockchainLMDB::has_key_image(const crypto::key_image& img) const
   RCURSOR(spent_keys);
 
   MDB_val k = {sizeof(img), (void *)&img};
-  ret = (mdb_cursor_get(m_cur_spent_keys, (MDB_val *)&zerokval, &k, MDB_GET_BOTH) == 0);
+  int r = mdb_cursor_get(m_cur_spent_keys, (MDB_val *)&zerokval, &k, MDB_GET_BOTH);
+  if (r == MDB_NOTFOUND)
+  {
+    ret = false;
+  }
+  else if (r)
+  {
+    ret = false;
+  }
+  else
+  {
+    ret = true;
+    if (height)
+    {
+      const spent_key_entry *ske = (const spent_key_entry*)k.mv_data;
+      *height = ske->height;
+    }
+  }
 
   TXN_POSTFIX_RDONLY();
   return ret;
@@ -4984,7 +5008,8 @@ void BlockchainLMDB::migrate_0_1()
       if (!parse_and_validate_block_from_blob(bd, b))
         throw0(DB_ERROR("Failed to parse block from blob retrieved from the db"));
 
-      add_transaction(null_hash, std::make_pair(b.miner_tx, tx_to_blob(b.miner_tx)));
+      const uint64_t block_height = cryptonote::get_block_height(b);
+      add_transaction(null_hash, block_height, std::make_pair(b.miner_tx, tx_to_blob(b.miner_tx)));
       for (unsigned int j = 0; j<b.tx_hashes.size(); j++) {
         transaction tx;
         hk.mv_data = &b.tx_hashes[j];
@@ -4994,7 +5019,7 @@ void BlockchainLMDB::migrate_0_1()
         bd = {reinterpret_cast<char*>(v.mv_data), v.mv_size};
         if (!parse_and_validate_tx_from_blob(bd, tx))
           throw0(DB_ERROR("Failed to parse tx from blob retrieved from the db"));
-        add_transaction(null_hash, std::make_pair(std::move(tx), bd), &b.tx_hashes[j]);
+        add_transaction(null_hash, block_height, std::make_pair(std::move(tx), bd), &b.tx_hashes[j]);
         result = mdb_cursor_del(c_txs, 0);
         if (result)
           throw0(DB_ERROR(lmdb_error("Failed to get record from txs: ", result).c_str()));
@@ -5595,6 +5620,151 @@ void BlockchainLMDB::migrate_4_5()
   txn.commit();
 }
 
+void BlockchainLMDB::migrate_5_6()
+{
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  uint64_t i;
+  int result;
+  mdb_txn_safe txn(false);
+  MDB_val k, v;
+  char *ptr;
+
+  MGINFO_YELLOW("Migrating blockchain from DB version 5 to 6 - this may take a while:");
+
+  do {
+    LOG_PRINT_L1("migrating spent keys:");
+
+    result = mdb_txn_begin(m_env, NULL, 0, txn);
+    if (result)
+      throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", result).c_str()));
+
+    MDB_stat db_stats;
+    if ((result = mdb_stat(txn, m_blocks, &db_stats)))
+      throw0(DB_ERROR(lmdb_error("Failed to query m_blocks: ", result).c_str()));
+    const uint64_t blockchain_height = db_stats.ms_entries;
+
+    /* the spent_keys table name is the same but the old version and new version
+     * have incompatible data. Create a new table. We want the name to be similar
+     * to the old name so that it will occupy the same location in the DB.
+     */
+    MDB_dbi o_spent_keys = m_spent_keys;
+    lmdb_db_open(txn, "spent_keyr", MDB_INTEGERKEY | MDB_CREATE | MDB_DUPSORT | MDB_DUPFIXED, m_spent_keys, "Failed to open db handle for spent_keyr");
+    mdb_set_dupsort(txn, m_spent_keys, compare_hash32);
+
+    MDB_cursor *c_blocks;
+    result = mdb_cursor_open(txn, m_blocks, &c_blocks);
+    if (result)
+      throw0(DB_ERROR(lmdb_error("Failed to open a cursor for blocks: ", result).c_str()));
+    MDB_cursor *c_tx_indices;
+    result = mdb_cursor_open(txn, m_tx_indices, &c_tx_indices);
+    if (result)
+      throw0(DB_ERROR(lmdb_error("Failed to open a cursor for tx_indices: ", result).c_str()));
+    MDB_cursor *c_txs_pruned;
+    result = mdb_cursor_open(txn, m_txs_pruned, &c_txs_pruned);
+    if (result)
+      throw0(DB_ERROR(lmdb_error("Failed to open a cursor for txs_pruned: ", result).c_str()));
+
+    MDB_cursor *c_cur;
+    i = 0;
+    while(1) {
+      if (!(i % 1000)) {
+        if (i) {
+          LOGIF(el::Level::Info) {
+            std::cout << i << " / " << blockchain_height << "  \r" << std::flush;
+          }
+          txn.commit();
+          result = mdb_txn_begin(m_env, NULL, 0, txn);
+          if (result)
+            throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", result).c_str()));
+        }
+        result = mdb_cursor_open(txn, m_spent_keys, &c_cur);
+        if (result)
+          throw0(DB_ERROR(lmdb_error("Failed to open a cursor for spent_keyr: ", result).c_str()));
+        result = mdb_cursor_open(txn, m_blocks, &c_blocks);
+        if (result)
+          throw0(DB_ERROR(lmdb_error("Failed to open a cursor for blocks: ", result).c_str()));
+        result = mdb_cursor_open(txn, m_tx_indices, &c_tx_indices);
+        if (result)
+          throw0(DB_ERROR(lmdb_error("Failed to open a cursor for tx_indices: ", result).c_str()));
+        result = mdb_cursor_open(txn, m_txs_pruned, &c_txs_pruned);
+        if (result)
+          throw0(DB_ERROR(lmdb_error("Failed to open a cursor for txs_pruned: ", result).c_str()));
+      }
+      MDB_val_set(kh, i);
+      result = mdb_cursor_get(c_blocks, &kh, &v, MDB_SET);
+      if (result == MDB_NOTFOUND) {
+        txn.commit();
+        break;
+      }
+      else if (result)
+        throw0(DB_ERROR(lmdb_error("Failed to get a record from blocks: ", result).c_str()));
+
+      cryptonote::blobdata bd;
+      bd.assign((const char*)v.mv_data, v.mv_size);
+      cryptonote::block bl;
+      if (!parse_and_validate_block_from_blob(bd, bl))
+        throw0(DB_ERROR("Invalid block found, unable to migrate database"));
+      const uint64_t block_height = cryptonote::get_block_height(bl);
+      for (const auto &tx_hash: bl.tx_hashes)
+      {
+        MDB_val_set(k, tx_hash);
+        result = mdb_cursor_get(c_tx_indices, (MDB_val *)&zerokval, &k, MDB_GET_BOTH);
+        if (result)
+          throw0(DB_ERROR("Transaction index " + epee::string_tools::pod_to_hex(tx_hash) + " not found, unable to migrate database"));
+        const txindex *tip = (const txindex *)k.mv_data;
+        MDB_val_set(k2, tip->data.tx_id);
+        result = mdb_cursor_get(c_txs_pruned, &k2, &v, MDB_SET);
+        if (result)
+          throw0(DB_ERROR("Pruned transaction data not found for index " + std::to_string(tip->data.tx_id) + ", unable to migrate database"));
+        bd.assign((const char*)v.mv_data, v.mv_size);
+        cryptonote::transaction tx;
+        if (!cryptonote::parse_and_validate_tx_base_from_blob(bd, tx))
+          throw0(DB_ERROR("Invalid transaction found, unable to migrate database"));
+        for (const auto &vin: tx.vin)
+        {
+          if (vin.type() != typeid(cryptonote::txin_to_key))
+            continue;
+          const auto &in_to_key = boost::get<cryptonote::txin_to_key>(vin);
+          spent_key_entry ske = {in_to_key.k_image, block_height};
+          MDB_val_set(skev, ske);
+          result = mdb_cursor_put(c_cur, (MDB_val *)&zerokval, &skev, MDB_NODUPDATA);
+          if (result)
+            throw0(DB_ERROR(lmdb_error("Failed to add record for new spent key image: ", result).c_str()));
+        }
+      }
+      i++;
+    }
+
+    result = mdb_txn_begin(m_env, NULL, 0, txn);
+    if (result)
+      throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", result).c_str()));
+    /* Delete the old table */
+    result = mdb_drop(txn, o_spent_keys, 1);
+    if (result)
+      throw0(DB_ERROR(lmdb_error("Failed to delete old spent_keys table: ", result).c_str()));
+
+    RENAME_DB("spent_keyr");
+    mdb_dbi_close(m_env, m_spent_keys);
+
+    lmdb_db_open(txn, "spent_keys", MDB_INTEGERKEY | MDB_CREATE | MDB_DUPSORT | MDB_DUPFIXED, m_spent_keys, "Failed to open db handle for spent_keyr");
+    mdb_set_dupsort(txn, m_spent_keys, compare_hash32);
+
+    txn.commit();
+  } while(0);
+
+  uint32_t version = 6;
+  v.mv_data = (void *)&version;
+  v.mv_size = sizeof(version);
+  MDB_val_str(vk, "version");
+  result = mdb_txn_begin(m_env, NULL, 0, txn);
+  if (result)
+    throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", result).c_str()));
+  result = mdb_put(txn, m_properties, &vk, &v, 0);
+  if (result)
+    throw0(DB_ERROR(lmdb_error("Failed to update version for the db: ", result).c_str()));
+  txn.commit();
+}
+
 void BlockchainLMDB::migrate(const uint32_t oldversion)
 {
   if (oldversion < 1)
@@ -5607,6 +5777,8 @@ void BlockchainLMDB::migrate(const uint32_t oldversion)
     migrate_3_4();
   if (oldversion < 5)
     migrate_4_5();
+  if (oldversion < 6)
+    migrate_5_6();
 }
 
 }  // namespace cryptonote
