@@ -421,14 +421,27 @@ namespace cryptonote
     };
     typedef epee::misc_utils::struct_init<request_t> request;
 
+    struct entry_t
+    {
+      bool spent;
+      uint64_t height;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(spent)
+        KV_SERIALIZE(height)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<entry_t> entry;
 
     struct response_t: public rpc_access_response_base
     {
       std::vector<int> spent_status;
+      std::vector<entry> new_spent_status;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_access_response_base)
         KV_SERIALIZE(spent_status)
+        KV_SERIALIZE(new_spent_status)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;
