@@ -1,31 +1,33 @@
-name: monero
-version: 0.11.1.0-1
-summary: "Monero: the secure, private, untraceable cryptocurrency https://getmonero.org"
+name: triton
+version: v4.0.2
+summary: "Triton: XTRI: Private digital asset building stability into value storage https://xtri.network"
 description: |
-    Monero is a private, secure, untraceable, decentralised digital currency.
-    You are your bank, you control your funds, and nobody can trace your transfers
-    unless you allow them to do so.
+    Cryptocurrencies are inherently volatile. 
+    And while centralized stablecoins like Tether can provide value stability, 
+    they require trust of a third party to honor redemption.
+    In contrast to Tether, Triton (XTRI) is an attempt to build
+    the first private and decentralized stablecoin the Sao Dollar (SAO).
 grade: devel
 confinement: strict
 
 apps:
-    monerod:
+    tritond:
         daemon: forking
         command: |
-          monerod-wrapper --detach --data-dir ${SNAP_COMMON} --config-file ${SNAP_USER_DATA}/etc/monerod.conf
+          tritond-wrapper --detach --data-dir ${SNAP_COMMON} --config-file ${SNAP_USER_DATA}/etc/tritond.conf
         plugs:
             - network
             - network-bind
-    monero-wallet-rpc:
+    triton-wallet-rpc:
         command: |
-          monero-wallet-rpc --log-file ${SNAP_USER_DATA}
+          triton-wallet-rpc --log-file ${SNAP_USER_DATA}
         plugs:
             - home
             - network
             - network-bind
-    monero-wallet-cli:
+    triton-wallet-cli:
         command: |
-          monero-wallet-cli --log-file ${SNAP_USER_DATA}
+          triton-wallet-cli --log-file ${SNAP_USER_DATA}
         plugs:
             - home
             - network
@@ -71,8 +73,8 @@ parts:
         plugin: dump
         source: .
         organize:
-            contrib/snap/monerod.conf: etc/monerod.conf
-            contrib/snap/monerod-wrapper: bin/monerod-wrapper
+            contrib/snap/tritond.conf: etc/tritond.conf
+            contrib/snap/tritond-wrapper: bin/tritond-wrapper
         prime:
             - etc
             - bin
