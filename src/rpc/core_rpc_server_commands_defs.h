@@ -2785,6 +2785,8 @@ namespace cryptonote
         uint64_t                  portions_for_operator;         // The operator percentage cut to take from each reward expressed in portions, see cryptonote_config.h's STAKING_PORTIONS.
         uint64_t                  swarm_id;                      // The identifier of the Service Node's current swarm.
         std::string               operator_address;              // The wallet address of the operator to which the operator cut of the staking reward is sent to.
+        std::string               public_ip;                     // The public ip address of the service node
+        uint16_t                  storage_port;                  // The port number associated with the storage server
 
         BEGIN_KV_SERIALIZE_MAP()
             KV_SERIALIZE(service_node_pubkey)
@@ -2801,6 +2803,8 @@ namespace cryptonote
             KV_SERIALIZE(portions_for_operator)
             KV_SERIALIZE(swarm_id)
             KV_SERIALIZE(operator_address)
+            KV_SERIALIZE(public_ip)
+            KV_SERIALIZE(storage_port)
         END_KV_SERIALIZE_MAP()
       };
 

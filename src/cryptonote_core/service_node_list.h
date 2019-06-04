@@ -103,6 +103,8 @@ namespace service_nodes
     uint64_t                           portions_for_operator;
     swarm_id_t                         swarm_id;
     cryptonote::account_public_address operator_address;
+    uint32_t                           public_ip;
+    uint16_t                           storage_port;
 
     service_node_info() = default;
     bool is_fully_funded() const { return total_contributed >= staking_requirement; }
@@ -126,7 +128,9 @@ namespace service_nodes
       {
         VARINT_FIELD(swarm_id)
       }
-      VARINT_FIELD(dummy)
+      VARINT_FIELD(public_ip)
+      VARINT_FIELD(storage_port)
+
     END_SERIALIZE()
   };
 
@@ -198,6 +202,9 @@ namespace service_nodes
     bool store();
 
     void get_all_service_nodes_public_keys(std::vector<crypto::public_key>& keys, bool fully_funded_nodes_only) const;
+
+    /// Record public ip and storage port and add them to the service node list
+    void handle_uptime_proof(const cryptonote::NOTIFY_UPTIME_PROOF::request &proof);
 
     struct rollback_event
     {

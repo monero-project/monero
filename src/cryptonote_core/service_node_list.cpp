@@ -1480,6 +1480,20 @@ namespace service_nodes
   }
 
 
+  void service_node_list::handle_uptime_proof(const cryptonote::NOTIFY_UPTIME_PROOF::request &proof) {
+
+    const uint8_t hf_version = m_blockchain.get_current_hard_fork_version();
+
+    if (hf_version < cryptonote::network_version_12_checkpointing) return;
+
+    CRITICAL_REGION_LOCAL(m_sn_mutex);
+    auto &sn_info = m_transient_state.service_nodes_infos.at(proof.pubkey);
+
+    sn_info.public_ip = proof.public_ip;
+    sn_info.storage_port = proof.storage_port;
+  }
+
+
   bool service_node_list::load()
   {
     LOG_PRINT_L1("service_node_list::load()");

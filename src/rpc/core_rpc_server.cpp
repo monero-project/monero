@@ -2745,6 +2745,8 @@ namespace cryptonote
       entry.last_reward_transaction_index = pubkey_info.info.last_reward_transaction_index;
       entry.last_uptime_proof             = proof.timestamp;
       entry.service_node_version          = {proof.version_major, proof.version_minor, proof.version_patch};
+      entry.public_ip                     = string_tools::get_ip_string_from_int32(pubkey_info.info.public_ip);
+      entry.storage_port                  = pubkey_info.info.storage_port;
 
       entry.contributors.reserve(pubkey_info.info.contributors.size());
 

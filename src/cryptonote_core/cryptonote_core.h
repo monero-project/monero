@@ -808,6 +808,15 @@ namespace cryptonote
        */
      bool is_service_node(const crypto::public_key& pubkey) const;
 
+
+     uint32_t get_service_node_public_ip() const {
+       return m_sn_public_ip;
+     }
+
+     uint16_t get_storage_port() const {
+       return m_storage_port;
+     }
+
      /**
       * @brief Add a service node vote
       *
@@ -1126,6 +1135,10 @@ namespace cryptonote
      bool m_service_node;
      crypto::secret_key m_service_node_key;
      crypto::public_key m_service_node_pubkey;
+
+     /// Service Node's public IP and storage server port
+     uint32_t m_sn_public_ip;
+     uint16_t m_storage_port;
 
      size_t block_sync_size;
 

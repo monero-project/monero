@@ -57,6 +57,7 @@ using namespace epee;
 #include "version.h"
 #include "wipeable_string.h"
 #include "common/i18n.h"
+#include "net/local_ip.h"
 
 #include "common/loki_integration_test_hooks.h"
 
@@ -170,6 +171,19 @@ namespace cryptonote
     "service-node"
   , "Run as a service node"
   };
+  static const command_line::arg_descriptor<std::string> arg_public_ip = {
+    "sn-public-ip"
+  , "Public IP address on which this service node's services (such as the Loki "
+    "storage server) are accessible. This IP address will be advertised to the "
+    "network via the service node uptime proofs. Required if operating as a "
+    "service node."
+  };
+  static const command_line::arg_descriptor<uint16_t> arg_sn_bind_port = {
+    "storage-server-port"
+  , "The port on which this service node's storage server is accessible. A listening "
+    "storage server is required for service nodes. (This option is specified "
+    "automatically when using Loki Launcher.)"
+  , 0};
   static const command_line::arg_descriptor<std::string> arg_block_notify = {
     "block-notify"
   , "Run a program for each new block, '%s' will be replaced by the block hash"
@@ -291,6 +305,8 @@ namespace cryptonote
     command_line::add_arg(desc, arg_block_download_max_size);
     command_line::add_arg(desc, arg_max_txpool_weight);
     command_line::add_arg(desc, arg_service_node);
+    command_line::add_arg(desc, arg_public_ip);
+    command_line::add_arg(desc, arg_sn_bind_port);
     command_line::add_arg(desc, arg_pad_transactions);
     command_line::add_arg(desc, arg_block_notify);
     command_line::add_arg(desc, arg_prune_blockchain);
@@ -325,6 +341,38 @@ namespace cryptonote
       test_drop_download();
 
     m_service_node = command_line::get_arg(vm, arg_service_node);
+
+    if (m_service_node) {
+      /// TODO: parse these options early, before we start p2p server etc?
+      m_storage_port = command_line::get_arg(vm, arg_sn_bind_port);
+
+      bool storage_ok = true;
+
+      if (m_storage_port == 0) {
+        MERROR("Please specify the port on which the storage server is listening.");
+        storage_ok = false;
+      }
+
+      const std::string pub_ip = command_line::get_arg(vm, arg_public_ip);
+      if (!epee::string_tools::get_ip_int32_from_string(m_sn_public_ip, pub_ip)) {
+        MERROR("Unable to parse IPv4 public address.");
+        storage_ok = false;
+      }
+
+      if (!storage_ok) {
+        MERROR("IMPORTANT: All service node operators are now required to run loki storage "
+               << "server and provide the public ip and port on which it can be accessed on the internet.");
+        return false;
+      }
+
+      MGINFO("Storage server endpoint is set to: "
+             << (epee::net_utils::ipv4_network_address{ m_sn_public_ip, m_storage_port }).str());
+
+      if (epee::net_utils::is_ip_local(m_sn_public_ip) || epee::net_utils::is_ip_loopback(m_sn_public_ip)) {
+        MERROR("Specified IP is not public.");
+        return false;
+      }
+    }
 
     epee::debug::g_test_dbg_lock_sleep() = command_line::get_arg(vm, arg_test_dbg_lock_sleep);
 
@@ -437,6 +485,9 @@ namespace cryptonote
     }
 
     bool r = handle_command_line(vm);
+    /// Currently terminating before blockchain is initialized results in a crash
+    /// during deinitialization... TODO: fix that
+    CHECK_AND_ASSERT_MES(r, false, "Failed to apply command line options.");
 
     std::string db_type = command_line::get_arg(vm, cryptonote::arg_db_type);
     std::string db_sync_mode = command_line::get_arg(vm, cryptonote::arg_db_sync_mode);
@@ -1338,7 +1389,12 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
   bool core::handle_uptime_proof(const NOTIFY_UPTIME_PROOF::request &proof)
   {
-    return m_quorum_cop.handle_uptime_proof(proof);
+    bool res = m_quorum_cop.handle_uptime_proof(proof);
+    if (res) {
+      /// Validated the signature and snode pubkey at this point
+      m_service_node_list.handle_uptime_proof(proof);
+    }
+    return res;
   }
   //-----------------------------------------------------------------------------------------------
   void core::on_transaction_relayed(const cryptonote::blobdata& tx_blob)
