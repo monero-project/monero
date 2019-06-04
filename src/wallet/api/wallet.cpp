@@ -2325,7 +2325,6 @@ bool WalletImpl::isKeysFileLocked()
 {
     return m_wallet->is_keys_file_locked();
 }
-} // namespace
 PendingTransaction* WalletImpl::stakePending(const std::string& sn_key_str, const std::string& address_str, const std::string& amount_str)
 {
   crypto::public_key sn_key;
@@ -2354,6 +2353,8 @@ PendingTransaction* WalletImpl::stakePending(const std::string& sn_key_str, cons
 
   return transaction;
 }
+} // namespace
+
 
 
 namespace Bitmonero = Monero;
