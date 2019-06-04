@@ -1289,20 +1289,23 @@ private:
      * \brief  Generates a proof that proves the reserve of unspent funds
      * \param  account_minreserve       When specified, collect outputs only belonging to the given account and prove the smallest reserve above the given amount
      *                                  When unspecified, proves for all unspent outputs across all accounts
+     * \param  blockchain_height        When specified, proves balance as of this blockchain height
+     *                                  When unspecified, proves balance at the current blockchain height
      * \param  message                  Arbitrary challenge message to be signed together
      * \return                          Signature string
      */
-    std::string get_reserve_proof(const boost::optional<std::pair<uint32_t, uint64_t>> &account_minreserve, const std::string &message);
+    std::string get_reserve_proof(const boost::optional<std::pair<uint32_t, uint64_t>> &account_minreserve, const boost::optional<uint64_t> &blockchain_height, const std::string &message);
     /*!
      * \brief  Verifies a proof of reserve
      * \param  address                  The signer's address
+     * \param  blockchain_height        Optional height at which to verify reserves (default to current blockchain height)
      * \param  message                  Challenge message used for signing
      * \param  sig_str                  Signature string
      * \param  total                    [OUT] the sum of funds included in the signature
      * \param  spent                    [OUT] the sum of spent funds included in the signature
      * \return                          true if the signature verifies correctly
      */
-    bool check_reserve_proof(const cryptonote::account_public_address &address, const std::string &message, const std::string &sig_str, uint64_t &total, uint64_t &spent);
+    bool check_reserve_proof(const cryptonote::account_public_address &address, const boost::optional<uint64_t> &blockchain_height, const std::string &message, const std::string &sig_str, uint64_t &total, uint64_t &spent);
 
    /*!
     * \brief GUI Address book get/store
