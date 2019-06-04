@@ -5683,7 +5683,7 @@ void wallet2::get_payments(const crypto::hash& payment_id, std::list<wallet2::pa
   });
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::get_payments_min_height_inclusive(
+void wallet2::get_payments(
                 std::list<std::pair<crypto::hash,wallet2::payment_details>>& payments,
                 const payment_container& actual_payments,
                 uint64_t min_height,
@@ -5705,10 +5705,10 @@ void wallet2::get_payments_min_height_inclusive(
 void wallet2::get_payments(std::list<std::pair<crypto::hash,wallet2::payment_details>>& payments,
     uint64_t min_height, uint64_t max_height, const boost::optional<uint32_t>& subaddr_account, const std::set<uint32_t>& subaddr_indices) const
 {
-  get_payments_min_height_inclusive(payments, m_payments, min_height, max_height, subaddr_account, subaddr_indices);
+  get_payments(payments, m_payments, min_height, max_height, subaddr_account, subaddr_indices);
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::get_payments_out_min_height_inclusive(
+void wallet2::get_payments_out(
                 std::list<std::pair<crypto::hash,wallet2::confirmed_transfer_details>>& confirmed_payments,
                 const std::unordered_map<crypto::hash, confirmed_transfer_details>& actual_confirmed_txs,
                 uint64_t min_height,
@@ -5730,7 +5730,7 @@ void wallet2::get_payments_out_min_height_inclusive(
 void wallet2::get_payments_out(std::list<std::pair<crypto::hash,wallet2::confirmed_transfer_details>>& confirmed_payments,
     uint64_t min_height, uint64_t max_height, const boost::optional<uint32_t>& subaddr_account, const std::set<uint32_t>& subaddr_indices) const
 {
-  get_payments_out_min_height_inclusive(confirmed_payments, m_confirmed_txs, min_height, max_height, subaddr_account, subaddr_indices);
+  get_payments_out(confirmed_payments, m_confirmed_txs, min_height, max_height, subaddr_account, subaddr_indices);
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::get_unconfirmed_payments_out(std::list<std::pair<crypto::hash,wallet2::unconfirmed_transfer_details>>& unconfirmed_payments, const boost::optional<uint32_t>& subaddr_account, const std::set<uint32_t>& subaddr_indices) const
