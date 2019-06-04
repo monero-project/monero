@@ -653,8 +653,12 @@ namespace cryptonote
 
         std::vector<block_complete_entry> blocks;
         blocks.push_back(b);
+
+
+        // TODO(doyle): Checkpointing
         std::vector<block> pblocks;
-        if (!m_core.prepare_handle_incoming_blocks(blocks, pblocks))
+        std::vector<checkpoint_t> checkpoints;
+        if (!m_core.prepare_handle_incoming_blocks(blocks, pblocks, checkpoints))
         {
           LOG_PRINT_CCONTEXT_L0("Failure in prepare_handle_incoming_blocks");
           m_core.resume_mine();
@@ -986,15 +990,15 @@ namespace cryptonote
     context.m_last_request_time = boost::date_time::not_a_date_time;
 
     // calculate size of request
-    size_t size = 0;
-    size_t blocks_size = 0;
+    size_t blocks_size = 0, checkpoints_size = 0;
     for (const auto &element : arg.blocks) {
       blocks_size += element.block.size();
       for (const auto &tx : element.txs)
         blocks_size += tx.size();
+      checkpoints_size += element.checkpoint.size();
     }
-    size += blocks_size;
 
+    size_t size = blocks_size + checkpoints_size;
     for (const auto &element : arg.missed_ids)
       size += sizeof(element.data);
 
@@ -1242,8 +1246,9 @@ namespace cryptonote
             }
           }
 
+          std::vector<checkpoint_t> checkpoints;
           std::vector<block> pblocks;
-          if (!m_core.prepare_handle_incoming_blocks(blocks, pblocks))
+          if (!m_core.prepare_handle_incoming_blocks(blocks, pblocks, checkpoints))
           {
             LOG_ERROR_CCONTEXT("Failure in prepare_handle_incoming_blocks");
             return 1;
@@ -1354,6 +1359,13 @@ namespace cryptonote
             ++blockidx;
 
           } // each download block
+
+          // TODO(doyle): Horribly incomplete
+          for (checkpoint_t const &checkpoint : checkpoints)
+          {
+            Blockchain &blockchain = m_core.get_blockchain_storage();
+            blockchain.update_checkpoint(checkpoint);
+          }
 
           MDEBUG(context << "Block process time (" << blocks.size() << " blocks, " << num_txs << " txs): " << block_process_time_full + transactions_process_time_full << " (" << transactions_process_time_full << "/" << block_process_time_full << ") ms");
 

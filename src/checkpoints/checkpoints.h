@@ -51,10 +51,25 @@ namespace cryptonote
 
   struct checkpoint_t
   {
+    uint8_t                                        version = 0;
     checkpoint_type                                type;
     uint64_t                                       height;
     crypto::hash                                   block_hash;
     std::vector<service_nodes::voter_to_signature> signatures; // Only service node checkpoints use signatures
+
+    BEGIN_SERIALIZE()
+      FIELD(version)
+      // TODO(doyle): Hmm too lazy to change enum decls around the codebase for now
+      {
+        uint8_t serialized_type = 0;
+        if (W) serialized_type = static_cast<uint8_t>(type);
+        FIELD_N("type", serialized_type);
+        if (!W) type = static_cast<checkpoint_type>(serialized_type);
+      }
+      FIELD(height)
+      FIELD(block_hash)
+      FIELD(signatures)
+    END_SERIALIZE()
   };
 
   struct height_to_hash

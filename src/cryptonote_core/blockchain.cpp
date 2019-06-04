@@ -1924,6 +1924,22 @@ bool Blockchain::handle_get_objects(NOTIFY_REQUEST_GET_OBJECTS::request& arg, NO
     rsp.blocks.push_back(block_complete_entry());
     block_complete_entry& e = rsp.blocks.back();
 
+    uint64_t const block_height = get_block_height(bl.second);
+    if ((block_height % service_nodes::CHECKPOINT_INTERVAL) == 0)
+    {
+      try
+      {
+        checkpoint_t checkpoint;
+        if (m_db->get_block_checkpoint(block_height, checkpoint))
+          e.checkpoint = t_serializable_object_to_blob(checkpoint);
+      }
+      catch (const std::exception &e)
+      {
+        MERROR("Get block checkpoint from DB failed non-trivially at height: " << block_height << ", what = " << e.what());
+        return false;
+      }
+    }
+
     // FIXME: s/rsp.missed_ids/missed_tx_id/ ?  Seems like rsp.missed_ids
     //        is for missed blocks, not missed transactions as well.
     get_transactions_blobs(bl.second.tx_hashes, e.txs, missed_tx_ids);
@@ -4426,7 +4442,7 @@ bool Blockchain::calc_batched_governance_reward(uint64_t height, uint64_t &rewar
 //    vs [k_image, output_keys] (m_scan_table). This is faster because it takes advantage of bulk queries
 //    and is threaded if possible. The table (m_scan_table) will be used later when querying output
 //    keys.
-bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete_entry> &blocks_entry, std::vector<block> &blocks)
+bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete_entry> &blocks_entry, std::vector<block> &blocks, std::vector<checkpoint_t> &checkpoints)
 {
   MTRACE("Blockchain::" << __func__);
   TIME_MEASURE_START(prepare);
@@ -4449,6 +4465,8 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
   //  needs a batch, since a batch could otherwise be active while the
   //  txpool and blockchain locks were not held
 
+  // TODO(doyle): Checkpointing
+
   m_tx_pool.lock();
   CRITICAL_REGION_LOCAL1(m_blockchain_lock);
 
@@ -4458,6 +4476,7 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
   for (const auto &entry : blocks_entry)
   {
     bytes += entry.block.size();
+    bytes += entry.checkpoint.size();
     for (const auto &tx_blob : entry.txs)
     {
       bytes += tx_blob.size();
@@ -4554,7 +4573,7 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
       waiter.wait(&tpool);
 
       if (m_cancel)
-        return false;
+         return false;
 
       for (const auto & map : maps)
       {
@@ -4565,6 +4584,36 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
 
   if (m_cancel)
     return false;
+
+  // TODO(doyle): If PR to fix above gets the green-light no reason to not parse out checkpoints in the loop above that goes through all the block_entrys already
+  //
+  // NOTE: Parse checkpoints
+  //
+  for (size_t i = 0; i < blocks.size(); i++)
+  {
+    blobdata const &checkpoint_blob = blocks_entry[i].checkpoint;
+    block const &block              = blocks[i];
+    uint64_t block_height           = get_block_height(block);
+    bool maybe_has_checkpoint       = (block_height % service_nodes::CHECKPOINT_INTERVAL == 0);
+
+    if (checkpoint_blob.size() && !maybe_has_checkpoint)
+    {
+      MDEBUG("Checkpoint blob given but not expecting a checkpoint at this height");
+      return false;
+    }
+
+    if (checkpoint_blob.size())
+    {
+      checkpoint_t checkpoint;
+      if (!t_serializable_object_from_blob(checkpoint, checkpoint_blob))
+      {
+        MDEBUG("Checkpoint blob available but failed to parse");
+        return false;
+      }
+
+      checkpoints.push_back(checkpoint);
+    }
+  }
 
   if (blocks_exist)
   {

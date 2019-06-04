@@ -881,7 +881,8 @@ public:
     cryptonote::block_verification_context bvc = AUTO_VAL_INIT(bvc);
     cryptonote::blobdata bd = t_serializable_object_to_blob(b);
     std::vector<cryptonote::block> pblocks;
-    if (m_c.prepare_handle_incoming_blocks(std::vector<cryptonote::block_complete_entry>(1, {bd, {}}), pblocks))
+    std::vector<cryptonote::checkpoint_t> checkpoints;
+    if (m_c.prepare_handle_incoming_blocks(std::vector<cryptonote::block_complete_entry>(1, {bd, {}, {}}), pblocks, checkpoints))
     {
       m_c.handle_incoming_block(bd, &b, bvc);
       m_c.cleanup_handle_incoming_blocks();
@@ -911,7 +912,8 @@ public:
 
     cryptonote::block_verification_context bvc = AUTO_VAL_INIT(bvc);
     std::vector<cryptonote::block> pblocks;
-    if (m_c.prepare_handle_incoming_blocks(std::vector<cryptonote::block_complete_entry>(1, {sr_block.data, {}}), pblocks))
+    std::vector<cryptonote::checkpoint_t> checkpoints;
+    if (m_c.prepare_handle_incoming_blocks(std::vector<cryptonote::block_complete_entry>(1, {sr_block.data, {}, {}}), pblocks, checkpoints))
     {
       m_c.handle_incoming_block(sr_block.data, NULL, bvc);
       m_c.cleanup_handle_incoming_blocks();

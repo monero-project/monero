@@ -53,6 +53,11 @@ namespace service_nodes
   {
     uint16_t          voter_index;
     crypto::signature signature;
+
+    BEGIN_SERIALIZE()
+      FIELD(voter_index)
+      FIELD(signature)
+    END_SERIALIZE()
   };
 
   struct checkpoint_vote { crypto::hash block_hash; };

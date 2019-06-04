@@ -126,9 +126,11 @@ namespace cryptonote
   {
     blobdata block;
     std::vector<blobdata> txs;
+    blobdata checkpoint;
     BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE(block)
       KV_SERIALIZE(txs)
+      KV_SERIALIZE(checkpoint)
     END_KV_SERIALIZE_MAP()
   };
 

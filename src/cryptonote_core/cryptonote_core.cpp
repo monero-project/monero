@@ -1479,7 +1479,8 @@ namespace cryptonote
       return false;
     }
     std::vector<block> pblocks;
-    if (!prepare_handle_incoming_blocks(blocks, pblocks))
+    std::vector<checkpoint_t> checkpoints;
+    if (!prepare_handle_incoming_blocks(blocks, pblocks, checkpoints))
     {
       MERROR("Block found, but failed to prepare to add");
       m_miner.resume();
@@ -1532,10 +1533,10 @@ namespace cryptonote
   }
 
   //-----------------------------------------------------------------------------------------------
-  bool core::prepare_handle_incoming_blocks(const std::vector<block_complete_entry> &blocks_entry, std::vector<block> &blocks)
+  bool core::prepare_handle_incoming_blocks(const std::vector<block_complete_entry> &blocks_entry, std::vector<block> &blocks, std::vector<checkpoint_t> &checkpoints)
   {
     m_incoming_tx_lock.lock();
-    if (!m_blockchain_storage.prepare_handle_incoming_blocks(blocks_entry, blocks))
+    if (!m_blockchain_storage.prepare_handle_incoming_blocks(blocks_entry, blocks, checkpoints))
     {
       cleanup_handle_incoming_blocks(false);
       return false;

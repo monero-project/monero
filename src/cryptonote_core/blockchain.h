@@ -248,10 +248,11 @@ namespace cryptonote
      *
      * @param blocks_entry a list of incoming blocks
      * @param blocks the parsed blocks
+     * @param checkpoints the parsed checkpoints
      *
      * @return false on erroneous blocks, else true
      */
-    bool prepare_handle_incoming_blocks(const std::vector<block_complete_entry>  &blocks_entry, std::vector<block> &blocks);
+    bool prepare_handle_incoming_blocks(const std::vector<block_complete_entry>  &blocks_entry, std::vector<block> &blocks, std::vector<checkpoint_t> &checkpoints);
 
     /**
      * @brief incoming blocks post-processing, cleanup, and disk sync
