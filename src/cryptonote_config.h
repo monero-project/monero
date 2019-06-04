@@ -50,6 +50,9 @@
 
 #define BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW               60
 
+//Service nodes
+
+#define SERVICE_NODE_VERSION                            5
 
 #define STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS          20
 #define STAKING_REQUIREMENT_LOCK_BLOCKS                 (20160)
