@@ -156,16 +156,6 @@ namespace cryptonote
   , "Check for new versions of loki: [disabled|notify|download|update]"
   , "notify"
   };
-  static const command_line::arg_descriptor<bool> arg_fluffy_blocks  = {
-    "fluffy-blocks"
-  , "Relay blocks as fluffy blocks (obsolete, now default)"
-  , true
-  };
-  static const command_line::arg_descriptor<bool> arg_no_fluffy_blocks  = {
-    "no-fluffy-blocks"
-  , "Relay blocks as normal blocks"
-  , false
-  };
   static const command_line::arg_descriptor<bool> arg_pad_transactions  = {
     "pad-transactions"
   , "Pad relayed transactions to help defend against traffic volume analysis"
@@ -296,8 +286,6 @@ namespace cryptonote
     command_line::add_arg(desc, arg_show_time_stats);
     command_line::add_arg(desc, arg_block_sync_size);
     command_line::add_arg(desc, arg_check_updates);
-    command_line::add_arg(desc, arg_fluffy_blocks);
-    command_line::add_arg(desc, arg_no_fluffy_blocks);
     command_line::add_arg(desc, arg_test_dbg_lock_sleep);
     command_line::add_arg(desc, arg_offline);
     command_line::add_arg(desc, arg_block_download_max_size);
@@ -331,12 +319,8 @@ namespace cryptonote
     m_config_folder = command_line::get_arg(vm, arg_data_dir);
 
     test_drop_download_height(command_line::get_arg(vm, arg_test_drop_download_height));
-    m_fluffy_blocks_enabled = !get_arg(vm, arg_no_fluffy_blocks);
     m_pad_transactions = get_arg(vm, arg_pad_transactions);
     m_offline = get_arg(vm, arg_offline);
-    if (!command_line::is_arg_defaulted(vm, arg_fluffy_blocks))
-      MWARNING(arg_fluffy_blocks.name << " is obsolete, it is now default");
-
     if (command_line::get_arg(vm, arg_test_drop_download) == true)
       test_drop_download();
 
@@ -1511,9 +1495,6 @@ namespace cryptonote
     CHECK_AND_ASSERT_MES(!bvc.m_verifivation_failed, false, "mined block failed verification");
     if(bvc.m_added_to_main_chain)
     {
-      cryptonote_connection_context exclude_context = boost::value_initialized<cryptonote_connection_context>();
-      NOTIFY_NEW_BLOCK::request arg = AUTO_VAL_INIT(arg);
-      arg.current_blockchain_height = m_blockchain_storage.get_current_blockchain_height();
       std::vector<crypto::hash> missed_txs;
       std::vector<cryptonote::blobdata> txs;
       m_blockchain_storage.get_transactions_blobs(b.tx_hashes, txs, missed_txs);
@@ -1525,10 +1506,10 @@ namespace cryptonote
       CHECK_AND_ASSERT_MES(txs.size() == b.tx_hashes.size() && !missed_txs.size(), false, "can't find some transactions in found block:" << get_block_hash(b) << " txs.size()=" << txs.size()
         << ", b.tx_hashes.size()=" << b.tx_hashes.size() << ", missed_txs.size()" << missed_txs.size());
 
-      block_to_blob(b, arg.b.block);
-      //pack transactions
-      for(auto& tx:  txs)
-        arg.b.txs.push_back(tx);
+      cryptonote_connection_context exclude_context = boost::value_initialized<cryptonote_connection_context>();
+      NOTIFY_NEW_FLUFFY_BLOCK::request arg          = AUTO_VAL_INIT(arg);
+      arg.current_blockchain_height                 = m_blockchain_storage.get_current_blockchain_height();
+      arg.b                                         = blocks[0];
 
       m_pprotocol->relay_block(arg, exclude_context);
     }
