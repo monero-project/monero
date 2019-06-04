@@ -585,7 +585,7 @@ namespace cryptonote
       0
     };
     const difficulty_type fixed_difficulty = command_line::get_arg(vm, arg_fixed_difficulty);
-	
+
 	BlockchainDB *initialized_db = db.release();
 	m_service_node_list.set_db_pointer(initialized_db);
     m_service_node_list.register_hooks(m_quorum_cop);
@@ -748,7 +748,7 @@ namespace cryptonote
     bad_semantics_txes_lock.unlock();
 
     uint8_t version = m_blockchain_storage.get_current_hard_fork_version();
-    unsigned int max_tx_version = (version == 1) ? 1 : (version < 5)
+    unsigned int max_tx_version = (version == 1) ? 1 : (version < SERVICE_NODE_VERSION)
       ? transaction::version_2
       : transaction::version_3_per_output_unlock_times;
     if (tx.version == 0 || tx.version > max_tx_version)

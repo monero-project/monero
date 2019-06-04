@@ -107,7 +107,7 @@ namespace cryptonote
 
   uint64_t service_node_reward_formula(uint64_t base_reward, int hard_fork_version)
   {
-	  return hard_fork_version >= 5 ? (base_reward / SERVICE_NODE_BASE_REWARD_DIVISOR) : 0;
+	  return hard_fork_version >= SERVICE_NODE_VERSION ? (base_reward / SERVICE_NODE_BASE_REWARD_DIVISOR) : 0;
   }
 
   uint64_t get_portion_of_reward(uint64_t portions, uint64_t total_service_node_reward)
@@ -152,7 +152,7 @@ namespace cryptonote
 	  tx.extra.clear();
 	  tx.output_unlock_times.clear();
 	  tx.is_deregister = false;
-  if(hard_fork_version >= 5)
+  if(hard_fork_version >= SERVICE_NODE_VERSION)
 	   tx.version =  3;
     if(hard_fork_version == 4)
       tx.version = 2;
@@ -226,7 +226,7 @@ namespace cryptonote
 		tx.output_unlock_times.push_back(height + CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW);
 	}
 
-	if (hard_fork_version >= 5) // Service Node Reward
+	if (hard_fork_version >= SERVICE_NODE_VERSION) // Service Node Reward
 	{
 		for (size_t i = 0; i < service_node_info.size(); i++)
 		{
@@ -252,7 +252,7 @@ namespace cryptonote
 
 	uint64_t expected_amount = reward_parts.miner_reward() + reward_parts.service_node_paid;
 	CHECK_AND_ASSERT_MES(summary_amounts == expected_amount, false, "Failed to construct miner tx, summary_amounts = " << summary_amounts << " not equal total block_reward = " << expected_amount);
-	
+
 	//lock
 	tx.unlock_time = height + CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW;
 	tx.vin.push_back(in);

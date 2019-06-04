@@ -88,7 +88,7 @@ namespace service_nodes
 	void service_node_list::init()
 	{
 		std::lock_guard<boost::recursive_mutex> lock(m_sn_mutex);
-		if (m_blockchain.get_current_hard_fork_version() < 5)
+		if (m_blockchain.get_current_hard_fork_version() < SERVICE_NODE_VERSION)
 		{
 			clear(true);
 			return;
@@ -598,7 +598,7 @@ namespace service_nodes
 
 		const auto hf_version = m_blockchain.get_hard_fork_version(block_height);
 
-		if (hf_version >= 5) {
+		if (hf_version >= SERVICE_NODE_VERSION) {
 			info.version = service_node_info::version_1_swarms;
 			info.swarm_id = QUEUE_SWARM_ID; /// new nodes go into a "queue swarm"
 		}
@@ -635,7 +635,7 @@ namespace service_nodes
 		if (iter != m_service_nodes_infos.end())
 		{
 			int hard_fork_version = m_blockchain.get_hard_fork_version(block_height);
-			if (hard_fork_version >= 5)
+			if (hard_fork_version >= SERVICE_NODE_VERSION)
 			{
 				service_node_info const &old_info = iter->second;
 				uint64_t expiry_height = old_info.registration_height + get_staking_requirement_lock_blocks(m_blockchain.nettype());
@@ -777,7 +777,7 @@ namespace service_nodes
 		uint64_t block_height = cryptonote::get_block_height(block);
 		int hard_fork_version = m_blockchain.get_hard_fork_version(block_height);
 
-		if (hard_fork_version < 5)
+		if (hard_fork_version < SERVICE_NODE_VERSION)
 			return;
 
 		assert(m_height == block_height);
@@ -895,13 +895,13 @@ namespace service_nodes
 		int hard_fork_version = m_blockchain.get_hard_fork_version(block_height);
 
 		uint64_t lock_blocks = get_staking_requirement_lock_blocks(m_blockchain.nettype());
-		if (hard_fork_version >= 5)
+		if (hard_fork_version >= SERVICE_NODE_VERSION)
 			lock_blocks += STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS;
 
 		if (block_height < lock_blocks)
 			return expired_nodes;
 
-		if (hard_fork_version >= 5)
+		if (hard_fork_version >= SERVICE_NODE_VERSION)
 		{
 			for (auto &it : m_service_nodes_infos)
 			{
@@ -1001,7 +1001,7 @@ namespace service_nodes
 	bool service_node_list::validate_miner_tx(const crypto::hash& prev_id, const cryptonote::transaction& miner_tx, uint64_t height, int hard_fork_version, cryptonote::block_reward_parts const &reward_parts) const
 	{
 		std::lock_guard<boost::recursive_mutex> lock(m_sn_mutex);
-		if (hard_fork_version < 5)
+		if (hard_fork_version < SERVICE_NODE_VERSION)
 			return true;
 
 		// NOTE(triton): Service node reward distribution is calculated from the
