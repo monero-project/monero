@@ -1481,12 +1481,14 @@ namespace wallet_rpc
       bool all;
       uint32_t account_index;     // ignored when `all` is true
       uint64_t amount;            // ignored when `all` is true
+      uint64_t blockchain_height;
       std::string message;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(all)
         KV_SERIALIZE(account_index)
         KV_SERIALIZE(amount)
+        KV_SERIALIZE_OPT(blockchain_height, (uint64_t)0);
         KV_SERIALIZE(message)
       END_KV_SERIALIZE_MAP()
     };
@@ -1508,11 +1510,13 @@ namespace wallet_rpc
     struct request_t
     {
       std::string address;
+      uint64_t blockchain_height;
       std::string message;
       std::string signature;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(address)
+        KV_SERIALIZE_OPT(blockchain_height, (uint64_t)0)
         KV_SERIALIZE(message)
         KV_SERIALIZE(signature)
       END_KV_SERIALIZE_MAP()
@@ -1524,11 +1528,13 @@ namespace wallet_rpc
       bool good;
       uint64_t total;
       uint64_t spent;
+      uint64_t blockchain_height;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(good)
         KV_SERIALIZE(total)
         KV_SERIALIZE(spent)
+        KV_SERIALIZE(blockchain_height)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;

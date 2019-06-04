@@ -679,13 +679,14 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(check_spend_proof)
 
-    def get_reserve_proof(self, all_ = True, account_index = 0, amount = 0, message = ''):
+    def get_reserve_proof(self, all_ = True, account_index = 0, amount = 0, blockchain_height = 0, message = ''):
         get_reserve_proof = {
             'method': 'get_reserve_proof',
             'params' : {
                 'all': all_,
                 'account_index': account_index,
                 'amount': amount,
+                'blockchain_height': blockchain_height,
                 'message': message,
             },
             'jsonrpc': '2.0', 
@@ -693,11 +694,12 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(get_reserve_proof)
 
-    def check_reserve_proof(self, address = '', message = '', signature = ''):
+    def check_reserve_proof(self, address = '', blockchain_height = 0, message = '', signature = ''):
         check_reserve_proof = {
             'method': 'check_reserve_proof',
             'params' : {
                 'address': address,
+                'blockchain_height': blockchain_height,
                 'message': message,
                 'signature': signature,
             },

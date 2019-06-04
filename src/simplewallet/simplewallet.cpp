@@ -215,8 +215,8 @@ namespace
   const char* USAGE_CHECK_TX_PROOF("check_tx_proof <txid> <address> <signature_file> [<message>]");
   const char* USAGE_GET_SPEND_PROOF("get_spend_proof <txid> [<message>]");
   const char* USAGE_CHECK_SPEND_PROOF("check_spend_proof <txid> <signature_file> [<message>]");
-  const char* USAGE_GET_RESERVE_PROOF("get_reserve_proof (all|<amount>) [<message>]");
-  const char* USAGE_CHECK_RESERVE_PROOF("check_reserve_proof <address> <signature_file> [<message>]");
+  const char* USAGE_GET_RESERVE_PROOF("get_reserve_proof [@N] (all|<amount>) [<message>]");
+  const char* USAGE_CHECK_RESERVE_PROOF("check_reserve_proof [@N] <address> <signature_file> [<message>]");
   const char* USAGE_SHOW_TRANSFERS("show_transfers [in|out|all|pending|failed|pool|coinbase] [index=<N1>[,<N2>,...]] [<min_height> [<max_height>]]");
   const char* USAGE_UNSPENT_OUTPUTS("unspent_outputs [index=<N1>[,<N2>,...]] [<min_amount> [<max_amount>]]");
   const char* USAGE_RESCAN_BC("rescan_bc [hard|soft|keep_ki] [start_height=0]");
@@ -8463,7 +8463,22 @@ bool simple_wallet::get_reserve_proof(const std::vector<std::string> &args)
     fail_msg_writer() << tr("command not supported by HW wallet");
     return true;
   }
-  if(args.size() != 1 && args.size() != 2) {
+
+  size_t extra_args = 0;
+  boost::optional<uint64_t> blockchain_height;
+  if (!args.empty() && boost::starts_with(args[0], "@"))
+  {
+    uint64_t h;
+    if (!epee::string_tools::get_xtype_from_string(h, args[0].substr(1)) || h == 0)
+    {
+      fail_msg_writer() << tr("Invalid height");
+      return true;
+    }
+    blockchain_height = h;
+    extra_args = 1;
+  }
+
+  if(args.size() != extra_args + 1 && args.size() != extra_args + 2) {
     PRINT_USAGE(USAGE_GET_RESERVE_PROOF);
     return true;
   }
@@ -8475,13 +8490,13 @@ bool simple_wallet::get_reserve_proof(const std::vector<std::string> &args)
   }
 
   boost::optional<std::pair<uint32_t, uint64_t>> account_minreserve;
-  if (args[0] != "all")
+  if (args[extra_args + 0] != "all")
   {
     account_minreserve = std::pair<uint32_t, uint64_t>();
     account_minreserve->first = m_current_subaddress_account;
-    if (!cryptonote::parse_amount(account_minreserve->second, args[0]))
+    if (!cryptonote::parse_amount(account_minreserve->second, args[extra_args + 0]))
     {
-      fail_msg_writer() << tr("amount is wrong: ") << args[0];
+      fail_msg_writer() << tr("amount is wrong: ") << args[extra_args + 0];
       return true;
     }
   }
@@ -8493,7 +8508,7 @@ bool simple_wallet::get_reserve_proof(const std::vector<std::string> &args)
 
   try
   {
-    const std::string sig_str = m_wallet->get_reserve_proof(account_minreserve, args.size() == 2 ? args[1] : "");
+    const std::string sig_str = m_wallet->get_reserve_proof(account_minreserve, blockchain_height, args.size() == extra_args + 2 ? args[extra_args + 1] : "");
     const std::string filename = "monero_reserve_proof";
     if (m_wallet->save_to_file(filename, sig_str, true))
       success_msg_writer() << tr("signature file saved to: ") << filename;
@@ -8509,7 +8524,21 @@ bool simple_wallet::get_reserve_proof(const std::vector<std::string> &args)
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::check_reserve_proof(const std::vector<std::string> &args)
 {
-  if(args.size() != 2 && args.size() != 3) {
+  size_t extra_args = 0;
+  boost::optional<uint64_t> blockchain_height;
+  if (!args.empty() && boost::starts_with(args[0], "@"))
+  {
+    uint64_t h;
+    if (!epee::string_tools::get_xtype_from_string(h, args[0].substr(1)) && h == 0)
+    {
+      fail_msg_writer() << tr("Invalid height");
+      return true;
+    }
+    blockchain_height = h;
+    extra_args = 1;
+  }
+
+  if(args.size() != extra_args + 2 && args.size() != extra_args + 3) {
     PRINT_USAGE(USAGE_CHECK_RESERVE_PROOF);
     return true;
   }
@@ -8517,8 +8546,20 @@ bool simple_wallet::check_reserve_proof(const std::vector<std::string> &args)
   if (!try_connect_to_daemon())
     return true;
 
+  if (!blockchain_height)
+  {
+    std::string err;
+    uint64_t bc_height = get_daemon_blockchain_height(err);
+    if (!err.empty())
+    {
+      fail_msg_writer() << tr("Failed to query daemon blockchain height: ") << err;
+      return true;
+    }
+    blockchain_height = bc_height;
+  }
+
   cryptonote::address_parse_info info;
-  if(!cryptonote::get_account_address_from_str_or_url(info, m_wallet->nettype(), args[0], oa_prompter))
+  if(!cryptonote::get_account_address_from_str_or_url(info, m_wallet->nettype(), args[extra_args + 0], oa_prompter))
   {
     fail_msg_writer() << tr("failed to parse address");
     return true;
@@ -8530,7 +8571,7 @@ bool simple_wallet::check_reserve_proof(const std::vector<std::string> &args)
   }
 
   std::string sig_str;
-  if (!m_wallet->load_from_file(args[1], sig_str))
+  if (!m_wallet->load_from_file(args[extra_args + 1], sig_str))
   {
     fail_msg_writer() << tr("failed to load signature file");
     return true;
@@ -8540,10 +8581,10 @@ bool simple_wallet::check_reserve_proof(const std::vector<std::string> &args)
 
   try
   {
-    uint64_t total, spent;
-    if (m_wallet->check_reserve_proof(info.address, args.size() == 3 ? args[2] : "", sig_str, total, spent))
+    uint64_t total, spent, bh;
+    if (m_wallet->check_reserve_proof(info.address, blockchain_height, args.size() == extra_args + 3 ? args[extra_args + 2] : "", sig_str, total, spent, bh))
     {
-      success_msg_writer() << boost::format(tr("Good signature -- total: %s, spent: %s, unspent: %s")) % print_money(total) % print_money(spent) % print_money(total - spent);
+      success_msg_writer() << boost::format(tr("Good signature -- received: %s, spent: %s, balance: %s as of block %u")) % print_money(total) % print_money(spent) % print_money(total - spent) % bh;
     }
     else
     {

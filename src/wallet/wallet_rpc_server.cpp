@@ -2417,9 +2417,13 @@ namespace tools
       account_minreserve = std::make_pair(req.account_index, req.amount);
     }
 
+    boost::optional<uint64_t> blockchain_height;
+    if (req.blockchain_height != 0)
+      blockchain_height = req.blockchain_height;
+
     try
     {
-      res.signature = m_wallet->get_reserve_proof(account_minreserve, req.message);
+      res.signature = m_wallet->get_reserve_proof(account_minreserve, blockchain_height, req.message);
     }
     catch (const std::exception &e)
     {
@@ -2448,9 +2452,13 @@ namespace tools
       return false;
     }
 
+    boost::optional<uint64_t> blockchain_height;
+    if (req.blockchain_height != 0)
+      blockchain_height = req.blockchain_height;
+
     try
     {
-      res.good = m_wallet->check_reserve_proof(info.address, req.message, req.signature, res.total, res.spent);
+      res.good = m_wallet->check_reserve_proof(info.address, blockchain_height, req.message, req.signature, res.total, res.spent, res.blockchain_height);
     }
     catch (const std::exception &e)
     {
