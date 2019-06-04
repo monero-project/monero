@@ -154,9 +154,9 @@ namespace cryptonote
 	  tx.is_deregister = false;
   if(hard_fork_version >= 5)
 	   tx.version =  3;
-    if(hard_fork_version < 4)
+    if(hard_fork_version == 4)
       tx.version = 2;
-    if(hard_fork_version < 3)
+    if(hard_fork_version <= 3)
       tx.version = 1;
 
 	  const network_type                                             nettype = miner_tx_context.nettype;
