@@ -88,6 +88,21 @@ namespace cryptonote
     bool set_mining_target(uint8_t mining_target);
     uint64_t get_block_reward() const { return m_block_reward; }
 
+#if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
+    std::atomic<bool> m_debug_mine_singular_block;
+    bool debug_mine_singular_block(const account_public_address& adr)
+    {
+      boost::thread::attributes attrs;
+      attrs.set_stack_size(THREAD_STACK_SIZE);
+
+      m_debug_mine_singular_block = true;
+      bool result = start(adr, 1 /*thread_counts*/, attrs, false /*do_background*/, false /*ignore_battery*/);
+      while(is_mining()) { }
+      return result;
+    }
+#endif
+
+
     static constexpr uint8_t  BACKGROUND_MINING_DEFAULT_IDLE_THRESHOLD_PERCENTAGE       = 90;
     static constexpr uint8_t  BACKGROUND_MINING_MIN_IDLE_THRESHOLD_PERCENTAGE           = 50;
     static constexpr uint8_t  BACKGROUND_MINING_MAX_IDLE_THRESHOLD_PERCENTAGE           = 99;

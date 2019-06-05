@@ -285,6 +285,34 @@ namespace cryptonote
       std::cout << "Votes and uptime relayed";
       loki::write_redirected_stdout_to_shared_mem();
     }
+
+    void on_debug_mine_n_blocks(std::string const &address, uint64_t num_blocks)
+    {
+      cryptonote::miner &miner = m_core.get_miner();
+      if (miner.is_mining())
+      {
+        std::cout << "Already mining";
+        return;
+      }
+
+      cryptonote::address_parse_info info;
+      if(!get_account_address_from_str(info, m_core.get_nettype(), address))
+      {
+        std::cout << "Failed, wrong address";
+        return;
+      }
+
+      for (uint64_t i = 0; i < num_blocks; i++)
+      {
+        if(!miner.debug_mine_singular_block(info.address))
+        {
+          std::cout << "Failed, mining not started";
+          return;
+        }
+      }
+
+      std::cout << "Mining stopped in daemon";
+    }
 #endif
 
 private:

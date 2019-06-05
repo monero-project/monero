@@ -367,6 +367,20 @@ t_command_server::t_command_server(
       }, p::_1)
     , ""
     );
+
+    m_command_lookup.set_handler(
+      "debug_mine_n_blocks", std::bind([rpc_server](std::vector<std::string> const &args) {
+        uint64_t num_blocks = 0;
+        if (args.size() == 2 && epee::string_tools::get_xtype_from_string(num_blocks, args[1]))
+          rpc_server->on_debug_mine_n_blocks(args[0], num_blocks);
+        else
+          std::cout << "Invalid args, expected debug_mine_n_blocks <address> <num_blocks>";
+
+        loki::write_redirected_stdout_to_shared_mem();
+        return true;
+      }, p::_1)
+    , ""
+    );
 #endif
 }
 
