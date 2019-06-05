@@ -71,7 +71,7 @@ class GetPayments : public ::testing::Test
                 const std::string password = "testpass";
                 crypto::secret_key recovery_key = crypto::secret_key();
 
-                uint64_t min_height = 0;
+                uint64_t threshold = 0;
                 uint64_t max_height = (uint64_t)-1;
 
                 uint64_t block_height_that_has_transaction;
@@ -88,13 +88,13 @@ class GetPayments : public ::testing::Test
 };
 
 
-TEST_F(GetPayments, NotFoundBelowMinHeight)
+TEST_F(GetPayments, NotFoundBelowThreshold)
 {
         m_wallet.get_payments(matched_payments, actual_payments,
                         ++block_height_that_has_transaction, block_height_that_has_transaction);
         ASSERT_EQ(0, matched_payments.size());
 }
-TEST_F(GetPayments, NotFoundBelowMinHeight_Out)
+TEST_F(GetPayments, NotFoundBelowThreshold_Out)
 {
         m_wallet.get_payments_out(confirmed_payments, actual_confirmed_txs,
                         ++block_height_that_has_transaction, block_height_that_has_transaction);
@@ -144,16 +144,16 @@ TEST_F(GetPayments, NotFoundIfNegativeReversed_Out)
 }
 
 
-TEST_F(GetPayments, NotFoundIfMinHeightAboveMaxHeight)
+TEST_F(GetPayments, NotFoundIfThresholdAboveMaxHeight)
 {
         m_wallet.get_payments(matched_payments, actual_payments,
-                        max_height, min_height);
+                        max_height, threshold);
         ASSERT_EQ(0, matched_payments.size());
 }
-TEST_F(GetPayments, NotFoundIfMinHeightAboveMaxHeight_Out)
+TEST_F(GetPayments, NotFoundIfThresholdAboveMaxHeight_Out)
 {
         m_wallet.get_payments_out(confirmed_payments, actual_confirmed_txs,
-                        max_height, min_height);
+                        max_height, threshold);
         ASSERT_EQ(0, confirmed_payments.size());
 }
 
@@ -161,40 +161,40 @@ TEST_F(GetPayments, NotFoundIfMinHeightAboveMaxHeight_Out)
 TEST_F(GetPayments, IsFoundWithinZeroAndMax)
 {
         m_wallet.get_payments(matched_payments, actual_payments,
-                        min_height, max_height);
+                        threshold, max_height);
         ASSERT_EQ(1, matched_payments.size());
 }
 TEST_F(GetPayments, IsFoundWithinZeroAndMax_Out)
 {
         m_wallet.get_payments_out(confirmed_payments, actual_confirmed_txs,
-                        min_height, max_height);
+                        threshold, max_height);
         ASSERT_EQ(1, confirmed_payments.size());
 }
 
 
-TEST_F(GetPayments, IsFoundAtMinHeight)
+TEST_F(GetPayments, NotFoundAtThreshold)
 {
         m_wallet.get_payments(matched_payments, actual_payments,
                         block_height_that_has_transaction, block_height_that_has_transaction);
-        ASSERT_EQ(1, matched_payments.size());
+        ASSERT_EQ(0, matched_payments.size());
 }
-TEST_F(GetPayments, IsFoundAtMinHeight_Out)
+TEST_F(GetPayments, NotFoundAtThreshold_Out)
 {
         m_wallet.get_payments_out(confirmed_payments, actual_confirmed_txs,
                         block_height_that_has_transaction, block_height_that_has_transaction);
-        ASSERT_EQ(1, confirmed_payments.size());
+        ASSERT_EQ(0, confirmed_payments.size());
 }
 
 
 TEST_F(GetPayments, IsFoundAtMaxHeight)
 {
         m_wallet.get_payments(matched_payments, actual_payments,
-                        min_height, block_height_that_has_transaction);
+                        threshold, block_height_that_has_transaction);
         ASSERT_EQ(1, matched_payments.size());
 }
 TEST_F(GetPayments, IsFoundAtMaxHeight_Out)
 {
         m_wallet.get_payments_out(confirmed_payments, actual_confirmed_txs,
-                        min_height, block_height_that_has_transaction);
+                        threshold, block_height_that_has_transaction);
         ASSERT_EQ(1, confirmed_payments.size());
 }
