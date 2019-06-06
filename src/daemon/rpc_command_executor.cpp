@@ -561,7 +561,6 @@ bool t_rpc_command_executor::show_status() {
   }
 
   tools::success_msg_writer() << str.str();
-
   return true;
 }
 
@@ -1801,6 +1800,13 @@ bool t_rpc_command_executor::ban(const std::string &ip, time_t seconds)
         }
     }
 
+    // TODO(doyle): Work around because integration tests break when using
+    // mlog_set_categories(""), so emit the block message using msg writer
+    // instead of the logging system.
+#if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
+    tools::success_msg_writer() << "Host " << ip << " blocked.";
+#endif
+
     return true;
 }
 
@@ -1837,6 +1843,9 @@ bool t_rpc_command_executor::unban(const std::string &ip)
         }
     }
 
+#if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
+    tools::success_msg_writer() << "Host " << ip << " unblocked.";
+#endif
     return true;
 }
 

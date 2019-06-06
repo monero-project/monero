@@ -117,18 +117,22 @@ namespace cryptonote
 
   static bool update_checkpoint_in_db_safe(BlockchainDB *db, checkpoint_t const &checkpoint)
   {
+    bool result        = true;
+    bool batch_started = false;
     try
     {
-      auto guard = db_wtxn_guard(db);
+      batch_started = db->batch_start();
       db->update_block_checkpoint(checkpoint);
     }
     catch (const std::exception& e)
     {
       MERROR("Failed to add checkpoint with hash: " << checkpoint.block_hash << " at height: " << checkpoint.height << ", what = " << e.what());
-      return false;
+      result = false;
     }
 
-    return true;
+    if (batch_started)
+      db->batch_stop();
+    return result;
   }
   //---------------------------------------------------------------------------
   bool checkpoints::add_checkpoint(uint64_t height, const std::string& hash_str)

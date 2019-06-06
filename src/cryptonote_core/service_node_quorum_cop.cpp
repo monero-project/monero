@@ -111,6 +111,9 @@ namespace service_nodes
     if (!m_core.get_service_node_keys(my_pubkey, my_seckey))
       return;
 
+    if (!m_core.is_service_node(my_pubkey))
+      return;
+
     uint64_t const height = cryptonote::get_block_height(block);
     for (int i = 0; i < (int)quorum_type::count; i++)
     {
