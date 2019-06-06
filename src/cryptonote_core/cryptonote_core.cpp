@@ -169,7 +169,7 @@ namespace cryptonote
   };
   static const command_line::arg_descriptor<bool> arg_service_node  = {
     "service-node"
-  , "Run as a service node"
+  , "Run as a service node, options 'sn-public-ip' and 'storage-server-port' must be set"
   };
   static const command_line::arg_descriptor<std::string> arg_public_ip = {
     "sn-public-ip"
@@ -347,31 +347,38 @@ namespace cryptonote
       m_storage_port = command_line::get_arg(vm, arg_sn_bind_port);
 
       bool storage_ok = true;
-
       if (m_storage_port == 0) {
-        MERROR("Please specify the port on which the storage server is listening.");
+        MERROR("Please specify the port on which the storage server is listening with: '--" << arg_sn_bind_port.name << " <port>'");
         storage_ok = false;
       }
 
       const std::string pub_ip = command_line::get_arg(vm, arg_public_ip);
-      if (!epee::string_tools::get_ip_int32_from_string(m_sn_public_ip, pub_ip)) {
-        MERROR("Unable to parse IPv4 public address.");
+      if (pub_ip.size())
+      {
+        if (!epee::string_tools::get_ip_int32_from_string(m_sn_public_ip, pub_ip)) {
+          MERROR("Unable to parse IPv4 public address from: " << pub_ip);
+          storage_ok = false;
+        }
+
+        if (epee::net_utils::is_ip_local(m_sn_public_ip) || epee::net_utils::is_ip_loopback(m_sn_public_ip)) {
+          MERROR("Address given for public-ip is not public: " << m_sn_public_ip);
+          storage_ok = false;
+        }
+      }
+      else
+      {
+        MERROR("Please specify an IPv4 public address which the service node & storage server is accessible from with: '--" << arg_public_ip.name << " <ip address>'");
         storage_ok = false;
       }
 
       if (!storage_ok) {
-        MERROR("IMPORTANT: All service node operators are now required to run loki storage "
+        MERROR("IMPORTANT: All service node operators are now required to run the loki storage "
                << "server and provide the public ip and port on which it can be accessed on the internet.");
         return false;
       }
 
       MGINFO("Storage server endpoint is set to: "
              << (epee::net_utils::ipv4_network_address{ m_sn_public_ip, m_storage_port }).str());
-
-      if (epee::net_utils::is_ip_local(m_sn_public_ip) || epee::net_utils::is_ip_loopback(m_sn_public_ip)) {
-        MERROR("Specified IP is not public.");
-        return false;
-      }
     }
 
     epee::debug::g_test_dbg_lock_sleep() = command_line::get_arg(vm, arg_test_dbg_lock_sleep);
