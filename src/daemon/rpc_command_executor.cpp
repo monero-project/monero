@@ -2384,6 +2384,16 @@ static void append_printable_service_node_list_entry(cryptonote::network_type ne
     {
       buffer.append("Last Uptime Proof Received: ");
       buffer.append(get_human_time_ago(entry.last_uptime_proof, time(nullptr)));
+
+      buffer.append("\n");
+      buffer.append(indent2);
+      buffer.append("IP Address: ");
+      buffer.append(entry.public_ip);
+
+      buffer.append("\n");
+      buffer.append(indent2);
+      buffer.append("Storage Server Port: ");
+      buffer.append(std::to_string(entry.storage_port));
     }
     buffer.append("\n");
   }
