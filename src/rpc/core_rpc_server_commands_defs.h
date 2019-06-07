@@ -2826,6 +2826,21 @@ namespace cryptonote
     typedef epee::misc_utils::struct_init<response_t> response;
   };
 
+  struct COMMAND_RPC_STORAGE_SERVER_PING
+  {
+    struct request
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
   LOKI_RPC_DOC_INTROSPECT
   // Get the required amount of Loki to become a Service Node at the queried height. 
   // For stagenet and testnet values, ensure the daemon is started with the 

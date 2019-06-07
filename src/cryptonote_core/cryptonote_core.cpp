@@ -238,6 +238,10 @@ namespace cryptonote
   {
     m_checkpoints_updating.clear();
     set_cryptonote_protocol(pprotocol);
+
+    // Reset the storage server last ping to make
+    // sure the very first uptime proof works
+    this->update_storage_server_last_ping();
   }
   void core::set_cryptonote_protocol(i_cryptonote_protocol* pprotocol)
   {
@@ -1404,6 +1408,26 @@ namespace cryptonote
     return res;
   }
   //-----------------------------------------------------------------------------------------------
+
+  bool core::check_storage_server_ping() const
+  {
+    time_t last_ping = m_last_storage_server_ping.load();
+    const auto elapsed = std::time(nullptr) - last_ping;
+
+    if (elapsed > STORAGE_SERVER_PING_LIFETIME) {
+      MWARNING("Have not heard from the storage server since at least: "
+      << epee::misc_utils::get_time_str(last_ping));
+      return false;
+    }
+
+    return true;
+  }
+  //-----------------------------------------------------------------------------------------------
+  void core::update_storage_server_last_ping()
+  {
+    m_last_storage_server_ping.store(std::time(nullptr));
+  }
+  //-----------------------------------------------------------------------------------------------
   void core::on_transaction_relayed(const cryptonote::blobdata& tx_blob)
   {
     std::vector<std::pair<crypto::hash, cryptonote::blobdata>> txs;
@@ -1780,8 +1804,17 @@ namespace cryptonote
       // Code snippet from Github @Jagerman
       m_check_uptime_proof_interval.do_call([&states, this](){
         uint64_t last_uptime = m_quorum_cop.get_uptime_proof(states[0].pubkey).timestamp;
-        if (last_uptime <= static_cast<uint64_t>(time(nullptr) - UPTIME_PROOF_FREQUENCY_IN_SECONDS))
+        if (last_uptime <= static_cast<uint64_t>(time(nullptr) - UPTIME_PROOF_FREQUENCY_IN_SECONDS)) {
+
+          if (!this->check_storage_server_ping()) {
+            MERROR("Failed to submit uptime proof: have not heard from"
+                   << " the storage server recently. "
+                   << "Make sure that it is running!");
+            return true;
+          }
+
           this->submit_uptime_proof();
+        }
 
         return true;
       });

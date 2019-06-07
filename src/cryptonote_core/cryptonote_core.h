@@ -861,6 +861,18 @@ namespace cryptonote
       */
      service_nodes::proof_info get_uptime_proof(const crypto::public_key &key) const;
 
+     /**
+      * @brief Check if the ping last recieved from the storage server has expired
+      * 
+      * @return true if it has not expired
+      */
+     bool check_storage_server_ping() const;
+
+     /**
+      * @brief Update the storage server ping time
+      */
+     void update_storage_server_last_ping();
+
      /*
       * @brief get the blockchain pruning seed
       *
@@ -1139,6 +1151,9 @@ namespace cryptonote
      /// Service Node's public IP and storage server port
      uint32_t m_sn_public_ip;
      uint16_t m_storage_port;
+
+     /// Time point at which the storage server last pinged us
+     std::atomic<time_t> m_last_storage_server_ping;
 
      size_t block_sync_size;
 
