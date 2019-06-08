@@ -197,7 +197,7 @@ typedef struct seedinfo {
 static CTHR_THREAD_RTYPE rx_seedthread(void *arg) {
   seedinfo *si = arg;
   randomx_init_dataset(rx_dataset, si->si_cache, si->si_start, si->si_count);
-  return NULL;
+  CTHR_THREAD_RETURN;
 }
 
 static void rx_initdata(randomx_cache *rs_cache, const int miners) {
