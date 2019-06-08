@@ -616,7 +616,7 @@ bool Blockchain::deinit()
 // It starts a batch and calls private method pop_block_from_blockchain().
 void Blockchain::pop_blocks(uint64_t nblocks)
 {
-  uint64_t i;
+  uint64_t i = 0;
   CRITICAL_REGION_LOCAL(m_tx_pool);
   CRITICAL_REGION_LOCAL1(m_blockchain_lock);
 
@@ -627,9 +627,10 @@ void Blockchain::pop_blocks(uint64_t nblocks)
     const uint64_t blockchain_height = m_db->height();
     if (blockchain_height > 0)
       nblocks = std::min(nblocks, blockchain_height - 1);
-    for (i=0; i < nblocks; ++i)
+    while (i < nblocks)
     {
       pop_block_from_blockchain();
+      ++i;
     }
   }
   catch (const std::exception& e)
