@@ -47,7 +47,7 @@
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define WALLET_RPC_VERSION_MAJOR 1
-#define WALLET_RPC_VERSION_MINOR 9
+#define WALLET_RPC_VERSION_MINOR 10
 #define MAKE_WALLET_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define WALLET_RPC_VERSION MAKE_WALLET_RPC_VERSION(WALLET_RPC_VERSION_MAJOR, WALLET_RPC_VERSION_MINOR)
 namespace tools
@@ -1880,10 +1880,12 @@ namespace wallet_rpc
     {
       std::string filename;
       std::string password;
+      bool autosave_current;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(filename)
         KV_SERIALIZE(password)
+        KV_SERIALIZE_OPT(autosave_current, true)
       END_KV_SERIALIZE_MAP()
     };
     struct response
@@ -1897,7 +1899,10 @@ namespace wallet_rpc
   {
     struct request
     {
+      bool autosave_current;
+
       BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE_OPT(autosave_current, true)
       END_KV_SERIALIZE_MAP()
     };
 
@@ -1937,6 +1942,7 @@ namespace wallet_rpc
       std::string spendkey;
       std::string viewkey;
       std::string password;
+      bool autosave_current;
 
       BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE_OPT(restore_height, (uint64_t)0)
@@ -1945,6 +1951,7 @@ namespace wallet_rpc
       KV_SERIALIZE(spendkey)
       KV_SERIALIZE(viewkey)
       KV_SERIALIZE(password)
+      KV_SERIALIZE_OPT(autosave_current, true)
       END_KV_SERIALIZE_MAP()
     };
 
@@ -1970,6 +1977,7 @@ namespace wallet_rpc
       std::string seed_offset;
       std::string password;
       std::string language;
+      bool autosave_current;
 
       BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE_OPT(restore_height, (uint64_t)0)
@@ -1978,6 +1986,7 @@ namespace wallet_rpc
       KV_SERIALIZE(seed_offset)
       KV_SERIALIZE(password)
       KV_SERIALIZE(language)
+      KV_SERIALIZE_OPT(autosave_current, true)
       END_KV_SERIALIZE_MAP()
     };
 
