@@ -1437,14 +1437,14 @@ namespace tools
   };
 }
 BOOST_CLASS_VERSION(tools::wallet2, 26)
-BOOST_CLASS_VERSION(tools::wallet2::transfer_details, 9)
+BOOST_CLASS_VERSION(tools::wallet2::transfer_details, 10)
 BOOST_CLASS_VERSION(tools::wallet2::multisig_info, 1)
 BOOST_CLASS_VERSION(tools::wallet2::multisig_info::LR, 0)
 BOOST_CLASS_VERSION(tools::wallet2::multisig_tx_set, 1)
 BOOST_CLASS_VERSION(tools::wallet2::payment_details, 4)
 BOOST_CLASS_VERSION(tools::wallet2::pool_payment_details, 1)
 BOOST_CLASS_VERSION(tools::wallet2::unconfirmed_transfer_details, 8)
-BOOST_CLASS_VERSION(tools::wallet2::confirmed_transfer_details, 6)
+BOOST_CLASS_VERSION(tools::wallet2::confirmed_transfer_details, 7)
 BOOST_CLASS_VERSION(tools::wallet2::address_book_row, 17)
 BOOST_CLASS_VERSION(tools::wallet2::reserve_proof_entry, 0)
 BOOST_CLASS_VERSION(tools::wallet2::unsigned_tx_set, 0)
@@ -1494,6 +1494,10 @@ namespace boost
           x.m_key_image_partial = false;
           x.m_multisig_k.clear();
           x.m_multisig_info.clear();
+        }
+         if (ver < 10)
+        {
+          x.m_key_image_requested = false;
         }
     }
 
@@ -1576,6 +1580,12 @@ namespace boost
       a & x.m_multisig_info;
       a & x.m_multisig_k;
       a & x.m_key_image_partial;
+        if (ver < 10)
+      {
+        initialize_transfer_details(a, x, ver);
+        return;
+      }
+      a & x.m_key_image_requested;
     }
 
     template <class Archive>
