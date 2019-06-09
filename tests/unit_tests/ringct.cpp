@@ -38,6 +38,7 @@
 #include "ringct/rctSigs.h"
 #include "ringct/rctOps.h"
 #include "device/device.hpp"
+#include "string_tools.h"
 
 using namespace std;
 using namespace crypto;
@@ -135,6 +136,169 @@ TEST(ringct, MG_sigs)
         sk[2] = skGen();//assume we don't know one of the private keys..
         IIccss = MLSAG_Gen(message, P, sk, NULL, NULL, ind, R, hw::get_device("default"));
         ASSERT_FALSE(MLSAG_Ver(message, P, IIccss, R));
+}
+
+TEST(ringct, CLSAG)
+{
+  const size_t ring_size = 11;
+  const size_t idx = 5;
+  keyV P, C;
+  key p, z;
+  const key message = identity();
+  key backup;
+  clsag clsag;
+
+  for (size_t i = 0; i < ring_size; ++i)
+  {
+    key Sk, Pk;
+    skpkGen(Sk, Pk);
+    P.push_back(Pk);
+    skpkGen(Sk, Pk);
+    C.push_back(Pk);
+  }
+  skpkGen(p, P[idx]);
+  skpkGen(z, C[idx]);
+
+  // bad p at creation
+  clsag = CLSAG_Gen(zero(), P, p, C, z, idx); //, hw::get_device("default"));
+  ASSERT_FALSE(CLSAG_Ver(message, P, C, clsag));
+
+  // bad index at creation
+  try
+  {
+    clsag = CLSAG_Gen(message, P, p, C, z, (idx + 1) % ring_size); //, hw::get_device("default"));
+    ASSERT_FALSE(CLSAG_Ver(message, P, C, clsag));
+  }
+  catch (...) { /* either exception, or failure to verify above */ }
+
+  // bad z at creation
+  try
+  {
+    clsag = CLSAG_Gen(message, P, p, C, skGen(), idx); //, hw::get_device("default"));
+    ASSERT_FALSE(CLSAG_Ver(message, P, C, clsag));
+  }
+  catch (...) { /* either exception, or failure to verify above */ }
+
+  // bad C at creation
+  backup = C[idx];
+  C[idx] = scalarmultBase(skGen());
+  try
+  {
+    clsag = CLSAG_Gen(message, P, p, C, z, idx); //, hw::get_device("default"));
+    ASSERT_FALSE(CLSAG_Ver(message, P, C, clsag));
+  }
+  catch (...) { /* either exception, or failure to verify above */ }
+  C[idx] = backup;
+
+  // bad p at creation
+  try
+  {
+    clsag = CLSAG_Gen(message, P, skGen(), C, z, idx); //, hw::get_device("default"));
+    ASSERT_FALSE(CLSAG_Ver(message, P, C, clsag));
+  }
+  catch (...) { /* either exception, or failure to verify above */ }
+
+  // bad P at creation
+  backup = P[idx];
+  P[idx] = scalarmultBase(skGen());
+  try
+  {
+    clsag = CLSAG_Gen(message, P, p, C, z, idx); //, hw::get_device("default"));
+    ASSERT_FALSE(CLSAG_Ver(message, P, C, clsag));
+  }
+  catch (...) { /* either exception, or failure to verify above */ }
+  P[idx] = backup;
+
+  // good
+  clsag = CLSAG_Gen(message, P, p, C, z, idx); //, hw::get_device("default"));
+  ASSERT_TRUE(CLSAG_Ver(message, P, C, clsag));
+
+  // bad message at verification
+  ASSERT_FALSE(CLSAG_Ver(zero(), P, C, clsag));
+
+  // bad real P at verification
+  backup = P[idx];
+  P[idx] = scalarmultBase(skGen());
+  ASSERT_FALSE(CLSAG_Ver(zero(), P, C, clsag));
+  P[idx] = backup;
+
+  // bad fake P at verification
+  backup = P[(idx + 1) % ring_size];
+  P[(idx + 1) % ring_size] = scalarmultBase(skGen());
+  ASSERT_FALSE(CLSAG_Ver(zero(), P, C, clsag));
+  P[(idx + 1) % ring_size] = backup;
+
+  // bad real C at verification
+  backup = C[idx];
+  C[idx] = scalarmultBase(skGen());
+  ASSERT_FALSE(CLSAG_Ver(zero(), P, C, clsag));
+  C[idx] = backup;
+
+  // bad fake C at verification
+  backup = C[(idx + 1) % ring_size];
+  C[(idx + 1) % ring_size] = scalarmultBase(skGen());
+  ASSERT_FALSE(CLSAG_Ver(zero(), P, C, clsag));
+  C[(idx + 1) % ring_size] = backup;
+
+  // empty s
+  auto sbackup = clsag.s;
+  clsag.s.clear();
+  ASSERT_FALSE(CLSAG_Ver(identity(), P, C, clsag));
+  clsag.s = sbackup;
+
+  // too few s elements
+  backup = clsag.s.back();
+  clsag.s.pop_back();
+  ASSERT_FALSE(CLSAG_Ver(identity(), P, C, clsag));
+  clsag.s.push_back(backup);
+
+  // too many s elements
+  clsag.s.push_back(skGen());
+  ASSERT_FALSE(CLSAG_Ver(identity(), P, C, clsag));
+  clsag.s.pop_back();
+
+  // bad s in clsag at verification
+  for (auto &s: clsag.s)
+  {
+    backup = s;
+    s = skGen();
+    ASSERT_FALSE(CLSAG_Ver(identity(), P, C, clsag));
+    s = backup;
+  }
+
+  // bad c1 in clsag at verification
+  backup = clsag.c1;
+  clsag.c1 = skGen();
+  ASSERT_FALSE(CLSAG_Ver(identity(), P, C, clsag));
+  clsag.c1 = backup;
+
+  // bad I in clsag at verification
+  backup = clsag.I;
+  clsag.I = scalarmultBase(skGen());
+  ASSERT_FALSE(CLSAG_Ver(identity(), P, C, clsag));
+  clsag.I = backup;
+
+  // bad D in clsag at verification
+  backup = clsag.D;
+  clsag.D = scalarmultBase(skGen());
+  ASSERT_FALSE(CLSAG_Ver(identity(), P, C, clsag));
+  clsag.D = backup;
+
+  // D not in main subgroup in clsag at verification
+  backup = clsag.D;
+  rct::key x;
+  ASSERT_TRUE(epee::string_tools::hex_to_pod("c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac03fa", x));
+  clsag.D = rct::addKeys(clsag.D, x);
+  ASSERT_FALSE(CLSAG_Ver(identity(), P, C, clsag));
+  clsag.D = backup;
+
+  // swapped I and D in clsag at verification
+  std::swap(clsag.I, clsag.D);
+  ASSERT_FALSE(CLSAG_Ver(identity(), P, C, clsag));
+  std::swap(clsag.I, clsag.D);
+
+  // check it's still good, in case we failed to restore
+  ASSERT_TRUE(CLSAG_Ver(message, P, C, clsag));
 }
 
 TEST(ringct, range_proofs)

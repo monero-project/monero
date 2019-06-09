@@ -60,7 +60,7 @@ public:
     P[l] = rct::scalarmultBase(p);
     C[l] = rct::scalarmultBase(z);
     
-    sig = CLSAG_Gen(rct::identity(),P,p,C,z,l,NULL);
+    sig = CLSAG_Gen(rct::identity(),P,p,C,z,l);
 
     return true;
   }
@@ -70,7 +70,7 @@ public:
     if (ver)
       return CLSAG_Ver(rct::identity(),P,C,sig);
     else
-      CLSAG_Gen(rct::identity(),P,p,C,z,l,NULL);
+      CLSAG_Gen(rct::identity(),P,p,C,z,l);
     return true;
   }
 
