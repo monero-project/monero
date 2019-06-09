@@ -347,3 +347,10 @@ void rx_slow_hash_free_state(void) {
     rx_vm = NULL;
   }
 }
+
+void rx_stop_mining(void) {
+  if (rx_dataset != NULL) {
+    randomx_release_dataset(rx_dataset);
+	rx_dataset = NULL;
+  }
+}
