@@ -1367,10 +1367,10 @@ void add_tx_secret_key_to_tx_extra(std::vector<uint8_t>& tx_extra, const crypto:
     blobdata bd = get_block_hashing_blob(b);
     const int cn_variant = 1;
     const int light = 1;
-    if(b.major_version <= 5)
+    if(b.major_version <= 6)
         crypto::cn_slow_hash(bd.data(), bd.size(), res, light, cn_variant, height);
     else
-        crypto::cn_slow_hash(bd.data(), bd.size(), res, 0, 4, height);
+        crypto::cn_slow_hash(bd.data(), bd.size(), res, light, 4, height);
 
     return true;
   }
