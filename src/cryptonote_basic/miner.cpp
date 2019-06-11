@@ -123,7 +123,7 @@ namespace cryptonote
     m_miner_extra_sleep(BACKGROUND_MINING_DEFAULT_MINER_EXTRA_SLEEP_MILLIS),
     m_block_reward(0)
   {
-
+    m_attrs.set_stack_size(THREAD_STACK_SIZE);
   }
   //-----------------------------------------------------------------------------------------------------
   miner::~miner()
@@ -360,7 +360,7 @@ namespace cryptonote
     return m_threads_total;
   }
   //-----------------------------------------------------------------------------------------------------
-  bool miner::start(const account_public_address& adr, size_t threads_count, const boost::thread::attributes& attrs, bool do_background, bool ignore_battery)
+  bool miner::start(const account_public_address& adr, size_t threads_count, bool do_background, bool ignore_battery)
   {
     m_block_reward = 0;
     m_mine_address = adr;
@@ -371,7 +371,6 @@ namespace cryptonote
       m_threads_autodetect.push_back({epee::misc_utils::get_ns_count(), m_total_hashes});
       m_threads_total = 1;
     }
-    m_attrs = attrs;
     m_starter_nonce = crypto::rand<uint32_t>();
     CRITICAL_REGION_LOCAL(m_threads_lock);
     if(is_mining())
@@ -395,7 +394,7 @@ namespace cryptonote
     
     for(size_t i = 0; i != m_threads_total; i++)
     {
-      m_threads.push_back(boost::thread(attrs, boost::bind(&miner::worker_thread, this)));
+      m_threads.push_back(boost::thread(m_attrs, boost::bind(&miner::worker_thread, this)));
     }
 
     if (threads_count == 0)
@@ -405,7 +404,7 @@ namespace cryptonote
 
     if( get_is_background_mining_enabled() )
     {
-      m_background_mining_thread = boost::thread(attrs, boost::bind(&miner::background_worker_thread, this));
+      m_background_mining_thread = boost::thread(m_attrs, boost::bind(&miner::background_worker_thread, this));
       LOG_PRINT_L0("Background mining controller thread started" );
     }
 
@@ -487,10 +486,7 @@ namespace cryptonote
   {
     if(m_do_mining)
     {
-      boost::thread::attributes attrs;
-      attrs.set_stack_size(THREAD_STACK_SIZE);
-
-      start(m_mine_address, m_threads_total, attrs, get_is_background_mining_enabled(), get_ignore_battery());
+      start(m_mine_address, m_threads_total, get_is_background_mining_enabled(), get_ignore_battery());
     }
   }
   //-----------------------------------------------------------------------------------------------------
