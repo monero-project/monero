@@ -134,10 +134,11 @@ namespace boost
       a & port;
       a & length;
 
-      if (length > net::tor_address::buffer_size())
+      const size_t buffer_size = net::tor_address::buffer_size();
+      if (length > buffer_size)
         MONERO_THROW(net::error::invalid_tor_address, "Tor address too long");
 
-      char host[net::tor_address::buffer_size()] = {0};
+      char host[buffer_size] = {0};
       a.load_binary(host, length);
       host[sizeof(host) - 1] = 0;
 
@@ -155,10 +156,11 @@ namespace boost
       a & port;
       a & length;
 
-      if (length > net::i2p_address::buffer_size())
+      const size_t buffer_size = net::i2p_address::buffer_size();
+      if (length > buffer_size)
         MONERO_THROW(net::error::invalid_i2p_address, "i2p address too long");
 
-      char host[net::i2p_address::buffer_size()] = {0};
+      char host[buffer_size] = {0};
       a.load_binary(host, length);
       host[sizeof(host) - 1] = 0;
 

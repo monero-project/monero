@@ -90,6 +90,20 @@ namespace hw {
       AKout = keys.AKout;
     }
 
+    ABPkeys &ABPkeys::operator=(const ABPkeys& keys) {
+      if (&keys == this)
+        return *this;
+      Aout = keys.Aout;
+      Bout = keys.Bout;
+      is_subaddress = keys.is_subaddress;
+      is_change_address = keys.is_change_address;
+      additional_key = keys.additional_key;
+      index = keys.index;
+      Pout = keys.Pout;
+      AKout = keys.AKout;
+      return *this;
+    }
+
     bool Keymap::find(const rct::key& P, ABPkeys& keys) const {
       size_t sz = ABP.size();
       for (size_t i=0; i<sz; i++) {
