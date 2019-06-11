@@ -6154,7 +6154,7 @@ bool simple_wallet::stake(const std::vector<std::string> &args_)
       amount = 0;
       try
       {
-        amount_fraction = boost::lexical_cast<double>(local_args[2]) / 100.0;
+        amount_fraction = boost::lexical_cast<double>(local_args[1]) / 100.0;
       }
       catch (const std::exception &e)
       {
