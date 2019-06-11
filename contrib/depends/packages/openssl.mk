@@ -3,6 +3,7 @@ $(package)_version=1.0.2q
 $(package)_download_path=https://www.openssl.org/source
 $(package)_file_name=$(package)-$($(package)_version).tar.gz
 $(package)_sha256_hash=5744cfcbcec2b1b48629f7354203bc1e5e9b5466998bbccc5b5fcde3b18eb684
+$(package)_patches=no-avx-adx.patch
 
 define $(package)_set_vars
 $(package)_config_env=AR="$($(package)_ar)" RANLIB="$($(package)_ranlib)" CC="$($(package)_cc)"
@@ -50,7 +51,8 @@ endef
 
 define $(package)_preprocess_cmds
   sed -i.old "/define DATE/d" util/mkbuildinf.pl && \
-  sed -i.old "s|engines apps test|engines|" Makefile.org
+  sed -i.old "s|engines apps test|engines|" Makefile.org && \
+  patch -p1 < $($(package)_patch_dir)/no-avx-adx.patch
 endef
 
 define $(package)_config_cmds
