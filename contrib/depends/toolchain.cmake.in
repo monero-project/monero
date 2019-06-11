@@ -8,6 +8,7 @@ OPTION(BUILD_TESTS "Build tests." OFF)
 
 SET(STATIC ON)
 SET(UNBOUND_STATIC ON)
+SET(ARCH "default")
 
 SET(BUILD_TESTS @build_tests@)
 SET(TREZOR_DEBUG @build_tests@)
