@@ -947,7 +947,7 @@ namespace cryptonote
         continue;
       }
 
-      if (tx_info[n].tx->get_type() != transaction::type_standard)
+      if (tx_info[n].tx->type != txtype::standard)
         continue;
       const rct::rctSig &rv = tx_info[n].tx->rct_signatures;
       switch (rv.type) {
@@ -1146,11 +1146,11 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
   bool core::check_tx_semantic(const transaction& tx, bool keeped_by_block) const
   {
-    if (tx.get_type() != transaction::type_standard)
+    if (tx.type != txtype::standard)
     {
       if (tx.vin.size() != 0)
       {
-        MERROR_VER("tx type: " << transaction::type_to_string(tx.type) << " must have 0 inputs, received: " << tx.vin.size() << ", rejected for tx id = " << get_transaction_hash(tx));
+        MERROR_VER("tx type: " << tx.type << " must have 0 inputs, received: " << tx.vin.size() << ", rejected for tx id = " << get_transaction_hash(tx));
         return false;
       }
     }
@@ -1172,7 +1172,7 @@ namespace cryptonote
       return false;
     }
 
-    if (tx.version >= transaction::version_2)
+    if (tx.version >= txversion::v2_ringct)
     {
       if (tx.rct_signatures.outPk.size() != tx.vout.size())
       {
@@ -1187,7 +1187,7 @@ namespace cryptonote
       return false;
     }
 
-    if (tx.version == transaction::version_1)
+    if (tx.version == txversion::v1)
     {
       uint64_t amount_in = 0;
       get_inputs_money_amount(tx, amount_in);

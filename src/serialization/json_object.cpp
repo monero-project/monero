@@ -219,10 +219,10 @@ void toJsonValue(rapidjson::Document& doc, const cryptonote::transaction& tx, ra
 {
   val.SetObject();
 
-  INSERT_INTO_JSON_OBJECT(val, doc, version, tx.version);
+  INSERT_INTO_JSON_OBJECT(val, doc, version, static_cast<uint16_t>(tx.version));
   INSERT_INTO_JSON_OBJECT(val, doc, unlock_time, tx.unlock_time);
   INSERT_INTO_JSON_OBJECT(val, doc, output_unlock_times, tx.output_unlock_times);
-  INSERT_INTO_JSON_OBJECT(val, doc, type, tx.type);
+  INSERT_INTO_JSON_OBJECT(val, doc, type, static_cast<uint16_t>(tx.type));
   INSERT_INTO_JSON_OBJECT(val, doc, inputs, tx.vin);
   INSERT_INTO_JSON_OBJECT(val, doc, outputs, tx.vout);
   INSERT_INTO_JSON_OBJECT(val, doc, extra, tx.extra);
@@ -238,15 +238,24 @@ void fromJsonValue(const rapidjson::Value& val, cryptonote::transaction& tx)
     throw WRONG_TYPE("json object");
   }
 
-  GET_FROM_JSON_OBJECT(val, tx.version, version);
+  uint16_t tx_ver, tx_type;
+
+  GET_FROM_JSON_OBJECT(val, tx_ver, version);
   GET_FROM_JSON_OBJECT(val, tx.unlock_time, unlock_time);
   GET_FROM_JSON_OBJECT(val, tx.output_unlock_times, output_unlock_times);
-  GET_FROM_JSON_OBJECT(val, tx.type, type);
+  GET_FROM_JSON_OBJECT(val, tx_type, type);
   GET_FROM_JSON_OBJECT(val, tx.vin, inputs);
   GET_FROM_JSON_OBJECT(val, tx.vout, outputs);
   GET_FROM_JSON_OBJECT(val, tx.extra, extra);
   GET_FROM_JSON_OBJECT(val, tx.signatures, signatures);
   GET_FROM_JSON_OBJECT(val, tx.rct_signatures, ringct);
+
+  tx.version = static_cast<txversion>(tx_ver);
+  tx.type    = static_cast<txtype>(tx_type);
+  if (tx.version == txversion::v0 || tx.version >= txversion::_count)
+    throw BAD_INPUT();
+  if (tx.type >= txtype::_count)
+    throw BAD_INPUT();
 }
 
 void toJsonValue(rapidjson::Document& doc, const cryptonote::block& b, rapidjson::Value& val)

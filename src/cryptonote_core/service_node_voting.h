@@ -63,14 +63,14 @@ namespace service_nodes
   struct checkpoint_vote { crypto::hash block_hash; };
   struct deregister_vote { uint16_t worker_index; };
 
-  enum struct quorum_type
+  enum struct quorum_type : uint8_t
   {
     deregister = 0,
     checkpointing,
     count,
   };
 
-  enum struct quorum_group { invalid, validator, worker };
+  enum struct quorum_group : uint8_t { invalid, validator, worker };
   struct quorum_vote_t
   {
     uint8_t           version = 0;

@@ -168,7 +168,7 @@ bool Blockchain::have_tx_keyimg_as_spent(const crypto::key_image &key_im) const
 // and collects the public key for each from the transaction it was included in
 // via the visitor passed to it.
 template <class visitor_t>
-bool Blockchain::scan_outputkeys_for_indexes(size_t tx_version, const txin_to_key& tx_in_to_key, visitor_t &vis, const crypto::hash &tx_prefix_hash, uint64_t* pmax_related_block_height) const
+bool Blockchain::scan_outputkeys_for_indexes(const txin_to_key& tx_in_to_key, visitor_t &vis, const crypto::hash &tx_prefix_hash, uint64_t* pmax_related_block_height) const
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
 
@@ -1269,14 +1269,14 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
 
   if (version >= cryptonote::network_version_12_checkpointing)
   {
-    if (b.miner_tx.type != transaction::type_standard)
+    if (b.miner_tx.type != txtype::standard)
     {
       MERROR("Coinbase invalid transaction type for coinbase transaction.");
       return false;
     }
 
-    size_t min_version = transaction::get_min_version_for_hf(version, nettype());
-    size_t max_version = transaction::get_max_version_for_hf(version, nettype());
+    auto min_version = transaction::get_min_version_for_hf(version, nettype());
+    auto max_version = transaction::get_max_version_for_hf(version, nettype());
     if (b.miner_tx.version < min_version || b.miner_tx.version > max_version)
     {
       MERROR_VER("Coinbase invalid version: " << b.miner_tx.version << " for hardfork: " << version << " min/max version:  " << min_version << "/" << max_version);
@@ -1517,7 +1517,7 @@ bool Blockchain::create_block_template(block& b, const crypto::hash *from_block,
     {
       LOG_ERROR("Creating block template: error: invalid transaction weight");
     }
-    if (cur_tx.tx.version == 1)
+    if (cur_tx.tx.version == txversion::v1)
     {
       uint64_t inputs_amount;
       if (!get_inputs_money_amount(cur_tx.tx, inputs_amount))
@@ -2724,7 +2724,7 @@ bool Blockchain::check_tx_outputs(const transaction& tx, tx_verification_context
   }
 
   if (hf_version > HF_VERSION_SMALLER_BP) {
-    if (tx.version >= transaction::version_4_tx_types && tx.get_type() == transaction::type_standard) {
+    if (tx.version >= txversion::v4_tx_types && tx.type == txtype::standard) {
       if (tx.rct_signatures.type == rct::RCTTypeBulletproof)
       {
         MERROR_VER("Ringct type " << (unsigned)rct::RCTTypeBulletproof << " is not allowed from v" << (HF_VERSION_SMALLER_BP + 1));
@@ -2751,7 +2751,7 @@ bool Blockchain::have_tx_keyimges_as_spent(const transaction &tx) const
 bool Blockchain::expand_transaction_2(transaction &tx, const crypto::hash &tx_prefix_hash, const std::vector<std::vector<rct::ctkey>> &pubkeys)
 {
   PERF_TIMER(expand_transaction_2);
-  CHECK_AND_ASSERT_MES(tx.version >= 2, false, "Transaction version is not greater than 2");
+  CHECK_AND_ASSERT_MES(tx.version >= txversion::v2_ringct, false, "Transaction version is not 2 or greater");
 
   rct::rctSig &rv = tx.rct_signatures;
 
@@ -2835,11 +2835,11 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
 
   // Min/Max Type/Version Check
   {
-    size_t min_version = transaction::get_min_version_for_hf(hf_version, nettype());
-    size_t max_version = transaction::get_max_version_for_hf(hf_version, nettype());
+    auto min_version = transaction::get_min_version_for_hf(hf_version, nettype());
+    auto max_version = transaction::get_max_version_for_hf(hf_version, nettype());
 
     if (hf_version >= network_version_11_infinite_staking)
-      tvc.m_invalid_type    |= (tx.type > transaction::type_key_image_unlock);
+      tvc.m_invalid_type |= (tx.type > txtype::key_image_unlock);
 
     tvc.m_invalid_version = tx.version < min_version || tx.version > max_version;
     if (tvc.m_invalid_version || tvc.m_invalid_type)
@@ -2850,8 +2850,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
     }
   }
 
-  transaction::type_t tx_type = tx.get_type();
-  if (tx_type == transaction::type_standard)
+  if (tx.type == txtype::standard)
   {
     crypto::hash tx_prefix_hash = get_transaction_prefix_hash(tx);
 
@@ -3102,17 +3101,17 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
   }
   else
   {
-    CHECK_AND_ASSERT_MES(tx.vin.size() == 0, false, "TX type: " << transaction::type_to_string(tx.type) << " should have 0 inputs. This should have been rejected in check_tx_semantic!");
+    CHECK_AND_ASSERT_MES(tx.vin.size() == 0, false, "TX type: " << tx.type << " should have 0 inputs. This should have been rejected in check_tx_semantic!");
 
     if (tx.rct_signatures.txnFee != 0)
     {
       tvc.m_invalid_input = true;
       tvc.m_verifivation_failed = true;
-      MERROR_VER("TX type: " << transaction::type_to_string(tx.type) << " should have 0 fee!");
+      MERROR_VER("TX type: " << tx.type << " should have 0 fee!");
       return false;
     }
 
-    if (tx_type == transaction::type_deregister)
+    if (tx.type == txtype::deregister)
     {
       // Check the inputs (votes) of the transaction have not already been
       // submitted to the blockchain under another transaction using a different
@@ -3184,7 +3183,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
           continue;
         }
 
-        if (existing_tx.get_type() != transaction::type_deregister)
+        if (existing_tx.type != txtype::deregister)
           continue;
 
         tx_extra_service_node_deregister existing_deregister;
@@ -3210,7 +3209,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
         }
       }
     }
-    else if (tx.get_type() == transaction::type_key_image_unlock)
+    else if (tx.type == txtype::key_image_unlock)
     {
       cryptonote::tx_extra_tx_key_image_unlock unlock;
       if (!cryptonote::get_tx_key_image_unlock_from_tx_extra(tx.extra, unlock))
@@ -3423,7 +3422,7 @@ bool Blockchain::is_output_spendtime_unlocked(uint64_t unlock_time) const
 // This function locates all outputs associated with a given input (mixins)
 // and validates that they exist and are usable.  It also checks the ring
 // signature for each input.
-bool Blockchain::check_tx_input(size_t tx_version, const txin_to_key& txin, const crypto::hash& tx_prefix_hash, const std::vector<crypto::signature>& sig, const rct::rctSig &rct_signatures, std::vector<rct::ctkey> &output_keys, uint64_t* pmax_related_block_height)
+bool Blockchain::check_tx_input(txversion tx_version, const txin_to_key& txin, const crypto::hash& tx_prefix_hash, const std::vector<crypto::signature>& sig, const rct::rctSig &rct_signatures, std::vector<rct::ctkey> &output_keys, uint64_t* pmax_related_block_height)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
 
@@ -3462,7 +3461,7 @@ bool Blockchain::check_tx_input(size_t tx_version, const txin_to_key& txin, cons
 
   // collect output keys
   outputs_visitor vi(output_keys, *this);
-  if (!scan_outputkeys_for_indexes(tx_version, txin, vi, tx_prefix_hash, pmax_related_block_height))
+  if (!scan_outputkeys_for_indexes(txin, vi, tx_prefix_hash, pmax_related_block_height))
   {
     MERROR_VER("Failed to get output keys for tx with amount = " << print_money(txin.amount) << " and count indexes " << txin.key_offsets.size());
     return false;
@@ -3473,7 +3472,7 @@ bool Blockchain::check_tx_input(size_t tx_version, const txin_to_key& txin, cons
     MERROR_VER("Output keys for tx with amount = " << txin.amount << " and count indexes " << txin.key_offsets.size() << " returned wrong keys count " << output_keys.size());
     return false;
   }
-  if (tx_version == 1) {
+  if (tx_version == txversion::v1) {
     CHECK_AND_ASSERT_MES(sig.size() == output_keys.size(), false, "internal error: tx signatures count=" << sig.size() << " mismatch with outputs keys count for inputs=" << output_keys.size());
   }
   // rct_signatures will be expanded after this

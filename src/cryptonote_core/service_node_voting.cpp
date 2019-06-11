@@ -494,7 +494,7 @@ namespace service_nodes
 
     for (const cryptonote::transaction &tx : txs)
     {
-      if (tx.get_type() != cryptonote::transaction::type_deregister)
+      if (tx.type != cryptonote::txtype::deregister)
         continue;
 
       cryptonote::tx_extra_service_node_deregister deregister;

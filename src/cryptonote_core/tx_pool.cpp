@@ -117,12 +117,10 @@ namespace cryptonote
   //---------------------------------------------------------------------------------
   bool tx_memory_pool::have_duplicated_non_standard_tx(transaction const &tx) const
   {
-    transaction_prefix::type_t tx_type = tx.get_type();
-
-    if (tx_type == transaction::type_standard)
+    if (tx.type == txtype::standard)
       return false;
 
-    if (tx_type == transaction::type_deregister)
+    if (tx.type == txtype::deregister)
     {
       tx_extra_service_node_deregister deregister;
       if (!get_service_node_deregister_from_tx_extra(tx.extra, deregister))
@@ -135,7 +133,7 @@ namespace cryptonote
       get_transactions(pool_txs);
       for (const transaction& pool_tx : pool_txs)
       {
-        if (pool_tx.get_type() != transaction::type_deregister)
+        if (pool_tx.type != txtype::deregister)
           continue;
 
         tx_extra_service_node_deregister pool_tx_deregister;
@@ -152,7 +150,7 @@ namespace cryptonote
         }
       }
     }
-    else if (tx_type == transaction::type_key_image_unlock)
+    else if (tx.type == txtype::key_image_unlock)
     {
       tx_extra_tx_key_image_unlock unlock;
       if (!cryptonote::get_tx_key_image_unlock_from_tx_extra(tx.extra, unlock))
@@ -165,7 +163,7 @@ namespace cryptonote
       get_transactions(pool_txs);
       for (const transaction& pool_tx : pool_txs)
       {
-        if (pool_tx.get_type() != tx_type)
+        if (pool_tx.type != tx.type)
           continue;
 
         tx_extra_tx_key_image_unlock pool_unlock;
@@ -186,7 +184,7 @@ namespace cryptonote
     else
     {
       // NOTE(loki): This is a developer error. If we come across this in production, be conservative and just reject
-      MERROR("Unrecognised transaction type: " << static_cast<uint16_t>(tx_type) << " for tx: " <<  get_transaction_hash(tx));
+      MERROR("Unrecognised transaction type: " << tx.type << " for tx: " <<  get_transaction_hash(tx));
       return true;
     }
 
@@ -199,7 +197,7 @@ namespace cryptonote
     CRITICAL_REGION_LOCAL(m_transactions_lock);
 
     PERF_TIMER(add_tx);
-    if (tx.version == transaction::version_0)
+    if (tx.version == txversion::v0)
     {
       // v0 never accepted
       LOG_PRINT_L1("transaction version 0 is invalid");
@@ -227,7 +225,7 @@ namespace cryptonote
     // fee per kilobyte, size rounded up.
     uint64_t fee;
 
-    if (tx.version == transaction::version_1)
+    if (tx.version == txversion::v1)
     {
       uint64_t inputs_amount = 0;
       if(!get_inputs_money_amount(tx, inputs_amount))
@@ -259,7 +257,7 @@ namespace cryptonote
       fee = tx.rct_signatures.txnFee;
     }
 
-    if (!kept_by_block && tx.get_type() == transaction::type_standard && !m_blockchain.check_fee(tx_weight, fee))
+    if (!kept_by_block && tx.type == txtype::standard && !m_blockchain.check_fee(tx_weight, fee))
     {
       tvc.m_verifivation_failed = true;
       tvc.m_fee_too_low = true;
@@ -315,7 +313,7 @@ namespace cryptonote
     uint64_t max_used_block_height = 0;
     cryptonote::txpool_tx_meta_t meta;
     bool ch_inp_res = check_tx_inputs([&tx]()->cryptonote::transaction&{ return tx; }, id, max_used_block_height, max_used_block_id, tvc, kept_by_block);
-    const bool non_standard_tx = (tx.get_type() != transaction::type_standard);
+    const bool non_standard_tx = (tx.type != txtype::standard);
     if(!ch_inp_res)
     {
       // if the transaction was valid before (kept_by_block), then it
@@ -751,7 +749,7 @@ namespace cryptonote
                 return true;
               }
 
-              if (tx.get_type() != transaction::type_deregister)
+              if (tx.type != txtype::deregister)
                 return true;
 
               tx_verification_context tvc;
@@ -759,7 +757,7 @@ namespace cryptonote
               crypto::hash max_used_block_id = null_hash;
               if (!m_blockchain.check_tx_inputs(tx, max_used_block_height, max_used_block_id, tvc, /*kept_by_block*/ false))
               {
-                LOG_PRINT_L1("TX type: " << transaction::type_to_string(tx.type) << " considered for relaying failed tx inputs check, txid: " << txid << ", reason: " << print_tx_verification_context(tvc, &tx));
+                LOG_PRINT_L1("TX type: " << tx.type << " considered for relaying failed tx inputs check, txid: " << txid << ", reason: " << print_tx_verification_context(tvc, &tx));
                 return true;
               }
             }
@@ -1543,7 +1541,7 @@ namespace cryptonote
           return false;
         }
 
-        const bool non_standard_tx = (tx.get_type() != transaction::type_standard);
+        const bool non_standard_tx = (tx.type != txtype::standard);
         m_txs_by_fee_and_receive_time.emplace(std::tuple<bool, double, time_t>(non_standard_tx, meta.fee / (double)meta.weight, meta.receive_time), txid);
         m_txpool_weight += meta.weight;
         return true;

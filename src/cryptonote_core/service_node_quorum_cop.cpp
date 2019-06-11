@@ -159,7 +159,7 @@ namespace service_nodes
 
             for (; m_uptime_proof_height < (height - REORG_SAFETY_BUFFER_IN_BLOCKS); m_uptime_proof_height++)
             {
-              if (m_core.get_hard_fork_version(m_uptime_proof_height) < 9) continue;
+              if (m_core.get_hard_fork_version(m_uptime_proof_height) < cryptonote::network_version_9_service_nodes) continue;
 
               const std::shared_ptr<const testing_quorum> quorum =
                   m_core.get_testing_quorum(quorum_type::deregister, m_uptime_proof_height);
@@ -338,7 +338,7 @@ namespace service_nodes
           {
             int hf_version        = m_core.get_blockchain_storage().get_current_hard_fork_version();
             deregister_tx.version = cryptonote::transaction::get_max_version_for_hf(hf_version, m_core.get_nettype());
-            deregister_tx.type    = cryptonote::transaction::type_deregister;
+            deregister_tx.type    = cryptonote::txtype::deregister;
 
             cryptonote::tx_verification_context tvc = {};
             cryptonote::blobdata const tx_blob      = cryptonote::tx_to_blob(deregister_tx);
