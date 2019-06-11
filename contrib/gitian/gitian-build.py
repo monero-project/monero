@@ -7,21 +7,13 @@ import sys
 
 def setup():
     global args, workdir
-    programs = ['ruby', 'git', 'apt-cacher-ng', 'make', 'wget']
+    programs = ['apt-cacher-ng', 'ruby', 'git', 'make', 'wget']
     if args.kvm:
         programs += ['python-vm-builder', 'qemu-kvm', 'qemu-utils']
-    elif args.docker:
-        dockers = ['docker.io', 'docker-ce']
-        for i in dockers:
-            return_code = subprocess.call(['sudo', 'apt-get', 'install', '-qq', i])
-            if return_code == 0:
-                break
-        if return_code != 0:
-            print('Cannot find any way to install docker', file=sys.stderr)
-            exit(1)
     else:
         programs += ['lxc', 'debootstrap']
-    subprocess.check_call(['sudo', 'apt-get', 'install', '-qq'] + programs)
+    if not args.no_apt:
+        subprocess.check_call(['sudo', 'apt-get', 'install', '-qq'] + programs)
     if not os.path.isdir('gitian.sigs'):
         subprocess.check_call(['git', 'clone', 'https://github.com/monero-project/gitian.sigs.git'])
     if not os.path.isdir('gitian-builder'):
@@ -32,6 +24,8 @@ def setup():
     subprocess.check_call(['git', 'checkout', '963322de8420c50502c4cc33d4d7c0d84437b576'])
     make_image_prog = ['bin/make-base-vm', '--suite', 'bionic', '--arch', 'amd64']
     if args.docker:
+        if not subprocess.call(['docker', '--help'], shell=False, stdout=subprocess.DEVNULL):
+            print("Please install docker first manually")
         make_image_prog += ['--docker']
     elif not args.kvm:
         make_image_prog += ['--lxc']
@@ -40,7 +34,7 @@ def setup():
     if args.is_bionic and not args.kvm and not args.docker:
         subprocess.check_call(['sudo', 'sed', '-i', 's/lxcbr0/br0/', '/etc/default/lxc-net'])
         print('Reboot is required')
-        exit(0)
+        sys.exit(0)
 
 def build():
     global args, workdir
@@ -100,7 +94,7 @@ def verify():
 def main():
     global args, workdir
 
-    parser = argparse.ArgumentParser(usage='%(prog)s [options] signer version')
+    parser = argparse.ArgumentParser(description='Script for running full Gitian builds.', usage='%(prog)s [options] signer version')
     parser.add_argument('-c', '--commit', action='store_true', dest='commit', help='Indicate that the version argument is for a commit or branch')
     parser.add_argument('-p', '--pull', action='store_true', dest='pull', help='Indicate that the version argument is the number of a github repository pull request')
     parser.add_argument('-u', '--url', dest='url', default='https://github.com/monero-project/monero', help='Specify the URL of the repository. Default is %(default)s')
@@ -112,11 +106,12 @@ def main():
     parser.add_argument('-m', '--memory', dest='memory', default='2000', help='Memory to allocate in MiB. Default %(default)s')
     parser.add_argument('-k', '--kvm', action='store_true', dest='kvm', help='Use KVM instead of LXC')
     parser.add_argument('-d', '--docker', action='store_true', dest='docker', help='Use Docker instead of LXC')
-    parser.add_argument('-S', '--setup', action='store_true', dest='setup', help='Set up the Gitian building environment. Uses LXC. If you want to use KVM, use the --kvm option. Only works on Debian-based systems (Ubuntu, Debian)')
+    parser.add_argument('-S', '--setup', action='store_true', dest='setup', help='Set up the Gitian building environment. Uses LXC. If you want to use KVM, use the --kvm option. If you run this script on a non-debian based system, pass the --no-apt flag')
     parser.add_argument('-D', '--detach-sign', action='store_true', dest='detach_sign', help='Create the assert file for detached signing. Will not commit anything.')
     parser.add_argument('-n', '--no-commit', action='store_false', dest='commit_files', help='Do not commit anything to git')
-    parser.add_argument('signer', help='GPG signer to sign each build assert file')
-    parser.add_argument('version', help='Version number, commit, or branch to build.')
+    parser.add_argument('signer', nargs='?', help='GPG signer to sign each build assert file')
+    parser.add_argument('version', nargs='?', help='Version number, commit, or branch to build.')
+    parser.add_argument('-a', '--no-apt', action='store_true', dest='no_apt', help='Indicate that apt is not installed on the system')
 
     args = parser.parse_args()
     workdir = os.getcwd()
@@ -128,8 +123,8 @@ def main():
     args.is_bionic = b'bionic' in subprocess.check_output(['lsb_release', '-cs'])
 
     if args.buildsign:
-        args.build=True
-        args.sign=True
+        args.build = True
+        args.sign = True
 
     if args.kvm and args.docker:
         raise Exception('Error: cannot have both kvm and docker')
@@ -156,11 +151,11 @@ def main():
     if args.signer == '':
         print(script_name+': Missing signer.')
         print('Try '+script_name+' --help for more information')
-        exit(1)
+        sys.exit(1)
     if args.version == '':
         print(script_name+': Missing version.')
         print('Try '+script_name+' --help for more information')
-        exit(1)
+        sys.exit(1)
 
     # Add leading 'v' for tags
     if args.commit and args.pull:
