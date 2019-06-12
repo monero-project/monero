@@ -129,6 +129,7 @@ script: |
   chmod +x ${WRAP_DIR}/${prog}
   done
 
+  git config --global core.abbrev 9
   cd monero
   BASEPREFIX=`pwd`/contrib/depends
   # Build dependencies for each host
@@ -153,7 +154,7 @@ script: |
     export PATH=${BASEPREFIX}/${i}/native/bin:${ORIGPATH}
     mkdir build && cd build
     cmake .. -DCMAKE_TOOLCHAIN_FILE=${BASEPREFIX}/${i}/share/toolchain.cmake -DBACKCOMPAT=ON
-    make
+    make ${MAKEOPTS}
     DISTNAME=monero-${i}
     mv bin ${DISTNAME}
     find ${DISTNAME}/ | sort | tar --no-recursion --mode='u+rw,go+r-w,a+X' --owner=0 --group=0 -c -T - | gzip -9n > ${OUTDIR}/${DISTNAME}.tar.gz
