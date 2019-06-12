@@ -129,6 +129,7 @@ script: |
   chmod +x ${WRAP_DIR}/${prog}
   done
 
+  git config --global core.abbrev 9
   cd monero
   BASEPREFIX=`pwd`/contrib/depends
   # Build dependencies for each host
