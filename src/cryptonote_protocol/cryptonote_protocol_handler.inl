@@ -793,6 +793,31 @@ namespace cryptonote
     NOTIFY_NEW_FLUFFY_BLOCK::request fluffy_response;
     fluffy_response.b.block = t_serializable_object_to_blob(b);
     fluffy_response.current_blockchain_height = arg.current_blockchain_height;
+
+    // NOTE: Dupe index check
+    {
+      std::unordered_set<uint64_t> requested_index_set;
+      requested_index_set.reserve(16); // typical maximum number of txs per block
+
+      for (uint64_t requested_index : arg.missing_tx_indices)
+      {
+        if (!requested_index_set.insert(requested_index).second)
+        {
+          LOG_ERROR_CCONTEXT
+          (
+            "Failed to handle request NOTIFY_REQUEST_FLUFFY_MISSING_TX"
+            << ", request is asking for the same tx index more than once "
+            << ", tx index = " << requested_index << ", block tx count " << b.tx_hashes.size()
+            << ", block_height = " << arg.current_blockchain_height
+            << ", dropping connection"
+          );
+
+          drop_connection(context, false, false);
+          return 1;
+        }
+      }
+    }
+
     for(auto& tx_idx: arg.missing_tx_indices)
     {
       if(tx_idx < b.tx_hashes.size())
