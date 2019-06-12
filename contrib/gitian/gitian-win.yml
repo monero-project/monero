@@ -100,6 +100,7 @@ script: |
   create_per-host_linker_wrapper "2000-01-01 12:00:00"
   export PATH=${WRAP_DIR}:${PATH}
 
+  git config --global core.abbrev 9
   cd monero
   BASEPREFIX=`pwd`/contrib/depends
   # Build dependencies for each host
@@ -125,7 +126,7 @@ script: |
     export PATH=${BASEPREFIX}/${i}/native/bin:${ORIGPATH}
     mkdir build && cd build
     cmake .. -DCMAKE_TOOLCHAIN_FILE=${BASEPREFIX}/${i}/share/toolchain.cmake
-    make
+    make ${MAKEOPTS}
     DISTNAME=monero-${i}
     mv bin ${DISTNAME}
     find ${DISTNAME}/ | sort | zip -X@ ${OUTDIR}/${DISTNAME}.zip
