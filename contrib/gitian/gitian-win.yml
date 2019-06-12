@@ -100,6 +100,7 @@ script: |
   create_per-host_linker_wrapper "2000-01-01 12:00:00"
   export PATH=${WRAP_DIR}:${PATH}
 
+  git config --global core.abbrev 9
   cd monero
   BASEPREFIX=`pwd`/contrib/depends
   # Build dependencies for each host
