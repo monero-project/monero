@@ -5670,11 +5670,11 @@ void wallet2::get_transfers(wallet2::transfer_container& incoming_transfers) con
   incoming_transfers = m_transfers;
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::get_payments(const crypto::hash& payment_id, std::list<wallet2::payment_details>& payments, uint64_t threshold, const boost::optional<uint32_t>& subaddr_account, const std::set<uint32_t>& subaddr_indices) const
+void wallet2::get_payments(const crypto::hash& payment_id, std::list<wallet2::payment_details>& payments, uint64_t min_height, const boost::optional<uint32_t>& subaddr_account, const std::set<uint32_t>& subaddr_indices) const
 {
   auto range = m_payments.equal_range(payment_id);
-  std::for_each(range.first, range.second, [&payments, &threshold, &subaddr_account, &subaddr_indices](const payment_container::value_type& x) {
-    if (threshold < x.second.m_block_height &&
+  std::for_each(range.first, range.second, [&payments, &min_height, &subaddr_account, &subaddr_indices](const payment_container::value_type& x) {
+    if (min_height < x.second.m_block_height &&
       (!subaddr_account || *subaddr_account == x.second.m_subaddr_index.major) &&
       (subaddr_indices.empty() || subaddr_indices.count(x.second.m_subaddr_index.minor) == 1))
     {
@@ -5686,14 +5686,14 @@ void wallet2::get_payments(const crypto::hash& payment_id, std::list<wallet2::pa
 void wallet2::get_payments(
                 std::list<std::pair<crypto::hash,wallet2::payment_details>>& payments,
                 const payment_container& actual_payments,
-                uint64_t threshold,
+                uint64_t min_height,
                 uint64_t max_height,
                 const boost::optional<uint32_t>& subaddr_account,
                 const std::set<uint32_t>& subaddr_indices) const
 {
   auto range = std::make_pair(actual_payments.begin(), actual_payments.end());
-  std::for_each(range.first, range.second, [&payments, &threshold, &max_height, &subaddr_account, &subaddr_indices](const payment_container::value_type& x) {
-    if (threshold < x.second.m_block_height && max_height >= x.second.m_block_height &&
+  std::for_each(range.first, range.second, [&payments, &min_height, &max_height, &subaddr_account, &subaddr_indices](const payment_container::value_type& x) {
+    if (min_height < x.second.m_block_height && max_height >= x.second.m_block_height &&
       (!subaddr_account || *subaddr_account == x.second.m_subaddr_index.major) &&
       (subaddr_indices.empty() || subaddr_indices.count(x.second.m_subaddr_index.minor) == 1))
     {
@@ -5703,21 +5703,21 @@ void wallet2::get_payments(
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::get_payments(std::list<std::pair<crypto::hash,wallet2::payment_details>>& payments,
-    uint64_t threshold, uint64_t max_height, const boost::optional<uint32_t>& subaddr_account, const std::set<uint32_t>& subaddr_indices) const
+    uint64_t min_height, uint64_t max_height, const boost::optional<uint32_t>& subaddr_account, const std::set<uint32_t>& subaddr_indices) const
 {
-  get_payments(payments, m_payments, threshold, max_height, subaddr_account, subaddr_indices);
+  get_payments(payments, m_payments, min_height, max_height, subaddr_account, subaddr_indices);
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::get_payments_out(
                 std::list<std::pair<crypto::hash,wallet2::confirmed_transfer_details>>& confirmed_payments,
                 const std::unordered_map<crypto::hash, confirmed_transfer_details>& actual_confirmed_txs,
-                uint64_t threshold,
+                uint64_t min_height,
                 uint64_t max_height,
                 const boost::optional<uint32_t>& subaddr_account,
                 const std::set<uint32_t>& subaddr_indices) const
 {
   for (auto i = actual_confirmed_txs.begin(); i != actual_confirmed_txs.end(); ++i) {
-    if (i->second.m_block_height <= threshold || i->second.m_block_height > max_height)
+    if (i->second.m_block_height <= min_height || i->second.m_block_height > max_height)
       continue;
     if (subaddr_account && *subaddr_account != i->second.m_subaddr_account)
       continue;
@@ -5728,9 +5728,9 @@ void wallet2::get_payments_out(
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::get_payments_out(std::list<std::pair<crypto::hash,wallet2::confirmed_transfer_details>>& confirmed_payments,
-    uint64_t threshold, uint64_t max_height, const boost::optional<uint32_t>& subaddr_account, const std::set<uint32_t>& subaddr_indices) const
+    uint64_t min_height, uint64_t max_height, const boost::optional<uint32_t>& subaddr_account, const std::set<uint32_t>& subaddr_indices) const
 {
-  get_payments_out(confirmed_payments, m_confirmed_txs, threshold, max_height, subaddr_account, subaddr_indices);
+  get_payments_out(confirmed_payments, m_confirmed_txs, min_height, max_height, subaddr_account, subaddr_indices);
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::get_unconfirmed_payments_out(std::list<std::pair<crypto::hash,wallet2::unconfirmed_transfer_details>>& unconfirmed_payments, const boost::optional<uint32_t>& subaddr_account, const std::set<uint32_t>& subaddr_indices) const
