@@ -2385,31 +2385,65 @@ namespace cryptonote
     };
   };
 
-  struct COMMAND_RPC_GET_SERVICE_NODE_REGISTRATION_CMD
+    struct COMMAND_RPC_GET_SERVICE_NODE_REGISTRATION_CMD_RAW
   {
     struct request
-  {
-    std::vector<std::string> args;
-    bool make_friendly; // Provide information about how to use the command in the result
-    BEGIN_KV_SERIALIZE_MAP()
-      KV_SERIALIZE(args)
-      KV_SERIALIZE(make_friendly)
-    END_KV_SERIALIZE_MAP()
-  };
-  struct response
+    {
+      std::vector<std::string> args;
+      bool make_friendly; // Provide information about how to use the command in the result
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(args)
+        KV_SERIALIZE(make_friendly)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
     {
       std::string status;
       std::string registration_cmd;
-        bool invalid_block_height;
-        bool voters_quorum_index_out_of_bounds;
-        bool service_node_index_out_of_bounds;
-        bool signature_not_valid;
 
-        BEGIN_KV_SERIALIZE_MAP()
-         KV_SERIALIZE(status)
-         KV_SERIALIZE(registration_cmd)
-       END_KV_SERIALIZE_MAP()
-      };
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+        KV_SERIALIZE(registration_cmd)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_GET_SERVICE_NODE_REGISTRATION_CMD
+  { 
+    struct contribution_t {
+      std::string address;
+      uint64_t amount;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(address)
+        KV_SERIALIZE(amount)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct request
+    {
+      bool autostake;
+      std::string operator_cut;
+      std::vector<contribution_t> contributions;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(autostake)
+        KV_SERIALIZE(operator_cut)
+        KV_SERIALIZE(contributions)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string status;
+      std::string registration_cmd;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+        KV_SERIALIZE(registration_cmd)
+      END_KV_SERIALIZE_MAP()
+    };
   };
   struct COMMAND_RPC_GET_SERVICE_NODE_KEY
   {
