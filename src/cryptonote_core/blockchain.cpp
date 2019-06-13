@@ -95,7 +95,7 @@ static const struct {
   { 2, 8, 0, 1541014391 },
   { 3, 100, 0, 1541014463 },
   { 4, 45000, 0, 1549695692 },
-  { 5, 106750, 0, 1549695692 }
+  { 5, 106950, 0, 1560481469 }
 };
 static const uint64_t mainnet_hard_fork_version_1_till = 8;
 
@@ -2630,7 +2630,7 @@ bool Blockchain::check_tx_outputs(const transaction& tx, tx_verification_context
   }
 
   // from v9, forbid borromean range proofs
-  if (hf_version > 4) {
+  if (hf_version > 5) {
     if (tx.version >= 2) {
       const bool borromean = rct::is_rct_borromean(tx.rct_signatures.type);
       if (borromean)

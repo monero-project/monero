@@ -14,7 +14,7 @@ namespace service_nodes {
 		if (m_nettype != cryptonote::MAINNET)
 			return COIN * 100;
 
-		uint64_t hardfork_height = m_nettype == cryptonote::MAINNET ? 106750 : 581 /* stagenet */;
+		uint64_t hardfork_height = m_nettype == cryptonote::MAINNET ? 106950 : 581 /* stagenet */;
 		if (height < hardfork_height) height = hardfork_height;
 
 		uint64_t height_adjusted = height - hardfork_height;
