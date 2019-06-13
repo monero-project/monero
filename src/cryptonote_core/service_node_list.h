@@ -41,9 +41,17 @@ namespace service_nodes
 {
   struct service_node_info // registration information
   {
+    enum version
+    {
+      version_0,
+      version_1_swarms,
+      version_2_infinite_staking,
+      version_3_checkpointing,
+    };
+
     struct contribution_t
     {
-      uint8_t            version = version_2_infinite_staking;
+      uint8_t            version;
       crypto::public_key key_image_pub_key;
       crypto::key_image  key_image;
       uint64_t           amount;
@@ -54,14 +62,6 @@ namespace service_nodes
         FIELD(key_image)
         VARINT_FIELD(amount)
       END_SERIALIZE()
-    };
-
-    enum version
-    {
-      version_0,
-      version_1_swarms,
-      version_2_infinite_staking,
-      version_3_checkpointing,
     };
 
     struct contributor_t
@@ -125,12 +125,12 @@ namespace service_nodes
       FIELD(operator_address)
 
       if (version >= service_node_info::version_1_swarms)
-      {
         VARINT_FIELD(swarm_id)
+      if (version >= service_node_info::version_3_checkpointing)
+      {
+        VARINT_FIELD(public_ip)
+        VARINT_FIELD(storage_port)
       }
-      VARINT_FIELD(public_ip)
-      VARINT_FIELD(storage_port)
-
     END_SERIALIZE()
   };
 
@@ -147,7 +147,7 @@ namespace service_nodes
 
   struct key_image_blacklist_entry
   {
-    uint8_t           version = service_node_info::version_2_infinite_staking;
+    uint8_t           version;
     crypto::key_image key_image;
     uint64_t          unlock_height;
 

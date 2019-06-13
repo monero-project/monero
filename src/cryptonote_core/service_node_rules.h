@@ -13,14 +13,15 @@ namespace service_nodes {
   constexpr size_t   DEREGISTER_MIN_NODES_TO_TEST              = 50;
   constexpr uint64_t DEREGISTER_VOTE_LIFETIME                  = BLOCKS_EXPECTED_IN_HOURS(2);
 
-  constexpr uint64_t CHECKPOINT_INTERVAL                   = 4;
-  constexpr uint64_t CHECKPOINT_VOTE_LIFETIME              = ((CHECKPOINT_INTERVAL * 3) - 1);
+  constexpr uint64_t CHECKPOINT_INTERVAL                       = 4;  // Checkpoint every 4 blocks and prune when too old except if (height % CHECKPOINT_STORE_PERSISTENTLY_INTERVAL == 0)
+  constexpr uint64_t CHECKPOINT_STORE_PERSISTENTLY_INTERVAL    = 60; // Persistently store the checkpoints at these intervals
+  constexpr uint64_t CHECKPOINT_VOTE_LIFETIME                  = CHECKPOINT_STORE_PERSISTENTLY_INTERVAL; // Keep the last 60 blocks worth of votes
 #if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
-  constexpr size_t   CHECKPOINT_QUORUM_SIZE                = 2;
-  constexpr size_t   CHECKPOINT_MIN_VOTES                  = 2;
+  constexpr size_t   CHECKPOINT_QUORUM_SIZE                    = 1;
+  constexpr size_t   CHECKPOINT_MIN_VOTES                      = 1;
 #else
-  constexpr size_t   CHECKPOINT_QUORUM_SIZE                = 20;
-  constexpr size_t   CHECKPOINT_MIN_VOTES                  = 18;
+  constexpr size_t   CHECKPOINT_QUORUM_SIZE                    = 20;
+  constexpr size_t   CHECKPOINT_MIN_VOTES                      = 18;
 #endif
 
   static_assert(DEREGISTER_MIN_VOTES_TO_KICK_SERVICE_NODE <= DEREGISTER_QUORUM_SIZE, "The number of votes required to kick can't exceed the actual quorum size, otherwise we never kick.");

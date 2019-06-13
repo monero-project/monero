@@ -811,6 +811,7 @@ public:
                             );
 
   virtual void update_block_checkpoint(checkpoint_t const &checkpoint) = 0;
+  virtual void remove_block_checkpoint(uint64_t height) = 0;
   virtual bool get_block_checkpoint   (uint64_t height, checkpoint_t &checkpoint) const = 0;
   virtual bool get_top_checkpoint     (checkpoint_t &checkpoint) const = 0;
 

@@ -3790,6 +3790,30 @@ void BlockchainLMDB::update_block_checkpoint(checkpoint_t const &checkpoint)
     throw0(DB_ERROR(lmdb_error("Failed to update block checkpoint in db transaction: ", ret).c_str()));
 }
 
+void BlockchainLMDB::remove_block_checkpoint(uint64_t height)
+{
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+
+  check_open();
+  mdb_txn_cursors *m_cursors = &m_wcursors;
+  CURSOR(block_checkpoints);
+
+  MDB_val_set(key, height);
+  MDB_val value = {};
+  int ret = mdb_cursor_get(m_cur_block_checkpoints, &key, &value, MDB_SET_KEY);
+  if (ret == MDB_SUCCESS)
+  {
+    ret = mdb_cursor_del(m_cur_block_checkpoints, 0);
+    if (ret)
+      throw0(DB_ERROR(lmdb_error("Failed to delete block checkpoint: ", ret).c_str()));
+  }
+  else
+  {
+    if (ret != MDB_NOTFOUND)
+      throw1(DB_ERROR(lmdb_error("Failed non-trivially to get cursor for checkpoint to delete: ", ret).c_str()));
+  }
+}
+
 bool BlockchainLMDB::get_block_checkpoint_internal(uint64_t height, checkpoint_t &checkpoint, MDB_cursor_op op) const
 {
   TXN_PREFIX_RDONLY();

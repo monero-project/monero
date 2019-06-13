@@ -346,6 +346,7 @@ namespace service_nodes
         for (const auto &contribution : contributor.locked_contributions)
         {
           key_image_blacklist_entry entry = {};
+          entry.version                   = get_min_service_node_info_version_for_hf(hard_fork_version);
           entry.key_image                 = contribution.key_image;
           entry.unlock_height             = block_height + staking_num_lock_blocks(m_blockchain.nettype());
           m_transient_state.key_image_blacklist.push_back(entry);
@@ -1525,15 +1526,13 @@ namespace service_nodes
     {
       {
         testing_quorum const &deregister = states.quorums[(int)quorum_type::deregister];
-        if (deregister.validators.size() > 0 || deregister.workers.size() > 0)
-          m_transient_state.quorum_states[states.height].deregister = std::make_shared<testing_quorum>(deregister);
+        m_transient_state.quorum_states[states.height].deregister = std::make_shared<testing_quorum>(deregister);
       }
 
       if (states.version >= service_node_info::version_3_checkpointing)
       {
         testing_quorum const &checkpointing = states.quorums[(int)quorum_type::checkpointing];
-        if (checkpointing.validators.size() > 0 || checkpointing.workers.size() > 0)
-          m_transient_state.quorum_states[states.height].checkpointing = std::make_shared<testing_quorum>(checkpointing);
+        m_transient_state.quorum_states[states.height].checkpointing = std::make_shared<testing_quorum>(checkpointing);
       }
     }
 

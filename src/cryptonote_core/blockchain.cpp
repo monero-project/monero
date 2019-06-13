@@ -501,6 +501,8 @@ bool Blockchain::init(BlockchainDB* db, const network_type nettype, bool offline
       return false;
   }
 
+  hook_block_added(m_checkpoints);
+  hook_blockchain_detached(m_checkpoints);
   for (InitHook* hook : m_init_hooks)
     hook->init();
 
@@ -1917,6 +1919,12 @@ bool Blockchain::handle_get_objects(NOTIFY_REQUEST_GET_OBJECTS::request& arg, NO
   std::vector<std::pair<cryptonote::blobdata,block>> blocks;
   get_blocks(arg.blocks, blocks, rsp.missed_ids);
 
+  uint64_t const top_height = (m_db->height() - 1);
+  uint64_t const earliest_height_to_sync_checkpoints_granularly =
+      (top_height < service_nodes::CHECKPOINT_STORE_PERSISTENTLY_INTERVAL)
+          ? 0
+          : top_height - service_nodes::CHECKPOINT_STORE_PERSISTENTLY_INTERVAL;
+
   for (auto& bl: blocks)
   {
     std::vector<crypto::hash> missed_tx_ids;
@@ -1924,8 +1932,12 @@ bool Blockchain::handle_get_objects(NOTIFY_REQUEST_GET_OBJECTS::request& arg, NO
     rsp.blocks.push_back(block_complete_entry());
     block_complete_entry& e = rsp.blocks.back();
 
-    uint64_t const block_height = get_block_height(bl.second);
-    if ((block_height % service_nodes::CHECKPOINT_INTERVAL) == 0)
+    uint64_t const block_height  = get_block_height(bl.second);
+    uint64_t checkpoint_interval = service_nodes::CHECKPOINT_STORE_PERSISTENTLY_INTERVAL;
+    if (block_height >= earliest_height_to_sync_checkpoints_granularly)
+      checkpoint_interval = service_nodes::CHECKPOINT_INTERVAL;
+
+    if ((block_height % checkpoint_interval) == 0)
     {
       try
       {
@@ -4493,6 +4505,39 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
     m_blockchain_lock.lock();
   }
 
+  // TODO(loki): Always parse checkpoints, but block syncing have a caching
+  // layer that is pretty complicated but would be nice to have an equivalent
+  // for checkpoints.
+
+  // Place parsing before early returns since the caching layer seems to make
+  // this function early return in the common case, so always ensure checkpoints
+  // are parsed out.
+  for (size_t i = 0; i < blocks.size(); i++)
+  {
+    blobdata const &checkpoint_blob = blocks_entry[i].checkpoint;
+    block const &block              = blocks[i];
+    uint64_t block_height           = get_block_height(block);
+    bool maybe_has_checkpoint       = (block_height % service_nodes::CHECKPOINT_INTERVAL == 0);
+
+    if (checkpoint_blob.size() && !maybe_has_checkpoint)
+    {
+      MDEBUG("Checkpoint blob given but not expecting a checkpoint at this height");
+      return false;
+    }
+
+    if (checkpoint_blob.size())
+    {
+      checkpoint_t checkpoint;
+      if (!t_serializable_object_from_blob(checkpoint, checkpoint_blob))
+      {
+        MDEBUG("Checkpoint blob available but failed to parse");
+        return false;
+      }
+
+      checkpoints.push_back(checkpoint);
+    }
+  }
+
   const uint64_t height = m_db->height();
   if ((height + blocks_entry.size()) < m_blocks_hash_check.size())
     return true;
@@ -4585,36 +4630,6 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
 
   if (m_cancel)
     return false;
-
-  // TODO(doyle): If PR to fix above gets the green-light no reason to not parse out checkpoints in the loop above that goes through all the block_entrys already
-  //
-  // NOTE: Parse checkpoints
-  //
-  for (size_t i = 0; i < blocks.size(); i++)
-  {
-    blobdata const &checkpoint_blob = blocks_entry[i].checkpoint;
-    block const &block              = blocks[i];
-    uint64_t block_height           = get_block_height(block);
-    bool maybe_has_checkpoint       = (block_height % service_nodes::CHECKPOINT_INTERVAL == 0);
-
-    if (checkpoint_blob.size() && !maybe_has_checkpoint)
-    {
-      MDEBUG("Checkpoint blob given but not expecting a checkpoint at this height");
-      return false;
-    }
-
-    if (checkpoint_blob.size())
-    {
-      checkpoint_t checkpoint;
-      if (!t_serializable_object_from_blob(checkpoint, checkpoint_blob))
-      {
-        MDEBUG("Checkpoint blob available but failed to parse");
-        return false;
-      }
-
-      checkpoints.push_back(checkpoint);
-    }
-  }
 
   if (blocks_exist)
   {

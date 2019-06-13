@@ -1573,7 +1573,7 @@ namespace cryptonote
       m_miner.resume();
       return false;
     }
-    m_blockchain_storage.add_new_block(b, bvc);
+    add_new_block(b, bvc);
     cleanup_handle_incoming_blocks(true);
     //anyway - update miner template
     update_miner_block_template();
@@ -1616,9 +1616,9 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
   bool core::add_new_block(const block& b, block_verification_context& bvc)
   {
+    relay_service_node_votes(); // NOTE: nop if synchronising due to not accepting votes whilst syncing
     return m_blockchain_storage.add_new_block(b, bvc);
   }
-
   //-----------------------------------------------------------------------------------------------
   bool core::prepare_handle_incoming_blocks(const std::vector<block_complete_entry> &blocks_entry, std::vector<block> &blocks, std::vector<checkpoint_t> &checkpoints)
   {
