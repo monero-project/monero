@@ -2826,6 +2826,148 @@ namespace cryptonote
     typedef epee::misc_utils::struct_init<response_t> response;
   };
 
+  #define KV_SERIALIZE_ENTRY_FIELD_IF_REQUESTED(var) \
+  if (this_ref.requested_fields.var || !this_ref.requested_fields.explicitly_set) KV_SERIALIZE(var)
+
+  LOKI_RPC_DOC_INTROSPECT
+  // Get information on a random subset of Service Nodes.
+  struct COMMAND_RPC_GET_N_SERVICE_NODES
+  {
+
+    // Boolean values indicate whether corresponding
+    // fields should be included in the response
+    struct requested_fields_t {
+
+      bool explicitly_set = false;          // internal use only: incicates whether one of the other parameters has been explicitly set
+
+      bool service_node_pubkey;
+      bool registration_height;
+      bool requested_unlock_height;
+      bool last_reward_block_height;
+      bool last_reward_transaction_index;
+      bool last_uptime_proof;
+
+      bool service_node_version;
+      bool contributors;
+      bool total_contributed;
+      bool total_reserved;
+      bool staking_requirement;
+      bool portions_for_operator;
+      bool swarm_id;
+      bool operator_address;
+      bool public_ip;
+      bool storage_port;
+
+      bool block_hash;
+      bool height;
+
+      BEGIN_KV_SERIALIZE_MAP()
+      KV_SERIALIZE_OPT2(service_node_pubkey, false)
+      KV_SERIALIZE_OPT2(registration_height, false)
+      KV_SERIALIZE_OPT2(requested_unlock_height, false)
+      KV_SERIALIZE_OPT2(last_reward_block_height, false)
+      KV_SERIALIZE_OPT2(last_reward_transaction_index, false)
+      KV_SERIALIZE_OPT2(last_uptime_proof, false)
+      KV_SERIALIZE_OPT2(service_node_version, false)
+      KV_SERIALIZE_OPT2(contributors, false)
+      KV_SERIALIZE_OPT2(total_contributed, false)
+      KV_SERIALIZE_OPT2(total_reserved, false)
+      KV_SERIALIZE_OPT2(staking_requirement, false)
+      KV_SERIALIZE_OPT2(portions_for_operator, false)
+      KV_SERIALIZE_OPT2(swarm_id, false)
+      KV_SERIALIZE_OPT2(operator_address, false)
+      KV_SERIALIZE_OPT2(public_ip, false)
+      KV_SERIALIZE_OPT2(storage_port, false)
+      KV_SERIALIZE_OPT2(block_hash, false)
+      KV_SERIALIZE_OPT2(height, false)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    using contribution = COMMAND_RPC_GET_SERVICE_NODES::response_t::contribution;
+    using contributor = COMMAND_RPC_GET_SERVICE_NODES::response_t::contributor;
+
+    struct request_t
+    {
+      uint32_t limit;
+      bool fully_funded_only;
+      requested_fields_t fields;
+
+      BEGIN_KV_SERIALIZE_MAP()
+      KV_SERIALIZE(limit)
+      KV_SERIALIZE(fully_funded_only)
+      KV_SERIALIZE(fields)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<request_t> request;
+
+    struct response_t
+    {
+
+      struct entry {
+        const requested_fields_t& requested_fields;
+
+        entry(const requested_fields_t& res)
+          : requested_fields(res)
+        {}
+
+        std::string               service_node_pubkey;           // The public key of the Service Node.
+        uint64_t                  registration_height;           // The height at which the registration for the Service Node arrived on the blockchain.
+        uint64_t                  requested_unlock_height;       // The height at which contributions will be released and the Service Node expires. 0 if not requested yet.
+        uint64_t                  last_reward_block_height;      // The last height at which this Service Node received a reward.
+        uint32_t                  last_reward_transaction_index; // When multiple Service Nodes register on the same height, the order the transaction arrive dictate the order you receive rewards.
+        uint64_t                  last_uptime_proof;             // The last time this Service Node's uptime proof was relayed by atleast 1 Service Node other than itself in unix epoch time.
+        std::vector<uint16_t>     service_node_version;          // The major, minor, patch version of the Service Node respectively.
+        std::vector<contributor>  contributors;                  // Array of contributors, contributing to this Service Node.
+        uint64_t                  total_contributed;             // The total amount of Loki in atomic units contributed to this Service Node.
+        uint64_t                  total_reserved;                // The total amount of Loki in atomic units reserved in this Service Node.
+        uint64_t                  staking_requirement;           // The staking requirement in atomic units that is required to be contributed to become a Service Node.
+        uint64_t                  portions_for_operator;         // The operator percentage cut to take from each reward expressed in portions, see cryptonote_config.h's STAKING_PORTIONS.
+        uint64_t                  swarm_id;                      // The identifier of the Service Node's current swarm.
+        std::string               operator_address;              // The wallet address of the operator to which the operator cut of the staking reward is sent to.
+        std::string               public_ip;                     // The public ip address of the service node
+        uint16_t                  storage_port;                  // The port number associated with the storage server
+
+        BEGIN_KV_SERIALIZE_MAP()
+          KV_SERIALIZE_ENTRY_FIELD_IF_REQUESTED(service_node_pubkey);
+          KV_SERIALIZE_ENTRY_FIELD_IF_REQUESTED(registration_height);
+          KV_SERIALIZE_ENTRY_FIELD_IF_REQUESTED(requested_unlock_height);
+          KV_SERIALIZE_ENTRY_FIELD_IF_REQUESTED(last_reward_block_height);
+          KV_SERIALIZE_ENTRY_FIELD_IF_REQUESTED(last_reward_transaction_index);
+          KV_SERIALIZE_ENTRY_FIELD_IF_REQUESTED(last_uptime_proof);
+          KV_SERIALIZE_ENTRY_FIELD_IF_REQUESTED(service_node_version);
+          KV_SERIALIZE_ENTRY_FIELD_IF_REQUESTED(contributors);
+          KV_SERIALIZE_ENTRY_FIELD_IF_REQUESTED(total_contributed);
+          KV_SERIALIZE_ENTRY_FIELD_IF_REQUESTED(total_reserved);
+          KV_SERIALIZE_ENTRY_FIELD_IF_REQUESTED(staking_requirement);
+          KV_SERIALIZE_ENTRY_FIELD_IF_REQUESTED(portions_for_operator);
+          KV_SERIALIZE_ENTRY_FIELD_IF_REQUESTED(swarm_id);
+          KV_SERIALIZE_ENTRY_FIELD_IF_REQUESTED(operator_address);
+          KV_SERIALIZE_ENTRY_FIELD_IF_REQUESTED(public_ip);
+          KV_SERIALIZE_ENTRY_FIELD_IF_REQUESTED(storage_port);
+        END_KV_SERIALIZE_MAP()
+      };
+
+      requested_fields_t fields;
+
+      std::vector<entry> service_node_states; // Array of service node registration information
+      uint64_t    height;                     // Current block's height.
+      std::string block_hash;                 // Current block's hash.
+      std::string status;                     // Generic RPC error code. "OK" is the success value.
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(service_node_states)
+        KV_SERIALIZE(status)
+        if (this_ref.fields.height) {
+          KV_SERIALIZE(height)
+        }
+        if (this_ref.fields.block_hash) {
+          KV_SERIALIZE(block_hash)
+        }
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<response_t> response;
+  };
+
   struct COMMAND_RPC_STORAGE_SERVER_PING
   {
     struct request

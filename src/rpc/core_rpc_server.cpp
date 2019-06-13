@@ -31,6 +31,8 @@
 
 #include <boost/preprocessor/stringize.hpp>
 #include <boost/endian/conversion.hpp>
+#include <algorithm>
+#include <cstring>
 #include "include_base_utils.h"
 #include "string_tools.h"
 using namespace epee;
@@ -2698,6 +2700,51 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  template<typename response>
+  void core_rpc_server::fill_sn_response_entry(response &entry, const service_nodes::service_node_pubkey_info &sn_info) {
+
+    const auto proof = m_core.get_uptime_proof(sn_info.pubkey);
+
+    entry.service_node_pubkey           = string_tools::pod_to_hex(sn_info.pubkey);
+    entry.registration_height           = sn_info.info.registration_height;
+    entry.requested_unlock_height       = sn_info.info.requested_unlock_height;
+    entry.last_reward_block_height      = sn_info.info.last_reward_block_height;
+    entry.last_reward_transaction_index = sn_info.info.last_reward_transaction_index;
+    entry.last_uptime_proof             = proof.timestamp;
+    entry.service_node_version          = {proof.version_major, proof.version_minor, proof.version_patch};
+    entry.public_ip                     = string_tools::get_ip_string_from_int32(sn_info.info.public_ip);
+    entry.storage_port                  = sn_info.info.storage_port;
+
+    entry.contributors.reserve(sn_info.info.contributors.size());
+
+    using namespace service_nodes;
+    for (service_node_info::contributor_t const &contributor : sn_info.info.contributors)
+    {
+      entry.contributors.push_back({});
+      auto &new_contributor = entry.contributors.back();
+      new_contributor.amount   = contributor.amount;
+      new_contributor.reserved = contributor.reserved;
+      new_contributor.address  = cryptonote::get_account_address_as_str(m_core.get_nettype(), false/*is_subaddress*/, contributor.address);
+
+      new_contributor.locked_contributions.reserve(contributor.locked_contributions.size());
+      for (service_node_info::contribution_t const &src : contributor.locked_contributions)
+      {
+        new_contributor.locked_contributions.push_back({});
+        auto &dest = new_contributor.locked_contributions.back();
+        dest.amount                                                = src.amount;
+        dest.key_image                                             = string_tools::pod_to_hex(src.key_image);
+        dest.key_image_pub_key                                     = string_tools::pod_to_hex(src.key_image_pub_key);
+      }
+    }
+
+    entry.total_contributed             = sn_info.info.total_contributed;
+    entry.total_reserved                = sn_info.info.total_reserved;
+    entry.staking_requirement           = sn_info.info.staking_requirement;
+    entry.portions_for_operator         = sn_info.info.portions_for_operator;
+    entry.operator_address              = cryptonote::get_account_address_as_str(m_core.get_nettype(), false/*is_subaddress*/, sn_info.info.operator_address);
+    entry.swarm_id                      = sn_info.info.swarm_id;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_get_service_nodes(const COMMAND_RPC_GET_SERVICE_NODES::request& req, COMMAND_RPC_GET_SERVICE_NODES::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx)
   {
     PERF_TIMER(on_get_service_nodes);
@@ -2735,52 +2782,56 @@ namespace cryptonote
     for (auto &pubkey_info : pubkey_info_list)
     {
       COMMAND_RPC_GET_SERVICE_NODES::response::entry entry = {};
-
-      const auto proof = m_core.get_uptime_proof(pubkey_info.pubkey);
-
-      entry.service_node_pubkey           = string_tools::pod_to_hex(pubkey_info.pubkey);
-      entry.registration_height           = pubkey_info.info.registration_height;
-      entry.requested_unlock_height       = pubkey_info.info.requested_unlock_height;
-      entry.last_reward_block_height      = pubkey_info.info.last_reward_block_height;
-      entry.last_reward_transaction_index = pubkey_info.info.last_reward_transaction_index;
-      entry.last_uptime_proof             = proof.timestamp;
-      entry.service_node_version          = {proof.version_major, proof.version_minor, proof.version_patch};
-      entry.public_ip                     = string_tools::get_ip_string_from_int32(pubkey_info.info.public_ip);
-      entry.storage_port                  = pubkey_info.info.storage_port;
-
-      entry.contributors.reserve(pubkey_info.info.contributors.size());
-
-      using namespace service_nodes;
-      for (service_node_info::contributor_t const &contributor : pubkey_info.info.contributors)
-      {
-        COMMAND_RPC_GET_SERVICE_NODES::response::contributor new_contributor = {};
-        new_contributor.amount   = contributor.amount;
-        new_contributor.reserved = contributor.reserved;
-        new_contributor.address  = cryptonote::get_account_address_as_str(m_core.get_nettype(), false/*is_subaddress*/, contributor.address);
-
-        new_contributor.locked_contributions.reserve(contributor.locked_contributions.size());
-        for (service_node_info::contribution_t const &src : contributor.locked_contributions)
-        {
-          COMMAND_RPC_GET_SERVICE_NODES::response::contribution dest = {};
-          dest.amount                                                = src.amount;
-          dest.key_image                                             = string_tools::pod_to_hex(src.key_image);
-          dest.key_image_pub_key                                     = string_tools::pod_to_hex(src.key_image_pub_key);
-          new_contributor.locked_contributions.push_back(dest);
-        }
-
-        entry.contributors.push_back(new_contributor);
-      }
-
-      entry.total_contributed             = pubkey_info.info.total_contributed;
-      entry.total_reserved                = pubkey_info.info.total_reserved;
-      entry.staking_requirement           = pubkey_info.info.staking_requirement;
-      entry.portions_for_operator         = pubkey_info.info.portions_for_operator;
-      entry.operator_address              = cryptonote::get_account_address_as_str(m_core.get_nettype(), false/*is_subaddress*/, pubkey_info.info.operator_address);
-      entry.swarm_id                      = pubkey_info.info.swarm_id;
+      fill_sn_response_entry(entry, pubkey_info);
 
       res.service_node_states.push_back(entry);
     }
 
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_get_n_service_nodes(const COMMAND_RPC_GET_N_SERVICE_NODES::request& req,
+                                               COMMAND_RPC_GET_N_SERVICE_NODES::response& res,
+                                               epee::json_rpc::error&,
+                                               const connection_context*)
+  {
+    std::vector<service_nodes::service_node_pubkey_info> sn_infos = m_core.get_service_node_list_state({});
+
+    if (req.fully_funded_only) {
+      const auto end =
+        std::remove_if(sn_infos.begin(), sn_infos.end(), [](const service_nodes::service_node_pubkey_info& snpk_info) {
+          return !snpk_info.info.is_fully_funded();
+        });
+      
+      sn_infos.erase(end, sn_infos.end());
+    }
+
+    if (req.limit != 0) {
+
+      const auto limit = std::min(sn_infos.size(), static_cast<size_t>(req.limit));
+
+      static thread_local std::mt19937 mt{std::random_device{}()};
+
+      std::shuffle(sn_infos.begin(), sn_infos.end(), mt);
+
+      sn_infos.resize(limit);
+    }
+
+    res.service_node_states.reserve(sn_infos.size());
+
+    for (auto &pubkey_info : sn_infos) {
+      COMMAND_RPC_GET_N_SERVICE_NODES::response::entry entry = {res.fields};
+
+      fill_sn_response_entry(entry, pubkey_info);
+
+      res.service_node_states.push_back(entry);
+    }
+
+    res.status = CORE_RPC_STATUS_OK;
+    res.height = m_core.get_current_blockchain_height();
+    res.block_hash = string_tools::pod_to_hex(m_core.get_block_id_by_height(res.height - 1));
+
+    res.fields = req.fields;
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
