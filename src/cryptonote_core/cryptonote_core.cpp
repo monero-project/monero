@@ -748,7 +748,7 @@ namespace cryptonote
     bad_semantics_txes_lock.unlock();
 
     uint8_t version = m_blockchain_storage.get_current_hard_fork_version();
-    unsigned int max_tx_version = (version == 1) ? 1 : (version < SERVICE_NODE_VERSION)
+    unsigned int max_tx_version = (version == 1) ? 1 : (version < 5)
       ? transaction::version_2
       : transaction::version_3_per_output_unlock_times;
     if (tx.version == 0 || tx.version > max_tx_version)

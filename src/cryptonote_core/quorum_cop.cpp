@@ -64,7 +64,7 @@ namespace service_nodes
 	{
 		uint64_t const height = cryptonote::get_block_height(block);
 
-		if (m_core.get_hard_fork_version(height) < SERVICE_NODE_VERSION)
+		if (m_core.get_hard_fork_version(height) < 5)
 			return;
 
 		crypto::public_key my_pubkey;
@@ -95,7 +95,7 @@ namespace service_nodes
 
 		for (; m_last_height < (height - REORG_SAFETY_BUFFER_IN_BLOCKS); m_last_height++)
 		{
-			if (m_core.get_hard_fork_version(m_last_height) < SERVICE_NODE_VERSION)
+			if (m_core.get_hard_fork_version(m_last_height) < 5)
 				continue;
 
 			const std::shared_ptr<const quorum_state> state = m_core.get_quorum_state(m_last_height);
@@ -164,7 +164,7 @@ namespace service_nodes
 
 		if (!(proof.snode_version_major == 4 &&
 			proof.snode_version_minor == 0 &&
-			proof.snode_version_patch == 0))
+			proof.snode_version_patch == 5))
 		{
 			return false;
 		}

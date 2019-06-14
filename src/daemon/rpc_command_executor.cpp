@@ -2042,7 +2042,7 @@ static void print_service_node_list_state(cryptonote::network_type nettype, int 
 		// Print Expiry Info
 		{
 			uint64_t expiry_height = entry.registration_height + service_nodes::get_staking_requirement_lock_blocks(nettype);
-			if (hard_fork_version >= SERVICE_NODE_VERSION)
+			if (hard_fork_version >= 5)
 				expiry_height += STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS;
 
 			if (curr_height)
