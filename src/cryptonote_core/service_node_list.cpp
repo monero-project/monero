@@ -88,7 +88,7 @@ namespace service_nodes
 	void service_node_list::init()
 	{
 		std::lock_guard<boost::recursive_mutex> lock(m_sn_mutex);
-		if (m_height < 106950)
+		if (m_blockchain.get_hard_fork_version() < 5)
 		{
 			clear(true);
 			return;
@@ -1334,7 +1334,13 @@ namespace service_nodes
 
 		m_quorum_states.clear();
 
-		m_height = 106950;
+		uint64_t hardfork_5_from_height = 0;
+		{
+		uint32_t window, votes, threshold;
+		uint8_t voting;
+		m_blockchain.get_hard_fork_voting_info(5, window, votes, threshold, hardfork_5_from_height, voting);
+		}
+   		 m_height = hardfork_5_from_height;
 	}
 
   bool convert_registration_args(cryptonote::network_type nettype,
