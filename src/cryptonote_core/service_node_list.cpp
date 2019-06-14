@@ -88,7 +88,7 @@ namespace service_nodes
 	void service_node_list::init()
 	{
 		std::lock_guard<boost::recursive_mutex> lock(m_sn_mutex);
-		if (m_blockchain.get_hard_fork_version() < 5)
+		if (m_blockchain.get_current_hard_fork_version() < 5)
 		{
 			clear(true);
 			return;
