@@ -103,7 +103,7 @@ invokes cmake commands as needed.
 * Change to the root of the source code directory, change to the most recent release branch, and build:
 
         cd triton
-        git checkout v4.0.5
+        git checkout v4.0.4
         make
 
     *Optional*: If your machine has several cores and enough memory, enable
