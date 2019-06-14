@@ -1334,13 +1334,7 @@ namespace service_nodes
 
 		m_quorum_states.clear();
 
-		uint64_t hardfork_5_from_height = 0;
-		{
-			uint32_t window, votes, threshold;
-			uint8_t voting;
-			m_blockchain.get_hard_fork_voting_info(9, window, votes, threshold, hardfork_5_from_height, voting);
-		}
-		m_height = hardfork_5_from_height;
+		m_height = 106950;
 	}
 
   bool convert_registration_args(cryptonote::network_type nettype,
