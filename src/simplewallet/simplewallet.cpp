@@ -4371,11 +4371,36 @@ bool simple_wallet::show_balance_unlocked(bool detailed)
 		extra = tr(" (Some owned outputs have partial key images - import_multisig_info needed)");
 	else if (m_wallet->has_unknown_key_images())
 		extra += tr(" (Some owned outputs have missing key images - import_key_images needed)");
+
+
+  std::vector<transfer_view> all_transfers;
+  uint64_t snode_rewards = 0;
+  std::vector<std::string> local_args;
+	if (!get_transfers(local_args, all_transfers))
+		return true;
+
+	PAUSE_READLINE();
+
+	for (const auto& transfer : all_transfers)
+	{
+		if (!transfer.outputs.empty())
+		{
+			for (const auto& output : transfer.outputs)
+			{
+				  if (transfer.type == tools::pay_type::service_node){
+            snode_rewards += transfer.amount;
+          }
+			}
+		}
+  }
+
 	success_msg_writer() << tr("Currently selected account: [") << m_current_subaddress_account << tr("] ") << m_wallet->get_subaddress_label({ m_current_subaddress_account, 0 });
 	const std::string tag = m_wallet->get_account_tags().second[m_current_subaddress_account];
 	success_msg_writer() << tr("Tag: ") << (tag.empty() ? std::string{ tr("(No tag assigned)") } : tag);
 	success_msg_writer() << tr("Balance: ") << print_money(m_wallet->balance(m_current_subaddress_account)) << ", "
-		<< tr("unlocked balance: ") << print_money(m_wallet->unlocked_balance(m_current_subaddress_account)) << extra;
+		<< tr("unlocked balance: ") << print_money(m_wallet->unlocked_balance(m_current_subaddress_account)) << extra << ", "
+    		<< tr("Service Rewards: ") << print_money(snode_rewards);
+;
 	std::map<uint32_t, uint64_t> balance_per_subaddress = m_wallet->balance_per_subaddress(m_current_subaddress_account);
 	std::map<uint32_t, uint64_t> unlocked_balance_per_subaddress = m_wallet->unlocked_balance_per_subaddress(m_current_subaddress_account);
 	if (!detailed || balance_per_subaddress.empty())

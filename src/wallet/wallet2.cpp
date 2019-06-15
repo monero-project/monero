@@ -4984,6 +4984,7 @@ uint64_t wallet2::unlocked_balance(uint32_t index_major) const
     amount += i.second;
   return amount;
 }
+
 //----------------------------------------------------------------------------------------------------
 std::map<uint32_t, uint64_t> wallet2::balance_per_subaddress(uint32_t index_major) const
 {

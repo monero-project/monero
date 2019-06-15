@@ -303,7 +303,7 @@ namespace tools
         FIELD(m_amount)
         FIELD(m_rct)
         FIELD(m_key_image_known)
-		FIELD(m_key_image_requested)
+		    FIELD(m_key_image_requested)
         FIELD(m_pk_index)
         FIELD(m_subaddr_index)
         FIELD(m_key_image_partial)
@@ -320,7 +320,7 @@ namespace tools
       uint64_t m_block_height;
       uint64_t m_unlock_time;
       uint64_t m_timestamp;
-	  pay_type m_type;
+	    pay_type m_type;
 
       cryptonote::subaddress_index m_subaddr_index;
 
@@ -773,6 +773,7 @@ namespace tools
     // locked & unlocked balance per subaddress of given or current subaddress account
     std::map<uint32_t, uint64_t> balance_per_subaddress(uint32_t subaddr_index_major) const;
     std::map<uint32_t, uint64_t> unlocked_balance_per_subaddress(uint32_t subaddr_index_major) const;
+    std::map<uint32_t, uint64_t> unlocked_balance_per_subaddress_snode(uint32_t subaddr_index_major) const;
     // all locked & unlocked balances of all subaddress accounts
     uint64_t balance_all() const;
     uint64_t unlocked_balance_all() const;
@@ -832,6 +833,7 @@ namespace tools
     void rescan_blockchain(bool hard, bool refresh = true);
     bool is_transfer_unlocked(const transfer_details& td) const;
     bool is_transfer_unlocked(uint64_t unlock_time, uint64_t block_height) const;
+
 
     uint64_t get_last_block_reward() const { return m_last_block_reward; }
 
