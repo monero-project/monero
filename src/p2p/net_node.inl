@@ -83,6 +83,46 @@ static inline boost::asio::ip::address_v4 make_address_v4_from_v6(const boost::a
   return boost::asio::ip::address_v4(v4);
 }
 
+namespace
+{
+  std::string select_port(const std::string &portspec)
+  {
+    std::vector<uint16_t> ports;
+    uint16_t port0, port1;
+
+    ports.reserve(65536);
+    std::vector<std::string> fields;
+    boost::split(fields, portspec, boost::is_any_of(","));
+    for (const auto &field: fields)
+    {
+      // field is either A-B or A
+      std::vector<std::string> subfields;
+      boost::split(subfields, field, boost::is_any_of("-"));
+      if (subfields.size() == 1)
+      {
+        if (epee::string_tools::get_xtype_from_string(port0, subfields[0]))
+          ports.push_back(port0);
+        else
+          MERROR("Invalid port: " << field);
+      }
+      else if (subfields.size() == 2)
+      {
+        if (epee::string_tools::get_xtype_from_string(port0, subfields[0]) && epee::string_tools::get_xtype_from_string(port1, subfields[1]) && port1 >= port0)
+          for (uint32_t port = port0; port <= port1; ++port) ports.push_back(port);
+        else
+          MERROR("Invalid port range: " << field);
+      }
+      else
+      {
+        MERROR("Invalid port or range: " << field);
+      }
+    }
+    if (ports.empty())
+      throw std::runtime_error("Invalid port specification");
+    return std::to_string(ports[crypto::rand_idx(ports.size())]);
+  }
+}
+
 namespace nodetool
 {
   template<class t_payload_net_handler>
@@ -384,8 +424,8 @@ namespace nodetool
     public_zone.m_connect = &public_connect;
     public_zone.m_bind_ip = command_line::get_arg(vm, arg_p2p_bind_ip);
     public_zone.m_bind_ipv6_address = command_line::get_arg(vm, arg_p2p_bind_ipv6_address);
-    public_zone.m_port = command_line::get_arg(vm, arg_p2p_bind_port);
-    public_zone.m_port_ipv6 = command_line::get_arg(vm, arg_p2p_bind_port_ipv6);
+    public_zone.m_port = select_port(command_line::get_arg(vm, arg_p2p_bind_port));
+    public_zone.m_port_ipv6 = select_port(command_line::get_arg(vm, arg_p2p_bind_port_ipv6));
     public_zone.m_can_pingback = true;
     m_external_port = command_line::get_arg(vm, arg_p2p_external_port);
     m_allow_local_ip = command_line::get_arg(vm, arg_p2p_allow_local_ip);
