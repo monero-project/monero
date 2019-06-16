@@ -2179,7 +2179,7 @@ bool Blockchain::handle_get_objects(NOTIFY_REQUEST_GET_OBJECTS::request& arg, NO
     if (missed_tx_ids.size() != 0)
     {
       // do not display an error if the peer asked for an unpruned block which we are not meant to have
-      if (tools::has_unpruned_block(get_block_height(bl.second), get_current_blockchain_height(), get_blockchain_pruning_seed()))
+      if (arg.prune || tools::has_unpruned_block(get_block_height(bl.second), get_current_blockchain_height(), get_blockchain_pruning_seed()))
       {
         LOG_ERROR("Error retrieving blocks, missed " << missed_tx_ids.size()
             << " transactions for block with hash: " << get_block_hash(bl.second)
