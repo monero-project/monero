@@ -133,7 +133,7 @@ static const struct {
 //------------------------------------------------------------------
 Blockchain::Blockchain(tx_memory_pool& tx_pool) :
   m_db(), m_tx_pool(tx_pool), m_hardfork(NULL), m_timestamps_and_difficulties_height(0), m_current_block_cumul_sz_limit(0), m_current_block_cumul_sz_median(0),
-  m_enforce_dns_checkpoints(false), m_max_prepare_blocks_threads(4), m_db_blocks_per_sync(1), m_db_sync_mode(db_async), m_db_default_sync(false), m_fast_sync(true), m_show_time_stats(false), m_sync_counter(0), m_cancel(false),
+  m_enforce_dns_checkpoints(false), m_max_prepare_blocks_threads(4), m_db_sync_on_blocks(true), m_db_sync_threshold(1), m_db_sync_mode(db_async), m_db_default_sync(false), m_fast_sync(true), m_show_time_stats(false), m_sync_counter(0), m_bytes_to_sync(0), m_cancel(false),
   m_difficulty_for_next_block_top_hash(crypto::null_hash),
   m_difficulty_for_next_block(1),
   m_btc_valid(false)
@@ -2299,7 +2299,7 @@ bool Blockchain::find_blockchain_supplement(const uint64_t req_start_block, cons
   total_height = get_current_blockchain_height();
   size_t count = 0, size = 0;
   blocks.reserve(std::min(std::min(max_count, (size_t)10000), (size_t)(total_height - start_height)));
-  for(size_t i = start_height; i < total_height && count < max_count && (size < FIND_BLOCKCHAIN_SUPPLEMENT_MAX_SIZE || count < 3); i++, count++)
+  for(uint64_t i = start_height; i < total_height && count < max_count && (size < FIND_BLOCKCHAIN_SUPPLEMENT_MAX_SIZE || count < 3); i++, count++)
   {
     blocks.resize(blocks.size()+1);
     blocks.back().first.first = m_db->get_block_blob_from_height(i);
@@ -3926,11 +3926,13 @@ bool Blockchain::cleanup_handle_incoming_blocks(bool force_sync)
         store_blockchain();
       m_sync_counter = 0;
     }
-    else if (m_db_blocks_per_sync && m_sync_counter >= m_db_blocks_per_sync)
+    else if (m_db_sync_threshold && ((m_db_sync_on_blocks && m_sync_counter >= m_db_sync_threshold) || (!m_db_sync_on_blocks && m_bytes_to_sync >= m_db_sync_threshold)))
     {
+      MDEBUG("Sync threshold met, syncing");
       if(m_db_sync_mode == db_async)
       {
         m_sync_counter = 0;
+        m_bytes_to_sync = 0;
         m_async_service.dispatch(boost::bind(&Blockchain::store_blockchain, this));
       }
       else if(m_db_sync_mode == db_sync)
@@ -4091,6 +4093,7 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
   TIME_MEASURE_START(prepare);
   bool stop_batch;
   uint64_t bytes = 0;
+  size_t total_txs = 0;
 
   // Order of locking must be:
   //  m_incoming_tx_lock (optional)
@@ -4119,7 +4122,9 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
     {
       bytes += tx_blob.size();
     }
+    total_txs += entry.txs.size();
   }
+  m_bytes_to_sync += bytes;
   while (!(stop_batch = m_db->batch_start(blocks_entry.size(), bytes))) {
     m_blockchain_lock.unlock();
     m_tx_pool.unlock();
@@ -4178,7 +4183,7 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
           break;
         }
 
-        blocks[i].push_back(block);
+        blocks[i].push_back(std::move(block));
         std::advance(it, 1);
       }
     }
@@ -4199,7 +4204,7 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
         break;
       }
 
-      blocks[i].push_back(block);
+      blocks[i].push_back(std::move(block));
       std::advance(it, 1);
     }
 
@@ -4255,6 +4260,7 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
   std::map<uint64_t, std::vector<uint64_t>> offset_map;
   // [output] stores all output_data_t for each absolute_offset
   std::map<uint64_t, std::vector<output_data_t>> tx_map;
+  std::vector<std::pair<cryptonote::transaction, crypto::hash>> txes(total_txs);
 
 #define SCAN_TABLE_QUIT(m) \
         do { \
@@ -4264,6 +4270,7 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
         } while(0); \
 
   // generate sorted tables for all amounts and absolute offsets
+  size_t tx_index = 0;
   for (const auto &entry : blocks_entry)
   {
     if (m_cancel)
@@ -4271,12 +4278,15 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
 
     for (const auto &tx_blob : entry.txs)
     {
-      crypto::hash tx_hash = null_hash;
-      crypto::hash tx_prefix_hash = null_hash;
-      transaction tx;
+      if (tx_index >= txes.size())
+        SCAN_TABLE_QUIT("tx_index is out of sync");
+      transaction &tx = txes[tx_index].first;
+      crypto::hash &tx_prefix_hash = txes[tx_index].second;
+      ++tx_index;
 
-      if (!parse_and_validate_tx_from_blob(tx_blob, tx, tx_hash, tx_prefix_hash))
+      if (!parse_and_validate_tx_base_from_blob(tx_blob, tx))
         SCAN_TABLE_QUIT("Could not parse tx from incoming blocks.");
+      cryptonote::get_transaction_prefix_hash(tx, tx_prefix_hash);
 
       auto its = m_scan_table.find(tx_prefix_hash);
       if (its != m_scan_table.end())
@@ -4362,9 +4372,8 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
     }
   }
 
-  int total_txs = 0;
-
   // now generate a table for each tx_prefix and k_image hashes
+  tx_index = 0;
   for (const auto &entry : blocks_entry)
   {
     if (m_cancel)
@@ -4372,14 +4381,12 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
 
     for (const auto &tx_blob : entry.txs)
     {
-      crypto::hash tx_hash = null_hash;
-      crypto::hash tx_prefix_hash = null_hash;
-      transaction tx;
+      if (tx_index >= txes.size())
+        SCAN_TABLE_QUIT("tx_index is out of sync");
+      const transaction &tx = txes[tx_index].first;
+      const crypto::hash &tx_prefix_hash = txes[tx_index].second;
+      ++tx_index;
 
-      if (!parse_and_validate_tx_from_blob(tx_blob, tx, tx_hash, tx_prefix_hash))
-        SCAN_TABLE_QUIT("Could not parse tx from incoming blocks.");
-
-      ++total_txs;
       auto its = m_scan_table.find(tx_prefix_hash);
       if (its == m_scan_table.end())
         SCAN_TABLE_QUIT("Tx not found on scan table from incoming blocks.");
@@ -4468,7 +4475,7 @@ bool Blockchain::for_all_txpool_txes(std::function<bool(const crypto::hash&, con
   return m_db->for_all_txpool_txes(f, include_blob, include_unrelayed_txes);
 }
 
-void Blockchain::set_user_options(uint64_t maxthreads, uint64_t blocks_per_sync, blockchain_db_sync_mode sync_mode, bool fast_sync)
+void Blockchain::set_user_options(uint64_t maxthreads, bool sync_on_blocks, uint64_t sync_threshold, blockchain_db_sync_mode sync_mode, bool fast_sync)
 {
   if (sync_mode == db_defaultsync)
   {
@@ -4477,7 +4484,8 @@ void Blockchain::set_user_options(uint64_t maxthreads, uint64_t blocks_per_sync,
   }
   m_db_sync_mode = sync_mode;
   m_fast_sync = fast_sync;
-  m_db_blocks_per_sync = blocks_per_sync;
+  m_db_sync_on_blocks = sync_on_blocks;
+  m_db_sync_threshold = sync_threshold;
   m_max_prepare_blocks_threads = maxthreads;
 }
 

@@ -52,7 +52,7 @@ struct Wallet2CallbackImpl;
 class WalletImpl : public Wallet
 {
 public:
-    WalletImpl(NetworkType nettype = MAINNET);
+    WalletImpl(NetworkType nettype = MAINNET, uint64_t kdf_rounds = 1);
     ~WalletImpl();
     bool create(const std::string &path, const std::string &password,
                 const std::string &language);

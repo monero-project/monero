@@ -729,11 +729,12 @@ namespace cryptonote
      * @brief sets various performance options
      *
      * @param maxthreads max number of threads when preparing blocks for addition
-     * @param blocks_per_sync number of blocks to cache before syncing to database
+     * @param sync_on_blocks whether to sync based on blocks or bytes
+     * @param sync_threshold number of blocks/bytes to cache before syncing to database
      * @param sync_mode the ::blockchain_db_sync_mode to use
      * @param fast_sync sync using built-in block hashes as trusted
      */
-    void set_user_options(uint64_t maxthreads, uint64_t blocks_per_sync,
+    void set_user_options(uint64_t maxthreads, bool sync_on_blocks, uint64_t sync_threshold,
         blockchain_db_sync_mode sync_mode, bool fast_sync);
 
     /**
@@ -1017,11 +1018,13 @@ namespace cryptonote
     bool m_fast_sync;
     bool m_show_time_stats;
     bool m_db_default_sync;
-    uint64_t m_db_blocks_per_sync;
+    bool m_db_sync_on_blocks;
+    uint64_t m_db_sync_threshold;
     uint64_t m_max_prepare_blocks_threads;
     uint64_t m_fake_pow_calc_time;
     uint64_t m_fake_scan_time;
     uint64_t m_sync_counter;
+    uint64_t m_bytes_to_sync;
     std::vector<uint64_t> m_timestamps;
     std::vector<difficulty_type> m_difficulties;
     uint64_t m_timestamps_and_difficulties_height;

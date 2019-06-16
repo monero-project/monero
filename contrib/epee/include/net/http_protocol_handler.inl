@@ -328,8 +328,10 @@ namespace net_utils
 	inline bool analize_http_method(const boost::smatch& result, http::http_method& method, int& http_ver_major, int& http_ver_minor)
 	{
 		CHECK_AND_ASSERT_MES(result[0].matched, false, "simple_http_connection_handler::analize_http_method() assert failed...");
-		http_ver_major = boost::lexical_cast<int>(result[11]);
-		http_ver_minor = boost::lexical_cast<int>(result[12]);
+		if (!boost::conversion::try_lexical_convert<int>(result[11], http_ver_major))
+			return false;
+		if (!boost::conversion::try_lexical_convert<int>(result[12], http_ver_minor))
+			return false;
 
 		if(result[3].matched)
 			method = http::http_method_options;
@@ -351,13 +353,18 @@ namespace net_utils
   template<class t_connection_context>
 	bool simple_http_connection_handler<t_connection_context>::handle_invoke_query_line()
 	{ 
-		STATIC_REGEXP_EXPR_1(rexp_match_command_line, "^(((OPTIONS)|(GET)|(HEAD)|(POST)|(PUT)|(DELETE)|(TRACE)) (\\S+) HTTP/(\\d+).(\\d+))\r?\n", boost::regex::icase | boost::regex::normal);
+		STATIC_REGEXP_EXPR_1(rexp_match_command_line, "^(((OPTIONS)|(GET)|(HEAD)|(POST)|(PUT)|(DELETE)|(TRACE)) (\\S+) HTTP/(\\d+)\\.(\\d+))\r?\n", boost::regex::icase | boost::regex::normal);
 		//											    123         4     5      6      7     8        9        10          11     12    
 		//size_t match_len = 0;
 		boost::smatch result;	
 		if(boost::regex_search(m_cache, result, rexp_match_command_line, boost::match_default) && result[0].matched)
 		{
-			analize_http_method(result, m_query_info.m_http_method, m_query_info.m_http_ver_hi, m_query_info.m_http_ver_hi);
+			if (!analize_http_method(result, m_query_info.m_http_method, m_query_info.m_http_ver_hi, m_query_info.m_http_ver_hi))
+			{
+				m_state = http_state_error;
+				MERROR("Failed to analyze method");
+				return false;
+			}
 			m_query_info.m_URI = result[10];
 			if (!parse_uri(m_query_info.m_URI, m_query_info.m_uri_content))
 			{
@@ -554,7 +561,8 @@ namespace net_utils
 		if(!(boost::regex_search( str, result, rexp_mach_field, boost::match_default) && result[0].matched))
 			return false;
 
-		len = boost::lexical_cast<size_t>(result[0]);
+		try { len = boost::lexical_cast<size_t>(result[0]); }
+		catch(...) { return false; }
 		return true;
 	}
 	//-----------------------------------------------------------------------------------

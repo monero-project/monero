@@ -303,7 +303,6 @@ public:
   virtual uint64_t get_indexing_base() const { return 1; }
 
   virtual output_data_t get_output_key(const uint64_t& amount, const uint64_t& index);
-  virtual output_data_t get_output_key(const uint64_t& global_index) const;
   virtual void get_output_key(const uint64_t &amount, const std::vector<uint64_t> &offsets, std::vector<output_data_t> &outputs);
 
   virtual tx_out_index get_output_tx_and_index_from_global(const uint64_t& index) const;
@@ -419,6 +418,7 @@ private:
    * @return the global index of the desired output
    */
   uint64_t get_output_global_index(const uint64_t& amount, const uint64_t& index);
+  output_data_t get_output_key(const uint64_t& global_index) const;
   void checkpoint_worker() const;
   void check_open() const;
 

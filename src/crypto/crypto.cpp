@@ -70,6 +70,9 @@ namespace crypto {
 #include "random.h"
   }
 
+  const crypto::public_key null_pkey = crypto::public_key{};
+  const crypto::secret_key null_skey = crypto::secret_key{};
+
   static inline unsigned char *operator &(ec_point &point) {
     return &reinterpret_cast<unsigned char &>(point);
   }

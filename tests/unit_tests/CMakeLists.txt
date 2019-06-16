@@ -27,6 +27,7 @@
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 set(unit_tests_sources
+  account.cpp
   apply_permutation.cpp
   address_from_url.cpp
   ban.cpp
@@ -47,11 +48,13 @@ set(unit_tests_sources
   epee_levin_protocol_handler_async.cpp
   epee_utils.cpp
   fee.cpp
+  json_serialization.cpp
   get_xtype_from_string.cpp
   hashchain.cpp
   http.cpp
   main.cpp
   memwipe.cpp
+  mlocker.cpp
   mnemonics.cpp
   mul_div.cpp
   int-util.cpp
@@ -73,7 +76,8 @@ set(unit_tests_sources
   ringct.cpp
   output_selection.cpp
   vercmp.cpp
-  ringdb.cpp)
+  ringdb.cpp
+  wipeable_string.cpp)
 
 set(unit_tests_headers
   unit_tests_utils.h)
@@ -88,6 +92,7 @@ target_link_libraries(unit_tests
     cryptonote_core
     blockchain_db
     rpc
+    serialization
     wallet
     p2p
     version

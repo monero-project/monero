@@ -52,16 +52,20 @@ namespace epee
     }
   }
 
-  std::string to_hex::string(const span<const std::uint8_t> src)
+  template<typename T>
+  T to_hex::convert(const span<const std::uint8_t> src)
   {
     if (std::numeric_limits<std::size_t>::max() / 2 < src.size())
       throw std::range_error("hex_view::to_string exceeded maximum size");
 
-    std::string out{};
+    T out{};
     out.resize(src.size() * 2);
-    buffer_unchecked(std::addressof(out[0]), src);
+    to_hex::buffer_unchecked((char*)out.data(), src); // can't see the non const version in wipeable_string??
     return out;
   }
+
+  std::string to_hex::string(const span<const std::uint8_t> src) { return convert<std::string>(src); }
+  epee::wipeable_string to_hex::wipeable_string(const span<const std::uint8_t> src) { return convert<epee::wipeable_string>(src); }
 
   void to_hex::buffer(std::ostream& out, const span<const std::uint8_t> src)
   {
