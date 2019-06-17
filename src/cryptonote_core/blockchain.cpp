@@ -2744,12 +2744,12 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
 
 	const uint8_t hf_version = m_hardfork->get_current_version();
 
-	if (hf_version >= 5 && tx.version < 2)
+	if (hf_version >= SERVICE_NODE_VERSION && tx.version < 2)
 	{
 		tvc.m_invalid_version = true;
 		return false;
 	}
-	else if (hf_version < 5 && tx.version > 2)
+	else if (hf_version < SERVICE_NODE_VERSION && tx.version > 2)
 	{
 		tvc.m_invalid_version = true;
 		return false;
@@ -2788,7 +2788,12 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
 				// TODO(jcktm) - remove branch if safe after fork
 				if (in_to_key.key_offsets.size() - 1 < mixin)
 					mixin = in_to_key.key_offsets.size() - 1;
-
+				if (hf_version >= SERVICE_NODE_VERSION && in_to_key.key_offsets.size() - 1 != min_mixin)
+				{
+					MERROR_VER("Tx " << get_transaction_hash(tx) << " has incorrect ring size (" << in_to_key.key_offsets.size() - 1 << ")");
+					tvc.m_low_mixin = true;
+					return false;
+				}
 			}
 		}
 
@@ -2809,7 +2814,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
 		}
 
 		// min/max tx version based on HF, and we accept v1 txes if having a non mixable
-		const size_t max_tx_version = (hf_version <= 3) ? 1 : (hf_version < 5)
+		const size_t max_tx_version = (hf_version <= 3) ? 1 : (hf_version < SERVICE_NODE_VERSION)
 			? transaction::version_2
 			: transaction::version_3_per_output_unlock_times;
 
