@@ -15,6 +15,7 @@ ifeq ($(host_os),linux)
 packages += unwind
 packages += sodium
 endif
+
 ifeq ($(host_os),mingw32)
 packages += icu4c
 packages += sodium

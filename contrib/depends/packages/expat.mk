@@ -6,6 +6,7 @@ $(package)_sha256_hash=03ad85db965f8ab2d27328abcf0bc5571af6ec0a414874b2066ee3fdd
 
 define $(package)_set_vars
 $(package)_config_opts=--enable-static
+$(package)_config_opts=--disable-shared
 $(package)_config_opts+=--prefix=$(host_prefix)
 endef
 
@@ -20,3 +21,8 @@ endef
 define $(package)_stage_cmds
   $(MAKE) DESTDIR=$($(package)_staging_dir) install
 endef
+
+define $(package)_postprocess_cmds
+  rm lib/*.la
+endef
+

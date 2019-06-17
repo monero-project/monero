@@ -30,5 +30,7 @@ define $(package)_stage_cmds
 endef
 
 define $(package)_postprocess_cmds
-  rm -rf bin share
+  rm -rf bin share &&\
+  rm lib/*.la
 endef
+
