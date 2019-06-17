@@ -1287,7 +1287,7 @@ namespace cryptonote
       }
 
       // start using the optimal filling algorithm from v5
-      if (version >= SERVICE_NODE_VERSION)
+      if (version >= 5)
       {
 		  block_reward_parts reward_parts_other = {};
 		  if (!get_triton_block_reward(median_weight, total_weight + meta.weight, already_generated_coins, version, reward_parts_other, block_reward_context))

@@ -107,7 +107,7 @@ namespace cryptonote
 
   uint64_t service_node_reward_formula(uint64_t base_reward, int hard_fork_version)
   {
-	  return hard_fork_version >= SERVICE_NODE_VERSION ? (base_reward / SERVICE_NODE_BASE_REWARD_DIVISOR) : 0;
+	  return hard_fork_version >= 5 ? (base_reward / SERVICE_NODE_BASE_REWARD_DIVISOR) : 0;
   }
 
   uint64_t get_portion_of_reward(uint64_t portions, uint64_t total_service_node_reward)
@@ -152,7 +152,7 @@ namespace cryptonote
 	  tx.extra.clear();
 	  tx.output_unlock_times.clear();
 	  tx.is_deregister = false;
-  if(hard_fork_version >= SERVICE_NODE_VERSION)
+  if(hard_fork_version >= 5)
 	   tx.version =  3;
     if(hard_fork_version == 4)
       tx.version = 2;
@@ -226,7 +226,7 @@ namespace cryptonote
 		tx.output_unlock_times.push_back(height + CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW);
 	}
 
-	if (hard_fork_version >= SERVICE_NODE_VERSION) // Service Node Reward
+	if (hard_fork_version >= 5) // Service Node Reward
 	{
 		for (size_t i = 0; i < service_node_info.size(); i++)
 		{
