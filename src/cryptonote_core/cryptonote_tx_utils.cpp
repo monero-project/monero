@@ -341,15 +341,17 @@ namespace cryptonote
       msout->c.clear();
     }
 
-	if (per_output_unlock)
-	{
-		tx.version = 3;
-	}
-	else
-	{
-		tx.version = rct ? 2 : 1;
-		tx.unlock_time = unlock_time;
-	}
+    if (per_output_unlock)
+    {
+      tx.version = 3;
+    }
+    else
+    {
+      tx.version = rct ? 2 : 1;
+      tx.unlock_time = unlock_time;
+    }
+  		LOG_PRINT_L0("TX Version: " << tx.version);
+  		LOG_PRINT_L0("P_O_U: " << per_output_unlock);
 
     tx.extra = extra;
     crypto::public_key txkey_pub;
