@@ -137,6 +137,8 @@ using namespace cryptonote;
 
 #define DEFAULT_INACTIVITY_LOCK_TIMEOUT 90 // a minute and a half
 
+#define IGNORE_LONG_PAYMENT_ID_FROM_BLOCK_VERSION 12
+
 static const std::string MULTISIG_SIGNATURE_MAGIC = "SigMultisigPkV1";
 static const std::string MULTISIG_EXTRA_INFO_MAGIC = "MultisigxV1";
 
@@ -1793,7 +1795,7 @@ void wallet2::cache_tx_data(const cryptonote::transaction& tx, const crypto::has
   }
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote::transaction& tx, const std::vector<uint64_t> &o_indices, uint64_t height, uint64_t ts, bool miner_tx, bool pool, bool double_spend_seen, const tx_cache_data &tx_cache_data, std::map<std::pair<uint64_t, uint64_t>, size_t> *output_tracker_cache)
+void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote::transaction& tx, const std::vector<uint64_t> &o_indices, uint64_t height, uint8_t block_version, uint64_t ts, bool miner_tx, bool pool, bool double_spend_seen, const tx_cache_data &tx_cache_data, std::map<std::pair<uint64_t, uint64_t>, size_t> *output_tracker_cache)
 {
   PERF_TIMER(process_new_transaction);
   // In this function, tx (probably) only contains the base information
@@ -2285,8 +2287,18 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
       }
       else if (get_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id))
       {
-        LOG_PRINT_L2("Found unencrypted payment ID: " << payment_id);
-        MWARNING("Found unencrypted payment ID: these are bad for privacy, consider using subaddresses instead");
+        bool ignore = block_version >= IGNORE_LONG_PAYMENT_ID_FROM_BLOCK_VERSION;
+        if (ignore)
+        {
+          LOG_PRINT_L2("Found unencrypted payment ID in tx " << txid << " (ignored)");
+          MWARNING("Found OBSOLETE AND IGNORED unencrypted payment ID: these are bad for privacy, use subaddresses instead");
+          payment_id = crypto::null_hash;
+        }
+        else
+        {
+          LOG_PRINT_L2("Found unencrypted payment ID: " << payment_id);
+          MWARNING("Found unencrypted payment ID: these are bad for privacy, consider using subaddresses instead");
+        }
       }
     }
 
@@ -2422,7 +2434,7 @@ void wallet2::process_new_blockchain_entry(const cryptonote::block& b, const cry
   {
     TIME_MEASURE_START(miner_tx_handle_time);
     if (m_refresh_type != RefreshNoCoinbase)
-      process_new_transaction(get_transaction_hash(b.miner_tx), b.miner_tx, parsed_block.o_indices.indices[0].indices, height, b.timestamp, true, false, false, tx_cache_data[tx_cache_data_offset], output_tracker_cache);
+      process_new_transaction(get_transaction_hash(b.miner_tx), b.miner_tx, parsed_block.o_indices.indices[0].indices, height, b.major_version, b.timestamp, true, false, false, tx_cache_data[tx_cache_data_offset], output_tracker_cache);
     ++tx_cache_data_offset;
     TIME_MEASURE_FINISH(miner_tx_handle_time);
 
@@ -2431,7 +2443,7 @@ void wallet2::process_new_blockchain_entry(const cryptonote::block& b, const cry
     THROW_WALLET_EXCEPTION_IF(bche.txs.size() != parsed_block.txes.size(), error::wallet_internal_error, "Wrong amount of transactions for block");
     for (size_t idx = 0; idx < b.tx_hashes.size(); ++idx)
     {
-      process_new_transaction(b.tx_hashes[idx], parsed_block.txes[idx], parsed_block.o_indices.indices[idx+1].indices, height, b.timestamp, false, false, false, tx_cache_data[tx_cache_data_offset++], output_tracker_cache);
+      process_new_transaction(b.tx_hashes[idx], parsed_block.txes[idx], parsed_block.o_indices.indices[idx+1].indices, height, b.major_version, b.timestamp, false, false, false, tx_cache_data[tx_cache_data_offset++], output_tracker_cache);
     }
     TIME_MEASURE_FINISH(txs_handle_time);
     m_last_block_reward = cryptonote::get_outs_money_amount(b.miner_tx);
@@ -2962,7 +2974,7 @@ void wallet2::update_pool_state(bool refreshed)
                     [tx_hash](const std::pair<crypto::hash, bool> &e) { return e.first == tx_hash; });
                 if (i != txids.end())
                 {
-                  process_new_transaction(tx_hash, tx, std::vector<uint64_t>(), 0, time(NULL), false, true, tx_entry.double_spend_seen, {});
+                  process_new_transaction(tx_hash, tx, std::vector<uint64_t>(), 0, 0, time(NULL), false, true, tx_entry.double_spend_seen, {});
                   m_scanned_pool_txs[0].insert(tx_hash);
                   if (m_scanned_pool_txs[0].size() > 5000)
                   {
