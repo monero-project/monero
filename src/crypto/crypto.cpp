@@ -598,4 +598,72 @@ POP_WARNINGS
     sc_sub(&h, &h, &sum);
     return sc_isnonzero(&h) == 0;
   }
+
+  struct rs_comm_borromean_inner {
+    hash h;
+    ec_point L, R;
+    uint64_t i, j;
+  };
+
+  void crypto_ops::generate_borromean_signature(const hash &prefix_hash, const std::vector<key_image> &images, const std::vector<std::vector<public_key>> &pubs,
+    const std::vector<secret_key> &secs, const std::vector<std::size_t> &sec_indices,
+    borromean_signature &sig) {
+    // TODO
+  }
+
+  bool crypto_ops::check_borromean_signature(const hash &prefix_hash, const std::vector<key_image> &images, const std::vector<std::vector<public_key>> &pubs,
+    const borromean_signature &sig) {
+    const size_t n = pubs.size();
+    if (sc_check(&sig.c) != 0) {
+      return false;
+    }
+    std::vector<ec_scalar> buf_outer(1 + 2*n);
+    buf_outer[0] = *(ec_scalar*)&prefix_hash;
+    for (size_t i = 0; i < n; ++i) {
+      if (pubs[i].size() != sig.r[i].size()) {
+        return false;
+      }
+#if !defined(NDEBUG)
+      for (size_t j = 0; j < pubs[i].size(); ++j) {
+        assert(check_key(pubs[i][j]));
+      }
+#endif
+      ge_p3 image_unp;
+      ge_dsmp image_pre;
+      if (ge_frombytes_vartime(&image_unp, &images[i]) != 0) {
+        return false;
+      }
+      ge_dsm_precomp(image_pre, &image_unp);
+      ec_scalar c = sig.c;
+      for (size_t j = 0; j < pubs[i].size(); ++j) {
+        ge_p2 tmp2;
+        ge_p3 tmp3;
+        if (sc_check(&sig.r[i][j]) != 0) {
+          return false;
+        }
+        if (ge_frombytes_vartime(&tmp3, &pubs[i][j]) != 0) {
+          return false;
+        }
+        rs_comm_borromean_inner buf_inner;
+        buf_inner.h = prefix_hash;
+        ge_double_scalarmult_base_vartime(&tmp2, &c, &tmp3, &sig.r[i][j]);
+        ge_tobytes(&buf_inner.L, &tmp2);
+        hash_to_ec(pubs[i][j], tmp3);
+        ge_double_scalarmult_precomp_vartime(&tmp2, &sig.r[i][j], &tmp3, &c, image_pre);
+        ge_tobytes(&buf_inner.R, &tmp2);
+        buf_inner.i = i;
+        buf_inner.j = j;
+        if (j == pubs[i].size() - 1) {
+          buf_outer[1 + 2*i] = *(ec_scalar*)&buf_inner.L;
+          buf_outer[1 + 2*i + 1] = *(ec_scalar*)&buf_inner.R;
+        } else {
+          hash_to_scalar(&buf_inner, sizeof(buf_inner), c);
+        }
+      }
+    }
+    ec_scalar h;
+    hash_to_scalar(buf_outer.data(), sizeof(ec_scalar) * buf_outer.size(), h);
+    sc_sub(&h, &h, &sig.c);
+    return sc_isnonzero(&h) == 0;
+  }
 }

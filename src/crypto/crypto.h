@@ -96,6 +96,11 @@ namespace crypto {
     ec_scalar c, r;
     friend class crypto_ops;
   };
+
+  POD_CLASS borromean_signature {
+    ec_scalar c;
+    std::vector<std::vector<ec_scalar>> r;
+  };
 #pragma pack(pop)
 
   void hash_to_scalar(const void *data, size_t length, ec_scalar &res);
@@ -146,6 +151,10 @@ namespace crypto {
       const public_key *const *, std::size_t, const signature *);
     friend bool check_ring_signature(const hash &, const key_image &,
       const public_key *const *, std::size_t, const signature *);
+    static void generate_borromean_signature(const hash &, const std::vector<key_image> &, const std::vector<std::vector<public_key>> &, const std::vector<secret_key> &, const std::vector<std::size_t> &, borromean_signature &);
+    friend void generate_borromean_signature(const hash &, const std::vector<key_image> &, const std::vector<std::vector<public_key>> &, const std::vector<secret_key> &, const std::vector<std::size_t> &, borromean_signature &);
+    static bool check_borromean_signature(const hash &, const std::vector<key_image> &, const std::vector<std::vector<public_key>> &, const borromean_signature &);
+    friend bool check_borromean_signature(const hash &, const std::vector<key_image> &, const std::vector<std::vector<public_key>> &, const borromean_signature &);
   };
 
   void generate_random_bytes_thread_safe(size_t N, uint8_t *bytes);
@@ -260,6 +269,18 @@ namespace crypto {
     const std::vector<const public_key *> &pubs,
     const signature *sig) {
     return check_ring_signature(prefix_hash, image, pubs.data(), pubs.size(), sig);
+  }
+
+  /* More compact ring signature scheme using Borromean [Maxwell & Poelstra, 2015]
+   */
+  inline void generate_borromean_signature(const hash &prefix_hash, const std::vector<key_image> &images, const std::vector<std::vector<public_key>> &pubs,
+    const std::vector<secret_key> &secs, const std::vector<std::size_t> &sec_indices,
+    borromean_signature &sig) {
+    crypto_ops::generate_borromean_signature(prefix_hash, images, pubs, secs, sec_indices, sig);
+  }
+  inline bool check_borromean_signature(const hash &prefix_hash, const std::vector<key_image> &images, const std::vector<std::vector<public_key>> &pubs,
+    const borromean_signature &sig) {
+    return crypto_ops::check_borromean_signature(prefix_hash, images, pubs, sig);
   }
 
   inline std::ostream &operator <<(std::ostream &o, const crypto::public_key &v) {
