@@ -379,8 +379,14 @@ namespace nodetool
       trim_gray_peerlist();    
     }else
     {
-      //update record in white list 
-      m_peers_gray.replace(by_addr_it_gr, ple);      
+      //update record in gray list
+      peerlist_entry new_ple = ple;
+      if (by_addr_it_gr->pruning_seed && ple.pruning_seed == 0) // guard against older nodes not passing pruning info around
+        new_ple.pruning_seed = by_addr_it_gr->pruning_seed;
+      if (by_addr_it_gr->rpc_port && ple.rpc_port == 0) // guard against older nodes not passing RPC port around
+        new_ple.rpc_port = by_addr_it_gr->rpc_port;
+      new_ple.last_seen = by_addr_it_gr->last_seen; // do not overwrite the last seen timestamp, incoming peer list are untrusted
+      m_peers_gray.replace(by_addr_it_gr, new_ple);
     }
     return true;
     CATCH_ENTRY_L0("peerlist_manager::append_with_peer_gray()", false);
