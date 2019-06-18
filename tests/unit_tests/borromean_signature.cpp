@@ -68,3 +68,53 @@ TEST(borromean_signature, valid)
     EXPECT_TRUE(check_borromean_signature(prefix_hash, images, pubs, sig));
   }
 }
+
+TEST(borromean_signature, invalid)
+{
+  const char message[] = "borromean_signature";
+  hash prefix_hash;
+  hash_to_scalar(message, sizeof(message), *(ec_scalar*)&prefix_hash);
+  for (size_t n = 1; n < 30; ++n)
+  {
+    const size_t ring_size = 3 + (n % 5);
+    std::vector<key_image> images(n);
+    std::vector<std::vector<public_key>> pubs(n);
+    std::vector<secret_key> secs(n);
+    std::vector<std::size_t> sec_indices(n);
+    for (size_t i = 0; i < n; ++i)
+    {
+      pubs[i].resize(ring_size);
+      sec_indices[i] = i % ring_size;
+      for (size_t j = 0; j < ring_size; ++j)
+      {
+        secret_key sec;
+        generate_keys(pubs[i][j], sec);
+        if (j == sec_indices[i])
+        {
+          secs[i] = sec;
+          generate_key_image(pubs[i][j], sec, images[i]);
+        }
+      }
+    }
+    borromean_signature sig;
+    generate_borromean_signature(prefix_hash, images, pubs, secs, sec_indices, sig);
+    borromean_signature bad_sig = sig;
+    public_key pub;
+    secret_key sec;
+    generate_keys(pub, sec);
+    {
+      bad_sig.c = *(ec_scalar*)&sec;
+      EXPECT_FALSE(check_borromean_signature(prefix_hash, images, pubs, bad_sig));
+    }
+    bad_sig = sig;
+    {
+      bad_sig.r[n/2][0] = *(ec_scalar*)&sec;
+      EXPECT_FALSE(check_borromean_signature(prefix_hash, images, pubs, bad_sig));
+    }
+    bad_sig = sig;
+    {
+      std::swap(bad_sig.r[n/2].front(), bad_sig.r[n/2].back());
+      EXPECT_FALSE(check_borromean_signature(prefix_hash, images, pubs, bad_sig));
+    }
+  }
+}
