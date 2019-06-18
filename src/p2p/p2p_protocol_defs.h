@@ -132,7 +132,7 @@ namespace nodetool
     ss << std::setfill ('0') << std::setw (8) << std::hex << std::noshowbase;
     for(const peerlist_entry& pe: pl)
     {
-      ss << pe.id << "\t" << pe.adr.str() 
+      ss << peerid_to_string(pe.id) << "\t" << pe.adr.str()
         << " \trpc port " << (pe.rpc_port > 0 ? std::to_string(pe.rpc_port) : "-")
         << " \trpc credits per hash " << (pe.rpc_credits_per_hash > 0 ? std::to_string(pe.rpc_credits_per_hash) : "-")
         << " \tpruning seed " << pe.pruning_seed 

@@ -664,7 +664,7 @@ bool t_rpc_command_executor::print_connections() {
      << std::setw(30) << std::left << address
      << std::setw(8) << (get_address_type_name((epee::net_utils::address_type)info.address_type))
      << std::setw(6) << (info.ssl ? "yes" : "no")
-     << std::setw(20) << epee::string_tools::pad_string(info.peer_id, 16, '0', true)
+     << std::setw(20) << info.peer_id
      << std::setw(20) << info.support_flags
      << std::setw(30) << std::to_string(info.recv_count) + "("  + std::to_string(info.recv_idle_time) + ")/" + std::to_string(info.send_count) + "(" + std::to_string(info.send_idle_time) + ")"
      << std::setw(25) << info.state
@@ -2217,7 +2217,7 @@ bool t_rpc_command_executor::sync_info()
       for (const auto &s: res.spans)
         if (s.connection_id == p.info.connection_id)
           nblocks += s.nblocks, size += s.size;
-      tools::success_msg_writer() << address << "  " << epee::string_tools::pad_string(p.info.peer_id, 16, '0', true) << "  " <<
+      tools::success_msg_writer() << address << "  " << p.info.peer_id << "  " <<
           epee::string_tools::pad_string(p.info.state, 16) << "  " <<
           epee::string_tools::pad_string(epee::string_tools::to_string_hex(p.info.pruning_seed), 8) << "  " << p.info.height << "  "  <<
           p.info.current_download << " kB/s, " << nblocks << " blocks / " << size/1e6 << " MB queued";
