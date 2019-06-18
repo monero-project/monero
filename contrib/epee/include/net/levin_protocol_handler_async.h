@@ -99,6 +99,8 @@ public:
   template<class callback_t>
   bool for_connection(const boost::uuids::uuid &connection_id, const callback_t &cb);
   size_t get_connections_count();
+  size_t get_out_connections_count();
+  size_t get_in_connections_count();
   void set_handler(levin_commands_handler<t_connection_context>* handler, void (*destroy)(levin_commands_handler<t_connection_context>*) = NULL);
 
   async_protocol_handler_config():m_pcommands_handler(NULL), m_pcommands_handler_destroy(NULL), m_max_packet_size(LEVIN_DEFAULT_MAX_PACKET_SIZE), m_invoke_timeout(LEVIN_DEFAULT_TIMEOUT_PRECONFIGURED)
@@ -879,6 +881,28 @@ size_t async_protocol_handler_config<t_connection_context>::get_connections_coun
 {
   CRITICAL_REGION_LOCAL(m_connects_lock);
   return m_connects.size();
+}
+//------------------------------------------------------------------------------------------
+template<class t_connection_context>
+size_t async_protocol_handler_config<t_connection_context>::get_out_connections_count()
+{
+  CRITICAL_REGION_LOCAL(m_connects_lock);
+  size_t count = 0;
+  for (const auto &c: m_connects)
+    if (!c.second->m_connection_context.m_is_income)
+      ++count;
+  return count;
+}
+//------------------------------------------------------------------------------------------
+template<class t_connection_context>
+size_t async_protocol_handler_config<t_connection_context>::get_in_connections_count()
+{
+  CRITICAL_REGION_LOCAL(m_connects_lock);
+  size_t count = 0;
+  for (const auto &c: m_connects)
+    if (c.second->m_connection_context.m_is_income)
+      ++count;
+  return count;
 }
 //------------------------------------------------------------------------------------------
 template<class t_connection_context>
