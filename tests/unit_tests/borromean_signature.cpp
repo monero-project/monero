@@ -51,7 +51,7 @@ TEST(borromean_signature, valid)
     for (size_t i = 0; i < n; ++i)
     {
       pubs[i].resize(ring_size);
-      sec_indices[i] = n % ring_size;
+      sec_indices[i] = i % ring_size;
       for (size_t j = 0; j < ring_size; ++j)
       {
         secret_key sec;
