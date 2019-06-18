@@ -115,17 +115,17 @@ namespace cryptonote
 
   }
   //---------------------------------------------------------------------------------
-  bool tx_memory_pool::have_duplicated_non_standard_tx(transaction const &tx) const
+  bool tx_memory_pool::have_duplicated_non_standard_tx(transaction const &tx, uint8_t hard_fork_version) const
   {
     if (tx.type == txtype::standard)
       return false;
 
-    if (tx.type == txtype::deregister)
+    if (tx.type == txtype::state_change)
     {
-      tx_extra_service_node_deregister deregister;
-      if (!get_service_node_deregister_from_tx_extra(tx.extra, deregister))
+      tx_extra_service_node_state_change state_change;
+      if (!get_service_node_state_change_from_tx_extra(tx.extra, state_change, hard_fork_version))
       {
-        MERROR("Could not get service node deregister from tx, possibly corrupt tx in your blockchain, rejecting malformed deregister");
+        MERROR("Could not get service node state change from tx, possibly corrupt tx in your blockchain, rejecting malformed state change");
         return true;
       }
 
@@ -133,21 +133,18 @@ namespace cryptonote
       get_transactions(pool_txs);
       for (const transaction& pool_tx : pool_txs)
       {
-        if (pool_tx.type != txtype::deregister)
+        if (pool_tx.type != txtype::state_change)
           continue;
 
-        tx_extra_service_node_deregister pool_tx_deregister;
-        if (!get_service_node_deregister_from_tx_extra(pool_tx.extra, pool_tx_deregister))
+        tx_extra_service_node_state_change pool_tx_state_change;
+        if (!get_service_node_state_change_from_tx_extra(pool_tx.extra, pool_tx_state_change, hard_fork_version))
         {
-          MERROR("Could not get service node deregister from tx, possibly corrupt tx in your blockchain");
+          MERROR("Could not get service node state change from tx, possibly corrupt tx in your blockchain");
           continue;
         }
 
-        if ((pool_tx_deregister.block_height       == deregister.block_height) &&
-            (pool_tx_deregister.service_node_index == deregister.service_node_index))
-        {
+        if (state_change == pool_tx_state_change)
           return true;
-        }
       }
     }
     else if (tx.type == txtype::key_image_unlock)
@@ -173,9 +170,9 @@ namespace cryptonote
           return true;
         }
 
-        if (unlock.key_image == pool_unlock.key_image)
+        if (unlock == pool_unlock)
         {
-          MERROR("There was atleast one TX in the pool that is requesting to unlock the same key image already.");
+          MWARNING("There was atleast one TX in the pool that is requesting to unlock the same key image already.");
           return true;
         }
       }
@@ -286,7 +283,7 @@ namespace cryptonote
         tvc.m_double_spend = true;
         return false;
       }
-      if (have_duplicated_non_standard_tx(tx))
+      if (have_duplicated_non_standard_tx(tx, version))
       {
         mark_double_spend(tx);
         LOG_PRINT_L1("Transaction with id= "<< id << " already has a duplicate tx for height");
@@ -331,7 +328,7 @@ namespace cryptonote
         meta.last_relayed_time = time(NULL);
         meta.relayed = relayed;
         meta.do_not_relay = do_not_relay;
-        meta.double_spend_seen = (have_tx_keyimges_as_spent(tx) || have_duplicated_non_standard_tx(tx));
+        meta.double_spend_seen = (have_tx_keyimges_as_spent(tx) || have_duplicated_non_standard_tx(tx, version));
         meta.bf_padding = 0;
         memset(meta.padding, 0, sizeof(meta.padding));
         try
@@ -503,7 +500,9 @@ namespace cryptonote
     }
 
     // this will never remove the first one, but we don't care
-    auto it = --m_txs_by_fee_and_receive_time.end();
+    auto it = m_txs_by_fee_and_receive_time.end();
+    if (it != m_txs_by_fee_and_receive_time.begin())
+      it = std::prev(it);
     while (it != m_txs_by_fee_and_receive_time.begin())
     {
       if (m_txpool_weight <= bytes)
@@ -749,12 +748,13 @@ namespace cryptonote
                 return true;
               }
 
-              if (tx.type != txtype::deregister)
+              if (tx.type != txtype::state_change)
                 return true;
 
               tx_verification_context tvc;
               uint64_t max_used_block_height = 0;
               crypto::hash max_used_block_id = null_hash;
+              // FIXME: not check_tx_inputs anymore
               if (!m_blockchain.check_tx_inputs(tx, max_used_block_height, max_used_block_id, tvc, /*kept_by_block*/ false))
               {
                 LOG_PRINT_L1("TX type: " << tx.type << " considered for relaying failed tx inputs check, txid: " << txid << ", reason: " << print_tx_verification_context(tvc, &tx));

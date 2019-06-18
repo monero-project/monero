@@ -2777,6 +2777,9 @@ namespace cryptonote
         uint64_t                  last_reward_block_height;      // The last height at which this Service Node received a reward.
         uint32_t                  last_reward_transaction_index; // When multiple Service Nodes register on the same height, the order the transaction arrive dictate the order you receive rewards.
         uint64_t                  last_uptime_proof;             // The last time this Service Node's uptime proof was relayed by atleast 1 Service Node other than itself in unix epoch time.
+        bool                      active;                        // True if fully funded and not currently decommissioned
+        uint32_t                  decommission_count;            // The number of times the Service Node has been decommissioned since registration
+        int64_t                   earned_downtime_blocks;        // The number of blocks earned towards decommissioning, or the number of blocks remaining until deregistration if currently decommissioned
         std::vector<uint16_t>     service_node_version;          // The major, minor, patch version of the Service Node respectively.
         std::vector<contributor>  contributors;                  // Array of contributors, contributing to this Service Node.
         uint64_t                  total_contributed;             // The total amount of Loki in atomic units contributed to this Service Node.
@@ -2795,6 +2798,9 @@ namespace cryptonote
             KV_SERIALIZE(last_reward_block_height)
             KV_SERIALIZE(last_reward_transaction_index)
             KV_SERIALIZE(last_uptime_proof)
+            KV_SERIALIZE(active)
+            KV_SERIALIZE(decommission_count)
+            KV_SERIALIZE(earned_downtime_blocks)
             KV_SERIALIZE(service_node_version)
             KV_SERIALIZE(contributors)
             KV_SERIALIZE(total_contributed)
@@ -2846,6 +2852,9 @@ namespace cryptonote
       bool last_reward_block_height;
       bool last_reward_transaction_index;
       bool last_uptime_proof;
+      bool active;
+      bool decommission_count;
+      bool earned_downtime_blocks;
 
       bool service_node_version;
       bool contributors;
@@ -2868,6 +2877,9 @@ namespace cryptonote
       KV_SERIALIZE_OPT2(last_reward_block_height, false)
       KV_SERIALIZE_OPT2(last_reward_transaction_index, false)
       KV_SERIALIZE_OPT2(last_uptime_proof, false)
+      KV_SERIALIZE_OPT2(active, false)
+      KV_SERIALIZE_OPT2(decommission_count, false)
+      KV_SERIALIZE_OPT2(earned_downtime_blocks, false)
       KV_SERIALIZE_OPT2(service_node_version, false)
       KV_SERIALIZE_OPT2(contributors, false)
       KV_SERIALIZE_OPT2(total_contributed, false)
@@ -2916,6 +2928,9 @@ namespace cryptonote
         uint64_t                  last_reward_block_height;      // The last height at which this Service Node received a reward.
         uint32_t                  last_reward_transaction_index; // When multiple Service Nodes register on the same height, the order the transaction arrive dictate the order you receive rewards.
         uint64_t                  last_uptime_proof;             // The last time this Service Node's uptime proof was relayed by atleast 1 Service Node other than itself in unix epoch time.
+        bool                      active;                        // True if fully funded and not currently decommissioned
+        uint32_t                  decommission_count;            // The number of times the Service Node has been decommissioned since registration
+        int64_t                   earned_downtime_blocks;        // The number of blocks earned towards decommissioning, or the number of blocks remaining until deregistration if currently decommissioned
         std::vector<uint16_t>     service_node_version;          // The major, minor, patch version of the Service Node respectively.
         std::vector<contributor>  contributors;                  // Array of contributors, contributing to this Service Node.
         uint64_t                  total_contributed;             // The total amount of Loki in atomic units contributed to this Service Node.
@@ -2934,6 +2949,9 @@ namespace cryptonote
           KV_SERIALIZE_ENTRY_FIELD_IF_REQUESTED(last_reward_block_height);
           KV_SERIALIZE_ENTRY_FIELD_IF_REQUESTED(last_reward_transaction_index);
           KV_SERIALIZE_ENTRY_FIELD_IF_REQUESTED(last_uptime_proof);
+          KV_SERIALIZE_ENTRY_FIELD_IF_REQUESTED(active);
+          KV_SERIALIZE_ENTRY_FIELD_IF_REQUESTED(decommission_count);
+          KV_SERIALIZE_ENTRY_FIELD_IF_REQUESTED(earned_downtime_blocks);
           KV_SERIALIZE_ENTRY_FIELD_IF_REQUESTED(service_node_version);
           KV_SERIALIZE_ENTRY_FIELD_IF_REQUESTED(contributors);
           KV_SERIALIZE_ENTRY_FIELD_IF_REQUESTED(total_contributed);

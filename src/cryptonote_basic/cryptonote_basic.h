@@ -166,7 +166,7 @@ namespace cryptonote
   };
   enum class txtype : uint16_t {
     standard,
-    deregister,
+    state_change,
     key_image_unlock,
     _count
   };
@@ -202,9 +202,9 @@ namespace cryptonote
       {
         FIELD(output_unlock_times)
         if (version == txversion::v3_per_output_unlock_times) {
-          bool is_deregister = type == txtype::deregister;
-          FIELD(is_deregister)
-          type = is_deregister ? txtype::deregister : txtype::standard;
+          bool is_state_change = type == txtype::state_change;
+          FIELD(is_state_change)
+          type = is_state_change ? txtype::state_change : txtype::standard;
         }
       }
       VARINT_FIELD(unlock_time)
@@ -585,7 +585,7 @@ namespace cryptonote
     switch(type)
     {
       case txtype::standard:         return "standard";
-      case txtype::deregister:       return "deregister";
+      case txtype::state_change:     return "state_change";
       case txtype::key_image_unlock: return "key_image_unlock";
       default: assert(false);        return "xx_unhandled_type";
     }

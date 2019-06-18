@@ -1275,8 +1275,8 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
       return false;
     }
 
-    auto min_version = transaction::get_min_version_for_hf(version, nettype());
-    auto max_version = transaction::get_max_version_for_hf(version, nettype());
+    const auto min_version = transaction::get_min_version_for_hf(version, nettype());
+    const auto max_version = transaction::get_max_version_for_hf(version, nettype());
     if (b.miner_tx.version < min_version || b.miner_tx.version > max_version)
     {
       MERROR_VER("Coinbase invalid version: " << b.miner_tx.version << " for hardfork: " << version << " min/max version:  " << min_version << "/" << max_version);
@@ -2831,12 +2831,12 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
   if(pmax_used_block_height)
     *pmax_used_block_height = 0;
 
-  const int hf_version = m_hardfork->get_current_version();
+  const auto hf_version = m_hardfork->get_current_version();
 
   // Min/Max Type/Version Check
   {
-    auto min_version = transaction::get_min_version_for_hf(hf_version, nettype());
-    auto max_version = transaction::get_max_version_for_hf(hf_version, nettype());
+    const auto min_version = transaction::get_min_version_for_hf(hf_version, nettype());
+    const auto max_version = transaction::get_max_version_for_hf(hf_version, nettype());
 
     if (hf_version >= network_version_11_infinite_staking)
       tvc.m_invalid_type |= (tx.type > txtype::key_image_unlock);
@@ -3111,61 +3111,61 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
       return false;
     }
 
-    if (tx.type == txtype::deregister)
+    if (tx.type == txtype::state_change)
     {
       // Check the inputs (votes) of the transaction have not already been
       // submitted to the blockchain under another transaction using a different
       // combination of votes.
-      tx_extra_service_node_deregister deregister;
-      if (!get_service_node_deregister_from_tx_extra(tx.extra, deregister))
+      tx_extra_service_node_state_change state_change;
+      if (!get_service_node_state_change_from_tx_extra(tx.extra, state_change, hf_version))
       {
-        MERROR_VER("Deregister TX did not have the deregister metadata in the tx_extra");
+        MERROR_VER("TX did not have the state change metadata in the tx_extra");
         return false;
       }
 
-      const std::shared_ptr<const service_nodes::testing_quorum> quorum = m_service_node_list.get_testing_quorum(service_nodes::quorum_type::deregister, deregister.block_height);
+      auto quorum = m_service_node_list.get_testing_quorum(service_nodes::quorum_type::obligations, state_change.block_height);
       if (!quorum)
       {
-        MERROR_VER("Deregister TX could not get quorum for height: " << deregister.block_height);
+        MERROR_VER("State change TX could not get quorum for height: " << state_change.block_height);
         return false;
       }
 
-      if (!service_nodes::verify_tx_deregister(deregister, tvc.m_vote_ctx, *quorum))
+      if (!service_nodes::verify_tx_state_change(state_change, tvc.m_vote_ctx, *quorum, hf_version))
       {
         tvc.m_verifivation_failed = true;
-        MERROR_VER("tx " << get_transaction_hash(tx) << ": deregister tx could not be completely verified reason: " << print_vote_verification_context(tvc.m_vote_ctx));
+        MERROR_VER("tx " << get_transaction_hash(tx) << ": state change tx could not be completely verified reason: " << print_vote_verification_context(tvc.m_vote_ctx));
         return false;
       }
 
-      // Check if deregister is too old or too new to hold onto
+      // Check if state change is too old or too new to hold onto
       {
         const uint64_t curr_height = get_current_blockchain_height();
-        if (deregister.block_height >= curr_height)
+        if (state_change.block_height >= curr_height)
         {
-          LOG_PRINT_L1("Received deregister tx for height: " << deregister.block_height
-                       << " and service node: "              << deregister.service_node_index
-                       << ", is newer than current height: " << curr_height
-                       << " blocks and has been rejected.");
+          LOG_PRINT_L1("Received state change tx for height: " << state_change.block_height
+              << " and service node: "                << state_change.service_node_index
+              << ", is newer than current height: "   << curr_height
+              << " blocks and has been rejected.");
           tvc.m_vote_ctx.m_invalid_block_height = true;
           tvc.m_verifivation_failed             = true;
           return false;
         }
 
-        uint64_t delta_height = curr_height - deregister.block_height;
-        if (delta_height >= service_nodes::DEREGISTER_TX_LIFETIME_IN_BLOCKS)
+        uint64_t delta_height = curr_height - state_change.block_height;
+        if (delta_height >= service_nodes::STATE_CHANGE_TX_LIFETIME_IN_BLOCKS)
         {
-          LOG_PRINT_L1("Received deregister tx for height: " << deregister.block_height
-                       << " and service node: "     << deregister.service_node_index
-                       << ", is older than: "       << service_nodes::DEREGISTER_TX_LIFETIME_IN_BLOCKS
-                       << " blocks and has been rejected. The current height is: " << curr_height);
+          LOG_PRINT_L1("Received state change tx for height: " << state_change.block_height
+              << " and service node: "                << state_change.service_node_index
+              << ", is older than: "                  << service_nodes::STATE_CHANGE_TX_LIFETIME_IN_BLOCKS
+              << " blocks and has been rejected. The current height is: " << curr_height);
           tvc.m_vote_ctx.m_invalid_block_height = true;
           tvc.m_verifivation_failed             = true;
           return false;
         }
       }
 
-      const uint64_t height            = deregister.block_height;
-      const size_t num_blocks_to_check = service_nodes::DEREGISTER_TX_LIFETIME_IN_BLOCKS;
+      const uint64_t height                = state_change.block_height;
+      constexpr size_t num_blocks_to_check = service_nodes::STATE_CHANGE_TX_LIFETIME_IN_BLOCKS;
 
       std::vector<std::pair<cryptonote::blobdata,block>> blocks;
       std::vector<cryptonote::blobdata> txs;
@@ -3183,27 +3183,27 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
           continue;
         }
 
-        if (existing_tx.type != txtype::deregister)
+        if (existing_tx.type != txtype::state_change)
           continue;
 
-        tx_extra_service_node_deregister existing_deregister;
-        if (!get_service_node_deregister_from_tx_extra(existing_tx.extra, existing_deregister))
+        tx_extra_service_node_state_change existing_state_change;
+        if (!get_service_node_state_change_from_tx_extra(existing_tx.extra, existing_state_change, hf_version))
         {
-          MERROR_VER("could not get service node deregister from tx extra, possibly corrupt tx");
+          MERROR_VER("could not get service node state change from tx extra, possibly corrupt tx");
           continue;
         }
 
-        const std::shared_ptr<const service_nodes::testing_quorum> existing_quorum = m_service_node_list.get_testing_quorum(service_nodes::quorum_type::deregister, existing_deregister.block_height);
+        const auto existing_quorum = m_service_node_list.get_testing_quorum(service_nodes::quorum_type::obligations, existing_state_change.block_height);
         if (!existing_quorum)
         {
-          MERROR_VER("could not get uptime quorum for recent deregister tx");
+          MERROR_VER("could not get obligations quorum for recent state change tx");
           continue;
         }
 
-        if (existing_quorum->workers[existing_deregister.service_node_index] ==
-            quorum->workers[deregister.service_node_index])
+        if (existing_quorum->workers[existing_state_change.service_node_index] ==
+            quorum->workers[state_change.service_node_index])
         {
-          MERROR_VER("Already seen this deregister tx (aka double spend)");
+          MERROR_VER("Already seen this state change tx (aka double spend)");
           tvc.m_double_spend = true;
           return false;
         }

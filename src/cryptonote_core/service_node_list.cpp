@@ -30,6 +30,8 @@
 #include <random>
 #include <algorithm>
 
+#include <boost/endian/conversion.hpp>
+
 #include "ringct/rctSigs.h"
 #include "wallet/wallet2.h"
 #include "cryptonote_tx_utils.h"
@@ -51,16 +53,7 @@ namespace service_nodes
 {
   static int get_min_service_node_info_version_for_hf(int hf_version)
   {
-    if (hf_version >= cryptonote::network_version_7 && hf_version <= cryptonote::network_version_9_service_nodes)
-      return service_node_info::version_0;
-
-    if (hf_version == cryptonote::network_version_10_bulletproofs)
-      return service_node_info::version_1_swarms;
-
-    if (hf_version == cryptonote::network_version_11_infinite_staking)
-      return service_node_info::version_2_infinite_staking;
-
-    return service_node_info::version_3_checkpointing;
+    return service_node_info::version_0_checkpointing; // Versioning reset with the full SN rescan in 4.0.0
   }
 
   service_node_list::service_node_list(cryptonote::Blockchain& blockchain)
@@ -120,18 +113,27 @@ namespace service_nodes
     LOG_PRINT_L0("Done recalculating service nodes list");
   }
 
-  std::vector<crypto::public_key> service_node_list::get_service_nodes_pubkeys() const
-  {
-    std::vector<crypto::public_key> result;
-    for (const auto& iter : m_transient_state.service_nodes_infos)
-      if (iter.second.is_fully_funded())
-        result.push_back(iter.first);
+  template <typename UnaryPredicate>
+  static std::vector<service_nodes::pubkey_and_sninfo> sort_and_filter(const service_nodes_infos_t &sns_infos, UnaryPredicate p, bool reserve = true) {
+    std::vector<pubkey_and_sninfo> result;
+    if (reserve) result.reserve(sns_infos.size());
+    for (const pubkey_and_sninfo &key_info : sns_infos)
+      if (p(key_info.second))
+        result.push_back(key_info);
 
     std::sort(result.begin(), result.end(),
-      [](const crypto::public_key &a, const crypto::public_key &b) {
+      [](const pubkey_and_sninfo &a, const pubkey_and_sninfo &b) {
         return memcmp(reinterpret_cast<const void*>(&a), reinterpret_cast<const void*>(&b), sizeof(a)) < 0;
       });
     return result;
+  }
+
+  std::vector<pubkey_and_sninfo> service_node_list::transient_state::active_service_nodes_infos() const {
+    return sort_and_filter(service_nodes_infos, [](const service_node_info &info) { return info.is_active(); });
+  }
+
+  std::vector<pubkey_and_sninfo> service_node_list::transient_state::decommissioned_service_nodes_infos() const {
+    return sort_and_filter(service_nodes_infos, [](const service_node_info &info) { return info.is_decommissioned() && info.is_fully_funded(); }, /*reserve=*/ false);
   }
 
   std::shared_ptr<const testing_quorum> service_node_list::get_testing_quorum(quorum_type type, uint64_t height) const
@@ -140,8 +142,8 @@ namespace service_nodes
     const auto &it = m_transient_state.quorum_states.find(height);
     if (it != m_transient_state.quorum_states.end())
     {
-      if (type == quorum_type::deregister)
-        return it->second.deregister;
+      if (type == quorum_type::obligations)
+        return it->second.obligations;
       else if (type == quorum_type::checkpointing)
         return it->second.checkpointing;
       else
@@ -202,10 +204,11 @@ namespace service_nodes
     m_service_node_pubkey = pub_key;
   }
 
-  bool service_node_list::is_service_node(const crypto::public_key& pubkey) const
+  bool service_node_list::is_service_node(const crypto::public_key& pubkey, bool require_active) const
   {
     std::lock_guard<boost::recursive_mutex> lock(m_sn_mutex);
-    return m_transient_state.service_nodes_infos.find(pubkey) != m_transient_state.service_nodes_infos.end();
+    auto it = m_transient_state.service_nodes_infos.find(pubkey);
+    return it != m_transient_state.service_nodes_infos.end() && (!require_active || it->second.is_active());
   }
 
   bool service_node_list::is_key_image_locked(crypto::key_image const &check_image, uint64_t *unlock_height, service_node_info::contribution_t *the_locked_contribution) const
@@ -295,70 +298,120 @@ namespace service_nodes
     return money_transferred;
   }
 
-  bool service_node_list::process_deregistration_tx(const cryptonote::transaction& tx, uint64_t block_height)
+  bool service_node_list::process_state_change_tx(const cryptonote::transaction& tx, uint64_t block_height)
   {
-    if (tx.type != cryptonote::txtype::deregister)
+    if (tx.type != cryptonote::txtype::state_change)
       return false;
 
-    cryptonote::tx_extra_service_node_deregister deregister;
-    if (!cryptonote::get_service_node_deregister_from_tx_extra(tx.extra, deregister))
+    uint8_t hard_fork_version = m_blockchain.get_hard_fork_version(block_height);
+
+    cryptonote::tx_extra_service_node_state_change state_change;
+    if (!cryptonote::get_service_node_state_change_from_tx_extra(tx.extra, state_change, hard_fork_version))
     {
-      MERROR("Transaction deregister did not have deregister data in tx extra, possibly corrupt tx in blockchain");
+      MERROR("Transaction did not have valid state change data in tx extra, possibly corrupt tx in blockchain");
       return false;
     }
 
-    const auto state = get_testing_quorum(quorum_type::deregister, deregister.block_height);
+    const auto state = get_testing_quorum(quorum_type::obligations, state_change.block_height);
     if (!state)
     {
       // TODO(loki): Not being able to find a quorum is fatal! We want better caching abilities.
-      MERROR("Uptime quorum for height: " << deregister.block_height << ", was not stored by the daemon");
+      MERROR("Uptime quorum for height: " << state_change.block_height << ", was not stored by the daemon");
       return false;
     }
 
-    if (deregister.service_node_index >= state->workers.size())
+    if (state_change.service_node_index >= state->workers.size())
     {
       MERROR("Service node index to vote off has become invalid, quorum rules have changed without a hardfork.");
       return false;
     }
 
-    const crypto::public_key& key = state->workers[deregister.service_node_index];
+    const crypto::public_key& key = state->workers[state_change.service_node_index];
 
     auto iter = m_transient_state.service_nodes_infos.find(key);
-    if (iter == m_transient_state.service_nodes_infos.end())
+    if (iter == m_transient_state.service_nodes_infos.end()) {
+      LOG_PRINT_L2("Received state change tx for non-registered service node " << key << " (perhaps a delayed tx?)");
       return false;
-
-    if (m_service_node_pubkey && *m_service_node_pubkey == key)
-    {
-      MGINFO_RED("Deregistration for service node (yours): " << key);
-    }
-    else
-    {
-      LOG_PRINT_L1("Deregistration for service node: " << key);
     }
 
-    m_transient_state.rollback_events.push_back(std::unique_ptr<rollback_event>(new rollback_change(block_height, key, iter->second)));
+    auto &info = iter->second;
+    bool is_me = m_service_node_pubkey && *m_service_node_pubkey == key;
 
-    int hard_fork_version = m_blockchain.get_hard_fork_version(block_height);
-    if (hard_fork_version >= cryptonote::network_version_11_infinite_staking)
-    {
-      for (const auto &contributor : iter->second.contributors)
-      {
-        for (const auto &contribution : contributor.locked_contributions)
+    switch (state_change.state) {
+      case new_state::deregister:
+        if (is_me)
+          MGINFO_RED("Deregistration for service node (yours): " << key);
+        else
+          LOG_PRINT_L1("Deregistration for service node: " << key);
+
+        if (hard_fork_version >= cryptonote::network_version_11_infinite_staking)
         {
-          key_image_blacklist_entry entry = {};
-          entry.version                   = get_min_service_node_info_version_for_hf(hard_fork_version);
-          entry.key_image                 = contribution.key_image;
-          entry.unlock_height             = block_height + staking_num_lock_blocks(m_blockchain.nettype());
-          m_transient_state.key_image_blacklist.push_back(entry);
+          for (const auto &contributor : info.contributors)
+          {
+            for (const auto &contribution : contributor.locked_contributions)
+            {
+              key_image_blacklist_entry entry = {};
+              entry.version                   = get_min_service_node_info_version_for_hf(hard_fork_version);
+              entry.key_image                 = contribution.key_image;
+              entry.unlock_height             = block_height + staking_num_lock_blocks(m_blockchain.nettype());
+              m_transient_state.key_image_blacklist.push_back(entry);
 
-          const bool adding_to_blacklist = true;
-          m_transient_state.rollback_events.push_back(std::unique_ptr<rollback_event>(new rollback_key_image_blacklist(block_height, entry, adding_to_blacklist)));
+              const bool adding_to_blacklist = true;
+              m_transient_state.rollback_events.push_back(std::unique_ptr<rollback_event>(new rollback_key_image_blacklist(block_height, entry, adding_to_blacklist)));
+            }
+          }
         }
-      }
-    }
 
-    m_transient_state.service_nodes_infos.erase(iter);
-    return true;
+        m_transient_state.rollback_events.emplace_back(new rollback_change(block_height, key, info));
+        m_transient_state.service_nodes_infos.erase(iter);
+        return true;
+
+      case new_state::decommission:
+        if (hard_fork_version < cryptonote::network_version_12_checkpointing) {
+          MERROR("Invalid decommission transaction seen before network v12");
+          return false;
+        }
+
+        if (info.is_decommissioned()) {
+          LOG_PRINT_L2("Received decommission tx for already-decommissioned service node " << key << "; ignoring");
+          return false;
+        }
+
+        if (is_me)
+          MGINFO_RED("Temporary decommission for service node (yours): " << key);
+        else
+          LOG_PRINT_L1("Temporary decommission for service node: " << key);
+
+        m_transient_state.rollback_events.emplace_back(new rollback_change(block_height, key, info));
+        info.active_since_height = -info.active_since_height;
+        info.last_decommission_height = block_height;
+        info.decommission_count++;
+        return true;
+
+      case new_state::recommission:
+        if (hard_fork_version < cryptonote::network_version_12_checkpointing) {
+          MERROR("Invalid recommission transaction seen before network v12");
+          return false;
+        }
+
+        if (!info.is_decommissioned()) {
+          LOG_PRINT_L2("Received recommission tx for already-active service node " << key << "; ignoring");
+          return false;
+        }
+
+        if (is_me)
+          MGINFO_GREEN("Recommission for service node (yours): " << key);
+        else
+          LOG_PRINT_L1("Recommission for service node: " << key);
+
+        m_transient_state.rollback_events.emplace_back(new rollback_change(block_height, key, info));
+        info.active_since_height = block_height;
+        return true;
+      default:
+        // dev bug!
+        MERROR("BUG: Service node state change tx has unknown state " << static_cast<uint16_t>(state_change.state));
+        return false;
+    }
   }
 
   void service_node_list::update_swarms(uint64_t height) {
@@ -370,12 +423,8 @@ namespace service_nodes
     /// Gather existing swarms from infos
     swarm_snode_map_t existing_swarms;
 
-    const std::vector<crypto::public_key> sorted_sn_pubkeys = get_service_nodes_pubkeys();
-
-    for (const crypto::public_key& pk : sorted_sn_pubkeys) {
-      const service_node_info& info = m_transient_state.service_nodes_infos.at(pk);
-      existing_swarms[info.swarm_id].push_back(pk);
-    }
+    for (const auto &key_info : m_transient_state.active_service_nodes_infos())
+      existing_swarms[key_info.second.swarm_id].push_back(key_info.first);
 
     calc_swarm_changes(existing_swarms, seed);
 
@@ -590,12 +639,13 @@ namespace service_nodes
     info.registration_height = block_height;
     info.last_reward_block_height = block_height;
     info.last_reward_transaction_index = index;
+    info.active_since_height = 0;
+    info.last_decommission_height = 0;
+    info.decommission_count = 0;
     info.total_contributed = 0;
     info.total_reserved = 0;
     info.version = get_min_service_node_info_version_for_hf(hf_version);
-
-    if (info.version >= service_node_info::version_1_swarms)
-      info.swarm_id = UNASSIGNED_SWARM_ID;
+    info.swarm_id = UNASSIGNED_SWARM_ID;
 
     info.contributors.clear();
 
@@ -690,19 +740,19 @@ namespace service_nodes
     return true;
   }
 
-  void service_node_list::process_contribution_tx(const cryptonote::transaction& tx, uint64_t block_height, uint32_t index)
+  bool service_node_list::process_contribution_tx(const cryptonote::transaction& tx, uint64_t block_height, uint32_t index)
   {
     crypto::public_key pubkey;
 
     if (!cryptonote::get_service_node_pubkey_from_tx_extra(tx.extra, pubkey))
-      return; // Is not a contribution TX don't need to check it.
+      return false; // Is not a contribution TX don't need to check it.
 
     parsed_tx_contribution parsed_contribution = {};
     const int hf_version = m_blockchain.get_hard_fork_version(block_height);
     if (!get_contribution(m_blockchain.nettype(), hf_version, tx, block_height, parsed_contribution))
     {
       LOG_PRINT_L1("Contribution TX: Could not decode contribution for service node: " << pubkey << " on height: " << block_height << " for tx: " << cryptonote::get_transaction_hash(tx));
-      return;
+      return false;
     }
 
     /// Service node must be registered
@@ -713,7 +763,7 @@ namespace service_nodes
                    ", but could not be found in the service node list on height: " << block_height <<
                    " for tx: " << cryptonote::get_transaction_hash(tx )<< "\n"
                    "This could mean that the service node was deregistered before the contribution was processed.");
-      return;
+      return false;
     }
 
     service_node_info& info = iter->second;
@@ -722,13 +772,13 @@ namespace service_nodes
       LOG_PRINT_L1("Contribution TX: Service node: " << pubkey <<
                    " is already fully funded, but contribution received on height: "  << block_height <<
                    " for tx: " << cryptonote::get_transaction_hash(tx));
-      return;
+      return false;
     }
 
     if (!cryptonote::get_tx_secret_key_from_tx_extra(tx.extra, parsed_contribution.tx_key))
     {
       LOG_PRINT_L1("Contribution TX: Failed to get tx secret key from contribution received on height: "  << block_height << " for tx: " << cryptonote::get_transaction_hash(tx));
-      return;
+      return false;
     }
 
     auto& contributors = info.contributors;
@@ -745,7 +795,7 @@ namespace service_nodes
                      " for service node: " << pubkey <<
                      " on height: "  << block_height <<
                      " for tx: " << cryptonote::get_transaction_hash(tx));
-        return;
+        return false;
       }
 
       /// Check that the contribution is large enough
@@ -758,7 +808,7 @@ namespace service_nodes
                      " for service node: " << pubkey <<
                      " on height: "  << block_height <<
                      " for tx: " << cryptonote::get_transaction_hash(tx));
-        return;
+        return false;
       }
     }
 
@@ -817,6 +867,11 @@ namespace service_nodes
     }
 
     LOG_PRINT_L1("Contribution of " << parsed_contribution.transferred << " received for service node " << pubkey);
+    if (info.is_fully_funded()) {
+      info.active_since_height = block_height;
+      return true;
+    }
+    return false;
   }
 
   void service_node_list::block_added(const cryptonote::block& block, const std::vector<cryptonote::transaction>& txs)
@@ -834,6 +889,8 @@ namespace service_nodes
 
     if (hard_fork_version < 9)
       return;
+
+    bool need_swarm_update = false;
 
     //
     // Remove old rollback events
@@ -869,7 +926,6 @@ namespace service_nodes
     //
     // Expire Nodes
     //
-    size_t expired_count = 0;
     for (const crypto::public_key& pubkey : update_and_get_expired_nodes(txs, block_height))
     {
       auto i = m_transient_state.service_nodes_infos.find(pubkey);
@@ -886,7 +942,7 @@ namespace service_nodes
 
         m_transient_state.rollback_events.push_back(std::unique_ptr<rollback_event>(new rollback_change(block_height, pubkey, i->second)));
 
-        expired_count++;
+        need_swarm_update += i->second.is_active();
         m_transient_state.service_nodes_infos.erase(i);
       }
     }
@@ -912,22 +968,17 @@ namespace service_nodes
     //
     // Process TXs in the Block
     //
-    size_t registrations = 0;
-    size_t deregistrations = 0;
     for (uint32_t index = 0; index < txs.size(); ++index)
     {
       const cryptonote::transaction& tx = txs[index];
       if (tx.type == cryptonote::txtype::standard)
       {
-        if (process_registration_tx(tx, block.timestamp, block_height, index))
-          registrations++;
-
-        process_contribution_tx(tx, block_height, index);
+        process_registration_tx(tx, block.timestamp, block_height, index);
+        need_swarm_update += process_contribution_tx(tx, block_height, index);
       }
-      else if (tx.type == cryptonote::txtype::deregister)
+      else if (tx.type == cryptonote::txtype::state_change)
       {
-        if (process_deregistration_tx(tx, block_height))
-          deregistrations++;
+        need_swarm_update += process_state_change_tx(tx, block_height);
       }
       else if (tx.type == cryptonote::txtype::key_image_unlock)
       {
@@ -984,7 +1035,7 @@ namespace service_nodes
       }
     }
 
-    if (registrations || deregistrations || expired_count) {
+    if (need_swarm_update) {
       update_swarms(block_height);
     }
 
@@ -1273,16 +1324,33 @@ namespace service_nodes
     return true;
   }
 
-  std::vector<size_t> generate_shuffled_service_node_index_list(std::vector<crypto::public_key> const &snode_list, crypto::hash const &block_hash, quorum_type type)
+  std::vector<size_t> generate_shuffled_service_node_index_list(
+      size_t list_size,
+      crypto::hash const &block_hash,
+      quorum_type type,
+      size_t sublist_size = 0,
+      size_t sublist_up_to = 0)
   {
-    std::vector<size_t> result(snode_list.size());
-    for (size_t i = 0; i < snode_list.size(); i++) result[i] = i;
+    std::vector<size_t> result(list_size);
+    std::iota(result.begin(), result.end(), 0);
 
     uint64_t seed = 0;
     std::memcpy(&seed, block_hash.data, std::min(sizeof(seed), sizeof(block_hash.data)));
+    boost::endian::little_to_native_inplace(seed);
 
     seed += static_cast<uint64_t>(type);
-    loki_shuffle(result, seed);
+    // If we have a list [0,Z) but we need a shuffled sublist of the first N values that only
+    // includes values from [0,Y) then we do this using two shuffles: first of the [0,Y) sublist,
+    // then of the [N,Z) sublist (which is already partially shuffled, but that doesn't matter).  We
+    // reuse the same seed for both partial shuffles, but again, that isn't an issue.
+    if ((0 < sublist_size && sublist_size < list_size) && (0 < sublist_up_to && sublist_up_to < list_size)) {
+      assert(sublist_size <= sublist_up_to); // Can't select N random items from M items when M < N
+      loki_shuffle(result.begin(), result.begin() + sublist_up_to, seed);
+      loki_shuffle(result.begin() + sublist_size, result.end(), seed);
+    }
+    else {
+      loki_shuffle(result.begin(), result.end(), seed);
+    }
     return result;
   }
 
@@ -1297,28 +1365,40 @@ namespace service_nodes
       return;
     }
 
-    std::vector<crypto::public_key> const snode_list = get_service_nodes_pubkeys();
-    quorum_manager &manager                          = m_transient_state.quorum_states[height];
-    for (int type_int = 0; type_int < (int)quorum_type::count; type_int++)
+    // The two quorums here have different selection criteria: the entire checkpoint quorum and the
+    // state change *validators* want only active service nodes, but the state change *workers*
+    // (i.e. the nodes to be tested) also include decommissioned service nodes.  (Prior to v12 there
+    // are no decommissioned nodes, so this distinction is irrelevant for network concensus).
+    auto active_snode_list = m_transient_state.active_service_nodes_infos();
+    decltype(active_snode_list) decomm_snode_list;
+    if (hf_version >= cryptonote::network_version_12_checkpointing)
+      decomm_snode_list = m_transient_state.decommissioned_service_nodes_infos();
+
+    quorum_manager &manager = m_transient_state.quorum_states[height];
+    for (int type_int = 0; type_int < static_cast<int>(quorum_type::count); type_int++)
     {
       auto type             = static_cast<quorum_type>(type_int);
       size_t num_validators = 0, num_workers = 0;
-      auto quorum                                = std::make_shared<testing_quorum>();
-      std::vector<size_t> const pub_keys_indexes = generate_shuffled_service_node_index_list(snode_list, block_hash, type);
+      auto quorum           = std::make_shared<testing_quorum>();
+      std::vector<size_t> pub_keys_indexes;
 
-      if (type == quorum_type::deregister)
+      if (type == quorum_type::obligations)
       {
         if (hf_version >= cryptonote::network_version_9_service_nodes)
         {
-          num_validators             = std::min(pub_keys_indexes.size(), DEREGISTER_QUORUM_SIZE);
-          size_t num_remaining_nodes = pub_keys_indexes.size() - num_validators;
-          num_workers                = std::max(num_remaining_nodes/DEREGISTER_NTH_OF_THE_NETWORK_TO_TEST, std::min(DEREGISTER_MIN_NODES_TO_TEST, num_remaining_nodes));
+          size_t total_nodes         = active_snode_list.size() + decomm_snode_list.size();
+          num_validators             = std::min(active_snode_list.size(), STATE_CHANGE_QUORUM_SIZE);
+          pub_keys_indexes           = generate_shuffled_service_node_index_list(total_nodes, block_hash, type, num_validators, active_snode_list.size());
+          manager.obligations        = quorum;
+          size_t num_remaining_nodes = total_nodes - num_validators;
+          num_workers                = std::min(num_remaining_nodes, std::max(STATE_CHANGE_MIN_NODES_TO_TEST, num_remaining_nodes/STATE_CHANGE_NTH_OF_THE_NETWORK_TO_TEST));
         }
       }
       else if (type == quorum_type::checkpointing)
       {
         if (hf_version >= cryptonote::network_version_12_checkpointing)
         {
+          manager.checkpointing      = quorum;
           num_validators             = std::min(pub_keys_indexes.size(), CHECKPOINT_QUORUM_SIZE);
           size_t num_remaining_nodes = pub_keys_indexes.size() - num_validators;
           num_workers                = std::min(num_remaining_nodes, CHECKPOINT_QUORUM_SIZE);
@@ -1330,30 +1410,23 @@ namespace service_nodes
         continue;
       }
 
+      quorum->validators.reserve(num_validators);
+      quorum->workers.reserve(num_workers);
+
+      size_t i = 0;
+      for (; i < num_validators; i++)
       {
-        quorum->validators.resize(num_validators);
-        for (size_t i = 0; i < quorum->validators.size(); i++)
-        {
-          size_t node_index             = pub_keys_indexes[i];
-          const crypto::public_key &key = snode_list[node_index];
-          quorum->validators[i]         = key;
-        }
+        quorum->validators.push_back(active_snode_list[pub_keys_indexes[i]].first);
       }
 
+      for (; i < num_validators + num_workers; i++)
       {
-        quorum->workers.resize(num_workers);
-        for (size_t i = 0; i < quorum->workers.size(); i++)
-        {
-          size_t node_index             = pub_keys_indexes[quorum->validators.size() + i];
-          const crypto::public_key &key = snode_list[node_index];
-          quorum->workers[i]            = key;
-        }
+        size_t j = pub_keys_indexes[i];
+        if (j < active_snode_list.size())
+          quorum->workers.push_back(active_snode_list[j].first);
+        else
+          quorum->workers.push_back(decomm_snode_list[j - active_snode_list.size()].first);
       }
-
-      if (type == quorum_type::deregister)
-        manager.deregister = quorum;
-      else
-        manager.checkpointing = quorum;
     }
   }
 
@@ -1403,14 +1476,11 @@ namespace service_nodes
         quorum.height                   = kv_pair.first;
         quorum_manager const &manager   = kv_pair.second;
 
-        if (manager.deregister)
-          quorum.quorums[(int)quorum_type::deregister] = *manager.deregister;
+        if (manager.obligations)
+          quorum.quorums[static_cast<uint8_t>(quorum_type::obligations)] = *manager.obligations;
 
-        if (quorum.version >= service_node_info::version_3_checkpointing)
-        {
-          if (manager.checkpointing)
-            quorum.quorums[(int)quorum_type::checkpointing] = *manager.checkpointing;
-        }
+        if (manager.checkpointing)
+          quorum.quorums[static_cast<uint8_t>(quorum_type::checkpointing)] = *manager.checkpointing;
 
         data_to_store.quorum_states.push_back(quorum);
       }
@@ -1457,28 +1527,21 @@ namespace service_nodes
     return true;
   }
 
-  void service_node_list::get_all_service_nodes_public_keys(std::vector<crypto::public_key>& keys, bool fully_funded_nodes_only) const
+  void service_node_list::get_all_service_nodes_public_keys(std::vector<crypto::public_key>& keys, bool require_active) const
   {
     keys.clear();
-    keys.resize(m_transient_state.service_nodes_infos.size());
+    keys.reserve(m_transient_state.service_nodes_infos.size());
 
-    size_t i = 0;
-    if (fully_funded_nodes_only)
-    {
-      for (const auto &it : m_transient_state.service_nodes_infos)
-      {
-        service_node_info const &info = it.second;
-        if (info.is_fully_funded())
-          keys[i++] = it.first;
-      }
+    if (require_active) {
+      for (const auto &key_info : m_transient_state.service_nodes_infos)
+        if (key_info.second.is_active())
+          keys.push_back(key_info.first);
     }
-    else
-    {
-      for (const auto &it : m_transient_state.service_nodes_infos)
-        keys[i++] = it.first;
+    else {
+      for (const auto &key_info : m_transient_state.service_nodes_infos)
+        keys.push_back(key_info.first);
     }
   }
-
 
   void service_node_list::handle_uptime_proof(const cryptonote::NOTIFY_UPTIME_PROOF::request &proof) {
 
@@ -1523,16 +1586,11 @@ namespace service_nodes
 
     for (const auto& states : data_in.quorum_states)
     {
-      {
-        testing_quorum const &deregister = states.quorums[(int)quorum_type::deregister];
-        m_transient_state.quorum_states[states.height].deregister = std::make_shared<testing_quorum>(deregister);
-      }
+      testing_quorum const &obligations = states.quorums[static_cast<uint8_t>(quorum_type::obligations)];
+      m_transient_state.quorum_states[states.height].obligations = std::make_shared<testing_quorum>(obligations);
 
-      if (states.version >= service_node_info::version_3_checkpointing)
-      {
-        testing_quorum const &checkpointing = states.quorums[(int)quorum_type::checkpointing];
-        m_transient_state.quorum_states[states.height].checkpointing = std::make_shared<testing_quorum>(checkpointing);
-      }
+      testing_quorum const &checkpointing = states.quorums[static_cast<uint8_t>(quorum_type::checkpointing)];
+      m_transient_state.quorum_states[states.height].checkpointing = std::make_shared<testing_quorum>(checkpointing);
     }
 
     for (const auto& info : data_in.infos)

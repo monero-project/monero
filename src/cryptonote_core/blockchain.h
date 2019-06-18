@@ -641,10 +641,6 @@ namespace cryptonote
     /**
      * @brief check that a transaction's outputs conform to current standards
      *
-     * This function checks, for example at the time of this writing, that
-     * each output is of the form a * 10^b (phrased differently, that if
-     * written out would have only one non-zero digit in base 10).
-     *
      * @param tx the transaction to check the outputs of
      * @param tvc returned info about tx verification
      *
@@ -1186,6 +1182,9 @@ namespace cryptonote
      * Currently this function calls ring signature validation for each
      * transaction.
      *
+     * This fails if called on a non-standard metadata transaction such as a deregister; you
+     * generally want to call check_tx() instead, which calls this if appropriate.
+     *
      * @param tx the transaction to validate
      * @param tvc returned information about tx verification
      * @param pmax_related_block_height return-by-pointer the height of the most recent block in the input set
@@ -1193,6 +1192,22 @@ namespace cryptonote
      * @return false if any validation step fails, otherwise true
      */
     bool check_tx_inputs(transaction& tx, tx_verification_context &tvc, uint64_t* pmax_used_block_height = NULL);
+
+    /**
+     * @brief validates SN metadata transaction properties
+     *
+     * Checks the given service node metatransaction (i.e. deregister, unlock request, etc.) for
+     * validity.  Fails if called with a non-metatransaction, or if there is something wrong with
+     * the metatransaction.
+     *
+     * This fails if called on a standard (non-meta) transaction such as a regular transaction or a
+     * SN registration; you generally want to call check_tx() instead, which calls this if
+     * appropriate.
+     *
+     * @param tx the transaction to validate
+     * @param tvc returned information about tx verification
+     */
+    bool check_service_node_tx(transaction &tx, tx_verification_context &tvc);
 
     /**
      * @brief performs a blockchain reorganization according to the longest chain rule

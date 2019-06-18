@@ -552,18 +552,19 @@ namespace cryptonote
     if (!pick<tx_extra_additional_pub_keys>(nar, tx_extra_fields, TX_EXTRA_TAG_ADDITIONAL_PUBKEYS)) return false;
     if (!pick<tx_extra_nonce>(nar, tx_extra_fields, TX_EXTRA_NONCE)) return false;
 
-    if (!pick<tx_extra_service_node_register>   (nar, tx_extra_fields, TX_EXTRA_TAG_SERVICE_NODE_REGISTER)) return false;
-    if (!pick<tx_extra_service_node_deregister> (nar, tx_extra_fields, TX_EXTRA_TAG_SERVICE_NODE_DEREGISTER)) return false;
-    if (!pick<tx_extra_service_node_winner>     (nar, tx_extra_fields, TX_EXTRA_TAG_SERVICE_NODE_WINNER)) return false;
-    if (!pick<tx_extra_service_node_contributor>(nar, tx_extra_fields, TX_EXTRA_TAG_SERVICE_NODE_CONTRIBUTOR)) return false;
-    if (!pick<tx_extra_service_node_pubkey>     (nar, tx_extra_fields, TX_EXTRA_TAG_SERVICE_NODE_PUBKEY)) return false;
-    if (!pick<tx_extra_tx_secret_key>           (nar, tx_extra_fields, TX_EXTRA_TAG_TX_SECRET_KEY)) return false;
-    if (!pick<tx_extra_tx_key_image_proofs>     (nar, tx_extra_fields, TX_EXTRA_TAG_TX_KEY_IMAGE_PROOFS)) return false;
-    if (!pick<tx_extra_tx_key_image_unlock>     (nar, tx_extra_fields, TX_EXTRA_TAG_TX_KEY_IMAGE_UNLOCK)) return false;
+    if (!pick<tx_extra_service_node_register>       (nar, tx_extra_fields, TX_EXTRA_TAG_SERVICE_NODE_REGISTER)) return false;
+    if (!pick<tx_extra_service_node_deregister_old> (nar, tx_extra_fields, TX_EXTRA_TAG_SERVICE_NODE_DEREG_OLD)) return false;
+    if (!pick<tx_extra_service_node_state_change>   (nar, tx_extra_fields, TX_EXTRA_TAG_SERVICE_NODE_STATE_CHANGE)) return false;
+    if (!pick<tx_extra_service_node_winner>         (nar, tx_extra_fields, TX_EXTRA_TAG_SERVICE_NODE_WINNER)) return false;
+    if (!pick<tx_extra_service_node_contributor>    (nar, tx_extra_fields, TX_EXTRA_TAG_SERVICE_NODE_CONTRIBUTOR)) return false;
+    if (!pick<tx_extra_service_node_pubkey>         (nar, tx_extra_fields, TX_EXTRA_TAG_SERVICE_NODE_PUBKEY)) return false;
+    if (!pick<tx_extra_tx_secret_key>               (nar, tx_extra_fields, TX_EXTRA_TAG_TX_SECRET_KEY)) return false;
+    if (!pick<tx_extra_tx_key_image_proofs>         (nar, tx_extra_fields, TX_EXTRA_TAG_TX_KEY_IMAGE_PROOFS)) return false;
+    if (!pick<tx_extra_tx_key_image_unlock>         (nar, tx_extra_fields, TX_EXTRA_TAG_TX_KEY_IMAGE_UNLOCK)) return false;
 
-    if (!pick<tx_extra_merge_mining_tag>(nar, tx_extra_fields, TX_EXTRA_MERGE_MINING_TAG)) return false;
-    if (!pick<tx_extra_mysterious_minergate>(nar, tx_extra_fields, TX_EXTRA_MYSTERIOUS_MINERGATE_TAG)) return false;
-    if (!pick<tx_extra_padding>(nar, tx_extra_fields, TX_EXTRA_TAG_PADDING)) return false;
+    if (!pick<tx_extra_merge_mining_tag>            (nar, tx_extra_fields, TX_EXTRA_MERGE_MINING_TAG)) return false;
+    if (!pick<tx_extra_mysterious_minergate>        (nar, tx_extra_fields, TX_EXTRA_MYSTERIOUS_MINERGATE_TAG)) return false;
+    if (!pick<tx_extra_padding>                     (nar, tx_extra_fields, TX_EXTRA_TAG_PADDING)) return false;
 
     // if not empty, someone added a new type and did not add a case above
     if (!tx_extra_fields.empty())
@@ -682,22 +683,25 @@ namespace cryptonote
     memcpy(&tx_extra[start_pos], extra_nonce.data(), extra_nonce.size());
     return true;
   }
-  //---------------------------------------------------------------
-  bool add_service_node_deregister_to_tx_extra(std::vector<uint8_t>& tx_extra, const tx_extra_service_node_deregister& deregistration)
+
+  bool add_service_node_state_change_to_tx_extra(std::vector<uint8_t>& tx_extra, const tx_extra_service_node_state_change& state_change, const uint8_t hf_version)
   {
-    tx_extra_field field = tx_extra_service_node_deregister{deregistration.block_height, deregistration.service_node_index, deregistration.votes};
+    tx_extra_field field;
+    if (hf_version < network_version_12_checkpointing)
+    {
+      CHECK_AND_ASSERT_MES(state_change.state == service_nodes::new_state::deregister, false, "internal error: cannot construct an old deregistration for a non-deregistration state change (before hardfork v12)");
+      field = tx_extra_service_node_deregister_old{state_change};
+    }
+    else
+    {
+      field = state_change;
+    }
 
-    std::ostringstream oss;
-    binary_archive<true> ar(oss);
-    bool r = ::do_serialize(ar, field);
-    CHECK_AND_ASSERT_MES(r, false, "failed to serialize tx extra service node deregister");
-    std::string tx_extra_str = oss.str();
-    size_t pos = tx_extra.size();
-    tx_extra.resize(tx_extra.size() + tx_extra_str.size());
-    memcpy(&tx_extra[pos], tx_extra_str.data(), tx_extra_str.size());
-
+    bool r = add_tx_extra_field_to_tx_extra(tx_extra, field);
+    CHECK_AND_ASSERT_MES(r, false, "failed to serialize tx extra service node state change");
     return true;
   }
+
   //---------------------------------------------------------------
   void add_service_node_pubkey_to_tx_extra(std::vector<uint8_t>& tx_extra, const crypto::public_key& pubkey)
   {
@@ -834,12 +838,27 @@ namespace cryptonote
     add_data_to_tx_extra(tx_extra, reinterpret_cast<const char *>(&winner), sizeof(winner), TX_EXTRA_TAG_SERVICE_NODE_WINNER);
   }
   //---------------------------------------------------------------
-  bool get_service_node_deregister_from_tx_extra(const std::vector<uint8_t>& tx_extra, tx_extra_service_node_deregister &deregistration)
+  bool get_service_node_state_change_from_tx_extra(const std::vector<uint8_t>& tx_extra, tx_extra_service_node_state_change &state_change, const uint8_t hf_version)
   {
     std::vector<tx_extra_field> tx_extra_fields;
     parse_tx_extra(tx_extra, tx_extra_fields);
-    bool result = find_tx_extra_field_by_type(tx_extra_fields, deregistration);
-    return result;
+
+    if (hf_version >= cryptonote::network_version_12_checkpointing) {
+      // Look for a new-style state change field:
+      if (find_tx_extra_field_by_type(tx_extra_fields, state_change))
+        return true;
+    }
+    else { // v11 or earlier; parse the old style and copy into a new style
+      tx_extra_service_node_deregister_old dereg;
+      if (find_tx_extra_field_by_type(tx_extra_fields, dereg))
+      {
+        state_change = tx_extra_service_node_state_change{
+          service_nodes::new_state::deregister, dereg.block_height, dereg.service_node_index, dereg.votes.begin(), dereg.votes.end()};
+        return true;
+      }
+    }
+
+    return false;
   }
   //---------------------------------------------------------------
   crypto::public_key get_service_node_winner_from_tx_extra(const std::vector<uint8_t>& tx_extra)
@@ -1209,7 +1228,7 @@ namespace cryptonote
     if (vvc.m_invalid_block_height)          bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Invalid block height: %s, ",          vote ? std::to_string(vote->block_height).c_str() : "??");
     if (vvc.m_duplicate_voters)              bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Index in group was duplicated: %s, ", vote ? std::to_string(vote->index_in_group).c_str() : "??");
     if (vvc.m_validator_index_out_of_bounds) bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Validator index out of bounds");
-    if (vvc.m_worker_index_out_of_bounds)    bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Worker index out of bounds: %s, ",    vote ? std::to_string(vote->deregister.worker_index).c_str() : "??");
+    if (vvc.m_worker_index_out_of_bounds)    bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Worker index out of bounds: %s, ",    vote ? std::to_string(vote->state_change.worker_index).c_str() : "??");
     if (vvc.m_signature_not_valid)           bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Signature not valid, ");
     if (vvc.m_added_to_pool)                 bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Added to pool, ");
     if (vvc.m_not_enough_votes)              bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Not enough votes, ");

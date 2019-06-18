@@ -5945,6 +5945,7 @@ bool wallet2::is_transfer_unlocked(uint64_t unlock_time, uint64_t block_height, 
   binary_buf.reserve(sizeof(crypto::key_image));
   {
     boost::optional<std::string> failed;
+    // FIXME: can just check one here by adding a is_key_image_blacklisted
     std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODE_BLACKLISTED_KEY_IMAGES::entry> blacklist = m_node_rpc_proxy.get_service_node_blacklisted_key_images(failed);
     if (failed)
     {

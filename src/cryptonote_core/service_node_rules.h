@@ -7,11 +7,37 @@
 #include <random>
 
 namespace service_nodes {
-  constexpr size_t   DEREGISTER_QUORUM_SIZE                    = 10;
-  constexpr size_t   DEREGISTER_MIN_VOTES_TO_KICK_SERVICE_NODE = 7;
-  constexpr size_t   DEREGISTER_NTH_OF_THE_NETWORK_TO_TEST     = 100;
-  constexpr size_t   DEREGISTER_MIN_NODES_TO_TEST              = 50;
-  constexpr uint64_t DEREGISTER_VOTE_LIFETIME                  = BLOCKS_EXPECTED_IN_HOURS(2);
+  // State change quorums are in charge of policing the network by changing the state of a service
+  // node on the network: temporary decommissioning, recommissioning, and permanent deregistration.
+  constexpr size_t   STATE_CHANGE_QUORUM_SIZE                = 10;
+  constexpr size_t   STATE_CHANGE_MIN_VOTES_TO_CHANGE_STATE  = 7;
+  constexpr size_t   STATE_CHANGE_NTH_OF_THE_NETWORK_TO_TEST = 100;
+  constexpr size_t   STATE_CHANGE_MIN_NODES_TO_TEST          = 50;
+  constexpr uint64_t STATE_CHANGE_VOTE_LIFETIME              = BLOCKS_EXPECTED_IN_HOURS(2);
+
+  static_assert(STATE_CHANGE_MIN_VOTES_TO_CHANGE_STATE <= STATE_CHANGE_QUORUM_SIZE, "The number of votes required to kick can't exceed the actual quorum size, otherwise we never kick.");
+
+  // Service node decommissioning: as service nodes stay up they earn "credits" (measured in blocks)
+  // towards a future outage.  A new service node starts out with INITIAL_CREDIT, and then builds up
+  // CREDIT_PER_DAY for each day the service node remains active up to a maximum of
+  // DECOMMISSION_MAX_CREDIT.
+  //
+  // If a service node stops sending uptime proofs, a quorum will consider whether the service node
+  // has built up enough credits (at least MINIMUM): if so, instead of submitting a deregistration,
+  // it instead submits a decommission.  This removes the service node from the list of active
+  // service nodes both for rewards and for any active network duties.  If the service node comes
+  // back online (i.e. starts sending the required performance proofs again) before the credits run
+  // out then a quorum will reinstate the service node using a recommission transaction, which adds
+  // the service node back to the bottom of the service node reward list, and resets its accumulated
+  // credits to 0.  If it does not come back online within the required number of blocks (i.e. the
+  // accumulated credit at the point of decommissioning) then a quorum will send a permanent
+  // deregistration transaction to the network, starting a 30-day deregistration count down.
+  constexpr int64_t DECOMMISSION_CREDIT_PER_DAY = BLOCKS_EXPECTED_IN_HOURS(24) / 30;
+  constexpr int64_t DECOMMISSION_INITIAL_CREDIT = BLOCKS_EXPECTED_IN_HOURS(0);
+  constexpr int64_t DECOMMISSION_MAX_CREDIT     = BLOCKS_EXPECTED_IN_HOURS(24);
+  constexpr int64_t DECOMMISSION_MINIMUM        = BLOCKS_EXPECTED_IN_HOURS(8);
+
+  static_assert(DECOMMISSION_INITIAL_CREDIT <= DECOMMISSION_MAX_CREDIT, "Initial registration decommission credit cannot be larger than the maximum decommission credit");
 
   constexpr uint64_t CHECKPOINT_INTERVAL                       = 4;  // Checkpoint every 4 blocks and prune when too old except if (height % CHECKPOINT_STORE_PERSISTENTLY_INTERVAL == 0)
   constexpr uint64_t CHECKPOINT_STORE_PERSISTENTLY_INTERVAL    = 60; // Persistently store the checkpoints at these intervals
@@ -24,7 +50,6 @@ namespace service_nodes {
   constexpr size_t   CHECKPOINT_MIN_VOTES                      = 18;
 #endif
 
-  static_assert(DEREGISTER_MIN_VOTES_TO_KICK_SERVICE_NODE <= DEREGISTER_QUORUM_SIZE, "The number of votes required to kick can't exceed the actual quorum size, otherwise we never kick.");
   static_assert(CHECKPOINT_MIN_VOTES <= CHECKPOINT_QUORUM_SIZE, "The number of votes required to kick can't exceed the actual quorum size, otherwise we never kick.");
 
   constexpr size_t   MAX_SWARM_SIZE                   = 10;
@@ -40,15 +65,15 @@ namespace service_nodes {
   constexpr size_t   NEW_SWARM_SIZE                   = IDEAL_SWARM_SIZE;
   // The lower swarm percentile that will be randomly filled with new service nodes
   constexpr size_t   FILL_SWARM_LOWER_PERCENTILE      = 25;
-  // Redistribute decommissioned snodes to the smallest swarms
+  // Redistribute snodes from decommissioned swarms to the smallest swarms
   constexpr size_t   DECOMMISSIONED_REDISTRIBUTION_LOWER_PERCENTILE = 0;
   // The upper swarm percentile that will be randomly selected during stealing
   constexpr size_t   STEALING_SWARM_UPPER_PERCENTILE  = 75;
   constexpr int      MAX_KEY_IMAGES_PER_CONTRIBUTOR   = 1;
   constexpr uint64_t KEY_IMAGE_AWAITING_UNLOCK_HEIGHT = 0;
 
-  constexpr uint64_t DEREGISTER_TX_LIFETIME_IN_BLOCKS  = DEREGISTER_VOTE_LIFETIME;
-  constexpr size_t   QUORUM_LIFETIME                   = (6 * DEREGISTER_TX_LIFETIME_IN_BLOCKS);
+  constexpr uint64_t STATE_CHANGE_TX_LIFETIME_IN_BLOCKS = STATE_CHANGE_VOTE_LIFETIME;
+  constexpr size_t   QUORUM_LIFETIME                    = (6 * STATE_CHANGE_TX_LIFETIME_IN_BLOCKS);
 
 
   using swarm_id_t                         = uint64_t;
@@ -68,7 +93,7 @@ namespace service_nodes {
   {
     switch (type)
     {
-      case quorum_type::deregister:    return DEREGISTER_VOTE_LIFETIME;
+      case quorum_type::obligations:   return STATE_CHANGE_VOTE_LIFETIME;
       case quorum_type::checkpointing: return CHECKPOINT_VOTE_LIFETIME;
       default:
       {
