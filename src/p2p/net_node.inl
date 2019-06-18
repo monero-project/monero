@@ -2213,6 +2213,7 @@ namespace nodetool
       public_zone->second.m_config.m_net_config.max_out_connection_count = count;
       if(current > count)
         public_zone->second.m_net_server.get_config_object().del_out_connections(current - count);
+      m_payload_handler.set_max_out_peers(count);
     }
   }
 
