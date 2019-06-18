@@ -608,12 +608,117 @@ POP_WARNINGS
   void crypto_ops::generate_borromean_signature(const hash &prefix_hash, const std::vector<key_image> &images, const std::vector<std::vector<public_key>> &pubs,
     const std::vector<secret_key> &secs, const std::vector<std::size_t> &sec_indices,
     borromean_signature &sig) {
-    // TODO
+    const size_t n = pubs.size();
+    if (images.size() != n) {
+      local_abort("invalid images size");
+    }
+    if (secs.size() != n) {
+      local_abort("invalid secs size");
+    }
+    if (sec_indices.size() != n) {
+      local_abort("invalid sec_indices size");
+    }
+    for (size_t i = 0; i < n; ++i) {
+      assert(sec_indices[i] < pubs[i].size());
+#if !defined(NDEBUG)
+      ge_p3 t;
+      public_key t2;
+      key_image t3;
+      assert(sc_check(&secs[i]) == 0);
+      ge_scalarmult_base(&t, &secs[i]);
+      ge_p3_tobytes(&t2, &t);
+      assert(pubs[i][sec_indices[i]] == t2);
+      generate_key_image(pubs[i][sec_indices[i]], secs[i], t3);
+      assert(images[i] == t3);
+      for (size_t j = 0; j < pubs[i].size(); ++j) {
+        assert(check_key(pubs[i][j]));
+      }
+#endif
+    }
+    std::vector<ec_scalar> buf_outer(1 + 2*n);
+    buf_outer[0] = *(ec_scalar*)&prefix_hash;
+    std::vector<ec_scalar> k(n);
+    for (size_t i = 0; i < n; ++i) {
+      ge_p3 image_unp;
+      ge_dsmp image_pre;
+      if (ge_frombytes_vartime(&image_unp, &images[i]) != 0) {
+        local_abort("invalid key image");
+      }
+      ge_dsm_precomp(image_pre, &image_unp);
+      ec_scalar c;
+      for (size_t j = sec_indices[i]; j < pubs[i].size(); ++j) {
+        rs_comm_borromean_inner buf_inner;
+        ge_p2 tmp2;
+        ge_p3 tmp3;
+        if (j == sec_indices[i]) {
+          random_scalar(k[i]);
+          ge_scalarmult_base(&tmp3, &k[i]);
+          ge_p3_tobytes(&buf_inner.L, &tmp3);
+          hash_to_ec(pubs[i][j], tmp3);
+          ge_scalarmult(&tmp2, &k[i], &tmp3);
+          ge_tobytes(&buf_inner.R, &tmp2);
+        } else {
+          random_scalar(sig.r[i][j]);
+          if (ge_frombytes_vartime(&tmp3, &pubs[i][j]) != 0) {
+            local_abort("invalid pubkey");
+          }
+          ge_double_scalarmult_base_vartime(&tmp2, &c, &tmp3, &sig.r[i][j]);
+          ge_tobytes(&buf_inner.L, &tmp2);
+          hash_to_ec(pubs[i][j], tmp3);
+          ge_double_scalarmult_precomp_vartime(&tmp2, &sig.r[i][j], &tmp3, &c, image_pre);
+          ge_tobytes(&buf_inner.R, &tmp2);
+        }
+        if (j == pubs[i].size() - 1) {
+          buf_outer[1 + 2*i] = *(ec_scalar*)&buf_inner.L;
+          buf_outer[1 + 2*i + 1] = *(ec_scalar*)&buf_inner.R;
+        } else {
+          buf_inner.h = prefix_hash;
+          buf_inner.i = i;
+          buf_inner.j = j;
+          hash_to_scalar(&buf_inner, sizeof(buf_inner), c);
+        }
+      }
+    }
+    hash_to_scalar(buf_outer.data(), sizeof(ec_scalar) * buf_outer.size(), sig.c);
+    for (size_t i = 0; i < n; ++i) {
+      ge_p3 image_unp;
+      ge_dsmp image_pre;
+      if (ge_frombytes_vartime(&image_unp, &images[i]) != 0) {
+        local_abort("invalid key image");
+      }
+      ge_dsm_precomp(image_pre, &image_unp);
+      ec_scalar c = sig.c;
+      for (size_t j = 0; j < sec_indices[i]; ++j) {
+        random_scalar(sig.r[i][j]);
+        ge_p2 tmp2;
+        ge_p3 tmp3;
+        if (ge_frombytes_vartime(&tmp3, &pubs[i][j]) != 0) {
+          local_abort("invalid pubkey");
+        }
+        rs_comm_borromean_inner buf_inner;
+        ge_double_scalarmult_base_vartime(&tmp2, &c, &tmp3, &sig.r[i][j]);
+        ge_tobytes(&buf_inner.L, &tmp2);
+        hash_to_ec(pubs[i][j], tmp3);
+        ge_double_scalarmult_precomp_vartime(&tmp2, &sig.r[j][i], &tmp3, &c, image_pre);
+        ge_tobytes(&buf_inner.R, &tmp2);
+        buf_inner.h = prefix_hash;
+        buf_inner.i = i;
+        buf_inner.j = j;
+        hash_to_scalar(&buf_inner, sizeof(buf_inner), c);
+      }
+      sc_mulsub(&sig.r[i][sec_indices[i]], &c, &unwrap(secs[i]), &k[i]);
+    }
   }
 
   bool crypto_ops::check_borromean_signature(const hash &prefix_hash, const std::vector<key_image> &images, const std::vector<std::vector<public_key>> &pubs,
     const borromean_signature &sig) {
     const size_t n = pubs.size();
+    if (images.size() != n) {
+      return false;
+    }
+    if (sig.r.size() != n) {
+      return false;
+    }
     if (sc_check(&sig.c) != 0) {
       return false;
     }
@@ -645,18 +750,18 @@ POP_WARNINGS
           return false;
         }
         rs_comm_borromean_inner buf_inner;
-        buf_inner.h = prefix_hash;
         ge_double_scalarmult_base_vartime(&tmp2, &c, &tmp3, &sig.r[i][j]);
         ge_tobytes(&buf_inner.L, &tmp2);
         hash_to_ec(pubs[i][j], tmp3);
         ge_double_scalarmult_precomp_vartime(&tmp2, &sig.r[i][j], &tmp3, &c, image_pre);
         ge_tobytes(&buf_inner.R, &tmp2);
-        buf_inner.i = i;
-        buf_inner.j = j;
         if (j == pubs[i].size() - 1) {
           buf_outer[1 + 2*i] = *(ec_scalar*)&buf_inner.L;
           buf_outer[1 + 2*i + 1] = *(ec_scalar*)&buf_inner.R;
         } else {
+          buf_inner.h = prefix_hash;
+          buf_inner.i = i;
+          buf_inner.j = j;
           hash_to_scalar(&buf_inner, sizeof(buf_inner), c);
         }
       }
