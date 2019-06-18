@@ -1019,8 +1019,6 @@ private:
     void set_default_priority(uint32_t p) { m_default_priority = p; }
     bool auto_refresh() const { return m_auto_refresh; }
     void auto_refresh(bool r) { m_auto_refresh = r; }
-    bool confirm_missing_payment_id() const { return m_confirm_missing_payment_id; }
-    void confirm_missing_payment_id(bool always) { m_confirm_missing_payment_id = always; }
     AskPasswordType ask_password() const { return m_ask_password; }
     void ask_password(AskPasswordType ask) { m_ask_password = ask; }
     void set_min_output_count(uint32_t count) { m_min_output_count = count; }
@@ -1496,7 +1494,6 @@ private:
     // If m_refresh_from_block_height is explicitly set to zero we need this to differentiate it from the case that
     // m_refresh_from_block_height was defaulted to zero.*/
     bool m_explicit_refresh_from_block_height;
-    bool m_confirm_missing_payment_id;
     bool m_confirm_non_default_ring_size;
     AskPasswordType m_ask_password;
     uint32_t m_min_output_count;
