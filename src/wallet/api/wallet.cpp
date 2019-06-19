@@ -1729,18 +1729,27 @@ std::string WalletImpl::getTxKey(const std::string &txid_str) const
 
     crypto::secret_key tx_key;
     std::vector<crypto::secret_key> additional_tx_keys;
-    if (m_wallet->get_tx_key(txid, tx_key, additional_tx_keys))
+    try
     {
         clearStatus();
-        std::ostringstream oss;
-        oss << epee::string_tools::pod_to_hex(tx_key);
-        for (size_t i = 0; i < additional_tx_keys.size(); ++i)
-            oss << epee::string_tools::pod_to_hex(additional_tx_keys[i]);
-        return oss.str();
+        if (m_wallet->get_tx_key(txid, tx_key, additional_tx_keys))
+        {
+            clearStatus();
+            std::ostringstream oss;
+            oss << epee::string_tools::pod_to_hex(tx_key);
+            for (size_t i = 0; i < additional_tx_keys.size(); ++i)
+                oss << epee::string_tools::pod_to_hex(additional_tx_keys[i]);
+            return oss.str();
+        }
+        else
+        {
+            setStatusError(tr("no tx keys found for this txid"));
+            return "";
+        }
     }
-    else
+    catch (const std::exception &e)
     {
-        setStatusError(tr("no tx keys found for this txid"));
+        setStatusError(e.what());
         return "";
     }
 }
