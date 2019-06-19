@@ -1807,7 +1807,7 @@ namespace cryptonote
         if (last_uptime <= static_cast<uint64_t>(time(nullptr) - UPTIME_PROOF_FREQUENCY_IN_SECONDS)) {
 
           if (!this->check_storage_server_ping()) {
-            MERROR("Failed to submit uptime proof: have not heard from"
+            MGINFO_RED("Failed to submit uptime proof: have not heard from"
                    << " the storage server recently. "
                    << "Make sure that it is running!");
             return true;
