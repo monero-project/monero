@@ -179,7 +179,7 @@ void BlockchainDB::pop_block()
   pop_block(blk, txs);
 }
 
-void BlockchainDB::add_transaction(const crypto::hash& blk_hash, uint64_t block_height, const std::pair<transaction, blobdata_ref>& txp, const crypto::hash* tx_hash_ptr, const crypto::hash* tx_prunable_hash_ptr)
+void BlockchainDB::add_transaction(const crypto::hash& blk_hash, uint64_t block_height, uint8_t block_major_version, const std::pair<transaction, blobdata_ref>& txp, const crypto::hash* tx_hash_ptr, const crypto::hash* tx_prunable_hash_ptr)
 {
   const transaction &tx = txp.first;
 
@@ -238,7 +238,7 @@ void BlockchainDB::add_transaction(const crypto::hash& blk_hash, uint64_t block_
   {
     // miner v2 txes have their coinbase output in one single out to save space,
     // and we store them as rct outputs with an identity mask
-    if (miner_tx && tx.version == 2)
+    if ((miner_tx && tx.version == 2) || block_major_version >= HF_VERSION_ALL_RCT_OUTPUTS)
     {
       cryptonote::tx_out vout = tx.vout[i];
       rct::key commitment = rct::zeroCommit(vout.amount);
@@ -282,7 +282,7 @@ uint64_t BlockchainDB::add_block( const std::pair<block, blobdata>& blck
 
   uint64_t num_rct_outs = 0;
   blobdata miner_bd = tx_to_blob(blk.miner_tx);
-  add_transaction(blk_hash, prev_height, std::make_pair(blk.miner_tx, blobdata_ref(miner_bd)));
+  add_transaction(blk_hash, prev_height, blk.major_version, std::make_pair(blk.miner_tx, blobdata_ref(miner_bd)));
   if (blk.miner_tx.version == 2)
     num_rct_outs += blk.miner_tx.vout.size();
   int tx_i = 0;
@@ -290,7 +290,7 @@ uint64_t BlockchainDB::add_block( const std::pair<block, blobdata>& blck
   for (const std::pair<transaction, blobdata>& tx : txs)
   {
     tx_hash = blk.tx_hashes[tx_i];
-    add_transaction(blk_hash, prev_height, tx, &tx_hash);
+    add_transaction(blk_hash, prev_height, blk.major_version, tx, &tx_hash);
     for (const auto &vout: tx.first.vout)
     {
       if (vout.amount == 0)

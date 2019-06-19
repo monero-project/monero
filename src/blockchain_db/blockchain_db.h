@@ -567,11 +567,12 @@ protected:
    *
    * @param blk_hash hash of the block which has the transaction
    * @param block_height the height of the block which has the transaction
+   * @param block_major_version the major version of the block which has the transaction
    * @param tx the transaction to add
    * @param tx_hash_ptr the hash of the transaction, if already calculated
    * @param tx_prunable_hash_ptr the hash of the prunable part of the transaction, if already calculated
    */
-  void add_transaction(const crypto::hash& blk_hash, uint64_t block_height, const std::pair<transaction, blobdata_ref>& tx, const crypto::hash* tx_hash_ptr = NULL, const crypto::hash* tx_prunable_hash_ptr = NULL);
+  void add_transaction(const crypto::hash& blk_hash, uint64_t block_height, uint8_t block_major_version, const std::pair<transaction, blobdata_ref>& tx, const crypto::hash* tx_hash_ptr = NULL, const crypto::hash* tx_prunable_hash_ptr = NULL);
 
   mutable uint64_t time_tx_exists = 0;  //!< a performance metric
   uint64_t time_commit1 = 0;  //!< a performance metric

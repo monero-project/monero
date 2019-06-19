@@ -5078,7 +5078,7 @@ void BlockchainLMDB::migrate_0_1()
         throw0(DB_ERROR("Failed to parse block from blob retrieved from the db"));
 
       const uint64_t block_height = cryptonote::get_block_height(b);
-      add_transaction(null_hash, block_height, std::make_pair(b.miner_tx, tx_to_blob(b.miner_tx)));
+      add_transaction(null_hash, block_height, b.major_version, std::make_pair(b.miner_tx, tx_to_blob(b.miner_tx)));
       for (unsigned int j = 0; j<b.tx_hashes.size(); j++) {
         transaction tx;
         hk.mv_data = &b.tx_hashes[j];
@@ -5088,7 +5088,7 @@ void BlockchainLMDB::migrate_0_1()
         bd = {reinterpret_cast<char*>(v.mv_data), v.mv_size};
         if (!parse_and_validate_tx_from_blob(bd, tx))
           throw0(DB_ERROR("Failed to parse tx from blob retrieved from the db"));
-        add_transaction(null_hash, block_height, std::make_pair(std::move(tx), bd), &b.tx_hashes[j]);
+        add_transaction(null_hash, block_height, b.major_version, std::make_pair(std::move(tx), bd), &b.tx_hashes[j]);
         result = mdb_cursor_del(c_txs, 0);
         if (result)
           throw0(DB_ERROR(lmdb_error("Failed to get record from txs: ", result).c_str()));
