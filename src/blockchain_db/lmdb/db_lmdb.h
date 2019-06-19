@@ -219,6 +219,8 @@ public:
 
   virtual uint64_t get_block_timestamp(const uint64_t& height) const;
 
+  virtual std::vector<uint64_t> get_block_timestamps(uint64_t start_height, size_t count) const;
+
   virtual uint64_t get_top_block_timestamp() const;
 
   virtual size_t get_block_weight(const uint64_t& height) const;

@@ -1022,7 +1022,7 @@ namespace cryptonote
     /**
      * @brief returns the timestamps of the last N blocks
      */
-    std::vector<time_t> get_last_block_timestamps(unsigned int blocks) const;
+    std::vector<uint64_t> get_last_block_timestamps(unsigned int blocks) const;
 
     /**
      * @brief removes blocks from the top of the blockchain

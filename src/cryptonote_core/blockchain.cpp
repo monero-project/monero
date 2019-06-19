@@ -1091,16 +1091,13 @@ size_t Blockchain::recalculate_difficulties(boost::optional<uint64_t> start_heig
   return new_cumulative_difficulties.size();
 }
 //------------------------------------------------------------------
-std::vector<time_t> Blockchain::get_last_block_timestamps(unsigned int blocks) const
+std::vector<uint64_t> Blockchain::get_last_block_timestamps(unsigned int blocks) const
 {
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
   uint64_t height = m_db->height();
   if (blocks > height)
     blocks = height;
-  std::vector<time_t> timestamps(blocks);
-  while (blocks--)
-    timestamps[blocks] = m_db->get_block_timestamp(height - blocks - 1);
-  return timestamps;
+  return m_db->get_block_timestamps(height - blocks, blocks);
 }
 //------------------------------------------------------------------
 // This function removes blocks from the blockchain until it gets to the
@@ -1812,11 +1809,8 @@ bool Blockchain::complete_timestamps_vector(uint64_t start_top_height, std::vect
   CHECK_AND_ASSERT_MES(start_top_height < m_db->height(), false, "internal error: passed start_height not < " << " m_db->height() -- " << start_top_height << " >= " << m_db->height());
   size_t stop_offset = start_top_height > need_elements ? start_top_height - need_elements : 0;
   timestamps.reserve(timestamps.size() + start_top_height - stop_offset);
-  while (start_top_height != stop_offset)
-  {
-    timestamps.push_back(m_db->get_block_timestamp(start_top_height));
-    --start_top_height;
-  }
+  for (uint64_t t: m_db->get_block_timestamps(stop_offset + 1, start_top_height - stop_offset))
+    timestamps.push_back(t);
   return true;
 }
 //------------------------------------------------------------------
@@ -3936,16 +3930,9 @@ bool Blockchain::check_block_timestamp(const block& b, uint64_t& median_ts) cons
     return true;
   }
 
-  std::vector<uint64_t> timestamps;
-
   // need most recent 60 blocks, get index of first of those
   size_t offset = h - BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW;
-  timestamps.reserve(h - offset);
-  for(;offset < h; ++offset)
-  {
-    timestamps.push_back(m_db->get_block_timestamp(offset));
-  }
-
+  std::vector<uint64_t> timestamps = m_db->get_block_timestamps(h - BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW, BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW);
   return check_block_timestamp(timestamps, b, median_ts);
 }
 //------------------------------------------------------------------

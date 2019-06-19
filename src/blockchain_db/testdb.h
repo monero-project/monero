@@ -76,6 +76,7 @@ public:
   virtual uint64_t get_block_height(const crypto::hash& h) const override { return 0; }
   virtual cryptonote::block_header get_block_header(const crypto::hash& h) const override { return cryptonote::block_header(); }
   virtual uint64_t get_block_timestamp(const uint64_t& height) const override { return 0; }
+  virtual std::vector<uint64_t> get_block_timestamps(uint64_t start_height, size_t count) const override { return {}; }
   virtual std::vector<uint64_t> get_block_cumulative_rct_outputs(const std::vector<uint64_t> &heights) const override { return {}; }
   virtual uint64_t get_top_block_timestamp() const override { return 0; }
   virtual size_t get_block_weight(const uint64_t& height) const override { return 128; }

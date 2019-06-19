@@ -2739,6 +2739,11 @@ std::vector<uint64_t> BlockchainLMDB::get_long_term_block_weights(uint64_t start
   return get_block_info_64bit_fields(start_height, count, offsetof(mdb_block_info, bi_long_term_block_weight));
 }
 
+std::vector<uint64_t> BlockchainLMDB::get_block_timestamps(uint64_t start_height, size_t count) const
+{
+  return get_block_info_64bit_fields(start_height, count, offsetof(mdb_block_info, bi_timestamp));
+}
+
 difficulty_type BlockchainLMDB::get_block_cumulative_difficulty(const uint64_t& height) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__ << "  height: " << height);

@@ -968,6 +968,17 @@ public:
   virtual uint64_t get_block_timestamp(const uint64_t& height) const = 0;
 
   /**
+   * @brief fetch the last N blocks' timestamps
+   *
+   * If there are fewer than N blocks, the returned array will be smaller than N
+   *
+   * @param count the number of blocks requested
+   *
+   * @return the timestamps
+   */
+  virtual std::vector<uint64_t> get_block_timestamps(uint64_t start_height, size_t count) const = 0;
+
+  /**
    * @brief fetch a block's cumulative number of rct outputs
    *
    * The subclass should return the numer of rct outputs in the blockchain
