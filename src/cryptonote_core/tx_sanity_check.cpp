@@ -88,7 +88,7 @@ bool tx_sanity_check(Blockchain &blockchain, const cryptonote::blobdata &tx_blob
 
   std::vector<uint64_t> offsets(rct_indices.begin(), rct_indices.end());
   uint64_t median = epee::misc_utils::median(offsets);
-  if (median < n_available * 9 / 10)
+  if (median < n_available * 6 / 10)
   {
     MERROR("median is " << median << "/" << n_available);
     return false;
