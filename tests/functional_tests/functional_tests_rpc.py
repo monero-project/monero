@@ -65,7 +65,7 @@ try:
   for i in range(len(command_lines)):
     #print('Running: ' + str(command_lines[i]))
     processes.append(subprocess.Popen(command_lines[i], stdout = outputs[i]))
-except Exception, e:
+except Exception as e:
   print('Error: ' + str(e))
   sys.exit(1)
 
