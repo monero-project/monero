@@ -820,6 +820,7 @@ namespace cryptonote
       res.sanity_check_failed = true;
       return true;
     }
+    res.sanity_check_failed = false;
 
     cryptonote_connection_context fake_context = AUTO_VAL_INIT(fake_context);
     tx_verification_context tvc = AUTO_VAL_INIT(tvc);
