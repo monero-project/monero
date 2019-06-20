@@ -997,6 +997,7 @@ endif()
 add_subdirectory(contrib)
 add_subdirectory(src)
 
+find_package(PythonInterp)
 if(BUILD_TESTS)
   add_subdirectory(tests)
 endif()
@@ -1032,5 +1033,3 @@ option(INSTALL_VENDORED_LIBUNBOUND "Install libunbound binary built from source 
 
 
 CHECK_C_COMPILER_FLAG(-std=c11 HAVE_C11)
-
-find_package(PythonInterp)
