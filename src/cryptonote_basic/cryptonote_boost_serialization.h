@@ -79,6 +79,14 @@ namespace boost
   {
     a & reinterpret_cast<char (&)[sizeof(crypto::signature)]>(x);
   }
+
+  template <class Archive>
+  inline void serialize(Archive &a, crypto::borromean_signature &x, const boost::serialization::version_type ver)
+  {
+    a & x.c;
+    a & x.r;
+  }
+
   template <class Archive>
   inline void serialize(Archive &a, crypto::hash &x, const boost::serialization::version_type ver)
   {
@@ -152,7 +160,17 @@ namespace boost
   template <class Archive>
   inline void serialize(Archive &a, cryptonote::transaction_prefix &x, const boost::serialization::version_type ver)
   {
-    a & x.version;
+    size_t version_tmp = 0;
+    if (Archive::is_saving::value)
+    {
+      version_tmp = (x.minor_version << 8) | x.version;
+    }
+    a & version_tmp;
+    if (!Archive::is_saving::value)
+    {
+      x.minor_version = (version_tmp >> 8) & 0xff;
+      x.version = version_tmp & 0xff;
+    }
     a & x.unlock_time;
     a & x.vin;
     a & x.vout;
@@ -162,14 +180,31 @@ namespace boost
   template <class Archive>
   inline void serialize(Archive &a, cryptonote::transaction &x, const boost::serialization::version_type ver)
   {
-    a & x.version;
+    size_t version_tmp = 0;
+    if (Archive::is_saving::value)
+    {
+      version_tmp = (x.minor_version << 8) | x.version;
+    }
+    a & version_tmp;
+    if (!Archive::is_saving::value)
+    {
+      x.minor_version = (version_tmp >> 8) & 0xff;
+      x.version = version_tmp & 0xff;
+    }
     a & x.unlock_time;
     a & x.vin;
     a & x.vout;
     a & x.extra;
     if (x.version == 1)
     {
-      a & x.signatures;
+      if (x.minor_version == 0)
+      {
+        a & x.signatures;
+      }
+      else
+      {
+        a & x.borromean_signature;
+      }
     }
     else
     {

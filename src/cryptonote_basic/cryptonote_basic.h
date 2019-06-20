@@ -159,6 +159,7 @@ namespace cryptonote
   public:
     // tx information
     size_t   version;
+    uint8_t  minor_version;
     uint64_t unlock_time;  //number of block (or time), used as a limitation like: spend this tx not early then block/time
 
     std::vector<txin_v> vin;
@@ -167,7 +168,17 @@ namespace cryptonote
     std::vector<uint8_t> extra;
 
     BEGIN_SERIALIZE()
-      VARINT_FIELD(version)
+      if (typename Archive<W>::is_saving())
+      {
+        size_t version_tmp = (minor_version << 8) | version;
+        VARINT_FIELD_N("version", version_tmp);
+      }
+      else
+      {
+        VARINT_FIELD(version)
+        minor_version = (version >> 8) & 0xff;
+        version = version & 0xff;
+      }
       if(version == 0 || CURRENT_TRANSACTION_VERSION < version) return false;
       VARINT_FIELD(unlock_time)
       FIELD(vin)
@@ -188,6 +199,7 @@ namespace cryptonote
 
   public:
     std::vector<std::vector<crypto::signature> > signatures; //count signatures  always the same as inputs count
+    crypto::borromean_signature borromean_signature;
     rct::rctSig rct_signatures;
 
     // hash cash
@@ -216,34 +228,42 @@ namespace cryptonote
 
       if (version == 1)
       {
-        ar.tag("signatures");
-        ar.begin_array();
-        PREPARE_CUSTOM_VECTOR_SERIALIZATION(vin.size(), signatures);
-        bool signatures_not_expected = signatures.empty();
-        if (!signatures_not_expected && vin.size() != signatures.size())
-          return false;
-
-        for (size_t i = 0; i < vin.size(); ++i)
+        if (minor_version == 0)
         {
-          size_t signature_size = get_signature_size(vin[i]);
-          if (signatures_not_expected)
-          {
-            if (0 == signature_size)
-              continue;
-            else
-              return false;
-          }
-
-          PREPARE_CUSTOM_VECTOR_SERIALIZATION(signature_size, signatures[i]);
-          if (signature_size != signatures[i].size())
+          ar.tag("signatures");
+          ar.begin_array();
+          PREPARE_CUSTOM_VECTOR_SERIALIZATION(vin.size(), signatures);
+          bool signatures_not_expected = signatures.empty();
+          if (!signatures_not_expected && vin.size() != signatures.size())
             return false;
 
-          FIELDS(signatures[i]);
+          for (size_t i = 0; i < vin.size(); ++i)
+          {
+            size_t signature_size = get_signature_size(vin[i]);
+            if (signatures_not_expected)
+            {
+              if (0 == signature_size)
+                continue;
+              else
+                return false;
+            }
 
-          if (vin.size() - i > 1)
-            ar.delimit_array();
+            PREPARE_CUSTOM_VECTOR_SERIALIZATION(signature_size, signatures[i]);
+            if (signature_size != signatures[i].size())
+              return false;
+
+            FIELDS(signatures[i]);
+
+            if (vin.size() - i > 1)
+              ar.delimit_array();
+          }
+          ar.end_array();
         }
-        ar.end_array();
+        else
+        {
+          const size_t ring_size = vin.empty() ? 0 : vin[0].type() == typeid(txin_to_key) ? boost::get<txin_to_key>(vin[0]).key_offsets.size() : 0;
+          ::serialize_borromean_signature(ar, borromean_signature, vin.size(), ring_size);
+        }
       }
       else
       {
@@ -310,6 +330,7 @@ namespace cryptonote
   void transaction::set_null()
   {
     version = 1;
+    minor_version = 0;
     unlock_time = 0;
     vin.clear();
     vout.clear();

@@ -77,6 +77,50 @@ bool do_serialize(Archive<true> &ar, std::vector<crypto::signature> &v)
   return true;
 }
 
+template <bool W, template <bool> class Archive>
+bool serialize_borromean_signature(Archive<W> &ar, crypto::borromean_signature &sig, size_t inputs, size_t ring_size)
+{
+  ar.begin_object();
+  ar.tag("c");
+  ar.serialize_blob(&sig.c, sizeof(crypto::ec_scalar));
+  ar.tag("s");
+  ar.begin_array();
+  PREPARE_CUSTOM_VECTOR_SERIALIZATION(inputs, sig.r);
+  bool signatures_not_expected = sig.r.empty();
+  if (!signatures_not_expected && inputs != sig.r.size())
+    return false;
+
+  for (size_t i = 0; i < inputs; ++i)
+  {
+    if (signatures_not_expected)
+    {
+      if (0 == ring_size)
+        continue;
+      else
+        return false;
+    }
+
+    PREPARE_CUSTOM_VECTOR_SERIALIZATION(ring_size, sig.r[i]);
+    if (ring_size != sig.r[i].size())
+      return false;
+
+    ar.begin_array();
+    for (size_t j = 0; j < ring_size; ++j)
+    {
+      ar.serialize_blob(&sig.r[i][j], sizeof(crypto::ec_scalar));
+      if (ring_size - j > 1)
+        ar.delimit_array();
+    }
+    ar.end_array();
+
+    if (inputs - i > 1)
+      ar.delimit_array();
+  }
+  ar.end_array();
+  ar.end_object();
+  return true;
+}
+
 BLOB_SERIALIZER(crypto::chacha_iv);
 BLOB_SERIALIZER(crypto::hash);
 BLOB_SERIALIZER(crypto::hash8);
@@ -92,4 +136,5 @@ VARIANT_TAG(debug_archive, crypto::secret_key, "secret_key");
 VARIANT_TAG(debug_archive, crypto::key_derivation, "key_derivation");
 VARIANT_TAG(debug_archive, crypto::key_image, "key_image");
 VARIANT_TAG(debug_archive, crypto::signature, "signature");
+VARIANT_TAG(debug_archive, crypto::borromean_signature, "borromean_signature");
 
