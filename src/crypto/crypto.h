@@ -97,7 +97,7 @@ namespace crypto {
     friend class crypto_ops;
   };
 
-  POD_CLASS borromean_signature {
+  struct borromean_signature {
     ec_scalar c;
     std::vector<std::vector<ec_scalar>> r;
   };

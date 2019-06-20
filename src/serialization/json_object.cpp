@@ -215,16 +215,36 @@ void fromJsonValue(const rapidjson::Value& val, long& i)
   to_int64(val, i);
 }
 
+void toJsonValue(rapidjson::Document& doc, const crypto::borromean_signature& sig, rapidjson::Value& val)
+{
+  val.SetObject();
+
+  INSERT_INTO_JSON_OBJECT(val, doc, c, sig.c);
+  INSERT_INTO_JSON_OBJECT(val, doc, r, sig.r);
+}
+
+void fromJsonValue(const rapidjson::Value& val, crypto::borromean_signature& sig)
+{
+  if (!val.IsObject())
+  {
+    throw WRONG_TYPE("json object");
+  }
+
+  GET_FROM_JSON_OBJECT(val, sig.c, c);
+  GET_FROM_JSON_OBJECT(val, sig.r, r);
+}
+
 void toJsonValue(rapidjson::Document& doc, const cryptonote::transaction& tx, rapidjson::Value& val)
 {
   val.SetObject();
 
-  INSERT_INTO_JSON_OBJECT(val, doc, version, tx.version);
+  INSERT_INTO_JSON_OBJECT(val, doc, version, (tx.minor_version << 8) | tx.version);
   INSERT_INTO_JSON_OBJECT(val, doc, unlock_time, tx.unlock_time);
   INSERT_INTO_JSON_OBJECT(val, doc, inputs, tx.vin);
   INSERT_INTO_JSON_OBJECT(val, doc, outputs, tx.vout);
   INSERT_INTO_JSON_OBJECT(val, doc, extra, tx.extra);
   INSERT_INTO_JSON_OBJECT(val, doc, signatures, tx.signatures);
+  INSERT_INTO_JSON_OBJECT(val, doc, borromean_signature, tx.borromean_signature);
   INSERT_INTO_JSON_OBJECT(val, doc, ringct, tx.rct_signatures);
 }
 
@@ -237,11 +257,14 @@ void fromJsonValue(const rapidjson::Value& val, cryptonote::transaction& tx)
   }
 
   GET_FROM_JSON_OBJECT(val, tx.version, version);
+  tx.minor_version = (tx.version >> 8) & 0xff;
+  tx.version = tx.version & 0xff;
   GET_FROM_JSON_OBJECT(val, tx.unlock_time, unlock_time);
   GET_FROM_JSON_OBJECT(val, tx.vin, inputs);
   GET_FROM_JSON_OBJECT(val, tx.vout, outputs);
   GET_FROM_JSON_OBJECT(val, tx.extra, extra);
   GET_FROM_JSON_OBJECT(val, tx.signatures, signatures);
+  GET_FROM_JSON_OBJECT(val, tx.borromean_signature, borromean_signature);
   GET_FROM_JSON_OBJECT(val, tx.rct_signatures, ringct);
 }
 
