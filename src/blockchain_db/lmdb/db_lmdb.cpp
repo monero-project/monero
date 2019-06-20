@@ -31,6 +31,7 @@
 #include <boost/filesystem.hpp>
 #include <boost/format.hpp>
 #include <boost/circular_buffer.hpp>
+#include <boost/endian/conversion.hpp>
 #include <memory>  // std::unique_ptr
 #include <cstring>  // memcpy
 
@@ -317,7 +318,7 @@ struct blk_checkpoint_header
 {
   uint64_t     height;
   crypto::hash block_hash;
-  size_t       num_signatures;
+  uint64_t     num_signatures;
 };
 #pragma pack(pop)
 
@@ -3747,6 +3748,9 @@ void BlockchainLMDB::update_block_checkpoint(checkpoint_t const &checkpoint)
   header.block_hash            = checkpoint.block_hash;
   header.num_signatures        = checkpoint.signatures.size();
 
+  boost::endian::native_to_little_inplace(header.height);
+  boost::endian::native_to_little_inplace(header.num_signatures);
+
   size_t const MAX_BYTES_REQUIRED   = sizeof(header) + (sizeof(*checkpoint.signatures.data()) * service_nodes::CHECKPOINT_QUORUM_SIZE);
   uint8_t buffer[MAX_BYTES_REQUIRED];
 
@@ -3826,6 +3830,9 @@ bool BlockchainLMDB::get_block_checkpoint_internal(uint64_t height, checkpoint_t
   {
     auto const *header     = static_cast<blk_checkpoint_header const *>(value.mv_data);
     auto const *signatures = reinterpret_cast<service_nodes::voter_to_signature *>(static_cast<uint8_t *>(value.mv_data) + sizeof(*header));
+
+    boost::endian::little_to_native_inplace(header->height);
+    boost::endian::little_to_native_inplace(header->num_signatures);
 
     checkpoint            = {};
     checkpoint.height     = header->height;
