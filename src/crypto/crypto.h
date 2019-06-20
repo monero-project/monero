@@ -298,6 +298,9 @@ namespace crypto {
   inline std::ostream &operator <<(std::ostream &o, const crypto::signature &v) {
     epee::to_hex::formatted(o, epee::as_byte_span(v)); return o;
   }
+  inline std::ostream &operator <<(std::ostream &o, const crypto::ec_scalar &v) {
+    epee::to_hex::formatted(o, epee::as_byte_span(v)); return o;
+  }
 
   const extern crypto::public_key null_pkey;
   const extern crypto::secret_key null_skey;

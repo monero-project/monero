@@ -139,6 +139,8 @@
 #define HF_VERSION_ENFORCE_RCT                  255
 #define HF_VERSION_LONG_TERM_BLOCK_SIZE         8
 
+#define HF_VERSION_ALLOW_V1_BORROMEAN           8
+
 #define PER_KB_FEE_QUANTIZATION_DECIMALS        8
 
 #define HASH_OF_HASHES_STEP                     256

@@ -195,7 +195,7 @@ namespace cryptonote
     return addr.m_view_public_key;
   }
   //---------------------------------------------------------------
-  bool construct_tx_with_tx_key(const account_keys& sender_account_keys, const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses, std::vector<tx_source_entry>& sources, std::vector<tx_destination_entry>& destinations, const boost::optional<cryptonote::account_public_address>& change_addr, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time, const crypto::secret_key &tx_key, const std::vector<crypto::secret_key> &additional_tx_keys, bool rct, bool bulletproof, rct::multisig_out *msout, bool shuffle_outs)
+  bool construct_tx_with_tx_key(const account_keys& sender_account_keys, const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses, std::vector<tx_source_entry>& sources, std::vector<tx_destination_entry>& destinations, const boost::optional<cryptonote::account_public_address>& change_addr, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time, const crypto::secret_key &tx_key, const std::vector<crypto::secret_key> &additional_tx_keys, bool v1_borromean, bool rct, bool bulletproof, rct::multisig_out *msout, bool shuffle_outs)
   {
     hw::device &hwdev = sender_account_keys.get_device();
 
@@ -214,6 +214,7 @@ namespace cryptonote
     }
 
     tx.version = rct ? 2 : 1;
+    tx.minor_version = tx.version == 1 && v1_borromean ? 1 : 0;
     tx.unlock_time = unlock_time;
 
     tx.extra = extra;
@@ -458,6 +459,10 @@ namespace cryptonote
 
       std::stringstream ss_ring_s;
       size_t i = 0;
+      std::vector<key_image> borromean_images(sources.size());
+      std::vector<std::vector<public_key>> borromean_pubs(sources.size());
+      std::vector<secret_key> borromean_secs(sources.size());
+      std::vector<std::size_t> borromean_sec_indices(sources.size());
       for(const tx_source_entry& src_entr:  sources)
       {
         ss_ring_s << "pub_keys:" << ENDL;
@@ -472,15 +477,37 @@ namespace cryptonote
           ++ii;
         }
 
-        tx.signatures.push_back(std::vector<crypto::signature>());
-        std::vector<crypto::signature>& sigs = tx.signatures.back();
-        sigs.resize(src_entr.outputs.size());
-        if (!zero_secret_key)
-          crypto::generate_ring_signature(tx_prefix_hash, boost::get<txin_to_key>(tx.vin[i]).k_image, keys_ptrs, in_contexts[i].in_ephemeral.sec, src_entr.real_output, sigs.data());
-        ss_ring_s << "signatures:" << ENDL;
-        std::for_each(sigs.begin(), sigs.end(), [&](const crypto::signature& s){ss_ring_s << s << ENDL;});
+        if (tx.minor_version == 0)
+        {
+          tx.signatures.push_back(std::vector<crypto::signature>());
+          std::vector<crypto::signature>& sigs = tx.signatures.back();
+          sigs.resize(src_entr.outputs.size());
+          if (!zero_secret_key)
+            crypto::generate_ring_signature(tx_prefix_hash, boost::get<txin_to_key>(tx.vin[i]).k_image, keys_ptrs, in_contexts[i].in_ephemeral.sec, src_entr.real_output, sigs.data());
+          ss_ring_s << "signatures:" << ENDL;
+          std::for_each(sigs.begin(), sigs.end(), [&](const crypto::signature& s){ss_ring_s << s << ENDL;});
+        }
+        else
+        {
+          borromean_images[i] = boost::get<txin_to_key>(tx.vin[i]).k_image;
+          borromean_pubs[i] = keys;
+          borromean_secs[i] = in_contexts[i].in_ephemeral.sec;
+          borromean_sec_indices[i] = src_entr.real_output;
+        }
         ss_ring_s << "prefix_hash:" << tx_prefix_hash << ENDL << "in_ephemeral_key: " << in_contexts[i].in_ephemeral.sec << ENDL << "real_output: " << src_entr.real_output << ENDL;
         i++;
+      }
+      if (tx.minor_version > 0)
+      {
+        crypto::generate_borromean_signature(tx_prefix_hash, borromean_images, borromean_pubs, borromean_secs, borromean_sec_indices, tx.borromean_signature);
+        ss_ring_s << "borromean_signature:" << ENDL;
+        ss_ring_s << "c:" << tx.borromean_signature.c << ENDL;
+        for (size_t j = 0; j < sources.size(); ++j)
+        {
+          ss_ring_s << "r[" << j << "]:" << ENDL;
+          for (auto& r : tx.borromean_signature.r[j])
+            ss_ring_s << r << ENDL;
+        }
       }
 
       MCINFO("construct_tx", "transaction_created: " << get_transaction_hash(tx) << ENDL << obj_to_json_str(tx) << ENDL << ss_ring_s.str());
@@ -601,7 +628,7 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------
-  bool construct_tx_and_get_tx_key(const account_keys& sender_account_keys, const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses, std::vector<tx_source_entry>& sources, std::vector<tx_destination_entry>& destinations, const boost::optional<cryptonote::account_public_address>& change_addr, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time, crypto::secret_key &tx_key, std::vector<crypto::secret_key> &additional_tx_keys, bool rct, bool bulletproof, rct::multisig_out *msout)
+  bool construct_tx_and_get_tx_key(const account_keys& sender_account_keys, const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses, std::vector<tx_source_entry>& sources, std::vector<tx_destination_entry>& destinations, const boost::optional<cryptonote::account_public_address>& change_addr, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time, crypto::secret_key &tx_key, std::vector<crypto::secret_key> &additional_tx_keys, bool v1_borromean, bool rct, bool bulletproof, rct::multisig_out *msout)
   {
     hw::device &hwdev = sender_account_keys.get_device();
     hwdev.open_tx(tx_key);
@@ -619,7 +646,7 @@ namespace cryptonote
         additional_tx_keys.push_back(keypair::generate(sender_account_keys.get_device()).sec);
     }
 
-    bool r = construct_tx_with_tx_key(sender_account_keys, subaddresses, sources, destinations, change_addr, extra, tx, unlock_time, tx_key, additional_tx_keys, rct, bulletproof, msout);
+    bool r = construct_tx_with_tx_key(sender_account_keys, subaddresses, sources, destinations, change_addr, extra, tx, unlock_time, tx_key, additional_tx_keys, v1_borromean, rct, bulletproof, msout);
     hwdev.close_tx();
     return r;
   }
@@ -631,7 +658,7 @@ namespace cryptonote
      crypto::secret_key tx_key;
      std::vector<crypto::secret_key> additional_tx_keys;
      std::vector<tx_destination_entry> destinations_copy = destinations;
-     return construct_tx_and_get_tx_key(sender_account_keys, subaddresses, sources, destinations_copy, change_addr, extra, tx, unlock_time, tx_key, additional_tx_keys, false, false, NULL);
+     return construct_tx_and_get_tx_key(sender_account_keys, subaddresses, sources, destinations_copy, change_addr, extra, tx, unlock_time, tx_key, additional_tx_keys, false, false, false, NULL);
   }
   //---------------------------------------------------------------
   bool generate_genesis_block(
