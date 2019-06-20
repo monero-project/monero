@@ -220,14 +220,15 @@ namespace cryptonote
     BEGIN_SERIALIZE_OBJECT()
       if (!typename Archive<W>::is_saving())
       {
-        set_hash_valid(false);
-        set_blob_size_valid(false);
+        set_null();
       }
 
       FIELDS(*static_cast<transaction_prefix *>(this))
 
       if (version == 1)
       {
+        if (!signatures.empty() && !borromean_signature.r.empty())
+            return false;
         if (minor_version == 0)
         {
           ar.tag("signatures");
@@ -261,8 +262,12 @@ namespace cryptonote
         }
         else
         {
+          ar.tag("borromean_signature");
+          ar.begin_object();
           const size_t ring_size = vin.empty() ? 0 : vin[0].type() == typeid(txin_to_key) ? boost::get<txin_to_key>(vin[0]).key_offsets.size() : 0;
-          ::serialize_borromean_signature(ar, borromean_signature, vin.size(), ring_size);
+          bool r = ::serialize_borromean_signature(ar, borromean_signature, vin.size(), ring_size);
+          if (!r || !ar.stream().good()) return false;
+          ar.end_object();
         }
       }
       else
@@ -336,6 +341,7 @@ namespace cryptonote
     vout.clear();
     extra.clear();
     signatures.clear();
+    borromean_signature.r.clear();
     rct_signatures.type = rct::RCTTypeNull;
     set_hash_valid(false);
     set_blob_size_valid(false);

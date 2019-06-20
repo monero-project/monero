@@ -80,7 +80,6 @@ bool do_serialize(Archive<true> &ar, std::vector<crypto::signature> &v)
 template <bool W, template <bool> class Archive>
 bool serialize_borromean_signature(Archive<W> &ar, crypto::borromean_signature &sig, size_t inputs, size_t ring_size)
 {
-  ar.begin_object();
   ar.tag("c");
   ar.serialize_blob(&sig.c, sizeof(crypto::ec_scalar));
   ar.tag("s");
@@ -117,7 +116,6 @@ bool serialize_borromean_signature(Archive<W> &ar, crypto::borromean_signature &
       ar.delimit_array();
   }
   ar.end_array();
-  ar.end_object();
   return true;
 }
 
