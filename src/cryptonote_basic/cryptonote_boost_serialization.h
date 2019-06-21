@@ -79,6 +79,11 @@ namespace boost
   {
     a & reinterpret_cast<char (&)[sizeof(crypto::signature)]>(x);
   }
+  template <class Archive>
+  inline void serialize(Archive &a, crypto::ec_scalar &x, const boost::serialization::version_type ver)
+  {
+    a & reinterpret_cast<char (&)[sizeof(crypto::ec_scalar)]>(x);
+  }
 
   template <class Archive>
   inline void serialize(Archive &a, crypto::borromean_signature &x, const boost::serialization::version_type ver)

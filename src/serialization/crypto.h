@@ -82,6 +82,8 @@ bool serialize_borromean_signature(Archive<W> &ar, crypto::borromean_signature &
 {
   ar.tag("c");
   ar.serialize_blob(&sig.c, sizeof(crypto::ec_scalar));
+  if (!ar.stream().good())
+    return false;
   ar.tag("s");
   ar.begin_array();
   PREPARE_CUSTOM_VECTOR_SERIALIZATION(inputs, sig.r);
@@ -107,6 +109,8 @@ bool serialize_borromean_signature(Archive<W> &ar, crypto::borromean_signature &
     for (size_t j = 0; j < ring_size; ++j)
     {
       ar.serialize_blob(&sig.r[i][j], sizeof(crypto::ec_scalar));
+      if (!ar.stream().good())
+        return false;
       if (ring_size - j > 1)
         ar.delimit_array();
     }

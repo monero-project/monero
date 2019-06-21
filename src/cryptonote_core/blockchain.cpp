@@ -347,8 +347,8 @@ bool Blockchain::init(BlockchainDB* db, const network_type nettype, bool offline
   }
   if (m_nettype == FAKECHAIN)
   {
-    for (size_t n = 0; test_options->hard_forks[n].first; ++n)
-      m_hardfork->add_fork(test_options->hard_forks[n].first, test_options->hard_forks[n].second, 0, n + 1);
+    for (size_t n = 0; test_options->hard_forks[n].version; ++n)
+      m_hardfork->add_fork(test_options->hard_forks[n].version, test_options->hard_forks[n].height, 0, n + 1, test_options->hard_forks[n].reset_diff);
   }
   else if (m_nettype == TESTNET)
   {
@@ -2467,6 +2467,9 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
 
   crypto::hash tx_prefix_hash = get_transaction_prefix_hash(tx);
 
+  const bool tx_v1_0 = tx.version == 1 && tx.minor_version == 0;
+  const bool tx_v1_1 = tx.version == 1 && tx.minor_version > 0;
+
   const uint8_t hf_version = m_hardfork->get_current_version();
 
   // from hard fork 2, we require mixin at least 2 unless one output cannot mix with 2 others
@@ -2540,7 +2543,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
       tvc.m_verifivation_failed = true;
       return false;
     }
-    if (tx.version == 1 && tx.minor_version > 0 && hf_version < HF_VERSION_ALLOW_V1_BORROMEAN)
+    if (tx_v1_1 && hf_version < HF_VERSION_ALLOW_V1_BORROMEAN)
     {
       MERROR_VER("transaction version " << (unsigned)tx.version << "." << (unsigned)tx.minor_version << " is not allowed before fork version " << HF_VERSION_ALLOW_V1_BORROMEAN);
       return false;
@@ -2575,6 +2578,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
   }
 
   std::vector<std::vector<rct::ctkey>> pubkeys(tx.vin.size());
+  std::vector<key_image> borromean_images(tx.vin.size());
   std::vector < uint64_t > results;
   results.resize(tx.vin.size(), 0);
 
@@ -2603,7 +2607,12 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
     if (tx.version == 1)
     {
       // basically, make sure number of inputs == number of signatures
-      CHECK_AND_ASSERT_MES(sig_index < tx.signatures.size(), false, "wrong transaction: not signature entry for input with index= " << sig_index);
+      if (tx.minor_version == 0)
+        CHECK_AND_ASSERT_MES(sig_index < tx.signatures.size(), false, "wrong transaction: not signature entry for input with index= " << sig_index);
+      else
+        CHECK_AND_ASSERT_MES(sig_index < tx.borromean_signature.r.size(), false, "wrong transaction: not borromean signature entry for input with index= " << sig_index);
+
+      borromean_images[sig_index] = in_to_key.k_image;
 
 #if defined(CACHE_VIN_RESULTS)
       auto itk = it->second.find(in_to_key.k_image);
@@ -2624,7 +2633,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
 
     // make sure that output being spent matches up correctly with the
     // signature spending it.
-    if (!check_tx_input(tx.version, in_to_key, tx_prefix_hash, tx.version == 1 ? tx.signatures[sig_index] : std::vector<crypto::signature>(), tx.rct_signatures, pubkeys[sig_index], pmax_used_block_height))
+    if (!check_tx_input(tx.version, tx.minor_version, in_to_key, tx_prefix_hash, tx_v1_0 ? tx.signatures[sig_index] : std::vector<crypto::signature>(), tx_v1_1 ? tx.borromean_signature.r[sig_index] : std::vector<crypto::ec_scalar>(), tx.rct_signatures, pubkeys[sig_index], pmax_used_block_height))
     {
       it->second[in_to_key.k_image] = false;
       MERROR_VER("Failed to check ring signature for tx " << get_transaction_hash(tx) << "  vin key with k_image: " << in_to_key.k_image << "  sig_index: " << sig_index);
@@ -2636,7 +2645,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
       return false;
     }
 
-    if (tx.version == 1)
+    if (tx_v1_0)
     {
       if (threads > 1)
       {
@@ -2665,10 +2674,10 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
 
     sig_index++;
   }
-  if (tx.version == 1 && threads > 1)
+  if (tx_v1_0 && threads > 1)
     waiter.wait(&tpool);
 
-  if (tx.version == 1)
+  if (tx_v1_0)
   {
     if (threads > 1)
     {
@@ -2687,6 +2696,21 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
         MERROR_VER("Failed to check ring signatures!");
         return false;
       }
+    }
+  }
+  else if (tx_v1_1)
+  {
+    std::vector<std::vector<public_key>> borromean_pubs(tx.vin.size());
+    for (size_t i = 0; i < tx.vin.size(); ++i)
+    {
+      borromean_pubs[i].resize(pubkeys[i].size());
+      for (size_t j = 0; j < pubkeys[i].size(); ++j)
+        borromean_pubs[i][j] = rct::rct2pk(pubkeys[i][j].dest);
+    }
+    if (!crypto::check_borromean_signature(tx_prefix_hash, borromean_images, borromean_pubs, tx.borromean_signature))
+    {
+      MERROR_VER("Failed to check borromean signature!");
+      return false;
     }
   }
   else
@@ -3008,7 +3032,7 @@ bool Blockchain::is_tx_spendtime_unlocked(uint64_t unlock_time) const
 // This function locates all outputs associated with a given input (mixins)
 // and validates that they exist and are usable.  It also checks the ring
 // signature for each input.
-bool Blockchain::check_tx_input(size_t tx_version, const txin_to_key& txin, const crypto::hash& tx_prefix_hash, const std::vector<crypto::signature>& sig, const rct::rctSig &rct_signatures, std::vector<rct::ctkey> &output_keys, uint64_t* pmax_related_block_height)
+bool Blockchain::check_tx_input(size_t tx_version, uint8_t tx_minor_version, const txin_to_key& txin, const crypto::hash& tx_prefix_hash, const std::vector<crypto::signature>& sig, const std::vector<crypto::ec_scalar>& borromean_sig_r, const rct::rctSig &rct_signatures, std::vector<rct::ctkey> &output_keys, uint64_t* pmax_related_block_height)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
 
@@ -3059,7 +3083,10 @@ bool Blockchain::check_tx_input(size_t tx_version, const txin_to_key& txin, cons
     return false;
   }
   if (tx_version == 1) {
-    CHECK_AND_ASSERT_MES(sig.size() == output_keys.size(), false, "internal error: tx signatures count=" << sig.size() << " mismatch with outputs keys count for inputs=" << output_keys.size());
+    if (tx_minor_version == 0)
+      CHECK_AND_ASSERT_MES(sig.size() == output_keys.size(), false, "internal error: tx signatures count=" << sig.size() << " mismatch with outputs keys count for inputs=" << output_keys.size());
+    else
+      CHECK_AND_ASSERT_MES(borromean_sig_r.size() == output_keys.size(), false, "internal error: tx borromean signatures count=" << borromean_sig_r.size() << " mismatch with outputs keys count for inputs=" << output_keys.size());
   }
   // rct_signatures will be expanded after this
   return true;

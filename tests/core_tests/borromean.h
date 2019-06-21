@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, AEON, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -31,14 +31,14 @@
 #pragma once 
 #include "chaingen.h"
 
-struct gen_v2_tx_validation_base : public test_chain_unit_base
+struct gen_borromean_tx_validation_base : public test_chain_unit_base
 {
-  gen_v2_tx_validation_base()
+  gen_borromean_tx_validation_base()
     : m_invalid_tx_index(0)
     , m_invalid_block_index(0)
   {
-    REGISTER_CALLBACK_METHOD(gen_v2_tx_validation_base, mark_invalid_tx);
-    REGISTER_CALLBACK_METHOD(gen_v2_tx_validation_base, mark_invalid_block);
+    REGISTER_CALLBACK_METHOD(gen_borromean_tx_validation_base, mark_invalid_tx);
+    REGISTER_CALLBACK_METHOD(gen_borromean_tx_validation_base, mark_invalid_block);
   }
 
   bool check_tx_verification_context(const cryptonote::tx_verification_context& tvc, bool tx_added, size_t event_idx, const cryptonote::transaction& /*tx*/)
@@ -69,8 +69,7 @@ struct gen_v2_tx_validation_base : public test_chain_unit_base
     return true;
   }
 
-  bool generate_with(std::vector<test_event_entry>& events, const int *out_idx, int mixin,
-      uint64_t amount_paid, bool valid) const;
+  bool generate_with(std::vector<test_event_entry>& events, size_t num_rewind, bool use_borromean, bool valid) const;
 
 private:
   size_t m_invalid_tx_index;
@@ -78,45 +77,33 @@ private:
 };
 
 template<>
-struct get_test_options<gen_v2_tx_validation_base> {
-  const cryptonote::test_options::hard_fork_t hard_forks[3] = { {1, 0, 0}, {2, 1, 0}, {0, 0, 0} };
+struct get_test_options<gen_borromean_tx_validation_base> {
+  const cryptonote::test_options::hard_fork_t hard_forks[4] = { {1, 0, 0}, {7, 5, 1}, {8/*HF_VERSION_ALLOW_V1_BORROMEAN*/, 70, 1}, {0, 0, 0} };
   const cryptonote::test_options test_options = {
-    hard_forks, 0
+    hard_forks
   };
 };
 
-struct gen_v2_tx_mixable_0_mixin : public gen_v2_tx_validation_base
+struct gen_borromean_tx_valid_pre_fork_without : public gen_borromean_tx_validation_base
 {
   bool generate(std::vector<test_event_entry>& events) const;
 };
-template<> struct get_test_options<gen_v2_tx_mixable_0_mixin>: public get_test_options<gen_v2_tx_validation_base> {};
+template<> struct get_test_options<gen_borromean_tx_valid_pre_fork_without>: public get_test_options<gen_borromean_tx_validation_base> {};
 
-struct gen_v2_tx_mixable_low_mixin : public gen_v2_tx_validation_base
+struct gen_borromean_tx_invalid_pre_fork_with : public gen_borromean_tx_validation_base
 {
   bool generate(std::vector<test_event_entry>& events) const;
 };
-template<> struct get_test_options<gen_v2_tx_mixable_low_mixin>: public get_test_options<gen_v2_tx_validation_base> {};
+template<> struct get_test_options<gen_borromean_tx_invalid_pre_fork_with>: public get_test_options<gen_borromean_tx_validation_base> {};
 
-struct gen_v2_tx_unmixable_only : public gen_v2_tx_validation_base
+struct gen_borromean_tx_valid_post_fork_without : public gen_borromean_tx_validation_base
 {
   bool generate(std::vector<test_event_entry>& events) const;
 };
-template<> struct get_test_options<gen_v2_tx_unmixable_only>: public get_test_options<gen_v2_tx_validation_base> {};
+template<> struct get_test_options<gen_borromean_tx_valid_post_fork_without>: public get_test_options<gen_borromean_tx_validation_base> {};
 
-struct gen_v2_tx_unmixable_one : public gen_v2_tx_validation_base
+struct gen_borromean_tx_valid_post_fork_with : public gen_borromean_tx_validation_base
 {
   bool generate(std::vector<test_event_entry>& events) const;
 };
-template<> struct get_test_options<gen_v2_tx_unmixable_one>: public get_test_options<gen_v2_tx_validation_base> {};
-
-struct gen_v2_tx_unmixable_two : public gen_v2_tx_validation_base
-{
-  bool generate(std::vector<test_event_entry>& events) const;
-};
-template<> struct get_test_options<gen_v2_tx_unmixable_two>: public get_test_options<gen_v2_tx_validation_base> {};
-
-struct gen_v2_tx_dust : public gen_v2_tx_validation_base
-{
-  bool generate(std::vector<test_event_entry>& events) const;
-};
-template<> struct get_test_options<gen_v2_tx_dust>: public get_test_options<gen_v2_tx_validation_base> {};
+template<> struct get_test_options<gen_borromean_tx_valid_post_fork_with>: public get_test_options<gen_borromean_tx_validation_base> {};

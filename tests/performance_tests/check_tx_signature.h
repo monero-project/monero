@@ -40,7 +40,7 @@
 
 #include "multi_tx_test_base.h"
 
-template<size_t a_ring_size, bool a_rct>
+template<size_t a_ring_size, bool a_v1_borromean, bool a_rct>
 class test_check_tx_signature : private multi_tx_test_base<a_ring_size>
 {
   static_assert(0 < a_ring_size, "ring_size must be greater than 0");
@@ -48,6 +48,7 @@ class test_check_tx_signature : private multi_tx_test_base<a_ring_size>
 public:
   static const size_t loop_count = a_rct ? 10 : a_ring_size < 100 ? 100 : 10;
   static const size_t ring_size = a_ring_size;
+  static const bool v1_borromean= a_v1_borromean;
   static const bool rct = a_rct;
 
   typedef multi_tx_test_base<a_ring_size> base_class;
@@ -68,10 +69,23 @@ public:
     std::vector<crypto::secret_key> additional_tx_keys;
     std::unordered_map<crypto::public_key, cryptonote::subaddress_index> subaddresses;
     subaddresses[this->m_miners[this->real_source_idx].get_keys().m_account_address.m_spend_public_key] = {0,0};
-    if (!construct_tx_and_get_tx_key(this->m_miners[this->real_source_idx].get_keys(), subaddresses, this->m_sources, destinations, cryptonote::account_public_address{}, std::vector<uint8_t>(), m_tx, 0, tx_key, additional_tx_keys, rct))
+    if (!construct_tx_and_get_tx_key(this->m_miners[this->real_source_idx].get_keys(), subaddresses, this->m_sources, destinations, cryptonote::account_public_address{}, std::vector<uint8_t>(), m_tx, 0, tx_key, additional_tx_keys, v1_borromean, rct))
       return false;
 
     get_transaction_prefix_hash(m_tx, m_tx_prefix_hash);
+
+    m_borromean_images.resize(this->m_sources.size());
+    m_borromean_pubs.resize(this->m_sources.size());
+    for (size_t i = 0; i < this->m_sources.size(); ++i)
+    {
+      const cryptonote::txin_to_key& txin = boost::get<cryptonote::txin_to_key>(m_tx.vin[i]);
+      m_borromean_images[i] = txin.k_image;
+      m_borromean_pubs[i].resize(this->m_sources[i].outputs.size());
+      for (size_t j = 0; j < this->m_sources[i].outputs.size(); ++j)
+      {
+        m_borromean_pubs[i][j] = rct::rct2pk(this->m_sources[i].outputs[j].second.dest);
+      }
+    }
 
     return true;
   }
@@ -85,6 +99,10 @@ public:
       else
         return rct::verRctSimple(m_tx.rct_signatures);
     }
+    else if (v1_borromean)
+    {
+      return crypto::check_borromean_signature(m_tx_prefix_hash, m_borromean_images, m_borromean_pubs, m_tx.borromean_signature);
+    }
     else
     {
       const cryptonote::txin_to_key& txin = boost::get<cryptonote::txin_to_key>(m_tx.vin[0]);
@@ -96,4 +114,6 @@ private:
   cryptonote::account_base m_alice;
   cryptonote::transaction m_tx;
   crypto::hash m_tx_prefix_hash;
+  std::vector<crypto::key_image> m_borromean_images;
+  std::vector<std::vector<crypto::public_key>> m_borromean_pubs;
 };
