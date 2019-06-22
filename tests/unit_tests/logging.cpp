@@ -178,3 +178,20 @@ TEST(logging, last_precedence)
   cleanup();
 }
 
+TEST(logging, multiline)
+{
+  init();
+  mlog_set_categories("global:INFO");
+  MGINFO("first\nsecond\nthird");
+  std::string str;
+  ASSERT_TRUE(load_log_to_string(log_filename, str));
+  ASSERT_TRUE(nlines(str) == 3);
+  ASSERT_TRUE(str.find("global") != std::string::npos);
+  ASSERT_TRUE(str.find("first") != std::string::npos);
+  ASSERT_TRUE(str.find("second") != std::string::npos);
+  ASSERT_TRUE(str.find("third") != std::string::npos);
+  ASSERT_TRUE(str.find("first\nsecond") == std::string::npos);
+  ASSERT_TRUE(str.find("second\nthird") == std::string::npos);
+  cleanup();
+}
+
