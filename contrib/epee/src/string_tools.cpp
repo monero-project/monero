@@ -68,6 +68,37 @@ namespace string_tools
         return false;
     return true;
   }
+  //----------------------------------------------------------------------------
+  epee::string_tools::memdump_t dump(const uint8_t *ptr, size_t bytes, const std::string &prefix)
+  {
+    memdump_t v;
+    v.reserve((bytes + 15) / 16);
+    std::string full_prefix;
+    if (!prefix.empty())
+      full_prefix = prefix + "  ";
+    size_t offset = 0;
+    static const char chars[] = "0123456789abcdef";
+    while (bytes > 0 || v.empty())
+    {
+      char offs[9], hex[50], ascii[17];
+      memset(hex, 32, sizeof(hex));
+      memset(ascii, 0, sizeof(ascii));
+      const size_t row = std::min<size_t>(16, bytes);
+      for (size_t i = 0; i < row; ++i)
+      {
+        hex[i * 3 + (i >= 8)] = chars[ptr[i] >> 4];
+        hex[i * 3 + (i >= 8) + 1] = chars[ptr[i] & 0xf];
+        ascii[i] = isprint(ptr[i]) ? ptr[i] : '.';
+      }
+      snprintf(offs, 9, "%08zx", offset);
+      hex[49] = 0;
+      v.push_back(full_prefix + std::string(offs) + "  " + hex + "  " + ascii);
+      bytes -= row;
+      ptr += row;
+      offset += row;
+    }
+    return v;
+  }
 }
 }
 

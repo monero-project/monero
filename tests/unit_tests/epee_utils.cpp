@@ -562,6 +562,51 @@ TEST(StringTools, GetIpInt32)
   EXPECT_EQ(htonl(0xff0aff00), ip);
 }
 
+TEST(StringTools, dump)
+{
+  epee::string_tools::memdump_t v;
+
+  v = epee::string_tools::dump((const uint8_t*)"", 0);
+  ASSERT_EQ(v.size(), 1);
+  ASSERT_EQ(v[0], "00000000                                                     ");
+
+  v = epee::string_tools::dump((const uint8_t*)"", 1);
+  ASSERT_EQ(v.size(), 1);
+  ASSERT_EQ(v[0], "00000000  00                                                 .");
+
+  v = epee::string_tools::dump((const uint8_t*)"abcdefghijklmnop", 16);
+  ASSERT_EQ(v.size(), 1);
+  ASSERT_EQ(v[0], "00000000  61 62 63 64 65 66 67 68  69 6a 6b 6c 6d 6e 6f 70   abcdefghijklmnop");
+
+  v = epee::string_tools::dump((const uint8_t*)"abcdefghijklmnopq", 17);
+  ASSERT_EQ(v.size(), 2);
+  ASSERT_EQ(v[0], "00000000  61 62 63 64 65 66 67 68  69 6a 6b 6c 6d 6e 6f 70   abcdefghijklmnop");
+  ASSERT_EQ(v[1], "00000010  71                                                 q");
+
+  v = epee::string_tools::dump((const uint8_t*)"abcdefghijklmnopqrstuvwxyz0123456789", 37);
+  ASSERT_EQ(v.size(), 3);
+  ASSERT_EQ(v[0], "00000000  61 62 63 64 65 66 67 68  69 6a 6b 6c 6d 6e 6f 70   abcdefghijklmnop");
+  ASSERT_EQ(v[1], "00000010  71 72 73 74 75 76 77 78  79 7a 30 31 32 33 34 35   qrstuvwxyz012345");
+  ASSERT_EQ(v[2], "00000020  36 37 38 39 00                                     6789.");
+
+  // unprintable
+  v = epee::string_tools::dump((const uint8_t*)"	\r\n ", 4);
+  ASSERT_EQ(v.size(), 1);
+  ASSERT_EQ(v[0], "00000000  09 0d 0a 20                                        ... ");
+
+  // UTF-8
+  v = epee::string_tools::dump((const uint8_t*)"ó", 2);
+  ASSERT_EQ(v.size(), 1);
+  ASSERT_EQ(v[0], "00000000  c3 b3                                              ..");
+
+  // prefix
+  v = epee::string_tools::dump((const uint8_t*)"abcdefghijklmnopqrstuvwxyz0123456789", 37, "foo");
+  ASSERT_EQ(v.size(), 3);
+  ASSERT_EQ(v[0], "foo  00000000  61 62 63 64 65 66 67 68  69 6a 6b 6c 6d 6e 6f 70   abcdefghijklmnop");
+  ASSERT_EQ(v[1], "foo  00000010  71 72 73 74 75 76 77 78  79 7a 30 31 32 33 34 35   qrstuvwxyz012345");
+  ASSERT_EQ(v[2], "foo  00000020  36 37 38 39 00                                     6789.");
+}
+
 TEST(NetUtils, IPv4NetworkAddress)
 {
   static_assert(epee::net_utils::ipv4_network_address::get_type_id() == epee::net_utils::address_type::ipv4, "bad ipv4 type id");

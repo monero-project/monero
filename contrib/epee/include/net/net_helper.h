@@ -47,6 +47,8 @@
 #include "net/net_utils_base.h"
 #include "net/net_ssl.h"
 #include "misc_language.h"
+#include "misc_log_ex.h"
+#include "string_tools.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "net"
@@ -312,6 +314,7 @@ namespace net_utils
 					return false;
 				}else
 				{
+					MDUMP(buff.c_str(), buff.size(), get_address_str() + " >");
 					m_deadline.expires_at(std::chrono::steady_clock::time_point::max());
 					m_bytes_sent += buff.size();
 				}
@@ -462,6 +465,7 @@ namespace net_utils
 				/*if(!bytes_transfered)
 					return false;*/
 
+				MDUMP(buff.data(), bytes_transfered, get_address_str() + " >");
 				m_bytes_received += bytes_transfered;
 				buff.resize(bytes_transfered);
 				return true;
@@ -673,6 +677,14 @@ namespace net_utils
 			
 		}
 		
+		std::string get_address_str() const
+		{
+			boost::system::error_code ec;
+			const auto endpoint = m_ssl_socket->lowest_layer().remote_endpoint(ec);
+			if (ec)
+				return "[unknown]";
+			return endpoint.address().to_string() + ":" + std::to_string(endpoint.port());
+		}
 	protected:
 		boost::asio::io_service m_io_service;
 		boost::asio::ssl::context m_ctx;
@@ -754,6 +766,7 @@ namespace net_utils
 					return false;
 				}else
 				{
+					MDUMP(data, sz, get_address_str() + " >");
 					m_send_deadline.expires_at(boost::posix_time::pos_infin);
 				}
 			}
