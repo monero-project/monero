@@ -125,11 +125,16 @@ namespace epee { namespace net_utils
     return ss.str();
   }
 
-  std::string print_connection_context_short(const connection_context_base& ctx)
+  std::string print_connection_context_short(const network_address& address, bool incoming)
   {
     std::stringstream ss;
-    ss << ctx.m_remote_address.str() << (ctx.m_is_income ? " INC":" OUT");
+    ss << address.str() << (incoming ? " INC":" OUT");
     return ss.str();
+  }
+
+  std::string print_connection_context_short(const connection_context_base& ctx)
+  {
+    return print_connection_context_short(ctx.m_remote_address, ctx.m_is_income);
   }
 
   const char* zone_to_string(zone value) noexcept

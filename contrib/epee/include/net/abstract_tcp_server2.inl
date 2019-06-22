@@ -379,6 +379,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
       context.m_last_recv = time(NULL);
       context.m_recv_cnt += bytes_transferred;
       m_ready_to_close = false;
+      MDUMP(buffer_.data(), bytes_transferred, epee::net_utils::print_connection_context_short(context) + " <");
       bool recv_res = m_protocol_handler.handle_recv(buffer_.data(), bytes_transferred);
       if(!recv_res)
       {  
@@ -871,6 +872,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
       shutdown();
       return;
     }
+    MDUMP(m_send_que.front().data(), m_send_que.front().size(), epee::net_utils::print_connection_context_short(context) + " >");
     logger_handle_net_write(cb);
 
                 // The single sleeping that is needed for correctly handling "out" speed throttling

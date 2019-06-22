@@ -321,6 +321,11 @@ POP_WARNINGS
 		return res;
 	}
   //----------------------------------------------------------------------------
+  struct memdump_t: public std::vector<std::string>, public el::Loggable {
+    void log(el::base::type::ostream_t& os) const { std::string nl; for (const auto &s: *this) { os << nl << s; nl = "\n"; } }
+  };
+  memdump_t dump(const uint8_t *ptr, size_t bytes, const std::string &prefix = "");
+  //----------------------------------------------------------------------------
 #ifdef _WIN32
   inline std::wstring utf8_to_utf16(const std::string& str)
   {

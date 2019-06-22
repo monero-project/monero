@@ -79,6 +79,8 @@
 #define MTRACE(x) MCTRACE(MONERO_DEFAULT_LOG_CATEGORY,x)
 #define MLOG(level,x) MCLOG(level,MONERO_DEFAULT_LOG_CATEGORY,el::Color::Default,x)
 
+#define MDUMP(ptr,sz,...) MCTRACE(MONERO_DEFAULT_LOG_CATEGORY".dump", epee::string_tools::dump((const uint8_t*)(ptr), sz, ##__VA_ARGS__))
+
 #define MGINFO(x) MCINFO("global",x)
 #define MGINFO_RED(x) MCLOG_RED(el::Level::Info, "global",x)
 #define MGINFO_GREEN(x) MCLOG_GREEN(el::Level::Info, "global",x)
