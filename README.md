@@ -89,11 +89,11 @@ Monero is a private, secure, untraceable, decentralised digital currency. You ar
 
 **Privacy:** Monero uses a cryptographically sound system to allow you to send and receive funds without your transactions being easily revealed on the blockchain (the ledger of transactions that everyone has). This ensures that your purchases, receipts, and all transfers remain absolutely private by default.
 
-**Security:** Using the power of a distributed peer-to-peer consensus network, every transaction on the network is cryptographically secured. Individual wallets have a 25 word mnemonic seed that is only displayed once, and can be written down to backup the wallet. Wallet files are encrypted with a passphrase to ensure they are useless if stolen.
+**Security:** Using the power of a distributed peer-to-peer consensus network, every transaction on the network is cryptographically secured. Individual wallets have a 25-word mnemonic seed that is only displayed once and can be written down to backup the wallet. Wallet files are encrypted with a passphrase to ensure they are useless if stolen.
 
-**Untraceability:** By taking advantage of ring signatures, a special property of a certain type of cryptography, Monero is able to ensure that transactions are not only untraceable, but have an optional measure of ambiguity that ensures that transactions cannot easily be tied back to an individual user or computer.
+**Untraceability:** By taking advantage of ring signatures, a special property of a certain type of cryptography, Monero is able to ensure that transactions are not only untraceable but have an optional measure of ambiguity that ensures that transactions cannot easily be tied back to an individual user or computer.
 
-**Decentralization:** The utility of monero depends on its decentralised peer-to-peer consensus network - anyone should be able to run the monero software, validate the integrity of the blockchain, and participate in all aspects of the monero network using consumer-grade commodity hardware. Decentralization of the monero network is maintained by software development that minimizes the costs of running the monero software and inhibits the proliferation of specialized, non-commodity hardware.  
+**Decentralization:** The utility of Monero depends on its decentralised peer-to-peer consensus network - anyone should be able to run the monero software, validate the integrity of the blockchain, and participate in all aspects of the monero network using consumer-grade commodity hardware. Decentralization of the monero network is maintained by software development that minimizes the costs of running the monero software and inhibits the proliferation of specialized, non-commodity hardware.  
 
 ## About this project
 
@@ -101,11 +101,11 @@ This is the core implementation of Monero. It is open source and completely free
 
 As with many development projects, the repository on Github is considered to be the "staging" area for the latest changes. Before changes are merged into that branch on the main repository, they are tested by individual developers in their own branches, submitted as a pull request, and then subsequently tested by contributors who focus on testing and code reviews. That having been said, the repository should be carefully considered before using it in a production environment, unless there is a patch in the repository for a particular show-stopping issue you are experiencing. It is generally a better idea to use a tagged release for stability.
 
-**Anyone is welcome to contribute to Monero's codebase!** If you have a fix or code change, feel free to submit it as a pull request directly to the "master" branch. In cases where the change is relatively small or does not affect other parts of the codebase it may be merged in immediately by any one of the collaborators. On the other hand, if the change is particularly large or complex, it is expected that it will be discussed at length either well in advance of the pull request being submitted, or even directly on the pull request.
+**Anyone is welcome to contribute to Monero's codebase!** If you have a fix or code change, feel free to submit it as a pull request directly to the "master" branch. In cases where the change is relatively small or does not affect other parts of the codebase, it may be merged in immediately by any one of the collaborators. On the other hand, if the change is particularly large or complex, it is expected that it will be discussed at length either well in advance of the pull request being submitted, or even directly on the pull request.
 
 ## Supporting the project
 
-Monero is a 100% community-sponsored endeavor. If you want to join our efforts, the easiest thing you can do is support the project financially. Both Monero and Bitcoin donations can be made to **donate.getmonero.org** if using a client that supports the [OpenAlias](https://openalias.org) standard. Alternatively you can send XMR to the Monero donation address via the `donate` command (type `help` in the command-line wallet for details).
+Monero is a 100% community-sponsored endeavor. If you want to join our efforts, the easiest thing you can do is support the project financially. Both Monero and Bitcoin donations can be made to **donate.getmonero.org** if using a client that supports the [OpenAlias](https://openalias.org) standard. Alternatively, you can send XMR to the Monero donation address via the `donate` command (type `help` in the command-line wallet for details).
 
 The Monero donation address is: `44AFFq5kSiGBoZ4NMDwYtN18obc8AemS33DBLWs3H7otXft3XjrpDtQGv7SqSsaBYBb98uNbr2VBBEt7f2wfn3RVGQBEP3A` (viewkey: `f359631075708155cc3d92a32b75a7d02a5dcf27756707b47a2b31b21c389501`)
 
@@ -163,7 +163,7 @@ Approximately three months prior to a scheduled software upgrade, a branch from 
 
 The following table summarizes the tools and libraries required to build. A
 few of the libraries are also included in this repository (marked as
-"Vendored"). By default, the build uses the library installed on the system,
+"Vendored"). By default, the build uses the library installed on the system
 and ignores the vendored sources. However, if no library is found installed on
 the system, then the vendored source will be built and used. The vendored
 sources are also used for statically-linked builds because distribution
@@ -299,7 +299,7 @@ Tested on a Raspberry Pi Zero with a clean install of minimal Raspbian Stretch (
 
 * If using an external hard disk without an external power supply, ensure it gets enough power to avoid hardware issues when syncing, by adding the line "max_usb_current=1" to /boot/config.txt
 
-* Clone monero and checkout the most recent release version:
+* Clone Monero and checkout the most recent release version:
 
     ```bash
     git clone https://github.com/monero-project/monero.git
@@ -325,7 +325,7 @@ Tested on a Raspberry Pi Zero with a clean install of minimal Raspbian Stretch (
 
 #### *Note for Raspbian Jessie users:*
 
-If you are using the older Raspbian Jessie image, compiling Monero is a bit more complicated. The version of Boost available in the Debian Jessie repositories is too old to use with Monero, and thus you must compile a newer version yourself. The following explains the extra steps, and has been tested on a Raspberry Pi 2 with a clean install of minimal Raspbian Jessie.
+If you are using the older Raspbian Jessie image, compiling Monero is a bit more complicated. The version of Boost available in the Debian Jessie repositories is too old to use with Monero, and thus you must compile a newer version yourself. The following explains the extra steps and has been tested on a Raspberry Pi 2 with a clean install of minimal Raspbian Jessie.
 
 * As before, `apt-get update && apt-get upgrade` to install all of the latest software, and increase the system swap size
 
@@ -337,7 +337,7 @@ If you are using the older Raspbian Jessie image, compiling Monero is a bit more
     ```
 
 
-* Then, install the dependencies for Monero except `libunwind` and `libboost-all-dev`
+* Then, install the dependencies for Monero except for `libunwind` and `libboost-all-dev`
 
 * Install the latest version of boost (this may first require invoking `apt-get remove --purge libboost*` to remove a previous version if you're not using a clean install):
 
@@ -358,7 +358,7 @@ If you are using the older Raspbian Jessie image, compiling Monero is a bit more
 
 * Wait ~4 hours
 
-* From here, follow the [general Raspberry Pi instructions](#on-the-raspberry-pi) from the "Clone monero and checkout most recent release version" step.
+* From here, follow the [general Raspberry Pi instructions](#on-the-raspberry-pi) from the "Clone Monero and checkout most recent release version" step.
 
 #### On Windows:
 
@@ -422,7 +422,7 @@ application.
     ```
 
 * If you would like a specific [version/tag](https://github.com/monero-project/monero/tags), do a git checkout for that version. eg. 'v0.14.1.0'. If you don't care about the version and just want binaries from master, skip this step:
-	
+
     ```bash
     git checkout v0.14.1.0
     ```
@@ -457,7 +457,7 @@ application.
 
 ### On FreeBSD:
 
-The project can be built from scratch by following instructions for Linux above(but use `gmake` instead of `make`). If you are running monero in a jail you need to add the flag: `allow.sysvipc=1` to your jail configuration, otherwise lmdb will throw the error message: `Failed to open lmdb environment: Function not implemented`.
+The project can be built from scratch by following instructions for Linux above(but use `gmake` instead of `make`). If you are running Monero in a jail you need to add the flag: `allow.sysvipc=1` to your jail configuration, otherwise lmdb will throw the error message: `Failed to open lmdb environment: Function not implemented`.
 
 We expect to add Monero into the ports tree in the near future, which will aid in managing installations using ports or packages.
 
@@ -547,7 +547,7 @@ cmake ..
 doas make install
 ```
 
-Build monero:
+Build Monero:
 ```bash
 env DEVELOPER_LOCAL_TOOLS=1 BOOST_ROOT=/usr/local make release-static
 ```
@@ -560,7 +560,7 @@ The doxygen and graphviz packages are optional and require the xbase set.
 
 Build monero: `env DEVELOPER_LOCAL_TOOLS=1 BOOST_ROOT=/usr/local gmake release-static`
 
-Note: you may encounter the following error, when compiling the latest version of monero as a normal user:
+Note: you may encounter the following error when compiling the latest version of Monero as a normal user:
 
 ```
 LLVM ERROR: out of memory
@@ -643,7 +643,7 @@ Packages are available for
     snap install monero --beta
     ```
 
-Installing a snap is very quick. Snaps are secure. They are isolated with all of their dependencies. Snaps also auto update when a new version is released.
+Installing a snap is very quick. Snaps are secure. They are isolated with all of their dependencies. Snaps also auto-update when a new version is released.
 
 * Arch Linux (via [AUR](https://aur.archlinux.org/)):
   - Stable release: [`monero`](https://aur.archlinux.org/packages/monero)
@@ -666,13 +666,13 @@ Installing a snap is very quick. Snaps are secure. They are isolated with all of
     ```bash
     # Build using all available cores
     docker build -t monero .
-    
+
     # or build using a specific number of cores (reduce RAM requirement)
     docker build --build-arg NPROC=1 -t monero .
-    
+
     # either run in foreground
     docker run -it -v /monero/chain:/root/.bitmonero -v /monero/wallet:/wallet -p 18080:18080 monero
-    
+
     # or in background
     docker run -it -d -v /monero/chain:/root/.bitmonero -v /monero/wallet:/wallet -p 18080:18080 monero
     ```
@@ -685,7 +685,7 @@ Packaging for your favorite distribution would be a welcome contribution!
 ## Running monerod
 
 The build places the binary in `bin/` sub-directory within the build directory
-from which cmake was invoked (repository root by default). To run in
+from which cmake was invoked (repository root by default). To run in the
 foreground:
 
 ```bash
@@ -696,7 +696,7 @@ To list all available options, run `./bin/monerod --help`.  Options can be
 specified either on the command line or in a configuration file passed by the
 `--config-file` argument.  To specify an option in the configuration file, add
 a line with the syntax `argumentname=value`, where `argumentname` is the name
-of the argument without the leading dashes, for example `log-level=1`.
+of the argument without the leading dashes, for example, `log-level=1`.
 
 To run in background:
 
@@ -721,7 +721,7 @@ See [README.i18n.md](README.i18n.md).
 ## Using Tor
 
 > There is a new, still experimental, [integration with Tor](ANONYMITY_NETWORKS.md). The
-> feature allows connecting over IPv4 and Tor simulatenously - IPv4 is used for
+> feature allows connecting over IPv4 and Tor simultaneously - IPv4 is used for
 > relaying blocks and relaying transactions received by peers whereas Tor is
 > used solely for relaying transactions received over local RPC. This provides
 > privacy and better protection against surrounding node (sybil) attacks.
@@ -804,7 +804,7 @@ gdb /path/to/monerod /path/to/dumpfile`
 
 Print the stack trace with `bt`
 
-#### To run monero within gdb:
+#### To run Monero within gdb:
 
 Type `gdb /path/to/monerod`
 
