@@ -1173,8 +1173,11 @@ namespace tools
             crypto::hash payment_id;
             if(cryptonote::get_encrypted_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id8))
             {
-              desc.payment_id = epee::string_tools::pod_to_hex(payment_id8);
-              has_encrypted_payment_id = true;
+              if (payment_id8 != crypto::null_hash8)
+              {
+                desc.payment_id = epee::string_tools::pod_to_hex(payment_id8);
+                has_encrypted_payment_id = true;
+              }
             }
             else if (cryptonote::get_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id))
             {
