@@ -4378,12 +4378,13 @@ bool simple_wallet::show_balance_unlocked(bool detailed)
 
 
   std::vector<transfer_view> all_transfers;
-  uint64_t snode_rewards = 0;
   std::vector<std::string> local_args;
 	if (!get_transfers(local_args, all_transfers))
 		return true;
 
 	PAUSE_READLINE();
+  uint64_t snode_rewards = 0;
+  uint64_t unlocked_bal = m_wallet->unlocked_balance(m_current_subaddress_account);
 
 	for (const auto& transfer : all_transfers)
 	{
@@ -4391,9 +4392,11 @@ bool simple_wallet::show_balance_unlocked(bool detailed)
 		{
 			for (const auto& output : transfer.outputs)
 			{
-				  if (transfer.type == tools::pay_type::service_node){
+        if (transfer.type == tools::pay_type::service_node){
+          if((snode_rewards + transfer.amount) <= unlocked_bal){
             snode_rewards += transfer.amount;
           }
+        }
 			}
 		}
   }
@@ -4402,7 +4405,7 @@ bool simple_wallet::show_balance_unlocked(bool detailed)
 	const std::string tag = m_wallet->get_account_tags().second[m_current_subaddress_account];
 	success_msg_writer() << tr("Tag: ") << (tag.empty() ? std::string{ tr("(No tag assigned)") } : tag);
 	success_msg_writer() << tr("Balance: ") << print_money(m_wallet->balance(m_current_subaddress_account)) << ", "
-		<< tr("unlocked balance: ") << print_money(m_wallet->unlocked_balance(m_current_subaddress_account)) << extra << ", "
+		<< tr("unlocked balance: ") << print_money(unlocked_bal) << extra << ", "
     		<< tr("Service Rewards: ") << print_money(snode_rewards);
 ;
 	std::map<uint32_t, uint64_t> balance_per_subaddress = m_wallet->balance_per_subaddress(m_current_subaddress_account);
