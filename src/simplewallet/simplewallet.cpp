@@ -2326,6 +2326,10 @@ simple_wallet::simple_wallet()
                            boost::bind(&simple_wallet::show_balance, this, _1),
                            tr("balance [detail]"),
                            tr("Show the wallet's balance of the currently selected account."));
+  m_cmd_binder.set_handler("estimate_sn_rewards",
+                           boost::bind(&simple_wallet::estimate_sn_rewards, this, _1),
+                           tr("estimate_sn_rewards <number of nodes>"),
+                           tr("Estimates the service node rewards."));
   m_cmd_binder.set_handler("incoming_transfers",
                            boost::bind(&simple_wallet::show_incoming_transfers, this, _1),
                            tr("incoming_transfers [available|unavailable] [verbose] [index=<N1>[,<N2>[,...]]]"),
@@ -4428,6 +4432,40 @@ bool simple_wallet::show_balance(const std::vector<std::string>& args/* = std::v
   }
   LOCK_IDLE_SCOPE();
   show_balance_unlocked(args.size() == 1);
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::estimate_sn_rewards(const std::vector<std::string>& args/* = std::vector<std::string>()*/)
+{
+  size_t num_nodes;
+  if (args.size() > 1 || args.size() != 1)
+  {
+    fail_msg_writer() << tr("usage: estimate_sn_rewards <num of nodes>");
+    return true;
+  }
+
+  if(!epee::string_tools::get_xtype_from_string(num_nodes, args[0])){
+    fail_msg_writer() << tr("Failed to parse number of nodes!");
+    return true;
+  }
+
+  std::vector<std::string> empty;
+  uint64_t last_block_reward = m_wallet->get_last_block_reward() / 2;
+  try
+  {
+	const auto& response = m_wallet->get_service_nodes(empty);
+    if (response.service_node_states.size() != 1){
+        success_msg_writer() << tr("Number of Service Nodes on Network: ") << response.service_node_states.size();
+        success_msg_writer() << tr("Expected Reward: (1 day) ") << print_money((480 / response.service_node_states.size()) * last_block_reward * num_nodes) << tr(" XTRI");
+        success_msg_writer() << tr("\t \t (7 day) ") << print_money(( 3360 / response.service_node_states.size()) * last_block_reward * num_nodes) << tr(" XTRI");
+        success_msg_writer() << tr("\t \t (31 day) ") << print_money(( 14880 / response.service_node_states.size()) * last_block_reward * num_nodes) << tr(" XTRI");
+    }
+  } 
+  catch (const std::exception &e)
+  {
+		fail_msg_writer() << e.what();
+		return true;
+	}
   return true;
 }
 //----------------------------------------------------------------------------------------------------
