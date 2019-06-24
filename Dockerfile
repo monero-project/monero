@@ -81,17 +81,6 @@ RUN set -ex \
     && make install \
     && ldconfig
 
-# ncurses
-ARG NCURSES_VERSION=6.1
-ARG READLINE_HASH=750d437185286f40a369e1e4f4764eda932b9459b5ec9a731628393dd3d32334
-RUN set -ex \
-    && curl -s -O ftp://ftp.invisible-island.net/ncurses/ncurses-6.1.tar.gz \
-    && tar -xzf ncurses-${NCURSES_VERSION}.tar.gz \
-    && cd ncurses-${NCURSES_VERSION} \
-    && CFLAGS="-fPIC" CXXFLAGS="-P -fPIC" ./configure --enable-termcap --with-termlib \
-    && make \
-    && make install
-
 # zmq.hpp
 ARG CPPZMQ_VERSION=v4.3.0
 ARG CPPZMQ_HASH=213da0b04ae3b4d846c9abc46bab87f86bfb9cf4
@@ -102,16 +91,16 @@ RUN set -ex \
     && mv *.hpp /usr/local/include
 
 # Readline
-ARG READLINE_VERSION=8.0
-ARG READLINE_HASH=e339f51971478d369f8a053a330a190781acb9864cf4c541060f12078948e461
-RUN set -ex \
-    && curl -s -O https://ftp.gnu.org/gnu/readline/readline-${READLINE_VERSION}.tar.gz \
-    && echo "${READLINE_HASH}  readline-${READLINE_VERSION}.tar.gz" | sha256sum -c \
-    && tar -xzf readline-${READLINE_VERSION}.tar.gz \
-    && cd readline-${READLINE_VERSION} \
-    && ./configure \
-    && make \
-    && make install
+# ARG READLINE_VERSION=8.0
+# ARG READLINE_HASH=e339f51971478d369f8a053a330a190781acb9864cf4c541060f12078948e461
+# RUN set -ex \
+#     && curl -s -O https://ftp.gnu.org/gnu/readline/readline-${READLINE_VERSION}.tar.gz \
+#     && echo "${READLINE_HASH}  readline-${READLINE_VERSION}.tar.gz" | sha256sum -c \
+#     && tar -xzf readline-${READLINE_VERSION}.tar.gz \
+#     && cd readline-${READLINE_VERSION} \
+#     && ./configure \
+#     && make \
+#     && make install
 
 # Sodium
 ARG SODIUM_VERSION=1.0.17
