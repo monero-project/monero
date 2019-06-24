@@ -140,7 +140,7 @@ void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const std::pair
   }
 
   bool has_blacklisted_outputs = false;
-  if (tx.version >= 2)
+  if (tx.version >= cryptonote::txversion::v2_ringct)
   {
     if (!tx_prunable_hash_ptr)
       tx_prunable_hash = get_transaction_prunable_hash(tx, &txp.second);
@@ -187,7 +187,7 @@ void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const std::pair
   for (uint64_t i = 0; i < tx.vout.size(); ++i)
   {
     uint64_t unlock_time = 0;
-    if (tx.version > 2)
+    if (tx.version >= cryptonote::txversion::v3_per_output_unlock_times)
     {
       unlock_time = tx.output_unlock_times[i];
     }
@@ -198,7 +198,7 @@ void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const std::pair
 
     // miner v2 txes have their coinbase output in one single out to save space,
     // and we store them as rct outputs with an identity mask
-    if (miner_tx && tx.version >= 2)
+    if (miner_tx && tx.version >= cryptonote::txversion::v2_ringct)
     {
       cryptonote::tx_out vout = tx.vout[i];
       const rct::key commitment = rct::zeroCommit(vout.amount);
@@ -209,7 +209,7 @@ void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const std::pair
     else
     {
       amount_output_indices[i] = add_output(tx_hash, tx.vout[i], i, unlock_time,
-        tx.version > 1 ? &tx.rct_signatures.outPk[i].mask : NULL);
+        tx.version >= cryptonote::txversion::v2_ringct ? &tx.rct_signatures.outPk[i].mask : NULL);
     }
   }
 
@@ -246,7 +246,7 @@ uint64_t BlockchainDB::add_block( const std::pair<block, blobdata>& blck
 
   uint64_t num_rct_outs = 0;
   add_transaction(blk_hash, std::make_pair(blk.miner_tx, tx_to_blob(blk.miner_tx)));
-  if (blk.miner_tx.version >= 2)
+  if (blk.miner_tx.version >= cryptonote::txversion::v2_ringct)
     num_rct_outs += blk.miner_tx.vout.size();
 
   int tx_i = 0;

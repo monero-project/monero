@@ -35,6 +35,7 @@
 #include "crypto/crypto.h"
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "cryptonote_basic/blobdatatype.h"
+#include "cryptonote_basic/tx_extra.h"
 
 #include "math_helper.h"
 #include "syncobj.h"
@@ -42,7 +43,6 @@
 namespace cryptonote
 {
   struct vote_verification_context;
-  struct tx_extra_service_node_deregister;
 };
 
 namespace service_nodes
@@ -61,16 +61,16 @@ namespace service_nodes
   };
 
   struct checkpoint_vote { crypto::hash block_hash; };
-  struct deregister_vote { uint16_t worker_index; };
+  struct state_change_vote { uint16_t worker_index; new_state state; };
 
-  enum struct quorum_type
+  enum struct quorum_type : uint8_t
   {
-    deregister = 0,
+    obligations = 0,
     checkpointing,
     count,
   };
 
-  enum struct quorum_group { invalid, validator, worker };
+  enum struct quorum_group : uint8_t { invalid, validator, worker };
   struct quorum_vote_t
   {
     uint8_t           version = 0;
@@ -82,17 +82,17 @@ namespace service_nodes
 
     union
     {
-      deregister_vote deregister;
-      checkpoint_vote checkpoint;
+      state_change_vote state_change;
+      checkpoint_vote   checkpoint;
     };
   };
 
-  quorum_vote_t     make_deregister_vote(uint64_t block_height, uint16_t index_in_group, uint16_t worker_index, crypto::public_key const &pub_key, crypto::secret_key const &secret_key);
+  quorum_vote_t     make_state_change_vote(uint64_t block_height, uint16_t index_in_group, uint16_t worker_index, new_state state, crypto::public_key const &pub_key, crypto::secret_key const &secret_key);
 
-  bool              verify_tx_deregister             (const cryptonote::tx_extra_service_node_deregister& deregister, cryptonote::vote_verification_context& vvc, const service_nodes::testing_quorum &quorum);
-  bool              verify_vote                      (const quorum_vote_t& vote, uint64_t latest_height, cryptonote::vote_verification_context &vvc, const service_nodes::testing_quorum &quorum);
-  crypto::signature make_signature_from_vote         (quorum_vote_t const &vote, const crypto::public_key& pub, const crypto::secret_key& sec);
-  crypto::signature make_signature_from_tx_deregister(cryptonote::tx_extra_service_node_deregister const &deregister, crypto::public_key const &pub, crypto::secret_key const &sec);
+  bool              verify_tx_state_change             (const cryptonote::tx_extra_service_node_state_change& state_change, cryptonote::vote_verification_context& vvc, const service_nodes::testing_quorum &quorum, uint8_t hf_version);
+  bool              verify_vote                        (const quorum_vote_t& vote, uint64_t latest_height, cryptonote::vote_verification_context &vvc, const service_nodes::testing_quorum &quorum);
+  crypto::signature make_signature_from_vote           (quorum_vote_t const &vote, const crypto::public_key& pub, const crypto::secret_key& sec);
+  crypto::signature make_signature_from_tx_state_change(cryptonote::tx_extra_service_node_state_change const &state_change, crypto::public_key const &pub, crypto::secret_key const &sec);
 
   // NOTE: This preserves the deregister vote format pre-checkpointing so that
   // up to the hardfork, we can still deserialize and serialize until we switch
@@ -125,25 +125,37 @@ namespace service_nodes
     // TODO(loki): Review relay behaviour and all the cases when it should be triggered
     void                         set_relayed         (const std::vector<quorum_vote_t>& votes);
     void                         remove_expired_votes(uint64_t height);
-    void                         remove_used_votes   (std::vector<cryptonote::transaction> const &txs);
+    void                         remove_used_votes   (std::vector<cryptonote::transaction> const &txs, uint8_t hard_fork_version);
     std::vector<quorum_vote_t>   get_relayable_votes () const;
 
   private:
-    struct deregister_pool_entry
+    std::vector<pool_vote_entry> *find_vote_pool(const quorum_vote_t &vote, bool create_if_not_found = false);
+
+    struct obligations_pool_entry
     {
-      deregister_pool_entry(uint64_t height, uint32_t worker_index): height(height), worker_index(worker_index) {}
+      explicit obligations_pool_entry(const quorum_vote_t &vote)
+          : height{vote.block_height}, worker_index{vote.state_change.worker_index}, state{vote.state_change.state} {}
+      obligations_pool_entry(const cryptonote::tx_extra_service_node_state_change &sc)
+          : height{sc.block_height}, worker_index{sc.service_node_index}, state{sc.state} {}
+
       uint64_t                     height;
       uint32_t                     worker_index;
+      new_state                    state;
       std::vector<pool_vote_entry> votes;
+
+      bool operator==(const obligations_pool_entry &e) const { return height == e.height && worker_index == e.worker_index && state == e.state; }
     };
-    std::vector<deregister_pool_entry> m_deregister_pool;
+    std::vector<obligations_pool_entry> m_obligations_pool;
 
     struct checkpoint_pool_entry
     {
+      explicit checkpoint_pool_entry(const quorum_vote_t &vote) : height{vote.block_height}, hash{vote.checkpoint.block_hash} {}
       checkpoint_pool_entry(uint64_t height, crypto::hash const &hash): height(height), hash(hash) {}
       uint64_t                     height;
       crypto::hash                 hash;
       std::vector<pool_vote_entry> votes;
+
+      bool operator==(const checkpoint_pool_entry &e) const { return height == e.height && hash == e.hash; }
     };
     std::vector<checkpoint_pool_entry> m_checkpoint_pool;
 

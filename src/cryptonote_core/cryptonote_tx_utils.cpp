@@ -249,7 +249,7 @@ namespace cryptonote
     tx.vout.clear();
     tx.extra.clear();
     tx.output_unlock_times.clear();
-    tx.type = transaction::type_standard;
+    tx.type    = txtype::standard;
     tx.version = transaction::get_min_version_for_hf(hard_fork_version, nettype);
 
     const crypto::public_key                                       &service_node_key  = miner_tx_context.snode_winner_key;
@@ -476,21 +476,13 @@ namespace cryptonote
     }
 
     if (tx_params.v4_allow_tx_types)
-    {
-      tx.version = transaction::version_4_tx_types;
-      tx.type    = transaction::type_standard;
-    }
+      tx.version = txversion::v4_tx_types;
+    else if (tx_params.v3_per_output_unlock)
+      tx.version = txversion::v3_per_output_unlock_times;
     else
     {
-      if (tx_params.v3_per_output_unlock)
-      {
-        tx.version = transaction::version_3_per_output_unlock_times;
-      }
-      else
-      {
-        tx.version     = tx_params.v2_rct ? 2 : 1;
-        tx.unlock_time = unlock_time;
-      }
+      tx.version     = tx_params.v2_rct ? txversion::v2_ringct : txversion::v1;
+      tx.unlock_time = unlock_time;
     }
 
 
@@ -695,16 +687,16 @@ namespace cryptonote
     bool found_change_already = false;
     for(const tx_destination_entry& dst_entr: destinations)
     {
-      CHECK_AND_ASSERT_MES(dst_entr.amount > 0 || tx.version > 1, false, "Destination with wrong amount: " << dst_entr.amount);
+      CHECK_AND_ASSERT_MES(dst_entr.amount > 0 || tx.version >= txversion::v2_ringct, false, "Destination with wrong amount: " << dst_entr.amount);
       crypto::public_key out_eph_public_key;
 
       bool this_dst_is_change_addr = false;
-      hwdev.generate_output_ephemeral_keys(tx.version, this_dst_is_change_addr, sender_account_keys, txkey_pub, tx_key,
+      hwdev.generate_output_ephemeral_keys(static_cast<uint16_t>(tx.version), this_dst_is_change_addr, sender_account_keys, txkey_pub, tx_key,
                                            dst_entr, change_addr, output_index,
                                            need_additional_txkeys, additional_tx_keys,
                                            additional_tx_public_keys, amount_keys, out_eph_public_key);
 
-      if (tx.version > 2)
+      if (tx.version >= txversion::v3_per_output_unlock_times)
       {
         if (change_addr && *change_addr == dst_entr && this_dst_is_change_addr && !found_change_already)
         {
@@ -787,7 +779,7 @@ namespace cryptonote
       MDEBUG("Null secret key, skipping signatures");
     }
 
-    if (tx.version == 1)
+    if (tx.version == txversion::v1)
     {
       //generate ring signatures
       crypto::hash tx_prefix_hash;

@@ -2283,12 +2283,20 @@ bool t_rpc_command_executor::sync_info()
     return true;
 }
 
+static std::string to_string_rounded(double d, int precision) {
+  std::ostringstream ss;
+  ss << std::fixed << std::setprecision(precision) << d;
+  return ss.str();
+}
+
 static void append_printable_service_node_list_entry(cryptonote::network_type nettype, int hard_fork_version, uint64_t curr_height, uint64_t entry_index, cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry const &entry, std::string &buffer)
 {
   const char indent1[] = "    ";
   const char indent2[] = "        ";
   const char indent3[] = "            ";
   bool is_registered = entry.total_contributed >= entry.staking_requirement;
+
+  buffer.reserve(buffer.size() + 2048);
 
   // Print Funding Status
   {
@@ -2371,7 +2379,7 @@ static void append_printable_service_node_list_entry(cryptonote::network_type ne
   {
     buffer.append(indent2);
     buffer.append("Operator Cut (\% Of Reward): ");
-    buffer.append(std::to_string((entry.portions_for_operator / (double)STAKING_PORTIONS) * 100.0));
+    buffer.append(to_string_rounded((entry.portions_for_operator / (double)STAKING_PORTIONS) * 100.0, 2));
     buffer.append("%\n");
 
     buffer.append(indent2);
@@ -2403,6 +2411,18 @@ static void append_printable_service_node_list_entry(cryptonote::network_type ne
       buffer.append(indent2);
       buffer.append("Storage Server Port: ");
       buffer.append(std::to_string(entry.storage_port));
+    }
+    buffer.append("\n");
+    buffer.append(indent2);
+    if (entry.active) {
+      buffer.append("Downtime Credits: " + std::to_string(entry.earned_downtime_blocks) + " blocks");
+      buffer.append(" (about " + to_string_rounded(entry.earned_downtime_blocks / (double) BLOCKS_EXPECTED_IN_HOURS(1), 2) + " hours)");
+      if (entry.earned_downtime_blocks < service_nodes::DECOMMISSION_MINIMUM)
+        buffer.append(" (Note: " + std::to_string(service_nodes::DECOMMISSION_MINIMUM) + " blocks required to enable deregistration delay)");
+    } else {
+      buffer.append("Current Status: DECOMMISSIONED\n");
+      buffer.append(indent2);
+      buffer.append("Remaining Decommission Time Until DEREGISTRATION: " + std::to_string(entry.earned_downtime_blocks) + " blocks");
     }
     buffer.append("\n");
   }

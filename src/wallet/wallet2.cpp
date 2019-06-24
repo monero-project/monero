@@ -1753,7 +1753,7 @@ void wallet2::cache_tx_data(const cryptonote::transaction& tx, const crypto::has
 //----------------------------------------------------------------------------------------------------
 void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote::transaction& tx, const std::vector<uint64_t> &o_indices, uint64_t height, uint64_t ts, bool miner_tx, bool pool, bool double_spend_seen, const tx_cache_data &tx_cache_data, std::map<std::pair<uint64_t, uint64_t>, size_t> *output_tracker_cache)
 {
-  if (tx.get_type() != transaction::type_standard)
+  if (tx.type != txtype::standard)
     return;
 
   PERF_TIMER(process_new_transaction);
@@ -1997,7 +1997,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
               td.m_mask = tx_scan_info[o].mask;
               td.m_rct = true;
             }
-            else if (miner_tx && tx.version >= 2)
+            else if (miner_tx && tx.version >= txversion::v2_ringct)
             {
               td.m_mask = rct::identity();
               td.m_rct = true;
@@ -2125,7 +2125,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
               td.m_mask = tx_scan_info[o].mask;
               td.m_rct = true;
             }
-            else if (miner_tx && tx.version >= 2)
+            else if (miner_tx && tx.version >= txversion::v2_ringct)
             {
               td.m_mask = rct::identity();
               td.m_rct = true;
@@ -2234,7 +2234,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
     }
   }
 
-  uint64_t fee = miner_tx ? 0 : tx.version == 1 ? tx_money_spent_in_ins - get_outs_money_amount(tx) : tx.rct_signatures.txnFee;
+  uint64_t fee = miner_tx ? 0 : tx.version == txversion::v1 ? tx_money_spent_in_ins - get_outs_money_amount(tx) : tx.rct_signatures.txnFee;
 
   if (tx_money_spent_in_ins > 0 && !pool)
   {
@@ -2388,7 +2388,7 @@ void wallet2::process_outgoing(const crypto::hash &txid, const cryptonote::trans
     // wallet (eg, we're a cold wallet and the hot wallet sent it). For RCT transactions,
     // we only see 0 input amounts, so have to deduce amount out from other parameters.
     entry.first->second.m_amount_in = spent;
-    if (tx.version == 1)
+    if (tx.version == txversion::v1)
       entry.first->second.m_amount_out = get_outs_money_amount(tx);
     else
       entry.first->second.m_amount_out = spent - tx.rct_signatures.txnFee;
@@ -5945,6 +5945,7 @@ bool wallet2::is_transfer_unlocked(uint64_t unlock_time, uint64_t block_height, 
   binary_buf.reserve(sizeof(crypto::key_image));
   {
     boost::optional<std::string> failed;
+    // FIXME: can just check one here by adding a is_key_image_blacklisted
     std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODE_BLACKLISTED_KEY_IMAGES::entry> blacklist = m_node_rpc_proxy.get_service_node_blacklisted_key_images(failed);
     if (failed)
     {
@@ -7949,12 +7950,8 @@ wallet2::register_service_node_result wallet2::create_register_service_node_tx(c
 wallet2::request_stake_unlock_result wallet2::can_request_stake_unlock(const crypto::public_key &sn_key)
 {
   request_stake_unlock_result result = {};
-  result.ptx.tx.version              = cryptonote::transaction::version_4_tx_types;
-  if (!result.ptx.tx.set_type(cryptonote::transaction::type_key_image_unlock))
-  {
-    result.msg = tr("Failed to construct a key image unlock transaction");
-    return result;
-  }
+  result.ptx.tx.version = cryptonote::txversion::v4_tx_types;
+  result.ptx.tx.type    = cryptonote::txtype::key_image_unlock;
 
   std::string const sn_key_as_str = epee::string_tools::pod_to_hex(sn_key);
   {
@@ -10556,7 +10553,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_all(uint64_t below
       fund_found = true;
       if (below == 0 || td.amount() < below)
       {
-        if (td.m_tx.version <= transaction::version_1 && sweep_style != sweep_style_t::use_v1_tx)
+        if (td.m_tx.version <= txversion::v1 && sweep_style != sweep_style_t::use_v1_tx)
           continue;
 
         if ((td.is_rct()) || is_valid_decomposed_amount(td.amount()))
@@ -11497,7 +11494,7 @@ void wallet2::check_tx_key_helper(const cryptonote::transaction &tx, const crypt
     if (found)
     {
       uint64_t amount;
-      if (tx.version == 1 || tx.rct_signatures.type == rct::RCTTypeNull)
+      if (tx.version == txversion::v1 || tx.rct_signatures.type == rct::RCTTypeNull)
       {
         amount = tx.vout[n].amount;
       }

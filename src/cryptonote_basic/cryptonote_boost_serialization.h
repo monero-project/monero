@@ -147,42 +147,52 @@ namespace boost
     a & x.target;
   }
 
+  template <class Archive>
+  inline void serialize(Archive &a, cryptonote::txversion &x, const boost::serialization::version_type ver)
+  {
+    uint16_t v = static_cast<uint16_t>(x);
+    a & v;
+    if (v >= static_cast<uint16_t>(cryptonote::txversion::_count))
+      throw boost::archive::archive_exception(boost::archive::archive_exception::other_exception, "Unsupported tx version");
+    x = static_cast<cryptonote::txversion>(v);
+  }
+
+  template <class Archive>
+  inline void serialize(Archive &a, cryptonote::txtype &x, const boost::serialization::version_type ver)
+  {
+    uint16_t txtype = static_cast<uint16_t>(x);
+    a & txtype;
+    if (txtype >= static_cast<uint16_t>(cryptonote::txtype::_count))
+      throw boost::archive::archive_exception(boost::archive::archive_exception::other_exception, "Unsupported tx type");
+    x = static_cast<cryptonote::txtype>(txtype);
+  }
 
   template <class Archive>
   inline void serialize(Archive &a, cryptonote::transaction_prefix &x, const boost::serialization::version_type ver)
   {
     a & x.version;
-    if (x.version > 2)
+    if (x.version >= cryptonote::txversion::v3_per_output_unlock_times)
     {
       a & x.output_unlock_times;
-      if (x.version == cryptonote::transaction::version_3_per_output_unlock_times)
-        a & x.is_deregister;
+      if (x.version == cryptonote::txversion::v3_per_output_unlock_times) {
+        bool is_deregister = x.type == cryptonote::txtype::state_change;
+        a & is_deregister;
+        x.type = is_deregister ? cryptonote::txtype::state_change : cryptonote::txtype::standard;
+      }
     }
     a & x.unlock_time;
     a & x.vin;
     a & x.vout;
     a & x.extra;
-    if (x.version >= cryptonote::transaction::version_4_tx_types)
+    if (x.version >= cryptonote::txversion::v4_tx_types)
       a & x.type;
   }
 
   template <class Archive>
   inline void serialize(Archive &a, cryptonote::transaction &x, const boost::serialization::version_type ver)
   {
-    a & x.version;
-    if (x.version > 2)
-    {
-      a & x.output_unlock_times;
-      if (x.version == cryptonote::transaction::version_3_per_output_unlock_times)
-        a & x.is_deregister;
-    }
-    a & x.unlock_time;
-    a & x.vin;
-    a & x.vout;
-    a & x.extra;
-    if (x.version >= cryptonote::transaction::version_4_tx_types)
-      a & x.type;
-    if (x.version == 1)
+    serialize(a, static_cast<cryptonote::transaction_prefix &>(x), ver);
+    if (x.version == cryptonote::txversion::v1)
     {
       a & x.signatures;
     }

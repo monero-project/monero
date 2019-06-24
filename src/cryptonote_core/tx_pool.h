@@ -461,7 +461,7 @@ namespace cryptonote
      * @return true if it already exists
      *
      */
-    bool have_duplicated_non_standard_tx(transaction const &tx) const;
+    bool have_duplicated_non_standard_tx(transaction const &tx, uint8_t hard_fork_version) const;
 
     /**
      * @brief check if any spent key image in a transaction is in the pool

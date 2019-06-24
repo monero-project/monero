@@ -6580,7 +6580,7 @@ bool simple_wallet::sweep_main_internal(sweep_type_t sweep_type, std::vector<too
 
     if (sweep_type == sweep_type_t::stake || sweep_type == sweep_type_t::register_stake)
     {
-      ptx_vector[n].tx.version = std::max((size_t)transaction::version_3_per_output_unlock_times, ptx_vector[n].tx.version);
+      ptx_vector[n].tx.version = std::max(txversion::v4_tx_types, ptx_vector[n].tx.version);
       total_sent -= ptx_vector[n].change_dts.amount + ptx_vector[n].fee;
     }
   }

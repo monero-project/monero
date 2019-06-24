@@ -324,7 +324,7 @@ private:
     bool check_core_ready();
 
     template<typename response>
-    void fill_sn_response_entry(response &entry, const service_nodes::service_node_pubkey_info &sn_info);
+    void fill_sn_response_entry(response &entry, const service_nodes::service_node_pubkey_info &sn_info, uint64_t current_height);
     
     //utils
     uint64_t get_block_reward(const block& blk);

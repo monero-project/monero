@@ -220,12 +220,7 @@ inline bool do_serialize(Archive &ar, bool &v)
 /*! \macro VALUE(f)
  * \brief the same as FIELD(f)
  */
-#define VALUE(f)					\
-  do {							\
-    ar.tag(#f);						\
-    bool r = ::do_serialize(ar, f);			\
-    if (!r || !ar.stream().good()) return false;	\
-  } while(0);
+#define VALUE(f) FIELD(f)
 
 /*! \macro FIELD_N(t,f)
  *
@@ -242,12 +237,7 @@ inline bool do_serialize(Archive &ar, bool &v)
  *
  * \brief tags the field with the variable name and then serializes it
  */
-#define FIELD(f)					\
-  do {							\
-    ar.tag(#f);						\
-    bool r = ::do_serialize(ar, f);			\
-    if (!r || !ar.stream().good()) return false;	\
-  } while(0);
+#define FIELD(f) FIELD_N(#f, f)
 
 /*! \macro FIELDS(f)
  *
@@ -262,12 +252,7 @@ inline bool do_serialize(Archive &ar, bool &v)
 /*! \macro VARINT_FIELD(f)
  *  \brief tags and serializes the varint \a f
  */
-#define VARINT_FIELD(f)				\
-  do {						\
-    ar.tag(#f);					\
-    ar.serialize_varint(f);			\
-    if (!ar.stream().good()) return false;	\
-  } while(0);
+#define VARINT_FIELD(f) VARINT_FIELD_N(#f, f)
 
 /*! \macro VARINT_FIELD_N(t, f)
  *
@@ -280,6 +265,30 @@ inline bool do_serialize(Archive &ar, bool &v)
     if (!ar.stream().good()) return false;	\
   } while(0);
 
+/*! \macro ENUM_FIELD(f, test)
+ *  \brief tags and serializes (as a varint) the scoped enum \a f with a requirement that expression
+ *  \a test be true (typically for range testing).
+ */
+#define ENUM_FIELD(f, test) ENUM_FIELD_N(#f, f, test)
+
+/*! \macro ENUM_FIELD_N(t, f, begin, end)
+ *
+ * \brief tags (as \a t) and serializes (as a varint) the scoped enum \a f with a requirement that
+ * expession \a test be true (typically for range testing).
+ */
+#define ENUM_FIELD_N(t, f, test)             \
+  do {                                       \
+    using enum_t = decltype(f);              \
+    using int_t = typename std::underlying_type<enum_t>::type; \
+    int_t int_value = W ? static_cast<int_t>(f) : 0;           \
+    ar.tag(t);                               \
+    ar.serialize_varint(int_value);          \
+    if (!ar.stream().good()) return false;	 \
+    if (!W) {                                \
+      f = static_cast<enum_t>(int_value);    \
+      if (!(test)) return false;             \
+    }                                        \
+  } while(0);
 
 namespace serialization {
   /*! \namespace detail

@@ -1396,7 +1396,7 @@ int main(int argc, char* argv[])
         for (const auto &out: tx.vout)
         {
           uint64_t amount = out.amount;
-          if (miner_tx && tx.version >= 2)
+          if (miner_tx && tx.version >= cryptonote::txversion::v2_ringct)
             amount = 0;
 
           if (opt_rct_only && amount != 0)

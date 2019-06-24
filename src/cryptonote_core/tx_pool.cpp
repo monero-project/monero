@@ -115,19 +115,17 @@ namespace cryptonote
 
   }
   //---------------------------------------------------------------------------------
-  bool tx_memory_pool::have_duplicated_non_standard_tx(transaction const &tx) const
+  bool tx_memory_pool::have_duplicated_non_standard_tx(transaction const &tx, uint8_t hard_fork_version) const
   {
-    transaction_prefix::type_t tx_type = tx.get_type();
-
-    if (tx_type == transaction::type_standard)
+    if (tx.type == txtype::standard)
       return false;
 
-    if (tx_type == transaction::type_deregister)
+    if (tx.type == txtype::state_change)
     {
-      tx_extra_service_node_deregister deregister;
-      if (!get_service_node_deregister_from_tx_extra(tx.extra, deregister))
+      tx_extra_service_node_state_change state_change;
+      if (!get_service_node_state_change_from_tx_extra(tx.extra, state_change, hard_fork_version))
       {
-        MERROR("Could not get service node deregister from tx, possibly corrupt tx in your blockchain, rejecting malformed deregister");
+        MERROR("Could not get service node state change from tx, possibly corrupt tx in your blockchain, rejecting malformed state change");
         return true;
       }
 
@@ -135,24 +133,21 @@ namespace cryptonote
       get_transactions(pool_txs);
       for (const transaction& pool_tx : pool_txs)
       {
-        if (pool_tx.get_type() != transaction::type_deregister)
+        if (pool_tx.type != txtype::state_change)
           continue;
 
-        tx_extra_service_node_deregister pool_tx_deregister;
-        if (!get_service_node_deregister_from_tx_extra(pool_tx.extra, pool_tx_deregister))
+        tx_extra_service_node_state_change pool_tx_state_change;
+        if (!get_service_node_state_change_from_tx_extra(pool_tx.extra, pool_tx_state_change, hard_fork_version))
         {
-          MERROR("Could not get service node deregister from tx, possibly corrupt tx in your blockchain");
+          MERROR("Could not get service node state change from tx, possibly corrupt tx in your blockchain");
           continue;
         }
 
-        if ((pool_tx_deregister.block_height       == deregister.block_height) &&
-            (pool_tx_deregister.service_node_index == deregister.service_node_index))
-        {
+        if (state_change == pool_tx_state_change)
           return true;
-        }
       }
     }
-    else if (tx_type == transaction::type_key_image_unlock)
+    else if (tx.type == txtype::key_image_unlock)
     {
       tx_extra_tx_key_image_unlock unlock;
       if (!cryptonote::get_tx_key_image_unlock_from_tx_extra(tx.extra, unlock))
@@ -165,7 +160,7 @@ namespace cryptonote
       get_transactions(pool_txs);
       for (const transaction& pool_tx : pool_txs)
       {
-        if (pool_tx.get_type() != tx_type)
+        if (pool_tx.type != tx.type)
           continue;
 
         tx_extra_tx_key_image_unlock pool_unlock;
@@ -175,9 +170,9 @@ namespace cryptonote
           return true;
         }
 
-        if (unlock.key_image == pool_unlock.key_image)
+        if (unlock == pool_unlock)
         {
-          MERROR("There was atleast one TX in the pool that is requesting to unlock the same key image already.");
+          MWARNING("There was atleast one TX in the pool that is requesting to unlock the same key image already.");
           return true;
         }
       }
@@ -186,7 +181,7 @@ namespace cryptonote
     else
     {
       // NOTE(loki): This is a developer error. If we come across this in production, be conservative and just reject
-      MERROR("Unrecognised transaction type: " << static_cast<uint16_t>(tx_type) << " for tx: " <<  get_transaction_hash(tx));
+      MERROR("Unrecognised transaction type: " << tx.type << " for tx: " <<  get_transaction_hash(tx));
       return true;
     }
 
@@ -199,7 +194,7 @@ namespace cryptonote
     CRITICAL_REGION_LOCAL(m_transactions_lock);
 
     PERF_TIMER(add_tx);
-    if (tx.version == transaction::version_0)
+    if (tx.version == txversion::v0)
     {
       // v0 never accepted
       LOG_PRINT_L1("transaction version 0 is invalid");
@@ -227,7 +222,7 @@ namespace cryptonote
     // fee per kilobyte, size rounded up.
     uint64_t fee;
 
-    if (tx.version == transaction::version_1)
+    if (tx.version == txversion::v1)
     {
       uint64_t inputs_amount = 0;
       if(!get_inputs_money_amount(tx, inputs_amount))
@@ -259,7 +254,7 @@ namespace cryptonote
       fee = tx.rct_signatures.txnFee;
     }
 
-    if (!kept_by_block && tx.get_type() == transaction::type_standard && !m_blockchain.check_fee(tx_weight, fee))
+    if (!kept_by_block && tx.type == txtype::standard && !m_blockchain.check_fee(tx_weight, fee))
     {
       tvc.m_verifivation_failed = true;
       tvc.m_fee_too_low = true;
@@ -288,7 +283,7 @@ namespace cryptonote
         tvc.m_double_spend = true;
         return false;
       }
-      if (have_duplicated_non_standard_tx(tx))
+      if (have_duplicated_non_standard_tx(tx, version))
       {
         mark_double_spend(tx);
         LOG_PRINT_L1("Transaction with id= "<< id << " already has a duplicate tx for height");
@@ -315,7 +310,7 @@ namespace cryptonote
     uint64_t max_used_block_height = 0;
     cryptonote::txpool_tx_meta_t meta;
     bool ch_inp_res = check_tx_inputs([&tx]()->cryptonote::transaction&{ return tx; }, id, max_used_block_height, max_used_block_id, tvc, kept_by_block);
-    const bool non_standard_tx = (tx.get_type() != transaction::type_standard);
+    const bool non_standard_tx = (tx.type != txtype::standard);
     if(!ch_inp_res)
     {
       // if the transaction was valid before (kept_by_block), then it
@@ -333,7 +328,7 @@ namespace cryptonote
         meta.last_relayed_time = time(NULL);
         meta.relayed = relayed;
         meta.do_not_relay = do_not_relay;
-        meta.double_spend_seen = (have_tx_keyimges_as_spent(tx) || have_duplicated_non_standard_tx(tx));
+        meta.double_spend_seen = (have_tx_keyimges_as_spent(tx) || have_duplicated_non_standard_tx(tx, version));
         meta.bf_padding = 0;
         memset(meta.padding, 0, sizeof(meta.padding));
         try
@@ -505,7 +500,9 @@ namespace cryptonote
     }
 
     // this will never remove the first one, but we don't care
-    auto it = --m_txs_by_fee_and_receive_time.end();
+    auto it = m_txs_by_fee_and_receive_time.end();
+    if (it != m_txs_by_fee_and_receive_time.begin())
+      it = std::prev(it);
     while (it != m_txs_by_fee_and_receive_time.begin())
     {
       if (m_txpool_weight <= bytes)
@@ -751,15 +748,16 @@ namespace cryptonote
                 return true;
               }
 
-              if (tx.get_type() != transaction::type_deregister)
+              if (tx.type != txtype::state_change)
                 return true;
 
               tx_verification_context tvc;
               uint64_t max_used_block_height = 0;
               crypto::hash max_used_block_id = null_hash;
+              // FIXME: not check_tx_inputs anymore
               if (!m_blockchain.check_tx_inputs(tx, max_used_block_height, max_used_block_id, tvc, /*kept_by_block*/ false))
               {
-                LOG_PRINT_L1("TX type: " << transaction::type_to_string(tx.type) << " considered for relaying failed tx inputs check, txid: " << txid << ", reason: " << print_tx_verification_context(tvc, &tx));
+                LOG_PRINT_L1("TX type: " << tx.type << " considered for relaying failed tx inputs check, txid: " << txid << ", reason: " << print_tx_verification_context(tvc, &tx));
                 return true;
               }
             }
@@ -1543,7 +1541,7 @@ namespace cryptonote
           return false;
         }
 
-        const bool non_standard_tx = (tx.get_type() != transaction::type_standard);
+        const bool non_standard_tx = (tx.type != txtype::standard);
         m_txs_by_fee_and_receive_time.emplace(std::tuple<bool, double, time_t>(non_standard_tx, meta.fee / (double)meta.weight, meta.receive_time), txid);
         m_txpool_weight += meta.weight;
         return true;
