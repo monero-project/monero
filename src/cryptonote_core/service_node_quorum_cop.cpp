@@ -548,7 +548,7 @@ namespace service_nodes
       signature_ok = crypto::check_signature(hash, pubkey, sig);
 
       /// Sanity check; we do the same on lokid startup
-      if (epee::net_utils::is_ip_local(public_ip) || epee::net_utils::is_ip_loopback(public_ip)) return false;
+      if (!epee::net_utils::is_ip_public(public_ip)) return false;
     }
 
     if (!signature_ok) {

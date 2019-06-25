@@ -364,7 +364,7 @@ namespace cryptonote
           storage_ok = false;
         }
 
-        if (epee::net_utils::is_ip_local(m_sn_public_ip) || epee::net_utils::is_ip_loopback(m_sn_public_ip)) {
+        if (!epee::net_utils::is_ip_public(m_sn_public_ip)) {
           MERROR("Address given for public-ip is not public: " << epee::string_tools::get_ip_string_from_int32(m_sn_public_ip));
           storage_ok = false;
         }
