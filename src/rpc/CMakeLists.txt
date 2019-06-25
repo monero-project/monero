@@ -47,7 +47,7 @@ set(rpc_base_headers
   rpc_args.h)
 
 set(rpc_headers
-  rpc_handler.cpp)
+  rpc_handler.h)
 
 set(daemon_rpc_server_headers)
 
