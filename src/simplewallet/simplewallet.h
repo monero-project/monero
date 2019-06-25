@@ -257,6 +257,7 @@ namespace cryptonote
     bool start_mining_for_rpc(const std::vector<std::string> &args);
     bool stop_mining_for_rpc(const std::vector<std::string> &args);
     bool net_stats(const std::vector<std::string>& args);
+    bool public_nodes(const std::vector<std::string>& args);
     bool welcome(const std::vector<std::string>& args);
     bool version(const std::vector<std::string>& args);
     bool on_unknown_command(const std::vector<std::string>& args);
@@ -334,6 +335,8 @@ namespace cryptonote
     bool check_rpc_payment();
 
     void handle_transfer_exception(const std::exception_ptr &e, bool trusted_daemon);
+
+    bool check_daemon_rpc_prices(const std::string &daemon_url, uint32_t &actual_cph, uint32_t &claimed_cph);
 
     //----------------- i_wallet2_callback ---------------------
     virtual void on_new_block(uint64_t height, const cryptonote::block& block);
@@ -456,6 +459,8 @@ namespace cryptonote
     bool m_daemon_rpc_payment_message_displayed;
     float m_rpc_payment_hash_rate;
     std::atomic<bool> m_suspend_rpc_payment_mining;
+
+    std::unordered_map<std::string, uint32_t> m_claimed_cph;
 
     // MMS
     mms::message_store& get_message_store() const { return m_wallet->get_message_store(); };

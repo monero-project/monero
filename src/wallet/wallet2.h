@@ -886,6 +886,8 @@ private:
     uint64_t get_last_block_reward() const { return m_last_block_reward; }
     uint64_t get_device_last_key_image_sync() const { return m_device_last_key_image_sync; }
 
+    std::vector<cryptonote::public_node> get_public_nodes(bool white_only = true);
+
     template <class t_archive>
     inline void serialize(t_archive &a, const unsigned int ver)
     {

@@ -1216,17 +1216,19 @@ namespace cryptonote
     std::string host;
     uint64_t last_seen;
     uint16_t rpc_port;
+    uint32_t rpc_credits_per_hash;
 
-    public_node() = delete;
+    public_node(): last_seen(0), rpc_port(0), rpc_credits_per_hash(0) {}
 
     public_node(const peer &peer)
-      : host(peer.host), last_seen(peer.last_seen), rpc_port(peer.rpc_port)
+      : host(peer.host), last_seen(peer.last_seen), rpc_port(peer.rpc_port), rpc_credits_per_hash(peer.rpc_credits_per_hash)
     {}
 
     BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE(host)
       KV_SERIALIZE(last_seen)
       KV_SERIALIZE(rpc_port)
+      KV_SERIALIZE(rpc_credits_per_hash)
     END_KV_SERIALIZE_MAP()
   };
 
