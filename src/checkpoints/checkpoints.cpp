@@ -258,7 +258,7 @@ namespace cryptonote
     return result;
   }
   //---------------------------------------------------------------------------
-  bool checkpoints::is_alternative_block_allowed(uint64_t blockchain_height, uint64_t block_height) const
+  bool checkpoints::is_alternative_block_allowed(uint64_t blockchain_height, uint64_t block_height)
   {
     if (0 == block_height)
       return false;
@@ -293,7 +293,8 @@ namespace cryptonote
       sentinel_reorg_height = checkpoints[0].height;
     }
 
-    bool result = sentinel_reorg_height < block_height;
+    m_oldest_allowable_alternative_block = std::max(sentinel_reorg_height, m_oldest_allowable_alternative_block);
+    bool result                          = block_height > m_oldest_allowable_alternative_block;
     return result;
   }
   //---------------------------------------------------------------------------
