@@ -405,7 +405,13 @@ namespace service_nodes
           LOG_PRINT_L1("Recommission for service node: " << key);
 
         m_transient_state.rollback_events.emplace_back(new rollback_change(block_height, key, info));
+
         info.active_since_height = block_height;
+
+        // Move the SN at the back of the list as if it had just registered (or just won)
+        info.last_reward_block_height = block_height;
+        info.last_reward_transaction_index = std::numeric_limits<uint32_t>::max();
+
         return true;
       default:
         // dev bug!
