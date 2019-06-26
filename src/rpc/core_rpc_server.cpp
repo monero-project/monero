@@ -64,6 +64,8 @@ using namespace epee;
 #define MAX_RESTRICTED_FAKE_OUTS_COUNT 40
 #define MAX_RESTRICTED_GLOBAL_FAKE_OUTS_COUNT 5000
 
+#define OUTPUT_HISTOGRAM_RECENT_CUTOFF_RESTRICTION (3 * 86400) // 3 days max, the wallet requests 1.8 days
+
 namespace
 {
   uint64_t round_up(uint64_t value, uint64_t quantum)
@@ -81,15 +83,9 @@ namespace cryptonote
     command_line::add_arg(desc, arg_rpc_bind_port);
     command_line::add_arg(desc, arg_rpc_restricted_bind_port);
     command_line::add_arg(desc, arg_restricted_rpc);
-    command_line::add_arg(desc, arg_rpc_ssl);
-    command_line::add_arg(desc, arg_rpc_ssl_private_key);
-    command_line::add_arg(desc, arg_rpc_ssl_certificate);
-    command_line::add_arg(desc, arg_rpc_ssl_ca_certificates);
-    command_line::add_arg(desc, arg_rpc_ssl_allowed_fingerprints);
-    command_line::add_arg(desc, arg_rpc_ssl_allow_any_cert);
     command_line::add_arg(desc, arg_bootstrap_daemon_address);
     command_line::add_arg(desc, arg_bootstrap_daemon_login);
-    cryptonote::rpc_args::init_options(desc);
+    cryptonote::rpc_args::init_options(desc, true);
   }
   //------------------------------------------------------------------------------------------------------------------------------
   core_rpc_server::core_rpc_server(
@@ -109,7 +105,7 @@ namespace cryptonote
     m_restricted = restricted;
     m_net_server.set_threads_prefix("RPC");
 
-    auto rpc_config = cryptonote::rpc_args::process(vm);
+    auto rpc_config = cryptonote::rpc_args::process(vm, true);
     if (!rpc_config)
       return false;
 
@@ -142,46 +138,9 @@ namespace cryptonote
     if (rpc_config->login)
       http_login.emplace(std::move(rpc_config->login->username), std::move(rpc_config->login->password).password());
 
-    epee::net_utils::ssl_options_t ssl_options = epee::net_utils::ssl_support_t::e_ssl_support_autodetect;
-    if (command_line::get_arg(vm, arg_rpc_ssl_allow_any_cert))
-      ssl_options.verification = epee::net_utils::ssl_verification_t::none;
-    else
-    {
-      std::string ssl_ca_path = command_line::get_arg(vm, arg_rpc_ssl_ca_certificates);
-      const std::vector<std::string> ssl_allowed_fingerprint_strings = command_line::get_arg(vm, arg_rpc_ssl_allowed_fingerprints);
-      std::vector<std::vector<uint8_t>> ssl_allowed_fingerprints{ ssl_allowed_fingerprint_strings.size() };
-      std::transform(ssl_allowed_fingerprint_strings.begin(), ssl_allowed_fingerprint_strings.end(), ssl_allowed_fingerprints.begin(), epee::from_hex::vector);
-      for (const auto &fpr: ssl_allowed_fingerprints)
-      {
-        if (fpr.size() != SSL_FINGERPRINT_SIZE)
-        {
-          MERROR("SHA-256 fingerprint should be " BOOST_PP_STRINGIZE(SSL_FINGERPRINT_SIZE) " bytes long.");
-          return false;
-        }
-      }
-
-      if (!ssl_ca_path.empty() || !ssl_allowed_fingerprints.empty())
-        ssl_options = epee::net_utils::ssl_options_t{std::move(ssl_allowed_fingerprints), std::move(ssl_ca_path)};
-    }
-
-    ssl_options.auth = epee::net_utils::ssl_authentication_t{
-      command_line::get_arg(vm, arg_rpc_ssl_private_key), command_line::get_arg(vm, arg_rpc_ssl_certificate)
-    };
-
-    // user specified CA file or fingeprints implies enabled SSL by default
-    if (ssl_options.verification != epee::net_utils::ssl_verification_t::user_certificates || !command_line::is_arg_defaulted(vm, arg_rpc_ssl))
-    {
-      const std::string ssl = command_line::get_arg(vm, arg_rpc_ssl);
-      if (!epee::net_utils::ssl_support_from_string(ssl_options.support, ssl))
-      {
-        MFATAL("Invalid RPC SSL support: " << ssl);
-        return false;
-      }
-    }
-
     auto rng = [](size_t len, uint8_t *ptr){ return crypto::rand(len, ptr); };
     return epee::http_server_impl_base<core_rpc_server, connection_context>::init(
-      rng, std::move(port), std::move(rpc_config->bind_ip), std::move(rpc_config->access_control_origins), std::move(http_login), std::move(ssl_options)
+      rng, std::move(port), std::move(rpc_config->bind_ip), std::move(rpc_config->access_control_origins), std::move(http_login), std::move(rpc_config->ssl_options)
     );
   }
   //------------------------------------------------------------------------------------------------------------------------------
@@ -851,6 +810,7 @@ namespace cryptonote
       res.sanity_check_failed = true;
       return true;
     }
+    res.sanity_check_failed = false;
 
     cryptonote_connection_context fake_context = AUTO_VAL_INIT(fake_context);
     tx_verification_context tvc = AUTO_VAL_INIT(tvc);
@@ -926,16 +886,13 @@ namespace cryptonote
       return true;
     }
 
-    boost::thread::attributes attrs;
-    attrs.set_stack_size(THREAD_STACK_SIZE);
-
     cryptonote::miner &miner= m_core.get_miner();
     if (miner.is_mining())
     {
       res.status = "Already mining";
       return true;
     }
-    if(!miner.start(info.address, static_cast<size_t>(req.threads_count), attrs, req.do_background_mining, req.ignore_battery))
+    if(!miner.start(info.address, static_cast<size_t>(req.threads_count), req.do_background_mining, req.ignore_battery))
     {
       res.status = "Failed, mining not started";
       LOG_PRINT_L0(res.status);
@@ -1927,6 +1884,13 @@ namespace cryptonote
     if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_GET_OUTPUT_HISTOGRAM>(invoke_http_mode::JON_RPC, "get_output_histogram", req, res, r))
       return r;
 
+    const bool restricted = m_restricted && ctx;
+    if (restricted && req.recent_cutoff > 0 && req.recent_cutoff < (uint64_t)time(NULL) - OUTPUT_HISTOGRAM_RECENT_CUTOFF_RESTRICTION)
+    {
+      res.status = "Recent cutoff is too old";
+      return true;
+    }
+
     std::map<uint64_t, std::tuple<uint64_t, uint64_t, uint64_t>> histogram;
     try
     {
@@ -2437,40 +2401,6 @@ namespace cryptonote
   const command_line::arg_descriptor<bool> core_rpc_server::arg_restricted_rpc = {
       "restricted-rpc"
     , "Restrict RPC to view only commands and do not return privacy sensitive data in RPC calls"
-    , false
-    };
-
-  const command_line::arg_descriptor<std::string> core_rpc_server::arg_rpc_ssl = {
-      "rpc-ssl"
-    , "Enable SSL on RPC connections: enabled|disabled|autodetect"
-    , "autodetect"
-    };
-
-  const command_line::arg_descriptor<std::string> core_rpc_server::arg_rpc_ssl_private_key = {
-      "rpc-ssl-private-key"
-    , "Path to a PEM format private key"
-    , ""
-    };
-
-  const command_line::arg_descriptor<std::string> core_rpc_server::arg_rpc_ssl_certificate = {
-      "rpc-ssl-certificate"
-    , "Path to a PEM format certificate"
-    , ""
-    };
-
-  const command_line::arg_descriptor<std::string> core_rpc_server::arg_rpc_ssl_ca_certificates = {
-      "rpc-ssl-ca-certificates"
-    , "Path to file containing concatenated PEM format certificate(s) to replace system CA(s)."
-    };
-
-  const command_line::arg_descriptor<std::vector<std::string>> core_rpc_server::arg_rpc_ssl_allowed_fingerprints = {
-      "rpc-ssl-allowed-fingerprints"
-    , "List of certificate fingerprints to allow"
-  };
-
-  const command_line::arg_descriptor<bool> core_rpc_server::arg_rpc_ssl_allow_any_cert = {
-      "rpc-ssl-allow-any-cert"
-    , "Allow any peer certificate"
     , false
     };
 

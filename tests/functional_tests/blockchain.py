@@ -28,6 +28,7 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+from __future__ import print_function
 import time
 
 """Test daemon blockchain RPC calls
@@ -50,7 +51,7 @@ class BlockchainTest():
         self._test_alt_chains()
 
     def reset(self):
-        print 'Resetting blockchain'
+        print('Resetting blockchain')
         daemon = Daemon()
         daemon.pop_blocks(1000)
         daemon.flush_txpool()
@@ -58,7 +59,7 @@ class BlockchainTest():
     def _test_generateblocks(self, blocks):
         assert blocks >= 2
 
-        print "Test generating", blocks, 'blocks'
+        print("Test generating", blocks, 'blocks')
 
         daemon = Daemon()
 
@@ -182,14 +183,14 @@ class BlockchainTest():
                 for idx in tx.output_indices:
                     assert idx == running_output_index
                     running_output_index += 1
-                res_out = daemon.get_outs([{'amount': 0, 'index': i} for i in tx.output_indices], get_txid = True)
+                res_out = daemon.get_outs([{'amount': 0, 'index': idx} for idx in tx.output_indices], get_txid = True)
                 assert len(res_out.outs) == len(tx.output_indices)
                 for out in res_out.outs:
                     assert len(out.key) == 64
                     assert len(out.mask) == 64
                     assert not out.unlocked
-                    assert out.height == i + 1
-                    assert out.txid == txids[i + 1]
+                    assert out.height == i
+                    assert out.txid == txids[i]
 
         for i in range(height + nblocks - 1):
             res_sum = daemon.get_coinbase_tx_sum(i, 1)
@@ -255,7 +256,7 @@ class BlockchainTest():
             alt_blocks[i] = txid
             nonce += 1
 
-        print 'mining 3 on 1'
+        print('mining 3 on 1')
         # three more on [1]
         chain1 = []
         res = daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 3, prev_block = alt_blocks[1], starting_nonce = nonce)
@@ -275,7 +276,7 @@ class BlockchainTest():
         for txid in alt_blocks:
             assert txid in res.blks_hashes or txid == alt_blocks[1]
 
-        print 'mining 4 on 3'
+        print('mining 4 on 3')
         # 4 more on [3], the chain will reorg when we mine the 4th
         top_block_hash = blk_hash
         prev_block = alt_blocks[3]

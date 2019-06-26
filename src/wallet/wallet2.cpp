@@ -390,8 +390,11 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
   {
     const boost::string_ref real_daemon = boost::string_ref{daemon_address}.substr(0, daemon_address.rfind(':'));
 
+    /* If SSL or proxy is enabled, then a specific cert, CA or fingerprint must
+       be specified. This is specific to the wallet. */
     const bool verification_required =
-      ssl_options.support == epee::net_utils::ssl_support_t::e_ssl_support_enabled || use_proxy;
+      ssl_options.verification != epee::net_utils::ssl_verification_t::none &&
+      (ssl_options.support == epee::net_utils::ssl_support_t::e_ssl_support_enabled || use_proxy);
 
     THROW_WALLET_EXCEPTION_IF(
       verification_required && !ssl_options.has_strong_verification(real_daemon),
@@ -1681,7 +1684,6 @@ void wallet2::scan_output(const cryptonote::transaction &tx, bool miner_tx, cons
   }
 
   THROW_WALLET_EXCEPTION_IF(std::find(outs.begin(), outs.end(), vout_index) != outs.end(), error::wallet_internal_error, "Same output cannot be added twice");
-  outs.push_back(vout_index);
   if (tx_scan_info.money_transfered == 0 && !miner_tx)
   {
     tx_scan_info.money_transfered = tools::decodeRct(tx.rct_signatures, tx_scan_info.received->derivation, vout_index, tx_scan_info.mask, m_account.get_device());
@@ -1694,6 +1696,7 @@ void wallet2::scan_output(const cryptonote::transaction &tx, bool miner_tx, cons
     return;
   }
 
+  outs.push_back(vout_index);
   uint64_t unlock_time = tx.get_unlock_time(vout_index);
 
   tx_money_got_in_out entry = {};
@@ -2023,7 +2026,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
             }
             LOG_PRINT_L0("Received money: " << print_money(td.amount()) << ", with tx: " << txid);
             if (0 != m_callback)
-              m_callback->on_money_received(height, txid, tx, td.m_amount, td.m_subaddr_index);
+              m_callback->on_money_received(height, txid, tx, td.m_amount, td.m_subaddr_index, td.m_tx.unlock_time);
           }
           total_received_1 += amount;
           notify = true;
@@ -2149,7 +2152,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
 
             LOG_PRINT_L0("Received money: " << print_money(td.amount()) << ", with tx: " << txid);
             if (0 != m_callback)
-              m_callback->on_money_received(height, txid, tx, td.m_amount, td.m_subaddr_index);
+              m_callback->on_money_received(height, txid, tx, td.m_amount, td.m_subaddr_index, td.m_tx.unlock_time);
           }
           total_received_1 += extra_amount;
           notify = true;
@@ -8946,6 +8949,7 @@ void wallet2::transfer_selected(const std::vector<cryptonote::tx_destination_ent
   if (needed_money < found_money)
   {
     change_dts.addr = get_subaddress({subaddr_account, 0});
+    change_dts.is_subaddress = subaddr_account != 0;
     change_dts.amount = found_money - needed_money;
   }
 

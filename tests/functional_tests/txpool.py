@@ -28,7 +28,7 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import time
+from __future__ import print_function
 
 """Test txpool
 """
@@ -44,13 +44,13 @@ class TransferTest():
         self.check_txpool()
 
     def reset(self):
-        print 'Resetting blockchain'
+        print('Resetting blockchain')
         daemon = Daemon()
         daemon.pop_blocks(1000)
         daemon.flush_txpool()
 
     def create(self):
-        print 'Creating wallet'
+        print('Creating wallet')
         wallet = Wallet()
         # close the wallet if any, will throw if none is loaded
         try: wallet.close_wallet()
@@ -114,15 +114,16 @@ class TransferTest():
         assert sorted(res.tx_hashes) == sorted(txes.keys())
 
         print('Flushing 2 transactions')
-        daemon.flush_txpool([txes.keys()[1], txes.keys()[3]])
+        txes_keys = list(txes.keys())
+        daemon.flush_txpool([txes_keys[1], txes_keys[3]])
         res = daemon.get_transaction_pool()
         assert len(res.transactions) == txpool_size - 2
-        assert len([x for x in res.transactions if x.id_hash == txes.keys()[1]]) == 0
-        assert len([x for x in res.transactions if x.id_hash == txes.keys()[3]]) == 0
+        assert len([x for x in res.transactions if x.id_hash == txes_keys[1]]) == 0
+        assert len([x for x in res.transactions if x.id_hash == txes_keys[3]]) == 0
 
-        new_keys = txes.keys()
-        new_keys.remove(txes.keys()[1])
-        new_keys.remove(txes.keys()[3])
+        new_keys = list(txes.keys())
+        new_keys.remove(txes_keys[1])
+        new_keys.remove(txes_keys[3])
         res = daemon.get_transaction_pool_hashes()
         assert sorted(res.tx_hashes) == sorted(new_keys)
 

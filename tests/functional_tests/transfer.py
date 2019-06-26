@@ -28,7 +28,7 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import time
+from __future__ import print_function
 import json
 
 """Test simple transfers
@@ -48,13 +48,13 @@ class TransferTest():
         self.sweep_single()
 
     def reset(self):
-        print 'Resetting blockchain'
+        print('Resetting blockchain')
         daemon = Daemon()
         daemon.pop_blocks(1000)
         daemon.flush_txpool()
 
     def create(self):
-        print 'Creating wallets'
+        print('Creating wallets')
         seeds = [
           'velvet lymph giddy number token physics poetry unquoted nibs useful sabotage limits benches lifestyle eden nitrogen anvil fewest avoid batch vials washing fences goat unquoted',
           'peeled mixture ionic radar utopia puddle buying illness nuns gadget river spout cavernous bounced paradise drunk looking cottage jump tequila melting went winter adjust spout',
@@ -297,7 +297,7 @@ class TransferTest():
         assert res.unlocked_balance <= res.balance
         assert res.blocks_to_unlock == 9
 
-        print 'Creating multi out transfer'
+        print('Creating multi out transfer')
 
         self.wallet[0].refresh()
 

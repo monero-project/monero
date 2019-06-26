@@ -601,6 +601,9 @@ void Blockchain::pop_blocks(uint64_t nblocks)
 
   try
   {
+    const uint64_t blockchain_height = m_db->height();
+    if (blockchain_height > 0)
+      nblocks = std::min(nblocks, blockchain_height - 1);
     for (i=0; i < nblocks; ++i)
     {
       pop_block_from_blockchain();
@@ -1407,7 +1410,8 @@ bool Blockchain::create_block_template(block& b, const crypto::hash *from_block,
     // just as we compare it, we'll just use a slightly old template, but
     // this would be the case anyway if we'd lock, and the change happened
     // just after the block template was created
-    if (!memcmp(&miner_address, &m_btc_address, sizeof(cryptonote::account_public_address)) && m_btc_nonce == ex_nonce && m_btc_pool_cookie == m_tx_pool.cookie()) {
+    if (!memcmp(&miner_address, &m_btc_address, sizeof(cryptonote::account_public_address)) && m_btc_nonce == ex_nonce
+      && m_btc_pool_cookie == m_tx_pool.cookie() && m_btc.prev_id == get_tail_id()) {
       MDEBUG("Using cached template");
       m_btc.timestamp = time(NULL); // update timestamp unconditionally
       b = m_btc;
@@ -1971,6 +1975,8 @@ bool Blockchain::handle_get_objects(NOTIFY_REQUEST_GET_OBJECTS::request& arg, NO
     //pack block
     e.block = std::move(bl.first);
   }
+  //get and pack other transactions, if needed
+  get_transactions_blobs(arg.txs, rsp.txs, rsp.missed_ids);
 
   return true;
 }
