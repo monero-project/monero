@@ -22,6 +22,7 @@ Portions Copyright (c) 2012-2013 The Cryptonote developers.
   - [Release staging schedule and protocol](#release-staging-schedule-and-protocol)
   - [Compiling Monero from source](#compiling-monero-from-source)
     - [Dependencies](#dependencies)
+  - [Known issues](#known-issues)
 
 ## Development resources
 
@@ -845,3 +846,10 @@ The output of `mdb_stat -ea <path to blockchain dir>` will indicate inconsistenc
 The output of `mdb_dump -s blocks <path to blockchain dir>` and `mdb_dump -s block_info <path to blockchain dir>` is useful for indicating whether blocks and block_info contain the same keys.
 
 These records are dumped as hex data, where the first line is the key and the second line is the data.
+
+# Known Issues
+
+Because of the nature of the socket-based protocols that drive monero, certain protocol weaknesses are somewhat unavoidable at this time. While these weaknesses can theoretically be fully mitigated, the effort required (the means) may not justify the ends. As such, please consider taking the following precautions if you are a monero node operator:
+
+- Run `monerod` on a "secured" machine. If operational security is not your forte, at a very minimum, have a dedicated a computer running `monerod` and **do not** browse the web, use email clients, or use any other potentially harmful apps on your `monerod` machine. **Do not click links or load URL/MUA content on the same machine**. Doing so may potentially exploit weaknesses in commands which accept "localhost" and "127.0.0.1".
+- If you plan on hosting a public "remote" node, start `monerod` with `--restricted-rpc`. This is a must.
