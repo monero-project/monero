@@ -35,7 +35,6 @@
 #include "cryptonote_core/blockchain.h"
 #include "blockchain_db/blockchain_db.h"
 #include "blockchain_db/lmdb/db_lmdb.h"
-#include "blockchain_db/db_types.h"
 #include "version.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
@@ -441,11 +440,6 @@ int main(int argc, char* argv[])
 
   epee::string_tools::set_module_name_and_folder(argv[0]);
 
-  std::string default_db_type = "lmdb";
-
-  std::string available_dbs = cryptonote::blockchain_db_types(", ");
-  available_dbs = "available: " + available_dbs;
-
   uint32_t log_level = 0;
 
   tools::on_startup();
@@ -455,9 +449,6 @@ int main(int argc, char* argv[])
   po::options_description desc_cmd_only("Command line options");
   po::options_description desc_cmd_sett("Command line options and settings options");
   const command_line::arg_descriptor<std::string> arg_log_level  = {"log-level",  "0-4 or categories", ""};
-  const command_line::arg_descriptor<std::string> arg_database = {
-    "database", available_dbs.c_str(), default_db_type
-  };
   const command_line::arg_descriptor<std::string> arg_db_sync_mode = {
     "db-sync-mode"
   , "Specify sync option, using format [safe|fast|fastest]:[nrecords_per_sync]."
@@ -469,7 +460,6 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_cmd_sett, cryptonote::arg_testnet_on);
   command_line::add_arg(desc_cmd_sett, cryptonote::arg_stagenet_on);
   command_line::add_arg(desc_cmd_sett, arg_log_level);
-  command_line::add_arg(desc_cmd_sett, arg_database);
   command_line::add_arg(desc_cmd_sett, arg_db_sync_mode);
   command_line::add_arg(desc_cmd_sett, arg_copy_pruned_database);
   command_line::add_arg(desc_cmd_only, command_line::arg_help);
@@ -511,18 +501,6 @@ int main(int argc, char* argv[])
   while (boost::ends_with(data_dir, "/") || boost::ends_with(data_dir, "\\"))
     data_dir.pop_back();
 
-  std::string db_type = command_line::get_arg(vm, arg_database);
-  if (!cryptonote::blockchain_valid_db_type(db_type))
-  {
-    MERROR("Invalid database type: " << db_type);
-    return 1;
-  }
-  if (db_type != "lmdb")
-  {
-    MERROR("Unsupported database type: " << db_type << ". Only lmdb is supported");
-    return 1;
-  }
-
   std::string db_sync_mode = command_line::get_arg(vm, arg_db_sync_mode);
   uint64_t db_flags = 0;
   if (!parse_db_sync_mode(db_sync_mode, db_flags))
@@ -552,13 +530,12 @@ int main(int argc, char* argv[])
   {
     core_storage[n].reset(new Blockchain(m_mempool));
 
-    BlockchainDB* db = new_db(db_type);
+    BlockchainDB* db = new_db();
     if (db == NULL)
     {
-      MERROR("Attempted to use non-existent database type: " << db_type);
-      throw std::runtime_error("Attempting to use non-existent database type");
+      MERROR("Failed to initialize a database");
+      throw std::runtime_error("Failed to initialize a database");
     }
-    MDEBUG("database: " << db_type);
 
     if (n == 1)
     {
