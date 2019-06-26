@@ -48,6 +48,7 @@ namespace cryptonote
   {
     hardcoded,
     service_node,
+    count,
   };
 
   struct checkpoint_t
@@ -61,13 +62,7 @@ namespace cryptonote
 
     BEGIN_SERIALIZE()
       FIELD(version)
-      // TODO(doyle): Hmm too lazy to change enum decls around the codebase for now
-      {
-        uint8_t serialized_type = 0;
-        if (W) serialized_type = static_cast<uint8_t>(type);
-        FIELD_N("type", serialized_type);
-        if (!W) type = static_cast<checkpoint_type>(serialized_type);
-      }
+      ENUM_FIELD(type, type < checkpoint_type::count);
       FIELD(height)
       FIELD(block_hash)
       FIELD(signatures)
@@ -125,7 +120,7 @@ namespace cryptonote
      */
     bool add_checkpoint(uint64_t height, const std::string& hash_str);
 
-    bool update_checkpoint(checkpoint_t const &checkpoin);
+    bool update_checkpoint(checkpoint_t const &checkpoint);
 
     /*
        @brief Remove checkpoints that should not be stored persistently, i.e.

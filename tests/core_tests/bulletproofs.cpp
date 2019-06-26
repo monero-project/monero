@@ -239,7 +239,7 @@ bool gen_bp_tx_validation_base::generate_with(std::vector<test_event_entry>& eve
 bool gen_bp_tx_validation_base::check_bp(const cryptonote::transaction &tx, size_t tx_idx, const size_t *sizes, const char *context) const
 {
   DEFINE_TESTS_ERROR_CONTEXT(context);
-  CHECK_TEST_CONDITION(tx.version >= 2);
+  CHECK_TEST_CONDITION(tx.version >= txversion::v2_ringct);
   CHECK_TEST_CONDITION(rct::is_rct_bulletproof(tx.rct_signatures.type));
   size_t n_sizes = 0, n_amounts = 0;
   for (size_t n = 0; n < tx_idx; ++n)

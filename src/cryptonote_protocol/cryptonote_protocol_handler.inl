@@ -647,18 +647,16 @@ namespace cryptonote
       {
         MDEBUG("We have all needed txes for this fluffy block");
 
-        block_complete_entry b;
-        b.block = arg.b.block;
-        b.txs = have_tx;
+        block_complete_entry b = {};
+        b.block                = arg.b.block;
+        b.txs                  = have_tx;
 
         std::vector<block_complete_entry> blocks;
         blocks.push_back(b);
 
 
-        // TODO(doyle): Checkpointing
         std::vector<block> pblocks;
-        std::vector<checkpoint_t> checkpoints;
-        if (!m_core.prepare_handle_incoming_blocks(blocks, pblocks, checkpoints))
+        if (!m_core.prepare_handle_incoming_blocks(blocks, pblocks))
         {
           LOG_PRINT_CCONTEXT_L0("Failure in prepare_handle_incoming_blocks");
           m_core.resume_mine();
@@ -666,7 +664,7 @@ namespace cryptonote
         }
           
         block_verification_context bvc = boost::value_initialized<block_verification_context>();
-        m_core.handle_incoming_block(arg.b.block, pblocks.empty() ? NULL : &pblocks[0], bvc); // got block from handle_notify_new_block
+        m_core.handle_incoming_block(arg.b.block, pblocks.empty() ? NULL : &pblocks[0], bvc, nullptr /*checkpoint*/); // got block from handle_notify_new_block
         if (!m_core.cleanup_handle_incoming_blocks(true))
         {
           LOG_PRINT_CCONTEXT_L0("Failure in cleanup_handle_incoming_blocks");
@@ -752,7 +750,7 @@ namespace cryptonote
 
       if (vvc.m_verification_failed)
       {
-        LOG_PRINT_CCONTEXT_L1("Checkpoint vote verification failed, dropping connection");
+        LOG_PRINT_CCONTEXT_L1("Vote type: " << service_nodes::quorum_type_to_string(it->type) << ", verification failed, dropping connection");
         drop_connection(context, false /*add_fail*/, false /*flush_all_spans i.e. delete cached block data from this peer*/);
         return 1;
       }
@@ -1271,9 +1269,8 @@ namespace cryptonote
             }
           }
 
-          std::vector<checkpoint_t> checkpoints;
           std::vector<block> pblocks;
-          if (!m_core.prepare_handle_incoming_blocks(blocks, pblocks, checkpoints))
+          if (!m_core.prepare_handle_incoming_blocks(blocks, pblocks))
           {
             LOG_ERROR_CCONTEXT("Failure in prepare_handle_incoming_blocks");
             return 1;
@@ -1333,12 +1330,63 @@ namespace cryptonote
             TIME_MEASURE_FINISH(transactions_process_time);
             transactions_process_time_full += transactions_process_time;
 
+            //
+            // NOTE: Checkpoint parsing
+            //
+            checkpoint_t checkpoint_allocated_on_stack_;
+            checkpoint_t *checkpoint = nullptr;
+            if (block_entry.checkpoint.size())
+            {
+              // TODO(doyle): It's wasteful to have to parse the checkpoint to
+              // figure out the height when at some point during the syncing
+              // step we know exactly what height the block entries are for
+
+              if (!t_serializable_object_from_blob(checkpoint_allocated_on_stack_, block_entry.checkpoint))
+              {
+                MERROR("Checkpoint blob available but failed to parse");
+                return false;
+              }
+
+              checkpoint                = &checkpoint_allocated_on_stack_;
+              bool maybe_has_checkpoint = (checkpoint->height % service_nodes::CHECKPOINT_INTERVAL == 0);
+
+              if (!maybe_has_checkpoint)
+              {
+                MERROR("Checkpoint blob given but not expecting a checkpoint at this height");
+                return false;
+              }
+
+              // TODO(doyle): If we are receiving alternative blocks, we won't
+              // have the quorum for the alternative chain meaning we will not
+              // be able to verify the checkpoint. For now always accept
+              // whatever checkpoint we receive
+#if 0
+              std::shared_ptr<const service_nodes::testing_quorum> quorum =
+                  get_testing_quorum(service_nodes::quorum_type::checkpointing, checkpoint.height);
+              if (!quorum)
+              {
+                MERROR(
+                    "Failed to get service node quorum for height: "
+                    << checkpoint.height
+                    << ", quorum should be available as we are syncing the chain and deriving the current relevant quorum");
+                return false;
+              }
+
+              // TODO(doyle): add reasoning, important for sync failures
+              if (!service_nodes::verify_checkpoint(checkpoint, *quorum))
+              {
+                MERROR("Failed to verify checkpoint at height: " << checkpoint.height);
+                return false;
+              }
+#endif
+            }
+
             // process block
 
             TIME_MEASURE_START(block_process_time);
             block_verification_context bvc = boost::value_initialized<block_verification_context>();
 
-            m_core.handle_incoming_block(block_entry.block, pblocks.empty() ? NULL : &pblocks[blockidx], bvc, false); // <--- process block
+            m_core.handle_incoming_block(block_entry.block, pblocks.empty() ? NULL : &pblocks[blockidx], bvc, checkpoint, false); // <--- process block
 
             if(bvc.m_verifivation_failed)
             {
@@ -1384,13 +1432,6 @@ namespace cryptonote
             ++blockidx;
 
           } // each download block
-
-          // TODO(doyle): Horribly incomplete
-          for (checkpoint_t const &checkpoint : checkpoints)
-          {
-            Blockchain &blockchain = m_core.get_blockchain_storage();
-            blockchain.update_checkpoint(checkpoint);
-          }
 
           MDEBUG(context << "Block process time (" << blocks.size() << " blocks, " << num_txs << " txs): " << block_process_time_full + transactions_process_time_full << " (" << transactions_process_time_full << "/" << block_process_time_full << ") ms");
 

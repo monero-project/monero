@@ -4,8 +4,6 @@
 #include "cryptonote_config.h"
 #include "service_node_voting.h"
 
-#include <random>
-
 namespace service_nodes {
   // State change quorums are in charge of policing the network by changing the state of a service
   // node on the network: temporary decommissioning, recommissioning, and permanent deregistration.
@@ -13,7 +11,7 @@ namespace service_nodes {
   constexpr size_t   STATE_CHANGE_MIN_VOTES_TO_CHANGE_STATE  = 7;
   constexpr size_t   STATE_CHANGE_NTH_OF_THE_NETWORK_TO_TEST = 100;
   constexpr size_t   STATE_CHANGE_MIN_NODES_TO_TEST          = 50;
-  constexpr uint64_t STATE_CHANGE_VOTE_LIFETIME              = BLOCKS_EXPECTED_IN_HOURS(2);
+  constexpr uint64_t VOTE_LIFETIME                           = BLOCKS_EXPECTED_IN_HOURS(2);
 
   static_assert(STATE_CHANGE_MIN_VOTES_TO_CHANGE_STATE <= STATE_CHANGE_QUORUM_SIZE, "The number of votes required to kick can't exceed the actual quorum size, otherwise we never kick.");
 
@@ -39,15 +37,17 @@ namespace service_nodes {
 
   static_assert(DECOMMISSION_INITIAL_CREDIT <= DECOMMISSION_MAX_CREDIT, "Initial registration decommission credit cannot be larger than the maximum decommission credit");
 
-  constexpr uint64_t CHECKPOINT_INTERVAL                       = 4;  // Checkpoint every 4 blocks and prune when too old except if (height % CHECKPOINT_STORE_PERSISTENTLY_INTERVAL == 0)
-  constexpr uint64_t CHECKPOINT_STORE_PERSISTENTLY_INTERVAL    = 60; // Persistently store the checkpoints at these intervals
-  constexpr uint64_t CHECKPOINT_VOTE_LIFETIME                  = CHECKPOINT_STORE_PERSISTENTLY_INTERVAL; // Keep the last 60 blocks worth of votes
+  constexpr uint64_t  CHECKPOINT_INTERVAL                    = 4;  // Checkpoint every 4 blocks and prune when too old except if (height % CHECKPOINT_STORE_PERSISTENTLY_INTERVAL == 0)
+  constexpr uint64_t  CHECKPOINT_STORE_PERSISTENTLY_INTERVAL = 60; // Persistently store the checkpoints at these intervals
+  constexpr uint64_t  CHECKPOINT_VOTE_LIFETIME               = CHECKPOINT_STORE_PERSISTENTLY_INTERVAL; // Keep the last 60 blocks worth of votes
 #if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
-  constexpr size_t   CHECKPOINT_QUORUM_SIZE                    = 1;
-  constexpr size_t   CHECKPOINT_MIN_VOTES                      = 1;
+  constexpr ptrdiff_t MIN_TIME_IN_S_BEFORE_VOTING            = 0;
+  constexpr size_t    CHECKPOINT_QUORUM_SIZE                 = 1;
+  constexpr size_t    CHECKPOINT_MIN_VOTES                   = 1;
 #else
-  constexpr size_t   CHECKPOINT_QUORUM_SIZE                    = 20;
-  constexpr size_t   CHECKPOINT_MIN_VOTES                      = 18;
+  constexpr ptrdiff_t MIN_TIME_IN_S_BEFORE_VOTING            = UPTIME_PROOF_MAX_TIME_IN_SECONDS;
+  constexpr size_t    CHECKPOINT_QUORUM_SIZE                 = 20;
+  constexpr size_t    CHECKPOINT_MIN_VOTES                   = 13;
 #endif
 
   static_assert(CHECKPOINT_MIN_VOTES <= CHECKPOINT_QUORUM_SIZE, "The number of votes required to kick can't exceed the actual quorum size, otherwise we never kick.");
@@ -72,12 +72,20 @@ namespace service_nodes {
   constexpr int      MAX_KEY_IMAGES_PER_CONTRIBUTOR   = 1;
   constexpr uint64_t KEY_IMAGE_AWAITING_UNLOCK_HEIGHT = 0;
 
-  constexpr uint64_t STATE_CHANGE_TX_LIFETIME_IN_BLOCKS = STATE_CHANGE_VOTE_LIFETIME;
+  constexpr uint64_t STATE_CHANGE_TX_LIFETIME_IN_BLOCKS = VOTE_LIFETIME;
   constexpr size_t   QUORUM_LIFETIME                    = (6 * STATE_CHANGE_TX_LIFETIME_IN_BLOCKS);
 
 
   using swarm_id_t                         = uint64_t;
   constexpr swarm_id_t UNASSIGNED_SWARM_ID = UINT64_MAX;
+
+  inline quorum_type max_quorum_type_for_hf(uint8_t hf_version)
+  {
+    quorum_type result = (hf_version <= cryptonote::network_version_11_infinite_staking) ? quorum_type::obligations
+                                                                                         : quorum_type::checkpointing;
+    assert(result != quorum_type::count);
+    return result;
+  }
 
   inline uint64_t staking_num_lock_blocks(cryptonote::network_type nettype)
   {
@@ -89,27 +97,12 @@ namespace service_nodes {
     }
   }
 
-  inline uint64_t quorum_vote_lifetime(quorum_type type)
-  {
-    switch (type)
-    {
-      case quorum_type::obligations:   return STATE_CHANGE_VOTE_LIFETIME;
-      case quorum_type::checkpointing: return CHECKPOINT_VOTE_LIFETIME;
-      default:
-      {
-        assert("Unhandled enum type" == 0);
-        return 0;
-      }
-      break;
-    }
-  }
-
 static_assert(STAKING_PORTIONS != UINT64_MAX, "UINT64_MAX is used as the invalid value for failing to calculate the min_node_contribution");
 // return: UINT64_MAX if (num_contributions > the max number of contributions), otherwise the amount in loki atomic units
 uint64_t get_min_node_contribution            (uint8_t version, uint64_t staking_requirement, uint64_t total_reserved, size_t num_contributions);
 uint64_t get_min_node_contribution_in_portions(uint8_t version, uint64_t staking_requirement, uint64_t total_reserved, size_t num_contributions);
 
-uint64_t get_staking_requirement(cryptonote::network_type nettype, uint64_t height, int hf_version);
+uint64_t get_staking_requirement(cryptonote::network_type nettype, uint64_t height, uint8_t hf_version);
 
 uint64_t portions_to_amount(uint64_t portions, uint64_t staking_requirement);
 

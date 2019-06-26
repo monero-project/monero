@@ -881,10 +881,9 @@ public:
     cryptonote::block_verification_context bvc = AUTO_VAL_INIT(bvc);
     cryptonote::blobdata bd = t_serializable_object_to_blob(b);
     std::vector<cryptonote::block> pblocks;
-    std::vector<cryptonote::checkpoint_t> checkpoints;
-    if (m_c.prepare_handle_incoming_blocks(std::vector<cryptonote::block_complete_entry>(1, {bd, {}, {}}), pblocks, checkpoints))
+    if (m_c.prepare_handle_incoming_blocks(std::vector<cryptonote::block_complete_entry>(1, {bd, {}, {}}), pblocks))
     {
-      m_c.handle_incoming_block(bd, &b, bvc);
+      m_c.handle_incoming_block(bd, &b, bvc, nullptr);
       m_c.cleanup_handle_incoming_blocks();
     }
     else
@@ -912,10 +911,9 @@ public:
 
     cryptonote::block_verification_context bvc = AUTO_VAL_INIT(bvc);
     std::vector<cryptonote::block> pblocks;
-    std::vector<cryptonote::checkpoint_t> checkpoints;
-    if (m_c.prepare_handle_incoming_blocks(std::vector<cryptonote::block_complete_entry>(1, {sr_block.data, {}, {}}), pblocks, checkpoints))
+    if (m_c.prepare_handle_incoming_blocks(std::vector<cryptonote::block_complete_entry>(1, {sr_block.data, {}, {}}), pblocks))
     {
-      m_c.handle_incoming_block(sr_block.data, NULL, bvc);
+      m_c.handle_incoming_block(sr_block.data, NULL, bvc, nullptr);
       m_c.cleanup_handle_incoming_blocks();
     }
     else
@@ -1215,7 +1213,7 @@ cryptonote::transaction make_default_registration_tx(std::vector<test_event_entr
 cryptonote::transaction make_deregistration_tx(const std::vector<test_event_entry>& events,
                                                const cryptonote::account_base& account,
                                                const cryptonote::block& head,
-                                               const cryptonote::tx_extra_service_node_deregister& deregister, uint8_t hf_version, uint64_t fee);
+                                               const cryptonote::tx_extra_service_node_state_change& deregister_state_change, uint8_t hf_version, uint64_t fee);
 
 // NOTE(loki): These macros assume hardfork version 7 and are from the old Monero testing code
 #define MAKE_TX_MIX(VEC_EVENTS, TX_NAME, FROM, TO, AMOUNT, NMIX, HEAD)                       \

@@ -398,7 +398,7 @@ bool gen_block_miner_tx_has_no_out::generate(std::vector<test_event_entry>& even
 
   MAKE_MINER_TX_MANUALLY(miner_tx, blk_0);
   miner_tx.vout.clear();
-  miner_tx.version = 1;
+  miner_tx.version = txversion::v1;
 
   block blk_1;
   generator.construct_block_manually(blk_1, blk_0, miner_account, test_generator::bf_miner_tx, 0, 0, 0, crypto::hash(), 0, miner_tx);
@@ -441,7 +441,7 @@ static bool construct_miner_tx_with_extra_output(cryptonote::transaction& tx,
         block_reward -= governance_reward;
     }
 
-    tx.version = 1;
+    tx.version = txversion::v1;
     tx.unlock_time = height + CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW;
 
     /// half of the miner reward goes to the other account 
@@ -521,7 +521,7 @@ bool gen_block_is_too_big::generate(std::vector<test_event_entry>& events) const
 
   // Creating a huge miner_tx, it will have a lot of outs
   MAKE_MINER_TX_MANUALLY(miner_tx, blk_0);
-  miner_tx.version = 1;
+  miner_tx.version = txversion::v1;
   static const size_t tx_out_count = CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V1 / 2;
 
   uint64_t amount = get_outs_money_amount(miner_tx);

@@ -369,12 +369,38 @@ t_command_server::t_command_server(
     );
 
     m_command_lookup.set_handler(
-      "debug_mine_n_blocks", std::bind([rpc_server](std::vector<std::string> const &args) {
-        uint64_t num_blocks = 0;
-        if (args.size() == 2 && epee::string_tools::get_xtype_from_string(num_blocks, args[1]))
-          rpc_server->on_debug_mine_n_blocks(args[0], num_blocks);
-        else
-          std::cout << "Invalid args, expected debug_mine_n_blocks <address> <num_blocks>";
+      "integration_test", std::bind([rpc_server](std::vector<std::string> const &args) {
+        bool valid_cmd = false;
+        if (args.size() == 1)
+        {
+          valid_cmd = true;
+          if (args[0] == "toggle_checkpoint_quorum")
+          {
+            loki::integration_test.disable_checkpoint_quorum = !loki::integration_test.disable_checkpoint_quorum;
+          }
+          else if (args[0] == "toggle_obligation_quorum")
+          {
+            loki::integration_test.disable_obligation_quorum = !loki::integration_test.disable_obligation_quorum;
+          }
+          else
+          {
+            valid_cmd = false;
+          }
+
+          if (valid_cmd) std::cout << args[0] << " toggled";
+        }
+        else if (args.size() == 3)
+        {
+          uint64_t num_blocks = 0;
+          if (args[0] == "debug_mine_n_blocks" && epee::string_tools::get_xtype_from_string(num_blocks, args[2]))
+          {
+            rpc_server->on_debug_mine_n_blocks(args[1], num_blocks);
+            valid_cmd = true;
+          }
+        }
+
+        if (!valid_cmd)
+          std::cout << "integration_test invalid command";
 
         loki::write_redirected_stdout_to_shared_mem();
         return true;
@@ -411,7 +437,7 @@ bool t_command_server::start_handling(std::function<void(void)> exit_handler)
   auto handle_shared_mem_ins_and_outs = [&]()
   {
     // TODO(doyle): Hack, don't hook into input until the daemon has completely initialised, i.e. you can print the status
-    while(!loki::core_is_idle) {}
+    while(!loki::integration_test.core_is_idle) {}
     mlog_set_categories(""); // TODO(doyle): We shouldn't have to do this.
 
     for (;;)

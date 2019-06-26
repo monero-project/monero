@@ -111,6 +111,7 @@ static const hard_fork_record testnet_hard_forks[] =
   { network_version_9_service_nodes,     3, 0, 1533631123 },
   { network_version_10_bulletproofs,     4, 0, 1542681077 },
   { network_version_11_infinite_staking, 5, 0, 1551223964 },
+  { network_version_12_checkpointing,    6, 0, 1551223966 },
 };
 
 static const hard_fork_record stagenet_hard_forks[] =
@@ -133,7 +134,8 @@ Blockchain::Blockchain(tx_memory_pool& tx_pool, service_nodes::service_node_list
   m_difficulty_for_next_block_top_hash(crypto::null_hash),
   m_difficulty_for_next_block(1),
   m_service_node_list(service_node_list),
-  m_btc_valid(false)
+  m_btc_valid(false),
+  m_batch_success(true)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
 }
@@ -365,7 +367,7 @@ bool Blockchain::init(BlockchainDB* db, const network_type nettype, bool offline
   else
   {
     hard_fork_record const *hf_record = mainnet_hard_forks;
-    int hf_record_num_entries         = loki::array_count(mainnet_hard_forks);
+    uint8_t hf_record_num_entries     = loki::array_count(mainnet_hard_forks);
 
     if (m_nettype == TESTNET)
     {
@@ -400,7 +402,7 @@ bool Blockchain::init(BlockchainDB* db, const network_type nettype, bool offline
     block_verification_context bvc = boost::value_initialized<block_verification_context>();
     generate_genesis_block(bl, get_config(m_nettype).GENESIS_TX, get_config(m_nettype).GENESIS_NONCE);
     db_wtxn_guard wtxn_guard(m_db);
-    add_new_block(bl, bvc);
+    add_new_block(bl, bvc, nullptr /*checkpoint*/);
     CHECK_AND_ASSERT_MES(!bvc.m_verifivation_failed, false, "Failed to add genesis block to blockchain");
   }
   // TODO: if blockchain load successful, verify blockchain against both
@@ -595,14 +597,7 @@ void Blockchain::pop_blocks(uint64_t nblocks)
   CRITICAL_REGION_LOCAL(m_tx_pool);
   CRITICAL_REGION_LOCAL1(m_blockchain_lock);
 
-  while (!m_db->batch_start())
-  {
-    m_blockchain_lock.unlock();
-    m_tx_pool.unlock();
-    epee::misc_utils::sleep_no_w(1000);
-    m_tx_pool.lock();
-    m_blockchain_lock.lock();
-  }
+  bool stop_batch = m_db->batch_start();
 
   try
   {
@@ -613,10 +608,18 @@ void Blockchain::pop_blocks(uint64_t nblocks)
   }
   catch (const std::exception& e)
   {
-    LOG_ERROR("Error when popping blocks, only " << i << " blocks are popped: " << e.what());
+    LOG_ERROR("Error when popping blocks after processing " << i << " blocks: " << e.what());
+    if (stop_batch)
+      m_db->batch_abort();
+    return;
   }
 
-  m_db->batch_stop();
+  auto split_height = m_db->height();
+  for (BlockchainDetachedHook* hook : m_blockchain_detached_hooks)
+    hook->blockchain_detached(split_height);
+
+  if (stop_batch)
+    m_db->batch_stop();
 }
 //------------------------------------------------------------------
 // This function tells BlockchainDB to remove the top block from the
@@ -716,7 +719,7 @@ bool Blockchain::reset_and_set_genesis_block(const block& b)
 
   db_wtxn_guard wtxn_guard(m_db);
   block_verification_context bvc = boost::value_initialized<block_verification_context>();
-  add_new_block(b, bvc);
+  add_new_block(b, bvc, nullptr /*checkpoint*/);
   if (!update_next_cumulative_weight_limit())
     return false;
   return bvc.m_added_to_main_chain && !bvc.m_verifivation_failed;
@@ -1076,7 +1079,7 @@ bool Blockchain::switch_to_alternative_blockchain(std::list<blocks_ext_by_hash::
     for (auto& old_ch_ent : disconnected_chain)
     {
       block_verification_context bvc = boost::value_initialized<block_verification_context>();
-      bool r = handle_alternative_block(old_ch_ent, get_block_hash(old_ch_ent), bvc);
+      bool r = handle_alternative_block(old_ch_ent, get_block_hash(old_ch_ent), bvc, false /*has_checkpoint*/);
       if(!r)
       {
         MERROR("Failed to push ex-main chain blocks to alternative chain ");
@@ -1709,7 +1712,7 @@ bool Blockchain::build_alt_chain(const crypto::hash &prev_id, std::list<blocks_e
 // if that chain is long enough to become the main chain and re-org accordingly
 // if so.  If not, we need to hang on to the block in case it becomes part of
 // a long forked chain eventually.
-bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id, block_verification_context& bvc)
+bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id, block_verification_context& bvc, bool has_checkpoint)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
@@ -1721,10 +1724,6 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
     bvc.m_verifivation_failed = true;
     return false;
   }
-  // this basically says if the blockchain is smaller than the first
-  // checkpoint then alternate blocks are allowed.  Alternatively, if the
-  // last checkpoint *before* the end of the current chain is also before
-  // the block to be added, then this is fine.
   if (!m_checkpoints.is_alternative_block_allowed(get_current_blockchain_height(), block_height))
   {
     MERROR_VER("Block with id: " << id << std::endl << " can't be accepted for alternative chain, block height: " << block_height << std::endl << " blockchain height: " << get_current_blockchain_height());
@@ -1769,14 +1768,6 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
       return false;
     }
 
-    bool is_a_checkpoint = false;
-    if(!m_checkpoints.check_block(bei.height, id, &is_a_checkpoint))
-    {
-      LOG_ERROR("CHECKPOINT VALIDATION FAILED");
-      bvc.m_verifivation_failed = true;
-      return false;
-    }
-
     // Check the block's hash against the difficulty target for its alt chain
     difficulty_type current_diff = get_next_difficulty_for_alternative_chain(alt_chain, bei);
     CHECK_AND_ASSERT_MES(current_diff, false, "!!!!!!! DIFFICULTY OVERHEAD !!!!!!!");
@@ -1817,8 +1808,15 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
     CHECK_AND_ASSERT_MES(i_res.second, false, "insertion of new alternative block returned as it already exist");
     alt_chain.push_back(i_res.first);
 
-    // FIXME: is it even possible for a checkpoint to show up not on the main chain?
-    if(is_a_checkpoint)
+    bool is_a_checkpoint = false;
+    if(!has_checkpoint && !m_checkpoints.check_block(bei.height, id, &is_a_checkpoint))
+    {
+      LOG_ERROR("CHECKPOINT VALIDATION FAILED");
+      bvc.m_verifivation_failed = true;
+      return false;
+    }
+
+    if(has_checkpoint || is_a_checkpoint)
     {
       //do reorganize!
       MGINFO_GREEN("###### REORGANIZE on height: " << alt_chain.front()->second.height << " of " << m_db->height() - 1 << ", checkpoint is found in alternative chain on height " << bei.height);
@@ -3130,38 +3128,11 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
         return false;
       }
 
-      if (!service_nodes::verify_tx_state_change(state_change, tvc.m_vote_ctx, *quorum, hf_version))
+      if (!service_nodes::verify_tx_state_change(state_change, get_current_blockchain_height(), tvc.m_vote_ctx, *quorum, hf_version))
       {
         tvc.m_verifivation_failed = true;
         MERROR_VER("tx " << get_transaction_hash(tx) << ": state change tx could not be completely verified reason: " << print_vote_verification_context(tvc.m_vote_ctx));
         return false;
-      }
-
-      // Check if state change is too old or too new to hold onto
-      {
-        const uint64_t curr_height = get_current_blockchain_height();
-        if (state_change.block_height >= curr_height)
-        {
-          LOG_PRINT_L1("Received state change tx for height: " << state_change.block_height
-              << " and service node: "                << state_change.service_node_index
-              << ", is newer than current height: "   << curr_height
-              << " blocks and has been rejected.");
-          tvc.m_vote_ctx.m_invalid_block_height = true;
-          tvc.m_verifivation_failed             = true;
-          return false;
-        }
-
-        uint64_t delta_height = curr_height - state_change.block_height;
-        if (delta_height >= service_nodes::STATE_CHANGE_TX_LIFETIME_IN_BLOCKS)
-        {
-          LOG_PRINT_L1("Received state change tx for height: " << state_change.block_height
-              << " and service node: "                << state_change.service_node_index
-              << ", is older than: "                  << service_nodes::STATE_CHANGE_TX_LIFETIME_IN_BLOCKS
-              << " blocks and has been rejected. The current height is: " << curr_height);
-          tvc.m_vote_ctx.m_invalid_block_height = true;
-          tvc.m_verifivation_failed             = true;
-          return false;
-        }
       }
 
       const uint64_t height                = state_change.block_height;
@@ -3913,6 +3884,7 @@ leave:
     catch (const KEY_IMAGE_EXISTS& e)
     {
       LOG_ERROR("Error adding block with hash: " << id << " to blockchain, what = " << e.what());
+      m_batch_success = false;
       bvc.m_verifivation_failed = true;
       return_tx_to_pool(txs);
       return false;
@@ -3921,6 +3893,7 @@ leave:
     {
       //TODO: figure out the best way to deal with this failure
       LOG_ERROR("Error adding block with hash: " << id << " to blockchain, what = " << e.what());
+      m_batch_success = false;
       bvc.m_verifivation_failed = true;
       return_tx_to_pool(txs);
       return false;
@@ -4105,7 +4078,7 @@ bool Blockchain::update_next_cumulative_weight_limit(uint64_t *long_term_effecti
   return true;
 }
 //------------------------------------------------------------------
-bool Blockchain::add_new_block(const block& bl, block_verification_context& bvc)
+bool Blockchain::add_new_block(const block& bl, block_verification_context& bvc, checkpoint_t const *checkpoint)
 {
 
   LOG_PRINT_L3("Blockchain::" << __func__);
@@ -4121,20 +4094,43 @@ bool Blockchain::add_new_block(const block& bl, block_verification_context& bvc)
     return false;
   }
 
+  if (checkpoint)
+  {
+    checkpoint_t existing_checkpoint;
+    uint64_t block_height = get_block_height(bl);
+    try
+    {
+      if (m_db->get_block_checkpoint(block_height, existing_checkpoint))
+      {
+        if (checkpoint->signatures.size() < existing_checkpoint.signatures.size())
+          checkpoint = nullptr;
+      }
+    }
+    catch (const std::exception &e)
+    {
+      MERROR("Get block checkpoint from DB failed at height: " << block_height << ", what = " << e.what());
+    }
+  }
+
+  bool result = false;
+  rtxn_guard.stop();
   //check that block refers to chain tail
   if(!(bl.prev_id == get_tail_id()))
   {
     //chain switching or wrong block
     bvc.m_added_to_main_chain = false;
-    rtxn_guard.stop();
-    bool r = handle_alternative_block(bl, id, bvc);
+    result = handle_alternative_block(bl, id, bvc, (checkpoint != nullptr));
     m_blocks_txs_check.clear();
-    return r;
     //never relay alternative blocks
   }
+  else
+  {
+    result = handle_block_to_main_chain(bl, id, bvc);
+  }
 
-  rtxn_guard.stop();
-  return handle_block_to_main_chain(bl, id, bvc);
+  if (result && checkpoint)
+    update_checkpoint(*checkpoint);
+  return result;
 }
 //------------------------------------------------------------------
 // returns false if any of the checkpoints loading returns false.
@@ -4242,7 +4238,10 @@ bool Blockchain::cleanup_handle_incoming_blocks(bool force_sync)
 
   try
   {
-    m_db->batch_stop();
+    if (m_batch_success)
+      m_db->batch_stop();
+    else
+      m_db->batch_abort();
     success = true;
   }
   catch (const std::exception &e)
@@ -4466,7 +4465,7 @@ bool Blockchain::calc_batched_governance_reward(uint64_t height, uint64_t &rewar
 //    vs [k_image, output_keys] (m_scan_table). This is faster because it takes advantage of bulk queries
 //    and is threaded if possible. The table (m_scan_table) will be used later when querying output
 //    keys.
-bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete_entry> &blocks_entry, std::vector<block> &blocks, std::vector<checkpoint_t> &checkpoints)
+bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete_entry> &blocks_entry, std::vector<block> &blocks)
 {
   MTRACE("Blockchain::" << __func__);
   TIME_MEASURE_START(prepare);
@@ -4488,8 +4487,6 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
   //  when something uses the pool, which now uses the blockchain and
   //  needs a batch, since a batch could otherwise be active while the
   //  txpool and blockchain locks were not held
-
-  // TODO(doyle): Checkpointing
 
   m_tx_pool.lock();
   CRITICAL_REGION_LOCAL1(m_blockchain_lock);
@@ -4515,39 +4512,7 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
     m_tx_pool.lock();
     m_blockchain_lock.lock();
   }
-
-  // TODO(loki): Always parse checkpoints, but block syncing have a caching
-  // layer that is pretty complicated but would be nice to have an equivalent
-  // for checkpoints.
-
-  // Place parsing before early returns since the caching layer seems to make
-  // this function early return in the common case, so always ensure checkpoints
-  // are parsed out.
-  for (size_t i = 0; i < blocks.size(); i++)
-  {
-    blobdata const &checkpoint_blob = blocks_entry[i].checkpoint;
-    block const &block              = blocks[i];
-    uint64_t block_height           = get_block_height(block);
-    bool maybe_has_checkpoint       = (block_height % service_nodes::CHECKPOINT_INTERVAL == 0);
-
-    if (checkpoint_blob.size() && !maybe_has_checkpoint)
-    {
-      MDEBUG("Checkpoint blob given but not expecting a checkpoint at this height");
-      return false;
-    }
-
-    if (checkpoint_blob.size())
-    {
-      checkpoint_t checkpoint;
-      if (!t_serializable_object_from_blob(checkpoint, checkpoint_blob))
-      {
-        MDEBUG("Checkpoint blob available but failed to parse");
-        return false;
-      }
-
-      checkpoints.push_back(checkpoint);
-    }
-  }
+  m_batch_success = true;
 
   const uint64_t height = m_db->height();
   if ((height + blocks_entry.size()) < m_blocks_hash_check.size())

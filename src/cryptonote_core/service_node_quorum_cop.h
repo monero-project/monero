@@ -63,6 +63,8 @@ namespace service_nodes
   struct quorum_manager
   {
     std::shared_ptr<const testing_quorum> obligations;
+    // TODO(doyle): Validators aren't used, but I kept this as a testing_quorum
+    // to avoid drastic changes for now to a lot of the service node API
     std::shared_ptr<const testing_quorum> checkpointing;
   };
 
