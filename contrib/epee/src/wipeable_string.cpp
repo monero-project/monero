@@ -62,13 +62,15 @@ wipeable_string::wipeable_string(wipeable_string &&other)
 wipeable_string::wipeable_string(const std::string &other)
 {
   grow(other.size());
-  memcpy(buffer.data(), other.c_str(), size());
+  if (size() > 0)
+    memcpy(buffer.data(), other.c_str(), size());
 }
 
 wipeable_string::wipeable_string(std::string &&other)
 {
   grow(other.size());
-  memcpy(buffer.data(), other.c_str(), size());
+  if (size() > 0)
+    memcpy(buffer.data(), other.c_str(), size());
   if (!other.empty())
   {
     memwipe(&other[0], other.size()); // we're kinda left with this again aren't we
@@ -79,7 +81,8 @@ wipeable_string::wipeable_string(std::string &&other)
 wipeable_string::wipeable_string(const char *s)
 {
   grow(strlen(s));
-  memcpy(buffer.data(), s, size());
+  if (size() > 0)
+    memcpy(buffer.data(), s, size());
 }
 
 wipeable_string::wipeable_string(const char *s, size_t len)
@@ -112,14 +115,18 @@ void wipeable_string::grow(size_t sz, size_t reserved)
   }
   size_t old_sz = buffer.size();
   std::unique_ptr<char[]> tmp{new char[old_sz]};
-  memcpy(tmp.get(), buffer.data(), old_sz * sizeof(char));
   if (old_sz > 0)
+  {
+    memcpy(tmp.get(), buffer.data(), old_sz * sizeof(char));
     memwipe(buffer.data(), old_sz * sizeof(char));
+  }
   buffer.reserve(reserved);
   buffer.resize(sz);
-  memcpy(buffer.data(), tmp.get(), old_sz * sizeof(char));
   if (old_sz > 0)
+  {
+    memcpy(buffer.data(), tmp.get(), old_sz * sizeof(char));
     memwipe(tmp.get(), old_sz * sizeof(char));
+  }
 }
 
 void wipeable_string::push_back(char c)
