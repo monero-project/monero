@@ -1275,7 +1275,7 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
       return false;
     }
 
-    const auto min_version = transaction::get_min_version_for_hf(version, nettype());
+    const auto min_version = transaction::get_min_version_for_hf(version, nettype(), true /*miner_tx*/);
     const auto max_version = transaction::get_max_version_for_hf(version, nettype());
     if (b.miner_tx.version < min_version || b.miner_tx.version > max_version)
     {

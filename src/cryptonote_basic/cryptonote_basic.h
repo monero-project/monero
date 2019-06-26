@@ -179,7 +179,7 @@ namespace cryptonote
     static char const *version_to_string(txversion v);
     static char const *type_to_string(txtype type);
 
-    static txversion get_min_version_for_hf(int hf_version, cryptonote::network_type nettype = MAINNET);
+    static txversion get_min_version_for_hf(int hf_version, cryptonote::network_type nettype = MAINNET, bool miner_tx = false);
     static txversion get_max_version_for_hf(int hf_version, cryptonote::network_type nettype = MAINNET);
 
     // tx information
@@ -550,12 +550,15 @@ namespace cryptonote
     return txversion::v4_tx_types;
   }
 
-  inline enum txversion transaction_prefix::get_min_version_for_hf(int hf_version, cryptonote::network_type nettype)
+  inline enum txversion transaction_prefix::get_min_version_for_hf(int hf_version, cryptonote::network_type nettype, bool miner_tx)
   {
     nettype = validate_nettype(nettype);
     if (nettype == MAINNET) // NOTE(loki): Add an exception for mainnet as there are v2's on mainnet.
     {
       if (hf_version == cryptonote::network_version_10_bulletproofs)
+        return txversion::v2_ringct;
+
+      if (miner_tx && hf_version <= cryptonote::network_version_12_checkpointing) // NOTE: Merge mining
         return txversion::v2_ringct;
     }
 
