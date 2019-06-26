@@ -225,7 +225,7 @@ int check_flush(cryptonote::core &core, std::vector<block_complete_entry> &block
 
     // process block
 
-    block_verification_context bvc = boost::value_initialized<block_verification_context>();
+    block_verification_context bvc = {};
 
     core.handle_incoming_block(block_entry.block, pblocks.empty() ? NULL : &pblocks[blockidx++], bvc, false); // <--- process block
 

@@ -100,7 +100,7 @@ namespace cryptonote
 
 
   miner::miner(i_miner_handler* phandler):m_stop(1),
-    m_template(boost::value_initialized<block>()),
+    m_template(block{}),
     m_template_no(0),
     m_diffic(0),
     m_thread_index(0),
