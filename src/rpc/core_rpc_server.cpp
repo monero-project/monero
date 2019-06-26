@@ -2687,7 +2687,7 @@ namespace cryptonote
   bool core_rpc_server::on_get_all_service_nodes_keys(const COMMAND_RPC_GET_ALL_SERVICE_NODES_KEYS::request& req, COMMAND_RPC_GET_ALL_SERVICE_NODES_KEYS::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx)
   {
     std::vector<crypto::public_key> keys;
-    m_core.get_all_service_nodes_public_keys(keys, req.fully_funded_nodes_only);
+    m_core.get_all_service_nodes_public_keys(keys, req.active_nodes_only);
 
     res.keys.clear();
     res.keys.resize(keys.size());
@@ -2800,10 +2800,10 @@ namespace cryptonote
   {
     std::vector<service_nodes::service_node_pubkey_info> sn_infos = m_core.get_service_node_list_state({});
 
-    if (req.fully_funded_only) {
+    if (req.active_only) {
       const auto end =
         std::remove_if(sn_infos.begin(), sn_infos.end(), [](const service_nodes::service_node_pubkey_info& snpk_info) {
-          return !snpk_info.info.is_fully_funded();
+          return !snpk_info.info.is_active();
         });
       
       sn_infos.erase(end, sn_infos.end());

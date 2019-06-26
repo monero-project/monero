@@ -1250,7 +1250,7 @@ namespace service_nodes
     auto oldest_waiting = std::pair<uint64_t, uint32_t>(std::numeric_limits<uint64_t>::max(), std::numeric_limits<uint32_t>::max());
     crypto::public_key key = crypto::null_pkey;
     for (const auto& info : m_transient_state.service_nodes_infos)
-      if (info.second.is_fully_funded())
+      if (info.second.is_active())
       {
         auto waiting_since = std::make_pair(info.second.last_reward_block_height, info.second.last_reward_transaction_index);
         if (waiting_since < oldest_waiting)
