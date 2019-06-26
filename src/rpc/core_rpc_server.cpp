@@ -1509,7 +1509,7 @@ namespace cryptonote
     template_req.reserve_size = 1;
     template_req.wallet_address = req.wallet_address;
     template_req.prev_block = req.prev_block;
-    submit_req.push_back(boost::value_initialized<std::string>());
+    submit_req.push_back(std::string{});
     res.height = m_core.get_blockchain_storage().get_current_blockchain_height();
 
     for(size_t i = 0; i < req.amount_of_blocks; i++)

@@ -134,7 +134,7 @@ namespace cryptonote
 
     if(context.m_state == cryptonote_connection_context::state_synchronizing)
     {
-      NOTIFY_REQUEST_CHAIN::request r = boost::value_initialized<NOTIFY_REQUEST_CHAIN::request>();
+      NOTIFY_REQUEST_CHAIN::request r = {};
       context.m_needed_objects.clear();
       m_core.get_short_chain_history(r.block_ids);
       handler_request_blocks_history( r.block_ids ); // change the limit(?), sleep(?)
@@ -426,7 +426,7 @@ namespace cryptonote
     template<class t_core>
     bool t_cryptonote_protocol_handler<t_core>::get_payload_sync_data(blobdata& data)
   {
-    CORE_SYNC_DATA hsd = boost::value_initialized<CORE_SYNC_DATA>();
+    CORE_SYNC_DATA hsd = {};
     get_payload_sync_data(hsd);
     epee::serialization::store_t_to_binary(hsd, data);
     return true;
@@ -468,7 +468,7 @@ namespace cryptonote
       }
     }
 
-    block_verification_context bvc = boost::value_initialized<block_verification_context>();
+    block_verification_context bvc = {};
     m_core.handle_incoming_block(arg.b.block, pblocks.empty() ? NULL : &pblocks[0], bvc); // got block from handle_notify_new_block
     if (!m_core.cleanup_handle_incoming_blocks(true))
     {
@@ -491,7 +491,7 @@ namespace cryptonote
     {
       context.m_needed_objects.clear();
       context.m_state = cryptonote_connection_context::state_synchronizing;
-      NOTIFY_REQUEST_CHAIN::request r = boost::value_initialized<NOTIFY_REQUEST_CHAIN::request>();
+      NOTIFY_REQUEST_CHAIN::request r = {};
       m_core.get_short_chain_history(r.block_ids);
       handler_request_blocks_history( r.block_ids ); // change the limit(?), sleep(?)
       MLOG_P2P_MESSAGE("-->>NOTIFY_REQUEST_CHAIN: m_block_ids.size()=" << r.block_ids.size() );
@@ -740,7 +740,7 @@ namespace cryptonote
           return 1;
         }
           
-        block_verification_context bvc = boost::value_initialized<block_verification_context>();
+        block_verification_context bvc = {};
         m_core.handle_incoming_block(arg.b.block, pblocks.empty() ? NULL : &pblocks[0], bvc); // got block from handle_notify_new_block
         if (!m_core.cleanup_handle_incoming_blocks(true))
         {
@@ -768,7 +768,7 @@ namespace cryptonote
         {
           context.m_needed_objects.clear();
           context.m_state = cryptonote_connection_context::state_synchronizing;
-          NOTIFY_REQUEST_CHAIN::request r = boost::value_initialized<NOTIFY_REQUEST_CHAIN::request>();
+          NOTIFY_REQUEST_CHAIN::request r = {};
           m_core.get_short_chain_history(r.block_ids);
           handler_request_blocks_history( r.block_ids ); // change the limit(?), sleep(?)
           MLOG_P2P_MESSAGE("-->>NOTIFY_REQUEST_CHAIN: m_block_ids.size()=" << r.block_ids.size() );
@@ -1306,7 +1306,7 @@ namespace cryptonote
             // process block
 
             TIME_MEASURE_START(block_process_time);
-            block_verification_context bvc = boost::value_initialized<block_verification_context>();
+            block_verification_context bvc = {};
 
             m_core.handle_incoming_block(block_entry.block, pblocks.empty() ? NULL : &pblocks[blockidx], bvc, false); // <--- process block
 
@@ -2010,7 +2010,7 @@ skip:
     if(context.m_last_response_height < context.m_remote_blockchain_height-1)
     {//we have to fetch more objects ids, request blockchain entry
 
-      NOTIFY_REQUEST_CHAIN::request r = boost::value_initialized<NOTIFY_REQUEST_CHAIN::request>();
+      NOTIFY_REQUEST_CHAIN::request r = {};
       m_core.get_short_chain_history(r.block_ids);
       CHECK_AND_ASSERT_MES(!r.block_ids.empty(), false, "Short chain history is empty");
 

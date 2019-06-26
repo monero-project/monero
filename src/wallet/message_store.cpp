@@ -699,7 +699,7 @@ void message_store::write_to_file(const multisig_wallet_state &state, const std:
   crypto::chacha_key key;
   crypto::generate_chacha_key(&state.view_secret_key, sizeof(crypto::secret_key), key, 1);
 
-  file_data write_file_data = boost::value_initialized<file_data>();
+  file_data write_file_data = {};
   write_file_data.magic_string = "MMS";
   write_file_data.file_version = 0;
   write_file_data.iv = crypto::rand<crypto::chacha_iv>();
