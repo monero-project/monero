@@ -66,15 +66,11 @@ namespace {
     time(&now);
     time_t last_seen = static_cast<time_t>(peer.last_seen);
 
-    std::string id_str;
+    std::string elapsed = epee::misc_utils::get_time_interval_string(now - last_seen);
+    std::string id_str = epee::string_tools::pad_string(epee::string_tools::to_string_hex(peer.id), 16, '0', true);
     std::string port_str;
-    std::string elapsed = peer.last_seen == 0 ? "never" : epee::misc_utils::get_time_interval_string(now - last_seen);
-    std::string ip_str = peer.ip != 0 ? epee::string_tools::get_ip_string_from_int32(peer.ip) : std::string("[") + peer.host + "]";
-    std::stringstream peer_id_str;
-    peer_id_str << std::hex << std::setw(16) << peer.id;
-    peer_id_str >> id_str;
     epee::string_tools::xtype_to_string(peer.port, port_str);
-    std::string addr_str = ip_str + ":" + port_str;
+    std::string addr_str = peer.host + ":" + port_str;
     std::string rpc_port = peer.rpc_port ? std::to_string(peer.rpc_port) : "-";
     std::string pruning_seed = epee::string_tools::to_string_hex(peer.pruning_seed);
     tools::msg_writer() << boost::format("%-10s %-25s %-25s %-5s %-4s %s") % prefix % id_str % addr_str % rpc_port % pruning_seed % elapsed;
@@ -222,6 +218,9 @@ bool t_rpc_command_executor::print_peer_list_stats() {
   cryptonote::COMMAND_RPC_GET_PEER_LIST::response res;
 
   std::string failure_message = "Couldn't retrieve peer list";
+
+  req.public_only = false;
+
   if (m_is_rpc)
   {
     if (!m_rpc_client->rpc_request(req, res, "/get_peer_list", failure_message.c_str()))
