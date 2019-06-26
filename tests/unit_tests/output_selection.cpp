@@ -172,7 +172,7 @@ TEST(select_outputs, density)
     float chain_ratio = count_chain / (float)n_outs;
     MDEBUG(count_selected << "/" << NPICKS << " outputs selected in blocks of density " << d << ", " << 100.0f * selected_ratio << "%");
     MDEBUG(count_chain << "/" << offsets.size() << " outputs in blocks of density " << d << ", " << 100.0f * chain_ratio << "%");
-    ASSERT_LT(fabsf(selected_ratio - chain_ratio), 0.02f);
+    ASSERT_LT(fabsf(selected_ratio - chain_ratio), 0.025f);
   }
 }
 

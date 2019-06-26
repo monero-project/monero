@@ -40,6 +40,7 @@
 
 #include "daemon/rpc_command_executor.h"
 #include "common/common_fwd.h"
+#include "net/net_fwd.h"
 #include "rpc/core_rpc_server.h"
 
 namespace daemonize {
@@ -53,6 +54,7 @@ public:
       uint32_t ip
     , uint16_t port
     , const boost::optional<tools::login>& login
+    , const epee::net_utils::ssl_options_t& ssl_options
     , bool is_rpc
     , cryptonote::core_rpc_server* rpc_server = NULL
     );
