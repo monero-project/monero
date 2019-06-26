@@ -139,7 +139,7 @@ TEST(service_nodes, vote_validation)
 
   // Valid vote
   uint64_t block_height = 70;
-  service_nodes::quorum_vote_t valid_vote = service_nodes::make_deregister_vote(block_height, voter_index, 1 /*worker_index*/, service_node_voter.pub, service_node_voter.sec);
+  service_nodes::quorum_vote_t valid_vote = service_nodes::make_state_change_vote(block_height, voter_index, 1 /*worker_index*/, service_nodes::new_state::decommission, service_node_voter.pub, service_node_voter.sec);
   {
     cryptonote::vote_verification_context vvc = {};
     bool result = service_nodes::verify_vote(valid_vote, block_height, vvc, state);
@@ -162,9 +162,9 @@ TEST(service_nodes, vote_validation)
 
   // Voters worker index out of bounds
   {
-    auto vote                    = valid_vote;
-    vote.deregister.worker_index = state.workers.size() + 10;
-    vote.signature               = service_nodes::make_signature_from_vote(vote, service_node_voter.pub, service_node_voter.sec);
+    auto vote                      = valid_vote;
+    vote.state_change.worker_index = state.workers.size() + 10;
+    vote.signature = service_nodes::make_signature_from_vote(vote, service_node_voter.pub, service_node_voter.sec);
 
     cryptonote::vote_verification_context vvc = {};
     bool result = service_nodes::verify_vote(vote, block_height, vvc, state);
@@ -197,7 +197,7 @@ TEST(service_nodes, vote_validation)
   }
 }
 
-TEST(service_nodes, tx_extra_deregister_validation)
+TEST(service_nodes, tx_extra_state_change_validation)
 {
   // Generate a quorum and the voter
   const size_t num_voters = 10;
@@ -216,76 +216,94 @@ TEST(service_nodes, tx_extra_deregister_validation)
     }
   }
 
-  // Valid deregister
-  cryptonote::tx_extra_service_node_deregister valid_deregister = {};
+  // Valid state_change
+  cryptonote::tx_extra_service_node_state_change valid_state_change = {};
+  uint8_t hf_version = cryptonote::network_version_11_infinite_staking;
+  const uint64_t HEIGHT = 100;
   {
-    valid_deregister.block_height       = 10;
-    valid_deregister.service_node_index = 1;
-    valid_deregister.votes.reserve(num_voters);
+    valid_state_change.block_height       = HEIGHT - 1;
+    valid_state_change.service_node_index = 1;
+    valid_state_change.votes.reserve(num_voters);
     for (size_t i = 0; i < num_voters; ++i)
     {
       cryptonote::keypair const *voter                        = voters + i;
-      cryptonote::tx_extra_service_node_deregister::vote vote = {};
+      cryptonote::tx_extra_service_node_state_change::vote vote = {};
       vote.validator_index                                    = i;
-      vote.signature = service_nodes::make_signature_from_tx_deregister(valid_deregister, voter->pub, voter->sec);
-      valid_deregister.votes.push_back(vote);
+      vote.signature = service_nodes::make_signature_from_tx_state_change(valid_state_change, voter->pub, voter->sec);
+      valid_state_change.votes.push_back(vote);
     }
 
     cryptonote::vote_verification_context vvc = {};
-    bool result = service_nodes::verify_tx_deregister(valid_deregister, vvc, state);
+    bool result = service_nodes::verify_tx_state_change(valid_state_change, HEIGHT, vvc, state, hf_version);
     if (!result)
       printf("%s\n", cryptonote::print_vote_verification_context(vvc));
     ASSERT_TRUE(result);
   }
 
-  // Deregister has insufficient votes
+  // State Change has insufficient votes
   {
-    auto deregister = valid_deregister;
-    while (deregister.votes.size() >= service_nodes::DEREGISTER_MIN_VOTES_TO_KICK_SERVICE_NODE)
-      deregister.votes.pop_back();
+    auto state_change = valid_state_change;
+    while (state_change.votes.size() >= service_nodes::STATE_CHANGE_MIN_VOTES_TO_CHANGE_STATE)
+      state_change.votes.pop_back();
 
     cryptonote::vote_verification_context vvc = {};
-    bool result = service_nodes::verify_tx_deregister(deregister, vvc, state);
+    bool result = service_nodes::verify_tx_state_change(state_change, HEIGHT, vvc, state, hf_version);
     ASSERT_FALSE(result);
   }
 
-  // Deregister has duplicated voter
+  // State Change has duplicated voter
   {
-    auto deregister     = valid_deregister;
-    deregister.votes[0] = deregister.votes[1];
+    auto state_change     = valid_state_change;
+    state_change.votes[0] = state_change.votes[1];
 
     cryptonote::vote_verification_context vvc = {};
-    bool result = service_nodes::verify_tx_deregister(deregister, vvc, state);
+    bool result = service_nodes::verify_tx_state_change(state_change, HEIGHT, vvc, state, hf_version);
     ASSERT_FALSE(result);
   }
 
-  // Deregister has one voter with invalid signature
+  // State Change has one voter with invalid signature
   {
-    auto deregister               = valid_deregister;
-    deregister.votes[0].signature = deregister.votes[1].signature;
+    auto state_change               = valid_state_change;
+    state_change.votes[0].signature = state_change.votes[1].signature;
 
     cryptonote::vote_verification_context vvc = {};
-    bool result = service_nodes::verify_tx_deregister(deregister, vvc, state);
+    bool result = service_nodes::verify_tx_state_change(state_change, HEIGHT, vvc, state, hf_version);
     ASSERT_FALSE(result);
   }
 
-  // Deregister has one voter with index out of bounds
+  // State Change has one voter with index out of bounds
   {
-    auto deregister                     = valid_deregister;
-    deregister.votes[0].validator_index = state.validators.size() + 10;
+    auto state_change                     = valid_state_change;
+    state_change.votes[0].validator_index = state.validators.size() + 10;
 
     cryptonote::vote_verification_context vvc = {};
-    bool result = service_nodes::verify_tx_deregister(deregister, vvc, state);
+    bool result = service_nodes::verify_tx_state_change(state_change, HEIGHT, vvc, state, hf_version);
     ASSERT_FALSE(result);
   }
 
-  // Deregister service node index is out of bounds
+  // State Change service node index is out of bounds
   {
-    auto deregister               = valid_deregister;
-    deregister.service_node_index = state.workers.size() + 10;
+    auto state_change               = valid_state_change;
+    state_change.service_node_index = state.workers.size() + 10;
 
     cryptonote::vote_verification_context vvc = {};
-    bool result = service_nodes::verify_tx_deregister(deregister, vvc, state);
+    bool result = service_nodes::verify_tx_state_change(state_change, HEIGHT, vvc, state, hf_version);
+    ASSERT_FALSE(result);
+  }
+
+  // State Change too old
+  {
+    auto state_change                         = valid_state_change;
+    cryptonote::vote_verification_context vvc = {};
+    bool result                               = service_nodes::verify_tx_state_change(state_change, 0, vvc, state, hf_version);
+    ASSERT_FALSE(result);
+  }
+
+  // State Change too new
+  {
+    auto state_change                         = valid_state_change;
+    cryptonote::vote_verification_context vvc = {};
+    bool result                               = service_nodes::verify_tx_state_change(state_change, HEIGHT + 1000, vvc, state, hf_version);
     ASSERT_FALSE(result);
   }
 }

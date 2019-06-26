@@ -2827,7 +2827,7 @@ bool t_rpc_command_executor::prepare_registration()
 
   // Query the latest known block height and nettype
   uint64_t block_height            = 0;
-  int hf_version                   = cryptonote::network_version_9_service_nodes;
+  uint8_t hf_version               = cryptonote::network_version_9_service_nodes;
   cryptonote::network_type nettype = cryptonote::UNDEFINED;
   {
     cryptonote::COMMAND_RPC_GET_INFO::request req;

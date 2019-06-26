@@ -256,7 +256,7 @@ TEST(bulletproof, weight_equal)
   cryptonote::transaction tx;
   crypto::hash tx_hash, tx_prefix_hash;
   ASSERT_TRUE(parse_and_validate_tx_from_blob(bd, tx, tx_hash, tx_prefix_hash));
-  ASSERT_TRUE(tx.version == 2);
+  ASSERT_TRUE(tx.version == cryptonote::txversion::v2_ringct);
   ASSERT_TRUE(rct::is_rct_bulletproof(tx.rct_signatures.type));
   const uint64_t tx_size = bd.size();
   const uint64_t tx_weight = cryptonote::get_transaction_weight(tx);
@@ -271,7 +271,7 @@ TEST(bulletproof, weight_more)
   cryptonote::transaction tx;
   crypto::hash tx_hash, tx_prefix_hash;
   ASSERT_TRUE(parse_and_validate_tx_from_blob(bd, tx, tx_hash, tx_prefix_hash));
-  ASSERT_TRUE(tx.version == 2);
+  ASSERT_TRUE(tx.version == cryptonote::txversion::v2_ringct);
   ASSERT_TRUE(rct::is_rct_bulletproof(tx.rct_signatures.type));
   const uint64_t tx_size = bd.size();
   const uint64_t tx_weight = cryptonote::get_transaction_weight(tx);

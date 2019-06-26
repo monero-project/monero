@@ -105,7 +105,7 @@ namespace cryptonote
       }
       void commit() { try { if (m_batch && m_active) { m_blockchain.get_db().batch_stop(); m_active = false; } } catch (const std::exception &e) { MWARNING("LockedTXN::commit filtering exception: " << e.what()); } }
       void abort() { try { if (m_batch && m_active) { m_blockchain.get_db().batch_abort(); m_active = false; } } catch (const std::exception &e) { MWARNING("LockedTXN::abort filtering exception: " << e.what()); } }
-      ~LockedTXN() { abort(); }
+      ~LockedTXN() { this->abort(); }
     private:
       Blockchain &m_blockchain;
       bool m_batch;

@@ -197,7 +197,7 @@ cryptonote::block linear_chain_generator::create_block_on_fork(const cryptonote:
 
 QuorumState linear_chain_generator::get_quorum_idxs(const cryptonote::block& block) const
 {
-  if (sn_list_.size() <= service_nodes::DEREGISTER_QUORUM_SIZE) {
+  if (sn_list_.size() <= service_nodes::STATE_CHANGE_QUORUM_SIZE) {
     std::cerr << "Not enough service nodes\n";
     return {};
   }
@@ -213,16 +213,16 @@ QuorumState linear_chain_generator::get_quorum_idxs(const cryptonote::block& blo
       pub_keys_indexes[i] = i;
     }
 
-    service_nodes::loki_shuffle(pub_keys_indexes, seed);
+    service_nodes::loki_shuffle(pub_keys_indexes.begin(), pub_keys_indexes.end(), seed);
   }
 
   QuorumState quorum;
 
-  for (auto i = 0u; i < service_nodes::DEREGISTER_QUORUM_SIZE; ++i) {
+  for (auto i = 0u; i < service_nodes::STATE_CHANGE_QUORUM_SIZE; ++i) {
     quorum.voters.push_back({ sn_list_.at(pub_keys_indexes[i]).keys.pub, i });
   }
 
-  for (auto i = service_nodes::DEREGISTER_QUORUM_SIZE; i < pub_keys_indexes.size(); ++i) {
+  for (auto i = service_nodes::STATE_CHANGE_QUORUM_SIZE; i < pub_keys_indexes.size(); ++i) {
     quorum.to_test.push_back({ sn_list_.at(pub_keys_indexes[i]).keys.pub, i });
   }
 
@@ -279,16 +279,11 @@ cryptonote::transaction linear_chain_generator::create_deregister_tx(const crypt
                                                                      uint64_t fee,
                                                                      bool commit)
 {
-
-  cryptonote::tx_extra_service_node_deregister deregister;
-  deregister.block_height = height;
-
   const auto idx = get_idx_in_tested(pk, height);
 
   if (!idx) { MERROR("service node could not be found in the servcie node list"); throw std::exception(); }
 
-  deregister.service_node_index = *idx; /// idx inside nodes to test
-
+  cryptonote::tx_extra_service_node_state_change deregister(service_nodes::new_state::deregister, height, *idx);
   /// need to create DEREGISTER_MIN_VOTES_TO_KICK_SERVICE_NODE (7) votes
   for (const auto voter : voters) {
 
@@ -299,7 +294,7 @@ cryptonote::transaction linear_chain_generator::create_deregister_tx(const crypt
     const auto pk = reg->keys.pub;
     const auto sk = reg->keys.sec;
 
-    service_nodes::quorum_vote_t deregister_vote = service_nodes::make_deregister_vote(deregister.block_height, voter.idx_in_quorum, deregister.service_node_index, pk, sk);
+    service_nodes::quorum_vote_t deregister_vote = service_nodes::make_state_change_vote(deregister.block_height, voter.idx_in_quorum, deregister.service_node_index, service_nodes::new_state::deregister, pk, sk);
     deregister.votes.push_back({ deregister_vote.signature, (uint32_t)voter.idx_in_quorum });
   }
 
@@ -324,7 +319,7 @@ boost::optional<uint32_t> linear_chain_generator::get_idx_in_tested(const crypto
   const auto& to_test = get_quorum_idxs(height).to_test;
 
   for (const auto& sn : to_test) {
-    if (sn.sn_pk == pk) return sn.idx_in_quorum - service_nodes::DEREGISTER_QUORUM_SIZE;
+    if (sn.sn_pk == pk) return sn.idx_in_quorum - service_nodes::STATE_CHANGE_QUORUM_SIZE;
   }
 
   return boost::none;
@@ -716,14 +711,14 @@ cryptonote::transaction make_registration_tx(std::vector<test_event_entry>& even
 cryptonote::transaction make_deregistration_tx(const std::vector<test_event_entry>& events,
                                                const cryptonote::account_base& account,
                                                const cryptonote::block& head,
-                                               const cryptonote::tx_extra_service_node_deregister& deregister,
+                                               const cryptonote::tx_extra_service_node_state_change& deregister_state_change,
                                                uint8_t hf_version,
                                                uint64_t fee)
 {
   cryptonote::transaction tx;
 
   std::vector<uint8_t> extra;
-  const bool full_tx_deregister_made = cryptonote::add_service_node_deregister_to_tx_extra(tx.extra, deregister);
+  const bool full_tx_deregister_made = cryptonote::add_service_node_state_change_to_tx_extra(tx.extra, deregister_state_change, hf_version);
 
   if (!full_tx_deregister_made) {
     MERROR("Could not add deregister to extra");
@@ -735,7 +730,7 @@ cryptonote::transaction make_deregistration_tx(const std::vector<test_event_entr
   if (fee) TxBuilder(events, tx, head, account, account, amount, hf_version).with_fee(fee).with_extra(extra).with_per_output_unlock(true).build();
 
   tx.version = cryptonote::transaction::get_max_version_for_hf(hf_version, cryptonote::FAKECHAIN);
-  tx.type = cryptonote::transaction::type_deregister;
+  tx.type    = cryptonote::txtype::state_change;
 
   return tx;
 }
@@ -838,12 +833,12 @@ bool init_output_indices(std::vector<output_index>& outs, std::vector<size_t>& o
                     const auto height = boost::get<txin_gen>(*blk.miner_tx.vin.begin()).height; /// replace with front?
 
                     output_index oi(out.target, out.amount, height, i, j, &blk, vtx[i]);
-                    oi.unlock_time            = (tx.version < 3) ? tx.unlock_time : tx.output_unlock_times[j];
+                    oi.unlock_time            = (tx.version < txversion::v3_per_output_unlock_times) ? tx.unlock_time : tx.output_unlock_times[j];
                     oi.idx                    = outs.size();
                     oi.mask                   = rct::zeroCommit(out.amount);
                     oi.is_coin_base           = (i == 0);
                     oi.deterministic_key_pair = false;
-                    oi.set_rct(tx.version >= 2);
+                    oi.set_rct(tx.version >= txversion::v2_ringct);
 
                     const auto gov_key          = cryptonote::get_deterministic_keypair_from_height(height);
                     bool account_received_money = is_out_to_acc(from.get_keys(), boost::get<txout_to_key>(out.target), gov_key.pub, {}, j);
@@ -1139,7 +1134,7 @@ void block_tracker::process(const block* blk, const transaction * tx, size_t i)
       continue;
     }
 
-    const uint64_t rct_amount = tx->version == 2 ? 0 : out.amount;
+    const uint64_t rct_amount = tx->version == txversion::v2_ringct ? 0 : out.amount;
     const output_hasher hid = std::make_pair(tx->hash, j);
     auto it = find_out(hid);
     if (it != m_map_outs.end()){
@@ -1147,8 +1142,7 @@ void block_tracker::process(const block* blk, const transaction * tx, size_t i)
     }
 
     output_index oi(out.target, out.amount, boost::get<txin_gen>(blk->miner_tx.vin.front()).height, i, j, blk, tx);
-    oi.set_rct(tx->version == 2);
-    oi.idx = m_outs[rct_amount].size();
+    oi.set_rct(tx->version == txversion::v2_ringct); oi.idx = m_outs[rct_amount].size();
     oi.unlock_time = tx->unlock_time;
     oi.is_coin_base = tx->vin.size() == 1 && tx->vin.back().type() == typeid(cryptonote::txin_gen);
 

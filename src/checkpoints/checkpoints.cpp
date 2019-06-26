@@ -139,23 +139,7 @@ namespace cryptonote
   }
   bool checkpoints::update_checkpoint(checkpoint_t const &checkpoint)
   {
-    // TODO(doyle): Verify signatures and hash check out
-    std::array<size_t, service_nodes::CHECKPOINT_QUORUM_SIZE> unique_vote_set = {};
-    if (checkpoint.type == checkpoint_type::service_node)
-    {
-      CHECK_AND_ASSERT_MES(checkpoint.signatures.size() >= service_nodes::CHECKPOINT_MIN_VOTES, false, "Checkpoint has insufficient signatures to be considered");
-      for (service_nodes::voter_to_signature const &vote_to_sig : checkpoint.signatures)
-      {
-        ++unique_vote_set[vote_to_sig.voter_index];
-        CHECK_AND_ASSERT_MES(vote_to_sig.voter_index < service_nodes::CHECKPOINT_QUORUM_SIZE, false, "Vote is indexing out of bounds");
-        CHECK_AND_ASSERT_MES(unique_vote_set[vote_to_sig.voter_index] == 1, false, "Voter is trying to vote twice");
-      }
-    }
-    else
-    {
-      CHECK_AND_ASSERT_MES(checkpoint.signatures.size() == 0, false, "Non service-node checkpoints should have no signatures");
-    }
-
+    // NOTE(loki): Assumes checkpoint is valid
     bool result        = true;
     bool batch_started = false;
     try
@@ -218,9 +202,6 @@ namespace cryptonote
            delete_height > height;
            delete_height -= service_nodes::CHECKPOINT_INTERVAL)
       {
-        if (delete_height % service_nodes::CHECKPOINT_STORE_PERSISTENTLY_INTERVAL == 0)
-          continue;
-
         try
         {
           m_db->remove_block_checkpoint(delete_height);
@@ -258,7 +239,7 @@ namespace cryptonote
     return result;
   }
   //---------------------------------------------------------------------------
-  bool checkpoints::is_alternative_block_allowed(uint64_t blockchain_height, uint64_t block_height) const
+  bool checkpoints::is_alternative_block_allowed(uint64_t blockchain_height, uint64_t block_height)
   {
     if (0 == block_height)
       return false;
@@ -293,7 +274,8 @@ namespace cryptonote
       sentinel_reorg_height = checkpoints[0].height;
     }
 
-    bool result = sentinel_reorg_height < block_height;
+    m_oldest_allowable_alternative_block = std::max(sentinel_reorg_height, m_oldest_allowable_alternative_block);
+    bool result                          = block_height > m_oldest_allowable_alternative_block;
     return result;
   }
   //---------------------------------------------------------------------------

@@ -33,6 +33,7 @@
 #include "cryptonote_basic/verification_context.h"
 #include "cryptonote_basic/connection_context.h"
 #include "cryptonote_protocol/cryptonote_protocol_defs.h"
+#include "checkpoints/checkpoints.h"
 
 #include "misc_log_ex.h"
 #include "string_tools.h"
@@ -60,6 +61,7 @@ namespace service_nodes
     return true;
   }
 
+  // TODO(loki): Post HF12 remove legacy votes, no longer should be propagated
   quorum_vote_t convert_legacy_deregister_vote(legacy_deregister_vote const &vote)
   {
     quorum_vote_t result             = {};
@@ -133,22 +135,22 @@ namespace service_nodes
     return result;
   }
 
-  static bool bounds_check_worker_index(service_nodes::testing_quorum const &quorum, uint32_t worker_index, cryptonote::vote_verification_context &vvc)
+  static bool bounds_check_worker_index(service_nodes::testing_quorum const &quorum, uint32_t worker_index, cryptonote::vote_verification_context *vvc)
   {
     if (worker_index >= quorum.workers.size())
     {
-      vvc.m_worker_index_out_of_bounds = true;
+      if (vvc) vvc->m_worker_index_out_of_bounds = true;
       LOG_PRINT_L1("Quorum worker index in was out of bounds: " << worker_index << ", expected to be in range of: [0, " << quorum.workers.size() << ")");
       return false;
     }
     return true;
   }
 
-  static bool bounds_check_validator_index(service_nodes::testing_quorum const &quorum, uint32_t validator_index, cryptonote::vote_verification_context &vvc)
+  static bool bounds_check_validator_index(service_nodes::testing_quorum const &quorum, uint32_t validator_index, cryptonote::vote_verification_context *vvc)
   {
     if (validator_index >= quorum.validators.size())
     {
-      vvc.m_validator_index_out_of_bounds = true;
+      if (vvc) vvc->m_validator_index_out_of_bounds = true;
       LOG_PRINT_L1("Validator's index was out of bounds: " << validator_index << ", expected to be in range of: [0, " << quorum.validators.size() << ")");
       return false;
     }
@@ -156,6 +158,7 @@ namespace service_nodes
   }
 
   bool verify_tx_state_change(const cryptonote::tx_extra_service_node_state_change &state_change,
+                              uint64_t latest_height,
                               cryptonote::vote_verification_context &vvc,
                               const service_nodes::testing_quorum &quorum,
                               const uint8_t hf_version)
@@ -185,14 +188,39 @@ namespace service_nodes
       return false;
     }
 
-    if (!bounds_check_worker_index(quorum, state_change.service_node_index, vvc))
+    if (!bounds_check_worker_index(quorum, state_change.service_node_index, &vvc))
       return false;
+
+    // Check if state_change is too old or too new to hold onto
+    {
+      if (state_change.block_height >= latest_height)
+      {
+        LOG_PRINT_L1("Received state change tx for height: " << state_change.block_height
+                     << " and service node: "              << state_change.service_node_index
+                     << ", is newer than current height: " << latest_height
+                     << " blocks and has been rejected.");
+        vvc.m_invalid_block_height = true;
+        return false;
+      }
+
+      uint64_t delta_height = latest_height - state_change.block_height;
+      if (latest_height >= state_change.block_height && delta_height >= service_nodes::STATE_CHANGE_TX_LIFETIME_IN_BLOCKS)
+      {
+        LOG_PRINT_L1("Received state change tx for height: "
+                     << state_change.block_height << " and service node: " << state_change.service_node_index
+                     << ", is older than: " << service_nodes::STATE_CHANGE_TX_LIFETIME_IN_BLOCKS
+                     << " (current height: " << latest_height << ") "
+                     << "blocks and has been rejected.");
+        vvc.m_invalid_block_height = true;
+        return false;
+      }
+    }
 
     crypto::hash const hash = make_state_change_vote_hash(state_change.block_height, state_change.service_node_index, state_change.state);
     std::array<int, service_nodes::STATE_CHANGE_QUORUM_SIZE> validator_set = {};
     for (const auto &vote : state_change.votes)
     {
-      if (!bounds_check_validator_index(quorum, vote.validator_index, vvc))
+      if (!bounds_check_validator_index(quorum, vote.validator_index, &vvc))
         return false;
 
       if (++validator_set[vote.validator_index] > 1)
@@ -207,6 +235,53 @@ namespace service_nodes
       {
         LOG_PRINT_L1("Invalid signatures for votes");
         vvc.m_signature_not_valid = true;
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  bool verify_checkpoint(cryptonote::checkpoint_t const &checkpoint, service_nodes::testing_quorum const &quorum)
+  {
+    if (checkpoint.type == cryptonote::checkpoint_type::service_node)
+    {
+      if (checkpoint.signatures.size() < service_nodes::CHECKPOINT_MIN_VOTES)
+      {
+        LOG_PRINT_L1("Checkpoint has insufficient signatures to be considered");
+        return false;
+      }
+
+      if (checkpoint.signatures.size() > service_nodes::CHECKPOINT_QUORUM_SIZE)
+      {
+        LOG_PRINT_L1("Checkpoint has too many signatures to be considered");
+        return false;
+      }
+
+      std::array<size_t, service_nodes::CHECKPOINT_QUORUM_SIZE> unique_vote_set = {};
+      for (service_nodes::voter_to_signature const &voter_to_signature : checkpoint.signatures)
+      {
+        if (!bounds_check_worker_index(quorum, voter_to_signature.voter_index, nullptr)) return false;
+
+        if (unique_vote_set[voter_to_signature.voter_index]++)
+        {
+          LOG_PRINT_L1("Voter quorum index is duplicated: " << voter_to_signature.voter_index);
+          return false;
+        }
+
+        crypto::public_key const &key = quorum.workers[voter_to_signature.voter_index];
+        if (!crypto::check_signature(checkpoint.block_hash, key, voter_to_signature.signature))
+        {
+          LOG_PRINT_L1("Invalid signatures for votes");
+          return false;
+        }
+      }
+    }
+    else
+    {
+      if (checkpoint.signatures.size() != 0)
+      {
+        LOG_PRINT_L1("Non service-node checkpoints should have no signatures");
         return false;
       }
     }
@@ -233,14 +308,39 @@ namespace service_nodes
     if (vote.group == quorum_group::invalid)
       result = false;
     else if (vote.group == quorum_group::validator)
-      result = bounds_check_validator_index(quorum, vote.index_in_group, vvc);
+      result = bounds_check_validator_index(quorum, vote.index_in_group, &vvc);
     else
-      result = bounds_check_worker_index(quorum, vote.index_in_group, vvc);
+      result = bounds_check_worker_index(quorum, vote.index_in_group, &vvc);
 
     if (!result)
       return result;
 
-    uint64_t max_vote_age = 0;
+    //
+    // NOTE: Validate vote age
+    //
+    {
+      uint64_t delta_height = latest_height - vote.block_height;
+      if (vote.block_height < latest_height && delta_height >= VOTE_LIFETIME)
+      {
+        LOG_PRINT_L1("Received vote for height: " << vote.block_height << ", is older than: " << VOTE_LIFETIME
+                                                  << " blocks and has been rejected.");
+        vvc.m_invalid_block_height = true;
+      }
+      else if (vote.block_height > latest_height)
+      {
+        LOG_PRINT_L1("Received vote for height: " << vote.block_height << ", is newer than: " << latest_height
+                                                  << " (latest block height) and has been rejected.");
+        vvc.m_invalid_block_height = true;
+      }
+
+      if (vvc.m_invalid_block_height)
+      {
+        result                    = false;
+        vvc.m_verification_failed = true;
+        return result;
+      }
+    }
+
     {
       crypto::public_key key = crypto::null_pkey;
       crypto::hash hash      = crypto::null_hash;
@@ -263,11 +363,10 @@ namespace service_nodes
             return false;
           }
 
-          key          = quorum.validators[vote.index_in_group];
-          max_vote_age = service_nodes::STATE_CHANGE_VOTE_LIFETIME;
-          hash         = make_state_change_vote_hash(vote.block_height, vote.state_change.worker_index, vote.state_change.state);
+          key = quorum.validators[vote.index_in_group];
+          hash = make_state_change_vote_hash(vote.block_height, vote.state_change.worker_index, vote.state_change.state);
 
-          bool result = bounds_check_worker_index(quorum, vote.state_change.worker_index, vvc);
+          bool result = bounds_check_worker_index(quorum, vote.state_change.worker_index, &vvc);
           if (!result)
             return result;
         }
@@ -282,9 +381,8 @@ namespace service_nodes
             return false;
           }
 
-          key          = quorum.workers[vote.index_in_group];
-          max_vote_age = service_nodes::CHECKPOINT_VOTE_LIFETIME;
-          hash         = vote.checkpoint.block_hash;
+          key  = quorum.workers[vote.index_in_group];
+          hash = vote.checkpoint.block_hash;
         }
         break;
       }
@@ -296,32 +394,6 @@ namespace service_nodes
       if (!result)
       {
         vvc.m_signature_not_valid = true;
-        return result;
-      }
-    }
-
-    //
-    // NOTE: Validate vote age
-    //
-    {
-      uint64_t delta_height = latest_height - vote.block_height;
-      if (vote.block_height < latest_height && delta_height >= max_vote_age)
-      {
-        LOG_PRINT_L1("Received vote for height: " << vote.block_height << ", is older than: " << max_vote_age
-                                                  << " blocks and has been rejected.");
-        vvc.m_invalid_block_height = true;
-      }
-      else if (vote.block_height > latest_height)
-      {
-        LOG_PRINT_L1("Received vote for height: " << vote.block_height << ", is newer than: " << latest_height
-                                                  << " (latest block height) and has been rejected.");
-        vvc.m_invalid_block_height = true;
-      }
-
-      if (vvc.m_invalid_block_height)
-      {
-        result                    = false;
-        vvc.m_verification_failed = true;
         return result;
       }
     }
@@ -486,11 +558,9 @@ namespace service_nodes
   void voting_pool::remove_expired_votes(uint64_t height)
   {
     CRITICAL_REGION_LOCAL(m_lock);
-    uint64_t deregister_min_height = (height < STATE_CHANGE_VOTE_LIFETIME) ? 0 : height - STATE_CHANGE_VOTE_LIFETIME;
-    cull_votes(m_obligations_pool, deregister_min_height, height);
-
-    uint64_t checkpoint_min_height = (height < CHECKPOINT_VOTE_LIFETIME)   ? 0 : height - CHECKPOINT_VOTE_LIFETIME;
-    cull_votes(m_checkpoint_pool, checkpoint_min_height, height);
+    uint64_t min_height = (height < VOTE_LIFETIME) ? 0 : height - VOTE_LIFETIME;
+    cull_votes(m_obligations_pool, min_height, height);
+    cull_votes(m_checkpoint_pool, min_height, height);
   }
 }; // namespace service_nodes
 

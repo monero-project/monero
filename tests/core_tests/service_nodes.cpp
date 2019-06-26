@@ -287,7 +287,7 @@ bool test_prefer_deregisters::check_prefer_deregisters(cryptonote::core& c, size
 
   const auto deregister_count =
     std::count_if(full_blk.tx_hashes.begin(), full_blk.tx_hashes.end(), [&mtx](const crypto::hash& tx_hash) {
-      return mtx[tx_hash]->get_type() == cryptonote::transaction::type_deregister;
+      return mtx[tx_hash]->type == cryptonote::txtype::state_change;
     });
 
   /// test that there are more transactions in tx pool
@@ -369,7 +369,7 @@ bool test_deregister_safety_buffer::generate(std::vector<test_event_entry> &even
   /// register 21 random service nodes
   std::vector<cryptonote::transaction> reg_txs;
 
-  constexpr auto SERVICE_NODES_NEEDED = service_nodes::DEREGISTER_QUORUM_SIZE * 2 + 1;
+  constexpr auto SERVICE_NODES_NEEDED = service_nodes::STATE_CHANGE_QUORUM_SIZE * 2 + 1;
   static_assert(SN_KEYS_COUNT >= SERVICE_NODES_NEEDED, "not enough pre-computed service node keys");
 
   for (auto i = 0u; i < SERVICE_NODES_NEEDED; ++i)
@@ -522,7 +522,7 @@ bool test_deregisters_on_split::test_on_split(cryptonote::core& c, size_t ev_ind
   /// obtain the expected deregister from events
   const size_t dereg_idx = 68;
   auto dereg_tx = boost::get<cryptonote::transaction>(events.at(dereg_idx));
-  CHECK_AND_ASSERT_MES(dereg_tx.get_type() == cryptonote::transaction::type_deregister, false, "event is not a deregister transaction");
+  CHECK_AND_ASSERT_MES(dereg_tx.type == cryptonote::txtype::state_change, false, "event is not a state change transaction");
 
   const auto expected_tx_hash = get_transaction_hash(dereg_tx);
 
@@ -541,7 +541,7 @@ bool test_deregisters_on_split::test_on_split(cryptonote::core& c, size_t ev_ind
 
   /// find the deregister tx:
   const auto found_tx_hash = std::find_if(blk.tx_hashes.begin(), blk.tx_hashes.end(), [&mtx](const crypto::hash& hash) {
-    return mtx.at(hash)->is_deregister;
+    return mtx.at(hash)->type == txtype::state_change;
   });
 
   CHECK_TEST_CONDITION(found_tx_hash != blk.tx_hashes.end());
@@ -589,7 +589,7 @@ bool deregister_too_old::generate(std::vector<test_event_entry>& events)
   const auto dereg_tx = gen.build_deregister(pk, false).build();
 
   /// create enough blocks to make deregistrations invalid (60 blocks)
-  gen.rewind_blocks_n(service_nodes::DEREGISTER_TX_LIFETIME_IN_BLOCKS);
+  gen.rewind_blocks_n(service_nodes::STATE_CHANGE_TX_LIFETIME_IN_BLOCKS);
 
   /// In the real world, this transaction should not make it into a block, but in this case we do try to add it (as in
   /// tests we must add specify transactions manually), which should exercise the same validation code and reject the
@@ -686,10 +686,11 @@ bool sn_test_rollback::test_registrations(cryptonote::core& c, size_t ev_index, 
 
     CHECK_TEST_CONDITION(event_a.type() == typeid(cryptonote::transaction));
     const auto dereg_tx = boost::get<cryptonote::transaction>(event_a);
-    CHECK_TEST_CONDITION(dereg_tx.get_type() == transaction::type_deregister);
+    CHECK_TEST_CONDITION(dereg_tx.type == cryptonote::txtype::state_change);
 
-    tx_extra_service_node_deregister deregistration;
-    get_service_node_deregister_from_tx_extra(dereg_tx.extra, deregistration);
+    tx_extra_service_node_state_change deregistration;
+    get_service_node_state_change_from_tx_extra(
+        dereg_tx.extra, deregistration, c.get_blockchain_storage().get_current_hard_fork_version());
 
     const auto uptime_quorum = c.get_testing_quorum(service_nodes::quorum_type::deregister, deregistration.block_height);
     CHECK_TEST_CONDITION(uptime_quorum);

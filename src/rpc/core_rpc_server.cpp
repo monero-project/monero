@@ -2516,7 +2516,7 @@ namespace cryptonote
     }
 
     std::string err_msg;
-    int hf_version = m_core.get_hard_fork_version(m_core.get_current_blockchain_height());
+    uint8_t hf_version = m_core.get_hard_fork_version(m_core.get_current_blockchain_height());
     if (!service_nodes::make_registration_cmd(m_core.get_nettype(), hf_version, req.staking_requirement, req.args, service_node_pubkey, service_node_key, res.registration_cmd, req.make_friendly, err_msg))
     {
       error_resp.code    = CORE_RPC_ERROR_CODE_WRONG_PARAM;

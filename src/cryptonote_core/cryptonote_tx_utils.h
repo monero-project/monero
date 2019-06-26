@@ -185,7 +185,7 @@ namespace cryptonote
     bool                v2_rct;
 
     loki_construct_tx_params() = default;
-    loki_construct_tx_params(int hf_version)
+    loki_construct_tx_params(uint8_t hf_version)
     {
       *this = {};
       v4_allow_tx_types    = (hf_version >= cryptonote::network_version_11_infinite_staking);

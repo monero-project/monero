@@ -51,7 +51,7 @@
 
 namespace service_nodes
 {
-  static int get_min_service_node_info_version_for_hf(int hf_version)
+  static int get_min_service_node_info_version_for_hf(uint8_t hf_version)
   {
     return service_node_info::version_0_checkpointing; // Versioning reset with the full SN rescan in 4.0.0
   }
@@ -316,7 +316,7 @@ namespace service_nodes
     if (!state)
     {
       // TODO(loki): Not being able to find a quorum is fatal! We want better caching abilities.
-      MERROR("Uptime quorum for height: " << state_change.block_height << ", was not stored by the daemon");
+      MERROR("Obligation quorum for height: " << state_change.block_height << ", was not stored by the daemon");
       return false;
     }
 
@@ -560,7 +560,7 @@ namespace service_nodes
       return false;
     }
 
-    int hf_version = m_blockchain.get_hard_fork_version(block_height);
+    uint8_t hf_version = m_blockchain.get_hard_fork_version(block_height);
 
     if (!check_service_node_portions(hf_version, service_node_portions)) return false;
 
@@ -748,7 +748,7 @@ namespace service_nodes
       return false; // Is not a contribution TX don't need to check it.
 
     parsed_tx_contribution parsed_contribution = {};
-    const int hf_version = m_blockchain.get_hard_fork_version(block_height);
+    const uint8_t hf_version = m_blockchain.get_hard_fork_version(block_height);
     if (!get_contribution(m_blockchain.nettype(), hf_version, tx, block_height, parsed_contribution))
     {
       LOG_PRINT_L1("Contribution TX: Could not decode contribution for service node: " << pubkey << " on height: " << block_height << " for tx: " << cryptonote::get_transaction_hash(tx));
@@ -1374,35 +1374,29 @@ namespace service_nodes
     if (hf_version >= cryptonote::network_version_12_checkpointing)
       decomm_snode_list = m_transient_state.decommissioned_service_nodes_infos();
 
-    quorum_manager &manager = m_transient_state.quorum_states[height];
-    for (int type_int = 0; type_int < static_cast<int>(quorum_type::count); type_int++)
+    quorum_type const max_quorum_type = max_quorum_type_for_hf(hf_version);
+    quorum_manager &manager           = m_transient_state.quorum_states[height];
+    for (int type_int = 0; type_int <= (int)max_quorum_type; type_int++)
     {
       auto type             = static_cast<quorum_type>(type_int);
       size_t num_validators = 0, num_workers = 0;
       auto quorum           = std::make_shared<testing_quorum>();
       std::vector<size_t> pub_keys_indexes;
 
+      size_t total_nodes = active_snode_list.size() + decomm_snode_list.size();
       if (type == quorum_type::obligations)
       {
-        if (hf_version >= cryptonote::network_version_9_service_nodes)
-        {
-          size_t total_nodes         = active_snode_list.size() + decomm_snode_list.size();
-          num_validators             = std::min(active_snode_list.size(), STATE_CHANGE_QUORUM_SIZE);
-          pub_keys_indexes           = generate_shuffled_service_node_index_list(total_nodes, block_hash, type, num_validators, active_snode_list.size());
-          manager.obligations        = quorum;
-          size_t num_remaining_nodes = total_nodes - num_validators;
-          num_workers                = std::min(num_remaining_nodes, std::max(STATE_CHANGE_MIN_NODES_TO_TEST, num_remaining_nodes/STATE_CHANGE_NTH_OF_THE_NETWORK_TO_TEST));
-        }
+        num_validators             = std::min(active_snode_list.size(), STATE_CHANGE_QUORUM_SIZE);
+        pub_keys_indexes           = generate_shuffled_service_node_index_list(total_nodes, block_hash, type, num_validators, active_snode_list.size());
+        manager.obligations        = quorum;
+        size_t num_remaining_nodes = total_nodes - num_validators;
+        num_workers                = std::min(num_remaining_nodes, std::max(STATE_CHANGE_MIN_NODES_TO_TEST, num_remaining_nodes/STATE_CHANGE_NTH_OF_THE_NETWORK_TO_TEST));
       }
       else if (type == quorum_type::checkpointing)
       {
-        if (hf_version >= cryptonote::network_version_12_checkpointing)
-        {
-          manager.checkpointing      = quorum;
-          num_validators             = std::min(pub_keys_indexes.size(), CHECKPOINT_QUORUM_SIZE);
-          size_t num_remaining_nodes = pub_keys_indexes.size() - num_validators;
-          num_workers                = std::min(num_remaining_nodes, CHECKPOINT_QUORUM_SIZE);
-        }
+        pub_keys_indexes      = generate_shuffled_service_node_index_list(total_nodes, block_hash, type);
+        manager.checkpointing = quorum;
+        num_workers           = std::min(pub_keys_indexes.size(), CHECKPOINT_QUORUM_SIZE);
       }
       else
       {
@@ -1460,7 +1454,7 @@ namespace service_nodes
 
   bool service_node_list::store()
   {
-    int hf_version = m_blockchain.get_current_hard_fork_version();
+    uint8_t hf_version = m_blockchain.get_current_hard_fork_version();
     if (hf_version < cryptonote::network_version_9_service_nodes)
       return true;
 
@@ -1678,7 +1672,7 @@ namespace service_nodes
   converted_registration_args convert_registration_args(cryptonote::network_type nettype,
                                                         const std::vector<std::string>& args,
                                                         uint64_t staking_requirement,
-                                                        int hf_version)
+                                                        uint8_t hf_version)
   {
     converted_registration_args result = {};
     if (args.size() % 2 == 0 || args.size() < 3)
@@ -1844,7 +1838,7 @@ namespace service_nodes
   }
 
   bool make_registration_cmd(cryptonote::network_type nettype,
-      int hf_version,
+      uint8_t hf_version,
       uint64_t staking_requirement,
       const std::vector<std::string>& args,
       const crypto::public_key& service_node_pubkey,

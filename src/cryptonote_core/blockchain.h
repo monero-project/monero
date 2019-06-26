@@ -252,7 +252,7 @@ namespace cryptonote
      *
      * @return false on erroneous blocks, else true
      */
-    bool prepare_handle_incoming_blocks(const std::vector<block_complete_entry>  &blocks_entry, std::vector<block> &blocks, std::vector<checkpoint_t> &checkpoints);
+    bool prepare_handle_incoming_blocks(const std::vector<block_complete_entry>  &blocks_entry, std::vector<block> &blocks);
 
     /**
      * @brief incoming blocks post-processing, cleanup, and disk sync
@@ -333,12 +333,13 @@ namespace cryptonote
      * chain.  If the block does not belong, is already in the blockchain
      * or an alternate chain, or is invalid, return false.
      *
-     * @param bl_ the block to be added
+     * @param bl the block to be added
      * @param bvc metadata about the block addition's success/failure
+     * @param checkpoint optional checkpoint if there is one associated with the block
      *
      * @return true on successful addition to the blockchain, else false
      */
-    bool add_new_block(const block& bl_, block_verification_context& bvc);
+    bool add_new_block(const block& bl, block_verification_context& bvc, checkpoint_t const *checkpoint);
 
     /**
      * @brief clears the blockchain and starts a new one
@@ -1197,22 +1198,6 @@ namespace cryptonote
     bool check_tx_inputs(transaction& tx, tx_verification_context &tvc, uint64_t* pmax_used_block_height = NULL);
 
     /**
-     * @brief validates SN metadata transaction properties
-     *
-     * Checks the given service node metatransaction (i.e. deregister, unlock request, etc.) for
-     * validity.  Fails if called with a non-metatransaction, or if there is something wrong with
-     * the metatransaction.
-     *
-     * This fails if called on a standard (non-meta) transaction such as a regular transaction or a
-     * SN registration; you generally want to call check_tx() instead, which calls this if
-     * appropriate.
-     *
-     * @param tx the transaction to validate
-     * @param tvc returned information about tx verification
-     */
-    bool check_service_node_tx(transaction &tx, tx_verification_context &tvc);
-
-    /**
      * @brief performs a blockchain reorganization according to the longest chain rule
      *
      * This function aggregates all the actions necessary to switch to a
@@ -1275,7 +1260,7 @@ namespace cryptonote
      *
      * @return true if the block was added successfully, otherwise false
      */
-    bool handle_alternative_block(const block& b, const crypto::hash& id, block_verification_context& bvc);
+    bool handle_alternative_block(const block& b, const crypto::hash& id, block_verification_context& bvc, bool has_checkpoint);
 
     /**
      * @brief builds a list of blocks connecting a block to the main chain

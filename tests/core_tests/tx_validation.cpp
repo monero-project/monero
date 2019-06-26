@@ -40,7 +40,7 @@ namespace
 {
   struct tx_builder
   {
-    void step1_init(size_t version = 7, uint64_t unlock_time = 0)
+    void step1_init(txversion version = txversion::v2_ringct, uint64_t unlock_time = 0)
     {
       m_tx.vin.clear();
       m_tx.vout.clear();
@@ -144,7 +144,7 @@ namespace
     fill_tx_sources_and_destinations(events, blk_head, from, get_address(to), amount, TESTS_DEFAULT_FEE, 0, sources, destinations);
 
     tx_builder builder;
-    builder.step1_init(cryptonote::network_version_7, unlock_time);
+    builder.step1_init(cryptonote::txversion::v2_ringct, unlock_time);
     builder.step2_fill_inputs(from.get_keys(), sources);
     builder.step3_fill_outputs(destinations);
     builder.step4_calc_hash();
@@ -297,7 +297,7 @@ bool gen_tx_no_inputs_no_outputs::generate(std::vector<test_event_entry>& events
   MAKE_GENESIS_BLOCK(events, blk_0, miner_account, ts_start);
 
   transaction tx = {};
-  tx.version     = cryptonote::network_version_7;
+  tx.version     = cryptonote::txversion::v2_ringct;
   add_tx_pub_key_to_extra(tx, keypair::generate(hw::get_device("default")).pub);
 
   DO_CALLBACK(events, "mark_invalid_tx");

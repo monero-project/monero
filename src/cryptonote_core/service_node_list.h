@@ -391,10 +391,10 @@ namespace service_nodes
   converted_registration_args convert_registration_args(cryptonote::network_type nettype,
                                                         const std::vector<std::string>& args,
                                                         uint64_t staking_requirement,
-                                                        int hf_version);
+                                                        uint8_t hf_version);
 
   bool make_registration_cmd(cryptonote::network_type nettype,
-      int hf_version,
+      uint8_t hf_version,
       uint64_t staking_requirement,
       const std::vector<std::string>& args,
       const crypto::public_key& service_node_pubkey,
