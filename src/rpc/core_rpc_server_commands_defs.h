@@ -89,7 +89,7 @@ namespace cryptonote
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define CORE_RPC_VERSION_MAJOR 2
-#define CORE_RPC_VERSION_MINOR 6
+#define CORE_RPC_VERSION_MINOR 7
 #define MAKE_CORE_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define CORE_RPC_VERSION MAKE_CORE_RPC_VERSION(CORE_RPC_VERSION_MAJOR, CORE_RPC_VERSION_MINOR)
 
@@ -1046,6 +1046,8 @@ namespace cryptonote
       uint64_t reserved_offset;    // Reserved offset.
       uint64_t expected_reward;    // Coinbase reward expected to be received if block is successfully mined.
       std::string prev_hash;       // Hash of the most recent block on which to mine the next block.
+      std::string seed_hash;       // RandomX current seed hash
+      std::string next_seed_hash;  // RandomX upcoming seed hash
       blobdata blocktemplate_blob; // Blob on which to try to mine a new block.
       blobdata blockhashing_blob;  // Blob on which to try to find a valid nonce.
       std::string status;          // General RPC error code. "OK" means everything looks good.
@@ -1061,6 +1063,8 @@ namespace cryptonote
         KV_SERIALIZE(blockhashing_blob)
         KV_SERIALIZE(status)
         KV_SERIALIZE(untrusted)
+        KV_SERIALIZE(seed_hash)
+        KV_SERIALIZE(next_seed_hash)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;

@@ -37,6 +37,7 @@ using namespace epee;
 #include "common/apply_permutation.h"
 #include "cryptonote_tx_utils.h"
 #include "cryptonote_config.h"
+#include "blockchain.h"
 #include "cryptonote_basic/miner.h"
 #include "cryptonote_basic/tx_extra.h"
 #include "crypto/crypto.h"
@@ -983,9 +984,55 @@ namespace cryptonote
     bl.minor_version = 7;
     bl.timestamp = 0;
     bl.nonce = nonce;
-    miner::find_nonce_for_given_block(bl, 1, 0);
+    miner::find_nonce_for_given_block(NULL, bl, 1, 0);
     bl.invalidate_hashes();
     return true;
   }
   //---------------------------------------------------------------
+  void get_altblock_longhash(const block& b, crypto::hash& res, const uint64_t main_height, const uint64_t height, const uint64_t seed_height, const crypto::hash& seed_hash)
+  {
+    blobdata bd = get_block_hashing_blob(b);
+    rx_alt_slowhash(main_height, seed_height, seed_hash.data, bd.data(), bd.size(), res.data);
+  }
+
+  bool get_block_longhash(const Blockchain *pbc, const block &b, crypto::hash &res, const uint64_t height, const int miners)
+  {
+    const blobdata bd                 = get_block_hashing_blob(b);
+    const uint8_t hf_version          = b.major_version;
+    crypto::cn_slow_hash_type cn_type = cn_slow_hash_type::heavy_v1;
+
+    if (hf_version >= network_version_12_checkpointing) {
+      uint64_t seed_height;
+      if (rx_needhash(height, &seed_height)) {
+        crypto::hash hash;
+        if (pbc != NULL)
+          hash = pbc->get_pending_block_id_by_height(seed_height);
+        else
+          memset(&hash, 0, sizeof(hash));  // only happens when generating genesis block
+        rx_seedhash(seed_height, hash.data, miners);
+      }
+      rx_slow_hash(bd.data(), bd.size(), res.data, miners);
+      return true;
+    }
+
+    if (hf_version >= network_version_11_infinite_staking)
+      cn_type = cn_slow_hash_type::turtle_lite_v2;
+    else if (hf_version >= network_version_7)
+      cn_type = crypto::cn_slow_hash_type::heavy_v2;
+
+    crypto::cn_slow_hash(bd.data(), bd.size(), res, cn_type);
+    return true;
+  }
+
+  crypto::hash get_block_longhash(const Blockchain *pbc, const block& b, const uint64_t height, const int miners)
+  {
+    crypto::hash p = crypto::null_hash;
+    get_block_longhash(pbc, b, p, height, miners);
+    return p;
+  }
+
+  void get_block_longhash_reorg(const uint64_t split_height)
+  {
+    rx_reorg(split_height);
+  }
 }

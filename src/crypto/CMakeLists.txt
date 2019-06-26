@@ -50,7 +50,10 @@ set(crypto_sources
   cn_heavy_hash_hard_intel.cpp
   cn_heavy_hash_soft.cpp
   cn_turtle_hash.c
+  rx-slow-hash.c
   tree-hash.c)
+
+include_directories(${RANDOMX_INCLUDE})
 
 set(crypto_headers)
 
@@ -84,6 +87,7 @@ loki_add_library(cncrypto
 target_link_libraries(cncrypto
   PUBLIC
     epee
+    randomx
     ${Boost_SYSTEM_LIBRARY}
     ${SODIUM_LIBRARY}
   PRIVATE

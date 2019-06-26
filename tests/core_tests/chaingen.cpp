@@ -587,7 +587,7 @@ bool test_generator::construct_block(cryptonote::block& blk, uint64_t height, co
 
   // Nonce search...
   blk.nonce = 0;
-  while (!miner::find_nonce_for_given_block(blk, get_test_difficulty(m_hf_version), height))
+  while (!miner::find_nonce_for_given_block(NULL, blk, get_test_difficulty(m_hf_version), height))
     blk.timestamp++;
 
   add_block(blk, txs_weight, block_weights, already_generated_coins);
@@ -1404,7 +1404,7 @@ void fill_tx_destinations(const var_addr_t& from, const cryptonote::account_publ
 void fill_nonce(cryptonote::block& blk, const difficulty_type& diffic, uint64_t height)
 {
   blk.nonce = 0;
-  while (!miner::find_nonce_for_given_block(blk, diffic, height))
+  while (!miner::find_nonce_for_given_block(NULL, blk, diffic, height))
     blk.timestamp++;
 }
 
