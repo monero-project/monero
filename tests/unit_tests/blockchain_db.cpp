@@ -38,8 +38,8 @@
 #include "string_tools.h"
 #include "blockchain_db/blockchain_db.h"
 #include "blockchain_db/lmdb/db_lmdb.h"
-#ifdef BERKELEY_DB
-#include "blockchain_db/berkeleydb/db_bdb.h"
+#ifdef OPTIONAL_DB
+#include "blockchain_db/path/db/header"
 #endif
 #include "cryptonote_basic/cryptonote_format_utils.h"
 
@@ -234,9 +234,9 @@ protected:
 using testing::Types;
 
 typedef Types<BlockchainLMDB
-#ifdef BERKELEY_DB
-  , BlockchainBDB
-#endif
+//#ifdef OPTIONAL_DB
+//  , BlockchainBDB
+//#endif
 > implementations;
 
 TYPED_TEST_CASE(BlockchainDBTest, implementations);

@@ -647,7 +647,7 @@ namespace cryptonote
     )
   {
     //genesis block
-    bl = {};
+    bl = boost::value_initialized<block>();
 
     blobdata tx_bl;
     bool r = string_tools::parse_hexstr_to_binbuff(genesis_tx, tx_bl);

@@ -51,7 +51,10 @@ target_link_libraries(functional_tests
     ${EXTRA_LIBRARIES})
 
 execute_process(COMMAND ${PYTHON_EXECUTABLE} "-c" "import requests; print('OK')" OUTPUT_VARIABLE REQUESTS_OUTPUT OUTPUT_STRIP_TRAILING_WHITESPACE)
+  message(WARNING "functional_tests_rpc skipped, needs the 'requests' python module")
+
 if (REQUESTS_OUTPUT STREQUAL "OK")
+  message(WARNING "${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_BINARY_DIR} all")
   add_test(
     NAME    functional_tests_rpc
     COMMAND ${PYTHON_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/functional_tests_rpc.py" "${PYTHON_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_BINARY_DIR}" all)

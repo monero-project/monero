@@ -214,6 +214,7 @@ namespace cryptonote
               m_mempool(m_blockchain_storage),
               m_blockchain_storage(m_mempool),
               m_miner(this),
+              m_miner_address(boost::value_initialized<account_public_address>()),
               m_starter_message_showed(false),
               m_target_blockchain_height(0),
               m_checkpoints_path(""),
@@ -728,7 +729,7 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
   bool core::handle_incoming_tx_pre(const blobdata& tx_blob, tx_verification_context& tvc, cryptonote::transaction &tx, crypto::hash &tx_hash, bool keeped_by_block, bool relayed, bool do_not_relay)
   {
-    tvc = {};
+    tvc = boost::value_initialized<tx_verification_context>();
 
     if(tx_blob.size() > get_max_tx_size())
     {
@@ -1327,7 +1328,7 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
   bool core::handle_block_found(block& b, block_verification_context &bvc)
   {
-    bvc = {};
+    bvc = boost::value_initialized<block_verification_context>();
     m_miner.pause();
     std::vector<block_complete_entry> blocks;
     try
@@ -1356,7 +1357,7 @@ namespace cryptonote
     CHECK_AND_ASSERT_MES(!bvc.m_verifivation_failed, false, "mined block failed verification");
     if(bvc.m_added_to_main_chain)
     {
-      cryptonote_connection_context exclude_context = {};
+      cryptonote_connection_context exclude_context = boost::value_initialized<cryptonote_connection_context>();
       NOTIFY_NEW_BLOCK::request arg = AUTO_VAL_INIT(arg);
       arg.current_blockchain_height = m_blockchain_storage.get_current_blockchain_height();
       std::vector<crypto::hash> missed_txs;
@@ -1424,7 +1425,7 @@ namespace cryptonote
   {
     TRY_ENTRY();
 
-    bvc = {};
+    bvc = boost::value_initialized<block_verification_context>();
 
     if (!check_incoming_block_size(block_blob))
     {

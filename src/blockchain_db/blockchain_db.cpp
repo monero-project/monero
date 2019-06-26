@@ -35,15 +35,15 @@
 #include "ringct/rctOps.h"
 
 #include "lmdb/db_lmdb.h"
-#ifdef BERKELEY_DB
-#include "berkeleydb/db_bdb.h"
-#endif
+//#ifdef OPTIONAL_DB
+//#include "path/to/db.h"
+//#endif
 
 static const char *db_types[] = {
   "lmdb",
-#ifdef BERKELEY_DB
-  "berkeley",
-#endif
+//#ifdef OPTIONAL_DB
+//  "optional",
+//#endif
   NULL
 };
 
@@ -100,10 +100,10 @@ BlockchainDB *new_db(const std::string& db_type)
 {
   if (db_type == "lmdb")
     return new BlockchainLMDB();
-#if defined(BERKELEY_DB)
-  if (db_type == "berkeley")
-    return new BlockchainBDB();
-#endif
+//#if defined(OPTIONAL_DB)
+//  if (db_type == "optional")
+//    return new BlockchainODB();   ///Indicate right type of blockchain
+//#endif
   return NULL;
 }
 
