@@ -1,8 +1,8 @@
 package=icu4c
-$(package)_version=55.1
-$(package)_download_path=https://github.com/TheCharlatan/icu4c/archive
-$(package)_file_name=55.1.tar.gz
-$(package)_sha256_hash=1f912c54035533fb4268809701d65c7468d00e292efbc31e6444908450cc46ef
+$(package)_version=55.2
+$(package)_download_path=https://github.com/unicode-org/icu/releases/download/release-55-2/
+$(package)_file_name=$(package)-55_2-src.tgz
+$(package)_sha256_hash=eda2aa9f9c787748a2e2d310590720ca8bcc6252adf6b4cfb03b65bef9d66759
 $(package)_patches=icu-001-dont-build-static-dynamic-twice.patch
 
 define $(package)_set_vars
@@ -20,11 +20,6 @@ define $(package)_config_cmds
   sh ../source/runConfigureICU MinGW --enable-static=yes --disable-shared --disable-layout --disable-layoutex --disable-tests --disable-samples --prefix=$(host_prefix) --with-cross-build=`pwd`/../builda &&\
   $(MAKE) $($(package)_build_opts)
 endef
-
-#define $(package)_build_cmds
-#  cd source &&\
-   $(MAKE) $($((package)_build_opts) `nproc`
-#endef
 
 define $(package)_stage_cmds
   cd buildb &&\
