@@ -131,6 +131,13 @@ script: |
 
   git config --global core.abbrev 9
   cd monero
+  # Set the version string that gets added to the tar archive name
+  version="`git describe`"
+  if [[ $version == *"-"*"-"* ]]; then
+    version="`git rev-parse --short=9 HEAD`"
+    version="`echo $version | head -c 9`"
+  fi
+
   BASEPREFIX=`pwd`/contrib/depends
   # Build dependencies for each host
   for i in $HOSTS; do
@@ -155,9 +162,10 @@ script: |
     mkdir build && cd build
     cmake .. -DCMAKE_TOOLCHAIN_FILE=${BASEPREFIX}/${i}/share/toolchain.cmake -DBACKCOMPAT=ON
     make ${MAKEOPTS}
-    DISTNAME=monero-${i}
+    DISTNAME=monero-${i}-${version}
     mv bin ${DISTNAME}
     find ${DISTNAME}/ | sort | tar --no-recursion --mode='u+rw,go+r-w,a+X' --owner=0 --group=0 -c -T - | gzip -9n > ${OUTDIR}/${DISTNAME}.tar.gz
     cd ..
     rm -rf build
   done
+
