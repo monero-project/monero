@@ -44,7 +44,7 @@ namespace crypto { \
     return !operator==(_v1, _v2); \
   } \
   inline bool operator<(const type &_v1, const type &_v2) { \
-    return memcmp(&_v1, &_v2, sizeof(_v1)); \
+    return memcmp(&_v1, &_v2, sizeof(_v1)) < 0; \
   } \
 }
 
