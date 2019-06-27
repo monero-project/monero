@@ -2871,11 +2871,12 @@ namespace cryptonote
   }
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_storage_server_ping(const COMMAND_RPC_STORAGE_SERVER_PING::request&,
-                                               COMMAND_RPC_STORAGE_SERVER_PING::response&,
+                                               COMMAND_RPC_STORAGE_SERVER_PING::response& res,
                                                epee::json_rpc::error&,
                                                const connection_context*)
   {
     m_core.update_storage_server_last_ping();
+    res.status = "OK";
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
