@@ -169,10 +169,10 @@ namespace cryptonote
   };
   static const command_line::arg_descriptor<bool> arg_service_node  = {
     "service-node"
-  , "Run as a service node, options 'sn-public-ip' and 'storage-server-port' must be set"
+  , "Run as a service node, options 'service-node-public-ip' and 'storage-server-port' must be set"
   };
   static const command_line::arg_descriptor<std::string> arg_public_ip = {
-    "sn-public-ip"
+    "service-node-public-ip"
   , "Public IP address on which this service node's services (such as the Loki "
     "storage server) are accessible. This IP address will be advertised to the "
     "network via the service node uptime proofs. Required if operating as a "
