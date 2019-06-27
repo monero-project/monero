@@ -37,6 +37,7 @@ set(cryptonote_core_sources
   service_node_swarm.cpp
   tx_pool.cpp
   tx_sanity_check.cpp
+  miner.cpp
   cryptonote_tx_utils.cpp)
 
 set(cryptonote_core_headers)
@@ -52,6 +53,7 @@ set(cryptonote_core_private_headers
   service_node_voting.h
   tx_pool.h
   tx_sanity_check.h
+  miner.h
   cryptonote_tx_utils.h)
 
 loki_private_headers(cryptonote_core

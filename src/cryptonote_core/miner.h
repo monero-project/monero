@@ -33,9 +33,9 @@
 #include <boost/program_options.hpp>
 #include <boost/logic/tribool_fwd.hpp>
 #include <atomic>
-#include "cryptonote_basic.h"
-#include "verification_context.h"
-#include "difficulty.h"
+#include "cryptonote_basic/cryptonote_basic.h"
+#include "cryptonote_basic/verification_context.h"
+#include "cryptonote_basic/difficulty.h"
 #include "math_helper.h"
 #ifdef _WIN32
 #include <windows.h>

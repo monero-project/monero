@@ -36,6 +36,7 @@ add_executable(hash-tests
   ${hash_headers})
 target_link_libraries(hash-tests
   PRIVATE
+    cryptonote_core
     common
     cncrypto
     ${EXTRA_LIBRARIES})

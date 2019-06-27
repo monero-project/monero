@@ -46,7 +46,7 @@
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "cryptonote_basic/cryptonote_basic_impl.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
-#include "cryptonote_basic/miner.h"
+#include "cryptonote_core/miner.h"
 
 #include "chaingen.h"
 #include "device/device.hpp"
