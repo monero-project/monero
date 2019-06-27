@@ -67,14 +67,33 @@ namespace service_nodes
 
   // Perform service node tests -- this returns true is the server node is in a good state, that is,
   // has submitted uptime proofs, participated in required quorums, etc.
-  bool quorum_cop::check_service_node(const crypto::public_key &pubkey, const service_node_info &info) const
+  service_node_test_results quorum_cop::check_service_node(const crypto::public_key &pubkey, const service_node_info &info) const
   {
-      if (!m_uptime_proof_seen.count(pubkey))
-        return false;
+    service_node_test_results results; // Defaults to true for individual tests
 
-      // TODO: check for missing checkpoint quorum votes
+    // Basic uptime proof check
+    if (!m_uptime_proof_seen.count(pubkey))
+      results.uptime_proved = false;
 
-      return true;
+
+    // IP change checks
+    const auto &ips = info.proof_public_ips;
+    if (ips[0].first && ips[1].first) {
+      // Figure out when we last had a blockchain-level IP change penalty (or when we registered);
+      // we only consider IP changes starting two hours after the last IP penalty.
+      std::vector<cryptonote::block> blocks;
+      if (m_core.get_blocks(info.last_ip_change_height, 1, blocks)) {
+        uint64_t find_ips_used_since = std::max(
+            uint64_t(std::time(nullptr)) - IP_CHANGE_WINDOW_IN_SECONDS,
+            uint64_t(blocks[0].timestamp) + IP_CHANGE_BUFFER_IN_SECONDS);
+        if (ips[0].second > find_ips_used_since && ips[1].second > find_ips_used_since)
+          results.single_ip = false;
+      }
+    }
+
+    // TODO: check for missing checkpoint quorum votes
+
+    return results;
   }
 
   void quorum_cop::blockchain_detached(uint64_t height)
@@ -203,17 +222,23 @@ namespace service_nodes
               const auto &node_key = worker_it->pubkey;
               const auto &info  = worker_it->info;
 
-              bool checks_passed = check_service_node(node_key, info);
+              auto test_results = check_service_node(node_key, info);
 
               new_state vote_for_state;
-              if (checks_passed) {
-                if (!info.is_decommissioned()) {
-                  good++;
-                  continue;
+              if (test_results.uptime_proved) {
+                if (info.is_decommissioned()) {
+                  vote_for_state = new_state::recommission;
+                  LOG_PRINT_L2("Decommissioned service node " << quorum->workers[node_index] << " is now passing required checks; voting to recommission");
+                } else if (!test_results.single_ip) {
+                    // Don't worry about this if the SN is getting recommissioned (above) -- it'll
+                    // already reenter at the bottom.
+                    vote_for_state = new_state::ip_change_penalty;
+                    LOG_PRINT_L2("Service node " << quorum->workers[node_index] << " was observed with multiple IPs recently; voting to reset reward position");
+                } else {
+                    good++;
+                    continue;
                 }
 
-                vote_for_state = new_state::recommission;
-                LOG_PRINT_L2("Decommissioned service node " << quorum->workers[node_index] << " is now passing required checks; voting to recommission");
               }
               else {
                 int64_t credit = calculate_decommission_credit(info, latest_height);
@@ -548,7 +573,7 @@ namespace service_nodes
       signature_ok = crypto::check_signature(hash, pubkey, sig);
 
       /// Sanity check; we do the same on lokid startup
-      if (epee::net_utils::is_ip_local(public_ip) || epee::net_utils::is_ip_loopback(public_ip)) return false;
+      if (!epee::net_utils::is_ip_public(public_ip)) return false;
     }
 
     if (!signature_ok) {

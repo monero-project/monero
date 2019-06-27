@@ -52,6 +52,9 @@ namespace service_nodes {
 
   static_assert(CHECKPOINT_MIN_VOTES <= CHECKPOINT_QUORUM_SIZE, "The number of votes required to kick can't exceed the actual quorum size, otherwise we never kick.");
 
+  constexpr uint64_t  IP_CHANGE_WINDOW_IN_SECONDS     = 24*60*60; // How far back an obligations quorum looks for multiple IPs (unless the following buffer is more recent)
+  constexpr uint64_t  IP_CHANGE_BUFFER_IN_SECONDS     = 2*60*60; // After we bump a SN for an IP change we don't bump again for changes within this time period
+
   constexpr size_t   MAX_SWARM_SIZE                   = 10;
   // We never create a new swarm unless there are SWARM_BUFFER extra nodes
   // available in the queue.

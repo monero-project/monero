@@ -169,10 +169,10 @@ namespace cryptonote
   };
   static const command_line::arg_descriptor<bool> arg_service_node  = {
     "service-node"
-  , "Run as a service node, options 'sn-public-ip' and 'storage-server-port' must be set"
+  , "Run as a service node, options 'service-node-public-ip' and 'storage-server-port' must be set"
   };
   static const command_line::arg_descriptor<std::string> arg_public_ip = {
-    "sn-public-ip"
+    "service-node-public-ip"
   , "Public IP address on which this service node's services (such as the Loki "
     "storage server) are accessible. This IP address will be advertised to the "
     "network via the service node uptime proofs. Required if operating as a "
@@ -370,7 +370,7 @@ namespace cryptonote
           storage_ok = false;
         }
 
-        if (epee::net_utils::is_ip_local(m_sn_public_ip) || epee::net_utils::is_ip_loopback(m_sn_public_ip)) {
+        if (!epee::net_utils::is_ip_public(m_sn_public_ip)) {
           MERROR("Address given for public-ip is not public: " << epee::string_tools::get_ip_string_from_int32(m_sn_public_ip));
           storage_ok = false;
         }
@@ -2237,9 +2237,9 @@ namespace cryptonote
     return get_blockchain_storage().prune_blockchain(pruning_seed);
   }
   //-----------------------------------------------------------------------------------------------
-  void core::get_all_service_nodes_public_keys(std::vector<crypto::public_key>& keys, bool fully_funded_nodes_only) const
+  void core::get_all_service_nodes_public_keys(std::vector<crypto::public_key>& keys, bool active_nodes_only) const
   {
-    m_service_node_list.get_all_service_nodes_public_keys(keys, fully_funded_nodes_only);
+    m_service_node_list.get_all_service_nodes_public_keys(keys, active_nodes_only);
   }
   //-----------------------------------------------------------------------------------------------
   std::time_t core::get_start_time() const

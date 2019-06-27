@@ -2632,7 +2632,7 @@ namespace cryptonote
   bool core_rpc_server::on_get_all_service_nodes_keys(const COMMAND_RPC_GET_ALL_SERVICE_NODES_KEYS::request& req, COMMAND_RPC_GET_ALL_SERVICE_NODES_KEYS::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx)
   {
     std::vector<crypto::public_key> keys;
-    m_core.get_all_service_nodes_public_keys(keys, req.fully_funded_nodes_only);
+    m_core.get_all_service_nodes_public_keys(keys, req.active_nodes_only);
 
     res.keys.clear();
     res.keys.resize(keys.size());
@@ -2724,13 +2724,15 @@ namespace cryptonote
       }
     }
 
-    res.height = m_core.get_current_blockchain_height();
-    res.block_hash = string_tools::pod_to_hex(m_core.get_block_id_by_height(res.height - 1));
+    const uint64_t height = m_core.get_current_blockchain_height();
+
+    res.height = height - 1;
+    res.block_hash = string_tools::pod_to_hex(m_core.get_block_id_by_height(res.height));
     
     for (auto &pubkey_info : pubkey_info_list)
     {
       COMMAND_RPC_GET_SERVICE_NODES::response::entry entry = {};
-      fill_sn_response_entry(entry, pubkey_info, res.height);
+      fill_sn_response_entry(entry, pubkey_info, height);
 
       res.service_node_states.push_back(entry);
     }
@@ -2745,10 +2747,10 @@ namespace cryptonote
   {
     std::vector<service_nodes::service_node_pubkey_info> sn_infos = m_core.get_service_node_list_state({});
 
-    if (req.fully_funded_only) {
+    if (req.active_only) {
       const auto end =
         std::remove_if(sn_infos.begin(), sn_infos.end(), [](const service_nodes::service_node_pubkey_info& snpk_info) {
-          return !snpk_info.info.is_fully_funded();
+          return !snpk_info.info.is_active();
         });
       
       sn_infos.erase(end, sn_infos.end());
@@ -2767,7 +2769,7 @@ namespace cryptonote
 
     res.service_node_states.reserve(sn_infos.size());
 
-    uint64_t height = m_core.get_current_blockchain_height();
+    const uint64_t height = m_core.get_current_blockchain_height();
 
     for (auto &pubkey_info : sn_infos) {
       COMMAND_RPC_GET_N_SERVICE_NODES::response::entry entry = {res.fields};
@@ -2778,8 +2780,9 @@ namespace cryptonote
     }
 
     res.status = CORE_RPC_STATUS_OK;
-    res.height = m_core.get_current_blockchain_height();
-    res.block_hash = string_tools::pod_to_hex(m_core.get_block_id_by_height(res.height - 1));
+    res.height = height - 1;
+    res.block_hash = string_tools::pod_to_hex(m_core.get_block_id_by_height(res.height));
+    res.hardfork = m_core.get_hard_fork_version(res.height);
 
     res.fields = req.fields;
     return true;
@@ -2886,11 +2889,12 @@ namespace cryptonote
   }
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_storage_server_ping(const COMMAND_RPC_STORAGE_SERVER_PING::request&,
-                                               COMMAND_RPC_STORAGE_SERVER_PING::response&,
+                                               COMMAND_RPC_STORAGE_SERVER_PING::response& res,
                                                epee::json_rpc::error&,
                                                const connection_context*)
   {
     m_core.update_storage_server_last_ping();
+    res.status = "OK";
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------

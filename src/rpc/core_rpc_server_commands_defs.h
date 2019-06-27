@@ -883,9 +883,9 @@ namespace cryptonote
   {
     struct request_t
     {
-      bool fully_funded_nodes_only; // Return keys for service nodes if they are funded and working on the network
+      bool active_nodes_only; // Return keys for service nodes if they are funded and working on the network
       BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE_OPT(fully_funded_nodes_only, (bool)true)
+        KV_SERIALIZE_OPT(active_nodes_only, (bool)true)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
@@ -2780,7 +2780,7 @@ namespace cryptonote
         uint64_t                  requested_unlock_height;       // The height at which contributions will be released and the Service Node expires. 0 if not requested yet.
         uint64_t                  last_reward_block_height;      // The last height at which this Service Node received a reward.
         uint32_t                  last_reward_transaction_index; // When multiple Service Nodes register on the same height, the order the transaction arrive dictate the order you receive rewards.
-        uint64_t                  last_uptime_proof;             // The last time this Service Node's uptime proof was relayed by atleast 1 Service Node other than itself in unix epoch time.
+        uint64_t                  last_uptime_proof;             // The last time this Service Node's uptime proof was relayed by at least 1 Service Node other than itself in unix epoch time.
         bool                      active;                        // True if fully funded and not currently decommissioned
         uint32_t                  decommission_count;            // The number of times the Service Node has been decommissioned since registration
         int64_t                   earned_downtime_blocks;        // The number of blocks earned towards decommissioning, or the number of blocks remaining until deregistration if currently decommissioned
@@ -2873,6 +2873,7 @@ namespace cryptonote
 
       bool block_hash;
       bool height;
+      bool hardfork;
 
       BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE_OPT2(service_node_pubkey, false)
@@ -2896,6 +2897,7 @@ namespace cryptonote
       KV_SERIALIZE_OPT2(storage_port, false)
       KV_SERIALIZE_OPT2(block_hash, false)
       KV_SERIALIZE_OPT2(height, false)
+      KV_SERIALIZE_OPT2(hardfork, false)
       END_KV_SERIALIZE_MAP()
     };
 
@@ -2905,12 +2907,12 @@ namespace cryptonote
     struct request_t
     {
       uint32_t limit;
-      bool fully_funded_only;
+      bool active_only;
       requested_fields_t fields;
 
       BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE(limit)
-      KV_SERIALIZE(fully_funded_only)
+      KV_SERIALIZE(active_only)
       KV_SERIALIZE(fields)
       END_KV_SERIALIZE_MAP()
     };
@@ -2974,6 +2976,7 @@ namespace cryptonote
       std::vector<entry> service_node_states; // Array of service node registration information
       uint64_t    height;                     // Current block's height.
       std::string block_hash;                 // Current block's hash.
+      uint8_t     hardfork;                   // Current hardfork version.
       std::string status;                     // Generic RPC error code. "OK" is the success value.
 
       BEGIN_KV_SERIALIZE_MAP()
@@ -2984,6 +2987,9 @@ namespace cryptonote
         }
         if (this_ref.fields.block_hash) {
           KV_SERIALIZE(block_hash)
+        }
+        if (this_ref.fields.hardfork) {
+          KV_SERIALIZE(hardfork)
         }
       END_KV_SERIALIZE_MAP()
     };
@@ -3000,7 +3006,9 @@ namespace cryptonote
 
     struct response
     {
+      std::string status;
       BEGIN_KV_SERIALIZE_MAP()
+      KV_SERIALIZE(status)
       END_KV_SERIALIZE_MAP()
     };
   };

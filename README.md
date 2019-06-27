@@ -515,7 +515,7 @@ Packages are available for
 
     ```bash
     # Build using all available cores
-    docker build -t loki .
+    docker build -t loki-daemon-image .
     
     # or build using a specific number of cores (reduce RAM requirement)
     docker build --build-arg NPROC=1 -t loki .
@@ -528,7 +528,7 @@ Packages are available for
     ```
 
 * The build needs 3 GB space.
-* Wait one  hour or more
+* Wait one hour or more. For docker, the collect_from_docker_container.sh script will automate downloading the binaries from the docker container.
 
 ## Running lokid
 
