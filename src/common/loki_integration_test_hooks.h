@@ -45,6 +45,8 @@ extern struct integration_test_t
   bool core_is_idle;
   bool disable_checkpoint_quorum;
   bool disable_obligation_quorum;
+  bool disable_obligation_uptime_proof;
+  bool disable_obligation_checkpointing;
 } integration_test;
 
 }; // namespace loki

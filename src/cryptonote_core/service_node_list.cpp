@@ -45,6 +45,7 @@
 #include "service_node_list.h"
 #include "service_node_rules.h"
 #include "service_node_swarm.h"
+#include "version.h"
 
 #undef LOKI_DEFAULT_LOG_CATEGORY
 #define LOKI_DEFAULT_LOG_CATEGORY "service_nodes"
@@ -436,6 +437,7 @@ namespace service_nodes
         info.last_reward_block_height = block_height;
         info.last_reward_transaction_index = std::numeric_limits<uint32_t>::max();
         info.last_ip_change_height = block_height;
+        return true;
 
       default:
         // dev bug!
@@ -914,7 +916,6 @@ namespace service_nodes
     store();
   }
 
-
   void service_node_list::process_block(const cryptonote::block& block, const std::vector<cryptonote::transaction>& txs)
   {
     uint64_t block_height = cryptonote::get_block_height(block);
@@ -1079,6 +1080,26 @@ namespace service_nodes
     const size_t cache_state_from_height = (block_height < QUORUM_LIFETIME) ? 0 : block_height - QUORUM_LIFETIME;
     while (!m_transient_state.quorum_states.empty() && m_transient_state.quorum_states.begin()->first < cache_state_from_height)
       m_transient_state.quorum_states.erase(m_transient_state.quorum_states.begin());
+
+    //
+    // Reset checkpoint vote count
+    //   i.e. Nodes are allowed to miss a certain number of checkpoint votes every N blocks.
+    //
+    for (auto it : m_transient_state.service_nodes_infos)
+    {
+      proof_info &proof = it.second.proof;
+      if (proof.num_checkpoint_votes_expected > CHECKPOINT_MIN_QUORUMS_NODE_MUST_VOTE_IN_BEFORE_DEREGISTER_CHECK)
+      {
+        // NOTE: We can receive more votes than expected because you may receive votes from the latest quorums but don't
+        // check yet, because we deregister based on quorums on a sliding window that is offset from the latest block on
+        // the blockchain, i.e. check obligation quorums up to (latest height - N).
+
+        // So don't naiively set the num votes received to 0.
+
+        proof.num_checkpoint_votes_received = std::max(proof.num_checkpoint_votes_received - CHECKPOINT_MIN_QUORUMS_NODE_MUST_VOTE_IN_BEFORE_DEREGISTER_CHECK, 0);
+        proof.num_checkpoint_votes_expected = std::max(proof.num_checkpoint_votes_expected - CHECKPOINT_MIN_QUORUMS_NODE_MUST_VOTE_IN_BEFORE_DEREGISTER_CHECK, 0);
+      }
+    }
   }
 
   void service_node_list::blockchain_detached(uint64_t height)
@@ -1568,24 +1589,169 @@ namespace service_nodes
     }
   }
 
-  void service_node_list::handle_uptime_proof(const cryptonote::NOTIFY_UPTIME_PROOF::request &proof) {
+  /// NOTE(maxim): we can remove this after hardfork
+  static crypto::hash make_uptime_proof_hash(crypto::public_key const &pubkey, uint64_t timestamp)
+  {
+    boost::endian::native_to_little(timestamp);
+    char buf[44] = "SUP"; // Meaningless magic bytes
+    crypto::hash result;
+    memcpy(buf + 4, reinterpret_cast<const void *>(&pubkey), sizeof(pubkey));
+    memcpy(buf + 4 + sizeof(pubkey), reinterpret_cast<const void *>(&timestamp), sizeof(timestamp));
+    crypto::cn_fast_hash(buf, sizeof(buf), result);
 
-    const uint8_t hf_version = m_blockchain.get_current_hard_fork_version();
+    return result;
+  }
 
-    if (hf_version < cryptonote::network_version_12_checkpointing) return;
+  static crypto::hash make_uptime_proof_hash_v2(crypto::public_key const &pubkey, uint64_t timestamp, uint32_t pub_ip, uint16_t storage_port)
+  {
+    constexpr size_t BUFFER_SIZE = sizeof(pubkey) + sizeof(timestamp) + sizeof(pub_ip) + sizeof(storage_port);
 
-    CRITICAL_REGION_LOCAL(m_sn_mutex);
-    auto &sn_info = m_transient_state.service_nodes_infos.at(proof.pubkey);
+    boost::endian::native_to_little_inplace(timestamp);
+    boost::endian::native_to_little_inplace(pub_ip);
+    boost::endian::native_to_little_inplace(storage_port);
 
-    sn_info.public_ip = proof.public_ip;
-    sn_info.storage_port = proof.storage_port;
+    char buf[BUFFER_SIZE];
+    crypto::hash result;
+    memcpy(buf, reinterpret_cast<const void *>(&pubkey), sizeof(pubkey));
+    memcpy(buf + sizeof(pubkey), reinterpret_cast<const void *>(&timestamp), sizeof(timestamp));
+    memcpy(buf + sizeof(pubkey) + sizeof(timestamp), reinterpret_cast<const void *>(&pub_ip), sizeof(pub_ip));
+    memcpy(buf + sizeof(pubkey) + sizeof(timestamp) + sizeof(pub_ip), reinterpret_cast<const void *>(&storage_port), sizeof(storage_port));
+
+    crypto::cn_fast_hash(buf, sizeof(buf), result);
+
+    return result;
+  }
+
+  cryptonote::NOTIFY_UPTIME_PROOF::request service_node_list::generate_uptime_proof(crypto::public_key const &pubkey,
+                                                                                    crypto::secret_key const &key,
+                                                                                    uint32_t public_ip,
+                                                                                    uint16_t storage_port) const
+  {
+    cryptonote::NOTIFY_UPTIME_PROOF::request result = {};
+    result.snode_version_major                      = static_cast<uint16_t>(LOKI_VERSION_MAJOR);
+    result.snode_version_minor                      = static_cast<uint16_t>(LOKI_VERSION_MINOR);
+    result.snode_version_patch                      = static_cast<uint16_t>(LOKI_VERSION_PATCH);
+    result.timestamp                                = time(nullptr);
+    result.pubkey                                   = pubkey;
+    result.public_ip                                = public_ip;
+    result.storage_port                             = storage_port;
+
+    const uint8_t version = m_blockchain.get_current_hard_fork_version();
+    crypto::hash hash;
+    if (version < cryptonote::network_version_12_checkpointing)
+      hash = make_uptime_proof_hash(pubkey, result.timestamp);
+    else
+      hash = make_uptime_proof_hash_v2(pubkey, result.timestamp, public_ip, storage_port);
+
+    crypto::generate_signature(hash, pubkey, key, result.sig);
+    return result;
+  }
+
+  bool service_node_list::handle_uptime_proof(cryptonote::NOTIFY_UPTIME_PROOF::request const &proof)
+  {
+    uint8_t const hf_version = m_blockchain.get_current_hard_fork_version();
+    uint64_t const now       = time(nullptr);
+
+    // NOTE: Validate proof version, timestamp range,
+    {
+      if ((proof.timestamp < now - UPTIME_PROOF_BUFFER_IN_SECONDS) || (proof.timestamp > now + UPTIME_PROOF_BUFFER_IN_SECONDS))
+      {
+        LOG_PRINT_L2("Rejecting uptime proof from " << proof.pubkey << ": timestamp is too far from now");
+        return false;
+      }
+
+      // NOTE: Only care about major version for now
+      if (hf_version >= cryptonote::network_version_12_checkpointing && proof.snode_version_major < 4)
+      {
+        LOG_PRINT_L2("Rejecting uptime proof from " << proof.pubkey
+                                                    << ": v4+ loki version is required for v12+ network proofs");
+        return false;
+      }
+      else if (hf_version >= cryptonote::network_version_11_infinite_staking && proof.snode_version_major < 3)
+      {
+        LOG_PRINT_L2("Rejecting uptime proof from " << proof.pubkey << ": v3+ loki version is required for v11+ network proofs");
+        return false;
+      }
+      else if (hf_version >= cryptonote::network_version_10_bulletproofs && proof.snode_version_major < 2)
+      {
+        LOG_PRINT_L2("Rejecting uptime proof from " << proof.pubkey << ": v2+ loki version is required for v10+ network proofs");
+        return false;
+      }
+    }
+
+    //
+    // NOTE: Validate proof signature
+    //
+    {
+      const uint64_t hf12_height = m_blockchain.get_earliest_ideal_height_for_version(cryptonote::network_version_12_checkpointing);
+      const uint64_t height = m_blockchain.get_current_blockchain_height();
+
+      /// Accept both old and new uptime proofs in a small window of 2 blocks
+      /// after switching to hf 12; (for simplicity accept new signatures before hf 12 too)
+      const bool enforce_v2 = (hf12_height != std::numeric_limits<uint64_t>::max() && height >= hf12_height + 2);
+
+      crypto::hash hash;
+      bool signature_ok = false;
+      if (!enforce_v2)
+      {
+        hash         = make_uptime_proof_hash(proof.pubkey, proof.timestamp);
+        signature_ok = crypto::check_signature(hash, proof.pubkey, proof.sig);
+
+        if (!signature_ok)
+        {
+          hash         = make_uptime_proof_hash_v2(proof.pubkey, proof.timestamp, proof.public_ip, proof.storage_port);
+          signature_ok = crypto::check_signature(hash, proof.pubkey, proof.sig);
+        }
+      }
+      else
+      {
+        hash         = make_uptime_proof_hash_v2(proof.pubkey, proof.timestamp, proof.public_ip, proof.storage_port);
+        signature_ok = crypto::check_signature(hash, proof.pubkey, proof.sig);
+
+        /// Sanity check; we do the same on lokid startup
+        if (epee::net_utils::is_ip_local(proof.public_ip) || epee::net_utils::is_ip_loopback(proof.public_ip)) return false;
+      }
+
+      if (!signature_ok)
+      {
+        LOG_PRINT_L2("Rejecting uptime proof from " << proof.pubkey << ": signature validation failed");
+        return false;
+      }
+    }
+
+    std::lock_guard<boost::recursive_mutex> lock(m_sn_mutex);
+    auto it = m_transient_state.service_nodes_infos.find(proof.pubkey);
+    if (it == m_transient_state.service_nodes_infos.end())
+    {
+      LOG_PRINT_L2("Rejecting uptime proof from " << proof.pubkey << ": no such service node is currently registered");
+      return false;
+    }
+
+    service_node_info &info = it->second;
+    if (info.proof.timestamp >= now - (UPTIME_PROOF_FREQUENCY_IN_SECONDS / 2))
+    {
+      LOG_PRINT_L2("Rejecting uptime proof from " << proof.pubkey
+                                                  << ": already received one uptime proof for this node recently");
+      return false;
+    }
+
+    LOG_PRINT_L2("Accepted uptime proof from " << proof.pubkey);
+    info.proof.timestamp     = now;
+    info.proof.version_major = proof.snode_version_major;
+    info.proof.version_minor = proof.snode_version_minor;
+    info.proof.version_patch = proof.snode_version_patch;
+
+    if (hf_version < cryptonote::network_version_12_checkpointing)
+      return true;
+
+    info.public_ip    = proof.public_ip;
+    info.storage_port = proof.storage_port;
 
     // Track any IP changes (so that the obligations quorum can penalize for IP changes)
     //
     // First prune any stale (>1w) ip info.  1 week is probably excessive, but IP switches should be
     // rare and this could, in theory, be useful for diagnostics.
-    auto &ips = sn_info.proof_public_ips;
-    const auto now = static_cast<uint64_t>(time(nullptr));
+    auto &ips = info.proof.public_ips;
     // If we already know about the IP, update its timestamp:
     if (ips[0].first && ips[0].first == proof.public_ip)
         ips[0].second = now;
@@ -1596,8 +1762,48 @@ namespace service_nodes
         ips[1] = {proof.public_ip, now};
     else
         ips[0] = {proof.public_ip, now};
+
+    return true;
   }
 
+  void service_node_list::handle_checkpoint_vote(quorum_vote_t const &vote)
+  {
+    if (vote.type != quorum_type::checkpointing)
+      return;
+
+    std::shared_ptr<const testing_quorum> quorum = get_testing_quorum(vote.type, vote.block_height);
+    if (!quorum)
+    {
+      MERROR("Unexpected missing quorum for checkpointing vote at height: " << vote.block_height << ", current height: " << m_transient_state.height);
+      return;
+    }
+
+    if (vote.index_in_group >= quorum->workers.size())
+    {
+      MERROR("Unexpected vote indexing out of bounds, vote should have already been validated previously.");
+      return;
+    }
+
+    std::lock_guard<boost::recursive_mutex> lock(m_sn_mutex);
+    crypto::public_key const &pubkey = quorum->workers[vote.index_in_group];
+    auto it = m_transient_state.service_nodes_infos.find(pubkey);
+    if (it == m_transient_state.service_nodes_infos.end())
+      return;
+
+    service_node_info &info = it->second;
+    info.proof.num_checkpoint_votes_received++;
+  }
+
+  void service_node_list::expect_checkpoint_vote_from(crypto::public_key const &pubkey)
+  {
+    std::lock_guard<boost::recursive_mutex> lock(m_sn_mutex);
+    auto it = m_transient_state.service_nodes_infos.find(pubkey);
+    if (it == m_transient_state.service_nodes_infos.end())
+      return;
+
+    service_node_info &info = it->second;
+    info.proof.num_checkpoint_votes_expected++;
+  }
 
   bool service_node_list::load()
   {

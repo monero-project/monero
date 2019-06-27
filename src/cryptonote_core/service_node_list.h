@@ -39,6 +39,15 @@ namespace cryptonote { struct Blockchain; struct BlockchainDB; }
 
 namespace service_nodes
 {
+  struct proof_info
+  {
+    uint64_t timestamp     = 0;
+    uint16_t version_major = 0, version_minor = 0, version_patch = 0;
+    int16_t num_checkpoint_votes_expected                         = 0;
+    int16_t num_checkpoint_votes_received                         = 0;
+    std::array<std::pair<uint32_t, uint64_t>, 2> public_ips = {}; // (not serialized)
+  };
+
   struct service_node_info // registration information
   {
     enum version
@@ -104,8 +113,8 @@ namespace service_nodes
     cryptonote::account_public_address operator_address;
     uint32_t                           public_ip;
     uint16_t                           storage_port;
+    proof_info                         proof; // NOTE: Not serialised
     uint64_t                           last_ip_change_height; // The height of the last quorum penalty for changing IPs
-    std::array<std::pair<uint32_t, uint64_t>, 2> proof_public_ips = {}; // (not serialized)
 
     service_node_info() = default;
     bool is_fully_funded() const { return total_contributed >= staking_requirement; }
@@ -195,8 +204,6 @@ namespace service_nodes
     bool is_service_node(const crypto::public_key& pubkey, bool require_active = true) const;
     bool is_key_image_locked(crypto::key_image const &check_image, uint64_t *unlock_height = nullptr, service_node_info::contribution_t *the_locked_contribution = nullptr) const;
 
-    void update_swarms(uint64_t height);
-
     /// Note(maxim): this should not affect thread-safety as the returned object is const
     std::shared_ptr<const testing_quorum> get_testing_quorum(quorum_type type, uint64_t height) const;
 
@@ -210,7 +217,12 @@ namespace service_nodes
     void get_all_service_nodes_public_keys(std::vector<crypto::public_key>& keys, bool require_active) const;
 
     /// Record public ip and storage port and add them to the service node list
-    void handle_uptime_proof(const cryptonote::NOTIFY_UPTIME_PROOF::request &proof);
+    cryptonote::NOTIFY_UPTIME_PROOF::request generate_uptime_proof(crypto::public_key const &pubkey, crypto::secret_key const &key, uint32_t public_ip, uint16_t storage_port) const;
+    bool handle_uptime_proof        (cryptonote::NOTIFY_UPTIME_PROOF::request const &proof);
+
+    // TODO(doyle): This is a really awkward API
+    void handle_checkpoint_vote     (quorum_vote_t const &vote);
+    void expect_checkpoint_vote_from(crypto::public_key const &pubkey);
 
     struct rollback_event
     {
@@ -343,6 +355,7 @@ namespace service_nodes
     // Returns true if a service node changed state (deregistered, decommissioned, or recommissioned)
     bool process_state_change_tx(const cryptonote::transaction& tx, uint64_t block_height);
     void process_block(const cryptonote::block& block, const std::vector<cryptonote::transaction>& txs);
+    void update_swarms(uint64_t height);
 
     bool contribution_tx_output_has_correct_unlock_time(const cryptonote::transaction& tx, size_t i, uint64_t block_height) const;
     void generate_quorums(cryptonote::block const &block);

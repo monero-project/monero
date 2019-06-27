@@ -2648,18 +2648,16 @@ namespace cryptonote
   template<typename response>
   void core_rpc_server::fill_sn_response_entry(response &entry, const service_nodes::service_node_pubkey_info &sn_info, uint64_t current_height) {
 
-    const auto proof = m_core.get_uptime_proof(sn_info.pubkey);
-
     entry.service_node_pubkey           = string_tools::pod_to_hex(sn_info.pubkey);
     entry.registration_height           = sn_info.info.registration_height;
     entry.requested_unlock_height       = sn_info.info.requested_unlock_height;
     entry.last_reward_block_height      = sn_info.info.last_reward_block_height;
     entry.last_reward_transaction_index = sn_info.info.last_reward_transaction_index;
-    entry.last_uptime_proof             = proof.timestamp;
+    entry.last_uptime_proof             = sn_info.info.proof.timestamp;
     entry.active                        = sn_info.info.is_active();
     entry.earned_downtime_blocks        = service_nodes::quorum_cop::calculate_decommission_credit(sn_info.info, current_height);
     entry.decommission_count            = sn_info.info.decommission_count;
-    entry.service_node_version          = {proof.version_major, proof.version_minor, proof.version_patch};
+    entry.service_node_version          = {sn_info.info.proof.version_major, sn_info.info.proof.version_minor, sn_info.info.proof.version_patch};
     entry.public_ip                     = string_tools::get_ip_string_from_int32(sn_info.info.public_ip);
     entry.storage_port                  = sn_info.info.storage_port;
 
@@ -2893,7 +2891,7 @@ namespace cryptonote
                                                epee::json_rpc::error&,
                                                const connection_context*)
   {
-    m_core.update_storage_server_last_ping();
+    m_core.m_last_storage_server_ping = time(nullptr);
     res.status = "OK";
     return true;
   }

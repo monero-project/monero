@@ -35,7 +35,6 @@
 
 #include "common/loki_integration_test_hooks.h"
 
-
 #undef LOKI_DEFAULT_LOG_CATEGORY
 #define LOKI_DEFAULT_LOG_CATEGORY "daemon"
 
@@ -382,6 +381,14 @@ t_command_server::t_command_server(
           else if (args[0] == "toggle_obligation_quorum")
           {
             loki::integration_test.disable_obligation_quorum = !loki::integration_test.disable_obligation_quorum;
+          }
+          else if (args[0] == "toggle_obligation_uptime_proof")
+          {
+            loki::integration_test.disable_obligation_uptime_proof = !loki::integration_test.disable_obligation_uptime_proof;
+          }
+          else if (args[0] == "toggle_obligation_checkpointing")
+          {
+            loki::integration_test.disable_obligation_checkpointing = !loki::integration_test.disable_obligation_checkpointing;
           }
           else
           {

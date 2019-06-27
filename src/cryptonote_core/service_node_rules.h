@@ -5,16 +5,6 @@
 #include "service_node_voting.h"
 
 namespace service_nodes {
-  // State change quorums are in charge of policing the network by changing the state of a service
-  // node on the network: temporary decommissioning, recommissioning, and permanent deregistration.
-  constexpr size_t   STATE_CHANGE_QUORUM_SIZE                = 10;
-  constexpr size_t   STATE_CHANGE_MIN_VOTES_TO_CHANGE_STATE  = 7;
-  constexpr size_t   STATE_CHANGE_NTH_OF_THE_NETWORK_TO_TEST = 100;
-  constexpr size_t   STATE_CHANGE_MIN_NODES_TO_TEST          = 50;
-  constexpr uint64_t VOTE_LIFETIME                           = BLOCKS_EXPECTED_IN_HOURS(2);
-
-  static_assert(STATE_CHANGE_MIN_VOTES_TO_CHANGE_STATE <= STATE_CHANGE_QUORUM_SIZE, "The number of votes required to kick can't exceed the actual quorum size, otherwise we never kick.");
-
   // Service node decommissioning: as service nodes stay up they earn "credits" (measured in blocks)
   // towards a future outage.  A new service node starts out with INITIAL_CREDIT, and then builds up
   // CREDIT_PER_DAY for each day the service node remains active up to a maximum of
@@ -40,17 +30,40 @@ namespace service_nodes {
   constexpr uint64_t  CHECKPOINT_INTERVAL                    = 4;  // Checkpoint every 4 blocks and prune when too old except if (height % CHECKPOINT_STORE_PERSISTENTLY_INTERVAL == 0)
   constexpr uint64_t  CHECKPOINT_STORE_PERSISTENTLY_INTERVAL = 60; // Persistently store the checkpoints at these intervals
   constexpr uint64_t  CHECKPOINT_VOTE_LIFETIME               = CHECKPOINT_STORE_PERSISTENTLY_INTERVAL; // Keep the last 60 blocks worth of votes
+
+  constexpr int16_t CHECKPOINT_MIN_QUORUMS_NODE_MUST_VOTE_IN_BEFORE_DEREGISTER_CHECK = 8;
+  constexpr int16_t CHECKPOINT_MAX_MISSABLE_VOTES                                    = 4;
+  static_assert(CHECKPOINT_MAX_MISSABLE_VOTES < CHECKPOINT_MIN_QUORUMS_NODE_MUST_VOTE_IN_BEFORE_DEREGISTER_CHECK,
+                "The maximum number of votes a service node can miss cannot be greater than the amount of checkpoint "
+                "quorums they must participate in before we check if they should be deregistered or not.");
+
+  // State change quorums are in charge of policing the network by changing the state of a service
+  // node on the network: temporary decommissioning, recommissioning, and permanent deregistration.
+  constexpr size_t   STATE_CHANGE_NTH_OF_THE_NETWORK_TO_TEST = 100;
+  constexpr size_t   STATE_CHANGE_MIN_NODES_TO_TEST          = 50;
+  constexpr uint64_t VOTE_LIFETIME                           = BLOCKS_EXPECTED_IN_HOURS(2);
+
 #if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
+  constexpr size_t    STATE_CHANGE_QUORUM_SIZE               = 5;
+  constexpr size_t    STATE_CHANGE_MIN_VOTES_TO_CHANGE_STATE = 1;
   constexpr ptrdiff_t MIN_TIME_IN_S_BEFORE_VOTING            = 0;
-  constexpr size_t    CHECKPOINT_QUORUM_SIZE                 = 1;
+  constexpr size_t    CHECKPOINT_QUORUM_SIZE                 = 5;
   constexpr size_t    CHECKPOINT_MIN_VOTES                   = 1;
 #else
+  constexpr size_t    STATE_CHANGE_MIN_VOTES_TO_CHANGE_STATE = 7;
+  constexpr size_t    STATE_CHANGE_QUORUM_SIZE               = 10;
   constexpr ptrdiff_t MIN_TIME_IN_S_BEFORE_VOTING            = UPTIME_PROOF_MAX_TIME_IN_SECONDS;
   constexpr size_t    CHECKPOINT_QUORUM_SIZE                 = 20;
   constexpr size_t    CHECKPOINT_MIN_VOTES                   = 13;
 #endif
 
+  static_assert(STATE_CHANGE_MIN_VOTES_TO_CHANGE_STATE <= STATE_CHANGE_QUORUM_SIZE, "The number of votes required to kick can't exceed the actual quorum size, otherwise we never kick.");
   static_assert(CHECKPOINT_MIN_VOTES <= CHECKPOINT_QUORUM_SIZE, "The number of votes required to kick can't exceed the actual quorum size, otherwise we never kick.");
+
+  // NOTE: We can reorg up to last 2 checkpoints + the number of extra blocks before the next checkpoint is set
+  constexpr uint64_t  MAX_REORG_BLOCKS_POST_HF12    = (CHECKPOINT_INTERVAL * 2) + (CHECKPOINT_INTERVAL - 1);
+  constexpr uint64_t  REORG_SAFETY_BUFFER_IN_BLOCKS = 20;
+  static_assert(REORG_SAFETY_BUFFER_IN_BLOCKS < VOTE_LIFETIME, "Safety buffer should always be less than the vote lifetime");
 
   constexpr uint64_t  IP_CHANGE_WINDOW_IN_SECONDS     = 24*60*60; // How far back an obligations quorum looks for multiple IPs (unless the following buffer is more recent)
   constexpr uint64_t  IP_CHANGE_BUFFER_IN_SECONDS     = 2*60*60; // After we bump a SN for an IP change we don't bump again for changes within this time period
