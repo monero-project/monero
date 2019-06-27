@@ -4502,7 +4502,7 @@ void BlockchainLMDB::fixup(fixup_context const context)
 
   if (context.type == fixup_type::calculate_difficulty)
   {
-    uint64_t const start_height = (context.calculate_difficulty_params.start_height == 0) ?
+    uint64_t start_height = (context.calculate_difficulty_params.start_height == 0) ?
       1 : context.calculate_difficulty_params.start_height;
 
     std::vector<uint64_t> timestamps;
@@ -4531,6 +4531,22 @@ void BlockchainLMDB::fixup(fixup_context const context)
     mdb_txn_cursors *m_cursors = &m_wcursors; // Necessary for macro
     CURSOR(block_info);
 
+    // The first blocks of v12 get an overridden difficulty, so if the start block is v12 we need to
+    // make sure it isn't in that initial window; if it *is*, check H-60 to see if that is v11; if
+    // it is, recalculate from there instead (so that we detect the v12 barrier).
+    uint8_t v12_initial_blocks_remaining = 0;
+    uint8_t start_version = get_hard_fork_version(start_height);
+    if (start_version < cryptonote::network_version_12_checkpointing) {
+      v12_initial_blocks_remaining = DIFFICULTY_WINDOW_V2;
+    } else if (start_version == cryptonote::network_version_12_checkpointing && start_height > DIFFICULTY_WINDOW_V2) {
+      uint8_t earlier_version = get_hard_fork_version(start_height - DIFFICULTY_WINDOW_V2);
+      if (earlier_version < cryptonote::network_version_12_checkpointing) {
+        start_height -= DIFFICULTY_WINDOW_V2;
+        v12_initial_blocks_remaining = DIFFICULTY_WINDOW_V2;
+        LOG_PRINT_L2("Using earlier recalculation start height " << start_height << " to include v12 fork height");
+      }
+    }
+
     uint64_t end_height = (height() - 1);
     uint64_t num_blocks = end_height - start_height;
 
@@ -4540,7 +4556,13 @@ void BlockchainLMDB::fixup(fixup_context const context)
       {
         uint64_t const curr_height = (start_height + i);
         uint8_t version            = get_hard_fork_version(curr_height);
-        difficulty_type diff       = next_difficulty_v2(timestamps, difficulties, DIFFICULTY_TARGET_V2, version <= cryptonote::network_version_9_service_nodes);
+        bool v12_initial_override = false;
+        if (version == cryptonote::network_version_12_checkpointing && v12_initial_blocks_remaining > 0) {
+          v12_initial_override = true;
+          v12_initial_blocks_remaining--;
+        }
+        difficulty_type diff = next_difficulty_v2(timestamps, difficulties, DIFFICULTY_TARGET_V2,
+            version <= cryptonote::network_version_9_service_nodes, v12_initial_override);
 
         MDB_val_set(key, curr_height);
         if (int result = mdb_cursor_get(m_cur_block_info, (MDB_val *)&zerokval, &key, MDB_GET_BOTH))

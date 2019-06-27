@@ -956,7 +956,13 @@ difficulty_type Blockchain::get_difficulty_for_next_block()
     m_difficulties = difficulties;
   }
   size_t target = get_difficulty_target();
-  difficulty_type diff = next_difficulty_v2(timestamps, difficulties, target, version <= cryptonote::network_version_9_service_nodes);
+
+  // HF12 switches to RandomX with a likely drastically reduced hashrate versus Turtle, so override
+  // difficulty for the first difficulty window blocks:
+  uint64_t hf12_height = m_hardfork->get_earliest_ideal_height_for_version(network_version_12_checkpointing);
+
+  difficulty_type diff = next_difficulty_v2(timestamps, difficulties, target, version <= cryptonote::network_version_9_service_nodes,
+          height >= hf12_height && height < hf12_height + DIFFICULTY_WINDOW_V2);
 
   CRITICAL_REGION_LOCAL1(m_difficulty_lock);
   m_difficulty_for_next_block_top_hash = top_hash;
@@ -1196,8 +1202,15 @@ difficulty_type Blockchain::get_next_difficulty_for_alternative_chain(const std:
   // FIXME: This will fail if fork activation heights are subject to voting
   size_t target = DIFFICULTY_TARGET_V2;
 
+  // HF12 switches to RandomX with a likely drastically reduced hashrate versus Turtle, so override
+  // difficulty for the first difficulty window blocks:
+  uint64_t hf12_height = m_hardfork->get_earliest_ideal_height_for_version(network_version_12_checkpointing);
+
+  uint64_t height = (alt_chain.size() ? alt_chain.front().height : bei.height) + alt_chain.size() + 1;
+
   // calculate the difficulty target for the block and return it
-  return next_difficulty_v2(timestamps, cumulative_difficulties, target, get_current_hard_fork_version() <= cryptonote::network_version_9_service_nodes);
+  return next_difficulty_v2(timestamps, cumulative_difficulties, target, get_current_hard_fork_version() <= cryptonote::network_version_9_service_nodes,
+      height >= hf12_height && height < hf12_height + DIFFICULTY_WINDOW_V2);
 }
 //------------------------------------------------------------------
 // This function does a sanity check on basic things that all miner
