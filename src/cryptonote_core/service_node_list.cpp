@@ -1586,16 +1586,16 @@ namespace service_nodes
     // rare and this could, in theory, be useful for diagnostics.
     auto &ips = sn_info.proof_public_ips;
     const auto now = static_cast<uint64_t>(time(nullptr));
-    const auto expiry = now - IP_CHANGE_WINDOW_IN_SECONDS;
-    ips.erase(std::remove_if(ips.begin(), ips.end(),
-          [expiry](const std::pair<uint32_t, uint64_t> &ip_time) { return ip_time.second < expiry; }));
-
-    auto it = std::find_if(ips.begin(), ips.end(),
-        [&proof](const std::pair<uint32_t, uint64_t> &ip_time) { return ip_time.first == proof.public_ip; });
-    if (it == ips.end())
-      ips.emplace_back(proof.public_ip, now);
-    else if (now > it->second)
-      it->second = now;
+    // If we already know about the IP, update its timestamp:
+    if (ips[0].first && ips[0].first == proof.public_ip)
+        ips[0].second = now;
+    else if (ips[1].first && ips[1].first == proof.public_ip)
+        ips[1].second = now;
+    // Otherwise replace whichever IP has the older timestamp
+    else if (ips[0].second > ips[1].second)
+        ips[1] = {proof.public_ip, now};
+    else
+        ips[0] = {proof.public_ip, now};
   }
 
 

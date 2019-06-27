@@ -77,17 +77,16 @@ namespace service_nodes
 
 
     // IP change checks
-    if (info.proof_public_ips.size() > 1) {
+    const auto &ips = info.proof_public_ips;
+    if (ips[0].first && ips[1].first) {
       // Figure out when we last had a blockchain-level IP change penalty (or when we registered);
       // we only consider IP changes starting two hours after the last IP penalty.
       std::vector<cryptonote::block> blocks;
       if (m_core.get_blocks(info.last_ip_change_height, 1, blocks)) {
-        uint64_t find_changes_since = std::max(
+        uint64_t find_ips_used_since = std::max(
             uint64_t(std::time(nullptr)) - IP_CHANGE_WINDOW_IN_SECONDS,
             uint64_t(blocks[0].timestamp) + IP_CHANGE_BUFFER_IN_SECONDS);
-        auto num_ips = std::count_if(info.proof_public_ips.begin(), info.proof_public_ips.end(),
-            [find_changes_since](const std::pair<uint32_t, uint64_t> &ip_time) { return ip_time.second > find_changes_since; });
-        if (num_ips > 1)
+        if (ips[0].second > find_ips_used_since && ips[1].second > find_ips_used_since)
           results.single_ip = false;
       }
     }

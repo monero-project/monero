@@ -105,7 +105,7 @@ namespace service_nodes
     uint32_t                           public_ip;
     uint16_t                           storage_port;
     uint64_t                           last_ip_change_height; // The height of the last quorum penalty for changing IPs
-    std::vector<std::pair<uint32_t, uint64_t>> proof_public_ips; // (not serialized)
+    std::array<std::pair<uint32_t, uint64_t>, 2> proof_public_ips = {}; // (not serialized)
 
     service_node_info() = default;
     bool is_fully_funded() const { return total_contributed >= staking_requirement; }
