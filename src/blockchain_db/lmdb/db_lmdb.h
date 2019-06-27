@@ -68,6 +68,8 @@ typedef struct mdb_txn_cursors
   MDB_cursor *m_txc_txpool_meta;
   MDB_cursor *m_txc_txpool_blob;
 
+  MDB_cursor *m_txc_alt_blocks;
+
   MDB_cursor *m_txc_hf_versions;
 
   MDB_cursor *m_txc_service_node_data;
@@ -92,6 +94,7 @@ typedef struct mdb_txn_cursors
 #define m_cur_spent_keys	m_cursors->m_txc_spent_keys
 #define m_cur_txpool_meta	m_cursors->m_txc_txpool_meta
 #define m_cur_txpool_blob	m_cursors->m_txc_txpool_blob
+#define m_cur_alt_blocks	m_cursors->m_txc_alt_blocks
 #define m_cur_hf_versions	m_cursors->m_txc_hf_versions
 #define m_cur_service_node_data	m_cursors->m_txc_service_node_data
 #define m_cur_properties	m_cursors->m_txc_properties
@@ -116,6 +119,7 @@ typedef struct mdb_rflags
   bool m_rf_spent_keys;
   bool m_rf_txpool_meta;
   bool m_rf_txpool_blob;
+  bool m_rf_alt_blocks;
   bool m_rf_hf_versions;
   bool m_rf_service_node_data;
   bool m_rf_properties;
@@ -297,6 +301,12 @@ public:
   bool update_pruning() override;
   bool check_pruning() override;
 
+  void add_alt_block(const crypto::hash &blkid, const cryptonote::alt_block_data_t &data, const cryptonote::blobdata &blob) override;
+  bool get_alt_block(const crypto::hash &blkid, alt_block_data_t *data, cryptonote::blobdata *blob) override;
+  void remove_alt_block(const crypto::hash &blkid) override;
+  uint64_t get_alt_block_count() override;
+  void drop_alt_blocks() override;
+
   bool for_all_txpool_txes(std::function<bool(const crypto::hash&, const txpool_tx_meta_t&, const cryptonote::blobdata*)> f, bool include_blob = false, bool include_unrelayed_txes = true) const override;
 
   bool for_all_key_images(std::function<bool(const crypto::key_image&)>) const override;
@@ -304,6 +314,7 @@ public:
   bool for_all_transactions(std::function<bool(const crypto::hash&, const cryptonote::transaction&)>, bool pruned) const override;
   bool for_all_outputs(std::function<bool(uint64_t amount, const crypto::hash &tx_hash, uint64_t height, size_t tx_idx)> f) const override;
   bool for_all_outputs(uint64_t amount, const std::function<bool(uint64_t height)> &f) const override;
+  bool for_all_alt_blocks(std::function<bool(const crypto::hash &blkid, const alt_block_data_t &data, const cryptonote::blobdata *blob)> f, bool include_blob = false) const override;
 
   uint64_t add_block( const std::pair<block, blobdata>& blk
                             , size_t block_weight
@@ -322,7 +333,7 @@ public:
   bool batch_start(uint64_t batch_num_blocks=0, uint64_t batch_bytes=0) override;
   void batch_commit();
   void batch_stop() override;
-  void batch_abort();
+  void batch_abort() override;
 
   void block_wtxn_start() override;
   void block_wtxn_stop() override;
@@ -471,6 +482,8 @@ private:
 
   MDB_dbi m_txpool_meta;
   MDB_dbi m_txpool_blob;
+
+  MDB_dbi m_alt_blocks;
 
   MDB_dbi m_hf_starting_heights;
   MDB_dbi m_hf_versions;

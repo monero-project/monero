@@ -940,10 +940,10 @@ namespace cryptonote
     res.address = get_account_address_as_str(nettype(), false, lMiningAdr);
     const uint8_t major_version = m_core.get_blockchain_storage().get_current_hard_fork_version();
 
-    if (major_version >= network_version_7 && major_version <= network_version_10_bulletproofs)
-      res.pow_algorithm = "Cryptonight Heavy (Variant 2)";
-    else
-      res.pow_algorithm = "Cryptonight Turtle Light (Variant 2)";
+    res.pow_algorithm =
+        major_version >= network_version_12_checkpointing    ? "RandomX (LOKI variant)"               :
+        major_version == network_version_11_infinite_staking ? "Cryptonight Turtle Light (Variant 2)" :
+                                                               "Cryptonight Heavy (Variant 2)";
 
     if (res.is_background_mining_enabled)
     {
@@ -1235,7 +1235,7 @@ namespace cryptonote
     block b;
     cryptonote::blobdata blob_reserve;
     blob_reserve.resize(req.reserve_size, 0);
-    cryptonote::difficulty_type wdiff;
+    cryptonote::difficulty_type diff;
     crypto::hash prev_block;
     if (!req.prev_block.empty())
     {
@@ -1246,13 +1246,28 @@ namespace cryptonote
         return false;
       }
     }
-    if(!m_core.get_block_template(b, req.prev_block.empty() ? NULL : &prev_block, info.address, wdiff, res.height, res.expected_reward, blob_reserve))
+    if(!m_core.get_block_template(b, req.prev_block.empty() ? NULL : &prev_block, info.address, diff, res.height, res.expected_reward, blob_reserve))
     {
       error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
       error_resp.message = "Internal error: failed to create block template";
       LOG_ERROR("Failed to create block template");
       return false;
     }
+
+    if (b.major_version >= network_version_12_checkpointing)
+    {
+      uint64_t seed_height, next_height;
+      crypto::hash seed_hash;
+      crypto::rx_seedheights(res.height, &seed_height, &next_height);
+      seed_hash = m_core.get_block_id_by_height(seed_height);
+      res.seed_hash = string_tools::pod_to_hex(seed_hash);
+      if (next_height != seed_height) {
+        seed_hash = m_core.get_block_id_by_height(next_height);
+        res.next_seed_hash = string_tools::pod_to_hex(seed_hash);
+      }
+    }
+    res.difficulty = diff;
+
     blobdata block_blob = t_serializable_object_to_blob(b);
     crypto::public_key tx_pub_key = cryptonote::get_tx_pub_key_from_extra(b.miner_tx);
     if(tx_pub_key == crypto::null_pkey)
@@ -1394,7 +1409,7 @@ namespace cryptonote
         return false;
       }
       b.nonce = req.starting_nonce;
-      miner::find_nonce_for_given_block(b, template_res.difficulty, template_res.height);
+      miner::find_nonce_for_given_block(&(m_core.get_blockchain_storage()), b, template_res.difficulty, template_res.height);
 
       submit_req.front() = string_tools::buff_to_hex_nodelimer(block_to_blob(b));
       r = on_submitblock(submit_req, submit_res, error_resp, ctx);
@@ -1438,7 +1453,7 @@ namespace cryptonote
     response.miner_reward = blk.miner_tx.vout[0].amount;
     response.block_size = response.block_weight = m_core.get_blockchain_storage().get_db().get_block_weight(height);
     response.num_txes = blk.tx_hashes.size();
-    response.pow_hash = fill_pow_hash ? string_tools::pod_to_hex(get_block_longhash(blk, height)) : "";
+    response.pow_hash = fill_pow_hash ? string_tools::pod_to_hex(get_block_longhash(&(m_core.get_blockchain_storage()), blk, height, 0)) : "";
     response.long_term_weight = m_core.get_blockchain_storage().get_db().get_block_long_term_weight(height);
     response.miner_tx_hash = string_tools::pod_to_hex(cryptonote::get_transaction_hash(blk.miner_tx));
     return true;
