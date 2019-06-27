@@ -66,6 +66,7 @@ namespace service_nodes {
     deregister,
     decommission,
     recommission,
+    ip_change_penalty,
     _count
   };
 };

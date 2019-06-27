@@ -43,6 +43,9 @@ namespace crypto { \
   inline bool operator!=(const type &_v1, const type &_v2) { \
     return !operator==(_v1, _v2); \
   } \
+  inline bool operator<(const type &_v1, const type &_v2) { \
+    return memcmp(&_v1, &_v2, sizeof(_v1)) < 0; \
+  } \
 }
 
 #define CRYPTO_MAKE_COMPARABLE_CONSTANT_TIME(type) \

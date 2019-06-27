@@ -405,8 +405,38 @@ namespace service_nodes
           LOG_PRINT_L1("Recommission for service node: " << key);
 
         m_transient_state.rollback_events.emplace_back(new rollback_change(block_height, key, info));
+
         info.active_since_height = block_height;
+
+        // Move the SN at the back of the list as if it had just registered (or just won)
+        info.last_reward_block_height = block_height;
+        info.last_reward_transaction_index = std::numeric_limits<uint32_t>::max();
+
         return true;
+
+      case new_state::ip_change_penalty:
+        if (hard_fork_version < cryptonote::network_version_12_checkpointing) {
+          MERROR("Invalid ip_change_penalty transaction seen before network v12");
+          return false;
+        }
+
+        if (info.is_decommissioned()) {
+          LOG_PRINT_L2("Received reset position tx for service node " << key << " but it is already decommissioned; ignoring");
+          return false;
+        }
+
+        if (is_me)
+          MGINFO_RED("Reward position reset for service node (yours): " << key);
+        else
+          LOG_PRINT_L1("Reward position reset for service node: " << key);
+
+        m_transient_state.rollback_events.emplace_back(new rollback_change(block_height, key, info));
+
+        // Move the SN at the back of the list as if it had just registered (or just won)
+        info.last_reward_block_height = block_height;
+        info.last_reward_transaction_index = std::numeric_limits<uint32_t>::max();
+        info.last_ip_change_height = block_height;
+
       default:
         // dev bug!
         MERROR("BUG: Service node state change tx has unknown state " << static_cast<uint16_t>(state_change.state));
@@ -644,8 +674,11 @@ namespace service_nodes
     info.decommission_count = 0;
     info.total_contributed = 0;
     info.total_reserved = 0;
-    info.version = get_min_service_node_info_version_for_hf(hf_version);
     info.swarm_id = UNASSIGNED_SWARM_ID;
+    info.public_ip = 0;
+    info.storage_port = 0;
+    info.last_ip_change_height = block_height;
+    info.version = get_min_service_node_info_version_for_hf(hf_version);
 
     info.contributors.clear();
 
@@ -1247,19 +1280,17 @@ namespace service_nodes
   crypto::public_key service_node_list::select_winner() const
   {
     std::lock_guard<boost::recursive_mutex> lock(m_sn_mutex);
-    auto oldest_waiting = std::pair<uint64_t, uint32_t>(std::numeric_limits<uint64_t>::max(), std::numeric_limits<uint32_t>::max());
-    crypto::public_key key = crypto::null_pkey;
+    auto oldest_waiting = std::make_tuple(std::numeric_limits<uint64_t>::max(), std::numeric_limits<uint32_t>::max(), crypto::null_pkey);
     for (const auto& info : m_transient_state.service_nodes_infos)
-      if (info.second.is_fully_funded())
+      if (info.second.is_active())
       {
-        auto waiting_since = std::make_pair(info.second.last_reward_block_height, info.second.last_reward_transaction_index);
+        auto waiting_since = std::make_tuple(info.second.last_reward_block_height, info.second.last_reward_transaction_index, info.first);
         if (waiting_since < oldest_waiting)
         {
           oldest_waiting = waiting_since;
-          key = info.first;
         }
       }
-    return key;
+    return std::get<2>(oldest_waiting);
   }
 
   bool service_node_list::validate_miner_tx(const crypto::hash& prev_id, const cryptonote::transaction& miner_tx, uint64_t height, int hard_fork_version, cryptonote::block_reward_parts const &reward_parts) const
@@ -1548,6 +1579,23 @@ namespace service_nodes
 
     sn_info.public_ip = proof.public_ip;
     sn_info.storage_port = proof.storage_port;
+
+    // Track any IP changes (so that the obligations quorum can penalize for IP changes)
+    //
+    // First prune any stale (>1w) ip info.  1 week is probably excessive, but IP switches should be
+    // rare and this could, in theory, be useful for diagnostics.
+    auto &ips = sn_info.proof_public_ips;
+    const auto now = static_cast<uint64_t>(time(nullptr));
+    // If we already know about the IP, update its timestamp:
+    if (ips[0].first && ips[0].first == proof.public_ip)
+        ips[0].second = now;
+    else if (ips[1].first && ips[1].first == proof.public_ip)
+        ips[1].second = now;
+    // Otherwise replace whichever IP has the older timestamp
+    else if (ips[0].second > ips[1].second)
+        ips[1] = {proof.public_ip, now};
+    else
+        ips[0] = {proof.public_ip, now};
   }
 
 

@@ -883,9 +883,9 @@ namespace cryptonote
   {
     struct request_t
     {
-      bool fully_funded_nodes_only; // Return keys for service nodes if they are funded and working on the network
+      bool active_nodes_only; // Return keys for service nodes if they are funded and working on the network
       BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE_OPT(fully_funded_nodes_only, (bool)true)
+        KV_SERIALIZE_OPT(active_nodes_only, (bool)true)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
@@ -2903,12 +2903,12 @@ namespace cryptonote
     struct request_t
     {
       uint32_t limit;
-      bool fully_funded_only;
+      bool active_only;
       requested_fields_t fields;
 
       BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE(limit)
-      KV_SERIALIZE(fully_funded_only)
+      KV_SERIALIZE(active_only)
       KV_SERIALIZE(fields)
       END_KV_SERIALIZE_MAP()
     };
