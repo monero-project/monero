@@ -940,12 +940,10 @@ namespace cryptonote
     res.address = get_account_address_as_str(nettype(), false, lMiningAdr);
     const uint8_t major_version = m_core.get_blockchain_storage().get_current_hard_fork_version();
 
-    if (major_version >= network_version_12_checkpointing)
-      res.pow_algorithm = "RandomX (LOKI variant)";
-    if (major_version >= network_version_7 && major_version <= network_version_10_bulletproofs)
-      res.pow_algorithm = "Cryptonight Heavy (Variant 2)";
-    else
-      res.pow_algorithm = "Cryptonight Turtle Light (Variant 2)";
+    res.pow_algorithm =
+        major_version >= network_version_12_checkpointing    ? "RandomX (LOKI variant)"               :
+        major_version == network_version_11_infinite_staking ? "Cryptonight Turtle Light (Variant 2)" :
+                                                               "Cryptonight Heavy (Variant 2)";
 
     if (res.is_background_mining_enabled)
     {
