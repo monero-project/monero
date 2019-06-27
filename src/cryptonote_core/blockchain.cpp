@@ -102,25 +102,27 @@ static const hard_fork_record mainnet_hard_forks[] =
   { network_version_9_service_nodes,     101250, 0, 1537444800 },
   { network_version_10_bulletproofs,     161849, 0, 1544743800 }, // 2018-12-13 23:30UTC
   { network_version_11_infinite_staking, 234767, 0, 1554170400 }, // 2019-03-26 13:00AEDT
+  { network_version_12_checkpointing,    321467, 0, 1563940800 }, // 2019-07-24 14:00AEDT
 };
 
 static const hard_fork_record testnet_hard_forks[] =
 {
-  { network_version_7,                   1, 0, 1533631121 },
-  { network_version_8,                   2, 0, 1533631122 },
-  { network_version_9_service_nodes,     3, 0, 1533631123 },
-  { network_version_10_bulletproofs,     4, 0, 1542681077 },
-  { network_version_11_infinite_staking, 5, 0, 1551223964 },
-  { network_version_12_checkpointing,    6, 0, 1551223966 },
+  { network_version_7,                   1,     0, 1533631121 },
+  { network_version_8,                   2,     0, 1533631122 },
+  { network_version_9_service_nodes,     3,     0, 1533631123 },
+  { network_version_10_bulletproofs,     4,     0, 1542681077 },
+  { network_version_11_infinite_staking, 5,     0, 1551223964 },
+  { network_version_12_checkpointing,    75471, 0, 1561608000 }, // 2019-06-28 14:00AEDT
 };
 
 static const hard_fork_record stagenet_hard_forks[] =
 {
-  { network_version_7,                   1,     0, 1341378000 },
-  { network_version_8,                   64324, 0, 1533006000 },
-  { network_version_9_service_nodes,     96210, 0, 1536840000 },
-  { network_version_10_bulletproofs,     96211, 0, 1536840120 },
+  { network_version_7,                   1,      0, 1341378000 },
+  { network_version_8,                   64324,  0, 1533006000 },
+  { network_version_9_service_nodes,     96210,  0, 1536840000 },
+  { network_version_10_bulletproofs,     96211,  0, 1536840120 },
   { network_version_11_infinite_staking, 147029, 0, 1551223964 }, // 2019-02-27 12:30 AEDT
+  { network_version_12_checkpointing,    213125, 0, 1561608000 }, // 2019-06-28 14:00 AEDT
 };
 
 //------------------------------------------------------------------
