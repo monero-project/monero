@@ -1001,6 +1001,10 @@ namespace cryptonote
     const uint8_t hf_version          = b.major_version;
     crypto::cn_slow_hash_type cn_type = cn_slow_hash_type::heavy_v1;
 
+#if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
+    const_cast<int &>(miners) = 0;
+#endif
+
     if (hf_version >= network_version_12_checkpointing) {
       uint64_t seed_height;
       if (rx_needhash(height, &seed_height)) {
