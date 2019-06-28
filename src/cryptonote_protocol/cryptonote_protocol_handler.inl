@@ -2499,7 +2499,7 @@ skip:
       MINFO("Target height decreasing from " << previous_target << " to " << target);
       m_core.set_target_blockchain_height(target);
       if (target == 0 && context.m_state > cryptonote_connection_context::state_before_handshake && !m_stopping)
-        MCWARNING("global", "monerod is now disconnected from the network");
+        MCWARNING("global", "lokid is now disconnected from the network");
     }
 
     m_block_queue.flush_spans(context.m_connection_id, false);
