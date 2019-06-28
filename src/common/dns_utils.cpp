@@ -48,7 +48,6 @@ static const char *DEFAULT_DNS_PUBLIC_ADDR[] =
   "80.67.169.40",       // FDN (France)
   "89.233.43.71",       // http://censurfridns.dk (Denmark)
   "109.69.8.51",        // punCAT (Spain)
-  "77.109.148.137",     // Xiala.net (Switzerland)
   "193.58.251.251",     // SkyDNS (Russia)
 };
 
