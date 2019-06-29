@@ -763,7 +763,6 @@ namespace cryptonote
               tx_verification_context tvc;
               uint64_t max_used_block_height = 0;
               crypto::hash max_used_block_id = null_hash;
-              // FIXME: not check_tx_inputs anymore
               if (!m_blockchain.check_tx_inputs(tx, max_used_block_height, max_used_block_id, tvc, /*kept_by_block*/ false))
               {
                 LOG_PRINT_L1("TX type: " << tx.type << " considered for relaying failed tx inputs check, txid: " << txid << ", reason: " << print_tx_verification_context(tvc, &tx));
