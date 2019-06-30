@@ -81,7 +81,7 @@ namespace service_nodes
     void blockchain_detached(uint64_t height) override;
 
     void                       set_votes_relayed  (std::vector<quorum_vote_t> const &relayed_votes);
-    std::vector<quorum_vote_t> get_relayable_votes();
+    std::vector<quorum_vote_t> get_relayable_votes(uint64_t current_height);
     bool                       handle_vote        (quorum_vote_t const &vote, cryptonote::vote_verification_context &vvc);
 
     static int64_t calculate_decommission_credit(const service_node_info &info, uint64_t current_height);

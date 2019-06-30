@@ -138,7 +138,7 @@ namespace service_nodes
     void                         set_relayed         (const std::vector<quorum_vote_t>& votes);
     void                         remove_expired_votes(uint64_t height);
     void                         remove_used_votes   (std::vector<cryptonote::transaction> const &txs, uint8_t hard_fork_version);
-    std::vector<quorum_vote_t>   get_relayable_votes () const;
+    std::vector<quorum_vote_t>   get_relayable_votes (uint64_t height) const;
 
   private:
     std::vector<pool_vote_entry> *find_vote_pool(const quorum_vote_t &vote, bool create_if_not_found = false);

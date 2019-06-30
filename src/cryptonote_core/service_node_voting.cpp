@@ -319,15 +319,22 @@ namespace service_nodes
     // NOTE: Validate vote age
     //
     {
-      uint64_t delta_height = latest_height - vote.block_height;
-      if (vote.block_height < latest_height && delta_height >= VOTE_LIFETIME)
+      // If we get an incoming vote that is outside the acceptable range by this many votes then
+      // just ignore it instead of dropping the connection; the sending side could be a couple
+      // blocks out of sync and sending something that it thinks is legit.
+      constexpr uint64_t VOTE_BUFFER = 5;
+
+      bool height_in_buffer = false;
+      if (latest_height > vote.block_height + VOTE_LIFETIME)
       {
+        height_in_buffer = latest_height <= vote.block_height + (VOTE_LIFETIME + VOTE_BUFFER);
         LOG_PRINT_L1("Received vote for height: " << vote.block_height << ", is older than: " << VOTE_LIFETIME
                                                   << " blocks and has been rejected.");
         vvc.m_invalid_block_height = true;
       }
       else if (vote.block_height > latest_height)
       {
+        height_in_buffer = vote.block_height <= latest_height + VOTE_BUFFER;
         LOG_PRINT_L1("Received vote for height: " << vote.block_height << ", is newer than: " << latest_height
                                                   << " (latest block height) and has been rejected.");
         vvc.m_invalid_block_height = true;
@@ -336,7 +343,7 @@ namespace service_nodes
       if (vvc.m_invalid_block_height)
       {
         result                    = false;
-        vvc.m_verification_failed = true;
+        vvc.m_verification_failed = !height_in_buffer;
         return result;
       }
     }
@@ -454,28 +461,30 @@ namespace service_nodes
   }
 
   template <typename T>
-  static void append_relayable_votes(std::vector<quorum_vote_t> &result, const T &pool, const time_t now, const time_t threshold) {
+  static void append_relayable_votes(std::vector<quorum_vote_t> &result, const T &pool, const uint64_t max_last_sent, uint64_t min_height) {
     for (const auto &pool_entry : pool)
       for (const auto &vote_entry : pool_entry.votes)
-        if (now > (time_t)vote_entry.time_last_sent_p2p + threshold)
+        if (vote_entry.vote.block_height >= min_height && vote_entry.time_last_sent_p2p <= max_last_sent)
           result.push_back(vote_entry.vote);
   }
 
-  std::vector<quorum_vote_t> voting_pool::get_relayable_votes() const
+  std::vector<quorum_vote_t> voting_pool::get_relayable_votes(uint64_t height) const
   {
     CRITICAL_REGION_LOCAL(m_lock);
 
     // TODO(doyle): Rate-limiting: A better threshold value that follows suite with transaction relay time back-off
 #if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
-    const time_t TIME_BETWEEN_RELAY = 0;
+    constexpr uint64_t TIME_BETWEEN_RELAY = 0;
 #else
-    const time_t TIME_BETWEEN_RELAY = 60 * 2;
+    constexpr uint64_t TIME_BETWEEN_RELAY = 60 * 2;
 #endif
 
-    time_t const now = time(nullptr);
+    const uint64_t max_last_sent = static_cast<uint64_t>(time(nullptr)) - TIME_BETWEEN_RELAY;
+    const uint64_t min_height = height > VOTE_LIFETIME ? height - VOTE_LIFETIME : 0;
+
     std::vector<quorum_vote_t> result;
-    append_relayable_votes(result, m_obligations_pool, now, TIME_BETWEEN_RELAY);
-    append_relayable_votes(result, m_checkpoint_pool,   now, TIME_BETWEEN_RELAY);
+    append_relayable_votes(result, m_obligations_pool, max_last_sent, min_height);
+    append_relayable_votes(result, m_checkpoint_pool,  max_last_sent, min_height);
     return result;
   }
 
