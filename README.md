@@ -238,7 +238,7 @@ invokes cmake commands as needed.
     available per thread.
 
     *Note*: If cmake can not find zmq.hpp file on macOS, installing `zmq.hpp` from
-    https://github.com/zeromq/cppzmq to `/usr/local/include` should fix that error.
+    [zeromq/cppzmq](https://github.com/zeromq/cppzmq/blob/c55379d6e2b7ed574a59d372aa7f99f3425165f3/zmq.hpp) to `/usr/local/include` should fix that error.
 
     *Note*: The instructions above will compile the most stable release of the
     Monero software. If you would like to use and test the most recent software,
