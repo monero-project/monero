@@ -1461,7 +1461,7 @@ namespace cryptonote
         cryptonote_connection_context fake_context = AUTO_VAL_INIT(fake_context);
         if (get_protocol()->relay_service_node_votes(req, fake_context))
         {
-          m_quorum_cop.set_votes_relayed(relayable_votes);
+          m_quorum_cop.set_votes_relayed(req.votes);
         }
       }
     }
