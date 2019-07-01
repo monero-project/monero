@@ -162,7 +162,7 @@ protected:
     {
       block bl;
       blobdata bd = h2b(i);
-      parse_and_validate_block_from_blob(bd, bl);
+      CHECK_AND_ASSERT_THROW_MES(parse_and_validate_block_from_blob(bd, bl), "Invalid block");
       m_blocks.push_back(std::make_pair(bl, bd));
     }
     for (auto& i : t_transactions)
@@ -172,7 +172,7 @@ protected:
       {
         transaction tx;
         blobdata bd = h2b(j);
-        parse_and_validate_tx_from_blob(bd, tx);
+        CHECK_AND_ASSERT_THROW_MES(parse_and_validate_tx_from_blob(bd, tx), "Invalid transaction");
         txs.push_back(std::make_pair(tx, bd));
       }
       m_txs.push_back(txs);
