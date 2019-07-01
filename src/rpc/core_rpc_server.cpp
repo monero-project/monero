@@ -2655,6 +2655,9 @@ namespace cryptonote
     entry.last_reward_transaction_index = sn_info.info.last_reward_transaction_index;
     entry.last_uptime_proof             = sn_info.info.proof.timestamp;
     entry.active                        = sn_info.info.is_active();
+    entry.funded                        = sn_info.info.is_fully_funded();
+    entry.state_height                  = sn_info.info.is_fully_funded()
+        ? (sn_info.info.is_decommissioned() ? sn_info.info.last_decommission_height : sn_info.info.active_since_height) : sn_info.info.last_reward_block_height;
     entry.earned_downtime_blocks        = service_nodes::quorum_cop::calculate_decommission_credit(sn_info.info, current_height);
     entry.decommission_count            = sn_info.info.decommission_count;
     entry.service_node_version          = {sn_info.info.proof.version_major, sn_info.info.proof.version_minor, sn_info.info.proof.version_patch};
