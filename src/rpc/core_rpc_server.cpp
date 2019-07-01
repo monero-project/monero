@@ -2782,6 +2782,7 @@ namespace cryptonote
 
     res.status = CORE_RPC_STATUS_OK;
     res.height = height - 1;
+    res.target_height = m_core.get_target_blockchain_height();
     res.block_hash = string_tools::pod_to_hex(m_core.get_block_id_by_height(res.height));
     res.hardfork = m_core.get_hard_fork_version(res.height);
 

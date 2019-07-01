@@ -2879,6 +2879,7 @@ namespace cryptonote
 
       bool block_hash;
       bool height;
+      bool target_height;
       bool hardfork;
 
       BEGIN_KV_SERIALIZE_MAP()
@@ -2905,6 +2906,7 @@ namespace cryptonote
       KV_SERIALIZE_OPT2(storage_port, false)
       KV_SERIALIZE_OPT2(block_hash, false)
       KV_SERIALIZE_OPT2(height, false)
+      KV_SERIALIZE_OPT2(target_height, false)
       KV_SERIALIZE_OPT2(hardfork, false)
       END_KV_SERIALIZE_MAP()
     };
@@ -2987,6 +2989,7 @@ namespace cryptonote
 
       std::vector<entry> service_node_states; // Array of service node registration information
       uint64_t    height;                     // Current block's height.
+      uint64_t    target_height;              // Blockchain's target height.
       std::string block_hash;                 // Current block's hash.
       uint8_t     hardfork;                   // Current hardfork version.
       std::string status;                     // Generic RPC error code. "OK" is the success value.
@@ -2996,6 +2999,9 @@ namespace cryptonote
         KV_SERIALIZE(status)
         if (this_ref.fields.height) {
           KV_SERIALIZE(height)
+        }
+        if (this_ref.fields.target_height) {
+          KV_SERIALIZE(target_height)
         }
         if (this_ref.fields.block_hash) {
           KV_SERIALIZE(block_hash)
