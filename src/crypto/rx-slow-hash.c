@@ -276,7 +276,7 @@ void rx_alt_slowhash(const uint64_t mainheight, const uint64_t seedheight, const
   uint64_t s_height = rx_seedheight(mainheight);
   int alt_toggle = (s_height & SEEDHASH_EPOCH_BLOCKS) == 0;
   rx_state *rx_sp = &rx_s[alt_toggle];
-  if (rx_sp->rs_height != seedheight || rx_sp->rs_cache == NULL || memcmp(hash, rx_althash, sizeof(rx_althash))) {
+  if (rx_sp->rs_height != seedheight || rx_sp->rs_cache == NULL || memcmp(seedhash, rx_althash, sizeof(rx_althash))) {
     memcpy(rx_althash, seedhash, sizeof(rx_althash));
     rx_sp->rs_height = 1;
     rx_seedhash_int(rx_sp, seedheight, seedhash, 0);
