@@ -3215,9 +3215,11 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
         return false;
       }
 
-      if (!service_nodes::verify_tx_state_change(state_change, get_current_blockchain_height(), tvc.m_vote_ctx, *quorum, hf_version))
+      if (!service_nodes::verify_tx_state_change(state_change, get_current_blockchain_height(), tvc, *quorum, hf_version))
       {
-        tvc.m_verifivation_failed = true;
+        // will be set by the above on serious failures (i.e. illegal value), but not for less
+        // serious ones like state change heights slightly outside of allowed bounds:
+        //tvc.m_verifivation_failed = true;
         MERROR_VER("tx " << get_transaction_hash(tx) << ": state change tx could not be completely verified reason: " << print_vote_verification_context(tvc.m_vote_ctx));
         return false;
       }

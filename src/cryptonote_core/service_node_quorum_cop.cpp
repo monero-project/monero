@@ -138,10 +138,9 @@ namespace service_nodes
     m_vote_pool.set_relayed(relayed_votes);
   }
 
-  std::vector<quorum_vote_t> quorum_cop::get_relayable_votes()
+  std::vector<quorum_vote_t> quorum_cop::get_relayable_votes(uint64_t current_height)
   {
-    std::vector<quorum_vote_t> result = m_vote_pool.get_relayable_votes();
-    return result;
+    return m_vote_pool.get_relayable_votes(current_height);
   }
 
   static int find_index_in_quorum_group(std::vector<crypto::public_key> const &group, crypto::public_key const &my_pubkey)
@@ -370,14 +369,7 @@ namespace service_nodes
   {
     process_quorums(block);
 
-    // Since our age checks for state change votes is now (age >=
-    // STATE_CHANGE_VOTE_LIFETIME_IN_BLOCKS) where age is
-    // get_current_blockchain_height() which gives you the height that you are
-    // currently mining for, i.e. (height + 1).
-
-    // Otherwise peers will silently drop connection from each other when they
-    // go around P2Ping votes due to passing around old votes
-    uint64_t const height = cryptonote::get_block_height(block) + 1;
+    uint64_t const height = cryptonote::get_block_height(block) + 1; // chain height = new top block height + 1
     m_vote_pool.remove_expired_votes(height);
     m_vote_pool.remove_used_votes(txs, block.major_version);
   }

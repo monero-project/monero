@@ -42,6 +42,7 @@
 
 namespace cryptonote
 {
+  struct tx_verification_context;
   struct vote_verification_context;
   struct checkpoint_t;
 };
@@ -101,7 +102,7 @@ namespace service_nodes
   quorum_vote_t     make_state_change_vote(uint64_t block_height, uint16_t index_in_group, uint16_t worker_index, new_state state, crypto::public_key const &pub_key, crypto::secret_key const &secret_key);
 
   bool              verify_checkpoint                  (cryptonote::checkpoint_t const &checkpoint, service_nodes::testing_quorum const &quorum);
-  bool              verify_tx_state_change             (const cryptonote::tx_extra_service_node_state_change& state_change, uint64_t latest_height, cryptonote::vote_verification_context& vvc, const service_nodes::testing_quorum &quorum, uint8_t hf_version);
+  bool              verify_tx_state_change             (const cryptonote::tx_extra_service_node_state_change& state_change, uint64_t latest_height, cryptonote::tx_verification_context& vvc, const service_nodes::testing_quorum &quorum, uint8_t hf_version);
   bool              verify_vote                        (const quorum_vote_t& vote, uint64_t latest_height, cryptonote::vote_verification_context &vvc, const service_nodes::testing_quorum &quorum);
   crypto::signature make_signature_from_vote           (quorum_vote_t const &vote, const crypto::public_key& pub, const crypto::secret_key& sec);
   crypto::signature make_signature_from_tx_state_change(cryptonote::tx_extra_service_node_state_change const &state_change, crypto::public_key const &pub, crypto::secret_key const &sec);
@@ -138,7 +139,7 @@ namespace service_nodes
     void                         set_relayed         (const std::vector<quorum_vote_t>& votes);
     void                         remove_expired_votes(uint64_t height);
     void                         remove_used_votes   (std::vector<cryptonote::transaction> const &txs, uint8_t hard_fork_version);
-    std::vector<quorum_vote_t>   get_relayable_votes () const;
+    std::vector<quorum_vote_t>   get_relayable_votes (uint64_t height) const;
 
   private:
     std::vector<pool_vote_entry> *find_vote_pool(const quorum_vote_t &vote, bool create_if_not_found = false);

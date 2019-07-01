@@ -157,39 +157,50 @@ namespace service_nodes
     return true;
   }
 
+  // If we get an incoming vote of state change tx that is outside the acceptable range by this many
+  // blocks then ignore it but don't trigger a connection drop; the sending side could be a couple
+  // blocks out of sync and sending something that it thinks is legit.
+  constexpr uint64_t VERIFY_HEIGHT_BUFFER = 5;
+
+  static bool bad_tx(cryptonote::tx_verification_context &tvc) {
+    tvc.m_verifivation_failed = true;
+    return false;
+  }
+
   bool verify_tx_state_change(const cryptonote::tx_extra_service_node_state_change &state_change,
                               uint64_t latest_height,
-                              cryptonote::vote_verification_context &vvc,
+                              cryptonote::tx_verification_context &tvc,
                               const service_nodes::testing_quorum &quorum,
                               const uint8_t hf_version)
   {
+    auto &vvc = tvc.m_vote_ctx;
     if (state_change.state != new_state::deregister && hf_version < cryptonote::network_version_12_checkpointing)
     {
       LOG_PRINT_L1("Non-deregister state changes are invalid before v12");
-      return false;
+      return bad_tx(tvc);
     }
 
     if (state_change.state > new_state::recommission)
     {
       LOG_PRINT_L1("Unknown state change to new state: " << static_cast<uint16_t>(state_change.state));
-      return false;
+      return bad_tx(tvc);
     }
 
     if (state_change.votes.size() < service_nodes::STATE_CHANGE_MIN_VOTES_TO_CHANGE_STATE)
     {
       LOG_PRINT_L1("Not enough votes");
       vvc.m_not_enough_votes = true;
-      return false;
+      return bad_tx(tvc);
     }
 
     if (state_change.votes.size() > service_nodes::STATE_CHANGE_QUORUM_SIZE)
     {
       LOG_PRINT_L1("Too many votes");
-      return false;
+      return bad_tx(tvc);
     }
 
     if (!bounds_check_worker_index(quorum, state_change.service_node_index, &vvc))
-      return false;
+      return bad_tx(tvc);
 
     // Check if state_change is too old or too new to hold onto
     {
@@ -200,11 +211,12 @@ namespace service_nodes
                      << ", is newer than current height: " << latest_height
                      << " blocks and has been rejected.");
         vvc.m_invalid_block_height = true;
+        if (state_change.block_height >= latest_height + VERIFY_HEIGHT_BUFFER)
+          tvc.m_verifivation_failed = true;
         return false;
       }
 
-      uint64_t delta_height = latest_height - state_change.block_height;
-      if (latest_height >= state_change.block_height && delta_height >= service_nodes::STATE_CHANGE_TX_LIFETIME_IN_BLOCKS)
+      if (latest_height >= state_change.block_height + service_nodes::STATE_CHANGE_TX_LIFETIME_IN_BLOCKS)
       {
         LOG_PRINT_L1("Received state change tx for height: "
                      << state_change.block_height << " and service node: " << state_change.service_node_index
@@ -212,6 +224,8 @@ namespace service_nodes
                      << " (current height: " << latest_height << ") "
                      << "blocks and has been rejected.");
         vvc.m_invalid_block_height = true;
+        if (latest_height >= state_change.block_height + (service_nodes::STATE_CHANGE_TX_LIFETIME_IN_BLOCKS + VERIFY_HEIGHT_BUFFER))
+          tvc.m_verifivation_failed = true;
         return false;
       }
     }
@@ -221,13 +235,13 @@ namespace service_nodes
     for (const auto &vote : state_change.votes)
     {
       if (!bounds_check_validator_index(quorum, vote.validator_index, &vvc))
-        return false;
+        return bad_tx(tvc);
 
       if (++validator_set[vote.validator_index] > 1)
       {
         vvc.m_duplicate_voters = true;
         LOG_PRINT_L1("Voter quorum index is duplicated: " << vote.validator_index);
-        return false;
+        return bad_tx(tvc);
       }
 
       crypto::public_key const &key = quorum.validators[vote.validator_index];
@@ -235,7 +249,7 @@ namespace service_nodes
       {
         LOG_PRINT_L1("Invalid signatures for votes");
         vvc.m_signature_not_valid = true;
-        return false;
+        return bad_tx(tvc);
       }
     }
 
@@ -319,15 +333,17 @@ namespace service_nodes
     // NOTE: Validate vote age
     //
     {
-      uint64_t delta_height = latest_height - vote.block_height;
-      if (vote.block_height < latest_height && delta_height >= VOTE_LIFETIME)
+      bool height_in_buffer = false;
+      if (latest_height > vote.block_height + VERIFY_HEIGHT_BUFFER)
       {
-        LOG_PRINT_L1("Received vote for height: " << vote.block_height << ", is older than: " << VOTE_LIFETIME
+        height_in_buffer = latest_height <= vote.block_height + (VOTE_LIFETIME + VERIFY_HEIGHT_BUFFER);
+        LOG_PRINT_L1("Received vote for height: " << vote.block_height << ", is older than: " << VERIFY_HEIGHT_BUFFER
                                                   << " blocks and has been rejected.");
         vvc.m_invalid_block_height = true;
       }
       else if (vote.block_height > latest_height)
       {
+        height_in_buffer = vote.block_height <= latest_height + VERIFY_HEIGHT_BUFFER;
         LOG_PRINT_L1("Received vote for height: " << vote.block_height << ", is newer than: " << latest_height
                                                   << " (latest block height) and has been rejected.");
         vvc.m_invalid_block_height = true;
@@ -336,7 +352,7 @@ namespace service_nodes
       if (vvc.m_invalid_block_height)
       {
         result                    = false;
-        vvc.m_verification_failed = true;
+        vvc.m_verification_failed = !height_in_buffer;
         return result;
       }
     }
@@ -454,28 +470,30 @@ namespace service_nodes
   }
 
   template <typename T>
-  static void append_relayable_votes(std::vector<quorum_vote_t> &result, const T &pool, const time_t now, const time_t threshold) {
+  static void append_relayable_votes(std::vector<quorum_vote_t> &result, const T &pool, const uint64_t max_last_sent, uint64_t min_height) {
     for (const auto &pool_entry : pool)
       for (const auto &vote_entry : pool_entry.votes)
-        if (now > (time_t)vote_entry.time_last_sent_p2p + threshold)
+        if (vote_entry.vote.block_height >= min_height && vote_entry.time_last_sent_p2p <= max_last_sent)
           result.push_back(vote_entry.vote);
   }
 
-  std::vector<quorum_vote_t> voting_pool::get_relayable_votes() const
+  std::vector<quorum_vote_t> voting_pool::get_relayable_votes(uint64_t height) const
   {
     CRITICAL_REGION_LOCAL(m_lock);
 
     // TODO(doyle): Rate-limiting: A better threshold value that follows suite with transaction relay time back-off
 #if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
-    const time_t TIME_BETWEEN_RELAY = 0;
+    constexpr uint64_t TIME_BETWEEN_RELAY = 0;
 #else
-    const time_t TIME_BETWEEN_RELAY = 60 * 2;
+    constexpr uint64_t TIME_BETWEEN_RELAY = 60 * 2;
 #endif
 
-    time_t const now = time(nullptr);
+    const uint64_t max_last_sent = static_cast<uint64_t>(time(nullptr)) - TIME_BETWEEN_RELAY;
+    const uint64_t min_height = height > VOTE_LIFETIME ? height - VOTE_LIFETIME : 0;
+
     std::vector<quorum_vote_t> result;
-    append_relayable_votes(result, m_obligations_pool, now, TIME_BETWEEN_RELAY);
-    append_relayable_votes(result, m_checkpoint_pool,   now, TIME_BETWEEN_RELAY);
+    append_relayable_votes(result, m_obligations_pool, max_last_sent, min_height);
+    append_relayable_votes(result, m_checkpoint_pool,  max_last_sent, min_height);
     return result;
   }
 
