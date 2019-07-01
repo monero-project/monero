@@ -58,7 +58,7 @@
 #include "cryptonote_basic/hardfork.h"
 #include "blockchain_db/blockchain_db.h"
 
-namespace service_nodes { class service_node_list; class voting_pool; };
+namespace service_nodes { class service_node_list; struct voting_pool; };
 namespace tools { class Notify; }
 
 namespace cryptonote

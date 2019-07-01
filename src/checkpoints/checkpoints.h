@@ -190,7 +190,7 @@ namespace cryptonote
      *
      * @return true unless adding a checkpoint fails
      */
-    bool init(network_type nettype, struct BlockchainDB *db);
+    bool init(network_type nettype, class BlockchainDB *db);
 
   private:
     uint64_t m_last_cull_height = 0;

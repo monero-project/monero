@@ -35,7 +35,7 @@
 #include "cryptonote_core/service_node_voting.h"
 #include "cryptonote_core/service_node_quorum_cop.h"
 
-namespace cryptonote { struct Blockchain; struct BlockchainDB; }
+namespace cryptonote { class Blockchain; class BlockchainDB; }
 
 namespace service_nodes
 {
