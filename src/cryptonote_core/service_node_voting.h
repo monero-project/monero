@@ -42,6 +42,7 @@
 
 namespace cryptonote
 {
+  struct tx_verification_context;
   struct vote_verification_context;
   struct checkpoint_t;
 };
@@ -101,7 +102,7 @@ namespace service_nodes
   quorum_vote_t     make_state_change_vote(uint64_t block_height, uint16_t index_in_group, uint16_t worker_index, new_state state, crypto::public_key const &pub_key, crypto::secret_key const &secret_key);
 
   bool              verify_checkpoint                  (cryptonote::checkpoint_t const &checkpoint, service_nodes::testing_quorum const &quorum);
-  bool              verify_tx_state_change             (const cryptonote::tx_extra_service_node_state_change& state_change, uint64_t latest_height, cryptonote::vote_verification_context& vvc, const service_nodes::testing_quorum &quorum, uint8_t hf_version);
+  bool              verify_tx_state_change             (const cryptonote::tx_extra_service_node_state_change& state_change, uint64_t latest_height, cryptonote::tx_verification_context& vvc, const service_nodes::testing_quorum &quorum, uint8_t hf_version);
   bool              verify_vote                        (const quorum_vote_t& vote, uint64_t latest_height, cryptonote::vote_verification_context &vvc, const service_nodes::testing_quorum &quorum);
   crypto::signature make_signature_from_vote           (quorum_vote_t const &vote, const crypto::public_key& pub, const crypto::secret_key& sec);
   crypto::signature make_signature_from_tx_state_change(cryptonote::tx_extra_service_node_state_change const &state_change, crypto::public_key const &pub, crypto::secret_key const &sec);
