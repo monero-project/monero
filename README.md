@@ -804,6 +804,12 @@ gdb /path/to/monerod /path/to/dumpfile`
 
 Print the stack trace with `bt`
 
+ * If a program crashed and cores are managed by systemd, the following can also get a stack trace for that crash:
+
+```bash
+coredumpctl -1 gdb
+```
+
 #### To run monero within gdb:
 
 Type `gdb /path/to/monerod`
