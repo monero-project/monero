@@ -6472,6 +6472,19 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
       return rct_offsets[block_offset] + crypto::rand<uint64_t>() % n_rct;
     };
 
+    uint64_t last_block_reward = 0;
+    if (has_nonrct)
+    {
+      cryptonote::COMMAND_RPC_GET_LAST_BLOCK_HEADER::request glbh_req = AUTO_VAL_INIT(glbh_req);
+      cryptonote::COMMAND_RPC_GET_LAST_BLOCK_HEADER::response glbh_res = AUTO_VAL_INIT(glbh_res);
+      m_daemon_rpc_mutex.lock();
+      bool r = net_utils::invoke_http_json_rpc("/json_rpc", "get_last_block_header", glbh_req, glbh_res, m_http_client, rpc_timeout * 1000);
+      m_daemon_rpc_mutex.unlock();
+      THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "get_outs");
+      THROW_WALLET_EXCEPTION_IF(glbh_res.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "get_last_block_header");
+      THROW_WALLET_EXCEPTION_IF(glbh_res.status != CORE_RPC_STATUS_OK, error::wallet_internal_error, "get_last_block_header RPC failed: " + glbh_res.status);
+      last_block_reward = glbh_res.block_header.reward;
+    }
     size_t num_selected_transfers = 0;
     for(size_t idx: selected_transfers)
     {
@@ -6479,8 +6492,8 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
       const transfer_details &td = m_transfers[idx];
       const uint64_t amount = td.is_rct() ? 0 : td.amount();
       std::unordered_set<uint64_t> seen_indices;
-      // request more for rct in base recent (locked) coinbases are picked, since they're locked for longer
-      size_t requested_outputs_count = base_requested_outputs_count + (td.is_rct() ? CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW - CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE : 0);
+      // request more outputs in case recent (locked) coinbases are picked, since they're locked for longer
+      size_t requested_outputs_count = base_requested_outputs_count + (td.is_rct() || td.m_amount <= last_block_reward ? CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW - CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE : 0);
       size_t start = req.outputs.size();
       bool use_histogram = amount != 0 || !has_rct_distribution;
 
@@ -6742,7 +6755,7 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
     for(size_t idx: selected_transfers)
     {
       const transfer_details &td = m_transfers[idx];
-      size_t requested_outputs_count = base_requested_outputs_count + (td.is_rct() ? CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW - CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE : 0);
+      size_t requested_outputs_count = base_requested_outputs_count + (td.is_rct() || td.m_amount <= last_block_reward ? CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW - CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE : 0);
       outs.push_back(std::vector<get_outs_entry>());
       outs.back().reserve(fake_outputs_count + 1);
       const rct::key mask = td.is_rct() ? rct::commit(td.amount(), td.m_mask) : rct::zeroCommit(td.amount());
