@@ -1216,6 +1216,20 @@ namespace cryptonote
       return false;
     }
 
+    if(req.reserve_size && !req.extra_nonce.empty())
+    {
+      error_resp.code = CORE_RPC_ERROR_CODE_WRONG_PARAM;
+      error_resp.message = "Cannot specify both a reserve_size and an extra_nonce";
+      return false;
+    }
+
+    if(req.extra_nonce.size() > 510)
+    {
+      error_resp.code = CORE_RPC_ERROR_CODE_TOO_BIG_RESERVE_SIZE;
+      error_resp.message = "Too big extra_nonce size, maximum 510 hex chars";
+      return false;
+    }
+
     cryptonote::address_parse_info info;
 
     if(!req.wallet_address.size() || !cryptonote::get_account_address_from_str(info, nettype(), req.wallet_address))
@@ -1233,7 +1247,17 @@ namespace cryptonote
 
     block b;
     cryptonote::blobdata blob_reserve;
-    blob_reserve.resize(req.reserve_size, 0);
+    if(!req.extra_nonce.empty())
+    {
+      if(!string_tools::parse_hexstr_to_binbuff(req.extra_nonce, blob_reserve))
+      {
+        error_resp.code = CORE_RPC_ERROR_CODE_WRONG_PARAM;
+        error_resp.message = "Parameter extra_nonce should be a hex string";
+        return false;
+      }
+    }
+    else
+      blob_reserve.resize(req.reserve_size, 0);
     cryptonote::difficulty_type wdiff;
     crypto::hash prev_block;
     if (!req.prev_block.empty())
