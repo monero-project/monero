@@ -334,10 +334,10 @@ namespace service_nodes
     //
     {
       bool height_in_buffer = false;
-      if (latest_height > vote.block_height + VERIFY_HEIGHT_BUFFER)
+      if (latest_height > vote.block_height + VOTE_LIFETIME)
       {
         height_in_buffer = latest_height <= vote.block_height + (VOTE_LIFETIME + VERIFY_HEIGHT_BUFFER);
-        LOG_PRINT_L1("Received vote for height: " << vote.block_height << ", is older than: " << VERIFY_HEIGHT_BUFFER
+        LOG_PRINT_L1("Received vote for height: " << vote.block_height << ", is older than: " << VOTE_LIFETIME
                                                   << " blocks and has been rejected.");
         vvc.m_invalid_block_height = true;
       }
