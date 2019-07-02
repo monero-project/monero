@@ -315,12 +315,15 @@ t_command_server::t_command_server(
     , "bc_dyn_stats <last_block_count>"
     , "Print the information about current blockchain dynamic state."
     );
+    // TODO(loki): Implement
+#if 0
     m_command_lookup.set_handler(
       "update"
     , std::bind(&t_command_parser_executor::update, &m_parser, p::_1)
     , "update (check|download)"
     , "Check if an update is available, optionally downloads it if there is. Updating is not yet implemented."
     );
+#endif
     m_command_lookup.set_handler(
       "relay_tx"
     , std::bind(&t_command_parser_executor::relay_tx, &m_parser, p::_1)
