@@ -1,0 +1,1 @@
+ -lprotobuf -lusb-1.0
