@@ -180,7 +180,7 @@ namespace service_nodes
       return bad_tx(tvc);
     }
 
-    if (state_change.state > new_state::recommission)
+    if (state_change.state >= new_state::_count)
     {
       LOG_PRINT_L1("Unknown state change to new state: " << static_cast<uint16_t>(state_change.state));
       return bad_tx(tvc);
