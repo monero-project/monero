@@ -7448,7 +7448,7 @@ void wallet2::light_wallet_get_outs(std::vector<std::vector<tools::wallet2::get_
     order.resize(light_wallet_requested_outputs_count);
     for (size_t n = 0; n < order.size(); ++n)
       order[n] = n;
-    std::shuffle(order.begin(), order.end(), std::default_random_engine(crypto::rand<unsigned>()));
+    std::shuffle(order.begin(), order.end(), crypto::random_device{});
     
     
     LOG_PRINT_L2("Looking for " << (fake_outputs_count+1) << " outputs with amounts " << print_money(td.is_rct() ? 0 : td.amount()));
@@ -8023,7 +8023,7 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
       order.resize(requested_outputs_count);
       for (size_t n = 0; n < order.size(); ++n)
         order[n] = n;
-      std::shuffle(order.begin(), order.end(), std::default_random_engine(crypto::rand<unsigned>()));
+      std::shuffle(order.begin(), order.end(), crypto::random_device{});
 
       LOG_PRINT_L2("Looking for " << (fake_outputs_count+1) << " outputs of size " << print_money(td.is_rct() ? 0 : td.amount()));
       for (size_t o = 0; o < requested_outputs_count && outs.back().size() < fake_outputs_count + 1; ++o)

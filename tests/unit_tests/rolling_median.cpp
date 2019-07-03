@@ -143,7 +143,7 @@ TEST(rolling_median, order)
     m.insert(random[i]);
   ASSERT_EQ(med, m.median());
 
-  std::shuffle(random.begin(), random.end(), std::default_random_engine(crypto::rand<unsigned>()));
+  std::shuffle(random.begin(), random.end(), crypto::random_device{});
   m.clear();
   for (int i = 0; i < 1000; ++i)
     m.insert(random[i]);

@@ -779,8 +779,8 @@ TEST(ringct, range_proofs_accept_very_long_simple)
     inputs[n] = n;
     outputs[n] = n;
   }
-  std::random_shuffle(inputs, inputs + N);
-  std::random_shuffle(outputs, outputs + N);
+  std::shuffle(inputs, inputs + N, crypto::random_device{});
+  std::shuffle(outputs, outputs + N, crypto::random_device{});
   EXPECT_TRUE(range_proof_test(true, NELTS(inputs), inputs, NELTS(outputs), outputs, false, true));
 }
 
