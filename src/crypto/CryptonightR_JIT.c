@@ -63,7 +63,7 @@ int v4_generate_JIT_code(const struct V4_Instruction* code, v4_random_math_JIT_f
 
 #if !(defined(_MSC_VER) || defined(__MINGW32__))
 	if (mprotect((void*)buf, buf_size, PROT_READ | PROT_WRITE))
-		return 1;
+		return -1;
 #endif
 
 	APPEND_CODE(prologue, sizeof(prologue));
@@ -111,13 +111,13 @@ int v4_generate_JIT_code(const struct V4_Instruction* code, v4_random_math_JIT_f
 
 #if !(defined(_MSC_VER) || defined(__MINGW32__))
 	if (mprotect((void*)buf, buf_size, PROT_READ | PROT_EXEC))
-		return 1;
+		return -1;
 #endif
 
 	__builtin___clear_cache((char*)buf, (char*)JIT_code);
 
 	return 0;
 #else
-	return 1;
+	return -1;
 #endif
 }
