@@ -233,10 +233,10 @@ TEST(service_nodes, tx_extra_state_change_validation)
       valid_state_change.votes.push_back(vote);
     }
 
-    cryptonote::vote_verification_context vvc = {};
-    bool result = service_nodes::verify_tx_state_change(valid_state_change, HEIGHT, vvc, state, hf_version);
+    cryptonote::tx_verification_context tvc = {};
+    bool result = service_nodes::verify_tx_state_change(valid_state_change, HEIGHT, tvc, state, hf_version);
     if (!result)
-      printf("%s\n", cryptonote::print_vote_verification_context(vvc));
+      printf("%s\n", cryptonote::print_tx_verification_context(tvc));
     ASSERT_TRUE(result);
   }
 
@@ -246,8 +246,8 @@ TEST(service_nodes, tx_extra_state_change_validation)
     while (state_change.votes.size() >= service_nodes::STATE_CHANGE_MIN_VOTES_TO_CHANGE_STATE)
       state_change.votes.pop_back();
 
-    cryptonote::vote_verification_context vvc = {};
-    bool result = service_nodes::verify_tx_state_change(state_change, HEIGHT, vvc, state, hf_version);
+    cryptonote::tx_verification_context tvc = {};
+    bool result = service_nodes::verify_tx_state_change(state_change, HEIGHT, tvc, state, hf_version);
     ASSERT_FALSE(result);
   }
 
@@ -256,8 +256,8 @@ TEST(service_nodes, tx_extra_state_change_validation)
     auto state_change     = valid_state_change;
     state_change.votes[0] = state_change.votes[1];
 
-    cryptonote::vote_verification_context vvc = {};
-    bool result = service_nodes::verify_tx_state_change(state_change, HEIGHT, vvc, state, hf_version);
+    cryptonote::tx_verification_context tvc = {};
+    bool result = service_nodes::verify_tx_state_change(state_change, HEIGHT, tvc, state, hf_version);
     ASSERT_FALSE(result);
   }
 
@@ -266,8 +266,8 @@ TEST(service_nodes, tx_extra_state_change_validation)
     auto state_change               = valid_state_change;
     state_change.votes[0].signature = state_change.votes[1].signature;
 
-    cryptonote::vote_verification_context vvc = {};
-    bool result = service_nodes::verify_tx_state_change(state_change, HEIGHT, vvc, state, hf_version);
+    cryptonote::tx_verification_context tvc = {};
+    bool result = service_nodes::verify_tx_state_change(state_change, HEIGHT, tvc, state, hf_version);
     ASSERT_FALSE(result);
   }
 
@@ -276,8 +276,8 @@ TEST(service_nodes, tx_extra_state_change_validation)
     auto state_change                     = valid_state_change;
     state_change.votes[0].validator_index = state.validators.size() + 10;
 
-    cryptonote::vote_verification_context vvc = {};
-    bool result = service_nodes::verify_tx_state_change(state_change, HEIGHT, vvc, state, hf_version);
+    cryptonote::tx_verification_context tvc = {};
+    bool result = service_nodes::verify_tx_state_change(state_change, HEIGHT, tvc, state, hf_version);
     ASSERT_FALSE(result);
   }
 
@@ -286,24 +286,24 @@ TEST(service_nodes, tx_extra_state_change_validation)
     auto state_change               = valid_state_change;
     state_change.service_node_index = state.workers.size() + 10;
 
-    cryptonote::vote_verification_context vvc = {};
-    bool result = service_nodes::verify_tx_state_change(state_change, HEIGHT, vvc, state, hf_version);
+    cryptonote::tx_verification_context tvc = {};
+    bool result = service_nodes::verify_tx_state_change(state_change, HEIGHT, tvc, state, hf_version);
     ASSERT_FALSE(result);
   }
 
   // State Change too old
   {
     auto state_change                         = valid_state_change;
-    cryptonote::vote_verification_context vvc = {};
-    bool result                               = service_nodes::verify_tx_state_change(state_change, 0, vvc, state, hf_version);
+    cryptonote::tx_verification_context tvc = {};
+    bool result                               = service_nodes::verify_tx_state_change(state_change, 0, tvc, state, hf_version);
     ASSERT_FALSE(result);
   }
 
   // State Change too new
   {
     auto state_change                         = valid_state_change;
-    cryptonote::vote_verification_context vvc = {};
-    bool result                               = service_nodes::verify_tx_state_change(state_change, HEIGHT + 1000, vvc, state, hf_version);
+    cryptonote::tx_verification_context tvc = {};
+    bool result                               = service_nodes::verify_tx_state_change(state_change, HEIGHT + 1000, tvc, state, hf_version);
     ASSERT_FALSE(result);
   }
 }
