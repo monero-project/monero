@@ -37,6 +37,7 @@
 #include "tx_pool.h"
 #include "cryptonote_tx_utils.h"
 #include "cryptonote_basic/cryptonote_boost_serialization.h"
+#include "cryptonote_core/service_node_list.h"
 #include "cryptonote_config.h"
 #include "blockchain.h"
 #include "blockchain_db/blockchain_db.h"
@@ -119,7 +120,7 @@ namespace cryptonote
 
   }
   //---------------------------------------------------------------------------------
-  bool tx_memory_pool::have_duplicated_non_standard_tx(transaction const &tx, uint8_t hard_fork_version) const
+  bool tx_memory_pool::have_duplicated_non_standard_tx(transaction const &tx, uint8_t hard_fork_version, service_nodes::service_node_list const &service_node_list) const
   {
     if (tx.type == txtype::standard)
       return false;
@@ -130,7 +131,16 @@ namespace cryptonote
       if (!get_service_node_state_change_from_tx_extra(tx.extra, state_change, hard_fork_version))
       {
         MERROR("Could not get service node state change from tx, possibly corrupt tx in your blockchain, rejecting malformed state change");
-        return true;
+        return false;
+      }
+
+      auto const quorum_type = service_nodes::quorum_type::obligations;
+      auto const quorum_group = service_nodes::quorum_group::worker;
+      crypto::public_key service_node_to_change;
+      if (!service_node_list.get_quorum_pubkey(quorum_type, quorum_group, state_change.block_height, state_change.service_node_index, service_node_to_change))
+      {
+        MERROR("Could not resolve the service node public key from the information in the state change, possibly corrupt tx in your blockchain");
+        return false;
       }
 
       std::vector<transaction> pool_txs;
@@ -147,8 +157,19 @@ namespace cryptonote
           continue;
         }
 
-        if (state_change == pool_tx_state_change)
-          return true;
+        crypto::public_key service_node_to_change_in_the_pool;
+        if (service_node_list.get_quorum_pubkey(quorum_type, quorum_group, pool_tx_state_change.block_height, pool_tx_state_change.service_node_index, service_node_to_change_in_the_pool))
+        {
+          if (service_node_to_change == service_node_to_change_in_the_pool)
+            return true;
+        }
+        else
+        {
+          MWARNING("Could not resolve the service node public key from the information in a pooled tx state change, possibly corrupt tx in your blockchain, falling back to primitive checking method");
+          if (state_change == pool_tx_state_change)
+            return true;
+        }
+
       }
     }
     else if (tx.type == txtype::key_image_unlock)
@@ -192,7 +213,7 @@ namespace cryptonote
     return false;
   }
   //---------------------------------------------------------------------------------
-  bool tx_memory_pool::add_tx(transaction &tx, /*const crypto::hash& tx_prefix_hash,*/ const crypto::hash &id, const cryptonote::blobdata &blob, size_t tx_weight, tx_verification_context& tvc, bool kept_by_block, bool relayed, bool do_not_relay, uint8_t version)
+  bool tx_memory_pool::add_tx(transaction &tx, /*const crypto::hash& tx_prefix_hash,*/ const crypto::hash &id, const cryptonote::blobdata &blob, size_t tx_weight, tx_verification_context& tvc, bool kept_by_block, bool relayed, bool do_not_relay, uint8_t version, const service_nodes::service_node_list &service_node_list)
   {
     // this should already be called with that lock, but let's make it explicit for clarity
     CRITICAL_REGION_LOCAL(m_transactions_lock);
@@ -287,7 +308,7 @@ namespace cryptonote
         tvc.m_double_spend = true;
         return false;
       }
-      if (have_duplicated_non_standard_tx(tx, version))
+      if (have_duplicated_non_standard_tx(tx, version, service_node_list))
       {
         mark_double_spend(tx);
         LOG_PRINT_L1("Transaction with id= "<< id << " already has a duplicate tx for height");
@@ -332,7 +353,7 @@ namespace cryptonote
         meta.last_relayed_time = time(NULL);
         meta.relayed = relayed;
         meta.do_not_relay = do_not_relay;
-        meta.double_spend_seen = (have_tx_keyimges_as_spent(tx) || have_duplicated_non_standard_tx(tx, version));
+        meta.double_spend_seen = (have_tx_keyimges_as_spent(tx) || have_duplicated_non_standard_tx(tx, version, service_node_list));
         meta.bf_padding = 0;
         memset(meta.padding, 0, sizeof(meta.padding));
         try
@@ -414,7 +435,7 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------------------------
-  bool tx_memory_pool::add_tx(transaction &tx, tx_verification_context& tvc, bool keeped_by_block, bool relayed, bool do_not_relay, uint8_t version)
+  bool tx_memory_pool::add_tx(transaction &tx, tx_verification_context& tvc, bool keeped_by_block, bool relayed, bool do_not_relay, uint8_t version, service_nodes::service_node_list const &service_node_list)
   {
     crypto::hash h = null_hash;
     size_t blob_size = 0;
@@ -422,7 +443,7 @@ namespace cryptonote
     t_serializable_object_to_blob(tx, bl);
     if (bl.size() == 0 || !get_transaction_hash(tx, h))
       return false;
-    return add_tx(tx, h, bl, get_transaction_weight(tx, bl.size()), tvc, keeped_by_block, relayed, do_not_relay, version);
+    return add_tx(tx, h, bl, get_transaction_weight(tx, bl.size()), tvc, keeped_by_block, relayed, do_not_relay, version, service_node_list);
   }
   //---------------------------------------------------------------------------------
   size_t tx_memory_pool::get_txpool_weight() const
