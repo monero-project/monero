@@ -39,6 +39,7 @@
 #include "rpc/rpc_handler.h"
 #include "common/varint.h"
 #include "common/perf_timer.h"
+#include "checkpoints/checkpoints.h"
 
 #include "common/loki.h"
 
@@ -3114,6 +3115,41 @@ namespace cryptonote
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(blacklist)
+        KV_SERIALIZE(status)
+        KV_SERIALIZE(untrusted)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<response_t> response;
+  };
+
+  LOKI_RPC_DOC_INTROSPECT
+  // Query hardcoded/service node checkpoints stored for the blockchain. Omit all arguments to retrieve the latest "count" checkpoints.
+  struct COMMAND_RPC_GET_CHECKPOINTS
+  {
+    constexpr static size_t   NUM_CHECKPOINTS_TO_QUERY_BY_DEFAULT = 60;
+    constexpr static uint64_t HEIGHT_SENTINEL_VALUE               = (UINT64_MAX - 1);
+    struct request_t
+    {
+      uint64_t start_height; // Optional: Get the first count checkpoints starting from this height. Specify both start and end to get the checkpoints inbetween.
+      uint64_t end_height;   // Optional: Get the first count checkpoints before end height. Specify both start and end to get the checkpoints inbetween.
+      size_t count;          // Optional: Number of checkpoints to query.
+
+      BEGIN_KV_SERIALIZE_MAP()
+      KV_SERIALIZE_OPT(start_height, HEIGHT_SENTINEL_VALUE)
+      KV_SERIALIZE_OPT(end_height, HEIGHT_SENTINEL_VALUE)
+      KV_SERIALIZE_OPT(count, NUM_CHECKPOINTS_TO_QUERY_BY_DEFAULT)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<request_t> request;
+
+    struct response_t
+    {
+      std::vector<checkpoint_t> checkpoints; // Array of requested checkpoints
+      std::string status;                    // Generic RPC error code. "OK" is the success value.
+      bool untrusted;                        // If the result is obtained using bootstrap mode, and therefore not trusted `true`, or otherwise `false`.
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(checkpoints)
         KV_SERIALIZE(status)
         KV_SERIALIZE(untrusted)
       END_KV_SERIALIZE_MAP()

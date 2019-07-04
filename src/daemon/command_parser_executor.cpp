@@ -27,10 +27,13 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#include <forward_list>
+
 #include "common/dns_utils.h"
 #include "common/command_line.h"
 #include "version.h"
 #include "daemon/command_parser_executor.h"
+#include "rpc/core_rpc_server_commands_defs.h"
 
 #undef LOKI_DEFAULT_LOG_CATEGORY
 #define LOKI_DEFAULT_LOG_CATEGORY "daemon"
@@ -47,6 +50,50 @@ t_command_parser_executor::t_command_parser_executor(
   )
   : m_executor(ip, port, login, ssl_options, is_rpc, rpc_server)
 {}
+
+// Consumes an argument from the given list, if present, parsing it into `var`.
+// Returns false upon parse failure, true otherwise.
+template <typename T>
+static bool parse_if_present(std::forward_list<std::string> &list, T &var, const char *name)
+{
+  if (list.empty()) return true;
+  if (epee::string_tools::get_xtype_from_string(var, list.front()))
+  {
+    list.pop_front();
+    return true;
+  }
+
+  std::cout << "unexpected " << name << " argument: " << list.front() << std::endl;
+  return false;
+}
+
+bool t_command_parser_executor::print_checkpoints(const std::vector<std::string> &args)
+{
+  uint64_t start_height = cryptonote::COMMAND_RPC_GET_CHECKPOINTS::HEIGHT_SENTINEL_VALUE;
+  uint64_t end_height   = cryptonote::COMMAND_RPC_GET_CHECKPOINTS::HEIGHT_SENTINEL_VALUE;
+
+  std::forward_list<std::string> args_list(args.begin(), args.end());
+  bool print_json = !args_list.empty() && args_list.front() == "+json";
+  if (print_json)
+    args_list.pop_front();
+
+  if (!parse_if_present(args_list, start_height, "start height"))
+    return false;
+
+  if (!parse_if_present(args_list, end_height, "end height"))
+    return false;
+
+  if (!args_list.empty())
+  {
+    std::cout << "use: print_checkpoints [+json] [start height] [end height]\n"
+              << "(omit arguments to print the last "
+              << cryptonote::COMMAND_RPC_GET_CHECKPOINTS::NUM_CHECKPOINTS_TO_QUERY_BY_DEFAULT << " checkpoints) "
+              << std::endl;
+    return false;
+  }
+
+  return m_executor.print_checkpoints(start_height, end_height, print_json);
+}
 
 bool t_command_parser_executor::print_peer_list(const std::vector<std::string>& args)
 {

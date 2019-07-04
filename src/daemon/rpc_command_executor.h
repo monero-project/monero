@@ -70,7 +70,7 @@ public:
 
   ~t_rpc_command_executor();
 
-  bool print_checkpoints() { m_rpc_server->on_get_checkpoints(); return true; }
+  bool print_checkpoints(uint64_t start_height, uint64_t end_height, bool print_json);
 
   bool print_peer_list(bool white = true, bool gray = true, size_t limit = 0);
 

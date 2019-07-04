@@ -92,28 +92,6 @@ namespace cryptonote
   class Blockchain
   {
   public:
-    void debug__print_checkpoints()
-    {
-      uint64_t end = get_current_blockchain_height() - 1;
-
-      checkpoint_t top_checkpoint;
-      if (m_db->get_top_checkpoint(top_checkpoint))
-        end = std::max(top_checkpoint.height, end);
-
-      std::vector<checkpoint_t> checkpoints = m_db->get_checkpoints_range(0, end);
-      if (checkpoints.empty())
-      {
-          std::cout << "Checkpoint: None available" << std::endl;
-      }
-      else
-      {
-        for (auto const &it : checkpoints)
-        {
-          std::cout << "Checkpoint [" << it.height << "]" << ((it.type == checkpoint_type::service_node) ? "Service Node" : "Predefined") << std::endl;
-        }
-      }
-    }
-
     /**
      * @brief container for passing a block and metadata about it on the blockchain
      */

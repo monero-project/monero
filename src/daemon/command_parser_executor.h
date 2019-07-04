@@ -59,7 +59,7 @@ public:
     , cryptonote::core_rpc_server* rpc_server = NULL
     );
 
-  bool print_checkpoints(const std::vector<std::string>& args) { m_executor.print_checkpoints(); return true; }
+  bool print_checkpoints(const std::vector<std::string>& args);
 
   bool print_peer_list(const std::vector<std::string>& args);
 

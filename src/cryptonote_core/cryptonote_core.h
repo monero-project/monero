@@ -84,8 +84,6 @@ namespace cryptonote
    {
    public:
 
-     void debug__print_checkpoints() { m_blockchain_storage.debug__print_checkpoints(); }
-
       /**
        * @brief constructor
        *

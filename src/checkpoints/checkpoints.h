@@ -37,6 +37,7 @@
 #include "cryptonote_config.h"
 #include "cryptonote_core/service_node_voting.h"
 #include "cryptonote_basic/cryptonote_basic_impl.h"
+#include "string_tools.h"
 
 #define ADD_CHECKPOINT(h, hash)  CHECK_AND_ASSERT(add_checkpoint(h,  hash), false);
 #define JSON_HASH_FILE_NAME "checkpoints.json"
@@ -60,6 +61,16 @@ namespace cryptonote
     std::vector<service_nodes::voter_to_signature> signatures; // Only service node checkpoints use signatures
     uint64_t                                       prev_height;
 
+    static char const *type_to_string(checkpoint_type type)
+    {
+      switch(type)
+      {
+        case checkpoint_type::hardcoded:    return "Hardcoded";
+        case checkpoint_type::service_node: return "ServiceNode";
+        default: assert(false);             return "XXUnhandledVersion";
+      }
+    }
+
     BEGIN_SERIALIZE()
       FIELD(version)
       ENUM_FIELD(type, type < checkpoint_type::count);
@@ -68,6 +79,20 @@ namespace cryptonote
       FIELD(signatures)
       FIELD(prev_height)
     END_SERIALIZE()
+
+    BEGIN_KV_SERIALIZE_MAP()
+      KV_SERIALIZE(version)
+      KV_SERIALIZE(height)
+
+      std::string type = checkpoint_t::type_to_string(this_ref.type);
+      KV_SERIALIZE_VALUE(type);
+
+      std::string block_hash = epee::string_tools::pod_to_hex(this_ref.block_hash);
+      KV_SERIALIZE_VALUE(block_hash);
+
+      KV_SERIALIZE(signatures)
+      KV_SERIALIZE(prev_height)
+    END_KV_SERIALIZE_MAP()
   };
 
   struct height_to_hash

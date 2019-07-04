@@ -838,8 +838,9 @@ public:
   virtual bool get_block_checkpoint   (uint64_t height, checkpoint_t &checkpoint) const = 0;
   virtual bool get_top_checkpoint     (checkpoint_t &checkpoint) const = 0;
 
-  // num_desired_checkpoints: set to 0 to collect as many checkpoints as possible
-  virtual std::vector<checkpoint_t> get_checkpoints_range(uint64_t start, uint64_t end, size_t num_desired_checkpoints = 0) const = 0;
+  // num_desired_checkpoints: set to GET_ALL_CHECKPOINTS to collect as many checkpoints as possible
+  static constexpr size_t GET_ALL_CHECKPOINTS = 0;
+  virtual std::vector<checkpoint_t> get_checkpoints_range(uint64_t start, uint64_t end, size_t num_desired_checkpoints = GET_ALL_CHECKPOINTS) const = 0;
 
   /**
    * @brief checks if a block exists

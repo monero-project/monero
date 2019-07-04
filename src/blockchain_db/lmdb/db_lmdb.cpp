@@ -3928,13 +3928,16 @@ std::vector<checkpoint_t> BlockchainLMDB::get_checkpoints_range(uint64_t start, 
   std::vector<checkpoint_t> result;
 
   checkpoint_t top_checkpoint = {};
-  if (get_top_checkpoint(top_checkpoint))
-  {
-    if (top_checkpoint.height < std::min(start, end))
-      return result;
-  }
+  if (!get_top_checkpoint(top_checkpoint))
+    return result;
 
-  if (num_desired_checkpoints == 0)
+  if (top_checkpoint.height < std::min(start, end))
+    return result;
+
+  if (end > start)
+    end = std::min(top_checkpoint.height, end);
+
+  if (num_desired_checkpoints == BlockchainDB::GET_ALL_CHECKPOINTS)
     num_desired_checkpoints = std::numeric_limits<decltype(num_desired_checkpoints)>::max();
   else
     result.reserve(num_desired_checkpoints);

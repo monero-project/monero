@@ -69,6 +69,9 @@ public: \
   static bool serialize_map(this_type& this_ref,  t_storage& stg, typename t_storage::hsection hparent_section) \
   { 
 
+#define KV_SERIALIZE_VALUE(variable) \
+  epee::serialization::selector<is_store>::serialize(variable, stg, hparent_section, #variable);
+
 #define KV_SERIALIZE_N(varialble, val_name) \
   epee::serialization::selector<is_store>::serialize(this_ref.varialble, stg, hparent_section, val_name);
 

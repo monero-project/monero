@@ -39,6 +39,7 @@
 #include "cryptonote_core/cryptonote_core.h"
 #include "cryptonote_core/service_node_rules.h"
 #include "cryptonote_basic/hardfork.h"
+#include "checkpoints/checkpoints.h"
 #include <boost/format.hpp>
 
 #include "common/loki_integration_test_hooks.h"
@@ -234,6 +235,74 @@ t_rpc_command_executor::~t_rpc_command_executor()
   {
     delete m_rpc_client;
   }
+}
+
+bool t_rpc_command_executor::print_checkpoints(uint64_t start_height, uint64_t end_height, bool print_json)
+{
+  cryptonote::COMMAND_RPC_GET_CHECKPOINTS::request  req;
+  cryptonote::COMMAND_RPC_GET_CHECKPOINTS::response res;
+  epee::json_rpc::error error_resp;
+
+  req.start_height = start_height;
+  req.end_height   = end_height;
+
+  if (req.start_height == cryptonote::COMMAND_RPC_GET_CHECKPOINTS::HEIGHT_SENTINEL_VALUE &&
+      req.end_height   == cryptonote::COMMAND_RPC_GET_CHECKPOINTS::HEIGHT_SENTINEL_VALUE)
+  {
+    req.count = cryptonote::COMMAND_RPC_GET_CHECKPOINTS::NUM_CHECKPOINTS_TO_QUERY_BY_DEFAULT;
+  }
+  else if (req.start_height == cryptonote::COMMAND_RPC_GET_CHECKPOINTS::HEIGHT_SENTINEL_VALUE ||
+           req.end_height   == cryptonote::COMMAND_RPC_GET_CHECKPOINTS::HEIGHT_SENTINEL_VALUE)
+  {
+    req.count = 1;
+  }
+  else
+  {
+    // NOTE: Otherwise, neither heights are set to HEIGHT_SENTINEL_VALUE, so get all the checkpoints between start and end
+  }
+
+  if (m_is_rpc)
+  {
+    if (!m_rpc_client->json_rpc_request(req, res, "get_checkpoints", "Failed to query blockchain checkpoints"))
+      return false;
+  }
+  else
+  {
+    if (!m_rpc_server->on_get_checkpoints(req, res, error_resp) || res.status != CORE_RPC_STATUS_OK)
+    {
+      tools::fail_msg_writer() << "Failed to query checkpoints";
+      return false;
+    }
+  }
+
+  std::string entry;
+  for (size_t i = 0; i < res.checkpoints.size(); i++)
+  {
+    cryptonote::checkpoint_t &checkpoint = res.checkpoints[i];
+    entry.clear();
+    if (print_json)
+    {
+      tools::success_msg_writer() << "{\n" << obj_to_json_str(checkpoint) << "\n}\n";
+    }
+    else
+    {
+      entry.append("[");
+      entry.append(std::to_string(i));
+      entry.append("]");
+
+      entry.append(" Type: ");
+      entry.append(cryptonote::checkpoint_t::type_to_string(checkpoint.type));
+
+      entry.append(" Height: ");
+      entry.append(std::to_string(checkpoint.height));
+
+      entry.append(" Hash: ");
+      entry.append(epee::string_tools::pod_to_hex(checkpoint.block_hash));
+      tools::success_msg_writer() << entry;
+    }
+  }
+
+  return true;
 }
 
 bool t_rpc_command_executor::print_peer_list(bool white, bool gray, size_t limit) {

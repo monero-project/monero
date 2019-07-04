@@ -359,7 +359,8 @@ t_command_server::t_command_server(
     m_command_lookup.set_handler(
       "print_checkpoints"
     , std::bind(&t_command_parser_executor::print_checkpoints, &m_parser, p::_1)
-    , ""
+    , "print_checkpoints [+json] [start height] [end height]"
+    , "Query the available checkpoints between the range, omit arguments to print the last 60 checkpoints"
     );
 
 #if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
