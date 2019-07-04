@@ -66,6 +66,8 @@ namespace service_nodes
     bool uptime_proved        = true;
     bool single_ip            = true;
     bool voted_in_checkpoints = true;
+
+    bool passed() const { return uptime_proved && voted_in_checkpoints; }
   };
 
   class quorum_cop

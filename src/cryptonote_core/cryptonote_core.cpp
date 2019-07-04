@@ -2207,8 +2207,6 @@ namespace cryptonote
   bool core::add_service_node_vote(const service_nodes::quorum_vote_t& vote, vote_verification_context &vvc)
   {
     bool result = m_quorum_cop.handle_vote(vote, vvc);
-    if (vvc.m_added_to_pool) // NOTE: Is unique vote
-      m_service_node_list.handle_checkpoint_vote(vote);
     return result;
   }
   //-----------------------------------------------------------------------------------------------
