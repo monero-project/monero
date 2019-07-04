@@ -944,7 +944,10 @@ namespace nodetool
       }
       if(!context.m_is_income)
         m_network_zones.at(context.m_remote_address.get_zone()).m_peerlist.set_peer_just_seen(context.peer_id, context.m_remote_address, context.m_pruning_seed, context.m_rpc_port);
-      m_payload_handler.process_payload_sync_data(rsp.payload_data, context, false);
+      if (!m_payload_handler.process_payload_sync_data(rsp.payload_data, context, false))
+      {
+        m_network_zones.at(context.m_remote_address.get_zone()).m_net_server.get_config_object().close(context.m_connection_id );
+      }
     });
 
     if(!r)
@@ -1090,6 +1093,7 @@ namespace nodetool
       LOG_PRINT_CC_PRIORITY_NODE(is_priority, *con, "Failed to HANDSHAKE with peer "
         << na.str()
         /*<< ", try " << try_count*/);
+      zone.m_net_server.get_config_object().close(con->m_connection_id);
       return false;
     }
 
@@ -1149,7 +1153,7 @@ namespace nodetool
       bool is_priority = is_priority_node(na);
 
       LOG_PRINT_CC_PRIORITY_NODE(is_priority, *con, "Failed to HANDSHAKE with peer " << na.str());
-
+      zone.m_net_server.get_config_object().close(con->m_connection_id);
       return false;
     }
 
