@@ -1181,7 +1181,7 @@ namespace cryptonote
      *
      * @return false if the reorganization fails, otherwise true
      */
-    bool switch_to_alternative_blockchain(std::list<block_extended_info>& alt_chain, bool discard_disconnected_chain);
+    bool switch_to_alternative_blockchain(std::list<block_extended_info>& alt_chain);
 
     /**
      * @brief removes the most recent block from the blockchain

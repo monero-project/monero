@@ -1031,7 +1031,7 @@ bool Blockchain::rollback_blockchain_switching(std::list<block>& original_chain,
 //------------------------------------------------------------------
 // This function attempts to switch to an alternate chain, returning
 // boolean based on success therein.
-bool Blockchain::switch_to_alternative_blockchain(std::list<block_extended_info>& alt_chain, bool discard_disconnected_chain)
+bool Blockchain::switch_to_alternative_blockchain(std::list<block_extended_info>& alt_chain)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
@@ -1101,20 +1101,16 @@ bool Blockchain::switch_to_alternative_blockchain(std::list<block_extended_info>
     }
   }
 
-  // if we're to keep the disconnected blocks, add them as alternates
-  if(!discard_disconnected_chain)
+  //pushing old chain as alternative chain
+  for (auto& old_ch_ent : disconnected_chain)
   {
-    //pushing old chain as alternative chain
-    for (auto& old_ch_ent : disconnected_chain)
+    block_verification_context bvc = boost::value_initialized<block_verification_context>();
+    bool r = handle_alternative_block(old_ch_ent, get_block_hash(old_ch_ent), bvc, false /*has_checkpoint*/);
+    if(!r)
     {
-      block_verification_context bvc = boost::value_initialized<block_verification_context>();
-      bool r = handle_alternative_block(old_ch_ent, get_block_hash(old_ch_ent), bvc, false /*has_checkpoint*/);
-      if(!r)
-      {
-        MERROR("Failed to push ex-main chain blocks to alternative chain ");
-        // previously this would fail the blockchain switching, but I don't
-        // think this is bad enough to warrant that.
-      }
+      MERROR("Failed to push ex-main chain blocks to alternative chain ");
+      // previously this would fail the blockchain switching, but I don't
+      // think this is bad enough to warrant that.
     }
   }
 
@@ -1892,24 +1888,16 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
       return false;
     }
 
-    if(has_checkpoint || is_a_checkpoint)
+    if ((has_checkpoint || is_a_checkpoint) ||
+        (main_chain_cumulative_difficulty < bei.cumulative_difficulty)) // check if difficulty bigger then in main chain
     {
-      //do reorganize!
-      MGINFO_GREEN("###### REORGANIZE on height: " << alt_chain.front().height << " of " << m_db->height() - 1 << ", checkpoint is found in alternative chain on height " << bei.height);
+      if (has_checkpoint || is_a_checkpoint)
+        MGINFO_GREEN("###### REORGANIZE on height: " << alt_chain.front().height << " of " << m_db->height() - 1 << ", checkpoint is found in alternative chain on height " << bei.height);
+      else
+        MGINFO_GREEN("###### REORGANIZE on height: " << alt_chain.front().height << " of " << m_db->height() - 1 << " with cum_difficulty " << m_db->get_block_cumulative_difficulty(m_db->height() - 1) << std::endl << " alternative blockchain size: " << alt_chain.size() << " with cum_difficulty " << bei.cumulative_difficulty);
 
-      bool r = switch_to_alternative_blockchain(alt_chain, true);
-
-      if(r) bvc.m_added_to_main_chain = true;
-      else bvc.m_verifivation_failed = true;
-
-      return r;
-    }
-    else if(main_chain_cumulative_difficulty < bei.cumulative_difficulty) //check if difficulty bigger then in main chain
-    {
-      //do reorganize!
-      MGINFO_GREEN("###### REORGANIZE on height: " << alt_chain.front().height << " of " << m_db->height() - 1 << " with cum_difficulty " << m_db->get_block_cumulative_difficulty(m_db->height() - 1) << std::endl << " alternative blockchain size: " << alt_chain.size() << " with cum_difficulty " << bei.cumulative_difficulty);
-
-      bool r = switch_to_alternative_blockchain(alt_chain, false);
+      // NOTE: No longer discard chains, because we can reorg the last 2 Service Node checkpoints, so checkpointed chains aren't always final
+      bool r = switch_to_alternative_blockchain(alt_chain);
       if (r)
         bvc.m_added_to_main_chain = true;
       else
