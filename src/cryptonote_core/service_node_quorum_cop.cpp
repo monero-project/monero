@@ -123,13 +123,7 @@ namespace service_nodes
       LOG_ERROR("This implies a reorg occured that was over " << REORG_SAFETY_BUFFER_IN_BLOCKS << ". This should never happen! Please report this to the devs.");
       m_obligations_height = height;
     }
-
-    if (m_last_checkpointed_height >= height)
-    {
-      LOG_ERROR("The blockchain was detached to height: " << height << ", but quorum cop has already processed votes up to " << m_last_checkpointed_height);
-      LOG_ERROR("This implies a reorg occured that was over " << REORG_SAFETY_BUFFER_IN_BLOCKS << ". This should never happen! Please report this to the devs.");
-      m_last_checkpointed_height = height;
-    }
+    m_last_checkpointed_height = height;
     m_vote_pool.remove_expired_votes(height);
   }
 
