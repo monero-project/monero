@@ -60,6 +60,8 @@ using namespace epee;
 
 #define OUTPUT_HISTOGRAM_RECENT_CUTOFF_RESTRICTION (3 * 86400) // 3 days max, the wallet requests 1.8 days
 
+namespace cryptonote
+{
   //-----------------------------------------------------------------------------------
   void core_rpc_server::init_options(boost::program_options::options_description& desc)
   {
