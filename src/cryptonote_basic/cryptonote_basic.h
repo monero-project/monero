@@ -363,7 +363,7 @@ namespace cryptonote
       }
       if (!typename Archive<W>::is_saving())
         pruned = true;
-      return true;
+      return ar.stream().good();
     }
 
   private:
