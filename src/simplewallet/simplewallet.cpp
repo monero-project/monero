@@ -3128,7 +3128,7 @@ simple_wallet::simple_wallet()
                            tr("Available options:\n "
                                   "auto-send <1|0>\n "
                                   "  Whether to automatically send newly generated messages right away.\n "));
-  m_cmd_binder.set_handler("mms send_message_config",
+  m_cmd_binder.set_handler("mms send_signer_config",
                            boost::bind(&simple_wallet::mms, this, _1),
                            tr(USAGE_MMS_SEND_SIGNER_CONFIG),
                            tr("Send completed signer config to all other authorized signers"));
