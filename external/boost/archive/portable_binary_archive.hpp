@@ -22,7 +22,7 @@
 #endif
 
 #include <boost/archive/basic_archive.hpp>
-#include <boost/detail/endian.hpp>
+#include <boost/predef/other/endian.h>
 
 #include <boost/archive/impl/archive_serializer_map.ipp>
 

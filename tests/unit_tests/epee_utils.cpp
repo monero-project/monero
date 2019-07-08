@@ -27,6 +27,7 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <array>
+#include <boost/predef/other/endian.h>
 #include <boost/endian/conversion.hpp>
 #include <boost/range/algorithm/equal.hpp>
 #include <boost/range/algorithm_ext/iota.hpp>
@@ -135,7 +136,7 @@ namespace
     EXPECT_FALSE( lhs >= rhs );  \
     EXPECT_TRUE( rhs >= lhs )
 
-  #ifdef BOOST_LITTLE_ENDIAN
+  #if BOOST_ENDIAN_LITTLE_BYTE
     #define CHECK_LESS_ENDIAN(lhs, rhs) CHECK_LESS( rhs , lhs )
   #else
     #define CHECK_LESS_ENDIAN(lhs, rhs) CHECK_LESS( lhs , rhs )
