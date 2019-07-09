@@ -96,7 +96,7 @@ namespace service_nodes
       }
     }
 
-    if (check_checkpoint_obligation)
+    if (check_checkpoint_obligation && !info.is_decommissioned())
     {
       proof_info const &proof = info.proof;
       int num_votes           = 0;
