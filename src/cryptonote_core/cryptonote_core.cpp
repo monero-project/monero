@@ -591,7 +591,7 @@ namespace cryptonote
     m_service_node_list.register_hooks(m_quorum_cop);
 
 
-	r = m_blockchain_storage.init(initialized_db, m_nettype, m_offline, test_options);
+	r = m_blockchain_storage.init(initialized_db, m_nettype, m_offline, regtest ? &regtest_test_options : test_options, fixed_difficulty);
 	r = m_mempool.init(max_txpool_weight);
 
     CHECK_AND_ASSERT_MES(r, false, "Failed to initialize memory pool");
