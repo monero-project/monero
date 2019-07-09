@@ -371,30 +371,6 @@ namespace service_nodes
   bool quorum_cop::handle_vote(quorum_vote_t const &vote, cryptonote::vote_verification_context &vvc)
   {
     vvc = {};
-    switch(vote.type)
-    {
-      default:
-      {
-        LOG_PRINT_L1("Unhandled vote type with value: " << (int)vote.type);
-        assert("Unhandled vote type" == 0);
-        return false;
-      };
-
-      case quorum_type::obligations:
-      break;
-      case quorum_type::checkpointing:
-      {
-        cryptonote::block block;
-        if (!m_core.get_block_by_hash(vote.checkpoint.block_hash, block)) // Does vote reference a valid block hash?
-        {
-          LOG_PRINT_L1("Vote does not reference valid block hash: " << vote.checkpoint.block_hash);
-          return false;
-        }
-      }
-      break;
-    }
-
-    // NOTE: Only do validation that relies on access cryptonote::core here in quorum cop, the rest goes in voting pool
     std::shared_ptr<const testing_quorum> quorum = m_core.get_testing_quorum(vote.type, vote.block_height);
     if (!quorum)
     {
