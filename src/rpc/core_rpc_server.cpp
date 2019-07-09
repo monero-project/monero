@@ -2431,87 +2431,99 @@ namespace cryptonote
   bool core_rpc_server::on_get_quorum_state(const COMMAND_RPC_GET_QUORUM_STATE::request& req, COMMAND_RPC_GET_QUORUM_STATE::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx)
   {
     PERF_TIMER(on_get_quorum_state);
-    bool r;
 
-    const auto uptime_quorum = m_core.get_testing_quorum(service_nodes::quorum_type::obligations, req.height);
-    r = (uptime_quorum != nullptr);
-    if (r)
+    if (req.quorum_type >= (decltype(req.quorum_type))service_nodes::quorum_type::count &&
+        req.quorum_type != (decltype(req.quorum_type))service_nodes::quorum_type::rpc_request_all_quorums_sentinel_value)
     {
-      res.status = CORE_RPC_STATUS_OK;
-      res.quorum_nodes.reserve (uptime_quorum->validators.size());
-      res.nodes_to_test.reserve(uptime_quorum->workers.size());
+      error_resp.code    = CORE_RPC_ERROR_CODE_WRONG_PARAM;
+      error_resp.message = "Quorum type specifies an invalid value: ";
+      error_resp.message += std::to_string(req.quorum_type);
+      res.status         = error_resp.message;
+      return false;
+    }
 
-      for (const auto &key : uptime_quorum->validators)
-        res.quorum_nodes.push_back(epee::string_tools::pod_to_hex(key));
+    uint64_t start = req.start_height, end = req.end_height;
+    if (req.start_height == COMMAND_RPC_GET_QUORUM_STATE::HEIGHT_SENTINEL_VALUE &&
+        req.end_height == COMMAND_RPC_GET_QUORUM_STATE::HEIGHT_SENTINEL_VALUE)
+    {
+      start = m_core.get_blockchain_storage().get_current_blockchain_height() - 1;
+    }
+    else if (req.start_height == COMMAND_RPC_GET_QUORUM_STATE::HEIGHT_SENTINEL_VALUE)
+    {
+      // NOTE: In this case, the end height is set, but not the start height, so just treat it as printing the end height
+      start = end;
+    }
 
-      for (const auto &key : uptime_quorum->workers)
-        res.nodes_to_test.push_back(epee::string_tools::pod_to_hex(key));
+    if (start >= end)
+    {
+      if (end != 0)
+        end = end - 1;
     }
     else
     {
-      error_resp.code     = CORE_RPC_ERROR_CODE_WRONG_PARAM;
-      error_resp.message  = "Block height: ";
-      error_resp.message += std::to_string(req.height);
-      error_resp.message += ", returned null hash or failed to derive quorum list";
+      end = end + 1;
     }
 
-    return r;
-  }
-  //------------------------------------------------------------------------------------------------------------------------------
-  bool core_rpc_server::on_get_quorum_state_batched(const COMMAND_RPC_GET_QUORUM_STATE_BATCHED::request& req, COMMAND_RPC_GET_QUORUM_STATE_BATCHED::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx)
-  {
-    PERF_TIMER(on_get_quorum_state_batched);
-
-    const uint64_t cur_height = m_core.get_current_blockchain_height();
-
-    const uint64_t height_begin = std::max(req.height_begin, cur_height - service_nodes::QUORUM_LIFETIME);
-    const uint64_t height_end = std::min(req.height_end, cur_height);
-
-    if (height_begin > height_end)
+    if (ctx && m_restricted)
     {
-      error_resp.code = CORE_RPC_ERROR_CODE_WRONG_PARAM;
-      error_resp.message = "height_end cannot be smaller than height_begin";
-      return true;
+      uint64_t count = (start < end) ? end - start : start - end;
+      if (count > COMMAND_RPC_GET_QUORUM_STATE_MAX_COUNT)
+      {
+        error_resp.code     = CORE_RPC_ERROR_CODE_WRONG_PARAM;
+        error_resp.message  = "Number of requested quorums greater than the allowed limit: ";
+        error_resp.message += std::to_string(COMMAND_RPC_GET_QUORUM_STATE_MAX_COUNT);
+        error_resp.message += ", requested: ";
+        error_resp.message += std::to_string(count);
+        return false;
+      }
     }
 
-    boost::optional<uint64_t> failed_height = boost::none;
-
-    res.quorum_entries.reserve(height_end - height_begin + 1);
-    for (auto h = height_begin; h <= height_end; ++h)
+    bool at_least_one_succeeded = false;
+    res.quorums.reserve(std::min((uint64_t)16, end - start));
+    for (size_t height = start; height != end;)
     {
-      const auto uptime_quorum = m_core.get_testing_quorum(service_nodes::quorum_type::obligations, h);
+      uint8_t hf_version = m_core.get_hard_fork_version(height);
+      if (hf_version != HardFork::INVALID_HF_VERSION_FOR_HEIGHT)
+      {
+        auto start_quorum_iterator = static_cast<service_nodes::quorum_type>(0);
+        auto end_quorum_iterator   = service_nodes::max_quorum_type_for_hf(hf_version);
 
-      if (!uptime_quorum) {
-        failed_height = h;
-        break;
+        if (req.quorum_type != (decltype(req.quorum_type))service_nodes::quorum_type::rpc_request_all_quorums_sentinel_value)
+        {
+          start_quorum_iterator = static_cast<service_nodes::quorum_type>(req.quorum_type);
+          end_quorum_iterator   = start_quorum_iterator;
+        }
+
+        for (int quorum_int = (int)start_quorum_iterator; quorum_int <= (int)end_quorum_iterator; quorum_int++)
+        {
+          auto type = static_cast<service_nodes::quorum_type>(quorum_int);
+          if (std::shared_ptr<const service_nodes::testing_quorum> quorum = m_core.get_testing_quorum(type, height))
+          {
+            COMMAND_RPC_GET_QUORUM_STATE::quorum_for_height entry = {};
+            entry.height                                          = height;
+            entry.quorum_type                                     = static_cast<uint8_t>(quorum_int);
+            entry.quorum                                          = *quorum;
+            at_least_one_succeeded                                = true;
+            res.quorums.push_back(entry);
+          }
+        }
       }
 
-      res.quorum_entries.push_back({});
-
-      auto &entry = res.quorum_entries.back();
-
-      entry.height = h;
-      entry.quorum_nodes.reserve(uptime_quorum->validators.size());
-      entry.nodes_to_test.reserve(uptime_quorum->workers.size());
-
-      for (const auto &key : uptime_quorum->validators)
-        entry.quorum_nodes.push_back(epee::string_tools::pod_to_hex(key));
-
-      for (const auto &key : uptime_quorum->workers)
-        entry.nodes_to_test.push_back(epee::string_tools::pod_to_hex(key));
-
+      if (end >= start) height++;
+      else height--;
     }
 
-    if (failed_height) {
-      error_resp.code     = CORE_RPC_ERROR_CODE_WRONG_PARAM;
-      error_resp.message  = "Block height: ";
-      error_resp.message += std::to_string(*failed_height);
-      error_resp.message += ", returned null hash or failed to derive quorum list";
-    } else {
+    if (at_least_one_succeeded)
+    {
       res.status = CORE_RPC_STATUS_OK;
     }
+    else
+    {
+      error_resp.code    = CORE_RPC_ERROR_CODE_WRONG_PARAM;
+      error_resp.message = "Failed to query any quorums at all";
+    }
 
-    return true;
+    return at_least_one_succeeded;
   }
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_get_service_node_registration_cmd_raw(const COMMAND_RPC_GET_SERVICE_NODE_REGISTRATION_CMD_RAW::request& req,

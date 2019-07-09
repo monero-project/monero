@@ -90,7 +90,7 @@ public:
 
   bool print_blockchain_info(uint64_t start_block_index, uint64_t end_block_index);
 
-  bool print_quorum_state(uint64_t height);
+  bool print_quorum_state(uint64_t start_height, uint64_t end_height);
 
   bool set_log_level(int8_t level);
 

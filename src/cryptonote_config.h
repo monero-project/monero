@@ -129,6 +129,7 @@ static_assert(STAKING_PORTIONS % 3 == 0, "Use a multiple of three, so that it di
 
 #define COMMAND_RPC_GET_BLOCKS_FAST_MAX_COUNT           1000
 #define COMMAND_RPC_GET_CHECKPOINTS_MAX_COUNT           256
+#define COMMAND_RPC_GET_QUORUM_STATE_MAX_COUNT          256
 
 #define P2P_LOCAL_WHITE_PEERLIST_LIMIT                  1000
 #define P2P_LOCAL_GRAY_PEERLIST_LIMIT                   5000

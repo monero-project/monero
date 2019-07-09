@@ -41,6 +41,7 @@
 #include "common/perf_timer.h"
 #include "checkpoints/checkpoints.h"
 
+#include "cryptonote_core/service_node_quorum_cop.h"
 #include "common/loki.h"
 
 namespace
@@ -2532,75 +2533,50 @@ namespace cryptonote
 
 
   LOKI_RPC_DOC_INTROSPECT
-  // Get the quorum state which is the list of public keys of the nodes 
-  // who are voting, and the list of public keys of the nodes who are being tested.
+  // Get the quorum state which is the list of public keys of the nodes who are voting, and the list of public keys of the nodes who are being tested.
   struct COMMAND_RPC_GET_QUORUM_STATE
   {
+    static constexpr uint64_t HEIGHT_SENTINEL_VALUE = UINT64_MAX;
     struct request_t
     {
-      uint64_t height; // The height to query the quorum state for.
+      uint64_t start_height; // (Optional): Start height, omit both start and end height to request the latest quorum
+      uint64_t end_height;   // (Optional): End height, omit both start and end height to request the latest quorum
+      uint8_t  quorum_type;  // (Optional): Set value to request a specific quorum, 0 = Obligation, 1 = Checkpointing, 255 = all quorums, default is all quorums;
+
       BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(height)
+        KV_SERIALIZE_OPT(start_height, HEIGHT_SENTINEL_VALUE)
+        KV_SERIALIZE_OPT(end_height, HEIGHT_SENTINEL_VALUE)
+        KV_SERIALIZE_OPT(quorum_type, (uint8_t)service_nodes::quorum_type::rpc_request_all_quorums_sentinel_value)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
+
+    struct quorum_for_height
+    {
+      uint64_t height;                      // The height the quorums are relevant for
+      uint8_t  quorum_type;                 // The quorum type
+      service_nodes::testing_quorum quorum; // Quorum of Service Nodes
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(height)
+        KV_SERIALIZE(quorum)
+      END_KV_SERIALIZE_MAP()
+
+      BEGIN_SERIALIZE()
+        FIELD(height)
+        FIELD(quorum_type)
+        FIELD(quorum)
+      END_SERIALIZE()
+    };
 
     struct response_t
     {
       std::string status;                     // Generic RPC error code. "OK" is the success value.
-      std::vector<std::string> quorum_nodes;  // Array of public keys identifying service nodes which are being tested for the queried height.
-      std::vector<std::string> nodes_to_test; // Array of public keys identifying service nodes which are responsible for voting on the queried height.
+      std::vector<quorum_for_height> quorums; // An array of quorums associated with the requested height
       bool untrusted;                         // If the result is obtained using bootstrap mode, and therefore not trusted `true`, or otherwise `false`.
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(status)
-        KV_SERIALIZE(quorum_nodes)
-        KV_SERIALIZE(nodes_to_test)
-        KV_SERIALIZE(untrusted)
-      END_KV_SERIALIZE_MAP()
-    };
-    typedef epee::misc_utils::struct_init<response_t> response;
-  };
-
-  LOKI_RPC_DOC_INTROSPECT
-  // Get the quorum state which is the list of public keys of the nodes 
-  // who are voting, and the list of public keys of the nodes who are being tested.
-  struct COMMAND_RPC_GET_QUORUM_STATE_BATCHED
-  {
-    struct request_t
-    {
-      uint64_t height_begin; // The starting height (inclusive) to query the quorum state for.
-      uint64_t height_end;   // The ending height (inclusive) to query the quorum state for.
-
-      BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(height_begin)
-        KV_SERIALIZE(height_end)
-      END_KV_SERIALIZE_MAP()
-    };
-    typedef epee::misc_utils::struct_init<request_t> request;
-
-    struct response_entry
-    {
-      uint64_t height;                        // The height of this quorum state that was queried.
-      std::vector<std::string> quorum_nodes;  // Array of public keys identifying service nodes which are being tested for the queried height.
-      std::vector<std::string> nodes_to_test; // Array of public keys identifying service nodes which are responsible for voting on the queried height.
-
-      BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(height)
-        KV_SERIALIZE(quorum_nodes)
-        KV_SERIALIZE(nodes_to_test)
-      END_KV_SERIALIZE_MAP()
-    };
-
-    struct response_t
-    {
-      std::string status;                         // Generic RPC error code. "OK" is the success value.
-      std::vector<response_entry> quorum_entries; // Array of quorums that was requested.
-      bool untrusted;                             // If the result is obtained using bootstrap mode, and therefore not trusted `true`, or otherwise `false`.
-
-      BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(status)
-        KV_SERIALIZE(quorum_entries)
+        KV_SERIALIZE(quorums)
         KV_SERIALIZE(untrusted)
       END_KV_SERIALIZE_MAP()
     };

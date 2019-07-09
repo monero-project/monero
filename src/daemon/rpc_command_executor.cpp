@@ -878,13 +878,16 @@ bool t_rpc_command_executor::print_blockchain_info(uint64_t start_block_index, u
   return true;
 }
 
-bool t_rpc_command_executor::print_quorum_state(uint64_t height)
+bool t_rpc_command_executor::print_quorum_state(uint64_t start_height, uint64_t end_height)
 {
   cryptonote::COMMAND_RPC_GET_QUORUM_STATE::request req;
   cryptonote::COMMAND_RPC_GET_QUORUM_STATE::response res;
   epee::json_rpc::error error_resp;
 
-  req.height = height;
+  req.start_height = start_height;
+  req.end_height   = end_height;
+  req.quorum_type  = (decltype(req.quorum_type))service_nodes::quorum_type::rpc_request_all_quorums_sentinel_value;
+
   std::string fail_message = "Unsuccessful";
 
   if (m_is_rpc)
@@ -903,21 +906,7 @@ bool t_rpc_command_executor::print_quorum_state(uint64_t height)
     }
   }
 
-  tools::msg_writer() << "Quorum Service Nodes [" << res.quorum_nodes.size() << "]";
-  for (size_t i = 0; i < res.quorum_nodes.size(); i++)
-  {
-    const std::string &entry = res.quorum_nodes[i];
-    tools::msg_writer() << "[" << i << "] " << entry;
-  }
-
-  tools::msg_writer() << "Service Nodes To Test [" << res.nodes_to_test.size() << "]";
-  for (size_t i = 0; i < res.nodes_to_test.size(); i++)
-  {
-    const std::string &entry = res.nodes_to_test[i];
-    tools::msg_writer() << "[" << i << "] " << entry;
-  }
-
-
+  tools::msg_writer() << "{\n" << obj_to_json_str(res.quorums) << "\n}";
   return true;
 }
 

@@ -77,6 +77,7 @@ namespace service_nodes
     obligations = 0,
     checkpointing,
     count,
+    rpc_request_all_quorums_sentinel_value = 255, // Only valid for get_quorum_state RPC call
   };
 
   inline char const *quorum_type_to_string(quorum_type v)

@@ -107,8 +107,8 @@ t_command_server::t_command_server(
   m_command_lookup.set_handler(
       "print_quorum_state"
     , std::bind(&t_command_parser_executor::print_quorum_state, &m_parser, p::_1)
-    , "print_quorum_state <height>"
-    , "Print the quorum state for the block height."
+    , "print_quorum_state [start height] [end height]"
+    , "Print the quorum state for the range of block heights, omit the height to print the latest quorum"
     );
   m_command_lookup.set_handler(
       "print_sn_key"

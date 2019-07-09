@@ -208,20 +208,24 @@ bool t_command_parser_executor::print_blockchain_info(const std::vector<std::str
 
 bool t_command_parser_executor::print_quorum_state(const std::vector<std::string>& args)
 {
-  if(args.size() != 1)
+  uint64_t start_height = cryptonote::COMMAND_RPC_GET_QUORUM_STATE::HEIGHT_SENTINEL_VALUE;
+  uint64_t end_height   = cryptonote::COMMAND_RPC_GET_QUORUM_STATE::HEIGHT_SENTINEL_VALUE;
+
+  std::forward_list<std::string> args_list(args.begin(), args.end());
+  if (!parse_if_present(args_list, start_height, "start height"))
+    return false;
+
+  if (!parse_if_present(args_list, end_height, "end height"))
+    return false;
+
+  if (!args_list.empty())
   {
-    std::cout << "need block height parameter" << std::endl;
+    std::cout << "use: print_quorum_state [start height] [end height]\n"
+              << "(omit arguments to print the latest quorums" << std::endl;
     return false;
   }
 
-  uint64_t height = 0;
-  if(!epee::string_tools::get_xtype_from_string(height, args[0]))
-  {
-    std::cout << "wrong block height parameter" << std::endl;
-    return false;
-  }
-
-  return m_executor.print_quorum_state(height);
+  return m_executor.print_quorum_state(start_height, end_height);
 }
 
 bool t_command_parser_executor::print_sn_key(const std::vector<std::string>& args)
