@@ -2168,5 +2168,21 @@ namespace service_nodes
     cmd = stream.str();
     return true;
   }
+
+  bool service_node_info::can_transition_to_state(new_state proposed_state) const
+  {
+    if (is_decommissioned())
+    {
+      return proposed_state != new_state::decommission &&
+             proposed_state != new_state::ip_change_penalty;
+    }
+    else
+    {
+      return proposed_state != new_state::recommission;
+    }
+
+    return true;
+  }
+
 }
 

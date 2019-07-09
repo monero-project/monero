@@ -157,19 +157,28 @@ namespace cryptonote
           continue;
         }
 
-        crypto::public_key service_node_to_change_in_the_pool;
-        if (service_node_list.get_quorum_pubkey(quorum_type, quorum_group, pool_tx_state_change.block_height, pool_tx_state_change.service_node_index, service_node_to_change_in_the_pool))
+        if (hard_fork_version >= cryptonote::network_version_12_checkpointing)
         {
-          if (service_node_to_change == service_node_to_change_in_the_pool)
+          crypto::public_key service_node_to_change_in_the_pool;
+          bool specifying_same_service_node = false;
+          if (service_node_list.get_quorum_pubkey(quorum_type, quorum_group, pool_tx_state_change.block_height, pool_tx_state_change.service_node_index, service_node_to_change_in_the_pool))
+          {
+            specifying_same_service_node = (service_node_to_change == service_node_to_change_in_the_pool);
+          }
+          else
+          {
+            MWARNING("Could not resolve the service node public key from the information in a pooled tx state change, falling back to primitive checking method");
+            specifying_same_service_node = (state_change == pool_tx_state_change);
+          }
+
+          if (specifying_same_service_node && pool_tx_state_change.state == state_change.state)
             return true;
         }
         else
         {
-          MWARNING("Could not resolve the service node public key from the information in a pooled tx state change, possibly corrupt tx in your blockchain, falling back to primitive checking method");
           if (state_change == pool_tx_state_change)
             return true;
         }
-
       }
     }
     else if (tx.type == txtype::key_image_unlock)

@@ -120,6 +120,8 @@ namespace service_nodes
     bool is_fully_funded() const { return total_contributed >= staking_requirement; }
     bool is_decommissioned() const { return active_since_height < 0; }
     bool is_active() const { return is_fully_funded() && !is_decommissioned(); }
+
+    bool can_transition_to_state(new_state proposed_state) const;
     size_t total_num_locked_contributions() const;
 
     BEGIN_SERIALIZE_OBJECT()
