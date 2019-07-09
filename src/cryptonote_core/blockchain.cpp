@@ -799,6 +799,10 @@ difficulty_type Blockchain::get_difficulty_for_next_block()
   std::vector<difficulty_type> difficulties;
   auto height = m_db->height();
 
+  if (m_fixed_difficulty) {
+    return m_db->height() ? m_fixed_difficulty : 1;
+  }
+
   if (height == 0) {
 	  return 1000;
   }
