@@ -580,5 +580,23 @@ namespace service_nodes
     cull_votes(m_obligations_pool, min_height, height);
     cull_votes(m_checkpoint_pool, min_height, height);
   }
+
+  bool voting_pool::received_checkpoint_vote(uint64_t height, size_t index_in_quorum) const
+  {
+    auto pool_it = std::find_if(m_checkpoint_pool.begin(),
+                                m_checkpoint_pool.end(),
+                                [height](checkpoint_pool_entry const &entry) { return entry.height == height; });
+
+    if (pool_it == m_checkpoint_pool.end())
+      return false;
+
+    for (auto it = pool_it->votes.begin(); it != pool_it->votes.end(); it++)
+    {
+      if (it->vote.index_in_group == index_in_quorum)
+        return true;
+    }
+
+    return false;
+  }
 }; // namespace service_nodes
 
