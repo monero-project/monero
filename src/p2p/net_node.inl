@@ -1895,7 +1895,7 @@ namespace nodetool
         return false;
       }
       return true;
-    });
+    }, zone.m_bind_ip);
     if(!r)
     {
       LOG_WARNING_CC(context, "Failed to call connect_async, network error.");
@@ -2500,7 +2500,7 @@ namespace nodetool
     const bool res = zone.m_net_server.connect(epee::string_tools::get_ip_string_from_int32(ipv4.ip()),
       epee::string_tools::num_to_string_fast(ipv4.port()),
       zone.m_config.m_net_config.connection_timeout,
-      con, "0.0.0.0", ssl_support);
+      con, zone.m_bind_ip, ssl_support);
 
     if (res)
       return {std::move(con)};
