@@ -404,6 +404,8 @@ namespace service_nodes
         info.active_since_height = -info.active_since_height;
         info.last_decommission_height = block_height;
         info.decommission_count++;
+
+        info.proof.timestamp = 0;
         info.proof.votes.fill(true);
         return true;
 
