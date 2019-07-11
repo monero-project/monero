@@ -1,4 +1,4 @@
-// Copyright (c) 2016-2018, The Monero Project
+// Copyright (c) 2016-2019, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -163,6 +163,14 @@ BEGIN_RPC_MESSAGE_CLASS(SendRawTx);
   BEGIN_RPC_MESSAGE_RESPONSE;
     bool relayed;
   END_RPC_MESSAGE_RESPONSE;
+END_RPC_MESSAGE_CLASS;
+
+BEGIN_RPC_MESSAGE_CLASS(SendRawTxHex);
+  BEGIN_RPC_MESSAGE_REQUEST;
+    std::string tx_as_hex;
+    bool relay;
+  END_RPC_MESSAGE_REQUEST;
+  using Response = SendRawTx::Response;
 END_RPC_MESSAGE_CLASS;
 
 BEGIN_RPC_MESSAGE_CLASS(StartMining);

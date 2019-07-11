@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -185,7 +185,7 @@ namespace cryptonote
     bool                v2_rct;
 
     loki_construct_tx_params() = default;
-    loki_construct_tx_params(int hf_version)
+    loki_construct_tx_params(uint8_t hf_version)
     {
       *this = {};
       v4_allow_tx_types    = (hf_version >= cryptonote::network_version_11_infinite_staking);
@@ -204,11 +204,24 @@ namespace cryptonote
                                       std::vector<rct::key> &amount_keys,
                                       crypto::public_key &out_eph_public_key);
 
+  bool generate_output_ephemeral_keys(const size_t tx_version, const cryptonote::account_keys &sender_account_keys, const crypto::public_key &txkey_pub,  const crypto::secret_key &tx_key,
+                                      const cryptonote::tx_destination_entry &dst_entr, const boost::optional<cryptonote::account_public_address> &change_addr, const size_t output_index,
+                                      const bool &need_additional_txkeys, const std::vector<crypto::secret_key> &additional_tx_keys,
+                                      std::vector<crypto::public_key> &additional_tx_public_keys,
+                                      std::vector<rct::key> &amount_keys,
+                                      crypto::public_key &out_eph_public_key) ;
+
   bool generate_genesis_block(
       block& bl
     , std::string const & genesis_tx
     , uint32_t nonce
     );
+
+  bool get_block_longhash(const class Blockchain *pb, const block& b, crypto::hash& res, const uint64_t height, const int miners);
+  void get_altblock_longhash(const block& b, crypto::hash& res, const uint64_t main_height, const uint64_t height,
+    const uint64_t seed_height, const crypto::hash& seed_hash);
+  crypto::hash get_block_longhash(const Blockchain *pb, const block& b, const uint64_t height, const int miners);
+  void get_block_longhash_reorg(const uint64_t split_height);
 
 }
 

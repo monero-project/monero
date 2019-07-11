@@ -1,5 +1,5 @@
 # Copyright (c) 2018, The Loki Project
-# Copyright (c) 2014-2018, The Monero Project
+# Copyright (c) 2014-2019, The Monero Project
 #
 # All rights reserved.
 #
@@ -49,6 +49,7 @@ set(common_sources
   threadpool.cpp
   updates.cpp
   aligned.c
+  timings.cc
   combinator.cpp)
 
 if (STACK_TRACE)
@@ -91,6 +92,7 @@ set(common_private_headers
   threadpool.h
   updates.h
   aligned.h
+  timings.h
   combinator.h)
 
 loki_private_headers(common

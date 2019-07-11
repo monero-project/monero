@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -41,23 +41,23 @@ namespace cryptonote
     bool m_verification_failed;
     bool m_invalid_block_height;
     bool m_duplicate_voters;
-    bool m_voters_quorum_index_out_of_bounds;
-    bool m_service_node_index_out_of_bounds;
+    bool m_validator_index_out_of_bounds;
+    bool m_worker_index_out_of_bounds;
     bool m_signature_not_valid;
     bool m_added_to_pool;
-    bool m_full_tx_deregister_made;
     bool m_not_enough_votes;
+    bool m_incorrect_voting_group;
 
     BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE(m_verification_failed)
       KV_SERIALIZE(m_invalid_block_height)
       KV_SERIALIZE(m_duplicate_voters)
-      KV_SERIALIZE(m_voters_quorum_index_out_of_bounds)
-      KV_SERIALIZE(m_service_node_index_out_of_bounds)
+      KV_SERIALIZE(m_validator_index_out_of_bounds)
+      KV_SERIALIZE(m_worker_index_out_of_bounds)
       KV_SERIALIZE(m_signature_not_valid)
       KV_SERIALIZE(m_added_to_pool)
-      KV_SERIALIZE(m_full_tx_deregister_made)
       KV_SERIALIZE(m_not_enough_votes)
+      KV_SERIALIZE(m_incorrect_voting_group)
     END_KV_SERIALIZE_MAP()
   };
 

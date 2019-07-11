@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2018, The Monero Project
+// Copyright (c) 2017-2019, The Monero Project
 //
 // All rights reserved.
 //
@@ -43,8 +43,10 @@ namespace trezor {
 
     const uint32_t device_trezor_base::DEFAULT_BIP44_PATH[] = {0x8000002c, 0x80000080};
 
-    device_trezor_base::device_trezor_base(): m_callback(nullptr) {
-
+    device_trezor_base::device_trezor_base(): m_callback(nullptr), m_last_msg_type(messages::MessageType_Success) {
+#ifdef WITH_TREZOR_DEBUGGING
+      m_debug = false;
+#endif
     }
 
     device_trezor_base::~device_trezor_base() {
@@ -107,15 +109,20 @@ namespace trezor {
       disconnect();
 
       // Enumerate all available devices
+      TREZOR_AUTO_LOCK_DEVICE();
       try {
         hw::trezor::t_transport_vect trans;
 
         MDEBUG("Enumerating Trezor devices...");
         enumerate(trans);
+        sort_transports_by_env(trans);
 
-        MDEBUG("Enumeration yielded " << trans.size() << " devices");
+        MDEBUG("Enumeration yielded " << trans.size() << " Trezor devices");
         for (auto &cur : trans) {
           MDEBUG("  device: " << *(cur.get()));
+        }
+
+        for (auto &cur : trans) {
           std::string cur_path = cur->get_path();
           if (boost::starts_with(cur_path, this->name)) {
             MDEBUG("Device Match: " << cur_path);
@@ -130,6 +137,10 @@ namespace trezor {
         }
 
         m_transport->open();
+
+#ifdef WITH_TREZOR_DEBUGGING
+        setup_debug();
+#endif
         return true;
 
       } catch(std::exception const& e){
@@ -139,6 +150,7 @@ namespace trezor {
     }
 
     bool device_trezor_base::disconnect() {
+      TREZOR_AUTO_LOCK_DEVICE();
       m_device_state.clear();
       m_features.reset();
 
@@ -153,6 +165,13 @@ namespace trezor {
           return false;
         }
       }
+
+#ifdef WITH_TREZOR_DEBUGGING
+      if (m_debug_callback) {
+        m_debug_callback->on_disconnect();
+        m_debug_callback = nullptr;
+      }
+#endif
       return true;
     }
 
@@ -190,13 +209,13 @@ namespace trezor {
     /*  Helpers                                                                */
     /* ======================================================================= */
 
-    void device_trezor_base::require_connected(){
+    void device_trezor_base::require_connected() const {
       if (!m_transport){
         throw exc::NotConnectedException();
       }
     }
 
-    void device_trezor_base::require_initialized(){
+    void device_trezor_base::require_initialized() const {
       if (!m_features){
         throw exc::TrezorException("Device state not initialized");
       }
@@ -260,6 +279,12 @@ namespace trezor {
       // Later if needed this generic message handler can be replaced by a pointer to
       // a protocol message handler which by default points to the device class which implements
       // the default handler.
+
+      if (m_last_msg_type == messages::MessageType_ButtonRequest){
+        on_button_pressed();
+      }
+      m_last_msg_type = input.m_type;
+
       switch(input.m_type){
         case messages::MessageType_ButtonRequest:
           on_button_request(input, dynamic_cast<const messages::common::ButtonRequest*>(input.m_msg.get()));
@@ -317,7 +342,7 @@ namespace trezor {
     /* ======================================================================= */
 
     bool device_trezor_base::ping() {
-      AUTO_LOCK_CMD();
+      TREZOR_AUTO_LOCK_CMD();
       if (!m_transport){
         MINFO("Ping failed, device not connected");
         return false;
@@ -351,23 +376,57 @@ namespace trezor {
 
     void device_trezor_base::device_state_reset()
     {
-      AUTO_LOCK_CMD();
+      TREZOR_AUTO_LOCK_CMD();
       device_state_reset_unsafe();
     }
+
+#ifdef WITH_TREZOR_DEBUGGING
+#define TREZOR_CALLBACK(method, ...) do { \
+  if (m_debug_callback) m_debug_callback->method(__VA_ARGS__); \
+  if (m_callback) m_callback->method(__VA_ARGS__);             \
+}while(0)
+#define TREZOR_CALLBACK_GET(VAR, method, ...) do { \
+  if (m_debug_callback) VAR = m_debug_callback->method(__VA_ARGS__); \
+  if (m_callback) VAR = m_callback->method(__VA_ARGS__);             \
+}while(0)
+
+    void device_trezor_base::setup_debug(){
+      if (!m_debug){
+        return;
+      }
+
+      if (!m_debug_callback){
+        CHECK_AND_ASSERT_THROW_MES(m_transport, "Transport does not exist");
+        auto debug_transport = m_transport->find_debug();
+        if (debug_transport) {
+          m_debug_callback = std::make_shared<trezor_debug_callback>(debug_transport);
+        } else {
+          MDEBUG("Transport does not have debug link option");
+        }
+      }
+    }
+
+#else
+#define TREZOR_CALLBACK(method, ...) do { if (m_callback) m_callback->method(__VA_ARGS__); } while(0)
+#define TREZOR_CALLBACK_GET(VAR, method, ...) VAR = (m_callback ? m_callback->method(__VA_ARGS__) : boost::none)
+#endif
 
     void device_trezor_base::on_button_request(GenericMessage & resp, const messages::common::ButtonRequest * msg)
     {
       CHECK_AND_ASSERT_THROW_MES(msg, "Empty message");
       MDEBUG("on_button_request, code: " << msg->code());
 
+      TREZOR_CALLBACK(on_button_request, msg->code());
+
       messages::common::ButtonAck ack;
       write_raw(&ack);
 
-      if (m_callback){
-        m_callback->on_button_request();
-      }
-
       resp = read_raw();
+    }
+
+    void device_trezor_base::on_button_pressed()
+    {
+      TREZOR_CALLBACK(on_button_pressed);
     }
 
     void device_trezor_base::on_pin_request(GenericMessage & resp, const messages::common::PinMatrixRequest * msg)
@@ -375,15 +434,18 @@ namespace trezor {
       MDEBUG("on_pin_request");
       CHECK_AND_ASSERT_THROW_MES(msg, "Empty message");
 
-      epee::wipeable_string pin;
+      boost::optional<epee::wipeable_string> pin;
+      TREZOR_CALLBACK_GET(pin, on_pin_request);
 
-      if (m_callback){
-        m_callback->on_pin_request(pin);
+      if (!pin && m_pin){
+        pin = m_pin;
       }
 
       // TODO: remove PIN from memory
       messages::common::PinMatrixAck m;
-      m.set_pin(pin.data(), pin.size());
+      if (pin) {
+        m.set_pin(pin.get().data(), pin.get().size());
+      }
       resp = call_raw(&m);
     }
 
@@ -391,16 +453,19 @@ namespace trezor {
     {
       CHECK_AND_ASSERT_THROW_MES(msg, "Empty message");
       MDEBUG("on_passhprase_request, on device: " << msg->on_device());
-      epee::wipeable_string passphrase;
+      boost::optional<epee::wipeable_string> passphrase;
+      TREZOR_CALLBACK_GET(passphrase, on_passphrase_request, msg->on_device());
 
-      if (m_callback){
-        m_callback->on_passphrase_request(msg->on_device(), passphrase);
+      if (!passphrase && m_passphrase){
+        passphrase = m_passphrase;
       }
 
+      m_passphrase = boost::none;
+
       messages::common::PassphraseAck m;
-      if (!msg->on_device()){
+      if (!msg->on_device() && passphrase){
         // TODO: remove passphrase from memory
-        m.set_passphrase(passphrase.data(), passphrase.size());
+        m.set_passphrase(passphrase.get().data(), passphrase.get().size());
       }
 
       if (!m_device_state.empty()){
@@ -420,6 +485,68 @@ namespace trezor {
       messages::common::PassphraseStateAck m;
       resp = call_raw(&m);
     }
+
+#ifdef WITH_TREZOR_DEBUGGING
+    void device_trezor_base::wipe_device()
+    {
+      auto msg = std::make_shared<messages::management::WipeDevice>();
+      auto ret = client_exchange<messages::common::Success>(msg);
+      (void)ret;
+      init_device();
+    }
+
+    void device_trezor_base::init_device()
+    {
+      auto msg = std::make_shared<messages::management::Initialize>();
+      m_features = client_exchange<messages::management::Features>(msg);
+    }
+
+    void device_trezor_base::load_device(const std::string & mnemonic, const std::string & pin,
+        bool passphrase_protection, const std::string & label, const std::string & language,
+        bool skip_checksum, bool expand)
+    {
+      if (m_features && m_features->initialized()){
+        throw std::runtime_error("Device is initialized already. Call device.wipe() and try again.");
+      }
+
+      auto msg = std::make_shared<messages::management::LoadDevice>();
+      msg->set_mnemonic(mnemonic);
+      msg->set_pin(pin);
+      msg->set_passphrase_protection(passphrase_protection);
+      msg->set_label(label);
+      msg->set_language(language);
+      msg->set_skip_checksum(skip_checksum);
+      auto ret = client_exchange<messages::common::Success>(msg);
+      (void)ret;
+
+      init_device();
+    }
+
+    trezor_debug_callback::trezor_debug_callback(std::shared_ptr<Transport> & debug_transport){
+      m_debug_link = std::make_shared<DebugLink>();
+      m_debug_link->init(debug_transport);
+    }
+
+    void trezor_debug_callback::on_button_request(uint64_t code) {
+      if (m_debug_link) m_debug_link->press_yes();
+    }
+
+    boost::optional<epee::wipeable_string> trezor_debug_callback::on_pin_request() {
+      return boost::none;
+    }
+
+    boost::optional<epee::wipeable_string> trezor_debug_callback::on_passphrase_request(bool on_device) {
+      return boost::none;
+    }
+
+    void trezor_debug_callback::on_passphrase_state_request(const std::string &state) {
+
+    }
+
+    void trezor_debug_callback::on_disconnect(){
+      if (m_debug_link) m_debug_link->close();
+    }
+#endif
 
 #endif //WITH_DEVICE_TREZOR
 }}

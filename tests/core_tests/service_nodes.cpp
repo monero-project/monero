@@ -37,6 +37,9 @@ using namespace std;
 using namespace epee;
 using namespace cryptonote;
 
+#undef LOKI_DEFAULT_LOG_CATEGORY
+#define LOKI_DEFAULT_LOG_CATEGORY "sn_core_tests"
+
 static const std::pair<const char*, const char*> service_node_keys[] = {
   { "1c09e237e7f451ee5df4ea6db970ba0b17597d788106df0c3b436a8ff8c94806",
     "06d471cbb6d67cae5002f18dd1c46ae6307b474b6fad4d720bd639513438f219" },
@@ -284,7 +287,7 @@ bool test_prefer_deregisters::check_prefer_deregisters(cryptonote::core& c, size
 
   const auto deregister_count =
     std::count_if(full_blk.tx_hashes.begin(), full_blk.tx_hashes.end(), [&mtx](const crypto::hash& tx_hash) {
-      return mtx[tx_hash]->get_type() == cryptonote::transaction::type_deregister;
+      return mtx[tx_hash]->type == cryptonote::txtype::state_change;
     });
 
   /// test that there are more transactions in tx pool
@@ -366,7 +369,7 @@ bool test_deregister_safety_buffer::generate(std::vector<test_event_entry> &even
   /// register 21 random service nodes
   std::vector<cryptonote::transaction> reg_txs;
 
-  constexpr auto SERVICE_NODES_NEEDED = service_nodes::QUORUM_SIZE * 2 + 1;
+  constexpr auto SERVICE_NODES_NEEDED = service_nodes::STATE_CHANGE_QUORUM_SIZE * 2 + 1;
   static_assert(SN_KEYS_COUNT >= SERVICE_NODES_NEEDED, "not enough pre-computed service node keys");
 
   for (auto i = 0u; i < SERVICE_NODES_NEEDED; ++i)
@@ -519,7 +522,7 @@ bool test_deregisters_on_split::test_on_split(cryptonote::core& c, size_t ev_ind
   /// obtain the expected deregister from events
   const size_t dereg_idx = 68;
   auto dereg_tx = boost::get<cryptonote::transaction>(events.at(dereg_idx));
-  CHECK_AND_ASSERT_MES(dereg_tx.get_type() == cryptonote::transaction::type_deregister, false, "event is not a deregister transaction");
+  CHECK_AND_ASSERT_MES(dereg_tx.type == cryptonote::txtype::state_change, false, "event is not a state change transaction");
 
   const auto expected_tx_hash = get_transaction_hash(dereg_tx);
 
@@ -538,7 +541,7 @@ bool test_deregisters_on_split::test_on_split(cryptonote::core& c, size_t ev_ind
 
   /// find the deregister tx:
   const auto found_tx_hash = std::find_if(blk.tx_hashes.begin(), blk.tx_hashes.end(), [&mtx](const crypto::hash& hash) {
-    return mtx.at(hash)->is_deregister;
+    return mtx.at(hash)->type == txtype::state_change;
   });
 
   CHECK_TEST_CONDITION(found_tx_hash != blk.tx_hashes.end());
@@ -585,15 +588,14 @@ bool deregister_too_old::generate(std::vector<test_event_entry>& events)
   const auto pk = gen.get_test_pk(0);
   const auto dereg_tx = gen.build_deregister(pk, false).build();
 
-  /// create enough block to make deregistrations invalid (60 - 1 blocks)
-  gen.rewind_blocks_n(service_nodes::deregister_vote::DEREGISTER_LIFETIME_BY_HEIGHT-1);
+  /// create enough blocks to make deregistrations invalid (60 blocks)
+  gen.rewind_blocks_n(service_nodes::STATE_CHANGE_TX_LIFETIME_IN_BLOCKS);
 
   /// In the real world, this transaction should not make it into a block, but in this case we do try to add it (as in
   /// tests we must add specify transactions manually), which should exercise the same validation code and reject the
   /// block
   DO_CALLBACK(events, "mark_invalid_block");
   gen.create_block({dereg_tx});
-
   return true;
 }
 //-----------------------------------------------------------------------------------------------------
@@ -616,11 +618,11 @@ bool sn_test_rollback::generate(std::vector<test_event_entry>& events)
   gen.rewind_blocks_n(20);
   gen.rewind_blocks();
 
-  constexpr auto init_sn_count = 11;
+  constexpr auto INIT_SN_COUNT = 11;
 
   /// register some service nodes
   std::vector<cryptonote::transaction> reg_txs;
-  for (auto i = 0; i < init_sn_count; ++i) {
+  for (auto i = 0; i < INIT_SN_COUNT; ++i) {
     const auto sn = get_static_keys(i);
     const auto tx = gen.create_registration_tx(gen.first_miner(), sn);
     reg_txs.push_back(tx);
@@ -643,7 +645,7 @@ bool sn_test_rollback::generate(std::vector<test_event_entry>& events)
 
   /// create a new service node (B) in the next block
   {
-    const auto sn = get_static_keys(init_sn_count);
+    const auto sn = get_static_keys(INIT_SN_COUNT);
     const auto tx = gen.create_registration_tx(gen.first_miner(), sn);
     gen.create_block({tx});
   }
@@ -684,14 +686,15 @@ bool sn_test_rollback::test_registrations(cryptonote::core& c, size_t ev_index, 
 
     CHECK_TEST_CONDITION(event_a.type() == typeid(cryptonote::transaction));
     const auto dereg_tx = boost::get<cryptonote::transaction>(event_a);
-    CHECK_TEST_CONDITION(dereg_tx.get_type() == transaction::type_deregister);
+    CHECK_TEST_CONDITION(dereg_tx.type == cryptonote::txtype::state_change);
 
-    tx_extra_service_node_deregister deregistration;
-    get_service_node_deregister_from_tx_extra(dereg_tx.extra, deregistration);
+    tx_extra_service_node_state_change deregistration;
+    get_service_node_state_change_from_tx_extra(
+        dereg_tx.extra, deregistration, c.get_blockchain_storage().get_current_hard_fork_version());
 
-    const auto quorum_state = c.get_quorum_state(deregistration.block_height);
-    CHECK_TEST_CONDITION(quorum_state);
-    const auto pk_a = quorum_state->nodes_to_test.at(deregistration.service_node_index);
+    const auto uptime_quorum = c.get_testing_quorum(service_nodes::quorum_type::obligations, deregistration.block_height);
+    CHECK_TEST_CONDITION(uptime_quorum);
+    const auto pk_a = uptime_quorum->workers.at(deregistration.service_node_index);
 
     /// Check present
     const bool found_a = contains(sn_list, pk_a);
@@ -727,8 +730,10 @@ bool sn_test_rollback::test_registrations(cryptonote::core& c, size_t ev_index, 
 
 test_swarms_basic::test_swarms_basic() {
   REGISTER_CALLBACK("test_initial_swarms", test_swarms_basic::test_initial_swarms);
+  REGISTER_CALLBACK("test_with_one_more_sn", test_swarms_basic::test_with_one_more_sn);
   REGISTER_CALLBACK("test_with_more_sn", test_swarms_basic::test_with_more_sn);
-  REGISTER_CALLBACK("test_after_deregisters", test_swarms_basic::test_after_deregisters);
+  REGISTER_CALLBACK("test_after_first_deregisters", test_swarms_basic::test_after_first_deregisters);
+  REGISTER_CALLBACK("test_after_final_deregisters", test_swarms_basic::test_after_final_deregisters);
 }
 
 bool test_swarms_basic::generate(std::vector<test_event_entry>& events)
@@ -739,14 +744,14 @@ bool test_swarms_basic::generate(std::vector<test_event_entry>& events)
   gen.rewind_until_version(network_version_9_service_nodes);
 
   /// Create some service nodes before hf version 10
-  constexpr size_t init_sn_count = 16;
+  constexpr size_t INIT_SN_COUNT = 13;
 
   gen.rewind_blocks_n(100);
   gen.rewind_blocks();
 
   /// register some service nodes
   std::vector<cryptonote::transaction> reg_txs;
-  for (auto i = 0u; i < init_sn_count; ++i) {
+  for (auto i = 0u; i < INIT_SN_COUNT; ++i) {
     const auto sn = get_static_keys(i);
     const auto tx = gen.create_registration_tx(gen.first_miner(), sn);
     reg_txs.push_back(tx);
@@ -767,19 +772,31 @@ bool test_swarms_basic::generate(std::vector<test_event_entry>& events)
   /// test that we now have swarms
   DO_CALLBACK(events, "test_initial_swarms");
 
-  /// rewind some blocks and register more service nodes
-  for (auto i = init_sn_count; i < SN_KEYS_COUNT; ++i) {
+  /// rewind some blocks and register 1 more service node
+  {
+    const auto sn = get_static_keys(INIT_SN_COUNT);
+    const auto tx = gen.create_registration_tx(gen.first_miner(), sn);
+    gen.create_block({tx});
+  }
+
+  /// test that another swarm has been created
+  DO_CALLBACK(events, "test_with_one_more_sn");
+
+
+  for (auto i = INIT_SN_COUNT + 1; i < SN_KEYS_COUNT; ++i) {
     const auto sn = get_static_keys(i);
     const auto tx = gen.create_registration_tx(gen.first_miner(), sn);
-    gen.create_block({tx}); 
+    gen.create_block({tx});
   }
 
   /// test that another swarm has been created
   DO_CALLBACK(events, "test_with_more_sn");
 
-  /// deregister a few snodes and test that both swarms are alive
+  /// deregister enough snode to bring all 3 swarm to the min size
   std::vector<cryptonote::transaction> dereg_txs;
-  for (auto i = 0u; i < service_nodes::SWARM_BUFFER; ++i) {
+
+  const size_t excess = SN_KEYS_COUNT - 3 * service_nodes::EXCESS_BASE;
+  for (size_t i = 0; i < excess; ++i) {
     const auto pk = gen.get_test_pk(i);
     const auto tx = gen.build_deregister(pk).build();
     dereg_txs.push_back(tx);
@@ -787,7 +804,19 @@ bool test_swarms_basic::generate(std::vector<test_event_entry>& events)
 
   gen.create_block(dereg_txs);
 
-  DO_CALLBACK(events, "test_after_deregisters");
+  DO_CALLBACK(events, "test_after_first_deregisters");
+
+  /// deregister 1 snode, which should trigger a decommission
+  dereg_txs.clear();
+  {
+    const auto pk = gen.get_test_pk(0);
+    const auto tx = gen.build_deregister(pk).build();
+    dereg_txs.push_back(tx);
+  }
+
+  gen.create_block(dereg_txs);
+
+  DO_CALLBACK(events, "test_after_final_deregisters");
 
   /// test (implicitly) that deregistered nodes do not receive rewards
   gen.rewind_blocks_n(5);
@@ -809,15 +838,26 @@ bool test_swarms_basic::test_initial_swarms(cryptonote::core& c, size_t ev_index
     swarms[id].push_back(entry.pubkey);
   }
 
-  /// One of the swarms represent a queue
+  CHECK_EQ(swarms.size(), 1);
+  CHECK_EQ(swarms.begin()->second.size(), 13);
+
+  return true;
+}
+
+bool test_swarms_basic::test_with_one_more_sn(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry> &events)
+{
+  DEFINE_TESTS_ERROR_CONTEXT("test_swarms_basic::test_with_one_more_sn");
+
+  const auto sn_list = c.get_service_node_list_state({});
+
+  std::map<service_nodes::swarm_id_t, std::vector<crypto::public_key>> swarms;
+
+  for (const auto& entry : sn_list) {
+    const auto id = entry.info.swarm_id;
+    swarms[id].push_back(entry.pubkey);
+  }
+
   CHECK_EQ(swarms.size(), 2);
-
-  const size_t queue_size = swarms.at(service_nodes::QUEUE_SWARM_ID).size();
-
-  /// No deregisters, so the swarms queue should be full
-  CHECK_TEST_CONDITION(queue_size > service_nodes::SWARM_BUFFER);
-  /// We shouldn't have too many nodes in the queue
-  CHECK_TEST_CONDITION(queue_size < service_nodes::SWARM_BUFFER + service_nodes::MAX_SWARM_SIZE);
 
   return true;
 }
@@ -840,9 +880,9 @@ bool test_swarms_basic::test_with_more_sn(cryptonote::core& c, size_t ev_index, 
   return true;
 }
 
-bool test_swarms_basic::test_after_deregisters(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry> &events)
+bool test_swarms_basic::test_after_first_deregisters(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry> &events)
 {
-  DEFINE_TESTS_ERROR_CONTEXT("test_swarms_basic::test_after_deregisters");
+  DEFINE_TESTS_ERROR_CONTEXT("test_swarms_basic::test_after_first_deregisters");
 
   const auto sn_list = c.get_service_node_list_state({});
 
@@ -853,8 +893,25 @@ bool test_swarms_basic::test_after_deregisters(cryptonote::core& c, size_t ev_in
     swarms[id].push_back(entry.pubkey);
   }
 
-  /// The two swarms are still active, but the queue in now showing in the swarms
-  CHECK_TEST_CONDITION(swarms.find(service_nodes::QUEUE_SWARM_ID) == swarms.end());
+  CHECK_EQ(swarms.size(), 3);
+
+  return true;
+}
+
+bool test_swarms_basic::test_after_final_deregisters(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry> &events)
+{
+  DEFINE_TESTS_ERROR_CONTEXT("test_swarms_basic::test_after_first_deregisters");
+
+  const auto sn_list = c.get_service_node_list_state({});
+
+  std::map<service_nodes::swarm_id_t, std::vector<crypto::public_key>> swarms;
+
+  for (const auto& entry : sn_list) {
+    const auto id = entry.info.swarm_id;
+    swarms[id].push_back(entry.pubkey);
+  }
+
+
   CHECK_EQ(swarms.size(), 2);
 
   return true;

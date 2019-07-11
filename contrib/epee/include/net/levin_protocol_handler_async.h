@@ -266,7 +266,7 @@ public:
             m_pservice_endpoint(psnd_hndlr), 
             m_config(config), 
             m_connection_context(conn_context), 
-            m_cache_in_buffer(256 * 1024),
+            m_cache_in_buffer(4 * 1024),
             m_state(stream_state_head)
   {
     m_close_called = 0;

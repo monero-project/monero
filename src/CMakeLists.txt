@@ -1,5 +1,5 @@
 # Copyright (c) 2018, The Loki Project
-# Copyright (c) 2014-2018, The Monero Project
+# Copyright (c) 2014-2019, The Monero Project
 #
 # All rights reserved.
 #
@@ -110,7 +110,9 @@ add_subdirectory(ringct)
 add_subdirectory(checkpoints)
 add_subdirectory(cryptonote_basic)
 add_subdirectory(cryptonote_core)
+add_subdirectory(lmdb)
 add_subdirectory(multisig)
+add_subdirectory(net)
 add_subdirectory(mnemonics)
 add_subdirectory(wallet)
 add_subdirectory(cryptonote_protocol)

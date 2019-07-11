@@ -35,8 +35,11 @@
 #include <string>
 #include <cfenv>
 
+#include "misc_log_ex.h"
+#include "warnings.h"
 #include "crypto/hash.h"
 #include "crypto/variant2_int_sqrt.h"
+#include "cryptonote_core/cryptonote_tx_utils.h"
 #include "../io.h"
 
 using namespace std;
@@ -69,6 +72,8 @@ int test_variant2_int_sqrt();
 int test_variant2_int_sqrt_ref();
 
 int main(int argc, char *argv[]) {
+  TRY_ENTRY();
+
   fstream input;
   vector<char> data;
   chash expected, actual;
@@ -189,6 +194,7 @@ int main(int argc, char *argv[]) {
     }
   }
   return error ? 1 : 0;
+  CATCH_ENTRY_L0("main", 1);
 }
 
 #if defined(__x86_64__) || (defined(_MSC_VER) && defined(_WIN64))

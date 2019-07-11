@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -42,6 +42,9 @@ namespace crypto { \
   } \
   inline bool operator!=(const type &_v1, const type &_v2) { \
     return !operator==(_v1, _v2); \
+  } \
+  inline bool operator<(const type &_v1, const type &_v2) { \
+    return memcmp(&_v1, &_v2, sizeof(_v1)) < 0; \
   } \
 }
 

@@ -37,6 +37,8 @@
 
 #include "blockchain_db/blockchain_db.h"
 
+namespace cryptonote { struct checkpoint_t; };
+
 class BaseTestDB: public cryptonote::BlockchainDB {
 public:
   BaseTestDB() {}
@@ -62,10 +64,20 @@ public:
   virtual bool batch_start(uint64_t batch_num_blocks, uint64_t batch_bytes) override { return true; }
   virtual void batch_stop() override {}
   virtual void set_batch_transactions(bool) override {}
-  virtual void block_txn_start(bool readonly=false) override {}
-  virtual void block_txn_stop() override {}
-  virtual void block_txn_abort() override {}
+
+  virtual void block_wtxn_start() {}
+  virtual void block_wtxn_stop() {}
+  virtual void block_wtxn_abort() {}
+  virtual bool block_rtxn_start() const { return true; }
+  virtual void block_rtxn_stop() const {}
+  virtual void block_rtxn_abort() const {}
+
   virtual bool block_exists(const crypto::hash& h, uint64_t *height) const override { return false; }
+  virtual void update_block_checkpoint(cryptonote::checkpoint_t const &checkpoint) override {}
+  virtual bool get_block_checkpoint   (uint64_t height, cryptonote::checkpoint_t &checkpoint) const override { return false; }
+  virtual bool get_top_checkpoint     (cryptonote::checkpoint_t &checkpoint) const override { return false; }
+  virtual void remove_block_checkpoint(uint64_t height) override { }
+  virtual std::vector<cryptonote::checkpoint_t> get_checkpoints_range(uint64_t start, uint64_t end, size_t num_desired_checkpoints) const override { return {};}
   virtual cryptonote::blobdata get_block_blob(const crypto::hash& h) const override { return cryptonote::blobdata(); }
   virtual uint64_t get_block_height(const crypto::hash& h) const override { return 0; }
   virtual cryptonote::block_header get_block_header(const crypto::hash& h) const override { return cryptonote::block_header(); }

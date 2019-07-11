@@ -50,7 +50,7 @@ struct gen_bp_tx_validation_base : public test_chain_unit_base
       return !tvc.m_verifivation_failed && tx_added;
   }
 
-  bool check_tx_verification_context(const std::vector<cryptonote::tx_verification_context>& tvcs, size_t tx_added, size_t event_idx, const std::vector<cryptonote::transaction>& /*txs*/)
+  bool check_tx_verification_context_array(const std::vector<cryptonote::tx_verification_context>& tvcs, size_t tx_added, size_t event_idx, const std::vector<cryptonote::transaction>& /*txs*/)
   {
     size_t failed = 0;
     for (const cryptonote::tx_verification_context &tvc: tvcs)
@@ -103,7 +103,7 @@ struct get_test_options<gen_bp_tx_validation_base> {
   };
 
   const cryptonote::test_options test_options = {
-    hard_forks
+    hard_forks, 0
   };
 };
 

@@ -197,7 +197,7 @@ bool tests::proxy_core::handle_incoming_txs(const std::vector<blobdata>& tx_blob
     return true;
 }
 
-bool tests::proxy_core::handle_incoming_block(const cryptonote::blobdata& block_blob, cryptonote::block_verification_context& bvc, bool update_miner_blocktemplate) {
+bool tests::proxy_core::handle_incoming_block(const cryptonote::blobdata& block_blob, const cryptonote::block *block_, cryptonote::block_verification_context& bvc, cryptonote::checkpoint_t const *checkpoint, bool update_miner_blocktemplate) {
     block b = AUTO_VAL_INIT(b);
 
     if(!parse_and_validate_block_from_blob(block_blob, b)) {
@@ -209,7 +209,7 @@ bool tests::proxy_core::handle_incoming_block(const cryptonote::blobdata& block_
     crypto::hash lh;
     cout << "BLOCK" << endl << endl;
     cout << (h = get_block_hash(b)) << endl;
-    cout << (lh = get_block_longhash(b, 0)) << endl;
+    cout << (lh = get_block_longhash(NULL, b, 0, 0)) << endl;
     cout << get_transaction_hash(b.miner_tx) << endl;
     cout << ::get_object_blobsize(b.miner_tx) << endl;
     //cout << string_tools::buff_to_hex_nodelimer(block_blob) << endl;
@@ -217,7 +217,7 @@ bool tests::proxy_core::handle_incoming_block(const cryptonote::blobdata& block_
 
     cout << endl << "ENDBLOCK" << endl << endl;
 
-    if (!add_block(h, lh, b, block_blob))
+    if (!add_block(h, lh, b, block_blob, checkpoint))
         return false;
 
     return true;
@@ -242,7 +242,7 @@ void tests::proxy_core::get_blockchain_top(uint64_t& height, crypto::hash& top_i
 bool tests::proxy_core::init(const boost::program_options::variables_map& /*vm*/) {
     generate_genesis_block(m_genesis, config::GENESIS_TX, config::GENESIS_NONCE);
     crypto::hash h = get_block_hash(m_genesis);
-    add_block(h, get_block_longhash(m_genesis, 0), m_genesis, block_to_blob(m_genesis));
+    add_block(h, get_block_longhash(NULL, m_genesis, 0, 0), m_genesis, block_to_blob(m_genesis), nullptr /*checkpoint*/);
     return true;
 }
 
@@ -267,7 +267,7 @@ void tests::proxy_core::build_short_history(std::list<crypto::hash> &m_history, 
     } while (m_hash2blkidx.end() != cit && get_block_hash(cit->second.blk) != cit->first);*/
 }
 
-bool tests::proxy_core::add_block(const crypto::hash &_id, const crypto::hash &_longhash, const cryptonote::block &_blk, const cryptonote::blobdata &_blob) {
+bool tests::proxy_core::add_block(const crypto::hash &_id, const crypto::hash &_longhash, const cryptonote::block &_blk, const cryptonote::blobdata &_blob, cryptonote::checkpoint_t const *) {
     size_t height = 0;
 
     if (crypto::null_hash != _blk.prev_id) {

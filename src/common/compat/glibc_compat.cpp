@@ -82,7 +82,7 @@ __explicit_bzero_chk (void *dst, size_t len, size_t dstlen)
 #undef glob
 extern "C" int glob_old(const char * pattern, int flags, int (*errfunc) (const char *epath, int eerrno), glob_t *pglob);
 #ifdef __i386__
-__asm__(".symver glob_old,glob@GLIBC_2.1");
+__asm__(".symver glob_old,glob@GLIBC_2.0");
 #elif defined(__amd64__)
 __asm__(".symver glob_old,glob@GLIBC_2.2.5");
 #elif defined(__arm__)

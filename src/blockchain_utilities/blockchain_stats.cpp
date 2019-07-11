@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 //
 // All rights reserved.
 //
@@ -203,7 +203,7 @@ plot 'stats.csv' index "DATA" using (timecolumn(1,"%Y-%m-%d")):4 with lines, '' 
     char buf[8];
     unsigned int i;
     for (i=0; i<24; i++) {
-      sprintf(buf, "\t%02d:00", i);
+      sprintf(buf, "\t%02u:00", i);
       std::cout << buf;
     }
   }

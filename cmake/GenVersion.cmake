@@ -29,7 +29,7 @@
 # Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 # Check what commit we're on
-execute_process(COMMAND "${GIT}" rev-parse --short HEAD RESULT_VARIABLE RET OUTPUT_VARIABLE COMMIT OUTPUT_STRIP_TRAILING_WHITESPACE)
+execute_process(COMMAND "${GIT}" rev-parse --short=9 HEAD RESULT_VARIABLE RET OUTPUT_VARIABLE COMMIT OUTPUT_STRIP_TRAILING_WHITESPACE)
 
 if(RET)
 	# Something went wrong, set the version tag to -unknown
@@ -38,6 +38,7 @@ if(RET)
     set(VERSIONTAG "unknown")
     configure_file("src/version.cpp.in" "${TO}")
 else()
+	string(SUBSTRING ${COMMIT} 0 9 COMMIT)
 	message(STATUS "You are currently on commit ${COMMIT}")
 	
 	# Get all the tags

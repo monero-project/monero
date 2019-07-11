@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 //
 // All rights reserved.
 //
@@ -30,16 +30,95 @@
 
 #pragma once
 #include <map>
+#include <vector>
+
 #include "misc_log_ex.h"
 #include "crypto/hash.h"
 #include "cryptonote_config.h"
+#include "cryptonote_core/service_node_voting.h"
+#include "cryptonote_basic/cryptonote_basic_impl.h"
+#include "string_tools.h"
 
 #define ADD_CHECKPOINT(h, hash)  CHECK_AND_ASSERT(add_checkpoint(h,  hash), false);
 #define JSON_HASH_FILE_NAME "checkpoints.json"
 
-
 namespace cryptonote
 {
+  struct Blockchain;
+  enum struct checkpoint_type
+  {
+    hardcoded,
+    service_node,
+    count,
+  };
+
+  struct checkpoint_t
+  {
+    uint8_t                                        version = 0;
+    checkpoint_type                                type;
+    uint64_t                                       height;
+    crypto::hash                                   block_hash;
+    std::vector<service_nodes::voter_to_signature> signatures; // Only service node checkpoints use signatures
+    uint64_t                                       prev_height;
+
+    bool               check         (crypto::hash const &block_hash) const;
+    static char const *type_to_string(checkpoint_type type)
+    {
+      switch(type)
+      {
+        case checkpoint_type::hardcoded:    return "Hardcoded";
+        case checkpoint_type::service_node: return "ServiceNode";
+        default: assert(false);             return "XXUnhandledVersion";
+      }
+    }
+
+    BEGIN_SERIALIZE()
+      FIELD(version)
+      ENUM_FIELD(type, type < checkpoint_type::count);
+      FIELD(height)
+      FIELD(block_hash)
+      FIELD(signatures)
+      FIELD(prev_height)
+    END_SERIALIZE()
+
+    BEGIN_KV_SERIALIZE_MAP()
+      KV_SERIALIZE(version)
+      KV_SERIALIZE(height)
+
+      std::string type = checkpoint_t::type_to_string(this_ref.type);
+      KV_SERIALIZE_VALUE(type);
+
+      std::string block_hash = epee::string_tools::pod_to_hex(this_ref.block_hash);
+      KV_SERIALIZE_VALUE(block_hash);
+
+      KV_SERIALIZE(signatures)
+      KV_SERIALIZE(prev_height)
+    END_KV_SERIALIZE_MAP()
+  };
+
+  struct height_to_hash
+  {
+    uint64_t height; //!< the height of the checkpoint
+    std::string hash; //!< the hash for the checkpoint
+        BEGIN_KV_SERIALIZE_MAP()
+          KV_SERIALIZE(height)
+          KV_SERIALIZE(hash)
+        END_KV_SERIALIZE_MAP()
+  };
+
+  /**
+   * @brief struct for loading many checkpoints from json
+   */
+  struct height_to_hash_json {
+    std::vector<height_to_hash> hashlines; //!< the checkpoint lines from the file
+        BEGIN_KV_SERIALIZE_MAP()
+          KV_SERIALIZE(hashlines)
+        END_KV_SERIALIZE_MAP()
+  };
+
+  crypto::hash get_newest_hardcoded_checkpoint(cryptonote::network_type nettype, uint64_t *height);
+  bool         load_checkpoints_from_json     (const std::string &json_hashfile_fullpath, std::vector<height_to_hash> &checkpoint_hashes);
+
   /**
    * @brief A container for blockchain checkpoints
    *
@@ -48,13 +127,12 @@ namespace cryptonote
    * either from a json file or via DNS from a checkpoint-hosting server.
    */
   class checkpoints
+    : public cryptonote::BlockAddedHook,
+      public cryptonote::BlockchainDetachedHook
   {
   public:
-
-    /**
-     * @brief default constructor
-     */
-    checkpoints();
+    void block_added(const cryptonote::block& block, const std::vector<cryptonote::transaction>& txs) override;
+    void blockchain_detached(uint64_t height) override;
 
     /**
      * @brief adds a checkpoint to the container
@@ -67,6 +145,15 @@ namespace cryptonote
      *         otherwise returns true
      */
     bool add_checkpoint(uint64_t height, const std::string& hash_str);
+
+    bool update_checkpoint(checkpoint_t const &checkpoint);
+
+    /*
+       @brief Remove checkpoints that should not be stored persistently, i.e.
+       any checkpoint whose height is not divisible by
+       service_nodes::CHECKPOINT_STORE_PERSISTENTLY_INTERVAL
+     */
+    void prune_checkpoints(uint64_t height) const;
 
     /**
      * @brief checks if there is a checkpoint in the future
@@ -90,21 +177,18 @@ namespace cryptonote
      *
      * @param height the height to be checked
      * @param h the hash to be checked
-     * @param is_a_checkpoint return-by-reference if there is a checkpoint at the given height
+     * @param blockchain the blockchain to query ancestor blocks from the current height
+     * @param is_a_checkpoint optional return-by-pointer if there is a checkpoint at the given height
      *
      * @return true if there is no checkpoint at the given height,
      *         true if the passed parameters match the stored checkpoint,
      *         false otherwise
      */
-    bool check_block(uint64_t height, const crypto::hash& h, bool& is_a_checkpoint) const;
+    bool check_block(uint64_t height, const crypto::hash& h, bool *is_a_checkpoint = nullptr, bool *rejected_by_service_node = nullptr) const;
 
     /**
-     * @overload
-     */
-    bool check_block(uint64_t height, const crypto::hash& h) const;
-
-    /**
-     * @brief checks if alternate chain blocks should be kept for a given height
+     * @brief checks if alternate chain blocks should be kept for a given height and updates
+     * m_oldest_allowable_alternative_block based on the available checkpoints
      *
      * this basically says if the blockchain is smaller than the first
      * checkpoint then alternate blocks are allowed.  Alternatively, if the
@@ -117,7 +201,7 @@ namespace cryptonote
      * @return true if alternate blocks are allowed given the parameters,
      *         otherwise false
      */
-    bool is_alternative_block_allowed(uint64_t blockchain_height, uint64_t block_height) const;
+    bool is_alternative_block_allowed(uint64_t blockchain_height, uint64_t block_height, bool *rejected_by_service_node = nullptr);
 
     /**
      * @brief gets the highest checkpoint height
@@ -127,66 +211,18 @@ namespace cryptonote
     uint64_t get_max_height() const;
 
     /**
-     * @brief gets the checkpoints container
-     *
-     * @return a const reference to the checkpoints container
-     */
-    const std::map<uint64_t, crypto::hash>& get_points() const;
-
-    /**
-     * @brief checks if our checkpoints container conflicts with another
-     *
-     * A conflict refers to a case where both checkpoint sets have a checkpoint
-     * for a specific height but their hashes for that height do not match.
-     *
-     * @param other the other checkpoints instance to check against
-     *
-     * @return false if any conflict is found, otherwise true
-     */
-    bool check_for_conflicts(const checkpoints& other) const;
-
-    /**
      * @brief loads the default main chain checkpoints
      * @param nettype network type
      *
      * @return true unless adding a checkpoint fails
      */
-    bool init_default_checkpoints(network_type nettype);
-
-    /**
-     * @brief load new checkpoints
-     *
-     * Loads new checkpoints from the specified json file, as well as
-     * (optionally) from DNS.
-     *
-     * @param json_hashfile_fullpath path to the json checkpoints file
-     * @param nettype network type
-     * @param dns whether or not to load DNS checkpoints
-     *
-     * @return true if loading successful and no conflicts
-     */
-    bool load_new_checkpoints(const std::string &json_hashfile_fullpath, network_type nettype=MAINNET, bool dns=true);
-
-    /**
-     * @brief load new checkpoints from json
-     *
-     * @param json_hashfile_fullpath path to the json checkpoints file
-     *
-     * @return true if loading successful and no conflicts
-     */
-    bool load_checkpoints_from_json(const std::string &json_hashfile_fullpath);
-
-    /**
-     * @brief load new checkpoints from DNS
-     *
-     * @param nettype network type
-     *
-     * @return true if loading successful and no conflicts
-     */
-    bool load_checkpoints_from_dns(network_type nettype = MAINNET);
+    bool init(network_type nettype, class BlockchainDB *db);
 
   private:
-    std::map<uint64_t, crypto::hash> m_points; //!< the checkpoints container
+    network_type m_nettype = UNDEFINED;
+    uint64_t m_last_cull_height = 0;
+    uint64_t m_oldest_allowable_alternative_block = 0;
+    BlockchainDB *m_db;
   };
 
 }

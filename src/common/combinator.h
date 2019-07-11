@@ -1,4 +1,4 @@
-// Copyright (c) 2018, The Monero Project
+// Copyright (c) 2019, The Monero Project
 //
 // All rights reserved.
 //
@@ -32,6 +32,7 @@
 
 #include <iostream>
 #include <vector>
+#include <stdexcept>
 
 namespace tools {
 

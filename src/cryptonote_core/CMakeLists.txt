@@ -1,5 +1,5 @@
 # Copyright (c) 2018, The Loki Project
-# Copyright (c) 2014-2018, The Monero Project
+# Copyright (c) 2014-2019, The Monero Project
 #
 # All rights reserved.
 #
@@ -32,9 +32,12 @@ set(cryptonote_core_sources
   cryptonote_core.cpp
   service_node_rules.cpp
   service_node_list.cpp
-  service_node_deregister.cpp
+  service_node_voting.cpp
   service_node_quorum_cop.cpp
+  service_node_swarm.cpp
   tx_pool.cpp
+  tx_sanity_check.cpp
+  miner.cpp
   cryptonote_tx_utils.cpp)
 
 set(cryptonote_core_headers)
@@ -45,9 +48,12 @@ set(cryptonote_core_private_headers
   service_node_rules.h
   service_node_list.h
   service_node_quorum_cop.h
+  service_node_swarm.h
   cryptonote_core.h
-  service_node_deregister.h
+  service_node_voting.h
   tx_pool.h
+  tx_sanity_check.h
+  miner.h
   cryptonote_tx_utils.h)
 
 loki_private_headers(cryptonote_core

@@ -6,7 +6,7 @@
 
 */
 
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 // Copyright (c)      2018, The Loki Project
 // 
 // All rights reserved.
@@ -44,6 +44,7 @@
 #include "common/common_fwd.h"
 #include "common/rpc_client.h"
 #include "cryptonote_basic/cryptonote_basic.h"
+#include "net/net_fwd.h"
 #include "rpc/core_rpc_server.h"
 
 #undef LOKI_DEFAULT_LOG_CATEGORY
@@ -62,11 +63,14 @@ public:
       uint32_t ip
     , uint16_t port
     , const boost::optional<tools::login>& user
+    , const epee::net_utils::ssl_options_t& ssl_options
     , bool is_rpc = true
     , cryptonote::core_rpc_server* rpc_server = NULL
     );
 
   ~t_rpc_command_executor();
+
+  bool print_checkpoints(uint64_t start_height, uint64_t end_height, bool print_json);
 
   bool print_peer_list(bool white = true, bool gray = true, size_t limit = 0);
 
@@ -86,7 +90,7 @@ public:
 
   bool print_blockchain_info(uint64_t start_block_index, uint64_t end_block_index);
 
-  bool print_quorum_state(uint64_t height);
+  bool print_quorum_state(uint64_t start_height, uint64_t end_height);
 
   bool set_log_level(int8_t level);
 
@@ -111,6 +115,8 @@ public:
   bool start_mining(cryptonote::account_public_address address, uint64_t num_threads, cryptonote::network_type nettype, bool do_background_mining = false, bool ignore_battery = false);
 
   bool stop_mining();
+
+  bool mining_status();
 
   bool stop_daemon();
 
@@ -171,6 +177,8 @@ public:
   bool prune_blockchain();
 
   bool check_blockchain_pruning();
+
+  bool print_net_stats();
 };
 
 } // namespace daemonize

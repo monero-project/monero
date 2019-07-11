@@ -30,8 +30,10 @@
 
 #include "gtest/gtest.h"
 #include "cryptonote_core/service_node_list.h"
-#include "cryptonote_core/service_node_deregister.h"
+#include "cryptonote_core/service_node_voting.h"
+#include "cryptonote_core/cryptonote_tx_utils.h"
 #include "cryptonote_basic/cryptonote_basic.h"
+#include "cryptonote_basic/verification_context.h"
 #include "cryptonote_config.h"
 
 TEST(service_nodes, staking_requirement)
@@ -123,53 +125,49 @@ TEST(service_nodes, vote_validation)
   cryptonote::keypair service_node_voter = cryptonote::keypair::generate(hw::get_device("default"));
   int voter_index = 0;
 
-  service_nodes::quorum_state state = {};
+  service_nodes::testing_quorum state = {};
   {
-    state.quorum_nodes.resize(10);
-    state.nodes_to_test.resize(state.quorum_nodes.size());
+    state.validators.resize(10);
+    state.workers.resize(state.validators.size());
 
-    for (size_t i = 0; i < state.quorum_nodes.size(); ++i)
+    for (size_t i = 0; i < state.validators.size(); ++i)
     {
-      state.quorum_nodes[i] = (i == voter_index) ? service_node_voter.pub : cryptonote::keypair::generate(hw::get_device("default")).pub;
-      state.nodes_to_test[i] = cryptonote::keypair::generate(hw::get_device("default")).pub;
+      state.validators[i] = (i == voter_index) ? service_node_voter.pub : cryptonote::keypair::generate(hw::get_device("default")).pub;
+      state.workers[i] = cryptonote::keypair::generate(hw::get_device("default")).pub;
     }
   }
 
   // Valid vote
-  service_nodes::deregister_vote valid_vote = {};
+  uint64_t block_height = 70;
+  service_nodes::quorum_vote_t valid_vote = service_nodes::make_state_change_vote(block_height, voter_index, 1 /*worker_index*/, service_nodes::new_state::decommission, service_node_voter.pub, service_node_voter.sec);
   {
-    valid_vote.block_height         = 10;
-    valid_vote.service_node_index   = 1;
-    valid_vote.voters_quorum_index  = voter_index;
-    valid_vote.signature            = service_nodes::deregister_vote::sign_vote(valid_vote.block_height, valid_vote.service_node_index, service_node_voter.pub, service_node_voter.sec);
-
     cryptonote::vote_verification_context vvc = {};
-    bool result = service_nodes::deregister_vote::verify_vote(cryptonote::MAINNET, valid_vote, vvc, state);
+    bool result = service_nodes::verify_vote(valid_vote, block_height, vvc, state);
     if (!result)
       printf("%s\n", cryptonote::print_vote_verification_context(vvc, &valid_vote));
 
     ASSERT_TRUE(result);
   }
 
-  // Voters quorum index out of bounds
+  // Voters validator index out of bounds
   {
-    auto vote                = valid_vote;
-    vote.voters_quorum_index = state.quorum_nodes.size() + 10;
-    vote.signature           = service_nodes::deregister_vote::sign_vote(vote.block_height, vote.service_node_index, service_node_voter.pub, service_node_voter.sec);
+    auto vote           = valid_vote;
+    vote.index_in_group = state.validators.size() + 10;
+    vote.signature      = service_nodes::make_signature_from_vote(vote, service_node_voter.pub, service_node_voter.sec);
 
     cryptonote::vote_verification_context vvc = {};
-    bool result = service_nodes::deregister_vote::verify_vote(cryptonote::MAINNET, vote, vvc, state);
+    bool result                               = service_nodes::verify_vote(vote, block_height, vvc, state);
     ASSERT_FALSE(result);
   }
 
-  // Voters service node index out of bounds
+  // Voters worker index out of bounds
   {
-    auto vote               = valid_vote;
-    vote.service_node_index = state.nodes_to_test.size() + 10;
-    vote.signature          = service_nodes::deregister_vote::sign_vote(vote.block_height, vote.service_node_index, service_node_voter.pub, service_node_voter.sec);
+    auto vote                      = valid_vote;
+    vote.state_change.worker_index = state.workers.size() + 10;
+    vote.signature = service_nodes::make_signature_from_vote(vote, service_node_voter.pub, service_node_voter.sec);
 
     cryptonote::vote_verification_context vvc = {};
-    bool result = service_nodes::deregister_vote::verify_vote(cryptonote::MAINNET, vote, vvc, state);
+    bool result = service_nodes::verify_vote(vote, block_height, vvc, state);
     ASSERT_FALSE(result);
   }
 
@@ -177,104 +175,135 @@ TEST(service_nodes, vote_validation)
   {
     auto vote                       = valid_vote;
     cryptonote::keypair other_voter = cryptonote::keypair::generate(hw::get_device("default"));
-    vote.signature                  = service_nodes::deregister_vote::sign_vote(vote.block_height, vote.service_node_index, other_voter.pub, other_voter.sec);
+    vote.signature                  = {};
 
     cryptonote::vote_verification_context vvc = {};
-    bool result = service_nodes::deregister_vote::verify_vote(cryptonote::MAINNET, vote, vvc, state);
+    bool result                               = service_nodes::verify_vote(vote, block_height, vvc, state);
+    ASSERT_FALSE(result);
+  }
+
+  // Vote too old
+  {
+    cryptonote::vote_verification_context vvc = {};
+    bool result                               = service_nodes::verify_vote(valid_vote, 1 /*latest_height*/, vvc, state);
+    ASSERT_FALSE(result);
+  }
+
+  // Vote too far in the future
+  {
+    cryptonote::vote_verification_context vvc = {};
+    bool result                               = service_nodes::verify_vote(valid_vote, block_height + 10000, vvc, state);
     ASSERT_FALSE(result);
   }
 }
 
-TEST(service_nodes, tx_extra_deregister_validation)
+TEST(service_nodes, tx_extra_state_change_validation)
 {
   // Generate a quorum and the voter
   const size_t num_voters = 10;
   cryptonote::keypair voters[num_voters] = {};
 
-  service_nodes::quorum_state state = {};
+  service_nodes::testing_quorum state = {};
   {
-    state.quorum_nodes.resize(num_voters);
-    state.nodes_to_test.resize(num_voters);
+    state.validators.resize(num_voters);
+    state.workers.resize(num_voters);
 
-    for (size_t i = 0; i < state.quorum_nodes.size(); ++i)
+    for (size_t i = 0; i < state.validators.size(); ++i)
     {
-      voters[i]              = cryptonote::keypair::generate(hw::get_device("default"));
-      state.quorum_nodes[i]  = voters[i].pub;
-      state.nodes_to_test[i] = cryptonote::keypair::generate(hw::get_device("default")).pub;
+      voters[i]           = cryptonote::keypair::generate(hw::get_device("default"));
+      state.validators[i] = voters[i].pub;
+      state.workers[i]    = cryptonote::keypair::generate(hw::get_device("default")).pub;
     }
   }
 
-  // Valid deregister
-  cryptonote::tx_extra_service_node_deregister valid_deregister = {};
+  // Valid state_change
+  cryptonote::tx_extra_service_node_state_change valid_state_change = {};
+  uint8_t hf_version = cryptonote::network_version_11_infinite_staking;
+  const uint64_t HEIGHT = 100;
   {
-    valid_deregister.block_height       = 10;
-    valid_deregister.service_node_index = 1;
-    valid_deregister.votes.reserve(num_voters);
+    valid_state_change.block_height       = HEIGHT - 1;
+    valid_state_change.service_node_index = 1;
+    valid_state_change.votes.reserve(num_voters);
     for (size_t i = 0; i < num_voters; ++i)
     {
       cryptonote::keypair const *voter                        = voters + i;
-      cryptonote::tx_extra_service_node_deregister::vote vote = {};
-
-      vote.voters_quorum_index = i;
-      vote.signature           = service_nodes::deregister_vote::sign_vote(valid_deregister.block_height, valid_deregister.service_node_index, voter->pub, voter->sec);
-      valid_deregister.votes.push_back(vote);
+      cryptonote::tx_extra_service_node_state_change::vote vote = {};
+      vote.validator_index                                    = i;
+      vote.signature = service_nodes::make_signature_from_tx_state_change(valid_state_change, voter->pub, voter->sec);
+      valid_state_change.votes.push_back(vote);
     }
 
-    cryptonote::vote_verification_context vvc = {};
-    bool result = service_nodes::deregister_vote::verify_deregister(cryptonote::MAINNET, valid_deregister, vvc, state);
+    cryptonote::tx_verification_context tvc = {};
+    bool result = service_nodes::verify_tx_state_change(valid_state_change, HEIGHT, tvc, state, hf_version);
     if (!result)
-      printf("%s\n", cryptonote::print_vote_verification_context(vvc));
+      printf("%s\n", cryptonote::print_tx_verification_context(tvc));
     ASSERT_TRUE(result);
   }
 
-  // Deregister has insufficient votes
+  // State Change has insufficient votes
   {
-    auto deregister = valid_deregister;
-    while (deregister.votes.size() >= service_nodes::MIN_VOTES_TO_KICK_SERVICE_NODE)
-      deregister.votes.pop_back();
+    auto state_change = valid_state_change;
+    while (state_change.votes.size() >= service_nodes::STATE_CHANGE_MIN_VOTES_TO_CHANGE_STATE)
+      state_change.votes.pop_back();
 
-    cryptonote::vote_verification_context vvc = {};
-    bool result = service_nodes::deregister_vote::verify_deregister(cryptonote::MAINNET, deregister, vvc, state);
+    cryptonote::tx_verification_context tvc = {};
+    bool result = service_nodes::verify_tx_state_change(state_change, HEIGHT, tvc, state, hf_version);
     ASSERT_FALSE(result);
   }
 
-  // Deregister has duplicated voter
+  // State Change has duplicated voter
   {
-    auto deregister     = valid_deregister;
-    deregister.votes[0] = deregister.votes[1];
+    auto state_change     = valid_state_change;
+    state_change.votes[0] = state_change.votes[1];
 
-    cryptonote::vote_verification_context vvc = {};
-    bool result = service_nodes::deregister_vote::verify_deregister(cryptonote::MAINNET, deregister, vvc, state);
+    cryptonote::tx_verification_context tvc = {};
+    bool result = service_nodes::verify_tx_state_change(state_change, HEIGHT, tvc, state, hf_version);
     ASSERT_FALSE(result);
   }
 
-  // Deregister has one voter with invalid signature
+  // State Change has one voter with invalid signature
   {
-    auto deregister               = valid_deregister;
-    deregister.votes[0].signature = deregister.votes[1].signature;
+    auto state_change               = valid_state_change;
+    state_change.votes[0].signature = state_change.votes[1].signature;
 
-    cryptonote::vote_verification_context vvc = {};
-    bool result = service_nodes::deregister_vote::verify_deregister(cryptonote::MAINNET, deregister, vvc, state);
+    cryptonote::tx_verification_context tvc = {};
+    bool result = service_nodes::verify_tx_state_change(state_change, HEIGHT, tvc, state, hf_version);
     ASSERT_FALSE(result);
   }
 
-  // Deregister has one voter with index out of bounds
+  // State Change has one voter with index out of bounds
   {
-    auto deregister                         = valid_deregister;
-    deregister.votes[0].voters_quorum_index = state.quorum_nodes.size() + 10;
+    auto state_change                     = valid_state_change;
+    state_change.votes[0].validator_index = state.validators.size() + 10;
 
-    cryptonote::vote_verification_context vvc = {};
-    bool result = service_nodes::deregister_vote::verify_deregister(cryptonote::MAINNET, deregister, vvc, state);
+    cryptonote::tx_verification_context tvc = {};
+    bool result = service_nodes::verify_tx_state_change(state_change, HEIGHT, tvc, state, hf_version);
     ASSERT_FALSE(result);
   }
 
-  // Deregister service node index is out of bounds
+  // State Change service node index is out of bounds
   {
-    auto deregister               = valid_deregister;
-    deregister.service_node_index = state.nodes_to_test.size() + 10;
+    auto state_change               = valid_state_change;
+    state_change.service_node_index = state.workers.size() + 10;
 
-    cryptonote::vote_verification_context vvc = {};
-    bool result = service_nodes::deregister_vote::verify_deregister(cryptonote::MAINNET, deregister, vvc, state);
+    cryptonote::tx_verification_context tvc = {};
+    bool result = service_nodes::verify_tx_state_change(state_change, HEIGHT, tvc, state, hf_version);
+    ASSERT_FALSE(result);
+  }
+
+  // State Change too old
+  {
+    auto state_change                         = valid_state_change;
+    cryptonote::tx_verification_context tvc = {};
+    bool result                               = service_nodes::verify_tx_state_change(state_change, 0, tvc, state, hf_version);
+    ASSERT_FALSE(result);
+  }
+
+  // State Change too new
+  {
+    auto state_change                         = valid_state_change;
+    cryptonote::tx_verification_context tvc = {};
+    bool result                               = service_nodes::verify_tx_state_change(state_change, HEIGHT + 1000, tvc, state, hf_version);
     ASSERT_FALSE(result);
   }
 }

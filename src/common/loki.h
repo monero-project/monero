@@ -31,11 +31,36 @@
 
 #include <string>
 
+#define LOKI_RPC_DOC_INTROSPECT
 namespace loki
 {
 double      round           (double);
 double      exp2            (double);
 std::string hex64_to_base32z(std::string const& src);
+
+template <typename lambda_t>
+struct defer
+{
+  lambda_t lambda;
+  defer(lambda_t lambda) : lambda(lambda) {}
+  ~defer() { lambda(); }
+};
+
+struct defer_helper
+{
+  template <typename lambda_t>
+  defer<lambda_t> operator+(lambda_t lambda)
+  {
+    return defer<lambda_t>(lambda);
+  }
+};
+
+#define LOKI_TOKEN_COMBINE2(x, y) x ## y
+#define LOKI_TOKEN_COMBINE(x, y) LOKI_TOKEN_COMBINE2(x, y)
+#define LOKI_DEFER auto const LOKI_TOKEN_COMBINE(loki_defer_, __LINE__) = loki::defer_helper() + [&]()
+
+template <typename T, size_t N>
+constexpr size_t array_count(T (&)[N]) { return N; }
 }; // namespace Loki
 
 #endif // LOKI_H

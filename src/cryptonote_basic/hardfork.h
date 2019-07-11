@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -38,6 +38,7 @@ namespace cryptonote
   class HardFork
   {
   public:
+    constexpr static uint8_t INVALID_HF_VERSION_FOR_HEIGHT = 255;
     typedef enum {
       LikelyForked,
       UpdateNeeded,

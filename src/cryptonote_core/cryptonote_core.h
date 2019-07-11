@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 //
 // All rights reserved.
 //
@@ -41,18 +41,18 @@
 #include "common/command_line.h"
 #include "tx_pool.h"
 #include "blockchain.h"
-#include "service_node_deregister.h"
+#include "service_node_voting.h"
 #include "service_node_list.h"
 #include "service_node_quorum_cop.h"
-#include "cryptonote_basic/miner.h"
+#include "cryptonote_core/miner.h"
 #include "cryptonote_basic/connection_context.h"
 #include "cryptonote_basic/cryptonote_stat_info.h"
 #include "warnings.h"
 #include "crypto/hash.h"
-
 PUSH_WARNINGS
 DISABLE_VS_WARNINGS(4355)
 
+#include "common/loki_integration_test_hooks.h"
 namespace cryptonote
 {
    struct test_options {
@@ -159,20 +159,21 @@ namespace cryptonote
       * optionally updates the miner's block template.
       *
       * @param block_blob the block to be added
+      * @param block the block to be added, or NULL
       * @param bvc return-by-reference metadata context about the block's validity
       * @param update_miner_blocktemplate whether or not to update the miner's block template
       *
       * @return false if loading new checkpoints fails, or the block is not
       * added, otherwise true
       */
-     bool handle_incoming_block(const blobdata& block_blob, block_verification_context& bvc, bool update_miner_blocktemplate = true);
+     bool handle_incoming_block(const blobdata& block_blob, const block *b, block_verification_context& bvc, checkpoint_t const *checkpoint, bool update_miner_blocktemplate = true);
 
      /**
       * @copydoc Blockchain::prepare_handle_incoming_blocks
       *
       * @note see Blockchain::prepare_handle_incoming_blocks
       */
-     bool prepare_handle_incoming_blocks(const std::vector<block_complete_entry>  &blocks);
+     bool prepare_handle_incoming_blocks(const std::vector<block_complete_entry> &blocks_entry, std::vector<block> &blocks);
 
      /**
       * @copydoc Blockchain::cleanup_handle_incoming_blocks
@@ -207,10 +208,11 @@ namespace cryptonote
       * the network.
       *
       * @param b the block found
+      * @param bvc returns the block verification flags
       *
       * @return true if the block was added to the main chain, otherwise false
       */
-     virtual bool handle_block_found( block& b);
+     virtual bool handle_block_found(block& b, block_verification_context &bvc);
 
      /**
       * @copydoc Blockchain::create_block_template
@@ -218,6 +220,7 @@ namespace cryptonote
       * @note see Blockchain::create_block_template
       */
      virtual bool get_block_template(block& b, const account_public_address& adr, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, const blobdata& ex_nonce);
+     virtual bool get_block_template(block& b, const crypto::hash *prev_block, const account_public_address& adr, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, const blobdata& ex_nonce);
 
      /**
       * @brief called when a transaction is relayed
@@ -409,34 +412,6 @@ namespace cryptonote
       * @param pprotocol the pointer to set ours as
       */
      void set_cryptonote_protocol(i_cryptonote_protocol* pprotocol);
-
-     /**
-      * @copydoc Blockchain::set_checkpoints
-      *
-      * @note see Blockchain::set_checkpoints()
-      */
-     void set_checkpoints(checkpoints&& chk_pts);
-
-     /**
-      * @brief set the file path to read from when loading checkpoints
-      *
-      * @param path the path to set ours as
-      */
-     void set_checkpoints_file_path(const std::string& path);
-
-     /**
-      * @brief set whether or not we enforce DNS checkpoints
-      *
-      * @param enforce_dns enforce DNS checkpoints or not
-      */
-     void set_enforce_dns_checkpoints(bool enforce_dns);
-
-     /**
-      * @brief set whether or not to enable or disable DNS checkpoints
-      *
-      * @param disble whether to disable DNS checkpoints
-      */
-     void disable_dns_checkpoints(bool disable = true) { m_disable_dns_checkpoints = disable; }
 
      /**
       * @copydoc tx_memory_pool::have_tx
@@ -692,9 +667,9 @@ namespace cryptonote
       * its checkpoints if it is time.  If updating checkpoints fails,
       * the daemon is told to shut down.
       *
-      * @note see Blockchain::update_checkpoints()
+      * @note see Blockchain::update_checkpoints_from_json_file()
       */
-     bool update_checkpoints();
+     bool update_checkpoints_from_json_file();
 
      /**
       * @brief tells the daemon to wind down operations and stop running
@@ -772,13 +747,6 @@ namespace cryptonote
      bool is_update_available() const { return m_update_available; }
 
      /**
-      * @brief get whether fluffy blocks are enabled
-      *
-      * @return whether fluffy blocks are enabled
-      */
-     bool fluffy_blocks_enabled() const { return m_fluffy_blocks_enabled; }
-
-     /**
       * @brief get whether transaction relay should be padded
       *
       * @return whether transaction relay should be padded
@@ -807,13 +775,13 @@ namespace cryptonote
      bool offline() const { return m_offline; }
 
      /**
-      * @brief Get the deterministic list of service node's public keys for quorum testing
+      * @brief Get the deterministic quorum of service node's public keys responsible for the specified quorum type
       *
+      * @param type The quorum type to retrieve
       * @param height Block height to deterministically recreate the quorum list from
-
       * @return Null shared ptr if quorum has not been determined yet for height
       */
-     const std::shared_ptr<const service_nodes::quorum_state> get_quorum_state(uint64_t height) const;
+     std::shared_ptr<const service_nodes::testing_quorum> get_testing_quorum(service_nodes::quorum_type type, uint64_t height) const;
 
      /**
       * @brief Get a non owning reference to the list of blacklisted key images
@@ -829,22 +797,25 @@ namespace cryptonote
       */
      std::vector<service_nodes::service_node_pubkey_info> get_service_node_list_state(const std::vector<crypto::public_key>& service_node_pubkeys) const;
 
-    /**
-      * @brief get whether `pubkey` is known as a service node
-      *
-      * @param pubkey the public key to test
-      *
-      * @return whether `pubkey` is known as a service node
-      */
-    bool is_service_node(const crypto::public_key& pubkey) const;
      /**
-      * @brief Add a vote to deregister a service node from network
+       * @brief get whether `pubkey` is known as a service node.
+       *
+       * @param pubkey the public key to test
+       * @param require_active if true also require that the service node is active (fully funded
+       * and not decommissioned).
+       *
+       * @return whether `pubkey` is known as a (optionally active) service node
+       */
+     bool is_service_node(const crypto::public_key& pubkey, bool require_active) const;
+
+     /**
+      * @brief Add a service node vote
       *
       * @param vote The vote for deregistering a service node.
 
-      * @return Whether the vote was added to the partial deregister pool
+      * @return
       */
-     bool add_deregister_vote(const service_nodes::deregister_vote& vote, vote_verification_context &vvc);
+     bool add_service_node_vote(const service_nodes::quorum_vote_t& vote, vote_verification_context &vvc);
 
      /**
       * @brief Get the keypair for this service node.
@@ -861,9 +832,9 @@ namespace cryptonote
       * @brief Get the public key of every service node.
       *
       * @param keys The container in which to return the keys
-      * @param fully_funded_nodes_only Only return nodes that are funded and hence working on the network
+      * @param active_nodes_only Only return nodes that are funded and actively working (i.e. not decommissioned) on the network
       */
-     void get_all_service_nodes_public_keys(std::vector<crypto::public_key>& keys, bool fully_funded_nodes_only) const;
+     void get_all_service_nodes_public_keys(std::vector<crypto::public_key>& keys, bool active_nodes_only) const;
 
      /**
       * @brief attempts to submit an uptime proof to the network, if this is running in service node mode
@@ -871,15 +842,6 @@ namespace cryptonote
       * @return true
       */
      bool submit_uptime_proof();
-
-     /**
-      * @brief Try find the uptime proof from the service node.
-      *
-      * @param key The public key of the service node
-      *
-      * @return 0 if no uptime proof found, otherwise the timestamp it last received in epoch time
-      */
-     uint64_t get_uptime_proof(const crypto::public_key &key) const;
 
      /*
       * @brief get the blockchain pruning seed
@@ -911,6 +873,20 @@ namespace cryptonote
       */
      bool check_blockchain_pruning();
 
+     /**
+      * @brief attempt to relay the pooled checkpoint votes
+      *
+      * @return true, necessary for binding this function to a periodic invoker
+      */
+     bool relay_service_node_votes();
+
+     /**
+      * @brief Record if the service node has checkpointed at this point in time
+      */
+     void record_checkpoint_vote(crypto::public_key const &pubkey, bool voted) { m_service_node_list.record_checkpoint_vote(pubkey, voted); }
+
+     /// Time point at which the storage server last pinged us
+     std::atomic<time_t> m_last_storage_server_ping;
    private:
 
      /**
@@ -918,13 +894,12 @@ namespace cryptonote
       *
       * @param tx_hash the transaction's hash
       * @param blob the transaction as a blob
-      * @param tx_prefix_hash the transaction prefix' hash
       * @param tx_weight the weight of the transaction
       * @param relayed whether or not the transaction was relayed to us
       * @param do_not_relay whether to prevent the transaction from being relayed
       *
       */
-     bool add_new_tx(transaction& tx, const crypto::hash& tx_hash, const cryptonote::blobdata &blob, const crypto::hash& tx_prefix_hash, size_t tx_weight, tx_verification_context& tvc, bool keeped_by_block, bool relayed, bool do_not_relay);
+     bool add_new_tx(transaction& tx, const crypto::hash& tx_hash, const cryptonote::blobdata &blob, size_t tx_weight, tx_verification_context& tvc, bool keeped_by_block, bool relayed, bool do_not_relay);
 
      /**
       * @brief add a new transaction to the transaction pool
@@ -948,7 +923,7 @@ namespace cryptonote
       *
       * @note see Blockchain::add_new_block
       */
-     bool add_new_block(const block& b, block_verification_context& bvc);
+     bool add_new_block(const block& b, block_verification_context& bvc, checkpoint_t const *checkpoint);
 
      /**
       * @brief load any core state stored on disk
@@ -964,7 +939,7 @@ namespace cryptonote
       *
       * @note see parse_tx_from_blob(transaction&, crypto::hash&, crypto::hash&, const blobdata&) const
       */
-     bool parse_tx_from_blob(transaction& tx, crypto::hash& tx_hash, crypto::hash& tx_prefix_hash, const blobdata& blob) const;
+     bool parse_tx_from_blob(transaction& tx, crypto::hash& tx_hash, const blobdata& blob) const;
 
      /**
       * @brief check a transaction's syntax
@@ -997,8 +972,8 @@ namespace cryptonote
      bool check_tx_semantic(const transaction& tx, bool keeped_by_block) const;
      void set_semantics_failed(const crypto::hash &tx_hash);
 
-     bool handle_incoming_tx_pre(const blobdata& tx_blob, tx_verification_context& tvc, cryptonote::transaction &tx, crypto::hash &tx_hash, crypto::hash &tx_prefixt_hash, bool keeped_by_block, bool relayed, bool do_not_relay);
-     bool handle_incoming_tx_post(const blobdata& tx_blob, tx_verification_context& tvc, cryptonote::transaction &tx, crypto::hash &tx_hash, crypto::hash &tx_prefixt_hash, bool keeped_by_block, bool relayed, bool do_not_relay);
+     bool handle_incoming_tx_pre(const blobdata& tx_blob, tx_verification_context& tvc, cryptonote::transaction &tx, crypto::hash &tx_hash, bool keeped_by_block, bool relayed, bool do_not_relay);
+     bool handle_incoming_tx_post(const blobdata& tx_blob, tx_verification_context& tvc, cryptonote::transaction &tx, crypto::hash &tx_hash, bool keeped_by_block, bool relayed, bool do_not_relay);
      struct tx_verification_batch_info { const cryptonote::transaction *tx; crypto::hash tx_hash; tx_verification_context &tvc; bool &result; };
      bool handle_incoming_tx_accumulated_batch(std::vector<tx_verification_batch_info> &tx_info, bool keeped_by_block);
 
@@ -1068,13 +1043,6 @@ namespace cryptonote
      bool relay_txpool_transactions();
 
      /**
-      * @brief attempt to relay the pooled deregister votes
-      *
-      * @return true, necessary for binding this function to a periodic invoker
-      */
-     bool relay_deregister_votes();
-
-     /**
       * @brief checks DNS versions
       *
       * @return true on success, false otherwise
@@ -1114,9 +1082,8 @@ namespace cryptonote
      tx_memory_pool m_mempool; //!< transaction pool instance
      Blockchain m_blockchain_storage; //!< Blockchain instance
 
-     service_nodes::deregister_vote_pool m_deregister_vote_pool;
-     service_nodes::service_node_list    m_service_node_list;
-     service_nodes::quorum_cop           m_quorum_cop;
+     service_nodes::service_node_list m_service_node_list;
+     service_nodes::quorum_cop        m_quorum_cop;
 
      i_cryptonote_protocol* m_pprotocol; //!< cryptonote protocol instance
 
@@ -1133,13 +1100,12 @@ namespace cryptonote
      epee::math_helper::once_a_time_seconds<60*60*12, false> m_store_blockchain_interval; //!< interval for manual storing of Blockchain, if enabled
      epee::math_helper::once_a_time_seconds<60*60*2, true> m_fork_moaner; //!< interval for checking HardFork status
      epee::math_helper::once_a_time_seconds<60*2, false> m_txpool_auto_relayer; //!< interval for checking re-relaying txpool transactions
-     epee::math_helper::once_a_time_seconds<60*2, false> m_deregisters_auto_relayer; //!< interval for checking re-relaying deregister votes
      epee::math_helper::once_a_time_seconds<60*60*12, true> m_check_updates_interval; //!< interval for checking for new versions
      epee::math_helper::once_a_time_seconds<60*10, true> m_check_disk_space_interval; //!< interval for checking for disk space
      epee::math_helper::once_a_time_seconds<UPTIME_PROOF_BUFFER_IN_SECONDS, true> m_check_uptime_proof_interval; //!< interval for checking our own uptime proof
-     epee::math_helper::once_a_time_seconds<30, true> m_uptime_proof_pruner;
      epee::math_helper::once_a_time_seconds<90, false> m_block_rate_interval; //!< interval for checking block rate
      epee::math_helper::once_a_time_seconds<60*60*5, true> m_blockchain_pruning_interval; //!< interval for incremental blockchain pruning
+     epee::math_helper::once_a_time_seconds<60*2, false> m_service_node_vote_relayer;
 
      std::atomic<bool> m_starter_message_showed; //!< has the "daemon will sync now" message been shown?
 
@@ -1150,15 +1116,17 @@ namespace cryptonote
      std::atomic<bool> m_update_available;
 
      std::string m_checkpoints_path; //!< path to json checkpoints file
-     time_t m_last_dns_checkpoints_update; //!< time when dns checkpoints were last updated
      time_t m_last_json_checkpoints_update; //!< time when json checkpoints were last updated
 
      std::atomic_flag m_checkpoints_updating; //!< set if checkpoints are currently updating to avoid multiple threads attempting to update at once
-     bool m_disable_dns_checkpoints;
 
      bool m_service_node;
      crypto::secret_key m_service_node_key;
      crypto::public_key m_service_node_pubkey;
+
+     /// Service Node's public IP and storage server port
+     uint32_t m_sn_public_ip;
+     uint16_t m_storage_port;
 
      size_t block_sync_size;
 
@@ -1178,7 +1146,6 @@ namespace cryptonote
      size_t m_last_update_length;
      boost::mutex m_update_mutex;
 
-     bool m_fluffy_blocks_enabled;
      bool m_offline;
      bool m_pad_transactions;
 

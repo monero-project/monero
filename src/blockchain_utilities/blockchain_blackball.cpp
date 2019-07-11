@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 // Copyright (c)      2018, The Loki Project
 //
 // All rights reserved.
@@ -1396,7 +1396,7 @@ int main(int argc, char* argv[])
         for (const auto &out: tx.vout)
         {
           uint64_t amount = out.amount;
-          if (miner_tx && tx.version >= 2)
+          if (miner_tx && tx.version >= cryptonote::txversion::v2_ringct)
             amount = 0;
 
           if (opt_rct_only && amount != 0)

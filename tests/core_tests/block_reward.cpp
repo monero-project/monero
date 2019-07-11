@@ -30,6 +30,7 @@
 
 #include "chaingen.h"
 #include "block_reward.h"
+#include "cryptonote_core/cryptonote_tx_utils.h"
 
 using namespace epee;
 using namespace cryptonote;

@@ -43,7 +43,8 @@ elseif (GIT_FOUND OR Git_FOUND)
                       "-D" "GIT=${GIT_EXECUTABLE}"
                       "-D" "TO=${CMAKE_BINARY_DIR}/version.cpp"
                       "-P" "cmake/GenVersion.cmake"
-    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+    DEPENDS           "${CMAKE_SOURCE_DIR}/src/version.cpp.in")
 else()
   message(STATUS "WARNING: Git was not found!")
   write_static_version_header("unknown")

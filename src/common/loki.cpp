@@ -1,6 +1,7 @@
 #include "loki.h"
 #include <assert.h>
 
+
 /* Exponential base 2 function.
    Copyright (C) 2012-2019 Free Software Foundation, Inc.
 

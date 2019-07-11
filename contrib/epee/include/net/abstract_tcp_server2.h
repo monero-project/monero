@@ -41,10 +41,12 @@
 #include <boost/noncopyable.hpp>
 #include <boost/shared_ptr.hpp>
 #include <atomic>
+#include <cassert>
 #include <map>
 #include <memory>
 
 #include <boost/asio.hpp>
+#include <boost/asio/ssl.hpp>
 #include <boost/array.hpp>
 #include <boost/noncopyable.hpp>
 #include <boost/shared_ptr.hpp>
@@ -87,21 +89,38 @@ namespace net_utils
   {
   public:
     typedef typename t_protocol_handler::connection_context t_connection_context;
+
+    struct shared_state : connection_basic_shared_state
+    {
+      shared_state()
+        : connection_basic_shared_state(), pfilter(nullptr), config(), stop_signal_sent(false)
+      {}
+
+      i_connection_filter* pfilter;
+      typename t_protocol_handler::config_type config;
+      bool stop_signal_sent;
+    };
+
     /// Construct a connection with the given io_service.
-   
     explicit connection( boost::asio::io_service& io_service,
-			typename t_protocol_handler::config_type& config, 
-			std::atomic<long> &ref_sock_count,  // the ++/-- counter 
-			std::atomic<long> &sock_number, // the only increasing ++ number generator
-			i_connection_filter * &pfilter
-			,t_connection_type connection_type);
+                        boost::shared_ptr<shared_state> state,
+			t_connection_type connection_type,
+			epee::net_utils::ssl_support_t ssl_support);
+
+    explicit connection( boost::asio::ip::tcp::socket&& sock,
+			 boost::shared_ptr<shared_state> state,
+			t_connection_type connection_type,
+			epee::net_utils::ssl_support_t ssl_support);
+
+
 
     virtual ~connection() noexcept(false);
-    /// Get the socket associated with the connection.
-    boost::asio::ip::tcp::socket& socket();
 
     /// Start the first asynchronous operation for the connection.
     bool start(bool is_income, bool is_multithreaded);
+
+    // `real_remote` is the actual endpoint (if connection is to proxy, etc.)
+    bool start(bool is_income, bool is_multithreaded, network_address real_remote);
 
     void get_context(t_connection_context& context_){context_ = context;}
 
@@ -128,6 +147,10 @@ namespace net_utils
     //------------------------------------------------------
     boost::shared_ptr<connection<t_protocol_handler> > safe_shared_from_this();
     bool shutdown();
+    /// Handle completion of a receive operation.
+    void handle_receive(const boost::system::error_code& e,
+      std::size_t bytes_transferred);
+
     /// Handle completion of a read operation.
     void handle_read(const boost::system::error_code& e,
       std::size_t bytes_transferred);
@@ -145,10 +168,9 @@ namespace net_utils
 
     /// Buffer for incoming data.
     boost::array<char, 8192> buffer_;
-    //boost::array<char, 1024> buffer_;
+    size_t buffer_ssl_init_fill;
 
     t_connection_context context;
-    i_connection_filter* &m_pfilter;
 
 	// TODO what do they mean about wait on destructor?? --rfree :
     //this should be the last one, because it could be wait on destructor, while other activities possible on other threads
@@ -185,6 +207,13 @@ namespace net_utils
   class boosted_tcp_server
     : private boost::noncopyable
   {
+    enum try_connect_result_t
+    {
+      CONNECT_SUCCESS,
+      CONNECT_FAILURE,
+      CONNECT_NO_SSL,
+    };
+
   public:
     typedef boost::shared_ptr<connection<t_protocol_handler> > connection_ptr;
     typedef typename t_protocol_handler::connection_context t_connection_context;
@@ -198,8 +227,8 @@ namespace net_utils
     std::map<std::string, t_connection_type> server_type_map;
     void create_server_type_map();
 
-    bool init_server(uint32_t port, const std::string address = "0.0.0.0", uint32_t port_ipv6 = 0, const std::string address_v6 = "::", bool use_ipv6 = false);
-    bool init_server(const std::string port,  const std::string& address = "0.0.0.0", const std::string& port_ipv6 = "", const std::string address_v6 = "::", bool use_ipv6 = false);
+    bool init_server(uint32_t port, const std::string address = "0.0.0.0", ssl_options_t ssl_options = ssl_support_t::e_ssl_support_autodetect);
+    bool init_server(const std::string port,  const std::string& address = "0.0.0.0", ssl_options_t ssl_options = ssl_support_t::e_ssl_support_autodetect);
 
     /// Run the server's io_service loop.
     bool run_server(size_t threads_count, bool wait = true, const boost::thread::attributes& attrs = boost::thread::attributes());
@@ -210,7 +239,9 @@ namespace net_utils
     /// Stop the server.
     void send_stop_signal();
 
-    bool is_stop_signal_sent();
+    bool is_stop_signal_sent() const noexcept { return m_stop_signal_sent; };
+
+    const std::atomic<bool>& get_stop_signal() const noexcept { return m_stop_signal_sent; }
 
     void set_threads_prefix(const std::string& prefix_name);
 
@@ -220,18 +251,29 @@ namespace net_utils
 
     void set_connection_filter(i_connection_filter* pfilter);
 
-    bool connect(const std::string& adr, const std::string& port, uint32_t conn_timeot, t_connection_context& cn, const std::string& bind_ip = "0.0.0.0");
-    template<class t_callback>
-    bool connect_async(const std::string& adr, const std::string& port, uint32_t conn_timeot, const t_callback &cb, const std::string& bind_ip = "0.0.0.0");
+    void set_default_remote(epee::net_utils::network_address remote)
+    {
+      default_remote = std::move(remote);
+    }
 
-    typename t_protocol_handler::config_type& get_config_object(){return m_config;}
+    bool add_connection(t_connection_context& out, boost::asio::ip::tcp::socket&& sock, network_address real_remote, epee::net_utils::ssl_support_t ssl_support = epee::net_utils::ssl_support_t::e_ssl_support_autodetect);
+    try_connect_result_t try_connect(connection_ptr new_connection_l, const std::string& adr, const std::string& port, boost::asio::ip::tcp::socket &sock_, const boost::asio::ip::tcp::endpoint &remote_endpoint, const std::string &bind_ip, uint32_t conn_timeout, epee::net_utils::ssl_support_t ssl_support);
+    bool connect(const std::string& adr, const std::string& port, uint32_t conn_timeot, t_connection_context& cn, const std::string& bind_ip = "0.0.0.0", epee::net_utils::ssl_support_t ssl_support = epee::net_utils::ssl_support_t::e_ssl_support_autodetect);
+    template<class t_callback>
+    bool connect_async(const std::string& adr, const std::string& port, uint32_t conn_timeot, const t_callback &cb, const std::string& bind_ip = "0.0.0.0", epee::net_utils::ssl_support_t ssl_support = epee::net_utils::ssl_support_t::e_ssl_support_autodetect);
+
+    typename t_protocol_handler::config_type& get_config_object()
+    {
+      assert(m_state != nullptr); // always set in constructor
+      return m_state->config;
+    }
 
     int get_binded_port(){return m_port;}
-    int get_binded_port_ipv6(){return m_port_ipv6;}
 
     long get_connections_count() const
     {
-      auto connections_count = (m_sock_count > 0) ? (m_sock_count - 1) : 0; // Socket count minus listening socket
+      assert(m_state != nullptr); // always set in constructor
+      auto connections_count = m_state->sock_count > 0 ? (m_state->sock_count - 1) : 0; // Socket count minus listening socket
       return connections_count;
     }
 
@@ -293,36 +335,38 @@ namespace net_utils
       return true;
     }
 
-  protected:
-    typename t_protocol_handler::config_type m_config;
-
   private:
     /// Run the server's io_service loop.
     bool worker_thread();
     /// Handle completion of an asynchronous accept operation.
     void handle_accept(const boost::system::error_code& e);
-    void handle_accept_v6(const boost::system::error_code& e);
 
     bool is_thread_worker();
 
+    const boost::shared_ptr<typename connection<t_protocol_handler>::shared_state> m_state;
+
     /// The io_service used to perform asynchronous operations.
-    std::unique_ptr<boost::asio::io_service> m_io_service_local_instance;
+    struct worker
+    {
+      worker()
+        : io_service(), work(io_service)
+      {}
+
+      boost::asio::io_service io_service;
+      boost::asio::io_service::work work;
+    };
+    std::unique_ptr<worker> m_io_service_local_instance;
     boost::asio::io_service& io_service_;    
 
     /// Acceptor used to listen for incoming connections.
     boost::asio::ip::tcp::acceptor acceptor_;
-    boost::asio::ip::tcp::acceptor acceptor_v6;
+    epee::net_utils::network_address default_remote;
 
     std::atomic<bool> m_stop_signal_sent;
     uint32_t m_port;
-    uint32_t m_port_ipv6;
-	std::atomic<long> m_sock_count;
-	std::atomic<long> m_sock_number;
     std::string m_address;
-    std::string m_address_v6;
     std::string m_thread_name_prefix; //TODO: change to enum server_type, now used
     size_t m_threads_count;
-    i_connection_filter* m_pfilter;
     std::vector<boost::shared_ptr<boost::thread> > m_threads;
     boost::thread::id m_main_thread_id;
     critical_section m_threads_lock;
@@ -332,11 +376,9 @@ namespace net_utils
 
     /// The next connection to be accepted
     connection_ptr new_connection_;
-    connection_ptr new_connection_v6;
 
     boost::mutex connections_mutex;
     std::set<connection_ptr> connections_;
-
   }; // class <>boosted_tcp_server
 
 

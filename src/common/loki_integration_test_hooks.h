@@ -23,7 +23,7 @@ namespace loki
 {
 struct fixed_buffer
 {
-  static const int SIZE = 32768;
+  static const int SIZE = 65536;
   char data[SIZE];
   int  len;
 };
@@ -39,7 +39,15 @@ std::vector<std::string> separate_stdin_to_space_delim_args   (fixed_buffer cons
 extern const command_line::arg_descriptor<std::string, false> arg_integration_test_hardforks_override;
 extern const command_line::arg_descriptor<std::string, false> arg_integration_test_shared_mem_name;
 extern boost::mutex integration_test_mutex;
-extern bool core_is_idle;
+
+extern struct integration_test_t
+{
+  bool core_is_idle;
+  bool disable_checkpoint_quorum;
+  bool disable_obligation_quorum;
+  bool disable_obligation_uptime_proof;
+  bool disable_obligation_checkpointing;
+} integration_test;
 
 }; // namespace loki
 
@@ -72,7 +80,9 @@ static sem_t              *global_stdin_ready_semaphore;
 
 namespace loki
 {
-bool core_is_idle;
+
+integration_test_t integration_test;
+
 const command_line::arg_descriptor<std::string, false> arg_integration_test_hardforks_override = {
   "integration-test-hardforks-override"
 , "Specify custom hardfork heights and launch in fakenet mode"
@@ -165,6 +175,7 @@ uint32_t const MSG_MAGIC_BYTES = 0x7428da3f;
 void write_to_stdout_shared_mem(char const *buf, int buf_len)
 {
   assert(global_stdout_shared_mem);
+  assert(buf_len < loki::fixed_buffer::SIZE);
 
   int sem_value = 0;
   sem_getvalue(global_stdout_ready_semaphore, &sem_value);

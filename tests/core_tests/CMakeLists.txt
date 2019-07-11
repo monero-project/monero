@@ -43,7 +43,8 @@ set(core_tests_sources
   tx_validation.cpp
   v2_tests.cpp
   rct.cpp
-  bulletproofs.cpp)
+  bulletproofs.cpp
+  wallet_tools.cpp)
 
 set(core_tests_headers
   block_reward.h
@@ -62,7 +63,8 @@ set(core_tests_headers
   tx_validation.h
   v2_tests.h
   rct.h
-  bulletproofs.h)
+  bulletproofs.h
+  wallet_tools.h)
 
 add_executable(core_tests
   ${core_tests_sources}
@@ -75,6 +77,7 @@ target_link_libraries(core_tests
     version
     epee
     device
+    wallet
     ${CMAKE_THREAD_LIBS_INIT}
     ${EXTRA_LIBRARIES})
 enable_stack_trace(core_tests)

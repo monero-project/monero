@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 // Copyright (c)      2018, The Loki Project
 //
 // All rights reserved.
@@ -147,7 +147,8 @@ namespace cryptonote {
   // Cryptonote clones:  #define DIFFICULTY_BLOCKS_COUNT_V2 DIFFICULTY_WINDOW_V2 + 1
 
 
-  difficulty_type next_difficulty_v2(std::vector<std::uint64_t> timestamps, std::vector<difficulty_type> cumulative_difficulties, size_t target_seconds, bool use_old_lwma) {
+  difficulty_type next_difficulty_v2(std::vector<std::uint64_t> timestamps, std::vector<difficulty_type> cumulative_difficulties, size_t target_seconds,
+      bool use_old_lwma, bool v12_initial_override) {
 
     const int64_t T = static_cast<int64_t>(target_seconds);
 
@@ -204,6 +205,12 @@ namespace cryptonote {
 
     if (next_difficulty == 0)
         next_difficulty = 1;
+
+    // Rough estimate based on comparable coins, pre-merge-mining hashrate, and hashrate changes is
+    // that 30MH/s seems more or less right, so we cap it there for the first WINDOW blocks to
+    // prevent too-long blocks right after the fork.
+    if (v12_initial_override)
+      return std::min(next_difficulty, 30000000 * uint64_t(target_seconds));
 
     return next_difficulty;
   }

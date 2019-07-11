@@ -1,21 +1,21 @@
-# Copyright (c) 2018 The Monero Project
-# 
+# Copyright (c) 2014-2018, The Monero Project
+#
 # All rights reserved.
-# 
+#
 # Redistribution and use in source and binary forms, with or without modification, are
 # permitted provided that the following conditions are met:
-# 
+#
 # 1. Redistributions of source code must retain the above copyright notice, this list of
 #    conditions and the following disclaimer.
-# 
+#
 # 2. Redistributions in binary form must reproduce the above copyright notice, this list
 #    of conditions and the following disclaimer in the documentation and/or other
 #    materials provided with the distribution.
-# 
+#
 # 3. Neither the name of the copyright holder nor the names of its contributors may be
 #    used to endorse or promote products derived from this software without specific
 #    prior written permission.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
 # EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 # MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -26,24 +26,51 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import requests
-import json
+set(trezor_tests_sources
+        tools.cpp
+        daemon.cpp
+        trezor_tests.cpp
+        ../core_tests/chaingen.cpp
+        ../core_tests/wallet_tools.cpp)
 
-class JSONRPC(object):
-    def __init__(self, url):
-        self.url = url
+set(trezor_tests_headers
+        tools.h
+        daemon.h
+        trezor_tests.h
+        ../core_tests/chaingen.h
+        ../core_tests/wallet_tools.h)
 
-    def send_request(self, inputs):
-        res = requests.post(
-            self.url,
-            data=json.dumps(inputs),
-            headers={'content-type': 'application/json'})
-        res = res.json()
-        
-        assert 'error' not in res, res
+add_executable(trezor_tests
+  ${trezor_tests_sources}
+  ${trezor_tests_headers})
 
-        return res['result']
+target_link_libraries(trezor_tests
+  PRIVATE
+    multisig
+    cryptonote_core
+    p2p
+    version
+    epee
+    device
+    device_trezor
+    wallet
+    wallet_api
+    rpc
+    cryptonote_protocol
+    daemon_rpc_server
+    ${Boost_CHRONO_LIBRARY}
+    ${Boost_FILESYSTEM_LIBRARY}
+    ${Boost_PROGRAM_OPTIONS_LIBRARY}
+    ${Boost_SYSTEM_LIBRARY}
+    ${ZMQ_LIB}
+    ${CMAKE_THREAD_LIBS_INIT}
+    ${EXTRA_LIBRARIES})
 
+enable_stack_trace(trezor_tests)
+set_property(TARGET trezor_tests
+  PROPERTY
+    FOLDER "tests")
 
-
-
+add_test(
+  NAME    trezor_tests
+  COMMAND trezor_tests)

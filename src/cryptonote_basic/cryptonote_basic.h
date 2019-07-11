@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -152,23 +152,39 @@ namespace cryptonote
 
   };
 
+  template<typename T> static inline unsigned int getpos(T &ar) { return 0; }
+  template<> inline unsigned int getpos(binary_archive<true> &ar) { return ar.stream().tellp(); }
+  template<> inline unsigned int getpos(binary_archive<false> &ar) { return ar.stream().tellg(); }
+
+  enum class txversion : uint16_t {
+    v0 = 0,
+    v1,
+    v2_ringct,
+    v3_per_output_unlock_times,
+    v4_tx_types,
+    _count,
+  };
+  enum class txtype : uint16_t {
+    standard,
+    state_change,
+    key_image_unlock,
+    _count
+  };
+
+
   class transaction_prefix
   {
 
   public:
-    enum version
-    {
-      version_0 = 0,
-      version_1,
-      version_2,
-      version_3_per_output_unlock_times,
-      version_4_tx_types,
-    };
-    static version get_min_version_for_hf(int hf_version, cryptonote::network_type nettype = MAINNET);
-    static version get_max_version_for_hf(int hf_version, cryptonote::network_type nettype = MAINNET);
+    static char const *version_to_string(txversion v);
+    static char const *type_to_string(txtype type);
+
+    static txversion get_min_version_for_hf(uint8_t hf_version, cryptonote::network_type nettype = MAINNET);
+    static txversion get_max_version_for_hf(uint8_t hf_version, cryptonote::network_type nettype = MAINNET);
 
     // tx information
-    size_t   version;
+    txversion version;
+    txtype type;
 
     // not used after version 2, but remains for compatibility
     uint64_t unlock_time;  //number of block (or time), used as a limitation like: spend this tx not early then block/time
@@ -180,62 +196,42 @@ namespace cryptonote
 
     std::vector<uint64_t> output_unlock_times;
 
-    enum type_t
-    {
-      type_standard,
-      type_deregister,
-      type_key_image_unlock,
-      type_count,
-    };
-
-    static char const *type_to_string(type_t type);
-    static char const *type_to_string(uint16_t type_as_uint);
-
-    union
-    {
-      bool is_deregister; // not used after version >= version_4_tx_types
-      uint16_t type;
-    };
-
     BEGIN_SERIALIZE()
-      VARINT_FIELD(version)
-      if (version > 2)
+      ENUM_FIELD(version, version >= txversion::v1 && version < txversion::_count);
+      if (version >= txversion::v3_per_output_unlock_times)
       {
         FIELD(output_unlock_times)
-        if (version == version_3_per_output_unlock_times)
-          FIELD(is_deregister)
+        if (version == txversion::v3_per_output_unlock_times) {
+          bool is_state_change = type == txtype::state_change;
+          FIELD(is_state_change)
+          type = is_state_change ? txtype::state_change : txtype::standard;
+        }
       }
-      if(version == 0 || version > version_4_tx_types) return false;
       VARINT_FIELD(unlock_time)
       FIELD(vin)
       FIELD(vout)
-      if (version >= 3 && vout.size() != output_unlock_times.size()) return false;
+      if (version >= txversion::v3_per_output_unlock_times && vout.size() != output_unlock_times.size())
+        return false;
       FIELD(extra)
-      if (version >= version_4_tx_types)
-      {
-        VARINT_FIELD(type) // NOTE(loki): Overwrites is_deregister
-        if (static_cast<uint16_t>(type) >= type_count) return false;
-      }
+      if (version >= txversion::v4_tx_types)
+        ENUM_FIELD_N("type", type, type < txtype::_count);
     END_SERIALIZE()
 
-  public:
     transaction_prefix(){ set_null(); }
     void set_null()
     {
-      version = 1;
+      version = txversion::v1;
       unlock_time = 0;
       vin.clear();
       vout.clear();
       extra.clear();
       output_unlock_times.clear();
-      type = type_standard;
+      type = txtype::standard;
     }
-    type_t get_type   ()                  const;
-    bool   set_type   (type_t new_type);
 
     uint64_t get_unlock_time(size_t out_index) const
     {
-      if (version >= version_3_per_output_unlock_times)
+      if (version >= txversion::v3_per_output_unlock_times)
       {
         if (out_index >= output_unlock_times.size())
         {
@@ -265,9 +261,12 @@ namespace cryptonote
 
     bool pruned;
 
+    std::atomic<unsigned int> unprunable_size;
+    std::atomic<unsigned int> prefix_size;
+
     transaction();
-    transaction(const transaction &t): transaction_prefix(t), hash_valid(false), blob_size_valid(false), signatures(t.signatures), rct_signatures(t.rct_signatures), pruned(t.pruned) { if (t.is_hash_valid()) { hash = t.hash; set_hash_valid(true); } if (t.is_blob_size_valid()) { blob_size = t.blob_size; set_blob_size_valid(true); } }
-    transaction &operator=(const transaction &t) { transaction_prefix::operator=(t); set_hash_valid(false); set_blob_size_valid(false); signatures = t.signatures; rct_signatures = t.rct_signatures; if (t.is_hash_valid()) { hash = t.hash; set_hash_valid(true); } if (t.is_blob_size_valid()) { blob_size = t.blob_size; set_blob_size_valid(true); } pruned = t.pruned; return *this; }
+    transaction(const transaction &t): transaction_prefix(t), hash_valid(false), blob_size_valid(false), signatures(t.signatures), rct_signatures(t.rct_signatures), pruned(t.pruned), unprunable_size(t.unprunable_size.load()), prefix_size(t.prefix_size.load()) { if (t.is_hash_valid()) { hash = t.hash; set_hash_valid(true); } if (t.is_blob_size_valid()) { blob_size = t.blob_size; set_blob_size_valid(true); } }
+    transaction &operator=(const transaction &t) { transaction_prefix::operator=(t); set_hash_valid(false); set_blob_size_valid(false); signatures = t.signatures; rct_signatures = t.rct_signatures; if (t.is_hash_valid()) { hash = t.hash; set_hash_valid(true); } if (t.is_blob_size_valid()) { blob_size = t.blob_size; set_blob_size_valid(true); } pruned = t.pruned; unprunable_size = t.unprunable_size.load(); prefix_size = t.prefix_size.load(); return *this; }
     virtual ~transaction();
     void set_null();
     void invalidate_hashes();
@@ -285,10 +284,18 @@ namespace cryptonote
         set_blob_size_valid(false);
       }
 
+      const unsigned int start_pos = getpos(ar);
+
       FIELDS(*static_cast<transaction_prefix *>(this))
 
-      if (version == 1)
+      if (std::is_same<Archive<W>, binary_archive<W>>())
+        prefix_size = getpos(ar) - start_pos;
+
+      if (version == txversion::v1)
       {
+        if (std::is_same<Archive<W>, binary_archive<W>>())
+          unprunable_size = getpos(ar) - start_pos;
+
         ar.tag("signatures");
         ar.begin_array();
         PREPARE_CUSTOM_VECTOR_SERIALIZATION(vin.size(), signatures);
@@ -327,6 +334,10 @@ namespace cryptonote
           bool r = rct_signatures.serialize_rctsig_base(ar, vin.size(), vout.size());
           if (!r || !ar.stream().good()) return false;
           ar.end_object();
+
+          if (std::is_same<Archive<W>, binary_archive<W>>())
+            unprunable_size = getpos(ar) - start_pos;
+
           if (!pruned && rct_signatures.type != rct::RCTTypeNull)
           {
             ar.tag("rctsig_prunable");
@@ -347,7 +358,7 @@ namespace cryptonote
     {
       FIELDS(*static_cast<transaction_prefix *>(this))
 
-      if (version == 1)
+      if (version == txversion::v1)
       {
       }
       else
@@ -392,6 +403,8 @@ namespace cryptonote
     set_hash_valid(false);
     set_blob_size_valid(false);
     pruned = false;
+    unprunable_size = 0;
+    prefix_size = 0;
   }
 
   inline
@@ -464,6 +477,8 @@ namespace cryptonote
       FIELDS(*static_cast<block_header *>(this))
       FIELD(miner_tx)
       FIELD(tx_hashes)
+      if (tx_hashes.size() > CRYPTONOTE_MAX_TX_PER_BLOCK)
+        return false;
     END_SERIALIZE()
   };
 
@@ -523,92 +538,64 @@ namespace cryptonote
     return result;
   }
 
-  inline enum transaction_prefix::version transaction_prefix::get_max_version_for_hf(int hf_version, cryptonote::network_type nettype)
+  inline enum txversion transaction_prefix::get_max_version_for_hf(uint8_t hf_version, cryptonote::network_type nettype)
   {
     nettype = validate_nettype(nettype);
     if (hf_version >= cryptonote::network_version_7 && hf_version <= cryptonote::network_version_8)
-      return transaction::version_2;
+      return txversion::v2_ringct;
 
     if (hf_version >= cryptonote::network_version_9_service_nodes && hf_version <= cryptonote::network_version_10_bulletproofs)
-      return transaction::version_3_per_output_unlock_times;
+      return txversion::v3_per_output_unlock_times;
 
-    return transaction::version_4_tx_types;
+    return txversion::v4_tx_types;
   }
 
-  inline enum transaction_prefix::version transaction_prefix::get_min_version_for_hf(int hf_version, cryptonote::network_type nettype)
+  inline enum txversion transaction_prefix::get_min_version_for_hf(uint8_t hf_version, cryptonote::network_type nettype)
   {
     nettype = validate_nettype(nettype);
     if (nettype == MAINNET) // NOTE(loki): Add an exception for mainnet as there are v2's on mainnet.
     {
       if (hf_version == cryptonote::network_version_10_bulletproofs)
-        return transaction::version_2;
+        return txversion::v2_ringct;
     }
 
     if (hf_version >= cryptonote::network_version_7 && hf_version <= cryptonote::network_version_9_service_nodes)
-      return transaction::version_2;
+      return txversion::v2_ringct;
 
     if (hf_version == cryptonote::network_version_10_bulletproofs)
-      return transaction::version_3_per_output_unlock_times;
+      return txversion::v3_per_output_unlock_times;
 
-    return transaction::version_4_tx_types;
+    return txversion::v4_tx_types;
   }
 
-  inline transaction_prefix::type_t transaction_prefix::get_type() const
+  inline char const *transaction_prefix::version_to_string(txversion v)
   {
-    if (version <= version_2)
-      return type_standard;
-
-    if (version == version_3_per_output_unlock_times)
+    switch(v)
     {
-      if (is_deregister) return type_deregister;
-      return type_standard;
+      case txversion::v1:                         return "1";
+      case txversion::v2_ringct:                  return "2_ringct";
+      case txversion::v3_per_output_unlock_times: return "3_per_output_unlock_times";
+      case txversion::v4_tx_types:                return "4_tx_types";
+      default: assert(false);                     return "xx_unhandled_version";
     }
-
-    // NOTE(loki): Type is range checked on deserialisation, so hitting this is a developer error
-    assert(static_cast<uint16_t>(type) < static_cast<uint16_t>(type_count));
-    return static_cast<transaction::type_t>(type);
   }
 
-  inline bool transaction_prefix::set_type(transaction_prefix::type_t new_type)
-  {
-    bool result = false;
-    if (version <= version_2)
-      result = (new_type == type_standard);
-
-    if (version == version_3_per_output_unlock_times)
-    {
-      if (new_type == type_standard || new_type == type_deregister)
-        result = true;
-    }
-    else
-    {
-      result = true;
-    }
-
-    if (result)
-    {
-      assert(static_cast<uint16_t>(new_type) <= static_cast<uint16_t>(type_count)); // NOTE(loki): Developer error
-      type = static_cast<uint16_t>(new_type);
-    }
-
-    return result;
-  }
-
-  inline char const *transaction_prefix::type_to_string(uint16_t type_as_uint)
-  {
-    return type_to_string(static_cast<type_t>(type_as_uint));
-  }
-
-  inline char const *transaction_prefix::type_to_string(type_t type)
+  inline char const *transaction_prefix::type_to_string(txtype type)
   {
     switch(type)
     {
-      case type_standard:         return "standard";
-      case type_deregister:       return "deregister";
-      case type_key_image_unlock: return "key_image_unlock";
-      case type_count:            return "xx_count";
-      default: assert(false);     return "xx_unhandled_type";
+      case txtype::standard:         return "standard";
+      case txtype::state_change:     return "state_change";
+      case txtype::key_image_unlock: return "key_image_unlock";
+      default: assert(false);        return "xx_unhandled_type";
     }
+  }
+
+  inline std::ostream &operator<<(std::ostream &os, txtype t) {
+    return os << transaction::type_to_string(t);
+  }
+  inline std::ostream &operator<<(std::ostream &os, txversion v) {
+    return os << transaction::version_to_string(v);
   }
 }
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 // Copyright (c)      2018, The Loki Project
 //
 // All rights reserved.
@@ -33,9 +33,9 @@
 
 #include <stdlib.h>
 #include "include_base_utils.h"
-#include <random>
+#include "common/threadpool.h"
+#include "crypto/crypto.h"
 #include <boost/thread/mutex.hpp>
-#include <boost/thread/thread.hpp>
 #include <boost/algorithm/string/join.hpp>
 #include <boost/optional.hpp>
 using namespace epee;
@@ -233,13 +233,24 @@ public:
     char *str;
 };
 
+static void add_anchors(ub_ctx *ctx)
+{
+  const char * const *ds = ::get_builtin_ds();
+  while (*ds)
+  {
+    MINFO("adding trust anchor: " << *ds);
+    ub_ctx_add_ta(ctx, string_copy(*ds++));
+  }
+}
+
 DNSResolver::DNSResolver() : m_data(new DNSResolverData())
 {
   int use_dns_public = 0;
   std::vector<std::string> dns_public_addr;
-  if (auto res = getenv("DNS_PUBLIC"))
+  const char *DNS_PUBLIC = getenv("DNS_PUBLIC");
+  if (DNS_PUBLIC)
   {
-    dns_public_addr = tools::dns_utils::parse_dns_public(res);
+    dns_public_addr = tools::dns_utils::parse_dns_public(DNS_PUBLIC);
     if (!dns_public_addr.empty())
     {
       MGINFO("Using public DNS server(s): " << boost::join(dns_public_addr, ", ") << " (TCP)");
@@ -267,11 +278,30 @@ DNSResolver::DNSResolver() : m_data(new DNSResolverData())
     ub_ctx_hosts(m_data->m_ub_context, NULL);
   }
 
-  const char * const *ds = ::get_builtin_ds();
-  while (*ds)
+  add_anchors(m_data->m_ub_context);
+
+  if (!DNS_PUBLIC)
   {
-    MINFO("adding trust anchor: " << *ds);
-    ub_ctx_add_ta(m_data->m_ub_context, string_copy(*ds++));
+    // TODO(loki): Don't probe moneropulse for Loki
+#if 0
+    // if no DNS_PUBLIC specified, we try a lookup to what we know
+    // should be a valid DNSSEC record, and switch to known good
+    // DNSSEC resolvers if verification fails
+    bool available, valid;
+    static const char *probe_hostname = "updates.moneropulse.org";
+    auto records = get_txt_record(probe_hostname, available, valid);
+    if (!valid)
+    {
+      MINFO("Failed to verify DNSSEC record from " << probe_hostname << ", falling back to TCP with well known DNSSEC resolvers");
+      ub_ctx_delete(m_data->m_ub_context);
+      m_data->m_ub_context = ub_ctx_create();
+      add_anchors(m_data->m_ub_context);
+      for (const auto &ip: DEFAULT_DNS_PUBLIC_ADDR)
+        ub_ctx_set_fwd(m_data->m_ub_context, string_copy(ip));
+      ub_ctx_set_option(m_data->m_ub_context, string_copy("do-udp:"), string_copy("no"));
+      ub_ctx_set_option(m_data->m_ub_context, string_copy("do-tcp:"), string_copy("yes"));
+    }
+#endif
   }
 }
 
@@ -491,22 +521,19 @@ bool load_txt_records_from_dns(std::vector<std::string> &good_records, const std
   std::vector<std::vector<std::string> > records;
   records.resize(dns_urls.size());
 
-  std::random_device rd;
-  std::mt19937 gen(rd());
-  std::uniform_int_distribution<int> dis(0, dns_urls.size() - 1);
-  size_t first_index = dis(gen);
+  size_t first_index = crypto::rand_idx(dns_urls.size());
 
   // send all requests in parallel
-  std::vector<boost::thread> threads(dns_urls.size());
   std::deque<bool> avail(dns_urls.size(), false), valid(dns_urls.size(), false);
+  tools::threadpool& tpool = tools::threadpool::getInstance();
+  tools::threadpool::waiter waiter;
   for (size_t n = 0; n < dns_urls.size(); ++n)
   {
-    threads[n] = boost::thread([n, dns_urls, &records, &avail, &valid](){
+    tpool.submit(&waiter,[n, dns_urls, &records, &avail, &valid](){
       records[n] = tools::DNSResolver::instance().get_txt_record(dns_urls[n], avail[n], valid[n]); 
     });
   }
-  for (size_t n = 0; n < dns_urls.size(); ++n)
-    threads[n].join();
+  waiter.wait(&tpool);
 
   size_t cur_index = first_index;
   do
@@ -515,12 +542,12 @@ bool load_txt_records_from_dns(std::vector<std::string> &good_records, const std
     if (!avail[cur_index])
     {
       records[cur_index].clear();
-      LOG_PRINT_L2("DNSSEC not available for checkpoint update at URL: " << url << ", skipping.");
+      LOG_PRINT_L2("DNSSEC not available for hostname: " << url << ", skipping.");
     }
     if (!valid[cur_index])
     {
       records[cur_index].clear();
-      LOG_PRINT_L2("DNSSEC validation failed for checkpoint update at URL: " << url << ", skipping.");
+      LOG_PRINT_L2("DNSSEC validation failed for hostname: " << url << ", skipping.");
     }
 
     cur_index++;
@@ -542,7 +569,7 @@ bool load_txt_records_from_dns(std::vector<std::string> &good_records, const std
 
   if (num_valid_records < 2)
   {
-    LOG_PRINT_L0("WARNING: no two valid MoneroPulse DNS checkpoint records were received");
+    LOG_PRINT_L0("WARNING: no two valid DNS TXT records were received");
     return false;
   }
 
@@ -564,7 +591,7 @@ bool load_txt_records_from_dns(std::vector<std::string> &good_records, const std
 
   if (good_records_index < 0)
   {
-    LOG_PRINT_L0("WARNING: no two MoneroPulse DNS checkpoint records matched");
+    LOG_PRINT_L0("WARNING: no two DNS TXT records matched");
     return false;
   }
 

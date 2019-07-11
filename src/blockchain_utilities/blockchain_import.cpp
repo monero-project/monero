@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 // Copyright (c)      2018, The Loki Project
 //
 // All rights reserved.
@@ -136,32 +136,21 @@ int pop_blocks(cryptonote::core& core, int num_blocks)
 {
   bool use_batch = opt_batch;
 
-  if (use_batch)
-    core.get_blockchain_storage().get_db().batch_start();
+  if (use_batch) core.get_blockchain_storage().get_db().batch_start();
 
-  int quit = 0;
-  block popped_block;
-  std::vector<transaction> popped_txs;
-  for (int i=0; i < num_blocks; ++i)
+  try
   {
-    // simple_core.m_storage.pop_block_from_blockchain() is private, so call directly through db
-    core.get_blockchain_storage().get_db().pop_block(popped_block, popped_txs);
-    quit = 1;
-  }
-
-
-  if (use_batch)
-  {
-    if (quit > 1)
-    {
-      // There was an error, so don't commit pending data.
-      // Destructor will abort write txn.
-    }
-    else
+    core.get_blockchain_storage().pop_blocks(num_blocks);
+    if (use_batch)
     {
       core.get_blockchain_storage().get_db().batch_stop();
+      core.get_blockchain_storage().get_db().show_stats();
     }
-    core.get_blockchain_storage().get_db().show_stats();
+  }
+  catch(const std::exception &e)
+  {
+    // There was an error, so don't commit pending data.
+    // Destructor will abort write txn.
   }
 
   return num_blocks;
@@ -194,8 +183,21 @@ int check_flush(cryptonote::core &core, std::vector<block_complete_entry> &block
   }
   core.prevalidate_block_hashes(core.get_blockchain_storage().get_db().height(), hashes);
 
-  core.prepare_handle_incoming_blocks(blocks);
+  // TODO(doyle): Checkpointing
+  std::vector<block> pblocks;
+  if (!core.prepare_handle_incoming_blocks(blocks, pblocks))
+  {
+    MERROR("Failed to prepare to add blocks");
+    return 1;
+  }
+  if (!pblocks.empty() && pblocks.size() != blocks.size())
+  {
+    MERROR("Unexpected parsed blocks size");
+    core.cleanup_handle_incoming_blocks();
+    return 1;
+  }
 
+  size_t blockidx = 0;
   for(const block_complete_entry& block_entry: blocks)
   {
     // process transactions
@@ -216,7 +218,7 @@ int check_flush(cryptonote::core &core, std::vector<block_complete_entry> &block
 
     block_verification_context bvc = boost::value_initialized<block_verification_context>();
 
-    core.handle_incoming_block(block_entry.block, bvc, false); // <--- process block
+    core.handle_incoming_block(block_entry.block, pblocks.empty() ? NULL : &pblocks[blockidx++], bvc, nullptr /*checkpoint*/, false); // <--- process block
 
     if(bvc.m_verifivation_failed)
     {
@@ -456,7 +458,7 @@ int import_from_file(cryptonote::core& core, const std::string& import_file_path
         }
         else
         {
-          std::vector<transaction> txs;
+          std::vector<std::pair<transaction, blobdata>> txs;
           std::vector<transaction> archived_txs;
 
           archived_txs = bp.txs;
@@ -473,7 +475,7 @@ int import_from_file(cryptonote::core& core, const std::string& import_file_path
             // because add_block() calls
             // add_transaction(blk_hash, blk.miner_tx) first, and
             // then a for loop for the transactions in txs.
-            txs.push_back(tx);
+            txs.push_back(std::make_pair(tx, tx_to_blob(tx)));
           }
 
           size_t block_weight;
@@ -487,7 +489,7 @@ int import_from_file(cryptonote::core& core, const std::string& import_file_path
           try
           {
             uint64_t long_term_block_weight = core.get_blockchain_storage().get_next_long_term_block_weight(block_weight);
-            core.get_blockchain_storage().get_db().add_block(b, block_weight, long_term_block_weight, cumulative_difficulty, coins_generated, txs);
+            core.get_blockchain_storage().get_db().add_block(std::make_pair(b, block_to_blob(b)), block_weight, long_term_block_weight, cumulative_difficulty, coins_generated, txs);
           }
           catch (const std::exception& e)
           {
@@ -762,7 +764,6 @@ int main(int argc, char* argv[])
   try
   {
 
-  core.disable_dns_checkpoints(true);
 #if defined(PER_BLOCK_CHECKPOINT)
   const GetCheckpointsCallback& get_checkpoints = blocks::GetCheckpointsData;
 #else

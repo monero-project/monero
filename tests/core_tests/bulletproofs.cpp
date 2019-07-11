@@ -125,7 +125,19 @@ bool gen_bp_tx_validation_base::generate_with(std::vector<test_event_entry>& eve
     for(int i = 0; amounts_paid[i] != (uint64_t)-1; ++i) ++amounts_paid_len;
 
     uint64_t change_amount;
-    fill_tx_sources_and_multi_destinations(events, blk_last, from, to, amounts_paid, amounts_paid_len, TESTS_DEFAULT_FEE, CRYPTONOTE_DEFAULT_TX_MIXIN, sources, destinations, &change_amount);
+    fill_tx_sources_and_multi_destinations(events,
+                                           blk_last,
+                                           from,
+                                           to.get_keys().m_account_address,
+                                           amounts_paid,
+                                           amounts_paid_len,
+                                           TESTS_DEFAULT_FEE,
+                                           CRYPTONOTE_DEFAULT_TX_MIXIN,
+                                           sources,
+                                           destinations,
+                                           true,
+                                           &change_amount);
+
     tx_destination_entry change_addr{change_amount, from.get_keys().m_account_address, false /* is subaddr */ };
 
     // NOTE(loki): Monero tests presume the generated TX doesn't have change so remove it from our output.
@@ -227,7 +239,7 @@ bool gen_bp_tx_validation_base::generate_with(std::vector<test_event_entry>& eve
 bool gen_bp_tx_validation_base::check_bp(const cryptonote::transaction &tx, size_t tx_idx, const size_t *sizes, const char *context) const
 {
   DEFINE_TESTS_ERROR_CONTEXT(context);
-  CHECK_TEST_CONDITION(tx.version >= 2);
+  CHECK_TEST_CONDITION(tx.version >= txversion::v2_ringct);
   CHECK_TEST_CONDITION(rct::is_rct_bulletproof(tx.rct_signatures.type));
   size_t n_sizes = 0, n_amounts = 0;
   for (size_t n = 0; n < tx_idx; ++n)

@@ -9,7 +9,7 @@
 namespace service_nodes {
 
 
-uint64_t get_staking_requirement(cryptonote::network_type m_nettype, uint64_t height, int hf_version)
+uint64_t get_staking_requirement(cryptonote::network_type m_nettype, uint64_t height, uint8_t hf_version)
 {
   if (m_nettype == cryptonote::TESTNET || m_nettype == cryptonote::FAKECHAIN)
       return COIN * 100;
@@ -152,4 +152,14 @@ bool get_portions_from_percent_str(std::string cut_str, uint64_t& portions) {
 
   return get_portions_from_percent(cut_percent, portions);
 }
+
+uint64_t uniform_distribution_portable(std::mt19937_64& mersenne_twister, uint64_t n)
+{
+  assert(n > 0);
+  uint64_t secureMax = mersenne_twister.max() - mersenne_twister.max() % n;
+  uint64_t x;
+  do x = mersenne_twister(); while (x >= secureMax);
+  return  x / (secureMax / n);
+}
+
 } // namespace service_nodes

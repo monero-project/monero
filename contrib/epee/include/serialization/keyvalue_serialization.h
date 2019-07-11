@@ -32,6 +32,9 @@
 #include "enableable.h"
 #include "keyvalue_serialization_overloads.h"
 
+#undef LOKI_DEFAULT_LOG_CATEGORY
+#define LOKI_DEFAULT_LOG_CATEGORY "serialization"
+
 namespace epee
 {
   /************************************************************************/
@@ -66,6 +69,9 @@ public: \
   static bool serialize_map(this_type& this_ref,  t_storage& stg, typename t_storage::hsection hparent_section) \
   { 
 
+#define KV_SERIALIZE_VALUE(variable) \
+  epee::serialization::selector<is_store>::serialize(variable, stg, hparent_section, #variable);
+
 #define KV_SERIALIZE_N(varialble, val_name) \
   epee::serialization::selector<is_store>::serialize(this_ref.varialble, stg, hparent_section, val_name);
 
@@ -77,6 +83,15 @@ public: \
     if (!epee::serialization::selector<is_store>::serialize(this_ref.variable, stg, hparent_section, val_name)) \
       epee::serialize_default(this_ref.variable, default_value); \
   } while (0);
+
+#define KV_SERIALIZE_OPT_N2(variable, val_name, default_value) \
+do { \
+  if (!epee::serialization::selector<is_store>::serialize(this_ref.variable, stg, hparent_section, val_name)) { \
+    epee::serialize_default(this_ref.variable, default_value); \
+  } else { \
+    this_ref.explicitly_set = true; \
+  } \
+} while (0);
 
 #define KV_SERIALIZE_VAL_POD_AS_BLOB_FORCE_N(varialble, val_name) \
   epee::serialization::selector<is_store>::serialize_t_val_as_blob(this_ref.varialble, stg, hparent_section, val_name); 
@@ -104,6 +119,8 @@ public: \
 #define KV_SERIALIZE_VAL_POD_AS_BLOB_FORCE(varialble)     KV_SERIALIZE_VAL_POD_AS_BLOB_FORCE_N(varialble, #varialble) //skip is_pod compile time check
 #define KV_SERIALIZE_CONTAINER_POD_AS_BLOB(varialble)     KV_SERIALIZE_CONTAINER_POD_AS_BLOB_N(varialble, #varialble)
 #define KV_SERIALIZE_OPT(variable,default_value)          KV_SERIALIZE_OPT_N(variable, #variable, default_value)
+/// same as KV_SERIALIZE_OPT, but will set `explicitly_set` to true if non-default value found
+#define KV_SERIALIZE_OPT2(variable,default_value)          KV_SERIALIZE_OPT_N2(variable, #variable, default_value)
 
 }
 
