@@ -225,7 +225,7 @@ namespace service_nodes
                 for (size_t index_in_quorum = 0; index_in_quorum < quorum->workers.size(); index_in_quorum++)
                 {
                   crypto::public_key const &key = quorum->workers[index_in_quorum];
-                  m_core.record_checkpoint_vote(key, m_vote_pool.received_checkpoint_vote(height, index_in_quorum));
+                  m_core.record_checkpoint_vote(key, m_vote_pool.received_checkpoint_vote(m_obligations_height, index_in_quorum));
                 }
               }
             }
