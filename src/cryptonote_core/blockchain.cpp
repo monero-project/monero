@@ -1059,6 +1059,19 @@ bool Blockchain::switch_to_alternative_blockchain(std::list<block_extended_info>
 
   auto split_height = m_db->height();
 
+  // TODO(loki): This is a work around for sometimes reorganising the blockchain causing inconsistent difficulty values
+  LOKI_DEFER
+  {
+    if (nettype() == MAINNET)
+    {
+      uint64_t const FUDGE                             = 60;
+      cryptonote::BlockchainDB::fixup_context context  = {};
+      context.type                                     = cryptonote::BlockchainDB::fixup_type::calculate_difficulty;
+      context.calculate_difficulty_params.start_height = split_height < FUDGE ? 0 : split_height - FUDGE;
+      m_db->fixup(context);
+    }
+  };
+
   for (BlockchainDetachedHook* hook : m_blockchain_detached_hooks)
     hook->blockchain_detached(split_height);
 

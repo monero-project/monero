@@ -4576,7 +4576,10 @@ void BlockchainLMDB::fixup(fixup_context const context)
         block_info.bi_diff           = prev_cumulative_diff + diff;
         prev_cumulative_diff         = block_info.bi_diff;
 
-        LOG_PRINT_L0("Height: " << curr_height << " prev difficulty: " << old_cumulative_diff <<  ", new difficulty: " << block_info.bi_diff);
+        if (old_cumulative_diff != block_info.bi_diff)
+          LOG_PRINT_L0("Height: " << curr_height << " prev difficulty: " << old_cumulative_diff <<  ", new difficulty: " << block_info.bi_diff);
+        else
+          LOG_PRINT_L2("Height: " << curr_height << " difficulty unchanged (" << old_cumulative_diff << ")");
 
         MDB_val_set(val, block_info);
         if (int result = mdb_cursor_put(m_cur_block_info, (MDB_val *)&zerokval, &val, MDB_CURRENT))
