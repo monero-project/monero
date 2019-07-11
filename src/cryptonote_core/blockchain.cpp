@@ -4254,7 +4254,7 @@ bool Blockchain::add_new_block(const block& bl, block_verification_context& bvc,
 // returns false if any of the checkpoints loading returns false.
 // That should happen only if a checkpoint is added that conflicts
 // with an existing checkpoint.
-bool Blockchain::update_checkpoints(const std::string& file_path)
+bool Blockchain::update_checkpoints_from_json_file(const std::string& file_path)
 {
   std::vector<height_to_hash> checkpoint_hashes;
   if (!cryptonote::load_checkpoints_from_json(file_path, checkpoint_hashes))
@@ -4326,6 +4326,20 @@ bool Blockchain::update_checkpoint(cryptonote::checkpoint_t const &checkpoint)
 {
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
   bool result = m_checkpoints.update_checkpoint(checkpoint);
+  if (result)
+  {
+    if (checkpoint.height < m_db->height())
+    {
+      if (!checkpoint.check(m_db->get_block_hash_from_height(checkpoint.height)))
+      {
+        // roll back to a couple of blocks before the checkpoint
+        LOG_ERROR("Local blockchain failed to pass a checkpoint in: " << __func__ << ", rolling back!");
+        std::list<block> empty;
+        rollback_blockchain_switching(empty, checkpoint.height - 2);
+      }
+    }
+  }
+
   return result;
 }
 //------------------------------------------------------------------

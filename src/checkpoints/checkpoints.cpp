@@ -51,6 +51,14 @@ using namespace epee;
 
 namespace cryptonote
 {
+  bool checkpoint_t::check(crypto::hash const &hash) const
+  {
+    bool result = block_hash == hash;
+    if (result) MINFO   ("CHECKPOINT PASSED FOR HEIGHT " << height << " " << block_hash);
+    else        MWARNING("CHECKPOINT FAILED FOR HEIGHT " << height << ". EXPECTED HASH " << block_hash << "GIVEN HASH: " << hash);
+    return result;
+  }
+
   height_to_hash const HARDCODED_MAINNET_CHECKPOINTS[] =
   {
     {0,      "08ff156d993012b0bdf2816c4bee47c9bbc7930593b70ee02574edddf15ee933"},
@@ -234,9 +242,7 @@ namespace cryptonote
     if(!found)
       return true;
 
-    bool result = checkpoint.block_hash == h;
-    if (result) MINFO   ("CHECKPOINT PASSED FOR HEIGHT " << height << " " << h);
-    else        MWARNING("CHECKPOINT FAILED FOR HEIGHT " << height << ". EXPECTED HASH " << checkpoint.block_hash << "FETCHED HASH: " << h);
+    bool result = checkpoint.check(h);
     return result;
   }
   //---------------------------------------------------------------------------

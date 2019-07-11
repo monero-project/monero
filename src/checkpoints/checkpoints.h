@@ -61,6 +61,7 @@ namespace cryptonote
     std::vector<service_nodes::voter_to_signature> signatures; // Only service node checkpoints use signatures
     uint64_t                                       prev_height;
 
+    bool               check         (crypto::hash const &block_hash) const;
     static char const *type_to_string(checkpoint_type type)
     {
       switch(type)

@@ -667,9 +667,9 @@ namespace cryptonote
       * its checkpoints if it is time.  If updating checkpoints fails,
       * the daemon is told to shut down.
       *
-      * @note see Blockchain::update_checkpoints()
+      * @note see Blockchain::update_checkpoints_from_json_file()
       */
-     bool update_checkpoints();
+     bool update_checkpoints_from_json_file();
 
      /**
       * @brief tells the daemon to wind down operations and stop running
