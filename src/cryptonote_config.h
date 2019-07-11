@@ -178,6 +178,7 @@ static_assert(STAKING_PORTIONS % 3 == 0, "Use a multiple of three, so that it di
 #define HF_VERSION_SMALLER_BP                   cryptonote::network_version_11_infinite_staking
 #define HF_VERSION_LONG_TERM_BLOCK_WEIGHT       cryptonote::network_version_11_infinite_staking
 #define HF_VERSION_INCREASE_FEE                 cryptonote::network_version_12_checkpointing
+#define HF_VERSION_12_CHECKPOINTING_SOFT_FORK_HEIGHT ((uint64_t)(-1))
 
 #define PER_KB_FEE_QUANTIZATION_DECIMALS        8
 
@@ -274,8 +275,8 @@ namespace cryptonote
     network_version_8,
     network_version_9_service_nodes, // Proof Of Stake w/ Service Nodes
     network_version_10_bulletproofs, // Bulletproofs, Service Node Grace Registration Period, Batched Governance
-    network_version_11_infinite_staking,
-    network_version_12_checkpointing,
+    network_version_11_infinite_staking, // Infinite Staking, CN-Turtle
+    network_version_12_checkpointing, // Checkpointing, Relaxed Deregistration, RandomXL, Loki Storage Server
 
     network_version_count,
   };

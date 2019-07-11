@@ -174,6 +174,32 @@ namespace cryptonote
         block.major_version < network_version_12_checkpointing)
       return;
 
+    if (m_nettype == MAINNET && height == HF_VERSION_12_CHECKPOINTING_SOFT_FORK_HEIGHT)
+    {
+      uint64_t start_height = 0;
+      get_newest_hardcoded_checkpoint(m_nettype, &start_height);
+      start_height += 1; // Don't start deleting from the hardcoded height
+
+      if ((start_height % service_nodes::CHECKPOINT_INTERVAL) > 0)
+        start_height += (service_nodes::CHECKPOINT_INTERVAL - (start_height % service_nodes::CHECKPOINT_INTERVAL));
+
+      for (uint64_t delete_height = start_height;
+           delete_height <= height;
+           delete_height += service_nodes::CHECKPOINT_INTERVAL)
+      {
+        try
+        {
+          m_db->remove_block_checkpoint(delete_height);
+        }
+        catch (const std::exception &e)
+        {
+          MERROR(
+              "Deleting historical checkpoints on mainnet soft-fork to checkpointing failed non-trivially at height: "
+              << delete_height << ", what = " << e.what());
+        }
+      }
+    }
+
     uint64_t const end_cull_height = height - service_nodes::CHECKPOINT_STORE_PERSISTENTLY_INTERVAL;
     uint64_t start_cull_height     = (end_cull_height < service_nodes::CHECKPOINT_STORE_PERSISTENTLY_INTERVAL)
                                      ? 0
@@ -235,7 +261,7 @@ namespace cryptonote
     return height <= top_checkpoint_height;
   }
   //---------------------------------------------------------------------------
-  bool checkpoints::check_block(uint64_t height, const crypto::hash& h, bool* is_a_checkpoint) const
+  bool checkpoints::check_block(uint64_t height, const crypto::hash& h, bool* is_a_checkpoint, bool *rejected_by_service_node) const
   {
     checkpoint_t checkpoint;
     bool found = get_checkpoint_from_db_safe(m_db, height, checkpoint);
@@ -245,10 +271,13 @@ namespace cryptonote
       return true;
 
     bool result = checkpoint.check(h);
+    if (rejected_by_service_node)
+      *rejected_by_service_node = checkpoint.type == checkpoint_type::service_node && result;
+
     return result;
   }
   //---------------------------------------------------------------------------
-  bool checkpoints::is_alternative_block_allowed(uint64_t blockchain_height, uint64_t block_height)
+  bool checkpoints::is_alternative_block_allowed(uint64_t blockchain_height, uint64_t block_height, bool *rejected_by_service_node)
   {
     if (0 == block_height)
       return false;
@@ -285,6 +314,14 @@ namespace cryptonote
 
     m_oldest_allowable_alternative_block = std::max(sentinel_reorg_height, m_oldest_allowable_alternative_block);
     bool result                          = block_height > m_oldest_allowable_alternative_block;
+
+    if (rejected_by_service_node)
+    {
+      *rejected_by_service_node = !result &&
+                                  (checkpoints[0].type == checkpoint_type::service_node) &&
+                                  (checkpoints.size() == num_desired_checkpoints);
+    }
+
     return result;
   }
   //---------------------------------------------------------------------------
@@ -300,8 +337,9 @@ namespace cryptonote
   //---------------------------------------------------------------------------
   bool checkpoints::init(network_type nettype, struct BlockchainDB *db)
   {
-    *this = {};
-    m_db = db;
+    *this     = {};
+    m_db      = db;
+    m_nettype = nettype;
 
 #if !defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
     if (nettype == MAINNET)

@@ -1601,6 +1601,17 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
   bool core::add_new_block(const block& b, block_verification_context& bvc, checkpoint_t const *checkpoint)
   {
+    // TODO(loki): Temporary soft-fork code can be removed
+    uint64_t latest_height = std::max(get_current_blockchain_height(), get_target_blockchain_height());
+    if (get_nettype() == cryptonote::MAINNET &&
+        latest_height >= HF_VERSION_12_CHECKPOINTING_SOFT_FORK_HEIGHT &&
+        get_block_height(b) < HF_VERSION_12_CHECKPOINTING_SOFT_FORK_HEIGHT)
+    {
+      // NOTE: After the soft fork, ignore all checkpoints from before the fork so we
+      // only create and enforce checkpoints from after the soft-fork.
+      checkpoint = nullptr;
+    }
+
     bool result = m_blockchain_storage.add_new_block(b, bvc, checkpoint);
     if (result)
     {
