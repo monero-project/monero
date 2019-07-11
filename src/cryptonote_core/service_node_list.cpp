@@ -1838,7 +1838,10 @@ namespace service_nodes
       m_transient_state.quorum_states[states.height].obligations = std::make_shared<testing_quorum>(obligations);
 
       testing_quorum const &checkpointing = states.quorums[static_cast<uint8_t>(quorum_type::checkpointing)];
-      m_transient_state.quorum_states[states.height].checkpointing = std::make_shared<testing_quorum>(checkpointing);
+      // Don't load any checkpoints that shouldn't exist (see the comment in generate_quorums as to
+      // why the `+BUFFER` term is here).
+      if ((states.height + REORG_SAFETY_BUFFER_BLOCKS_POST_HF12) % CHECKPOINT_INTERVAL == 0)
+          m_transient_state.quorum_states[states.height].checkpointing = std::make_shared<testing_quorum>(checkpointing);
     }
 
     for (const auto& info : data_in.infos)
