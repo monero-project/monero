@@ -1458,7 +1458,7 @@ namespace service_nodes
         size_t total_nodes = active_snode_list.size();
 
         // TODO(loki): Soft fork, remove when testnet gets reset
-        if (m_blockchain.nettype() == cryptonote::TESTNET && height < 83429)
+        if (m_blockchain.nettype() == cryptonote::TESTNET && height < 85357)
           total_nodes = active_snode_list.size() + decomm_snode_list.size();
 
         pub_keys_indexes      = generate_shuffled_service_node_index_list(total_nodes, block_hash, type);
