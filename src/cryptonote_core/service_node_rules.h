@@ -61,9 +61,10 @@ namespace service_nodes {
   static_assert(CHECKPOINT_MIN_VOTES <= CHECKPOINT_QUORUM_SIZE, "The number of votes required to kick can't exceed the actual quorum size, otherwise we never kick.");
 
   // NOTE: We can reorg up to last 2 checkpoints + the number of extra blocks before the next checkpoint is set
-  constexpr uint64_t  MAX_REORG_BLOCKS_POST_HF12    = (CHECKPOINT_INTERVAL * 2) + (CHECKPOINT_INTERVAL - 1);
-  constexpr uint64_t  REORG_SAFETY_BUFFER_IN_BLOCKS = 20;
-  static_assert(REORG_SAFETY_BUFFER_IN_BLOCKS < VOTE_LIFETIME, "Safety buffer should always be less than the vote lifetime");
+  constexpr uint64_t  REORG_SAFETY_BUFFER_BLOCKS_POST_HF12 = (CHECKPOINT_INTERVAL * 2) + (CHECKPOINT_INTERVAL - 1);
+  constexpr uint64_t  REORG_SAFETY_BUFFER_BLOCKS_PRE_HF12  = 20;
+  static_assert(REORG_SAFETY_BUFFER_BLOCKS_POST_HF12 < VOTE_LIFETIME, "Safety buffer should always be less than the vote lifetime");
+  static_assert(REORG_SAFETY_BUFFER_BLOCKS_PRE_HF12  < VOTE_LIFETIME, "Safety buffer should always be less than the vote lifetime");
 
   constexpr uint64_t  IP_CHANGE_WINDOW_IN_SECONDS     = 24*60*60; // How far back an obligations quorum looks for multiple IPs (unless the following buffer is more recent)
   constexpr uint64_t  IP_CHANGE_BUFFER_IN_SECONDS     = 2*60*60; // After we bump a SN for an IP change we don't bump again for changes within this time period

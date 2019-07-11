@@ -178,10 +178,12 @@ namespace cryptonote
     uint64_t start_cull_height     = (end_cull_height < service_nodes::CHECKPOINT_STORE_PERSISTENTLY_INTERVAL)
                                      ? 0
                                      : end_cull_height - service_nodes::CHECKPOINT_STORE_PERSISTENTLY_INTERVAL;
-    start_cull_height += (start_cull_height % service_nodes::CHECKPOINT_INTERVAL);
-    m_last_cull_height = std::max(m_last_cull_height, start_cull_height);
 
-    auto guard = db_wtxn_guard(m_db);
+    if ((start_cull_height % service_nodes::CHECKPOINT_INTERVAL) > 0)
+      start_cull_height += (service_nodes::CHECKPOINT_INTERVAL - (start_cull_height % service_nodes::CHECKPOINT_INTERVAL));
+
+    m_last_cull_height = std::max(m_last_cull_height, start_cull_height);
+    auto guard         = db_wtxn_guard(m_db);
     for (; m_last_cull_height < end_cull_height; m_last_cull_height += service_nodes::CHECKPOINT_INTERVAL)
     {
       if (m_last_cull_height % service_nodes::CHECKPOINT_STORE_PERSISTENTLY_INTERVAL == 0)
