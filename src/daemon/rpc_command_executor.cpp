@@ -279,10 +279,11 @@ bool t_rpc_command_executor::print_checkpoints(uint64_t start_height, uint64_t e
   for (size_t i = 0; i < res.checkpoints.size(); i++)
   {
     cryptonote::checkpoint_t &checkpoint = res.checkpoints[i];
-    entry.clear();
     if (print_json)
     {
-      tools::success_msg_writer() << "{\n" << obj_to_json_str(checkpoint) << "\n}\n";
+      entry.append("{\n");
+      entry.append(obj_to_json_str(checkpoint));
+      entry.append("\n}\n");
     }
     else
     {
@@ -298,10 +299,16 @@ bool t_rpc_command_executor::print_checkpoints(uint64_t start_height, uint64_t e
 
       entry.append(" Hash: ");
       entry.append(epee::string_tools::pod_to_hex(checkpoint.block_hash));
-      tools::success_msg_writer() << entry;
+      entry.append("\n");
     }
   }
 
+  if (entry.empty())
+  {
+    if (print_json) entry.append("{\n}\n");
+    else            entry.append("No Checkpoints");
+  }
+  tools::success_msg_writer() << entry;
   return true;
 }
 
