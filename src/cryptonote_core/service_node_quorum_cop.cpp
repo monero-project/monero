@@ -361,7 +361,7 @@ namespace service_nodes
             if (!quorum)
             {
               // TODO(loki): Fatal error
-              LOG_ERROR("Checkpoint quorum for height: " << m_last_checkpointed_height << " was not cached in daemon!");
+              LOG_ERROR("Checkpoint quorum for height: " << (m_last_checkpointed_height - REORG_SAFETY_BUFFER_BLOCKS) << " was not cached in daemon!");
               continue;
             }
 

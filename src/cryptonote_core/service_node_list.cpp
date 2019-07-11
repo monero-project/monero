@@ -1457,6 +1457,14 @@ namespace service_nodes
       }
       else if (type == quorum_type::checkpointing)
       {
+        // Checkpoint quorums only exist every CHECKPOINT_INTERVAL blocks, but the height that gets
+        // used to generate the quorum (i.e. the `height` variable here) is actually `H -
+        // REORG_SAFETY_BUFFER_BLOCKS_POST_HF12`, where H is divisible by CHECKPOINT_INTERVAL, but
+        // REORG_SAFETY_BUFFER_BLOCKS_POST_HF12 is not (it equals 11).  Hence the addition here to
+        // "undo" the lag before checking to see if we're on an interval multiple:
+        if ((height + REORG_SAFETY_BUFFER_BLOCKS_POST_HF12) % CHECKPOINT_INTERVAL != 0)
+          continue; // Not on an interval multiple: no checkpointing quorum is defined.
+
         size_t total_nodes = active_snode_list.size();
 
         // TODO(loki): Soft fork, remove when testnet gets reset
