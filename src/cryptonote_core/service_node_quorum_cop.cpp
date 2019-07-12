@@ -431,7 +431,7 @@ namespace service_nodes
       if (vote.block_height < REORG_SAFETY_BUFFER_BLOCKS_POST_HF12)
       {
         vvc.m_invalid_block_height = true;
-        LOG_ERROR("Quorum state for height: " << vote.block_height << " was not cached in daemon!");
+        LOG_ERROR("Invalid vote height: " << vote.block_height << " would overflow after offsetting height to quorum");
         return false;
       }
 
