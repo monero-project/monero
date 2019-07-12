@@ -406,7 +406,6 @@ namespace service_nodes
         info.decommission_count++;
 
         info.proof.timestamp = 0;
-        info.proof.votes.fill(true);
         return true;
 
       case new_state::recommission:
@@ -430,6 +429,7 @@ namespace service_nodes
         info.active_since_height = block_height;
 
         // Move the SN at the back of the list as if it had just registered (or just won)
+        info.proof.votes.fill(true);
         info.last_reward_block_height = block_height;
         info.last_reward_transaction_index = std::numeric_limits<uint32_t>::max();
         return true;
