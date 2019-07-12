@@ -414,6 +414,7 @@ namespace service_nodes
 
   bool quorum_cop::handle_vote(quorum_vote_t const &vote, cryptonote::vote_verification_context &vvc)
   {
+    vvc                  = {};
     uint64_t curr_height = m_core.get_blockchain_storage().get_current_blockchain_height();
     if (m_core.get_nettype() == cryptonote::MAINNET &&
         curr_height >= HF_VERSION_12_CHECKPOINTING_SOFT_FORK_HEIGHT &&
@@ -424,12 +425,25 @@ namespace service_nodes
       return true;
     }
 
-    vvc = {};
-    std::shared_ptr<const testing_quorum> quorum = m_core.get_testing_quorum(vote.type, vote.block_height);
+    uint64_t quorum_height = vote.block_height;
+    if (vote.type == quorum_type::checkpointing)
+    {
+      if (vote.block_height < REORG_SAFETY_BUFFER_BLOCKS_POST_HF12)
+      {
+        vvc.m_invalid_block_height = true;
+        LOG_ERROR("Invalid vote height: " << vote.block_height << " would overflow after offsetting height to quorum");
+        return false;
+      }
+
+      quorum_height = vote.block_height - REORG_SAFETY_BUFFER_BLOCKS_POST_HF12;
+    }
+
+    std::shared_ptr<const testing_quorum> quorum = m_core.get_testing_quorum(vote.type, quorum_height);
     if (!quorum)
     {
       // TODO(loki): Fatal error
-      LOG_ERROR("Quorum state for height: " << vote.block_height << " was not cached in daemon!");
+      vvc.m_invalid_block_height = true;
+      LOG_ERROR("Quorum state for height: " << quorum_height << " was not cached in daemon!");
       return false;
     }
 
