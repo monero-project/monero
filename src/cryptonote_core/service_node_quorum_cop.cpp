@@ -133,7 +133,7 @@ namespace service_nodes
     {
       LOG_ERROR("The blockchain was detached to height: " << height << ", but quorum cop has already processed votes for checkpointing up to " << m_last_checkpointed_height);
       LOG_ERROR("This implies a reorg occured that was over " << REORG_SAFETY_BUFFER_BLOCKS << ". This should rarely happen! Please report this to the devs.");
-      m_last_checkpointed_height = height;
+      m_last_checkpointed_height = height - (height % CHECKPOINT_INTERVAL);
     }
 
     m_vote_pool.remove_expired_votes(height);
@@ -225,7 +225,7 @@ namespace service_nodes
                 for (size_t index_in_quorum = 0; index_in_quorum < quorum->workers.size(); index_in_quorum++)
                 {
                   crypto::public_key const &key = quorum->workers[index_in_quorum];
-                  m_core.record_checkpoint_vote(key, m_vote_pool.received_checkpoint_vote(height, index_in_quorum));
+                  m_core.record_checkpoint_vote(key, m_vote_pool.received_checkpoint_vote(m_obligations_height, index_in_quorum));
                 }
               }
             }
@@ -361,7 +361,7 @@ namespace service_nodes
             if (!quorum)
             {
               // TODO(loki): Fatal error
-              LOG_ERROR("Checkpoint quorum for height: " << m_last_checkpointed_height << " was not cached in daemon!");
+              LOG_ERROR("Checkpoint quorum for height: " << (m_last_checkpointed_height - REORG_SAFETY_BUFFER_BLOCKS) << " was not cached in daemon!");
               continue;
             }
 

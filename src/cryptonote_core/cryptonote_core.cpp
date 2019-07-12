@@ -1432,7 +1432,7 @@ namespace cryptonote
   {
     std::vector<service_nodes::quorum_vote_t> relayable_votes = m_quorum_cop.get_relayable_votes(get_current_blockchain_height());
     uint8_t hf_version = get_blockchain_storage().get_current_hard_fork_version();
-    if (hf_version < cryptonote::network_version_11_infinite_staking)
+    if (hf_version < cryptonote::network_version_12_checkpointing)
     {
       NOTIFY_NEW_DEREGISTER_VOTE::request req = {};
       for (service_nodes::quorum_vote_t const &vote : relayable_votes)

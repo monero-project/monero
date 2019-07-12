@@ -1457,6 +1457,14 @@ namespace service_nodes
       }
       else if (type == quorum_type::checkpointing)
       {
+        // Checkpoint quorums only exist every CHECKPOINT_INTERVAL blocks, but the height that gets
+        // used to generate the quorum (i.e. the `height` variable here) is actually `H -
+        // REORG_SAFETY_BUFFER_BLOCKS_POST_HF12`, where H is divisible by CHECKPOINT_INTERVAL, but
+        // REORG_SAFETY_BUFFER_BLOCKS_POST_HF12 is not (it equals 11).  Hence the addition here to
+        // "undo" the lag before checking to see if we're on an interval multiple:
+        if ((height + REORG_SAFETY_BUFFER_BLOCKS_POST_HF12) % CHECKPOINT_INTERVAL != 0)
+          continue; // Not on an interval multiple: no checkpointing quorum is defined.
+
         size_t total_nodes = active_snode_list.size();
 
         // TODO(loki): Soft fork, remove when testnet gets reset
@@ -1830,7 +1838,10 @@ namespace service_nodes
       m_transient_state.quorum_states[states.height].obligations = std::make_shared<testing_quorum>(obligations);
 
       testing_quorum const &checkpointing = states.quorums[static_cast<uint8_t>(quorum_type::checkpointing)];
-      m_transient_state.quorum_states[states.height].checkpointing = std::make_shared<testing_quorum>(checkpointing);
+      // Don't load any checkpoints that shouldn't exist (see the comment in generate_quorums as to
+      // why the `+BUFFER` term is here).
+      if ((states.height + REORG_SAFETY_BUFFER_BLOCKS_POST_HF12) % CHECKPOINT_INTERVAL == 0)
+          m_transient_state.quorum_states[states.height].checkpointing = std::make_shared<testing_quorum>(checkpointing);
     }
 
     for (const auto& info : data_in.infos)
