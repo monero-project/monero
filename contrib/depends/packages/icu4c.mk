@@ -21,11 +21,6 @@ define $(package)_config_cmds
   $(MAKE) $($(package)_build_opts)
 endef
 
-#define $(package)_build_cmds
-#  cd source &&\
-   $(MAKE) $($((package)_build_opts) `nproc`
-#endef
-
 define $(package)_stage_cmds
   cd buildb &&\
   $(MAKE) $($(package)_build_opts) DESTDIR=$($(package)_staging_dir) install lib/*
