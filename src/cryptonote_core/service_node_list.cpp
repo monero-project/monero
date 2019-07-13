@@ -139,6 +139,12 @@ namespace service_nodes
 
   std::shared_ptr<const testing_quorum> service_node_list::get_testing_quorum(quorum_type type, uint64_t height) const
   {
+    if (type == quorum_type::checkpointing) {
+        if (height < REORG_SAFETY_BUFFER_BLOCKS_POST_HF12)
+            return nullptr;
+        height -= REORG_SAFETY_BUFFER_BLOCKS_POST_HF12;
+    }
+
     std::lock_guard<boost::recursive_mutex> lock(m_sn_mutex);
     const auto &it = m_transient_state.quorum_states.find(height);
     if (it != m_transient_state.quorum_states.end())
