@@ -220,7 +220,7 @@ namespace service_nodes
             // service nodes have fulfilled their checkpointing work
             if (m_core.get_hard_fork_version(m_obligations_height) >= cryptonote::network_version_12_checkpointing)
             {
-              if (std::shared_ptr<const testing_quorum> quorum = m_core.get_testing_quorum(quorum_type::checkpointing, m_obligations_height))
+              if (std::shared_ptr<const testing_quorum> quorum = m_core.get_testing_quorum(quorum_type::checkpointing, m_obligations_height - REORG_SAFETY_BUFFER_BLOCKS_POST_HF12))
               {
                 for (size_t index_in_quorum = 0; index_in_quorum < quorum->workers.size(); index_in_quorum++)
                 {
