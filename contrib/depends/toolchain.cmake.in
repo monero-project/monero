@@ -21,6 +21,8 @@ SET(ENV{PKG_CONFIG_PATH} @prefix@/lib/pkgconfig)
 SET(LRELEASE_PATH @prefix@/native/bin CACHE FILEPATH "path to lrelease" FORCE)
 
 SET(Readline_ROOT_DIR @prefix@)
+SET(Readline_INCLUDE_DIR @prefix@/include)
+SET(Termcap_LIBRARY @prefix@/lib/libncurses.a)
 
 SET(LIBUNWIND_INCLUDE_DIR @prefix@/include)
 SET(LIBUNWIND_LIBRARIES @prefix@/lib/libunwind.a)

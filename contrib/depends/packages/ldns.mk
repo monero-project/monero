@@ -6,8 +6,8 @@ $(package)_sha256_hash=8b88e059452118e8949a2752a55ce59bc71fa5bc414103e17f5b6b06f
 $(package)_dependencies=openssl
 
 define $(package)_set_vars
-  $(package)_config_opts=--disable-shared --enable-static --disable-dane-ta-usage --with-drill 
-  $(package)_config_opts=--with-ssl=$(host_prefix) 
+  $(package)_config_opts=--disable-shared --enable-static --with-drill
+  $(package)_config_opts+=--with-ssl=$(host_prefix)
   $(package)_config_opts_release=--disable-debug-mode
   $(package)_config_opts_linux=--with-pic
 endef
@@ -25,4 +25,6 @@ define $(package)_stage_cmds
 endef
 
 define $(package)_postprocess_cmds
+  rm lib/*.la
 endef
+
