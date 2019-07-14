@@ -129,7 +129,7 @@ namespace service_nodes
       m_obligations_height = height;
     }
 
-    if (m_last_checkpointed_height >= height)
+    if (m_last_checkpointed_height >= height + REORG_SAFETY_BUFFER_BLOCKS)
     {
       LOG_ERROR("The blockchain was detached to height: " << height << ", but quorum cop has already processed votes for checkpointing up to " << m_last_checkpointed_height);
       LOG_ERROR("This implies a reorg occured that was over " << REORG_SAFETY_BUFFER_BLOCKS << ". This should rarely happen! Please report this to the devs.");
@@ -357,7 +357,7 @@ namespace service_nodes
               continue;
 
             const std::shared_ptr<const testing_quorum> quorum =
-                m_core.get_testing_quorum(quorum_type::checkpointing, m_last_checkpointed_height - REORG_SAFETY_BUFFER_BLOCKS);
+                m_core.get_testing_quorum(quorum_type::checkpointing, m_last_checkpointed_height);
             if (!quorum)
             {
               // TODO(loki): Fatal error
@@ -425,25 +425,12 @@ namespace service_nodes
       return true;
     }
 
-    uint64_t quorum_height = vote.block_height;
-    if (vote.type == quorum_type::checkpointing)
-    {
-      if (vote.block_height < REORG_SAFETY_BUFFER_BLOCKS_POST_HF12)
-      {
-        vvc.m_invalid_block_height = true;
-        LOG_ERROR("Invalid vote height: " << vote.block_height << " would overflow after offsetting height to quorum");
-        return false;
-      }
-
-      quorum_height = vote.block_height - REORG_SAFETY_BUFFER_BLOCKS_POST_HF12;
-    }
-
-    std::shared_ptr<const testing_quorum> quorum = m_core.get_testing_quorum(vote.type, quorum_height);
+    std::shared_ptr<const testing_quorum> quorum = m_core.get_testing_quorum(vote.type, vote.block_height);
     if (!quorum)
     {
       // TODO(loki): Fatal error
       vvc.m_invalid_block_height = true;
-      LOG_ERROR("Quorum state for height: " << quorum_height << " was not cached in daemon!");
+      LOG_ERROR("Quorum state for vote height " << vote.block_height << " was not cached in daemon!");
       return false;
     }
 

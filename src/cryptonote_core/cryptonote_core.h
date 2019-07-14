@@ -778,8 +778,9 @@ namespace cryptonote
       * @brief Get the deterministic quorum of service node's public keys responsible for the specified quorum type
       *
       * @param type The quorum type to retrieve
-      * @param height Block height to deterministically recreate the quorum list from
-      * @return Null shared ptr if quorum has not been determined yet for height
+      * @param height Block height to deterministically recreate the quorum list from (note that for
+      * a checkpointing quorum this value is automatically reduced by the correct buffer size).
+      * @return Null shared ptr if quorum has not been determined yet or is not defined for height
       */
      std::shared_ptr<const service_nodes::testing_quorum> get_testing_quorum(service_nodes::quorum_type type, uint64_t height) const;
 

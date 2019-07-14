@@ -208,8 +208,11 @@ namespace service_nodes
     bool is_key_image_locked(crypto::key_image const &check_image, uint64_t *unlock_height = nullptr, service_node_info::contribution_t *the_locked_contribution = nullptr) const;
 
     /// Note(maxim): this should not affect thread-safety as the returned object is const
-    // For checkpointing, quorums are only generated when: ((height + REORG_SAFETY_BUFFER_BLOCKS_POST_HF12) % CHECKPOINT_INTERVAL == 0)
-    // return: nullptr if the quorum is not cached in memory (pruned from memory).
+    ///
+    /// For checkpointing, quorums are only generated when height % CHECKPOINT_INTERVAL == 0 (and
+    /// the actual internal quorum used is for `height - REORG_SAFETY_BUFFER_BLOCKS_POST_HF12`, i.e.
+    /// do no subtract off the buffer in advance)
+    /// return: nullptr if the quorum is not cached in memory (pruned from memory).
     std::shared_ptr<const testing_quorum> get_testing_quorum(quorum_type type, uint64_t height) const;
     bool                                  get_quorum_pubkey(quorum_type type, quorum_group group, uint64_t height, size_t quorum_index, crypto::public_key &key) const;
 
