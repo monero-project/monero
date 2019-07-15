@@ -217,7 +217,7 @@ namespace service_nodes
     bool                                  get_quorum_pubkey(quorum_type type, quorum_group group, uint64_t height, size_t quorum_index, crypto::public_key &key) const;
 
     std::vector<service_node_pubkey_info> get_service_node_list_state(const std::vector<crypto::public_key> &service_node_pubkeys) const;
-    const std::vector<key_image_blacklist_entry> &get_blacklisted_key_images() const { return m_transient_state.key_image_blacklist; }
+    const std::vector<key_image_blacklist_entry> &get_blacklisted_key_images() const { return m_state.key_image_blacklist; }
 
     void set_db_pointer(cryptonote::BlockchainDB* db);
     void set_my_service_node_keys(crypto::public_key const *pub_key);
@@ -231,6 +231,7 @@ namespace service_nodes
     bool handle_uptime_proof        (cryptonote::NOTIFY_UPTIME_PROOF::request const &proof);
     void record_checkpoint_vote     (crypto::public_key const &pubkey, bool voted);
 
+    // TODO(loki): Remove rollback code once a majority of the network has upgraded, i.e. HF13
     struct rollback_event
     {
       enum rollback_type
@@ -333,7 +334,7 @@ namespace service_nodes
       END_SERIALIZE()
     };
 
-    struct data_members_for_serialization
+    struct old_data_members_for_serialization
     {
       uint8_t version;
       uint64_t height;
@@ -350,6 +351,45 @@ namespace service_nodes
         FIELD(height)
         FIELD(key_image_blacklist)
       END_SERIALIZE()
+    };
+
+    struct state_serialized
+    {
+      uint64_t height;
+      std::vector<service_node_pubkey_info> infos;
+      std::vector<key_image_blacklist_entry> key_image_blacklist;
+
+      BEGIN_SERIALIZE()
+        FIELD(height)
+        FIELD(infos)
+        FIELD(key_image_blacklist)
+      END_SERIALIZE()
+    };
+
+    struct data_for_serialization
+    {
+      uint8_t version;
+      std::vector<quorum_for_serialization> quorum_states;
+      std::vector<state_serialized>         states;
+      BEGIN_SERIALIZE()
+        VARINT_FIELD(version)
+        FIELD(quorum_states)
+        FIELD(states)
+      END_SERIALIZE()
+    };
+
+    using block_height = uint64_t;
+    struct state_t
+    {
+      service_nodes_infos_t                  service_nodes_infos;
+      std::vector<key_image_blacklist_entry> key_image_blacklist;
+      block_height                           height;
+
+      // Returns a filtered, pubkey-sorted vector of service nodes that are active (fully funded and
+      // *not* decommissioned).
+      std::vector<pubkey_and_sninfo> active_service_nodes_infos() const;
+      // Similar to the above, but returns all nodes that are fully funded *and* decommissioned.
+      std::vector<pubkey_and_sninfo> decommissioned_service_nodes_infos() const;
     };
 
   private:
@@ -370,7 +410,7 @@ namespace service_nodes
     bool is_registration_tx(const cryptonote::transaction& tx, uint64_t block_timestamp, uint64_t block_height, uint32_t index, crypto::public_key& key, service_node_info& info) const;
     std::vector<crypto::public_key> update_and_get_expired_nodes(const std::vector<cryptonote::transaction> &txs, uint64_t block_height);
 
-    void clear(bool delete_db_entry = false);
+    void reset(bool delete_db_entry = false);
     bool load(uint64_t current_height);
 
     mutable boost::recursive_mutex m_sn_mutex;
@@ -379,31 +419,10 @@ namespace service_nodes
     cryptonote::BlockchainDB      *m_db;
     uint64_t                       m_store_quorum_history;
 
-    using block_height = uint64_t;
-    struct transient_state
-    {
-      service_nodes_infos_t                                       service_nodes_infos;
-      std::vector<key_image_blacklist_entry>                      key_image_blacklist;
-      std::map<block_height, quorum_manager>                      quorum_states;
-      std::list<std::unique_ptr<rollback_event>>                  rollback_events;
-      block_height                                                height;
-
-      // Store all old quorum history only if run with --store-full-quorum-history
-      decltype(quorum_states) old_quorum_states;
-
-      // Returns a filtered, pubkey-sorted vector of service nodes that are active (fully funded and
-      // *not* decommissioned).
-      std::vector<pubkey_and_sninfo> active_service_nodes_infos() const;
-      // Similar to the above, but returns all nodes that are fully funded *and* decommissioned.
-      std::vector<pubkey_and_sninfo> decommissioned_service_nodes_infos() const;
-    };
-    transient_state m_transient_state;
-
-    template <typename T>
-    void load_transient(const rollback_event_variant &event)
-    {
-      m_transient_state.rollback_events.emplace_back(new T(boost::get<T>(event)));
-    }
+    std::map<block_height, quorum_manager> m_quorum_states;
+    decltype(m_quorum_states)              m_old_quorum_states; // Store all old quorum history only if run with --store-full-quorum-history
+    std::deque<state_t>                    m_state_history;
+    state_t                                m_state;
   };
 
   bool reg_tx_extract_fields(const cryptonote::transaction& tx, std::vector<cryptonote::account_public_address>& addresses, uint64_t& portions_for_operator, std::vector<uint64_t>& portions, uint64_t& expiration_timestamp, crypto::public_key& service_node_key, crypto::signature& signature, crypto::public_key& tx_pub_key);
@@ -436,7 +455,7 @@ namespace service_nodes
     {std::pair<cryptonote::account_public_address, uint64_t>({null_address, STAKING_PORTIONS})};
 }
 
-VARIANT_TAG(binary_archive, service_nodes::service_node_list::data_members_for_serialization, 0xa0);
+VARIANT_TAG(binary_archive, service_nodes::service_node_list::old_data_members_for_serialization, 0xa0);
 VARIANT_TAG(binary_archive, service_nodes::service_node_list::rollback_change, 0xa1);
 VARIANT_TAG(binary_archive, service_nodes::service_node_list::rollback_new, 0xa2);
 VARIANT_TAG(binary_archive, service_nodes::service_node_list::prevent_rollback, 0xa3);
