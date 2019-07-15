@@ -1243,6 +1243,21 @@ namespace cryptonote
       cryptonote::blobdata txblob = m_blockchain.get_txpool_tx_blob(sorted_it->second);
       cryptonote::transaction tx;
 
+      // Skip transactions that are not ready to be
+      // included into the blockchain or that are
+      // missing key images
+      const cryptonote::txpool_tx_meta_t original_meta = meta;
+      bool ready = false;
+      try
+      {
+        ready = is_transaction_ready_to_go(meta, sorted_it->second, txblob, tx);
+      }
+      catch (const std::exception &e)
+      {
+        MERROR("Failed to check transaction readiness: " << e.what());
+        // continue, not fatal
+      }
+
       bool is_nofake_tx = false;
       bool can_nofake_tx_be_simply_added = false;
       bool can_nofake_tx_replace_existing_tx = false;
@@ -1359,20 +1374,6 @@ namespace cryptonote
         }
       }
 
-      // Skip transactions that are not ready to be
-      // included into the blockchain or that are
-      // missing key images
-      const cryptonote::txpool_tx_meta_t original_meta = meta;
-      bool ready = false;
-      try
-      {
-        ready = is_transaction_ready_to_go(meta, sorted_it->second, txblob, tx);
-      }
-      catch (const std::exception &e)
-      {
-        MERROR("Failed to check transaction readiness: " << e.what());
-        // continue, not fatal
-      }
       if (memcmp(&original_meta, &meta, sizeof(meta)))
       {
         try
