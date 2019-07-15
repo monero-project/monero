@@ -3132,4 +3132,49 @@ namespace cryptonote
     };
     typedef epee::misc_utils::struct_init<response_t> response;
   };
+
+  LOKI_RPC_DOC_INTROSPECT
+  // Query hardcoded/service node checkpoints stored for the blockchain. Omit all arguments to retrieve the latest "count" checkpoints.
+  struct COMMAND_RPC_GET_SN_STATE_CHANGES
+  {
+    constexpr static uint32_t NUM_BLOCKS_TO_SCAN_BY_DEFAULT = 720;
+    constexpr static uint64_t HEIGHT_SENTINEL_VALUE         = (UINT64_MAX - 1);
+    struct request_t
+    {
+      uint64_t start_height;
+      uint64_t end_height;   // Optional: If omitted, the tally runs until the current block
+
+      BEGIN_KV_SERIALIZE_MAP()
+      KV_SERIALIZE(start_height)
+      KV_SERIALIZE_OPT(end_height, HEIGHT_SENTINEL_VALUE)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<request_t> request;
+
+    struct response_t
+    {
+      std::string status;                    // Generic RPC error code. "OK" is the success value.
+      bool untrusted;                        // If the result is obtained using bootstrap mode, and therefore not trusted `true`, or otherwise `false`.
+
+      uint32_t total_deregister;
+      uint32_t total_ip_change_penalty;
+      uint32_t total_decommission;
+      uint32_t total_recommission;
+      uint32_t total_unlock;
+      uint64_t start_height;
+      uint64_t end_height;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+        KV_SERIALIZE(untrusted)
+        KV_SERIALIZE(total_deregister)
+        KV_SERIALIZE(total_ip_change_penalty)
+        KV_SERIALIZE(total_decommission)
+        KV_SERIALIZE(total_recommission)
+        KV_SERIALIZE(start_height)
+        KV_SERIALIZE(end_height)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<response_t> response;
+  };
 }

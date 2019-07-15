@@ -312,6 +312,42 @@ bool t_rpc_command_executor::print_checkpoints(uint64_t start_height, uint64_t e
   return true;
 }
 
+bool t_rpc_command_executor::print_sn_state_changes(uint64_t start_height, uint64_t end_height)
+{
+  cryptonote::COMMAND_RPC_GET_SN_STATE_CHANGES::request  req;
+  cryptonote::COMMAND_RPC_GET_SN_STATE_CHANGES::response res;
+  epee::json_rpc::error error_resp;
+
+  req.start_height = start_height;
+  req.end_height   = end_height;
+
+  if (m_is_rpc)
+  {
+    if (!m_rpc_client->json_rpc_request(req, res, "get_service_nodes_state_changes", "Failed to query service nodes state changes"))
+      return false;
+  }
+  else
+  {
+    if (!m_rpc_server->on_get_service_nodes_state_changes(req, res, error_resp) || res.status != CORE_RPC_STATUS_OK)
+    {
+      tools::fail_msg_writer() << "Failed to query sn state changes";
+      return false;
+    }
+  }
+
+  std::stringstream output;
+
+  output << "Service Node State Changes (blocks " << res.start_height << "-" << res.end_height << ")" << std::endl;
+  output << " Recommissions:\t\t" << res.total_recommission << std::endl;
+  output << " Unlocks:\t\t" << res.total_unlock << std::endl;
+  output << " Decommissions:\t\t" << res.total_decommission << std::endl;
+  output << " Deregistrations:\t" << res.total_deregister << std::endl;
+  output << " IP change penalties:\t" << res.total_ip_change_penalty << std::endl;
+
+  tools::success_msg_writer() << output.str();
+  return true;
+}
+
 bool t_rpc_command_executor::print_peer_list(bool white, bool gray, size_t limit) {
   cryptonote::COMMAND_RPC_GET_PEER_LIST::request req;
   cryptonote::COMMAND_RPC_GET_PEER_LIST::response res;

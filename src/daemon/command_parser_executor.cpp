@@ -95,6 +95,39 @@ bool t_command_parser_executor::print_checkpoints(const std::vector<std::string>
   return m_executor.print_checkpoints(start_height, end_height, print_json);
 }
 
+bool t_command_parser_executor::print_sn_state_changes(const std::vector<std::string> &args)
+{
+  uint64_t start_height;
+  uint64_t end_height = cryptonote::COMMAND_RPC_GET_SN_STATE_CHANGES::HEIGHT_SENTINEL_VALUE;
+
+  if (args.empty()) {
+    std::cout << "Missing first argument start_height" << std::endl;
+    return false;
+  }
+
+  std::forward_list<std::string> args_list(args.begin(), args.end());
+  if (!epee::string_tools::get_xtype_from_string(start_height, args_list.front()))
+  {
+    std::cout << "start_height should be a number" << std::endl;
+    return false;
+  }
+
+  args_list.pop_front();
+
+  if (!parse_if_present(args_list, end_height, "end height"))
+    return false;
+
+  if (!args_list.empty())
+  {
+    std::cout << "use: print_sn_state_changes <start_height> [end height]"
+              << "(omit arguments to scan until the current block)"
+              << std::endl;
+    return false;
+  }
+
+  return m_executor.print_sn_state_changes(start_height, end_height);
+}
+
 bool t_command_parser_executor::print_peer_list(const std::vector<std::string>& args)
 {
   if (args.size() > 3)
@@ -301,7 +334,7 @@ bool t_command_parser_executor::set_log_level(const std::vector<std::string>& ar
   }
 }
 
-bool t_command_parser_executor::print_height(const std::vector<std::string>& args) 
+bool t_command_parser_executor::print_height(const std::vector<std::string>& args)
 {
   if (!args.empty()) return false;
 
