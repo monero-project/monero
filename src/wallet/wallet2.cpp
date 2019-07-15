@@ -12126,7 +12126,7 @@ size_t wallet2::import_outputs(const std::pair<size_t, std::vector<tools::wallet
   PERF_TIMER(import_outputs);
 
   THROW_WALLET_EXCEPTION_IF(outputs.first > m_transfers.size(), error::wallet_internal_error,
-      "Imported outputs omit more outputs that we know of");
+      "Consider using `export_outputs all <filename>` when exporting outputs.");
 
   const size_t offset = outputs.first;
   const size_t original_size = m_transfers.size();
@@ -12243,7 +12243,7 @@ size_t wallet2::import_outputs_from_str(const std::string &outputs_st)
   }
   catch (const std::exception &e)
   {
-    THROW_WALLET_EXCEPTION(error::wallet_internal_error, std::string("Failed to import outputs") + e.what());
+    THROW_WALLET_EXCEPTION(error::wallet_internal_error, std::string("The file you are trying to import is incomplete.") + e.what());
   }
 
   return imported_outputs;
