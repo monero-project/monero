@@ -12,5 +12,15 @@ then
 fi
 
 echo "using $lrelease"
-"$lrelease" translations/*.ts
+if test -f translations/ready
+then
+  languages=""
+  for language in $(cat translations/ready)
+  do
+    languages="$languages translations/$language.ts"
+  done
+else
+  languages="translations/*.ts"
+fi
+"$lrelease" $languages
 
