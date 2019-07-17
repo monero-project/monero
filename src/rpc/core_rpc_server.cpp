@@ -2496,7 +2496,7 @@ namespace cryptonote
         for (int quorum_int = (int)start_quorum_iterator; quorum_int <= (int)end_quorum_iterator; quorum_int++)
         {
           auto type = static_cast<service_nodes::quorum_type>(quorum_int);
-          if (std::shared_ptr<const service_nodes::testing_quorum> quorum = m_core.get_testing_quorum(type, height))
+          if (std::shared_ptr<const service_nodes::testing_quorum> quorum = m_core.get_testing_quorum(type, height, true /*include_old*/))
           {
             COMMAND_RPC_GET_QUORUM_STATE::quorum_for_height entry = {};
             entry.height                                          = height;

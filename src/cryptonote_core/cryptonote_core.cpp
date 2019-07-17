@@ -225,6 +225,14 @@ namespace cryptonote
     "Recalculate per-block difficulty starting from the height specified",
     0};
 
+  static const command_line::arg_descriptor<uint64_t> arg_store_quorum_history = {
+    "store-quorum-history",
+    "Store the service node quorum history for the last N blocks to allow historic quorum lookups "
+    "(e.g. by a block explorer).  Specify the number of blocks of history to store, or 1 to store "
+    "the entire history.  Requires considerably more memory and block chain storage.",
+    0};
+
+
   //-----------------------------------------------------------------------------------------------
   core::core(i_cryptonote_protocol* pprotocol):
               m_mempool(m_blockchain_storage),
@@ -322,6 +330,7 @@ namespace cryptonote
     command_line::add_arg(desc, arg_keep_alt_blocks);
 
     command_line::add_arg(desc, arg_recalculate_difficulty);
+    command_line::add_arg(desc, arg_store_quorum_history);
 #if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
     command_line::add_arg(desc, loki::arg_integration_test_hardforks_override);
     command_line::add_arg(desc, loki::arg_integration_test_shared_mem_name);
@@ -704,6 +713,8 @@ namespace cryptonote
     // Service Nodes
     {
       m_service_node_list.set_db_pointer(initialized_db);
+
+      m_service_node_list.set_quorum_history_storage(command_line::get_arg(vm, arg_store_quorum_history));
 
       m_blockchain_storage.hook_block_added(m_service_node_list);
       m_blockchain_storage.hook_blockchain_detached(m_service_node_list);
@@ -2193,9 +2204,9 @@ namespace cryptonote
     return si.available;
   }
   //-----------------------------------------------------------------------------------------------
-  std::shared_ptr<const service_nodes::testing_quorum> core::get_testing_quorum(service_nodes::quorum_type type, uint64_t height) const
+  std::shared_ptr<const service_nodes::testing_quorum> core::get_testing_quorum(service_nodes::quorum_type type, uint64_t height, bool include_old) const
   {
-    return m_service_node_list.get_testing_quorum(type, height);
+    return m_service_node_list.get_testing_quorum(type, height, include_old);
   }
   //-----------------------------------------------------------------------------------------------
   bool core::is_service_node(const crypto::public_key& pubkey, bool require_active) const
