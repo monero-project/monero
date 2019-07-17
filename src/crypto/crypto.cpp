@@ -621,7 +621,9 @@ POP_WARNINGS
     sig.r.resize(n);
     for (size_t i = 0; i < n; ++i) {
       const size_t ring_size = pubs[i].size();
-      assert(sec_indices[i] < ring_size);
+      if (sec_indices[i] >= ring_size) {
+        local_abort("sec_indices[i] >= ring_size");
+      }
       sig.r[i].resize(ring_size);
 #if !defined(NDEBUG)
       ge_p3 t;

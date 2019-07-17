@@ -170,12 +170,13 @@ namespace cryptonote
     BEGIN_SERIALIZE()
       if (typename Archive<W>::is_saving())
       {
-        size_t version_tmp = (minor_version << 8) | version;
+        size_t version_tmp = (minor_version << 8) | (version & 0xff);
         VARINT_FIELD_N("version", version_tmp);
       }
       else
       {
         VARINT_FIELD(version)
+        if (version > 0xffff) return false;
         minor_version = (version >> 8) & 0xff;
         version = version & 0xff;
       }

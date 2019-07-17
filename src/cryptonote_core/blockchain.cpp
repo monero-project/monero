@@ -2546,6 +2546,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
     if (tx_v1_1 && hf_version < HF_VERSION_ALLOW_V1_BORROMEAN)
     {
       MERROR_VER("transaction version " << (unsigned)tx.version << "." << (unsigned)tx.minor_version << " is not allowed before fork version " << HF_VERSION_ALLOW_V1_BORROMEAN);
+      tvc.m_verifivation_failed = true;
       return false;
     }
   }

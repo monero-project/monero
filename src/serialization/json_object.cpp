@@ -238,7 +238,7 @@ void toJsonValue(rapidjson::Document& doc, const cryptonote::transaction& tx, ra
 {
   val.SetObject();
 
-  INSERT_INTO_JSON_OBJECT(val, doc, version, (tx.minor_version << 8) | tx.version);
+  INSERT_INTO_JSON_OBJECT(val, doc, version, (tx.minor_version << 8) | (tx.version & 0xff));
   INSERT_INTO_JSON_OBJECT(val, doc, unlock_time, tx.unlock_time);
   INSERT_INTO_JSON_OBJECT(val, doc, inputs, tx.vin);
   INSERT_INTO_JSON_OBJECT(val, doc, outputs, tx.vout);
