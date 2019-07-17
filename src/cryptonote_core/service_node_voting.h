@@ -61,12 +61,6 @@ namespace service_nodes
       FIELD(voter_index)
       FIELD(signature)
     END_SERIALIZE()
-
-    BEGIN_KV_SERIALIZE_MAP()
-      KV_SERIALIZE(voter_index)
-      std::string signature = epee::string_tools::pod_to_hex(this_ref.signature);
-      KV_SERIALIZE_VALUE(signature)
-    END_KV_SERIALIZE_MAP()
   };
 
   struct checkpoint_vote { crypto::hash block_hash; };

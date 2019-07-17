@@ -2551,17 +2551,34 @@ namespace cryptonote
     };
     typedef epee::misc_utils::struct_init<request_t> request;
 
+    struct quorum_t
+    {
+      std::vector<std::string> validators;
+      std::vector<std::string> workers;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(validators)
+        KV_SERIALIZE(workers)
+      END_KV_SERIALIZE_MAP()
+
+      BEGIN_SERIALIZE() // NOTE: For store_t_to_json
+        FIELD(validators)
+        FIELD(workers)
+      END_SERIALIZE()
+    };
+
     struct quorum_for_height
     {
-      uint64_t height;                      // The height the quorums are relevant for
-      uint8_t  quorum_type;                 // The quorum type
-      service_nodes::testing_quorum quorum; // Quorum of Service Nodes
+      uint64_t height;          // The height the quorums are relevant for
+      uint8_t  quorum_type;     // The quorum type
+      quorum_t quorum;          // Quorum of Service Nodes
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(height)
+        KV_SERIALIZE(quorum_type)
         KV_SERIALIZE(quorum)
       END_KV_SERIALIZE_MAP()
 
-      BEGIN_SERIALIZE()
+      BEGIN_SERIALIZE() // NOTE: For store_t_to_json
         FIELD(height)
         FIELD(quorum_type)
         FIELD(quorum)
@@ -3111,18 +3128,80 @@ namespace cryptonote
       uint32_t count;        // Optional: Number of checkpoints to query.
 
       BEGIN_KV_SERIALIZE_MAP()
-      KV_SERIALIZE_OPT(start_height, HEIGHT_SENTINEL_VALUE)
-      KV_SERIALIZE_OPT(end_height, HEIGHT_SENTINEL_VALUE)
-      KV_SERIALIZE_OPT(count, NUM_CHECKPOINTS_TO_QUERY_BY_DEFAULT)
+        KV_SERIALIZE_OPT(start_height, HEIGHT_SENTINEL_VALUE)
+        KV_SERIALIZE_OPT(end_height, HEIGHT_SENTINEL_VALUE)
+        KV_SERIALIZE_OPT(count, NUM_CHECKPOINTS_TO_QUERY_BY_DEFAULT)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
 
+    struct voter_to_signature_serialized
+    {
+      uint16_t voter_index;
+      std::string signature;
+
+      voter_to_signature_serialized() = default;
+      voter_to_signature_serialized(service_nodes::voter_to_signature const &entry)
+      : voter_index(entry.voter_index)
+      , signature(epee::string_tools::pod_to_hex(entry.signature)) { }
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(voter_index);
+        KV_SERIALIZE(signature);
+      END_KV_SERIALIZE_MAP()
+
+      BEGIN_SERIALIZE() // NOTE: For store_t_to_json
+        FIELD(voter_index)
+        FIELD(signature)
+      END_SERIALIZE()
+    };
+
+    struct checkpoint_serialized
+    {
+      uint8_t version;
+      std::string type;
+      uint64_t height;
+      std::string block_hash;
+      std::vector<voter_to_signature_serialized> signatures;
+      uint64_t prev_height;
+
+      checkpoint_serialized() = default;
+      checkpoint_serialized(checkpoint_t const &checkpoint)
+      : version(checkpoint.version)
+      , type(checkpoint_t::type_to_string(checkpoint.type))
+      , height(checkpoint.height)
+      , block_hash(epee::string_tools::pod_to_hex(checkpoint.block_hash))
+      , prev_height(checkpoint.prev_height)
+      {
+        signatures.reserve(checkpoint.signatures.size());
+        for (service_nodes::voter_to_signature const &entry : checkpoint.signatures)
+          signatures.push_back(entry);
+      }
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(version);
+        KV_SERIALIZE(type);
+        KV_SERIALIZE(height);
+        KV_SERIALIZE(block_hash);
+        KV_SERIALIZE(signatures);
+        KV_SERIALIZE(prev_height);
+      END_KV_SERIALIZE_MAP()
+
+      BEGIN_SERIALIZE() // NOTE: For store_t_to_json
+        FIELD(version)
+        FIELD(type)
+        FIELD(height)
+        FIELD(block_hash)
+        FIELD(signatures)
+        FIELD(prev_height)
+      END_SERIALIZE()
+    };
+
     struct response_t
     {
-      std::vector<checkpoint_t> checkpoints; // Array of requested checkpoints
-      std::string status;                    // Generic RPC error code. "OK" is the success value.
-      bool untrusted;                        // If the result is obtained using bootstrap mode, and therefore not trusted `true`, or otherwise `false`.
+      std::vector<checkpoint_serialized> checkpoints; // Array of requested checkpoints
+      std::string status;                             // Generic RPC error code. "OK" is the success value.
+      bool untrusted;                                 // If the result is obtained using bootstrap mode, and therefore not trusted `true`, or otherwise `false`.
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(checkpoints)

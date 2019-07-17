@@ -2501,9 +2501,14 @@ namespace cryptonote
             COMMAND_RPC_GET_QUORUM_STATE::quorum_for_height entry = {};
             entry.height                                          = height;
             entry.quorum_type                                     = static_cast<uint8_t>(quorum_int);
-            entry.quorum                                          = *quorum;
-            at_least_one_succeeded                                = true;
+
+            entry.quorum.validators.reserve(quorum->validators.size());
+            entry.quorum.workers.reserve(quorum->workers.size());
+            for (crypto::public_key const &key : quorum->validators) entry.quorum.validators.push_back(epee::string_tools::pod_to_hex(key));
+            for (crypto::public_key const &key : quorum->workers)    entry.quorum.workers.push_back(epee::string_tools::pod_to_hex(key));
+
             res.quorums.push_back(entry);
+            at_least_one_succeeded = true;
           }
         }
       }
@@ -2941,28 +2946,31 @@ namespace cryptonote
     res.status             = CORE_RPC_STATUS_OK;
     BlockchainDB const &db = m_core.get_blockchain_storage().get_db();
 
+    std::vector<checkpoint_t> checkpoints;
     if (req.start_height == COMMAND_RPC_GET_CHECKPOINTS::HEIGHT_SENTINEL_VALUE &&
         req.end_height   == COMMAND_RPC_GET_CHECKPOINTS::HEIGHT_SENTINEL_VALUE)
     {
       checkpoint_t top_checkpoint;
       if (db.get_top_checkpoint(top_checkpoint))
-        res.checkpoints = db.get_checkpoints_range(top_checkpoint.height, 0, req.count);
-      return true;
+        checkpoints = db.get_checkpoints_range(top_checkpoint.height, 0, req.count);
     }
-
-    if (req.start_height == COMMAND_RPC_GET_CHECKPOINTS::HEIGHT_SENTINEL_VALUE)
+    else if (req.start_height == COMMAND_RPC_GET_CHECKPOINTS::HEIGHT_SENTINEL_VALUE)
     {
-      res.checkpoints = db.get_checkpoints_range(req.end_height, 0, req.count);
-      return true;
+      checkpoints = db.get_checkpoints_range(req.end_height, 0, req.count);
     }
-
-    if (req.end_height == COMMAND_RPC_GET_CHECKPOINTS::HEIGHT_SENTINEL_VALUE)
+    else if (req.end_height == COMMAND_RPC_GET_CHECKPOINTS::HEIGHT_SENTINEL_VALUE)
     {
-      res.checkpoints = db.get_checkpoints_range(req.start_height, UINT64_MAX, req.count);
-      return true;
+      checkpoints = db.get_checkpoints_range(req.start_height, UINT64_MAX, req.count);
+    }
+    else
+    {
+      checkpoints = db.get_checkpoints_range(req.start_height, req.end_height);
     }
 
-    res.checkpoints = db.get_checkpoints_range(req.start_height, req.end_height);
+    res.checkpoints.reserve(checkpoints.size());
+    for (checkpoint_t const &checkpoint : checkpoints)
+      res.checkpoints.push_back(checkpoint);
+
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------

@@ -45,7 +45,6 @@ namespace service_nodes
 {
   struct service_node_info;
 
-  LOKI_RPC_DOC_INTROSPECT
   struct testing_quorum
   {
     std::vector<crypto::public_key> validators; // Array of public keys identifying service nodes which are being tested for the queried height.
@@ -55,16 +54,6 @@ namespace service_nodes
       FIELD(validators)
       FIELD(workers)
     END_SERIALIZE()
-
-    BEGIN_KV_SERIALIZE_MAP()
-      std::vector<std::string> validators(this_ref.validators.size());
-      for (size_t i = 0; i < this_ref.validators.size(); i++) validators[i] = epee::string_tools::pod_to_hex(this_ref.validators[i]);
-      KV_SERIALIZE_VALUE(validators);
-
-      std::vector<std::string> workers(this_ref.workers.size());
-      for (size_t i = 0; i < this_ref.workers.size(); i++) workers[i] = epee::string_tools::pod_to_hex(this_ref.workers[i]);
-      KV_SERIALIZE_VALUE(workers);
-    END_KV_SERIALIZE_MAP()
   };
 
   struct quorum_manager

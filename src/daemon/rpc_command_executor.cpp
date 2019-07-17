@@ -276,14 +276,15 @@ bool t_rpc_command_executor::print_checkpoints(uint64_t start_height, uint64_t e
   }
 
   std::string entry;
+  if (print_json) entry.append("{\n\"checkpoints\": [");
   for (size_t i = 0; i < res.checkpoints.size(); i++)
   {
-    cryptonote::checkpoint_t &checkpoint = res.checkpoints[i];
+    cryptonote::COMMAND_RPC_GET_CHECKPOINTS::checkpoint_serialized &checkpoint = res.checkpoints[i];
     if (print_json)
     {
-      entry.append("{\n");
-      entry.append(obj_to_json_str(checkpoint));
-      entry.append("\n}\n");
+      entry.append("\n");
+      entry.append(epee::serialization::store_t_to_json(checkpoint));
+      entry.append(",\n");
     }
     else
     {
@@ -292,22 +293,27 @@ bool t_rpc_command_executor::print_checkpoints(uint64_t start_height, uint64_t e
       entry.append("]");
 
       entry.append(" Type: ");
-      entry.append(cryptonote::checkpoint_t::type_to_string(checkpoint.type));
+      entry.append(checkpoint.type);
 
       entry.append(" Height: ");
       entry.append(std::to_string(checkpoint.height));
 
       entry.append(" Hash: ");
-      entry.append(epee::string_tools::pod_to_hex(checkpoint.block_hash));
+      entry.append(checkpoint.block_hash);
       entry.append("\n");
     }
   }
 
-  if (entry.empty())
+  if (print_json)
   {
-    if (print_json) entry.append("{\n}\n");
-    else            entry.append("No Checkpoints");
+    entry.append("]\n}");
   }
+  else
+  {
+    if (entry.empty())
+      entry.append("No Checkpoints");
+  }
+
   tools::success_msg_writer() << entry;
   return true;
 }
@@ -949,7 +955,16 @@ bool t_rpc_command_executor::print_quorum_state(uint64_t start_height, uint64_t 
     }
   }
 
-  tools::msg_writer() << "{\n" << obj_to_json_str(res.quorums) << "\n}";
+  std::string output;
+  output.append("{\n\"quorums\": [");
+  for (cryptonote::COMMAND_RPC_GET_QUORUM_STATE::quorum_for_height const &quorum : res.quorums)
+  {
+    output.append("\n");
+    output.append(epee::serialization::store_t_to_json(quorum));
+    output.append(",\n");
+  }
+  output.append("]\n}");
+  tools::success_msg_writer() << output;
   return true;
 }
 
