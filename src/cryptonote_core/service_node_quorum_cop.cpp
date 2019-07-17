@@ -530,8 +530,11 @@ namespace service_nodes
   int64_t quorum_cop::calculate_decommission_credit(const service_node_info &info, uint64_t current_height)
   {
     // If currently decommissioned, we need to know how long it was up before being decommissioned;
-    // otherwise we need to know how long since it last become active until now.
+    // otherwise we need to know how long since it last become active until now (or 0 if not staked
+    // yet).
     int64_t blocks_up;
+    if (!info.is_fully_funded())
+      blocks_up = 0;
     if (info.is_decommissioned()) // decommissioned; the negative of active_since_height tells us when the period leading up to the current decommission started
       blocks_up = int64_t(info.last_decommission_height) - (-info.active_since_height);
     else
