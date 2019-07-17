@@ -41,6 +41,10 @@ set(crypto_sources
   hash.c
   jh.c
   keccak.c
+  k12.c
+  k12/KangarooTwelve.c
+  k12/KeccakP-1600-reference.c
+  k12/KeccakSpongeWidth1600.c
   oaes_lib.c
   random.c
   skein.c

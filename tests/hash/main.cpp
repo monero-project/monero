@@ -73,7 +73,7 @@ struct hash_func {
 } hashes[] = {{"fast", cn_fast_hash}, {"slow-2m", cn_slow_hash_2m_0}, {"slow-1m", cn_slow_hash_1m_0}, {"tree", hash_tree},
   {"extra-blake", hash_extra_blake}, {"extra-groestl", hash_extra_groestl},
   {"extra-jh", hash_extra_jh}, {"extra-skein", hash_extra_skein},
-  {"slow-2m-1", cn_slow_hash_2m_1}, {"slow-1m-1", cn_slow_hash_1m_1}};
+  {"slow-2m-1", cn_slow_hash_2m_1}, {"slow-1m-1", cn_slow_hash_1m_1}, {"k12", k12}};
 
 int main(int argc, char *argv[]) {
   hash_f *f;

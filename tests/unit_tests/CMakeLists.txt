@@ -43,6 +43,7 @@ set(unit_tests_sources
   crypto.cpp
   decompose_amount_into_digits.cpp
   device.cpp
+  difficulty.cpp
   dns_resolver.cpp
   epee_boosted_tcp_server.cpp
   epee_levin_protocol_handler_async.cpp
@@ -52,6 +53,7 @@ set(unit_tests_sources
   get_xtype_from_string.cpp
   hashchain.cpp
   http.cpp
+  long_term_block_size.cpp
   main.cpp
   memwipe.cpp
   mlocker.cpp

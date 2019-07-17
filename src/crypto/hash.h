@@ -71,6 +71,10 @@ namespace crypto {
     return h;
   }
 
+  inline void k12(const void *data, std::size_t length, hash &hash) {
+    k12(data, length, reinterpret_cast<char *>(&hash));
+  }
+
   inline void cn_slow_hash(const void *data, std::size_t length, hash &hash, int light = 0, int variant = 0) {
     cn_slow_hash(data, length, reinterpret_cast<char *>(&hash), light, variant, 0/*prehashed*/);
   }

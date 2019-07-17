@@ -38,6 +38,7 @@
 // tests
 #include "construct_tx.h"
 #include "check_tx_signature.h"
+#include "check_hash.h"
 #include "cn_slow_hash.h"
 #include "derive_public_key.h"
 #include "derive_secret_key.h"
@@ -125,6 +126,14 @@ int main(int argc, char** argv)
   TEST_PERFORMANCE2(filter, test_check_tx_signature, 2, true);
   TEST_PERFORMANCE2(filter, test_check_tx_signature, 10, true);
   TEST_PERFORMANCE2(filter, test_check_tx_signature, 100, true);
+
+  TEST_PERFORMANCE4(filter, test_check_hash, 0, 1, 0, 1);
+  TEST_PERFORMANCE4(filter, test_check_hash, 0, 0xffffffffffffffff, 0, 0xffffffffffffffff);
+  TEST_PERFORMANCE4(filter, test_check_hash, 0, 0xffffffffffffffff, 0, 1);
+  TEST_PERFORMANCE4(filter, test_check_hash, 1, 0, 1, 0);
+  TEST_PERFORMANCE4(filter, test_check_hash, 1, 0, 0, 1);
+  TEST_PERFORMANCE4(filter, test_check_hash, 0xffffffffffffffff, 0xffffffffffffffff, 0, 1);
+  TEST_PERFORMANCE4(filter, test_check_hash, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff);
 
   TEST_PERFORMANCE0(filter, test_is_out_to_acc);
   TEST_PERFORMANCE0(filter, test_is_out_to_acc_precomp);
