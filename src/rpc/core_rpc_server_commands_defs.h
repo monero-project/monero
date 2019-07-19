@@ -1765,6 +1765,30 @@ namespace cryptonote
     };
 
   };
+  
+  struct COMMAND_RPC_RESOLVE_OPEN_ALIAS
+  {
+    struct request
+    {
+      std::string url;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(url)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string status;
+	  std::vector<std::string> addresses;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+        KV_SERIALIZE(addresses)
+      END_KV_SERIALIZE_MAP()
+    };
+
+  };
 
   struct COMMAND_RPC_GET_BLOCK_HEADERS_RANGE
   {

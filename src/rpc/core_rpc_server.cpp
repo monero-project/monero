@@ -40,6 +40,7 @@ using namespace epee;
 #include "common/perf_timer.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "cryptonote_basic/account.h"
+#include "common/dns_utils.h"
 #include "cryptonote_basic/cryptonote_basic_impl.h"
 #include "misc_language.h"
 #include "storages/http_abstract_invoke.h"
@@ -1797,6 +1798,21 @@ namespace cryptonote
     res.connections = m_p2p.get_payload_object().get_connections();
 
     res.status = CORE_RPC_STATUS_OK;
+
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_resolve_open_alias(const COMMAND_RPC_RESOLVE_OPEN_ALIAS::request& req, COMMAND_RPC_RESOLVE_OPEN_ALIAS::response& res)
+  {
+    PERF_TIMER(on_resolve_open_alias);
+
+    bool dnssec_valid;
+    res.addresses = tools::dns_utils::addresses_from_url(req.url, dnssec_valid);
+
+	if(!res.addresses.empty())
+      res.status = "No addresses found at url " + req.url;
+    else
+      res.status = CORE_RPC_STATUS_OK;
 
     return true;
   }
