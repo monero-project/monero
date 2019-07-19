@@ -781,7 +781,7 @@ namespace cryptonote
   //---------------------------------------------------------------
   bool calculate_transaction_prunable_hash(const transaction& t, crypto::hash& res)
   {
-    if (t.version == 1)
+    if (t.version == 1 && t.minor_version == 0)
       return false;
     transaction &tt = const_cast<transaction&>(t);
     std::stringstream ss;
@@ -789,8 +789,17 @@ namespace cryptonote
     const size_t inputs = t.vin.size();
     const size_t outputs = t.vout.size();
     const size_t mixin = t.vin.empty() ? 0 : t.vin[0].type() == typeid(txin_to_key) ? boost::get<txin_to_key>(t.vin[0]).key_offsets.size() - 1 : 0;
-    bool r = tt.rct_signatures.p.serialize_rctsig_prunable(ba, t.rct_signatures.type, inputs, outputs, mixin);
-    CHECK_AND_ASSERT_MES(r, false, "Failed to serialize rct signatures prunable");
+    const size_t ring_size = t.vin.empty() ? 0 : t.vin[0].type() == typeid(txin_to_key) ? boost::get<txin_to_key>(t.vin[0]).key_offsets.size() : 0;
+    if (t.version == 1)
+    {
+      bool r = ::serialize_borromean_signature(ba, tt.borromean_signature, inputs, ring_size);
+      CHECK_AND_ASSERT_MES(r, false, "Failed to serialize borromean signature");
+    }
+    else
+    {
+      bool r = tt.rct_signatures.p.serialize_rctsig_prunable(ba, t.rct_signatures.type, inputs, outputs, mixin);
+      CHECK_AND_ASSERT_MES(r, false, "Failed to serialize rct signatures prunable");
+    }
     cryptonote::get_blob_hash(ss.str(), res);
     return true;
   }
@@ -804,8 +813,17 @@ namespace cryptonote
   //---------------------------------------------------------------
   crypto::hash get_pruned_transaction_hash(const transaction& t, const crypto::hash &pruned_data_hash)
   {
-    // v1 transactions hash the entire blob
-    CHECK_AND_ASSERT_THROW_MES(t.version > 1, "Hash for pruned v1 tx cannot be calculated");
+    // v1.0 transactions hash the entire blob
+    CHECK_AND_ASSERT_THROW_MES(t.version > 1 || (t.version == 1 && t.minor_version > 0), "Hash for pruned v1.0 tx cannot be calculated");
+
+    if (t.version == 1)
+    {
+      crypto::hash hashes[2];
+      get_transaction_prefix_hash(t, hashes[0]);
+      hashes[1] = pruned_data_hash;
+      crypto::hash res = cn_fast_hash(hashes, sizeof(hashes));
+      return res;
+    }
 
     // v2 transactions hash different parts together, than hash the set of those hashes
     crypto::hash hashes[3];
@@ -836,11 +854,23 @@ namespace cryptonote
   //---------------------------------------------------------------
   bool calculate_transaction_hash(const transaction& t, crypto::hash& res, size_t* blob_size)
   {
-    // v1 transactions hash the entire blob
-    if (t.version == 1)
+    // v1.0 transactions hash the entire blob
+    if (t.version == 1 && t.minor_version == 0)
     {
       size_t ignored_blob_size, &blob_size_ref = blob_size ? *blob_size : ignored_blob_size;
       return get_object_hash(t, res, blob_size_ref);
+    }
+
+    // v1.1 transactions hash similarly to v2, but only using 2 parts
+    if (t.version == 1)
+    {
+      crypto::hash hashes[2];
+      get_transaction_prefix_hash(t, hashes[0]);
+      CHECK_AND_ASSERT_MES(calculate_transaction_prunable_hash(t, hashes[1]), false, "Failed to get tx prunable hash");
+      res = cn_fast_hash(hashes, sizeof(hashes));
+      if (blob_size)
+        *blob_size = get_object_blobsize(t);
+      return true;
     }
 
     // v2 transactions hash different parts together, than hash the set of those hashes

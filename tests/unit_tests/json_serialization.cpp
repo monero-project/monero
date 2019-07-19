@@ -34,6 +34,7 @@ namespace
         cryptonote::account_keys const& from,
         std::vector<cryptonote::transaction> const& sources,
         std::vector<cryptonote::account_public_address> const& destinations,
+        bool v1_borromean,
         bool rct,
         bool bulletproof)
     {
@@ -75,7 +76,7 @@ namespace
         std::unordered_map<crypto::public_key, cryptonote::subaddress_index> subaddresses;
         subaddresses[from.m_account_address.m_spend_public_key] = {0,0};
 
-        if (!cryptonote::construct_tx_and_get_tx_key(from, subaddresses, actual_sources, to, boost::none, {}, tx, 0, tx_key, extra_keys, rct, bulletproof))
+        if (!cryptonote::construct_tx_and_get_tx_key(from, subaddresses, actual_sources, to, boost::none, {}, tx, 0, tx_key, extra_keys, v1_borromean, rct, bulletproof))
             throw std::runtime_error{"transaction construction error"};
 
         return tx;
@@ -120,7 +121,42 @@ TEST(JsonSerialization, RegularTransaction)
 
     const auto miner_tx = make_miner_transaction(acct1.get_keys().m_account_address);
     const auto tx = make_transaction(
-        acct1.get_keys(), {miner_tx}, {acct2.get_keys().m_account_address}, false, false
+        acct1.get_keys(), {miner_tx}, {acct2.get_keys().m_account_address}, false, false, false
+    );
+
+    crypto::hash tx_hash{};
+    ASSERT_TRUE(cryptonote::get_transaction_hash(tx, tx_hash));
+
+    rapidjson::Document doc;
+    cryptonote::json::toJsonValue(doc, tx, doc);
+
+    cryptonote::transaction tx_copy;
+    cryptonote::json::fromJsonValue(doc, tx_copy);
+
+    crypto::hash tx_copy_hash{};
+    ASSERT_TRUE(cryptonote::get_transaction_hash(tx_copy, tx_copy_hash));
+    EXPECT_EQ(tx_hash, tx_copy_hash);
+
+    cryptonote::blobdata tx_bytes{};
+    cryptonote::blobdata tx_copy_bytes{};
+
+    ASSERT_TRUE(cryptonote::t_serializable_object_to_blob(tx, tx_bytes));
+    ASSERT_TRUE(cryptonote::t_serializable_object_to_blob(tx_copy, tx_copy_bytes));
+
+    EXPECT_EQ(tx_bytes, tx_copy_bytes);
+}
+
+TEST(JsonSerialization, V1BorromeanTransaction)
+{
+    cryptonote::account_base acct1;
+    acct1.generate();
+
+    cryptonote::account_base acct2;
+    acct2.generate();
+
+    const auto miner_tx = make_miner_transaction(acct1.get_keys().m_account_address);
+    const auto tx = make_transaction(
+        acct1.get_keys(), {miner_tx}, {acct2.get_keys().m_account_address}, true, false, false
     );
 
     crypto::hash tx_hash{};
@@ -155,7 +191,7 @@ TEST(JsonSerialization, RingctTransaction)
 
     const auto miner_tx = make_miner_transaction(acct1.get_keys().m_account_address);
     const auto tx = make_transaction(
-        acct1.get_keys(), {miner_tx}, {acct2.get_keys().m_account_address}, true, false
+        acct1.get_keys(), {miner_tx}, {acct2.get_keys().m_account_address}, false, true, false
     );
 
     crypto::hash tx_hash{};
@@ -190,7 +226,7 @@ TEST(JsonSerialization, BulletproofTransaction)
 
     const auto miner_tx = make_miner_transaction(acct1.get_keys().m_account_address);
     const auto tx = make_transaction(
-        acct1.get_keys(), {miner_tx}, {acct2.get_keys().m_account_address}, true, true
+        acct1.get_keys(), {miner_tx}, {acct2.get_keys().m_account_address}, false, true, true
     );
 
     crypto::hash tx_hash{};

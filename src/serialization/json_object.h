@@ -182,6 +182,9 @@ void fromJsonValue(const rapidjson::Value& val, long& i);
 
 // end integers
 
+void toJsonValue(rapidjson::Document& doc, const crypto::borromean_signature& sig, rapidjson::Value& val);
+void fromJsonValue(const rapidjson::Value& val, crypto::borromean_signature& sig);
+
 void toJsonValue(rapidjson::Document& doc, const cryptonote::transaction& tx, rapidjson::Value& val);
 void fromJsonValue(const rapidjson::Value& val, cryptonote::transaction& tx);
 

@@ -463,6 +463,43 @@ TEST(Serialization, serializes_transacion_signatures_correctly)
   // Blob contains one excess signature
   blob.resize(blob.size() + sizeof(crypto::signature) / 2);
   ASSERT_FALSE(serialization::parse_binary(blob, tx1));
+
+  // borromean signature not allowed for v1.0
+  tx.signatures.resize(2);
+  tx.signatures[0].resize(2);
+  tx.signatures[1].resize(2);
+  tx.borromean_signature.r.resize(1);
+  tx.invalidate_hashes();
+  ASSERT_FALSE(serialization::dump_binary(tx, blob));
+
+  // borromean signature for v1.1
+  tx.minor_version = 1;
+  tx.signatures.clear();
+  tx.borromean_signature.r.resize(2);
+  tx.borromean_signature.r[0].resize(2);
+  tx.borromean_signature.r[1].resize(2);
+  tx.invalidate_hashes();
+  ASSERT_TRUE(serialization::dump_binary(tx, blob));
+  ASSERT_TRUE(serialization::parse_binary(blob, tx1));
+  ASSERT_EQ(tx, tx1);
+
+  // old signature not allowed for v1.1
+  tx.signatures.resize(1);
+  tx.invalidate_hashes();
+  ASSERT_FALSE(serialization::dump_binary(tx, blob));
+
+  // borromean signature: inconsistent size (1)
+  tx.signatures.clear();
+  tx.borromean_signature.r.resize(1);
+  tx.invalidate_hashes();
+  ASSERT_FALSE(serialization::dump_binary(tx, blob));
+
+  // borromean signature: inconsistent size (2)
+  tx.borromean_signature.r.resize(2);
+  tx.borromean_signature.r[0].resize(3);
+  tx.borromean_signature.r[1].resize(2);
+  tx.invalidate_hashes();
+  ASSERT_FALSE(serialization::dump_binary(tx, blob));
 }
 
 TEST(Serialization, serializes_ringct_types)

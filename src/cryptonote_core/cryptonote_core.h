@@ -54,7 +54,12 @@ DISABLE_VS_WARNINGS(4355)
 namespace cryptonote
 {
    struct test_options {
-     const std::pair<uint8_t, uint64_t> *hard_forks;
+     struct hard_fork_t {
+       uint8_t version;
+       uint64_t height;
+       difficulty_type reset_diff;
+     };
+     const hard_fork_t *hard_forks;
      const size_t long_term_block_size_window;
    };
 

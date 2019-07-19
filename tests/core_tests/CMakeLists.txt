@@ -41,7 +41,8 @@ set(core_tests_sources
   transaction_tests.cpp
   tx_validation.cpp
   v2_tests.cpp
-  rct.cpp)
+  rct.cpp
+  borromean.cpp)
 
 set(core_tests_headers
   block_reward.h
@@ -58,7 +59,8 @@ set(core_tests_headers
   transaction_tests.h
   tx_validation.h
   v2_tests.h
-  rct.h)
+  rct.h
+  borromean.h)
 
 add_executable(core_tests
   ${core_tests_sources}

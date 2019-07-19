@@ -878,7 +878,7 @@ uint64_t BlockchainLMDB::add_transaction_data(const crypto::hash& blk_hash, cons
   if (result)
     throw0(DB_ERROR(lmdb_error("Failed to add prunable tx blob to db transaction: ", result).c_str()));
 
-  if (tx.version > 1)
+  if (tx.version > 1 || (tx.version == 1 && tx.minor_version > 0))
   {
     MDB_val_set(val_prunable_hash, tx_prunable_hash);
     result = mdb_cursor_put(m_cur_txs_prunable_hash, &val_tx_id, &val_prunable_hash, MDB_APPEND);
@@ -924,7 +924,7 @@ void BlockchainLMDB::remove_transaction_data(const crypto::hash& tx_hash, const 
   if (result)
       throw1(DB_ERROR(lmdb_error("Failed to add removal of prunable tx to db transaction: ", result).c_str()));
 
-  if (tx.version > 1)
+  if (tx.version > 1 || (tx.version == 1 && tx.minor_version > 0))
   {
     if ((result = mdb_cursor_get(m_cur_txs_prunable_hash, &val_tx_id, NULL, MDB_SET)))
         throw1(DB_ERROR(lmdb_error("Failed to locate prunable hash tx for removal: ", result).c_str()));
@@ -4187,7 +4187,7 @@ void BlockchainLMDB::migrate_1_2()
       if (result)
         throw0(DB_ERROR(lmdb_error("Failed to put a record into txs_prunable: ", result).c_str()));
 
-      if (tx.version > 1)
+      if (tx.version > 1 || (tx.version == 1 && tx.minor_version > 0))
       {
         crypto::hash prunable_hash = get_transaction_prunable_hash(tx);
         MDB_val_set(val_prunable_hash, prunable_hash);

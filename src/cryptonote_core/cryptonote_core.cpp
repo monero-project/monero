@@ -544,7 +544,7 @@ namespace cryptonote
     m_blockchain_storage.set_user_options(blocks_threads,
         sync_on_blocks, sync_threshold, sync_mode, fast_sync);
 
-    const std::pair<uint8_t, uint64_t> regtest_hard_forks[3] = {std::make_pair(1, 0), std::make_pair(Blockchain::get_hard_fork_heights(MAINNET).back().version, 1), std::make_pair(0, 0)};
+    const cryptonote::test_options::hard_fork_t regtest_hard_forks[3] = { {1, 0, 0}, {Blockchain::get_hard_fork_heights(MAINNET).back().version, 1, 0}, {0, 0, 0} };
     const cryptonote::test_options regtest_test_options = {
       regtest_hard_forks,
       0
