@@ -64,7 +64,7 @@ def build():
 
     if args.macos:
         print('\nCompiling ' + args.version + ' MacOS')
-        subprocess.check_call(['bin/gbuild', '-j', args.jobs, '-m', args.memory, '--commit', 'monero='+args.commit, '--url', 'monero'+args.url, '../monero/contrib/gitian/gitian-osx.yml'])
+        subprocess.check_call(['bin/gbuild', '-j', args.jobs, '-m', args.memory, '--commit', 'monero='+args.commit, '--url', 'monero='+args.url, '../monero/contrib/gitian/gitian-osx.yml'])
         subprocess.check_call(['bin/gsign', '-p', args.sign_prog, '--signer', args.signer, '--release', args.version+'-osx', '--destination', '../gitian.sigs/', '../monero/contrib/gitian/gitian-osx.yml'])
         subprocess.check_call('mv build/out/monero*.tar.gz ../monero-binaries/'+args.version, shell=True)
 
@@ -141,8 +141,8 @@ def main():
         if not 'LXC_GUEST_IP' in os.environ.keys():
             os.environ['LXC_GUEST_IP'] = '10.0.3.5'
 
-    # Disable for MacOS if no SDK found
-    if args.macos and not os.path.isfile('gitian-builder/inputs/MacOSX10.11.sdk.tar.gz'):
+    # Disable MacOS build if no SDK found
+    if args.build and args.macos and not os.path.isfile('gitian-builder/inputs/MacOSX10.11.sdk.tar.gz'):
         print('Cannot build for MacOS, SDK does not exist. Will build for other OSes')
         args.macos = False
 
