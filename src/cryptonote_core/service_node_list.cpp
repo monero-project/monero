@@ -48,7 +48,7 @@
 #include "service_node_swarm.h"
 #include "version.h"
 
-size_t constexpr MAX_STATE_HISTORY = BLOCKS_EXPECTED_IN_HOURS(1);
+size_t constexpr MAX_SHORT_TERM_STATE_HISTORY = BLOCKS_EXPECTED_IN_HOURS(1);
 
 #undef LOKI_DEFAULT_LOG_CATEGORY
 #define LOKI_DEFAULT_LOG_CATEGORY "service_nodes"
@@ -63,24 +63,9 @@ namespace service_nodes
   service_node_list::service_node_list(cryptonote::Blockchain& blockchain)
     : m_blockchain(blockchain), m_db(nullptr), m_service_node_pubkey(nullptr), m_store_quorum_history(0) { }
 
-  void service_node_list::init()
+  void service_node_list::rescan_starting_from_curr_state()
   {
-    std::lock_guard<boost::recursive_mutex> lock(m_sn_mutex);
-    if (m_blockchain.get_current_hard_fork_version() < 9)
-    {
-      reset(true);
-      return;
-    }
-
     uint64_t current_height = m_blockchain.get_current_blockchain_height();
-    bool loaded = load(current_height);
-    if (loaded && m_old_quorum_states.size() < std::min(m_store_quorum_history, uint64_t{10})) {
-      LOG_PRINT_L0("Full history storage requested, but " << m_old_quorum_states.size() << " old quorum states found");
-      loaded = false; // Either we don't have stored history or the history is very short, so recalculation is necessary or cheap.
-    }
-    if (loaded && m_state.height == current_height) return;
-    if (!loaded || m_state.height > current_height) reset(true);
-
     LOG_PRINT_L0("Recalculating service nodes list, scanning blockchain from height " << m_state.height);
     LOG_PRINT_L0("This may take some time...");
 
@@ -115,6 +100,26 @@ namespace service_nodes
       }
     }
     LOG_PRINT_L0("Done recalculating service nodes list");
+  }
+
+  void service_node_list::init()
+  {
+    std::lock_guard<boost::recursive_mutex> lock(m_sn_mutex);
+    if (m_blockchain.get_current_hard_fork_version() < 9)
+    {
+      reset(true);
+      return;
+    }
+
+    uint64_t current_height = m_blockchain.get_current_blockchain_height();
+    bool loaded = load(current_height);
+    if (loaded && m_old_quorum_states.size() < std::min(m_store_quorum_history, uint64_t{10})) {
+      LOG_PRINT_L0("Full history storage requested, but " << m_old_quorum_states.size() << " old quorum states found");
+      loaded = false; // Either we don't have stored history or the history is very short, so recalculation is necessary or cheap.
+    }
+    if (loaded && m_state.height == current_height) return;
+    if (!loaded || m_state.height > current_height) reset(true);
+    rescan_starting_from_curr_state();
   }
 
   template <typename UnaryPredicate>
@@ -954,8 +959,12 @@ namespace service_nodes
     // Cull old history
     //
     {
-      uint64_t checkpoint_immutable_height = m_db->get_checkpoint_immutable_height();
-      uint64_t conservative_height         = block_height < MAX_STATE_HISTORY ? 0 : block_height - MAX_STATE_HISTORY;
+      uint64_t start_height = (block_height < MAX_SHORT_TERM_STATE_HISTORY) ? 0 : block_height - MAX_SHORT_TERM_STATE_HISTORY;
+      auto it =
+          std::lower_bound(m_state_history.begin(),
+                           m_state_history.end(),
+                           start_height,
+                           [](state_t const &state, uint64_t start_height) { return state.height < start_height; });
 
       for (; it != m_state_history.end() && it->height <= start_height;)
       {
@@ -1113,18 +1122,26 @@ namespace service_nodes
 
     if (m_state.height != height)
     {
-      while (!m_state_history.empty() && m_state_history.back().height != height)
-        m_state_history.pop_back();
+      auto it = std::lower_bound(
+          m_state_history.begin(), m_state_history.end(), height, [](state_t const &state, uint64_t start_height) {
+            return state.height < start_height;
+          });
 
-      if (m_state_history.empty())
+      if (it == m_state_history.end())
       {
+        m_state_history.clear();
         init();
         return;
       }
+
+      m_state_history.erase(it, m_state_history.end());
     }
 
     m_state = m_state_history.back();
     m_state_history.pop_back();
+
+    if (m_state.height != (height - 1))
+      rescan_starting_from_curr_state();
     store();
   }
 
@@ -1799,18 +1816,11 @@ namespace service_nodes
       qs.checkpointing    = std::move(checkpointing);
     }
 
-    // NOTE: Only load the latest MAX_STATE_HISTORY m_states from the DB.
-    // Discard the rest, +1 since the latest state should be assigned to m_state
-    size_t const start_index =
-        (new_data_in.states.size() > MAX_STATE_HISTORY + 1) ? new_data_in.states.size() - MAX_STATE_HISTORY : 0;
-    m_state_history.resize(std::min(MAX_STATE_HISTORY, new_data_in.states.size()));
-
-    for (size_t i = start_index, last_index = new_data_in.states.size() - 1;
-         i < new_data_in.states.size();
-         i++)
+    m_state_history.resize(new_data_in.states.size());
+    for (size_t i = 0, last_index = new_data_in.states.size() - 1; i <= last_index; i++)
     {
       state_serialized &source = new_data_in.states[i];
-      state_t &dest            = (i == last_index) ? m_state : m_state_history[i - start_index];
+      state_t &dest            = (i == last_index) ? m_state : m_state_history[i];
       dest.height              = source.height;
       dest.key_image_blacklist = std::move(source.key_image_blacklist);
 

@@ -396,6 +396,7 @@ namespace service_nodes
 
     // Note(maxim): private methods don't have to be protected the mutex
     // Returns true if there was a registration:
+    void rescan_starting_from_curr_state();
     bool process_registration_tx(const cryptonote::transaction& tx, uint64_t block_timestamp, uint64_t block_height, uint32_t index);
     // Returns true if there was a successful contribution that fully funded a service node:
     bool process_contribution_tx(const cryptonote::transaction& tx, uint64_t block_height, uint32_t index);
