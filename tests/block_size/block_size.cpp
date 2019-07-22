@@ -176,6 +176,7 @@ static void test(test_t t, uint64_t blocks)
 
 int main()
 {
+  mlog_configure(mlog_get_default_log_path("block_size.log"), true);
   test(test_max, 2 * LONG_TERM_BLOCK_SIZE_WINDOW);
   test(test_lcg, 9 * LONG_TERM_BLOCK_SIZE_WINDOW);
   test(test_min, 1 * LONG_TERM_BLOCK_SIZE_WINDOW);
