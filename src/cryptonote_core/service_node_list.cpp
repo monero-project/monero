@@ -1130,14 +1130,21 @@ namespace service_nodes
             return state.height < start_height;
           });
 
+      bool reinitialise = false;
       if (it == m_state_history.end())
+        reinitialise = true;
+      else
+      {
+        m_state_history.erase(it, m_state_history.end());
+        reinitialise = m_state_history.empty();
+      }
+
+      if (reinitialise)
       {
         m_state_history.clear();
         init();
         return;
       }
-
-      m_state_history.erase(it, m_state_history.end());
     }
 
     m_state = m_state_history.back();
@@ -1824,8 +1831,10 @@ namespace service_nodes
       qs.checkpointing    = std::move(checkpointing);
     }
 
-    m_state_history.resize(new_data_in.states.size());
-    for (size_t i = 0, last_index = new_data_in.states.size() - 1; i <= last_index; i++)
+    assert(new_data_in.states.size() > 0);
+    size_t const last_index = new_data_in.states.size() - 1;
+    m_state_history.resize(last_index);
+    for (size_t i = 0; i <= last_index; i++)
     {
       state_serialized &source = new_data_in.states[i];
       state_t &dest            = (i == last_index) ? m_state : m_state_history[i];
