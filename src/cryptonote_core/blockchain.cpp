@@ -2620,26 +2620,26 @@ bool Blockchain::check_tx_outputs(const transaction& tx, tx_verification_context
     }
   }
 
-  // from v8, allow bulletproofs
+  // from v5, allow bulletproofs
   if (hf_version < 4) {
     if (tx.version >= 2) {
       const bool bulletproof = rct::is_rct_bulletproof(tx.rct_signatures.type);
       if (bulletproof || !tx.rct_signatures.p.bulletproofs.empty())
       {
-        MERROR_VER("Bulletproofs are not allowed before v8");
+        MERROR_VER("Bulletproofs are not allowed before v5");
         tvc.m_invalid_output = true;
         return false;
       }
     }
   }
 
-  // from v9, forbid borromean range proofs
+  // from v6, forbid borromean range proofs
   if (hf_version > 5) {
     if (tx.version >= 2) {
       const bool borromean = rct::is_rct_borromean(tx.rct_signatures.type);
       if (borromean)
       {
-        MERROR_VER("Borromean range proofs are not allowed after v8");
+        MERROR_VER("Borromean range proofs are not allowed after v5");
         tvc.m_invalid_output = true;
         return false;
       }
@@ -3130,7 +3130,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
 				{
 					if (proof.V.size() > 1)
 					{
-						MERROR_VER("Multi output bulletproofs are invalid before v8");
+						MERROR_VER("Multi output bulletproofs are invalid before v5");
 						return false;
 					}
 				}
