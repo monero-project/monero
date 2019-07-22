@@ -1806,6 +1806,10 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
     else
     {
       MGINFO_BLUE("----- BLOCK ADDED AS ALTERNATIVE ON HEIGHT " << bei.height << std::endl << "id:\t" << id << std::endl << "PoW:\t" << proof_of_work << std::endl << "difficulty:\t" << current_diff);
+      MGINFO_BLUE("Alt chain root: " << alt_chain.front()->second.bl.prev_id);
+      MGINFO_BLUE("Alt chain blocks:");
+      for (auto it : alt_chain)
+        MGINFO_BLUE("  " << it->first);
       return true;
     }
   }
