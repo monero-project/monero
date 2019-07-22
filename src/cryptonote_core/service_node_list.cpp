@@ -39,6 +39,7 @@
 #include "int-util.h"
 #include "common/scoped_message_writer.h"
 #include "common/i18n.h"
+#include "common/util.h"
 #include "blockchain.h"
 #include "service_node_quorum_cop.h"
 
@@ -46,6 +47,8 @@
 #include "service_node_rules.h"
 #include "service_node_swarm.h"
 #include "version.h"
+
+size_t constexpr MAX_SHORT_TERM_STATE_HISTORY = BLOCKS_EXPECTED_IN_HOURS(1);
 
 #undef LOKI_DEFAULT_LOG_CATEGORY
 #define LOKI_DEFAULT_LOG_CATEGORY "service_nodes"
@@ -58,41 +61,25 @@ namespace service_nodes
   }
 
   service_node_list::service_node_list(cryptonote::Blockchain& blockchain)
-    : m_blockchain(blockchain), m_db(nullptr), m_service_node_pubkey(nullptr), m_store_quorum_history(0)
-  {
-    m_transient_state = {};
-  }
+    : m_blockchain(blockchain), m_db(nullptr), m_service_node_pubkey(nullptr), m_store_quorum_history(0) { }
 
-  void service_node_list::init()
+  void service_node_list::rescan_starting_from_curr_state()
   {
-    std::lock_guard<boost::recursive_mutex> lock(m_sn_mutex);
     if (m_blockchain.get_current_hard_fork_version() < 9)
-    {
-      clear(true);
       return;
-    }
 
     uint64_t current_height = m_blockchain.get_current_blockchain_height();
-    bool loaded = load(current_height);
-    if (loaded && m_transient_state.old_quorum_states.size() < std::min(m_store_quorum_history, uint64_t{10})) {
-      LOG_PRINT_L0("Full history storage requested, but " << m_transient_state.old_quorum_states.size() << " old quorum states found");
-      loaded = false; // Either we don't have stored history or the history is very short, so recalculation is necessary or cheap.
-    }
-    if (loaded && m_transient_state.height == current_height) return;
-
-    if (!loaded || m_transient_state.height > current_height) clear(true);
-
-    LOG_PRINT_L0("Recalculating service nodes list, scanning blockchain from height " << m_transient_state.height);
+    LOG_PRINT_L0("Recalculating service nodes list, scanning blockchain from height " << m_state.height);
     LOG_PRINT_L0("This may take some time...");
 
     std::vector<std::pair<cryptonote::blobdata, cryptonote::block>> blocks;
-    for (uint64_t i = 0; m_transient_state.height < current_height; i++)
+    for (uint64_t i = 0; m_state.height < current_height; i++)
     {
       if (i > 0 && i % 10 == 0)
-          LOG_PRINT_L0("... scanning height " << m_transient_state.height);
+          LOG_PRINT_L0("... scanning height " << m_state.height);
 
       blocks.clear();
-      if (!m_blockchain.get_blocks(m_transient_state.height, 1000, blocks))
+      if (!m_blockchain.get_blocks(m_state.height, 1000, blocks))
       {
         MERROR("Unable to initialize service nodes list");
         return;
@@ -118,6 +105,26 @@ namespace service_nodes
     LOG_PRINT_L0("Done recalculating service nodes list");
   }
 
+  void service_node_list::init()
+  {
+    std::lock_guard<boost::recursive_mutex> lock(m_sn_mutex);
+    if (m_blockchain.get_current_hard_fork_version() < 9)
+    {
+      reset(true);
+      return;
+    }
+
+    uint64_t current_height = m_blockchain.get_current_blockchain_height();
+    bool loaded = load(current_height);
+    if (loaded && m_old_quorum_states.size() < std::min(m_store_quorum_history, uint64_t{10})) {
+      LOG_PRINT_L0("Full history storage requested, but " << m_old_quorum_states.size() << " old quorum states found");
+      loaded = false; // Either we don't have stored history or the history is very short, so recalculation is necessary or cheap.
+    }
+    if (loaded && m_state.height == current_height) return;
+    if (!loaded || m_state.height > current_height) reset(true);
+    rescan_starting_from_curr_state();
+  }
+
   template <typename UnaryPredicate>
   static std::vector<service_nodes::pubkey_and_sninfo> sort_and_filter(const service_nodes_infos_t &sns_infos, UnaryPredicate p, bool reserve = true) {
     std::vector<pubkey_and_sninfo> result;
@@ -133,11 +140,11 @@ namespace service_nodes
     return result;
   }
 
-  std::vector<pubkey_and_sninfo> service_node_list::transient_state::active_service_nodes_infos() const {
+  std::vector<pubkey_and_sninfo> service_node_list::state_t::active_service_nodes_infos() const {
     return sort_and_filter(service_nodes_infos, [](const service_node_info &info) { return info.is_active(); });
   }
 
-  std::vector<pubkey_and_sninfo> service_node_list::transient_state::decommissioned_service_nodes_infos() const {
+  std::vector<pubkey_and_sninfo> service_node_list::state_t::decommissioned_service_nodes_infos() const {
     return sort_and_filter(service_nodes_infos, [](const service_node_info &info) { return info.is_decommissioned() && info.is_fully_funded(); }, /*reserve=*/ false);
   }
 
@@ -150,12 +157,12 @@ namespace service_nodes
     }
 
     std::lock_guard<boost::recursive_mutex> lock(m_sn_mutex);
-    auto it = m_transient_state.quorum_states.find(height);
-    if (it == m_transient_state.quorum_states.end()) {
+    auto it = m_quorum_states.find(height);
+    if (it == m_quorum_states.end()) {
       if (!m_store_quorum_history || !include_old)
         return nullptr;
-      it = m_transient_state.old_quorum_states.find(height);
-      if (it == m_transient_state.old_quorum_states.end())
+      it = m_old_quorum_states.find(height);
+      if (it == m_old_quorum_states.end())
         return nullptr;
     }
     if (type == quorum_type::obligations)
@@ -203,9 +210,9 @@ namespace service_nodes
 
     if (service_node_pubkeys.empty())
     {
-      result.reserve(m_transient_state.service_nodes_infos.size());
+      result.reserve(m_state.service_nodes_infos.size());
 
-      for (const auto &it : m_transient_state.service_nodes_infos)
+      for (const auto &it : m_state.service_nodes_infos)
       {
         service_node_pubkey_info entry = {};
         entry.pubkey                   = it.first;
@@ -218,8 +225,8 @@ namespace service_nodes
       result.reserve(service_node_pubkeys.size());
       for (const auto &it : service_node_pubkeys)
       {
-        const auto &find_it = m_transient_state.service_nodes_infos.find(it);
-        if (find_it == m_transient_state.service_nodes_infos.end())
+        const auto &find_it = m_state.service_nodes_infos.find(it);
+        if (find_it == m_state.service_nodes_infos.end())
           continue;
 
         service_node_pubkey_info entry = {};
@@ -253,13 +260,13 @@ namespace service_nodes
   bool service_node_list::is_service_node(const crypto::public_key& pubkey, bool require_active) const
   {
     std::lock_guard<boost::recursive_mutex> lock(m_sn_mutex);
-    auto it = m_transient_state.service_nodes_infos.find(pubkey);
-    return it != m_transient_state.service_nodes_infos.end() && (!require_active || it->second.is_active());
+    auto it = m_state.service_nodes_infos.find(pubkey);
+    return it != m_state.service_nodes_infos.end() && (!require_active || it->second.is_active());
   }
 
   bool service_node_list::is_key_image_locked(crypto::key_image const &check_image, uint64_t *unlock_height, service_node_info::contribution_t *the_locked_contribution) const
   {
-    for (const auto& pubkey_info : m_transient_state.service_nodes_infos)
+    for (const auto& pubkey_info : m_state.service_nodes_infos)
     {
       const service_node_info &info = pubkey_info.second;
       for (const service_node_info::contributor_t &contributor : info.contributors)
@@ -362,8 +369,8 @@ namespace service_nodes
     if (!get_quorum_pubkey(quorum_type::obligations, quorum_group::worker, state_change.block_height, state_change.service_node_index, key))
       return false;
 
-    auto iter = m_transient_state.service_nodes_infos.find(key);
-    if (iter == m_transient_state.service_nodes_infos.end()) {
+    auto iter = m_state.service_nodes_infos.find(key);
+    if (iter == m_state.service_nodes_infos.end()) {
       LOG_PRINT_L2("Received state change tx for non-registered service node " << key << " (perhaps a delayed tx?)");
       return false;
     }
@@ -388,16 +395,13 @@ namespace service_nodes
               entry.version                   = get_min_service_node_info_version_for_hf(hard_fork_version);
               entry.key_image                 = contribution.key_image;
               entry.unlock_height             = block_height + staking_num_lock_blocks(m_blockchain.nettype());
-              m_transient_state.key_image_blacklist.push_back(entry);
-
+              m_state.key_image_blacklist.push_back(entry);
               const bool adding_to_blacklist = true;
-              m_transient_state.rollback_events.push_back(std::unique_ptr<rollback_event>(new rollback_key_image_blacklist(block_height, entry, adding_to_blacklist)));
             }
           }
         }
 
-        m_transient_state.rollback_events.emplace_back(new rollback_change(block_height, key, info));
-        m_transient_state.service_nodes_infos.erase(iter);
+        m_state.service_nodes_infos.erase(iter);
         return true;
 
       case new_state::decommission:
@@ -416,7 +420,6 @@ namespace service_nodes
         else
           LOG_PRINT_L1("Temporary decommission for service node: " << key);
 
-        m_transient_state.rollback_events.emplace_back(new rollback_change(block_height, key, info));
         info.active_since_height = -info.active_since_height;
         info.last_decommission_height = block_height;
         info.decommission_count++;
@@ -440,7 +443,6 @@ namespace service_nodes
         else
           LOG_PRINT_L1("Recommission for service node: " << key);
 
-        m_transient_state.rollback_events.emplace_back(new rollback_change(block_height, key, info));
 
         info.active_since_height = block_height;
 
@@ -466,7 +468,6 @@ namespace service_nodes
         else
           LOG_PRINT_L1("Reward position reset for service node: " << key);
 
-        m_transient_state.rollback_events.emplace_back(new rollback_change(block_height, key, info));
 
         // Move the SN at the back of the list as if it had just registered (or just won)
         info.last_reward_block_height = block_height;
@@ -490,7 +491,7 @@ namespace service_nodes
     /// Gather existing swarms from infos
     swarm_snode_map_t existing_swarms;
 
-    for (const auto &key_info : m_transient_state.active_service_nodes_infos())
+    for (const auto &key_info : m_state.active_service_nodes_infos())
       existing_swarms[key_info.second.swarm_id].push_back(key_info.first);
 
     calc_swarm_changes(existing_swarms, seed);
@@ -503,14 +504,10 @@ namespace service_nodes
 
       for (const auto snode : snodes) {
 
-        auto& sn_info = m_transient_state.service_nodes_infos.at(snode);
+        auto& sn_info = m_state.service_nodes_infos.at(snode);
         if (sn_info.swarm_id == swarm_id) continue; /// nothing changed for this snode
-
-        /// modify info and record the change
-        m_transient_state.rollback_events.push_back(std::unique_ptr<rollback_event>(new rollback_change(height, snode, sn_info)));
         sn_info.swarm_id = swarm_id;
       }
-
     }
   }
 
@@ -755,8 +752,8 @@ namespace service_nodes
     if (hard_fork_version >= cryptonote::network_version_11_infinite_staking)
     {
       // NOTE(loki): Grace period is not used anymore with infinite staking. So, if someone somehow reregisters, we just ignore it
-      const auto iter = m_transient_state.service_nodes_infos.find(key);
-      if (iter != m_transient_state.service_nodes_infos.end())
+      const auto iter = m_state.service_nodes_infos.find(key);
+      if (iter != m_state.service_nodes_infos.end())
         return false;
 
       if (m_service_node_pubkey && *m_service_node_pubkey == key) MGINFO_GREEN("Service node registered (yours): " << key << " on height: " << block_height);
@@ -767,8 +764,8 @@ namespace service_nodes
       // NOTE: A node doesn't expire until registration_height + lock blocks excess now which acts as the grace period
       // So it is possible to find the node still in our list.
       bool registered_during_grace_period = false;
-      const auto iter = m_transient_state.service_nodes_infos.find(key);
-      if (iter != m_transient_state.service_nodes_infos.end())
+      const auto iter = m_state.service_nodes_infos.find(key);
+      if (iter != m_state.service_nodes_infos.end())
       {
         if (hard_fork_version >= cryptonote::network_version_10_bulletproofs)
         {
@@ -805,8 +802,7 @@ namespace service_nodes
       }
     }
 
-    m_transient_state.rollback_events.push_back(std::unique_ptr<rollback_event>(new rollback_new(block_height, key)));
-    m_transient_state.service_nodes_infos[key] = info;
+    m_state.service_nodes_infos[key] = info;
     return true;
   }
 
@@ -826,8 +822,8 @@ namespace service_nodes
     }
 
     /// Service node must be registered
-    auto iter = m_transient_state.service_nodes_infos.find(pubkey);
-    if (iter == m_transient_state.service_nodes_infos.end())
+    auto iter = m_state.service_nodes_infos.find(pubkey);
+    if (iter == m_state.service_nodes_infos.end())
     {
       LOG_PRINT_L1("Contribution TX: Contribution received for service node: " << pubkey <<
                    ", but could not be found in the service node list on height: " << block_height <<
@@ -885,8 +881,6 @@ namespace service_nodes
     //
     // Successfully Validated
     //
-
-    m_transient_state.rollback_events.push_back(std::unique_ptr<rollback_event>(new rollback_change(block_height, pubkey, info)));
     if (new_contributor)
     {
       service_node_info::contributor_t new_contributor = {};
@@ -959,34 +953,40 @@ namespace service_nodes
     if (hard_fork_version < 9)
       return;
 
+    assert(m_state.height == block_height);
     bool need_swarm_update = false;
+    m_state_history.push_back(m_state);
+    ++m_state.height;
 
     //
-    // Remove old rollback events
+    // Cull old history
     //
     {
-      assert(m_transient_state.height == block_height);
-      ++m_transient_state.height;
-      const size_t ROLLBACK_EVENT_EXPIRATION_BLOCKS = 30;
-      uint64_t cull_height = (block_height < ROLLBACK_EVENT_EXPIRATION_BLOCKS) ? block_height : block_height - ROLLBACK_EVENT_EXPIRATION_BLOCKS;
+      uint64_t start_height = (block_height < MAX_SHORT_TERM_STATE_HISTORY) ? 0 : block_height - MAX_SHORT_TERM_STATE_HISTORY;
+      auto it =
+          std::lower_bound(m_state_history.begin(),
+                           m_state_history.end(),
+                           start_height,
+                           [](state_t const &state, uint64_t start_height) { return state.height < start_height; });
 
-      while (!m_transient_state.rollback_events.empty() && m_transient_state.rollback_events.front()->m_block_height < cull_height)
+      for (; it != m_state_history.end() && it->height <= start_height;)
       {
-        m_transient_state.rollback_events.pop_front();
+        if (it->height % 10000 == 0)
+          it++;
+        else
+          it = m_state_history.erase(it);
       }
-      m_transient_state.rollback_events.push_front(std::unique_ptr<rollback_event>(new prevent_rollback(cull_height)));
     }
 
     //
     // Remove expired blacklisted key images
     //
-    for (auto entry = m_transient_state.key_image_blacklist.begin(); entry != m_transient_state.key_image_blacklist.end();)
+    for (auto entry = m_state.key_image_blacklist.begin(); entry != m_state.key_image_blacklist.end();)
     {
       if (block_height >= entry->unlock_height)
       {
         const bool adding_to_blacklist = false;
-        m_transient_state.rollback_events.push_back(std::unique_ptr<rollback_event>(new rollback_key_image_blacklist(block_height, (*entry), adding_to_blacklist)));
-        entry = m_transient_state.key_image_blacklist.erase(entry);
+        entry = m_state.key_image_blacklist.erase(entry);
       }
       else
         entry++;
@@ -997,8 +997,8 @@ namespace service_nodes
     //
     for (const crypto::public_key& pubkey : update_and_get_expired_nodes(txs, block_height))
     {
-      auto i = m_transient_state.service_nodes_infos.find(pubkey);
-      if (i != m_transient_state.service_nodes_infos.end())
+      auto i = m_state.service_nodes_infos.find(pubkey);
+      if (i != m_state.service_nodes_infos.end())
       {
         if (m_service_node_pubkey && *m_service_node_pubkey == pubkey)
         {
@@ -1009,10 +1009,8 @@ namespace service_nodes
           LOG_PRINT_L1("Service node expired: " << pubkey << " at block height: " << block_height);
         }
 
-        m_transient_state.rollback_events.push_back(std::unique_ptr<rollback_event>(new rollback_change(block_height, pubkey, i->second)));
-
         need_swarm_update += i->second.is_active();
-        m_transient_state.service_nodes_infos.erase(i);
+        m_state.service_nodes_infos.erase(i);
       }
     }
 
@@ -1021,16 +1019,11 @@ namespace service_nodes
     //
     {
       crypto::public_key winner_pubkey = cryptonote::get_service_node_winner_from_tx_extra(block.miner_tx.extra);
-      if (m_transient_state.service_nodes_infos.count(winner_pubkey) == 1)
+      if (m_state.service_nodes_infos.count(winner_pubkey) == 1)
       {
-        m_transient_state.rollback_events.push_back(
-          std::unique_ptr<rollback_event>(
-            new rollback_change(block_height, winner_pubkey, m_transient_state.service_nodes_infos[winner_pubkey])
-          )
-        );
         // set the winner as though it was re-registering at transaction index=UINT32_MAX for this block
-        m_transient_state.service_nodes_infos[winner_pubkey].last_reward_block_height = block_height;
-        m_transient_state.service_nodes_infos[winner_pubkey].last_reward_transaction_index = UINT32_MAX;
+        m_state.service_nodes_infos[winner_pubkey].last_reward_block_height = block_height;
+        m_state.service_nodes_infos[winner_pubkey].last_reward_transaction_index = UINT32_MAX;
       }
     }
 
@@ -1055,8 +1048,8 @@ namespace service_nodes
         if (!cryptonote::get_service_node_pubkey_from_tx_extra(tx.extra, snode_key))
           continue;
 
-        auto it = m_transient_state.service_nodes_infos.find(snode_key);
-        if (it == m_transient_state.service_nodes_infos.end())
+        auto it = m_state.service_nodes_infos.find(snode_key);
+        if (it == m_state.service_nodes_infos.end())
           continue;
 
         service_node_info &node_info = (*it).second;
@@ -1096,7 +1089,6 @@ namespace service_nodes
               break;
             }
 
-            m_transient_state.rollback_events.push_back(std::unique_ptr<rollback_event>(new rollback_key_image_unlock(block_height, snode_key)));
             node_info.requested_unlock_height = unlock_height;
             early_exit = true;
           }
@@ -1113,113 +1105,53 @@ namespace service_nodes
     //
     generate_quorums(block);
     const size_t cache_state_from_height = (block_height < QUORUM_LIFETIME) ? 0 : block_height - QUORUM_LIFETIME;
-    while (!m_transient_state.quorum_states.empty() && m_transient_state.quorum_states.begin()->first < cache_state_from_height) {
-      auto rem = m_transient_state.quorum_states.begin();
+    while (!m_quorum_states.empty() && m_quorum_states.begin()->first < cache_state_from_height)
+    {
+      m_quorum_states.erase(m_quorum_states.begin());
+      auto rem = m_quorum_states.begin();
       if (m_store_quorum_history)
-        m_transient_state.old_quorum_states.emplace_hint(m_transient_state.old_quorum_states.end(), std::move(*rem));
+        m_old_quorum_states.emplace_hint(m_old_quorum_states.end(), std::move(*rem));
 
-      m_transient_state.quorum_states.erase(rem);
+      m_quorum_states.erase(rem);
     }
-    while (m_transient_state.old_quorum_states.size() > m_store_quorum_history)
-      m_transient_state.old_quorum_states.erase(m_transient_state.old_quorum_states.begin());
+    while (m_old_quorum_states.size() > m_store_quorum_history)
+      m_old_quorum_states.erase(m_old_quorum_states.begin());
 
   }
 
   void service_node_list::blockchain_detached(uint64_t height)
   {
     std::lock_guard<boost::recursive_mutex> lock(m_sn_mutex);
-    while (!m_transient_state.rollback_events.empty() && m_transient_state.rollback_events.back()->m_block_height >= height)
+
+    if (m_state.height != height)
     {
-      rollback_event *event = &(*m_transient_state.rollback_events.back());
-      bool rollback_applied = true;
-      switch(event->type)
+      auto it = std::lower_bound(
+          m_state_history.begin(), m_state_history.end(), height, [](state_t const &state, uint64_t start_height) {
+            return state.height < start_height;
+          });
+
+      bool reinitialise = false;
+      if (it == m_state_history.end())
+        reinitialise = true;
+      else
       {
-        case rollback_event::change_type:
-        {
-          auto *rollback = reinterpret_cast<rollback_change *>(event);
-          m_transient_state.service_nodes_infos[rollback->m_key] = rollback->m_info;
-        }
-        break;
-
-        case rollback_event::new_type:
-        {
-          auto *rollback = reinterpret_cast<rollback_new *>(event);
-
-          auto iter = m_transient_state.service_nodes_infos.find(rollback->m_key);
-          if (iter == m_transient_state.service_nodes_infos.end())
-          {
-            MERROR("Could not find service node pubkey in rollback new");
-            rollback_applied = false;
-            break;
-          }
-
-          m_transient_state.service_nodes_infos.erase(iter);
-        }
-        break;
-
-        case rollback_event::prevent_type: { rollback_applied = false; } break;
-
-        case rollback_event::key_image_blacklist_type:
-        {
-          auto *rollback = reinterpret_cast<rollback_key_image_blacklist *>(event);
-          if (rollback->m_was_adding_to_blacklist)
-          {
-            auto it = std::find_if(m_transient_state.key_image_blacklist.begin(), m_transient_state.key_image_blacklist.end(),
-            [rollback] (key_image_blacklist_entry const &a) {
-                return (rollback->m_entry.unlock_height == a.unlock_height && rollback->m_entry.key_image == a.key_image);
-            });
-
-            if (it == m_transient_state.key_image_blacklist.end())
-            {
-              LOG_PRINT_L1("Could not find blacklisted key image to remove");
-              rollback_applied = false;
-              break;
-            }
-
-            m_transient_state.key_image_blacklist.erase(it);
-          }
-          else
-          {
-            m_transient_state.key_image_blacklist.push_back(rollback->m_entry);
-          }
-        }
-        break;
-
-        case rollback_event::key_image_unlock:
-        {
-          auto *rollback = reinterpret_cast<rollback_key_image_unlock *>(event);
-          auto iter = m_transient_state.service_nodes_infos.find(rollback->m_key);
-          if (iter == m_transient_state.service_nodes_infos.end())
-          {
-            MERROR("Could not find service node pubkey in rollback key image unlock");
-            rollback_applied = false;
-            break;
-          }
-          iter->second.requested_unlock_height = KEY_IMAGE_AWAITING_UNLOCK_HEIGHT;
-        }
-        break;
-
-        default:
-        {
-          MERROR("Unhandled rollback type");
-          rollback_applied = false;
-        }
-        break;
+        m_state_history.erase(it, m_state_history.end());
+        reinitialise = m_state_history.empty();
       }
 
-      if (!rollback_applied)
+      if (reinitialise)
       {
+        m_state_history.clear();
         init();
-        break;
+        return;
       }
-
-      m_transient_state.rollback_events.pop_back();
     }
 
-    while (!m_transient_state.quorum_states.empty() && (--m_transient_state.quorum_states.end())->first >= height)
-      m_transient_state.quorum_states.erase(--m_transient_state.quorum_states.end());
+    m_state = m_state_history.back();
+    m_state_history.pop_back();
 
-    m_transient_state.height = height;
+    if (m_state.height != (height - 1))
+      rescan_starting_from_curr_state();
     store();
   }
 
@@ -1266,7 +1198,7 @@ namespace service_nodes
     }
     else
     {
-      for (auto it = m_transient_state.service_nodes_infos.begin(); it != m_transient_state.service_nodes_infos.end(); it++)
+      for (auto it = m_state.service_nodes_infos.begin(); it != m_state.service_nodes_infos.end(); it++)
       {
         crypto::public_key const &snode_key = it->first;
         service_node_info &info             = it->second;
@@ -1302,7 +1234,7 @@ namespace service_nodes
 
     std::vector<std::pair<cryptonote::account_public_address, uint64_t>> winners;
 
-    const service_node_info& info = m_transient_state.service_nodes_infos.at(key);
+    const service_node_info& info = m_state.service_nodes_infos.at(key);
 
     const uint64_t remaining_portions = STAKING_PORTIONS - info.portions_for_operator;
 
@@ -1325,7 +1257,7 @@ namespace service_nodes
   {
     std::lock_guard<boost::recursive_mutex> lock(m_sn_mutex);
     auto oldest_waiting = std::make_tuple(std::numeric_limits<uint64_t>::max(), std::numeric_limits<uint32_t>::max(), crypto::null_pkey);
-    for (const auto& info : m_transient_state.service_nodes_infos)
+    for (const auto& info : m_state.service_nodes_infos)
       if (info.second.is_active())
       {
         auto waiting_since = std::make_tuple(info.second.last_reward_block_height, info.second.last_reward_transaction_index, info.first);
@@ -1456,13 +1388,13 @@ namespace service_nodes
     // state change *validators* want only active service nodes, but the state change *workers*
     // (i.e. the nodes to be tested) also include decommissioned service nodes.  (Prior to v12 there
     // are no decommissioned nodes, so this distinction is irrelevant for network concensus).
-    auto active_snode_list = m_transient_state.active_service_nodes_infos();
+    auto active_snode_list = m_state.active_service_nodes_infos();
     decltype(active_snode_list) decomm_snode_list;
     if (hf_version >= cryptonote::network_version_12_checkpointing)
-      decomm_snode_list = m_transient_state.decommissioned_service_nodes_infos();
+      decomm_snode_list = m_state.decommissioned_service_nodes_infos();
 
     quorum_type const max_quorum_type = max_quorum_type_for_hf(hf_version);
-    quorum_manager &manager           = m_transient_state.quorum_states[height];
+    quorum_manager &manager           = m_quorum_states[height];
     for (int type_int = 0; type_int <= (int)max_quorum_type; type_int++)
     {
       auto type             = static_cast<quorum_type>(type_int);
@@ -1553,6 +1485,23 @@ namespace service_nodes
   {
   }
 
+  static service_node_list::state_serialized serialize_service_node_state_object(service_node_list::state_t const &state)
+  {
+    service_node_list::state_serialized result = {};
+    service_node_pubkey_info info;
+    result.infos.reserve(state.service_nodes_infos.size());
+    for (const auto &kv_pair : state.service_nodes_infos)
+    {
+      info.pubkey = kv_pair.first;
+      info.info   = kv_pair.second;
+      result.infos.push_back(info);
+    }
+
+    result.key_image_blacklist = state.key_image_blacklist;
+    result.height              = state.height;
+    return result;
+  }
+
   bool service_node_list::store()
   {
     if (!m_db)
@@ -1562,12 +1511,15 @@ namespace service_nodes
     if (hf_version < cryptonote::network_version_9_service_nodes)
       return true;
 
-    data_members_for_serialization data_to_store;
+    static data_for_serialization data = {}; // NOTE: Static to avoid constant reallocation
+    data.clear();
+    data.version = get_min_service_node_info_version_for_hf(hf_version);
     {
       std::lock_guard<boost::recursive_mutex> lock(m_sn_mutex);
-
-      for (const auto *qs : {&m_transient_state.old_quorum_states, &m_transient_state.quorum_states})
-        for(const auto &kv_pair : *qs)
+      data.quorum_states.reserve(m_quorum_states.size() + m_old_quorum_states.size());
+      for (const auto *qs : {&m_old_quorum_states, &m_quorum_states})
+      {
+        for(const auto& kv_pair : *qs)
         {
           quorum_for_serialization quorum = {};
           quorum.version                  = get_min_service_node_info_version_for_hf(hf_version);
@@ -1580,63 +1532,44 @@ namespace service_nodes
           if (manager.checkpointing)
             quorum.quorums[static_cast<uint8_t>(quorum_type::checkpointing)] = *manager.checkpointing;
 
-          data_to_store.quorum_states.push_back(std::move(quorum));
-        }
-
-      service_node_pubkey_info info;
-      for (const auto& kv_pair : m_transient_state.service_nodes_infos)
-      {
-        info.pubkey = kv_pair.first;
-        info.info   = kv_pair.second;
-        data_to_store.infos.push_back(info);
-      }
-
-      for (const auto& event_ptr : m_transient_state.rollback_events)
-      {
-        switch (event_ptr->type)
-        {
-          case rollback_event::change_type:              data_to_store.events.push_back(*reinterpret_cast<rollback_change *>(event_ptr.get())); break;
-          case rollback_event::new_type:                 data_to_store.events.push_back(*reinterpret_cast<rollback_new *>(event_ptr.get())); break;
-          case rollback_event::prevent_type:             data_to_store.events.push_back(*reinterpret_cast<prevent_rollback *>(event_ptr.get())); break;
-          case rollback_event::key_image_blacklist_type: data_to_store.events.push_back(*reinterpret_cast<rollback_key_image_blacklist *>(event_ptr.get())); break;
-          case rollback_event::key_image_unlock:         data_to_store.events.push_back(*reinterpret_cast<rollback_key_image_unlock *>(event_ptr.get())); break;
-          default:
-            MERROR("On storing service node data, unknown rollback event type encountered");
-            return false;
+          data.quorum_states.push_back(std::move(quorum));
         }
       }
 
-      data_to_store.key_image_blacklist = m_transient_state.key_image_blacklist;
+      data.states.reserve(m_state_history.size() + 1);
+      for (state_t const &source : m_state_history)
+        data.states.emplace_back(serialize_service_node_state_object(source));
+      data.states.emplace_back(serialize_service_node_state_object(m_state));
     }
 
-    data_to_store.height  = m_transient_state.height;
-    data_to_store.version = get_min_service_node_info_version_for_hf(hf_version);
+    static std::string blob;
+    blob.clear();
+    {
+      std::stringstream ss;
+      binary_archive<true> ba(ss);
 
-    std::stringstream ss;
-    binary_archive<true> ba(ss);
+      bool r = ::serialization::serialize(ba, data);
+      CHECK_AND_ASSERT_MES(r, false, "Failed to store service node info: failed to serialize data");
+      blob.append(ss.str());
+    }
 
-    bool r = ::serialization::serialize(ba, data_to_store);
-    CHECK_AND_ASSERT_MES(r, false, "Failed to store service node info: failed to serialize data");
-
-    std::string blob = ss.str();
     cryptonote::db_wtxn_guard txn_guard(m_db);
     m_db->set_service_node_data(blob);
-
     return true;
   }
 
   void service_node_list::get_all_service_nodes_public_keys(std::vector<crypto::public_key>& keys, bool require_active) const
   {
     keys.clear();
-    keys.reserve(m_transient_state.service_nodes_infos.size());
+    keys.reserve(m_state.service_nodes_infos.size());
 
     if (require_active) {
-      for (const auto &key_info : m_transient_state.service_nodes_infos)
+      for (const auto &key_info : m_state.service_nodes_infos)
         if (key_info.second.is_active())
           keys.push_back(key_info.first);
     }
     else {
-      for (const auto &key_info : m_transient_state.service_nodes_infos)
+      for (const auto &key_info : m_state.service_nodes_infos)
         keys.push_back(key_info.first);
     }
   }
@@ -1772,8 +1705,8 @@ namespace service_nodes
     }
 
     std::lock_guard<boost::recursive_mutex> lock(m_sn_mutex);
-    auto it = m_transient_state.service_nodes_infos.find(proof.pubkey);
-    if (it == m_transient_state.service_nodes_infos.end())
+    auto it = m_state.service_nodes_infos.find(proof.pubkey);
+    if (it == m_state.service_nodes_infos.end())
     {
       LOG_PRINT_L2("Rejecting uptime proof from " << proof.pubkey << ": no such service node is currently registered");
       return false;
@@ -1821,8 +1754,8 @@ namespace service_nodes
   void service_node_list::record_checkpoint_vote(crypto::public_key const &pubkey, bool voted)
   {
     std::lock_guard<boost::recursive_mutex> lock(m_sn_mutex);
-    auto it = m_transient_state.service_nodes_infos.find(pubkey);
-    if (it == m_transient_state.service_nodes_infos.end())
+    auto it = m_state.service_nodes_infos.find(pubkey);
+    if (it == m_state.service_nodes_infos.end())
       return;
 
     proof_info &info            = it->second.proof;
@@ -1833,35 +1766,56 @@ namespace service_nodes
   bool service_node_list::load(const uint64_t current_height)
   {
     LOG_PRINT_L1("service_node_list::load()");
-    clear(false);
+    reset(false);
     if (!m_db)
     {
       return false;
     }
-    std::stringstream ss;
-
-    data_members_for_serialization data_in;
-    std::string blob;
 
     cryptonote::db_rtxn_guard txn_guard(m_db);
+    std::string blob;
     if (!m_db->get_service_node_data(blob))
     {
       return false;
     }
 
+    std::stringstream ss;
     ss << blob;
     binary_archive<false> ba(ss);
-    bool r = ::serialization::serialize(ba, data_in);
-    CHECK_AND_ASSERT_MES(r, false, "Failed to parse service node data from blob");
 
-    m_transient_state.height              = data_in.height;
-    m_transient_state.key_image_blacklist = data_in.key_image_blacklist;
+    data_for_serialization new_data_in = {};
+    {
+      old_data_members_for_serialization old_data_in = {};
+      bool old_data                                  = false;
+      bool new_data                                  = ::serialization::serialize(ba, new_data_in);
+      if (!new_data)
+      {
+        std::stringstream ss_old;
+        ss_old << blob;
+        binary_archive<false> ba_old(ss_old);
+        old_data = ::serialization::serialize(ba_old, old_data_in);
+      }
 
+      CHECK_AND_ASSERT_MES(old_data || new_data, false, "Failed to parse service node data from blob");
+      if (old_data)
+      {
+        new_data_in.states.emplace_back();
+        new_data_in.quorum_states   = std::move(old_data_in.quorum_states);
+        state_serialized &new_state = new_data_in.states.back();
+
+        new_data_in.version           = old_data_in.version;
+        new_state.height              = old_data_in.height;
+        new_state.infos               = std::move(old_data_in.infos);
+        new_state.key_image_blacklist = std::move(old_data_in.key_image_blacklist);
+      }
+    }
+
+    if (new_data_in.states.empty() || new_data_in.quorum_states.empty())
+      return false;
 
     const uint64_t cache_state_from_height = current_height < QUORUM_LIFETIME ? 0 : current_height - QUORUM_LIFETIME;
     const uint64_t hist_state_from_height  = m_store_quorum_history >= cache_state_from_height ? 0 : cache_state_from_height - m_store_quorum_history;
-
-    for (const auto& states : data_in.quorum_states)
+    for (auto &states : new_data_in.quorum_states)
     {
       if (states.height < hist_state_from_height)
         continue;
@@ -1871,71 +1825,49 @@ namespace service_nodes
       // why the `+BUFFER` term is here).
       if ((states.height + REORG_SAFETY_BUFFER_BLOCKS_POST_HF12) % CHECKPOINT_INTERVAL == 0)
           checkpointing = std::make_shared<testing_quorum>(states.quorums[static_cast<uint8_t>(quorum_type::checkpointing)]);
-      auto &quorum_states = states.height >= cache_state_from_height ? m_transient_state.quorum_states : m_transient_state.old_quorum_states;
-      auto &qs = quorum_states.emplace_hint(quorum_states.end(), states.height, quorum_manager{})->second;
-      qs.obligations   = std::move(obligations);
-      qs.checkpointing = std::move(checkpointing);
+      auto &quorum_states = states.height >= cache_state_from_height ? m_quorum_states : m_old_quorum_states;
+      auto &qs            = quorum_states.emplace_hint(quorum_states.end(), states.height, quorum_manager{})->second;
+      qs.obligations      = std::move(obligations);
+      qs.checkpointing    = std::move(checkpointing);
     }
 
-    for (const auto& info : data_in.infos)
+    assert(new_data_in.states.size() > 0);
+    size_t const last_index = new_data_in.states.size() - 1;
+    m_state_history.resize(last_index);
+    uint64_t last_loaded_height = 0;
+    for (size_t i = 0; i <= last_index; i++)
     {
-      m_transient_state.service_nodes_infos[info.pubkey] = info.info;
-    }
+      state_serialized &source = new_data_in.states[i];
+      state_t &dest            = (i == last_index) ? m_state : m_state_history[i];
+      dest.height              = source.height;
+      dest.key_image_blacklist = std::move(source.key_image_blacklist);
 
-    for (const auto& event : data_in.events)
-    {
-      if (event.type() == typeid(rollback_change))
+      for (auto &pubkey_info : source.infos)
+        dest.service_nodes_infos[pubkey_info.pubkey] = std::move(pubkey_info.info);
+
+      if (source.height <= last_loaded_height)
       {
-        const auto& from = boost::get<rollback_change>(event);
-        auto *i = new rollback_change();
-        *i = from;
-        m_transient_state.rollback_events.push_back(std::unique_ptr<rollback_event>(i));
-      }
-      else if (event.type() == typeid(rollback_new))
-      {
-        const auto& from = boost::get<rollback_new>(event);
-        auto *i = new rollback_new();
-        *i = from;
-        m_transient_state.rollback_events.push_back(std::unique_ptr<rollback_event>(i));
-      }
-      else if (event.type() == typeid(prevent_rollback))
-      {
-        const auto& from = boost::get<prevent_rollback>(event);
-        auto *i = new prevent_rollback();
-        *i = from;
-        m_transient_state.rollback_events.push_back(std::unique_ptr<rollback_event>(i));
-      }
-      else if (event.type() == typeid(rollback_key_image_blacklist))
-      {
-        const auto& from = boost::get<rollback_key_image_blacklist>(event);
-        auto *i = new rollback_key_image_blacklist();
-        *i = from;
-        m_transient_state.rollback_events.push_back(std::unique_ptr<rollback_event>(i));
-      }
-      else if (event.type() == typeid(rollback_key_image_unlock))
-      {
-        const auto& from = boost::get<rollback_key_image_unlock>(event);
-        auto *i = new rollback_key_image_unlock();
-        *i = from;
-        m_transient_state.rollback_events.push_back(std::unique_ptr<rollback_event>(i));
-      }
-      else
-      {
-        MERROR("Unhandled rollback event type in restoring data to service node list.");
+        LOG_PRINT_L0("Serialised state is not stored in ascending order by height in DB, failed to load from DB");
         return false;
       }
+      last_loaded_height = source.height;
     }
 
-    MGINFO("Service node data loaded successfully, height: " << m_transient_state.height);
-    MGINFO(m_transient_state.service_nodes_infos.size() << " nodes and " << m_transient_state.rollback_events.size() << " rollback events loaded.");
+    MGINFO("Service node data loaded successfully, height: " << m_state.height);
+    MGINFO(m_state.service_nodes_infos.size()
+           << " nodes and " << m_state_history.size() << " historical states loaded ("
+           << tools::get_human_readable_bytes(blob.size()) << ")");
 
     LOG_PRINT_L1("service_node_list::load() returning success");
     return true;
   }
 
-  void service_node_list::clear(bool delete_db_entry)
+  void service_node_list::reset(bool delete_db_entry)
   {
-    m_transient_state = {};
+    m_state_history.clear();
+    m_quorum_states.clear();
+    m_state = {};
+
     if (m_db && delete_db_entry)
     {
       cryptonote::db_wtxn_guard txn_guard(m_db);
@@ -1948,7 +1880,7 @@ namespace service_nodes
       uint8_t voting;
       m_blockchain.get_hard_fork_voting_info(9, window, votes, threshold, hardfork_9_from_height, voting);
     }
-    m_transient_state.height = hardfork_9_from_height;
+    m_state.height = hardfork_9_from_height;
   }
 
   size_t service_node_info::total_num_locked_contributions() const
