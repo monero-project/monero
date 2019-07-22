@@ -371,6 +371,8 @@ namespace service_nodes
       uint8_t version;
       std::vector<quorum_for_serialization> quorum_states;
       std::vector<state_serialized>         states;
+      void clear() { quorum_states.clear(); states.clear(); version = 0; }
+
       BEGIN_SERIALIZE()
         VARINT_FIELD(version)
         FIELD(quorum_states)

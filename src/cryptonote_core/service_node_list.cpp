@@ -65,6 +65,9 @@ namespace service_nodes
 
   void service_node_list::rescan_starting_from_curr_state()
   {
+    if (m_blockchain.get_current_hard_fork_version() < 9)
+      return;
+
     uint64_t current_height = m_blockchain.get_current_blockchain_height();
     LOG_PRINT_L0("Recalculating service nodes list, scanning blockchain from height " << m_state.height);
     LOG_PRINT_L0("This may take some time...");
@@ -1501,8 +1504,9 @@ namespace service_nodes
     if (hf_version < cryptonote::network_version_9_service_nodes)
       return true;
 
-    data_for_serialization data = {};
-    data.version                = get_min_service_node_info_version_for_hf(hf_version);
+    static data_for_serialization data = {}; // NOTE: Static to avoid constant reallocation
+    data.clear();
+    data.version = get_min_service_node_info_version_for_hf(hf_version);
     {
       std::lock_guard<boost::recursive_mutex> lock(m_sn_mutex);
       data.quorum_states.reserve(m_quorum_states.size() + m_old_quorum_states.size());
@@ -1531,12 +1535,16 @@ namespace service_nodes
       data.states.emplace_back(serialize_service_node_state_object(m_state));
     }
 
-    std::stringstream ss;
-    binary_archive<true> ba(ss);
+    static std::string blob;
+    blob.clear();
+    {
+      std::stringstream ss;
+      binary_archive<true> ba(ss);
 
-    bool r = ::serialization::serialize(ba, data);
-    CHECK_AND_ASSERT_MES(r, false, "Failed to store service node info: failed to serialize data");
-    std::string blob = ss.str();
+      bool r = ::serialization::serialize(ba, data);
+      CHECK_AND_ASSERT_MES(r, false, "Failed to store service node info: failed to serialize data");
+      blob.append(ss.str());
+    }
 
     cryptonote::db_wtxn_guard txn_guard(m_db);
     m_db->set_service_node_data(blob);
