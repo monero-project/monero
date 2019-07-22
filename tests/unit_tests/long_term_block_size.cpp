@@ -92,12 +92,12 @@ static uint32_t lcg()
   cryptonote::tx_memory_pool txpool(*bc); \
   bc.reset(new cryptonote::Blockchain(txpool)); \
   struct get_test_options { \
-    const std::pair<uint8_t, uint64_t> hard_forks[3]; \
+    const cryptonote::test_options::hard_fork_t hard_forks[3]; \
     const cryptonote::test_options test_options = { \
       hard_forks, \
       window, \
     }; \
-    get_test_options(): hard_forks{std::make_pair(1, (uint64_t)0), std::make_pair((uint8_t)hf_version, (uint64_t)1), std::make_pair((uint8_t)0, (uint64_t)0)} {} \
+    get_test_options(): hard_forks{{1, (uint64_t)0, 0}, {(uint8_t)hf_version, (uint64_t)1, 0}, {(uint8_t)0, (uint64_t)0,}} {} \
   } opts; \
   cryptonote::Blockchain *blockchain = bc.get(); \
   bool r = blockchain->init(new TestDB(), cryptonote::FAKECHAIN, true, &opts.test_options, 0); \
