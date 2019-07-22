@@ -424,7 +424,7 @@ namespace service_nodes
 
     std::map<block_height, quorum_manager> m_quorum_states;
     decltype(m_quorum_states)              m_old_quorum_states; // Store all old quorum history only if run with --store-full-quorum-history
-    std::deque<state_t>                    m_state_history;
+    std::vector<state_t>                   m_state_history;
     state_t                                m_state;
   };
 

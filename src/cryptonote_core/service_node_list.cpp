@@ -1834,6 +1834,7 @@ namespace service_nodes
     assert(new_data_in.states.size() > 0);
     size_t const last_index = new_data_in.states.size() - 1;
     m_state_history.resize(last_index);
+    uint64_t last_loaded_height = 0;
     for (size_t i = 0; i <= last_index; i++)
     {
       state_serialized &source = new_data_in.states[i];
@@ -1843,6 +1844,13 @@ namespace service_nodes
 
       for (auto &pubkey_info : source.infos)
         dest.service_nodes_infos[pubkey_info.pubkey] = std::move(pubkey_info.info);
+
+      if (source.height <= last_loaded_height)
+      {
+        LOG_PRINT_L0("Serialised state is not stored in ascending order by height in DB, failed to load from DB");
+        return false;
+      }
+      last_loaded_height = source.height;
     }
 
     MGINFO("Service node data loaded successfully, height: " << m_state.height);
