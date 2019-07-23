@@ -372,7 +372,6 @@ std::shared_ptr<straus_cached_data> straus_init_cache(const std::vector<Multiexp
   if (N == 0)
     N = data.size();
   CHECK_AND_ASSERT_THROW_MES(N <= data.size(), "Bad cache base data");
-  ge_cached cached;
   ge_p1p1 p1;
   ge_p3 p3;
   std::shared_ptr<straus_cached_data> cache(new straus_cached_data());
@@ -447,7 +446,7 @@ rct::key straus(const std::vector<MultiexpData> &data, const std::shared_ptr<str
 {
   CHECK_AND_ASSERT_THROW_MES(cache == NULL || cache->size >= data.size(), "Cache is too small");
   MULTIEXP_PERF(PERF_TIMER_UNIT(straus, 1000000));
-  bool HiGi = cache != NULL;
+  bool cache != NULL;
   STEP = STEP ? STEP : 192;
 
   MULTIEXP_PERF(PERF_TIMER_START_UNIT(setup, 1000000));
@@ -455,7 +454,6 @@ rct::key straus(const std::vector<MultiexpData> &data, const std::shared_ptr<str
   std::shared_ptr<straus_cached_data> local_cache = cache == NULL ? straus_init_cache(data) : cache;
   ge_cached cached;
   ge_p1p1 p1;
-  ge_p3 p3;
 
 #ifdef TRACK_STRAUS_ZERO_IDENTITY
   MULTIEXP_PERF(PERF_TIMER_START_UNIT(skip, 1000000));
@@ -588,7 +586,6 @@ std::shared_ptr<pippenger_cached_data> pippenger_init_cache(const std::vector<Mu
   if (N == 0)
     N = data.size() - start_offset;
   CHECK_AND_ASSERT_THROW_MES(N <= data.size() - start_offset, "Bad cache base data");
-  ge_cached cached;
   std::shared_ptr<pippenger_cached_data> cache(new pippenger_cached_data());
 
   cache->size = N;
