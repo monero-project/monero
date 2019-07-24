@@ -2549,7 +2549,7 @@ static void append_printable_service_node_list_entry(cryptonote::network_type ne
     buffer.append("\n");
     for (size_t j = 0; j < entry.contributors.size(); ++j)
     {
-      const cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::contributor &contributor = entry.contributors[j];
+      const cryptonote::service_node_contributor &contributor = entry.contributors[j];
 
       buffer.append(indent2);
       buffer.append("[");

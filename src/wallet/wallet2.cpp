@@ -5983,12 +5983,12 @@ bool wallet2::is_transfer_unlocked(uint64_t unlock_time, uint64_t block_height, 
 
     for (cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry const &entry : service_nodes_states)
     {
-      for (cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::contributor const &contributor : entry.contributors)
+      for (cryptonote::service_node_contributor const &contributor : entry.contributors)
       {
         if (primary_address != contributor.address)
           continue;
 
-        for (cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::contribution const &contribution : contributor.locked_contributions)
+        for (cryptonote::service_node_contribution const &contribution : contributor.locked_contributions)
         {
           binary_buf.clear();
           if(!string_tools::parse_hexstr_to_binbuff(contribution.key_image, binary_buf) || binary_buf.size() != sizeof(crypto::key_image))
@@ -7537,7 +7537,7 @@ wallet2::stake_result wallet2::check_stake_allowed(const crypto::public_key& sn_
   if (amount == 0) amount = snode_info.staking_requirement * fraction;
 
   size_t total_num_locked_contributions = 0;
-  for (COMMAND_RPC_GET_SERVICE_NODES::response::contributor const &contributor : snode_info.contributors)
+  for (service_node_contributor const &contributor : snode_info.contributors)
     total_num_locked_contributions += contributor.locked_contributions.size();
 
   uint8_t const hf_version   = *res;
@@ -7977,9 +7977,9 @@ wallet2::request_stake_unlock_result wallet2::can_request_stake_unlock(const cry
     }
 
     cryptonote::account_public_address const primary_address = get_address();
-    std::vector<COMMAND_RPC_GET_SERVICE_NODES::response::contribution> const *contributions = nullptr;
-    COMMAND_RPC_GET_SERVICE_NODES::response::entry const &node_info                         = response[0];
-    for (COMMAND_RPC_GET_SERVICE_NODES::response::contributor const &contributor : node_info.contributors)
+    std::vector<service_node_contribution> const *contributions     = nullptr;
+    COMMAND_RPC_GET_SERVICE_NODES::response::entry const &node_info = response[0];
+    for (service_node_contributor const &contributor : node_info.contributors)
     {
       address_parse_info address_info = {};
       cryptonote::get_account_address_from_str(address_info, nettype(), contributor.address);
@@ -8017,7 +8017,7 @@ wallet2::request_stake_unlock_result wallet2::can_request_stake_unlock(const cry
       }
 
       result.msg.reserve(1024);
-      COMMAND_RPC_GET_SERVICE_NODES::response::contribution const &contribution = (*contributions)[0];
+      service_node_contribution const &contribution = (*contributions)[0];
       if (node_info.requested_unlock_height != 0)
       {
         result.msg.append("Key image: ");

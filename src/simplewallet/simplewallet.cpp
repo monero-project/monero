@@ -6321,7 +6321,7 @@ bool simple_wallet::query_locked_stakes(bool print_result)
     for (COMMAND_RPC_GET_SERVICE_NODES::response::entry const &node_info : response)
     {
       bool only_once = true;
-      for (COMMAND_RPC_GET_SERVICE_NODES::response::contributor const &contributor : node_info.contributors)
+      for (service_node_contributor const &contributor : node_info.contributors)
       {
         address_parse_info address_info = {};
         if (!cryptonote::get_account_address_from_str(address_info, m_wallet->nettype(), contributor.address))
@@ -6335,7 +6335,7 @@ bool simple_wallet::query_locked_stakes(bool print_result)
 
         for (size_t i = 0; i < contributor.locked_contributions.size(); ++i)
         {
-          COMMAND_RPC_GET_SERVICE_NODES::response::contribution const &contribution = contributor.locked_contributions[i];
+          service_node_contribution const &contribution = contributor.locked_contributions[i];
           has_locked_stakes = true;
 
           if (!print_result)
