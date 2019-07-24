@@ -190,7 +190,6 @@ namespace rct {
         int byte, i, j;
         for (j = 0; j < 8; j++) {
             byte = 0;
-            i = 8 * j;
             for (i = 7; i > -1; i--) {
                 byte = byte * 2 + amountb2[8 * j + i];
             }

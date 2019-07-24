@@ -707,7 +707,7 @@ uint64_t BlockchainLMDB::get_estimated_batch_size(uint64_t batch_num_blocks, uin
       ++num_blocks_used;
     }
     if (my_rtxn) block_rtxn_stop();
-    avg_block_size = total_block_size / num_blocks_used;
+    avg_block_size = total_block_size / (num_blocks_used ? num_blocks_used : 1);
     MDEBUG("average block size across recent " << num_blocks_used << " blocks: " << avg_block_size);
   }
 estim:

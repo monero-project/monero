@@ -163,6 +163,7 @@ bool wallet_tools::fill_tx_sources(tools::wallet2 * wallet, std::vector<cryptono
 
 void wallet_tools::gen_tx_src(size_t mixin, uint64_t cur_height, const tools::wallet2::transfer_details & td, cryptonote::tx_source_entry & src, block_tracker &bt)
 {
+  CHECK_AND_ASSERT_THROW_MES(mixin != 0, "mixin is zero");
   src.amount = td.amount();
   src.rct = td.is_rct();
 

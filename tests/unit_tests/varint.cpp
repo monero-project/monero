@@ -56,7 +56,6 @@ TEST(varint, equal)
     ASSERT_TRUE (bytes > 0 && bytes <= sizeof(buf));
 
     uint64_t idx2;
-    bufptr = buf;
     std::string s(buf, bytes);
     int read = tools::read_varint(s.begin(), s.end(), idx2);
     ASSERT_EQ (read, bytes);
