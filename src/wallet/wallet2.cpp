@@ -11384,12 +11384,13 @@ void wallet2::set_attribute(const std::string &key, const std::string &value)
   m_attributes[key] = value;
 }
 
-std::string wallet2::get_attribute(const std::string &key) const
+bool wallet2::get_attribute(const std::string &key, std::string &value) const
 {
   std::unordered_map<std::string, std::string>::const_iterator i = m_attributes.find(key);
   if (i == m_attributes.end())
-    return std::string();
-  return i->second;
+    return false;
+  value = i->second;
+  return true;
 }
 
 void wallet2::set_description(const std::string &description)
@@ -11399,7 +11400,10 @@ void wallet2::set_description(const std::string &description)
 
 std::string wallet2::get_description() const
 {
-  return get_attribute(ATTRIBUTE_DESCRIPTION);
+  std::string s;
+  if (get_attribute(ATTRIBUTE_DESCRIPTION, s))
+    return s;
+  return "";
 }
 
 const std::pair<std::map<std::string, std::string>, std::vector<std::string>>& wallet2::get_account_tags()
