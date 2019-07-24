@@ -80,14 +80,23 @@ Building in docker does not require much setup. Install docker on your host, the
 
 ```bash
 sudo apt-get install git make curl
-sudo usermod -aG docker gitianuser
 ```
 
+Optionally add yourself to the docker group. Note that this will give docker root access to your system.
+
+```bash
+sudo usermod -aG docker gitianuser
+```
 
 Manual and Building
 -------------------
 
 The instructions below use the automated script [gitian-build.py](gitian-build.py) which only works in Ubuntu. 
+=======
+The script automatically installs some packages with apt. If you are not running it on a debian-like system, pass `--no-apt` along with the other
+arguments to it. It calls all available .yml descriptors, which in turn pass the build configurations for different platforms to gitian.
+The instructions below use the automated script [gitian-build.py](gitian-build.py) which is tested to work on Ubuntu.
+
 It calls all available .yml descriptors, which in turn pass the build configurations for different platforms to gitian.
 Help for the build steps taken can be accessed with `./gitian-build.py --help`.
 
