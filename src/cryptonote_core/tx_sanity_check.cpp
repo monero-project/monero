@@ -72,7 +72,7 @@ bool tx_sanity_check(Blockchain &blockchain, const cryptonote::blobdata &tx_blob
 
   if (n_indices <= 10)
   {
-    MERROR("n_indices is only " << n_indices);
+    MDEBUG("n_indices is only " << n_indices << ", not checking");
     return true;
   }
 
