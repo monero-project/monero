@@ -74,7 +74,7 @@ class BlockchainTest():
 
         # we should not see a block at height
         ok = False
-        try: daemon.getblock(height)
+        try: daemon.getblock(height = height)
         except: ok = True
         assert ok
 
@@ -92,7 +92,7 @@ class BlockchainTest():
         # get the blocks, check they have the right height
         res_getblock = []
         for n in range(blocks):
-            res_getblock.append(daemon.getblock(height + n))
+            res_getblock.append(daemon.getblock(height = height + n))
             block_header = res_getblock[n].block_header
             assert abs(block_header.timestamp - time.time()) < 10 # within 10 seconds
             assert block_header.height == height + n
@@ -111,7 +111,7 @@ class BlockchainTest():
 
         # we should not see a block after that
         ok = False
-        try: daemon.getblock(height + blocks)
+        try: daemon.getblock(height = height + blocks)
         except: ok = True
         assert ok
 
@@ -157,7 +157,7 @@ class BlockchainTest():
 
         # we should not see the popped block anymore
         ok = False
-        try: daemon.getblock(height + blocks - 1)
+        try: daemon.getblock(height = height + blocks - 1)
         except: ok = True
         assert ok
 
