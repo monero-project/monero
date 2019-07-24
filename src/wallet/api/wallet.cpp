@@ -2430,6 +2430,23 @@ uint64_t WalletImpl::coldKeyImageSync(uint64_t &spent, uint64_t &unspent)
 {
     return m_wallet->cold_key_image_sync(spent, unspent);
 }
+
+void WalletImpl::deviceShowAddress(uint32_t accountIndex, uint32_t addressIndex, const std::string &paymentId)
+{
+    boost::optional<crypto::hash8> payment_id_param = boost::none;
+    if (!paymentId.empty())
+    {
+        crypto::hash8 payment_id;
+        bool res = tools::wallet2::parse_short_payment_id(paymentId, payment_id);
+        if (!res)
+        {
+            throw runtime_error("Invalid payment ID");
+        }
+        payment_id_param = payment_id;
+    }
+
+    m_wallet->device_show_address(accountIndex, addressIndex, payment_id_param);
+}
 } // namespace
 
 namespace Bitmonero = Monero;

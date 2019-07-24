@@ -179,8 +179,8 @@ namespace
                             "  account tag <tag_name> <account_index_1> [<account_index_2> ...]\n"
                             "  account untag <account_index_1> [<account_index_2> ...]\n"
                             "  account tag_description <tag_name> <description>");
-  const char* USAGE_ADDRESS("address [ new <label text with white spaces allowed> | all | <index_min> [<index_max>] | label <index> <label text with white spaces allowed>]");
-  const char* USAGE_INTEGRATED_ADDRESS("integrated_address [<payment_id> | <address>]");
+  const char* USAGE_ADDRESS("address [ new <label text with white spaces allowed> | all | <index_min> [<index_max>] | label <index> <label text with white spaces allowed> | device [<index>]]");
+  const char* USAGE_INTEGRATED_ADDRESS("integrated_address [device] [<payment_id> | <address>]");
   const char* USAGE_ADDRESS_BOOK("address_book [(add ((<address> [pid <id>])|<integrated address>) [<description possibly with whitespaces>])|(delete <index>)]");
   const char* USAGE_SET_VARIABLE("set <option> [<value>]");
   const char* USAGE_GET_TX_KEY("get_tx_key <txid>");
@@ -8555,6 +8555,7 @@ bool simple_wallet::print_address(const std::vector<std::string> &args/* = std::
   //  address all
   //  address <index_min> [<index_max>]
   //  address label <index> <label text with white spaces allowed>
+  //  address device [<index>]
 
   std::vector<std::string> local_args = args;
   tools::wallet2::transfer_container transfers;
@@ -8591,6 +8592,7 @@ bool simple_wallet::print_address(const std::vector<std::string> &args/* = std::
       label = tr("(Untitled address)");
     m_wallet->add_subaddress(m_current_subaddress_account, label);
     print_address_sub(m_wallet->get_num_subaddresses(m_current_subaddress_account) - 1);
+    m_wallet->device_show_address(m_current_subaddress_account, m_wallet->get_num_subaddresses(m_current_subaddress_account) - 1, boost::none);
   }
   else if (local_args.size() >= 2 && local_args[0] == "label")
   {
@@ -8639,6 +8641,27 @@ bool simple_wallet::print_address(const std::vector<std::string> &args/* = std::
     for (index = index_min; index <= index_max; ++index)
       print_address_sub(index);
   }
+  else if (local_args[0] == "device")
+  {
+    index = 0;
+    local_args.erase(local_args.begin());
+    if (local_args.size() > 0)
+    {
+      if (!epee::string_tools::get_xtype_from_string(index, local_args[0]))
+      {
+        fail_msg_writer() << tr("failed to parse index: ") << local_args[0];
+        return true;
+      }
+      if (index >= m_wallet->get_num_subaddresses(m_current_subaddress_account))
+      {
+        fail_msg_writer() << tr("<index> is out of bounds");
+        return true;
+      }
+    }
+
+    print_address_sub(index);
+    m_wallet->device_show_address(m_current_subaddress_account, index, boost::none);
+  }
   else
   {
     PRINT_USAGE(USAGE_ADDRESS);
@@ -8650,12 +8673,29 @@ bool simple_wallet::print_address(const std::vector<std::string> &args/* = std::
 bool simple_wallet::print_integrated_address(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
   crypto::hash8 payment_id;
-  if (args.size() > 1)
+  bool display_on_device = false;
+  std::vector<std::string> local_args = args;
+
+  if (local_args.size() > 0 && local_args[0] == "device")
+  {
+    local_args.erase(local_args.begin());
+    display_on_device = true;
+  }
+
+  auto device_show_integrated = [this, display_on_device](crypto::hash8 payment_id)
+  {
+    if (display_on_device)
+    {
+      m_wallet->device_show_address(m_current_subaddress_account, 0, payment_id);
+    }
+  };
+
+  if (local_args.size() > 1)
   {
     PRINT_USAGE(USAGE_INTEGRATED_ADDRESS);
     return true;
   }
-  if (args.size() == 0)
+  if (local_args.size() == 0)
   {
     if (m_current_subaddress_account != 0)
     {
@@ -8665,9 +8705,10 @@ bool simple_wallet::print_integrated_address(const std::vector<std::string> &arg
     payment_id = crypto::rand<crypto::hash8>();
     success_msg_writer() << tr("Random payment ID: ") << payment_id;
     success_msg_writer() << tr("Matching integrated address: ") << m_wallet->get_account().get_public_integrated_address_str(payment_id, m_wallet->nettype());
+    device_show_integrated(payment_id);
     return true;
   }
-  if(tools::wallet2::parse_short_payment_id(args.back(), payment_id))
+  if(tools::wallet2::parse_short_payment_id(local_args.back(), payment_id))
   {
     if (m_current_subaddress_account != 0)
     {
@@ -8675,16 +8716,18 @@ bool simple_wallet::print_integrated_address(const std::vector<std::string> &arg
       return true;
     }
     success_msg_writer() << m_wallet->get_account().get_public_integrated_address_str(payment_id, m_wallet->nettype());
+    device_show_integrated(payment_id);
     return true;
   }
   else {
     address_parse_info info;
-    if(get_account_address_from_str(info, m_wallet->nettype(), args.back()))
+    if(get_account_address_from_str(info, m_wallet->nettype(), local_args.back()))
     {
       if (info.has_payment_id)
       {
         success_msg_writer() << boost::format(tr("Integrated address: %s, payment ID: %s")) %
           get_account_address_as_str(m_wallet->nettype(), false, info.address) % epee::string_tools::pod_to_hex(info.payment_id);
+        device_show_integrated(info.payment_id);
       }
       else
       {
