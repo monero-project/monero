@@ -891,6 +891,19 @@ struct Wallet
     virtual void setDefaultMixin(uint32_t arg) = 0;
 
     /*!
+     * \brief setCacheAttribute - attach an arbitrary string to a wallet cache attribute
+     * \param key - the key
+     * \param val - the value
+     * \return true if successful, false otherwise
+     */
+    virtual bool setCacheAttribute(const std::string &key, const std::string &val) = 0;
+    /*!
+     * \brief getCacheAttribute - return an arbitrary string attached to a wallet cache attribute
+     * \param key - the key
+     * \return the attached string, or empty string if there is none
+     */
+    virtual std::string getCacheAttribute(const std::string &key) const = 0;
+    /*!
      * \brief setUserNote - attach an arbitrary string note to a txid
      * \param txid - the transaction id to attach the note to
      * \param note - the note
