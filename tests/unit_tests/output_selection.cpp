@@ -138,7 +138,7 @@ TEST(select_outputs, density)
   static const size_t NPICKS = 1000000;
   std::vector<uint64_t> offsets;
 
-  MKOFFSETS(300000, 1 + (rand() & 0x1f));
+  MKOFFSETS(300000, 1 + (crypto::rand<size_t>() & 0x1f));
   tools::gamma_picker picker(offsets);
 
   std::vector<int> picks(/*n_outs*/offsets.size(), 0);
@@ -181,7 +181,7 @@ TEST(select_outputs, same_distribution)
   static const size_t NPICKS = 1000000;
   std::vector<uint64_t> offsets;
 
-  MKOFFSETS(300000, 1 + (rand() & 0x1f));
+  MKOFFSETS(300000, 1 + (crypto::rand<size_t>() & 0x1f));
   tools::gamma_picker picker(offsets);
 
   std::vector<int> chain_picks(offsets.size(), 0);
