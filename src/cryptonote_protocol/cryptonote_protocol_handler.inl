@@ -285,6 +285,7 @@ namespace cryptonote
 
       cnx.height = cntxt.m_remote_blockchain_height;
       cnx.pruning_seed = cntxt.m_pruning_seed;
+      cnx.address_type = (uint8_t)cntxt.m_remote_address.get_type_id();
 
       connections.push_back(cnx);
 
