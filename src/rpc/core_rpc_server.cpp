@@ -105,6 +105,35 @@ namespace cryptonote
     , m_p2p(p2p)
   {}
   //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::set_bootstrap_daemon(const std::string &address, const std::string &username_password)
+  {
+    boost::optional<epee::net_utils::http::login> credentials;
+    const auto loc = username_password.find(':');
+    if (loc != std::string::npos)
+    {
+      credentials = epee::net_utils::http::login(username_password.substr(0, loc), username_password.substr(loc + 1));
+    }
+    return set_bootstrap_daemon(address, credentials);
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::set_bootstrap_daemon(const std::string &address, const boost::optional<epee::net_utils::http::login> &credentials)
+  {
+    boost::unique_lock<boost::shared_mutex> lock(m_bootstrap_daemon_mutex);
+
+    if (!address.empty())
+    {
+      if (!m_http_client.set_server(address, credentials, epee::net_utils::ssl_support_t::e_ssl_support_autodetect))
+      {
+        return false;
+      }
+    }
+
+    m_bootstrap_daemon_address = address;   
+    m_should_use_bootstrap_daemon = !m_bootstrap_daemon_address.empty();
+
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::init(
       const boost::program_options::variables_map& vm
       , const bool restricted
@@ -118,29 +147,12 @@ namespace cryptonote
     if (!rpc_config)
       return false;
 
-    m_bootstrap_daemon_address = command_line::get_arg(vm, arg_bootstrap_daemon_address);
-    if (!m_bootstrap_daemon_address.empty())
+    if (!set_bootstrap_daemon(command_line::get_arg(vm, arg_bootstrap_daemon_address),
+      command_line::get_arg(vm, arg_bootstrap_daemon_login)))
     {
-      const std::string &bootstrap_daemon_login = command_line::get_arg(vm, arg_bootstrap_daemon_login);
-      const auto loc = bootstrap_daemon_login.find(':');
-      if (!bootstrap_daemon_login.empty() && loc != std::string::npos)
-      {
-        epee::net_utils::http::login login;
-        login.username = bootstrap_daemon_login.substr(0, loc);
-        login.password = bootstrap_daemon_login.substr(loc + 1);
-        m_http_client.set_server(m_bootstrap_daemon_address, login, epee::net_utils::ssl_support_t::e_ssl_support_autodetect);
-      }
-      else
-      {
-        m_http_client.set_server(m_bootstrap_daemon_address, boost::none, epee::net_utils::ssl_support_t::e_ssl_support_autodetect);
-      }
-      m_should_use_bootstrap_daemon = true;
+      MERROR("Failed to parse bootstrap daemon address");
+      return false;
     }
-    else
-    {
-      m_should_use_bootstrap_daemon = false;
-    }
-    m_was_bootstrap_ever_used = false;
 
     boost::optional<epee::net_utils::http::login> http_login{};
 
@@ -185,7 +197,10 @@ namespace cryptonote
     bool r;
     if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_GET_INFO>(invoke_http_mode::JON, "/getinfo", req, res, r))
     {
-      res.bootstrap_daemon_address = m_bootstrap_daemon_address;
+      {
+        boost::shared_lock<boost::shared_mutex> lock(m_bootstrap_daemon_mutex);
+        res.bootstrap_daemon_address = m_bootstrap_daemon_address;
+      }
       crypto::hash top_hash;
       m_core.get_blockchain_top(res.height_without_bootstrap, top_hash);
       ++res.height_without_bootstrap; // turn top block height into blockchain height
@@ -224,13 +239,16 @@ namespace cryptonote
     res.start_time = restricted ? 0 : (uint64_t)m_core.get_start_time();
     res.free_space = restricted ? std::numeric_limits<uint64_t>::max() : m_core.get_free_space();
     res.offline = m_core.offline();
-    res.bootstrap_daemon_address = restricted ? "" : m_bootstrap_daemon_address;
     res.height_without_bootstrap = restricted ? 0 : res.height;
     if (restricted)
+    {
+      res.bootstrap_daemon_address = "";
       res.was_bootstrap_ever_used = false;
+    }
     else
     {
       boost::shared_lock<boost::shared_mutex> lock(m_bootstrap_daemon_mutex);
+      res.bootstrap_daemon_address = m_bootstrap_daemon_address;
       res.was_bootstrap_ever_used = m_was_bootstrap_ever_used;
     }
     res.database_size = m_core.get_blockchain_storage().get_db().get_database_size();
@@ -1125,6 +1143,28 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_set_bootstrap_daemon(const COMMAND_RPC_SET_BOOTSTRAP_DAEMON::request& req, COMMAND_RPC_SET_BOOTSTRAP_DAEMON::response& res, const connection_context *ctx)
+  {
+    PERF_TIMER(on_set_bootstrap_daemon);
+
+    boost::optional<epee::net_utils::http::login> credentials;
+    if (!req.username.empty() || !req.password.empty())
+    {
+      credentials = epee::net_utils::http::login(req.username, req.password);
+    }
+    
+    if (set_bootstrap_daemon(req.address, credentials))
+    {
+      res.status = CORE_RPC_STATUS_OK;
+    }
+    else
+    {
+      res.status = "Failed to set bootstrap daemon";
+    }    
+
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_stop_daemon(const COMMAND_RPC_STOP_DAEMON::request& req, COMMAND_RPC_STOP_DAEMON::response& res, const connection_context *ctx)
   {
     PERF_TIMER(on_stop_daemon);
@@ -1449,10 +1489,12 @@ namespace cryptonote
   bool core_rpc_server::use_bootstrap_daemon_if_necessary(const invoke_http_mode &mode, const std::string &command_name, const typename COMMAND_TYPE::request& req, typename COMMAND_TYPE::response& res, bool &r)
   {
     res.untrusted = false;
+
+    boost::upgrade_lock<boost::shared_mutex> upgrade_lock(m_bootstrap_daemon_mutex);
+
     if (m_bootstrap_daemon_address.empty())
       return false;
 
-    boost::unique_lock<boost::shared_mutex> lock(m_bootstrap_daemon_mutex);
     if (!m_should_use_bootstrap_daemon)
     {
       MINFO("The local daemon is fully synced. Not switching back to the bootstrap daemon");
@@ -1462,7 +1504,10 @@ namespace cryptonote
     auto current_time = std::chrono::system_clock::now();
     if (current_time - m_bootstrap_height_check_time > std::chrono::seconds(30))  // update every 30s
     {
-      m_bootstrap_height_check_time = current_time;
+      {
+        boost::upgrade_to_unique_lock<boost::shared_mutex> lock(upgrade_lock);
+        m_bootstrap_height_check_time = current_time;
+      }
 
       uint64_t top_height;
       crypto::hash top_hash;
@@ -1506,7 +1551,12 @@ namespace cryptonote
       MERROR("Unknown invoke_http_mode: " << mode);
       return false;
     }
-    m_was_bootstrap_ever_used = true;
+
+    {
+      boost::upgrade_to_unique_lock<boost::shared_mutex> lock(upgrade_lock);
+      m_was_bootstrap_ever_used = true;
+    }
+
     r = r && res.status == CORE_RPC_STATUS_OK;
     res.untrusted = true;
     return true;
