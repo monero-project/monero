@@ -2337,6 +2337,15 @@ namespace nodetool
   }
 
   template<class t_payload_net_handler>
+  uint32_t node_server<t_payload_net_handler>::get_max_out_public_peers() const
+  {
+    const auto public_zone = m_network_zones.find(epee::net_utils::zone::public_);
+    if (public_zone == m_network_zones.end())
+      return 0;
+    return public_zone->second.m_config.m_net_config.max_out_connection_count;
+  }
+
+  template<class t_payload_net_handler>
   void node_server<t_payload_net_handler>::change_max_in_public_peers(size_t count)
   {
     auto public_zone = m_network_zones.find(epee::net_utils::zone::public_);
@@ -2347,6 +2356,15 @@ namespace nodetool
       if(current > count)
         public_zone->second.m_net_server.get_config_object().del_in_connections(current - count);
     }
+  }
+
+  template<class t_payload_net_handler>
+  uint32_t node_server<t_payload_net_handler>::get_max_in_public_peers() const
+  {
+    const auto public_zone = m_network_zones.find(epee::net_utils::zone::public_);
+    if (public_zone == m_network_zones.end())
+      return 0;
+    return public_zone->second.m_config.m_net_config.max_in_connection_count;
   }
 
   template<class t_payload_net_handler>
