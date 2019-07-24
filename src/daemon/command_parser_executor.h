@@ -127,6 +127,8 @@ public:
 
   bool unban(const std::vector<std::string>& args);
 
+  bool banned(const std::vector<std::string>& args);
+
   bool flush_txpool(const std::vector<std::string>& args);
 
   bool output_histogram(const std::vector<std::string>& args);

@@ -22,6 +22,24 @@ namespace epee { namespace net_utils
 	bool ipv4_network_address::is_local() const { return net_utils::is_ip_local(ip()); }
 
 
+	bool ipv4_network_subnet::equal(const ipv4_network_subnet& other) const noexcept
+	{ return is_same_host(other) && m_mask == other.m_mask; }
+
+	bool ipv4_network_subnet::less(const ipv4_network_subnet& other) const noexcept
+	{ return subnet() < other.subnet() ? true : (other.subnet() < subnet() ? false : (m_mask < other.m_mask)); }
+
+	std::string ipv4_network_subnet::str() const
+	{ return string_tools::get_ip_string_from_int32(subnet()) + "/" + std::to_string(m_mask); }
+
+	std::string ipv4_network_subnet::host_str() const { return string_tools::get_ip_string_from_int32(subnet()) + "/" + std::to_string(m_mask); }
+	bool ipv4_network_subnet::is_loopback() const { return net_utils::is_ip_loopback(subnet()); }
+	bool ipv4_network_subnet::is_local() const { return net_utils::is_ip_local(subnet()); }
+	bool ipv4_network_subnet::matches(const ipv4_network_address &address) const
+	{
+		return (address.ip() & ~(0xffffffffull << m_mask)) == subnet();
+	}
+
+
 	bool network_address::equal(const network_address& other) const
 	{
 		// clang typeid workaround
