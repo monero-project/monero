@@ -186,8 +186,6 @@ class connection_basic { // not-templated base class for rapid developmet of som
 		void sleep_before_packet(size_t packet_size, int phase, int q_len); // execute a sleep ; phase is not really used now(?)
 		static void save_limit_to_file(int limit); ///< for dr-monero
 		static double get_sleep_time(size_t cb);
-		
-		static void set_save_graph(bool save_graph);
 };
 
 } // nameserver

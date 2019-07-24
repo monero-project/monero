@@ -143,8 +143,6 @@ namespace nodetool
     const command_line::arg_descriptor<int64_t> arg_limit_rate_down = {"limit-rate-down", "set limit-rate-down [kB/s]", P2P_DEFAULT_LIMIT_RATE_DOWN};
     const command_line::arg_descriptor<int64_t> arg_limit_rate = {"limit-rate", "set limit-rate [kB/s]", -1};
 
-    const command_line::arg_descriptor<bool> arg_save_graph = {"save-graph", "Save data for dr monero", false};
-
     boost::optional<std::vector<proxy>> get_proxies(boost::program_options::variables_map const& vm)
     {
 	namespace ip = boost::asio::ip;

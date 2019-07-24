@@ -526,18 +526,6 @@ bool t_command_parser_executor::in_peers(const std::vector<std::string>& args)
 	return m_executor.in_peers(limit);
 }
 
-bool t_command_parser_executor::start_save_graph(const std::vector<std::string>& args)
-{
-	if (!args.empty()) return false;
-	return m_executor.start_save_graph();
-}
-
-bool t_command_parser_executor::stop_save_graph(const std::vector<std::string>& args)
-{
-	if (!args.empty()) return false;
-	return m_executor.stop_save_graph();
-}
-
 bool t_command_parser_executor::hard_fork_info(const std::vector<std::string>& args)
 {
   int version;
