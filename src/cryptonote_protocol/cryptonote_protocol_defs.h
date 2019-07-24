@@ -172,11 +172,8 @@ namespace cryptonote
 
     struct request_t
     {
-      std::vector<crypto::hash>    txs;
-      std::vector<crypto::hash>    blocks;
-
+      std::vector<crypto::hash> blocks;
       BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE_CONTAINER_POD_AS_BLOB(txs)
         KV_SERIALIZE_CONTAINER_POD_AS_BLOB(blocks)
       END_KV_SERIALIZE_MAP()
     };
@@ -189,13 +186,11 @@ namespace cryptonote
 
     struct request_t
     {
-      std::vector<blobdata>              txs;
       std::vector<block_complete_entry>  blocks;
       std::vector<crypto::hash>          missed_ids;
       uint64_t                         current_blockchain_height;
 
       BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(txs)
         KV_SERIALIZE(blocks)
         KV_SERIALIZE_CONTAINER_POD_AS_BLOB(missed_ids)
         KV_SERIALIZE(current_blockchain_height)
