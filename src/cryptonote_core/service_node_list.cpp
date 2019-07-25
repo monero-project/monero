@@ -69,14 +69,15 @@ namespace service_nodes
       return;
 
     uint64_t current_height = m_blockchain.get_current_blockchain_height();
-    LOG_PRINT_L0("Recalculating service nodes list, scanning blockchain from height " << m_state.height);
-    LOG_PRINT_L0("This may take some time...");
+    if (m_state.height == current_height)
+      return;
 
+    MGINFO("Recalculating service nodes list, scanning blockchain from height: " << m_state.height << " to: " << current_height);
     std::vector<std::pair<cryptonote::blobdata, cryptonote::block>> blocks;
     for (uint64_t i = 0; m_state.height < current_height; i++)
     {
       if (i > 0 && i % 10 == 0)
-          LOG_PRINT_L0("... scanning height " << m_state.height);
+          MGINFO("... scanning height " << m_state.height);
 
       blocks.clear();
       if (!m_blockchain.get_blocks(m_state.height, 1000, blocks))
@@ -102,7 +103,7 @@ namespace service_nodes
         process_block(block, txs);
       }
     }
-    LOG_PRINT_L0("Done recalculating service nodes list");
+    MGINFO("Done recalculating service nodes list");
   }
 
   void service_node_list::init()
@@ -120,7 +121,7 @@ namespace service_nodes
       LOG_PRINT_L0("Full history storage requested, but " << m_old_quorum_states.size() << " old quorum states found");
       loaded = false; // Either we don't have stored history or the history is very short, so recalculation is necessary or cheap.
     }
-    if (loaded && m_state.height == current_height) return;
+
     if (!loaded || m_state.height > current_height) reset(true);
     rescan_starting_from_curr_state();
   }
@@ -1123,34 +1124,37 @@ namespace service_nodes
   {
     std::lock_guard<boost::recursive_mutex> lock(m_sn_mutex);
 
-    if (m_state.height != height)
+    if (m_state.height == height)
+      return;
+
+    auto it = std::lower_bound(
+        m_state_history.begin(), m_state_history.end(), height, [](state_t const &state, uint64_t start_height) {
+          return state.height < start_height;
+        });
+
+    bool reinitialise = false;
+    if (it == m_state_history.end())
+      reinitialise = true;
+    else
     {
-      auto it = std::lower_bound(
-          m_state_history.begin(), m_state_history.end(), height, [](state_t const &state, uint64_t start_height) {
-            return state.height < start_height;
-          });
-
-      bool reinitialise = false;
-      if (it == m_state_history.end())
-        reinitialise = true;
+      m_state_history.erase(it, m_state_history.end());
+      if (m_state_history.size())
+        reinitialise = (m_state_history.back().height > height);
       else
-      {
-        m_state_history.erase(it, m_state_history.end());
-        reinitialise = m_state_history.empty();
-      }
+        reinitialise = true;
+    }
 
-      if (reinitialise)
-      {
-        m_state_history.clear();
-        init();
-        return;
-      }
+    if (reinitialise)
+    {
+      m_state_history.clear();
+      init();
+      return;
     }
 
     m_state = m_state_history.back();
     m_state_history.pop_back();
 
-    if (m_state.height != (height - 1))
+    if (m_state.height != height)
       rescan_starting_from_curr_state();
     store();
   }
