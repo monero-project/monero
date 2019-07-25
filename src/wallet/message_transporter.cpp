@@ -192,47 +192,47 @@ bool message_transporter::delete_message(const std::string &transport_id)
   return true;
 }
 
-// Deterministically derive a transport / Bitmessage address from 'seed' (the 10-hex-digits
-// auto-config token will be used), but do not set it up for receiving in PyBitmessage as
-// well, because it's possible the address will only ever be used to SEND auto-config data
+// Deterministically derive a new transport address from 'seed' (the 10-hex-digits auto-config
+// token will be used) and set it up for sending and receiving
+// In a first attempt a normal Bitmessage address was used here, but it turned out the
+// key exchange necessary to put it into service could take a long time or even did not
+// work out at all sometimes. Also there were problems when deleting those temporary
+// addresses again after auto-config. Now a chan is used which avoids all these drawbacks
+// quite nicely.
 std::string message_transporter::derive_transport_address(const std::string &seed)
 {
+  // Don't use the seed directly as chan name; that would be too dangerous, e.g. in the
+  // case of a PyBitmessage instance used by multiple unrelated people
+  // If an auto-config token gets hashed in another context use different salt instead of "chan"
+  std::string salted_seed = seed + "chan";
+  std::string chan_name = epee::string_tools::pod_to_hex(crypto::cn_fast_hash(salted_seed.data(), salted_seed.size()));
+
+  // Calculate the Bitmessage address that the chan will get for being able to
+  // use 'joinChain', as 'createChan' will fail and not tell the address if the chan
+  // already exists (which it can if all auto-config participants share a PyBitmessage
+  // instance). 'joinChan' will also fail in that case, but that won't matter.
   std::string request;
   start_xml_rpc_cmd(request, "getDeterministicAddress");
-  add_xml_rpc_base64_param(request, seed);
+  add_xml_rpc_base64_param(request, chan_name);
   add_xml_rpc_integer_param(request, 4);  // addressVersionNumber
   add_xml_rpc_integer_param(request, 1);  // streamNumber
   end_xml_rpc_cmd(request);
   std::string answer;
   post_request(request, answer);
   std::string address = get_str_between_tags(answer, "<string>", "</string>");
-  return address;
-}
 
-// Derive a transport address and configure it for receiving in PyBitmessage, typically
-// for receiving auto-config messages by the wallet of the auto-config organizer
-std::string message_transporter::derive_and_receive_transport_address(const std::string &seed)
-{
-  // We need to call both "get_deterministic_address" AND "createDeterministicAddresses"
-  // because we won't get back the address from the latter call if it exists already
-  std::string address = derive_transport_address(seed);
-
-  std::string request;
-  start_xml_rpc_cmd(request, "createDeterministicAddresses");
-  add_xml_rpc_base64_param(request, seed);
-  add_xml_rpc_integer_param(request, 1);  // numberOfAddresses
-  add_xml_rpc_integer_param(request, 4);  // addressVersionNumber
+  start_xml_rpc_cmd(request, "joinChan");
+  add_xml_rpc_base64_param(request, chan_name);
+  add_xml_rpc_string_param(request, address);
   end_xml_rpc_cmd(request);
-  std::string answer;
   post_request(request, answer);
-
   return address;
 }
 
 bool message_transporter::delete_transport_address(const std::string &transport_address)
 {
   std::string request;
-  start_xml_rpc_cmd(request, "deleteAddress");
+  start_xml_rpc_cmd(request, "leaveChan");
   add_xml_rpc_string_param(request, transport_address);
   end_xml_rpc_cmd(request);
   std::string answer;
@@ -270,7 +270,22 @@ bool message_transporter::post_request(const std::string &request, std::string &
   std::string string_value = get_str_between_tags(answer, "<string>", "</string>");
   if ((string_value.find("API Error") == 0) || (string_value.find("RPC ") == 0))
   {
-    THROW_WALLET_EXCEPTION(tools::error::bitmessage_api_error, string_value);
+    if ((string_value.find("API Error 0021") == 0) && (request.find("joinChan") != std::string::npos))
+    {
+      // Error that occurs if one tries to join an already joined chan, which can happen
+      // if several auto-config participants share one PyBitmessage instance: As a little
+      // hack simply ignore the error. (A clean solution would be to check for the chan
+      // with 'listAddresses2', but parsing the returned array is much more complicated.)
+    }
+    else if ((string_value.find("API Error 0013") == 0) && (request.find("leaveChan") != std::string::npos))
+    {
+      // Error that occurs if one tries to leave an already left / deleted chan, which can happen
+      // if several auto-config participants share one PyBitmessage instance: Also ignore.
+    }
+    else
+    {
+      THROW_WALLET_EXCEPTION(tools::error::bitmessage_api_error, string_value);
+    }
   }
 
   return r;
