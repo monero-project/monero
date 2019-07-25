@@ -2442,30 +2442,38 @@ namespace cryptonote
     }
 
     uint64_t start = req.start_height, end = req.end_height;
-    if (req.start_height == COMMAND_RPC_GET_QUORUM_STATE::HEIGHT_SENTINEL_VALUE &&
-        req.end_height == COMMAND_RPC_GET_QUORUM_STATE::HEIGHT_SENTINEL_VALUE)
+    if (start == COMMAND_RPC_GET_QUORUM_STATE::HEIGHT_SENTINEL_VALUE &&
+        end == COMMAND_RPC_GET_QUORUM_STATE::HEIGHT_SENTINEL_VALUE)
     {
       start = m_core.get_blockchain_storage().get_current_blockchain_height() - 1;
+      end   = start + 1;
     }
-    else if (req.start_height == COMMAND_RPC_GET_QUORUM_STATE::HEIGHT_SENTINEL_VALUE)
+    else if (start == COMMAND_RPC_GET_QUORUM_STATE::HEIGHT_SENTINEL_VALUE)
     {
-      // NOTE: In this case, the end height is set, but not the start height, so just treat it as printing the end height
       start = end;
+      end   = end + 1;
     }
-
-    if (start >= end)
+    else if (end == COMMAND_RPC_GET_QUORUM_STATE::HEIGHT_SENTINEL_VALUE)
     {
-      if (end != 0)
-        end = end - 1;
+      end = start + 1;
     }
     else
     {
-      end = end + 1;
+      if (end > start) end++;
+      else
+      {
+        if (end != 0)
+          end--;
+      }
     }
 
+    uint64_t curr_height = m_core.get_blockchain_storage().get_current_blockchain_height();
+    start                = std::min(curr_height, start);
+    end                  = std::min(curr_height, end);
+
+    uint64_t count       = (start > end) ? start - end : end - start;
     if (ctx && m_restricted)
     {
-      uint64_t count = (start < end) ? end - start : start - end;
       if (count > COMMAND_RPC_GET_QUORUM_STATE_MAX_COUNT)
       {
         error_resp.code     = CORE_RPC_ERROR_CODE_WRONG_PARAM;
@@ -2478,7 +2486,7 @@ namespace cryptonote
     }
 
     bool at_least_one_succeeded = false;
-    res.quorums.reserve(std::min((uint64_t)16, end - start));
+    res.quorums.reserve(std::min((uint64_t)16, count));
     for (size_t height = start; height != end;)
     {
       uint8_t hf_version = m_core.get_hard_fork_version(height);
