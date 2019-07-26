@@ -130,7 +130,7 @@ namespace cryptonote
       tx_extra_service_node_state_change state_change;
       if (!get_service_node_state_change_from_tx_extra(tx.extra, state_change, hard_fork_version))
       {
-        MERROR("Could not get service node state change from tx, possibly corrupt tx in your blockchain, rejecting malformed state change");
+        MERROR("Could not get service node state change from tx: " << get_transaction_hash(tx) << ", possibly corrupt tx in your blockchain, rejecting malformed state change");
         return false;
       }
 
@@ -139,7 +139,7 @@ namespace cryptonote
       crypto::public_key service_node_to_change;
       if (!service_node_list.get_quorum_pubkey(quorum_type, quorum_group, state_change.block_height, state_change.service_node_index, service_node_to_change))
       {
-        MERROR("Could not resolve the service node public key from the information in the state change, possibly corrupt tx in your blockchain");
+        MERROR("Could not resolve the service node public key from the information in the state change, possibly outdated tx: " << get_transaction_hash(tx));
         return false;
       }
 
@@ -153,7 +153,7 @@ namespace cryptonote
         tx_extra_service_node_state_change pool_tx_state_change;
         if (!get_service_node_state_change_from_tx_extra(pool_tx.extra, pool_tx_state_change, hard_fork_version))
         {
-          MERROR("Could not get service node state change from tx, possibly corrupt tx in your blockchain");
+          MERROR("Could not get service node state change from tx: " << get_transaction_hash(pool_tx) << ", possibly corrupt tx in the pool");
           continue;
         }
 
@@ -167,7 +167,7 @@ namespace cryptonote
           }
           else
           {
-            MWARNING("Could not resolve the service node public key from the information in a pooled tx state change, falling back to primitive checking method");
+            MWARNING("Could not resolve the service node public key from the pooled tx state change, falling back to primitive checking method");
             specifying_same_service_node = (state_change == pool_tx_state_change);
           }
 
@@ -186,7 +186,7 @@ namespace cryptonote
       tx_extra_tx_key_image_unlock unlock;
       if (!cryptonote::get_tx_key_image_unlock_from_tx_extra(tx.extra, unlock))
       {
-        MERROR("Could not get key image unlock from tx, possibly corrupt tx in your blockchain, rejecting malformed tx");
+        MERROR("Could not get key image unlock from tx: " << get_transaction_hash(tx) << ", tx to add is possibly invalid, rejecting");
         return true;
       }
 
@@ -200,13 +200,13 @@ namespace cryptonote
         tx_extra_tx_key_image_unlock pool_unlock;
         if (!cryptonote::get_tx_key_image_unlock_from_tx_extra(pool_tx.extra, pool_unlock))
         {
-          MERROR("Could not get key image unlock from tx, possibly corrupt tx in your blockchain, rejecting malformed tx");
+          MERROR("Could not get key image unlock from tx: " << get_transaction_hash(tx) << ", possibly corrupt tx in the pool");
           return true;
         }
 
         if (unlock == pool_unlock)
         {
-          MWARNING("There was atleast one TX in the pool that is requesting to unlock the same key image already.");
+          LOG_PRINT_L1("New TX: " << get_transaction_hash(tx) << ", has TX: " << get_transaction_hash(pool_tx) << " from the pool that is requesting to unlock the same key image already.");
           return true;
         }
       }
