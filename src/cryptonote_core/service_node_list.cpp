@@ -1202,13 +1202,12 @@ namespace service_nodes
     }
     else
     {
+      const uint64_t hf11_height = m_blockchain.get_earliest_ideal_height_for_version(cryptonote::network_version_11_infinite_staking);
       for (auto it = m_state.service_nodes_infos.begin(); it != m_state.service_nodes_infos.end(); it++)
       {
         crypto::public_key const &snode_key = it->first;
         service_node_info &info             = it->second;
-        int const hf_version                = m_blockchain.get_hard_fork_version(info.registration_height);
-
-        if (hf_version >= cryptonote::network_version_11_infinite_staking)
+        if (info.registration_height >= hf11_height)
         {
           if (info.requested_unlock_height != KEY_IMAGE_AWAITING_UNLOCK_HEIGHT && block_height > info.requested_unlock_height)
             expired_nodes.push_back(snode_key);
