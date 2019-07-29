@@ -1044,6 +1044,45 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_get_public_nodes(const COMMAND_RPC_GET_PUBLIC_NODES::request& req, COMMAND_RPC_GET_PUBLIC_NODES::response& res, const connection_context *ctx)
+  {
+    PERF_TIMER(on_get_public_nodes);
+
+    COMMAND_RPC_GET_PEER_LIST::response peer_list_res;
+    const bool success = on_get_peer_list(COMMAND_RPC_GET_PEER_LIST::request(), peer_list_res, ctx);
+    res.status = peer_list_res.status;
+    if (!success)
+    {      
+      return false;
+    }
+    if (res.status != CORE_RPC_STATUS_OK)
+    {
+      return true;
+    }
+
+    const auto collect = [](const std::vector<peer> &peer_list, std::vector<public_node> &public_nodes)
+    {
+      for (const auto &entry : peer_list)
+      {
+        if (entry.rpc_port != 0)
+        {
+          public_nodes.emplace_back(entry);
+        }
+      }
+    };
+
+    if (req.white)
+    {
+      collect(peer_list_res.white_list, res.white);
+    }
+    if (req.gray)
+    {
+      collect(peer_list_res.gray_list, res.gray);
+    }
+
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_set_log_hash_rate(const COMMAND_RPC_SET_LOG_HASH_RATE::request& req, COMMAND_RPC_SET_LOG_HASH_RATE::response& res, const connection_context *ctx)
   {
     PERF_TIMER(on_set_log_hash_rate);

@@ -87,7 +87,7 @@ namespace cryptonote
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define CORE_RPC_VERSION_MAJOR 2
-#define CORE_RPC_VERSION_MINOR 7
+#define CORE_RPC_VERSION_MINOR 8
 #define MAKE_CORE_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define CORE_RPC_VERSION MAKE_CORE_RPC_VERSION(CORE_RPC_VERSION_MAJOR, CORE_RPC_VERSION_MINOR)
 
@@ -1234,6 +1234,54 @@ namespace cryptonote
         KV_SERIALIZE(status)
         KV_SERIALIZE(white_list)
         KV_SERIALIZE(gray_list)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<response_t> response;
+  };
+
+  struct public_node
+  {
+    std::string host;
+    uint64_t last_seen;
+    uint16_t rpc_port;
+
+    public_node() = delete;
+
+    public_node(const peer &peer)
+      : host(peer.host), last_seen(peer.last_seen), rpc_port(peer.rpc_port)
+    {}
+
+    BEGIN_KV_SERIALIZE_MAP()
+      KV_SERIALIZE(host)
+      KV_SERIALIZE(last_seen)
+      KV_SERIALIZE(rpc_port)
+    END_KV_SERIALIZE_MAP()
+  };
+
+  struct COMMAND_RPC_GET_PUBLIC_NODES
+  {
+    struct request_t
+    {
+      bool gray;
+      bool white;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE_OPT(gray, false)
+        KV_SERIALIZE_OPT(white, true)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<request_t> request;
+
+    struct response_t
+    {
+      std::string status;
+      std::vector<public_node> gray;
+      std::vector<public_node> white;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+        KV_SERIALIZE(gray)
+        KV_SERIALIZE(white)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;
