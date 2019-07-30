@@ -780,10 +780,10 @@ namespace tools
     {
       if (get_tx_key)
       {
-        std::string s = epee::string_tools::pod_to_hex(ptx.tx_key);
+        epee::wipeable_string s = epee::to_hex::wipeable_string(ptx.tx_key);
         for (const crypto::secret_key& additional_tx_key : ptx.additional_tx_keys)
-          s += epee::string_tools::pod_to_hex(additional_tx_key);
-        fill(tx_key, s);
+          s += epee::to_hex::wipeable_string(additional_tx_key);
+        fill(tx_key, std::string(s.data(), s.size()));
       }
       // Compute amount leaving wallet in tx. By convention dests does not include change outputs
       fill(amount, total_amount(ptx));
@@ -1639,7 +1639,8 @@ namespace tools
       }
       else if(req.key_type.compare("view_key") == 0)
       {
-          res.key = string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_view_secret_key);
+          epee::wipeable_string key = epee::to_hex::wipeable_string(m_wallet->get_account().get_keys().m_view_secret_key);
+          res.key = std::string(key.data(), key.size());
       }
       else if(req.key_type.compare("spend_key") == 0)
       {
@@ -1649,7 +1650,8 @@ namespace tools
             er.message = "The wallet is watch-only. Cannot retrieve spend key.";
             return false;
           }
-          res.key = string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_spend_secret_key);
+          epee::wipeable_string key = epee::to_hex::wipeable_string(m_wallet->get_account().get_keys().m_spend_secret_key);
+          res.key = std::string(key.data(), key.size());
       }
       else
       {
@@ -1875,11 +1877,11 @@ namespace tools
       return false;
     }
 
-    std::ostringstream oss;
-    oss << epee::string_tools::pod_to_hex(tx_key);
+    epee::wipeable_string s;
+    s += epee::to_hex::wipeable_string(tx_key);
     for (size_t i = 0; i < additional_tx_keys.size(); ++i)
-      oss << epee::string_tools::pod_to_hex(additional_tx_keys[i]);
-    res.tx_key = oss.str();
+      s += epee::to_hex::wipeable_string(additional_tx_keys[i]);
+    res.tx_key = std::string(s.data(), s.size());
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
@@ -1895,26 +1897,33 @@ namespace tools
       return false;
     }
 
-    std::string tx_key_str = req.tx_key;
-    crypto::secret_key tx_key;
-    if (!epee::string_tools::hex_to_pod(tx_key_str.substr(0, 64), tx_key))
+    epee::wipeable_string tx_key_str = req.tx_key;
+    if (tx_key_str.size() < 64 || tx_key_str.size() % 64)
     {
       er.code = WALLET_RPC_ERROR_CODE_WRONG_KEY;
       er.message = "Tx key has invalid format";
       return false;
     }
-    tx_key_str = tx_key_str.substr(64);
+    const char *data = tx_key_str.data();
+    crypto::secret_key tx_key;
+    if (!epee::wipeable_string(data, 64).hex_to_pod(unwrap(unwrap(tx_key))))
+    {
+      er.code = WALLET_RPC_ERROR_CODE_WRONG_KEY;
+      er.message = "Tx key has invalid format";
+      return false;
+    }
+    size_t offset = 64;
     std::vector<crypto::secret_key> additional_tx_keys;
-    while (!tx_key_str.empty())
+    while (offset < tx_key_str.size())
     {
       additional_tx_keys.resize(additional_tx_keys.size() + 1);
-      if (!epee::string_tools::hex_to_pod(tx_key_str.substr(0, 64), additional_tx_keys.back()))
+      if (!epee::wipeable_string(data + offset, 64).hex_to_pod(unwrap(unwrap(additional_tx_keys.back()))))
       {
         er.code = WALLET_RPC_ERROR_CODE_WRONG_KEY;
         er.message = "Tx key has invalid format";
         return false;
       }
-      tx_key_str = tx_key_str.substr(64);
+      offset += 64;
     }
 
     cryptonote::address_parse_info info;
@@ -2749,8 +2758,20 @@ namespace tools
       er.message = "Failed to generate wallet";
       return false;
     }
+
     if (m_wallet)
+    {
+      try
+      {
+        m_wallet->store();
+      }
+      catch (const std::exception& e)
+      {
+        handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR);
+        return false;
+      }
       delete m_wallet;
+    }
     m_wallet = wal.release();
     return true;
   }
@@ -2807,9 +2828,71 @@ namespace tools
       er.message = "Failed to open wallet";
       return false;
     }
+
     if (m_wallet)
+    {
+      try
+      {
+        m_wallet->store();
+      }
+      catch (const std::exception& e)
+      {
+        handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR);
+        return false;
+      }
       delete m_wallet;
+    }
     m_wallet = wal.release();
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_close_wallet(const wallet_rpc::COMMAND_RPC_CLOSE_WALLET::request& req, wallet_rpc::COMMAND_RPC_CLOSE_WALLET::response& res, epee::json_rpc::error& er)
+  {
+    if (!m_wallet) return not_open(er);
+
+    try
+    {
+      m_wallet->store();
+    }
+    catch (const std::exception& e)
+    {
+      handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR);
+      return false;
+    }
+    delete m_wallet;
+    m_wallet = NULL;
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_change_wallet_password(const wallet_rpc::COMMAND_RPC_CHANGE_WALLET_PASSWORD::request& req, wallet_rpc::COMMAND_RPC_CHANGE_WALLET_PASSWORD::response& res, epee::json_rpc::error& er)
+  {
+    if (!m_wallet) return not_open(er);
+    if (m_restricted)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_DENIED;
+      er.message = "Command unavailable in restricted mode.";
+      return false;
+    }
+    if (m_wallet->verify_password(req.old_password))
+    {
+      try
+      {
+        m_wallet->rewrite(m_wallet->get_wallet_file(), req.new_password);
+        m_wallet->store();
+        LOG_PRINT_L0("Wallet password changed.");
+      }
+      catch (const std::exception& e)
+      {
+        handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR);
+        return false;
+      }
+    }
+    else
+    {
+      er.code = WALLET_RPC_ERROR_CODE_INVALID_PASSWORD;
+      er.message = "Invalid original password.";
+      return false;
+    }
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
@@ -2888,6 +2971,368 @@ namespace tools
       er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
       er.message = "WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR";
     }
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_generate_from_keys(const wallet_rpc::COMMAND_RPC_GENERATE_FROM_KEYS::request &req, wallet_rpc::COMMAND_RPC_GENERATE_FROM_KEYS::response &res, epee::json_rpc::error &er)
+  {
+    if (m_wallet_dir.empty())
+    {
+      er.code = WALLET_RPC_ERROR_CODE_NO_WALLET_DIR;
+      er.message = "No wallet dir configured";
+      return false;
+    }
+
+    // early check for mandatory fields
+    if (req.filename.empty())
+    {
+      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.message = "field 'filename' is mandatory. Please provide a filename to save the restored wallet to.";
+      return false;
+    }
+    if (req.viewkey.empty())
+    {
+      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.message = "field 'viewkey' is mandatory. Please provide a view key you want to restore from.";
+      return false;
+    }
+    if (req.address.empty())
+    {
+      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.message = "field 'address' is mandatory. Please provide a public address.";
+      return false;
+    }
+
+    namespace po = boost::program_options;
+    po::variables_map vm2;
+    const char *ptr = strchr(req.filename.c_str(), '/');
+  #ifdef _WIN32
+    if (!ptr)
+      ptr = strchr(req.filename.c_str(), '\\');
+    if (!ptr)
+      ptr = strchr(req.filename.c_str(), ':');
+  #endif
+    if (ptr)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.message = "Invalid filename";
+      return false;
+    }
+    std::string wallet_file = m_wallet_dir + "/" + req.filename;
+    // check if wallet file already exists
+    if (!wallet_file.empty())
+    {
+      try
+      {
+        boost::system::error_code ignored_ec;
+        THROW_WALLET_EXCEPTION_IF(boost::filesystem::exists(wallet_file, ignored_ec), error::file_exists, wallet_file);
+      }
+      catch (const std::exception &e)
+      {
+        er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+        er.message = "Wallet already exists.";
+        return false;
+      }
+    }
+
+    {
+      po::options_description desc("dummy");
+      const command_line::arg_descriptor<std::string, true> arg_password = {"password", "password"};
+      const char *argv[4];
+      int argc = 3;
+      argv[0] = "wallet-rpc";
+      argv[1] = "--password";
+      argv[2] = req.password.c_str();
+      argv[3] = NULL;
+      vm2 = *m_vm;
+      command_line::add_arg(desc, arg_password);
+      po::store(po::parse_command_line(argc, argv, desc), vm2);
+    }
+
+    auto rc = tools::wallet2::make_new(vm2, true, nullptr);
+    std::unique_ptr<wallet2> wal;
+    wal = std::move(rc.first);
+    if (!wal)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.message = "Failed to create wallet";
+      return false;
+    }
+
+    cryptonote::address_parse_info info;
+    if(!get_account_address_from_str(info, wal->nettype(), req.address))
+    {
+      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.message = "Failed to parse public address";
+      return false;
+    }
+
+    epee::wipeable_string password = rc.second.password();
+    epee::wipeable_string viewkey_string = req.viewkey;
+    crypto::secret_key viewkey;
+    if (!viewkey_string.hex_to_pod(unwrap(unwrap(viewkey))))
+    {
+      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.message = "Failed to parse view key secret key";
+      return false;
+    }
+
+    try
+    {
+      if (!req.spendkey.empty())
+      {
+        epee::wipeable_string spendkey_string = req.spendkey;
+        crypto::secret_key spendkey;
+        if (!spendkey_string.hex_to_pod(unwrap(unwrap(spendkey))))
+        {
+          er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+          er.message = "Failed to parse spend key secret key";
+          return false;
+        }
+        wal->generate(wallet_file, std::move(rc.second).password(), info.address, spendkey, viewkey, false);
+        res.info = "Wallet has been generated successfully.";
+      }
+      else
+      {
+        wal->generate(wallet_file, std::move(rc.second).password(), info.address, viewkey, false);
+        res.info = "Watch-only wallet has been generated successfully.";
+      }
+      MINFO("Wallet has been generated.\n");
+    }
+    catch (const std::exception &e)
+    {
+      handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR);
+      return false;
+    }
+
+    if (!wal)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.message = "Failed to generate wallet";
+      return false;
+    }
+
+    // set blockheight if given
+    try
+    {
+      wal->set_refresh_from_block_height(req.restore_height);
+      wal->rewrite(wallet_file, password);
+    }
+    catch (const std::exception &e)
+    {
+      handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR);
+      return false;
+    }
+
+    if (m_wallet)
+    {
+      try
+      {
+        m_wallet->store();
+      }
+      catch (const std::exception &e)
+      {
+        handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR);
+        return false;
+      }
+      delete m_wallet;
+    }
+    m_wallet = wal.release();
+    res.address = m_wallet->get_account().get_public_address_str(m_wallet->nettype());
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_restore_deterministic_wallet(const wallet_rpc::COMMAND_RPC_RESTORE_DETERMINISTIC_WALLET::request &req, wallet_rpc::COMMAND_RPC_RESTORE_DETERMINISTIC_WALLET::response &res, epee::json_rpc::error &er)
+  {
+    if (m_wallet_dir.empty())
+    {
+      er.code = WALLET_RPC_ERROR_CODE_NO_WALLET_DIR;
+      er.message = "No wallet dir configured";
+      return false;
+    }
+
+    // early check for mandatory fields
+    if (req.filename.empty())
+    {
+      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.message = "field 'filename' is mandatory. Please provide a filename to save the restored wallet to.";
+      return false;
+    }
+    if (req.seed.empty())
+    {
+      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.message = "field 'seed' is mandatory. Please provide a seed you want to restore from.";
+      return false;
+    }
+
+    namespace po = boost::program_options;
+    po::variables_map vm2;
+    const char *ptr = strchr(req.filename.c_str(), '/');
+  #ifdef _WIN32
+    if (!ptr)
+      ptr = strchr(req.filename.c_str(), '\\');
+    if (!ptr)
+      ptr = strchr(req.filename.c_str(), ':');
+  #endif
+    if (ptr)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.message = "Invalid filename";
+      return false;
+    }
+    std::string wallet_file = m_wallet_dir + "/" + req.filename;
+    // check if wallet file already exists
+    if (!wallet_file.empty())
+    {
+      try
+      {
+        boost::system::error_code ignored_ec;
+        THROW_WALLET_EXCEPTION_IF(boost::filesystem::exists(wallet_file, ignored_ec), error::file_exists, wallet_file);
+      }
+      catch (const std::exception &e)
+      {
+        er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+        er.message = "Wallet already exists.";
+        return false;
+      }
+    }
+    crypto::secret_key recovery_key;
+    std::string old_language;
+
+    // check the given seed
+    {
+      if (!crypto::ElectrumWords::words_to_bytes(req.seed, recovery_key, old_language))
+      {
+        er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+        er.message = "Electrum-style word list failed verification";
+        return false;
+      }
+    }
+
+    // process seed_offset if given
+    {
+      if (!req.seed_offset.empty())
+      {
+        recovery_key = cryptonote::decrypt_key(recovery_key, req.seed_offset);
+      }
+    }
+    {
+      po::options_description desc("dummy");
+      const command_line::arg_descriptor<std::string, true> arg_password = {"password", "password"};
+      const char *argv[4];
+      int argc = 3;
+      argv[0] = "wallet-rpc";
+      argv[1] = "--password";
+      argv[2] = req.password.c_str();
+      argv[3] = NULL;
+      vm2 = *m_vm;
+      command_line::add_arg(desc, arg_password);
+      po::store(po::parse_command_line(argc, argv, desc), vm2);
+    }
+
+    auto rc = tools::wallet2::make_new(vm2, true, nullptr);
+    std::unique_ptr<wallet2> wal;
+    wal = std::move(rc.first);
+    if (!wal)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.message = "Failed to create wallet";
+      return false;
+    }
+
+    epee::wipeable_string password = rc.second.password();
+
+    bool was_deprecated_wallet = ((old_language == crypto::ElectrumWords::old_language_name) ||
+                                  crypto::ElectrumWords::get_is_old_style_seed(req.seed));
+
+    std::string mnemonic_language = old_language;
+    if (was_deprecated_wallet)
+    {
+      // The user had used an older version of the wallet with old style mnemonics.
+      res.was_deprecated = true;
+    }
+
+    if (old_language == crypto::ElectrumWords::old_language_name)
+    {
+      if (req.language.empty())
+      {
+        er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+        er.message = "Wallet was using the old seed language. You need to specify a new seed language.";
+        return false;
+      }
+      std::vector<std::string> language_list;
+      std::vector<std::string> language_list_en;
+      crypto::ElectrumWords::get_language_list(language_list);
+      crypto::ElectrumWords::get_language_list(language_list_en, true);
+      if (std::find(language_list.begin(), language_list.end(), req.language) == language_list.end() &&
+          std::find(language_list_en.begin(), language_list_en.end(), req.language) == language_list_en.end())
+      {
+        er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+        er.message = "Wallet was using the old seed language, and the specified new seed language is invalid.";
+        return false;
+      }
+      mnemonic_language = req.language;
+    }
+
+    wal->set_seed_language(mnemonic_language);
+
+    crypto::secret_key recovery_val;
+    try
+    {
+      recovery_val = wal->generate(wallet_file, std::move(rc.second).password(), recovery_key, true, false, false);
+      MINFO("Wallet has been restored.\n");
+    }
+    catch (const std::exception &e)
+    {
+      handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR);
+      return false;
+    }
+
+    // // Convert the secret key back to seed
+    epee::wipeable_string electrum_words;
+    if (!crypto::ElectrumWords::bytes_to_words(recovery_val, electrum_words, mnemonic_language))
+    {
+      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.message = "Failed to encode seed";
+      return false;
+    }
+    res.seed = electrum_words.data();
+
+    if (!wal)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.message = "Failed to generate wallet";
+      return false;
+    }
+
+    // set blockheight if given
+    try
+    {
+      wal->set_refresh_from_block_height(req.restore_height);
+      wal->rewrite(wallet_file, password);
+    }
+    catch (const std::exception &e)
+    {
+      handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR);
+      return false;
+    }
+
+    if (m_wallet)
+    {
+      try
+      {
+        m_wallet->store();
+      }
+      catch (const std::exception &e)
+      {
+        handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR);
+        return false;
+      }
+      delete m_wallet;
+    }
+    m_wallet = wal.release();
+    res.address = m_wallet->get_account().get_public_address_str(m_wallet->nettype());
+    res.info = "Wallet has been restored successfully.";
+    return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::on_is_multisig(const wallet_rpc::COMMAND_RPC_IS_MULTISIG::request& req, wallet_rpc::COMMAND_RPC_IS_MULTISIG::response& res, epee::json_rpc::error& er)
