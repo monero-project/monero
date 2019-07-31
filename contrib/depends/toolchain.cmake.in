@@ -1,9 +1,17 @@
 # Set the system name, either Darwin, Linux, or Windows
 SET(CMAKE_SYSTEM_NAME @depends@)
-SET(CMAKE_BUILD_TYPE release)
+SET(CMAKE_BUILD_TYPE @release_type@)
 
-SET(STATIC true)
-SET(UNBOUND_STATIC true)
+OPTION(STATIC "Link libraries statically" ON)
+OPTION(TREZOR_DEBUG "Main trezor debugging switch" OFF)
+OPTION(BUILD_TESTS "Build tests." OFF)
+
+SET(STATIC ON)
+SET(UNBOUND_STATIC ON)
+SET(ARCH "default")
+
+SET(BUILD_TESTS @build_tests@)
+SET(TREZOR_DEBUG @build_tests@)
 
 # where is the target environment 
 SET(CMAKE_FIND_ROOT_PATH @prefix@ /usr)
@@ -13,6 +21,8 @@ SET(ENV{PKG_CONFIG_PATH} @prefix@/lib/pkgconfig)
 SET(LRELEASE_PATH @prefix@/native/bin CACHE FILEPATH "path to lrelease" FORCE)
 
 SET(Readline_ROOT_DIR @prefix@)
+SET(Readline_INCLUDE_DIR @prefix@/include)
+SET(Termcap_LIBRARY @prefix@/lib/libncurses.a)
 
 SET(LIBUNWIND_INCLUDE_DIR @prefix@/include)
 SET(LIBUNWIND_LIBRARIES @prefix@/lib/libunwind.a)
@@ -20,6 +30,12 @@ SET(LIBUNWIND_LIBRARY_DIRS @prefix@/lib)
 
 SET(LIBUSB-1.0_LIBRARY @prefix@/lib/libusb-1.0.a)
 SET(LIBUDEV_LIBRARY @prefix@/lib/libudev.a)
+
+SET(Protobuf_FOUND 1)
+SET(Protobuf_PROTOC_EXECUTABLE @prefix@/native/bin/protoc CACHE FILEPATH "Path to the native protoc")
+SET(Protobuf_INCLUDE_DIR @prefix@/include CACHE PATH "Protobuf include dir")
+SET(Protobuf_INCLUDE_DIRS @prefix@/include CACHE PATH "Protobuf include dir")
+SET(Protobuf_LIBRARY @prefix@/lib/libprotobuf.a CACHE FILEPATH "Protobuf library")
 
 SET(ZMQ_INCLUDE_PATH @prefix@/include)
 SET(ZMQ_LIB @prefix@/lib/libzmq.a)
@@ -40,6 +56,8 @@ SET(ARCHITECTURE @arch@)
 set (CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER) # Find programs on host
 set (CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY) # Find libs in target
 set (CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY) # Find includes in target
+
+set(CMAKE_SYSTEM_PROCESSOR ${CMAKE_HOST_SYSTEM_PROCESSOR} CACHE STRING "" FORCE)
 
 # specify the cross compiler to be used. Darwin uses clang provided by the SDK.
 if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
@@ -82,6 +100,11 @@ endif()
 
 if(ARCHITECTURE STREQUAL "i686" AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
   SET(LINUX_32 ON)
+  SET(ARCH_ID "i386")
+endif()
+
+if(ARCHITECTURE STREQUAL "x86_64" AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  SET(ARCH_ID "x86_64")
 endif()
 
 #Create a new global cmake flag that indicates building with depends
