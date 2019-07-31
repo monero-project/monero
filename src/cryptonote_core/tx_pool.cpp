@@ -134,14 +134,16 @@ namespace cryptonote
         return false;
       }
 
-      auto const quorum_type = service_nodes::quorum_type::obligations;
-      auto const quorum_group = service_nodes::quorum_group::worker;
       crypto::public_key service_node_to_change;
-      if (!service_node_list.get_quorum_pubkey(quorum_type, quorum_group, state_change.block_height, state_change.service_node_index, service_node_to_change))
-      {
-        MERROR("Could not resolve the service node public key from the information in the state change, possibly outdated tx: " << get_transaction_hash(tx));
-        return false;
-      }
+      auto const quorum_type               = service_nodes::quorum_type::obligations;
+      auto const quorum_group              = service_nodes::quorum_group::worker;
+
+      // NOTE: We can fail to resolve a public key if we are popping blocks greater than the number of quorums we store.
+      bool const can_resolve_quorum_pubkey = service_node_list.get_quorum_pubkey(quorum_type,
+                                                                                 quorum_group,
+                                                                                 state_change.block_height,
+                                                                                 state_change.service_node_index,
+                                                                                 service_node_to_change);
 
       std::vector<transaction> pool_txs;
       get_transactions(pool_txs);
@@ -160,18 +162,17 @@ namespace cryptonote
         if (hard_fork_version >= cryptonote::network_version_12_checkpointing)
         {
           crypto::public_key service_node_to_change_in_the_pool;
-          bool specifying_same_service_node = false;
-          if (service_node_list.get_quorum_pubkey(quorum_type, quorum_group, pool_tx_state_change.block_height, pool_tx_state_change.service_node_index, service_node_to_change_in_the_pool))
+          bool same_service_node = false;
+          if (can_resolve_quorum_pubkey && service_node_list.get_quorum_pubkey(quorum_type, quorum_group, pool_tx_state_change.block_height, pool_tx_state_change.service_node_index, service_node_to_change_in_the_pool))
           {
-            specifying_same_service_node = (service_node_to_change == service_node_to_change_in_the_pool);
+            same_service_node = (service_node_to_change == service_node_to_change_in_the_pool);
           }
           else
           {
-            MWARNING("Could not resolve the service node public key from the pooled tx state change, falling back to primitive checking method");
-            specifying_same_service_node = (state_change == pool_tx_state_change);
+            same_service_node = (state_change == pool_tx_state_change);
           }
 
-          if (specifying_same_service_node && pool_tx_state_change.state == state_change.state)
+          if (same_service_node && pool_tx_state_change.state == state_change.state)
             return true;
         }
         else

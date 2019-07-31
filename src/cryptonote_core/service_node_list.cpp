@@ -180,8 +180,7 @@ namespace service_nodes
     std::shared_ptr<const testing_quorum> quorum = get_testing_quorum(type, height);
     if (!quorum)
     {
-      // TODO(loki): Not being able to find a quorum is fatal! We want better caching abilities.
-      MERROR("Quorum for height: " << height << ", was not stored by the daemon");
+      LOG_PRINT_L1("Quorum for height: " << height << ", was not stored by the daemon");
       return false;
     }
 
