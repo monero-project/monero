@@ -22,9 +22,9 @@ Portions Copyright (c) 2012-2013 The Cryptonote developers.
   - [Release staging schedule and protocol](#release-staging-schedule-and-protocol)
   - [Compiling Monero from source](#compiling-monero-from-source)
     - [Dependencies](#dependencies)
-  - [Internationalization](#Internationalization)
-  - [Using Tor](#Using Tor)
-  - [Debugging](#Debugging)  
+  - [Internationalization](#internationalization)
+  - [Using Tor](#using-tor)
+  - [Debugging](#debugging)  
 
 ## Development resources
 
