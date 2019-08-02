@@ -91,7 +91,6 @@ namespace service_nodes {
   constexpr uint64_t KEY_IMAGE_AWAITING_UNLOCK_HEIGHT = 0;
 
   constexpr uint64_t STATE_CHANGE_TX_LIFETIME_IN_BLOCKS = VOTE_LIFETIME;
-  constexpr size_t   QUORUM_LIFETIME                    = (6 * STATE_CHANGE_TX_LIFETIME_IN_BLOCKS);
 
   using swarm_id_t                         = uint64_t;
   constexpr swarm_id_t UNASSIGNED_SWARM_ID = UINT64_MAX;

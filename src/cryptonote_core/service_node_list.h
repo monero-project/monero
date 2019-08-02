@@ -355,14 +355,18 @@ namespace service_nodes
 
     struct state_serialized
     {
-      uint64_t height;
-      std::vector<service_node_pubkey_info> infos;
+      uint8_t                                version;
+      uint64_t                               height;
+      std::vector<service_node_pubkey_info>  infos;
       std::vector<key_image_blacklist_entry> key_image_blacklist;
+      quorum_for_serialization               quorums;
 
       BEGIN_SERIALIZE()
-        FIELD(height)
+        VARINT_FIELD(version)
+        VARINT_FIELD(height)
         FIELD(infos)
         FIELD(key_image_blacklist)
+        FIELD(quorums)
       END_SERIALIZE()
     };
 
@@ -386,6 +390,7 @@ namespace service_nodes
       service_nodes_infos_t                  service_nodes_infos;
       std::vector<key_image_blacklist_entry> key_image_blacklist;
       block_height                           height;
+      quorum_manager                         quorums;
 
       // Returns a filtered, pubkey-sorted vector of service nodes that are active (fully funded and
       // *not* decommissioned).
@@ -398,7 +403,7 @@ namespace service_nodes
 
     // Note(maxim): private methods don't have to be protected the mutex
     // Returns true if there was a registration:
-    void rescan_starting_from_curr_state();
+    void rescan_starting_from_curr_state(bool store_to_disk);
     bool process_registration_tx(const cryptonote::transaction& tx, uint64_t block_timestamp, uint64_t block_height, uint32_t index);
     // Returns true if there was a successful contribution that fully funded a service node:
     bool process_contribution_tx(const cryptonote::transaction& tx, uint64_t block_height, uint32_t index);
@@ -408,7 +413,6 @@ namespace service_nodes
     void update_swarms(uint64_t height);
 
     bool contribution_tx_output_has_correct_unlock_time(const cryptonote::transaction& tx, size_t i, uint64_t block_height) const;
-    void generate_quorums(cryptonote::block const &block);
 
     bool is_registration_tx(const cryptonote::transaction& tx, uint64_t block_timestamp, uint64_t block_height, uint32_t index, crypto::public_key& key, service_node_info& info) const;
     std::vector<crypto::public_key> update_and_get_expired_nodes(const std::vector<cryptonote::transaction> &txs, uint64_t block_height);
@@ -422,10 +426,17 @@ namespace service_nodes
     cryptonote::BlockchainDB      *m_db;
     uint64_t                       m_store_quorum_history;
 
-    std::map<block_height, quorum_manager> m_quorum_states;
-    decltype(m_quorum_states)              m_old_quorum_states; // Store all old quorum history only if run with --store-full-quorum-history
-    std::vector<state_t>                   m_state_history;
-    state_t                                m_state;
+    struct quorums_by_height
+    {
+      quorums_by_height() = default;
+      quorums_by_height(uint64_t height, quorum_manager quorums) : height(height), quorums(quorums) {}
+      uint64_t       height;
+      quorum_manager quorums;
+    };
+
+    std::deque<quorums_by_height>  m_old_quorum_states; // Store all old quorum history only if run with --store-full-quorum-history
+    std::vector<state_t>           m_state_history;
+    state_t                        m_state;
   };
 
   bool reg_tx_extract_fields(const cryptonote::transaction& tx, std::vector<cryptonote::account_public_address>& addresses, uint64_t& portions_for_operator, std::vector<uint64_t>& portions, uint64_t& expiration_timestamp, crypto::public_key& service_node_key, crypto::signature& signature, crypto::public_key& tx_pub_key);
