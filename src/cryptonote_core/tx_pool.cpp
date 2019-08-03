@@ -845,9 +845,8 @@ namespace cryptonote
               MERROR("Failed to get tx meta from txpool");
               return false;
             }
-            if (!meta.relayed)
-              // Do not include that transaction if in restricted mode and it's not relayed
-              continue;
+            if (!meta.do_not_relay)
+              ki.txs_hashes.push_back(epee::string_tools::pod_to_hex(tx_id_hash));
           }
           catch (const std::exception &e)
           {
@@ -855,11 +854,12 @@ namespace cryptonote
             return false;
           }
         }
-        ki.txs_hashes.push_back(epee::string_tools::pod_to_hex(tx_id_hash));
+	else // include sensitive data
+          ki.txs_hashes.push_back(epee::string_tools::pod_to_hex(tx_id_hash));
       }
       // Only return key images for which we have at least one tx that we can show for them
       if (!ki.txs_hashes.empty())
-        key_image_infos.push_back(ki);
+        key_image_infos.push_back(std::move(ki));
     }
     return true;
   }
