@@ -1705,7 +1705,9 @@ bool WalletImpl::setCacheAttribute(const std::string &key, const std::string &va
 
 std::string WalletImpl::getCacheAttribute(const std::string &key) const
 {
-    return m_wallet->get_attribute(key);
+    std::string value;
+    m_wallet->get_attribute(key, value);
+    return value;
 }
 
 bool WalletImpl::setUserNote(const std::string &txid, const std::string &note)
