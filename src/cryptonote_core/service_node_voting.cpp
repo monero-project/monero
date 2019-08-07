@@ -49,32 +49,6 @@
 
 namespace service_nodes
 {
-  bool convert_deregister_vote_to_legacy(quorum_vote_t const &vote, legacy_deregister_vote &legacy_vote)
-  {
-    if (vote.type != quorum_type::obligations || vote.state_change.state != new_state::deregister)
-      return false;
-
-    legacy_vote.block_height           = vote.block_height;
-    legacy_vote.service_node_index     = vote.state_change.worker_index;
-    legacy_vote.voters_quorum_index    = vote.index_in_group;
-    legacy_vote.signature              = vote.signature;
-    return true;
-  }
-
-  // TODO(loki): Post HF12 remove legacy votes, no longer should be propagated
-  quorum_vote_t convert_legacy_deregister_vote(legacy_deregister_vote const &vote)
-  {
-    quorum_vote_t result             = {};
-    result.type                      = quorum_type::obligations;
-    result.block_height              = vote.block_height;
-    result.signature                 = vote.signature;
-    result.group                     = quorum_group::validator;
-    result.index_in_group            = vote.voters_quorum_index;
-    result.state_change.worker_index = vote.service_node_index;
-    result.state_change.state        = new_state::deregister;
-    return result;
-  }
-
   static crypto::hash make_state_change_vote_hash(uint64_t block_height, uint32_t service_node_index, new_state state)
   {
     uint16_t state_int = static_cast<uint16_t>(state);

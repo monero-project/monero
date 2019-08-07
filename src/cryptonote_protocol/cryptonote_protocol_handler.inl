@@ -873,57 +873,6 @@ namespace cryptonote
   }
   //------------------------------------------------------------------------------------------------------------------------  
   template<class t_core>
-  int t_cryptonote_protocol_handler<t_core>::handle_notify_new_deregister_vote(int command, NOTIFY_NEW_DEREGISTER_VOTE::request& arg, cryptonote_connection_context& context)
-  {
-    MLOG_P2P_MESSAGE("Received NOTIFY_NEW_DEREGISTER_VOTE (" << arg.votes.size() << " txes)");
-    if (m_core.get_blockchain_storage().get_current_hard_fork_version() >= cryptonote::network_version_12_checkpointing)
-    {
-      LOG_DEBUG_CC(context, "Received new deregister vote in HF12, reject. We have a new style of voting");
-      return 1;
-    }
-
-    if(context.m_state != cryptonote_connection_context::state_normal)
-      return 1;
-
-    if(!is_synchronized())
-    {
-      LOG_DEBUG_CC(context, "Received new deregister vote while syncing, ignored");
-      return 1;
-    }
-
-    for(auto it = arg.votes.begin(); it != arg.votes.end();)
-    {
-      cryptonote::vote_verification_context vvc = {};
-      service_nodes::legacy_deregister_vote const &legacy_vote = (*it);
-      service_nodes::quorum_vote_t const vote = service_nodes::convert_legacy_deregister_vote(legacy_vote);
-      m_core.add_service_node_vote(vote, vvc);
-
-      if (vvc.m_verification_failed)
-      {
-        LOG_PRINT_CCONTEXT_L1("Deregister vote verification failed, dropping connection");
-        drop_connection(context, false /*add_fail*/, false /*flush_all_spans i.e. delete cached block data from this peer*/);
-        return 1;
-      }
-
-      if (vvc.m_added_to_pool)
-      {
-        it++;
-      }
-      else
-      {
-        it = arg.votes.erase(it);
-      }
-    }
-
-    if (arg.votes.size())
-    {
-      relay_deregister_votes(arg, context);
-    }
-
-    return 1;
-  }
-  //------------------------------------------------------------------------------------------------------------------------  
-  template<class t_core>
   int t_cryptonote_protocol_handler<t_core>::handle_notify_new_transactions(int command, NOTIFY_NEW_TRANSACTIONS::request& arg, cryptonote_connection_context& context)
   {
     MLOG_P2P_MESSAGE("Received NOTIFY_NEW_TRANSACTIONS (" << arg.txs.size() << " txes)");
@@ -2303,13 +2252,6 @@ skip:
 
     m_p2p->relay_notify_to_list(NOTIFY_NEW_FLUFFY_BLOCK::ID, epee::strspan<uint8_t>(fluffyBlob), std::move(fluffyConnections));
     return true;
-  }
-  //------------------------------------------------------------------------------------------------------------------------
-  template<class t_core>
-  bool t_cryptonote_protocol_handler<t_core>::relay_deregister_votes(NOTIFY_NEW_DEREGISTER_VOTE::request& arg, cryptonote_connection_context& exclude_context)
-  {
-    bool result = relay_on_public_network_generic<NOTIFY_NEW_DEREGISTER_VOTE>(arg, exclude_context);
-    return result;
   }
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core>

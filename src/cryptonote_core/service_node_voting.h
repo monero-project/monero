@@ -121,9 +121,6 @@ namespace service_nodes
     crypto::signature signature;
   };
 
-  bool           convert_deregister_vote_to_legacy(quorum_vote_t const &vote, legacy_deregister_vote &legacy);
-  quorum_vote_t  convert_legacy_deregister_vote   (legacy_deregister_vote const &vote);
-
   struct pool_vote_entry
   {
     quorum_vote_t vote;

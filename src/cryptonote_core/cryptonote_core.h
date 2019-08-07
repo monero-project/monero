@@ -980,15 +980,6 @@ namespace cryptonote
      bool handle_incoming_tx_accumulated_batch(std::vector<tx_verification_batch_info> &tx_info, bool keeped_by_block);
 
      /**
-      * @copydoc miner::on_block_chain_update
-      *
-      * @note see miner::on_block_chain_update
-      *
-      * @return true
-      */
-     bool update_miner_block_template();
-
-     /**
       * @brief act on a set of command line options given
       *
       * @param vm the command line options
