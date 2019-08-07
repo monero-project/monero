@@ -1441,39 +1441,14 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
   bool core::relay_service_node_votes()
   {
-    std::vector<service_nodes::quorum_vote_t> relayable_votes = m_quorum_cop.get_relayable_votes(get_current_blockchain_height());
-    uint8_t hf_version = get_blockchain_storage().get_current_hard_fork_version();
-    if (hf_version < cryptonote::network_version_12_checkpointing)
+    NOTIFY_NEW_SERVICE_NODE_VOTE::request req = {};
+    req.votes                                 = m_quorum_cop.get_relayable_votes(get_current_blockchain_height());
+    if (req.votes.size())
     {
-      NOTIFY_NEW_DEREGISTER_VOTE::request req = {};
-      for (service_nodes::quorum_vote_t const &vote : relayable_votes)
+      cryptonote_connection_context fake_context = AUTO_VAL_INIT(fake_context);
+      if (get_protocol()->relay_service_node_votes(req, fake_context))
       {
-        service_nodes::legacy_deregister_vote legacy_vote = {};
-        if (service_nodes::convert_deregister_vote_to_legacy(vote, legacy_vote))
-          req.votes.push_back(legacy_vote);
-      }
-
-      if (req.votes.size())
-      {
-        cryptonote_connection_context fake_context = AUTO_VAL_INIT(fake_context);
-        if (get_protocol()->relay_deregister_votes(req, fake_context))
-        {
-          m_quorum_cop.set_votes_relayed(relayable_votes);
-        }
-      }
-    }
-    else
-    {
-      // Get relayable votes
-      NOTIFY_NEW_SERVICE_NODE_VOTE::request req = {};
-      req.votes                                 = std::move(relayable_votes);
-      if (req.votes.size())
-      {
-        cryptonote_connection_context fake_context = AUTO_VAL_INIT(fake_context);
-        if (get_protocol()->relay_service_node_votes(req, fake_context))
-        {
-          m_quorum_cop.set_votes_relayed(req.votes);
-        }
+        m_quorum_cop.set_votes_relayed(req.votes);
       }
     }
 
