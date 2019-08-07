@@ -1547,7 +1547,7 @@ namespace cryptonote
     add_new_block(b, bvc, nullptr /*checkpoint*/);
     cleanup_handle_incoming_blocks(true);
     //anyway - update miner template
-    update_miner_block_template();
+    m_miner.on_block_chain_update();
     m_miner.resume();
 
 
@@ -1662,7 +1662,7 @@ namespace cryptonote
     }
     add_new_block(*b, bvc, checkpoint);
     if(update_miner_blocktemplate && bvc.m_added_to_main_chain)
-       update_miner_block_template();
+       m_miner.on_block_chain_update();
     return true;
 
     CATCH_ENTRY_L0("core::handle_incoming_block()", false);
@@ -1775,12 +1775,6 @@ namespace cryptonote
   std::string core::print_pool(bool short_format) const
   {
     return m_mempool.print_pool(short_format);
-  }
-  //-----------------------------------------------------------------------------------------------
-  bool core::update_miner_block_template()
-  {
-    m_miner.on_block_chain_update();
-    return true;
   }
   //-----------------------------------------------------------------------------------------------
   static bool check_storage_server_ping(time_t last_time_storage_server_pinged)
