@@ -608,8 +608,19 @@ void Blockchain::pop_blocks(uint64_t nblocks)
     const uint64_t blockchain_height = m_db->height();
     if (blockchain_height > 0)
       nblocks = std::min(nblocks, blockchain_height - 1);
-    for (; i < nblocks; ++i)
+
+    uint64_t constexpr PERCENT_PER_PROGRESS_UPDATE = 10;
+    uint64_t const blocks_per_update               = (nblocks / PERCENT_PER_PROGRESS_UPDATE);
+
+    tools::PerformanceTimer timer;
+    for (int progress = 0; i < nblocks; ++i)
     {
+      if (nblocks >= BLOCKS_EXPECTED_IN_HOURS(24) && (i != 0 && (i % blocks_per_update == 0)))
+      {
+        MGINFO("... popping blocks " << (++progress * PERCENT_PER_PROGRESS_UPDATE) << "% completed, height: " << (blockchain_height - i) << " (" << timer.seconds() << "s)");
+        timer.reset();
+      }
+
       pop_block_from_blockchain();
     }
   }
