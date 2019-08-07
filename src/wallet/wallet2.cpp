@@ -127,9 +127,9 @@ namespace
   std::string get_default_ringdb_path()
   {
     boost::filesystem::path dir = tools::get_default_data_dir();
-    // remove .bitmonero, replace with .shared-ringdb
+    // remove .aeon, replace with .aeon-shared-ringdb
     dir = dir.remove_filename();
-    dir /= ".shared-ringdb";
+    dir /= ".aeon-shared-ringdb";
     return dir.string();
   }
 }
