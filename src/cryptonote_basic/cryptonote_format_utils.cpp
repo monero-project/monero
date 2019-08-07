@@ -1235,9 +1235,17 @@ namespace cryptonote
     {
       bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Incorrect voting group specified");
       if (vote)
-        bufPtr += snprintf(bufPtr, bufEnd - bufPtr, ": %s", (vote->group == service_nodes::quorum_group::validator) ? "validator" : "worker");
+      {
+        if (vote->group == service_nodes::quorum_group::validator)
+          bufPtr += snprintf(bufPtr, bufEnd - bufPtr, ": %s", "validator");
+        else if (vote->group == service_nodes::quorum_group::worker)
+          bufPtr += snprintf(bufPtr, bufEnd - bufPtr, ": %s", "worker");
+        else
+          bufPtr += snprintf(bufPtr, bufEnd - bufPtr, ": %d", (uint8_t)vote->group);
+      }
       bufPtr += snprintf(bufPtr, bufEnd - bufPtr, ", ");
     }
+    if (vvc.m_invalid_vote_type)             bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Vote type has invalid value: %s, ", vote ? std::to_string((uint8_t)vote->type).c_str() : "??");
 
     if (bufPtr != buf)
     {
