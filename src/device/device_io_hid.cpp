@@ -44,7 +44,8 @@ namespace hw {
     
     static std::string safe_hid_error(hid_device *hwdev) {
       if (hwdev) {
-        return  std::string((char*)hid_error(hwdev));
+        const char* error_str = (const char*)hid_error(hwdev);
+        return  std::string(error_str == nullptr ? "Unknown error" : error_str);
       }
       return std::string("NULL device");
     }
