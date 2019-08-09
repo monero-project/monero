@@ -415,6 +415,115 @@ static bool for_all_transactions(const std::string &filename, uint64_t &start_id
   return fret;
 }
 
+static bool for_all_transactions(const std::string &filename, const uint64_t &start_idx, uint64_t &n_txes, const std::function<bool(bool, uint64_t, const cryptonote::transaction_prefix&)> &f)
+{
+  MDB_env *env;
+  MDB_dbi dbi_blocks, dbi_txs;
+  MDB_txn *txn;
+  MDB_cursor *cur_blocks, *cur_txs;
+  int dbr;
+  bool tx_active = false;
+  MDB_val k;
+  MDB_val v;
+
+  dbr = mdb_env_create(&env);
+  if (dbr) throw std::runtime_error("Failed to create LDMB environment: " + std::string(mdb_strerror(dbr)));
+  dbr = mdb_env_set_maxdbs(env, 3);
+  if (dbr) throw std::runtime_error("Failed to set max env dbs: " + std::string(mdb_strerror(dbr)));
+  const std::string actual_filename = filename;
+  dbr = mdb_env_open(env, actual_filename.c_str(), 0, 0664);
+  if (dbr) throw std::runtime_error("Failed to open rings database file '"
+      + actual_filename + "': " + std::string(mdb_strerror(dbr)));
+
+  dbr = mdb_txn_begin(env, NULL, MDB_RDONLY, &txn);
+  if (dbr) throw std::runtime_error("Failed to create LMDB transaction: " + std::string(mdb_strerror(dbr)));
+  epee::misc_utils::auto_scope_leave_caller txn_dtor = epee::misc_utils::create_scope_leave_handler([&](){if (tx_active) mdb_txn_abort(txn);});
+  tx_active = true;
+
+  dbr = mdb_dbi_open(txn, "blocks", MDB_INTEGERKEY, &dbi_blocks);
+  if (dbr) throw std::runtime_error("Failed to open LMDB dbi: " + std::string(mdb_strerror(dbr)));
+  dbr = mdb_dbi_open(txn, "txs_pruned", MDB_INTEGERKEY, &dbi_txs);
+  if (dbr) throw std::runtime_error("Failed to open LMDB dbi: " + std::string(mdb_strerror(dbr)));
+
+  dbr = mdb_cursor_open(txn, dbi_blocks, &cur_blocks);
+  if (dbr) throw std::runtime_error("Failed to create LMDB cursor: " + std::string(mdb_strerror(dbr)));
+  dbr = mdb_cursor_open(txn, dbi_txs, &cur_txs);
+  if (dbr) throw std::runtime_error("Failed to create LMDB cursor: " + std::string(mdb_strerror(dbr)));
+
+  MDB_stat stat;
+  dbr = mdb_stat(txn, dbi_blocks, &stat);
+  if (dbr) throw std::runtime_error("Failed to query txs stat: " + std::string(mdb_strerror(dbr)));
+  uint64_t n_blocks = stat.ms_entries;
+  dbr = mdb_stat(txn, dbi_txs, &stat);
+  if (dbr) throw std::runtime_error("Failed to query txs stat: " + std::string(mdb_strerror(dbr)));
+  n_txes = stat.ms_entries;
+
+  bool fret = true;
+
+  MDB_cursor_op op_blocks = MDB_FIRST;
+  MDB_cursor_op op_txs = MDB_FIRST;
+  uint64_t tx_idx = 0;
+  while (1)
+  {
+    int ret = mdb_cursor_get(cur_blocks, &k, &v, op_blocks);
+    op_blocks = MDB_NEXT;
+    if (ret == MDB_NOTFOUND)
+      break;
+    if (ret)
+      throw std::runtime_error("Failed to enumerate blocks: " + std::string(mdb_strerror(ret)));
+
+    if (k.mv_size != sizeof(uint64_t))
+      throw std::runtime_error("Bad key size");
+    uint64_t height = *(const uint64_t*)k.mv_data;
+    blobdata bd;
+    bd.assign(reinterpret_cast<char*>(v.mv_data), v.mv_size);
+    block b;
+    if (!parse_and_validate_block_from_blob(bd, b))
+      throw std::runtime_error("Failed to parse block from blob retrieved from the db");
+
+    ret = mdb_cursor_get(cur_txs, &k, &v, op_txs);
+    if (ret)
+      throw std::runtime_error("Failed to fetch transaction " + string_tools::pod_to_hex(get_transaction_hash(b.miner_tx)) + ": " + std::string(mdb_strerror(ret)));
+    op_txs = MDB_NEXT;
+
+    bool last_block = height == n_blocks - 1;
+    if (start_idx <= tx_idx++  && !f(last_block && b.tx_hashes.empty(), height, b.miner_tx))
+    {
+      fret = false;
+      break;
+    }
+    for (size_t i = 0; i < b.tx_hashes.size(); ++i)
+    {
+      const crypto::hash& txid = b.tx_hashes[i];
+      ret = mdb_cursor_get(cur_txs, &k, &v, op_txs);
+      if (ret)
+        throw std::runtime_error("Failed to fetch transaction " + string_tools::pod_to_hex(txid) + ": " + std::string(mdb_strerror(ret)));
+      if (start_idx <= tx_idx++)
+      {
+        cryptonote::transaction_prefix tx;
+        bd.assign(reinterpret_cast<char*>(v.mv_data), v.mv_size);
+        CHECK_AND_ASSERT_MES(parse_and_validate_tx_prefix_from_blob(bd, tx), false, "Failed to parse transaction from blob");
+        if (!f(last_block && i == b.tx_hashes.size() - 1, height, tx))
+        {
+          fret = false;
+          break;
+        }
+      }
+    }
+    if (!fret)
+      break;
+  }
+
+  mdb_cursor_close(cur_blocks);
+  mdb_cursor_close(cur_txs);
+  mdb_txn_commit(txn);
+  tx_active = false;
+  mdb_dbi_close(env, dbi_blocks);
+  mdb_dbi_close(env, dbi_txs);
+  mdb_env_close(env);
+  return fret;
+}
+
 static uint64_t find_first_diverging_transaction(const std::string &first_filename, const std::string &second_filename)
 {
   MDB_env *env[2];
@@ -1094,6 +1203,7 @@ int main(int argc, char* argv[])
   const command_line::arg_descriptor<std::string> arg_extra_spent_list = {"extra-spent-list", "Optional list of known spent outputs",""};
   const command_line::arg_descriptor<std::string> arg_export = {"export", "Filename to export the backball list to"};
   const command_line::arg_descriptor<bool> arg_force_chain_reaction_pass = {"force-chain-reaction-pass", "Run the chain reaction pass even if no new blockchain data was processed"};
+  const command_line::arg_descriptor<bool> arg_historical_stat = {"historical-stat", "Report historical stat of spent outputs for every 10000 blocks window"};
 
   command_line::add_arg(desc_cmd_sett, arg_blackball_db_dir);
   command_line::add_arg(desc_cmd_sett, arg_log_level);
@@ -1105,6 +1215,7 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_cmd_sett, arg_extra_spent_list);
   command_line::add_arg(desc_cmd_sett, arg_export);
   command_line::add_arg(desc_cmd_sett, arg_force_chain_reaction_pass);
+  command_line::add_arg(desc_cmd_sett, arg_historical_stat);
   command_line::add_arg(desc_cmd_sett, arg_inputs);
   command_line::add_arg(desc_cmd_only, command_line::arg_help);
 
@@ -1145,6 +1256,7 @@ int main(int argc, char* argv[])
   bool opt_check_subsets = command_line::get_arg(vm, arg_check_subsets);
   bool opt_verbose = command_line::get_arg(vm, arg_verbose);
   bool opt_force_chain_reaction_pass = command_line::get_arg(vm, arg_force_chain_reaction_pass);
+  bool opt_historical_stat = command_line::get_arg(vm, arg_historical_stat);
   std::string opt_export = command_line::get_arg(vm, arg_export);
   std::string extra_spent_list = command_line::get_arg(vm, arg_extra_spent_list);
   std::vector<std::pair<uint64_t, uint64_t>> extra_spent_outputs = extra_spent_list.empty() ? std::vector<std::pair<uint64_t, uint64_t>>() : load_outputs(extra_spent_list);
@@ -1195,6 +1307,59 @@ int main(int argc, char* argv[])
   MDB_dbi dbi0;
   MDB_cursor *cur0;
   open_db(inputs[0], &env0, &txn0, &cur0, &dbi0);
+
+  std::vector<output_data> work_spent;
+
+  if (opt_historical_stat)
+  {
+    if (!start_blackballed_outputs)
+    {
+      MINFO("Spent outputs database is empty. Either you haven't run the analysis mode yet, or there is really no output marked as spent.");
+      goto skip_secondary_passes;
+    }
+    const uint64_t STAT_WINDOW = 10000;
+    uint64_t outs_total = 0;
+    uint64_t outs_spent = 0;
+    std::unordered_map<uint64_t, uint64_t> outs_per_amount;
+    uint64_t start_idx = 0, n_txes;
+    uint64_t prev_height = 0;
+    for_all_transactions(inputs[0], start_idx, n_txes, [&](bool last_tx, uint64_t height, const cryptonote::transaction_prefix &tx)->bool
+    {
+      if (height != prev_height)
+      {
+        if (height % 100 == 0) std::cout << "\r" << height << ": " << (100.0f * outs_spent / outs_total) << "% ( " << outs_spent << " / " << outs_total << " )       \r" << std::flush;
+        if (height % STAT_WINDOW == 0)
+        {
+          uint64_t window_front = (height / STAT_WINDOW - 1) * STAT_WINDOW;
+          uint64_t window_back = window_front + STAT_WINDOW - 1;
+          LOG_PRINT_L0(window_front << "-" << window_back << ": " << (100.0f * outs_spent / outs_total) << "% ( " << outs_spent << " / " << outs_total << " )");
+          outs_total = outs_spent = 0;
+        }
+      }
+      prev_height = height;
+      for (const auto &out: tx.vout)
+      {
+        ++outs_total;
+        CHECK_AND_ASSERT_THROW_MES(out.target.type() == typeid(txout_to_key), "Out target type is not txout_to_key: height=" + std::to_string(height));
+        uint64_t out_global_index = outs_per_amount[out.amount]++;
+        if (ringdb.blackballed({out.amount, out_global_index}))
+          ++outs_spent;
+      }
+      if (last_tx)
+      {
+        uint64_t window_front = (height / STAT_WINDOW) * STAT_WINDOW;
+        uint64_t window_back = height;
+        LOG_PRINT_L0(window_front << "-" << window_back << ": " << (100.0f * outs_spent / outs_total) << "% ( " << outs_spent << " / " << outs_total << " )");
+      }
+      if (stop_requested)
+      {
+        MINFO("Stopping scan...");
+        return false;
+      }
+      return true;
+    });
+    goto skip_secondary_passes;
+  }
 
   if (!extra_spent_outputs.empty())
   {
@@ -1431,8 +1596,6 @@ int main(int argc, char* argv[])
     if (stop_requested)
       break;
   }
-
-  std::vector<output_data> work_spent;
 
   if (stop_requested)
     goto skip_secondary_passes;
