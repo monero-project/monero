@@ -73,6 +73,11 @@ struct output_data
   bool operator==(const output_data &other) const { return other.amount == amount && other.offset == offset; }
 };
 
+typedef struct txindex {
+    crypto::hash key;
+    tx_data_t data;
+} txindex;
+
 //
 // relative_rings: key_image -> vector<uint64_t>
 // outputs: 128 bits -> set of key images
@@ -410,6 +415,111 @@ static bool for_all_transactions(const std::string &filename, uint64_t &start_id
   mdb_txn_commit(txn);
   tx_active = false;
   mdb_dbi_close(env, dbi);
+  mdb_env_close(env);
+  return fret;
+}
+
+static bool for_all_transactions(const std::string &filename, const uint64_t &start_idx, uint64_t &n_txes, const std::function<bool(uint64_t, const cryptonote::transaction_prefix&)> &f)
+{
+  MDB_env *env;
+  MDB_dbi dbi_blocks, dbi_txs;
+  MDB_txn *txn;
+  MDB_cursor *cur_blocks, *cur_txs;
+  int dbr;
+  bool tx_active = false;
+  MDB_val k;
+  MDB_val v;
+
+  dbr = mdb_env_create(&env);
+  if (dbr) throw std::runtime_error("Failed to create LDMB environment: " + std::string(mdb_strerror(dbr)));
+  dbr = mdb_env_set_maxdbs(env, 3);
+  if (dbr) throw std::runtime_error("Failed to set max env dbs: " + std::string(mdb_strerror(dbr)));
+  const std::string actual_filename = filename;
+  dbr = mdb_env_open(env, actual_filename.c_str(), 0, 0664);
+  if (dbr) throw std::runtime_error("Failed to open rings database file '"
+      + actual_filename + "': " + std::string(mdb_strerror(dbr)));
+
+  dbr = mdb_txn_begin(env, NULL, MDB_RDONLY, &txn);
+  if (dbr) throw std::runtime_error("Failed to create LMDB transaction: " + std::string(mdb_strerror(dbr)));
+  epee::misc_utils::auto_scope_leave_caller txn_dtor = epee::misc_utils::create_scope_leave_handler([&](){if (tx_active) mdb_txn_abort(txn);});
+  tx_active = true;
+
+  dbr = mdb_dbi_open(txn, "blocks", MDB_INTEGERKEY, &dbi_blocks);
+  if (dbr) throw std::runtime_error("Failed to open LMDB dbi: " + std::string(mdb_strerror(dbr)));
+  dbr = mdb_dbi_open(txn, "txs_pruned", MDB_INTEGERKEY, &dbi_txs);
+  if (dbr) throw std::runtime_error("Failed to open LMDB dbi: " + std::string(mdb_strerror(dbr)));
+
+  dbr = mdb_cursor_open(txn, dbi_blocks, &cur_blocks);
+  if (dbr) throw std::runtime_error("Failed to create LMDB cursor: " + std::string(mdb_strerror(dbr)));
+  dbr = mdb_cursor_open(txn, dbi_txs, &cur_txs);
+  if (dbr) throw std::runtime_error("Failed to create LMDB cursor: " + std::string(mdb_strerror(dbr)));
+
+  MDB_stat stat;
+  dbr = mdb_stat(txn, dbi_txs, &stat);
+  if (dbr) throw std::runtime_error("Failed to query txs stat: " + std::string(mdb_strerror(dbr)));
+  n_txes = stat.ms_entries;
+
+  bool fret = true;
+
+  MDB_cursor_op op_blocks = MDB_FIRST;
+  MDB_cursor_op op_txs = MDB_FIRST;
+  uint64_t tx_idx = 0;
+  while (1)
+  {
+    int ret = mdb_cursor_get(cur_blocks, &k, &v, op_blocks);
+    op_blocks = MDB_NEXT;
+    if (ret == MDB_NOTFOUND)
+      break;
+    if (ret)
+      throw std::runtime_error("Failed to enumerate blocks: " + std::string(mdb_strerror(ret)));
+
+    if (k.mv_size != sizeof(uint64_t))
+      throw std::runtime_error("Bad key size");
+    uint64_t height = *(const uint64_t*)k.mv_data;
+    blobdata bd;
+    bd.assign(reinterpret_cast<char*>(v.mv_data), v.mv_size);
+    block b;
+    if (!parse_and_validate_block_from_blob(bd, b))
+      throw std::runtime_error("Failed to parse block from blob retrieved from the db");
+
+    ret = mdb_cursor_get(cur_txs, &k, &v, op_txs);
+    if (ret)
+      throw std::runtime_error("Failed to fetch transaction " + string_tools::pod_to_hex(get_transaction_hash(b.miner_tx)) + ": " + std::string(mdb_strerror(ret)));
+    op_txs = MDB_NEXT;
+
+    if (start_idx <= tx_idx++  && !f(height, b.miner_tx))
+    {
+      fret = false;
+      break;
+    }
+    for (const crypto::hash& txid : b.tx_hashes)
+    {
+      ret = mdb_cursor_get(cur_txs, &k, &v, op_txs);
+      if (ret)
+        throw std::runtime_error("Failed to fetch transaction " + string_tools::pod_to_hex(txid) + ": " + std::string(mdb_strerror(ret)));
+      cryptonote::transaction_prefix tx;
+      bd.assign(reinterpret_cast<char*>(v.mv_data), v.mv_size);
+      std::stringstream ss;
+      ss << bd;
+      binary_archive<false> ba(ss);
+      bool r = do_serialize(ba, tx);
+      CHECK_AND_ASSERT_MES(r, false, "Failed to parse transaction from blob");
+      if (start_idx <= tx_idx++ && !f(height, tx))
+      {
+        fret = false;
+        break;
+      }
+    }
+    if (!fret)
+      break;
+  }
+
+  mdb_cursor_close(cur_blocks);
+  mdb_cursor_close(cur_txs);
+  mdb_txn_commit(txn);
+  tx_active = false;
+  mdb_dbi_close(env, dbi_blocks);
+  mdb_dbi_close(env, dbi_txs);
   mdb_env_close(env);
   return fret;
 }
