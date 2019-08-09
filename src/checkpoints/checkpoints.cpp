@@ -200,7 +200,12 @@ namespace cryptonote
       }
     }
 
-    uint64_t end_cull_height = m_db->get_checkpoint_immutable_height();
+    uint64_t end_cull_height = 0;
+    {
+      checkpoint_t immutable_checkpoint;
+      if (m_db->get_immutable_checkpoint(&immutable_checkpoint))
+        end_cull_height = immutable_checkpoint.height;
+    }
     uint64_t start_cull_height = (end_cull_height < service_nodes::CHECKPOINT_STORE_PERSISTENTLY_INTERVAL)
                                      ? 0
                                      : end_cull_height - service_nodes::CHECKPOINT_STORE_PERSISTENTLY_INTERVAL;
@@ -279,49 +284,23 @@ namespace cryptonote
   //---------------------------------------------------------------------------
   bool checkpoints::is_alternative_block_allowed(uint64_t blockchain_height, uint64_t block_height, bool *rejected_by_service_node)
   {
+    if (rejected_by_service_node)
+      *rejected_by_service_node = false;
+
     if (0 == block_height)
       return false;
 
-    size_t num_desired_checkpoints = 2;
-    std::vector<checkpoint_t> checkpoints = m_db->get_checkpoints_range(blockchain_height, 0, num_desired_checkpoints);
-
-    if (checkpoints.size() == 0) // No checkpoints recorded yet for blocks preceeding blockchain_height
-      return true;
-
-    uint64_t sentinel_reorg_height = 0;
-    if (checkpoints[0].type == checkpoint_type::service_node) // checkpoint[0] is the first closest checkpoint that is <= my height
+    checkpoint_t immutable_checkpoint;
+    uint64_t immutable_height = 0;
+    if (m_db->get_immutable_checkpoint(&immutable_checkpoint))
     {
-      // NOTE: The current checkpoint is a service node checkpoint. Go back
-      // 1 checkpoint, which will either be another service node checkpoint or
-      // a predefined one.
-      if (checkpoints.size() == 1)
-      {
-        return true; // NOTE: Only one service node checkpoint recorded, we can override this checkpoint.
-      }
-      else
-      {
-        // If it's a service node checkpoint, this is the 2nd newest checkpoint,
-        // so we can't reorg past that height. If it's predefined, that's ok as
-        // well, we can't reorg past that height so irrespective, always accept
-        // the height of this next checkpoint.
-        sentinel_reorg_height = checkpoints[1].height;
-      }
-    }
-    else
-    {
-      sentinel_reorg_height = checkpoints[0].height;
+      immutable_height = immutable_checkpoint.height;
+      if (rejected_by_service_node)
+        *rejected_by_service_node = (immutable_checkpoint.type == checkpoint_type::service_node);
     }
 
-    m_oldest_allowable_alternative_block = std::max(sentinel_reorg_height, m_oldest_allowable_alternative_block);
+    m_oldest_allowable_alternative_block = std::max(immutable_height, m_oldest_allowable_alternative_block);
     bool result                          = block_height > m_oldest_allowable_alternative_block;
-
-    if (rejected_by_service_node)
-    {
-      *rejected_by_service_node = !result &&
-                                  (checkpoints[0].type == checkpoint_type::service_node) &&
-                                  (checkpoints.size() == num_desired_checkpoints);
-    }
-
     return result;
   }
   //---------------------------------------------------------------------------
