@@ -1640,20 +1640,7 @@ namespace service_nodes
     }
   }
 
-  /// NOTE(maxim): we can remove this after hardfork
-  static crypto::hash make_uptime_proof_hash(crypto::public_key const &pubkey, uint64_t timestamp)
-  {
-    boost::endian::native_to_little(timestamp);
-    char buf[44] = "SUP"; // Meaningless magic bytes
-    crypto::hash result;
-    memcpy(buf + 4, reinterpret_cast<const void *>(&pubkey), sizeof(pubkey));
-    memcpy(buf + 4 + sizeof(pubkey), reinterpret_cast<const void *>(&timestamp), sizeof(timestamp));
-    crypto::cn_fast_hash(buf, sizeof(buf), result);
-
-    return result;
-  }
-
-  static crypto::hash make_uptime_proof_hash_v2(crypto::public_key const &pubkey, uint64_t timestamp, uint32_t pub_ip, uint16_t storage_port)
+  static crypto::hash make_uptime_proof_hash(crypto::public_key const &pubkey, uint64_t timestamp, uint32_t pub_ip, uint16_t storage_port)
   {
     constexpr size_t BUFFER_SIZE = sizeof(pubkey) + sizeof(timestamp) + sizeof(pub_ip) + sizeof(storage_port);
 
@@ -1687,13 +1674,7 @@ namespace service_nodes
     result.public_ip                                = public_ip;
     result.storage_port                             = storage_port;
 
-    const uint8_t version = m_blockchain.get_current_hard_fork_version();
-    crypto::hash hash;
-    if (version < cryptonote::network_version_12_checkpointing)
-      hash = make_uptime_proof_hash(pubkey, result.timestamp);
-    else
-      hash = make_uptime_proof_hash_v2(pubkey, result.timestamp, public_ip, storage_port);
-
+    crypto::hash hash = make_uptime_proof_hash(pubkey, result.timestamp, public_ip, storage_port);
     crypto::generate_signature(hash, pubkey, key, result.sig);
     return result;
   }
@@ -1734,34 +1715,9 @@ namespace service_nodes
     // NOTE: Validate proof signature
     //
     {
-      const uint64_t hf12_height = m_blockchain.get_earliest_ideal_height_for_version(cryptonote::network_version_12_checkpointing);
-      const uint64_t height = m_blockchain.get_current_blockchain_height();
-
-      /// Accept both old and new uptime proofs in a small window of 2 blocks
-      /// after switching to hf 12; (for simplicity accept new signatures before hf 12 too)
-      const bool enforce_v2 = (hf12_height != std::numeric_limits<uint64_t>::max() && height >= hf12_height + 2);
-
-      crypto::hash hash;
-      bool signature_ok = false;
-      if (!enforce_v2)
-      {
-        hash         = make_uptime_proof_hash(proof.pubkey, proof.timestamp);
-        signature_ok = crypto::check_signature(hash, proof.pubkey, proof.sig);
-
-        if (!signature_ok)
-        {
-          hash         = make_uptime_proof_hash_v2(proof.pubkey, proof.timestamp, proof.public_ip, proof.storage_port);
-          signature_ok = crypto::check_signature(hash, proof.pubkey, proof.sig);
-        }
-      }
-      else
-      {
-        hash         = make_uptime_proof_hash_v2(proof.pubkey, proof.timestamp, proof.public_ip, proof.storage_port);
-        signature_ok = crypto::check_signature(hash, proof.pubkey, proof.sig);
-
-        /// Sanity check; we do the same on lokid startup
-        if (epee::net_utils::is_ip_local(proof.public_ip) || epee::net_utils::is_ip_loopback(proof.public_ip)) return false;
-      }
+      crypto::hash hash = make_uptime_proof_hash(proof.pubkey, proof.timestamp, proof.public_ip, proof.storage_port);
+      bool signature_ok = crypto::check_signature(hash, proof.pubkey, proof.sig);
+      if (epee::net_utils::is_ip_local(proof.public_ip) || epee::net_utils::is_ip_loopback(proof.public_ip)) return false; // Sanity check; we do the same on lokid startup
 
       if (!signature_ok)
       {
@@ -1791,15 +1747,10 @@ namespace service_nodes
     info.proof.version_major = proof.snode_version_major;
     info.proof.version_minor = proof.snode_version_minor;
     info.proof.version_patch = proof.snode_version_patch;
-
-    if (hf_version < cryptonote::network_version_12_checkpointing)
-      return true;
-
-    info.public_ip    = proof.public_ip;
-    info.storage_port = proof.storage_port;
+    info.public_ip           = proof.public_ip;
+    info.storage_port        = proof.storage_port;
 
     // Track any IP changes (so that the obligations quorum can penalize for IP changes)
-    //
     // First prune any stale (>1w) ip info.  1 week is probably excessive, but IP switches should be
     // rare and this could, in theory, be useful for diagnostics.
     auto &ips = info.proof.public_ips;
