@@ -241,7 +241,7 @@ namespace cryptonote
     {
       uint64_t start_height = top_checkpoint.height;
       for (size_t delete_height = start_height;
-           delete_height > height;
+           delete_height >= height;
            delete_height -= service_nodes::CHECKPOINT_INTERVAL)
       {
         try
