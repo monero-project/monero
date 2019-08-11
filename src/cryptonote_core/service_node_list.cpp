@@ -153,7 +153,7 @@ namespace service_nodes
     std::vector<pubkey_and_sninfo> result;
     if (reserve) result.reserve(sns_infos.size());
     for (const pubkey_and_sninfo &key_info : sns_infos)
-      if (p(key_info.second))
+      if (p(*key_info.second))
         result.push_back(key_info);
 
     std::sort(result.begin(), result.end(),
@@ -291,14 +291,14 @@ namespace service_nodes
   {
     std::lock_guard<boost::recursive_mutex> lock(m_sn_mutex);
     auto it = m_state.service_nodes_infos.find(pubkey);
-    return it != m_state.service_nodes_infos.end() && (!require_active || it->second.is_active());
+    return it != m_state.service_nodes_infos.end() && (!require_active || it->second->is_active());
   }
 
   bool service_node_list::is_key_image_locked(crypto::key_image const &check_image, uint64_t *unlock_height, service_node_info::contribution_t *the_locked_contribution) const
   {
     for (const auto& pubkey_info : m_state.service_nodes_infos)
     {
-      const service_node_info &info = pubkey_info.second;
+      const service_node_info &info = *pubkey_info.second;
       for (const service_node_info::contributor_t &contributor : info.contributors)
       {
         for (const service_node_info::contribution_t &contribution : contributor.locked_contributions)
@@ -384,6 +384,14 @@ namespace service_nodes
     return money_transferred;
   }
 
+  /// Makes a copy of the given service_node_info and replaces the shared_ptr with a pointer to the copy.
+  /// Returns the non-const service_node_info (which is now held by the passed-in shared_ptr lvalue ref).
+  static service_node_info &duplicate_info(std::shared_ptr<const service_node_info> &info_ptr) {
+    auto new_ptr = std::make_shared<service_node_info>(*info_ptr);
+    info_ptr = new_ptr;
+    return *new_ptr;
+  }
+
   bool service_node_list::process_state_change_tx(const cryptonote::transaction& tx, uint64_t block_height)
   {
     if (tx.type != cryptonote::txtype::state_change)
@@ -408,7 +416,7 @@ namespace service_nodes
       return false;
     }
 
-    auto &info = iter->second;
+    auto &info = duplicate_info(iter->second);
     bool is_me = m_service_node_pubkey && *m_service_node_pubkey == key;
 
     switch (state_change.state) {
@@ -455,7 +463,7 @@ namespace service_nodes
         info.last_decommission_height = block_height;
         info.decommission_count++;
 
-        info.proof.timestamp = 0;
+        info.proof->timestamp = 0;
         return true;
 
       case new_state::recommission:
@@ -485,8 +493,8 @@ namespace service_nodes
         // necessarily the entire network. Ensure the entire network agrees
         // simultaneously they are online if we are recommissioning by resetting
         // the failure conditions.
-        info.proof.timestamp = time(nullptr);
-        info.proof.votes.fill(true);
+        info.proof->timestamp = time(nullptr);
+        info.proof->votes.fill(true);
         return true;
 
       case new_state::ip_change_penalty:
@@ -529,7 +537,7 @@ namespace service_nodes
     swarm_snode_map_t existing_swarms;
 
     for (const auto &key_info : m_state.active_service_nodes_infos())
-      existing_swarms[key_info.second.swarm_id].push_back(key_info.first);
+      existing_swarms[key_info.second->swarm_id].push_back(key_info.first);
 
     calc_swarm_changes(existing_swarms, seed);
 
@@ -539,11 +547,11 @@ namespace service_nodes
       const swarm_id_t swarm_id = entry.first;
       const std::vector<crypto::public_key>& snodes = entry.second;
 
-      for (const auto snode : snodes) {
+      for (const auto &snode : snodes) {
 
-        auto& sn_info = m_state.service_nodes_infos.at(snode);
-        if (sn_info.swarm_id == swarm_id) continue; /// nothing changed for this snode
-        sn_info.swarm_id = swarm_id;
+        auto &sn_info_ptr = m_state.service_nodes_infos.at(snode);
+        if (sn_info_ptr->swarm_id == swarm_id) continue; /// nothing changed for this snode
+        duplicate_info(sn_info_ptr).swarm_id = swarm_id;
       }
     }
   }
@@ -747,8 +755,8 @@ namespace service_nodes
     info.total_contributed = 0;
     info.total_reserved = 0;
     info.swarm_id = UNASSIGNED_SWARM_ID;
-    info.public_ip = 0;
-    info.storage_port = 0;
+    info.proof->public_ip = 0;
+    info.proof->storage_port = 0;
     info.last_ip_change_height = block_height;
     info.version = get_min_service_node_info_version_for_hf(hf_version);
 
@@ -782,7 +790,8 @@ namespace service_nodes
   bool service_node_list::process_registration_tx(const cryptonote::transaction& tx, uint64_t block_timestamp, uint64_t block_height, uint32_t index)
   {
     crypto::public_key key;
-    service_node_info info = {};
+    auto info_ptr = std::make_shared<service_node_info>();
+    service_node_info &info = *info_ptr;
     if (!is_registration_tx(tx, block_timestamp, block_height, index, key, info))
       return false;
 
@@ -807,7 +816,7 @@ namespace service_nodes
       {
         if (hard_fork_version >= cryptonote::network_version_10_bulletproofs)
         {
-          service_node_info const &old_info = iter->second;
+          service_node_info const &old_info = *iter->second;
           uint64_t expiry_height = old_info.registration_height + staking_num_lock_blocks(m_blockchain.nettype());
           if (block_height < expiry_height)
             return false;
@@ -840,7 +849,7 @@ namespace service_nodes
       }
     }
 
-    m_state.service_nodes_infos[key] = info;
+    m_state.service_nodes_infos[key] = std::move(info_ptr);
     return true;
   }
 
@@ -870,8 +879,8 @@ namespace service_nodes
       return false;
     }
 
-    service_node_info& info = iter->second;
-    if (info.is_fully_funded())
+    const service_node_info& curinfo = *iter->second;
+    if (curinfo.is_fully_funded())
     {
       LOG_PRINT_L1("Contribution TX: Service node: " << pubkey <<
                    " is already fully funded, but contribution received on height: "  << block_height <<
@@ -885,7 +894,8 @@ namespace service_nodes
       return false;
     }
 
-    auto& contributors = info.contributors;
+    auto &info = duplicate_info(iter->second);
+    auto &contributors = info.contributors;
 
     auto contrib_iter = std::find_if(contributors.begin(), contributors.end(),
         [&parsed_contribution](const service_node_info::contributor_t& contributor) { return contributor.address == parsed_contribution.address; });
@@ -1173,7 +1183,7 @@ namespace service_nodes
           LOG_PRINT_L1("Service node expired: " << pubkey << " at block height: " << block_height);
         }
 
-        need_swarm_update += i->second.is_active();
+        need_swarm_update += i->second->is_active();
         m_state.service_nodes_infos.erase(i);
       }
     }
@@ -1183,11 +1193,13 @@ namespace service_nodes
     //
     {
       crypto::public_key winner_pubkey = cryptonote::get_service_node_winner_from_tx_extra(block.miner_tx.extra);
-      if (m_state.service_nodes_infos.count(winner_pubkey) == 1)
+      auto it = m_state.service_nodes_infos.find(winner_pubkey);
+      if (it != m_state.service_nodes_infos.end())
       {
         // set the winner as though it was re-registering at transaction index=UINT32_MAX for this block
-        m_state.service_nodes_infos[winner_pubkey].last_reward_block_height = block_height;
-        m_state.service_nodes_infos[winner_pubkey].last_reward_transaction_index = UINT32_MAX;
+        auto &info = duplicate_info(it->second);
+        info.last_reward_block_height = block_height;
+        info.last_reward_transaction_index = UINT32_MAX;
       }
     }
 
@@ -1216,7 +1228,7 @@ namespace service_nodes
         if (it == m_state.service_nodes_infos.end())
           continue;
 
-        service_node_info &node_info = (*it).second;
+        const service_node_info &node_info = *it->second;
         if (node_info.requested_unlock_height != KEY_IMAGE_AWAITING_UNLOCK_HEIGHT)
         {
           LOG_PRINT_L1("Unlock TX: Node already requested an unlock at height: " << node_info.requested_unlock_height << " rejected on height: " << block_height << " for tx: " << get_transaction_hash(tx));
@@ -1234,14 +1246,15 @@ namespace service_nodes
 
         for (const auto &contributor : node_info.contributors)
         {
-          auto it = std::find_if(contributor.locked_contributions.begin(), contributor.locked_contributions.end(),
+          auto cit = std::find_if(contributor.locked_contributions.begin(), contributor.locked_contributions.end(),
               [&unlock](const service_node_info::contribution_t &contribution) { return unlock.key_image == contribution.key_image; });
-          if (it != contributor.locked_contributions.end())
+          if (cit != contributor.locked_contributions.end())
           {
             // NOTE(loki): This should be checked in blockchain check_tx_inputs already
             crypto::hash const hash = service_nodes::generate_request_stake_unlock_hash(unlock.nonce);
-            if (crypto::check_signature(hash, it->key_image_pub_key, unlock.signature))
-              node_info.requested_unlock_height = unlock_height;
+            if (crypto::check_signature(hash, cit->key_image_pub_key, unlock.signature)) {
+              duplicate_info(it->second).requested_unlock_height = unlock_height;
+            }
             else
               LOG_PRINT_L1("Unlock TX: Couldn't verify key image unlock in the tx_extra, rejected on height: " << block_height << " for tx: " << get_transaction_hash(tx));
 
@@ -1347,7 +1360,7 @@ namespace service_nodes
       for (auto it = m_state.service_nodes_infos.begin(); it != m_state.service_nodes_infos.end(); it++)
       {
         crypto::public_key const &snode_key = it->first;
-        service_node_info &info             = it->second;
+        const service_node_info &info       = *it->second;
         if (info.registration_height >= hf11_height)
         {
           if (info.requested_unlock_height != KEY_IMAGE_AWAITING_UNLOCK_HEIGHT && block_height > info.requested_unlock_height)
@@ -1378,7 +1391,7 @@ namespace service_nodes
 
     std::vector<std::pair<cryptonote::account_public_address, uint64_t>> winners;
 
-    const service_node_info& info = m_state.service_nodes_infos.at(key);
+    const service_node_info& info = *m_state.service_nodes_infos.at(key);
 
     const uint64_t remaining_portions = STAKING_PORTIONS - info.portions_for_operator;
 
@@ -1402,14 +1415,17 @@ namespace service_nodes
     std::lock_guard<boost::recursive_mutex> lock(m_sn_mutex);
     auto oldest_waiting = std::make_tuple(std::numeric_limits<uint64_t>::max(), std::numeric_limits<uint32_t>::max(), crypto::null_pkey);
     for (const auto& info : m_state.service_nodes_infos)
-      if (info.second.is_active())
+    {
+      const auto &sninfo = *info.second;
+      if (sninfo.is_active())
       {
-        auto waiting_since = std::make_tuple(info.second.last_reward_block_height, info.second.last_reward_transaction_index, info.first);
+        auto waiting_since = std::make_tuple(sninfo.last_reward_block_height, sninfo.last_reward_transaction_index, info.first);
         if (waiting_since < oldest_waiting)
         {
           oldest_waiting = waiting_since;
         }
       }
+    }
     return std::get<2>(oldest_waiting);
   }
 
@@ -1595,7 +1611,7 @@ namespace service_nodes
 
     if (require_active) {
       for (const auto &key_info : m_state.service_nodes_infos)
-        if (key_info.second.is_active())
+        if (key_info.second->is_active())
           keys.push_back(key_info.first);
     }
     else {
@@ -1698,8 +1714,8 @@ namespace service_nodes
       return false;
     }
 
-    service_node_info &info = it->second;
-    if (info.proof.timestamp >= now - (UPTIME_PROOF_FREQUENCY_IN_SECONDS / 2))
+    const service_node_info &info = *it->second;
+    if (info.proof->timestamp >= now - (UPTIME_PROOF_FREQUENCY_IN_SECONDS / 2))
     {
       LOG_PRINT_L2("Rejecting uptime proof from " << proof.pubkey
                                                   << ": already received one uptime proof for this node recently");
@@ -1707,17 +1723,18 @@ namespace service_nodes
     }
 
     LOG_PRINT_L2("Accepted uptime proof from " << proof.pubkey);
-    info.proof.timestamp     = now;
-    info.proof.version_major = proof.snode_version_major;
-    info.proof.version_minor = proof.snode_version_minor;
-    info.proof.version_patch = proof.snode_version_patch;
-    info.public_ip           = proof.public_ip;
-    info.storage_port        = proof.storage_port;
+    auto &iproof = *info.proof;
+    iproof.timestamp     = now;
+    iproof.version_major = proof.snode_version_major;
+    iproof.version_minor = proof.snode_version_minor;
+    iproof.version_patch = proof.snode_version_patch;
+    iproof.public_ip     = proof.public_ip;
+    iproof.storage_port  = proof.storage_port;
 
     // Track any IP changes (so that the obligations quorum can penalize for IP changes)
     // First prune any stale (>1w) ip info.  1 week is probably excessive, but IP switches should be
     // rare and this could, in theory, be useful for diagnostics.
-    auto &ips = info.proof.public_ips;
+    auto &ips = info.proof->public_ips;
     // If we already know about the IP, update its timestamp:
     if (ips[0].first && ips[0].first == proof.public_ip)
         ips[0].second = now;
@@ -1739,7 +1756,7 @@ namespace service_nodes
     if (it == m_state.service_nodes_infos.end())
       return;
 
-    proof_info &info            = it->second.proof;
+    proof_info &info            = *it->second->proof;
     info.votes[info.vote_index] = voted;
     info.vote_index             = (info.vote_index + 1) % info.votes.size();
   }

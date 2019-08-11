@@ -1162,7 +1162,7 @@ namespace cryptonote
           uint8_t enforce_hf_version = std::max((uint8_t)cryptonote::network_version_13, blk.major_version);
 
           if (service_node_array.empty() ||
-              !service_node_array[0].info.can_transition_to_state(enforce_hf_version, state_change.block_height, state_change.state))
+              !service_node_array[0].info->can_transition_to_state(enforce_hf_version, state_change.block_height, state_change.state))
           {
             transaction tx;
             cryptonote::blobdata blob;

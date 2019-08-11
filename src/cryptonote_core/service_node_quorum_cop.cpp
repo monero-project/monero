@@ -62,7 +62,8 @@ namespace service_nodes
   {
     service_node_test_results result; // Defaults to true for individual tests
     uint64_t now                          = time(nullptr);
-    uint64_t time_since_last_uptime_proof = now - info.proof.timestamp;
+    proof_info const &proof               = *info.proof;
+    uint64_t time_since_last_uptime_proof = now - proof.timestamp;
 
     bool check_uptime_obligation     = true;
     bool check_checkpoint_obligation = true;
@@ -82,7 +83,7 @@ namespace service_nodes
     }
 
     // IP change checks
-    const auto &ips = info.proof.public_ips;
+    const auto &ips = proof.public_ips;
     if (ips[0].first && ips[1].first) {
       // Figure out when we last had a blockchain-level IP change penalty (or when we registered);
       // we only consider IP changes starting two hours after the last IP penalty.
@@ -98,7 +99,6 @@ namespace service_nodes
 
     if (check_checkpoint_obligation && !info.is_decommissioned())
     {
-      proof_info const &proof = info.proof;
       int num_votes           = 0;
       for (bool voted : proof.votes)
         num_votes += voted;
@@ -261,7 +261,7 @@ namespace service_nodes
               total++;
 
               const auto &node_key = worker_it->pubkey;
-              const auto &info  = worker_it->info;
+              const auto &info = *worker_it->info;
 
               if (!info.can_be_voted_on(m_obligations_height))
                 continue;
@@ -466,7 +466,7 @@ namespace service_nodes
             crypto::public_key const &service_node_pubkey = quorum->workers[vote.state_change.worker_index];
             auto service_node_infos = m_core.get_service_node_list_state({service_node_pubkey});
             if (!service_node_infos.size() ||
-                !service_node_infos[0].info.can_transition_to_state(hf_version, vote.block_height, vote.state_change.state))
+                !service_node_infos[0].info->can_transition_to_state(hf_version, vote.block_height, vote.state_change.state))
             {
               // NOTE: Vote is valid but is invalidated because we cannot apply the change to a service node or it is not on the network anymore
               //       So don't bother generating a state change tx.

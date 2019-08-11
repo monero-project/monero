@@ -1792,12 +1792,11 @@ namespace cryptonote
     // wait one block before starting uptime proofs.
     std::vector<service_nodes::service_node_pubkey_info> const states = get_service_node_list_state({ m_service_node_pubkey });
 
-    if (!states.empty() && (states[0].info.registration_height + 1) < get_current_blockchain_height())
+    if (!states.empty() && (states[0].info->registration_height + 1) < get_current_blockchain_height())
     {
-      // Code snippet from Github @Jagerman
-      service_nodes::service_node_info const &info = states[0].info;
+      service_nodes::service_node_info const &info = *states[0].info;
       m_check_uptime_proof_interval.do_call([&info, this]() {
-        if (info.proof.timestamp <= static_cast<uint64_t>(time(nullptr) - UPTIME_PROOF_FREQUENCY_IN_SECONDS))
+        if (info.proof->timestamp <= static_cast<uint64_t>(time(nullptr) - UPTIME_PROOF_FREQUENCY_IN_SECONDS))
         {
           uint8_t hf_version = get_blockchain_storage().get_current_hard_fork_version();
 

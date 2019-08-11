@@ -3274,7 +3274,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
         return hf_version < cryptonote::network_version_12_checkpointing; // NOTE: Used to be allowed pre HF12.
       }
 
-      service_nodes::service_node_info const &service_node_info = service_node_array[0].info;
+      service_nodes::service_node_info const &service_node_info = *service_node_array[0].info;
       if (!service_node_info.can_transition_to_state(hf_version, state_change.block_height, state_change.state))
       {
         MERROR_VER("State change trying to vote Service Node into the same state it already is in, (aka double spend)");

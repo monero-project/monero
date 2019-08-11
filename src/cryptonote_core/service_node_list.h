@@ -47,6 +47,10 @@ namespace service_nodes
     uint8_t vote_index = 0;
     std::array<std::pair<uint32_t, uint64_t>, 2> public_ips = {}; // (not serialized)
     proof_info() { votes.fill(true); }
+
+    // Unlike the above, these two *do* get serialized, but directly from state_t rather than as a subobject:
+    uint32_t public_ip;
+    uint16_t storage_port;
   };
 
   struct service_node_info // registration information
@@ -116,10 +120,14 @@ namespace service_nodes
     uint64_t                           portions_for_operator;
     swarm_id_t                         swarm_id;
     cryptonote::account_public_address operator_address;
-    uint32_t                           public_ip;
-    uint16_t                           storage_port;
-    proof_info                         proof; // NOTE: Not serialised
     uint64_t                           last_ip_change_height; // The height of the last quorum penalty for changing IPs
+
+    // The data in `proof_info` are shared across states because we don't want to roll them back in
+    // the event of a reorg: we always want them to contain the latest received info.  They are also
+    // deliberately mutable (via the dereferenced non-const type) so that they can be updated
+    // without needing to duplicate state.  Only public_ip and storage_port are serialized; the rest
+    // of proof info is transient.
+    std::shared_ptr<proof_info> proof = std::make_shared<proof_info>();
 
     service_node_info() = default;
     bool is_fully_funded() const { return total_contributed >= staking_requirement; }
@@ -146,24 +154,28 @@ namespace service_nodes
       VARINT_FIELD(portions_for_operator)
       FIELD(operator_address)
       VARINT_FIELD(swarm_id)
-      VARINT_FIELD(public_ip)
-      VARINT_FIELD(storage_port)
+      VARINT_FIELD_N("public_ip", proof->public_ip)
+      VARINT_FIELD_N("storage_port", proof->storage_port)
       VARINT_FIELD(last_ip_change_height)
     END_SERIALIZE()
   };
 
+  using pubkey_and_sninfo     =          std::pair<crypto::public_key, std::shared_ptr<const service_node_info>>;
+  using service_nodes_infos_t = std::unordered_map<crypto::public_key, std::shared_ptr<const service_node_info>>;
+
   struct service_node_pubkey_info
   {
     crypto::public_key pubkey;
-    service_node_info  info;
+    std::shared_ptr<const service_node_info> info;
 
     service_node_pubkey_info() = default;
-    service_node_pubkey_info(const std::pair<const crypto::public_key, service_node_info> &pair)
-      : pubkey{pair.first}, info{pair.second} {}
+    service_node_pubkey_info(const pubkey_and_sninfo &pair) : pubkey{pair.first}, info{pair.second} {}
 
     BEGIN_SERIALIZE_OBJECT()
       FIELD(pubkey)
-      FIELD(info)
+      if (!W)
+        info = std::make_shared<service_node_info>();
+      FIELD_N("info", const_cast<service_node_info &>(*info))
     END_SERIALIZE()
   };
 
@@ -201,9 +213,6 @@ namespace service_nodes
       swap(begin[i], begin[j]);
     }
   }
-
-  using pubkey_and_sninfo     =          std::pair<crypto::public_key, service_node_info>;
-  using service_nodes_infos_t = std::unordered_map<crypto::public_key, service_node_info>;
 
   class service_node_list
     : public cryptonote::BlockAddedHook,
