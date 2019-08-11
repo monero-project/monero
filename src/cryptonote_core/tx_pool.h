@@ -159,26 +159,22 @@ namespace cryptonote
     /**
      * @brief action to take when notified of a block added to the blockchain
      *
-     * Currently does nothing
-     *
      * @param new_block_height the height of the blockchain after the change
      * @param top_block_id the hash of the new top block
      *
      * @return true
      */
-    bool on_blockchain_inc(uint64_t new_block_height, const crypto::hash& top_block_id);
+    bool on_blockchain_inc(service_nodes::service_node_list const &service_node_list, block const &blk);
 
     /**
      * @brief action to take when notified of a block removed from the blockchain
      *
-     * Currently does nothing
-     *
      * @param new_block_height the height of the blockchain after the change
      * @param top_block_id the hash of the new top block
      *
      * @return true
      */
-    bool on_blockchain_dec(uint64_t new_block_height, const crypto::hash& top_block_id);
+    bool on_blockchain_dec();
 
     /**
      * @brief action to take periodically

@@ -488,11 +488,17 @@ namespace service_nodes
 
 
         info.active_since_height = block_height;
-
         // Move the SN at the back of the list as if it had just registered (or just won)
-        info.proof.votes.fill(true);
         info.last_reward_block_height = block_height;
         info.last_reward_transaction_index = std::numeric_limits<uint32_t>::max();
+
+        // NOTE: Only the quorum deciding on this node agrees that the service
+        // node has a recent uptime atleast for it to be recommissioned not
+        // necessarily the entire network. Ensure the entire network agrees
+        // simultaneously they are online if we are recommissioning by resetting
+        // the failure conditions.
+        info.proof.timestamp = time(nullptr);
+        info.proof.votes.fill(true);
         return true;
 
       case new_state::ip_change_penalty:
@@ -2159,19 +2165,32 @@ namespace service_nodes
     return true;
   }
 
-  bool service_node_info::can_transition_to_state(new_state proposed_state) const
+  bool service_node_info::can_be_voted_on(uint64_t height) const
   {
-    if (is_decommissioned())
+    // If the SN expired and was reregistered since the height we'll be voting on it prematurely
+    if (!this->is_fully_funded() || this->registration_height >= height) return false;
+    if (this->is_decommissioned() && this->last_decommission_height >= height) return false;
+
+    // NOTE: This cast is safe. The definition of is_active() is that active_since_height >= 0
+    assert(this->active_since_height >= 0);
+    if (this->is_active() && static_cast<uint64_t>(this->active_since_height) >= height) return false;
+    return true;
+  }
+
+  bool service_node_info::can_transition_to_state(uint8_t hf_version, uint64_t height, new_state proposed_state) const
+  {
+    if (hf_version >= cryptonote::network_version_13 && !can_be_voted_on(height))
+      return false;
+
+    if (this->is_decommissioned())
     {
       return proposed_state != new_state::decommission &&
              proposed_state != new_state::ip_change_penalty;
     }
     else
     {
-      return proposed_state != new_state::recommission;
+      return (proposed_state != new_state::recommission);
     }
-
-    return true;
   }
 
 }

@@ -1526,30 +1526,28 @@ namespace cryptonote
   bool core::handle_block_found(block& b, block_verification_context &bvc)
   {
     bvc = boost::value_initialized<block_verification_context>();
-    m_miner.pause();
     std::vector<block_complete_entry> blocks;
-    try
+    m_miner.pause();
     {
-      blocks.push_back(get_block_complete_entry(b, m_mempool));
+      LOKI_DEFER { m_miner.resume(); };
+      try
+      {
+        blocks.push_back(get_block_complete_entry(b, m_mempool));
+      }
+      catch (const std::exception &e)
+      {
+        return false;
+      }
+      std::vector<block> pblocks;
+      if (!prepare_handle_incoming_blocks(blocks, pblocks))
+      {
+        MERROR("Block found, but failed to prepare to add");
+        return false;
+      }
+      add_new_block(b, bvc, nullptr /*checkpoint*/);
+      cleanup_handle_incoming_blocks(true);
+      m_miner.on_block_chain_update();
     }
-    catch (const std::exception &e)
-    {
-      m_miner.resume();
-      return false;
-    }
-    std::vector<block> pblocks;
-    if (!prepare_handle_incoming_blocks(blocks, pblocks))
-    {
-      MERROR("Block found, but failed to prepare to add");
-      m_miner.resume();
-      return false;
-    }
-    add_new_block(b, bvc, nullptr /*checkpoint*/);
-    cleanup_handle_incoming_blocks(true);
-    //anyway - update miner template
-    m_miner.on_block_chain_update();
-    m_miner.resume();
-
 
     CHECK_AND_ASSERT_MES(!bvc.m_verifivation_failed, false, "mined block failed verification");
     if(bvc.m_added_to_main_chain)

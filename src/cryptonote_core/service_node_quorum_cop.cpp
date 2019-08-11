@@ -263,9 +263,11 @@ namespace service_nodes
               const auto &node_key = worker_it->pubkey;
               const auto &info  = worker_it->info;
 
-              auto test_results = check_service_node(node_key, info);
+              if (!info.can_be_voted_on(m_obligations_height))
+                continue;
 
-              bool passed = test_results.passed();
+              auto test_results = check_service_node(node_key, info);
+              bool passed       = test_results.passed();
 
               if (test_results.uptime_proved &&
                   !test_results.voted_in_checkpoints &&
@@ -457,8 +459,22 @@ namespace service_nodes
       {
         if (votes.size() >= STATE_CHANGE_MIN_VOTES_TO_CHANGE_STATE)
         {
-          cryptonote::tx_extra_service_node_state_change state_change{
-            vote.state_change.state, vote.block_height, vote.state_change.worker_index};
+          uint8_t const hf_version = m_core.get_blockchain_storage().get_current_hard_fork_version();
+
+          // NOTE: Verify state change is still valid or have we processed some other state change already that makes it invalid
+          {
+            crypto::public_key const &service_node_pubkey = quorum->workers[vote.state_change.worker_index];
+            auto service_node_infos = m_core.get_service_node_list_state({service_node_pubkey});
+            if (!service_node_infos.size() ||
+                !service_node_infos[0].info.can_transition_to_state(hf_version, vote.block_height, vote.state_change.state))
+            {
+              // NOTE: Vote is valid but is invalidated because we cannot apply the change to a service node or it is not on the network anymore
+              //       So don't bother generating a state change tx.
+              break;
+            }
+          }
+
+          cryptonote::tx_extra_service_node_state_change state_change{vote.state_change.state, vote.block_height, vote.state_change.worker_index};
           state_change.votes.reserve(votes.size());
 
           std::transform(votes.begin(), votes.end(), std::back_inserter(state_change.votes), [](pool_vote_entry const &pool_vote) {
@@ -466,7 +482,6 @@ namespace service_nodes
           });
 
           cryptonote::transaction state_change_tx = {};
-          int hf_version = m_core.get_blockchain_storage().get_current_hard_fork_version();
           if (cryptonote::add_service_node_state_change_to_tx_extra(state_change_tx.extra, state_change, hf_version))
           {
             state_change_tx.version = cryptonote::transaction::get_min_version_for_hf(hf_version, m_core.get_nettype());

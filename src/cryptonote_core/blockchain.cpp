@@ -490,9 +490,7 @@ bool Blockchain::init(BlockchainDB* db, const network_type nettype, bool offline
   {
     m_timestamps_and_difficulties_height = 0;
     m_hardfork->reorganize_from_chain_height(get_current_blockchain_height());
-    uint64_t top_block_height;
-    crypto::hash top_block_hash = get_tail_id(top_block_height);
-    m_tx_pool.on_blockchain_dec(top_block_height, top_block_hash);
+    m_tx_pool.on_blockchain_dec();
   }
 
   if (test_options && test_options->long_term_block_weight_window)
@@ -714,11 +712,8 @@ block Blockchain::pop_block_from_blockchain()
   m_check_txin_table.clear();
 
   CHECK_AND_ASSERT_THROW_MES(update_next_cumulative_weight_limit(), "Error updating next cumulative weight limit");
-  uint64_t top_block_height;
-  crypto::hash top_block_hash = get_tail_id(top_block_height);
-  m_tx_pool.on_blockchain_dec(top_block_height, top_block_hash);
+  m_tx_pool.on_blockchain_dec();
   invalidate_block_template_cache();
-
   return popped_block;
 }
 //------------------------------------------------------------------
@@ -3268,77 +3263,23 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
       }
 
       crypto::public_key const &state_change_service_node_pubkey = quorum->workers[state_change.service_node_index];
-      if (hf_version >= cryptonote::network_version_12_checkpointing)
+      //
+      // NOTE: Query the Service Node List for the in question Service Node the state change is for and disallow if conflicting
+      //
+      std::vector<service_nodes::service_node_pubkey_info> service_node_array = m_service_node_list.get_service_node_list_state({state_change_service_node_pubkey});
+      if (service_node_array.empty())
       {
-        //
-        // NOTE: Query the Service Node List for the in question Service Node the state change is for and disallow if conflicting
-        //
-        std::vector<service_nodes::service_node_pubkey_info> service_node_array = m_service_node_list.get_service_node_list_state({state_change_service_node_pubkey});
-        if (service_node_array.empty())
-        {
-          LOG_PRINT_L2("Service Node no longer exists on the network, state change can be ignored");
-          return false;
-        }
-
-        service_nodes::service_node_info const &service_node_info = service_node_array[0].info;
-        if (!service_node_info.can_transition_to_state(state_change.state))
-        {
-          LOG_PRINT_L2("State change trying to vote Service Node into the same state it already is in, (aka double spend)");
-          tvc.m_double_spend = true;
-          return false;
-        }
-      }
-      else
-      {
-        // Check the inputs (votes) of the transaction have not already been
-        // submitted to the blockchain under another transaction using a different
-        // combination of votes.
-        const uint64_t height                = state_change.block_height;
-        constexpr size_t num_blocks_to_check = service_nodes::STATE_CHANGE_TX_LIFETIME_IN_BLOCKS;
-
-        std::vector<std::pair<cryptonote::blobdata,block>> blocks;
-        std::vector<cryptonote::blobdata> txs;
-        if (!get_blocks(height, num_blocks_to_check, blocks, txs))
-        {
-          MERROR_VER("Failed to get historical blocks to check against previous state changes for de-duplication");
-          return false;
-        }
-
-        for (blobdata const &blob : txs)
-        {
-          transaction existing_tx;
-          if (!parse_and_validate_tx_from_blob(blob, existing_tx))
-          {
-            MERROR_VER("tx could not be validated from blob, possibly corrupt blockchain");
-            continue;
-          }
-
-          if (existing_tx.type != txtype::state_change)
-            continue;
-
-          tx_extra_service_node_state_change existing_state_change;
-          if (!get_service_node_state_change_from_tx_extra(existing_tx.extra, existing_state_change, hf_version))
-          {
-            MERROR_VER("could not get service node state change from tx extra, possibly corrupt tx");
-            continue;
-          }
-
-          const auto existing_quorum = m_service_node_list.get_testing_quorum(quorum_type, existing_state_change.block_height);
-          if (!existing_quorum)
-          {
-            MERROR_VER("Could not get obligations quorum for recent state change tx");
-            continue;
-          }
-
-          if (existing_quorum->workers[existing_state_change.service_node_index] == state_change_service_node_pubkey)
-          {
-            MERROR_VER("Already seen this state change tx (aka double spend)");
-            tvc.m_double_spend = true;
-            return false;
-          }
-        }
+        MERROR_VER("Service Node no longer exists on the network, state change can be ignored");
+        return hf_version < cryptonote::network_version_12_checkpointing; // NOTE: Used to be allowed pre HF12.
       }
 
+      service_nodes::service_node_info const &service_node_info = service_node_array[0].info;
+      if (!service_node_info.can_transition_to_state(hf_version, state_change.block_height, state_change.state))
+      {
+        MERROR_VER("State change trying to vote Service Node into the same state it already is in, (aka double spend)");
+        tvc.m_double_spend = true;
+        return false;
+      }
     }
     else if (tx.type == txtype::key_image_unlock)
     {
@@ -4103,8 +4044,7 @@ leave:
   bvc.m_added_to_main_chain = true;
   ++m_sync_counter;
 
-  // appears to be a NOP *and* is called elsewhere.  wat?
-  m_tx_pool.on_blockchain_inc(new_height, id);
+  m_tx_pool.on_blockchain_inc(m_service_node_list, bl);
   get_difficulty_for_next_block(); // just to cache it
   invalidate_block_template_cache();
 
