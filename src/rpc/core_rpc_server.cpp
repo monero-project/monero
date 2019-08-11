@@ -2617,16 +2617,16 @@ namespace cryptonote
   bool core_rpc_server::on_get_service_node_blacklisted_key_images(const COMMAND_RPC_GET_SERVICE_NODE_BLACKLISTED_KEY_IMAGES::request& req, COMMAND_RPC_GET_SERVICE_NODE_BLACKLISTED_KEY_IMAGES::response& res, epee::json_rpc::error &error_resp, const connection_context *ctx)
   {
     PERF_TIMER(on_get_service_node_blacklisted_key_images);
-    const std::vector<service_nodes::key_image_blacklist_entry> &blacklist = m_core.get_service_node_blacklisted_key_images();
+    auto &blacklist = m_core.get_service_node_blacklisted_key_images();
 
     res.status = CORE_RPC_STATUS_OK;
     res.blacklist.reserve(blacklist.size());
     for (const service_nodes::key_image_blacklist_entry &entry : blacklist)
     {
-      COMMAND_RPC_GET_SERVICE_NODE_BLACKLISTED_KEY_IMAGES::entry new_entry = {};
+      res.blacklist.emplace_back();
+      auto &new_entry = res.blacklist.back();
       new_entry.key_image     = epee::string_tools::pod_to_hex(entry.key_image);
       new_entry.unlock_height = entry.unlock_height;
-      res.blacklist.push_back(std::move(new_entry));
     }
     return true;
   }
