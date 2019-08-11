@@ -4307,21 +4307,25 @@ bool Blockchain::update_checkpoints_from_json_file(const std::string& file_path)
 bool Blockchain::update_checkpoint(cryptonote::checkpoint_t const &checkpoint)
 {
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
-  bool result = m_checkpoints.update_checkpoint(checkpoint);
-  if (result)
+  if (checkpoint.height < m_db->height() && !checkpoint.check(m_db->get_block_hash_from_height(checkpoint.height)))
   {
-    if (checkpoint.height < m_db->height())
+    if (nettype == MAINNET && (m_db->height() - 1) < HF_VERSION_12_CHECKPOINTING_SOFT_FORK_HEIGHT)
     {
-      if (!checkpoint.check(m_db->get_block_hash_from_height(checkpoint.height)))
-      {
-        // roll back to a couple of blocks before the checkpoint
-        LOG_ERROR("Local blockchain failed to pass a checkpoint in: " << __func__ << ", rolling back!");
-        std::list<block> empty;
-        rollback_blockchain_switching(empty, checkpoint.height - 2);
-      }
+      LOG_PRINT_L1("HF12 Checkpointing Pre-Soft Fork: Local blockchain failed to pass a checkpoint in: " << __func__);
+    }
+    else
+    {
+      // roll back to a couple of blocks before the checkpoint
+      LOG_ERROR("Local blockchain failed to pass a checkpoint in: " << __func__ << ", rolling back!");
+      std::list<block> empty;
+      rollback_blockchain_switching(empty, checkpoint.height - 2);
     }
   }
 
+  // NOTE: Rollback first, then add checkpoint otherwise we would delete the checkpoint during rollback and
+  // and if you are still syncing from the incorrect peer, you will re-receive the incorrect blocks again without the
+  // checkpointing stopping it.
+  bool result = m_checkpoints.update_checkpoint(checkpoint);
   return result;
 }
 //------------------------------------------------------------------
