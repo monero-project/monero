@@ -388,7 +388,22 @@ namespace service_nodes
     using block_height = uint64_t;
     struct state_t
     {
-      service_nodes_infos_t                  service_nodes_infos;
+      // TODO(loki): Remove after we HF13 and can be sure that everyone has
+      // upgraded to the new blob serialization style where we store quorums
+      // with state_t instead of individually.
+
+      // So do this hackily if there are no service nodes infos stored then we
+      // presume it's been migrated from v4.0.3 blobs which only preserved
+      // historical quorums. Deriving this without a new variable means we don't
+      // have to serialise new data between saves and loads and reduces the
+      // temporary code we need to manage to get this working satisfactorily.
+
+      // These state_t's will only have loaded data about quorums and height.
+      // Everything else is missing, so if something tries to access the info or
+      // blacklist then we know we have to trigger a rescan.
+      bool is_migrated_from_v403() const { return service_nodes_infos.empty(); }
+
+      service_nodes_infos_t service_nodes_infos;
       std::vector<key_image_blacklist_entry> key_image_blacklist;
       block_height                           height;
       quorum_manager                         quorums;

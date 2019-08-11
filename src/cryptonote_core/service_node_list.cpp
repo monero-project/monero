@@ -1157,7 +1157,8 @@ namespace service_nodes
 
       while (it != m_state_history.end() && it->height <= start_height)
       {
-        if (it->height % STORE_LONG_TERM_STATE_INTERVAL == 0)
+        // TODO(loki): Don't keep state migrated from serialized v4.0.3s since they are incomplete. Remove after everyone has upgraded
+        if (it->height % STORE_LONG_TERM_STATE_INTERVAL == 0 && !it->is_migrated_from_v403())
           it++;
         else
         {
@@ -1312,14 +1313,19 @@ namespace service_nodes
     else
     {
       m_state_history.erase(it, m_state_history.end());
+      // TODO(loki): If historical state is serialized from v4.0.3 they are incomplete, need a full rescan. Delete code block after everyone has upgraded
       if (m_state_history.size())
-        reinitialise = (m_state_history.back().height > height);
+        reinitialise = (m_state_history.back().is_migrated_from_v403() || m_state_history.back().height > height);
       else
         reinitialise = true;
     }
 
     if (reinitialise)
     {
+      // TODO(loki): If historical state is serialized from v4.0.3 they are incomplete, need a full rescan. Delete code block after everyone has upgraded
+      if (m_state_history.back().is_migrated_from_v403())
+        reset(true);
+
       m_state_history.clear();
       init();
       return;
@@ -1607,6 +1613,10 @@ namespace service_nodes
           uint64_t height_delta = next.height - curr.height;
           if (height_delta != STORE_LONG_TERM_STATE_INTERVAL)
           {
+            // TODO(loki): Preserve the quorum state from v403 until they all get purged from storage then we can remove that check.
+            if (next.is_migrated_from_v403() && next.height != m_state_history.back().height)
+              continue;
+
             data.states.emplace_back(serialize_service_node_state_object(hf_version, next));
             break;
           }
@@ -1786,6 +1796,24 @@ namespace service_nodes
     info.vote_index             = (info.vote_index + 1) % info.votes.size();
   }
 
+  static quorum_manager quorum_for_serialization_to_quorum_manager(service_node_list::quorum_for_serialization const &source)
+  {
+    quorum_manager result = {};
+    {
+      auto quorum        = std::make_shared<testing_quorum>(source.quorums[static_cast<uint8_t>(quorum_type::obligations)]);
+      result.obligations = quorum;
+    }
+
+    // Don't load any checkpoints that shouldn't exist (see the comment in generate_quorums as to why the `+BUFFER` term is here).
+    if ((source.height + REORG_SAFETY_BUFFER_BLOCKS_POST_HF12) % CHECKPOINT_INTERVAL == 0)
+    {
+      auto quorum = std::make_shared<testing_quorum>(source.quorums[static_cast<uint8_t>(quorum_type::checkpointing)]);
+      result.checkpointing = quorum;
+    }
+
+    return result;
+  }
+
   bool service_node_list::load(const uint64_t current_height)
   {
     LOG_PRINT_L1("service_node_list::load()");
@@ -1822,10 +1850,21 @@ namespace service_nodes
       CHECK_AND_ASSERT_MES(old_data || new_data, false, "Failed to parse service node data from blob");
       if (old_data)
       {
-        new_data_in.states.emplace_back();
-        new_data_in.quorum_states   = std::move(old_data_in.quorum_states);
-        state_serialized &new_state = new_data_in.states.back();
+        new_data_in = {};
+        new_data_in.states.reserve(old_data_in.quorum_states.size() + 1);
+        for (quorum_for_serialization &entry : old_data_in.quorum_states)
+        {
+          if (entry.height == old_data_in.height)
+            continue;
 
+          new_data_in.states.emplace_back();
+          state_serialized &new_state = new_data_in.states.back();
+          new_state.height            = entry.height;
+          new_state.quorums           = std::move(entry);
+        }
+
+        new_data_in.states.emplace_back();
+        state_serialized &new_state = new_data_in.states.back();
         new_data_in.version           = old_data_in.version;
         new_state.height              = old_data_in.height;
         new_state.infos               = std::move(old_data_in.infos);
@@ -1844,20 +1883,9 @@ namespace service_nodes
         if (states.height < hist_state_from_height)
           continue;
 
-        quorums_by_height entry   = {};
-        entry.height              = states.height;
-        {
-          auto quorum               = std::make_shared<testing_quorum>(states.quorums[static_cast<uint8_t>(quorum_type::obligations)]);
-          entry.quorums.obligations = quorum;
-        }
-
-        // Don't load any checkpoints that shouldn't exist (see the comment in generate_quorums as to
-        // why the `+BUFFER` term is here).
-        if ((states.height + REORG_SAFETY_BUFFER_BLOCKS_POST_HF12) % CHECKPOINT_INTERVAL == 0)
-        {
-          auto quorum = std::make_shared<testing_quorum>(states.quorums[static_cast<uint8_t>(quorum_type::checkpointing)]);
-          entry.quorums.checkpointing = quorum;
-        }
+        quorums_by_height entry = {};
+        entry.height            = states.height;
+        entry.quorums           = quorum_for_serialization_to_quorum_manager(states);
 
         if (states.height <= last_loaded_height)
         {
@@ -1871,18 +1899,26 @@ namespace service_nodes
 
     {
       assert(new_data_in.states.size() > 0);
-      size_t const last_index = new_data_in.states.size() - 1;
-      m_state_history.resize(last_index);
+      size_t const start_index = new_data_in.states.size() >= (MAX_SHORT_TERM_STATE_HISTORY + 1) ? new_data_in.states.size() - (MAX_SHORT_TERM_STATE_HISTORY - 1): 0;
+      size_t const last_index  = new_data_in.states.size() - 1;
+      m_state_history.reserve(MAX_SHORT_TERM_STATE_HISTORY);
       uint64_t last_loaded_height = 0;
-      for (size_t i = 0; i <= last_index; i++)
+      for (size_t i = start_index; i <= last_index; i++)
       {
         state_serialized &source = new_data_in.states[i];
-        state_t &dest            = (i == last_index) ? m_state : m_state_history[i];
-        dest.height              = source.height;
-        dest.key_image_blacklist = std::move(source.key_image_blacklist);
+        state_t *dest            = &m_state;
+        if (i != last_index)
+        {
+          m_state_history.emplace_back();
+          dest = &m_state_history.back();
+        }
+
+        dest->height              = source.height;
+        dest->key_image_blacklist = std::move(source.key_image_blacklist);
+        dest->quorums             = quorum_for_serialization_to_quorum_manager(source.quorums);
 
         for (auto &pubkey_info : source.infos)
-          dest.service_nodes_infos[pubkey_info.pubkey] = std::move(pubkey_info.info);
+          dest->service_nodes_infos[pubkey_info.pubkey] = std::move(pubkey_info.info);
 
         if (source.height <= last_loaded_height)
         {
