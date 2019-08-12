@@ -4309,7 +4309,7 @@ bool Blockchain::update_checkpoint(cryptonote::checkpoint_t const &checkpoint)
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
   if (checkpoint.height < m_db->height() && !checkpoint.check(m_db->get_block_hash_from_height(checkpoint.height)))
   {
-    if (nettype == MAINNET && (m_db->height() - 1) < HF_VERSION_12_CHECKPOINTING_SOFT_FORK_HEIGHT)
+    if (nettype() == MAINNET && (m_db->height() - 1) < HF_VERSION_12_CHECKPOINTING_SOFT_FORK_HEIGHT)
     {
       LOG_PRINT_L1("HF12 Checkpointing Pre-Soft Fork: Local blockchain failed to pass a checkpoint in: " << __func__);
     }
