@@ -275,8 +275,6 @@ namespace crypto {
     buf.key = pub;
   try_again:
     random_scalar(k);
-    if (((const uint32_t*)(&k))[7] == 0) // we don't want tiny numbers here
-      goto try_again;
     ge_scalarmult_base(&tmp3, &k);
     ge_p3_tobytes(&buf.comm, &tmp3);
     hash_to_scalar(&buf, sizeof(s_comm), sig.c);
