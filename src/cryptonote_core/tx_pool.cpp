@@ -1149,6 +1149,23 @@ namespace cryptonote
                                                 state_change.service_node_index,
                                                 service_node_pubkey))
         {
+          crypto::hash tx_hash;
+          if (!get_transaction_hash(pool_tx, tx_hash))
+          {
+            MERROR("Failed to get transaction hash from txpool to check if we can prune a state change");
+            continue;
+          }
+
+          txpool_tx_meta_t meta;
+          if (!m_blockchain.get_txpool_tx_meta(tx_hash, meta))
+          {
+            MERROR("Failed to get tx meta from txpool to check if we can prune a state change");
+            continue;
+          }
+
+          if (meta.kept_by_block) // Do not prune transaction if kept by block (belongs to alt block, so we need incase we switch to alt-chain)
+            continue;
+
           std::vector<service_nodes::service_node_pubkey_info> service_node_array = service_node_list.get_service_node_list_state({service_node_pubkey});
 
           // TODO(loki): Temporary HF12 code. We want to use HF13 code for
@@ -1169,10 +1186,7 @@ namespace cryptonote
             size_t tx_weight;
             uint64_t fee;
             bool relayed, do_not_relay, double_spend_seen;
-
-            crypto::hash tx_hash;
-            if (get_transaction_hash(pool_tx, tx_hash))
-              take_tx(tx_hash, tx, blob, tx_weight, fee, relayed, do_not_relay, double_spend_seen);
+            take_tx(tx_hash, tx, blob, tx_weight, fee, relayed, do_not_relay, double_spend_seen);
           }
         }
       }

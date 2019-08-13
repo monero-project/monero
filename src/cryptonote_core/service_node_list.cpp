@@ -1296,7 +1296,7 @@ namespace service_nodes
     if (reinitialise)
     {
       // TODO(loki): If historical state is serialized from v4.0.3 they are incomplete, need a full rescan. Delete code block after everyone has upgraded
-      if (m_state_history.rbegin()->is_migrated_from_v403())
+      if (m_state_history.size() && m_state_history.rbegin()->is_migrated_from_v403())
         reset(true);
 
       m_state_history.clear();
@@ -2172,6 +2172,12 @@ namespace service_nodes
   {
     if (hf_version >= cryptonote::network_version_13 && !can_be_voted_on(height))
       return false;
+
+    if (proposed_state == new_state::deregister)
+    {
+      if (height < this->registration_height)
+        return false;
+    }
 
     if (this->is_decommissioned())
     {

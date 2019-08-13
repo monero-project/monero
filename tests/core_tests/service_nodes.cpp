@@ -834,7 +834,7 @@ bool test_swarms_basic::test_initial_swarms(cryptonote::core& c, size_t ev_index
   std::map<service_nodes::swarm_id_t, std::vector<crypto::public_key>> swarms;
 
   for (const auto& entry : sn_list) {
-    const auto id = entry.info.swarm_id;
+    const auto id = entry.info->swarm_id;
     swarms[id].push_back(entry.pubkey);
   }
 
@@ -853,7 +853,7 @@ bool test_swarms_basic::test_with_one_more_sn(cryptonote::core& c, size_t ev_ind
   std::map<service_nodes::swarm_id_t, std::vector<crypto::public_key>> swarms;
 
   for (const auto& entry : sn_list) {
-    const auto id = entry.info.swarm_id;
+    const auto id = entry.info->swarm_id;
     swarms[id].push_back(entry.pubkey);
   }
 
@@ -871,7 +871,7 @@ bool test_swarms_basic::test_with_more_sn(cryptonote::core& c, size_t ev_index, 
   std::map<service_nodes::swarm_id_t, std::vector<crypto::public_key>> swarms;
 
   for (const auto& entry : sn_list) {
-    const auto id = entry.info.swarm_id;
+    const auto id = entry.info->swarm_id;
     swarms[id].push_back(entry.pubkey);
   }
 
@@ -889,7 +889,7 @@ bool test_swarms_basic::test_after_first_deregisters(cryptonote::core& c, size_t
   std::map<service_nodes::swarm_id_t, std::vector<crypto::public_key>> swarms;
 
   for (const auto& entry : sn_list) {
-    const auto id = entry.info.swarm_id;
+    const auto id = entry.info->swarm_id;
     swarms[id].push_back(entry.pubkey);
   }
 
@@ -907,7 +907,7 @@ bool test_swarms_basic::test_after_final_deregisters(cryptonote::core& c, size_t
   std::map<service_nodes::swarm_id_t, std::vector<crypto::public_key>> swarms;
 
   for (const auto& entry : sn_list) {
-    const auto id = entry.info.swarm_id;
+    const auto id = entry.info->swarm_id;
     swarms[id].push_back(entry.pubkey);
   }
 
