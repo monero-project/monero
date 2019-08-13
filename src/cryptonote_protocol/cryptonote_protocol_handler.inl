@@ -725,7 +725,7 @@ namespace cryptonote
     if(context.m_state != cryptonote_connection_context::state_normal)
       return 1;
     if (m_core.handle_uptime_proof(arg))
-      relay_uptime_proof(arg, context);
+      relay_uptime_proof(arg, context, false /*force_relay*/);
     return 1;
   }
   //------------------------------------------------------------------------------------------------------------------------  
@@ -2233,16 +2233,19 @@ skip:
   }
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core>
-  bool t_cryptonote_protocol_handler<t_core>::relay_uptime_proof(NOTIFY_UPTIME_PROOF::request& arg, cryptonote_connection_context& exclude_context)
+  bool t_cryptonote_protocol_handler<t_core>::relay_uptime_proof(NOTIFY_UPTIME_PROOF::request& arg, cryptonote_connection_context& exclude_context, bool force_relay)
   {
-    bool result = relay_on_public_network_generic<NOTIFY_UPTIME_PROOF>(arg, exclude_context);
+    if (!is_synchronized() && !force_relay)
+      return false;
+
+    bool result = relay_to_synchronized_peers<NOTIFY_UPTIME_PROOF>(arg, exclude_context);
     return result;
   }
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core>
   bool t_cryptonote_protocol_handler<t_core>::relay_service_node_votes(NOTIFY_NEW_SERVICE_NODE_VOTE::request& arg, cryptonote_connection_context& exclude_context)
   {
-    bool result = relay_on_public_network_generic<NOTIFY_NEW_SERVICE_NODE_VOTE>(arg, exclude_context);
+    bool result = relay_to_synchronized_peers<NOTIFY_NEW_SERVICE_NODE_VOTE>(arg, exclude_context);
     return result;
   }
   //------------------------------------------------------------------------------------------------------------------------

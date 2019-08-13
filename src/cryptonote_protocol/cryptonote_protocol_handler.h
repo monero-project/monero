@@ -132,27 +132,34 @@ namespace cryptonote
 
     //----------------- i_bc_protocol_layout ---------------------------------------
     template<class T>
-    bool relay_on_public_network_generic(typename T::request& arg, cryptonote_connection_context& exclude_context)
+    bool relay_to_synchronized_peers(typename T::request& arg, cryptonote_connection_context& exclude_context)
     {
       LOG_PRINT_L2("[" << epee::net_utils::print_connection_context_short(exclude_context) << "] post relay " << typeid(T).name() << " -->");
-      std::string arg_buff;
-      epee::serialization::store_t_to_binary(arg, arg_buff);
-
       std::vector<std::pair<epee::net_utils::zone, boost::uuids::uuid>> connections;
       m_p2p->for_each_connection([&exclude_context, &connections](connection_context& context, nodetool::peerid_type peer_id, uint32_t support_flags)
       {
-        epee::net_utils::zone zone = context.m_remote_address.get_zone();
-        if (peer_id && exclude_context.m_connection_id != context.m_connection_id && zone == epee::net_utils::zone::public_)
-          connections.push_back({zone, context.m_connection_id});
+        if (context.m_state > cryptonote_connection_context::state_synchronizing)
+        {
+          epee::net_utils::zone zone = context.m_remote_address.get_zone();
+          if (peer_id && exclude_context.m_connection_id != context.m_connection_id)
+            connections.push_back({zone, context.m_connection_id});
+        }
         return true;
       });
 
-      return m_p2p->relay_notify_to_list(T::ID, epee::strspan<uint8_t>(arg_buff), std::move(connections));
+      if (connections.size())
+      {
+        std::string arg_buff;
+        epee::serialization::store_t_to_binary(arg, arg_buff);
+        return m_p2p->relay_notify_to_list(T::ID, epee::strspan<uint8_t>(arg_buff), std::move(connections));
+      }
+
+      return true;
     }
 
     virtual bool relay_block(NOTIFY_NEW_FLUFFY_BLOCK::request& arg, cryptonote_connection_context& exclude_context);
     virtual bool relay_transactions(NOTIFY_NEW_TRANSACTIONS::request& arg, cryptonote_connection_context& exclude_context);
-    virtual bool relay_uptime_proof(NOTIFY_UPTIME_PROOF::request& arg, cryptonote_connection_context& exclude_context);
+    virtual bool relay_uptime_proof(NOTIFY_UPTIME_PROOF::request& arg, cryptonote_connection_context& exclude_context, bool force_relay);
     virtual bool relay_service_node_votes(NOTIFY_NEW_SERVICE_NODE_VOTE::request& arg, cryptonote_connection_context& exclude_context);
     //----------------------------------------------------------------------------------
     //bool get_payload_sync_data(HANDSHAKE_DATA::request& hshd, cryptonote_connection_context& context);

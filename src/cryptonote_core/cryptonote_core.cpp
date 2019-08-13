@@ -1413,7 +1413,7 @@ namespace cryptonote
     NOTIFY_UPTIME_PROOF::request req = m_service_node_list.generate_uptime_proof(m_service_node_pubkey, m_service_node_key, m_sn_public_ip, m_storage_port);
 
     cryptonote_connection_context fake_context = AUTO_VAL_INIT(fake_context);
-    bool relayed = get_protocol()->relay_uptime_proof(req, fake_context);
+    bool relayed = get_protocol()->relay_uptime_proof(req, fake_context, true /*force_relay*/);
     if (relayed)
       MGINFO("Submitted uptime-proof for service node (yours): " << m_service_node_pubkey);
 
