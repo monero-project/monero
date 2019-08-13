@@ -2002,10 +2002,11 @@ bool Blockchain::get_blocks(uint64_t start_offset, size_t count, std::vector<std
   if(start_offset >= height)
     return false;
 
-  blocks.reserve(blocks.size() + height - start_offset);
-  for(size_t i = start_offset; i < start_offset + count && i < height;i++)
+  const size_t num_blocks = std::min<uint64_t>(height - start_offset, count);
+  blocks.reserve(blocks.size() + num_blocks);
+  for(size_t i = 0; i < num_blocks; i++)
   {
-    blocks.push_back(std::make_pair(m_db->get_block_blob_from_height(i), block()));
+    blocks.emplace_back(m_db->get_block_blob_from_height(start_offset + i), block{});
     if (!parse_and_validate_block_from_blob(blocks.back().first, blocks.back().second))
     {
       LOG_ERROR("Invalid block");
@@ -2446,7 +2447,7 @@ bool Blockchain::get_transactions(const t_ids_container& txs_ids, t_tx_container
       cryptonote::blobdata tx;
       if (m_db->get_tx_blob(tx_hash, tx))
       {
-        txs.push_back(transaction());
+        txs.emplace_back();
         if (!parse_and_validate_tx_from_blob(tx, txs.back()))
         {
           LOG_ERROR("Invalid transaction");
@@ -3048,7 +3049,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
       //
       if (hf_version >= cryptonote::network_version_11_infinite_staking)
       {
-        const std::vector<service_nodes::key_image_blacklist_entry> &blacklist = m_service_node_list.get_blacklisted_key_images();
+        const auto &blacklist = m_service_node_list.get_blacklisted_key_images();
         for (const auto &entry : blacklist)
         {
           if (in_to_key.k_image == entry.key_image) // Check if key image is on the blacklist
@@ -3273,7 +3274,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
         return hf_version < cryptonote::network_version_12_checkpointing; // NOTE: Used to be allowed pre HF12.
       }
 
-      service_nodes::service_node_info const &service_node_info = service_node_array[0].info;
+      service_nodes::service_node_info const &service_node_info = *service_node_array[0].info;
       if (!service_node_info.can_transition_to_state(hf_version, state_change.block_height, state_change.state))
       {
         MERROR_VER("State change trying to vote Service Node into the same state it already is in, (aka double spend)");

@@ -2617,16 +2617,16 @@ namespace cryptonote
   bool core_rpc_server::on_get_service_node_blacklisted_key_images(const COMMAND_RPC_GET_SERVICE_NODE_BLACKLISTED_KEY_IMAGES::request& req, COMMAND_RPC_GET_SERVICE_NODE_BLACKLISTED_KEY_IMAGES::response& res, epee::json_rpc::error &error_resp, const connection_context *ctx)
   {
     PERF_TIMER(on_get_service_node_blacklisted_key_images);
-    const std::vector<service_nodes::key_image_blacklist_entry> &blacklist = m_core.get_service_node_blacklisted_key_images();
+    auto &blacklist = m_core.get_service_node_blacklisted_key_images();
 
     res.status = CORE_RPC_STATUS_OK;
     res.blacklist.reserve(blacklist.size());
     for (const service_nodes::key_image_blacklist_entry &entry : blacklist)
     {
-      COMMAND_RPC_GET_SERVICE_NODE_BLACKLISTED_KEY_IMAGES::entry new_entry = {};
+      res.blacklist.emplace_back();
+      auto &new_entry = res.blacklist.back();
       new_entry.key_image     = epee::string_tools::pod_to_hex(entry.key_image);
       new_entry.unlock_height = entry.unlock_height;
-      res.blacklist.push_back(std::move(new_entry));
     }
     return true;
   }
@@ -2672,26 +2672,27 @@ namespace cryptonote
   template<typename response>
   void core_rpc_server::fill_sn_response_entry(response &entry, const service_nodes::service_node_pubkey_info &sn_info, uint64_t current_height) {
 
+    const auto &info = *sn_info.info;
     entry.service_node_pubkey           = string_tools::pod_to_hex(sn_info.pubkey);
-    entry.registration_height           = sn_info.info.registration_height;
-    entry.requested_unlock_height       = sn_info.info.requested_unlock_height;
-    entry.last_reward_block_height      = sn_info.info.last_reward_block_height;
-    entry.last_reward_transaction_index = sn_info.info.last_reward_transaction_index;
-    entry.last_uptime_proof             = sn_info.info.proof.timestamp;
-    entry.active                        = sn_info.info.is_active();
-    entry.funded                        = sn_info.info.is_fully_funded();
-    entry.state_height                  = sn_info.info.is_fully_funded()
-        ? (sn_info.info.is_decommissioned() ? sn_info.info.last_decommission_height : sn_info.info.active_since_height) : sn_info.info.last_reward_block_height;
-    entry.earned_downtime_blocks        = service_nodes::quorum_cop::calculate_decommission_credit(sn_info.info, current_height);
-    entry.decommission_count            = sn_info.info.decommission_count;
-    entry.service_node_version          = {sn_info.info.proof.version_major, sn_info.info.proof.version_minor, sn_info.info.proof.version_patch};
-    entry.public_ip                     = string_tools::get_ip_string_from_int32(sn_info.info.public_ip);
-    entry.storage_port                  = sn_info.info.storage_port;
+    entry.registration_height           = info.registration_height;
+    entry.requested_unlock_height       = info.requested_unlock_height;
+    entry.last_reward_block_height      = info.last_reward_block_height;
+    entry.last_reward_transaction_index = info.last_reward_transaction_index;
+    entry.last_uptime_proof             = info.proof->timestamp;
+    entry.active                        = info.is_active();
+    entry.funded                        = info.is_fully_funded();
+    entry.state_height                  = info.is_fully_funded()
+        ? (info.is_decommissioned() ? info.last_decommission_height : info.active_since_height) : info.last_reward_block_height;
+    entry.earned_downtime_blocks        = service_nodes::quorum_cop::calculate_decommission_credit(info, current_height);
+    entry.decommission_count            = info.decommission_count;
+    entry.service_node_version          = {info.proof->version_major, info.proof->version_minor, info.proof->version_patch};
+    entry.public_ip                     = string_tools::get_ip_string_from_int32(info.proof->public_ip);
+    entry.storage_port                  = info.proof->storage_port;
 
-    entry.contributors.reserve(sn_info.info.contributors.size());
+    entry.contributors.reserve(info.contributors.size());
 
     using namespace service_nodes;
-    for (service_node_info::contributor_t const &contributor : sn_info.info.contributors)
+    for (service_node_info::contributor_t const &contributor : info.contributors)
     {
       entry.contributors.push_back({});
       auto &new_contributor = entry.contributors.back();
@@ -2710,12 +2711,12 @@ namespace cryptonote
       }
     }
 
-    entry.total_contributed             = sn_info.info.total_contributed;
-    entry.total_reserved                = sn_info.info.total_reserved;
-    entry.staking_requirement           = sn_info.info.staking_requirement;
-    entry.portions_for_operator         = sn_info.info.portions_for_operator;
-    entry.operator_address              = cryptonote::get_account_address_as_str(m_core.get_nettype(), false/*is_subaddress*/, sn_info.info.operator_address);
-    entry.swarm_id                      = sn_info.info.swarm_id;
+    entry.total_contributed             = info.total_contributed;
+    entry.total_reserved                = info.total_reserved;
+    entry.staking_requirement           = info.staking_requirement;
+    entry.portions_for_operator         = info.portions_for_operator;
+    entry.operator_address              = cryptonote::get_account_address_as_str(m_core.get_nettype(), false/*is_subaddress*/, info.operator_address);
+    entry.swarm_id                      = info.swarm_id;
   }
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_get_service_nodes(const COMMAND_RPC_GET_SERVICE_NODES::request& req, COMMAND_RPC_GET_SERVICE_NODES::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx)
@@ -2775,7 +2776,7 @@ namespace cryptonote
     if (req.active_only) {
       const auto end =
         std::remove_if(sn_infos.begin(), sn_infos.end(), [](const service_nodes::service_node_pubkey_info& snpk_info) {
-          return !snpk_info.info.is_active();
+          return !snpk_info.info->is_active();
         });
       
       sn_infos.erase(end, sn_infos.end());
