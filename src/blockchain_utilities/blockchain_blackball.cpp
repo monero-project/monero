@@ -1201,6 +1201,7 @@ int main(int argc, char* argv[])
   const command_line::arg_descriptor<std::string> arg_extra_spent_list = {"extra-spent-list", "Optional list of known spent outputs",""};
   const command_line::arg_descriptor<std::string> arg_export = {"export", "Filename to export the backball list to"};
   const command_line::arg_descriptor<bool> arg_force_chain_reaction_pass = {"force-chain-reaction-pass", "Run the chain reaction pass even if no new blockchain data was processed"};
+  const command_line::arg_descriptor<bool> arg_historical_stat = {"historical-stat", "Report historical stat of spent outputs for every 10000 blocks window"};
 
   command_line::add_arg(desc_cmd_sett, arg_blackball_db_dir);
   command_line::add_arg(desc_cmd_sett, arg_log_level);
@@ -1212,6 +1213,7 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_cmd_sett, arg_extra_spent_list);
   command_line::add_arg(desc_cmd_sett, arg_export);
   command_line::add_arg(desc_cmd_sett, arg_force_chain_reaction_pass);
+  command_line::add_arg(desc_cmd_sett, arg_historical_stat);
   command_line::add_arg(desc_cmd_sett, arg_inputs);
   command_line::add_arg(desc_cmd_only, command_line::arg_help);
 
@@ -1252,6 +1254,7 @@ int main(int argc, char* argv[])
   bool opt_check_subsets = command_line::get_arg(vm, arg_check_subsets);
   bool opt_verbose = command_line::get_arg(vm, arg_verbose);
   bool opt_force_chain_reaction_pass = command_line::get_arg(vm, arg_force_chain_reaction_pass);
+  bool opt_historical_stat = command_line::get_arg(vm, arg_historical_stat);
   std::string opt_export = command_line::get_arg(vm, arg_export);
   std::string extra_spent_list = command_line::get_arg(vm, arg_extra_spent_list);
   std::vector<std::pair<uint64_t, uint64_t>> extra_spent_outputs = extra_spent_list.empty() ? std::vector<std::pair<uint64_t, uint64_t>>() : load_outputs(extra_spent_list);
@@ -1302,6 +1305,53 @@ int main(int argc, char* argv[])
   MDB_dbi dbi0;
   MDB_cursor *cur0;
   open_db(inputs[0], &env0, &txn0, &cur0, &dbi0);
+
+  std::vector<output_data> work_spent;
+
+  if (opt_historical_stat)
+  {
+    if (!start_blackballed_outputs)
+    {
+      MINFO("Spent outputs database is empty. Either you haven't run the analysis mode yet, or there is really no output marked as spent.");
+      goto skip_secondary_passes;
+    }
+    const uint64_t STAT_WINDOW = 10000;
+    uint64_t outs_total = 0;
+    uint64_t outs_spent = 0;
+    std::unordered_map<uint64_t, uint64_t> outs_per_amount;
+    uint64_t start_idx = 0, n_txes;
+    uint64_t prev_height = 0;
+    for_all_transactions(inputs[0], start_idx, n_txes, [&](uint64_t height, const cryptonote::transaction_prefix &tx)->bool
+    {
+      if (height != prev_height)
+      {
+        if (height % 100 == 0) std::cout << "\r" << height << ": " << (100.0f * outs_spent / outs_total) << "% ( " << outs_spent << " / " << outs_total << " )       \r" << std::flush;
+        if (height % STAT_WINDOW == 0)
+        {
+          uint64_t window_front = (height / STAT_WINDOW - 1) * STAT_WINDOW;
+          uint64_t window_back = window_front + STAT_WINDOW - 1;
+          LOG_PRINT_L0(window_front << "-" << window_back << ": " << (100.0f * outs_spent / outs_total) << "% ( " << outs_spent << " / " << outs_total << " )");
+          outs_total = outs_spent = 0;
+        }
+      }
+      prev_height = height;
+      for (const auto &out: tx.vout)
+      {
+        ++outs_total;
+        CHECK_AND_ASSERT_THROW_MES(out.target.type() == typeid(txout_to_key), "Out target type is not txout_to_key: height=" + std::to_string(height));
+        uint64_t out_global_index = outs_per_amount[out.amount]++;
+        if (ringdb.blackballed({out.amount, out_global_index}))
+          ++outs_spent;
+      }
+      if (stop_requested)
+      {
+        MINFO("Stopping scan...");
+        return false;
+      }
+      return true;
+    });
+    goto skip_secondary_passes;
+  }
 
   if (!extra_spent_outputs.empty())
   {
@@ -1538,8 +1588,6 @@ int main(int argc, char* argv[])
     if (stop_requested)
       break;
   }
-
-  std::vector<output_data> work_spent;
 
   if (stop_requested)
     goto skip_secondary_passes;
