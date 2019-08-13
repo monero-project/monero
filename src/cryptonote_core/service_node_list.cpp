@@ -1562,13 +1562,18 @@ namespace service_nodes
       for (const quorums_by_height &entry : m_old_quorum_states)
         data.quorum_states.push_back(serialize_quorum_state(hf_version, entry.height, entry.quorums));
 
-      data.states.reserve(m_state_history.size());
       if (m_state_history.size() == 1)
       {
         data.states.push_back(serialize_service_node_state_object(hf_version, *m_state_history.begin()));
       }
       else if (m_state_history.size() >= 2)
       {
+        size_t num_to_reserve = 1; // recent state
+        if (m_state_history.size() > MAX_SHORT_TERM_STATE_HISTORY)
+          // + 10k historic blocks (-1 because the oldest short-term history might also be historic)
+          num_to_reserve += m_state_history.size() - (MAX_SHORT_TERM_STATE_HISTORY - 1);
+        data.states.reserve(num_to_reserve);
+
         for (auto it = m_state_history.cbegin(), nextit = std::next(it); nextit != m_state_history.cend(); it = nextit++)
         {
           state_t const &curr = *it, &next = *nextit;
