@@ -419,7 +419,7 @@ static bool for_all_transactions(const std::string &filename, uint64_t &start_id
   return fret;
 }
 
-static bool for_all_transactions(const std::string &filename, const uint64_t &start_idx, uint64_t &n_txes, const std::function<bool(uint64_t, const cryptonote::transaction_prefix&)> &f)
+static bool for_all_transactions(const std::string &filename, const uint64_t &start_idx, uint64_t &n_txes, const std::function<bool(bool, uint64_t, const cryptonote::transaction_prefix&)> &f)
 {
   MDB_env *env;
   MDB_dbi dbi_blocks, dbi_txs;
@@ -455,6 +455,9 @@ static bool for_all_transactions(const std::string &filename, const uint64_t &st
   if (dbr) throw std::runtime_error("Failed to create LMDB cursor: " + std::string(mdb_strerror(dbr)));
 
   MDB_stat stat;
+  dbr = mdb_stat(txn, dbi_blocks, &stat);
+  if (dbr) throw std::runtime_error("Failed to query txs stat: " + std::string(mdb_strerror(dbr)));
+  uint64_t n_blocks = stat.ms_entries;
   dbr = mdb_stat(txn, dbi_txs, &stat);
   if (dbr) throw std::runtime_error("Failed to query txs stat: " + std::string(mdb_strerror(dbr)));
   n_txes = stat.ms_entries;
@@ -487,13 +490,15 @@ static bool for_all_transactions(const std::string &filename, const uint64_t &st
       throw std::runtime_error("Failed to fetch transaction " + string_tools::pod_to_hex(get_transaction_hash(b.miner_tx)) + ": " + std::string(mdb_strerror(ret)));
     op_txs = MDB_NEXT;
 
-    if (start_idx <= tx_idx++  && !f(height, b.miner_tx))
+    bool last_block = height == n_blocks - 1;
+    if (start_idx <= tx_idx++  && !f(last_block && b.tx_hashes.empty(), height, b.miner_tx))
     {
       fret = false;
       break;
     }
-    for (const crypto::hash& txid : b.tx_hashes)
+    for (size_t i = 0; i < b.tx_hashes.size(); ++i)
     {
+      const crypto::hash& txid = b.tx_hashes[i];
       ret = mdb_cursor_get(cur_txs, &k, &v, op_txs);
       if (ret)
         throw std::runtime_error("Failed to fetch transaction " + string_tools::pod_to_hex(txid) + ": " + std::string(mdb_strerror(ret)));
@@ -504,7 +509,7 @@ static bool for_all_transactions(const std::string &filename, const uint64_t &st
       binary_archive<false> ba(ss);
       bool r = do_serialize(ba, tx);
       CHECK_AND_ASSERT_MES(r, false, "Failed to parse transaction from blob");
-      if (start_idx <= tx_idx++ && !f(height, tx))
+      if (start_idx <= tx_idx++ && !f(last_block && i == b.tx_hashes.size() - 1, height, tx))
       {
         fret = false;
         break;
@@ -1321,7 +1326,7 @@ int main(int argc, char* argv[])
     std::unordered_map<uint64_t, uint64_t> outs_per_amount;
     uint64_t start_idx = 0, n_txes;
     uint64_t prev_height = 0;
-    for_all_transactions(inputs[0], start_idx, n_txes, [&](uint64_t height, const cryptonote::transaction_prefix &tx)->bool
+    for_all_transactions(inputs[0], start_idx, n_txes, [&](bool last_tx, uint64_t height, const cryptonote::transaction_prefix &tx)->bool
     {
       if (height != prev_height)
       {
@@ -1342,6 +1347,12 @@ int main(int argc, char* argv[])
         uint64_t out_global_index = outs_per_amount[out.amount]++;
         if (ringdb.blackballed({out.amount, out_global_index}))
           ++outs_spent;
+      }
+      if (last_tx)
+      {
+        uint64_t window_front = (height / STAT_WINDOW) * STAT_WINDOW;
+        uint64_t window_back = height;
+        LOG_PRINT_L0(window_front << "-" << window_back << ": " << (100.0f * outs_spent / outs_total) << "% ( " << outs_spent << " / " << outs_total << " )");
       }
       if (stop_requested)
       {
