@@ -1317,6 +1317,13 @@ int main(int argc, char* argv[])
       MINFO("Spent outputs database is empty. Either you haven't run the analysis mode yet, or there is really no output marked as spent.");
       goto skip_secondary_passes;
     }
+    MDB_txn *txn;
+    int dbr = mdb_txn_begin(env, NULL, 0, &txn);
+    CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to create LMDB transaction: " + std::string(mdb_strerror(dbr)));
+    MDB_cursor *cur;
+    dbr = mdb_cursor_open(txn, dbi_spent, &cur);
+    CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to open LMDB cursor: " + std::string(mdb_strerror(dbr)));
+
     const uint64_t STAT_WINDOW = 10000;
     uint64_t outs_total = 0;
     uint64_t outs_spent = 0;
@@ -1342,7 +1349,7 @@ int main(int argc, char* argv[])
         ++outs_total;
         CHECK_AND_ASSERT_THROW_MES(out.target.type() == typeid(txout_to_key), "Out target type is not txout_to_key: height=" + std::to_string(height));
         uint64_t out_global_index = outs_per_amount[out.amount]++;
-        if (ringdb.blackballed({out.amount, out_global_index}))
+        if (is_output_spent(cur, output_data(out.amount, out_global_index)))
           ++outs_spent;
       }
       if (last_tx)
@@ -1358,6 +1365,9 @@ int main(int argc, char* argv[])
       }
       return true;
     });
+    mdb_cursor_close(cur);
+    dbr = mdb_txn_commit(txn);
+    CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to commit txn creating/opening database: " + std::string(mdb_strerror(dbr)));
     goto skip_secondary_passes;
   }
 
