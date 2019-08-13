@@ -203,7 +203,7 @@ namespace cryptonote
     uint64_t end_cull_height = 0;
     {
       checkpoint_t immutable_checkpoint;
-      if (m_db->get_immutable_checkpoint(&immutable_checkpoint))
+      if (m_db->get_immutable_checkpoint(&immutable_checkpoint, height + 1))
         end_cull_height = immutable_checkpoint.height;
     }
     uint64_t start_cull_height = (end_cull_height < service_nodes::CHECKPOINT_STORE_PERSISTENTLY_INTERVAL)
@@ -241,7 +241,7 @@ namespace cryptonote
     {
       uint64_t start_height = top_checkpoint.height;
       for (size_t delete_height = start_height;
-           delete_height >= height;
+           delete_height >= height && delete_height >= service_nodes::CHECKPOINT_INTERVAL;
            delete_height -= service_nodes::CHECKPOINT_INTERVAL)
       {
         try
@@ -290,9 +290,15 @@ namespace cryptonote
     if (0 == block_height)
       return false;
 
+    {
+      std::vector<checkpoint_t> const first_checkpoint = m_db->get_checkpoints_range(0, blockchain_height, 1);
+      if (first_checkpoint.empty() || blockchain_height < first_checkpoint[0].height)
+        return true;
+    }
+
     checkpoint_t immutable_checkpoint;
     uint64_t immutable_height = 0;
-    if (m_db->get_immutable_checkpoint(&immutable_checkpoint))
+    if (m_db->get_immutable_checkpoint(&immutable_checkpoint, blockchain_height))
     {
       immutable_height = immutable_checkpoint.height;
       if (rejected_by_service_node)

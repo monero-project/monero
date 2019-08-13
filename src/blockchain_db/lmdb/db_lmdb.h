@@ -327,8 +327,6 @@ public:
   void remove_block_checkpoint(uint64_t height) override;
   bool get_block_checkpoint   (uint64_t height, checkpoint_t &checkpoint) const override;
   bool get_top_checkpoint     (checkpoint_t &checkpoint) const override;
-  std::vector<checkpoint_t> get_checkpoints_range(uint64_t start, uint64_t end, size_t num_desired_checkpoints = 0) const override;
-  bool get_immutable_checkpoint(checkpoint_t *checkpoint) const override;
 
   void set_batch_transactions(bool batch_transactions) override;
   bool batch_start(uint64_t batch_num_blocks=0, uint64_t batch_bytes=0) override;

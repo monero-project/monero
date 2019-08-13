@@ -840,8 +840,8 @@ public:
 
   // num_desired_checkpoints: set to GET_ALL_CHECKPOINTS to collect as many checkpoints as possible
   static constexpr size_t GET_ALL_CHECKPOINTS = 0;
-  virtual std::vector<checkpoint_t> get_checkpoints_range(uint64_t start, uint64_t end, size_t num_desired_checkpoints = GET_ALL_CHECKPOINTS) const = 0;
-  virtual bool get_immutable_checkpoint(checkpoint_t *immutable_checkpoint) const = 0;
+  virtual std::vector<checkpoint_t> get_checkpoints_range(uint64_t start, uint64_t end, size_t num_desired_checkpoints = GET_ALL_CHECKPOINTS) const;
+  virtual bool get_immutable_checkpoint(checkpoint_t *immutable_checkpoint, uint64_t block_height) const;
 
   /**
    * @brief checks if a block exists
