@@ -106,6 +106,7 @@ namespace nodetool
     command_line::add_arg(desc, arg_p2p_hide_my_port);
     command_line::add_arg(desc, arg_no_sync);
     command_line::add_arg(desc, arg_no_igd);
+    command_line::add_arg(desc, arg_igd);
     command_line::add_arg(desc, arg_out_peers);
     command_line::add_arg(desc, arg_in_peers);
     command_line::add_arg(desc, arg_tos_flag);
@@ -258,7 +259,35 @@ namespace nodetool
     public_zone.m_can_pingback = true;
     m_external_port = command_line::get_arg(vm, arg_p2p_external_port);
     m_allow_local_ip = command_line::get_arg(vm, arg_p2p_allow_local_ip);
-    m_no_igd = command_line::get_arg(vm, arg_no_igd);
+    const bool has_no_igd = command_line::get_arg(vm, arg_no_igd);
+    const std::string sigd = command_line::get_arg(vm, arg_igd);
+    if (sigd == "enabled")
+    {
+      if (has_no_igd)
+      {
+        MFATAL("Cannot have both --" << arg_no_igd.name << " and --" << arg_igd.name << " enabled");
+        return false;
+      }
+      m_igd = igd;
+    }
+    else if (sigd == "disabled")
+    {
+      m_igd =  no_igd;
+    }
+    else if (sigd == "delayed")
+    {
+      if (has_no_igd && !command_line::is_arg_defaulted(vm, arg_igd))
+      {
+        MFATAL("Cannot have both --" << arg_no_igd.name << " and --" << arg_igd.name << " delayed");
+        return false;
+      }
+      m_igd = has_no_igd ? no_igd : delayed_igd;
+    }
+    else
+    {
+      MFATAL("Invalid value for --" << arg_igd.name << ", expected enabled, disabled or delayed");
+      return false;
+    }
     m_offline = command_line::get_arg(vm, cryptonote::arg_offline);
 
     if (command_line::has_arg(vm, arg_p2p_add_peer))
@@ -675,7 +704,7 @@ namespace nodetool
       MDEBUG("External port defined as " << m_external_port);
 
     // add UPnP port mapping
-    if(!m_no_igd)
+    if(m_igd == igd)
       add_upnp_port_mapping(m_listening_port);
 
     return res;
@@ -710,7 +739,10 @@ namespace nodetool
             }
             else
             {
-              ++number_of_out_peers;
+              // If this is a new (<10s) connection and we're still in before handshake mode then
+              // don't count it yet: it is probably a back ping connection that will be closed soon.
+              if (!(cntxt.m_state == p2p_connection_context::state_before_handshake && std::time(NULL) < cntxt.m_started + 10))
+                ++number_of_out_peers;
             }
             return true;
           }); // lambda
@@ -769,7 +801,7 @@ namespace nodetool
       for(auto& zone : m_network_zones)
         zone.second.m_net_server.deinit_server();
       // remove UPnP port mapping
-      if(!m_no_igd)
+      if(m_igd == igd)
         delete_upnp_port_mapping(m_listening_port);
     }
     return store_config();
@@ -937,7 +969,10 @@ namespace nodetool
       }
       if(!context.m_is_income)
         m_network_zones.at(context.m_remote_address.get_zone()).m_peerlist.set_peer_just_seen(context.peer_id, context.m_remote_address, context.m_pruning_seed, context.m_rpc_port);
-      m_payload_handler.process_payload_sync_data(rsp.payload_data, context, false);
+      if (!m_payload_handler.process_payload_sync_data(rsp.payload_data, context, false))
+      {
+        m_network_zones.at(context.m_remote_address.get_zone()).m_net_server.get_config_object().close(context.m_connection_id );
+      }
     });
 
     if(!r)
@@ -1083,6 +1118,7 @@ namespace nodetool
       LOG_PRINT_CC_PRIORITY_NODE(is_priority, *con, "Failed to HANDSHAKE with peer "
         << na.str()
         /*<< ", try " << try_count*/);
+      zone.m_net_server.get_config_object().close(con->m_connection_id);
       return false;
     }
 
@@ -1142,7 +1178,7 @@ namespace nodetool
       bool is_priority = is_priority_node(na);
 
       LOG_PRINT_CC_PRIORITY_NODE(is_priority, *con, "Failed to HANDSHAKE with peer " << na.str());
-
+      zone.m_net_server.get_config_object().close(con->m_connection_id);
       return false;
     }
 
@@ -1219,19 +1255,53 @@ namespace nodetool
       size_t random_index;
       const uint32_t next_needed_pruning_stripe = m_payload_handler.get_next_needed_pruning_stripe().second;
 
+      // build a set of all the /16 we're connected to, and prefer a peer that's not in that set
+      std::set<uint32_t> classB;
+      if (&zone == &m_network_zones.at(epee::net_utils::zone::public_)) // at returns reference, not copy
+      {
+        zone.m_net_server.get_config_object().foreach_connection([&](const p2p_connection_context& cntxt)
+        {
+          if (cntxt.m_remote_address.get_type_id() == epee::net_utils::ipv4_network_address::get_type_id())
+          {
+
+            const epee::net_utils::network_address na = cntxt.m_remote_address;
+            const uint32_t actual_ip = na.as<const epee::net_utils::ipv4_network_address>().ip();
+            classB.insert(actual_ip & 0x0000ffff);
+          }
+          return true;
+        });
+      }
+
       std::deque<size_t> filtered;
       const size_t limit = use_white_list ? 20 : std::numeric_limits<size_t>::max();
-      size_t idx = 0;
-      zone.m_peerlist.foreach (use_white_list, [&filtered, &idx, limit, next_needed_pruning_stripe](const peerlist_entry &pe){
-        if (filtered.size() >= limit)
-          return false;
-        if (next_needed_pruning_stripe == 0 || pe.pruning_seed == 0)
-          filtered.push_back(idx);
-        else if (next_needed_pruning_stripe == tools::get_pruning_stripe(pe.pruning_seed))
-          filtered.push_front(idx);
-        ++idx;
-        return true;
-      });
+      size_t idx = 0, skipped = 0;
+      for (int step = 0; step < 2; ++step)
+      {
+        bool skip_duplicate_class_B = step == 0;
+        zone.m_peerlist.foreach (use_white_list, [&classB, &filtered, &idx, &skipped, skip_duplicate_class_B, limit, next_needed_pruning_stripe](const peerlist_entry &pe){
+          if (filtered.size() >= limit)
+            return false;
+          bool skip = false;
+          if (skip_duplicate_class_B && pe.adr.get_type_id() == epee::net_utils::ipv4_network_address::get_type_id())
+          {
+            const epee::net_utils::network_address na = pe.adr;
+            uint32_t actual_ip = na.as<const epee::net_utils::ipv4_network_address>().ip();
+            skip = classB.find(actual_ip & 0x0000ffff) != classB.end();
+          }
+          if (skip)
+            ++skipped;
+          else if (next_needed_pruning_stripe == 0 || pe.pruning_seed == 0)
+            filtered.push_back(idx);
+          else if (next_needed_pruning_stripe == tools::get_pruning_stripe(pe.pruning_seed))
+            filtered.push_front(idx);
+          ++idx;
+          return true;
+        });
+        if (skipped == 0 || !filtered.empty())
+          break;
+        if (skipped)
+          MGINFO("Skipping " << skipped << " possible peers as they share a class B with existing peers");
+      }
       if (filtered.empty())
       {
         MDEBUG("No available peer in " << (use_white_list ? "white" : "gray") << " list filtered by " << next_needed_pruning_stripe);
@@ -1574,8 +1644,17 @@ namespace nodetool
       }
       else
       {
-        const el::Level level = el::Level::Warning;
-        MCLOG_RED(level, "global", "No incoming connections - check firewalls/routers allow port " << get_this_peer_port());
+        if (m_igd == delayed_igd)
+        {
+          MWARNING("No incoming connections, trying to setup IGD");
+          add_upnp_port_mapping(m_listening_port);
+          m_igd = igd;
+        }
+        else
+        {
+          const el::Level level = el::Level::Warning;
+          MCLOG_RED(level, "global", "No incoming connections - check firewalls/routers allow port " << get_this_peer_port());
+        }
       }
     }
     return true;
@@ -2184,10 +2263,8 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::set_max_out_peers(network_zone& zone, int64_t max)
   {
-    if(max == -1) {
-      zone.m_config.m_net_config.max_out_connection_count = P2P_DEFAULT_CONNECTIONS_COUNT;
-      return true;
-    }
+    if (max == -1)
+      max = P2P_DEFAULT_CONNECTIONS_COUNT_OUT;
     zone.m_config.m_net_config.max_out_connection_count = max;
     return true;
   }
@@ -2195,6 +2272,8 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::set_max_in_peers(network_zone& zone, int64_t max)
   {
+    if (max == -1)
+      max = P2P_DEFAULT_CONNECTIONS_COUNT_IN;
     zone.m_config.m_net_config.max_in_connection_count = max;
     return true;
   }
@@ -2205,10 +2284,11 @@ namespace nodetool
     auto public_zone = m_network_zones.find(epee::net_utils::zone::public_);
     if (public_zone != m_network_zones.end())
     {
-      const auto current = public_zone->second.m_config.m_net_config.max_out_connection_count;
+      const auto current = public_zone->second.m_net_server.get_config_object().get_out_connections_count();
       public_zone->second.m_config.m_net_config.max_out_connection_count = count;
       if(current > count)
         public_zone->second.m_net_server.get_config_object().del_out_connections(current - count);
+      m_payload_handler.set_max_out_peers(count);
     }
   }
 
@@ -2218,7 +2298,7 @@ namespace nodetool
     auto public_zone = m_network_zones.find(epee::net_utils::zone::public_);
     if (public_zone != m_network_zones.end())
     {
-      const auto current = public_zone->second.m_config.m_net_config.max_in_connection_count;
+      const auto current = public_zone->second.m_net_server.get_config_object().get_in_connections_count();
       public_zone->second.m_config.m_net_config.max_in_connection_count = count;
       if(current > count)
         public_zone->second.m_net_server.get_config_object().del_in_connections(current - count);
