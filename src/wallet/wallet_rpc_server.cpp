@@ -4091,9 +4091,8 @@ namespace tools
       }
     }
 
-    er.code = WALLET_RPC_ERROR_CODE_WRONG_ADDRESS;
-    er.message = std::string("Invalid address");
-    return false;
+    res.valid = false;
+    return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::on_set_daemon(const wallet_rpc::COMMAND_RPC_SET_DAEMON::request& req, wallet_rpc::COMMAND_RPC_SET_DAEMON::response& res, epee::json_rpc::error& er, const connection_context *ctx)
