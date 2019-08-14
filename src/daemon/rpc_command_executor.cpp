@@ -68,7 +68,7 @@ namespace {
     std::string id_str;
     std::string port_str;
     std::string elapsed = peer.last_seen == 0 ? "never" : epee::misc_utils::get_time_interval_string(now - last_seen);
-    std::string ip_str = epee::string_tools::get_ip_string_from_int32(peer.ip);
+    std::string ip_str = peer.ip != 0 ? epee::string_tools::get_ip_string_from_int32(peer.ip) : std::string("[") + peer.host + "]";
     std::stringstream peer_id_str;
     peer_id_str << std::hex << std::setw(16) << peer.id;
     peer_id_str >> id_str;

@@ -76,6 +76,9 @@ namespace boost
         case epee::net_utils::ipv4_network_address::get_type_id():
           do_serialize<epee::net_utils::ipv4_network_address>(is_saving, a, na);
           break;
+        case epee::net_utils::ipv6_network_address::get_type_id():
+          do_serialize<epee::net_utils::ipv6_network_address>(is_saving, a, na);
+          break;
         case net::tor_address::get_type_id():
           do_serialize<net::tor_address>(is_saving, a, na);
           break;
@@ -97,6 +100,34 @@ namespace boost
       if (!typename Archive::is_saving())
         na = epee::net_utils::ipv4_network_address{ip, port};
     }
+
+    template <class Archive, class ver_type>
+    inline void serialize(Archive &a, boost::asio::ip::address_v6& v6, const ver_type ver)
+    {
+      if (typename Archive::is_saving())
+      {
+        auto bytes = v6.to_bytes();
+        for (auto &e: bytes) a & e;
+      }
+      else
+      {
+        boost::asio::ip::address_v6::bytes_type bytes;
+        for (auto &e: bytes) a & e;
+        v6 = boost::asio::ip::address_v6(bytes);
+      }
+    }
+
+    template <class Archive, class ver_type>
+    inline void serialize(Archive &a, epee::net_utils::ipv6_network_address& na, const ver_type ver)
+    {
+      boost::asio::ip::address_v6 ip{na.ip()};
+      uint16_t port{na.port()};
+      a & ip;
+      a & port;
+      if (!typename Archive::is_saving())
+        na = epee::net_utils::ipv6_network_address{ip, port};
+    }
+
 
     template <class Archive, class ver_type>
     inline void save(Archive& a, const net::tor_address& na, const ver_type)

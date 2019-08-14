@@ -151,7 +151,9 @@ namespace nodetool
         : m_connect(nullptr),
           m_net_server(epee::net_utils::e_connection_type_P2P),
           m_bind_ip(),
+          m_bind_ipv6_address(),
           m_port(),
+          m_port_ipv6(),
           m_our_address(),
           m_peerlist(),
           m_config{},
@@ -167,7 +169,9 @@ namespace nodetool
         : m_connect(nullptr),
           m_net_server(public_service, epee::net_utils::e_connection_type_P2P),
           m_bind_ip(),
+          m_bind_ipv6_address(),
           m_port(),
+          m_port_ipv6(),
           m_our_address(),
           m_peerlist(),
           m_config{},
@@ -182,7 +186,9 @@ namespace nodetool
       connect_func* m_connect;
       net_server m_net_server;
       std::string m_bind_ip;
+      std::string m_bind_ipv6_address;
       std::string m_port;
+      std::string m_port_ipv6;
       epee::net_utils::network_address m_our_address; // in anonymity networks
       peerlist_manager m_peerlist;
       config m_config;
@@ -357,7 +363,13 @@ namespace nodetool
     bool is_peer_used(const peerlist_entry& peer);
     bool is_peer_used(const anchor_peerlist_entry& peer);
     bool is_addr_connected(const epee::net_utils::network_address& peer);
-    void add_upnp_port_mapping(uint32_t port);
+    void add_upnp_port_mapping_impl(uint32_t port, bool ipv6=false);
+    void add_upnp_port_mapping_v4(uint32_t port);
+    void add_upnp_port_mapping_v6(uint32_t port);
+    void add_upnp_port_mapping(uint32_t port, bool ipv4=true, bool ipv6=false);
+    void delete_upnp_port_mapping_impl(uint32_t port, bool ipv6=false);
+    void delete_upnp_port_mapping_v4(uint32_t port);
+    void delete_upnp_port_mapping_v6(uint32_t port);
     void delete_upnp_port_mapping(uint32_t port);
     template<class t_callback>
     bool try_ping(basic_node_data& node_data, p2p_connection_context& context, const t_callback &cb);
@@ -419,12 +431,15 @@ namespace nodetool
     bool m_have_address;
     bool m_first_connection_maker_call;
     uint32_t m_listening_port;
+    uint32_t m_listening_port_ipv6;
     uint32_t m_external_port;
     uint16_t m_rpc_port;
     bool m_allow_local_ip;
     bool m_hide_my_port;
     igd_t m_igd;
     bool m_offline;
+    bool m_use_ipv6;
+    bool m_require_ipv4;
     std::atomic<bool> is_closing;
     std::unique_ptr<boost::thread> mPeersLoggerThread;
     //critical_section m_connections_lock;
@@ -485,7 +500,11 @@ namespace nodetool
     const int64_t default_limit_up = P2P_DEFAULT_LIMIT_RATE_UP;      // kB/s
     const int64_t default_limit_down = P2P_DEFAULT_LIMIT_RATE_DOWN;  // kB/s
     extern const command_line::arg_descriptor<std::string> arg_p2p_bind_ip;
+    extern const command_line::arg_descriptor<std::string> arg_p2p_bind_ipv6_address;
     extern const command_line::arg_descriptor<std::string, false, true, 2> arg_p2p_bind_port;
+    extern const command_line::arg_descriptor<std::string, false, true, 2> arg_p2p_bind_port_ipv6;
+    extern const command_line::arg_descriptor<bool>        arg_p2p_use_ipv6;
+    extern const command_line::arg_descriptor<bool>        arg_p2p_require_ipv4;
     extern const command_line::arg_descriptor<uint32_t>    arg_p2p_external_port;
     extern const command_line::arg_descriptor<bool>        arg_p2p_allow_local_ip;
     extern const command_line::arg_descriptor<std::vector<std::string> > arg_p2p_add_peer;

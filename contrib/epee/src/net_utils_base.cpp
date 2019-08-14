@@ -21,6 +21,19 @@ namespace epee { namespace net_utils
 	bool ipv4_network_address::is_loopback() const { return net_utils::is_ip_loopback(ip()); }
 	bool ipv4_network_address::is_local() const { return net_utils::is_ip_local(ip()); }
 
+	bool ipv6_network_address::equal(const ipv6_network_address& other) const noexcept
+	{ return is_same_host(other) && port() == other.port(); }
+
+	bool ipv6_network_address::less(const ipv6_network_address& other) const noexcept
+	{ return is_same_host(other) ? port() < other.port() : m_address < other.m_address; }
+
+	std::string ipv6_network_address::str() const
+	{ return std::string("[") + host_str() + "]:" + std::to_string(port()); }
+
+	std::string ipv6_network_address::host_str() const { return m_address.to_string(); }
+	bool ipv6_network_address::is_loopback() const { return m_address.is_loopback(); }
+	bool ipv6_network_address::is_local() const { return m_address.is_link_local(); }
+
 
 	bool ipv4_network_subnet::equal(const ipv4_network_subnet& other) const noexcept
 	{ return is_same_host(other) && m_mask == other.m_mask; }
