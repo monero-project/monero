@@ -1321,6 +1321,13 @@ namespace cryptonote
                   return false;
                 }
 
+                std::sort(
+                    checkpoint->signatures.begin(),
+                    checkpoint->signatures.end(),
+                    [](service_nodes::voter_to_signature const &lhs, service_nodes::voter_to_signature const &rhs) {
+                      return lhs.voter_index < rhs.voter_index;
+                    });
+
                 // TODO(doyle): If we are receiving alternative blocks, we won't
                 // have the quorum for the alternative chain meaning we will not
                 // be able to verify the checkpoint. For now always accept

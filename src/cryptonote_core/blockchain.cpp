@@ -2055,7 +2055,7 @@ bool Blockchain::handle_get_objects(NOTIFY_REQUEST_GET_OBJECTS::request& arg, NO
       try
       {
         checkpoint_t checkpoint;
-        if (m_db->get_block_checkpoint(block_height, checkpoint))
+        if (get_checkpoint(block_height, checkpoint))
           e.checkpoint = t_serializable_object_to_blob(checkpoint);
       }
       catch (const std::exception &e)
@@ -4201,7 +4201,7 @@ bool Blockchain::add_new_block(const block& bl, block_verification_context& bvc,
     uint64_t block_height = get_block_height(bl);
     try
     {
-      if (m_db->get_block_checkpoint(block_height, existing_checkpoint))
+      if (get_checkpoint(block_height, existing_checkpoint))
       {
         if (checkpoint->signatures.size() < existing_checkpoint.signatures.size())
           checkpoint = nullptr;
@@ -4328,6 +4328,12 @@ bool Blockchain::update_checkpoint(cryptonote::checkpoint_t const &checkpoint)
   // checkpointing stopping it.
   bool result = m_checkpoints.update_checkpoint(checkpoint);
   return result;
+}
+//------------------------------------------------------------------
+bool Blockchain::get_checkpoint(uint64_t height, checkpoint_t &checkpoint) const
+{
+  CRITICAL_REGION_LOCAL(m_blockchain_lock);
+  return m_checkpoints.get_checkpoint(height, checkpoint);
 }
 //------------------------------------------------------------------
 void Blockchain::block_longhash_worker(uint64_t height, const epee::span<const block> &blocks, std::unordered_map<crypto::hash, crypto::hash> &map) const

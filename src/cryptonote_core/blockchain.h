@@ -706,6 +706,8 @@ namespace cryptonote
 
     bool update_checkpoint(checkpoint_t const &checkpoint);
 
+    bool get_checkpoint(uint64_t height, checkpoint_t &checkpoint) const;
+
     // user options, must be called before calling init()
 
     /**

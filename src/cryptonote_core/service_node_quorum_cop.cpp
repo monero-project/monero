@@ -517,20 +517,78 @@ namespace service_nodes
         if (votes.size() >= CHECKPOINT_MIN_VOTES)
         {
           cryptonote::checkpoint_t checkpoint = {};
-          checkpoint.type                     = cryptonote::checkpoint_type::service_node;
-          checkpoint.height                   = vote.block_height;
-          checkpoint.block_hash               = vote.checkpoint.block_hash;
-          checkpoint.signatures.reserve(votes.size());
+          cryptonote::Blockchain &blockchain = m_core.get_blockchain_storage();
 
-          for (pool_vote_entry const &pool_vote : votes)
+          // NOTE: Multiple network threads are going to try and update the
+          // checkpoint, blockchain.update_checkpoint does NOT do any
+          // validation- that is done here since we want to keep code for
+          // converting votes to data suitable for the DB in service node land.
+
+          // So then, multiple threads can race to update the checkpoint. One
+          // thread could retrieve an outdated checkpoint whilst another has
+          // already updated it. i.e. we could replace a checkpoint with lesser
+          // votes prematurely. The actual update in the DB is an atomic
+          // operation, but this check and validation step is NOT, taking the
+          // lock here makes it so.
+
+          blockchain.lock();
+          LOKI_DEFER { blockchain.unlock(); };
+
+          bool update_checkpoint             = true;
+          if (blockchain.get_checkpoint(vote.block_height, checkpoint) &&
+              checkpoint.block_hash == vote.checkpoint.block_hash)
           {
-            voter_to_signature vts = {};
-            vts.voter_index        = pool_vote.vote.index_in_group;
-            vts.signature          = pool_vote.vote.signature;
-            checkpoint.signatures.push_back(vts);
+            update_checkpoint = checkpoint.signatures.size() != service_nodes::CHECKPOINT_QUORUM_SIZE;
+            if (update_checkpoint)
+            {
+              checkpoint.signatures.reserve(service_nodes::CHECKPOINT_QUORUM_SIZE);
+              std::sort(checkpoint.signatures.begin(),
+                        checkpoint.signatures.end(),
+                        [](service_nodes::voter_to_signature const &lhs, service_nodes::voter_to_signature const &rhs) {
+                          return lhs.voter_index < rhs.voter_index;
+                        });
+
+              for (pool_vote_entry const &pool_vote : votes)
+              {
+
+                auto it = std::lower_bound(checkpoint.signatures.begin(),
+                                           checkpoint.signatures.end(),
+                                           pool_vote,
+                                           [](voter_to_signature const &lhs, pool_vote_entry const &vote) {
+                                             return lhs.voter_index < vote.vote.index_in_group;
+                                           });
+
+                if (it == checkpoint.signatures.end() ||
+                    pool_vote.vote.index_in_group != it->voter_index)
+                {
+                  update_checkpoint      = true;
+                  voter_to_signature vts = {};
+                  vts.voter_index        = pool_vote.vote.index_in_group;
+                  vts.signature          = pool_vote.vote.signature;
+                  checkpoint.signatures.insert(it, vts);
+                }
+              }
+            }
+          }
+          else
+          {
+            checkpoint            = {};
+            checkpoint.type       = cryptonote::checkpoint_type::service_node;
+            checkpoint.height     = vote.block_height;
+            checkpoint.block_hash = vote.checkpoint.block_hash;
+            checkpoint.signatures.reserve(votes.size());
+
+            for (pool_vote_entry const &pool_vote : votes)
+            {
+              voter_to_signature vts = {};
+              vts.voter_index        = pool_vote.vote.index_in_group;
+              vts.signature          = pool_vote.vote.signature;
+              checkpoint.signatures.push_back(vts);
+            }
           }
 
-          m_core.get_blockchain_storage().update_checkpoint(checkpoint);
+          if (update_checkpoint)
+              m_core.get_blockchain_storage().update_checkpoint(checkpoint);
         }
         else
         {
