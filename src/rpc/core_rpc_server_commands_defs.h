@@ -1096,10 +1096,12 @@ namespace cryptonote
     struct request_t
     {
       std::string hash;
+      std::vector<std::string> hashes;
       bool fill_pow_hash;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(hash)
+        KV_SERIALIZE(hashes)
         KV_SERIALIZE_OPT(fill_pow_hash, false);
       END_KV_SERIALIZE_MAP()
     };
@@ -1109,10 +1111,12 @@ namespace cryptonote
     {
       std::string status;
       block_header_response block_header;
+      std::vector<block_header_response> block_headers;
       bool untrusted;
       
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(block_header)
+        KV_SERIALIZE(block_headers)
         KV_SERIALIZE(status)
         KV_SERIALIZE(untrusted)
       END_KV_SERIALIZE_MAP()
@@ -2100,7 +2104,7 @@ namespace cryptonote
     struct response_t
     {
       std::string status;
-      std::list<chain_info> chains;
+      std::vector<chain_info> chains;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(status)
