@@ -166,7 +166,7 @@ namespace cryptonote
       * @return false if loading new checkpoints fails, or the block is not
       * added, otherwise true
       */
-     bool handle_incoming_block(const blobdata& block_blob, const block *b, block_verification_context& bvc, checkpoint_t const *checkpoint, bool update_miner_blocktemplate = true);
+     bool handle_incoming_block(const blobdata& block_blob, const block *b, block_verification_context& bvc, checkpoint_t *checkpoint, bool update_miner_blocktemplate = true);
 
      /**
       * @copydoc Blockchain::prepare_handle_incoming_blocks
