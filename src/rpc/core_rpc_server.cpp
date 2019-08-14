@@ -864,6 +864,8 @@ namespace cryptonote
         add_reason(reason, "fee too low");
       if ((res.not_rct = tvc.m_not_rct))
         add_reason(reason, "tx is not ringct");
+      if ((res.too_few_outputs = tvc.m_too_few_outputs))
+        add_reason(reason, "too few outputs");
       const std::string punctuation = reason.empty() ? "" : ": ";
       if (tvc.m_verifivation_failed)
       {
