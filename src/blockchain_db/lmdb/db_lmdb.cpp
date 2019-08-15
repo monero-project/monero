@@ -3871,6 +3871,7 @@ void BlockchainLMDB::remove_block_checkpoint(uint64_t height)
 
 bool BlockchainLMDB::get_block_checkpoint_internal(uint64_t height, checkpoint_t &checkpoint, MDB_cursor_op op) const
 {
+  check_open();
   TXN_PREFIX_RDONLY();
   RCURSOR(block_checkpoints);
 
@@ -3908,7 +3909,6 @@ bool BlockchainLMDB::get_block_checkpoint_internal(uint64_t height, checkpoint_t
 bool BlockchainLMDB::get_block_checkpoint(uint64_t height, checkpoint_t &checkpoint) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
-  check_open();
   bool result = get_block_checkpoint_internal(height, checkpoint, MDB_SET_KEY);
   return result;
 }
@@ -3916,7 +3916,6 @@ bool BlockchainLMDB::get_block_checkpoint(uint64_t height, checkpoint_t &checkpo
 bool BlockchainLMDB::get_top_checkpoint(checkpoint_t &checkpoint) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
-  check_open();
   bool result = get_block_checkpoint_internal(0, checkpoint, MDB_LAST);
   return result;
 }

@@ -120,6 +120,7 @@ namespace cryptonote
     void block_added(const cryptonote::block& block, const std::vector<cryptonote::transaction>& txs) override;
     void blockchain_detached(uint64_t height) override;
 
+    bool get_checkpoint(uint64_t height, checkpoint_t &checkpoint) const;
     /**
      * @brief adds a checkpoint to the container
      *
@@ -133,13 +134,6 @@ namespace cryptonote
     bool add_checkpoint(uint64_t height, const std::string& hash_str);
 
     bool update_checkpoint(checkpoint_t const &checkpoint);
-
-    /*
-       @brief Remove checkpoints that should not be stored persistently, i.e.
-       any checkpoint whose height is not divisible by
-       service_nodes::CHECKPOINT_STORE_PERSISTENTLY_INTERVAL
-     */
-    void prune_checkpoints(uint64_t height) const;
 
     /**
      * @brief checks if there is a checkpoint in the future

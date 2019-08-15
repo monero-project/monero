@@ -206,8 +206,21 @@ namespace service_nodes
 
     crypto::hash const hash = make_state_change_vote_hash(state_change.block_height, state_change.service_node_index, state_change.state);
     std::array<int, service_nodes::STATE_CHANGE_QUORUM_SIZE> validator_set = {};
+    uint64_t validator_index_tracker                                       = -1;
     for (const auto &vote : state_change.votes)
     {
+      if (hf_version >= cryptonote::network_version_13) // NOTE: After HF13, votes must be stored in ascending order
+      {
+        if (validator_index_tracker >= vote.validator_index)
+        {
+            vvc.m_votes_not_sorted = true;
+          LOG_PRINT_L1("Vote validator index is not stored in ascending order, prev validator index: "
+                       << validator_index_tracker << ", curr index: " << vote.validator_index);
+          return bad_tx(tvc);
+        }
+        validator_index_tracker = vote.validator_index;
+      }
+
       if (!bounds_check_validator_index(quorum, vote.validator_index, &vvc))
         return bad_tx(tvc);
 
@@ -482,14 +495,15 @@ namespace service_nodes
   // return: True if the vote was unique
   static bool add_vote_to_pool_if_unique(std::vector<pool_vote_entry> &votes, quorum_vote_t const &vote)
   {
-    auto vote_it = std::find_if(votes.begin(), votes.end(), [&vote](pool_vote_entry const &pool_entry) {
-        assert(pool_entry.vote.group == vote.group);
-        return (pool_entry.vote.index_in_group == vote.index_in_group);
-    });
+    auto vote_it = std::lower_bound(
+        votes.begin(), votes.end(), vote, [](pool_vote_entry const &pool_entry, quorum_vote_t const &vote) {
+          assert(pool_entry.vote.group == vote.group);
+          return pool_entry.vote.index_in_group < vote.index_in_group;
+        });
 
-    if (vote_it == votes.end())
+    if (vote_it == votes.end() || vote_it->vote.index_in_group != vote.index_in_group)
     {
-      votes.push_back({vote});
+      votes.insert(vote_it, {vote});
       return true;
     }
 

@@ -1630,7 +1630,7 @@ namespace cryptonote
   }
 
   //-----------------------------------------------------------------------------------------------
-  bool core::handle_incoming_block(const blobdata& block_blob, const block *b, block_verification_context& bvc, checkpoint_t const *checkpoint, bool update_miner_blocktemplate)
+  bool core::handle_incoming_block(const blobdata& block_blob, const block *b, block_verification_context& bvc, checkpoint_t *checkpoint, bool update_miner_blocktemplate)
   {
     TRY_ENTRY();
     bvc = boost::value_initialized<block_verification_context>();
@@ -1658,6 +1658,40 @@ namespace cryptonote
       }
       b = &lb;
     }
+
+    // TODO(loki): This check should be redundant and included in
+    // verify_checkpoints once we enable it. It is not enabled until alternate
+    // quorums are implemented and merged
+    if (checkpoint)
+    {
+      if (b->major_version >= network_version_13)
+      {
+        if (checkpoint->signatures.size() > 1)
+        {
+          for (size_t i = 0; i < (checkpoint->signatures.size() - 1); i++)
+          {
+            auto curr = checkpoint->signatures[i].voter_index;
+            auto next = checkpoint->signatures[i + 1].voter_index;
+
+            if (curr >= next)
+            {
+              LOG_PRINT_L1("Voters in checkpoints are not given in ascending order, block failed");
+              bvc.m_verifivation_failed = true;
+              return false;
+            }
+          }
+        }
+      }
+      else
+      {
+        std::sort(checkpoint->signatures.begin(),
+                  checkpoint->signatures.end(),
+                  [](service_nodes::voter_to_signature const &lhs, service_nodes::voter_to_signature const &rhs) {
+                    return lhs.voter_index < rhs.voter_index;
+                  });
+      }
+    }
+
     add_new_block(*b, bvc, checkpoint);
     if(update_miner_blocktemplate && bvc.m_added_to_main_chain)
        m_miner.on_block_chain_update();

@@ -48,6 +48,7 @@ namespace cryptonote
     bool m_not_enough_votes;
     bool m_incorrect_voting_group;
     bool m_invalid_vote_type;
+    bool m_votes_not_sorted;
 
     BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE(m_verification_failed)
@@ -60,6 +61,7 @@ namespace cryptonote
       KV_SERIALIZE(m_not_enough_votes)
       KV_SERIALIZE(m_incorrect_voting_group)
       KV_SERIALIZE(m_invalid_vote_type)
+      KV_SERIALIZE(m_votes_not_sorted)
     END_KV_SERIALIZE_MAP()
   };
 
