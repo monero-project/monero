@@ -8167,6 +8167,7 @@ void wallet2::transfer_selected(const std::vector<cryptonote::tx_destination_ent
   if (needed_money < found_money)
   {
     change_dts.addr = get_subaddress({subaddr_account, 0});
+    change_dts.is_subaddress = subaddr_account != 0;
     change_dts.amount = found_money - needed_money;
   }
 
