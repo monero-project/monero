@@ -2162,9 +2162,13 @@ namespace service_nodes
     if (!this->is_fully_funded() || this->registration_height >= height) return false;
     if (this->is_decommissioned() && this->last_decommission_height >= height) return false;
 
-    // NOTE: This cast is safe. The definition of is_active() is that active_since_height >= 0
-    assert(this->active_since_height >= 0);
-    if (this->is_active() && static_cast<uint64_t>(this->active_since_height) >= height) return false;
+    if (this->is_active())
+    {
+      // NOTE: This cast is safe. The definition of is_active() is that active_since_height >= 0
+      assert(this->active_since_height >= 0);
+      if (static_cast<uint64_t>(this->active_since_height) >= height) return false;
+    }
+
     return true;
   }
 
