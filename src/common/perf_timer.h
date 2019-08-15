@@ -54,7 +54,9 @@ public:
   void resume();
   void reset();
   uint64_t value() const;
-  operator uint64_t() const { return value(); }
+  operator uint64_t() const  { return value(); }
+  float milliseconds() const { return value() / 1.0e6; }
+  float seconds() const      { return milliseconds() / 1000.f; }
 
 protected:
   uint64_t ticks;

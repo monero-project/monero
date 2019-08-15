@@ -90,6 +90,9 @@ namespace cryptonote
 
   rpc_args::descriptors::descriptors()
      : rpc_bind_ip({"rpc-bind-ip", rpc_args::tr("Specify IP to bind RPC server"), "127.0.0.1"})
+     , rpc_bind_ipv6_address({"rpc-bind-ipv6-address", rpc_args::tr("Specify IPv6 address to bind RPC server"), "::1"})
+     , rpc_use_ipv6({"rpc-use-ipv6", rpc_args::tr("Allow IPv6 for RPC"), false})
+     , rpc_require_ipv4({"rpc-require-ipv4", rpc_args::tr("Require successful IPv4 bind for RPC"), true})
      , rpc_login({"rpc-login", rpc_args::tr("Specify username[:password] required for RPC server"), "", true})
      , confirm_external_bind({"confirm-external-bind", rpc_args::tr("Confirm rpc-bind-ip value is NOT a loopback (local) IP")})
      , rpc_access_control_origins({"rpc-access-control-origins", rpc_args::tr("Specify a comma separated list of origins to allow cross origin resource sharing"), ""})
@@ -108,6 +111,9 @@ namespace cryptonote
   {
     const descriptors arg{};
     command_line::add_arg(desc, arg.rpc_bind_ip);
+    command_line::add_arg(desc, arg.rpc_bind_ipv6_address);
+    command_line::add_arg(desc, arg.rpc_use_ipv6);
+    command_line::add_arg(desc, arg.rpc_require_ipv4);
     command_line::add_arg(desc, arg.rpc_login);
     command_line::add_arg(desc, arg.confirm_external_bind);
     command_line::add_arg(desc, arg.rpc_access_control_origins);
@@ -127,6 +133,9 @@ namespace cryptonote
     rpc_args config{};
     
     config.bind_ip = command_line::get_arg(vm, arg.rpc_bind_ip);
+    config.bind_ipv6_address = command_line::get_arg(vm, arg.rpc_bind_ipv6_address);
+    config.use_ipv6 = command_line::get_arg(vm, arg.rpc_use_ipv6);
+    config.require_ipv4 = command_line::get_arg(vm, arg.rpc_require_ipv4);
     if (!config.bind_ip.empty())
     {
       // always parse IP here for error consistency
@@ -142,6 +151,34 @@ namespace cryptonote
       {
         LOG_ERROR(
           "--" << arg.rpc_bind_ip.name <<
+          tr(" permits inbound unencrypted external connections. Consider SSH tunnel or SSL proxy instead. Override with --") <<
+          arg.confirm_external_bind.name
+        );
+        return boost::none;
+      }
+    }
+    if (!config.bind_ipv6_address.empty())
+    {
+      // allow square braces, but remove them here if present
+      if (config.bind_ipv6_address.find('[') != std::string::npos)
+      {
+        config.bind_ipv6_address = config.bind_ipv6_address.substr(1, config.bind_ipv6_address.size() - 2);
+      }
+
+
+      // always parse IP here for error consistency
+      boost::system::error_code ec{};
+      const auto parsed_ip = boost::asio::ip::address::from_string(config.bind_ipv6_address, ec);
+      if (ec)
+      {
+        LOG_ERROR(tr("Invalid IP address given for --") << arg.rpc_bind_ipv6_address.name);
+        return boost::none;
+      }
+
+      if (!parsed_ip.is_loopback() && !command_line::get_arg(vm, arg.confirm_external_bind))
+      {
+        LOG_ERROR(
+          "--" << arg.rpc_bind_ipv6_address.name <<
           tr(" permits inbound unencrypted external connections. Consider SSH tunnel or SSL proxy instead. Override with --") <<
           arg.confirm_external_bind.name
         );

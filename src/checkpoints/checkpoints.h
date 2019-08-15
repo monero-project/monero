@@ -59,7 +59,7 @@ namespace cryptonote
     uint64_t                                       height;
     crypto::hash                                   block_hash;
     std::vector<service_nodes::voter_to_signature> signatures; // Only service node checkpoints use signatures
-    uint64_t                                       prev_height;
+    uint64_t                                       prev_height; // TODO(doyle): Unused
 
     bool               check         (crypto::hash const &block_hash) const;
     static char const *type_to_string(checkpoint_type type)
@@ -80,20 +80,6 @@ namespace cryptonote
       FIELD(signatures)
       FIELD(prev_height)
     END_SERIALIZE()
-
-    BEGIN_KV_SERIALIZE_MAP()
-      KV_SERIALIZE(version)
-      KV_SERIALIZE(height)
-
-      std::string type = checkpoint_t::type_to_string(this_ref.type);
-      KV_SERIALIZE_VALUE(type);
-
-      std::string block_hash = epee::string_tools::pod_to_hex(this_ref.block_hash);
-      KV_SERIALIZE_VALUE(block_hash);
-
-      KV_SERIALIZE(signatures)
-      KV_SERIALIZE(prev_height)
-    END_KV_SERIALIZE_MAP()
   };
 
   struct height_to_hash
@@ -134,6 +120,7 @@ namespace cryptonote
     void block_added(const cryptonote::block& block, const std::vector<cryptonote::transaction>& txs) override;
     void blockchain_detached(uint64_t height) override;
 
+    bool get_checkpoint(uint64_t height, checkpoint_t &checkpoint) const;
     /**
      * @brief adds a checkpoint to the container
      *
@@ -147,13 +134,6 @@ namespace cryptonote
     bool add_checkpoint(uint64_t height, const std::string& hash_str);
 
     bool update_checkpoint(checkpoint_t const &checkpoint);
-
-    /*
-       @brief Remove checkpoints that should not be stored persistently, i.e.
-       any checkpoint whose height is not divisible by
-       service_nodes::CHECKPOINT_STORE_PERSISTENTLY_INTERVAL
-     */
-    void prune_checkpoints(uint64_t height) const;
 
     /**
      * @brief checks if there is a checkpoint in the future

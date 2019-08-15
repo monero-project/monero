@@ -524,6 +524,24 @@ TEST(get_network_address, ipv4)
     EXPECT_STREQ("23.0.0.254:2000", address->str().c_str());
 }
 
+TEST(get_network_address, ipv4subnet)
+{
+    expect<epee::net_utils::ipv4_network_subnet> address = net::get_ipv4_subnet_address("0.0.0.0", true);
+    EXPECT_STREQ("0.0.0.0/32", address->str().c_str());
+
+    address = net::get_ipv4_subnet_address("0.0.0.0");
+    EXPECT_TRUE(!address);
+
+    address = net::get_ipv4_subnet_address("0.0.0.0/32");
+    EXPECT_STREQ("0.0.0.0/32", address->str().c_str());
+
+    address = net::get_ipv4_subnet_address("0.0.0.0/0");
+    EXPECT_STREQ("0.0.0.0/0", address->str().c_str());
+
+    address = net::get_ipv4_subnet_address("12.34.56.78/16");
+    EXPECT_STREQ("12.34.0.0/16", address->str().c_str());
+}
+
 namespace
 {
     using stream_type = boost::asio::ip::tcp;

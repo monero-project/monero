@@ -72,6 +72,8 @@ public:
 
   bool print_checkpoints(uint64_t start_height, uint64_t end_height, bool print_json);
 
+  bool print_sn_state_changes(uint64_t start_height, uint64_t end_height);
+
   bool print_peer_list(bool white = true, bool gray = true, size_t limit = 0);
 
   bool print_peer_list_stats();
@@ -134,17 +136,15 @@ public:
 
   bool in_peers(uint64_t limit);
 
-  bool start_save_graph();
-  
-  bool stop_save_graph();
-  
   bool hard_fork_info(uint8_t version);
 
   bool print_bans();
 
-  bool ban(const std::string &ip, time_t seconds);
+  bool ban(const std::string &address, time_t seconds);
 
-  bool unban(const std::string &ip);
+  bool unban(const std::string &address);
+
+  bool banned(const std::string &address);
 
   bool flush_txpool(const std::string &txid);
 

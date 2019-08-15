@@ -374,7 +374,7 @@ std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry> NodeRPCP
           [&contributor](const cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry &e)
           {
             return std::any_of(e.contributors.begin(), e.contributors.end(),
-                [&contributor](const cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::contributor &c) { return contributor == c.address; });
+                [&contributor](const cryptonote::service_node_contributor &c) { return contributor == c.address; });
           }
       );
       m_contributed_service_nodes_cached_height = height;

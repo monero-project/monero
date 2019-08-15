@@ -166,7 +166,7 @@ namespace cryptonote
       * @return false if loading new checkpoints fails, or the block is not
       * added, otherwise true
       */
-     bool handle_incoming_block(const blobdata& block_blob, const block *b, block_verification_context& bvc, checkpoint_t const *checkpoint, bool update_miner_blocktemplate = true);
+     bool handle_incoming_block(const blobdata& block_blob, const block *b, block_verification_context& bvc, checkpoint_t *checkpoint, bool update_miner_blocktemplate = true);
 
      /**
       * @copydoc Blockchain::prepare_handle_incoming_blocks
@@ -778,10 +778,12 @@ namespace cryptonote
       * @brief Get the deterministic quorum of service node's public keys responsible for the specified quorum type
       *
       * @param type The quorum type to retrieve
-      * @param height Block height to deterministically recreate the quorum list from
-      * @return Null shared ptr if quorum has not been determined yet for height
+      * @param height Block height to deterministically recreate the quorum list from (note that for
+      * a checkpointing quorum this value is automatically reduced by the correct buffer size).
+      * @param include_old whether to look in the old quorum states (does nothing unless running with --store-full-quorum-history)
+      * @return Null shared ptr if quorum has not been determined yet or is not defined for height
       */
-     std::shared_ptr<const service_nodes::testing_quorum> get_testing_quorum(service_nodes::quorum_type type, uint64_t height) const;
+     std::shared_ptr<const service_nodes::testing_quorum> get_testing_quorum(service_nodes::quorum_type type, uint64_t height, bool include_old = false) const;
 
      /**
       * @brief Get a non owning reference to the list of blacklisted key images
@@ -976,15 +978,6 @@ namespace cryptonote
      bool handle_incoming_tx_post(const blobdata& tx_blob, tx_verification_context& tvc, cryptonote::transaction &tx, crypto::hash &tx_hash, bool keeped_by_block, bool relayed, bool do_not_relay);
      struct tx_verification_batch_info { const cryptonote::transaction *tx; crypto::hash tx_hash; tx_verification_context &tvc; bool &result; };
      bool handle_incoming_tx_accumulated_batch(std::vector<tx_verification_batch_info> &tx_info, bool keeped_by_block);
-
-     /**
-      * @copydoc miner::on_block_chain_update
-      *
-      * @note see miner::on_block_chain_update
-      *
-      * @return true
-      */
-     bool update_miner_block_template();
 
      /**
       * @brief act on a set of command line options given

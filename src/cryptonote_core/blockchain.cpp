@@ -490,9 +490,7 @@ bool Blockchain::init(BlockchainDB* db, const network_type nettype, bool offline
   {
     m_timestamps_and_difficulties_height = 0;
     m_hardfork->reorganize_from_chain_height(get_current_blockchain_height());
-    uint64_t top_block_height;
-    crypto::hash top_block_hash = get_tail_id(top_block_height);
-    m_tx_pool.on_blockchain_dec(top_block_height, top_block_hash);
+    m_tx_pool.on_blockchain_dec();
   }
 
   if (test_options && test_options->long_term_block_weight_window)
@@ -608,8 +606,19 @@ void Blockchain::pop_blocks(uint64_t nblocks)
     const uint64_t blockchain_height = m_db->height();
     if (blockchain_height > 0)
       nblocks = std::min(nblocks, blockchain_height - 1);
-    for (; i < nblocks; ++i)
+
+    uint64_t constexpr PERCENT_PER_PROGRESS_UPDATE = 10;
+    uint64_t const blocks_per_update               = (nblocks / PERCENT_PER_PROGRESS_UPDATE);
+
+    tools::PerformanceTimer timer;
+    for (int progress = 0; i < nblocks; ++i)
     {
+      if (nblocks >= BLOCKS_EXPECTED_IN_HOURS(24) && (i != 0 && (i % blocks_per_update == 0)))
+      {
+        MGINFO("... popping blocks " << (++progress * PERCENT_PER_PROGRESS_UPDATE) << "% completed, height: " << (blockchain_height - i) << " (" << timer.seconds() << "s)");
+        timer.reset();
+      }
+
       pop_block_from_blockchain();
     }
   }
@@ -703,11 +712,8 @@ block Blockchain::pop_block_from_blockchain()
   m_check_txin_table.clear();
 
   CHECK_AND_ASSERT_THROW_MES(update_next_cumulative_weight_limit(), "Error updating next cumulative weight limit");
-  uint64_t top_block_height;
-  crypto::hash top_block_hash = get_tail_id(top_block_height);
-  m_tx_pool.on_blockchain_dec(top_block_height, top_block_hash);
+  m_tx_pool.on_blockchain_dec();
   invalidate_block_template_cache();
-
   return popped_block;
 }
 //------------------------------------------------------------------
@@ -1996,10 +2002,11 @@ bool Blockchain::get_blocks(uint64_t start_offset, size_t count, std::vector<std
   if(start_offset >= height)
     return false;
 
-  blocks.reserve(blocks.size() + height - start_offset);
-  for(size_t i = start_offset; i < start_offset + count && i < height;i++)
+  const size_t num_blocks = std::min<uint64_t>(height - start_offset, count);
+  blocks.reserve(blocks.size() + num_blocks);
+  for(size_t i = 0; i < num_blocks; i++)
   {
-    blocks.push_back(std::make_pair(m_db->get_block_blob_from_height(i), block()));
+    blocks.emplace_back(m_db->get_block_blob_from_height(start_offset + i), block{});
     if (!parse_and_validate_block_from_blob(blocks.back().first, blocks.back().second))
     {
       LOG_ERROR("Invalid block");
@@ -2048,7 +2055,7 @@ bool Blockchain::handle_get_objects(NOTIFY_REQUEST_GET_OBJECTS::request& arg, NO
       try
       {
         checkpoint_t checkpoint;
-        if (m_db->get_block_checkpoint(block_height, checkpoint))
+        if (get_checkpoint(block_height, checkpoint))
           e.checkpoint = t_serializable_object_to_blob(checkpoint);
       }
       catch (const std::exception &e)
@@ -2440,7 +2447,7 @@ bool Blockchain::get_transactions(const t_ids_container& txs_ids, t_tx_container
       cryptonote::blobdata tx;
       if (m_db->get_tx_blob(tx_hash, tx))
       {
-        txs.push_back(transaction());
+        txs.emplace_back();
         if (!parse_and_validate_tx_from_blob(tx, txs.back()))
         {
           LOG_ERROR("Invalid transaction");
@@ -3042,7 +3049,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
       //
       if (hf_version >= cryptonote::network_version_11_infinite_staking)
       {
-        const std::vector<service_nodes::key_image_blacklist_entry> &blacklist = m_service_node_list.get_blacklisted_key_images();
+        const auto &blacklist = m_service_node_list.get_blacklisted_key_images();
         for (const auto &entry : blacklist)
         {
           if (in_to_key.k_image == entry.key_image) // Check if key image is on the blacklist
@@ -3257,77 +3264,23 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
       }
 
       crypto::public_key const &state_change_service_node_pubkey = quorum->workers[state_change.service_node_index];
-      if (hf_version >= cryptonote::network_version_12_checkpointing)
+      //
+      // NOTE: Query the Service Node List for the in question Service Node the state change is for and disallow if conflicting
+      //
+      std::vector<service_nodes::service_node_pubkey_info> service_node_array = m_service_node_list.get_service_node_list_state({state_change_service_node_pubkey});
+      if (service_node_array.empty())
       {
-        //
-        // NOTE: Query the Service Node List for the in question Service Node the state change is for and disallow if conflicting
-        //
-        std::vector<service_nodes::service_node_pubkey_info> service_node_array = m_service_node_list.get_service_node_list_state({state_change_service_node_pubkey});
-        if (service_node_array.empty())
-        {
-          LOG_PRINT_L2("Service Node no longer exists on the network, state change can be ignored");
-          return false;
-        }
-
-        service_nodes::service_node_info const &service_node_info = service_node_array[0].info;
-        if (!service_node_info.can_transition_to_state(state_change.state))
-        {
-          LOG_PRINT_L2("State change trying to vote Service Node into the same state it already is in, (aka double spend)");
-          tvc.m_double_spend = true;
-          return false;
-        }
-      }
-      else
-      {
-        // Check the inputs (votes) of the transaction have not already been
-        // submitted to the blockchain under another transaction using a different
-        // combination of votes.
-        const uint64_t height                = state_change.block_height;
-        constexpr size_t num_blocks_to_check = service_nodes::STATE_CHANGE_TX_LIFETIME_IN_BLOCKS;
-
-        std::vector<std::pair<cryptonote::blobdata,block>> blocks;
-        std::vector<cryptonote::blobdata> txs;
-        if (!get_blocks(height, num_blocks_to_check, blocks, txs))
-        {
-          MERROR_VER("Failed to get historical blocks to check against previous state changes for de-duplication");
-          return false;
-        }
-
-        for (blobdata const &blob : txs)
-        {
-          transaction existing_tx;
-          if (!parse_and_validate_tx_from_blob(blob, existing_tx))
-          {
-            MERROR_VER("tx could not be validated from blob, possibly corrupt blockchain");
-            continue;
-          }
-
-          if (existing_tx.type != txtype::state_change)
-            continue;
-
-          tx_extra_service_node_state_change existing_state_change;
-          if (!get_service_node_state_change_from_tx_extra(existing_tx.extra, existing_state_change, hf_version))
-          {
-            MERROR_VER("could not get service node state change from tx extra, possibly corrupt tx");
-            continue;
-          }
-
-          const auto existing_quorum = m_service_node_list.get_testing_quorum(quorum_type, existing_state_change.block_height);
-          if (!existing_quorum)
-          {
-            MERROR_VER("Could not get obligations quorum for recent state change tx");
-            continue;
-          }
-
-          if (existing_quorum->workers[existing_state_change.service_node_index] == state_change_service_node_pubkey)
-          {
-            MERROR_VER("Already seen this state change tx (aka double spend)");
-            tvc.m_double_spend = true;
-            return false;
-          }
-        }
+        MERROR_VER("Service Node no longer exists on the network, state change can be ignored");
+        return hf_version < cryptonote::network_version_12_checkpointing; // NOTE: Used to be allowed pre HF12.
       }
 
+      service_nodes::service_node_info const &service_node_info = *service_node_array[0].info;
+      if (!service_node_info.can_transition_to_state(hf_version, state_change.block_height, state_change.state))
+      {
+        MERROR_VER("State change trying to vote Service Node into the same state it already is in, (aka double spend)");
+        tvc.m_double_spend = true;
+        return false;
+      }
     }
     else if (tx.type == txtype::key_image_unlock)
     {
@@ -4092,8 +4045,7 @@ leave:
   bvc.m_added_to_main_chain = true;
   ++m_sync_counter;
 
-  // appears to be a NOP *and* is called elsewhere.  wat?
-  m_tx_pool.on_blockchain_inc(new_height, id);
+  m_tx_pool.on_blockchain_inc(m_service_node_list, bl);
   get_difficulty_for_next_block(); // just to cache it
   invalidate_block_template_cache();
 
@@ -4249,7 +4201,7 @@ bool Blockchain::add_new_block(const block& bl, block_verification_context& bvc,
     uint64_t block_height = get_block_height(bl);
     try
     {
-      if (m_db->get_block_checkpoint(block_height, existing_checkpoint))
+      if (get_checkpoint(block_height, existing_checkpoint))
       {
         if (checkpoint->signatures.size() < existing_checkpoint.signatures.size())
           checkpoint = nullptr;
@@ -4356,22 +4308,32 @@ bool Blockchain::update_checkpoints_from_json_file(const std::string& file_path)
 bool Blockchain::update_checkpoint(cryptonote::checkpoint_t const &checkpoint)
 {
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
-  bool result = m_checkpoints.update_checkpoint(checkpoint);
-  if (result)
+  if (checkpoint.height < m_db->height() && !checkpoint.check(m_db->get_block_hash_from_height(checkpoint.height)))
   {
-    if (checkpoint.height < m_db->height())
+    if (nettype() == MAINNET && (m_db->height() - 1) < HF_VERSION_12_CHECKPOINTING_SOFT_FORK_HEIGHT)
     {
-      if (!checkpoint.check(m_db->get_block_hash_from_height(checkpoint.height)))
-      {
-        // roll back to a couple of blocks before the checkpoint
-        LOG_ERROR("Local blockchain failed to pass a checkpoint in: " << __func__ << ", rolling back!");
-        std::list<block> empty;
-        rollback_blockchain_switching(empty, checkpoint.height - 2);
-      }
+      LOG_PRINT_L1("HF12 Checkpointing Pre-Soft Fork: Local blockchain failed to pass a checkpoint in: " << __func__);
+    }
+    else
+    {
+      // roll back to a couple of blocks before the checkpoint
+      LOG_ERROR("Local blockchain failed to pass a checkpoint in: " << __func__ << ", rolling back!");
+      std::list<block> empty;
+      rollback_blockchain_switching(empty, checkpoint.height - 2);
     }
   }
 
+  // NOTE: Rollback first, then add checkpoint otherwise we would delete the checkpoint during rollback and
+  // and if you are still syncing from the incorrect peer, you will re-receive the incorrect blocks again without the
+  // checkpointing stopping it.
+  bool result = m_checkpoints.update_checkpoint(checkpoint);
   return result;
+}
+//------------------------------------------------------------------
+bool Blockchain::get_checkpoint(uint64_t height, checkpoint_t &checkpoint) const
+{
+  CRITICAL_REGION_LOCAL(m_blockchain_lock);
+  return m_checkpoints.get_checkpoint(height, checkpoint);
 }
 //------------------------------------------------------------------
 void Blockchain::block_longhash_worker(uint64_t height, const epee::span<const block> &blocks, std::unordered_map<crypto::hash, crypto::hash> &map) const

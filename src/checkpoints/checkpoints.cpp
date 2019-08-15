@@ -110,12 +110,12 @@ namespace cryptonote
     return true;
   }
 
-  static bool get_checkpoint_from_db_safe(BlockchainDB *db, uint64_t height, checkpoint_t &checkpoint)
+  bool checkpoints::get_checkpoint(uint64_t height, checkpoint_t &checkpoint) const
   {
     try
     {
-      auto guard = db_rtxn_guard(db);
-      return db->get_block_checkpoint(height, checkpoint);
+      auto guard = db_rtxn_guard(m_db);
+      return m_db->get_block_checkpoint(height, checkpoint);
     }
     catch (const std::exception &e)
     {
@@ -131,7 +131,7 @@ namespace cryptonote
     CHECK_AND_ASSERT_MES(r, false, "Failed to parse checkpoint hash string into binary representation!");
 
     checkpoint_t checkpoint = {};
-    if (get_checkpoint_from_db_safe(m_db, height, checkpoint))
+    if (get_checkpoint(height, checkpoint))
     {
       crypto::hash const &curr_hash = checkpoint.block_hash;
       CHECK_AND_ASSERT_MES(h == curr_hash, false, "Checkpoint at given height already exists, and hash for new checkpoint was different!");
@@ -200,8 +200,13 @@ namespace cryptonote
       }
     }
 
-    uint64_t const end_cull_height = height - service_nodes::CHECKPOINT_STORE_PERSISTENTLY_INTERVAL;
-    uint64_t start_cull_height     = (end_cull_height < service_nodes::CHECKPOINT_STORE_PERSISTENTLY_INTERVAL)
+    uint64_t end_cull_height = 0;
+    {
+      checkpoint_t immutable_checkpoint;
+      if (m_db->get_immutable_checkpoint(&immutable_checkpoint, height + 1))
+        end_cull_height = immutable_checkpoint.height;
+    }
+    uint64_t start_cull_height = (end_cull_height < service_nodes::CHECKPOINT_STORE_PERSISTENTLY_INTERVAL)
                                      ? 0
                                      : end_cull_height - service_nodes::CHECKPOINT_STORE_PERSISTENTLY_INTERVAL;
 
@@ -236,7 +241,7 @@ namespace cryptonote
     {
       uint64_t start_height = top_checkpoint.height;
       for (size_t delete_height = start_height;
-           delete_height > height;
+           delete_height >= height && delete_height >= service_nodes::CHECKPOINT_INTERVAL;
            delete_height -= service_nodes::CHECKPOINT_INTERVAL)
       {
         try
@@ -264,7 +269,7 @@ namespace cryptonote
   bool checkpoints::check_block(uint64_t height, const crypto::hash& h, bool* is_a_checkpoint, bool *rejected_by_service_node) const
   {
     checkpoint_t checkpoint;
-    bool found = get_checkpoint_from_db_safe(m_db, height, checkpoint);
+    bool found = get_checkpoint(height, checkpoint);
     if (is_a_checkpoint) *is_a_checkpoint = found;
 
     if(!found)
@@ -279,49 +284,29 @@ namespace cryptonote
   //---------------------------------------------------------------------------
   bool checkpoints::is_alternative_block_allowed(uint64_t blockchain_height, uint64_t block_height, bool *rejected_by_service_node)
   {
+    if (rejected_by_service_node)
+      *rejected_by_service_node = false;
+
     if (0 == block_height)
       return false;
 
-    size_t num_desired_checkpoints = 2;
-    std::vector<checkpoint_t> checkpoints = m_db->get_checkpoints_range(blockchain_height, 0, num_desired_checkpoints);
-
-    if (checkpoints.size() == 0) // No checkpoints recorded yet for blocks preceeding blockchain_height
-      return true;
-
-    uint64_t sentinel_reorg_height = 0;
-    if (checkpoints[0].type == checkpoint_type::service_node) // checkpoint[0] is the first closest checkpoint that is <= my height
     {
-      // NOTE: The current checkpoint is a service node checkpoint. Go back
-      // 1 checkpoint, which will either be another service node checkpoint or
-      // a predefined one.
-      if (checkpoints.size() == 1)
-      {
-        return true; // NOTE: Only one service node checkpoint recorded, we can override this checkpoint.
-      }
-      else
-      {
-        // If it's a service node checkpoint, this is the 2nd newest checkpoint,
-        // so we can't reorg past that height. If it's predefined, that's ok as
-        // well, we can't reorg past that height so irrespective, always accept
-        // the height of this next checkpoint.
-        sentinel_reorg_height = checkpoints[1].height;
-      }
-    }
-    else
-    {
-      sentinel_reorg_height = checkpoints[0].height;
+      std::vector<checkpoint_t> const first_checkpoint = m_db->get_checkpoints_range(0, blockchain_height, 1);
+      if (first_checkpoint.empty() || blockchain_height < first_checkpoint[0].height)
+        return true;
     }
 
-    m_oldest_allowable_alternative_block = std::max(sentinel_reorg_height, m_oldest_allowable_alternative_block);
+    checkpoint_t immutable_checkpoint;
+    uint64_t immutable_height = 0;
+    if (m_db->get_immutable_checkpoint(&immutable_checkpoint, blockchain_height))
+    {
+      immutable_height = immutable_checkpoint.height;
+      if (rejected_by_service_node)
+        *rejected_by_service_node = (immutable_checkpoint.type == checkpoint_type::service_node);
+    }
+
+    m_oldest_allowable_alternative_block = std::max(immutable_height, m_oldest_allowable_alternative_block);
     bool result                          = block_height > m_oldest_allowable_alternative_block;
-
-    if (rejected_by_service_node)
-    {
-      *rejected_by_service_node = !result &&
-                                  (checkpoints[0].type == checkpoint_type::service_node) &&
-                                  (checkpoints.size() == num_desired_checkpoints);
-    }
-
     return result;
   }
   //---------------------------------------------------------------------------

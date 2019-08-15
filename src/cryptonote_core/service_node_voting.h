@@ -61,12 +61,6 @@ namespace service_nodes
       FIELD(voter_index)
       FIELD(signature)
     END_SERIALIZE()
-
-    BEGIN_KV_SERIALIZE_MAP()
-      KV_SERIALIZE(voter_index)
-      std::string signature = epee::string_tools::pod_to_hex(this_ref.signature);
-      KV_SERIALIZE_VALUE(signature)
-    END_KV_SERIALIZE_MAP()
   };
 
   struct checkpoint_vote { crypto::hash block_hash; };
@@ -111,7 +105,8 @@ namespace service_nodes
 
   bool              verify_checkpoint                  (cryptonote::checkpoint_t const &checkpoint, service_nodes::testing_quorum const &quorum);
   bool              verify_tx_state_change             (const cryptonote::tx_extra_service_node_state_change& state_change, uint64_t latest_height, cryptonote::tx_verification_context& vvc, const service_nodes::testing_quorum &quorum, uint8_t hf_version);
-  bool              verify_vote                        (const quorum_vote_t& vote, uint64_t latest_height, cryptonote::vote_verification_context &vvc, const service_nodes::testing_quorum &quorum);
+  bool              verify_vote_age                    (const quorum_vote_t& vote, uint64_t latest_height, cryptonote::vote_verification_context &vvc);
+  bool              verify_vote_against_quorum         (const quorum_vote_t& vote, cryptonote::vote_verification_context &vvc, const service_nodes::testing_quorum &quorum);
   crypto::signature make_signature_from_vote           (quorum_vote_t const &vote, const crypto::public_key& pub, const crypto::secret_key& sec);
   crypto::signature make_signature_from_tx_state_change(cryptonote::tx_extra_service_node_state_change const &state_change, crypto::public_key const &pub, crypto::secret_key const &sec);
 
@@ -126,9 +121,6 @@ namespace service_nodes
     crypto::signature signature;
   };
 
-  bool           convert_deregister_vote_to_legacy(quorum_vote_t const &vote, legacy_deregister_vote &legacy);
-  quorum_vote_t  convert_legacy_deregister_vote   (legacy_deregister_vote const &vote);
-
   struct pool_vote_entry
   {
     quorum_vote_t vote;
@@ -138,10 +130,7 @@ namespace service_nodes
   struct voting_pool
   {
     // return: The vector of votes if the vote is valid (and even if it is not unique) otherwise nullptr
-    std::vector<pool_vote_entry> add_pool_vote_if_unique(uint64_t latest_height,
-                                                         const quorum_vote_t& vote,
-                                                         cryptonote::vote_verification_context& vvc,
-                                                         const service_nodes::testing_quorum &quorum);
+    std::vector<pool_vote_entry> add_pool_vote_if_unique(const quorum_vote_t &vote, cryptonote::vote_verification_context &vvc);
 
     // TODO(loki): Review relay behaviour and all the cases when it should be triggered
     void                         set_relayed         (const std::vector<quorum_vote_t>& votes);

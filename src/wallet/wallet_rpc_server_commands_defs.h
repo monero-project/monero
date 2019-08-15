@@ -467,6 +467,7 @@ namespace wallet_rpc
     typedef epee::misc_utils::struct_init<response_t> response;
   };
 
+  LOKI_RPC_DOC_INTROSPECT
   struct transfer_destination
   {
     uint64_t amount;     // Amount to send to each destination, in atomic units.
@@ -607,7 +608,6 @@ namespace wallet_rpc
   };
 
   LOKI_RPC_DOC_INTROSPECT
-
   struct COMMAND_RPC_DESCRIBE_TRANSFER
   {
     struct recipient

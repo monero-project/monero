@@ -33,12 +33,15 @@
 #include <boost/serialization/version.hpp>
 #include <ostream>
 
+#include "common/loki.h"
+
 namespace cryptonote
 {
+  LOKI_RPC_DOC_INTROSPECT
   struct subaddress_index
   {
-    uint32_t major;
-    uint32_t minor;
+    uint32_t major; // The account index, major index
+    uint32_t minor; // The subaddress index, minor index
     bool operator==(const subaddress_index& rhs) const { return !memcmp(this, &rhs, sizeof(subaddress_index)); }
     bool operator!=(const subaddress_index& rhs) const { return !(*this == rhs); }
     bool is_zero() const { return major == 0 && minor == 0; }

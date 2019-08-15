@@ -49,32 +49,6 @@
 
 namespace service_nodes
 {
-  bool convert_deregister_vote_to_legacy(quorum_vote_t const &vote, legacy_deregister_vote &legacy_vote)
-  {
-    if (vote.type != quorum_type::obligations || vote.state_change.state != new_state::deregister)
-      return false;
-
-    legacy_vote.block_height           = vote.block_height;
-    legacy_vote.service_node_index     = vote.state_change.worker_index;
-    legacy_vote.voters_quorum_index    = vote.index_in_group;
-    legacy_vote.signature              = vote.signature;
-    return true;
-  }
-
-  // TODO(loki): Post HF12 remove legacy votes, no longer should be propagated
-  quorum_vote_t convert_legacy_deregister_vote(legacy_deregister_vote const &vote)
-  {
-    quorum_vote_t result             = {};
-    result.type                      = quorum_type::obligations;
-    result.block_height              = vote.block_height;
-    result.signature                 = vote.signature;
-    result.group                     = quorum_group::validator;
-    result.index_in_group            = vote.voters_quorum_index;
-    result.state_change.worker_index = vote.service_node_index;
-    result.state_change.state        = new_state::deregister;
-    return result;
-  }
-
   static crypto::hash make_state_change_vote_hash(uint64_t block_height, uint32_t service_node_index, new_state state)
   {
     uint16_t state_int = static_cast<uint16_t>(state);
@@ -232,8 +206,21 @@ namespace service_nodes
 
     crypto::hash const hash = make_state_change_vote_hash(state_change.block_height, state_change.service_node_index, state_change.state);
     std::array<int, service_nodes::STATE_CHANGE_QUORUM_SIZE> validator_set = {};
+    uint64_t validator_index_tracker                                       = -1;
     for (const auto &vote : state_change.votes)
     {
+      if (hf_version >= cryptonote::network_version_13) // NOTE: After HF13, votes must be stored in ascending order
+      {
+        if (validator_index_tracker >= vote.validator_index)
+        {
+            vvc.m_votes_not_sorted = true;
+          LOG_PRINT_L1("Vote validator index is not stored in ascending order, prev validator index: "
+                       << validator_index_tracker << ", curr index: " << vote.validator_index);
+          return bad_tx(tvc);
+        }
+        validator_index_tracker = vote.validator_index;
+      }
+
       if (!bounds_check_validator_index(quorum, vote.validator_index, &vvc))
         return bad_tx(tvc);
 
@@ -316,12 +303,53 @@ namespace service_nodes
     return result;
   }
 
-  bool verify_vote(const quorum_vote_t& vote, uint64_t latest_height, cryptonote::vote_verification_context &vvc, const service_nodes::testing_quorum &quorum)
+  bool verify_vote_age(const quorum_vote_t& vote, uint64_t latest_height, cryptonote::vote_verification_context &vvc)
+  {
+    bool result           = true;
+    bool height_in_buffer = false;
+    if (latest_height > vote.block_height + VOTE_LIFETIME)
+    {
+      height_in_buffer = latest_height <= vote.block_height + (VOTE_LIFETIME + VERIFY_HEIGHT_BUFFER);
+      LOG_PRINT_L1("Received vote for height: " << vote.block_height << ", is older than: " << VOTE_LIFETIME
+                                                << " blocks and has been rejected.");
+      vvc.m_invalid_block_height = true;
+    }
+    else if (vote.block_height > latest_height)
+    {
+      height_in_buffer = vote.block_height <= latest_height + VERIFY_HEIGHT_BUFFER;
+      LOG_PRINT_L1("Received vote for height: " << vote.block_height << ", is newer than: " << latest_height
+                                                << " (latest block height) and has been rejected.");
+      vvc.m_invalid_block_height = true;
+    }
+
+    if (vvc.m_invalid_block_height)
+    {
+      vvc.m_verification_failed = !height_in_buffer;
+      result = false;
+    }
+
+    return result;
+  }
+
+  bool verify_vote_against_quorum(const quorum_vote_t &vote, cryptonote::vote_verification_context &vvc, const service_nodes::testing_quorum &quorum)
   {
     bool result = true;
-    if (vote.group == quorum_group::invalid)
+    if (vote.type >= quorum_type::count)
+    {
+      vvc.m_invalid_vote_type = true;
       result = false;
-    else if (vote.group == quorum_group::validator)
+    }
+
+    if (vote.group > quorum_group::worker || vote.group < quorum_group::validator)
+    {
+      vvc.m_incorrect_voting_group = true;
+      result = false;
+    }
+
+    if (!result)
+      return result;
+
+    if (vote.group == quorum_group::validator)
       result = bounds_check_validator_index(quorum, vote.index_in_group, &vvc);
     else
       result = bounds_check_worker_index(quorum, vote.index_in_group, &vvc);
@@ -329,92 +357,59 @@ namespace service_nodes
     if (!result)
       return result;
 
-    //
-    // NOTE: Validate vote age
-    //
+    crypto::public_key key = crypto::null_pkey;
+    crypto::hash hash      = crypto::null_hash;
+
+    switch(vote.type)
     {
-      bool height_in_buffer = false;
-      if (latest_height > vote.block_height + VOTE_LIFETIME)
+      default:
       {
-        height_in_buffer = latest_height <= vote.block_height + (VOTE_LIFETIME + VERIFY_HEIGHT_BUFFER);
-        LOG_PRINT_L1("Received vote for height: " << vote.block_height << ", is older than: " << VOTE_LIFETIME
-                                                  << " blocks and has been rejected.");
-        vvc.m_invalid_block_height = true;
-      }
-      else if (vote.block_height > latest_height)
-      {
-        height_in_buffer = vote.block_height <= latest_height + VERIFY_HEIGHT_BUFFER;
-        LOG_PRINT_L1("Received vote for height: " << vote.block_height << ", is newer than: " << latest_height
-                                                  << " (latest block height) and has been rejected.");
-        vvc.m_invalid_block_height = true;
-      }
+        LOG_PRINT_L1("Unhandled vote type with value: " << (int)vote.type);
+        assert("Unhandled vote type" == 0);
+        return false;
+      };
 
-      if (vvc.m_invalid_block_height)
+      case quorum_type::obligations:
       {
-        result                    = false;
-        vvc.m_verification_failed = !height_in_buffer;
-        return result;
-      }
-    }
-
-    {
-      crypto::public_key key = crypto::null_pkey;
-      crypto::hash hash      = crypto::null_hash;
-
-      switch(vote.type)
-      {
-        default:
+        if (vote.group != quorum_group::validator)
         {
-          LOG_PRINT_L1("Unhandled vote type with value: " << (int)vote.type);
-          assert("Unhandled vote type" == 0);
-          return false;
-        };
-
-        case quorum_type::obligations:
+          LOG_PRINT_L1("Vote received specifies incorrect voting group, expected vote from validator");
+          vvc.m_incorrect_voting_group = true;
+          result = false;
+        }
+        else
         {
-          if (vote.group != quorum_group::validator)
-          {
-            LOG_PRINT_L1("Vote received specifies incorrect voting group, expected vote from validator");
-            vvc.m_incorrect_voting_group = true;
-            return false;
-          }
-
           key = quorum.validators[vote.index_in_group];
           hash = make_state_change_vote_hash(vote.block_height, vote.state_change.worker_index, vote.state_change.state);
-
-          bool result = bounds_check_worker_index(quorum, vote.state_change.worker_index, &vvc);
-          if (!result)
-            return result;
+          result = bounds_check_worker_index(quorum, vote.state_change.worker_index, &vvc);
         }
-        break;
+      }
+      break;
 
-        case quorum_type::checkpointing:
+      case quorum_type::checkpointing:
+      {
+        if (vote.group != quorum_group::worker)
         {
-          if (vote.group != quorum_group::worker)
-          {
-            LOG_PRINT_L1("Vote received specifies incorrect voting group, expected vote from worker");
-            vvc.m_incorrect_voting_group = true;
-            return false;
-          }
-
+          LOG_PRINT_L1("Vote received specifies incorrect voting group, expected vote from worker");
+          vvc.m_incorrect_voting_group = true;
+          result = false;
+        }
+        else
+        {
           key  = quorum.workers[vote.index_in_group];
           hash = vote.checkpoint.block_hash;
         }
-        break;
       }
-
-      //
-      // NOTE: Validate vote signature
-      //
-      result = crypto::check_signature(hash, key, vote.signature);
-      if (!result)
-      {
-        vvc.m_signature_not_valid = true;
-        return result;
-      }
+      break;
     }
 
-    result = true;
+    if (!result)
+      return result;
+
+    result = crypto::check_signature(hash, key, vote.signature);
+    if (!result)
+      vvc.m_signature_not_valid = true;
+
     return result;
   }
 
@@ -500,31 +495,23 @@ namespace service_nodes
   // return: True if the vote was unique
   static bool add_vote_to_pool_if_unique(std::vector<pool_vote_entry> &votes, quorum_vote_t const &vote)
   {
-    auto vote_it = std::find_if(votes.begin(), votes.end(), [&vote](pool_vote_entry const &pool_entry) {
-        assert(pool_entry.vote.group == vote.group);
-        return (pool_entry.vote.index_in_group == vote.index_in_group);
-    });
+    auto vote_it = std::lower_bound(
+        votes.begin(), votes.end(), vote, [](pool_vote_entry const &pool_entry, quorum_vote_t const &vote) {
+          assert(pool_entry.vote.group == vote.group);
+          return pool_entry.vote.index_in_group < vote.index_in_group;
+        });
 
-    if (vote_it == votes.end())
+    if (vote_it == votes.end() || vote_it->vote.index_in_group != vote.index_in_group)
     {
-      votes.push_back({vote});
+      votes.insert(vote_it, {vote});
       return true;
     }
 
     return false;
   }
 
-  std::vector<pool_vote_entry> voting_pool::add_pool_vote_if_unique(uint64_t latest_height,
-                                                                    const quorum_vote_t& vote,
-                                                                    cryptonote::vote_verification_context& vvc,
-                                                                    const service_nodes::testing_quorum &quorum)
+  std::vector<pool_vote_entry> voting_pool::add_pool_vote_if_unique(const quorum_vote_t& vote, cryptonote::vote_verification_context& vvc)
   {
-    if (!verify_vote(vote, latest_height, vvc, quorum))
-    {
-      LOG_PRINT_L1("Signature verification failed for deregister vote");
-      return {};
-    }
-
     CRITICAL_REGION_LOCAL(m_lock);
     auto *votes = find_vote_pool(vote, /*create_if_not_found=*/ true);
     if (!votes)

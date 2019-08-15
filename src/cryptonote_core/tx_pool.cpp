@@ -130,18 +130,20 @@ namespace cryptonote
       tx_extra_service_node_state_change state_change;
       if (!get_service_node_state_change_from_tx_extra(tx.extra, state_change, hard_fork_version))
       {
-        MERROR("Could not get service node state change from tx, possibly corrupt tx in your blockchain, rejecting malformed state change");
+        MERROR("Could not get service node state change from tx: " << get_transaction_hash(tx) << ", possibly corrupt tx in your blockchain, rejecting malformed state change");
         return false;
       }
 
-      auto const quorum_type = service_nodes::quorum_type::obligations;
-      auto const quorum_group = service_nodes::quorum_group::worker;
       crypto::public_key service_node_to_change;
-      if (!service_node_list.get_quorum_pubkey(quorum_type, quorum_group, state_change.block_height, state_change.service_node_index, service_node_to_change))
-      {
-        MERROR("Could not resolve the service node public key from the information in the state change, possibly corrupt tx in your blockchain");
-        return false;
-      }
+      auto const quorum_type               = service_nodes::quorum_type::obligations;
+      auto const quorum_group              = service_nodes::quorum_group::worker;
+
+      // NOTE: We can fail to resolve a public key if we are popping blocks greater than the number of quorums we store.
+      bool const can_resolve_quorum_pubkey = service_node_list.get_quorum_pubkey(quorum_type,
+                                                                                 quorum_group,
+                                                                                 state_change.block_height,
+                                                                                 state_change.service_node_index,
+                                                                                 service_node_to_change);
 
       std::vector<transaction> pool_txs;
       get_transactions(pool_txs);
@@ -153,25 +155,24 @@ namespace cryptonote
         tx_extra_service_node_state_change pool_tx_state_change;
         if (!get_service_node_state_change_from_tx_extra(pool_tx.extra, pool_tx_state_change, hard_fork_version))
         {
-          MERROR("Could not get service node state change from tx, possibly corrupt tx in your blockchain");
+          MERROR("Could not get service node state change from tx: " << get_transaction_hash(pool_tx) << ", possibly corrupt tx in the pool");
           continue;
         }
 
         if (hard_fork_version >= cryptonote::network_version_12_checkpointing)
         {
           crypto::public_key service_node_to_change_in_the_pool;
-          bool specifying_same_service_node = false;
-          if (service_node_list.get_quorum_pubkey(quorum_type, quorum_group, pool_tx_state_change.block_height, pool_tx_state_change.service_node_index, service_node_to_change_in_the_pool))
+          bool same_service_node = false;
+          if (can_resolve_quorum_pubkey && service_node_list.get_quorum_pubkey(quorum_type, quorum_group, pool_tx_state_change.block_height, pool_tx_state_change.service_node_index, service_node_to_change_in_the_pool))
           {
-            specifying_same_service_node = (service_node_to_change == service_node_to_change_in_the_pool);
+            same_service_node = (service_node_to_change == service_node_to_change_in_the_pool);
           }
           else
           {
-            MWARNING("Could not resolve the service node public key from the information in a pooled tx state change, falling back to primitive checking method");
-            specifying_same_service_node = (state_change == pool_tx_state_change);
+            same_service_node = (state_change == pool_tx_state_change);
           }
 
-          if (specifying_same_service_node && pool_tx_state_change.state == state_change.state)
+          if (same_service_node && pool_tx_state_change.state == state_change.state)
             return true;
         }
         else
@@ -186,7 +187,7 @@ namespace cryptonote
       tx_extra_tx_key_image_unlock unlock;
       if (!cryptonote::get_tx_key_image_unlock_from_tx_extra(tx.extra, unlock))
       {
-        MERROR("Could not get key image unlock from tx, possibly corrupt tx in your blockchain, rejecting malformed tx");
+        MERROR("Could not get key image unlock from tx: " << get_transaction_hash(tx) << ", tx to add is possibly invalid, rejecting");
         return true;
       }
 
@@ -200,13 +201,13 @@ namespace cryptonote
         tx_extra_tx_key_image_unlock pool_unlock;
         if (!cryptonote::get_tx_key_image_unlock_from_tx_extra(pool_tx.extra, pool_unlock))
         {
-          MERROR("Could not get key image unlock from tx, possibly corrupt tx in your blockchain, rejecting malformed tx");
+          MERROR("Could not get key image unlock from tx: " << get_transaction_hash(tx) << ", possibly corrupt tx in the pool");
           return true;
         }
 
         if (unlock == pool_unlock)
         {
-          MWARNING("There was atleast one TX in the pool that is requesting to unlock the same key image already.");
+          LOG_PRINT_L1("New TX: " << get_transaction_hash(tx) << ", has TX: " << get_transaction_hash(pool_tx) << " from the pool that is requesting to unlock the same key image already.");
           return true;
         }
       }
@@ -1118,15 +1119,96 @@ namespace cryptonote
     }
   }
   //---------------------------------------------------------------------------------
-  bool tx_memory_pool::on_blockchain_inc(uint64_t new_block_height, const crypto::hash& top_block_id)
+  bool tx_memory_pool::on_blockchain_inc(service_nodes::service_node_list const &service_node_list, block const &blk)
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     m_input_cache.clear();
     m_parsed_tx_cache.clear();
+
+    std::vector<transaction> pool_txs;
+    get_transactions(pool_txs);
+    if (pool_txs.empty()) return true;
+
+    // NOTE: For transactions in the pool, on new block received, if a Service
+    // Node changed state any older state changes that the node cannot
+    // transition to now are invalid and cannot be used, so take them out from
+    // the pool.
+
+    // Otherwise multiple state changes can queue up until they are applicable
+    // and be applied on the node.
+    uint64_t const block_height = cryptonote::get_block_height(blk);
+    for (transaction const &pool_tx : pool_txs)
+    {
+      tx_extra_service_node_state_change state_change;
+      crypto::public_key service_node_pubkey;
+      if (pool_tx.type == txtype::state_change &&
+          get_service_node_state_change_from_tx_extra(pool_tx.extra, state_change, blk.major_version))
+      {
+        // TODO(loki): PERF(loki): On pop_blocks we return all the TXs to the
+        // pool. The greater the pop_blocks, the more txs that are queued in the
+        // pool, and for every subsequent block you sync, get_transactions has
+        // to allocate these transactions and we have to search every
+        // transaction in the pool every synced block- causing great slowdown.
+
+        // It'd be nice to optimise this or rearchitect the way this pruning is
+        // done to be smarter.
+
+        if (state_change.block_height >= block_height) // NOTE: Can occur if we pop_blocks and old popped state changes are returned to the pool.
+          continue;
+
+        if (service_node_list.get_quorum_pubkey(service_nodes::quorum_type::obligations,
+                                                service_nodes::quorum_group::worker,
+                                                state_change.block_height,
+                                                state_change.service_node_index,
+                                                service_node_pubkey))
+        {
+          crypto::hash tx_hash;
+          if (!get_transaction_hash(pool_tx, tx_hash))
+          {
+            MERROR("Failed to get transaction hash from txpool to check if we can prune a state change");
+            continue;
+          }
+
+          txpool_tx_meta_t meta;
+          if (!m_blockchain.get_txpool_tx_meta(tx_hash, meta))
+          {
+            MERROR("Failed to get tx meta from txpool to check if we can prune a state change");
+            continue;
+          }
+
+          if (meta.kept_by_block) // Do not prune transaction if kept by block (belongs to alt block, so we need incase we switch to alt-chain)
+            continue;
+
+          std::vector<service_nodes::service_node_pubkey_info> service_node_array = service_node_list.get_service_node_list_state({service_node_pubkey});
+
+          // TODO(loki): Temporary HF12 code. We want to use HF13 code for
+          // detecting if a service node can change state for pruning from the
+          // pool, because changing the pool code here is not consensus, but we
+          // want this logic so as to improve the network behaviour regarding
+          // multiple queued up state changes without a hard fork.
+
+          // Once we hard fork to v13 we can just use the blk major version
+          // whole sale.
+          uint8_t enforce_hf_version = std::max((uint8_t)cryptonote::network_version_13, blk.major_version);
+
+          if (service_node_array.empty() ||
+              !service_node_array[0].info->can_transition_to_state(enforce_hf_version, state_change.block_height, state_change.state))
+          {
+            transaction tx;
+            cryptonote::blobdata blob;
+            size_t tx_weight;
+            uint64_t fee;
+            bool relayed, do_not_relay, double_spend_seen;
+            take_tx(tx_hash, tx, blob, tx_weight, fee, relayed, do_not_relay, double_spend_seen);
+          }
+        }
+      }
+    }
+
     return true;
   }
   //---------------------------------------------------------------------------------
-  bool tx_memory_pool::on_blockchain_dec(uint64_t new_block_height, const crypto::hash& top_block_id)
+  bool tx_memory_pool::on_blockchain_dec()
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     m_input_cache.clear();

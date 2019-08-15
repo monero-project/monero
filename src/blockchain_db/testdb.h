@@ -162,7 +162,6 @@ public:
   virtual bool get_block_checkpoint   (uint64_t height, struct checkpoint_t &checkpoint) const override { return false; }
   virtual bool get_top_checkpoint     (struct checkpoint_t &checkpoint) const override { return false; }
   virtual void remove_block_checkpoint(uint64_t height) override { }
-  virtual std::vector<cryptonote::checkpoint_t> get_checkpoints_range(uint64_t start, uint64_t end, size_t num_desired_checkpoints) const override { return {}; }
 
   virtual bool get_output_blacklist   (std::vector<uint64_t> &blacklist)       const override { return false; }
   virtual void add_output_blacklist   (std::vector<uint64_t> const &blacklist)       override { }

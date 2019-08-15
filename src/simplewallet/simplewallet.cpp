@@ -4935,7 +4935,7 @@ void simple_wallet::on_money_received(uint64_t height, const crypto::hash &txid,
           (m_long_payment_id_support ? tr("WARNING: this transaction uses an unencrypted payment ID: consider using subaddresses instead.") : tr("WARNING: this transaction uses an unencrypted payment ID: these are obsolete. Support will be withdrawn in the future. Use subaddresses instead."));
    }
   }
-  if (unlock_time)
+  if (unlock_time && !cryptonote::is_coinbase(tx))
     message_writer() << tr("NOTE: This transaction is locked, see details with: show_transfer ") + epee::string_tools::pod_to_hex(txid);
   if (m_auto_refresh_refreshing)
     m_cmd_binder.print_prompt();
@@ -6321,7 +6321,7 @@ bool simple_wallet::query_locked_stakes(bool print_result)
     for (COMMAND_RPC_GET_SERVICE_NODES::response::entry const &node_info : response)
     {
       bool only_once = true;
-      for (COMMAND_RPC_GET_SERVICE_NODES::response::contributor const &contributor : node_info.contributors)
+      for (service_node_contributor const &contributor : node_info.contributors)
       {
         address_parse_info address_info = {};
         if (!cryptonote::get_account_address_from_str(address_info, m_wallet->nettype(), contributor.address))
@@ -6335,7 +6335,7 @@ bool simple_wallet::query_locked_stakes(bool print_result)
 
         for (size_t i = 0; i < contributor.locked_contributions.size(); ++i)
         {
-          COMMAND_RPC_GET_SERVICE_NODES::response::contribution const &contribution = contributor.locked_contributions[i];
+          service_node_contribution const &contribution = contributor.locked_contributions[i];
           has_locked_stakes = true;
 
           if (!print_result)
