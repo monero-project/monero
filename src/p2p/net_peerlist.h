@@ -278,6 +278,9 @@ namespace nodetool
     // was moved to the gray list (if it's not accessibe, which the attacker can check if
     // the address accepts incoming connections) or it was the oldest to still fit in the 250 items,
     // so its last_seen is old.
+    //
+    // See Cao, Tong et al. "Exploring the Monero Peer-to-Peer Network". https://eprint.iacr.org/2019/411
+    //
     const uint32_t pick_depth = anonymize ? depth + depth / 5 : depth;
     bs_head.reserve(pick_depth);
     for(const peers_indexed::value_type& vl: boost::adaptors::reverse(by_time_index))
