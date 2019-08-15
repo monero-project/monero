@@ -10,7 +10,7 @@ Portions Copyright (c) 2012-2013 The Cryptonote developers.
   - [Research](#research)
   - [Announcements](#announcements)
   - [Translations](#translations)
-  - [Build](#build)
+  - [Build Status](#build-status)
     - [IMPORTANT](#important)
   - [Coverage](#coverage)
   - [Introduction](#introduction)
@@ -55,7 +55,7 @@ The CLI wallet is available in different languages. If you want to help translat
 
 If you need help/support/info about translations, contact the localization workgroup. You can find the complete list of contacts on the repository of the workgroup: [monero-translations](https://github.com/monero-ecosystem/monero-translations#contacts).
 
-## Build
+## Build Status
 
 ### IMPORTANT
 
