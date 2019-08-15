@@ -2432,10 +2432,11 @@ namespace nodetool
     auto public_zone = m_network_zones.find(epee::net_utils::zone::public_);
     if (public_zone != m_network_zones.end())
     {
-      const auto current = public_zone->second.m_config.m_net_config.max_out_connection_count;
+      const auto current = public_zone->second.m_net_server.get_config_object().get_out_connections_count();
       public_zone->second.m_config.m_net_config.max_out_connection_count = count;
       if(current > count)
         public_zone->second.m_net_server.get_config_object().del_out_connections(current - count);
+      m_payload_handler.set_max_out_peers(count);
     }
   }
 
@@ -2454,7 +2455,7 @@ namespace nodetool
     auto public_zone = m_network_zones.find(epee::net_utils::zone::public_);
     if (public_zone != m_network_zones.end())
     {
-      const auto current = public_zone->second.m_config.m_net_config.max_in_connection_count;
+      const auto current = public_zone->second.m_net_server.get_config_object().get_in_connections_count();
       public_zone->second.m_config.m_net_config.max_in_connection_count = count;
       if(current > count)
         public_zone->second.m_net_server.get_config_object().del_in_connections(current - count);
