@@ -71,7 +71,7 @@
       MINFO(m_conn_context << "calling " << s_pattern); \
       if(!callback_f(static_cast<command_type::request&>(req), static_cast<command_type::response&>(resp), &m_conn_context)) \
       { \
-        LOG_ERROR("Failed to " << #callback_f << "()"); \
+        MERROR(m_conn_context << "Failed to " << #callback_f << "()"); \
         response_info.m_response_code = 500; \
         response_info.m_response_comment = "Internal Server Error"; \
         return true; \
@@ -99,7 +99,7 @@
       MINFO(m_conn_context << "calling " << s_pattern); \
       if(!callback_f(static_cast<command_type::request&>(req), static_cast<command_type::response&>(resp), &m_conn_context)) \
       { \
-        LOG_ERROR("Failed to " << #callback_f << "()"); \
+        MERROR(m_conn_context << "Failed to " << #callback_f << "()"); \
         response_info.m_response_code = 500; \
         response_info.m_response_comment = "Internal Server Error"; \
         return true; \

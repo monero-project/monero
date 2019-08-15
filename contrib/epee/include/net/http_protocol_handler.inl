@@ -577,6 +577,10 @@ namespace net_utils
 		if (query_info.m_http_method != http::http_method_options)
 		{
 			res = handle_request(query_info, response);
+			if (response.m_response_code == 500)
+			{
+				m_want_close = true;	// close on all "Internal server error"s
+			}
 		}
 		else
 		{

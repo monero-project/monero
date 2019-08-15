@@ -142,6 +142,7 @@ namespace cryptonote
   {
     m_restricted = restricted;
     m_net_server.set_threads_prefix("RPC");
+    m_net_server.set_connection_filter(&m_p2p);
 
     auto rpc_config = cryptonote::rpc_args::process(vm, true);
     if (!rpc_config)
@@ -172,6 +173,24 @@ namespace cryptonote
     if(!m_p2p.get_payload_object().is_synchronized())
     {
       return false;
+    }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::add_host_fail(const connection_context *ctx)
+  {
+    if(!ctx || !ctx->m_remote_address.is_blockable())
+      return false;
+
+    CRITICAL_REGION_LOCAL(m_host_fails_score_lock);
+    uint64_t fails = ++m_host_fails_score[ctx->m_remote_address.host_str()];
+    MDEBUG("Host " << ctx->m_remote_address.host_str() << " fail score=" << fails);
+    if(fails > RPC_IP_FAILS_BEFORE_BLOCK)
+    {
+      auto it = m_host_fails_score.find(ctx->m_remote_address.host_str());
+      CHECK_AND_ASSERT_MES(it != m_host_fails_score.end(), false, "internal error");
+      it->second = RPC_IP_FAILS_BEFORE_BLOCK/2;
+      m_p2p.block_host(ctx->m_remote_address);
     }
     return true;
   }
@@ -302,6 +321,7 @@ namespace cryptonote
     if(!m_core.find_blockchain_supplement(req.start_height, req.block_ids, bs, res.current_height, res.start_height, req.prune, !req.no_miner_tx, COMMAND_RPC_GET_BLOCKS_FAST_MAX_COUNT))
     {
       res.status = "Failed";
+      add_host_fail(ctx);
       return false;
     }
 
@@ -425,6 +445,7 @@ namespace cryptonote
     if(!m_core.get_blockchain_storage().find_blockchain_supplement(req.block_ids, res.m_block_ids, res.start_height, res.current_height, false))
     {
       res.status = "Failed";
+      add_host_fail(ctx);
       return false;
     }
 

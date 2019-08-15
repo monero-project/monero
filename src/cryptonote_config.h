@@ -128,6 +128,8 @@
 #define P2P_SUPPORT_FLAG_FLUFFY_BLOCKS                  0x01
 #define P2P_SUPPORT_FLAGS                               P2P_SUPPORT_FLAG_FLUFFY_BLOCKS
 
+#define RPC_IP_FAILS_BEFORE_BLOCK                       3
+
 #define ALLOW_DEBUG_COMMANDS
 
 #define CRYPTONOTE_NAME                         "bitmonero"
