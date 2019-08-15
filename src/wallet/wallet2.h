@@ -935,6 +935,10 @@ namespace tools
     void ignore_fractional_outputs(bool value) { m_ignore_fractional_outputs = value; }
     bool confirm_non_default_ring_size() const { return m_confirm_non_default_ring_size; }
     void confirm_non_default_ring_size(bool always) { m_confirm_non_default_ring_size = always; }
+    uint64_t ignore_outputs_above() const { return m_ignore_outputs_above; }
+    void ignore_outputs_above(uint64_t value) { m_ignore_outputs_above = value; }
+    uint64_t ignore_outputs_below() const { return m_ignore_outputs_below; }
+    void ignore_outputs_below(uint64_t value) { m_ignore_outputs_below = value; }
 
     bool get_tx_key(const crypto::hash &txid, crypto::secret_key &tx_key, std::vector<crypto::secret_key> &additional_tx_keys) const;
     void set_tx_key(const crypto::hash &txid, const crypto::secret_key &tx_key, const std::vector<crypto::secret_key> &additional_tx_keys);
@@ -1309,6 +1313,8 @@ namespace tools
     bool m_key_reuse_mitigation2;
     uint64_t m_segregation_height;
     bool m_ignore_fractional_outputs;
+    uint64_t m_ignore_outputs_above;
+    uint64_t m_ignore_outputs_below;
     bool m_is_initialized;
     NodeRPCProxy m_node_rpc_proxy;
     std::unordered_set<crypto::hash> m_scanned_pool_txs[2];
