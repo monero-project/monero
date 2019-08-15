@@ -42,7 +42,8 @@ namespace net
         invalid_i2p_address,
         invalid_port,       //!< Outside of 0-65535 range
         invalid_tor_address,//!< Invalid base32 or length
-        unsupported_address //!< Type not supported by `get_network_address`
+        unsupported_address,//!< Type not supported by `get_network_address`
+        invalid_mask,       //!< Outside of 0-32 range
     };
 
     //! \return `std::error_category` for `net` namespace.

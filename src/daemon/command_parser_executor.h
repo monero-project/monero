@@ -129,10 +129,6 @@ public:
 
   bool in_peers(const std::vector<std::string>& args);
 
-  bool start_save_graph(const std::vector<std::string>& args);
-  
-  bool stop_save_graph(const std::vector<std::string>& args);
-  
   bool hard_fork_info(const std::vector<std::string>& args);
 
   bool show_bans(const std::vector<std::string>& args);
@@ -140,6 +136,8 @@ public:
   bool ban(const std::vector<std::string>& args);
 
   bool unban(const std::vector<std::string>& args);
+
+  bool banned(const std::vector<std::string>& args);
 
   bool flush_txpool(const std::vector<std::string>& args);
 

@@ -28,11 +28,42 @@
 #pragma once
 
 #include <string>
+#include <boost/algorithm/string/predicate.hpp>
+#include <boost/asio/ip/address_v6.hpp>
+#include <boost/version.hpp>
 
 namespace epee
 {
   namespace net_utils
   {
+
+    inline
+    bool is_ipv6_local(const std::string& ip)
+    {
+#if BOOST_VERSION >= 106600
+      auto addr = boost::asio::ip::make_address_v6(ip);
+#else
+      auto addr = boost::asio::ip::address_v6::from_string(ip);
+#endif
+
+      // ipv6 link-local unicast addresses are fe80::/10
+      bool is_link_local = addr.is_link_local();
+
+      auto addr_bytes = addr.to_bytes();
+
+      // ipv6 unique local unicast addresses start with fc00::/7 -- (fcXX or fdXX)
+      bool is_unique_local_unicast = (addr_bytes[0] == 0xfc || addr_bytes[0] == 0xfd);
+
+      return is_link_local || is_unique_local_unicast;
+    }
+
+    inline
+    bool is_ipv6_loopback(const std::string& ip)
+    {
+      // ipv6 loopback is ::1
+      return boost::asio::ip::address_v6::from_string(ip).is_loopback();
+    }
+
     inline
     bool is_ip_local(uint32_t ip)
     {
@@ -86,21 +117,6 @@ namespace epee
           (ip & 0xff) == 0x00 || // 0.0.0.0/8 addresses are "current network" addresses valid only as a source but not destination
           (ip & 0xe0) == 0xe0); // 224.0.0.0/3 -- includes both 224/4 multicast and 240/4 reserved blocks
     }
-
-    inline
-    bool is_ipv6_local(const std::string& ip)
-    {
-      // ipv6 local addresses start with fc00/7 -- (fcXX or fdXX)
-      return (ip.find("fc") == 0 || ip.find("FC") == 0 || ip.find("fd") == 0 || ip.find("FD") == 0);
-    }
-
-    inline
-    bool is_ipv6_loopback(const std::string& ip)
-    {
-      // ipv6 loopback is ::1
-      return (ip == "::1");
-    }
-   
   }
 }
 
