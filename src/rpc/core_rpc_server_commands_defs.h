@@ -1991,11 +1991,13 @@ namespace cryptonote
     typedef epee::misc_utils::struct_init<response_t> response;
   };
 
+  LOKI_RPC_DOC_INTROSPECT
+  // Determine whether a given IP address is banned
   struct COMMAND_RPC_BANNED
   {
     struct request_t
     {
-      std::string address;
+      std::string address; // The IP address to check
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(address)
@@ -2005,9 +2007,9 @@ namespace cryptonote
 
     struct response_t
     {
-      std::string status;
-      bool banned;
-      uint32_t seconds;
+      std::string status; // General RPC error code. "OK" means everything looks good.
+      bool banned;        // True if the given address is banned, false otherwise.
+      uint32_t seconds;   // The number of seconds remaining in the ban.
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(status)
