@@ -28,6 +28,8 @@
 
 #include "parse.h"
 
+#include <boost/version.hpp>
+
 #include "net/tor_address.h"
 #include "net/i2p_address.h"
 #include "string_tools.h"
@@ -76,7 +78,11 @@ namespace net
             return i2p_address::make(address, default_port);
 
         boost::system::error_code ec;
-        boost::asio::ip::address_v6 v6 = boost::asio::ip::make_address_v6(host_str, ec);
+#if BOOST_VERSION >= 106600
+        auto v6 = boost::asio::ip::make_address_v6(host_str, ec);
+#else
+        auto v6 = boost::asio::ip::address_v6::from_string(host_str, ec);
+#endif
         ipv6 = !ec;
 
         std::uint16_t port = default_port;

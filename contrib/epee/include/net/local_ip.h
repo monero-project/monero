@@ -30,6 +30,7 @@
 #include <string>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/asio/ip/address_v6.hpp>
+#include <boost/version.hpp>
 
 namespace epee
 {
@@ -39,7 +40,11 @@ namespace epee
     inline
     bool is_ipv6_local(const std::string& ip)
     {
+#if BOOST_VERSION >= 106600
       auto addr = boost::asio::ip::make_address_v6(ip);
+#else
+      auto addr = boost::asio::ip::address_v6::from_string(ip);
+#endif
 
       // ipv6 link-local unicast addresses are fe80::/10
       bool is_link_local = addr.is_link_local();
