@@ -127,9 +127,9 @@ namespace
   std::string get_default_ringdb_path()
   {
     boost::filesystem::path dir = tools::get_default_data_dir();
-    // remove .bitmonero, replace with .shared-ringdb
+    // remove .aeon, replace with .aeon-shared-ringdb
     dir = dir.remove_filename();
-    dir /= ".shared-ringdb";
+    dir /= ".aeon-shared-ringdb";
     return dir.string();
   }
 }
@@ -6125,7 +6125,7 @@ bool wallet2::find_and_save_rings(bool force)
   return true;
 }
 
-bool wallet2::blackball_output(const crypto::public_key &output)
+bool wallet2::blackball_output(const std::pair<uint64_t, uint64_t> &output)
 {
   if (!m_ringdb)
     return false;
@@ -6133,7 +6133,7 @@ bool wallet2::blackball_output(const crypto::public_key &output)
   catch (const std::exception &e) { return false; }
 }
 
-bool wallet2::set_blackballed_outputs(const std::vector<crypto::public_key> &outputs, bool add)
+bool wallet2::set_blackballed_outputs(const std::vector<std::pair<uint64_t, uint64_t>> &outputs, bool add)
 {
   if (!m_ringdb)
     return false;
@@ -6142,14 +6142,13 @@ bool wallet2::set_blackballed_outputs(const std::vector<crypto::public_key> &out
     bool ret = true;
     if (!add)
       ret &= m_ringdb->clear_blackballs();
-    for (const auto &output: outputs)
-      ret &= m_ringdb->blackball(output);
+    ret &= m_ringdb->blackball(outputs);
     return ret;
   }
   catch (const std::exception &e) { return false; }
 }
 
-bool wallet2::unblackball_output(const crypto::public_key &output)
+bool wallet2::unblackball_output(const std::pair<uint64_t, uint64_t> &output)
 {
   if (!m_ringdb)
     return false;
@@ -6157,7 +6156,7 @@ bool wallet2::unblackball_output(const crypto::public_key &output)
   catch (const std::exception &e) { return false; }
 }
 
-bool wallet2::is_output_blackballed(const crypto::public_key &output) const
+bool wallet2::is_output_blackballed(const std::pair<uint64_t, uint64_t> &output) const
 {
   if (!m_ringdb)
     return false;
@@ -6202,8 +6201,8 @@ bool wallet2::tx_add_fake_output(std::vector<std::vector<tools::wallet2::get_out
   CHECK_AND_ASSERT_MES(!outs.empty(), false, "internal error: outs is empty");
   if (std::find(outs.back().begin(), outs.back().end(), item) != outs.back().end()) // don't add duplicates
     return false;
-  if (is_output_blackballed(output_public_key)) // don't add blackballed outputs
-    return false;
+//  if (is_output_blackballed(output_public_key)) // don't add blackballed outputs
+//    return false;
   outs.back().push_back(item);
   return true;
 }
@@ -6667,11 +6666,23 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
         }
 
         // while we still need more mixins
+        uint64_t num_usable_outs = num_outs;
+        bool allow_blackballed = false;
         while (num_found < requested_outputs_count)
         {
           // if we've gone through every possible output, we've gotten all we can
-          if (seen_indices.size() == num_outs)
-            break;
+          if (seen_indices.size() == num_usable_outs)
+          {
+            // there is a first pass which rejects blackballed outputs, then a second pass
+            // which allows them if we don't have enough non blackballed outputs to reach
+            // the required amount of outputs (since consensus does not care about blackballed
+            // outputs, we still need to reach the minimum ring size)
+            if (allow_blackballed)
+              break;
+            MINFO("Not enough output not marked as spent, we'll allow outputs marked as spent");
+            allow_blackballed = true;
+            num_usable_outs = num_outs;
+          }
 
           // get a random output index from the DB.  If we've already seen it,
           // return to the top of the loop and try again, otherwise add it to the
@@ -6738,10 +6749,24 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
 
           if (seen_indices.count(i))
             continue;
+          if (!allow_blackballed && is_output_blackballed(std::make_pair(amount, i))) // don't add blackballed outputs
+          {
+            --num_usable_outs;
+            continue;
+          }
           seen_indices.emplace(i);
 
           LOG_PRINT_L2("picking " << i << " as " << type);
           req.outputs.push_back({amount, i});
+          ++num_found;
+        }
+
+        // if we had enough unusable outputs, we might fall off here and still
+        // have too few outputs, so we stuff with one to keep counts good, and
+        // we'll error out later
+        while (num_found < requested_outputs_count)
+        {
+          req.outputs.push_back({amount, 0});
           ++num_found;
         }
       }
