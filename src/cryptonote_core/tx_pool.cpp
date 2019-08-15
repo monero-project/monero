@@ -1136,6 +1136,7 @@ namespace cryptonote
 
     // Otherwise multiple state changes can queue up until they are applicable
     // and be applied on the node.
+    uint64_t const block_height = cryptonote::get_block_height(blk);
     for (transaction const &pool_tx : pool_txs)
     {
       tx_extra_service_node_state_change state_change;
@@ -1143,6 +1144,18 @@ namespace cryptonote
       if (pool_tx.type == txtype::state_change &&
           get_service_node_state_change_from_tx_extra(pool_tx.extra, state_change, blk.major_version))
       {
+        // TODO(loki): PERF(loki): On pop_blocks we return all the TXs to the
+        // pool. The greater the pop_blocks, the more txs that are queued in the
+        // pool, and for every subsequent block you sync, get_transactions has
+        // to allocate these transactions and we have to search every
+        // transaction in the pool every synced block- causing great slowdown.
+
+        // It'd be nice to optimise this or rearchitect the way this pruning is
+        // done to be smarter.
+
+        if (state_change.block_height >= block_height) // NOTE: Can occur if we pop_blocks and old popped state changes are returned to the pool.
+          continue;
+
         if (service_node_list.get_quorum_pubkey(service_nodes::quorum_type::obligations,
                                                 service_nodes::quorum_group::worker,
                                                 state_change.block_height,
