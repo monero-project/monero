@@ -35,6 +35,7 @@
 #include "daemon/rpc_command_executor.h"
 #include "rpc/core_rpc_server_commands_defs.h"
 #include "cryptonote_core/cryptonote_core.h"
+#include "cryptonote_basic/difficulty.h"
 #include "cryptonote_basic/hardfork.h"
 #include <boost/format.hpp>
 #include <ctime>
@@ -89,7 +90,7 @@ namespace {
       << "height: " << boost::lexical_cast<std::string>(header.height) << std::endl
       << "depth: " << boost::lexical_cast<std::string>(header.depth) << std::endl
       << "hash: " << header.hash << std::endl
-      << "difficulty: " << boost::lexical_cast<std::string>(header.difficulty) << std::endl
+      << "difficulty: " << header.wide_difficulty << std::endl
       << "POW hash: " << header.pow_hash << std::endl
       << "block size: " << header.block_size << std::endl
       << "block weight: " << header.block_weight << std::endl
@@ -350,19 +351,41 @@ bool t_rpc_command_executor::show_difficulty() {
 
   tools::success_msg_writer() <<   "BH: " << res.height
                               << ", TH: " << res.top_block_hash
-                              << ", DIFF: " << res.difficulty
-                              << ", CUM_DIFF: " << res.cumulative_difficulty
-                              << ", HR: " << res.difficulty / res.target << " H/s";
+                              << ", DIFF: " << res.wide_difficulty
+                              << ", CUM_DIFF: " << res.wide_cumulative_difficulty
+                              << ", HR: " << cryptonote::difficulty_type(res.wide_difficulty) / res.target << " H/s";
 
   return true;
 }
 
-static std::string get_mining_speed(uint64_t hr)
+static void get_metric_prefix(cryptonote::difficulty_type hr, double& hr_d, char& prefix)
 {
-  if (hr>1e9) return (boost::format("%.2f GH/s") % (hr/1e9)).str();
-  if (hr>1e6) return (boost::format("%.2f MH/s") % (hr/1e6)).str();
-  if (hr>1e3) return (boost::format("%.2f kH/s") % (hr/1e3)).str();
-  return (boost::format("%.0f H/s") % hr).str();
+  if (hr < 1000)
+  {
+    prefix = 0;
+    return;
+  }
+  static const char metric_prefixes[4] = { 'k', 'M', 'G', 'T' };
+  for (size_t i = 0; i < sizeof(metric_prefixes); ++i)
+  {
+    if (hr < 1000000)
+    {
+      hr_d = hr.convert_to<double>() / 1000;
+      prefix = metric_prefixes[i];
+      return;
+    }
+    hr /= 1000;
+  }
+  prefix = 0;
+}
+
+static std::string get_mining_speed(cryptonote::difficulty_type hr)
+{
+  double hr_d;
+  char prefix;
+  get_metric_prefix(hr, hr_d, prefix);
+  if (prefix == 0) return (boost::format("%.0f H/s") % hr).str();
+  return (boost::format("%.2f %cH/s") % hr_d % prefix).str();
 }
 
 static std::string get_fork_extra_info(uint64_t t, uint64_t now, uint64_t block_time)
@@ -479,7 +502,7 @@ bool t_rpc_command_executor::show_status() {
     % (ires.testnet ? "testnet" : ires.stagenet ? "stagenet" : "mainnet")
     % bootstrap_msg
     % (!has_mining_info ? "mining info unavailable" : mining_busy ? "syncing" : mres.active ? ( ( mres.is_background_mining_enabled ? "smart " : "" ) + std::string("mining at ") + get_mining_speed(mres.speed)) : "not mining")
-    % get_mining_speed(ires.difficulty / ires.target)
+    % get_mining_speed(cryptonote::difficulty_type(ires.wide_difficulty) / ires.target)
     % (unsigned)hfres.version
     % get_fork_extra_info(hfres.earliest_height, net_height, ires.target)
     % (hfres.state == cryptonote::HardFork::Ready ? "up to date" : hfres.state == cryptonote::HardFork::UpdateNeeded ? "update needed" : "out of date, likely forked")
@@ -742,7 +765,7 @@ bool t_rpc_command_executor::print_blockchain_info(uint64_t start_block_index, u
       << ", size: " << header.block_size << ", weight: " << header.block_weight << " (long term " << header.long_term_weight << "), transactions: " << header.num_txes << std::endl
       << "major version: " << (unsigned)header.major_version << ", minor version: " << (unsigned)header.minor_version << std::endl
       << "block id: " << header.hash << ", previous block id: " << header.prev_hash << std::endl
-      << "difficulty: " << header.difficulty << ", nonce " << header.nonce << ", reward " << cryptonote::print_money(header.reward) << std::endl;
+      << "difficulty: " << header.wide_difficulty << ", nonce " << header.nonce << ", reward " << cryptonote::print_money(header.reward) << std::endl;
     first = false;
   }
 
@@ -1874,7 +1897,7 @@ bool t_rpc_command_executor::alt_chain_info(const std::string &tip, size_t above
       const auto &chain = chains[idx];
       const uint64_t start_height = (chain.height - chain.length + 1);
       tools::msg_writer() << chain.length << " blocks long, from height " << start_height << " (" << (ires.height - start_height - 1)
-          << " deep), diff " << chain.difficulty << ": " << chain.block_hash;
+          << " deep), diff " << chain.wide_difficulty << ": " << chain.block_hash;
     }
   }
   else
@@ -1887,7 +1910,7 @@ bool t_rpc_command_executor::alt_chain_info(const std::string &tip, size_t above
       tools::success_msg_writer() << "Found alternate chain with tip " << tip;
       uint64_t start_height = (chain.height - chain.length + 1);
       tools::msg_writer() << chain.length << " blocks long, from height " << start_height << " (" << (ires.height - start_height - 1)
-          << " deep), diff " << chain.difficulty << ":";
+          << " deep), diff " << chain.wide_difficulty << ":";
       for (const std::string &block_id: chain.block_hashes)
         tools::msg_writer() << "  " << block_id;
       tools::msg_writer() << "Chain parent on main chain: " << chain.main_chain_parent_block;
@@ -1991,7 +2014,7 @@ bool t_rpc_command_executor::print_blockchain_dynamic_stats(uint64_t nblocks)
     }
   }
 
-  tools::msg_writer() << "Height: " << ires.height << ", diff " << ires.difficulty << ", cum. diff " << ires.cumulative_difficulty
+  tools::msg_writer() << "Height: " << ires.height << ", diff " << ires.wide_difficulty << ", cum. diff " << ires.wide_cumulative_difficulty
       << ", target " << ires.target << " sec" << ", dyn fee " << cryptonote::print_money(feres.fee) << "/" << (hfres.enabled ? "byte" : "kB");
 
   if (nblocks > 0)
@@ -2018,7 +2041,7 @@ bool t_rpc_command_executor::print_blockchain_dynamic_stats(uint64_t nblocks)
       }
     }
 
-    double avgdiff = 0;
+    cryptonote::difficulty_type avgdiff = 0;
     double avgnumtxes = 0;
     double avgreward = 0;
     std::vector<uint64_t> weights;
@@ -2027,7 +2050,7 @@ bool t_rpc_command_executor::print_blockchain_dynamic_stats(uint64_t nblocks)
     std::vector<unsigned> major_versions(256, 0), minor_versions(256, 0);
     for (const auto &bhr: bhres.headers)
     {
-      avgdiff += bhr.difficulty;
+      avgdiff += cryptonote::difficulty_type(bhr.wide_difficulty);
       avgnumtxes += bhr.num_txes;
       avgreward += bhr.reward;
       weights.push_back(bhr.block_weight);
@@ -2042,7 +2065,7 @@ bool t_rpc_command_executor::print_blockchain_dynamic_stats(uint64_t nblocks)
     avgnumtxes /= nblocks;
     avgreward /= nblocks;
     uint64_t median_block_weight = epee::misc_utils::median(weights);
-    tools::msg_writer() << "Last " << nblocks << ": avg. diff " << (uint64_t)avgdiff << ", " << (latest - earliest) / nblocks << " avg sec/block, avg num txes " << avgnumtxes
+    tools::msg_writer() << "Last " << nblocks << ": avg. diff " << avgdiff << ", " << (latest - earliest) / nblocks << " avg sec/block, avg num txes " << avgnumtxes
         << ", avg. reward " << cryptonote::print_money(avgreward) << ", median block weight " << median_block_weight;
 
     unsigned int max_major = 256, max_minor = 256;
