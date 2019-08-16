@@ -257,95 +257,6 @@ namespace service_nodes
     bool handle_uptime_proof        (cryptonote::NOTIFY_UPTIME_PROOF::request const &proof);
     void record_checkpoint_vote     (crypto::public_key const &pubkey, bool voted);
 
-    // TODO(loki): Remove rollback code once a majority of the network has upgraded, i.e. HF13
-    struct rollback_event
-    {
-      enum rollback_type
-      {
-        change_type,
-        new_type,
-        prevent_type,
-        key_image_blacklist_type,
-        key_image_unlock,
-      };
-
-      rollback_event() = default;
-      rollback_event(uint64_t block_height, rollback_type type);
-      virtual ~rollback_event() { }
-
-      rollback_type type;
-
-      uint64_t m_block_height;
-
-      BEGIN_SERIALIZE()
-        VARINT_FIELD(m_block_height)
-      END_SERIALIZE()
-    };
-
-    struct rollback_change : public rollback_event
-    {
-      rollback_change() { type = change_type; }
-      rollback_change(uint64_t block_height, const crypto::public_key& key, const service_node_info& info);
-      crypto::public_key m_key;
-      service_node_info m_info;
-
-      BEGIN_SERIALIZE()
-        FIELDS(*static_cast<rollback_event *>(this))
-        FIELD(m_key)
-        FIELD(m_info)
-      END_SERIALIZE()
-    };
-
-    struct rollback_new : public rollback_event
-    {
-      rollback_new() { type = new_type; }
-      rollback_new(uint64_t block_height, const crypto::public_key& key);
-      crypto::public_key m_key;
-
-      BEGIN_SERIALIZE()
-        FIELDS(*static_cast<rollback_event *>(this))
-        FIELD(m_key)
-      END_SERIALIZE()
-    };
-
-    struct prevent_rollback : public rollback_event
-    {
-      prevent_rollback() { type = prevent_type; }
-      prevent_rollback(uint64_t block_height);
-
-      BEGIN_SERIALIZE()
-        FIELDS(*static_cast<rollback_event *>(this))
-      END_SERIALIZE()
-    };
-
-    struct rollback_key_image_blacklist : public rollback_event
-    {
-      rollback_key_image_blacklist() { type = key_image_blacklist_type; }
-      rollback_key_image_blacklist(uint64_t block_height, key_image_blacklist_entry const &entry, bool is_adding_to_blacklist);
-
-      key_image_blacklist_entry m_entry;
-      bool m_was_adding_to_blacklist;
-
-      BEGIN_SERIALIZE()
-        FIELDS(*static_cast<rollback_event *>(this))
-        FIELD(m_entry)
-        FIELD(m_was_adding_to_blacklist)
-      END_SERIALIZE()
-    };
-
-    struct rollback_key_image_unlock : public rollback_event
-    {
-      rollback_key_image_unlock() { type = key_image_unlock; }
-      rollback_key_image_unlock(uint64_t block_height, crypto::public_key const &key);
-      crypto::public_key m_key;
-
-      BEGIN_SERIALIZE()
-        FIELDS(*static_cast<rollback_event *>(this))
-        FIELDS(m_key)
-      END_SERIALIZE()
-    };
-    typedef boost::variant<rollback_change, rollback_new, prevent_rollback, rollback_key_image_blacklist, rollback_key_image_unlock> rollback_event_variant;
-
     struct quorum_for_serialization
     {
       uint8_t        version;
@@ -357,25 +268,6 @@ namespace service_nodes
         FIELD(height)
         FIELD_N("obligations_quorum", quorums[static_cast<uint8_t>(quorum_type::obligations)])
         FIELD_N("checkpointing_quorum", quorums[static_cast<uint8_t>(quorum_type::checkpointing)])
-      END_SERIALIZE()
-    };
-
-    struct old_data_members_for_serialization
-    {
-      uint8_t version;
-      uint64_t height;
-      std::vector<quorum_for_serialization> quorum_states;
-      std::vector<service_node_pubkey_info> infos;
-      std::vector<rollback_event_variant> events;
-      std::vector<key_image_blacklist_entry> key_image_blacklist;
-
-      BEGIN_SERIALIZE()
-        VARINT_FIELD(version)
-        FIELD(quorum_states)
-        FIELD(infos)
-        FIELD(events)
-        FIELD(height)
-        FIELD(key_image_blacklist)
       END_SERIALIZE()
     };
 
@@ -521,10 +413,3 @@ namespace service_nodes
   const static std::vector<std::pair<cryptonote::account_public_address, uint64_t>> null_winner =
     {std::pair<cryptonote::account_public_address, uint64_t>({null_address, STAKING_PORTIONS})};
 }
-
-VARIANT_TAG(binary_archive, service_nodes::service_node_list::old_data_members_for_serialization, 0xa0);
-VARIANT_TAG(binary_archive, service_nodes::service_node_list::rollback_change, 0xa1);
-VARIANT_TAG(binary_archive, service_nodes::service_node_list::rollback_new, 0xa2);
-VARIANT_TAG(binary_archive, service_nodes::service_node_list::prevent_rollback, 0xa3);
-VARIANT_TAG(binary_archive, service_nodes::service_node_list::rollback_key_image_blacklist, 0xa4);
-VARIANT_TAG(binary_archive, service_nodes::service_node_list::rollback_key_image_unlock, 0xa5);

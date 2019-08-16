@@ -1532,32 +1532,6 @@ namespace service_nodes
 
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  service_node_list::rollback_event::rollback_event(uint64_t block_height, rollback_type type) : m_block_height(block_height), type(type)
-  {
-  }
-
-  service_node_list::rollback_change::rollback_change(uint64_t block_height, const crypto::public_key& key, const service_node_info& info)
-    : service_node_list::rollback_event(block_height, change_type), m_key(key), m_info(info)
-  {
-  }
-
-  service_node_list::rollback_new::rollback_new(uint64_t block_height, const crypto::public_key& key)
-    : service_node_list::rollback_event(block_height, new_type), m_key(key)
-  {
-  }
-
-  service_node_list::prevent_rollback::prevent_rollback(uint64_t block_height) : service_node_list::rollback_event(block_height, prevent_type) { }
-
-  service_node_list::rollback_key_image_blacklist::rollback_key_image_blacklist(uint64_t block_height, key_image_blacklist_entry const &entry, bool is_adding_to_blacklist)
-    : service_node_list::rollback_event(block_height, key_image_blacklist_type), m_entry(entry), m_was_adding_to_blacklist(is_adding_to_blacklist)
-  {
-  }
-
-  service_node_list::rollback_key_image_unlock::rollback_key_image_unlock(uint64_t block_height, crypto::public_key const &key)
-    : service_node_list::rollback_event(block_height, key_image_unlock), m_key(key)
-  {
-  }
-
   static service_node_list::quorum_for_serialization serialize_quorum_state(uint8_t hf_version, uint64_t height, quorum_manager const &quorums)
   {
     service_node_list::quorum_for_serialization result = {};
@@ -1836,26 +1810,12 @@ namespace service_nodes
     ss << blob;
     binary_archive<false> ba(ss);
 
-    data_for_serialization new_data_in = {};
-    {
-      old_data_members_for_serialization old_data_in = {};
-      bool old_data                                  = false;
-      bool new_data                                  = ::serialization::serialize(ba, new_data_in);
-      if (!new_data)
-      {
-        std::stringstream ss_old;
-        ss_old << blob;
-        binary_archive<false> ba_old(ss_old);
-        old_data = ::serialization::serialize(ba_old, old_data_in);
-      }
+    data_for_serialization data_in = {};
+    bool deserialized                  = ::serialization::serialize(ba, data_in);
+    CHECK_AND_ASSERT_MES(deserialized, false, "Failed to parse service node data from blob");
 
-      CHECK_AND_ASSERT_MES(old_data || new_data, false, "Failed to parse service node data from blob");
-      if (old_data)
-        return false;
-    }
-
-    if (new_data_in.states.empty() ||
-        new_data_in.states[0].version <= state_serialized::version_t::version_0_v404_missing_state_changes)
+    if (data_in.states.empty() ||
+        data_in.states[0].version <= state_serialized::version_t::version_0_v404_missing_state_changes)
     {
       return false;
     }
@@ -1863,7 +1823,7 @@ namespace service_nodes
     {
       const uint64_t hist_state_from_height = current_height - m_store_quorum_history;
       uint64_t last_loaded_height = 0;
-      for (auto &states : new_data_in.quorum_states)
+      for (auto &states : data_in.quorum_states)
       {
         if (states.height < hist_state_from_height)
           continue;
@@ -1883,11 +1843,11 @@ namespace service_nodes
     }
 
     {
-      assert(new_data_in.states.size() > 0);
-      size_t const last_index  = new_data_in.states.size() - 1;
+      assert(data_in.states.size() > 0);
+      size_t const last_index  = data_in.states.size() - 1;
       for (size_t i = 0; i < last_index; i++)
-        m_state_history.emplace_hint(m_state_history.end(), std::move(new_data_in.states[i]));
-      m_state = std::move(new_data_in.states[last_index]);
+        m_state_history.emplace_hint(m_state_history.end(), std::move(data_in.states[i]));
+      m_state = std::move(data_in.states[last_index]);
     }
 
     MGINFO("Service node data loaded successfully, height: " << m_state.height);
