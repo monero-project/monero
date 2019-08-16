@@ -1154,14 +1154,16 @@ namespace service_nodes
         if (it->height % STORE_LONG_TERM_STATE_INTERVAL == 0)
         {
           // Preserve everything
+          m_long_term_states_added_to = true;
         }
         else if (need_quorum_for_future_states)
         {
           // Preserve just quorum
-          state_t &state            = const_cast<state_t &>(*it); // safe: set order only depends on state_t.height
-          state.service_nodes_infos = {};
-          state.key_image_blacklist = {};
-          state.only_loaded_quorums = true;
+          state_t &state              = const_cast<state_t &>(*it); // safe: set order only depends on state_t.height
+          state.service_nodes_infos   = {};
+          state.key_image_blacklist   = {};
+          state.only_loaded_quorums   = true;
+          m_long_term_states_added_to = true;
         }
         else
         {
@@ -1555,41 +1557,73 @@ namespace service_nodes
     if (hf_version < cryptonote::network_version_9_service_nodes)
       return true;
 
-    static data_for_serialization data = {}; // NOTE: Static to avoid constant reallocation
-    data.clear();
-    data.version = data_for_serialization::get_version(hf_version);
+    static data_for_serialization long_term_data  = {}; // NOTE: Static to avoid constant reallocation
+    static data_for_serialization short_term_data = {};
+    data_for_serialization *data[]                = {&long_term_data, &short_term_data};
+    auto const serialize_version                  = data_for_serialization::get_version(hf_version);
+
+    for (data_for_serialization *serialize_entry : data)
+    {
+      if (serialize_entry->version != serialize_version) m_long_term_states_added_to = true;
+      serialize_entry->version = serialize_version;
+      serialize_entry->clear();
+    }
+
     {
       std::lock_guard<boost::recursive_mutex> lock(m_sn_mutex);
-      data.quorum_states.reserve(m_old_quorum_states.size());
+      short_term_data.quorum_states.reserve(m_old_quorum_states.size());
       for (const quorums_by_height &entry : m_old_quorum_states)
-        data.quorum_states.push_back(serialize_quorum_state(hf_version, entry.height, entry.quorums));
+        short_term_data.quorum_states.push_back(serialize_quorum_state(hf_version, entry.height, entry.quorums));
 
-      size_t num_to_reserve = 1; // recent state
-      if (m_state_history.size() > MAX_SHORT_TERM_STATE_HISTORY)
-        num_to_reserve += m_state_history.size() - (MAX_SHORT_TERM_STATE_HISTORY - 1);
-      data.states.reserve(num_to_reserve);
-
-      uint64_t const min_height = m_state.height - MIN_DERIVABLE_SHORT_TERM_STATE_OFFSET;
-      for (auto it : m_state_history)
+      uint64_t const min_short_term_height = m_state.height - MAX_SHORT_TERM_STATE_HISTORY;
+      uint64_t const max_short_term_height = m_state.height - MIN_DERIVABLE_SHORT_TERM_STATE_OFFSET;
+      if (m_long_term_states_added_to)
       {
-        if (it.height > min_height) break;
-        data.states.push_back(serialize_service_node_state_object(hf_version, it));
+        for (auto it : m_state_history)
+        {
+          if (it.height >= min_short_term_height) break;
+          long_term_data.states.push_back(serialize_service_node_state_object(hf_version, it));
+        }
+      }
+
+      for (auto it = m_state_history.lower_bound(min_short_term_height);
+           it != m_state_history.end();
+           it++)
+      {
+        if (it->height > max_short_term_height) break;
+        short_term_data.states.push_back(serialize_service_node_state_object(hf_version, *it));
       }
     }
 
     static std::string blob;
     blob.clear();
+    if (m_long_term_states_added_to)
     {
       std::stringstream ss;
       binary_archive<true> ba(ss);
-
-      bool r = ::serialization::serialize(ba, data);
-      CHECK_AND_ASSERT_MES(r, false, "Failed to store service node info: failed to serialize data");
+      bool r = ::serialization::serialize(ba, long_term_data);
+      CHECK_AND_ASSERT_MES(r, false, "Failed to store service node info: failed to serialize long term data");
       blob.append(ss.str());
+      {
+        cryptonote::db_wtxn_guard txn_guard(m_db);
+        m_db->set_service_node_data(blob, true /*long_term*/);
+      }
     }
 
-    cryptonote::db_wtxn_guard txn_guard(m_db);
-    m_db->set_service_node_data(blob);
+    blob.clear();
+    {
+      std::stringstream ss;
+      binary_archive<true> ba(ss);
+      bool r = ::serialization::serialize(ba, short_term_data);
+      CHECK_AND_ASSERT_MES(r, false, "Failed to store service node info: failed to serialize short term data data");
+      blob.append(ss.str());
+      {
+        cryptonote::db_wtxn_guard txn_guard(m_db);
+        m_db->set_service_node_data(blob, false /*long_term*/);
+      }
+    }
+
+    m_long_term_states_added_to = false;
     return true;
   }
 
@@ -1788,19 +1822,37 @@ namespace service_nodes
       return false;
     }
 
+    // NOTE: Deserialize long term state history
+    uint64_t bytes_loaded = 0;
     cryptonote::db_rtxn_guard txn_guard(m_db);
     std::string blob;
-    if (!m_db->get_service_node_data(blob))
+    if (m_db->get_service_node_data(blob, true /*long_term*/))
     {
-      return false;
+      bytes_loaded += blob.size();
+      LOKI_DEFER { blob.clear(); };
+      std::stringstream ss;
+      ss << blob;
+      binary_archive<false> ba(ss);
+
+      data_for_serialization data_in = {};
+      if (::serialization::serialize(ba, data_in) && data_in.states.size())
+      {
+        for (state_serialized &entry : data_in.states)
+          m_state_history.emplace_hint(m_state_history.end(), std::move(entry));
+      }
     }
 
+    // NOTE: Deserialize short term state history
+    if (!m_db->get_service_node_data(blob, false))
+      return false;
+
+    bytes_loaded += blob.size();
     std::stringstream ss;
     ss << blob;
     binary_archive<false> ba(ss);
 
     data_for_serialization data_in = {};
-    bool deserialized                  = ::serialization::serialize(ba, data_in);
+    bool deserialized              = ::serialization::serialize(ba, data_in);
     CHECK_AND_ASSERT_MES(deserialized, false, "Failed to parse service node data from blob");
 
     if (data_in.states.empty())
@@ -1839,7 +1891,7 @@ namespace service_nodes
     MGINFO("Service node data loaded successfully, height: " << m_state.height);
     MGINFO(m_state.service_nodes_infos.size()
            << " nodes and " << m_state_history.size() << " historical states loaded ("
-           << tools::get_human_readable_bytes(blob.size()) << ")");
+           << tools::get_human_readable_bytes(bytes_loaded) << ")");
 
     LOG_PRINT_L1("service_node_list::load() returning success");
     return true;

@@ -453,8 +453,8 @@ private:
   void cleanup_batch();
 
   bool get_block_checkpoint_internal(uint64_t height, checkpoint_t &checkpoint, MDB_cursor_op op) const;
-  void set_service_node_data(const std::string& data) override;
-  bool get_service_node_data(std::string& data) override;
+  void set_service_node_data(const std::string& data, bool long_term) override;
+  bool get_service_node_data(std::string& data, bool long_term) override;
   void clear_service_node_data() override;
 
 private:
