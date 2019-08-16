@@ -273,13 +273,8 @@ namespace service_nodes
 
     struct state_serialized
     {
-      enum struct version_t
-      {
-        version_0_v404_missing_state_changes,
-        version_1_required_quorums_for_skipped_state_changes,
-        count,
-      };
-      static version_t get_version(uint8_t /*hf_version*/) { return version_t::version_1_required_quorums_for_skipped_state_changes; }
+      enum struct version_t { version_0, count, };
+      static version_t get_version(uint8_t /*hf_version*/) { return version_t::version_0; }
 
       version_t                              version;
       uint64_t                               height;
@@ -300,13 +295,8 @@ namespace service_nodes
 
     struct data_for_serialization
     {
-      enum struct version_t
-      {
-        version_0_v404_missing_state_changes,
-        version_1_store_historic_states_separate,
-        count,
-      };
-      static version_t get_version(uint8_t /*hf_version*/) { return version_t::version_1_store_historic_states_separate; }
+      enum struct version_t { version_0, count, };
+      static version_t get_version(uint8_t /*hf_version*/) { return version_t::version_0; }
 
       version_t version;
       std::vector<quorum_for_serialization> quorum_states;

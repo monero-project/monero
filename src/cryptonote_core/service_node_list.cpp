@@ -1803,11 +1803,8 @@ namespace service_nodes
     bool deserialized                  = ::serialization::serialize(ba, data_in);
     CHECK_AND_ASSERT_MES(deserialized, false, "Failed to parse service node data from blob");
 
-    if (data_in.states.empty() ||
-        data_in.states[0].version <= state_serialized::version_t::version_0_v404_missing_state_changes)
-    {
+    if (data_in.states.empty())
       return false;
-    }
 
     {
       const uint64_t hist_state_from_height = current_height - m_store_quorum_history;
