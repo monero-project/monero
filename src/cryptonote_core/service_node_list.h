@@ -239,6 +239,7 @@ namespace service_nodes
     /// do no subtract off the buffer in advance)
     /// return: nullptr if the quorum is not cached in memory (pruned from memory).
     std::shared_ptr<const testing_quorum> get_testing_quorum(quorum_type type, uint64_t height, bool include_old = false) const;
+    quorum_manager                        get_quorum_manager(uint64_t height, bool include_old = false) const;
     bool                                  get_quorum_pubkey(quorum_type type, quorum_group group, uint64_t height, size_t quorum_index, crypto::public_key &key) const;
 
     std::vector<service_node_pubkey_info> get_service_node_list_state(const std::vector<crypto::public_key> &service_node_pubkeys) const;
@@ -380,30 +381,48 @@ namespace service_nodes
 
     struct state_serialized
     {
-      uint8_t                                version;
+      enum struct version_t
+      {
+        version_0_v404_missing_state_changes,
+        version_1_required_quorums_for_skipped_state_changes,
+        count,
+      };
+      static version_t get_version(uint8_t /*hf_version*/) { return version_t::version_1_required_quorums_for_skipped_state_changes; }
+
+      version_t                              version;
       uint64_t                               height;
       std::vector<service_node_pubkey_info>  infos;
       std::vector<key_image_blacklist_entry> key_image_blacklist;
       quorum_for_serialization               quorums;
+      bool                                   only_stored_quorums;
 
       BEGIN_SERIALIZE()
-        VARINT_FIELD(version)
+        ENUM_FIELD(version, version < version_t::count)
         VARINT_FIELD(height)
         FIELD(infos)
         FIELD(key_image_blacklist)
         FIELD(quorums)
+        FIELD(only_stored_quorums)
       END_SERIALIZE()
     };
 
     struct data_for_serialization
     {
-      uint8_t version;
+      enum struct version_t
+      {
+        version_0_v404_missing_state_changes,
+        version_1_store_historic_states_separate,
+        count,
+      };
+      static version_t get_version(uint8_t /*hf_version*/) { return version_t::version_1_store_historic_states_separate; }
+
+      version_t version;
       std::vector<quorum_for_serialization> quorum_states;
       std::vector<state_serialized>         states;
-      void clear() { quorum_states.clear(); states.clear(); version = 0; }
+      void clear() { quorum_states.clear(); states.clear(); version = {}; }
 
       BEGIN_SERIALIZE()
-        VARINT_FIELD(version)
+        ENUM_FIELD(version, version < version_t::count)
         FIELD(quorum_states)
         FIELD(states)
       END_SERIALIZE()
@@ -412,25 +431,11 @@ namespace service_nodes
     using block_height = uint64_t;
     struct state_t
     {
-      // TODO(loki): Remove after we HF13 and can be sure that everyone has
-      // upgraded to the new blob serialization style where we store quorums
-      // with state_t instead of individually.
-
-      // So do this hackily if there are no service nodes infos stored then we
-      // presume it's been migrated from v4.0.3 blobs which only preserved
-      // historical quorums. Deriving this without a new variable means we don't
-      // have to serialise new data between saves and loads and reduces the
-      // temporary code we need to manage to get this working satisfactorily.
-
-      // These state_t's will only have loaded data about quorums and height.
-      // Everything else is missing, so if something tries to access the info or
-      // blacklist then we know we have to trigger a rescan.
-      bool is_migrated_from_v403() const { return service_nodes_infos.empty(); }
-
-      service_nodes_infos_t service_nodes_infos;
+      bool                                   only_loaded_quorums;
+      service_nodes_infos_t                  service_nodes_infos;
       std::vector<key_image_blacklist_entry> key_image_blacklist;
       block_height                           height{0};
-      mutable quorum_manager                 quorums; // Mutable because we are allowed to (and need to) change it via std::set iterator
+      mutable quorum_manager                 quorums;          // Mutable because we are allowed to (and need to) change it via std::set iterator
 
       state_t() = default;
       state_t(block_height height) : height{height} {}
@@ -482,9 +487,9 @@ namespace service_nodes
         constexpr bool operator()(const state_t &lhs, const state_t &rhs) const { return lhs.height < rhs.height; }
     };
 
-    std::deque<quorums_by_height>   m_old_quorum_states; // Store all old quorum history only if run with --store-full-quorum-history
-    std::set<state_t, state_t_less> m_state_history;
-    state_t                         m_state;
+    std::deque<quorums_by_height>          m_old_quorum_states; // Store all old quorum history only if run with --store-full-quorum-history
+    std::set<state_t, state_t_less>        m_state_history;
+    state_t                                m_state;
   };
 
   bool reg_tx_extract_fields(const cryptonote::transaction& tx, std::vector<cryptonote::account_public_address>& addresses, uint64_t& portions_for_operator, std::vector<uint64_t>& portions, uint64_t& expiration_timestamp, crypto::public_key& service_node_key, crypto::signature& signature, crypto::public_key& tx_pub_key);
