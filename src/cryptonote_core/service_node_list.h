@@ -41,12 +41,16 @@ namespace service_nodes
 {
   struct proof_info
   {
-    uint64_t timestamp     = 0;
+    uint64_t timestamp           = 0; // The actual time we last received an uptime proof
+    uint64_t effective_timestamp = 0; // Typically the same, but on recommissions it is set to the recommission block time to fend off instant obligation checks
     uint16_t version_major = 0, version_minor = 0, version_patch = 0;
     std::array<bool, CHECKPOINT_MIN_QUORUMS_NODE_MUST_VOTE_IN_BEFORE_DEREGISTER_CHECK> votes;
     uint8_t vote_index = 0;
     std::array<std::pair<uint32_t, uint64_t>, 2> public_ips = {}; // (not serialized)
     proof_info() { votes.fill(true); }
+
+    // Called to update both actual and effective timestamp, i.e. when a proof is received
+    void update_timestamp(uint64_t ts) { timestamp = ts; effective_timestamp = ts; }
 
     // Unlike the above, these two *do* get serialized, but directly from state_t rather than as a subobject:
     uint32_t public_ip;
@@ -452,7 +456,7 @@ namespace service_nodes
     // Returns true if there was a successful contribution that fully funded a service node:
     bool process_contribution_tx(const cryptonote::transaction& tx, uint64_t block_height, uint32_t index);
     // Returns true if a service node changed state (deregistered, decommissioned, or recommissioned)
-    bool process_state_change_tx(const cryptonote::transaction& tx, uint64_t block_height);
+    bool process_state_change_tx(const cryptonote::transaction& tx, const cryptonote::block& block);
     void process_block(const cryptonote::block& block, const std::vector<cryptonote::transaction>& txs);
     void update_swarms(uint64_t height);
 
