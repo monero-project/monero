@@ -197,19 +197,8 @@ namespace service_nodes
         result_ptr = &it->quorums;
     }
 
-    quorum_manager empty_result = {};
-    if (!result_ptr) result_ptr = &empty_result;
-
-    return *result_ptr;
-  }
-
-  std::shared_ptr<const testing_quorum> service_node_list::get_testing_quorum(quorum_type type, uint64_t height, bool include_old) const
-  {
-    if (type == quorum_type::checkpointing) {
-        if (height < REORG_SAFETY_BUFFER_BLOCKS_POST_HF12)
-            return nullptr;
-        height -= REORG_SAFETY_BUFFER_BLOCKS_POST_HF12;
-    }
+    if (!quorums)
+        return nullptr;
 
     quorum_manager quorums = get_quorum_manager(height, include_old);
     if (type == quorum_type::obligations)
