@@ -1446,7 +1446,7 @@ namespace service_nodes
 
     crypto::public_key check_winner_pubkey = cryptonote::get_service_node_winner_from_tx_extra(miner_tx.extra);
     if (check_winner_pubkey != winner) {
-      MERROR("Service node reward winner is incorrect");
+      MERROR("Service node reward winner is incorrect! Expected " << winner << ", block has " << check_winner_pubkey);
       return false;
     }
 
