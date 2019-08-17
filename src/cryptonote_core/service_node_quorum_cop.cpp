@@ -63,7 +63,7 @@ namespace service_nodes
     service_node_test_results result; // Defaults to true for individual tests
     uint64_t now                          = time(nullptr);
     proof_info const &proof               = *info.proof;
-    uint64_t time_since_last_uptime_proof = now - proof.timestamp;
+    uint64_t time_since_last_uptime_proof = now - std::max(proof.timestamp, proof.effective_timestamp);
 
     bool check_uptime_obligation     = true;
     bool check_checkpoint_obligation = true;
