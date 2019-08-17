@@ -78,6 +78,12 @@ class BlockchainTest():
         except: ok = True
         assert ok
 
+        res = daemon.get_fee_estimate()
+        assert res.fee == 234562
+        assert res.quantization_mask == 10000
+        res = daemon.get_fee_estimate(10)
+        assert res.fee <= 234562
+
         # generate blocks
         res_generateblocks = daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', blocks)
 
@@ -228,6 +234,12 @@ class BlockchainTest():
             assert res.histogram[i].total_instances in [height + nblocks - 2, 1]
             assert res.histogram[i].unlocked_instances == 0
             assert res.histogram[i].recent_instances == 0
+
+        res = daemon.get_fee_estimate()
+        assert res.fee == 234560
+        assert res.quantization_mask == 10000
+        res = daemon.get_fee_estimate(10)
+        assert res.fee <= 234560
 
     def _test_alt_chains(self):
         print('Testing alt chains')
