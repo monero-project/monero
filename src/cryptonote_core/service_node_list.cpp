@@ -392,11 +392,12 @@ namespace service_nodes
     return *new_ptr;
   }
 
-  bool service_node_list::process_state_change_tx(const cryptonote::transaction& tx, uint64_t block_height)
+  bool service_node_list::process_state_change_tx(const cryptonote::transaction& tx, const cryptonote::block& block)
   {
     if (tx.type != cryptonote::txtype::state_change)
       return false;
 
+    uint64_t block_height = cryptonote::get_block_height(block);
     uint8_t hard_fork_version = m_blockchain.get_hard_fork_version(block_height);
 
     cryptonote::tx_extra_service_node_state_change state_change;
@@ -463,7 +464,7 @@ namespace service_nodes
         info.last_decommission_height = block_height;
         info.decommission_count++;
 
-        info.proof->timestamp = 0;
+        info.proof->update_timestamp(0);
         return true;
 
       case new_state::recommission:
@@ -492,8 +493,10 @@ namespace service_nodes
         // node has a recent uptime atleast for it to be recommissioned not
         // necessarily the entire network. Ensure the entire network agrees
         // simultaneously they are online if we are recommissioning by resetting
-        // the failure conditions.
-        info.proof->timestamp = time(nullptr);
+        // the failure conditions.  We set only the effective but not *actual*
+        // timestamp so that we delay obligations checks but don't prevent the
+        // next actual proof from being sent/relayed.
+        info.proof->effective_timestamp = block.timestamp;
         info.proof->votes.fill(true);
         return true;
 
@@ -1216,7 +1219,7 @@ namespace service_nodes
       }
       else if (tx.type == cryptonote::txtype::state_change)
       {
-        need_swarm_update += process_state_change_tx(tx, block_height);
+        need_swarm_update += process_state_change_tx(tx, block);
       }
       else if (tx.type == cryptonote::txtype::key_image_unlock)
       {
@@ -1729,7 +1732,7 @@ namespace service_nodes
 
     LOG_PRINT_L2("Accepted uptime proof from " << proof.pubkey);
     auto &iproof = *info.proof;
-    iproof.timestamp     = now;
+    iproof.update_timestamp(now);
     iproof.version_major = proof.snode_version_major;
     iproof.version_minor = proof.snode_version_minor;
     iproof.version_patch = proof.snode_version_patch;
