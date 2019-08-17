@@ -239,7 +239,6 @@ namespace service_nodes
     /// do no subtract off the buffer in advance)
     /// return: nullptr if the quorum is not cached in memory (pruned from memory).
     std::shared_ptr<const testing_quorum> get_testing_quorum(quorum_type type, uint64_t height, bool include_old = false) const;
-    quorum_manager                        get_quorum_manager(uint64_t height, bool include_old = false) const;
     bool                                  get_quorum_pubkey(quorum_type type, quorum_group group, uint64_t height, size_t quorum_index, crypto::public_key &key) const;
 
     std::vector<service_node_pubkey_info> get_service_node_list_state(const std::vector<crypto::public_key> &service_node_pubkeys) const;
@@ -273,7 +272,7 @@ namespace service_nodes
 
     struct state_serialized
     {
-      enum struct version_t { version_0, count, };
+      enum struct version_t : uint8_t { version_0, count, };
       static version_t get_version(uint8_t /*hf_version*/) { return version_t::version_0; }
 
       version_t                              version;
@@ -295,7 +294,7 @@ namespace service_nodes
 
     struct data_for_serialization
     {
-      enum struct version_t { version_0, count, };
+      enum struct version_t : uint8_t { version_0, count, };
       static version_t get_version(uint8_t /*hf_version*/) { return version_t::version_0; }
 
       version_t version;
@@ -372,7 +371,11 @@ namespace service_nodes
     std::deque<quorums_by_height>          m_old_quorum_states; // Store all old quorum history only if run with --store-full-quorum-history
     std::set<state_t, state_t_less>        m_state_history;
     state_t                                m_state;
+
     bool                                   m_long_term_states_added_to;
+    data_for_serialization                 m_cache_long_term_data;
+    data_for_serialization                 m_cache_short_term_data;
+    std::string                            m_cache_data_blob;
   };
 
   bool reg_tx_extract_fields(const cryptonote::transaction& tx, std::vector<cryptonote::account_public_address>& addresses, uint64_t& portions_for_operator, std::vector<uint64_t>& portions, uint64_t& expiration_timestamp, crypto::public_key& service_node_key, crypto::signature& signature, crypto::public_key& tx_pub_key);
