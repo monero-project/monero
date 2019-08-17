@@ -92,6 +92,11 @@ namespace service_nodes {
 
   constexpr uint64_t STATE_CHANGE_TX_LIFETIME_IN_BLOCKS = VOTE_LIFETIME;
 
+  // If we get an incoming vote of state change tx that is outside the acceptable range by this many
+  // blocks then ignore it but don't trigger a connection drop; the sending side could be a couple
+  // blocks out of sync and sending something that it thinks is legit.
+  constexpr uint64_t VOTE_OR_TX_VERIFY_HEIGHT_BUFFER    = 5;
+
   using swarm_id_t                         = uint64_t;
   constexpr swarm_id_t UNASSIGNED_SWARM_ID = UINT64_MAX;
 

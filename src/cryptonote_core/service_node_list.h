@@ -260,95 +260,6 @@ namespace service_nodes
     bool handle_uptime_proof        (cryptonote::NOTIFY_UPTIME_PROOF::request const &proof);
     void record_checkpoint_vote     (crypto::public_key const &pubkey, bool voted);
 
-    // TODO(loki): Remove rollback code once a majority of the network has upgraded, i.e. HF13
-    struct rollback_event
-    {
-      enum rollback_type
-      {
-        change_type,
-        new_type,
-        prevent_type,
-        key_image_blacklist_type,
-        key_image_unlock,
-      };
-
-      rollback_event() = default;
-      rollback_event(uint64_t block_height, rollback_type type);
-      virtual ~rollback_event() { }
-
-      rollback_type type;
-
-      uint64_t m_block_height;
-
-      BEGIN_SERIALIZE()
-        VARINT_FIELD(m_block_height)
-      END_SERIALIZE()
-    };
-
-    struct rollback_change : public rollback_event
-    {
-      rollback_change() { type = change_type; }
-      rollback_change(uint64_t block_height, const crypto::public_key& key, const service_node_info& info);
-      crypto::public_key m_key;
-      service_node_info m_info;
-
-      BEGIN_SERIALIZE()
-        FIELDS(*static_cast<rollback_event *>(this))
-        FIELD(m_key)
-        FIELD(m_info)
-      END_SERIALIZE()
-    };
-
-    struct rollback_new : public rollback_event
-    {
-      rollback_new() { type = new_type; }
-      rollback_new(uint64_t block_height, const crypto::public_key& key);
-      crypto::public_key m_key;
-
-      BEGIN_SERIALIZE()
-        FIELDS(*static_cast<rollback_event *>(this))
-        FIELD(m_key)
-      END_SERIALIZE()
-    };
-
-    struct prevent_rollback : public rollback_event
-    {
-      prevent_rollback() { type = prevent_type; }
-      prevent_rollback(uint64_t block_height);
-
-      BEGIN_SERIALIZE()
-        FIELDS(*static_cast<rollback_event *>(this))
-      END_SERIALIZE()
-    };
-
-    struct rollback_key_image_blacklist : public rollback_event
-    {
-      rollback_key_image_blacklist() { type = key_image_blacklist_type; }
-      rollback_key_image_blacklist(uint64_t block_height, key_image_blacklist_entry const &entry, bool is_adding_to_blacklist);
-
-      key_image_blacklist_entry m_entry;
-      bool m_was_adding_to_blacklist;
-
-      BEGIN_SERIALIZE()
-        FIELDS(*static_cast<rollback_event *>(this))
-        FIELD(m_entry)
-        FIELD(m_was_adding_to_blacklist)
-      END_SERIALIZE()
-    };
-
-    struct rollback_key_image_unlock : public rollback_event
-    {
-      rollback_key_image_unlock() { type = key_image_unlock; }
-      rollback_key_image_unlock(uint64_t block_height, crypto::public_key const &key);
-      crypto::public_key m_key;
-
-      BEGIN_SERIALIZE()
-        FIELDS(*static_cast<rollback_event *>(this))
-        FIELDS(m_key)
-      END_SERIALIZE()
-    };
-    typedef boost::variant<rollback_change, rollback_new, prevent_rollback, rollback_key_image_blacklist, rollback_key_image_unlock> rollback_event_variant;
-
     struct quorum_for_serialization
     {
       uint8_t        version;
@@ -363,51 +274,40 @@ namespace service_nodes
       END_SERIALIZE()
     };
 
-    struct old_data_members_for_serialization
-    {
-      uint8_t version;
-      uint64_t height;
-      std::vector<quorum_for_serialization> quorum_states;
-      std::vector<service_node_pubkey_info> infos;
-      std::vector<rollback_event_variant> events;
-      std::vector<key_image_blacklist_entry> key_image_blacklist;
-
-      BEGIN_SERIALIZE()
-        VARINT_FIELD(version)
-        FIELD(quorum_states)
-        FIELD(infos)
-        FIELD(events)
-        FIELD(height)
-        FIELD(key_image_blacklist)
-      END_SERIALIZE()
-    };
-
     struct state_serialized
     {
-      uint8_t                                version;
+      enum struct version_t : uint8_t { version_0, count, };
+      static version_t get_version(uint8_t /*hf_version*/) { return version_t::version_0; }
+
+      version_t                              version;
       uint64_t                               height;
       std::vector<service_node_pubkey_info>  infos;
       std::vector<key_image_blacklist_entry> key_image_blacklist;
       quorum_for_serialization               quorums;
+      bool                                   only_stored_quorums;
 
       BEGIN_SERIALIZE()
-        VARINT_FIELD(version)
+        ENUM_FIELD(version, version < version_t::count)
         VARINT_FIELD(height)
         FIELD(infos)
         FIELD(key_image_blacklist)
         FIELD(quorums)
+        FIELD(only_stored_quorums)
       END_SERIALIZE()
     };
 
     struct data_for_serialization
     {
-      uint8_t version;
+      enum struct version_t : uint8_t { version_0, count, };
+      static version_t get_version(uint8_t /*hf_version*/) { return version_t::version_0; }
+
+      version_t version;
       std::vector<quorum_for_serialization> quorum_states;
       std::vector<state_serialized>         states;
-      void clear() { quorum_states.clear(); states.clear(); version = 0; }
+      void clear() { quorum_states.clear(); states.clear(); version = {}; }
 
       BEGIN_SERIALIZE()
-        VARINT_FIELD(version)
+        ENUM_FIELD(version, version < version_t::count)
         FIELD(quorum_states)
         FIELD(states)
       END_SERIALIZE()
@@ -416,25 +316,11 @@ namespace service_nodes
     using block_height = uint64_t;
     struct state_t
     {
-      // TODO(loki): Remove after we HF13 and can be sure that everyone has
-      // upgraded to the new blob serialization style where we store quorums
-      // with state_t instead of individually.
-
-      // So do this hackily if there are no service nodes infos stored then we
-      // presume it's been migrated from v4.0.3 blobs which only preserved
-      // historical quorums. Deriving this without a new variable means we don't
-      // have to serialise new data between saves and loads and reduces the
-      // temporary code we need to manage to get this working satisfactorily.
-
-      // These state_t's will only have loaded data about quorums and height.
-      // Everything else is missing, so if something tries to access the info or
-      // blacklist then we know we have to trigger a rescan.
-      bool is_migrated_from_v403() const { return service_nodes_infos.empty(); }
-
-      service_nodes_infos_t service_nodes_infos;
+      bool                                   only_loaded_quorums;
+      service_nodes_infos_t                  service_nodes_infos;
       std::vector<key_image_blacklist_entry> key_image_blacklist;
       block_height                           height{0};
-      mutable quorum_manager                 quorums; // Mutable because we are allowed to (and need to) change it via std::set iterator
+      mutable quorum_manager                 quorums;          // Mutable because we are allowed to (and need to) change it via std::set iterator
 
       state_t() = default;
       state_t(block_height height) : height{height} {}
@@ -486,9 +372,14 @@ namespace service_nodes
         constexpr bool operator()(const state_t &lhs, const state_t &rhs) const { return lhs.height < rhs.height; }
     };
 
-    std::deque<quorums_by_height>   m_old_quorum_states; // Store all old quorum history only if run with --store-full-quorum-history
-    std::set<state_t, state_t_less> m_state_history;
-    state_t                         m_state;
+    std::deque<quorums_by_height>          m_old_quorum_states; // Store all old quorum history only if run with --store-full-quorum-history
+    std::set<state_t, state_t_less>        m_state_history;
+    state_t                                m_state;
+
+    bool                                   m_long_term_states_added_to;
+    data_for_serialization                 m_cache_long_term_data;
+    data_for_serialization                 m_cache_short_term_data;
+    std::string                            m_cache_data_blob;
   };
 
   bool reg_tx_extract_fields(const cryptonote::transaction& tx, std::vector<cryptonote::account_public_address>& addresses, uint64_t& portions_for_operator, std::vector<uint64_t>& portions, uint64_t& expiration_timestamp, crypto::public_key& service_node_key, crypto::signature& signature, crypto::public_key& tx_pub_key);
@@ -520,10 +411,3 @@ namespace service_nodes
   const static std::vector<std::pair<cryptonote::account_public_address, uint64_t>> null_winner =
     {std::pair<cryptonote::account_public_address, uint64_t>({null_address, STAKING_PORTIONS})};
 }
-
-VARIANT_TAG(binary_archive, service_nodes::service_node_list::old_data_members_for_serialization, 0xa0);
-VARIANT_TAG(binary_archive, service_nodes::service_node_list::rollback_change, 0xa1);
-VARIANT_TAG(binary_archive, service_nodes::service_node_list::rollback_new, 0xa2);
-VARIANT_TAG(binary_archive, service_nodes::service_node_list::prevent_rollback, 0xa3);
-VARIANT_TAG(binary_archive, service_nodes::service_node_list::rollback_key_image_blacklist, 0xa4);
-VARIANT_TAG(binary_archive, service_nodes::service_node_list::rollback_key_image_unlock, 0xa5);

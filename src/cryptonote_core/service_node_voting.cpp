@@ -131,11 +131,6 @@ namespace service_nodes
     return true;
   }
 
-  // If we get an incoming vote of state change tx that is outside the acceptable range by this many
-  // blocks then ignore it but don't trigger a connection drop; the sending side could be a couple
-  // blocks out of sync and sending something that it thinks is legit.
-  constexpr uint64_t VERIFY_HEIGHT_BUFFER = 5;
-
   static bool bad_tx(cryptonote::tx_verification_context &tvc) {
     tvc.m_verifivation_failed = true;
     return false;
@@ -185,7 +180,7 @@ namespace service_nodes
                      << ", is newer than current height: " << latest_height
                      << " blocks and has been rejected.");
         vvc.m_invalid_block_height = true;
-        if (state_change.block_height >= latest_height + VERIFY_HEIGHT_BUFFER)
+        if (state_change.block_height >= latest_height + VOTE_OR_TX_VERIFY_HEIGHT_BUFFER)
           tvc.m_verifivation_failed = true;
         return false;
       }
@@ -198,7 +193,7 @@ namespace service_nodes
                      << " (current height: " << latest_height << ") "
                      << "blocks and has been rejected.");
         vvc.m_invalid_block_height = true;
-        if (latest_height >= state_change.block_height + (service_nodes::STATE_CHANGE_TX_LIFETIME_IN_BLOCKS + VERIFY_HEIGHT_BUFFER))
+        if (latest_height >= state_change.block_height + (service_nodes::STATE_CHANGE_TX_LIFETIME_IN_BLOCKS + VOTE_OR_TX_VERIFY_HEIGHT_BUFFER))
           tvc.m_verifivation_failed = true;
         return false;
       }
@@ -309,14 +304,14 @@ namespace service_nodes
     bool height_in_buffer = false;
     if (latest_height > vote.block_height + VOTE_LIFETIME)
     {
-      height_in_buffer = latest_height <= vote.block_height + (VOTE_LIFETIME + VERIFY_HEIGHT_BUFFER);
+      height_in_buffer = latest_height <= vote.block_height + (VOTE_LIFETIME + VOTE_OR_TX_VERIFY_HEIGHT_BUFFER);
       LOG_PRINT_L1("Received vote for height: " << vote.block_height << ", is older than: " << VOTE_LIFETIME
                                                 << " blocks and has been rejected.");
       vvc.m_invalid_block_height = true;
     }
     else if (vote.block_height > latest_height)
     {
-      height_in_buffer = vote.block_height <= latest_height + VERIFY_HEIGHT_BUFFER;
+      height_in_buffer = vote.block_height <= latest_height + VOTE_OR_TX_VERIFY_HEIGHT_BUFFER;
       LOG_PRINT_L1("Received vote for height: " << vote.block_height << ", is newer than: " << latest_height
                                                 << " (latest block height) and has been rejected.");
       vvc.m_invalid_block_height = true;

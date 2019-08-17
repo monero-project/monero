@@ -1145,13 +1145,32 @@ namespace service_nodes
     {
       uint64_t cull_height = (block_height < MAX_SHORT_TERM_STATE_HISTORY) ? 0 : block_height - MAX_SHORT_TERM_STATE_HISTORY;
       auto it = m_state_history.find(cull_height);
-
-      // TODO(loki): Don't keep state migrated from serialized v4.0.3s since they are incomplete. Remove after everyone has upgraded
-      if (it != m_state_history.end() && (it->height % STORE_LONG_TERM_STATE_INTERVAL != 0 || it->is_migrated_from_v403()))
+      if (it != m_state_history.end())
       {
-        if (m_store_quorum_history)
-          m_old_quorum_states.emplace_back(it->height, it->quorums);
-        it = m_state_history.erase(it);
+        uint64_t next_long_term_state         = ((it->height / STORE_LONG_TERM_STATE_INTERVAL) + 1) * STORE_LONG_TERM_STATE_INTERVAL;
+        uint64_t dist_to_next_long_term_state = next_long_term_state - it->height;
+        bool need_quorum_for_future_states    = (dist_to_next_long_term_state <= VOTE_LIFETIME + VOTE_OR_TX_VERIFY_HEIGHT_BUFFER);
+
+        if (it->height % STORE_LONG_TERM_STATE_INTERVAL == 0)
+        {
+          // Preserve everything
+          m_long_term_states_added_to = true;
+        }
+        else if (need_quorum_for_future_states)
+        {
+          // Preserve just quorum
+          state_t &state              = const_cast<state_t &>(*it); // safe: set order only depends on state_t.height
+          state.service_nodes_infos   = {};
+          state.key_image_blacklist   = {};
+          state.only_loaded_quorums   = true;
+          m_long_term_states_added_to = true;
+        }
+        else
+        {
+          if (m_store_quorum_history)
+            m_old_quorum_states.emplace_back(it->height, it->quorums);
+          it = m_state_history.erase(it);
+        }
       }
 
       if (m_old_quorum_states.size() > m_store_quorum_history)
@@ -1279,35 +1298,32 @@ namespace service_nodes
     if (m_state.height == height)
       return;
 
-    auto it = m_state_history.lower_bound(height);
-
     bool reinitialise = false;
-    if (it == m_state_history.end())
-      reinitialise = true;
-    else
     {
-      m_state_history.erase(it, m_state_history.end());
-      // TODO(loki): If historical state is serialized from v4.0.3 they are incomplete, need a full rescan. Delete code block after everyone has upgraded
-      if (m_state_history.size()) {
-        auto &latest = *m_state_history.rbegin();
-        reinitialise = (latest.is_migrated_from_v403() || latest.height > height);
-      }
-      else
-        reinitialise = true;
+      auto it = m_state_history.find(height); // Try finding detached height directly
+      reinitialise = (it == m_state_history.end() || it->only_loaded_quorums);
+      if (!reinitialise)
+        m_state_history.erase(std::next(it), m_state_history.end());
     }
 
-    if (reinitialise)
+    // TODO(loki): We should loop through the prev 10k heights for robustness, but avoid for v4.0.5. Already enough changes going in
+    if (reinitialise) // Try finding the next closest old state at 10k intervals
     {
-      // TODO(loki): If historical state is serialized from v4.0.3 they are incomplete, need a full rescan. Delete code block after everyone has upgraded
-      if (m_state_history.size() && m_state_history.rbegin()->is_migrated_from_v403())
-        reset(true);
+      uint64_t prev_interval = height - (height % STORE_LONG_TERM_STATE_INTERVAL);
+      auto it                = m_state_history.find(prev_interval);
+      reinitialise           = (it == m_state_history.end() || it->only_loaded_quorums);
+      if (!reinitialise)
+        m_state_history.erase(std::next(it), m_state_history.end());
+    }
 
+    if (m_state_history.empty() || reinitialise)
+    {
       m_state_history.clear();
       init();
       return;
     }
 
-    it = std::prev(m_state_history.end());
+    auto it = std::prev(m_state_history.end());
     m_state = std::move(*it);
     m_state_history.erase(it);
 
@@ -1496,54 +1512,31 @@ namespace service_nodes
 
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  service_node_list::rollback_event::rollback_event(uint64_t block_height, rollback_type type) : m_block_height(block_height), type(type)
-  {
-  }
-
-  service_node_list::rollback_change::rollback_change(uint64_t block_height, const crypto::public_key& key, const service_node_info& info)
-    : service_node_list::rollback_event(block_height, change_type), m_key(key), m_info(info)
-  {
-  }
-
-  service_node_list::rollback_new::rollback_new(uint64_t block_height, const crypto::public_key& key)
-    : service_node_list::rollback_event(block_height, new_type), m_key(key)
-  {
-  }
-
-  service_node_list::prevent_rollback::prevent_rollback(uint64_t block_height) : service_node_list::rollback_event(block_height, prevent_type) { }
-
-  service_node_list::rollback_key_image_blacklist::rollback_key_image_blacklist(uint64_t block_height, key_image_blacklist_entry const &entry, bool is_adding_to_blacklist)
-    : service_node_list::rollback_event(block_height, key_image_blacklist_type), m_entry(entry), m_was_adding_to_blacklist(is_adding_to_blacklist)
-  {
-  }
-
-  service_node_list::rollback_key_image_unlock::rollback_key_image_unlock(uint64_t block_height, crypto::public_key const &key)
-    : service_node_list::rollback_event(block_height, key_image_unlock), m_key(key)
-  {
-  }
-
   static service_node_list::quorum_for_serialization serialize_quorum_state(uint8_t hf_version, uint64_t height, quorum_manager const &quorums)
   {
     service_node_list::quorum_for_serialization result = {};
-    result.version                                     = get_min_service_node_info_version_for_hf(hf_version);
     result.height                                      = height;
     if (quorums.obligations)   result.quorums[static_cast<uint8_t>(quorum_type::obligations)] = *quorums.obligations;
     if (quorums.checkpointing) result.quorums[static_cast<uint8_t>(quorum_type::checkpointing)] = *quorums.checkpointing;
     return result;
   }
 
-  static service_node_list::state_serialized serialize_service_node_state_object(uint8_t hf_version, service_node_list::state_t const &state)
+  static service_node_list::state_serialized serialize_service_node_state_object(uint8_t hf_version, service_node_list::state_t const &state, bool only_serialize_quorums = false)
   {
     service_node_list::state_serialized result = {};
-    result.version                             = get_min_service_node_info_version_for_hf(hf_version);
+    result.version                             = service_node_list::state_serialized::get_version(hf_version);
+    result.height                              = state.height;
+    result.quorums                             = serialize_quorum_state(hf_version, state.height, state.quorums);
+    result.only_stored_quorums                 = state.only_loaded_quorums || only_serialize_quorums;
+
+    if (only_serialize_quorums)
+     return result;
 
     result.infos.reserve(state.service_nodes_infos.size());
     for (const auto &kv_pair : state.service_nodes_infos)
       result.infos.emplace_back(kv_pair);
 
     result.key_image_blacklist = state.key_image_blacklist;
-    result.height              = state.height;
-    result.quorums             = serialize_quorum_state(hf_version, state.height, state.quorums);
     return result;
   }
 
@@ -1556,59 +1549,77 @@ namespace service_nodes
     if (hf_version < cryptonote::network_version_9_service_nodes)
       return true;
 
-    static data_for_serialization data = {}; // NOTE: Static to avoid constant reallocation
-    data.clear();
-    data.version = get_min_service_node_info_version_for_hf(hf_version);
+    data_for_serialization *data[] = {&m_cache_long_term_data, &m_cache_short_term_data};
+    auto const serialize_version   = data_for_serialization::get_version(hf_version);
+    std::lock_guard<boost::recursive_mutex> lock(m_sn_mutex);
+
+    for (data_for_serialization *serialize_entry : data)
     {
-      std::lock_guard<boost::recursive_mutex> lock(m_sn_mutex);
-      data.quorum_states.reserve(m_old_quorum_states.size());
-      for (const quorums_by_height &entry : m_old_quorum_states)
-        data.quorum_states.push_back(serialize_quorum_state(hf_version, entry.height, entry.quorums));
+      if (serialize_entry->version != serialize_version) m_long_term_states_added_to = true;
+      serialize_entry->version = serialize_version;
+      serialize_entry->clear();
+    }
 
-      if (m_state_history.size() == 1)
+    m_cache_short_term_data.quorum_states.reserve(m_old_quorum_states.size());
+    for (const quorums_by_height &entry : m_old_quorum_states)
+      m_cache_short_term_data.quorum_states.push_back(serialize_quorum_state(hf_version, entry.height, entry.quorums));
+
+
+    // NOTE: A state_t may reference quorums up to (VOTE_LIFETIME
+    // + VOTE_OR_TX_VERIFY_HEIGHT_BUFFER) blocks back. So in the
+    // MAX_SHORT_TERM_STATE_HISTORY window of states we store, the
+    // first (VOTE_LIFETIME + VOTE_OR_TX_VERIFY_HEIGHT_BUFFER) states we only
+    // store their quorums, such that the following states have quorum
+    // information preceeding it.
+
+    uint64_t const min_short_term_height = m_state.height - MAX_SHORT_TERM_STATE_HISTORY;
+    uint64_t const max_short_term_height = m_state.height - (MAX_SHORT_TERM_STATE_HISTORY - VOTE_LIFETIME - VOTE_OR_TX_VERIFY_HEIGHT_BUFFER);
+    if (m_long_term_states_added_to)
+    {
+      for (auto const &it : m_state_history)
       {
-        data.states.push_back(serialize_service_node_state_object(hf_version, *m_state_history.begin()));
-      }
-      else if (m_state_history.size() >= 2)
-      {
-        size_t num_to_reserve = 1; // recent state
-        if (m_state_history.size() > MAX_SHORT_TERM_STATE_HISTORY)
-          // + 10k historic blocks (-1 because the oldest short-term history might also be historic)
-          num_to_reserve += m_state_history.size() - (MAX_SHORT_TERM_STATE_HISTORY - 1);
-        data.states.reserve(num_to_reserve);
-
-        for (auto it = m_state_history.cbegin(), nextit = std::next(it); nextit != m_state_history.cend(); it = nextit++)
-        {
-          state_t const &curr = *it, &next = *nextit;
-
-          data.states.push_back(serialize_service_node_state_object(hf_version, curr));
-          uint64_t height_delta = next.height - curr.height;
-          if (height_delta != STORE_LONG_TERM_STATE_INTERVAL)
-          {
-            // TODO(loki): Preserve the quorum state from v403 until they all get purged from storage then we can remove that check.
-            if (next.is_migrated_from_v403() && next.height != m_state_history.rbegin()->height)
-              continue;
-
-            data.states.push_back(serialize_service_node_state_object(hf_version, next));
-            break;
-          }
-        }
+        if (it.height >= min_short_term_height) break;
+        m_cache_long_term_data.states.push_back(serialize_service_node_state_object(hf_version, it));
       }
     }
 
-    static std::string blob;
-    blob.clear();
+    for (auto it = m_state_history.lower_bound(min_short_term_height);
+         it != m_state_history.end();
+         it++)
+    {
+      if (it->height > max_short_term_height) break;
+      // TODO(loki): There are 2 places where we convert a state_t to be a serialized state_t without quorums. We should only do this in one location for clarity.
+      m_cache_short_term_data.states.push_back(serialize_service_node_state_object(hf_version, *it, it->height < max_short_term_height /*only_serialize_quorums*/));
+    }
+
+    m_cache_data_blob.clear();
+    if (m_long_term_states_added_to)
     {
       std::stringstream ss;
       binary_archive<true> ba(ss);
-
-      bool r = ::serialization::serialize(ba, data);
-      CHECK_AND_ASSERT_MES(r, false, "Failed to store service node info: failed to serialize data");
-      blob.append(ss.str());
+      bool r = ::serialization::serialize(ba, m_cache_long_term_data);
+      CHECK_AND_ASSERT_MES(r, false, "Failed to store service node info: failed to serialize long term data");
+      m_cache_data_blob.append(ss.str());
+      {
+        cryptonote::db_wtxn_guard txn_guard(m_db);
+        m_db->set_service_node_data(m_cache_data_blob, true /*long_term*/);
+      }
     }
 
-    cryptonote::db_wtxn_guard txn_guard(m_db);
-    m_db->set_service_node_data(blob);
+    m_cache_data_blob.clear();
+    {
+      std::stringstream ss;
+      binary_archive<true> ba(ss);
+      bool r = ::serialization::serialize(ba, m_cache_short_term_data);
+      CHECK_AND_ASSERT_MES(r, false, "Failed to store service node info: failed to serialize short term data data");
+      m_cache_data_blob.append(ss.str());
+      {
+        cryptonote::db_wtxn_guard txn_guard(m_db);
+        m_db->set_service_node_data(m_cache_data_blob, false /*long_term*/);
+      }
+    }
+
+    m_long_term_states_added_to = false;
     return true;
   }
 
@@ -1788,7 +1799,9 @@ namespace service_nodes
   }
 
   service_node_list::state_t::state_t(state_serialized &&state)
-      : height{state.height}, key_image_blacklist{std::move(state.key_image_blacklist)}
+  : height{state.height}
+  , key_image_blacklist{std::move(state.key_image_blacklist)}
+  , only_loaded_quorums{state.only_stored_quorums}
   {
     for (auto &pubkey_info : state.infos)
       service_nodes_infos.emplace(std::move(pubkey_info.pubkey), std::move(pubkey_info.info));
@@ -1805,62 +1818,46 @@ namespace service_nodes
       return false;
     }
 
+    // NOTE: Deserialize long term state history
+    uint64_t bytes_loaded = 0;
     cryptonote::db_rtxn_guard txn_guard(m_db);
     std::string blob;
-    if (!m_db->get_service_node_data(blob))
+    if (m_db->get_service_node_data(blob, true /*long_term*/))
     {
-      return false;
+      bytes_loaded += blob.size();
+      std::stringstream ss;
+      ss << blob;
+      blob.clear();
+      binary_archive<false> ba(ss);
+
+      data_for_serialization data_in = {};
+      if (::serialization::serialize(ba, data_in) && data_in.states.size())
+      {
+        for (state_serialized &entry : data_in.states)
+          m_state_history.emplace_hint(m_state_history.end(), std::move(entry));
+      }
     }
 
+    // NOTE: Deserialize short term state history
+    if (!m_db->get_service_node_data(blob, false))
+      return false;
+
+    bytes_loaded += blob.size();
     std::stringstream ss;
     ss << blob;
     binary_archive<false> ba(ss);
 
-    data_for_serialization new_data_in = {};
-    {
-      old_data_members_for_serialization old_data_in = {};
-      bool old_data                                  = false;
-      bool new_data                                  = ::serialization::serialize(ba, new_data_in);
-      if (!new_data)
-      {
-        std::stringstream ss_old;
-        ss_old << blob;
-        binary_archive<false> ba_old(ss_old);
-        old_data = ::serialization::serialize(ba_old, old_data_in);
-      }
+    data_for_serialization data_in = {};
+    bool deserialized              = ::serialization::serialize(ba, data_in);
+    CHECK_AND_ASSERT_MES(deserialized, false, "Failed to parse service node data from blob");
 
-      CHECK_AND_ASSERT_MES(old_data || new_data, false, "Failed to parse service node data from blob");
-      if (old_data)
-      {
-        new_data_in = {};
-        new_data_in.states.reserve(old_data_in.quorum_states.size() + 1);
-        for (quorum_for_serialization &entry : old_data_in.quorum_states)
-        {
-          if (entry.height == old_data_in.height)
-            continue;
-
-          new_data_in.states.emplace_back();
-          state_serialized &new_state = new_data_in.states.back();
-          new_state.height            = entry.height;
-          new_state.quorums           = std::move(entry);
-        }
-
-        new_data_in.states.emplace_back();
-        state_serialized &new_state = new_data_in.states.back();
-        new_data_in.version           = old_data_in.version;
-        new_state.height              = old_data_in.height;
-        new_state.infos               = std::move(old_data_in.infos);
-        new_state.key_image_blacklist = std::move(old_data_in.key_image_blacklist);
-      }
-    }
-
-    if (new_data_in.states.empty())
+    if (data_in.states.empty())
       return false;
 
     {
       const uint64_t hist_state_from_height = current_height - m_store_quorum_history;
       uint64_t last_loaded_height = 0;
-      for (auto &states : new_data_in.quorum_states)
+      for (auto &states : data_in.quorum_states)
       {
         if (states.height < hist_state_from_height)
           continue;
@@ -1880,17 +1877,23 @@ namespace service_nodes
     }
 
     {
-      assert(new_data_in.states.size() > 0);
-      size_t const last_index  = new_data_in.states.size() - 1;
+      assert(data_in.states.size() > 0);
+      size_t const last_index  = data_in.states.size() - 1;
       for (size_t i = 0; i < last_index; i++)
-        m_state_history.emplace_hint(m_state_history.end(), std::move(new_data_in.states[i]));
-      m_state = std::move(new_data_in.states[last_index]);
+        m_state_history.emplace_hint(m_state_history.end(), std::move(data_in.states[i]));
+
+      if (data_in.states[last_index].only_stored_quorums)
+      {
+        LOG_PRINT_L0("Unexpected last serialized state only has quorums loaded");
+        return false;
+      }
+      m_state = std::move(data_in.states[last_index]);
     }
 
     MGINFO("Service node data loaded successfully, height: " << m_state.height);
     MGINFO(m_state.service_nodes_infos.size()
            << " nodes and " << m_state_history.size() << " historical states loaded ("
-           << tools::get_human_readable_bytes(blob.size()) << ")");
+           << tools::get_human_readable_bytes(bytes_loaded) << ")");
 
     LOG_PRINT_L1("service_node_list::load() returning success");
     return true;
