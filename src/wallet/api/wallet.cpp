@@ -1407,8 +1407,7 @@ PendingTransaction* WalletImpl::restoreMultisigTransaction(const string& signDat
 //    - unconfirmed_transfer_details;
 //    - confirmed_transfer_details)
 
-PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, const string &payment_id, optional<uint64_t> amount, uint32_t mixin_count,
-                                                  PendingTransaction::Priority priority, uint32_t subaddr_account, std::set<uint32_t> subaddr_indices)
+PendingTransaction *WalletImpl::createTransactionMultDest(const std::vector<string> &dst_addr, const string &payment_id, optional<std::vector<uint64_t>> amount, uint32_t mixin_count, PendingTransaction::Priority priority, uint32_t subaddr_account, std::set<uint32_t> subaddr_indices)
 
 {
     clearStatus();
@@ -1429,75 +1428,75 @@ PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, const 
     PendingTransactionImpl * transaction = new PendingTransactionImpl(*this);
 
     do {
-        if(!cryptonote::get_account_address_from_str(info, m_wallet->nettype(), dst_addr)) {
-            // TODO: copy-paste 'if treating as an address fails, try as url' from simplewallet.cpp:1982
-            setStatusError(tr("Invalid destination address"));
+        std::vector<uint8_t> extra;
+        std::string extra_nonce;
+        vector<cryptonote::tx_destination_entry> dsts;
+        if (!amount && dst_addr.size() > 1) {
+            setStatusError(tr("Sending all requires one destination address"));
             break;
         }
-
-
-        std::vector<uint8_t> extra;
-        // if dst_addr is not an integrated address, parse payment_id
-        if (!info.has_payment_id && !payment_id.empty()) {
-            // copy-pasted from simplewallet.cpp:2212
+        if (amount && (dst_addr.size() != (*amount).size())) {
+            setStatusError(tr("Destinations and amounts are unequal"));
+            break;
+        }
+        if (!payment_id.empty()) {
             crypto::hash payment_id_long;
-            bool r = tools::wallet2::parse_long_payment_id(payment_id, payment_id_long);
-            if (r) {
-                std::string extra_nonce;
+            if (tools::wallet2::parse_long_payment_id(payment_id, payment_id_long)) {
                 cryptonote::set_payment_id_to_tx_extra_nonce(extra_nonce, payment_id_long);
-                r = add_extra_nonce_to_tx_extra(extra, extra_nonce);
             } else {
-                r = tools::wallet2::parse_short_payment_id(payment_id, info.payment_id);
-                if (r) {
-                    std::string extra_nonce;
-                    set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce, info.payment_id);
-                    r = add_extra_nonce_to_tx_extra(extra, extra_nonce);
+                setStatusError(tr("payment id has invalid format, expected 64 character hex string: ") + payment_id);
+                break;
+            }
+        }
+        bool error = false;
+        for (size_t i = 0; i < dst_addr.size() && !error; i++) {
+            if(!cryptonote::get_account_address_from_str(info, m_wallet->nettype(), dst_addr[i])) {
+                // TODO: copy-paste 'if treating as an address fails, try as url' from simplewallet.cpp:1982
+                setStatusError(tr("Invalid destination address"));
+                error = true;
+                break;
+            }
+            if (info.has_payment_id) {
+                if (!extra_nonce.empty()) {
+                    setStatusError(tr("a single transaction cannot use more than one payment id"));
+                    error = true;
+                    break;
                 }
+                set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce, info.payment_id);
             }
 
-            if (!r) {
-                setStatusError(tr("payment id has invalid format, expected 16 or 64 character hex string: ") + payment_id);
-                break;
-            }
-        }
-        else if (info.has_payment_id) {
-            std::string extra_nonce;
-            set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce, info.payment_id);
-            bool r = add_extra_nonce_to_tx_extra(extra, extra_nonce);
-            if (!r) {
-                setStatusError(tr("Failed to add short payment id: ") + epee::string_tools::pod_to_hex(info.payment_id));
-                break;
-            }
-        }
-
-
-        //std::vector<tools::wallet2::pending_tx> ptx_vector;
-
-        try {
             if (amount) {
-                vector<cryptonote::tx_destination_entry> dsts;
                 cryptonote::tx_destination_entry de;
-                de.original = dst_addr;
+                de.original = dst_addr[i];
                 de.addr = info.address;
-                de.amount = *amount;
+                de.amount = (*amount)[i];
                 de.is_subaddress = info.is_subaddress;
                 de.is_integrated = info.has_payment_id;
                 dsts.push_back(de);
-                transaction->m_pending_tx = m_wallet->create_transactions_2(dsts, fake_outs_count, 0 /* unlock_time */,
-                                                                          adjusted_priority,
-                                                                          extra, subaddr_account, subaddr_indices);
             } else {
-                // for the GUI, sweep_all (i.e. amount set as "(all)") will always sweep all the funds in all the addresses
-                if (subaddr_indices.empty())
-                {
+                if (subaddr_indices.empty()) {
                     for (uint32_t index = 0; index < m_wallet->get_num_subaddresses(subaddr_account); ++index)
                         subaddr_indices.insert(index);
                 }
-                transaction->m_pending_tx = m_wallet->create_transactions_all(0, info.address, info.is_subaddress, 1, fake_outs_count, 0 /* unlock_time */,
-                                                                          adjusted_priority,
-                                                                          extra, subaddr_account, subaddr_indices);
             }
-
+        }
+        if (error) {
+            break;
+        }
+        if (!extra_nonce.empty() && !add_extra_nonce_to_tx_extra(extra, extra_nonce)) {
+            setStatusError(tr("failed to set up payment id, though it was decoded correctly"));
+            break;
+        }
+        try {
+            if (amount) {
+                transaction->m_pending_tx = m_wallet->create_transactions_2(dsts, fake_outs_count, 0 /* unlock_time */,
+                                                                            adjusted_priority,
+                                                                            extra, subaddr_account, subaddr_indices);
+            } else {
+                transaction->m_pending_tx = m_wallet->create_transactions_all(0, info.address, info.is_subaddress, 1, fake_outs_count, 0 /* unlock_time */,
+                                                                              adjusted_priority,
+                                                                              extra, subaddr_account, subaddr_indices);
+            }
             pendingTxPostProcess(transaction);
 
             if (multisig().isMultisig) {
@@ -1572,6 +1571,13 @@ PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, const 
     // Resume refresh thread
     startRefresh();
     return transaction;
+}
+
+PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, const string &payment_id, optional<uint64_t> amount, uint32_t mixin_count,
+                                                  PendingTransaction::Priority priority, uint32_t subaddr_account, std::set<uint32_t> subaddr_indices)
+
+{
+    return createTransactionMultDest(std::vector<string> {dst_addr}, payment_id, amount ? (std::vector<uint64_t> {*amount}) : (optional<std::vector<uint64_t>>()), mixin_count, priority, subaddr_account, subaddr_indices);
 }
 
 PendingTransaction *WalletImpl::createSweepUnmixableTransaction()
