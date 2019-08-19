@@ -51,6 +51,8 @@ namespace
 int main(int argc, char* argv[])
 {
   TRY_ENTRY();
+  static char monero_fast_pow[] = "MONERO_FAST_POW=1";
+  putenv(monero_fast_pow);
   tools::on_startup();
   epee::string_tools::set_module_name_and_folder(argv[0]);
 

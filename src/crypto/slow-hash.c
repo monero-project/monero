@@ -64,6 +64,23 @@ static void local_abort(const char *msg)
 #endif
 }
 
+static size_t get_num_slow_hash_iterations(void)
+{
+#ifdef BUILD_TAG
+  return ITER;
+#else
+  static size_t i = 0;
+  if (i > 0)
+    return i;
+  const char *s = getenv("MONERO_FAST_POW");
+  if (s && *s == '1')
+    i = 20;
+  else
+    i = ITER;
+  return i;
+#endif
+}
+
 volatile int use_v4_jit_flag = -1;
 
 static inline int use_v4_jit(void)
@@ -951,7 +968,8 @@ void cn_slow_hash(const void *data, size_t length, char *hash, int variant, int 
     // the useAes test is only performed once, not every iteration.
     if(useAes)
     {
-        for(i = 0; i < ITER / 2; i++)
+        const size_t iter = get_num_slow_hash_iterations();
+        for(i = 0; i < iter / 2; i++)
         {
             pre_aes();
             _c = _mm_aesenc_si128(_c, _a);
@@ -960,7 +978,8 @@ void cn_slow_hash(const void *data, size_t length, char *hash, int variant, int 
     }
     else
     {
-        for(i = 0; i < ITER / 2; i++)
+        const size_t iter = get_num_slow_hash_iterations();
+        for(i = 0; i < iter / 2; i++)
         {
             pre_aes();
             aesb_single_round((uint8_t *) &_c, (uint8_t *) &_c, (uint8_t *) &_a);
@@ -1307,7 +1326,8 @@ void cn_slow_hash(const void *data, size_t length, char *hash, int variant, int 
     _b = vld1q_u8((const uint8_t *)b);
     _b1 = vld1q_u8(((const uint8_t *)b) + AES_BLOCK_SIZE);
 
-    for(i = 0; i < ITER / 2; i++)
+    const size_t iter = get_num_slow_hash_iterations();
+    for(i = 0; i < iter / 2; i++)
     {
         pre_aes();
         _c = vaeseq_u8(_c, zero);
@@ -1516,7 +1536,8 @@ void cn_slow_hash(const void *data, size_t length, char *hash, int variant, int 
     U64(b)[0] = U64(&state.k[16])[0] ^ U64(&state.k[48])[0];
     U64(b)[1] = U64(&state.k[16])[1] ^ U64(&state.k[48])[1];
 
-    for(i = 0; i < ITER / 2; i++)
+    const size_t iter = get_num_slow_hash_iterations();
+    for(i = 0; i < iter / 2; i++)
     {
       #define MASK ((uint32_t)(((MEMORY / AES_BLOCK_SIZE) - 1) << 4))
       #define state_index(x) ((*(uint32_t *) x) & MASK)
@@ -1710,7 +1731,8 @@ void cn_slow_hash(const void *data, size_t length, char *hash, int variant, int 
     b[i] = state.k[AES_BLOCK_SIZE + i] ^ state.k[AES_BLOCK_SIZE * 3 + i];
   }
 
-  for (i = 0; i < ITER / 2; i++) {
+  const size_t iter = get_num_slow_hash_iterations();
+  for (i = 0; i < iter / 2; i++) {
     /* Dependency chain: address -> read value ------+
      * written value <-+ hard function (AES or MUL) <+
      * next address  <-+
