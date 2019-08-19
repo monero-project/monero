@@ -59,7 +59,7 @@ void ZmqServer::serve()
       {
         throw std::runtime_error("ZMQ RPC server reply socket is null");
       }
-      while (rep_socket->recv(&message))
+      while (rep_socket->recv(&message, 0))
       {
         std::string message_string(reinterpret_cast<const char *>(message.data()), message.size());
 
