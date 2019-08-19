@@ -293,7 +293,7 @@ namespace nodetool
 
     if (anonymize)
     {
-      std::random_shuffle(bs_head.begin(), bs_head.end());
+      std::shuffle(bs_head.begin(), bs_head.end(), crypto::random_device{});
       if (bs_head.size() > depth)
         bs_head.resize(depth);
       for (auto &e: bs_head)
