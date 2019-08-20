@@ -254,6 +254,7 @@ namespace nodetool
     size_t get_public_white_peers_count();
     size_t get_public_gray_peers_count();
     void get_public_peerlist(std::vector<peerlist_entry>& gray, std::vector<peerlist_entry>& white);
+    void get_peerlist(std::vector<peerlist_entry>& gray, std::vector<peerlist_entry>& white);
     size_t get_zone_count() const { return m_network_zones.size(); }
 
     void change_max_out_public_peers(size_t count);

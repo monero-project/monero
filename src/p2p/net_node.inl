@@ -1739,6 +1739,15 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
+  void node_server<t_payload_net_handler>::get_peerlist(std::vector<peerlist_entry>& gray, std::vector<peerlist_entry>& white)
+  {
+    for (auto &zone: m_network_zones)
+    {
+      zone.second.m_peerlist.get_peerlist(gray, white); // appends
+    }
+  }
+  //-----------------------------------------------------------------------------------
+  template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::idle_worker()
   {
     m_peer_handshake_idle_maker_interval.do_call(boost::bind(&node_server<t_payload_net_handler>::peer_sync_idle_maker, this));

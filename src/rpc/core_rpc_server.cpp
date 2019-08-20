@@ -1044,31 +1044,35 @@ namespace cryptonote
     PERF_TIMER(on_get_peer_list);
     std::vector<nodetool::peerlist_entry> white_list;
     std::vector<nodetool::peerlist_entry> gray_list;
-    m_p2p.get_public_peerlist(gray_list, white_list);
 
-    res.white_list.reserve(white_list.size());
+    if (req.public_only)
+    {
+      m_p2p.get_public_peerlist(gray_list, white_list);
+    }
+    else
+    {
+      m_p2p.get_peerlist(gray_list, white_list);
+    }
+
     for (auto & entry : white_list)
     {
       if (entry.adr.get_type_id() == epee::net_utils::ipv4_network_address::get_type_id())
         res.white_list.emplace_back(entry.id, entry.adr.as<epee::net_utils::ipv4_network_address>().ip(),
             entry.adr.as<epee::net_utils::ipv4_network_address>().port(), entry.last_seen, entry.pruning_seed, entry.rpc_port);
       else if (entry.adr.get_type_id() == epee::net_utils::ipv6_network_address::get_type_id())
-      {
         res.white_list.emplace_back(entry.id, entry.adr.as<epee::net_utils::ipv6_network_address>().host_str(),
             entry.adr.as<epee::net_utils::ipv6_network_address>().port(), entry.last_seen, entry.pruning_seed, entry.rpc_port);
-      }
       else
         res.white_list.emplace_back(entry.id, entry.adr.str(), entry.last_seen, entry.pruning_seed, entry.rpc_port);
     }
 
-    res.gray_list.reserve(gray_list.size());
     for (auto & entry : gray_list)
     {
       if (entry.adr.get_type_id() == epee::net_utils::ipv4_network_address::get_type_id())
         res.gray_list.emplace_back(entry.id, entry.adr.as<epee::net_utils::ipv4_network_address>().ip(),
             entry.adr.as<epee::net_utils::ipv4_network_address>().port(), entry.last_seen, entry.pruning_seed, entry.rpc_port);
       else if (entry.adr.get_type_id() == epee::net_utils::ipv6_network_address::get_type_id())
-        res.white_list.emplace_back(entry.id, entry.adr.as<epee::net_utils::ipv6_network_address>().host_str(),
+        res.gray_list.emplace_back(entry.id, entry.adr.as<epee::net_utils::ipv6_network_address>().host_str(),
             entry.adr.as<epee::net_utils::ipv6_network_address>().port(), entry.last_seen, entry.pruning_seed, entry.rpc_port);
       else
         res.gray_list.emplace_back(entry.id, entry.adr.str(), entry.last_seen, entry.pruning_seed, entry.rpc_port);
