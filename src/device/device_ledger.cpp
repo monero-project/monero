@@ -416,10 +416,10 @@ namespace hw {
       #ifdef DEBUG_HWDEVICE
       cryptonote::account_public_address pubkey;
       this->get_public_address(pubkey);
-      #endif
       crypto::secret_key vkey;
       crypto::secret_key skey;
       this->get_secret_keys(vkey,skey);
+      #endif
 
       return true;
     }
