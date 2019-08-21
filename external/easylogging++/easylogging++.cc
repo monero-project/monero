@@ -1969,7 +1969,7 @@ void RegisteredLoggers::unsafeFlushAll(void) {
 
 // VRegistry
 
-VRegistry::VRegistry(base::type::VerboseLevel level, base::type::EnumType* pFlags) : m_level(level), m_pFlags(pFlags) {
+VRegistry::VRegistry(base::type::VerboseLevel level, base::type::EnumType* pFlags) : m_level(level), m_pFlags(pFlags), m_lowest_priority(INT_MAX) {
 }
 
 /// @brief Sets verbose level. Accepted range is 0-9
@@ -2053,14 +2053,30 @@ void VRegistry::setModules(const char* modules) {
   }
 }
 
+// Log levels are sorted in a weird way...
+static int priority(Level level) {
+  if (level == Level::Fatal) return 0;
+  if (level == Level::Error) return 1;
+  if (level == Level::Warning) return 2;
+  if (level == Level::Info) return 3;
+  if (level == Level::Debug) return 4;
+  if (level == Level::Verbose) return 5;
+  if (level == Level::Trace) return 6;
+  return 7;
+}
+
 void VRegistry::setCategories(const char* categories, bool clear) {
   base::threading::ScopedLock scopedLock(lock());
   auto insert = [&](std::stringstream& ss, Level level) {
     m_categories.push_back(std::make_pair(ss.str(), level));
     m_cached_allowed_categories.clear();
+    int pri = priority(level);
+    if (pri > m_lowest_priority)
+      m_lowest_priority = pri;
   };
 
   if (clear) {
+    m_lowest_priority = 0;
     m_categories.clear();
     m_cached_allowed_categories.clear();
     m_categoriesString.clear();
@@ -2117,23 +2133,14 @@ std::string VRegistry::getCategories() {
   return m_categoriesString;
 }
 
-// Log levels are sorted in a weird way...
-static int priority(Level level) {
-  if (level == Level::Fatal) return 0;
-  if (level == Level::Error) return 1;
-  if (level == Level::Warning) return 2;
-  if (level == Level::Info) return 3;
-  if (level == Level::Debug) return 4;
-  if (level == Level::Verbose) return 5;
-  if (level == Level::Trace) return 6;
-  return 7;
-}
-
 bool VRegistry::allowed(Level level, const std::string &category) {
+  const int pri = priority(level);
+  if (pri > m_lowest_priority)
+    return false;
   base::threading::ScopedLock scopedLock(lock());
   const std::map<std::string, int>::const_iterator it = m_cached_allowed_categories.find(category);
   if (it != m_cached_allowed_categories.end())
-    return priority(level) <= it->second;
+    return pri <= it->second;
   if (m_categories.empty()) {
     return false;
   } else {
@@ -2142,7 +2149,7 @@ bool VRegistry::allowed(Level level, const std::string &category) {
       if (base::utils::Str::wildCardMatch(category.c_str(), it->first.c_str())) {
         const int p = priority(it->second);
         m_cached_allowed_categories.insert(std::make_pair(category, p));
-        return priority(level) <= p;
+        return pri <= p;
       }
     }
     m_cached_allowed_categories.insert(std::make_pair(category, -1));
