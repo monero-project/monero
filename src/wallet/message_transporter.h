@@ -91,7 +91,6 @@ public:
   bool delete_message(const std::string &transport_id);
   void stop() { m_run.store(false, std::memory_order_relaxed); }
   std::string derive_transport_address(const std::string &seed);
-  std::string derive_and_receive_transport_address(const std::string &seed);
   bool delete_transport_address(const std::string &transport_address);
 
 private:
