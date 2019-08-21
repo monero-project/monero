@@ -109,6 +109,7 @@ namespace cryptonote
     bool spendkey(const std::vector<std::string> &args = std::vector<std::string>());
     bool seed(const std::vector<std::string> &args = std::vector<std::string>());
     bool encrypted_seed(const std::vector<std::string> &args = std::vector<std::string>());
+    bool restore_height(const std::vector<std::string> &args = std::vector<std::string>());
 
     /*!
      * \brief Sets seed language.
