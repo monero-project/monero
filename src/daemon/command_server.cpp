@@ -310,6 +310,13 @@ t_command_server::t_command_server(
     , std::bind(&t_command_parser_executor::check_blockchain_pruning, &m_parser, p::_1)
     , "Check the blockchain pruning."
     );
+    m_command_lookup.set_handler(
+      "set_bootstrap_daemon"
+    , std::bind(&t_command_parser_executor::set_bootstrap_daemon, &m_parser, p::_1)
+    , "set_bootstrap_daemon (auto | none | host[:port] [username] [password])"
+    , "URL of a 'bootstrap' remote daemon that the connected wallets can use while this daemon is still not fully synced.\n"
+      "Use 'auto' to enable automatic public nodes discovering and bootstrap daemon switching"
+    );
 }
 
 bool t_command_server::process_command_str(const std::string& cmd)

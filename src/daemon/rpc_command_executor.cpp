@@ -2320,4 +2320,40 @@ bool t_rpc_command_executor::check_blockchain_pruning()
     return true;
 }
 
+bool t_rpc_command_executor::set_bootstrap_daemon(
+  const std::string &address,
+  const std::string &username,
+  const std::string &password)
+{
+    cryptonote::COMMAND_RPC_SET_BOOTSTRAP_DAEMON::request req;
+    cryptonote::COMMAND_RPC_SET_BOOTSTRAP_DAEMON::response res;
+    const std::string fail_message = "Unsuccessful";
+
+    req.address = address;
+    req.username = username;
+    req.password = password;
+
+    if (m_is_rpc)
+    {
+        if (!m_rpc_client->rpc_request(req, res, "/set_bootstrap_daemon", fail_message))
+        {
+            return true;
+        }
+    }
+    else
+    {
+        if (!m_rpc_server->on_set_bootstrap_daemon(req, res) || res.status != CORE_RPC_STATUS_OK)
+        {
+            tools::fail_msg_writer() << make_error(fail_message, res.status);
+            return true;
+        }
+    }
+
+    tools::success_msg_writer()
+      << "Successfully set bootstrap daemon address to "
+      << (!req.address.empty() ? req.address : "none");
+
+    return true;
+}
+
 }// namespace daemonize
