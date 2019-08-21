@@ -352,7 +352,7 @@ namespace tools
       entry.destinations.push_back(wallet_rpc::transfer_destination());
       wallet_rpc::transfer_destination &td = entry.destinations.back();
       td.amount = d.amount;
-      td.address = d.original.empty() ? get_account_address_as_str(m_wallet->nettype(), d.is_subaddress, d.addr) : d.original;
+      td.address = d.address(m_wallet->nettype(), pd.m_payment_id);
     }
 
     entry.type = "out";
@@ -382,7 +382,7 @@ namespace tools
       entry.destinations.push_back(wallet_rpc::transfer_destination());
       wallet_rpc::transfer_destination &td = entry.destinations.back();
       td.amount = d.amount;
-      td.address = d.original.empty() ? get_account_address_as_str(m_wallet->nettype(), d.is_subaddress, d.addr) : d.original;
+      td.address = d.address(m_wallet->nettype(), pd.m_payment_id);
     }
 
     entry.type = is_failed ? "failed" : "pending";
