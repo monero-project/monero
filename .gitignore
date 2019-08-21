@@ -96,6 +96,9 @@ local.properties
 # PDT-specific
 .buildpath
 
+# Netbeans-specific
+nbproject
+
 # sbteclipse plugin
 .target
 
