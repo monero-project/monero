@@ -4,11 +4,15 @@ native_packages := native_ccache native_protobuf
 darwin_native_packages = native_biplist native_ds_store native_mac_alias
 darwin_packages = sodium-darwin ncurses readline 
 
-linux_packages = eudev ncurses readline unwind sodium
+linux_packages = eudev ncurses readline sodium
 qt_packages = qt
 
 ifeq ($(build_tests),ON)
 packages += gtest
+endif
+
+ifneq ($(host_arch),riscv64)
+	packages += unwind
 endif
 
 ifeq ($(host_os),mingw32)

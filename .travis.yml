@@ -18,6 +18,8 @@ env:
     - SDK_URL=https://bitcoincore.org/depends-sources/sdks
     - DOCKER_PACKAGES="build-essential libtool cmake autotools-dev automake pkg-config bsdmainutils curl git ca-certificates ccache"
   matrix:
+# RISCV 64bit
+    - HOST=riscv64-linux-gnu PACKAGES="python3 gperf g++-riscv64-linux-gnu"
 # ARM v7
     - HOST=arm-linux-gnueabihf PACKAGES="python3 gperf g++-arm-linux-gnueabihf"
 # ARM v8

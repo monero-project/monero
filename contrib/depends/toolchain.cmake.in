@@ -98,6 +98,11 @@ elseif(ARCHITECTURE STREQUAL "aarch64")
   set(BUILD_64 ON)
 endif()
 
+if(ARCHITECTURE STREQUAL "riscv64")
+    set(NO_AES ON)
+    set(ARCH "rv64imafdc")
+endif()
+
 if(ARCHITECTURE STREQUAL "i686" AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
   SET(LINUX_32 ON)
   SET(ARCH_ID "i386")
