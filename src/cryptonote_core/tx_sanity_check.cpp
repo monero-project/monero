@@ -82,7 +82,7 @@ bool tx_sanity_check(Blockchain &blockchain, const cryptonote::blobdata &tx_blob
 
   if (rct_indices.size() < n_indices * 8 / 10)
   {
-    MERROR("unique indices is only " << rct_indices.size() << "/" << n_indices);
+    MERROR("amount of unique indices is too low (amount of rct indices is " << rct_indices.size() << ", out of total " << n_indices << "indices.");
     return false;
   }
 
@@ -90,7 +90,7 @@ bool tx_sanity_check(Blockchain &blockchain, const cryptonote::blobdata &tx_blob
   uint64_t median = epee::misc_utils::median(offsets);
   if (median < n_available * 6 / 10)
   {
-    MERROR("median is " << median << "/" << n_available);
+    MERROR("median offset index is too low (median is " << median << " out of total " << n_available << "offsets). Transactions should contain a higher fraction of recent outputs.");
     return false;
   }
 
