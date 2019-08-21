@@ -46,6 +46,7 @@ class TransferTest():
         self.check_get_bulk_payments()
         self.check_double_spend_detection()
         self.sweep_single()
+        self.check_destinations()
 
     def reset(self):
         print('Resetting blockchain')
@@ -629,6 +630,64 @@ class TransferTest():
         assert len([t for t in res.transfers if t.key_image == ki]) == 0
         res = self.wallet[0].incoming_transfers(transfer_type = 'unavailable')
         assert len([t for t in res.transfers if t.key_image == ki]) == 1
+
+    def check_destinations(self):
+        daemon = Daemon()
+
+        print("Checking transaction destinations")
+
+        dst = {'address': '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 'amount': 1000000000000}
+        res = self.wallet[0].transfer([dst])
+        assert len(res.tx_hash) == 64
+        tx_hash = res.tx_hash
+        for i in range(2):
+            res = self.wallet[0].get_transfers(pending = True, out = True)
+            l = [x for x in (res.pending if i == 0 else res.out) if x.txid == tx_hash]
+            assert len(l) == 1
+            e = l[0]
+            assert len(e.destinations) == 1
+            assert e.destinations[0].amount == 1000000000000
+            assert e.destinations[0].address == '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
+
+            if i == 0:
+                daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 1)
+                self.wallet[0].refresh()
+
+        dst = {'address': '8AsN91rznfkBGTY8psSNkJBg9SZgxxGGRUhGwRptBhgr5XSQ1XzmA9m8QAnoxydecSh5aLJXdrgXwTDMMZ1AuXsN1EX5Mtm', 'amount': 1000000000000}
+        res = self.wallet[0].transfer([dst])
+        assert len(res.tx_hash) == 64
+        tx_hash = res.tx_hash
+        for i in range(2):
+            res = self.wallet[0].get_transfers(pending = True, out = True)
+            l = [x for x in (res.pending if i == 0 else res.out) if x.txid == tx_hash]
+            assert len(l) == 1
+            e = l[0]
+            assert len(e.destinations) == 1
+            assert e.destinations[0].amount == 1000000000000
+            assert e.destinations[0].address == '8AsN91rznfkBGTY8psSNkJBg9SZgxxGGRUhGwRptBhgr5XSQ1XzmA9m8QAnoxydecSh5aLJXdrgXwTDMMZ1AuXsN1EX5Mtm'
+
+            if i == 0:
+                daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 1)
+                self.wallet[0].refresh()
+
+        dst = {'address': '4BxSHvcgTwu25WooY4BVmgdcKwZu5EksVZSZkDd6ooxSVVqQ4ubxXkhLF6hEqtw96i9cf3cVfLw8UWe95bdDKfRQeYtPwLm1Jiw7AKt2LY', 'amount': 1000000000000}
+        res = self.wallet[0].transfer([dst])
+        assert len(res.tx_hash) == 64
+        tx_hash = res.tx_hash
+        for i in range(2):
+            res = self.wallet[0].get_transfers(pending = True, out = True)
+            l = [x for x in (res.pending if i == 0 else res.out) if x.txid == tx_hash]
+            assert len(l) == 1
+            e = l[0]
+            assert len(e.destinations) == 1
+            assert e.destinations[0].amount == 1000000000000
+            assert e.destinations[0].address == '4BxSHvcgTwu25WooY4BVmgdcKwZu5EksVZSZkDd6ooxSVVqQ4ubxXkhLF6hEqtw96i9cf3cVfLw8UWe95bdDKfRQeYtPwLm1Jiw7AKt2LY'
+
+            if i == 0:
+                daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 1)
+                self.wallet[0].refresh()
+
+
 
 
 if __name__ == '__main__':
