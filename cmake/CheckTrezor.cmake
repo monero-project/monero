@@ -159,7 +159,7 @@ if(Protobuf_FOUND AND USE_DEVICE_TREZOR AND TREZOR_PYTHON AND Protobuf_COMPILE_T
 
         set(TREZOR_LIBUSB_LIBRARIES "")
         if(LibUSB_COMPILE_TEST_PASSED)
-            list(APPEND TREZOR_LIBUSB_LIBRARIES ${LibUSB_LIBRARIES})
+            list(APPEND TREZOR_LIBUSB_LIBRARIES ${LibUSB_LIBRARIES} ${LIBUSB_DEP_LINKER})
             message(STATUS "Trezor compatible LibUSB found at: ${LibUSB_INCLUDE_DIRS}")
         endif()
 
@@ -174,7 +174,7 @@ if(Protobuf_FOUND AND USE_DEVICE_TREZOR AND TREZOR_PYTHON AND Protobuf_COMPILE_T
 
             if (TREZOR_LIBUSB_LIBRARIES)
                 list(APPEND TREZOR_DEP_LIBS ${TREZOR_LIBUSB_LIBRARIES})
-                string(APPEND TREZOR_DEP_LINKER " -lusb-1.0")
+                string(APPEND TREZOR_DEP_LINKER " -lusb-1.0 ${LIBUSB_DEP_LINKER}")
             endif()
         endif()
     endif()
