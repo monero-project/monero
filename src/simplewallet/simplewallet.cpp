@@ -1841,7 +1841,12 @@ bool simple_wallet::set_default_ring_size(const std::vector<std::string> &args/*
     }
  
     if (ring_size != 0 && ring_size != DEFAULT_RING_SIZE)
-      message_writer() << tr("WARNING: this is a non default ring size, which may harm your privacy. Default is recommended.");
+    {
+      if (m_wallet->use_fork_rules(8, 0))
+        message_writer() << tr("WARNING: from v8, ring size will be fixed and this setting will be ignored.");
+      else
+        message_writer() << tr("WARNING: this is a non default ring size, which may harm your privacy. Default is recommended.");
+    }
 
     const auto pwd_container = get_and_verify_password();
     if (pwd_container)
@@ -4715,7 +4720,7 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
   if (local_args.size() > 0 && parse_priority(local_args[0], priority))
     local_args.erase(local_args.begin());
 
-  size_t ring_size = 0;
+  size_t ring_size = DEFAULT_RING_SIZE;
   if(local_args.size() > 0) {
     if(!epee::string_tools::get_xtype_from_string(ring_size, local_args[0]))
     {
@@ -4730,12 +4735,15 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
       local_args.erase(local_args.begin());
     }
   }
-  if (ring_size == 0)
-    ring_size = m_wallet->default_ring_size();
   uint64_t adjusted_ring_size = m_wallet->adjust_ring_size(ring_size);
   if (ring_size != 0 && adjusted_ring_size > ring_size)
   {
     fail_msg_writer() << (boost::format(tr("ring size %u is too small, minimum is %u")) % ring_size % adjusted_ring_size).str();
+    return true;
+  }
+  if (ring_size != 0 && adjusted_ring_size < ring_size)
+  {
+    fail_msg_writer() << (boost::format(tr("ring size %u is too large, maximum is %u")) % ring_size % adjusted_ring_size).str();
     return true;
   }
 
@@ -5229,7 +5237,7 @@ bool simple_wallet::sweep_main(uint64_t below, bool locked, const std::vector<st
   if (local_args.size() > 0 && parse_priority(local_args[0], priority))
     local_args.erase(local_args.begin());
 
-  size_t ring_size = 0;
+  size_t ring_size = DEFAULT_RING_SIZE;
   if(local_args.size() > 0) {
     if(!epee::string_tools::get_xtype_from_string(ring_size, local_args[0]))
     {
@@ -5244,12 +5252,15 @@ bool simple_wallet::sweep_main(uint64_t below, bool locked, const std::vector<st
       local_args.erase(local_args.begin());
     }
   }
-  if (ring_size == 0)
-    ring_size = m_wallet->default_ring_size();
   uint64_t adjusted_ring_size = m_wallet->adjust_ring_size(ring_size);
   if (ring_size != 0 && adjusted_ring_size > ring_size)
   {
     fail_msg_writer() << (boost::format(tr("ring size %u is too small, minimum is %u")) % ring_size % adjusted_ring_size).str();
+    return true;
+  }
+  if (ring_size != 0 && adjusted_ring_size < ring_size)
+  {
+    fail_msg_writer() << (boost::format(tr("ring size %u is too large, maximum is %u")) % ring_size % adjusted_ring_size).str();
     return true;
   }
 
@@ -5482,7 +5493,7 @@ bool simple_wallet::sweep_single(const std::vector<std::string> &args_)
   if (local_args.size() > 0 && parse_priority(local_args[0], priority))
     local_args.erase(local_args.begin());
 
-  size_t ring_size = 0;
+  size_t ring_size = DEFAULT_RING_SIZE;
   if(local_args.size() > 0) {
     if(!epee::string_tools::get_xtype_from_string(ring_size, local_args[0]))
     {
@@ -5497,12 +5508,15 @@ bool simple_wallet::sweep_single(const std::vector<std::string> &args_)
       local_args.erase(local_args.begin());
     }
   }
-  if (ring_size == 0)
-    ring_size = m_wallet->default_ring_size();
   uint64_t adjusted_ring_size = m_wallet->adjust_ring_size(ring_size);
   if (ring_size != 0 && adjusted_ring_size > ring_size)
   {
     fail_msg_writer() << (boost::format(tr("ring size %u is too small, minimum is %u")) % ring_size % adjusted_ring_size).str();
+    return true;
+  }
+  if (ring_size != 0 && adjusted_ring_size < ring_size)
+  {
+    fail_msg_writer() << (boost::format(tr("ring size %u is too large, maximum is %u")) % ring_size % adjusted_ring_size).str();
     return true;
   }
 

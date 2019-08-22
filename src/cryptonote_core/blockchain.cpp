@@ -2516,16 +2516,41 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
       return false;
     }
 
+    if (hf_version >= HF_VERSION_FIXED_RING_SIZE && mixin > min_mixin)
+    {
+      MERROR_VER("Tx " << get_transaction_hash(tx) << " has invalid ring size (" << (mixin + 1) << "), it should be 3");
+      tvc.m_low_mixin = true;
+      return false;
+    }
+
     if (mixin < min_mixin)
     {
-      if (n_unmixable >= 1 && n_mixable <= 1)
+      if (hf_version < HF_VERSION_FIXED_RING_SIZE)
       {
-        // we don't count this case as non-private
+        if (n_unmixable >= 1 && n_mixable <= 1)
+        {
+          // we don't count this case as non-private
+        }
+        else
+        {
+          MDEBUG("Tx " << get_transaction_hash(tx) << " is non-private");
+          is_nofake_tx = true;
+        }
       }
       else
       {
-        MDEBUG("Tx " << get_transaction_hash(tx) << " is non-private");
-        is_nofake_tx = true;
+        if (n_unmixable == 0)
+        {
+          MERROR_VER("Tx " << get_transaction_hash(tx) << " has too low ring size (" << (mixin + 1) << "), and no unmixable inputs");
+          tvc.m_low_mixin = true;
+          return false;
+        }
+        if (n_mixable > 1)
+        {
+          MERROR_VER("Tx " << get_transaction_hash(tx) << " has too low ring size (" << (mixin + 1) << "), and more than one mixable input with unmixable inputs");
+          tvc.m_low_mixin = true;
+          return false;
+        }
       }
     }
 
