@@ -357,6 +357,8 @@ class WalletTest():
         res = wallet.get_address()
         assert res.address == '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
 
+        wallet.close_wallet()
+
         self.remove_wallet_files('test1')
 
     def store(self):
