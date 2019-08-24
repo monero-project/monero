@@ -7226,9 +7226,7 @@ bool wallet2::unset_ring(const crypto::hash &txid)
   bool ok = invoke_http_json("/gettransactions", req, res, rpc_timeout);
   m_daemon_rpc_mutex.unlock();
   THROW_WALLET_EXCEPTION_IF(!ok, error::wallet_internal_error, "Failed to get transaction from daemon");
-  if (res.txs.empty())
-    return false;
-  THROW_WALLET_EXCEPTION_IF(res.txs.size(), error::wallet_internal_error, "Failed to get transaction from daemon");
+  THROW_WALLET_EXCEPTION_IF(res.txs.size() != 1, error::wallet_internal_error, "Failed to get transaction from daemon");
 
   cryptonote::transaction tx;
   crypto::hash tx_hash;
