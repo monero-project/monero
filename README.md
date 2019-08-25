@@ -550,13 +550,12 @@ The produced binaries still link libc dynamically. If the binary is compiled on 
 
 Packages are available for
 
-* Ubuntu and [snap supported](https://snapcraft.io/docs/core/install) systems, via a community contributed build.
+* Debian Bullseye and Sid
 
     ```bash
-    snap install monero --beta
+    sudo apt install monero
     ```
-
-Installing a snap is very quick. Snaps are secure. They are isolated with all of their dependencies. Snaps also auto update when a new version is released.
+More info and versions in the [Debian package tracker](https://tracker.debian.org/pkg/monero).
 
 * Arch Linux (via [AUR](https://aur.archlinux.org/)):
   - Stable release: [`monero`](https://aur.archlinux.org/packages/monero)
