@@ -93,7 +93,7 @@ bool get_output_distribution(uint64_t amount, uint64_t from, uint64_t to, uint64
 
 crypto::hash get_block_hash(uint64_t height)
 {
-  crypto::hash hash;
+  crypto::hash hash = crypto::null_hash;
   *((uint64_t*)&hash) = height;
   return hash;
 }
