@@ -788,7 +788,20 @@ TEST(ringct, HPow2)
 {
   key G = scalarmultBase(d2h(1));
 
-  key H = hashToPointSimple(G);
+  // Note that H is computed differently than standard hashing
+  // This method is not guaranteed to return a curvepoint for all inputs
+  // Don't use it elsewhere
+  key H = cn_fast_hash(G);
+  ge_p3 H_p3;
+  int decode = ge_frombytes_vartime(&H_p3, H.bytes);
+  ASSERT_EQ(decode, 0); // this is known to pass for the particular value G
+  ge_p2 H_p2;
+  ge_p3_to_p2(&H_p2, &H_p3);
+  ge_p1p1 H8_p1p1;
+  ge_mul8(&H8_p1p1, &H_p2);
+  ge_p1p1_to_p3(&H_p3, &H8_p1p1);
+  ge_p3_tobytes(H.bytes, &H_p3);
+
   for (int j = 0 ; j < ATOMS ; j++) {
     ASSERT_TRUE(equalKeys(H, H2[j]));
     addKeys(H, H, H);

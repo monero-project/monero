@@ -35,13 +35,13 @@
 
 #include "single_tx_test_base.h"
 
-template<size_t inputs, size_t ring_size, bool ver>
+template<size_t ring_size, bool ver>
 class test_ringct_mlsag : public single_tx_test_base
 {
 public:
   static const size_t cols = ring_size;
-  static const size_t rows = inputs;
-  static const size_t loop_count = 100;
+  static const size_t rows = 2; // single spend and commitment data
+  static const size_t loop_count = 1000;
 
   bool init()
   {
@@ -65,7 +65,7 @@ public:
     {
         sk[j] = xm[ind][j];
     }
-    IIccss = MLSAG_Gen(rct::identity(), P, sk, NULL, NULL, ind, rows, hw::get_device("default"));
+    IIccss = MLSAG_Gen(rct::identity(), P, sk, NULL, NULL, ind, rows-1, hw::get_device("default"));
 
     return true;
   }
@@ -73,9 +73,9 @@ public:
   bool test()
   {
     if (ver)
-      MLSAG_Ver(rct::identity(), P, IIccss, rows);
+      MLSAG_Ver(rct::identity(), P, IIccss, rows-1);
     else
-      MLSAG_Gen(rct::identity(), P, sk, NULL, NULL, ind, rows, hw::get_device("default"));
+      MLSAG_Gen(rct::identity(), P, sk, NULL, NULL, ind, rows-1, hw::get_device("default"));
     return true;
   }
 
