@@ -8452,18 +8452,6 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_all(uint64_t below
   THROW_WALLET_EXCEPTION_IF(!fund_found, error::wallet_internal_error, "No unlocked balance in the specified subaddress(es)");
   THROW_WALLET_EXCEPTION_IF(unused_transfer_dust_indices_per_subaddr.empty(), error::wallet_internal_error, "The smallest amount found is not below the specified threshold");
 
-  if (subaddr_indices.empty())
-  {
-    // in case subaddress index wasn't specified, choose non-empty subaddress randomly (with index=0 being chosen last)
-    if (unused_transfer_dust_indices_per_subaddr.count(0) == 1 && unused_transfer_dust_indices_per_subaddr.size() > 1)
-      unused_transfer_dust_indices_per_subaddr.erase(0);
-    auto i = unused_transfer_dust_indices_per_subaddr.begin();
-    std::advance(i, crypto::rand<size_t>() % unused_transfer_dust_indices_per_subaddr.size());
-    unused_transfers_indices = i->second.first;
-    unused_dust_indices = i->second.second;
-    LOG_PRINT_L2("Spending from subaddress index " << i->first);
-  }
-  else
   {
     for (const auto& p : unused_transfer_dust_indices_per_subaddr)
     {
