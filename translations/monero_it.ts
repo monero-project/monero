@@ -2135,7 +2135,7 @@ di nuovo il tuo portafoglio (le chiavi del tuo portafoglio NON sono in nessun ca
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="4761"/>
-        <source>With background mining enabled, the daemon will mine when idle and not on batttery.</source>
+        <source>With background mining enabled, the daemon will mine when idle and not on battery.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
