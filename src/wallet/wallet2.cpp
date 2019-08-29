@@ -5835,11 +5835,44 @@ int wallet2::get_fee_algorithm() const
   return 0;
 }
 //------------------------------------------------------------------------------------------------------------------------------
+uint64_t wallet2::get_min_ring_size() const
+{
+  if (use_fork_rules(8, 10))
+    return 3;
+  return 0;
+}
+//------------------------------------------------------------------------------------------------------------------------------
+uint64_t wallet2::get_max_ring_size() const
+{
+  if (use_fork_rules(8, 10))
+    return 3;
+  return 0;
+}
+//------------------------------------------------------------------------------------------------------------------------------
 uint64_t wallet2::adjust_ring_size(uint64_t ring_size) const
 {
-  if (ring_size == 2 && use_fork_rules(2, 10)) {
-    MWARNING("Requested ring size 2 is too low for hard fork 2, using 3");
-    ring_size = 3;
+  if (use_fork_rules(8, 10))
+  {
+    const uint64_t min_ring_size = get_min_ring_size();
+    if (ring_size < min_ring_size)
+    {
+      MWARNING("Requested ring size " << ring_size << " too low, using " << min_ring_size);
+      ring_size = min_ring_size;
+    }
+    const uint64_t max_ring_size = get_max_ring_size();
+    if (max_ring_size && ring_size > max_ring_size)
+    {
+      MWARNING("Requested ring size " << ring_size << " too high, using " << max_ring_size);
+      ring_size = max_ring_size;
+    }
+  }
+  else
+  {
+    if (ring_size == 2)
+    {
+      MWARNING("Requested ring size 2 is too low for hard fork 2, using 3");
+      ring_size = 3;
+    }
   }
   return ring_size;
 }
@@ -8753,16 +8786,14 @@ const wallet2::transfer_details &wallet2::get_transfer_details(size_t idx) const
 //----------------------------------------------------------------------------------------------------
 std::vector<size_t> wallet2::select_available_unmixable_outputs()
 {
-  // request all outputs with less than 3 instances
-  const size_t min_mixin = 2;
-  return select_available_outputs_from_histogram(min_mixin + 1, false, true, false);
+  // request all outputs with less instances than the min ring size
+  return select_available_outputs_from_histogram(get_min_ring_size(), false, true, false);
 }
 //----------------------------------------------------------------------------------------------------
 std::vector<size_t> wallet2::select_available_mixable_outputs()
 {
-  // request all outputs with at least 3 instances, so we can use mixin 2 with
-  const size_t min_mixin = 2;
-  return select_available_outputs_from_histogram(min_mixin + 1, true, true, true);
+  // request all outputs with at least as many instances as the min ring size
+  return select_available_outputs_from_histogram(get_min_ring_size(), true, true, true);
 }
 //----------------------------------------------------------------------------------------------------
 std::vector<wallet2::pending_tx> wallet2::create_unmixable_sweep_transactions()

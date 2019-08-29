@@ -99,10 +99,12 @@ bool gen_rct_tx_validation_base::generate_with(std::vector<test_event_entry>& ev
     const size_t index_in_tx = 4;
     src.amount = 70000000000000;
     for (int m = 0; m < 4; ++m) {
+      if (n == (size_t)m) continue;   // nasty hack to comply with fixed ring size 3
       src.push_output(m, boost::get<txout_to_key>(blocks[m].miner_tx.vout[index_in_tx].target).key, src.amount);
     }
-    src.real_out_tx_key = cryptonote::get_tx_pub_key_from_extra(blocks[n].miner_tx);
-    src.real_output = n;
+    const size_t n1 = (n + 1) % 4;
+    src.real_out_tx_key = cryptonote::get_tx_pub_key_from_extra(blocks[n1].miner_tx);
+    src.real_output = n == 3 ? 0 : n;
     src.real_output_in_tx_index = index_in_tx;
     src.mask = rct::identity();
     src.rct = false;
@@ -120,8 +122,8 @@ bool gen_rct_tx_validation_base::generate_with(std::vector<test_event_entry>& ev
     crypto::secret_key tx_key;
     std::vector<crypto::secret_key> additional_tx_keys;
     std::unordered_map<crypto::public_key, cryptonote::subaddress_index> subaddresses;
-    subaddresses[miner_accounts[n].get_keys().m_account_address.m_spend_public_key] = {0,0};
-    bool r = construct_tx_and_get_tx_key(miner_accounts[n].get_keys(), subaddresses, sources, destinations, cryptonote::account_public_address{}, std::vector<uint8_t>(), rct_txes[n], 0, tx_key, additional_tx_keys, false, true);
+    subaddresses[miner_accounts[n1].get_keys().m_account_address.m_spend_public_key] = {0,0};
+    bool r = construct_tx_and_get_tx_key(miner_accounts[n1].get_keys(), subaddresses, sources, destinations, cryptonote::account_public_address{}, std::vector<uint8_t>(), rct_txes[n], 0, tx_key, additional_tx_keys, false, true);
     CHECK_AND_ASSERT_MES(r, false, "failed to construct transaction");
     events.push_back(rct_txes[n]);
     starting_rct_tx_hashes.push_back(get_transaction_hash(rct_txes[n]));

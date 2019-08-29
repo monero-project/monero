@@ -1090,6 +1090,8 @@ namespace tools
 
     uint64_t get_fee_multiplier(uint32_t priority, int fee_algorithm = -1) const;
     uint64_t get_per_kb_fee() const;
+    uint64_t get_min_ring_size() const;
+    uint64_t get_max_ring_size() const;
     uint64_t adjust_ring_size(uint64_t ring_size) const;
     uint32_t adjust_priority(uint32_t priority);
 
