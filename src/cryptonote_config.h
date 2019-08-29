@@ -226,6 +226,9 @@ namespace config
   const unsigned char HASH_KEY_MEMORY = 'k';
   const unsigned char HASH_KEY_MULTISIG[] = {'M', 'u', 'l', 't' , 'i', 's', 'i', 'g', 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
   const unsigned char HASH_KEY_TXPROOF_V2[] = "TXPROOF_V2";
+  const unsigned char HASH_KEY_CLSAG_ROUND[] = "CLSAG_round";
+  const unsigned char HASH_KEY_CLSAG_AGG_0[] = "CLSAG_agg_0";
+  const unsigned char HASH_KEY_CLSAG_AGG_1[] = "CLSAG_agg_1";
 
   namespace testnet
   {

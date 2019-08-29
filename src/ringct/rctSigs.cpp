@@ -36,6 +36,7 @@
 #include "rctSigs.h"
 #include "bulletproofs.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
+#include "cryptonote_config.h"
 
 using namespace crypto;
 using namespace std;
@@ -163,6 +164,243 @@ namespace rct {
         CHECK_AND_ASSERT_MES_L1(ge_frombytes_vartime(&P2_p3[i], P2[i].bytes) == 0, false, "point conv failed");
       }
       return verifyBorromean(bb, P1_p3, P2_p3);
+    }
+
+    // Generate a CLSAG signature
+    // See paper by Goodell et al. (https://eprint.iacr.org/2019/654)
+    clsag CLSAG_Gen(const key &message, const keyV & P, const key & p, const keyV & C, const key & z, const unsigned int l, const multisig_kLRki *kLRki) {
+        clsag sig;
+        size_t n = P.size(); // ring size
+        CHECK_AND_ASSERT_THROW_MES(n == C.size(), "Signing and commitment key vector sizes must match!");
+        CHECK_AND_ASSERT_THROW_MES(l < n, "Signing index out of range!");
+
+        // Key images
+        ge_p3 H_p3;
+        hash_to_p3(H_p3,P[l]);
+        key H;
+        ge_p3_tobytes(H.bytes,&H_p3);
+
+        key D;
+        scalarmultKey(D,H,z);
+
+        // Multisig
+        if (kLRki)
+        {
+            sig.I = kLRki->ki;
+        }
+        else
+        {
+            scalarmultKey(sig.I,H,p);
+        }
+
+        geDsmp I_precomp;
+        geDsmp D_precomp;
+        precomp(I_precomp.k,sig.I);
+        precomp(D_precomp.k,D);
+
+        // Offset key image
+        scalarmultKey(sig.D,D,INV_EIGHT);
+
+        // Initial values
+        key a;
+        key aG;
+        key aH;
+        skpkGen(a,aG);
+        scalarmultKey(aH,H,a);
+
+        // Aggregation hashes
+        keyV mu_P_to_hash(2*n+3); // domain, I, D, P, C
+        keyV mu_C_to_hash(2*n+3); // domain, I, D, P, C
+        sc_0(mu_P_to_hash[0].bytes);
+        memcpy(mu_P_to_hash[0].bytes,config::HASH_KEY_CLSAG_AGG_0,sizeof(config::HASH_KEY_CLSAG_AGG_0)-1);
+        sc_0(mu_C_to_hash[0].bytes);
+        memcpy(mu_C_to_hash[0].bytes,config::HASH_KEY_CLSAG_AGG_1,sizeof(config::HASH_KEY_CLSAG_AGG_1)-1);
+        for (size_t i = 1; i < n+1; ++i) {
+            mu_P_to_hash[i] = P[i-1];
+            mu_C_to_hash[i] = P[i-1];
+        }
+        for (size_t i = n+1; i < 2*n+1; ++i) {
+            mu_P_to_hash[i] = C[i-n-1];
+            mu_C_to_hash[i] = C[i-n-1];
+        }
+        mu_P_to_hash[2*n+1] = sig.I;
+        mu_P_to_hash[2*n+2] = sig.D;
+        mu_C_to_hash[2*n+1] = sig.I;
+        mu_C_to_hash[2*n+2] = sig.D;
+        key mu_P, mu_C;
+        mu_P = hash_to_scalar(mu_P_to_hash);
+        mu_C = hash_to_scalar(mu_C_to_hash);
+
+        // Initial commitment
+        keyV c_to_hash(2*n+4); // domain, P, C, message, aG, aH
+        key c;
+        sc_0(c_to_hash[0].bytes);
+        memcpy(c_to_hash[0].bytes,config::HASH_KEY_CLSAG_ROUND,sizeof(config::HASH_KEY_CLSAG_ROUND)-1);
+        for (size_t i = 1; i < n+1; ++i)
+        {
+            c_to_hash[i] = P[i-1];
+            c_to_hash[i+n] = C[i-1];
+        }
+        c_to_hash[2*n+1] = message;
+
+        // Multisig data is present
+        if (kLRki)
+        {
+            a = kLRki->k;
+            c_to_hash[2*n+2] = kLRki->L;
+            c_to_hash[2*n+3] = kLRki->R;
+        }
+        else
+        {
+            c_to_hash[2*n+2] = aG;
+            c_to_hash[2*n+3] = aH;
+        }
+        c = hash_to_scalar(c_to_hash);
+        
+        size_t i;
+        i = (l + 1) % n;
+        if (i == 0)
+            copy(sig.c1, c);
+
+        // Decoy indices
+        sig.s = keyV(n);
+        key c_new;
+        key L;
+        key R;
+        key c_p; // = c[i]*mu_P
+        key c_c; // = c[i]*mu_C
+        geDsmp P_precomp;
+        geDsmp C_precomp;
+        geDsmp H_precomp;
+        ge_p3 Hi_p3;
+
+        while (i != l) {
+            sig.s[i] = skGen();
+            sc_0(c_new.bytes);
+            sc_mul(c_p.bytes,mu_P.bytes,c.bytes);
+            sc_mul(c_c.bytes,mu_C.bytes,c.bytes);
+
+            // Precompute points
+            precomp(P_precomp.k,P[i]);
+            precomp(C_precomp.k,C[i]);
+
+            // Compute L
+            addKeys_aGbBcC(L,sig.s[i],c_p,P_precomp.k,c_c,C_precomp.k);
+
+            // Compute R
+            hash_to_p3(Hi_p3,P[i]);
+            ge_dsm_precomp(H_precomp.k, &Hi_p3);
+            addKeys_aAbBcC(R,sig.s[i],H_precomp.k,c_p,I_precomp.k,c_c,D_precomp.k);
+
+            c_to_hash[2*n+2] = L;
+            c_to_hash[2*n+3] = R;
+            c_new = hash_to_scalar(c_to_hash);
+            copy(c,c_new);
+            
+            i = (i + 1) % n;
+            if (i == 0)
+                copy(sig.c1,c);
+        }
+
+        // Compute final scalar
+        key s0_p_mu_P;
+        sc_mul(s0_p_mu_P.bytes,mu_P.bytes,p.bytes);
+        key s0_add_z_mu_C;
+        sc_muladd(s0_add_z_mu_C.bytes,mu_C.bytes,z.bytes,s0_p_mu_P.bytes);
+        sc_mulsub(sig.s[l].bytes,c.bytes,s0_add_z_mu_C.bytes,a.bytes);
+
+        return sig;
+    }
+
+    // Verify a CLSAG signature
+    // See paper by Goodell et al. (https://eprint.iacr.org/2019/654)
+    bool CLSAG_Ver(const key &message, const keyV & P, const keyV & C, const clsag & sig)
+    {
+        size_t n = P.size(); // ring size
+        CHECK_AND_ASSERT_MES(n == C.size(), false, "Signing and commitment key vector sizes must match!");
+        CHECK_AND_ASSERT_MES(n == sig.s.size(), false, "Signature scalar vector is the wrong size!");
+        for (size_t i = 0; i < n; ++i)
+            CHECK_AND_ASSERT_MES(sc_check(sig.s[i].bytes) == 0, false, "Bad signature scalar!");
+        CHECK_AND_ASSERT_MES(sc_check(sig.c1.bytes) == 0, false, "Bad signature commitment!");
+
+        key c = copy(sig.c1);
+        key D_8 = scalarmult8(sig.D);
+        geDsmp I_precomp;
+        geDsmp D_precomp;
+        precomp(I_precomp.k,sig.I);
+        precomp(D_precomp.k,D_8);
+
+        // Aggregation hashes
+        keyV mu_P_to_hash(2*n+3); // domain, I, D, P, C
+        keyV mu_C_to_hash(2*n+3); // domain, I, D, P, C
+        sc_0(mu_P_to_hash[0].bytes);
+        memcpy(mu_P_to_hash[0].bytes,config::HASH_KEY_CLSAG_AGG_0,sizeof(config::HASH_KEY_CLSAG_AGG_0)-1);
+        sc_0(mu_C_to_hash[0].bytes);
+        memcpy(mu_C_to_hash[0].bytes,config::HASH_KEY_CLSAG_AGG_1,sizeof(config::HASH_KEY_CLSAG_AGG_1)-1);
+        for (size_t i = 1; i < n+1; ++i) {
+            mu_P_to_hash[i] = P[i-1];
+            mu_C_to_hash[i] = P[i-1];
+        }
+        for (size_t i = n+1; i < 2*n+1; ++i) {
+            mu_P_to_hash[i] = C[i-n-1];
+            mu_C_to_hash[i] = C[i-n-1];
+        }
+        mu_P_to_hash[2*n+1] = sig.I;
+        mu_P_to_hash[2*n+2] = sig.D;
+        mu_C_to_hash[2*n+1] = sig.I;
+        mu_C_to_hash[2*n+2] = sig.D;
+        key mu_P, mu_C;
+        mu_P = hash_to_scalar(mu_P_to_hash);
+        mu_C = hash_to_scalar(mu_C_to_hash);
+
+        keyV c_to_hash(2*n+4); // domain, P, C, message, L, R
+        sc_0(c_to_hash[0].bytes);
+        memcpy(c_to_hash[0].bytes,config::HASH_KEY_CLSAG_ROUND,sizeof(config::HASH_KEY_CLSAG_ROUND)-1);
+        for (size_t i = 1; i < n+1; ++i)
+        {
+            c_to_hash[i] = P[i-1];
+            c_to_hash[i+n] = C[i-1];
+        }
+        c_to_hash[2*n+1] = message;
+        key c_p; // = c[i]*mu_P
+        key c_c; // = c[i]*mu_C
+        key c_new;
+        key L;
+        key R;
+        geDsmp P_precomp;
+        geDsmp C_precomp;
+        geDsmp H_precomp;
+        size_t i = 0;
+        ge_p3 hash8_p3;
+        geDsmp hash_precomp;
+
+        while (i < n) {
+            sc_0(c_new.bytes);
+            sc_mul(c_p.bytes,mu_P.bytes,c.bytes);
+            sc_mul(c_c.bytes,mu_C.bytes,c.bytes);
+
+            // Precompute points
+            precomp(P_precomp.k,P[i]);
+            precomp(C_precomp.k,C[i]);
+
+            // Compute L
+            addKeys_aGbBcC(L,sig.s[i],c_p,P_precomp.k,c_c,C_precomp.k);
+
+            // Compute R
+            hash_to_p3(hash8_p3,P[i]);
+            ge_dsm_precomp(hash_precomp.k, &hash8_p3);
+            addKeys_aAbBcC(R,sig.s[i],hash_precomp.k,c_p,I_precomp.k,c_c,D_precomp.k);
+
+            c_to_hash[2*n+2] = L;
+            c_to_hash[2*n+3] = R;
+            c_new = hash_to_scalar(c_to_hash);
+            CHECK_AND_ASSERT_MES(!(c_new == rct::zero()), false, "Bad signature hash");
+            copy(c,c_new);
+
+            i = i + 1;
+        }
+        sc_sub(c_new.bytes,c.bytes,sig.c1.bytes);
+        return sc_isnonzero(c_new.bytes) == 0;
     }
 
     // MLSAG signatures

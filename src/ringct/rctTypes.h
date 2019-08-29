@@ -163,6 +163,21 @@ namespace rct {
             // FIELD(II) - not serialized, it can be reconstructed
         END_SERIALIZE()
     };
+
+    // CLSAG signature
+    struct clsag {
+        keyV s; // scalars
+        key c1;
+
+        key I; // signing key image
+        key D; // commitment key image
+
+        BEGIN_SERIALIZE_OBJECT()
+            FIELD(s)
+            FIELD(c1)
+        END_SERIALIZE()
+    };
+
     //contains the data for an Borromean sig
     // also contains the "Ci" values such that
     // \sum Ci = C

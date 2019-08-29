@@ -76,6 +76,9 @@ namespace rct {
     // Ver verifies that the MG sig was created correctly
     mgSig MLSAG_Gen(const key &message, const keyM & pk, const keyV & xx, const multisig_kLRki *kLRki, key *mscout, const unsigned int index, size_t dsRows, hw::device &hwdev);
     bool MLSAG_Ver(const key &message, const keyM &pk, const mgSig &sig, size_t dsRows);
+
+    clsag CLSAG_Gen(const key &message, const keyV & P, const key & p, const keyV & C, const key & z, const unsigned int l, const multisig_kLRki *kLRki);
+    bool CLSAG_Ver(const key &message, const keyV & P, const keyV & C, const clsag & sig);
     //mgSig MLSAG_Gen_Old(const keyM & pk, const keyV & xx, const int index);
 
     //proveRange and verRange
