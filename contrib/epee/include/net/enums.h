@@ -49,7 +49,7 @@ namespace net_utils
 	{
 		invalid = 0,
 		public_ = 1, // public is keyword
-		i2p = 2,
+		i2p = 2,     // order from here changes priority of selection for origin TXes
 		tor = 3
 	};
 

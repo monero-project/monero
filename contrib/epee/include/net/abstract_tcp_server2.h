@@ -49,10 +49,12 @@
 #include <boost/asio/ssl.hpp>
 #include <boost/array.hpp>
 #include <boost/noncopyable.hpp>
-#include <boost/shared_ptr.hpp>
+#include <boost/shared_ptr.hpp> //! \TODO Convert to std::shared_ptr
 #include <boost/enable_shared_from_this.hpp>
 #include <boost/interprocess/detail/atomic.hpp>
 #include <boost/thread/thread.hpp>
+#include <memory>
+#include "byte_slice.h"
 #include "net_utils_base.h"
 #include "syncobj.h"
 #include "connection_basic.hpp"
@@ -90,25 +92,24 @@ namespace net_utils
   public:
     typedef typename t_protocol_handler::connection_context t_connection_context;
 
-    struct shared_state : connection_basic_shared_state
+    struct shared_state : connection_basic_shared_state, t_protocol_handler::config_type
     {
       shared_state()
-        : connection_basic_shared_state(), pfilter(nullptr), config(), stop_signal_sent(false)
+        : connection_basic_shared_state(), t_protocol_handler::config_type(), pfilter(nullptr), stop_signal_sent(false)
       {}
 
       i_connection_filter* pfilter;
-      typename t_protocol_handler::config_type config;
       bool stop_signal_sent;
     };
 
     /// Construct a connection with the given io_service.
     explicit connection( boost::asio::io_service& io_service,
-                        boost::shared_ptr<shared_state> state,
+                        std::shared_ptr<shared_state> state,
 			t_connection_type connection_type,
 			epee::net_utils::ssl_support_t ssl_support);
 
     explicit connection( boost::asio::ip::tcp::socket&& sock,
-			 boost::shared_ptr<shared_state> state,
+			 std::shared_ptr<shared_state> state,
 			t_connection_type connection_type,
 			epee::net_utils::ssl_support_t ssl_support);
 
@@ -135,8 +136,7 @@ namespace net_utils
     
   private:
     //----------------- i_service_endpoint ---------------------
-    virtual bool do_send(const void* ptr, size_t cb); ///< (see do_send from i_service_endpoint)
-    virtual bool do_send_chunk(const void* ptr, size_t cb); ///< will send (or queue) a part of data
+    virtual bool do_send(byte_slice message); ///< (see do_send from i_service_endpoint)
     virtual bool send_done();
     virtual bool close();
     virtual bool call_run_once_service_io();
@@ -145,6 +145,8 @@ namespace net_utils
     virtual bool add_ref();
     virtual bool release();
     //------------------------------------------------------
+    bool do_send_chunk(byte_slice chunk); ///< will send (or queue) a part of data. internal use only
+
     boost::shared_ptr<connection<t_protocol_handler> > safe_shared_from_this();
     bool shutdown();
     /// Handle completion of a receive operation.
@@ -269,7 +271,13 @@ namespace net_utils
     typename t_protocol_handler::config_type& get_config_object()
     {
       assert(m_state != nullptr); // always set in constructor
-      return m_state->config;
+      return *m_state;
+    }
+
+    std::shared_ptr<typename t_protocol_handler::config_type> get_config_shared()
+    {
+      assert(m_state != nullptr); // always set in constructor
+      return {m_state};
     }
 
     int get_binded_port(){return m_port;}
@@ -350,7 +358,7 @@ namespace net_utils
 
     bool is_thread_worker();
 
-    const boost::shared_ptr<typename connection<t_protocol_handler>::shared_state> m_state;
+    const std::shared_ptr<typename connection<t_protocol_handler>::shared_state> m_state;
 
     /// The io_service used to perform asynchronous operations.
     struct worker

@@ -68,7 +68,7 @@ namespace epee
 namespace net_utils
 {
   template<typename T>
-  T& check_and_get(boost::shared_ptr<T>& ptr)
+  T& check_and_get(std::shared_ptr<T>& ptr)
   {
     CHECK_AND_ASSERT_THROW_MES(bool(ptr), "shared_state cannot be null");
     return *ptr;
@@ -81,7 +81,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 
   template<class t_protocol_handler>
   connection<t_protocol_handler>::connection( boost::asio::io_service& io_service,
-                boost::shared_ptr<shared_state> state,
+                std::shared_ptr<shared_state> state,
 		t_connection_type connection_type,
 		ssl_support_t ssl_support
 	)
@@ -91,13 +91,13 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 
   template<class t_protocol_handler>
   connection<t_protocol_handler>::connection( boost::asio::ip::tcp::socket&& sock,
-                boost::shared_ptr<shared_state> state,
+                std::shared_ptr<shared_state> state,
 		t_connection_type connection_type,
 		ssl_support_t ssl_support
 	)
 	: 
 		connection_basic(std::move(sock), state, ssl_support),
-		m_protocol_handler(this, check_and_get(state).config, context),
+		m_protocol_handler(this, check_and_get(state), context),
 		buffer_ssl_init_fill(0),
 		m_connection_type( connection_type ),
 		m_throttle_speed_in("speed_in", "throttle_speed_in"),
@@ -378,7 +378,6 @@ PRAGMA_WARNING_DISABLE_VS(4355)
       if(!recv_res)
       {  
         //_info("[sock " << socket().native_handle() << "] protocol_want_close");
-
         //some error in protocol, protocol handler ask to close connection
         boost::interprocess::ipcdetail::atomic_write32(&m_want_close_connection, 1);
         bool do_shutdown = false;
@@ -520,7 +519,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
   }
   //---------------------------------------------------------------------------------
     template<class t_protocol_handler>
-  bool connection<t_protocol_handler>::do_send(const void* ptr, size_t cb) {
+  bool connection<t_protocol_handler>::do_send(byte_slice message) {
     TRY_ENTRY();
 
     // Use safe_shared_from_this, because of this is public method and it can be called on the object being deleted
@@ -528,6 +527,9 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     if (!self) return false;
     if (m_was_shutdown) return false;
 		// TODO avoid copy
+
+		std::uint8_t const* const message_data = message.data();
+		const std::size_t message_size = message.size();
 
 		const double factor = 32; // TODO config
 		typedef long long signed int t_safe; // my t_size to avoid any overunderflow in arithmetic
@@ -538,13 +540,11 @@ PRAGMA_WARNING_DISABLE_VS(4355)
         CHECK_AND_ASSERT_MES(! (chunksize_max<0), false, "Negative chunksize_max" ); // make sure it is unsigned before removin sign with cast:
         long long unsigned int chunksize_max_unsigned = static_cast<long long unsigned int>( chunksize_max ) ;
 
-        if (allow_split && (cb > chunksize_max_unsigned)) {
+        if (allow_split && (message_size > chunksize_max_unsigned)) {
 			{ // LOCK: chunking
     		epee::critical_region_t<decltype(m_chunking_lock)> send_guard(m_chunking_lock); // *** critical *** 
 
-				MDEBUG("do_send() will SPLIT into small chunks, from packet="<<cb<<" B for ptr="<<ptr);
-				t_safe all = cb; // all bytes to send 
-				t_safe pos = 0; // current sending position
+				MDEBUG("do_send() will SPLIT into small chunks, from packet="<<message_size<<" B for ptr="<<message_data);
 				// 01234567890 
 				// ^^^^        (pos=0, len=4)     ;   pos:=pos+len, pos=4
 				//     ^^^^    (pos=4, len=4)     ;   pos:=pos+len, pos=8
@@ -554,40 +554,25 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 				// char* buf = new char[ bufsize ];
 
 				bool all_ok = true;
-				while (pos < all) {
-					t_safe lenall = all-pos; // length from here to end
-					t_safe len = std::min( chunksize_good , lenall); // take a smaller part
-					CHECK_AND_ASSERT_MES(len<=chunksize_good, false, "len too large");
-					// pos=8; len=4; all=10;	len=3;
+				while (!message.empty()) {
+					byte_slice chunk = message.take_slice(chunksize_good);
 
-                    CHECK_AND_ASSERT_MES(! (len<0), false, "negative len"); // check before we cast away sign:
-                    unsigned long long int len_unsigned = static_cast<long long int>( len );
-                    CHECK_AND_ASSERT_MES(len>0, false, "len not strictly positive"); // (redundant)
-                    CHECK_AND_ASSERT_MES(len_unsigned < std::numeric_limits<size_t>::max(), false, "Invalid len_unsigned");   // yeap we want strong < then max size, to be sure
-					
-					void *chunk_start = ((char*)ptr) + pos;
-					MDEBUG("chunk_start="<<chunk_start<<" ptr="<<ptr<<" pos="<<pos);
-					CHECK_AND_ASSERT_MES(chunk_start >= ptr, false, "Pointer wraparound"); // not wrapped around address?
-					//std::memcpy( (void*)buf, chunk_start, len);
+					MDEBUG("chunk_start="<<chunk.data()<<" ptr="<<message_data<<" pos="<<(chunk.data() - message_data));
+					MDEBUG("part of " << message.size() << ": pos="<<(chunk.data() - message_data) << " len="<<chunk.size());
 
-					MDEBUG("part of " << lenall << ": pos="<<pos << " len="<<len);
-
-					bool ok = do_send_chunk(chunk_start, len); // <====== ***
+					bool ok = do_send_chunk(std::move(chunk)); // <====== ***
 
 					all_ok = all_ok && ok;
 					if (!all_ok) {
-						MDEBUG("do_send() DONE ***FAILED*** from packet="<<cb<<" B for ptr="<<ptr);
+						MDEBUG("do_send() DONE ***FAILED*** from packet="<<message_size<<" B for ptr="<<message_data);
 						MDEBUG("do_send() SEND was aborted in middle of big package - this is mostly harmless "
-							<< " (e.g. peer closed connection) but if it causes trouble tell us at #monero-dev. " << cb);
+							<< " (e.g. peer closed connection) but if it causes trouble tell us at #monero-dev. " << message_size);
 						return false; // partial failure in sending
 					}
-					pos = pos+len;
-					CHECK_AND_ASSERT_MES(pos >0, false, "pos <= 0");
-
 					// (in catch block, or uniq pointer) delete buf;
 				} // each chunk
 
-				MDEBUG("do_send() DONE SPLIT from packet="<<cb<<" B for ptr="<<ptr);
+				MDEBUG("do_send() DONE SPLIT from packet="<<message_size<<" B for ptr="<<message_data);
 
                 MDEBUG("do_send() m_connection_type = " << m_connection_type);
 
@@ -595,7 +580,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 			} // LOCK: chunking
 		} // a big block (to be chunked) - all chunks
 		else { // small block
-			return do_send_chunk(ptr,cb); // just send as 1 big chunk
+			return do_send_chunk(std::move(message)); // just send as 1 big chunk
 		}
 
     CATCH_ENTRY_L0("connection<t_protocol_handler>::do_send", false);
@@ -603,7 +588,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 
   //---------------------------------------------------------------------------------
   template<class t_protocol_handler>
-  bool connection<t_protocol_handler>::do_send_chunk(const void* ptr, size_t cb)
+  bool connection<t_protocol_handler>::do_send_chunk(byte_slice chunk)
   {
     TRY_ENTRY();
     // Use safe_shared_from_this, because of this is public method and it can be called on the object being deleted
@@ -615,7 +600,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     double current_speed_up;
     {
 		CRITICAL_REGION_LOCAL(m_throttle_speed_out_mutex);
-		m_throttle_speed_out.handle_trafic_exact(cb);
+		m_throttle_speed_out.handle_trafic_exact(chunk.size());
 		current_speed_up = m_throttle_speed_out.get_current_speed();
 	}
     context.m_current_speed_up = current_speed_up;
@@ -623,7 +608,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 
     //_info("[sock " << socket().native_handle() << "] SEND " << cb);
     context.m_last_send = time(NULL);
-    context.m_send_cnt += cb;
+    context.m_send_cnt += chunk.size();
     //some data should be wrote to stream
     //request complete
     
@@ -644,7 +629,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
         }*/
 
         long int ms = 250 + (rand()%50);
-        MDEBUG("Sleeping because QUEUE is FULL, in " << __FUNCTION__ << " for " << ms << " ms before packet_size="<<cb); // XXX debug sleep
+        MDEBUG("Sleeping because QUEUE is FULL, in " << __FUNCTION__ << " for " << ms << " ms before packet_size="<<chunk.size()); // XXX debug sleep
         m_send_que_lock.unlock();
         boost::this_thread::sleep(boost::posix_time::milliseconds( ms ) );
         m_send_que_lock.lock();
@@ -657,12 +642,11 @@ PRAGMA_WARNING_DISABLE_VS(4355)
         }
     }
 
-    m_send_que.resize(m_send_que.size()+1);
-    m_send_que.back().assign((const char*)ptr, cb);
-    
+    m_send_que.push_back(std::move(chunk));
+
     if(m_send_que.size() > 1)
     { // active operation should be in progress, nothing to do, just wait last operation callback
-        auto size_now = cb;
+        auto size_now = m_send_que.back().size();
         MDEBUG("do_send_chunk() NOW just queues: packet="<<size_now<<" B, is added to queue-size="<<m_send_que.size());
         //do_send_handler_delayed( ptr , size_now ); // (((H))) // empty function
       
@@ -680,7 +664,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
         auto size_now = m_send_que.front().size();
         MDEBUG("do_send_chunk() NOW SENSD: packet="<<size_now<<" B");
         if (speed_limit_is_enabled())
-			do_send_handler_write( ptr , size_now ); // (((H)))
+			do_send_handler_write( m_send_que.back().data(), m_send_que.back().size() ); // (((H)))
 
         CHECK_AND_ASSERT_MES( size_now == m_send_que.front().size(), false, "Unexpected queue size");
         reset_timer(get_default_timeout(), false);
@@ -908,7 +892,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 
   template<class t_protocol_handler>
   boosted_tcp_server<t_protocol_handler>::boosted_tcp_server( t_connection_type connection_type ) :
-    m_state(boost::make_shared<typename connection<t_protocol_handler>::shared_state>()),
+    m_state(std::make_shared<typename connection<t_protocol_handler>::shared_state>()),
     m_io_service_local_instance(new worker()),
     io_service_(m_io_service_local_instance->io_service),
     acceptor_(io_service_),
@@ -927,7 +911,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 
   template<class t_protocol_handler>
   boosted_tcp_server<t_protocol_handler>::boosted_tcp_server(boost::asio::io_service& extarnal_io_service, t_connection_type connection_type) :
-    m_state(boost::make_shared<typename connection<t_protocol_handler>::shared_state>()),
+    m_state(std::make_shared<typename connection<t_protocol_handler>::shared_state>()),
     io_service_(extarnal_io_service),
     acceptor_(io_service_),
     acceptor_ipv6(io_service_),

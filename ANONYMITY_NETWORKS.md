@@ -160,25 +160,6 @@ the system clock is noticeably off (and therefore more fingerprintable),
 linking the public IPv4/IPv6 connections with the anonymity networks will be
 more difficult.
 
-### Bandwidth Usage
-
-An ISP can passively monitor `monerod` connections from a node and observe when
-a transaction is sent over a Tor/I2P connection via timing analysis + size of
-data sent during that timeframe. I2P should provide better protection against
-this attack - its connections are not circuit based. However, if a node is
-only using I2P for broadcasting Monero transactions, the total aggregate of
-I2P data would also leak information.
-
-#### Mitigation
-
-There is no current mitigation for the user right now. This attack is fairly
-sophisticated, and likely requires support from the internet host of a Monero
-user.
-
-In the near future, "whitening" the amount of data sent over anonymity network
-connections will be performed. An attempt will be made to make a transaction
-broadcast indistinguishable from a peer timed sync command.
-
 ### Intermittent Monero Syncing
 
 If a user only runs `monerod` to send a transaction then quit, this can also
@@ -208,3 +189,36 @@ is a tradeoff in potential isses. Also, anyone attempting this strategy really
 wants to uncover a user, it seems unlikely that this would be performed against
 every Tor/I2P user.
 
+### I2P/Tor Stream Used Twice
+
+If a single I2P/Tor stream is used 2+ times for transmitting a transaction, the
+operator of the hidden service can conclude that both transactions came from the
+same source. If the subsequent transactions spend a change output from the
+earlier transactions, this will also reveal the "real" spend in the ring
+signature. This issue was (primarily) raised by @secparam on Twitter.
+
+#### Mitigation
+
+`monerod` currently selects two outgoing connections every 5 minutes for
+transmitting transactions over I2P/Tor. Using outgoing connections prevents an
+adversary from making many incoming connections to obtain information (this
+technique was taken from Dandelion). Outgoing connections also do not have a
+persistent public key identity - the creation of a new circuit will generate
+a new public key identity. The lock time on a change address is ~20 minutes, so
+`monerod` will have rotated its selected outgoing connections several times in
+most cases. However, the number of outgoing connections is typically a small
+fixed number, so there is a decent probability of re-use with the same public
+key identity.
+
+@secparam (twitter) recommended changing circuits (Tor) as an additional
+precaution. This is likely not a good idea - forcibly requesting Tor to change
+circuits is observable by the ISP. Instead, `monerod` should likely disconnect
+from peers ocassionally. Tor will rotate circuits every ~10 minutes, so
+establishing new connections will use a new public key identity and make it
+more difficult for the hidden service to link information. This process will
+have to be done carefully because closing/reconnecting connections can also
+leak information to hidden services if done improperly.
+
+At the current time, if users need to frequently make transactions, I2P/Tor
+will improve privacy from ISPs and other common adversaries, but still have
+some metadata leakages to unknown hidden service operators.

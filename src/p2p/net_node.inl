@@ -383,6 +383,9 @@ namespace nodetool
     m_offline = command_line::get_arg(vm, cryptonote::arg_offline);
     m_use_ipv6 = command_line::get_arg(vm, arg_p2p_use_ipv6);
     m_require_ipv4 = command_line::get_arg(vm, arg_p2p_require_ipv4);
+    public_zone.m_notifier = cryptonote::levin::notify{
+      public_zone.m_net_server.get_io_service(), public_zone.m_net_server.get_config_shared(), nullptr
+    };
 
     if (command_line::has_arg(vm, arg_p2p_add_peer))
     {
@@ -462,6 +465,7 @@ namespace nodetool
       return false;
 
 
+    epee::byte_slice noise = nullptr;
     auto proxies = get_proxies(vm);
     if (!proxies)
       return false;
@@ -479,6 +483,20 @@ namespace nodetool
 
       if (!set_max_out_peers(zone, proxy.max_connections))
         return false;
+
+      epee::byte_slice this_noise = nullptr;
+      if (proxy.noise)
+      {
+        static_assert(sizeof(epee::levin::bucket_head2) < CRYPTONOTE_NOISE_BYTES, "noise bytes too small");
+        if (noise.empty())
+          noise = epee::levin::make_noise_notify(CRYPTONOTE_NOISE_BYTES);
+
+        this_noise = noise.clone();
+      }
+
+      zone.m_notifier = cryptonote::levin::notify{
+        zone.m_net_server.get_io_service(), zone.m_net_server.get_config_shared(), std::move(this_noise)
+      };
     }
 
     for (const auto& zone : m_network_zones)
@@ -494,6 +512,7 @@ namespace nodetool
     if (!inbounds)
       return false;
 
+    const std::size_t tx_relay_zones = m_network_zones.size();
     for (auto& inbound : *inbounds)
     {
       network_zone& zone = add_zone(inbound.our_address.get_zone());
@@ -501,6 +520,12 @@ namespace nodetool
       if (!zone.m_bind_ip.empty())
       {
         MERROR("Listed --" << arg_anonymous_inbound.name << " twice with " << epee::net_utils::zone_to_string(inbound.our_address.get_zone()) << " network");
+        return false;
+      }
+
+      if (zone.m_connect == nullptr && tx_relay_zones <= 1)
+      {
+        MERROR("Listed --" << arg_anonymous_inbound.name << " without listing any --" << arg_proxy.name << ". The latter is necessary for sending origin txes over anonymity networks");
         return false;
       }
 
@@ -1266,6 +1291,7 @@ namespace nodetool
     ape.first_seen = first_seen_stamp ? first_seen_stamp : time(nullptr);
 
     zone.m_peerlist.append_with_peer_anchor(ape);
+    zone.m_notifier.new_out_connection();
 
     LOG_DEBUG_CC(*con, "CONNECTION HANDSHAKED OK.");
     return true;
@@ -1990,13 +2016,68 @@ namespace nodetool
         }
         if (c_id.first <= zone->first)
           break;
-	  
+
         ++zone;
       }
       if (zone->first == c_id.first)
         zone->second.m_net_server.get_config_object().notify(command, data_buff, c_id.second);
     }
     return true;
+  }
+  //-----------------------------------------------------------------------------------
+  template<class t_payload_net_handler>
+  epee::net_utils::zone node_server<t_payload_net_handler>::send_txs(std::vector<cryptonote::blobdata> txs, const epee::net_utils::zone origin, const boost::uuids::uuid& source, const bool pad_txs)
+  {
+    namespace enet = epee::net_utils;
+
+    const auto send = [&txs, &source, pad_txs] (std::pair<const enet::zone, network_zone>& network)
+    {
+      if (network.second.m_notifier.send_txs(std::move(txs), source, (pad_txs || network.first != enet::zone::public_)))
+        return network.first;
+      return enet::zone::invalid;
+    };
+
+    if (m_network_zones.empty())
+      return enet::zone::invalid;
+
+    if (origin != enet::zone::invalid)
+      return send(*m_network_zones.begin()); // send all txs received via p2p over public network
+
+    if (m_network_zones.size() <= 2)
+      return send(*m_network_zones.rbegin()); // see static asserts below; sends over anonymity network iff enabled
+
+    /* These checks are to ensure that i2p is highest priority if multiple
+       zones are selected. Make sure to update logic if the values cannot be
+       in the same relative order. `m_network_zones` must be sorted map too. */
+    static_assert(std::is_same<std::underlying_type<enet::zone>::type, std::uint8_t>{}, "expected uint8_t zone");
+    static_assert(unsigned(enet::zone::invalid) == 0, "invalid expected to be 0");
+    static_assert(unsigned(enet::zone::public_) == 1, "public_ expected to be 1");
+    static_assert(unsigned(enet::zone::i2p) == 2, "i2p expected to be 2");
+    static_assert(unsigned(enet::zone::tor) == 3, "tor expected to be 3");
+
+    // check for anonymity networks with noise and connections
+    for (auto network = ++m_network_zones.begin(); network != m_network_zones.end(); ++network)
+    {
+      if (enet::zone::tor < network->first)
+        break; // unknown network
+
+      const auto status = network->second.m_notifier.get_status();
+      if (status.has_noise && status.connections_filled)
+        return send(*network);
+    }
+
+    // use the anonymity network with outbound support
+    for (auto network = ++m_network_zones.begin(); network != m_network_zones.end(); ++network)
+    {
+      if (enet::zone::tor < network->first)
+        break; // unknown network
+
+      if (network->second.m_connect)
+        return send(*network);
+    }
+
+    // configuration should not allow this scenario
+    return enet::zone::invalid;
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>

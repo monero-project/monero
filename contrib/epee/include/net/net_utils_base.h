@@ -34,9 +34,10 @@
 #include <boost/asio/ip/address_v6.hpp>
 #include <typeinfo>
 #include <type_traits>
+#include "byte_slice.h"
 #include "enums.h"
-#include "serialization/keyvalue_serialization.h"
 #include "misc_log_ex.h"
+#include "serialization/keyvalue_serialization.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "net"
@@ -424,7 +425,7 @@ namespace net_utils
 	/************************************************************************/
 	struct i_service_endpoint
 	{
-		virtual bool do_send(const void* ptr, size_t cb)=0;
+		virtual bool do_send(byte_slice message)=0;
     virtual bool close()=0;
     virtual bool send_done()=0;
     virtual bool call_run_once_service_io()=0;

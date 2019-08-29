@@ -43,6 +43,7 @@
 #include <vector>
 
 #include "cryptonote_config.h"
+#include "cryptonote_protocol/levin_notify.h"
 #include "warnings.h"
 #include "net/abstract_tcp_server2.h"
 #include "net/levin_protocol_handler.h"
@@ -66,12 +67,14 @@ namespace nodetool
     proxy()
       : max_connections(-1),
         address(),
-        zone(epee::net_utils::zone::invalid)
+        zone(epee::net_utils::zone::invalid),
+        noise(true)
     {}
 
     std::int64_t max_connections;
     boost::asio::ip::tcp::endpoint address;
     epee::net_utils::zone zone;
+    bool noise;
   };
 
   struct anonymous_inbound
@@ -154,6 +157,7 @@ namespace nodetool
           m_bind_ipv6_address(),
           m_port(),
           m_port_ipv6(),
+          m_notifier(),
           m_our_address(),
           m_peerlist(),
           m_config{},
@@ -172,6 +176,7 @@ namespace nodetool
           m_bind_ipv6_address(),
           m_port(),
           m_port_ipv6(),
+          m_notifier(),
           m_our_address(),
           m_peerlist(),
           m_config{},
@@ -189,6 +194,7 @@ namespace nodetool
       std::string m_bind_ipv6_address;
       std::string m_port;
       std::string m_port_ipv6;
+      cryptonote::levin::notify m_notifier;
       epee::net_utils::network_address m_our_address; // in anonymity networks
       peerlist_manager m_peerlist;
       config m_config;
@@ -255,7 +261,6 @@ namespace nodetool
     size_t get_public_gray_peers_count();
     void get_public_peerlist(std::vector<peerlist_entry>& gray, std::vector<peerlist_entry>& white);
     void get_peerlist(std::vector<peerlist_entry>& gray, std::vector<peerlist_entry>& white);
-    size_t get_zone_count() const { return m_network_zones.size(); }
 
     void change_max_out_public_peers(size_t count);
     uint32_t get_max_out_public_peers() const;
@@ -330,6 +335,7 @@ namespace nodetool
     virtual void callback(p2p_connection_context& context);
     //----------------- i_p2p_endpoint -------------------------------------------------------------
     virtual bool relay_notify_to_list(int command, const epee::span<const uint8_t> data_buff, std::vector<std::pair<epee::net_utils::zone, boost::uuids::uuid>> connections);
+    virtual epee::net_utils::zone send_txs(std::vector<cryptonote::blobdata> txs, const epee::net_utils::zone origin, const boost::uuids::uuid& source, const bool pad_txs);
     virtual bool invoke_command_to_peer(int command, const epee::span<const uint8_t> req_buff, std::string& resp_buff, const epee::net_utils::connection_context_base& context);
     virtual bool invoke_notify_to_peer(int command, const epee::span<const uint8_t> req_buff, const epee::net_utils::connection_context_base& context);
     virtual bool drop_connection(const epee::net_utils::connection_context_base& context);

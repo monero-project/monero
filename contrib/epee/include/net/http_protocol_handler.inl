@@ -591,11 +591,12 @@ namespace net_utils
 		std::string response_data = get_response_header(response);
 		//LOG_PRINT_L0("HTTP_SEND: << \r\n" << response_data + response.m_body);
 
-    LOG_PRINT_L3("HTTP_RESPONSE_HEAD: << \r\n" << response_data);
-		
-		m_psnd_hndlr->do_send((void*)response_data.data(), response_data.size());
+		LOG_PRINT_L3("HTTP_RESPONSE_HEAD: << \r\n" << response_data);
+
 		if ((response.m_body.size() && (query_info.m_http_method != http::http_method_head)) || (query_info.m_http_method == http::http_method_options))
-			m_psnd_hndlr->do_send((void*)response.m_body.data(), response.m_body.size());
+			response_data += response.m_body;
+
+		m_psnd_hndlr->do_send(byte_slice{std::move(response_data)});
 		m_psnd_hndlr->send_done();
 		return res;
 	}
