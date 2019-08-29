@@ -8409,6 +8409,17 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_all(uint64_t below
   std::vector<size_t> unused_dust_indices;
   const bool use_rct = use_fork_rules(HF_VERSION_ALLOW_RCT, 0);
 
+  // determine threshold for fractional amount
+  const bool use_v1_borromean = use_fork_rules(HF_VERSION_ALLOW_V1_BORROMEAN, 0);
+  const bool bulletproof = use_fork_rules(get_bulletproof_fork(), 0);
+  const uint64_t fee_per_kb  = get_per_kb_fee();
+  const uint64_t fee_multiplier = get_fee_multiplier(priority, get_fee_algorithm());
+  const size_t tx_size_one_ring = estimate_tx_size(use_v1_borromean, use_rct, 1, fake_outs_count, 2, 0, bulletproof);
+  const size_t tx_size_two_rings = estimate_tx_size(use_v1_borromean, use_rct, 2, fake_outs_count, 2, 0, bulletproof);
+  THROW_WALLET_EXCEPTION_IF(tx_size_one_ring > tx_size_two_rings, error::wallet_internal_error, "Estimated tx size with 1 input is larger than with 2 inputs!");
+  const size_t tx_size_per_ring = tx_size_two_rings - tx_size_one_ring;
+  const uint64_t fractional_threshold = (fee_multiplier * fee_per_kb * tx_size_per_ring) / 1024;
+
   THROW_WALLET_EXCEPTION_IF(unlocked_balance(subaddr_account) == 0, error::wallet_internal_error, "No unlocked balance in the entire wallet");
 
   std::map<uint32_t, std::pair<std::vector<size_t>, std::vector<size_t>>> unused_transfer_dust_indices_per_subaddr;
@@ -8418,6 +8429,11 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_all(uint64_t below
   for (size_t i = 0; i < m_transfers.size(); ++i)
   {
     const transfer_details& td = m_transfers[i];
+    if (m_ignore_fractional_outputs && td.amount() < fractional_threshold)
+    {
+      MDEBUG("Ignoring output " << i << " of amount " << print_money(td.amount()) << " which is below threshold " << print_money(fractional_threshold));
+      continue;
+    }
     if (!td.m_spent && !td.m_key_image_partial && (use_rct ? true : !td.is_rct()) && is_transfer_unlocked(td) && td.m_subaddr_index.major == subaddr_account && (subaddr_indices.empty() || subaddr_indices.count(td.m_subaddr_index.minor) == 1))
     {
       fund_found = true;
@@ -8433,18 +8449,6 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_all(uint64_t below
   THROW_WALLET_EXCEPTION_IF(!fund_found, error::wallet_internal_error, "No unlocked balance in the specified subaddress(es)");
   THROW_WALLET_EXCEPTION_IF(unused_transfer_dust_indices_per_subaddr.empty(), error::wallet_internal_error, "The smallest amount found is not below the specified threshold");
 
-  if (subaddr_indices.empty())
-  {
-    // in case subaddress index wasn't specified, choose non-empty subaddress randomly (with index=0 being chosen last)
-    if (unused_transfer_dust_indices_per_subaddr.count(0) == 1 && unused_transfer_dust_indices_per_subaddr.size() > 1)
-      unused_transfer_dust_indices_per_subaddr.erase(0);
-    auto i = unused_transfer_dust_indices_per_subaddr.begin();
-    std::advance(i, crypto::rand<size_t>() % unused_transfer_dust_indices_per_subaddr.size());
-    unused_transfers_indices = i->second.first;
-    unused_dust_indices = i->second.second;
-    LOG_PRINT_L2("Spending from subaddress index " << i->first);
-  }
-  else
   {
     for (const auto& p : unused_transfer_dust_indices_per_subaddr)
     {
