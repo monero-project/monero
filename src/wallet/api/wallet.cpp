@@ -368,7 +368,6 @@ void Wallet::error(const std::string &category, const std::string &str) {
 WalletImpl::WalletImpl(NetworkType nettype, uint64_t kdf_rounds)
     :m_wallet(nullptr)
     , m_status(Wallet::Status_Ok)
-    , m_trustedDaemon(false)
     , m_wallet2Callback(nullptr)
     , m_recoveringFromSeed(false)
     , m_recoveringFromDevice(false)
@@ -1359,7 +1358,7 @@ PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, const 
                 dsts.push_back(de);
                 transaction->m_pending_tx = m_wallet->create_transactions_2(dsts, ring_size, 0 /* unlock_time */,
                                                                           priority,
-                                                                          extra, subaddr_account, subaddr_indices, m_trustedDaemon);
+                                                                          extra, subaddr_account, subaddr_indices);
             } else {
                 // for the GUI, sweep_all (i.e. amount set as "(all)") will always sweep all the funds in all the addresses
                 if (subaddr_indices.empty())
@@ -1369,7 +1368,7 @@ PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, const 
                 }
                 transaction->m_pending_tx = m_wallet->create_transactions_all(0, info.address, info.is_subaddress, ring_size, 0 /* unlock_time */,
                                                                           priority,
-                                                                          extra, subaddr_account, subaddr_indices, m_trustedDaemon);
+                                                                          extra, subaddr_account, subaddr_indices);
             }
 
             if (multisig().isMultisig) {
@@ -1455,7 +1454,7 @@ PendingTransaction *WalletImpl::createSweepUnmixableTransaction()
 
     do {
         try {
-            transaction->m_pending_tx = m_wallet->create_unmixable_sweep_transactions(m_trustedDaemon);
+            transaction->m_pending_tx = m_wallet->create_unmixable_sweep_transactions();
 
         } catch (const tools::error::daemon_busy&) {
             // TODO: make it translatable with "tr"?
@@ -1892,12 +1891,12 @@ Wallet::ConnectionStatus WalletImpl::connected() const
 
 void WalletImpl::setTrustedDaemon(bool arg)
 {
-    m_trustedDaemon = arg;
+    m_wallet->set_trusted_daemon(arg);
 }
 
 bool WalletImpl::trustedDaemon() const
 {
-    return m_trustedDaemon;
+    return m_wallet->is_trusted_daemon();
 }
 
 bool WalletImpl::watchOnly() const

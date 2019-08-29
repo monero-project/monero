@@ -47,7 +47,7 @@
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define WALLET_RPC_VERSION_MAJOR 1
-#define WALLET_RPC_VERSION_MINOR 4
+#define WALLET_RPC_VERSION_MINOR 6
 #define MAKE_WALLET_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define WALLET_RPC_VERSION MAKE_WALLET_RPC_VERSION(WALLET_RPC_VERSION_MAJOR, WALLET_RPC_VERSION_MINOR)
 namespace tools
@@ -2130,6 +2130,116 @@ namespace wallet_rpc
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(version)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_VALIDATE_ADDRESS
+  {
+    struct request
+    {
+      std::string address;
+      bool any_net_type;
+      bool allow_openalias;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(address)
+        KV_SERIALIZE_OPT(any_net_type, false)
+        KV_SERIALIZE_OPT(allow_openalias, false)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      bool valid;
+      bool integrated;
+      bool subaddress;
+      std::string nettype;
+      std::string openalias_address;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(valid)
+        KV_SERIALIZE(integrated)
+        KV_SERIALIZE(subaddress)
+        KV_SERIALIZE(nettype)
+        KV_SERIALIZE(openalias_address)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_SET_DAEMON
+  {
+    struct request
+    {
+      std::string address;
+      bool trusted;
+      bool ssl;
+#if 0 // to be enabled when SSL support is added
+      std::string ssl_support; // disabled, enabled, autodetect
+      std::string ssl_private_key_path;
+      std::string ssl_certificate_path;
+      std::list<std::string> ssl_allowed_certificates;
+      std::vector<std::string> ssl_allowed_fingerprints;
+      bool ssl_allow_any_cert;
+#endif
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(address)
+        KV_SERIALIZE_OPT(trusted, false)
+        KV_SERIALIZE_OPT(ssl, false)
+#if 0 // to be enabled when SSL support is added
+        KV_SERIALIZE_OPT(ssl_support, (std::string)"autodetect")
+        KV_SERIALIZE(ssl_private_key_path)
+        KV_SERIALIZE(ssl_certificate_path)
+        KV_SERIALIZE(ssl_allowed_certificates)
+        KV_SERIALIZE(ssl_allowed_fingerprints)
+        KV_SERIALIZE_OPT(ssl_allow_any_cert, false)
+#endif
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_SET_LOG_LEVEL
+  {
+    struct request
+    {
+      int8_t level;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(level)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_SET_LOG_CATEGORIES
+  {
+    struct request
+    {
+      std::string categories;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(categories)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string categories;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(categories)
       END_KV_SERIALIZE_MAP()
     };
   };

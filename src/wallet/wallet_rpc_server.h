@@ -147,6 +147,10 @@ namespace tools
         MAP_JON_RPC_WE("sign_multisig",      on_sign_multisig,      wallet_rpc::COMMAND_RPC_SIGN_MULTISIG)
         MAP_JON_RPC_WE("submit_multisig",    on_submit_multisig,    wallet_rpc::COMMAND_RPC_SUBMIT_MULTISIG)
 #endif
+        MAP_JON_RPC_WE("validate_address",   on_validate_address,   wallet_rpc::COMMAND_RPC_VALIDATE_ADDRESS)
+        MAP_JON_RPC_WE("set_daemon",         on_set_daemon,         wallet_rpc::COMMAND_RPC_SET_DAEMON)
+        MAP_JON_RPC_WE("set_log_level",      on_set_log_level,      wallet_rpc::COMMAND_RPC_SET_LOG_LEVEL)
+        MAP_JON_RPC_WE("set_log_categories", on_set_log_categories, wallet_rpc::COMMAND_RPC_SET_LOG_CATEGORIES)
         MAP_JON_RPC_WE("get_version",        on_get_version,        wallet_rpc::COMMAND_RPC_GET_VERSION)
       END_JSON_RPC_MAP()
     END_URI_MAP2()
@@ -226,6 +230,10 @@ namespace tools
       bool on_finalize_multisig(const wallet_rpc::COMMAND_RPC_FINALIZE_MULTISIG::request& req, wallet_rpc::COMMAND_RPC_FINALIZE_MULTISIG::response& res, epee::json_rpc::error& er);
       bool on_sign_multisig(const wallet_rpc::COMMAND_RPC_SIGN_MULTISIG::request& req, wallet_rpc::COMMAND_RPC_SIGN_MULTISIG::response& res, epee::json_rpc::error& er);
       bool on_submit_multisig(const wallet_rpc::COMMAND_RPC_SUBMIT_MULTISIG::request& req, wallet_rpc::COMMAND_RPC_SUBMIT_MULTISIG::response& res, epee::json_rpc::error& er);
+      bool on_validate_address(const wallet_rpc::COMMAND_RPC_VALIDATE_ADDRESS::request& req, wallet_rpc::COMMAND_RPC_VALIDATE_ADDRESS::response& res, epee::json_rpc::error& er);
+      bool on_set_daemon(const wallet_rpc::COMMAND_RPC_SET_DAEMON::request& req, wallet_rpc::COMMAND_RPC_SET_DAEMON::response& res, epee::json_rpc::error& er);
+      bool on_set_log_level(const wallet_rpc::COMMAND_RPC_SET_LOG_LEVEL::request& req, wallet_rpc::COMMAND_RPC_SET_LOG_LEVEL::response& res, epee::json_rpc::error& er);
+      bool on_set_log_categories(const wallet_rpc::COMMAND_RPC_SET_LOG_CATEGORIES::request& req, wallet_rpc::COMMAND_RPC_SET_LOG_CATEGORIES::response& res, epee::json_rpc::error& er);
       bool on_get_version(const wallet_rpc::COMMAND_RPC_GET_VERSION::request& req, wallet_rpc::COMMAND_RPC_GET_VERSION::response& res, epee::json_rpc::error& er);
 
       //json rpc v2
@@ -248,7 +256,6 @@ namespace tools
       std::string m_wallet_dir;
       tools::private_file rpc_login_file;
       std::atomic<bool> m_stop;
-      bool m_trusted_daemon;
       bool m_restricted;
       const boost::program_options::variables_map *m_vm;
   };

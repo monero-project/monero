@@ -118,3 +118,25 @@ class Wallet(object):
             'id': '0'
         }
         return self.rpc.send_request(sweep_all)
+
+    def set_log_level(self, level):
+       set_log_level = {
+           'method': 'set_log_level',
+           'params': {
+               'level': level,
+           },
+           'jsonrpc': '2.0',
+           'id': '0'
+       }
+       return self.rpc.send_request(set_log_level)
+
+    def set_log_categories(self, categories):
+        set_log_categories = {
+            'method': 'set_log_categories',
+            'params': {
+                'categories': categories,
+            },
+            'jsonrpc': '2.0',
+            'id': '0'
+        }
+        return self.rpc.send_request(set_log_categories)

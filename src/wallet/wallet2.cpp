@@ -140,6 +140,8 @@ namespace
 struct options {
   const command_line::arg_descriptor<std::string> daemon_address = {"daemon-address", tools::wallet2::tr("Use daemon instance at <host>:<port>"), ""};
   const command_line::arg_descriptor<std::string> daemon_host = {"daemon-host", tools::wallet2::tr("Use daemon instance at host <arg> instead of localhost"), ""};
+  const command_line::arg_descriptor<bool> trusted_daemon = {"trusted-daemon", tools::wallet2::tr("Enable commands which rely on a trusted daemon"), false};
+  const command_line::arg_descriptor<bool> untrusted_daemon = {"untrusted-daemon", tools::wallet2::tr("Disable commands which rely on a trusted daemon"), false};
   const command_line::arg_descriptor<std::string> password = {"password", tools::wallet2::tr("Wallet password (escape/quote as needed)"), "", true};
   const command_line::arg_descriptor<std::string> password_file = {"password-file", tools::wallet2::tr("Wallet password file"), "", true};
   const command_line::arg_descriptor<int> daemon_port = {"daemon-port", tools::wallet2::tr("Use daemon instance at port <arg> instead of 11181"), 0};
@@ -243,8 +245,29 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
   if (daemon_address.empty())
     daemon_address = std::string("http://") + daemon_host + ":" + std::to_string(daemon_port);
 
+  boost::optional<bool> trusted_daemon;
+  if (!command_line::is_arg_defaulted(vm, opts.trusted_daemon) || !command_line::is_arg_defaulted(vm, opts.untrusted_daemon))
+    trusted_daemon = command_line::get_arg(vm, opts.trusted_daemon) && !command_line::get_arg(vm, opts.untrusted_daemon);
+  THROW_WALLET_EXCEPTION_IF(!command_line::is_arg_defaulted(vm, opts.trusted_daemon) && !command_line::is_arg_defaulted(vm, opts.untrusted_daemon),
+    tools::error::wallet_internal_error, tools::wallet2::tr("--trusted-daemon and --untrusted-daemon are both seen, assuming untrusted"));
+
+  // set --trusted-daemon if local and not overridden
+  if (!trusted_daemon)
+  {
+    try
+    {
+      trusted_daemon = false;
+      if (tools::is_local_address(daemon_address))
+      {
+        MINFO(tr("Daemon is local, assuming trusted"));
+        trusted_daemon = true;
+      }
+    }
+    catch (const std::exception &e) { }
+  }
+
   std::unique_ptr<tools::wallet2> wallet(new tools::wallet2(nettype, kdf_rounds));
-  wallet->init(rpc, std::move(daemon_address), std::move(login));
+  wallet->init(rpc, std::move(daemon_address), std::move(login), 0, false, *trusted_daemon);
   boost::filesystem::path ringdb_path = command_line::get_arg(vm, opts.shared_ringdb_dir);
   wallet->set_ring_database(ringdb_path.string());
   return wallet;
@@ -690,6 +713,7 @@ wallet2::wallet2(network_type nettype, uint64_t kdf_rounds):
   m_multisig_rescan_k(NULL),
   m_run(true),
   m_callback(0),
+  m_trusted_daemon(false),
   m_nettype(nettype),
   m_always_confirm_transfers(true),
   m_print_ring_members(false),
@@ -757,6 +781,8 @@ void wallet2::init_options(boost::program_options::options_description& desc_par
   const options opts{};
   command_line::add_arg(desc_params, opts.daemon_address);
   command_line::add_arg(desc_params, opts.daemon_host);
+  command_line::add_arg(desc_params, opts.trusted_daemon);
+  command_line::add_arg(desc_params, opts.untrusted_daemon);
   command_line::add_arg(desc_params, opts.password);
   command_line::add_arg(desc_params, opts.password_file);
   command_line::add_arg(desc_params, opts.daemon_port);
@@ -808,18 +834,24 @@ std::unique_ptr<wallet2> wallet2::make_dummy(const boost::program_options::varia
 }
 
 //----------------------------------------------------------------------------------------------------
-bool wallet2::init(bool rpc, std::string daemon_address, boost::optional<epee::net_utils::http::login> daemon_login, uint64_t upper_transaction_size_limit, bool ssl)
+bool wallet2::set_daemon(std::string daemon_address, boost::optional<epee::net_utils::http::login> daemon_login, bool ssl, bool trusted_daemon)
+{
+  if(m_http_client.is_connected())
+    m_http_client.disconnect();
+  m_daemon_address = std::move(daemon_address);
+  m_daemon_login = std::move(daemon_login);
+  m_trusted_daemon = trusted_daemon;
+  MINFO("setting daemon to " << get_daemon_address());
+  return m_http_client.set_server(get_daemon_address(), get_daemon_login(), ssl);
+}
+//----------------------------------------------------------------------------------------------------
+bool wallet2::init(bool rpc, std::string daemon_address, boost::optional<epee::net_utils::http::login> daemon_login, uint64_t upper_transaction_size_limit, bool ssl, bool trusted_daemon)
 {
   m_rpc = rpc;
   m_checkpoints.init_default_checkpoints(m_nettype);
-  if(m_http_client.is_connected())
-    m_http_client.disconnect();
   m_is_initialized = true;
   m_upper_transaction_size_limit = upper_transaction_size_limit;
-  m_daemon_address = std::move(daemon_address);
-  m_daemon_login = std::move(daemon_login);
-  // When switching from light wallet to full wallet, we need to reset the height we got from lw node.
-  return m_http_client.set_server(get_daemon_address(), get_daemon_login(), ssl);
+  return set_daemon(daemon_address, daemon_login, ssl, trusted_daemon);
 }
 //----------------------------------------------------------------------------------------------------
 bool wallet2::is_deterministic() const
@@ -3061,13 +3093,16 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
     m_multisig_signers.clear();
     m_always_confirm_transfers = false;
     m_print_ring_members = false;
+    m_store_tx_info = true;
     m_default_ring_size = 0;
     m_default_priority = 0;
     m_auto_refresh = true;
     m_refresh_type = RefreshType::RefreshDefault;
+    m_refresh_from_block_height = 0;
     m_confirm_missing_payment_id = true;
     m_confirm_non_default_ring_size = true;
     m_ask_password = true;
+    cryptonote::set_default_decimal_point(CRYPTONOTE_DISPLAY_DECIMAL_POINT);
     m_min_output_count = 0;
     m_min_output_value = 0;
     m_merge_destinations = false;
@@ -4914,7 +4949,7 @@ size_t wallet2::pop_best_value(std::vector<size_t> &unused_indices, const std::v
 // returns:
 //    direct return: amount of money found
 //    modified reference: selected_transfers, a list of iterators/indices of input sources
-uint64_t wallet2::select_transfers(uint64_t needed_money, std::vector<size_t> unused_transfers_indices, std::vector<size_t>& selected_transfers, bool trusted_daemon) const
+uint64_t wallet2::select_transfers(uint64_t needed_money, std::vector<size_t> unused_transfers_indices, std::vector<size_t>& selected_transfers) const
 {
   uint64_t found_money = 0;
   selected_transfers.reserve(unused_transfers_indices.size());
@@ -7853,7 +7888,7 @@ bool wallet2::light_wallet_key_image_is_ours(const crypto::key_image& key_image,
 // This system allows for sending (almost) the entire balance, since it does
 // not generate spurious change in all txes, thus decreasing the instantaneous
 // usable balance.
-std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryptonote::tx_destination_entry> dsts, size_t ring_size, const uint64_t unlock_time, uint32_t priority, const std::vector<uint8_t>& extra, uint32_t subaddr_account, std::set<uint32_t> subaddr_indices, bool trusted_daemon)
+std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryptonote::tx_destination_entry> dsts, size_t ring_size, const uint64_t unlock_time, uint32_t priority, const std::vector<uint8_t>& extra, uint32_t subaddr_account, std::set<uint32_t> subaddr_indices)
 {
   //ensure device is let in NONE mode in any case
   hw::device &hwdev = m_account.get_device();
@@ -8330,7 +8365,7 @@ skip_tx:
   return ptx_vector;
 }
 
-std::vector<wallet2::pending_tx> wallet2::create_transactions_all(uint64_t below, const cryptonote::account_public_address &address, bool is_subaddress, size_t ring_size, const uint64_t unlock_time, uint32_t priority, const std::vector<uint8_t>& extra, uint32_t subaddr_account, std::set<uint32_t> subaddr_indices, bool trusted_daemon)
+std::vector<wallet2::pending_tx> wallet2::create_transactions_all(uint64_t below, const cryptonote::account_public_address &address, bool is_subaddress, size_t ring_size, const uint64_t unlock_time, uint32_t priority, const std::vector<uint8_t>& extra, uint32_t subaddr_account, std::set<uint32_t> subaddr_indices)
 {
   if (ring_size == 0)
   {
@@ -8386,10 +8421,10 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_all(uint64_t below
     }
   }
 
-  return create_transactions_from(address, is_subaddress, unused_transfers_indices, unused_dust_indices, fake_outs_count, unlock_time, priority, extra, trusted_daemon);
+  return create_transactions_from(address, is_subaddress, unused_transfers_indices, unused_dust_indices, fake_outs_count, unlock_time, priority, extra);
 }
 
-std::vector<wallet2::pending_tx> wallet2::create_transactions_single(const crypto::key_image &ki, const cryptonote::account_public_address &address, bool is_subaddress, size_t ring_size, const uint64_t unlock_time, uint32_t priority, const std::vector<uint8_t>& extra, bool trusted_daemon)
+std::vector<wallet2::pending_tx> wallet2::create_transactions_single(const crypto::key_image &ki, const cryptonote::account_public_address &address, bool is_subaddress, size_t ring_size, const uint64_t unlock_time, uint32_t priority, const std::vector<uint8_t>& extra)
 {
   if (ring_size == 0)
   {
@@ -8412,10 +8447,10 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_single(const crypt
       break;
     }
   }
-  return create_transactions_from(address, is_subaddress, unused_transfers_indices, unused_dust_indices, fake_outs_count, unlock_time, priority, extra, trusted_daemon);
+  return create_transactions_from(address, is_subaddress, unused_transfers_indices, unused_dust_indices, fake_outs_count, unlock_time, priority, extra);
 }
 
-std::vector<wallet2::pending_tx> wallet2::create_transactions_from(const cryptonote::account_public_address &address, bool is_subaddress, std::vector<size_t> unused_transfers_indices, std::vector<size_t> unused_dust_indices, const size_t fake_outs_count, const uint64_t unlock_time, uint32_t priority, const std::vector<uint8_t>& extra, bool trusted_daemon)
+std::vector<wallet2::pending_tx> wallet2::create_transactions_from(const cryptonote::account_public_address &address, bool is_subaddress, std::vector<size_t> unused_transfers_indices, std::vector<size_t> unused_dust_indices, const size_t fake_outs_count, const uint64_t unlock_time, uint32_t priority, const std::vector<uint8_t>& extra)
 {
   //ensure device is let in NONE mode in any case
   hw::device &hwdev = m_account.get_device();
@@ -8650,12 +8685,12 @@ std::vector<uint64_t> wallet2::get_unspent_amounts_vector() const
   return vector;
 }
 //----------------------------------------------------------------------------------------------------
-std::vector<size_t> wallet2::select_available_outputs_from_histogram(uint64_t count, bool atleast, bool unlocked, bool allow_rct, bool trusted_daemon)
+std::vector<size_t> wallet2::select_available_outputs_from_histogram(uint64_t count, bool atleast, bool unlocked, bool allow_rct)
 {
   cryptonote::COMMAND_RPC_GET_OUTPUT_HISTOGRAM::request req_t = AUTO_VAL_INIT(req_t);
   cryptonote::COMMAND_RPC_GET_OUTPUT_HISTOGRAM::response resp_t = AUTO_VAL_INIT(resp_t);
   m_daemon_rpc_mutex.lock();
-  if (trusted_daemon)
+  if (is_trusted_daemon())
     req_t.amounts = get_unspent_amounts_vector();
   req_t.min_count = count;
   req_t.max_count = 0;
@@ -8716,21 +8751,21 @@ const wallet2::transfer_details &wallet2::get_transfer_details(size_t idx) const
   return m_transfers[idx];
 }
 //----------------------------------------------------------------------------------------------------
-std::vector<size_t> wallet2::select_available_unmixable_outputs(bool trusted_daemon)
+std::vector<size_t> wallet2::select_available_unmixable_outputs()
 {
   // request all outputs with less than 3 instances
   const size_t min_mixin = 2;
-  return select_available_outputs_from_histogram(min_mixin + 1, false, true, false, trusted_daemon);
+  return select_available_outputs_from_histogram(min_mixin + 1, false, true, false);
 }
 //----------------------------------------------------------------------------------------------------
-std::vector<size_t> wallet2::select_available_mixable_outputs(bool trusted_daemon)
+std::vector<size_t> wallet2::select_available_mixable_outputs()
 {
   // request all outputs with at least 3 instances, so we can use mixin 2 with
   const size_t min_mixin = 2;
-  return select_available_outputs_from_histogram(min_mixin + 1, true, true, true, trusted_daemon);
+  return select_available_outputs_from_histogram(min_mixin + 1, true, true, true);
 }
 //----------------------------------------------------------------------------------------------------
-std::vector<wallet2::pending_tx> wallet2::create_unmixable_sweep_transactions(bool trusted_daemon)
+std::vector<wallet2::pending_tx> wallet2::create_unmixable_sweep_transactions()
 {
   // From hard fork 1, we don't consider small amounts to be dust anymore
   const bool hf1_rules = use_fork_rules(2, 10); // first hard fork has version 2
@@ -8739,7 +8774,7 @@ std::vector<wallet2::pending_tx> wallet2::create_unmixable_sweep_transactions(bo
   const uint64_t fee_per_kb  = get_per_kb_fee();
 
   // may throw
-  std::vector<size_t> unmixable_outputs = select_available_unmixable_outputs(trusted_daemon);
+  std::vector<size_t> unmixable_outputs = select_available_unmixable_outputs();
   size_t num_dust_outputs = unmixable_outputs.size();
 
   if (num_dust_outputs == 0)
@@ -8757,13 +8792,13 @@ std::vector<wallet2::pending_tx> wallet2::create_unmixable_sweep_transactions(bo
       unmixable_transfer_outputs.push_back(n);
   }
 
-  return create_transactions_from(m_account_public_address, false, unmixable_transfer_outputs, unmixable_dust_outputs, 0 /*fake_outs_count */, 0 /* unlock_time */, 1 /*priority */, std::vector<uint8_t>(), trusted_daemon);
+  return create_transactions_from(m_account_public_address, false, unmixable_transfer_outputs, unmixable_dust_outputs, 0 /*fake_outs_count */, 0 /* unlock_time */, 1 /*priority */, std::vector<uint8_t>());
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::discard_unmixable_outputs(bool trusted_daemon)
+void wallet2::discard_unmixable_outputs()
 {
   // may throw
-  std::vector<size_t> unmixable_outputs = select_available_unmixable_outputs(trusted_daemon);
+  std::vector<size_t> unmixable_outputs = select_available_unmixable_outputs();
   for (size_t idx : unmixable_outputs)
   {
     m_transfers[idx].m_spent = true;

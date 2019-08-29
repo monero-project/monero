@@ -127,8 +127,6 @@ namespace
   const command_line::arg_descriptor<bool> arg_restore_deterministic_wallet = {"restore-deterministic-wallet", sw::tr("Recover wallet using Electrum-style mnemonic seed"), false};
   const command_line::arg_descriptor<bool> arg_restore_multisig_wallet = {"restore-multisig-wallet", sw::tr("Recover multisig wallet using Electrum-style mnemonic seed"), false};
   const command_line::arg_descriptor<bool> arg_non_deterministic = {"non-deterministic", sw::tr("Generate non-deterministic view and spend keys"), false};
-  const command_line::arg_descriptor<bool> arg_trusted_daemon = {"trusted-daemon", sw::tr("Enable commands which rely on a trusted daemon"), false};
-  const command_line::arg_descriptor<bool> arg_untrusted_daemon = {"untrusted-daemon", sw::tr("Disable commands which rely on a trusted daemon"), false};
   const command_line::arg_descriptor<bool> arg_allow_mismatched_daemon_version = {"allow-mismatched-daemon-version", sw::tr("Allow communicating with a daemon that uses a different RPC version"), false};
   const command_line::arg_descriptor<uint64_t> arg_restore_height = {"restore-height", sw::tr("Restore from specific blockchain height"), 0};
   const command_line::arg_descriptor<bool> arg_do_not_relay = {"do-not-relay", sw::tr("The newly created transaction will not be relayed to the Aeon network"), false};
@@ -1135,7 +1133,7 @@ bool simple_wallet::import_multisig(const std::vector<std::string> &args)
     fail_msg_writer() << tr("Failed to import multisig info: ") << e.what();
     return true;
   }
-  if (is_daemon_trusted())
+  if (m_wallet->is_trusted_daemon())
   {
     try
     {
@@ -1289,7 +1287,7 @@ bool simple_wallet::submit_multisig(const std::vector<std::string> &args)
   }
   catch (const std::exception &e)
   {
-    handle_transfer_exception(std::current_exception(), is_daemon_trusted());
+    handle_transfer_exception(std::current_exception(), m_wallet->is_trusted_daemon());
   }
   catch (...)
   {
@@ -3420,22 +3418,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
     return false;
   }
 
-  // set --trusted-daemon if local and not overridden
-  if (!m_trusted_daemon)
-  {
-    try
-    {
-      m_trusted_daemon = false;
-      if (tools::is_local_address(m_wallet->get_daemon_address()))
-      {
-        MINFO(tr("Daemon is local, assuming trusted"));
-        m_trusted_daemon = true;
-      }
-    }
-    catch (const std::exception &e) { }
-  }
-
-  if (!is_daemon_trusted())
+  if (!m_wallet->is_trusted_daemon())
     message_writer() << (boost::format(tr("Warning: using an untrusted daemon at %s, privacy will be lessened")) % m_wallet->get_daemon_address()).str();
 
   if (m_wallet->get_ring_database().empty())
@@ -3471,10 +3454,6 @@ bool simple_wallet::handle_command_line(const boost::program_options::variables_
   m_restore_deterministic_wallet  = command_line::get_arg(vm, arg_restore_deterministic_wallet);
   m_restore_multisig_wallet       = command_line::get_arg(vm, arg_restore_multisig_wallet);
   m_non_deterministic             = command_line::get_arg(vm, arg_non_deterministic);
-  if (!command_line::is_arg_defaulted(vm, arg_trusted_daemon) || !command_line::is_arg_defaulted(vm, arg_untrusted_daemon))
-    m_trusted_daemon = command_line::get_arg(vm, arg_trusted_daemon) && !command_line::get_arg(vm, arg_untrusted_daemon);
-  if (!command_line::is_arg_defaulted(vm, arg_trusted_daemon) && !command_line::is_arg_defaulted(vm, arg_untrusted_daemon))
-    message_writer() << tr("--trusted-daemon and --untrusted-daemon are both seen, assuming untrusted");
   m_allow_mismatched_daemon_version = command_line::get_arg(vm, arg_allow_mismatched_daemon_version);
   m_restore_height                = command_line::get_arg(vm, arg_restore_height);
   m_do_not_relay                  = command_line::get_arg(vm, arg_do_not_relay);
@@ -3987,7 +3966,7 @@ bool simple_wallet::save_watch_only(const std::vector<std::string> &args/* = std
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::start_mining(const std::vector<std::string>& args)
 {
-  if (!is_daemon_trusted())
+  if (!m_wallet->is_trusted_daemon())
   {
     fail_msg_writer() << tr("this command requires a trusted daemon. Enable with --trusted-daemon");
     return true;
@@ -4100,29 +4079,29 @@ bool simple_wallet::set_daemon(const std::vector<std::string>& args)
     if (args.size() == 2)
     {
       if (args[1] == "trusted")
-        m_trusted_daemon = true;
+        m_wallet->set_trusted_daemon(true);
       else if (args[1] == "untrusted")
-        m_trusted_daemon = false;
+        m_wallet->set_trusted_daemon(false);
       else
       {
         fail_msg_writer() << tr("Expected trusted or untrusted, got ") << args[1] << ": assuming untrusted";
-        m_trusted_daemon = false;
+        m_wallet->set_trusted_daemon(false);
       }
     }
     else
     {
-      m_trusted_daemon = false;
+      m_wallet->set_trusted_daemon(false);
       try
       {
         if (tools::is_local_address(m_wallet->get_daemon_address()))
         {
           MINFO(tr("Daemon is local, assuming trusted"));
-          m_trusted_daemon = true;
+          m_wallet->set_trusted_daemon(true);
         }
       }
       catch (const std::exception &e) { }
     }
-    success_msg_writer() << boost::format("Daemon set to %s, %s") % daemon_url % (*m_trusted_daemon ? tr("trusted") : tr("untrusted"));
+    success_msg_writer() << boost::format("Daemon set to %s, %s") % daemon_url % (m_wallet->is_trusted_daemon() ? tr("trusted") : tr("untrusted"));
   } else {
     fail_msg_writer() << tr("This does not seem to be a valid daemon URL.");
   }
@@ -4260,7 +4239,7 @@ bool simple_wallet::refresh_main(uint64_t start_height, bool reset, bool is_init
   {
     m_in_manual_refresh.store(true, std::memory_order_relaxed);
     epee::misc_utils::auto_scope_leave_caller scope_exit_handler = epee::misc_utils::create_scope_leave_handler([&](){m_in_manual_refresh.store(false, std::memory_order_relaxed);});
-    m_wallet->refresh(is_daemon_trusted(), start_height, fetched_blocks);
+    m_wallet->refresh(m_wallet->is_trusted_daemon(), start_height, fetched_blocks);
     ok = true;
     // Clear line "Height xxx of xxx"
     std::cout << "\r                                                                \r";
@@ -4556,7 +4535,7 @@ bool simple_wallet::show_blockchain_height(const std::vector<std::string>& args)
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::rescan_spent(const std::vector<std::string> &args)
 {
-  if (!is_daemon_trusted())
+  if (!m_wallet->is_trusted_daemon())
   {
     fail_msg_writer() << tr("this command requires a trusted daemon. Enable with --trusted-daemon");
     return true;
@@ -4902,13 +4881,13 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
           return true;
         }
         unlock_block = bc_height + locked_blocks;
-        ptx_vector = m_wallet->create_transactions_2(dsts, ring_size, unlock_block /* unlock_time */, priority, extra, m_current_subaddress_account, subaddr_indices, is_daemon_trusted());
+        ptx_vector = m_wallet->create_transactions_2(dsts, ring_size, unlock_block /* unlock_time */, priority, extra, m_current_subaddress_account, subaddr_indices);
       break;
       default:
         LOG_ERROR("Unknown transfer method, using default");
         /* FALLTHRU */
       case Transfer:
-        ptx_vector = m_wallet->create_transactions_2(dsts, ring_size, 0 /* unlock_time */, priority, extra, m_current_subaddress_account, subaddr_indices, is_daemon_trusted());
+        ptx_vector = m_wallet->create_transactions_2(dsts, ring_size, 0 /* unlock_time */, priority, extra, m_current_subaddress_account, subaddr_indices);
       break;
     }
 
@@ -5084,7 +5063,7 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
   }
   catch (const std::exception &e)
   {
-    handle_transfer_exception(std::current_exception(), is_daemon_trusted());
+    handle_transfer_exception(std::current_exception(), m_wallet->is_trusted_daemon());
   }
   catch (...)
   {
@@ -5121,7 +5100,7 @@ bool simple_wallet::sweep_unmixable(const std::vector<std::string> &args_)
   try
   {
     // figure out what tx will be necessary
-    auto ptx_vector = m_wallet->create_unmixable_sweep_transactions(is_daemon_trusted());
+    auto ptx_vector = m_wallet->create_unmixable_sweep_transactions();
 
     if (ptx_vector.empty())
     {
@@ -5200,13 +5179,13 @@ bool simple_wallet::sweep_unmixable(const std::vector<std::string> &args_)
     {
       try
       {
-        m_wallet->discard_unmixable_outputs(is_daemon_trusted());
+        m_wallet->discard_unmixable_outputs();
       } catch (...) {}
     }
   }
   catch (const std::exception &e)
   {
-    handle_transfer_exception(std::current_exception(), is_daemon_trusted());
+    handle_transfer_exception(std::current_exception(), m_wallet->is_trusted_daemon());
   }
   catch (...)
   {
@@ -5396,7 +5375,7 @@ bool simple_wallet::sweep_main(uint64_t below, bool locked, const std::vector<st
   try
   {
     // figure out what tx will be necessary
-    auto ptx_vector = m_wallet->create_transactions_all(below, info.address, info.is_subaddress, ring_size, unlock_block /* unlock_time */, priority, extra, m_current_subaddress_account, subaddr_indices, is_daemon_trusted());
+    auto ptx_vector = m_wallet->create_transactions_all(below, info.address, info.is_subaddress, ring_size, unlock_block /* unlock_time */, priority, extra, m_current_subaddress_account, subaddr_indices);
 
     if (ptx_vector.empty())
     {
@@ -5480,7 +5459,7 @@ bool simple_wallet::sweep_main(uint64_t below, bool locked, const std::vector<st
   }
   catch (const std::exception& e)
   {
-    handle_transfer_exception(std::current_exception(), is_daemon_trusted());
+    handle_transfer_exception(std::current_exception(), m_wallet->is_trusted_daemon());
   }
   catch (...)
   {
@@ -5618,7 +5597,7 @@ bool simple_wallet::sweep_single(const std::vector<std::string> &args_)
   try
   {
     // figure out what tx will be necessary
-    auto ptx_vector = m_wallet->create_transactions_single(ki, info.address, info.is_subaddress, ring_size, 0 /* unlock_time */, priority, extra, is_daemon_trusted());
+    auto ptx_vector = m_wallet->create_transactions_single(ki, info.address, info.is_subaddress, ring_size, 0 /* unlock_time */, priority, extra);
 
     if (ptx_vector.empty())
     {
@@ -5688,7 +5667,7 @@ bool simple_wallet::sweep_single(const std::vector<std::string> &args_)
   }
   catch (const std::exception& e)
   {
-    handle_transfer_exception(std::current_exception(), is_daemon_trusted());
+    handle_transfer_exception(std::current_exception(), m_wallet->is_trusted_daemon());
   }
   catch (...)
   {
@@ -5994,7 +5973,7 @@ bool simple_wallet::submit_transfer(const std::vector<std::string> &args_)
   }
   catch (const std::exception& e)
   {
-    handle_transfer_exception(std::current_exception(), is_daemon_trusted());
+    handle_transfer_exception(std::current_exception(), m_wallet->is_trusted_daemon());
   }
   catch (...)
   {
@@ -7104,7 +7083,7 @@ void simple_wallet::wallet_idle_thread()
       {
         uint64_t fetched_blocks;
         if (try_connect_to_daemon(true))
-          m_wallet->refresh(is_daemon_trusted(), 0, fetched_blocks);
+          m_wallet->refresh(m_wallet->is_trusted_daemon(), 0, fetched_blocks);
       }
       catch(...) {}
       m_auto_refresh_refreshing = false;
@@ -7852,7 +7831,7 @@ bool simple_wallet::import_key_images(const std::vector<std::string> &args)
     fail_msg_writer() << tr("command not supported by HW wallet");
     return true;
   }
-  if (!is_daemon_trusted())
+  if (!m_wallet->is_trusted_daemon())
   {
     fail_msg_writer() << tr("this command requires a trusted daemon. Enable with --trusted-daemon");
     return true;
@@ -8185,8 +8164,6 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_params, arg_restore_multisig_wallet );
   command_line::add_arg(desc_params, arg_non_deterministic );
   command_line::add_arg(desc_params, arg_electrum_seed );
-  command_line::add_arg(desc_params, arg_trusted_daemon);
-  command_line::add_arg(desc_params, arg_untrusted_daemon);
   command_line::add_arg(desc_params, arg_allow_mismatched_daemon_version);
   command_line::add_arg(desc_params, arg_restore_height);
   command_line::add_arg(desc_params, arg_do_not_relay);
