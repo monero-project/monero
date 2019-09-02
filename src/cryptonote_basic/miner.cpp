@@ -30,7 +30,6 @@
 
 #include <sstream>
 #include <numeric>
-#include <boost/utility/value_init.hpp>
 #include <boost/interprocess/detail/atomic.hpp>
 #include <boost/algorithm/string.hpp>
 #include "misc_language.h"
