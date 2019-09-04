@@ -1738,7 +1738,8 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
     const uint64_t prev_height = alt_chain.size() ? prev_data.height : m_db->get_block_height(b.prev_id);
     bei.height = prev_height + 1;
     uint64_t block_reward = get_outs_money_amount(b.miner_tx);
-    bei.already_generated_coins = block_reward + (alt_chain.size() ? prev_data.already_generated_coins : m_db->get_block_already_generated_coins(prev_height));
+    const uint64_t prev_generated_coins = alt_chain.size() ? prev_data.already_generated_coins : m_db->get_block_already_generated_coins(prev_height);
+    bei.already_generated_coins = (block_reward < (MONEY_SUPPLY - prev_generated_coins)) ? prev_generated_coins + block_reward : MONEY_SUPPLY;
 
     // verify that the block's timestamp is within the acceptable range
     // (not earlier than the median of the last X blocks)
