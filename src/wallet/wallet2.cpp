@@ -1525,7 +1525,9 @@ void wallet2::set_subaddress_label(const cryptonote::subaddress_index& index, co
 //----------------------------------------------------------------------------------------------------
 void wallet2::set_subaddress_lookahead(size_t major, size_t minor)
 {
+  THROW_WALLET_EXCEPTION_IF(major == 0, error::wallet_internal_error, "Subaddress major lookahead may not be zero");
   THROW_WALLET_EXCEPTION_IF(major > 0xffffffff, error::wallet_internal_error, "Subaddress major lookahead is too large");
+  THROW_WALLET_EXCEPTION_IF(minor == 0, error::wallet_internal_error, "Subaddress minor lookahead may not be zero");
   THROW_WALLET_EXCEPTION_IF(minor > 0xffffffff, error::wallet_internal_error, "Subaddress minor lookahead is too large");
   m_subaddress_lookahead_major = major;
   m_subaddress_lookahead_minor = minor;
