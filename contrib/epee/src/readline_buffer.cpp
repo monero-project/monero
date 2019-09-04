@@ -71,6 +71,11 @@ rdln::linestatus rdln::readline_buffer::get_line(std::string& line) const
 {
   boost::lock_guard<boost::mutex> lock(sync_mutex);
   line_stat = rdln::partial;
+  if (!m_cout_buf)
+  {
+    line = "";
+    return rdln::full;
+  }
   rl_callback_read_char();
   if (line_stat == rdln::full)
   {
@@ -222,5 +227,10 @@ static void remove_line_handler()
   rl_set_prompt("");
   rl_redisplay();
   rl_callback_handler_remove();
+}
+
+void rdln::clear_screen()
+{
+  rl_clear_screen(0, 0);
 }
 

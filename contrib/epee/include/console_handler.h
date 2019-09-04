@@ -45,6 +45,9 @@
   #include "readline_buffer.h"
 #endif
 
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "console_handler"
+
 namespace epee
 {
   class async_stdin_reader
@@ -96,7 +99,7 @@ namespace epee
         res = true;
       }
 
-      if (!eos())
+      if (!eos() && m_read_status != state_cancelled)
         m_read_status = state_init;
 
       return res;
@@ -120,6 +123,14 @@ namespace epee
         m_readline_buffer.stop();
 #endif
       }
+    }
+
+    void cancel()
+    {
+      boost::unique_lock<boost::mutex> lock(m_response_mutex);
+      m_read_status = state_cancelled;
+      m_has_read_request = false;
+      m_response_cv.notify_one();
     }
 
   private:
@@ -162,6 +173,9 @@ namespace epee
 
       while (m_run.load(std::memory_order_relaxed))
       {
+        if (m_read_status == state_cancelled)
+          return false;
+
         fd_set read_set;
         FD_ZERO(&read_set);
         FD_SET(stdin_fileno, &read_set);
@@ -179,6 +193,9 @@ namespace epee
 #else
       while (m_run.load(std::memory_order_relaxed))
       {
+        if (m_read_status == state_cancelled)
+          return false;
+
         int retval = ::WaitForSingleObject(::GetStdHandle(STD_INPUT_HANDLE), 100);
         switch (retval)
         {
@@ -219,7 +236,8 @@ reread:
             case rdln::full:    break;
             }
 #else
-            std::getline(std::cin, line);
+            if (m_read_status != state_cancelled)
+              std::getline(std::cin, line);
 #endif
             read_ok = !std::cin.eof() && !std::cin.fail();
           }
@@ -303,13 +321,19 @@ eof:
     template<class chain_handler>
     bool run(chain_handler ch_handler, std::function<std::string(void)> prompt, const std::string& usage = "", std::function<void(void)> exit_handler = NULL)
     {
-      return run(prompt, usage, [&](const std::string& cmd) { return ch_handler(cmd); }, exit_handler);
+      return run(prompt, usage, [&](const boost::optional<std::string>& cmd) { return ch_handler(cmd); }, exit_handler);
     }
 
     void stop()
     {
       m_running = false;
       m_stdin_reader.stop();
+    }
+
+    void cancel()
+    {
+      m_cancel = true;
+      m_stdin_reader.cancel();
     }
 
     void print_prompt()
@@ -360,18 +384,23 @@ eof:
             std::cout << std::endl;
             break;
           }
+
+          if (m_cancel)
+          {
+            MDEBUG("Input cancelled");
+            cmd_handler(boost::none);
+            m_cancel = false;
+            continue;
+          }
           if (!get_line_ret)
           {
             MERROR("Failed to read line.");
           }
+
           string_tools::trim(command);
 
           LOG_PRINT_L2("Read command: " << command);
-          if (command.empty())
-          {
-            continue;
-          }
-          else if(cmd_handler(command))
+          if(cmd_handler(command))
           {
             continue;
           }
@@ -401,6 +430,7 @@ eof:
   private:
     async_stdin_reader m_stdin_reader;
     std::atomic<bool> m_running = {true};
+    std::atomic<bool> m_cancel = {false};
     std::function<std::string(void)> m_prompt;
   };
 
@@ -482,7 +512,15 @@ eof:
   class command_handler {
   public:
     typedef boost::function<bool (const std::vector<std::string> &)> callback;
+    typedef boost::function<bool (void)> empty_callback;
     typedef std::map<std::string, std::pair<callback, std::pair<std::string, std::string>>> lookup;
+
+    command_handler():
+      m_unknown_command_handler([](const std::vector<std::string>&){return false;}),
+      m_empty_command_handler([](){return true;}),
+      m_cancel_handler([](){return true;})
+    {
+    }
 
     std::string get_usage()
     {
@@ -516,25 +554,45 @@ eof:
 #endif
     }
 
+    void set_unknown_command_handler(const callback& hndlr)
+    {
+      m_unknown_command_handler = hndlr;
+    }
+
+    void set_empty_command_handler(const empty_callback& hndlr)
+    {
+      m_empty_command_handler = hndlr;
+    }
+
+    void set_cancel_handler(const empty_callback& hndlr)
+    {
+      m_cancel_handler = hndlr;
+    }
+
     bool process_command_vec(const std::vector<std::string>& cmd)
     {
-      if(!cmd.size())
-        return false;
+      if(!cmd.size() || (cmd.size() == 1 && !cmd[0].size()))
+        return m_empty_command_handler();
       auto it = m_command_handlers.find(cmd.front());
       if(it == m_command_handlers.end())
-        return false;
+        return m_unknown_command_handler(cmd);
       std::vector<std::string> cmd_local(cmd.begin()+1, cmd.end());
       return it->second.first(cmd_local);
     }
 
-    bool process_command_str(const std::string& cmd)
+    bool process_command_str(const boost::optional<std::string>& cmd)
     {
+      if (!cmd)
+        return m_cancel_handler();
       std::vector<std::string> cmd_v;
-      boost::split(cmd_v,cmd,boost::is_any_of(" "), boost::token_compress_on);
+      boost::split(cmd_v,*cmd,boost::is_any_of(" "), boost::token_compress_on);
       return process_command_vec(cmd_v);
     }
   private:
     lookup m_command_handlers;
+    callback m_unknown_command_handler;
+    empty_callback m_empty_command_handler;
+    empty_callback m_cancel_handler;
   };
 
   /************************************************************************/
@@ -571,6 +629,11 @@ eof:
     void print_prompt()
     {
       m_console_handler.print_prompt();
+    }
+
+    void cancel_input()
+    {
+      m_console_handler.cancel();
     }
   };
 
