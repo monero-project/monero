@@ -2614,6 +2614,9 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
   const auto waiter_guard = epee::misc_utils::create_scope_leave_handler([&]() { waiter.wait(&tpool); });
   int threads = tpool.get_max_concurrency();
 
+  uint64_t max_used_block_height = 0;
+  if (!pmax_used_block_height)
+    pmax_used_block_height = &max_used_block_height;
   for (const auto& txin : tx.vin)
   {
     // make sure output being spent is of type txin_to_key, rather than
@@ -2703,6 +2706,13 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
   }
   if (tx_v1_0 && threads > 1)
     waiter.wait(&tpool);
+
+  // enforce min output age
+  if (hf_version >= HF_VERSION_ENFORCE_MIN_AGE)
+  {
+    CHECK_AND_ASSERT_MES(*pmax_used_block_height + CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE <= m_db->height(),
+        false, "Transaction spends at least one output which is too young");
+  }
 
   if (tx_v1_0)
   {
