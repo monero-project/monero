@@ -54,7 +54,7 @@ def build():
         print('\nCompiling ' + args.version + ' Linux')
         subprocess.check_call(['bin/gbuild', '-j', args.jobs, '-m', args.memory, '--commit', 'monero='+args.commit, '--url', 'monero='+args.url, '../monero/contrib/gitian/gitian-linux.yml'])
         subprocess.check_call(['bin/gsign', '-p', args.sign_prog, '--signer', args.signer, '--release', args.version+'-linux', '--destination', '../gitian.sigs/', '../monero/contrib/gitian/gitian-linux.yml'])
-        subprocess.check_call('mv build/out/monero-*.tar.gz ../monero-binaries/'+args.version, shell=True)
+        subprocess.check_call('mv build/out/monero-*.tar.bz2 ../monero-binaries/'+args.version, shell=True)
 
     if args.windows:
         print('\nCompiling ' + args.version + ' Windows')
@@ -66,7 +66,7 @@ def build():
         print('\nCompiling ' + args.version + ' MacOS')
         subprocess.check_call(['bin/gbuild', '-j', args.jobs, '-m', args.memory, '--commit', 'monero='+args.commit, '--url', 'monero'+args.url, '../monero/contrib/gitian/gitian-osx.yml'])
         subprocess.check_call(['bin/gsign', '-p', args.sign_prog, '--signer', args.signer, '--release', args.version+'-osx', '--destination', '../gitian.sigs/', '../monero/contrib/gitian/gitian-osx.yml'])
-        subprocess.check_call('mv build/out/monero*.tar.gz ../monero-binaries/'+args.version, shell=True)
+        subprocess.check_call('mv build/out/monero*.tar.bz2 ../monero-binaries/'+args.version, shell=True)
 
     os.chdir(workdir)
 
