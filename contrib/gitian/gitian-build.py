@@ -19,7 +19,7 @@ def setup():
     if not os.path.isdir('gitian-builder'):
         subprocess.check_call(['git', 'clone', 'https://github.com/devrandom/gitian-builder.git'])
     if not os.path.isdir('monero'):
-        subprocess.check_call(['git', 'clone', 'https://github.com/monero-project/monero.git'])
+        subprocess.check_call(['git', 'clone', args.url])
     os.chdir('gitian-builder')
     subprocess.check_call(['git', 'checkout', '963322de8420c50502c4cc33d4d7c0d84437b576'])
     make_image_prog = ['bin/make-base-vm', '--suite', 'bionic', '--arch', 'amd64']
