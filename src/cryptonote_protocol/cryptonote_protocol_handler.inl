@@ -1147,6 +1147,44 @@ namespace cryptonote
     m_sync_download_objects_size += size;
     MDEBUG(context << " downloaded " << size << " bytes worth of blocks");
 
+#if 0
+    cryptonote::block b2;
+    crypto::hash block_hash2;
+    parse_and_validate_block_from_blob(arg.blocks.front().block, b2, block_hash2);
+    const uint64_t first_block_height = cryptonote::get_block_height(b2);
+    const uint32_t local_stripe = tools::get_pruning_stripe(m_core.get_blockchain_pruning_seed());
+    const uint32_t span_stripe = tools::get_pruning_stripe(first_block_height, 0xfffffffff, CRYPTONOTE_PRUNING_LOG_STRIPES);
+    if (local_stripe != span_stripe)
+    {
+size_t original_size = 0, pruned_size = 0;
+      MDEBUG("pruning incoming blocks...");
+      for (auto &b: arg.blocks)
+      {
+        for (auto &t: b.txs)
+        {
+original_size += t.blob.size();
+          cryptonote::transaction tx;
+          crypto::hash txid;
+          parse_and_validate_tx_from_blob(t.blob, tx, txid);
+          if (tx.version < 2)
+            continue;
+          std::stringstream ss;
+          binary_archive<true> ba(ss);
+          bool r = const_cast<cryptonote::transaction&>(tx).serialize_base(ba);
+          if (!r)
+            MERROR("Failed to prune!");
+          else
+          {
+            t.blob = ss.str();
+            t.prunable_hash = cryptonote::get_transaction_prunable_hash(tx);
+          }
+pruned_size += t.blob.size();
+        }
+      }
+MGINFO("Transactions pruned: original size " << original_size << ", pruned size " << pruned_size);
+    }
+#endif
+
     /*using namespace boost::chrono;
       auto point = steady_clock::now();
       auto time_from_epoh = point.time_since_epoch();
