@@ -160,6 +160,7 @@
 #define HF_VERSION_SMALLER_BP                   10
 #define HF_VERSION_LONG_TERM_BLOCK_WEIGHT       10
 #define HF_VERSION_MIN_2_OUTPUTS                12
+#define HF_VERSION_ROLLING_MEDIAN_CLEAR_FIX     12
 
 #define PER_KB_FEE_QUANTIZATION_DECIMALS        8
 

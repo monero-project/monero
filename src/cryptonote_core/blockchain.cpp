@@ -1296,7 +1296,7 @@ void Blockchain::get_last_n_blocks_weights(std::vector<uint64_t>& weights, size_
   weights = m_db->get_block_weights(start_offset, count);
 }
 //------------------------------------------------------------------
-uint64_t Blockchain::get_long_term_block_weight_median(uint64_t start_height, size_t count) const
+uint64_t Blockchain::get_long_term_block_weight_median(uint64_t start_height, size_t count, uint8_t hf_version) const
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
@@ -1338,7 +1338,10 @@ uint64_t Blockchain::get_long_term_block_weight_median(uint64_t start_height, si
   MTRACE("requesting " << count << " from " << start_height << ", uncached");
   std::vector<uint64_t> weights = m_db->get_long_term_block_weights(start_height, count);
   m_long_term_block_weights_cache_tip_hash = tip_hash;
-  m_long_term_block_weights_cache_rolling_median.clear();
+  if (hf_version >= HF_VERSION_ROLLING_MEDIAN_CLEAR_FIX)
+    m_long_term_block_weights_cache_rolling_median.clear();
+  else
+    m_long_term_block_weights_cache_rolling_median.clear_old();
   for (uint64_t w: weights)
     m_long_term_block_weights_cache_rolling_median.insert(w);
   return m_long_term_block_weights_cache_rolling_median.median();
@@ -3961,7 +3964,7 @@ uint64_t Blockchain::get_next_long_term_block_weight(uint64_t block_weight) cons
   if (hf_version < HF_VERSION_LONG_TERM_BLOCK_WEIGHT)
     return block_weight;
 
-  uint64_t long_term_median = get_long_term_block_weight_median(db_height - nblocks, nblocks);
+  uint64_t long_term_median = get_long_term_block_weight_median(db_height - nblocks, nblocks, hf_version);
   uint64_t long_term_effective_median_block_weight = std::max<uint64_t>(CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V5, long_term_median);
 
   uint64_t short_term_constraint = long_term_effective_median_block_weight + long_term_effective_median_block_weight * 2 / 5;
@@ -4001,7 +4004,7 @@ bool Blockchain::update_next_cumulative_weight_limit(uint64_t *long_term_effecti
       uint64_t nblocks = std::min<uint64_t>(m_long_term_block_weights_window, db_height);
       if (nblocks == db_height)
         --nblocks;
-      long_term_median = get_long_term_block_weight_median(db_height - nblocks - 1, nblocks);
+      long_term_median = get_long_term_block_weight_median(db_height - nblocks - 1, nblocks, hf_version);
     }
 
     m_long_term_effective_median_block_weight = std::max<uint64_t>(CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V5, long_term_median);

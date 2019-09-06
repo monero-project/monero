@@ -156,6 +156,20 @@ public:
     free(data);
   }
 
+  void clear_old()
+  {
+    idx = 0;
+    minCt = 0;
+    maxCt = 0;
+    sz = 0;
+    int nItems = N;
+    while (nItems--)  //set up initial heap fill pattern: median,max,min,max,...
+    {
+      pos[nItems] = ((nItems + 1) / 2) * ((nItems & 1) ? -1 : 1);
+      heap[pos[nItems]] = nItems;
+    }
+  }
+
   void clear()
   {
     idx = 0;
@@ -163,6 +177,8 @@ public:
     maxCt = 0;
     sz = 0;
     int nItems = N;
+    pos = (int*) (data + N);
+    heap = pos + N + (N / 2); //points to middle of storage.
     while (nItems--)  //set up initial heap fill pattern: median,max,min,max,...
     {
       pos[nItems] = ((nItems + 1) / 2) * ((nItems & 1) ? -1 : 1);

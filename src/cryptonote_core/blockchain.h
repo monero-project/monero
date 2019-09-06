@@ -1299,10 +1299,11 @@ namespace cryptonote
      *
      * @param start_height the block height of the first block to query
      * @param count the number of blocks to get weights for
+     * @param hf_version fork rules to use
      *
      * @return the long term median block weight
      */
-    uint64_t get_long_term_block_weight_median(uint64_t start_height, size_t count) const;
+    uint64_t get_long_term_block_weight_median(uint64_t start_height, size_t count, uint8_t hf_version) const;
 
     /**
      * @brief checks if a transaction is unlocked (its outputs spendable)
