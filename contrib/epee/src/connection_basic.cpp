@@ -136,6 +136,7 @@ connection_basic::connection_basic(boost::asio::ip::tcp::socket&& sock, std::sha
 	socket_(GET_IO_SERVICE(sock), get_context(m_state.get())),
 	m_want_close_connection(false),
 	m_was_shutdown(false),
+	m_is_multithreaded(false),
 	m_ssl_support(ssl_support)
 {
 	// add nullptr checks if removed
