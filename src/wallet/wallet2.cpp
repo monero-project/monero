@@ -13143,6 +13143,12 @@ bool wallet2::save_to_file(const std::string& path_to_file, const std::string& r
   }
 
   FILE *fp = fopen(path_to_file.c_str(), "w+");
+  if (!fp)
+  {
+    MERROR("Failed to open wallet file for writing: " << path_to_file << ": " << strerror(errno));
+    return false;
+  }
+
   // Save the result b/c we need to close the fp before returning success/failure.
   int write_result = PEM_write(fp, ASCII_OUTPUT_MAGIC.c_str(), "", (const unsigned char *) raw.c_str(), raw.length());
   fclose(fp);
