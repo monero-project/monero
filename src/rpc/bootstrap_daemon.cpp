@@ -12,7 +12,7 @@
 namespace cryptonote
 {
 
-  bootstrap_daemon::bootstrap_daemon(std::function<boost::optional<std::string>()> get_next_public_node) noexcept
+  bootstrap_daemon::bootstrap_daemon(std::function<boost::optional<std::string>()> get_next_public_node)
     : m_get_next_public_node(get_next_public_node)
   {
   }
