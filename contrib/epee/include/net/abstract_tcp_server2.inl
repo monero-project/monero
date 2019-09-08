@@ -154,7 +154,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     }
     else
     {
-      const auto ip_{remote_ep.address().to_v6()};
+      const auto ip_ = remote_ep.address().to_v6();
       return start(is_income, is_multithreaded, ipv6_network_address{ip_, remote_ep.port()});
     }
     CATCH_ENTRY_L0("connection<t_protocol_handler>::start()", false);
