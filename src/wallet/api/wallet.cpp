@@ -1123,6 +1123,10 @@ UnsignedTransaction *WalletImpl::loadUnsignedTx(const std::string &unsigned_file
   UnsignedTransactionImpl * transaction = new UnsignedTransactionImpl(*this);
   if (!m_wallet->load_unsigned_tx(unsigned_filename, transaction->m_unsigned_tx_set)){
     setStatusError(tr("Failed to load unsigned transactions"));
+    transaction->m_status = UnsignedTransaction::Status::Status_Error;
+    transaction->m_errorString = errorString();
+
+    return transaction;
   }
   
   // Check tx data and construct confirmation message
