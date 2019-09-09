@@ -3610,7 +3610,7 @@ uint64_t Blockchain::get_next_long_term_block_size(uint64_t block_size) const
   uint64_t long_term_median = epee::misc_utils::median(sizes);
   uint64_t long_term_effective_median_block_size = std::max<uint64_t>(CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V1, long_term_median);
 
-  uint64_t short_term_constraint = long_term_effective_median_block_size + long_term_effective_median_block_size * 2 / 50;
+  uint64_t short_term_constraint = long_term_effective_median_block_size + CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V1 * 2 / 50;
   uint64_t long_term_block_size = std::min<uint64_t>(block_size, short_term_constraint);
 
   return long_term_block_size;
@@ -3659,7 +3659,7 @@ bool Blockchain::update_next_cumulative_size_limit(uint64_t *long_term_effective
 
     m_long_term_effective_median_block_size = std::max<uint64_t>(CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V1, long_term_median);
 
-    uint64_t short_term_constraint = m_long_term_effective_median_block_size + m_long_term_effective_median_block_size * 2 / 50;
+    uint64_t short_term_constraint = m_long_term_effective_median_block_size + CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V1 * 2 / 50;
     long_term_block_size = std::min<uint64_t>(block_size, short_term_constraint);
 
     if (new_sizes.empty())
