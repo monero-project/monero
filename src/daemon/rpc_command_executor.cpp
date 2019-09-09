@@ -66,7 +66,7 @@ namespace {
     time(&now);
     time_t last_seen = static_cast<time_t>(peer.last_seen);
 
-    std::string elapsed = epee::misc_utils::get_time_interval_string(now - last_seen);
+    std::string elapsed = peer.last_seen == 0 ? "never" : epee::misc_utils::get_time_interval_string(now - last_seen);
     std::string id_str = epee::string_tools::pad_string(epee::string_tools::to_string_hex(peer.id), 16, '0', true);
     std::string port_str;
     epee::string_tools::xtype_to_string(peer.port, port_str);
