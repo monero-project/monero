@@ -6346,7 +6346,7 @@ bool wallet2::sign_tx(unsigned_tx_set &exported_txs, std::vector<wallet2::pendin
     // normally, the tx keys are saved in commit_tx, when the tx is actually sent to the daemon.
     // we can't do that here since the tx will be sent from the compromised wallet, which we don't want
     // to see that info, so we save it here
-    if (store_tx_info() && ptx.tx_key != crypto::null_skey)
+    if (store_tx_info() && tx_key != crypto::null_skey)
     {
       const crypto::hash txid = get_transaction_hash(ptx.tx);
       m_tx_keys.insert(std::make_pair(txid, tx_key));
