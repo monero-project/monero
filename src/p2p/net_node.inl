@@ -1841,21 +1841,32 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
-  bool node_server<t_payload_net_handler>::fix_time_delta(std::vector<peerlist_entry>& local_peerlist, time_t local_time, int64_t& delta)
+  bool node_server<t_payload_net_handler>::sanitize_peerlist(std::vector<peerlist_entry>& local_peerlist)
   {
-    //fix time delta
-    time_t now = 0;
-    time(&now);
-    delta = now - local_time;
-
-    for(peerlist_entry& be: local_peerlist)
+    for (size_t i = 0; i < local_peerlist.size(); ++i)
     {
-      if(be.last_seen > local_time)
+      bool ignore = false;
+      peerlist_entry &be = local_peerlist[i];
+      epee::net_utils::network_address &na = be.adr;
+      if (na.is_loopback() || na.is_local())
       {
-        MWARNING("FOUND FUTURE peerlist for entry " << be.adr.str() << " last_seen: " << be.last_seen << ", local_time(on remote node):" << local_time);
-        return false;
+        ignore = true;
       }
-      be.last_seen += delta;
+      else if (be.adr.get_type_id() == epee::net_utils::ipv4_network_address::get_type_id())
+      {
+        const epee::net_utils::ipv4_network_address &ipv4 = na.as<const epee::net_utils::ipv4_network_address>();
+        if (ipv4.ip() == 0)
+          ignore = true;
+      }
+      if (ignore)
+      {
+        MDEBUG("Ignoring " << be.adr.str());
+        std::swap(local_peerlist[i], local_peerlist[local_peerlist.size() - 1]);
+        local_peerlist.resize(local_peerlist.size() - 1);
+        --i;
+        continue;
+      }
+
 #ifdef CRYPTONOTE_PRUNING_DEBUG_SPOOF_SEED
       be.pruning_seed = tools::make_pruning_seed(1 + (be.adr.as<epee::net_utils::ipv4_network_address>().ip()) % (1ul << CRYPTONOTE_PRUNING_LOG_STRIPES), CRYPTONOTE_PRUNING_LOG_STRIPES);
 #endif
@@ -1866,9 +1877,8 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::handle_remote_peerlist(const std::vector<peerlist_entry>& peerlist, time_t local_time, const epee::net_utils::connection_context_base& context)
   {
-    int64_t delta = 0;
     std::vector<peerlist_entry> peerlist_ = peerlist;
-    if(!fix_time_delta(peerlist_, local_time, delta))
+    if(!sanitize_peerlist(peerlist_))
       return false;
 
     const epee::net_utils::zone zone = context.m_remote_address.get_zone();
@@ -1881,8 +1891,8 @@ namespace nodetool
       }
     }
 
-    LOG_DEBUG_CC(context, "REMOTE PEERLIST: TIME_DELTA: " << delta << ", remote peerlist size=" << peerlist_.size());
-    LOG_DEBUG_CC(context, "REMOTE PEERLIST: " <<  print_peerlist_to_string(peerlist_));
+    LOG_DEBUG_CC(context, "REMOTE PEERLIST: remote peerlist size=" << peerlist_.size());
+    LOG_DEBUG_CC(context, "REMOTE PEERLIST: " << ENDL << print_peerlist_to_string(peerlist_));
     return m_network_zones.at(context.m_remote_address.get_zone()).m_peerlist.merge_peerlist(peerlist_);
   }
   //-----------------------------------------------------------------------------------
