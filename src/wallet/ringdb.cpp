@@ -424,7 +424,7 @@ bool ringdb::blackball_worker(const std::vector<std::pair<uint64_t, uint64_t>> &
     {
       case BLACKBALL_BLACKBALL:
         MDEBUG("Marking output " << output.first << "/" << output.second << " as spent");
-        dbr = mdb_cursor_put(cursor, &key, &data, MDB_APPENDDUP);
+        dbr = mdb_cursor_put(cursor, &key, &data, MDB_NODUPDATA);
         if (dbr == MDB_KEYEXIST)
           dbr = 0;
         break;
