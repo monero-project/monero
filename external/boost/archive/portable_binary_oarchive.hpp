@@ -171,7 +171,7 @@ protected:
 
     void init(unsigned int flags);
 public:
-    portable_binary_oarchive(std::ostream & os, unsigned flags = 0) :
+    portable_binary_oarchive(std::ostream & os, unsigned flags = endian_little) :
         primitive_base_t(
             * os.rdbuf(),
             0 != (flags & boost::archive::no_codecvt)

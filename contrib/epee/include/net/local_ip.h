@@ -30,6 +30,11 @@
 #include <string>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/asio/ip/address_v6.hpp>
+#include "int-util.h"
+
+// IP addresses are kept in network byte order
+// Masks below are little endian
+// -> convert from network byte order to host byte order before comparing
 
 namespace epee
 {
@@ -62,6 +67,7 @@ namespace epee
     inline
     bool is_ip_local(uint32_t ip)
     {
+      ip = SWAP32LE(ip);
       /*
       local ip area
       10.0.0.0 — 10.255.255.255 
@@ -85,6 +91,7 @@ namespace epee
     inline
     bool is_ip_loopback(uint32_t ip)
     {
+      ip = SWAP32LE(ip);
       if( (ip | 0xffffff00) == 0xffffff7f)
         return true;
       //MAKE_IP

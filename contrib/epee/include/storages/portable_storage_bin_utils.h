@@ -26,47 +26,21 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#pragma once
+#pragma once 
 
-#include "string_tools.h"
 #include "int-util.h"
-#include "cryptonote_basic/difficulty.h"
 
-template<uint64_t hash_target_high, uint64_t hash_target_low, uint64_t difficulty_high, uint64_t difficulty_low>
-class test_check_hash
-{
-public:
-  static const size_t loop_count = 100000;
+template<typename T> T convert_swapper(T t) { return t; }
+template<> inline uint16_t convert_swapper(uint16_t t) { return SWAP16LE(t); }
+template<> inline int16_t convert_swapper(int16_t t) { return SWAP16LE((uint16_t&)t); }
+template<> inline uint32_t convert_swapper(uint32_t t) { return SWAP32LE(t); }
+template<> inline int32_t convert_swapper(int32_t t) { return SWAP32LE((uint32_t&)t); }
+template<> inline uint64_t convert_swapper(uint64_t t) { return SWAP64LE(t); }
+template<> inline int64_t convert_swapper(int64_t t) { return SWAP64LE((uint64_t&)t); }
+template<> inline double convert_swapper(double t) { union { uint64_t u; double d; } u; u.d = t; u.u = SWAP64LE(u.u); return u.d; }
 
-  bool init()
-  {
-    cryptonote::difficulty_type hash_target = hash_target_high;
-    hash_target = (hash_target << 64) | hash_target_low;
-    difficulty = difficulty_high;
-    difficulty = (difficulty << 64) | difficulty_low;
-    boost::multiprecision::uint256_t hash_value =  std::numeric_limits<boost::multiprecision::uint256_t>::max() / hash_target;
-    uint64_t val;
-    val = (hash_value & 0xffffffffffffffff).convert_to<uint64_t>();
-    ((uint64_t*)&hash)[0] = SWAP64LE(val);
-    hash_value >>= 64;
-    val = (hash_value & 0xffffffffffffffff).convert_to<uint64_t>();
-    ((uint64_t*)&hash)[1] = SWAP64LE(val);
-    hash_value >>= 64;
-    val = (hash_value & 0xffffffffffffffff).convert_to<uint64_t>();
-    ((uint64_t*)&hash)[2] = SWAP64LE(val);
-    hash_value >>= 64;
-    val = (hash_value & 0xffffffffffffffff).convert_to<uint64_t>();
-    ((uint64_t*)&hash)[3] = SWAP64LE(val);
-    return true;
-  }
-
-  bool test()
-  {
-    cryptonote::check_hash_128(hash, difficulty);
-    return true;
-  }
-
-private:
-  crypto::hash hash;
-  cryptonote::difficulty_type difficulty;
-};
+#if BYTE_ORDER == BIG_ENDIAN
+#define CONVERT_POD(x) convert_swapper(x)
+#else
+#define CONVERT_POD(x) (x)
+#endif

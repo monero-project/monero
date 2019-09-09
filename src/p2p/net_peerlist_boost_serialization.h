@@ -95,7 +95,9 @@ namespace boost
     {
       uint32_t ip{na.ip()};
       uint16_t port{na.port()};
+      ip = SWAP32LE(ip);
       a & ip;
+      ip = SWAP32LE(ip);
       a & port;
       if (!typename Archive::is_saving())
         na = epee::net_utils::ipv4_network_address{ip, port};
