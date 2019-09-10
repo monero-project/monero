@@ -1385,7 +1385,9 @@ bool Blockchain::create_block_template(block& b, const crypto::hash *from_block,
     if (!memcmp(&miner_address, &m_btc_address, sizeof(cryptonote::account_public_address)) && m_btc_nonce == ex_nonce
       && m_btc_pool_cookie == m_tx_pool.cookie() && m_btc.prev_id == get_tail_id()) {
       MDEBUG("Using cached template");
-      m_btc.timestamp = time(NULL); // update timestamp unconditionally
+      const uint64_t now = time(NULL);
+      if (m_btc.timestamp < now) // ensures it can't get below the median of the last few blocks
+        m_btc.timestamp = now;
       b = m_btc;
       diffic = m_btc_difficulty;
       height = m_btc_height;
