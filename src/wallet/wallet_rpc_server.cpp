@@ -3709,7 +3709,7 @@ namespace tools
             }
             if (addresses.empty())
             {
-              er.message = std::string("No Monero address found at ") + url;
+              er.message = std::string("No Aeon address found at ") + url;
               return {};
             }
             address = addresses[0];
