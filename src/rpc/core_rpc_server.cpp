@@ -1050,7 +1050,8 @@ namespace cryptonote
       res.block_reward = lMiner.get_block_reward();
     }
     const account_public_address& lMiningAdr = lMiner.get_mining_address();
-    res.address = get_account_address_as_str(nettype(), false, lMiningAdr);
+    if (lMiner.is_mining() || lMiner.get_is_background_mining_enabled())
+      res.address = get_account_address_as_str(nettype(), false, lMiningAdr);
     const uint8_t major_version = m_core.get_blockchain_storage().get_current_hard_fork_version();
     const unsigned variant = major_version >= 7 ? major_version - 6 : 0;
     switch (variant)
