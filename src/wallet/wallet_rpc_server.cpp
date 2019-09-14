@@ -151,6 +151,7 @@ namespace tools
     if (m_wallet)
     {
       m_wallet->store();
+      m_wallet->deinit();
       delete m_wallet;
       m_wallet = NULL;
     }
