@@ -23,7 +23,7 @@ Portions Copyright (c) 2012-2013 The Cryptonote developers.
   - [Compiling Monero from source](#compiling-monero-from-source)
     - [Dependencies](#dependencies)
   - [Internationalization](#Internationalization)
-  - [Using Tor](#Using Tor)
+  - [Using Tor](#using-tor)
   - [Debugging](#Debugging)
   - [Known issues](#known-issues)
 
