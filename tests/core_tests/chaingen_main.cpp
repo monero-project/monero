@@ -133,6 +133,7 @@ int main(int argc, char* argv[])
     GENERATE_AND_PLAY(gen_block_has_invalid_tx);
     GENERATE_AND_PLAY(gen_block_is_too_big);
     GENERATE_AND_PLAY(gen_block_invalid_binary_format); // Takes up to 3 hours, if CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW == 500, up to 30 minutes, if CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW == 10
+    GENERATE_AND_PLAY(gen_block_late_v1_coinbase_tx);
 
     // Transaction verification tests
     GENERATE_AND_PLAY(gen_tx_big_version);

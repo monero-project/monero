@@ -1201,11 +1201,19 @@ difficulty_type Blockchain::get_next_difficulty_for_alternative_chain(const std:
 //   one input, of type txin_gen, with height set to the block's height
 //   correct miner tx unlock time
 //   a non-overflowing tx amount (dubious necessity on this check)
-bool Blockchain::prevalidate_miner_transaction(const block& b, uint64_t height)
+bool Blockchain::prevalidate_miner_transaction(const block& b, uint64_t height, uint8_t hf_version)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   CHECK_AND_ASSERT_MES(b.miner_tx.vin.size() == 1, false, "coinbase transaction in the block has no inputs");
   CHECK_AND_ASSERT_MES(b.miner_tx.vin[0].type() == typeid(txin_gen), false, "coinbase transaction in the block has the wrong type");
+  CHECK_AND_ASSERT_MES(b.miner_tx.version > 1 || hf_version < HF_VERSION_MIN_V2_COINBASE_TX, false, "Invalid coinbase transaction version");
+
+  // for v2 txes (ringct), we only accept empty rct signatures for miner transactions,
+  if (hf_version >= HF_VERSION_REJECT_SIGS_IN_COINBASE && b.miner_tx.version >= 2)
+  {
+    CHECK_AND_ASSERT_MES(b.miner_tx.rct_signatures.type == rct::RCTTypeNull, false, "RingCT signatures not allowed in coinbase transactions");
+  }
+
   if(boost::get<txin_gen>(b.miner_tx.vin[0]).height != height)
   {
     MWARNING("The miner transaction in block has invalid height: " << boost::get<txin_gen>(b.miner_tx.vin[0]).height << ", expected: " << height);
@@ -1712,6 +1720,7 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
   }
 
   // this is a cheap test
+  const uint8_t hf_version = m_hardfork->get_ideal_version(block_height);
   if (!m_hardfork->check_for_height(b, block_height))
   {
     LOG_PRINT_L1("Block with id: " << id << std::endl << "has old version for height " << block_height);
@@ -1770,7 +1779,7 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
       return false;
     }
 
-    if(!prevalidate_miner_transaction(b, bei.height))
+    if(!prevalidate_miner_transaction(b, bei.height, hf_version))
     {
       MERROR_VER("Block with id: " << epee::string_tools::pod_to_hex(id) << " (as alternative) has incorrect miner transaction.");
       bvc.m_verifivation_failed = true;
@@ -2858,7 +2867,8 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
   if (hf_version >= 2)
   {
     size_t n_unmixable = 0, n_mixable = 0;
-    size_t mixin = std::numeric_limits<size_t>::max();
+    size_t min_actual_mixin = std::numeric_limits<size_t>::max();
+    size_t max_actual_mixin = 0;
     const size_t min_mixin = hf_version >= HF_VERSION_MIN_MIXIN_10 ? 10 : hf_version >= HF_VERSION_MIN_MIXIN_6 ? 6 : hf_version >= HF_VERSION_MIN_MIXIN_4 ? 4 : 2;
     for (const auto& txin : tx.vin)
     {
@@ -2883,29 +2893,43 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
           else
             ++n_mixable;
         }
-        if (in_to_key.key_offsets.size() - 1 < mixin)
-          mixin = in_to_key.key_offsets.size() - 1;
+        size_t ring_mixin = in_to_key.key_offsets.size() - 1;
+        if (ring_mixin < min_actual_mixin)
+          min_actual_mixin = ring_mixin;
+        if (ring_mixin > max_actual_mixin)
+          max_actual_mixin = ring_mixin;
+      }
+    }
+    MDEBUG("Mixin: " << min_actual_mixin << "-" << max_actual_mixin);
+
+    if (hf_version >= HF_VERSION_SAME_MIXIN)
+    {
+      if (min_actual_mixin != max_actual_mixin)
+      {
+        MERROR_VER("Tx " << get_transaction_hash(tx) << " has varying ring size (" << (min_actual_mixin + 1) << "-" << (max_actual_mixin + 1) << "), it should be constant");
+        tvc.m_low_mixin = true;
+        return false;
       }
     }
 
-    if (((hf_version == HF_VERSION_MIN_MIXIN_10 || hf_version == HF_VERSION_MIN_MIXIN_10+1) && mixin != 10) || (hf_version >= HF_VERSION_MIN_MIXIN_10+2 && mixin > 10))
+    if (((hf_version == HF_VERSION_MIN_MIXIN_10 || hf_version == HF_VERSION_MIN_MIXIN_10+1) && min_actual_mixin != 10) || (hf_version >= HF_VERSION_MIN_MIXIN_10+2 && min_actual_mixin > 10))
     {
-      MERROR_VER("Tx " << get_transaction_hash(tx) << " has invalid ring size (" << (mixin + 1) << "), it should be 11");
+      MERROR_VER("Tx " << get_transaction_hash(tx) << " has invalid ring size (" << (min_actual_mixin + 1) << "), it should be 11");
       tvc.m_low_mixin = true;
       return false;
     }
 
-    if (mixin < min_mixin)
+    if (min_actual_mixin < min_mixin)
     {
       if (n_unmixable == 0)
       {
-        MERROR_VER("Tx " << get_transaction_hash(tx) << " has too low ring size (" << (mixin + 1) << "), and no unmixable inputs");
+        MERROR_VER("Tx " << get_transaction_hash(tx) << " has too low ring size (" << (min_actual_mixin + 1) << "), and no unmixable inputs");
         tvc.m_low_mixin = true;
         return false;
       }
       if (n_mixable > 1)
       {
-        MERROR_VER("Tx " << get_transaction_hash(tx) << " has too low ring size (" << (mixin + 1) << "), and more than one mixable input with unmixable inputs");
+        MERROR_VER("Tx " << get_transaction_hash(tx) << " has too low ring size (" << (min_actual_mixin + 1) << "), and more than one mixable input with unmixable inputs");
         tvc.m_low_mixin = true;
         return false;
       }
@@ -3588,9 +3612,10 @@ leave:
   }
 
   // this is a cheap test
+  const uint8_t hf_version = get_current_hard_fork_version();
   if (!m_hardfork->check(bl))
   {
-    MERROR_VER("Block with id: " << id << std::endl << "has old version: " << (unsigned)bl.major_version << std::endl << "current: " << (unsigned)m_hardfork->get_current_version());
+    MERROR_VER("Block with id: " << id << std::endl << "has old version: " << (unsigned)bl.major_version << std::endl << "current: " << (unsigned)hf_version);
     bvc.m_verifivation_failed = true;
     goto leave;
   }
@@ -3695,7 +3720,7 @@ leave:
   TIME_MEASURE_START(t3);
 
   // sanity check basic miner tx properties;
-  if(!prevalidate_miner_transaction(bl, blockchain_height))
+  if(!prevalidate_miner_transaction(bl, blockchain_height, hf_version))
   {
     MERROR_VER("Block with id: " << id << " failed to pass prevalidation");
     bvc.m_verifivation_failed = true;
