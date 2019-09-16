@@ -684,6 +684,11 @@ void LogBuilder::convertToColoredOutput(base::type::string_t* logLine, Level lev
   }
 }
 
+void LogBuilder::setColor(Color color, bool bright) {
+  if (m_termSupportsColor)
+    el::base::utils::setConsoleColor(color, bright);
+}
+
 // Logger
 
 Logger::Logger(const std::string& id, base::LogStreamsReferenceMap* logStreamsReference) :
@@ -2485,11 +2490,11 @@ void DefaultLogDispatchCallback::dispatch(base::type::string_t&& rawLinePrefix, 
       if (m_data->logMessage()->logger()->m_typedConfigurations->toStandardOutput(m_data->logMessage()->level())) {
         const el::Level level = m_data->logMessage()->level();
         const el::Color color = m_data->logMessage()->color();
-        el::base::utils::setConsoleColor(el::base::utils::colorFromLevel(level), false);
+        m_data->logMessage()->logger()->logBuilder()->setColor(el::base::utils::colorFromLevel(level), false);
         ELPP_COUT << rawLinePrefix;
-        el::base::utils::setConsoleColor(color == el::Color::Default ? el::base::utils::colorFromLevel(level): color, color != el::Color::Default);
+        m_data->logMessage()->logger()->logBuilder()->setColor(color == el::Color::Default ? el::base::utils::colorFromLevel(level): color, color != el::Color::Default);
         ELPP_COUT << rawLinePayload;
-        el::base::utils::setConsoleColor(el::Color::Default, false);
+        m_data->logMessage()->logger()->logBuilder()->setColor(el::Color::Default, false);
         ELPP_COUT << std::flush;
       }
     }

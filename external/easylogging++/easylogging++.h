@@ -2235,6 +2235,7 @@ class LogBuilder : base::NoCopy {
   }
   virtual base::type::string_t build(const LogMessage* logMessage, bool appendNewLine) const = 0;
   void convertToColoredOutput(base::type::string_t* logLine, Level level, Color color);
+  void setColor(Color color, bool bright);
  private:
   bool m_termSupportsColor;
   friend class el::base::DefaultLogDispatchCallback;
