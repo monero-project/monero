@@ -544,7 +544,7 @@ public:
 
     cryptonote::tx_verification_context tvc = AUTO_VAL_INIT(tvc);
     size_t pool_size = m_c.get_pool_transactions_count();
-    m_c.handle_incoming_tx(t_serializable_object_to_blob(tx), tvc, m_txs_keeped_by_block, false, false);
+    m_c.handle_incoming_tx({t_serializable_object_to_blob(tx), crypto::null_hash}, tvc, m_txs_keeped_by_block, false, false);
     bool tx_added = pool_size + 1 == m_c.get_pool_transactions_count();
     bool r = m_validator.check_tx_verification_context(tvc, tx_added, m_ev_index, tx);
     CHECK_AND_NO_ASSERT_MES(r, false, "tx verification context check failed");
@@ -555,12 +555,12 @@ public:
   {
     log_event("cryptonote::transaction");
 
-    std::vector<cryptonote::blobdata> tx_blobs;
+    std::vector<cryptonote::tx_blob_entry> tx_blobs;
     std::vector<cryptonote::tx_verification_context> tvcs;
      cryptonote::tx_verification_context tvc0 = AUTO_VAL_INIT(tvc0);
     for (const auto &tx: txs)
     {
-      tx_blobs.push_back(t_serializable_object_to_blob(tx));
+      tx_blobs.push_back({t_serializable_object_to_blob(tx)});
       tvcs.push_back(tvc0);
     }
     size_t pool_size = m_c.get_pool_transactions_count();
@@ -578,7 +578,11 @@ public:
     cryptonote::block_verification_context bvc = AUTO_VAL_INIT(bvc);
     cryptonote::blobdata bd = t_serializable_object_to_blob(b);
     std::vector<cryptonote::block> pblocks;
-    if (m_c.prepare_handle_incoming_blocks(std::vector<cryptonote::block_complete_entry>(1, {bd, {}}), pblocks))
+    cryptonote::block_complete_entry bce;
+    bce.pruned = false;
+    bce.block = bd;
+    bce.txs = {};
+    if (m_c.prepare_handle_incoming_blocks(std::vector<cryptonote::block_complete_entry>(1, bce), pblocks))
     {
       m_c.handle_incoming_block(bd, &b, bvc);
       m_c.cleanup_handle_incoming_blocks();
@@ -608,7 +612,11 @@ public:
 
     cryptonote::block_verification_context bvc = AUTO_VAL_INIT(bvc);
     std::vector<cryptonote::block> pblocks;
-    if (m_c.prepare_handle_incoming_blocks(std::vector<cryptonote::block_complete_entry>(1, {sr_block.data, {}}), pblocks))
+    cryptonote::block_complete_entry bce;
+    bce.pruned = false;
+    bce.block = sr_block.data;
+    bce.txs = {};
+    if (m_c.prepare_handle_incoming_blocks(std::vector<cryptonote::block_complete_entry>(1, bce), pblocks))
     {
       m_c.handle_incoming_block(sr_block.data, NULL, bvc);
       m_c.cleanup_handle_incoming_blocks();

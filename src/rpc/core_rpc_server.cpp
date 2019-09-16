@@ -377,6 +377,7 @@ namespace cryptonote
     for(auto& bd: bs)
     {
       res.blocks.resize(res.blocks.size()+1);
+      res.blocks.back().pruned = req.prune;
       res.blocks.back().block = bd.first.first;
       pruned_size += bd.first.first.size();
       unpruned_size += bd.first.first.size();
@@ -389,10 +390,10 @@ namespace cryptonote
       for (std::vector<std::pair<crypto::hash, cryptonote::blobdata>>::iterator i = bd.second.begin(); i != bd.second.end(); ++i)
       {
         unpruned_size += i->second.size();
-        res.blocks.back().txs.push_back(std::move(i->second));
+        res.blocks.back().txs.push_back({std::move(i->second), crypto::null_hash});
         i->second.clear();
         i->second.shrink_to_fit();
-        pruned_size += res.blocks.back().txs.back().size();
+        pruned_size += res.blocks.back().txs.back().blob.size();
       }
 
       const size_t n_txes_to_lookup = bd.second.size() + (req.no_miner_tx ? 0 : 1);
@@ -474,7 +475,7 @@ namespace cryptonote
       res.blocks.resize(res.blocks.size() + 1);
       res.blocks.back().block = block_to_blob(blk);
       for (auto& tx : txs)
-        res.blocks.back().txs.push_back(tx_to_blob(tx));
+        res.blocks.back().txs.push_back({tx_to_blob(tx), crypto::null_hash});
     }
     res.status = CORE_RPC_STATUS_OK;
     return true;
@@ -488,7 +489,7 @@ namespace cryptonote
       return r;
 
     res.start_height = req.start_height;
-    if(!m_core.get_blockchain_storage().find_blockchain_supplement(req.block_ids, res.m_block_ids, res.start_height, res.current_height, false))
+    if(!m_core.get_blockchain_storage().find_blockchain_supplement(req.block_ids, res.m_block_ids, NULL, res.start_height, res.current_height, false))
     {
       res.status = "Failed";
       add_host_fail(ctx);
@@ -912,7 +913,7 @@ namespace cryptonote
 
     cryptonote_connection_context fake_context = AUTO_VAL_INIT(fake_context);
     tx_verification_context tvc = AUTO_VAL_INIT(tvc);
-    if(!m_core.handle_incoming_tx(tx_blob, tvc, false, false, req.do_not_relay) || tvc.m_verifivation_failed)
+    if(!m_core.handle_incoming_tx({tx_blob, crypto::null_hash}, tvc, false, false, req.do_not_relay) || tvc.m_verifivation_failed)
     {
       res.status = "Failed";
       std::string reason = "";

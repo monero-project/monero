@@ -78,7 +78,7 @@ namespace cryptonote
     void print() const;
     std::string get_overview(uint64_t blockchain_height) const;
     bool has_unpruned_height(uint64_t block_height, uint64_t blockchain_height, uint32_t pruning_seed) const;
-    std::pair<uint64_t, uint64_t> reserve_span(uint64_t first_block_height, uint64_t last_block_height, uint64_t max_blocks, const boost::uuids::uuid &connection_id, uint32_t pruning_seed, uint64_t blockchain_height, const std::vector<crypto::hash> &block_hashes, boost::posix_time::ptime time = boost::posix_time::microsec_clock::universal_time());
+    std::pair<uint64_t, uint64_t> reserve_span(uint64_t first_block_height, uint64_t last_block_height, uint64_t max_blocks, const boost::uuids::uuid &connection_id, bool sync_pruned_blocks, uint32_t local_pruning_seed, uint32_t pruning_seed, uint64_t blockchain_height, const std::vector<std::pair<crypto::hash, uint64_t>> &block_hashes, boost::posix_time::ptime time = boost::posix_time::microsec_clock::universal_time());
     uint64_t get_next_needed_height(uint64_t blockchain_height) const;
     std::pair<uint64_t, uint64_t> get_next_span_if_scheduled(std::vector<crypto::hash> &hashes, boost::uuids::uuid &connection_id, boost::posix_time::ptime &time) const;
     void reset_next_span_time(boost::posix_time::ptime t = boost::posix_time::microsec_clock::universal_time());

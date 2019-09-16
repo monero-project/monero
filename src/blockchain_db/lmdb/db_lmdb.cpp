@@ -2056,7 +2056,7 @@ bool BlockchainLMDB::prune_worker(int mode, uint32_t pruning_seed)
           ++n_prunable_records;
           result = mdb_cursor_get(c_txs_prunable, &k, &v, MDB_SET);
           if (result == MDB_NOTFOUND)
-            MWARNING("Already pruned at height " << block_height << "/" << blockchain_height);
+            MDEBUG("Already pruned at height " << block_height << "/" << blockchain_height);
           else if (result)
             throw0(DB_ERROR(lmdb_error("Failed to find transaction prunable data: ", result).c_str()));
           else
@@ -2152,7 +2152,7 @@ bool BlockchainLMDB::prune_worker(int mode, uint32_t pruning_seed)
         {
           ++n_prunable_records;
           if (result == MDB_NOTFOUND)
-            MWARNING("Already pruned at height " << block_height << "/" << blockchain_height);
+            MDEBUG("Already pruned at height " << block_height << "/" << blockchain_height);
           else
           {
             MDEBUG("Pruning at height " << block_height << "/" << blockchain_height);
@@ -2994,6 +2994,8 @@ bool BlockchainLMDB::get_tx_blob(const crypto::hash& h, cryptonote::blobdata &bd
     return false;
   else if (get_result)
     throw0(DB_ERROR(lmdb_error("DB error attempting to fetch tx from hash", get_result).c_str()));
+  else if (result1.mv_size == 0)
+    return false;
 
   bd.assign(reinterpret_cast<char*>(result0.mv_data), result0.mv_size);
   bd.append(reinterpret_cast<char*>(result1.mv_data), result1.mv_size);

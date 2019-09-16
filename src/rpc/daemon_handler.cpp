@@ -141,7 +141,7 @@ namespace rpc
 
     auto& chain = m_core.get_blockchain_storage();
 
-    if (!chain.find_blockchain_supplement(req.known_hashes, res.hashes, res.start_height, res.current_height, false))
+    if (!chain.find_blockchain_supplement(req.known_hashes, res.hashes, NULL, res.start_height, res.current_height, false))
     {
       res.status = Message::STATUS_FAILED;
       res.error_details = "Blockchain::find_blockchain_supplement() returned false";
@@ -291,7 +291,7 @@ namespace rpc
     cryptonote_connection_context fake_context = AUTO_VAL_INIT(fake_context);
     tx_verification_context tvc = AUTO_VAL_INIT(tvc);
 
-    if(!m_core.handle_incoming_tx(tx_blob, tvc, false, false, !relay) || tvc.m_verifivation_failed)
+    if(!m_core.handle_incoming_tx({tx_blob, crypto::null_hash}, tvc, false, false, !relay) || tvc.m_verifivation_failed)
     {
       if (tvc.m_verifivation_failed)
       {

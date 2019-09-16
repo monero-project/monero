@@ -627,6 +627,25 @@ void fromJsonValue(const rapidjson::Value& val, cryptonote::connection_info& inf
   GET_FROM_JSON_OBJECT(val, info.current_upload, current_upload);
 }
 
+void toJsonValue(rapidjson::Document& doc, const cryptonote::tx_blob_entry& tx, rapidjson::Value& val)
+{
+  val.SetObject();
+
+  INSERT_INTO_JSON_OBJECT(val, doc, blob, tx.blob);
+  INSERT_INTO_JSON_OBJECT(val, doc, prunable_hash, tx.prunable_hash);
+}
+
+void fromJsonValue(const rapidjson::Value& val, cryptonote::tx_blob_entry& tx)
+{
+  if (!val.IsObject())
+  {
+    throw WRONG_TYPE("json object");
+  }
+
+  GET_FROM_JSON_OBJECT(val, tx.blob, blob);
+  GET_FROM_JSON_OBJECT(val, tx.prunable_hash, prunable_hash);
+}
+
 void toJsonValue(rapidjson::Document& doc, const cryptonote::block_complete_entry& blk, rapidjson::Value& val)
 {
   val.SetObject();
