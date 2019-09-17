@@ -428,6 +428,11 @@ namespace cryptonote
       bool double_spend_seen; //!< true iff another tx was seen double spending this one
     };
 
+    /**
+     * @brief get infornation about a single transaction
+     */
+    bool get_transaction_info(const crypto::hash &txid, tx_details &td) const;
+
   private:
 
     /**
