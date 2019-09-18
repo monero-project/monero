@@ -400,3 +400,34 @@ TEST(long_term_block_size, long_growth_spike_and_drop)
   ASSERT_GT(long_term_effective_median_block_size, 20000 * 1.069);
   ASSERT_LT(long_term_effective_median_block_size, 20000 * 1.07);
 }
+
+TEST(long_term_block_size, long_growth_max)
+{
+  PREFIX(8);
+
+  uint64_t long_term_effective_median_block_size;
+
+  // constant init
+  for (uint64_t h = 0; h < TEST_LONG_TERM_BLOCK_SIZE_WINDOW; ++h)
+  {
+    size_t w = CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V1;
+    uint64_t ltw = bc->get_next_long_term_block_size(w);
+    bc->get_db().add_block(cryptonote::block(), w, ltw, h, h, {});
+    ASSERT_TRUE(bc->update_next_cumulative_size_limit(&long_term_effective_median_block_size));
+  }
+  ASSERT_EQ(long_term_effective_median_block_size, 20000);
+
+  const uint64_t expected_ltembs[10] = { 21600, 24000, 25600, 28000, 30400, 32000, 34400, 36800, 38400, 40800 };
+  for (int k = 0; k < 10; ++k)
+  {
+    // max growth over a year
+    for (uint64_t h = 0; h < 365 * 360 * TEST_LONG_TERM_BLOCK_SIZE_WINDOW / 100000; ++h)
+    {
+      size_t w = bc->get_current_cumulative_blocksize_limit();
+      uint64_t ltw = bc->get_next_long_term_block_size(w);
+      bc->get_db().add_block(cryptonote::block(), w, ltw, h, h, {});
+      ASSERT_TRUE(bc->update_next_cumulative_size_limit(&long_term_effective_median_block_size));
+    }
+    ASSERT_EQ(long_term_effective_median_block_size, expected_ltembs[k]);
+  }
+}

@@ -63,7 +63,7 @@ def run(t, blocks):
       else:
         sys.exit(1)
       sizes.append(max_size)
-      lt_sizes.append(min(max_size,int(ltembw + int(ltembw * 2 / 50))))
+      lt_sizes.append(min(max_size,int(ltembw + int(MEDIAN_THRESHOLD * 2 / 50))))
 
       #print "H %u, r %u, BW %u, EMBW %u, LTBW %u, LTEMBW %u, ltmedian %u" % (block, r, max_size, embw, lt_sizes[-1], ltembw, ltmedian)
       print "H %u, BW %u, EMBW %u, LTBW %u" % (block, max_size, embw, lt_sizes[-1])
