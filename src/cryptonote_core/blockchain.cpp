@@ -139,6 +139,8 @@ Blockchain::Blockchain(tx_memory_pool& tx_pool) :
   m_enforce_dns_checkpoints(false), m_max_prepare_blocks_threads(4), m_db_sync_on_blocks(true), m_db_sync_threshold(1), m_db_sync_mode(db_async), m_db_default_sync(false), m_fast_sync(true), m_show_time_stats(false), m_sync_counter(0), m_bytes_to_sync(0), m_cancel(false),
   m_long_term_block_sizes_window(CRYPTONOTE_LONG_TERM_BLOCK_SIZE_WINDOW_SIZE),
   m_long_term_effective_median_block_size(0),
+  m_long_term_block_sizes_cache_tip_hash(crypto::null_hash),
+  m_long_term_block_sizes_cache_rolling_median(CRYPTONOTE_LONG_TERM_BLOCK_SIZE_WINDOW_SIZE),
   m_difficulty_for_next_block_top_hash(crypto::null_hash),
   m_difficulty_for_next_block(1),
   m_btc_valid(false)
@@ -465,7 +467,11 @@ bool Blockchain::init(BlockchainDB* db, const network_type nettype, bool offline
   }
 
   if (test_options && test_options->long_term_block_size_window)
+  if (test_options && test_options->long_term_block_size_window)
+  {
     m_long_term_block_sizes_window = test_options->long_term_block_size_window;
+    m_long_term_block_sizes_cache_rolling_median = epee::misc_utils::rolling_median_t<uint64_t>(m_long_term_block_sizes_window);
+  }
 
   if (!update_next_cumulative_size_limit())
     return false;
@@ -1168,15 +1174,57 @@ void Blockchain::get_last_n_blocks_sizes(std::vector<uint64_t>& sz, size_t count
   if(h == 0)
     return;
 
-  m_db->block_txn_start(true);
   // add size of last <count> blocks to vector <sz> (or less, if blockchain size < count)
   size_t start_offset = h - std::min<size_t>(h, count);
-  sz.reserve(sz.size() + h - start_offset);
-  for(size_t i = start_offset; i < h; i++)
+  sz = m_db->get_block_sizes(start_offset, count);
+}
+//------------------------------------------------------------------
+uint64_t Blockchain::get_long_term_block_size_median(uint64_t start_height, size_t count) const
+{
+  LOG_PRINT_L3("Blockchain::" << __func__);
+  CRITICAL_REGION_LOCAL(m_blockchain_lock);
+
+  PERF_TIMER(get_long_term_block_size_median);
+
+  CHECK_AND_ASSERT_THROW_MES(count > 0, "count == 0");
+
+  bool cached = false;
+  uint64_t blockchain_height = m_db->height();
+  uint64_t tip_height = start_height + count - 1;
+  crypto::hash tip_hash = crypto::null_hash;
+  if (tip_height < blockchain_height && count == (size_t)m_long_term_block_sizes_cache_rolling_median.size())
   {
-    sz.push_back(m_db->get_block_size(i));
+    tip_hash = m_db->get_block_hash_from_height(tip_height);
+    cached = tip_hash == m_long_term_block_sizes_cache_tip_hash;
   }
-  m_db->block_txn_stop();
+
+  if (cached)
+  {
+    MTRACE("requesting " << count << " from " << start_height << ", cached");
+    return m_long_term_block_sizes_cache_rolling_median.median();
+  }
+
+  // in the vast majority of uncached cases, most is still cached,
+  // as we just move the window one block up:
+  if (tip_height > 0 && count == (size_t)m_long_term_block_sizes_cache_rolling_median.size() && tip_height < blockchain_height)
+  {
+    crypto::hash old_tip_hash = m_db->get_block_hash_from_height(tip_height - 1);
+    if (old_tip_hash == m_long_term_block_sizes_cache_tip_hash)
+    {
+      MTRACE("requesting " << count << " from " << start_height << ", incremental");
+      m_long_term_block_sizes_cache_tip_hash = tip_hash;
+      m_long_term_block_sizes_cache_rolling_median.insert(m_db->get_block_long_term_size(tip_height));
+      return m_long_term_block_sizes_cache_rolling_median.median();
+    }
+  }
+
+  MTRACE("requesting " << count << " from " << start_height << ", uncached");
+  std::vector<uint64_t> sz = m_db->get_long_term_block_sizes(start_height, count);
+  m_long_term_block_sizes_cache_tip_hash = tip_hash;
+  m_long_term_block_sizes_cache_rolling_median.clear();
+  for (uint64_t s: sz)
+    m_long_term_block_sizes_cache_rolling_median.insert(s);
+  return m_long_term_block_sizes_cache_rolling_median.median();
 }
 //------------------------------------------------------------------
 uint64_t Blockchain::get_current_cumulative_blocksize_limit() const
@@ -3613,11 +3661,7 @@ uint64_t Blockchain::get_next_long_term_block_size(uint64_t block_size) const
   if (hf_version < HF_VERSION_LONG_TERM_BLOCK_SIZE)
     return block_size;
 
-  std::vector<uint64_t> sizes;
-  sizes.resize(nblocks);
-  for (uint64_t h = 0; h < nblocks; ++h)
-    sizes[h] = m_db->get_block_long_term_size(db_height - nblocks + h);
-  uint64_t long_term_median = epee::misc_utils::median(sizes);
+  uint64_t long_term_median = get_long_term_block_size_median(db_height - nblocks, nblocks);
   uint64_t long_term_effective_median_block_size = std::max<uint64_t>(CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V1, long_term_median);
 
   uint64_t short_term_constraint = long_term_effective_median_block_size + long_term_effective_median_block_size * 2 / 50;
@@ -3649,7 +3693,6 @@ bool Blockchain::update_next_cumulative_size_limit(uint64_t *long_term_effective
   {
     const uint64_t block_size = m_db->get_block_size(db_height - 1);
 
-    std::vector<uint64_t> sizes, new_sizes;
     uint64_t long_term_median;
     if (db_height == 1)
     {
@@ -3660,11 +3703,7 @@ bool Blockchain::update_next_cumulative_size_limit(uint64_t *long_term_effective
       uint64_t nblocks = std::min<uint64_t>(m_long_term_block_sizes_window, db_height);
       if (nblocks == db_height)
         --nblocks;
-      sizes.resize(nblocks);
-      for (uint64_t h = 0; h < nblocks; ++h)
-        sizes[h] = m_db->get_block_long_term_size(db_height - nblocks + h - 1);
-      new_sizes = sizes;
-      long_term_median = epee::misc_utils::median(sizes);
+      long_term_median = get_long_term_block_size_median(db_height - nblocks - 1, nblocks);
     }
 
     m_long_term_effective_median_block_size = std::max<uint64_t>(CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V1, long_term_median);
@@ -3672,13 +3711,19 @@ bool Blockchain::update_next_cumulative_size_limit(uint64_t *long_term_effective
     uint64_t short_term_constraint = m_long_term_effective_median_block_size + m_long_term_effective_median_block_size * 2 / 50;
     long_term_block_size = std::min<uint64_t>(block_size, short_term_constraint);
 
-    if (new_sizes.empty())
-      new_sizes.resize(1);
-    new_sizes[0] = long_term_block_size;
-    long_term_median = epee::misc_utils::median(new_sizes);
+    if (db_height == 1)
+    {
+      long_term_median = long_term_block_size;
+    }
+    else
+    {
+      m_long_term_block_sizes_cache_tip_hash = m_db->get_block_hash_from_height(db_height - 1);
+      m_long_term_block_sizes_cache_rolling_median.insert(long_term_block_size);
+      long_term_median = m_long_term_block_sizes_cache_rolling_median.median();
+    }
     m_long_term_effective_median_block_size = std::max<uint64_t>(CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V1, long_term_median);
 
-    sizes.clear();
+    std::vector<uint64_t> sizes;
     get_last_n_blocks_sizes(sizes, CRYPTONOTE_REWARD_BLOCKS_WINDOW);
 
     uint64_t short_term_median = epee::misc_utils::median(sizes);
