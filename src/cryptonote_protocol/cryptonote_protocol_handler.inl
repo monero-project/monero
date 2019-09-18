@@ -75,6 +75,8 @@
 #define DROP_ON_SYNC_WEDGE_THRESHOLD (30 * 1000000000ull) // nanoseconds
 #define LAST_ACTIVITY_STALL_THRESHOLD (2.0f) // seconds
 #define DROP_PEERS_ON_SCORE -2
+#define DETECT_BROKEN_PEERS_TIME (90 * 1000000) // microseconds
+#define DROP_PEER_HEIGHT_INCREASE_THRESHOLD 128
 
 namespace cryptonote
 {
@@ -372,7 +374,10 @@ namespace cryptonote
       MINFO(context << "Claims " << hshd.current_height << ", claimed " << context.m_remote_blockchain_height << " before");
       hit_score(context, 1);
     }
+    context.m_original_remote_blockchain_height = hshd.current_height;
     context.m_remote_blockchain_height = hshd.current_height;
+    if (context.m_connection_time == boost::date_time::not_a_date_time)
+      context.m_connection_time = boost::posix_time::microsec_clock::universal_time();
     context.m_pruning_seed = hshd.pruning_seed;
 
     uint64_t target = m_core.get_target_blockchain_height();
@@ -1782,6 +1787,7 @@ skip:
     m_standby_checker.do_call(boost::bind(&t_cryptonote_protocol_handler<t_core>::check_standby_peers, this));
     m_sync_search_checker.do_call(boost::bind(&t_cryptonote_protocol_handler<t_core>::update_sync_search, this));
     m_wedged_sync_restarter.do_call(boost::bind(&t_cryptonote_protocol_handler<t_core>::restart_wedged_sync, this));
+    m_broken_peer_dropper.do_call(boost::bind(&t_cryptonote_protocol_handler<t_core>::drop_broken_peers, this));
     return m_core.on_idle();
   }
   //------------------------------------------------------------------------------------------------------------------------
@@ -1895,6 +1901,64 @@ skip:
           ++context.m_callback_request_count;
           m_p2p->request_callback(context);
         }
+        return true;
+      });
+    }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------
+  template<class t_core>
+  bool t_cryptonote_protocol_handler<t_core>::drop_broken_peers()
+  {
+    const uint64_t height = m_core.get_current_blockchain_height();
+    const boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
+    std::vector<boost::uuids::uuid> drop;
+    m_p2p->for_each_connection([&](cryptonote_connection_context& context, nodetool::peerid_type peer_id, uint32_t support_flags)->bool
+    {
+      // only consider connections that have handshaked already
+      if (context.m_state == cryptonote_connection_context::state_before_handshake)
+      {
+        MTRACE(context << "Still in handshake");
+        return true;
+      }
+      // keep connections for some time before checking, so they have the time to start syncing
+      if (context.m_connection_time == boost::date_time::not_a_date_time)
+      {
+        MTRACE(context << "Not ready to check yet");
+        return true;
+      }
+      const uint64_t us = (now - context.m_connection_time).total_microseconds();
+      if (us < DETECT_BROKEN_PEERS_TIME)
+      {
+        MTRACE(context << "Not ready to check yet: " << us << ", needed: " << DETECT_BROKEN_PEERS_TIME);
+        return true;
+      }
+      if (!m_core.is_within_compiled_block_hash_area(m_core.get_current_blockchain_height()))
+      {
+        // if the node is up to date, or at most two blocks out, deem it fine
+        if (context.m_remote_blockchain_height + 2 >= height)
+        {
+          MTRACE(context << "Up to date enough");
+          return true;
+        }
+      }
+      // if the height has gone up in this time, deem it fine
+      if (context.m_remote_blockchain_height >= context.m_original_remote_blockchain_height + DROP_PEER_HEIGHT_INCREASE_THRESHOLD)
+      {
+        MTRACE(context << "Height has gone up from " << context.m_original_remote_blockchain_height << " to " << context.m_remote_blockchain_height);
+        return true;
+      }
+
+      // drop connection
+      MINFO(context << "Dropping broken peer");
+      drop.push_back(context.m_connection_id);
+
+      return true;
+    });
+    for (const boost::uuids::uuid &id: drop)
+    {
+      m_p2p->for_connection(id, [&](cryptonote_connection_context& context, nodetool::peerid_type peer_id, uint32_t f)->bool{
+        drop_connection(context, true, false);
         return true;
       });
     }
