@@ -187,14 +187,15 @@ namespace levin
   {
     struct zone
     {
-      explicit zone(boost::asio::io_service& io_service, std::shared_ptr<connections> p2p, epee::byte_slice noise_in)
+      explicit zone(boost::asio::io_service& io_service, std::shared_ptr<connections> p2p, epee::byte_slice noise_in, bool is_public)
         : p2p(std::move(p2p)),
           noise(std::move(noise_in)),
           next_epoch(io_service),
           strand(io_service),
           map(),
           channels(),
-          connection_count(0)
+          connection_count(0),
+          is_public(is_public)
       {
         for (std::size_t count = 0; !noise.empty() && count < CRYPTONOTE_NOISE_CHANNELS; ++count)
           channels.emplace_back(io_service);
@@ -207,6 +208,7 @@ namespace levin
       net::dandelionpp::connection_map map;//!< Tracks outgoing uuid's for noise channels or Dandelion++ stems
       std::deque<noise_channel> channels;  //!< Never touch after init; only update elements on `noise_channel.strand`
       std::atomic<std::size_t> connection_count; //!< Only update in strand, can be read at any time
+      const bool is_public;                      //!< Zone is public ipv4/ipv6 connections
     };
   } // detail
 
@@ -276,7 +278,10 @@ namespace levin
         std::vector<boost::uuids::uuid> connections;
         connections.reserve(connection_id_reserve_size);
         zone_->p2p->foreach_connection([this, &connections] (detail::p2p_context& context) {
-          if (this->source_ != context.m_connection_id)
+          /* Only send to outgoing connections when "flooding" over i2p/tor.
+             Otherwise this makes the tx linkable to a hidden service address,
+             making things linkable across connections. */
+          if (this->source_ != context.m_connection_id && (this->zone_->is_public || !context.m_is_income))
             connections.emplace_back(context.m_connection_id);
           return true;
         });
@@ -476,8 +481,8 @@ namespace levin
     };
   } // anonymous
 
-  notify::notify(boost::asio::io_service& service, std::shared_ptr<connections> p2p, epee::byte_slice noise)
-    : zone_(std::make_shared<detail::zone>(service, std::move(p2p), std::move(noise)))
+  notify::notify(boost::asio::io_service& service, std::shared_ptr<connections> p2p, epee::byte_slice noise, bool is_public)
+    : zone_(std::make_shared<detail::zone>(service, std::move(p2p), std::move(noise), is_public))
   {
     if (!zone_->p2p)
       throw std::logic_error{"cryptonote::levin::notify cannot have nullptr p2p argument"};
@@ -528,7 +533,7 @@ namespace levin
       channel.next_noise.cancel();
   }
 
-  bool notify::send_txs(std::vector<cryptonote::blobdata> txs, const boost::uuids::uuid& source, const bool pad_txs)
+  bool notify::send_txs(std::vector<blobdata> txs, const boost::uuids::uuid& source, const bool pad_txs)
   {
     if (!zone_)
       return false;

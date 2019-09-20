@@ -86,7 +86,7 @@ namespace levin
     {}
 
     //! Construct an instance with available notification `zones`.
-    explicit notify(boost::asio::io_service& service, std::shared_ptr<connections> p2p, epee::byte_slice noise);
+    explicit notify(boost::asio::io_service& service, std::shared_ptr<connections> p2p, epee::byte_slice noise, bool is_public);
 
     notify(const notify&) = delete;
     notify(notify&&) = default;
