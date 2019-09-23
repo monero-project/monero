@@ -257,6 +257,11 @@ namespace net_utils
                                m_current_speed_up(0)
     {}
 
+    connection_context_base(const connection_context_base& a): connection_context_base()
+    {
+      set_details(a.m_connection_id, a.m_remote_address, a.m_is_income);
+    }
+
     connection_context_base& operator=(const connection_context_base& a)
     {
       set_details(a.m_connection_id, a.m_remote_address, a.m_is_income);

@@ -68,6 +68,7 @@ namespace hw {
         ABPkeys(const rct::key& A, const rct::key& B, const bool is_subaddr,  size_t index, const rct::key& P,const rct::key& AK);
         ABPkeys(const ABPkeys& keys) ;
         ABPkeys() {index=0;is_subaddress=false;}
+        ABPkeys &operator=(const ABPkeys &keys);
     };
 
     class Keymap {
