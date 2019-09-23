@@ -96,6 +96,9 @@ static const struct {
   // versions 2, 3, 4, 5 and 6 are skipped, in favor of reducing the cost of adopting the POW change and other consensus updates from Monero
   // version 7 starts from block 963500, which is on or around the 3rd of June, 2018. Fork time finalised on 2018-05-24.
   { 7, 963500, 0, 1527137212, 2000000000 },
+
+  // version 8 (PoW change to k12) starts from block 1146200 (with reset diff 20 trillion) which is on or around the 25th of October, 2019. Fork time finalised on 2019-09-19.
+  { 8, 1146200, 0, 1568879768, 20000000000000 },
 };
 static const uint64_t mainnet_hard_fork_version_1_till = 963499;
 
@@ -131,6 +134,9 @@ static const struct {
   // versions 2, 3, 4, 5 and 6 are skipped, in favor of reducing the cost of adopting the POW change and other consensus updates from Monero
   // version 7 starts from block 90000, which is on or around the 24th of May, 2018. Fork time finalised on 2018-05-22.
   { 7, 90000, 0, 1526828224, 50 },
+
+  // version 8 (PoW change to k12) starts from block 261000 with reset diff 40 million
+  { 8, 261000, 0, 1568879768, 40000000 },
 };
 
 //------------------------------------------------------------------
@@ -4566,7 +4572,7 @@ void Blockchain::cancel()
 }
 
 #if defined(PER_BLOCK_CHECKPOINT)
-static const char expected_block_hashes_hash[] = "01ad1543ca3842a9b82b9b6c8da6934f6ee8afe0016ac69b9b2c7f7d7a9a0c2c";
+static const char expected_block_hashes_hash[] = "964879b73a66dd5abc85692e65a6e6c446c48231700bd58754eea80cc6f7b337";
 void Blockchain::load_compiled_in_block_hashes()
 {
   const bool testnet = m_nettype == TESTNET;
