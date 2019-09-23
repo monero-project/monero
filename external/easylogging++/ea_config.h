@@ -9,7 +9,7 @@
 #define ELPP_UTC_DATETIME
 
 #ifdef EASYLOGGING_CC
-#if !(!defined __GNUC__ || defined __MINGW32__ || defined __MINGW64__ || defined __ANDROID__)
+#if !(!defined __GLIBC__ || !defined __GNUC__ || defined __MINGW32__ || defined __MINGW64__ || defined __ANDROID__)
 #define ELPP_FEATURE_CRASH_LOG
 #endif
 #endif
