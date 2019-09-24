@@ -451,7 +451,6 @@ ExternalProject_Add(generate_translations_header
   CMAKE_ARGS -DLRELEASE_PATH=${LRELEASE_PATH}
   INSTALL_COMMAND cmake -E echo "")
 include_directories("${CMAKE_CURRENT_BINARY_DIR}/translations")
-add_subdirectory(external)
 
 # Final setup for libunbound
 include_directories(${UNBOUND_INCLUDE})
@@ -1024,3 +1023,5 @@ if (iwyu_tool_path AND PYTHONINTERP_FOUND)
     VERBATIM
   )
 endif()
+
+add_subdirectory(external)
