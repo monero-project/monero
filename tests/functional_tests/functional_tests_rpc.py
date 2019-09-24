@@ -10,7 +10,7 @@ import string
 import os
 
 USAGE = 'usage: functional_tests_rpc.py <python> <srcdir> <builddir> [<tests-to-run> | all]'
-DEFAULT_TESTS = ['bans', 'daemon_info', 'blockchain', 'wallet_address', 'integrated_address', 'mining', 'transfer', 'txpool', 'multisig', 'cold_signing', 'sign_message', 'proofs', 'get_output_distribution']
+DEFAULT_TESTS = ['address_book', 'bans', 'blockchain', 'cold_signing', 'daemon_info', 'get_output_distribution', 'integrated_address', 'mining', 'multisig', 'proofs', 'sign_message', 'transfer', 'txpool', 'uri', 'validate_address', 'wallet']
 try:
   python = sys.argv[1]
   srcdir = sys.argv[2]
@@ -36,9 +36,10 @@ except:
 
 N_MONERODS = 1
 N_WALLETS = 4
+WALLET_DIRECTORY = builddir + "/functional-tests-directory"
 
 monerod_base = [builddir + "/bin/monerod", "--regtest", "--fixed-difficulty", "1", "--offline", "--no-igd", "--p2p-bind-port", "monerod_p2p_port", "--rpc-bind-port", "monerod_rpc_port", "--zmq-rpc-bind-port", "monerod_zmq_port", "--non-interactive", "--disable-dns-checkpoints", "--check-updates", "disabled", "--rpc-ssl", "disabled", "--log-level", "1"]
-wallet_base = [builddir + "/bin/monero-wallet-rpc", "--wallet-dir", builddir + "/functional-tests-directory", "--rpc-bind-port", "wallet_port", "--disable-rpc-login", "--rpc-ssl", "disabled", "--daemon-ssl", "disabled", "--daemon-port", "18180", "--log-level", "1"]
+wallet_base = [builddir + "/bin/monero-wallet-rpc", "--wallet-dir", WALLET_DIRECTORY, "--rpc-bind-port", "wallet_port", "--disable-rpc-login", "--rpc-ssl", "disabled", "--daemon-ssl", "disabled", "--daemon-port", "18180", "--log-level", "1"]
 
 command_lines = []
 processes = []
@@ -62,6 +63,8 @@ try:
     PYTHONPATH += ':'
   PYTHONPATH += srcdir + '/../../utils/python-rpc'
   os.environ['PYTHONPATH'] = PYTHONPATH
+  os.environ['WALLET_DIRECTORY'] = WALLET_DIRECTORY
+  os.environ['PYTHONIOENCODING'] = 'utf-8'
   for i in range(len(command_lines)):
     #print('Running: ' + str(command_lines[i]))
     processes.append(subprocess.Popen(command_lines[i], stdout = outputs[i]))
@@ -133,6 +136,6 @@ else:
 if len(FAIL) == 0:
   print('Done, ' + str(len(PASS)) + '/' + str(len(tests)) + ' tests passed')
 else:
-  print('Done, ' + str(len(FAIL)) + '/' + str(len(tests)) + ' tests failed: ' + string.join(FAIL, ', '))
+  print('Done, ' + str(len(FAIL)) + '/' + str(len(tests)) + ' tests failed: ' + ', '.join(FAIL))
 
 sys.exit(0 if len(FAIL) == 0 else 1)

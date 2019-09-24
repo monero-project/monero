@@ -37,18 +37,6 @@ class Wallet(object):
         self.port = port
         self.rpc = JSONRPC('{protocol}://{host}:{port}'.format(protocol=protocol, host=host, port=port if port else 18090+idx))
 
-    def make_uniform_destinations(self, address, transfer_amount, transfer_number_of_destinations=1):
-        destinations = []
-        for i in range(transfer_number_of_destinations):
-            destinations.append({"amount":transfer_amount,"address":address})
-        return destinations
-
-    def make_destinations(self, addresses, transfer_amounts):
-        destinations = []
-        for i in range(len(addresses)):
-            destinations.append({'amount':transfer_amounts[i],'address':addresses[i]})
-        return destinations
-
     def transfer(self, destinations, account_index = 0, subaddr_indices = [], priority = 0, ring_size = 0, unlock_time = 0, payment_id = '', get_tx_key = True, do_not_relay = False, get_tx_hex = False, get_tx_metadata = False):
         transfer = {
             'method': 'transfer',
@@ -103,6 +91,17 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(get_transfer_by_txid)
 
+    def get_payments(self, payment_id):
+        get_payments = {
+            'method': 'get_payments',
+            'params': {
+                'payment_id': payment_id,
+            },
+            'jsonrpc': '2.0',
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(get_payments)
+
     def get_bulk_payments(self, payment_ids = [], min_block_height = 0):
         get_bulk_payments = {
             'method': 'get_bulk_payments',
@@ -153,14 +152,22 @@ class Wallet(object):
             'id': '0'
         }
         return self.rpc.send_json_rpc_request(get_balance)
+    getbalance = get_balance
 
-    def sweep_dust(self):
+    def sweep_dust(self, get_tx_keys = True, do_not_relay = False, get_tx_hex = False, get_tx_metadata = False):
         sweep_dust = {
             'method': 'sweep_dust',
+            'params': {
+                'get_tx_keys': get_tx_keys,
+                'do_not_relay': do_not_relay,
+                'get_tx_hex': get_tx_hex,
+                'get_tx_metadata': get_tx_metadata,
+            },
             'jsonrpc': '2.0', 
             'id': '0'   
         }
         return self.rpc.send_json_rpc_request(sweep_dust)
+    sweep_unmixable = sweep_dust
 
     def sweep_all(self, address = '', account_index = 0, subaddr_indices = [], priority = 0, ring_size = 0, outputs = 1, unlock_time = 0, payment_id = '', get_tx_keys = False, below_amount = 0, do_not_relay = False, get_tx_hex = False, get_tx_metadata = False):
         sweep_all = {
@@ -217,6 +224,7 @@ class Wallet(object):
             'id': '0'
         }
         return self.rpc.send_json_rpc_request(get_address)
+    getaddress = get_address
 
     def create_account(self, label = ""):
         create_account = {
@@ -344,6 +352,34 @@ class Wallet(object):
             'id': '0'
         }
         return self.rpc.send_json_rpc_request(close_wallet)
+
+    def change_wallet_password(self, old_password, new_password):
+        change_wallet_password = {
+            'method': 'change_wallet_password',
+            'params' : {
+                'old_password': old_password,
+                'new_password': new_password,
+            },
+            'jsonrpc': '2.0',
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(change_wallet_password)
+
+    def store(self):
+        store = {
+            'method': 'store',
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(store)
+
+    def stop_wallet(self):
+        stop_wallet = {
+            'method': 'stop_wallet',
+            'jsonrpc': '2.0',
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(stop_wallet)
 
     def refresh(self):
         refresh = {
@@ -475,6 +511,18 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(make_multisig)
 
+    def finalize_multisig(self, multisig_info, password = ''):
+        finalize_multisig = {
+            'method': 'finalize_multisig',
+            'params' : {
+                'multisig_info': multisig_info,
+                'password': password,
+            },
+            'jsonrpc': '2.0',
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(finalize_multisig)
+
     def exchange_multisig_keys(self, multisig_info, password = ''):
         exchange_multisig_keys = {
             'method': 'exchange_multisig_keys',
@@ -605,6 +653,31 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(check_tx_proof)
 
+    def get_spend_proof(self, txid = '', message = ''):
+        get_spend_proof = {
+            'method': 'get_spend_proof',
+            'params' : {
+                'txid': txid,
+                'message': message,
+            },
+            'jsonrpc': '2.0',
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(get_spend_proof)
+
+    def check_spend_proof(self, txid = '', message = '', signature = ''):
+        check_spend_proof = {
+            'method': 'check_spend_proof',
+            'params' : {
+                'txid': txid,
+                'message': message,
+                'signature': signature,
+            },
+            'jsonrpc': '2.0',
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(check_spend_proof)
+
     def get_reserve_proof(self, all_ = True, account_index = 0, amount = 0, message = ''):
         get_reserve_proof = {
             'method': 'get_reserve_proof',
@@ -663,6 +736,7 @@ class Wallet(object):
             'id': '0'
         }
         return self.rpc.send_json_rpc_request(get_height)
+    getheight = get_height
 
     def relay_tx(self, hex_):
         relay_tx = {
@@ -763,6 +837,230 @@ class Wallet(object):
             'id': '0'
         }
         return self.rpc.send_json_rpc_request(validate_address)
+
+    def get_accounts(self, tag):
+        get_accounts = {
+            'method': 'get_accounts',
+            'params': {
+                'tag': tag,
+            },
+            'jsonrpc': '2.0',
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(get_accounts)
+
+    def get_account_tags(self):
+        get_account_tags = {
+            'method': 'get_account_tags',
+            'params': {
+            },
+            'jsonrpc': '2.0',
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(get_account_tags)
+
+    def tag_accounts(self, tag, accounts = []):
+        tag_accounts = {
+            'method': 'tag_accounts',
+            'params': {
+                'tag': tag,
+                'accounts': accounts,
+            },
+            'jsonrpc': '2.0',
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(tag_accounts)
+
+    def untag_accounts(self, accounts = []):
+        untag_accounts = {
+            'method': 'untag_accounts',
+            'params': {
+                'accounts': accounts,
+            },
+            'jsonrpc': '2.0',
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(untag_accounts)
+
+    def set_account_tag_description(self, tag, description):
+        set_account_tag_description = {
+            'method': 'set_account_tag_description',
+            'params': {
+                'tag': tag,
+                'description': description,
+            },
+            'jsonrpc': '2.0',
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(set_account_tag_description)
+
+    def rescan_blockchain(self, hard = False):
+        rescan_blockchain = {
+            'method': 'rescan_blockchain',
+            'jsonrpc': '2.0',
+            'params': {
+                'hard': hard,
+            },
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(rescan_blockchain)
+
+    def rescan_spent(self):
+        rescan_spent = {
+            'method': 'rescan_spent',
+            'jsonrpc': '2.0',
+            'params': {
+            },
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(rescan_spent)
+
+    def set_tx_notes(self, txids = [], notes = []):
+        set_tx_notes = {
+            'method': 'set_tx_notes',
+            'jsonrpc': '2.0',
+            'params': {
+                'txids': txids,
+                'notes': notes,
+            },
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(set_tx_notes)
+
+    def get_tx_notes(self, txids = []):
+        get_tx_notes = {
+            'method': 'get_tx_notes',
+            'jsonrpc': '2.0',
+            'params': {
+                'txids': txids,
+            },
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(get_tx_notes)
+
+    def set_attribute(self, key, value):
+        set_attribute = {
+            'method': 'set_attribute',
+            'jsonrpc': '2.0',
+            'params': {
+                'key': key,
+                'value': value,
+            },
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(set_attribute)
+
+    def get_attribute(self, key):
+        get_attribute = {
+            'method': 'get_attribute',
+            'jsonrpc': '2.0',
+            'params': {
+                'key': key,
+            },
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(get_attribute)
+
+    def make_uri(self, address = '', payment_id = '', amount = 0, tx_description = '', recipient_name = ''):
+        make_uri = {
+            'method': 'make_uri',
+            'jsonrpc': '2.0',
+            'params': {
+                'address': address,
+                'payment_id': payment_id,
+                'amount': amount,
+                'tx_description': tx_description,
+                'recipient_name': recipient_name,
+            },
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(make_uri)
+
+    def parse_uri(self, uri):
+        parse_uri = {
+            'method': 'parse_uri',
+            'jsonrpc': '2.0',
+            'params': {
+                'uri': uri,
+            },
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(parse_uri)
+
+    def add_address_book(self, address = '', payment_id = '', description = ''):
+        add_address_book = {
+            'method': 'add_address_book',
+            'jsonrpc': '2.0',
+            'params': {
+                'address': address,
+                'payment_id': payment_id,
+                'description': description,
+            },
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(add_address_book)
+
+    def edit_address_book(self, index, address = None, payment_id = None, description = None):
+        edit_address_book = {
+            'method': 'edit_address_book',
+            'jsonrpc': '2.0',
+            'params': {
+                'index': index,
+                'set_address': address != None,
+                'address': address or '',
+                'set_payment_id': payment_id != None,
+                'payment_id': payment_id or '',
+                'set_description': description != None,
+                'description': description or '',
+            },
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(edit_address_book)
+
+    def get_address_book(self, entries = []):
+        get_address_book = {
+            'method': 'get_address_book',
+            'jsonrpc': '2.0',
+            'params': {
+                'entries': entries,
+            },
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(get_address_book)
+
+    def delete_address_book(self, index):
+        delete_address_book = {
+            'method': 'delete_address_book',
+            'jsonrpc': '2.0',
+            'params': {
+                'index': index,
+            },
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(delete_address_book)
+
+    def start_mining(self, threads_count, do_background_mining = False, ignore_battery = False):
+        start_mining = {
+            'method': 'start_mining',
+            'jsonrpc': '2.0',
+            'params': {
+                'threads_count': threads_count,
+                'do_background_mining': do_background_mining,
+                'ignore_battery': ignore_battery,
+            },
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(start_mining)
+
+    def stop_mining(self):
+        stop_mining = {
+            'method': 'stop_mining',
+            'jsonrpc': '2.0',
+            'params': {
+            },
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(stop_mining)
 
     def get_version(self):
         get_version = {

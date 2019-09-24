@@ -46,12 +46,15 @@ class MiningTest():
     def run_test(self):
         self.reset()
         self.create()
-        self.mine()
+        self.mine(True)
+        self.mine(False)
+        self.submitblock()
 
     def reset(self):
         print('Resetting blockchain')
         daemon = Daemon()
-        daemon.pop_blocks(1000)
+        res = daemon.get_height()
+        daemon.pop_blocks(res.height - 1)
         daemon.flush_txpool()
 
     def create(self):
@@ -62,8 +65,8 @@ class MiningTest():
         except: pass
         res = wallet.restore_deterministic_wallet(seed = 'velvet lymph giddy number token physics poetry unquoted nibs useful sabotage limits benches lifestyle eden nitrogen anvil fewest avoid batch vials washing fences goat unquoted')
 
-    def mine(self):
-        print("Test mining")
+    def mine(self, via_daemon):
+        print("Test mining via " + ("daemon" if via_daemon else "wallet"))
 
         daemon = Daemon()
         wallet = Wallet()
@@ -76,7 +79,10 @@ class MiningTest():
 
         res_status = daemon.mining_status()
 
-        res = daemon.start_mining('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', threads_count = 1)
+        if via_daemon:
+            res = daemon.start_mining('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', threads_count = 1)
+        else:
+            res = wallet.start_mining(threads_count = 1)
 
         res_status = daemon.mining_status()
         assert res_status.active == True
@@ -101,7 +107,11 @@ class MiningTest():
               timeout -= 1
             assert timeout >= 0
 
-        res = daemon.stop_mining()
+        if via_daemon:
+            res = daemon.stop_mining()
+        else:
+            res = wallet.stop_mining()
+
         res_status = daemon.mining_status()
         assert res_status.active == False
 
@@ -113,7 +123,10 @@ class MiningTest():
         balance = res_getbalance.balance
         assert balance >= prev_balance + (new_height - prev_height) * 600000000000
 
-        res = daemon.start_mining('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', threads_count = 1, do_background_mining = True)
+        if via_daemon:
+            res = daemon.start_mining('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', threads_count = 1, do_background_mining = True)
+        else:
+            res = wallet.start_mining(threads_count = 1, do_background_mining = True)
         res_status = daemon.mining_status()
         assert res_status.active == True
         assert res_status.threads_count == 1
@@ -122,9 +135,39 @@ class MiningTest():
         assert res_status.block_reward >= 600000000000
 
         # don't wait, might be a while if the machine is busy, which it probably is
-        res = daemon.stop_mining()
+        if via_daemon:
+            res = daemon.stop_mining()
+        else:
+            res = wallet.stop_mining()
         res_status = daemon.mining_status()
         assert res_status.active == False
+
+    def submitblock(self):
+        print("Test submitblock")
+
+        daemon = Daemon()
+        res = daemon.get_height()
+        height = res.height
+        res = daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 5)
+        assert len(res.blocks) == 5
+        hashes = res.blocks
+        blocks = []
+        for block_hash in hashes:
+            res = daemon.getblock(hash = block_hash)
+            assert len(res.blob) > 0 and len(res.blob) % 2 == 0
+            blocks.append(res.blob)
+        res = daemon.get_height()
+        assert res.height == height + 5
+        res = daemon.pop_blocks(5)
+        res = daemon.get_height()
+        assert res.height == height
+        for i in range(len(hashes)):
+            block_hash = hashes[i]
+            assert len(block_hash) == 64
+            res = daemon.submitblock(blocks[i])
+            res = daemon.get_height()
+            assert res.height == height + i + 1
+            assert res.hash == block_hash
 
 
 if __name__ == '__main__':

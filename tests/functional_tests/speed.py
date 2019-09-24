@@ -47,14 +47,27 @@ from framework.wallet import Wallet
 
 
 class SpeedTest():
-    def set_test_params(self):
-        self.num_nodes = 1
+    def reset(self):
+        print('Resetting blockchain')
+        daemon = Daemon()
+        res = daemon.get_height()
+        daemon.pop_blocks(res.height - 1)
+        daemon.flush_txpool()
 
     def run_test(self):
+        self.reset()
+
         daemon = Daemon()
         wallet = Wallet()
 
-        destinations = wallet.make_uniform_destinations('44AFFq5kSiGBoZ4NMDwYtN18obc8AemS33DBLWs3H7otXft3XjrpDtQGv7SqSsaBYBb98uNbr2VBBEt7f2wfn3RVGQBEP3A',1,3)
+        # close the wallet if any, will throw if none is loaded
+        try: wallet.close_wallet()
+        except: pass
+        wallet.restore_deterministic_wallet('velvet lymph giddy number token physics poetry unquoted nibs useful sabotage limits benches lifestyle eden nitrogen anvil fewest avoid batch vials washing fences goat unquoted')
+
+        destinations = []
+        for i in range(3):
+            destinations.append({"amount":1,"address":'44AFFq5kSiGBoZ4NMDwYtN18obc8AemS33DBLWs3H7otXft3XjrpDtQGv7SqSsaBYBb98uNbr2VBBEt7f2wfn3RVGQBEP3A'})
 
         self._test_speed_generateblocks(daemon=daemon, blocks=70)
         for i in range(1, 10):
@@ -69,7 +82,6 @@ class SpeedTest():
         start = time.time()
 
         res = daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', blocks)
-            # wallet seed: velvet lymph giddy number token physics poetry unquoted nibs useful sabotage limits benches lifestyle eden nitrogen anvil fewest avoid batch vials washing fences goat unquoted
 
         print('generating ', blocks, 'blocks took: ', time.time() - start, 'seconds')
 
@@ -77,7 +89,7 @@ class SpeedTest():
         print('Test speed of transfer')
         start = time.time()
 
-        destinations = wallet.make_uniform_destinations('44AFFq5kSiGBoZ4NMDwYtN18obc8AemS33DBLWs3H7otXft3XjrpDtQGv7SqSsaBYBb98uNbr2VBBEt7f2wfn3RVGQBEP3A',1)
+        destinations = [{"amount":1,"address":'44AFFq5kSiGBoZ4NMDwYtN18obc8AemS33DBLWs3H7otXft3XjrpDtQGv7SqSsaBYBb98uNbr2VBBEt7f2wfn3RVGQBEP3A'}]
         res = wallet.transfer_split(destinations)
 
         print('generating tx took: ', time.time() - start, 'seconds')

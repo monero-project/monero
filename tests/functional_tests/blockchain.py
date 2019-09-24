@@ -53,7 +53,8 @@ class BlockchainTest():
     def reset(self):
         print('Resetting blockchain')
         daemon = Daemon()
-        daemon.pop_blocks(1000)
+        res = daemon.get_height()
+        daemon.pop_blocks(res.height - 1)
         daemon.flush_txpool()
 
     def _test_generateblocks(self, blocks):
@@ -329,6 +330,9 @@ class BlockchainTest():
             assert chain.main_chain_parent_block == root_block_hash
         for txid in [alt_blocks[0], alt_blocks[2], alt_blocks[4]]:
           assert len([chain for chain in res.chains if chain.block_hash == txid]) == 1
+
+        print('Saving blockchain explicitely')
+        daemon.save_bc()
 
 
 if __name__ == '__main__':
