@@ -253,7 +253,7 @@ bool transactions_flow_test(std::string& working_folder,
     transfered_money += amount_to_tx;
 
     LOG_PRINT_L0("transferred " << amount_to_tx << ", i=" << i );
-    tx_test_entry& ent = txs[get_transaction_hash(tx)] = boost::value_initialized<tx_test_entry>();
+    tx_test_entry& ent = txs[get_transaction_hash(tx)] = tx_test_entry{};
     ent.amount_transfered = amount_to_tx;
     ent.tx = tx;
     //if(i % transactions_per_second)
