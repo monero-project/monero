@@ -4713,6 +4713,8 @@ void BlockchainLMDB::migrate(const uint32_t oldversion)
     migrate_2_3();
   if (oldversion < 4)
     migrate_3_4();
+  if (oldversion < 5)
+    migrate_4_5();
 }
 
 }  // namespace cryptonote
