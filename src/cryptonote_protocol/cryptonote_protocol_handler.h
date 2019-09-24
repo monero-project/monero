@@ -138,6 +138,7 @@ namespace cryptonote
     bool on_connection_synchronized();
     bool should_download_next_span(cryptonote_connection_context& context, bool standby);
     void drop_connection(cryptonote_connection_context &context, bool add_fail, bool flush_all_spans);
+    void drop_connection_with_score(cryptonote_connection_context &context, unsigned int score, bool flush_all_spans);
     bool kick_idle_peers();
     bool check_standby_peers();
     bool update_sync_search();
