@@ -87,7 +87,7 @@ bool HardFork::add_fork(uint8_t version, uint64_t height, uint8_t threshold, tim
   }
   if (threshold > 100)
     return false;
-  heights.push_back(Params(version, height, threshold, time));
+  heights.push_back(hardfork_t(version, height, threshold, time));
   return true;
 }
 
@@ -171,7 +171,7 @@ void HardFork::init()
 
   // add a placeholder for the default version, to avoid special cases
   if (heights.empty())
-    heights.push_back(Params(original_version, 0, 0, 0));
+    heights.push_back(hardfork_t(original_version, 0, 0, 0));
 
   versions.clear();
   for (size_t n = 0; n < 256; ++n)
