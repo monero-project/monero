@@ -44,7 +44,6 @@
 #include "rpc/core_rpc_server.h"
 #include "rpc/rpc_args.h"
 #include "daemon/command_line_args.h"
-#include "blockchain_db/db_types.h"
 #include "version.h"
 
 #ifdef STACK_TRACE
@@ -222,16 +221,6 @@ int main(int argc, char const * argv[])
     {
       std::cerr << "Can't specify more than one of --tesnet and --stagenet and --regtest" << ENDL;
       return 1;
-    }
-
-    std::string db_type = command_line::get_arg(vm, cryptonote::arg_db_type);
-
-    // verify that blockchaindb type is valid
-    if(!cryptonote::blockchain_valid_db_type(db_type))
-    {
-      std::cout << "Invalid database type (" << db_type << "), available types are: " <<
-        cryptonote::blockchain_db_types(", ") << std::endl;
-      return 0;
     }
 
     // data_dir

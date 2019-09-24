@@ -34,7 +34,6 @@
 #include "cryptonote_core/cryptonote_core.h"
 #include "cryptonote_core/blockchain.h"
 #include "blockchain_db/blockchain_db.h"
-#include "blockchain_db/db_types.h"
 #include "version.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
@@ -50,11 +49,6 @@ int main(int argc, char* argv[])
 
   epee::string_tools::set_module_name_and_folder(argv[0]);
 
-  std::string default_db_type = "lmdb";
-
-  std::string available_dbs = cryptonote::blockchain_db_types(", ");
-  available_dbs = "available: " + available_dbs;
-
   uint32_t log_level = 0;
 
   tools::on_startup();
@@ -64,9 +58,6 @@ int main(int argc, char* argv[])
   po::options_description desc_cmd_only("Command line options");
   po::options_description desc_cmd_sett("Command line options and settings options");
   const command_line::arg_descriptor<std::string> arg_log_level  = {"log-level",  "0-4 or categories", ""};
-  const command_line::arg_descriptor<std::string> arg_database = {
-    "database", available_dbs.c_str(), default_db_type
-  };
   const command_line::arg_descriptor<std::string> arg_txid  = {"txid", "Get min depth for this txid", ""};
   const command_line::arg_descriptor<uint64_t> arg_height  = {"height", "Get min depth for all txes at this height", 0};
   const command_line::arg_descriptor<bool> arg_include_coinbase  = {"include-coinbase", "Include coinbase in the average", false};
@@ -75,7 +66,6 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_cmd_sett, cryptonote::arg_testnet_on);
   command_line::add_arg(desc_cmd_sett, cryptonote::arg_stagenet_on);
   command_line::add_arg(desc_cmd_sett, arg_log_level);
-  command_line::add_arg(desc_cmd_sett, arg_database);
   command_line::add_arg(desc_cmd_sett, arg_txid);
   command_line::add_arg(desc_cmd_sett, arg_height);
   command_line::add_arg(desc_cmd_sett, arg_include_coinbase);
@@ -133,13 +123,6 @@ int main(int argc, char* argv[])
     }
   }
 
-  std::string db_type = command_line::get_arg(vm, arg_database);
-  if (!cryptonote::blockchain_valid_db_type(db_type))
-  {
-    std::cerr << "Invalid database type: " << db_type << std::endl;
-    return 1;
-  }
-
   // If we wanted to use the memory pool, we would set up a fake_core.
 
   // Use Blockchain instead of lower-level BlockchainDB for two reasons:
@@ -155,13 +138,13 @@ int main(int argc, char* argv[])
   std::unique_ptr<Blockchain> core_storage;
   tx_memory_pool m_mempool(*core_storage);
   core_storage.reset(new Blockchain(m_mempool));
-  BlockchainDB *db = new_db(db_type);
+  BlockchainDB *db = new_db();
   if (db == NULL)
   {
-    LOG_ERROR("Attempted to use non-existent database type: " << db_type);
-    throw std::runtime_error("Attempting to use non-existent database type");
+    LOG_ERROR("Failed to initialize a database");
+    throw std::runtime_error("Failed to initialize a database");
   }
-  LOG_PRINT_L0("database: " << db_type);
+  LOG_PRINT_L0("database: LMDB");
 
   const std::string filename = (boost::filesystem::path(opt_data_dir) / db->get_db_name()).string();
   LOG_PRINT_L0("Loading blockchain from folder " << filename << " ...");
