@@ -18,7 +18,6 @@
 #include "easylogging++.h"
 
 #include <unistd.h>
-#include <boost/algorithm/string.hpp>
 
 #if defined(AUTO_INITIALIZE_EASYLOGGINGPP)
 INITIALIZE_EASYLOGGINGPP
@@ -2438,7 +2437,19 @@ void DefaultLogDispatchCallback::handle(const LogDispatchData* data) {
   if (strchr(msg.c_str(), '\n'))
   {
     std::vector<std::string> v;
-    boost::split(v, msg, boost::is_any_of("\n"));
+    const char *s = msg.c_str();
+    while (true)
+    {
+      const char *ptr = strchr(s, '\n');
+      if (!ptr)
+      {
+        if (*s)
+          v.push_back(s);
+        break;
+      }
+      v.push_back(std::string(s, ptr - s));
+      s = ptr + 1;
+    }
     for (const std::string &s: v)
     {
       LogMessage msgline(logmsg->level(), logmsg->color(), logmsg->file(), logmsg->line(), logmsg->func(), logmsg->verboseLevel(), logmsg->logger(), &s);
