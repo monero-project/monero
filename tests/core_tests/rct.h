@@ -69,6 +69,10 @@ struct gen_rct_tx_validation_base : public test_chain_unit_base
     return true;
   }
 
+  bool generate_with_full(std::vector<test_event_entry>& events, const int *out_idx, int mixin,
+      uint64_t amount_paid, size_t second_rewind, uint8_t last_version, const rct::RCTConfig &rct_config, bool valid,
+      const std::function<void(std::vector<cryptonote::tx_source_entry> &sources, std::vector<cryptonote::tx_destination_entry> &destinations)> &pre_tx,
+      const std::function<void(cryptonote::transaction &tx)> &post_tx) const;
   bool generate_with(std::vector<test_event_entry>& events, const int *out_idx, int mixin,
       uint64_t amount_paid, bool valid,
       const std::function<void(std::vector<cryptonote::tx_source_entry> &sources, std::vector<cryptonote::tx_destination_entry> &destinations)> &pre_tx,
@@ -262,3 +266,13 @@ struct gen_rct_tx_rct_altered_extra : public gen_rct_tx_validation_base
 };
 template<> struct get_test_options<gen_rct_tx_rct_altered_extra>: public get_test_options<gen_rct_tx_validation_base> {};
 
+struct gen_rct_tx_uses_output_too_early : public gen_rct_tx_validation_base
+{
+  bool generate(std::vector<test_event_entry>& events) const;
+};
+template<> struct get_test_options<gen_rct_tx_uses_output_too_early> {
+  const std::pair<uint8_t, uint64_t> hard_forks[5] = {std::make_pair(1, 0), std::make_pair(2, 1), std::make_pair(4, 65), std::make_pair(12, 69), std::make_pair(0, 0)};
+  const cryptonote::test_options test_options = {
+    hard_forks, 0
+  };
+};

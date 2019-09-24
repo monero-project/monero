@@ -40,8 +40,8 @@ using namespace cryptonote;
 //----------------------------------------------------------------------------------------------------------------------
 // Tests
 
-bool gen_rct_tx_validation_base::generate_with(std::vector<test_event_entry>& events,
-    const int *out_idx, int mixin, uint64_t amount_paid, bool valid,
+bool gen_rct_tx_validation_base::generate_with_full(std::vector<test_event_entry>& events,
+    const int *out_idx, int mixin, uint64_t amount_paid, size_t second_rewind, uint8_t last_version, const rct::RCTConfig &rct_config, bool valid,
     const std::function<void(std::vector<tx_source_entry> &sources, std::vector<tx_destination_entry> &destinations)> &pre_tx,
     const std::function<void(transaction &tx)> &post_tx) const
 {
@@ -151,13 +151,13 @@ bool gen_rct_tx_validation_base::generate_with(std::vector<test_event_entry>& ev
 
   // rewind
   {
-    for (size_t i = 0; i < CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW; ++i)
+    for (size_t i = 0; i < second_rewind; ++i)
     {
       cryptonote::block blk;
       CHECK_AND_ASSERT_MES(generator.construct_block_manually(blk, blk_last, miner_account,
           test_generator::bf_major_ver | test_generator::bf_minor_ver | test_generator::bf_timestamp | test_generator::bf_hf_version | test_generator::bf_max_outs,
-          4, 4, blk_last.timestamp + DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN * 2, // v2 has blocks twice as long
-          crypto::hash(), 0, transaction(), std::vector<crypto::hash>(), 0, 6, 4),
+          last_version, last_version, blk_last.timestamp + DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN * 2, // v2 has blocks twice as long
+          crypto::hash(), 0, transaction(), std::vector<crypto::hash>(), 0, 6, last_version),
           false, "Failed to generate block");
       events.push_back(blk);
       blk_last = blk;
@@ -213,6 +213,8 @@ bool gen_rct_tx_validation_base::generate_with(std::vector<test_event_entry>& ev
   td.addr = miner_account.get_keys().m_account_address;
   td.amount = amount_paid;
   std::vector<tx_destination_entry> destinations;
+  // from v12, we need two outputs at least
+  destinations.push_back(td);
   destinations.push_back(td);
 
   if (pre_tx)
@@ -223,7 +225,7 @@ bool gen_rct_tx_validation_base::generate_with(std::vector<test_event_entry>& ev
   std::vector<crypto::secret_key> additional_tx_keys;
   std::unordered_map<crypto::public_key, cryptonote::subaddress_index> subaddresses;
   subaddresses[miner_accounts[0].get_keys().m_account_address.m_spend_public_key] = {0,0};
-  bool r = construct_tx_and_get_tx_key(miner_accounts[0].get_keys(), subaddresses, sources, destinations, cryptonote::account_public_address{}, std::vector<uint8_t>(), tx, 0, tx_key, additional_tx_keys, true);
+  bool r = construct_tx_and_get_tx_key(miner_accounts[0].get_keys(), subaddresses, sources, destinations, cryptonote::account_public_address{}, std::vector<uint8_t>(), tx, 0, tx_key, additional_tx_keys, true, rct_config);
   CHECK_AND_ASSERT_MES(r, false, "failed to construct transaction");
 
   if (post_tx)
@@ -235,6 +237,15 @@ bool gen_rct_tx_validation_base::generate_with(std::vector<test_event_entry>& ev
   LOG_PRINT_L0("Test tx: " << obj_to_json_str(tx));
 
   return true;
+}
+
+bool gen_rct_tx_validation_base::generate_with(std::vector<test_event_entry>& events,
+    const int *out_idx, int mixin, uint64_t amount_paid, bool valid,
+    const std::function<void(std::vector<tx_source_entry> &sources, std::vector<tx_destination_entry> &destinations)> &pre_tx,
+    const std::function<void(transaction &tx)> &post_tx) const
+{
+  const rct::RCTConfig rct_config { rct::RangeProofBorromean, 0 };
+  return generate_with_full(events, out_idx, mixin, amount_paid, CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE, 4, rct_config, valid, pre_tx, post_tx);
 }
 
 bool gen_rct_tx_valid_from_pre_rct::generate(std::vector<test_event_entry>& events) const
@@ -507,3 +518,11 @@ bool gen_rct_tx_rct_altered_extra::generate(std::vector<test_event_entry>& event
     NULL, [&failed](transaction &tx) {std::string extra_nonce; crypto::hash pid = crypto::null_hash; set_payment_id_to_tx_extra_nonce(extra_nonce, pid); if (!add_extra_nonce_to_tx_extra(tx.extra, extra_nonce)) failed = true; }) && !failed;
 }
 
+bool gen_rct_tx_uses_output_too_early::generate(std::vector<test_event_entry>& events) const
+{
+  const int mixin = 10;
+  const int out_idx[] = {1, -1};
+  const uint64_t amount_paid = 10000;
+  const rct::RCTConfig rct_config { rct::RangeProofPaddedBulletproof, 2 };
+  return generate_with_full(events, out_idx, mixin, amount_paid, CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE-3, HF_VERSION_ENFORCE_MIN_AGE, rct_config, false, NULL, NULL);
+}
