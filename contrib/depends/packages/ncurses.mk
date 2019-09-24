@@ -21,6 +21,7 @@ define $(package)_set_vars
   $(package)_config_opts+=--without-tests
   $(package)_config_opts+=--without-tack
   $(package)_config_opts+=--without-manpages
+  $(package)_config_opts+=--with-termlib=tinfo
   $(package)_config_opts+=--disable-tic-depends
   $(package)_config_opts+=--disable-big-strings
   $(package)_config_opts+=--disable-ext-colors
@@ -30,15 +31,16 @@ define $(package)_set_vars
   $(pacakge)_config_opts+=--without-pthread
   $(pacakge)_config_opts+=--disable-rpath
   $(pacakge)_config_opts+=--disable-colorfgbg
-  $(pacakge)_config_opts+=--disable-ext-colors
   $(pacakge)_config_opts+=--disable-ext-mouse
   $(pacakge)_config_opts+=--disable-symlinks
   $(pacakge)_config_opts+=--enable-warnings
   $(pacakge)_config_opts+=--enable-assertions
   $(pacakge)_config_opts+=--disable-home-terminfo
+  $(package)_config_opts+=--with-default-terminfo-dir=/etc/terminfo
+  $(package)_config_opts+=--with-terminfo-dirs="/etc/terminfo:/lib/terminfo:/usr/share/terminfo"
   $(pacakge)_config_opts+=--enable-database
   $(pacakge)_config_opts+=--enable-sp-funcs
-  $(pacakge)_config_opts+=--enable-term-driver
+  $(pacakge)_config_opts+=--disable-term-driver
   $(pacakge)_config_opts+=--enable-interop
   $(pacakge)_config_opts+=--enable-widec
   $(package)_build_opts=CFLAGS="$($(package)_cflags) $($(package)_cppflags) -fPIC"
@@ -53,6 +55,6 @@ define $(package)_build_cmds
 endef
 
 define $(package)_stage_cmds
-  $(MAKE) install DESTDIR=$($(package)_staging_dir)
+  $(MAKE) install.libs DESTDIR=$($(package)_staging_dir)
 endef
 
