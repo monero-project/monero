@@ -472,40 +472,54 @@ void reset_console_color() {
 
 }
 
-static void mlog(el::Level level, const char *category, const char *format, va_list ap)
+static bool mlog(el::Level level, const char *category, const char *format, va_list ap) noexcept
 {
   int size = 0;
   char *p = NULL;
   va_list apc;
+  bool ret = true;
 
   /* Determine required size */
   va_copy(apc, ap);
   size = vsnprintf(p, size, format, apc);
   va_end(apc);
   if (size < 0)
-    return;
+    return false;
 
   size++;             /* For '\0' */
   p = (char*)malloc(size);
   if (p == NULL)
-    return;
+    return false;
 
   size = vsnprintf(p, size, format, ap);
   if (size < 0)
   {
     free(p);
-    return;
+    return false;
   }
 
-  MCLOG(level, category, el::Color::Default, p);
+  try
+  {
+    MCLOG(level, category, el::Color::Default, p);
+  }
+  catch(...)
+  {
+    ret = false;
+  }
   free(p);
+
+  return ret;
 }
 
-void mfatal(const char *category, const char *fmt, ...) { va_list ap; va_start(ap, fmt); mlog(el::Level::Fatal, category, fmt, ap); va_end(ap); }
-void merror(const char *category, const char *fmt, ...) { va_list ap; va_start(ap, fmt); mlog(el::Level::Error, category, fmt, ap); va_end(ap); }
-void mwarning(const char *category, const char *fmt, ...) { va_list ap; va_start(ap, fmt); mlog(el::Level::Warning, category, fmt, ap); va_end(ap); }
-void minfo(const char *category, const char *fmt, ...) { va_list ap; va_start(ap, fmt); mlog(el::Level::Info, category, fmt, ap); va_end(ap); }
-void mdebug(const char *category, const char *fmt, ...) { va_list ap; va_start(ap, fmt); mlog(el::Level::Debug, category, fmt, ap); va_end(ap); }
-void mtrace(const char *category, const char *fmt, ...) { va_list ap; va_start(ap, fmt); mlog(el::Level::Trace, category, fmt, ap); va_end(ap); }
+#define DEFLOG(fun,lev) \
+  bool m##fun(const char *category, const char *fmt, ...) { va_list ap; va_start(ap, fmt); bool ret = mlog(el::Level::lev, category, fmt, ap); va_end(ap); return ret; }
+
+DEFLOG(error, Error)
+DEFLOG(warning, Warning)
+DEFLOG(info, Info)
+DEFLOG(debug, Debug)
+DEFLOG(trace, Trace)
+
+#undef DEFLOG
 
 #endif //_MLOG_H_
