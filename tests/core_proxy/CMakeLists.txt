@@ -42,6 +42,7 @@ target_link_libraries(core_proxy
     p2p
     version
     epee
+    ${MINIUPNP_LIBRARY}
     ${CMAKE_THREAD_LIBS_INIT}
     ${EXTRA_LIBRARIES})
 set_property(TARGET core_proxy

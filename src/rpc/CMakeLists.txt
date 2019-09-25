@@ -118,6 +118,7 @@ target_link_libraries(rpc
     cryptonote_protocol
     net
     version
+    ${MINIUPNP_LIBRARY}
     ${Boost_REGEX_LIBRARY}
     ${Boost_THREAD_LIBRARY}
   PRIVATE
