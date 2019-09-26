@@ -1,37 +1,40 @@
-# Triton
-![Image of Triton](https://cdn.discordapp.com/attachments/402595075949068288/544379818926538763/ProjectTritonwordlogov2.png)
-Freedom for Streamers and Professional Gamers
+# Equilibria
+![Image of Equilibria](https://pbs.twimg.com/profile_banners/3257833278/1564378329/1080x360)
 
-Project Triton [XTRI] is developing innovative donation platforms for the Online Streaming and ESports industries through blockchain technology
+Equilibria harnesses market forces and an on-chain asset to issue $USDE, a redeemable stablecoin whose supply automatically scales with demand.
+
+### Stable Value
+Equilibria ($XEQ) holders can issue $USDE – a contract redeemable for $1 of $XEQ.
+
+### Decentralized
+Oracle node network algorithm converts market data into $USDE issuance and redemption rates.
+
+
+### Private
+Every transaction you make is private and secure via ring signatures and stealth addresses.
+
+### Open Source
+A community project with public code. Anyone can contribute ideas.
+
+### Borderless
+Equilibria can be used by anyone with access to the internet.
 
 ### For announcements:
-[Website](https://xtri.network)  
-[Twitter](https://twitter.com/TritonNetwork)  
+[Website](https://equilibria.network)  
+[Twitter](https://twitter.com/EquilibriaCC)  
 [Discord](https://discord.gg/7FWufDt)
-
-# Sao
-<p align="center">
-  <img src="https://xtri.network/wp-content/uploads/2019/01/SAOTEXTSMALL-2.png" alt="Sao"/>
-</p>
-A new journey for Project Triton. The SAO stablecoin.
-SAO is a decentralized stablecoin based on mint and burn protocol called the Sao Dollar (SAO), which is minted from our established volatile coin Triton (XTRI).
-
-Check out the announcement [here](https://medium.com/@projecttriton/new-journey-the-sao-stablecoin-da6f9119a410)  
-Check out the paper [here](https://bit.ly/SAOTechinicalPaper)
-
 
 
 # General Information
-Copyright (c) 2014-2018 The Monero Project.   
-Copyright (c) 2018 Project Triton.
+Copyright (c) 2014-2019 The Monero Project.   
+Copyright (c) 2018-2019 Project Triton/Equilibria.
 Portions Copyright (c) 2012-2013 The Cryptonote developers.
 
 ## Current maintainer
 - Harrison Hesslink (krakn)
+- Cryptochangements 
 
-
-**Anyone is welcome to contribute to Triton's codebase!** If you have a fix or code change, feel free to submit it as a pull request directly to the "master" branch. In cases where the change is relatively small or does not affect other parts of the codebase it may be merged in immediately by any one of the collaborators. On the other hand, if the change is particularly large or complex, it is expected that it will be discussed at length either well in advance of the pull request being submitted, or even directly on the pull request.
-
+**Anyone is welcome to contribute to Equilibria's codebase!** If you have a fix or code change, feel free to submit it as a pull request directly to the "master" branch. In cases where the change is relatively small or does not affect other parts of the codebase it may be merged in immediately by any one of the collaborators. On the other hand, if the change is particularly large or complex, it is expected that it will be discussed at length either well in advance of the pull request being submitted, or even directly on the pull request.
 
 
 See [LICENSE](LICENSE).
