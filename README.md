@@ -43,7 +43,7 @@ See [LICENSE](LICENSE).
 
 If you want to help out, see [CONTRIBUTING](CONTRIBUTING.md) for a set of guidelines.
 
-## Compiling Triton from source
+## Compiling Equilibria from source
 
 ### Dependencies
 
