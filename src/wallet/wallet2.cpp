@@ -231,6 +231,16 @@ namespace
         add_reason(reason, "tx was not relayed");
       return reason;
   }
+
+    bool isPreferredTx(const std::set<std::string>& preferred_tx_list, const crypto::hash& txid) {
+        bool res = true;
+        if (preferred_tx_list.size() > 0) {
+            if (preferred_tx_list.find(epee::string_tools::pod_to_hex(txid)) == preferred_tx_list.end()) {
+                res = false;
+            }
+        }
+        return res;
+    }
 }
 
 namespace
@@ -8513,7 +8523,7 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
   LOG_PRINT_L2("transfer_selected_rct done");
 }
 
-std::vector<size_t> wallet2::pick_preferred_rct_inputs(uint64_t needed_money, uint32_t subaddr_account, const std::set<uint32_t> &subaddr_indices) const
+std::vector<size_t> wallet2::pick_preferred_rct_inputs(uint64_t needed_money, uint32_t subaddr_account, const std::set<uint32_t> &subaddr_indices, const std::set<std::string>& preferred_tx_list) const
 {
   std::vector<size_t> picks;
   float current_output_relatdness = 1.0f;
@@ -8524,6 +8534,9 @@ std::vector<size_t> wallet2::pick_preferred_rct_inputs(uint64_t needed_money, ui
   for (size_t i = 0; i < m_transfers.size(); ++i)
   {
     const transfer_details& td = m_transfers[i];
+      if (!isPreferredTx(preferred_tx_list, td.m_txid)) {
+          continue;
+      }
     if (!td.m_spent && !td.m_frozen && td.is_rct() && td.amount() >= needed_money && is_transfer_unlocked(td) && td.m_subaddr_index.major == subaddr_account && subaddr_indices.count(td.m_subaddr_index.minor) == 1)
     {
       LOG_PRINT_L2("We can use " << i << " alone: " << print_money(td.amount()));
@@ -8539,12 +8552,18 @@ std::vector<size_t> wallet2::pick_preferred_rct_inputs(uint64_t needed_money, ui
   for (size_t i = 0; i < m_transfers.size(); ++i)
   {
     const transfer_details& td = m_transfers[i];
+      if (!isPreferredTx(preferred_tx_list, td.m_txid)) {
+          continue;
+      }
     if (!td.m_spent && !td.m_frozen && !td.m_key_image_partial && td.is_rct() && is_transfer_unlocked(td) && td.m_subaddr_index.major == subaddr_account && subaddr_indices.count(td.m_subaddr_index.minor) == 1)
     {
       LOG_PRINT_L2("Considering input " << i << ", " << print_money(td.amount()));
       for (size_t j = i + 1; j < m_transfers.size(); ++j)
       {
         const transfer_details& td2 = m_transfers[j];
+          if (!isPreferredTx(preferred_tx_list, td2.m_txid)) {
+              continue;
+          }
         if (!td2.m_spent && !td2.m_frozen && !td.m_key_image_partial && td2.is_rct() && td.amount() + td2.amount() >= needed_money && is_transfer_unlocked(td2) && td2.m_subaddr_index == td.m_subaddr_index)
         {
           // update our picks if those outputs are less related than any we
@@ -9112,7 +9131,9 @@ bool wallet2::light_wallet_key_image_is_ours(const crypto::key_image& key_image,
 // This system allows for sending (almost) the entire balance, since it does
 // not generate spurious change in all txes, thus decreasing the instantaneous
 // usable balance.
-std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryptonote::tx_destination_entry> dsts, const size_t fake_outs_count, const uint64_t unlock_time, uint32_t priority, const std::vector<uint8_t>& extra, uint32_t subaddr_account, std::set<uint32_t> subaddr_indices)
+std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryptonote::tx_destination_entry> dsts, const size_t fake_outs_count,
+        const uint64_t unlock_time, uint32_t priority, const std::vector<uint8_t>& extra,
+        uint32_t subaddr_account, std::set<uint32_t> subaddr_indices, const std::string& preferred_txs)
 {
   //ensure device is let in NONE mode in any case
   hw::device &hwdev = m_account.get_device();
@@ -9236,12 +9257,22 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
   const size_t tx_weight_per_ring = tx_weight_two_rings - tx_weight_one_ring;
   const uint64_t fractional_threshold = (fee_multiplier * base_fee * tx_weight_per_ring) / (use_per_byte_fee ? 1 : 1024);
 
+    std::set<std::string> preferred_tx_list;
+    if (preferred_txs.length() > 0)
+    {
+        boost::split(preferred_tx_list, preferred_txs, boost::is_any_of(","));
+    }
+
   // gather all dust and non-dust outputs belonging to specified subaddresses
   size_t num_nondust_outputs = 0;
   size_t num_dust_outputs = 0;
   for (size_t i = 0; i < m_transfers.size(); ++i)
   {
     const transfer_details& td = m_transfers[i];
+    if (!isPreferredTx(preferred_tx_list, td.m_txid)) {
+        continue;
+    }
+
     if (m_ignore_fractional_outputs && td.amount() < fractional_threshold)
     {
       MDEBUG("Ignoring output " << i << " of amount " << print_money(td.amount()) << " which is below threshold " << print_money(fractional_threshold));
@@ -9324,7 +9355,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
     // this is used to build a tx that's 1 or 2 inputs, and 2 outputs, which
     // will get us a known fee.
     uint64_t estimated_fee = estimate_fee(use_per_byte_fee, use_rct, 2, fake_outs_count, 2, extra.size(), bulletproof, base_fee, fee_multiplier, fee_quantization_mask);
-    preferred_inputs = pick_preferred_rct_inputs(needed_money + estimated_fee, subaddr_account, subaddr_indices);
+    preferred_inputs = pick_preferred_rct_inputs(needed_money + estimated_fee, subaddr_account, subaddr_indices, preferred_tx_list);
     if (!preferred_inputs.empty())
     {
       string s;
@@ -9639,8 +9670,10 @@ skip_tx:
   {
     TX &tx = *i;
     uint64_t tx_money = 0;
-    for (size_t idx: tx.selected_transfers)
-      tx_money += m_transfers[idx].amount();
+    for (size_t idx: tx.selected_transfers) {
+        tx_money += m_transfers[idx].amount();
+        LOG_PRINT_L1("Final selected transfer: " << epee::string_tools::pod_to_hex(m_transfers[idx].m_txid));
+    }
     LOG_PRINT_L1("  Transaction " << (1+std::distance(txes.begin(), i)) << "/" << txes.size() <<
       " " << get_transaction_hash(tx.ptx.tx) << ": " << get_weight_string(tx.weight) << ", sending " << print_money(tx_money) << " in " << tx.selected_transfers.size() <<
       " outputs to " << tx.dsts.size() << " destination(s), including " <<
