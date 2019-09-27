@@ -557,7 +557,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 				while (!message.empty()) {
 					byte_slice chunk = message.take_slice(chunksize_good);
 
-					MDEBUG("chunk_start="<<chunk.data()<<" ptr="<<message_data<<" pos="<<(chunk.data() - message_data));
+					MDEBUG("chunk_start="<<(void*)chunk.data()<<" ptr="<<message_data<<" pos="<<(chunk.data() - message_data));
 					MDEBUG("part of " << message.size() << ": pos="<<(chunk.data() - message_data) << " len="<<chunk.size());
 
 					bool ok = do_send_chunk(std::move(chunk)); // <====== ***
