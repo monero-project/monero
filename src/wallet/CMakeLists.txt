@@ -117,12 +117,14 @@ if (BUILD_GUI_DEPS)
             wallet_api
             wallet
             multisig
+            blockchain_db
             cryptonote_core
             cryptonote_basic
             mnemonics
             common
             cncrypto
             device
+            hardforks
             ringct
             ringct_basic
             checkpoints
