@@ -197,9 +197,11 @@ namespace hw {
     #define INS_RESET                           0x02
 
     #define INS_GET_KEY                         0x20
+    #define INS_DISPLAY_ADDRESS                 0x21
     #define INS_PUT_KEY                         0x22
     #define INS_GET_CHACHA8_PREKEY              0x24
     #define INS_VERIFY_KEY                      0x26
+    #define INS_MANAGE_SEEDWORDS                0x28
 
     #define INS_SECRET_KEY_TO_PUBLIC_KEY        0x30
     #define INS_GEN_KEY_DERIVATION              0x32
@@ -592,6 +594,27 @@ namespace hw {
         #endif
 
       return true;
+    }
+
+    void  device_ledger::display_address(const cryptonote::subaddress_index& index, const boost::optional<crypto::hash8> &payment_id) {
+        AUTO_LOCK_CMD();
+
+        int offset = set_command_header_noopt(INS_DISPLAY_ADDRESS, payment_id?1:0);
+        //index
+        memmove(this->buffer_send+offset, &index, sizeof(cryptonote::subaddress_index));
+        offset +=8 ;
+
+        //payment ID
+        if (payment_id) {
+          memmove(this->buffer_send+offset, (*payment_id).data, 8);
+        } else {
+          memset(this->buffer_send+offset, 0, 8);
+        }
+        offset +=8;
+
+        this->buffer_send[4] = offset-5;
+        this->length_send = offset;
+        CHECK_AND_ASSERT_THROW_MES(this->exchange_wait_on_input() == 0, "Timeout/Error on display address.");
     }
 
     /* ======================================================================= */
