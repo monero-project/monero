@@ -15,7 +15,7 @@ namespace cryptonote
   class bootstrap_daemon
   {
   public:
-    bootstrap_daemon(std::function<boost::optional<std::string>()> get_next_public_node) noexcept;
+    bootstrap_daemon(std::function<boost::optional<std::string>()> get_next_public_node);
     bootstrap_daemon(const std::string &address, const boost::optional<epee::net_utils::http::login> &credentials);
 
     std::string address() const noexcept;
