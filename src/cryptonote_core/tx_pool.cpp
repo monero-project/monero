@@ -733,7 +733,7 @@ namespace cryptonote
       if (meta.double_spend_seen)
         ++stats.num_double_spends;
       return true;
-      }, false, include_unrelayed_txes);
+    }, false, include_unrelayed_txes);
     stats.bytes_med = epee::misc_utils::median(weights);
     if (stats.txs_total > 1)
     {
@@ -746,8 +746,15 @@ namespace cryptonote
         /* If enough txs, spread the first 98% of results across
          * the first 9 bins, drop final 2% in last bin.
          */
-        it=agebytes.end();
-        for (size_t n=0; n <= end; n++, it--);
+        it = agebytes.end();
+        size_t cumulative_num = 0;
+        /* Since agebytes is not empty and end is nonzero, the
+         * below loop can always run at least once.
+         */
+        do {
+          --it;
+          cumulative_num += it->second.txs;
+        } while (it != agebytes.begin() && cumulative_num < end);
         stats.histo_98pc = it->first;
         factor = 9;
         delta = it->first;
