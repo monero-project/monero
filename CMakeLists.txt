@@ -549,10 +549,10 @@ else()
     if(ARCH_PLUS_CRYPTO)
       message(STATUS "Crypto extensions enabled for ARMv8")
       set(ARCH_FLAG "-march=${ARCH}+crypto")
-    else()
+    else
       message(STATUS "Crypto extensions unavailable on your ARMv8 device")
     endif()
-  else()
+  else
     message(STATUS "AES support disabled")
   endif()
 
@@ -564,7 +564,7 @@ else()
     if(ARM)
       set(WARNINGS "${WARNINGS} -Wno-error=inline-asm")
     endif()
-  else()
+  else
     set(WARNINGS "${WARNINGS} -Wlogical-op -Wno-error=maybe-uninitialized -Wno-error=cpp")
   endif()
   if(MINGW)
@@ -584,14 +584,14 @@ else()
   try_compile(STATIC_ASSERT_RES "${CMAKE_CURRENT_BINARY_DIR}/static-assert" "${CMAKE_CURRENT_SOURCE_DIR}/cmake/test-static-assert.c" COMPILE_DEFINITIONS "-std=c11")
   if(STATIC_ASSERT_RES)
     set(STATIC_ASSERT_FLAG "")
-  else()
+  else
     set(STATIC_ASSERT_FLAG "-Dstatic_assert=_Static_assert")
   endif()
 
   try_compile(STATIC_ASSERT_CPP_RES "${CMAKE_CURRENT_BINARY_DIR}/static-assert" "${CMAKE_CURRENT_SOURCE_DIR}/cmake/test-static-assert.cpp" COMPILE_DEFINITIONS "-std=c++11")
   if(STATIC_ASSERT_CPP_RES)
     set(STATIC_ASSERT_CPP_FLAG "")
-  else()
+  else
     set(STATIC_ASSERT_CPP_FLAG "-Dstatic_assert=_Static_assert")
   endif()
 
@@ -779,7 +779,7 @@ else()
   set(DEBUG_FLAGS "-g3")
   if(CMAKE_C_COMPILER_ID STREQUAL "GNU" AND NOT (CMAKE_C_COMPILER_VERSION VERSION_LESS 4.8))
     set(DEBUG_FLAGS "${DEBUG_FLAGS} -Og ")
-  else()
+  else
     set(DEBUG_FLAGS "${DEBUG_FLAGS} -O0 ")
   endif()
 
@@ -809,7 +809,7 @@ else()
       if (DEFINED CHOST)
         set(CMAKE_AR "${CHOST}-gcc-ar")
         set(CMAKE_RANLIB "${CHOST}-gcc-ranlib")
-      else()
+      else
         set(CMAKE_AR "gcc-ar")
         set(CMAKE_RANLIB "gcc-ranlib")
       endif()
@@ -876,7 +876,7 @@ if(MINGW)
   set(EXTRA_LIBRARIES mswsock;ws2_32;iphlpapi;crypt32;bcrypt)
   if(DEPENDS)
     set(ICU_LIBRARIES icuio icui18n icuuc icudata icutu iconv)
-  else()
+  else
     set(ICU_LIBRARIES icuio icuin icuuc icudt icutu iconv)
   endif()
 elseif(APPLE OR OPENBSD OR ANDROID)
@@ -899,7 +899,7 @@ if (HIDAPI_FOUND OR LibUSB_COMPILE_TEST_PASSED)
   if (APPLE)
     if(DEPENDS)
       list(APPEND EXTRA_LIBRARIES "-framework Foundation -framework IOKit")
-    else()
+    else
       find_library(COREFOUNDATION CoreFoundation)
       find_library(IOKIT IOKit)
       list(APPEND EXTRA_LIBRARIES ${IOKIT})
@@ -919,7 +919,7 @@ if(USE_READLINE AND NOT DEPENDS)
     include_directories(${Readline_INCLUDE_DIR})
     message(STATUS "Found readline library at: ${Readline_ROOT_DIR}")
     set(EPEE_READLINE epee_readline)
-  else()
+  else
     message(STATUS "Could not find GNU readline library so building without readline support")
   endif()
 elseif(USE_READLINE AND DEPENDS AND NOT MINGW)
@@ -976,13 +976,13 @@ find_package(PythonInterp)
 if(BUILD_TESTS)
   message(STATUS "Building tests")
   add_subdirectory(tests)
-else()
+else
   message(STATUS "Not building tests")
 endif()
 
 if(BUILD_DEBUG_UTILITIES)
   message(STATUS "Building debug utilities")
-else()
+else
   message(STATUS "Not building debug utilities")
 endif()
 
@@ -1014,7 +1014,6 @@ option(BUILD_GUI_DEPS "Build GUI dependencies." OFF)
 # This is not nice, distribution packagers should not enable this, but depend
 # on libunbound shipped with their distribution instead
 option(INSTALL_VENDORED_LIBUNBOUND "Install libunbound binary built from source vendored with this repo." OFF)
-
 
 CHECK_C_COMPILER_FLAG(-std=c11 HAVE_C11)
 
