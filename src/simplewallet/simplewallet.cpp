@@ -2987,7 +2987,6 @@ simple_wallet::simple_wallet()
                                   "  Set this if you are not sure whether you will spend on a key reusing Monero fork later.\n "
                                   "subaddress-lookahead <major>:<minor>\n "
                                   "  Set the lookahead sizes for the subaddress hash table.\n "
-                                  "  Set this if you are not sure whether you will spend on a key reusing Monero fork later.\n "
                                   "segregation-height <n>\n "
                                   "  Set to the height of a key reusing fork you want to use, 0 to use default.\n "
                                   "ignore-fractional-outputs <1|0>\n "
