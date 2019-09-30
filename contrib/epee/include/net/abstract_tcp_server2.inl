@@ -748,6 +748,11 @@ PRAGMA_WARNING_DISABLE_VS(4355)
       MERROR("Resetting timer on a dead object");
       return;
     }
+    if (m_was_shutdown)
+    {
+      MERROR("Setting timer on a shut down object");
+      return;
+    }
     if (add)
       ms += m_timer.expires_from_now();
     m_timer.expires_from_now(ms);
