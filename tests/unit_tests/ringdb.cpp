@@ -65,11 +65,11 @@ static std::pair<uint64_t, uint64_t> generate_output()
 }
 
 
-static const crypto::chacha_key KEY_1 = generate_chacha_key();
-static const crypto::chacha_key KEY_2 = generate_chacha_key();
-static const crypto::key_image KEY_IMAGE_1 = generate_key_image();
-static const std::pair<uint64_t, uint64_t> OUTPUT_1 = generate_output();
-static const std::pair<uint64_t, uint64_t> OUTPUT_2 = generate_output();
+#define KEY_1 []{ static const crypto::chacha_key KEY_1 = generate_chacha_key(); return KEY_1; }()
+#define KEY_2 []{ static const crypto::chacha_key KEY_2 = generate_chacha_key(); return KEY_2; }()
+#define KEY_IMAGE_1 []{ static const crypto::key_image KEY_IMAGE_1 = generate_key_image(); return KEY_IMAGE_1; }()
+#define OUTPUT_1 []{ static const std::pair<uint64_t, uint64_t> OUTPUT_1 = generate_output(); return OUTPUT_1; }()
+#define OUTPUT_2 []{ static const std::pair<uint64_t, uint64_t> OUTPUT_2 = generate_output(); return OUTPUT_2; }()
 
 class RingDB: public tools::ringdb
 {
