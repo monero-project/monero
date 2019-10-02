@@ -1857,6 +1857,8 @@ namespace nodetool
         const epee::net_utils::ipv4_network_address &ipv4 = na.as<const epee::net_utils::ipv4_network_address>();
         if (ipv4.ip() == 0)
           ignore = true;
+        else if (ipv4.port() == be.rpc_port)
+          ignore = true;
       }
       if (ignore)
       {
