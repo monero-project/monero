@@ -1127,6 +1127,8 @@ wallet2::wallet2(network_type nettype, uint64_t kdf_rounds, bool unattended):
   m_key_reuse_mitigation2(true),
   m_segregation_height(0),
   m_ignore_fractional_outputs(true),
+  m_ignore_outputs_above(MONEY_SUPPLY),
+  m_ignore_outputs_below(0),
   m_track_uses(false),
   m_inactivity_lock_timeout(DEFAULT_INACTIVITY_LOCK_TIMEOUT),
   m_setup_background_mining(BackgroundMiningMaybe),
@@ -3687,6 +3689,12 @@ bool wallet2::store_keys(const std::string& keys_file_name, const epee::wipeable
   value2.SetInt(m_ignore_fractional_outputs ? 1 : 0);
   json.AddMember("ignore_fractional_outputs", value2, json.GetAllocator());
 
+  value2.SetUint64(m_ignore_outputs_above);
+  json.AddMember("ignore_outputs_above", value2, json.GetAllocator());
+
+  value2.SetUint64(m_ignore_outputs_below);
+  json.AddMember("ignore_outputs_below", value2, json.GetAllocator());
+
   value2.SetInt(m_track_uses ? 1 : 0);
   json.AddMember("track_uses", value2, json.GetAllocator());
 
@@ -3848,6 +3856,8 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
     m_key_reuse_mitigation2 = true;
     m_segregation_height = 0;
     m_ignore_fractional_outputs = true;
+    m_ignore_outputs_above = MONEY_SUPPLY;
+    m_ignore_outputs_below = 0;
     m_track_uses = false;
     m_inactivity_lock_timeout = DEFAULT_INACTIVITY_LOCK_TIMEOUT;
     m_setup_background_mining = BackgroundMiningMaybe;
@@ -4004,6 +4014,10 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
     m_segregation_height = field_segregation_height;
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, ignore_fractional_outputs, int, Int, false, true);
     m_ignore_fractional_outputs = field_ignore_fractional_outputs;
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, ignore_outputs_above, uint64_t, Uint64, false, MONEY_SUPPLY);
+    m_ignore_outputs_above = field_ignore_outputs_above;
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, ignore_outputs_below, uint64_t, Uint64, false, 0);
+    m_ignore_outputs_below = field_ignore_outputs_below;
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, track_uses, int, Int, false, false);
     m_track_uses = field_track_uses;
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, inactivity_lock_timeout, uint32_t, Uint, false, DEFAULT_INACTIVITY_LOCK_TIMEOUT);
@@ -8599,6 +8613,11 @@ std::vector<size_t> wallet2::pick_preferred_rct_inputs(uint64_t needed_money, ui
     const transfer_details& td = m_transfers[i];
     if (!is_spent(td, false) && !td.m_frozen && td.is_rct() && td.amount() >= needed_money && is_transfer_unlocked(td) && td.m_subaddr_index.major == subaddr_account && subaddr_indices.count(td.m_subaddr_index.minor) == 1)
     {
+      if (td.amount() > m_ignore_outputs_above || td.amount() < m_ignore_outputs_below)
+      {
+        MDEBUG("Ignoring output " << i << " of amount " << print_money(td.amount()) << " which is outside prescribed range [" << print_money(m_ignore_outputs_below) << ", " << print_money(m_ignore_outputs_above) << "]");
+        continue;
+      }
       LOG_PRINT_L2("We can use " << i << " alone: " << print_money(td.amount()));
       picks.push_back(i);
       return picks;
@@ -8614,10 +8633,20 @@ std::vector<size_t> wallet2::pick_preferred_rct_inputs(uint64_t needed_money, ui
     const transfer_details& td = m_transfers[i];
     if (!is_spent(td, false) && !td.m_frozen && !td.m_key_image_partial && td.is_rct() && is_transfer_unlocked(td) && td.m_subaddr_index.major == subaddr_account && subaddr_indices.count(td.m_subaddr_index.minor) == 1)
     {
+      if (td.amount() > m_ignore_outputs_above || td.amount() < m_ignore_outputs_below)
+      {
+        MDEBUG("Ignoring output " << i << " of amount " << print_money(td.amount()) << " which is outside prescribed range [" << print_money(m_ignore_outputs_below) << ", " << print_money(m_ignore_outputs_above) << "]");
+        continue;
+      }
       LOG_PRINT_L2("Considering input " << i << ", " << print_money(td.amount()));
       for (size_t j = i + 1; j < m_transfers.size(); ++j)
       {
         const transfer_details& td2 = m_transfers[j];
+        if (td2.amount() > m_ignore_outputs_above || td2.amount() < m_ignore_outputs_below)
+        {
+          MDEBUG("Ignoring output " << j << " of amount " << print_money(td2.amount()) << " which is outside prescribed range [" << print_money(m_ignore_outputs_below) << ", " << print_money(m_ignore_outputs_above) << "]");
+          continue;
+        }
         if (!is_spent(td2, false) && !td2.m_frozen && !td.m_key_image_partial && td2.is_rct() && td.amount() + td2.amount() >= needed_money && is_transfer_unlocked(td2) && td2.m_subaddr_index == td.m_subaddr_index)
         {
           // update our picks if those outputs are less related than any we
@@ -9317,11 +9346,16 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
     const transfer_details& td = m_transfers[i];
     if (m_ignore_fractional_outputs && td.amount() < fractional_threshold)
     {
-      MDEBUG("Ignoring output " << i << " of amount " << print_money(td.amount()) << " which is below threshold " << print_money(fractional_threshold));
+      MDEBUG("Ignoring output " << i << " of amount " << print_money(td.amount()) << " which is below fractional threshold " << print_money(fractional_threshold));
       continue;
     }
     if (!is_spent(td, false) && !td.m_frozen && !td.m_key_image_partial && (use_rct ? true : !td.is_rct()) && is_transfer_unlocked(td) && td.m_subaddr_index.major == subaddr_account && subaddr_indices.count(td.m_subaddr_index.minor) == 1)
     {
+      if (td.amount() > m_ignore_outputs_above || td.amount() < m_ignore_outputs_below)
+      {
+        MDEBUG("Ignoring output " << i << " of amount " << print_money(td.amount()) << " which is outside prescribed range [" << print_money(m_ignore_outputs_below) << ", " << print_money(m_ignore_outputs_above) << "]");
+        continue;
+      }
       const uint32_t index_minor = td.m_subaddr_index.minor;
       auto find_predicate = [&index_minor](const std::pair<uint32_t, std::vector<size_t>>& x) { return x.first == index_minor; };
       if ((td.is_rct()) || is_valid_decomposed_amount(td.amount()))
