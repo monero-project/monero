@@ -291,7 +291,7 @@ namespace rpc
     cryptonote_connection_context fake_context = AUTO_VAL_INIT(fake_context);
     tx_verification_context tvc = AUTO_VAL_INIT(tvc);
 
-    if(!m_core.handle_incoming_tx({tx_blob, crypto::null_hash}, tvc, false, false, !relay) || tvc.m_verifivation_failed)
+    if(!m_core.handle_incoming_tx({tx_blob, crypto::null_hash}, tvc, false, false, false, !relay) || tvc.m_verifivation_failed)
     {
       if (tvc.m_verifivation_failed)
       {

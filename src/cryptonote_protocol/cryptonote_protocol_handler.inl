@@ -455,7 +455,7 @@ namespace cryptonote
     for(auto tx_blob_it = arg.b.txs.begin(); tx_blob_it!=arg.b.txs.end();tx_blob_it++)
     {
       cryptonote::tx_verification_context tvc = AUTO_VAL_INIT(tvc);
-      m_core.handle_incoming_tx(*tx_blob_it, tvc, true, true, false);
+      m_core.handle_incoming_tx(*tx_blob_it, tvc, false, true, true, false);
       if(tvc.m_verifivation_failed)
       {
         LOG_PRINT_CCONTEXT_L1("Block verification failed: transaction verification failed, dropping connection");
@@ -619,7 +619,7 @@ namespace cryptonote
           {
             MDEBUG("Incoming tx " << tx_hash << " not in pool, adding");
             cryptonote::tx_verification_context tvc = AUTO_VAL_INIT(tvc);                        
-            if(!m_core.handle_incoming_tx(tx_blob, tvc, true, true, false) || tvc.m_verifivation_failed)
+            if(!m_core.handle_incoming_tx(tx_blob, tvc, false, true, true, false) || tvc.m_verifivation_failed)
             {
               LOG_PRINT_CCONTEXT_L1("Block verification failed: transaction verification failed, dropping connection");
               drop_connection(context, false, false);
@@ -905,29 +905,27 @@ namespace cryptonote
       return 1;
     }
 
-    std::vector<cryptonote::blobdata> newtxs;
-    newtxs.reserve(arg.txs.size());
+    std::vector<tx_blob_entry> entries;
+    entries.reserve(arg.txs.size());
     for (size_t i = 0; i < arg.txs.size(); ++i)
     {
-      cryptonote::tx_verification_context tvc = AUTO_VAL_INIT(tvc);
-      m_core.handle_incoming_tx({arg.txs[i], crypto::null_hash}, tvc, false, true, false);
-      if(tvc.m_verifivation_failed)
+      entries.push_back({arg.txs[i], crypto::null_hash});
+    }
+    std::vector<cryptonote::tx_verification_context> tvc;
+    epee::net_utils::network_address address = context.m_remote_address;
+    boost::uuids::uuid connection_id = context.m_connection_id;
+    m_core.handle_incoming_txs(entries, tvc, [address, connection_id, this](bool valid) {
+      MDEBUG("tx verified callback: address " << address.str() << ", connection " << connection_id << ": " << (valid ? "valid" : "invalid"));
+      if (!valid)
       {
-        LOG_PRINT_CCONTEXT_L1("Tx verification failed, dropping connection");
-        drop_connection(context, false, false);
-        return 1;
+        // drop connection (this will bump the ban score), and manually ban if the connection doesn't exist anymore
+        if (!m_p2p->for_connection(connection_id, [&](cryptonote_connection_context& context, nodetool::peerid_type peer_id, uint32_t f)->bool {
+          drop_connection(context, true, false);
+          return true;
+        }))
+          m_p2p->add_host_fail(address);
       }
-      if(tvc.m_should_be_relayed)
-        newtxs.push_back(std::move(arg.txs[i]));
-    }
-    arg.txs = std::move(newtxs);
-
-    if(arg.txs.size())
-    {
-      //TODO: add announce usage here
-      relay_transactions(arg, context);
-    }
-
+    }, true, false, true, false);
     return 1;
   }
   //------------------------------------------------------------------------------------------------------------------------
@@ -1316,7 +1314,7 @@ namespace cryptonote
             TIME_MEASURE_START(transactions_process_time);
             num_txs += block_entry.txs.size();
             std::vector<tx_verification_context> tvc;
-            m_core.handle_incoming_txs(block_entry.txs, tvc, true, true, false);
+            m_core.handle_incoming_txs(block_entry.txs, tvc, false, true, true, false);
             if (tvc.size() != block_entry.txs.size())
             {
               LOG_ERROR_CCONTEXT("Internal error: tvc.size() != block_entry.txs.size()");

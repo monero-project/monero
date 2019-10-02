@@ -2882,7 +2882,7 @@ bool Blockchain::expand_transaction_2(transaction &tx, const crypto::hash &tx_pr
   }
   else
   {
-    CHECK_AND_ASSERT_MES(false, false, "Unsupported rct tx type: " + boost::lexical_cast<std::string>(rv.type));
+    CHECK_AND_ASSERT_MES(false, false, "Unsupported rct tx type: " << (unsigned)rv.type);
   }
 
   // II
@@ -2910,7 +2910,7 @@ bool Blockchain::expand_transaction_2(transaction &tx, const crypto::hash &tx_pr
   }
   else
   {
-    CHECK_AND_ASSERT_MES(false, false, "Unsupported rct tx type: " + boost::lexical_cast<std::string>(rv.type));
+    CHECK_AND_ASSERT_MES(false, false, "Unsupported rct tx type: " << (unsigned)rv.type);
   }
 
   // outPk was already done by handle_incoming_tx

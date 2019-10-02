@@ -655,3 +655,67 @@ bool gen_block_late_v1_coinbase_tx::generate(std::vector<test_event_entry>& even
 
   return true;
 }
+
+bool gen_block_defered_bad_tx_verification_does_not_cause_block_to_fail_verification::generate(std::vector<test_event_entry>& events) const
+{
+  BLOCK_VALIDATION_INIT_GENERATE();
+  REWIND_BLOCKS(events, blk_0r, blk_0, miner_account);
+
+  tx_source_entry se, se2;
+  se.amount = blk_0.miner_tx.vout[0].amount;
+  se.push_output(0, boost::get<txout_to_key>(blk_0.miner_tx.vout[0].target).key, se.amount);
+  se.real_output = 0;
+  se.rct = false;
+  se.real_out_tx_key = get_tx_pub_key_from_extra(blk_0.miner_tx);
+  se.real_output_in_tx_index = 0;
+  std::vector<tx_source_entry> sources;
+  sources.push_back(se);
+
+  tx_destination_entry de;
+  de.addr = miner_account.get_keys().m_account_address;
+  de.amount = se.amount;
+  std::vector<tx_destination_entry> destinations;
+  destinations.push_back(de);
+
+  transaction tmp_tx;
+  if (!construct_tx(miner_account.get_keys(), sources, destinations, boost::none, std::vector<uint8_t>(), tmp_tx, 0))
+    return false;
+  tmp_tx.vout.push_back(tmp_tx.vout.back());
+  event_replay_settings settings;
+  settings.allow_defering = true;
+  events.push_back(settings);
+  events.push_back(tmp_tx);
+  events.push_back(event_replay_settings{});
+
+  if (blk_0.miner_tx.vout.size() == 1)
+    return false;
+  se2.amount = blk_0.miner_tx.vout[1].amount;
+  se2.push_output(0, boost::get<txout_to_key>(blk_0.miner_tx.vout[1].target).key, se2.amount);
+  se2.real_output = 0;
+  se2.rct = false;
+  se2.real_out_tx_key = get_tx_pub_key_from_extra(blk_0.miner_tx);
+  se2.real_output_in_tx_index = 1;
+  sources.clear();
+  sources.push_back(se2);
+
+  de.addr = miner_account.get_keys().m_account_address;
+  de.amount = 1;
+  destinations.clear();
+  destinations.push_back(de);
+
+  transaction tmp_tx_block;
+  if (!construct_tx(miner_account.get_keys(), sources, destinations, boost::none, std::vector<uint8_t>(), tmp_tx_block, 0))
+    return false;
+  events.push_back(tmp_tx_block);
+
+  std::vector<crypto::hash> tx_hashes;
+  tx_hashes.push_back(cryptonote::get_transaction_hash(tmp_tx_block));
+
+  block blk_1;
+  generator.construct_block_manually(blk_1, blk_0, miner_account,
+      test_generator::bf_tx_hashes,
+      0, 0, 0, crypto::hash(), 0, transaction(), tx_hashes);
+  events.push_back(blk_1);
+
+  return true;
+}

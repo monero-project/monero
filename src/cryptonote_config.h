@@ -183,6 +183,8 @@
 
 #define RPC_CREDITS_PER_HASH_SCALE ((float)(1<<24))
 
+#define DEFER_TX_THRESHOLD                      4
+
 // New constants are intended to go here
 namespace config
 {

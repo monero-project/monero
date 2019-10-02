@@ -218,3 +218,8 @@ struct get_test_options<gen_block_late_v1_coinbase_tx> {
     hard_forks, 0
   };
 };
+
+struct gen_block_defered_bad_tx_verification_does_not_cause_block_to_fail_verification : public gen_block_verification_base<0>
+{
+  bool generate(std::vector<test_event_entry>& events) const;
+};

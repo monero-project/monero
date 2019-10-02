@@ -852,19 +852,19 @@ namespace cryptonote
     return true;
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::handle_incoming_tx_accumulated_batch(std::vector<tx_verification_batch_info> &tx_info, bool keeped_by_block)
+  bool core::handle_incoming_tx_accumulated_batch(std::vector<tx_verification_batch_info> &tx_info)
   {
     bool ret = true;
-    if (keeped_by_block && get_blockchain_storage().is_within_compiled_block_hash_area())
-    {
-      MTRACE("Skipping semantics check for tx kept by block in embedded hash area");
-      return true;
-    }
 
     std::vector<const rct::rctSig*> rvv;
     for (size_t n = 0; n < tx_info.size(); ++n)
     {
-      if (!check_tx_semantic(*tx_info[n].tx, keeped_by_block))
+      if (tx_info[n].keeped_by_block && get_blockchain_storage().is_within_compiled_block_hash_area())
+      {
+        MTRACE("Skipping semantics check for tx kept by block in embedded hash area");
+        continue;
+      }
+      if (!check_tx_semantic(*tx_info[n].tx, tx_info[n].keeped_by_block))
       {
         set_semantics_failed(tx_info[n].tx_hash);
         tx_info[n].tvc.m_verifivation_failed = true;
@@ -946,23 +946,83 @@ namespace cryptonote
     return ret;
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::handle_incoming_txs(const std::vector<tx_blob_entry>& tx_blobs, std::vector<tx_verification_context>& tvc, bool keeped_by_block, bool relayed, bool do_not_relay)
+  bool core::handle_incoming_txs(std::vector<tx_blob_entry> tx_blobs, std::vector<tx_verification_context>& tvc, std::function<void(bool)> on_verified, bool allow_defering, bool keeped_by_block, bool relayed, bool do_not_relay)
   {
     TRY_ENTRY();
     CRITICAL_REGION_LOCAL(m_incoming_tx_lock);
 
-    struct result { bool res; cryptonote::transaction tx; crypto::hash hash; };
-    std::vector<result> results(tx_blobs.size());
+    const size_t prior_txs = m_defered_txs.size();
 
+    for (size_t i = 0; i < tx_blobs.size(); ++i)
+      m_defered_txs.push_back({std::move(tx_blobs[i]), on_verified, keeped_by_block, relayed, do_not_relay});
+
+    const bool defer = allow_defering && !keeped_by_block && m_defered_txs.size() < DEFER_TX_THRESHOLD;
+    if (defer)
+    {
+      MDEBUG("defering tx verification");
+      return true;
+    }
+
+    std::vector<tx_verification_context> tvc_all;
+    bool ok = verify_defered_txes(tvc_all);
+    CHECK_AND_ASSERT_MES(tvc_all.size() == tx_blobs.size() + prior_txs, false, "Unexpected number of returned tvc");
     tvc.resize(tx_blobs.size());
+    for (size_t i = 0; i < tvc.size(); ++i)
+      tvc[i] = tvc_all[i + prior_txs];
+
+    if (!ok)
+    {
+      // we return whether the set of input txes got verified ok, regardless
+      // of any prior txes that might have failed verification in the batch
+      ok = true;
+      for (size_t i = 0; i < tvc.size(); ++i)
+        ok &= !tvc[i].m_verifivation_failed;
+    }
+
+    return ok;
+    CATCH_ENTRY_L0("core::handle_incoming_txs()", false);
+  }
+  //-----------------------------------------------------------------------------------------------
+  bool core::handle_incoming_txs(std::vector<tx_blob_entry> tx_blobs, std::vector<tx_verification_context>& tvc, bool allow_defering, bool keeped_by_block, bool relayed, bool do_not_relay)
+  {
+    return handle_incoming_txs(tx_blobs, tvc, [](bool){}, allow_defering, keeped_by_block, relayed, do_not_relay);
+  }
+  //-----------------------------------------------------------------------------------------------
+  bool core::verify_defered_txes(std::vector<tx_verification_context> &tvc)
+  {
+    PERF_TIMER(verify_defered_txes);
+    TRY_ENTRY();
+    CRITICAL_REGION_LOCAL(m_incoming_tx_lock);
+
+    if (m_defered_txs.empty())
+      return true;
+
+    struct result { bool res; cryptonote::transaction tx; crypto::hash hash; };
+    std::vector<result> results(m_defered_txs.size());
+    std::vector<int> dupes(m_defered_txs.size(), -1);
+    std::unordered_map<cryptonote::blobdata, int> unique_index;
+
+    tvc.resize(m_defered_txs.size());
     tools::threadpool& tpool = tools::threadpool::getInstance();
     tools::threadpool::waiter waiter;
-    std::vector<tx_blob_entry>::const_iterator it = tx_blobs.begin();
-    for (size_t i = 0; i < tx_blobs.size(); i++, ++it) {
+    std::vector<defered_tx_t>::const_iterator it = m_defered_txs.begin();
+    for (size_t i = 0; i < m_defered_txs.size(); i++, ++it)
+    {
+      // don't process dupes
+      auto found = unique_index.find(m_defered_txs[i].blob.blob);
+      if (found != unique_index.end())
+      {
+        dupes[i] = found->second;
+        continue;
+      }
+      else
+      {
+        unique_index.insert({m_defered_txs[i].blob.blob, unique_index.size()});
+      }
       tpool.submit(&waiter, [&, i, it] {
         try
         {
-          results[i].res = handle_incoming_tx_pre(*it, tvc[i], results[i].tx, results[i].hash, keeped_by_block, relayed, do_not_relay);
+          results[i].res = handle_incoming_tx_pre(it->blob, tvc[i], results[i].tx, results[i].hash, it->keeped_by_block, it->relayed, it->do_not_relay);
         }
         catch (const std::exception &e)
         {
@@ -973,12 +1033,20 @@ namespace cryptonote
       });
     }
     waiter.wait(&tpool);
-    it = tx_blobs.begin();
-    std::vector<bool> already_have(tx_blobs.size(), false);
-    for (size_t i = 0; i < tx_blobs.size(); i++, ++it) {
+    it = m_defered_txs.begin();
+    std::vector<bool> already_have(m_defered_txs.size(), false);
+    for (size_t i = 0; i < m_defered_txs.size(); i++, ++it) {
+      if (dupes[i] >= 0)
+        results[i] = results[dupes[i]];
+
       if (!results[i].res)
         continue;
-      if(m_mempool.have_tx(results[i].hash))
+      if (dupes[i] >= 0)
+      {
+        LOG_PRINT_L2("tx " << results[i].hash << "already have transaction in same verification batch");
+        already_have[i] = true;
+      }
+      else if(m_mempool.have_tx(results[i].hash))
       {
         LOG_PRINT_L2("tx " << results[i].hash << "already have transaction in tx_pool");
         already_have[i] = true;
@@ -993,7 +1061,7 @@ namespace cryptonote
         tpool.submit(&waiter, [&, i, it] {
           try
           {
-            results[i].res = handle_incoming_tx_post(*it, tvc[i], results[i].tx, results[i].hash, keeped_by_block, relayed, do_not_relay);
+            results[i].res = handle_incoming_tx_post(it->blob, tvc[i], results[i].tx, results[i].hash, it->keeped_by_block, it->relayed, it->do_not_relay);
           }
           catch (const std::exception &e)
           {
@@ -1007,30 +1075,31 @@ namespace cryptonote
     waiter.wait(&tpool);
 
     std::vector<tx_verification_batch_info> tx_info;
-    tx_info.reserve(tx_blobs.size());
-    for (size_t i = 0; i < tx_blobs.size(); i++) {
+    tx_info.reserve(m_defered_txs.size());
+    it = m_defered_txs.begin();
+    for (size_t i = 0; i < m_defered_txs.size(); i++, ++it) {
       if (!results[i].res || already_have[i])
         continue;
-      tx_info.push_back({&results[i].tx, results[i].hash, tvc[i], results[i].res});
+      tx_info.push_back({&results[i].tx, results[i].hash, it->keeped_by_block, tvc[i], results[i].res});
     }
     if (!tx_info.empty())
-      handle_incoming_tx_accumulated_batch(tx_info, keeped_by_block);
+      handle_incoming_tx_accumulated_batch(tx_info);
 
     bool ok = true;
-    it = tx_blobs.begin();
-    for (size_t i = 0; i < tx_blobs.size(); i++, ++it) {
+    it = m_defered_txs.begin();
+    for (size_t i = 0; i < m_defered_txs.size(); i++, ++it) {
       if (!results[i].res)
       {
         ok = false;
         continue;
       }
-      if (keeped_by_block)
+      if (it->keeped_by_block)
         get_blockchain_storage().on_new_tx_from_block(results[i].tx);
       if (already_have[i])
         continue;
 
-      const uint64_t weight = results[i].tx.pruned ? get_pruned_transaction_weight(results[i].tx) : get_transaction_weight(results[i].tx, it->blob.size());
-      ok &= add_new_tx(results[i].tx, results[i].hash, tx_blobs[i].blob, weight, tvc[i], keeped_by_block, relayed, do_not_relay);
+      const uint64_t weight = results[i].tx.pruned ? get_pruned_transaction_weight(results[i].tx) : get_transaction_weight(results[i].tx, it->blob.blob.size());
+      ok &= add_new_tx(results[i].tx, results[i].hash, it->blob.blob, weight, tvc[i], it->keeped_by_block, it->relayed, it->do_not_relay);
       if(tvc[i].m_verifivation_failed)
       {MERROR_VER("Transaction verification failed: " << results[i].hash);}
       else if(tvc[i].m_verifivation_impossible)
@@ -1039,24 +1108,58 @@ namespace cryptonote
       if(tvc[i].m_added_to_pool)
         MDEBUG("tx added: " << results[i].hash);
     }
+
+    // relay those that are valid
+    NOTIFY_NEW_TRANSACTIONS::request r;
+    it = m_defered_txs.begin();
+    CHECK_AND_ASSERT_MES(m_defered_txs.size() == tvc.size(), false, "m_defered_txs and tvc do not have the same size");
+    for (size_t i = 0; i < m_defered_txs.size(); i++, ++it) {
+      m_defered_txs[i].on_verified(!tvc[i].m_verifivation_failed);
+      if (!tvc[i].m_verifivation_failed && tvc[i].m_should_be_relayed && !already_have[i])
+        r.txs.push_back(it->blob.blob);
+    }
+    if (!r.txs.empty())
+    {
+      cryptonote_connection_context fake_context = AUTO_VAL_INIT(fake_context);
+      get_protocol()->relay_transactions(r, fake_context);
+    }
+
+    m_defered_txs.clear();
+
     return ok;
 
-    CATCH_ENTRY_L0("core::handle_incoming_txs()", false);
+    CATCH_ENTRY_L0("core::verify_defered_txes()", false);
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::handle_incoming_tx(const tx_blob_entry& tx_blob, tx_verification_context& tvc, bool keeped_by_block, bool relayed, bool do_not_relay)
+  bool core::verify_defered_txes()
+  {
+    std::vector<tx_verification_context> tvc;
+    return verify_defered_txes(tvc);
+  }
+  //-----------------------------------------------------------------------------------------------
+  bool core::handle_incoming_tx(const tx_blob_entry& tx_blob, tx_verification_context& tvc, std::function<void(bool)> on_verified, bool allow_defering, bool keeped_by_block, bool relayed, bool do_not_relay)
   {
     std::vector<tx_blob_entry> tx_blobs;
     tx_blobs.push_back(tx_blob);
     std::vector<tx_verification_context> tvcv(1);
-    bool r = handle_incoming_txs(tx_blobs, tvcv, keeped_by_block, relayed, do_not_relay);
+    bool r = handle_incoming_txs(tx_blobs, tvcv, std::move(on_verified), allow_defering, keeped_by_block, relayed, do_not_relay);
     tvc = tvcv[0];
     return r;
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::handle_incoming_tx(const blobdata& tx_blob, tx_verification_context& tvc, bool keeped_by_block, bool relayed, bool do_not_relay)
+  bool core::handle_incoming_tx(const tx_blob_entry& tx_blob, tx_verification_context& tvc, bool allow_defering, bool keeped_by_block, bool relayed, bool do_not_relay)
   {
-    return handle_incoming_tx({tx_blob, crypto::null_hash}, tvc, keeped_by_block, relayed, do_not_relay);
+    return handle_incoming_tx(tx_blob, tvc, [](bool){}, allow_defering, keeped_by_block, relayed, do_not_relay);
+  }
+  //-----------------------------------------------------------------------------------------------
+  bool core::handle_incoming_tx(const blobdata& tx_blob, tx_verification_context& tvc, std::function<void(bool)> on_verified, bool allow_defering, bool keeped_by_block, bool relayed, bool do_not_relay)
+  {
+    return handle_incoming_tx({tx_blob, crypto::null_hash}, tvc, std::move(on_verified), allow_defering, keeped_by_block, relayed, do_not_relay);
+  }
+  //-----------------------------------------------------------------------------------------------
+  bool core::handle_incoming_tx(const blobdata& tx_blob, tx_verification_context& tvc, bool allow_defering, bool keeped_by_block, bool relayed, bool do_not_relay)
+  {
+    return handle_incoming_tx(tx_blob, tvc, [](bool){}, allow_defering, keeped_by_block, relayed, do_not_relay);
   }
   //-----------------------------------------------------------------------------------------------
   bool core::get_stat_info(core_stat_info& st_inf) const
@@ -1651,6 +1754,7 @@ namespace cryptonote
     m_check_disk_space_interval.do_call(boost::bind(&core::check_disk_space, this));
     m_block_rate_interval.do_call(boost::bind(&core::check_block_rate, this));
     m_blockchain_pruning_interval.do_call(boost::bind(&core::update_blockchain_pruning, this));
+    m_defered_tx_verification_interval.do_call(boost::bind(&core::verify_defered_txes, this));
     m_miner.on_idle();
     m_mempool.on_idle();
     return true;

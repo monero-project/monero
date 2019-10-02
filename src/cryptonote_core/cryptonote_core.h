@@ -79,6 +79,15 @@ namespace cryptonote
     */
    class core: public i_miner_handler
    {
+     struct defered_tx_t
+     {
+       cryptonote::tx_blob_entry blob;
+       std::function<void(bool)> on_verified;
+       bool keeped_by_block;
+       bool relayed;
+       bool do_not_relay;
+     };
+
    public:
 
       /**
@@ -115,14 +124,18 @@ namespace cryptonote
       *
       * @param tx_blob the tx to handle
       * @param tvc metadata about the transaction's validity
+      * @param on_verified called when the tx is verified
+      * @param allow_defering whether to allow defering verification
       * @param keeped_by_block if the transaction has been in a block
       * @param relayed whether or not the transaction was relayed to us
       * @param do_not_relay whether to prevent the transaction from being relayed
       *
       * @return true if the transaction was accepted, false otherwise
       */
-     bool handle_incoming_tx(const tx_blob_entry& tx_blob, tx_verification_context& tvc, bool keeped_by_block, bool relayed, bool do_not_relay);
-     bool handle_incoming_tx(const blobdata& tx_blob, tx_verification_context& tvc, bool keeped_by_block, bool relayed, bool do_not_relay);
+     bool handle_incoming_tx(const tx_blob_entry& tx_blob, tx_verification_context& tvc, std::function<void(bool)> on_verified, bool allow_defering, bool keeped_by_block, bool relayed, bool do_not_relay);
+     bool handle_incoming_tx(const tx_blob_entry& tx_blob, tx_verification_context& tvc, bool allow_defering, bool keeped_by_block, bool relayed, bool do_not_relay);
+     bool handle_incoming_tx(const blobdata& tx_blob, tx_verification_context& tvc, std::function<void(bool)> on_verified, bool allow_defering, bool keeped_by_block, bool relayed, bool do_not_relay);
+     bool handle_incoming_tx(const blobdata& tx_blob, tx_verification_context& tvc, bool allow_defering, bool keeped_by_block, bool relayed, bool do_not_relay);
 
      /**
       * @brief handles a list of incoming transactions
@@ -132,13 +145,16 @@ namespace cryptonote
       *
       * @param tx_blobs the txs to handle
       * @param tvc metadata about the transactions' validity
+      * @param on_verified called when the transactions are verified
+      * @param allow_defering whether to allow defering verification
       * @param keeped_by_block if the transactions have been in a block
       * @param relayed whether or not the transactions were relayed to us
       * @param do_not_relay whether to prevent the transactions from being relayed
       *
       * @return true if the transactions were accepted, false otherwise
       */
-     bool handle_incoming_txs(const std::vector<tx_blob_entry>& tx_blobs, std::vector<tx_verification_context>& tvc, bool keeped_by_block, bool relayed, bool do_not_relay);
+     bool handle_incoming_txs(std::vector<tx_blob_entry> tx_blobs, std::vector<tx_verification_context>& tvc, std::function<void(bool)> on_verified, bool allow_defering, bool keeped_by_block, bool relayed, bool do_not_relay);
+     bool handle_incoming_txs(std::vector<tx_blob_entry> tx_blobs, std::vector<tx_verification_context>& tvc, bool allow_defering, bool keeped_by_block, bool relayed, bool do_not_relay);
 
      /**
       * @brief handles an incoming block
@@ -931,8 +947,8 @@ namespace cryptonote
 
      bool handle_incoming_tx_pre(const tx_blob_entry& tx_blob, tx_verification_context& tvc, cryptonote::transaction &tx, crypto::hash &tx_hash, bool keeped_by_block, bool relayed, bool do_not_relay);
      bool handle_incoming_tx_post(const tx_blob_entry &tx_blob, tx_verification_context& tvc, cryptonote::transaction &tx, crypto::hash &tx_hash, bool keeped_by_block, bool relayed, bool do_not_relay);
-     struct tx_verification_batch_info { const cryptonote::transaction *tx; crypto::hash tx_hash; tx_verification_context &tvc; bool &result; };
-     bool handle_incoming_tx_accumulated_batch(std::vector<tx_verification_batch_info> &tx_info, bool keeped_by_block);
+     struct tx_verification_batch_info { const cryptonote::transaction *tx; crypto::hash tx_hash; bool keeped_by_block; tx_verification_context &tvc; bool &result; };
+     bool handle_incoming_tx_accumulated_batch(std::vector<tx_verification_batch_info> &tx_info);
 
      /**
       * @copydoc miner::on_block_chain_update
@@ -1020,6 +1036,16 @@ namespace cryptonote
       */
      bool check_block_rate();
 
+     /**
+      * @brief verifies defered txes, and add them to the txpool if valid
+      *
+      * @param tvc return-by-reference flags with verification results
+      *
+      * @return true if all txes are valid, false otherwise
+      */
+     bool verify_defered_txes(std::vector<cryptonote::tx_verification_context> &tvc);
+     bool verify_defered_txes();
+
      bool m_test_drop_download = true; //!< whether or not to drop incoming blocks (for testing)
 
      uint64_t m_test_drop_download_height = 0; //!< height under which to drop incoming blocks, if doing so
@@ -1045,6 +1071,7 @@ namespace cryptonote
      epee::math_helper::once_a_time_seconds<60*10, true> m_check_disk_space_interval; //!< interval for checking for disk space
      epee::math_helper::once_a_time_seconds<90, false> m_block_rate_interval; //!< interval for checking block rate
      epee::math_helper::once_a_time_seconds<60*60*5, true> m_blockchain_pruning_interval; //!< interval for incremental blockchain pruning
+     epee::math_helper::once_a_time_seconds<10, false> m_defered_tx_verification_interval; //!< interval for verifying defered txes
 
      std::atomic<bool> m_starter_message_showed; //!< has the "daemon will sync now" message been shown?
 
@@ -1084,6 +1111,8 @@ namespace cryptonote
      bool m_pad_transactions;
 
      std::shared_ptr<tools::Notify> m_block_rate_notify;
+
+     std::vector<defered_tx_t> m_defered_txs;
    };
 }
 

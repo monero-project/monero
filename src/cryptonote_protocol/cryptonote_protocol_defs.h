@@ -122,6 +122,7 @@ namespace cryptonote
   {
     blobdata blob;
     crypto::hash prunable_hash;
+
     BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE(blob)
       KV_SERIALIZE_VAL_POD_AS_BLOB(prunable_hash)
