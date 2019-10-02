@@ -1036,15 +1036,16 @@ namespace nodetool
         return;
       }
       hsh_result = true;
+
+      if(!m_payload_handler.process_payload_sync_data(rsp.payload_data, context, just_take_peerlist, true))
+      {
+        LOG_WARNING_CC(context, "COMMAND_HANDSHAKE invoked, but process_payload_sync_data returned false, dropping connection.");
+        hsh_result = false;
+        return;
+      }
+
       if(!just_take_peerlist)
       {
-        if(!m_payload_handler.process_payload_sync_data(rsp.payload_data, context, true))
-        {
-          LOG_WARNING_CC(context, "COMMAND_HANDSHAKE invoked, but process_payload_sync_data returned false, dropping connection.");
-          hsh_result = false;
-          return;
-        }
-
         pi = context.peer_id = rsp.node_data.peer_id;
         context.m_rpc_port = rsp.node_data.rpc_port;
         m_network_zones.at(context.m_remote_address.get_zone()).m_peerlist.set_peer_just_seen(rsp.node_data.peer_id, context.m_remote_address, context.m_pruning_seed, context.m_rpc_port);
@@ -1114,7 +1115,7 @@ namespace nodetool
       }
       if(!context.m_is_income)
         m_network_zones.at(context.m_remote_address.get_zone()).m_peerlist.set_peer_just_seen(context.peer_id, context.m_remote_address, context.m_pruning_seed, context.m_rpc_port);
-      if (!m_payload_handler.process_payload_sync_data(rsp.payload_data, context, false))
+      if (!m_payload_handler.process_payload_sync_data(rsp.payload_data, context, false, false))
       {
         m_network_zones.at(context.m_remote_address.get_zone()).m_net_server.get_config_object().close(context.m_connection_id );
       }
@@ -1227,7 +1228,7 @@ namespace nodetool
     if (zone.m_connect == nullptr) // outgoing connections in zone not possible
       return false;
 
-    if (zone.m_current_number_of_out_peers == zone.m_config.m_net_config.max_out_connection_count) // out peers limit
+    if (zone.m_current_number_of_out_peers == zone.m_config.m_net_config.max_out_connection_count && !just_take_peerlist) // out peers limit
     {
       return false;
     }
@@ -1781,7 +1782,14 @@ namespace nodetool
     m_gray_peerlist_housekeeping_interval.do_call(boost::bind(&node_server<t_payload_net_handler>::gray_peerlist_housekeeping, this));
     m_peerlist_store_interval.do_call(boost::bind(&node_server<t_payload_net_handler>::store_config, this));
     m_incoming_connections_interval.do_call(boost::bind(&node_server<t_payload_net_handler>::check_incoming_connections, this));
+    m_seed_pinger.do_call(boost::bind(&node_server<t_payload_net_handler>::ping_a_seed, this));
     return true;
+  }
+  //-----------------------------------------------------------------------------------
+  template<class t_payload_net_handler>
+  bool node_server<t_payload_net_handler>::ping_a_seed()
+  {
+    return connect_to_seed();
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
@@ -2258,7 +2266,7 @@ namespace nodetool
   template<class t_payload_net_handler>
   int node_server<t_payload_net_handler>::handle_timed_sync(int command, typename COMMAND_TIMED_SYNC::request& arg, typename COMMAND_TIMED_SYNC::response& rsp, p2p_connection_context& context)
   {
-    if(!m_payload_handler.process_payload_sync_data(arg.payload_data, context, false))
+    if(!m_payload_handler.process_payload_sync_data(arg.payload_data, context, false, false))
     {
       LOG_WARNING_CC(context, "Failed to process_payload_sync_data(), dropping connection");
       drop_connection(context);
@@ -2334,7 +2342,7 @@ namespace nodetool
       return 1;
     }
 
-    if(!m_payload_handler.process_payload_sync_data(arg.payload_data, context, true))
+    if(!m_payload_handler.process_payload_sync_data(arg.payload_data, context, false, true))
     {
       LOG_WARNING_CC(context, "COMMAND_HANDSHAKE came, but process_payload_sync_data returned false, dropping connection.");
       drop_connection(context);
