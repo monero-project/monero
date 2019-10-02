@@ -476,7 +476,7 @@ TEST(cryptonote_protocol_handler, race_condition)
             in,
             out,
             [this](int command, typename messages::handshake::request &in, typename messages::handshake::response &out, context_t &context){
-              core_protocol->process_payload_sync_data(in.payload_data, context, true);
+              core_protocol->process_payload_sync_data(in.payload_data, context, false, true);
               core_protocol->get_payload_sync_data(out.payload_data);
               return 1;
             },
@@ -593,7 +593,7 @@ TEST(cryptonote_protocol_handler, race_condition)
           *net_node.shared_state,
           [&handshaked, &net_node](int code, const typename messages::handshake::response &msg, context_t &context){
             EXPECT_TRUE(code >= 0);
-            net_node.core_protocol->process_payload_sync_data(msg.payload_data, context, true);
+            net_node.core_protocol->process_payload_sync_data(msg.payload_data, context, false, true);
             handshaked.raise();
           },
           P2P_DEFAULT_HANDSHAKE_INVOKE_TIMEOUT

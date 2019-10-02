@@ -372,6 +372,7 @@ namespace nodetool
     bool do_handshake_with_peer(peerid_type& pi, p2p_connection_context& context, bool just_take_peerlist = false);
     bool do_peer_timed_sync(const epee::net_utils::connection_context_base& context, peerid_type peer_id);
     bool update_dns_blocklist();
+    bool ping_a_seed();
 
     bool make_new_connection_from_anchor_peerlist(const std::vector<anchor_peerlist_entry>& anchor_peerlist);
     bool make_new_connection_from_peerlist(network_zone& zone, bool use_white_list);
@@ -478,6 +479,7 @@ namespace nodetool
     epee::math_helper::once_a_time_seconds<60> m_gray_peerlist_housekeeping_interval;
     epee::math_helper::once_a_time_seconds<3600, false> m_incoming_connections_interval;
     epee::math_helper::once_a_time_seconds<7000> m_dns_blocklist_interval;
+    epee::math_helper::once_a_time_seconds<95, false> m_seed_pinger;
 
     std::list<epee::net_utils::network_address>   m_priority_peers;
     std::vector<epee::net_utils::network_address> m_exclusive_peers;
