@@ -32,6 +32,7 @@
 #include "ringct/rctOps.h"
 #include "cryptonote_basic/account.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
+#include "common/perf_timer.h"
 #include "multisig.h"
 #include "cryptonote_config.h"
 
@@ -73,6 +74,7 @@ namespace cryptonote
   void generate_multisig_N1_N(const account_keys &keys, const std::vector<crypto::public_key> &spend_keys, std::vector<crypto::secret_key> &multisig_keys, rct::key &spend_skey, rct::key &spend_pkey)
   {
     multisig_keys.clear();
+    multisig_keys.reserve(spend_keys.size());
     spend_pkey = rct::identity();
     spend_skey = rct::zero();
 
@@ -91,6 +93,7 @@ namespace cryptonote
   std::vector<crypto::public_key> generate_multisig_derivations(const account_keys &keys, const std::vector<crypto::public_key> &derivations)
   {
     std::vector<crypto::public_key> multisig_keys;
+    multisig_keys.reserve(derivations.size());
     crypto::secret_key blinded_skey = get_multisig_blinded_secret_key(keys.m_spend_secret_key);
     for (const auto &k: derivations)
     {
@@ -159,12 +162,16 @@ namespace cryptonote
   //-----------------------------------------------------------------
   bool generate_multisig_composite_key_image(const account_keys &keys, const boost::container::flat_map<crypto::public_key, subaddress_index>& subaddresses, const crypto::public_key& out_key, const crypto::public_key &tx_public_key, const std::vector<crypto::public_key>& additional_tx_public_keys, size_t real_output_index, const std::vector<crypto::key_image> &pkis, crypto::key_image &ki)
   {
+    PERF_TIMER(generate_multisig_composite_key_image);
     cryptonote::keypair in_ephemeral;
+    PERF_TIMER_START(generate_key_image_helper);
     if (!cryptonote::generate_key_image_helper(keys, subaddresses, out_key, tx_public_key, additional_tx_public_keys, real_output_index, in_ephemeral, ki, keys.get_device()))
       return false;
+    PERF_TIMER_STOP(generate_key_image_helper);
     std::unordered_set<crypto::key_image> used;
     for (size_t m = 0; m < keys.m_multisig_keys.size(); ++m)
     {
+      PERF_TIMER(generate_multisig_key_image);
       crypto::key_image pki;
       bool r = cryptonote::generate_multisig_key_image(keys, m, out_key, pki);
       if (!r)
@@ -176,6 +183,7 @@ namespace cryptonote
       if (used.find(pki) == used.end())
       {
         used.insert(pki);
+        PERF_TIMER(addKeys);
         rct::addKeys((rct::key&)ki, rct::ki2rct(ki), rct::ki2rct(pki));
       }
     }
