@@ -63,8 +63,6 @@ static rx_state rx_s[2] = {{CTHR_MUTEX_INIT,{0},0,0},{CTHR_MUTEX_INIT,{0},0,0}};
 static randomx_dataset *rx_dataset;
 static uint64_t rx_dataset_height;
 static THREADV randomx_vm *rx_vm = NULL;
-static THREADV int rx_toggle = -1;
-static THREADV char rx_seedhash[HASH_SIZE];
 
 static void local_abort(const char *msg)
 {
@@ -234,7 +232,6 @@ static void rx_initdata(randomx_cache *rs_cache, const int miners, const uint64_
 void rx_slow_hash(const uint64_t mainheight, const uint64_t seedheight, const char *seedhash, const void *data, size_t length,
   char *hash, int miners, int is_alt) {
   uint64_t s_height = rx_seedheight(mainheight);
-  int changed = 0;
   int toggle = (s_height & SEEDHASH_EPOCH_BLOCKS) != 0;
   randomx_flags flags = RANDOMX_FLAG_DEFAULT;
   rx_state *rx_sp;
@@ -256,9 +253,6 @@ void rx_slow_hash(const uint64_t mainheight, const uint64_t seedheight, const ch
   }
 
   toggle ^= (is_alt != 0);
-  if (toggle != rx_toggle)
-    changed = 1;
-  rx_toggle = toggle;
 
   rx_sp = &rx_s[toggle];
   CTHR_MUTEX_LOCK(rx_sp->rs_mutex);
@@ -283,11 +277,7 @@ void rx_slow_hash(const uint64_t mainheight, const uint64_t seedheight, const ch
     rx_sp->rs_cache = cache;
     rx_sp->rs_height = seedheight;
     memcpy(rx_sp->rs_hash, seedhash, HASH_SIZE);
-    changed = 1;
   }
-  /* only non-miners use rx_seedhash */
-  if (!miners && !changed && memcmp(seedhash, rx_seedhash, HASH_SIZE))
-    changed = 1;
   if (rx_vm == NULL) {
     randomx_flags flags = RANDOMX_FLAG_DEFAULT;
     if (use_rx_jit()) {
@@ -315,9 +305,6 @@ void rx_slow_hash(const uint64_t mainheight, const uint64_t seedheight, const ch
         mwarning(RX_LOGCAT, "Couldn't allocate RandomX dataset for miner");
       }
       CTHR_MUTEX_UNLOCK(rx_dataset_mutex);
-    } else {
-      /* only non-miners use rx_seedhash */
-      memcpy(rx_seedhash, seedhash, HASH_SIZE);
     }
     rx_vm = randomx_create_vm(flags | RANDOMX_FLAG_LARGE_PAGES, rx_sp->rs_cache, rx_dataset);
     if(rx_vm == NULL) { //large pages failed
@@ -335,13 +322,9 @@ void rx_slow_hash(const uint64_t mainheight, const uint64_t seedheight, const ch
     if (rx_dataset != NULL && rx_dataset_height != seedheight)
       rx_initdata(cache, miners, seedheight);
     CTHR_MUTEX_UNLOCK(rx_dataset_mutex);
-  } else if (changed) {
+  } else {
+    /* this is a no-op if the cache hasn't changed */
     randomx_vm_set_cache(rx_vm, rx_sp->rs_cache);
-    /* remember the seedhash being used by the current VM. Other threads may set
-     * rx_sp->rs_cache to the correct value, but we still have to know if the
-     * current rx_vm has been set to use it or not.
-     */
-    memcpy(rx_seedhash, seedhash, HASH_SIZE);
   }
   /* mainchain users can run in parallel */
   if (!is_alt)
