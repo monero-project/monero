@@ -300,7 +300,7 @@ namespace cryptonote
      *
      * @return true
      */
-    bool check_for_key_images(const std::vector<crypto::key_image>& key_images, std::vector<bool> spent) const;
+    bool check_for_key_images(const std::vector<crypto::key_image>& key_images, std::vector<bool>& spent) const;
 
     /**
      * @brief get a specific transaction from the pool
