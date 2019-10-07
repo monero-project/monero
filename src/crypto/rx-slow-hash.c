@@ -161,8 +161,11 @@ void rx_reorg(const uint64_t split_height) {
   int i;
   CTHR_MUTEX_LOCK(rx_mutex);
   for (i=0; i<2; i++) {
-    if (split_height < rx_s[i].rs_height)
+    if (split_height <= rx_s[i].rs_height) {
+      if (rx_s[i].rs_height == rx_dataset_height)
+        rx_dataset_height = 1;
       rx_s[i].rs_height = 1;	/* set to an invalid seed height */
+    }
   }
   CTHR_MUTEX_UNLOCK(rx_mutex);
 }
