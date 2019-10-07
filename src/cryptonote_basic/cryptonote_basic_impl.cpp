@@ -110,9 +110,6 @@ namespace cryptonote {
       return false;
     }
 
-    assert(median_weight < std::numeric_limits<uint32_t>::max());
-    assert(current_block_weight < std::numeric_limits<uint32_t>::max());
-
     uint64_t product_hi;
     // BUGFIX: 32-bit saturation bug (e.g. ARM7), the result was being
     // treated as 32-bit by default.
@@ -122,8 +119,8 @@ namespace cryptonote {
 
     uint64_t reward_hi;
     uint64_t reward_lo;
-    div128_32(product_hi, product_lo, static_cast<uint32_t>(median_weight), &reward_hi, &reward_lo);
-    div128_32(reward_hi, reward_lo, static_cast<uint32_t>(median_weight), &reward_hi, &reward_lo);
+    div128_64(product_hi, product_lo, median_weight, &reward_hi, &reward_lo, NULL, NULL);
+    div128_64(reward_hi, reward_lo, median_weight, &reward_hi, &reward_lo, NULL, NULL);
     assert(0 == reward_hi);
     assert(reward_lo < base_reward);
 
