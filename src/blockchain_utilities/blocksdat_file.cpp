@@ -99,17 +99,23 @@ bool BlocksdatFile::initialize_file(uint64_t block_stop)
   return true;
 }
 
-void BlocksdatFile::write_block(const crypto::hash& block_hash)
+void BlocksdatFile::write_block(const crypto::hash& block_hash, uint64_t weight)
 {
   m_hashes.push_back(block_hash);
+  m_weights.push_back(weight);
   while (m_hashes.size() >= HASH_OF_HASHES_STEP)
   {
     crypto::hash hash;
     crypto::cn_fast_hash(m_hashes.data(), HASH_OF_HASHES_STEP * sizeof(crypto::hash), hash);
     memmove(m_hashes.data(), m_hashes.data() + HASH_OF_HASHES_STEP, (m_hashes.size() - HASH_OF_HASHES_STEP) * sizeof(crypto::hash));
     m_hashes.resize(m_hashes.size() - HASH_OF_HASHES_STEP);
-    const std::string data(hash.data, sizeof(hash));
-    *m_raw_data_file << data;
+    const std::string data_hashes(hash.data, sizeof(hash));
+    *m_raw_data_file << data_hashes;
+    crypto::cn_fast_hash(m_weights.data(), HASH_OF_HASHES_STEP * sizeof(uint64_t), hash);
+    memmove(m_weights.data(), m_weights.data() + HASH_OF_HASHES_STEP, (m_weights.size() - HASH_OF_HASHES_STEP) * sizeof(uint64_t));
+    m_weights.resize(m_weights.size() - HASH_OF_HASHES_STEP);
+    const std::string data_weights(hash.data, sizeof(hash));
+    *m_raw_data_file << data_weights;
   }
 }
 
@@ -154,7 +160,8 @@ bool BlocksdatFile::store_blockchain_raw(Blockchain* _blockchain_storage, tx_mem
   {
     // this method's height refers to 0-based height (genesis block = height 0)
     crypto::hash hash = m_blockchain_storage->get_block_id_by_height(m_cur_height);
-    write_block(hash);
+    uint64_t weight = m_blockchain_storage->get_db().get_block_weight(m_cur_height);
+    write_block(hash, weight);
     if (m_cur_height % NUM_BLOCKS_PER_CHUNK == 0) {
       num_blocks_written += NUM_BLOCKS_PER_CHUNK;
     }

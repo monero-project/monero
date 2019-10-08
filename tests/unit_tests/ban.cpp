@@ -56,13 +56,13 @@ public:
   bool get_stat_info(cryptonote::core_stat_info& st_inf) const {return true;}
   bool have_block(const crypto::hash& id) const {return true;}
   void get_blockchain_top(uint64_t& height, crypto::hash& top_id)const{height=0;top_id=crypto::null_hash;}
-  bool handle_incoming_tx(const cryptonote::blobdata& tx_blob, cryptonote::tx_verification_context& tvc, bool keeped_by_block, bool relayed, bool do_not_relay) { return true; }
-  bool handle_incoming_txs(const std::vector<cryptonote::blobdata>& tx_blob, std::vector<cryptonote::tx_verification_context>& tvc, bool keeped_by_block, bool relayed, bool do_not_relay) { return true; }
+  bool handle_incoming_tx(const cryptonote::tx_blob_entry& tx_blob, cryptonote::tx_verification_context& tvc, bool keeped_by_block, bool relayed, bool do_not_relay) { return true; }
+  bool handle_incoming_txs(const std::vector<cryptonote::tx_blob_entry>& tx_blob, std::vector<cryptonote::tx_verification_context>& tvc, bool keeped_by_block, bool relayed, bool do_not_relay) { return true; }
   bool handle_incoming_block(const cryptonote::blobdata& block_blob, const cryptonote::block *block, cryptonote::block_verification_context& bvc, bool update_miner_blocktemplate = true) { return true; }
   void pause_mine(){}
   void resume_mine(){}
   bool on_idle(){return true;}
-  bool find_blockchain_supplement(const std::list<crypto::hash>& qblock_ids, cryptonote::NOTIFY_RESPONSE_CHAIN_ENTRY::request& resp){return true;}
+  bool find_blockchain_supplement(const std::list<crypto::hash>& qblock_ids, bool clip_pruned, cryptonote::NOTIFY_RESPONSE_CHAIN_ENTRY::request& resp){return true;}
   bool handle_get_objects(cryptonote::NOTIFY_REQUEST_GET_OBJECTS::request& arg, cryptonote::NOTIFY_RESPONSE_GET_OBJECTS::request& rsp, cryptonote::cryptonote_connection_context& context){return true;}
   cryptonote::blockchain_storage &get_blockchain_storage() { throw std::runtime_error("Called invalid member function: please never call get_blockchain_storage on the TESTING class test_core."); }
   bool get_test_drop_download() const {return true;}
@@ -84,10 +84,12 @@ public:
   uint64_t get_earliest_ideal_height_for_version(uint8_t version) const { return 0; }
   cryptonote::difficulty_type get_block_cumulative_difficulty(uint64_t height) const { return 0; }
   bool fluffy_blocks_enabled() const { return false; }
-  uint64_t prevalidate_block_hashes(uint64_t height, const std::vector<crypto::hash> &hashes) { return 0; }
+  uint64_t prevalidate_block_hashes(uint64_t height, const std::vector<crypto::hash> &hashes, const std::vector<uint64_t> &weights) { return 0; }
   bool pad_transactions() { return false; }
   uint32_t get_blockchain_pruning_seed() const { return 0; }
   bool prune_blockchain(uint32_t pruning_seed = 0) { return true; }
+  bool is_within_compiled_block_hash_area(uint64_t height) const { return false; }
+  bool has_block_weights(uint64_t height, uint64_t nblocks) const { return false; }
   void stop() {}
 };
 

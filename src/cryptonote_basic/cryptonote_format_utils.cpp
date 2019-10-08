@@ -1011,7 +1011,19 @@ namespace cryptonote
   crypto::hash get_transaction_prunable_hash(const transaction& t, const cryptonote::blobdata *blobdata)
   {
     crypto::hash res;
+    if (t.is_prunable_hash_valid())
+    {
+#ifdef ENABLE_HASH_CASH_INTEGRITY_CHECK
+      CHECK_AND_ASSERT_THROW_MES(!calculate_transaction_prunable_hash(t, blobdata, res) || t.hash == res, "tx hash cash integrity failure");
+#endif
+      res = t.prunable_hash;
+      ++tx_hashes_cached_count;
+      return res;
+    }
+
+    ++tx_hashes_calculated_count;
     CHECK_AND_ASSERT_THROW_MES(calculate_transaction_prunable_hash(t, blobdata, res), "Failed to calculate tx prunable hash");
+    t.set_prunable_hash(res);
     return res;
   }
   //---------------------------------------------------------------
@@ -1047,11 +1059,14 @@ namespace cryptonote
 
     // the tx hash is the hash of the 3 hashes
     crypto::hash res = cn_fast_hash(hashes, sizeof(hashes));
+    t.set_hash(res);
     return res;
   }
   //---------------------------------------------------------------
   bool calculate_transaction_hash(const transaction& t, crypto::hash& res, size_t* blob_size)
   {
+    CHECK_AND_ASSERT_MES(!t.pruned, false, "Cannot calculate the hash of a pruned transaction");
+
     // v1 transactions hash the entire blob
     if (t.version == 1)
     {
@@ -1091,8 +1106,7 @@ namespace cryptonote
     {
       if (!t.is_blob_size_valid())
       {
-        t.blob_size = blob.size();
-        t.set_blob_size_valid(true);
+        t.set_blob_size(blob.size());
       }
       *blob_size = t.blob_size;
     }
@@ -1112,8 +1126,7 @@ namespace cryptonote
       {
         if (!t.is_blob_size_valid())
         {
-          t.blob_size = get_object_blobsize(t);
-          t.set_blob_size_valid(true);
+          t.set_blob_size(get_object_blobsize(t));
         }
         *blob_size = t.blob_size;
       }
@@ -1124,12 +1137,10 @@ namespace cryptonote
     bool ret = calculate_transaction_hash(t, res, blob_size);
     if (!ret)
       return false;
-    t.hash = res;
-    t.set_hash_valid(true);
+    t.set_hash(res);
     if (blob_size)
     {
-      t.blob_size = *blob_size;
-      t.set_blob_size_valid(true);
+      t.set_blob_size(*blob_size);
     }
     return true;
   }
@@ -1206,8 +1217,7 @@ namespace cryptonote
     bool ret = calculate_block_hash(b, res);
     if (!ret)
       return false;
-    b.hash = res;
-    b.set_hash_valid(true);
+    b.set_hash(res);
     return true;
   }
   //---------------------------------------------------------------
@@ -1251,8 +1261,7 @@ namespace cryptonote
     {
       calculate_block_hash(b, *block_hash, &b_blob);
       ++block_hashes_calculated_count;
-      b.hash = *block_hash;
-      b.set_hash_valid(true);
+      b.set_hash(*block_hash);
     }
     return true;
   }

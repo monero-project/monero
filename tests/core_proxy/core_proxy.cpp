@@ -160,7 +160,7 @@ string tx2str(const cryptonote::transaction& tx, const cryptonote::hash256& tx_h
     return ss.str();
 }*/
 
-bool tests::proxy_core::handle_incoming_tx(const cryptonote::blobdata& tx_blob, cryptonote::tx_verification_context& tvc, bool keeped_by_block, bool relayed, bool do_not_relay) {
+bool tests::proxy_core::handle_incoming_tx(const cryptonote::tx_blob_entry& tx_blob, cryptonote::tx_verification_context& tvc, bool keeped_by_block, bool relayed, bool do_not_relay) {
     if (!keeped_by_block)
         return true;
 
@@ -168,7 +168,13 @@ bool tests::proxy_core::handle_incoming_tx(const cryptonote::blobdata& tx_blob, 
     crypto::hash tx_prefix_hash = null_hash;
     transaction tx;
 
-    if (!parse_and_validate_tx_from_blob(tx_blob, tx, tx_hash, tx_prefix_hash)) {
+    if (tx_blob.prunable_hash != crypto::null_hash)
+    {
+        cerr << "WRONG TRANSACTION, pruned blob rejected" << endl;
+        return false;
+    }
+
+    if (!parse_and_validate_tx_from_blob(tx_blob.blob, tx, tx_hash, tx_prefix_hash)) {
         cerr << "WRONG TRANSACTION BLOB, Failed to parse, rejected" << endl;
         return false;
     }
@@ -176,7 +182,7 @@ bool tests::proxy_core::handle_incoming_tx(const cryptonote::blobdata& tx_blob, 
     cout << "TX " << endl << endl;
     cout << tx_hash << endl;
     cout << tx_prefix_hash << endl;
-    cout << tx_blob.size() << endl;
+    cout << tx_blob.blob.size() << endl;
     //cout << string_tools::buff_to_hex_nodelimer(tx_blob) << endl << endl;
     cout << obj_to_json_str(tx) << endl;
     cout << endl << "ENDTX" << endl;
@@ -184,7 +190,7 @@ bool tests::proxy_core::handle_incoming_tx(const cryptonote::blobdata& tx_blob, 
     return true;
 }
 
-bool tests::proxy_core::handle_incoming_txs(const std::vector<blobdata>& tx_blobs, std::vector<tx_verification_context>& tvc, bool keeped_by_block, bool relayed, bool do_not_relay)
+bool tests::proxy_core::handle_incoming_txs(const std::vector<tx_blob_entry>& tx_blobs, std::vector<tx_verification_context>& tvc, bool keeped_by_block, bool relayed, bool do_not_relay)
 {
     tvc.resize(tx_blobs.size());
     size_t i = 0;

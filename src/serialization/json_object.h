@@ -221,6 +221,9 @@ void fromJsonValue(const rapidjson::Value& val, cryptonote::tx_out& txout);
 void toJsonValue(rapidjson::Document& doc, const cryptonote::connection_info& info, rapidjson::Value& val);
 void fromJsonValue(const rapidjson::Value& val, cryptonote::connection_info& info);
 
+void toJsonValue(rapidjson::Document& doc, const cryptonote::tx_blob_entry& tx, rapidjson::Value& val);
+void fromJsonValue(const rapidjson::Value& val, cryptonote::tx_blob_entry& tx);
+
 void toJsonValue(rapidjson::Document& doc, const cryptonote::block_complete_entry& blk, rapidjson::Value& val);
 void fromJsonValue(const rapidjson::Value& val, cryptonote::block_complete_entry& blk);
 

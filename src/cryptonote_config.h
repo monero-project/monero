@@ -168,7 +168,7 @@
 
 #define PER_KB_FEE_QUANTIZATION_DECIMALS        8
 
-#define HASH_OF_HASHES_STEP                     256
+#define HASH_OF_HASHES_STEP                     512
 
 #define DEFAULT_TXPOOL_MAX_WEIGHT               648000000ull // 3 days at 300000, in bytes
 
