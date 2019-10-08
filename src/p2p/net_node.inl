@@ -670,11 +670,18 @@ namespace nodetool
       std::vector<std::vector<std::string>> dns_results;
       dns_results.resize(m_seed_nodes_list.size());
 
+      // some libc implementation provide only a very small stack
+      // for threads, e.g. musl only gives +- 80kb, which is not
+      // enough to do a resolve with unbound. we request a stack
+      // of 1 mb, which should be plenty
+      boost::thread::attributes thread_attributes;
+      thread_attributes.set_stack_size(1024*1024);
+
       std::list<boost::thread> dns_threads;
       uint64_t result_index = 0;
       for (const std::string& addr_str : m_seed_nodes_list)
       {
-        boost::thread th = boost::thread([=, &dns_results, &addr_str]
+        boost::thread th = boost::thread(thread_attributes, [=, &dns_results, &addr_str]
         {
           MDEBUG("dns_threads[" << result_index << "] created for: " << addr_str);
           // TODO: care about dnssec avail/valid
