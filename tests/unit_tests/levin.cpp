@@ -38,6 +38,7 @@
 #include "byte_slice.h"
 #include "crypto/crypto.h"
 #include "cryptonote_basic/connection_context.h"
+#include "cryptonote_core/cryptonote_core.h"
 #include "cryptonote_protocol/cryptonote_protocol_defs.h"
 #include "cryptonote_protocol/levin_notify.h"
 #include "int-util.h"
@@ -119,12 +120,13 @@ namespace
         epee::levin::async_protocol_handler<cryptonote::levin::detail::p2p_context> handler_;
 
     public:
-        test_connection(boost::asio::io_service& io_service, cryptonote::levin::connections& connections, boost::uuids::random_generator& random_generator)
-          : context_(),
-            endpoint_(io_service),
+        test_connection(boost::asio::io_service& io_service, cryptonote::levin::connections& connections, boost::uuids::random_generator& random_generator, const bool is_incoming)
+          : endpoint_(io_service),
+            context_(),
             handler_(std::addressof(endpoint_), connections, context_)
         {
-            const_cast<boost::uuids::uuid&>(context_.m_connection_id) = random_generator();
+            using base_type = epee::net_utils::connection_context_base;
+            static_cast<base_type&>(context_) = base_type{random_generator(), {}, is_incoming, false};
             handler_.after_init_connection();
         }
 
@@ -262,19 +264,19 @@ namespace
             EXPECT_EQ(0u, receiver_.notified_size());
         }
 
-        void add_connection()
+        void add_connection(const bool is_incoming)
         {
-            contexts_.emplace_back(io_service_, *connections_, random_generator_);
+            contexts_.emplace_back(io_service_, *connections_, random_generator_, is_incoming);
             EXPECT_TRUE(connection_ids_.emplace(contexts_.back().get_id()).second);
             EXPECT_EQ(connection_ids_.size(), connections_->get_connections_count());
         }
 
-        cryptonote::levin::notify make_notifier(const std::size_t noise_size)
+        cryptonote::levin::notify make_notifier(const std::size_t noise_size, bool is_public)
         {
             epee::byte_slice noise = nullptr;
             if (noise_size)
                 noise = epee::levin::make_noise_notify(noise_size);
-            return cryptonote::levin::notify{io_service_, connections_, std::move(noise)};
+            return cryptonote::levin::notify{io_service_, connections_, std::move(noise), is_public};
         }
 
         boost::uuids::random_generator random_generator_;
@@ -437,10 +439,10 @@ TEST_F(levin_notify, defaulted)
 
 TEST_F(levin_notify, flood)
 {
-    cryptonote::levin::notify notifier = make_notifier(0);
+    cryptonote::levin::notify notifier = make_notifier(0, true);
 
     for (unsigned count = 0; count < 10; ++count)
-        add_connection();
+        add_connection(count % 2 == 0);
 
     {
         const auto status = notifier.get_status();
@@ -500,16 +502,87 @@ TEST_F(levin_notify, flood)
     }
 }
 
+TEST_F(levin_notify, private_flood)
+{
+    cryptonote::levin::notify notifier = make_notifier(0, false);
+
+    for (unsigned count = 0; count < 10; ++count)
+        add_connection(count % 2 == 0);
+
+    {
+        const auto status = notifier.get_status();
+        EXPECT_FALSE(status.has_noise);
+        EXPECT_FALSE(status.connections_filled);
+    }
+    notifier.new_out_connection();
+    io_service_.poll();
+    {
+        const auto status = notifier.get_status();
+        EXPECT_FALSE(status.has_noise);
+        EXPECT_FALSE(status.connections_filled); // not tracked
+    }
+
+    std::vector<cryptonote::blobdata> txs(2);
+    txs[0].resize(100, 'e');
+    txs[1].resize(200, 'f');
+
+    ASSERT_EQ(10u, contexts_.size());
+    {
+        auto context = contexts_.begin();
+        EXPECT_TRUE(notifier.send_txs(txs, context->get_id(), false));
+
+        io_service_.reset();
+        ASSERT_LT(0u, io_service_.poll());
+        EXPECT_EQ(0u, context->process_send_queue());
+        for (++context; context != contexts_.end(); ++context)
+        {
+            const bool is_incoming = ((context - contexts_.begin()) % 2 == 0);
+            EXPECT_EQ(is_incoming ? 0u : 1u, context->process_send_queue());
+        }
+
+        ASSERT_EQ(5u, receiver_.notified_size());
+        for (unsigned count = 0; count < 5; ++count)
+        {
+            auto notification = receiver_.get_notification<cryptonote::NOTIFY_NEW_TRANSACTIONS>().second;
+            EXPECT_EQ(txs, notification.txs);
+            EXPECT_TRUE(notification._.empty());
+        }
+    }
+
+    ASSERT_EQ(10u, contexts_.size());
+    {
+        auto context = contexts_.begin();
+        EXPECT_TRUE(notifier.send_txs(txs, context->get_id(), true));
+
+        io_service_.reset();
+        ASSERT_LT(0u, io_service_.poll());
+        EXPECT_EQ(0u, context->process_send_queue());
+        for (++context; context != contexts_.end(); ++context)
+        {
+            const bool is_incoming = ((context - contexts_.begin()) % 2 == 0);
+            EXPECT_EQ(is_incoming ? 0u : 1u, context->process_send_queue());
+        }
+
+        ASSERT_EQ(5u, receiver_.notified_size());
+        for (unsigned count = 0; count < 5; ++count)
+        {
+            auto notification = receiver_.get_notification<cryptonote::NOTIFY_NEW_TRANSACTIONS>().second;
+            EXPECT_EQ(txs, notification.txs);
+            EXPECT_FALSE(notification._.empty());
+        }
+    }
+}
+
 TEST_F(levin_notify, noise)
 {
     for (unsigned count = 0; count < 10; ++count)
-        add_connection();
+        add_connection(count % 2 == 0);
 
     std::vector<cryptonote::blobdata> txs(1);
     txs[0].resize(1900, 'h');
 
     const boost::uuids::uuid incoming_id = random_generator_();
-    cryptonote::levin::notify notifier = make_notifier(2048);
+    cryptonote::levin::notify notifier = make_notifier(2048, false);
 
     {
         const auto status = notifier.get_status();
