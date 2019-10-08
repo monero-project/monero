@@ -1,5 +1,7 @@
 #pragma once
 
+#include <limits.h>
+
 #define ELPP_THREAD_SAFE
 #define ELPP_DEFAULT_LOG_FILE ""
 #define ELPP_DISABLE_DEFAULT_CRASH_HANDLING
