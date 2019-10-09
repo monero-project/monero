@@ -1176,9 +1176,18 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
     }
   }
 
-  std::vector<uint64_t> last_blocks_weights;
-  get_last_n_blocks_weights(last_blocks_weights, CRYPTONOTE_REWARD_BLOCKS_WINDOW);
-  if (!get_block_reward(epee::misc_utils::median(last_blocks_weights), cumulative_block_weight, already_generated_coins, base_reward, version))
+  uint64_t median_weight;
+  if (version >= HF_VERSION_EFFECTIVE_SHORT_TERM_MEDIAN_IN_PENALTY)
+  {
+    median_weight = m_current_block_cumul_weight_median;
+  }
+  else
+  {
+    std::vector<uint64_t> last_blocks_weights;
+    get_last_n_blocks_weights(last_blocks_weights, CRYPTONOTE_REWARD_BLOCKS_WINDOW);
+    median_weight = epee::misc_utils::median(last_blocks_weights);
+  }
+  if (!get_block_reward(median_weight, cumulative_block_weight, already_generated_coins, base_reward, version))
   {
     MERROR_VER("block weight " << cumulative_block_weight << " is bigger than allowed for this blockchain");
     return false;
