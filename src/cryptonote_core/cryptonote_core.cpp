@@ -1027,11 +1027,7 @@ namespace cryptonote
       if (already_have[i])
         continue;
 
-      // if it's a pruned tx from an incoming block, we'll get a weight that's technically
-      // different from the actual transaction weight, but it's OK for our use. Those txes
-      // will be ignored when mining, and using that "pruned" weight seems appropriate for
-      // keeping the txpool size constrained
-      const uint64_t weight = results[i].tx.pruned ? 0 : get_transaction_weight(results[i].tx, it->blob.size());
+      const uint64_t weight = results[i].tx.pruned ? get_pruned_transaction_weight(results[i].tx) : get_transaction_weight(results[i].tx, it->blob.size());
       ok &= add_new_tx(results[i].tx, results[i].hash, tx_blobs[i].blob, weight, tvc[i], keeped_by_block, relayed, do_not_relay);
       if(tvc[i].m_verifivation_failed)
       {MERROR_VER("Transaction verification failed: " << results[i].hash);}
