@@ -160,7 +160,7 @@ namespace cryptonote
       }
     END_KV_SERIALIZE_MAP()
 
-    block_complete_entry(): pruned(false) {}
+    block_complete_entry(): pruned(false), block_weight(0) {}
   };
 
 
