@@ -34,6 +34,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <limits.h>
 
 #include "randomx.h"
 #include "c_threads.h"
@@ -74,84 +75,41 @@ static void local_abort(const char *msg)
 #endif
 }
 
-/**
- * @brief uses cpuid to determine if the CPU supports the AES instructions
- * @return true if the CPU supports AES, false otherwise
- */
+static inline int disabled_flags(void) {
+  static int flags = -1;
 
-static inline int force_software_aes(void)
-{
-  static int use = -1;
-
-  if (use != -1)
-    return use;
-
-  const char *env = getenv("MONERO_USE_SOFTWARE_AES");
-  if (!env) {
-    use = 0;
+  if (flags != -1) {
+    return flags;
   }
-  else if (!strcmp(env, "0") || !strcmp(env, "no")) {
-    use = 0;
+
+  const char *env = getenv("MONERO_RANDOMX_UMASK");
+  if (!env) {
+    flags = 0;
   }
   else {
-    use = 1;
+    char* endptr;
+    long int value = strtol(env, &endptr, 0);
+    if (endptr != env && value >= 0 && value < INT_MAX) {
+      flags = value;
+    }
+    else {
+      flags = 0;
+    }
   }
-  return use;
+
+  return flags;
 }
 
-static void cpuid(int CPUInfo[4], int InfoType)
-{
-#if defined(__x86_64__)
-    __asm __volatile__
-    (
-    "cpuid":
-        "=a" (CPUInfo[0]),
-        "=b" (CPUInfo[1]),
-        "=c" (CPUInfo[2]),
-        "=d" (CPUInfo[3]) :
-            "a" (InfoType), "c" (0)
-        );
-#endif
-}
-static inline int check_aes_hw(void)
-{
-#if defined(__x86_64__)
-    int cpuid_results[4];
-    static int supported = -1;
+static inline int enabled_flags(void) {
+  static int flags = -1;
 
-    if(supported >= 0)
-        return supported;
-
-    cpuid(cpuid_results,1);
-    return supported = cpuid_results[2] & (1 << 25);
-#else
-    return 0;
-#endif
-}
-
-static volatile int use_rx_jit_flag = -1;
-
-static inline int use_rx_jit(void)
-{
-#if defined(__x86_64__)
-
-  if (use_rx_jit_flag != -1)
-    return use_rx_jit_flag;
-
-  const char *env = getenv("MONERO_USE_RX_JIT");
-  if (!env) {
-    use_rx_jit_flag = 1;
+  if (flags != -1) {
+    return flags;
   }
-  else if (!strcmp(env, "0") || !strcmp(env, "no")) {
-    use_rx_jit_flag = 0;
-  }
-  else {
-    use_rx_jit_flag = 1;
-  }
-  return use_rx_jit_flag;
-#else
-  return 0;
-#endif
+
+  flags = randomx_get_flags();
+
+  return flags;
 }
 
 #define SEEDHASH_EPOCH_BLOCKS	2048	/* Must be same as BLOCKS_SYNCHRONIZING_MAX_COUNT in cryptonote_config.h */
@@ -236,7 +194,7 @@ void rx_slow_hash(const uint64_t mainheight, const uint64_t seedheight, const ch
   char *hash, int miners, int is_alt) {
   uint64_t s_height = rx_seedheight(mainheight);
   int toggle = (s_height & SEEDHASH_EPOCH_BLOCKS) != 0;
-  randomx_flags flags = RANDOMX_FLAG_DEFAULT;
+  randomx_flags flags = enabled_flags() & ~disabled_flags();
   rx_state *rx_sp;
   randomx_cache *cache;
 
@@ -263,8 +221,6 @@ void rx_slow_hash(const uint64_t mainheight, const uint64_t seedheight, const ch
 
   cache = rx_sp->rs_cache;
   if (cache == NULL) {
-    if (use_rx_jit())
-      flags |= RANDOMX_FLAG_JIT;
     if (cache == NULL) {
       cache = randomx_alloc_cache(flags | RANDOMX_FLAG_LARGE_PAGES);
       if (cache == NULL) {
@@ -282,14 +238,12 @@ void rx_slow_hash(const uint64_t mainheight, const uint64_t seedheight, const ch
     memcpy(rx_sp->rs_hash, seedhash, HASH_SIZE);
   }
   if (rx_vm == NULL) {
-    randomx_flags flags = RANDOMX_FLAG_DEFAULT;
-    if (use_rx_jit()) {
-      flags |= RANDOMX_FLAG_JIT;
-      if (!miners)
-          flags |= RANDOMX_FLAG_SECURE;
+    if ((flags & RANDOMX_FLAG_JIT) && !miners) {
+        flags |= RANDOMX_FLAG_SECURE & ~disabled_flags();
     }
-    if(!force_software_aes() && check_aes_hw())
-      flags |= RANDOMX_FLAG_HARD_AES;
+    if (miners && (disabled_flags() & RANDOMX_FLAG_FULL_MEM)) {
+      miners = 0;
+    }
     if (miners) {
       CTHR_MUTEX_LOCK(rx_dataset_mutex);
       if (rx_dataset == NULL) {
