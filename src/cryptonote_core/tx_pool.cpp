@@ -259,7 +259,7 @@ namespace cryptonote
           m_blockchain.add_txpool_tx(id, blob, meta);
           if (!insert_key_images(tx, id, kept_by_block))
             return false;
-          m_txs_by_fee_and_receive_time.emplace(std::pair<double, std::time_t>(fee / (double)tx_weight, receive_time), id);
+          m_txs_by_fee_and_receive_time.emplace(std::pair<double, std::time_t>(fee / (double)(tx_weight ? tx_weight : 1), receive_time), id);
           lock.commit();
         }
         catch (const std::exception &e)
@@ -305,7 +305,7 @@ namespace cryptonote
         m_blockchain.add_txpool_tx(id, blob, meta);
         if (!insert_key_images(tx, id, kept_by_block))
           return false;
-        m_txs_by_fee_and_receive_time.emplace(std::pair<double, std::time_t>(fee / (double)tx_weight, receive_time), id);
+        m_txs_by_fee_and_receive_time.emplace(std::pair<double, std::time_t>(fee / (double)(tx_weight ? tx_weight : 1), receive_time), id);
         lock.commit();
       }
       catch (const std::exception &e)
