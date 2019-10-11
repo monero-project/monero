@@ -385,6 +385,11 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
   {
     auto parsed = tools::login::parse(
       command_line::get_arg(vm, opts.daemon_login), false, [password_prompter](bool verify) {
+        if (!password_prompter)
+        {
+          MERROR("Password needed without prompt function");
+          return boost::optional<tools::password_container>();
+        }
         return password_prompter("Daemon client password", verify);
       }
     );
