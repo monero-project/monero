@@ -5311,6 +5311,9 @@ bool simple_wallet::refresh_main(uint64_t start_height, enum ResetType reset, bo
     fail_msg_writer() << tr("refresh failed: ") << ss.str() << ". " << tr("Blocks received: ") << fetched_blocks;
   }
 
+  // prevent it from triggering the idle screen due to waiting for a foreground refresh
+  m_last_activity_time = time(NULL);
+
   return true;
 }
 //----------------------------------------------------------------------------------------------------
