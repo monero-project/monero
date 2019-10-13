@@ -97,7 +97,7 @@ namespace nodetool
     command_line::add_arg(desc, arg_p2p_bind_port, false);
     command_line::add_arg(desc, arg_p2p_bind_port_ipv6, false);
     command_line::add_arg(desc, arg_p2p_use_ipv6);
-    command_line::add_arg(desc, arg_p2p_require_ipv4);
+    command_line::add_arg(desc, arg_p2p_ignore_ipv4);
     command_line::add_arg(desc, arg_p2p_external_port);
     command_line::add_arg(desc, arg_p2p_allow_local_ip);
     command_line::add_arg(desc, arg_p2p_add_peer);
@@ -382,7 +382,7 @@ namespace nodetool
     }
     m_offline = command_line::get_arg(vm, cryptonote::arg_offline);
     m_use_ipv6 = command_line::get_arg(vm, arg_p2p_use_ipv6);
-    m_require_ipv4 = command_line::get_arg(vm, arg_p2p_require_ipv4);
+    m_require_ipv4 = !command_line::get_arg(vm, arg_p2p_ignore_ipv4);
     public_zone.m_notifier = cryptonote::levin::notify{
       public_zone.m_net_server.get_io_service(), public_zone.m_net_server.get_config_shared(), nullptr, true
     };
