@@ -801,7 +801,7 @@ private:
      * Export multisig info
      * This will generate and remember new k values
      */
-    cryptonote::blobdata export_multisig();
+    cryptonote::blobdata export_multisig(bool spent_only);
     /*!
      * Import a set of multisig info from multisig partners
      * \return the number of inputs which were imported
@@ -1643,6 +1643,7 @@ private:
     void set_unspent(size_t idx);
     bool is_spent(const transfer_details &td, bool strict = true) const;
     bool is_spent(size_t idx, bool strict = true) const;
+    bool is_multisig_spent(const transfer_details &td) const;
     void get_outs(std::vector<std::vector<get_outs_entry>> &outs, const std::vector<size_t> &selected_transfers, size_t fake_outputs_count, bool rct);
     void get_outs(std::vector<std::vector<get_outs_entry>> &outs, const std::vector<size_t> &selected_transfers, size_t fake_outputs_count, std::vector<uint64_t> &rct_offsets);
     bool tx_add_fake_output(std::vector<std::vector<tools::wallet2::get_outs_entry>> &outs, uint64_t global_index, const crypto::public_key& tx_public_key, const rct::key& mask, uint64_t real_index, bool unlocked) const;

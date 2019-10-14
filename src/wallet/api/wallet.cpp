@@ -1331,7 +1331,7 @@ bool WalletImpl::exportMultisigImages(string& images) {
         clearStatus();
         checkMultisigWalletReady(m_wallet);
 
-        auto blob = m_wallet->export_multisig();
+        auto blob = m_wallet->export_multisig(true);
         images = epee::string_tools::buff_to_hex_nodelimer(blob);
         return true;
     } catch (const exception& e) {

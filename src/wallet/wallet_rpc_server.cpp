@@ -3896,7 +3896,7 @@ namespace tools
     cryptonote::blobdata info;
     try
     {
-      info = m_wallet->export_multisig();
+      info = m_wallet->export_multisig(req.spent_only);
     }
     catch (const std::exception &e)
     {

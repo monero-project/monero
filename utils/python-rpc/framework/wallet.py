@@ -537,10 +537,11 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(exchange_multisig_keys)
 
-    def export_multisig_info(self):
+    def export_multisig_info(self, spent_only = False):
         export_multisig_info = {
             'method': 'export_multisig_info',
             'params' : {
+                'spent_only': spent_only,
             },
             'jsonrpc': '2.0', 
             'id': '0'

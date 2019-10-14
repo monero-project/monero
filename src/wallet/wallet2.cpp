@@ -1707,6 +1707,16 @@ bool wallet2::is_spent(const transfer_details &td, bool strict) const
   }
 }
 //----------------------------------------------------------------------------------------------------
+bool wallet2::is_multisig_spent(const transfer_details &td) const
+{
+  if (!m_multisig)
+    return false;
+  for (const auto &info: td.m_multisig_info)
+    if (info.m_LR.empty())
+      return true;
+  return false;
+}
+//----------------------------------------------------------------------------------------------------
 bool wallet2::is_spent(size_t idx, bool strict) const
 {
   CHECK_AND_ASSERT_THROW_MES(idx < m_transfers.size(), "Invalid index");
@@ -10026,7 +10036,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
       MDEBUG("Ignoring output " << i << " of amount " << print_money(td.amount()) << " which is below fractional threshold " << print_money(fractional_threshold));
       continue;
     }
-    if (!is_spent(td, false) && !td.m_frozen && !td.m_key_image_partial && (use_rct ? true : !td.is_rct()) && is_transfer_unlocked(td) && td.m_subaddr_index.major == subaddr_account && subaddr_indices.count(td.m_subaddr_index.minor) == 1)
+    if (!is_spent(td, false) && !is_multisig_spent(td) && !td.m_frozen && !td.m_key_image_partial && (use_rct ? true : !td.is_rct()) && is_transfer_unlocked(td) && td.m_subaddr_index.major == subaddr_account && subaddr_indices.count(td.m_subaddr_index.minor) == 1)
     {
       if (td.amount() > m_ignore_outputs_above || td.amount() < m_ignore_outputs_below)
       {
@@ -10559,7 +10569,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_all(uint64_t below
       MDEBUG("Ignoring output " << i << " of amount " << print_money(td.amount()) << " which is below threshold " << print_money(fractional_threshold));
       continue;
     }
-    if (!is_spent(td, false) && !td.m_frozen && !td.m_key_image_partial && (use_rct ? true : !td.is_rct()) && is_transfer_unlocked(td) && td.m_subaddr_index.major == subaddr_account && (subaddr_indices.empty() || subaddr_indices.count(td.m_subaddr_index.minor) == 1))
+    if (!is_spent(td, false) && !is_multisig_spent(td) && !td.m_frozen && !td.m_key_image_partial && (use_rct ? true : !td.is_rct()) && is_transfer_unlocked(td) && td.m_subaddr_index.major == subaddr_account && (subaddr_indices.empty() || subaddr_indices.count(td.m_subaddr_index.minor) == 1))
     {
       fund_found = true;
       if (below == 0 || td.amount() < below)
@@ -10609,7 +10619,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_single(const crypt
   for (size_t i = 0; i < m_transfers.size(); ++i)
   {
     const transfer_details& td = m_transfers[i];
-    if (td.m_key_image_known && td.m_key_image == ki && !is_spent(td, false) && !td.m_frozen && (use_rct ? true : !td.is_rct()) && is_transfer_unlocked(td))
+    if (td.m_key_image_known && td.m_key_image == ki && !is_spent(td, false) && !is_multisig_spent(td) && !td.m_frozen && (use_rct ? true : !td.is_rct()) && is_transfer_unlocked(td))
     {
       if (td.is_rct() || is_valid_decomposed_amount(td.amount()))
         unused_transfers_indices.push_back(i);
@@ -10982,6 +10992,8 @@ std::vector<size_t> wallet2::select_available_outputs(const std::function<bool(c
       continue;
     if (i->m_frozen)
       continue;
+    if (is_multisig_spent(*i))
+      continue;
     if (i->m_key_image_partial)
       continue;
     if (!is_transfer_unlocked(*i))
@@ -10997,7 +11009,7 @@ std::vector<uint64_t> wallet2::get_unspent_amounts_vector(bool strict)
   std::set<uint64_t> set;
   for (const auto &td: m_transfers)
   {
-    if (!is_spent(td, strict) && !td.m_frozen)
+    if (!is_spent(td, strict) && !td.m_frozen && !is_multisig_spent(td))
       set.insert(td.is_rct() ? 0 : td.amount());
   }
   std::vector<uint64_t> vector;
@@ -13494,11 +13506,12 @@ crypto::key_image wallet2::get_multisig_composite_key_image(size_t n) const
   return ki;
 }
 //----------------------------------------------------------------------------------------------------
-cryptonote::blobdata wallet2::export_multisig()
+cryptonote::blobdata wallet2::export_multisig(bool spent_only)
 {
   PERF_TIMER(export_multisig);
 
   std::vector<tools::wallet2::multisig_info> info;
+  size_t skipped = 0;
 
   const crypto::public_key signer = get_multisig_signer_public_key();
 
@@ -13510,6 +13523,13 @@ cryptonote::blobdata wallet2::export_multisig()
     memwipe(td.m_multisig_k.data(), td.m_multisig_k.size() * sizeof(td.m_multisig_k[0]));
     info[n].m_LR.clear();
     info[n].m_partial_key_images.clear();
+    info[n].m_signer = signer;
+
+    if (spent_only && is_spent(td, true))
+    {
+      ++skipped;
+      continue;
+    }
 
     const crypto::public_key pkey = td.get_public_key();
     const size_t n_keys = get_account().get_multisig_keys().size();
@@ -13534,9 +13554,8 @@ cryptonote::blobdata wallet2::export_multisig()
       const rct::multisig_kLRki kLRki = get_multisig_kLRki(n, td.m_multisig_k.back());
       info[n].m_LR.push_back({kLRki.L, kLRki.R});
     }
-
-    info[n].m_signer = signer;
   }
+  MINFO("Exported multisig info for " << m_transfers.size()-skipped << "/" << m_transfers.size() << " outputs");
 
   PERF_TIMER(save);
 
@@ -13562,18 +13581,28 @@ void wallet2::update_multisig_rescan_info(const std::vector<std::vector<rct::key
   MDEBUG("update_multisig_rescan_info: updating index " << n);
   transfer_details &td = m_transfers[n];
   td.m_multisig_info.clear();
+  bool spent = is_spent(td, true);
   for (const auto &pi: info)
   {
     CHECK_AND_ASSERT_THROW_MES(n < pi.size(), "Bad pi size");
+    if (pi[n].m_LR.empty())
+    {
+      spent = true;
+      td.m_multisig_info.clear();
+      break;
+    }
     td.m_multisig_info.push_back(pi[n]);
   }
-  m_key_images.erase(td.m_key_image);
-  td.m_key_image = get_multisig_composite_key_image(n);
-  td.m_key_image_known = true;
-  td.m_key_image_request = false;
-  td.m_key_image_partial = false;
-  td.m_multisig_k = multisig_k[n];
-  m_key_images[td.m_key_image] = n;
+  if (!spent)
+  {
+    m_key_images.erase(td.m_key_image);
+    td.m_key_image = get_multisig_composite_key_image(n);
+    td.m_key_image_known = true;
+    td.m_key_image_request = false;
+    td.m_key_image_partial = false;
+    td.m_multisig_k = multisig_k[n];
+    m_key_images[td.m_key_image] = n;
+  }
 }
 //----------------------------------------------------------------------------------------------------
 size_t wallet2::import_multisig(std::vector<cryptonote::blobdata> blobs)

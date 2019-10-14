@@ -236,7 +236,7 @@ namespace
   const char* USAGE_MAKE_MULTISIG("make_multisig <threshold> <string1> [<string>...]");
   const char* USAGE_FINALIZE_MULTISIG("finalize_multisig <string> [<string>...]");
   const char* USAGE_EXCHANGE_MULTISIG_KEYS("exchange_multisig_keys <string> [<string>...]");
-  const char* USAGE_EXPORT_MULTISIG_INFO("export_multisig_info <filename>");
+  const char* USAGE_EXPORT_MULTISIG_INFO("export_multisig_info [spent-only] <filename>");
   const char* USAGE_IMPORT_MULTISIG_INFO("import_multisig_info <filename> [<filename>...]");
   const char* USAGE_SIGN_MULTISIG("sign_multisig <filename>");
   const char* USAGE_SUBMIT_MULTISIG("submit_multisig <filename>");
@@ -1246,8 +1246,10 @@ bool simple_wallet::export_multisig(const std::vector<std::string> &args)
   return true;
 }
 
-bool simple_wallet::export_multisig_main(const std::vector<std::string> &args, bool called_by_mms)
+bool simple_wallet::export_multisig_main(const std::vector<std::string> &args_, bool called_by_mms)
 {
+  auto args = args_;
+  bool spent_only = false;
   bool ready;
   if (m_wallet->key_on_device())
   {
@@ -1264,6 +1266,16 @@ bool simple_wallet::export_multisig_main(const std::vector<std::string> &args, b
     fail_msg_writer() << tr("This multisig wallet is not yet finalized");
     return false;
   }
+  if (args.size() == 2)
+  {
+    if (args[0] != "spent-only")
+    {
+      PRINT_USAGE(USAGE_EXPORT_MULTISIG_INFO);
+      return false;
+    }
+    spent_only = true;
+    args.erase(args.begin());
+  }
   if (args.size() != 1)
   {
     PRINT_USAGE(USAGE_EXPORT_MULTISIG_INFO);
@@ -1278,7 +1290,7 @@ bool simple_wallet::export_multisig_main(const std::vector<std::string> &args, b
 
   try
   {
-    cryptonote::blobdata ciphertext = m_wallet->export_multisig();
+    cryptonote::blobdata ciphertext = m_wallet->export_multisig(spent_only);
 
     if (called_by_mms)
     {
