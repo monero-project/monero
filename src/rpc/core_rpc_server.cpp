@@ -217,13 +217,13 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  bool core_rpc_server::add_host_fail(const connection_context *ctx)
+  bool core_rpc_server::add_host_fail(const connection_context *ctx, unsigned int score)
   {
     if(!ctx || !ctx->m_remote_address.is_blockable())
       return false;
 
     CRITICAL_REGION_LOCAL(m_host_fails_score_lock);
-    uint64_t fails = ++m_host_fails_score[ctx->m_remote_address.host_str()];
+    uint64_t fails = m_host_fails_score[ctx->m_remote_address.host_str()] += score;
     MDEBUG("Host " << ctx->m_remote_address.host_str() << " fail score=" << fails);
     if(fails > RPC_IP_FAILS_BEFORE_BLOCK)
     {
