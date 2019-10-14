@@ -272,7 +272,7 @@ class MultisigTest():
           assert desc.amount_out == desc.amount_in - fee
           assert desc.ring_size == 11
           assert desc.unlock_time == 0
-          assert desc.payment_id == '0000000000000000'
+          assert not 'payment_id' in desc or desc.payment_id in ['', '0000000000000000']
           assert desc.change_amount == desc.amount_in - 1000000000000 - fee
           assert desc.change_address == self.wallet_address
           assert desc.fee == fee
