@@ -8807,22 +8807,41 @@ void simple_wallet::check_for_messages()
 //----------------------------------------------------------------------------------------------------
 void simple_wallet::wallet_idle_thread()
 {
+  const boost::posix_time::ptime start_time = boost::posix_time::microsec_clock::universal_time();
   while (true)
   {
     boost::unique_lock<boost::mutex> lock(m_idle_mutex);
     if (!m_idle_run.load(std::memory_order_relaxed))
       break;
 
-#ifndef _WIN32
-    m_inactivity_checker.do_call(boost::bind(&simple_wallet::check_inactivity, this));
+    // if another thread was busy (ie, a foreground refresh thread), we'll end up here at
+    // some random time that's not what we slept for, so we should not call refresh now
+    // or we'll be leaking that fact through timing
+    const boost::posix_time::ptime now0 = boost::posix_time::microsec_clock::universal_time();
+    const uint64_t dt_actual = (now0 - start_time).total_microseconds() % 1000000;
+#ifdef _WIN32
+    static const uint64_t threshold = 10000;
+#else
+    static const uint64_t threshold = 2000;
 #endif
-    m_refresh_checker.do_call(boost::bind(&simple_wallet::check_refresh, this));
-    m_mms_checker.do_call(boost::bind(&simple_wallet::check_mms, this));
-    m_rpc_payment_checker.do_call(boost::bind(&simple_wallet::check_rpc_payment, this));
+    if (dt_actual < threshold) // if less than a threshold... would a very slow machine always miss it ?
+    {
+#ifndef _WIN32
+      m_inactivity_checker.do_call(boost::bind(&simple_wallet::check_inactivity, this));
+#endif
+      m_refresh_checker.do_call(boost::bind(&simple_wallet::check_refresh, this));
+      m_mms_checker.do_call(boost::bind(&simple_wallet::check_mms, this));
+      m_rpc_payment_checker.do_call(boost::bind(&simple_wallet::check_rpc_payment, this));
 
-    if (!m_idle_run.load(std::memory_order_relaxed))
-      break;
-    m_idle_cond.wait_for(lock, boost::chrono::seconds(1));
+      if (!m_idle_run.load(std::memory_order_relaxed))
+        break;
+    }
+
+    // aim for the next multiple of 1 second
+    const boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
+    const auto dt = (now - start_time).total_microseconds();
+    const auto wait = 1000000 - dt % 1000000;
+    m_idle_cond.wait_for(lock, boost::chrono::microseconds(wait));
   }
 }
 //----------------------------------------------------------------------------------------------------
