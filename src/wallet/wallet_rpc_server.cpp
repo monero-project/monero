@@ -2438,7 +2438,10 @@ namespace tools
 
     if (req.pool)
     {
-      m_wallet->update_pool_state();
+      std::vector<std::pair<cryptonote::transaction, bool>> process_txs;
+      m_wallet->update_pool_state(process_txs);
+      if (!process_txs.empty())
+        m_wallet->process_pool_state(process_txs);
 
       std::list<std::pair<crypto::hash, tools::wallet2::pool_payment_details>> payments;
       m_wallet->get_unconfirmed_payments(payments, account_index, subaddr_indices);
@@ -2518,7 +2521,10 @@ namespace tools
       }
     }
 
-    m_wallet->update_pool_state();
+    std::vector<std::pair<cryptonote::transaction, bool>> process_txs;
+    m_wallet->update_pool_state(process_txs);
+    if (!process_txs.empty())
+      m_wallet->process_pool_state(process_txs);
 
     std::list<std::pair<crypto::hash, tools::wallet2::pool_payment_details>> pool_payments;
     m_wallet->get_unconfirmed_payments(pool_payments, req.account_index);
