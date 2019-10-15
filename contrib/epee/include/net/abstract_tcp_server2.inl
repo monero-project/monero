@@ -984,8 +984,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
       boost::asio::ip::tcp::resolver::query query(address, boost::lexical_cast<std::string>(port), boost::asio::ip::tcp::resolver::query::canonical_name);
       boost::asio::ip::tcp::endpoint endpoint = *resolver.resolve(query);
       acceptor_.open(endpoint.protocol());
-      // Open the acceptor with the option to reuse the address (i.e. SO_REUSEADDR).
-      acceptor_.set_option(boost::asio::ip::tcp::acceptor::reuse_address(true));
+      acceptor_.set_option(boost::asio::ip::tcp::acceptor::linger(true, 0));
       acceptor_.bind(endpoint);
       acceptor_.listen();
       boost::asio::ip::tcp::endpoint binded_endpoint = acceptor_.local_endpoint();
@@ -1019,8 +1018,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
         boost::asio::ip::tcp::resolver::query query(address_ipv6, boost::lexical_cast<std::string>(port_ipv6), boost::asio::ip::tcp::resolver::query::canonical_name);
         boost::asio::ip::tcp::endpoint endpoint = *resolver.resolve(query);
         acceptor_ipv6.open(endpoint.protocol());
-        // Open the acceptor with the option to reuse the address (i.e. SO_REUSEADDR).
-        acceptor_ipv6.set_option(boost::asio::ip::tcp::acceptor::reuse_address(true));
+        acceptor_ipv6.set_option(boost::asio::ip::tcp::acceptor::linger(true, 0));
         acceptor_ipv6.set_option(boost::asio::ip::v6_only(true));
         acceptor_ipv6.bind(endpoint);
         acceptor_ipv6.listen();
