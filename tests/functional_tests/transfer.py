@@ -556,7 +556,7 @@ class TransferTest():
         assert 'payments' not in res or len(res.payments) == 0
 
         res = self.wallet[1].get_payments('1234500000012345abcde00000abcdeff1234500000012345abcde00000abcde')
-        assert len(res.payments) >= 2
+        assert 'payments' not in res or len(res.payments) == 0
 
         res = self.wallet[1].get_payments('ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff')
         assert 'payments' not in res or len(res.payments) == 0
