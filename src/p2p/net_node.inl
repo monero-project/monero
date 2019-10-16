@@ -1865,6 +1865,8 @@ namespace nodetool
         if (ipv4.ip() == 0)
           ignore = true;
       }
+      if (be.pruning_seed && (be.pruning_seed < tools::make_pruning_seed(1, CRYPTONOTE_PRUNING_LOG_STRIPES) || be.pruning_seed > tools::make_pruning_seed(1ul << CRYPTONOTE_PRUNING_LOG_STRIPES, CRYPTONOTE_PRUNING_LOG_STRIPES)))
+        ignore = true;
       if (ignore)
       {
         MDEBUG("Ignoring " << be.adr.str());
