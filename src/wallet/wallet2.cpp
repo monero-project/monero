@@ -5589,6 +5589,11 @@ void wallet2::store_to(const std::string &path, const epee::wipeable_string &pas
       const std::string address_file = m_wallet_file + ".address.txt";
       r = save_to_file(address_file, m_account.get_public_address_str(m_nettype), true);
       THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, m_wallet_file);
+      // remove old address file
+      r = boost::filesystem::remove(old_address_file);
+      if (!r) {
+        LOG_ERROR("error removing file: " << old_address_file);
+      }
     }
     // remove old wallet file
     r = boost::filesystem::remove(old_file);
@@ -5599,11 +5604,6 @@ void wallet2::store_to(const std::string &path, const epee::wipeable_string &pas
     r = boost::filesystem::remove(old_keys_file);
     if (!r) {
       LOG_ERROR("error removing file: " << old_keys_file);
-    }
-    // remove old address file
-    r = boost::filesystem::remove(old_address_file);
-    if (!r) {
-      LOG_ERROR("error removing file: " << old_address_file);
     }
     // remove old message store file
     if (boost::filesystem::exists(old_mms_file))
