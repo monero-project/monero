@@ -29,6 +29,7 @@
 #ifndef _NET_SSL_H
 #define _NET_SSL_H
 
+#include <chrono>
 #include <stdint.h>
 #include <string>
 #include <vector>

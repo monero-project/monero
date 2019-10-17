@@ -27,6 +27,7 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <string.h>
+#include <thread>
 #include <boost/asio/ssl.hpp>
 #include <boost/lambda/lambda.hpp>
 #include <openssl/ssl.h>
@@ -519,10 +520,17 @@ bool ssl_options_t::handshake(
 
   boost::system::error_code ec = boost::asio::error::would_block;
   socket.async_handshake(type, boost::lambda::var(ec) = boost::lambda::_1);
-  while (ec == boost::asio::error::would_block)
+  if (io_service.stopped())
   {
     io_service.reset();
-    io_service.run_one();
+  }
+  while (ec == boost::asio::error::would_block && !io_service.stopped())
+  {
+    // should poll_one(), can't run_one() because it can block if there is
+    // another worker thread executing io_service's tasks
+    // TODO: once we get Boost 1.66+, replace with run_one_for/run_until
+    std::this_thread::sleep_for(std::chrono::milliseconds(30));
+    io_service.poll_one();
   }
 
   if (ec)
