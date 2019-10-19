@@ -285,8 +285,12 @@ void rx_slow_hash(const uint64_t mainheight, const uint64_t seedheight, const ch
     randomx_flags flags = RANDOMX_FLAG_DEFAULT;
     if (use_rx_jit()) {
       flags |= RANDOMX_FLAG_JIT;
+#ifdef __OpenBSD__
+      flags |= RANDOMX_FLAG_SECURE;
+#else
       if (!miners)
           flags |= RANDOMX_FLAG_SECURE;
+#endif
     }
     if(!force_software_aes() && check_aes_hw())
       flags |= RANDOMX_FLAG_HARD_AES;
