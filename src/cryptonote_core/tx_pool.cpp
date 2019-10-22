@@ -518,6 +518,59 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------------------------
+  bool tx_memory_pool::get_transaction_info(const crypto::hash &txid, tx_details &td) const
+  {
+    PERF_TIMER(get_transaction_info);
+    CRITICAL_REGION_LOCAL(m_transactions_lock);
+    CRITICAL_REGION_LOCAL1(m_blockchain);
+
+    try
+    {
+      LockedTXN lock(m_blockchain);
+      txpool_tx_meta_t meta;
+      if (!m_blockchain.get_txpool_tx_meta(txid, meta))
+      {
+        MERROR("Failed to find tx in txpool");
+        return false;
+      }
+      cryptonote::blobdata txblob = m_blockchain.get_txpool_tx_blob(txid);
+      auto ci = m_parsed_tx_cache.find(txid);
+      if (ci != m_parsed_tx_cache.end())
+      {
+        td.tx = ci->second;
+      }
+      else if (!(meta.pruned ? parse_and_validate_tx_base_from_blob(txblob, td.tx) : parse_and_validate_tx_from_blob(txblob, td.tx)))
+      {
+        MERROR("Failed to parse tx from txpool");
+        return false;
+      }
+      else
+      {
+        td.tx.set_hash(txid);
+      }
+      td.blob_size = txblob.size();
+      td.weight = meta.weight;
+      td.fee = meta.fee;
+      td.max_used_block_id = meta.max_used_block_id;
+      td.max_used_block_height = meta.max_used_block_height;
+      td.kept_by_block = meta.kept_by_block;
+      td.last_failed_height = meta.last_failed_height;
+      td.last_failed_id = meta.last_failed_id;
+      td.receive_time = meta.receive_time;
+      td.last_relayed_time = meta.last_relayed_time;
+      td.relayed = meta.relayed;
+      td.do_not_relay = meta.do_not_relay;
+      td.double_spend_seen = meta.double_spend_seen;
+    }
+    catch (const std::exception &e)
+    {
+      MERROR("Failed to get tx from txpool: " << e.what());
+      return false;
+    }
+
+    return true;
+  }
+  //---------------------------------------------------------------------------------
   void tx_memory_pool::on_idle()
   {
     m_remove_stuck_tx_interval.do_call([this](){return remove_stuck_transactions();});
