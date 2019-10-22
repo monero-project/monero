@@ -322,6 +322,12 @@ t_command_server::t_command_server(
     , "URL of a 'bootstrap' remote daemon that the connected wallets can use while this daemon is still not fully synced.\n"
       "Use 'auto' to enable automatic public nodes discovering and bootstrap daemon switching"
     );
+    m_command_lookup.set_handler(
+      "flush_cache"
+    , std::bind(&t_command_parser_executor::flush_cache, &m_parser, p::_1)
+    , "flush_cache bad-txs"
+    , "Flush the specified cache(s)."
+    );
 }
 
 bool t_command_server::process_command_str(const std::string& cmd)

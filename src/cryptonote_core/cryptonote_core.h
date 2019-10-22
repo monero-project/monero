@@ -839,6 +839,11 @@ namespace cryptonote
       */
      bool has_block_weights(uint64_t height, uint64_t nblocks) const;
 
+     /**
+      * @brief flushes the bad txs cache
+      */
+     void flush_bad_txs_cache();
+
    private:
 
      /**
