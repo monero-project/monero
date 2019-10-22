@@ -321,6 +321,7 @@ namespace rct {
         std::vector<mgSig> MGs; // simple rct has N, full has 1
         keyV pseudoOuts; //C - for simple rct
 
+        // when changing this function, update cryptonote::get_pruned_transaction_weight
         template<bool W, template <bool> class Archive>
         bool serialize_rctsig_prunable(Archive<W> &ar, uint8_t type, size_t inputs, size_t outputs, size_t mixin)
         {
