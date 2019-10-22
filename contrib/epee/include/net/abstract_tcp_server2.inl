@@ -1522,7 +1522,7 @@ POP_WARNINGS
 
     }
 
-    LOG_ERROR("Trying connect to " << adr << ":" << port << ", bind_ip = " << bind_ip_to_use);
+    MDEBUG("Trying to connect to " << adr << ":" << port << ", bind_ip = " << bind_ip_to_use);
 
     //boost::asio::ip::tcp::endpoint remote_endpoint(boost::asio::ip::address::from_string(addr.c_str()), port);
     boost::asio::ip::tcp::endpoint remote_endpoint(*iterator);
