@@ -92,6 +92,7 @@ namespace {
       << "depth: " << boost::lexical_cast<std::string>(header.depth) << std::endl
       << "hash: " << header.hash << std::endl
       << "difficulty: " << header.wide_difficulty << std::endl
+      << "cumulative difficulty: " << header.wide_cumulative_difficulty << std::endl
       << "POW hash: " << header.pow_hash << std::endl
       << "block size: " << header.block_size << std::endl
       << "block weight: " << header.block_weight << std::endl
