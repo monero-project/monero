@@ -130,6 +130,19 @@ namespace
     // Division by zero is UB, so can be tested correctly
   }
 
+  TEST(div128_64, handles_zero)
+  {
+    uint64_t qhi, qlo, rhi, rlo;
+
+    div128_64(0, 0, 7, &qhi, &qlo, &rhi, &rlo);
+    ASSERT_EQ(rhi, 0);
+    ASSERT_EQ(rlo, 0);
+    ASSERT_EQ(qhi, 0);
+    ASSERT_EQ(qlo, 0);
+
+    // Division by zero is UB, so can be tested correctly
+  }
+
   TEST(div128_32, handles_one)
   {
     uint32_t reminder;
@@ -147,6 +160,23 @@ namespace
     ASSERT_EQ(lo, 0);
   }
 
+  TEST(div128_64, handles_one)
+  {
+    uint64_t qhi, qlo, rhi, rlo;
+
+     div128_64(0, 7, 1, &qhi, &qlo, &rhi, &rlo);
+    ASSERT_EQ(rhi, 0);
+    ASSERT_EQ(rlo, 0);
+    ASSERT_EQ(qhi, 0);
+    ASSERT_EQ(qlo, 7);
+
+    div128_64(7, 0, 1, &qhi, &qlo, &rhi, &rlo);
+    ASSERT_EQ(rhi, 0);
+    ASSERT_EQ(rlo, 0);
+    ASSERT_EQ(qhi, 7);
+    ASSERT_EQ(qlo, 0);
+  }
+
   TEST(div128_32, handles_if_dividend_less_divider)
   {
     uint32_t reminder;
@@ -159,6 +189,17 @@ namespace
     ASSERT_EQ(lo, 0);
   }
 
+  TEST(div128_64, handles_if_dividend_less_divider)
+  {
+    uint64_t qhi, qlo, rhi, rlo;
+
+    div128_64(0, 1383746, 1645825, &qhi, &qlo, &rhi, &rlo);
+    ASSERT_EQ(rhi, 0);
+    ASSERT_EQ(rlo, 1383746);
+    ASSERT_EQ(qhi, 0);
+    ASSERT_EQ(qlo, 0);
+  }
+
   TEST(div128_32, handles_if_dividend_dwords_less_divider)
   {
     uint32_t reminder;
@@ -169,6 +210,17 @@ namespace
     ASSERT_EQ(reminder, 0xB9C924E9);
     ASSERT_EQ(hi, 0x000000005B63C274);
     ASSERT_EQ(lo, 0x9084FC024383E48C);
+  }
+
+  TEST(div128_64, handles_if_dividend_dwords_less_divider)
+  {
+    uint64_t qhi, qlo, rhi, rlo;
+
+    div128_64(0x5AD629E441074F28, 0x0DBCAB2B231081F1, 0xFE735CD6, &qhi, &qlo, &rhi, &rlo);
+    ASSERT_EQ(rhi, 0);
+    ASSERT_EQ(rlo, 0xB9C924E9);
+    ASSERT_EQ(qhi, 0x000000005B63C274);
+    ASSERT_EQ(qlo, 0x9084FC024383E48C);
   }
 
   TEST(div128_32, works_correctly)
@@ -201,5 +253,69 @@ namespace
     ASSERT_EQ(reminder, 0x1a6dc2e5);
     ASSERT_EQ(hi, 0x00000000f812c1f8);
     ASSERT_EQ(lo, 0xddf2fdb09bc2e2e9);
+  }
+
+  TEST(div128_64, works_correctly)
+  {
+    uint64_t qhi, qlo, rhi, rlo;
+
+    div128_64(2, 0, 2, &qhi, &qlo, &rhi, &rlo);
+    ASSERT_EQ(rhi, 0);
+    ASSERT_EQ(rlo, 0);
+    ASSERT_EQ(qhi, 1);
+    ASSERT_EQ(qlo, 0);
+
+    div128_64(0xffffffffffffffff, 0, 0xffffffff, &qhi, &qlo, &rhi, &rlo);
+    ASSERT_EQ(rhi, 0);
+    ASSERT_EQ(rlo, 0);
+    ASSERT_EQ(qhi, 0x0000000100000001);
+    ASSERT_EQ(qlo, 0);
+
+    div128_64(0xffffffffffffffff, 5846, 0xffffffff, &qhi, &qlo, &rhi, &rlo);
+    ASSERT_EQ(rhi, 0);
+    ASSERT_EQ(rlo, 5846);
+    ASSERT_EQ(qhi, 0x0000000100000001);
+    ASSERT_EQ(qlo, 0);
+
+    div128_64(0xffffffffffffffff - 1, 0, 0xffffffff, &qhi, &qlo, &rhi, &rlo);
+    ASSERT_EQ(rhi, 0);
+    ASSERT_EQ(rlo, 0xfffffffe);
+    ASSERT_EQ(qhi, 0x0000000100000000);
+    ASSERT_EQ(qlo, 0xfffffffefffffffe);
+
+    div128_64(0x2649372534875028, 0xaedbfedc5adbc739, 0x27826534, &qhi, &qlo, &rhi, &rlo);
+    ASSERT_EQ(rhi, 0);
+    ASSERT_EQ(rlo, 0x1a6dc2e5);
+    ASSERT_EQ(qhi, 0x00000000f812c1f8);
+    ASSERT_EQ(qlo, 0xddf2fdb09bc2e2e9);
+  }
+
+  TEST(div128_64, divisor_above_32_bit)
+  {
+    uint64_t qhi, qlo, rhi, rlo;
+
+    div128_64(0, 0xffffffff, (uint64_t)0x100000000, &qhi, &qlo, &rhi, &rlo);
+    ASSERT_EQ(rhi, 0);
+    ASSERT_EQ(rlo, 0xffffffff);
+    ASSERT_EQ(qhi, 0);
+    ASSERT_EQ(qlo, 0);
+
+    div128_64(0, 65, 4, &qhi, &qlo, &rhi, &rlo);
+    ASSERT_EQ(rhi, 0);
+    ASSERT_EQ(rlo, 1);
+    ASSERT_EQ(qhi, 0);
+    ASSERT_EQ(qlo, 16);
+
+    div128_64(405997335029502627ull, 2552775575832427192ull, 489327483788363ull, &qhi, &qlo, &rhi, &rlo);
+    ASSERT_EQ(rhi, 0);
+    ASSERT_EQ(rlo, 198332080500810ull);
+    ASSERT_EQ(qhi, 829ull);
+    ASSERT_EQ(qlo, 13000245803763621514ull);
+
+    div128_64(405997335029502627ull, 2552775575832427192ull, 1ull, &qhi, &qlo, &rhi, &rlo);
+    ASSERT_EQ(rhi, 0);
+    ASSERT_EQ(rlo, 0);
+    ASSERT_EQ(qhi, 405997335029502627ull);
+    ASSERT_EQ(qlo, 2552775575832427192ull);
   }
 }
