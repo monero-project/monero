@@ -1367,6 +1367,7 @@ namespace cryptonote
   {
     block_complete_entry bce;
     bce.block = cryptonote::block_to_blob(b);
+    bce.block_weight = 0; // we can leave it to 0, those txes aren't pruned
     for (const auto &tx_hash: b.tx_hashes)
     {
       cryptonote::blobdata txblob;
