@@ -29,40 +29,46 @@
 # Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 # Check what commit we're on
-execute_process(COMMAND "${GIT}" rev-parse --short=9 HEAD RESULT_VARIABLE RET OUTPUT_VARIABLE COMMIT OUTPUT_STRIP_TRAILING_WHITESPACE)
 
-if(RET)
-	# Something went wrong, set the version tag to -unknown
-	
-    message(WARNING "Cannot determine current commit. Make sure that you are building either from a Git working tree or from a source archive.")
-    set(VERSIONTAG "unknown")
-    set(VERSION_IS_RELEASE "false")
-    configure_file("src/version.cpp.in" "${TO}")
-else()
-	string(SUBSTRING ${COMMIT} 0 9 COMMIT)
-	message(STATUS "You are currently on commit ${COMMIT}")
-	
-	# Get all the tags
-	execute_process(COMMAND "${GIT}" rev-list --tags --max-count=1 --abbrev-commit RESULT_VARIABLE RET OUTPUT_VARIABLE TAGGEDCOMMIT OUTPUT_STRIP_TRAILING_WHITESPACE)
-	
-    if(NOT TAGGEDCOMMIT)
-        message(WARNING "Cannot determine most recent tag. Make sure that you are building either from a Git working tree or from a source archive.")
-        set(VERSIONTAG "${COMMIT}")
+function (get_version_tag_from_git GIT)
+    execute_process(COMMAND "${GIT}" rev-parse --short=9 HEAD
+                    RESULT_VARIABLE RET
+                    OUTPUT_VARIABLE COMMIT
+                    OUTPUT_STRIP_TRAILING_WHITESPACE)
+
+    if(RET)
+        # Something went wrong, set the version tag to -unknown
+
+        message(WARNING "Cannot determine current commit. Make sure that you are building either from a Git working tree or from a source archive.")
+        set(VERSIONTAG "unknown")
         set(VERSION_IS_RELEASE "false")
     else()
-        message(STATUS "The most recent tag was at ${TAGGEDCOMMIT}")
-        
-        # Check if we're building that tagged commit or a different one
-        if(COMMIT STREQUAL TAGGEDCOMMIT)
-            message(STATUS "You are building a tagged release")
-            set(VERSIONTAG "release")
-            set(VERSION_IS_RELEASE "true")
-        else()
-            message(STATUS "You are ahead of or behind a tagged release")
+        string(SUBSTRING ${COMMIT} 0 9 COMMIT)
+        message(STATUS "You are currently on commit ${COMMIT}")
+
+        # Get all the tags
+        execute_process(COMMAND "${GIT}" rev-list --tags --max-count=1 --abbrev-commit RESULT_VARIABLE RET OUTPUT_VARIABLE TAGGEDCOMMIT OUTPUT_STRIP_TRAILING_WHITESPACE)
+
+        if(NOT TAGGEDCOMMIT)
+            message(WARNING "Cannot determine most recent tag. Make sure that you are building either from a Git working tree or from a source archive.")
             set(VERSIONTAG "${COMMIT}")
             set(VERSION_IS_RELEASE "false")
-        endif()
-    endif()	    
+        else()
+            message(STATUS "The most recent tag was at ${TAGGEDCOMMIT}")
 
-    configure_file("src/version.cpp.in" "${TO}")
-endif()
+            # Check if we're building that tagged commit or a different one
+            if(COMMIT STREQUAL TAGGEDCOMMIT)
+                message(STATUS "You are building a tagged release")
+                set(VERSIONTAG "release")
+                set(VERSION_IS_RELEASE "true")
+            else()
+                message(STATUS "You are ahead of or behind a tagged release")
+                set(VERSIONTAG "${COMMIT}")
+                set(VERSION_IS_RELEASE "false")
+            endif()
+        endif()	    
+    endif()
+
+    set(VERSIONTAG "${VERSIONTAG}" PARENT_SCOPE)
+    set(VERSION_IS_RELEASE "${VERSION_IS_RELEASE}" PARENT_SCOPE)
+endfunction()

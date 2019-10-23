@@ -26,27 +26,25 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-function (write_static_version_header hash)
-  set(VERSIONTAG "${hash}")
+function (write_version tag)
+  set(VERSIONTAG "${tag}" CACHE STRING "The tag portion of the Monero software version" FORCE)
   configure_file("${CMAKE_SOURCE_DIR}/src/version.cpp.in" "${CMAKE_BINARY_DIR}/version.cpp")
 endfunction ()
 
 find_package(Git QUIET)
 if ("$Format:$" STREQUAL "")
   # We're in a tarball; use hard-coded variables.
-  write_static_version_header("release")
+  set(VERSION_IS_RELEASE "true")
+  write_version("release")
 elseif (GIT_FOUND OR Git_FOUND)
   message(STATUS "Found Git: ${GIT_EXECUTABLE}")
-  add_custom_command(
-    OUTPUT            "${CMAKE_BINARY_DIR}/version.cpp"
-    COMMAND           "${CMAKE_COMMAND}"
-                      "-D" "GIT=${GIT_EXECUTABLE}"
-                      "-D" "TO=${CMAKE_BINARY_DIR}/version.cpp"
-                      "-P" "cmake/GenVersion.cmake"
-    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
+  include(GitVersion)
+  get_version_tag_from_git("${GIT_EXECUTABLE}")
+  write_version("${VERSIONTAG}")
 else()
   message(STATUS "WARNING: Git was not found!")
-  write_static_version_header("unknown")
+  set(VERSION_IS_RELEASE "false")
+  write_version("unknown")
 endif ()
 add_custom_target(genversion ALL
   DEPENDS "${CMAKE_BINARY_DIR}/version.cpp")
