@@ -4913,7 +4913,7 @@ void simple_wallet::check_background_mining(const epee::wipeable_string &passwor
   if (setup == tools::wallet2::BackgroundMiningMaybe)
   {
     message_writer() << tr("The daemon is not set up to background mine.");
-    message_writer() << tr("With background mining enabled, the daemon will mine when idle and not on batttery.");
+    message_writer() << tr("With background mining enabled, the daemon will mine when idle and not on battery.");
     message_writer() << tr("Enabling this supports the network you are using, and makes you eligible for receiving new monero");
     std::string accepted = input_line(tr("Do you want to do it now? (Y/Yes/N/No): "));
     if (std::cin.eof() || !command_line::is_yes(accepted)) {
