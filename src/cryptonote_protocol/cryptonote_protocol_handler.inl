@@ -71,6 +71,7 @@
 #define PASSIVE_PEER_KICK_TIME (60 * 1000000) // microseconds
 #define DROP_ON_SYNC_WEDGE_THRESHOLD (30 * 1000000000ull) // nanoseconds
 #define LAST_ACTIVITY_STALL_THRESHOLD (2.0f) // seconds
+#define RESET_CONNECTIONS_HEIGHT_THRESHOLD 4
 
 namespace cryptonote
 {
@@ -298,13 +299,41 @@ namespace cryptonote
   }
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core>
-  bool t_cryptonote_protocol_handler<t_core>::process_payload_sync_data(const CORE_SYNC_DATA& hshd, cryptonote_connection_context& context, bool is_inital)
+  bool t_cryptonote_protocol_handler<t_core>::process_payload_sync_data(const CORE_SYNC_DATA& hshd, cryptonote_connection_context& context, bool just_check_height, bool is_inital)
   {
     if(context.m_state == cryptonote_connection_context::state_before_handshake && !is_inital)
       return true;
 
     if(context.m_state == cryptonote_connection_context::state_synchronizing)
       return true;
+
+    if (just_check_height)
+    {
+      uint64_t local = std::max(m_core.get_target_blockchain_height(), m_core.get_current_blockchain_height());
+      if (hshd.current_height >= local + RESET_CONNECTIONS_HEIGHT_THRESHOLD)
+      {
+        MDEBUG(context << "claimed top height is " << hshd.current_height - local << " blocks ahead of our current target, checking connections");
+        std::vector<boost::uuids::uuid> connections;
+        m_p2p->for_each_connection([&context, &connections](connection_context& ctx, nodetool::peerid_type peer_id, uint32_t support_flags)
+        {
+          if (!ctx.m_is_income && context.m_connection_id != ctx.m_connection_id)
+            connections.push_back(ctx.m_connection_id);
+          return true;
+        });
+        if (connections.size() >= std::min<unsigned>(m_max_out_peers, 8u))
+        {
+          MGINFO_CYAN(context << "claimed top height is " << hshd.current_height - local << " blocks ahead of our current target, dropping connections");
+          for (const auto &id: connections)
+          {
+            m_p2p->for_connection(id, [this](cryptonote_connection_context& context, nodetool::peerid_type peer_id, uint32_t f)->bool{
+              drop_connection(context, true, false);
+              return true;
+            });
+          }
+        }
+      }
+      return true;
+    }
 
     // from v6, if the peer advertises a top block version, reject if it's not what it should be (will only work if no voting)
     if (hshd.current_height > 0)

@@ -98,8 +98,7 @@ namespace cryptonote
     bool init(const boost::program_options::variables_map& vm);
     bool deinit();
     void set_p2p_endpoint(nodetool::i_p2p_endpoint<connection_context>* p2p);
-    //bool process_handshake_data(const blobdata& data, cryptonote_connection_context& context);
-    bool process_payload_sync_data(const CORE_SYNC_DATA& hshd, cryptonote_connection_context& context, bool is_inital);
+    bool process_payload_sync_data(const CORE_SYNC_DATA& hshd, cryptonote_connection_context& context, bool just_check_height, bool is_inital);
     bool get_payload_sync_data(blobdata& data);
     bool get_payload_sync_data(CORE_SYNC_DATA& hshd);
     bool get_stat_info(core_stat_info& stat_inf);
