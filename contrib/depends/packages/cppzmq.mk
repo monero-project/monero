@@ -1,8 +1,8 @@
 package=cppzmq
-$(package)_version=4.2.3
+$(package)_version=4.4.1
 $(package)_download_path=https://github.com/zeromq/cppzmq/archive/
 $(package)_file_name=v$($(package)_version).tar.gz
-$(package)_sha256_hash=3e6b57bf49115f4ae893b1ff7848ead7267013087dc7be1ab27636a97144d373
+$(package)_sha256_hash=117fc1ca24d98dbe1a60c072cde13be863d429134907797f8e03f654ce679385
 $(package)_dependencies=zeromq
 
 define $(package)_stage_cmds
