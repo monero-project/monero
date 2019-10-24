@@ -98,7 +98,8 @@ namespace {
       << "block weight: " << header.block_weight << std::endl
       << "long term weight: " << header.long_term_weight << std::endl
       << "num txes: " << header.num_txes << std::endl
-      << "reward: " << cryptonote::print_money(header.reward);
+      << "reward: " << cryptonote::print_money(header.reward) << std::endl
+      << "miner tx hash: " << header.miner_tx_hash;
   }
 
   std::string get_human_time_ago(time_t t, time_t now)
