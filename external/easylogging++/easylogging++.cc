@@ -684,7 +684,9 @@ void LogBuilder::convertToColoredOutput(base::type::string_t* logLine, Level lev
 }
 
 void LogBuilder::setColor(Color color, bool bright) {
+#if !ELPP_OS_WINDOWS
   if (m_termSupportsColor)
+#endif
     el::base::utils::setConsoleColor(color, bright);
 }
 
