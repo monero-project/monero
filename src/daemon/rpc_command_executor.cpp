@@ -2442,4 +2442,39 @@ bool t_rpc_command_executor::rpc_payments()
     return true;
 }
 
+bool t_rpc_command_executor::version()
+{
+    cryptonote::COMMAND_RPC_GET_INFO::request req;
+    cryptonote::COMMAND_RPC_GET_INFO::response res;
+
+    const char *fail_message = "Problem fetching info";
+
+    if (m_is_rpc)
+    {
+        if (!m_rpc_client->rpc_request(req, res, "/getinfo", fail_message))
+        {
+            return true;
+        }
+    }
+    else
+    {
+        if (!m_rpc_server->on_get_info(req, res) || res.status != CORE_RPC_STATUS_OK)
+        {
+            tools::fail_msg_writer() << make_error(fail_message, res.status);
+            return true;
+        }
+    }
+
+    if (res.version.empty())
+    {
+        tools::fail_msg_writer() << "The daemon software version is not available.";
+    }
+    else
+    {
+        tools::success_msg_writer() << res.version;
+    }
+
+    return true;
+}
+
 }// namespace daemonize

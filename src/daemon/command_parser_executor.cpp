@@ -28,7 +28,6 @@
 
 #include "common/dns_utils.h"
 #include "common/command_line.h"
-#include "version.h"
 #include "daemon/command_parser_executor.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
@@ -803,8 +802,7 @@ bool t_command_parser_executor::rpc_payments(const std::vector<std::string>& arg
 
 bool t_command_parser_executor::version(const std::vector<std::string>& args)
 {
-  std::cout << "Monero '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")" << std::endl;
-  return true;
+  return m_executor.version();
 }
 
 bool t_command_parser_executor::prune_blockchain(const std::vector<std::string>& args)
