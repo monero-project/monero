@@ -50,6 +50,20 @@ target_link_libraries(functional_tests
     ${CMAKE_THREAD_LIBS_INIT}
     ${EXTRA_LIBRARIES})
 
+set(make_test_signature_sources
+  make_test_signature.cc)
+
+add_executable(make_test_signature
+  ${make_test_signature_sources})
+
+target_link_libraries(make_test_signature
+  PRIVATE
+    rpc_base
+    cncrypto
+    epee
+    ${CMAKE_THREAD_LIBS_INIT}
+    ${EXTRA_LIBRARIES})
+
 execute_process(COMMAND ${PYTHON_EXECUTABLE} "-c" "import requests; print('OK')" OUTPUT_VARIABLE REQUESTS_OUTPUT OUTPUT_STRIP_TRAILING_WHITESPACE)
 if (REQUESTS_OUTPUT STREQUAL "OK")
   add_test(

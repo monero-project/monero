@@ -101,7 +101,7 @@ class BlockchainTest():
         for n in range(blocks):
             res_getblock.append(daemon.getblock(height = height + n))
             block_header = res_getblock[n].block_header
-            assert abs(block_header.timestamp - time.time()) < 10 # within 10 seconds
+            assert abs(block_header.timestamp - time.time()) < 60 # within 60 seconds
             assert block_header.height == height + n
             assert block_header.orphan_status == False
             assert block_header.depth == blocks - n - 1

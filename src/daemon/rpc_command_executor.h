@@ -167,6 +167,8 @@ public:
     const std::string &address,
     const std::string &username,
     const std::string &password);
+
+  bool rpc_payments();
 };
 
 } // namespace daemonize

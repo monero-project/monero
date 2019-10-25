@@ -90,6 +90,7 @@ namespace tools
     //         is_key_image_spent_error
     //         get_histogram_error
     //         get_output_distribution
+    //         payment_required
     //       wallet_files_doesnt_correspond
     //
     // * - class with protected ctor
@@ -781,6 +782,20 @@ namespace tools
       const std::string m_status;
     };
     //----------------------------------------------------------------------------------------------------
+    struct wallet_coded_rpc_error : public wallet_rpc_error
+    {
+      explicit wallet_coded_rpc_error(std::string&& loc, const std::string& request, int code, const std::string& status)
+        : wallet_rpc_error(std::move(loc), std::string("error ") + std::to_string(code) + (" in ") + request + " RPC: " + status, request),
+        m_code(code), m_status(status)
+      {
+      }
+      int code() const { return m_code; }
+      const std::string& status() const { return m_status; }
+    private:
+      int m_code;
+      const std::string m_status;
+    };
+    //----------------------------------------------------------------------------------------------------
     struct daemon_busy : public wallet_rpc_error
     {
       explicit daemon_busy(std::string&& loc, const std::string& request)
@@ -817,6 +832,14 @@ namespace tools
     {
       explicit get_output_distribution(std::string&& loc, const std::string& request)
         : wallet_rpc_error(std::move(loc), "failed to get output distribution", request)
+      {
+      }
+    };
+    //----------------------------------------------------------------------------------------------------
+    struct payment_required: public wallet_rpc_error
+    {
+      explicit payment_required(std::string&& loc, const std::string& request)
+        : wallet_rpc_error(std::move(loc), "payment required", request)
       {
       }
     };

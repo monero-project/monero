@@ -32,6 +32,8 @@
 #include <boost/thread/mutex.hpp>
 #include "include_base_utils.h"
 #include "net/http_client.h"
+#include "rpc/core_rpc_server_commands_defs.h"
+#include "wallet_rpc_helpers.h"
 
 namespace tools
 {
@@ -39,37 +41,62 @@ namespace tools
 class NodeRPCProxy
 {
 public:
-  NodeRPCProxy(epee::net_utils::http::http_simple_client &http_client, boost::recursive_mutex &mutex);
+  NodeRPCProxy(epee::net_utils::http::http_simple_client &http_client, rpc_payment_state_t &rpc_payment_state, boost::recursive_mutex &mutex);
 
+  void set_client_secret_key(const crypto::secret_key &skey) { m_client_id_secret_key = skey; }
   void invalidate();
   void set_offline(bool offline) { m_offline = offline; }
 
-  boost::optional<std::string> get_rpc_version(uint32_t &version) const;
-  boost::optional<std::string> get_height(uint64_t &height) const;
+  boost::optional<std::string> get_rpc_version(uint32_t &version);
+  boost::optional<std::string> get_height(uint64_t &height);
   void set_height(uint64_t h);
-  boost::optional<std::string> get_target_height(uint64_t &height) const;
-  boost::optional<std::string> get_block_weight_limit(uint64_t &block_weight_limit) const;
-  boost::optional<std::string> get_earliest_height(uint8_t version, uint64_t &earliest_height) const;
-  boost::optional<std::string> get_dynamic_base_fee_estimate(uint64_t grace_blocks, uint64_t &fee) const;
-  boost::optional<std::string> get_fee_quantization_mask(uint64_t &fee_quantization_mask) const;
+  boost::optional<std::string> get_target_height(uint64_t &height);
+  boost::optional<std::string> get_block_weight_limit(uint64_t &block_weight_limit);
+  boost::optional<std::string> get_earliest_height(uint8_t version, uint64_t &earliest_height);
+  boost::optional<std::string> get_dynamic_base_fee_estimate(uint64_t grace_blocks, uint64_t &fee);
+  boost::optional<std::string> get_fee_quantization_mask(uint64_t &fee_quantization_mask);
+  boost::optional<std::string> get_rpc_payment_info(bool mining, bool &payment_required, uint64_t &credits, uint64_t &diff, uint64_t &credits_per_hash_found, cryptonote::blobdata &blob, uint64_t &height, uint64_t &seed_height, crypto::hash &seed_hash, crypto::hash &next_seed_hash, uint32_t &cookie);
 
 private:
-  boost::optional<std::string> get_info() const;
+  template<typename T> void handle_payment_changes(const T &res, std::true_type) {
+    if (res.status == CORE_RPC_STATUS_OK || res.status == CORE_RPC_STATUS_PAYMENT_REQUIRED)
+      m_rpc_payment_state.credits = res.credits;
+    if (res.top_hash != m_rpc_payment_state.top_hash)
+    {
+      m_rpc_payment_state.top_hash = res.top_hash;
+      m_rpc_payment_state.stale = true;
+    }
+  }
+  template<typename T> void handle_payment_changes(const T &res, std::false_type) {}
+
+private:
+  boost::optional<std::string> get_info();
 
   epee::net_utils::http::http_simple_client &m_http_client;
+  rpc_payment_state_t &m_rpc_payment_state;
   boost::recursive_mutex &m_daemon_rpc_mutex;
+  crypto::secret_key m_client_id_secret_key;
   bool m_offline;
 
-  mutable uint64_t m_height;
-  mutable uint64_t m_earliest_height[256];
-  mutable uint64_t m_dynamic_base_fee_estimate;
-  mutable uint64_t m_dynamic_base_fee_estimate_cached_height;
-  mutable uint64_t m_dynamic_base_fee_estimate_grace_blocks;
-  mutable uint64_t m_fee_quantization_mask;
-  mutable uint32_t m_rpc_version;
-  mutable uint64_t m_target_height;
-  mutable uint64_t m_block_weight_limit;
-  mutable time_t m_get_info_time;
+  uint64_t m_height;
+  uint64_t m_earliest_height[256];
+  uint64_t m_dynamic_base_fee_estimate;
+  uint64_t m_dynamic_base_fee_estimate_cached_height;
+  uint64_t m_dynamic_base_fee_estimate_grace_blocks;
+  uint64_t m_fee_quantization_mask;
+  uint32_t m_rpc_version;
+  uint64_t m_target_height;
+  uint64_t m_block_weight_limit;
+  time_t m_get_info_time;
+  time_t m_rpc_payment_info_time;
+  uint64_t m_rpc_payment_diff;
+  uint64_t m_rpc_payment_credits_per_hash_found;
+  cryptonote::blobdata m_rpc_payment_blob;
+  uint64_t m_rpc_payment_height;
+  uint64_t m_rpc_payment_seed_height;
+  crypto::hash m_rpc_payment_seed_hash;
+  crypto::hash m_rpc_payment_next_seed_hash;
+  uint32_t m_rpc_payment_cookie;
 };
 
 }
