@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE TS>
-<TS version="2.1">
+<TS version="2.1" language="zu">
 <context>
     <name>Monero::AddressBookImpl</name>
     <message>
@@ -1431,12 +1431,6 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/simplewallet/simplewallet.cpp" line="2672"/>
-        <location filename="../src/simplewallet/simplewallet.cpp" line="2691"/>
-        <source>Invalid amount</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="2748"/>
         <source>invalid argument: must be either 1/yes or 0/no</source>
         <translation type="unfinished"></translation>
@@ -1578,72 +1572,6 @@ If the &quot;tag_description&quot; argument is specified, the tag &lt;tag_name&g
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="2958"/>
         <source>Display the Electrum-style mnemonic seed</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/simplewallet/simplewallet.cpp" line="2965"/>
-        <source>Available options:
- seed language
-   Set the wallet&apos;s seed language.
- always-confirm-transfers &lt;1|0&gt;
-   Whether to confirm unsplit txes.
- print-ring-members &lt;1|0&gt;
-   Whether to print detailed information about ring members during confirmation.
- store-tx-info &lt;1|0&gt;
-   Whether to store outgoing tx info (destination address, payment ID, tx secret key) for future reference.
- default-ring-size &lt;n&gt;
-   Set the default ring size (obsolete).
- auto-refresh &lt;1|0&gt;
-   Whether to automatically synchronize new blocks from the daemon.
- refresh-type &lt;full|optimize-coinbase|no-coinbase|default&gt;
-   Set the wallet&apos;s refresh behaviour.
- priority [0|1|2|3|4]
-   Set the fee to default/unimportant/normal/elevated/priority.
- confirm-missing-payment-id &lt;1|0&gt; (obsolete)
- ask-password &lt;0|1|2   (or never|action|decrypt)&gt;
-   action: ask the password before many actions such as transfer, etc
-   decrypt: same as action, but keeps the spend key encrypted in memory when not needed
- unit &lt;monero|millinero|micronero|nanonero|piconero&gt;
-   Set the default monero (sub-)unit.
- min-outputs-count [n]
-   Try to keep at least that many outputs of value at least min-outputs-value.
- min-outputs-value [n]
-   Try to keep at least min-outputs-count outputs of at least that value.
- merge-destinations &lt;1|0&gt;
-   Whether to merge multiple payments to the same destination address.
- confirm-backlog &lt;1|0&gt;
-   Whether to warn if there is transaction backlog.
- confirm-backlog-threshold [n]
-   Set a threshold for confirm-backlog to only warn if the transaction backlog is greater than n blocks.
- confirm-export-overwrite &lt;1|0&gt;
-   Whether to warn if the file to be exported already exists.
- refresh-from-block-height [n]
-   Set the height before which to ignore blocks.
- auto-low-priority &lt;1|0&gt;
-   Whether to automatically use the low priority fee level when it&apos;s safe to do so.
- segregate-pre-fork-outputs &lt;1|0&gt;
-   Set this if you intend to spend outputs on both Monero AND a key reusing fork.
- key-reuse-mitigation2 &lt;1|0&gt;
-   Set this if you are not sure whether you will spend on a key reusing Monero fork later.
- subaddress-lookahead &lt;major&gt;:&lt;minor&gt;
-   Set the lookahead sizes for the subaddress hash table.
- segregation-height &lt;n&gt;
-   Set to the height of a key reusing fork you want to use, 0 to use default.
- ignore-fractional-outputs &lt;1|0&gt;
-   Whether to ignore fractional outputs that result in net loss when spending due to fee.
- ignore-outputs-above &lt;amount&gt;
-   Ignore outputs of amount above this threshold when spending. Value 0 is translated to the maximum value (18 million) which disables this filter.
- ignore-outputs-below &lt;amount&gt;
-   Ignore outputs of amount below this threshold when spending.
- track-uses &lt;1|0&gt;
-   Whether to keep track of owned outputs uses.
- setup-background-mining &lt;1|0&gt;
-   Whether to enable background mining. Set this to support the network and to get a chance to receive new monero.
- device-name &lt;device_name[:device_spec]&gt;
-   Device name for hardware wallet.
- export-format &lt;&quot;binary&quot;|&quot;ascii&quot;&gt;
-   Save all exported files as binary (cannot be copied and pasted) or ascii (can be).
- </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -3273,81 +3201,6 @@ By using &apos;sync&apos; processing of waiting messages with multisig sync info
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/simplewallet/simplewallet.cpp" line="2181"/>
-        <source>Unknown command &apos;%s&apos;, try &apos;help&apos;</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/simplewallet/simplewallet.cpp" line="2716"/>
-        <source>Inactivity lock timeout disabled on Windows</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/simplewallet/simplewallet.cpp" line="2730"/>
-        <source>Invalid number of seconds</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/simplewallet/simplewallet.cpp" line="2792"/>
-        <source>Export format not specified</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/simplewallet/simplewallet.cpp" line="2806"/>
-        <source>Export format not recognized.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/simplewallet/simplewallet.cpp" line="2961"/>
-        <source>Display the restore height</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/simplewallet/simplewallet.cpp" line="3323"/>
-        <source>Lock the wallet console, requiring the wallet password to continue</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/simplewallet/simplewallet.cpp" line="3462"/>
-        <source>unsigned integer (seconds, 0 to disable)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/simplewallet/simplewallet.cpp" line="3465"/>
-        <source>&quot;binary&quot; or &quot;ascii&quot;</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/simplewallet/simplewallet.cpp" line="4232"/>
-        <source>Warning: using an untrusted daemon at %s</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/simplewallet/simplewallet.cpp" line="4233"/>
-        <source>Using a third party daemon can be detrimental to your security and privacy</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/simplewallet/simplewallet.cpp" line="4236"/>
-        <source>Using your own without SSL exposes your RPC traffic to monitoring</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/simplewallet/simplewallet.cpp" line="4237"/>
-        <source>You are strongly encouraged to connect to the Monero network using your own daemon</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/simplewallet/simplewallet.cpp" line="4238"/>
-        <source>If you or someone you trust are operating this daemon, you can use --trusted-daemon</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/simplewallet/simplewallet.cpp" line="4245"/>
-        <source>Moreover, a daemon is also less secure when running in bootstrap mode</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="4258"/>
         <source>If you are new to Monero, type &quot;welcome&quot; for a brief overview.</source>
         <translation type="unfinished"></translation>
@@ -3440,16 +3293,6 @@ Input %llu/%llu (%s): amount=%s</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/simplewallet/simplewallet.cpp" line="5838"/>
-        <source>I locked your Monero wallet to protect you while you were away</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/simplewallet/simplewallet.cpp" line="5858"/>
-        <source>Locked due to inactivity. The wallet password is required to unlock the console.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="6028"/>
         <location filename="../src/simplewallet/simplewallet.cpp" line="7048"/>
         <location filename="../src/simplewallet/simplewallet.cpp" line="7758"/>
@@ -3497,6 +3340,153 @@ Input %llu/%llu (%s): amount=%s</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <location filename="../src/simplewallet/simplewallet.cpp" line="2181"/>
+        <source>Unknown command &apos;%s&apos;, try &apos;help&apos;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/simplewallet/simplewallet.cpp" line="2672"/>
+        <location filename="../src/simplewallet/simplewallet.cpp" line="2691"/>
+        <source>Invalid amount</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/simplewallet/simplewallet.cpp" line="2716"/>
+        <source>Inactivity lock timeout disabled on Windows</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/simplewallet/simplewallet.cpp" line="2730"/>
+        <source>Invalid number of seconds</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/simplewallet/simplewallet.cpp" line="2792"/>
+        <source>Export format not specified</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/simplewallet/simplewallet.cpp" line="2806"/>
+        <source>Export format not recognized.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/simplewallet/simplewallet.cpp" line="2961"/>
+        <source>Display the restore height</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/simplewallet/simplewallet.cpp" line="2965"/>
+        <source>Available options:
+ seed language
+   Set the wallet&apos;s seed language.
+ always-confirm-transfers &lt;1|0&gt;
+   Whether to confirm unsplit txes.
+ print-ring-members &lt;1|0&gt;
+   Whether to print detailed information about ring members during confirmation.
+ store-tx-info &lt;1|0&gt;
+   Whether to store outgoing tx info (destination address, payment ID, tx secret key) for future reference.
+ default-ring-size &lt;n&gt;
+   Set the default ring size (obsolete).
+ auto-refresh &lt;1|0&gt;
+   Whether to automatically synchronize new blocks from the daemon.
+ refresh-type &lt;full|optimize-coinbase|no-coinbase|default&gt;
+   Set the wallet&apos;s refresh behaviour.
+ priority [0|1|2|3|4]
+   Set the fee to default/unimportant/normal/elevated/priority.
+ confirm-missing-payment-id &lt;1|0&gt; (obsolete)
+ ask-password &lt;0|1|2   (or never|action|decrypt)&gt;
+   action: ask the password before many actions such as transfer, etc
+   decrypt: same as action, but keeps the spend key encrypted in memory when not needed
+ unit &lt;monero|millinero|micronero|nanonero|piconero&gt;
+   Set the default monero (sub-)unit.
+ min-outputs-count [n]
+   Try to keep at least that many outputs of value at least min-outputs-value.
+ min-outputs-value [n]
+   Try to keep at least min-outputs-count outputs of at least that value.
+ merge-destinations &lt;1|0&gt;
+   Whether to merge multiple payments to the same destination address.
+ confirm-backlog &lt;1|0&gt;
+   Whether to warn if there is transaction backlog.
+ confirm-backlog-threshold [n]
+   Set a threshold for confirm-backlog to only warn if the transaction backlog is greater than n blocks.
+ confirm-export-overwrite &lt;1|0&gt;
+   Whether to warn if the file to be exported already exists.
+ refresh-from-block-height [n]
+   Set the height before which to ignore blocks.
+ auto-low-priority &lt;1|0&gt;
+   Whether to automatically use the low priority fee level when it&apos;s safe to do so.
+ segregate-pre-fork-outputs &lt;1|0&gt;
+   Set this if you intend to spend outputs on both Monero AND a key reusing fork.
+ key-reuse-mitigation2 &lt;1|0&gt;
+   Set this if you are not sure whether you will spend on a key reusing Monero fork later.
+ subaddress-lookahead &lt;major&gt;:&lt;minor&gt;
+   Set the lookahead sizes for the subaddress hash table.
+ segregation-height &lt;n&gt;
+   Set to the height of a key reusing fork you want to use, 0 to use default.
+ ignore-fractional-outputs &lt;1|0&gt;
+   Whether to ignore fractional outputs that result in net loss when spending due to fee.
+ ignore-outputs-above &lt;amount&gt;
+   Ignore outputs of amount above this threshold when spending. Value 0 is translated to the maximum value (18 million) which disables this filter.
+ ignore-outputs-below &lt;amount&gt;
+   Ignore outputs of amount below this threshold when spending.
+ track-uses &lt;1|0&gt;
+   Whether to keep track of owned outputs uses.
+ setup-background-mining &lt;1|0&gt;
+   Whether to enable background mining. Set this to support the network and to get a chance to receive new monero.
+ device-name &lt;device_name[:device_spec]&gt;
+   Device name for hardware wallet.
+ export-format &lt;&quot;binary&quot;|&quot;ascii&quot;&gt;
+   Save all exported files as binary (cannot be copied and pasted) or ascii (can be).
+ </source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/simplewallet/simplewallet.cpp" line="3323"/>
+        <source>Lock the wallet console, requiring the wallet password to continue</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/simplewallet/simplewallet.cpp" line="3462"/>
+        <source>unsigned integer (seconds, 0 to disable)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/simplewallet/simplewallet.cpp" line="3465"/>
+        <source>&quot;binary&quot; or &quot;ascii&quot;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/simplewallet/simplewallet.cpp" line="4232"/>
+        <source>Warning: using an untrusted daemon at %s</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/simplewallet/simplewallet.cpp" line="4233"/>
+        <source>Using a third party daemon can be detrimental to your security and privacy</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/simplewallet/simplewallet.cpp" line="4236"/>
+        <source>Using your own without SSL exposes your RPC traffic to monitoring</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/simplewallet/simplewallet.cpp" line="4237"/>
+        <source>You are strongly encouraged to connect to the Monero network using your own daemon</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/simplewallet/simplewallet.cpp" line="4238"/>
+        <source>If you or someone you trust are operating this daemon, you can use --trusted-daemon</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/simplewallet/simplewallet.cpp" line="4245"/>
+        <source>Moreover, a daemon is also less secure when running in bootstrap mode</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="5128"/>
         <source>NOTE: this transaction uses an encrypted payment ID: consider using subaddresses instead</source>
         <translation type="unfinished"></translation>
@@ -3504,6 +3494,16 @@ Input %llu/%llu (%s): amount=%s</source>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="5132"/>
         <source>WARNING: this transaction uses an unencrypted payment ID: these are obsolete and ignored. Use subaddresses instead.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/simplewallet/simplewallet.cpp" line="5838"/>
+        <source>I locked your Monero wallet to protect you while you were away</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/simplewallet/simplewallet.cpp" line="5858"/>
+        <source>Locked due to inactivity. The wallet password is required to unlock the console.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
