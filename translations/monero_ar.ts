@@ -3427,7 +3427,7 @@ By using &apos;sync&apos; processing of waiting messages with multisig sync info
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="4893"/>
-        <source>With background mining enabled, the daemon will mine when idle and not on battery.</source>
+        <source>With background mining enabled, the daemon will mine when idle and not on batttery.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
