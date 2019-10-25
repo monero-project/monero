@@ -885,16 +885,6 @@ bool simple_wallet::change_password(const std::vector<std::string> &args)
 bool simple_wallet::payment_id(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
   LONG_PAYMENT_ID_SUPPORT_CHECK();
-
-  crypto::hash payment_id;
-  if (args.size() > 0)
-  {
-    PRINT_USAGE(USAGE_PAYMENT_ID);
-    return true;
-  }
-  payment_id = crypto::rand<crypto::hash>();
-  success_msg_writer() << tr("Random payment ID: ") << payment_id;
-  return true;
 }
 
 bool simple_wallet::print_fee_info(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
@@ -5953,13 +5943,6 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
     if (tools::wallet2::parse_long_payment_id(payment_id_str, payment_id))
     {
       LONG_PAYMENT_ID_SUPPORT_CHECK();
-
-      std::string extra_nonce;
-      set_payment_id_to_tx_extra_nonce(extra_nonce, payment_id);
-      r = add_extra_nonce_to_tx_extra(extra, extra_nonce);
-      local_args.pop_back();
-      payment_id_seen = true;
-      message_writer() << tr("Warning: Unencrypted payment IDs will harm your privacy: ask the recipient to use subaddresses instead");
     }
     if(!r)
     {
@@ -6068,8 +6051,6 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
       else if (tools::wallet2::parse_payment_id(payment_id_uri, payment_id))
       {
         LONG_PAYMENT_ID_SUPPORT_CHECK();
-        set_payment_id_to_tx_extra_nonce(extra_nonce, payment_id);
-        message_writer() << tr("Warning: Unencrypted payment IDs will harm your privacy: ask the recipient to use subaddresses instead");
       }
       else
       {
@@ -6605,11 +6586,6 @@ bool simple_wallet::sweep_main(uint64_t below, bool locked, const std::vector<st
     if(r)
     {
       LONG_PAYMENT_ID_SUPPORT_CHECK();
-
-      std::string extra_nonce;
-      set_payment_id_to_tx_extra_nonce(extra_nonce, payment_id);
-      r = add_extra_nonce_to_tx_extra(extra, extra_nonce);
-      payment_id_seen = true;
     }
 
     if(!r && local_args.size() == 3)
@@ -6851,7 +6827,6 @@ bool simple_wallet::sweep_single(const std::vector<std::string> &args_)
     if (tools::wallet2::parse_long_payment_id(local_args.back(), payment_id))
     {
       LONG_PAYMENT_ID_SUPPORT_CHECK();
-      set_payment_id_to_tx_extra_nonce(extra_nonce, payment_id);
     }
     else
     {
@@ -8985,7 +8960,6 @@ bool simple_wallet::address_book(const std::vector<std::string> &args/* = std::v
       if (tools::wallet2::parse_long_payment_id(args[3], payment_id))
       {
         LONG_PAYMENT_ID_SUPPORT_CHECK();
-        description_start += 2;
       }
       else if (tools::wallet2::parse_short_payment_id(args[3], info.payment_id))
       {
