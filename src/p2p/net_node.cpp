@@ -144,7 +144,7 @@ namespace nodetool
     const command_line::arg_descriptor<std::vector<std::string> > arg_p2p_add_exclusive_node   = {"add-exclusive-node", "Specify list of peers to connect to only."
                                                                                                   " If this option is given the options add-priority-node and seed-node are ignored"};
     const command_line::arg_descriptor<std::vector<std::string> > arg_p2p_seed_node   = {"seed-node", "Connect to a node to retrieve peer addresses, and disconnect"};
-    const command_line::arg_descriptor<std::vector<std::string> > arg_proxy = {"proxy", "<network-type>,<socks-ip:port>[,max_connections][,disable_noise] i.e. \"tor,127.0.0.1:9050,100,disable_noise\""};
+    const command_line::arg_descriptor<std::vector<std::string> > arg_tx_proxy = {"tx-proxy", "Send local txes through proxy: <network-type>,<socks-ip:port>[,max_connections][,disable_noise] i.e. \"tor,127.0.0.1:9050,100,disable_noise\""};
     const command_line::arg_descriptor<std::vector<std::string> > arg_anonymous_inbound = {"anonymous-inbound", "<hidden-service-address>,<[bind-ip:]port>[,max_connections] i.e. \"x.onion,127.0.0.1:18083,100\""};
     const command_line::arg_descriptor<bool> arg_p2p_hide_my_port   =    {"hide-my-port", "Do not announce yourself as peerlist candidate", false, true};
     const command_line::arg_descriptor<bool> arg_no_sync = {"no-sync", "Don't synchronize the blockchain with other peers", false};
@@ -167,7 +167,7 @@ namespace nodetool
 
         std::vector<proxy> proxies{};
 
-        const std::vector<std::string> args = command_line::get_arg(vm, arg_proxy);
+        const std::vector<std::string> args = command_line::get_arg(vm, arg_tx_proxy);
         proxies.reserve(args.size());
 
         for (const boost::string_ref arg : args)
@@ -175,11 +175,11 @@ namespace nodetool
             proxies.emplace_back();
 
             auto next = boost::algorithm::make_split_iterator(arg, boost::algorithm::first_finder(","));
-            CHECK_AND_ASSERT_MES(!next.eof() && !next->empty(), boost::none, "No network type for --" << arg_proxy.name);
+            CHECK_AND_ASSERT_MES(!next.eof() && !next->empty(), boost::none, "No network type for --" << arg_tx_proxy.name);
             const boost::string_ref zone{next->begin(), next->size()};
 
             ++next;
-            CHECK_AND_ASSERT_MES(!next.eof() && !next->empty(), boost::none, "No ipv4:port given for --" << arg_proxy.name);
+            CHECK_AND_ASSERT_MES(!next.eof() && !next->empty(), boost::none, "No ipv4:port given for --" << arg_tx_proxy.name);
             const boost::string_ref proxy{next->begin(), next->size()};
 
             ++next;
@@ -187,7 +187,7 @@ namespace nodetool
             {
                 if (2 <= count)
                 {
-                    MERROR("Too many ',' characters given to --" << arg_proxy.name);
+                    MERROR("Too many ',' characters given to --" << arg_tx_proxy.name);
                     return boost::none;
                 }
 
@@ -198,7 +198,7 @@ namespace nodetool
                     proxies.back().max_connections = get_max_connections(*next);
                     if (proxies.back().max_connections == 0)
                     {
-                        MERROR("Invalid max connections given to --" << arg_proxy.name);
+                        MERROR("Invalid max connections given to --" << arg_tx_proxy.name);
                         return boost::none;
                     }
                 }
@@ -213,7 +213,7 @@ namespace nodetool
                 proxies.back().zone = epee::net_utils::zone::i2p;
                 break;
             default:
-                MERROR("Invalid network for --" << arg_proxy.name);
+                MERROR("Invalid network for --" << arg_tx_proxy.name);
                 return boost::none;
             }
 
@@ -221,7 +221,7 @@ namespace nodetool
             std::uint16_t port = 0;
             if (!epee::string_tools::parse_peer_from_string(ip, port, std::string{proxy}) || port == 0)
             {
-                MERROR("Invalid ipv4:port given for --" << arg_proxy.name);
+                MERROR("Invalid ipv4:port given for --" << arg_tx_proxy.name);
                 return boost::none;
             }
             proxies.back().address = ip::tcp::endpoint{ip::address_v4{boost::endian::native_to_big(ip)}, port};
@@ -258,7 +258,7 @@ namespace nodetool
                 inbounds.back().max_connections = get_max_connections(*next);
                 if (inbounds.back().max_connections == 0)
                 {
-                    MERROR("Invalid max connections given to --" << arg_proxy.name);
+                    MERROR("Invalid max connections given to --" << arg_tx_proxy.name);
                     return boost::none;
                 }
             }
