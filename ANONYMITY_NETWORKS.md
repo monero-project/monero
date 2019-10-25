@@ -43,11 +43,11 @@ additional peers can be found through typical p2p peerlist sharing.
 ### Outbound Connections
 
 Connecting to an anonymous address requires the command line option
-`--proxy` which tells `monerod` the ip/port of a socks proxy provided by a
+`--tx-proxy` which tells `monerod` the ip/port of a socks proxy provided by a
 separate process. On most systems the configuration will look like:
 
-> `--proxy tor,127.0.0.1:9050,10`
-> `--proxy i2p,127.0.0.1:9000`
+> `--tx-proxy tor,127.0.0.1:9050,10`
+> `--tx-proxy i2p,127.0.0.1:9000`
 
 which tells `monerod` that ".onion" p2p addresses can be forwarded to a socks
 proxy at IP 127.0.0.1 port 9050 with a max of 10 outgoing connections and
@@ -114,7 +114,7 @@ encryption.
 
 Options `--add-exclusive-node` and `--add-peer` recognize ".onion" and
 ".b32.i2p" addresses, and will properly forward those addresses to the proxy
-provided with `--proxy tor,...` or `--proxy i2p,...`.
+provided with `--tx-proxy tor,...` or `--tx-proxy i2p,...`.
 
 Option `--anonymous-inbound` also recognizes ".onion" and ".b32.i2p" addresses,
 and will automatically be sent out to outgoing Tor/I2P connections so the peer
