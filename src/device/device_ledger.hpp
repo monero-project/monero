@@ -90,6 +90,25 @@ namespace hw {
         void log();
     };
 
+    class SecHMAC {
+    public:
+        uint32_t  sec[32];
+        uint32_t  hmac[32];
+
+        SecHMAC(const uint8_t s[32], const uint8_t m[32]);
+
+    };
+
+    class HMACmap {
+    public:
+        std::vector<SecHMAC>  hmacs;
+
+        void find_mac(const uint8_t sec[32], uint8_t hmac[32]) ;
+        void add_mac(const uint8_t sec[32], const uint8_t hmac[32]) ;
+        void clear() ;
+    };
+
+
     #define BUFFER_SEND_SIZE 262
     #define BUFFER_RECV_SIZE 262
 
@@ -115,15 +134,21 @@ namespace hw {
         int  set_command_header(unsigned char ins, unsigned char p1 = 0x00, unsigned char p2 = 0x00);
         int  set_command_header_noopt(unsigned char ins, unsigned char p1 = 0x00, unsigned char p2 = 0x00);
         void send_simple(unsigned char ins, unsigned char p1 = 0x00);
-
+        void send_secret(const unsigned char sec[32], int &offset);
+        void receive_secret(unsigned char sec[32], int &offset);
 
         // hw running mode
         device_mode mode;
+        bool tx_in_progress;
+
         // map public destination key to ephemeral destination key
         Keymap key_map;
         bool  add_output_key_mapping(const crypto::public_key &Aout, const crypto::public_key &Bout, const bool is_subaddress, const bool is_change,
                                      const bool need_additional, const size_t real_output_index,
                                      const rct::key &amount_key,  const crypto::public_key &out_eph_public_key);
+        //hmac for some encrypted value
+        HMACmap hmac_map;
+
         // To speed up blockchain parsing the view key maybe handle here.
         crypto::secret_key viewkey;
         bool has_view_key;
@@ -174,7 +199,7 @@ namespace hw {
         bool  get_public_address(cryptonote::account_public_address &pubkey) override;
         bool  get_secret_keys(crypto::secret_key &viewkey , crypto::secret_key &spendkey) override;
         bool  generate_chacha_key(const cryptonote::account_keys &keys, crypto::chacha_key &key, uint64_t kdf_rounds) override;
-
+        void  display_address(const cryptonote::subaddress_index& index, const boost::optional<crypto::hash8> &payment_id) override;
 
         /* ======================================================================= */
         /*                               SUB ADDRESS                               */
