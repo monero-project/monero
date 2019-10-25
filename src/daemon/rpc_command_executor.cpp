@@ -2373,6 +2373,34 @@ bool t_rpc_command_executor::set_bootstrap_daemon(
     return true;
 }
 
+bool t_rpc_command_executor::flush_cache(bool bad_txs)
+{
+    cryptonote::COMMAND_RPC_FLUSH_CACHE::request req;
+    cryptonote::COMMAND_RPC_FLUSH_CACHE::response res;
+    std::string fail_message = "Unsuccessful";
+    epee::json_rpc::error error_resp;
+
+    req.bad_txs = bad_txs;
+
+    if (m_is_rpc)
+    {
+        if (!m_rpc_client->json_rpc_request(req, res, "flush_cache", fail_message.c_str()))
+        {
+            return true;
+        }
+    }
+    else
+    {
+        if (!m_rpc_server->on_flush_cache(req, res, error_resp) || res.status != CORE_RPC_STATUS_OK)
+        {
+            tools::fail_msg_writer() << make_error(fail_message, res.status);
+            return true;
+        }
+    }
+
+    return true;
+}
+
 bool t_rpc_command_executor::rpc_payments()
 {
     cryptonote::COMMAND_RPC_ACCESS_DATA::request req;

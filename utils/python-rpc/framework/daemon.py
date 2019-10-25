@@ -516,16 +516,16 @@ class Daemon(object):
         }
         return self.rpc.send_json_rpc_request(prune_blockchain)
 
-    def get_block_rate(self, seconds = [3600]):
-        get_block_rate = {
-            'method': 'get_block_rate',
+    def flush_cache(self, bad_txs = False):
+        flush_cache = {
+            'method': 'flush_cache',
             'params': {
-                'seconds': seconds,
+                'bad_txs': bad_txs,
             },
-            'jsonrpc': '2.0', 
+            'jsonrpc': '2.0',
             'id': '0'
         }
-        return self.rpc.send_json_rpc_request(get_block_rate)
+        return self.rpc.send_json_rpc_request(flush_cache)
 
     def rpc_access_info(self, client):
         rpc_access_info = {
