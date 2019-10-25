@@ -357,9 +357,11 @@ namespace hw {
 
     void device_ledger::send_secret(const unsigned char sec[32], int &offset) {
       MDEBUG("send_secret: " << this->tx_in_progress);
+      ASSERT_X(offset + 32 <= BUFFER_SEND_SIZE, "send_secret: out of bounds write (secret)");
       memmove(this->buffer_send+offset, sec, 32);
       offset +=32;
       if (this->tx_in_progress) {
+        ASSERT_X(offset + 32 <= BUFFER_SEND_SIZE, "send_secret: out of bounds write (mac)");
         this->hmac_map.find_mac((uint8_t*)sec, this->buffer_send+offset);
         offset += 32;
       }
@@ -367,9 +369,11 @@ namespace hw {
 
     void device_ledger::receive_secret(unsigned char sec[32], int &offset) {
       MDEBUG("receive_secret: " << this->tx_in_progress);
+      ASSERT_X(offset + 32 <= BUFFER_RECV_SIZE, "receive_secret: out of bounds read (secret)");
       memmove(sec, this->buffer_recv+offset, 32);
       offset += 32;
       if (this->tx_in_progress) {
+        ASSERT_X(offset + 32 <= BUFFER_RECV_SIZE, "receive_secret: out of bounds read (mac)");
         this->hmac_map.add_mac((uint8_t*)sec, this->buffer_recv+offset);
         offset += 32;
       }
