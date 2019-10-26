@@ -51,13 +51,13 @@ class RPCPaymentTest():
         self.test_free_access()
 
     def get_keys(self):
-        output = subprocess.check_output([self.make_test_signature]).rstrip()
+        output = subprocess.check_output([self.make_test_signature]).decode('utf-8').rstrip()
         fields = output.split()
         assert len(fields) == 2
         return fields
 
     def get_signature(self):
-        return subprocess.check_output([self.make_test_signature, self.secret_key]).rstrip()
+        return subprocess.check_output([self.make_test_signature, self.secret_key]).decode('utf-8').rstrip()
 
     def reset(self):
         print('Resetting blockchain')
@@ -256,7 +256,8 @@ class RPCPaymentTest():
                 found_close_stale += 1
                 found_valid += 1
             except Exception as e:
-                if e[0]['error']['code'] == -18: # stale
+                #if e[0]['error']['code'] == -18: # stale
+                if "'code': -18" in str(e): # stale (ugly version, but also works with python 3)
                     found_late_stale += 1
                 else:
                     found_invalid += 1
