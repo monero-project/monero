@@ -2617,6 +2617,7 @@ namespace cryptonote
   {
     RPC_TRACKER(update);
 
+    res.update = false;
     if (m_core.offline())
     {
       res.status = "Daemon is running offline";
