@@ -86,10 +86,14 @@ namespace
     RPCTracker(const char *rpc, tools::LoggingPerformanceTimer &timer): rpc(rpc), timer(timer) {
     }
     ~RPCTracker() {
-      boost::unique_lock<boost::mutex> lock(mutex);
-      auto &e = tracker[rpc];
-      ++e.count;
-      e.time += timer.value();
+      try
+      {
+        boost::unique_lock<boost::mutex> lock(mutex);
+        auto &e = tracker[rpc];
+        ++e.count;
+        e.time += timer.value();
+      }
+      catch (...) { /* ignore */ }
     }
     void pay(uint64_t amount) {
       boost::unique_lock<boost::mutex> lock(mutex);
