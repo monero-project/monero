@@ -78,6 +78,10 @@ void NodeRPCProxy::invalidate()
   m_rpc_payment_seed_hash = crypto::null_hash;
   m_rpc_payment_next_seed_hash = crypto::null_hash;
   m_height_time = 0;
+  m_rpc_payment_diff = 0;
+  m_rpc_payment_credits_per_hash_found = 0;
+  m_rpc_payment_height = 0;
+  m_rpc_payment_cookie = 0;
 }
 
 boost::optional<std::string> NodeRPCProxy::get_rpc_version(uint32_t &rpc_version)
