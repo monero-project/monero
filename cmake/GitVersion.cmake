@@ -32,6 +32,7 @@
 
 function (get_version_tag_from_git GIT)
     execute_process(COMMAND "${GIT}" rev-parse --short=9 HEAD
+                    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
                     RESULT_VARIABLE RET
                     OUTPUT_VARIABLE COMMIT
                     OUTPUT_STRIP_TRAILING_WHITESPACE)
@@ -47,7 +48,11 @@ function (get_version_tag_from_git GIT)
         message(STATUS "You are currently on commit ${COMMIT}")
 
         # Get all the tags
-        execute_process(COMMAND "${GIT}" rev-list --tags --max-count=1 --abbrev-commit RESULT_VARIABLE RET OUTPUT_VARIABLE TAGGEDCOMMIT OUTPUT_STRIP_TRAILING_WHITESPACE)
+        execute_process(COMMAND "${GIT}" rev-list --tags --max-count=1 --abbrev-commit 
+                        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+                        RESULT_VARIABLE RET
+                        OUTPUT_VARIABLE TAGGEDCOMMIT
+                        OUTPUT_STRIP_TRAILING_WHITESPACE)
 
         if(NOT TAGGEDCOMMIT)
             message(WARNING "Cannot determine most recent tag. Make sure that you are building either from a Git working tree or from a source archive.")
