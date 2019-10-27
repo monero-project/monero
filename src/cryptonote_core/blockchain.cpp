@@ -1765,9 +1765,18 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
     {
       cryptonote::tx_memory_pool::tx_details td;
       cryptonote::blobdata blob;
-      if (m_tx_pool.get_transaction_info(txid, td))
+      if (m_tx_pool.have_tx(txid))
       {
-        bei.block_cumulative_weight += td.weight;
+        if (m_tx_pool.get_transaction_info(txid, td))
+        {
+          bei.block_cumulative_weight += td.weight;
+        }
+        else
+        {
+          MERROR_VER("Transaction is in the txpool, but metadata not found");
+          bvc.m_verifivation_failed = true;
+          return false;
+        }
       }
       else if (m_db->get_pruned_tx_blob(txid, blob))
       {
