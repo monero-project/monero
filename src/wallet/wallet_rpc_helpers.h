@@ -65,7 +65,7 @@ namespace tools
     rpc_payment_state.credits = post_call_credits;
     rpc_payment_state.expected_spent += expected_credits;
 
-    if (pre_call_credits < post_call_credits)
+    if (pre_call_credits <= post_call_credits)
       return;
 
     uint64_t cost = pre_call_credits - post_call_credits;
