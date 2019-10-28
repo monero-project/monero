@@ -1881,9 +1881,10 @@ namespace cryptonote
     }
 
     static constexpr double threshold = 1. / (864000 / DIFFICULTY_TARGET_V2); // one false positive every 10 days
+    static constexpr unsigned int max_blocks_checked = 150;
 
     const time_t now = time(NULL);
-    const std::vector<time_t> timestamps = m_blockchain_storage.get_last_block_timestamps(60);
+    const std::vector<time_t> timestamps = m_blockchain_storage.get_last_block_timestamps(max_blocks_checked);
 
     static const unsigned int seconds[] = { 5400, 3600, 1800, 1200, 600 };
     for (size_t n = 0; n < sizeof(seconds)/sizeof(seconds[0]); ++n)
@@ -1895,7 +1896,7 @@ namespace cryptonote
       MDEBUG("blocks in the last " << seconds[n] / 60 << " minutes: " << b << " (probability " << p << ")");
       if (p < threshold)
       {
-        MWARNING("There were " << b << " blocks in the last " << seconds[n] / 60 << " minutes, there might be large hash rate changes, or we might be partitioned, cut off from the Monero network or under attack. Or it could be just sheer bad luck.");
+        MWARNING("There were " << b << (b == max_blocks_checked ? " or more" : "") << " blocks in the last " << seconds[n] / 60 << " minutes, there might be large hash rate changes, or we might be partitioned, cut off from the Monero network or under attack. Or it could be just sheer bad luck.");
 
         std::shared_ptr<tools::Notify> block_rate_notify = m_block_rate_notify;
         if (block_rate_notify)
