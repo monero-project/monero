@@ -601,21 +601,16 @@ try_again:
   rct::keyV l0 = vector_subtract(aL, z);
   const rct::keyV &l1 = sL;
 
-  // This computes the ugly sum/concatenation from PAPER LINE 65
   rct::keyV zero_twos(MN);
   const rct::keyV zpow = vector_powers(z, M+2);
-  for (size_t i = 0; i < MN; ++i)
+  for (size_t j = 0; j < M; ++j)
   {
-    zero_twos[i] = rct::zero();
-    for (size_t j = 1; j <= M; ++j)
-    {
-      if (i >= (j-1)*N && i < j*N)
+      for (size_t i = 0; i < N; ++i)
       {
-        CHECK_AND_ASSERT_THROW_MES(1+j < zpow.size(), "invalid zpow index");
-        CHECK_AND_ASSERT_THROW_MES(i-(j-1)*N < twoN.size(), "invalid twoN index");
-        sc_muladd(zero_twos[i].bytes, zpow[1+j].bytes, twoN[i-(j-1)*N].bytes, zero_twos[i].bytes);
+          CHECK_AND_ASSERT_THROW_MES(j+2 < zpow.size(), "invalid zpow index");
+          CHECK_AND_ASSERT_THROW_MES(i < twoN.size(), "invalid twoN index");
+          sc_mul(zero_twos[j*N+i].bytes,zpow[j+2].bytes,twoN[i].bytes);
       }
-    }
   }
 
   rct::keyV r0 = vector_add(aR, z);
