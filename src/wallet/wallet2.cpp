@@ -11777,13 +11777,27 @@ void wallet2::set_account_tag_description(const std::string& tag, const std::str
   m_account_tags.first[tag] = description;
 }
 
-std::string wallet2::sign(const std::string &data) const
+std::string wallet2::sign(const std::string &data, cryptonote::subaddress_index index) const
 {
   crypto::hash hash;
   crypto::cn_fast_hash(data.data(), data.size(), hash);
   const cryptonote::account_keys &keys = m_account.get_keys();
   crypto::signature signature;
-  crypto::generate_signature(hash, keys.m_account_address.m_spend_public_key, keys.m_spend_secret_key, signature);
+  crypto::secret_key skey;
+  crypto::public_key pkey;
+  if (index.is_zero())
+  {
+    skey = keys.m_spend_secret_key;
+    pkey = keys.m_account_address.m_spend_public_key;
+  }
+  else
+  {
+    skey = keys.m_spend_secret_key;
+    crypto::secret_key m = m_account.get_device().get_subaddress_secret_key(keys.m_view_secret_key, index);
+    sc_add((unsigned char*)&skey, (unsigned char*)&m, (unsigned char*)&skey);
+    secret_key_to_public_key(skey, pkey);
+  }
+  crypto::generate_signature(hash, pkey, skey, signature);
   return std::string("SigV1") + tools::base58::encode(std::string((const char *)&signature, sizeof(signature)));
 }
 
