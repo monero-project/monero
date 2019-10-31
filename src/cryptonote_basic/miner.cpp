@@ -102,13 +102,13 @@ namespace cryptonote
   }
 
 
-  miner::miner(i_miner_handler* phandler, Blockchain* pbc):m_stop(1),
+  miner::miner(i_miner_handler* phandler, const get_block_hash_t &gbh):m_stop(1),
     m_template{},
     m_template_no(0),
     m_diffic(0),
     m_thread_index(0),
     m_phandler(phandler),
-    m_pbc(pbc),
+    m_gbh(gbh),
     m_height(0),
     m_threads_active(0),
     m_pausers_count(0),
@@ -471,12 +471,12 @@ namespace cryptonote
     return true;
   }
   //-----------------------------------------------------------------------------------------------------
-  bool miner::find_nonce_for_given_block(const Blockchain *pbc, block& bl, const difficulty_type& diffic, uint64_t height)
+  bool miner::find_nonce_for_given_block(const get_block_hash_t &gbh, block& bl, const difficulty_type& diffic, uint64_t height)
   {
     for(; bl.nonce != std::numeric_limits<uint32_t>::max(); bl.nonce++)
     {
       crypto::hash h;
-      get_block_longhash(pbc, bl, h, height, tools::get_max_concurrency());
+      gbh(bl, height, tools::get_max_concurrency(), h);
 
       if(check_hash(h, diffic))
       {
@@ -572,7 +572,7 @@ namespace cryptonote
 
       b.nonce = nonce;
       crypto::hash h;
-      get_block_longhash(m_pbc, b, h, height, tools::get_max_concurrency());
+      m_gbh(b, height, tools::get_max_concurrency(), h);
 
       if(check_hash(h, local_diff))
       {
