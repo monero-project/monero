@@ -6195,7 +6195,8 @@ void simple_wallet::check_for_inactivity_lock(bool user)
     }
     while (1)
     {
-      tools::msg_writer() << tr("Locked due to inactivity. The wallet password is required to unlock the console.");
+      const char *inactivity_msg = user ? "" : tr("Locked due to inactivity.");
+      tools::msg_writer() << inactivity_msg << (inactivity_msg[0] ? " " : "") << tr("The wallet password is required to unlock the console.");
       try
       {
         if (get_and_verify_password())
