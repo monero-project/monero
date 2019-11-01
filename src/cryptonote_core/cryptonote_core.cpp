@@ -83,6 +83,11 @@ namespace cryptonote
   , "Run in a regression testing mode."
   , false
   };
+  const command_line::arg_descriptor<bool> arg_keep_fakechain = {
+    "keep-fakechain"
+  , "Don't delete any existing database when in fakechain mode."
+  , false
+  };
   const command_line::arg_descriptor<difficulty_type> arg_fixed_difficulty  = {
     "fixed-difficulty"
   , "Fixed difficulty used for testing."
@@ -315,6 +320,7 @@ namespace cryptonote
     command_line::add_arg(desc, arg_testnet_on);
     command_line::add_arg(desc, arg_stagenet_on);
     command_line::add_arg(desc, arg_regtest_on);
+    command_line::add_arg(desc, arg_keep_fakechain);
     command_line::add_arg(desc, arg_fixed_difficulty);
     command_line::add_arg(desc, arg_dns_checkpoints);
     command_line::add_arg(desc, arg_prep_blocks_threads);
@@ -468,6 +474,7 @@ namespace cryptonote
     size_t max_txpool_weight = command_line::get_arg(vm, arg_max_txpool_weight);
     bool prune_blockchain = command_line::get_arg(vm, arg_prune_blockchain);
     bool keep_alt_blocks = command_line::get_arg(vm, arg_keep_alt_blocks);
+    bool keep_fakechain = command_line::get_arg(vm, arg_keep_fakechain);
 
     boost::filesystem::path folder(m_config_folder);
     if (m_nettype == FAKECHAIN)
@@ -509,7 +516,7 @@ namespace cryptonote
     bool sync_on_blocks = true;
     uint64_t sync_threshold = 1;
 
-    if (m_nettype == FAKECHAIN)
+    if (m_nettype == FAKECHAIN && !keep_fakechain)
     {
       // reset the db by removing the database file before opening it
       if (!db->remove_data_file(filename))
