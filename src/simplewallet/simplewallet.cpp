@@ -3262,7 +3262,9 @@ simple_wallet::simple_wallet()
                                   "auto-mine-for-rpc-payment-threshold <float>\n "
                                   "  Whether to automatically start mining for RPC payment if the daemon requires it.\n"
                                   "credits-target <unsigned int>\n"
-                                  "  The RPC payment credits balance to target (0 for default)."));
+                                  "  The RPC payment credits balance to target (0 for default).\n "
+                                  "inactivity-lock-timeout <unsigned int>\n "
+                                  "  How many seconds to wait before locking the wallet (0 to disable)."));
   m_cmd_binder.set_handler("encrypted_seed",
                            boost::bind(&simple_wallet::on_command, this, &simple_wallet::encrypted_seed, _1),
                            tr("Display the encrypted Electrum-style mnemonic seed."));
