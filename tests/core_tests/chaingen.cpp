@@ -186,7 +186,9 @@ bool test_generator::construct_block(cryptonote::block& blk, uint64_t height, co
 
   // Nonce search...
   blk.nonce = 0;
-  while (!miner::find_nonce_for_given_block(NULL, blk, get_test_difficulty(hf_ver), height))
+  while (!miner::find_nonce_for_given_block([](const cryptonote::block &b, uint64_t height, unsigned int threads, crypto::hash &hash){
+    return cryptonote::get_block_longhash(NULL, b, hash, height, threads);
+  }, blk, get_test_difficulty(hf_ver), height))
     blk.timestamp++;
 
   add_block(blk, txs_weight, block_weights, already_generated_coins, hf_ver ? hf_ver.get() : 1);
@@ -797,7 +799,9 @@ void fill_tx_sources_and_destinations(const std::vector<test_event_entry>& event
 void fill_nonce(cryptonote::block& blk, const difficulty_type& diffic, uint64_t height)
 {
   blk.nonce = 0;
-  while (!miner::find_nonce_for_given_block(NULL, blk, diffic, height))
+  while (!miner::find_nonce_for_given_block([](const cryptonote::block &b, uint64_t height, unsigned int threads, crypto::hash &hash){
+    return cryptonote::get_block_longhash(NULL, b, hash, height, threads);
+  }, blk, diffic, height))
     blk.timestamp++;
 }
 
