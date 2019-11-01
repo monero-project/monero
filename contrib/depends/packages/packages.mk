@@ -1,5 +1,13 @@
-packages:=boost openssl zeromq cppzmq expat ldns libiconv hidapi protobuf libusb
+ifeq ($(host_os),android)
+packages:=boost openssl zeromq libiconv
+else
+packages:=boost openssl zeromq lexpat dns libiconv hidapi protobuf libusb
+endif
+
 native_packages := native_ccache native_protobuf
+
+android_native_packages = android_ndk
+android_packages = ncurses readline sodium
 
 darwin_native_packages = native_biplist native_ds_store native_mac_alias
 darwin_packages = sodium-darwin ncurses readline 
