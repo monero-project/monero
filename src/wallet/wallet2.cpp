@@ -7020,10 +7020,25 @@ void wallet2::transfer_selected(const std::vector<cryptonote::tx_destination_ent
   std::vector<crypto::secret_key> additional_tx_keys;
   rct::multisig_out msout;
   LOG_PRINT_L2("constructing tx");
+  auto sources_copy = sources;
   bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), m_subaddresses, sources, splitted_dsts, change_dts.addr, extra, tx, unlock_time, tx_key, additional_tx_keys, v1_borromean, false, false, m_multisig ? &msout : NULL);
   LOG_PRINT_L2("constructed tx, r="<<r);
   THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sources, splitted_dsts, unlock_time, m_nettype);
   THROW_WALLET_EXCEPTION_IF(upper_transaction_size_limit <= get_object_blobsize(tx), error::tx_too_big, tx, upper_transaction_size_limit);
+
+  // work out the permutation done on sources
+  std::vector<size_t> ins_order;
+  for (size_t n = 0; n < sources.size(); ++n)
+  {
+    for (size_t idx = 0; idx < sources_copy.size(); ++idx)
+    {
+      THROW_WALLET_EXCEPTION_IF((size_t)sources_copy[idx].real_output >= sources_copy[idx].outputs.size(),
+          error::wallet_internal_error, "Invalid real_output");
+      if (sources_copy[idx].outputs[sources_copy[idx].real_output].second.dest == sources[n].outputs[sources[n].real_output].second.dest)
+        ins_order.push_back(idx);
+    }
+  }
+  THROW_WALLET_EXCEPTION_IF(ins_order.size() != sources.size(), error::wallet_internal_error, "Failed to work out sources permutation");
 
   std::string key_images;
   bool all_are_txin_to_key = std::all_of(tx.vin.begin(), tx.vin.end(), [&](const txin_v& s_e) -> bool
@@ -7047,13 +7062,14 @@ void wallet2::transfer_selected(const std::vector<cryptonote::tx_destination_ent
   ptx.tx = tx;
   ptx.change_dts = change_dts;
   ptx.selected_transfers = selected_transfers;
+  tools::apply_permutation(ins_order, ptx.selected_transfers);
   ptx.tx_key = tx_key;
   ptx.additional_tx_keys = additional_tx_keys;
   ptx.dests = dsts;
   ptx.construction_data.sources = sources;
   ptx.construction_data.change_dts = change_dts;
   ptx.construction_data.splitted_dsts = splitted_dsts;
-  ptx.construction_data.selected_transfers = selected_transfers;
+  ptx.construction_data.selected_transfers = ptx.selected_transfers;
   ptx.construction_data.extra = tx.extra;
   ptx.construction_data.unlock_time = unlock_time;
   ptx.construction_data.use_v1_borromean = !tx.borromean_signature.r.empty();
