@@ -126,7 +126,7 @@ Setup for LXC:
 
 ```bash
 GH_USER=fluffypony
-VERSION=v0.14.1.0
+VERSION=v0.15.0.0
 
 ./gitian-build.py --setup $GH_USER $VERSION
 ```
@@ -167,7 +167,7 @@ If all went well, this produces a number of (uncommitted) `.assert` files in the
 Checking your work
 ------------------
 
-Take a look in the assert files and note the SHA256 checksums listed there. eg for `v0.14.1.0` you should get this checksum:
+Take a look in the assert files and note the SHA256 checksums listed there. eg for `v0.15.0.0` you should get this checksum:
 
 ```
 2b95118f53d98d542a85f8732b84ba13b3cd20517ccb40332b0edd0ddf4f8c62  monero-x86_64-linux-gnu.tar.gz
@@ -183,7 +183,7 @@ If you chose to do detached signing using `--detach-sign` above (recommended), y
 
 ```bash
 GH_USER=fluffypony
-VERSION=v0.14.1.0
+VERSION=v0.15.0.0
 
 gpg --detach-sign ${VERSION}-linux/${GH_USER}/monero-linux-*-build.assert
 gpg --detach-sign ${VERSION}-win/${GH_USER}/monero-win-*-build.assert
