@@ -52,6 +52,7 @@
 #include "cryptonote_core.h"
 #include "ringct/rctSigs.h"
 #include "common/perf_timer.h"
+#include "common/notify.h"
 #if defined(PER_BLOCK_CHECKPOINT)
 #include "blocks/blocks.h"
 #endif
@@ -875,6 +876,15 @@ difficulty_type Blockchain::get_difficulty_for_next_block()
   return diff;
 }
 //------------------------------------------------------------------
+std::vector<time_t> Blockchain::get_last_block_timestamps(unsigned int blocks) const
+{
+  std::vector<time_t> timestamps(blocks);
+  uint64_t height = m_db->height();
+  while (blocks--)
+    timestamps[blocks] = m_db->get_block_timestamp(height - blocks - 1);
+  return timestamps;
+}
+//------------------------------------------------------------------
 // This function removes blocks from the blockchain until it gets to the
 // position where the blockchain switch started and then re-adds the blocks
 // that had been removed.
@@ -985,6 +995,7 @@ bool Blockchain::switch_to_alternative_blockchain(std::list<blocks_ext_by_hash::
   }
 
   // if we're to keep the disconnected blocks, add them as alternates
+  const size_t discarded_blocks = disconnected_chain.size();
   if(!discard_disconnected_chain)
   {
     //pushing old chain as alternative chain
@@ -1008,6 +1019,11 @@ bool Blockchain::switch_to_alternative_blockchain(std::list<blocks_ext_by_hash::
   }
 
   m_hardfork->reorganize_from_chain_height(split_height);
+
+  std::shared_ptr<tools::Notify> reorg_notify = m_reorg_notify;
+  if (reorg_notify)
+    reorg_notify->notify("%s", std::to_string(split_height).c_str(), "%h", std::to_string(m_db->height()).c_str(),
+        "%n", std::to_string(m_db->height() - split_height).c_str(), "%d", std::to_string(discarded_blocks).c_str(), NULL);
 
   MGINFO_GREEN("REORGANIZE SUCCESS! on height: " << split_height << ", new blockchain size: " << m_db->height());
   return true;
@@ -3654,6 +3670,10 @@ leave:
   m_tx_pool.on_blockchain_inc(new_height, id);
   get_difficulty_for_next_block(); // just to cache it
   invalidate_block_template_cache();
+
+  std::shared_ptr<tools::Notify> block_notify = m_block_notify;
+  if (block_notify)
+    block_notify->notify("%s", epee::string_tools::pod_to_hex(id).c_str(), NULL);
 
   return true;
 }
