@@ -1833,7 +1833,9 @@ namespace cryptonote
         return false;
       }
       b.nonce = req.starting_nonce;
-      miner::find_nonce_for_given_block(&(m_core.get_blockchain_storage()), b, template_res.difficulty, template_res.height);
+      miner::find_nonce_for_given_block([this](const cryptonote::block &b, uint64_t height, unsigned int threads, crypto::hash &hash) {
+        return cryptonote::get_block_longhash(&(m_core.get_blockchain_storage()), b, hash, height, threads);
+      }, b, template_res.difficulty, template_res.height);
 
       submit_req.front() = string_tools::buff_to_hex_nodelimer(block_to_blob(b));
       r = on_submitblock(submit_req, submit_res, error_resp, ctx);
