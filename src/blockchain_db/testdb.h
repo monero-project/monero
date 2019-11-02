@@ -126,14 +126,14 @@ public:
 
   virtual void add_txpool_tx(const crypto::hash &txid, const cryptonote::blobdata &blob, const cryptonote::txpool_tx_meta_t& details) override {}
   virtual void update_txpool_tx(const crypto::hash &txid, const cryptonote::txpool_tx_meta_t& details) override {}
-  virtual uint64_t get_txpool_tx_count(bool include_unrelayed_txes = true) const override { return 0; }
-  virtual bool txpool_has_tx(const crypto::hash &txid) const override { return false; }
+  virtual uint64_t get_txpool_tx_count(relay_category tx_relay = relay_category::broadcasted) const override { return 0; }
+  virtual bool txpool_has_tx(const crypto::hash &txid, relay_category tx_category) const override { return  false; }
   virtual void remove_txpool_tx(const crypto::hash& txid) override {}
   virtual bool get_txpool_tx_meta(const crypto::hash& txid, cryptonote::txpool_tx_meta_t &meta) const override { return false; }
-  virtual bool get_txpool_tx_blob(const crypto::hash& txid, cryptonote::blobdata &bd) const override { return false; }
+  virtual bool get_txpool_tx_blob(const crypto::hash& txid, cryptonote::blobdata &bd, relay_category tx_category) const override { return false; }
   virtual uint64_t get_database_size() const override { return 0; }
-  virtual cryptonote::blobdata get_txpool_tx_blob(const crypto::hash& txid) const override { return ""; }
-  virtual bool for_all_txpool_txes(std::function<bool(const crypto::hash&, const cryptonote::txpool_tx_meta_t&, const cryptonote::blobdata*)>, bool include_blob = false, bool include_unrelayed_txes = false) const override { return false; }
+  virtual cryptonote::blobdata get_txpool_tx_blob(const crypto::hash& txid, relay_category tx_category) const override { return ""; }
+  virtual bool for_all_txpool_txes(std::function<bool(const crypto::hash&, const cryptonote::txpool_tx_meta_t&, const cryptonote::blobdata*)>, bool include_blob = false, relay_category category = relay_category::broadcasted) const override { return false; }
 
   virtual void add_block( const cryptonote::block& blk
                         , size_t block_weight

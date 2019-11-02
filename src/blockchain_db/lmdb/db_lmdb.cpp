@@ -1771,7 +1771,7 @@ void BlockchainLMDB::update_txpool_tx(const crypto::hash &txid, const txpool_tx_
   }
 }
 
-uint64_t BlockchainLMDB::get_txpool_tx_count(bool include_unrelayed_txes) const
+uint64_t BlockchainLMDB::get_txpool_tx_count(relay_category category) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -1781,7 +1781,7 @@ uint64_t BlockchainLMDB::get_txpool_tx_count(bool include_unrelayed_txes) const
 
   TXN_PREFIX_RDONLY();
 
-  if (include_unrelayed_txes)
+  if (category == relay_category::all)
   {
     // No filtering, we can get the number of tx the "fast" way
     MDB_stat db_stats;
@@ -1807,7 +1807,7 @@ uint64_t BlockchainLMDB::get_txpool_tx_count(bool include_unrelayed_txes) const
       if (result)
         throw0(DB_ERROR(lmdb_error("Failed to enumerate txpool tx metadata: ", result).c_str()));
       const txpool_tx_meta_t &meta = *(const txpool_tx_meta_t*)v.mv_data;
-      if (!meta.do_not_relay)
+      if (meta.matches(category))
         ++num_entries;
     }
   }
@@ -1816,7 +1816,7 @@ uint64_t BlockchainLMDB::get_txpool_tx_count(bool include_unrelayed_txes) const
   return num_entries;
 }
 
-bool BlockchainLMDB::txpool_has_tx(const crypto::hash& txid) const
+bool BlockchainLMDB::txpool_has_tx(const crypto::hash& txid, relay_category tx_category) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -1825,11 +1825,21 @@ bool BlockchainLMDB::txpool_has_tx(const crypto::hash& txid) const
   RCURSOR(txpool_meta)
 
   MDB_val k = {sizeof(txid), (void *)&txid};
-  auto result = mdb_cursor_get(m_cur_txpool_meta, &k, NULL, MDB_SET);
+  MDB_val v;
+  auto result = mdb_cursor_get(m_cur_txpool_meta, &k, &v, MDB_SET);
   if (result != 0 && result != MDB_NOTFOUND)
     throw1(DB_ERROR(lmdb_error("Error finding txpool tx meta: ", result).c_str()));
+  if (result == MDB_NOTFOUND)
+    return false;
+
+  bool found = true;
+  if (tx_category != relay_category::all)
+  {
+    const txpool_tx_meta_t &meta = *(const txpool_tx_meta_t*)v.mv_data;
+    found = meta.matches(tx_category);
+  }
   TXN_POSTFIX_RDONLY();
-  return result != MDB_NOTFOUND;
+  return found;
 }
 
 void BlockchainLMDB::remove_txpool_tx(const crypto::hash& txid)
@@ -1883,7 +1893,7 @@ bool BlockchainLMDB::get_txpool_tx_meta(const crypto::hash& txid, txpool_tx_meta
   return true;
 }
 
-bool BlockchainLMDB::get_txpool_tx_blob(const crypto::hash& txid, cryptonote::blobdata &bd) const
+bool BlockchainLMDB::get_txpool_tx_blob(const crypto::hash& txid, cryptonote::blobdata &bd, relay_category tx_category) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -1893,6 +1903,21 @@ bool BlockchainLMDB::get_txpool_tx_blob(const crypto::hash& txid, cryptonote::bl
 
   MDB_val k = {sizeof(txid), (void *)&txid};
   MDB_val v;
+
+  // if filtering, make sure those requirements are met before copying blob
+  if (tx_category != relay_category::all)
+  {
+    auto result = mdb_cursor_get(m_cur_txpool_meta, &k, &v, MDB_SET);
+    if (result == MDB_NOTFOUND)
+      return false;
+    if (result != 0)
+      throw1(DB_ERROR(lmdb_error("Error finding txpool tx meta: ", result).c_str()));
+
+    const txpool_tx_meta_t& meta = *(const txpool_tx_meta_t*)v.mv_data;
+    if (!meta.matches(tx_category))
+      return false;
+  }
+
   auto result = mdb_cursor_get(m_cur_txpool_blob, &k, &v, MDB_SET);
   if (result == MDB_NOTFOUND)
     return false;
@@ -1904,10 +1929,10 @@ bool BlockchainLMDB::get_txpool_tx_blob(const crypto::hash& txid, cryptonote::bl
   return true;
 }
 
-cryptonote::blobdata BlockchainLMDB::get_txpool_tx_blob(const crypto::hash& txid) const
+cryptonote::blobdata BlockchainLMDB::get_txpool_tx_blob(const crypto::hash& txid, relay_category tx_category) const
 {
   cryptonote::blobdata bd;
-  if (!get_txpool_tx_blob(txid, bd))
+  if (!get_txpool_tx_blob(txid, bd, tx_category))
     throw1(DB_ERROR("Tx not found in txpool: "));
   return bd;
 }
@@ -2245,7 +2270,7 @@ bool BlockchainLMDB::check_pruning()
   return prune_worker(prune_mode_check, 0);
 }
 
-bool BlockchainLMDB::for_all_txpool_txes(std::function<bool(const crypto::hash&, const txpool_tx_meta_t&, const cryptonote::blobdata*)> f, bool include_blob, bool include_unrelayed_txes) const
+bool BlockchainLMDB::for_all_txpool_txes(std::function<bool(const crypto::hash&, const txpool_tx_meta_t&, const cryptonote::blobdata*)> f, bool include_blob, relay_category category) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -2269,8 +2294,7 @@ bool BlockchainLMDB::for_all_txpool_txes(std::function<bool(const crypto::hash&,
       throw0(DB_ERROR(lmdb_error("Failed to enumerate txpool tx metadata: ", result).c_str()));
     const crypto::hash txid = *(const crypto::hash*)k.mv_data;
     const txpool_tx_meta_t &meta = *(const txpool_tx_meta_t*)v.mv_data;
-    if (!include_unrelayed_txes && meta.do_not_relay)
-      // Skipping that tx
+    if (!meta.matches(category))
       continue;
     const cryptonote::blobdata *passed_bd = NULL;
     cryptonote::blobdata bd;

@@ -44,6 +44,71 @@ using epee::string_tools::pod_to_hex;
 namespace cryptonote
 {
 
+bool matches_category(relay_method method, relay_category category) noexcept
+{
+  switch (category)
+  {
+    default:
+      return false;
+    case relay_category::all:
+      return true;
+    case relay_category::relayable:
+      if (method == relay_method::none)
+        return false;
+      return true;
+    case relay_category::broadcasted:
+    case relay_category::legacy:
+      break;
+  }
+  // check for "broadcasted" or "legacy" methods:
+  switch (method)
+  {
+    default:
+    case relay_method::local:
+      return false;
+    case relay_method::block:
+    case relay_method::flood:
+      return true;
+    case relay_method::none:
+      break;
+  }
+  return category == relay_category::legacy;
+}
+
+void txpool_tx_meta_t::set_relay_method(relay_method method) noexcept
+{
+  kept_by_block = 0;
+  do_not_relay = 0;
+  is_local = 0;
+
+  switch (method)
+  {
+    case relay_method::none:
+      do_not_relay = 1;
+      break;
+    case relay_method::local:
+      is_local = 1;
+      break;
+    default:
+    case relay_method::flood:
+      break;
+    case relay_method::block:
+      kept_by_block = 1;
+      break;
+  }
+}
+
+relay_method txpool_tx_meta_t::get_relay_method() const noexcept
+{
+  if (kept_by_block)
+    return relay_method::block;
+  if (do_not_relay)
+    return relay_method::none;
+  if (is_local)
+    return relay_method::local;
+  return relay_method::flood;
+}
+
 const command_line::arg_descriptor<std::string> arg_db_sync_mode = {
   "db-sync-mode"
 , "Specify sync option, using format [safe|fast|fastest]:[sync|async]:[<nblocks_per_sync>[blocks]|<nbytes_per_sync>[bytes]]." 
@@ -922,6 +987,25 @@ void BlockchainDB::fixup()
     }
   }
   batch_stop();
+}
+
+bool BlockchainDB::txpool_tx_matches_category(const crypto::hash& tx_hash, relay_category category)
+{
+  try
+  {
+    txpool_tx_meta_t meta{};
+    if (!get_txpool_tx_meta(tx_hash, meta))
+    {
+      MERROR("Failed to get tx meta from txpool");
+      return false;
+    }
+    return meta.matches(category);
+  }
+  catch (const std::exception &e)
+  {
+    MERROR("Failed to get tx meta from txpool: " << e.what());
+  }
+  return false;
 }
 
 }  // namespace cryptonote

@@ -281,12 +281,12 @@ public:
 
   virtual void add_txpool_tx(const crypto::hash &txid, const cryptonote::blobdata &blob, const txpool_tx_meta_t& meta);
   virtual void update_txpool_tx(const crypto::hash &txid, const txpool_tx_meta_t& meta);
-  virtual uint64_t get_txpool_tx_count(bool include_unrelayed_txes = true) const;
-  virtual bool txpool_has_tx(const crypto::hash &txid) const;
+  virtual uint64_t get_txpool_tx_count(relay_category category = relay_category::broadcasted) const;
+  virtual bool txpool_has_tx(const crypto::hash &txid, relay_category tx_category) const;
   virtual void remove_txpool_tx(const crypto::hash& txid);
   virtual bool get_txpool_tx_meta(const crypto::hash& txid, txpool_tx_meta_t &meta) const;
-  virtual bool get_txpool_tx_blob(const crypto::hash& txid, cryptonote::blobdata &bd) const;
-  virtual cryptonote::blobdata get_txpool_tx_blob(const crypto::hash& txid) const;
+  virtual bool get_txpool_tx_blob(const crypto::hash& txid, cryptonote::blobdata& bd, relay_category tx_category) const;
+  virtual cryptonote::blobdata get_txpool_tx_blob(const crypto::hash& txid, relay_category tx_category) const;
   virtual uint32_t get_blockchain_pruning_seed() const;
   virtual bool prune_blockchain(uint32_t pruning_seed = 0);
   virtual bool update_pruning();
@@ -298,7 +298,7 @@ public:
   virtual uint64_t get_alt_block_count();
   virtual void drop_alt_blocks();
 
-  virtual bool for_all_txpool_txes(std::function<bool(const crypto::hash&, const txpool_tx_meta_t&, const cryptonote::blobdata*)> f, bool include_blob = false, bool include_unrelayed_txes = true) const;
+  virtual bool for_all_txpool_txes(std::function<bool(const crypto::hash&, const txpool_tx_meta_t&, const cryptonote::blobdata*)> f, bool include_blob = false, relay_category category = relay_category::broadcasted) const;
 
   virtual bool for_all_key_images(std::function<bool(const crypto::key_image&)>) const;
   virtual bool for_blocks_range(const uint64_t& h1, const uint64_t& h2, std::function<bool(uint64_t, const crypto::hash&, const cryptonote::block&)>) const;

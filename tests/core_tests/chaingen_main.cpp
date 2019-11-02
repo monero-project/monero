@@ -32,6 +32,7 @@
 #include "chaingen_tests_list.h"
 #include "common/util.h"
 #include "common/command_line.h"
+#include "tx_pool.h"
 #include "transaction_tests.h"
 
 namespace po = boost::program_options;
@@ -154,6 +155,12 @@ int main(int argc, char* argv[])
     GENERATE_AND_PLAY(gen_tx_output_with_zero_amount);
     GENERATE_AND_PLAY(gen_tx_output_is_not_txout_to_key);
     GENERATE_AND_PLAY(gen_tx_signatures_are_invalid);
+
+    // Mempool
+    GENERATE_AND_PLAY(txpool_spend_key_public);
+    GENERATE_AND_PLAY(txpool_spend_key_all);
+    GENERATE_AND_PLAY(txpool_double_spend_norelay);
+    GENERATE_AND_PLAY(txpool_double_spend_local);
 
     // Double spend
     GENERATE_AND_PLAY(gen_double_spend_in_tx<false>);
