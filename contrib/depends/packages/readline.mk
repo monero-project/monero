@@ -7,7 +7,7 @@ $(package)_dependencies=ncurses
 
 define $(package)_set_vars
   $(package)_build_opts=CC="$($(package)_cc)"
-  $(package)_config_env=AR="$($(package)_ar)" RANLIB="$($(package)_ranlib)" CC="$($(package)_cc)"
+  $(package)_config_env=AR="$($(package)_ar)" RANLIB="$($(package)_ranlib)" CC="$($(package)_cc)" LDFLAGS="-L$(host_prefix)/lib"
   $(package)_config_env_darwin=RANLIB="$(host_prefix)/native/bin/x86_64-apple-darwin11-ranlib" AR="$(host_prefix)/native/bin/x86_64-apple-darwin11-ar" CC="$(host_prefix)/native/bin/$($(package)_cc)"
   $(package)_config_opts+=--prefix=$(host_prefix)
   $(package)_config_opts+=--exec-prefix=$(host_prefix)
