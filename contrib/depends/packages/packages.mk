@@ -1,7 +1,7 @@
 ifeq ($(host_os),android)
 packages:=boost openssl zeromq libiconv
 else
-packages:=boost openssl zeromq lexpat dns libiconv hidapi protobuf libusb
+packages:=boost openssl zeromq expat ldns libiconv hidapi protobuf libusb
 endif
 
 native_packages := native_ccache native_protobuf
