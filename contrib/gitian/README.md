@@ -226,3 +226,19 @@ To get all build options run:
 ./gitian-build.py --help
 ```
 
+Doing Successive Builds
+-----------------------
+
+If you need to do multiple iterations (while developing/testing) you can use the
+`--rebuild` option instead of `--build` on subsequent iterations. This skips the
+initial check for the freshness of the depends tools. In particular, doing this
+check all the time prevents rebuilding when you have no network access.
+
+
+Local-Only Builds
+-----------------
+
+If you need to run builds while disconnected from the internet, make sure you have
+local up-to-date repos in advance. Then specify your local repo using the `--url`
+option when building. This will avoid attempts to git pull across a network.
+

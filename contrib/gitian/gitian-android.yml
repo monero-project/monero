@@ -1,0 +1,135 @@
+---
+name: "monero-android-0.15"
+enable_cache: true
+suites:
+- "bionic"
+architectures:
+- "amd64"
+packages:
+- "curl"
+- "gperf"
+- "gcc-7"
+- "g++-7"
+- "gcc"
+- "g++"
+- "binutils-gold"
+- "git"
+- "pkg-config"
+- "build-essential"
+- "autoconf"
+- "libtool"
+- "automake"
+- "faketime"
+- "bsdmainutils"
+- "ca-certificates"
+- "python"
+- "cmake"
+- "ccache"
+- "protobuf-compiler"
+- "libdbus-1-dev"
+- "libharfbuzz-dev"
+- "libprotobuf-dev"
+- "python3-zmq"
+- "unzip"
+remotes:
+- "url": "https://github.com/monero-project/monero.git"
+  "dir": "monero"
+files: []
+script: |
+
+  WRAP_DIR=$HOME/wrapped
+  HOSTS="arm-linux-android aarch64-linux-android"
+  FAKETIME_HOST_PROGS="clang clang++ ar ranlib nm"
+  FAKETIME_PROGS="date"
+  HOST_CFLAGS="-O2 -g"
+  HOST_CXXFLAGS="-O2 -g"
+  HOST_LDFLAGS=-static-libstdc++
+
+  export GZIP="-9n"
+  export TAR_OPTIONS="--mtime="$REFERENCE_DATE\\\ $REFERENCE_TIME""
+  export TZ="UTC"
+  export BUILD_DIR=`pwd`
+  mkdir -p ${WRAP_DIR}
+  if test -n "$GBUILD_CACHE_ENABLED"; then
+    export SOURCES_PATH=${GBUILD_COMMON_CACHE}
+    export BASE_CACHE=${GBUILD_PACKAGE_CACHE}
+    mkdir -p ${BASE_CACHE} ${SOURCES_PATH}
+  fi
+
+  export ZERO_AR_DATE=1
+
+  function create_global_faketime_wrappers {
+  for prog in ${FAKETIME_PROGS}; do
+    echo '#!/usr/bin/env bash' > ${WRAP_DIR}/${prog}
+    echo "REAL=\`which -a ${prog} | grep -v ${WRAP_DIR}/${prog} | head -1\`" >> ${WRAP_DIR}/${prog}
+    echo 'export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/faketime/libfaketime.so.1' >> ${WRAP_DIR}/${prog}
+    echo "export FAKETIME=\"$1\"" >> ${WRAP_DIR}/${prog}
+    echo "\$REAL \$@" >> $WRAP_DIR/${prog}
+    chmod +x ${WRAP_DIR}/${prog}
+  done
+  }
+
+  function create_per-host_faketime_wrappers {
+  for i in $HOSTS; do
+    ABI=$i
+    if expr $i : arm- > /dev/null
+    then
+      ABI=$i"eabi"
+    fi
+    NDKDIR="${BUILD_DIR}/monero/contrib/depends/$i/native/bin"
+    for prog in ${FAKETIME_HOST_PROGS}; do
+        WRAPPER=${WRAP_DIR}/${ABI}-${prog}
+        echo '#!/usr/bin/env bash' > ${WRAPPER}
+        echo 'export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/faketime/libfaketime.so.1' >> ${WRAPPER}
+        echo "export FAKETIME=\"$1\"" >> ${WRAPPER}
+        echo "$NDKDIR/${ABI}-$prog \$@" >> ${WRAPPER}
+        chmod +x ${WRAPPER}
+    done
+  done
+  }
+
+  # Faketime for depends so intermediate results are comparable
+  DUMMYTIME="2000-01-01 12:00:00"
+  export PATH_orig=${PATH}
+  create_global_faketime_wrappers "$DUMMYTIME"
+  create_per-host_faketime_wrappers "$DUMMYTIME"
+  export PATH=${WRAP_DIR}:${PATH}
+
+  # gcc 7+ honors SOURCE_DATE_EPOCH, no faketime needed
+  export SOURCE_DATE_EPOCH=`date -d "$DUMMYTIME" +%s`
+
+  git config --global core.abbrev 9
+  cd monero
+  # Set the version string that gets added to the tar archive name
+  version="`git describe`"
+  if [[ $version == *"-"*"-"* ]]; then
+    version="`git rev-parse --short=9 HEAD`"
+    version="`echo $version | head -c 9`"
+  fi
+
+  BASEPREFIX=`pwd`/contrib/depends
+  # Build dependencies for each host
+  for i in $HOSTS; do
+    make ${MAKEOPTS} -C ${BASEPREFIX} HOST="${i}"
+  done
+
+  # Faketime for binaries
+  export PATH=${PATH_orig}
+  create_global_faketime_wrappers "${REFERENCE_DATETIME}"
+  create_per-host_faketime_wrappers "${REFERENCE_DATETIME}"
+  export PATH=${WRAP_DIR}:${PATH}
+
+  ORIGPATH="$PATH"
+  # Build in a new dir for each host
+  for i in ${HOSTS}; do
+    export PATH=${BASEPREFIX}/${i}/native/bin:${ORIGPATH}
+    mkdir build && cd build
+    cmake .. -DCMAKE_TOOLCHAIN_FILE=${BASEPREFIX}/${i}/share/toolchain.cmake -DCMAKE_BUILD_TYPE=Release
+    make ${MAKEOPTS}
+    DISTNAME=monero-${i}-${version}
+    mv bin ${DISTNAME}
+    find ${DISTNAME}/ | sort | tar --no-recursion --mode='u+rw,go+r-w,a+X' --owner=0 --group=0 -c -T - | bzip2 -9 > ${OUTDIR}/${DISTNAME}.tar.bz2
+    cd ..
+    rm -rf build
+  done
+
