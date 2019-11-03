@@ -46,19 +46,11 @@ def setup():
         print('Reboot is required')
         sys.exit(0)
 
-def build():
+def rebuild():
     global args, workdir
 
-    os.makedirs('out/' + args.version, exist_ok=True)
     print('\nBuilding Dependencies\n')
-    os.chdir('builder')
-    os.makedirs('inputs', exist_ok=True)
-
-    subprocess.check_call(['wget', '-N', '-P', 'inputs', 'https://downloads.sourceforge.net/project/osslsigncode/osslsigncode/osslsigncode-1.7.1.tar.gz'])
-    subprocess.check_call(['wget', '-N', '-P', 'inputs', 'https://bitcoincore.org/cfields/osslsigncode-Backports-to-1.7.1.patch'])
-    subprocess.check_output(["echo 'a8c4e9cafba922f89de0df1f2152e7be286aba73f78505169bc351a7938dd911 inputs/osslsigncode-Backports-to-1.7.1.patch' | sha256sum -c"], shell=True)
-    subprocess.check_output(["echo 'f9a8cdb38b9c309326764ebc937cba1523a3a751a7ab05df3ecc99d18ae466c9 inputs/osslsigncode-1.7.1.tar.gz' | sha256sum -c"], shell=True)
-    subprocess.check_call(['make', '-C', 'inputs/monero/contrib/depends', 'download', 'SOURCES_PATH=' + os.getcwd() + '/cache/common'])
+    os.makedirs('out/' + args.version, exist_ok=True)
 
     if args.linux:
         print('\nCompiling ' + args.version + ' Linux')
@@ -96,6 +88,23 @@ def build():
         subprocess.check_call(['git', 'commit', '-m', 'Add '+args.version+' unsigned sigs for '+args.signer])
         os.chdir(workdir)
 
+
+def build():
+    global args, workdir
+
+    print('\nChecking Depends Freshness\n')
+    os.chdir('builder')
+    os.makedirs('inputs', exist_ok=True)
+
+    subprocess.check_call(['wget', '-N', '-P', 'inputs', 'https://downloads.sourceforge.net/project/osslsigncode/osslsigncode/osslsigncode-1.7.1.tar.gz'])
+    subprocess.check_call(['wget', '-N', '-P', 'inputs', 'https://bitcoincore.org/cfields/osslsigncode-Backports-to-1.7.1.patch'])
+    subprocess.check_output(["echo 'a8c4e9cafba922f89de0df1f2152e7be286aba73f78505169bc351a7938dd911 inputs/osslsigncode-Backports-to-1.7.1.patch' | sha256sum -c"], shell=True)
+    subprocess.check_output(["echo 'f9a8cdb38b9c309326764ebc937cba1523a3a751a7ab05df3ecc99d18ae466c9 inputs/osslsigncode-1.7.1.tar.gz' | sha256sum -c"], shell=True)
+    subprocess.check_call(['make', '-C', 'inputs/monero/contrib/depends', 'download', 'SOURCES_PATH=' + os.getcwd() + '/cache/common'])
+
+    rebuild()
+
+
 def verify():
     global args, workdir
     os.chdir('builder')
@@ -121,6 +130,8 @@ def main():
     parser.add_argument('-b', '--build', action='store_true', dest='build', help='Do a Gitian build')
     parser.add_argument('-B', '--buildsign', action='store_true', dest='buildsign', help='Build both signed and unsigned binaries')
     parser.add_argument('-o', '--os', dest='os', default='lawm', help='Specify which Operating Systems the build is for. Default is %(default)s. l for Linux, a for Android, w for Windows, m for MacOS')
+    parser.add_argument('-r', '--rebuild', action='store_true', dest='rebuild', help='Redo a Gitian build')
+    parser.add_argument('-R', '--rebuildsign', action='store_true', dest='rebuildsign', help='Redo and sign a Gitian build')
     parser.add_argument('-j', '--jobs', dest='jobs', default='2', help='Number of processes to use. Default %(default)s')
     parser.add_argument('-m', '--memory', dest='memory', default='2000', help='Memory to allocate in MiB. Default %(default)s')
     parser.add_argument('-k', '--kvm', action='store_true', dest='kvm', help='Use KVM instead of LXC')
@@ -146,6 +157,10 @@ def main():
         args.build = True
         args.sign = True
 
+    if args.rebuildsign:
+        args.rebuild = True
+        args.sign = True
+
     if args.kvm and args.docker:
         raise Exception('Error: cannot have both kvm and docker')
 
@@ -162,9 +177,10 @@ def main():
             os.environ['LXC_GUEST_IP'] = '10.0.3.5'
 
     # Disable MacOS build if no SDK found
-    if args.build and args.macos and not os.path.isfile('builder/inputs/MacOSX10.11.sdk.tar.gz'):
-        print('Cannot build for MacOS, SDK does not exist. Will build for other OSes')
+    if args.macos and not os.path.isfile('builder/inputs/MacOSX10.11.sdk.tar.gz'):
         args.macos = False
+        if args.build:
+            print('Cannot build for MacOS, SDK does not exist. Will build for other OSes')
 
     script_name = os.path.basename(sys.argv[0])
     # Signer and version shouldn't be empty
@@ -198,6 +214,10 @@ def main():
 
     if args.build:
         build()
+
+    if args.rebuild:
+        os.chdir('builder')
+        rebuild()
 
     if args.verify:
         verify()
