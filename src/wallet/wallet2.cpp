@@ -2519,11 +2519,13 @@ void wallet2::parse_block_round(const cryptonote::blobdata &blob, cryptonote::bl
   error = !cryptonote::parse_and_validate_block_from_blob(blob, bl, bl_id);
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::pull_blocks(uint64_t start_height, uint64_t &blocks_start_height, const std::list<crypto::hash> &short_chain_history, std::vector<cryptonote::block_complete_entry> &blocks, std::vector<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices> &o_indices)
+void wallet2::pull_blocks(uint64_t start_height, uint64_t &blocks_start_height, const std::list<crypto::hash> &short_chain_history, std::vector<cryptonote::block_complete_entry> &blocks, std::vector<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices> &o_indices, uint64_t &current_height)
 {
   cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::request req = AUTO_VAL_INIT(req);
   cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::response res = AUTO_VAL_INIT(res);
   req.block_ids = short_chain_history;
+
+  MDEBUG("Pulling blocks: start_height " << start_height);
 
   req.prune = true;
   req.start_height = start_height;
@@ -2544,6 +2546,10 @@ void wallet2::pull_blocks(uint64_t start_height, uint64_t &blocks_start_height, 
   blocks_start_height = res.start_height;
   blocks = std::move(res.blocks);
   o_indices = std::move(res.output_indices);
+  current_height = res.current_height;
+
+  MDEBUG("Pulled blocks: blocks_start_height " << blocks_start_height << ", count " << blocks.size()
+      << ", height " << blocks_start_height + blocks.size() << ", node height " << res.current_height);
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::pull_hashes(uint64_t start_height, uint64_t &blocks_start_height, const std::list<crypto::hash> &short_chain_history, std::vector<crypto::hash> &hashes)
@@ -2726,9 +2732,10 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
   refresh(trusted_daemon, start_height, blocks_fetched, received_money);
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::pull_and_parse_next_blocks(uint64_t start_height, uint64_t &blocks_start_height, std::list<crypto::hash> &short_chain_history, const std::vector<cryptonote::block_complete_entry> &prev_blocks, const std::vector<parsed_block> &prev_parsed_blocks, std::vector<cryptonote::block_complete_entry> &blocks, std::vector<parsed_block> &parsed_blocks, bool &error, std::exception_ptr &exception)
+void wallet2::pull_and_parse_next_blocks(uint64_t start_height, uint64_t &blocks_start_height, std::list<crypto::hash> &short_chain_history, const std::vector<cryptonote::block_complete_entry> &prev_blocks, const std::vector<parsed_block> &prev_parsed_blocks, std::vector<cryptonote::block_complete_entry> &blocks, std::vector<parsed_block> &parsed_blocks, bool &last, bool &error, std::exception_ptr &exception)
 {
   error = false;
+  last = false;
   exception = NULL;
 
   try
@@ -2746,7 +2753,8 @@ void wallet2::pull_and_parse_next_blocks(uint64_t start_height, uint64_t &blocks
 
     // pull the new blocks
     std::vector<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices> o_indices;
-    pull_blocks(start_height, blocks_start_height, short_chain_history, blocks, o_indices);
+    uint64_t current_height;
+    pull_blocks(start_height, blocks_start_height, short_chain_history, blocks, o_indices, current_height);
     THROW_WALLET_EXCEPTION_IF(blocks.size() != o_indices.size(), error::wallet_internal_error, "Mismatched sizes of blocks and o_indices");
 
     tools::threadpool& tpool = tools::threadpool::getInstance();
@@ -2784,6 +2792,7 @@ void wallet2::pull_and_parse_next_blocks(uint64_t start_height, uint64_t &blocks
       }
     }
     waiter.wait(&tpool);
+    last = !blocks.empty() && cryptonote::get_block_height(parsed_blocks.back().block) + 1 == current_height;
   }
   catch(...)
   {
@@ -2820,7 +2829,7 @@ void wallet2::remove_obsolete_pool_txs(const std::vector<crypto::hash> &tx_hashe
 }
 
 //----------------------------------------------------------------------------------------------------
-void wallet2::update_pool_state(bool refreshed)
+void wallet2::update_pool_state(std::vector<std::pair<cryptonote::transaction, bool>> &process_txs, bool refreshed)
 {
   MTRACE("update_pool_state start");
 
@@ -2968,11 +2977,6 @@ void wallet2::update_pool_state(bool refreshed)
         LOG_PRINT_L1("We sent that one");
       }
     }
-    else
-    {
-      LOG_PRINT_L1("Already saw that one, it's for us");
-      txids.push_back({txid, true});
-    }
   }
 
   // get those txes
@@ -3015,13 +3019,7 @@ void wallet2::update_pool_state(bool refreshed)
                     [tx_hash](const std::pair<crypto::hash, bool> &e) { return e.first == tx_hash; });
                 if (i != txids.end())
                 {
-                  process_new_transaction(tx_hash, tx, std::vector<uint64_t>(), 0, 0, time(NULL), false, true, tx_entry.double_spend_seen, {});
-                  m_scanned_pool_txs[0].insert(tx_hash);
-                  if (m_scanned_pool_txs[0].size() > 5000)
-                  {
-                    std::swap(m_scanned_pool_txs[0], m_scanned_pool_txs[1]);
-                    m_scanned_pool_txs[0].clear();
-                  }
+                  process_txs.push_back(std::make_pair(tx, tx_entry.double_spend_seen));
                 }
                 else
                 {
@@ -3050,6 +3048,24 @@ void wallet2::update_pool_state(bool refreshed)
     }
   }
   MTRACE("update_pool_state end");
+}
+//----------------------------------------------------------------------------------------------------
+void wallet2::process_pool_state(const std::vector<std::pair<cryptonote::transaction, bool>> &txs)
+{
+  const time_t now = time(NULL);
+  for (const auto &e: txs)
+  {
+    const cryptonote::transaction &tx = e.first;
+    const bool double_spend_seen = e.second;
+    const crypto::hash tx_hash = get_transaction_hash(tx);
+    process_new_transaction(tx_hash, tx, std::vector<uint64_t>(), 0, 0, now, false, true, double_spend_seen, {});
+    m_scanned_pool_txs[0].insert(tx_hash);
+    if (m_scanned_pool_txs[0].size() > 5000)
+    {
+      std::swap(m_scanned_pool_txs[0], m_scanned_pool_txs[1]);
+      m_scanned_pool_txs[0].clear();
+    }
+  }
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::fast_refresh(uint64_t stop_height, uint64_t &blocks_start_height, std::list<crypto::hash> &short_chain_history, bool force)
@@ -3255,7 +3271,15 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
   });
 
   auto scope_exit_handler_hwdev = epee::misc_utils::create_scope_leave_handler([&](){hwdev.computing_key_images(false);});
-  bool first = true;
+
+  // get updated pool state first, but do not process those txes just yet,
+  // since that might cause a password prompt, which would introduce a data
+  // leak allowing a passive adversary with traffic analysis capability to
+  // infer when we get an incoming output
+  std::vector<std::pair<cryptonote::transaction, bool>> process_pool_txs;
+  update_pool_state(process_pool_txs, refreshed);
+
+  bool first = true, last = false;
   while(m_run.load(std::memory_order_relaxed))
   {
     uint64_t next_blocks_start_height;
@@ -3277,7 +3301,8 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
         refreshed = true;
         break;
       }
-      tpool.submit(&waiter, [&]{pull_and_parse_next_blocks(start_height, next_blocks_start_height, short_chain_history, blocks, parsed_blocks, next_blocks, next_parsed_blocks, error, exception);});
+      if (!last)
+        tpool.submit(&waiter, [&]{pull_and_parse_next_blocks(start_height, next_blocks_start_height, short_chain_history, blocks, parsed_blocks, next_blocks, next_parsed_blocks, last, error, exception);});
 
       if (!first)
       {
@@ -3384,8 +3409,8 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
   try
   {
     // If stop() is called we don't need to check pending transactions
-    if (check_pool && m_run.load(std::memory_order_relaxed))
-      update_pool_state(refreshed);
+    if (check_pool && m_run.load(std::memory_order_relaxed) && !process_pool_txs.empty())
+      process_pool_state(process_pool_txs);
   }
   catch (...)
   {
@@ -13187,7 +13212,7 @@ uint64_t wallet2::get_blockchain_height_by_date(uint16_t year, uint8_t month, ui
 bool wallet2::is_synced()
 {
   uint64_t height;
-  boost::optional<std::string> result = m_node_rpc_proxy.get_target_height(height);
+  boost::optional<std::string> result = m_node_rpc_proxy.get_height(height);
   if (result && *result != CORE_RPC_STATUS_OK)
     return false;
   return get_blockchain_current_height() >= height;
