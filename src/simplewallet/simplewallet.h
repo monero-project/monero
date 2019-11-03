@@ -448,10 +448,12 @@ namespace cryptonote
     std::atomic<bool> m_locked;
     std::atomic<bool> m_in_command;
 
+    template<uint64_t mini, uint64_t maxi> struct get_random_interval { public: uint64_t operator()() const { return crypto::rand_range(mini, maxi); } };
+
     epee::math_helper::once_a_time_seconds<1> m_inactivity_checker;
-    epee::math_helper::once_a_time_seconds<90> m_refresh_checker;
-    epee::math_helper::once_a_time_seconds<90> m_mms_checker;
-    epee::math_helper::once_a_time_seconds<90> m_rpc_payment_checker;
+    epee::math_helper::once_a_time_seconds_range<get_random_interval<80 * 1000000, 100 * 1000000>> m_refresh_checker;
+    epee::math_helper::once_a_time_seconds_range<get_random_interval<90 * 1000000, 110 * 1000000>> m_mms_checker;
+    epee::math_helper::once_a_time_seconds_range<get_random_interval<90 * 1000000, 115 * 1000000>> m_rpc_payment_checker;
     
     std::atomic<bool> m_need_payment;
     boost::posix_time::ptime m_last_rpc_payment_mining_time;

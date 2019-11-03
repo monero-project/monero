@@ -97,6 +97,7 @@ private:
   crypto::hash m_rpc_payment_seed_hash;
   crypto::hash m_rpc_payment_next_seed_hash;
   uint32_t m_rpc_payment_cookie;
+  time_t m_height_time;
 };
 
 }
