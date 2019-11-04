@@ -97,7 +97,7 @@ public:
 
   bool print_block_by_height(uint64_t height, bool include_hex);
 
-  bool print_transaction(crypto::hash transaction_hash, bool include_hex, bool include_json);
+  bool print_transaction(crypto::hash transaction_hash, bool include_metadata, bool include_hex, bool include_json);
 
   bool is_key_image_spent(const crypto::key_image &ki);
 
