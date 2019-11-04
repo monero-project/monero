@@ -264,12 +264,12 @@ skip:
       {
         throw std::runtime_error("Aborting: tx == null_hash");
       }
-      if (!db->get_tx_blob(tx_id, bd))
+      if (!db->get_pruned_tx_blob(tx_id, bd))
       {
         throw std::runtime_error("Aborting: tx not found");
       }
       transaction tx;
-      if (!parse_and_validate_tx_from_blob(bd, tx))
+      if (!parse_and_validate_tx_base_from_blob(bd, tx))
       {
         LOG_PRINT_L0("Bad txn from db");
         return 1;
