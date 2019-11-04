@@ -50,7 +50,7 @@ def rebuild():
     global args, workdir
 
     print('\nBuilding Dependencies\n')
-    os.makedirs('out/' + args.version, exist_ok=True)
+    os.makedirs('../out/' + args.version, exist_ok=True)
 
     if args.linux:
         print('\nCompiling ' + args.version + ' Linux')
