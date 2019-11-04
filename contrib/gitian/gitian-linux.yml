@@ -162,9 +162,12 @@ script: |
     mkdir build && cd build
     cmake .. -DCMAKE_TOOLCHAIN_FILE=${BASEPREFIX}/${i}/share/toolchain.cmake -DBACKCOMPAT=ON
     make ${MAKEOPTS}
+    chmod 755 bin/*
+    cp ../LICENSE bin
+    chmod 644 bin/LICENSE
     DISTNAME=monero-${i}-${version}
     mv bin ${DISTNAME}
-    find ${DISTNAME}/ | sort | tar --no-recursion --mode='u+rw,go+r-w,a+X' --owner=0 --group=0 -c -T - | bzip2 -9 > ${OUTDIR}/${DISTNAME}.tar.bz2
+    find ${DISTNAME}/ | sort | tar --no-recursion --owner=0 --group=0 -c -T - | bzip2 -9 > ${OUTDIR}/${DISTNAME}.tar.bz2
     cd ..
     rm -rf build
   done
