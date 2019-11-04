@@ -15,8 +15,8 @@ namespace lmdb
     {
         char const* const name;
         const unsigned flags;
-        MDB_cmp_func const* const key_cmp;
-        MDB_cmp_func const* const value_cmp;
+        MDB_cmp_func* const key_cmp;
+        MDB_cmp_func* const value_cmp;
 
         //! \pre `name != nullptr` \return Open table.
         expect<MDB_dbi> open(MDB_txn& write_txn) const noexcept;
