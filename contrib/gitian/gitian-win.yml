@@ -134,6 +134,7 @@ script: |
     mkdir build && cd build
     cmake .. -DCMAKE_TOOLCHAIN_FILE=${BASEPREFIX}/${i}/share/toolchain.cmake
     make ${MAKEOPTS}
+    cp ../LICENSE bin
     DISTNAME=monero-${i}-${version}
     mv bin ${DISTNAME}
     find ${DISTNAME}/ | sort | zip -X@ ${OUTDIR}/${DISTNAME}.zip
