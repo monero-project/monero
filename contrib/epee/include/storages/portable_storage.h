@@ -28,6 +28,8 @@
 
 #pragma once 
 
+#include <type_traits>
+
 #include "misc_language.h"
 #include "portable_storage_base.h"
 #include "portable_storage_to_bin.h"
@@ -59,7 +61,7 @@ namespace epee
       bool       get_value(const std::string& value_name, t_value& val, hsection hparent_section);
       bool       get_value(const std::string& value_name, storage_entry& val, hsection hparent_section);
       template<class t_value>
-      bool       set_value(const std::string& value_name, const t_value& target, hsection hparent_section);
+      bool       set_value(const std::string& value_name, t_value&& target, hsection hparent_section);
 
       //serial access for arrays of values --------------------------------------
       //values
@@ -68,9 +70,9 @@ namespace epee
       template<class t_value>
       bool          get_next_value(harray hval_array, t_value& target);
       template<class t_value>
-      harray insert_first_value(const std::string& value_name, const t_value& target, hsection hparent_section);
+      harray insert_first_value(const std::string& value_name, t_value&& target, hsection hparent_section);
       template<class t_value>
-      bool          insert_next_value(harray hval_array, const t_value& target);
+      bool          insert_next_value(harray hval_array, t_value&& target);
       //sections
       harray get_first_section(const std::string& pSectionName, hsection& h_child_section, hsection hparent_section);
       bool            get_next_section(harray hSecArray, hsection& h_child_section);
@@ -94,7 +96,7 @@ namespace epee
       hsection	get_root_section() {return &m_root;}
       storage_entry* find_storage_entry(const std::string& pentry_name, hsection psection);
       template<class entry_type>
-      storage_entry* insert_new_entry_get_storage_entry(const std::string& pentry_name, hsection psection, const entry_type& entry);
+      storage_entry* insert_new_entry_get_storage_entry(const std::string& pentry_name, hsection psection, entry_type&& entry);
 
       hsection    insert_new_section(const std::string& pentry_name, hsection psection);
 
@@ -241,21 +243,22 @@ namespace epee
     }
     //---------------------------------------------------------------------------------------------------------------
     template<class t_value>
-    bool portable_storage::set_value(const std::string& value_name, const t_value& v, hsection hparent_section)        
+    bool portable_storage::set_value(const std::string& value_name, t_value&& v, hsection hparent_section)
     {
-      BOOST_MPL_ASSERT(( boost::mpl::contains<boost::mpl::push_front<storage_entry::types, storage_entry>::type, t_value> )); 
+      using t_real_value = typename std::decay<t_value>::type;
+      BOOST_MPL_ASSERT(( boost::mpl::contains<boost::mpl::push_front<storage_entry::types, storage_entry>::type, t_real_value> ));
       TRY_ENTRY();
       if(!hparent_section)
         hparent_section = &m_root;
       storage_entry* pentry = find_storage_entry(value_name, hparent_section);
       if(!pentry)
       {
-        pentry = insert_new_entry_get_storage_entry(value_name, hparent_section, v);
+        pentry = insert_new_entry_get_storage_entry(value_name, hparent_section, std::forward<t_value>(v));
         if(!pentry)
           return false;
         return true;
       }
-      *pentry = storage_entry(v);
+      *pentry = std::forward<t_value>(v);
       return true;
       CATCH_ENTRY("portable_storage::template<>set_value", false);
     }
@@ -274,11 +277,12 @@ namespace epee
     }
     //---------------------------------------------------------------------------------------------------------------
     template<class entry_type>
-    storage_entry* portable_storage::insert_new_entry_get_storage_entry(const std::string& pentry_name, hsection psection, const entry_type& entry)
+    storage_entry* portable_storage::insert_new_entry_get_storage_entry(const std::string& pentry_name, hsection psection, entry_type&& entry)
     {
+      static_assert(std::is_rvalue_reference<entry_type&&>(), "unexpected copy of value");
       TRY_ENTRY();
       CHECK_AND_ASSERT(psection, nullptr);
-      auto ins_res = psection->m_entries.insert(std::pair<std::string, storage_entry>(pentry_name, entry));
+      auto ins_res = psection->m_entries.emplace(pentry_name, std::forward<entry_type>(entry));
       return &ins_res.first->second;
       CATCH_ENTRY("portable_storage::insert_new_entry_get_storage_entry", nullptr);
     }
@@ -362,41 +366,45 @@ namespace epee
     } 
     //---------------------------------------------------------------------------------------------------------------
     template<class t_value>
-    harray portable_storage::insert_first_value(const std::string& value_name, const t_value& target, hsection hparent_section)
+    harray portable_storage::insert_first_value(const std::string& value_name, t_value&& target, hsection hparent_section)
     {
+      using t_real_value = typename std::decay<t_value>::type;
+      static_assert(std::is_rvalue_reference<t_value&&>(), "unexpected copy of value");
       TRY_ENTRY();
       if(!hparent_section) hparent_section = &m_root;
       storage_entry* pentry = find_storage_entry(value_name, hparent_section);
       if(!pentry)
       {
-        pentry = insert_new_entry_get_storage_entry(value_name, hparent_section, array_entry(array_entry_t<t_value>()));
+        pentry = insert_new_entry_get_storage_entry(value_name, hparent_section, array_entry(array_entry_t<t_real_value>()));
         if(!pentry)
           return nullptr;
       }
       if(pentry->type() != typeid(array_entry))
-        *pentry = storage_entry(array_entry(array_entry_t<t_value>()));
+        *pentry = storage_entry(array_entry(array_entry_t<t_real_value>()));
 
       array_entry& arr = boost::get<array_entry>(*pentry);
-      if(arr.type() != typeid(array_entry_t<t_value>))
-        arr = array_entry(array_entry_t<t_value>());
+      if(arr.type() != typeid(array_entry_t<t_real_value>))
+        arr = array_entry(array_entry_t<t_real_value>());
 
-      array_entry_t<t_value>& arr_typed = boost::get<array_entry_t<t_value> >(arr);
-      arr_typed.insert_first_val(target);
+      array_entry_t<t_real_value>& arr_typed = boost::get<array_entry_t<t_real_value> >(arr);
+      arr_typed.insert_first_val(std::forward<t_value>(target));
       return &arr;
       CATCH_ENTRY("portable_storage::insert_first_value", nullptr);
     }
     //---------------------------------------------------------------------------------------------------------------
     template<class t_value>
-    bool portable_storage::insert_next_value(harray hval_array, const t_value& target)
+    bool portable_storage::insert_next_value(harray hval_array, t_value&& target)
     {
+      using t_real_value = typename std::decay<t_value>::type;
+      static_assert(std::is_rvalue_reference<t_value&&>(), "unexpected copy of value");
       TRY_ENTRY();
       CHECK_AND_ASSERT(hval_array, false);
 
-      CHECK_AND_ASSERT_MES(hval_array->type() == typeid(array_entry_t<t_value>), 
-        false, "unexpected type in insert_next_value: " << typeid(array_entry_t<t_value>).name());
+      CHECK_AND_ASSERT_MES(hval_array->type() == typeid(array_entry_t<t_real_value>),
+        false, "unexpected type in insert_next_value: " << typeid(array_entry_t<t_real_value>).name());
 
-      array_entry_t<t_value>& arr_typed = boost::get<array_entry_t<t_value> >(*hval_array);
-      arr_typed.insert_next_value(target);
+      array_entry_t<t_real_value>& arr_typed = boost::get<array_entry_t<t_real_value> >(*hval_array);
+      arr_typed.insert_next_value(std::forward<t_value>(target));
       return true;
       CATCH_ENTRY("portable_storage::insert_next_value", false);
     }

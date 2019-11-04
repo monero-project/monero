@@ -157,7 +157,6 @@ namespace misc_utils
         while (fi != buf_end && ((lut[(uint8_t)*fi] & 32)) == 0)
           ++fi;
         val.assign(it, fi);
-        val.reserve(std::distance(star_end_string, buf_end));
         it = fi;
         for(;it != buf_end;it++)
         {
