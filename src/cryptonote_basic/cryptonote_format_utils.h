@@ -33,6 +33,8 @@
 #include "cryptonote_basic_impl.h"
 #include "tx_extra.h"
 #include "account.h"
+#include "blobdatatype.h"
+#include "crypto/pow_hash/cn_slow_hash.hpp"
 #include "subaddress_index.h"
 #include "include_base_utils.h"
 #include "crypto/crypto.h"
@@ -131,8 +133,7 @@ namespace cryptonote
   bool calculate_block_hash(const block& b, crypto::hash& res);
   bool get_block_hash(const block& b, crypto::hash& res);
   crypto::hash get_block_hash(const block& b);
-  bool get_block_longhash(const block& b, crypto::hash& res, uint64_t height);
-  crypto::hash get_block_longhash(const block& b, uint64_t height);
+  bool get_block_longhash(const block& b, crypto::hash& res, cn_gpu_hash &ctx);
   bool parse_and_validate_block_from_blob(const blobdata& b_blob, block& b);
   bool get_inputs_money_amount(const transaction& tx, uint64_t& money);
   uint64_t get_outs_money_amount(const transaction& tx);

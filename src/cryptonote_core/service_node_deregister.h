@@ -53,7 +53,7 @@ namespace triton
 {
 	namespace service_node_deregister
 	{
-		const uint64_t VOTE_LIFETIME_BY_HEIGHT = (60 * 60 * 2) / DIFFICULTY_TARGET_V2;
+		const uint64_t VOTE_LIFETIME_BY_HEIGHT = (60 * 60 * 24) / DIFFICULTY_TARGET_V2;
 		const uint64_t DEREGISTER_LIFETIME_BY_HEIGHT = VOTE_LIFETIME_BY_HEIGHT;
 
 		struct vote

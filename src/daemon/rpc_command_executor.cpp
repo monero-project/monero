@@ -2500,7 +2500,7 @@ bool t_rpc_command_executor::prepare_sn()
 
     std::cout << "Minimum amount that can be reserved: " << cryptonote::print_money(min_contribution) << " " << cryptonote::get_unit() << std::endl;
 
-    std::cout << "How much triton does the operator want to reserve in the stake? ";
+    std::cout << "How much equilibria does the operator want to reserve in the stake? ";
     std::string contribution_string;
     std::cin >> contribution_string;
     uint64_t operator_cut;
@@ -2555,7 +2555,7 @@ bool t_rpc_command_executor::prepare_sn()
       const uint64_t amount_left = get_amount_to_make_portions(staking_requirement, portions_remaining);
       std::cout << "The minimum amount possible to contribute is " << cryptonote::print_money(min_contribution) << " " << cryptonote::get_unit() << std::endl;
       std::cout << "There is " << cryptonote::print_money(amount_left) << " " << cryptonote::get_unit() << " left to meet the staking requirement." << std::endl;
-      std::cout << "How much triton does " << contributor_name << " want to reserve in the stake? ";
+      std::cout << "How much equilibria does " << contributor_name << " want to reserve in the stake? ";
       uint64_t contribution_amount;
       std::string contribution_string;
       std::cin >> contribution_string;
@@ -2577,7 +2577,7 @@ bool t_rpc_command_executor::prepare_sn()
       total_reserved_contributions += get_actual_amount(staking_requirement, portions);
     }
 
-    std::cout << "Enter the triton address for " << contributor_name << ": ";
+    std::cout << "Enter the equilibria address for " << contributor_name << ": ";
     std::string address_string;
     // the addresses will be validated later down the line
     if(!(std::cin >> address_string))

@@ -94,5 +94,5 @@ target_link_libraries(daemon
     ${Blocks})
 set_property(TARGET daemon
   PROPERTY
-    OUTPUT_NAME "tritond")
+    OUTPUT_NAME "daemon")
 install(TARGETS daemon DESTINATION bin)

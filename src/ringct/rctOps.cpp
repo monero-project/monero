@@ -437,44 +437,16 @@ namespace rct {
        sc_reduce32(rv.bytes);
        return rv;
    }
-
-    key hashToPointSimple(const key & hh) {
-        key pointk;
-        ge_p1p1 point2;
-        ge_p2 point;
-        ge_p3 res;
-        key h = cn_fast_hash(hh); 
-        CHECK_AND_ASSERT_THROW_MES_L1(ge_frombytes_vartime(&res, h.bytes) == 0, "ge_frombytes_vartime failed at "+boost::lexical_cast<std::string>(__LINE__));
-        ge_p3_to_p2(&point, &res);
-        ge_mul8(&point2, &point);
-        ge_p1p1_to_p3(&res, &point2);
-        ge_p3_tobytes(pointk.bytes, &res);
-        return pointk;
-    }    
     
-    key hashToPoint(const key & hh) {
-        key pointk;
-        ge_p2 point;
-        ge_p1p1 point2;
-        ge_p3 res;
-        key h = cn_fast_hash(hh); 
-        ge_fromfe_frombytes_vartime(&point, h.bytes);
-        ge_mul8(&point2, &point);
-        ge_p1p1_to_p3(&res, &point2);        
-        ge_p3_tobytes(pointk.bytes, &res);
-        return pointk;
+    // Hash a key to p3 representation
+    void hash_to_p3(ge_p3 &hash8_p3, const key &k) {
+      key hash_key = cn_fast_hash(k);
+      ge_p2 hash_p2;
+      ge_fromfe_frombytes_vartime(&hash_p2, hash_key.bytes);
+      ge_p1p1 hash8_p1p1;
+      ge_mul8(&hash8_p1p1, &hash_p2);
+      ge_p1p1_to_p3(&hash8_p3, &hash8_p1p1);
     }
-
-    void hashToPoint(key & pointk, const key & hh) {
-        ge_p2 point;
-        ge_p1p1 point2;
-        ge_p3 res;
-        key h = cn_fast_hash(hh); 
-        ge_fromfe_frombytes_vartime(&point, h.bytes);
-        ge_mul8(&point2, &point);
-        ge_p1p1_to_p3(&res, &point2);        
-        ge_p3_tobytes(pointk.bytes, &res);
-    }    
 
     //sums a vector of curve points (for scalars use sc_add)
     void sumKeys(key & Csum, const keyV &  Cis) {
@@ -487,18 +459,58 @@ namespace rct {
 
     //Elliptic Curve Diffie Helman: encodes and decodes the amount b and mask a
     // where C= aG + bH
-    void ecdhEncode(ecdhTuple & unmasked, const key & sharedSec) {
-        key sharedSec1 = hash_to_scalar(sharedSec);
-        key sharedSec2 = hash_to_scalar(sharedSec1);
-        //encode
-        sc_add(unmasked.mask.bytes, unmasked.mask.bytes, sharedSec1.bytes);
-        sc_add(unmasked.amount.bytes, unmasked.amount.bytes, sharedSec2.bytes);
+    static key ecdhHash(const key &k)
+    {
+        char data[38];
+        rct::key hash;
+        memcpy(data, "amount", 6);
+        memcpy(data + 6, &k, sizeof(k));
+        cn_fast_hash(hash, data, sizeof(data));
+        return hash;
     }
-    void ecdhDecode(ecdhTuple & masked, const key & sharedSec) {
-        key sharedSec1 = hash_to_scalar(sharedSec);
-        key sharedSec2 = hash_to_scalar(sharedSec1);
+    static void xor8(key &v, const key &k)
+    {
+        for (int i = 0; i < 8; ++i)
+            v.bytes[i] ^= k.bytes[i];
+    }
+    key genCommitmentMask(const key &sk)
+    {
+        char data[15 + sizeof(key)];
+        memcpy(data, "commitment_mask", 15);
+        memcpy(data + 15, &sk, sizeof(sk));
+        key scalar;
+        hash_to_scalar(scalar, data, sizeof(data));
+        return scalar;
+    }
+
+    void ecdhEncode(ecdhTuple & unmasked, const key & sharedSec, bool v2) {
+        //encode
+        if (v2)
+        {
+          unmasked.mask = zero();
+          xor8(unmasked.amount, ecdhHash(sharedSec));
+        }
+        else
+        {
+          key sharedSec1 = hash_to_scalar(sharedSec);
+          key sharedSec2 = hash_to_scalar(sharedSec1);
+          sc_add(unmasked.mask.bytes, unmasked.mask.bytes, sharedSec1.bytes);
+          sc_add(unmasked.amount.bytes, unmasked.amount.bytes, sharedSec2.bytes);
+        }
+    }
+    void ecdhDecode(ecdhTuple & masked, const key & sharedSec, bool v2) {
         //decode
-        sc_sub(masked.mask.bytes, masked.mask.bytes, sharedSec1.bytes);
-        sc_sub(masked.amount.bytes, masked.amount.bytes, sharedSec2.bytes);
+        if (v2)
+        {
+          masked.mask = genCommitmentMask(sharedSec);
+          xor8(masked.amount, ecdhHash(sharedSec));
+        }
+        else
+        {
+          key sharedSec1 = hash_to_scalar(sharedSec);
+          key sharedSec2 = hash_to_scalar(sharedSec1);
+          sc_sub(masked.mask.bytes, masked.mask.bytes, sharedSec1.bytes);
+          sc_sub(masked.amount.bytes, masked.amount.bytes, sharedSec2.bytes);
+        }
     }
 }

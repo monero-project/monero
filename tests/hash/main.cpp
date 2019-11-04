@@ -39,6 +39,10 @@
 #include "crypto/hash.h"
 #include "crypto/variant2_int_sqrt.h"
 #include "../io.h"
+#include "crypto/pow_hash/cn_slow_hash.hpp"
+#include "crypto/hash.h"
+#include "crypto/pow_hash/aux_hash.h"
+#include "warnings.h"
 
 using namespace std;
 using namespace crypto;

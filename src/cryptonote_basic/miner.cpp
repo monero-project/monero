@@ -76,9 +76,6 @@ using namespace epee;
 
 #include "miner.h"
 
-
-extern "C" void slow_hash_allocate_state();
-extern "C" void slow_hash_free_state();
 namespace cryptonote
 {
 
@@ -385,10 +382,11 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------------
   bool miner::find_nonce_for_given_block(block& bl, const difficulty_type& diffic, uint64_t height)
   {
+    cn_gpu_hash hash_ctx;
     for(; bl.nonce != std::numeric_limits<uint32_t>::max(); bl.nonce++)
     {
       crypto::hash h;
-      get_block_longhash(bl, h, height);
+      get_block_longhash(bl, h, hash_ctx);
 
       if(check_hash(h, diffic))
       {
@@ -444,7 +442,9 @@ namespace cryptonote
     difficulty_type local_diff = 0;
     uint32_t local_template_ver = 0;
     block b;
-    slow_hash_allocate_state();
+    cn_gpu_hash hash_ctx;
+
+
     while(!m_stop)
     {
       if(m_pausers_count)//anti split workaround
@@ -486,7 +486,7 @@ namespace cryptonote
 
       b.nonce = nonce;
       crypto::hash h;
-      get_block_longhash(b, h, height);
+      get_block_longhash(b, h, hash_ctx);
 
       if(check_hash(h, local_diff))
       {
@@ -506,7 +506,6 @@ namespace cryptonote
       nonce+=m_threads_total;
       ++m_hashes;
     }
-    slow_hash_free_state();
     MGINFO("Miner thread stopped ["<< th_local_index << "]");
     return true;
   }

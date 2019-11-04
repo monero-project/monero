@@ -26,6 +26,7 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+
 set(blockchain_import_sources
   blockchain_import.cpp
   bootstrap_file.cpp
@@ -102,7 +103,6 @@ monero_private_headers(blockchain_depth
 	  ${blockchain_depth_private_headers})
 
 
-
 monero_add_executable(blockchain_import
   ${blockchain_import_sources}
   ${blockchain_import_private_headers})
@@ -127,7 +127,7 @@ endif()
 
 set_property(TARGET blockchain_import
 	PROPERTY
-	OUTPUT_NAME "triton-blockchain-import")
+	OUTPUT_NAME "misc/equilibria-blockchain-import")
 install(TARGETS blockchain_import DESTINATION bin)
 
 monero_add_executable(blockchain_export
@@ -148,7 +148,7 @@ target_link_libraries(blockchain_export
 
 set_property(TARGET blockchain_export
 	PROPERTY
-	OUTPUT_NAME "triton-blockchain-export")
+	OUTPUT_NAME "misc/equilibria-blockchain-export")
 install(TARGETS blockchain_export DESTINATION bin)
 
 monero_add_executable(blockchain_blackball
@@ -170,7 +170,7 @@ target_link_libraries(blockchain_blackball
 
 set_property(TARGET blockchain_blackball
 	PROPERTY
-	OUTPUT_NAME "triton-blockchain-mark-spent-outputs")
+	OUTPUT_NAME "misc/equilibria-blockchain-mark-spent-outputs")
 install(TARGETS blockchain_blackball DESTINATION bin)
 
 
@@ -192,7 +192,7 @@ target_link_libraries(blockchain_usage
 
 set_property(TARGET blockchain_usage
 	PROPERTY
-	OUTPUT_NAME "triton-blockchain-usage")
+	OUTPUT_NAME "misc/equilibria-blockchain-usage")
 install(TARGETS blockchain_usage DESTINATION bin)
 
 monero_add_executable(blockchain_ancestry
@@ -213,7 +213,7 @@ target_link_libraries(blockchain_ancestry
 
 set_property(TARGET blockchain_ancestry
 	PROPERTY
-	OUTPUT_NAME "triton-blockchain-ancestry")
+	OUTPUT_NAME "misc/equilibria-blockchain-ancestry")
 install(TARGETS blockchain_ancestry DESTINATION bin)
 
 monero_add_executable(blockchain_depth
@@ -234,5 +234,5 @@ target_link_libraries(blockchain_depth
 
 set_property(TARGET blockchain_depth
 	PROPERTY
-	OUTPUT_NAME "triton-blockchain-depth")
+	OUTPUT_NAME "misc/equilibria-blockchain-depth")
 install(TARGETS blockchain_depth DESTINATION bin)

@@ -162,14 +162,6 @@ namespace service_nodes
 		if (!m_core.is_service_node(pubkey))
 			return false;
 
-		if (!(proof.snode_version_major == 4 &&
-			proof.snode_version_minor == 0 &&
-			proof.snode_version_patch == 5))
-		{
-			return false;
-		}
-
-
 		CRITICAL_REGION_LOCAL(m_lock);
 		if (m_uptime_proof_seen[pubkey] >= now - (UPTIME_PROOF_FREQUENCY_IN_SECONDS / 2))
 			return false; // already received one uptime proof for this node recently.

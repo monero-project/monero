@@ -68,6 +68,7 @@ namespace cryptonote
     struct account_public_address;
     struct account_keys;
     struct subaddress_index;
+    struct tx_destination_entry;
 }
 
 namespace hw {
@@ -85,7 +86,7 @@ namespace hw {
 
     public:
 
-        device()  {}
+        device(): mode(NONE)  {}
         device(const device &hwdev) {}
         virtual ~device()   {}
 
@@ -115,7 +116,8 @@ namespace hw {
         virtual bool connect(void) = 0;
         virtual bool disconnect(void) = 0;
 
-        virtual bool set_mode(device_mode mode) = 0;
+        virtual bool set_mode(device_mode mode) { this->mode = mode; return true; }
+        virtual device_mode get_mode() const { return mode; }
 
         virtual device_type get_type() const = 0;
 
@@ -188,12 +190,17 @@ namespace hw {
             return encrypt_payment_id(payment_id, public_key, secret_key);
         }
 
-        virtual bool  ecdhEncode(rct::ecdhTuple & unmasked, const rct::key & sharedSec) = 0;
-        virtual bool  ecdhDecode(rct::ecdhTuple & masked, const rct::key & sharedSec) = 0;
+        virtual rct::key genCommitmentMask(const rct::key &amount_key) = 0;
 
-        virtual bool  add_output_key_mapping(const crypto::public_key &Aout, const crypto::public_key &Bout, const bool is_subaddress, const size_t real_output_index,
-                                             const rct::key &amount_key,  const crypto::public_key &out_eph_public_key) = 0;
+        virtual bool  ecdhEncode(rct::ecdhTuple & unmasked, const rct::key & sharedSec, bool short_amount) = 0;
+        virtual bool  ecdhDecode(rct::ecdhTuple & masked, const rct::key & sharedSec, bool short_amount) = 0;
 
+        virtual bool  generate_output_ephemeral_keys(const size_t tx_version, const cryptonote::account_keys &sender_account_keys, const crypto::public_key &txkey_pub,  const crypto::secret_key &tx_key,
+                                                     const cryptonote::tx_destination_entry &dst_entr, const boost::optional<cryptonote::tx_destination_entry> &change_addr, const size_t output_index,
+                                                     const bool &need_additional_txkeys, const std::vector<crypto::secret_key> &additional_tx_keys,
+                                                     std::vector<crypto::public_key> &additional_tx_public_keys,
+                                                     std::vector<rct::key> &amount_keys,
+                                                     crypto::public_key &out_eph_public_key, bool &found_change, std::vector<uint64_t> &output_unlock_times, uint64_t unlock_time) = 0;
 
         virtual bool  mlsag_prehash(const std::string &blob, size_t inputs_size, size_t outputs_size, const rct::keyV &hashes, const rct::ctkeyV &outPk, rct::key &prehash) = 0;
         virtual bool  mlsag_prepare(const rct::key &H, const rct::key &xx, rct::key &a, rct::key &aG, rct::key &aHP, rct::key &rvII) = 0;
@@ -202,6 +209,9 @@ namespace hw {
         virtual bool  mlsag_sign(const rct::key &c, const rct::keyV &xx, const rct::keyV &alpha, const size_t rows, const size_t dsRows, rct::keyV &ss) = 0;
 
         virtual bool  close_tx(void) = 0;
+
+    protected:
+        device_mode mode;
     } ;
 
     struct reset_mode {

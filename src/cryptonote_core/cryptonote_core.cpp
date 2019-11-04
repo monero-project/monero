@@ -848,6 +848,7 @@ namespace cryptonote
           }
           break;
         case rct::RCTTypeBulletproof:
+        case rct::RCTTypeBulletproof2:
           if (!is_canonical_bulletproof_layout(rv.p.bulletproofs))
           {
             MERROR_VER("Bulletproof does not have canonical form");
@@ -875,7 +876,7 @@ namespace cryptonote
       {
         if (!tx_info[n].result)
           continue;
-        if (tx_info[n].tx->rct_signatures.type != rct::RCTTypeBulletproof)
+        if (tx_info[n].tx->rct_signatures.type != rct::RCTTypeBulletproof && tx_info[n].tx->rct_signatures.type != rct::RCTTypeBulletproof2)
           continue;
         if (assumed_bad || !rct::verRctSemanticsSimple(tx_info[n].tx->rct_signatures))
         {
@@ -1619,7 +1620,7 @@ namespace cryptonote
     {
       std::string main_message;
       if (m_offline)
-        main_message = "The daemon is running offline and will not attempt to sync to the Triton network.";
+        main_message = "The daemon is running offline and will not attempt to sync to the Equilibria network.";
       else
         main_message = "The daemon will start synchronizing with the network. This may take a long time to complete.";
       MGINFO_YELLOW(ENDL << "**********************************************************************" << ENDL
@@ -1640,10 +1641,19 @@ namespace cryptonote
     m_check_updates_interval.do_call(boost::bind(&core::check_updates, this));
     m_check_disk_space_interval.do_call(boost::bind(&core::check_disk_space, this));
 	time_t const lifetime = time(nullptr) - get_start_time();
-	if (m_service_node && lifetime > DIFFICULTY_TARGET_V2) // Give us some time to connect to peers before sending uptimes
+
+  int target = DIFFICULTY_TARGET_V2; 
+  if(get_ideal_hard_fork_version() < 6){
+    target = DIFFICULTY_TARGET_V2;
+  } else if(get_ideal_hard_fork_version() >= 6){
+    target = DIFFICULTY_TARGET_V3;
+  }
+
+	if (m_service_node && lifetime > target) // Give us some time to connect to peers before sending uptimes
 	{
 		do_uptime_proof_call();
 	}
+
 	m_uptime_proof_pruner.do_call(boost::bind(&service_nodes::quorum_cop::prune_uptime_proof, &m_quorum_cop));
     m_block_rate_interval.do_call(boost::bind(&core::check_block_rate, this));
     m_miner.on_idle();
@@ -1858,7 +1868,14 @@ namespace cryptonote
       return true;
     }
 
-    static constexpr double threshold = 1. / (864000 / DIFFICULTY_TARGET_V2); // one false positive every 10 days
+    int target = DIFFICULTY_TARGET_V2;
+    if(get_ideal_hard_fork_version() < 6){
+      target = DIFFICULTY_TARGET_V2;
+    } else if(get_ideal_hard_fork_version() >= 6){
+      target = DIFFICULTY_TARGET_V3;
+    }
+
+    static double threshold = 1. / (864000 / target); // one false positive every 10 days
 
     const time_t now = time(NULL);
     const std::vector<time_t> timestamps = m_blockchain_storage.get_last_block_timestamps(60);
@@ -1869,11 +1886,11 @@ namespace cryptonote
       unsigned int b = 0;
       const time_t time_boundary = now - static_cast<time_t>(seconds[n]);
       for (time_t ts: timestamps) b += ts >= time_boundary;
-      const double p = probability(b, seconds[n] / DIFFICULTY_TARGET_V2);
+      const double p = probability(b, seconds[n] / target);
       MDEBUG("blocks in the last " << seconds[n] / 60 << " minutes: " << b << " (probability " << p << ")");
       if (p < threshold)
       {
-        MWARNING("There were " << b << " blocks in the last " << seconds[n] / 60 << " minutes, there might be large hash rate changes, or we might be partitioned, cut off from the Triton network or under attack. Or it could be just sheer bad luck.");
+        MWARNING("There were " << b << " blocks in the last " << seconds[n] / 60 << " minutes, there might be large hash rate changes, or we might be partitioned, cut off from the Equilibria network or under attack. Or it could be just sheer bad luck.");
         break; // no need to look further
       }
     }

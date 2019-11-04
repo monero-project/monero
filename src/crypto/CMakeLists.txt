@@ -27,46 +27,34 @@
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 set(crypto_sources
-  aesb.c
-  blake256.c
   chacha.c
   crypto-ops-data.c
   crypto-ops.c
   crypto.cpp
-  groestl.c
-  hash-extra-blake.c
-  hash-extra-groestl.c
-  hash-extra-jh.c
-  hash-extra-skein.c
   hash.c
-  jh.c
   keccak.c
-  oaes_lib.c
+  tree-hash.c
+  pow_hash/aux_hash.c
+  pow_hash/cn_slow_hash_soft.cpp
+  pow_hash/cn_slow_hash_hard_intel.cpp
+  pow_hash/cn_slow_hash_intel_avx2.cpp
+  pow_hash/cn_slow_hash_hard_arm.cpp
   random.c
-  skein.c
-  slow-hash.c
   tree-hash.c)
 
 set(crypto_headers)
 
 set(crypto_private_headers
-  blake256.h
   chacha.h
   crypto-ops.h
   crypto.h
   generic-ops.h
-  groestl.h
-  groestl_tables.h
   hash-ops.h
   hash.h
   initializer.h
-  jh.h
   keccak.h
-  oaes_config.h
-  oaes_lib.h
-  random.h
-  skein.h
-  skein_port.h)
+  pow_hash/cn_slow_hash.hpp
+  random.h)
 
 monero_private_headers(cncrypto
   ${crypto_private_headers})

@@ -27,7 +27,7 @@
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 cmake_minimum_required (VERSION 2.6)
-project (triton CXX)
+project (equilibria CXX)
 
 file(GLOB P2P *)
 source_group(p2p FILES ${P2P})

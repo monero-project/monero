@@ -139,7 +139,7 @@ namespace cryptonote {
 
         // Set your constants so everyone uses same variables.
         size_t N = DIFFICULTY_WINDOW_V3;
-        const int64_t T = static_cast<int64_t>(DIFFICULTY_TARGET_V2);
+        const int64_t T = static_cast<int64_t>(target_seconds);
 
         // Return a difficulty of 1 for first 3 blocks if it's the start of the chain.
         if (timestamps.size() < 4) { return 1; }
