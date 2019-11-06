@@ -83,11 +83,12 @@ monero_private_headers(rpc
 monero_private_headers(daemon_rpc_server
   ${daemon_rpc_server_private_headers})
 
-
 monero_add_library(rpc_base
   ${rpc_base_sources}
   ${rpc_base_headers}
   ${rpc_base_private_headers})
+
+if(NOT IOS)
 
 monero_add_library(rpc
   ${rpc_sources}
@@ -104,6 +105,8 @@ monero_add_library(daemon_rpc_server
   ${daemon_rpc_server_headers}
   ${daemon_rpc_server_private_headers})
 
+endif()
+
 
 target_link_libraries(rpc_base
   PUBLIC
@@ -114,6 +117,8 @@ target_link_libraries(rpc_base
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
   PRIVATE
     ${EXTRA_LIBRARIES})
+
+if(NOT IOS)
 
 target_link_libraries(rpc
   PUBLIC
@@ -152,3 +157,5 @@ target_link_libraries(daemon_rpc_server
     ${EXTRA_LIBRARIES})
 target_include_directories(daemon_rpc_server PUBLIC ${ZMQ_INCLUDE_PATH})
 target_include_directories(obj_daemon_rpc_server PUBLIC ${ZMQ_INCLUDE_PATH})
+
+endif()
