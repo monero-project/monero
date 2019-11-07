@@ -50,7 +50,7 @@ class DaemonHandler : public RpcHandler
 {
   public:
 
-    DaemonHandler(cryptonote::core& c, t_p2p& p2p) : m_core(c), m_p2p(p2p) { }
+    DaemonHandler(cryptonote::core& c, t_p2p& p2p);
 
     ~DaemonHandler() { }
 

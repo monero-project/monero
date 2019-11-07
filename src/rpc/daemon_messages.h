@@ -28,6 +28,8 @@
 
 #pragma once
 
+#include <rapidjson/stringbuffer.h>
+#include <rapidjson/writer.h>
 #include <unordered_map>
 #include <vector>
 
@@ -40,26 +42,25 @@
 #define BEGIN_RPC_MESSAGE_CLASS(classname) \
 class classname \
 { \
-  public: \
-    static const char* const name;
+  public:
 
 #define BEGIN_RPC_MESSAGE_REQUEST \
-    class Request : public Message \
+    class Request final : public Message \
     { \
       public: \
         Request() { } \
         ~Request() { } \
-        rapidjson::Value toJson(rapidjson::Document& doc) const; \
-        void fromJson(rapidjson::Value& val);
+        void doToJson(rapidjson::Writer<rapidjson::StringBuffer>& dest) const override final; \
+        void fromJson(const rapidjson::Value& val) override final;
 
 #define BEGIN_RPC_MESSAGE_RESPONSE \
-    class Response : public Message \
+    class Response final : public Message \
     { \
       public: \
         Response() { } \
         ~Response() { } \
-        rapidjson::Value toJson(rapidjson::Document& doc) const; \
-        void fromJson(rapidjson::Value& val);
+        void doToJson(rapidjson::Writer<rapidjson::StringBuffer>& dest) const override final; \
+        void fromJson(const rapidjson::Value& val) override final;
 
 #define END_RPC_MESSAGE_REQUEST };
 #define END_RPC_MESSAGE_RESPONSE };

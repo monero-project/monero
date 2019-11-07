@@ -850,6 +850,17 @@ TEST(ToHex, Array)
   );
 }
 
+TEST(ToHex, ArrayFromPod)
+{
+  std::array<char, 64> expected{{'5', 'f', '2', 'b', '0', '1'}};
+  std::fill(expected.begin() + 6, expected.end(), '0');
+
+  EXPECT_EQ(
+    expected,
+    (epee::to_hex::array(crypto::ec_point{{0x5F, 0x2B, 0x01, 0x00}}))
+  );
+}
+
 TEST(ToHex, Ostream)
 {
   std::stringstream out;
