@@ -226,8 +226,8 @@ namespace cryptonote
   core::core(i_cryptonote_protocol* pprotocol):
               m_mempool(m_blockchain_storage),
               m_blockchain_storage(m_mempool),
-              m_miner(this, [this](const cryptonote::block &b, uint64_t height, unsigned int threads, crypto::hash &hash) {
-                return cryptonote::get_block_longhash(&m_blockchain_storage, b, hash, height, threads);
+              m_miner(this, [this](const cryptonote::block &b, uint64_t height, const crypto::hash *seed_hash, unsigned int threads, crypto::hash &hash) {
+                return cryptonote::get_block_longhash(&m_blockchain_storage, b, hash, height, seed_hash, threads);
               }),
               m_starter_message_showed(false),
               m_target_blockchain_height(0),
@@ -1357,14 +1357,14 @@ namespace cryptonote
     m_mempool.set_relayed(epee::to_span(tx_hashes), tx_relay);
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::get_block_template(block& b, const account_public_address& adr, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, const blobdata& ex_nonce)
+  bool core::get_block_template(block& b, const account_public_address& adr, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash)
   {
-    return m_blockchain_storage.create_block_template(b, adr, diffic, height, expected_reward, ex_nonce);
+    return m_blockchain_storage.create_block_template(b, adr, diffic, height, expected_reward, ex_nonce, seed_height, seed_hash);
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::get_block_template(block& b, const crypto::hash *prev_block, const account_public_address& adr, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, const blobdata& ex_nonce)
+  bool core::get_block_template(block& b, const crypto::hash *prev_block, const account_public_address& adr, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash)
   {
-    return m_blockchain_storage.create_block_template(b, prev_block, adr, diffic, height, expected_reward, ex_nonce);
+    return m_blockchain_storage.create_block_template(b, prev_block, adr, diffic, height, expected_reward, ex_nonce, seed_height, seed_hash);
   }
   //-----------------------------------------------------------------------------------------------
   bool core::find_blockchain_supplement(const std::list<crypto::hash>& qblock_ids, bool clip_pruned, NOTIFY_RESPONSE_CHAIN_ENTRY::request& resp) const
