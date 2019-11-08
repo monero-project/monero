@@ -10,9 +10,6 @@ using namespace epee;
 using namespace crypto;
 using namespace cryptonote;
 
-// Shared random generator
-static std::default_random_engine RND(crypto::rand<unsigned>());
-
 void wallet_accessor_test::set_account(tools::wallet2 * wallet, cryptonote::account_base& account)
 {
   wallet->clear();

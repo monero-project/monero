@@ -227,8 +227,8 @@ public:
     bf_hf_version= 1 << 8
   };
 
-  test_generator() {}
-  test_generator(const test_generator &other): m_blocks_info(other.m_blocks_info) {}
+  test_generator(): m_events(nullptr) {}
+  test_generator(const test_generator &other): m_blocks_info(other.m_blocks_info), m_events(other.m_events), m_nettype(other.m_nettype) {}
   void get_block_chain(std::vector<block_info>& blockchain, const crypto::hash& head, size_t n) const;
   void get_last_n_block_weights(std::vector<size_t>& block_weights, const crypto::hash& head, size_t n) const;
   uint64_t get_already_generated_coins(const crypto::hash& blk_id) const;
@@ -253,9 +253,14 @@ public:
     uint8_t hf_version = 1);
   bool construct_block_manually_tx(cryptonote::block& blk, const cryptonote::block& prev_block,
     const cryptonote::account_base& miner_acc, const std::vector<crypto::hash>& tx_hashes, size_t txs_size);
+  void fill_nonce(cryptonote::block& blk, const cryptonote::difficulty_type& diffic, uint64_t height);
+  void set_events(const std::vector<test_event_entry> * events) { m_events = events; }
+  void set_network_type(const cryptonote::network_type nettype) { m_nettype = nettype; }
 
 private:
   std::unordered_map<crypto::hash, block_info> m_blocks_info;
+  const std::vector<test_event_entry> * m_events;
+  cryptonote::network_type m_nettype;
 
   friend class boost::serialization::access;
 
@@ -407,7 +412,6 @@ cryptonote::account_public_address get_address(const cryptonote::tx_destination_
 
 inline cryptonote::difficulty_type get_test_difficulty(const boost::optional<uint8_t>& hf_ver=boost::none) {return !hf_ver || hf_ver.get() <= 1 ? 1 : 2;}
 inline uint64_t current_difficulty_window(const boost::optional<uint8_t>& hf_ver=boost::none){ return !hf_ver || hf_ver.get() <= 1 ? DIFFICULTY_TARGET_V1 : DIFFICULTY_TARGET_V2; }
-void fill_nonce(cryptonote::block& blk, const cryptonote::difficulty_type& diffic, uint64_t height);
 
 cryptonote::tx_destination_entry build_dst(const var_addr_t& to, bool is_subaddr=false, uint64_t amount=0);
 std::vector<cryptonote::tx_destination_entry> build_dsts(const var_addr_t& to1, bool sub1=false, uint64_t am1=0);
@@ -490,6 +494,7 @@ void fill_tx_sources_and_destinations(const std::vector<test_event_entry>& event
 uint64_t get_balance(const cryptonote::account_base& addr, const std::vector<cryptonote::block>& blockchain, const map_hash2tx_t& mtx);
 
 bool extract_hard_forks(const std::vector<test_event_entry>& events, v_hardforks_t& hard_forks);
+bool extract_hard_forks_from_blocks(const std::vector<test_event_entry>& events, v_hardforks_t& hard_forks);
 
 /************************************************************************/
 /*                                                                      */
