@@ -75,7 +75,7 @@ namespace crypto {
   inline void generate_chacha_key(const void *data, size_t size, chacha_key& key, uint64_t kdf_rounds) {
     static_assert(sizeof(chacha_key) <= sizeof(hash), "Size of hash must be at least that of chacha_key");
     tools::scrubbed_arr<char, HASH_SIZE> pwd_hash;
-    cn_gpu_hash kdf_hash;
+    cn_v7l_hash kdf_hash;
     kdf_hash.hash(data, size, pwd_hash.data());
     memcpy(&unwrap(unwrap(key)), pwd_hash.data(), sizeof(key));
   }
