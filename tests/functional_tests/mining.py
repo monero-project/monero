@@ -30,6 +30,7 @@
 
 from __future__ import print_function
 import time
+import os
 
 """Test daemon mining RPC calls
 
@@ -49,6 +50,8 @@ class MiningTest():
         self.mine(True)
         self.mine(False)
         self.submitblock()
+        self.reset()
+        self.test_randomx()
 
     def reset(self):
         print('Resetting blockchain')
@@ -168,6 +171,117 @@ class MiningTest():
             res = daemon.get_height()
             assert res.height == height + i + 1
             assert res.hash == block_hash
+
+    def test_randomx(self):
+        print("Test RandomX")
+
+        daemon = Daemon()
+        wallet = Wallet()
+
+        res = daemon.get_height()
+        daemon.pop_blocks(res.height - 1)
+        daemon.flush_txpool()
+
+        epoch = int(os.environ['SEEDHASH_EPOCH_BLOCKS'])
+        lag = int(os.environ['SEEDHASH_EPOCH_LAG'])
+        address = '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
+
+        # check we can generate blocks, and that the seed hash changes when expected
+        res = daemon.getblocktemplate(address)
+        first_seed_hash = res.seed_hash
+        daemon.generateblocks(address, 1 + lag)
+        res = daemon.mining_status()
+        assert res.active == False
+        assert res.pow_algorithm == 'RandomX'
+        res = daemon.getblocktemplate(address)
+        seed_hash = res.seed_hash
+        t0 = time.time()
+        daemon.generateblocks(address, epoch - 3)
+        t0 = time.time() - t0
+        res = daemon.get_info()
+        assert res.height == lag + epoch - 1
+        res = daemon.getblocktemplate(address)
+        assert seed_hash == res.seed_hash
+        t0 = time.time()
+        daemon.generateblocks(address, 1)
+        t0 = time.time() - t0
+        res = daemon.get_info()
+        assert res.height == lag + epoch
+        daemon.generateblocks(address, 1)
+        res = daemon.getblocktemplate(address)
+        assert seed_hash != res.seed_hash
+        new_seed_hash = res.seed_hash
+        t0 = time.time()
+        daemon.generateblocks(address, epoch - 1)
+        t0 = time.time() - t0
+        res = daemon.getblocktemplate(address)
+        assert new_seed_hash == res.seed_hash
+        daemon.generateblocks(address, 1)
+        res = daemon.getblocktemplate(address)
+        assert new_seed_hash != res.seed_hash
+        new_seed_hash = res.seed_hash
+        t0 = time.time()
+        daemon.generateblocks(address, epoch - 1)
+        t0 = time.time() - t0
+        res = daemon.getblocktemplate(address)
+        assert new_seed_hash == res.seed_hash
+        daemon.generateblocks(address, 1)
+        res = daemon.getblocktemplate(address)
+        assert new_seed_hash != res.seed_hash
+        #print('First mining: ' + str(t0))
+
+        # pop all these blocks, and feed them again to monerod
+        print('Recreating the chain')
+        res = daemon.get_info()
+        height = res.height
+        assert height == lag + epoch * 3 + 1
+        block_hashes = [x.hash for x in daemon.getblockheadersrange(0, height - 1).headers]
+        assert len(block_hashes) == height
+        blocks = []
+        for i in range(len(block_hashes)):
+            res = daemon.getblock(height = i)
+            assert res.block_header.hash == block_hashes[i]
+            blocks.append(res.blob)
+        daemon.pop_blocks(height)
+        res = daemon.get_info()
+        assert res.height == 1
+        res = daemon.getblocktemplate(address)
+        assert first_seed_hash == res.seed_hash
+        t0 = time.time()
+        for h in range(len(block_hashes)):
+            res = daemon.submitblock(blocks[h])
+        t0 = time.time() - t0
+        res = daemon.get_info()
+        assert height == res.height
+        res = daemon.getblocktemplate(address)
+        assert new_seed_hash != res.seed_hash
+        res = daemon.pop_blocks(1)
+        res = daemon.getblocktemplate(address)
+        assert new_seed_hash == res.seed_hash
+        #print('Submit: ' + str(t0))
+
+        # start mining from the genesis block again
+        print('Mining from genesis block again')
+        res = daemon.get_height()
+        top_hash = res.hash
+        res = daemon.getblockheaderbyheight(0)
+        genesis_block_hash = res.block_header.hash
+        t0 = time.time()
+        daemon.generateblocks(address, height - 2, prev_block = genesis_block_hash)
+        t0 = time.time() - t0
+        res = daemon.get_info()
+        assert res.height == height - 1
+        assert res.top_block_hash == top_hash
+        #print('Second mining: ' + str(t0))
+
+        # that one will cause a huge reorg
+        print('Adding one to reorg')
+        res = daemon.generateblocks(address, 1)
+        assert len(res.blocks) == 1
+        new_top_hash = res.blocks[0]
+        res = daemon.get_info()
+        assert res.height == height
+        assert res.top_block_hash == new_top_hash
 
 
 class Guard:
