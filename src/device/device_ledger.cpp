@@ -237,7 +237,11 @@ namespace hw {
     #define INS_GET_RESPONSE                    0xc0
 
 
-    device_ledger::device_ledger(): hw_device(0x0101, 0x05, 64, 2000) {
+#ifndef HAVE_MONERUJO
+     device_ledger::device_ledger(): hw_device(0x0101, 0x05, 64, 2000) {
+#else
+    device_ledger::device_ledger() {
+#endif
       this->id = device_id++;
       this->reset_buffer();      
       this->mode = NONE;
@@ -468,14 +472,19 @@ namespace hw {
       return true;
     }
     
-    static const std::vector<hw::io::hid_conn_params> known_devices {
-        {0x2c97, 0x0001, 0, 0xffa0}, 
-        {0x2c97, 0x0004, 0, 0xffa0},       
-    };
+#ifndef HAVE_MONERUJO
+     static const std::vector<hw::io::hid_conn_params> known_devices {
+         {0x2c97, 0x0001, 0, 0xffa0},
+         {0x2c97, 0x0004, 0, 0xffa0},
+     };
+#endif
 
     bool device_ledger::connect(void) {
       this->disconnect();
-      hw_device.connect(known_devices);
+#ifndef HAVE_MONERUJO
+       hw_device.connect(known_devices);
+#endif
+
       this->reset();
       #ifdef DEBUG_HWDEVICE
       cryptonote::account_public_address pubkey;
