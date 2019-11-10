@@ -48,29 +48,28 @@ def rebuild():
     print('\nBuilding Dependencies\n')
     os.makedirs('../out/' + args.version, exist_ok=True)
 
-    if args.linux:
-        print('\nCompiling ' + args.version + ' Linux')
-        subprocess.check_call(['bin/gbuild', '-j', args.jobs, '-m', args.memory, '--commit', 'monero='+args.commit, '--url', 'monero='+args.url, 'inputs/monero/contrib/gitian/gitian-linux.yml'])
-        subprocess.check_call(['bin/gsign', '-p', args.sign_prog, '--signer', args.signer, '--release', args.version+'-linux', '--destination', '../sigs/', 'inputs/monero/contrib/gitian/gitian-linux.yml'])
-        subprocess.check_call('mv build/out/monero-*.tar.bz2 ../out/'+args.version, shell=True)
+    platforms = {'l': ['Linux', 'linux', 'tar.bz2'],
+        'a': ['Android', 'android', 'tar.bz2'],
+        'w': ['Windows', 'win', 'zip'],
+        'm': ['MacOS', 'osx', 'tar.bz2'] }
 
-    if args.android:
-        print('\nCompiling ' + args.version + ' Android')
-        subprocess.check_call(['bin/gbuild', '-j', args.jobs, '-m', args.memory, '--commit', 'monero='+args.commit, '--url', 'monero='+args.url, 'inputs/monero/contrib/gitian/gitian-android.yml'])
-        subprocess.check_call(['bin/gsign', '-p', args.sign_prog, '--signer', args.signer, '--release', args.version+'-android', '--destination', '../sigs/', 'inputs/monero/contrib/gitian/gitian-android.yml'])
-        subprocess.check_call('mv build/out/monero-*.tar.bz2 ../out/'+args.version, shell=True)
+    for i in args.os:
+        if i is 'm' and args.nomac:
+            continue
 
-    if args.windows:
-        print('\nCompiling ' + args.version + ' Windows')
-        subprocess.check_call(['bin/gbuild', '-j', args.jobs, '-m', args.memory, '--commit', 'monero='+args.commit, '--url', 'monero='+args.url, 'inputs/monero/contrib/gitian/gitian-win.yml'])
-        subprocess.check_call(['bin/gsign', '-p', args.sign_prog, '--signer', args.signer, '--release', args.version+'-win', '--destination', '../sigs/', 'inputs/monero/contrib/gitian/gitian-win.yml'])
-        subprocess.check_call('mv build/out/monero*.zip ../out/'+args.version, shell=True)
+        os_name = platforms[i][0]
+        tag_name = platforms[i][1]
+        suffix = platforms[i][2]
 
-    if args.macos:
-        print('\nCompiling ' + args.version + ' MacOS')
-        subprocess.check_call(['bin/gbuild', '-j', args.jobs, '-m', args.memory, '--commit', 'monero='+args.commit, '--url', 'monero'+args.url, 'inputs/monero/contrib/gitian/gitian-osx.yml'])
-        subprocess.check_call(['bin/gsign', '-p', args.sign_prog, '--signer', args.signer, '--release', args.version+'-osx', '--destination', '../sigs/', 'inputs/monero/contrib/gitian/gitian-osx.yml'])
-        subprocess.check_call('mv build/out/monero*.tar.bz2 ../out/'+args.version, shell=True)
+        print('\nCompiling ' + args.version + ' ' + os_name)
+        infile = 'inputs/monero/contrib/gitian/gitian-' + tag_name + '.yml'
+        subprocess.check_call(['bin/gbuild', '-j', args.jobs, '-m', args.memory, '--commit', 'monero='+args.commit, '--url', 'monero='+args.url, infile])
+        subprocess.check_call(['bin/gsign', '-p', args.sign_prog, '--signer', args.signer, '--release', args.version+'-linux', '--destination', '../sigs/', infile])
+        subprocess.check_call('mv build/out/monero-*.' + suffix + ' ../out/'+args.version, shell=True)
+        print('Moving var/install.log to var/install-' + tag_name + '.log')
+        subprocess.check_call('mv var/install.log var/install-' + tag_name + '.log', shell=True)
+        print('Moving var/build.log to var/build-' + tag_name + '.log')
+        subprocess.check_call('mv var/build.log var/build-' + tag_name + '.log', shell=True)
 
     os.chdir(workdir)
 
@@ -142,11 +141,6 @@ def main():
     args = parser.parse_args()
     workdir = os.getcwd()
 
-    args.linux = 'l' in args.os
-    args.android = 'a' in args.os
-    args.windows = 'w' in args.os
-    args.macos = 'm' in args.os
-
     args.is_bionic = b'bionic' in subprocess.check_output(['lsb_release', '-cs'])
 
     if args.buildsign:
@@ -173,10 +167,11 @@ def main():
             os.environ['LXC_GUEST_IP'] = '10.0.3.5'
 
     # Disable MacOS build if no SDK found
-    if args.macos and not os.path.isfile('builder/inputs/MacOSX10.11.sdk.tar.gz'):
-        args.macos = False
+    args.nomac = False
+    if 'm' in args.os and not os.path.isfile('builder/inputs/MacOSX10.11.sdk.tar.gz'):
         if args.build:
             print('Cannot build for MacOS, SDK does not exist. Will build for other OSes')
+            args.nomac = True
 
     script_name = os.path.basename(sys.argv[0])
     # Signer and version shouldn't be empty
