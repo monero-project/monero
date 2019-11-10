@@ -22,11 +22,7 @@ def setup():
     if not os.path.isdir('builder'):
         subprocess.check_call(['git', 'clone', gbrepo, 'builder'])
     os.chdir('builder')
-    subprocess.check_call(['git', 'config', 'user.email', 'gitianuser@localhost'])
-    subprocess.check_call(['git', 'config', 'user.name', 'gitianuser'])
-    subprocess.check_call(['git', 'checkout', '963322de8420c50502c4cc33d4d7c0d84437b576'])
-    subprocess.check_call(['git', 'fetch', 'origin', '72c51f0bd2adec4eedab4dbd06c9229b9c4eb0e3'])
-    subprocess.check_call(['git', 'cherry-pick', '72c51f0bd2adec4eedab4dbd06c9229b9c4eb0e3'])
+    subprocess.check_call(['git', 'checkout', 'c0f77ca018cb5332bfd595e0aff0468f77542c23'])
     os.makedirs('inputs', exist_ok=True)
     os.chdir('inputs')
     if not os.path.isdir('monero'):
