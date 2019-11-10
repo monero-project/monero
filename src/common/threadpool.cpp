@@ -37,16 +37,14 @@ static __thread bool is_leaf = false;
 namespace tools
 {
 threadpool::threadpool(unsigned int max_threads) : running(true), active(0) {
-  boost::thread::attributes attrs;
-  attrs.set_stack_size(THREAD_STACK_SIZE);
-  max = max_threads ? max_threads : tools::get_max_concurrency();
-  size_t i = max ? max - 1 : 0;
-  while(i--) {
-    threads.push_back(boost::thread(attrs, boost::bind(&threadpool::run, this, false)));
-  }
+  create(max_threads);
 }
 
 threadpool::~threadpool() {
+  destroy();
+}
+
+void threadpool::destroy() {
   try
   {
     const boost::unique_lock<boost::mutex> lock(mutex);
@@ -63,6 +61,23 @@ threadpool::~threadpool() {
   for (size_t i = 0; i<threads.size(); i++) {
     try { threads[i].join(); }
     catch (...) { /* ignore */ }
+  }
+  threads.clear();
+}
+
+void threadpool::recycle() {
+  destroy();
+  create(max);
+}
+
+void threadpool::create(unsigned int max_threads) {
+  boost::thread::attributes attrs;
+  attrs.set_stack_size(THREAD_STACK_SIZE);
+  max = max_threads ? max_threads : tools::get_max_concurrency();
+  size_t i = max ? max - 1 : 0;
+  running = true;
+  while(i--) {
+    threads.push_back(boost::thread(attrs, boost::bind(&threadpool::run, this, false)));
   }
 }
 
