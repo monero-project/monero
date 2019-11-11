@@ -3277,7 +3277,7 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
   // leak allowing a passive adversary with traffic analysis capability to
   // infer when we get an incoming output
   std::vector<std::pair<cryptonote::transaction, bool>> process_pool_txs;
-  update_pool_state(process_pool_txs, refreshed);
+  update_pool_state(process_pool_txs, true);
 
   bool first = true, last = false;
   while(m_run.load(std::memory_order_relaxed))
