@@ -10,6 +10,7 @@ define $(package)_set_vars
   $(package)_config_opts=--enable-static
   $(package)_config_opts=--disable-shared
   $(package)_config_opts_linux=--with-pic
+  $(package)_config_opts_freebsd=--with-pic
 endef
 
 define $(package)_preprocess_cmds
