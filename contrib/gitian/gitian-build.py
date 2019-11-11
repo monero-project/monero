@@ -8,6 +8,12 @@ import sys
 gsigs = 'https://github.com/monero-project/gitian.sigs.git'
 gbrepo = 'https://github.com/devrandom/gitian-builder.git'
 
+platforms = {'l': ['Linux', 'linux', 'tar.bz2'],
+        'a': ['Android', 'android', 'tar.bz2'],
+        'f': ['FreeBSD', 'freebsd', 'tar.bz2'],
+        'w': ['Windows', 'win', 'zip'],
+        'm': ['MacOS', 'osx', 'tar.bz2'] }
+
 def setup():
     global args, workdir
     programs = ['apt-cacher-ng', 'ruby', 'git', 'make', 'wget']
@@ -48,10 +54,6 @@ def rebuild():
     print('\nBuilding Dependencies\n')
     os.makedirs('../out/' + args.version, exist_ok=True)
 
-    platforms = {'l': ['Linux', 'linux', 'tar.bz2'],
-        'a': ['Android', 'android', 'tar.bz2'],
-        'w': ['Windows', 'win', 'zip'],
-        'm': ['MacOS', 'osx', 'tar.bz2'] }
 
     for i in args.os:
         if i is 'm' and args.nomac:
@@ -76,10 +78,8 @@ def rebuild():
     if args.commit_files:
         print('\nCommitting '+args.version+' Unsigned Sigs\n')
         os.chdir('sigs')
-        subprocess.check_call(['git', 'add', args.version+'-linux/'+args.signer])
-        subprocess.check_call(['git', 'add', args.version+'-android/'+args.signer])
-        subprocess.check_call(['git', 'add', args.version+'-win/'+args.signer])
-        subprocess.check_call(['git', 'add', args.version+'-osx/'+args.signer])
+        for i, v in platforms:
+            subprocess.check_call(['git', 'add', args.version+'-'+v[1]+'/'+args.signer])
         subprocess.check_call(['git', 'commit', '-m', 'Add '+args.version+' unsigned sigs for '+args.signer])
         os.chdir(workdir)
 
@@ -104,14 +104,9 @@ def verify():
     global args, workdir
     os.chdir('builder')
 
-    print('\nVerifying v'+args.version+' Linux\n')
-    subprocess.check_call(['bin/gverify', '-v', '-d', '../sigs/', '-r', args.version+'-linux', 'inputs/monero/contrib/gitian/gitian-linux.yml'])
-    print('\nVerifying v'+args.version+' Android\n')
-    subprocess.check_call(['bin/gverify', '-v', '-d', '../sigs/', '-r', args.version+'-android', 'inputs/monero/contrib/gitian/gitian-android.yml'])
-    print('\nVerifying v'+args.version+' Windows\n')
-    subprocess.check_call(['bin/gverify', '-v', '-d', '../sigs/', '-r', args.version+'-win', 'inputs/monero/contrib/gitian/gitian-win.yml'])
-    print('\nVerifying v'+args.version+' MacOS\n')
-    subprocess.check_call(['bin/gverify', '-v', '-d', '../sigs/', '-r', args.version+'-osx', 'inputs/monero/contrib/gitian/gitian-osx.yml'])
+    for i, v in platforms:
+        print('\nVerifying v'+args.version+' '+v[0]+'\n')
+        subprocess.check_call(['bin/gverify', '-v', '-d', '../sigs/', '-r', args.version+'-'+v[1], 'inputs/monero/contrib/gitian/gitian-'+v[1]+'.yml'])
     os.chdir(workdir)
 
 def main():
@@ -124,7 +119,7 @@ def main():
     parser.add_argument('-v', '--verify', action='store_true', dest='verify', help='Verify the Gitian build')
     parser.add_argument('-b', '--build', action='store_true', dest='build', help='Do a Gitian build')
     parser.add_argument('-B', '--buildsign', action='store_true', dest='buildsign', help='Build both signed and unsigned binaries')
-    parser.add_argument('-o', '--os', dest='os', default='lawm', help='Specify which Operating Systems the build is for. Default is %(default)s. l for Linux, a for Android, w for Windows, m for MacOS')
+    parser.add_argument('-o', '--os', dest='os', default='lafwm', help='Specify which Operating Systems the build is for. Default is %(default)s. l for Linux, a for Android, f for FreeBSD, w for Windows, m for MacOS')
     parser.add_argument('-r', '--rebuild', action='store_true', dest='rebuild', help='Redo a Gitian build')
     parser.add_argument('-R', '--rebuildsign', action='store_true', dest='rebuildsign', help='Redo and sign a Gitian build')
     parser.add_argument('-j', '--jobs', dest='jobs', default='2', help='Number of processes to use. Default %(default)s')
