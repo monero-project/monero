@@ -8,6 +8,7 @@ $(package)_patches=9114d3957725acd34aa8b8d011585812f3369411.patch 9e6745c12e0b10
 define $(package)_set_vars
   $(package)_config_opts=--without-documentation --disable-shared --without-libsodium --disable-curve
   $(package)_config_opts_linux=--with-pic
+  $(package)_config_opts_freebsd=--with-pic
   $(package)_cxxflags=-std=c++11
 endef
 
