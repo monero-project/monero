@@ -605,10 +605,17 @@ eof:
     std::unique_ptr<boost::thread> m_console_thread;
     async_console_handler m_console_handler;
   public:
+    ~console_handlers_binder() {
+      stop_handling();
+      if (m_console_thread.get() != nullptr)
+      {
+        m_console_thread->join();
+      }
+    }
+
     bool start_handling(std::function<std::string(void)> prompt, const std::string& usage_string = "", std::function<void(void)> exit_handler = NULL)
     {
       m_console_thread.reset(new boost::thread(boost::bind(&console_handlers_binder::run_handling, this, prompt, usage_string, exit_handler)));
-      m_console_thread->detach();
       return true;
     }
     bool start_handling(const std::string &prompt, const std::string& usage_string = "", std::function<void(void)> exit_handler = NULL)
