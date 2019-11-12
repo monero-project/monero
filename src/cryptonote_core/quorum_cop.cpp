@@ -162,7 +162,7 @@ namespace service_nodes
 		if (!m_core.is_service_node(pubkey))
 			return false;
 		//1573975194 = v6 hf timestamp + 12 hours
-		if(!(proof.snode_version_major >= 5) && (proof.timestamp <= 1573975194))
+		if(proof.snode_version_major <= 4 && proof.timestamp >= 1573975194)
 			return false;
 
 		CRITICAL_REGION_LOCAL(m_lock);
