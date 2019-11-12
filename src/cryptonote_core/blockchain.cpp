@@ -2498,10 +2498,17 @@ bool Blockchain::find_blockchain_supplement(const uint64_t req_start_block, cons
     block b;
     CHECK_AND_ASSERT_MES(parse_and_validate_block_from_blob(blocks.back().first.first, b), false, "internal error, invalid block");
     blocks.back().first.second = get_miner_tx_hash ? cryptonote::get_transaction_hash(b.miner_tx) : crypto::null_hash;
-    std::vector<crypto::hash> mis;
     std::vector<cryptonote::blobdata> txs;
-    get_transactions_blobs(b.tx_hashes, txs, mis, pruned);
-    CHECK_AND_ASSERT_MES(!mis.size(), false, "internal error, transaction from block not found");
+    if (pruned)
+    {
+      CHECK_AND_ASSERT_MES(m_db->get_pruned_tx_blobs_from(b.tx_hashes.front(), b.tx_hashes.size(), txs), false, "Failed to retrieve all transactions needed");
+    }
+    else
+    {
+      std::vector<crypto::hash> mis;
+      get_transactions_blobs(b.tx_hashes, txs, mis, pruned);
+      CHECK_AND_ASSERT_MES(!mis.size(), false, "internal error, transaction from block not found");
+    }
     size += blocks.back().first.first.size();
     for (const auto &t: txs)
       size += t.size();
