@@ -138,7 +138,7 @@ class DaemonHandler : public RpcHandler
 
     bool getBlockHeaderByHash(const crypto::hash& hash_in, cryptonote::rpc::BlockHeaderResponse& response);
 
-    void handleTxBlob(const std::string& tx_blob, bool relay, SendRawTx::Response& res);
+    void handleTxBlob(std::string&& tx_blob, bool relay, SendRawTx::Response& res);
 
     cryptonote::core& m_core;
     t_p2p& m_p2p;

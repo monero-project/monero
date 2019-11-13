@@ -349,10 +349,10 @@ namespace rpc
       res.error_details = "Invalid hex";
       return;
     }
-    handleTxBlob(tx_blob, req.relay, res);
+    handleTxBlob(std::move(tx_blob), req.relay, res);
   }
 
-  void DaemonHandler::handleTxBlob(const std::string& tx_blob, bool relay, SendRawTx::Response& res)
+  void DaemonHandler::handleTxBlob(std::string&& tx_blob, bool relay, SendRawTx::Response& res)
   {
     if (!m_p2p.get_payload_object().is_synchronized())
     {
@@ -423,7 +423,7 @@ namespace rpc
       return;
     }
 
-    if(!tvc.m_should_be_relayed || !relay)
+    if(tvc.m_relay == relay_method::none || !relay)
     {
       MERROR("[SendRawTx]: tx accepted, but not relayed");
       res.error_details = "Not relayed";
@@ -434,8 +434,8 @@ namespace rpc
     }
 
     NOTIFY_NEW_TRANSACTIONS::request r;
-    r.txs.push_back(tx_blob);
-    m_core.get_protocol()->relay_transactions(r, boost::uuids::nil_uuid(), epee::net_utils::zone::invalid);
+    r.txs.push_back(std::move(tx_blob));
+    m_core.get_protocol()->relay_transactions(r, boost::uuids::nil_uuid(), epee::net_utils::zone::invalid, relay_method::local);
 
     //TODO: make sure that tx has reached other nodes here, probably wait to receive reflections from other nodes
     res.status = Message::STATUS_OK;

@@ -552,7 +552,6 @@ bool txpool_double_spend_local::generate(std::vector<test_event_entry>& events) 
   DO_CALLBACK(events, "mark_no_new");
   events.push_back(tx_0);
   DO_CALLBACK(events, "check_txpool_spent_keys");
-  DO_CALLBACK(events, "mark_timestamp_change");
   DO_CALLBACK(events, "check_unchanged");
   SET_EVENT_VISITOR_SETT(events, 0);
   DO_CALLBACK(events, "timestamp_change_pause");
@@ -580,6 +579,7 @@ bool txpool_double_spend_keyimage::generate(std::vector<test_event_entry>& event
   const std::size_t tx_index1 = events.size();
   MAKE_TX(events, tx_0, miner_account, bob_account, send_amount, blk_0);
 
+  SET_EVENT_VISITOR_SETT(events, event_visitor_settings::set_txs_stem);
   DO_CALLBACK(events, "increase_all_tx_count");
   DO_CALLBACK(events, "check_txpool_spent_keys");
   DO_CALLBACK(events, "mark_timestamp_change");
@@ -611,3 +611,30 @@ bool txpool_double_spend_keyimage::generate(std::vector<test_event_entry>& event
   return true;
 }
 
+bool txpool_stem_loop::generate(std::vector<test_event_entry>& events) const
+{
+  INIT_MEMPOOL_TEST();
+
+  DO_CALLBACK(events, "check_txpool_spent_keys");
+  SET_EVENT_VISITOR_SETT(events, event_visitor_settings::set_txs_stem);
+  DO_CALLBACK(events, "mark_no_new");
+
+  MAKE_TX(events, tx_0, miner_account, bob_account, send_amount, blk_0);
+
+  DO_CALLBACK(events, "increase_all_tx_count");
+  DO_CALLBACK(events, "check_txpool_spent_keys");
+  DO_CALLBACK(events, "mark_timestamp_change");
+  DO_CALLBACK(events, "check_new_hidden");
+  DO_CALLBACK(events, "timestamp_change_pause");
+  events.push_back(tx_0);
+  DO_CALLBACK(events, "increase_broadcasted_tx_count");
+  DO_CALLBACK(events, "check_txpool_spent_keys");
+  DO_CALLBACK(events, "mark_timestamp_change");
+  DO_CALLBACK(events, "check_new_broadcasted");
+  DO_CALLBACK(events, "timestamp_change_pause");
+  DO_CALLBACK(events, "mark_no_new");
+  events.push_back(tx_0);
+  DO_CALLBACK(events, "check_unchanged");
+
+  return true;
+}

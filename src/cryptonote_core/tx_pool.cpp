@@ -46,6 +46,7 @@
 #include "warnings.h"
 #include "common/perf_timer.h"
 #include "crypto/hash.h"
+#include "crypto/duration.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "txpool"
@@ -58,6 +59,29 @@ namespace cryptonote
 {
   namespace
   {
+    /*! The Dandelion++ has formula for calculating the average embargo timeout:
+                          (-k*(k-1)*hop)/(2*log(1-ep))
+        where k is the number of hops before this node and ep is the probability
+        that one of the k hops hits their embargo timer, and hop is the average
+        time taken between hops. So decreasing ep will make it more probable
+        that "this" node is the first to expire the embargo timer. Increasing k
+        will increase the number of nodes that will be "hidden" as a prior
+        recipient of the tx.
+
+        As example, k=5 and ep=0.1 means "this" embargo timer has a 90%
+        probability of being the first to expire amongst 5 nodes that saw the
+        tx before "this" one. These values are independent to the fluff
+        probability, but setting a low k with a low p (fluff probability) is
+        not ideal since a blackhole is more likely to reveal earlier nodes in
+        the chain.
+
+        This value was calculated with k=10, ep=0.10, and hop = 175 ms. A
+        testrun from a recent Intel laptop took ~80ms to
+        receive+parse+proces+send transaction. At least 50ms will be added to
+        the latency if crossing an ocean. So 175ms is the fudge factor for
+        a single hop with 173s being the embargo timer. */
+    constexpr const std::chrono::seconds dandelionpp_embargo_average{CRYPTONOTE_DANDELIONPP_EMBARGO_AVERAGE};
+
     //TODO: constants such as these should at least be in the header,
     //      but probably somewhere more accessible to the rest of the
     //      codebase.  As it stands, it is at best nontrivial to test
@@ -262,34 +286,51 @@ namespace cryptonote
       }
     }else
     {
-      //update transactions container
-      meta.weight = tx_weight;
-      meta.fee = fee;
-      meta.max_used_block_id = max_used_block_id;
-      meta.max_used_block_height = max_used_block_height;
-      meta.last_failed_height = 0;
-      meta.last_failed_id = null_hash;
-      meta.receive_time = receive_time;
-      meta.last_relayed_time = time(NULL);
-      meta.relayed = relayed;
-      meta.set_relay_method(tx_relay);
-      meta.double_spend_seen = false;
-      meta.pruned = tx.pruned;
-      meta.bf_padding = 0;
-      memset(meta.padding, 0, sizeof(meta.padding));
-
       try
       {
         if (kept_by_block)
           m_parsed_tx_cache.insert(std::make_pair(id, tx));
         CRITICAL_REGION_LOCAL1(m_blockchain);
         LockedTXN lock(m_blockchain.get_db());
-        m_blockchain.remove_txpool_tx(id);
-        if (!insert_key_images(tx, id, tx_relay))
-          return false;
 
-        m_blockchain.add_txpool_tx(id, blob, meta);
-        m_txs_by_fee_and_receive_time.emplace(std::pair<double, std::time_t>(fee / (double)(tx_weight ? tx_weight : 1), receive_time), id);
+        const bool existing_tx = m_blockchain.get_txpool_tx_meta(id, meta);
+        if (existing_tx)
+        {
+          /* If Dandelion++ loop. Do not use txes in the `local` state in the
+             loop detection - txes in that state should be outgoing over i2p/tor
+             then routed back via public dandelion++ stem. Pretend to be
+             another stem node in that situation, a loop over the public
+             network hasn't been hit yet. */
+          if (tx_relay == relay_method::stem && meta.dandelionpp_stem)
+            tx_relay = relay_method::fluff;
+        }
+        else
+          meta.set_relay_method(relay_method::none);
+
+        if (meta.upgrade_relay_method(tx_relay) || !existing_tx) // synchronize with embargo timer or stem/fluff out-of-order messages
+        {
+          //update transactions container
+          meta.last_relayed_time = std::numeric_limits<decltype(meta.last_relayed_time)>::max();
+          meta.receive_time = receive_time;
+          meta.weight = tx_weight;
+          meta.fee = fee;
+          meta.max_used_block_id = max_used_block_id;
+          meta.max_used_block_height = max_used_block_height;
+          meta.last_failed_height = 0;
+          meta.last_failed_id = null_hash;
+          meta.relayed = relayed;
+          meta.double_spend_seen = false;
+          meta.pruned = tx.pruned;
+          meta.bf_padding = 0;
+          memset(meta.padding, 0, sizeof(meta.padding));
+
+          if (!insert_key_images(tx, id, tx_relay))
+            return false;
+
+          m_blockchain.remove_txpool_tx(id);
+          m_blockchain.add_txpool_tx(id, blob, meta);
+          m_txs_by_fee_and_receive_time.emplace(std::pair<double, std::time_t>(fee / (double)(tx_weight ? tx_weight : 1), receive_time), id);
+        }
         lock.commit();
       }
       catch (const std::exception &e)
@@ -299,8 +340,9 @@ namespace cryptonote
       }
       tvc.m_added_to_pool = true;
 
-      if(meta.fee > 0 && tx_relay != relay_method::none)
-        tvc.m_should_be_relayed = true;
+      static_assert(unsigned(relay_method::none) == 0, "expected relay_method::none value to be zero");
+      if(meta.fee > 0)
+        tvc.m_relay = tx_relay;
     }
 
     tvc.m_verifivation_failed = false;
@@ -553,7 +595,7 @@ namespace cryptonote
       td.last_failed_height = meta.last_failed_height;
       td.last_failed_id = meta.last_failed_id;
       td.receive_time = meta.receive_time;
-      td.last_relayed_time = meta.last_relayed_time;
+      td.last_relayed_time = meta.dandelionpp_stem ? 0 : meta.last_relayed_time;
       td.relayed = meta.relayed;
       td.do_not_relay = meta.do_not_relay;
       td.double_spend_seen = meta.double_spend_seen;
@@ -686,8 +728,13 @@ namespace cryptonote
     txs.reserve(m_blockchain.get_txpool_tx_count());
     m_blockchain.for_all_txpool_txes([this, now, &txs](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata *){
       // 0 fee transactions are never relayed
-      if(!meta.pruned && meta.fee > 0 && !meta.do_not_relay && now - meta.last_relayed_time > get_relay_delay(now, meta.receive_time))
+      if(!meta.pruned && meta.fee > 0 && !meta.do_not_relay)
       {
+        if (!meta.dandelionpp_stem && now - meta.last_relayed_time <= get_relay_delay(now, meta.receive_time))
+          return true;
+        if (meta.dandelionpp_stem && meta.last_relayed_time < now) // for dandelion++ stem, this value is the embargo timeout
+          return true;
+
         // if the tx is older than half the max lifetime, we don't re-relay it, to avoid a problem
         // mentioned by smooth where nodes would flush txes at slightly different times, causing
         // flushed txes to be re-added when received from a node which was just about to flush it
@@ -712,9 +759,11 @@ namespace cryptonote
   //---------------------------------------------------------------------------------
   void tx_memory_pool::set_relayed(const epee::span<const crypto::hash> hashes, const relay_method method)
   {
+    crypto::random_poisson_seconds embargo_duration{dandelionpp_embargo_average};
+    const auto now = std::chrono::system_clock::now();
+
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     CRITICAL_REGION_LOCAL1(m_blockchain);
-    const time_t now = time(NULL);
     LockedTXN lock(m_blockchain.get_db());
     for (const auto& hash : hashes)
     {
@@ -723,9 +772,15 @@ namespace cryptonote
         txpool_tx_meta_t meta;
         if (m_blockchain.get_txpool_tx_meta(hash, meta))
         {
+          // txes can be received as "stem" or "fluff" in either order
+          meta.upgrade_relay_method(method);
           meta.relayed = true;
-          meta.last_relayed_time = now;
-          meta.set_relay_method(method);
+
+          if (meta.dandelionpp_stem)
+            meta.last_relayed_time = std::chrono::system_clock::to_time_t(now + embargo_duration());
+          else
+            meta.last_relayed_time = std::chrono::system_clock::to_time_t(now);
+
           m_blockchain.update_txpool_tx(hash, meta);
         }
       }
@@ -910,7 +965,7 @@ namespace cryptonote
       txi.receive_time = include_sensitive_data ? meta.receive_time : 0;
       txi.relayed = meta.relayed;
       // In restricted mode we do not include this data:
-      txi.last_relayed_time = include_sensitive_data ? meta.last_relayed_time : 0;
+      txi.last_relayed_time = (include_sensitive_data && !meta.dandelionpp_stem) ? meta.last_relayed_time : 0;
       txi.do_not_relay = meta.do_not_relay;
       txi.double_spend_seen = meta.double_spend_seen;
       tx_infos.push_back(std::move(txi));
@@ -962,7 +1017,7 @@ namespace cryptonote
       txi.last_failed_block_hash = meta.last_failed_id;
       txi.receive_time = meta.receive_time;
       txi.relayed = meta.relayed;
-      txi.last_relayed_time = meta.last_relayed_time;
+      txi.last_relayed_time = meta.dandelionpp_stem ? 0 : meta.last_relayed_time;
       txi.do_not_relay = meta.do_not_relay;
       txi.double_spend_seen = meta.double_spend_seen;
       tx_infos.push_back(txi);
