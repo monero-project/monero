@@ -46,7 +46,6 @@ script: |
   HOST_LDFLAGS=-static-libstdc++
 
   export GZIP="-9n"
-  export TAR_OPTIONS="--mtime="$REFERENCE_DATE\\\ $REFERENCE_TIME""
   export TZ="UTC"
   export BUILD_DIR=`pwd`
   mkdir -p ${WRAP_DIR}
@@ -89,14 +88,13 @@ script: |
   }
 
   # Faketime for depends so intermediate results are comparable
-  DUMMYTIME="2000-01-01 12:00:00"
   export PATH_orig=${PATH}
-  create_global_faketime_wrappers "$DUMMYTIME"
-  create_per-host_faketime_wrappers "$DUMMYTIME"
+  create_global_faketime_wrappers "2000-01-01 12:00:00"
+  create_per-host_faketime_wrappers "2000-01-01 12:00:00"
   export PATH=${WRAP_DIR}:${PATH}
 
   # gcc 7+ honors SOURCE_DATE_EPOCH, no faketime needed
-  export SOURCE_DATE_EPOCH=`date -d "$DUMMYTIME" +%s`
+  export SOURCE_DATE_EPOCH=`date -d 2000-01-01T12:00:00 +%s`
 
   git config --global core.abbrev 9
   cd monero
@@ -109,6 +107,7 @@ script: |
 
   BASEPREFIX=`pwd`/contrib/depends
   # Build dependencies for each host
+  export TAR_OPTIONS=--mtime=2000-01-01T12:00:00
   for i in $HOSTS; do
     make ${MAKEOPTS} -C ${BASEPREFIX} HOST="${i}"
   done
@@ -119,6 +118,7 @@ script: |
   create_per-host_faketime_wrappers "${REFERENCE_DATETIME}"
 
   # Build in a new dir for each host
+  export TAR_OPTIONS=--mtime=${REFERENCE_DATE}T${REFERENCE_TIME}
   for i in ${HOSTS}; do
     export PATH=${WRAP_DIR}:${BASEPREFIX}/${i}/native/bin:${PATH_orig}
     mkdir build && cd build
