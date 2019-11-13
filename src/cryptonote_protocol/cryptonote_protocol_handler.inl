@@ -2181,7 +2181,8 @@ skip:
       MGINFO_YELLOW(ENDL << "**********************************************************************" << ENDL
         << "You are now synchronized with the network. You may now start monero-wallet-cli." << ENDL
         << ENDL
-        << "Use the \"help\" command to see the list of available commands." << ENDL
+        << "Use the \"help\" command to see a simplified list of available commands." << ENDL
+        << "Use the \"help_advanced\" command to see an advanced list of available commands." << ENDL
         << "**********************************************************************");
       m_sync_timer.pause();
       if (ELPP->vRegistry()->allowed(el::Level::Info, "sync-info"))
