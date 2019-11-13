@@ -39,7 +39,7 @@ script: |
 
   WRAP_DIR=$HOME/wrapped
   HOSTS="arm-linux-android aarch64-linux-android"
-  FAKETIME_HOST_PROGS="clang clang++ ar ranlib nm"
+  FAKETIME_HOST_PROGS="clang clang++ ar nm"
   FAKETIME_PROGS="date"
   HOST_CFLAGS="-O2 -g"
   HOST_CXXFLAGS="-O2 -g"
@@ -117,12 +117,10 @@ script: |
   export PATH=${PATH_orig}
   create_global_faketime_wrappers "${REFERENCE_DATETIME}"
   create_per-host_faketime_wrappers "${REFERENCE_DATETIME}"
-  export PATH=${WRAP_DIR}:${PATH}
 
-  ORIGPATH="$PATH"
   # Build in a new dir for each host
   for i in ${HOSTS}; do
-    export PATH=${BASEPREFIX}/${i}/native/bin:${ORIGPATH}
+    export PATH=${WRAP_DIR}:${BASEPREFIX}/${i}/native/bin:${PATH_orig}
     mkdir build && cd build
     cmake .. -DCMAKE_TOOLCHAIN_FILE=${BASEPREFIX}/${i}/share/toolchain.cmake -DCMAKE_BUILD_TYPE=Release
     make ${MAKEOPTS}

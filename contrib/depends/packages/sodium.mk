@@ -14,7 +14,7 @@ endef
 define $(package)_config_cmds
   ./autogen.sh &&\
   patch -p1 < $($(package)_patch_dir)/fix-whitespace.patch &&\
-  $($(package)_autoconf) $($(package)_config_opts)
+  $($(package)_autoconf) $($(package)_config_opts) AR_FLAGS=$($(package)_arflags)
 endef
 
 define $(package)_build_cmds

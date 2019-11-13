@@ -1,0 +1,28 @@
+--- boost_1_64_0/tools/build/src/tools/gcc.jam.O	2017-04-17 03:22:26.000000000 +0100
++++ boost_1_64_0/tools/build/src/tools/gcc.jam	2019-11-15 15:46:16.957937137 +0000
+@@ -243,6 +243,8 @@
+     {
+         ECHO notice: using gcc archiver :: $(condition) :: $(archiver[1]) ;
+     }
++    local arflags = [ feature.get-values <arflags> : $(options) ] ;
++    toolset.flags gcc.archive .ARFLAGS $(condition) : $(arflags) ;
+ 
+     # - Ranlib.
+     local ranlib = [ common.get-invocation-command gcc
+@@ -970,6 +972,7 @@
+ # logic in intel-linux, but that is hardly worth the trouble as on Linux, 'ar'
+ # is always available.
+ .AR = ar ;
++.ARFLAGS = rc ;
+ .RANLIB = ranlib ;
+ 
+ toolset.flags gcc.archive AROPTIONS <archiveflags> ;
+@@ -1011,7 +1014,7 @@
+ #
+ actions piecemeal archive
+ {
+-    "$(.AR)" $(AROPTIONS) rc "$(<)" "$(>)"
++    "$(.AR)" $(AROPTIONS) $(.ARFLAGS) "$(<)" "$(>)"
+     "$(.RANLIB)" "$(<)"
+ }
+ 

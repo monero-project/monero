@@ -6,6 +6,7 @@ freebsd_NM=nm
 
 freebsd_CFLAGS=-pipe
 freebsd_CXXFLAGS=$(freebsd_CFLAGS)
+freebsd_ARFLAGS=cr
 
 freebsd_release_CFLAGS=-O2
 freebsd_release_CXXFLAGS=$(freebsd_release_CFLAGS)
