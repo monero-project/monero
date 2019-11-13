@@ -3,9 +3,10 @@ $(package)_version=1.0.2r
 $(package)_download_path=https://www.openssl.org/source
 $(package)_file_name=$(package)-$($(package)_version).tar.gz
 $(package)_sha256_hash=ae51d08bba8a83958e894946f15303ff894d75c2b8bbd44a852b64e3fe11d0d6
+$(package)_patches=fix_arflags.patch
 
 define $(package)_set_vars
-$(package)_config_env=AR="$($(package)_ar)" RANLIB="$($(package)_ranlib)" CC="$($(package)_cc)"
+$(package)_config_env=AR="$($(package)_ar)" ARFLAGS=$($(package)_arflags) RANLIB="$($(package)_ranlib)" CC="$($(package)_cc)"
 $(package)_config_opts=--prefix=$(host_prefix) --openssldir=$(host_prefix)/etc/openssl
 $(package)_config_opts+=no-capieng
 $(package)_config_opts+=no-dso
@@ -56,7 +57,8 @@ endef
 define $(package)_preprocess_cmds
   sed -i.old "/define DATE/d" util/mkbuildinf.pl && \
   sed -i.old "s|engines apps test|engines|" Makefile.org && \
-  sed -i -e "s/-mandroid //" Configure
+  sed -i -e "s/-mandroid //" Configure && \
+  patch < $($(package)_patch_dir)/fix_arflags.patch
 endef
 
 define $(package)_config_cmds

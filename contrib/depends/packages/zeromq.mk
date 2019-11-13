@@ -20,7 +20,7 @@ define $(package)_preprocess_cmds
 endef
 
 define $(package)_config_cmds
-  $($(package)_autoconf)
+  $($(package)_autoconf) AR_FLAGS=$($(package)_arflags)
 endef
 
 define $(package)_build_cmds

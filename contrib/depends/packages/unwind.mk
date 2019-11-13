@@ -7,7 +7,7 @@ $(package)_sha256_hash=1de38ffbdc88bd694d10081865871cd2bfbb02ad8ef9e1606aee18d65
 define $(package)_config_cmds
   cp -f $(BASEDIR)/config.guess config/config.guess &&\
   cp -f $(BASEDIR)/config.sub config/config.sub &&\
-  $($(package)_autoconf) --disable-shared --enable-static
+  $($(package)_autoconf) --disable-shared --enable-static AR_FLAGS=$($(package)_arflags)
 endef
 
 define $(package)_build_cmds
