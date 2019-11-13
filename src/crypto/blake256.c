@@ -40,6 +40,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <memwipe.h>
 #include "blake256.h"
 
 #define U8TO32(p) \
@@ -277,7 +278,7 @@ void hmac_blake256_init(hmac_state *S, const uint8_t *_key, uint64_t keylen) {
     }
     blake256_update(&S->outer, pad, 512);
 
-    memset(keyhash, 0, 32);
+    memwipe(keyhash, sizeof(keyhash));
 }
 
 // keylen = number of bytes
@@ -307,7 +308,7 @@ void hmac_blake224_init(hmac_state *S, const uint8_t *_key, uint64_t keylen) {
     }
     blake224_update(&S->outer, pad, 512);
 
-    memset(keyhash, 0, 32);
+    memwipe(keyhash, sizeof(keyhash));
 }
 
 // datalen = number of bits
@@ -327,7 +328,7 @@ void hmac_blake256_final(hmac_state *S, uint8_t *digest) {
     blake256_final(&S->inner, ihash);
     blake256_update(&S->outer, ihash, 256);
     blake256_final(&S->outer, digest);
-    memset(ihash, 0, 32);
+    memwipe(ihash, sizeof(ihash));
 }
 
 void hmac_blake224_final(hmac_state *S, uint8_t *digest) {
@@ -335,7 +336,7 @@ void hmac_blake224_final(hmac_state *S, uint8_t *digest) {
     blake224_final(&S->inner, ihash);
     blake224_update(&S->outer, ihash, 224);
     blake224_final(&S->outer, digest);
-    memset(ihash, 0, 32);
+    memwipe(ihash, sizeof(ihash));
 }
 
 // keylen = number of bytes; inlen = number of bytes
