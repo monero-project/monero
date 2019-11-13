@@ -6398,7 +6398,7 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
       req.from_height = bc_height > blocks_in_a_year ? bc_height - blocks_in_a_year : 0;
       req.cumulative = true;
       m_daemon_rpc_mutex.lock();
-      bool r = net_utils::invoke_http_json_rpc("/json_rpc", "get_output_distribution", req, res, m_http_client, rpc_timeout);
+      bool r = net_utils::invoke_http_json_rpc("/json_rpc", "get_output_distribution", req, res, m_http_client, rpc_timeout * 1000);
       m_daemon_rpc_mutex.unlock();
       THROW_WALLET_EXCEPTION_IF(!r, error::get_output_distribution, "Failed to request output distribution: no connection to daemon");
       THROW_WALLET_EXCEPTION_IF(res.status == CORE_RPC_STATUS_BUSY, error::get_output_distribution, "Failed to request output distribution: daemon is busy");
