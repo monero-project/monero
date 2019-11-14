@@ -36,7 +36,7 @@
   do { \
     CHECK_AND_ASSERT_MES(error.code == 0, error.message, error.message); \
     handle_payment_changes(res, std::integral_constant<bool, HasCredits<decltype(res)>::Has>()); \
-    CHECK_AND_ASSERT_MES(r, std::string(), "Failed to connect to daemon"); \
+    CHECK_AND_ASSERT_MES(r, std::string("Failed to connect to daemon"), "Failed to connect to daemon"); \
     /* empty string -> not connection */ \
     CHECK_AND_ASSERT_MES(!res.status.empty(), res.status, "No connection to daemon"); \
     CHECK_AND_ASSERT_MES(res.status != CORE_RPC_STATUS_BUSY, res.status, "Daemon busy"); \
