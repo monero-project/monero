@@ -9,6 +9,7 @@ define $(package)_set_vars
 $(package)_config_opts=--enable-static --disable-shared
 $(package)_config_opts+=--prefix=$(host_prefix)
 $(package)_config_opts_android=RANLIB=$($(package)_ranlib) AR=$($(package)_ar) CC=$($(package)_cc)
+$(package)_config_opts_darwin=RANLIB="$(host_prefix)/native/bin/x86_64-apple-darwin11-ranlib" AR="$(host_prefix)/native/bin/x86_64-apple-darwin11-ar" CC="$(host_prefix)/native/bin/$($(package)_cc)"
 endef
 
 define $(package)_config_cmds
