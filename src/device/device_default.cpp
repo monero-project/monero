@@ -32,6 +32,7 @@
 
 #include "device_default.hpp"
 #include "int-util.h"
+#include "crypto/wallet/crypto.h"
 #include "cryptonote_basic/account.h"
 #include "cryptonote_basic/subaddress_index.h"
 #include "cryptonote_core/cryptonote_tx_utils.h"
@@ -120,7 +121,7 @@ namespace hw {
         /* ======================================================================= */
 
         bool device_default::derive_subaddress_public_key(const crypto::public_key &out_key, const crypto::key_derivation &derivation, const std::size_t output_index, crypto::public_key &derived_key) {
-            return crypto::derive_subaddress_public_key(out_key, derivation, output_index,derived_key);
+            return crypto::wallet::derive_subaddress_public_key(out_key, derivation, output_index,derived_key);
         }
 
         crypto::public_key device_default::get_subaddress_spend_public_key(const cryptonote::account_keys& keys, const cryptonote::subaddress_index &index) {
@@ -236,7 +237,7 @@ namespace hw {
         }
 
         bool device_default::generate_key_derivation(const crypto::public_key &key1, const crypto::secret_key &key2, crypto::key_derivation &derivation) {
-            return crypto::generate_key_derivation(key1, key2, derivation);
+            return crypto::wallet::generate_key_derivation(key1, key2, derivation);
         }
 
         bool device_default::derivation_to_scalar(const crypto::key_derivation &derivation, const size_t output_index, crypto::ec_scalar &res){

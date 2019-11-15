@@ -1,4 +1,4 @@
-# Copyright (c) 2014-2020, The Monero Project
+# Copyright (c) 2020, The Monero Project
 #
 # All rights reserved.
 #
@@ -26,56 +26,37 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-set(device_sources
-  device.cpp
-  device_default.cpp
-  log.cpp
-  )
+#
+# Possibly user defined values.
+#
+set(MONERO_WALLET_CRYPTO_LIBRARY "auto" CACHE STRING "Select a wallet crypto library")
 
-if(HIDAPI_FOUND)
-  set(device_sources 
-    ${device_sources} 
-    device_ledger.cpp
-    device_io_hid.cpp
-    )
-endif()
+#
+# If the user specified "auto", detect best library defaulting to internal.
+#
+if (${MONERO_WALLET_CRYPTO_LIBRARY} STREQUAL "auto")
+   monero_crypto_autodetect(AVAILABLE BEST)
+  if (DEFINED BEST)
+    message("Wallet crypto is using ${BEST} backend")
+    set(MONERO_WALLET_CRYPTO_LIBRARY ${BEST})
+  else ()
+    message("Defaulting to internal crypto library for wallet")
+    set(MONERO_WALLET_CRYPTO_LIBRARY "cn")
+  endif ()
+endif ()
 
-set(device_headers
-  device.hpp
-  device_io.hpp
-  device_default.hpp
-  device_cold.hpp
-  log.hpp
- )
-
-if(HIDAPI_FOUND)
-  set(device_headers 
-    ${device_headers} 
-    device_ledger.hpp
-    device_io_hid.hpp
-    )
-endif()
-
-set(device_private_headers)
+#
+# Configure library target "wallet-crypto" - clients will use this as a
+# library dependency which in turn will depend on the crypto library selected.
+#
+if (${MONERO_WALLET_CRYPTO_LIBRARY} STREQUAL "cn")
+  configure_file(${CMAKE_CURRENT_SOURCE_DIR}/empty.h.in ${MONERO_GENERATED_HEADERS_DIR}/crypto/wallet/ops.h)
+  add_library(wallet-crypto ALIAS cncrypto)
+else ()
+  monero_crypto_generate_header(${MONERO_WALLET_CRYPTO_LIBRARY} "${MONERO_GENERATED_HEADERS_DIR}/crypto/wallet/ops.h")
+  monero_crypto_get_target(${MONERO_WALLET_CRYPTO_LIBRARY} CRYPTO_TARGET)
+  add_library(wallet-crypto $<TARGET_OBJECTS:${CRYPTO_TARGET}>)
+  target_link_libraries(wallet-crypto cncrypto)
+endif ()
 
 
-monero_private_headers(device
-  ${device_private_headers})
-
-monero_add_library(device
-  ${device_sources}
-  ${device_headers}
-  ${device_private_headers})
-
-target_link_libraries(device
-  PUBLIC
-    ${HIDAPI_LIBRARIES}
-    cncrypto
-    ringct_basic
-    wallet-crypto
-    ${OPENSSL_CRYPTO_LIBRARIES}
-    ${Boost_SERIALIZATION_LIBRARY}
-  PRIVATE
-    version
-    ${Blocks}
-    ${EXTRA_LIBRARIES})
