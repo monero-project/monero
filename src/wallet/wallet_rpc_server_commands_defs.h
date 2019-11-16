@@ -47,7 +47,7 @@
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define WALLET_RPC_VERSION_MAJOR 1
-#define WALLET_RPC_VERSION_MINOR 16
+#define WALLET_RPC_VERSION_MINOR 17
 #define MAKE_WALLET_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define WALLET_RPC_VERSION MAKE_WALLET_RPC_VERSION(WALLET_RPC_VERSION_MAJOR, WALLET_RPC_VERSION_MINOR)
 namespace tools
@@ -182,11 +182,13 @@ namespace wallet_rpc
   {
     struct request_t
     {
-      uint32_t account_index;
+      uint32_t    account_index;
+      uint32_t    count;
       std::string label;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(account_index)
+        KV_SERIALIZE_OPT(count, 1U)
         KV_SERIALIZE(label)
       END_KV_SERIALIZE_MAP()
     };
@@ -194,12 +196,16 @@ namespace wallet_rpc
 
     struct response_t
     {
-      std::string   address;
-      uint32_t      address_index;
+      std::string              address;
+      uint32_t                 address_index;
+      std::vector<std::string> addresses;
+      std::vector<uint32_t>    address_indices;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(address)
         KV_SERIALIZE(address_index)
+        KV_SERIALIZE(addresses)
+        KV_SERIALIZE(address_indices)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;
