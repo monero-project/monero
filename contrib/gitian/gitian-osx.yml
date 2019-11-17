@@ -32,7 +32,7 @@ script: |
   WRAP_DIR=$HOME/wrapped
   HOSTS="x86_64-apple-darwin11"
   FAKETIME_HOST_PROGS=""
-  FAKETIME_PROGS="ar ranlib date dmg genisoimage"
+  FAKETIME_PROGS="ar ranlib date dmg genisoimage python"
 
   export GZIP="-9n"
   export TZ="UTC"
