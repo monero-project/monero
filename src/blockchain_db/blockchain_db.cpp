@@ -63,6 +63,7 @@ bool matches_category(relay_method method, relay_category category) noexcept
   {
     default:
     case relay_method::local:
+    case relay_method::forward:
     case relay_method::stem:
       return false;
     case relay_method::block:
@@ -79,6 +80,7 @@ void txpool_tx_meta_t::set_relay_method(relay_method method) noexcept
   kept_by_block = 0;
   do_not_relay = 0;
   is_local = 0;
+  is_forwarding = 0;
   dandelionpp_stem = 0;
 
   switch (method)
@@ -89,8 +91,8 @@ void txpool_tx_meta_t::set_relay_method(relay_method method) noexcept
     case relay_method::local:
       is_local = 1;
       break;
-    default:
-    case relay_method::fluff:
+    case relay_method::forward:
+      is_forwarding = 1;
       break;
     case relay_method::stem:
       dandelionpp_stem = 1;
@@ -98,26 +100,45 @@ void txpool_tx_meta_t::set_relay_method(relay_method method) noexcept
     case relay_method::block:
       kept_by_block = 1;
       break;
+    default:
+    case relay_method::fluff:
+      break;
   }
 }
 
 relay_method txpool_tx_meta_t::get_relay_method() const noexcept
 {
-  if (kept_by_block)
-    return relay_method::block;
-  if (do_not_relay)
-    return relay_method::none;
-  if (is_local)
-    return relay_method::local;
-  if (dandelionpp_stem)
-    return relay_method::stem;
+  const uint8_t state =
+    uint8_t(kept_by_block) +
+    (uint8_t(do_not_relay) << 1) +
+    (uint8_t(is_local) << 2) +
+    (uint8_t(is_forwarding) << 3) +
+    (uint8_t(dandelionpp_stem) << 4);
+
+  switch (state)
+  {
+    default: // error case
+    case 0:
+      break;
+    case 1:
+      return relay_method::block;
+    case 2:
+      return relay_method::none;
+    case 4:
+      return relay_method::local;
+    case 8:
+      return relay_method::forward;
+    case 16:
+      return relay_method::stem;
+  };
   return relay_method::fluff;
 }
 
 bool txpool_tx_meta_t::upgrade_relay_method(relay_method method) noexcept
 {
   static_assert(relay_method::none < relay_method::local, "bad relay_method value");
-  static_assert(relay_method::local < relay_method::stem, "bad relay_method value");
+  static_assert(relay_method::local < relay_method::forward, "bad relay_method value");
+  static_assert(relay_method::forward < relay_method::stem, "bad relay_method value");
   static_assert(relay_method::stem < relay_method::fluff, "bad relay_method value");
   static_assert(relay_method::fluff < relay_method::block, "bad relay_method value");
 
