@@ -70,34 +70,9 @@ namespace string_tools
     return to_hex::string(to_byte_span(to_span(src)));
   }
   //----------------------------------------------------------------------------
-  inline bool parse_hexstr_to_binbuff(const boost::string_ref s, epee::span<char> res)
-  {
-      if (s.size() != res.size() * 2)
-        return false;
-
-      unsigned char *dst = (unsigned char *)&res[0];
-      const unsigned char *src = (const unsigned char *)s.data();
-      for(size_t i = 0; i < s.size(); i += 2)
-      {
-        int tmp = *src++;
-        tmp = epee::misc_utils::parse::isx[tmp];
-        if (tmp == 0xff) return false;
-        int t2 = *src++;
-        t2 = epee::misc_utils::parse::isx[t2];
-        if (t2 == 0xff) return false;
-        *dst++ = (tmp << 4) | t2;
-      }
-
-      return true;
-  }
-  //----------------------------------------------------------------------------
   inline bool parse_hexstr_to_binbuff(const boost::string_ref s, std::string& res)
   {
-    if (s.size() & 1)
-      return false;
-    res.resize(s.size() / 2);
-    epee::span<char> rspan((char*)&res[0], res.size());
-    return parse_hexstr_to_binbuff(epee::to_span(s), rspan);
+    return from_hex::to_string(res, s);
   }
   //----------------------------------------------------------------------------
 PUSH_WARNINGS
@@ -306,11 +281,8 @@ POP_WARNINGS
   template<class t_pod_type>
   bool hex_to_pod(const boost::string_ref hex_str, t_pod_type& s)
   {
-    static_assert(std::is_pod<t_pod_type>::value, "expected pod type");
-    if(sizeof(s)*2 != hex_str.size())
-      return false;
-    epee::span<char> rspan((char*)&s, sizeof(s));
-    return parse_hexstr_to_binbuff(epee::to_span(hex_str), rspan);
+    static_assert(std::is_standard_layout<t_pod_type>(), "expected standard layout type");
+    return from_hex::to_buffer(as_mut_byte_span(s), hex_str);
   }
   //----------------------------------------------------------------------------
   template<class t_pod_type>
