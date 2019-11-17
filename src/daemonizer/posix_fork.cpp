@@ -127,13 +127,18 @@ void fork(const std::string & pidfile)
   {
     quit("Unable to open output file: " + output);
   }
+#else
+  if (open("/dev/null", O_WRONLY) < 0)
+  {
+    quit("Unable to open /dev/null");
+  }
+#endif
 
   // Also send standard error to the same log file.
   if (dup(1) < 0)
   {
     quit("Unable to dup output descriptor");
   }
-#endif
 }
 
 } // namespace posix
