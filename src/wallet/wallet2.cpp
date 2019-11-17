@@ -4313,6 +4313,9 @@ wallet2::detached_blockchain_data wallet2::detach_blockchain(uint64_t height, st
       ++it;
   }
 
+  if (m_callback)
+    m_callback->on_reorg(height, blocks_detached, transfers_detached);
+
   LOG_PRINT_L0("Detached blockchain on height " << height << ", transfers detached " << transfers_detached << ", blocks detached " << blocks_detached);
   return dbd;
 }
