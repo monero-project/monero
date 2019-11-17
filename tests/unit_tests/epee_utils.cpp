@@ -823,14 +823,14 @@ TEST(ToHex, String)
 
 }
 
-TEST(FromHex, String)
+TEST(HexLocale, String)
 {
     // the source data to encode and decode
     std::vector<uint8_t> source{{ 0x00, 0xFF, 0x0F, 0xF0 }};
 
     // encode and decode the data
     auto hex = epee::to_hex::string({ source.data(), source.size() });
-    auto decoded = epee::from_hex::vector(hex);
+    auto decoded = epee::from_hex_locale::to_vector(hex);
 
     // encoded should be twice the size and should decode to the exact same data
     EXPECT_EQ(source.size() * 2, hex.size());
@@ -839,7 +839,7 @@ TEST(FromHex, String)
     // we will now create a padded hex string, we want to explicitly allow
     // decoding it this way also, ignoring spaces and colons between the numbers
     hex.assign("00:ff 0f:f0");
-    EXPECT_EQ(source, epee::from_hex::vector(hex));
+    EXPECT_EQ(source, epee::from_hex_locale::to_vector(hex));
 }
 
 TEST(ToHex, Array)
@@ -899,6 +899,46 @@ TEST(ToHex, Formatted)
   expected.append("<").append(std_to_hex(all_bytes)).append(">");
   epee::to_hex::formatted(out, epee::to_span(all_bytes));
   EXPECT_EQ(expected, out.str());
+}
+
+TEST(FromHex, ToString)
+{
+  static constexpr const char hex[] = u8"deadbeeffY";
+  static constexpr const char binary[] = {
+    char(0xde), char(0xad), char(0xbe), char(0xef), 0x00
+  };
+
+  std::string out{};
+  EXPECT_FALSE(epee::from_hex::to_string(out, hex));
+
+  boost::string_ref portion{hex};
+  portion.remove_suffix(1);
+  EXPECT_FALSE(epee::from_hex::to_string(out, portion));
+
+  portion.remove_suffix(1);
+  EXPECT_TRUE(epee::from_hex::to_string(out, portion));
+  EXPECT_EQ(std::string{binary}, out);
+}
+
+TEST(FromHex, ToBuffer)
+{
+  static constexpr const char hex[] = u8"deadbeeffY";
+  static constexpr const std::uint8_t binary[] = {0xde, 0xad, 0xbe, 0xef};
+
+  std::vector<std::uint8_t> out{};
+  out.resize(sizeof(binary));
+  EXPECT_FALSE(epee::from_hex::to_buffer(epee::to_mut_span(out), hex));
+
+  boost::string_ref portion{hex};
+  portion.remove_suffix(1);
+  EXPECT_FALSE(epee::from_hex::to_buffer(epee::to_mut_span(out), portion));
+
+  portion.remove_suffix(1);
+  EXPECT_FALSE(epee::from_hex::to_buffer({out.data(), out.size() - 1}, portion));
+
+  EXPECT_TRUE(epee::from_hex::to_buffer(epee::to_mut_span(out), portion));
+  const std::vector<std::uint8_t> expected{std::begin(binary), std::end(binary)};
+  EXPECT_EQ(expected, out);
 }
 
 TEST(StringTools, BuffToHex)

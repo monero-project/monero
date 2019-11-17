@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2019, The Monero Project
+// Copyright (c) 2014-2020, The Monero Project
 //
 // All rights reserved.
 //
@@ -51,7 +51,7 @@ namespace cryptonote
         const std::vector<std::string> ssl_allowed_fingerprints = command_line::get_arg(vm, arg.rpc_ssl_allowed_fingerprints);
 
         std::vector<std::vector<uint8_t>> allowed_fingerprints{ ssl_allowed_fingerprints.size() };
-        std::transform(ssl_allowed_fingerprints.begin(), ssl_allowed_fingerprints.end(), allowed_fingerprints.begin(), epee::from_hex::vector);
+        std::transform(ssl_allowed_fingerprints.begin(), ssl_allowed_fingerprints.end(), allowed_fingerprints.begin(), epee::from_hex_locale::to_vector);
         for (const auto &fpr: allowed_fingerprints)
         {
           if (fpr.size() != SSL_FINGERPRINT_SIZE)
