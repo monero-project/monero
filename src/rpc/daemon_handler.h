@@ -28,6 +28,7 @@
 
 #pragma once
 
+#include "byte_slice.h"
 #include "daemon_messages.h"
 #include "daemon_rpc_version.h"
 #include "rpc_handler.h"
@@ -132,7 +133,7 @@ class DaemonHandler : public RpcHandler
 
     void handle(const GetOutputDistribution::Request& req, GetOutputDistribution::Response& res);
 
-    std::string handle(const std::string& request);
+    epee::byte_slice handle(const std::string& request) override final;
 
   private:
 

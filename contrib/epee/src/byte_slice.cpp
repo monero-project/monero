@@ -49,12 +49,16 @@ namespace epee
     std::atomic<std::size_t> ref_count;
   };
 
-  void release_byte_slice::operator()(byte_slice_data* ptr) const noexcept
+  void release_byte_slice::call(void*, void* ptr) noexcept
   {
-    if (ptr && --(ptr->ref_count) == 0)
+    if (ptr)
     {
-      ptr->~byte_slice_data();
-      free(ptr);
+      byte_slice_data* self = static_cast<byte_slice_data*>(ptr);
+      if (--(self->ref_count) == 0)
+      {
+        self->~byte_slice_data();
+        free(self);
+      }
     }
   }
 
@@ -205,5 +209,12 @@ namespace epee
     if (begin == end)
       return {};
     return {storage_.get(), {portion_.begin() + begin, end - begin}};
+  }
+
+  std::unique_ptr<byte_slice_data, release_byte_slice> byte_slice::take_buffer() noexcept
+  {
+    std::unique_ptr<byte_slice_data, release_byte_slice> out{std::move(storage_)};
+    portion_ = nullptr;
+    return out;
   }
 } // epee

@@ -42,7 +42,12 @@ namespace epee
 
   struct release_byte_slice
   {
-    void operator()(byte_slice_data*) const noexcept;
+    //! For use with `zmq_message_init_data`, use second arg for buffer pointer.
+    static void call(void*, void* ptr) noexcept;
+    void operator()(byte_slice_data* ptr) const noexcept
+    {
+      call(nullptr, ptr);
+    }
   };
 
   /*! Inspired by slices in golang. Storage is thread-safe reference counted,
@@ -140,6 +145,9 @@ namespace epee
         \throw std::out_of_range If `size() < end`.
         \return Slice starting at `data() + begin` of size `end - begin`. */
     byte_slice get_slice(std::size_t begin, std::size_t end) const;
+
+    //! \post `empty()` \return Ownership of ref-counted buffer.
+    std::unique_ptr<byte_slice_data, release_byte_slice> take_buffer() noexcept;
   };
 } // epee
 

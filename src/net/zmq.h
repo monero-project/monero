@@ -53,6 +53,11 @@
 #define MONERO_ZMQ_THROW(msg)                         \
     MONERO_THROW( ::net::zmq::get_error_code(), msg )
 
+namespace epee
+{
+    class byte_slice;
+}
+
 namespace net
 {
 namespace zmq
@@ -132,5 +137,24 @@ namespace zmq
         \param flags See `zmq_send` for possible flags.
         \return `success()` if sent, otherwise ZMQ error. */
     expect<void> send(epee::span<const std::uint8_t> payload, void* socket, int flags = 0) noexcept;
+
+    /*! Sends `payload` on `socket`. Blocks until the entire message is queued
+        for sending, or until `zmq_term` is called on the `zmq_context`
+        associated with `socket`. If the context is terminated,
+        `make_error_code(ETERM)` is returned.
+
+        \note This will automatically retry on `EINTR`, so exiting on
+            interrupts requires context termination.
+        \note If non-blocking behavior is requested on `socket` or by `flags`,
+            then `net::zmq::make_error_code(EAGAIN)` will be returned if this
+            would block.
+
+        \param payload sent as one message on `socket`.
+        \param socket Handle created with `zmq_socket`.
+        \param flags See `zmq_msg_send` for possible flags.
+
+        \post `payload.emtpy()` - ownership is transferred to zmq.
+        \return `success()` if sent, otherwise ZMQ error. */
+    expect<void> send(epee::byte_slice&& payload, void* socket, int flags = 0) noexcept;
 } // zmq
 } // net
