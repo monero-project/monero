@@ -1,4 +1,4 @@
-// Copyright (c) 2016-2019, The Monero Project
+// Copyright (c) 2016-2020, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -30,7 +30,6 @@
 
 #include <boost/utility/string_ref.hpp>
 #include <cstring>
-#include "string_tools.h" // out of order because windows.h GetObject macro conflicts with GenericValue<..>::GetObject()
 #include <rapidjson/document.h>
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
@@ -39,6 +38,8 @@
 #include "rpc/message_data_structs.h"
 #include "cryptonote_protocol/cryptonote_protocol_defs.h"
 #include "common/sfinae_helpers.h"
+#include "hex.h"
+#include "span.h"
 
 #define OBJECT_HAS_MEMBER_OR_THROW(val, key) \
   do \
@@ -118,6 +119,8 @@ inline constexpr bool is_to_hex()
   return std::is_pod<Type>() && !std::is_integral<Type>();
 }
 
+void read_hex(const rapidjson::Value& val, epee::span<std::uint8_t> dest);
+
 // POD to json key
 template <class Type>
 inline typename std::enable_if<is_to_hex<Type>()>::type toJsonKey(rapidjson::Writer<rapidjson::StringBuffer>& dest, const Type& pod)
@@ -137,18 +140,8 @@ inline typename std::enable_if<is_to_hex<Type>()>::type toJsonValue(rapidjson::W
 template <class Type>
 inline typename std::enable_if<is_to_hex<Type>()>::type fromJsonValue(const rapidjson::Value& val, Type& t)
 {
-  if (!val.IsString())
-  {
-    throw WRONG_TYPE("string");
-  }
-
-  //TODO: handle failure to convert hex string to POD type
-  bool success = epee::string_tools::hex_to_pod(val.GetString(), t);
-
-  if (!success)
-  {
-    throw BAD_INPUT();
-  }
+  static_assert(std::is_standard_layout<Type>(), "expected standard layout type");
+  json::read_hex(val, epee::as_mut_byte_span(t));
 }
 
 void toJsonValue(rapidjson::Writer<rapidjson::StringBuffer>& dest, const rapidjson::Value& src);
