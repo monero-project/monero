@@ -19,11 +19,11 @@ ifneq ($(host_os),darwin)
   define $(package)_config_cmds
     cp -f $(BASEDIR)/config.guess config.guess &&\
     cp -f $(BASEDIR)/config.sub config.sub &&\
-    $($(package)_autoconf)
+    $($(package)_autoconf) AR_FLAGS=$($(package)_arflags)
   endef
 else
   define $(package)_config_cmds
-    $($(package)_autoconf)
+    $($(package)_autoconf) AR_FLAGS=$($(package)_arflags)
   endef
 endif
 

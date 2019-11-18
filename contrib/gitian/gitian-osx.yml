@@ -32,10 +32,9 @@ script: |
   WRAP_DIR=$HOME/wrapped
   HOSTS="x86_64-apple-darwin11"
   FAKETIME_HOST_PROGS=""
-  FAKETIME_PROGS="ar ranlib date dmg genisoimage"
+  FAKETIME_PROGS="ar ranlib date dmg genisoimage python"
 
   export GZIP="-9n"
-  export TAR_OPTIONS="--mtime="$REFERENCE_DATE\\\ $REFERENCE_TIME""
   export TZ="UTC"
   export BUILD_DIR=`pwd`
   mkdir -p ${WRAP_DIR}
@@ -92,6 +91,7 @@ script: |
   tar -C ${BASEPREFIX}/SDKs -xf ${BUILD_DIR}/MacOSX10.11.sdk.tar.gz
 
   # Build dependencies for each host
+  export TAR_OPTIONS=--mtime=2000-01-01T12:00:00
   for i in $HOSTS; do
     make ${MAKEOPTS} -C ${BASEPREFIX} HOST="${i}"
   done
@@ -104,6 +104,7 @@ script: |
 
   ORIGPATH="$PATH"
   # Build in a new dir for each host
+  export TAR_OPTIONS=--mtime=${REFERENCE_DATE}T${REFERENCE_TIME}
   for i in ${HOSTS}; do
     export PATH=${BASEPREFIX}/${i}/native/bin:${ORIGPATH}
     mkdir build && cd build

@@ -18,7 +18,7 @@ endef
 
 define $(package)_config_cmds
   ./bootstrap &&\
-  $($(package)_autoconf) $($(package)_config_opts)
+  $($(package)_autoconf) $($(package)_config_opts) AR_FLAGS=$($(package)_arflags)
 endef
 
 define $(package)_build_cmds

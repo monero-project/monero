@@ -10,6 +10,7 @@ $(1)_libtool=$($($(1)_type)_LIBTOOL)
 $(1)_nm=$($($(1)_type)_NM)
 $(1)_cflags=$($($(1)_type)_CFLAGS) $($($(1)_type)_$(release_type)_CFLAGS)
 $(1)_cxxflags=$($($(1)_type)_CXXFLAGS) $($($(1)_type)_$(release_type)_CXXFLAGS)
+$(1)_arflags=$($($(1)_type)_ARFLAGS) $($($(1)_type)_$(release_type)_ARFLAGS)
 $(1)_ldflags=$($($(1)_type)_LDFLAGS) $($($(1)_type)_$(release_type)_LDFLAGS) -L$($($(1)_type)_prefix)/lib
 $(1)_cppflags=$($($(1)_type)_CPPFLAGS) $($($(1)_type)_$(release_type)_CPPFLAGS) -I$($($(1)_type)_prefix)/include
 $(1)_recipe_hash:=
@@ -102,6 +103,11 @@ $(1)_cxxflags+=$($(1)_cxxflags_$(host_arch)) $($(1)_cxxflags_$(host_arch)_$(rele
 $(1)_cxxflags+=$($(1)_cxxflags_$(host_os)) $($(1)_cxxflags_$(host_os)_$(release_type))
 $(1)_cxxflags+=$($(1)_cxxflags_$(host_arch)_$(host_os)) $($(1)_cxxflags_$(host_arch)_$(host_os)_$(release_type))
 
+$(1)_arflags+=$($(1)_arflags_$(release_type))
+$(1)_arflags+=$($(1)_arflags_$(host_arch)) $($(1)_arflags_$(host_arch)_$(release_type))
+$(1)_arflags+=$($(1)_arflags_$(host_os)) $($(1)_arflags_$(host_os)_$(release_type))
+$(1)_arflags+=$($(1)_arflags_$(host_arch)_$(host_os)) $($(1)_arflags_$(host_arch)_$(host_os)_$(release_type))
+
 $(1)_cppflags+=$($(1)_cppflags_$(release_type))
 $(1)_cppflags+=$($(1)_cppflags_$(host_arch)) $($(1)_cppflags_$(host_arch)_$(release_type))
 $(1)_cppflags+=$($(1)_cppflags_$(host_os)) $($(1)_cppflags_$(host_os)_$(release_type))
@@ -142,6 +148,9 @@ $(1)_autoconf += RANLIB="$$($(1)_ranlib)"
 endif
 ifneq ($($(1)_ar),)
 $(1)_autoconf += AR="$$($(1)_ar)"
+endif
+ifneq ($($(1)_arflags),)
+$(1)_autoconf += ARFLAGS="$$($(1)_arflags)"
 endif
 ifneq ($($(1)_cflags),)
 $(1)_autoconf += CFLAGS="$$($(1)_cflags)"
