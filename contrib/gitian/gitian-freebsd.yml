@@ -1,5 +1,5 @@
 ---
-name: "monero-android-0.15"
+name: "monero-freebsd-0.15"
 enable_cache: true
 suites:
 - "bionic"
@@ -7,6 +7,7 @@ architectures:
 - "amd64"
 packages:
 - "curl"
+- "clang-8"
 - "gperf"
 - "gcc-7"
 - "g++-7"
@@ -30,7 +31,6 @@ packages:
 - "libharfbuzz-dev"
 - "libprotobuf-dev"
 - "python3-zmq"
-- "unzip"
 remotes:
 - "url": "https://github.com/monero-project/monero.git"
   "dir": "monero"
@@ -38,9 +38,9 @@ files: []
 script: |
 
   WRAP_DIR=$HOME/wrapped
-  HOSTS="arm-linux-android aarch64-linux-android"
-  FAKETIME_HOST_PROGS="clang clang++ ar nm"
-  FAKETIME_PROGS="date"
+  HOSTS="x86_64-unknown-freebsd"
+  FAKETIME_HOST_PROGS=""
+  FAKETIME_PROGS="clang-8 clang++-8 date"
   HOST_CFLAGS="-O2 -g"
   HOST_CXXFLAGS="-O2 -g"
   HOST_LDFLAGS=-static-libstdc++
@@ -70,15 +70,10 @@ script: |
 
   function create_per-host_faketime_wrappers {
   for i in $HOSTS; do
-    ABI=$i
-    if expr $i : arm- > /dev/null
-    then
-      ABI=$i"eabi"
-    fi
-    NDKDIR="${BUILD_DIR}/monero/contrib/depends/$i/native/bin"
     for prog in ${FAKETIME_HOST_PROGS}; do
-        WRAPPER=${WRAP_DIR}/${ABI}-${prog}
+        WRAPPER=${WRAP_DIR}/${i}-${prog}
         echo '#!/usr/bin/env bash' > ${WRAPPER}
+        echo "REAL=\`which -a ${i}-${prog} | grep -v ${WRAP_DIR}/${i}-${prog} | head -1\`" >> ${WRAPPER}
         echo 'export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/faketime/libfaketime.so.1' >> ${WRAPPER}
         echo "export FAKETIME=\"$1\"" >> ${WRAPPER}
         echo "$NDKDIR/${ABI}-$prog \$@" >> ${WRAPPER}
@@ -117,10 +112,12 @@ script: |
   create_global_faketime_wrappers "${REFERENCE_DATETIME}"
   create_per-host_faketime_wrappers "${REFERENCE_DATETIME}"
 
+  ORIGPATH="$PATH"
   # Build in a new dir for each host
+  export SOURCE_DATE_EPOCH=`date -d ${REFERENCE_DATE}T${REFERENCE_TIME} +%s`
   export TAR_OPTIONS=--mtime=${REFERENCE_DATE}T${REFERENCE_TIME}
   for i in ${HOSTS}; do
-    export PATH=${WRAP_DIR}:${BASEPREFIX}/${i}/native/bin:${PATH_orig}
+    export PATH=${WRAP_DIR}:${BASEPREFIX}/${i}/native/bin:${ORIGPATH}
     mkdir build && cd build
     cmake .. -DCMAKE_TOOLCHAIN_FILE=${BASEPREFIX}/${i}/share/toolchain.cmake -DCMAKE_BUILD_TYPE=Release
     make ${MAKEOPTS}

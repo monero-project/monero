@@ -1,4 +1,4 @@
-# Set the system name to one of Android, Darwin, Linux, or Windows
+# Set the system name to one of Android, Darwin, FreeBSD, Linux, or Windows
 SET(CMAKE_SYSTEM_NAME @depends@)
 SET(CMAKE_BUILD_TYPE @release_type@)
 
@@ -23,13 +23,14 @@ SET(Readline_INCLUDE_DIR @prefix@/include)
 SET(Readline_LIBRARY @prefix@/lib/libreadline.a)
 SET(Terminfo_LIBRARY @prefix@/lib/libtinfo.a)
 
-if(NOT CMAKE_SYSTEM_NAME STREQUAL "Android")
 SET(LRELEASE_PATH @prefix@/native/bin CACHE FILEPATH "path to lrelease" FORCE)
 
+if(NOT CMAKE_SYSTEM_NAME STREQUAL "Android")
 SET(LIBUNWIND_INCLUDE_DIR @prefix@/include)
 SET(LIBUNWIND_LIBRARIES @prefix@/lib/libunwind.a)
 SET(LIBUNWIND_LIBRARY_DIRS @prefix@/lib)
 
+if(NOT CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
 SET(LIBUSB-1.0_LIBRARY @prefix@/lib/libusb-1.0.a)
 SET(LIBUDEV_LIBRARY @prefix@/lib/libudev.a)
 
@@ -38,6 +39,8 @@ SET(Protobuf_PROTOC_EXECUTABLE @prefix@/native/bin/protoc CACHE FILEPATH "Path t
 SET(Protobuf_INCLUDE_DIR @prefix@/include CACHE PATH "Protobuf include dir")
 SET(Protobuf_INCLUDE_DIRS @prefix@/include CACHE PATH "Protobuf include dir")
 SET(Protobuf_LIBRARY @prefix@/lib/libprotobuf.a CACHE FILEPATH "Protobuf library")
+endif()
+
 endif()
 
 SET(ZMQ_INCLUDE_PATH @prefix@/include)

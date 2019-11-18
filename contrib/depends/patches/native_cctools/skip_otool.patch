@@ -1,0 +1,12 @@
+--- cctools/Makefile.am.O	2016-06-09 15:06:16.000000000 +0100
++++ cctools/Makefile.am	2019-11-18 08:59:20.078663220 +0000
+@@ -1,7 +1,7 @@
+ if ISDARWIN
+-SUBDIRS=libstuff ar as misc otool ld64 $(LD_CLASSIC)
++SUBDIRS=libstuff ar as misc ld64 $(LD_CLASSIC)
+ else
+-SUBDIRS=libstuff ar as misc libobjc2 otool ld64 $(LD_CLASSIC)
++SUBDIRS=libstuff ar as misc ld64 $(LD_CLASSIC)
+ endif
+ 
+ ACLOCAL_AMFLAGS = -I m4

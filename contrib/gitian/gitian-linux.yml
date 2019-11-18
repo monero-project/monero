@@ -50,14 +50,13 @@ script: |
 
   WRAP_DIR=$HOME/wrapped
   HOSTS="x86_64-linux-gnu arm-linux-gnueabihf aarch64-linux-gnu i686-linux-gnu"
-  FAKETIME_HOST_PROGS="gcc g++"
-  FAKETIME_PROGS="date ar ranlib nm"
+  FAKETIME_HOST_PROGS=""
+  FAKETIME_PROGS="date"
   HOST_CFLAGS="-O2 -g"
   HOST_CXXFLAGS="-O2 -g"
   HOST_LDFLAGS=-static-libstdc++
 
   export GZIP="-9n"
-  export TAR_OPTIONS="--mtime="$REFERENCE_DATE\\\ $REFERENCE_TIME""
   export TZ="UTC"
   export BUILD_DIR=`pwd`
   mkdir -p ${WRAP_DIR}
@@ -105,29 +104,15 @@ script: |
 
   # x86 needs /usr/include/i386-linux-gnu/asm pointed to /usr/include/x86_64-linux-gnu/asm,
   # but we can't write there. Instead, create a link here and force it to be included in the
-  # search paths by wrapping gcc/g++.
+  # search paths.
+  # This problem goes away if linux-libc-dev:i386 pkg exists, but it's not in bionic.
 
-  mkdir -p $EXTRA_INCLUDES_BASE/i686-pc-linux-gnu
-  rm -f $WRAP_DIR/extra_includes/i686-pc-linux-gnu/asm
-  ln -s /usr/include/x86_64-linux-gnu/asm $EXTRA_INCLUDES_BASE/i686-pc-linux-gnu/asm
+  mkdir -p $EXTRA_INCLUDES_BASE/i686-linux-gnu
+  rm -f $WRAP_DIR/extra_includes/i686-linux-gnu/asm
+  ln -s /usr/include/x86_64-linux-gnu/asm $EXTRA_INCLUDES_BASE/i686-linux-gnu/asm
 
-  for prog in gcc g++; do
-  rm -f ${WRAP_DIR}/${prog}
-  cat << EOF > ${WRAP_DIR}/${prog}
-  #!/usr/bin/env bash
-  REAL="`which -a ${prog}-7 | grep -v ${WRAP_DIR}/${prog} | head -1`"
-  for var in "\$@"
-  do
-    if [ "\$var" = "-m32" ]; then
-      export C_INCLUDE_PATH="$EXTRA_INCLUDES_BASE/i686-pc-linux-gnu"
-      export CPLUS_INCLUDE_PATH="$EXTRA_INCLUDES_BASE/i686-pc-linux-gnu"
-      break
-    fi
-  done
-  \$REAL \$@
-  EOF
-  chmod +x ${WRAP_DIR}/${prog}
-  done
+  # gcc 7+ honors SOURCE_DATE_EPOCH, no faketime needed
+  export SOURCE_DATE_EPOCH=`date -d 2000-01-01T12:00:00 +%s`
 
   git config --global core.abbrev 9
   cd monero
@@ -140,13 +125,17 @@ script: |
 
   BASEPREFIX=`pwd`/contrib/depends
   # Build dependencies for each host
+  export TAR_OPTIONS=--mtime=2000-01-01T12:00:00
   for i in $HOSTS; do
     EXTRA_INCLUDES="$EXTRA_INCLUDES_BASE/$i"
     if [ -d "$EXTRA_INCLUDES" ]; then
-      export HOST_ID_SALT="$EXTRA_INCLUDES"
+      export C_INCLUDE_PATH="$EXTRA_INCLUDES"
+      export CPLUS_INCLUDE_PATH="$EXTRA_INCLUDES"
+    else
+      unset C_INCLUDE_PATH
+      unset CPLUS_INCLUDE_PATH
     fi
     make ${MAKEOPTS} -C ${BASEPREFIX} HOST="${i}" V=1
-    unset HOST_ID_SALT
   done
 
   # Faketime for binaries
@@ -157,9 +146,19 @@ script: |
 
   ORIGPATH="$PATH"
   # Build in a new dir for each host
+  export SOURCE_DATE_EPOCH=`date -d ${REFERENCE_DATE}T${REFERENCE_TIME} +%s`
+  export TAR_OPTIONS=--mtime=${REFERENCE_DATE}T${REFERENCE_TIME}
   for i in ${HOSTS}; do
     export PATH=${BASEPREFIX}/${i}/native/bin:${ORIGPATH}
     mkdir build && cd build
+    EXTRA_INCLUDES="$EXTRA_INCLUDES_BASE/$i"
+    if [ -d "$EXTRA_INCLUDES" ]; then
+      export C_INCLUDE_PATH="$EXTRA_INCLUDES"
+      export CPLUS_INCLUDE_PATH="$EXTRA_INCLUDES"
+    else
+      unset C_INCLUDE_PATH
+      unset CPLUS_INCLUDE_PATH
+    fi
     cmake .. -DCMAKE_TOOLCHAIN_FILE=${BASEPREFIX}/${i}/share/toolchain.cmake -DBACKCOMPAT=ON
     make ${MAKEOPTS}
     chmod 755 bin/*

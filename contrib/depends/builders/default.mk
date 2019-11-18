@@ -17,4 +17,4 @@ define add_build_flags_func
 build_$(build_arch)_$(build_os)_$1 += $(build_$(build_os)_$1)
 build_$1=$$(build_$(build_arch)_$(build_os)_$1)
 endef
-$(foreach flags, CFLAGS CXXFLAGS LDFLAGS, $(eval $(call add_build_flags_func,$(flags))))
+$(foreach flags, CFLAGS CXXFLAGS ARFLAGS LDFLAGS, $(eval $(call add_build_flags_func,$(flags))))
