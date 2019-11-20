@@ -167,13 +167,12 @@ If all went well, this produces a number of (uncommitted) `.assert` files in the
 Checking your work
 ------------------
 
-Take a look in the assert files and note the SHA256 checksums listed there. eg for `v0.15.0.0` you should get this checksum:
+Take a look in the assert files and note the SHA256 checksums listed there.
 
-```
-2b95118f53d98d542a85f8732b84ba13b3cd20517ccb40332b0edd0ddf4f8c62  monero-x86_64-linux-gnu.tar.gz
-```
+You should verify that the checksum that is listed matches each of the binaries you actually built.
+This may be done on Linux using the `sha256sum` command or on MacOS using `shasum --algorithm 256` for example.
 
-You should verify that this is really the checksum you get on that file you built.  You can also look in the gitian.sigs repo and / or [getmonero.org release checksums](https://web.getmonero.org/downloads/hashes.txt) to see if others got the same checksum for the same version tag.  If there is ever a mismatch -- **STOP! Something is wrong**.  Contact others on IRC / github to figure out what is going on.
+You can also look in the [gitian.sigs](https://github.com/monero-project/gitian.sigs/) repo and / or [getmonero.org release checksums](https://web.getmonero.org/downloads/hashes.txt) to see if others got the same checksum for the same version tag.  If there is ever a mismatch -- **STOP! Something is wrong**.  Contact others on IRC / github to figure out what is going on.
 
 
 Signing assert files
@@ -188,8 +187,8 @@ VERSION=v0.15.0.0
 gpg --detach-sign ${VERSION}-linux/${GH_USER}/monero-linux-*-build.assert
 gpg --detach-sign ${VERSION}-win/${GH_USER}/monero-win-*-build.assert
 gpg --detach-sign ${VERSION}-osx/${GH_USER}/monero-osx-*-build.assert
+gpg --detach-sign ${VERSION}-android/${GH_USER}/monero-android-*-build.assert
 ```
-<!-- TODO: Replace * above with ${VERSION} once gitian builds correct file name -->
 
 This will create a `.sig` file for each `.assert` file above (2 files for each platform).
 
