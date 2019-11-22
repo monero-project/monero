@@ -374,6 +374,7 @@ namespace levin
             if (context.flush_time <= now || timer_error) // flush on canceled timer
             {
               context.flush_time = std::chrono::steady_clock::time_point::max();
+
               connections.emplace_back(std::move(context.fluff_txs), context.m_connection_id);
               context.fluff_txs.clear();
             }
@@ -395,6 +396,7 @@ namespace levin
           std::sort(connection.first.begin(), connection.first.end()); // don't leak receive order
           make_payload_send_txs(*zone_->p2p, std::move(connection.first), connection.second, zone_->pad_txs, true);
         }
+
 
         if (next_flush != std::chrono::steady_clock::time_point::max())
           fluff_flush::queue(std::move(zone_), next_flush);
