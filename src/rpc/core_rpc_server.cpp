@@ -1958,7 +1958,11 @@ namespace cryptonote
       m_was_bootstrap_ever_used = true;
     }
 
-    r = r && res.status == CORE_RPC_STATUS_OK;
+    if (r && res.status != CORE_RPC_STATUS_PAYMENT_REQUIRED && res.status != CORE_RPC_STATUS_OK)
+    {
+      MINFO("Failing RPC " << command_name << " due to peer return status " << res.status);
+      r = false;
+    }
     res.untrusted = true;
     return true;
   }
