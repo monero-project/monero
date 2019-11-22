@@ -2944,7 +2944,7 @@ namespace cryptonote
     RPC_TRACKER(rpc_access_info);
 
     bool r;
-    if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_ACCESS_INFO>(invoke_http_mode::JON, "rpc_access_info", req, res, r))
+    if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_ACCESS_INFO>(invoke_http_mode::JON_RPC, "rpc_access_info", req, res, r))
       return r;
 
     // if RPC payment is not enabled
@@ -3016,7 +3016,7 @@ namespace cryptonote
   {
     RPC_TRACKER(rpc_access_submit_nonce);
     bool r;
-    if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_ACCESS_SUBMIT_NONCE>(invoke_http_mode::JON, "rpc_access_submit_nonce", req, res, r))
+    if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_ACCESS_SUBMIT_NONCE>(invoke_http_mode::JON_RPC, "rpc_access_submit_nonce", req, res, r))
       return r;
 
     // if RPC payment is not enabled
@@ -3075,7 +3075,7 @@ namespace cryptonote
     RPC_TRACKER(rpc_access_pay);
 
     bool r;
-    if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_ACCESS_PAY>(invoke_http_mode::JON, "rpc_access_pay", req, res, r))
+    if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_ACCESS_PAY>(invoke_http_mode::JON_RPC, "rpc_access_pay", req, res, r))
       return r;
 
     // if RPC payment is not enabled
@@ -3134,7 +3134,7 @@ namespace cryptonote
     RPC_TRACKER(rpc_access_data);
 
     bool r;
-    if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_ACCESS_DATA>(invoke_http_mode::JON, "rpc_access_data", req, res, r))
+    if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_ACCESS_DATA>(invoke_http_mode::JON_RPC, "rpc_access_data", req, res, r))
       return r;
 
     if (!m_rpc_payment)
@@ -3162,7 +3162,7 @@ namespace cryptonote
     RPC_TRACKER(rpc_access_account);
 
     bool r;
-    if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_ACCESS_ACCOUNT>(invoke_http_mode::JON, "rpc_access_account", req, res, r))
+    if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_ACCESS_ACCOUNT>(invoke_http_mode::JON_RPC, "rpc_access_account", req, res, r))
       return r;
 
     if (!m_rpc_payment)
