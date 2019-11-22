@@ -953,18 +953,21 @@ namespace cryptonote
         {
           e.double_spend_seen = it->second.double_spend_seen;
           e.relayed = it->second.relayed;
+          e.received_timestamp = it->second.receive_time;
         }
         else
         {
           MERROR("Failed to determine pool info for " << tx_hash);
           e.double_spend_seen = false;
           e.relayed = false;
+          e.received_timestamp = 0;
         }
       }
       else
       {
         e.block_height = m_core.get_blockchain_storage().get_db().get_tx_block_height(tx_hash);
         e.block_timestamp = m_core.get_blockchain_storage().get_db().get_block_timestamp(e.block_height);
+        e.received_timestamp = 0;
         e.double_spend_seen = false;
         e.relayed = false;
       }
