@@ -202,11 +202,11 @@ namespace
 
       // Connect to server
       std::atomic<int> conn_status(0);
-      m_cmd_conn_id = boost::uuids::nil_uuid();
+      m_context = {};
       ASSERT_TRUE(m_tcp_server.connect_async("127.0.0.1", srv_port, CONNECTION_TIMEOUT, [&](const test_connection_context& context, const boost::system::error_code& ec) {
         if (!ec)
         {
-          m_cmd_conn_id = context.m_connection_id;
+          m_context = context;
         }
         else
         {
@@ -217,11 +217,11 @@ namespace
 
       EXPECT_TRUE(busy_wait_for(DEFAULT_OPERATION_TIMEOUT, [&]{ return 0 != conn_status.load(std::memory_order_seq_cst); })) << "connect_async timed out";
       ASSERT_EQ(1, conn_status.load(std::memory_order_seq_cst));
-      ASSERT_FALSE(m_cmd_conn_id.is_nil());
+      ASSERT_FALSE(m_context.m_connection_id.is_nil());
 
       conn_status.store(0, std::memory_order_seq_cst);
       CMD_RESET_STATISTICS::request req;
-      ASSERT_TRUE(epee::net_utils::async_invoke_remote_command2<CMD_RESET_STATISTICS::response>(m_cmd_conn_id, CMD_RESET_STATISTICS::ID, req,
+      ASSERT_TRUE(epee::net_utils::async_invoke_remote_command2<CMD_RESET_STATISTICS::response>(m_context, CMD_RESET_STATISTICS::ID, req,
         m_tcp_server.get_config_object(), [&](int code, const CMD_RESET_STATISTICS::response& rsp, const test_connection_context&) {
           conn_status.store(code, std::memory_order_seq_cst);
       }));
@@ -250,16 +250,16 @@ namespace
 
       // Connect to server and invoke shutdown command
       std::atomic<int> conn_status(0);
-      boost::uuids::uuid cmd_conn_id = boost::uuids::nil_uuid();
+      test_connection_context cmd_context;
       tcp_server.connect_async("127.0.0.1", srv_port, CONNECTION_TIMEOUT, [&](const test_connection_context& context, const boost::system::error_code& ec) {
-        cmd_conn_id = context.m_connection_id;
+        cmd_context = context;
         conn_status.store(!ec ? 1 : -1, std::memory_order_seq_cst);
       });
 
       if (!busy_wait_for(DEFAULT_OPERATION_TIMEOUT, [&]{ return 0 != conn_status.load(std::memory_order_seq_cst); })) return;
       if (1 != conn_status.load(std::memory_order_seq_cst)) return;
 
-      epee::net_utils::notify_remote_command2(cmd_conn_id, CMD_SHUTDOWN::ID, CMD_SHUTDOWN::request(), tcp_server.get_config_object());
+      epee::net_utils::notify_remote_command2(cmd_context, CMD_SHUTDOWN::ID, CMD_SHUTDOWN::request(), tcp_server.get_config_object());
 
       busy_wait_for(DEFAULT_OPERATION_TIMEOUT, [&]{ return 0 != commands_handler.close_connection_counter(); });
     }
@@ -299,7 +299,7 @@ namespace
     {
       std::atomic<int> req_status(0);
       CMD_GET_STATISTICS::request req;
-      ASSERT_TRUE(epee::net_utils::async_invoke_remote_command2<CMD_GET_STATISTICS::response>(m_cmd_conn_id, CMD_GET_STATISTICS::ID, req,
+      ASSERT_TRUE(epee::net_utils::async_invoke_remote_command2<CMD_GET_STATISTICS::response>(m_context, CMD_GET_STATISTICS::ID, req,
         m_tcp_server.get_config_object(), [&](int code, const CMD_GET_STATISTICS::response& rsp, const test_connection_context&) {
           if (0 < code)
           {
@@ -338,14 +338,14 @@ namespace
     {
       CMD_SEND_DATA_REQUESTS::request req;
       req.request_size = request_size;
-      epee::net_utils::notify_remote_command2(m_cmd_conn_id, CMD_SEND_DATA_REQUESTS::ID, req, m_tcp_server.get_config_object());
+      epee::net_utils::notify_remote_command2(m_context, CMD_SEND_DATA_REQUESTS::ID, req, m_tcp_server.get_config_object());
     }
 
   protected:
     test_tcp_server m_tcp_server;
     test_levin_commands_handler m_commands_handler;
     size_t m_thread_count;
-    boost::uuids::uuid m_cmd_conn_id;
+    test_connection_context m_context;
   };
 }
 
@@ -434,7 +434,7 @@ TEST_F(net_load_test_clt, a_lot_of_client_connections_and_connections_closed_by_
 
   // Close connections
   CMD_CLOSE_ALL_CONNECTIONS::request req;
-  ASSERT_TRUE(epee::net_utils::notify_remote_command2(m_cmd_conn_id, CMD_CLOSE_ALL_CONNECTIONS::ID, req, m_tcp_server.get_config_object()));
+  ASSERT_TRUE(epee::net_utils::notify_remote_command2(m_context, CMD_CLOSE_ALL_CONNECTIONS::ID, req, m_tcp_server.get_config_object()));
 
   // Wait for all opened connections to close
   busy_wait_for(DEFAULT_OPERATION_TIMEOUT, [&](){ return m_commands_handler.new_connection_counter() - RESERVED_CONN_CNT <= m_commands_handler.close_connection_counter(); });
@@ -455,10 +455,10 @@ TEST_F(net_load_test_clt, a_lot_of_client_connections_and_connections_closed_by_
 
   // Close rest connections
   m_tcp_server.get_config_object().foreach_connection([&](test_connection_context& ctx) {
-    if (ctx.m_connection_id != m_cmd_conn_id)
+    if (ctx.m_connection_id != m_context.m_connection_id)
     {
       CMD_DATA_REQUEST::request req;
-      bool r = epee::net_utils::async_invoke_remote_command2<CMD_DATA_REQUEST::response>(ctx.m_connection_id, CMD_DATA_REQUEST::ID, req,
+      bool r = epee::net_utils::async_invoke_remote_command2<CMD_DATA_REQUEST::response>(ctx, CMD_DATA_REQUEST::ID, req,
         m_tcp_server.get_config_object(), [=](int code, const CMD_DATA_REQUEST::response& rsp, const test_connection_context&) {
           if (code <= 0)
           {
@@ -548,7 +548,7 @@ TEST_F(net_load_test_clt, permament_open_and_close_and_connections_closed_by_ser
   CMD_START_OPEN_CLOSE_TEST::request req_start;
   req_start.open_request_target = CONNECTION_COUNT;
   req_start.max_opened_conn_count = MAX_OPENED_CONN_COUNT;
-  ASSERT_TRUE(epee::net_utils::async_invoke_remote_command2<CMD_START_OPEN_CLOSE_TEST::response>(m_cmd_conn_id, CMD_START_OPEN_CLOSE_TEST::ID, req_start,
+  ASSERT_TRUE(epee::net_utils::async_invoke_remote_command2<CMD_START_OPEN_CLOSE_TEST::response>(m_context, CMD_START_OPEN_CLOSE_TEST::ID, req_start,
     m_tcp_server.get_config_object(), [&](int code, const CMD_START_OPEN_CLOSE_TEST::response&, const test_connection_context&) {
       test_state.store(0 < code ? 1 : -1, std::memory_order_seq_cst);
   }));
@@ -582,7 +582,7 @@ TEST_F(net_load_test_clt, permament_open_and_close_and_connections_closed_by_ser
 
   // Ask server to close rest connections
   CMD_CLOSE_ALL_CONNECTIONS::request req;
-  ASSERT_TRUE(epee::net_utils::notify_remote_command2(m_cmd_conn_id, CMD_CLOSE_ALL_CONNECTIONS::ID, req, m_tcp_server.get_config_object()));
+  ASSERT_TRUE(epee::net_utils::notify_remote_command2(m_context, CMD_CLOSE_ALL_CONNECTIONS::ID, req, m_tcp_server.get_config_object()));
 
   // Wait for almost all connections to be closed by server
   busy_wait_for(DEFAULT_OPERATION_TIMEOUT, [&](){ return m_commands_handler.new_connection_counter() <= m_commands_handler.close_connection_counter() + RESERVED_CONN_CNT; });
@@ -601,10 +601,10 @@ TEST_F(net_load_test_clt, permament_open_and_close_and_connections_closed_by_ser
 
   // Close rest connections
   m_tcp_server.get_config_object().foreach_connection([&](test_connection_context& ctx) {
-    if (ctx.m_connection_id != m_cmd_conn_id)
+    if (ctx.m_connection_id != m_context.m_connection_id)
     {
       CMD_DATA_REQUEST::request req;
-      bool r = epee::net_utils::async_invoke_remote_command2<CMD_DATA_REQUEST::response>(ctx.m_connection_id, CMD_DATA_REQUEST::ID, req,
+      bool r = epee::net_utils::async_invoke_remote_command2<CMD_DATA_REQUEST::response>(ctx, CMD_DATA_REQUEST::ID, req,
         m_tcp_server.get_config_object(), [=](int code, const CMD_DATA_REQUEST::response& rsp, const test_connection_context&) {
           if (code <= 0)
           {
