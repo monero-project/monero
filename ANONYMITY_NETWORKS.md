@@ -46,8 +46,10 @@ Connecting to an anonymous address requires the command line option
 `--tx-proxy` which tells `monerod` the ip/port of a socks proxy provided by a
 separate process. On most systems the configuration will look like:
 
-> `--tx-proxy tor,127.0.0.1:9050,10`
-> `--tx-proxy i2p,127.0.0.1:9000`
+```
+--tx-proxy tor,127.0.0.1:9050,10
+--tx-proxy i2p,127.0.0.1:9000
+```
 
 which tells `monerod` that ".onion" p2p addresses can be forwarded to a socks
 proxy at IP 127.0.0.1 port 9050 with a max of 10 outgoing connections and
@@ -55,12 +57,14 @@ proxy at IP 127.0.0.1 port 9050 with a max of 10 outgoing connections and
 9000 with the default max outgoing connections. Since there are no seed nodes
 for anonymity connections, peers must be manually specified:
 
-> `--add-exclusive-node rveahdfho7wo4b2m.onion:28083`
-> `--add-peer rveahdfho7wo4b2m.onion:28083`
+```
+--add-exclusive-node rveahdfho7wo4b2m.onion:28083
+--add-peer rveahdfho7wo4b2m.onion:28083
+```
 
 Either option can be listed multiple times, and can specify any mix of Tor,
 I2P, and IPv4 addresses. Using `--add-exclusive-node` will prevent the usage of
-seed nodes on ALL networks, which will typically be undesireable.
+seed nodes on ALL networks, which will typically be undesirable.
 
 ### Inbound Connections
 
@@ -68,8 +72,10 @@ Receiving anonymity connections is done through the option
 `--anonymous-inbound`. This option tells `monerod` the inbound address, network
 type, and max connections:
 
-> `--anonymous-inbound rveahdfho7wo4b2m.onion:28083,127.0.0.1:28083,25`
-> `--anonymous-inbound cmeua5767mz2q5jsaelk2rxhf67agrwuetaso5dzbenyzwlbkg2q.b32.i2p:5000,127.0.0.1:30000`
+```
+--anonymous-inbound rveahdfho7wo4b2m.onion:28083,127.0.0.1:28083,25
+--anonymous-inbound cmeua5767mz2q5jsaelk2rxhf67agrwuetaso5dzbenyzwlbkg2q.b32.i2p:5000,127.0.0.1:30000
+```
 
 which tells `monerod` that a max of 25 inbound Tor connections are being
 received at address "rveahdfho7wo4b2m.onion:28083" and forwarded to `monerod`
@@ -87,12 +93,16 @@ P2P anonymity connections. The anonymity network (Tor/i2p) is
 [configured in the same manner](#configuration), except the localhost port
 must be the RPC port (typically 18081 for mainnet) instead of the p2p port:
 
-> HiddenServiceDir /var/lib/tor/data/monero
-> HiddenServicePort 18081 127.0.0.1:18081
+```
+HiddenServiceDir /var/lib/tor/data/monero
+HiddenServicePort 18081 127.0.0.1:18081
+```
 
 Then the wallet will be configured to use a Tor/i2p address:
-> `--proxy 127.0.0.1:9050`
-> `--daemon-address rveahdfho7wo4b2m.onion`
+```
+--proxy 127.0.0.1:9050
+--daemon-address rveahdfho7wo4b2m.onion
+```
 
 The proxy must match the address type - a Tor proxy will not work properly with
 i2p addresses, etc.
@@ -125,8 +135,10 @@ can distribute the address to its other peers.
 Tor must be configured for hidden services. An example configuration ("torrc")
 might look like:
 
-> HiddenServiceDir /var/lib/tor/data/monero
-> HiddenServicePort 28083 127.0.0.1:28083
+```
+HiddenServiceDir /var/lib/tor/data/monero
+HiddenServicePort 28083 127.0.0.1:28083
+```
 
 This will store key information in `/var/lib/tor/data/monero` and will forward
 "Tor port" 28083 to port 28083 of ip 127.0.0.1. The file
@@ -170,7 +182,7 @@ be used by an ISP to link a user to a transaction.
 Run `monerod` as often as possible to conceal when transactions are being sent.
 Future versions will also have peers that first receive a transaction over an
 anonymity network delay the broadcast to public peers by a randomized amount.
-This will not completetely mitigate a user who syncs up sends then quits, in
+This will not completely mitigate a user who syncs up sends then quits, in
 part because this rule is not enforceable, so this mitigation strategy is
 simply a best effort attempt.
 
@@ -183,9 +195,9 @@ the connections are not circuit based.
 
 #### Mitigation
 
-The best mitigiation is to use I2P instead of Tor. However, I2P
+The best mitigation is to use I2P instead of Tor. However, I2P
 has a smaller set of users (less cover traffic) and academic reviews, so there
-is a tradeoff in potential isses. Also, anyone attempting this strategy really
+is a trade off in potential issues. Also, anyone attempting this strategy really
 wants to uncover a user, it seems unlikely that this would be performed against
 every Tor/I2P user.
 
@@ -213,7 +225,7 @@ key identity.
 @secparam (twitter) recommended changing circuits (Tor) as an additional
 precaution. This is likely not a good idea - forcibly requesting Tor to change
 circuits is observable by the ISP. Instead, `monerod` should likely disconnect
-from peers ocassionally. Tor will rotate circuits every ~10 minutes, so
+from peers occasionally. Tor will rotate circuits every ~10 minutes, so
 establishing new connections will use a new public key identity and make it
 more difficult for the hidden service to link information. This process will
 have to be done carefully because closing/reconnecting connections can also
