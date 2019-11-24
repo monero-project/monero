@@ -222,3 +222,77 @@ leak information to hidden services if done improperly.
 At the current time, if users need to frequently make transactions, I2P/Tor
 will improve privacy from ISPs and other common adversaries, but still have
 some metadata leakages to unknown hidden service operators.
+
+# Example: Configure a remote, linux daemon that you can connect to via tor from a linux or mac laptop
+
+Below we'll show an example configuration that allows you to run a daemon (eg on a home server or VPS) that you can connect to from other computers (eg laptop) using the cli wallet to retrieve blocks over tor.  In the future, the GUI will also allow this natively (see `torsocks` hack below).  Monerujo should also work via Orbot.  Because Tor offers encryption and authentication, you can be confident that your RPC credentials will not be sent in the clear.  Tor also solves problems often seen on home servers related to port-forwarding, IP addresses changing, etc -- it all just works.  This setup will also obfuscate the fact that you are connecting to a remote Monero node. Tested with `v0.15.0.1`, remote Linux node and Mac laptop wallet.
+
+## Create a Tor hidden service for RPC
+
+Make sure tor is installed and running correctly, then proceed.
+
+File: `/etc/torrc`
+
+```
+HiddenServiceDir /var/lib/tor/monero-service/
+HiddenServicePort 18081 127.0.0.1:18081
+```
+Restart tor:
+```
+sudo systemctl restart tor@default
+```
+
+Make sure tor started correctly:
+```
+sudo systemctl status tor@default.service
+```
+
+If everything looks good, make a note of the hidden service (onion address) name:
+```
+sudo cat /var/lib/tor/monero-service/hostname
+```
+It will be something like 4dcj312uxag2r6ye.onion
+
+### Configure Daemon to allow RPC
+
+In this example, we don't use tor for interacting with the p2p network, just to connect to the remote node, so only RPC hidden service is needed.
+
+File: `~/.bitmonero/bitmonero.conf` (in the home directory of the Monero user)
+
+```
+restricted-rpc=1
+rpc-login=USERNAME:PASSWORD
+```
+(Make up a USERNAME and PASSWORD to use for RPC)
+
+Restart the Daemon: `monerod stop_daemon; sleep 10; monerod --detach`
+
+Make sure the daemon started correctly:
+```
+tail -f ~/.bitmonero/bitmonero.log
+```
+
+## Connecting to your remote node from a local wallet (eg laptop)
+
+Make sure you have tor running locally so you can connect to the tor network, eg one simple way on the Mac is to just start the Tor browser and use its tor daemon.
+
+Then test a simple RPC command, eg:
+```
+curl --socks5-hostname 127.0.0.1:9150 -u USERNAME:PASSWORD --digest -X POST http://HIDDEN_SERVICE.onion:18081/json_rpc -d '{"jsonrpc":"2.0","id":"0","method":"get_info"}' -H 'Content-Type: application/json'
+```
+Replace `USERNAME`, `PASSWORD`, and `HIDDEN_SERVICE` with values from above.  Change `9150` to another port if needed by your local tor daemon.
+
+When you execute the command, you should get some info about the remote daemon if everything is working correctly.  If not, add a ` -v ` to the beginning and try to debug why its not connecting, check firewalls, password, etc.
+
+Once it is working, you can connect using your cli wallet:
+```
+./monero-wallet-cli --proxy 127.0.0.1:9150 --daemon-host HIDDEN_SERVICE.onion --trusted-daemon --daemon-login USERNAME:PASSWORD --wallet-file ~/PATH/TO/YOUR/WALLET
+```
+Replace values above as needed.
+
+If you are interested in experimenting with the GUI over Tor, you can try `torsocks` (note this may leak info -- EG do not rely on it if your life depends on maintaining anonymity).  Here is an example on MacOS, adjust as needed for a Linux client:
+```
+torsocks --port 9150 /Applications/monero-wallet-gui.app/Contents/MacOS/monero-wallet-gui
+```
+
+This will allow the GUI to communicate with the Tor network.  You will then need to open the GUI and configure it to connect to your tor hidden service by adding your onion address to:  "Settings > Node > Remote node > Address".
