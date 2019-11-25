@@ -43,6 +43,10 @@
 // openssl req -new -key /tmp/KEY -out /tmp/REQ
 // openssl x509 -req -days 999999 -sha256 -in /tmp/REQ -signkey /tmp/KEY -out /tmp/CERT
 
+#ifdef _WIN32
+static void add_windows_root_certs(SSL_CTX *ctx) noexcept;
+#endif
+
 namespace
 {
   struct openssl_bio_free
@@ -324,7 +328,12 @@ boost::asio::ssl::context ssl_options_t::create_context() const
   switch (verification)
   {
     case ssl_verification_t::system_ca:
+#ifdef _WIN32
+      try { add_windows_root_certs(ssl_context.native_handle()); }
+      catch (const std::exception &e) { ssl_context.set_default_verify_paths(); }
+#else
       ssl_context.set_default_verify_paths();
+#endif
       break;
     case ssl_verification_t::user_certificates:
       ssl_context.set_verify_depth(0);
@@ -557,4 +566,37 @@ bool ssl_support_from_string(ssl_support_t &ssl, boost::string_ref s)
 
 } // namespace
 } // namespace
+
+#ifdef _WIN32
+
+// https://stackoverflow.com/questions/40307541
+// Because Windows always has to do things wonkily
+#include <wincrypt.h>
+static void add_windows_root_certs(SSL_CTX *ctx) noexcept
+{
+    HCERTSTORE hStore = CertOpenSystemStore(0, "ROOT");
+    if (hStore == NULL) {
+        return;
+    }
+
+    X509_STORE *store = X509_STORE_new();
+    PCCERT_CONTEXT pContext = NULL;
+    while ((pContext = CertEnumCertificatesInStore(hStore, pContext)) != NULL) {
+        // convert from DER to internal format
+        X509 *x509 = d2i_X509(NULL,
+                              (const unsigned char **)&pContext->pbCertEncoded,
+                              pContext->cbCertEncoded);
+        if(x509 != NULL) {
+            X509_STORE_add_cert(store, x509);
+            X509_free(x509);
+        }
+    }
+
+    CertFreeCertificateContext(pContext);
+    CertCloseStore(hStore, 0);
+
+    // attach X509_STORE to boost ssl context
+    SSL_CTX_set_cert_store(ctx, store);
+}
+#endif
 
