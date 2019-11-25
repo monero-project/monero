@@ -54,6 +54,7 @@ using namespace epee;
 #include "rpc/rpc_args.h"
 #include "rpc/core_rpc_server_commands_defs.h"
 #include "daemonizer/daemonizer.h"
+#include "wallet/message_store.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "wallet.rpc"
@@ -314,6 +315,13 @@ namespace tools
   {
       er.code = WALLET_RPC_ERROR_CODE_NOT_OPEN;
       er.message = "No wallet file";
+      return false;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::restricted(epee::json_rpc::error& er)
+  {
+      er.code = WALLET_RPC_ERROR_CODE_DENIED;
+      er.message = "Command unavailable in restricted mode.";
       return false;
   }
   //------------------------------------------------------------------------------------------------------------------------------
@@ -3366,6 +3374,16 @@ namespace tools
         er.code = WALLET_RPC_ERROR_CODE_WRONG_SIGNATURE;
         er.message = e.what();
     }
+    catch (const error::no_connection_to_bitmessage& e)
+    {
+        er.code = WALLET_RPC_ERROR_CODE_MMS_NO_BITMESSAGE_CONNECTION;
+        er.message = e.what();
+    }
+    catch (const error::bitmessage_api_error& e)
+    {
+        er.code = WALLET_RPC_ERROR_CODE_MMS_BITMESSAGE_API_ERROR;
+        er.message = e.what();
+    }
     catch (const std::exception& e)
     {
       er.code = default_error_code;
@@ -4295,6 +4313,852 @@ namespace tools
   {
     res.version = WALLET_RPC_VERSION;
     res.release = MONERO_VERSION_IS_RELEASE;
+    return true;
+  }
+
+  // MMS -------------------------------------------------------------------------------------------------------------------------
+
+  const char* network_type_to_string(cryptonote::network_type type)
+  {
+    switch (type)
+    {
+    case cryptonote::MAINNET:
+        return "mainnet";
+      case cryptonote::TESTNET:
+        return "testnet";
+      case cryptonote::STAGENET:
+        return "stagenet";
+      default:
+        return "unknown_network_type";
+    }
+  }
+
+  const char* mms_message_type_to_string(mms::message_type type)
+  {
+    switch (type)
+    {
+      case mms::message_type::key_set:
+        return "key_set";
+      case mms::message_type::additional_key_set:
+        return "additional_key_set";
+      case mms::message_type::multisig_sync_data:
+        return "multisig_sync_data";
+      case mms::message_type::partially_signed_tx:
+        return "partially_signed_tx";
+      case mms::message_type::fully_signed_tx:
+        return "fully_signed_tx";
+      case mms::message_type::note:
+        return "note";
+      case mms::message_type::signer_config:
+        return "signer_config";
+      case mms::message_type::auto_config_data:
+        return "auto_config_data";
+      default:
+        // Should of course not happen, but do not let everything crash and burn just
+        // because "message_type" was extended, but this code here did not yet get
+        // adjusted (same "philosophy" is used by the other similar methods here):
+        return "unknown_message_type";
+    }
+  }
+
+  bool string_to_mms_message_type(const std::string &s, mms::message_type &type)
+  {
+    if (s == "key_set")
+    {
+      type = mms::message_type::key_set;
+      return true;
+    }
+    else if (s == "additional_key_set")
+    {
+      type = mms::message_type::additional_key_set;
+      return true;
+    }
+    else if (s == "multisig_sync_data")
+    {
+      type = mms::message_type::multisig_sync_data;
+      return true;
+    }
+    else if (s == "partially_signed_tx")
+    {
+      type = mms::message_type::partially_signed_tx;
+      return true;
+    }
+    else if (s == "fully_signed_tx")
+    {
+      type = mms::message_type::fully_signed_tx;
+      return true;
+    }
+    else if (s == "note")
+    {
+      type = mms::message_type::note;
+      return true;
+    }
+    else if (s == "signer_config")
+    {
+      type = mms::message_type::signer_config;
+      return true;
+    }
+    else if (s == "auto_config_data")
+    {
+      type = mms::message_type::auto_config_data;
+      return true;
+    }
+    else
+    {
+      return false;
+    }
+  }
+
+  const char* mms_message_direction_to_string(mms::message_direction direction)
+  {
+    switch (direction)
+    {
+      case mms::message_direction::in:
+        return "in";
+      case mms::message_direction::out:
+        return "out";
+      default:
+        return "unknown_message_direction";
+    }
+  }
+
+  bool string_to_mms_message_direction(const std::string &s, mms::message_direction &direction)
+  {
+    if (s == "in")
+    {
+      direction = mms::message_direction::in;
+      return true;
+    }
+    else if (s == "out")
+    {
+      direction = mms::message_direction::out;
+      return true;
+    }
+    else
+    {
+      return false;
+    }
+  }
+
+  const char* mms_message_state_to_string(mms::message_state state)
+  {
+    switch (state)
+    {
+      case mms::message_state::ready_to_send:
+        return "ready_to_send";
+      case mms::message_state::sent:
+        return "sent";
+      case mms::message_state::waiting:
+        return "waiting";
+      case mms::message_state::processed:
+        return "processed";
+      case mms::message_state::cancelled:
+        return "cancelled";
+      default:
+        return "unknown_message_state";
+    }
+  }
+
+  const char* mms_message_processing_to_string(mms::message_processing processing)
+  {
+    switch (processing)
+    {
+      case mms::message_processing::prepare_multisig:
+        return "prepare_multisig";
+      case mms::message_processing::make_multisig:
+        return "make_multisig";
+      case mms::message_processing::exchange_multisig_keys:
+        return "exchange_multisig_keys";
+      case mms::message_processing::create_sync_data:
+        return "create_sync_data";
+      case mms::message_processing::process_sync_data:
+        return "process_sync_data";
+      case mms::message_processing::sign_tx:
+        return "sign_tx";
+      case mms::message_processing::send_tx:
+        return "send_tx";
+      case mms::message_processing::submit_tx:
+        return "submit_tx";
+      case mms::message_processing::process_signer_config:
+        return "process_signer_config";
+      case mms::message_processing::process_auto_config_data:
+        return "process_auto_config_data";
+      default:
+        return "unknown_message_processing";
+    }
+  }
+
+  bool hex_mms_message_content(mms::message_type type)
+  {
+    switch (type)
+    {
+      case mms::message_type::key_set:
+      case mms::message_type::additional_key_set:
+      case mms::message_type::note:
+        // Do NOT convert message content to / from hex because it's textual
+        // and is expected as such and delivered as such by clients;
+        // the CLI wallet writes such data textually to console, e.g. "MultisigV1..."
+        // strings as a result of a "prepare_multisig" command.
+        return false;
+      default:
+        // For all other messages types convert content to / from hex because
+        // it's binary data that we should not give back as such over RPC;
+        // the CLI wallet writes such data to files and reads it from files.
+        return true;
+    }
+  }
+
+  void convert_mms_message(const mms::message &orig, wallet_rpc::mms_message &conv)
+  {
+    conv.id = orig.id;
+    conv.type = mms_message_type_to_string(orig.type);
+    conv.direction = mms_message_direction_to_string(orig.direction);
+    if (hex_mms_message_content(orig.type))
+    {
+      conv.content = epee::string_tools::buff_to_hex_nodelimer(orig.content);
+    }
+    else
+    {
+      conv.content = orig.content;
+    }
+    conv.created = orig.created;
+    conv.modified = orig.modified;
+    conv.sent = orig.sent;
+    conv.signer_index = orig.signer_index;
+    conv.hash = epee::string_tools::pod_to_hex(orig.hash);
+    conv.state = mms_message_state_to_string(orig.state);
+    conv.wallet_height = orig.wallet_height;
+    conv.round = orig.round;
+    conv.signature_count = orig.signature_count;
+    conv.transport_id = orig.transport_id;
+  }
+
+  void convert_mms_authorized_signer(cryptonote::network_type nettype, const mms::authorized_signer &orig, wallet_rpc::mms_authorized_signer &conv)
+  {
+    conv.label = orig.label;
+    conv.transport_address = orig.transport_address;
+    if (orig.monero_address_known)
+    {
+      conv.monero_address =  cryptonote::get_account_address_as_str(nettype, false, orig.monero_address);
+    }
+    else
+    {
+      // We don't have to work with a "monero_address_known" boolean because an empty string meaning
+      // "Monero address unknown" works well enough
+      conv.monero_address.clear();
+    }
+    conv.me = orig.me;
+    conv.index = orig.index;
+    conv.auto_config_token = orig.auto_config_token;
+    conv.auto_config_running = orig.auto_config_running;
+    // Don't give back "auto_config_public_key", "auto_config_secret_key" and "auto_config_transport_address",
+    // as it seems no client will have use for this info; (already in "mms::authorized_signer" it's public
+    // mostly to simplify the MMS implementation ...)
+  }
+
+  bool wallet_rpc_server::mms_call_ok(epee::json_rpc::error& er)
+  {
+    if (!m_wallet) return not_open(er);
+    if (m_restricted) return restricted(er);
+    return true;
+  }
+
+  //------------------------------------------------------------------------------------------------------------------------------
+  // Initialize the MMS for use with this wallet and set the MMS to "active"
+  // Note about the "active" flag of the MMS: In principle one should only use any MMS related methods
+  // if the MMS is set to "active" on a particular wallet and configured. The CLI wallet already enforces
+  // this and refuses to execute any MMS command if it's not active. The calls here don't care yet about
+  // "active", and neither do the methods in "message_store.cpp" themselves. This is of course not good.
+  // The way forward will probably be not to add checks here, but to add them directly to the MMS methods
+  // themselves.
+  bool wallet_rpc_server::on_mms_init(const wallet_rpc::COMMAND_RPC_MMS_INIT::request& req, wallet_rpc::COMMAND_RPC_MMS_INIT::response& res, epee::json_rpc::error& er, const connection_context *ctx)
+  {
+    if (!mms_call_ok(er)) return false;
+
+    try
+    {
+      mms::message_store &message_store = m_wallet->get_message_store();
+      message_store.init(m_wallet->get_multisig_wallet_state(), req.own_label, req.own_transport_address, req.num_authorized_signers, req.num_required_signers);
+    }
+    catch (const std::exception &e)
+    {
+      handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_MMS_PROCESSING_ERROR);
+      return false;
+    }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_mms_get_info(const wallet_rpc::COMMAND_RPC_MMS_GET_INFO::request& req, wallet_rpc::COMMAND_RPC_MMS_GET_INFO::response& res, epee::json_rpc::error& er, const connection_context *ctx)
+  {
+    if (!mms_call_ok(er)) return false;
+
+    mms::message_store &message_store = m_wallet->get_message_store();
+    res.active = message_store.get_active();
+    if (res.active)
+    {
+      res.num_authorized_signers = message_store.get_num_authorized_signers();
+      res.num_required_signers = message_store.get_num_required_signers();
+      res.signer_config_complete = message_store.signer_config_complete();
+      res.signer_labels_complete = message_store.signer_labels_complete();
+      res.auto_send = message_store.get_auto_send();
+    }
+    else
+    {
+      res.num_authorized_signers = 0;
+      res.num_required_signers = 0;
+      res.signer_config_complete = false;
+      res.signer_labels_complete = false;
+      res.auto_send = false;
+    }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  // A number of MMS methods have a parameter of type "mms::multisig_wallet_state". The corresponding
+  // MMS RPC methods here get this state themselves and hand it to the MMS methods; it would not make
+  // sense to offer an RPC method to get it only to give it back as parameter for those methods.
+  // The sense of this method here that returns most what is in "mms::multisig_wallet_state" is
+  // simply to offer a convenient way to get various multisig-related info that otherwise would need
+  // several different RPC calls to fetch them, or are not otherwise public at all.
+  bool wallet_rpc_server::on_mms_get_multisig_wallet_state(const wallet_rpc::COMMAND_RPC_MMS_GET_MULTISIG_WALLET_STATE::request& req, wallet_rpc::COMMAND_RPC_MMS_GET_MULTISIG_WALLET_STATE::response& res, epee::json_rpc::error& er, const connection_context *ctx)
+  {
+    if (!mms_call_ok(er)) return false;
+
+    mms::multisig_wallet_state state = m_wallet->get_multisig_wallet_state();
+
+    res.state.address =  cryptonote::get_account_address_as_str(state.nettype, false, state.address);
+    res.state.nettype = network_type_to_string(state.nettype);
+    // Don't give back "view_secret_key": Not needed, and somewhat problematic security-wise
+    res.state.multisig = state.multisig;
+    res.state.multisig_is_ready = state.multisig_is_ready;
+    res.state.has_multisig_partial_key_images = state.has_multisig_partial_key_images;
+    res.state.multisig_rounds_passed = state.multisig_rounds_passed;
+    res.state.num_transfer_details = (uint64_t)state.num_transfer_details;
+    // Don't give back the name of the MMS file on disk: Not needed
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_mms_set_options(const wallet_rpc::COMMAND_RPC_MMS_SET_OPTIONS::request& req, wallet_rpc::COMMAND_RPC_MMS_SET_OPTIONS::response& res, epee::json_rpc::error& er, const connection_context *ctx)
+  {
+    if (!mms_call_ok(er)) return false;
+
+    try
+    {
+      mms::message_store &message_store = m_wallet->get_message_store();
+      if (req.set_active)
+      {
+        message_store.set_active(req.active);
+      }
+      if (req.set_auto_send)
+      {
+        message_store.set_auto_send(req.auto_send);
+      }
+      if (req.set_bitmessage_options)
+      {
+        message_store.set_options(req.bitmessage_address, req.bitmessage_login);
+      }
+    }
+    catch (const std::exception &e)
+    {
+      handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_MMS_PROCESSING_ERROR);
+      return false;
+    }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_mms_set_signer(const wallet_rpc::COMMAND_RPC_MMS_SET_SIGNER::request& req, wallet_rpc::COMMAND_RPC_MMS_SET_SIGNER::response& res, epee::json_rpc::error& er, const connection_context *ctx)
+  {
+    if (!mms_call_ok(er)) return false;
+
+    mms::message_store &message_store = m_wallet->get_message_store();
+    boost::optional<std::string> label;
+    boost::optional<std::string> transport_address;
+    boost::optional<cryptonote::account_public_address> monero_address;
+    if (req.set_label)
+    {
+      label = req.label;
+    }
+    if (req.set_transport_address)
+    {
+      transport_address = req.transport_address;
+    }
+    if (req.set_monero_address)
+    {
+      er.message = "";
+      cryptonote::address_parse_info info;
+      if(!cryptonote::get_account_address_from_str_or_url(info, m_wallet->nettype(), req.monero_address,
+        [&er](const std::string &url, const std::vector<std::string> &addresses, bool dnssec_valid)->std::string {
+          if (!dnssec_valid)
+          {
+            er.message = std::string("Invalid DNSSEC for ") + url;
+            return {};
+          }
+          if (addresses.empty())
+          {
+            er.message = std::string("No Monero address found at ") + url;
+            return {};
+          }
+          return addresses[0];
+        }))
+      {
+        er.code = WALLET_RPC_ERROR_CODE_WRONG_ADDRESS;
+        if (er.message.empty())
+          er.message = std::string("WALLET_RPC_ERROR_CODE_WRONG_ADDRESS: ") + req.monero_address;
+        return false;
+      }
+      monero_address = info.address;
+    }
+
+    try
+    {
+      mms::message_store &message_store = m_wallet->get_message_store();
+      message_store.set_signer(m_wallet->get_multisig_wallet_state(), req.index, label, transport_address, monero_address);
+    }
+    catch (const std::exception &e)
+    {
+      handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_MMS_PROCESSING_ERROR);
+      return false;
+    }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_mms_get_signer(const wallet_rpc::COMMAND_RPC_MMS_GET_SIGNER::request& req, wallet_rpc::COMMAND_RPC_MMS_GET_SIGNER::response& res, epee::json_rpc::error& er, const connection_context *ctx)
+  {
+    if (!mms_call_ok(er)) return false;
+
+    try
+    {
+      mms::message_store &message_store = m_wallet->get_message_store();
+      const mms::authorized_signer &signer = message_store.get_signer(req.index);
+      convert_mms_authorized_signer(m_wallet->nettype(), signer, res.signer);
+    }
+    catch (const std::exception &e)
+    {
+      handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_MMS_PROCESSING_ERROR);
+      return false;
+    }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_mms_get_all_signers(const wallet_rpc::COMMAND_RPC_MMS_GET_ALL_SIGNERS::request& req, wallet_rpc::COMMAND_RPC_MMS_GET_ALL_SIGNERS::response& res, epee::json_rpc::error& er, const connection_context *ctx)
+  {
+    if (!mms_call_ok(er)) return false;
+
+    mms::message_store &message_store = m_wallet->get_message_store();
+    cryptonote::network_type nettype = m_wallet->nettype();
+    const std::vector<mms::authorized_signer> &signers = message_store.get_all_signers();
+    res.signers.clear();
+    for (size_t i = 0; i < signers.size(); ++i)
+    {
+      const mms::authorized_signer &orig_signer = signers[i];
+      wallet_rpc::mms_authorized_signer conv_signer;
+      convert_mms_authorized_signer(nettype, orig_signer, conv_signer);
+      res.signers.push_back(conv_signer);
+    }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_mms_get_signer_config(const wallet_rpc::COMMAND_RPC_MMS_GET_SIGNER_CONFIG::request& req, wallet_rpc::COMMAND_RPC_MMS_GET_SIGNER_CONFIG::response& res, epee::json_rpc::error& er, const connection_context *ctx)
+  {
+    if (!mms_call_ok(er)) return false;
+
+    std::string signer_config;
+    mms::message_store &message_store = m_wallet->get_message_store();
+    message_store.get_signer_config(signer_config);
+    res.signer_config = epee::string_tools::buff_to_hex_nodelimer(signer_config);
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_mms_unpack_signer_config(const wallet_rpc::COMMAND_RPC_MMS_UNPACK_SIGNER_CONFIG::request& req, wallet_rpc::COMMAND_RPC_MMS_UNPACK_SIGNER_CONFIG::response& res, epee::json_rpc::error& er, const connection_context *ctx)
+  {
+    if (!mms_call_ok(er)) return false;
+
+    try
+    {
+      mms::message_store &message_store = m_wallet->get_message_store();
+      std::string signer_config;
+      if (!epee::string_tools::parse_hexstr_to_binbuff(req.signer_config, signer_config))
+      {
+        er.code = WALLET_RPC_ERROR_CODE_MMS_BAD_MESSAGE_CONTENT;
+        er.message = std::string("Bad MMS message content.");
+        return false;
+      }
+      std::vector<mms::authorized_signer> signers;
+      message_store.unpack_signer_config(m_wallet->get_multisig_wallet_state(), signer_config, signers);
+
+      cryptonote::network_type nettype = m_wallet->nettype();
+      res.signers.clear();
+      for (size_t i = 0; i < signers.size(); ++i)
+      {
+        const mms::authorized_signer &orig_signer = signers[i];
+        wallet_rpc::mms_authorized_signer conv_signer;
+        convert_mms_authorized_signer(nettype, orig_signer, conv_signer);
+        res.signers.push_back(conv_signer);
+      }
+    }
+    catch (const std::exception &e)
+    {
+      handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_MMS_PROCESSING_ERROR);
+      return false;
+    }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_mms_process_signer_config(const wallet_rpc::COMMAND_RPC_MMS_PROCESS_SIGNER_CONFIG::request& req, wallet_rpc::COMMAND_RPC_MMS_PROCESS_SIGNER_CONFIG::response& res, epee::json_rpc::error& er, const connection_context *ctx)
+  {
+    if (!mms_call_ok(er)) return false;
+
+    try
+    {
+      mms::message_store &message_store = m_wallet->get_message_store();
+      std::string signer_config;
+      if (!epee::string_tools::parse_hexstr_to_binbuff(req.signer_config, signer_config))
+      {
+        er.code = WALLET_RPC_ERROR_CODE_MMS_BAD_MESSAGE_CONTENT;
+        er.message = std::string("Bad MMS message content.");
+        return false;
+      }
+      message_store.process_signer_config(m_wallet->get_multisig_wallet_state(), signer_config);
+    }
+    catch (const std::exception &e)
+    {
+      handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_MMS_PROCESSING_ERROR);
+      return false;
+    }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_mms_start_auto_config(const wallet_rpc::COMMAND_RPC_MMS_START_AUTO_CONFIG::request& req, wallet_rpc::COMMAND_RPC_MMS_START_AUTO_CONFIG::response& res, epee::json_rpc::error& er, const connection_context *ctx)
+  {
+    if (!mms_call_ok(er)) return false;
+
+    try
+    {
+      mms::message_store &message_store = m_wallet->get_message_store();
+      message_store.start_auto_config(m_wallet->get_multisig_wallet_state());
+    }
+    catch (const std::exception &e)
+    {
+      handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_MMS_PROCESSING_ERROR);
+      return false;
+    }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_mms_check_auto_config_token(const wallet_rpc::COMMAND_RPC_MMS_CHECK_AUTO_CONFIG_TOKEN::request& req, wallet_rpc::COMMAND_RPC_MMS_CHECK_AUTO_CONFIG_TOKEN::response& res, epee::json_rpc::error& er, const connection_context *ctx)
+  {
+    if (!mms_call_ok(er)) return false;
+
+    mms::message_store &message_store = m_wallet->get_message_store();
+    res.token_valid = message_store.check_auto_config_token(req.raw_token, res.adjusted_token);
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_mms_add_auto_config_data_message(const wallet_rpc::COMMAND_RPC_MMS_ADD_AUTO_CONFIG_DATA_MESSAGE::request& req, wallet_rpc::COMMAND_RPC_MMS_ADD_AUTO_CONFIG_DATA_MESSAGE::response& res, epee::json_rpc::error& er, const connection_context *ctx)
+  {
+    if (!mms_call_ok(er)) return false;
+
+    try
+    {
+      mms::message_store &message_store = m_wallet->get_message_store();
+      message_store.add_auto_config_data_message(m_wallet->get_multisig_wallet_state(), req.auto_config_token);
+      // Ignore the index in the message array that the MMS gives back
+    }
+    catch (const std::exception &e)
+    {
+      handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_MMS_PROCESSING_ERROR);
+      return false;
+    }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_mms_process_auto_config_data_message(const wallet_rpc::COMMAND_RPC_MMS_PROCESS_AUTO_CONFIG_DATA_MESSAGE::request& req, wallet_rpc::COMMAND_RPC_MMS_PROCESS_AUTO_CONFIG_DATA_MESSAGE::response& res, epee::json_rpc::error& er, const connection_context *ctx)
+  {
+    if (!mms_call_ok(er)) return false;
+
+    try
+    {
+      mms::message_store &message_store = m_wallet->get_message_store();
+      message_store.process_auto_config_data_message(req.id);
+    }
+    catch (const std::exception &e)
+    {
+      handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_MMS_PROCESSING_ERROR);
+      return false;
+    }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_mms_stop_auto_config(const wallet_rpc::COMMAND_RPC_MMS_STOP_AUTO_CONFIG::request& req, wallet_rpc::COMMAND_RPC_MMS_STOP_AUTO_CONFIG::response& res, epee::json_rpc::error& er, const connection_context *ctx)
+  {
+    if (!mms_call_ok(er)) return false;
+
+    try
+    {
+      mms::message_store &message_store = m_wallet->get_message_store();
+      message_store.stop_auto_config();
+    }
+    catch (const std::exception &e)
+    {
+      handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_MMS_PROCESSING_ERROR);
+      return false;
+    }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_mms_process_wallet_created_data(const wallet_rpc::COMMAND_RPC_MMS_PROCESS_WALLET_CREATED_DATA::request& req, wallet_rpc::COMMAND_RPC_MMS_PROCESS_WALLET_CREATED_DATA::response& res, epee::json_rpc::error& er, const connection_context *ctx)
+  {
+    if (!mms_call_ok(er)) return false;
+
+    mms::message_type type;
+    if (!string_to_mms_message_type(req.type, type))
+    {
+      handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_MMS_PROCESSING_ERROR);
+      return false;
+    }
+    std::string content;
+    if (hex_mms_message_content(type))
+    {
+      // The RPC call that gave this data to the client hexed it, so we have to
+      // convert it to binary again as the MMS expects it in binary form
+      if (!epee::string_tools::parse_hexstr_to_binbuff(req.content, content))
+      {
+        er.code = WALLET_RPC_ERROR_CODE_MMS_BAD_MESSAGE_CONTENT;
+        er.message = std::string("Bad MMS message content.");
+        return false;
+      }
+    }
+    else
+    {
+      content = req.content;
+    }
+
+    try
+    {
+      mms::message_store &message_store = m_wallet->get_message_store();
+      message_store.process_wallet_created_data(m_wallet->get_multisig_wallet_state(), type, content);
+    }
+    catch (const std::exception &e)
+    {
+      handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_MMS_PROCESSING_ERROR);
+      return false;
+    }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_mms_get_processable_messages(const wallet_rpc::COMMAND_RPC_MMS_GET_PROCESSABLE_MESSAGES::request& req, wallet_rpc::COMMAND_RPC_MMS_GET_PROCESSABLE_MESSAGES::response& res, epee::json_rpc::error& er, const connection_context *ctx)
+  {
+    if (!mms_call_ok(er)) return false;
+
+    std::vector<mms::processing_data> data_list;
+    mms::message_store &message_store = m_wallet->get_message_store();
+    res.available = message_store.get_processable_messages(m_wallet->get_multisig_wallet_state(), req.force_sync, data_list, res.wait_reason);
+    res.data_list.clear();
+    for (size_t i = 0; i < data_list.size(); ++i)
+    {
+      mms::processing_data &orig_data = data_list[i];
+      wallet_rpc::mms_processing_data conv_data;
+      conv_data.processing = mms_message_processing_to_string(orig_data.processing);
+      conv_data.message_ids = orig_data.message_ids;
+      conv_data.receiving_signer_index = orig_data.receiving_signer_index;
+      res.data_list.push_back(conv_data);
+    }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_mms_set_messages_processed(const wallet_rpc::COMMAND_RPC_MMS_SET_MESSAGES_PROCESSED::request& req, wallet_rpc::COMMAND_RPC_MMS_SET_MESSAGES_PROCESSED::response& res, epee::json_rpc::error& er, const connection_context *ctx)
+  {
+    if (!mms_call_ok(er)) return false;
+
+    try
+    {
+      mms::message_store &message_store = m_wallet->get_message_store();
+      mms::processing_data data;
+      // Cheat a little, don't do a full convert, we know only the ids will be needed:
+      data.message_ids = req.data.message_ids;
+      message_store.set_messages_processed(data);
+    }
+    catch (const std::exception &e)
+    {
+      handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_MMS_PROCESSING_ERROR);
+      return false;
+    }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_mms_add_message(const wallet_rpc::COMMAND_RPC_MMS_ADD_MESSAGE::request& req, wallet_rpc::COMMAND_RPC_MMS_ADD_MESSAGE::response& res, epee::json_rpc::error& er, const connection_context *ctx)
+  {
+    if (!mms_call_ok(er)) return false;
+
+    mms::message_store &message_store = m_wallet->get_message_store();
+    mms::message_type type;
+    if (!string_to_mms_message_type(req.type, type))
+    {
+      er.code = WALLET_RPC_ERROR_CODE_MMS_BAD_MESSAGE_TYPE;
+      er.message = std::string("Bad MMS message type: ") + req.type;
+      return false;
+    }
+    mms::message_direction direction;
+    if (!string_to_mms_message_direction(req.direction, direction))
+    {
+      er.code = WALLET_RPC_ERROR_CODE_MMS_BAD_MESSAGE_DIRECTION;
+      er.message = std::string("Bad MMS message direction: ") + req.direction;
+      return false;
+    }
+    std::string content;
+    if (hex_mms_message_content(type))
+    {
+      if (!epee::string_tools::parse_hexstr_to_binbuff(req.content, content))
+      {
+        er.code = WALLET_RPC_ERROR_CODE_MMS_BAD_MESSAGE_CONTENT;
+        er.message = std::string("Bad MMS message content.");
+        return false;
+      }
+    }
+    // In case of message type "note" don't put any restriction on content (unlike
+    // the CLI wallet) to enable transport of any kind of content by RPC; note that
+    // you will have to hex / unhex any binary content yourself as the assumption here
+    // is that "note" content is textual and thus does not need such a conversion.
+
+    try
+    {
+      message_store.add_message(m_wallet->get_multisig_wallet_state(), req.signer_index, type, direction, content);
+      // The return parameter (the new total number of messages) probably does not
+      // interest RPC clients, so don't give it back as result
+    }
+    catch (const std::exception &e)
+    {
+      handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_MMS_PROCESSING_ERROR);
+      return false;
+    }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_mms_get_all_messages(const wallet_rpc::COMMAND_RPC_MMS_GET_ALL_MESSAGES::request& req, wallet_rpc::COMMAND_RPC_MMS_GET_ALL_MESSAGES::response& res, epee::json_rpc::error& er, const connection_context *ctx)
+  {
+    if (!mms_call_ok(er)) return false;
+
+    mms::message_store &message_store = m_wallet->get_message_store();
+    const std::vector<mms::message> messages = message_store.get_all_messages();
+
+    res.messages.clear();
+    for (size_t i = 0; i < messages.size(); ++i)
+    {
+      wallet_rpc::mms_message conv;
+      convert_mms_message(messages[i], conv);
+      res.messages.push_back(conv);
+    }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_mms_get_message_by_id(const wallet_rpc::COMMAND_RPC_MMS_GET_MESSAGE_BY_ID::request& req, wallet_rpc::COMMAND_RPC_MMS_GET_MESSAGE_BY_ID::response& res, epee::json_rpc::error& er, const connection_context *ctx)
+  {
+    if (!mms_call_ok(er)) return false;
+
+    mms::message_store &message_store = m_wallet->get_message_store();
+    mms::message message;
+    res.found = message_store.get_message_by_id(req.id, message);
+    if (res.found)
+    {
+      convert_mms_message(message, res.message);
+    }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_mms_set_message_processed_or_sent(const wallet_rpc::COMMAND_RPC_MMS_SET_MESSAGE_PROCESSED_OR_SENT::request& req, wallet_rpc::COMMAND_RPC_MMS_SET_MESSAGE_PROCESSED_OR_SENT::response& res, epee::json_rpc::error& er, const connection_context *ctx)
+  {
+    if (!mms_call_ok(er)) return false;
+
+    try
+    {
+      mms::message_store &message_store = m_wallet->get_message_store();
+      message_store.set_message_processed_or_sent(req.id);
+    }
+    catch (const std::exception &e)
+    {
+      handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_MMS_PROCESSING_ERROR);
+      return false;
+    }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_mms_delete_message(const wallet_rpc::COMMAND_RPC_MMS_DELETE_MESSAGE::request& req, wallet_rpc::COMMAND_RPC_MMS_DELETE_MESSAGE::response& res, epee::json_rpc::error& er, const connection_context *ctx)
+  {
+    if (!mms_call_ok(er)) return false;
+
+    try
+    {
+      mms::message_store &message_store = m_wallet->get_message_store();
+      message_store.delete_message(req.id);
+    }
+    catch (const std::exception &e)
+    {
+      handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_MMS_PROCESSING_ERROR);
+      return false;
+    }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_mms_delete_all_messages(const wallet_rpc::COMMAND_RPC_MMS_DELETE_ALL_MESSAGES::request& req, wallet_rpc::COMMAND_RPC_MMS_DELETE_ALL_MESSAGES::response& res, epee::json_rpc::error& er, const connection_context *ctx)
+  {
+    if (!mms_call_ok(er)) return false;
+
+    try
+    {
+      mms::message_store &message_store = m_wallet->get_message_store();
+      message_store.delete_all_messages();
+    }
+    catch (const std::exception &e)
+    {
+      handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_MMS_PROCESSING_ERROR);
+      return false;
+    }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_mms_send_message(const wallet_rpc::COMMAND_RPC_MMS_SEND_MESSAGE::request& req, wallet_rpc::COMMAND_RPC_MMS_SEND_MESSAGE::response& res, epee::json_rpc::error& er, const connection_context *ctx)
+  {
+    if (!mms_call_ok(er)) return false;
+
+    try
+    {
+      mms::message_store &message_store = m_wallet->get_message_store();
+      message_store.send_message(m_wallet->get_multisig_wallet_state(), req.id);
+    }
+    catch (const std::exception &e)
+    {
+      handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_MMS_PROCESSING_ERROR);
+      return false;
+    }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_mms_check_for_messages(const wallet_rpc::COMMAND_RPC_MMS_CHECK_FOR_MESSAGES::request& req, wallet_rpc::COMMAND_RPC_MMS_CHECK_FOR_MESSAGES::response& res, epee::json_rpc::error& er, const connection_context *ctx)
+  {
+    if (!mms_call_ok(er)) return false;
+
+    res.received = false;
+    res.messages.clear();
+    try
+    {
+      mms::message_store &message_store = m_wallet->get_message_store();
+      std::vector<mms::message> messages;
+      res.received = message_store.check_for_messages(m_wallet->get_multisig_wallet_state(), messages);
+
+      if (res.received)
+      {
+        for (size_t i = 0; i < messages.size(); ++i)
+        {
+          wallet_rpc::mms_message conv;
+          convert_mms_message(messages[i], conv);
+          res.messages.push_back(conv);
+        }
+      }
+    }
+    catch (const std::exception &e)
+    {
+      handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_MMS_PROCESSING_ERROR);
+      return false;
+    }
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------

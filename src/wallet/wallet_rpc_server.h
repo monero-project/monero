@@ -37,6 +37,7 @@
 #include "net/http_server_impl_base.h"
 #include "math_helper.h"
 #include "wallet_rpc_server_commands_defs.h"
+#include "wallet_rpc_server_mms_defs.h"
 #include "wallet2.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
@@ -155,6 +156,35 @@ namespace tools
         MAP_JON_RPC_WE("set_log_level",      on_set_log_level,      wallet_rpc::COMMAND_RPC_SET_LOG_LEVEL)
         MAP_JON_RPC_WE("set_log_categories", on_set_log_categories, wallet_rpc::COMMAND_RPC_SET_LOG_CATEGORIES)
         MAP_JON_RPC_WE("get_version",        on_get_version,        wallet_rpc::COMMAND_RPC_GET_VERSION)
+
+        // MMS
+        MAP_JON_RPC_WE("mms_init",on_mms_init,wallet_rpc::COMMAND_RPC_MMS_INIT)
+        MAP_JON_RPC_WE("mms_get_info",on_mms_get_info,wallet_rpc::COMMAND_RPC_MMS_GET_INFO)
+        MAP_JON_RPC_WE("mms_get_multisig_wallet_state",on_mms_get_multisig_wallet_state,wallet_rpc::COMMAND_RPC_MMS_GET_MULTISIG_WALLET_STATE)
+        MAP_JON_RPC_WE("mms_set_options",on_mms_set_options,wallet_rpc::COMMAND_RPC_MMS_SET_OPTIONS)
+        MAP_JON_RPC_WE("mms_set_signer",on_mms_set_signer,wallet_rpc::COMMAND_RPC_MMS_SET_SIGNER)
+        MAP_JON_RPC_WE("mms_get_signer",on_mms_get_signer,wallet_rpc::COMMAND_RPC_MMS_GET_SIGNER)
+        MAP_JON_RPC_WE("mms_get_all_signers",on_mms_get_all_signers,wallet_rpc::COMMAND_RPC_MMS_GET_ALL_SIGNERS)
+        MAP_JON_RPC_WE("mms_get_signer_config",on_mms_get_signer_config,wallet_rpc::COMMAND_RPC_MMS_GET_SIGNER_CONFIG)
+        MAP_JON_RPC_WE("mms_unpack_signer_config",on_mms_unpack_signer_config,wallet_rpc::COMMAND_RPC_MMS_UNPACK_SIGNER_CONFIG)
+        MAP_JON_RPC_WE("mms_process_signer_config",on_mms_process_signer_config,wallet_rpc::COMMAND_RPC_MMS_PROCESS_SIGNER_CONFIG)
+        MAP_JON_RPC_WE("mms_start_auto_config",on_mms_start_auto_config,wallet_rpc::COMMAND_RPC_MMS_START_AUTO_CONFIG)
+        MAP_JON_RPC_WE("mms_check_auto_config_token",on_mms_check_auto_config_token,wallet_rpc::COMMAND_RPC_MMS_CHECK_AUTO_CONFIG_TOKEN)
+        MAP_JON_RPC_WE("mms_add_auto_config_data_message",on_mms_add_auto_config_data_message,wallet_rpc::COMMAND_RPC_MMS_ADD_AUTO_CONFIG_DATA_MESSAGE)
+        MAP_JON_RPC_WE("mms_process_auto_config_data_message",on_mms_process_auto_config_data_message,wallet_rpc::COMMAND_RPC_MMS_PROCESS_AUTO_CONFIG_DATA_MESSAGE)
+        MAP_JON_RPC_WE("mms_stop_auto_config",on_mms_stop_auto_config,wallet_rpc::COMMAND_RPC_MMS_STOP_AUTO_CONFIG)
+        MAP_JON_RPC_WE("mms_process_wallet_created_data",on_mms_process_wallet_created_data,wallet_rpc::COMMAND_RPC_MMS_PROCESS_WALLET_CREATED_DATA)
+        MAP_JON_RPC_WE("mms_get_processable_messages",on_mms_get_processable_messages,wallet_rpc::COMMAND_RPC_MMS_GET_PROCESSABLE_MESSAGES)
+        MAP_JON_RPC_WE("mms_set_messages_processed",on_mms_set_messages_processed,wallet_rpc::COMMAND_RPC_MMS_SET_MESSAGES_PROCESSED)
+        MAP_JON_RPC_WE("mms_add_message",on_mms_add_message,wallet_rpc::COMMAND_RPC_MMS_ADD_MESSAGE)
+        MAP_JON_RPC_WE("mms_get_all_messages",on_mms_get_all_messages,wallet_rpc::COMMAND_RPC_MMS_GET_ALL_MESSAGES)
+        MAP_JON_RPC_WE("mms_get_message_by_id",on_mms_get_message_by_id,wallet_rpc::COMMAND_RPC_MMS_GET_MESSAGE_BY_ID)
+        MAP_JON_RPC_WE("mms_set_message_processed_or_sent",on_mms_set_message_processed_or_sent,wallet_rpc::COMMAND_RPC_MMS_SET_MESSAGE_PROCESSED_OR_SENT)
+        MAP_JON_RPC_WE("mms_delete_message",on_mms_delete_message,wallet_rpc::COMMAND_RPC_MMS_DELETE_MESSAGE)
+        MAP_JON_RPC_WE("mms_delete_all_messages",on_mms_delete_all_messages,wallet_rpc::COMMAND_RPC_MMS_DELETE_ALL_MESSAGES)
+        MAP_JON_RPC_WE("mms_send_message",   on_mms_send_message,wallet_rpc::COMMAND_RPC_MMS_SEND_MESSAGE)
+        MAP_JON_RPC_WE("mms_check_for_messages",on_mms_check_for_messages,wallet_rpc::COMMAND_RPC_MMS_CHECK_FOR_MESSAGES)
+
       END_JSON_RPC_MAP()
     END_URI_MAP2()
 
@@ -245,12 +275,42 @@ namespace tools
       //json rpc v2
       bool on_query_key(const wallet_rpc::COMMAND_RPC_QUERY_KEY::request& req, wallet_rpc::COMMAND_RPC_QUERY_KEY::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
 
+      // MMS
+      bool on_mms_init(const wallet_rpc::COMMAND_RPC_MMS_INIT::request& req, wallet_rpc::COMMAND_RPC_MMS_INIT::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
+      bool on_mms_get_info(const wallet_rpc::COMMAND_RPC_MMS_GET_INFO::request& req, wallet_rpc::COMMAND_RPC_MMS_GET_INFO::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
+      bool on_mms_get_multisig_wallet_state(const wallet_rpc::COMMAND_RPC_MMS_GET_MULTISIG_WALLET_STATE::request& req, wallet_rpc::COMMAND_RPC_MMS_GET_MULTISIG_WALLET_STATE::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
+      bool on_mms_set_options(const wallet_rpc::COMMAND_RPC_MMS_SET_OPTIONS::request& req, wallet_rpc::COMMAND_RPC_MMS_SET_OPTIONS::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
+      bool on_mms_set_signer(const wallet_rpc::COMMAND_RPC_MMS_SET_SIGNER::request& req, wallet_rpc::COMMAND_RPC_MMS_SET_SIGNER::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
+      bool on_mms_get_signer(const wallet_rpc::COMMAND_RPC_MMS_GET_SIGNER::request& req, wallet_rpc::COMMAND_RPC_MMS_GET_SIGNER::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
+      bool on_mms_get_all_signers(const wallet_rpc::COMMAND_RPC_MMS_GET_ALL_SIGNERS::request& req, wallet_rpc::COMMAND_RPC_MMS_GET_ALL_SIGNERS::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
+      bool on_mms_get_signer_config(const wallet_rpc::COMMAND_RPC_MMS_GET_SIGNER_CONFIG::request& req, wallet_rpc::COMMAND_RPC_MMS_GET_SIGNER_CONFIG::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
+      bool on_mms_unpack_signer_config(const wallet_rpc::COMMAND_RPC_MMS_UNPACK_SIGNER_CONFIG::request& req, wallet_rpc::COMMAND_RPC_MMS_UNPACK_SIGNER_CONFIG::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
+      bool on_mms_process_signer_config(const wallet_rpc::COMMAND_RPC_MMS_PROCESS_SIGNER_CONFIG::request& req, wallet_rpc::COMMAND_RPC_MMS_PROCESS_SIGNER_CONFIG::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
+      bool on_mms_start_auto_config(const wallet_rpc::COMMAND_RPC_MMS_START_AUTO_CONFIG::request& req, wallet_rpc::COMMAND_RPC_MMS_START_AUTO_CONFIG::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
+      bool on_mms_check_auto_config_token(const wallet_rpc::COMMAND_RPC_MMS_CHECK_AUTO_CONFIG_TOKEN::request& req, wallet_rpc::COMMAND_RPC_MMS_CHECK_AUTO_CONFIG_TOKEN::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
+      bool on_mms_add_auto_config_data_message(const wallet_rpc::COMMAND_RPC_MMS_ADD_AUTO_CONFIG_DATA_MESSAGE::request& req, wallet_rpc::COMMAND_RPC_MMS_ADD_AUTO_CONFIG_DATA_MESSAGE::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
+      bool on_mms_process_auto_config_data_message(const wallet_rpc::COMMAND_RPC_MMS_PROCESS_AUTO_CONFIG_DATA_MESSAGE::request& req, wallet_rpc::COMMAND_RPC_MMS_PROCESS_AUTO_CONFIG_DATA_MESSAGE::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
+      bool on_mms_stop_auto_config(const wallet_rpc::COMMAND_RPC_MMS_STOP_AUTO_CONFIG::request& req, wallet_rpc::COMMAND_RPC_MMS_STOP_AUTO_CONFIG::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
+      bool on_mms_process_wallet_created_data(const wallet_rpc::COMMAND_RPC_MMS_PROCESS_WALLET_CREATED_DATA::request& req, wallet_rpc::COMMAND_RPC_MMS_PROCESS_WALLET_CREATED_DATA::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
+      bool on_mms_get_processable_messages(const wallet_rpc::COMMAND_RPC_MMS_GET_PROCESSABLE_MESSAGES::request& req, wallet_rpc::COMMAND_RPC_MMS_GET_PROCESSABLE_MESSAGES::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
+      bool on_mms_set_messages_processed(const wallet_rpc::COMMAND_RPC_MMS_SET_MESSAGES_PROCESSED::request& req, wallet_rpc::COMMAND_RPC_MMS_SET_MESSAGES_PROCESSED::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
+      bool on_mms_add_message(const wallet_rpc::COMMAND_RPC_MMS_ADD_MESSAGE::request& req, wallet_rpc::COMMAND_RPC_MMS_ADD_MESSAGE::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
+      bool on_mms_get_all_messages(const wallet_rpc::COMMAND_RPC_MMS_GET_ALL_MESSAGES::request& req, wallet_rpc::COMMAND_RPC_MMS_GET_ALL_MESSAGES::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
+      bool on_mms_get_message_by_id(const wallet_rpc::COMMAND_RPC_MMS_GET_MESSAGE_BY_ID::request& req, wallet_rpc::COMMAND_RPC_MMS_GET_MESSAGE_BY_ID::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
+      bool on_mms_set_message_processed_or_sent(const wallet_rpc::COMMAND_RPC_MMS_SET_MESSAGE_PROCESSED_OR_SENT::request& req, wallet_rpc::COMMAND_RPC_MMS_SET_MESSAGE_PROCESSED_OR_SENT::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
+      bool on_mms_delete_message(const wallet_rpc::COMMAND_RPC_MMS_DELETE_MESSAGE::request& req, wallet_rpc::COMMAND_RPC_MMS_DELETE_MESSAGE::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
+      bool on_mms_delete_all_messages(const wallet_rpc::COMMAND_RPC_MMS_DELETE_ALL_MESSAGES::request& req, wallet_rpc::COMMAND_RPC_MMS_DELETE_ALL_MESSAGES::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
+      bool on_mms_send_message(const wallet_rpc::COMMAND_RPC_MMS_SEND_MESSAGE::request& req, wallet_rpc::COMMAND_RPC_MMS_SEND_MESSAGE::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
+      bool on_mms_check_for_messages(const wallet_rpc::COMMAND_RPC_MMS_CHECK_FOR_MESSAGES::request& req, wallet_rpc::COMMAND_RPC_MMS_CHECK_FOR_MESSAGES::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
+
       // helpers
       void fill_transfer_entry(tools::wallet_rpc::transfer_entry &entry, const crypto::hash &txid, const crypto::hash &payment_id, const tools::wallet2::payment_details &pd);
       void fill_transfer_entry(tools::wallet_rpc::transfer_entry &entry, const crypto::hash &txid, const tools::wallet2::confirmed_transfer_details &pd);
       void fill_transfer_entry(tools::wallet_rpc::transfer_entry &entry, const crypto::hash &txid, const tools::wallet2::unconfirmed_transfer_details &pd);
       void fill_transfer_entry(tools::wallet_rpc::transfer_entry &entry, const crypto::hash &payment_id, const tools::wallet2::pool_payment_details &pd);
       bool not_open(epee::json_rpc::error& er);
+      bool restricted(epee::json_rpc::error& er);
+      bool mms_call_ok(epee::json_rpc::error& er);
       void handle_rpc_exception(const std::exception_ptr& e, epee::json_rpc::error& er, int default_error_code);
 
       template<typename Ts, typename Tu>

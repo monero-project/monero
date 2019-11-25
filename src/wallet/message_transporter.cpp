@@ -145,7 +145,8 @@ bool message_transporter::receive_messages(const std::vector<std::string> &desti
         // Second Base64-decoding: The MMS uses Base64 to hide non-textual data in its JSON from Bitmessage
         json = epee::string_encoding::base64_decode(message_body);
         if (!epee::serialization::load_t_from_json(message, json))
-          MERROR("Failed to deserialize message");
+          // Report only as info because every normal i.e. non-MMS message present will trigger this
+          MINFO("Failed to deserialize message");
         else
           is_mms_message = true;
       }

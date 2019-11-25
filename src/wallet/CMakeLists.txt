@@ -46,6 +46,7 @@ set(wallet_private_headers
   wallet_errors.h
   wallet_rpc_server.h
   wallet_rpc_server_commands_defs.h
+  wallet_rpc_server_mms_defs.h
   wallet_rpc_server_error_codes.h
   ringdb.h
   node_rpc_proxy.h
