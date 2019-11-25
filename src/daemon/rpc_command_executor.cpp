@@ -2049,7 +2049,7 @@ static void print_service_node_list_state(cryptonote::network_type nettype, int 
 			{
 				uint64_t now = time(nullptr);
 				uint64_t delta_height = expiry_height - *curr_height;
-				uint64_t expiry_epoch_time = now + (delta_height * DIFFICULTY_TARGET_V2);
+				uint64_t expiry_epoch_time = now + (delta_height * DIFFICULTY_TARGET_V3);
 
 				tools::msg_writer() << indent2 << "Registration Height/Expiry Height: " << entry.registration_height << "/" << expiry_height << " (in " << delta_height << " blocks)";
 				tools::msg_writer() << indent2 << "Expiry Date (Estimated UTC): " << get_date_time(expiry_epoch_time) << " (" << get_human_time_ago(expiry_epoch_time, now) << ")";
