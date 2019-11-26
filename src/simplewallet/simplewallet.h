@@ -44,6 +44,7 @@
 #include "cryptonote_basic/cryptonote_basic_impl.h"
 #include "wallet/wallet2.h"
 #include "console_handler.h"
+#include "math_helper.h"
 #include "wipeable_string.h"
 #include "common/i18n.h"
 #include "common/password.h"
@@ -274,6 +275,9 @@ namespace cryptonote
      */
     void commit_or_save(std::vector<tools::wallet2::pending_tx>& ptx_vector, bool do_not_relay);
 
+    // idle thread workers
+    bool check_refresh();
+
     //----------------- i_wallet2_callback ---------------------
     virtual void on_new_block(uint64_t height, const cryptonote::block& block);
     virtual void on_money_received(uint64_t height, const crypto::hash &txid, const cryptonote::transaction& tx, uint64_t amount, const cryptonote::subaddress_index& subaddr_index, uint64_t unlock_time);
@@ -375,5 +379,9 @@ namespace cryptonote
     bool m_auto_refresh_refreshing;
     std::atomic<bool> m_in_manual_refresh;
     uint32_t m_current_subaddress_account;
+
+    template<uint64_t mini, uint64_t maxi> struct get_random_interval { public: uint64_t operator()() const { return crypto::rand_range(mini, maxi); } };
+
+    epee::math_helper::once_a_time_seconds_range<get_random_interval<80 * 1000000, 100 * 1000000>> m_refresh_checker;
   };
 }

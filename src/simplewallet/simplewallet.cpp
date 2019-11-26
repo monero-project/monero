@@ -6753,7 +6753,11 @@ bool simple_wallet::get_transfers(std::vector<std::string>& local_args, std::vec
       m_in_manual_refresh.store(true, std::memory_order_relaxed);
       epee::misc_utils::auto_scope_leave_caller scope_exit_handler = epee::misc_utils::create_scope_leave_handler([&](){m_in_manual_refresh.store(false, std::memory_order_relaxed);});
 
-      m_wallet->update_pool_state();
+      std::vector<std::pair<cryptonote::transaction, bool>> process_txs;
+      m_wallet->update_pool_state(process_txs);
+      if (!process_txs.empty())
+        m_wallet->process_pool_state(process_txs);
+
       std::list<std::pair<crypto::hash, tools::wallet2::pool_payment_details>> payments;
       m_wallet->get_unconfirmed_payments(payments, m_current_subaddress_account, subaddr_indices);
       for (std::list<std::pair<crypto::hash, tools::wallet2::pool_payment_details>>::const_iterator i = payments.begin(); i != payments.end(); ++i) {
@@ -7130,12 +7134,42 @@ bool simple_wallet::rescan_blockchain(const std::vector<std::string> &args_)
 //----------------------------------------------------------------------------------------------------
 void simple_wallet::wallet_idle_thread()
 {
+  const boost::posix_time::ptime start_time = boost::posix_time::microsec_clock::universal_time();
   while (true)
   {
     boost::unique_lock<boost::mutex> lock(m_idle_mutex);
     if (!m_idle_run.load(std::memory_order_relaxed))
       break;
 
+    // if another thread was busy (ie, a foreground refresh thread), we'll end up here at
+    // some random time that's not what we slept for, so we should not call refresh now
+    // or we'll be leaking that fact through timing
+    const boost::posix_time::ptime now0 = boost::posix_time::microsec_clock::universal_time();
+    const uint64_t dt_actual = (now0 - start_time).total_microseconds() % 1000000;
+#ifdef _WIN32
+    static const uint64_t threshold = 10000;
+#else
+    static const uint64_t threshold = 2000;
+#endif
+    if (dt_actual < threshold) // if less than a threshold... would a very slow machine always miss it ?
+    {
+      m_refresh_checker.do_call(boost::bind(&simple_wallet::check_refresh, this));
+
+      if (!m_idle_run.load(std::memory_order_relaxed))
+        break;
+    }
+
+    // aim for the next multiple of 1 second
+    const boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
+    const auto dt = (now - start_time).total_microseconds();
+    const auto wait = 1000000 - dt % 1000000;
+    m_idle_cond.wait_for(lock, boost::chrono::microseconds(wait));
+  }
+}
+
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::check_refresh()
+{
     // auto refresh
     if (m_auto_refresh_enabled)
     {
@@ -7149,11 +7183,7 @@ void simple_wallet::wallet_idle_thread()
       catch(...) {}
       m_auto_refresh_refreshing = false;
     }
-
-    if (!m_idle_run.load(std::memory_order_relaxed))
-      break;
-    m_idle_cond.wait_for(lock, boost::chrono::seconds(90));
-  }
+    return true;
 }
 //----------------------------------------------------------------------------------------------------
 std::string simple_wallet::get_prompt() const
@@ -8095,7 +8125,11 @@ bool simple_wallet::show_transfer(const std::vector<std::string> &args)
 
   try
   {
-    m_wallet->update_pool_state();
+    std::vector<std::pair<cryptonote::transaction, bool>> process_txs;
+    m_wallet->update_pool_state(process_txs);
+    if (!process_txs.empty())
+      m_wallet->process_pool_state(process_txs);
+
     std::list<std::pair<crypto::hash, tools::wallet2::pool_payment_details>> pool_payments;
     m_wallet->get_unconfirmed_payments(pool_payments, m_current_subaddress_account);
     for (std::list<std::pair<crypto::hash, tools::wallet2::pool_payment_details>>::const_iterator i = pool_payments.begin(); i != pool_payments.end(); ++i) {
