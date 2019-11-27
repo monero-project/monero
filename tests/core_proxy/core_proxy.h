@@ -110,5 +110,7 @@ namespace tests
     bool pad_transactions() const { return false; }
     uint32_t get_blockchain_pruning_seed() const { return 0; }
     bool prune_blockchain(uint32_t pruning_seed) const { return true; }
+    bool get_txpool_complement(const std::vector<crypto::hash> &hashes, std::vector<cryptonote::blobdata> &txes) { return false; }
+    bool get_pool_transaction_hashes(std::vector<crypto::hash>& txs, bool include_unrelayed_txes = true) const { return false; }
   };
 }

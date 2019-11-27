@@ -83,6 +83,7 @@ namespace cryptonote
                                                                                                               m_p2p(p_net_layout),
                                                                                                               m_syncronized_connections_count(0),
                                                                                                               m_synchronized(offline),
+                                                                                                              m_ask_for_txpool_complement(true),
                                                                                                               m_stopping(false),
                                                                                                               m_no_sync(false)
 
@@ -882,6 +883,34 @@ namespace cryptonote
            
     post_notify<NOTIFY_NEW_FLUFFY_BLOCK>(fluffy_response, context);    
     return 1;        
+  }
+  //------------------------------------------------------------------------------------------------------------------------
+  template<class t_core>
+  int t_cryptonote_protocol_handler<t_core>::handle_notify_get_txpool_complement(int command, NOTIFY_GET_TXPOOL_COMPLEMENT::request& arg, cryptonote_connection_context& context)
+  {
+    MLOG_P2P_MESSAGE("Received NOTIFY_GET_TXPOOL_COMPLEMENT (" << arg.hashes.size() << " txes)");
+
+    std::vector<std::pair<cryptonote::blobdata, block>> local_blocks;
+    std::vector<cryptonote::blobdata> local_txs;
+
+    std::vector<cryptonote::blobdata> txes;
+    if (!m_core.get_txpool_complement(arg.hashes, txes))
+    {
+      LOG_ERROR_CCONTEXT("failed to get txpool complement");
+      return 1;
+    }
+
+    NOTIFY_NEW_TRANSACTIONS::request new_txes;
+    new_txes.txs = std::move(txes);
+
+    MLOG_P2P_MESSAGE
+    (
+        "-->>NOTIFY_NEW_TRANSACTIONS: "
+        << ", txs.size()=" << new_txes.txs.size()
+    );
+
+    post_notify<NOTIFY_NEW_TRANSACTIONS>(new_txes, context);
+    return 1;
   }
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core>
@@ -2201,6 +2230,27 @@ skip:
     }
     m_core.safesyncmode(true);
     m_p2p->clear_used_stripe_peers();
+
+    // ask for txpool complement from any suitable node if we did not yet
+    val_expected = true;
+    if (m_ask_for_txpool_complement.compare_exchange_strong(val_expected, false))
+    {
+      m_p2p->for_each_connection([&](cryptonote_connection_context& context, nodetool::peerid_type peer_id, uint32_t support_flags)->bool
+      {
+        if(context.m_state < cryptonote_connection_context::state_synchronizing)
+        {
+          MDEBUG(context << "not ready, ignoring");
+          return true;
+        }
+        if (!request_txpool_complement(context))
+        {
+          MERROR(context << "Failed to request txpool complement");
+          return true;
+        }
+        return false;
+      });
+    }
+
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------
@@ -2354,6 +2404,21 @@ skip:
   }
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core>
+  bool t_cryptonote_protocol_handler<t_core>::request_txpool_complement(cryptonote_connection_context &context)
+  {
+    NOTIFY_GET_TXPOOL_COMPLEMENT::request r = {};
+    if (!m_core.get_pool_transaction_hashes(r.hashes, false))
+    {
+      MERROR("Failed to get txpool hashes");
+      return false;
+    }
+    MLOG_P2P_MESSAGE("-->>NOTIFY_GET_TXPOOL_COMPLEMENT: hashes.size()=" << r.hashes.size() );
+    post_notify<NOTIFY_GET_TXPOOL_COMPLEMENT>(r, context);
+    MLOG_PEER_STATE("requesting txpool complement");
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------
+  template<class t_core>
   std::string t_cryptonote_protocol_handler<t_core>::get_peers_overview() const
   {
     std::stringstream ss;
@@ -2463,7 +2528,10 @@ skip:
       MINFO("Target height decreasing from " << previous_target << " to " << target);
       m_core.set_target_blockchain_height(target);
       if (target == 0 && context.m_state > cryptonote_connection_context::state_before_handshake && !m_stopping)
+      {
         MCWARNING("global", "monerod is now disconnected from the network");
+        m_ask_for_txpool_complement = true;
+      }
     }
 
     m_block_queue.flush_spans(context.m_connection_id, false);
