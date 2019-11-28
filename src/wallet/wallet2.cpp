@@ -4236,7 +4236,7 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
   r = r && hwdev.verify_keys(keys.m_view_secret_key,  keys.m_account_address.m_view_public_key);
   if(!m_watch_only && !m_multisig && hwdev.device_protocol() != hw::device::PROTOCOL_COLD)
     r = r && hwdev.verify_keys(keys.m_spend_secret_key, keys.m_account_address.m_spend_public_key);
-  THROW_WALLET_EXCEPTION_IF(!r, error::invalid_password);
+  THROW_WALLET_EXCEPTION_IF(!r, error::wallet_files_doesnt_correspond, m_keys_file, m_wallet_file);
 
   if (r)
     setup_keys(password);
