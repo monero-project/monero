@@ -285,7 +285,7 @@ ssl_options_t::ssl_options_t(std::vector<std::vector<std::uint8_t>> fingerprints
 
 boost::asio::ssl::context ssl_options_t::create_context() const
 {
-  boost::asio::ssl::context ssl_context{boost::asio::ssl::context::tlsv12};
+  boost::asio::ssl::context ssl_context{boost::asio::ssl::context::tls};
   if (!bool(*this))
     return ssl_context;
 
