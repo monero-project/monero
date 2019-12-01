@@ -547,6 +547,11 @@ You can also cross-compile static binaries on Linux for Windows and macOS with t
   * Requires: `g++-aarch64-linux-gnu`
 * ```make depends target=riscv64-linux-gnu``` for RISC V 64 bit binaries.
   * Requires: `g++-riscv64-linux-gnu`
+* ```make depends target=x86_64-unknown-freebsd``` for freebsd binaries.
+  * Requires: `clang-8`
+* ```make depends target=arm-linux-android``` for 32bit android binaries
+* ```make depends target=aarch64-linux-android``` for 64bit android binaries
+
 
 The required packages are the names for each toolchain on apt. Depending on your distro, they may have different names.
 
