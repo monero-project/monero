@@ -3004,6 +3004,8 @@ namespace cryptonote
     RPC_TRACKER(flush_cache);
     if (req.bad_txs)
       m_core.flush_bad_txs_cache();
+    if (req.bad_blocks)
+      m_core.flush_invalid_blocks();
     res.status = CORE_RPC_STATUS_OK;
     return true;
   }
