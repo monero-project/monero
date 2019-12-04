@@ -1041,7 +1041,7 @@ namespace nodetool
         return;
       }
 
-      if(!handle_remote_peerlist(rsp.local_peerlist_new, rsp.node_data.local_time, context))
+      if(!handle_remote_peerlist(rsp.local_peerlist_new, context))
       {
         LOG_WARNING_CC(context, "COMMAND_HANDSHAKE: failed to handle_remote_peerlist(...), closing connection.");
         add_host_fail(context.m_remote_address);
@@ -1119,7 +1119,7 @@ namespace nodetool
         return;
       }
 
-      if(!handle_remote_peerlist(rsp.local_peerlist_new, rsp.local_time, context))
+      if(!handle_remote_peerlist(rsp.local_peerlist_new, context))
       {
         LOG_WARNING_CC(context, "COMMAND_TIMED_SYNC: failed to handle_remote_peerlist(...), closing connection.");
         m_network_zones.at(context.m_remote_address.get_zone()).m_net_server.get_config_object().close(context.m_connection_id );
@@ -1894,7 +1894,7 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
-  bool node_server<t_payload_net_handler>::handle_remote_peerlist(const std::vector<peerlist_entry>& peerlist, time_t local_time, const epee::net_utils::connection_context_base& context)
+  bool node_server<t_payload_net_handler>::handle_remote_peerlist(const std::vector<peerlist_entry>& peerlist, const epee::net_utils::connection_context_base& context)
   {
     std::vector<peerlist_entry> peerlist_ = peerlist;
     if(!sanitize_peerlist(peerlist_))
@@ -2291,8 +2291,6 @@ namespace nodetool
     }
 
     //fill response
-    rsp.local_time = time(NULL);
-
     const epee::net_utils::zone zone_type = context.m_remote_address.get_zone();
     network_zone& zone = m_network_zones.at(zone_type);
 

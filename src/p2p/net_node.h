@@ -362,7 +362,7 @@ namespace nodetool
         const boost::program_options::variables_map& vm
       );
     bool idle_worker();
-    bool handle_remote_peerlist(const std::vector<peerlist_entry>& peerlist, time_t local_time, const epee::net_utils::connection_context_base& context);
+    bool handle_remote_peerlist(const std::vector<peerlist_entry>& peerlist, const epee::net_utils::connection_context_base& context);
     bool get_local_node_data(basic_node_data& node_data, const network_zone& zone);
     //bool get_local_handshake_data(handshake_data& hshd);
 

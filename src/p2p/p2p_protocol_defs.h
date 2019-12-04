@@ -268,12 +268,10 @@ namespace nodetool
 
     struct response_t
     {
-      uint64_t local_time;
       t_playload_type payload_data;
       std::vector<peerlist_entry> local_peerlist_new;
 
       BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(local_time)
         KV_SERIALIZE(payload_data)
         if (is_store)
         {
