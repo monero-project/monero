@@ -123,6 +123,7 @@ namespace nodetool
     peerid_type peer_id;
     uint32_t support_flags;
     bool m_in_timedsync;
+    std::set<epee::net_utils::network_address> sent_addresses;
   };
 
   template<class t_payload_net_handler>
