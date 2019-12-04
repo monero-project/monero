@@ -103,6 +103,7 @@ namespace cryptonote
      , rpc_ssl_allowed_fingerprints({"rpc-ssl-allowed-fingerprints", rpc_args::tr("List of certificate fingerprints to allow")})
      , rpc_ssl_allow_chained({"rpc-ssl-allow-chained", rpc_args::tr("Allow user (via --rpc-ssl-certificates) chain certificates"), false})
      , rpc_ssl_allow_any_cert({"rpc-ssl-allow-any-cert", rpc_args::tr("Allow any peer certificate"), false})
+     , disable_rpc_ban({"disable-rpc-ban", rpc_args::tr("Do not ban hosts on RPC errors"), false, false})
   {}
 
   const char* rpc_args::tr(const char* str) { return i18n_translate(str, "cryptonote::rpc_args"); }
@@ -123,6 +124,7 @@ namespace cryptonote
     command_line::add_arg(desc, arg.rpc_ssl_ca_certificates);
     command_line::add_arg(desc, arg.rpc_ssl_allowed_fingerprints);
     command_line::add_arg(desc, arg.rpc_ssl_allow_chained);
+    command_line::add_arg(desc, arg.disable_rpc_ban);
     if (any_cert_option)
       command_line::add_arg(desc, arg.rpc_ssl_allow_any_cert);
   }
@@ -136,6 +138,7 @@ namespace cryptonote
     config.bind_ipv6_address = command_line::get_arg(vm, arg.rpc_bind_ipv6_address);
     config.use_ipv6 = command_line::get_arg(vm, arg.rpc_use_ipv6);
     config.require_ipv4 = !command_line::get_arg(vm, arg.rpc_ignore_ipv4);
+    config.disable_rpc_ban = command_line::get_arg(vm, arg.disable_rpc_ban);
     if (!config.bind_ip.empty())
     {
       // always parse IP here for error consistency
