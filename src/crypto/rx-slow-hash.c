@@ -224,7 +224,9 @@ void rx_slow_hash(const uint64_t mainheight, const uint64_t seedheight, const ch
     if (cache == NULL) {
       cache = randomx_alloc_cache(flags | RANDOMX_FLAG_LARGE_PAGES);
       if (cache == NULL) {
-        mdebug(RX_LOGCAT, "Couldn't use largePages for RandomX cache");
+        static unsigned int warnings = 0;
+        if (warnings++ % 1024 == 0)
+          mdebug(RX_LOGCAT, "Couldn't use largePages for RandomX cache (%u times)", warnings);
         cache = randomx_alloc_cache(flags);
       }
       if (cache == NULL)
@@ -249,7 +251,9 @@ void rx_slow_hash(const uint64_t mainheight, const uint64_t seedheight, const ch
       if (rx_dataset == NULL) {
         rx_dataset = randomx_alloc_dataset(RANDOMX_FLAG_LARGE_PAGES);
         if (rx_dataset == NULL) {
-          mdebug(RX_LOGCAT, "Couldn't use largePages for RandomX dataset");
+          static unsigned int warnings = 0;
+          if (warnings++ % 1024 == 0)
+            mdebug(RX_LOGCAT, "Couldn't use largePages for RandomX dataset (%u times)", warnings);
           rx_dataset = randomx_alloc_dataset(RANDOMX_FLAG_DEFAULT);
         }
         if (rx_dataset != NULL)
@@ -259,13 +263,17 @@ void rx_slow_hash(const uint64_t mainheight, const uint64_t seedheight, const ch
         flags |= RANDOMX_FLAG_FULL_MEM;
       else {
         miners = 0;
-        mwarning(RX_LOGCAT, "Couldn't allocate RandomX dataset for miner");
+        static unsigned int warnings = 0;
+        if (warnings++ % 1024 == 0)
+          mwarning(RX_LOGCAT, "Couldn't allocate RandomX dataset for miner (%u times)", warnings);
       }
       CTHR_MUTEX_UNLOCK(rx_dataset_mutex);
     }
     rx_vm = randomx_create_vm(flags | RANDOMX_FLAG_LARGE_PAGES, rx_sp->rs_cache, rx_dataset);
     if(rx_vm == NULL) { //large pages failed
-      mdebug(RX_LOGCAT, "Couldn't use largePages for RandomX VM");
+      static unsigned int warnings = 0;
+      if (warnings++ % 1024 == 0)
+        mdebug(RX_LOGCAT, "Couldn't use largePages for RandomX VM (%u times)", warnings);
       rx_vm = randomx_create_vm(flags, rx_sp->rs_cache, rx_dataset);
     }
     if(rx_vm == NULL) {//fallback if everything fails
