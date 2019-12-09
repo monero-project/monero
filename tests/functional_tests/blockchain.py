@@ -203,10 +203,15 @@ class BlockchainTest():
             res_sum = daemon.get_coinbase_tx_sum(i, 1)
             res_header = daemon.getblockheaderbyheight(i)
             assert res_sum.emission_amount == res_header.block_header.reward
+            assert res_sum.emission_amount_top64 == 0
+            assert res_sum.emission_amount == int(res_sum.wide_emission_amount, 16)
+            assert res_sum.fee_amount == int(res_sum.wide_fee_amount, 16)
 
         res = daemon.get_coinbase_tx_sum(0, 1)
         assert res.emission_amount == 17592186044415
+        assert res.emission_amount_top64 == 0
         assert res.fee_amount == 0
+        assert res.fee_amount_top64 == 0
         sum_blocks = height + nblocks - 1
         res = daemon.get_coinbase_tx_sum(0, sum_blocks)
         extrapolated = 17592186044415 + 17592186044415 * 2 * (sum_blocks - 1)
