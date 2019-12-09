@@ -37,7 +37,6 @@
 #include "include_base_utils.h"
 #include "crypto/crypto.h"
 #include "crypto/hash.h"
-#include <unordered_map>
 #include <boost/multiprecision/cpp_int.hpp>
 #include <boost/container/flat_map.hpp>
 
