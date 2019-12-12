@@ -122,6 +122,8 @@ private:
     wallet2 &w;
     bool locked;
     crypto::chacha_key key;
+    static boost::mutex lockers_lock;
+    static unsigned int lockers;
   };
 
   class i_wallet2_callback
