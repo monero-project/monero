@@ -455,7 +455,7 @@ namespace cryptonote
     for(auto tx_blob_it = arg.b.txs.begin(); tx_blob_it!=arg.b.txs.end();tx_blob_it++)
     {
       cryptonote::tx_verification_context tvc = AUTO_VAL_INIT(tvc);
-      m_core.handle_incoming_tx(*tx_blob_it, tvc, true, true, false);
+      m_core.handle_incoming_tx(*tx_blob_it, tvc, relay_method::block, true);
       if(tvc.m_verifivation_failed)
       {
         LOG_PRINT_CCONTEXT_L1("Block verification failed: transaction verification failed, dropping connection");
@@ -619,7 +619,7 @@ namespace cryptonote
           {
             MDEBUG("Incoming tx " << tx_hash << " not in pool, adding");
             cryptonote::tx_verification_context tvc = AUTO_VAL_INIT(tvc);                        
-            if(!m_core.handle_incoming_tx(tx_blob, tvc, true, true, false) || tvc.m_verifivation_failed)
+            if(!m_core.handle_incoming_tx(tx_blob, tvc, relay_method::block, true) || tvc.m_verifivation_failed)
             {
               LOG_PRINT_CCONTEXT_L1("Block verification failed: transaction verification failed, dropping connection");
               drop_connection(context, false, false);
@@ -667,13 +667,13 @@ namespace cryptonote
         drop_connection(context, false, false);
         m_core.resume_mine();
         return 1;
-      }      
-      
+      }
+
       size_t tx_idx = 0;
       for(auto& tx_hash: new_block.tx_hashes)
       {
         cryptonote::blobdata txblob;
-        if(m_core.get_pool_transaction(tx_hash, txblob))
+        if(m_core.get_pool_transaction(tx_hash, txblob, relay_category::broadcasted))
         {
           have_tx.push_back({txblob, crypto::null_hash});
         }
@@ -702,7 +702,7 @@ namespace cryptonote
             need_tx_indices.push_back(tx_idx);
           }
         }
-        
+
         ++tx_idx;
       }
         
@@ -909,8 +909,8 @@ namespace cryptonote
     newtxs.reserve(arg.txs.size());
     for (size_t i = 0; i < arg.txs.size(); ++i)
     {
-      cryptonote::tx_verification_context tvc = AUTO_VAL_INIT(tvc);
-      m_core.handle_incoming_tx({arg.txs[i], crypto::null_hash}, tvc, false, true, false);
+      cryptonote::tx_verification_context tvc{};
+      m_core.handle_incoming_tx({arg.txs[i], crypto::null_hash}, tvc, relay_method::flood, true);
       if(tvc.m_verifivation_failed)
       {
         LOG_PRINT_CCONTEXT_L1("Tx verification failed, dropping connection");
@@ -925,7 +925,7 @@ namespace cryptonote
     if(arg.txs.size())
     {
       //TODO: add announce usage here
-      relay_transactions(arg, context);
+      relay_transactions(arg, context.m_connection_id, context.m_remote_address.get_zone());
     }
 
     return 1;
@@ -1316,7 +1316,7 @@ namespace cryptonote
             TIME_MEASURE_START(transactions_process_time);
             num_txs += block_entry.txs.size();
             std::vector<tx_verification_context> tvc;
-            m_core.handle_incoming_txs(block_entry.txs, tvc, true, true, false);
+            m_core.handle_incoming_txs(block_entry.txs, tvc, relay_method::block, true);
             if (tvc.size() != block_entry.txs.size())
             {
               LOG_ERROR_CCONTEXT("Internal error: tvc.size() != block_entry.txs.size()");
@@ -2344,14 +2344,14 @@ skip:
   }
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core>
-  bool t_cryptonote_protocol_handler<t_core>::relay_transactions(NOTIFY_NEW_TRANSACTIONS::request& arg, cryptonote_connection_context& exclude_context)
+  bool t_cryptonote_protocol_handler<t_core>::relay_transactions(NOTIFY_NEW_TRANSACTIONS::request& arg, const boost::uuids::uuid& source, epee::net_utils::zone zone)
   {
-    for(auto& tx_blob : arg.txs)
-      m_core.on_transaction_relayed(tx_blob);
-
-    // no check for success, so tell core they're relayed unconditionally
-    m_p2p->send_txs(std::move(arg.txs), exclude_context.m_remote_address.get_zone(), exclude_context.m_connection_id, m_core.pad_transactions());
-    return true;
+    /* Push all outgoing transactions to this function. The behavior needs to
+       identify how the transaction is going to be relayed, and then update the
+       local mempool before doing the relay. The code was already updating the
+       DB twice on received transactions - it is difficult to workaround this
+       due to the internal design. */
+    return m_p2p->send_txs(std::move(arg.txs), zone, source, m_core, m_core.pad_transactions()) != epee::net_utils::zone::invalid;
   }
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core>

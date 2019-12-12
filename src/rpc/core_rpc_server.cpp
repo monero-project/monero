@@ -29,6 +29,7 @@
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 #include <boost/preprocessor/stringize.hpp>
+#include <boost/uuid/nil_generator.hpp>
 #include "include_base_utils.h"
 #include "string_tools.h"
 using namespace epee;
@@ -1095,9 +1096,8 @@ namespace cryptonote
     }
     res.sanity_check_failed = false;
 
-    cryptonote_connection_context fake_context = AUTO_VAL_INIT(fake_context);
-    tx_verification_context tvc = AUTO_VAL_INIT(tvc);
-    if(!m_core.handle_incoming_tx({tx_blob, crypto::null_hash}, tvc, false, false, req.do_not_relay) || tvc.m_verifivation_failed)
+    tx_verification_context tvc{};
+    if(!m_core.handle_incoming_tx({tx_blob, crypto::null_hash}, tvc, (req.do_not_relay ? relay_method::none : relay_method::local), false) || tvc.m_verifivation_failed)
     {
       res.status = "Failed";
       std::string reason = "";
@@ -1142,7 +1142,7 @@ namespace cryptonote
 
     NOTIFY_NEW_TRANSACTIONS::request r;
     r.txs.push_back(tx_blob);
-    m_core.get_protocol()->relay_transactions(r, fake_context);
+    m_core.get_protocol()->relay_transactions(r, boost::uuids::nil_uuid(), epee::net_utils::zone::invalid);
     //TODO: make sure that tx has reached other nodes here, probably wait to receive reflections from other nodes
     res.status = CORE_RPC_STATUS_OK;
     return true;
@@ -2370,7 +2370,7 @@ namespace cryptonote
     if (req.txids.empty())
     {
       std::vector<transaction> pool_txs;
-      bool r = m_core.get_pool_transactions(pool_txs);
+      bool r = m_core.get_pool_transactions(pool_txs, true);
       if (!r)
       {
         res.status = "Failed to get txpool contents";
@@ -2747,13 +2747,11 @@ namespace cryptonote
       crypto::hash txid = *reinterpret_cast<const crypto::hash*>(txid_data.data());
 
       cryptonote::blobdata txblob;
-      bool r = m_core.get_pool_transaction(txid, txblob);
-      if (r)
+      if (!m_core.get_pool_transaction(txid, txblob, relay_category::legacy))
       {
-        cryptonote_connection_context fake_context = AUTO_VAL_INIT(fake_context);
         NOTIFY_NEW_TRANSACTIONS::request r;
         r.txs.push_back(txblob);
-        m_core.get_protocol()->relay_transactions(r, fake_context);
+        m_core.get_protocol()->relay_transactions(r, boost::uuids::nil_uuid(), epee::net_utils::zone::invalid);
         //TODO: make sure that tx has reached other nodes here, probably wait to receive reflections from other nodes
       }
       else

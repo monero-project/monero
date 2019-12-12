@@ -39,6 +39,7 @@
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "cryptonote_basic/difficulty.h"
 #include "cryptonote_basic/hardfork.h"
+#include "cryptonote_protocol/enums.h"
 
 /** \file
  * Cryptonote Blockchain Database Interface
@@ -105,6 +106,16 @@ typedef std::pair<crypto::hash, uint64_t> tx_out_index;
 extern const command_line::arg_descriptor<std::string> arg_db_sync_mode;
 extern const command_line::arg_descriptor<bool, false> arg_db_salvage;
 
+enum class relay_category : uint8_t
+{
+  broadcasted = 0,//!< Public txes received via block/flooding/fluff
+  relayable,      //!< Every tx not marked `relay_method::none`
+  legacy,         //!< `relay_category::broadcasted` + `relay_method::none` for rpc relay requests or historical reasons
+  all             //!< Everything in the db
+};
+
+bool matches_category(relay_method method, relay_category category) noexcept;
+
 #pragma pack(push, 1)
 
 /**
@@ -156,10 +167,21 @@ struct txpool_tx_meta_t
   uint8_t do_not_relay;
   uint8_t double_spend_seen: 1;
   uint8_t pruned: 1;
-  uint8_t bf_padding: 6;
+  uint8_t is_local: 1;
+  uint8_t bf_padding: 5;
 
   uint8_t padding[76]; // till 192 bytes
+
+  void set_relay_method(relay_method method) noexcept;
+  relay_method get_relay_method() const noexcept;
+
+  //! See `relay_category` description
+  bool matches(const relay_category category) const noexcept
+  {
+    return matches_category(get_relay_method(), category);
+  }
 };
+
 
 #define DBF_SAFE       1
 #define DBF_FAST       2
@@ -1465,12 +1487,12 @@ public:
   /**
    * @brief get the number of transactions in the txpool
    */
-  virtual uint64_t get_txpool_tx_count(bool include_unrelayed_txes = true) const = 0;
+  virtual uint64_t get_txpool_tx_count(relay_category tx_category = relay_category::broadcasted) const = 0;
 
   /**
-   * @brief check whether a txid is in the txpool
+   * @brief check whether a txid is in the txpool and meets tx_category requirements
    */
-  virtual bool txpool_has_tx(const crypto::hash &txid) const = 0;
+  virtual bool txpool_has_tx(const crypto::hash &txid, relay_category tx_category) const = 0;
 
   /**
    * @brief remove a txpool transaction
@@ -1494,10 +1516,11 @@ public:
    *
    * @param txid the transaction id of the transation to lookup
    * @param bd the blob to return
+   * @param tx_category for filtering out hidden/private txes
    *
-   * @return true if the txid was in the txpool, false otherwise
+   * @return True iff `txid` is in the pool and meets `tx_category` requirements
    */
-  virtual bool get_txpool_tx_blob(const crypto::hash& txid, cryptonote::blobdata &bd) const = 0;
+  virtual bool get_txpool_tx_blob(const crypto::hash& txid, cryptonote::blobdata &bd, relay_category tx_category) const = 0;
 
   /**
    * @brief get a txpool transaction's blob
@@ -1506,7 +1529,17 @@ public:
    *
    * @return the blob for that transaction
    */
-  virtual cryptonote::blobdata get_txpool_tx_blob(const crypto::hash& txid) const = 0;
+  virtual cryptonote::blobdata get_txpool_tx_blob(const crypto::hash& txid, relay_category tx_category) const = 0;
+
+  /**
+   * @brief Check if `tx_hash` relay status is in `category`.
+   *
+   * @param tx_hash hash of the transaction to lookup
+   * @param category relay status category to test against
+   *
+   * @return True if `tx_hash` latest relay status is in `category`.
+   */
+  bool txpool_tx_matches_category(const crypto::hash& tx_hash, relay_category category);
 
   /**
    * @brief prune output data for the given amount
@@ -1604,7 +1637,7 @@ public:
    *
    * @return false if the function returns false for any transaction, otherwise true
    */
-  virtual bool for_all_txpool_txes(std::function<bool(const crypto::hash&, const txpool_tx_meta_t&, const cryptonote::blobdata*)>, bool include_blob = false, bool include_unrelayed_txes = true) const = 0;
+  virtual bool for_all_txpool_txes(std::function<bool(const crypto::hash&, const txpool_tx_meta_t&, const cryptonote::blobdata*)>, bool include_blob = false, relay_category category = relay_category::broadcasted) const = 0;
 
   /**
    * @brief runs a function over all key images stored
