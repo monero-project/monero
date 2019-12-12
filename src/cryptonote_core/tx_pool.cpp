@@ -266,7 +266,7 @@ namespace cryptonote
         }
         catch (const std::exception &e)
         {
-          MERROR("transaction already exists at inserting in memory pool: " << e.what());
+          MERROR("Error adding transaction to txpool: " << e.what());
           return false;
         }
         tvc.m_verifivation_impossible = true;
@@ -312,7 +312,7 @@ namespace cryptonote
       }
       catch (const std::exception &e)
       {
-        MERROR("internal error: transaction already exists at inserting in memory pool: " << e.what());
+        MERROR("internal error: error adding transaction to txpool: " << e.what());
         return false;
       }
       tvc.m_added_to_pool = true;
