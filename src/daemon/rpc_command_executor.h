@@ -163,6 +163,8 @@ public:
 
   bool print_net_stats();
 
+  bool version();
+
   bool set_bootstrap_daemon(
     const std::string &address,
     const std::string &username,

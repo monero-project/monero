@@ -38,6 +38,7 @@
 #include "cryptonote_basic/difficulty.h"
 #include "cryptonote_basic/hardfork.h"
 #include "rpc/rpc_payment_signature.h"
+#include "rpc/rpc_version_str.h"
 #include <boost/format.hpp>
 #include <ctime>
 #include <string>
@@ -2438,6 +2439,41 @@ bool t_rpc_command_executor::rpc_payments()
     }
     tools::msg_writer() << res.entries.size() << " clients with a total of " << balance << " credits";
     tools::msg_writer() << "Aggregated client hash rate: " << get_mining_speed(res.hashrate);
+
+    return true;
+}
+
+bool t_rpc_command_executor::version()
+{
+    cryptonote::COMMAND_RPC_GET_INFO::request req;
+    cryptonote::COMMAND_RPC_GET_INFO::response res;
+
+    const char *fail_message = "Problem fetching info";
+
+    if (m_is_rpc)
+    {
+        if (!m_rpc_client->rpc_request(req, res, "/getinfo", fail_message))
+        {
+            return true;
+        }
+    }
+    else
+    {
+        if (!m_rpc_server->on_get_info(req, res) || res.status != CORE_RPC_STATUS_OK)
+        {
+            tools::fail_msg_writer() << make_error(fail_message, res.status);
+            return true;
+        }
+    }
+
+    if (res.version.empty() || !cryptonote::rpc::is_version_string_valid(res.version))
+    {
+        tools::fail_msg_writer() << "The daemon software version is not available.";
+    }
+    else
+    {
+        tools::success_msg_writer() << res.version;
+    }
 
     return true;
 }
