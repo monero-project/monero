@@ -118,7 +118,7 @@
     <message>
         <location filename="../src/wallet/api/unsigned_transaction.cpp" line="209"/>
         <source>%s change to %s</source>
-        <translation>%s veranderen naar %s</translation>
+        <translation>%s wisselgeld naar %s</translation>
     </message>
     <message>
         <location filename="../src/wallet/api/unsigned_transaction.cpp" line="212"/>
@@ -4900,7 +4900,7 @@ Grand total:
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="7217"/>
         <source>%s change to %s</source>
-        <translation type="unfinished">%s veranderen naar %s</translation>
+        <translation type="unfinished">%s wisselgeld naar %s</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="7551"/>
