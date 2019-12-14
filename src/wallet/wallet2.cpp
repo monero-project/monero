@@ -3114,6 +3114,7 @@ void wallet2::fast_refresh(uint64_t stop_height, uint64_t &blocks_start_height, 
       MERROR("Blocks start before blockchain offset: " << blocks_start_height << " " << m_blockchain.offset());
       return;
     }
+    current_index = blocks_start_height;
     if (hashes.size() + current_index < stop_height) {
       drop_from_short_history(short_chain_history, 3);
       std::vector<crypto::hash>::iterator right = hashes.end();
@@ -3123,7 +3124,6 @@ void wallet2::fast_refresh(uint64_t stop_height, uint64_t &blocks_start_height, 
         short_chain_history.push_front(*right);
       }
     }
-    current_index = blocks_start_height;
     for(auto& bl_id: hashes)
     {
       if(current_index >= m_blockchain.size())
