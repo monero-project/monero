@@ -363,8 +363,8 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 				}
 				
 				delay *= 0.5;
-				if (delay > 0) {
-					long int ms = (long int)(delay * 100);
+				long int ms = (long int)(delay * 100);
+				if (ms > 0) {
 					reset_timer(boost::posix_time::milliseconds(ms + 1), true);
 					boost::this_thread::sleep_for(boost::chrono::milliseconds(ms));
 				}
@@ -721,7 +721,9 @@ PRAGMA_WARNING_DISABLE_VS(4355)
   boost::posix_time::milliseconds connection<t_protocol_handler>::get_timeout_from_bytes_read(size_t bytes)
   {
     boost::posix_time::milliseconds ms = (boost::posix_time::milliseconds)(unsigned)(bytes * TIMEOUT_EXTRA_MS_PER_BYTE);
-    ms += m_timer.expires_from_now();
+    const auto cur = m_timer.expires_from_now().total_milliseconds();
+    if (cur > 0)
+      ms += (boost::posix_time::milliseconds)cur;
     if (ms > get_default_timeout())
       ms = get_default_timeout();
     return ms;
@@ -747,7 +749,12 @@ PRAGMA_WARNING_DISABLE_VS(4355)
   template<class t_protocol_handler>
   void connection<t_protocol_handler>::reset_timer(boost::posix_time::milliseconds ms, bool add)
   {
-    MTRACE("Setting " << ms << " expiry");
+    if (ms.total_milliseconds() < 0)
+    {
+      MWARNING("Ignoring negative timeout " << ms);
+      return;
+    }
+    MTRACE((add ? "Adding" : "Setting") << " " << ms << " expiry");
     auto self = safe_shared_from_this();
     if(!self)
     {
@@ -760,7 +767,11 @@ PRAGMA_WARNING_DISABLE_VS(4355)
       return;
     }
     if (add)
-      ms += m_timer.expires_from_now();
+    {
+      const auto cur = m_timer.expires_from_now().total_milliseconds();
+      if (cur > 0)
+        ms += (boost::posix_time::milliseconds)cur;
+    }
     m_timer.expires_from_now(ms);
     m_timer.async_wait([=](const boost::system::error_code& ec)
     {
