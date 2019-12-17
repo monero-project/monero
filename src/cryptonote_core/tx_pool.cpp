@@ -412,12 +412,13 @@ namespace cryptonote
     CRITICAL_REGION_LOCAL1(m_blockchain);
     LockedTXN lock(m_blockchain.get_db());
     bool changed = false;
+    size_t weight_removed = 0;
 
     // this will never remove the first one, but we don't care
     auto it = --m_txs_by_fee_and_receive_time.end();
     while (it != m_txs_by_fee_and_receive_time.begin())
     {
-      if (m_txpool_weight <= bytes)
+      if (weight_removed > m_txpool_weight || m_txpool_weight - weight_removed <= bytes)
         break;
       try
       {
@@ -444,7 +445,7 @@ namespace cryptonote
         // remove first, in case this throws, so key images aren't removed
         MINFO("Pruning tx " << txid << " from txpool: weight: " << meta.weight << ", fee/byte: " << it->first.first);
         m_blockchain.remove_txpool_tx(txid);
-        m_txpool_weight -= meta.weight;
+        weight_removed += meta.weight;
         remove_transaction_keyimages(tx, txid);
         MINFO("Pruned tx " << txid << " from txpool: weight: " << meta.weight << ", fee/byte: " << it->first.first);
         m_txs_by_fee_and_receive_time.erase(it--);
@@ -459,6 +460,15 @@ namespace cryptonote
     lock.commit();
     if (changed)
       ++m_cookie;
+    if (weight_removed <= m_txpool_weight)
+    {
+      m_txpool_weight -= weight_removed;
+    }
+    else
+    {
+      MERROR("Weight removed " << weight_removed << " exceeds m_txpool_weight " << m_txpool_weight);
+      m_txpool_weight = 0;
+    }
     if (m_txpool_weight > bytes)
       MINFO("Pool weight after pruning is larger than limit: " << m_txpool_weight << "/" << bytes);
   }
@@ -565,9 +575,9 @@ namespace cryptonote
 
       // remove first, in case this throws, so key images aren't removed
       m_blockchain.remove_txpool_tx(id);
-      m_txpool_weight -= tx_weight;
       remove_transaction_keyimages(tx, id);
       lock.commit();
+      m_txpool_weight -= tx_weight;
     }
     catch (const std::exception &e)
     {
@@ -687,6 +697,7 @@ namespace cryptonote
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     CRITICAL_REGION_LOCAL1(m_blockchain);
     std::list<std::pair<crypto::hash, uint64_t>> remove;
+    size_t weight_removed = 0;
     m_blockchain.for_all_txpool_txes([this, &remove](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata_ref*) {
       uint64_t tx_age = time(nullptr) - meta.receive_time;
 
@@ -728,7 +739,7 @@ namespace cryptonote
           {
             // remove first, so we only remove key images if the tx removal succeeds
             m_blockchain.remove_txpool_tx(txid);
-            m_txpool_weight -= entry.second;
+            weight_removed += entry.second;
             remove_transaction_keyimages(tx, txid);
           }
         }
@@ -739,6 +750,15 @@ namespace cryptonote
         }
       }
       lock.commit();
+      if (weight_removed <= m_txpool_weight)
+      {
+        m_txpool_weight -= weight_removed;
+      }
+      else
+      {
+        MERROR("Invalid removed weight: " << weight_removed << ", txpool weight is " << m_txpool_weight);
+        m_txpool_weight = 0;
+      }
       ++m_cookie;
     }
     return true;
@@ -1542,10 +1562,12 @@ namespace cryptonote
     CRITICAL_REGION_LOCAL1(m_blockchain);
     size_t tx_weight_limit = get_transaction_weight_limit(version);
     std::unordered_set<crypto::hash> remove;
+    size_t weight_added = 0;
+    size_t weight_removed = 0;
 
-    m_txpool_weight = 0;
-    m_blockchain.for_all_txpool_txes([this, &remove, tx_weight_limit](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata_ref*) {
-      m_txpool_weight += meta.weight;
+    weight_added = 0;
+    m_blockchain.for_all_txpool_txes([this, &remove, &weight_added, tx_weight_limit](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata_ref*) {
+      weight_added += meta.weight;
       if (meta.weight > tx_weight_limit) {
         LOG_PRINT_L1("Transaction " << txid << " is too big (" << meta.weight << " bytes), removing it from pool");
         remove.insert(txid);
@@ -1556,6 +1578,12 @@ namespace cryptonote
       }
       return true;
     }, false, relay_category::all);
+
+    if (weight_added != m_txpool_weight)
+    {
+      MWARNING("txpool weight does not match actual data, fixing");
+      m_txpool_weight = weight_added;
+    }
 
     size_t n_removed = 0;
     if (!remove.empty())
@@ -1574,7 +1602,7 @@ namespace cryptonote
           }
           // remove tx from db first
           m_blockchain.remove_txpool_tx(txid);
-          m_txpool_weight -= get_transaction_weight(tx, txblob.size());
+          weight_removed += get_transaction_weight(tx, txblob.size());
           remove_transaction_keyimages(tx, txid);
           auto sorted_it = find_tx_in_sorted_container(txid);
           if (sorted_it == m_txs_by_fee_and_receive_time.end())
@@ -1594,6 +1622,15 @@ namespace cryptonote
         }
       }
       lock.commit();
+      if (weight_removed <= m_txpool_weight)
+      {
+        m_txpool_weight -= weight_removed;
+      }
+      else
+      {
+        MERROR("Removed weight " << weight_removed << " larger than txpool weight " << m_txpool_weight);
+        m_txpool_weight = 0;
+      }
     }
     if (n_removed > 0)
       ++m_cookie;
