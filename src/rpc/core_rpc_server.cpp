@@ -2199,6 +2199,7 @@ namespace cryptonote
       error_resp.message = "Internal error: can't produce valid response.";
       return false;
     }
+    res.miner_tx_hash = res.block_header.miner_tx_hash;
     for (size_t n = 0; n < blk.tx_hashes.size(); ++n)
     {
       res.tx_hashes.push_back(epee::string_tools::pod_to_hex(blk.tx_hashes[n]));
