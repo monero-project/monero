@@ -66,7 +66,6 @@ using namespace epee;
 #include "util.h"
 #include "stack_trace.h"
 #include "memwipe.h"
-#include "cryptonote_config.h"
 #include "net/http_client.h"                        // epee::net_utils::...
 #include "readline_buffer.h"
 
@@ -1074,16 +1073,33 @@ std::string get_nix_version_display_string()
   {
     if (seconds < 60)
       return std::to_string(seconds) + " seconds";
+    std::stringstream ss;
+    ss << std::fixed << std::setprecision(1);
     if (seconds < 3600)
-      return std::to_string((uint64_t)(seconds / 60)) + " minutes";
+    {
+      ss << seconds / 60.f;
+      return ss.str() + " minutes";
+    }
     if (seconds < 3600 * 24)
-      return std::to_string((uint64_t)(seconds / 3600)) + " hours";
-    if (seconds < 3600 * 24 * 30.5)
-      return std::to_string((uint64_t)(seconds / (3600 * 24))) + " days";
-    if (seconds < 3600 * 24 * 365.25)
-      return std::to_string((uint64_t)(seconds / (3600 * 24 * 30.5))) + " months";
-    if (seconds < 3600 * 24 * 365.25 * 100)
-      return std::to_string((uint64_t)(seconds / (3600 * 24 * 30.5 * 365.25))) + " years";
+    {
+      ss << seconds / 3600.f;
+      return ss.str() + " hours";
+    }
+    if (seconds < 3600 * 24 * 30.5f)
+    {
+      ss << seconds / (3600 * 24.f);
+      return ss.str() + " days";
+    }
+    if (seconds < 3600 * 24 * 365.25f)
+    {
+      ss << seconds / (3600 * 24 * 30.5f);
+      return ss.str() + " months";
+    }
+    if (seconds < 3600 * 24 * 365.25f * 100)
+    {
+      ss << seconds / (3600 * 24 * 365.25f);
+      return ss.str() + " years";
+    }
     return "a long time";
   }
 
@@ -1277,6 +1293,86 @@ std::string get_nix_version_display_string()
       words.erase(words.begin());
     }
     return lines;
+  }
+
+  // Calculate a "sync weight" over ranges of blocks in the blockchain, suitable for
+  // calculating sync time estimates
+  uint64_t cumulative_block_sync_weight(cryptonote::network_type nettype, uint64_t start_block, uint64_t num_blocks)
+  {
+    if (nettype != cryptonote::MAINNET)
+    {
+      // No detailed data available except for Mainnet: Give back the number of blocks
+      // as a very simple and non-varying block sync weight for ranges of Testnet and
+      // Stagenet blocks
+      return num_blocks;
+    }
+
+    // The following is a table of average blocks sizes in bytes over the Monero mainnet
+    // blockchain, where the block size is averaged over ranges of 10,000 blocks
+    // (about 2 weeks worth of blocks each).
+    // The first array entry of 442 thus means "The average byte size of the blocks
+    // 0 .. 9,999 is 442". The info "block_size" from the "get_block_header_by_height"
+    // RPC call was used for calculating this. This table (and the whole mechanism
+    // of calculating a "sync weight") is most important when estimating times for
+    // syncing from scratch. Without it the fast progress through the (in comparison)
+    // rather small blocks in the early blockchain) would lead to vastly underestimated
+    // total sync times.
+    // It's no big problem for estimates that this table will, over time, and if not
+    // updated, miss larger and larger parts at the top of the blockchain, as long
+    // as block size averages there do not differ wildly.
+    // Without time-consuming tests it's hard to say how much the estimates would
+    // improve if one would not only take block sizes into account, but also varying
+    // verification times i.e. the different CPU effort needed for the different
+    // transaction types (pre / post RingCT, pre / post Bulletproofs).
+    // Testnet and Stagenet are neglected here because of their much smaller
+    // importance.
+    static const uint32_t average_block_sizes[] =
+    {
+      442, 1211, 1445, 1763, 2272, 8217, 5603, 9999, 16358, 10805, 5290, 4362,
+      4325, 5584, 4515, 5008, 4789, 5196, 7660, 3829, 6034, 2925, 3762, 2545,
+      2437, 2553, 2167, 2761, 2015, 1969, 2350, 1731, 2367, 2078, 2026, 3518,
+      2214, 1908, 1780, 1640, 1976, 1647, 1921, 1716, 1895, 2150, 2419, 2451,
+      2147, 2327, 2251, 1644, 1750, 1481, 1570, 1524, 1562, 1668, 1386, 1494,
+      1637, 1880, 1431, 1472, 1637, 1363, 1762, 1597, 1999, 1564, 1341, 1388,
+      1530, 1476, 1617, 1488, 1368, 1906, 1403, 1695, 1535, 1598, 1318, 1234,
+      1358, 1406, 1698, 1554, 1591, 1758, 1426, 2389, 1946, 1533, 1308, 2701,
+      1525, 1653, 3580, 1889, 2913, 8164, 5154, 3762, 3356, 4360, 3589, 4844,
+      4232, 3781, 3882, 5924, 10790, 7185, 7442, 8214, 8509, 7484, 6939, 7391,
+      8210, 15572, 39680, 44810, 53873, 54639, 68227, 63428, 62386, 68504,
+      83073, 103858, 117573, 98089, 96793, 102337, 94714, 129568, 251584,
+      132026, 94579, 94516, 95722, 106495, 121824, 153983, 162338, 136608,
+      137104, 109872, 91114, 84757, 96339, 74251, 94314, 143216, 155837,
+      129968, 120201, 109913, 101588, 97332, 104611, 95310, 93419, 113345,
+      100743, 92152, 57565, 22533, 37564, 21823, 19980, 18277, 18402, 14344,
+      12142, 15842, 13677, 17631, 18294, 22270, 41422, 39296, 36688, 33512,
+      33831, 27582, 22276, 27516, 27317, 25505, 24426, 20566, 23045, 26766,
+      28185, 26169, 27011,
+      28642    // Blocks 1,990,000 to 1,999,999 in December 2019
+    };
+    const uint64_t block_range_size = 10000;
+
+    uint64_t num_block_sizes = sizeof(average_block_sizes) / sizeof(average_block_sizes[0]);
+    uint64_t weight = 0;
+    uint64_t table_index = start_block / block_range_size;
+    for (;;) {
+      if (num_blocks == 0)
+      {
+        break;
+      }
+      if (table_index >= num_block_sizes)
+      {
+        // Take all blocks beyond our table as having the size of the blocks
+        // in the last table entry i.e. in the most recent known block range
+        weight += num_blocks * average_block_sizes[num_block_sizes - 1];
+        break;
+      }
+      uint64_t portion_size = std::min(num_blocks, block_range_size - start_block % block_range_size);
+      weight += portion_size * average_block_sizes[table_index];
+      table_index++;
+      num_blocks -= portion_size;
+      start_block += portion_size;
+    }
+    return weight;
   }
 
   std::vector<std::pair<std::string, size_t>> split_string_by_width(const std::string &s, size_t columns)

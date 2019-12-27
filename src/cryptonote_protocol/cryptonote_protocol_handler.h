@@ -169,6 +169,14 @@ namespace cryptonote
     size_t m_block_download_max_size;
     bool m_sync_pruned_blocks;
 
+    // Values for sync time estimates
+    boost::posix_time::ptime m_sync_start_time;
+    boost::posix_time::ptime m_period_start_time;
+    uint64_t m_sync_start_height;
+    uint64_t m_period_start_height;
+    uint64_t get_estimated_remaining_sync_seconds(uint64_t current_blockchain_height, uint64_t target_blockchain_height);
+    std::string get_periodic_sync_estimate(uint64_t current_blockchain_height, uint64_t target_blockchain_height);
+
     boost::mutex m_buffer_mutex;
     double get_avg_block_size();
     boost::circular_buffer<size_t> m_avg_buffer = boost::circular_buffer<size_t>(10);
