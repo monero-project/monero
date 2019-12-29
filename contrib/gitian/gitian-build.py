@@ -157,9 +157,9 @@ def main():
     elif not args.kvm:
         os.environ['USE_LXC'] = '1'
         if not 'GITIAN_HOST_IP' in os.environ.keys():
-            os.environ['GITIAN_HOST_IP'] = '10.0.3.1'
+            os.environ['GITIAN_HOST_IP'] = '10.0.2.2'
         if not 'LXC_GUEST_IP' in os.environ.keys():
-            os.environ['LXC_GUEST_IP'] = '10.0.3.5'
+            os.environ['LXC_GUEST_IP'] = '10.0.2.5'
 
     # Disable MacOS build if no SDK found
     args.nomac = False
