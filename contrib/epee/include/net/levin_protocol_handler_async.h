@@ -949,7 +949,12 @@ bool async_protocol_handler_config<t_connection_context>::close(boost::uuids::uu
 {
   CRITICAL_REGION_LOCAL(m_connects_lock);
   async_protocol_handler<t_connection_context>* aph = find_connection(connection_id);
-  return 0 != aph ? aph->close() : false;
+  if (!aph)
+    return false;
+  if (!aph->close())
+    return false;
+  m_connects.erase(connection_id);
+  return true;
 }
 //------------------------------------------------------------------------------------------
 template<class t_connection_context>
