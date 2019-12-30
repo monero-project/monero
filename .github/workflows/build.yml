@@ -1,0 +1,62 @@
+name: continuous-integration/gh-actions/cli
+
+on: [push, pull_request]
+
+jobs:
+  build-macos:
+    runs-on: macOS-latest
+    steps:
+    - uses: actions/checkout@v1
+      with:
+        submodules: recursive
+    - name: update brew and install dependencies
+      run: brew update && brew install boost hidapi zmq libpgm unbound libsodium miniupnpc ldns expat libunwind-headers protobuf
+    - name: build
+      run: make -j3
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v1
+      with:
+        submodules: recursive
+    - uses: numworks/setup-msys2@v1
+    - name: update pacman
+      run: msys2do pacman -Syu --noconfirm
+    - name: install monero dependencies
+      run: msys2do pacman -S --noconfirm mingw-w64-x86_64-toolchain make mingw-w64-x86_64-cmake mingw-w64-x86_64-boost mingw-w64-x86_64-openssl mingw-w64-x86_64-zeromq mingw-w64-x86_64-libsodium mingw-w64-x86_64-hidapi mingw-w64-x86_64-protobuf-c mingw-w64-x86_64-libusb git
+    - name: build
+      run: msys2do make release-static-win64 -j3
+
+  build-ubuntu:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v1
+      with:
+        submodules: recursive
+    - name: remove bundled boost
+      run: sudo rm -rf /usr/local/share/boost
+    - name: update apt
+      run: sudo apt update
+    - name: install monero dependencies
+      run: sudo apt -y install build-essential cmake libboost-all-dev miniupnpc libunbound-dev graphviz doxygen libunwind8-dev pkg-config libssl-dev libzmq3-dev libsodium-dev libhidapi-dev libnorm-dev libusb-1.0-0-dev libpgm-dev
+    - name: build
+      run: make -j3
+
+  test-ubuntu:
+    needs: build-ubuntu
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v1
+      with:
+        submodules: recursive
+    - name: remove bundled boost
+      run: sudo rm -rf /usr/local/share/boost
+    - name: update apt
+      run: sudo apt update
+    - name: install monero dependencies
+      run: sudo apt -y install build-essential cmake libboost-all-dev miniupnpc libunbound-dev graphviz doxygen libunwind8-dev pkg-config libssl-dev libzmq3-dev libsodium-dev libhidapi-dev libnorm-dev libusb-1.0-0-dev libpgm-dev
+    - name: install requests
+      run: pip install requests
+    - name: tests
+      run: make release-test -j3
