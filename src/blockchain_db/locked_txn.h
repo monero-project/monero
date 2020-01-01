@@ -50,4 +50,18 @@ namespace cryptonote
       bool m_batch;
       bool m_active;
     };
+
+    class LockedReadOnlyTXN {
+    public:
+      LockedReadOnlyTXN(const BlockchainDB &db): m_db(db), m_active(false) {
+        m_db.block_rtxn_start();
+        m_active = true;
+      }
+      void commit() { try { if (m_active) { m_db.block_rtxn_stop(); m_active = false; } } catch (const std::exception &e) { MWARNING("LockedReadOnlyTXN::commit filtering exception: " << e.what()); } }
+      void abort() { try { if (m_active) { m_db.block_rtxn_abort(); m_active = false; } } catch (const std::exception &e) { MWARNING("LockedReadOnlyTXN::abort filtering exception: " << e.what()); } }
+      ~LockedReadOnlyTXN() { abort(); }
+    private:
+      const BlockchainDB &m_db;
+      bool m_active;
+    };
 }
