@@ -326,6 +326,7 @@ namespace tools
     entry.height = pd.m_block_height;
     entry.timestamp = pd.m_timestamp;
     entry.amount = pd.m_amount;
+    entry.amounts = pd.m_amounts;
     entry.unlock_time = pd.m_unlock_time;
     entry.locked = !m_wallet->is_transfer_unlocked(pd.m_unlock_time, pd.m_block_height);
     entry.fee = pd.m_fee;
@@ -408,6 +409,7 @@ namespace tools
     entry.height = 0;
     entry.timestamp = pd.m_timestamp;
     entry.amount = pd.m_amount;
+    entry.amounts = pd.m_amounts;
     entry.unlock_time = pd.m_unlock_time;
     entry.locked = true;
     entry.fee = pd.m_fee;
