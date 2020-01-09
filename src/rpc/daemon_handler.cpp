@@ -410,11 +410,6 @@ namespace rpc
         if (!res.error_details.empty()) res.error_details += " and ";
         res.error_details += "fee too low";
       }
-      if (tvc.m_not_rct)
-      {
-        if (!res.error_details.empty()) res.error_details += " and ";
-        res.error_details += "tx is not ringct";
-      }
       if (tvc.m_too_few_outputs)
       {
         if (!res.error_details.empty()) res.error_details += " and ";
