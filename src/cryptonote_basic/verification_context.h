@@ -47,7 +47,6 @@ namespace cryptonote
     bool m_too_big;
     bool m_overspend;
     bool m_fee_too_low;
-    bool m_not_rct;
     bool m_too_few_outputs;
   };
 

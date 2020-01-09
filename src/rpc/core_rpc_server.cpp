@@ -1134,8 +1134,6 @@ namespace cryptonote
         add_reason(reason, "overspend");
       if ((res.fee_too_low = tvc.m_fee_too_low))
         add_reason(reason, "fee too low");
-      if ((res.not_rct = tvc.m_not_rct))
-        add_reason(reason, "tx is not ringct");
       if ((res.too_few_outputs = tvc.m_too_few_outputs))
         add_reason(reason, "too few outputs");
       const std::string punctuation = reason.empty() ? "" : ": ";

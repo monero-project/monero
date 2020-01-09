@@ -240,8 +240,6 @@ namespace
         add_reason(reason, "overspend");
       if (res.fee_too_low)
         add_reason(reason, "fee too low");
-      if (res.not_rct)
-        add_reason(reason, "tx is not ringct");
       if (res.sanity_check_failed)
         add_reason(reason, "tx sanity check failed");
       if (res.not_relayed)
