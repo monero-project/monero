@@ -2907,7 +2907,6 @@ void wallet2::update_pool_state(std::vector<std::pair<cryptonote::transaction, b
         pit->second.m_state = wallet2::unconfirmed_transfer_details::failed;
 
         // the inputs aren't spent anymore, since the tx failed
-        remove_rings(pit->second.m_tx);
         for (size_t vini = 0; vini < pit->second.m_tx.vin.size(); ++vini)
         {
           if (pit->second.m_tx.vin[vini].type() == typeid(txin_to_key))
