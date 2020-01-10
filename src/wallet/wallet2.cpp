@@ -44,6 +44,7 @@
 using namespace epee;
 
 #include "cryptonote_config.h"
+#include "cryptonote_core/tx_sanity_check.h"
 #include "wallet_rpc_helpers.h"
 #include "wallet2.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
@@ -7733,7 +7734,49 @@ void wallet2::light_wallet_get_outs(std::vector<std::vector<tools::wallet2::get_
   }
 }
 
+std::pair<std::set<uint64_t>, size_t> outs_unique(const std::vector<std::vector<tools::wallet2::get_outs_entry>> &outs)
+{
+  std::set<uint64_t> unique;
+  size_t total = 0;
+
+  for (const auto &it : outs)
+  {
+    for (const auto &out : it)
+    {
+      const uint64_t global_index = std::get<0>(out);
+      unique.insert(global_index);
+    }
+    total += it.size();
+  }
+
+  return std::make_pair(std::move(unique), total);
+}
+
 void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> &outs, const std::vector<size_t> &selected_transfers, size_t fake_outputs_count)
+{
+  std::vector<uint64_t> rct_offsets;
+  for (size_t attempts = 3; attempts > 0; --attempts)
+  {
+    get_outs(outs, selected_transfers, fake_outputs_count, rct_offsets);
+
+    const auto unique = outs_unique(outs);
+    if (tx_sanity_check(unique.first, unique.second, rct_offsets.empty() ? 0 : rct_offsets.back()))
+    {
+      return;
+    }
+
+    std::vector<crypto::key_image> key_images;
+    key_images.reserve(selected_transfers.size());
+    std::for_each(selected_transfers.begin(), selected_transfers.end(), [this, &key_images](size_t index) {
+      key_images.push_back(m_transfers[index].m_key_image);
+    });
+    unset_ring(key_images);
+  }
+
+  THROW_WALLET_EXCEPTION(error::wallet_internal_error, tr("Transaction sanity check failed"));
+}
+
+void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> &outs, const std::vector<size_t> &selected_transfers, size_t fake_outputs_count, std::vector<uint64_t> &rct_offsets)
 {
   LOG_PRINT_L2("fake_outputs_count: " << fake_outputs_count);
   outs.clear();
@@ -7755,7 +7798,6 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
 
     // if we have at least one rct out, get the distribution, or fall back to the previous system
     uint64_t rct_start_height;
-    std::vector<uint64_t> rct_offsets;
     bool has_rct = false;
     uint64_t max_rct_index = 0;
     for (size_t idx: selected_transfers)
@@ -7764,7 +7806,7 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
         has_rct = true;
         max_rct_index = std::max(max_rct_index, m_transfers[idx].m_global_output_index);
       }
-    const bool has_rct_distribution = has_rct && get_rct_distribution(rct_start_height, rct_offsets);
+    const bool has_rct_distribution = has_rct && (!rct_offsets.empty() || get_rct_distribution(rct_start_height, rct_offsets));
     if (has_rct_distribution)
     {
       // check we're clear enough of rct start, to avoid corner cases below
