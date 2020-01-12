@@ -13619,4 +13619,22 @@ std::vector<cryptonote::public_node> wallet2::get_public_nodes(bool white_only)
   std::copy(res.gray.begin(), res.gray.end(), std::back_inserter(nodes));
   return nodes;
 }
+//----------------------------------------------------------------------------------------------------
+std::pair<size_t, uint64_t> wallet2::estimate_tx_size_and_weight(bool use_rct, int n_inputs, int ring_size, int n_outputs, size_t extra_size)
+{
+  THROW_WALLET_EXCEPTION_IF(n_inputs <= 0, tools::error::wallet_internal_error, "Invalid n_inputs");
+  THROW_WALLET_EXCEPTION_IF(n_outputs < 0, tools::error::wallet_internal_error, "Invalid n_outputs");
+  THROW_WALLET_EXCEPTION_IF(ring_size < 0, tools::error::wallet_internal_error, "Invalid ring size");
+
+  if (ring_size == 0)
+    ring_size = get_min_ring_size();
+  if (n_outputs == 1)
+    n_outputs = 2; // extra dummy output
+
+  const bool bulletproof = use_fork_rules(get_bulletproof_fork(), 0);
+  size_t size = estimate_tx_size(use_rct, n_inputs, ring_size - 1, n_outputs, extra_size, bulletproof);
+  uint64_t weight = estimate_tx_weight(use_rct, n_inputs, ring_size - 1, n_outputs, extra_size, bulletproof);
+  return std::make_pair(size, weight);
+}
+//----------------------------------------------------------------------------------------------------
 }

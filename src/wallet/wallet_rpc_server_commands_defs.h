@@ -2580,5 +2580,36 @@ namespace wallet_rpc
     typedef epee::misc_utils::struct_init<response_t> response;
   };
 
+  struct COMMAND_RPC_ESTIMATE_TX_SIZE_AND_WEIGHT
+  {
+    struct request_t
+    {
+      uint32_t n_inputs;
+      uint32_t n_outputs;
+      uint32_t ring_size;
+      bool rct;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(n_inputs)
+        KV_SERIALIZE(n_outputs)
+        KV_SERIALIZE_OPT(ring_size, 0u)
+        KV_SERIALIZE_OPT(rct, true)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<request_t> request;
+
+    struct response_t
+    {
+      uint64_t size;
+      uint64_t weight;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(size)
+        KV_SERIALIZE(weight)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<response_t> response;
+  };
+
 }
 }
