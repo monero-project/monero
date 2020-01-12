@@ -47,6 +47,12 @@
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "cryptonote_basic/miner.h"
 
+#include "blockchain_db/blockchain_db.h"
+#include "cryptonote_core/cryptonote_core.h"
+#include "cryptonote_core/tx_pool.h"
+#include "cryptonote_core/blockchain.h"
+#include "blockchain_db/testdb.h"
+
 #include "chaingen.h"
 #include "device/device.hpp"
 using namespace std;
@@ -55,6 +61,126 @@ using namespace epee;
 using namespace crypto;
 using namespace cryptonote;
 
+namespace
+{
+  /**
+   * Dummy TestDB to store height -> (block, hash) information
+   * for the use only in the test_generator::fill_nonce() function,
+   * which requires blockchain object to correctly compute PoW on HF12+ blocks
+   * as the mining function requires it to obtain a valid seedhash.
+   */
+  class TestDB: public cryptonote::BaseTestDB
+  {
+  private:
+    struct block_t
+    {
+      cryptonote::block bl;
+      crypto::hash hash;
+    };
+
+  public:
+    TestDB() { m_open = true; }
+
+    virtual void add_block( const cryptonote::block& blk
+        , size_t block_weight
+        , uint64_t long_term_block_weight
+        , const cryptonote::difficulty_type& cumulative_difficulty
+        , const uint64_t& coins_generated
+        , uint64_t num_rct_outs
+        , const crypto::hash& blk_hash
+    ) override
+    {
+      blocks.push_back({blk, blk_hash});
+    }
+
+    virtual uint64_t height() const override { return blocks.empty() ? 0 : blocks.size() - 1; }
+
+    // Required for randomx
+    virtual crypto::hash get_block_hash_from_height(const uint64_t &height) const override
+    {
+      if (height < blocks.size())
+      {
+        MDEBUG("Get hash for block height: " << height << " hash: " << blocks[height].hash);
+        return blocks[height].hash;
+      }
+
+      MDEBUG("Get hash for block height: " << height << " zero-hash");
+      crypto::hash hash = crypto::null_hash;
+      *(uint64_t*)&hash = height;
+      return hash;
+    }
+
+    virtual crypto::hash top_block_hash(uint64_t *block_height = NULL) const override
+    {
+      const uint64_t h = height();
+      if (block_height != nullptr)
+      {
+        *block_height = h;
+      }
+
+      return get_block_hash_from_height(h);
+    }
+
+    virtual cryptonote::block get_top_block() const override
+    {
+      if (blocks.empty())
+      {
+        cryptonote::block b;
+        return b;
+      }
+
+      return blocks[blocks.size()-1].bl;
+    }
+
+    virtual void pop_block(cryptonote::block &blk, std::vector<cryptonote::transaction> &txs) override { if (!blocks.empty()) blocks.pop_back(); }
+    virtual void set_hard_fork_version(uint64_t height, uint8_t version) override { if (height >= hf.size()) hf.resize(height + 1); hf[height] = version; }
+    virtual uint8_t get_hard_fork_version(uint64_t height) const override { if (height >= hf.size()) return 255; return hf[height]; }
+
+  private:
+    std::vector<block_t> blocks;
+    std::vector<uint8_t> hf;
+  };
+
+}
+
+static std::unique_ptr<cryptonote::Blockchain> init_blockchain(const std::vector<test_event_entry> & events, cryptonote::network_type nettype)
+{
+  std::unique_ptr<cryptonote::Blockchain> bc;
+  v_hardforks_t hardforks;
+  cryptonote::test_options test_options_tmp{nullptr, 0};
+  const cryptonote::test_options * test_options = &test_options_tmp;
+  if (!extract_hard_forks(events, hardforks))
+  {
+    MDEBUG("Extracting hard-forks from blocks");
+    extract_hard_forks_from_blocks(events, hardforks);
+  }
+
+  hardforks.push_back(std::make_pair((uint8_t)0, (uint64_t)0));  // terminator
+  test_options_tmp.hard_forks = hardforks.data();
+  test_options = &test_options_tmp;
+
+  cryptonote::tx_memory_pool txpool(*bc);
+  bc.reset(new cryptonote::Blockchain(txpool));
+
+  cryptonote::Blockchain *blockchain = bc.get();
+  auto bdb = new TestDB();
+
+  BOOST_FOREACH(const test_event_entry &ev, events)
+  {
+    if (typeid(block) != ev.type())
+    {
+      continue;
+    }
+
+    const block *blk = &boost::get<block>(ev);
+    auto blk_hash = get_block_hash(*blk);
+    bdb->add_block(*blk, 1, 1, 1, 0, 0, blk_hash);
+  }
+
+  bool r = blockchain->init(bdb, nettype, true, test_options, 2, nullptr);
+  CHECK_AND_ASSERT_THROW_MES(r, "could not init blockchain from events");
+  return bc;
+}
 
 void test_generator::get_block_chain(std::vector<block_info>& blockchain, const crypto::hash& head, size_t n) const
 {
@@ -184,13 +310,7 @@ bool test_generator::construct_block(cryptonote::block& blk, uint64_t height, co
 
   //blk.tree_root_hash = get_tx_tree_hash(blk);
 
-  // Nonce search...
-  blk.nonce = 0;
-  while (!miner::find_nonce_for_given_block([](const cryptonote::block &b, uint64_t height, unsigned int threads, crypto::hash &hash){
-    return cryptonote::get_block_longhash(NULL, b, hash, height, threads);
-  }, blk, get_test_difficulty(hf_ver), height))
-    blk.timestamp++;
-
+  fill_nonce(blk, get_test_difficulty(hf_ver), height);
   add_block(blk, txs_weight, block_weights, already_generated_coins, hf_ver ? hf_ver.get() : 1);
 
   return true;
@@ -266,6 +386,26 @@ bool test_generator::construct_block_manually_tx(cryptonote::block& blk, const c
                                                  const std::vector<crypto::hash>& tx_hashes, size_t txs_weight)
 {
   return construct_block_manually(blk, prev_block, miner_acc, bf_tx_hashes, 0, 0, 0, crypto::hash(), 0, transaction(), tx_hashes, txs_weight);
+}
+
+void test_generator::fill_nonce(cryptonote::block& blk, const difficulty_type& diffic, uint64_t height)
+{
+  const cryptonote::Blockchain *blockchain = nullptr;
+  std::unique_ptr<cryptonote::Blockchain> bc;
+
+  if (blk.major_version >= RX_BLOCK_VERSION)
+  {
+    CHECK_AND_ASSERT_THROW_MES(m_events != nullptr, "events not set, cannot compute valid RandomX PoW");
+    bc = init_blockchain(*m_events, m_nettype);
+    blockchain = bc.get();
+  }
+
+  blk.nonce = 0;
+  while (!miner::find_nonce_for_given_block([blockchain](const cryptonote::block &b, uint64_t height, unsigned int threads, crypto::hash &hash){
+    return cryptonote::get_block_longhash(blockchain, b, hash, height, threads);
+  }, blk, diffic, height)) {
+    blk.timestamp++;
+  }
 }
 
 namespace
@@ -796,15 +936,6 @@ void fill_tx_sources_and_destinations(const std::vector<test_event_entry>& event
   fill_tx_sources_and_destinations(events, blk_head, from, to.get_keys().m_account_address, amount, fee, nmix, sources, destinations);
 }
 
-void fill_nonce(cryptonote::block& blk, const difficulty_type& diffic, uint64_t height)
-{
-  blk.nonce = 0;
-  while (!miner::find_nonce_for_given_block([](const cryptonote::block &b, uint64_t height, unsigned int threads, crypto::hash &hash){
-    return cryptonote::get_block_longhash(NULL, b, hash, height, threads);
-  }, blk, diffic, height))
-    blk.timestamp++;
-}
-
 cryptonote::tx_destination_entry build_dst(const var_addr_t& to, bool is_subaddr, uint64_t amount)
 {
   tx_destination_entry de;
@@ -978,6 +1109,31 @@ bool extract_hard_forks(const std::vector<test_event_entry>& events, v_hardforks
         std::copy(hf.begin(), hf.end(), std::back_inserter(hard_forks));
       }
     }
+  }
+
+  return !hard_forks.empty();
+}
+
+bool extract_hard_forks_from_blocks(const std::vector<test_event_entry>& events, v_hardforks_t& hard_forks)
+{
+  int hf = -1;
+  int64_t height = 0;
+
+  for(auto & ev : events)
+  {
+    if (typeid(block) != ev.type())
+    {
+      continue;
+    }
+
+    const block *blk = &boost::get<block>(ev);
+    if (blk->major_version != hf)
+    {
+      hf = blk->major_version;
+      hard_forks.push_back(std::make_pair(blk->major_version, (uint64_t)height));
+    }
+
+    height += 1;
   }
 
   return !hard_forks.empty();
