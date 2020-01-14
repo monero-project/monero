@@ -1,0 +1,17 @@
+name: continuous-integration/gh-actions/cli
+
+on: [push, pull_request]
+
+jobs:
+  build-ubuntu:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v1
+      with:
+        submodules: recursive
+    - name: update apt
+      run: sudo apt update
+    - name: install monero dependencies
+      run: sudo apt -y build-essential libtool cmake autotools-dev automake pkg-config bsdmainutils curl git ca-certificates ccache
+    - name: build
+      run: make depends target=x86_64-linux-gnu -j 3
