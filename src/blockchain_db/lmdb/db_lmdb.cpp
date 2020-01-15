@@ -573,8 +573,8 @@ bool BlockchainLMDB::need_resize(uint64_t threshold_size) const
   LOG_PRINT_L1("Space used:      " << size_used);
   LOG_PRINT_L1("Space remaining: " << mei.me_mapsize - size_used);
   LOG_PRINT_L1("Size threshold:  " << threshold_size);
-  float resize_percent_old = RESIZE_PERCENT;
-  LOG_PRINT_L1(boost::format("Percent used: %.04f  Percent threshold: %.04f") % ((double)size_used/mei.me_mapsize) % resize_percent_old);
+  float resize_percent = RESIZE_PERCENT;
+  LOG_PRINT_L1(boost::format("Percent used: %.04f  Percent threshold: %.04f") % ((double)size_used/mei.me_mapsize) % resize_percent);
 
   if (threshold_size > 0)
   {
@@ -586,10 +586,6 @@ bool BlockchainLMDB::need_resize(uint64_t threshold_size) const
     else
       return false;
   }
-
-  std::mt19937 engine(std::random_device{}());
-  std::uniform_real_distribution<double> fdis(0.6, 0.9);
-  double resize_percent = fdis(engine);
 
   if ((double)size_used / mei.me_mapsize  > resize_percent)
   {
@@ -1230,8 +1226,12 @@ void BlockchainLMDB::open(const std::string& filename, const int db_flags)
     throw DB_ERROR("Database could not be opened");
   }
 
-  if (tools::is_hdd(filename.c_str()))
-    MCLOG_RED(el::Level::Warning, "global", "The blockchain is on a rotating drive: this will be very slow, use a SSD if possible");
+  boost::optional<bool> is_hdd_result = tools::is_hdd(filename.c_str());
+  if (is_hdd_result)
+  {
+    if (is_hdd_result.value())
+        MCLOG_RED(el::Level::Warning, "global", "The blockchain is on a rotating drive: this will be very slow, use a SSD if possible");
+  }
 
   m_folder = filename;
 
@@ -2001,14 +2001,25 @@ std::vector<uint64_t> BlockchainLMDB::get_block_cumulative_rct_outputs(const std
 
   MDB_val v;
 
+  uint64_t prev_height = heights[0];
   for (uint64_t height: heights)
   {
-    MDB_val_set(v, height);
-    result = mdb_cursor_get(m_cur_block_info, (MDB_val *)&zerokval, &v, MDB_GET_BOTH);
+    if (height == prev_height + 1)
+    {
+      MDB_val k2;
+      result = mdb_cursor_get(m_cur_block_info, &k2, &v, MDB_NEXT);
+    }
+    else
+    {
+      v.mv_size = sizeof(uint64_t);
+      v.mv_data = (void*)&height;
+      result = mdb_cursor_get(m_cur_block_info, (MDB_val *)&zerokval, &v, MDB_GET_BOTH);
+    }
     if (result)
       throw0(DB_ERROR(lmdb_error("Error attempting to retrieve rct distribution from the db: ", result).c_str()));
     const mdb_block_info *bi = (const mdb_block_info *)v.mv_data;
     res.push_back(bi->bi_cum_rct);
+    prev_height = height;
   }
 
   TXN_POSTFIX_RDONLY();

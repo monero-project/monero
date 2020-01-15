@@ -54,6 +54,7 @@ set(unit_tests_sources
   get_xtype_from_string.cpp
   hashchain.cpp
   http.cpp
+  keccak.cpp
   long_term_block_size.cpp
   main.cpp
   memwipe.cpp
@@ -82,7 +83,8 @@ set(unit_tests_sources
   output_selection.cpp
   vercmp.cpp
   ringdb.cpp
-  wipeable_string.cpp)
+  wipeable_string.cpp
+  is_hdd.cpp)
 
 set(unit_tests_headers
   unit_tests_utils.h)
