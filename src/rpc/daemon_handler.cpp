@@ -311,42 +311,42 @@ namespace rpc
       if (tvc.m_double_spend)
       {
         if (!res.error_details.empty()) res.error_details += " and ";
-        res.error_details = "double spend";
+        res.error_details += "double spend";
       }
       if (tvc.m_invalid_input)
       {
         if (!res.error_details.empty()) res.error_details += " and ";
-        res.error_details = "invalid input";
+        res.error_details += "invalid input";
       }
       if (tvc.m_invalid_output)
       {
         if (!res.error_details.empty()) res.error_details += " and ";
-        res.error_details = "invalid output";
+        res.error_details += "invalid output";
       }
       if (tvc.m_too_big)
       {
         if (!res.error_details.empty()) res.error_details += " and ";
-        res.error_details = "too big";
+        res.error_details += "too big";
       }
       if (tvc.m_overspend)
       {
         if (!res.error_details.empty()) res.error_details += " and ";
-        res.error_details = "overspend";
+        res.error_details += "overspend";
       }
       if (tvc.m_fee_too_low)
       {
         if (!res.error_details.empty()) res.error_details += " and ";
-        res.error_details = "fee too low";
+        res.error_details += "fee too low";
       }
       if (tvc.m_not_rct)
       {
         if (!res.error_details.empty()) res.error_details += " and ";
-        res.error_details = "tx is not ringct";
+        res.error_details += "tx is not ringct";
       }
       if (tvc.m_too_few_outputs)
       {
         if (!res.error_details.empty()) res.error_details += " and ";
-        res.error_details = "too few outputs";
+        res.error_details += "too few outputs";
       }
       if (res.error_details.empty())
       {
