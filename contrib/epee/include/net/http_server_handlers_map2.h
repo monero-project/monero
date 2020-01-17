@@ -120,6 +120,7 @@
 #define BEGIN_JSON_RPC_MAP(uri)    else if(query_info.m_URI == uri) \
     { \
     uint64_t ticks = epee::misc_utils::get_tick_count(); \
+    response_info.m_mime_tipe = "application/json"; \
     epee::serialization::portable_storage ps; \
     if(!ps.load_from_json(query_info.m_body)) \
     { \
@@ -148,6 +149,7 @@
 
 #define PREPARE_OBJECTS_FROM_JSON(command_type) \
   handled = true; \
+  response_info.m_mime_tipe = "application/json"; \
   boost::value_initialized<epee::json_rpc::request<command_type::request> > req_; \
   epee::json_rpc::request<command_type::request>& req = static_cast<epee::json_rpc::request<command_type::request>&>(req_);\
   if(!req.load(ps)) \
