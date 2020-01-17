@@ -237,14 +237,15 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(create_account)
 
-    def create_address(self, account_index = 0, label = ""):
+    def create_address(self, account_index = 0, label = "", count = 1):
         create_address = {
             'method': 'create_address',
             'params' : {
                 'account_index': account_index,
-                'label': label
+                'label': label,
+                'count': count
             },
-            'jsonrpc': '2.0', 
+            'jsonrpc': '2.0',
             'id': '0'
         }
         return self.rpc.send_json_rpc_request(create_address)
