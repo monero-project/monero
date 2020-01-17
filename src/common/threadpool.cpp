@@ -160,7 +160,7 @@ void threadpool::run(bool flush) {
     if (!running) break;
 
     active++;
-    e = queue.front();
+    e = std::move(queue.front());
     queue.pop_front();
     lock.unlock();
     ++depth;
