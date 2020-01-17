@@ -278,6 +278,10 @@ void rx_slow_hash(const uint64_t mainheight, const uint64_t seedheight, const ch
     CTHR_MUTEX_LOCK(rx_dataset_mutex);
     if (rx_dataset != NULL && rx_dataset_height != seedheight)
       rx_initdata(cache, miners, seedheight);
+    else if (rx_dataset == NULL) {
+      /* this is a no-op if the cache hasn't changed */
+      randomx_vm_set_cache(rx_vm, rx_sp->rs_cache);
+    }
     CTHR_MUTEX_UNLOCK(rx_dataset_mutex);
   } else {
     /* this is a no-op if the cache hasn't changed */
