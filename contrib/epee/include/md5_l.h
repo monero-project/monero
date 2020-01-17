@@ -85,7 +85,7 @@ namespace md5
 		MD5Update( &ctx, input, ilen );
 		MD5Final( output, &ctx);
 
-		memset( &ctx, 0, sizeof( MD5_CTX) );
+		memwipe( &ctx, sizeof( MD5_CTX ));
 		return true;
 	}
 
