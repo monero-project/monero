@@ -1,4 +1,4 @@
-# Equilibria
+Equilibria# Equilibria
 ![Image of Equilibria](https://pbs.twimg.com/profile_banners/3257833278/1564378329/1080x360)
 
 Equilibria harnesses market forces and an on-chain asset to issue $USDE, a redeemable stablecoin whose supply automatically scales with demand.
@@ -32,7 +32,7 @@ Portions Copyright (c) 2012-2013 The Cryptonote developers.
 
 ## Current maintainer
 - Harrison Hesslink (krakn)
-- Cryptochangements 
+- Cryptochangements
 
 **Anyone is welcome to contribute to Equilibria's codebase!** If you have a fix or code change, feel free to submit it as a pull request directly to the "master" branch. In cases where the change is relatively small or does not affect other parts of the codebase it may be merged in immediately by any one of the collaborators. On the other hand, if the change is particularly large or complex, it is expected that it will be discussed at length either well in advance of the pull request being submitted, or even directly on the pull request.
 
@@ -89,15 +89,15 @@ Debian / Ubuntu one liner for all dependencies
 
 Clone recursively to pull-in needed submodule(s):
 
-`$ git clone --recursive https://github.com/TritonNetwork/TritonProtocol triton`
+`$ git clone --recursive https://github.com/EquilibriaCC/Equilibria.git equilibria`
 
 If you already have a repo cloned, initialize and update:
 
-`$ cd triton && git submodule init && git submodule update`
+`$ cd equilibria && git submodule init && git submodule update`
 
 ### Build instructions
 
-Triton uses the CMake build system and a top-level [Makefile](Makefile) that
+Equilibria uses the CMake build system and a top-level [Makefile](Makefile) that
 invokes cmake commands as needed.
 
 #### On Linux and OS X
@@ -105,8 +105,8 @@ invokes cmake commands as needed.
 * Install the dependencies
 * Change to the root of the source code directory, change to the most recent release branch, and build:
 
-        cd triton
-        git checkout v4.0.5
+        cd equilibria
+        git checkout v5.0.1
         make
 
     *Optional*: If your machine has several cores and enough memory, enable
@@ -116,18 +116,18 @@ invokes cmake commands as needed.
 
     *Note*: If cmake can not find zmq.hpp file on OS X, installing `zmq.hpp` from
     https://github.com/zeromq/cppzmq to `/usr/local/include` should fix that error.
-    
+
     *Note*: The instructions above will compile the most stable release of the
-    Triton software. If you would like to use and test the most recent software,
+    Equilibria software. If you would like to use and test the most recent software,
     use ```git checkout master```. The master branch may contain updates that are
-    both unstable and incompatible with release software, though testing is always 
-    encouraged. 
+    both unstable and incompatible with release software, though testing is always
+    encouraged.
 
 * The resulting executables can be found in `build/release/bin`
 
-* Add `PATH="$PATH:$HOME/triton/build/Linux/release/bin"` to `.profile`
+* Add `PATH="$PATH:$HOME/equilibria/build/Linux/release/bin"` to `.profile`
 
-* Run Triton with `tritond --detach`
+* Run Equilibria with `daemond --detach`
 
 * **Optional**: build and run the test suite to verify the binaries:
 
@@ -180,7 +180,7 @@ application.
         pacman -S mingw-w64-x86_64-toolchain make mingw-w64-x86_64-cmake mingw-w64-x86_64-boost mingw-w64-x86_64-openssl mingw-w64-x86_64-zeromq mingw-w64-x86_64-libsodium mingw-w64-x86_64-hidapi
 
     To build for 32-bit Windows:
- 
+
         pacman -S mingw-w64-i686-toolchain make mingw-w64-i686-cmake mingw-w64-i686-boost mingw-w64-i686-openssl mingw-w64-i686-zeromq mingw-w64-i686-libsodium mingw-w64-i686-hidapi
 
 * Open the MingW shell via `MinGW-w64-Win64 Shell` shortcut on 64-bit Windows
@@ -191,15 +191,15 @@ application.
 
 * To git clone, run:
 
-        git clone --recursive https://github.com/TritonNetwork/TritonProtocol.git triton
+        git clone --recursive https://github.com/EquilibriaCC/Equilibria.git equilibria
 
 **Building**
 
 * Change to the cloned directory, run:
-	
-        cd triton
-	
-        git checkout v3.0.0
+
+        cd equilibria
+
+        git checkout v5.0.1
 
 * If you are on a 64-bit system, run:
 
@@ -214,7 +214,7 @@ application.
 * **Optional**: to build Windows binaries suitable for debugging on a 64-bit system, run:
 
         make debug-static-win64
-	
+
 * **Optional**: to build Windows binaries suitable for debugging on a 32-bit system, run:
 
         make debug-static-win32
