@@ -391,8 +391,8 @@ namespace nodetool
     std::set<std::string> full_addrs;
     if (nettype == cryptonote::TESTNET)
     {
-		full_addrs.insert("159.89.146.92:9330");
-		full_addrs.insert("138.68.239.125:9330");
+		full_addrs.insert("159.89.146.92:9330"); //outdated
+		full_addrs.insert("138.68.239.125:9330"); //outdated
 
     }
     else if (nettype == cryptonote::STAGENET)
@@ -404,14 +404,14 @@ namespace nodetool
     }
     else
     {
-      full_addrs.insert("138.68.63.97:9230"); // SanFran
-      full_addrs.insert("159.65.224.232:9230"); // NYC
-      full_addrs.insert("159.203.34.44:9230"); // TOR
-      full_addrs.insert("104.248.84.35:9230"); // Amsterdam
-      full_addrs.insert("159.89.163.55:9230"); // India
-      full_addrs.insert("45.77.22.107:9230"); // Tokyo
-      full_addrs.insert("155.138.246.140:9230"); // Dallas
-      full_addrs.insert("108.61.96.50:9230"); // Straya
+      full_addrs.insert("51.158.65.16:9230"); // France
+      full_addrs.insert("207.244.120.53:9230"); // US
+      full_addrs.insert("207.244.120.39:9230"); // US
+      full_addrs.insert("207.244.120.220:9230"); // US
+      full_addrs.insert("139.99.106.122:9230"); // Singapore
+      full_addrs.insert("77.93.206.182:9230"); // EU
+      full_addrs.insert("212.47.251.15:9230"); // BobbieLtd
+      full_addrs.insert("51.15.50.83:9230"); // EU
     }
     return full_addrs;
   }
