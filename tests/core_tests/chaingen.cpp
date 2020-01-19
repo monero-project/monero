@@ -393,11 +393,17 @@ void test_generator::fill_nonce(cryptonote::block& blk, const difficulty_type& d
   const cryptonote::Blockchain *blockchain = nullptr;
   std::unique_ptr<cryptonote::Blockchain> bc;
 
-  if (blk.major_version >= RX_BLOCK_VERSION)
+  if (blk.major_version >= RX_BLOCK_VERSION && diffic > 1)
   {
-    CHECK_AND_ASSERT_THROW_MES(m_events != nullptr, "events not set, cannot compute valid RandomX PoW");
-    bc = init_blockchain(*m_events, m_nettype);
-    blockchain = bc.get();
+    if (m_events == nullptr)
+    {
+      MDEBUG("events not set, RandomX PoW can fail due to zero seed hash");
+    }
+    else
+    {
+      bc = init_blockchain(*m_events, m_nettype);
+      blockchain = bc.get();
+    }
   }
 
   blk.nonce = 0;
