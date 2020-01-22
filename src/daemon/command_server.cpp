@@ -342,6 +342,11 @@ t_command_server::t_command_server(
     , "block_rate [<seconds>]"
     , "Report on the block rate in the last N seconds."
     );
+    m_command_lookup.set_handler(
+      "sync_txpool"
+    , std::bind(&t_command_parser_executor::sync_txpool, &m_parser, p::_1)
+    , "Asks a peer for transactions in their txpool which we do not have."
+    );
 }
 
 bool t_command_server::process_command_str(const std::string& cmd)

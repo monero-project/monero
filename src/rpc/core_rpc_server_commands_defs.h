@@ -2692,7 +2692,7 @@ namespace cryptonote
       std::vector<uint64_t> seconds;
 
       BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE_PARENT(rpc_response_base)
+        KV_SERIALIZE_PARENT(rpc_request_base)
         KV_SERIALIZE(seconds)
       END_KV_SERIALIZE_MAP()
     };
@@ -2724,6 +2724,25 @@ namespace cryptonote
         KV_SERIALIZE_PARENT(rpc_response_base)
         KV_SERIALIZE(results)
         KV_SERIALIZE(status)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<response_t> response;
+  };
+
+  struct COMMAND_RPC_SYNC_TXPOOL
+  {
+    struct request_t: public rpc_request_base
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE_PARENT(rpc_request_base)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<request_t> request;
+
+    struct response_t: public rpc_response_base
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE_PARENT(rpc_response_base)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;

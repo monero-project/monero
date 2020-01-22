@@ -2592,4 +2592,30 @@ bool t_rpc_command_executor::block_rate(uint64_t seconds)
     return true;
 }
 
+bool t_rpc_command_executor::sync_txpool()
+{
+    cryptonote::COMMAND_RPC_SYNC_TXPOOL::request req;
+    cryptonote::COMMAND_RPC_SYNC_TXPOOL::response res;
+    std::string fail_message = "Unsuccessful";
+    epee::json_rpc::error error_resp;
+
+    if (m_is_rpc)
+    {
+        if (!m_rpc_client->json_rpc_request(req, res, "sync_txpool", fail_message.c_str()))
+        {
+            return true;
+        }
+    }
+    else
+    {
+        if (!m_rpc_server->on_sync_txpool(req, res, error_resp) || res.status != CORE_RPC_STATUS_OK)
+        {
+            tools::fail_msg_writer() << make_error(fail_message, res.status);
+            return true;
+        }
+    }
+
+    return true;
+}
+
 }// namespace daemonize

@@ -1091,4 +1091,9 @@ bool t_command_parser_executor::block_rate(const std::vector<std::string>& args)
   return m_executor.block_rate(seconds);
 }
 
+bool t_command_parser_executor::sync_txpool(const std::vector<std::string>& args)
+{
+  return m_executor.sync_txpool();
+}
+
 } // namespace daemonize
