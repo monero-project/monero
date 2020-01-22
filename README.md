@@ -83,7 +83,7 @@ build the library binary manually. This can be done with the following command `
 [2] libnorm-dev is needed if your zmq library was built with libnorm, and not needed otherwise
 
 Debian / Ubuntu one liner for all dependencies  
-``` sudo apt update && sudo apt install build-essential cmake pkg-config libboost-all-dev libssl-dev libzmq3-dev libunbound-dev libsodium-dev libunwind8-dev liblzma-dev libreadline6-dev libldns-dev libexpat1-dev doxygen graphviz libpgm-dev```
+``` sudo apt update && sudo apt install build-essential cmake pkg-config libboost-all-dev libssl-dev libzmq3-dev libunbound-dev libsodium-dev libunwind8-dev liblzma-dev libreadline6-dev libldns-dev libexpat1-dev doxygen graphviz libpgm-dev libncurses5-dev libncursesw5-dev```
 
 ### Cloning the repository
 
@@ -106,7 +106,7 @@ invokes cmake commands as needed.
 * Change to the root of the source code directory, change to the most recent release branch, and build:
 
         cd equilibria
-        git checkout v5.0.1
+        git checkout v5.0.2
         make
 
     *Optional*: If your machine has several cores and enough memory, enable
@@ -199,7 +199,7 @@ application.
 
         cd equilibria
 
-        git checkout v5.0.1
+        git checkout v5.0.2
 
 * If you are on a 64-bit system, run:
 
