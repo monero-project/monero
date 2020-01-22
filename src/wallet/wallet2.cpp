@@ -879,20 +879,6 @@ uint8_t get_bulletproof_fork()
   return 8;
 }
 
-uint64_t estimate_fee(bool use_per_byte_fee, bool use_rct, int n_inputs, int mixin, int n_outputs, size_t extra_size, bool bulletproof, uint64_t base_fee, uint64_t fee_multiplier, uint64_t fee_quantization_mask)
-{
-  if (use_per_byte_fee)
-  {
-    const size_t estimated_tx_weight = estimate_tx_weight(use_rct, n_inputs, mixin, n_outputs, extra_size, bulletproof);
-    return calculate_fee_from_weight(base_fee, estimated_tx_weight, fee_multiplier, fee_quantization_mask);
-  }
-  else
-  {
-    const size_t estimated_tx_size = estimate_tx_size(use_rct, n_inputs, mixin, n_outputs, extra_size, bulletproof);
-    return calculate_fee(base_fee, estimated_tx_size, fee_multiplier);
-  }
-}
-
 uint64_t calculate_fee(bool use_per_byte_fee, const cryptonote::transaction &tx, size_t blob_size, uint64_t base_fee, uint64_t fee_multiplier, uint64_t fee_quantization_mask)
 {
   if (use_per_byte_fee)
@@ -7098,6 +7084,20 @@ bool wallet2::sign_multisig_tx_from_file(const std::string &filename, std::vecto
   return sign_multisig_tx_to_file(exported_txs, filename, txids);
 }
 //----------------------------------------------------------------------------------------------------
+uint64_t wallet2::estimate_fee(bool use_per_byte_fee, bool use_rct, int n_inputs, int mixin, int n_outputs, size_t extra_size, bool bulletproof, uint64_t base_fee, uint64_t fee_multiplier, uint64_t fee_quantization_mask) const
+{
+  if (use_per_byte_fee)
+  {
+    const size_t estimated_tx_weight = estimate_tx_weight(use_rct, n_inputs, mixin, n_outputs, extra_size, bulletproof);
+    return calculate_fee_from_weight(base_fee, estimated_tx_weight, fee_multiplier, fee_quantization_mask);
+  }
+  else
+  {
+    const size_t estimated_tx_size = estimate_tx_size(use_rct, n_inputs, mixin, n_outputs, extra_size, bulletproof);
+    return calculate_fee(base_fee, estimated_tx_size, fee_multiplier);
+  }
+}
+
 uint64_t wallet2::get_fee_multiplier(uint32_t priority, int fee_algorithm)
 {
   static const struct
