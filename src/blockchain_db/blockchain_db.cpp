@@ -67,7 +67,7 @@ bool matches_category(relay_method method, relay_category category) noexcept
     case relay_method::local:
       return false;
     case relay_method::block:
-    case relay_method::flood:
+    case relay_method::fluff:
       return true;
     case relay_method::none:
       break;
@@ -90,7 +90,7 @@ void txpool_tx_meta_t::set_relay_method(relay_method method) noexcept
       is_local = 1;
       break;
     default:
-    case relay_method::flood:
+    case relay_method::fluff:
       break;
     case relay_method::block:
       kept_by_block = 1;
@@ -106,7 +106,7 @@ relay_method txpool_tx_meta_t::get_relay_method() const noexcept
     return relay_method::none;
   if (is_local)
     return relay_method::local;
-  return relay_method::flood;
+  return relay_method::fluff;
 }
 
 const command_line::arg_descriptor<std::string> arg_db_sync_mode = {

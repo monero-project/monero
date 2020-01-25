@@ -82,7 +82,7 @@ namespace levin
     {}
 
     //! Construct an instance with available notification `zones`.
-    explicit notify(boost::asio::io_service& service, std::shared_ptr<connections> p2p, epee::byte_slice noise, bool is_public);
+    explicit notify(boost::asio::io_service& service, std::shared_ptr<connections> p2p, epee::byte_slice noise, bool is_public, bool pad_txs);
 
     notify(const notify&) = delete;
     notify(notify&&) = default;
@@ -104,11 +104,14 @@ namespace levin
     //! Run the logic for the next stem timeout imemdiately. Only use in  testing.
     void run_stems();
 
+    //! Run the logic for flushing all Dandelion++ fluff queued txs. Only use in testing.
+    void run_fluff();
+
     /*! Send txs using `cryptonote_protocol_defs.h` payload format wrapped in a
         levin header. The message will be sent in a "discreet" manner if
         enabled - if `!noise.empty()` then the `command`/`payload` will be
         queued to send at the next available noise interval. Otherwise, a
-        standard Monero flood notification will be used.
+        Dandelion++ fluff algorithm will be used.
 
         \note Eventually Dandelion++ stem sending will be used here when
           enabled.
@@ -117,12 +120,9 @@ namespace levin
         \param source The source of the notification. `is_nil()` indicates this
           node is the source. Dandelion++ will use this to map a source to a
           particular stem.
-        \param pad_txs A request to pad txs to help conceal origin via
-          statistical analysis. Ignored if noise was enabled during
-          construction.
 
       \return True iff the notification is queued for sending. */
-    bool send_txs(std::vector<blobdata> txs, const boost::uuids::uuid& source, bool pad_txs);
+    bool send_txs(std::vector<blobdata> txs, const boost::uuids::uuid& source);
   };
 } // levin
 } // net

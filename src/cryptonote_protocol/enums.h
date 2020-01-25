@@ -38,6 +38,6 @@ namespace cryptonote
     none = 0, //!< Received via RPC with `do_not_relay` set
     local,    //!< Received via RPC; trying to send over i2p/tor, etc.
     block,    //!< Received in block, takes precedence over others
-    flood     //!< Received/sent over public networks
+    fluff     //!< Received/sent over public networks
   };
 }

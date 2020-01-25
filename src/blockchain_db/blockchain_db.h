@@ -108,7 +108,7 @@ extern const command_line::arg_descriptor<bool, false> arg_db_salvage;
 
 enum class relay_category : uint8_t
 {
-  broadcasted = 0,//!< Public txes received via block/flooding/fluff
+  broadcasted = 0,//!< Public txes received via block/fluff
   relayable,      //!< Every tx not marked `relay_method::none`
   legacy,         //!< `relay_category::broadcasted` + `relay_method::none` for rpc relay requests or historical reasons
   all             //!< Everything in the db
