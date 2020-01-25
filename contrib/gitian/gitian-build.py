@@ -66,7 +66,7 @@ def rebuild():
         print('\nCompiling ' + args.version + ' ' + os_name)
         infile = 'inputs/monero/contrib/gitian/gitian-' + tag_name + '.yml'
         subprocess.check_call(['bin/gbuild', '-j', args.jobs, '-m', args.memory, '--commit', 'monero='+args.commit, '--url', 'monero='+args.url, infile])
-        subprocess.check_call(['bin/gsign', '-p', args.sign_prog, '--signer', args.signer, '--release', args.version+'-linux', '--destination', '../sigs/', infile])
+        subprocess.check_call(['bin/gsign', '-p', args.sign_prog, '--signer', args.signer, '--release', args.version+'-'+tag_name, '--destination', '../sigs/', infile])
         subprocess.check_call('mv build/out/monero-*.' + suffix + ' ../out/'+args.version, shell=True)
         print('Moving var/install.log to var/install-' + tag_name + '.log')
         subprocess.check_call('mv var/install.log var/install-' + tag_name + '.log', shell=True)
