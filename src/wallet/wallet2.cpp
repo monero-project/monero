@@ -5412,6 +5412,7 @@ bool wallet2::check_connection(uint32_t *version, bool *ssl, uint32_t timeout)
 void wallet2::set_offline(bool offline)
 {
   m_offline = offline;
+  m_node_rpc_proxy.set_offline(offline);
   m_http_client.set_auto_connect(!offline);
   if (offline)
   {
