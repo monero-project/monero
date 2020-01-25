@@ -1091,7 +1091,7 @@ namespace nodetool
       LOG_WARNING_CC(context_, "COMMAND_HANDSHAKE Failed");
       m_network_zones.at(context_.m_remote_address.get_zone()).m_net_server.get_config_object().close(context_.m_connection_id);
     }
-    else
+    else if (!just_take_peerlist)
     {
       try_get_support_flags(context_, [](p2p_connection_context& flags_context, const uint32_t& support_flags) 
       {
