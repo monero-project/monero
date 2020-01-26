@@ -44,6 +44,14 @@
 #include "net/dandelionpp.h"
 #include "p2p/net_node.h"
 
+namespace
+{
+  int get_command_from_message(const cryptonote::blobdata &msg)
+  {
+    return msg.size() >= sizeof(epee::levin::bucket_head2) ? SWAP32LE(((epee::levin::bucket_head2*)msg.data())->m_command) : 0;
+  }
+}
+
 namespace cryptonote
 {
 namespace levin
@@ -164,6 +172,10 @@ namespace levin
     bool make_payload_send_txs(connections& p2p, std::vector<blobdata>&& txs, const boost::uuids::uuid& destination, const bool pad)
     {
       const cryptonote::blobdata blob = make_tx_payload(std::move(txs), pad);
+      p2p.for_connection(destination, [&blob](detail::p2p_context& context) {
+        on_levin_traffic(context, true, true, false, blob.size(), get_command_from_message(blob));
+        return true;
+      });
       return p2p.notify(NOTIFY_NEW_TRANSACTIONS::ID, epee::strspan<std::uint8_t>(blob), destination);
     }
 
@@ -539,6 +551,10 @@ namespace levin
           else
             message = zone_->noise.clone();
 
+          zone_->p2p->for_connection(channel.connection, [&](detail::p2p_context& context) {
+            on_levin_traffic(context, true, true, false, message.size(), "noise");
+            return true;
+          });
           if (zone_->p2p->send(std::move(message), channel.connection))
           {
             if (!channel.queue.empty() && channel.active.empty())
