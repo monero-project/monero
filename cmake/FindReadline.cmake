@@ -23,7 +23,8 @@
 
 find_path(Readline_ROOT_DIR
     NAMES include/readline/readline.h
-    PATHS /usr/local/opt/readline/ /opt/local/ /usr/local/ /usr/
+    HINTS ENV READLINE_ROOT_DIR
+    PATHS /opt/local/ /usr/local/ /usr/
     NO_DEFAULT_PATH
 )
 
@@ -40,7 +41,7 @@ find_library(Readline_LIBRARY
 )
 
 find_library(Termcap_LIBRARY
-  NAMES tinfo termcap ncursesw ncurses cursesw curses
+  NAMES ncurses tinfo termcap ncursesw cursesw curses
 )
 
 if(Readline_INCLUDE_DIR AND Readline_LIBRARY)
