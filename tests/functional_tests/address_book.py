@@ -73,14 +73,13 @@ class AddressBookTest():
 
         # add one
         res = wallet.add_address_book('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', description = 'self')
-        assert res.index == 0
+        assert res.index == 0, res
         for get_all in [True, False]:
             res = wallet.get_address_book() if get_all else wallet.get_address_book([0])
             assert len(res.entries) == 1
             e = res.entries[0]
             assert e.index == 0
-            assert e.address == '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
-            assert e.payment_id == '' or e.payment_id == '0' * 16 or e.payment_id == '0' * 64
+            assert e.address == '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', e
             assert e.description == 'self'
 
         # add a duplicate
@@ -91,7 +90,6 @@ class AddressBookTest():
         assert res.entries[0].index == 0
         assert res.entries[1].index == 1
         assert res.entries[0].address == res.entries[1].address
-        assert res.entries[0].payment_id == res.entries[1].payment_id
         assert res.entries[0].description == res.entries[1].description
         e = res.entries[1]
         res = wallet.get_address_book([1])
@@ -118,7 +116,6 @@ class AddressBookTest():
         assert len(res.entries) == 1
         assert res.entries[0].index == 0
         assert res.entries[0].address == e.address
-        assert res.entries[0].payment_id == e.payment_id
         assert res.entries[0].description == e.description
 
         # delete (new) first
@@ -165,38 +162,13 @@ class AddressBookTest():
         assert res.entries[0] == e
         assert res.entries[1] == e
 
-        # payment IDs
-        res = wallet.add_address_book('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', payment_id = '0' * 64)
-        assert res.index == 2
-        ok = False
-        try: res = wallet.add_address_book('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', payment_id = 'x' * 64)
-        except: ok = True
-        assert ok
-        ok = False
-        try: res = wallet.add_address_book('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', payment_id = '0' * 65)
-        except: ok = True
-        assert ok
-        ok = False
-        try: res = wallet.add_address_book('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', payment_id = '0' * 63)
-        except: ok = True
-        assert ok
-        ok = False
-        try: res = wallet.add_address_book('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', payment_id = '0' * 16)
-        except: ok = True
-        assert ok
-
         # various address types
         res = wallet.make_integrated_address()
         integrated_address = res.integrated_address
-        integrated_address_payment_id = res.payment_id
-        ok = False
-        try: res = wallet.add_address_book(integrated_address, payment_id = '0' * 64)
-        except: ok = True
-        assert ok
         res = wallet.add_address_book(integrated_address)
-        assert res.index == 3
+        assert res.index == 2
         res = wallet.add_address_book('87KfgTZ8ER5D3Frefqnrqif11TjVsTPaTcp37kqqKMrdDRUhpJRczeR7KiBmSHF32UJLP3HHhKUDmEQyJrv2mV8yFDCq8eB')
-        assert res.index == 4
+        assert res.index == 3
 
         # get them back
         res = wallet.get_address_book([0])
@@ -209,15 +181,8 @@ class AddressBookTest():
         assert res.entries[0].description == u'あまやかす'
         res = wallet.get_address_book([2])
         assert len(res.entries) == 1
-        assert res.entries[0].address == '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
+        assert res.entries[0].address == integrated_address
         res = wallet.get_address_book([3])
-        assert len(res.entries) == 1
-        if False: # for now, the address book splits integrated addresses
-          assert res.entries[0].address == integrated_address
-        else:
-          assert res.entries[0].address == '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
-          assert res.entries[0].payment_id == integrated_address_payment_id + '0' * 48
-        res = wallet.get_address_book([4])
         assert len(res.entries) == 1
         assert res.entries[0].address == '87KfgTZ8ER5D3Frefqnrqif11TjVsTPaTcp37kqqKMrdDRUhpJRczeR7KiBmSHF32UJLP3HHhKUDmEQyJrv2mV8yFDCq8eB'
 
@@ -227,15 +192,12 @@ class AddressBookTest():
         e = res.entries[0]
         assert e.index == 1
         assert e.address == '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
-        assert e.payment_id == '0' * 64
         assert e.description == u'あまやかす'
-        res = wallet.edit_address_book(1, payment_id = '1' * 64)
         res = wallet.get_address_book([1])
         assert len(res.entries) == 1
         e = res.entries[0]
         assert e.index == 1
         assert e.address == '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
-        assert e.payment_id == '1' * 64
         assert e.description == u'あまやかす'
         res = wallet.edit_address_book(1, description = '')
         res = wallet.get_address_book([1])
@@ -243,7 +205,6 @@ class AddressBookTest():
         e = res.entries[0]
         assert e.index == 1
         assert e.address == '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
-        assert e.payment_id == '1' * 64
         assert e.description == ''
         res = wallet.edit_address_book(1, description = 'えんしゅう')
         res = wallet.get_address_book([1])
@@ -251,7 +212,6 @@ class AddressBookTest():
         e = res.entries[0]
         assert e.index == 1
         assert e.address == '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
-        assert e.payment_id == '1' * 64
         assert e.description == u'えんしゅう'
         res = wallet.edit_address_book(1, address = '44AFFq5kSiGBoZ4NMDwYtN18obc8AemS33DBLWs3H7otXft3XjrpDtQGv7SqSsaBYBb98uNbr2VBBEt7f2wfn3RVGQBEP3A')
         res = wallet.get_address_book([1])
@@ -259,22 +219,9 @@ class AddressBookTest():
         e = res.entries[0]
         assert e.index == 1
         assert e.address == '44AFFq5kSiGBoZ4NMDwYtN18obc8AemS33DBLWs3H7otXft3XjrpDtQGv7SqSsaBYBb98uNbr2VBBEt7f2wfn3RVGQBEP3A'
-        assert e.payment_id == '1' * 64
-        assert e.description == u'えんしゅう'
-        res = wallet.edit_address_book(1, payment_id = '')
-        res = wallet.get_address_book([1])
-        assert len(res.entries) == 1
-        e = res.entries[0]
-        assert e.index == 1
-        assert e.address == '44AFFq5kSiGBoZ4NMDwYtN18obc8AemS33DBLWs3H7otXft3XjrpDtQGv7SqSsaBYBb98uNbr2VBBEt7f2wfn3RVGQBEP3A'
-        assert e.payment_id == '0' * 64
         assert e.description == u'えんしゅう'
         ok = False
         try: res = wallet.edit_address_book(1, address = '')
-        except: ok = True
-        assert ok
-        ok = False
-        try: res = wallet.edit_address_book(1, payment_id = 'asdnd')
         except: ok = True
         assert ok
         ok = False
@@ -287,7 +234,6 @@ class AddressBookTest():
         assert e == res.entries[0]
 
         # empty
-        wallet.delete_address_book(4)
         wallet.delete_address_book(0)
         res = wallet.get_address_book([0]) # entries above the deleted one collapse one slot up
         assert len(res.entries) == 1
