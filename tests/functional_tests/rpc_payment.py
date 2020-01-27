@@ -44,6 +44,7 @@ class RPCPaymentTest():
         self.make_test_signature = os.environ['MAKE_TEST_SIGNATURE']
         assert len(self.make_test_signature) > 0
         self.secret_key, self.public_key = self.get_keys()
+        self.signatures = []
         self.reset()
         self.test_access_tracking()
         self.test_access_mining()
@@ -57,8 +58,17 @@ class RPCPaymentTest():
         assert len(fields) == 2
         return fields
 
+    def refill_signatures(self):
+        signatures = subprocess.check_output([self.make_test_signature, self.secret_key, '256']).decode('utf-8')
+        for line in signatures.split():
+            self.signatures.append(line.rstrip())
+
     def get_signature(self):
-        return subprocess.check_output([self.make_test_signature, self.secret_key]).decode('utf-8').rstrip()
+        if len(self.signatures) == 0:
+            self.refill_signatures()
+        s = self.signatures[0]
+        self.signatures = self.signatures[1:]
+        return s
 
     def reset(self):
         print('Resetting blockchain')
