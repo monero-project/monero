@@ -1,4 +1,5 @@
-# Copyright (c) 2014-2018, The Monero Project
+# Copyright (c) 2018-2020, The Arqma Network
+# Copyright (c) 2014-2020, The Monero Project
 #
 # All rights reserved.
 #
@@ -35,14 +36,17 @@ include(CheckLinkerFlag)
 include(CheckLibraryExists)
 include(CheckFunctionExists)
 
-if (IOS)
-    INCLUDE(CmakeLists_IOS.txt)
+if(IOS)
+    include(CMakeLists_IOS.txt)
+    include_directories(/usr/local/include)
+    include_directories("${CMAKE_SOURCE_DIR}/external/ios-headers")
+    include_directories(${SODIUM_INCLUDE_DIR})
 endif()
 
-cmake_minimum_required(VERSION 2.8.7)
+cmake_minimum_required(VERSION 3.5.0)
 message(STATUS "CMake version ${CMAKE_VERSION}")
 
-project(equilibria)
+project(arqma)
 
 function (die msg)
   if (NOT WIN32)
@@ -113,6 +117,9 @@ string(TOLOWER ${CMAKE_BUILD_TYPE} CMAKE_BUILD_TYPE_LOWER)
 # to identify the target architecture, to direct logic in this cmake script.
 # Since ARCH is a cached variable, it will not be set on first cmake invocation.
 if (NOT ARCH OR ARCH STREQUAL "" OR ARCH STREQUAL "native" OR ARCH STREQUAL "default")
+  if(CMAKE_SYSTEM_PROCESSOR STREQUAL "")
+    set(CMAKE_SYSTEM_PROCESSOR ${CMAKE_HOST_SYSTEM_PROCESSOR})
+  endif()
   set(ARCH_ID "${CMAKE_SYSTEM_PROCESSOR}")
 else()
   set(ARCH_ID "${ARCH}")
@@ -148,7 +155,7 @@ if(ARCH_ID STREQUAL "powerpc64" OR ARCH_ID STREQUAL "ppc64")
   set(PPC     0)
 endif()
 
-if(ARCH_ID STREQUAL "powerpc")
+if(ARCH_ID STREQUAL "powerpc" OR ARCH_ID STREQUAL "ppc")
   set(PPC64LE 0)
   set(PPC64   0)
   set(PPC     1)
@@ -158,10 +165,10 @@ if(ARCH_ID STREQUAL "s390x")
   set(S390X 1)
 endif()
 
-if(WIN32 OR ARM)
-  add_compile_options("$<$<CONFIG:RELEASE>:-O2>")
+if(WIN32 OR ARM OR PPC64LE OR PPC64 OR PPC)
+  set(OPT_FLAGS_RELEASE "-O2")
 else()
-  add_compile_options("$<$<CONFIG:RELEASE>:-O3>")
+  set(OPT_FLAGS_RELEASE "-Ofast")
 endif()
 
 # BUILD_TAG is used to select the build type to check for a new version
@@ -176,11 +183,15 @@ if(NOT MANUAL_SUBMODULES)
   find_package(Git)
   if(GIT_FOUND)
     function (check_submodule relative_path)
-      execute_process(COMMAND git -C ${relative_path} rev-parse "HEAD"  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} OUTPUT_VARIABLE localHead)
-      execute_process(COMMAND git rev-parse "HEAD:${relative_path}"     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} OUTPUT_VARIABLE checkedHead)
+      execute_process(COMMAND git rev-parse "HEAD" WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/${relative_path} OUTPUT_VARIABLE localHead)
+      execute_process(COMMAND git rev-parse "HEAD:${relative_path}" WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} OUTPUT_VARIABLE checkedHead)
       string(COMPARE EQUAL "${localHead}" "${checkedHead}" upToDate)
-      if (upToDate)
+      if(upToDate)
         message(STATUS "Submodule '${relative_path}' is up-to-date")
+        if(WIN32 AND DEPENDS)
+          execute_process(COMMAND bash -c "sed -i 's/#include <VersionHelpers.h>/#include <versionhelpers.h>/g' ${CMAKE_CURRENT_SOURCE_DIR}/external/randomarq/src/tests/benchmark.cpp")
+          message(STATUS "Fixed Windows DEPENDS compilation Capital Letters issue")
+        endif()
       else()
         message(FATAL_ERROR "Submodule '${relative_path}' is not up-to-date. Please update with\ngit submodule update --init --force ${relative_path}\nor run cmake with -DMANUAL_SUBMODULES=1")
       endif()
@@ -190,6 +201,7 @@ if(NOT MANUAL_SUBMODULES)
     check_submodule(external/miniupnp)
     check_submodule(external/unbound)
     check_submodule(external/rapidjson)
+    check_submodule(external/randomarq)
   endif()
 endif()
 
@@ -295,6 +307,12 @@ else()
 endif()
 option(STATIC "Link libraries statically" ${DEFAULT_STATIC})
 
+# On older installations of g++ STDC_FORMAT_MACROS must be defined before inttype.h is included.
+# Fixes the error: expected ‘)’ before ‘PRIx64’
+if(WIN32 OR MSVC OR MINGW)
+  add_definitions(-D__STDC_FORMAT_MACROS)
+endif()
+
 # This is a CMake built-in switch that concerns internal libraries
 if (NOT DEFINED BUILD_SHARED_LIBS AND NOT STATIC AND CMAKE_BUILD_TYPE_LOWER STREQUAL "debug")
     set(BUILD_SHARED_LIBS ON)
@@ -341,7 +359,7 @@ if(SANITIZE)
 endif()
 
 # Set default blockchain storage location:
-# memory was the default in Cryptonote before Monero implemented LMDB, it still works but is unnecessary.
+# memory was the default in Cryptonote before Arqma implemented LMDB, it still works but is unnecessary.
 # set(DATABASE memory)
 set(DATABASE lmdb)
 
@@ -472,6 +490,7 @@ add_definitions(-DAUTO_INITIALIZE_EASYLOGGINGPP)
 # Generate header for embedded translations
 # Generate header for embedded translations, use target toolchain if depends, otherwise use the
 # lrelease and lupdate binaries from the host
+# add_subdirectory(translations)
 include(ExternalProject)
 ExternalProject_Add(generate_translations_header
   SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/translations"
@@ -480,6 +499,7 @@ ExternalProject_Add(generate_translations_header
   CMAKE_ARGS -DLRELEASE_PATH=${LRELEASE_PATH}
   INSTALL_COMMAND cmake -E echo "")
 include_directories("${CMAKE_CURRENT_BINARY_DIR}/translations")
+
 add_subdirectory(external)
 
 # Final setup for libunbound
@@ -502,7 +522,7 @@ endif()
 include_directories(${LIBUNWIND_INCLUDE})
 link_directories(${LIBUNWIND_LIBRARY_DIRS})
 
-# Final setup for hid
+# Final setup for HIDAPI
 if (HIDAPI_FOUND)
   message(STATUS "Using HIDAPI include dir at ${HIDAPI_INCLUDE_DIR}")
   add_definitions(-DHAVE_HIDAPI)
@@ -539,6 +559,9 @@ else()
   elseif(IOS AND ARCH STREQUAL "arm64")
     message(STATUS "IOS: Changing arch from arm64 to armv8")
     set(ARCH_FLAG "-march=armv8")
+  elseif(IOS AND ARCH STREQUAL "x86_64")
+    message(STATUS "IOS: Changing arch from x86_64 to x86-64")
+    set(ARCH_FLAG "-march=x86-64")
   else()
     set(ARCH_FLAG "-march=${ARCH}")
     if(ARCH STREQUAL "native")
@@ -588,9 +611,6 @@ else()
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ARCH_FLAG}")
 
   set(WARNINGS "-Wall -Wextra -Wpointer-arith -Wundef -Wvla -Wwrite-strings -Wno-error=extra -Wno-error=deprecated-declarations -Wno-unused-parameter -Wno-unused-variable -Wno-error=unused-variable -Wno-error=undef -Wno-error=uninitialized")
-  if(NOT MINGW)
-    set(WARNINGS_AS_ERRORS_FLAG "-Werror")
-  endif()
   if(CMAKE_C_COMPILER_ID STREQUAL "Clang")
     if(ARM)
       set(WARNINGS "${WARNINGS} -Wno-error=inline-asm")
@@ -650,13 +670,11 @@ else()
   add_c_flag_if_supported(-Wformat-security C_SECURITY_FLAGS)
   add_cxx_flag_if_supported(-Wformat-security CXX_SECURITY_FLAGS)
 
-  # -fstack-protector
-  if (NOT WIN32)
+  #-fstack-protector
     add_c_flag_if_supported(-fstack-protector C_SECURITY_FLAGS)
     add_cxx_flag_if_supported(-fstack-protector CXX_SECURITY_FLAGS)
     add_c_flag_if_supported(-fstack-protector-strong C_SECURITY_FLAGS)
     add_cxx_flag_if_supported(-fstack-protector-strong CXX_SECURITY_FLAGS)
-  endif()
 
   # New in GCC 8.2
   if (NOT WIN32)
@@ -666,7 +684,7 @@ else()
     add_cxx_flag_if_supported(-fstack-clash-protection CXX_SECURITY_FLAGS)
   endif()
 
-   if (NOT (CMAKE_C_COMPILER_ID STREQUAL "GNU" AND NOT CMAKE_C_COMPILER_VERSION VERSION_LESS 9.1))
+  if (NOT (CMAKE_C_COMPILER_ID STREQUAL "GNU" AND NOT CMAKE_C_COMPILER_VERSION VERSION_LESS 9.1))
     add_c_flag_if_supported(-mmitigate-rop C_SECURITY_FLAGS)
     add_cxx_flag_if_supported(-mmitigate-rop CXX_SECURITY_FLAGS)
   endif()
@@ -687,10 +705,18 @@ else()
     set(LD_SECURITY_FLAGS "${LD_SECURITY_FLAGS} -Wl,-z,noexecheap")
   endif()
 
+  if(BACKCOMPAT)
+    add_definitions(-DFDELT_TYPE=long\ int)
+    add_linker_flag_if_supported(-Wl,--wrap=__divmoddi4 LD_BACKCOMPAT_FLAGS)
+    add_linker_flag_if_supported(-Wl,--wrap=glob LD_BACKCOMPAT_FLAGS)
+    message(STATUS "Using Lib C back compat flags: ${LD_BACKCOMPAT_FLAGS}")
+  endif()
+
   # some windows linker bits
   if (WIN32)
     add_linker_flag_if_supported(-Wl,--dynamicbase LD_SECURITY_FLAGS)
     add_linker_flag_if_supported(-Wl,--nxcompat LD_SECURITY_FLAGS)
+    add_linker_flag_if_supported(-Wl,--high-entropy-va LD_SECURITY_FLAGS)
   endif()
 
   message(STATUS "Using C security hardening flags: ${C_SECURITY_FLAGS}")
@@ -699,7 +725,7 @@ else()
 
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c11 -D_GNU_SOURCE ${MINGW_FLAG} ${STATIC_ASSERT_FLAG} ${WARNINGS} ${C_WARNINGS} ${COVERAGE_FLAGS} ${PIC_FLAG} ${C_SECURITY_FLAGS}")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -D_GNU_SOURCE ${MINGW_FLAG} ${STATIC_ASSERT_CPP_FLAG} ${WARNINGS} ${CXX_WARNINGS} ${COVERAGE_FLAGS} ${PIC_FLAG} ${CXX_SECURITY_FLAGS}")
-  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${LD_SECURITY_FLAGS}")
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${LD_SECURITY_FLAGS} ${LD_BACKCOMPAT_FLAGS}")
 
   # With GCC 6.1.1 the compiled binary malfunctions due to aliasing. Until that
   # is fixed in the code (Issue #847), force compiler to be conservative.
@@ -807,6 +833,9 @@ else()
     set(DEBUG_FLAGS "${DEBUG_FLAGS} -O0 ")
   endif()
 
+  # At least some CLANGs default to not enough for Arqma
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ftemplate-depth=900")
+
   if(NOT DEFINED USE_LTO_DEFAULT)
     set(USE_LTO_DEFAULT false)
   endif()
@@ -862,6 +891,7 @@ if (${BOOST_IGNORE_SYSTEM_PATHS} STREQUAL "ON")
 endif()
 
 set(OLD_LIB_SUFFIXES ${CMAKE_FIND_LIBRARY_SUFFIXES})
+set(Boost_NO_BOOST_CMAKE ON)
 if(STATIC)
   if(MINGW)
     set(CMAKE_FIND_LIBRARY_SUFFIXES .a)
@@ -870,17 +900,29 @@ if(STATIC)
   set(Boost_USE_STATIC_LIBS ON)
   set(Boost_USE_STATIC_RUNTIME ON)
 endif()
-find_package(Boost 1.58 QUIET REQUIRED COMPONENTS system filesystem thread date_time chrono regex serialization program_options locale)
+
+set(BOOST_LIBRARIES system filesystem thread date_time chrono regex serialization program_options)
+if(WIN32 OR MINGW OR MSVC)
+  set(BOOST_LIBRARIES ${BOOST_LIBRARIES} locale)
+endif()
+
+find_package(Boost 1.58 QUIET REQUIRED COMPONENTS ${BOOST_LIBRARIES})
 
 set(CMAKE_FIND_LIBRARY_SUFFIXES ${OLD_LIB_SUFFIXES})
 if(NOT Boost_FOUND)
-  die("Could not find Boost libraries, please make sure you have installed Boost or libboost-all-dev (1.58) or the equivalent")
+  die("Could not find Boost libraries, please make sure you have installed Boost or libboost-all-dev. Minimum version 1.58 is required")
 elseif(Boost_FOUND)
   message(STATUS "Found Boost Version: ${Boost_VERSION}")
-  if (Boost_VERSION VERSION_LESS 106200 AND NOT (OPENSSL_VERSION VERSION_LESS 1.1))
-      message(FATAL_ERROR "Boost older than 1.62 is too old to link with OpenSSL 1.1 or newer. "
-                          "Update Boost or install OpenSSL 1.0 and set path to it when running cmake: "
-                          "cmake -DOPENSSL_ROOT_DIR='/usr/include/openssl-1.0;/usr/lib/openssl-1.0'")
+  if (Boost_VERSION VERSION_LESS 10 AND Boost_VERSION VERSION_LESS 1.62.0 AND NOT (OPENSSL_VERSION VERSION_LESS 1.1))
+    set(BOOST_BEFORE_1_62 true)
+  endif()
+  if (NOT Boost_VERSION VERSION_LESS 10 AND Boost_VERSION VERSION_LESS 106200 AND NOT (OPENSSL_VERSION VERSION_LESS 1.1))
+    set(BOOST_BEFORE_1_62 true)
+  endif()
+  if (BOOST_BEFORE_1_62)
+    message(FATAL_ERROR "Boost ${Boost_VERSION} (older than 1.62) is too old to link with OpenSSL ${OPENSSL_VERSION} (1.1 or newer) found at ${OPENSSL_INCLUDE_DIR} and ${OPENSSL_LIBRARIES}. "
+                        "Update Boost or install OpenSSL 1.0 and set path to it when running cmake: "
+                        "cmake -DOPENSSL_ROOT_DIR='/usr/include/openssl-1.0'")
   endif()
 endif()
 
@@ -889,9 +931,9 @@ if(MINGW)
   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wa,-mbig-obj")
   set(EXTRA_LIBRARIES mswsock;ws2_32;iphlpapi;crypt32;bcrypt)
   if(DEPENDS)
-    set(ICU_LIBRARIES ${Boost_LOCALE_LIBRARY} sicuio sicuin sicuuc sicudt sicutu iconv)
+    set(ICU_LIBRARIES icuio icui18n icuuc icudata icutu iconv)
   else()
-    set(ICU_LIBRARIES ${Boost_LOCALE_LIBRARY} icuio icuin icuuc icudt icutu iconv)
+    set(ICU_LIBRARIES icuio icuin icuuc icudt icutu iconv)
   endif()
 elseif(APPLE OR OPENBSD OR ANDROID)
   set(EXTRA_LIBRARIES "")
@@ -909,7 +951,7 @@ endif()
 
 list(APPEND EXTRA_LIBRARIES ${CMAKE_DL_LIBS})
 
-if (HIDAPI_FOUND)
+if (HIDAPI_FOUND OR LibUSB_COMPILE_TEST_PASSED)
   if (APPLE)
     if(DEPENDS)
       list(APPEND EXTRA_LIBRARIES "-framework Foundation -framework IOKit")
@@ -949,14 +991,15 @@ if(CMAKE_C_COMPILER_ID STREQUAL "Clang" AND ARCH_WIDTH EQUAL "32" AND NOT IOS AN
   endif()
 endif()
 
-find_path(ZMQ_INCLUDE_PATH zmq.hpp)
+find_path(ZMQ_INCLUDE_PATH zmq.h)
 find_library(ZMQ_LIB zmq)
 find_library(PGM_LIBRARY pgm)
 find_library(NORM_LIBRARY norm)
+find_library(PROTOLIB_LIBRARY protolib)
 find_library(SODIUM_LIBRARY sodium)
 
 if(NOT ZMQ_INCLUDE_PATH)
-  message(FATAL_ERROR "Could not find required header zmq.hpp")
+  message(FATAL_ERROR "Could not find required header zmq.h")
 endif()
 if(NOT ZMQ_LIB)
   message(FATAL_ERROR "Could not find required libzmq")
@@ -967,6 +1010,9 @@ endif()
 if(NORM_LIBRARY)
   set(ZMQ_LIB "${ZMQ_LIB};${NORM_LIBRARY}")
 endif()
+if(PROTOLIB_LIBRARY)
+  set(ZMQ_LIB "${ZMQ_LIB};${PROTOLIB_LIBRARY}")
+endif()
 if(SODIUM_LIBRARY)
   set(ZMQ_LIB "${ZMQ_LIB};${SODIUM_LIBRARY}")
 endif()
@@ -975,7 +1021,7 @@ add_subdirectory(contrib)
 add_subdirectory(src)
 
 if(BUILD_TESTS)
-  #add_subdirectory(tests)
+  add_subdirectory(tests)
 endif()
 
 if(BUILD_DOCUMENTATION)
