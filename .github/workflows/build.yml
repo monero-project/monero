@@ -39,7 +39,7 @@ jobs:
     - name: update apt
       run: sudo apt update
     - name: install XEQ dependencies
-      run: sudo apt -y install build-essential cmake libboost-all-dev miniupnpc libunbound-dev graphviz doxygen libunwind8-dev pkg-config libssl-dev libzmq3-dev libsodium-dev libhidapi-dev libnorm-dev libusb-1.0-0-dev libpgm-dev
+      run: sudo apt -y install build-essential curl cmake pkg-config libboost-all-dev libssl-dev libzmq3-dev libunbound-dev libsodium-dev libunwind8-dev liblzma-dev libreadline6-dev libldns-dev libexpat1-dev doxygen graphviz libpgm-dev libudev-dev libusb-1.0-0-dev libhidapi-dev protobuf-compiler libprotobuf-dev xsltproc gperf autoconf automake libtool-bin libprotobuf-c-dev
     - name: build
       run: make -j3
 
