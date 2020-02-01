@@ -43,6 +43,21 @@ jobs:
     - name: build
       run: make -j3
 
+  libwallet-ubuntu:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v1
+      with:
+        submodules: recursive
+    - name: remove bundled boost
+      run: sudo rm -rf /usr/local/share/boost
+    - name: update apt
+      run: sudo apt update
+    - name: install monero dependencies
+      run: sudo apt -y install build-essential cmake libboost-all-dev miniupnpc libunbound-dev graphviz doxygen libunwind8-dev pkg-config libssl-dev libzmq3-dev libsodium-dev libhidapi-dev libnorm-dev libusb-1.0-0-dev libpgm-dev
+    - name: build
+      run: cmake -DBUILD_GUI_DEPS=ON && make -j3
+
   test-ubuntu:
     needs: build-ubuntu
     runs-on: ubuntu-latest
