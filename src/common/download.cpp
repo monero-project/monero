@@ -107,13 +107,17 @@ namespace tools
             MINFO("Content-Length: " << length);
             content_length = length;
             boost::filesystem::path path(control->path);
-            boost::filesystem::space_info si = boost::filesystem::space(path);
-            if (si.available < (size_t)content_length)
+            try
             {
-              const uint64_t avail = (si.available + 1023) / 1024, needed = (content_length + 1023) / 1024;
-              MERROR("Not enough space to download " << needed << " kB to " << path << " (" << avail << " kB available)");
-              return false;
+              boost::filesystem::space_info si = boost::filesystem::space(path);
+              if (si.available < (size_t)content_length)
+              {
+                const uint64_t avail = (si.available + 1023) / 1024, needed = (content_length + 1023) / 1024;
+                MERROR("Not enough space to download " << needed << " kB to " << path << " (" << avail << " kB available)");
+                return false;
+              }
             }
+            catch (const std::exception &e) { MWARNING("Failed to check for free space: " << e.what()); }
           }
           if (offset > 0)
           {
