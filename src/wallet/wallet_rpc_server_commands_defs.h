@@ -490,6 +490,7 @@ namespace wallet_rpc
       std::string tx_key;
       uint64_t amount;
       uint64_t fee;
+      uint64_t weight;
       std::string tx_blob;
       std::string tx_metadata;
       std::string multisig_txset;
@@ -500,6 +501,7 @@ namespace wallet_rpc
         KV_SERIALIZE(tx_key)
         KV_SERIALIZE(amount)
         KV_SERIALIZE(fee)
+        KV_SERIALIZE(weight)
         KV_SERIALIZE(tx_blob)
         KV_SERIALIZE(tx_metadata)
         KV_SERIALIZE(multisig_txset)
@@ -556,6 +558,7 @@ namespace wallet_rpc
       std::list<std::string> tx_key_list;
       std::list<uint64_t> amount_list;
       std::list<uint64_t> fee_list;
+      std::list<uint64_t> weight_list;
       std::list<std::string> tx_blob_list;
       std::list<std::string> tx_metadata_list;
       std::string multisig_txset;
@@ -566,6 +569,7 @@ namespace wallet_rpc
         KV_SERIALIZE(tx_key_list)
         KV_SERIALIZE(amount_list)
         KV_SERIALIZE(fee_list)
+        KV_SERIALIZE(weight_list)
         KV_SERIALIZE(tx_blob_list)
         KV_SERIALIZE(tx_metadata_list)
         KV_SERIALIZE(multisig_txset)
@@ -729,6 +733,7 @@ namespace wallet_rpc
       std::list<std::string> tx_key_list;
       std::list<uint64_t> amount_list;
       std::list<uint64_t> fee_list;
+      std::list<uint64_t> weight_list;
       std::list<std::string> tx_blob_list;
       std::list<std::string> tx_metadata_list;
       std::string multisig_txset;
@@ -739,6 +744,7 @@ namespace wallet_rpc
         KV_SERIALIZE(tx_key_list)
         KV_SERIALIZE(amount_list)
         KV_SERIALIZE(fee_list)
+        KV_SERIALIZE(weight_list)
         KV_SERIALIZE(tx_blob_list)
         KV_SERIALIZE(tx_metadata_list)
         KV_SERIALIZE(multisig_txset)
@@ -799,6 +805,7 @@ namespace wallet_rpc
       std::list<std::string> tx_key_list;
       std::list<uint64_t> amount_list;
       std::list<uint64_t> fee_list;
+      std::list<uint64_t> weight_list;
       std::list<std::string> tx_blob_list;
       std::list<std::string> tx_metadata_list;
       std::string multisig_txset;
@@ -809,6 +816,7 @@ namespace wallet_rpc
         KV_SERIALIZE(tx_key_list)
         KV_SERIALIZE(amount_list)
         KV_SERIALIZE(fee_list)
+        KV_SERIALIZE(weight_list)
         KV_SERIALIZE(tx_blob_list)
         KV_SERIALIZE(tx_metadata_list)
         KV_SERIALIZE(multisig_txset)
@@ -856,6 +864,7 @@ namespace wallet_rpc
       std::string tx_key;
       uint64_t amount;
       uint64_t fee;
+      uint64_t weight;
       std::string tx_blob;
       std::string tx_metadata;
       std::string multisig_txset;
@@ -866,6 +875,7 @@ namespace wallet_rpc
         KV_SERIALIZE(tx_key)
         KV_SERIALIZE(amount)
         KV_SERIALIZE(fee)
+        KV_SERIALIZE(weight)
         KV_SERIALIZE(tx_blob)
         KV_SERIALIZE(tx_metadata)
         KV_SERIALIZE(multisig_txset)
