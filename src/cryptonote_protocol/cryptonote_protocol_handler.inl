@@ -188,7 +188,7 @@ namespace cryptonote
       auto connection_time = time(NULL) - cntxt.m_started;
       ss << std::setw(30) << std::left << std::string(cntxt.m_is_income ? " [INC]":"[OUT]") +
         cntxt.m_remote_address.str()
-        << std::setw(20) << std::hex << peer_id
+        << std::setw(20) << nodetool::peerid_to_string(peer_id)
         << std::setw(20) << std::hex << support_flags
         << std::setw(30) << std::to_string(cntxt.m_recv_cnt)+ "(" + std::to_string(time(NULL) - cntxt.m_last_recv) + ")" + "/" + std::to_string(cntxt.m_send_cnt) + "(" + std::to_string(time(NULL) - cntxt.m_last_send) + ")"
         << std::setw(25) << get_protocol_state_string(cntxt.m_state)
@@ -248,9 +248,7 @@ namespace cryptonote
       cnx.rpc_port = cntxt.m_rpc_port;
       cnx.rpc_credits_per_hash = cntxt.m_rpc_credits_per_hash;
 
-      std::stringstream peer_id_str;
-      peer_id_str << std::hex << std::setw(16) << peer_id;
-      peer_id_str >> cnx.peer_id;
+      cnx.peer_id = nodetool::peerid_to_string(peer_id);
       
       cnx.support_flags = support_flags;
 
