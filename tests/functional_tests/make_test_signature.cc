@@ -32,6 +32,7 @@
 
 int main(int argc, const char **argv)
 {
+  TRY_ENTRY();
   if (argc > 2)
   {
     fprintf(stderr, "usage: %s <secret_key>\n", argv[0]);
@@ -57,4 +58,5 @@ int main(int argc, const char **argv)
   std::string signature = cryptonote::make_rpc_payment_signature(skey);
   printf("%s\n", signature.c_str());
   return 0;
+  CATCH_ENTRY_L0("main()", 1);
 }

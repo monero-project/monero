@@ -59,6 +59,10 @@
 namespace cryptonote
 {
   rpc_payment::client_info::client_info():
+    previous_seed_height(0),
+    seed_height(0),
+    previous_seed_hash(crypto::null_hash),
+    seed_hash(crypto::null_hash),
     cookie(0),
     top(crypto::null_hash),
     previous_top(crypto::null_hash),
