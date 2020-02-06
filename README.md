@@ -137,7 +137,8 @@ Dates are provided in the format YYYY-MM-DD.
 | XXXXXXX                        | XXX-XX-XX | XXX                | vX.XX.X.X              | vX.XX.X.X                  | XXX |
 
 X's indicate that these details have not been determined as of commit date.
-* indicates estimate as of commit date
+
+\* indicates estimate as of commit date
 
 ## Release staging schedule and protocol
 
