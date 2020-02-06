@@ -153,6 +153,16 @@ bool t_command_parser_executor::print_blockchain_info(const std::vector<std::str
   }
   uint64_t start_index = 0;
   uint64_t end_index = 0;
+  if (args[0][0] == '-')
+  {
+    int64_t nblocks;
+    if(!epee::string_tools::get_xtype_from_string(nblocks, args[0]))
+    {
+      std::cout << "wrong number of blocks" << std::endl;
+      return false;
+    }
+    return m_executor.print_blockchain_info(nblocks, (uint64_t)-nblocks);
+  }
   if(!epee::string_tools::get_xtype_from_string(start_index, args[0]))
   {
     std::cout << "wrong starter block index parameter" << std::endl;
