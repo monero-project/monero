@@ -1963,7 +1963,7 @@ namespace tools
       return false;
     }
 
-    res.signature = m_wallet->sign(req.data);
+    res.signature = m_wallet->sign(req.data, {req.account_index, req.address_index});
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------

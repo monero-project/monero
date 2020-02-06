@@ -1597,9 +1597,13 @@ namespace wallet_rpc
     struct request_t
     {
       std::string data;
+      uint32_t account_index;
+      uint32_t address_index;
 
       BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(data);
+        KV_SERIALIZE(data)
+        KV_SERIALIZE_OPT(account_index, 0u)
+        KV_SERIALIZE_OPT(address_index, 0u)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
