@@ -55,7 +55,10 @@ namespace hw {
     }
 
     #define TRACKD MTRACE("hw")
-    #define ASSERT_SW(sw,ok,msk) CHECK_AND_ASSERT_THROW_MES(((sw)&(mask))==(ok), "Wrong Device Status : SW=" << std::hex << (sw) << " (EXPECT=" << std::hex << (ok) << ", MASK=" << std::hex << (mask) << ")") ;
+    #define ASSERT_SW(sw,ok,msk) CHECK_AND_ASSERT_THROW_MES(((sw)&(mask))==(ok), \
+      "Wrong Device Status: " << "0x" << std::hex << (sw) << " (" << Status::to_string(sw) << "), " << \
+      "EXPECTED 0x" << std::hex << (ok) << " (" << Status::to_string(ok) << "), " << \
+      "MASK 0x" << std::hex << (mask));
     #define ASSERT_T0(exp)       CHECK_AND_ASSERT_THROW_MES(exp, "Protocol assert failure: "#exp ) ;
     #define ASSERT_X(exp,msg)    CHECK_AND_ASSERT_THROW_MES(exp, msg); 
 
@@ -63,6 +66,71 @@ namespace hw {
       crypto::secret_key dbg_viewkey;
       crypto::secret_key dbg_spendkey;
     #endif
+
+    struct Status
+    {
+      unsigned int code;
+      const char *string;
+
+      constexpr operator unsigned int() const
+      {
+        return this->code;
+      }
+
+      static const char *to_string(unsigned int code);
+    };
+
+    // Must be sorted in ascending order by the code
+    #define LEDGER_STATUS(status) {status, #status}
+    constexpr Status status_codes[] = {
+      LEDGER_STATUS(SW_BYTES_REMAINING_00),
+      LEDGER_STATUS(SW_WARNING_STATE_UNCHANGED),
+      LEDGER_STATUS(SW_STATE_TERMINATED),
+      LEDGER_STATUS(SW_MORE_DATA_AVAILABLE),
+      LEDGER_STATUS(SW_WRONG_LENGTH),
+      LEDGER_STATUS(SW_LOGICAL_CHANNEL_NOT_SUPPORTED),
+      LEDGER_STATUS(SW_SECURE_MESSAGING_NOT_SUPPORTED),
+      LEDGER_STATUS(SW_LAST_COMMAND_EXPECTED),
+      LEDGER_STATUS(SW_COMMAND_CHAINING_NOT_SUPPORTED),
+      LEDGER_STATUS(SW_SECURITY_LOAD_KEY),
+      LEDGER_STATUS(SW_SECURITY_COMMITMENT_CONTROL),
+      LEDGER_STATUS(SW_SECURITY_AMOUNT_CHAIN_CONTROL),
+      LEDGER_STATUS(SW_SECURITY_COMMITMENT_CHAIN_CONTROL),
+      LEDGER_STATUS(SW_SECURITY_OUTKEYS_CHAIN_CONTROL),
+      LEDGER_STATUS(SW_SECURITY_MAXOUTPUT_REACHED),
+      LEDGER_STATUS(SW_SECURITY_TRUSTED_INPUT),
+      LEDGER_STATUS(SW_CLIENT_NOT_SUPPORTED),
+      LEDGER_STATUS(SW_SECURITY_STATUS_NOT_SATISFIED),
+      LEDGER_STATUS(SW_FILE_INVALID),
+      LEDGER_STATUS(SW_PIN_BLOCKED),
+      LEDGER_STATUS(SW_DATA_INVALID),
+      LEDGER_STATUS(SW_CONDITIONS_NOT_SATISFIED),
+      LEDGER_STATUS(SW_COMMAND_NOT_ALLOWED),
+      LEDGER_STATUS(SW_APPLET_SELECT_FAILED),
+      LEDGER_STATUS(SW_WRONG_DATA),
+      LEDGER_STATUS(SW_FUNC_NOT_SUPPORTED),
+      LEDGER_STATUS(SW_FILE_NOT_FOUND),
+      LEDGER_STATUS(SW_RECORD_NOT_FOUND),
+      LEDGER_STATUS(SW_FILE_FULL),
+      LEDGER_STATUS(SW_INCORRECT_P1P2),
+      LEDGER_STATUS(SW_REFERENCED_DATA_NOT_FOUND),
+      LEDGER_STATUS(SW_WRONG_P1P2),
+      LEDGER_STATUS(SW_CORRECT_LENGTH_00),
+      LEDGER_STATUS(SW_INS_NOT_SUPPORTED),
+      LEDGER_STATUS(SW_CLA_NOT_SUPPORTED),
+      LEDGER_STATUS(SW_UNKNOWN),
+      LEDGER_STATUS(SW_OK),
+      LEDGER_STATUS(SW_ALGORITHM_UNSUPPORTED)
+    };
+
+    const char *Status::to_string(unsigned int code)
+    {
+      constexpr size_t status_codes_size = sizeof(status_codes) / sizeof(status_codes[0]);
+      constexpr const Status *status_codes_end = &status_codes[status_codes_size];
+
+      const Status *item = std::lower_bound(&status_codes[0], status_codes_end, code);
+      return (item == status_codes_end || code < *item) ? "UNKNOWN" : item->string;
+    }
 
     /* ===================================================================== */
     /* ===                        hmacmap                               ==== */
