@@ -663,9 +663,13 @@ namespace cryptonote
     bl.minor_version = CURRENT_BLOCK_MINOR_VERSION;
     bl.timestamp = 0;
     bl.nonce = nonce;
-    miner::find_nonce_for_given_block([](const cryptonote::block &b, uint64_t height, unsigned int threads, crypto::hash &hash){
-      return cryptonote::get_block_longhash(NULL, b, hash, height, threads);
-    }, bl, 1, 0);
+
+    // TODO: miner cannot run in emscripten.  genesis nonce is set from config in wallet2::generate_genesis().  is this call necessary at all?
+    #if !defined __EMSCRIPTEN__
+      miner::find_nonce_for_given_block([](const cryptonote::block &b, uint64_t height, unsigned int threads, crypto::hash &hash){
+        return cryptonote::get_block_longhash(NULL, b, hash, height, threads);
+      }, bl, 1, 0);
+    #endif
     bl.invalidate_hashes();
     return true;
   }

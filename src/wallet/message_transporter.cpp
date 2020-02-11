@@ -80,7 +80,7 @@ namespace bitmessage_rpc
 
 }
 
-message_transporter::message_transporter()
+message_transporter::message_transporter(epee::net_utils::http::abstract_http_client &http_client) : m_http_client(http_client)
 {
   m_run = true;
 }
