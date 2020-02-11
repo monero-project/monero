@@ -60,7 +60,7 @@ public:
                             const std::string &language) const override;
     bool open(const std::string &path, const std::string &password);
     bool recover(const std::string &path,const std::string &password,
-                            const std::string &seed);
+                            const std::string &seed, const std::string &seed_offset = {});
     bool recoverFromKeysWithPassword(const std::string &path,
                             const std::string &password,
                             const std::string &language,
