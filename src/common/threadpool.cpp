@@ -71,6 +71,7 @@ void threadpool::recycle() {
 }
 
 void threadpool::create(unsigned int max_threads) {
+  const boost::unique_lock<boost::mutex> lock(mutex);
   boost::thread::attributes attrs;
   attrs.set_stack_size(THREAD_STACK_SIZE);
   max = max_threads ? max_threads : tools::get_max_concurrency();
