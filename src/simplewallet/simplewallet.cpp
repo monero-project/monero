@@ -108,7 +108,7 @@ typedef cryptonote::simple_wallet sw;
   epee::misc_utils::auto_scope_leave_caller scope_exit_handler = epee::misc_utils::create_scope_leave_handler([&](){ \
     /* m_idle_mutex is still locked here */ \
     m_auto_refresh_enabled.store(auto_refresh_enabled, std::memory_order_relaxed); \
-    m_suspend_rpc_payment_mining.store(false, std::memory_order_relaxed);; \
+    m_suspend_rpc_payment_mining.store(false, std::memory_order_relaxed); \
     m_rpc_payment_checker.trigger(); \
     m_idle_cond.notify_one(); \
   })
@@ -1963,7 +1963,7 @@ bool simple_wallet::rpc_payment_info(const std::vector<std::string> &args)
       if (expected)
         message_writer() << tr("Credit discrepancy this session: ") << discrepancy << " (" << 100.0f * discrepancy / expected << "%)";
       float cph = credits_per_hash_found / (float)diff;
-      message_writer() << tr("Difficulty: ") << diff << ", " << credits_per_hash_found << " " << tr("credits per hash found, ") << cph << " " << tr("credits/hash");;
+      message_writer() << tr("Difficulty: ") << diff << ", " << credits_per_hash_found << " " << tr("credits per hash found, ") << cph << " " << tr("credits/hash");
       const boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
       bool mining = (now - m_last_rpc_payment_mining_time).total_microseconds() < 1000000;
       if (mining)
