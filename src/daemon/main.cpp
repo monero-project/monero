@@ -69,7 +69,7 @@ uint16_t parse_public_rpc_port(const po::variables_map &vm)
   const auto &restricted_rpc_port = cryptonote::core_rpc_server::arg_rpc_restricted_bind_port;
   if (!command_line::is_arg_defaulted(vm, restricted_rpc_port))
   {
-    rpc_port_str = command_line::get_arg(vm, restricted_rpc_port);;
+    rpc_port_str = command_line::get_arg(vm, restricted_rpc_port);
   }
   else if (command_line::get_arg(vm, cryptonote::core_rpc_server::arg_restricted_rpc))
   {
