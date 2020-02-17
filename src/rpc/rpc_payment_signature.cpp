@@ -102,6 +102,11 @@ namespace cryptonote
       MDEBUG("Timestamp is in the future");
       return false;
     }
+    if (ts < now - TIMESTAMP_LEEWAY)
+    {
+      MDEBUG("Timestamp is too old");
+      return false;
+    }
     return true;
   }
 }
