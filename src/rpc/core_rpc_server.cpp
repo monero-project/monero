@@ -236,6 +236,7 @@ namespace cryptonote
       const boost::program_options::variables_map& vm
       , const bool restricted
       , const std::string& port
+      , bool allow_rpc_payment
     )
   {
     m_restricted = restricted;
@@ -247,7 +248,7 @@ namespace cryptonote
       return false;
 
     std::string address = command_line::get_arg(vm, arg_rpc_payment_address);
-    if (!address.empty())
+    if (!address.empty() && allow_rpc_payment)
     {
       if (!m_restricted && nettype() != FAKECHAIN)
       {

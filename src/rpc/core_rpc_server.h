@@ -88,7 +88,8 @@ namespace cryptonote
     bool init(
         const boost::program_options::variables_map& vm,
         const bool restricted,
-        const std::string& port
+        const std::string& port,
+        bool allow_rpc_payment
       );
     network_type nettype() const { return m_core.get_nettype(); }
 

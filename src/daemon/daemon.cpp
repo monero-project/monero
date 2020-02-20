@@ -78,13 +78,14 @@ public:
 
     const auto restricted = command_line::get_arg(vm, cryptonote::core_rpc_server::arg_restricted_rpc);
     const auto main_rpc_port = command_line::get_arg(vm, cryptonote::core_rpc_server::arg_rpc_bind_port);
-    rpcs.emplace_back(new t_rpc{vm, core, p2p, restricted, main_rpc_port, "core"});
+    const auto restricted_rpc_port_arg = cryptonote::core_rpc_server::arg_rpc_restricted_bind_port;
+    const bool has_restricted_rpc_port_arg = !command_line::is_arg_defaulted(vm, restricted_rpc_port_arg);
+    rpcs.emplace_back(new t_rpc{vm, core, p2p, restricted, main_rpc_port, "core", !has_restricted_rpc_port_arg});
 
-    auto restricted_rpc_port_arg = cryptonote::core_rpc_server::arg_rpc_restricted_bind_port;
-    if(!command_line::is_arg_defaulted(vm, restricted_rpc_port_arg))
+    if(has_restricted_rpc_port_arg)
     {
       auto restricted_rpc_port = command_line::get_arg(vm, restricted_rpc_port_arg);
-      rpcs.emplace_back(new t_rpc{vm, core, p2p, true, restricted_rpc_port, "restricted"});
+      rpcs.emplace_back(new t_rpc{vm, core, p2p, true, restricted_rpc_port, "restricted", true});
     }
   }
 };
