@@ -1699,14 +1699,18 @@ bool t_rpc_command_executor::print_bans()
         }
     }
 
-    for (auto i = res.bans.begin(); i != res.bans.end(); ++i)
+    if (!res.bans.empty())
     {
-        tools::msg_writer() << i->host << " banned for " << i->seconds << " seconds";
+        for (auto i = res.bans.begin(); i != res.bans.end(); ++i)
+        {
+            tools::msg_writer() << i->host << " banned for " << i->seconds << " seconds";
+        }
     }
+    else 
+        tools::msg_writer() << "No IPs are banned";
 
     return true;
 }
-
 
 bool t_rpc_command_executor::ban(const std::string &address, time_t seconds)
 {
