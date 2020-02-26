@@ -35,6 +35,7 @@ set(rpc_base_sources
 
 set(rpc_sources
   bootstrap_daemon.cpp
+  bootstrap_node_selector.cpp
   core_rpc_server.cpp
   rpc_payment.cpp
   rpc_version_str.cpp
