@@ -32,6 +32,7 @@
 #include "cryptonote_basic/blobdatatype.h" // for type blobdata
 #include "ringct/rctTypes.h"
 #include <boost/thread/tss.hpp>
+#include <boost/atomic/atomic.hpp>
 
 #include <lmdb.h>
 
@@ -45,124 +46,213 @@ typedef struct txindex {
     tx_data_t data;
 } txindex;
 
-typedef struct mdb_txn_cursors
+enum class source : uint8_t
 {
-  MDB_cursor *m_txc_blocks;
-  MDB_cursor *m_txc_block_heights;
-  MDB_cursor *m_txc_block_info;
+  blocks,
+  block_heights,
+  block_info,
 
-  MDB_cursor *m_txc_output_txs;
-  MDB_cursor *m_txc_output_amounts;
+  output_txs,
+  output_amounts,
 
-  MDB_cursor *m_txc_txs;
-  MDB_cursor *m_txc_txs_pruned;
-  MDB_cursor *m_txc_txs_prunable;
-  MDB_cursor *m_txc_txs_prunable_hash;
-  MDB_cursor *m_txc_txs_prunable_tip;
-  MDB_cursor *m_txc_tx_indices;
-  MDB_cursor *m_txc_tx_outputs;
+  txs,
+  txs_pruned,
+  txs_prunable,
+  txs_prunable_hash,
+  txs_prunable_tip,
+  tx_indices,
+  tx_outputs,
 
-  MDB_cursor *m_txc_spent_keys;
+  spent_keys,
 
-  MDB_cursor *m_txc_txpool_meta;
-  MDB_cursor *m_txc_txpool_blob;
+  txpool_meta,
+  txpool_blob,
 
-  MDB_cursor *m_txc_alt_blocks;
+  alt_blocks,
 
-  MDB_cursor *m_txc_hf_versions;
+  hf_versions,
 
-  MDB_cursor *m_txc_properties;
-} mdb_txn_cursors;
+  properties
+};
 
-#define m_cur_blocks	m_cursors->m_txc_blocks
-#define m_cur_block_heights	m_cursors->m_txc_block_heights
-#define m_cur_block_info	m_cursors->m_txc_block_info
-#define m_cur_output_txs	m_cursors->m_txc_output_txs
-#define m_cur_output_amounts	m_cursors->m_txc_output_amounts
-#define m_cur_txs	m_cursors->m_txc_txs
-#define m_cur_txs_pruned	m_cursors->m_txc_txs_pruned
-#define m_cur_txs_prunable	m_cursors->m_txc_txs_prunable
-#define m_cur_txs_prunable_hash	m_cursors->m_txc_txs_prunable_hash
-#define m_cur_txs_prunable_tip	m_cursors->m_txc_txs_prunable_tip
-#define m_cur_tx_indices	m_cursors->m_txc_tx_indices
-#define m_cur_tx_outputs	m_cursors->m_txc_tx_outputs
-#define m_cur_spent_keys	m_cursors->m_txc_spent_keys
-#define m_cur_txpool_meta	m_cursors->m_txc_txpool_meta
-#define m_cur_txpool_blob	m_cursors->m_txc_txpool_blob
-#define m_cur_alt_blocks	m_cursors->m_txc_alt_blocks
-#define m_cur_hf_versions	m_cursors->m_txc_hf_versions
-#define m_cur_properties	m_cursors->m_txc_properties
-
-typedef struct mdb_rflags
+class mdb_txn_cursors
 {
-  bool m_rf_txn;
-  bool m_rf_blocks;
-  bool m_rf_block_heights;
-  bool m_rf_block_info;
-  bool m_rf_output_txs;
-  bool m_rf_output_amounts;
-  bool m_rf_txs;
-  bool m_rf_txs_pruned;
-  bool m_rf_txs_prunable;
-  bool m_rf_txs_prunable_hash;
-  bool m_rf_txs_prunable_tip;
-  bool m_rf_tx_indices;
-  bool m_rf_tx_outputs;
-  bool m_rf_spent_keys;
-  bool m_rf_txpool_meta;
-  bool m_rf_txpool_blob;
-  bool m_rf_alt_blocks;
-  bool m_rf_hf_versions;
-  bool m_rf_properties;
-} mdb_rflags;
+  public:
+    mdb_txn_cursors() noexcept :
+      m_cursors{{nullptr}}
+    {}
 
-typedef struct mdb_threadinfo
+    ~mdb_txn_cursors() noexcept
+    {
+      for (auto cursor: m_cursors) {
+        if (cursor != nullptr) {
+          mdb_cursor_close(cursor);
+        }
+      }
+    }
+
+    MDB_cursor*& get(source cursor)
+    {
+      return m_cursors.at(static_cast<uint8_t>(cursor));
+    }
+  private:
+    std::array<MDB_cursor*, 18> m_cursors;
+};
+
+class mdb_databases
 {
-  MDB_txn *m_ti_rtxn;	// per-thread read txn
-  mdb_txn_cursors m_ti_rcursors;	// per-thread read cursors
-  mdb_rflags m_ti_rflags;	// per-thread read state
+    public:
+      mdb_databases() :
+        m_databases{{}}
+      {}
+
+      const static std::string& name(source database);
+
+      const MDB_dbi& get(source database) const
+      {
+        return m_databases.at(static_cast<uint8_t>(database));
+      }
+
+      MDB_dbi& get(source database)
+      {
+        return m_databases.at(static_cast<uint8_t>(database));
+      }
+
+      MDB_stat stat(MDB_txn* txn, source database) const;
+      void drop(MDB_txn* txn, source database, bool close = false);
+    private:
+      std::array<MDB_dbi, 18> m_databases;
+};
+
+
+
+struct mdb_threadinfo
+{
+  mdb_threadinfo() :
+    m_ti_rtxn{nullptr},
+    m_rf_txn{false},
+    m_handles{0}
+  {}
 
   ~mdb_threadinfo();
-} mdb_threadinfo;
+
+  MDB_txn* transaction(MDB_env* env, bool *started = nullptr);
+  void reset();
+
+  MDB_txn* acquire(MDB_env* env);
+  void release();
+
+  MDB_txn *m_ti_rtxn;	// per-thread read txn
+  mdb_txn_cursors m_ti_rcursors;	// per-thread read cursors
+  bool m_rf_txn;
+  std::bitset<18> m_valid_cursor;
+  size_t m_handles;
+};
 
 struct mdb_txn_safe
 {
-  mdb_txn_safe(const bool check=true);
-  ~mdb_txn_safe();
-
-  void commit(std::string message = "");
-
-  // This should only be needed for batch transaction which must be ensured to
-  // be aborted before mdb_env_close, not after. So we can't rely on
-  // BlockchainLMDB destructor to call mdb_txn_safe destructor, as that's too late
-  // to properly abort, since mdb_env_close would have been called earlier.
-  void abort();
-  void uncheck();
-
-  operator MDB_txn*()
-  {
-    return m_txn;
-  }
-
-  operator MDB_txn**()
-  {
-    return &m_txn;
-  }
-
-  uint64_t num_active_tx() const;
-
   static void prevent_new_txns();
   static void wait_no_active_txns();
   static void allow_new_txns();
 
-  mdb_threadinfo* m_tinfo;
-  MDB_txn* m_txn;
-  bool m_batch_txn = false;
-  bool m_check;
   static std::atomic<uint64_t> num_active_txns;
 
   // could use a mutex here, but this should be sufficient.
   static std::atomic_flag creation_gate;
+};
+
+class mdb_writer_data
+{
+  public:
+    mdb_writer_data(MDB_env* env, mdb_databases& databases) :
+      m_env{env},
+      m_txn{nullptr},
+      m_databases{databases},
+      m_writer_thread{},
+      m_writer_depth{0},
+      m_error{false}
+    {}
+
+    ~mdb_writer_data();
+
+    boost::thread::id current_thread() const noexcept;
+
+    mdb_databases& databases() noexcept;
+    mdb_txn_cursors& cursors();
+
+    MDB_cursor* cursor(source database);
+
+    MDB_txn* try_acquire() noexcept;
+    MDB_txn* acquire();
+
+    void release(bool error = false);
+  private:
+    MDB_env* m_env;
+    MDB_txn* m_txn;
+    mdb_databases& m_databases;
+    boost::optional<mdb_txn_cursors> m_cursors;
+    boost::atomic<boost::thread::id> m_writer_thread;
+    size_t m_writer_depth;
+    bool m_error;
+};
+
+class mdb_write_handle
+{
+  public:
+    mdb_write_handle(mdb_writer_data& data) :
+      m_data{&data},
+      m_txn{data.acquire()}
+    {}
+
+    ~mdb_write_handle();
+
+    mdb_write_handle& operator=(const mdb_write_handle&) = delete;
+    mdb_write_handle& operator=(mdb_write_handle&& that) noexcept;
+
+    operator MDB_txn*() const noexcept
+    {
+      return m_txn;
+    }
+
+    void commit();
+    void abort();
+
+    MDB_cursor* cursor(source database);
+  private:
+    mdb_writer_data* m_data;
+    MDB_txn* m_txn;
+};
+
+
+class mdb_read_handle
+{
+  public:
+    mdb_read_handle() :
+      m_databases{nullptr},
+      m_reader{nullptr},
+      m_writer{nullptr},
+      m_txn{nullptr}
+    {}
+
+    mdb_read_handle(MDB_env* env, mdb_databases& databases, mdb_writer_data& writer, boost::thread_specific_ptr<mdb_threadinfo>& tinfo);
+    ~mdb_read_handle();
+
+    mdb_read_handle& operator=(const mdb_read_handle&) = delete;
+    mdb_read_handle& operator=(mdb_read_handle&& that) noexcept;
+
+    operator MDB_txn*() const noexcept
+    {
+      return m_txn;
+    }
+
+    void abort();
+
+    MDB_cursor* cursor(source database);
+  private:
+    mdb_databases* m_databases;
+    mdb_threadinfo* m_reader;
+    mdb_writer_data* m_writer;
+    MDB_txn* m_txn;
 };
 
 
@@ -355,6 +445,7 @@ public:
   static int compare_string(const MDB_val *a, const MDB_val *b);
 
 private:
+  void db_open(MDB_txn* txn, int flags, source database);
   void do_resize(uint64_t size_increase=0);
 
   bool need_resize(uint64_t threshold_size=0) const;
@@ -444,44 +535,19 @@ private:
 private:
   MDB_env* m_env;
 
-  MDB_dbi m_blocks;
-  MDB_dbi m_block_heights;
-  MDB_dbi m_block_info;
-
-  MDB_dbi m_txs;
-  MDB_dbi m_txs_pruned;
-  MDB_dbi m_txs_prunable;
-  MDB_dbi m_txs_prunable_hash;
-  MDB_dbi m_txs_prunable_tip;
-  MDB_dbi m_tx_indices;
-  MDB_dbi m_tx_outputs;
-
-  MDB_dbi m_output_txs;
-  MDB_dbi m_output_amounts;
-
-  MDB_dbi m_spent_keys;
-
-  MDB_dbi m_txpool_meta;
-  MDB_dbi m_txpool_blob;
-
-  MDB_dbi m_alt_blocks;
+  mutable mdb_databases m_databases;
 
   MDB_dbi m_hf_starting_heights;
-  MDB_dbi m_hf_versions;
-
-  MDB_dbi m_properties;
 
   mutable uint64_t m_cum_size;	// used in batch size estimation
   mutable unsigned int m_cum_count;
   std::string m_folder;
-  mdb_txn_safe* m_write_txn; // may point to either a short-lived txn or a batch txn
-  mdb_txn_safe* m_write_batch_txn; // persist batch txn outside of BlockchainLMDB
-  boost::thread::id m_writer;
+
+  mutable boost::optional<mdb_writer_data> m_write_data;
+  boost::optional<mdb_write_handle> m_batch_handle;
 
   bool m_batch_transactions; // support for batch transactions
-  bool m_batch_active; // whether batch transaction is in progress
 
-  mdb_txn_cursors m_wcursors;
   mutable boost::thread_specific_ptr<mdb_threadinfo> m_tinfo;
 
 #if defined(__arm__)
