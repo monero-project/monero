@@ -84,7 +84,7 @@ namespace epee
     return write_hex(out, src);
   }
 
-  std::vector<uint8_t> from_hex::vector(boost::string_ref src)
+  std::vector<uint8_t> from_hex::vector(const boost::string_ref src)
   {
     // should we include a specific character
     auto include = [](char input) {
@@ -104,7 +104,7 @@ namespace epee
     result.reserve(count / 2);
 
     // the data to work with (std::string is always null-terminated)
-    auto data = src.data();
+    auto data = src.begin();
 
     // convert a single hex character to an unsigned integer
     auto char_to_int = [](const char *input) {
@@ -130,9 +130,9 @@ namespace epee
     };
 
     // keep going until we reach the end
-    while (data[0] != '\0') {
+    while (data != src.end()) {
       // skip unwanted characters
-      if (!include(data[0])) {
+      if (!include(*data)) {
         ++data;
         continue;
       }
