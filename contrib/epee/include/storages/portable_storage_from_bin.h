@@ -143,7 +143,7 @@ namespace epee
       //TODO: add some optimization here later
       while(size--)
         sa.m_array.push_back(read<type_name>());
-      return storage_entry(array_entry(sa));
+      return storage_entry(array_entry(std::move(sa)));
     }
 
     inline 
@@ -213,7 +213,7 @@ namespace epee
     {
       RECURSION_LIMITATION();
       section s;//use extra variable due to vs bug, line "storage_entry se(section()); " can't be compiled in visual studio
-      storage_entry se(s);
+      storage_entry se(std::move(s));
       section& section_entry = boost::get<section>(se);
       read(section_entry);
       return se;
@@ -268,7 +268,7 @@ namespace epee
         //read section name string
         std::string sec_name;
         read_sec_name(sec_name);
-        sec.m_entries.insert(std::make_pair(sec_name, load_storage_entry()));
+        sec.m_entries.emplace(std::move(sec_name), load_storage_entry());
       }
     }
     inline 

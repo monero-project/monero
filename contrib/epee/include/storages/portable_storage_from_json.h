@@ -128,20 +128,20 @@ namespace epee
                   errno = 0;
                   int64_t nval = strtoll(val.data(), NULL, 10);
                   if (errno) throw std::runtime_error("Invalid number: " + std::string(val));
-                  stg.set_value(name, nval, current_section);              
+                  stg.set_value(name, int64_t(nval), current_section);
                 }else
                 {
                   errno = 0;
                   uint64_t nval = strtoull(val.data(), NULL, 10);
                   if (errno) throw std::runtime_error("Invalid number: " + std::string(val));
-                  stg.set_value(name, nval, current_section);              
+                  stg.set_value(name, uint64_t(nval), current_section);
                 }
               }else
               {
                 errno = 0;
                 double nval = strtod(val.data(), NULL);
                 if (errno) throw std::runtime_error("Invalid number: " + std::string(val));
-                stg.set_value(name, nval, current_section);              
+                stg.set_value(name, double(nval), current_section);
               }
               state = match_state_wonder_after_value;
             }else if(isalpha(*it) )
@@ -219,13 +219,13 @@ namespace epee
                   errno = 0;
                   int64_t nval = strtoll(val.data(), NULL, 10);
                   if (errno) throw std::runtime_error("Invalid number: " + std::string(val));
-                  h_array = stg.insert_first_value(name, nval, current_section);
+                  h_array = stg.insert_first_value(name, int64_t(nval), current_section);
                 }else
                 {
                   errno = 0;
                   uint64_t nval = strtoull(val.data(), NULL, 10);
                   if (errno) throw std::runtime_error("Invalid number: " + std::string(val));
-                  h_array = stg.insert_first_value(name, nval, current_section);
+                  h_array = stg.insert_first_value(name, uint64_t(nval), current_section);
                 }
                 CHECK_AND_ASSERT_THROW_MES(h_array, " failed to insert values section entry");
               }else
@@ -233,7 +233,7 @@ namespace epee
                 errno = 0;
                 double nval = strtod(val.data(), NULL);
                 if (errno) throw std::runtime_error("Invalid number: " + std::string(val));
-                h_array = stg.insert_first_value(name, nval, current_section);
+                h_array = stg.insert_first_value(name, double(nval), current_section);
                 CHECK_AND_ASSERT_THROW_MES(h_array, " failed to insert values section entry");
               }
 
@@ -310,20 +310,20 @@ namespace epee
                     errno = 0;
                     int64_t nval = strtoll(val.data(), NULL, 10);
                     if (errno) throw std::runtime_error("Invalid number: " + std::string(val));
-                    insert_res = stg.insert_next_value(h_array, nval);
+                    insert_res = stg.insert_next_value(h_array, int64_t(nval));
                   }else
                   {
                     errno = 0;
                     uint64_t nval = strtoull(val.data(), NULL, 10);
                     if (errno) throw std::runtime_error("Invalid number: " + std::string(val));
-                    insert_res = stg.insert_next_value(h_array, nval);
+                    insert_res = stg.insert_next_value(h_array, uint64_t(nval));
                   }
                 }else
                 {
                   errno = 0;
                   double nval = strtod(val.data(), NULL);
                   if (errno) throw std::runtime_error("Invalid number: " + std::string(val));
-                  insert_res = stg.insert_next_value(h_array, nval);              
+                  insert_res = stg.insert_next_value(h_array, double(nval));
                 }
                 CHECK_AND_ASSERT_THROW_MES(insert_res, "Failed to insert next value");
                 state = match_state_array_after_value;

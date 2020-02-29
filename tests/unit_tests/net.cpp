@@ -271,7 +271,7 @@ TEST(tor_address, epee_serializev_v2)
         EXPECT_EQ(std::strlen(v2_onion), host.size());
 
         host.push_back('k');
-        EXPECT_TRUE(stg.set_value("host", host, stg.open_section("tor", nullptr, false)));
+        EXPECT_TRUE(stg.set_value("host", std::move(host), stg.open_section("tor", nullptr, false)));
         EXPECT_TRUE(command.load(stg)); // poor error reporting from `KV_SERIALIZE`
     }
 
@@ -322,7 +322,7 @@ TEST(tor_address, epee_serializev_v3)
         EXPECT_EQ(std::strlen(v3_onion), host.size());
 
         host.push_back('k');
-        EXPECT_TRUE(stg.set_value("host", host, stg.open_section("tor", nullptr, false)));
+        EXPECT_TRUE(stg.set_value("host", std::move(host), stg.open_section("tor", nullptr, false)));
         EXPECT_TRUE(command.load(stg)); // poor error reporting from `KV_SERIALIZE`
     }
 
@@ -373,7 +373,7 @@ TEST(tor_address, epee_serialize_unknown)
         EXPECT_EQ(std::strlen(net::tor_address::unknown_str()), host.size());
 
         host.push_back('k');
-        EXPECT_TRUE(stg.set_value("host", host, stg.open_section("tor", nullptr, false)));
+        EXPECT_TRUE(stg.set_value("host", std::move(host), stg.open_section("tor", nullptr, false)));
         EXPECT_TRUE(command.load(stg)); // poor error reporting from `KV_SERIALIZE`
     }
 
