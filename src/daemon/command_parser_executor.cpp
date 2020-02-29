@@ -857,13 +857,27 @@ bool t_command_parser_executor::set_bootstrap_daemon(const std::vector<std::stri
 
 bool t_command_parser_executor::flush_cache(const std::vector<std::string>& args)
 {
+  bool bad_txs = false, bad_blocks = false;
+  std::string arg;
+
   if (args.empty())
     goto show_list;
-  if (args[0] == "bad-txs")
-    return m_executor.flush_cache(true);
+
+  for (size_t i = 0; i < args.size(); ++i)
+  {
+    arg = args[i];
+    if (arg == "bad-txs")
+      bad_txs = true;
+    else if (arg == "bad-blocks")
+      bad_blocks = true;
+    else
+      goto show_list;
+  }
+  return m_executor.flush_cache(bad_txs, bad_blocks);
 
 show_list:
-  std::cout << "Cache type needed: bad-txs" << std::endl;
+  std::cout << "Invalid cache type: " << arg << std::endl;
+  std::cout << "Cache types: bad-txs bad-blocks" << std::endl;
   return true;
 }
 

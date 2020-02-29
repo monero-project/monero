@@ -859,6 +859,11 @@ namespace cryptonote
       */
      void flush_bad_txs_cache();
 
+     /**
+      * @brief flushes the invalid block cache
+      */
+     void flush_invalid_blocks();
+
    private:
 
      /**

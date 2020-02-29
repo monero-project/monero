@@ -325,7 +325,7 @@ t_command_server::t_command_server(
     m_command_lookup.set_handler(
       "flush_cache"
     , std::bind(&t_command_parser_executor::flush_cache, &m_parser, p::_1)
-    , "flush_cache bad-txs"
+    , "flush_cache [bad-txs] [bad-blocks]"
     , "Flush the specified cache(s)."
     );
 }
