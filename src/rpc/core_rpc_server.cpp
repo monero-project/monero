@@ -157,6 +157,7 @@ namespace cryptonote
     : m_core(cr)
     , m_p2p(p2p)
     , m_was_bootstrap_ever_used(false)
+    , disable_rpc_ban(false)
   {}
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::set_bootstrap_daemon(const std::string &address, const std::string &username_password)
@@ -247,6 +248,7 @@ namespace cryptonote
     if (!rpc_config)
       return false;
 
+    disable_rpc_ban = rpc_config->disable_rpc_ban;
     std::string address = command_line::get_arg(vm, arg_rpc_payment_address);
     if (!address.empty() && allow_rpc_payment)
     {
@@ -359,7 +361,7 @@ namespace cryptonote
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::add_host_fail(const connection_context *ctx, unsigned int score)
   {
-    if(!ctx || !ctx->m_remote_address.is_blockable())
+    if(!ctx || !ctx->m_remote_address.is_blockable() || disable_rpc_ban)
       return false;
 
     CRITICAL_REGION_LOCAL(m_host_fails_score_lock);

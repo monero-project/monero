@@ -65,6 +65,7 @@ namespace cryptonote
       const command_line::arg_descriptor<std::vector<std::string>> rpc_ssl_allowed_fingerprints;
       const command_line::arg_descriptor<bool> rpc_ssl_allow_chained;
       const command_line::arg_descriptor<bool> rpc_ssl_allow_any_cert;
+      const command_line::arg_descriptor<bool> disable_rpc_ban;
     };
 
     // `allow_any_cert` bool toggles `--rpc-ssl-allow-any-cert` configuration
@@ -85,5 +86,6 @@ namespace cryptonote
     std::vector<std::string> access_control_origins;
     boost::optional<tools::login> login; // currently `boost::none` if unspecified by user
     epee::net_utils::ssl_options_t ssl_options = epee::net_utils::ssl_support_t::e_ssl_support_enabled;
+    bool disable_rpc_ban = false;
   };
 }

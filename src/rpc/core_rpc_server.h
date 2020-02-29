@@ -286,6 +286,7 @@ private:
     epee::critical_section m_host_fails_score_lock;
     std::map<std::string, uint64_t> m_host_fails_score;
     std::unique_ptr<rpc_payment> m_rpc_payment;
+    bool disable_rpc_ban;
   };
 }
 
