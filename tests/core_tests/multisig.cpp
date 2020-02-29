@@ -180,8 +180,6 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
         false, "Failed to generate block");
     events.push_back(blocks[n]);
     prev_block = blocks + n;
-    LOG_PRINT_L0("Initial miner tx " << n << ": " << obj_to_json_str(blocks[n].miner_tx));
-    LOG_PRINT_L0("in block: " << obj_to_json_str(blocks[n]));
   }
 
   // rewind
