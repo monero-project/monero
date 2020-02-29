@@ -5584,6 +5584,14 @@ boost::optional<epee::wipeable_string> simple_wallet::on_device_passphrase_reque
 //----------------------------------------------------------------------------------------------------
 void simple_wallet::on_refresh_finished(uint64_t start_height, uint64_t fetched_blocks, bool is_init, bool received_money)
 {
+  const uint64_t rfbh = m_wallet->get_refresh_from_block_height();
+  std::string err;
+  const uint64_t dh = m_wallet->get_daemon_blockchain_height(err);
+  if (err.empty() && rfbh > dh)
+  {
+    message_writer(console_color_yellow, false) << tr("The wallet's refresh-from-block-height setting is higher than the daemon's height: this may mean your wallet will skip over transactions");
+  }
+
   // Key image sync after the first refresh
   if (!m_wallet->get_account().get_device().has_tx_cold_sign() || m_wallet->get_account().get_device().has_ki_live_refresh()) {
     return;
