@@ -2023,12 +2023,20 @@ namespace cryptonote
     struct response_t: public rpc_access_response_base
     {
       uint64_t emission_amount;
+      std::string wide_emission_amount;
+      uint64_t emission_amount_top64;
       uint64_t fee_amount;
+      std::string wide_fee_amount;
+      uint64_t fee_amount_top64;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_access_response_base)
         KV_SERIALIZE(emission_amount)
+        KV_SERIALIZE(wide_emission_amount)
+        KV_SERIALIZE(emission_amount_top64)
         KV_SERIALIZE(fee_amount)
+        KV_SERIALIZE(wide_fee_amount)
+        KV_SERIALIZE(fee_amount_top64)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;

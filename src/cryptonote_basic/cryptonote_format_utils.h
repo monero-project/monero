@@ -38,6 +38,7 @@
 #include "crypto/crypto.h"
 #include "crypto/hash.h"
 #include <unordered_map>
+#include <boost/multiprecision/cpp_int.hpp>
 
 namespace epee
 {
@@ -139,6 +140,7 @@ namespace cryptonote
   unsigned int get_default_decimal_point();
   std::string get_unit(unsigned int decimal_point = -1);
   std::string print_money(uint64_t amount, unsigned int decimal_point = -1);
+  std::string print_money(const boost::multiprecision::uint128_t &amount, unsigned int decimal_point = -1);
   //---------------------------------------------------------------
   template<class t_object>
   bool t_serializable_object_from_blob(t_object& to, const blobdata& b_blob)
