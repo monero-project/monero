@@ -34,6 +34,8 @@ env:
     - HOST=x86_64-unknown-linux-gnu PACKAGES="gperf cmake python3-zmq libdbus-1-dev libharfbuzz-dev"
 # Cross-Mac
     - HOST=x86_64-apple-darwin11 PACKAGES="cmake imagemagick libcap-dev librsvg2-bin libz-dev libbz2-dev libtiff-tools python-dev python3-setuptools-git" OSX_SDK=10.11
+# x86_64 Freebsd
+    - HOST=x86_64-unknown-freebsd PACKAGES="clang-8 gperf cmake python3-zmq libdbus-1-dev libharfbuzz-dev"
 
 before_install:
     - export PATH=$(echo $PATH | tr ':' "\n" | sed '/\/opt\/python/d' | tr "\n" ":" | sed "s|::|:|g")
