@@ -113,14 +113,6 @@ RUN git clone https://github.com/zeromq/libzmq.git -b ${ZMQ_VERSION} \
     && make -j${NPROC} \
     && make install
 
-# zmq.hpp
-ARG CPPZMQ_VERSION=v4.2.3
-ARG CPPZMQ_HASH=6aa3ab686e916cb0e62df7fa7d12e0b13ae9fae6
-RUN git clone https://github.com/zeromq/cppzmq.git -b ${CPPZMQ_VERSION} \
-    && cd cppzmq \
-    && test `git rev-parse HEAD` = ${CPPZMQ_HASH} || exit 1 \
-    && cp *.hpp ${PREFIX}/include
-
 # Sodium
 ARG SODIUM_VERSION=1.0.16
 ARG SODIUM_HASH=675149b9b8b66ff44152553fb3ebf9858128363d
