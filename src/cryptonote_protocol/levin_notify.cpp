@@ -43,6 +43,9 @@
 #include "net/dandelionpp.h"
 #include "p2p/net_node.h"
 
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "net.p2p.tx"
+
 namespace cryptonote
 {
 namespace levin
@@ -242,6 +245,8 @@ namespace levin
 
         if (!channel.connection.is_nil())
           channel.queue.push_back(std::move(message_));
+        else if (destination_ == 0 && zone_->connection_count == 0)
+          MWARNING("Unable to send transaction(s) over anonymity network - no available outbound connections");
       }
     };
 
@@ -286,8 +291,12 @@ namespace levin
           return true;
         });
 
+        bool sent = false;
         for (const boost::uuids::uuid& connection : connections)
-          zone_->p2p->send(message_.clone(), connection);
+          sent |= zone_->p2p->send(message_.clone(), connection);
+
+        if (!sent)
+          MWARNING("Unable to send transaction(s), no available connections");
       }
     };
 
@@ -441,9 +450,12 @@ namespace levin
           {
             channel.active = nullptr;
             channel.connection = boost::uuids::nil_uuid();
-            zone_->strand.post(
-              update_channels{zone_, get_out_connections(*zone_->p2p)}
-            );
+
+            auto connections = get_out_connections(*zone_->p2p);
+            if (connections.empty())
+              MWARNING("Lost all outbound connections to anonymity network - currently unable to send transaction(s)");
+
+            zone_->strand.post(update_channels{zone_, std::move(connections)});
           }
         }
 
