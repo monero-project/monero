@@ -61,7 +61,6 @@
 #include "crypto_ops.h"
 #include "multiexp.h"
 #include "sig_mlsag.h"
-#include "sig_clsag.h"
 
 namespace po = boost::program_options;
 
@@ -216,7 +215,6 @@ int main(int argc, char** argv)
   TEST_PERFORMANCE1(filter, p, test_cn_fast_hash, 16384);
 
   TEST_PERFORMANCE2(filter, p, test_sig_mlsag, 11, true); // MLSAG verification
-  TEST_PERFORMANCE3(filter, p, test_sig_clsag, 11, true, 0); // CLSAG verification
 
   TEST_PERFORMANCE2(filter, p, test_ringct_mlsag, 11, false);
   TEST_PERFORMANCE2(filter, p, test_ringct_mlsag, 11, true);
