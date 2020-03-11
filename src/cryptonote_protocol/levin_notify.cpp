@@ -363,7 +363,10 @@ namespace levin
         });
 
         for (auto& connection : connections)
+        {
+          std::sort(connection.first.begin(), connection.first.end()); // don't leak receive order
           make_payload_send_txs(*zone_->p2p, std::move(connection.first), connection.second, zone_->pad_txs);
+        }
 
         if (next_flush != std::chrono::steady_clock::time_point::max())
           fluff_flush::queue(std::move(zone_), next_flush);
