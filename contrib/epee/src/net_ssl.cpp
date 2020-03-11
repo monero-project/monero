@@ -289,7 +289,9 @@ ssl_options_t::ssl_options_t(std::vector<std::vector<std::uint8_t>> fingerprints
 
 boost::asio::ssl::context ssl_options_t::create_context() const
 {
-  boost::asio::ssl::context ssl_context{boost::asio::ssl::context::tls};
+  // note: this enables a lot of old and insecure protocols, which we
+  // promptly disable below - if the result is actually used
+  boost::asio::ssl::context ssl_context{boost::asio::ssl::context::sslv23};
   if (!bool(*this))
     return ssl_context;
 
