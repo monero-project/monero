@@ -32,14 +32,17 @@
 
 #include "ringct/rctSigs.h"
 #include "cryptonote_basic/cryptonote_basic.h"
+#include "device/device.hpp"
 
 #include "single_tx_test_base.h"
 
-template<size_t ring_size, bool ver, size_t index>
+using namespace rct;
+
+template<size_t ring_size, size_t index>
 class test_sig_clsag : public single_tx_test_base
 {
 public:
-  static const size_t n = ring_size;
+  static const size_t N = ring_size;
   static const size_t loop_count = 1000;
   static const size_t l = index;
 
@@ -48,36 +51,49 @@ public:
     if (!single_tx_test_base::init())
       return false;
 
-    p = rct::skGen();
-    z = rct::skGen();
-    P = rct::skvGen(n);
-    C = rct::skvGen(n);
-    for (size_t i = 0 ; i < n; i++)
+    message = identity();
+
+    pubs.reserve(N);
+    for (size_t i = 0; i < N; i++)
     {
-        P[i] = rct::scalarmultBase(P[i]);
-        C[i] = rct::scalarmultBase(C[i]);
+        key sk;
+        ctkey tmp;
+
+        skpkGen(sk, tmp.dest);
+        skpkGen(sk, tmp.mask);
+
+        pubs.push_back(tmp);
     }
-    P[l] = rct::scalarmultBase(p);
-    C[l] = rct::scalarmultBase(z);
+
+    key p;
+    skpkGen(p,pubs[l].dest);
     
-    sig = CLSAG_Gen(rct::identity(),P,p,C,z,l);
+    key t,u;
+    t = skGen();
+    u = skGen();
+    addKeys2(pubs[l].mask,t,u,H);
+
+    key t2;
+    t2 = skGen();
+    addKeys2(C_offset,t2,u,H);
+
+    ctkey insk;
+    insk.dest = p;
+    insk.mask = t;
+
+    sig = proveRctCLSAGSimple(message,pubs,insk,t2,C_offset,NULL,NULL,NULL,l,hw::get_device("default"));
 
     return true;
   }
 
   bool test()
   {
-    if (ver)
-      return CLSAG_Ver(rct::identity(),P,C,sig);
-    else
-      CLSAG_Gen(rct::identity(),P,p,C,z,l);
-    return true;
+    return verRctCLSAGSimple(message,sig,pubs,C_offset);
   }
 
 private:
-  rct::key p;
-  rct::key z;
-  rct::keyV P;
-  rct::keyV C;
-  rct::clsag sig;
+  ctkeyV pubs;
+  key C_offset;
+  clsag sig;
+  key message;
 };
