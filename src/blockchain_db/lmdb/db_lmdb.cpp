@@ -1915,6 +1915,7 @@ bool BlockchainLMDB::get_txpool_tx_blob(const crypto::hash& txid, cryptonote::bl
   // if filtering, make sure those requirements are met before copying blob
   if (tx_category != relay_category::all)
   {
+    RCURSOR(txpool_meta)
     auto result = mdb_cursor_get(m_cur_txpool_meta, &k, &v, MDB_SET);
     if (result == MDB_NOTFOUND)
       return false;
