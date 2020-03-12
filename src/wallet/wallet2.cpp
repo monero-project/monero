@@ -2874,7 +2874,7 @@ void wallet2::remove_obsolete_pool_txs(const std::vector<crypto::hash> &tx_hashe
 }
 
 //----------------------------------------------------------------------------------------------------
-void wallet2::update_pool_state(std::vector<std::pair<cryptonote::transaction, bool>> &process_txs, bool refreshed)
+void wallet2::update_pool_state(std::vector<std::tuple<cryptonote::transaction, crypto::hash, bool>> &process_txs, bool refreshed)
 {
   MTRACE("update_pool_state start");
 
@@ -3064,7 +3064,7 @@ void wallet2::update_pool_state(std::vector<std::pair<cryptonote::transaction, b
                     [tx_hash](const std::pair<crypto::hash, bool> &e) { return e.first == tx_hash; });
                 if (i != txids.end())
                 {
-                  process_txs.push_back(std::make_pair(tx, tx_entry.double_spend_seen));
+                  process_txs.push_back(std::make_tuple(tx, tx_hash, tx_entry.double_spend_seen));
                 }
                 else
                 {
@@ -3095,14 +3095,14 @@ void wallet2::update_pool_state(std::vector<std::pair<cryptonote::transaction, b
   MTRACE("update_pool_state end");
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::process_pool_state(const std::vector<std::pair<cryptonote::transaction, bool>> &txs)
+void wallet2::process_pool_state(const std::vector<std::tuple<cryptonote::transaction, crypto::hash, bool>> &txs)
 {
   const time_t now = time(NULL);
   for (const auto &e: txs)
   {
-    const cryptonote::transaction &tx = e.first;
-    const bool double_spend_seen = e.second;
-    const crypto::hash tx_hash = get_transaction_hash(tx);
+    const cryptonote::transaction &tx = std::get<0>(e);
+    const crypto::hash &tx_hash = std::get<1>(e);
+    const bool double_spend_seen = std::get<2>(e);
     process_new_transaction(tx_hash, tx, std::vector<uint64_t>(), 0, 0, now, false, true, double_spend_seen, {});
     m_scanned_pool_txs[0].insert(tx_hash);
     if (m_scanned_pool_txs[0].size() > 5000)
@@ -3323,7 +3323,7 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
   // since that might cause a password prompt, which would introduce a data
   // leak allowing a passive adversary with traffic analysis capability to
   // infer when we get an incoming output
-  std::vector<std::pair<cryptonote::transaction, bool>> process_pool_txs;
+  std::vector<std::tuple<cryptonote::transaction, crypto::hash, bool>> process_pool_txs;
   update_pool_state(process_pool_txs, true);
 
   bool first = true, last = false;
