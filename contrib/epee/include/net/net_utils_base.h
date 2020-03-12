@@ -94,17 +94,13 @@ namespace net_utils
 		BEGIN_KV_SERIALIZE_MAP()
 			if (is_store)
 			{
-				KV_SERIALIZE_VAL_POD_AS_BLOB_N(m_ip, "ip")
 				uint32_t ip = SWAP32LE(this_ref.m_ip);
 				epee::serialization::selector<is_store>::serialize(ip, stg, hparent_section, "m_ip");
 			}
 			else
 			{
-				if (!epee::serialization::selector<is_store>::serialize_t_val_as_blob(this_ref.m_ip, stg, hparent_section, "ip"))
-				{
-					KV_SERIALIZE(m_ip)
-					const_cast<ipv4_network_address&>(this_ref).m_ip = SWAP32LE(this_ref.m_ip);
-				}
+				KV_SERIALIZE(m_ip)
+				const_cast<ipv4_network_address&>(this_ref).m_ip = SWAP32LE(this_ref.m_ip);
 			}
 			KV_SERIALIZE(m_port)
 		END_KV_SERIALIZE_MAP()

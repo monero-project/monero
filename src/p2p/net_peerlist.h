@@ -269,19 +269,19 @@ namespace nodetool
     peers_indexed::index<by_time>::type& by_time_index=m_peers_white.get<by_time>();
     uint32_t cnt = 0;
 
-    // picks a random set of peers within the first 120%, rather than a set of the first 100%.
+    // picks a random set of peers within the whole set, rather pick the first depth elements.
     // The intent is that if someone asks twice, they can't easily tell:
     // - this address was not in the first list, but is in the second, so the only way this can be
     // is if its last_seen was recently reset, so this means the target node recently had a new
     // connection to that address
     // - this address was in the first list, and not in the second, which means either the address
-    // was moved to the gray list (if it's not accessibe, which the attacker can check if
+    // was moved to the gray list (if it's not accessible, which the attacker can check if
     // the address accepts incoming connections) or it was the oldest to still fit in the 250 items,
     // so its last_seen is old.
     //
     // See Cao, Tong et al. "Exploring the Monero Peer-to-Peer Network". https://eprint.iacr.org/2019/411
     //
-    const uint32_t pick_depth = anonymize ? depth + depth / 5 : depth;
+    const uint32_t pick_depth = anonymize ? m_peers_white.size() : depth;
     bs_head.reserve(pick_depth);
     for(const peers_indexed::value_type& vl: boost::adaptors::reverse(by_time_index))
     {

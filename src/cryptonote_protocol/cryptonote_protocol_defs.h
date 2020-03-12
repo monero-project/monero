@@ -257,7 +257,10 @@ namespace cryptonote
     BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE(current_height)
       KV_SERIALIZE(cumulative_difficulty)
-      KV_SERIALIZE(cumulative_difficulty_top64)
+      if (is_store)
+        KV_SERIALIZE(cumulative_difficulty_top64)
+      else
+        KV_SERIALIZE_OPT(cumulative_difficulty_top64, (uint64_t)0)
       KV_SERIALIZE_VAL_POD_AS_BLOB(top_id)
       KV_SERIALIZE_OPT(top_version, (uint8_t)0)
       KV_SERIALIZE_OPT(pruning_seed, (uint32_t)0)
@@ -298,7 +301,10 @@ namespace cryptonote
         KV_SERIALIZE(start_height)
         KV_SERIALIZE(total_height)
         KV_SERIALIZE(cumulative_difficulty)
-        KV_SERIALIZE(cumulative_difficulty_top64)
+        if (is_store)
+          KV_SERIALIZE(cumulative_difficulty_top64)
+        else
+          KV_SERIALIZE_OPT(cumulative_difficulty_top64, (uint64_t)0)
         KV_SERIALIZE_CONTAINER_POD_AS_BLOB(m_block_ids)
         KV_SERIALIZE_CONTAINER_POD_AS_BLOB(m_block_weights)
       END_KV_SERIALIZE_MAP()
