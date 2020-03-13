@@ -128,7 +128,7 @@ namespace net_utils
 // https://stackoverflow.com/questions/256405/programmatically-create-x509-certificate-using-openssl
 bool create_rsa_ssl_certificate(EVP_PKEY *&pkey, X509 *&cert)
 {
-  MGINFO("Generating SSL certificate");
+  MINFO("Generating SSL certificate");
   pkey = EVP_PKEY_new();
   if (!pkey)
   {
@@ -198,7 +198,7 @@ bool create_rsa_ssl_certificate(EVP_PKEY *&pkey, X509 *&cert)
 
 bool create_ec_ssl_certificate(EVP_PKEY *&pkey, X509 *&cert, int type)
 {
-  MGINFO("Generating SSL certificate");
+  MINFO("Generating SSL certificate");
   pkey = EVP_PKEY_new();
   if (!pkey)
   {
