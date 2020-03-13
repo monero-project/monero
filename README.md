@@ -10,8 +10,6 @@ Portions Copyright (c) 2012-2013 The Cryptonote developers.
   - [Research](#research)
   - [Announcements](#announcements)
   - [Translations](#translations)
-  - [Build Status](#build-status)
-    - [IMPORTANT](#important)
   - [Coverage](#coverage)
   - [Introduction](#introduction)
   - [About this project](#about-this-project)
