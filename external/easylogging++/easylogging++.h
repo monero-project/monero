@@ -127,6 +127,8 @@
 #endif
 #if defined(__EMSCRIPTEN__)
 #  define ELPP_OS_EMSCRIPTEN 1
+#else
+#  define ELPP_OS_EMSCRIPTEN 0
 #endif
 #if (defined(__DragonFly__))
 #   define ELPP_OS_DRAGONFLY 1
