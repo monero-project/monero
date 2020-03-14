@@ -30,11 +30,11 @@
 
 #include <boost/utility/string_ref.hpp>
 #include <cstring>
+#include "string_tools.h" // out of order because windows.h GetObject macro conflicts with GenericValue<..>::GetObject()
 #include <rapidjson/document.h>
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
 
-#include "string_tools.h"
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "rpc/message_data_structs.h"
 #include "cryptonote_protocol/cryptonote_protocol_defs.h"
