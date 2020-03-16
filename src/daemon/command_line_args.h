@@ -121,6 +121,10 @@ namespace daemon_args
       return val;
     }
   };
+  const command_line::arg_descriptor<std::vector<std::string>> arg_zmq_pub = {
+    "zmq-pub"
+  , "Address for ZMQ pub - tcp://ip:port or ipc://path"
+  };
 
   const command_line::arg_descriptor<bool> arg_zmq_rpc_disabled = {
     "no-zmq"
