@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2019, The Monero Project
+// Copyright (c) 2014-2020, The Monero Project
 //
 // All rights reserved.
 //
@@ -45,6 +45,7 @@
 #include "boost/archive/portable_binary_iarchive.hpp"
 #include "boost/archive/portable_binary_oarchive.hpp"
 #include "byte_slice.h"
+#include "byte_stream.h"
 #include "crypto/crypto.h"
 #include "hex.h"
 #include "net/net_utils_base.h"
@@ -807,6 +808,259 @@ TEST(ByteSlice, GetSlice)
 
   // touch original pointers to check "free" status
   EXPECT_TRUE(boost::range::equal(base_string, original));
+}
+
+TEST(ByteStream, Construction)
+{
+  EXPECT_TRUE(std::is_default_constructible<epee::byte_stream>());
+  EXPECT_TRUE(std::is_move_constructible<epee::byte_stream>());
+  EXPECT_FALSE(std::is_copy_constructible<epee::byte_stream>());
+  EXPECT_TRUE(std::is_move_assignable<epee::byte_stream>());
+  EXPECT_FALSE(std::is_copy_assignable<epee::byte_stream>());
+}
+
+TEST(ByteStream, Noexcept)
+{
+  EXPECT_TRUE(std::is_nothrow_default_constructible<epee::byte_stream>());
+  EXPECT_TRUE(std::is_nothrow_move_constructible<epee::byte_stream>());
+  EXPECT_TRUE(std::is_nothrow_move_assignable<epee::byte_stream>());
+
+  epee::byte_stream lvalue;
+  const epee::byte_stream clvalue;
+
+  EXPECT_TRUE(noexcept(lvalue.data()));
+  EXPECT_TRUE(noexcept(clvalue.data()));
+  EXPECT_TRUE(noexcept(lvalue.tellp()));
+  EXPECT_TRUE(noexcept(clvalue.tellp()));
+  EXPECT_TRUE(noexcept(lvalue.available()));
+  EXPECT_TRUE(noexcept(clvalue.available()));
+  EXPECT_TRUE(noexcept(lvalue.size()));
+  EXPECT_TRUE(noexcept(clvalue.size()));
+  EXPECT_TRUE(noexcept(lvalue.capacity()));
+  EXPECT_TRUE(noexcept(clvalue.capacity()));
+  EXPECT_TRUE(noexcept(lvalue.put_unsafe(4)));
+  EXPECT_TRUE(noexcept(lvalue.take_buffer()));
+}
+
+TEST(ByteStream, Empty)
+{
+  epee::byte_stream stream;
+
+  EXPECT_EQ(epee::byte_stream::default_increase(), stream.increase_size());
+
+  EXPECT_EQ(nullptr, stream.data());
+  EXPECT_EQ(nullptr, stream.tellp());
+  EXPECT_EQ(0u, stream.available());
+  EXPECT_EQ(0u, stream.size());
+  EXPECT_EQ(0u, stream.capacity());
+
+  const auto buf = stream.take_buffer();
+  EXPECT_EQ(nullptr, buf.get());
+  EXPECT_EQ(nullptr, stream.data());
+  EXPECT_EQ(nullptr, stream.tellp());
+  EXPECT_EQ(0u, stream.available());
+  EXPECT_EQ(0u, stream.size());
+  EXPECT_EQ(0u, stream.capacity());
+}
+
+TEST(ByteStream, Write)
+{
+  using boost::range::equal;
+  using byte_span = epee::span<const std::uint8_t>;
+
+  static constexpr const std::uint8_t source[] =
+    {0xde, 0xad, 0xbe, 0xef, 0xef};
+
+  std::vector<std::uint8_t> bytes;
+  epee::byte_stream stream{4};
+
+  EXPECT_EQ(4u, stream.increase_size());
+
+  stream.write({source, 3});
+  bytes.insert(bytes.end(), source, source + 3);
+  EXPECT_EQ(3u, stream.size());
+  EXPECT_EQ(1u, stream.available());
+  EXPECT_EQ(4u, stream.capacity());
+  EXPECT_TRUE(equal(bytes, byte_span{stream.data(), stream.size()}));
+
+  stream.write({source, 2});
+  bytes.insert(bytes.end(), source, source + 2);
+  EXPECT_EQ(5u, stream.size());
+  EXPECT_EQ(3u, stream.available());
+  EXPECT_EQ(8u, stream.capacity());
+  EXPECT_TRUE(equal(bytes, byte_span{stream.data(), stream.size()}));
+
+  stream.write({source, 5});
+  bytes.insert(bytes.end(), source, source + 5);
+  EXPECT_EQ(10u, stream.size());
+  EXPECT_EQ(2u, stream.available());
+  EXPECT_EQ(12u, stream.capacity());
+  EXPECT_TRUE(equal(bytes, byte_span{stream.data(), stream.size()}));
+
+  stream.write({source, 2});
+  bytes.insert(bytes.end(), source, source + 2);
+  EXPECT_EQ(12u, stream.size());
+  EXPECT_EQ(0u, stream.available());
+  EXPECT_EQ(12u, stream.capacity());
+  EXPECT_TRUE(equal(bytes, byte_span{stream.data(), stream.size()}));
+
+  stream.write({source, 5});
+  bytes.insert(bytes.end(), source, source + 5);
+  EXPECT_EQ(17u, stream.size());
+  EXPECT_EQ(0u, stream.available());
+  EXPECT_EQ(17u, stream.capacity());
+  EXPECT_TRUE(equal(bytes, byte_span{stream.data(), stream.size()}));
+}
+
+TEST(ByteStream, Put)
+{
+  using boost::range::equal;
+  using byte_span = epee::span<const std::uint8_t>;
+
+  std::vector<std::uint8_t> bytes;
+  epee::byte_stream stream;
+
+  for (std::uint8_t i = 0; i < 200; ++i)
+  {
+    bytes.push_back(i);
+    stream.put(i);
+  }
+
+  EXPECT_EQ(200u, stream.size());
+  EXPECT_EQ(epee::byte_stream::default_increase() - 200, stream.available());
+  EXPECT_EQ(epee::byte_stream::default_increase(), stream.capacity());
+  EXPECT_TRUE(equal(bytes, byte_span{stream.data(), stream.size()}));
+}
+
+TEST(ByteStream, Reserve)
+{
+  using boost::range::equal;
+  using byte_span = epee::span<const std::uint8_t>;
+
+  static constexpr const std::uint8_t source[] =
+    {0xde, 0xad, 0xbe, 0xef, 0xef};
+
+  std::vector<std::uint8_t> bytes;
+  epee::byte_stream stream{4};
+
+  EXPECT_EQ(4u, stream.increase_size());
+
+  stream.reserve(100);
+  EXPECT_EQ(100u, stream.capacity());
+  EXPECT_EQ(0u, stream.size());
+  EXPECT_EQ(100u, stream.available());
+
+  for (std::size_t i = 0; i < 100 / sizeof(source); ++i)
+  {
+    stream.write(source);
+    bytes.insert(bytes.end(), source, source + sizeof(source));
+  }
+
+  EXPECT_EQ(100u, stream.size());
+  EXPECT_EQ(0u, stream.available());
+  EXPECT_EQ(100u, stream.capacity());
+  EXPECT_TRUE(equal(bytes, byte_span{stream.data(), stream.size()}));
+}
+
+TEST(ByteStream, TakeBuffer)
+{
+  using boost::range::equal;
+  using byte_span = epee::span<const std::uint8_t>;
+
+  static constexpr const std::uint8_t source[] =
+    {0xde, 0xad, 0xbe, 0xef, 0xef};
+
+  epee::byte_stream stream;
+
+  stream.write(source);
+  ASSERT_EQ(sizeof(source), stream.size());
+  EXPECT_TRUE(equal(source, byte_span{stream.data(), stream.size()}));
+
+  const auto buffer = stream.take_buffer();
+  EXPECT_EQ(0u, stream.size());
+  EXPECT_EQ(0u, stream.available());
+  EXPECT_EQ(0u, stream.capacity());
+  EXPECT_EQ(nullptr, stream.data());
+  EXPECT_EQ(nullptr, stream.tellp());
+  EXPECT_TRUE(equal(source, byte_span{buffer.get(), sizeof(source)}));
+}
+
+TEST(ByteStream, Move)
+{
+  using boost::range::equal;
+  using byte_span = epee::span<const std::uint8_t>;
+
+  static constexpr const std::uint8_t source[] =
+    {0xde, 0xad, 0xbe, 0xef, 0xef};
+
+  epee::byte_stream stream{10};
+  stream.write(source);
+
+  epee::byte_stream stream2{std::move(stream)};
+
+  EXPECT_EQ(10u, stream.increase_size());
+  EXPECT_EQ(0u, stream.size());
+  EXPECT_EQ(0u, stream.available());
+  EXPECT_EQ(0u, stream.capacity());
+  EXPECT_EQ(nullptr, stream.data());
+  EXPECT_EQ(nullptr, stream.tellp());
+
+  EXPECT_EQ(10u, stream2.increase_size());
+  EXPECT_EQ(5u, stream2.size());
+  EXPECT_EQ(5u, stream2.available());
+  EXPECT_EQ(10u, stream2.capacity());
+  EXPECT_NE(nullptr, stream2.data());
+  EXPECT_NE(nullptr, stream2.tellp());
+  EXPECT_TRUE(equal(source, byte_span{stream2.data(), stream2.size()}));
+
+  stream = epee::byte_stream{};
+
+  EXPECT_EQ(epee::byte_stream::default_increase(), stream.increase_size());
+  EXPECT_EQ(0u, stream.size());
+  EXPECT_EQ(0u, stream.available());
+  EXPECT_EQ(0u, stream.capacity());
+  EXPECT_EQ(nullptr, stream.data());
+  EXPECT_EQ(nullptr, stream.tellp());
+
+  stream = std::move(stream2);
+
+  EXPECT_EQ(10u, stream.increase_size());
+  EXPECT_EQ(5u, stream.size());
+  EXPECT_EQ(5u, stream.available());
+  EXPECT_EQ(10u, stream.capacity());
+  EXPECT_NE(nullptr, stream.data());
+  EXPECT_NE(nullptr, stream.tellp());
+  EXPECT_TRUE(equal(source, byte_span{stream.data(), stream.size()}));
+
+  EXPECT_EQ(10u, stream2.increase_size());
+  EXPECT_EQ(0u, stream2.size());
+  EXPECT_EQ(0u, stream2.available());
+  EXPECT_EQ(0u, stream2.capacity());
+  EXPECT_EQ(nullptr, stream2.data());
+  EXPECT_EQ(nullptr, stream2.tellp());
+}
+
+TEST(ByteStream, ToByteSlice)
+{
+  using boost::range::equal;
+  using byte_span = epee::span<const std::uint8_t>;
+
+  static constexpr const std::uint8_t source[] =
+    {0xde, 0xad, 0xbe, 0xef, 0xef};
+
+  epee::byte_stream stream;
+
+  stream.write(source);
+  EXPECT_EQ(sizeof(source), stream.size());
+  EXPECT_TRUE(equal(source, byte_span{stream.data(), stream.size()}));
+
+  const epee::byte_slice slice{std::move(stream)};
+  EXPECT_EQ(0u, stream.size());
+  EXPECT_EQ(0u, stream.available());
+  EXPECT_EQ(0u, stream.capacity());
+  EXPECT_EQ(nullptr, stream.data());
+  EXPECT_EQ(nullptr, stream.tellp());
+  EXPECT_TRUE(equal(source, slice));
 }
 
 TEST(ToHex, String)

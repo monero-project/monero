@@ -1,4 +1,4 @@
-// Copyright (c) 2019, The Monero Project
+// Copyright (c) 2019-2020, The Monero Project
 //
 // All rights reserved.
 //
@@ -34,6 +34,7 @@
 #include <utility>
 
 #include "byte_slice.h"
+#include "byte_stream.h"
 
 namespace epee
 {
@@ -117,6 +118,12 @@ namespace epee
     }
   } // anonymous
 
+  void release_byte_buffer::operator()(std::uint8_t* buf) const noexcept
+  {
+    if (buf)
+      std::free(buf - sizeof(raw_byte_slice));
+  }
+
   byte_slice::byte_slice(byte_slice_data* storage, span<const std::uint8_t> portion) noexcept
     : storage_(storage), portion_(portion)
   {
@@ -162,6 +169,14 @@ namespace epee
   byte_slice::byte_slice(std::vector<std::uint8_t>&& buffer)
     : byte_slice(adapt_buffer{}, std::move(buffer))
   {}
+
+  byte_slice::byte_slice(byte_stream&& stream) noexcept
+    : storage_(nullptr), portion_(stream.data(), stream.size())
+  {
+    std::uint8_t* const data = stream.take_buffer().release() - sizeof(raw_byte_slice);
+    new (data) raw_byte_slice{};
+    storage_.reset(reinterpret_cast<raw_byte_slice*>(data));
+  }
 
   byte_slice::byte_slice(byte_slice&& source) noexcept
     : storage_(std::move(source.storage_)), portion_(source.portion_)
@@ -216,5 +231,30 @@ namespace epee
     std::unique_ptr<byte_slice_data, release_byte_slice> out{std::move(storage_)};
     portion_ = nullptr;
     return out;
+  }
+
+  byte_buffer byte_buffer_resize(byte_buffer buf, const std::size_t length) noexcept
+  {
+    if (std::numeric_limits<std::size_t>::max() - sizeof(raw_byte_slice) < length)
+      return nullptr;
+
+    std::uint8_t* data = buf.get();
+    if (data != nullptr)
+      data -= sizeof(raw_byte_slice);
+
+    data = static_cast<std::uint8_t*>(std::realloc(data, sizeof(raw_byte_slice) + length));
+    if (data == nullptr)
+      return nullptr;
+
+    buf.release();
+    buf.reset(data + sizeof(raw_byte_slice));
+    return buf;
+  }
+
+  byte_buffer byte_buffer_increase(byte_buffer buf, const std::size_t current, const std::size_t more)
+  {
+    if (std::numeric_limits<std::size_t>::max() - current < more)
+      throw std::range_error{"byte_buffer_increase size_t overflow"};
+    return byte_buffer_resize(std::move(buf), current + more);
   }
 } // epee
