@@ -1056,17 +1056,6 @@ namespace cryptonote
     return handle_incoming_txs({std::addressof(tx_blob), 1}, {std::addressof(tvc), 1}, tx_relay, relayed);
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::get_stat_info(core_stat_info& st_inf) const
-  {
-    st_inf.mining_speed = m_miner.get_speed();
-    st_inf.alternative_blocks = m_blockchain_storage.get_alternative_blocks_count();
-    st_inf.blockchain_height = m_blockchain_storage.get_current_blockchain_height();
-    st_inf.tx_pool_size = m_mempool.get_transactions_count();
-    st_inf.top_block_id_str = epee::string_tools::pod_to_hex(m_blockchain_storage.get_tail_id());
-    return true;
-  }
-
-  //-----------------------------------------------------------------------------------------------
   bool core::check_tx_semantic(const transaction& tx, bool keeped_by_block) const
   {
     if(!tx.vin.size())

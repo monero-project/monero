@@ -54,7 +54,6 @@ set(cryptonote_basic_private_headers
   cryptonote_basic_impl.h
   cryptonote_boost_serialization.h
   cryptonote_format_utils.h
-  cryptonote_stat_info.h
   difficulty.h
   hardfork.h
   miner.h

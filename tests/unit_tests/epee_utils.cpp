@@ -45,6 +45,7 @@
 #include "boost/archive/portable_binary_iarchive.hpp"
 #include "boost/archive/portable_binary_oarchive.hpp"
 #include "byte_slice.h"
+#include "crypto/crypto.h"
 #include "hex.h"
 #include "net/net_utils_base.h"
 #include "net/local_ip.h"

@@ -154,12 +154,6 @@ namespace cryptonote
   }
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core>
-  bool t_cryptonote_protocol_handler<t_core>::get_stat_info(core_stat_info& stat_inf)
-  {
-    return m_core.get_stat_info(stat_inf);
-  }
-  //------------------------------------------------------------------------------------------------------------------------
-  template<class t_core>
   void t_cryptonote_protocol_handler<t_core>::log_connections()
   {
     std::stringstream ss;
