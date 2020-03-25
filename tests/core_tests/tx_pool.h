@@ -77,6 +77,7 @@ class txpool_double_spend_base : public txpool_base
   std::unordered_set<crypto::hash> m_no_relay_hashes;
   std::unordered_map<crypto::hash, uint64_t> m_all_hashes;
   size_t m_no_new_index;
+  size_t m_failed_index;
   size_t m_new_timestamp_index;
   crypto::hash m_last_tx;
 
@@ -86,6 +87,7 @@ public:
   txpool_double_spend_base();
 
   bool mark_no_new(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry>& events);
+  bool mark_failed(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry>& events);
   bool mark_timestamp_change(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry>& events);
 
   //! Pause for 1 second, so that `receive_time` for tx meta changes (tx hidden from public rpc being updated)
@@ -111,6 +113,15 @@ struct txpool_double_spend_norelay : txpool_double_spend_base
 struct txpool_double_spend_local : txpool_double_spend_base
 {
   txpool_double_spend_local()
+    : txpool_double_spend_base()
+  {}
+
+  bool generate(std::vector<test_event_entry>& events) const;
+};
+
+struct txpool_double_spend_keyimage : txpool_double_spend_base
+{
+  txpool_double_spend_keyimage()
     : txpool_double_spend_base()
   {}
 
