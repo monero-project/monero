@@ -55,7 +55,7 @@ class TransferTest():
 
     def reset(self):
         print('Resetting blockchain')
-        daemon = Daemon()
+        daemon = Daemon(idx = 2)
         res = daemon.get_height()
         daemon.pop_blocks(res.height - 1)
         daemon.flush_txpool()
@@ -69,7 +69,7 @@ class TransferTest():
         ]
         self.wallet = [None] * len(seeds)
         for i in range(len(seeds)):
-            self.wallet[i] = Wallet(idx = i)
+            self.wallet[i] = Wallet(idx = i + 4)
             # close the wallet if any, will throw if none is loaded
             try: self.wallet[i].close_wallet()
             except: pass
@@ -77,7 +77,7 @@ class TransferTest():
 
     def mine(self):
         print("Mining some blocks")
-        daemon = Daemon()
+        daemon = Daemon(idx = 2)
 
         res = daemon.get_info()
         height = res.height
@@ -89,7 +89,7 @@ class TransferTest():
             assert res.height == height + 80
 
     def transfer(self):
-        daemon = Daemon()
+        daemon = Daemon(idx = 2)
 
         print("Creating transfer to self")
 
@@ -508,7 +508,7 @@ class TransferTest():
     def check_get_bulk_payments(self):
         print('Checking get_bulk_payments')
 
-        daemon = Daemon()
+        daemon = Daemon(idx = 2)
         res = daemon.get_info()
         height = res.height
 
@@ -544,7 +544,7 @@ class TransferTest():
     def check_get_payments(self):
         print('Checking get_payments')
 
-        daemon = Daemon()
+        daemon = Daemon(idx = 2)
         res = daemon.get_info()
         height = res.height
 
@@ -587,7 +587,8 @@ class TransferTest():
             assert len(res.tx_blob_list) == 1
             txes[i][1] = res.tx_blob_list[0]
 
-        daemon = Daemon()
+        daemon = Daemon(idx = 2)
+        restricted_daemon = Daemon(idx = 2, restricted_rpc = True)
         res = daemon.send_raw_transaction(txes[0][1])
         assert res.not_relayed == False
         assert res.low_mixin == False
@@ -598,6 +599,18 @@ class TransferTest():
         assert res.overspend == False
         assert res.fee_too_low == False
 
+        res = restricted_daemon.send_raw_transaction(txes[0][1])
+        assert res.not_relayed == False
+        assert res.low_mixin == False
+        assert res.double_spend == False
+        assert res.invalid_input == False
+        assert res.invalid_output == False
+        assert res.too_big == False
+        assert res.overspend == False
+        assert res.fee_too_low == False
+
+        res = restricted_daemon.get_transactions([txes[0][0]])
+        assert not 'txs' in res or len(res.txs) == 0
         res = daemon.get_transactions([txes[0][0]])
         assert len(res.txs) >= 1
         tx = [tx for tx in res.txs if tx.tx_hash == txes[0][0]][0]
@@ -615,6 +628,19 @@ class TransferTest():
         assert res.fee_too_low == False
         assert res.too_few_outputs == False
 
+        res = restricted_daemon.send_raw_transaction(txes[1][1])
+        assert res.not_relayed == False
+        assert res.low_mixin == False
+        assert res.double_spend == True
+        assert res.invalid_input == False
+        assert res.invalid_output == False
+        assert res.too_big == False
+        assert res.overspend == False
+        assert res.fee_too_low == False
+        assert res.too_few_outputs == False
+
+        res = restricted_daemon.get_transactions([txes[0][0]])
+        assert not 'txs' in res or len(res.txs) == 0
         res = daemon.get_transactions([txes[0][0]])
         assert len(res.txs) >= 1
         tx = [tx for tx in res.txs if tx.tx_hash == txes[0][0]][0]
@@ -623,13 +649,13 @@ class TransferTest():
 
     def sweep_dust(self):
         print("Sweeping dust")
-        daemon = Daemon()
+        daemon = Daemon(idx = 2)
         self.wallet[0].refresh()
         res = self.wallet[0].sweep_dust()
         assert not 'tx_hash_list' in res or len(res.tx_hash_list) == 0 # there's just one, but it cannot meet the fee
 
     def sweep_single(self):
-        daemon = Daemon()
+        daemon = Daemon(idx = 2)
 
         print("Sending single output")
 
@@ -685,7 +711,7 @@ class TransferTest():
         assert len([t for t in res.transfers if t.key_image == ki]) == 1
 
     def check_destinations(self):
-        daemon = Daemon()
+        daemon = Daemon(idx = 2)
 
         print("Checking transaction destinations")
 
@@ -741,7 +767,7 @@ class TransferTest():
                 self.wallet[0].refresh()
 
     def check_tx_notes(self):
-        daemon = Daemon()
+        daemon = Daemon(idx = 2)
 
         print('Testing tx notes')
         res = self.wallet[0].get_transfers()
@@ -758,7 +784,7 @@ class TransferTest():
         assert res.notes == ['out txid', 'in txid']
 
     def check_rescan(self):
-        daemon = Daemon()
+        daemon = Daemon(idx = 2)
 
         print('Testing rescan_spent')
         res = self.wallet[0].incoming_transfers(transfer_type = 'all')
@@ -798,7 +824,7 @@ class TransferTest():
             assert sorted(old_t_out, key = lambda k: k['txid']) == sorted(new_t_out, key = lambda k: k['txid'])
 
     def check_is_key_image_spent(self):
-        daemon = Daemon()
+        daemon = Daemon(idx = 2)
 
         print('Testing is_key_image_spent')
         res = self.wallet[0].incoming_transfers(transfer_type = 'all')
