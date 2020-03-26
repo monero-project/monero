@@ -45,14 +45,14 @@ class TransferTest():
 
     def reset(self):
         print('Resetting blockchain')
-        daemon = Daemon()
+        daemon = Daemon(idx=2)
         res = daemon.get_height()
         daemon.pop_blocks(res.height - 1)
         daemon.flush_txpool()
 
     def create(self):
         print('Creating wallet')
-        wallet = Wallet()
+        wallet = Wallet(idx = 4)
         # close the wallet if any, will throw if none is loaded
         try: wallet.close_wallet()
         except: pass
@@ -61,8 +61,8 @@ class TransferTest():
 
     def mine(self):
         print("Mining some blocks")
-        daemon = Daemon()
-        wallet = Wallet()
+        daemon = Daemon(idx = 2)
+        wallet = Wallet(idx = 4)
 
         daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 80)
         wallet.refresh()
@@ -70,8 +70,8 @@ class TransferTest():
     def create_txes(self, address, ntxes):
         print('Creating ' + str(ntxes) + ' transactions')
 
-        daemon = Daemon()
-        wallet = Wallet()
+        daemon = Daemon(idx = 2)
+        wallet = Wallet(idx = 4)
 
         dst = {'address': address, 'amount': 1000000000000}
 
@@ -83,8 +83,10 @@ class TransferTest():
         return txes
 
     def check_empty_pool(self):
-        daemon = Daemon()
+        self.check_empty_rpc_pool(Daemon(idx = 2))
+        self.check_empty_rpc_pool(Daemon(idx = 2, restricted_rpc = True))
 
+    def check_empty_rpc_pool(self, daemon):
         res = daemon.get_transaction_pool_hashes()
         assert not 'tx_hashes' in res or len(res.tx_hashes) == 0
         res = daemon.get_transaction_pool_stats()
@@ -103,8 +105,9 @@ class TransferTest():
         assert res.pool_stats.num_double_spends == 0
 
     def check_txpool(self):
-        daemon = Daemon()
-        wallet = Wallet()
+        daemon = Daemon(idx = 2)
+        restricted_daemon = Daemon(idx = 2, restricted_rpc = True)
+        wallet = Wallet(idx = 4)
 
         res = daemon.get_info()
         height = res.height
@@ -117,6 +120,7 @@ class TransferTest():
         res = daemon.get_info()
         assert res.tx_pool_size == txpool_size + 5
         txpool_size = res.tx_pool_size
+        self.check_empty_rpc_pool(restricted_daemon)
 
         res = daemon.get_transaction_pool()
         assert len(res.transactions) == txpool_size
@@ -160,6 +164,7 @@ class TransferTest():
         print('Flushing 2 transactions')
         txes_keys = list(txes.keys())
         daemon.flush_txpool([txes_keys[1], txes_keys[3]])
+        self.check_empty_rpc_pool(restricted_daemon)
         res = daemon.get_transaction_pool()
         assert len(res.transactions) == txpool_size - 2
         assert len([x for x in res.transactions if x.id_hash == txes_keys[1]]) == 0
@@ -210,6 +215,7 @@ class TransferTest():
         print('Flushing unknown transactions')
         unknown_txids = ['1'*64, '2'*64, '3'*64]
         daemon.flush_txpool(unknown_txids)
+        self.check_empty_rpc_pool(restricted_daemon)
         res = daemon.get_transaction_pool()
         assert len(res.transactions) == txpool_size - 2
 
