@@ -1389,6 +1389,8 @@ private:
     uint64_t credits() const { return m_rpc_payment_state.credits; }
     void credit_report(uint64_t &expected_spent, uint64_t &discrepancy) const { expected_spent = m_rpc_payment_state.expected_spent; discrepancy = m_rpc_payment_state.discrepancy; }
 
+    static std::string get_default_daemon_address() { CRITICAL_REGION_LOCAL(default_daemon_address_lock); return default_daemon_address; }
+
   private:
     /*!
      * \brief  Stores wallet information to wallet file.
@@ -1629,6 +1631,9 @@ private:
     std::unique_ptr<wallet_device_callback> m_device_callback;
 
     ExportFormat m_export_format;
+
+    static boost::mutex default_daemon_address_lock;
+    static std::string default_daemon_address;
   };
 }
 BOOST_CLASS_VERSION(tools::wallet2, 29)
