@@ -1533,6 +1533,7 @@ namespace nodetool
         return true;
 
       size_t try_count = 0;
+      bool is_connected_to_at_least_one_seed_node = false;
       size_t current_index = crypto::rand_idx(m_seed_nodes.size());
       const net_server& server = m_network_zones.at(epee::net_utils::zone::public_).m_net_server;
       while(true)
@@ -1540,7 +1541,11 @@ namespace nodetool
         if(server.is_stop_signal_sent())
           return false;
 
-        if(try_to_connect_and_handshake_with_new_peer(m_seed_nodes[current_index], true))
+        peerlist_entry pe_seed{};
+        pe_seed.adr = m_seed_nodes[current_index];
+        if (is_peer_used(pe_seed))
+          is_connected_to_at_least_one_seed_node = true;
+        else if (try_to_connect_and_handshake_with_new_peer(m_seed_nodes[current_index], true))
           break;
         if(++try_count > m_seed_nodes.size())
         {
@@ -1563,7 +1568,8 @@ namespace nodetool
           }
           else
           {
-            MWARNING("Failed to connect to any of seed peers, continuing without seeds");
+            if (!is_connected_to_at_least_one_seed_node)
+              MWARNING("Failed to connect to any of seed peers, continuing without seeds");
             break;
           }
         }
