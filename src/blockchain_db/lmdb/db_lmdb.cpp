@@ -283,9 +283,9 @@ typedef struct outtx {
     uint64_t local_index;
 } outtx;
 
-const std::string& mdb_databases::name(source database)
+const char* mdb_databases::name(source database)
 {
-  static std::array<std::string, 18> names{
+  constexpr static std::array<const char*, 18> names{
     "blocks",
     "block_heights",
     "block_info",
@@ -325,7 +325,7 @@ MDB_stat mdb_databases::stat(MDB_txn* txn, source database) const
     return stat;
 
   auto error_message =
-    "Failed to query " +
+    std::string{"Failed to query "} +
     mdb_databases::name(database) +
     ": " +
     mdb_strerror(res);
@@ -341,7 +341,7 @@ void mdb_databases::drop(MDB_txn* txn, source database, bool close)
     return;
 
   auto error_message =
-    "Failed to drop " +
+    std::string{"Failed to drop "} +
     mdb_databases::name(database) +
     ": " +
     mdb_strerror(res);
@@ -513,7 +513,7 @@ MDB_cursor* mdb_writer_data::cursor(source database)
     return cursor;
 
   auto error_message =
-    "Failed to open a cursor for " +
+    std::string{"Failed to open a cursor for "} +
     mdb_databases::name(database) +
     ": " +
     mdb_strerror(res);
@@ -717,7 +717,7 @@ MDB_cursor* mdb_read_handle::cursor(source database)
     }
 
     auto error_message =
-      "Failed to open a cursor for " +
+      std::string{"Failed to open a cursor for "} +
       mdb_databases::name(database) +
       ": " +
       mdb_strerror(res);
@@ -735,7 +735,7 @@ MDB_cursor* mdb_read_handle::cursor(source database)
     }
 
     auto error_message =
-      "Failed to renew a cursor for " +
+      std::string{"Failed to renew a cursor for "} +
       mdb_databases::name(database) +
       ": " +
       mdb_strerror(res);
@@ -754,13 +754,13 @@ inline void BlockchainLMDB::check_open() const
 
 void BlockchainLMDB::db_open(MDB_txn* txn, int flags, source database)
 {
-  auto res = mdb_dbi_open(txn, mdb_databases::name(database).data(), flags, &m_databases.get(database));
+  auto res = mdb_dbi_open(txn, mdb_databases::name(database), flags, &m_databases.get(database));
 
   if (res == 0)
     return;
 
   auto error_message =
-    "Failed to open db handle for " +
+    std::string{"Failed to open db handle for "} +
     mdb_databases::name(database) +
     ": " +
     mdb_strerror(res) +

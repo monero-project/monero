@@ -106,7 +106,7 @@ class mdb_databases
         m_databases{{}}
       {}
 
-      const static std::string& name(source database);
+      static const char* name(source database);
 
       const MDB_dbi& get(source database) const
       {
