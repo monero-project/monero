@@ -1691,7 +1691,7 @@ bool simple_wallet::print_ring(const std::vector<std::string> &args)
       rings.push_back({key_image, ring});
     else if (!m_wallet->get_rings(txid, rings))
     {
-      fail_msg_writer() << tr("Key image either not spent, or spent with mixin 0");
+      fail_msg_writer() << tr("Key image either not spent, or spent with ring size 1");
       return true;
     }
 
