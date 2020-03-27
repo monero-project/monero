@@ -173,7 +173,7 @@ namespace rct {
     //   P[l] == p*G
     //   C[l] == z*G
     //   C[i] == C_nonzero[i] - C_offset (for hashing purposes) for all i
-    clsag CLSAG_Gen(const key &message, const keyV & P, const key & p, const keyV & C, const key & z, const keyV & C_nonzero, const key & C_offset, const unsigned int l, const multisig_kLRki *kLRki, key *mscout, key *mspout) {
+    clsag CLSAG_Gen(const key &message, const keyV & P, const key & p, const keyV & C, const key & z, const keyV & C_nonzero, const key & C_offset, const unsigned int l, const multisig_kLRki *kLRki, key *mscout, key *mspout, hw::device &hwdev) {
         clsag sig;
         size_t n = P.size(); // ring size
         CHECK_AND_ASSERT_THROW_MES(n == C.size(), "Signing and commitment key vector sizes must match!");
@@ -189,16 +189,21 @@ namespace rct {
         ge_p3_tobytes(H.bytes,&H_p3);
 
         key D;
-        scalarmultKey(D,H,z);
+
+        // Initial values
+        key a;
+        key aG;
+        key aH;
 
         // Multisig
         if (kLRki)
         {
             sig.I = kLRki->ki;
+            scalarmultKey(D,H,z);
         }
         else
         {
-            scalarmultKey(sig.I,H,p);
+            hwdev.clsag_prepare(p,z,sig.I,D,H,a,aG,aH);
         }
 
         geDsmp I_precomp;
@@ -208,13 +213,6 @@ namespace rct {
 
         // Offset key image
         scalarmultKey(sig.D,D,INV_EIGHT);
-
-        // Initial values
-        key a;
-        key aG;
-        key aH;
-        skpkGen(a,aG);
-        scalarmultKey(aH,H,a);
 
         // Aggregation hashes
         keyV mu_P_to_hash(2*n+4); // domain, I, D, P, C, C_offset
@@ -266,7 +264,7 @@ namespace rct {
             c_to_hash[2*n+3] = aG;
             c_to_hash[2*n+4] = aH;
         }
-        c = hash_to_scalar(c_to_hash);
+        hwdev.clsag_hash(c_to_hash,c);
         
         size_t i;
         i = (l + 1) % n;
@@ -305,7 +303,7 @@ namespace rct {
 
             c_to_hash[2*n+3] = L;
             c_to_hash[2*n+4] = R;
-            c_new = hash_to_scalar(c_to_hash);
+            hwdev.clsag_hash(c_to_hash,c_new);
             copy(c,c_new);
             
             i = (i + 1) % n;
@@ -314,11 +312,8 @@ namespace rct {
         }
 
         // Compute final scalar
-        key s0_p_mu_P;
-        sc_mul(s0_p_mu_P.bytes,mu_P.bytes,p.bytes);
-        key s0_add_z_mu_C;
-        sc_muladd(s0_add_z_mu_C.bytes,mu_C.bytes,z.bytes,s0_p_mu_P.bytes);
-        sc_mulsub(sig.s[l].bytes,c.bytes,s0_add_z_mu_C.bytes,a.bytes);
+        hwdev.clsag_sign(c,a,p,z,mu_P,mu_C,sig.s[l]);
+        memwipe(&a, sizeof(key));
 
         if (mscout)
           *mscout = c;
@@ -329,7 +324,7 @@ namespace rct {
     }
 
     clsag CLSAG_Gen(const key &message, const keyV & P, const key & p, const keyV & C, const key & z, const keyV & C_nonzero, const key & C_offset, const unsigned int l) {
-        return CLSAG_Gen(message, P, p, C, z, C_nonzero, C_offset, l, NULL, NULL, NULL);
+        return CLSAG_Gen(message, P, p, C, z, C_nonzero, C_offset, l, NULL, NULL, NULL, hw::get_device("default"));
     }
 
     // MLSAG signatures
@@ -748,7 +743,7 @@ namespace rct {
 
         sk[0] = copy(inSk.dest);
         sc_sub(sk[1].bytes, inSk.mask.bytes, a.bytes);
-        clsag result = CLSAG_Gen(message, P, sk[0], C, sk[1], C_nonzero, Cout, index, kLRki, mscout, mspout);
+        clsag result = CLSAG_Gen(message, P, sk[0], C, sk[1], C_nonzero, Cout, index, kLRki, mscout, mspout, hwdev);
         memwipe(sk.data(), sk.size() * sizeof(key));
         return result;
     }
