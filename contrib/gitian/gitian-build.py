@@ -36,8 +36,11 @@ def setup():
     os.chdir('..')
     make_image_prog = ['bin/make-base-vm', '--suite', 'bionic', '--arch', 'amd64']
     if args.docker:
-        if not subprocess.call(['docker', '--help'], shell=False, stdout=subprocess.DEVNULL):
-            print("Please install docker first manually")
+        try:
+            subprocess.check_output(['docker', '--help'])
+        except:
+            print("ERROR: Could not find 'docker' command. Ensure this is in your PATH.")
+            sys.exit(1)
         make_image_prog += ['--docker']
     elif not args.kvm:
         make_image_prog += ['--lxc']
