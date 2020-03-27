@@ -500,7 +500,7 @@ mdb_txn_cursors& mdb_writer_data::cursors()
 MDB_cursor* mdb_writer_data::cursor(source database)
 {
   if (current_thread() != boost::this_thread::get_id())
-    throw1(DB_ERROR{"transaction owned by other threayyd"});
+    throw1(DB_ERROR{"transaction owned by other thread"});
 
   auto& cursor = m_cursors->get(database);
 
@@ -556,7 +556,7 @@ MDB_txn* mdb_writer_data::acquire()
 void mdb_writer_data::release(bool error)
 {
   if (current_thread() != boost::this_thread::get_id())
-    throw1(DB_ERROR{"transaction owned by other threayyd"});
+    throw1(DB_ERROR{"transaction owned by other thread"});
 
   if (m_writer_depth == 0)
     throw1(DB_ERROR{"transaction already released"});
