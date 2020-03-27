@@ -32,7 +32,6 @@
 #include "cryptonote_basic/blobdatatype.h" // for type blobdata
 #include "ringct/rctTypes.h"
 #include <boost/thread/tss.hpp>
-#include <boost/atomic/atomic.hpp>
 
 #include <lmdb.h>
 
@@ -177,7 +176,7 @@ class mdb_writer_data
 
     ~mdb_writer_data();
 
-    boost::thread::id current_thread() const noexcept;
+    std::thread::id current_thread() const noexcept;
 
     mdb_databases& databases() noexcept;
     mdb_txn_cursors& cursors();
@@ -193,7 +192,7 @@ class mdb_writer_data
     MDB_txn* m_txn;
     mdb_databases& m_databases;
     boost::optional<mdb_txn_cursors> m_cursors;
-    boost::atomic<boost::thread::id> m_writer_thread;
+    std::atomic<std::thread::id> m_writer_thread;
     size_t m_writer_depth;
     bool m_error;
 };

@@ -507,9 +507,9 @@ mdb_writer_data::~mdb_writer_data()
   mdb_txn_abort(m_txn);
 }
 
-boost::thread::id mdb_writer_data::current_thread() const noexcept
+std::thread::id mdb_writer_data::current_thread() const noexcept
 {
-  return m_writer_thread.load(boost::memory_order_relaxed);
+  return m_writer_thread.load(std::memory_order_relaxed);
 }
 
 mdb_databases& mdb_writer_data::databases() noexcept
@@ -524,7 +524,7 @@ mdb_txn_cursors& mdb_writer_data::cursors()
 
 MDB_cursor* mdb_writer_data::cursor(source database)
 {
-  if (current_thread() != boost::this_thread::get_id())
+  if (current_thread() != std::this_thread::get_id())
     throw1(DB_ERROR{"transaction owned by other thread"});
 
   auto& cursor = m_cursors->get(database);
@@ -548,7 +548,7 @@ MDB_cursor* mdb_writer_data::cursor(source database)
 
 MDB_txn* mdb_writer_data::try_acquire() noexcept
 {
-  if (current_thread() != boost::this_thread::get_id())
+  if (current_thread() != std::this_thread::get_id())
     return nullptr;
 
   ++m_writer_depth;
@@ -573,7 +573,7 @@ MDB_txn* mdb_writer_data::acquire()
   }
 
   m_cursors.emplace();
-  m_writer_thread.store(boost::this_thread::get_id(), boost::memory_order_relaxed);
+  m_writer_thread.store(std::this_thread::get_id(), std::memory_order_relaxed);
   m_writer_depth = 1;
 
   return m_txn;
@@ -581,7 +581,7 @@ MDB_txn* mdb_writer_data::acquire()
 
 void mdb_writer_data::release(bool error)
 {
-  if (current_thread() != boost::this_thread::get_id())
+  if (current_thread() != std::this_thread::get_id())
     throw1(DB_ERROR{"transaction owned by other thread"});
 
   if (m_writer_depth == 0)
@@ -596,7 +596,7 @@ void mdb_writer_data::release(bool error)
   auto txn = m_txn;
   m_txn = nullptr;
   m_cursors.reset();
-  m_writer_thread.store({}, boost::memory_order_relaxed);
+  m_writer_thread.store({}, std::memory_order_relaxed);
 
   if (m_error)
   {
@@ -3853,7 +3853,7 @@ void BlockchainLMDB::batch_commit()
     throw0(DB_ERROR("batch transactions not enabled"));
   if (!m_batch_handle)
     throw1(DB_ERROR("batch transaction not in progress"));
-  if (m_write_data->current_thread() != boost::this_thread::get_id())
+  if (m_write_data->current_thread() != std::this_thread::get_id())
     throw1(DB_ERROR("batch transaction owned by other thread"));
 
   check_open();
@@ -3881,7 +3881,7 @@ void BlockchainLMDB::batch_stop()
     throw0(DB_ERROR("batch transactions not enabled"));
   if (!m_batch_handle)
     throw1(DB_ERROR("batch transaction not in progress"));
-  if (m_write_data->current_thread() != boost::this_thread::get_id())
+  if (m_write_data->current_thread() != std::this_thread::get_id())
     throw1(DB_ERROR("batch transaction owned by other thread"));
   check_open();
   LOG_PRINT_L3("batch transaction: committing...");
@@ -3908,7 +3908,7 @@ void BlockchainLMDB::batch_abort()
     throw0(DB_ERROR("batch transactions not enabled"));
   if (!m_batch_handle)
     throw1(DB_ERROR("batch transaction not in progress"));
-  if (m_write_data->current_thread() != boost::this_thread::get_id())
+  if (m_write_data->current_thread() != std::this_thread::get_id())
     throw1(DB_ERROR("batch transaction owned by other thread"));
   check_open();
   // for destruction of batch transaction
@@ -3932,7 +3932,7 @@ void BlockchainLMDB::set_batch_transactions(bool batch_transactions)
 // return true if we started the txn, false if already started
 bool BlockchainLMDB::block_rtxn_start(MDB_txn **mtxn, mdb_txn_cursors **mcur) const
 {
-  if (m_write_data->current_thread() == boost::this_thread::get_id()) {
+  if (m_write_data->current_thread() == std::this_thread::get_id()) {
     // temporary additional handle, since we have at least one
     // other handle releasing this will not terminate the transaction
     mdb_write_handle m_write_txn{*m_write_data};
@@ -3981,23 +3981,23 @@ void BlockchainLMDB::block_wtxn_start()
   // it and proceed as if there were an existing write txn, such as trying to
   // call block_txn_abort(). It also indicates a serious issue which will
   // probably be thrown up another layer.
-  if (!m_batch_handle && m_write_data->current_thread() != boost::thread::id{})
+  if (!m_batch_handle && m_write_data->current_thread() != std::thread::id{})
     throw0(DB_ERROR_TXN_START((std::string("Attempted to start new write txn when write txn already exists in ")+__FUNCTION__).c_str()));
   if (!m_batch_handle)
   {
     m_write_data->acquire();
     if (m_tinfo.get())
       m_tinfo->reset();
-  } else if (m_write_data->current_thread() != boost::this_thread::get_id())
+  } else if (m_write_data->current_thread() != std::this_thread::get_id())
     throw0(DB_ERROR_TXN_START((std::string("Attempted to start new write txn when batch txn already exists in ")+__FUNCTION__).c_str()));
 }
 
 void BlockchainLMDB::block_wtxn_stop()
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
-  if (m_write_data->current_thread() == boost::thread::id{})
+  if (m_write_data->current_thread() == std::thread::id{})
     throw0(DB_ERROR_TXN_START((std::string("Attempted to stop write txn when no such txn exists in ")+__FUNCTION__).c_str()));
-  if (m_write_data->current_thread() != boost::this_thread::get_id())
+  if (m_write_data->current_thread() != std::this_thread::get_id())
     throw0(DB_ERROR_TXN_START((std::string("Attempted to stop write txn from the wrong thread in ")+__FUNCTION__).c_str()));
   if (!m_batch_handle)
   {
@@ -4012,9 +4012,9 @@ void BlockchainLMDB::block_wtxn_abort()
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
-  if (m_write_data->current_thread() == boost::thread::id{})
+  if (m_write_data->current_thread() == std::thread::id{})
     throw0(DB_ERROR_TXN_START((std::string("Attempted to abort write txn when no such txn exists in ")+__FUNCTION__).c_str()));
-  if (m_write_data->current_thread() != boost::this_thread::get_id())
+  if (m_write_data->current_thread() != std::this_thread::get_id())
     throw0(DB_ERROR_TXN_START((std::string("Attempted to abort write txn from the wrong thread in ")+__FUNCTION__).c_str()));
 
   if (!m_batch_handle)
