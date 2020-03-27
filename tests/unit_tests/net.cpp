@@ -53,6 +53,7 @@
 #include <memory>
 #include <type_traits>
 
+#include "crypto/crypto.h"
 #include "net/dandelionpp.h"
 #include "net/error.h"
 #include "net/net_utils_base.h"

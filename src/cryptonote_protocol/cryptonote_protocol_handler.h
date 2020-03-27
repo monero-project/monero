@@ -45,7 +45,6 @@
 #include "block_queue.h"
 #include "common/perf_timer.h"
 #include "cryptonote_basic/connection_context.h"
-#include "cryptonote_basic/cryptonote_stat_info.h"
 #include <boost/circular_buffer.hpp>
 
 PUSH_WARNINGS
@@ -77,7 +76,6 @@ namespace cryptonote
   { 
   public:
     typedef cryptonote_connection_context connection_context;
-    typedef core_stat_info stat_info;
     typedef t_cryptonote_protocol_handler<t_core> cryptonote_protocol_handler;
     typedef CORE_SYNC_DATA payload_type;
 
@@ -102,7 +100,6 @@ namespace cryptonote
     bool process_payload_sync_data(const CORE_SYNC_DATA& hshd, cryptonote_connection_context& context, bool is_inital);
     bool get_payload_sync_data(blobdata& data);
     bool get_payload_sync_data(CORE_SYNC_DATA& hshd);
-    bool get_stat_info(core_stat_info& stat_inf);
     bool on_callback(cryptonote_connection_context& context);
     t_core& get_core(){return m_core;}
     bool is_synchronized(){return m_synchronized;}
