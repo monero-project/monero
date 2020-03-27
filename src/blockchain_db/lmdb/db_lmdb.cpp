@@ -619,8 +619,15 @@ mdb_write_handle::~mdb_write_handle()
   if (m_data == nullptr || m_txn == nullptr)
     return;
 
-  LOG_PRINT_L3("mdb_write_handle: destructor");
-  m_data->release(static_cast<bool>(std::current_exception()));
+  // note: logging may throw, release may throw if the commit fails
+  try
+  {
+    LOG_PRINT_L3("mdb_write_handle: destructor");
+    m_data->release(static_cast<bool>(std::current_exception()));
+  } catch (...)
+  {
+    // note: don't log here, since it may yield another exception
+  }
 }
 
 mdb_write_handle& mdb_write_handle::operator=(mdb_write_handle&& that) noexcept
