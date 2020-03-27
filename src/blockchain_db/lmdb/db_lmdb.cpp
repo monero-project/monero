@@ -409,20 +409,30 @@ MDB_txn *mdb_threadinfo::transaction(MDB_env *env, bool *started)
 
   if (m_ti_rtxn == nullptr || mdb_txn_env(m_ti_rtxn) != env)
   {
+    mdb_txn_safe::wait_and_register();
+
     auto result = lmdb_txn_begin(env, nullptr, MDB_RDONLY, &m_ti_rtxn);
 
     if (result != 0)
+    {
+      mdb_txn_safe::unregister();
       throw0(DB_ERROR{lmdb_error("Failed to create a transaction for the db: ", result).c_str()});
+    }
 
     m_rf_txn = true;
     start = true;
   }
   else if (!m_rf_txn)
   {
+    mdb_txn_safe::wait_and_register();
+
     auto result = lmdb_txn_renew(m_ti_rtxn);
 
     if (result != 0)
+    {
+      mdb_txn_safe::unregister();
       throw0(DB_ERROR_TXN_START(lmdb_error("Failed to renew a read transaction for the db: ", result).c_str()));
+    }
 
     m_rf_txn = true;
     start = true;
@@ -437,7 +447,10 @@ MDB_txn *mdb_threadinfo::transaction(MDB_env *env, bool *started)
 void mdb_threadinfo::reset()
 {
   if (m_rf_txn)
+  {
     mdb_txn_reset(m_ti_rtxn);
+    mdb_txn_safe::unregister();
+  }
 
   m_rf_txn = false;
   m_valid_cursor.reset();
@@ -469,6 +482,18 @@ void mdb_txn_safe::wait_no_active_txns()
 void mdb_txn_safe::allow_new_txns()
 {
   creation_gate.clear();
+}
+
+void mdb_txn_safe::wait_and_register()
+{
+  while (creation_gate.test_and_set());
+  ++num_active_txns;
+  creation_gate.clear();
+}
+
+void mdb_txn_safe::unregister()
+{
+  --num_active_txns;
 }
 
 mdb_writer_data::~mdb_writer_data()
@@ -537,14 +562,15 @@ MDB_txn* mdb_writer_data::acquire()
   if (auto txn = try_acquire())
     return txn;
 
-  while (mdb_txn_safe::creation_gate.test_and_set());
-  mdb_txn_safe::num_active_txns++;
-  mdb_txn_safe::creation_gate.clear();
+  mdb_txn_safe::wait_and_register();
 
   auto result = lmdb_txn_begin(m_env, nullptr, 0, &m_txn);
 
   if (result != 0)
+  {
+    mdb_txn_safe::unregister();
     throw0(DB_ERROR{lmdb_error("Failed to create a transaction for the db: ", result).c_str()});
+  }
 
   m_cursors.emplace();
   m_writer_thread.store(boost::this_thread::get_id(), boost::memory_order_relaxed);
@@ -575,12 +601,13 @@ void mdb_writer_data::release(bool error)
   if (m_error)
   {
     mdb_txn_abort(txn);
+    mdb_txn_safe::unregister();
     mdb_txn_safe::num_active_txns--;
   }
   else
   {
     auto result = mdb_txn_commit(txn);
-    mdb_txn_safe::num_active_txns--;
+    mdb_txn_safe::unregister();
 
     if (result)
       throw0(DB_ERROR{mdb_strerror(result)});

@@ -154,6 +154,8 @@ struct mdb_txn_safe
   static void prevent_new_txns();
   static void wait_no_active_txns();
   static void allow_new_txns();
+  static void wait_and_register();
+  static void unregister();
 
   static std::atomic<uint64_t> num_active_txns;
 
