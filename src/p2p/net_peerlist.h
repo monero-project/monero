@@ -102,7 +102,7 @@ namespace nodetool
     bool init(peerlist_types&& peers, bool allow_local_ip);
     size_t get_white_peers_count(){CRITICAL_REGION_LOCAL(m_peerlist_lock); return m_peers_white.size();}
     size_t get_gray_peers_count(){CRITICAL_REGION_LOCAL(m_peerlist_lock); return m_peers_gray.size();}
-    bool merge_peerlist(const std::vector<peerlist_entry>& outer_bs);
+    bool merge_peerlist(const std::vector<peerlist_entry>& outer_bs, const std::function<bool(const peerlist_entry&)> &f = NULL);
     bool get_peerlist_head(std::vector<peerlist_entry>& bs_head, bool anonymize, uint32_t depth = P2P_DEFAULT_PEERS_IN_HANDSHAKE);
     void get_peerlist(std::vector<peerlist_entry>& pl_gray, std::vector<peerlist_entry>& pl_white);
     void get_peerlist(peerlist_types& peers);
@@ -113,7 +113,6 @@ namespace nodetool
     bool append_with_peer_gray(const peerlist_entry& pr);
     bool append_with_peer_anchor(const anchor_peerlist_entry& ple);
     bool set_peer_just_seen(peerid_type peer, const epee::net_utils::network_address& addr, uint32_t pruning_seed, uint16_t rpc_port, uint32_t rpc_credits_per_hash);
-    bool set_peer_unreachable(const peerlist_entry& pr);
     bool is_host_allowed(const epee::net_utils::network_address &address);
     bool get_random_gray_peer(peerlist_entry& pe);
     bool remove_from_peer_gray(const peerlist_entry& pe);
@@ -214,12 +213,13 @@ namespace nodetool
   }
   //--------------------------------------------------------------------------------------------------
   inline 
-  bool peerlist_manager::merge_peerlist(const std::vector<peerlist_entry>& outer_bs)
+  bool peerlist_manager::merge_peerlist(const std::vector<peerlist_entry>& outer_bs, const std::function<bool(const peerlist_entry&)> &f)
   {
     CRITICAL_REGION_LOCAL(m_peerlist_lock);
     for(const peerlist_entry& be:  outer_bs)
     {
-      append_with_peer_gray(be);
+      if (!f || f(be))
+        append_with_peer_gray(be);
     }
     // delete extra elements
     trim_gray_peerlist();    
