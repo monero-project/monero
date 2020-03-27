@@ -32,6 +32,7 @@
 #include "cryptonote_basic/blobdatatype.h" // for type blobdata
 #include "ringct/rctTypes.h"
 #include <boost/thread/tss.hpp>
+#include <thread>
 
 #include <lmdb.h>
 
