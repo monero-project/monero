@@ -56,6 +56,7 @@
 #include "crypto/crypto.h"
 #include "net/dandelionpp.h"
 #include "net/error.h"
+#include "net/i2p_address.h"
 #include "net/net_utils_base.h"
 #include "net/socks.h"
 #include "net/socks_connect.h"
@@ -178,22 +179,33 @@ TEST(tor_address, valid)
     EXPECT_FALSE(address2.less(*address1));
     EXPECT_TRUE(address1->less(address2));
 
-    address2 = MONERO_UNWRAP(net::tor_address::make(std::string{v3_onion} + ":", 65535));
+    net::tor_address address3 = MONERO_UNWRAP(net::tor_address::make(std::string{v3_onion} + ":", 65535));
 
-    EXPECT_EQ(65535, address2.port());
-    EXPECT_STREQ(v3_onion, address2.host_str());
-    EXPECT_EQ(std::string{v3_onion} + ":65535", address2.str().c_str());
-    EXPECT_TRUE(address2.is_blockable());
-    EXPECT_FALSE(address2.equal(*address1));
-    EXPECT_FALSE(address1->equal(address2));
-    EXPECT_FALSE(address2 == *address1);
-    EXPECT_FALSE(*address1 == address2);
-    EXPECT_TRUE(address2 != *address1);
-    EXPECT_TRUE(*address1 != address2);
-    EXPECT_TRUE(address2.is_same_host(*address1));
-    EXPECT_TRUE(address1->is_same_host(address2));
-    EXPECT_FALSE(address2.less(*address1));
-    EXPECT_TRUE(address1->less(address2));
+    EXPECT_EQ(65535, address3.port());
+    EXPECT_STREQ(v3_onion, address3.host_str());
+    EXPECT_EQ(std::string{v3_onion} + ":65535", address3.str().c_str());
+    EXPECT_TRUE(address3.is_blockable());
+    EXPECT_FALSE(address3.equal(*address1));
+    EXPECT_FALSE(address1->equal(address3));
+    EXPECT_FALSE(address3 == *address1);
+    EXPECT_FALSE(*address1 == address3);
+    EXPECT_TRUE(address3 != *address1);
+    EXPECT_TRUE(*address1 != address3);
+    EXPECT_TRUE(address3.is_same_host(*address1));
+    EXPECT_TRUE(address1->is_same_host(address3));
+    EXPECT_FALSE(address3.less(*address1));
+    EXPECT_TRUE(address1->less(address3));
+
+    EXPECT_FALSE(address3.equal(address2));
+    EXPECT_FALSE(address2.equal(address3));
+    EXPECT_FALSE(address3 == address2);
+    EXPECT_FALSE(address2 == address3);
+    EXPECT_TRUE(address3 != address2);
+    EXPECT_TRUE(address2 != address3);
+    EXPECT_FALSE(address3.is_same_host(address2));
+    EXPECT_FALSE(address2.is_same_host(address3));
+    EXPECT_TRUE(address3.less(address2));
+    EXPECT_FALSE(address2.less(address3));
 }
 
 TEST(tor_address, generic_network_address)
@@ -221,7 +233,7 @@ TEST(tor_address, generic_network_address)
 
 namespace
 {
-    struct test_command
+    struct test_command_tor
     {
         net::tor_address tor;
 
@@ -235,7 +247,7 @@ TEST(tor_address, epee_serializev_v2)
 {
     std::string buffer{};
     {
-        test_command command{MONERO_UNWRAP(net::tor_address::make(v2_onion, 10))};
+        test_command_tor command{MONERO_UNWRAP(net::tor_address::make(v2_onion, 10))};
         EXPECT_FALSE(command.tor.is_unknown());
         EXPECT_NE(net::tor_address{}, command.tor);
         EXPECT_STREQ(v2_onion, command.tor.host_str());
@@ -246,7 +258,7 @@ TEST(tor_address, epee_serializev_v2)
         EXPECT_TRUE(stg.store_to_binary(buffer));
     }
 
-    test_command command{};
+    test_command_tor command{};
     {
         EXPECT_TRUE(command.tor.is_unknown());
         EXPECT_EQ(net::tor_address{}, command.tor);
@@ -286,7 +298,7 @@ TEST(tor_address, epee_serializev_v3)
 {
     std::string buffer{};
     {
-        test_command command{MONERO_UNWRAP(net::tor_address::make(v3_onion, 10))};
+        test_command_tor command{MONERO_UNWRAP(net::tor_address::make(v3_onion, 10))};
         EXPECT_FALSE(command.tor.is_unknown());
         EXPECT_NE(net::tor_address{}, command.tor);
         EXPECT_STREQ(v3_onion, command.tor.host_str());
@@ -297,7 +309,7 @@ TEST(tor_address, epee_serializev_v3)
         EXPECT_TRUE(stg.store_to_binary(buffer));
     }
 
-    test_command command{};
+    test_command_tor command{};
     {
         EXPECT_TRUE(command.tor.is_unknown());
         EXPECT_EQ(net::tor_address{}, command.tor);
@@ -337,7 +349,7 @@ TEST(tor_address, epee_serialize_unknown)
 {
     std::string buffer{};
     {
-        test_command command{net::tor_address::unknown()};
+        test_command_tor command{net::tor_address::unknown()};
         EXPECT_TRUE(command.tor.is_unknown());
         EXPECT_EQ(net::tor_address{}, command.tor);
         EXPECT_STREQ(net::tor_address::unknown_str(), command.tor.host_str());
@@ -348,7 +360,7 @@ TEST(tor_address, epee_serialize_unknown)
         EXPECT_TRUE(stg.store_to_binary(buffer));
     }
 
-    test_command command{};
+    test_command_tor command{};
     {
         EXPECT_TRUE(command.tor.is_unknown());
         EXPECT_EQ(net::tor_address{}, command.tor);
@@ -514,6 +526,374 @@ TEST(get_network_address, onion)
     EXPECT_EQ(net::error::invalid_port, address);
 }
 
+namespace
+{
+    static constexpr const char b32_i2p[] =
+        "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopn.b32.i2p";
+    static constexpr const char b32_i2p_2[] =
+        "xmrto2bturnore26xmrto2bturnore26xmrto2bturnore26xmr2.b32.i2p";
+}
+
+TEST(i2p_address, constants)
+{
+    static_assert(!net::i2p_address::is_local(), "bad is_local() response");
+    static_assert(!net::i2p_address::is_loopback(), "bad is_loopback() response");
+    static_assert(net::i2p_address::get_type_id() == epee::net_utils::address_type::i2p, "bad get_type_id() response");
+
+    EXPECT_FALSE(net::i2p_address::is_local());
+    EXPECT_FALSE(net::i2p_address::is_loopback());
+    EXPECT_EQ(epee::net_utils::address_type::i2p, net::i2p_address::get_type_id());
+    EXPECT_EQ(epee::net_utils::address_type::i2p, net::i2p_address::get_type_id());
+}
+
+TEST(i2p_address, invalid)
+{
+    EXPECT_TRUE(net::i2p_address::make("").has_error());
+    EXPECT_TRUE(net::i2p_address::make(":").has_error());
+    EXPECT_TRUE(net::i2p_address::make(".b32.i2p").has_error());
+    EXPECT_TRUE(net::i2p_address::make(".b32.i2p:").has_error());
+    EXPECT_TRUE(net::i2p_address::make(b32_i2p + 1).has_error());
+    EXPECT_TRUE(net::i2p_address::make(boost::string_ref{b32_i2p, sizeof(b32_i2p) - 2}).has_error());
+    EXPECT_TRUE(net::i2p_address::make(std::string{b32_i2p} + ":65536").has_error());
+    EXPECT_TRUE(net::i2p_address::make(std::string{b32_i2p} + ":-1").has_error());
+
+    std::string i2p{b32_i2p};
+    i2p.at(10) = 1;
+    EXPECT_TRUE(net::i2p_address::make(i2p).has_error());
+}
+
+TEST(i2p_address, unblockable_types)
+{
+    net::i2p_address i2p{};
+
+    ASSERT_NE(nullptr, i2p.host_str());
+    EXPECT_STREQ("<unknown i2p host>", i2p.host_str());
+    EXPECT_STREQ("<unknown i2p host>", i2p.str().c_str());
+    EXPECT_EQ(0u, i2p.port());
+    EXPECT_TRUE(i2p.is_unknown());
+    EXPECT_FALSE(i2p.is_local());
+    EXPECT_FALSE(i2p.is_loopback());
+    EXPECT_EQ(epee::net_utils::address_type::i2p, i2p.get_type_id());
+    EXPECT_EQ(epee::net_utils::zone::i2p, i2p.get_zone());
+
+    i2p = net::i2p_address::unknown();
+    ASSERT_NE(nullptr, i2p.host_str());
+    EXPECT_STREQ("<unknown i2p host>", i2p.host_str());
+    EXPECT_STREQ("<unknown i2p host>", i2p.str().c_str());
+    EXPECT_EQ(0u, i2p.port());
+    EXPECT_TRUE(i2p.is_unknown());
+    EXPECT_FALSE(i2p.is_local());
+    EXPECT_FALSE(i2p.is_loopback());
+    EXPECT_EQ(epee::net_utils::address_type::i2p, i2p.get_type_id());
+    EXPECT_EQ(epee::net_utils::zone::i2p, i2p.get_zone());
+
+    EXPECT_EQ(net::i2p_address{}, net::i2p_address::unknown());
+}
+
+TEST(i2p_address, valid)
+{
+    const auto address1 = net::i2p_address::make(b32_i2p);
+
+    ASSERT_TRUE(address1.has_value());
+    EXPECT_EQ(0u, address1->port());
+    EXPECT_STREQ(b32_i2p, address1->host_str());
+    EXPECT_STREQ(b32_i2p, address1->str().c_str());
+    EXPECT_TRUE(address1->is_blockable());
+
+    net::i2p_address address2{*address1};
+
+    EXPECT_EQ(0u, address2.port());
+    EXPECT_STREQ(b32_i2p, address2.host_str());
+    EXPECT_STREQ(b32_i2p, address2.str().c_str());
+    EXPECT_TRUE(address2.is_blockable());
+    EXPECT_TRUE(address2.equal(*address1));
+    EXPECT_TRUE(address1->equal(address2));
+    EXPECT_TRUE(address2 == *address1);
+    EXPECT_TRUE(*address1 == address2);
+    EXPECT_FALSE(address2 != *address1);
+    EXPECT_FALSE(*address1 != address2);
+    EXPECT_TRUE(address2.is_same_host(*address1));
+    EXPECT_TRUE(address1->is_same_host(address2));
+    EXPECT_FALSE(address2.less(*address1));
+    EXPECT_FALSE(address1->less(address2));
+
+    address2 = MONERO_UNWRAP(net::i2p_address::make(std::string{b32_i2p_2} + ":6545"));
+
+    EXPECT_EQ(6545, address2.port());
+    EXPECT_STREQ(b32_i2p_2, address2.host_str());
+    EXPECT_EQ(std::string{b32_i2p_2} + ":6545", address2.str().c_str());
+    EXPECT_TRUE(address2.is_blockable());
+    EXPECT_FALSE(address2.equal(*address1));
+    EXPECT_FALSE(address1->equal(address2));
+    EXPECT_FALSE(address2 == *address1);
+    EXPECT_FALSE(*address1 == address2);
+    EXPECT_TRUE(address2 != *address1);
+    EXPECT_TRUE(*address1 != address2);
+    EXPECT_FALSE(address2.is_same_host(*address1));
+    EXPECT_FALSE(address1->is_same_host(address2));
+    EXPECT_FALSE(address2.less(*address1));
+    EXPECT_TRUE(address1->less(address2));
+
+    net::i2p_address address3 = MONERO_UNWRAP(net::i2p_address::make(std::string{b32_i2p} + ":", 65535));
+
+    EXPECT_EQ(65535, address3.port());
+    EXPECT_STREQ(b32_i2p, address3.host_str());
+    EXPECT_EQ(std::string{b32_i2p} + ":65535", address3.str().c_str());
+    EXPECT_TRUE(address3.is_blockable());
+    EXPECT_FALSE(address3.equal(*address1));
+    EXPECT_FALSE(address1->equal(address3));
+    EXPECT_FALSE(address3 == *address1);
+    EXPECT_FALSE(*address1 == address3);
+    EXPECT_TRUE(address3 != *address1);
+    EXPECT_TRUE(*address1 != address3);
+    EXPECT_TRUE(address3.is_same_host(*address1));
+    EXPECT_TRUE(address1->is_same_host(address3));
+    EXPECT_FALSE(address3.less(*address1));
+    EXPECT_TRUE(address1->less(address3));
+
+    EXPECT_FALSE(address3.equal(address2));
+    EXPECT_FALSE(address2.equal(address3));
+    EXPECT_FALSE(address3 == address2);
+    EXPECT_FALSE(address2 == address3);
+    EXPECT_TRUE(address3 != address2);
+    EXPECT_TRUE(address2 != address3);
+    EXPECT_FALSE(address3.is_same_host(address2));
+    EXPECT_FALSE(address2.is_same_host(address3));
+    EXPECT_TRUE(address3.less(address2));
+    EXPECT_FALSE(address2.less(address3));
+}
+
+TEST(i2p_address, generic_network_address)
+{
+    const epee::net_utils::network_address i2p1{MONERO_UNWRAP(net::i2p_address::make(b32_i2p, 8080))};
+    const epee::net_utils::network_address i2p2{MONERO_UNWRAP(net::i2p_address::make(b32_i2p, 8080))};
+    const epee::net_utils::network_address ip{epee::net_utils::ipv4_network_address{100, 200}};
+
+    EXPECT_EQ(i2p1, i2p2);
+    EXPECT_NE(ip, i2p1);
+    EXPECT_LT(ip, i2p1);
+
+    EXPECT_STREQ(b32_i2p, i2p1.host_str().c_str());
+    EXPECT_EQ(std::string{b32_i2p} + ":8080", i2p1.str());
+    EXPECT_EQ(epee::net_utils::address_type::i2p, i2p1.get_type_id());
+    EXPECT_EQ(epee::net_utils::address_type::i2p, i2p2.get_type_id());
+    EXPECT_EQ(epee::net_utils::address_type::ipv4, ip.get_type_id());
+    EXPECT_EQ(epee::net_utils::zone::i2p, i2p1.get_zone());
+    EXPECT_EQ(epee::net_utils::zone::i2p, i2p2.get_zone());
+    EXPECT_EQ(epee::net_utils::zone::public_, ip.get_zone());
+    EXPECT_TRUE(i2p1.is_blockable());
+    EXPECT_TRUE(i2p2.is_blockable());
+    EXPECT_TRUE(ip.is_blockable());
+}
+
+namespace
+{
+    struct test_command_i2p
+    {
+        net::i2p_address i2p;
+
+        BEGIN_KV_SERIALIZE_MAP()
+            KV_SERIALIZE(i2p);
+        END_KV_SERIALIZE_MAP()
+    };
+}
+
+TEST(i2p_address, epee_serializev_b32)
+{
+    std::string buffer{};
+    {
+        test_command_i2p command{MONERO_UNWRAP(net::i2p_address::make(b32_i2p, 10))};
+        EXPECT_FALSE(command.i2p.is_unknown());
+        EXPECT_NE(net::i2p_address{}, command.i2p);
+        EXPECT_STREQ(b32_i2p, command.i2p.host_str());
+        EXPECT_EQ(10u, command.i2p.port());
+
+        epee::serialization::portable_storage stg{};
+        EXPECT_TRUE(command.store(stg));
+        EXPECT_TRUE(stg.store_to_binary(buffer));
+    }
+
+    test_command_i2p command{};
+    {
+        EXPECT_TRUE(command.i2p.is_unknown());
+        EXPECT_EQ(net::i2p_address{}, command.i2p);
+        EXPECT_STREQ(net::i2p_address::unknown_str(), command.i2p.host_str());
+        EXPECT_EQ(0u, command.i2p.port());
+
+        epee::serialization::portable_storage stg{};
+        EXPECT_TRUE(stg.load_from_binary(buffer));
+        EXPECT_TRUE(command.load(stg));
+    }
+    EXPECT_FALSE(command.i2p.is_unknown());
+    EXPECT_NE(net::i2p_address{}, command.i2p);
+    EXPECT_STREQ(b32_i2p, command.i2p.host_str());
+    EXPECT_EQ(10u, command.i2p.port());
+
+    // make sure that exceeding max buffer doesn't destroy i2p_address::_load
+    {
+        epee::serialization::portable_storage stg{};
+        stg.load_from_binary(buffer);
+
+        std::string host{};
+        ASSERT_TRUE(stg.get_value("host", host, stg.open_section("i2p", nullptr, false)));
+        EXPECT_EQ(std::strlen(b32_i2p), host.size());
+
+        host.push_back('k');
+        EXPECT_TRUE(stg.set_value("host", host, stg.open_section("i2p", nullptr, false)));
+        EXPECT_TRUE(command.load(stg)); // poor error reporting from `KV_SERIALIZE`
+    }
+
+    EXPECT_TRUE(command.i2p.is_unknown());
+    EXPECT_EQ(net::i2p_address{}, command.i2p);
+    EXPECT_STRNE(b32_i2p, command.i2p.host_str());
+    EXPECT_EQ(0u, command.i2p.port());
+}
+
+TEST(i2p_address, epee_serialize_unknown)
+{
+    std::string buffer{};
+    {
+        test_command_i2p command{net::i2p_address::unknown()};
+        EXPECT_TRUE(command.i2p.is_unknown());
+        EXPECT_EQ(net::i2p_address{}, command.i2p);
+        EXPECT_STREQ(net::i2p_address::unknown_str(), command.i2p.host_str());
+        EXPECT_EQ(0u, command.i2p.port());
+
+        epee::serialization::portable_storage stg{};
+        EXPECT_TRUE(command.store(stg));
+        EXPECT_TRUE(stg.store_to_binary(buffer));
+    }
+
+    test_command_i2p command{};
+    {
+        EXPECT_TRUE(command.i2p.is_unknown());
+        EXPECT_EQ(net::i2p_address{}, command.i2p);
+        EXPECT_STRNE(b32_i2p, command.i2p.host_str());
+        EXPECT_EQ(0u, command.i2p.port());
+
+        epee::serialization::portable_storage stg{};
+        EXPECT_TRUE(stg.load_from_binary(buffer));
+        EXPECT_TRUE(command.load(stg));
+    }
+    EXPECT_TRUE(command.i2p.is_unknown());
+    EXPECT_EQ(net::i2p_address{}, command.i2p);
+    EXPECT_STREQ(net::i2p_address::unknown_str(), command.i2p.host_str());
+    EXPECT_EQ(0u, command.i2p.port());
+
+    // make sure that exceeding max buffer doesn't destroy i2p_address::_load
+    {
+        epee::serialization::portable_storage stg{};
+        stg.load_from_binary(buffer);
+
+        std::string host{};
+        ASSERT_TRUE(stg.get_value("host", host, stg.open_section("i2p", nullptr, false)));
+        EXPECT_EQ(std::strlen(net::i2p_address::unknown_str()), host.size());
+
+        host.push_back('k');
+        EXPECT_TRUE(stg.set_value("host", host, stg.open_section("i2p", nullptr, false)));
+        EXPECT_TRUE(command.load(stg)); // poor error reporting from `KV_SERIALIZE`
+    }
+
+    EXPECT_TRUE(command.i2p.is_unknown());
+    EXPECT_EQ(net::i2p_address{}, command.i2p);
+    EXPECT_STRNE(b32_i2p, command.i2p.host_str());
+    EXPECT_EQ(0u, command.i2p.port());
+}
+
+TEST(i2p_address, boost_serialize_b32)
+{
+    std::string buffer{};
+    {
+        const net::i2p_address i2p = MONERO_UNWRAP(net::i2p_address::make(b32_i2p, 10));
+        EXPECT_FALSE(i2p.is_unknown());
+        EXPECT_NE(net::i2p_address{}, i2p);
+        EXPECT_STREQ(b32_i2p, i2p.host_str());
+        EXPECT_EQ(10u, i2p.port());
+
+        std::ostringstream stream{};
+        {
+            boost::archive::portable_binary_oarchive archive{stream};
+            archive << i2p;
+        }
+        buffer = stream.str();
+    }
+
+    net::i2p_address i2p{};
+    {
+        EXPECT_TRUE(i2p.is_unknown());
+        EXPECT_EQ(net::i2p_address{}, i2p);
+        EXPECT_STREQ(net::i2p_address::unknown_str(), i2p.host_str());
+        EXPECT_EQ(0u, i2p.port());
+
+        std::istringstream stream{buffer};
+        boost::archive::portable_binary_iarchive archive{stream};
+        archive >> i2p;
+    }
+    EXPECT_FALSE(i2p.is_unknown());
+    EXPECT_NE(net::i2p_address{}, i2p);
+    EXPECT_STREQ(b32_i2p, i2p.host_str());
+    EXPECT_EQ(10u, i2p.port());
+}
+
+TEST(i2p_address, boost_serialize_unknown)
+{
+    std::string buffer{};
+    {
+        const net::i2p_address i2p{};
+        EXPECT_TRUE(i2p.is_unknown());
+        EXPECT_EQ(net::i2p_address::unknown(), i2p);
+        EXPECT_STREQ(net::i2p_address::unknown_str(), i2p.host_str());
+        EXPECT_EQ(0u, i2p.port());
+
+        std::ostringstream stream{};
+        {
+            boost::archive::portable_binary_oarchive archive{stream};
+            archive << i2p;
+        }
+        buffer = stream.str();
+    }
+
+    net::i2p_address i2p{};
+    {
+        EXPECT_TRUE(i2p.is_unknown());
+        EXPECT_EQ(net::i2p_address{}, i2p);
+        EXPECT_STREQ(net::i2p_address::unknown_str(), i2p.host_str());
+        EXPECT_EQ(0u, i2p.port());
+
+        std::istringstream stream{buffer};
+        boost::archive::portable_binary_iarchive archive{stream};
+        archive >> i2p;
+    }
+    EXPECT_TRUE(i2p.is_unknown());
+    EXPECT_EQ(net::i2p_address::unknown(), i2p);
+    EXPECT_STREQ(net::i2p_address::unknown_str(), i2p.host_str());
+    EXPECT_EQ(0u, i2p.port());
+}
+
+TEST(get_network_address, i2p)
+{
+    expect<epee::net_utils::network_address> address =
+        net::get_network_address("i2p", 0);
+    EXPECT_EQ(net::error::unsupported_address, address);
+
+    address = net::get_network_address(".b32.i2p", 0);
+    EXPECT_EQ(net::error::invalid_i2p_address, address);
+
+    address = net::get_network_address(b32_i2p, 1000);
+    ASSERT_TRUE(bool(address));
+    EXPECT_EQ(epee::net_utils::address_type::i2p, address->get_type_id());
+    EXPECT_STREQ(b32_i2p, address->host_str().c_str());
+    EXPECT_EQ(std::string{b32_i2p} + ":1000", address->str());
+
+    address = net::get_network_address(std::string{b32_i2p} + ":2000", 1000);
+    ASSERT_TRUE(bool(address));
+    EXPECT_EQ(epee::net_utils::address_type::i2p, address->get_type_id());
+    EXPECT_STREQ(b32_i2p, address->host_str().c_str());
+    EXPECT_EQ(std::string{b32_i2p} + ":2000", address->str());
+
+    address = net::get_network_address(std::string{b32_i2p} + ":65536", 1000);
+    EXPECT_EQ(net::error::invalid_port, address);
+}
 
 TEST(get_network_address, ipv4)
 {
