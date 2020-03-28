@@ -212,6 +212,12 @@ namespace hw {
             // Encryption and decryption are the same operation (xor with a key)
             return encrypt_payment_id(payment_id, public_key, secret_key);
         }
+        virtual bool  encrypt_chunk(std::string &chunk, const crypto::public_key &public_key, const crypto::secret_key &secret_key) = 0;
+        bool  decrypt_chunk(std::string &chunk, const crypto::public_key &public_key, const crypto::secret_key &secret_key)
+        {
+            // Encryption and decryption are the same operation (chacha20 with deterministic key/iv)
+            return encrypt_chunk(chunk, public_key, secret_key);
+        }
 
         virtual rct::key genCommitmentMask(const rct::key &amount_key) = 0;
 

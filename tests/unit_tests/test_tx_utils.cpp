@@ -287,3 +287,53 @@ TEST(sort_tx_extra, invalid_suffix_partial)
   std::vector<uint8_t> expected(&expected_arr[0], &expected_arr[0] + sizeof(expected_arr));
   ASSERT_EQ(sorted, expected);
 }
+
+TEST(tx_extra_recipient_private_data, works)
+{
+  std::vector<uint8_t> extra;
+  ASSERT_TRUE(cryptonote::add_recipient_private_data_to_tx_extra(extra, "foobar", false));
+  const uint8_t expected_arr[] = {5, 0, 1, 6, 'f', 'o', 'o', 'b', 'a', 'r'};
+  std::vector<uint8_t> expected(&expected_arr[0], &expected_arr[0] + sizeof(expected_arr));
+  ASSERT_EQ(extra, expected);
+
+  // encrypt
+  std::vector<cryptonote::tx_extra_field> tx_extra_fields;
+  auto &hwdev = hw::get_device("default");
+  cryptonote::keypair recipient_keys = cryptonote::keypair::generate(hwdev), tx_keys = cryptonote::keypair::generate(hwdev);
+  ASSERT_TRUE(parse_tx_extra(extra, tx_extra_fields));
+  cryptonote::tx_extra_recipient_private_data ec;
+  ASSERT_TRUE(find_tx_extra_field_by_type(tx_extra_fields, ec));
+  ASSERT_TRUE(cryptonote::encrypt_recipient_private_data(ec.data, recipient_keys.pub, tx_keys.sec, hwdev));
+  cryptonote::remove_field_from_tx_extra(extra, typeid(cryptonote::tx_extra_recipient_private_data));
+  ASSERT_TRUE(cryptonote::add_recipient_private_data_to_tx_extra(extra, ec.data, true));
+  ASSERT_TRUE(memmem("foobar", 6, extra.data(), extra.size()) == NULL);
+  ASSERT_EQ(extra[0], 5);
+  ASSERT_EQ(extra[1], 1);
+
+  // decrypt
+  ASSERT_TRUE(parse_tx_extra(extra, tx_extra_fields));
+  ASSERT_TRUE(find_tx_extra_field_by_type(tx_extra_fields, ec));
+  ASSERT_TRUE(cryptonote::decrypt_recipient_private_data(ec.data, tx_keys.pub, recipient_keys.sec, hwdev));
+  cryptonote::remove_field_from_tx_extra(extra, typeid(cryptonote::tx_extra_recipient_private_data));
+  ASSERT_TRUE(cryptonote::add_recipient_private_data_to_tx_extra(extra, ec.data, false));
+  ASSERT_EQ(extra, expected);
+
+  auto mkstring = [](size_t n){ std::string s(n, 0); for (size_t i = 0; i < n; ++i) s[i] = i; return s; };
+
+  // check we can use data of any size > 0 to max
+  std::string Sempty;
+  ASSERT_FALSE(cryptonote::encrypt_recipient_private_data(Sempty, recipient_keys.pub, tx_keys.sec, hwdev));
+  for (uint32_t i = 0; i < 3 * TX_EXTRA_RECIPIENT_PRIVATE_DATA_GRANULARITY + 1; ++i)
+  {
+    uint32_t sz = i ? i : 255 * TX_EXTRA_RECIPIENT_PRIVATE_DATA_GRANULARITY;
+    std::string S = mkstring(sz);
+    ASSERT_TRUE(cryptonote::encrypt_recipient_private_data(S, recipient_keys.pub, tx_keys.sec, hwdev));
+    cryptonote::remove_field_from_tx_extra(extra, typeid(cryptonote::tx_extra_recipient_private_data));
+    ASSERT_TRUE(cryptonote::add_recipient_private_data_to_tx_extra(extra, S, true));
+    ASSERT_TRUE(parse_tx_extra(extra, tx_extra_fields));
+    ASSERT_TRUE(find_tx_extra_field_by_type(tx_extra_fields, ec));
+    ASSERT_EQ(ec.data.size(), 1 + (sz + TX_EXTRA_RECIPIENT_PRIVATE_DATA_GRANULARITY - 1) / TX_EXTRA_RECIPIENT_PRIVATE_DATA_GRANULARITY * TX_EXTRA_RECIPIENT_PRIVATE_DATA_GRANULARITY);
+    ASSERT_TRUE(cryptonote::decrypt_recipient_private_data(ec.data, tx_keys.pub, recipient_keys.sec, hwdev));
+    ASSERT_EQ(ec.data, mkstring(sz));
+  }
+}

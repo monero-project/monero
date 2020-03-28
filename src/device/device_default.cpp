@@ -33,6 +33,7 @@
 #include "device_default.hpp"
 #include "int-util.h"
 #include "crypto/wallet/crypto.h"
+#include "crypto/chacha.h"
 #include "cryptonote_basic/account.h"
 #include "cryptonote_basic/subaddress_index.h"
 #include "cryptonote_core/cryptonote_tx_utils.h"
@@ -351,6 +352,32 @@ namespace hw {
 
             for (size_t b = 0; b < 8; ++b)
                 payment_id.data[b] ^= hash.data[b];
+
+            return true;
+        }
+
+        bool  device_default::encrypt_chunk(std::string &chunk, const crypto::public_key &public_key, const crypto::secret_key &secret_key) {
+            crypto::key_derivation derivation;
+            crypto::hash hash;
+            char data[33]; /* A hash, and an extra byte */
+
+            if (!generate_key_derivation(public_key, secret_key, derivation))
+                return false;
+
+            memcpy(data, &derivation, 32);
+            data[32] = config::HASH_KEY_ENCRYPTED_CHUNK_KEY;
+            cn_fast_hash(data, 33, hash);
+            static_assert(CHACHA_KEY_SIZE <= crypto::HASH_SIZE, "Mismatched CHACHA_KEY_SIZE and HASH_SIZE");
+            crypto::chacha_key key;
+            memcpy(&unwrap(unwrap(key)), &hash, CHACHA_KEY_SIZE);
+
+            data[32] = config::HASH_KEY_ENCRYPTED_CHUNK_IV;
+            cn_fast_hash(data, 33, hash);
+            static_assert(CHACHA_IV_SIZE <= crypto::HASH_SIZE, "Mismatched CHACHA_IV_SIZE and HASH_SIZE");
+            crypto::chacha_iv iv;
+            memcpy(&iv, &hash, CHACHA_IV_SIZE);
+
+            crypto::chacha20(chunk.data(), chunk.size(), key, iv, &chunk[0]);
 
             return true;
         }

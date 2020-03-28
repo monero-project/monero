@@ -2503,6 +2503,25 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
       return;
     }
 
+    // decrypt any encrypted chunk
+    std::vector<std::string> all_recipient_private_data;
+    for (const auto &field: tx_extra_fields)
+    {
+      if (field.type() != typeid(cryptonote::tx_extra_recipient_private_data))
+        continue;
+      const auto &recipient_private_data = boost::get<cryptonote::tx_extra_recipient_private_data>(field);
+      hw::device &hwdev = m_account.get_device();
+      boost::unique_lock<hw::device> hwdev_lock (hwdev);
+      all_recipient_private_data.push_back(recipient_private_data.data);
+      std::string &s = all_recipient_private_data.back();
+      if (!cryptonote::decrypt_recipient_private_data(s, tx_pub_key, m_account.get_keys().m_view_secret_key, hwdev))
+      {
+        MERROR("Recipient private data failed to decrypt, might not be for us");
+        all_recipient_private_data.pop_back();
+        continue;
+      }
+    }
+
     bool all_same = true;
     for (const auto& i : tx_money_got_in_outs)
     {
@@ -2516,6 +2535,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
       payment.m_timestamp    = ts;
       payment.m_coinbase     = miner_tx;
       payment.m_subaddr_index = i.first;
+      payment.m_recipient_private_data = all_recipient_private_data;
       if (pool) {
         if (emplace_or_replace(m_unconfirmed_payments, payment_id, pool_payment_details{payment, double_spend_seen}))
           all_same = false;

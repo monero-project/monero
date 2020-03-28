@@ -37,7 +37,7 @@ class Wallet(object):
         self.port = port
         self.rpc = JSONRPC('{protocol}://{host}:{port}'.format(protocol=protocol, host=host, port=port if port else 18090+idx))
 
-    def transfer(self, destinations, account_index = 0, subaddr_indices = [], priority = 0, ring_size = 0, unlock_time = 0, payment_id = '', get_tx_key = True, do_not_relay = False, get_tx_hex = False, get_tx_metadata = False, debug_invalid = ''):
+    def transfer(self, destinations, account_index = 0, subaddr_indices = [], priority = 0, ring_size = 0, unlock_time = 0, payment_id = '', recipient_private_data = '', get_tx_key = True, do_not_relay = False, get_tx_hex = False, get_tx_metadata = False, debug_invalid = ''):
         transfer = {
             'method': 'transfer',
             'params': {
@@ -48,6 +48,7 @@ class Wallet(object):
                 'ring_size' : ring_size,
                 'unlock_time' : unlock_time,
                 'payment_id' : payment_id,
+                'recipient_private_data' : recipient_private_data,
                 'get_tx_key' : get_tx_key,
                 'do_not_relay' : do_not_relay,
                 'get_tx_hex' : get_tx_hex,
@@ -59,13 +60,14 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(transfer)   
 
-    def transfer_split(self, destinations, account_index = 0, subaddr_indices = [], priority = 0, ring_size = 0, unlock_time = 0, payment_id = '', get_tx_key = True, do_not_relay = False, get_tx_hex = False, get_tx_metadata = False):
+    def transfer_split(self, destinations, account_index = 0, subaddr_indices = [], priority = 0, ring_size = 0, unlock_time = 0, payment_id = '', recipient_private_data = '', get_tx_key = True, do_not_relay = False, get_tx_hex = False, get_tx_metadata = False):
         transfer = {
             "method": "transfer_split",
             "params": {
                 'destinations': destinations,
                 'account_index': account_index,
                 'subaddr_indices': subaddr_indices,
+                'recipient_private_data': recipient_private_data,
                 'priority': priority,
                 'ring_size' : ring_size,
                 'unlock_time' : unlock_time,
@@ -170,7 +172,7 @@ class Wallet(object):
         return self.rpc.send_json_rpc_request(sweep_dust)
     sweep_unmixable = sweep_dust
 
-    def sweep_all(self, address = '', account_index = 0, subaddr_indices = [], priority = 0, ring_size = 0, outputs = 1, unlock_time = 0, payment_id = '', get_tx_keys = False, below_amount = 0, do_not_relay = False, get_tx_hex = False, get_tx_metadata = False):
+    def sweep_all(self, address = '', account_index = 0, subaddr_indices = [], priority = 0, ring_size = 0, outputs = 1, unlock_time = 0, payment_id = '', recipient_private_data = '', get_tx_keys = False, below_amount = 0, do_not_relay = False, get_tx_hex = False, get_tx_metadata = False):
         sweep_all = {
             'method': 'sweep_all',
             'params' : {
@@ -182,6 +184,7 @@ class Wallet(object):
                 'outputs' : outputs,
                 'unlock_time' : unlock_time,
                 'payment_id' : payment_id,
+                'recipient_private_data' : recipient_private_data,
                 'get_tx_keys' : get_tx_keys,
                 'below_amount' : below_amount,
                 'do_not_relay' : do_not_relay,
@@ -193,7 +196,7 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(sweep_all)
 
-    def sweep_single(self, address = '', priority = 0, ring_size = 0, outputs = 1, unlock_time = 0, payment_id = '', get_tx_keys = False, key_image = "", do_not_relay = False, get_tx_hex = False, get_tx_metadata = False):
+    def sweep_single(self, address = '', priority = 0, ring_size = 0, outputs = 1, unlock_time = 0, payment_id = '', recipient_private_data = '', get_tx_keys = False, key_image = "", do_not_relay = False, get_tx_hex = False, get_tx_metadata = False):
         sweep_single = {
             'method': 'sweep_single',
             'params' : {
@@ -203,6 +206,7 @@ class Wallet(object):
                 'outputs' : outputs,
                 'unlock_time' : unlock_time,
                 'payment_id' : payment_id,
+                'recipient_private_data' : recipient_private_data,
                 'get_tx_keys' : get_tx_keys,
                 'key_image' : key_image,
                 'do_not_relay' : do_not_relay,

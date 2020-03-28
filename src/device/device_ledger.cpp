@@ -1516,6 +1516,11 @@ namespace hw {
         return true;
     }
 
+    bool device_ledger::encrypt_chunk(std::string &chunk, const crypto::public_key &public_key, const crypto::secret_key &secret_key)
+    {
+        MERROR("Not implemented yet");
+        return false;
+    }
 
     bool device_ledger::generate_output_ephemeral_keys(const size_t tx_version, const cryptonote::account_keys &sender_account_keys, const crypto::public_key &txkey_pub,  const crypto::secret_key &tx_key,
                                                        const cryptonote::tx_destination_entry &dst_entr, const boost::optional<cryptonote::account_public_address> &change_addr, const size_t output_index,

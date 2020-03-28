@@ -230,7 +230,7 @@ namespace cryptonote
     tx.extra = extra;
     crypto::public_key txkey_pub;
 
-    // if we have a stealth payment id, find it and encrypt it with the tx key now
+    // if we have a stealth payment id or encrypted chunk, find them and encrypt them with the tx key now
     std::vector<tx_extra_field> tx_extra_fields;
     if (parse_tx_extra(tx.extra, tx_extra_fields))
     {
@@ -298,6 +298,32 @@ namespace cryptonote
             // continue anyway
           }
         }
+      }
+
+      tx_extra_recipient_private_data recipient_private_data;
+      if (find_tx_extra_field_by_type(tx_extra_fields, recipient_private_data))
+      {
+        LOG_PRINT_L2("Encrypting " << recipient_private_data.data.size() << " byte recipient private data");
+        crypto::public_key view_key_pub = get_destination_view_key_pub(destinations, change_addr);
+        if (view_key_pub == null_pkey)
+        {
+          LOG_ERROR("Destinations have to have exactly one output to support recipient private data");
+          return false;
+        }
+
+        if (!cryptonote::encrypt_recipient_private_data(recipient_private_data.data, view_key_pub, tx_key, hwdev))
+        {
+          LOG_ERROR("Failed to encrypt recipient private data");
+          return false;
+        }
+
+        remove_field_from_tx_extra(tx.extra, typeid(tx_extra_recipient_private_data));
+        if (!add_recipient_private_data_to_tx_extra(tx.extra, recipient_private_data.data, true))
+        {
+          LOG_ERROR("Failed to add encrypted recipient private data to tx extra");
+          return false;
+        }
+        LOG_PRINT_L1("Encrypted " << recipient_private_data.data.size() << " byte recipient private data");
       }
     }
     else

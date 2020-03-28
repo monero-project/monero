@@ -52,6 +52,7 @@ class TransferTest():
         self.check_tx_notes()
         self.check_rescan()
         self.check_is_key_image_spent()
+        self.check_recipient_private_data()
 
     def reset(self):
         print('Resetting blockchain')
@@ -832,6 +833,33 @@ class TransferTest():
         res = daemon.is_key_image_spent(ki)
         assert res.spent_status == expected
 
+    def check_recipient_private_data(self):
+        daemon = Daemon()
+
+        print('Testing recipient private data')
+
+        self.wallet[0].refresh()
+        res = self.wallet[0].transfer([{'address': '44Kbx4sJ7JDRDV5aAhLJzQCjDz2ViLRduE3ijDZu3osWKBjMGkV1XPk4pfDUMqt1Aiezvephdqm6YD19GKFD9ZcXVUTp6BW', 'amount': 10000000}], recipient_private_data = 'some private data')
+        txid = res.tx_hash
+        daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 1)
+        self.wallet[1].refresh()
+        res = self.wallet[1].get_transfer_by_txid(txid)
+        assert len(res.transfers) == 1
+        transfer = res.transfers[0]
+        assert len(transfer.recipient_private_data) == 1
+        assert transfer.recipient_private_data[0] == 'some private data'
+
+        # too large
+        ok = False
+        try: self.wallet[0].transfer([{'address': '44Kbx4sJ7JDRDV5aAhLJzQCjDz2ViLRduE3ijDZu3osWKBjMGkV1XPk4pfDUMqt1Aiezvephdqm6YD19GKFD9ZcXVUTp6BW', 'amount': 10000000}], recipient_private_data = ' ' * (255*64+1))
+        except: ok = True
+        assert ok
+
+        # more than one recipient
+        ok = False
+        try: self.wallet[0].transfer([{'address': '44Kbx4sJ7JDRDV5aAhLJzQCjDz2ViLRduE3ijDZu3osWKBjMGkV1XPk4pfDUMqt1Aiezvephdqm6YD19GKFD9ZcXVUTp6BW', 'amount': 10000000}, {'address': '4BxSHvcgTwu25WooY4BVmgdcKwZu5EksVZSZkDd6ooxSVVqQ4ubxXkhLF6hEqtw96i9cf3cVfLw8UWe95bdDKfRQeYtPwLm1Jiw7AKt2LY', 'amount': 10000000}], recipient_private_data = 'some private data')
+        except: ok = True
+        assert ok
 
 if __name__ == '__main__':
     TransferTest().run_test()
