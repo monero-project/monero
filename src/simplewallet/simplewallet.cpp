@@ -9995,6 +9995,22 @@ bool simple_wallet::show_transfer(const std::vector<std::string> &args)
       success_msg_writer() << "Timestamp: " << tools::get_human_readable_timestamp(pd.m_timestamp);
       success_msg_writer() << "Amount: " << print_money(pd.m_amount);
       success_msg_writer() << "Payment ID: " << payment_id;
+      for (const auto &rd: pd.m_recipient_private_data)
+      {
+        bool is_print = true;
+        for (char c: rd)
+          if (!isprint(c))
+            is_print = false;
+        if (is_print)
+        {
+          success_msg_writer() << "Encrypted data (" << rd.size() << " bytes, raw):";
+          success_msg_writer() << "--- BEGIN ---";
+          message_writer(console_color_cyan, false) << rd;
+          success_msg_writer() << "--- END ---";
+        }
+        else
+          success_msg_writer() << "Encrypted data (" << rd.size() << " bytes, hexadecimal encoded): " << epee::string_tools::buff_to_hex_nodelimer(rd);
+      }
       if (pd.m_unlock_time < CRYPTONOTE_MAX_BLOCK_NUMBER)
       {
         uint64_t bh = std::max(pd.m_unlock_time, pd.m_block_height + CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE);

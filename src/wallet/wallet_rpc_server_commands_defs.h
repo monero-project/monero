@@ -463,6 +463,7 @@ namespace wallet_rpc
       uint64_t ring_size;
       uint64_t unlock_time;
       std::string payment_id;
+      std::string recipient_private_data;
       bool get_tx_key;
       bool do_not_relay;
       bool get_tx_hex;
@@ -476,6 +477,7 @@ namespace wallet_rpc
         KV_SERIALIZE_OPT(ring_size, (uint64_t)0)
         KV_SERIALIZE(unlock_time)
         KV_SERIALIZE(payment_id)
+        KV_SERIALIZE(recipient_private_data)
         KV_SERIALIZE(get_tx_key)
         KV_SERIALIZE_OPT(do_not_relay, false)
         KV_SERIALIZE_OPT(get_tx_hex, false)
@@ -522,6 +524,7 @@ namespace wallet_rpc
       uint64_t ring_size;
       uint64_t unlock_time;
       std::string payment_id;
+      std::string recipient_private_data;
       bool get_tx_keys;
       bool do_not_relay;
       bool get_tx_hex;
@@ -535,6 +538,7 @@ namespace wallet_rpc
         KV_SERIALIZE_OPT(ring_size, (uint64_t)0)
         KV_SERIALIZE(unlock_time)
         KV_SERIALIZE(payment_id)
+        KV_SERIALIZE(recipient_private_data)
         KV_SERIALIZE(get_tx_keys)
         KV_SERIALIZE_OPT(do_not_relay, false)
         KV_SERIALIZE_OPT(get_tx_hex, false)
@@ -767,6 +771,7 @@ namespace wallet_rpc
       uint64_t outputs;
       uint64_t unlock_time;
       std::string payment_id;
+      std::string recipient_private_data;
       bool get_tx_keys;
       uint64_t below_amount;
       bool do_not_relay;
@@ -783,6 +788,7 @@ namespace wallet_rpc
         KV_SERIALIZE_OPT(outputs, (uint64_t)1)
         KV_SERIALIZE(unlock_time)
         KV_SERIALIZE(payment_id)
+        KV_SERIALIZE(recipient_private_data)
         KV_SERIALIZE(get_tx_keys)
         KV_SERIALIZE(below_amount)
         KV_SERIALIZE_OPT(do_not_relay, false)
@@ -838,6 +844,7 @@ namespace wallet_rpc
       uint64_t outputs;
       uint64_t unlock_time;
       std::string payment_id;
+      std::string recipient_private_data;
       bool get_tx_key;
       std::string key_image;
       bool do_not_relay;
@@ -851,6 +858,7 @@ namespace wallet_rpc
         KV_SERIALIZE_OPT(outputs, (uint64_t)1)
         KV_SERIALIZE(unlock_time)
         KV_SERIALIZE(payment_id)
+        KV_SERIALIZE(recipient_private_data)
         KV_SERIALIZE(get_tx_key)
         KV_SERIALIZE(key_image)
         KV_SERIALIZE_OPT(do_not_relay, false)
@@ -1393,6 +1401,7 @@ namespace wallet_rpc
     bool double_spend_seen;
     uint64_t confirmations;
     uint64_t suggested_confirmations_threshold;
+    std::vector<std::string> recipient_private_data;
 
     BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE(txid);
@@ -1413,6 +1422,7 @@ namespace wallet_rpc
       KV_SERIALIZE(double_spend_seen)
       KV_SERIALIZE_OPT(confirmations, (uint64_t)0)
       KV_SERIALIZE_OPT(suggested_confirmations_threshold, (uint64_t)0)
+      KV_SERIALIZE(recipient_private_data)
     END_KV_SERIALIZE_MAP()
   };
 

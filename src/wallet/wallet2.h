@@ -372,6 +372,7 @@ private:
       uint64_t m_timestamp;
       bool m_coinbase;
       cryptonote::subaddress_index m_subaddr_index;
+      std::vector<std::string> m_recipient_private_data;
     };
 
     struct address_tx : payment_details
@@ -1641,7 +1642,7 @@ BOOST_CLASS_VERSION(tools::wallet2::transfer_details, 12)
 BOOST_CLASS_VERSION(tools::wallet2::multisig_info, 1)
 BOOST_CLASS_VERSION(tools::wallet2::multisig_info::LR, 0)
 BOOST_CLASS_VERSION(tools::wallet2::multisig_tx_set, 1)
-BOOST_CLASS_VERSION(tools::wallet2::payment_details, 5)
+BOOST_CLASS_VERSION(tools::wallet2::payment_details, 6)
 BOOST_CLASS_VERSION(tools::wallet2::pool_payment_details, 1)
 BOOST_CLASS_VERSION(tools::wallet2::unconfirmed_transfer_details, 8)
 BOOST_CLASS_VERSION(tools::wallet2::confirmed_transfer_details, 6)
@@ -1955,6 +1956,9 @@ namespace boost
       if (ver < 5)
         return;
       a & x.m_amounts;
+      if (ver < 6)
+        return;
+      a & x.m_recipient_private_data;
     }
 
     template <class Archive>
