@@ -695,11 +695,11 @@ bool t_rpc_command_executor::print_net_stats()
 
   if (m_is_rpc)
   {
-    if (!m_rpc_client->json_rpc_request(net_stats_req, net_stats_res, "get_net_stats", fail_message.c_str()))
+    if (!m_rpc_client->rpc_request(net_stats_req, net_stats_res, "/get_net_stats", fail_message.c_str()))
     {
       return true;
     }
-    if (!m_rpc_client->json_rpc_request(limit_req, limit_res, "get_limit", fail_message.c_str()))
+    if (!m_rpc_client->rpc_request(limit_req, limit_res, "/get_limit", fail_message.c_str()))
     {
       return true;
     }
