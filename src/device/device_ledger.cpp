@@ -191,7 +191,7 @@ namespace hw {
 
     static int device_id = 0;
 
-    #define PROTOCOL_VERSION                    2
+    #define PROTOCOL_VERSION                    3
 
     #define INS_NONE                            0x00
     #define INS_RESET                           0x02
@@ -228,6 +228,7 @@ namespace hw {
     #define INS_BLIND                           0x78
     #define INS_UNBLIND                         0x7A
     #define INS_GEN_TXOUT_KEYS                  0x7B
+    #define INS_PREFIX_HASH                     0x7D
     #define INS_VALIDATE                        0x7C
     #define INS_MLSAG                           0x7E
     #define INS_CLOSE_TX                        0x80
@@ -1344,6 +1345,81 @@ namespace hw {
         log_hexbuffer("open_tx: [[OUT]] r ", r_x.data, 32);
         #endif
         return true;
+    }
+
+    void device_ledger::get_transaction_prefix_hash(const cryptonote::transaction_prefix& tx, crypto::hash& h) {
+      AUTO_LOCK_CMD();
+      
+      int pref_length = 0, pref_offset = 0, offset = 0;
+
+      #ifdef DEBUG_HWDEVICE
+      crypto::hash h_x;
+      this->controle_device->get_transaction_prefix_hash(tx,h_x);
+      MDEBUG("get_transaction_prefix_hash [[IN]] h_x/1 "<<h_x);
+      #endif
+    
+      std::ostringstream s_x;
+      binary_archive<true> a_x(s_x);
+      CHECK_AND_ASSERT_THROW_MES(::serialization::serialize(a_x, const_cast<cryptonote::transaction_prefix&>(tx)),
+                                 "unable to serialize transaction prefix");
+      pref_length = s_x.str().size();
+      //auto pref = std::make_unique<unsigned char[]>(pref_length);
+      auto uprt_pref = std::unique_ptr<unsigned char[]>{ new unsigned char[pref_length] };
+      unsigned char* pref = uprt_pref.get();
+      memmove(pref, s_x.str().data(), pref_length);
+
+      offset = set_command_header_noopt(INS_PREFIX_HASH,1);
+      pref_offset = 0;
+      unsigned char v;
+
+      //version as varint     
+      do {
+        v = pref[pref_offset];
+        this->buffer_send[offset] = v;
+        offset += 1;
+        pref_offset += 1;
+      } while (v&0x80);
+
+      //locktime as var int
+      do {
+        v = pref[pref_offset];
+        this->buffer_send[offset] = v;
+        offset += 1;
+        pref_offset += 1;
+      } while (v&0x80);
+
+      this->buffer_send[4] = offset-5;
+      this->length_send = offset;
+      this->exchange_wait_on_input();
+
+      //hash remains
+      int cnt = 0;
+      while (pref_offset < pref_length) {
+        int len;
+        cnt++;
+        offset = set_command_header(INS_PREFIX_HASH,2,cnt);      
+        len = pref_length - pref_offset;
+        //options
+        if (len > (BUFFER_SEND_SIZE-7)) {
+          len = BUFFER_SEND_SIZE-7;
+          this->buffer_send[offset] = 0x80;
+        } else {
+          this->buffer_send[offset] = 0x00;
+        }
+        offset += 1;
+        //send chunk
+        memmove(&this->buffer_send[offset], pref+pref_offset, len);
+        offset += len;
+        pref_offset += len;
+        this->buffer_send[4] = offset-5;
+        this->length_send = offset;
+        this->exchange();
+      }
+      memmove(h.data, &this->buffer_recv[0], 32);
+      
+      #ifdef DEBUG_HWDEVICE
+      hw::ledger::check8("prefix_hash", "h", h_x.data, h.data);
+      #endif
     }
 
     bool device_ledger::encrypt_payment_id(crypto::hash8 &payment_id, const crypto::public_key &public_key, const crypto::secret_key &secret_key) {
