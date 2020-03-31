@@ -75,6 +75,7 @@ namespace cryptonote
     static const command_line::arg_descriptor<std::string> arg_rpc_payment_address;
     static const command_line::arg_descriptor<uint64_t> arg_rpc_payment_difficulty;
     static const command_line::arg_descriptor<uint64_t> arg_rpc_payment_credits;
+    static const command_line::arg_descriptor<bool> arg_rpc_payment_allow_free_loopback;
 
     typedef epee::net_utils::connection_context_base connection_context;
 
@@ -287,6 +288,7 @@ private:
     std::map<std::string, uint64_t> m_host_fails_score;
     std::unique_ptr<rpc_payment> m_rpc_payment;
     bool disable_rpc_ban;
+    bool m_rpc_payment_allow_free_loopback;
   };
 }
 
