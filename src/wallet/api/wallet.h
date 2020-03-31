@@ -166,6 +166,8 @@ public:
     bool importKeyImages(const std::string &filename) override;
 
     virtual void disposeTransaction(PendingTransaction * t) override;
+    virtual uint64_t estimateTransactionFee(const std::vector<std::pair<std::string, uint64_t>> &destinations,
+                                            PendingTransaction::Priority priority) const override;
     virtual TransactionHistory * history() override;
     virtual AddressBook * addressBook() override;
     virtual Subaddress * subaddress() override;
