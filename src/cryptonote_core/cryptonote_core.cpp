@@ -1935,6 +1935,12 @@ namespace cryptonote
   {
     m_blockchain_storage.flush_invalid_blocks();
   }
+  //-----------------------------------------------------------------------------------------------
+  bool core::get_txpool_complement(const std::vector<crypto::hash> &hashes, std::vector<cryptonote::blobdata> &txes)
+  {
+    return m_mempool.get_complement(hashes, txes);
+  }
+  //-----------------------------------------------------------------------------------------------
   bool core::update_blockchain_pruning()
   {
     return m_blockchain_storage.update_blockchain_pruning();

@@ -90,6 +90,8 @@ public:
   bool prune_blockchain(uint32_t pruning_seed = 0) { return true; }
   bool is_within_compiled_block_hash_area(uint64_t height) const { return false; }
   bool has_block_weights(uint64_t height, uint64_t nblocks) const { return false; }
+  bool get_txpool_complement(const std::vector<crypto::hash> &hashes, std::vector<cryptonote::blobdata> &txes) { return false; }
+  bool get_pool_transaction_hashes(std::vector<crypto::hash>& txs, bool include_unrelayed_txes = true) const { return false; }
   void stop() {}
 };
 

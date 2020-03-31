@@ -576,6 +576,39 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------------------------
+  bool tx_memory_pool::get_complement(const std::vector<crypto::hash> &hashes, std::vector<cryptonote::blobdata> &txes) const
+  {
+    CRITICAL_REGION_LOCAL(m_transactions_lock);
+    CRITICAL_REGION_LOCAL1(m_blockchain);
+
+    m_blockchain.for_all_txpool_txes([this, &hashes, &txes](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata*) {
+      const auto relay_method = meta.get_relay_method();
+      if (relay_method != relay_method::block && relay_method != relay_method::fluff)
+        return true;
+      const auto i = std::find(hashes.begin(), hashes.end(), txid);
+      if (i == hashes.end())
+      {
+        cryptonote::blobdata bd;
+        try
+        {
+          if (!m_blockchain.get_txpool_tx_blob(txid, bd, cryptonote::relay_category::broadcasted))
+          {
+            MERROR("Failed to get blob for txpool transaction " << txid);
+            return true;
+          }
+          txes.emplace_back(std::move(bd));
+        }
+        catch (const std::exception &e)
+        {
+          MERROR("Failed to get blob for txpool transaction " << txid << ": " << e.what());
+          return true;
+        }
+      }
+      return true;
+    }, false);
+    return true;
+  }
+  //---------------------------------------------------------------------------------
   void tx_memory_pool::on_idle()
   {
     m_remove_stuck_tx_interval.do_call([this](){return remove_stuck_transactions();});

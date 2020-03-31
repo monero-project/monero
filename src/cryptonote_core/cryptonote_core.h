@@ -854,6 +854,15 @@ namespace cryptonote
       */
      void flush_invalid_blocks();
 
+     /**
+      * @brief returns the set of transactions in the txpool which are not in the argument
+      *
+      * @param hashes hashes of transactions to exclude from the result
+      *
+      * @return true iff success, false otherwise
+      */
+     bool get_txpool_complement(const std::vector<crypto::hash> &hashes, std::vector<cryptonote::blobdata> &txes);
+
    private:
 
      /**
