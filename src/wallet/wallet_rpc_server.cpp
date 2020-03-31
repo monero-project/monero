@@ -335,6 +335,7 @@ namespace tools
     entry.subaddr_index = pd.m_subaddr_index;
     entry.subaddr_indices.push_back(pd.m_subaddr_index);
     entry.address = m_wallet->get_subaddress_as_str(pd.m_subaddr_index);
+    entry.recipient_private_data = pd.m_recipient_private_data;
     set_confirmations(entry, m_wallet->get_blockchain_current_height(), m_wallet->get_last_block_reward());
   }
   //------------------------------------------------------------------------------------------------------------------------------
@@ -749,7 +750,7 @@ namespace tools
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  bool wallet_rpc_server::validate_transfer(const std::list<wallet_rpc::transfer_destination>& destinations, const std::string& payment_id, std::vector<cryptonote::tx_destination_entry>& dsts, std::vector<uint8_t>& extra, bool at_least_one_destination, epee::json_rpc::error& er)
+  bool wallet_rpc_server::validate_transfer(const std::list<wallet_rpc::transfer_destination>& destinations, const std::string& payment_id, const std::string &recipient_private_data, std::vector<cryptonote::tx_destination_entry>& dsts, std::vector<uint8_t>& extra, bool at_least_one_destination, epee::json_rpc::error& er)
   {
     crypto::hash8 integrated_payment_id = crypto::null_hash8;
     std::string extra_nonce;
@@ -819,6 +820,17 @@ namespace tools
       er.message = "Standalone payment IDs are obsolete. Use subaddresses or integrated addresses instead";
       return false;
     }
+
+    if (!recipient_private_data.empty())
+    {
+      if (!cryptonote::add_recipient_private_data_to_tx_extra(extra, recipient_private_data, false))
+      {
+        er.code = WALLET_RPC_ERROR_CODE_WRONG_RECIPIENT_PRIVATE_DATA;
+        er.message = "Failed to add recipient private data";
+        return false;
+      }
+    }
+
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
@@ -940,7 +952,7 @@ namespace tools
     }
 
     // validate the transfer requested and populate dsts & extra
-    if (!validate_transfer(req.destinations, req.payment_id, dsts, extra, true, er))
+    if (!validate_transfer(req.destinations, req.payment_id, req.recipient_private_data, dsts, extra, true, er))
     {
       return false;
     }
@@ -992,7 +1004,7 @@ namespace tools
     }
 
     // validate the transfer requested and populate dsts & extra; RPC_TRANSFER::request and RPC_TRANSFER_SPLIT::request are identical types.
-    if (!validate_transfer(req.destinations, req.payment_id, dsts, extra, true, er))
+    if (!validate_transfer(req.destinations, req.payment_id, req.recipient_private_data, dsts, extra, true, er))
     {
       return false;
     }
@@ -1404,7 +1416,7 @@ namespace tools
     destination.push_back(wallet_rpc::transfer_destination());
     destination.back().amount = 0;
     destination.back().address = req.address;
-    if (!validate_transfer(destination, req.payment_id, dsts, extra, true, er))
+    if (!validate_transfer(destination, req.payment_id, req.recipient_private_data, dsts, extra, true, er))
     {
       return false;
     }
@@ -1469,7 +1481,7 @@ namespace tools
     destination.push_back(wallet_rpc::transfer_destination());
     destination.back().amount = 0;
     destination.back().address = req.address;
-    if (!validate_transfer(destination, req.payment_id, dsts, extra, true, er))
+    if (!validate_transfer(destination, req.payment_id, req.recipient_private_data, dsts, extra, true, er))
     {
       return false;
     }

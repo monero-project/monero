@@ -39,10 +39,13 @@
 #define TX_EXTRA_NONCE                      0x02
 #define TX_EXTRA_MERGE_MINING_TAG           0x03
 #define TX_EXTRA_TAG_ADDITIONAL_PUBKEYS     0x04
+#define TX_EXTRA_RECIPIENT_PRIVATE_DATA     0x05
 #define TX_EXTRA_MYSTERIOUS_MINERGATE_TAG   0xDE
 
 #define TX_EXTRA_NONCE_PAYMENT_ID           0x00
 #define TX_EXTRA_NONCE_ENCRYPTED_PAYMENT_ID 0x01
+
+#define TX_EXTRA_RECIPIENT_PRIVATE_DATA_GRANULARITY 64
 
 namespace cryptonote
 {
@@ -170,6 +173,102 @@ namespace cryptonote
     END_SERIALIZE()
   };
 
+  struct tx_extra_recipient_private_data
+  {
+    // Unencrypted:
+    //   0
+    //   number of chunks (at least one, cleartext)
+    //   size of the last chunk (cleartext)
+    //   payload (cleartext, not padded)
+    // Encrypted:
+    //   number of chunks (at least one, cleartext)
+    //   payload (encrypted, includes size of the last chunk)
+
+    std::string data;
+    bool encrypted;
+
+    // load
+    template <template <bool> class Archive>
+    bool do_serialize(Archive<false>& ar)
+    {
+      uint8_t n_chunks;
+      if (!::do_serialize(ar, n_chunks))
+        return false;
+      encrypted = n_chunks > 0;
+
+      uint16_t payload_size;
+      if (encrypted)
+      {
+        payload_size = n_chunks * TX_EXTRA_RECIPIENT_PRIVATE_DATA_GRANULARITY + 1;
+      }
+      else
+      {
+        uint8_t last_chunk_size;
+        if (!::do_serialize(ar, n_chunks))
+          return false;
+        if (!::do_serialize(ar, last_chunk_size))
+          return false;
+        if (last_chunk_size == 0 || last_chunk_size > TX_EXTRA_RECIPIENT_PRIVATE_DATA_GRANULARITY)
+          return false;
+        payload_size = (n_chunks - 1) * TX_EXTRA_RECIPIENT_PRIVATE_DATA_GRANULARITY + last_chunk_size;
+      }
+
+      data.resize(payload_size);
+      for (size_t i = 0; i < payload_size; ++i)
+      {
+        std::ios_base::iostate state = ar.stream().rdstate();
+        bool eof = EOF == ar.stream().peek();
+        ar.stream().clear(state);
+
+        if (eof)
+          return false;
+
+        if (!::do_serialize(ar, data[i]))
+          return false;
+      }
+
+      return true;
+    }
+
+    // store
+    template <template <bool> class Archive>
+    bool do_serialize(Archive<true>& ar)
+    {
+      if (data.empty() || data.size() > 255 * TX_EXTRA_RECIPIENT_PRIVATE_DATA_GRANULARITY)
+        return false;
+
+      if (encrypted && (data.size() - 1) % TX_EXTRA_RECIPIENT_PRIVATE_DATA_GRANULARITY)
+        return false;
+
+      if (!encrypted)
+      {
+        uint8_t u = 0;
+        if (!::do_serialize(ar, u))
+          return false;
+        u = (data.size() + TX_EXTRA_RECIPIENT_PRIVATE_DATA_GRANULARITY - 1) / TX_EXTRA_RECIPIENT_PRIVATE_DATA_GRANULARITY;
+        if (!::do_serialize(ar, u))
+          return false;
+        u = data.size() % TX_EXTRA_RECIPIENT_PRIVATE_DATA_GRANULARITY;
+        u = u ? u : TX_EXTRA_RECIPIENT_PRIVATE_DATA_GRANULARITY;
+        if (!::do_serialize(ar, u))
+          return false;
+      }
+      else
+      {
+        uint8_t u = data.size() / TX_EXTRA_RECIPIENT_PRIVATE_DATA_GRANULARITY;
+        if (!::do_serialize(ar, u))
+          return false;
+      }
+
+      for (size_t i = 0; i < data.size(); ++i)
+      {
+        if (!::do_serialize(ar, data[i]))
+          return false;
+      }
+      return true;
+    }
+  };
+
   struct tx_extra_mysterious_minergate
   {
     std::string data;
@@ -183,7 +282,7 @@ namespace cryptonote
   //   varint tag;
   //   varint size;
   //   varint data[];
-  typedef boost::variant<tx_extra_padding, tx_extra_pub_key, tx_extra_nonce, tx_extra_merge_mining_tag, tx_extra_additional_pub_keys, tx_extra_mysterious_minergate> tx_extra_field;
+  typedef boost::variant<tx_extra_padding, tx_extra_pub_key, tx_extra_nonce, tx_extra_merge_mining_tag, tx_extra_additional_pub_keys, tx_extra_recipient_private_data, tx_extra_mysterious_minergate> tx_extra_field;
 }
 
 VARIANT_TAG(binary_archive, cryptonote::tx_extra_padding, TX_EXTRA_TAG_PADDING);
@@ -191,4 +290,5 @@ VARIANT_TAG(binary_archive, cryptonote::tx_extra_pub_key, TX_EXTRA_TAG_PUBKEY);
 VARIANT_TAG(binary_archive, cryptonote::tx_extra_nonce, TX_EXTRA_NONCE);
 VARIANT_TAG(binary_archive, cryptonote::tx_extra_merge_mining_tag, TX_EXTRA_MERGE_MINING_TAG);
 VARIANT_TAG(binary_archive, cryptonote::tx_extra_additional_pub_keys, TX_EXTRA_TAG_ADDITIONAL_PUBKEYS);
+VARIANT_TAG(binary_archive, cryptonote::tx_extra_recipient_private_data, TX_EXTRA_RECIPIENT_PRIVATE_DATA);
 VARIANT_TAG(binary_archive, cryptonote::tx_extra_mysterious_minergate, TX_EXTRA_MYSTERIOUS_MINERGATE_TAG);

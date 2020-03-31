@@ -601,6 +601,7 @@ namespace cryptonote
     if (!pick<tx_extra_additional_pub_keys>(nar, tx_extra_fields, TX_EXTRA_TAG_ADDITIONAL_PUBKEYS)) return false;
     if (!pick<tx_extra_nonce>(nar, tx_extra_fields, TX_EXTRA_NONCE)) return false;
     if (!pick<tx_extra_merge_mining_tag>(nar, tx_extra_fields, TX_EXTRA_MERGE_MINING_TAG)) return false;
+    if (!pick<tx_extra_recipient_private_data>(nar, tx_extra_fields, TX_EXTRA_RECIPIENT_PRIVATE_DATA)) return false;
     if (!pick<tx_extra_mysterious_minergate>(nar, tx_extra_fields, TX_EXTRA_MYSTERIOUS_MINERGATE_TAG)) return false;
     if (!pick<tx_extra_padding>(nar, tx_extra_fields, TX_EXTRA_TAG_PADDING)) return false;
 
@@ -708,6 +709,69 @@ namespace cryptonote
     //write data
     ++start_pos;
     memcpy(&tx_extra[start_pos], extra_nonce.data(), extra_nonce.size());
+    return true;
+  }
+  //---------------------------------------------------------------
+  bool add_recipient_private_data_to_tx_extra(std::vector<uint8_t>& tx_extra, const std::string& chunk, bool encrypted)
+  {
+    uint8_t n_chunks;
+
+    CHECK_AND_ASSERT_MES(!chunk.empty(), false, "Recipient private data should not be empty");
+    CHECK_AND_ASSERT_MES(chunk.size() <= 255u * TX_EXTRA_RECIPIENT_PRIVATE_DATA_GRANULARITY + !!encrypted, false, "Recipient private data too large");
+    if (encrypted)
+    {
+      CHECK_AND_ASSERT_MES((chunk.size() - 1) >= TX_EXTRA_RECIPIENT_PRIVATE_DATA_GRANULARITY, false, "Recipient private data has empty payload");
+      CHECK_AND_ASSERT_MES((chunk.size() - 1) % TX_EXTRA_RECIPIENT_PRIVATE_DATA_GRANULARITY == 0, false, "Recipient private data size should be a multiple of " + std::to_string(TX_EXTRA_RECIPIENT_PRIVATE_DATA_GRANULARITY));
+      n_chunks = (chunk.size() - 1) / TX_EXTRA_RECIPIENT_PRIVATE_DATA_GRANULARITY;
+    }
+    else
+    {
+      // the data is raw
+      n_chunks = (chunk.size() + TX_EXTRA_RECIPIENT_PRIVATE_DATA_GRANULARITY - 1) / TX_EXTRA_RECIPIENT_PRIVATE_DATA_GRANULARITY;
+    }
+
+    size_t start_pos = tx_extra.size();
+    tx_extra.resize(tx_extra.size() + (encrypted ? 2 : 4) + chunk.size());
+    //write tag
+    tx_extra[start_pos++] = TX_EXTRA_RECIPIENT_PRIVATE_DATA;
+    if (!encrypted)
+    {
+      //write 0
+      tx_extra[start_pos++] = 0;
+    }
+    //write num chunks
+    tx_extra[start_pos++] = n_chunks;
+    if (!encrypted)
+    {
+      //write length of last chunk
+      const uint8_t sz_mod = chunk.size() % TX_EXTRA_RECIPIENT_PRIVATE_DATA_GRANULARITY;
+      tx_extra[start_pos++] = static_cast<uint8_t>(sz_mod ? sz_mod : TX_EXTRA_RECIPIENT_PRIVATE_DATA_GRANULARITY);
+    }
+    //write data
+    memcpy(&tx_extra[start_pos], chunk.data(), chunk.size());
+    return true;
+  }
+  //---------------------------------------------------------------
+  bool encrypt_recipient_private_data(std::string &data, const crypto::public_key &pkey, const crypto::secret_key &skey, hw::device &hwdev)
+  {
+    CHECK_AND_ASSERT_MES(!data.empty(), false, "Recipient private data can not encrypt empty data");
+    CHECK_AND_ASSERT_MES(data.size() <= 255 * TX_EXTRA_RECIPIENT_PRIVATE_DATA_GRANULARITY, false, "Recipient private data data is too large");
+    const uint8_t n_chunks = (data.size() + TX_EXTRA_RECIPIENT_PRIVATE_DATA_GRANULARITY - 1) / TX_EXTRA_RECIPIENT_PRIVATE_DATA_GRANULARITY;
+    const uint8_t sz_mod = data.size() % TX_EXTRA_RECIPIENT_PRIVATE_DATA_GRANULARITY;
+    const uint8_t last_chunk_size = sz_mod ? sz_mod : TX_EXTRA_RECIPIENT_PRIVATE_DATA_GRANULARITY;
+    data = std::string(1, (char)last_chunk_size) + data + std::string(TX_EXTRA_RECIPIENT_PRIVATE_DATA_GRANULARITY - last_chunk_size, 0);
+    CHECK_AND_ASSERT_MES(hwdev.encrypt_chunk(data, pkey, skey), false, "Failed to encrypt recipient private data");
+    return true;
+  }
+  //---------------------------------------------------------------
+  bool decrypt_recipient_private_data(std::string &data, const crypto::public_key &pkey, const crypto::secret_key &skey, hw::device &hwdev)
+  {
+    CHECK_AND_ASSERT_MES(data.size() >= TX_EXTRA_RECIPIENT_PRIVATE_DATA_GRANULARITY + 1, false, "Recipient private data is too small");
+    CHECK_AND_ASSERT_MES((data.size() - 1) % TX_EXTRA_RECIPIENT_PRIVATE_DATA_GRANULARITY == 0, false, "Recipient private data has wrong size");
+    CHECK_AND_ASSERT_MES(hwdev.decrypt_chunk(data, pkey, skey), false, "Failed to decrypt recipient private data");
+    const uint8_t last_chunk_size = data[0];
+    CHECK_AND_ASSERT_MES(last_chunk_size && last_chunk_size <= TX_EXTRA_RECIPIENT_PRIVATE_DATA_GRANULARITY, false, "Recipient private data contains bad data");
+    data = std::string(data.c_str() + 1, data.size() - 1 - TX_EXTRA_RECIPIENT_PRIVATE_DATA_GRANULARITY + last_chunk_size);
     return true;
   }
   //---------------------------------------------------------------
