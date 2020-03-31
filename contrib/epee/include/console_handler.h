@@ -606,11 +606,15 @@ eof:
     async_console_handler m_console_handler;
   public:
     ~console_handlers_binder() {
-      stop_handling();
-      if (m_console_thread.get() != nullptr)
+      try
       {
-        m_console_thread->join();
+        stop_handling();
+        if (m_console_thread.get() != nullptr)
+        {
+          m_console_thread->join();
+        }
       }
+      catch (const std::exception &e) { /* ignore */ }
     }
 
     bool start_handling(std::function<std::string(void)> prompt, const std::string& usage_string = "", std::function<void(void)> exit_handler = NULL)
