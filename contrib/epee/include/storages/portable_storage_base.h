@@ -84,6 +84,13 @@ namespace epee
       array_entry_t():m_it(m_array.end()){}        
       array_entry_t(const array_entry_t& other):m_array(other.m_array), m_it(m_array.end()){}
 
+      array_entry_t& operator=(const array_entry_t& other)
+      {
+        m_array = other.m_array;
+        m_it = m_array.end();
+        return *this;
+      }
+
       const t_entry_type* get_first_val() const 
       {
         m_it = m_array.begin();
