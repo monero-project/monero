@@ -1,6 +1,6 @@
 package=openssl
 $(package)_version=1.0.2r
-$(package)_download_path=https://www.openssl.org/source
+$(package)_download_path=https://ftp.openssl.org/source/old/1.0.2
 $(package)_file_name=$(package)-$($(package)_version).tar.gz
 $(package)_sha256_hash=ae51d08bba8a83958e894946f15303ff894d75c2b8bbd44a852b64e3fe11d0d6
 $(package)_patches=fix_arflags.patch
