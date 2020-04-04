@@ -123,7 +123,7 @@ static void test_keccak_hmac(const size_t * chunks)
 }
 
 
-TEST(keccak_hmac, )
+TEST(keccak_hmac, nullptr)
 {
   test_keccak_hmac(nullptr);
 }
