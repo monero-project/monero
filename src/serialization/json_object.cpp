@@ -1,4 +1,4 @@
-// Copyright (c) 2016-2019, The Monero Project
+// Copyright (c) 2016-2020, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -32,7 +32,11 @@
 #include <boost/variant/apply_visitor.hpp>
 #include <limits>
 #include <type_traits>
-#include "string_tools.h"
+
+// drop macro from windows.h
+#ifdef GetObject
+  #undef GetObject
+#endif
 
 namespace cryptonote
 {
@@ -106,6 +110,19 @@ namespace
       throw WRONG_TYPE{"unsigned integer"};
     }
     convert_numeric(val.GetUint64(), i);
+  }
+}
+
+void read_hex(const rapidjson::Value& val, epee::span<std::uint8_t> dest)
+{
+  if (!val.IsString())
+  {
+    throw WRONG_TYPE("string");
+  }
+
+  if (!epee::from_hex::to_buffer(dest, {val.GetString(), val.Size()}))
+  {
+    throw BAD_INPUT();
   }
 }
 
