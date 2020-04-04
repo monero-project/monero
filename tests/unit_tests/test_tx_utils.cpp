@@ -44,7 +44,7 @@ namespace
 
 TEST(parse_tx_extra, handles_empty_extra)
 {
-  std::vector<uint8_t> extra;;
+  std::vector<uint8_t> extra;
   std::vector<cryptonote::tx_extra_field> tx_extra_fields;
   ASSERT_TRUE(cryptonote::parse_tx_extra(extra, tx_extra_fields));
   ASSERT_TRUE(tx_extra_fields.empty());
