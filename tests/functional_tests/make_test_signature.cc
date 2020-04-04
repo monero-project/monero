@@ -33,9 +33,9 @@
 int main(int argc, const char **argv)
 {
   TRY_ENTRY();
-  if (argc > 2)
+  if (argc > 3)
   {
-    fprintf(stderr, "usage: %s <secret_key>\n", argv[0]);
+    fprintf(stderr, "usage: %s [<secret_key> [N]]\n", argv[0]);
     return 1;
   }
 
@@ -55,8 +55,22 @@ int main(int argc, const char **argv)
     fprintf(stderr, "invalid secret key\n");
     return 1;
   }
-  std::string signature = cryptonote::make_rpc_payment_signature(skey);
-  printf("%s\n", signature.c_str());
+  uint32_t count = 1;
+  if (argc == 3)
+  {
+    int i = atoi(argv[2]);
+    if (i <= 0)
+    {
+      fprintf(stderr, "invalid count\n");
+      return 1;
+    }
+    count = (uint32_t)i;
+  }
+  while (count--)
+  {
+    std::string signature = cryptonote::make_rpc_payment_signature(skey);
+    printf("%s\n", signature.c_str());
+  }
   return 0;
   CATCH_ENTRY_L0("main()", 1);
 }
