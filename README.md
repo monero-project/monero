@@ -332,13 +332,13 @@ If you are using the older Raspbian Jessie image, compiling Monero is a bit more
 
 * Then, install the dependencies for Monero except `libunwind` and `libboost-all-dev`
 
-* Install the latest version of boost (this may first require invoking `apt-get remove --purge libboost*` to remove a previous version if you're not using a clean install):
+* Install the latest version of boost (this may first require invoking `apt-get remove --purge libboost*-dev` to remove a previous version if you're not using a clean install):
 
     ```bash
     cd
-    wget https://sourceforge.net/projects/boost/files/boost/1.64.0/boost_1_64_0.tar.bz2
-    tar xvfo boost_1_64_0.tar.bz2
-    cd boost_1_64_0
+    wget https://sourceforge.net/projects/boost/files/boost/1.72.0/boost_1_72_0.tar.bz2
+    tar xvfo boost_1_72_0.tar.bz2
+    cd boost_1_72_0
     ./bootstrap.sh
     sudo ./b2
     ```
