@@ -450,9 +450,10 @@ application.
 
 ### On FreeBSD:
 
-The project can be built from scratch by following instructions for Linux above(but use `gmake` instead of `make`). If you are running monero in a jail you need to add the flag: `allow.sysvipc=1` to your jail configuration, otherwise lmdb will throw the error message: `Failed to open lmdb environment: Function not implemented`.
+The project can be built from scratch by following instructions for Linux above(but use `gmake` instead of `make`). 
+If you are running monero in a jail, you need to add `sysvsem="new"` to your jail configuration, otherwise lmdb will throw the error message: `Failed to open lmdb environment: Function not implemented`.
 
-We expect to add Monero into the ports tree in the near future, which will aid in managing installations using ports or packages.
+Monero is also available as a port or package as 'monero-cli`.
 
 ### On OpenBSD:
 
