@@ -2,6 +2,8 @@
 
 #include <stdexcept>
 
+#include <boost/thread/locks.hpp>
+
 #include "crypto/crypto.h"
 #include "cryptonote_core/cryptonote_core.h"
 #include "misc_log_ex.h"
@@ -12,15 +14,22 @@
 namespace cryptonote
 {
 
-  bootstrap_daemon::bootstrap_daemon(std::function<boost::optional<std::string>()> get_next_public_node)
-    : m_get_next_public_node(get_next_public_node)
+  bootstrap_daemon::bootstrap_daemon(
+    std::function<std::map<std::string, bool>()> get_public_nodes,
+    bool rpc_payment_enabled)
+    : m_selector(new bootstrap_node::selector_auto(std::move(get_public_nodes)))
+    , m_rpc_payment_enabled(rpc_payment_enabled)
   {
   }
 
-  bootstrap_daemon::bootstrap_daemon(const std::string &address, const boost::optional<epee::net_utils::http::login> &credentials)
-    : bootstrap_daemon(nullptr)
+  bootstrap_daemon::bootstrap_daemon(
+    const std::string &address,
+    boost::optional<epee::net_utils::http::login> credentials,
+    bool rpc_payment_enabled)
+    : m_selector(nullptr)
+    , m_rpc_payment_enabled(rpc_payment_enabled)
   {
-    if (!set_server(address, credentials))
+    if (!set_server(address, std::move(credentials)))
     {
       throw std::runtime_error("invalid bootstrap daemon address or credentials");
     }
@@ -54,11 +63,16 @@ namespace cryptonote
     return res.height;
   }
 
-  bool bootstrap_daemon::handle_result(bool success)
+  bool bootstrap_daemon::handle_result(bool success, const std::string &status)
   {
-    if (!success && m_get_next_public_node)
+    const bool failed = !success || (!m_rpc_payment_enabled && status == CORE_RPC_STATUS_PAYMENT_REQUIRED);
+    if (failed && m_selector)
     {
+      const std::string current_address = address();
       m_http_client.disconnect();
+
+      const boost::unique_lock<boost::mutex> lock(m_selector_mutex);
+      m_selector->handle_result(current_address, !failed);
     }
 
     return success;
@@ -79,14 +93,18 @@ namespace cryptonote
 
   bool bootstrap_daemon::switch_server_if_needed()
   {
-    if (!m_get_next_public_node || m_http_client.is_connected())
+    if (m_http_client.is_connected() || !m_selector)
     {
       return true;
     }
 
-    const boost::optional<std::string> address = m_get_next_public_node();
-    if (address) {
-      return set_server(*address);
+    boost::optional<bootstrap_node::node_info> node;
+    {
+      const boost::unique_lock<boost::mutex> lock(m_selector_mutex);
+      node = m_selector->next_node();
+    }
+    if (node) {
+      return set_server(node->address, node->credentials);
     }
 
     return false;
