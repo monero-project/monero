@@ -54,8 +54,6 @@
 #define DEFAULT_FLUSH_AGE (3600 * 24 * 180) // half a year
 #define DEFAULT_ZERO_FLUSH_AGE (60 * 2) // 2 minutes
 
-#define RPC_PAYMENT_NONCE_TAIL 0x58
-
 namespace cryptonote
 {
   rpc_payment::client_info::client_info():
@@ -147,7 +145,7 @@ namespace cryptonote
         return false;
       char data[33];
       memcpy(data, &client, 32);
-      data[32] = RPC_PAYMENT_NONCE_TAIL;
+      data[32] = config::HASH_KEY_RPC_PAYMENT_NONCE;
       crypto::hash hash;
       cn_fast_hash(data, sizeof(data), hash);
       extra_nonce = cryptonote::blobdata((const char*)&hash, 4);
