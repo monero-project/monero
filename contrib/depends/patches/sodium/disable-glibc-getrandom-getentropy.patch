@@ -1,0 +1,25 @@
+diff --git a/configure.ac b/configure.ac
+index 9e2de27c..0fa85c2d 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -807,6 +807,10 @@ AS_IF([test "x$EMSCRIPTEN" = "x"],[
+ # include <sys/random.h>
+ #endif
+ ]], [[
++#ifdef __linux__
++# error getrandom() is currently disabled on Linux to support glibc < 2.25
++#endif
++
+ unsigned char buf;
+ (void) getrandom((void *) &buf, 1U, 0U);
+   ]])],
+@@ -825,6 +829,9 @@ unsigned char buf;
+ # include <sys/random.h>
+ #endif
+ ]], [[
++#ifdef __linux__
++# error getentropy() is currently disabled on Linux to support glibc < 2.25
++#endif
+ #ifdef __APPLE__
+ # error getentropy() is currently disabled on Apple operating systems
+ #endif
