@@ -81,6 +81,8 @@ public:
 
   bool show_difficulty();
 
+  bool show_disk();
+
   bool show_status();
 
   bool print_connections();

@@ -438,6 +438,36 @@ static float get_sync_percentage(const cryptonote::COMMAND_RPC_GET_INFO::respons
   return get_sync_percentage(ires.height, ires.target_height);
 }
 
+bool t_rpc_command_executor::show_disk() {
+  cryptonote::COMMAND_RPC_GET_INFO::request ireq;
+  cryptonote::COMMAND_RPC_GET_INFO::response ires;
+  epee::json_rpc::error error_resp;
+
+  std::string fail_message = "Problem fetching info";
+
+  if (m_is_rpc)
+  {
+    if (!m_rpc_client->rpc_request(ireq, ires, "/getinfo", fail_message.c_str()))
+    {
+      return true;
+    }
+  }
+  else
+  {
+    if (!m_rpc_server->on_get_info(ireq, ires) || ires.status != CORE_RPC_STATUS_OK)
+    {
+      tools::fail_msg_writer() << make_error(fail_message, ires.status);
+      return true;
+    }
+  }
+
+  uint64_t freespace = (ires.free_space)/1000000;
+
+  std::cout << "Remaining available disk space: " << freespace << " MB" << std::endl;
+
+  return true;
+}
+
 bool t_rpc_command_executor::show_status() {
   cryptonote::COMMAND_RPC_GET_INFO::request ireq;
   cryptonote::COMMAND_RPC_GET_INFO::response ires;

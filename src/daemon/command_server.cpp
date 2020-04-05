@@ -165,6 +165,11 @@ t_command_server::t_command_server(
     , "Show the current difficulty."
     );
   m_command_lookup.set_handler(
+      "disk"
+    , std::bind(&t_command_parser_executor::show_disk, &m_parser, p::_1)
+    , "Show remaining disk space."
+    );
+  m_command_lookup.set_handler(
       "status"
     , std::bind(&t_command_parser_executor::show_status, &m_parser, p::_1)
     , "Show the current status."
