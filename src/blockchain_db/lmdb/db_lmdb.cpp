@@ -30,6 +30,7 @@
 #include <boost/filesystem.hpp>
 #include <boost/format.hpp>
 #include <boost/circular_buffer.hpp>
+#include <boost/optional.hpp>
 #include <memory>  // std::unique_ptr
 #include <cstring>  // memcpy
 
@@ -573,8 +574,22 @@ void BlockchainLMDB::do_resize(uint64_t increase_size)
   int result = mdb_env_set_mapsize(m_env, new_mapsize);
   if (result)
     throw0(DB_ERROR(lmdb_error("Failed to set new mapsize: ", result).c_str()));
+  
+  boost::filesystem::path path(m_folder);
+  boost::filesystem::space_info si = boost::filesystem::space(path);
+  boost::optional<uint64_t> space_available = si.available;
 
-  MGINFO("LMDB Mapsize increased." << "  Old: " << mei.me_mapsize / (1024 * 1024) << "MiB" << ", New: " << new_mapsize / (1024 * 1024) << "MiB");
+  if (space_available)
+  {
+   if ((*space_available / (1024 * 1024)) < 4294)
+     MGINFO_RED("Warning you are running low on disk space!\n" << "LMDB Mapsize increased." << "  Old: " << mei.me_mapsize / (1024 * 1024) << "MiB" << ", New: " << new_mapsize / (1024 * 1024) << "MiB" << ", Available disk remaining: " << *space_available / (1024 * 1024) << "MiB" );
+   else if ((*space_available / (1024 * 1024)) >= 4294)
+     MGINFO("LMDB Mapsize increased." << "  Old: " << mei.me_mapsize / (1024 * 1024) << "MiB" << ", New: " << new_mapsize / (1024 * 1024) << "MiB" << ", Available disk remaining: " << *space_available / (1024 * 1024) << "MiB" );
+  }
+  else 
+  {
+    MGINFO("LMDB Mapsize increased." << "  Old: " << mei.me_mapsize / (1024 * 1024) << "MiB" << ", New: " << new_mapsize / (1024 * 1024) << "MiB");
+  }
 
   mdb_txn_safe::allow_new_txns();
 }
