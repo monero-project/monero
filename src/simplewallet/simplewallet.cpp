@@ -5576,14 +5576,19 @@ boost::optional<epee::wipeable_string> simple_wallet::on_device_pin_request()
   return pwd_container->password();
 }
 //----------------------------------------------------------------------------------------------------
-boost::optional<epee::wipeable_string> simple_wallet::on_device_passphrase_request(bool on_device)
+boost::optional<epee::wipeable_string> simple_wallet::on_device_passphrase_request(bool & on_device)
 {
-  if (on_device){
-    message_writer(console_color_white, true) << tr("Please enter the device passphrase on the device");
-    return boost::none;
+  if (on_device) {
+    std::string accepted = input_line(tr(
+        "Device asks for passphrase. Do you want to enter the passphrase on device (Y) (or on the host (N))?"));
+    if (std::cin.eof() || command_line::is_yes(accepted)) {
+      message_writer(console_color_white, true) << tr("Please enter the device passphrase on the device");
+      return boost::none;
+    }
   }
 
   PAUSE_READLINE();
+  on_device = false;
   std::string msg = tr("Enter device passphrase");
   auto pwd_container = tools::password_container::prompt(false, msg.c_str());
   THROW_WALLET_EXCEPTION_IF(!pwd_container, tools::error::password_entry_failed, tr("Failed to read device passphrase"));

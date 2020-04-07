@@ -466,6 +466,11 @@ namespace net_utils
 				return m_net_client.get_bytes_received();
 			}
 			//---------------------------------------------------------------------------
+			void wipe_response()
+			{
+				m_response_info.wipe();
+			}
+			//---------------------------------------------------------------------------
 		private: 
 			//---------------------------------------------------------------------------
 			inline bool handle_reciev(std::chrono::milliseconds timeout)

@@ -129,7 +129,7 @@ void mock_daemon::init()
   m_rpc_server.nettype(m_network_type);
 
   CHECK_AND_ASSERT_THROW_MES(m_protocol.init(m_vm), "Failed to initialize cryptonote protocol.");
-  CHECK_AND_ASSERT_THROW_MES(m_rpc_server.init(m_vm, false, main_rpc_port), "Failed to initialize RPC server.");
+  CHECK_AND_ASSERT_THROW_MES(m_rpc_server.init(m_vm, false, main_rpc_port, false), "Failed to initialize RPC server.");
 
   if (m_start_p2p)
     CHECK_AND_ASSERT_THROW_MES(m_server.init(m_vm), "Failed to initialize p2p server.");
@@ -313,7 +313,7 @@ void mock_daemon::mine_blocks(size_t num_blocks, const std::string &miner_addres
 {
   bool blocks_mined = false;
   const uint64_t start_height = get_height();
-  const auto mining_timeout = std::chrono::seconds(30);
+  const auto mining_timeout = std::chrono::seconds(120);
   MDEBUG("Current height before mining: " << start_height);
 
   start_mining(miner_address);

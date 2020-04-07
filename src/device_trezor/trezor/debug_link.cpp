@@ -71,9 +71,9 @@ namespace trezor{
     call(decision, boost::none, true);
   }
 
-  void DebugLink::input_swipe(bool swipe){
+  void DebugLink::input_swipe(messages::debug::DebugLinkDecision_DebugSwipeDirection direction){
     messages::debug::DebugLinkDecision decision;
-    decision.set_up_down(swipe);
+    decision.set_swipe(direction);
     call(decision, boost::none, true);
   }
 

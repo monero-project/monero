@@ -76,7 +76,7 @@ public:
   typedef cryptonote::t_cryptonote_protocol_handler<cryptonote::core> t_protocol_raw;
   typedef nodetool::node_server<t_protocol_raw> t_node_server;
 
-  static constexpr const std::chrono::seconds rpc_timeout = std::chrono::seconds(60);
+  static constexpr const std::chrono::seconds rpc_timeout = std::chrono::seconds(120);
 
   cryptonote::core * m_core;
   t_protocol_raw m_protocol;

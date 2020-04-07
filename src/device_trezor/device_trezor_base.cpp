@@ -28,6 +28,7 @@
 //
 
 #include "device_trezor_base.hpp"
+#include "memwipe.h"
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/split.hpp>
 #include <boost/regex.hpp>
@@ -151,7 +152,7 @@ namespace trezor {
 
     bool device_trezor_base::disconnect() {
       TREZOR_AUTO_LOCK_DEVICE();
-      m_device_state.clear();
+      m_device_session_id.clear();
       m_features.reset();
 
       if (m_transport){
@@ -292,8 +293,8 @@ namespace trezor {
         case messages::MessageType_PassphraseRequest:
           on_passphrase_request(input, dynamic_cast<const messages::common::PassphraseRequest*>(input.m_msg.get()));
           return true;
-        case messages::MessageType_PassphraseStateRequest:
-          on_passphrase_state_request(input, dynamic_cast<const messages::common::PassphraseStateRequest*>(input.m_msg.get()));
+        case messages::MessageType_Deprecated_PassphraseStateRequest:
+          on_passphrase_state_request(input, dynamic_cast<const messages::common::Deprecated_PassphraseStateRequest*>(input.m_msg.get()));
           return true;
         case messages::MessageType_PinMatrixRequest:
           on_pin_request(input, dynamic_cast<const messages::common::PinMatrixRequest*>(input.m_msg.get()));
@@ -361,23 +362,34 @@ namespace trezor {
       return false;
     }
 
-    void device_trezor_base::device_state_reset_unsafe()
+    void device_trezor_base::device_state_initialize_unsafe()
     {
       require_connected();
+      std::string tmp_session_id;
       auto initMsg = std::make_shared<messages::management::Initialize>();
+      const auto data_cleaner = epee::misc_utils::create_scope_leave_handler([&]() {
+        memwipe(&tmp_session_id[0], tmp_session_id.size());
+      });
 
-      if(!m_device_state.empty()) {
-        initMsg->set_allocated_state(&m_device_state);
+      if(!m_device_session_id.empty()) {
+        tmp_session_id.assign(m_device_session_id.data(), m_device_session_id.size());
+        initMsg->set_allocated_session_id(&tmp_session_id);
       }
 
       m_features = this->client_exchange<messages::management::Features>(initMsg);
-      initMsg->release_state();
+      if (m_features->has_session_id()){
+        m_device_session_id = m_features->session_id();
+      } else {
+        m_device_session_id.clear();
+      }
+
+      initMsg->release_session_id();
     }
 
     void device_trezor_base::device_state_reset()
     {
       TREZOR_AUTO_LOCK_CMD();
-      device_state_reset_unsafe();
+      device_state_initialize_unsafe();
     }
 
 #ifdef WITH_TREZOR_DEBUGGING
@@ -441,48 +453,89 @@ namespace trezor {
         pin = m_pin;
       }
 
-      // TODO: remove PIN from memory
+      std::string pin_field;
       messages::common::PinMatrixAck m;
       if (pin) {
-        m.set_pin(pin.get().data(), pin.get().size());
+        pin_field.assign(pin->data(), pin->size());
+        m.set_allocated_pin(&pin_field);
       }
+
+      const auto data_cleaner = epee::misc_utils::create_scope_leave_handler([&]() {
+        m.release_pin();
+        if (!pin_field.empty()){
+          memwipe(&pin_field[0], pin_field.size());
+        }
+      });
+
       resp = call_raw(&m);
     }
 
     void device_trezor_base::on_passphrase_request(GenericMessage & resp, const messages::common::PassphraseRequest * msg)
     {
       CHECK_AND_ASSERT_THROW_MES(msg, "Empty message");
-      MDEBUG("on_passhprase_request, on device: " << msg->on_device());
+      MDEBUG("on_passhprase_request");
+
+      // Backward compatibility, migration clause.
+      if (msg->has__on_device() && msg->_on_device()){
+        messages::common::PassphraseAck m;
+        resp = call_raw(&m);
+        return;
+      }
+
+      bool on_device = true;
+      if (msg->has__on_device() && !msg->_on_device()){
+        on_device = false;  // do not enter on device, old devices.
+      }
+
+      if (on_device && m_features && m_features->capabilities_size() > 0){
+        on_device = false;
+        for (auto it = m_features->capabilities().begin(); it != m_features->capabilities().end(); it++) {
+          if (*it == messages::management::Features::Capability_PassphraseEntry){
+            on_device = true;
+          }
+        }
+      }
+
       boost::optional<epee::wipeable_string> passphrase;
-      TREZOR_CALLBACK_GET(passphrase, on_passphrase_request, msg->on_device());
+      TREZOR_CALLBACK_GET(passphrase, on_passphrase_request, on_device);
 
-      if (!passphrase && m_passphrase){
-        passphrase = m_passphrase;
-      }
-
-      m_passphrase = boost::none;
-
+      std::string passphrase_field;
       messages::common::PassphraseAck m;
-      if (!msg->on_device() && passphrase){
-        // TODO: remove passphrase from memory
-        m.set_passphrase(passphrase.get().data(), passphrase.get().size());
+      m.set_on_device(on_device);
+      if (!on_device) {
+        if (!passphrase && m_passphrase) {
+          passphrase = m_passphrase;
+        }
+
+        if (m_passphrase) {
+          m_passphrase = boost::none;
+        }
+
+        if (passphrase) {
+          passphrase_field.assign(passphrase->data(), passphrase->size());
+          m.set_allocated_passphrase(&passphrase_field);
+        }
       }
 
-      if (!m_device_state.empty()){
-        m.set_allocated_state(&m_device_state);
-      }
+      const auto data_cleaner = epee::misc_utils::create_scope_leave_handler([&]() {
+        m.release_passphrase();
+        if (!passphrase_field.empty()){
+          memwipe(&passphrase_field[0], passphrase_field.size());
+        }
+      });
 
       resp = call_raw(&m);
-      m.release_state();
     }
 
-    void device_trezor_base::on_passphrase_state_request(GenericMessage & resp, const messages::common::PassphraseStateRequest * msg)
+    void device_trezor_base::on_passphrase_state_request(GenericMessage & resp, const messages::common::Deprecated_PassphraseStateRequest * msg)
     {
       MDEBUG("on_passhprase_state_request");
       CHECK_AND_ASSERT_THROW_MES(msg, "Empty message");
 
-      m_device_state = msg->state();
-      messages::common::PassphraseStateAck m;
+      if (msg->has_state()) {
+        m_device_session_id = msg->state();
+      }
+      messages::common::Deprecated_PassphraseStateAck m;
       resp = call_raw(&m);
     }
 
@@ -510,7 +563,7 @@ namespace trezor {
       }
 
       auto msg = std::make_shared<messages::management::LoadDevice>();
-      msg->set_mnemonic(mnemonic);
+      msg->add_mnemonics(mnemonic);
       msg->set_pin(pin);
       msg->set_passphrase_protection(passphrase_protection);
       msg->set_label(label);
@@ -535,7 +588,8 @@ namespace trezor {
       return boost::none;
     }
 
-    boost::optional<epee::wipeable_string> trezor_debug_callback::on_passphrase_request(bool on_device) {
+    boost::optional<epee::wipeable_string> trezor_debug_callback::on_passphrase_request(bool & on_device) {
+      on_device = true;
       return boost::none;
     }
 

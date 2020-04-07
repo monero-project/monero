@@ -33,6 +33,7 @@
 #include <string>
 #include <utility>
 
+#include "memwipe.h"
 #include "string_tools.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
@@ -199,6 +200,11 @@ namespace net_utils
 			{
 				this->~http_response_info();
 				new(this) http_response_info();
+			}
+
+			void wipe()
+			{
+				memwipe(&m_body[0], m_body.size());
 			}
 		};
 	}

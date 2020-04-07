@@ -264,12 +264,6 @@ public:
   bool generate(std::vector<test_event_entry>& events) override;
 };
 
-class gen_trezor_1utxo_paymentid_long : public gen_trezor_base
-{
-public:
-  bool generate(std::vector<test_event_entry>& events) override;
-};
-
 class gen_trezor_4utxo : public gen_trezor_base
 {
 public:
