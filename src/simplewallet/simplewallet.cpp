@@ -207,7 +207,7 @@ namespace
   const char* USAGE_CHECK_SPEND_PROOF("check_spend_proof <txid> <signature_file> [<message>]");
   const char* USAGE_GET_RESERVE_PROOF("get_reserve_proof (all|<amount>) [<message>]");
   const char* USAGE_CHECK_RESERVE_PROOF("check_reserve_proof <address> <signature_file> [<message>]");
-  const char* USAGE_SHOW_TRANSFERS("show_transfers [in|out|pending|failed|pool|coinbase] [index=<N1>[,<N2>,...]] [<min_height> [<max_height>]]");
+  const char* USAGE_SHOW_TRANSFERS("show_transfers [in|out|all|pending|failed|pool|coinbase] [index=<N1>[,<N2>,...]] [<min_height> [<max_height>]]");
   const char* USAGE_UNSPENT_OUTPUTS("unspent_outputs [index=<N1>[,<N2>,...]] [<min_amount> [<max_amount>]]");
   const char* USAGE_RESCAN_BC("rescan_bc [hard|soft|keep_ki] [start_height=0]");
   const char* USAGE_SET_TX_NOTE("set_tx_note <txid> [free text note]");
@@ -3338,7 +3338,7 @@ simple_wallet::simple_wallet()
                               "** Set of address indices used as inputs in this transfer."));
   m_cmd_binder.set_handler("export_transfers",
                            boost::bind(&simple_wallet::on_command, this, &simple_wallet::export_transfers, _1),
-                           tr("export_transfers [in|out|all|pending|failed|coinbase] [index=<N1>[,<N2>,...]] [<min_height> [<max_height>]] [output=<filepath>]"),
+                           tr("export_transfers [in|out|all|pending|failed|pool|coinbase] [index=<N1>[,<N2>,...]] [<min_height> [<max_height>]] [output=<filepath>]"),
                            tr("Export to CSV the incoming/outgoing transfers within an optional height range."));
   m_cmd_binder.set_handler("unspent_outputs",
                            boost::bind(&simple_wallet::on_command, this, &simple_wallet::unspent_outputs, _1),
@@ -8466,7 +8466,7 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
   std::vector<std::string> local_args = args_;
 
   if(local_args.size() > 4) {
-    fail_msg_writer() << tr("usage: show_transfers [in|out|all|pending|failed|coinbase] [index=<N1>[,<N2>,...]] [<min_height> [<max_height>]]");
+    fail_msg_writer() << tr("usage: show_transfers [in|out|all|pending|failed|pool|coinbase] [index=<N1>[,<N2>,...]] [<min_height> [<max_height>]]");
     return true;
   }
 
@@ -8519,7 +8519,7 @@ bool simple_wallet::export_transfers(const std::vector<std::string>& args_)
   std::vector<std::string> local_args = args_;
 
   if(local_args.size() > 5) {
-    fail_msg_writer() << tr("usage: export_transfers [in|out|all|pending|failed|coinbase] [index=<N1>[,<N2>,...]] [<min_height> [<max_height>]] [output=<path>]");
+    fail_msg_writer() << tr("usage: export_transfers [in|out|all|pending|failed|pool|coinbase] [index=<N1>[,<N2>,...]] [<min_height> [<max_height>]] [output=<path>]");
     return true;
   }
 
