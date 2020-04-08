@@ -59,7 +59,6 @@ const char* const HardForkInfo::name = "hard_fork_info";
 const char* const GetOutputHistogram::name = "get_output_histogram";
 const char* const GetOutputKeys::name = "get_output_keys";
 const char* const GetRPCVersion::name = "get_rpc_version";
-const char* const GetPerKBFeeEstimate::name = "get_dynamic_per_kb_fee_estimate";
 
 
 
@@ -823,38 +822,6 @@ rapidjson::Value GetRPCVersion::Response::toJson(rapidjson::Document& doc) const
 void GetRPCVersion::Response::fromJson(rapidjson::Value& val)
 {
   GET_FROM_JSON_OBJECT(val, version, version);
-}
-
-rapidjson::Value GetPerKBFeeEstimate::Request::toJson(rapidjson::Document& doc) const
-{
-  auto val = Message::toJson(doc);
-
-  auto& al = doc.GetAllocator();
-
-  INSERT_INTO_JSON_OBJECT(val, doc, num_grace_blocks, num_grace_blocks);
-
-  return val;
-}
-
-void GetPerKBFeeEstimate::Request::fromJson(rapidjson::Value& val)
-{
-  GET_FROM_JSON_OBJECT(val, num_grace_blocks, num_grace_blocks);
-}
-
-rapidjson::Value GetPerKBFeeEstimate::Response::toJson(rapidjson::Document& doc) const
-{
-  auto val = Message::toJson(doc);
-
-  auto& al = doc.GetAllocator();
-
-  INSERT_INTO_JSON_OBJECT(val, doc, estimated_fee_per_kb, estimated_fee_per_kb);
-
-  return val;
-}
-
-void GetPerKBFeeEstimate::Response::fromJson(rapidjson::Value& val)
-{
-  GET_FROM_JSON_OBJECT(val, estimated_fee_per_kb, estimated_fee_per_kb);
 }
 
 

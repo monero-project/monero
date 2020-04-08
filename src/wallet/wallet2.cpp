@@ -101,8 +101,6 @@ using namespace cryptonote;
 #define RECENT_OUTPUT_ZONE ((time_t)(RECENT_OUTPUT_DAYS * 86400))
 #define RECENT_OUTPUT_BLOCKS (RECENT_OUTPUT_DAYS * 720)
 
-#define FEE_ESTIMATE_GRACE_BLOCKS 10 // estimate fee valid for that many blocks
-
 #define SECOND_OUTPUT_RELATEDNESS_THRESHOLD 0.0f
 
 #define SUBADDRESS_LOOKAHEAD_MAJOR 50
@@ -5834,28 +5832,11 @@ uint64_t wallet2::get_fee_multiplier(uint32_t priority, int fee_algorithm) const
   return 1;
 }
 //----------------------------------------------------------------------------------------------------
-uint64_t wallet2::get_dynamic_per_kb_fee_estimate() const
-{
-  uint64_t fee;
-  boost::optional<std::string> result = m_node_rpc_proxy.get_dynamic_per_kb_fee_estimate(FEE_ESTIMATE_GRACE_BLOCKS, fee);
-  if (!result)
-    return fee;
-  LOG_PRINT_L1("Failed to query per kB fee, using " << print_money(FEE_PER_KB));
-  return FEE_PER_KB;
-}
-//----------------------------------------------------------------------------------------------------
 uint64_t wallet2::get_per_kb_fee() const
 {
   if(m_light_wallet)
     return m_light_wallet_per_kb_fee;
   return FEE_PER_KB;
-#if 0
-  bool use_dyn_fee = use_fork_rules(HF_VERSION_DYNAMIC_FEE, -720 * 1);
-  if (!use_dyn_fee)
-    return FEE_PER_KB;
-
-  return get_dynamic_per_kb_fee_estimate();
-#endif
 }
 //----------------------------------------------------------------------------------------------------
 int wallet2::get_fee_algorithm() const

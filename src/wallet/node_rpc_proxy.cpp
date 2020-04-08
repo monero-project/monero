@@ -50,9 +50,6 @@ void NodeRPCProxy::invalidate()
   m_height = 0;
   for (size_t n = 0; n < 256; ++n)
     m_earliest_height[n] = 0;
-  m_dynamic_per_kb_fee_estimate = 0;
-  m_dynamic_per_kb_fee_estimate_cached_height = 0;
-  m_dynamic_per_kb_fee_estimate_grace_blocks = 0;
   m_rpc_version = 0;
   m_target_height = 0;
   m_block_size_limit = 0;
@@ -160,35 +157,6 @@ boost::optional<std::string> NodeRPCProxy::get_earliest_height(uint8_t version, 
   }
 
   earliest_height = m_earliest_height[version];
-  return boost::optional<std::string>();
-}
-
-boost::optional<std::string> NodeRPCProxy::get_dynamic_per_kb_fee_estimate(uint64_t grace_blocks, uint64_t &fee) const
-{
-  uint64_t height;
-
-  boost::optional<std::string> result = get_height(height);
-  if (result)
-    return result;
-
-  if (m_dynamic_per_kb_fee_estimate_cached_height != height || m_dynamic_per_kb_fee_estimate_grace_blocks != grace_blocks)
-  {
-    cryptonote::COMMAND_RPC_GET_PER_KB_FEE_ESTIMATE::request req_t = AUTO_VAL_INIT(req_t);
-    cryptonote::COMMAND_RPC_GET_PER_KB_FEE_ESTIMATE::response resp_t = AUTO_VAL_INIT(resp_t);
-
-    m_daemon_rpc_mutex.lock();
-    req_t.grace_blocks = grace_blocks;
-    bool r = net_utils::invoke_http_json_rpc("/json_rpc", "get_fee_estimate", req_t, resp_t, m_http_client, rpc_timeout);
-    m_daemon_rpc_mutex.unlock();
-    CHECK_AND_ASSERT_MES(r, std::string(), "Failed to connect to daemon");
-    CHECK_AND_ASSERT_MES(resp_t.status != CORE_RPC_STATUS_BUSY, resp_t.status, "Failed to connect to daemon");
-    CHECK_AND_ASSERT_MES(resp_t.status == CORE_RPC_STATUS_OK, resp_t.status, "Failed to get fee estimate");
-    m_dynamic_per_kb_fee_estimate = resp_t.fee;
-    m_dynamic_per_kb_fee_estimate_cached_height = height;
-    m_dynamic_per_kb_fee_estimate_grace_blocks = grace_blocks;
-  }
-
-  fee = m_dynamic_per_kb_fee_estimate;
   return boost::optional<std::string>();
 }
 

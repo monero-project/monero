@@ -539,34 +539,6 @@ namespace cryptonote
     bool check_tx_inputs(transaction& tx, uint64_t& pmax_used_block_height, crypto::hash& max_used_block_id, tx_verification_context &tvc, bool kept_by_block = false);
 
     /**
-     * @brief get dynamic per kB fee for a given block size
-     *
-     * The dynamic fee is based on the block size in a past window, and
-     * the current block reward. It is expressed by kB.
-     *
-     * @param block_reward the current block reward
-     * @param median_block_size the median blob's size in the past window
-     * @param version hard fork version for rules and constants to use
-     *
-     * @return the per kB fee
-     */
-    static uint64_t get_dynamic_per_kb_fee(uint64_t block_reward, size_t median_block_size, uint8_t version);
-
-    /**
-     * @brief get dynamic per kB fee estimate for the next few blocks
-     *
-     * The dynamic fee is based on the block size in a past window, and
-     * the current block reward. It is expressed by kB. This function
-     * calculates an estimate for a dynamic fee which will be valid for
-     * the next grace_blocks
-     *
-     * @param grace_blocks number of blocks we want the fee to be valid for
-     *
-     * @return the per kB fee estimate
-     */
-    uint64_t get_dynamic_per_kb_fee_estimate(uint64_t grace_blocks) const;
-
-    /**
      * @brief validate a transaction's fee
      *
      * This function validates the fee is enough for the transaction.

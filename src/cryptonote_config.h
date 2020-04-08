@@ -71,8 +71,6 @@
 #define DEFAULT_FEE_V1                                  ((uint64_t)10000000000) // pow(10, 10)
 
 #define FEE_PER_KB                                      ((uint64_t)1000000000) // 1 * pow(10, 9)
-#define DYNAMIC_FEE_PER_KB_BASE_FEE                     ((uint64_t)2000000000) // 2 * pow(10,9)
-#define DYNAMIC_FEE_PER_KB_BASE_BLOCK_REWARD            ((uint64_t)10000000000000) // 10 * pow(10,12)
 
 #define ORPHANED_BLOCKS_MAX_COUNT                       100
 
@@ -135,7 +133,6 @@
 #define THREAD_STACK_SIZE                       5 * 1024 * 1024
 
 #define HF_VERSION_ALLOW_RCT                    255
-// #define HF_VERSION_DYNAMIC_FEE                  4
 #define HF_VERSION_ENFORCE_RCT                  255
 #define HF_VERSION_LONG_TERM_BLOCK_SIZE         8
 
@@ -143,8 +140,6 @@
 #define HF_VERSION_FIXED_RING_SIZE              8
 #define HF_VERSION_ENFORCE_MIN_AGE              8
 #define HF_VERSION_EFFECTIVE_SHORT_TERM_MEDIAN_IN_PENALTY 9
-
-#define PER_KB_FEE_QUANTIZATION_DECIMALS        8
 
 #define HASH_OF_HASHES_STEP                     256
 
