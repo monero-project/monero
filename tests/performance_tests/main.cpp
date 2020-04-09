@@ -65,6 +65,7 @@
 #include "sig_clsag.h"
 #include "log.h"
 #include "json.h"
+#include "triptych.h"
 
 namespace po = boost::program_options;
 
@@ -263,6 +264,8 @@ int main(int argc, char** argv)
   TEST_PERFORMANCE6(filter, p, test_aggregated_bulletproof_plus, true, 1, 8, 1, 1, 4); // 32 proofs, with 1, 2, 3, 4 amounts, 8 of each
   TEST_PERFORMANCE6(filter, p, test_aggregated_bulletproof_plus, false, 2, 1, 1, 0, 64);
   TEST_PERFORMANCE6(filter, p, test_aggregated_bulletproof_plus, true, 2, 1, 1, 0, 64); // 64 proof, each with 2 amounts
+
+  TEST_PERFORMANCE1(filter, p, test_triptych, true);
 
   TEST_PERFORMANCE2(filter, p, test_bulletproof, true, 1); // 1 bulletproof with 1 amount
   TEST_PERFORMANCE2(filter, p, test_bulletproof, false, 1);

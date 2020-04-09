@@ -154,6 +154,31 @@ namespace rct {
     struct geDsmp {
         ge_dsmp k;
     };
+
+    // Triptych proof structure
+    struct TriptychProof
+    {
+        key J;
+        key K;
+        key A,B,C,D;
+        keyV X,Y;
+        keyM f;
+        key zA,zC,z;
+
+        BEGIN_SERIALIZE_OBJECT()
+            FIELD(K)
+            FIELD(A)
+            FIELD(B)
+            FIELD(C)
+            FIELD(D)
+            FIELD(X)
+            FIELD(Y)
+            FIELD(f)
+            FIELD(zA)
+            FIELD(zC)
+            FIELD(z)
+        END_SERIALIZE()
+    };
     
     //just contains the necessary keys to represent MLSAG sigs
     //c.f. https://eprint.iacr.org/2015/1098
