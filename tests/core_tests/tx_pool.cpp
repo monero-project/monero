@@ -125,10 +125,12 @@ txpool_double_spend_base::txpool_double_spend_base()
   , m_no_relay_hashes()
   , m_all_hashes()
   , m_no_new_index(0)
+  , m_failed_index(0)
   , m_new_timestamp_index(0)
   , m_last_tx(crypto::hash{})
 {
   REGISTER_CALLBACK_METHOD(txpool_double_spend_base, mark_no_new);
+  REGISTER_CALLBACK_METHOD(txpool_double_spend_base, mark_failed);
   REGISTER_CALLBACK_METHOD(txpool_double_spend_base, mark_timestamp_change);
   REGISTER_CALLBACK_METHOD(txpool_double_spend_base, timestamp_change_pause);
   REGISTER_CALLBACK_METHOD(txpool_double_spend_base, check_unchanged);
@@ -140,6 +142,12 @@ txpool_double_spend_base::txpool_double_spend_base()
 bool txpool_double_spend_base::mark_no_new(cryptonote::core& /*c*/, size_t ev_index, const std::vector<test_event_entry>& /*events*/)
 {
   m_no_new_index = ev_index + 1;
+  return true;
+}
+
+bool txpool_double_spend_base::mark_failed(cryptonote::core& /*c*/, size_t ev_index, const std::vector<test_event_entry>& /*events*/)
+{
+  m_failed_index = ev_index + 1;
   return true;
 }
 
@@ -483,6 +491,8 @@ bool txpool_double_spend_base::check_tx_verification_context(const cryptonote::t
   m_last_tx = cryptonote::get_transaction_hash(tx);
   if (m_no_new_index == event_idx)
     return !tvc.m_verifivation_failed && !tx_added;
+  else if (m_failed_index == event_idx)
+    return tvc.m_verifivation_failed;// && !tx_added;
   else
     return !tvc.m_verifivation_failed && tx_added;
 }
@@ -554,6 +564,48 @@ bool txpool_double_spend_local::generate(std::vector<test_event_entry>& events) 
   DO_CALLBACK(events, "timestamp_change_pause");
   DO_CALLBACK(events, "mark_no_new");
   events.push_back(tx_0);
+  DO_CALLBACK(events, "check_unchanged");
+
+  return true;
+}
+
+bool txpool_double_spend_keyimage::generate(std::vector<test_event_entry>& events) const
+{
+  INIT_MEMPOOL_TEST();
+
+  DO_CALLBACK(events, "check_txpool_spent_keys");
+  SET_EVENT_VISITOR_SETT(events, event_visitor_settings::set_local_relay);
+  DO_CALLBACK(events, "mark_no_new");
+
+  const std::size_t tx_index1 = events.size();
+  MAKE_TX(events, tx_0, miner_account, bob_account, send_amount, blk_0);
+
+  DO_CALLBACK(events, "increase_all_tx_count");
+  DO_CALLBACK(events, "check_txpool_spent_keys");
+  DO_CALLBACK(events, "mark_timestamp_change");
+  DO_CALLBACK(events, "check_new_hidden");
+  DO_CALLBACK(events, "timestamp_change_pause");
+  DO_CALLBACK(events, "mark_no_new");
+  const std::size_t tx_index2 = events.size();
+  events.push_back(tx_0);
+  DO_CALLBACK(events, "check_txpool_spent_keys");
+  DO_CALLBACK(events, "mark_timestamp_change");
+  DO_CALLBACK(events, "check_unchanged");
+
+  // use same key image with different id
+  cryptonote::transaction tx_1;
+  {
+    auto events_copy = events;
+    events_copy.erase(events_copy.begin() + tx_index1);
+    events_copy.erase(events_copy.begin() + tx_index2 - 1);
+    MAKE_TX(events_copy, tx_temp, miner_account, bob_account, send_amount, blk_0);
+    tx_1 = tx_temp;
+  }
+
+  // same key image
+  DO_CALLBACK(events, "timestamp_change_pause");
+  DO_CALLBACK(events, "mark_failed");
+  events.push_back(tx_1);
   DO_CALLBACK(events, "check_unchanged");
 
   return true;

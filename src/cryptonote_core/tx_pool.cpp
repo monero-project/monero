@@ -404,27 +404,18 @@ namespace cryptonote
       CHECKED_GET_SPECIFIC_VARIANT(in, const txin_to_key, txin, false);
       std::unordered_set<crypto::hash>& kei_image_set = m_spent_key_images[txin.k_image];
 
-      /* If any existing key-image in the set is publicly visible AND this is
-         not forcibly "kept_by_block", then fail (duplicate key image). If all
-         existing key images are supposed to be hidden, we silently allow so
-         that the node doesn't leak knowledge of a local/stem tx. */
-      bool visible = false;
+      // Only allow multiple txes per key-image if kept-by-block. Only allow
+      // the same txid if going from local/stem->fluff.
+
       if (tx_relay != relay_method::block)
       {
-        for (const crypto::hash& other_id : kei_image_set)
-          visible |= m_blockchain.txpool_tx_matches_category(other_id, relay_category::legacy);
-      }
-
-      CHECK_AND_ASSERT_MES(!visible, false, "internal error: tx_relay=" << unsigned(tx_relay)
+        const bool one_txid =
+          (kei_image_set.empty() || (kei_image_set.size() == 1 && *(kei_image_set.cbegin()) == id));
+        CHECK_AND_ASSERT_MES(one_txid, false, "internal error: tx_relay=" << unsigned(tx_relay)
                                            << ", kei_image_set.size()=" << kei_image_set.size() << ENDL << "txin.k_image=" << txin.k_image << ENDL
                                            << "tx_id=" << id);
+      }
 
-      /* If adding a tx (hash) that already exists, fail only if the tx has
-         been publicly "broadcast" previously. This way, when a private tx is
-         received for the first time from a remote node, "this" node will
-         respond as-if it were seen for the first time. LMDB does the
-         "hard-check"  on key-images, so the effect is overwriting the existing
-         tx_pool metadata and "first seen" time. */
       const bool new_or_previously_private =
         kei_image_set.insert(id).second ||
         !m_blockchain.txpool_tx_matches_category(id, relay_category::legacy);
