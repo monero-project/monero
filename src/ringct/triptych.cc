@@ -42,12 +42,11 @@ extern "C"
 
 namespace rct
 {
-    // Proof parameters
-    static const size_t m = 7;
-    static const size_t n = 2;
-    static const size_t N = pow(n,m);
+    // Maximum size parameter
+    static const size_t max_mn = 128;
 
-    static ge_p3 Hi_p3[m*n];
+    // Global data
+    static ge_p3 Hi_p3[max_mn];
     static ge_p3 H_p3;
     static std::shared_ptr<straus_cached_data> straus_Hi_cache;
     static rct::key U;
@@ -123,21 +122,21 @@ namespace rct
     static void init_gens()
     {
         boost::lock_guard<boost::mutex> lock(init_mutex);
-        static const std::string salt("triptych");
+        static const std::string salt("triptych Hi");
 
         static bool init_done = false;
         if (init_done) return;
 
         std::vector<MultiexpData> data;
-        data.reserve(m*n);
+        data.reserve(max_mn);
 
-        // Build Gi generators
-        for (size_t i = 0; i < m*n; i++)
+        // Build Hi generators
+        for (size_t i = 0; i < max_mn; i++)
         {
-            // Gi_p3[i] = keccak(H,"triptych",i)
+            // Hi_p3[i] = keccak(H,"triptych",i)
             std::string hash = std::string((const char*) rct::H.bytes, sizeof(rct::H)) + salt + tools::get_varint_data(i);
             rct::hash_to_p3(Hi_p3[i], rct::hash2rct(crypto::cn_fast_hash(hash.data(),hash.size())));
-            data.push_back({rct::zero(),Hi_p3[i]});
+            data.push_back({ZERO,Hi_p3[i]});
         }
 
         // Build U
@@ -154,7 +153,7 @@ namespace rct
     }
 
     // Decompose an integer with a fixed base and size
-    static void decompose(size_t r[], const size_t val, const size_t base, const size_t size)
+    static void decompose(std::vector<size_t> &r, const size_t val, const size_t base, const size_t size)
     {
         size_t temp = val;
 
@@ -166,9 +165,12 @@ namespace rct
         }
     }
 
-    // Commit to a scalar matrix (m,n)
+    // Commit to a scalar matrix
     static rct::key com_matrix(rct::keyM &M, rct::key &r)
     {
+        const size_t m = M.size();
+        const size_t n = M[0].size();
+
         std::vector<MultiexpData> data;
         data.reserve(m*n + 1);
         for (size_t j = 0; j < m; j++)
@@ -193,7 +195,7 @@ namespace rct
     }
 
     // Compute a convolution with a degree-one polynomial
-    static rct::keyV convolve(const keyV &x, const keyV &y)
+    static rct::keyV convolve(const keyV &x, const keyV &y, const size_t m)
     {
         rct::keyV r;
         r.reserve(m+1);
@@ -217,9 +219,19 @@ namespace rct
     }
 
     // Generate a Triptych proof
-    TriptychProof triptych_prove(const rct::keyV &M, const rct::keyV &P, const size_t l, const key &r, const key &s)
+    TriptychProof triptych_prove(const rct::keyV &M, const rct::keyV &P, const size_t l, const key &r, const key &s, const size_t n, const size_t m)
     {
+        CHECK_AND_ASSERT_THROW_MES(n > 1, "Must have n > 1!");
+        CHECK_AND_ASSERT_THROW_MES(m > 1, "Must have m > 1!");
+        CHECK_AND_ASSERT_THROW_MES(m*n <= max_mn, "Size parameters are too large!");
+        CHECK_AND_ASSERT_THROW_MES(M.size() == pow(n,m), "Public key vector is wrong size!");
+        CHECK_AND_ASSERT_THROW_MES(P.size() == pow(n,m), "Commitment vector is wrong size!");
+        CHECK_AND_ASSERT_THROW_MES(l < M.size(), "Signing index out of bounds!");
+        CHECK_AND_ASSERT_THROW_MES(rct::scalarmultBase(r) == M[l], "Bad signing key!");
+        CHECK_AND_ASSERT_THROW_MES(rct::scalarmultBase(s) == P[l], "Bad commitment key!");
+
         init_gens();
+        const size_t N = pow(n,m);
 
         TriptychProof proof;
 
@@ -249,7 +261,8 @@ namespace rct
         proof.A = com_matrix(a,rA);
 
         // Commit to decomposition bits
-        size_t decomp_l[m];
+        std::vector<size_t> decomp_l;
+        decomp_l.reserve(m);
         decompose(decomp_l,l,n,m);
 
         rct::keyM sigma = rct::keyMInit(n,m);
@@ -291,7 +304,8 @@ namespace rct
         rct::keyM p = rct::keyMInit(m+1,N);
         for (size_t k = 0; k < N; k++)
         {
-            size_t decomp_k[m];
+            std::vector<size_t> decomp_k;
+            decomp_k.reserve(m);
             decompose(decomp_k,k,n,m);
 
             for (size_t j = 0; j < m+1; j++)
@@ -308,7 +322,7 @@ namespace rct
                 temp[0] = a[j][decomp_k[j]];
                 temp[1] = delta(decomp_l[j],decomp_k[j]);
 
-                p[k] = convolve(p[k],temp);
+                p[k] = convolve(p[k],temp,m);
             }
         }
 
@@ -398,9 +412,16 @@ namespace rct
     }
 
     // Verify a Triptych proof
-    bool triptych_verify(const rct::keyV &M, const rct::keyV &P, TriptychProof proof)
+    bool triptych_verify(const rct::keyV &M, const rct::keyV &P, TriptychProof proof, const size_t n, const size_t m)
     {
+        CHECK_AND_ASSERT_THROW_MES(n > 1, "Must have n > 1!");
+        CHECK_AND_ASSERT_THROW_MES(m > 1, "Must have m > 1!");
+        CHECK_AND_ASSERT_THROW_MES(m*n <= max_mn, "Size parameters are too large!");
+        CHECK_AND_ASSERT_THROW_MES(M.size() == pow(n,m), "Public key vector is wrong size!");
+        CHECK_AND_ASSERT_THROW_MES(P.size() == pow(n,m), "Commitment vector is wrong size!");
+
         init_gens();
+        const size_t N = pow(n,m);
 
         rct::key mu = ONE; // TODO: transcript hash
         rct::key L,R;
@@ -460,7 +481,8 @@ namespace rct
         for (size_t k = 0; k < N; k++)
         {
             rct::key t = ONE;
-            size_t decomp_k[m];
+            std::vector<size_t> decomp_k;
+            decomp_k.reserve(m);
             decompose(decomp_k,k,n,m);
 
             for (size_t j = 0; j < m; j++)

@@ -31,21 +31,21 @@
 #include "ringct/triptych.h"
 #include "ringct/rctTypes.h"
 
-template<bool a_verify>
+template<size_t a_n, size_t a_m, size_t a_l, bool a_verify>
 class test_triptych
 {
     public:
-        static const size_t loop_count = 1;
+        static const size_t loop_count = 100;
+        static const size_t n = a_n;
+        static const size_t m = a_m;
+        static const size_t l = a_l;
         static const bool verify = a_verify;
-        static const size_t m = 7;
-        static const size_t n = 2;
-        static const size_t N = pow(n,m);
 
         bool init()
         {
-            M.reserve(N);
-            P.reserve(N);
-            l = 1;
+            const size_t N = pow(n,m);
+            M = rct::keyV(N);
+            P = rct::keyV(N);
 
             rct::key temp;
             for (size_t k = 0; k < N; k++)
@@ -62,7 +62,7 @@ class test_triptych
                 }
             }
 
-            proof = rct::triptych_prove(M,P,l,r,s);
+            proof = rct::triptych_prove(M,P,l,r,s,n,m);
 
             return true;
         }
@@ -71,17 +71,16 @@ class test_triptych
         {
             if (!verify)
             {
-                proof = rct::triptych_prove(M,P,l,r,s);
+                proof = rct::triptych_prove(M,P,l,r,s,n,m);
                 return true;
             }
 
-            return rct::triptych_verify(M,P,proof);
+            return rct::triptych_verify(M,P,proof,n,m);
         }
 
     private:
         rct::keyV M;
         rct::keyV P;
-        size_t l;
         rct::key r;
         rct::key s;
         rct::TriptychProof proof;
