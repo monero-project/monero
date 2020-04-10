@@ -120,9 +120,11 @@ void mdb_midl_free(MDB_IDL ids)
 void mdb_midl_shrink( MDB_IDL *idp )
 {
 	MDB_IDL ids = *idp;
+	MDB_IDL new_ids;
 	if (*(--ids) > MDB_IDL_UM_MAX &&
-		(ids = realloc(ids, (MDB_IDL_UM_MAX+2) * sizeof(MDB_ID))))
+		(new_ids = realloc(ids, (MDB_IDL_UM_MAX+2) * sizeof(MDB_ID))))
 	{
+		ids = new_ids;
 		*ids++ = MDB_IDL_UM_MAX;
 		*idp = ids;
 	}
@@ -132,9 +134,10 @@ static int mdb_midl_grow( MDB_IDL *idp, int num )
 {
 	MDB_IDL idn = *idp-1;
 	/* grow it */
-	idn = realloc(idn, (*idn + num + 2) * sizeof(MDB_ID));
-	if (!idn)
+	MDB_IDL new_idn = realloc(idn, (*idn + num + 2) * sizeof(MDB_ID));
+	if (!new_idn)
 		return ENOMEM;
+	idn = new_idn;
 	*idn++ += num;
 	*idp = idn;
 	return 0;
