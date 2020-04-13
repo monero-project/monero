@@ -86,6 +86,8 @@ namespace rct
         hash += std::string((const char*) C.bytes, sizeof(C));
         hash += std::string((const char*) D.bytes, sizeof(D));
         rct::hash_to_scalar(transcript,hash.data(),hash.size());
+
+        CHECK_AND_ASSERT_THROW_MES(!(transcript == ZERO), "Transcript challenge must be nonzero!");
     }
 
     // Update transcript: transcript, X, Y
@@ -100,6 +102,8 @@ namespace rct
             hash += std::string((const char*) Y[j].bytes, sizeof(Y[j]));
         }
         rct::hash_to_scalar(transcript,hash.data(),hash.size());
+
+        CHECK_AND_ASSERT_THROW_MES(!(transcript == ZERO), "Transcript challenge must be nonzero!");
     }
     
     // Helper function for scalar inversion
@@ -115,6 +119,8 @@ namespace rct
     // NOTE: scalar must be nonzero!
     static rct::key invert(const rct::key &x)
     {
+        CHECK_AND_ASSERT_THROW_MES(!(x == ZERO), "Cannot invert zero!");
+
         rct::key _1, _10, _100, _11, _101, _111, _1001, _1011, _1111;
 
         _1 = x;
@@ -497,7 +503,15 @@ namespace rct
             sc_mul(minus_x[j].bytes,minus_x[j-1].bytes,x.bytes);
         }
 
-        // A/B check
+        // The A/B and C/D checks are combined with a nonzero random weighting factor
+        rct::key weight = ZERO;
+        rct::keyM abcd = rct::keyMInit(n,m);
+        while (weight == ZERO)
+        {
+            weight = rct::skGen();
+        }
+
+        // Reconstruct the f-matrix
         for (size_t j = 0; j < m; j++)
         {
             proof.f[j][0] = x;
@@ -507,33 +521,43 @@ namespace rct
             }
         }
 
-        // Com(f,zA) == A + xB
-        L = com_matrix(proof.f,proof.zA);
-        R = rct::addKeys(proof.A,rct::scalarmultKey(proof.B,x));
-        if (!(L == R))
-        {
-            MERROR("Triptych verification failed at A/B check!");
-            return false;
-        }
-
-        // C/D check
-        rct::keyM fx = rct::keyMInit(n,m);
+        // Build the weighted matrix
         for (size_t j = 0; j < m; j++)
         {
             for (size_t i = 0; i < n; i++)
             {
                 rct::key temp;
                 sc_sub(temp.bytes,x.bytes,proof.f[j][i].bytes);
-                sc_mul(fx[j][i].bytes,proof.f[j][i].bytes,temp.bytes);
+                sc_mul(temp.bytes,proof.f[j][i].bytes,temp.bytes);
+                sc_muladd(abcd[j][i].bytes,temp.bytes,weight.bytes,proof.f[j][i].bytes);
             }
         }
 
-        // Com(f(x-f),zC) == xC + D
-        L = com_matrix(fx,proof.zC);
-        R = rct::addKeys(proof.D,rct::scalarmultKey(proof.C,x));
+        // Weighted mask and commitment
+        // L = Com(abcd,zA + w*zC)
+        rct::key temp;
+        sc_muladd(temp.bytes,proof.zC.bytes,weight.bytes,proof.zA.bytes);
+        L = com_matrix(abcd,temp);
+
+        // The upside-down
+        // R = A + xB + w(xC + D)
+        std::vector<MultiexpData> data;
+        data.reserve(4);
+        ge_p3 temp_p3;
+        ge_frombytes_vartime(&temp_p3,proof.A.bytes);
+        data.push_back({ONE,temp_p3});
+        ge_frombytes_vartime(&temp_p3,proof.B.bytes);
+        data.push_back({x,temp_p3});
+        ge_frombytes_vartime(&temp_p3,proof.C.bytes);
+        sc_mul(temp.bytes,weight.bytes,x.bytes);
+        data.push_back({temp,temp_p3});
+        ge_frombytes_vartime(&temp_p3,proof.D.bytes);
+        data.push_back({weight,temp_p3});
+        R = straus(data);
+
         if (!(L == R))
         {
-            MERROR("Triptych verification failed at C/D check!");
+            MERROR("Triptych verification failed at matrix check!");
             return false;
         }
 
