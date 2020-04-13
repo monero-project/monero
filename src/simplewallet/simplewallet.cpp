@@ -9309,6 +9309,16 @@ bool simple_wallet::print_address(const std::vector<std::string> &args/* = std::
       fail_msg_writer() << tr("failed to parse index: ") << local_args[0] << " " << local_args[1];
       return true;
     }
+    if (epee::string_tools::get_xtype_from_string(major, local_args[0]) && epee::string_tools::get_xtype_from_string(minor, local_args[1]) && major > m_wallet->get_num_subaddress_accounts() - 1)
+    {
+      fail_msg_writer() << tr(" Account number selected (major index: ") << local_args[0] << (") does not exist");
+      return true;
+    }
+    if (epee::string_tools::get_xtype_from_string(major, local_args[0]) && epee::string_tools::get_xtype_from_string(minor, local_args[1]) && minor <= m_wallet->get_num_subaddresses(major) - 1)
+    {
+      fail_msg_writer() << tr(" Subaddress index selected (minor index: ") << local_args[1] << (") already exists");
+      return true;
+    }
     m_wallet->create_one_off_subaddress({major, minor});
     success_msg_writer() << boost::format(tr("Address at %u %u: %s")) % major % minor % m_wallet->get_subaddress_as_str({major, minor});
   }
