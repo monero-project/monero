@@ -453,7 +453,7 @@ namespace rct
         }
 
         // Clear secret prover data
-        /*memwipe(&rA,sizeof(key));
+        memwipe(&rA,sizeof(key));
         memwipe(&rB,sizeof(key));
         memwipe(&rC,sizeof(key));
         memwipe(&rD,sizeof(key));
@@ -461,7 +461,7 @@ namespace rct
         {
             memwipe(a[j].data(),a[j].size()*sizeof(key));
         }
-        memwipe(rho.data(),rho.size()*sizeof(key));*/
+        memwipe(rho.data(),rho.size()*sizeof(key));
 
         return proof;
     }
@@ -512,7 +512,8 @@ namespace rct
         R = rct::addKeys(proof.A,rct::scalarmultKey(proof.B,x));
         if (!(L == R))
         {
-            printf("Failed A/B check!\n");
+            MERROR("Triptych verification failed at A/B check!");
+            return false;
         }
 
         // C/D check
@@ -532,7 +533,8 @@ namespace rct
         R = rct::addKeys(proof.D,rct::scalarmultKey(proof.C,x));
         if (!(L == R))
         {
-            printf("Failed C/D check!\n");
+            MERROR("Triptych verification failed at C/D check!");
+            return false;
         }
 
         // Commitment check
@@ -589,14 +591,16 @@ namespace rct
         R = rct::scalarmultBase(proof.z);
         if (!(L == R))
         {
-            printf("Failed X check!\n");
+            MERROR("Triptych verification failed at X check!");
+            return false;
         }
 
         L = straus(data_Y);
         R = rct::scalarmultKey(proof.J,proof.z);
         if (!(L == R))
         {
-            printf("Failed X check!\n");
+            MERROR("Triptych verification failed at Y check!");
+            return false;
         }
 
         // All is well
