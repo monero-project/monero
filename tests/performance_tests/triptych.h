@@ -46,6 +46,7 @@ class test_triptych
             const size_t N = pow(n,m);
             M = rct::keyV(N);
             P = rct::keyV(N);
+            message = rct::identity();
 
             rct::key temp;
             for (size_t k = 0; k < N; k++)
@@ -62,7 +63,7 @@ class test_triptych
                 }
             }
 
-            proof = rct::triptych_prove(M,P,l,r,s,n,m);
+            proof = rct::triptych_prove(M,P,l,r,s,n,m,message);
 
             return true;
         }
@@ -71,11 +72,11 @@ class test_triptych
         {
             if (!verify)
             {
-                proof = rct::triptych_prove(M,P,l,r,s,n,m);
+                proof = rct::triptych_prove(M,P,l,r,s,n,m,message);
                 return true;
             }
 
-            return rct::triptych_verify(M,P,proof,n,m);
+            return rct::triptych_verify(M,P,proof,n,m,message);
         }
 
     private:
@@ -83,5 +84,6 @@ class test_triptych
         rct::keyV P;
         rct::key r;
         rct::key s;
+        rct::key message;
         rct::TriptychProof proof;
 };

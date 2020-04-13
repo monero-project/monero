@@ -39,6 +39,8 @@ extern "C"
 #include "rctTypes.h"
 #include "multiexp.h"
 #include "triptych.h"
+#include "cryptonote_config.h"
+#include "misc_log_ex.h"
 
 namespace rct
 {
@@ -48,7 +50,6 @@ namespace rct
     // Global data
     static ge_p3 Hi_p3[max_mn];
     static ge_p3 H_p3;
-    static std::shared_ptr<straus_cached_data> straus_Hi_cache;
     static rct::key U;
     static ge_p3 U_p3;
     static boost::mutex init_mutex;
@@ -59,6 +60,48 @@ namespace rct
     static const rct::key TWO = { {0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00} };
     static const rct::key MINUS_ONE = { {0xec, 0xd3, 0xf5, 0x5c, 0x1a, 0x63, 0x12, 0x58, 0xd6, 0x9c, 0xf7, 0xa2, 0xde, 0xf9, 0xde, 0x14, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10} };
 
+    // Initialize transcript
+    static void transcript_init(rct::key &transcript)
+    {
+        std::string salt(config::HASH_KEY_TRIPTYCH_TRANSCRIPT);
+        rct::hash_to_scalar(transcript,salt.data(),salt.size());
+    }
+
+    // Update transcript: transcript, message, M, P, J, K, A, B, C, D
+    static void transcript_update_1(rct::key &transcript, const rct::key &message, const rct::keyV &M, const rct::keyV &P, const rct::key &J, const rct::key &K, const rct::key &A, const rct::key &B, const rct::key &C, const rct::key &D)
+    {
+        std::string hash;
+        hash.reserve((2*M.size() + 8)*sizeof(key));
+        hash = std::string((const char*) transcript.bytes, sizeof(transcript));
+        hash += std::string((const char*) message.bytes, sizeof(message));
+        for (size_t k = 0; k < M.size(); k++)
+        {
+            hash += std::string((const char*) M[k].bytes, sizeof(M[k]));
+            hash += std::string((const char*) P[k].bytes, sizeof(P[k]));
+        }
+        hash += std::string((const char*) J.bytes, sizeof(J));
+        hash += std::string((const char*) K.bytes, sizeof(K));
+        hash += std::string((const char*) A.bytes, sizeof(A));
+        hash += std::string((const char*) B.bytes, sizeof(B));
+        hash += std::string((const char*) C.bytes, sizeof(C));
+        hash += std::string((const char*) D.bytes, sizeof(D));
+        rct::hash_to_scalar(transcript,hash.data(),hash.size());
+    }
+
+    // Update transcript: transcript, X, Y
+    static void transcript_update_2(rct::key &transcript, const rct::keyV &X, const rct::keyV &Y)
+    {
+        std::string hash;
+        hash.reserve((2*X.size() + 1)*sizeof(key));
+        hash = std::string((const char*) transcript.bytes, sizeof(transcript));
+        for (size_t j = 0; j < X.size(); j++)
+        {
+            hash += std::string((const char*) X[j].bytes, sizeof(X[j]));
+            hash += std::string((const char*) Y[j].bytes, sizeof(Y[j]));
+        }
+        rct::hash_to_scalar(transcript,hash.data(),hash.size());
+    }
+    
     // Helper function for scalar inversion
     static rct::key sm(rct::key y, int n, const rct::key &x)
     {
@@ -122,33 +165,27 @@ namespace rct
     static void init_gens()
     {
         boost::lock_guard<boost::mutex> lock(init_mutex);
-        static const std::string salt("triptych Hi");
+        static const std::string H_salt(config::HASH_KEY_TRIPTYCH_H);
 
         static bool init_done = false;
         if (init_done) return;
 
-        std::vector<MultiexpData> data;
-        data.reserve(max_mn);
-
         // Build Hi generators
         for (size_t i = 0; i < max_mn; i++)
         {
-            // Hi_p3[i] = keccak(H,"triptych",i)
-            std::string hash = std::string((const char*) rct::H.bytes, sizeof(rct::H)) + salt + tools::get_varint_data(i);
+            std::string hash = H_salt + tools::get_varint_data(i);
             rct::hash_to_p3(Hi_p3[i], rct::hash2rct(crypto::cn_fast_hash(hash.data(),hash.size())));
-            data.push_back({ZERO,Hi_p3[i]});
         }
 
         // Build U
         // U = keccak("triptych U")
-        std::string U_salt("triptych U");
+        static const std::string U_salt(config::HASH_KEY_TRIPTYCH_U);
         rct::hash_to_p3(U_p3, rct::hash2rct(crypto::cn_fast_hash(U_salt.data(),U_salt.size())));
         ge_p3_tobytes(U.bytes, &U_p3);
 
         // Build H
         ge_frombytes_vartime(&H_p3, rct::H.bytes);
 
-        straus_Hi_cache = straus_init_cache(data, 0);
         init_done = true;
     }
 
@@ -166,7 +203,7 @@ namespace rct
     }
 
     // Commit to a scalar matrix
-    static rct::key com_matrix(rct::keyM &M, rct::key &r)
+    static rct::key com_matrix(const rct::keyM &M, const rct::key &r)
     {
         const size_t m = M.size();
         const size_t n = M[0].size();
@@ -186,7 +223,7 @@ namespace rct
     }
 
     // Kronecker delta
-    static rct::key delta(size_t x, size_t y)
+    static rct::key delta(const size_t x, const size_t y)
     {
         if (x == y)
             return ONE;
@@ -219,7 +256,7 @@ namespace rct
     }
 
     // Generate a Triptych proof
-    TriptychProof triptych_prove(const rct::keyV &M, const rct::keyV &P, const size_t l, const key &r, const key &s, const size_t n, const size_t m)
+    TriptychProof triptych_prove(const rct::keyV &M, const rct::keyV &P, const size_t l, const key &r, const key &s, const size_t n, const size_t m, const rct::key &message)
     {
         CHECK_AND_ASSERT_THROW_MES(n > 1, "Must have n > 1!");
         CHECK_AND_ASSERT_THROW_MES(m > 1, "Must have m > 1!");
@@ -234,6 +271,10 @@ namespace rct
         const size_t N = pow(n,m);
 
         TriptychProof proof;
+
+        // Begin transcript
+        rct::key tr;
+        transcript_init(tr);
 
         // Compute key images
         // J = (1/r)*U
@@ -337,7 +378,9 @@ namespace rct
             rho[j] = rct::skGen();
         }
 
-        rct::key mu = ONE; // TODO: transcript hash
+        // Challenge
+        transcript_update_1(tr,message,M,P,proof.J,proof.K,proof.A,proof.B,proof.C,proof.D);
+        const rct::key mu = copy(tr);
 
         for (size_t j = 0; j < m; j++)
         {
@@ -372,13 +415,14 @@ namespace rct
         }
 
         // Challenge and powers
-        rct::keyV x;
-        x.reserve(m+1);
-        x[0] = ONE;
-        x[1] = TWO; // TODO: transcript hash
+        transcript_update_2(tr,proof.X,proof.Y);
+        rct::keyV x_pow;
+        const rct::key x = copy(tr);
+        x_pow.reserve(m+1);
+        x_pow[0] = ONE;
         for (size_t j = 1; j < m+1; j++)
         {
-            sc_mul(x[j].bytes,x[j-1].bytes,x[1].bytes);
+            sc_mul(x_pow[j].bytes,x_pow[j-1].bytes,x.bytes);
         }
 
         // Build the f-matrix
@@ -388,7 +432,7 @@ namespace rct
             proof.f[j][0] = ZERO;
             for (size_t i = 1; i < n; i++)
             {
-                sc_muladd(proof.f[j][i].bytes,sigma[j][i].bytes,x[1].bytes,a[j][i].bytes);
+                sc_muladd(proof.f[j][i].bytes,sigma[j][i].bytes,x.bytes,a[j][i].bytes);
             }
         }
 
@@ -397,22 +441,33 @@ namespace rct
         // zC = rC*x + rD
         // z = (r + mu*s)*x**m - rho[0]*x**0 - ... - rho[m-1]*x**(m-1)
 
-        sc_muladd(proof.zA.bytes,rB.bytes,x[1].bytes,rA.bytes);
-        sc_muladd(proof.zC.bytes,rC.bytes,x[1].bytes,rD.bytes);
+        sc_muladd(proof.zA.bytes,rB.bytes,x.bytes,rA.bytes);
+        sc_muladd(proof.zC.bytes,rC.bytes,x.bytes,rD.bytes);
 
         sc_muladd(proof.z.bytes,mu.bytes,s.bytes,r.bytes);
-        sc_mul(proof.z.bytes,proof.z.bytes,x[m].bytes);
+        sc_mul(proof.z.bytes,proof.z.bytes,x_pow[m].bytes);
 
         for (size_t j = 0; j < m; j++)
         {
-            sc_mulsub(proof.z.bytes,rho[j].bytes,x[j].bytes,proof.z.bytes);
+            sc_mulsub(proof.z.bytes,rho[j].bytes,x_pow[j].bytes,proof.z.bytes);
         }
+
+        // Clear secret prover data
+        /*memwipe(&rA,sizeof(key));
+        memwipe(&rB,sizeof(key));
+        memwipe(&rC,sizeof(key));
+        memwipe(&rD,sizeof(key));
+        for (size_t j = 0; j < m; j++)
+        {
+            memwipe(a[j].data(),a[j].size()*sizeof(key));
+        }
+        memwipe(rho.data(),rho.size()*sizeof(key));*/
 
         return proof;
     }
 
     // Verify a Triptych proof
-    bool triptych_verify(const rct::keyV &M, const rct::keyV &P, TriptychProof proof, const size_t n, const size_t m)
+    bool triptych_verify(const rct::keyV &M, const rct::keyV &P, TriptychProof proof, const size_t n, const size_t m, const rct::key &message)
     {
         CHECK_AND_ASSERT_THROW_MES(n > 1, "Must have n > 1!");
         CHECK_AND_ASSERT_THROW_MES(m > 1, "Must have m > 1!");
@@ -423,11 +478,17 @@ namespace rct
         init_gens();
         const size_t N = pow(n,m);
 
-        rct::key mu = ONE; // TODO: transcript hash
         rct::key L,R;
 
-        // Challenge and negative powers
-        rct::key x = TWO; // TODO: transcript hash
+        // Transcript
+        rct::key tr;
+        transcript_init(tr);
+        transcript_update_1(tr,message,M,P,proof.J,proof.K,proof.A,proof.B,proof.C,proof.D);
+        const rct::key mu = copy(tr);
+        transcript_update_2(tr,proof.X,proof.Y);
+        const rct::key x = copy(tr);
+
+        // Challenge powers
         rct::keyV minus_x;
         minus_x.reserve(m);
         minus_x[0] = MINUS_ONE;
@@ -450,7 +511,9 @@ namespace rct
         L = com_matrix(proof.f,proof.zA);
         R = rct::addKeys(proof.A,rct::scalarmultKey(proof.B,x));
         if (!(L == R))
-            return false;
+        {
+            printf("Failed A/B check!\n");
+        }
 
         // C/D check
         rct::keyM fx = rct::keyMInit(n,m);
@@ -468,7 +531,9 @@ namespace rct
         L = com_matrix(fx,proof.zC);
         R = rct::addKeys(proof.D,rct::scalarmultKey(proof.C,x));
         if (!(L == R))
-            return false;
+        {
+            printf("Failed C/D check!\n");
+        }
 
         // Commitment check
         std::vector<MultiexpData> data_X;
@@ -523,12 +588,16 @@ namespace rct
         L = straus(data_X);
         R = rct::scalarmultBase(proof.z);
         if (!(L == R))
-            return false;
+        {
+            printf("Failed X check!\n");
+        }
 
         L = straus(data_Y);
         R = rct::scalarmultKey(proof.J,proof.z);
         if (!(L == R))
-            return false;
+        {
+            printf("Failed X check!\n");
+        }
 
         // All is well
         return true;
