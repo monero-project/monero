@@ -209,21 +209,19 @@ namespace rct
     }
 
     // Commit to a scalar matrix
-    static rct::key com_matrix(const rct::keyM &M, const rct::key &r)
+    static rct::key com_matrix(std::vector<MultiexpData> &data, const rct::keyM &M, const rct::key &r)
     {
         const size_t m = M.size();
         const size_t n = M[0].size();
 
-        std::vector<MultiexpData> data;
-        data.reserve(m*n + 1);
         for (size_t j = 0; j < m; j++)
         {
             for (size_t i = 0; i < n; i++)
             {
-                data.push_back({M[j][i], Hi_p3[j*n + i]});
+                data[j*n + i] = {M[j][i], Hi_p3[j*n + i]};
             }
         }
-        data.push_back({r, H_p3}); // blinder
+        data[m*n] = {r, H_p3}; // mask
 
         return straus(data);
     }
@@ -277,6 +275,8 @@ namespace rct
         const size_t N = pow(n,m);
 
         TriptychProof proof;
+        std::vector<MultiexpData> data;
+        data.reserve(m*n + 1);
 
         // Begin transcript
         rct::key tr;
@@ -288,13 +288,13 @@ namespace rct
         proof.J = rct::scalarmultKey(U,invert(r));
         proof.K = rct::scalarmultKey(proof.J,s);
 
-        // Matrix blinders
+        // Matrix masks
         rct::key rA = rct::skGen();
         rct::key rB = rct::skGen();
         rct::key rC = rct::skGen();
         rct::key rD = rct::skGen();
 
-        // Commit to zero-sum blinders
+        // Commit to zero-sum values
         rct::keyM a = rct::keyMInit(n,m);
         for (size_t j = 0; j < m; j++)
         {
@@ -305,7 +305,8 @@ namespace rct
                 sc_sub(a[j][0].bytes,a[j][0].bytes,a[j][i].bytes);
             }
         }
-        proof.A = com_matrix(a,rA);
+        com_matrix(data,a,rA);
+        proof.A = straus(data);
 
         // Commit to decomposition bits
         std::vector<size_t> decomp_l;
@@ -320,7 +321,8 @@ namespace rct
                 sigma[j][i] = delta(decomp_l[j],i);
             }
         }
-        proof.B = com_matrix(sigma,rB);
+        com_matrix(data,sigma,rB);
+        proof.B = straus(data);
 
         // Commit to a/sigma relationships
         rct::keyM a_sigma = rct::keyMInit(n,m);
@@ -333,7 +335,8 @@ namespace rct
                 sc_mul(a_sigma[j][i].bytes, a_sigma[j][i].bytes, a[j][i].bytes);
             }
         }
-        proof.C = com_matrix(a_sigma,rC);
+        com_matrix(data,a_sigma,rC);
+        proof.C = straus(data);
 
         // Commit to squared a-values
         rct::keyM a_sq = rct::keyMInit(n,m);
@@ -345,7 +348,8 @@ namespace rct
                 sc_mul(a_sq[j][i].bytes,MINUS_ONE.bytes,a_sq[j][i].bytes);
             }
         }
-        proof.D = com_matrix(a_sq,rD);
+        com_matrix(data,a_sq,rD);
+        proof.D = straus(data);
 
         // Compute p coefficients
         rct::keyM p = rct::keyMInit(m+1,N);
@@ -485,6 +489,8 @@ namespace rct
         const size_t N = pow(n,m);
 
         rct::key L,R;
+        std::vector<MultiexpData> data;
+        data.reserve((m*n + 1) + (2*N + 2) + (2*m + 2));
 
         // Transcript
         rct::key tr;
@@ -494,7 +500,7 @@ namespace rct
         transcript_update_2(tr,proof.X,proof.Y);
         const rct::key x = copy(tr);
 
-        // Challenge powers
+        // Challenge powers (negated)
         rct::keyV minus_x;
         minus_x.reserve(m);
         minus_x[0] = MINUS_ONE;
@@ -503,12 +509,15 @@ namespace rct
             sc_mul(minus_x[j].bytes,minus_x[j-1].bytes,x.bytes);
         }
 
-        // The A/B and C/D checks are combined with a nonzero random weighting factor
-        rct::key weight = ZERO;
-        rct::keyM abcd = rct::keyMInit(n,m);
-        while (weight == ZERO)
+        // Random weights for multiscalar multiplication evaluation
+        rct::key w_abcd = ZERO;
+        rct::key w_x = ZERO;
+        rct::key w_y = ZERO;
+        while (w_abcd == ZERO || w_x == ZERO || w_y == ZERO)
         {
-            weight = rct::skGen();
+            w_abcd = rct::skGen();
+            w_x = rct::skGen();
+            w_y = rct::skGen();
         }
 
         // Reconstruct the f-matrix
@@ -522,6 +531,7 @@ namespace rct
         }
 
         // Build the weighted matrix
+        rct::keyM abcd = rct::keyMInit(n,m);
         for (size_t j = 0; j < m; j++)
         {
             for (size_t i = 0; i < n; i++)
@@ -529,46 +539,33 @@ namespace rct
                 rct::key temp;
                 sc_sub(temp.bytes,x.bytes,proof.f[j][i].bytes);
                 sc_mul(temp.bytes,proof.f[j][i].bytes,temp.bytes);
-                sc_muladd(abcd[j][i].bytes,temp.bytes,weight.bytes,proof.f[j][i].bytes);
+                sc_muladd(abcd[j][i].bytes,temp.bytes,w_abcd.bytes,proof.f[j][i].bytes);
             }
         }
 
         // Weighted mask and commitment
-        // L = Com(abcd,zA + w*zC)
+        // Com(abcd,zA + w*zC) - A - x*B - w*(x*C + D)
         rct::key temp;
-        sc_muladd(temp.bytes,proof.zC.bytes,weight.bytes,proof.zA.bytes);
-        L = com_matrix(abcd,temp);
+        sc_muladd(temp.bytes,proof.zC.bytes,w_abcd.bytes,proof.zA.bytes);
+        com_matrix(data,abcd,temp);
 
-        // The upside-down
-        // R = A + xB + w(xC + D)
-        std::vector<MultiexpData> data;
-        data.reserve(4);
         ge_p3 temp_p3;
         ge_frombytes_vartime(&temp_p3,proof.A.bytes);
-        data.push_back({ONE,temp_p3});
+        data.push_back({MINUS_ONE,temp_p3});
+
         ge_frombytes_vartime(&temp_p3,proof.B.bytes);
-        data.push_back({x,temp_p3});
+        data.push_back({minus_x[1],temp_p3});
+
         ge_frombytes_vartime(&temp_p3,proof.C.bytes);
-        sc_mul(temp.bytes,weight.bytes,x.bytes);
+        sc_mul(temp.bytes,w_abcd.bytes,minus_x[1].bytes);
         data.push_back({temp,temp_p3});
+
         ge_frombytes_vartime(&temp_p3,proof.D.bytes);
-        data.push_back({weight,temp_p3});
-        R = straus(data);
+        sc_mul(temp.bytes,w_abcd.bytes,MINUS_ONE.bytes);
+        data.push_back({temp,temp_p3});
 
-        if (!(L == R))
-        {
-            MERROR("Triptych verification failed at matrix check!");
-            return false;
-        }
-
-        // Commitment check
-        std::vector<MultiexpData> data_X;
-        std::vector<MultiexpData> data_Y;
-        data_X.reserve(2*N + m);
-        data_Y.reserve(2 + m);
-
-        rct::key U_scalars = ZERO;
-        rct::key K_scalars = ZERO;
+        // Weighted keys
+        rct::key sum_t = ZERO;
         for (size_t k = 0; k < N; k++)
         {
             rct::key t = ONE;
@@ -581,53 +578,64 @@ namespace rct
                 sc_mul(t.bytes,t.bytes,proof.f[j][decomp_k[j]].bytes);
             }
 
-            rct::key temp;
             ge_p3 temp_p3;
 
+            // t*w_x*M[k]
+            sc_mul(temp.bytes,t.bytes,w_x.bytes);
             ge_frombytes_vartime(&temp_p3,M[k].bytes);
-            data_X.push_back({t, temp_p3});
+            data.push_back({temp, temp_p3});
 
-            sc_mul(temp.bytes,mu.bytes,t.bytes);
+            // mu*t*w_x*P[k]
+            sc_mul(temp.bytes,temp.bytes,mu.bytes);
             ge_frombytes_vartime(&temp_p3,P[k].bytes);
-            data_X.push_back({temp, temp_p3});
+            data.push_back({temp, temp_p3});
 
-            sc_add(U_scalars.bytes,U_scalars.bytes,t.bytes);
-            sc_add(K_scalars.bytes,K_scalars.bytes,temp.bytes);
+            sc_add(sum_t.bytes,sum_t.bytes,t.bytes);
         }
 
+        // sum_t*w_y*U
+        sc_mul(temp.bytes,sum_t.bytes,w_y.bytes);
+        data.push_back({temp,U_p3});
+
+        // mu*sum_t*w_y*K
+        sc_mul(temp.bytes,temp.bytes,mu.bytes);
         ge_p3 K_p3;
         ge_frombytes_vartime(&K_p3,proof.K.bytes);
-        data_Y.push_back({U_scalars,U_p3});
-        data_Y.push_back({K_scalars,K_p3});
+        data.push_back({temp,K_p3});
 
         for (size_t j = 0; j < m; j++)
         {
             ge_p3 temp_p3;
 
+            // -x^j*w_x*X[j]
+            sc_mul(temp.bytes,minus_x[j].bytes,w_x.bytes);
             ge_frombytes_vartime(&temp_p3,proof.X[j].bytes);
-            data_X.push_back({minus_x[j],temp_p3});
+            data.push_back({temp,temp_p3});
 
+            // -x^j*w_y*Y[j]
+            sc_mul(temp.bytes,minus_x[j].bytes,w_y.bytes);
             ge_frombytes_vartime(&temp_p3,proof.Y[j].bytes);
-            data_Y.push_back({minus_x[j],temp_p3});
+            data.push_back({temp,temp_p3});
         }
 
-        L = straus(data_X);
-        R = rct::scalarmultBase(proof.z);
-        if (!(L == R))
+        // -z*w_x*G
+        sc_mul(temp.bytes,MINUS_ONE.bytes,proof.z.bytes);
+        sc_mul(temp.bytes,temp.bytes,w_x.bytes);
+        data.push_back({temp,rct::G});
+
+        // -z*w_y*J
+        sc_mul(temp.bytes,MINUS_ONE.bytes,proof.z.bytes);
+        sc_mul(temp.bytes,temp.bytes,w_y.bytes);
+        ge_frombytes_vartime(&temp_p3,proof.J.bytes);
+        data.push_back({temp,temp_p3});
+
+        // Final check
+        if (!(straus(data) == rct::identity()))
         {
-            MERROR("Triptych verification failed at X check!");
+            MERROR("Triptych verification failed!");
             return false;
         }
 
-        L = straus(data_Y);
-        R = rct::scalarmultKey(proof.J,proof.z);
-        if (!(L == R))
-        {
-            MERROR("Triptych verification failed at Y check!");
-            return false;
-        }
-
-        // All is well
         return true;
     }
 }
