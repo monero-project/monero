@@ -50,25 +50,26 @@ namespace rct
     // Global data
     static ge_p3 Hi_p3[max_mn];
     static ge_p3 H_p3;
-    static rct::key U;
+    static key U;
     static ge_p3 U_p3;
     static boost::mutex init_mutex;
 
     // Useful scalar constants
-    static const rct::key ZERO = rct::zero();
-    static const rct::key ONE = rct::identity();
-    static const rct::key TWO = { {0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00} };
-    static const rct::key MINUS_ONE = { {0xec, 0xd3, 0xf5, 0x5c, 0x1a, 0x63, 0x12, 0x58, 0xd6, 0x9c, 0xf7, 0xa2, 0xde, 0xf9, 0xde, 0x14, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10} };
+    static const key ZERO = zero();
+    static const key ONE = identity();
+    static const key IDENTITY = identity();
+    static const key TWO = { {0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00} };
+    static const key MINUS_ONE = { {0xec, 0xd3, 0xf5, 0x5c, 0x1a, 0x63, 0x12, 0x58, 0xd6, 0x9c, 0xf7, 0xa2, 0xde, 0xf9, 0xde, 0x14, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10} };
 
     // Initialize transcript
-    static void transcript_init(rct::key &transcript)
+    static void transcript_init(key &transcript)
     {
         std::string salt(config::HASH_KEY_TRIPTYCH_TRANSCRIPT);
-        rct::hash_to_scalar(transcript,salt.data(),salt.size());
+        hash_to_scalar(transcript,salt.data(),salt.size());
     }
 
     // Update transcript: transcript, message, M, P, J, K, A, B, C, D
-    static void transcript_update_1(rct::key &transcript, const rct::key &message, const rct::keyV &M, const rct::keyV &P, const rct::key &J, const rct::key &K, const rct::key &A, const rct::key &B, const rct::key &C, const rct::key &D)
+    static void transcript_update_1(key &transcript, const key &message, const keyV &M, const keyV &P, const key &J, const key &K, const key &A, const key &B, const key &C, const key &D)
     {
         std::string hash;
         hash.reserve((2*M.size() + 8)*sizeof(key));
@@ -85,13 +86,13 @@ namespace rct
         hash += std::string((const char*) B.bytes, sizeof(B));
         hash += std::string((const char*) C.bytes, sizeof(C));
         hash += std::string((const char*) D.bytes, sizeof(D));
-        rct::hash_to_scalar(transcript,hash.data(),hash.size());
+        hash_to_scalar(transcript,hash.data(),hash.size());
 
         CHECK_AND_ASSERT_THROW_MES(!(transcript == ZERO), "Transcript challenge must be nonzero!");
     }
 
     // Update transcript: transcript, X, Y
-    static void transcript_update_2(rct::key &transcript, const rct::keyV &X, const rct::keyV &Y)
+    static void transcript_update_2(key &transcript, const keyV &X, const keyV &Y)
     {
         std::string hash;
         hash.reserve((2*X.size() + 1)*sizeof(key));
@@ -101,13 +102,13 @@ namespace rct
             hash += std::string((const char*) X[j].bytes, sizeof(X[j]));
             hash += std::string((const char*) Y[j].bytes, sizeof(Y[j]));
         }
-        rct::hash_to_scalar(transcript,hash.data(),hash.size());
+        hash_to_scalar(transcript,hash.data(),hash.size());
 
         CHECK_AND_ASSERT_THROW_MES(!(transcript == ZERO), "Transcript challenge must be nonzero!");
     }
     
     // Helper function for scalar inversion
-    static rct::key sm(rct::key y, int n, const rct::key &x)
+    static key sm(key y, int n, const key &x)
     {
         while (n--)
             sc_mul(y.bytes, y.bytes, y.bytes);
@@ -117,11 +118,11 @@ namespace rct
 
     // Invert a nonzero scalar
     // NOTE: scalar must be nonzero!
-    static rct::key invert(const rct::key &x)
+    static key invert(const key &x)
     {
         CHECK_AND_ASSERT_THROW_MES(!(x == ZERO), "Cannot invert zero!");
 
-        rct::key _1, _10, _100, _11, _101, _111, _1001, _1011, _1111;
+        key _1, _10, _100, _11, _101, _111, _1001, _1011, _1111;
 
         _1 = x;
         sc_mul(_10.bytes, _1.bytes, _1.bytes);
@@ -133,7 +134,7 @@ namespace rct
         sc_mul(_1011.bytes, _10.bytes, _1001.bytes);
         sc_mul(_1111.bytes, _100.bytes, _1011.bytes);
 
-        rct::key inv;
+        key inv;
         sc_mul(inv.bytes, _1111.bytes, _1.bytes);
 
         inv = sm(inv, 123 + 3, _101);
@@ -180,17 +181,17 @@ namespace rct
         for (size_t i = 0; i < max_mn; i++)
         {
             std::string hash = H_salt + tools::get_varint_data(i);
-            rct::hash_to_p3(Hi_p3[i], rct::hash2rct(crypto::cn_fast_hash(hash.data(),hash.size())));
+            hash_to_p3(Hi_p3[i], hash2rct(crypto::cn_fast_hash(hash.data(),hash.size())));
         }
 
         // Build U
         // U = keccak("triptych U")
         static const std::string U_salt(config::HASH_KEY_TRIPTYCH_U);
-        rct::hash_to_p3(U_p3, rct::hash2rct(crypto::cn_fast_hash(U_salt.data(),U_salt.size())));
+        hash_to_p3(U_p3, hash2rct(crypto::cn_fast_hash(U_salt.data(),U_salt.size())));
         ge_p3_tobytes(U.bytes, &U_p3);
 
         // Build H
-        ge_frombytes_vartime(&H_p3, rct::H.bytes);
+        ge_frombytes_vartime(&H_p3, H.bytes);
 
         init_done = true;
     }
@@ -209,7 +210,7 @@ namespace rct
     }
 
     // Commit to a scalar matrix
-    static rct::key com_matrix(std::vector<MultiexpData> &data, const rct::keyM &M, const rct::key &r)
+    static void com_matrix(std::vector<MultiexpData> &data, const keyM &M, const key &r)
     {
         const size_t m = M.size();
         const size_t n = M[0].size();
@@ -222,12 +223,10 @@ namespace rct
             }
         }
         data[m*n] = {r, H_p3}; // mask
-
-        return straus(data);
     }
 
     // Kronecker delta
-    static rct::key delta(const size_t x, const size_t y)
+    static key delta(const size_t x, const size_t y)
     {
         if (x == y)
             return ONE;
@@ -236,9 +235,10 @@ namespace rct
     }
 
     // Compute a convolution with a degree-one polynomial
-    static rct::keyV convolve(const keyV &x, const keyV &y, const size_t m)
+    static keyV convolve(const keyV &x, const keyV &y, const size_t m)
     {
-        rct::keyV r;
+        key temp;
+        keyV r;
         r.reserve(m+1);
 
         for (size_t i = 0; i < m+1; i++)
@@ -250,7 +250,6 @@ namespace rct
         {
             for (size_t j = 0; j < 2; j++)
             {
-                rct::key temp;
                 sc_mul(temp.bytes,x[i].bytes,y[j].bytes);
                 sc_add(r[i+j].bytes,r[i+j].bytes,temp.bytes);
             }
@@ -260,7 +259,7 @@ namespace rct
     }
 
     // Generate a Triptych proof
-    TriptychProof triptych_prove(const rct::keyV &M, const rct::keyV &P, const size_t l, const key &r, const key &s, const size_t n, const size_t m, const rct::key &message)
+    TriptychProof triptych_prove(const keyV &M, const keyV &P, const size_t l, const key &r, const key &s, const size_t n, const size_t m, const key &message)
     {
         CHECK_AND_ASSERT_THROW_MES(n > 1, "Must have n > 1!");
         CHECK_AND_ASSERT_THROW_MES(m > 1, "Must have m > 1!");
@@ -268,8 +267,8 @@ namespace rct
         CHECK_AND_ASSERT_THROW_MES(M.size() == pow(n,m), "Public key vector is wrong size!");
         CHECK_AND_ASSERT_THROW_MES(P.size() == pow(n,m), "Commitment vector is wrong size!");
         CHECK_AND_ASSERT_THROW_MES(l < M.size(), "Signing index out of bounds!");
-        CHECK_AND_ASSERT_THROW_MES(rct::scalarmultBase(r) == M[l], "Bad signing key!");
-        CHECK_AND_ASSERT_THROW_MES(rct::scalarmultBase(s) == P[l], "Bad commitment key!");
+        CHECK_AND_ASSERT_THROW_MES(scalarmultBase(r) == M[l], "Bad signing key!");
+        CHECK_AND_ASSERT_THROW_MES(scalarmultBase(s) == P[l], "Bad commitment key!");
 
         init_gens();
         const size_t N = pow(n,m);
@@ -278,30 +277,32 @@ namespace rct
         std::vector<MultiexpData> data;
         data.reserve(m*n + 1);
 
+        key temp;
+
         // Begin transcript
-        rct::key tr;
+        key tr;
         transcript_init(tr);
 
         // Compute key images
         // J = (1/r)*U
         // K = s*J
-        proof.J = rct::scalarmultKey(U,invert(r));
-        proof.K = rct::scalarmultKey(proof.J,s);
+        proof.J = scalarmultKey(U,invert(r));
+        proof.K = scalarmultKey(proof.J,s);
 
         // Matrix masks
-        rct::key rA = rct::skGen();
-        rct::key rB = rct::skGen();
-        rct::key rC = rct::skGen();
-        rct::key rD = rct::skGen();
+        key rA = skGen();
+        key rB = skGen();
+        key rC = skGen();
+        key rD = skGen();
 
         // Commit to zero-sum values
-        rct::keyM a = rct::keyMInit(n,m);
+        keyM a = keyMInit(n,m);
         for (size_t j = 0; j < m; j++)
         {
             a[j][0] = ZERO;
             for (size_t i = 1; i < n; i++)
             {
-                a[j][i] = rct::skGen();
+                a[j][i] = skGen();
                 sc_sub(a[j][0].bytes,a[j][0].bytes,a[j][i].bytes);
             }
         }
@@ -313,7 +314,7 @@ namespace rct
         decomp_l.reserve(m);
         decompose(decomp_l,l,n,m);
 
-        rct::keyM sigma = rct::keyMInit(n,m);
+        keyM sigma = keyMInit(n,m);
         for (size_t j = 0; j < m; j++)
         {
             for (size_t i = 0; i < n; i++)
@@ -325,7 +326,7 @@ namespace rct
         proof.B = straus(data);
 
         // Commit to a/sigma relationships
-        rct::keyM a_sigma = rct::keyMInit(n,m);
+        keyM a_sigma = keyMInit(n,m);
         for (size_t j = 0; j < m; j++)
         {
             for (size_t i = 0; i < n; i++)
@@ -339,7 +340,7 @@ namespace rct
         proof.C = straus(data);
 
         // Commit to squared a-values
-        rct::keyM a_sq = rct::keyMInit(n,m);
+        keyM a_sq = keyMInit(n,m);
         for (size_t j = 0; j < m; j++)
         {
             for (size_t i = 0; i < n; i++)
@@ -352,7 +353,7 @@ namespace rct
         proof.D = straus(data);
 
         // Compute p coefficients
-        rct::keyM p = rct::keyMInit(m+1,N);
+        keyM p = keyMInit(m+1,N);
         for (size_t k = 0; k < N; k++)
         {
             std::vector<size_t> decomp_k;
@@ -368,7 +369,7 @@ namespace rct
 
             for (size_t j = 1; j < m; j++)
             {
-                rct::keyV temp;
+                keyV temp;
                 temp.reserve(2);
                 temp[0] = a[j][decomp_k[j]];
                 temp[1] = delta(decomp_l[j],decomp_k[j]);
@@ -378,56 +379,53 @@ namespace rct
         }
 
         // Generate initial proof values
-        proof.X = rct::keyV(m);
-        proof.Y = rct::keyV(m);
+        proof.X = keyV(m);
+        proof.Y = keyV(m);
 
-        rct::keyV rho;
+        keyV rho;
         rho.reserve(m);
         for (size_t j = 0; j < m; j++)
         {
-            rho[j] = rct::skGen();
+            rho[j] = skGen();
         }
 
         // Challenge
         transcript_update_1(tr,message,M,P,proof.J,proof.K,proof.A,proof.B,proof.C,proof.D);
-        const rct::key mu = copy(tr);
+        const key mu = copy(tr);
 
+        key U_scalars;
         for (size_t j = 0; j < m; j++)
         {
             std::vector<MultiexpData> data_X;
             data_X.reserve(2*N);
             
-            rct::key U_scalars = ZERO;
+            U_scalars = ZERO;
 
             for (size_t k = 0; k < N; k++)
             {
                 // X[j] += p[k][j]*(M[k] + mu*P[k])
                 // Y[j] += p[k][j]*U
-                rct::key temp;
-                ge_p3 temp_p3;
+                data_X.push_back({p[k][j],M[k]});
 
-                ge_frombytes_vartime(&temp_p3,M[k].bytes);
-                data_X.push_back({p[k][j], temp_p3});
-
-                ge_frombytes_vartime(&temp_p3,P[k].bytes);
                 sc_mul(temp.bytes,mu.bytes,p[k][j].bytes);
-                data_X.push_back({temp, temp_p3});
+                data_X.push_back({temp,P[k]});
 
                 sc_add(U_scalars.bytes,U_scalars.bytes,p[k][j].bytes);
             }
             // X[j] += rho[j]*G
             // Y[j] += rho[j]*J
-            rct::addKeys1(proof.X[j], rho[j], straus(data_X));
+            addKeys1(proof.X[j], rho[j], straus(data_X));
 
-            proof.Y[j] = rct::scalarmultKey(U,U_scalars);
-            rct::key rho_J = rct::scalarmultKey(proof.J,rho[j]);
-            rct::addKeys(proof.Y[j],proof.Y[j],rho_J);
+            proof.Y[j] = scalarmultKey(U,U_scalars);
+            key rho_J = scalarmultKey(proof.J,rho[j]);
+            addKeys(proof.Y[j],proof.Y[j],rho_J);
         }
 
         // Challenge and powers
         transcript_update_2(tr,proof.X,proof.Y);
-        rct::keyV x_pow;
-        const rct::key x = copy(tr);
+        const key x = copy(tr);
+
+        keyV x_pow;
         x_pow.reserve(m+1);
         x_pow[0] = ONE;
         for (size_t j = 1; j < m+1; j++)
@@ -436,7 +434,7 @@ namespace rct
         }
 
         // Build the f-matrix
-        proof.f = rct::keyMInit(n,m);
+        proof.f = keyMInit(n,m);
         for (size_t j = 0; j < m; j++)
         {
             proof.f[j][0] = ZERO;
@@ -477,7 +475,7 @@ namespace rct
     }
 
     // Verify a Triptych proof
-    bool triptych_verify(const rct::keyV &M, const rct::keyV &P, TriptychProof proof, const size_t n, const size_t m, const rct::key &message)
+    bool triptych_verify(const keyV &M, const keyV &P, TriptychProof proof, const size_t n, const size_t m, const key &message)
     {
         CHECK_AND_ASSERT_THROW_MES(n > 1, "Must have n > 1!");
         CHECK_AND_ASSERT_THROW_MES(m > 1, "Must have m > 1!");
@@ -485,23 +483,33 @@ namespace rct
         CHECK_AND_ASSERT_THROW_MES(M.size() == pow(n,m), "Public key vector is wrong size!");
         CHECK_AND_ASSERT_THROW_MES(P.size() == pow(n,m), "Commitment vector is wrong size!");
 
+        for (size_t j = 0; j < m; j++)
+        {
+            for (size_t i = 0; i < n; i++)
+            {
+                CHECK_AND_ASSERT_THROW_MES(sc_check(proof.f[j][i].bytes) == 0, "Bad scalar element in proof!");
+            }
+        }
+        CHECK_AND_ASSERT_THROW_MES(sc_check(proof.zA.bytes) == 0, "Bad scalar element in proof!");
+        CHECK_AND_ASSERT_THROW_MES(sc_check(proof.zC.bytes) == 0, "Bad scalar element in proof!");
+        CHECK_AND_ASSERT_THROW_MES(sc_check(proof.z.bytes) == 0, "Bad scalar element in proof!");
+
         init_gens();
         const size_t N = pow(n,m);
 
-        rct::key L,R;
         std::vector<MultiexpData> data;
         data.reserve((m*n + 1) + (2*N + 2) + (2*m + 2));
 
         // Transcript
-        rct::key tr;
+        key tr;
         transcript_init(tr);
         transcript_update_1(tr,message,M,P,proof.J,proof.K,proof.A,proof.B,proof.C,proof.D);
-        const rct::key mu = copy(tr);
+        const key mu = copy(tr);
         transcript_update_2(tr,proof.X,proof.Y);
-        const rct::key x = copy(tr);
+        const key x = copy(tr);
 
         // Challenge powers (negated)
-        rct::keyV minus_x;
+        keyV minus_x;
         minus_x.reserve(m);
         minus_x[0] = MINUS_ONE;
         for (size_t j = 1; j < m; j++)
@@ -510,14 +518,14 @@ namespace rct
         }
 
         // Random weights for multiscalar multiplication evaluation
-        rct::key w_abcd = ZERO;
-        rct::key w_x = ZERO;
-        rct::key w_y = ZERO;
+        key w_abcd = ZERO;
+        key w_x = ZERO;
+        key w_y = ZERO;
         while (w_abcd == ZERO || w_x == ZERO || w_y == ZERO)
         {
-            w_abcd = rct::skGen();
-            w_x = rct::skGen();
-            w_y = rct::skGen();
+            w_abcd = skGen();
+            w_x = skGen();
+            w_y = skGen();
         }
 
         // Reconstruct the f-matrix
@@ -531,12 +539,12 @@ namespace rct
         }
 
         // Build the weighted matrix
-        rct::keyM abcd = rct::keyMInit(n,m);
+        keyM abcd = keyMInit(n,m);
         for (size_t j = 0; j < m; j++)
         {
             for (size_t i = 0; i < n; i++)
             {
-                rct::key temp;
+                key temp;
                 sc_sub(temp.bytes,x.bytes,proof.f[j][i].bytes);
                 sc_mul(temp.bytes,proof.f[j][i].bytes,temp.bytes);
                 sc_muladd(abcd[j][i].bytes,temp.bytes,w_abcd.bytes,proof.f[j][i].bytes);
@@ -545,30 +553,25 @@ namespace rct
 
         // Weighted mask and commitment
         // Com(abcd,zA + w*zC) - A - x*B - w*(x*C + D)
-        rct::key temp;
+        key temp;
         sc_muladd(temp.bytes,proof.zC.bytes,w_abcd.bytes,proof.zA.bytes);
         com_matrix(data,abcd,temp);
 
-        ge_p3 temp_p3;
-        ge_frombytes_vartime(&temp_p3,proof.A.bytes);
-        data.push_back({MINUS_ONE,temp_p3});
+        data.push_back({MINUS_ONE,proof.A});
 
-        ge_frombytes_vartime(&temp_p3,proof.B.bytes);
-        data.push_back({minus_x[1],temp_p3});
+        data.push_back({minus_x[1],proof.B});
 
-        ge_frombytes_vartime(&temp_p3,proof.C.bytes);
         sc_mul(temp.bytes,w_abcd.bytes,minus_x[1].bytes);
-        data.push_back({temp,temp_p3});
+        data.push_back({temp,proof.C});
 
-        ge_frombytes_vartime(&temp_p3,proof.D.bytes);
         sc_mul(temp.bytes,w_abcd.bytes,MINUS_ONE.bytes);
-        data.push_back({temp,temp_p3});
+        data.push_back({temp,proof.D});
 
         // Weighted keys
-        rct::key sum_t = ZERO;
+        key sum_t = ZERO;
         for (size_t k = 0; k < N; k++)
         {
-            rct::key t = ONE;
+            key t = ONE;
             std::vector<size_t> decomp_k;
             decomp_k.reserve(m);
             decompose(decomp_k,k,n,m);
@@ -578,17 +581,13 @@ namespace rct
                 sc_mul(t.bytes,t.bytes,proof.f[j][decomp_k[j]].bytes);
             }
 
-            ge_p3 temp_p3;
-
             // t*w_x*M[k]
             sc_mul(temp.bytes,t.bytes,w_x.bytes);
-            ge_frombytes_vartime(&temp_p3,M[k].bytes);
-            data.push_back({temp, temp_p3});
+            data.push_back({temp,M[k]});
 
             // mu*t*w_x*P[k]
             sc_mul(temp.bytes,temp.bytes,mu.bytes);
-            ge_frombytes_vartime(&temp_p3,P[k].bytes);
-            data.push_back({temp, temp_p3});
+            data.push_back({temp,P[k]});
 
             sc_add(sum_t.bytes,sum_t.bytes,t.bytes);
         }
@@ -599,38 +598,31 @@ namespace rct
 
         // mu*sum_t*w_y*K
         sc_mul(temp.bytes,temp.bytes,mu.bytes);
-        ge_p3 K_p3;
-        ge_frombytes_vartime(&K_p3,proof.K.bytes);
-        data.push_back({temp,K_p3});
+        data.push_back({temp,proof.K});
 
         for (size_t j = 0; j < m; j++)
         {
-            ge_p3 temp_p3;
-
             // -x^j*w_x*X[j]
             sc_mul(temp.bytes,minus_x[j].bytes,w_x.bytes);
-            ge_frombytes_vartime(&temp_p3,proof.X[j].bytes);
-            data.push_back({temp,temp_p3});
+            data.push_back({temp,proof.X[j]});
 
             // -x^j*w_y*Y[j]
             sc_mul(temp.bytes,minus_x[j].bytes,w_y.bytes);
-            ge_frombytes_vartime(&temp_p3,proof.Y[j].bytes);
-            data.push_back({temp,temp_p3});
+            data.push_back({temp,proof.Y[j]});
         }
 
         // -z*w_x*G
         sc_mul(temp.bytes,MINUS_ONE.bytes,proof.z.bytes);
         sc_mul(temp.bytes,temp.bytes,w_x.bytes);
-        data.push_back({temp,rct::G});
+        data.push_back({temp,G});
 
         // -z*w_y*J
         sc_mul(temp.bytes,MINUS_ONE.bytes,proof.z.bytes);
         sc_mul(temp.bytes,temp.bytes,w_y.bytes);
-        ge_frombytes_vartime(&temp_p3,proof.J.bytes);
-        data.push_back({temp,temp_p3});
+        data.push_back({temp,proof.J});
 
         // Final check
-        if (!(straus(data) == rct::identity()))
+        if (!(straus(data) == IDENTITY))
         {
             MERROR("Triptych verification failed!");
             return false;
