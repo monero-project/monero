@@ -1077,8 +1077,16 @@ TEST(ringct, H)
 
 TEST(ringct, mul8)
 {
+  ge_p3 p3;
+  rct::key key;
   ASSERT_EQ(rct::scalarmult8(rct::identity()), rct::identity());
+  rct::scalarmult8(p3,rct::identity());
+  ge_p3_tobytes(key.bytes, &p3);
+  ASSERT_EQ(key, rct::identity());
   ASSERT_EQ(rct::scalarmult8(rct::H), rct::scalarmultKey(rct::H, rct::EIGHT));
+  rct::scalarmult8(p3,rct::H);
+  ge_p3_tobytes(key.bytes, &p3);
+  ASSERT_EQ(key, rct::scalarmultKey(rct::H, rct::EIGHT));
   ASSERT_EQ(rct::scalarmultKey(rct::scalarmultKey(rct::H, rct::INV_EIGHT), rct::EIGHT), rct::H);
 }
 

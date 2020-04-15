@@ -48,6 +48,7 @@ enum test_op
   op_scalarmultKey,
   op_scalarmultH,
   op_scalarmult8,
+  op_scalarmult8_p3,
   op_ge_dsm_precomp,
   op_ge_double_scalarmult_base_vartime,
   op_ge_double_scalarmult_precomp_vartime,
@@ -105,6 +106,7 @@ public:
       case op_scalarmultKey: rct::scalarmultKey(point0, scalar0); break;
       case op_scalarmultH: rct::scalarmultH(scalar0); break;
       case op_scalarmult8: rct::scalarmult8(point0); break;
+      case op_scalarmult8_p3: rct::scalarmult8(p3_0,point0); break;
       case op_ge_dsm_precomp: ge_dsm_precomp(dsmp, &p3_0); break;
       case op_ge_double_scalarmult_base_vartime: ge_double_scalarmult_base_vartime(&tmp_p2, scalar0.bytes, &p3_0, scalar1.bytes); break;
       case op_ge_double_scalarmult_precomp_vartime: ge_double_scalarmult_precomp_vartime(&tmp_p2, scalar0.bytes, &p3_0, scalar1.bytes, precomp0); break;
