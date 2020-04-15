@@ -390,6 +390,11 @@ namespace rct
         }
 
         // Challenge
+        proof.K = scalarmultKey(proof.K,INV_EIGHT);
+        proof.A = scalarmultKey(proof.A,INV_EIGHT);
+        proof.B = scalarmultKey(proof.B,INV_EIGHT);
+        proof.C = scalarmultKey(proof.C,INV_EIGHT);
+        proof.D = scalarmultKey(proof.D,INV_EIGHT);
         transcript_update_1(tr,message,M,P,proof.J,proof.K,proof.A,proof.B,proof.C,proof.D);
         const key mu = copy(tr);
 
@@ -421,10 +426,16 @@ namespace rct
             addKeys(proof.Y[j],proof.Y[j],rho_J);
         }
 
-        // Challenge and powers
+        // Challenge
+        for (size_t j = 0; j < m; j++)
+        {
+            proof.X[j] = scalarmultKey(proof.X[j],INV_EIGHT);
+            proof.Y[j] = scalarmultKey(proof.Y[j],INV_EIGHT);
+        }
         transcript_update_2(tr,proof.X,proof.Y);
         const key x = copy(tr);
 
+        // Challenge powers
         keyV x_pow;
         x_pow.reserve(m+1);
         x_pow[0] = ONE;
@@ -508,6 +519,27 @@ namespace rct
         transcript_update_2(tr,proof.X,proof.Y);
         const key x = copy(tr);
 
+        // Recover proof elements
+        ge_p3 K_p3;
+        ge_p3 A_p3;
+        ge_p3 B_p3;
+        ge_p3 C_p3;
+        ge_p3 D_p3;
+        std::vector<ge_p3> X_p3;
+        std::vector<ge_p3> Y_p3;
+        X_p3.reserve(m);
+        Y_p3.reserve(m);
+        scalarmult8(K_p3,proof.K);
+        scalarmult8(A_p3,proof.A);
+        scalarmult8(B_p3,proof.B);
+        scalarmult8(C_p3,proof.C);
+        scalarmult8(D_p3,proof.D);
+        for (size_t j = 0; j < m; j++)
+        {
+            scalarmult8(X_p3[j],proof.X[j]);
+            scalarmult8(Y_p3[j],proof.Y[j]);
+        }
+
         // Challenge powers (negated)
         keyV minus_x;
         minus_x.reserve(m);
@@ -557,15 +589,15 @@ namespace rct
         sc_muladd(temp.bytes,proof.zC.bytes,w_abcd.bytes,proof.zA.bytes);
         com_matrix(data,abcd,temp);
 
-        data.push_back({MINUS_ONE,proof.A});
+        data.push_back({MINUS_ONE,A_p3});
 
-        data.push_back({minus_x[1],proof.B});
+        data.push_back({minus_x[1],B_p3});
 
         sc_mul(temp.bytes,w_abcd.bytes,minus_x[1].bytes);
-        data.push_back({temp,proof.C});
+        data.push_back({temp,C_p3});
 
         sc_mul(temp.bytes,w_abcd.bytes,MINUS_ONE.bytes);
-        data.push_back({temp,proof.D});
+        data.push_back({temp,D_p3});
 
         // Weighted keys
         key sum_t = ZERO;
@@ -598,17 +630,17 @@ namespace rct
 
         // mu*sum_t*w_y*K
         sc_mul(temp.bytes,temp.bytes,mu.bytes);
-        data.push_back({temp,proof.K});
+        data.push_back({temp,K_p3});
 
         for (size_t j = 0; j < m; j++)
         {
             // -x^j*w_x*X[j]
             sc_mul(temp.bytes,minus_x[j].bytes,w_x.bytes);
-            data.push_back({temp,proof.X[j]});
+            data.push_back({temp,X_p3[j]});
 
             // -x^j*w_y*Y[j]
             sc_mul(temp.bytes,minus_x[j].bytes,w_y.bytes);
-            data.push_back({temp,proof.Y[j]});
+            data.push_back({temp,Y_p3[j]});
         }
 
         // -z*w_x*G

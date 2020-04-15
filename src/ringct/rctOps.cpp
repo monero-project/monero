@@ -308,7 +308,7 @@ namespace rct {
         addKeys(pk.mask, pk.mask, bH);
         return make_tuple(sk, pk);
     }
-    
+
     
     //generates a <secret , public> / Pedersen commitment but takes bH as input 
     tuple<ctkey, ctkey> ctskpkGen(const key &bH) {
