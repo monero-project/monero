@@ -48,7 +48,7 @@
 namespace mms
 {
 
-message_store::message_store()
+message_store::message_store(std::unique_ptr<epee::net_utils::http::abstract_http_client> http_client) : m_transporter(std::move(http_client))
 {
   m_active = false;
   m_auto_send = false;

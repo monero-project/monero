@@ -269,7 +269,7 @@ private:
     static bool verify_password(const std::string& keys_file_name, const epee::wipeable_string& password, bool no_spend_key, hw::device &hwdev, uint64_t kdf_rounds);
     static bool query_device(hw::device::device_type& device_type, const std::string& keys_file_name, const epee::wipeable_string& password, uint64_t kdf_rounds = 1);
 
-    wallet2(cryptonote::network_type nettype = cryptonote::MAINNET, uint64_t kdf_rounds = 1, bool unattended = false);
+    wallet2(cryptonote::network_type nettype = cryptonote::MAINNET, uint64_t kdf_rounds = 1, bool unattended = false, std::unique_ptr<epee::net_utils::http::http_client_factory> http_client_factory = std::unique_ptr<epee::net_utils::http::http_simple_client_factory>(new epee::net_utils::http::http_simple_client_factory()));
     ~wallet2();
 
     struct multisig_info
@@ -708,7 +708,7 @@ private:
      */
     void rewrite(const std::string& wallet_name, const epee::wipeable_string& password);
     void write_watch_only_wallet(const std::string& wallet_name, const epee::wipeable_string& password, std::string &new_keys_filename);
-    void load(const std::string& wallet, const epee::wipeable_string& password);
+    void load(const std::string& wallet, const epee::wipeable_string& password, const std::string& keys_buf = "", const std::string& cache_buf = "");
     void store();
     /*!
      * \brief store_to  Stores wallet to another file(s), deleting old ones
@@ -716,6 +716,19 @@ private:
      * \param password  Password to protect new wallet (TODO: probably better save the password in the wallet object?)
      */
     void store_to(const std::string &path, const epee::wipeable_string &password);
+    /*!
+     * \brief get_keys_file_data  Get wallet keys data which can be stored to a wallet file.
+     * \param password            Password of the encrypted wallet buffer (TODO: probably better save the password in the wallet object?)
+     * \param watch_only          true to include only view key, false to include both spend and view keys
+     * \return                    Encrypted wallet keys data which can be stored to a wallet file
+     */
+    boost::optional<wallet2::keys_file_data> get_keys_file_data(const epee::wipeable_string& password, bool watch_only);
+    /*!
+     * \brief get_cache_file_data   Get wallet cache data which can be stored to a wallet file.
+     * \param password              Password to protect the wallet cache data (TODO: probably better save the password in the wallet object?)
+     * \return                      Encrypted wallet cache data which can be stored to a wallet file
+     */
+    boost::optional<wallet2::cache_file_data> get_cache_file_data(const epee::wipeable_string& password);
 
     std::string path() const;
 
@@ -1319,25 +1332,25 @@ private:
     crypto::public_key get_multisig_signing_public_key(const crypto::secret_key &skey) const;
 
     template<class t_request, class t_response>
-    inline bool invoke_http_json(const boost::string_ref uri, const t_request& req, t_response& res, std::chrono::milliseconds timeout = std::chrono::seconds(15), const boost::string_ref http_method = "GET")
+    inline bool invoke_http_json(const boost::string_ref uri, const t_request& req, t_response& res, std::chrono::milliseconds timeout = std::chrono::seconds(15), const boost::string_ref http_method = "POST")
     {
       if (m_offline) return false;
       boost::lock_guard<boost::recursive_mutex> lock(m_daemon_rpc_mutex);
-      return epee::net_utils::invoke_http_json(uri, req, res, m_http_client, timeout, http_method);
+      return epee::net_utils::invoke_http_json(uri, req, res, *m_http_client, timeout, http_method);
     }
     template<class t_request, class t_response>
-    inline bool invoke_http_bin(const boost::string_ref uri, const t_request& req, t_response& res, std::chrono::milliseconds timeout = std::chrono::seconds(15), const boost::string_ref http_method = "GET")
+    inline bool invoke_http_bin(const boost::string_ref uri, const t_request& req, t_response& res, std::chrono::milliseconds timeout = std::chrono::seconds(15), const boost::string_ref http_method = "POST")
     {
       if (m_offline) return false;
       boost::lock_guard<boost::recursive_mutex> lock(m_daemon_rpc_mutex);
-      return epee::net_utils::invoke_http_bin(uri, req, res, m_http_client, timeout, http_method);
+      return epee::net_utils::invoke_http_bin(uri, req, res, *m_http_client, timeout, http_method);
     }
     template<class t_request, class t_response>
-    inline bool invoke_http_json_rpc(const boost::string_ref uri, const std::string& method_name, const t_request& req, t_response& res, std::chrono::milliseconds timeout = std::chrono::seconds(15), const boost::string_ref http_method = "GET", const std::string& req_id = "0")
+    inline bool invoke_http_json_rpc(const boost::string_ref uri, const std::string& method_name, const t_request& req, t_response& res, std::chrono::milliseconds timeout = std::chrono::seconds(15), const boost::string_ref http_method = "POST", const std::string& req_id = "0")
     {
       if (m_offline) return false;
       boost::lock_guard<boost::recursive_mutex> lock(m_daemon_rpc_mutex);
-      return epee::net_utils::invoke_http_json_rpc(uri, method_name, req, res, m_http_client, timeout, http_method, req_id);
+      return epee::net_utils::invoke_http_json_rpc(uri, method_name, req, res, *m_http_client, timeout, http_method, req_id);
     }
 
     bool set_ring_database(const std::string &filename);
@@ -1403,11 +1416,18 @@ private:
      */
     bool store_keys(const std::string& keys_file_name, const epee::wipeable_string& password, bool watch_only = false);
     /*!
-     * \brief Load wallet information from wallet file.
+     * \brief Load wallet keys information from wallet file.
      * \param keys_file_name Name of wallet file
      * \param password       Password of wallet file
      */
     bool load_keys(const std::string& keys_file_name, const epee::wipeable_string& password);
+    /*!
+     * \brief Load wallet keys information from a string buffer.
+     * \param keys_buf       Keys buffer to load
+     * \param password       Password of keys buffer
+     */
+    bool load_keys_buf(const std::string& keys_buf, const epee::wipeable_string& password);
+    bool load_keys_buf(const std::string& keys_buf, const epee::wipeable_string& password, boost::optional<crypto::chacha_key>& keys_to_encrypt);
     void process_new_transaction(const crypto::hash &txid, const cryptonote::transaction& tx, const std::vector<uint64_t> &o_indices, uint64_t height, uint8_t block_version, uint64_t ts, bool miner_tx, bool pool, bool double_spend_seen, const tx_cache_data &tx_cache_data, std::map<std::pair<uint64_t, uint64_t>, size_t> *output_tracker_cache = NULL);
     bool should_skip_block(const cryptonote::block &b, uint64_t height) const;
     void process_new_blockchain_entry(const cryptonote::block& b, const cryptonote::block_complete_entry& bche, const parsed_block &parsed_block, const crypto::hash& bl_id, uint64_t height, const std::vector<tx_cache_data> &tx_cache_data, size_t tx_cache_data_offset, std::map<std::pair<uint64_t, uint64_t>, size_t> *output_tracker_cache = NULL);
@@ -1502,7 +1522,7 @@ private:
     std::string m_wallet_file;
     std::string m_keys_file;
     std::string m_mms_file;
-    epee::net_utils::http::http_simple_client m_http_client;
+    const std::unique_ptr<epee::net_utils::http::abstract_http_client> m_http_client;
     hashchain m_blockchain;
     std::unordered_map<crypto::hash, unconfirmed_transfer_details> m_unconfirmed_txs;
     std::unordered_map<crypto::hash, confirmed_transfer_details> m_confirmed_txs;

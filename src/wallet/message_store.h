@@ -43,6 +43,7 @@
 #include "common/i18n.h"
 #include "common/command_line.h"
 #include "wipeable_string.h"
+#include "net/abstract_http_client.h"
 #include "message_transporter.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
@@ -202,7 +203,8 @@ namespace mms
   class message_store
   {
   public:
-    message_store();
+    message_store(std::unique_ptr<epee::net_utils::http::abstract_http_client> http_client);
+
     // Initialize and start to use the MMS, set the first signer, this wallet itself
     // Filename, if not null and not empty, is used to create the ".mms" file
     // reset it if already used, with deletion of all signers and messages

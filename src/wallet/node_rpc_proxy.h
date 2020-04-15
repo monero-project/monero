@@ -31,7 +31,7 @@
 #include <string>
 #include <boost/thread/mutex.hpp>
 #include "include_base_utils.h"
-#include "net/http_client.h"
+#include "net/abstract_http_client.h"
 #include "rpc/core_rpc_server_commands_defs.h"
 #include "wallet_rpc_helpers.h"
 
@@ -41,7 +41,7 @@ namespace tools
 class NodeRPCProxy
 {
 public:
-  NodeRPCProxy(epee::net_utils::http::http_simple_client &http_client, rpc_payment_state_t &rpc_payment_state, boost::recursive_mutex &mutex);
+  NodeRPCProxy(epee::net_utils::http::abstract_http_client &http_client, rpc_payment_state_t &rpc_payment_state, boost::recursive_mutex &mutex);
 
   void set_client_secret_key(const crypto::secret_key &skey) { m_client_id_secret_key = skey; }
   void invalidate();
@@ -72,7 +72,7 @@ private:
 private:
   boost::optional<std::string> get_info();
 
-  epee::net_utils::http::http_simple_client &m_http_client;
+  epee::net_utils::http::abstract_http_client &m_http_client;
   rpc_payment_state_t &m_rpc_payment_state;
   boost::recursive_mutex &m_daemon_rpc_mutex;
   crypto::secret_key m_client_id_secret_key;
