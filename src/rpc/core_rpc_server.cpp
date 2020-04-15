@@ -224,7 +224,7 @@ namespace cryptonote
     }
     else if (address == "auto")
     {
-      auto get_nodes = [this, credits_per_hash_threshold]() {
+      auto get_nodes = [this]() {
         return get_public_nodes(credits_per_hash_threshold);
       };
       m_bootstrap_daemon.reset(new bootstrap_daemon(std::move(get_nodes), rpc_payment_enabled));
