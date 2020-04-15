@@ -48,6 +48,8 @@ message(STATUS "CMake version ${CMAKE_VERSION}")
 
 project(monero)
 
+include(FindCcache) # Has to be included after the project() macro, to be able to read the CXX variable.
+
 enable_language(C ASM)
 
 function (die msg)
