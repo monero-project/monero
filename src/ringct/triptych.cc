@@ -44,17 +44,18 @@ extern "C"
 
 namespace rct
 {
-    // Maximum size parameter
+    // Maximum matrix entries
     static const size_t max_mn = 128;
 
     // Global data
+    static std::shared_ptr<pippenger_cached_data> cache;
     static ge_p3 Hi_p3[max_mn];
     static ge_p3 H_p3;
     static key U;
     static ge_p3 U_p3;
     static boost::mutex init_mutex;
 
-    // Useful scalar constants
+    // Useful scalar and group constants
     static const key ZERO = zero();
     static const key ONE = identity();
     static const key IDENTITY = identity();
@@ -69,7 +70,7 @@ namespace rct
     }
 
     // Update transcript: transcript, message, M, P, J, K, A, B, C, D
-    static void transcript_update_1(key &transcript, const key &message, const keyV &M, const keyV &P, const key &J, const key &K, const key &A, const key &B, const key &C, const key &D)
+    static void transcript_update_mu(key &transcript, const key &message, const keyV &M, const keyV &P, const key &J, const key &K, const key &A, const key &B, const key &C, const key &D)
     {
         std::string hash;
         hash.reserve((2*M.size() + 8)*sizeof(key));
@@ -92,7 +93,7 @@ namespace rct
     }
 
     // Update transcript: transcript, X, Y
-    static void transcript_update_2(key &transcript, const keyV &X, const keyV &Y)
+    static void transcript_update_x(key &transcript, const keyV &X, const keyV &Y)
     {
         std::string hash;
         hash.reserve((2*X.size() + 1)*sizeof(key));
@@ -178,11 +179,15 @@ namespace rct
         if (init_done) return;
 
         // Build Hi generators
+        std::vector<MultiexpData> data;
+        data.reserve(max_mn);
         for (size_t i = 0; i < max_mn; i++)
         {
             std::string hash = H_salt + tools::get_varint_data(i);
             hash_to_p3(Hi_p3[i], hash2rct(crypto::cn_fast_hash(hash.data(),hash.size())));
+            data.push_back({ZERO,Hi_p3[i]});
         }
+        cache = pippenger_init_cache(data,0,0);
 
         // Build U
         // U = keccak("triptych U")
@@ -276,6 +281,7 @@ namespace rct
         TriptychProof proof;
         std::vector<MultiexpData> data;
         data.reserve(m*n + 1);
+        data.resize(m*n + 1);
 
         key temp;
 
@@ -395,7 +401,7 @@ namespace rct
         proof.B = scalarmultKey(proof.B,INV_EIGHT);
         proof.C = scalarmultKey(proof.C,INV_EIGHT);
         proof.D = scalarmultKey(proof.D,INV_EIGHT);
-        transcript_update_1(tr,message,M,P,proof.J,proof.K,proof.A,proof.B,proof.C,proof.D);
+        transcript_update_mu(tr,message,M,P,proof.J,proof.K,proof.A,proof.B,proof.C,proof.D);
         const key mu = copy(tr);
 
         key U_scalars;
@@ -432,7 +438,7 @@ namespace rct
             proof.X[j] = scalarmultKey(proof.X[j],INV_EIGHT);
             proof.Y[j] = scalarmultKey(proof.Y[j],INV_EIGHT);
         }
-        transcript_update_2(tr,proof.X,proof.Y);
+        transcript_update_x(tr,proof.X,proof.Y);
         const key x = copy(tr);
 
         // Challenge powers
@@ -508,15 +514,17 @@ namespace rct
         init_gens();
         const size_t N = pow(n,m);
 
+        // Holds final check data
         std::vector<MultiexpData> data;
         data.reserve((m*n + 1) + (2*N + 2) + (2*m + 2));
+        data.resize(m*n + 1);
 
         // Transcript
         key tr;
         transcript_init(tr);
-        transcript_update_1(tr,message,M,P,proof.J,proof.K,proof.A,proof.B,proof.C,proof.D);
+        transcript_update_mu(tr,message,M,P,proof.J,proof.K,proof.A,proof.B,proof.C,proof.D);
         const key mu = copy(tr);
-        transcript_update_2(tr,proof.X,proof.Y);
+        transcript_update_x(tr,proof.X,proof.Y);
         const key x = copy(tr);
 
         // Recover proof elements
@@ -654,7 +662,7 @@ namespace rct
         data.push_back({temp,proof.J});
 
         // Final check
-        if (!(straus(data) == IDENTITY))
+        if (!(pippenger(data,cache,m*n,get_pippenger_c(data.size())) == IDENTITY))
         {
             MERROR("Triptych verification failed!");
             return false;
