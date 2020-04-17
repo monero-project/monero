@@ -72,6 +72,8 @@ namespace rct
     // Update transcript: transcript, message, M, P, J, K, A, B, C, D
     static void transcript_update_mu(key &transcript, const key &message, const keyV &M, const keyV &P, const key &J, const key &K, const key &A, const key &B, const key &C, const key &D)
     {
+        CHECK_AND_ASSERT_THROW_MES(M.size() == P.size(), "Transcript challenge inputs have incorrect size!");
+
         std::string hash;
         hash.reserve((2*M.size() + 8)*sizeof(key));
         hash = std::string((const char*) transcript.bytes, sizeof(transcript));
@@ -87,6 +89,7 @@ namespace rct
         hash += std::string((const char*) B.bytes, sizeof(B));
         hash += std::string((const char*) C.bytes, sizeof(C));
         hash += std::string((const char*) D.bytes, sizeof(D));
+        CHECK_AND_ASSERT_THROW_MES(hash.size() > 1, "Bad hash input size!");
         hash_to_scalar(transcript,hash.data(),hash.size());
 
         CHECK_AND_ASSERT_THROW_MES(!(transcript == ZERO), "Transcript challenge must be nonzero!");
@@ -95,6 +98,8 @@ namespace rct
     // Update transcript: transcript, X, Y
     static void transcript_update_x(key &transcript, const keyV &X, const keyV &Y)
     {
+        CHECK_AND_ASSERT_THROW_MES(X.size() == Y.size(), "Transcript challenge inputs have incorrect size!");
+
         std::string hash;
         hash.reserve((2*X.size() + 1)*sizeof(key));
         hash = std::string((const char*) transcript.bytes, sizeof(transcript));
@@ -103,6 +108,7 @@ namespace rct
             hash += std::string((const char*) X[j].bytes, sizeof(X[j]));
             hash += std::string((const char*) Y[j].bytes, sizeof(Y[j]));
         }
+        CHECK_AND_ASSERT_THROW_MES(hash.size() > 1, "Bad hash input size!");
         hash_to_scalar(transcript,hash.data(),hash.size());
 
         CHECK_AND_ASSERT_THROW_MES(!(transcript == ZERO), "Transcript challenge must be nonzero!");
@@ -118,7 +124,6 @@ namespace rct
     }
 
     // Invert a nonzero scalar
-    // NOTE: scalar must be nonzero!
     static key invert(const key &x)
     {
         CHECK_AND_ASSERT_THROW_MES(!(x == ZERO), "Cannot invert zero!");
@@ -166,6 +171,11 @@ namespace rct
         inv = sm(inv, 3, _101);
         inv = sm(inv, 1 + 2, _11);
 
+        // Confirm inversion
+        key temp;
+        sc_mul(temp.bytes,x.bytes,inv.bytes);
+        CHECK_AND_ASSERT_THROW_MES(temp == ONE, "Scalar inversion failed!");
+
         return inv;
     }
 
@@ -187,6 +197,7 @@ namespace rct
             hash_to_p3(Hi_p3[i], hash2rct(crypto::cn_fast_hash(hash.data(),hash.size())));
             data.push_back({ZERO,Hi_p3[i]});
         }
+        CHECK_AND_ASSERT_THROW_MES(data.size() == max_mn, "Bad generator vector size!");
         cache = pippenger_init_cache(data,0,0);
 
         // Build U
@@ -204,6 +215,10 @@ namespace rct
     // Decompose an integer with a fixed base and size
     static void decompose(std::vector<size_t> &r, const size_t val, const size_t base, const size_t size)
     {
+        CHECK_AND_ASSERT_THROW_MES(base > 1, "Bad decomposition parameters!");
+        CHECK_AND_ASSERT_THROW_MES(size > 0, "Bad decomposition parameters!");
+        CHECK_AND_ASSERT_THROW_MES(r.size() >= size, "Bad decomposition result vector size!");
+
         size_t temp = val;
 
         for (size_t i = 0; i < size; i++)
@@ -219,6 +234,8 @@ namespace rct
     {
         const size_t m = M.size();
         const size_t n = M[0].size();
+        CHECK_AND_ASSERT_THROW_MES(m*n <= max_mn, "Bad matrix commitment parameters!");
+        CHECK_AND_ASSERT_THROW_MES(data.size() >= m*n, "Bad matrix commitment result vector size!");
 
         for (size_t j = 0; j < m; j++)
         {
@@ -242,9 +259,13 @@ namespace rct
     // Compute a convolution with a degree-one polynomial
     static keyV convolve(const keyV &x, const keyV &y, const size_t m)
     {
+        CHECK_AND_ASSERT_THROW_MES(x.size() >= m, "Bad convolution parameters!");
+        CHECK_AND_ASSERT_THROW_MES(y.size() == 2, "Bad convolution parameters!");
+
         key temp;
         keyV r;
         r.reserve(m+1);
+        r.resize(m+1);
 
         for (size_t i = 0; i < m+1; i++)
         {
@@ -313,11 +334,14 @@ namespace rct
             }
         }
         com_matrix(data,a,rA);
+        CHECK_AND_ASSERT_THROW_MES(data.size() == m*n + 1, "Matrix commitment returned unexpected size!");
         proof.A = straus(data);
+        CHECK_AND_ASSERT_THROW_MES(!(proof.A == IDENTITY), "Linear combination unexpectedly returned zero!");
 
         // Commit to decomposition bits
         std::vector<size_t> decomp_l;
         decomp_l.reserve(m);
+        decomp_l.resize(m);
         decompose(decomp_l,l,n,m);
 
         keyM sigma = keyMInit(n,m);
@@ -329,7 +353,9 @@ namespace rct
             }
         }
         com_matrix(data,sigma,rB);
+        CHECK_AND_ASSERT_THROW_MES(data.size() == m*n + 1, "Matrix commitment returned unexpected size!");
         proof.B = straus(data);
+        CHECK_AND_ASSERT_THROW_MES(!(proof.B == IDENTITY), "Linear combination unexpectedly returned zero!");
 
         // Commit to a/sigma relationships
         keyM a_sigma = keyMInit(n,m);
@@ -343,7 +369,9 @@ namespace rct
             }
         }
         com_matrix(data,a_sigma,rC);
+        CHECK_AND_ASSERT_THROW_MES(data.size() == m*n + 1, "Matrix commitment returned unexpected size!");
         proof.C = straus(data);
+        CHECK_AND_ASSERT_THROW_MES(!(proof.C == IDENTITY), "Linear combination unexpectedly returned zero!");
 
         // Commit to squared a-values
         keyM a_sq = keyMInit(n,m);
@@ -356,7 +384,9 @@ namespace rct
             }
         }
         com_matrix(data,a_sq,rD);
+        CHECK_AND_ASSERT_THROW_MES(data.size() == m*n + 1, "Matrix commitment returned unexpected size!");
         proof.D = straus(data);
+        CHECK_AND_ASSERT_THROW_MES(!(proof.D == IDENTITY), "Linear combination unexpectedly returned zero!");
 
         // Compute p coefficients
         keyM p = keyMInit(m+1,N);
@@ -364,6 +394,7 @@ namespace rct
         {
             std::vector<size_t> decomp_k;
             decomp_k.reserve(m);
+            decomp_k.resize(m);
             decompose(decomp_k,k,n,m);
 
             for (size_t j = 0; j < m+1; j++)
@@ -377,6 +408,7 @@ namespace rct
             {
                 keyV temp;
                 temp.reserve(2);
+                temp.resize(2);
                 temp[0] = a[j][decomp_k[j]];
                 temp[1] = delta(decomp_l[j],decomp_k[j]);
 
@@ -390,6 +422,7 @@ namespace rct
 
         keyV rho;
         rho.reserve(m);
+        rho.resize(m);
         for (size_t j = 0; j < m; j++)
         {
             rho[j] = skGen();
@@ -426,10 +459,12 @@ namespace rct
             // X[j] += rho[j]*G
             // Y[j] += rho[j]*J
             addKeys1(proof.X[j], rho[j], straus(data_X));
+            CHECK_AND_ASSERT_THROW_MES(!(proof.X[j] == IDENTITY), "Proof coefficient element should not be zero!");
 
             proof.Y[j] = scalarmultKey(U,U_scalars);
             key rho_J = scalarmultKey(proof.J,rho[j]);
             addKeys(proof.Y[j],proof.Y[j],rho_J);
+            CHECK_AND_ASSERT_THROW_MES(!(proof.Y[j] == IDENTITY), "Proof coefficient element should not be zero!");
         }
 
         // Challenge
@@ -438,12 +473,15 @@ namespace rct
             proof.X[j] = scalarmultKey(proof.X[j],INV_EIGHT);
             proof.Y[j] = scalarmultKey(proof.Y[j],INV_EIGHT);
         }
+        CHECK_AND_ASSERT_THROW_MES(proof.X.size() == m, "Proof coefficient vector is unexpected size!");
+        CHECK_AND_ASSERT_THROW_MES(proof.Y.size() == m, "Proof coefficient vector is unexpected size!");
         transcript_update_x(tr,proof.X,proof.Y);
         const key x = copy(tr);
 
         // Challenge powers
         keyV x_pow;
         x_pow.reserve(m+1);
+        x_pow.resize(m+1);
         x_pow[0] = ONE;
         for (size_t j = 1; j < m+1; j++)
         {
@@ -458,6 +496,7 @@ namespace rct
             for (size_t i = 1; i < n; i++)
             {
                 sc_muladd(proof.f[j][i].bytes,sigma[j][i].bytes,x.bytes,a[j][i].bytes);
+                CHECK_AND_ASSERT_THROW_MES(!(proof.f[j][i] == ZERO), "Proof matrix element should not be zero!");
             }
         }
 
@@ -467,7 +506,9 @@ namespace rct
         // z = (r + mu*s)*x**m - rho[0]*x**0 - ... - rho[m-1]*x**(m-1)
 
         sc_muladd(proof.zA.bytes,rB.bytes,x.bytes,rA.bytes);
+        CHECK_AND_ASSERT_THROW_MES(!(proof.zA == ZERO), "Proof scalar element should not be zero!");
         sc_muladd(proof.zC.bytes,rC.bytes,x.bytes,rD.bytes);
+        CHECK_AND_ASSERT_THROW_MES(!(proof.zC == ZERO), "Proof scalar element should not be zero!");
 
         sc_muladd(proof.z.bytes,mu.bytes,s.bytes,r.bytes);
         sc_mul(proof.z.bytes,proof.z.bytes,x_pow[m].bytes);
@@ -476,6 +517,7 @@ namespace rct
         {
             sc_mulsub(proof.z.bytes,rho[j].bytes,x_pow[j].bytes,proof.z.bytes);
         }
+        CHECK_AND_ASSERT_THROW_MES(!(proof.z == ZERO), "Proof scalar element should not be zero!");
 
         // Clear secret prover data
         memwipe(&rA,sizeof(key));
@@ -500,23 +542,31 @@ namespace rct
         CHECK_AND_ASSERT_THROW_MES(M.size() == pow(n,m), "Public key vector is wrong size!");
         CHECK_AND_ASSERT_THROW_MES(P.size() == pow(n,m), "Commitment vector is wrong size!");
 
+        CHECK_AND_ASSERT_THROW_MES(!(proof.J == IDENTITY), "Proof group element should not be zero!");
+        CHECK_AND_ASSERT_THROW_MES(proof.X.size() == m, "Bad proof vector size!");
+        CHECK_AND_ASSERT_THROW_MES(proof.Y.size() == m, "Bad proof vector size!");
+        CHECK_AND_ASSERT_THROW_MES(proof.f.size() == m, "Bad proof matrix size!");
         for (size_t j = 0; j < m; j++)
         {
+            CHECK_AND_ASSERT_THROW_MES(proof.f[j].size() == n, "Bad proof matrix size!");
             for (size_t i = 0; i < n; i++)
             {
                 CHECK_AND_ASSERT_THROW_MES(sc_check(proof.f[j][i].bytes) == 0, "Bad scalar element in proof!");
             }
         }
         CHECK_AND_ASSERT_THROW_MES(sc_check(proof.zA.bytes) == 0, "Bad scalar element in proof!");
+        CHECK_AND_ASSERT_THROW_MES(!(proof.zA == ZERO), "Proof scalar element should not be zero!");
         CHECK_AND_ASSERT_THROW_MES(sc_check(proof.zC.bytes) == 0, "Bad scalar element in proof!");
+        CHECK_AND_ASSERT_THROW_MES(!(proof.zC == ZERO), "Proof scalar element should not be zero!");
         CHECK_AND_ASSERT_THROW_MES(sc_check(proof.z.bytes) == 0, "Bad scalar element in proof!");
+        CHECK_AND_ASSERT_THROW_MES(!(proof.z == ZERO), "Proof scalar element should not be zero!");
 
         init_gens();
         const size_t N = pow(n,m);
 
         // Holds final check data
         std::vector<MultiexpData> data;
-        data.reserve((m*n + 1) + (2*N + 2) + (2*m + 2));
+        data.reserve((m*n + 1) + 4 + (2*N + 2) + (2*m + 2));
         data.resize(m*n + 1);
 
         // Transcript
@@ -536,7 +586,9 @@ namespace rct
         std::vector<ge_p3> X_p3;
         std::vector<ge_p3> Y_p3;
         X_p3.reserve(m);
+        X_p3.resize(m);
         Y_p3.reserve(m);
+        Y_p3.resize(m);
         scalarmult8(K_p3,proof.K);
         scalarmult8(A_p3,proof.A);
         scalarmult8(B_p3,proof.B);
@@ -551,6 +603,7 @@ namespace rct
         // Challenge powers (negated)
         keyV minus_x;
         minus_x.reserve(m);
+        minus_x.resize(m);
         minus_x[0] = MINUS_ONE;
         for (size_t j = 1; j < m; j++)
         {
@@ -574,8 +627,10 @@ namespace rct
             proof.f[j][0] = x;
             for (size_t i = 1; i < n; i++)
             {
+                CHECK_AND_ASSERT_THROW_MES(!(proof.f[j][i] == ZERO), "Proof matrix element should not be zero!");
                 sc_sub(proof.f[j][0].bytes,proof.f[j][0].bytes,proof.f[j][i].bytes);
             }
+            CHECK_AND_ASSERT_THROW_MES(!(proof.f[j][0] == ZERO), "Proof matrix element should not be zero!");
         }
 
         // Build the weighted matrix
@@ -588,6 +643,7 @@ namespace rct
                 sc_sub(temp.bytes,x.bytes,proof.f[j][i].bytes);
                 sc_mul(temp.bytes,proof.f[j][i].bytes,temp.bytes);
                 sc_muladd(abcd[j][i].bytes,temp.bytes,w_abcd.bytes,proof.f[j][i].bytes);
+                CHECK_AND_ASSERT_THROW_MES(!(abcd[j][i] == ZERO), "Proof matrix element should not be zero!");
             }
         }
 
@@ -596,6 +652,7 @@ namespace rct
         key temp;
         sc_muladd(temp.bytes,proof.zC.bytes,w_abcd.bytes,proof.zA.bytes);
         com_matrix(data,abcd,temp);
+        CHECK_AND_ASSERT_THROW_MES(data.size() == m*n + 1, "Matrix commitment returned unexpected size!");
 
         data.push_back({MINUS_ONE,A_p3});
 
@@ -614,6 +671,7 @@ namespace rct
             key t = ONE;
             std::vector<size_t> decomp_k;
             decomp_k.reserve(m);
+            decomp_k.resize(m);
             decompose(decomp_k,k,n,m);
 
             for (size_t j = 0; j < m; j++)
@@ -662,6 +720,7 @@ namespace rct
         data.push_back({temp,proof.J});
 
         // Final check
+        CHECK_AND_ASSERT_THROW_MES(data.size() == (m*n + 1) + 4 + (2*N + 2) + (2*m + 2), "Final proof data is incorrect size!");
         if (!(pippenger(data,cache,m*n,get_pippenger_c(data.size())) == IDENTITY))
         {
             MERROR("Triptych verification failed!");
