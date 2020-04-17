@@ -53,9 +53,7 @@ bool matches_category(relay_method method, relay_category category) noexcept
     case relay_category::all:
       return true;
     case relay_category::relayable:
-      if (method == relay_method::none)
-        return false;
-      return true;
+      return method != relay_method::none;
     case relay_category::broadcasted:
     case relay_category::legacy:
       break;
@@ -65,6 +63,7 @@ bool matches_category(relay_method method, relay_category category) noexcept
   {
     default:
     case relay_method::local:
+    case relay_method::stem:
       return false;
     case relay_method::block:
     case relay_method::fluff:
@@ -80,6 +79,7 @@ void txpool_tx_meta_t::set_relay_method(relay_method method) noexcept
   kept_by_block = 0;
   do_not_relay = 0;
   is_local = 0;
+  dandelionpp_stem = 0;
 
   switch (method)
   {
@@ -91,6 +91,9 @@ void txpool_tx_meta_t::set_relay_method(relay_method method) noexcept
       break;
     default:
     case relay_method::fluff:
+      break;
+    case relay_method::stem:
+      dandelionpp_stem = 1;
       break;
     case relay_method::block:
       kept_by_block = 1;
@@ -106,7 +109,24 @@ relay_method txpool_tx_meta_t::get_relay_method() const noexcept
     return relay_method::none;
   if (is_local)
     return relay_method::local;
+  if (dandelionpp_stem)
+    return relay_method::stem;
   return relay_method::fluff;
+}
+
+bool txpool_tx_meta_t::upgrade_relay_method(relay_method method) noexcept
+{
+  static_assert(relay_method::none < relay_method::local, "bad relay_method value");
+  static_assert(relay_method::local < relay_method::stem, "bad relay_method value");
+  static_assert(relay_method::stem < relay_method::fluff, "bad relay_method value");
+  static_assert(relay_method::fluff < relay_method::block, "bad relay_method value");
+
+  if (get_relay_method() < method)
+  {
+    set_relay_method(method);
+    return true;
+  }
+  return false;
 }
 
 const command_line::arg_descriptor<std::string> arg_db_sync_mode = {

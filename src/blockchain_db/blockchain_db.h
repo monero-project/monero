@@ -160,7 +160,7 @@ struct txpool_tx_meta_t
   uint64_t max_used_block_height;
   uint64_t last_failed_height;
   uint64_t receive_time;
-  uint64_t last_relayed_time;
+  uint64_t last_relayed_time; //!< If Dandelion++ stem, randomized embargo timestamp. Otherwise, last relayed timestmap.
   // 112 bytes
   uint8_t kept_by_block;
   uint8_t relayed;
@@ -168,12 +168,16 @@ struct txpool_tx_meta_t
   uint8_t double_spend_seen: 1;
   uint8_t pruned: 1;
   uint8_t is_local: 1;
-  uint8_t bf_padding: 5;
+  uint8_t dandelionpp_stem : 1;
+  uint8_t bf_padding: 4;
 
   uint8_t padding[76]; // till 192 bytes
 
   void set_relay_method(relay_method method) noexcept;
   relay_method get_relay_method() const noexcept;
+
+  //! \return True if `get_relay_method()` now returns `method`.
+  bool upgrade_relay_method(relay_method method) noexcept;
 
   //! See `relay_category` description
   bool matches(const relay_category category) const noexcept

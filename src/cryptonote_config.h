@@ -102,7 +102,12 @@
 #define CRYPTONOTE_MEMPOOL_TX_FROM_ALT_BLOCK_LIVETIME     604800 //seconds, one week
 
 
-#define CRYPTONOTE_DANDELIONPP_FLUSH_AVERAGE 5 // seconds
+#define CRYPTONOTE_DANDELIONPP_STEMS              2 // number of outgoing stem connections per epoch
+#define CRYPTONOTE_DANDELIONPP_FLUFF_PROBABILITY 10 // out of 100
+#define CRYPTONOTE_DANDELIONPP_MIN_EPOCH         10 // minutes
+#define CRYPTONOTE_DANDELIONPP_EPOCH_RANGE       30 // seconds
+#define CRYPTONOTE_DANDELIONPP_FLUSH_AVERAGE      5 // seconds average for poisson distributed fluff flush
+#define CRYPTONOTE_DANDELIONPP_EMBARGO_AVERAGE  173 // seconds (see tx_pool.cpp for more info)
 
 // see src/cryptonote_protocol/levin_notify.cpp
 #define CRYPTONOTE_NOISE_MIN_EPOCH                      5      // minutes
