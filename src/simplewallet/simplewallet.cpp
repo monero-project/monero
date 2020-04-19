@@ -6799,7 +6799,7 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
     if (locked_blocks > 1000000)
     {
       fail_msg_writer() << tr("Locked blocks too high, max 1000000 (˜4 yrs)");
-      return false;
+      //return false;
     }
     local_args.pop_back();
   }
