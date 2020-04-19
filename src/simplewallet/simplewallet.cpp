@@ -5500,8 +5500,10 @@ void simple_wallet::on_money_received(uint64_t height, const crypto::hash &txid,
       message_writer(console_color_red, false) <<
         tr("WARNING: this transaction uses an unencrypted payment ID: these are obsolete and ignored. Use subaddresses instead.");
   }
+  uint64_t blocks_locked = unlock_time - height;
   if (unlock_time && !cryptonote::is_coinbase(tx))
-    message_writer() << tr("NOTE: This transaction is locked, see details with: show_transfer ") + epee::string_tools::pod_to_hex(txid);
+    message_writer() << tr("NOTE: This transaction is locked for ") << blocks_locked << tr(" blocks (unlock height: ") << unlock_time << tr(")\n") 
+                     << tr("See details with: show_transfer ") + epee::string_tools::pod_to_hex(txid);
   if (m_auto_refresh_refreshing)
     m_cmd_binder.print_prompt();
   else
