@@ -5748,11 +5748,11 @@ bool simple_wallet::show_balance_unlocked(bool detailed)
   success_msg_writer() << tr("Currently selected account: [") << m_current_subaddress_account << tr("] ") << m_wallet->get_subaddress_label({m_current_subaddress_account, 0});
   const std::string tag = m_wallet->get_account_tags().second[m_current_subaddress_account];
   success_msg_writer() << tr("Tag: ") << (tag.empty() ? std::string{tr("(No tag assigned)")} : tag);
-  uint64_t blocks_to_unlock;
-  uint64_t unlocked_balance = m_wallet->unlocked_balance(m_current_subaddress_account, false, &blocks_to_unlock);
+  uint64_t locked_blocks;
+  uint64_t unlocked_balance = m_wallet->unlocked_balance(m_current_subaddress_account, false, &locked_blocks);
   std::string unlock_time_message;
-  if (blocks_to_unlock > 0)
-    unlock_time_message = (boost::format(" (%lu block(s) to unlock)") % blocks_to_unlock).str();
+  if (locked_blocks > 0)
+    unlock_time_message = (boost::format(" (%lu block(s) to unlock)") % locked_blocks).str();
   success_msg_writer() << tr("Balance: ") << print_money(m_wallet->balance(m_current_subaddress_account, false)) << ", "
     << tr("unlocked balance: ") << print_money(unlocked_balance) << unlock_time_message << extra;
   std::map<uint32_t, uint64_t> balance_per_subaddress = m_wallet->balance_per_subaddress(m_current_subaddress_account, false);
