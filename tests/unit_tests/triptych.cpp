@@ -28,57 +28,65 @@
 //
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
+#include <stdlib.h>
 #include "gtest/gtest.h"
 #include "ringct/rctOps.h"
 #include "ringct/triptych.h"
 
 using namespace rct;
 
-// Test random proofs
+// Test random proofs in batches
+//
+// Fixed: n (size base)
+// Variable: m (size exponent), l (signing index)
 TEST(triptych, random)
 {
-    const size_t n = 2;
+    const size_t n = 2; // size base: N = n**m
+    const size_t N_proofs = 2; // number of proofs with common keys to verify in a batch
 
-    // Ring sizes
-    for (size_t m = 1; m <= 6; m++)
+    // Ring sizes: N = n**m
+    for (size_t m = 2; m <= 6; m++)
     {
-        const size_t N = pow(n,m);
+        const size_t N = pow(n,m); // anonymity set size
+        std::vector<TriptychProof> p;
+        p.reserve(N_proofs);
+        std::vector<TriptychProof *> proofs;
+        proofs.reserve(N_proofs);
 
-        // Signing indices
-        for (size_t l = 0; l < N; l++)
+        // Build key vectors
+        keyV M = keyV(N);
+        keyV P = keyV(N);
+        keyV r = keyV(N_proofs);
+        keyV s = keyV(N_proofs);
+        const key message = skGen();
+
+        // Random keys
+        key temp;
+        for (size_t k = 0; k < N; k++)
         {
-            keyV M = keyV(N);
-            keyV P = keyV(N);
-            key r,s; // secret keys
-            const key message = skGen(); // random message
-        
-            // Build key vectors
-            key temp;
-            for (size_t k = 0; k < N; k++)
-            {
-                if (k == l)
-                {
-                    skpkGen(r,M[k]);
-                    skpkGen(s,P[k]);
-                }
-                else
-                {
-                    skpkGen(temp,M[k]);
-                    skpkGen(temp,P[k]);
-                }
-            }
-
-            // Prove and verify
-            if (m == 1)
-            {
-                ASSERT_ANY_THROW(TriptychProof proof = triptych_prove(M,P,l,r,s,n,m,message));
-            }
-            else
-            {
-                TriptychProof proof = triptych_prove(M,P,l,r,s,n,m,message);
-                ASSERT_TRUE(triptych_verify(M,P,proof,n,m,message));
-            }
+            skpkGen(temp,M[k]);
+            skpkGen(temp,P[k]);
         }
+
+        // Signing keys
+        for (size_t i = 0; i < N_proofs; i++)
+        {
+            skpkGen(r[i],M[i]);
+            skpkGen(s[i],P[i]);
+        }
+
+        // Build proofs
+        for (size_t i = 0; i < N_proofs; i++)
+        {
+            p.push_back(triptych_prove(M,P,i,r[i],s[i],n,m,message));
+        }
+        for (TriptychProof &proof: p)
+        {
+            proofs.push_back(&proof);
+        }
+
+        // Verify batch
+        ASSERT_TRUE(triptych_verify(M,P,proofs,n,m,message));
     }
 }
 

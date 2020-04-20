@@ -51,6 +51,7 @@ namespace rct
     static std::shared_ptr<pippenger_cached_data> cache;
     static ge_p3 Hi_p3[max_mn];
     static ge_p3 H_p3;
+    static ge_p3 G_p3;
     static key U;
     static ge_p3 U_p3;
     static boost::mutex init_mutex;
@@ -206,7 +207,8 @@ namespace rct
         hash_to_p3(U_p3, hash2rct(crypto::cn_fast_hash(U_salt.data(),U_salt.size())));
         ge_p3_tobytes(U.bytes, &U_p3);
 
-        // Build H
+        // Build G,H
+        ge_frombytes_vartime(&G_p3, G.bytes);
         ge_frombytes_vartime(&H_p3, H.bytes);
 
         init_done = true;
@@ -324,6 +326,8 @@ namespace rct
 
         // Commit to zero-sum values
         keyM a = keyMInit(n,m);
+        CHECK_AND_ASSERT_THROW_MES(a.size() == m, "Bad matrix size!");
+        CHECK_AND_ASSERT_THROW_MES(a[0].size() == n, "Bad matrix size!");
         for (size_t j = 0; j < m; j++)
         {
             a[j][0] = ZERO;
@@ -345,6 +349,8 @@ namespace rct
         decompose(decomp_l,l,n,m);
 
         keyM sigma = keyMInit(n,m);
+        CHECK_AND_ASSERT_THROW_MES(sigma.size() == m, "Bad matrix size!");
+        CHECK_AND_ASSERT_THROW_MES(sigma[0].size() == n, "Bad matrix size!");
         for (size_t j = 0; j < m; j++)
         {
             for (size_t i = 0; i < n; i++)
@@ -359,6 +365,8 @@ namespace rct
 
         // Commit to a/sigma relationships
         keyM a_sigma = keyMInit(n,m);
+        CHECK_AND_ASSERT_THROW_MES(a_sigma.size() == m, "Bad matrix size!");
+        CHECK_AND_ASSERT_THROW_MES(a_sigma[0].size() == n, "Bad matrix size!");
         for (size_t j = 0; j < m; j++)
         {
             for (size_t i = 0; i < n; i++)
@@ -390,6 +398,8 @@ namespace rct
 
         // Compute p coefficients
         keyM p = keyMInit(m+1,N);
+        CHECK_AND_ASSERT_THROW_MES(p.size() == N, "Bad matrix size!");
+        CHECK_AND_ASSERT_THROW_MES(p[0].size() == m+1, "Bad matrix size!");
         for (size_t k = 0; k < N; k++)
         {
             std::vector<size_t> decomp_k;
@@ -533,194 +543,252 @@ namespace rct
         return proof;
     }
 
-    // Verify a Triptych proof
-    bool triptych_verify(const keyV &M, const keyV &P, TriptychProof proof, const size_t n, const size_t m, const key &message)
+    // Verify a batch of Triptych proofs with common input keys
+    bool triptych_verify(const keyV &M, const keyV &P, std::vector<TriptychProof *> &proofs, const size_t n, const size_t m, const key &message)
     {
+        // Global checks
         CHECK_AND_ASSERT_THROW_MES(n > 1, "Must have n > 1!");
         CHECK_AND_ASSERT_THROW_MES(m > 1, "Must have m > 1!");
         CHECK_AND_ASSERT_THROW_MES(m*n <= max_mn, "Size parameters are too large!");
         CHECK_AND_ASSERT_THROW_MES(M.size() == pow(n,m), "Public key vector is wrong size!");
         CHECK_AND_ASSERT_THROW_MES(P.size() == pow(n,m), "Commitment vector is wrong size!");
 
-        CHECK_AND_ASSERT_THROW_MES(!(proof.J == IDENTITY), "Proof group element should not be zero!");
-        CHECK_AND_ASSERT_THROW_MES(proof.X.size() == m, "Bad proof vector size!");
-        CHECK_AND_ASSERT_THROW_MES(proof.Y.size() == m, "Bad proof vector size!");
-        CHECK_AND_ASSERT_THROW_MES(proof.f.size() == m, "Bad proof matrix size!");
-        for (size_t j = 0; j < m; j++)
+        // Per-proof checks
+        for (TriptychProof *p: proofs)
         {
-            CHECK_AND_ASSERT_THROW_MES(proof.f[j].size() == n, "Bad proof matrix size!");
-            for (size_t i = 0; i < n; i++)
+            TriptychProof &proof = *p;
+
+            CHECK_AND_ASSERT_THROW_MES(!(proof.J == IDENTITY), "Proof group element should not be zero!");
+            CHECK_AND_ASSERT_THROW_MES(proof.X.size() == m, "Bad proof vector size!");
+            CHECK_AND_ASSERT_THROW_MES(proof.Y.size() == m, "Bad proof vector size!");
+            CHECK_AND_ASSERT_THROW_MES(proof.f.size() == m, "Bad proof matrix size!");
+            for (size_t j = 0; j < m; j++)
             {
-                CHECK_AND_ASSERT_THROW_MES(sc_check(proof.f[j][i].bytes) == 0, "Bad scalar element in proof!");
+                CHECK_AND_ASSERT_THROW_MES(proof.f[j].size() == n, "Bad proof matrix size!");
+                for (size_t i = 0; i < n; i++)
+                {
+                    CHECK_AND_ASSERT_THROW_MES(sc_check(proof.f[j][i].bytes) == 0, "Bad scalar element in proof!");
+                }
             }
+            CHECK_AND_ASSERT_THROW_MES(sc_check(proof.zA.bytes) == 0, "Bad scalar element in proof!");
+            CHECK_AND_ASSERT_THROW_MES(!(proof.zA == ZERO), "Proof scalar element should not be zero!");
+            CHECK_AND_ASSERT_THROW_MES(sc_check(proof.zC.bytes) == 0, "Bad scalar element in proof!");
+            CHECK_AND_ASSERT_THROW_MES(!(proof.zC == ZERO), "Proof scalar element should not be zero!");
+            CHECK_AND_ASSERT_THROW_MES(sc_check(proof.z.bytes) == 0, "Bad scalar element in proof!");
+            CHECK_AND_ASSERT_THROW_MES(!(proof.z == ZERO), "Proof scalar element should not be zero!");
         }
-        CHECK_AND_ASSERT_THROW_MES(sc_check(proof.zA.bytes) == 0, "Bad scalar element in proof!");
-        CHECK_AND_ASSERT_THROW_MES(!(proof.zA == ZERO), "Proof scalar element should not be zero!");
-        CHECK_AND_ASSERT_THROW_MES(sc_check(proof.zC.bytes) == 0, "Bad scalar element in proof!");
-        CHECK_AND_ASSERT_THROW_MES(!(proof.zC == ZERO), "Proof scalar element should not be zero!");
-        CHECK_AND_ASSERT_THROW_MES(sc_check(proof.z.bytes) == 0, "Bad scalar element in proof!");
-        CHECK_AND_ASSERT_THROW_MES(!(proof.z == ZERO), "Proof scalar element should not be zero!");
 
         init_gens();
-        const size_t N = pow(n,m);
-
-        // Holds final check data
-        std::vector<MultiexpData> data;
-        data.reserve((m*n + 1) + 4 + (2*N + 2) + (2*m + 2));
-        data.resize(m*n + 1);
-
-        // Transcript
-        key tr;
-        transcript_init(tr);
-        transcript_update_mu(tr,message,M,P,proof.J,proof.K,proof.A,proof.B,proof.C,proof.D);
-        const key mu = copy(tr);
-        transcript_update_x(tr,proof.X,proof.Y);
-        const key x = copy(tr);
-
-        // Recover proof elements
-        ge_p3 K_p3;
-        ge_p3 A_p3;
-        ge_p3 B_p3;
-        ge_p3 C_p3;
-        ge_p3 D_p3;
-        std::vector<ge_p3> X_p3;
-        std::vector<ge_p3> Y_p3;
-        X_p3.reserve(m);
-        X_p3.resize(m);
-        Y_p3.reserve(m);
-        Y_p3.resize(m);
-        scalarmult8(K_p3,proof.K);
-        scalarmult8(A_p3,proof.A);
-        scalarmult8(B_p3,proof.B);
-        scalarmult8(C_p3,proof.C);
-        scalarmult8(D_p3,proof.D);
-        for (size_t j = 0; j < m; j++)
-        {
-            scalarmult8(X_p3[j],proof.X[j]);
-            scalarmult8(Y_p3[j],proof.Y[j]);
-        }
-
-        // Challenge powers (negated)
-        keyV minus_x;
-        minus_x.reserve(m);
-        minus_x.resize(m);
-        minus_x[0] = MINUS_ONE;
-        for (size_t j = 1; j < m; j++)
-        {
-            sc_mul(minus_x[j].bytes,minus_x[j-1].bytes,x.bytes);
-        }
-
-        // Random weights for multiscalar multiplication evaluation
-        key w_abcd = ZERO;
-        key w_x = ZERO;
-        key w_y = ZERO;
-        while (w_abcd == ZERO || w_x == ZERO || w_y == ZERO)
-        {
-            w_abcd = skGen();
-            w_x = skGen();
-            w_y = skGen();
-        }
-
-        // Reconstruct the f-matrix
-        for (size_t j = 0; j < m; j++)
-        {
-            proof.f[j][0] = x;
-            for (size_t i = 1; i < n; i++)
-            {
-                CHECK_AND_ASSERT_THROW_MES(!(proof.f[j][i] == ZERO), "Proof matrix element should not be zero!");
-                sc_sub(proof.f[j][0].bytes,proof.f[j][0].bytes,proof.f[j][i].bytes);
-            }
-            CHECK_AND_ASSERT_THROW_MES(!(proof.f[j][0] == ZERO), "Proof matrix element should not be zero!");
-        }
-
-        // Build the weighted matrix
-        keyM abcd = keyMInit(n,m);
-        for (size_t j = 0; j < m; j++)
-        {
-            for (size_t i = 0; i < n; i++)
-            {
-                key temp;
-                sc_sub(temp.bytes,x.bytes,proof.f[j][i].bytes);
-                sc_mul(temp.bytes,proof.f[j][i].bytes,temp.bytes);
-                sc_muladd(abcd[j][i].bytes,temp.bytes,w_abcd.bytes,proof.f[j][i].bytes);
-                CHECK_AND_ASSERT_THROW_MES(!(abcd[j][i] == ZERO), "Proof matrix element should not be zero!");
-            }
-        }
-
-        // Weighted mask and commitment
-        // Com(abcd,zA + w*zC) - A - x*B - w*(x*C + D)
+        const size_t N = pow(n,m); // anonymity set size
+        const size_t N_proofs = proofs.size(); // number of proofs in batch
         key temp;
-        sc_muladd(temp.bytes,proof.zC.bytes,w_abcd.bytes,proof.zA.bytes);
-        com_matrix(data,abcd,temp);
-        CHECK_AND_ASSERT_THROW_MES(data.size() == m*n + 1, "Matrix commitment returned unexpected size!");
 
-        data.push_back({MINUS_ONE,A_p3});
+        // Holds final check data (Q proofs)
+        //
+        // Index data:
+        // 0            m*n-1       Hi[i]
+        // m*n                      H
+        // m*n+1        m*n+N       M[i]
+        // m*n+N+1      m*n+2*N     P[i]
+        // m*n+2*N+1                U
+        // m*n+2*N+2                G
+        // ... then per-proof data
+        std::vector<MultiexpData> data;
+        data.reserve((m*n + 1) + (2*N + 2) + N_proofs*(2*m + 6));
+        data.resize((m*n + 1) + (2*N + 2)); // set up for all common elements
 
-        data.push_back({minus_x[1],B_p3});
+        // Data for {Hi},H
+        for (size_t i = 0; i < m*n; i++)
+        {
+            data[i] = {ZERO,Hi_p3[i]};
+        }
+        data[m*n] = {ZERO,H_p3};
 
-        sc_mul(temp.bytes,w_abcd.bytes,minus_x[1].bytes);
-        data.push_back({temp,C_p3});
-
-        sc_mul(temp.bytes,w_abcd.bytes,MINUS_ONE.bytes);
-        data.push_back({temp,D_p3});
-
-        // Weighted keys
-        key sum_t = ZERO;
+        // Data for {M},{P}
         for (size_t k = 0; k < N; k++)
         {
-            key t = ONE;
-            std::vector<size_t> decomp_k;
-            decomp_k.reserve(m);
-            decomp_k.resize(m);
-            decompose(decomp_k,k,n,m);
+            data[m*n+1+k] = {ZERO,M[k]};
+            data[m*n+N+1+k] = {ZERO,P[k]};
+        }
+
+        // Data for U
+        data[m*n+2*N+1] = {ZERO,U_p3};
+
+        // Data for G
+        data[m*n+2*N+2] = {ZERO,G_p3};
+
+        // Start per-proof data assembly
+        for (TriptychProof *p: proofs)
+        {
+            TriptychProof &proof = *p;
+
+            // Per-proof random weights
+            key w1 = ZERO;
+            key w2 = ZERO;
+            key w3 = ZERO;
+            key w4 = ZERO;
+            while (w1 == ZERO || w2 == ZERO || w3 == ZERO || w4 == ZERO)
+            {
+                w1 = skGen();
+                w2 = skGen();
+                w3 = skGen();
+                w4 = skGen();
+            }
+
+            // Transcript
+            key tr;
+            transcript_init(tr);
+            transcript_update_mu(tr,message,M,P,proof.J,proof.K,proof.A,proof.B,proof.C,proof.D);
+            const key mu = copy(tr);
+            transcript_update_x(tr,proof.X,proof.Y);
+            const key x = copy(tr);
+
+            // Recover proof elements
+            ge_p3 K_p3;
+            ge_p3 A_p3;
+            ge_p3 B_p3;
+            ge_p3 C_p3;
+            ge_p3 D_p3;
+            std::vector<ge_p3> X_p3;
+            std::vector<ge_p3> Y_p3;
+            X_p3.reserve(m);
+            X_p3.resize(m);
+            Y_p3.reserve(m);
+            Y_p3.resize(m);
+            scalarmult8(K_p3,proof.K);
+            scalarmult8(A_p3,proof.A);
+            scalarmult8(B_p3,proof.B);
+            scalarmult8(C_p3,proof.C);
+            scalarmult8(D_p3,proof.D);
+            for (size_t j = 0; j < m; j++)
+            {
+                scalarmult8(X_p3[j],proof.X[j]);
+                scalarmult8(Y_p3[j],proof.Y[j]);
+            }
+
+            // Challenge powers (negated)
+            keyV minus_x;
+            minus_x.reserve(m);
+            minus_x.resize(m);
+            minus_x[0] = MINUS_ONE;
+            for (size_t j = 1; j < m; j++)
+            {
+                sc_mul(minus_x[j].bytes,minus_x[j-1].bytes,x.bytes);
+            }
+
+            // Reconstruct the f-matrix
+            for (size_t j = 0; j < m; j++)
+            {
+                proof.f[j][0] = x;
+                for (size_t i = 1; i < n; i++)
+                {
+                    CHECK_AND_ASSERT_THROW_MES(!(proof.f[j][i] == ZERO), "Proof matrix element should not be zero!");
+                    sc_sub(proof.f[j][0].bytes,proof.f[j][0].bytes,proof.f[j][i].bytes);
+                }
+                CHECK_AND_ASSERT_THROW_MES(!(proof.f[j][0] == ZERO), "Proof matrix element should not be zero!");
+            }
+
+            // Matrix generators
+            for (size_t j = 0; j < m; j++)
+            {
+                for (size_t i = 0; i < n; i++)
+                {
+                    // Hi: w1*f + w2*f*(x-f) = w1*f + w2*f*x - w2*f*f
+                    key Hi_scalar;
+                    sc_mul(Hi_scalar.bytes,w1.bytes,proof.f[j][i].bytes);
+
+                    sc_mul(temp.bytes,w2.bytes,proof.f[j][i].bytes);
+                    sc_mul(temp.bytes,temp.bytes,x.bytes);
+                    sc_add(Hi_scalar.bytes,Hi_scalar.bytes,temp.bytes);
+
+                    sc_mul(temp.bytes,MINUS_ONE.bytes,w2.bytes);
+                    sc_mul(temp.bytes,temp.bytes,proof.f[j][i].bytes);
+                    sc_mul(temp.bytes,temp.bytes,proof.f[j][i].bytes);
+                    sc_add(Hi_scalar.bytes,Hi_scalar.bytes,temp.bytes);
+
+                    sc_add(data[j*n + i].scalar.bytes,data[j*n + i].scalar.bytes,Hi_scalar.bytes);
+                }
+            }
+
+            // H: w1*zA + w2*zC
+            sc_muladd(data[m*n].scalar.bytes,w1.bytes,proof.zA.bytes,data[m*n].scalar.bytes);
+            sc_muladd(data[m*n].scalar.bytes,w2.bytes,proof.zC.bytes,data[m*n].scalar.bytes);
+
+            // A,B,C,D
+            // A: -w1
+            // B: -w1*x
+            // C: -w2*x
+            // D: -w2
+            sc_mul(temp.bytes,MINUS_ONE.bytes,w1.bytes);
+            data.push_back({temp,A_p3});
+
+            sc_mul(temp.bytes,temp.bytes,x.bytes);
+            data.push_back({temp,B_p3});
+
+            sc_mul(temp.bytes,MINUS_ONE.bytes,w2.bytes);
+            data.push_back({temp,D_p3});
+
+            sc_mul(temp.bytes,temp.bytes,x.bytes);
+            data.push_back({temp,C_p3});
+
+            // M,P
+            // M[k]: w3*t
+            // P[k]: w3*t*mu
+            key sum_t = ZERO;
+            for (size_t k = 0; k < N; k++)
+            {
+                key t = ONE;
+                std::vector<size_t> decomp_k;
+                decomp_k.reserve(m);
+                decomp_k.resize(m);
+                decompose(decomp_k,k,n,m);
+
+                for (size_t j = 0; j < m; j++)
+                {
+                    sc_mul(t.bytes,t.bytes,proof.f[j][decomp_k[j]].bytes);
+                }
+
+                sc_mul(temp.bytes,w3.bytes,t.bytes);
+                sc_add(data[m*n+1+k].scalar.bytes,data[m*n+1+k].scalar.bytes,temp.bytes);
+
+                sc_mul(temp.bytes,temp.bytes,mu.bytes);
+                sc_add(data[m*n+N+1+k].scalar.bytes,data[m*n+N+1+k].scalar.bytes,temp.bytes);
+
+                sc_add(sum_t.bytes,sum_t.bytes,t.bytes);
+            }
+
+            // U: w4*sum_t
+            sc_mul(temp.bytes,w4.bytes,sum_t.bytes);
+            sc_add(data[m*n+2*N+1].scalar.bytes,data[m*n+2*N+1].scalar.bytes,temp.bytes);
+
+            // K: w4*sum_t*mu
+            sc_mul(temp.bytes,temp.bytes,mu.bytes);
+            data.push_back({temp,K_p3});
 
             for (size_t j = 0; j < m; j++)
             {
-                sc_mul(t.bytes,t.bytes,proof.f[j][decomp_k[j]].bytes);
+                // X[j]: -w3*x**j
+                sc_mul(temp.bytes,w3.bytes,minus_x[j].bytes);
+                data.push_back({temp,X_p3[j]});
+
+                // Y[j]: -w4*x**j
+                sc_mul(temp.bytes,w4.bytes,minus_x[j].bytes);
+                data.push_back({temp,Y_p3[j]});
             }
 
-            // t*w_x*M[k]
-            sc_mul(temp.bytes,t.bytes,w_x.bytes);
-            data.push_back({temp,M[k]});
+            // G: -w3*z
+            sc_mul(temp.bytes,MINUS_ONE.bytes,proof.z.bytes);
+            sc_mul(temp.bytes,temp.bytes,w3.bytes);
+            sc_add(data[m*n+2*N+2].scalar.bytes,data[m*n+2*N+2].scalar.bytes,temp.bytes);
 
-            // mu*t*w_x*P[k]
-            sc_mul(temp.bytes,temp.bytes,mu.bytes);
-            data.push_back({temp,P[k]});
-
-            sc_add(sum_t.bytes,sum_t.bytes,t.bytes);
+            // J: -w4*z
+            sc_mul(temp.bytes,MINUS_ONE.bytes,proof.z.bytes);
+            sc_mul(temp.bytes,temp.bytes,w4.bytes);
+            data.push_back({temp,proof.J});
         }
-
-        // sum_t*w_y*U
-        sc_mul(temp.bytes,sum_t.bytes,w_y.bytes);
-        data.push_back({temp,U_p3});
-
-        // mu*sum_t*w_y*K
-        sc_mul(temp.bytes,temp.bytes,mu.bytes);
-        data.push_back({temp,K_p3});
-
-        for (size_t j = 0; j < m; j++)
-        {
-            // -x^j*w_x*X[j]
-            sc_mul(temp.bytes,minus_x[j].bytes,w_x.bytes);
-            data.push_back({temp,X_p3[j]});
-
-            // -x^j*w_y*Y[j]
-            sc_mul(temp.bytes,minus_x[j].bytes,w_y.bytes);
-            data.push_back({temp,Y_p3[j]});
-        }
-
-        // -z*w_x*G
-        sc_mul(temp.bytes,MINUS_ONE.bytes,proof.z.bytes);
-        sc_mul(temp.bytes,temp.bytes,w_x.bytes);
-        data.push_back({temp,G});
-
-        // -z*w_y*J
-        sc_mul(temp.bytes,MINUS_ONE.bytes,proof.z.bytes);
-        sc_mul(temp.bytes,temp.bytes,w_y.bytes);
-        data.push_back({temp,proof.J});
 
         // Final check
-        CHECK_AND_ASSERT_THROW_MES(data.size() == (m*n + 1) + 4 + (2*N + 2) + (2*m + 2), "Final proof data is incorrect size!");
+        CHECK_AND_ASSERT_THROW_MES(data.size() == (m*n + 1) + (2*N + 2) + N_proofs*(2*m + 6), "Final proof data is incorrect size!");
         if (!(pippenger(data,cache,m*n,get_pippenger_c(data.size())) == IDENTITY))
         {
             MERROR("Triptych verification failed!");

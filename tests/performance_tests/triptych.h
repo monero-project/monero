@@ -28,62 +28,75 @@
 // 
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
+#include <stdlib.h>
 #include "ringct/triptych.h"
 #include "ringct/rctTypes.h"
 
-template<size_t a_n, size_t a_m, size_t a_l, bool a_verify>
+using namespace rct;
+
+template<size_t a_N_proofs, size_t a_n, size_t a_m>
 class test_triptych
 {
     public:
-        static const size_t loop_count = 100;
+        static const size_t loop_count = 1000;
+        static const size_t N_proofs = a_N_proofs;
         static const size_t n = a_n;
         static const size_t m = a_m;
-        static const size_t l = a_l;
-        static const bool verify = a_verify;
 
         bool init()
         {
-            const size_t N = pow(n,m);
-            M = rct::keyV(N);
-            P = rct::keyV(N);
-            message = rct::identity();
+            const size_t N = pow(n,m); // anonymity set size
+            p.reserve(N_proofs);
+            p.resize(0);
+            proofs.reserve(N_proofs);
+            proofs.resize(0);
 
-            rct::key temp;
+            // Build key vectors
+            M = keyV(N);
+            P = keyV(N);
+            r = keyV(N_proofs);
+            s = keyV(N_proofs);
+            message = skGen();
+
+            // Random keys
+            key temp;
             for (size_t k = 0; k < N; k++)
             {
-                if (k == l)
-                {
-                    rct::skpkGen(r,M[k]);
-                    rct::skpkGen(s,P[k]);
-                }
-                else
-                {
-                    rct::skpkGen(temp,M[k]);
-                    rct::skpkGen(temp,P[k]);
-                }
+                skpkGen(temp,M[k]);
+                skpkGen(temp,P[k]);
             }
 
-            proof = rct::triptych_prove(M,P,l,r,s,n,m,message);
+            // Signing keys
+            for (size_t i = 0; i < N_proofs; i++)
+            {
+                skpkGen(r[i],M[i]);
+                skpkGen(s[i],P[i]);
+            }
+
+            // Build proofs
+            for (size_t i = 0; i < N_proofs; i++)
+            {
+                p.push_back(triptych_prove(M,P,i,r[i],s[i],n,m,message));
+            }
+            for (TriptychProof &proof: p)
+            {
+                proofs.push_back(&proof);
+            }
 
             return true;
         }
 
         bool test()
         {
-            if (!verify)
-            {
-                proof = rct::triptych_prove(M,P,l,r,s,n,m,message);
-                return true;
-            }
-
-            return rct::triptych_verify(M,P,proof,n,m,message);
+            return triptych_verify(M,P,proofs,n,m,message);
         }
 
     private:
-        rct::keyV M;
-        rct::keyV P;
-        rct::key r;
-        rct::key s;
-        rct::key message;
-        rct::TriptychProof proof;
+        keyV M;
+        keyV P;
+        keyV r;
+        keyV s;
+        key message;
+        std::vector<TriptychProof> p;
+        std::vector<TriptychProof *> proofs;
 };
