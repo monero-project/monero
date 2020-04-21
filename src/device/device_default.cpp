@@ -36,9 +36,7 @@
 #include "cryptonote_basic/subaddress_index.h"
 #include "cryptonote_core/cryptonote_tx_utils.h"
 #include "ringct/rctOps.h"
-
-#define ENCRYPTED_PAYMENT_ID_TAIL 0x8d
-#define CHACHA8_KEY_TAIL 0x8c
+#include "cryptonote_config.h"
 
 namespace hw {
 
@@ -107,7 +105,7 @@ namespace hw {
             epee::mlocked<tools::scrubbed_arr<char, sizeof(view_key) + sizeof(spend_key) + 1>> data;
             memcpy(data.data(), &view_key, sizeof(view_key));
             memcpy(data.data() + sizeof(view_key), &spend_key, sizeof(spend_key));
-            data[sizeof(data) - 1] = CHACHA8_KEY_TAIL;
+            data[sizeof(data) - 1] = config::HASH_KEY_WALLET;
             crypto::generate_chacha_key(data.data(), sizeof(data), key, kdf_rounds);
             return true;
         }
@@ -196,14 +194,13 @@ namespace hw {
         }
 
         crypto::secret_key  device_default::get_subaddress_secret_key(const crypto::secret_key &a, const cryptonote::subaddress_index &index) {
-            const char prefix[] = "SubAddr";
-            char data[sizeof(prefix) + sizeof(crypto::secret_key) + 2 * sizeof(uint32_t)];
-            memcpy(data, prefix, sizeof(prefix));
-            memcpy(data + sizeof(prefix), &a, sizeof(crypto::secret_key));
+            char data[sizeof(config::HASH_KEY_SUBADDRESS) + sizeof(crypto::secret_key) + 2 * sizeof(uint32_t)];
+            memcpy(data, config::HASH_KEY_SUBADDRESS, sizeof(config::HASH_KEY_SUBADDRESS));
+            memcpy(data + sizeof(config::HASH_KEY_SUBADDRESS), &a, sizeof(crypto::secret_key));
             uint32_t idx = SWAP32LE(index.major);
-            memcpy(data + sizeof(prefix) + sizeof(crypto::secret_key), &idx, sizeof(uint32_t));
+            memcpy(data + sizeof(config::HASH_KEY_SUBADDRESS) + sizeof(crypto::secret_key), &idx, sizeof(uint32_t));
             idx = SWAP32LE(index.minor);
-            memcpy(data + sizeof(prefix) + sizeof(crypto::secret_key) + sizeof(uint32_t), &idx, sizeof(uint32_t));
+            memcpy(data + sizeof(config::HASH_KEY_SUBADDRESS) + sizeof(crypto::secret_key) + sizeof(uint32_t), &idx, sizeof(uint32_t));
             crypto::secret_key m;
             crypto::hash_to_scalar(data, sizeof(data), m);
             return m;
@@ -344,7 +341,7 @@ namespace hw {
                 return false;
 
             memcpy(data, &derivation, 32);
-            data[32] = ENCRYPTED_PAYMENT_ID_TAIL;
+            data[32] = config::HASH_KEY_ENCRYPTED_PAYMENT_ID;
             cn_fast_hash(data, 33, hash);
 
             for (size_t b = 0; b < 8; ++b)

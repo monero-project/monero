@@ -35,6 +35,7 @@
 #include "misc_language.h"
 #include "wallet_errors.h"
 #include "ringdb.h"
+#include "cryptonote_config.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "wallet.ringdb"
@@ -105,13 +106,11 @@ std::string get_rings_filename(boost::filesystem::path filename)
 
 static crypto::chacha_iv make_iv(const crypto::key_image &key_image, const crypto::chacha_key &key, uint8_t field)
 {
-  static const char salt[] = "ringdsb";
-
-  uint8_t buffer[sizeof(key_image) + sizeof(key) + sizeof(salt) + sizeof(field)];
+  uint8_t buffer[sizeof(key_image) + sizeof(key) + sizeof(config::HASH_KEY_RINGDB) + sizeof(field)];
   memcpy(buffer, &key_image, sizeof(key_image));
   memcpy(buffer + sizeof(key_image), &key, sizeof(key));
-  memcpy(buffer + sizeof(key_image) + sizeof(key), salt, sizeof(salt));
-  memcpy(buffer + sizeof(key_image) + sizeof(key) + sizeof(salt), &field, sizeof(field));
+  memcpy(buffer + sizeof(key_image) + sizeof(key), config::HASH_KEY_RINGDB, sizeof(config::HASH_KEY_RINGDB));
+  memcpy(buffer + sizeof(key_image) + sizeof(key) + sizeof(config::HASH_KEY_RINGDB), &field, sizeof(field));
   crypto::hash hash;
   // if field is 0, backward compat mode: hash without the field
   crypto::cn_fast_hash(buffer, sizeof(buffer) - !field, hash.data);

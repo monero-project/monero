@@ -33,19 +33,22 @@
 #include "cryptonote_basic/account.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "multisig.h"
+#include "cryptonote_config.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "multisig"
 
 using namespace std;
 
-static const rct::key multisig_salt = { {'M', 'u', 'l', 't' , 'i', 's', 'i', 'g', 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 } };
-
 namespace cryptonote
 {
   //-----------------------------------------------------------------
   crypto::secret_key get_multisig_blinded_secret_key(const crypto::secret_key &key)
   {
+    rct::key multisig_salt;
+    static_assert(sizeof(rct::key) == sizeof(config::HASH_KEY_MULTISIG), "Hash domain separator is an unexpected size");
+    memcpy(multisig_salt.bytes, config::HASH_KEY_MULTISIG, sizeof(rct::key));
+
     rct::keyV data;
     data.reserve(2);
     data.push_back(rct::sk2rct(key));

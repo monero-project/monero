@@ -93,13 +93,14 @@ Wallet *WalletManagerImpl::recoveryWallet(const std::string &path,
                                                 const std::string &mnemonic,
                                                 NetworkType nettype,
                                                 uint64_t restoreHeight,
-                                                uint64_t kdf_rounds)
+                                                uint64_t kdf_rounds,
+                                                const std::string &seed_offset/* = {}*/)
 {
     WalletImpl * wallet = new WalletImpl(nettype, kdf_rounds);
     if(restoreHeight > 0){
         wallet->setRefreshFromBlockHeight(restoreHeight);
     }
-    wallet->recover(path, password, mnemonic);
+    wallet->recover(path, password, mnemonic, seed_offset);
     return wallet;
 }
 

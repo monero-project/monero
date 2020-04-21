@@ -1,4 +1,4 @@
-// Copyright (c) 2016-2019, The Monero Project
+// Copyright (c) 2016-2020, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -32,7 +32,11 @@
 #include <boost/variant/apply_visitor.hpp>
 #include <limits>
 #include <type_traits>
-#include "string_tools.h"
+
+// drop macro from windows.h
+#ifdef GetObject
+  #undef GetObject
+#endif
 
 namespace cryptonote
 {
@@ -106,6 +110,19 @@ namespace
       throw WRONG_TYPE{"unsigned integer"};
     }
     convert_numeric(val.GetUint64(), i);
+  }
+}
+
+void read_hex(const rapidjson::Value& val, epee::span<std::uint8_t> dest)
+{
+  if (!val.IsString())
+  {
+    throw WRONG_TYPE("string");
+  }
+
+  if (!epee::from_hex::to_buffer(dest, {val.GetString(), val.Size()}))
+  {
+    throw BAD_INPUT();
   }
 }
 
@@ -190,7 +207,7 @@ void fromJsonValue(const rapidjson::Value& val, int& i)
 
 void toJsonValue(rapidjson::Writer<rapidjson::StringBuffer>& dest, const unsigned long long i)
 {
-  static_assert(std::numeric_limits<unsigned long long>::max() <= std::numeric_limits<std::uint64_t>::max(), "bad uint64 conversion");
+  static_assert(!precision_loss<unsigned long long, std::uint64_t>(), "bad uint64 conversion");
   dest.Uint64(i);
 }
 
@@ -201,8 +218,7 @@ void fromJsonValue(const rapidjson::Value& val, unsigned long long& i)
 
 void toJsonValue(rapidjson::Writer<rapidjson::StringBuffer>& dest, const long long i)
 {
-  static_assert(std::numeric_limits<std::uint64_t>::min() <= std::numeric_limits<long long>::min(), "bad int64 conversion");
-  static_assert(std::numeric_limits<long long>::max() <= std::numeric_limits<std::uint64_t>::max(), "bad int64 conversion");
+  static_assert(!precision_loss<long long, std::int64_t>(), "bad int64 conversion");
   dest.Int64(i);
 }
 

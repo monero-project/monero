@@ -1,4 +1,4 @@
-// Copyright (c) 2019, The Monero Project
+// Copyright (c) 2020, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -26,51 +26,30 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include <stdio.h>
-#include "string_tools.h"
-#include "rpc/rpc_payment_signature.h"
+#include <gtest/gtest.h>
 
-int main(int argc, const char **argv)
+#include "rpc/message.h"
+#include "serialization/json_object.h"
+
+TEST(ZmqFullMessage, InvalidRequest)
 {
-  TRY_ENTRY();
-  if (argc > 3)
-  {
-    fprintf(stderr, "usage: %s [<secret_key> [N]]\n", argv[0]);
-    return 1;
-  }
+  EXPECT_THROW(
+    (cryptonote::rpc::FullMessage{"{\"jsonrpc\":\"2.0\",\"id\":0,\"params\":[]}", true}),
+    cryptonote::json::MISSING_KEY
+  );
+  EXPECT_THROW(
+    (cryptonote::rpc::FullMessage{"{\"jsonrpc\":\"2.0\",\"id\":0,\"method\":3,\"params\":[]}", true}),
+    cryptonote::json::WRONG_TYPE
+  );
+}
 
-  crypto::secret_key skey;
+TEST(ZmqFullMessage, Request)
+{
+  static constexpr const char request[] = "{\"jsonrpc\":\"2.0\",\"id\":0,\"method\":\"foo\",\"params\":[]}";
+  EXPECT_NO_THROW(
+    (cryptonote::rpc::FullMessage{request, true})
+  );
 
-  if (argc == 1)
-  {
-    crypto::public_key pkey;
-    crypto::random32_unbiased((unsigned char*)skey.data);
-    crypto::secret_key_to_public_key(skey, pkey);
-    printf("%s %s\n", epee::string_tools::pod_to_hex(skey).c_str(), epee::string_tools::pod_to_hex(pkey).c_str());
-    return 0;
-  }
-
-  if (!epee::string_tools::hex_to_pod(argv[1], skey))
-  {
-    fprintf(stderr, "invalid secret key\n");
-    return 1;
-  }
-  uint32_t count = 1;
-  if (argc == 3)
-  {
-    int i = atoi(argv[2]);
-    if (i <= 0)
-    {
-      fprintf(stderr, "invalid count\n");
-      return 1;
-    }
-    count = (uint32_t)i;
-  }
-  while (count--)
-  {
-    std::string signature = cryptonote::make_rpc_payment_signature(skey);
-    printf("%s\n", signature.c_str());
-  }
-  return 0;
-  CATCH_ENTRY_L0("main()", 1);
+  cryptonote::rpc::FullMessage parsed{request, true};
+  EXPECT_STREQ("foo", parsed.getRequestType().c_str());
 }

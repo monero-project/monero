@@ -50,6 +50,16 @@ constexpr const char id_field[] = "id";
 constexpr const char method_field[] = "method";
 constexpr const char params_field[] = "params";
 constexpr const char result_field[] = "result";
+
+const rapidjson::Value& get_method_field(const rapidjson::Value& src)
+{
+  const auto member = src.FindMember(method_field);
+  if (member == src.MemberEnd())
+    throw cryptonote::json::MISSING_KEY{method_field};
+  if (!member->value.IsString())
+    throw cryptonote::json::WRONG_TYPE{"Expected string"};
+  return member->value;
+}
 }
 
 void Message::toJson(rapidjson::Writer<rapidjson::StringBuffer>& dest) const
@@ -81,7 +91,7 @@ FullMessage::FullMessage(const std::string& json_string, bool request)
 
   if (request)
   {
-    OBJECT_HAS_MEMBER_OR_THROW(doc, method_field)
+    get_method_field(doc); // throws on errors
     OBJECT_HAS_MEMBER_OR_THROW(doc, params_field)
   }
   else
@@ -95,8 +105,7 @@ FullMessage::FullMessage(const std::string& json_string, bool request)
 
 std::string FullMessage::getRequestType() const
 {
-  OBJECT_HAS_MEMBER_OR_THROW(doc, method_field)
-  return doc[method_field].GetString();
+  return get_method_field(doc).GetString();
 }
 
 const rapidjson::Value& FullMessage::getMessage() const

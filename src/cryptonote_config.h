@@ -102,7 +102,12 @@
 #define CRYPTONOTE_MEMPOOL_TX_FROM_ALT_BLOCK_LIVETIME     604800 //seconds, one week
 
 
-#define CRYPTONOTE_DANDELIONPP_FLUSH_AVERAGE 5 // seconds
+#define CRYPTONOTE_DANDELIONPP_STEMS              2 // number of outgoing stem connections per epoch
+#define CRYPTONOTE_DANDELIONPP_FLUFF_PROBABILITY 10 // out of 100
+#define CRYPTONOTE_DANDELIONPP_MIN_EPOCH         10 // minutes
+#define CRYPTONOTE_DANDELIONPP_EPOCH_RANGE       30 // seconds
+#define CRYPTONOTE_DANDELIONPP_FLUSH_AVERAGE      5 // seconds average for poisson distributed fluff flush
+#define CRYPTONOTE_DANDELIONPP_EMBARGO_AVERAGE  173 // seconds (see tx_pool.cpp for more info)
 
 // see src/cryptonote_protocol/levin_notify.cpp
 #define CRYPTONOTE_NOISE_MIN_EPOCH                      5      // minutes
@@ -203,6 +208,17 @@ namespace config
     } }; // Bender's nightmare
   std::string const GENESIS_TX = "013c01ff0001ffffffffffff03029b2e4c0281c0b02e7c53291a94d1d0cbff8883f8024f5142ee494ffbbd08807121017767aafcde9be00dcfd098715ebcf7f410daebc582fda69d24a28e9d0bc890d1";
   uint32_t const GENESIS_NONCE = 10000;
+
+  // Hash domain separators
+  const char HASH_KEY_BULLETPROOF_EXPONENT[] = "bulletproof";
+  const char HASH_KEY_RINGDB[] = "ringdsb";
+  const char HASH_KEY_SUBADDRESS[] = "SubAddr";
+  const unsigned char HASH_KEY_ENCRYPTED_PAYMENT_ID = 0x8d;
+  const unsigned char HASH_KEY_WALLET = 0x8c;
+  const unsigned char HASH_KEY_WALLET_CACHE = 0x8d;
+  const unsigned char HASH_KEY_RPC_PAYMENT_NONCE = 0x58;
+  const unsigned char HASH_KEY_MEMORY = 'k';
+  const unsigned char HASH_KEY_MULTISIG[] = {'M', 'u', 'l', 't' , 'i', 's', 'i', 'g', 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
   namespace testnet
   {

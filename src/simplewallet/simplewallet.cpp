@@ -108,7 +108,7 @@ typedef cryptonote::simple_wallet sw;
   epee::misc_utils::auto_scope_leave_caller scope_exit_handler = epee::misc_utils::create_scope_leave_handler([&](){ \
     /* m_idle_mutex is still locked here */ \
     m_auto_refresh_enabled.store(auto_refresh_enabled, std::memory_order_relaxed); \
-    m_suspend_rpc_payment_mining.store(false, std::memory_order_relaxed);; \
+    m_suspend_rpc_payment_mining.store(false, std::memory_order_relaxed); \
     m_rpc_payment_checker.trigger(); \
     m_idle_cond.notify_one(); \
   })
@@ -194,7 +194,7 @@ namespace
                             "  account tag <tag_name> <account_index_1> [<account_index_2> ...]\n"
                             "  account untag <account_index_1> [<account_index_2> ...]\n"
                             "  account tag_description <tag_name> <description>");
-  const char* USAGE_ADDRESS("address [ new <label text with white spaces allowed> | all | <index_min> [<index_max>] | label <index> <label text with white spaces allowed> | device [<index>]]");
+  const char* USAGE_ADDRESS("address [ new <label text with white spaces allowed> | all | <index_min> [<index_max>] | label <index> <label text with white spaces allowed> | device [<index>] | one-off <account> <subaddress>]");
   const char* USAGE_INTEGRATED_ADDRESS("integrated_address [device] [<payment_id> | <address>]");
   const char* USAGE_ADDRESS_BOOK("address_book [(add (<address>|<integrated address>) [<description possibly with whitespaces>])|(delete <index>)]");
   const char* USAGE_SET_VARIABLE("set <option> [<value>]");
@@ -1963,7 +1963,7 @@ bool simple_wallet::rpc_payment_info(const std::vector<std::string> &args)
       if (expected)
         message_writer() << tr("Credit discrepancy this session: ") << discrepancy << " (" << 100.0f * discrepancy / expected << "%)";
       float cph = credits_per_hash_found / (float)diff;
-      message_writer() << tr("Difficulty: ") << diff << ", " << credits_per_hash_found << " " << tr("credits per hash found, ") << cph << " " << tr("credits/hash");;
+      message_writer() << tr("Difficulty: ") << diff << ", " << credits_per_hash_found << " " << tr("credits per hash found, ") << cph << " " << tr("credits/hash");
       const boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
       bool mining = (now - m_last_rpc_payment_mining_time).total_microseconds() < 1000000;
       if (mining)
@@ -3181,7 +3181,7 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("address",
                            boost::bind(&simple_wallet::on_command, this, &simple_wallet::print_address, _1),
                            tr(USAGE_ADDRESS),
-                           tr("If no arguments are specified or <index> is specified, the wallet shows the default or specified address. If \"all\" is specified, the wallet shows all the existing addresses in the currently selected account. If \"new \" is specified, the wallet creates a new address with the provided label text (which can be empty). If \"label\" is specified, the wallet sets the label of the address specified by <index> to the provided label text."));
+                           tr("If no arguments are specified or <index> is specified, the wallet shows the default or specified address. If \"all\" is specified, the wallet shows all the existing addresses in the currently selected account. If \"new \" is specified, the wallet creates a new address with the provided label text (which can be empty). If \"label\" is specified, the wallet sets the label of the address specified by <index> to the provided label text. If \"one-off\" is specified, the address for the specified index is generated and displayed, and remembered by the wallet"));
   m_cmd_binder.set_handler("integrated_address",
                            boost::bind(&simple_wallet::on_command, this, &simple_wallet::print_integrated_address, _1),
                            tr(USAGE_INTEGRATED_ADDRESS),
@@ -5199,8 +5199,11 @@ void simple_wallet::check_background_mining(const epee::wipeable_string &passwor
   if (is_background_mining_enabled)
   {
     // already active, nice
-    m_wallet->setup_background_mining(tools::wallet2::BackgroundMiningYes);
-    m_wallet->rewrite(m_wallet_file, password);
+    if (setup == tools::wallet2::BackgroundMiningMaybe)
+    {
+      m_wallet->setup_background_mining(tools::wallet2::BackgroundMiningYes);
+      m_wallet->rewrite(m_wallet_file, password);
+    }
     start_background_mining();
     return;
   }
@@ -5221,6 +5224,11 @@ void simple_wallet::check_background_mining(const epee::wipeable_string &passwor
     }
     m_wallet->setup_background_mining(tools::wallet2::BackgroundMiningYes);
     m_wallet->rewrite(m_wallet_file, password);
+    start_background_mining();
+  }
+  else
+  {
+    // the setting is already enabled, and the daemon is not mining yet, so start it
     start_background_mining();
   }
 }
@@ -9285,6 +9293,24 @@ bool simple_wallet::print_address(const std::vector<std::string> &args/* = std::
     m_wallet->add_subaddress(m_current_subaddress_account, label);
     print_address_sub(m_wallet->get_num_subaddresses(m_current_subaddress_account) - 1);
     m_wallet->device_show_address(m_current_subaddress_account, m_wallet->get_num_subaddresses(m_current_subaddress_account) - 1, boost::none);
+  }
+  else if (local_args[0] == "one-off")
+  {
+    local_args.erase(local_args.begin());
+    std::string label;
+    if (local_args.size() != 2)
+    {
+      fail_msg_writer() << tr("Expected exactly two arguments for index");
+      return true;
+    }
+    uint32_t major, minor;
+    if (!epee::string_tools::get_xtype_from_string(major, local_args[0]) || !epee::string_tools::get_xtype_from_string(minor, local_args[1]))
+    {
+      fail_msg_writer() << tr("failed to parse index: ") << local_args[0] << " " << local_args[1];
+      return true;
+    }
+    m_wallet->create_one_off_subaddress({major, minor});
+    success_msg_writer() << boost::format(tr("Address at %u %u: %s")) % major % minor % m_wallet->get_subaddress_as_str({major, minor});
   }
   else if (local_args.size() >= 2 && local_args[0] == "label")
   {

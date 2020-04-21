@@ -629,6 +629,7 @@ namespace nodetool
       full_addrs.insert("212.83.172.165:18080");
       full_addrs.insert("192.110.160.146:18080");
       full_addrs.insert("95.217.25.101:18080");
+      full_addrs.insert("88.198.163.90:18080");
     }
     return full_addrs;
   }
@@ -1014,15 +1015,18 @@ namespace nodetool
 
     epee::simple_event ev;
     std::atomic<bool> hsh_result(false);
+    bool timeout = false;
 
     bool r = epee::net_utils::async_invoke_remote_command2<typename COMMAND_HANDSHAKE::response>(context_, COMMAND_HANDSHAKE::ID, arg, zone.m_net_server.get_config_object(),
-      [this, &pi, &ev, &hsh_result, &just_take_peerlist, &context_](int code, const typename COMMAND_HANDSHAKE::response& rsp, p2p_connection_context& context)
+      [this, &pi, &ev, &hsh_result, &just_take_peerlist, &context_, &timeout](int code, const typename COMMAND_HANDSHAKE::response& rsp, p2p_connection_context& context)
     {
       epee::misc_utils::auto_scope_leave_caller scope_exit_handler = epee::misc_utils::create_scope_leave_handler([&](){ev.raise();});
 
       if(code < 0)
       {
         LOG_WARNING_CC(context, "COMMAND_HANDSHAKE invoke failed. (" << code <<  ", " << epee::levin::get_err_descr(code) << ")");
+        if (code == LEVIN_ERROR_CONNECTION_TIMEDOUT || code == LEVIN_ERROR_CONNECTION_DESTROYED)
+          timeout = true;
         return;
       }
 
@@ -1051,17 +1055,15 @@ namespace nodetool
         pi = context.peer_id = rsp.node_data.peer_id;
         context.m_rpc_port = rsp.node_data.rpc_port;
         context.m_rpc_credits_per_hash = rsp.node_data.rpc_credits_per_hash;
-        m_network_zones.at(context.m_remote_address.get_zone()).m_peerlist.set_peer_just_seen(rsp.node_data.peer_id, context.m_remote_address, context.m_pruning_seed, context.m_rpc_port, context.m_rpc_credits_per_hash);
+        network_zone& zone = m_network_zones.at(context.m_remote_address.get_zone());
+        zone.m_peerlist.set_peer_just_seen(rsp.node_data.peer_id, context.m_remote_address, context.m_pruning_seed, context.m_rpc_port, context.m_rpc_credits_per_hash);
 
         // move
-        for (auto const& zone : m_network_zones)
+        if(rsp.node_data.peer_id == zone.m_config.m_peer_id)
         {
-          if(rsp.node_data.peer_id == zone.second.m_config.m_peer_id)
-          {
-            LOG_DEBUG_CC(context, "Connection to self detected, dropping connection");
-            hsh_result = false;
-            return;
-          }
+          LOG_DEBUG_CC(context, "Connection to self detected, dropping connection");
+          hsh_result = false;
+          return;
         }
         LOG_INFO_CC(context, "New connection handshaked, pruning seed " << epee::string_tools::to_string_hex(context.m_pruning_seed));
         LOG_DEBUG_CC(context, " COMMAND_HANDSHAKE INVOKED OK");
@@ -1080,7 +1082,8 @@ namespace nodetool
     if(!hsh_result)
     {
       LOG_WARNING_CC(context_, "COMMAND_HANDSHAKE Failed");
-      m_network_zones.at(context_.m_remote_address.get_zone()).m_net_server.get_config_object().close(context_.m_connection_id);
+      if (!timeout)
+        zone.m_net_server.get_config_object().close(context_.m_connection_id);
     }
     else if (!just_take_peerlist)
     {
@@ -1267,7 +1270,6 @@ namespace nodetool
       LOG_PRINT_CC_PRIORITY_NODE(is_priority, *con, "Failed to HANDSHAKE with peer "
         << na.str()
         /*<< ", try " << try_count*/);
-      zone.m_net_server.get_config_object().close(con->m_connection_id);
       record_addr_failed(na);
       return false;
     }
@@ -1331,7 +1333,6 @@ namespace nodetool
       bool is_priority = is_priority_node(na);
 
       LOG_PRINT_CC_PRIORITY_NODE(is_priority, *con, "Failed to HANDSHAKE with peer " << na.str());
-      zone.m_net_server.get_config_object().close(con->m_connection_id);
       record_addr_failed(na);
       return false;
     }
@@ -1975,18 +1976,13 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
-  epee::net_utils::zone node_server<t_payload_net_handler>::send_txs(std::vector<cryptonote::blobdata> txs, const epee::net_utils::zone origin, const boost::uuids::uuid& source, cryptonote::i_core_events& core)
+  epee::net_utils::zone node_server<t_payload_net_handler>::send_txs(std::vector<cryptonote::blobdata> txs, const epee::net_utils::zone origin, const boost::uuids::uuid& source, cryptonote::i_core_events& core, const cryptonote::relay_method tx_relay)
   {
     namespace enet = epee::net_utils;
 
-    const auto send = [&txs, &source, &core] (std::pair<const enet::zone, network_zone>& network)
+    const auto send = [&txs, &source, &core, tx_relay] (std::pair<const enet::zone, network_zone>& network)
     {
-      const bool is_public = (network.first == enet::zone::public_);
-      const cryptonote::relay_method tx_relay = is_public ?
-        cryptonote::relay_method::fluff : cryptonote::relay_method::local;
-
-      core.on_transactions_relayed(epee::to_span(txs), tx_relay);
-      if (network.second.m_notifier.send_txs(std::move(txs), source))
+      if (network.second.m_notifier.send_txs(std::move(txs), source, core, tx_relay))
         return network.first;
       return enet::zone::invalid;
     };

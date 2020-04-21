@@ -102,10 +102,6 @@ using namespace cryptonote;
 // used to target a given block weight (additional outputs may be added on top to build fee)
 #define TX_WEIGHT_TARGET(bytes) (bytes*2/3)
 
-// arbitrary, used to generate different hashes from the same input
-#define CHACHA8_KEY_TAIL 0x8c
-#define CACHE_KEY_TAIL 0x8d
-
 #define UNSIGNED_TX_PREFIX "Monero unsigned tx set\004"
 #define SIGNED_TX_PREFIX "Monero signed tx set\004"
 #define MULTISIG_UNSIGNED_TX_PREFIX "Monero multisig unsigned tx set\001"
@@ -240,8 +236,6 @@ namespace
         add_reason(reason, "overspend");
       if (res.fee_too_low)
         add_reason(reason, "fee too low");
-      if (res.not_rct)
-        add_reason(reason, "tx is not ringct");
       if (res.sanity_check_failed)
         add_reason(reason, "tx sanity check failed");
       if (res.not_relayed)
@@ -361,7 +355,7 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
   else if (!daemon_ssl_ca_file.empty() || !daemon_ssl_allowed_fingerprints.empty())
   {
     std::vector<std::vector<uint8_t>> ssl_allowed_fingerprints{ daemon_ssl_allowed_fingerprints.size() };
-    std::transform(daemon_ssl_allowed_fingerprints.begin(), daemon_ssl_allowed_fingerprints.end(), ssl_allowed_fingerprints.begin(), epee::from_hex::vector);
+    std::transform(daemon_ssl_allowed_fingerprints.begin(), daemon_ssl_allowed_fingerprints.end(), ssl_allowed_fingerprints.begin(), epee::from_hex_locale::to_vector);
     for (const auto &fpr: ssl_allowed_fingerprints)
     {
       THROW_WALLET_EXCEPTION_IF(fpr.size() != SSL_FINGERPRINT_SIZE, tools::error::wallet_internal_error,
@@ -441,6 +435,7 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
       verification_required && !ssl_options.has_strong_verification(real_daemon),
       tools::error::wallet_internal_error,
       tools::wallet2::tr("Enabling --") + std::string{use_proxy ? opts.proxy.name : opts.daemon_ssl.name} + tools::wallet2::tr(" requires --") +
+        opts.daemon_ssl_allow_any_cert.name + tools::wallet2::tr(" or --") +
         opts.daemon_ssl_ca_certificates.name + tools::wallet2::tr(" or --") + opts.daemon_ssl_allowed_fingerprints.name + tools::wallet2::tr(" or use of a .onion/.i2p domain")
     );
   }
@@ -1558,6 +1553,12 @@ void wallet2::expand_subaddresses(const cryptonote::subaddress_index& index)
   }
 }
 //----------------------------------------------------------------------------------------------------
+void wallet2::create_one_off_subaddress(const cryptonote::subaddress_index& index)
+{
+  const crypto::public_key pkey = get_subaddress_spend_public_key(index);
+  m_subaddresses[pkey] = index;
+}
+//----------------------------------------------------------------------------------------------------
 std::string wallet2::get_subaddress_label(const cryptonote::subaddress_index& index) const
 {
   if (index.major >= m_subaddress_labels.size() || index.minor >= m_subaddress_labels[index.major].size())
@@ -2099,7 +2100,8 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
             td.m_amount = amount;
             td.m_pk_index = pk_index - 1;
             td.m_subaddr_index = tx_scan_info[o].received->index;
-            expand_subaddresses(tx_scan_info[o].received->index);
+            if (tx_scan_info[o].received->index.major < m_subaddress_labels.size() && tx_scan_info[o].received->index.minor < m_subaddress_labels[tx_scan_info[o].received->index.major].size())
+              expand_subaddresses(tx_scan_info[o].received->index);
             if (tx.vout[o].amount == 0)
             {
               td.m_mask = tx_scan_info[o].mask;
@@ -2177,7 +2179,8 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
             td.m_amount = amount;
             td.m_pk_index = pk_index - 1;
             td.m_subaddr_index = tx_scan_info[o].received->index;
-            expand_subaddresses(tx_scan_info[o].received->index);
+            if (tx_scan_info[o].received->index.major < m_subaddress_labels.size() && tx_scan_info[o].received->index.minor < m_subaddress_labels[tx_scan_info[o].received->index.major].size())
+              expand_subaddresses(tx_scan_info[o].received->index);
             if (tx.vout[o].amount == 0)
             {
               td.m_mask = tx_scan_info[o].mask;
@@ -3932,7 +3935,7 @@ void wallet2::setup_keys(const epee::wipeable_string &password)
   static_assert(HASH_SIZE == sizeof(crypto::chacha_key), "Mismatched sizes of hash and chacha key");
   epee::mlocked<tools::scrubbed_arr<char, HASH_SIZE+1>> cache_key_data;
   memcpy(cache_key_data.data(), &key, HASH_SIZE);
-  cache_key_data[HASH_SIZE] = CACHE_KEY_TAIL;
+  cache_key_data[HASH_SIZE] = config::HASH_KEY_WALLET_CACHE;
   cn_fast_hash(cache_key_data.data(), HASH_SIZE+1, (crypto::hash&)m_cache_key);
   get_ringdb_key();
 }
@@ -12681,7 +12684,8 @@ process:
     const crypto::public_key& out_key = boost::get<cryptonote::txout_to_key>(td.m_tx.vout[td.m_internal_output_index].target).key;
     bool r = cryptonote::generate_key_image_helper(m_account.get_keys(), m_subaddresses, out_key, tx_pub_key, additional_tx_pub_keys, td.m_internal_output_index, in_ephemeral, td.m_key_image, m_account.get_device());
     THROW_WALLET_EXCEPTION_IF(!r, error::wallet_internal_error, "Failed to generate key image");
-    expand_subaddresses(td.m_subaddr_index);
+    if (td.m_subaddr_index.major < m_subaddress_labels.size() && td.m_subaddr_index.minor < m_subaddress_labels[td.m_subaddr_index.major].size())
+      expand_subaddresses(td.m_subaddr_index);
     td.m_key_image_known = true;
     td.m_key_image_request = true;
     td.m_key_image_partial = false;

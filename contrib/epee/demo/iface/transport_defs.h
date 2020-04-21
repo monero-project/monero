@@ -218,7 +218,7 @@ namespace demo
 
     s.m_subobj.m_str = "subszzzzzzzz";
     s.m_list_of_self.push_back(s);
-    s.m_storage_entry_int = epee::serialization::storage_entry(uint64_t(22222));;
+    s.m_storage_entry_int = epee::serialization::storage_entry(uint64_t(22222));
     s.m_storage_entry_string = epee::serialization::storage_entry(std::string("sdsvsdvs"));
     return s;
   }

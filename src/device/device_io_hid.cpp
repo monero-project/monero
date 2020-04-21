@@ -44,8 +44,20 @@ namespace hw {
     
     static std::string safe_hid_error(hid_device *hwdev) {
       if (hwdev) {
-        const char* error_str = (const char*)hid_error(hwdev);
-        return  std::string(error_str == nullptr ? "Unknown error" : error_str);
+        const wchar_t* error_wstr = hid_error(hwdev);
+        if (error_wstr == nullptr)
+        {
+          return "Unknown error";
+        }
+        std::mbstate_t state{};
+        const size_t len_symbols = std::wcsrtombs(nullptr, &error_wstr, 0, &state);
+        if (len_symbols == static_cast<std::size_t>(-1))
+        {
+          return "Failed to convert wide char error";
+        }
+        std::string error_str(len_symbols + 1, 0);
+        std::wcsrtombs(&error_str[0], &error_wstr, error_str.size(), &state);
+        return error_str;
       }
       return std::string("NULL device");
     }

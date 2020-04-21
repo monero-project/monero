@@ -10,8 +10,6 @@ Portions Copyright (c) 2012-2013 The Cryptonote developers.
   - [Research](#research)
   - [Announcements](#announcements)
   - [Translations](#translations)
-  - [Build Status](#build-status)
-    - [IMPORTANT](#important)
   - [Coverage](#coverage)
   - [Introduction](#introduction)
   - [About this project](#about-this-project)
@@ -197,7 +195,7 @@ Install all dependencies at once on macOS with the provided Brewfile:
 ``` brew update && brew bundle --file=contrib/brew/Brewfile ```
 
 FreeBSD one liner for required to build dependencies
-```pkg install git gmake cmake pkgconf boost-libs cppzmq libsodium```
+```pkg install git gmake cmake pkgconf boost-libs libzmq libsodium```
 
 ### Cloning the repository
 
@@ -229,9 +227,6 @@ invokes cmake commands as needed.
     parallel build by running `make -j<number of threads>` instead of `make`. For
     this to be worthwhile, the machine should have one core and about 2GB of RAM
     available per thread.
-
-    *Note*: If cmake can not find zmq.hpp file on macOS, installing `zmq.hpp` from
-    https://github.com/zeromq/cppzmq to `/usr/local/include` should fix that error.
 
     *Note*: The instructions above will compile the most stable release of the
     Monero software. If you would like to use and test the most recent software,
@@ -332,13 +327,13 @@ If you are using the older Raspbian Jessie image, compiling Monero is a bit more
 
 * Then, install the dependencies for Monero except `libunwind` and `libboost-all-dev`
 
-* Install the latest version of boost (this may first require invoking `apt-get remove --purge libboost*` to remove a previous version if you're not using a clean install):
+* Install the latest version of boost (this may first require invoking `apt-get remove --purge libboost*-dev` to remove a previous version if you're not using a clean install):
 
     ```bash
     cd
-    wget https://sourceforge.net/projects/boost/files/boost/1.64.0/boost_1_64_0.tar.bz2
-    tar xvfo boost_1_64_0.tar.bz2
-    cd boost_1_64_0
+    wget https://sourceforge.net/projects/boost/files/boost/1.72.0/boost_1_72_0.tar.bz2
+    tar xvfo boost_1_72_0.tar.bz2
+    cd boost_1_72_0
     ./bootstrap.sh
     sudo ./b2
     ```
@@ -450,13 +445,14 @@ application.
 
 ### On FreeBSD:
 
-The project can be built from scratch by following instructions for Linux above(but use `gmake` instead of `make`). If you are running monero in a jail you need to add the flag: `allow.sysvipc=1` to your jail configuration, otherwise lmdb will throw the error message: `Failed to open lmdb environment: Function not implemented`.
+The project can be built from scratch by following instructions for Linux above(but use `gmake` instead of `make`). 
+If you are running monero in a jail, you need to add `sysvsem="new"` to your jail configuration, otherwise lmdb will throw the error message: `Failed to open lmdb environment: Function not implemented`.
 
-We expect to add Monero into the ports tree in the near future, which will aid in managing installations using ports or packages.
+Monero is also available as a port or package as 'monero-cli`.
 
 ### On OpenBSD:
 
-You will need to add a few packages to your system. `pkg_add cmake gmake zeromq cppzmq libiconv boost`.
+You will need to add a few packages to your system. `pkg_add cmake gmake zeromq libiconv boost`.
 
 The `doxygen` and `graphviz` packages are optional and require the xbase set.
 Running the test suite also requires `py-requests` package.

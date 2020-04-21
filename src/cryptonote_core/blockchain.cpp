@@ -928,7 +928,7 @@ bool Blockchain::rollback_blockchain_switching(std::list<block>& original_chain,
   for (auto& bl : original_chain)
   {
     block_verification_context bvc = {};
-    bool r = handle_block_to_main_chain(bl, bvc);
+    bool r = handle_block_to_main_chain(bl, bvc, false);
     CHECK_AND_ASSERT_MES(r && bvc.m_added_to_main_chain, false, "PANIC! failed to add (again) block while chain switching during the rollback!");
   }
 
@@ -979,7 +979,7 @@ bool Blockchain::switch_to_alternative_blockchain(std::list<block_extended_info>
     block_verification_context bvc = {};
 
     // add block to main chain
-    bool r = handle_block_to_main_chain(bei.bl, bvc);
+    bool r = handle_block_to_main_chain(bei.bl, bvc, false);
 
     // if adding block to main chain failed, rollback to previous state and
     // return false
@@ -1043,6 +1043,11 @@ bool Blockchain::switch_to_alternative_blockchain(std::list<block_extended_info>
   if (reorg_notify)
     reorg_notify->notify("%s", std::to_string(split_height).c_str(), "%h", std::to_string(m_db->height()).c_str(),
         "%n", std::to_string(m_db->height() - split_height).c_str(), "%d", std::to_string(discarded_blocks).c_str(), NULL);
+
+  std::shared_ptr<tools::Notify> block_notify = m_block_notify;
+  if (block_notify)
+    for (const auto &bei: alt_chain)
+      block_notify->notify("%s", epee::string_tools::pod_to_hex(get_block_hash(bei.bl)).c_str(), NULL);
 
   MGINFO_GREEN("REORGANIZE SUCCESS! on height: " << split_height << ", new blockchain size: " << m_db->height());
   return true;
@@ -2488,38 +2493,10 @@ bool Blockchain::find_blockchain_supplement(const uint64_t req_start_block, cons
   }
 
   db_rtxn_guard rtxn_guard(m_db);
-  total_height = get_current_blockchain_height();
-  size_t count = 0, size = 0;
   blocks.reserve(std::min(std::min(max_count, (size_t)10000), (size_t)(total_height - start_height)));
-  for(uint64_t i = start_height; i < total_height && count < max_count && (size < FIND_BLOCKCHAIN_SUPPLEMENT_MAX_SIZE || count < 3); i++, count++)
-  {
-    blocks.resize(blocks.size()+1);
-    blocks.back().first.first = m_db->get_block_blob_from_height(i);
-    block b;
-    CHECK_AND_ASSERT_MES(parse_and_validate_block_from_blob(blocks.back().first.first, b), false, "internal error, invalid block");
-    blocks.back().first.second = get_miner_tx_hash ? cryptonote::get_transaction_hash(b.miner_tx) : crypto::null_hash;
-    std::vector<cryptonote::blobdata> txs;
-    if (pruned)
-    {
-      CHECK_AND_ASSERT_MES(m_db->get_pruned_tx_blobs_from(b.tx_hashes.front(), b.tx_hashes.size(), txs), false, "Failed to retrieve all transactions needed");
-    }
-    else
-    {
-      std::vector<crypto::hash> mis;
-      get_transactions_blobs(b.tx_hashes, txs, mis, pruned);
-      CHECK_AND_ASSERT_MES(!mis.size(), false, "internal error, transaction from block not found");
-    }
-    size += blocks.back().first.first.size();
-    for (const auto &t: txs)
-      size += t.size();
+  CHECK_AND_ASSERT_MES(m_db->get_blocks_from(start_height, 3, max_count, FIND_BLOCKCHAIN_SUPPLEMENT_MAX_SIZE, blocks, pruned, true, get_miner_tx_hash),
+      false, "Error getting blocks");
 
-    CHECK_AND_ASSERT_MES(txs.size() == b.tx_hashes.size(), false, "mismatched sizes of b.tx_hashes and txs");
-    blocks.back().second.reserve(txs.size());
-    for (size_t i = 0; i < txs.size(); ++i)
-    {
-      blocks.back().second.push_back(std::make_pair(b.tx_hashes[i], std::move(txs[i])));
-    }
-  }
   return true;
 }
 //------------------------------------------------------------------
@@ -2574,11 +2551,11 @@ bool Blockchain::have_block(const crypto::hash& id) const
   return false;
 }
 //------------------------------------------------------------------
-bool Blockchain::handle_block_to_main_chain(const block& bl, block_verification_context& bvc)
+bool Blockchain::handle_block_to_main_chain(const block& bl, block_verification_context& bvc, bool notify/* = true*/)
 {
     LOG_PRINT_L3("Blockchain::" << __func__);
     crypto::hash id = get_block_hash(bl);
-    return handle_block_to_main_chain(bl, id, bvc);
+    return handle_block_to_main_chain(bl, id, bvc, notify);
 }
 //------------------------------------------------------------------
 size_t Blockchain::get_total_transactions() const
@@ -3687,7 +3664,7 @@ bool Blockchain::flush_txes_from_pool(const std::vector<crypto::hash> &txids)
 //      Needs to validate the block and acquire each transaction from the
 //      transaction mem_pool, then pass the block and transactions to
 //      m_db->add_block()
-bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash& id, block_verification_context& bvc)
+bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash& id, block_verification_context& bvc, bool notify/* = true*/)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
 
@@ -4067,9 +4044,12 @@ leave:
   get_difficulty_for_next_block(); // just to cache it
   invalidate_block_template_cache();
 
-  std::shared_ptr<tools::Notify> block_notify = m_block_notify;
-  if (block_notify)
-    block_notify->notify("%s", epee::string_tools::pod_to_hex(id).c_str(), NULL);
+  if (notify)
+  {
+    std::shared_ptr<tools::Notify> block_notify = m_block_notify;
+    if (block_notify)
+      block_notify->notify("%s", epee::string_tools::pod_to_hex(id).c_str(), NULL);
+  }
 
   return true;
 }
@@ -5176,12 +5156,12 @@ bool Blockchain::for_all_transactions(std::function<bool(const crypto::hash&, co
 
 bool Blockchain::for_all_outputs(std::function<bool(uint64_t amount, const crypto::hash &tx_hash, uint64_t height, size_t tx_idx)> f) const
 {
-  return m_db->for_all_outputs(f);;
+  return m_db->for_all_outputs(f);
 }
 
 bool Blockchain::for_all_outputs(uint64_t amount, std::function<bool(uint64_t height)> f) const
 {
-  return m_db->for_all_outputs(amount, f);;
+  return m_db->for_all_outputs(amount, f);
 }
 
 void Blockchain::invalidate_block_template_cache()

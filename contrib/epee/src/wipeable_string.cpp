@@ -188,13 +188,14 @@ void wipeable_string::split(std::vector<wipeable_string> &fields) const
   while (len--)
   {
     const char c = *ptr++;
-    if (c != ' ')
+    const bool space_prev = space;
+    space = std::isspace(c);
+    if (!space)
     {
-      if (space)
+      if (space_prev)
         fields.push_back({});
       fields.back().push_back(c);
     }
-    space = c == ' ';
   }
 }
 

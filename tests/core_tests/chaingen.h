@@ -116,7 +116,8 @@ struct event_visitor_settings
   {
     set_txs_keeped_by_block = 1 << 0,
     set_txs_do_not_relay = 1 << 1,
-    set_local_relay = 1 << 2
+    set_local_relay = 1 << 2,
+    set_txs_stem = 1 << 3
   };
 
   event_visitor_settings(int a_mask = 0)
@@ -547,6 +548,10 @@ public:
     else if (settings.mask & event_visitor_settings::set_txs_do_not_relay)
     {
       m_tx_relay = cryptonote::relay_method::none;
+    }
+    else if (settings.mask & event_visitor_settings::set_txs_stem)
+    {
+      m_tx_relay = cryptonote::relay_method::stem;
     }
     else
     {

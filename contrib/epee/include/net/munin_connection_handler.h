@@ -237,7 +237,7 @@ namespace net_utils
 						return send_hook("Unknown command. Try list, nodes, config, fetch, version or quit\n");
 				}
 
-				return send_hook("Unknown command. Try list, nodes, config, fetch, version or quit\n");;
+				return send_hook("Unknown command. Try list, nodes, config, fetch, version or quit\n");
 			}
 
 			bool handle_list_command()
