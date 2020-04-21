@@ -27,6 +27,7 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <stdio.h>
+#include "misc_language.h"
 #include "string_tools.h"
 #include "rpc/rpc_payment_signature.h"
 
@@ -69,6 +70,7 @@ int main(int argc, const char **argv)
   while (count--)
   {
     std::string signature = cryptonote::make_rpc_payment_signature(skey);
+    epee::misc_utils::sleep_no_w(1);
     printf("%s\n", signature.c_str());
   }
   return 0;

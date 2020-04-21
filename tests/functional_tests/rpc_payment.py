@@ -59,12 +59,14 @@ class RPCPaymentTest():
         return fields
 
     def refill_signatures(self):
+        self.signatures_time = time.time()
+        self.signatures = []
         signatures = subprocess.check_output([self.make_test_signature, self.secret_key, '256']).decode('utf-8')
         for line in signatures.split():
             self.signatures.append(line.rstrip())
 
     def get_signature(self):
-        if len(self.signatures) == 0:
+        if len(self.signatures) == 0 or self.signatures_time + 10 < time.time():
             self.refill_signatures()
         s = self.signatures[0]
         self.signatures = self.signatures[1:]
