@@ -85,7 +85,7 @@ bool wallet2::make_rpc_payment(uint32_t nonce, uint32_t cookie, uint64_t &credit
   uint64_t pre_call_credits = m_rpc_payment_state.credits;
   req.client = get_client_signature();
   epee::json_rpc::error error;
-  bool r = epee::net_utils::invoke_http_json_rpc("/json_rpc", "rpc_access_submit_nonce", req, res, error, m_http_client, rpc_timeout);
+  bool r = epee::net_utils::invoke_http_json_rpc("/json_rpc", "rpc_access_submit_nonce", req, res, error, *m_http_client, rpc_timeout);
   m_daemon_rpc_mutex.unlock();
   THROW_ON_RPC_RESPONSE_ERROR_GENERIC(r, error, res, "rpc_access_submit_nonce");
   THROW_WALLET_EXCEPTION_IF(res.credits < pre_call_credits, error::wallet_internal_error, "RPC payment did not increase balance");

@@ -80,7 +80,7 @@ namespace bitmessage_rpc
 
 }
 
-message_transporter::message_transporter()
+message_transporter::message_transporter(std::unique_ptr<epee::net_utils::http::abstract_http_client> http_client) : m_http_client(std::move(http_client))
 {
   m_run = true;
 }
@@ -96,7 +96,7 @@ void message_transporter::set_options(const std::string &bitmessage_address, con
   }
   m_bitmessage_login = bitmessage_login;
 
-  m_http_client.set_server(address_parts.host, std::to_string(address_parts.port), boost::none);
+  m_http_client->set_server(address_parts.host, std::to_string(address_parts.port), boost::none);
 }
 
 bool message_transporter::receive_messages(const std::vector<std::string> &destination_transport_addresses,
@@ -256,7 +256,7 @@ bool message_transporter::post_request(const std::string &request, std::string &
   additional_params.push_back(std::make_pair("Content-Type", "application/xml; charset=utf-8"));
   const epee::net_utils::http::http_response_info* response = NULL;
   std::chrono::milliseconds timeout = std::chrono::seconds(15);
-  bool r = m_http_client.invoke("/", "POST", request, timeout, std::addressof(response), std::move(additional_params));
+  bool r = m_http_client->invoke("/", "POST", request, timeout, std::addressof(response), std::move(additional_params));
   if (r)
   {
     answer = response->m_body;
@@ -266,7 +266,7 @@ bool message_transporter::post_request(const std::string &request, std::string &
     LOG_ERROR("POST request to Bitmessage failed: " << request.substr(0, 300));
     THROW_WALLET_EXCEPTION(tools::error::no_connection_to_bitmessage, m_bitmessage_url);
   }
-  m_http_client.disconnect();  // see comment above
+  m_http_client->disconnect();  // see comment above
   std::string string_value = get_str_between_tags(answer, "<string>", "</string>");
   if ((string_value.find("API Error") == 0) || (string_value.find("RPC ") == 0))
   {
