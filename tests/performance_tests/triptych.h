@@ -56,7 +56,8 @@ class test_triptych
             P = keyV(N);
             r = keyV(N_proofs);
             s = keyV(N_proofs);
-            message = skGen();
+            messages = keyV(N_proofs);
+            C_offsets = keyV(N_proofs);
 
             // Random keys
             key temp;
@@ -66,17 +67,21 @@ class test_triptych
                 skpkGen(temp,P[k]);
             }
 
-            // Signing keys
+            // Signing keys, messages, and commitment offsets
+            key s1,s2;
             for (size_t i = 0; i < N_proofs; i++)
             {
                 skpkGen(r[i],M[i]);
-                skpkGen(s[i],P[i]);
+                skpkGen(s1,P[i]);
+                messages[i] = skGen();
+                skpkGen(s2,C_offsets[i]);
+                sc_sub(s[i].bytes,s1.bytes,s2.bytes);
             }
 
             // Build proofs
             for (size_t i = 0; i < N_proofs; i++)
             {
-                p.push_back(triptych_prove(M,P,i,r[i],s[i],n,m,message));
+                p.push_back(triptych_prove(M,P,C_offsets[i],i,r[i],s[i],n,m,messages[i]));
             }
             for (TriptychProof &proof: p)
             {
@@ -88,7 +93,7 @@ class test_triptych
 
         bool test()
         {
-            return triptych_verify(M,P,proofs,n,m,message);
+            return triptych_verify(M,P,C_offsets,proofs,n,m,messages);
         }
 
     private:
@@ -96,7 +101,8 @@ class test_triptych
         keyV P;
         keyV r;
         keyV s;
-        key message;
+        keyV C_offsets;
+        keyV messages;
         std::vector<TriptychProof> p;
         std::vector<TriptychProof *> proofs;
 };

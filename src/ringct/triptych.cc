@@ -70,13 +70,13 @@ namespace rct
         hash_to_scalar(transcript,salt.data(),salt.size());
     }
 
-    // Update transcript: transcript, message, M, P, J, K, A, B, C, D
-    static void transcript_update_mu(key &transcript, const key &message, const keyV &M, const keyV &P, const key &J, const key &K, const key &A, const key &B, const key &C, const key &D)
+    // Update transcript: transcript, message, M, P, C_offset, J, K, A, B, C, D
+    static void transcript_update_mu(key &transcript, const key &message, const keyV &M, const keyV &P, const key &C_offset, const key &J, const key &K, const key &A, const key &B, const key &C, const key &D)
     {
         CHECK_AND_ASSERT_THROW_MES(M.size() == P.size(), "Transcript challenge inputs have incorrect size!");
 
         std::string hash;
-        hash.reserve((2*M.size() + 8)*sizeof(key));
+        hash.reserve((2*M.size() + 9)*sizeof(key));
         hash = std::string((const char*) transcript.bytes, sizeof(transcript));
         hash += std::string((const char*) message.bytes, sizeof(message));
         for (size_t k = 0; k < M.size(); k++)
@@ -84,6 +84,7 @@ namespace rct
             hash += std::string((const char*) M[k].bytes, sizeof(M[k]));
             hash += std::string((const char*) P[k].bytes, sizeof(P[k]));
         }
+        hash += std::string((const char*) C_offset.bytes, sizeof(C_offset));
         hash += std::string((const char*) J.bytes, sizeof(J));
         hash += std::string((const char*) K.bytes, sizeof(K));
         hash += std::string((const char*) A.bytes, sizeof(A));
@@ -287,26 +288,30 @@ namespace rct
     }
 
     // Generate a Triptych proof
-    TriptychProof triptych_prove(const keyV &M, const keyV &P, const size_t l, const key &r, const key &s, const size_t n, const size_t m, const key &message)
+    TriptychProof triptych_prove(const keyV &M, const keyV &P, const key &C_offset, const size_t l, const key &r, const key &s, const size_t n, const size_t m, const key &message)
     {
+        key temp,temp2;
+
         CHECK_AND_ASSERT_THROW_MES(n > 1, "Must have n > 1!");
         CHECK_AND_ASSERT_THROW_MES(m > 1, "Must have m > 1!");
+
+        const size_t N = pow(n,m);
+
         CHECK_AND_ASSERT_THROW_MES(m*n <= max_mn, "Size parameters are too large!");
-        CHECK_AND_ASSERT_THROW_MES(M.size() == pow(n,m), "Public key vector is wrong size!");
-        CHECK_AND_ASSERT_THROW_MES(P.size() == pow(n,m), "Commitment vector is wrong size!");
+        CHECK_AND_ASSERT_THROW_MES(M.size() == N, "Public key vector is wrong size!");
+        CHECK_AND_ASSERT_THROW_MES(P.size() == N, "Commitment vector is wrong size!");
         CHECK_AND_ASSERT_THROW_MES(l < M.size(), "Signing index out of bounds!");
         CHECK_AND_ASSERT_THROW_MES(scalarmultBase(r) == M[l], "Bad signing key!");
-        CHECK_AND_ASSERT_THROW_MES(scalarmultBase(s) == P[l], "Bad commitment key!");
+
+        subKeys(temp,P[l],C_offset);
+        CHECK_AND_ASSERT_THROW_MES(scalarmultBase(s) == temp, "Bad commitment key!");
 
         init_gens();
-        const size_t N = pow(n,m);
 
         TriptychProof proof;
         std::vector<MultiexpData> data;
         data.reserve(m*n + 1);
         data.resize(m*n + 1);
-
-        key temp;
 
         // Begin transcript
         key tr;
@@ -444,7 +449,7 @@ namespace rct
         proof.B = scalarmultKey(proof.B,INV_EIGHT);
         proof.C = scalarmultKey(proof.C,INV_EIGHT);
         proof.D = scalarmultKey(proof.D,INV_EIGHT);
-        transcript_update_mu(tr,message,M,P,proof.J,proof.K,proof.A,proof.B,proof.C,proof.D);
+        transcript_update_mu(tr,message,M,P,C_offset,proof.J,proof.K,proof.A,proof.B,proof.C,proof.D);
         const key mu = copy(tr);
 
         key U_scalars;
@@ -462,7 +467,8 @@ namespace rct
                 data_X.push_back({p[k][j],M[k]});
 
                 sc_mul(temp.bytes,mu.bytes,p[k][j].bytes);
-                data_X.push_back({temp,P[k]});
+                subKeys(temp2,P[k],C_offset);
+                data_X.push_back({temp,temp2});
 
                 sc_add(U_scalars.bytes,U_scalars.bytes,p[k][j].bytes);
             }
@@ -544,14 +550,22 @@ namespace rct
     }
 
     // Verify a batch of Triptych proofs with common input keys
-    bool triptych_verify(const keyV &M, const keyV &P, std::vector<TriptychProof *> &proofs, const size_t n, const size_t m, const key &message)
+    bool triptych_verify(const keyV &M, const keyV &P, const keyV &C_offsets, std::vector<TriptychProof *> &proofs, const size_t n, const size_t m, const keyV &messages)
     {
         // Global checks
         CHECK_AND_ASSERT_THROW_MES(n > 1, "Must have n > 1!");
         CHECK_AND_ASSERT_THROW_MES(m > 1, "Must have m > 1!");
         CHECK_AND_ASSERT_THROW_MES(m*n <= max_mn, "Size parameters are too large!");
-        CHECK_AND_ASSERT_THROW_MES(M.size() == pow(n,m), "Public key vector is wrong size!");
-        CHECK_AND_ASSERT_THROW_MES(P.size() == pow(n,m), "Commitment vector is wrong size!");
+
+        const size_t N = pow(n,m); // anonymity set size
+
+        CHECK_AND_ASSERT_THROW_MES(M.size() == N, "Public key vector is wrong size!");
+        CHECK_AND_ASSERT_THROW_MES(P.size() == N, "Commitment vector is wrong size!");
+
+        const size_t N_proofs = proofs.size(); // number of proofs in batch
+
+        CHECK_AND_ASSERT_THROW_MES(C_offsets.size() == N_proofs, "Incorrect number of commitment offsets!");
+        CHECK_AND_ASSERT_THROW_MES(messages.size() == N_proofs, "Incorrect number of messages!");
 
         // Per-proof checks
         for (TriptychProof *p: proofs)
@@ -579,8 +593,6 @@ namespace rct
         }
 
         init_gens();
-        const size_t N = pow(n,m); // anonymity set size
-        const size_t N_proofs = proofs.size(); // number of proofs in batch
         key temp;
 
         // Holds final check data (Q proofs)
@@ -594,7 +606,7 @@ namespace rct
         // m*n+2*N+2                G
         // ... then per-proof data
         std::vector<MultiexpData> data;
-        data.reserve((m*n + 1) + (2*N + 2) + N_proofs*(2*m + 6));
+        data.reserve((m*n + 1) + (2*N + 2) + N_proofs*(2*m + 7));
         data.resize((m*n + 1) + (2*N + 2)); // set up for all common elements
 
         // Data for {Hi},H
@@ -618,9 +630,9 @@ namespace rct
         data[m*n+2*N+2] = {ZERO,G_p3};
 
         // Start per-proof data assembly
-        for (TriptychProof *p: proofs)
+        for (size_t i_proofs = 0; i_proofs < N_proofs; i_proofs++)
         {
-            TriptychProof &proof = *p;
+            TriptychProof &proof = *proofs[i_proofs];
 
             // Per-proof random weights
             key w1 = ZERO;
@@ -638,7 +650,7 @@ namespace rct
             // Transcript
             key tr;
             transcript_init(tr);
-            transcript_update_mu(tr,message,M,P,proof.J,proof.K,proof.A,proof.B,proof.C,proof.D);
+            transcript_update_mu(tr,messages[i_proofs],M,P,C_offsets[i_proofs],proof.J,proof.K,proof.A,proof.B,proof.C,proof.D);
             const key mu = copy(tr);
             transcript_update_x(tr,proof.X,proof.Y);
             const key x = copy(tr);
@@ -757,6 +769,12 @@ namespace rct
                 sc_add(sum_t.bytes,sum_t.bytes,t.bytes);
             }
 
+            // C_offsets[i_proofs]: -w3*mu*sum_t
+            sc_mul(temp.bytes,MINUS_ONE.bytes,w3.bytes);
+            sc_mul(temp.bytes,temp.bytes,mu.bytes);
+            sc_mul(temp.bytes,temp.bytes,sum_t.bytes);
+            data.push_back({temp,C_offsets[i_proofs]});
+
             // U: w4*sum_t
             sc_mul(temp.bytes,w4.bytes,sum_t.bytes);
             sc_add(data[m*n+2*N+1].scalar.bytes,data[m*n+2*N+1].scalar.bytes,temp.bytes);
@@ -788,7 +806,7 @@ namespace rct
         }
 
         // Final check
-        CHECK_AND_ASSERT_THROW_MES(data.size() == (m*n + 1) + (2*N + 2) + N_proofs*(2*m + 6), "Final proof data is incorrect size!");
+        CHECK_AND_ASSERT_THROW_MES(data.size() == (m*n + 1) + (2*N + 2) + N_proofs*(2*m + 7), "Final proof data is incorrect size!");
         if (!(pippenger(data,cache,m*n,get_pippenger_c(data.size())) == IDENTITY))
         {
             MERROR("Triptych verification failed!");

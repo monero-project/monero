@@ -50,15 +50,18 @@ TEST(triptych, random)
         const size_t N = pow(n,m); // anonymity set size
         std::vector<TriptychProof> p;
         p.reserve(N_proofs);
+        p.resize(0);
         std::vector<TriptychProof *> proofs;
         proofs.reserve(N_proofs);
+        proofs.resize(0);
 
         // Build key vectors
         keyV M = keyV(N);
         keyV P = keyV(N);
         keyV r = keyV(N_proofs);
         keyV s = keyV(N_proofs);
-        const key message = skGen();
+        keyV messages = keyV(N_proofs);
+        keyV C_offsets = keyV(N_proofs);
 
         // Random keys
         key temp;
@@ -68,17 +71,21 @@ TEST(triptych, random)
             skpkGen(temp,P[k]);
         }
 
-        // Signing keys
+        // Signing keys, messages, and commitment offsets
+        key s1,s2;
         for (size_t i = 0; i < N_proofs; i++)
         {
             skpkGen(r[i],M[i]);
-            skpkGen(s[i],P[i]);
+            skpkGen(s1,P[i]);
+            messages[i] = skGen();
+            skpkGen(s2,C_offsets[i]);
+            sc_sub(s[i].bytes,s1.bytes,s2.bytes);
         }
 
         // Build proofs
         for (size_t i = 0; i < N_proofs; i++)
         {
-            p.push_back(triptych_prove(M,P,i,r[i],s[i],n,m,message));
+            p.push_back(triptych_prove(M,P,C_offsets[i],i,r[i],s[i],n,m,messages[i]));
         }
         for (TriptychProof &proof: p)
         {
@@ -86,7 +93,7 @@ TEST(triptych, random)
         }
 
         // Verify batch
-        ASSERT_TRUE(triptych_verify(M,P,proofs,n,m,message));
+        ASSERT_TRUE(triptych_verify(M,P,C_offsets,proofs,n,m,messages));
     }
 }
 
