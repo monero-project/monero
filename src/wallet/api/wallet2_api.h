@@ -1293,7 +1293,11 @@ struct WalletManager
     virtual std::string resolveOpenAlias(const std::string &address, bool &dnssec_valid) const = 0;
 
     //! checks for an update and returns version, hash and url
-    static std::tuple<bool, std::string, std::string, std::string, std::string> checkUpdates(const std::string &software, std::string subdir);
+    static std::tuple<bool, std::string, std::string, std::string, std::string> checkUpdates(
+        const std::string &software,
+        std::string subdir,
+        const char *buildtag = nullptr,
+        const char *current_version = nullptr);
 };
 
 
