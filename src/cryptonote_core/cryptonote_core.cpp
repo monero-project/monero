@@ -428,9 +428,9 @@ namespace cryptonote
     return m_blockchain_storage.get_split_transactions_blobs(txs_ids, txs, missed_txs);
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::get_txpool_backlog(std::vector<tx_backlog_entry>& backlog) const
+  bool core::get_txpool_backlog(std::vector<tx_backlog_entry>& backlog, bool include_sensitive_txes) const
   {
-    m_mempool.get_transaction_backlog(backlog);
+    m_mempool.get_transaction_backlog(backlog, include_sensitive_txes);
     return true;
   }
   //-----------------------------------------------------------------------------------------------
@@ -1544,9 +1544,9 @@ namespace cryptonote
     return m_blockchain_storage.get_db().get_block_cumulative_difficulty(height);
   }
   //-----------------------------------------------------------------------------------------------
-  size_t core::get_pool_transactions_count() const
+  size_t core::get_pool_transactions_count(bool include_sensitive_txes) const
   {
-    return m_mempool.get_transactions_count();
+    return m_mempool.get_transactions_count(include_sensitive_txes);
   }
   //-----------------------------------------------------------------------------------------------
   bool core::have_block(const crypto::hash& id) const

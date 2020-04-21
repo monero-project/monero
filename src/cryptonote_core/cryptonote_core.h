@@ -469,10 +469,11 @@ namespace cryptonote
 
      /**
       * @copydoc tx_memory_pool::get_txpool_backlog
+      * @param include_sensitive_txes include private transactions
       *
       * @note see tx_memory_pool::get_txpool_backlog
       */
-     bool get_txpool_backlog(std::vector<tx_backlog_entry>& backlog) const;
+     bool get_txpool_backlog(std::vector<tx_backlog_entry>& backlog, bool include_sensitive_txes = false) const;
      
      /**
       * @copydoc tx_memory_pool::get_transactions
@@ -514,10 +515,11 @@ namespace cryptonote
 
      /**
       * @copydoc tx_memory_pool::get_transactions_count
+      * @param include_sensitive_txes include private transactions
       *
       * @note see tx_memory_pool::get_transactions_count
       */
-     size_t get_pool_transactions_count() const;
+     size_t get_pool_transactions_count(bool include_sensitive_txes = false) const;
 
      /**
       * @copydoc Blockchain::get_total_transactions

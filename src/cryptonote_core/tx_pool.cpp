@@ -210,7 +210,7 @@ namespace cryptonote
     // TODO: Investigate why not?
     if(!kept_by_block)
     {
-      if(have_tx_keyimges_as_spent(tx))
+      if(have_tx_keyimges_as_spent(tx, id))
       {
         mark_double_spend(tx);
         LOG_PRINT_L1("Transaction with id= "<< id << " used already spent key images");
@@ -253,7 +253,7 @@ namespace cryptonote
         meta.last_relayed_time = time(NULL);
         meta.relayed = relayed;
         meta.set_relay_method(tx_relay);
-        meta.double_spend_seen = have_tx_keyimges_as_spent(tx);
+        meta.double_spend_seen = have_tx_keyimges_as_spent(tx, id);
         meta.pruned = tx.pruned;
         meta.bf_padding = 0;
         memset(meta.padding, 0, sizeof(meta.padding));
@@ -1098,30 +1098,32 @@ namespace cryptonote
     return m_blockchain.get_db().txpool_has_tx(id, tx_category);
   }
   //---------------------------------------------------------------------------------
-  bool tx_memory_pool::have_tx_keyimges_as_spent(const transaction& tx) const
+  bool tx_memory_pool::have_tx_keyimges_as_spent(const transaction& tx, const crypto::hash& txid) const
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     CRITICAL_REGION_LOCAL1(m_blockchain);
     for(const auto& in: tx.vin)
     {
       CHECKED_GET_SPECIFIC_VARIANT(in, const txin_to_key, tokey_in, true);//should never fail
-      if(have_tx_keyimg_as_spent(tokey_in.k_image))
+      if(have_tx_keyimg_as_spent(tokey_in.k_image, txid))
          return true;
     }
     return false;
   }
   //---------------------------------------------------------------------------------
-  bool tx_memory_pool::have_tx_keyimg_as_spent(const crypto::key_image& key_im) const
+  bool tx_memory_pool::have_tx_keyimg_as_spent(const crypto::key_image& key_im, const crypto::hash& txid) const
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
-    bool spent = false;
     const auto found = m_spent_key_images.find(key_im);
-    if (found != m_spent_key_images.end())
+    if (found != m_spent_key_images.end() && !found->second.empty())
     {
-      for (const crypto::hash& tx_hash : found->second)
-        spent |= m_blockchain.txpool_tx_matches_category(tx_hash, relay_category::broadcasted);
+      // If another tx is using the key image, always return as spent.
+      // See `insert_key_images`.
+      if (1 < found->second.size() || *(found->second.cbegin()) != txid)
+        return true;
+      return m_blockchain.txpool_tx_matches_category(txid, relay_category::broadcasted);
     }
-    return spent;
+    return false;
   }
   //---------------------------------------------------------------------------------
   void tx_memory_pool::lock() const

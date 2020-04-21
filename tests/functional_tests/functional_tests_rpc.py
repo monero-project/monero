@@ -34,8 +34,8 @@ try:
 except:
   tests = DEFAULT_TESTS
 
-N_MONERODS = 2
-N_WALLETS = 4
+N_MONERODS = 3
+N_WALLETS = 7
 WALLET_DIRECTORY = builddir + "/functional-tests-directory"
 DIFFICULTY = 10
 
@@ -43,9 +43,17 @@ monerod_base = [builddir + "/bin/monerod", "--regtest", "--fixed-difficulty", st
 monerod_extra = [
   [],
   ["--rpc-payment-address", "44SKxxLQw929wRF6BA9paQ1EWFshNnKhXM3qz6Mo3JGDE2YG3xyzVutMStEicxbQGRfrYvAAYxH6Fe8rnD56EaNwUiqhcwR", "--rpc-payment-difficulty", str(DIFFICULTY), "--rpc-payment-credits", "5000", "--data-dir", builddir + "/functional-tests-directory/monerod1"],
+  ["--rpc-restricted-bind-port", "18482", "--data-dir", builddir + "/functional-tests-directory/monerod2"]
 ]
-wallet_base = [builddir + "/bin/monero-wallet-rpc", "--wallet-dir", WALLET_DIRECTORY, "--rpc-bind-port", "wallet_port", "--disable-rpc-login", "--rpc-ssl", "disabled", "--daemon-ssl", "disabled", "--daemon-port", "18180", "--log-level", "1"]
+wallet_base = [builddir + "/bin/monero-wallet-rpc", "--wallet-dir", WALLET_DIRECTORY, "--rpc-bind-port", "wallet_port", "--disable-rpc-login", "--rpc-ssl", "disabled", "--daemon-ssl", "disabled", "--log-level", "1"]
 wallet_extra = [
+  ["--daemon-port", "18180"],
+  ["--daemon-port", "18180"],
+  ["--daemon-port", "18180"],
+  ["--daemon-port", "18180"],
+  ["--daemon-port", "18182"],
+  ["--daemon-port", "18182"],
+  ["--daemon-port", "18182"]
 ]
 
 command_lines = []
