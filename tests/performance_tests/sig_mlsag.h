@@ -32,56 +32,73 @@
 
 #include "ringct/rctSigs.h"
 #include "cryptonote_basic/cryptonote_basic.h"
+#include "device/device.hpp"
 
 #include "single_tx_test_base.h"
 
-template<size_t ring_size, bool ver>
+using namespace rct;
+
+template<size_t ring_size, size_t index>
 class test_sig_mlsag : public single_tx_test_base
 {
 public:
-  static const size_t cols = ring_size;
-  static const size_t rows = 2; // 1 spend + 1 commitment
+  static const size_t N = ring_size;
   static const size_t loop_count = 1000;
+  static const size_t l = index;
 
   bool init()
   {
     if (!single_tx_test_base::init())
       return false;
 
-    rct::keyV xtmp = rct::skvGen(rows);
-    rct::keyM xm = rct::keyMInit(rows, cols);// = [[None]*N] #just used to generate test public keys
-    sk = rct::skvGen(rows);
-    P  = rct::keyMInit(rows, cols);// = keyM[[None]*N] #stores the public keys;
-    ind = 0; // fixed spend index
-    for (size_t j = 0 ; j < rows ; j++)
+    message = skGen();
+
+    // Random signing/commitment keys
+    pubs.reserve(N);
+    for (size_t i = 0; i < N; i++)
     {
-        for (size_t i = 0 ; i < cols ; i++)
-        {
-            xm[i][j] = rct::skGen();
-            P[i][j] = rct::scalarmultBase(xm[i][j]);
-        }
+        key sk;
+        ctkey tmp;
+
+        skpkGen(sk, tmp.dest);
+        skpkGen(sk, tmp.mask);
+
+        pubs.push_back(tmp);
     }
-    for (size_t j = 0 ; j < rows ; j++)
-    {
-        sk[j] = xm[ind][j];
-    }
-    IIccss = MLSAG_Gen(rct::identity(), P, sk, NULL, NULL, ind, rows-1, hw::get_device("default"));
+
+    // Signing key
+    key p;
+    skpkGen(p,pubs[l].dest);
+
+    // Commitment key
+    key t,u;
+    t = skGen();
+    u = skGen();
+    addKeys2(pubs[l].mask,t,u,H);
+
+    // Offset
+    key t2;
+    t2 = skGen();
+    addKeys2(C_offset,t2,u,H);
+
+    // Final signing keys
+    ctkey insk;
+    insk.dest = p;
+    insk.mask = t;
+
+    sig = proveRctMGSimple(message,pubs,insk,t2,C_offset,NULL,NULL,l,hw::get_device("default"));
 
     return true;
   }
 
   bool test()
   {
-    if (ver)
-      return MLSAG_Ver(rct::identity(), P, IIccss, rows-1);
-    else
-      MLSAG_Gen(rct::identity(), P, sk, NULL, NULL, ind, rows-1, hw::get_device("default"));
-    return true;
+      return verRctMGSimple(message,sig,pubs,C_offset);
   }
 
 private:
-  rct::keyV sk;
-  rct::keyM P;
-  size_t ind;
-  rct::mgSig IIccss;
+  ctkeyV pubs;
+  key C_offset;
+  mgSig sig;
+  key message;
 };

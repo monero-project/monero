@@ -215,8 +215,18 @@ int main(int argc, char** argv)
   TEST_PERFORMANCE1(filter, p, test_cn_fast_hash, 32);
   TEST_PERFORMANCE1(filter, p, test_cn_fast_hash, 16384);
 
-  TEST_PERFORMANCE2(filter, p, test_sig_mlsag, 11, true); // MLSAG verification
-  TEST_PERFORMANCE2(filter, p, test_sig_clsag, 11, 1); // CLSAG verification (with commitment offset)
+  TEST_PERFORMANCE2(filter, p, test_sig_mlsag, 8, 1); // MLSAG verification
+  TEST_PERFORMANCE2(filter, p, test_sig_mlsag, 16, 1);
+  TEST_PERFORMANCE2(filter, p, test_sig_mlsag, 32, 1);
+  TEST_PERFORMANCE2(filter, p, test_sig_mlsag, 64, 1);
+  TEST_PERFORMANCE2(filter, p, test_sig_mlsag, 128, 1);
+  TEST_PERFORMANCE2(filter, p, test_sig_mlsag, 256, 1);
+  TEST_PERFORMANCE2(filter, p, test_sig_clsag, 8, 1); // CLSAG verification
+  TEST_PERFORMANCE2(filter, p, test_sig_clsag, 16, 1);
+  TEST_PERFORMANCE2(filter, p, test_sig_clsag, 32, 1);
+  TEST_PERFORMANCE2(filter, p, test_sig_clsag, 64, 1);
+  TEST_PERFORMANCE2(filter, p, test_sig_clsag, 128, 1);
+  TEST_PERFORMANCE2(filter, p, test_sig_clsag, 256, 1);
 
   TEST_PERFORMANCE2(filter, p, test_ringct_mlsag, 11, false);
   TEST_PERFORMANCE2(filter, p, test_ringct_mlsag, 11, true);

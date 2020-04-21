@@ -51,8 +51,9 @@ public:
     if (!single_tx_test_base::init())
       return false;
 
-    message = identity();
+    message = skGen();
 
+    // Random signing/commitment keys
     pubs.reserve(N);
     for (size_t i = 0; i < N; i++)
     {
@@ -65,18 +66,22 @@ public:
         pubs.push_back(tmp);
     }
 
+    // Signing key
     key p;
     skpkGen(p,pubs[l].dest);
     
+    // Commitment key
     key t,u;
     t = skGen();
     u = skGen();
     addKeys2(pubs[l].mask,t,u,H);
 
+    // Offset
     key t2;
     t2 = skGen();
     addKeys2(C_offset,t2,u,H);
 
+    // Final signing keys
     ctkey insk;
     insk.dest = p;
     insk.mask = t;
