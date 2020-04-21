@@ -43,6 +43,7 @@
 #include "profile_tools.h"
 #include "net/network_throttle-detail.hpp"
 #include "common/pruning.h"
+#include "common/util.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "net.cn"
@@ -362,7 +363,7 @@ namespace cryptonote
     uint64_t last_block_v1 = m_core.get_nettype() == TESTNET ? 624633 : m_core.get_nettype() == MAINNET ? 1009826 : (uint64_t)-1;
     uint64_t diff_v2 = max_block_height > last_block_v1 ? std::min(abs_diff, max_block_height - last_block_v1) : 0;
     MCLOG(is_inital ? el::Level::Info : el::Level::Debug, "global", el::Color::Yellow, context <<  "Sync data returned a new top block candidate: " << m_core.get_current_blockchain_height() << " -> " << hshd.current_height
-      << " [Your node is " << abs_diff << " blocks (" << ((abs_diff - diff_v2) / (24 * 60 * 60 / DIFFICULTY_TARGET_V1)) + (diff_v2 / (24 * 60 * 60 / DIFFICULTY_TARGET_V2)) << " days) "
+      << " [Your node is " << abs_diff << " blocks (" << tools::get_human_readable_timespan((abs_diff - diff_v2) * DIFFICULTY_TARGET_V1 + diff_v2 * DIFFICULTY_TARGET_V2) << ") "
       << (0 <= diff ? std::string("behind") : std::string("ahead"))
       << "] " << ENDL << "SYNCHRONIZATION started");
       if (hshd.current_height >= m_core.get_current_blockchain_height() + 5) // don't switch to unsafe mode just for a few blocks
@@ -1212,6 +1213,55 @@ namespace cryptonote
     return 1;
   }
 
+  // Get an estimate for the remaining sync time from given current to target blockchain height, in seconds
+  template<class t_core>
+  uint64_t t_cryptonote_protocol_handler<t_core>::get_estimated_remaining_sync_seconds(uint64_t current_blockchain_height, uint64_t target_blockchain_height)
+  {
+    // The average sync speed varies so much, even averaged over quite long time periods like 10 minutes,
+    // that using some sliding window would be difficult to implement without often leading to bad estimates.
+    // The simplest strategy - always average sync speed over the maximum available interval i.e. since sync
+    // started at all (from "m_sync_start_time" and "m_sync_start_height") - gives already useful results
+    // and seems to be quite robust. Some quite special cases like "Internet connection suddenly becoming
+    // much faster after syncing already a long time, and staying fast" are not well supported however.
+
+    if (target_blockchain_height <= current_blockchain_height)
+    {
+      // Syncing stuck, or other special circumstance: Avoid errors, simply give back 0
+      return 0;
+    }
+
+    const boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
+    const boost::posix_time::time_duration sync_time = now - m_sync_start_time;
+    cryptonote::network_type nettype = m_core.get_nettype();
+
+    // Don't simply use remaining number of blocks for the estimate but "sync weight" as provided by
+    // "cumulative_block_sync_weight" which knows about strongly varying Monero mainnet block sizes
+    uint64_t synced_weight = tools::cumulative_block_sync_weight(nettype, m_sync_start_height, current_blockchain_height - m_sync_start_height);
+    float us_per_weight = (float)sync_time.total_microseconds() / (float)synced_weight;
+    uint64_t remaining_weight = tools::cumulative_block_sync_weight(nettype, current_blockchain_height, target_blockchain_height - current_blockchain_height);
+    float remaining_us = us_per_weight * (float)remaining_weight;
+    return (uint64_t)(remaining_us / 1e6);
+  }
+
+  // Return a textual remaining sync time estimate, or the empty string if waiting period not yet over
+  template<class t_core>
+  std::string t_cryptonote_protocol_handler<t_core>::get_periodic_sync_estimate(uint64_t current_blockchain_height, uint64_t target_blockchain_height)
+  {
+    std::string text = "";
+    const boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
+    boost::posix_time::time_duration period_sync_time = now - m_period_start_time;
+    if (period_sync_time > boost::posix_time::minutes(2))
+    {
+      // Period is over, time to report another estimate
+      uint64_t remaining_seconds = get_estimated_remaining_sync_seconds(current_blockchain_height, target_blockchain_height);
+      text = tools::get_human_readable_timespan(remaining_seconds);
+
+      // Start the new period
+      m_period_start_time = now;
+    }
+    return text;
+  }
+
   template<class t_core>
   int t_cryptonote_protocol_handler<t_core>::try_add_next_blocks(cryptonote_connection_context& context)
   {
@@ -1240,6 +1290,9 @@ namespace cryptonote
           if (!starting)
             m_last_add_end_time = tools::get_tick_count();
         });
+        m_sync_start_time = boost::posix_time::microsec_clock::universal_time();
+        m_sync_start_height = m_core.get_current_blockchain_height();
+        m_period_start_time = m_sync_start_time;
 
         while (1)
         {
@@ -1490,7 +1543,16 @@ namespace cryptonote
               if (completion_percent == 100) // never show 100% if not actually up to date
                 completion_percent = 99;
               progress_message = " (" + std::to_string(completion_percent) + "%, "
-                  + std::to_string(target_blockchain_height - current_blockchain_height) + " left)";
+                  + std::to_string(target_blockchain_height - current_blockchain_height) + " left";
+              std::string time_message = get_periodic_sync_estimate(current_blockchain_height, target_blockchain_height);
+              if (!time_message.empty())
+              {
+                uint64_t total_blocks_to_sync = target_blockchain_height - m_sync_start_height;
+                uint64_t total_blocks_synced = current_blockchain_height - m_sync_start_height;
+                progress_message += ", " + std::to_string(total_blocks_synced * 100 / total_blocks_to_sync) + "% of total synced";
+                progress_message += ", estimated " + time_message + " left";
+              }
+              progress_message += ")";
             }
             const uint32_t previous_stripe = tools::get_pruning_stripe(previous_height, target_blockchain_height, CRYPTONOTE_PRUNING_LOG_STRIPES);
             const uint32_t current_stripe = tools::get_pruning_stripe(current_blockchain_height, target_blockchain_height, CRYPTONOTE_PRUNING_LOG_STRIPES);
@@ -2228,8 +2290,26 @@ skip:
   bool t_cryptonote_protocol_handler<t_core>::on_connection_synchronized()
   {
     bool val_expected = false;
-    if(!m_core.is_within_compiled_block_hash_area(m_core.get_current_blockchain_height()) && m_synchronized.compare_exchange_strong(val_expected, true))
+    uint64_t current_blockchain_height = m_core.get_current_blockchain_height();
+    if(!m_core.is_within_compiled_block_hash_area(current_blockchain_height) && m_synchronized.compare_exchange_strong(val_expected, true))
     {
+      if ((current_blockchain_height > m_sync_start_height) && (m_sync_spans_downloaded > 0))
+      {
+        uint64_t synced_blocks = current_blockchain_height - m_sync_start_height;
+        // Report only after syncing an "interesting" number of blocks:
+        if (synced_blocks > 20)
+        {
+          const boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
+          uint64_t synced_seconds = (now - m_sync_start_time).total_seconds();
+          if (synced_seconds == 0)
+          {
+            synced_seconds = 1;
+          }
+          float blocks_per_second = (1000 * synced_blocks / synced_seconds) / 1000.0f;
+          MGINFO_YELLOW("Synced " << synced_blocks << " blocks in "
+            << tools::get_human_readable_timespan(synced_seconds) << " (" << blocks_per_second << " blocks per second)");
+        }
+      }
       MGINFO_YELLOW(ENDL << "**********************************************************************" << ENDL
         << "You are now synchronized with the network. You may now start monero-wallet-cli." << ENDL
         << ENDL

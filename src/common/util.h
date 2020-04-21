@@ -46,6 +46,7 @@
 #endif
 
 #include "crypto/hash.h"
+#include "cryptonote_config.h"
 
 /*! \brief Various Tools
  *
@@ -252,4 +253,6 @@ namespace tools
   void clear_screen();
 
   std::vector<std::pair<std::string, size_t>> split_string_by_width(const std::string &s, size_t columns);
+
+  uint64_t cumulative_block_sync_weight(cryptonote::network_type nettype, uint64_t start_block, uint64_t num_blocks);
 }
