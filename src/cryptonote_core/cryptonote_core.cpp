@@ -1308,9 +1308,9 @@ namespace cryptonote
     std::vector<crypto::hash> tx_hashes{};
     tx_hashes.resize(tx_blobs.size());
 
-    cryptonote::transaction tx{};
     for (std::size_t i = 0; i < tx_blobs.size(); ++i)
     {
+      cryptonote::transaction tx{};
       if (!parse_and_validate_tx_from_blob(tx_blobs[i], tx, tx_hashes[i]))
       {
         LOG_ERROR("Failed to parse relayed transaction");
