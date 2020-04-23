@@ -61,7 +61,8 @@ DISABLE_VS_WARNINGS(4244 4345)
     m_device = &hwdev;
     MCDEBUG("device", "account_keys::set_device device type: "<<typeid(hwdev).name());
   }
-  //-----------------------------------------------------------------
+
+  // Generate a derived chacha key
   static void derive_key(const crypto::chacha_key &base_key, crypto::chacha_key &key)
   {
     static_assert(sizeof(base_key) == sizeof(crypto::hash), "chacha key and hash should be the same size");
@@ -70,62 +71,60 @@ DISABLE_VS_WARNINGS(4244 4345)
     data[sizeof(base_key)] = config::HASH_KEY_MEMORY;
     crypto::generate_chacha_key(data.data(), sizeof(data), key, 1);
   }
-  //-----------------------------------------------------------------
-  static epee::wipeable_string get_key_stream(const crypto::chacha_key &base_key, const crypto::chacha_iv &iv, size_t bytes)
+  
+  // Prepare IVs and start chacha for encryption
+  void account_keys::encrypt_wrapper(const crypto::chacha_key &key, const bool all_keys)
   {
-    // derive a new key
-    crypto::chacha_key key;
-    derive_key(base_key, key);
-
-    // chacha
-    epee::wipeable_string buffer0(std::string(bytes, '\0'));
-    epee::wipeable_string buffer1 = buffer0;
-    crypto::chacha20(buffer0.data(), buffer0.size(), key, iv, buffer1.data());
-    return buffer1;
-  }
-  //-----------------------------------------------------------------
-  void account_keys::xor_with_key_stream(const crypto::chacha_key &key)
-  {
-    // encrypt a large enough byte stream with chacha20
-    epee::wipeable_string key_stream = get_key_stream(key, m_encryption_iv, sizeof(crypto::secret_key) * (2 + m_multisig_keys.size()));
-    const char *ptr = key_stream.data();
-    for (size_t i = 0; i < sizeof(crypto::secret_key); ++i)
-      m_spend_secret_key.data[i] ^= *ptr++;
-    for (size_t i = 0; i < sizeof(crypto::secret_key); ++i)
-      m_view_secret_key.data[i] ^= *ptr++;
-    for (crypto::secret_key &k: m_multisig_keys)
+    // Set a fresh IV for the relevant keys
+    if (all_keys)
     {
-      for (size_t i = 0; i < sizeof(crypto::secret_key); ++i)
-        k.data[i] ^= *ptr++;
+      m_spend_iv = crypto::rand<crypto::chacha_iv>();
+      m_multisig_iv = crypto::rand<crypto::chacha_iv>();
     }
+    m_view_iv = crypto::rand<crypto::chacha_iv>();
+
+    // Now do the chacha
+    chacha_wrapper(key, all_keys);
   }
-  //-----------------------------------------------------------------
-  void account_keys::encrypt(const crypto::chacha_key &key)
+
+  // Start chacha for decryption
+  void account_keys::decrypt_wrapper(const crypto::chacha_key &key, const bool all_keys)
   {
-    m_encryption_iv = crypto::rand<crypto::chacha_iv>();
-    xor_with_key_stream(key);
+      chacha_wrapper(key, all_keys);
   }
-  //-----------------------------------------------------------------
-  void account_keys::decrypt(const crypto::chacha_key &key)
+  
+  // Perform chacha on either the view key or all keys
+  void account_keys::chacha_wrapper(const crypto::chacha_key &key, const bool all_keys)
   {
-    xor_with_key_stream(key);
+    // Derive domain-seprated chacha key
+    crypto::chacha_key derived_key;
+    derive_key(key, derived_key);
+
+    // Chacha the specified keys using the appropriate IVs
+    if (all_keys)
+    {
+      // Spend key
+      crypto::secret_key temp_key;
+      chacha20((char *) &m_spend_secret_key, sizeof(crypto::secret_key), derived_key, m_spend_iv, (char *) &temp_key);
+      memcpy(&m_spend_secret_key, &temp_key, sizeof(crypto::secret_key));
+      memwipe(&temp_key, sizeof(crypto::secret_key));
+
+      // Multisig keys
+      std::vector<crypto::secret_key> temp_keys;
+      temp_keys.reserve(m_multisig_keys.size());
+      temp_keys.resize(m_multisig_keys.size());
+      chacha20((char *) &m_multisig_keys[0], sizeof(crypto::secret_key)*m_multisig_keys.size(), derived_key, m_multisig_iv, (char *) &temp_keys[0]);
+      memcpy(&m_multisig_keys[0], &temp_keys[0], sizeof(crypto::secret_key)*temp_keys.size());
+      memwipe(&temp_keys[0], sizeof(crypto::secret_key)*temp_keys.size());
+    }
+
+    // View key
+    crypto::secret_key temp_key;
+    chacha20((char *) &m_view_secret_key, sizeof(crypto::secret_key), derived_key, m_view_iv, (char *) &temp_key);
+    memcpy(&m_view_secret_key, &temp_key, sizeof(crypto::secret_key));
+    memwipe(&temp_key, sizeof(crypto::secret_key));
   }
-  //-----------------------------------------------------------------
-  void account_keys::encrypt_viewkey(const crypto::chacha_key &key)
-  {
-    // encrypt a large enough byte stream with chacha20
-    epee::wipeable_string key_stream = get_key_stream(key, m_encryption_iv, sizeof(crypto::secret_key) * 2);
-    const char *ptr = key_stream.data();
-    ptr += sizeof(crypto::secret_key);
-    for (size_t i = 0; i < sizeof(crypto::secret_key); ++i)
-      m_view_secret_key.data[i] ^= *ptr++;
-  }
-  //-----------------------------------------------------------------
-  void account_keys::decrypt_viewkey(const crypto::chacha_key &key)
-  {
-    encrypt_viewkey(key);
-  }
-  //-----------------------------------------------------------------
+
   account_base::account_base()
   {
     set_null();
