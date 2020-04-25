@@ -224,7 +224,7 @@ struct Dbt_safe : public Dbt
 namespace cryptonote
 {
 
-void BlockchainBDB::add_block(const block& blk, const size_t& block_size, const difficulty_type& cumulative_difficulty, const uint64_t& coins_generated, const crypto::hash& blk_hash)
+void BlockchainBDB::add_block(const block& blk, size_t block_weight, const difficulty_type& cumulative_difficulty, const uint64_t& coins_generated, const crypto::hash& blk_hash)
 {
     LOG_PRINT_L3("BlockchainBDB::" << __func__);
     check_open();
@@ -255,7 +255,7 @@ void BlockchainBDB::add_block(const block& blk, const size_t& block_size, const 
     if (res)
         throw0(DB_ERROR("Failed to add block blob to db transaction."));
 
-    Dbt_copy<size_t> sz(block_size);
+    Dbt_copy<size_t> sz(block_weight);
     if (m_block_sizes->put(DB_DEFAULT_TX, &key, &sz, 0))
         throw0(DB_ERROR("Failed to add block size to db transaction."));
 
@@ -1353,7 +1353,7 @@ uint64_t BlockchainBDB::get_top_block_timestamp() const
     return get_block_timestamp(m_height - 1);
 }
 
-size_t BlockchainBDB::get_block_size(const uint64_t& height) const
+size_t BlockchainBDB::get_block_weight(const uint64_t& height) const
 {
     LOG_PRINT_L3("BlockchainBDB::" << __func__);
     check_open();
@@ -1861,7 +1861,7 @@ void BlockchainBDB::block_txn_abort()
   // TODO
 }
 
-uint64_t BlockchainBDB::add_block(const block& blk, const size_t& block_size, const difficulty_type& cumulative_difficulty, const uint64_t& coins_generated, const std::vector<transaction>& txs)
+uint64_t BlockchainBDB::add_block(const block& blk, size_t block_weight, const difficulty_type& cumulative_difficulty, const uint64_t& coins_generated, const std::vector<transaction>& txs)
 {
     LOG_PRINT_L3("BlockchainBDB::" << __func__);
     check_open();
@@ -1874,7 +1874,7 @@ uint64_t BlockchainBDB::add_block(const block& blk, const size_t& block_size, co
     uint64_t num_outputs = m_num_outputs;
     try
     {
-        BlockchainDB::add_block(blk, block_size, cumulative_difficulty, coins_generated, txs);
+        BlockchainDB::add_block(blk, block_weight, cumulative_difficulty, coins_generated, txs);
         m_write_txn = NULL;
 
         TIME_MEASURE_START(time1);

@@ -14,8 +14,8 @@ lcg_seed = 0
 embw = MEDIAN_THRESHOLD
 ltembw = MEDIAN_THRESHOLD
 
-sizes = [MEDIAN_THRESHOLD]*MEDIAN_WINDOW_SMALL # sizes of recent blocks (B), with index -1 most recent
-lt_sizes = [MEDIAN_THRESHOLD]*MEDIAN_WINDOW_BIG # long-term sizes
+weights = [MEDIAN_THRESHOLD]*MEDIAN_WINDOW_SMALL # weights of recent blocks (B), with index -1 most recent
+lt_weights = [MEDIAN_THRESHOLD]*MEDIAN_WINDOW_BIG # long-term weights
 
 # Compute the median of a list
 def get_median(vec):
@@ -35,38 +35,38 @@ def run(t, blocks):
   global embw
   global ltembw
 
-  sizes = [MEDIAN_THRESHOLD]*MEDIAN_WINDOW_SMALL # sizes of recent blocks (B), with index -1 most recent
-  lt_sizes = [MEDIAN_THRESHOLD]*MEDIAN_WINDOW_BIG # long-term sizes
+  weights = [MEDIAN_THRESHOLD]*MEDIAN_WINDOW_SMALL # weights of recent blocks (B), with index -1 most recent
+  lt_weights = [MEDIAN_THRESHOLD]*MEDIAN_WINDOW_BIG # long-term weights
 
   for block in range(blocks):
-      # determine the long-term effective size
-      ltmedian = get_median(lt_sizes[-MEDIAN_WINDOW_BIG:])
+      # determine the long-term effective weight
+      ltmedian = get_median(lt_weights[-MEDIAN_WINDOW_BIG:])
       ltembw = max(MEDIAN_THRESHOLD,ltmedian)
 
-      # determine the effective size
-      stmedian = get_median(sizes[-MEDIAN_WINDOW_SMALL:])
+      # determine the effective weight
+      stmedian = get_median(weights[-MEDIAN_WINDOW_SMALL:])
       embw = min(max(MEDIAN_THRESHOLD,stmedian),int(MULTIPLIER_BIG*ltembw))
 
       # drop the lowest values
-      sizes = sizes[1:]
-      lt_sizes = lt_sizes[1:]
+      weights = weights[1:]
+      lt_weights = lt_weights[1:]
 
-      # add a block of max size
+      # add a block of max weight
       if t == 0:
-        max_size = 2 * embw
+        max_weight = 2 * embw
       elif t == 1:
         r = LCG()
-        max_size = int(240 + r % 33333 + 16666 + math.sin(block / 200.) * 23333)
-        if max_size < 240: max_size = 240
+        max_weight = int(240 + r % 33333 + 16666 + math.sin(block / 200.) * 23333)
+        if max_weight < 240: max_weight = 240
       elif t == 2:
-        max_size = 240
+        max_weight = 240
       else:
         sys.exit(1)
-      sizes.append(max_size)
-      lt_sizes.append(min(max_size,int(ltembw + int(MEDIAN_THRESHOLD * 2 / 50))))
+      weights.append(max_weight)
+      lt_weights.append(min(max_weight,int(ltembw + int(MEDIAN_THRESHOLD * 2 / 50))))
 
-      #print "H %u, r %u, BW %u, EMBW %u, LTBW %u, LTEMBW %u, ltmedian %u" % (block, r, max_size, embw, lt_sizes[-1], ltembw, ltmedian)
-      print "H %u, BW %u, EMBW %u, LTBW %u" % (block, max_size, embw, lt_sizes[-1])
+      #print "H %u, r %u, BW %u, EMBW %u, LTBW %u, LTEMBW %u, ltmedian %u" % (block, r, max_weight, embw, lt_weights[-1], ltembw, ltmedian)
+      print "H %u, BW %u, EMBW %u, LTBW %u" % (block, max_weight, embw, lt_weights[-1])
 
 run(0, 2 * MEDIAN_WINDOW_BIG)
 run(1, 9 * MEDIAN_WINDOW_BIG)

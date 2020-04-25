@@ -61,8 +61,8 @@
 
 #define CRYPTONOTE_REWARD_BLOCKS_WINDOW                 100
 #define CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V1    20000 //size of block (bytes) after which reward for block calculated using block size - before first fork
-#define CRYPTONOTE_LONG_TERM_BLOCK_SIZE_WINDOW_SIZE     100000 // size in blocks of the long term block size median window
-#define CRYPTONOTE_SHORT_TERM_BLOCK_SIZE_SURGE_FACTOR   20
+#define CRYPTONOTE_LONG_TERM_BLOCK_WEIGHT_WINDOW_SIZE     100000 // size in blocks of the long term block size median window
+#define CRYPTONOTE_SHORT_TERM_BLOCK_WEIGHT_SURGE_FACTOR   20
 #define CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE          600
 #define CRYPTONOTE_DISPLAY_DECIMAL_POINT                12
 // COIN - number of smallest units in one coin
@@ -71,8 +71,6 @@
 #define DEFAULT_FEE_V1                                  ((uint64_t)10000000000) // pow(10, 10)
 
 #define FEE_PER_KB                                      ((uint64_t)1000000000) // 1 * pow(10, 9)
-#define DYNAMIC_FEE_PER_KB_BASE_FEE                     ((uint64_t)2000000000) // 2 * pow(10,9)
-#define DYNAMIC_FEE_PER_KB_BASE_BLOCK_REWARD            ((uint64_t)10000000000000) // 10 * pow(10,12)
 
 #define ORPHANED_BLOCKS_MAX_COUNT                       100
 
@@ -135,24 +133,23 @@
 #define THREAD_STACK_SIZE                       5 * 1024 * 1024
 
 #define HF_VERSION_ALLOW_RCT                    255
-// #define HF_VERSION_DYNAMIC_FEE                  4
 #define HF_VERSION_ENFORCE_RCT                  255
-#define HF_VERSION_LONG_TERM_BLOCK_SIZE         8
+#define HF_VERSION_LONG_TERM_BLOCK_WEIGHT         8
 
 #define HF_VERSION_ALLOW_V1_BORROMEAN           8
 #define HF_VERSION_FIXED_RING_SIZE              8
 #define HF_VERSION_ENFORCE_MIN_AGE              8
 #define HF_VERSION_EFFECTIVE_SHORT_TERM_MEDIAN_IN_PENALTY 9
 
-#define PER_KB_FEE_QUANTIZATION_DECIMALS        8
-
 #define HASH_OF_HASHES_STEP                     256
 
-#define DEFAULT_TXPOOL_MAX_SIZE                 648000000ull // 3 days at 300000, in bytes
+#define DEFAULT_TXPOOL_MAX_WEIGHT               648000000ull // 3 days at 300000, in bytes
 
 #define DEFAULT_RING_SIZE                       3
 
 #define NOFAKE_TXS_TO_TOTAL_TXS_PERCENT         10
+
+#define BULLETPROOF_MAX_OUTPUTS                 16
 
 // New constants are intended to go here
 namespace config

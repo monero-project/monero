@@ -257,7 +257,7 @@ typedef struct mdb_block_info_old
   uint64_t bi_height;
   uint64_t bi_timestamp;
   uint64_t bi_coins;
-  uint64_t bi_size; // a size_t really but we need 32-bit compat
+  uint64_t bi_weight; // a size_t really but we need 32-bit compat
   uint64_t bi_diff;
   crypto::hash bi_hash;
 } mdb_block_info_old;
@@ -267,7 +267,7 @@ typedef struct mdb_block_info_2
   uint64_t bi_height;
   uint64_t bi_timestamp;
   uint64_t bi_coins;
-  uint64_t bi_size; // a size_t really but we need 32-bit compat
+  uint64_t bi_weight; // a size_t really but we need 32-bit compat
   uint64_t bi_diff;
   crypto::hash bi_hash;
   uint64_t bi_cum_rct;
@@ -278,7 +278,7 @@ typedef struct mdb_block_info_3
   uint64_t bi_height;
   uint64_t bi_timestamp;
   uint64_t bi_coins;
-  uint64_t bi_size; // a size_t really but we need 32-bit compat
+  uint64_t bi_weight; // a size_t really but we need 32-bit compat
   uint64_t bi_diff_lo;
   uint64_t bi_diff_hi;
   crypto::hash bi_hash;
@@ -290,12 +290,12 @@ typedef struct mdb_block_info_4
   uint64_t bi_height;
   uint64_t bi_timestamp;
   uint64_t bi_coins;
-  uint64_t bi_size; // a size_t really but we need 32-bit compat
+  uint64_t bi_weight; // a size_t really but we need 32-bit compat
   uint64_t bi_diff_lo;
   uint64_t bi_diff_hi;
   crypto::hash bi_hash;
   uint64_t bi_cum_rct;
-  uint64_t bi_long_term_block_size;
+  uint64_t bi_long_term_block_weight;
 } mdb_block_info_4;
 
 typedef mdb_block_info_4 mdb_block_info;
@@ -680,8 +680,11 @@ uint64_t BlockchainLMDB::get_estimated_batch_size(uint64_t batch_num_blocks, uin
     block_rtxn_start(&rtxn, &rcurs);
     for (uint64_t block_num = block_start; block_num <= block_stop; ++block_num)
     {
-      uint32_t block_size = get_block_size(block_num);
-      total_block_size += block_size;
+      // we have access to block weight, which will be greater or equal to block size,
+      // so use this as a proxy. If it's too much off, we might have to check actual size,
+      // which involves reading more data, so is not really wanted
+      size_t block_weight = get_block_weight(block_num);
+      total_block_size += block_weight;
       // Track number of blocks being totalled here instead of assuming, in case
       // some blocks were to be skipped for being outliers.
       ++num_blocks_used;
@@ -702,7 +705,7 @@ estim:
   return threshold_size;
 }
 
-void BlockchainLMDB::add_block(const block& blk, const size_t& block_size, uint64_t long_term_block_size, const difficulty_type& cumulative_difficulty, const uint64_t& coins_generated,
+void BlockchainLMDB::add_block(const block& blk, size_t block_weight, uint64_t long_term_block_weight, const difficulty_type& cumulative_difficulty, const uint64_t& coins_generated,
     uint64_t num_rct_outs, const crypto::hash& blk_hash)
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
@@ -748,7 +751,7 @@ void BlockchainLMDB::add_block(const block& blk, const size_t& block_size, uint6
   bi.bi_height = m_height;
   bi.bi_timestamp = blk.timestamp;
   bi.bi_coins = coins_generated;
-  bi.bi_size = block_size;
+  bi.bi_weight = block_weight;
   bi.bi_diff_hi = ((cumulative_difficulty >> 64) & 0xffffffffffffffff).convert_to<uint64_t>();
   bi.bi_diff_lo = (cumulative_difficulty & 0xffffffffffffffff).convert_to<uint64_t>();
   bi.bi_hash = blk_hash;
@@ -762,7 +765,7 @@ void BlockchainLMDB::add_block(const block& blk, const size_t& block_size, uint6
     const mdb_block_info *bi_prev = (const mdb_block_info*)h.mv_data;
     bi.bi_cum_rct += bi_prev->bi_cum_rct;
   }
-  bi.bi_long_term_block_size = long_term_block_size;
+  bi.bi_long_term_block_weight = long_term_block_weight;
 
   MDB_val_set(val, bi);
   result = mdb_cursor_put(m_cur_block_info, (MDB_val *)&zerokval, &val, MDB_APPENDDUP);
@@ -773,7 +776,9 @@ void BlockchainLMDB::add_block(const block& blk, const size_t& block_size, uint6
   if (result)
     throw0(DB_ERROR(lmdb_error("Failed to add block height by hash to db transaction: ", result).c_str()));
 
-  m_cum_size += block_size;
+  // we use weight as a proxy for size, since we don't have size but weight is >= size
+  // and often actually equal
+  m_cum_size += block_weight;
   m_cum_count++;
 }
 
@@ -2041,7 +2046,7 @@ uint64_t BlockchainLMDB::get_top_block_timestamp() const
   return get_block_timestamp(m_height - 1);
 }
 
-size_t BlockchainLMDB::get_block_size(const uint64_t& height) const
+size_t BlockchainLMDB::get_block_weight(const uint64_t& height) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -2059,7 +2064,7 @@ size_t BlockchainLMDB::get_block_size(const uint64_t& height) const
     throw0(DB_ERROR("Error attempting to retrieve a block size from the db"));
 
   mdb_block_info *bi = (mdb_block_info *)result.mv_data;
-  size_t ret = bi->bi_size;
+  size_t ret = bi->bi_weight;
   TXN_POSTFIX_RDONLY();
   return ret;
 }
@@ -2118,14 +2123,14 @@ std::vector<uint64_t> BlockchainLMDB::get_block_info_64bit_fields(uint64_t start
   return ret;
 }
 
-std::vector<uint64_t> BlockchainLMDB::get_block_sizes(uint64_t start_height, size_t count) const
+std::vector<uint64_t> BlockchainLMDB::get_block_weights(uint64_t start_height, size_t count) const
 {
-  return get_block_info_64bit_fields(start_height, count, offsetof(mdb_block_info, bi_size));
+  return get_block_info_64bit_fields(start_height, count, offsetof(mdb_block_info, bi_weight));
 }
 
-std::vector<uint64_t> BlockchainLMDB::get_long_term_block_sizes(uint64_t start_height, size_t count) const
+std::vector<uint64_t> BlockchainLMDB::get_long_term_block_weights(uint64_t start_height, size_t count) const
 {
-  return get_block_info_64bit_fields(start_height, count, offsetof(mdb_block_info, bi_long_term_block_size));
+  return get_block_info_64bit_fields(start_height, count, offsetof(mdb_block_info, bi_long_term_block_weight));
 }
 
 difficulty_type BlockchainLMDB::get_block_cumulative_difficulty(const uint64_t& height) const
@@ -2193,7 +2198,7 @@ uint64_t BlockchainLMDB::get_block_already_generated_coins(const uint64_t& heigh
   return ret;
 }
 
-uint64_t BlockchainLMDB::get_block_long_term_size(const uint64_t& height) const
+uint64_t BlockchainLMDB::get_block_long_term_weight(const uint64_t& height) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -2205,13 +2210,13 @@ uint64_t BlockchainLMDB::get_block_long_term_size(const uint64_t& height) const
   auto get_result = mdb_cursor_get(m_cur_block_info, (MDB_val *)&zerokval, &result, MDB_GET_BOTH);
   if (get_result == MDB_NOTFOUND)
   {
-    throw0(BLOCK_DNE(std::string("Attempt to get block long term size from height ").append(boost::lexical_cast<std::string>(height)).append(" failed -- block info not in db").c_str()));
+    throw0(BLOCK_DNE(std::string("Attempt to get block long term weight from height ").append(boost::lexical_cast<std::string>(height)).append(" failed -- block info not in db").c_str()));
   }
   else if (get_result)
-    throw0(DB_ERROR("Error attempting to retrieve a long term block size from the db"));
+    throw0(DB_ERROR("Error attempting to retrieve a long term block weight from the db"));
 
   mdb_block_info *bi = (mdb_block_info *)result.mv_data;
-  uint64_t ret = bi->bi_long_term_block_size;
+  uint64_t ret = bi->bi_long_term_block_weight;
   TXN_POSTFIX_RDONLY();
   return ret;
 }
@@ -3209,7 +3214,7 @@ void BlockchainLMDB::block_txn_abort()
   }
 }
 
-uint64_t BlockchainLMDB::add_block(const block& blk, const size_t& block_size, uint64_t long_term_block_size, const difficulty_type& cumulative_difficulty, const uint64_t& coins_generated,
+uint64_t BlockchainLMDB::add_block(const block& blk, size_t block_weight, uint64_t long_term_block_weight, const difficulty_type& cumulative_difficulty, const uint64_t& coins_generated,
     const std::vector<transaction>& txs)
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
@@ -3228,7 +3233,7 @@ uint64_t BlockchainLMDB::add_block(const block& blk, const size_t& block_size, u
 
   try
   {
-    BlockchainDB::add_block(blk, block_size, long_term_block_size, cumulative_difficulty, coins_generated, txs);
+    BlockchainDB::add_block(blk, block_weight, long_term_block_weight, cumulative_difficulty, coins_generated, txs);
   }
   catch (const DB_ERROR_TXN_START& e)
   {
@@ -3817,9 +3822,9 @@ void BlockchainLMDB::migrate_0_1()
       if (result)
         throw0(DB_ERROR(lmdb_error("Failed to get a record from block_sizes: ", result).c_str()));
       if (v.mv_size == sizeof(uint32_t))
-        bi.bi_size = *(uint32_t *)v.mv_data;
+        bi.bi_weight = *(uint32_t *)v.mv_data;
       else
-        bi.bi_size = *(uint64_t *)v.mv_data;  // this is a 32/64 compat bug in version 0
+        bi.bi_weight = *(uint64_t *)v.mv_data;  // this is a 32/64 compat bug in version 0
       result = mdb_cursor_get(c_timestamps, &k, &v, MDB_NEXT);
       if (result)
         throw0(DB_ERROR(lmdb_error("Failed to get a record from block_timestamps: ", result).c_str()));
@@ -4378,7 +4383,7 @@ void BlockchainLMDB::migrate_2_3()
       bi.bi_height = bi_old->bi_height;
       bi.bi_timestamp = bi_old->bi_timestamp;
       bi.bi_coins = bi_old->bi_coins;
-      bi.bi_size = bi_old->bi_size;
+      bi.bi_weight = bi_old->bi_weight;
       bi.bi_diff = bi_old->bi_diff;
       bi.bi_hash = bi_old->bi_hash;
       if (bi_old->bi_height >= distribution.size())
@@ -4503,7 +4508,7 @@ void BlockchainLMDB::migrate_3_4()
       bi.bi_height = bi_old->bi_height;
       bi.bi_timestamp = bi_old->bi_timestamp;
       bi.bi_coins = bi_old->bi_coins;
-      bi.bi_size = bi_old->bi_size;
+      bi.bi_weight = bi_old->bi_weight;
       bi.bi_diff_lo = bi_old->bi_diff;
       bi.bi_diff_hi = 0;
       bi.bi_hash = bi_old->bi_hash;
@@ -4561,7 +4566,7 @@ void BlockchainLMDB::migrate_4_5()
   mdb_txn_safe txn(false);
   MDB_val k, v;
   char *ptr;
-  bool past_long_term_size = false;
+  bool past_long_term_weight = false;
 
   MGINFO_YELLOW("Migrating blockchain from DB version 4 to 5 - this may take a while:");
 
@@ -4577,7 +4582,7 @@ void BlockchainLMDB::migrate_4_5()
       throw0(DB_ERROR(lmdb_error("Failed to query m_blocks: ", result).c_str()));
     const uint64_t blockchain_height = db_stats.ms_entries;
 
-    boost::circular_buffer<uint64_t> long_term_block_sizes(CRYPTONOTE_LONG_TERM_BLOCK_SIZE_WINDOW_SIZE);
+    boost::circular_buffer<uint64_t> long_term_block_weights(CRYPTONOTE_LONG_TERM_BLOCK_WEIGHT_WINDOW_SIZE);
 
     /* the block_info table name is the same but the old version and new version
      * have incompatible data. Create a new table. We want the name to be similar
@@ -4635,14 +4640,14 @@ void BlockchainLMDB::migrate_4_5()
       bi.bi_height = bi_old->bi_height;
       bi.bi_timestamp = bi_old->bi_timestamp;
       bi.bi_coins = bi_old->bi_coins;
-      bi.bi_size = bi_old->bi_size;
+      bi.bi_weight = bi_old->bi_weight;
       bi.bi_diff_lo = bi_old->bi_diff_lo;
       bi.bi_diff_hi = bi_old->bi_diff_hi;
       bi.bi_hash = bi_old->bi_hash;
       bi.bi_cum_rct = bi_old->bi_cum_rct;
 
       // get block major version to determine which rule is in place
-      if (!past_long_term_size)
+      if (!past_long_term_weight)
       {
         MDB_val_copy<uint64_t> kb(bi.bi_height);
         MDB_val vb;
@@ -4652,23 +4657,23 @@ void BlockchainLMDB::migrate_4_5()
         if (vb.mv_size == 0)
           throw0(DB_ERROR("Invalid data from m_blocks"));
         const uint8_t block_major_version = *((const uint8_t*)vb.mv_data);
-        if (block_major_version >= HF_VERSION_LONG_TERM_BLOCK_SIZE)
-          past_long_term_size = true;
+        if (block_major_version >= HF_VERSION_LONG_TERM_BLOCK_WEIGHT)
+          past_long_term_weight = true;
       }
 
-      uint64_t long_term_block_size;
-      if (past_long_term_size)
+      uint64_t long_term_block_weight;
+      if (past_long_term_weight)
       {
-        std::vector<uint64_t> sizes(long_term_block_sizes.begin(), long_term_block_sizes.end());
-        uint64_t long_term_effective_block_median_size = std::max<uint64_t>(CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V1, epee::misc_utils::median(sizes));
-        long_term_block_size = std::min<uint64_t>(bi.bi_size, long_term_effective_block_median_size + long_term_effective_block_median_size * 2 / 50);
+        std::vector<uint64_t> weights(long_term_block_weights.begin(), long_term_block_weights.end());
+        uint64_t long_term_effective_block_median_weight = std::max<uint64_t>(CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V1, epee::misc_utils::median(weights));
+        long_term_block_weight = std::min<uint64_t>(bi.bi_weight, long_term_effective_block_median_weight + long_term_effective_block_median_weight * 2 / 50);
       }
       else
       {
-        long_term_block_size = bi.bi_size;
+        long_term_block_weight = bi.bi_weight;
       }
-      long_term_block_sizes.push_back(long_term_block_size);
-      bi.bi_long_term_block_size = long_term_block_size;
+      long_term_block_weights.push_back(long_term_block_weight);
+      bi.bi_long_term_block_weight = long_term_block_weight;
 
       MDB_val_set(nv, bi);
       result = mdb_cursor_put(c_cur, (MDB_val *)&zerokval, &nv, MDB_APPENDDUP);

@@ -679,34 +679,34 @@ namespace tools
     //----------------------------------------------------------------------------------------------------
     struct tx_too_big : public transfer_error
     {
-      explicit tx_too_big(std::string&& loc, const cryptonote::transaction& tx, uint64_t tx_size_limit)
+      explicit tx_too_big(std::string&& loc, const cryptonote::transaction& tx, uint64_t tx_weight_limit)
         : transfer_error(std::move(loc), "transaction is too big")
         , m_tx(tx)
         , m_tx_valid(true)
-        , m_tx_size(cryptonote::get_object_blobsize(tx))
-        , m_tx_size_limit(tx_size_limit)
+        , m_tx_weight(cryptonote::get_transaction_weight(tx))
+        , m_tx_weight_limit(tx_weight_limit)
       {
       }
 
-      explicit tx_too_big(std::string&& loc, uint64_t tx_size, uint64_t tx_size_limit)
+      explicit tx_too_big(std::string&& loc, uint64_t tx_weight, uint64_t tx_weight_limit)
         : transfer_error(std::move(loc), "transaction would be too big")
         , m_tx_valid(false)
-        , m_tx_size(tx_size)
-        , m_tx_size_limit(tx_size_limit)
+        , m_tx_weight(tx_weight)
+        , m_tx_weight_limit(tx_weight_limit)
       {
       }
 
       bool tx_valid() const { return m_tx_valid; }
       const cryptonote::transaction& tx() const { return m_tx; }
-      uint64_t tx_size() const { return m_tx_size; }
-      uint64_t tx_size_limit() const { return m_tx_size_limit; }
+      uint64_t tx_weight() const { return m_tx_weight; }
+      uint64_t tx_weight_limit() const { return m_tx_weight_limit; }
 
       std::string to_string() const
       {
         std::ostringstream ss;
         ss << transfer_error::to_string() <<
-          ", tx_size_limit = " << m_tx_size_limit <<
-          ", tx size = " << m_tx_size;
+          ", tx_weight_limit = " << m_tx_weight_limit <<
+          ", tx weight = " << m_tx_weight;
         if (m_tx_valid)
         {
           cryptonote::transaction tx = m_tx;
@@ -718,8 +718,8 @@ namespace tools
     private:
       cryptonote::transaction m_tx;
       bool m_tx_valid;
-      uint64_t m_tx_size;
-      uint64_t m_tx_size_limit;
+      uint64_t m_tx_weight;
+      uint64_t m_tx_weight_limit;
     };
     //----------------------------------------------------------------------------------------------------
     struct zero_destination : public transfer_error
