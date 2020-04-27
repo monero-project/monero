@@ -1516,6 +1516,8 @@ private:
     std::string get_client_signature() const;
     void check_rpc_cost(const char *call, uint64_t post_call_credits, uint64_t pre_credits, double expected_cost);
 
+    bool should_expand(const cryptonote::subaddress_index &index) const;
+
     cryptonote::account_base m_account;
     boost::optional<epee::net_utils::http::login> m_daemon_login;
     std::string m_daemon_address;
