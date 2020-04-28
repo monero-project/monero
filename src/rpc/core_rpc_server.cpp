@@ -270,25 +270,25 @@ namespace cryptonote
     {
       if (!m_restricted && nettype() != FAKECHAIN)
       {
-        MERROR("RPC payment enabled, but server is not restricted, anyone can adjust their balance to bypass payment");
+        MFATAL("RPC payment enabled, but server is not restricted, anyone can adjust their balance to bypass payment");
         return false;
       }
       cryptonote::address_parse_info info;
       if (!get_account_address_from_str(info, nettype(), address))
       {
-        MERROR("Invalid payment address: " << address);
+        MFATAL("Invalid payment address: " << address);
         return false;
       }
       if (info.is_subaddress)
       {
-        MERROR("Payment address may not be a subaddress: " << address);
+        MFATAL("Payment address may not be a subaddress: " << address);
         return false;
       }
       uint64_t diff = command_line::get_arg(vm, arg_rpc_payment_difficulty);
       uint64_t credits = command_line::get_arg(vm, arg_rpc_payment_credits);
       if (diff == 0 || credits == 0)
       {
-        MERROR("Payments difficulty and/or payments credits are 0, but a payment address was given");
+        MFATAL("Payments difficulty and/or payments credits are 0, but a payment address was given");
         return false;
       }
       m_rpc_payment_allow_free_loopback = command_line::get_arg(vm, arg_rpc_payment_allow_free_loopback);
@@ -308,7 +308,7 @@ namespace cryptonote
     if (!set_bootstrap_daemon(command_line::get_arg(vm, arg_bootstrap_daemon_address),
       command_line::get_arg(vm, arg_bootstrap_daemon_login)))
     {
-      MERROR("Failed to parse bootstrap daemon address");
+      MFATAL("Failed to parse bootstrap daemon address");
       return false;
     }
 
