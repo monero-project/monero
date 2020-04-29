@@ -615,8 +615,8 @@ namespace cryptonote
     CRITICAL_REGION_LOCAL1(m_blockchain);
 
     m_blockchain.for_all_txpool_txes([this, &hashes, &txes](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata*) {
-      const auto relay_method = meta.get_relay_method();
-      if (relay_method != relay_method::block && relay_method != relay_method::fluff)
+      const auto tx_relay_method = meta.get_relay_method();
+      if (tx_relay_method != relay_method::block && tx_relay_method != relay_method::fluff)
         return true;
       const auto i = std::find(hashes.begin(), hashes.end(), txid);
       if (i == hashes.end())
