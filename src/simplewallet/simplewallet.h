@@ -258,6 +258,7 @@ namespace cryptonote
     bool rpc_payment_info(const std::vector<std::string> &args);
     bool start_mining_for_rpc(const std::vector<std::string> &args);
     bool stop_mining_for_rpc(const std::vector<std::string> &args);
+    bool show_qr_code(const std::vector<std::string> &args);
     bool net_stats(const std::vector<std::string>& args);
     bool public_nodes(const std::vector<std::string>& args);
     bool welcome(const std::vector<std::string>& args);
