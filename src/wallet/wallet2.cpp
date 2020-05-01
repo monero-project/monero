@@ -1109,10 +1109,12 @@ boost::optional<epee::wipeable_string> wallet_device_callback::on_pin_request()
   return boost::none;
 }
 
-boost::optional<epee::wipeable_string> wallet_device_callback::on_passphrase_request(bool on_device)
+boost::optional<epee::wipeable_string> wallet_device_callback::on_passphrase_request(bool & on_device)
 {
   if (wallet)
     return wallet->on_device_passphrase_request(on_device);
+  else
+    on_device = true;
   return boost::none;
 }
 
@@ -13618,10 +13620,12 @@ boost::optional<epee::wipeable_string> wallet2::on_device_pin_request()
   return boost::none;
 }
 //----------------------------------------------------------------------------------------------------
-boost::optional<epee::wipeable_string> wallet2::on_device_passphrase_request(bool on_device)
+boost::optional<epee::wipeable_string> wallet2::on_device_passphrase_request(bool & on_device)
 {
   if (nullptr != m_callback)
     return m_callback->on_device_passphrase_request(on_device);
+  else
+    on_device = true;
   return boost::none;
 }
 //----------------------------------------------------------------------------------------------------

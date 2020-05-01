@@ -49,7 +49,7 @@ namespace trezor {
     std::shared_ptr<messages::debug::DebugLinkState> state();
     void input_word(const std::string & word);
     void input_button(bool button);
-    void input_swipe(bool swipe);
+    void input_swipe(messages::debug::DebugLinkDecision_DebugSwipeDirection direction);
     void press_yes() { input_button(true); }
     void press_no() { input_button(false); }
     void stop();

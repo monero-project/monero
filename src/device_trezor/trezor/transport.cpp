@@ -56,6 +56,11 @@ namespace trezor{
     return true;
   }
 
+  bool t_serialize(const epee::wipeable_string & in, std::string & out){
+    out.assign(in.data(), in.size());
+    return true;
+  }
+
   bool t_serialize(const json_val & in, std::string & out){
     rapidjson::StringBuffer sb;
     rapidjson::Writer<rapidjson::StringBuffer> writer(sb);
@@ -72,6 +77,11 @@ namespace trezor{
 
   bool t_deserialize(const std::string & in, std::string & out){
     out = in;
+    return true;
+  }
+
+  bool t_deserialize(std::string & in, epee::wipeable_string & out){
+    out = epee::wipeable_string(in);
     return true;
   }
 
@@ -192,61 +202,69 @@ namespace trezor{
     const auto msg_size = message_size(req);
     const auto buff_size = serialize_message_buffer_size(msg_size) + 2;
 
-    std::unique_ptr<uint8_t[]> req_buff(new uint8_t[buff_size]);
-    uint8_t * req_buff_raw = req_buff.get();
+    epee::wipeable_string req_buff;
+    epee::wipeable_string chunk_buff;
+
+    req_buff.resize(buff_size);
+    chunk_buff.resize(REPLEN);
+
+    uint8_t * req_buff_raw = reinterpret_cast<uint8_t *>(req_buff.data());
+    uint8_t * chunk_buff_raw = reinterpret_cast<uint8_t *>(chunk_buff.data());
+
     req_buff_raw[0] = '#';
     req_buff_raw[1] = '#';
 
     serialize_message(req, msg_size, req_buff_raw + 2, buff_size - 2);
 
     size_t offset = 0;
-    uint8_t chunk_buff[REPLEN];
 
     // Chunk by chunk upload
     while(offset < buff_size){
       auto to_copy = std::min((size_t)(buff_size - offset), (size_t)(REPLEN - 1));
 
-      chunk_buff[0] = '?';
-      memcpy(chunk_buff + 1, req_buff_raw + offset, to_copy);
+      chunk_buff_raw[0] = '?';
+      memcpy(chunk_buff_raw + 1, req_buff_raw + offset, to_copy);
 
       // Pad with zeros
       if (to_copy < REPLEN - 1){
-        memset(chunk_buff + 1 + to_copy, 0, REPLEN - 1 - to_copy);
+        memset(chunk_buff_raw + 1 + to_copy, 0, REPLEN - 1 - to_copy);
       }
 
-      transport.write_chunk(chunk_buff, REPLEN);
+      transport.write_chunk(chunk_buff_raw, REPLEN);
       offset += REPLEN - 1;
     }
   }
 
   void ProtocolV1::read(Transport & transport, std::shared_ptr<google::protobuf::Message> & msg, messages::MessageType * msg_type){
-    char chunk[REPLEN];
+    epee::wipeable_string chunk_buff;
+    chunk_buff.resize(REPLEN);
+    char * chunk_buff_raw = chunk_buff.data();
 
     // Initial chunk read
-    size_t nread = transport.read_chunk(chunk, REPLEN);
+    size_t nread = transport.read_chunk(chunk_buff_raw, REPLEN);
     if (nread != REPLEN){
       throw exc::CommunicationException("Read chunk has invalid size");
     }
 
-    if (strncmp(chunk, "?##", 3) != 0){
+    if (memcmp(chunk_buff_raw, "?##", 3) != 0){
       throw exc::CommunicationException("Malformed chunk");
     }
 
     uint16_t tag;
     uint32_t len;
     nread -= 3 + 6;
-    deserialize_message_header(chunk + 3, tag, len);
+    deserialize_message_header(chunk_buff_raw + 3, tag, len);
 
-    std::string data_acc(chunk + 3 + 6, nread);
+    epee::wipeable_string data_acc(chunk_buff_raw + 3 + 6, nread);
     data_acc.reserve(len);
 
     while(nread < len){
-      const size_t cur = transport.read_chunk(chunk, REPLEN);
-      if (chunk[0] != '?'){
+      const size_t cur = transport.read_chunk(chunk_buff_raw, REPLEN);
+      if (chunk_buff_raw[0] != '?'){
         throw exc::CommunicationException("Chunk malformed");
       }
 
-      data_acc.append(chunk + 1, cur - 1);
+      data_acc.append(chunk_buff_raw + 1, cur - 1);
       nread += cur - 1;
     }
 
@@ -259,7 +277,7 @@ namespace trezor{
     }
 
     std::shared_ptr<google::protobuf::Message> msg_wrap(MessageMapper::get_message(tag));
-    if (!msg_wrap->ParseFromArray(data_acc.c_str(), len)){
+    if (!msg_wrap->ParseFromArray(data_acc.data(), len)){
       throw exc::CommunicationException("Message could not be parsed");
     }
 
@@ -426,15 +444,16 @@ namespace trezor{
 
     const auto msg_size = message_size(req);
     const auto buff_size = serialize_message_buffer_size(msg_size);
+    epee::wipeable_string req_buff;
+    req_buff.resize(buff_size);
 
-    std::unique_ptr<uint8_t[]> req_buff(new uint8_t[buff_size]);
-    uint8_t * req_buff_raw = req_buff.get();
+    uint8_t * req_buff_raw = reinterpret_cast<uint8_t *>(req_buff.data());
 
     serialize_message(req, msg_size, req_buff_raw, buff_size);
 
     std::string uri = "/call/" + m_session.get();
-    std::string req_hex = epee::to_hex::string(epee::span<const std::uint8_t>(req_buff_raw, buff_size));
-    std::string res_hex;
+    epee::wipeable_string res_hex;
+    epee::wipeable_string req_hex = epee::to_hex::wipeable_string(epee::span<const std::uint8_t>(req_buff_raw, buff_size));
 
     bool req_status = invoke_bridge_http(uri, req_hex, res_hex, m_http_client);
     if (!req_status){
@@ -449,15 +468,15 @@ namespace trezor{
       throw exc::CommunicationException("Could not read, no response stored");
     }
 
-    std::string bin_data;
-    if (!epee::string_tools::parse_hexstr_to_binbuff(m_response.get(), bin_data)){
+    boost::optional<epee::wipeable_string> bin_data = m_response->parse_hexstr();
+    if (!bin_data){
       throw exc::CommunicationException("Response is not well hexcoded");
     }
 
     uint16_t msg_tag;
     uint32_t msg_len;
-    deserialize_message_header(bin_data.c_str(), msg_tag, msg_len);
-    if (bin_data.size() != msg_len + 6){
+    deserialize_message_header(bin_data->data(), msg_tag, msg_len);
+    if (bin_data->size() != msg_len + 6){
       throw exc::CommunicationException("Response is not well hexcoded");
     }
 
@@ -466,7 +485,7 @@ namespace trezor{
     }
 
     std::shared_ptr<google::protobuf::Message> msg_wrap(MessageMapper::get_message(msg_tag));
-    if (!msg_wrap->ParseFromArray(bin_data.c_str() + 6, msg_len)){
+    if (!msg_wrap->ParseFromArray(bin_data->data() + 6, msg_len)){
       throw exc::EncodingException("Response is not well hexcoded");
     }
     msg = msg_wrap;
