@@ -54,6 +54,8 @@ namespace bootstrap_node
 
   struct selector
   {
+    virtual ~selector() = default;
+
     virtual void handle_result(const std::string &address, bool success) = 0;
     virtual boost::optional<node_info> next_node() = 0;
   };
