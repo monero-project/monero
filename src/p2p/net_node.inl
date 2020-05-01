@@ -435,6 +435,8 @@ namespace nodetool
 
     if (command_line::has_arg(vm, arg_p2p_seed_node))
     {
+      boost::unique_lock<boost::shared_mutex> lock(m_seed_nodes_lock);
+
       if (!parse_peers_and_add_to_container(vm, arg_p2p_seed_node, m_seed_nodes))
         return false;
     }
@@ -635,6 +637,115 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
+  std::set<std::string> node_server<t_payload_net_handler>::get_seed_nodes()
+  {
+    if (!m_exclusive_peers.empty() || m_offline)
+    {
+      return {};
+    }
+    if (m_nettype == cryptonote::TESTNET)
+    {
+      return get_seed_nodes(cryptonote::TESTNET);
+    }
+    if (m_nettype == cryptonote::STAGENET)
+    {
+      return get_seed_nodes(cryptonote::STAGENET);
+    }
+
+    std::set<std::string> full_addrs;
+
+    // for each hostname in the seed nodes list, attempt to DNS resolve and
+    // add the result addresses as seed nodes
+    // TODO: at some point add IPv6 support, but that won't be relevant
+    // for some time yet.
+
+    std::vector<std::vector<std::string>> dns_results;
+    dns_results.resize(m_seed_nodes_list.size());
+
+    // some libc implementation provide only a very small stack
+    // for threads, e.g. musl only gives +- 80kb, which is not
+    // enough to do a resolve with unbound. we request a stack
+    // of 1 mb, which should be plenty
+    boost::thread::attributes thread_attributes;
+    thread_attributes.set_stack_size(1024*1024);
+
+    std::list<boost::thread> dns_threads;
+    uint64_t result_index = 0;
+    for (const std::string& addr_str : m_seed_nodes_list)
+    {
+      boost::thread th = boost::thread(thread_attributes, [=, &dns_results, &addr_str]
+      {
+        MDEBUG("dns_threads[" << result_index << "] created for: " << addr_str);
+        // TODO: care about dnssec avail/valid
+        bool avail, valid;
+        std::vector<std::string> addr_list;
+
+        try
+        {
+          addr_list = tools::DNSResolver::instance().get_ipv4(addr_str, avail, valid);
+          MDEBUG("dns_threads[" << result_index << "] DNS resolve done");
+          boost::this_thread::interruption_point();
+        }
+        catch(const boost::thread_interrupted&)
+        {
+          // thread interruption request
+          // even if we now have results, finish thread without setting
+          // result variables, which are now out of scope in main thread
+          MWARNING("dns_threads[" << result_index << "] interrupted");
+          return;
+        }
+
+        MINFO("dns_threads[" << result_index << "] addr_str: " << addr_str << "  number of results: " << addr_list.size());
+        dns_results[result_index] = addr_list;
+      });
+
+      dns_threads.push_back(std::move(th));
+      ++result_index;
+    }
+
+    MDEBUG("dns_threads created, now waiting for completion or timeout of " << CRYPTONOTE_DNS_TIMEOUT_MS << "ms");
+    boost::chrono::system_clock::time_point deadline = boost::chrono::system_clock::now() + boost::chrono::milliseconds(CRYPTONOTE_DNS_TIMEOUT_MS);
+    uint64_t i = 0;
+    for (boost::thread& th : dns_threads)
+    {
+      if (! th.try_join_until(deadline))
+      {
+        MWARNING("dns_threads[" << i << "] timed out, sending interrupt");
+        th.interrupt();
+      }
+      ++i;
+    }
+
+    i = 0;
+    for (const auto& result : dns_results)
+    {
+      MDEBUG("DNS lookup for " << m_seed_nodes_list[i] << ": " << result.size() << " results");
+      // if no results for node, thread's lookup likely timed out
+      if (result.size())
+      {
+        for (const auto& addr_string : result)
+          full_addrs.insert(addr_string + ":" + std::to_string(cryptonote::get_config(m_nettype).P2P_DEFAULT_PORT));
+      }
+      ++i;
+    }
+
+    // append the fallback nodes if we have too few seed nodes to start with
+    if (full_addrs.size() < MIN_WANTED_SEED_NODES)
+    {
+      if (full_addrs.empty())
+        MINFO("DNS seed node lookup either timed out or failed, falling back to defaults");
+      else
+        MINFO("Not enough DNS seed nodes found, using fallback defaults too");
+
+      for (const auto &peer: get_seed_nodes(cryptonote::MAINNET))
+        full_addrs.insert(peer);
+      m_fallback_seed_nodes_added.test_and_set();
+    }
+
+    return full_addrs;
+  }
+  //-----------------------------------------------------------------------------------
+  template<class t_payload_net_handler>
   typename node_server<t_payload_net_handler>::network_zone& node_server<t_payload_net_handler>::add_zone(const epee::net_utils::zone zone)
   {
     const auto zone_ = m_network_zones.lower_bound(zone);
@@ -648,123 +759,21 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::init(const boost::program_options::variables_map& vm)
   {
-    std::set<std::string> full_addrs;
-
     bool res = handle_command_line(vm);
     CHECK_AND_ASSERT_MES(res, false, "Failed to handle command line");
 
-    m_fallback_seed_nodes_added = false;
     if (m_nettype == cryptonote::TESTNET)
     {
       memcpy(&m_network_id, &::config::testnet::NETWORK_ID, 16);
-      full_addrs = get_seed_nodes(cryptonote::TESTNET);
     }
     else if (m_nettype == cryptonote::STAGENET)
     {
       memcpy(&m_network_id, &::config::stagenet::NETWORK_ID, 16);
-      full_addrs = get_seed_nodes(cryptonote::STAGENET);
     }
     else
     {
       memcpy(&m_network_id, &::config::NETWORK_ID, 16);
-      if (m_exclusive_peers.empty() && !m_offline)
-      {
-      // for each hostname in the seed nodes list, attempt to DNS resolve and
-      // add the result addresses as seed nodes
-      // TODO: at some point add IPv6 support, but that won't be relevant
-      // for some time yet.
-
-      std::vector<std::vector<std::string>> dns_results;
-      dns_results.resize(m_seed_nodes_list.size());
-
-      // some libc implementation provide only a very small stack
-      // for threads, e.g. musl only gives +- 80kb, which is not
-      // enough to do a resolve with unbound. we request a stack
-      // of 1 mb, which should be plenty
-      boost::thread::attributes thread_attributes;
-      thread_attributes.set_stack_size(1024*1024);
-
-      std::list<boost::thread> dns_threads;
-      uint64_t result_index = 0;
-      for (const std::string& addr_str : m_seed_nodes_list)
-      {
-        boost::thread th = boost::thread(thread_attributes, [=, &dns_results, &addr_str]
-        {
-          MDEBUG("dns_threads[" << result_index << "] created for: " << addr_str);
-          // TODO: care about dnssec avail/valid
-          bool avail, valid;
-          std::vector<std::string> addr_list;
-
-          try
-          {
-            addr_list = tools::DNSResolver::instance().get_ipv4(addr_str, avail, valid);
-            MDEBUG("dns_threads[" << result_index << "] DNS resolve done");
-            boost::this_thread::interruption_point();
-          }
-          catch(const boost::thread_interrupted&)
-          {
-            // thread interruption request
-            // even if we now have results, finish thread without setting
-            // result variables, which are now out of scope in main thread
-            MWARNING("dns_threads[" << result_index << "] interrupted");
-            return;
-          }
-
-          MINFO("dns_threads[" << result_index << "] addr_str: " << addr_str << "  number of results: " << addr_list.size());
-          dns_results[result_index] = addr_list;
-        });
-
-        dns_threads.push_back(std::move(th));
-        ++result_index;
-      }
-
-      MDEBUG("dns_threads created, now waiting for completion or timeout of " << CRYPTONOTE_DNS_TIMEOUT_MS << "ms");
-      boost::chrono::system_clock::time_point deadline = boost::chrono::system_clock::now() + boost::chrono::milliseconds(CRYPTONOTE_DNS_TIMEOUT_MS);
-      uint64_t i = 0;
-      for (boost::thread& th : dns_threads)
-      {
-        if (! th.try_join_until(deadline))
-        {
-          MWARNING("dns_threads[" << i << "] timed out, sending interrupt");
-          th.interrupt();
-        }
-        ++i;
-      }
-
-      i = 0;
-      for (const auto& result : dns_results)
-      {
-        MDEBUG("DNS lookup for " << m_seed_nodes_list[i] << ": " << result.size() << " results");
-        // if no results for node, thread's lookup likely timed out
-        if (result.size())
-        {
-          for (const auto& addr_string : result)
-            full_addrs.insert(addr_string + ":" + std::to_string(cryptonote::get_config(m_nettype).P2P_DEFAULT_PORT));
-        }
-        ++i;
-      }
-
-      // append the fallback nodes if we have too few seed nodes to start with
-      if (full_addrs.size() < MIN_WANTED_SEED_NODES)
-      {
-        if (full_addrs.empty())
-          MINFO("DNS seed node lookup either timed out or failed, falling back to defaults");
-        else
-          MINFO("Not enough DNS seed nodes found, using fallback defaults too");
-
-        for (const auto &peer: get_seed_nodes(cryptonote::MAINNET))
-          full_addrs.insert(peer);
-        m_fallback_seed_nodes_added = true;
-      }
     }
-    }
-
-    for (const auto& full_addr : full_addrs)
-    {
-      MDEBUG("Seed node: " << full_addr);
-      append_net_address(m_seed_nodes, full_addr, cryptonote::get_config(m_nettype).P2P_DEFAULT_PORT);
-    }
-    MDEBUG("Number of seed nodes: " << m_seed_nodes.size());
 
     m_config_folder = command_line::get_arg(vm, cryptonote::arg_data_dir);
     network_zone& public_zone = m_network_zones.at(epee::net_utils::zone::public_);
@@ -1541,6 +1550,20 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::connect_to_seed()
   {
+      boost::upgrade_lock<boost::shared_mutex> seed_nodes_upgrade_lock(m_seed_nodes_lock);
+
+      if (!m_seed_nodes_initialized)
+      {
+        boost::upgrade_to_unique_lock<boost::shared_mutex> seed_nodes_lock(seed_nodes_upgrade_lock);
+        m_seed_nodes_initialized = true;
+        for (const auto& full_addr : get_seed_nodes())
+        {
+          MDEBUG("Seed node: " << full_addr);
+          append_net_address(m_seed_nodes, full_addr, cryptonote::get_config(m_nettype).P2P_DEFAULT_PORT);
+        }
+        MDEBUG("Number of seed nodes: " << m_seed_nodes.size());
+      }
+
       if (m_seed_nodes.empty() || m_offline || !m_exclusive_peers.empty())
         return true;
 
@@ -1561,16 +1584,19 @@ namespace nodetool
           break;
         if(++try_count > m_seed_nodes.size())
         {
-          if (!m_fallback_seed_nodes_added)
+          if (!m_fallback_seed_nodes_added.test_and_set())
           {
             MWARNING("Failed to connect to any of seed peers, trying fallback seeds");
             current_index = m_seed_nodes.size() - 1;
-            for (const auto &peer: get_seed_nodes(m_nettype))
             {
-              MDEBUG("Fallback seed node: " << peer);
-              append_net_address(m_seed_nodes, peer, cryptonote::get_config(m_nettype).P2P_DEFAULT_PORT);
+              boost::upgrade_to_unique_lock<boost::shared_mutex> seed_nodes_lock(seed_nodes_upgrade_lock);
+
+              for (const auto &peer: get_seed_nodes(m_nettype))
+              {
+                MDEBUG("Fallback seed node: " << peer);
+                append_net_address(m_seed_nodes, peer, cryptonote::get_config(m_nettype).P2P_DEFAULT_PORT);
+              }
             }
-            m_fallback_seed_nodes_added = true;
             if (current_index == m_seed_nodes.size() - 1)
             {
               MWARNING("No fallback seeds, continuing without seeds");
@@ -1604,10 +1630,9 @@ namespace nodetool
     // Only have seeds in the public zone right now.
 
     size_t start_conn_count = get_public_outgoing_connections_count();
-    if(!get_public_white_peers_count() && m_seed_nodes.size())
+    if(!get_public_white_peers_count() && !connect_to_seed())
     {
-      if (!connect_to_seed())
-        return false;
+      return false;
     }
 
     if (!connect_to_peerlist(m_priority_peers)) return false;
