@@ -281,6 +281,10 @@ namespace hw {
             return true;
         }
 
+        void device_default::get_transaction_prefix_hash(const cryptonote::transaction_prefix& tx, crypto::hash& h) {
+            cryptonote::get_transaction_prefix_hash(tx, h);
+        }
+
         bool device_default::generate_output_ephemeral_keys(const size_t tx_version,
                                                             const cryptonote::account_keys &sender_account_keys, const crypto::public_key &txkey_pub,  const crypto::secret_key &tx_key,
                                                             const cryptonote::tx_destination_entry &dst_entr, const boost::optional<cryptonote::account_public_address> &change_addr, const size_t output_index,
