@@ -583,7 +583,9 @@ TEST_F(levin_notify, stem_without_padding)
         {
             const std::size_t sent = context->process_send_queue();
             if (sent && is_stem)
+            {
                 EXPECT_EQ(1u, (context - contexts_.begin()) % 2);
+            }
             send_count += sent;
         }
 
@@ -653,7 +655,9 @@ TEST_F(levin_notify, local_without_padding)
         {
             const std::size_t sent = context->process_send_queue();
             if (sent && is_stem)
+            {
                 EXPECT_EQ(1u, (context - contexts_.begin()) % 2);
+            }
             send_count += sent;
         }
 
