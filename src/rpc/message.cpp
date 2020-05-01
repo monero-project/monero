@@ -149,7 +149,7 @@ cryptonote::rpc::error FullMessage::getError()
   return err;
 }
 
-std::string FullMessage::getRequest(const std::string& request, const Message& message, const unsigned id)
+epee::byte_slice FullMessage::getRequest(const std::string& request, const Message& message, const unsigned id)
 {
   rapidjson::StringBuffer buffer;
   {
@@ -172,11 +172,11 @@ std::string FullMessage::getRequest(const std::string& request, const Message& m
     if (!dest.IsComplete())
       throw std::logic_error{"Invalid JSON tree generated"};
   }
-  return std::string{buffer.GetString(), buffer.GetSize()};
+  return epee::byte_slice{{buffer.GetString(), buffer.GetSize()}};
 }
 
 
-std::string FullMessage::getResponse(const Message& message, const rapidjson::Value& id)
+epee::byte_slice FullMessage::getResponse(const Message& message, const rapidjson::Value& id)
 {
   rapidjson::StringBuffer buffer;
   {
@@ -207,17 +207,17 @@ std::string FullMessage::getResponse(const Message& message, const rapidjson::Va
     if (!dest.IsComplete())
       throw std::logic_error{"Invalid JSON tree generated"};
   }
-  return std::string{buffer.GetString(), buffer.GetSize()};
+  return epee::byte_slice{{buffer.GetString(), buffer.GetSize()}};
 }
 
 // convenience functions for bad input
-std::string BAD_REQUEST(const std::string& request)
+epee::byte_slice BAD_REQUEST(const std::string& request)
 {
   rapidjson::Value invalid;
   return BAD_REQUEST(request, invalid);
 }
 
-std::string BAD_REQUEST(const std::string& request, const rapidjson::Value& id)
+epee::byte_slice BAD_REQUEST(const std::string& request, const rapidjson::Value& id)
 {
   Message fail;
   fail.status = Message::STATUS_BAD_REQUEST;
@@ -225,7 +225,7 @@ std::string BAD_REQUEST(const std::string& request, const rapidjson::Value& id)
   return FullMessage::getResponse(fail, id);
 }
 
-std::string BAD_JSON(const std::string& error_details)
+epee::byte_slice BAD_JSON(const std::string& error_details)
 {
   rapidjson::Value invalid;
   Message fail;

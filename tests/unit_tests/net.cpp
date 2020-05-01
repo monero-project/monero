@@ -1702,6 +1702,45 @@ TEST(zmq, read_write)
     EXPECT_EQ(message, *received);
 }
 
+TEST(zmq, read_write_slice)
+{
+    net::zmq::context context{zmq_init(1)};
+    ASSERT_NE(nullptr, context);
+
+    net::zmq::socket send_socket{zmq_socket(context.get(), ZMQ_REQ)};
+    net::zmq::socket recv_socket{zmq_socket(context.get(), ZMQ_REP)};
+    ASSERT_NE(nullptr, send_socket);
+    ASSERT_NE(nullptr, recv_socket);
+
+    ASSERT_EQ(0u, zmq_bind(recv_socket.get(), "inproc://testing"));
+    ASSERT_EQ(0u, zmq_connect(send_socket.get(), "inproc://testing"));
+
+    std::string message;
+    message.resize(1024);
+    crypto::rand(message.size(), reinterpret_cast<std::uint8_t*>(std::addressof(message[0])));
+
+    {
+        epee::byte_slice slice_message{{epee::strspan<std::uint8_t>(message)}};
+        ASSERT_TRUE(bool(net::zmq::send(std::move(slice_message), send_socket.get())));
+        EXPECT_TRUE(slice_message.empty());
+    }
+
+    const expect<std::string> received = net::zmq::receive(recv_socket.get());
+    ASSERT_TRUE(bool(received));
+    EXPECT_EQ(message, *received);
+}
+
+TEST(zmq, write_slice_fail)
+{
+    std::string message;
+    message.resize(1024);
+    crypto::rand(message.size(), reinterpret_cast<std::uint8_t*>(std::addressof(message[0])));
+
+    epee::byte_slice slice_message{std::move(message)};
+    EXPECT_FALSE(bool(net::zmq::send(std::move(slice_message), nullptr)));
+    EXPECT_TRUE(slice_message.empty());
+}
+
 TEST(zmq, read_write_multipart)
 {
     net::zmq::context context{zmq_init(1)};
