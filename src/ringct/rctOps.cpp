@@ -408,6 +408,18 @@ namespace rct {
         return res;
     }
 
+    //Computes 8P without byte conversion
+    void scalarmult8(ge_p3 &res, const key &P)
+    {
+        ge_p3 p3;
+        CHECK_AND_ASSERT_THROW_MES_L1(ge_frombytes_vartime(&p3, P.bytes) == 0, "ge_frombytes_vartime failed at "+boost::lexical_cast<std::string>(__LINE__));
+        ge_p2 p2;
+        ge_p3_to_p2(&p2, &p3);
+        ge_p1p1 p1;
+        ge_mul8(&p1, &p2);
+        ge_p1p1_to_p3(&res, &p1);
+    }
+
     //Computes lA where l is the curve order
     bool isInMainSubgroup(const key & A) {
         ge_p3 p3;

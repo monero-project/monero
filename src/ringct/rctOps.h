@@ -124,6 +124,7 @@ namespace rct {
     key scalarmultH(const key & a);
     // multiplies a point by 8
     key scalarmult8(const key & P);
+    void scalarmult8(ge_p3 &res, const key & P);
     // checks a is in the main subgroup (ie, not a small one)
     bool isInMainSubgroup(const key & a);
 
