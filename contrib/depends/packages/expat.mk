@@ -1,6 +1,6 @@
 package=expat
 $(package)_version=2.2.4
-$(package)_download_path=https://downloads.sourceforge.net/project/expat/expat/$($(package)_version)
+$(package)_download_path=https://github.com/libexpat/libexpat/releases/download/R_2_2_4
 $(package)_file_name=$(package)-$($(package)_version).tar.bz2
 $(package)_sha256_hash=03ad85db965f8ab2d27328abcf0bc5571af6ec0a414874b2066ee3fdd372019e
 
