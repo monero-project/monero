@@ -3975,7 +3975,12 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
   std::string keys_file_buf;
   bool r = load_from_file(keys_file_name, keys_file_buf);
   THROW_WALLET_EXCEPTION_IF(!r, error::file_read_error, keys_file_name);
-
+  if(!verify_password(password))
+  {
+    THROW_WALLET_EXCEPTION(error::wallet_internal_error, "invalid password");
+    return false;
+  }
+	
   // Load keys from buffer
   boost::optional<crypto::chacha_key> keys_to_encrypt;
   try {
