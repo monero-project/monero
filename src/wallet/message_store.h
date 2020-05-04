@@ -242,6 +242,7 @@ namespace mms
     size_t add_auto_config_data_message(const multisig_wallet_state &state,
                                         const std::string &auto_config_token);
     void process_auto_config_data_message(uint32_t id);
+    std::string get_config_checksum() const;
     void stop_auto_config();
 
     // Process data just created by "me" i.e. the own local wallet, e.g. as the result of a "prepare_multisig" command
@@ -275,7 +276,7 @@ namespace mms
     void set_message_processed_or_sent(uint32_t id);
     void delete_message(uint32_t id);
     void delete_all_messages();
-    void get_sanitized_message_text(const message &m, std::string &sanitized_text) const;
+    static std::string get_sanitized_text(const std::string &text, size_t max_length);
 
     void send_message(const multisig_wallet_state &state, uint32_t id);
     bool check_for_messages(const multisig_wallet_state &state, std::vector<message> &messages);
