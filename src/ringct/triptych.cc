@@ -238,7 +238,7 @@ namespace rct
         const size_t m = M.size();
         const size_t n = M[0].size();
         CHECK_AND_ASSERT_THROW_MES(m*n <= max_mn, "Bad matrix commitment parameters!");
-        CHECK_AND_ASSERT_THROW_MES(data.size() >= m*n, "Bad matrix commitment result vector size!");
+        CHECK_AND_ASSERT_THROW_MES(data.size() >= m*n + 1, "Bad matrix commitment result vector size!");
 
         for (size_t j = 0; j < m; j++)
         {
