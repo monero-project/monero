@@ -47,7 +47,7 @@
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define WALLET_RPC_VERSION_MAJOR 1
-#define WALLET_RPC_VERSION_MINOR 17
+#define WALLET_RPC_VERSION_MINOR 18
 #define MAKE_WALLET_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define WALLET_RPC_VERSION MAKE_WALLET_RPC_VERSION(WALLET_RPC_VERSION_MAJOR, WALLET_RPC_VERSION_MINOR)
 namespace tools
@@ -84,6 +84,7 @@ namespace wallet_rpc
       std::string label;
       uint64_t num_unspent_outputs;
       uint64_t blocks_to_unlock;
+      uint64_t time_to_unlock;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(account_index)
@@ -94,6 +95,7 @@ namespace wallet_rpc
         KV_SERIALIZE(label)
         KV_SERIALIZE(num_unspent_outputs)
         KV_SERIALIZE(blocks_to_unlock)
+        KV_SERIALIZE(time_to_unlock)
       END_KV_SERIALIZE_MAP()
     };
 
@@ -104,6 +106,7 @@ namespace wallet_rpc
       bool       multisig_import_needed;
       std::vector<per_subaddress_info> per_subaddress;
       uint64_t   blocks_to_unlock;
+      uint64_t   time_to_unlock;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(balance)
@@ -111,6 +114,7 @@ namespace wallet_rpc
         KV_SERIALIZE(multisig_import_needed)
         KV_SERIALIZE(per_subaddress)
         KV_SERIALIZE(blocks_to_unlock)
+        KV_SERIALIZE(time_to_unlock)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;

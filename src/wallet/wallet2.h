@@ -835,13 +835,13 @@ private:
 
     // locked & unlocked balance of given or current subaddress account
     uint64_t balance(uint32_t subaddr_index_major, bool strict) const;
-    uint64_t unlocked_balance(uint32_t subaddr_index_major, bool strict, uint64_t *blocks_to_unlock = NULL) const;
+    uint64_t unlocked_balance(uint32_t subaddr_index_major, bool strict, uint64_t *blocks_to_unlock = NULL, uint64_t *time_to_unlock = NULL) const;
     // locked & unlocked balance per subaddress of given or current subaddress account
     std::map<uint32_t, uint64_t> balance_per_subaddress(uint32_t subaddr_index_major, bool strict) const;
-    std::map<uint32_t, std::pair<uint64_t, uint64_t>> unlocked_balance_per_subaddress(uint32_t subaddr_index_major, bool strict) const;
+    std::map<uint32_t, std::pair<uint64_t, std::pair<uint64_t, uint64_t>>> unlocked_balance_per_subaddress(uint32_t subaddr_index_major, bool strict) const;
     // all locked & unlocked balances of all subaddress accounts
     uint64_t balance_all(bool strict) const;
-    uint64_t unlocked_balance_all(bool strict, uint64_t *blocks_to_unlock = NULL) const;
+    uint64_t unlocked_balance_all(bool strict, uint64_t *blocks_to_unlock = NULL, uint64_t *time_to_unlock = NULL) const;
     template<typename T>
     void transfer_selected(const std::vector<cryptonote::tx_destination_entry>& dsts, const std::vector<size_t>& selected_transfers, size_t fake_outputs_count,
       std::vector<std::vector<tools::wallet2::get_outs_entry>> &outs,
