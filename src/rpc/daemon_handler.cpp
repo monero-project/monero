@@ -101,7 +101,8 @@ namespace rpc
       {u8"key_images_spent", handle_message<KeyImagesSpent>},
       {u8"mining_status", handle_message<MiningStatus>},
       {u8"save_bc", handle_message<SaveBC>},
-      {u8"send_raw_tx", handle_message<SendRawTxHex>},
+      {u8"send_raw_tx", handle_message<SendRawTx>},
+      {u8"send_raw_tx_hex", handle_message<SendRawTxHex>},
       {u8"set_log_level", handle_message<SetLogLevel>},
       {u8"start_mining", handle_message<StartMining>},
       {u8"stop_mining", handle_message<StopMining>}
