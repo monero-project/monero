@@ -699,7 +699,7 @@ namespace cryptonote
       *
       * @note see Blockchain::update_checkpoints()
       */
-     bool update_checkpoints();
+     bool update_checkpoints(const bool skip_dns = false);
 
      /**
       * @brief tells the daemon to wind down operations and stop running
