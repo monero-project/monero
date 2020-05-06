@@ -29,11 +29,11 @@
 #pragma once
 
 #include <rapidjson/document.h>
-#include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
 #include <string>
 
 #include "byte_slice.h"
+#include "byte_stream.h"
 #include "rpc/message_data_structs.h"
 
 namespace cryptonote
@@ -44,7 +44,7 @@ namespace rpc
 
   class Message
   {
-      virtual void doToJson(rapidjson::Writer<rapidjson::StringBuffer>& dest) const
+      virtual void doToJson(rapidjson::Writer<epee::byte_stream>& dest) const
       {}
 
     public:
@@ -58,7 +58,7 @@ namespace rpc
 
       virtual ~Message() { }
 
-      void toJson(rapidjson::Writer<rapidjson::StringBuffer>& dest) const;
+      void toJson(rapidjson::Writer<epee::byte_stream>& dest) const;
 
       virtual void fromJson(const rapidjson::Value& val);
 
