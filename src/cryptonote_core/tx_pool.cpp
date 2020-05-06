@@ -1121,7 +1121,7 @@ namespace cryptonote
       // See `insert_key_images`.
       if (1 < found->second.size() || *(found->second.cbegin()) != txid)
         return true;
-      return m_blockchain.txpool_tx_matches_category(txid, relay_category::broadcasted);
+      return m_blockchain.txpool_tx_matches_category(txid, relay_category::legacy);
     }
     return false;
   }
