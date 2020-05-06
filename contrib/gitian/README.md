@@ -126,7 +126,7 @@ Setup for LXC:
 
 ```bash
 GH_USER=fluffypony
-VERSION=v0.15.0.0
+VERSION=v0.16.0.0
 
 ./gitian-build.py --setup $GH_USER $VERSION
 ```
@@ -182,7 +182,7 @@ If you chose to do detached signing using `--detach-sign` above (recommended), y
 
 ```bash
 GH_USER=fluffypony
-VERSION=v0.15.0.0
+VERSION=v0.16.0.0
 
 gpg --detach-sign ${VERSION}-linux/${GH_USER}/monero-linux-*-build.assert
 gpg --detach-sign ${VERSION}-win/${GH_USER}/monero-win-*-build.assert
