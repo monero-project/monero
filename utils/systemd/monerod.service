@@ -7,6 +7,8 @@ User=monero
 Group=monero
 WorkingDirectory=~
 RuntimeDirectory=monero
+StateDirectory=monero
+LogsDirectory=monero
 
 # Clearnet config
 #
