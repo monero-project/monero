@@ -29,6 +29,7 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "misc_log_ex.h"
+#include "misc_language.h"
 #include "common/perf_timer.h"
 #include "common/threadpool.h"
 #include "common/util.h"
@@ -108,6 +109,7 @@ namespace rct {
     //Borromean (c.f. gmax/andytoshi's paper)
     boroSig genBorromean(const key64 x, const key64 P1, const key64 P2, const bits indices) {
         key64 L[2], alpha;
+        auto wiper = epee::misc_utils::create_scope_leave_handler([&](){memwipe(alpha, sizeof(alpha));});
         key c;
         int naught = 0, prime = 0, ii = 0, jj=0;
         boroSig bb;
@@ -190,6 +192,7 @@ namespace rct {
         vector<geDsmp> Ip(dsRows);
         rv.II = keyV(dsRows);
         keyV alpha(rows);
+        auto wiper = epee::misc_utils::create_scope_leave_handler([&](){memwipe(alpha.data(), alpha.size() * sizeof(alpha[0]));});
         keyV aG(rows);
         rv.ss = keyM(cols, aG);
         keyV aHP(dsRows);
@@ -548,7 +551,7 @@ namespace rct {
             subKeys(M[i][1], pubs[i].mask, Cout);
         }
         mgSig result = MLSAG_Gen(message, M, sk, kLRki, mscout, index, rows, hwdev);
-        memwipe(&sk[0], sizeof(key));
+        memwipe(sk.data(), sk.size() * sizeof(key));
         return result;
     }
 
