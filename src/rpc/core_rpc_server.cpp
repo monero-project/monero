@@ -1990,7 +1990,7 @@ namespace cryptonote
       r = false;
     }
     res.untrusted = true;
-    return true;
+    return r;
   }
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_get_last_block_header(const COMMAND_RPC_GET_LAST_BLOCK_HEADER::request& req, COMMAND_RPC_GET_LAST_BLOCK_HEADER::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx)
