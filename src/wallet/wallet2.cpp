@@ -5494,13 +5494,12 @@ bool wallet2::check_connection(uint32_t *version, bool *ssl, uint32_t timeout)
     cryptonote::COMMAND_RPC_GET_VERSION::request req_t = AUTO_VAL_INIT(req_t);
     cryptonote::COMMAND_RPC_GET_VERSION::response resp_t = AUTO_VAL_INIT(resp_t);
     bool r = invoke_http_json_rpc("/json_rpc", "get_version", req_t, resp_t);
-    if(!r) {
+    if(!r || resp_t.status != CORE_RPC_STATUS_OK) {
       if(version)
         *version = 0;
       return false;
     }
-    if (resp_t.status == CORE_RPC_STATUS_OK)
-      m_rpc_version = resp_t.version;
+    m_rpc_version = resp_t.version;
   }
   if (version)
     *version = m_rpc_version;
