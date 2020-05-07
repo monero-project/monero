@@ -1683,8 +1683,6 @@ namespace cryptonote
         MCLOG_RED(level, "global", "**********************************************************************");
         break;
       case HardFork::UpdateNeeded:
-        level = el::Level::Info;
-        MCLOG(level, "global", el::Color::Default, "Last scheduled hard fork time suggests a daemon update will be released within the next couple months.");
         break;
       default:
         break;
