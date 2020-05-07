@@ -3990,13 +3990,7 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
 
   // Load keys from buffer
   boost::optional<crypto::chacha_key> keys_to_encrypt;
-  try {
-    r = wallet2::load_keys_buf(keys_file_buf, password, keys_to_encrypt);
-  } catch (const std::exception& e) {
-    std::size_t found = string(e.what()).find("failed to deserialize keys buffer");
-    THROW_WALLET_EXCEPTION_IF(found != std::string::npos, error::wallet_internal_error, "internal error: failed to deserialize \"" + keys_file_name + '\"');
-    throw e;
-  }
+  r = wallet2::load_keys_buf(keys_file_buf, password, keys_to_encrypt);
 
   // Rewrite with encrypted keys if unencrypted, ignore errors
   if (r && keys_to_encrypt != boost::none)
