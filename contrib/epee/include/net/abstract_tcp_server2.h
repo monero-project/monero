@@ -48,12 +48,9 @@
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
 #include <boost/array.hpp>
-#include <boost/noncopyable.hpp>
-#include <boost/shared_ptr.hpp> //! \TODO Convert to std::shared_ptr
 #include <boost/enable_shared_from_this.hpp>
 #include <boost/interprocess/detail/atomic.hpp>
 #include <boost/thread/thread.hpp>
-#include <memory>
 #include "byte_slice.h"
 #include "net_utils_base.h"
 #include "syncobj.h"
