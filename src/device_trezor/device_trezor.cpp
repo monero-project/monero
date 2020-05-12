@@ -678,8 +678,10 @@ namespace trezor {
         throw exc::TrezorException("Trezor firmware 2.0.10 and lower are not supported. Please update.");
       }
 
-      // default client version, higher versions check will be added
       unsigned client_version = 1;
+      if (trezor_version >= pack_version(2, 3, 1)){
+        client_version = 3;
+      }
 
 #ifdef WITH_TREZOR_DEBUGGING
       // Override client version for tests
