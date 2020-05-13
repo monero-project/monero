@@ -131,7 +131,7 @@ private:
   public:
     // Full wallet callbacks
     virtual void on_new_block(uint64_t height, const cryptonote::block& block) {}
-    virtual void on_money_received(uint64_t height, const crypto::hash &txid, const cryptonote::transaction& tx, uint64_t amount, const cryptonote::subaddress_index& subaddr_index, uint64_t unlock_time) {}
+    virtual void on_money_received(uint64_t height, const crypto::hash &txid, const cryptonote::transaction& tx, uint64_t amount, const cryptonote::subaddress_index& subaddr_index, bool is_change, uint64_t unlock_time) {}
     virtual void on_unconfirmed_money_received(uint64_t height, const crypto::hash &txid, const cryptonote::transaction& tx, uint64_t amount, const cryptonote::subaddress_index& subaddr_index) {}
     virtual void on_money_spent(uint64_t height, const crypto::hash &txid, const cryptonote::transaction& in_tx, uint64_t amount, const cryptonote::transaction& spend_tx, const cryptonote::subaddress_index& subaddr_index) {}
     virtual void on_skip_transaction(uint64_t height, const crypto::hash &txid, const cryptonote::transaction& tx) {}
@@ -1517,6 +1517,7 @@ private:
     void check_rpc_cost(const char *call, uint64_t post_call_credits, uint64_t pre_credits, double expected_cost);
 
     bool should_expand(const cryptonote::subaddress_index &index) const;
+    bool spends_one_of_ours(const cryptonote::transaction &tx) const;
 
     cryptonote::account_base m_account;
     boost::optional<epee::net_utils::http::login> m_daemon_login;
