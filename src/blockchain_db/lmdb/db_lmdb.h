@@ -229,6 +229,8 @@ public:
 
   virtual difficulty_type get_block_difficulty(const uint64_t& height) const;
 
+  virtual void correct_block_cumulative_difficulties(const uint64_t& start_height, const std::vector<difficulty_type>& new_cumulative_difficulties);
+
   virtual uint64_t get_block_already_generated_coins(const uint64_t& height) const;
 
   virtual uint64_t get_block_long_term_weight(const uint64_t& height) const;

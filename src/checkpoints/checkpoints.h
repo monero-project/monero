@@ -33,8 +33,10 @@
 #include "misc_log_ex.h"
 #include "crypto/hash.h"
 #include "cryptonote_config.h"
+#include "cryptonote_basic/difficulty.h"
 
 #define ADD_CHECKPOINT(h, hash)  CHECK_AND_ASSERT(add_checkpoint(h,  hash), false);
+#define ADD_CHECKPOINT2(h, hash, difficulty)  CHECK_AND_ASSERT(add_checkpoint(h,  hash, difficulty), false);
 #define JSON_HASH_FILE_NAME "checkpoints.json"
 
 
@@ -61,12 +63,13 @@ namespace cryptonote
      *
      * @param height the height of the block the checkpoint is for
      * @param hash_str the hash of the block, as a string
+     * @param difficulty_str the cumulative difficulty of the block, as a string (optional)
      *
      * @return false if parsing the hash fails, or if the height is a duplicate
      *         AND the existing checkpoint hash does not match the new one,
      *         otherwise returns true
      */
-    bool add_checkpoint(uint64_t height, const std::string& hash_str);
+    bool add_checkpoint(uint64_t height, const std::string& hash_str, const std::string& difficulty_str = "");
 
     /**
      * @brief checks if there is a checkpoint in the future
@@ -134,6 +137,13 @@ namespace cryptonote
     const std::map<uint64_t, crypto::hash>& get_points() const;
 
     /**
+     * @brief gets the difficulty checkpoints container
+     *
+     * @return a const reference to the difficulty checkpoints container
+     */
+    const std::map<uint64_t, difficulty_type>& get_difficulty_points() const;
+
+    /**
      * @brief checks if our checkpoints container conflicts with another
      *
      * A conflict refers to a case where both checkpoint sets have a checkpoint
@@ -187,6 +197,7 @@ namespace cryptonote
 
   private:
     std::map<uint64_t, crypto::hash> m_points; //!< the checkpoints container
+    std::map<uint64_t, difficulty_type> m_difficulty_points; //!< the difficulty checkpoints container
   };
 
 }

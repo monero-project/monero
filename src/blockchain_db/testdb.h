@@ -82,6 +82,7 @@ public:
   virtual std::vector<uint64_t> get_block_weights(uint64_t start_height, size_t count) const override { return {}; }
   virtual cryptonote::difficulty_type get_block_cumulative_difficulty(const uint64_t& height) const override { return 10; }
   virtual cryptonote::difficulty_type get_block_difficulty(const uint64_t& height) const override { return 0; }
+  virtual void correct_block_cumulative_difficulties(const uint64_t& start_height, const std::vector<difficulty_type>& new_cumulative_difficulties) override {}
   virtual uint64_t get_block_already_generated_coins(const uint64_t& height) const override { return 10000000000; }
   virtual uint64_t get_block_long_term_weight(const uint64_t& height) const override { return 128; }
   virtual std::vector<uint64_t> get_long_term_block_weights(uint64_t start_height, size_t count) const override { return {}; }

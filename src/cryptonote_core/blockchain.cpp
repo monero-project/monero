@@ -32,6 +32,7 @@
 #include <cstdio>
 #include <boost/filesystem.hpp>
 #include <boost/range/adaptor/reversed.hpp>
+#include <boost/format.hpp>
 
 #include "include_base_utils.h"
 #include "cryptonote_basic/cryptonote_basic_impl.h"
@@ -437,6 +438,15 @@ bool Blockchain::init(BlockchainDB* db, const network_type nettype, bool offline
   {
     m_long_term_block_weights_window = test_options->long_term_block_weight_window;
     m_long_term_block_weights_cache_rolling_median = epee::misc_utils::rolling_median_t<uint64_t>(m_long_term_block_weights_window);
+  }
+
+  bool difficulty_ok;
+  uint64_t difficulty_recalc_height;
+  std::tie(difficulty_ok, difficulty_recalc_height) = check_difficulty_checkpoints();
+  if (!difficulty_ok)
+  {
+    MERROR("Difficulty drift detected!");
+    recalculate_difficulties(difficulty_recalc_height);
   }
 
   {
@@ -886,6 +896,111 @@ difficulty_type Blockchain::get_difficulty_for_next_block()
   m_difficulty_for_next_block_top_hash = top_hash;
   m_difficulty_for_next_block = diff;
   return diff;
+}
+//------------------------------------------------------------------
+std::pair<bool, uint64_t> Blockchain::check_difficulty_checkpoints() const
+{
+  uint64_t res = 0;
+  for (const std::pair<uint64_t, difficulty_type>& i : m_checkpoints.get_difficulty_points())
+  {
+    if (i.first >= m_db->height())
+      break;
+    if (m_db->get_block_cumulative_difficulty(i.first) != i.second)
+      return {false, res};
+    res = i.first;
+  }
+  return {true, res};
+}
+//------------------------------------------------------------------
+size_t Blockchain::recalculate_difficulties(boost::optional<uint64_t> start_height_opt)
+{
+  if (m_fixed_difficulty)
+  {
+    return 0;
+  }
+  LOG_PRINT_L3("Blockchain::" << __func__);
+  CRITICAL_REGION_LOCAL(m_blockchain_lock);
+
+  const uint64_t start_height = start_height_opt ? *start_height_opt : check_difficulty_checkpoints().second;
+  const uint64_t top_height = m_db->height() - 1;
+  MGINFO("Recalculating difficulties from height " << start_height << " to height " << top_height);
+
+  std::vector<uint64_t> timestamps;
+  std::vector<difficulty_type> difficulties;
+  timestamps.reserve(DIFFICULTY_BLOCKS_COUNT + 1);
+  difficulties.reserve(DIFFICULTY_BLOCKS_COUNT + 1);
+  if (start_height > 1)
+  {
+    for (uint64_t i = 0; i < DIFFICULTY_BLOCKS_COUNT; ++i)
+    {
+      uint64_t height = start_height - 1 - i;
+      if (height == 0)
+        break;
+      timestamps.insert(timestamps.begin(), m_db->get_block_timestamp(height));
+      difficulties.insert(difficulties.begin(), m_db->get_block_cumulative_difficulty(height));
+    }
+  }
+  difficulty_type last_cum_diff = start_height <= 1 ? start_height : difficulties.back();
+  uint64_t drift_start_height = 0;
+  std::vector<difficulty_type> new_cumulative_difficulties;
+  for (uint64_t height = start_height; height <= top_height; ++height)
+  {
+    size_t target = get_ideal_hard_fork_version(height) < 2 ? DIFFICULTY_TARGET_V1 : DIFFICULTY_TARGET_V2;
+    difficulty_type recalculated_diff = next_difficulty(timestamps, difficulties, target);
+
+    boost::multiprecision::uint256_t recalculated_cum_diff_256 = boost::multiprecision::uint256_t(recalculated_diff) + last_cum_diff;
+    CHECK_AND_ASSERT_THROW_MES(recalculated_cum_diff_256 <= std::numeric_limits<difficulty_type>::max(), "Difficulty overflow!");
+    difficulty_type recalculated_cum_diff = recalculated_cum_diff_256.convert_to<difficulty_type>();
+
+    if (drift_start_height == 0)
+    {
+      difficulty_type existing_cum_diff = m_db->get_block_cumulative_difficulty(height);
+      if (recalculated_cum_diff != existing_cum_diff)
+      {
+        drift_start_height = height;
+        new_cumulative_difficulties.reserve(top_height + 1 - height);
+        LOG_ERROR("Difficulty drift found at height:" << height << ", hash:" << m_db->get_block_hash_from_height(height) << ", existing:" << existing_cum_diff << ", recalculated:" << recalculated_cum_diff);
+      }
+    }
+    if (drift_start_height > 0)
+    {
+      new_cumulative_difficulties.push_back(recalculated_cum_diff);
+      if (height % 100000 == 0)
+        LOG_ERROR(boost::format("%llu / %llu (%.1f%%)") % height % top_height % (100 * (height - drift_start_height) / float(top_height - drift_start_height)));
+    }
+
+    if (height > 0)
+    {
+      timestamps.push_back(m_db->get_block_timestamp(height));
+      difficulties.push_back(recalculated_cum_diff);
+    }
+    if (timestamps.size() > DIFFICULTY_BLOCKS_COUNT)
+    {
+      CHECK_AND_ASSERT_THROW_MES(timestamps.size() == DIFFICULTY_BLOCKS_COUNT + 1, "Wrong timestamps size: " << timestamps.size());
+      timestamps.erase(timestamps.begin());
+      difficulties.erase(difficulties.begin());
+    }
+    last_cum_diff = recalculated_cum_diff;
+  }
+
+  if (drift_start_height > 0)
+  {
+    LOG_ERROR("Writing to the DB...");
+    try
+    {
+      m_db->correct_block_cumulative_difficulties(drift_start_height, new_cumulative_difficulties);
+    }
+    catch (const std::exception& e)
+    {
+      LOG_ERROR("Error correcting cumulative difficulties from height " << drift_start_height << ", what = " << e.what());
+    }
+    LOG_ERROR("Corrected difficulties for " << new_cumulative_difficulties.size() << " blocks");
+    // clear cache
+    m_difficulty_for_next_block_top_hash = crypto::null_hash;
+    m_timestamps_and_difficulties_height = 0;
+  }
+
+  return new_cumulative_difficulties.size();
 }
 //------------------------------------------------------------------
 std::vector<time_t> Blockchain::get_last_block_timestamps(unsigned int blocks) const
