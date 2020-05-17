@@ -1110,6 +1110,14 @@ namespace cryptonote
         return 1;
       }
 
+    std::string error_message;
+    if (!m_core.is_request_sane(arg, error_message))
+    {
+      LOG_ERROR_CCONTEXT("Request to get objects not deemed sane (" << error_message << "), dropping connection");
+      drop_connection(context, false, false);
+      return 1;
+    }
+
     NOTIFY_RESPONSE_GET_OBJECTS::request rsp;
     if(!m_core.handle_get_objects(arg, rsp, context))
     {

@@ -1710,6 +1710,11 @@ namespace cryptonote
     return m_blockchain_storage.get_short_chain_history(ids);
   }
   //-----------------------------------------------------------------------------------------------
+  bool core::is_request_sane(const NOTIFY_REQUEST_GET_OBJECTS::request& arg, std::string &error_message) const
+  {
+    return m_blockchain_storage.is_request_sane(arg, error_message);
+  }
+  //-----------------------------------------------------------------------------------------------
   bool core::handle_get_objects(NOTIFY_REQUEST_GET_OBJECTS::request& arg, NOTIFY_RESPONSE_GET_OBJECTS::request& rsp, cryptonote_connection_context& context)
   {
     return m_blockchain_storage.handle_get_objects(arg, rsp);

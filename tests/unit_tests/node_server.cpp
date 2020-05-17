@@ -96,6 +96,7 @@ public:
   bool get_pool_transaction_hashes(std::vector<crypto::hash>& txs, bool include_unrelayed_txes = true) const { return false; }
   crypto::hash get_block_id_by_height(uint64_t height) const { return crypto::null_hash; }
   float get_blockchain_height_plausibility(uint64_t height) { return 0.0f; }
+  bool is_request_sane(const cryptonote::NOTIFY_REQUEST_GET_OBJECTS::request& arg, std::string &error_message) const { return true; }
   void stop() {}
 };
 

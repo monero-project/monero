@@ -2142,6 +2142,55 @@ bool Blockchain::get_blocks(uint64_t start_offset, size_t count, std::vector<std
   return true;
 }
 //------------------------------------------------------------------
+bool Blockchain::is_request_sane(const NOTIFY_REQUEST_GET_OBJECTS::request& arg, std::string &error_message) const
+{
+  LOG_PRINT_L3("Blockchain::" << __func__);
+
+  if (arg.blocks.empty())
+  {
+    error_message = "NOTIFY_REQUEST_GET_OBJECTS is empty";
+    return false;
+  }
+  if (arg.blocks.size() > std::max<size_t>(BLOCKS_SYNCHRONIZING_DEFAULT_COUNT_PRE_V4, BLOCKS_SYNCHRONIZING_DEFAULT_COUNT))
+  {
+    error_message = "NOTIFY_REQUEST_GET_OBJECTS is too large (" + std::to_string(arg.blocks.size()) + ")";
+    return false;
+  }
+
+  CRITICAL_REGION_LOCAL(m_blockchain_lock);
+  const uint64_t blockchain_height = m_db->height();
+
+  uint64_t height = m_db->get_block_height(arg.blocks.front());
+  if (height + arg.blocks.size() - 1 >= blockchain_height)
+  {
+    error_message = "NOTIFY_REQUEST_GET_OBJECTS requests objects past the end of our blockchain (assuming contiguous)";
+    return false;
+  }
+
+  // based off borromean proofs usage
+  static const uint64_t v4_height = m_hardfork->get_earliest_ideal_height_for_version(4);
+  static const uint64_t v8_height = m_hardfork->get_earliest_ideal_height_for_version(8);
+  const size_t max_count = height < v4_height ? BLOCKS_SYNCHRONIZING_DEFAULT_COUNT_PRE_V4 : BLOCKS_SYNCHRONIZING_DEFAULT_COUNT;
+  if (arg.blocks.size() > max_count)
+  {
+    error_message = "NOTIFY_REQUEST_GET_OBJECTS requests more objects then we allow (" + std::to_string(arg.blocks.size()) + " requested, " + std::to_string(max_count) + " allowed)";
+    return false;
+  }
+
+  for (size_t i = 1; i < arg.blocks.size(); ++i)
+  {
+    const uint64_t height_i = m_db->get_block_height(arg.blocks[i]);
+    if (height_i != height + 1)
+    {
+      error_message = "NOTIFY_REQUEST_GET_OBJECTS requests non contiguous blocks (height " + std::to_string(height_i) + " following height " + std::to_string(height) + ")";
+      return false;
+    }
+    height = height_i;
+  }
+
+  return true;
+}
+//------------------------------------------------------------------
 //TODO: This function *looks* like it won't need to be rewritten
 //      to use BlockchainDB, as it calls other functions that were,
 //      but it warrants some looking into later.

@@ -98,6 +98,13 @@ namespace cryptonote
      core(i_cryptonote_protocol* pprotocol);
 
     /**
+     * @copydoc Blockchain::is_request_sane
+     *
+     * @note see Blockchain::is_request_sane()
+     */
+     bool is_request_sane(const NOTIFY_REQUEST_GET_OBJECTS::request& arg, std::string &error_message) const;
+
+    /**
      * @copydoc Blockchain::handle_get_objects
      *
      * @note see Blockchain::handle_get_objects()

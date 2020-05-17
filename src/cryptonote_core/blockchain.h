@@ -475,6 +475,19 @@ namespace cryptonote
     bool find_blockchain_supplement(const uint64_t req_start_block, const std::list<crypto::hash>& qblock_ids, std::vector<std::pair<std::pair<cryptonote::blobdata, crypto::hash>, std::vector<std::pair<crypto::hash, cryptonote::blobdata> > > >& blocks, uint64_t& total_height, uint64_t& start_height, bool pruned, bool get_miner_tx_hash, size_t max_block_count, size_t max_tx_count) const;
 
     /**
+     * @brief checks if a get objects request is sane enough to fulfill
+     *
+     * Boils down to the the objects being contiguous and numbering below
+     * a height dependent threshold
+     *
+     * @param arg the request
+     * @param error_message string describing the error if false is returned
+     *
+     * @return true iff the request is considere sane
+     */
+    bool is_request_sane(const NOTIFY_REQUEST_GET_OBJECTS::request& arg, std::string &error_message) const;
+
+    /**
      * @brief retrieves a set of blocks and their transactions, and possibly other transactions
      *
      * the request object encapsulates a list of block hashes and a (possibly empty) list of
