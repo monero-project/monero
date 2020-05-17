@@ -49,6 +49,9 @@ static clsag clsag_s;
 
 static int fuzz_message(const std::string& s)
 {
+  if (sizeof(message) > s.size())
+    return 0;
+
   // fuzz message
   memcpy(&message, (uint8_t*)s.c_str(), sizeof(message));
   auto valid = rct::verRctCLSAGSimple(message,clsag_s,pubs,Cout);
@@ -58,6 +61,9 @@ static int fuzz_message(const std::string& s)
 
 static int fuzz_cout(const std::string& s)
 {
+  if (sizeof(Cout) > s.size())
+    return 0;
+
   // fuzz Cout
   memcpy(&Cout, (uint8_t*)s.c_str(), sizeof(Cout));
   rct::verRctCLSAGSimple(message,clsag_s,pubs,Cout);
@@ -67,6 +73,9 @@ static int fuzz_cout(const std::string& s)
 
 static int fuzz_clsag(const std::string& s)
 {
+  if ((clsag_s.s.size() * sizeof(key)) + sizeof(clsag_s.c1) + sizeof(clsag_s.I) + sizeof(clsag_s.D) > s.size())
+    return 0;
+
   // fuzz clsag
   size_t off = 0;
 
