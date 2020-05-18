@@ -74,7 +74,7 @@ namespace cryptonote
   {
   }
   //---------------------------------------------------------------------------
-  bool checkpoints::add_checkpoint(uint64_t height, const std::string& hash_str)
+  bool checkpoints::add_checkpoint(uint64_t height, const std::string& hash_str, const std::string& difficulty_str)
   {
     crypto::hash h = crypto::null_hash;
     bool r = epee::string_tools::parse_tpod_from_hex_string(hash_str, h);
@@ -86,6 +86,23 @@ namespace cryptonote
       CHECK_AND_ASSERT_MES(h == m_points[height], false, "Checkpoint at given height already exists, and hash for new checkpoint was different!");
     }
     m_points[height] = h;
+    if (!difficulty_str.empty())
+    {
+      try
+      {
+        difficulty_type difficulty(difficulty_str);
+        if (m_difficulty_points.count(height))
+        {
+          CHECK_AND_ASSERT_MES(difficulty == m_difficulty_points[height], false, "Difficulty checkpoint at given height already exists, and difficulty for new checkpoint was different!");
+        }
+        m_difficulty_points[height] = difficulty;
+      }
+      catch (...)
+      {
+        LOG_ERROR("Failed to parse difficulty checkpoint: " << difficulty_str);
+        return false;
+      }
+    }
     return true;
   }
   //---------------------------------------------------------------------------
@@ -145,6 +162,11 @@ namespace cryptonote
   {
     return m_points;
   }
+  //---------------------------------------------------------------------------
+  const std::map<uint64_t, difficulty_type>& checkpoints::get_difficulty_points() const
+  {
+    return m_difficulty_points;
+  }
 
   bool checkpoints::check_for_conflicts(const checkpoints& other) const
   {
@@ -162,31 +184,33 @@ namespace cryptonote
   {
     if (nettype == TESTNET)
     {
-      ADD_CHECKPOINT(0,       "d0ae70ae5f35b27b3a4b68ae4f78eeca9989174eebe8a1e55cd139fe9b797223");
-      ADD_CHECKPOINT(50000,   "71f59410da0bf670c6f24c91f0f940c5c3541a150a38f5fa7f9c520a230158d9");
+      ADD_CHECKPOINT2(0,       "d0ae70ae5f35b27b3a4b68ae4f78eeca9989174eebe8a1e55cd139fe9b797223", "1");
+      ADD_CHECKPOINT2(50000,   "71f59410da0bf670c6f24c91f0f940c5c3541a150a38f5fa7f9c520a230158d9", "947184082");
+      ADD_CHECKPOINT2(100000,  "5e321820d2c5c10640b9a933a660d610bfa7db7d8ab3a8531d642a914cfb9747", "1436381728");
       return true;
     }
     if (nettype == STAGENET)
     {
-      ADD_CHECKPOINT(0,       "d833094ccf64a3f05292a6ce6b61cb42c3490115ac1a80390b6bced0df8f1416");
-      ADD_CHECKPOINT(80000,   "a6b4d686c5b9fcf7a73e8e3e63bda1989d608c55bff391235500b2a1720d2ad4");
+      ADD_CHECKPOINT2(0,       "d833094ccf64a3f05292a6ce6b61cb42c3490115ac1a80390b6bced0df8f1416", "1");
+      ADD_CHECKPOINT2(80000,   "a6b4d686c5b9fcf7a73e8e3e63bda1989d608c55bff391235500b2a1720d2ad4", "8824240");
+      ADD_CHECKPOINT2(200000,  "b51c712e2afcf575cd79df1c473e83c4fdcfbce00934cde03a480b8ac81771e1", "2186992746");
       return true;
     }
-    ADD_CHECKPOINT(1,      "1440a20f078bf3264822234b347f8382606577d73d4e9d3cb7296d73889bc421");
-    ADD_CHECKPOINT(100,    "6dd13aaab16679f49ee6b2b75c7dc99b1fd09ab2282b18cb4b55b73110655742");
-    ADD_CHECKPOINT(1000,   "bc6458452fd0575a314089bf302f6fd68ebaa2d689c42f3365293b96bbdf1f25");
-    ADD_CHECKPOINT(10000,  "1ac1ebd25baf0d6ec593daa3389f1aa7e860ff2cc29f3cf1be586d245b379da4");
-    ADD_CHECKPOINT(15000,  "15567af42afc1ed00538f53b5e3822d421e3ed6372ca79f4ea4e3e3bab709a87");
-    ADD_CHECKPOINT(175500, "3f7dd748b3b863b04654d87a387f2b65a365f467188971f3192eab2368e64a35");
-    ADD_CHECKPOINT(450000, "f69a6e57c4dd5df2f492c9d31c50f11aad2c25a64d540ce5f5d11b572aec8ab7");
-    ADD_CHECKPOINT(540000, "94e19cf9d5a16ae90f67c321f8376b87da21d6d6c2cb0957b9ab558dca66c1dc");
-    ADD_CHECKPOINT(592001, "e8bc936b287a9c426a15cf127624b064c88e6d37655cc87f9a62cf1623c62385");
-    ADD_CHECKPOINT(798358, "804c7fe07511d9387e7cda534c9e8b644d406d8d0ff299799a8177850d4e75a0");
-    ADD_CHECKPOINT(871000, "99f7e5460da3fb4e2b15214017b0a17ff0294823ad852259ff837f0ffeeb90f0");
-    ADD_CHECKPOINT(959800, "8a89ede82ae1e3408703feae87c99bccca8455744743eede02bd76b43d202dc6");
-    ADD_CHECKPOINT(1026000, "ea5ace68a81b3b50ec27a457799fec63a9d45acd35a38e31e2b7b5be2315a13e");
-    ADD_CHECKPOINT(1133000, "4efa7a1aa943b3d1a9cd8807cdb34ba10767e6437876e28964dcdf1bb4da62e2");
-    ADD_CHECKPOINT(1157000, "320304a96228979a9565c550c666a5ceaf2f2dbd99aa5ff8354385fb515be7ea");
+    ADD_CHECKPOINT2(1,      "1440a20f078bf3264822234b347f8382606577d73d4e9d3cb7296d73889bc421", "2");
+    ADD_CHECKPOINT2(100,    "6dd13aaab16679f49ee6b2b75c7dc99b1fd09ab2282b18cb4b55b73110655742", "120823772");
+    ADD_CHECKPOINT2(1000,   "bc6458452fd0575a314089bf302f6fd68ebaa2d689c42f3365293b96bbdf1f25", "9161286978");
+    ADD_CHECKPOINT2(10000,  "1ac1ebd25baf0d6ec593daa3389f1aa7e860ff2cc29f3cf1be586d245b379da4", "71151659200");
+    ADD_CHECKPOINT2(15000,  "15567af42afc1ed00538f53b5e3822d421e3ed6372ca79f4ea4e3e3bab709a87", "102902810479");
+    ADD_CHECKPOINT2(175500, "3f7dd748b3b863b04654d87a387f2b65a365f467188971f3192eab2368e64a35", "1382142910023");
+    ADD_CHECKPOINT2(450000, "f69a6e57c4dd5df2f492c9d31c50f11aad2c25a64d540ce5f5d11b572aec8ab7", "1604326150186");
+    ADD_CHECKPOINT2(540000, "94e19cf9d5a16ae90f67c321f8376b87da21d6d6c2cb0957b9ab558dca66c1dc", "1691603760435");
+    ADD_CHECKPOINT2(592001, "e8bc936b287a9c426a15cf127624b064c88e6d37655cc87f9a62cf1623c62385", "1817694366711");
+    ADD_CHECKPOINT2(798358, "804c7fe07511d9387e7cda534c9e8b644d406d8d0ff299799a8177850d4e75a0", "26676268161857");
+    ADD_CHECKPOINT2(871000, "99f7e5460da3fb4e2b15214017b0a17ff0294823ad852259ff837f0ffeeb90f0", "74226941049292");
+    ADD_CHECKPOINT2(959800, "8a89ede82ae1e3408703feae87c99bccca8455744743eede02bd76b43d202dc6", "716458758970498");
+    ADD_CHECKPOINT2(1026000, "ea5ace68a81b3b50ec27a457799fec63a9d45acd35a38e31e2b7b5be2315a13e", "997668660280133");
+    ADD_CHECKPOINT2(1133000, "4efa7a1aa943b3d1a9cd8807cdb34ba10767e6437876e28964dcdf1bb4da62e2", "1627621413427613");
+    ADD_CHECKPOINT2(1157000, "320304a96228979a9565c550c666a5ceaf2f2dbd99aa5ff8354385fb515be7ea", "11699971284450871988");
     
 
     return true;

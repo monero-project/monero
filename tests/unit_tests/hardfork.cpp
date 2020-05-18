@@ -76,6 +76,7 @@ public:
   virtual size_t get_block_weight(const uint64_t& height) const { return 128; }
   virtual difficulty_type get_block_cumulative_difficulty(const uint64_t& height) const { return 10; }
   virtual difficulty_type get_block_difficulty(const uint64_t& height) const { return 0; }
+  virtual void correct_block_cumulative_difficulties(const uint64_t& start_height, const std::vector<difficulty_type>& new_cumulative_difficulties) {}
   virtual uint64_t get_block_already_generated_coins(const uint64_t& height) const { return 10000000000; }
   virtual crypto::hash get_block_hash_from_height(const uint64_t& height) const { return crypto::hash(); }
   virtual std::vector<block> get_blocks_range(const uint64_t& h1, const uint64_t& h2) const { return std::vector<block>(); }
