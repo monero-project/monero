@@ -1108,7 +1108,7 @@ namespace hw {
         for(size_t n=0; n < additional_derivations.size();++n) {
           if(derivation == additional_derivations[n]) {
             pkey = &additional_tx_pub_keys[n];
-            MDEBUG("conceal derivation with additionnal tx pub key");
+            MDEBUG("conceal derivation with additional tx pub key");
             break;
           }
         }
@@ -1640,20 +1640,20 @@ namespace hw {
       
       //if (tx_version > 1)
       {
-        ASSERT_X(recv_len>=32, "Not enought data from device");
+        ASSERT_X(recv_len>=32, "Not enough data from device");
         crypto::secret_key scalar1;
         this->receive_secret((unsigned char*)scalar1.data, offset);
         amount_keys.push_back(rct::sk2rct(scalar1));
         recv_len -= 32;
       }
-      ASSERT_X(recv_len>=32, "Not enought data from device");
+      ASSERT_X(recv_len>=32, "Not enough data from device");
       memmove(out_eph_public_key.data, &this->buffer_recv[offset], 32);
       recv_len -= 32;
       offset += 32;
 
       if (need_additional_txkeys)
       {
-        ASSERT_X(recv_len>=32, "Not enought data from device");
+        ASSERT_X(recv_len>=32, "Not enough data from device");
         memmove(additional_txkey.pub.data, &this->buffer_recv[offset], 32);
         additional_tx_public_keys.push_back(additional_txkey.pub);
         offset += 32;
