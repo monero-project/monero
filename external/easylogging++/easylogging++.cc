@@ -2475,6 +2475,100 @@ void DefaultLogDispatchCallback::handle(const LogDispatchData* data) {
   }
 }
 
+
+template<typename Transform>
+static inline std::string utf8canonical(const std::string &s, Transform t = [](wint_t c)->wint_t { return c; })
+{
+    std::string sc = "";
+    size_t avail = s.size();
+    const char *ptr = s.data();
+    wint_t cp = 0;
+    int bytes = 1;
+    char wbuf[8], *wptr;
+    while (avail--)
+    {
+      if ((*ptr & 0x80) == 0)
+      {
+        cp = *ptr++;
+        bytes = 1;
+      }
+      else if ((*ptr & 0xe0) == 0xc0)
+      {
+        if (avail < 1)
+          throw std::runtime_error("Invalid UTF-8");
+        cp = (*ptr++ & 0x1f) << 6;
+        cp |= *ptr++ & 0x3f;
+        --avail;
+        bytes = 2;
+      }
+      else if ((*ptr & 0xf0) == 0xe0)
+      {
+        if (avail < 2)
+          throw std::runtime_error("Invalid UTF-8");
+        cp = (*ptr++ & 0xf) << 12;
+        cp |= (*ptr++ & 0x3f) << 6;
+        cp |= *ptr++ & 0x3f;
+        avail -= 2;
+        bytes = 3;
+      }
+      else if ((*ptr & 0xf8) == 0xf0)
+      {
+        if (avail < 3)
+          throw std::runtime_error("Invalid UTF-8");
+        cp = (*ptr++ & 0x7) << 18;
+        cp |= (*ptr++ & 0x3f) << 12;
+        cp |= (*ptr++ & 0x3f) << 6;
+        cp |= *ptr++ & 0x3f;
+        avail -= 3;
+        bytes = 4;
+      }
+      else
+        throw std::runtime_error("Invalid UTF-8");
+
+      cp = t(cp);
+      if (cp <= 0x7f)
+        bytes = 1;
+      else if (cp <= 0x7ff)
+        bytes = 2;
+      else if (cp <= 0xffff)
+        bytes = 3;
+      else if (cp <= 0x10ffff)
+        bytes = 4;
+      else
+        throw std::runtime_error("Invalid code point UTF-8 transformation");
+
+      wptr = wbuf;
+      switch (bytes)
+      {
+        case 1: *wptr++ = cp; break;
+        case 2: *wptr++ = 0xc0 | (cp >> 6); *wptr++ = 0x80 | (cp & 0x3f); break;
+        case 3: *wptr++ = 0xe0 | (cp >> 12); *wptr++ = 0x80 | ((cp >> 6) & 0x3f); *wptr++ = 0x80 | (cp & 0x3f); break;
+        case 4: *wptr++ = 0xf0 | (cp >> 18); *wptr++ = 0x80 | ((cp >> 12) & 0x3f); *wptr++ = 0x80 | ((cp >> 6) & 0x3f); *wptr++ = 0x80 | (cp & 0x3f); break;
+        default: throw std::runtime_error("Invalid UTF-8");
+      }
+      *wptr = 0;
+      sc.append(wbuf, bytes);
+      cp = 0;
+      bytes = 1;
+    }
+    return sc;
+}
+
+void sanitize(std::string &s)
+{
+  s = utf8canonical(s, [](wint_t c)->wint_t {
+    if (c == 9 || c == 10 || c == 13)
+      return c;
+    if (c < 0x20)
+      return '?';
+    if (c == 0x7f)
+      return '?';
+    if (c >= 0x80 && c <= 0x9f)
+      return '?';
+    return c;
+  });
+}
+
 void DefaultLogDispatchCallback::dispatch(base::type::string_t&& rawLinePrefix, base::type::string_t&& rawLinePayload, base::type::string_t&& logLine) {
   if (m_data->dispatchAction() == base::DispatchAction::NormalLog || m_data->dispatchAction() == base::DispatchAction::FileOnlyLog) {
     if (m_data->logMessage()->logger()->m_typedConfigurations->toFile(m_data->logMessage()->level())) {
@@ -2506,6 +2600,8 @@ void DefaultLogDispatchCallback::dispatch(base::type::string_t&& rawLinePrefix, 
         m_data->logMessage()->logger()->logBuilder()->setColor(el::base::utils::colorFromLevel(level), false);
         ELPP_COUT << rawLinePrefix;
         m_data->logMessage()->logger()->logBuilder()->setColor(color == el::Color::Default ? el::base::utils::colorFromLevel(level): color, color != el::Color::Default);
+        try { sanitize(rawLinePayload); }
+        catch (const std::exception &e) { rawLinePayload = "<Invalid UTF-8 in log>"; }
         ELPP_COUT << rawLinePayload;
         m_data->logMessage()->logger()->logBuilder()->setColor(el::Color::Default, false);
         ELPP_COUT << std::flush;
