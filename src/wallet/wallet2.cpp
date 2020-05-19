@@ -13080,7 +13080,7 @@ size_t wallet2::import_multisig(std::vector<cryptonote::blobdata> blobs)
   CHECK_AND_ASSERT_THROW_MES(info.size() + 1 <= m_multisig_signers.size() && info.size() + 1 >= m_multisig_threshold, "Wrong number of multisig sources");
 
   std::vector<std::vector<rct::key>> k;
-  auto wiper = epee::misc_utils::create_scope_leave_handler([&](){memwipe(k.data(), k.size() * sizeof(k[0]));});
+  auto wiper = epee::misc_utils::create_scope_leave_handler([&](){for (auto &v: k) memwipe(v.data(), v.size() * sizeof(v[0]));});
   k.reserve(m_transfers.size());
   for (const auto &td: m_transfers)
     k.push_back(td.m_multisig_k);
