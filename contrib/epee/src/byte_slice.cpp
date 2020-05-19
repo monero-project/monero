@@ -133,10 +133,13 @@ namespace epee
 
   template<typename T>
   byte_slice::byte_slice(const adapt_buffer, T&& buffer)
-    : storage_(nullptr), portion_(to_byte_span(to_span(buffer)))
+    : storage_(nullptr), portion_(nullptr)
   {
     if (!buffer.empty())
+    {
       storage_ = allocate_slice<adapted_byte_slice<T>>(0, std::move(buffer));
+      portion_ = to_byte_span(to_span(static_cast<adapted_byte_slice<T> *>(storage_.get())->buffer));
+    }
   }
 
   byte_slice::byte_slice(std::initializer_list<span<const std::uint8_t>> sources)

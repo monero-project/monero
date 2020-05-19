@@ -387,6 +387,29 @@ TEST(ByteSlice, Construction)
   EXPECT_FALSE(std::is_copy_assignable<epee::byte_slice>());
 }
 
+TEST(ByteSlice, DataReturnedMatches)
+{
+  for (int i = 64; i > 0; i--)
+  {
+    std::string sso_string(i, 'a');
+    std::string original = sso_string;
+    epee::byte_slice slice{std::move(sso_string)};
+
+    EXPECT_EQ(slice.size(), original.size());
+    EXPECT_EQ(memcmp(slice.data(), original.data(), original.size()), 0);
+  }
+
+  for (int i = 64; i > 0; i--)
+  {
+    std::vector<uint8_t> sso_vector(i, 'a');
+    std::vector<uint8_t> original = sso_vector;
+    epee::byte_slice slice{std::move(sso_vector)};
+
+    EXPECT_EQ(slice.size(), original.size());
+    EXPECT_EQ(memcmp(slice.data(), original.data(), original.size()), 0);
+  }
+}
+
 TEST(ByteSlice, NoExcept)
 {
   EXPECT_TRUE(std::is_nothrow_default_constructible<epee::byte_slice>());
