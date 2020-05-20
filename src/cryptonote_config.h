@@ -230,6 +230,7 @@ namespace config
   const unsigned char HASH_KEY_CLSAG_ROUND[] = "CLSAG_round";
   const unsigned char HASH_KEY_CLSAG_AGG_0[] = "CLSAG_agg_0";
   const unsigned char HASH_KEY_CLSAG_AGG_1[] = "CLSAG_agg_1";
+  const char HASH_KEY_MESSAGE_SIGNING[] = "MessageSignature";
 
   namespace testnet
   {

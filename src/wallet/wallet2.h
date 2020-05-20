@@ -1341,8 +1341,10 @@ private:
      */
     void set_account_tag_description(const std::string& tag, const std::string& description);
 
-    std::string sign(const std::string &data, cryptonote::subaddress_index index = {0, 0}) const;
-    bool verify(const std::string &data, const cryptonote::account_public_address &address, const std::string &signature) const;
+    enum message_signature_type_t { sign_with_spend_key, sign_with_view_key, sign_with_both_keys };
+    std::string sign(const std::string &data, message_signature_type_t signature_type, cryptonote::subaddress_index index = {0, 0}) const;
+    struct message_signature_result_t { bool valid; unsigned version; bool old; message_signature_type_t type; };
+    message_signature_result_t verify(const std::string &data, const cryptonote::account_public_address &address, const std::string &signature) const;
 
     /*!
      * \brief sign_multisig_participant signs given message with the multisig public signer key

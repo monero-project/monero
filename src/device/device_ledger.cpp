@@ -880,6 +880,12 @@ namespace hw {
         return sub_sec;
     }
 
+    crypto::secret_key  device_ledger::get_subaddress_view_secret_key(const crypto::secret_key &sec, const cryptonote::subaddress_index &index) {
+#warning TODO
+        MERROR("Not implemented yet");
+        return crypto::null_skey;
+    }
+
     /* ======================================================================= */
     /*                            DERIVATION & KEY                             */
     /* ======================================================================= */

@@ -1618,11 +1618,13 @@ namespace wallet_rpc
       std::string data;
       uint32_t account_index;
       uint32_t address_index;
+      std::string signature_type;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(data)
         KV_SERIALIZE_OPT(account_index, 0u)
         KV_SERIALIZE_OPT(address_index, 0u)
+        KV_SERIALIZE(signature_type)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
@@ -1657,9 +1659,15 @@ namespace wallet_rpc
     struct response_t
     {
       bool good;
+      unsigned version;
+      bool old;
+      std::string signature_type;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(good);
+        KV_SERIALIZE(version);
+        KV_SERIALIZE(old);
+        KV_SERIALIZE(signature_type);
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;

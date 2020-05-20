@@ -223,7 +223,7 @@ namespace
   const char* USAGE_GET_TX_NOTE("get_tx_note <txid>");
   const char* USAGE_GET_DESCRIPTION("get_description");
   const char* USAGE_SET_DESCRIPTION("set_description [free text note]");
-  const char* USAGE_SIGN("sign [<account_index>,<address_index>] <filename>");
+  const char* USAGE_SIGN("sign [<account_index>,<address_index>] [--spend|--view|--both] <filename>");
   const char* USAGE_VERIFY("verify <filename> <address> <signature>");
   const char* USAGE_EXPORT_KEY_IMAGES("export_key_images [all] <filename>");
   const char* USAGE_IMPORT_KEY_IMAGES("import_key_images <filename>");
@@ -9877,7 +9877,7 @@ bool simple_wallet::sign(const std::vector<std::string> &args)
     fail_msg_writer() << tr("command not supported by HW wallet");
     return true;
   }
-  if (args.size() != 1 && args.size() != 2)
+  if (args.size() != 1 && args.size() != 2 && args.size() != 3)
   {
     PRINT_USAGE(USAGE_SIGN);
     return true;
@@ -9893,17 +9893,33 @@ bool simple_wallet::sign(const std::vector<std::string> &args)
     return true;
   }
 
+  tools::wallet2::message_signature_type_t message_signature_type = tools::wallet2::sign_with_spend_key;
   subaddress_index index{0, 0};
-  if (args.size() == 2)
+  for (unsigned int idx = 0; idx + 1 < args.size(); ++idx)
   {
     unsigned int a, b;
-    if (sscanf(args[0].c_str(), "%u,%u", &a, &b) != 2)
+    if (sscanf(args[idx].c_str(), "%u,%u", &a, &b) == 2)
     {
-      fail_msg_writer() << tr("Invalid subaddress index format");
+      index.major = a;
+      index.minor = b;
+    }
+    else if (args[idx] == "--spend")
+    {
+      message_signature_type = tools::wallet2::sign_with_spend_key;
+    }
+    else if (args[idx] == "--view")
+    {
+      message_signature_type = tools::wallet2::sign_with_view_key;
+    }
+    else if (args[idx] == "--both")
+    {
+      message_signature_type = tools::wallet2::sign_with_both_keys;
+    }
+    else
+    {
+      fail_msg_writer() << tr("Invalid subaddress index format, and not a signature type: ") << args[idx];
       return true;
     }
-    index.major = a;
-    index.minor = b;
   }
 
   const std::string &filename = args.back();
@@ -9917,7 +9933,7 @@ bool simple_wallet::sign(const std::vector<std::string> &args)
 
   SCOPED_WALLET_UNLOCK();
 
-  std::string signature = m_wallet->sign(data, index);
+  std::string signature = m_wallet->sign(data, message_signature_type, index);
   success_msg_writer() << signature;
   return true;
 }
@@ -9948,14 +9964,14 @@ bool simple_wallet::verify(const std::vector<std::string> &args)
     return true;
   }
 
-  r = m_wallet->verify(data, info.address, signature);
-  if (!r)
+  tools::wallet2::message_signature_result_t result = m_wallet->verify(data, info.address, signature);
+  if (!result.valid)
   {
     fail_msg_writer() << tr("Bad signature from ") << address_string;
   }
   else
   {
-    success_msg_writer() << tr("Good signature from ") << address_string;
+    success_msg_writer() << tr("Good signature from ") << address_string << (result.old ? " (using old signature algorithm)" : "") << " with " << (result.type == tools::wallet2::sign_with_spend_key ? "spend key" : result.type == tools::wallet2::sign_with_view_key ? "view key" : result.type == tools::wallet2::sign_with_both_keys ? "both spend and view keys" : "unknown key combination (suspicious)");
   }
   return true;
 }

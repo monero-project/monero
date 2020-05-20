@@ -207,6 +207,12 @@ namespace hw {
             return m;
         }
 
+        crypto::secret_key  device_default::get_subaddress_view_secret_key(const crypto::secret_key &a, const cryptonote::subaddress_index &index) {
+            crypto::secret_key skey = get_subaddress_secret_key(a, index);
+            sc_mul((unsigned char*)skey.data, (const unsigned char*)skey.data, (const unsigned char*)a.data);
+            return skey;
+        }
+
         /* ======================================================================= */
         /*                            DERIVATION & KEY                             */
         /* ======================================================================= */

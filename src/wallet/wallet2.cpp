@@ -12207,51 +12207,114 @@ void wallet2::set_account_tag_description(const std::string& tag, const std::str
   m_account_tags.first[tag] = description;
 }
 
-std::string wallet2::sign(const std::string &data, cryptonote::subaddress_index index) const
+static crypto::hash get_message_hash(const std::string &data)
 {
+  KECCAK_CTX ctx;
+  keccak_init(&ctx);
+  keccak_update(&ctx, (const uint8_t*)config::HASH_KEY_MESSAGE_SIGNING, sizeof(config::HASH_KEY_MESSAGE_SIGNING)); // includes NUL
+  char len_buf[(sizeof(size_t) * 8 + 6) / 7];
+  char *ptr = len_buf;
+  tools::write_varint(ptr, data.size());
+  CHECK_AND_ASSERT_THROW_MES(ptr > len_buf && ptr <= len_buf + sizeof(len_buf), "Length overflow");
+  keccak_update(&ctx, (const uint8_t*)len_buf, ptr - len_buf);
+  keccak_update(&ctx, (const uint8_t*)data.data(), data.size());
   crypto::hash hash;
-  crypto::cn_fast_hash(data.data(), data.size(), hash);
+  keccak_finish(&ctx, (uint8_t*)&hash);
+  return hash;
+}
+
+std::string wallet2::sign(const std::string &data, message_signature_type_t signature_type, cryptonote::subaddress_index index) const
+{
+  const crypto::hash hash = get_message_hash(data);
   const cryptonote::account_keys &keys = m_account.get_keys();
   crypto::signature signature;
-  crypto::secret_key skey;
+  crypto::secret_key skey, m;
   crypto::public_key pkey;
   if (index.is_zero())
   {
-    skey = keys.m_spend_secret_key;
-    pkey = keys.m_account_address.m_spend_public_key;
+    switch (signature_type)
+    {
+      case sign_with_spend_key:
+        skey = keys.m_spend_secret_key;
+        pkey = keys.m_account_address.m_spend_public_key;
+        break;
+      case sign_with_view_key:
+        skey = keys.m_view_secret_key;
+        pkey = keys.m_account_address.m_view_public_key;
+        break;
+#if 0
+      case sign_with_both_keys:
+#endif
+      default: CHECK_AND_ASSERT_THROW_MES(false, "Invalid signature type requested");
+    }
   }
   else
   {
-    skey = keys.m_spend_secret_key;
-    crypto::secret_key m = m_account.get_device().get_subaddress_secret_key(keys.m_view_secret_key, index);
-    sc_add((unsigned char*)&skey, (unsigned char*)&m, (unsigned char*)&skey);
+    switch (signature_type)
+    {
+      case sign_with_spend_key:
+        skey = keys.m_spend_secret_key;
+        m = m_account.get_device().get_subaddress_secret_key(keys.m_view_secret_key, index);
+        sc_add((unsigned char*)&skey, (unsigned char*)&m, (unsigned char*)&skey);
+        break;
+      case sign_with_view_key:
+        skey = keys.m_spend_secret_key;
+        m = m_account.get_device().get_subaddress_secret_key(keys.m_view_secret_key, index);
+        sc_add((unsigned char*)&skey, (unsigned char*)&m, (unsigned char*)&skey);
+        sc_mul((unsigned char*)&skey, (unsigned char*)&keys.m_view_secret_key, (unsigned char*)&skey);
+        break;
+#if 0
+      case sign_with_both_keys: skey = ...; break;
+#endif
+      default: CHECK_AND_ASSERT_THROW_MES(false, "Invalid signature type requested");
+    }
     secret_key_to_public_key(skey, pkey);
   }
   crypto::generate_signature(hash, pkey, skey, signature);
-  return std::string("SigV1") + tools::base58::encode(std::string((const char *)&signature, sizeof(signature)));
+  return std::string("SigV2") + tools::base58::encode(std::string((const char *)&signature, sizeof(signature)));
 }
 
-bool wallet2::verify(const std::string &data, const cryptonote::account_public_address &address, const std::string &signature) const
+tools::wallet2::message_signature_result_t wallet2::verify(const std::string &data, const cryptonote::account_public_address &address, const std::string &signature) const
 {
-  const size_t header_len = strlen("SigV1");
-  if (signature.size() < header_len || signature.substr(0, header_len) != "SigV1") {
+  static const size_t v1_header_len = strlen("SigV1");
+  static const size_t v2_header_len = strlen("SigV2");
+  const bool v1 = signature.size() >= v1_header_len && signature.substr(0, v1_header_len) == "SigV1";
+  const bool v2 = signature.size() >= v2_header_len && signature.substr(0, v2_header_len) == "SigV2";
+  if (!v1 && !v2)
+  {
     LOG_PRINT_L0("Signature header check error");
-    return false;
+    return {};
   }
   crypto::hash hash;
-  crypto::cn_fast_hash(data.data(), data.size(), hash);
+  if (v1)
+  {
+    crypto::cn_fast_hash(data.data(), data.size(), hash);
+  }
+  else
+  {
+    hash = get_message_hash(data);
+  }
   std::string decoded;
-  if (!tools::base58::decode(signature.substr(header_len), decoded)) {
+  if (!tools::base58::decode(signature.substr(v1 ? v1_header_len : v2_header_len), decoded)) {
     LOG_PRINT_L0("Signature decoding error");
-    return false;
+    return {};
   }
   crypto::signature s;
   if (sizeof(s) != decoded.size()) {
     LOG_PRINT_L0("Signature decoding error");
-    return false;
+    return {};
   }
   memcpy(&s, decoded.data(), sizeof(s));
-  return crypto::check_signature(hash, address.m_spend_public_key, s);
+  if (crypto::check_signature(hash, address.m_spend_public_key, s))
+    return {true, v1 ? 1u : 2u, !v2, sign_with_spend_key };
+  if (crypto::check_signature(hash, address.m_view_public_key, s))
+    return {true, v1 ? 1u : 2u, !v2, sign_with_view_key };
+#if 0
+  rct::key both = ...;
+  if (crypto::check_signature(hash, rct::rct2pk(both), s))
+    return {true, v1 ? 1u : 2u, !v2, sign_with_both_keys };
+#endif
+  return {};
 }
 
 std::string wallet2::sign_multisig_participant(const std::string& data) const
