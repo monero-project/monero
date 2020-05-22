@@ -358,7 +358,7 @@ namespace cryptonote
     for (std::unordered_map<crypto::public_key, client_info>::iterator i = m_client_info.begin(); i != m_client_info.end(); )
     {
       std::unordered_map<crypto::public_key, client_info>::iterator j = i++;
-      const time_t t = std::max(j->second.last_request_timestamp, j->second.update_time);
+      const time_t t = std::max(j->second.last_request_timestamp / 1000000, j->second.update_time);
       const bool erase = t < ((j->second.credits == 0) ? threshold0 : threshold);
       if (erase)
       {
