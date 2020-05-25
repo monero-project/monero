@@ -158,10 +158,11 @@ namespace
   const command_line::arg_descriptor<std::string> arg_generate_from_multisig_keys = {"generate-from-multisig-keys", sw::tr("Generate a master wallet from multisig wallet keys"), ""};
   const auto arg_generate_from_json = wallet_args::arg_generate_from_json();
   const command_line::arg_descriptor<std::string> arg_mnemonic_language = {"mnemonic-language", sw::tr("Language for mnemonic"), ""};
-  const command_line::arg_descriptor<std::string> arg_electrum_seed = {"electrum-seed", sw::tr("Specify Electrum seed for wallet recovery/creation"), ""};
-  const command_line::arg_descriptor<bool> arg_restore_deterministic_wallet = {"restore-deterministic-wallet", sw::tr("Recover wallet using Electrum-style mnemonic seed"), false};
-  const command_line::arg_descriptor<bool> arg_restore_from_seed = {"restore-from-seed", sw::tr("alias for --restore-deterministic-wallet"), false};
-  const command_line::arg_descriptor<bool> arg_restore_multisig_wallet = {"restore-multisig-wallet", sw::tr("Recover multisig wallet using Electrum-style mnemonic seed"), false};
+  const command_line::arg_descriptor<std::string> arg_electrum_seed = {"electrum-seed", sw::tr("Alias for --mnemonic-seed"), ""};
+  const command_line::arg_descriptor<std::string> arg_mnemonic_seed = {"mnemonic-seed", sw::tr("Specify mnemonic seed for wallet recovery/creation"), ""};
+  const command_line::arg_descriptor<bool> arg_restore_deterministic_wallet = {"restore-deterministic-wallet", sw::tr("Recover wallet using mnemonic seed"), false};
+  const command_line::arg_descriptor<bool> arg_restore_from_seed = {"restore-from-seed", sw::tr("Alias for --restore-deterministic-wallet"), false};
+  const command_line::arg_descriptor<bool> arg_restore_multisig_wallet = {"restore-multisig-wallet", sw::tr("Recover multisig wallet using mnemonic seed"), false};
   const command_line::arg_descriptor<bool> arg_non_deterministic = {"non-deterministic", sw::tr("Generate non-deterministic view and spend keys"), false};
   const command_line::arg_descriptor<bool> arg_allow_mismatched_daemon_version = {"allow-mismatched-daemon-version", sw::tr("Allow communicating with a daemon that uses a different RPC version"), false};
   const command_line::arg_descriptor<uint64_t> arg_restore_height = {"restore-height", sw::tr("Restore from specific blockchain height"), 0};
@@ -3209,7 +3210,7 @@ simple_wallet::simple_wallet()
                            tr("Display the private spend key."));
   m_cmd_binder.set_handler("seed",
                            boost::bind(&simple_wallet::on_command, this, &simple_wallet::seed, _1),
-                           tr("Display the Electrum-style mnemonic seed"));
+                           tr("Display the mnemonic seed"));
   m_cmd_binder.set_handler("restore_height",
                            boost::bind(&simple_wallet::restore_height, this, _1),
                            tr("Display the restore height"));
@@ -3287,7 +3288,7 @@ simple_wallet::simple_wallet()
                                   "  How many seconds to wait before locking the wallet (0 to disable)."));
   m_cmd_binder.set_handler("encrypted_seed",
                            boost::bind(&simple_wallet::on_command, this, &simple_wallet::encrypted_seed, _1),
-                           tr("Display the encrypted Electrum-style mnemonic seed."));
+                           tr("Display the encrypted mnemonic seed."));
   m_cmd_binder.set_handler("rescan_spent",
                            boost::bind(&simple_wallet::on_command, this, &simple_wallet::rescan_spent, _1),
                            tr("Rescan the blockchain for spent outputs."));
@@ -3995,7 +3996,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
               return false;
             if (m_electrum_seed.empty())
             {
-              fail_msg_writer() << tr("specify a recovery parameter with the --electrum-seed=\"multisig seed here\"");
+              fail_msg_writer() << tr("specify a recovery parameter with the --mnemonic-seed=\"multisig seed here\"");
               return false;
             }
         }
@@ -4004,13 +4005,13 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
           m_electrum_seed = "";
           do
           {
-            const char *prompt = m_electrum_seed.empty() ? "Specify Electrum seed" : "Electrum seed continued";
+            const char *prompt = m_electrum_seed.empty() ? "Specify mnemonic seed" : "Mnemonic seed continued";
             epee::wipeable_string electrum_seed = input_secure_line(prompt);
             if (std::cin.eof())
               return false;
             if (electrum_seed.empty())
             {
-              fail_msg_writer() << tr("specify a recovery parameter with the --electrum-seed=\"words list here\"");
+              fail_msg_writer() << tr("specify a recovery parameter with the --mnemonic-seed=\"words list here\"");
               return false;
             }
             m_electrum_seed += electrum_seed;
@@ -4033,7 +4034,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
       {
         if (!crypto::ElectrumWords::words_to_bytes(m_electrum_seed, m_recovery_key, old_language))
         {
-          fail_msg_writer() << tr("Electrum-style word list failed verification");
+          fail_msg_writer() << tr("Mnemonic word list failed verification");
           return false;
         }
       }
@@ -4579,7 +4580,7 @@ bool simple_wallet::handle_command_line(const boost::program_options::variables_
   m_generate_from_multisig_keys   = command_line::get_arg(vm, arg_generate_from_multisig_keys);
   m_generate_from_json            = command_line::get_arg(vm, arg_generate_from_json);
   m_mnemonic_language             = command_line::get_arg(vm, arg_mnemonic_language);
-  m_electrum_seed                 = command_line::get_arg(vm, arg_electrum_seed);
+  m_electrum_seed                 = command_line::get_arg(vm, arg_electrum_seed) || command_line::get_arg(vm, arg_mnemonic_seed);
   m_restore_deterministic_wallet  = command_line::get_arg(vm, arg_restore_deterministic_wallet) || command_line::get_arg(vm, arg_restore_from_seed);
   m_restore_multisig_wallet       = command_line::get_arg(vm, arg_restore_multisig_wallet);
   m_non_deterministic             = command_line::get_arg(vm, arg_non_deterministic);
@@ -10264,6 +10265,7 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_params, arg_restore_from_seed );
   command_line::add_arg(desc_params, arg_restore_multisig_wallet );
   command_line::add_arg(desc_params, arg_non_deterministic );
+  command_line::add_arg(desc_params, arg_mnemonic_seed );
   command_line::add_arg(desc_params, arg_electrum_seed );
   command_line::add_arg(desc_params, arg_allow_mismatched_daemon_version);
   command_line::add_arg(desc_params, arg_restore_height);

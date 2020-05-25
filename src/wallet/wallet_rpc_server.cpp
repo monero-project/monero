@@ -3572,7 +3572,7 @@ namespace tools
       if (!crypto::ElectrumWords::words_to_bytes(req.seed, recovery_key, old_language))
       {
         er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
-        er.message = "Electrum-style word list failed verification";
+        er.message = "Mnemonic word list failed verification";
         return false;
       }
     }
