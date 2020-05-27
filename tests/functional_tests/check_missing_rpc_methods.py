@@ -46,5 +46,6 @@ for module in modules:
         name = name[1:]
       if not hasattr(module['object'], name):
         print('Error: %s API method %s does not have a matching function' % (module['name'], name))
+        error = True
 
 sys.exit(1 if error else 0)
