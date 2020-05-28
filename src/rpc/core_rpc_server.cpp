@@ -2816,7 +2816,7 @@ namespace cryptonote
       crypto::hash txid = *reinterpret_cast<const crypto::hash*>(txid_data.data());
 
       cryptonote::blobdata txblob;
-      if (!m_core.get_pool_transaction(txid, txblob, relay_category::legacy))
+      if (m_core.get_pool_transaction(txid, txblob, relay_category::legacy))
       {
         NOTIFY_NEW_TRANSACTIONS::request r;
         r.txs.push_back(std::move(txblob));
