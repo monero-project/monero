@@ -146,6 +146,26 @@ void fromJsonValue(const rapidjson::Value& val, std::string& str)
   str = val.GetString();
 }
 
+void toJsonValue(rapidjson::Writer<epee::byte_stream>& dest, const std::vector<std::uint8_t>& src)
+{
+  const std::string hex = epee::to_hex::string(epee::to_span(src));
+  dest.String(hex.data(), hex.size());
+}
+
+void fromJsonValue(const rapidjson::Value& val, std::vector<std::uint8_t>& dest)
+{
+  if (!val.IsString())
+  {
+    throw WRONG_TYPE("string");
+  }
+
+  dest.resize(val.GetStringLength() / 2);
+  if ((val.GetStringLength() % 2) != 0 || !epee::from_hex::to_buffer(epee::to_mut_span(dest), {val.GetString(), val.GetStringLength()}))
+  {
+    throw BAD_INPUT();
+  }
+}
+
 void toJsonValue(rapidjson::Writer<epee::byte_stream>& dest, bool i)
 {
   dest.Bool(i);

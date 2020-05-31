@@ -94,7 +94,7 @@ namespace
 
       rapidjson::Document doc;
       doc.Parse(reinterpret_cast<const char*>(buffer.data()), buffer.size());
-      if (doc.HasParseError() || !doc.IsObject())
+      if (doc.HasParseError())
       {
         throw cryptonote::json::PARSE_FAIL();
       }
@@ -104,6 +104,21 @@ namespace
       return out;
     }
 } // anonymous
+
+TEST(JsonSerialization, VectorBytes)
+{
+    EXPECT_EQ(std::vector<std::uint8_t>{}, test_json(std::vector<std::uint8_t>{}));
+    EXPECT_EQ(std::vector<std::uint8_t>{0x00}, test_json(std::vector<std::uint8_t>{0x00}));
+}
+
+TEST(JsonSerialization, InvalidVectorBytes)
+{
+    rapidjson::Document doc;
+    doc.SetString("1");
+
+    std::vector<std::uint8_t> out;
+    EXPECT_THROW(cryptonote::json::fromJsonValue(doc, out), cryptonote::json::BAD_INPUT);
+}
 
 TEST(JsonSerialization, MinerTransaction)
 {
