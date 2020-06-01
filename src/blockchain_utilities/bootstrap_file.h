@@ -41,7 +41,6 @@
 #include <algorithm>
 #include <cstdio>
 #include <fstream>
-#include <boost/iostreams/copy.hpp>
 #include <atomic>
 
 #include "common/command_line.h"
