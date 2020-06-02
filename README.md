@@ -1,14 +1,7 @@
 Equilibria# Equilibria
-![Image of Equilibria](https://pbs.twimg.com/profile_banners/3257833278/1564378329/1080x360)
+![Image of Equilibria]
 
-Equilibria harnesses market forces and an on-chain asset to issue $USDE, a redeemable stablecoin whose supply automatically scales with demand.
-
-### Stable Value
-Equilibria ($XEQ) holders can issue $USDE – a contract redeemable for $1 of $XEQ.
-
-### Decentralized
-Oracle node network algorithm converts market data into $USDE issuance and redemption rates.
-
+Equilibria uses a disitributed skin-in game oracle to create consensus on off-chain data.
 
 ### Private
 Every transaction you make is private and secure via ring signatures and stealth addresses.
@@ -20,9 +13,9 @@ A community project with public code. Anyone can contribute ideas.
 Equilibria can be used by anyone with access to the internet.
 
 ### For announcements:
-[Website](https://equilibria.network)  
+[Website](https://equilibria.network)  coming soon
 [Twitter](https://twitter.com/EquilibriaCC)  
-[Discord](https://discord.gg/7FWufDt)
+[Discord](https://discord.gg/76E3vfE)
 
 
 # General Information
