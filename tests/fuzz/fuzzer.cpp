@@ -52,6 +52,10 @@ int run_fuzzer(int argc, const char **argv, Fuzzer &fuzzer)
     return 1;
   }
 
+#ifdef __AFL_HAVE_MANUAL_CONTROL
+  __AFL_INIT();
+#endif
+
   int ret = fuzzer.init();
   if (ret)
     return ret;
