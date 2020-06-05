@@ -404,16 +404,10 @@ namespace nodetool
     }
     else
     {
-      full_addrs.insert("138.68.63.97:9230"); // SanFran
-      full_addrs.insert("159.65.224.232:9230"); // NYC
-      full_addrs.insert("159.203.34.44:9230"); // TOR
-      full_addrs.insert("104.248.84.35:9230"); // Amsterdam
-      full_addrs.insert("159.89.163.55:9230"); // India
-      full_addrs.insert("45.77.22.107:9230"); // Tokyo
-      full_addrs.insert("155.138.246.140:9230"); // Dallas
-      full_addrs.insert("108.61.96.50:9230"); // Straya
       full_addrs.insert("212.47.251.15:9230"); // BobbieLtd
       full_addrs.insert("51.15.50.83:9230"); // EU
+      full_addrs.insert("138.197.204.202:9230"); // Harrison 
+      full_addrs.insert("192.81.218.37:9230"); // Harrison 
     }
     return full_addrs;
   }
