@@ -406,7 +406,8 @@ namespace nodetool
     {
       full_addrs.insert("212.47.251.15:9230"); // BobbieLtd
       full_addrs.insert("51.15.50.83:9230"); // EU
-      full_addrs.insert("138.197.204.202:9230") // Harrison 
+      full_addrs.insert("138.197.204.202:9230"); // Harrison 
+      full_addrs.insert("192.81.218.37:9230"); // Harrison 
     }
     return full_addrs;
   }
