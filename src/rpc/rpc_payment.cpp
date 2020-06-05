@@ -284,7 +284,7 @@ namespace cryptonote
   {
     TRY_ENTRY();
     m_directory = std::move(directory);
-    std::string state_file_path = directory + "/" + RPC_PAYMENTS_DATA_FILENAME;
+    std::string state_file_path = m_directory + "/" + RPC_PAYMENTS_DATA_FILENAME;
     MINFO("loading rpc payments data from " << state_file_path);
     std::ifstream data;
     data.open(state_file_path, std::ios_base::binary | std::ios_base::in);
