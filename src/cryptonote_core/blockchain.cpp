@@ -792,26 +792,38 @@ bool Blockchain::get_block_by_hash(const crypto::hash &h, block &blk, bool *orph
 // less blocks than desired if there aren't enough.
 difficulty_type Blockchain::get_difficulty_for_next_block()
 {
-  LOG_PRINT_L3("Blockchain::" << __func__);
-  CRITICAL_REGION_LOCAL(m_blockchain_lock);
-  std::vector<uint64_t> timestamps;
-  std::vector<difficulty_type> difficulties;
-  size_t difficulty_blocks_count;
-  size_t target;
-
-  auto height = m_db->height();
-  uint8_t version = get_current_hard_fork_version();
-  difficulty_blocks_count = DIFFICULTY_BLOCKS_COUNT_V3;
 
   if (m_fixed_difficulty) {
     return m_db->height() ? m_fixed_difficulty : 1;
   }
 
-  // ND: Speedup
-  // 1. Keep a list of the last 735 (or less) blocks that is used to compute difficulty,
-  //    then when the next block difficulty is queried, push the latest height data and
-  //    pop the oldest one from the list. This only requires 1x read per height instead
-  //    of doing 735 (DIFFICULTY_BLOCKS_COUNT).
+  LOG_PRINT_L3("Blockchain::" << __func__);
+
+  crypto::hash top_hash = get_tail_id();
+  {
+    CRITICAL_REGION_LOCAL(m_difficulty_lock);
+    // we can call this without the blockchain lock, it might just give us
+    // something a bit out of date, but that's fine since anything which
+    // requires the blockchain lock will have acquired it in the first place,
+    // and it will be unlocked only when called from the getinfo RPC
+    if (top_hash == m_difficulty_for_next_block_top_hash)
+      return m_difficulty_for_next_block;
+  }
+
+  CRITICAL_REGION_LOCAL(m_blockchain_lock);
+
+  std::vector<uint64_t> timestamps;
+  std::vector<difficulty_type> difficulties;
+  size_t difficulty_blocks_count;
+  size_t target;
+
+  uint64_t height;
+  top_hash = get_tail_id(height); // get it again now that we have the lock
+  ++height; // top block height to blockchain height
+
+  uint8_t version = get_current_hard_fork_version();
+  difficulty_blocks_count = DIFFICULTY_BLOCKS_COUNT_V3;
+
   if (m_timestamps_and_difficulties_height != 0 && ((height - m_timestamps_and_difficulties_height) == 1) && m_timestamps.size() >= difficulty_blocks_count)
   {
     uint64_t index = height - 1;
@@ -835,6 +847,11 @@ difficulty_type Blockchain::get_difficulty_for_next_block()
 
     timestamps.clear();
     difficulties.clear();
+    if (height > offset)
+    {
+      timestamps.reserve(height - offset);
+      difficulties.reserve(height - offset);
+    }
     for (; offset < height; offset++)
     {
       timestamps.push_back(m_db->get_block_timestamp(offset));
@@ -846,11 +863,7 @@ difficulty_type Blockchain::get_difficulty_for_next_block()
     m_difficulties = difficulties;
   }
 
-  if(version < 6){
-    target = DIFFICULTY_TARGET_V2;
-  }else if(version >= 6){
-    target = DIFFICULTY_TARGET_V3;
-  }
+  size_t target = get_ideal_hard_fork_version(bei.height) < 6 ? DIFFICULTY_TARGET_V2 : DIFFICULTY_TARGET_V3;
 
   std::vector<HardFork::Params> hf_params = get_hard_fork_heights(m_nettype);
   if(height == hf_params[6].height && m_nettype != TESTNET){
@@ -866,6 +879,7 @@ difficulty_type Blockchain::get_difficulty_for_next_block()
   else {
 	  diff = next_difficulty(timestamps, difficulties, target);
   }
+
   return diff;
 }
 //------------------------------------------------------------------
@@ -965,6 +979,8 @@ bool Blockchain::switch_to_alternative_blockchain(std::list<blocks_ext_by_hash::
 
     // if adding block to main chain failed, rollback to previous state and
     // return false
+     // if adding block to main chain failed, rollback to previous state and
+    // return false
     if(!r || !bvc.m_added_to_main_chain)
     {
       MERROR("Failed to switch to alternative blockchain");
@@ -977,20 +993,25 @@ bool Blockchain::switch_to_alternative_blockchain(std::list<blocks_ext_by_hash::
       // FIXME: Why do we keep invalid blocks around?  Possibly in case we hear
       // about them again so we can immediately dismiss them, but needs some
       // looking into.
-      add_block_as_invalid(ch_ent->second, get_block_hash(ch_ent->second.bl));
-      MERROR("The block was inserted as invalid while connecting new alternative chain, block_id: " << get_block_hash(ch_ent->second.bl));
-      m_alternative_chains.erase(*alt_ch_iter++);
+      const crypto::hash blkid = cryptonote::get_block_hash(bei.bl);
+      add_block_as_invalid(bei, blkid);
+      MERROR("The block was inserted as invalid while connecting new alternative chain, block_id: " << blkid);
+      m_db->remove_alt_block(blkid);
+      alt_ch_iter++;
 
       for(auto alt_ch_to_orph_iter = alt_ch_iter; alt_ch_to_orph_iter != alt_chain.end(); )
       {
-        add_block_as_invalid((*alt_ch_to_orph_iter)->second, (*alt_ch_to_orph_iter)->first);
-        m_alternative_chains.erase(*alt_ch_to_orph_iter++);
+        const auto &bei = *alt_ch_to_orph_iter++;
+        const crypto::hash blkid = cryptonote::get_block_hash(bei.bl);
+        add_block_as_invalid(bei, blkid);
+        m_db->remove_alt_block(blkid);
       }
       return false;
     }
   }
 
   // if we're to keep the disconnected blocks, add them as alternates
+  const size_t discarded_blocks = disconnected_chain.size();
   if(!discard_disconnected_chain)
   {
     //pushing old chain as alternative chain
@@ -1008,12 +1029,23 @@ bool Blockchain::switch_to_alternative_blockchain(std::list<blocks_ext_by_hash::
   }
 
   //removing alt_chain entries from alternative chains container
-  for (auto ch_ent: alt_chain)
+  for (const auto &bei: alt_chain)
   {
-    m_alternative_chains.erase(ch_ent);
+    m_db->remove_alt_block(cryptonote::get_block_hash(bei.bl));
   }
 
   m_hardfork->reorganize_from_chain_height(split_height);
+  get_block_longhash_reorg(split_height);
+
+  std::shared_ptr<tools::Notify> reorg_notify = m_reorg_notify;
+  if (reorg_notify)
+    reorg_notify->notify("%s", std::to_string(split_height).c_str(), "%h", std::to_string(m_db->height()).c_str(),
+        "%n", std::to_string(m_db->height() - split_height).c_str(), "%d", std::to_string(discarded_blocks).c_str(), NULL);
+
+  std::shared_ptr<tools::Notify> block_notify = m_block_notify;
+  if (block_notify)
+    for (const auto &bei: alt_chain)
+      block_notify->notify("%s", epee::string_tools::pod_to_hex(get_block_hash(bei.bl)).c_str(), NULL);
 
   MGINFO_GREEN("REORGANIZE SUCCESS! on height: " << split_height << ", new blockchain size: " << m_db->height());
   return true;
