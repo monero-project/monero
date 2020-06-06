@@ -27,50 +27,13 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "include_base_utils.h"
-#include "file_io_utils.h"
 #include "common/base58.h"
 #include "fuzzer.h"
 
-class Base58Fuzzer: public Fuzzer
-{
-public:
-  Base58Fuzzer() {}
-  virtual int init();
-  virtual int run(const std::string &filename);
-};
+BEGIN_INIT_SIMPLE_FUZZER()
+END_INIT_SIMPLE_FUZZER()
 
-int Base58Fuzzer::init()
-{
-  return 0;
-}
-
-int Base58Fuzzer::run(const std::string &filename)
-{
-  std::string s;
-
-  if (!epee::file_io_utils::load_file_to_string(filename, s))
-  {
-    std::cout << "Error: failed to load file " << filename << std::endl;
-    return 1;
-  }
-  try
-  {
-    std::string data;
-    tools::base58::decode(s, data);
-  }
-  catch (const std::exception &e)
-  {
-    std::cerr << "Failed to load from binary: " << e.what() << std::endl;
-    return 1;
-  }
-  return 0;
-}
-
-int main(int argc, const char **argv)
-{
-  TRY_ENTRY();
-  Base58Fuzzer fuzzer;
-  return run_fuzzer(argc, argv, fuzzer);
-  CATCH_ENTRY_L0("main", 1);
-}
-
+BEGIN_SIMPLE_FUZZER()
+  std::string data;
+  tools::base58::decode(std::string((const char*)buf, len), data);
+END_SIMPLE_FUZZER()
