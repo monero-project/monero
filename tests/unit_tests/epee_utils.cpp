@@ -667,6 +667,23 @@ TEST(ByteSlice, TakeSlice)
   EXPECT_TRUE(boost::range::equal(base_string, slice));
 
   const epee::span<const std::uint8_t> original = epee::to_span(slice);
+  const epee::byte_slice empty_slice = slice.take_slice(0);
+  EXPECT_EQ(original.begin(), slice.begin());
+  EXPECT_EQ(slice.begin(), slice.cbegin());
+  EXPECT_EQ(original.end(), slice.end());
+  EXPECT_EQ(slice.end(), slice.cend());
+
+  EXPECT_EQ(nullptr, empty_slice.begin());
+  EXPECT_EQ(nullptr, empty_slice.cbegin());
+  EXPECT_EQ(nullptr, empty_slice.end());
+  EXPECT_EQ(nullptr, empty_slice.cend());
+  EXPECT_EQ(nullptr, empty_slice.data());
+  EXPECT_TRUE(empty_slice.empty());
+  EXPECT_EQ(0u, empty_slice.size());
+
+  EXPECT_FALSE(slice.empty());
+  EXPECT_EQ(slice.cbegin(), slice.data());
+
   const epee::byte_slice slice2 = slice.take_slice(remove_size);
 
   EXPECT_EQ(original.begin() + remove_size, slice.begin());
@@ -1061,6 +1078,20 @@ TEST(ByteStream, ToByteSlice)
   EXPECT_EQ(nullptr, stream.data());
   EXPECT_EQ(nullptr, stream.tellp());
   EXPECT_TRUE(equal(source, slice));
+
+  stream = epee::byte_stream{};
+  stream.reserve(1);
+  EXPECT_NE(nullptr, stream.data());
+  EXPECT_NE(nullptr, stream.tellp());
+
+  const epee::byte_slice empty_slice{std::move(stream)};
+  EXPECT_TRUE(empty_slice.empty());
+  EXPECT_EQ(0u, empty_slice.size());
+  EXPECT_EQ(nullptr, empty_slice.begin());
+  EXPECT_EQ(nullptr, empty_slice.cbegin());
+  EXPECT_EQ(nullptr, empty_slice.end());
+  EXPECT_EQ(nullptr, empty_slice.cend());
+  EXPECT_EQ(nullptr, empty_slice.data());
 }
 
 TEST(ToHex, String)
