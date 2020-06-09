@@ -193,7 +193,11 @@ int check_flush(cryptonote::core &core, std::vector<block_complete_entry> &block
   }
   core.prevalidate_block_hashes(core.get_blockchain_storage().get_db().height(), hashes);
 
-  core.prepare_handle_incoming_blocks(blocks);
+  if (!core.prepare_handle_incoming_blocks(blocks, pblocks))
+  {
+    MERROR("Failed to prepare to add blocks");
+    return 1;
+  }
 
   for(const block_complete_entry& block_entry: blocks)
   {
