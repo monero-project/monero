@@ -1015,12 +1015,15 @@ namespace cryptonote
   //---------------------------------------------------------------------------------
   bool tx_memory_pool::on_blockchain_inc(uint64_t new_block_height, const crypto::hash& top_block_id)
   {
-	
+	  CRITICAL_REGION_LOCAL(m_transactions_lock);
+    m_input_cache.clear();
 	  return true;
   }
   //---------------------------------------------------------------------------------
   bool tx_memory_pool::on_blockchain_dec(uint64_t new_block_height, const crypto::hash& top_block_id)
   {
+    CRITICAL_REGION_LOCAL(m_transactions_lock);
+    m_input_cache.clear();
     return true;
   }
   //---------------------------------------------------------------------------------
