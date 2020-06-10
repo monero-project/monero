@@ -64,7 +64,6 @@ using namespace epee;
 #include "util.h"
 #include "stack_trace.h"
 #include "memwipe.h"
-#include "cryptonote_config.h"
 #include "net/http_client.h"                        // epee::net_utils::...
 
 #ifdef WIN32

@@ -852,13 +852,6 @@ difficulty_type Blockchain::get_difficulty_for_next_block()
     target = DIFFICULTY_TARGET_V3;
   }
 
-  std::vector<HardFork::Params> hf_params = get_hard_fork_heights(m_nettype);
-  if(height == hf_params[6].height && m_nettype != TESTNET){
-    const uint64_t num_ignored_blocks = timestamps.size() - (height - hf_params[6].height);
-    timestamps.erase(timestamps.begin(), timestamps.begin() + num_ignored_blocks);
-    difficulties.erase(difficulties.begin(), difficulties.begin() + num_ignored_blocks);
-  }
-
   difficulty_type diff = 0;
   if ((version < 4 && height < 235)) {
 	  diff = 1000;
@@ -1083,14 +1076,6 @@ difficulty_type Blockchain::get_next_difficulty_for_alternative_chain(const std:
         break;
     }
   }
-
-  std::vector<HardFork::Params> hf_params = get_hard_fork_heights(m_nettype);
-  if(height == hf_params[6].height && m_nettype != TESTNET){
-    const uint64_t num_ignored_blocks = timestamps.size() - (height - hf_params[6].height);
-    timestamps.erase(timestamps.begin(), timestamps.begin() + num_ignored_blocks);
-    cumulative_difficulties.erase(cumulative_difficulties.begin(), cumulative_difficulties.begin() + num_ignored_blocks);
-  }
-
 
   // FIXME: This will fail if fork activation heights are subject to voting
   size_t target = get_ideal_hard_fork_version(bei.height) < 6 ? DIFFICULTY_TARGET_V2 : DIFFICULTY_TARGET_V3;
@@ -1818,7 +1803,7 @@ std::vector<uint64_t> Blockchain::get_random_outputs(uint64_t amount, uint64_t c
 	if (num_outs <= count)
 	{
 		for (uint64_t i = 0; i < num_outs; i++)
-		{
+		{ 
 			// if tx is unlocked, add output to indices
 			if (is_output_spendtime_unlocked(m_db->get_output_unlock_time(amount, i)))
 			{
