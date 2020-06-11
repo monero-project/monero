@@ -1,4 +1,4 @@
-# A Private and Decentralized Oracle Solution
+# Equilibria
 
 A Private and Decentralized Oracle Solution
 
