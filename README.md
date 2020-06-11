@@ -1,7 +1,6 @@
-Equilibria# Equilibria
-![Image of Equilibria]
+# A Private and Decentralized Oracle Solution
 
-Equilibria uses a disitributed skin-in game oracle to create consensus on off-chain data.
+A Private and Decentralized Oracle Solution
 
 ### Private
 Every transaction you make is private and secure via ring signatures and stealth addresses.
@@ -12,10 +11,16 @@ A community project with public code. Anyone can contribute ideas.
 ### Borderless
 Equilibria can be used by anyone with access to the internet.
 
+### Oracle Clusters
+Equilibria is a hybrid PoW/PoS decentralized oracle node network
+
+### High Utility 
+Use-cases span from stablecoins to eSports
+
 ### For announcements:
-[Website](https://equilibria.network)  coming soon
+[Website](https://equilibria.network)
 [Twitter](https://twitter.com/EquilibriaCC)  
-[Discord](https://discord.gg/76E3vfE)
+[Discord](https://discord.gg/pDyfUTs)
 
 
 # General Information
@@ -24,8 +29,7 @@ Copyright (c) 2018-2019 Project Triton/Equilibria.
 Portions Copyright (c) 2012-2013 The Cryptonote developers.
 
 ## Current maintainer
-- Harrison Hesslink (krakn)
-- Cryptochangements
+- Harrison Hesslink (yodeh,krakn)
 
 **Anyone is welcome to contribute to Equilibria's codebase!** If you have a fix or code change, feel free to submit it as a pull request directly to the "master" branch. In cases where the change is relatively small or does not affect other parts of the codebase it may be merged in immediately by any one of the collaborators. On the other hand, if the change is particularly large or complex, it is expected that it will be discussed at length either well in advance of the pull request being submitted, or even directly on the pull request.
 
