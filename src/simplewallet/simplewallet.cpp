@@ -36,6 +36,11 @@
 #ifdef _WIN32
 #define __STDC_FORMAT_MACROS // NOTE(triton): Explicitly define the PRIu64 macro on Mingw
 #endif
+
+// use boost bind placeholders for now
+#define BOOST_BIND_GLOBAL_PLACEHOLDERS 1
+#include <boost/bind.hpp>
+
 #include <thread>
 #include <iostream>
 #include <sstream>
