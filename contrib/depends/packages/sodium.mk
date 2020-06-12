@@ -1,8 +1,8 @@
 package=sodium
-$(package)_version=1.0.15
+$(package)_version=1.0.18
 $(package)_download_path=https://download.libsodium.org/libsodium/releases/
 $(package)_file_name=libsodium-$($(package)_version).tar.gz
-$(package)_sha256_hash=fb6a9e879a2f674592e4328c5d9f79f082405ee4bb05cb6e679b90afe9e178f4
+$(package)_sha256_hash=6f504490b342a4f8a4c4a02fc9b866cbef8622d5df4e5452b46be121e46636c1
 
 define $(package)_set_vars
 $(package)_config_opts=--enable-static
