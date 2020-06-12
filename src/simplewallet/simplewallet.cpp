@@ -2563,10 +2563,6 @@ simple_wallet::simple_wallet()
                            boost::bind(&simple_wallet::import_key_images, this, _1),
                            tr("import_key_images <file>"),
                            tr("Import a signed key images list and verify their spent status."));
-  m_cmd_binder.set_handler("hw_reconnect",
-                           boost::bind(&simple_wallet::hw_reconnect, this, _1),
-                           tr("hw_reconnect"),
-                           tr("Attempts to reconnect HW wallet."));
   m_cmd_binder.set_handler("export_outputs",
                            boost::bind(&simple_wallet::export_outputs, this, _1),
                            tr("export_outputs <file>"),
@@ -2700,7 +2696,6 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
     success_msg_writer() << "ignore-fractional-outputs = " << m_wallet->ignore_fractional_outputs();
     success_msg_writer() << "ignore-outputs-above = " << cryptonote::print_money(m_wallet->ignore_outputs_above());
     success_msg_writer() << "ignore-outputs-below = " << cryptonote::print_money(m_wallet->ignore_outputs_below());
-    success_msg_writer() << "device_name = " << m_wallet->device_name();
     return true;
   }
   else
