@@ -161,7 +161,6 @@ struct options {
   };
   const command_line::arg_descriptor<uint64_t> kdf_rounds = {"kdf-rounds", tools::wallet2::tr("Number of rounds for the key derivation function"), 1};
   const command_line::arg_descriptor<std::string> tx_notify = { "tx-notify" , "Run a program for each new incoming transaction, '%s' will be replaced by the transaction hash" , "" };
-  const command_line::arg_descriptor<std::string> hw_device = {"hw-device", tools::wallet2::tr("HW device to use"), ""};
 };
 
 void do_prepare_file_names(const std::string& file_path, std::string& keys_file, std::string& wallet_file)
@@ -217,7 +216,7 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
   auto daemon_address = command_line::get_arg(vm, opts.daemon_address);
   auto daemon_host = command_line::get_arg(vm, opts.daemon_host);
   auto daemon_port = command_line::get_arg(vm, opts.daemon_port);
-  auto device_name = command_line::get_arg(vm, opts.hw_device);
+  auto device_name = std::string{""};
 
   THROW_WALLET_EXCEPTION_IF(!daemon_address.empty() && !daemon_host.empty() && 0 != daemon_port,
       tools::error::wallet_internal_error, tools::wallet2::tr("can't specify daemon host or port more than once"));
@@ -819,7 +818,7 @@ bool wallet2::has_stagenet_option(const boost::program_options::variables_map& v
 
 std::string wallet2::device_name_option(const boost::program_options::variables_map& vm)
 {
-  return command_line::get_arg(vm, options().hw_device);
+  return "";
 }
 
 void wallet2::init_options(boost::program_options::options_description& desc_params)
@@ -838,7 +837,6 @@ void wallet2::init_options(boost::program_options::options_description& desc_par
   command_line::add_arg(desc_params, opts.shared_ringdb_dir);
   command_line::add_arg(desc_params, opts.kdf_rounds);
   command_line::add_arg(desc_params, opts.tx_notify);
-  command_line::add_arg(desc_params, opts.hw_device);
 }
 
 std::unique_ptr<wallet2> wallet2::make_from_json(const boost::program_options::variables_map& vm, bool unattended, const std::string& json_file, const std::function<boost::optional<tools::password_container>(const char *, bool)> &password_prompter)
