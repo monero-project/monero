@@ -9,8 +9,12 @@ jobs:
     - uses: actions/checkout@v1
       with:
         submodules: recursive
+    - name: fetch zeromq headers
+      run: git clone https://github.com/zeromq/cppzmq
+    - name: move zmq header
+      run: sudo cp cppzmq/zmq.hpp /usr/local/include  
     - name: update brew and install dependencies
-      run: brew update && brew install boost hidapi zmq libpgm miniupnpc ldns expat libunwind-headers protobuf
+      run: brew update && brew install openssl pkg-config boost hidapi zmq libpgm miniupnpc ldns expat libunwind-headers protobuf readline
     - name: build
       run: make -j3
 
@@ -24,7 +28,7 @@ jobs:
       with:
         update: true
     - name: install Equilibria dependencies
-      run: msys2do pacman -S --noconfirm mingw-w64-x86_64-toolchain make mingw-w64-x86_64-cmake mingw-w64-x86_64-boost mingw-w64-x86_64-openssl mingw-w64-x86_64-zeromq mingw-w64-x86_64-libsodium mingw-w64-x86_64-hidapi mingw-w64-x86_64-protobuf-c mingw-w64-x86_64-libusb git
+      run: msys2do pacman -S --noconfirm autoconf mingw-w64-x86_64-toolchain make mingw-w64-x86_64-cmake mingw-w64-x86_64-boost mingw-w64-x86_64-openssl mingw-w64-x86_64-zeromq mingw-w64-x86_64-libsodium mingw-w64-x86_64-hidapi mingw-w64-x86_64-protobuf-c mingw-w64-x86_64-libusb mingw-w64-x86_64-libtool git
     - name: build
       run: msys2do make release-static-win64 -j2
 
@@ -44,6 +48,6 @@ jobs:
     - name: update apt
       run: sudo apt update
     - name: install Equilibria dependencies
-      run: sudo apt -y install build-essential cmake libboost-all-dev miniupnpc libunbound-dev graphviz doxygen libunwind8-dev pkg-config libssl-dev libzmq3-dev libsodium-dev libhidapi-dev libnorm-dev libusb-1.0-0-dev libpgm-dev libprotobuf-dev protobuf-compiler
+      run: sudo apt -y install build-essential cmake libboost-all-dev miniupnpc libunbound-dev graphviz doxygen libunwind8-dev pkg-config libssl-dev libzmq3-dev libsodium-dev libhidapi-dev libnorm-dev libusb-1.0-0-dev libpgm-dev libprotobuf-dev protobuf-compiler gperf libreadline-dev
     - name: build
       run: make -j3
