@@ -3338,7 +3338,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
     {
       m_wallet_file = m_generate_from_device;
       // create wallet
-      auto r = new_wallet(vm, "Ledger");
+      auto r = new_wallet(vm);
       CHECK_AND_ASSERT_MES(r, false, tr("account creation failed"));
       password = *r;
       // if no block_height is specified, assume its a new account and start it "now"
@@ -3748,8 +3748,8 @@ boost::optional<epee::wipeable_string> simple_wallet::new_wallet(const boost::pr
 }
 
 //----------------------------------------------------------------------------------------------------
-boost::optional<epee::wipeable_string> simple_wallet::new_wallet(const boost::program_options::variables_map& vm,
-                               const std::string &device_name) {
+boost::optional<epee::wipeable_string> simple_wallet::new_wallet(const boost::program_options::variables_map& vm)
+{
   auto rc = tools::wallet2::make_new(vm, false, password_prompter);
   m_wallet = std::move(rc.first);
   if (!m_wallet)
@@ -3768,10 +3768,11 @@ boost::optional<epee::wipeable_string> simple_wallet::new_wallet(const boost::pr
   if (m_restore_height)
     m_wallet->set_refresh_from_block_height(m_restore_height);
 
+  auto device_desc = tools::wallet2::device_name_option(vm);
   try
   {
     bool create_address_file = command_line::get_arg(vm, arg_create_address_file);
-    m_wallet->restore(m_wallet_file, std::move(rc.second).password(), device_name, create_address_file);
+    m_wallet->restore(m_wallet_file, std::move(rc.second).password(), device_desc.empty() ? "Ledger" : device_desc, create_address_file);
     message_writer(console_color_white, true) << tr("Generated new wallet on hw device: ")
       << m_wallet->get_account().get_public_address_str(m_wallet->nettype());
   }
@@ -8007,6 +8008,31 @@ bool simple_wallet::import_key_images(const std::vector<std::string> &args)
   catch (const std::exception &e)
   {
     fail_msg_writer() << "Failed to import key images: " << e.what();
+    return true;
+  }
+
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::hw_reconnect(const std::vector<std::string> &args)
+{
+  if (!m_wallet->key_on_device())
+  {
+    fail_msg_writer() << tr("command only supported by HW wallet");
+    return true;
+  }
+
+  LOCK_IDLE_SCOPE();
+  try
+  {
+    bool r = m_wallet->reconnect_device();
+    if (!r){
+      fail_msg_writer() << tr("Failed to reconnect device");
+    }
+  }
+  catch (const std::exception &e)
+  {
+    fail_msg_writer() << tr("Failed to reconnect device: ") << tr(e.what());
     return true;
   }
 

@@ -216,6 +216,7 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
   auto daemon_address = command_line::get_arg(vm, opts.daemon_address);
   auto daemon_host = command_line::get_arg(vm, opts.daemon_host);
   auto daemon_port = command_line::get_arg(vm, opts.daemon_port);
+  auto device_name = std::string{""};
 
   THROW_WALLET_EXCEPTION_IF(!daemon_address.empty() && !daemon_host.empty() && 0 != daemon_port,
       tools::error::wallet_internal_error, tools::wallet2::tr("can't specify daemon host or port more than once"));
@@ -281,6 +282,7 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
     MERROR("Failed to parse tx notify spec: " << e.what());
   }
 
+  wallet->device_name(device_name);
   return wallet;
 }
 
@@ -814,6 +816,11 @@ bool wallet2::has_stagenet_option(const boost::program_options::variables_map& v
   return command_line::get_arg(vm, options().stagenet);
 }
 
+std::string wallet2::device_name_option(const boost::program_options::variables_map& vm)
+{
+  return "";
+}
+
 void wallet2::init_options(boost::program_options::options_description& desc_params)
 {
   const options opts{};
@@ -986,6 +993,27 @@ bool wallet2::get_multisig_seed(epee::wipeable_string& seed, const epee::wipeabl
     }
   }
 
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
+bool wallet2::reconnect_device()
+{
+  bool r = true;
+  hw::device &hwdev = hw::get_device(m_device_name);
+  hwdev.set_name(m_device_name);
+  r = hwdev.init();
+  if (!r){
+    LOG_PRINT_L2("Could not init device");
+    return false;
+  }
+
+  r = hwdev.connect();
+  if (!r){
+    LOG_PRINT_L2("Could not connect to the device");
+    return false;
+  }
+
+  m_account.set_device(hwdev);
   return true;
 }
 //----------------------------------------------------------------------------------------------------
@@ -3060,6 +3088,9 @@ bool wallet2::store_keys(const std::string& keys_file_name, const epee::wipeable
   value2.SetUint(1);
   json.AddMember("encrypted_secret_keys", value2, json.GetAllocator());
 
+  value.SetString(m_device_name.c_str(), m_device_name.size());
+  json.AddMember("device_name", value, json.GetAllocator());
+
   // Serialize the JSON object
   rapidjson::StringBuffer buffer;
   rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
@@ -3173,6 +3204,7 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
     m_ignore_outputs_below = 0;
     m_subaddress_lookahead_major = SUBADDRESS_LOOKAHEAD_MAJOR;
     m_subaddress_lookahead_minor = SUBADDRESS_LOOKAHEAD_MINOR;
+    m_device_name = "";
     m_key_on_device = false;
     encrypted_secret_keys = false;
   }
@@ -3308,8 +3340,15 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
     m_subaddress_lookahead_major = field_subaddress_lookahead_major;
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, subaddress_lookahead_minor, uint32_t, Uint, false, SUBADDRESS_LOOKAHEAD_MINOR);
     m_subaddress_lookahead_minor = field_subaddress_lookahead_minor;
+
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, encrypted_secret_keys, uint32_t, Uint, false, false);
     encrypted_secret_keys = field_encrypted_secret_keys;
+
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, device_name, std::string, String, false, std::string());
+    if (m_device_name.empty() && field_device_name_found)
+    {
+      m_device_name = field_device_name;
+    }
   }
   else
   {
@@ -3320,7 +3359,8 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
   r = epee::serialization::load_t_from_binary(m_account, account_data);
   if (r && m_key_on_device) {
     LOG_PRINT_L0("Account on device. Initing device...");
-    hw::device &hwdev = hw::get_device("Ledger");
+    hw::device &hwdev = hw::get_device(m_device_name);
+    hwdev.set_name(m_device_name);
     hwdev.init();
     hwdev.connect();
     m_account.set_device(hwdev);
@@ -3762,13 +3802,18 @@ void wallet2::restore(const std::string& wallet_, const epee::wipeable_string& p
     THROW_WALLET_EXCEPTION_IF(boost::filesystem::exists(m_keys_file,   ignored_ec), error::file_exists, m_keys_file);
   }
   m_key_on_device = true;
-  m_account.create_from_device(device_name);
+
+  auto &hwdev = hw::get_device(device_name);
+  hwdev.set_name(device_name);
+
+  m_account.create_from_device(hwdev);
   m_account_public_address = m_account.get_keys().m_account_address;
   m_watch_only = false;
   m_multisig = false;
   m_multisig_threshold = 0;
   m_multisig_signers.clear();
   setup_keys(password);
+  m_device_name = device_name;
 
   create_keys_file(wallet_, false, password, m_nettype != MAINNET || create_address_file);
   if (m_subaddress_lookahead_major == SUBADDRESS_LOOKAHEAD_MAJOR && m_subaddress_lookahead_minor == SUBADDRESS_LOOKAHEAD_MINOR)

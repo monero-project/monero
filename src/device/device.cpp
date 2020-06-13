@@ -29,7 +29,7 @@
 
 #include "device.hpp"
 #include "device_default.hpp"
-#ifdef HAVE_PCSC
+#ifdef WITH_DEVICE_LEDGER
 #include "device_ledger.hpp"
 #endif
 #include "misc_log_ex.h"
@@ -39,32 +39,60 @@ namespace hw {
     
     /* ======================================================================= */
     /*  SETUP                                                                  */
-    /* ======================================================================= */   
-    device& get_device(const std::string device_descriptor) {
-        
-        struct s_devices {
-            std::map<std::string, std::unique_ptr<device>> registry;
-            s_devices() : registry() {
-                hw::core::register_all(registry);
-                #ifdef HAVE_PCSC
-                hw::ledger::register_all(registry); 
-                #endif
-           };
-        };
-        
-        static const s_devices devices;
+    /* ======================================================================= */
 
-        auto device = devices.registry.find(device_descriptor);
-        if (device == devices.registry.end()) {
-            MERROR("device not found in registry: '" << device_descriptor << "'\n" <<
-                      "known devices:");
-            
-            for( const auto& sm_pair : devices.registry ) {
+    static std::unique_ptr<device_registry> registry;
+
+    device_registry::device_registry(){
+        hw::core::register_all(registry);
+        #ifdef WITH_DEVICE_LEDGER
+        hw::ledger::register_all(registry);
+        #endif
+    }
+
+    bool device_registry::register_device(const std::string & device_name, device * hw_device){
+        auto search = registry.find(device_name);
+        if (search != registry.end()){
+            return false;
+        }
+
+        registry.insert(std::make_pair(device_name, std::unique_ptr<device>(hw_device)));
+        return true;
+    }
+
+    device& device_registry::get_device(const std::string & device_descriptor){
+        // Device descriptor can contain further specs after first :
+        auto delim = device_descriptor.find(':');
+        auto device_descriptor_lookup = device_descriptor;
+        if (delim != std::string::npos) {
+            device_descriptor_lookup = device_descriptor.substr(0, delim);
+        }
+
+        auto device = registry.find(device_descriptor_lookup);
+        if (device == registry.end()) {
+            MERROR("Device not found in registry: '" << device_descriptor << "'. Known devices: ");
+            for( const auto& sm_pair : registry ) {
                 MERROR(" - " << sm_pair.first);
             }
-            throw std::runtime_error("device not found: "+ device_descriptor);
+            throw std::runtime_error("device not found: " + device_descriptor);
         }
         return *device->second;
+    }
+
+    device& get_device(const std::string & device_descriptor) {
+        if (!registry){
+            registry.reset(new device_registry());
+        }
+
+        return registry->get_device(device_descriptor);
+    }
+
+    bool register_device(const std::string & device_name, device * hw_device){
+        if (!registry){
+            registry.reset(new device_registry());
+        }
+
+        return registry->register_device(device_name, hw_device);
     }
 
 }
