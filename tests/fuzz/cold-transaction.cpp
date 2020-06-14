@@ -34,16 +34,19 @@
 #include "wallet/wallet2.h"
 #include "fuzzer.h"
 
-static tools::wallet2 wallet;
+static tools::wallet2 *wallet = NULL;
 
 BEGIN_INIT_SIMPLE_FUZZER()
+  static tools::wallet2 local_wallet;
+  wallet = &local_wallet;
+
   static const char * const spendkey_hex = "0b4f47697ec99c3de6579304e5f25c68b07afbe55b71d99620bf6cbf4e45a80f";
   crypto::secret_key spendkey;
   epee::string_tools::hex_to_pod(spendkey_hex, spendkey);
 
-  wallet.init("", boost::none, boost::asio::ip::tcp::endpoint{}, 0, true, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
-  wallet.set_subaddress_lookahead(1, 1);
-  wallet.generate("", "", spendkey, true, false);
+  wallet->init("", boost::none, boost::asio::ip::tcp::endpoint{}, 0, true, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
+  wallet->set_subaddress_lookahead(1, 1);
+  wallet->generate("", "", spendkey, true, false);
 END_INIT_SIMPLE_FUZZER()
 
 BEGIN_SIMPLE_FUZZER()
@@ -54,6 +57,6 @@ BEGIN_SIMPLE_FUZZER()
   boost::archive::portable_binary_iarchive ar(iss);
   ar >> exported_txs;
   std::vector<tools::wallet2::pending_tx> ptx;
-  bool success = wallet.sign_tx(exported_txs, "/tmp/cold-transaction-test-signed", ptx);
+  bool success = wallet->sign_tx(exported_txs, "/tmp/cold-transaction-test-signed", ptx);
   std::cout << (success ? "signed" : "error") << std::endl;
 END_SIMPLE_FUZZER()
