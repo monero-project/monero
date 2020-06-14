@@ -56,7 +56,7 @@ extern "C" { \
       static bool first = true; \
       if (first) \
       { \
-        if (!init()) \
+        if (init()) \
           return 1; \
         first = false; \
       } \
