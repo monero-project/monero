@@ -1548,7 +1548,7 @@ namespace hw {
       const bool                               need_additional_txkeys_x       = need_additional_txkeys;
       
       std::vector<crypto::secret_key>    additional_tx_keys_x;
-      for (const auto k: additional_tx_keys) {
+      for (const auto &k: additional_tx_keys) {
         additional_tx_keys_x.push_back(hw::ledger::decrypt(k));
       }
       
