@@ -94,7 +94,7 @@ class AddressValidationTest():
     def check_openalias_addresses(self):
         print('Validating openalias addresses')
         addresses = [
-            ['donate@getmonero.org', '44AFFq5kSiGBoZ4NMDwYtN18obc8AemS33DBLWs3H7otXft3XjrpDtQGv7SqSsaBYBb98uNbr2VBBEt7f2wfn3RVGQBEP3A']
+            ['donate@getmonero.org', '888tNkZrPN6JsEgekjMnABU4TBzc2Dt29EPAvkRxbANsAnjyPbb3iQ1YBRk1UXcdRsiKc9dhwMVgN5S9cQUiyoogDavup3H']
         ]
         for address in addresses:
             res = self.wallet.validate_address(address[0])
@@ -102,7 +102,7 @@ class AddressValidationTest():
             res = self.wallet.validate_address(address[0], allow_openalias = True)
             assert res.valid
             assert not res.integrated
-            assert not res.subaddress
+            assert res.subaddress
             assert res.nettype == 'mainnet'
             assert res.openalias_address == address[1]
 

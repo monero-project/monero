@@ -145,7 +145,7 @@ class AddressBookTest():
         res = wallet.get_address_book()
         assert len(res.entries) == 1
         e = res.entries[0]
-        assert e.address == '44AFFq5kSiGBoZ4NMDwYtN18obc8AemS33DBLWs3H7otXft3XjrpDtQGv7SqSsaBYBb98uNbr2VBBEt7f2wfn3RVGQBEP3A'
+        assert e.address == '888tNkZrPN6JsEgekjMnABU4TBzc2Dt29EPAvkRxbANsAnjyPbb3iQ1YBRk1UXcdRsiKc9dhwMVgN5S9cQUiyoogDavup3H'
         assert e.description == 'dev fund'
 
         # UTF-8
@@ -173,7 +173,7 @@ class AddressBookTest():
         # get them back
         res = wallet.get_address_book([0])
         assert len(res.entries) == 1
-        assert res.entries[0].address == '44AFFq5kSiGBoZ4NMDwYtN18obc8AemS33DBLWs3H7otXft3XjrpDtQGv7SqSsaBYBb98uNbr2VBBEt7f2wfn3RVGQBEP3A'
+        assert res.entries[0].address == '888tNkZrPN6JsEgekjMnABU4TBzc2Dt29EPAvkRxbANsAnjyPbb3iQ1YBRk1UXcdRsiKc9dhwMVgN5S9cQUiyoogDavup3H'
         assert res.entries[0].description == 'dev fund'
         res = wallet.get_address_book([1])
         assert len(res.entries) == 1
@@ -213,12 +213,12 @@ class AddressBookTest():
         assert e.index == 1
         assert e.address == '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
         assert e.description == u'えんしゅう'
-        res = wallet.edit_address_book(1, address = '44AFFq5kSiGBoZ4NMDwYtN18obc8AemS33DBLWs3H7otXft3XjrpDtQGv7SqSsaBYBb98uNbr2VBBEt7f2wfn3RVGQBEP3A')
+        res = wallet.edit_address_book(1, address = '888tNkZrPN6JsEgekjMnABU4TBzc2Dt29EPAvkRxbANsAnjyPbb3iQ1YBRk1UXcdRsiKc9dhwMVgN5S9cQUiyoogDavup3H')
         res = wallet.get_address_book([1])
         assert len(res.entries) == 1
         e = res.entries[0]
         assert e.index == 1
-        assert e.address == '44AFFq5kSiGBoZ4NMDwYtN18obc8AemS33DBLWs3H7otXft3XjrpDtQGv7SqSsaBYBb98uNbr2VBBEt7f2wfn3RVGQBEP3A'
+        assert e.address == '888tNkZrPN6JsEgekjMnABU4TBzc2Dt29EPAvkRxbANsAnjyPbb3iQ1YBRk1UXcdRsiKc9dhwMVgN5S9cQUiyoogDavup3H'
         assert e.description == u'えんしゅう'
         ok = False
         try: res = wallet.edit_address_book(1, address = '')
@@ -237,7 +237,7 @@ class AddressBookTest():
         wallet.delete_address_book(0)
         res = wallet.get_address_book([0]) # entries above the deleted one collapse one slot up
         assert len(res.entries) == 1
-        assert res.entries[0].address == '44AFFq5kSiGBoZ4NMDwYtN18obc8AemS33DBLWs3H7otXft3XjrpDtQGv7SqSsaBYBb98uNbr2VBBEt7f2wfn3RVGQBEP3A'
+        assert res.entries[0].address == '888tNkZrPN6JsEgekjMnABU4TBzc2Dt29EPAvkRxbANsAnjyPbb3iQ1YBRk1UXcdRsiKc9dhwMVgN5S9cQUiyoogDavup3H'
         assert res.entries[0].description == u'えんしゅう'
         wallet.delete_address_book(2)
         wallet.delete_address_book(0)
