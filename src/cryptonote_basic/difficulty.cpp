@@ -119,7 +119,7 @@ namespace cryptonote {
     return !carry;
   }
 
-  uint64_t next_difficulty_64(std::vector<std::uint64_t> timestamps, std::vector<uint64_t> cumulative_difficulties, size_t target_seconds, uint64_t height, uint64_t last_diff_reset_height, uint64_t last_diff_reset_value) {
+  uint64_t next_difficulty_64(std::vector<std::uint64_t> timestamps, std::vector<uint64_t> cumulative_difficulties, size_t target_seconds, uint64_t height, uint64_t last_diff_reset_height, uint64_t last_diff_reset_value, uint8_t version) {
 
     bool is_diff_reset = false;
     if (last_diff_reset_height != 0 && height >= last_diff_reset_height && height - last_diff_reset_height < timestamps.size())
@@ -130,10 +130,12 @@ namespace cryptonote {
       cumulative_difficulties.erase(cumulative_difficulties.begin(), cumulative_difficulties.begin() + num_ignored_blocks);
     }
 
+    const uint64_t difficulty_lag = version < 9 ? DIFFICULTY_LAG_V1 : DIFFICULTY_LAG_V9;
     if(timestamps.size() > DIFFICULTY_WINDOW)
     {
-      timestamps.resize(DIFFICULTY_WINDOW);
-      cumulative_difficulties.resize(DIFFICULTY_WINDOW);
+      size_t window_start = timestamps.size() >= DIFFICULTY_WINDOW + difficulty_lag ? timestamps.size() - DIFFICULTY_WINDOW - difficulty_lag : 0;
+      timestamps = std::vector<uint64_t>(timestamps.begin() + window_start,  timestamps.begin() + window_start + DIFFICULTY_WINDOW);
+      cumulative_difficulties = std::vector<uint64_t>(cumulative_difficulties.begin() + window_start, cumulative_difficulties.begin() + window_start + DIFFICULTY_WINDOW);
     }
 
 
@@ -148,22 +150,30 @@ namespace cryptonote {
     }
     static_assert(DIFFICULTY_WINDOW >= 2, "Window is too small");
     assert(length <= DIFFICULTY_WINDOW);
-    sort(timestamps.begin(), timestamps.end());
-    size_t cut_begin, cut_end;
-    static_assert(2 * DIFFICULTY_CUT <= DIFFICULTY_WINDOW - 2, "Cut length is too large");
-    if (length <= DIFFICULTY_WINDOW - 2 * DIFFICULTY_CUT) {
-      cut_begin = 0;
-      cut_end = length;
+    uint64_t time_span = 0;
+    uint64_t total_work = 0;
+    if (version < HF_VERSION_REMOVE_DIFFICULTY_SORT)
+    {
+      sort(timestamps.begin(), timestamps.end());
+      size_t cut_begin, cut_end;
+      static_assert(2 * DIFFICULTY_CUT <= DIFFICULTY_WINDOW - 2, "Cut length is too large");
+      if (length <= DIFFICULTY_WINDOW - 2 * DIFFICULTY_CUT) {
+        cut_begin = 0;
+        cut_end = length;
+      } else {
+        cut_begin = (length - (DIFFICULTY_WINDOW - 2 * DIFFICULTY_CUT) + 1) / 2;
+        cut_end = cut_begin + (DIFFICULTY_WINDOW - 2 * DIFFICULTY_CUT);
+      }
+      assert(/*cut_begin >= 0 &&*/ cut_begin + 2 <= cut_end && cut_end <= length);
+      time_span = timestamps[cut_end - 1] - timestamps[cut_begin];
+      if (time_span == 0) {
+        time_span = 1;
+      }
+      total_work = cumulative_difficulties[cut_end - 1] - cumulative_difficulties[cut_begin];
     } else {
-      cut_begin = (length - (DIFFICULTY_WINDOW - 2 * DIFFICULTY_CUT) + 1) / 2;
-      cut_end = cut_begin + (DIFFICULTY_WINDOW - 2 * DIFFICULTY_CUT);
+      time_span = timestamps.front() < timestamps.back() ? timestamps.back() - timestamps.front() : 1;
+      total_work = cumulative_difficulties.back() - cumulative_difficulties.front();
     }
-    assert(/*cut_begin >= 0 &&*/ cut_begin + 2 <= cut_end && cut_end <= length);
-    uint64_t time_span = timestamps[cut_end - 1] - timestamps[cut_begin];
-    if (time_span == 0) {
-      time_span = 1;
-    }
-    uint64_t total_work = cumulative_difficulties[cut_end - 1] - cumulative_difficulties[cut_begin];
     assert(total_work > 0);
     uint64_t low, high;
     mul(total_work, target_seconds, low, high);
@@ -218,7 +228,7 @@ namespace cryptonote {
       return check_hash_128(hash, difficulty);
   }
 
-  difficulty_type next_difficulty(std::vector<uint64_t> timestamps, std::vector<difficulty_type> cumulative_difficulties, size_t target_seconds, uint64_t height, uint64_t last_diff_reset_height, difficulty_type last_diff_reset_value) {
+  difficulty_type next_difficulty(std::vector<uint64_t> timestamps, std::vector<difficulty_type> cumulative_difficulties, size_t target_seconds, uint64_t height, uint64_t last_diff_reset_height, difficulty_type last_diff_reset_value, uint8_t version) {
 
     bool is_diff_reset = false;
     if (last_diff_reset_height != 0 && height >= last_diff_reset_height && height - last_diff_reset_height < timestamps.size())
@@ -230,10 +240,12 @@ namespace cryptonote {
     }
 
     //cutoff DIFFICULTY_LAG
+    const uint64_t difficulty_lag = version < 9 ? DIFFICULTY_LAG_V1 : DIFFICULTY_LAG_V9;
     if(timestamps.size() > DIFFICULTY_WINDOW)
     {
-      timestamps.resize(DIFFICULTY_WINDOW);
-      cumulative_difficulties.resize(DIFFICULTY_WINDOW);
+      size_t window_start = timestamps.size() >= DIFFICULTY_WINDOW + difficulty_lag ? timestamps.size() - DIFFICULTY_WINDOW - difficulty_lag : 0;
+      timestamps = std::vector<uint64_t>(timestamps.begin() + window_start,  timestamps.begin() + window_start + DIFFICULTY_WINDOW);
+      cumulative_difficulties = std::vector<difficulty_type>(cumulative_difficulties.begin() + window_start, cumulative_difficulties.begin() + window_start + DIFFICULTY_WINDOW);
     }
 
 
@@ -248,22 +260,32 @@ namespace cryptonote {
     }
     static_assert(DIFFICULTY_WINDOW >= 2, "Window is too small");
     assert(length <= DIFFICULTY_WINDOW);
-    sort(timestamps.begin(), timestamps.end());
-    size_t cut_begin, cut_end;
-    static_assert(2 * DIFFICULTY_CUT <= DIFFICULTY_WINDOW - 2, "Cut length is too large");
-    if (length <= DIFFICULTY_WINDOW - 2 * DIFFICULTY_CUT) {
-      cut_begin = 0;
-      cut_end = length;
-    } else {
-      cut_begin = (length - (DIFFICULTY_WINDOW - 2 * DIFFICULTY_CUT) + 1) / 2;
-      cut_end = cut_begin + (DIFFICULTY_WINDOW - 2 * DIFFICULTY_CUT);
+    uint64_t time_span = 0;
+    difficulty_type total_work = 0;
+    if (version < HF_VERSION_REMOVE_DIFFICULTY_SORT)
+    {
+      sort(timestamps.begin(), timestamps.end());
+      size_t cut_begin, cut_end;
+      static_assert(2 * DIFFICULTY_CUT <= DIFFICULTY_WINDOW - 2, "Cut length is too large");
+      if (length <= DIFFICULTY_WINDOW - 2 * DIFFICULTY_CUT) {
+        cut_begin = 0;
+        cut_end = length;
+      } else {
+        cut_begin = (length - (DIFFICULTY_WINDOW - 2 * DIFFICULTY_CUT) + 1) / 2;
+        cut_end = cut_begin + (DIFFICULTY_WINDOW - 2 * DIFFICULTY_CUT);
+      }
+      assert(/*cut_begin >= 0 &&*/ cut_begin + 2 <= cut_end && cut_end <= length);
+      time_span = timestamps[cut_end - 1] - timestamps[cut_begin];
+      if (time_span == 0) {
+        time_span = 1;
+      }
+      total_work = cumulative_difficulties[cut_end - 1] - cumulative_difficulties[cut_begin];
     }
-    assert(/*cut_begin >= 0 &&*/ cut_begin + 2 <= cut_end && cut_end <= length);
-    uint64_t time_span = timestamps[cut_end - 1] - timestamps[cut_begin];
-    if (time_span == 0) {
-      time_span = 1;
+    else
+    {
+      time_span = timestamps.front() < timestamps.back() ? timestamps.back() - timestamps.front() : 1;
+      total_work = cumulative_difficulties.back() - cumulative_difficulties.front();
     }
-    difficulty_type total_work = cumulative_difficulties[cut_end - 1] - cumulative_difficulties[cut_begin];
     assert(total_work > 0);
     boost::multiprecision::uint256_t res =  (boost::multiprecision::uint256_t(total_work) * target_seconds + time_span - 1) / time_span;
     if (height >= HARDFORK_1_HEIGHT && height < HARDFORK_1_HEIGHT+HARDFORK_1_DIFFADJ_WINDOW) {

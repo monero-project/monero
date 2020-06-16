@@ -927,7 +927,8 @@ start:
   size_t target = get_difficulty_target();
   uint64_t last_diff_reset_height = m_hardfork->get_last_diff_reset_height(height);
   difficulty_type last_diff_reset_value = m_hardfork->get_last_diff_reset_value(height);
-  difficulty_type diff = next_difficulty(timestamps, difficulties, target, height, last_diff_reset_height, last_diff_reset_value);
+  uint8_t hf_version = m_hardfork->get_current_version();
+  difficulty_type diff = next_difficulty(timestamps, difficulties, target, height, last_diff_reset_height, last_diff_reset_value, hf_version);
 
   CRITICAL_REGION_LOCAL1(m_difficulty_lock);
   m_difficulty_for_next_block_top_hash = top_hash;
@@ -1004,10 +1005,11 @@ size_t Blockchain::recalculate_difficulties(boost::optional<uint64_t> start_heig
   std::vector<difficulty_type> new_cumulative_difficulties;
   for (uint64_t height = start_height; height <= top_height; ++height)
   {
-    size_t target = get_ideal_hard_fork_version(height) < 2 && height < HARDFORK_1_HEIGHT ? DIFFICULTY_TARGET_V1 : DIFFICULTY_TARGET_V2;
+    uint8_t hf_version = get_ideal_hard_fork_version(height);
+    size_t target = hf_version < 2 && height < HARDFORK_1_HEIGHT ? DIFFICULTY_TARGET_V1 : DIFFICULTY_TARGET_V2;
     uint64_t last_diff_reset_height = m_hardfork->get_last_diff_reset_height(height);
     difficulty_type last_diff_reset_value = m_hardfork->get_last_diff_reset_value(height);
-    difficulty_type recalculated_diff = next_difficulty(timestamps, difficulties, target, height, last_diff_reset_height, last_diff_reset_value);
+    difficulty_type recalculated_diff = next_difficulty(timestamps, difficulties, target, height, last_diff_reset_height, last_diff_reset_value, hf_version);
 
     boost::multiprecision::uint256_t recalculated_cum_diff_256 = boost::multiprecision::uint256_t(recalculated_diff) + last_cum_diff;
     CHECK_AND_ASSERT_THROW_MES(recalculated_cum_diff_256 <= std::numeric_limits<difficulty_type>::max(), "Difficulty overflow!");
@@ -1286,9 +1288,10 @@ difficulty_type Blockchain::get_next_difficulty_for_alternative_chain(const std:
   size_t target = get_ideal_hard_fork_version(bei.height) < 2 && bei.height < HARDFORK_1_HEIGHT ? DIFFICULTY_TARGET_V1 : DIFFICULTY_TARGET_V2;
   uint64_t last_diff_reset_height = m_hardfork->get_last_diff_reset_height(bei.height);
   difficulty_type last_diff_reset_value = m_hardfork->get_last_diff_reset_value(bei.height);
+  uint8_t hf_version = m_hardfork->get_current_version();
 
   // calculate the difficulty target for the block and return it
-  return next_difficulty(timestamps, cumulative_difficulties, target, bei.height, last_diff_reset_height, last_diff_reset_value);
+  return next_difficulty(timestamps, cumulative_difficulties, target, bei.height, last_diff_reset_height, last_diff_reset_value, hf_version);
 }
 //------------------------------------------------------------------
 // This function does a sanity check on basic things that all miner
