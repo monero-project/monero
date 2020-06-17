@@ -465,7 +465,7 @@ class Daemon(object):
 
     def in_peers(self, in_peers):
         in_peers = {
-            'client': client,
+            'in_peers': in_peers,
         }
         return self.rpc.send_request('/in_peers', in_peers)
 
