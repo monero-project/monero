@@ -1,5 +1,5 @@
-// Copyright (c) 2017-2018, The Monero Project
-//
+// Copyright (c) 2017-2019, The Monero Project
+// 
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without modification, are
@@ -98,7 +98,7 @@ namespace tools
   {
     const char *base = user ? "" : "";
 #ifdef _WIN32
-    static const char *extension = strncmp(buildtag.c_str(), "install-", 8) ? ".zip" : ".exe";
+    static const char *extension = strncmp(buildtag.c_str(), "source", 6) ? (strncmp(buildtag.c_str(), "install-", 8) ? ".zip" : ".exe") : ".tar.bz2";
 #else
     static const char extension[] = ".tar.bz2";
 #endif

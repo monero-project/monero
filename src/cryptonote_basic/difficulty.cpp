@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 //
 // All rights reserved.
 //
@@ -103,7 +103,7 @@ namespace cryptonote {
     return a + b < a || (c && a + b == (uint64_t) -1);
   }
 
-  bool check_hash(const crypto::hash &hash, difficulty_type difficulty) {
+  bool check_hash_64(const crypto::hash &hash, uint64_t difficulty) {
     uint64_t low, high, top, cur;
     // First check the highest word, this will most likely fail for a random hash.
     mul(swap64le(((const uint64_t *) &hash)[3]), difficulty, top, high);
@@ -188,5 +188,32 @@ namespace cryptonote {
         next_difficulty = static_cast<uint64_t>(nextDifficulty);
         return next_difficulty;
     }
+    assert(/*cut_begin >= 0 &&*/ cut_begin + 2 <= cut_end && cut_end <= length);
+    uint64_t time_span = timestamps[cut_end - 1] - timestamps[cut_begin];
+    if (time_span == 0) {
+      time_span = 1;
+    }
+    difficulty_type total_work = cumulative_difficulties[cut_end - 1] - cumulative_difficulties[cut_begin];
+    assert(total_work > 0);
+    boost::multiprecision::uint256_t res =  (boost::multiprecision::uint256_t(total_work) * target_seconds + time_span - 1) / time_span;
+    if(res > max128bit)
+      return 0; // to behave like previous implementation, may be better return max128bit?
+    return res.convert_to<difficulty_type>();
+  }
+
+  std::string hex(difficulty_type v)
+  {
+    static const char chars[] = "0123456789abcdef";
+    std::string s;
+    while (v > 0)
+    {
+      s.push_back(chars[(v & 0xf).convert_to<unsigned>()]);
+      v >>= 4;
+    }
+    if (s.empty())
+      s += "0";
+    std::reverse(s.begin(), s.end());
+    return "0x" + s;
+  }
 
 }

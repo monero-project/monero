@@ -96,6 +96,9 @@ local.properties
 # PDT-specific
 .buildpath
 
+# Netbeans-specific
+nbproject
+
 # sbteclipse plugin
 .target
 
@@ -107,4 +110,5 @@ local.properties
 .vs/
 
 /testnet
-external/
+
+__pycache__/

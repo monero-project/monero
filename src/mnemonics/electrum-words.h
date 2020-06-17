@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -41,7 +41,6 @@
 
 #include <string>
 #include <cstdint>
-#include <map>
 #include "crypto/crypto.h"  // for declaration of crypto::secret_key
 
 namespace epee {  class wipeable_string; }

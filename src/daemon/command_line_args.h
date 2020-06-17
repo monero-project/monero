@@ -1,5 +1,5 @@
-// Copyright (c) 2014-2018, The Monero Project
-//
+// Copyright (c) 2014-2019, The Monero Project
+// 
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without modification, are
@@ -96,6 +96,12 @@ namespace daemon_args
   , 0
   };
 
+  const command_line::arg_descriptor<bool> arg_public_node = {
+    "public-node"
+  , "Allow other users to use the node as a remote (restricted RPC mode, view-only commands) and advertise it over P2P"
+  , false
+  };
+
   const command_line::arg_descriptor<std::string> arg_zmq_rpc_bind_ip   = {
     "zmq-rpc-bind-ip"
       , "IP for ZMQ RPC server to listen on"
@@ -114,6 +120,11 @@ namespace daemon_args
         return std::to_string(config::stagenet::ZMQ_RPC_DEFAULT_PORT);
       return val;
     }
+  };
+
+  const command_line::arg_descriptor<bool> arg_zmq_rpc_disabled = {
+    "no-zmq"
+  , "Disable ZMQ RPC server"
   };
 
 }  // namespace daemon_args

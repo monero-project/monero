@@ -32,10 +32,10 @@
 #include "ringct/rctOps.h"
 #include "ringct/multiexp.h"
 
-static const rct::key TESTSCALAR = rct::skGen();
-static const rct::key TESTPOW2SCALAR = {{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}};
-static const rct::key TESTSMALLSCALAR = {{5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}};
-static const rct::key TESTPOINT = rct::scalarmultBase(rct::skGen());
+#define TESTSCALAR []{ static const rct::key TESTSCALAR = rct::skGen(); return TESTSCALAR; }()
+#define TESTPOW2SCALAR []{ static const rct::key TESTPOW2SCALAR = {{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}}; return TESTPOW2SCALAR; }()
+#define TESTSMALLSCALAR []{ static const rct::key TESTSMALLSCALAR = {{5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}}; return TESTSMALLSCALAR; }()
+#define TESTPOINT []{ static const rct::key TESTPOINT = rct::scalarmultBase(rct::skGen()); return TESTPOINT; }()
 
 static rct::key basic(const std::vector<rct::MultiexpData> &data)
 {

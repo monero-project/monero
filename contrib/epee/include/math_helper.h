@@ -32,6 +32,7 @@
 
 #include <list>
 #include <numeric>
+#include <random>
 #include <boost/timer/timer.hpp>
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/random_generator.hpp>
@@ -230,35 +231,73 @@ namespace math_helper
 		}
 
 	}
-	template<int default_interval, bool start_immediate = true>
-	class once_a_time_seconds
+	template<typename get_interval, bool start_immediate = true>
+	class once_a_time
 	{
+    uint64_t get_time() const
+    {
+#ifdef _WIN32
+      FILETIME fileTime;
+      GetSystemTimeAsFileTime(&fileTime);
+      unsigned __int64 present = 0;
+      present |= fileTime.dwHighDateTime;
+      present = present << 32;
+      present |= fileTime.dwLowDateTime;
+      present /= 10;  // mic-sec
+      return present;
+#else
+      struct timeval tv;
+      gettimeofday(&tv, NULL);
+      return tv.tv_sec * 1000000 + tv.tv_usec;
+#endif
+    }
+
+    void set_next_interval()
+    {
+      m_interval = get_interval()();
+    }
+
 	public:
-		once_a_time_seconds():m_interval(default_interval)
+		once_a_time()
 		{
 			m_last_worked_time = 0;
       if(!start_immediate)
-        time(&m_last_worked_time);
+        m_last_worked_time = get_time();
+      set_next_interval();
 		}
+
+    void trigger()
+    {
+      m_last_worked_time = 0;
+    }
 
 		template<class functor_t>
 		bool do_call(functor_t functr)
 		{
-			time_t current_time = 0;
-			time(&current_time);
+			uint64_t current_time = get_time();
 
       if(current_time - m_last_worked_time > m_interval)
 			{
 				bool res = functr();
-				time(&m_last_worked_time);
+				m_last_worked_time = get_time();
+        set_next_interval();
 				return res;
 			}
 			return true;
 		}
 
 	private:
-		time_t m_last_worked_time;
-		time_t m_interval;
+		uint64_t m_last_worked_time;
+		uint64_t m_interval;
 	};
+
+  template<uint64_t N> struct get_constant_interval { public: uint64_t operator()() const { return N; } };
+
+  template<int default_interval, bool start_immediate = true>
+  class once_a_time_seconds: public once_a_time<get_constant_interval<default_interval * (uint64_t)1000000>, start_immediate> {};
+  template<int default_interval, bool start_immediate = true>
+  class once_a_time_milliseconds: public once_a_time<get_constant_interval<default_interval * (uint64_t)1000>, start_immediate> {};
+  template<typename get_interval, bool start_immediate = true>
+  class once_a_time_seconds_range: public once_a_time<get_interval, start_immediate> {};
 }
 }

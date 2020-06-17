@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 //
 // All rights reserved.
 //
@@ -584,8 +584,8 @@ namespace
       explicit server_parameters(const auth_message& request, const DigestIter& digest)
         : nonce(request.nonce)
         , opaque(request.opaque)
-        , stale(request.stale)
         , realm(request.realm)
+        , stale(request.stale)
         , value_generator()
         , index(boost::fusion::distance(boost::fusion::begin(digest_algorithms), digest))
       {

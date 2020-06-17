@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2018, The Monero Project
+// Copyright (c) 2017-2019, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -71,7 +71,7 @@ static void make_wallet(unsigned int idx, tools::wallet2 &wallet)
 
   try
   {
-    wallet.init("");
+    wallet.init("", boost::none, boost::asio::ip::tcp::endpoint{}, 0, true, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
     wallet.set_subaddress_lookahead(1, 1);
     wallet.generate("", "", spendkey, true, false);
     ASSERT_TRUE(test_addresses[idx].address == wallet.get_account().get_public_address_str(cryptonote::TESTNET));
@@ -112,7 +112,7 @@ static void make_wallets(std::vector<tools::wallet2>& wallets, unsigned int M)
   }
 
   for (auto& wallet: wallets) {
-    ASSERT_FALSE(wallet.multisig() || wallet.multisig() || wallet.multisig());
+    ASSERT_FALSE(wallet.multisig());
   }
 
   std::vector<std::string> mxis;

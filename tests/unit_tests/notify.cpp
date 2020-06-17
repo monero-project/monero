@@ -44,7 +44,15 @@ TEST(notify, works)
 #ifdef __GLIBC__
   mode_t prevmode = umask(077);
 #endif
-  char name_template[] = "/tmp/monero-notify-unit-test-XXXXXX";
+  const char *tmp = getenv("TEMP");
+  if (!tmp)
+    tmp = "/tmp";
+  static const char *filename = "monero-notify-unit-test-XXXXXX";
+  const size_t len = strlen(tmp) + 1 + strlen(filename);
+  std::unique_ptr<char[]> name_template_(new char[len + 1]);
+  char *name_template = name_template_.get();
+  ASSERT_TRUE(name_template != NULL);
+  snprintf(name_template, len + 1, "%s/%s", tmp, filename);
   int fd = mkstemp(name_template);
 #ifdef __GLIBC__
   umask(prevmode);
@@ -59,13 +67,23 @@ TEST(notify, works)
       + " " + name_template + " %s";
 
   tools::Notify notify(spec.c_str());
-  notify.notify("1111111111111111111111111111111111111111111111111111111111111111");
+  notify.notify("%s", "1111111111111111111111111111111111111111111111111111111111111111", NULL);
 
-  epee::misc_utils::sleep_no_w(100);
+  bool ok = false;
+  for (int i = 0; i < 10; ++i)
+  {
+    epee::misc_utils::sleep_no_w(100);
 
-  std::string s;
-  ASSERT_TRUE(epee::file_io_utils::load_file_to_string(name_template, s));
-  ASSERT_TRUE(s == "1111111111111111111111111111111111111111111111111111111111111111");
-
+    std::string s;
+    if (epee::file_io_utils::load_file_to_string(name_template, s))
+    {
+      if (s == "1111111111111111111111111111111111111111111111111111111111111111")
+      {
+        ok = true;
+        break;
+      }
+    }
+  }
   boost::filesystem::remove(name_template);
+  ASSERT_TRUE(ok);
 }

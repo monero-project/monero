@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -87,7 +87,6 @@ namespace cryptonote {
   /* Cryptonote helper functions                                          */
   /************************************************************************/
   size_t get_min_block_weight(uint8_t version);
-  size_t get_max_block_size();
   size_t get_max_tx_size();
   int get_emission_speed_factor(uint8_t version);
   bool get_block_reward(size_t median_weight, size_t current_block_weight, uint64_t already_generated_coins, uint64_t &reward, uint8_t version);
@@ -125,5 +124,5 @@ namespace cryptonote {
   bool operator ==(const cryptonote::block& a, const cryptonote::block& b);
 }
 
-bool parse_hash256(const std::string str_hash, crypto::hash& hash);
+bool parse_hash256(const std::string &str_hash, crypto::hash& hash);
 

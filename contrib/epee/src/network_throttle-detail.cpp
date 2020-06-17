@@ -2,7 +2,7 @@
 /// @author rfree (current maintainer in monero.cc project)
 /// @brief implementaion for throttling of connection (count and rate-limit speed etc)
 
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -32,20 +32,11 @@
 
 /* rfree: implementation for throttle details */
 
-#include <boost/asio.hpp>
 #include <string>
 #include <vector>
-#include <boost/noncopyable.hpp>
-#include <boost/shared_ptr.hpp>
 #include <atomic>
 
 #include <boost/asio.hpp>
-#include <boost/array.hpp>
-#include <boost/noncopyable.hpp>
-#include <boost/shared_ptr.hpp>
-#include <boost/enable_shared_from_this.hpp>
-#include <boost/interprocess/detail/atomic.hpp>
-#include <boost/thread/thread.hpp>
 
 #include <memory>
 
@@ -53,14 +44,7 @@
 
 #include "net/net_utils_base.h" 
 #include "misc_log_ex.h" 
-#include <boost/lambda/bind.hpp>
-#include <boost/lambda/lambda.hpp>
-#include <boost/uuid/random_generator.hpp>
 #include <boost/chrono.hpp>
-#include <boost/utility/value_init.hpp>
-#include <boost/asio/deadline_timer.hpp>
-#include <boost/date_time/posix_time/posix_time.hpp>
-#include <boost/thread/thread.hpp> 
 #include "misc_language.h"
 #include "pragma_comp_defs.h"
 #include <sstream>
@@ -150,6 +134,10 @@ network_throttle::network_throttle(const std::string &nameshort, const std::stri
 	m_any_packet_yet = false;
 	m_slot_size = 1.0; // hard coded in few places
 	m_target_speed = 16 * 1024; // other defaults are probably defined in the command-line parsing code when this class is used e.g. as main global throttle
+	m_last_sample_time = 0;
+	m_history.resize(m_window_size);
+	m_total_packets = 0;
+	m_total_bytes = 0;
 }
 
 void network_throttle::set_name(const std::string &name) 
@@ -183,8 +171,7 @@ void network_throttle::tick()
 	{
 		_dbg3("Moving counter buffer by 1 second " << last_sample_time_slot << " < " << current_sample_time_slot << " (last time " << m_last_sample_time<<")");
 		// rotate buffer 
-		for (size_t i=m_history.size()-1; i>=1; --i) m_history[i] = m_history[i-1];
-		m_history[0] = packet_info();
+		m_history.push_front(packet_info());
 		if (! m_any_packet_yet) 
 		{
 			m_last_sample_time = time_now;	
@@ -206,7 +193,9 @@ void network_throttle::_handle_trafic_exact(size_t packet_size, size_t orginal_s
 
 	calculate_times_struct cts ;  calculate_times(packet_size, cts , false, -1);
 	calculate_times_struct cts2;  calculate_times(packet_size, cts2, false, 5);
-	m_history[0].m_size += packet_size;
+	m_history.front().m_size += packet_size;
+	m_total_packets++;
+	m_total_bytes += packet_size;
 
 	std::ostringstream oss; oss << "["; 	for (auto sample: m_history) oss << sample.m_size << " ";	 oss << "]" << std::ends;
 	std::string history_str = oss.str();
@@ -366,6 +355,12 @@ double network_throttle::get_current_speed() const {
 	
 	return bytes_transferred / ((m_history.size() - 1) * m_slot_size);
 }
+
+void network_throttle::get_stats(uint64_t &total_packets, uint64_t &total_bytes) const {
+	total_packets = m_total_packets;
+	total_bytes = m_total_bytes;
+}
+
 
 } // namespace
 } // namespace

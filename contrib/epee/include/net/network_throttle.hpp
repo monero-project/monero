@@ -2,7 +2,7 @@
 /// @author rfree (current maintainer in monero.cc project)
 /// @brief interface for throttling of connection (count and rate-limit speed etc)
 
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -152,7 +152,8 @@ class i_network_throttle {
 		virtual size_t get_recommended_size_of_planned_transport() const =0; // what should be the recommended limit of data size that we can transport over current network_throttle in near future
 
 		virtual double get_time_seconds() const =0; // a timer
-        virtual void logger_handle_net(const std::string &filename, double time, size_t size)=0;
+		virtual void logger_handle_net(const std::string &filename, double time, size_t size)=0;
+		virtual void get_stats(uint64_t &total_packets, uint64_t &total_bytes) const =0;
 
 
 };

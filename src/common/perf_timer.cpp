@@ -1,4 +1,4 @@
-// Copyright (c) 2016-2018, The Monero Project
+// Copyright (c) 2016-2019, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -32,6 +32,13 @@
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "perf"
+
+#define PERF_LOG_ALWAYS(level, cat, x) \
+  el::base::Writer(level, el::Color::Default, __FILE__, __LINE__, ELPP_FUNC, el::base::DispatchAction::FileOnlyLog).construct(cat) << x
+#define PERF_LOG(level, cat, x) \
+  do { \
+    if (ELPP->vRegistry()->allowed(level, cat)) PERF_LOG_ALWAYS(level, cat, x); \
+  } while(0)
 
 namespace tools
 {
@@ -81,7 +88,7 @@ namespace tools
 namespace tools
 {
 
-el::Level performance_timer_log_level = el::Level::Debug;
+el::Level performance_timer_log_level = el::Level::Info;
 
 static __thread std::vector<LoggingPerformanceTimer*> *performance_timers = NULL;
 
@@ -90,8 +97,8 @@ void set_performance_timer_log_level(el::Level level)
   if (level != el::Level::Debug && level != el::Level::Trace && level != el::Level::Info
    && level != el::Level::Warning && level != el::Level::Error && level != el::Level::Fatal)
   {
-    MERROR("Wrong log level: " << el::LevelHelper::convertToString(level) << ", using Debug");
-    level = el::Level::Debug;
+    MERROR("Wrong log level: " << el::LevelHelper::convertToString(level) << ", using Info");
+    level = el::Level::Info;
   }
   performance_timer_log_level = level;
 }
@@ -104,20 +111,26 @@ PerformanceTimer::PerformanceTimer(bool paused): started(true), paused(paused)
     ticks = get_tick_count();
 }
 
-LoggingPerformanceTimer::LoggingPerformanceTimer(const std::string &s, uint64_t unit, el::Level l): PerformanceTimer(), name(s), unit(unit), level(l)
+LoggingPerformanceTimer::LoggingPerformanceTimer(const std::string &s, const std::string &cat, uint64_t unit, el::Level l): PerformanceTimer(), name(s), cat(cat), unit(unit), level(l)
 {
+  const bool log = ELPP->vRegistry()->allowed(level, cat.c_str());
   if (!performance_timers)
   {
-    MLOG(level, "PERF             ----------");
+    if (log)
+      PERF_LOG_ALWAYS(level, cat.c_str(), "PERF             ----------");
     performance_timers = new std::vector<LoggingPerformanceTimer*>();
+    performance_timers->reserve(16); // how deep before realloc
   }
   else
   {
     LoggingPerformanceTimer *pt = performance_timers->back();
     if (!pt->started && !pt->paused)
     {
-      size_t size = 0; for (const auto *tmp: *performance_timers) if (!tmp->paused) ++size;
-      MLOG(pt->level, "PERF           " << std::string((size-1) * 2, ' ') << "  " << pt->name);
+      if (log)
+      {
+        size_t size = 0; for (const auto *tmp: *performance_timers) if (!tmp->paused) ++size;
+        PERF_LOG_ALWAYS(pt->level, cat.c_str(), "PERF           " << std::string((size-1) * 2, ' ') << "  " << pt->name);
+      }
       pt->started = true;
     }
   }
@@ -134,10 +147,14 @@ LoggingPerformanceTimer::~LoggingPerformanceTimer()
 {
   pause();
   performance_timers->pop_back();
-  char s[12];
-  snprintf(s, sizeof(s), "%8llu  ", (unsigned long long)(ticks_to_ns(ticks) / (1000000000 / unit)));
-  size_t size = 0; for (const auto *tmp: *performance_timers) if (!tmp->paused || tmp==this) ++size;
-  MLOG(level, "PERF " << s << std::string(size * 2, ' ') << "  " << name);
+  const bool log = ELPP->vRegistry()->allowed(level, cat.c_str());
+  if (log)
+  {
+    char s[12];
+    snprintf(s, sizeof(s), "%8llu  ", (unsigned long long)(ticks_to_ns(ticks) / (1000000000 / unit)));
+    size_t size = 0; for (const auto *tmp: *performance_timers) if (!tmp->paused || tmp==this) ++size;
+    PERF_LOG_ALWAYS(level, cat.c_str(), "PERF " << s << std::string(size * 2, ' ') << "  " << name);
+  }
   if (performance_timers->empty())
   {
     delete performance_timers;
@@ -159,6 +176,22 @@ void PerformanceTimer::resume()
     return;
   ticks = get_tick_count() - ticks;
   paused = false;
+}
+
+void PerformanceTimer::reset()
+{
+  if (paused)
+    ticks = 0;
+  else
+    ticks = get_tick_count();
+}
+
+uint64_t PerformanceTimer::value() const
+{
+  uint64_t v = ticks;
+  if (!paused)
+    v = get_tick_count() - v;
+  return ticks_to_ns(v);
 }
 
 }

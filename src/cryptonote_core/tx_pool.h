@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 //
 // All rights reserved.
 //
@@ -32,17 +32,20 @@
 #include "include_base_utils.h"
 
 #include <set>
+#include <tuple>
 #include <unordered_map>
 #include <unordered_set>
 #include <queue>
 #include <boost/serialization/version.hpp>
 #include <boost/utility.hpp>
 
+#include "span.h"
 #include "string_tools.h"
 #include "syncobj.h"
 #include "math_helper.h"
 #include "cryptonote_basic/cryptonote_basic_impl.h"
 #include "cryptonote_basic/verification_context.h"
+#include "cryptonote_protocol/enums.h"
 #include "blockchain_db/blockchain_db.h"
 #include "crypto/hash.h"
 #include "rpc/core_rpc_server_commands_defs.h"
@@ -61,7 +64,7 @@ namespace cryptonote
   class txCompare
   {
   public:
-    bool operator()(const tx_by_fee_and_receive_time_entry& a, const tx_by_fee_and_receive_time_entry& b)
+    bool operator()(const tx_by_fee_and_receive_time_entry& a, const tx_by_fee_and_receive_time_entry& b) const
     {
 		std::string ahash(a.second.data, sizeof(a.second.data));
 		std::string bhash(b.second.data, sizeof(b.second.data));
@@ -103,9 +106,10 @@ namespace cryptonote
      * @copydoc add_tx(transaction&, tx_verification_context&, bool, bool, uint8_t)
      *
      * @param id the transaction's hash
+     * @tx_relay how the transaction was received
      * @param tx_weight the transaction's weight
      */
-    bool add_tx(transaction &tx, const crypto::hash &id, size_t tx_weight, tx_verification_context& tvc, bool kept_by_block, bool relayed, bool do_not_relay, uint8_t version);
+    bool add_tx(transaction &tx, const crypto::hash &id, const cryptonote::blobdata &blob, size_t tx_weight, tx_verification_context& tvc, relay_method tx_relay, bool relayed, uint8_t version);
 
     /**
      * @brief add a transaction to the transaction pool
@@ -117,38 +121,40 @@ namespace cryptonote
      *
      * @param tx the transaction to be added
      * @param tvc return-by-reference status about the transaction verification
-     * @param kept_by_block has this transaction been in a block?
+     * @tx_relay how the transaction was received
      * @param relayed was this transaction from the network or a local client?
-     * @param do_not_relay to avoid relaying the transaction to the network
      * @param version the version used to create the transaction
      *
      * @return true if the transaction passes validations, otherwise false
      */
-    bool add_tx(transaction &tx, tx_verification_context& tvc, bool kept_by_block, bool relayed, bool do_not_relay, uint8_t version);
+    bool add_tx(transaction &tx, tx_verification_context& tvc, relay_method tx_relay, bool relayed, uint8_t version);
 
     /**
      * @brief takes a transaction with the given hash from the pool
      *
      * @param id the hash of the transaction
      * @param tx return-by-reference the transaction taken
+     * @param txblob return-by-reference the transaction as a blob
      * @param tx_weight return-by-reference the transaction's weight
      * @param fee the transaction fee
      * @param relayed return-by-reference was transaction relayed to us by the network?
      * @param do_not_relay return-by-reference is transaction not to be relayed to the network?
      * @param double_spend_seen return-by-reference was a double spend seen for that transaction?
+     * @param pruned return-by-reference is the tx pruned
      *
      * @return true unless the transaction cannot be found in the pool
      */
-    bool take_tx(const crypto::hash &id, transaction &tx, size_t& tx_weight, uint64_t& fee, bool &relayed, bool &do_not_relay, bool &double_spend_seen);
+    bool take_tx(const crypto::hash &id, transaction &tx, cryptonote::blobdata &txblob, size_t& tx_weight, uint64_t& fee, bool &relayed, bool &do_not_relay, bool &double_spend_seen, bool &pruned);
 
     /**
      * @brief checks if the pool has a transaction with the given hash
      *
      * @param id the hash to look for
+     * @param tx_category a filter for txes
      *
-     * @return true if the transaction is in the pool, otherwise false
+     * @return true if the transaction is in the pool and meets tx_category requirements
      */
-    bool have_tx(const crypto::hash &id) const;
+    bool have_tx(const crypto::hash &id, relay_category tx_category) const;
 
     /**
      * @brief action to take when notified of a block added to the blockchain
@@ -232,37 +238,37 @@ namespace cryptonote
      * @brief get a list of all transactions in the pool
      *
      * @param txs return-by-reference the list of transactions
-     * @param include_unrelayed_txes include unrelayed txes in the result
+     * @param include_sensitive return stempool, anonymity-pool, and unrelayed txes
      *
      */
-	void get_transactions(std::vector<transaction>& txs, bool include_unrelayed_txes = true) const;
+    void get_transactions(std::vector<transaction>& txs, bool include_sensitive = false) const;
 
     /**
      * @brief get a list of all transaction hashes in the pool
      *
      * @param txs return-by-reference the list of transactions
-     * @param include_unrelayed_txes include unrelayed txes in the result
+     * @param include_sensitive return stempool, anonymity-pool, and unrelayed txes
      *
      */
-    void get_transaction_hashes(std::vector<crypto::hash>& txs, bool include_unrelayed_txes = true) const;
+    void get_transaction_hashes(std::vector<crypto::hash>& txs, bool include_sensitive = false) const;
 
     /**
      * @brief get (weight, fee, receive time) for all transaction in the pool
      *
      * @param txs return-by-reference that data
-     * @param include_unrelayed_txes include unrelayed txes in the result
+     * @param include_sensitive return stempool, anonymity-pool, and unrelayed txes
      *
      */
-    void get_transaction_backlog(std::vector<tx_backlog_entry>& backlog, bool include_unrelayed_txes = true) const;
+    void get_transaction_backlog(std::vector<tx_backlog_entry>& backlog, bool include_sensitive = false) const;
 
     /**
      * @brief get a summary statistics of all transaction hashes in the pool
      *
      * @param stats return-by-reference the pool statistics
-     * @param include_unrelayed_txes include unrelayed txes in the result
+     * @param include_sensitive return stempool, anonymity-pool, and unrelayed txes
      *
      */
-    void get_transaction_stats(struct txpool_stats& stats, bool include_unrelayed_txes = true) const;
+    void get_transaction_stats(struct txpool_stats& stats, bool include_sensitive = false) const;
 
     /**
      * @brief get information about all transactions and key images in the pool
@@ -271,11 +277,12 @@ namespace cryptonote
      *
      * @param tx_infos return-by-reference the transactions' information
      * @param key_image_infos return-by-reference the spent key images' information
-     * @param include_sensitive_data include unrelayed txes and fields that are sensitive to the node privacy
+     * @param include_sensitive_data return stempool, anonymity-pool, and unrelayed
+     *    txes and fields that are sensitive to the node privacy
      *
      * @return true
      */
-    bool get_transactions_and_spent_keys_info(std::vector<tx_info>& tx_infos, std::vector<spent_key_image_info>& key_image_infos, bool include_sensitive_data = true) const;
+    bool get_transactions_and_spent_keys_info(std::vector<tx_info>& tx_infos, std::vector<spent_key_image_info>& key_image_infos, bool include_sensitive_data = false) const;
 
     /**
      * @brief get information about all transactions and key images in the pool
@@ -297,17 +304,18 @@ namespace cryptonote
      *
      * @return true
      */
-    bool check_for_key_images(const std::vector<crypto::key_image>& key_images, std::vector<bool> spent) const;
+    bool check_for_key_images(const std::vector<crypto::key_image>& key_images, std::vector<bool>& spent) const;
 
     /**
      * @brief get a specific transaction from the pool
      *
      * @param h the hash of the transaction to get
      * @param tx return-by-reference the transaction blob requested
+     * @param tx_relay last relay method us
      *
      * @return true if the transaction is found, otherwise false
      */
-    bool get_transaction(const crypto::hash& h, cryptonote::blobdata& txblob) const;
+    bool get_transaction(const crypto::hash& h, cryptonote::blobdata& txblob, relay_category tx_category) const;
 
     /**
      * @brief get a list of all relayable transactions and their hashes
@@ -322,21 +330,22 @@ namespace cryptonote
      *
      * @return true
      */
-    bool get_relayable_transactions(std::vector<std::pair<crypto::hash, cryptonote::blobdata>>& txs) const;
+    bool get_relayable_transactions(std::vector<std::tuple<crypto::hash, cryptonote::blobdata, relay_method>>& txs) const;
 
     /**
      * @brief tell the pool that certain transactions were just relayed
      *
-     * @param txs the list of transactions (and their hashes)
+     * @param hashes list of tx hashes that are about to be relayed
+     * @param tx_relay update how the tx left this node
      */
-    void set_relayed(const std::vector<std::pair<crypto::hash, cryptonote::blobdata>>& txs);
+    void set_relayed(epee::span<const crypto::hash> hashes, relay_method tx_relay);
 
     /**
      * @brief get the total number of transactions in the pool
      *
      * @return the number of transactions in the pool
      */
-    size_t get_transactions_count(bool include_unrelayed_txes = true) const;
+    size_t get_transactions_count(bool include_sensitive = false) const;
 
     /**
      * @brief get a string containing human-readable pool information
@@ -425,6 +434,16 @@ namespace cryptonote
       bool double_spend_seen; //!< true iff another tx was seen double spending this one
     };
 
+    /**
+     * @brief get infornation about a single transaction
+     */
+    bool get_transaction_info(const crypto::hash &txid, tx_details &td) const;
+
+    /**
+     * @brief get transactions not in the passed set
+     */
+    bool get_complement(const std::vector<crypto::hash> &hashes, std::vector<cryptonote::blobdata> &txes) const;
+
   private:
 
     /**
@@ -432,7 +451,7 @@ namespace cryptonote
      *
      * @return true on success, false on error
      */
-    bool insert_key_images(const transaction_prefix &tx, const crypto::hash &txid, bool kept_by_block);
+    bool insert_key_images(const transaction_prefix &tx, const crypto::hash &txid, relay_method tx_relay);
 
     /**
      * @brief remove old transactions from the pool
@@ -449,16 +468,18 @@ namespace cryptonote
      * @brief check if a transaction in the pool has a given spent key image
      *
      * @param key_im the spent key image to look for
+     * @param txid hash of the new transaction where `key_im` was seen.
      *
      * @return true if the spent key image is present, otherwise false
      */
-    bool have_tx_keyimg_as_spent(const crypto::key_image& key_im) const;
     /**
    * @brief check if the deregistration tx already exists in the pool.
    * @return true if it already exists
    *
    */
    bool have_deregister_tx_already(transaction const &tx) const;
+    bool have_tx_keyimg_as_spent(const crypto::key_image& key_im, const crypto::hash& txid) const;
+
     /**
      * @brief check if any spent key image in a transaction is in the pool
      *
@@ -468,10 +489,11 @@ namespace cryptonote
      * @note see tx_pool::have_tx_keyimg_as_spent
      *
      * @param tx the transaction to check spent key images of
+     * @param txid hash of `tx`.
      *
      * @return true if any spent key images are present in the pool, otherwise false
      */
-    bool have_tx_keyimges_as_spent(const transaction& tx) const;
+    bool have_tx_keyimges_as_spent(const transaction& tx, const crypto::hash& txid) const;
 
     /**
      * @brief forget a transaction's spent key images
@@ -513,7 +535,7 @@ namespace cryptonote
      * @param txd the transaction to check (and info about it)
      * @param txid the txid of the transaction to check
      * @param txblob the transaction blob to check
-     * @param tx the parsed transaction prefix, if successful
+     * @param tx the parsed transaction, if successful
      *
      * @return true if the transaction is good to go, otherwise false
      */
@@ -540,7 +562,7 @@ namespace cryptonote
      *  transaction on the assumption that the original will not be in a
      *  block again.
      */
-    typedef std::unordered_map<crypto::key_image, std::unordered_set<crypto::hash> > key_images_container;
+    typedef std::unordered_map<crypto::key_image, std::unordered_set<crypto::hash>> key_images_container;
 
 #if defined(DEBUG_CREATE_BLOCK_TEMPLATE)
 public:
@@ -587,6 +609,8 @@ private:
     size_t m_txpool_weight;
 
     mutable std::unordered_map<crypto::hash, std::tuple<bool, tx_verification_context, uint64_t, crypto::hash>> m_input_cache;
+
+    std::unordered_map<crypto::hash, transaction> m_parsed_tx_cache;
   };
 }
 

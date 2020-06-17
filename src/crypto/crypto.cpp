@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -34,7 +34,6 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
-#include <memory>
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/lock_guard.hpp>
 #include <boost/shared_ptr.hpp>
@@ -89,11 +88,22 @@ namespace crypto {
     return &reinterpret_cast<const unsigned char &>(scalar);
   }
 
-  void generate_random_bytes_thread_safe(size_t N, uint8_t *bytes)
+  boost::mutex &get_random_lock()
   {
     static boost::mutex random_lock;
-    boost::lock_guard<boost::mutex> lock(random_lock);
+    return random_lock;
+  }
+
+  void generate_random_bytes_thread_safe(size_t N, uint8_t *bytes)
+  {
+    boost::lock_guard<boost::mutex> lock(get_random_lock());
     generate_random_bytes_not_thread_safe(N, bytes);
+  }
+
+  void add_extra_entropy_thread_safe(const void *ptr, size_t bytes)
+  {
+    boost::lock_guard<boost::mutex> lock(get_random_lock());
+    add_extra_entropy_not_thread_safe(ptr, bytes);
   }
 
   static inline bool less32(const unsigned char *k0, const unsigned char *k1)
@@ -276,8 +286,6 @@ namespace crypto {
     buf.key = pub;
   try_again:
     random_scalar(k);
-    if (((const uint32_t*)(&k))[7] == 0) // we don't want tiny numbers here
-      goto try_again;
     ge_scalarmult_base(&tmp3, &k);
     ge_p3_tobytes(&buf.comm, &tmp3);
     hash_to_scalar(&buf, sizeof(s_comm), sig.c);
@@ -286,6 +294,7 @@ namespace crypto {
     sc_mulsub(&sig.r, &sig.c, &unwrap(sec), &k);
     if (!sc_isnonzero((const unsigned char*)sig.r.data))
       goto try_again;
+    memwipe(&k, sizeof(k));
   }
 
   bool crypto_ops::check_signature(const hash &prefix_hash, const public_key &pub, const signature &sig) {
@@ -382,6 +391,8 @@ namespace crypto {
 
     // sig.r = k - sig.c*r
     sc_mulsub(&sig.r, &sig.c, &unwrap(r), &k);
+
+    memwipe(&k, sizeof(k));
   }
 
   bool crypto_ops::check_tx_proof(const hash &prefix_hash, const public_key &R, const public_key &A, const boost::optional<public_key> &B, const public_key &D, const signature &sig) {
@@ -552,6 +563,7 @@ POP_WARNINGS
         random_scalar(sig[i].c);
         random_scalar(sig[i].r);
         if (ge_frombytes_vartime(&tmp3, &*pubs[i]) != 0) {
+          memwipe(&k, sizeof(k));
           local_abort("invalid pubkey");
         }
         ge_double_scalarmult_base_vartime(&tmp2, &sig[i].c, &tmp3, &sig[i].r);
@@ -565,6 +577,8 @@ POP_WARNINGS
     hash_to_scalar(buf.get(), rs_comm_size(pubs_count), h);
     sc_sub(&sig[sec_index].c, &h, &sum);
     sc_mulsub(&sig[sec_index].r, &sig[sec_index].c, &unwrap(sec), &k);
+
+    memwipe(&k, sizeof(k));
   }
 
   bool crypto_ops::check_ring_signature(const hash &prefix_hash, const key_image &image,

@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 //
 // All rights reserved.
 //
@@ -67,6 +67,8 @@ private:
     std::string m_errorString;
     std::vector<tools::wallet2::pending_tx> m_pending_tx;
     std::unordered_set<crypto::public_key> m_signers;
+    std::vector<std::string> m_tx_device_aux;
+    std::vector<crypto::key_image> m_key_images;
 };
 
 

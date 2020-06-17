@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -41,6 +41,6 @@ namespace tools
     bool decode(const std::string& enc, std::string& data);
 
     std::string encode_addr(uint64_t tag, const std::string& data);
-    bool decode_addr(std::string addr, uint64_t& tag, std::string& data);
+    bool decode_addr(const std::string &addr, uint64_t& tag, std::string& data);
   }
 }

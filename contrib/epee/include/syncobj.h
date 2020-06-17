@@ -150,103 +150,12 @@ namespace epee
   };
 
 
-#if defined(WINDWOS_PLATFORM)
-  class shared_critical_section
-  {
-  public: 
-    shared_critical_section()
-    {
-      ::InitializeSRWLock(&m_srw_lock);
-    }
-    ~shared_critical_section()
-    {}
-
-    bool lock_shared()
-    {
-      AcquireSRWLockShared(&m_srw_lock);
-      return true;
-    }
-    bool unlock_shared()
-    {
-      ReleaseSRWLockShared(&m_srw_lock);
-      return true;
-    }
-    bool lock_exclusive()
-    {
-      ::AcquireSRWLockExclusive(&m_srw_lock);
-      return true;
-    }
-    bool unlock_exclusive()
-    {
-      ::ReleaseSRWLockExclusive(&m_srw_lock);
-      return true;
-    }
-  private:
-    SRWLOCK m_srw_lock;
-  };
-
-
-  class shared_guard
-  {
-  public:
-    shared_guard(shared_critical_section& ref_sec):m_ref_sec(ref_sec)
-    {
-      m_ref_sec.lock_shared();
-    }
-
-    ~shared_guard()
-    {
-      m_ref_sec.unlock_shared();
-    }
-
-  private:
-    shared_critical_section& m_ref_sec;
-  };
-
-
-  class exclusive_guard
-  {
-  public:
-    exclusive_guard(shared_critical_section& ref_sec):m_ref_sec(ref_sec)
-    {
-      m_ref_sec.lock_exclusive();
-    }
-
-    ~exclusive_guard()
-    {
-      m_ref_sec.unlock_exclusive();
-    }
-
-  private:
-    shared_critical_section& m_ref_sec;
-  };
-#endif
-
-#define  SHARED_CRITICAL_REGION_BEGIN(x) { shared_guard   critical_region_var(x)
-#define  EXCLUSIVE_CRITICAL_REGION_BEGIN(x) { exclusive_guard   critical_region_var(x)
-
-#define  CRITICAL_REGION_LOCAL(x) {boost::this_thread::sleep_for(boost::chrono::milliseconds(epee::debug::g_test_dbg_lock_sleep()));}   epee::critical_region_t<decltype(x)>   critical_region_var(x)
+#define  CRITICAL_REGION_LOCAL(x) {} epee::critical_region_t<decltype(x)>   critical_region_var(x)
 #define  CRITICAL_REGION_BEGIN(x) { boost::this_thread::sleep_for(boost::chrono::milliseconds(epee::debug::g_test_dbg_lock_sleep())); epee::critical_region_t<decltype(x)>   critical_region_var(x)
 #define  CRITICAL_REGION_LOCAL1(x) {boost::this_thread::sleep_for(boost::chrono::milliseconds(epee::debug::g_test_dbg_lock_sleep()));} epee::critical_region_t<decltype(x)>   critical_region_var1(x)
 #define  CRITICAL_REGION_BEGIN1(x) {  boost::this_thread::sleep_for(boost::chrono::milliseconds(epee::debug::g_test_dbg_lock_sleep())); epee::critical_region_t<decltype(x)>   critical_region_var1(x)
 
 #define  CRITICAL_REGION_END() }
-
-
-#if defined(WINDWOS_PLATFORM)
-  inline const char* get_wait_for_result_as_text(DWORD res)
-  {
-    switch(res)
-    {
-    case WAIT_ABANDONED:  return "WAIT_ABANDONED";
-    case WAIT_TIMEOUT:    return "WAIT_TIMEOUT";
-    case WAIT_OBJECT_0:   return "WAIT_OBJECT_0";
-    case WAIT_OBJECT_0+1: return "WAIT_OBJECT_1";
-    case WAIT_OBJECT_0+2: return "WAIT_OBJECT_2";
-    default:              return "UNKNOWN CODE";
-    }
-  }
-#endif
 
 }
 

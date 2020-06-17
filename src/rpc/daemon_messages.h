@@ -1,4 +1,4 @@
-// Copyright (c) 2016-2018, The Monero Project
+// Copyright (c) 2016-2019, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -28,6 +28,11 @@
 
 #pragma once
 
+#include <rapidjson/writer.h>
+#include <unordered_map>
+#include <vector>
+
+#include "byte_stream.h"
 #include "message.h"
 #include "cryptonote_protocol/cryptonote_protocol_defs.h"
 #include "rpc/message_data_structs.h"
@@ -37,32 +42,29 @@
 #define BEGIN_RPC_MESSAGE_CLASS(classname) \
 class classname \
 { \
-  public: \
-    static const char* const name;
+  public:
 
 #define BEGIN_RPC_MESSAGE_REQUEST \
-    class Request : public Message \
+    class Request final : public Message \
     { \
       public: \
         Request() { } \
         ~Request() { } \
-        rapidjson::Value toJson(rapidjson::Document& doc) const; \
-        void fromJson(rapidjson::Value& val);
+        void doToJson(rapidjson::Writer<epee::byte_stream>& dest) const override final; \
+        void fromJson(const rapidjson::Value& val) override final;
 
 #define BEGIN_RPC_MESSAGE_RESPONSE \
-    class Response : public Message \
+    class Response final : public Message \
     { \
       public: \
         Response() { } \
         ~Response() { } \
-        rapidjson::Value toJson(rapidjson::Document& doc) const; \
-        void fromJson(rapidjson::Value& val);
+        void doToJson(rapidjson::Writer<epee::byte_stream>& dest) const override final; \
+        void fromJson(const rapidjson::Value& val) override final;
 
 #define END_RPC_MESSAGE_REQUEST };
 #define END_RPC_MESSAGE_RESPONSE };
 #define END_RPC_MESSAGE_CLASS };
-
-#define COMMA() ,
 
 // NOTE: when using a type with multiple template parameters,
 // replace any comma in the template specifier with the macro
@@ -118,7 +120,8 @@ BEGIN_RPC_MESSAGE_CLASS(GetTransactions);
     RPC_MESSAGE_MEMBER(std::vector<crypto::hash>, tx_hashes);
   END_RPC_MESSAGE_REQUEST;
   BEGIN_RPC_MESSAGE_RESPONSE;
-    RPC_MESSAGE_MEMBER(std::unordered_map<crypto::hash COMMA() cryptonote::rpc::transaction_info>, txs);
+    using txes_map = std::unordered_map<crypto::hash, transaction_info>;
+    RPC_MESSAGE_MEMBER(txes_map, txs);
     RPC_MESSAGE_MEMBER(std::vector<crypto::hash>, missed_hashes);
   END_RPC_MESSAGE_RESPONSE;
 END_RPC_MESSAGE_CLASS;
@@ -167,6 +170,14 @@ BEGIN_RPC_MESSAGE_CLASS(SendRawTx);
   BEGIN_RPC_MESSAGE_RESPONSE;
     RPC_MESSAGE_MEMBER(bool, relayed);
   END_RPC_MESSAGE_RESPONSE;
+END_RPC_MESSAGE_CLASS;
+
+BEGIN_RPC_MESSAGE_CLASS(SendRawTxHex);
+  BEGIN_RPC_MESSAGE_REQUEST;
+    RPC_MESSAGE_MEMBER(std::string, tx_as_hex);
+    RPC_MESSAGE_MEMBER(bool, relay);
+  END_RPC_MESSAGE_REQUEST;
+  using Response = SendRawTx::Response;
 END_RPC_MESSAGE_CLASS;
 
 BEGIN_RPC_MESSAGE_CLASS(StartMining);
@@ -407,12 +418,27 @@ BEGIN_RPC_MESSAGE_CLASS(GetRPCVersion);
   END_RPC_MESSAGE_RESPONSE;
 END_RPC_MESSAGE_CLASS;
 
-BEGIN_RPC_MESSAGE_CLASS(GetPerKBFeeEstimate);
+BEGIN_RPC_MESSAGE_CLASS(GetFeeEstimate);
   BEGIN_RPC_MESSAGE_REQUEST;
     RPC_MESSAGE_MEMBER(uint64_t, num_grace_blocks);
   END_RPC_MESSAGE_REQUEST;
   BEGIN_RPC_MESSAGE_RESPONSE;
-    RPC_MESSAGE_MEMBER(uint64_t, estimated_fee_per_kb);
+    RPC_MESSAGE_MEMBER(uint64_t, estimated_base_fee);
+    RPC_MESSAGE_MEMBER(uint64_t, fee_mask);
+    RPC_MESSAGE_MEMBER(uint32_t, size_scale);
+    RPC_MESSAGE_MEMBER(uint8_t, hard_fork_version);
+  END_RPC_MESSAGE_RESPONSE;
+END_RPC_MESSAGE_CLASS;
+
+BEGIN_RPC_MESSAGE_CLASS(GetOutputDistribution);
+  BEGIN_RPC_MESSAGE_REQUEST;
+    RPC_MESSAGE_MEMBER(std::vector<uint64_t>, amounts);
+    RPC_MESSAGE_MEMBER(uint64_t, from_height);
+    RPC_MESSAGE_MEMBER(uint64_t, to_height);
+    RPC_MESSAGE_MEMBER(bool, cumulative);
+  END_RPC_MESSAGE_REQUEST;
+  BEGIN_RPC_MESSAGE_RESPONSE;
+    RPC_MESSAGE_MEMBER(std::vector<output_distribution>, distributions);
   END_RPC_MESSAGE_RESPONSE;
 END_RPC_MESSAGE_CLASS;
 

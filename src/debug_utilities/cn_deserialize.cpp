@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 //
 // All rights reserved.
 //
@@ -80,11 +80,9 @@ int main(int argc, char* argv[])
 
   po::options_description desc_cmd_only("Command line options");
   po::options_description desc_cmd_sett("Command line options and settings options");
-  const command_line::arg_descriptor<std::string> arg_output_file = {"output-file", "Specify output file", "", true};
   const command_line::arg_descriptor<uint32_t> arg_log_level  = {"log-level",  "", log_level};
   const command_line::arg_descriptor<std::string> arg_input = {"input", "Specify input has a hexadecimal string", ""};
 
-  command_line::add_arg(desc_cmd_sett, arg_output_file);
   command_line::add_arg(desc_cmd_sett, arg_log_level);
   command_line::add_arg(desc_cmd_sett, arg_input);
 
@@ -120,55 +118,14 @@ int main(int argc, char* argv[])
 
   mlog_configure("", true);
 
-  std::string m_config_folder;
-
-  std::ostream *output;
-  std::ofstream *raw_data_file = NULL;
-  if (command_line::has_arg(vm, arg_output_file))
-  {
-    output_file_path = boost::filesystem::path(command_line::get_arg(vm, arg_output_file));
-
-    const boost::filesystem::path dir_path = output_file_path.parent_path();
-    if (!dir_path.empty())
-    {
-      if (boost::filesystem::exists(dir_path))
-      {
-        if (!boost::filesystem::is_directory(dir_path))
-        {
-          std::cerr << "output directory path is a file: " << dir_path << std::endl;
-          return 1;
-        }
-      }
-      else
-      {
-        if (!boost::filesystem::create_directory(dir_path))
-        {
-          std::cerr << "Failed to create directory " << dir_path << std::endl;
-          return 1;
-        }
-      }
-    }
-
-    raw_data_file = new std::ofstream();
-    raw_data_file->open(output_file_path.string(), std::ios_base::out | std::ios::trunc);
-    if (raw_data_file->fail())
-      return 1;
-    output = raw_data_file;
-  }
-  else
-  {
-    output_file_path = "";
-    output = &std::cout;
-  }
-
   cryptonote::blobdata blob;
   if (!epee::string_tools::parse_hexstr_to_binbuff(input, blob))
   {
     std::cerr << "Invalid hex input" << std::endl;
-    std::cerr << "Invalid hex input: " << input << std::endl;
     return 1;
   }
 
+  bool full;
   cryptonote::block block;
   cryptonote::transaction tx;
   std::vector<cryptonote::tx_extra_field> fields;
@@ -179,11 +136,9 @@ int main(int argc, char* argv[])
   }
   else if (cryptonote::parse_and_validate_tx_from_blob(blob, tx) || cryptonote::parse_and_validate_tx_base_from_blob(blob, tx))
   {
-/*
     if (tx.pruned)
       std::cout << "Parsed pruned transaction:" << std::endl;
     else
-*/
       std::cout << "Parsed transaction:" << std::endl;
     std::cout << cryptonote::obj_to_json_str(tx) << std::endl;
 
@@ -200,9 +155,9 @@ int main(int argc, char* argv[])
       std::cout << "No fields were found in tx_extra" << std::endl;
     }
   }
-  else if (cryptonote::parse_tx_extra(std::vector<uint8_t>(blob.begin(), blob.end()), fields) && !fields.empty())
+  else if (((full = cryptonote::parse_tx_extra(std::vector<uint8_t>(blob.begin(), blob.end()), fields)) || true) && !fields.empty())
   {
-    std::cout << "Parsed tx_extra:" << std::endl;
+    std::cout << "Parsed" << (full ? "" : " partial") << " tx_extra:" << std::endl;
     print_extra_fields(fields);
   }
   else
@@ -212,12 +167,6 @@ int main(int argc, char* argv[])
   }
 
 
-
-  if (output->fail())
-    return 1;
-  output->flush();
-  if (raw_data_file)
-    delete raw_data_file;
 
   return 0;
 }

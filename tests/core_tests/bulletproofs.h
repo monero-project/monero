@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -49,7 +49,7 @@ struct gen_bp_tx_validation_base : public test_chain_unit_base
       return !tvc.m_verifivation_failed && tx_added;
   }
 
-  bool check_tx_verification_context(const std::vector<cryptonote::tx_verification_context>& tvcs, size_t tx_added, size_t event_idx, const std::vector<cryptonote::transaction>& /*txs*/)
+  bool check_tx_verification_context_array(const std::vector<cryptonote::tx_verification_context>& tvcs, size_t tx_added, size_t event_idx, const std::vector<cryptonote::transaction>& /*txs*/)
   {
     size_t failed = 0;
     for (const cryptonote::tx_verification_context &tvc: tvcs)
@@ -97,7 +97,7 @@ template<>
 struct get_test_options<gen_bp_tx_validation_base> {
   const std::pair<uint8_t, uint64_t> hard_forks[4] = {std::make_pair(1, 0), std::make_pair(2, 1), std::make_pair(10, 73), std::make_pair(0, 0)};
   const cryptonote::test_options test_options = {
-    hard_forks
+    hard_forks, 0
   };
 };
 

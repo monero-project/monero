@@ -31,6 +31,11 @@
 #include <algorithm>
 #include <boost/utility/string_ref.hpp>
 
+#include "misc_log_ex.h"
+
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "serialization"
+
 namespace epee 
 {
 namespace misc_utils
@@ -42,13 +47,14 @@ namespace misc_utils
     // 4: alpha
     // 8: whitespace
     // 16: allowed in float but doesn't necessarily mean it's a float
+    // 32: \ and " (end of verbatim string)
     static const constexpr uint8_t lut[256]={
       0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 8, 8, 8, 8, 0, 0, // 16
       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // 32
-      8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 16, 0, 16, 18, 0, // 48
+      8, 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 16, 0, 16, 18, 0, // 48
       17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 0, 0, 0, 0, 0, 0, // 64
       0, 4, 4, 4, 4, 22, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, // 80
-      4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 0, 0, 0, 0, 0, // 96
+      4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 0, 32, 0, 0, 0, // 96
       0, 4, 4, 4, 4, 22, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, // 112
       4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 0, 0, 0, 0, 0, // 128
       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -59,6 +65,26 @@ namespace misc_utils
       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    };
+
+    static const constexpr unsigned char isx[256] =
+    {
+     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0,    1,    2,    3,    4,    5,    6,    7,    8,    9, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+     0xff,   10,   11,   12,   13,   14,   15, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+     0xff,   10,   11,   12,   13,   14,   15, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
     };
 
     inline bool isspace(char c)
@@ -74,12 +100,14 @@ namespace misc_utils
     inline std::string transform_to_escape_sequence(const std::string& src)
     {
       static const char escaped[] = "\b\f\n\r\t\v\"\\/";
-      if (std::find_first_of(src.begin(), src.end(), escaped, escaped + sizeof(escaped)) == src.end())
+      std::string::const_iterator it = std::find_first_of(src.begin(), src.end(), escaped, escaped + sizeof(escaped));
+      if (it == src.end())
         return src;
 
       std::string res;
       res.reserve(2 * src.size());
-      for(std::string::const_iterator it = src.begin(); it!=src.end(); ++it)
+      res.assign(src.begin(), it);
+      for(; it!=src.end(); ++it)
       {
         switch(*it)
         {
@@ -124,11 +152,14 @@ namespace misc_utils
       */
       inline void match_string2(std::string::const_iterator& star_end_string, std::string::const_iterator buf_end, std::string& val)
       {
-        val.clear();
-        val.reserve(std::distance(star_end_string, buf_end));
         bool escape_mode = false;
         std::string::const_iterator it = star_end_string;
         ++it;
+        std::string::const_iterator fi = it;
+        while (fi != buf_end && ((lut[(uint8_t)*fi] & 32)) == 0)
+          ++fi;
+        val.assign(it, fi);
+        it = fi;
         for(;it != buf_end;it++)
         {
           if(escape_mode/*prev_ch == '\\'*/)
@@ -155,6 +186,42 @@ namespace misc_utils
               val.push_back('\\');break;
             case '/':  //Slash character
               val.push_back('/');break;
+            case 'u':  //Unicode code point
+              if (buf_end - it < 4)
+              {
+                ASSERT_MES_AND_THROW("Invalid Unicode escape sequence");
+              }
+              else
+              {
+                uint32_t dst = 0;
+                for (int i = 0; i < 4; ++i)
+                {
+                  const unsigned char tmp = isx[(int)*++it];
+                  CHECK_AND_ASSERT_THROW_MES(tmp != 0xff, "Bad Unicode encoding");
+                  dst = dst << 4 | tmp;
+                }
+                // encode as UTF-8
+                if (dst <= 0x7f)
+                {
+                  val.push_back(dst);
+                }
+                else if (dst <= 0x7ff)
+                {
+                  val.push_back(0xc0 | (dst >> 6));
+                  val.push_back(0x80 | (dst & 0x3f));
+                }
+                else if (dst <= 0xffff)
+                {
+                  val.push_back(0xe0 | (dst >> 12));
+                  val.push_back(0x80 | ((dst >> 6) & 0x3f));
+                  val.push_back(0x80 | (dst & 0x3f));
+                }
+                else
+                {
+                  ASSERT_MES_AND_THROW("Unicode code point is out or range");
+                }
+              }
+              break;
             default:
               val.push_back(*it);
               LOG_PRINT_L0("Unknown escape sequence :\"\\" << *it << "\"");

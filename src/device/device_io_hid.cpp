@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2018, The Monero Project
+// Copyright (c) 2017-2019, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -44,7 +44,20 @@ namespace hw {
     
     static std::string safe_hid_error(hid_device *hwdev) {
       if (hwdev) {
-        return  std::string((char*)hid_error(hwdev));
+        const wchar_t* error_wstr = hid_error(hwdev);
+        if (error_wstr == nullptr)
+        {
+          return "Unknown error";
+        }
+        std::mbstate_t state{};
+        const size_t len_symbols = std::wcsrtombs(nullptr, &error_wstr, 0, &state);
+        if (len_symbols == static_cast<std::size_t>(-1))
+        {
+          return "Failed to convert wide char error";
+        }
+        std::string error_str(len_symbols + 1, 0);
+        std::wcsrtombs(&error_str[0], &error_wstr, error_str.size(), &state);
+        return error_str;
       }
       return std::string("NULL device");
     }
@@ -85,7 +98,18 @@ namespace hw {
 
     void device_io_hid::connect(void *params) {
       hid_conn_params *p = (struct hid_conn_params*)params;
-      this->connect(p->vid, p->pid, p->interface_number, p->usage_page);
+      if (!this->connect(p->vid, p->pid, p->interface_number, p->usage_page)) {
+        ASSERT_X(false, "No device found");
+      }
+    }
+
+    void device_io_hid::connect(const std::vector<hid_conn_params> &hcpV) {
+      for (auto p: hcpV) {
+        if (this->connect(p.vid, p.pid, p.interface_number, p.usage_page)) {
+          return;
+        }        
+      }
+      ASSERT_X(false, "No device found");
     }
 
     hid_device_info *device_io_hid::find_device(hid_device_info *devices_list, boost::optional<int> interface_number, boost::optional<unsigned short> usage_page) {
@@ -124,14 +148,17 @@ namespace hw {
       return result;
     }
 
-    void device_io_hid::connect(unsigned int vid, unsigned  int pid, boost::optional<int> interface_number, boost::optional<unsigned short> usage_page) {
+    hid_device  *device_io_hid::connect(unsigned int vid, unsigned  int pid, boost::optional<int> interface_number, boost::optional<unsigned short> usage_page) {
       hid_device_info *hwdev_info_list;
       hid_device      *hwdev;
 
       this->disconnect();
 
       hwdev_info_list = hid_enumerate(vid, pid);
-      ASSERT_X(hwdev_info_list, "Unable to enumerate device "+std::to_string(vid)+":"+std::to_string(vid)+  ": "+ safe_hid_error(this->usb_device));
+      if (!hwdev_info_list) {
+        MDEBUG("Unable to enumerate device "+std::to_string(vid)+":"+std::to_string(vid)+  ": "+ safe_hid_error(this->usb_device));
+        return NULL;
+      }
       hwdev = NULL;
       if (hid_device_info *device = find_device(hwdev_info_list, interface_number, usage_page)) {
         hwdev = hid_open_path(device->path);
@@ -141,6 +168,7 @@ namespace hw {
       this->usb_vid = vid;
       this->usb_pid = pid;
       this->usb_device = hwdev;
+      return hwdev;
     }
 
 
@@ -148,7 +176,7 @@ namespace hw {
       return this->usb_device != NULL;
     }
 
-    int device_io_hid::exchange(unsigned char *command, unsigned int cmd_len, unsigned char *response, unsigned int max_resp_len)  {
+    int device_io_hid::exchange(unsigned char *command, unsigned int cmd_len, unsigned char *response, unsigned int max_resp_len, bool user_input)  {
       unsigned char buffer[400];
       unsigned char padding_buffer[MAX_BLOCK+1];
       unsigned int  result;
@@ -177,7 +205,11 @@ namespace hw {
 
       //get first response
       memset(buffer, 0, sizeof(buffer));
-      hid_ret = hid_read_timeout(this->usb_device, buffer, MAX_BLOCK, this->timeout);
+      if (!user_input) {
+        hid_ret = hid_read_timeout(this->usb_device, buffer, MAX_BLOCK, this->timeout);
+      } else {
+        hid_ret = hid_read(this->usb_device, buffer, MAX_BLOCK);
+      }
       ASSERT_X(hid_ret>=0, "Unable to read hidapi response. Error "+std::to_string(result)+": "+ safe_hid_error(this->usb_device));
       result = (unsigned int)hid_ret;
       io_hid_log(1, buffer, result); 

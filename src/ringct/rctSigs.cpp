@@ -29,6 +29,7 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "misc_log_ex.h"
+#include "misc_language.h"
 #include "common/perf_timer.h"
 #include "common/threadpool.h"
 #include "common/util.h"
@@ -78,7 +79,6 @@ namespace
     }
 }
 
-
 namespace rct {
     Bulletproof proveRangeBulletproof(keyV &C, keyV &masks, const std::vector<uint64_t> &amounts, epee::span<const key> sk, hw::device &hwdev)
     {
@@ -109,6 +109,7 @@ namespace rct {
     //Borromean (c.f. gmax/andytoshi's paper)
     boroSig genBorromean(const key64 x, const key64 P1, const key64 P2, const bits indices) {
         key64 L[2], alpha;
+        auto wiper = epee::misc_utils::create_scope_leave_handler([&](){memwipe(alpha, sizeof(alpha));});
         key c;
         int naught = 0, prime = 0, ii = 0, jj=0;
         boroSig bb;
@@ -191,6 +192,7 @@ namespace rct {
         vector<geDsmp> Ip(dsRows);
         rv.II = keyV(dsRows);
         keyV alpha(rows);
+        auto wiper = epee::misc_utils::create_scope_leave_handler([&](){memwipe(alpha.data(), alpha.size() * sizeof(alpha[0]));});
         keyV aG(rows);
         rv.ss = keyM(cols, aG);
         keyV aHP(dsRows);
@@ -474,8 +476,7 @@ namespace rct {
     //   this shows that sum inputs = sum outputs
     //Ver:    
     //   verifies the above sig is created corretly
-    mgSig proveRctMG(const key &message, const ctkeyM & pubs, const ctkeyV & inSk, const ctkeyV &outSk, const ctkeyV & outPk, const multisig_kLRki *kLRki, key *mscout, unsigned int index, key txnFeeKey, hw::device &hwdev) {
-        mgSig mg;
+    mgSig proveRctMG(const key &message, const ctkeyM & pubs, const ctkeyV & inSk, const ctkeyV &outSk, const ctkeyV & outPk, const multisig_kLRki *kLRki, key *mscout, unsigned int index, const key &txnFeeKey, hw::device &hwdev) {
         //setup vars
         size_t cols = pubs.size();
         CHECK_AND_ASSERT_THROW_MES(cols >= 1, "Empty pubs");
@@ -533,7 +534,6 @@ namespace rct {
     //       a_out, Cout is for the output commitment
     //       index is the signing index..
     mgSig proveRctMGSimple(const key &message, const ctkeyV & pubs, const ctkey & inSk, const key &a , const key &Cout, const multisig_kLRki *kLRki, key *mscout, unsigned int index, hw::device &hwdev) {
-        mgSig mg;
         //setup vars
         size_t rows = 1;
         size_t cols = pubs.size();
@@ -551,7 +551,7 @@ namespace rct {
             subKeys(M[i][1], pubs[i].mask, Cout);
         }
         mgSig result = MLSAG_Gen(message, M, sk, kLRki, mscout, index, rows, hwdev);
-        memwipe(&sk[0], sizeof(key));
+        memwipe(sk.data(), sk.size() * sizeof(key));
         return result;
     }
 
@@ -564,7 +564,7 @@ namespace rct {
     //   this shows that sum inputs = sum outputs
     //Ver:    
     //   verifies the above sig is created corretly
-    bool verRctMG(const mgSig &mg, const ctkeyM & pubs, const ctkeyV & outPk, key txnFeeKey, const key &message) {
+    bool verRctMG(const mgSig &mg, const ctkeyM & pubs, const ctkeyV & outPk, const key &txnFeeKey, const key &message) {
         PERF_TIMER(verRctMG);
         //setup vars
         size_t cols = pubs.size();
@@ -614,10 +614,19 @@ namespace rct {
             keyV tmp(rows + 1);
             size_t i;
             keyM M(cols, tmp);
+            ge_p3 Cp3;
+            CHECK_AND_ASSERT_MES_L1(ge_frombytes_vartime(&Cp3, C.bytes) == 0, false, "point conv failed");
+            ge_cached Ccached;
+            ge_p3_to_cached(&Ccached, &Cp3);
+            ge_p1p1 p1;
             //create the matrix to mg sig
             for (i = 0; i < cols; i++) {
                     M[i][0] = pubs[i].dest;
-                    subKeys(M[i][1], pubs[i].mask, C);
+                    ge_p3 p3;
+                    CHECK_AND_ASSERT_MES_L1(ge_frombytes_vartime(&p3, pubs[i].mask.bytes) == 0, false, "point conv failed");
+                    ge_sub(&p1, &p3, &Ccached);
+                    ge_p1p1_to_p3(&p3, &p1);
+                    ge_p3_tobytes(M[i][1].bytes, &p3);
             }
             //DP(C);
             return MLSAG_Ver(message, M, mg, rows);
@@ -694,6 +703,7 @@ namespace rct {
           CHECK_AND_ASSERT_THROW_MES(mixRing[n].size() == inSk.size(), "Bad mixRing size");
         }
         CHECK_AND_ASSERT_THROW_MES((kLRki && msout) || (!kLRki && !msout), "Only one of kLRki/msout is present");
+        CHECK_AND_ASSERT_THROW_MES(inSk.size() < 2, "genRct is not suitable for 2+ rings");
 
         rctSig rv;
         rv.type = RCTTypeFull;
@@ -790,7 +800,6 @@ namespace rct {
         rv.p.bulletproofs.clear();
         if (bulletproof)
         {
-            std::vector<uint64_t> proof_amounts;
             size_t n_amounts = outamounts.size();
             size_t amounts_proved = 0;
             if (rct_config.range_proof_type == RangeProofPaddedBulletproof)
@@ -873,7 +882,6 @@ namespace rct {
             sc_add(sumpouts.bytes, a[i].bytes, sumpouts.bytes);
             genC(pseudoOuts[i], a[i], inamounts[i]);
         }
-        rv.mixRing = mixRing;
         sc_sub(a[i].bytes, sumout.bytes, sumpouts.bytes);
         genC(pseudoOuts[i], a[i], inamounts[i]);
         DP(pseudoOuts[i]);
@@ -1086,7 +1094,6 @@ namespace rct {
       try
       {
         PERF_TIMER(verRctNonSemanticsSimple);
-
         CHECK_AND_ASSERT_MES(rv.type == RCTTypeSimple || rv.type == RCTTypeBulletproof || rv.type == RCTTypeBulletproof2,
             false, "verRctNonSemanticsSimple called on non simple rctSig");
         const bool bulletproof = is_rct_bulletproof(rv.type);

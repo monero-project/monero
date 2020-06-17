@@ -35,11 +35,15 @@
 #include <windows.h>
 #else
 #include <sys/wait.h>
+#include <signal.h>
 #endif
 
 #include "misc_log_ex.h"
 #include "util.h"
 #include "spawn.h"
+
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "spawn"
 
 namespace tools
 {
@@ -87,7 +91,7 @@ int spawn(const char *filename, const std::vector<std::string>& args, bool wait)
   MINFO("Child exited with " << exitCode);
   return static_cast<int>(exitCode);
 #else
-  char **argv = (char**)alloca(sizeof(char*) * (args.size() + 1));
+  std::vector<char*> argv(args.size() + 1);
   for (size_t n = 0; n < args.size(); ++n)
     argv[n] = (char*)args[n].c_str();
   argv[args.size()] = NULL;
@@ -105,7 +109,7 @@ int spawn(const char *filename, const std::vector<std::string>& args, bool wait)
     tools::closefrom(3);
     close(0);
     char *envp[] = {NULL};
-    execve(filename, argv, envp);
+    execve(filename, argv.data(), envp);
     MERROR("Failed to execve: " << strerror(errno));
     return -1;
   }
@@ -114,7 +118,10 @@ int spawn(const char *filename, const std::vector<std::string>& args, bool wait)
   if (pid > 0)
   {
     if (!wait)
+    {
+      signal(SIGCHLD, SIG_IGN);
       return 0;
+    }
 
     while (1)
     {

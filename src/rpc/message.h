@@ -1,4 +1,4 @@
-// Copyright (c) 2016-2018, The Monero Project
+// Copyright (c) 2016-2019, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -28,27 +28,13 @@
 
 #pragma once
 
-#include "rapidjson/document.h"
-#include "rpc/message_data_structs.h"
+#include <rapidjson/document.h>
+#include <rapidjson/writer.h>
 #include <string>
 
-/* I normally hate using macros, but in this case it would be untenably
- * verbose to not use a macro.  This macro saves the trouble of explicitly
- * writing the below if block for every single RPC call.
- */
-#define REQ_RESP_TYPES_MACRO( runtime_str, type, reqjson, resp_message_ptr, handler) \
-  \
-  if (runtime_str == type::name) \
-  { \
-    type::Request reqvar; \
-    type::Response *respvar = new type::Response(); \
-    \
-    reqvar.fromJson(reqjson); \
-    \
-    handler(reqvar, *respvar); \
-    \
-    resp_message_ptr = respvar; \
-  }
+#include "byte_slice.h"
+#include "byte_stream.h"
+#include "rpc/message_data_structs.h"
 
 namespace cryptonote
 {
@@ -58,6 +44,9 @@ namespace rpc
 
   class Message
   {
+      virtual void doToJson(rapidjson::Writer<epee::byte_stream>& dest) const
+      {}
+
     public:
       static const char* STATUS_OK;
       static const char* STATUS_RETRY;
@@ -69,9 +58,9 @@ namespace rpc
 
       virtual ~Message() { }
 
-      virtual rapidjson::Value toJson(rapidjson::Document& doc) const;
+      void toJson(rapidjson::Writer<epee::byte_stream>& dest) const;
 
-      virtual void fromJson(rapidjson::Value& val);
+      virtual void fromJson(const rapidjson::Value& val);
 
       std::string status;
       std::string error_details;
@@ -87,27 +76,18 @@ namespace rpc
 
       FullMessage(const std::string& json_string, bool request=false);
 
-      std::string getJson();
-
       std::string getRequestType() const;
 
-      rapidjson::Value& getMessage();
+      const rapidjson::Value& getMessage() const;
 
       rapidjson::Value getMessageCopy();
 
-      rapidjson::Value& getID();
-
-      void setID(rapidjson::Value& id);
+      const rapidjson::Value& getID() const;
 
       cryptonote::rpc::error getError();
 
-      static FullMessage requestMessage(const std::string& request, Message* message);
-      static FullMessage requestMessage(const std::string& request, Message* message, rapidjson::Value& id);
-
-      static FullMessage responseMessage(Message* message);
-      static FullMessage responseMessage(Message* message, rapidjson::Value& id);
-
-      static FullMessage* timeoutMessage();
+      static epee::byte_slice getRequest(const std::string& request, const Message& message, unsigned id);
+      static epee::byte_slice getResponse(const Message& message, const rapidjson::Value& id);
     private:
 
       FullMessage() = default;
@@ -120,10 +100,10 @@ namespace rpc
 
 
   // convenience functions for bad input
-  std::string BAD_REQUEST(const std::string& request);
-  std::string BAD_REQUEST(const std::string& request, rapidjson::Value& id);
+  epee::byte_slice BAD_REQUEST(const std::string& request);
+  epee::byte_slice BAD_REQUEST(const std::string& request, const rapidjson::Value& id);
 
-  std::string BAD_JSON(const std::string& error_details);
+  epee::byte_slice BAD_JSON(const std::string& error_details);
 
 
 }  // namespace rpc

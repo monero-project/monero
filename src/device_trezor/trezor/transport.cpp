@@ -31,11 +31,13 @@
 #include <libusb.h>
 #endif
 
+#include <algorithm>
 #include <boost/endian/conversion.hpp>
 #include <boost/asio/io_service.hpp>
 #include <boost/asio/ip/udp.hpp>
 #include <boost/date_time/posix_time/posix_time_types.hpp>
 #include <boost/format.hpp>
+#include "common/apply_permutation.h"
 #include "transport.hpp"
 #include "messages/messages-common.pb.h"
 
@@ -51,6 +53,11 @@ namespace trezor{
 
   bool t_serialize(const std::string & in, std::string & out){
     out = in;
+    return true;
+  }
+
+  bool t_serialize(const epee::wipeable_string & in, std::string & out){
+    out.assign(in.data(), in.size());
     return true;
   }
 
@@ -70,6 +77,11 @@ namespace trezor{
 
   bool t_deserialize(const std::string & in, std::string & out){
     out = in;
+    return true;
+  }
+
+  bool t_deserialize(std::string & in, epee::wipeable_string & out){
+    out = epee::wipeable_string(in);
     return true;
   }
 
@@ -93,6 +105,47 @@ namespace trezor{
     const uint32_t mask_2 = (1 << bits_2) - 1;
     CHECK_AND_ASSERT_THROW_MES(major <= mask_1 && minor <= mask_2 && patch <= mask_2, "Version numbers overflow packing scheme");
     return patch | (((uint64_t)minor) << bits_2) | (((uint64_t)major) << (bits_1 + bits_2));
+  }
+
+  typedef struct {
+    uint16_t trezor_type;
+    uint16_t id_vendor;
+    uint16_t id_product;
+  } trezor_usb_desc_t;
+
+  static trezor_usb_desc_t TREZOR_DESC_T1 = {1, 0x534C, 0x0001};
+  static trezor_usb_desc_t TREZOR_DESC_T2 = {2, 0x1209, 0x53C1};
+  static trezor_usb_desc_t TREZOR_DESC_T2_BL = {3, 0x1209, 0x53C0};
+
+  static trezor_usb_desc_t TREZOR_DESCS[] = {
+      TREZOR_DESC_T1,
+      TREZOR_DESC_T2,
+      TREZOR_DESC_T2_BL,
+  };
+
+  static size_t TREZOR_DESCS_LEN = sizeof(TREZOR_DESCS)/sizeof(TREZOR_DESCS[0]);
+
+  static ssize_t get_device_idx(uint16_t id_vendor, uint16_t id_product){
+    for(size_t i = 0; i < TREZOR_DESCS_LEN; ++i){
+      if (TREZOR_DESCS[i].id_vendor == id_vendor && TREZOR_DESCS[i].id_product == id_product){
+        return i;
+      }
+    }
+
+    return -1;
+  }
+
+  static bool is_device_supported(ssize_t device_idx){
+    CHECK_AND_ASSERT_THROW_MES(device_idx < (ssize_t)TREZOR_DESCS_LEN, "Device desc idx too big");
+    if (device_idx < 0){
+      return false;
+    }
+
+#ifdef TREZOR_1_SUPPORTED
+    return true;
+#else
+    return TREZOR_DESCS[device_idx].trezor_type != 1;
+#endif
   }
 
   //
@@ -149,61 +202,69 @@ namespace trezor{
     const auto msg_size = message_size(req);
     const auto buff_size = serialize_message_buffer_size(msg_size) + 2;
 
-    std::unique_ptr<uint8_t[]> req_buff(new uint8_t[buff_size]);
-    uint8_t * req_buff_raw = req_buff.get();
+    epee::wipeable_string req_buff;
+    epee::wipeable_string chunk_buff;
+
+    req_buff.resize(buff_size);
+    chunk_buff.resize(REPLEN);
+
+    uint8_t * req_buff_raw = reinterpret_cast<uint8_t *>(req_buff.data());
+    uint8_t * chunk_buff_raw = reinterpret_cast<uint8_t *>(chunk_buff.data());
+
     req_buff_raw[0] = '#';
     req_buff_raw[1] = '#';
 
     serialize_message(req, msg_size, req_buff_raw + 2, buff_size - 2);
 
     size_t offset = 0;
-    uint8_t chunk_buff[REPLEN];
 
     // Chunk by chunk upload
     while(offset < buff_size){
       auto to_copy = std::min((size_t)(buff_size - offset), (size_t)(REPLEN - 1));
 
-      chunk_buff[0] = '?';
-      memcpy(chunk_buff + 1, req_buff_raw + offset, to_copy);
+      chunk_buff_raw[0] = '?';
+      memcpy(chunk_buff_raw + 1, req_buff_raw + offset, to_copy);
 
       // Pad with zeros
       if (to_copy < REPLEN - 1){
-        memset(chunk_buff + 1 + to_copy, 0, REPLEN - 1 - to_copy);
+        memset(chunk_buff_raw + 1 + to_copy, 0, REPLEN - 1 - to_copy);
       }
 
-      transport.write_chunk(chunk_buff, REPLEN);
+      transport.write_chunk(chunk_buff_raw, REPLEN);
       offset += REPLEN - 1;
     }
   }
 
   void ProtocolV1::read(Transport & transport, std::shared_ptr<google::protobuf::Message> & msg, messages::MessageType * msg_type){
-    char chunk[REPLEN];
+    epee::wipeable_string chunk_buff;
+    chunk_buff.resize(REPLEN);
+    char * chunk_buff_raw = chunk_buff.data();
 
     // Initial chunk read
-    size_t nread = transport.read_chunk(chunk, REPLEN);
+    size_t nread = transport.read_chunk(chunk_buff_raw, REPLEN);
     if (nread != REPLEN){
       throw exc::CommunicationException("Read chunk has invalid size");
     }
 
-    if (strncmp(chunk, "?##", 3) != 0){
+    if (memcmp(chunk_buff_raw, "?##", 3) != 0){
       throw exc::CommunicationException("Malformed chunk");
     }
 
     uint16_t tag;
     uint32_t len;
     nread -= 3 + 6;
-    deserialize_message_header(chunk + 3, tag, len);
+    deserialize_message_header(chunk_buff_raw + 3, tag, len);
 
-    std::string data_acc(chunk + 3 + 6, nread);
+    epee::wipeable_string data_acc(chunk_buff_raw + 3 + 6, nread);
     data_acc.reserve(len);
 
     while(nread < len){
-      const size_t cur = transport.read_chunk(chunk, REPLEN);
-      if (chunk[0] != '?'){
+      const size_t cur = transport.read_chunk(chunk_buff_raw, REPLEN);
+      if (chunk_buff_raw[0] != '?'){
         throw exc::CommunicationException("Chunk malformed");
       }
 
-      data_acc.append(chunk + 1, cur - 1);
+      data_acc.append(chunk_buff_raw + 1, cur - 1);
       nread += cur - 1;
     }
 
@@ -216,11 +277,16 @@ namespace trezor{
     }
 
     std::shared_ptr<google::protobuf::Message> msg_wrap(MessageMapper::get_message(tag));
-    if (!msg_wrap->ParseFromArray(data_acc.c_str(), len)){
+    if (!msg_wrap->ParseFromArray(data_acc.data(), len)){
       throw exc::CommunicationException("Message could not be parsed");
     }
 
     msg = msg_wrap;
+  }
+
+  static void assert_port_number(uint32_t port)
+  {
+    CHECK_AND_ASSERT_THROW_MES(port >= 1024 && port < 65535, "Invalid port number: " << port);
   }
 
   Transport::Transport(): m_open_counter(0) {
@@ -263,6 +329,29 @@ namespace trezor{
 
   const char * BridgeTransport::PATH_PREFIX = "bridge:";
 
+  BridgeTransport::BridgeTransport(
+        boost::optional<std::string> device_path,
+        boost::optional<std::string> bridge_host):
+    m_device_path(device_path),
+    m_bridge_host(bridge_host ? bridge_host.get() : DEFAULT_BRIDGE),
+    m_response(boost::none),
+    m_session(boost::none),
+    m_device_info(boost::none)
+    {
+      const char *env_bridge_port = nullptr;
+      if (!bridge_host && (env_bridge_port = getenv("TREZOR_BRIDGE_PORT")) != nullptr)
+      {
+        uint16_t bridge_port;
+        CHECK_AND_ASSERT_THROW_MES(epee::string_tools::get_xtype_from_string(bridge_port, env_bridge_port), "Invalid bridge port: " << env_bridge_port);
+        assert_port_number(bridge_port);
+
+        m_bridge_host = std::string("127.0.0.1:") + boost::lexical_cast<std::string>(env_bridge_port);
+        MDEBUG("Bridge host: " << m_bridge_host);
+      }
+
+      m_http_client.set_server(m_bridge_host, boost::none, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
+    }
+
   std::string BridgeTransport::get_path() const {
     if (!m_device_path){
       return "";
@@ -284,6 +373,24 @@ namespace trezor{
     for(rapidjson::Value::ConstValueIterator itr = bridge_res.Begin(); itr != bridge_res.End(); ++itr){
       auto element = itr->GetObject();
       auto t = std::make_shared<BridgeTransport>(boost::make_optional(json_get_string(element["path"])));
+
+      auto itr_vendor = element.FindMember("vendor");
+      auto itr_product = element.FindMember("product");
+      if (itr_vendor != element.MemberEnd() && itr_product != element.MemberEnd()
+        && itr_vendor->value.IsNumber() && itr_product->value.IsNumber()){
+        try {
+          const auto id_vendor = (uint16_t) itr_vendor->value.GetUint64();
+          const auto id_product = (uint16_t) itr_product->value.GetUint64();
+          const auto device_idx = get_device_idx(id_vendor, id_product);
+          if (!is_device_supported(device_idx)){
+            MDEBUG("Device with idx " << device_idx << " is not supported. Vendor: " << id_vendor << ", product: " << id_product);
+            continue;
+          }
+        } catch(const std::exception &e){
+          MERROR("Could not detect vendor & product: " << e.what());
+        }
+      }
+
       t->m_device_info.emplace();
       t->m_device_info->CopyFrom(*itr, t->m_device_info->GetAllocator());
       res.push_back(t);
@@ -337,15 +444,16 @@ namespace trezor{
 
     const auto msg_size = message_size(req);
     const auto buff_size = serialize_message_buffer_size(msg_size);
+    epee::wipeable_string req_buff;
+    req_buff.resize(buff_size);
 
-    std::unique_ptr<uint8_t[]> req_buff(new uint8_t[buff_size]);
-    uint8_t * req_buff_raw = req_buff.get();
+    uint8_t * req_buff_raw = reinterpret_cast<uint8_t *>(req_buff.data());
 
     serialize_message(req, msg_size, req_buff_raw, buff_size);
 
     std::string uri = "/call/" + m_session.get();
-    std::string req_hex = epee::to_hex::string(epee::span<const std::uint8_t>(req_buff_raw, buff_size));
-    std::string res_hex;
+    epee::wipeable_string res_hex;
+    epee::wipeable_string req_hex = epee::to_hex::wipeable_string(epee::span<const std::uint8_t>(req_buff_raw, buff_size));
 
     bool req_status = invoke_bridge_http(uri, req_hex, res_hex, m_http_client);
     if (!req_status){
@@ -360,15 +468,15 @@ namespace trezor{
       throw exc::CommunicationException("Could not read, no response stored");
     }
 
-    std::string bin_data;
-    if (!epee::string_tools::parse_hexstr_to_binbuff(m_response.get(), bin_data)){
+    boost::optional<epee::wipeable_string> bin_data = m_response->parse_hexstr();
+    if (!bin_data){
       throw exc::CommunicationException("Response is not well hexcoded");
     }
 
     uint16_t msg_tag;
     uint32_t msg_len;
-    deserialize_message_header(bin_data.c_str(), msg_tag, msg_len);
-    if (bin_data.size() != msg_len + 6){
+    deserialize_message_header(bin_data->data(), msg_tag, msg_len);
+    if (bin_data->size() != msg_len + 6){
       throw exc::CommunicationException("Response is not well hexcoded");
     }
 
@@ -377,7 +485,7 @@ namespace trezor{
     }
 
     std::shared_ptr<google::protobuf::Message> msg_wrap(MessageMapper::get_message(msg_tag));
-    if (!msg_wrap->ParseFromArray(bin_data.c_str() + 6, msg_len)){
+    if (!msg_wrap->ParseFromArray(bin_data->data() + 6, msg_len)){
       throw exc::EncodingException("Response is not well hexcoded");
     }
     msg = msg_wrap;
@@ -401,28 +509,40 @@ namespace trezor{
   const char * UdpTransport::DEFAULT_HOST = "127.0.0.1";
   const int UdpTransport::DEFAULT_PORT = 21324;
 
+  static void parse_udp_path(std::string &host, int &port, std::string path)
+  {
+    if (boost::starts_with(path, UdpTransport::PATH_PREFIX))
+    {
+      path = path.substr(strlen(UdpTransport::PATH_PREFIX));
+    }
+
+    auto delim = path.find(':');
+    if (delim == std::string::npos) {
+      host = path;
+    } else {
+      host = path.substr(0, delim);
+      port = std::stoi(path.substr(delim + 1));
+    }
+  }
+
   UdpTransport::UdpTransport(boost::optional<std::string> device_path,
                              boost::optional<std::shared_ptr<Protocol>> proto) :
       m_io_service(), m_deadline(m_io_service)
   {
+    m_device_host = DEFAULT_HOST;
     m_device_port = DEFAULT_PORT;
+    const char *env_trezor_path = nullptr;
+
     if (device_path) {
-      const std::string device_str = device_path.get();
-      auto delim = device_str.find(':');
-      if (delim == std::string::npos) {
-        m_device_host = device_str;
-      } else {
-        m_device_host = device_str.substr(0, delim);
-        m_device_port = std::stoi(device_str.substr(delim + 1));
-      }
+      parse_udp_path(m_device_host, m_device_port, device_path.get());
+    } else if ((env_trezor_path = getenv("TREZOR_PATH")) != nullptr && boost::starts_with(env_trezor_path, UdpTransport::PATH_PREFIX)){
+      parse_udp_path(m_device_host, m_device_port, std::string(env_trezor_path));
+      MDEBUG("Applied TREZOR_PATH: " << m_device_host << ":" << m_device_port);
     } else {
       m_device_host = DEFAULT_HOST;
     }
 
-    if (m_device_port <= 1024 || m_device_port > 65535){
-      throw std::invalid_argument("Port number invalid");
-    }
-
+    assert_port_number((uint32_t)m_device_port);
     if (m_device_host != "localhost" && m_device_host != DEFAULT_HOST){
       throw std::invalid_argument("Local endpoint allowed only");
     }
@@ -591,7 +711,7 @@ namespace trezor{
     // Start the asynchronous operation itself. The handle_receive function
     // used as a callback will update the ec and length variables.
     m_socket->async_receive_from(boost::asio::buffer(buffer), m_endpoint,
-                                 boost::bind(&UdpTransport::handle_receive, _1, _2, &ec, &length));
+                                 boost::bind(&UdpTransport::handle_receive, boost::placeholders::_1, boost::placeholders::_2, &ec, &length));
 
     // Block until the asynchronous operation has completed.
     do {
@@ -670,24 +790,20 @@ namespace trezor{
 #ifdef WITH_DEVICE_TREZOR_WEBUSB
 
   static bool is_trezor1(libusb_device_descriptor * info){
-    return info->idVendor == 0x534C && info->idProduct == 0x0001;
+    return info->idVendor == TREZOR_DESC_T1.id_vendor && info->idProduct == TREZOR_DESC_T1.id_product;
   }
 
   static bool is_trezor2(libusb_device_descriptor * info){
-    return info->idVendor == 0x1209 && info->idProduct == 0x53C1;
+    return info->idVendor == TREZOR_DESC_T2.id_vendor && info->idProduct == TREZOR_DESC_T2.id_product;
   }
 
   static bool is_trezor2_bl(libusb_device_descriptor * info){
-    return info->idVendor == 0x1209 && info->idProduct == 0x53C0;
+    return info->idVendor == TREZOR_DESC_T2_BL.id_vendor && info->idProduct == TREZOR_DESC_T2_BL.id_product;
   }
 
-  static uint8_t get_trezor_dev_mask(libusb_device_descriptor * info){
-    uint8_t mask = 0;
+  static ssize_t get_trezor_dev_id(libusb_device_descriptor *info){
     CHECK_AND_ASSERT_THROW_MES(info, "Empty device descriptor");
-    mask |= is_trezor1(info) ? 1 : 0;
-    mask |= is_trezor2(info) ? 2 : 0;
-    mask |= is_trezor2_bl(info) ? 4 : 0;
-    return mask;
+    return get_device_idx(info->idVendor, info->idProduct);
   }
 
   static void set_libusb_log(libusb_context *ctx){
@@ -804,12 +920,12 @@ namespace trezor{
         continue;
       }
 
-      const auto trezor_mask = get_trezor_dev_mask(&desc);
-      if (!trezor_mask){
+      const auto trezor_dev_idx = get_trezor_dev_id(&desc);
+      if (!is_device_supported(trezor_dev_idx)){
         continue;
       }
 
-      MTRACE("Found Trezor device: " << desc.idVendor << ":" << desc.idProduct << " mask " << (int)trezor_mask);
+      MTRACE("Found Trezor device: " << desc.idVendor << ":" << desc.idProduct << " dev_idx " << (int)trezor_dev_idx);
 
       auto t = std::make_shared<WebUsbTransport>(boost::make_optional(&desc));
       t->m_bus_id = libusb_get_bus_number(devs[i]);
@@ -869,8 +985,8 @@ namespace trezor{
         continue;
       }
 
-      const auto trezor_mask = get_trezor_dev_mask(&desc);
-      if (!trezor_mask) {
+      const auto trezor_dev_idx = get_trezor_dev_id(&desc);
+      if (!is_device_supported(trezor_dev_idx)){
         continue;
       }
 
@@ -881,7 +997,7 @@ namespace trezor{
       get_libusb_ports(devs[i], path);
 
       MTRACE("Found Trezor device: " << desc.idVendor << ":" << desc.idProduct
-                                     << ", mask: " << (int)trezor_mask
+                                     << ", dev_idx: " << (int)trezor_dev_idx
                                      << ". path: " << get_usb_path(bus_id, path));
 
       if (bus_id == m_bus_id && path == m_port_numbers) {
@@ -1068,6 +1184,39 @@ namespace trezor{
       MERROR("UdpTransport enumeration failed:" << e.what());
     }
 #endif
+  }
+
+  void sort_transports_by_env(t_transport_vect & res){
+    const char *env_trezor_path = getenv("TREZOR_PATH");
+    if (!env_trezor_path){
+      return;
+    }
+    
+    // Sort transports by the longest matching prefix with TREZOR_PATH
+    std::string trezor_path(env_trezor_path);
+    std::vector<size_t> match_idx(res.size());
+    std::vector<size_t> path_permutation(res.size());
+
+    for(size_t i = 0; i < res.size(); ++i){
+      auto cpath = res[i]->get_path();
+      std::string * s1 = &trezor_path;
+      std::string * s2 = &cpath;
+      
+      // first has to be shorter in std::mismatch(). Returns first non-matching iterators.
+      if (s1->size() >= s2->size()){
+        std::swap(s1, s2);
+      }
+
+      const auto mism = std::mismatch(s1->begin(), s1->end(), s2->begin());
+      match_idx[i] = mism.first - s1->begin();
+      path_permutation[i] = i;
+    }
+
+    std::sort(path_permutation.begin(), path_permutation.end(), [&](const size_t i0, const size_t i1) {
+      return match_idx[i0] > match_idx[i1];
+    });
+
+    tools::apply_permutation(path_permutation, res);
   }
 
   std::shared_ptr<Transport> transport(const std::string & path){

@@ -1,0 +1,38 @@
+From ffe62d3398d5e0191f554f61049aa7ec9fc892ae Mon Sep 17 00:00:00 2001
+From: Gregory Lemercier <greglemercier@free.fr>
+Date: Sun, 7 Oct 2018 18:06:54 +0200
+Subject: [PATCH] Fix build on arm64 architectures with some strict compilers
+
+This patch fixes an issue that occurs on 64-bit architetures under
+strict compiler rules. The code initially checked that the received
+size stored in 'uint64_t' was not bigger than the max value of a
+'size_t' variable, which is legitimate on 32-bit architectures where
+'size_t' variables are stored on 32 bits. On 64-bit architectures,
+this test no longer makes sense since 'uint64_t' and 'size_t' types
+have the same size. The issue is fixed by ignoring this portion
+of code when built for arm64.
+---
+ src/v1_decoder.cpp | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/src/v1_decoder.cpp b/src/v1_decoder.cpp
+index b002dc9d..2c8c97a7 100644
+--- a/src/v1_decoder.cpp
++++ b/src/v1_decoder.cpp
+@@ -114,11 +114,13 @@ int zmq::v1_decoder_t::eight_byte_size_ready ()
+         return -1;
+     }
+ 
++#ifndef __aarch64__
+     //  Message size must fit within range of size_t data type.
+     if (payload_length - 1 > std::numeric_limits <size_t>::max ()) {
+         errno = EMSGSIZE;
+         return -1;
+     }
++#endif
+ 
+     const size_t msg_size = static_cast <size_t> (payload_length - 1);
+ 
+-- 
+2.20.1
+

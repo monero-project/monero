@@ -1,5 +1,5 @@
 ---
-name: "monero-osx-0.14"
+name: "monero-osx-0.16"
 enable_cache: true
 suites:
 - "bionic"
@@ -12,21 +12,17 @@ packages:
 - "git"
 - "pkg-config"
 - "autoconf"
-- "librsvg2-bin"
-- "libtiff-tools"
 - "libtool"
 - "automake"
 - "faketime"
 - "bsdmainutils"
 - "cmake"
-- "imagemagick"
 - "libcap-dev"
 - "libz-dev"
 - "libbz2-dev"
 - "python"
 - "python-dev"
 - "python-setuptools"
-- "fonts-tuffy"
 remotes:
 - "url": "https://github.com/monero-project/monero.git"
   "dir": "monero"
@@ -36,10 +32,9 @@ script: |
   WRAP_DIR=$HOME/wrapped
   HOSTS="x86_64-apple-darwin11"
   FAKETIME_HOST_PROGS=""
-  FAKETIME_PROGS="ar ranlib date dmg genisoimage"
+  FAKETIME_PROGS="ar ranlib date dmg genisoimage python"
 
   export GZIP="-9n"
-  export TAR_OPTIONS="--mtime="$REFERENCE_DATE\\\ $REFERENCE_TIME""
   export TZ="UTC"
   export BUILD_DIR=`pwd`
   mkdir -p ${WRAP_DIR}
@@ -81,13 +76,22 @@ script: |
   create_per-host_faketime_wrappers "2000-01-01 12:00:00"
   export PATH=${WRAP_DIR}:${PATH}
 
+  git config --global core.abbrev 9
   cd monero
+  # Set the version string that gets added to the tar archive name
+  version="`git describe`"
+  if [[ $version == *"-"*"-"* ]]; then
+    version="`git rev-parse --short=9 HEAD`"
+    version="`echo $version | head -c 9`"
+  fi
+
   BASEPREFIX=`pwd`/contrib/depends
 
   mkdir -p ${BASEPREFIX}/SDKs
   tar -C ${BASEPREFIX}/SDKs -xf ${BUILD_DIR}/MacOSX10.11.sdk.tar.gz
 
   # Build dependencies for each host
+  export TAR_OPTIONS=--mtime=2000-01-01T12:00:00
   for i in $HOSTS; do
     make ${MAKEOPTS} -C ${BASEPREFIX} HOST="${i}"
   done
@@ -100,14 +104,18 @@ script: |
 
   ORIGPATH="$PATH"
   # Build in a new dir for each host
+  export TAR_OPTIONS=--mtime=${REFERENCE_DATE}T${REFERENCE_TIME}
   for i in ${HOSTS}; do
     export PATH=${BASEPREFIX}/${i}/native/bin:${ORIGPATH}
     mkdir build && cd build
     cmake .. -DCMAKE_TOOLCHAIN_FILE=${BASEPREFIX}/${i}/share/toolchain.cmake
-    make
-    DISTNAME=monero-${i}
+    make ${MAKEOPTS}
+    chmod 755 bin/*
+    cp ../LICENSE bin
+    chmod 644 bin/LICENSE
+    DISTNAME=monero-${i}-${version}
     mv bin ${DISTNAME}
-    find ${DISTNAME}/ | sort | tar --no-recursion --mode='u+rw,go+r-w,a+X' --owner=0 --group=0 -c -T - | gzip -9n > ${OUTDIR}/${DISTNAME}.tar.gz
+    find ${DISTNAME}/ | sort | tar --no-recursion --owner=0 --group=0 -c -T - | bzip2 -9 > ${OUTDIR}/${DISTNAME}.tar.bz2
     cd ..
     rm -rf build
   done

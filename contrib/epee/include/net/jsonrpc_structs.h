@@ -18,6 +18,8 @@ namespace epee
       epee::serialization::storage_entry id;
       t_param     params;
 
+      request(): id{}, params{} {}
+
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(jsonrpc)
         KV_SERIALIZE(id)
@@ -30,6 +32,9 @@ namespace epee
     {
       int64_t code;
       std::string message;
+
+      error(): code(0) {}
+
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(code)
         KV_SERIALIZE(message)
@@ -55,6 +60,9 @@ namespace epee
       t_param     result;
       epee::serialization::storage_entry id;
       t_error     error;
+
+      response(): result{}, id(), error{} {}
+
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(jsonrpc)
         KV_SERIALIZE(id)
@@ -69,6 +77,9 @@ namespace epee
       std::string jsonrpc;
       t_param     result;
       epee::serialization::storage_entry id;
+
+      response(): result{}, id{} {}
+
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(jsonrpc)
         KV_SERIALIZE(id)
@@ -82,6 +93,9 @@ namespace epee
       std::string jsonrpc;
       t_error     error;
       epee::serialization::storage_entry id;
+
+      response(): error{}, id{} {}
+
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(jsonrpc)
         KV_SERIALIZE(id)

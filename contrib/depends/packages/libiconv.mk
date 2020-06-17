@@ -10,6 +10,7 @@ define $(package)_set_vars
   $(package)_config_opts=--enable-static
   $(package)_config_opts=--disable-shared
   $(package)_config_opts_linux=--with-pic
+  $(package)_config_opts_freebsd=--with-pic
 endef
 
 define $(package)_preprocess_cmds
@@ -18,7 +19,7 @@ define $(package)_preprocess_cmds
 endef
 
 define $(package)_config_cmds
-  $($(package)_autoconf)
+  $($(package)_autoconf) AR_FLAGS=$($(package)_arflags)
 endef
 
 define $(package)_build_cmds

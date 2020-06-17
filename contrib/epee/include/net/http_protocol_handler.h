@@ -202,7 +202,7 @@ namespace net_utils
 
 			virtual bool thread_init()
 			{
-				return m_config.m_phandler->init_server_thread();;
+				return m_config.m_phandler->init_server_thread();
 			}
 	
 			virtual bool thread_deinit()

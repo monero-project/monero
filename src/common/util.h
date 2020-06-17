@@ -1,5 +1,5 @@
-// Copyright (c) 2014-2018, The Monero Project
-//
+// Copyright (c) 2014-2019, The Monero Project
+// 
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without modification, are
@@ -46,6 +46,7 @@
 #endif
 
 #include "crypto/hash.h"
+#include "cryptonote_config.h"
 
 /*! \brief Various Tools
  *
@@ -145,7 +146,7 @@ namespace tools
   bool create_directories_if_necessary(const std::string& path);
   /*! \brief std::rename wrapper for nix and something strange for windows.
    */
-  std::error_code replace_file(const std::string& replacement_name, const std::string& replaced_name);
+  std::error_code replace_file(const std::string& old_name, const std::string& new_name);
 
   bool sanitize_locale();
 
@@ -221,6 +222,8 @@ namespace tools
 
   void set_strict_default_file_permissions(bool strict);
 
+  ssize_t get_lockable_memory();
+
   void set_max_concurrency(unsigned n);
   unsigned get_max_concurrency();
 
@@ -240,4 +243,16 @@ namespace tools
 #endif
 
   void closefrom(int fd);
+
+  std::string get_human_readable_timestamp(uint64_t ts);
+
+  std::string get_human_readable_timespan(uint64_t seconds);
+
+  std::string get_human_readable_bytes(uint64_t bytes);
+
+  void clear_screen();
+
+  std::vector<std::pair<std::string, size_t>> split_string_by_width(const std::string &s, size_t columns);
+
+  uint64_t cumulative_block_sync_weight(cryptonote::network_type nettype, uint64_t start_block, uint64_t num_blocks);
 }

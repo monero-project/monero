@@ -1,4 +1,4 @@
-# Copyright (c) 2014-2018, The Monero Project
+# Copyright (c) 2014-2019, The Monero Project
 #
 # All rights reserved.
 #
@@ -36,11 +36,6 @@ if (WIN32 OR STATIC)
   add_definitions(-DNGHTTP2_STATIC)
 
 endif ()
-
-# warnings are cleared only for GCC on Linux
-if (NOT (MINGW OR APPLE OR FREEBSD OR OPENBSD OR DRAGONFLY))
-  add_compile_options("${WARNINGS_AS_ERRORS_FLAG}") # applies only to targets that follow
-endif()
 
 function (monero_private_headers group)
   source_group("${group}\\Private"
@@ -121,13 +116,14 @@ add_subdirectory(ringct)
 add_subdirectory(checkpoints)
 add_subdirectory(cryptonote_basic)
 add_subdirectory(cryptonote_core)
+add_subdirectory(lmdb)
 add_subdirectory(multisig)
-if(NOT IOS)
-  add_subdirectory(blockchain_db)
-endif()
+add_subdirectory(net)
+add_subdirectory(hardforks)
+add_subdirectory(blockchain_db)
 add_subdirectory(mnemonics)
+add_subdirectory(rpc)
 if(NOT IOS)
-  add_subdirectory(rpc)
   add_subdirectory(serialization)
 endif()
 add_subdirectory(wallet)
@@ -138,12 +134,13 @@ add_subdirectory(cryptonote_protocol)
 if(NOT IOS)
   add_subdirectory(simplewallet)
   add_subdirectory(gen_multisig)
+  add_subdirectory(gen_ssl_cert)
   add_subdirectory(daemonizer)
   add_subdirectory(daemon)
   add_subdirectory(blockchain_utilities)
 endif()
 
-if(CMAKE_BUILD_TYPE STREQUAL Debug)
+if(BUILD_DEBUG_UTILITIES)
   add_subdirectory(debug_utilities)
 endif()
 
@@ -152,3 +149,4 @@ if(PER_BLOCK_CHECKPOINT)
 endif()
 
 add_subdirectory(device)
+add_subdirectory(device_trezor)

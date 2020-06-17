@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -53,9 +53,6 @@ bool test_transaction_generation_and_ring_signature()
   miner_acc5.generate();
   account_base miner_acc6;
   miner_acc6.generate();
-
-  std::string add_str = miner_acc3.get_public_address_str(MAINNET);
-
 
   account_base rv_acc;
   rv_acc.generate();

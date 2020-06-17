@@ -28,30 +28,41 @@
 #ifndef _MISC_LOG_EX_H_
 #define _MISC_LOG_EX_H_
 
+#ifdef __cplusplus
+
 #include <string>
 
 #include "easylogging++.h"
 
+#undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "default"
+
 #define MAX_LOG_FILE_SIZE 104850000 // 100 MB - 7600 bytes
 #define MAX_LOG_FILES 50
 
-#define MCFATAL(cat,x) CLOG(FATAL,cat) << x
-#define MCERROR(cat,x) CLOG(ERROR,cat) << x
-#define MCWARNING(cat,x) CLOG(WARNING,cat) << x
-#define MCINFO(cat,x) CLOG(INFO,cat) << x
-#define MCDEBUG(cat,x) CLOG(DEBUG,cat) << x
-#define MCTRACE(cat,x) CLOG(TRACE,cat) << x
-#define MCLOG(level,cat,x) ELPP_WRITE_LOG(el::base::Writer, level, el::base::DispatchAction::NormalLog, cat) << x
-#define MCLOG_FILE(level,cat,x) ELPP_WRITE_LOG(el::base::Writer, level, el::base::DispatchAction::FileOnlyLog, cat) << x
+#define MCLOG_TYPE(level, cat, color, type, x) do { \
+    if (ELPP->vRegistry()->allowed(level, cat)) { \
+      el::base::Writer(level, color, __FILE__, __LINE__, ELPP_FUNC, type).construct(cat) << x; \
+    } \
+  } while (0)
 
-#define MCLOG_COLOR(level,cat,color,x) MCLOG(level,cat,"\033[1;" color "m" << x << "\033[0m")
-#define MCLOG_RED(level,cat,x) MCLOG_COLOR(level,cat,"31",x)
-#define MCLOG_GREEN(level,cat,x) MCLOG_COLOR(level,cat,"32",x)
-#define MCLOG_YELLOW(level,cat,x) MCLOG_COLOR(level,cat,"33",x)
-#define MCLOG_BLUE(level,cat,x) MCLOG_COLOR(level,cat,"34",x)
-#define MCLOG_MAGENTA(level,cat,x) MCLOG_COLOR(level,cat,"35",x)
-#define MCLOG_CYAN(level,cat,x) MCLOG_COLOR(level,cat,"36",x)
+#define MCLOG(level, cat, color, x) MCLOG_TYPE(level, cat, color, el::base::DispatchAction::NormalLog, x)
+#define MCLOG_FILE(level, cat, x) MCLOG_TYPE(level, cat, el::Color::Default, el::base::DispatchAction::FileOnlyLog, x)
+
+#define MCFATAL(cat,x) MCLOG(el::Level::Fatal,cat, el::Color::Default, x)
+#define MCERROR(cat,x) MCLOG(el::Level::Error,cat, el::Color::Default, x)
+#define MCWARNING(cat,x) MCLOG(el::Level::Warning,cat, el::Color::Default, x)
+#define MCINFO(cat,x) MCLOG(el::Level::Info,cat, el::Color::Default, x)
+#define MCDEBUG(cat,x) MCLOG(el::Level::Debug,cat, el::Color::Default, x)
+#define MCTRACE(cat,x) MCLOG(el::Level::Trace,cat, el::Color::Default, x)
+
+#define MCLOG_COLOR(level,cat,color,x) MCLOG(level,cat,color,x)
+#define MCLOG_RED(level,cat,x) MCLOG_COLOR(level,cat,el::Color::Red,x)
+#define MCLOG_GREEN(level,cat,x) MCLOG_COLOR(level,cat,el::Color::Green,x)
+#define MCLOG_YELLOW(level,cat,x) MCLOG_COLOR(level,cat,el::Color::Yellow,x)
+#define MCLOG_BLUE(level,cat,x) MCLOG_COLOR(level,cat,el::Color::Blue,x)
+#define MCLOG_MAGENTA(level,cat,x) MCLOG_COLOR(level,cat,el::Color::Magenta,x)
+#define MCLOG_CYAN(level,cat,x) MCLOG_COLOR(level,cat,el::Color::Cyan,x)
 
 #define MLOG_RED(level,x) MCLOG_RED(level,MONERO_DEFAULT_LOG_CATEGORY,x)
 #define MLOG_GREEN(level,x) MCLOG_GREEN(level,MONERO_DEFAULT_LOG_CATEGORY,x)
@@ -66,7 +77,7 @@
 #define MINFO(x) MCINFO(MONERO_DEFAULT_LOG_CATEGORY,x)
 #define MDEBUG(x) MCDEBUG(MONERO_DEFAULT_LOG_CATEGORY,x)
 #define MTRACE(x) MCTRACE(MONERO_DEFAULT_LOG_CATEGORY,x)
-#define MLOG(level,x) MCLOG(level,MONERO_DEFAULT_LOG_CATEGORY,x)
+#define MLOG(level,x) MCLOG(level,MONERO_DEFAULT_LOG_CATEGORY,el::Color::Default,x)
 
 #define MGINFO(x) MCINFO("global",x)
 #define MGINFO_RED(x) MCLOG_RED(el::Level::Info, "global",x)
@@ -75,6 +86,16 @@
 #define MGINFO_BLUE(x) MCLOG_BLUE(el::Level::Info, "global",x)
 #define MGINFO_MAGENTA(x) MCLOG_MAGENTA(el::Level::Info, "global",x)
 #define MGINFO_CYAN(x) MCLOG_CYAN(el::Level::Info, "global",x)
+
+#define IFLOG(level, cat, color, type, init, x) \
+  do { \
+    if (ELPP->vRegistry()->allowed(level, cat)) { \
+      init; \
+      el::base::Writer(level, color, __FILE__, __LINE__, ELPP_FUNC, type).construct(cat) << x; \
+    } \
+  } while(0)
+#define MIDEBUG(init, x) IFLOG(el::Level::Debug, MONERO_DEFAULT_LOG_CATEGORY, el::Color::Default, el::base::DispatchAction::NormalLog, init, x)
+
 
 #define LOG_ERROR(x) MERROR(x)
 #define LOG_PRINT_L0(x) MWARNING(x)
@@ -201,4 +222,28 @@ void set_console_color(int color, bool bright);
 void reset_console_color();
 
 }
+
+extern "C"
+{
+
+#endif
+
+#ifdef __GNUC__
+#define ATTRIBUTE_PRINTF __attribute__((format(printf, 2, 3)))
+#else
+#define ATTRIBUTE_PRINTF
+#endif
+
+bool merror(const char *category, const char *format, ...) ATTRIBUTE_PRINTF;
+bool mwarning(const char *category, const char *format, ...) ATTRIBUTE_PRINTF;
+bool minfo(const char *category, const char *format, ...) ATTRIBUTE_PRINTF;
+bool mdebug(const char *category, const char *format, ...) ATTRIBUTE_PRINTF;
+bool mtrace(const char *category, const char *format, ...) ATTRIBUTE_PRINTF;
+
+#ifdef __cplusplus
+
+}
+
+#endif
+
 #endif //_MISC_LOG_EX_H_

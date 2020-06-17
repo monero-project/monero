@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -56,22 +56,22 @@ namespace
     {
     }
 
-    virtual int invoke(int command, const std::string& in_buff, std::string& buff_out, test_levin_connection_context& context)
+    virtual int invoke(int command, const epee::span<const uint8_t> in_buff, std::string& buff_out, test_levin_connection_context& context)
     {
       m_invoke_counter.inc();
       boost::unique_lock<boost::mutex> lock(m_mutex);
       m_last_command = command;
-      m_last_in_buf = in_buff;
+      m_last_in_buf = std::string((const char*)in_buff.data(), in_buff.size());
       buff_out = m_invoke_out_buf;
       return m_return_code;
     }
 
-    virtual int notify(int command, const std::string& in_buff, test_levin_connection_context& context)
+    virtual int notify(int command, const epee::span<const uint8_t> in_buff, test_levin_connection_context& context)
     {
       m_notify_counter.inc();
       boost::unique_lock<boost::mutex> lock(m_mutex);
       m_last_command = command;
-      m_last_in_buf = in_buff;
+      m_last_in_buf = std::string((const char*)in_buff.data(), in_buff.size());
       return m_return_code;
     }
 
@@ -140,12 +140,12 @@ namespace
     }
 
     // Implement epee::net_utils::i_service_endpoint interface
-    virtual bool do_send(const void* ptr, size_t cb)
+    virtual bool do_send(epee::byte_slice message)
     {
       //std::cout << "test_connection::do_send()" << std::endl;
       m_send_counter.inc();
       boost::unique_lock<boost::mutex> lock(m_mutex);
-      m_last_send_data.append(reinterpret_cast<const char*>(ptr), cb);
+      m_last_send_data.append(reinterpret_cast<const char*>(message.data()), message.size());
       return m_send_return;
     }
 
@@ -241,13 +241,13 @@ namespace
 
       m_in_data.assign(256, 't');
 
-      m_req_head.m_signature = LEVIN_SIGNATURE;
-      m_req_head.m_cb = m_in_data.size();
+      m_req_head.m_signature = SWAP64LE(LEVIN_SIGNATURE);
+      m_req_head.m_cb = SWAP64LE(m_in_data.size());
       m_req_head.m_have_to_return_data = true;
-      m_req_head.m_command = expected_command;
-      m_req_head.m_return_code = LEVIN_OK;
-      m_req_head.m_flags = LEVIN_PACKET_REQUEST;
-      m_req_head.m_protocol_version = LEVIN_PROTOCOL_VER_1;
+      m_req_head.m_command = SWAP32LE(expected_command);
+      m_req_head.m_return_code = SWAP32LE(LEVIN_OK);
+      m_req_head.m_flags = SWAP32LE(LEVIN_PACKET_REQUEST);
+      m_req_head.m_protocol_version = SWAP32LE(LEVIN_PROTOCOL_VER_1);
 
       m_commands_handler.return_code(expected_return_code);
       m_commands_handler.invoke_out_buf(m_expected_invoke_out_buf);
@@ -294,7 +294,7 @@ TEST_F(positive_test_connection_to_levin_protocol_handler_calls, handler_initial
 TEST_F(positive_test_connection_to_levin_protocol_handler_calls, concurent_handler_initialization_and_destruction_is_correct)
 {
   const size_t connection_count = 10000;
-  auto create_and_destroy_connections = [this, connection_count]()
+  auto create_and_destroy_connections = [this]()
   {
     std::vector<test_connection_ptr> connections(connection_count);
     for (size_t i = 0; i < connection_count; ++i)
@@ -337,12 +337,12 @@ TEST_F(positive_test_connection_to_levin_protocol_handler_calls, handler_process
   std::string in_data(256, 'q');
 
   epee::levin::bucket_head2 req_head;
-  req_head.m_signature = LEVIN_SIGNATURE;
-  req_head.m_cb = in_data.size();
+  req_head.m_signature = SWAP64LE(LEVIN_SIGNATURE);
+  req_head.m_cb = SWAP64LE(in_data.size());
   req_head.m_have_to_return_data = true;
-  req_head.m_command = expected_command;
-  req_head.m_flags = LEVIN_PACKET_REQUEST;
-  req_head.m_protocol_version = LEVIN_PROTOCOL_VER_1;
+  req_head.m_command = SWAP32LE(expected_command);
+  req_head.m_flags = SWAP32LE(LEVIN_PACKET_REQUEST);
+  req_head.m_protocol_version = SWAP32LE(LEVIN_PROTOCOL_VER_1);
 
   std::string buf(reinterpret_cast<const char*>(&req_head), sizeof(req_head));
   buf += in_data;
@@ -367,19 +367,19 @@ TEST_F(positive_test_connection_to_levin_protocol_handler_calls, handler_process
   // Parse send data
   std::string send_data = conn->last_send_data();
   epee::levin::bucket_head2 resp_head;
-  resp_head = *reinterpret_cast<const epee::levin::bucket_head2*>(send_data.data());
   ASSERT_LT(sizeof(resp_head), send_data.size());
+  std::memcpy(std::addressof(resp_head), send_data.data(), sizeof(resp_head));
   std::string out_data = send_data.substr(sizeof(resp_head));
 
   // Check sent response
   ASSERT_EQ(expected_out_data, out_data);
-  ASSERT_EQ(LEVIN_SIGNATURE, resp_head.m_signature);
-  ASSERT_EQ(expected_command, resp_head.m_command);
-  ASSERT_EQ(expected_return_code, resp_head.m_return_code);
-  ASSERT_EQ(expected_out_data.size(), resp_head.m_cb);
+  ASSERT_EQ(LEVIN_SIGNATURE, SWAP64LE(resp_head.m_signature));
+  ASSERT_EQ(expected_command, SWAP32LE(resp_head.m_command));
+  ASSERT_EQ(expected_return_code, SWAP32LE(resp_head.m_return_code));
+  ASSERT_EQ(expected_out_data.size(), SWAP64LE(resp_head.m_cb));
   ASSERT_FALSE(resp_head.m_have_to_return_data);
-  ASSERT_EQ(LEVIN_PROTOCOL_VER_1, resp_head.m_protocol_version);
-  ASSERT_TRUE(0 != (resp_head.m_flags & LEVIN_PACKET_RESPONSE));
+  ASSERT_EQ(SWAP32LE(LEVIN_PROTOCOL_VER_1), resp_head.m_protocol_version);
+  ASSERT_TRUE(0 != (SWAP32LE(resp_head.m_flags) & LEVIN_PACKET_RESPONSE));
 }
 
 TEST_F(positive_test_connection_to_levin_protocol_handler_calls, handler_processes_handle_read_as_notify)
@@ -392,12 +392,12 @@ TEST_F(positive_test_connection_to_levin_protocol_handler_calls, handler_process
   std::string in_data(256, 'e');
 
   epee::levin::bucket_head2 req_head;
-  req_head.m_signature = LEVIN_SIGNATURE;
-  req_head.m_cb = in_data.size();
+  req_head.m_signature = SWAP64LE(LEVIN_SIGNATURE);
+  req_head.m_cb = SWAP64LE(in_data.size());
   req_head.m_have_to_return_data = false;
-  req_head.m_command = expected_command;
-  req_head.m_flags = LEVIN_PACKET_REQUEST;
-  req_head.m_protocol_version = LEVIN_PROTOCOL_VER_1;
+  req_head.m_command = SWAP32LE(expected_command);
+  req_head.m_flags = SWAP32LE(LEVIN_PACKET_REQUEST);
+  req_head.m_protocol_version = SWAP32LE(LEVIN_PROTOCOL_VER_1);
 
   std::string buf(reinterpret_cast<const char*>(&req_head), sizeof(req_head));
   buf += in_data;
@@ -424,6 +424,95 @@ TEST_F(positive_test_connection_to_levin_protocol_handler_calls, handler_process
 
   ASSERT_EQ(3, m_commands_handler.callback_counter());
 }
+
+TEST_F(positive_test_connection_to_levin_protocol_handler_calls, handler_processes_handle_read_as_dummy)
+{
+  // Setup
+  const int expected_command = 4673261;
+  const std::string in_data(256, 'e');
+
+  const epee::byte_slice noise = epee::levin::make_noise_notify(1024);
+  const epee::byte_slice notify = epee::levin::make_notify(expected_command, epee::strspan<std::uint8_t>(in_data));
+
+  test_connection_ptr conn = create_connection();
+
+  // Test
+  ASSERT_TRUE(conn->m_protocol_handler.handle_recv(noise.data(), noise.size()));
+
+  // Check connection and levin_commands_handler states
+  ASSERT_EQ(0u, m_commands_handler.notify_counter());
+  ASSERT_EQ(0u, m_commands_handler.invoke_counter());
+  ASSERT_EQ(-1, m_commands_handler.last_command());
+  ASSERT_TRUE(m_commands_handler.last_in_buf().empty());
+  ASSERT_EQ(0u, conn->send_counter());
+  ASSERT_TRUE(conn->last_send_data().empty());
+
+
+  ASSERT_TRUE(conn->m_protocol_handler.handle_recv(notify.data(), notify.size()));
+
+  // Check connection and levin_commands_handler states
+  ASSERT_EQ(1u, m_commands_handler.notify_counter());
+  ASSERT_EQ(0u, m_commands_handler.invoke_counter());
+  ASSERT_EQ(expected_command, m_commands_handler.last_command());
+  ASSERT_EQ(in_data, m_commands_handler.last_in_buf());
+  ASSERT_EQ(0u, conn->send_counter());
+  ASSERT_TRUE(conn->last_send_data().empty());
+}
+
+TEST_F(positive_test_connection_to_levin_protocol_handler_calls, handler_processes_handle_read_as_fragment)
+{
+  // Setup
+  const int expected_command = 4673261;
+  const int expected_fragmented_command = 46732;
+  const std::string in_data(256, 'e');
+  std::string in_fragmented_data(1024 * 4, 'c');
+
+  const epee::byte_slice noise = epee::levin::make_noise_notify(1024);
+  const epee::byte_slice notify = epee::levin::make_notify(expected_command, epee::strspan<std::uint8_t>(in_data));
+  epee::byte_slice fragmented = epee::levin::make_fragmented_notify(noise, expected_fragmented_command, epee::strspan<std::uint8_t>(in_fragmented_data));
+
+  EXPECT_EQ(5u, fragmented.size() / 1024);
+  EXPECT_EQ(0u, fragmented.size() % 1024);
+
+  test_connection_ptr conn = create_connection();
+
+  while (!fragmented.empty())
+  {
+    if ((fragmented.size() / 1024) % 2 == 1)
+    {
+      ASSERT_TRUE(conn->m_protocol_handler.handle_recv(notify.data(), notify.size()));
+    }
+
+    ASSERT_EQ(3u - (fragmented.size() / 2048), m_commands_handler.notify_counter());
+    ASSERT_EQ(0u, m_commands_handler.invoke_counter());
+    ASSERT_EQ(expected_command, m_commands_handler.last_command());
+    ASSERT_EQ(in_data, m_commands_handler.last_in_buf());
+    ASSERT_EQ(0u, conn->send_counter());
+    ASSERT_TRUE(conn->last_send_data().empty());
+
+    epee::byte_slice next = fragmented.take_slice(1024);
+    ASSERT_TRUE(conn->m_protocol_handler.handle_recv(next.data(), next.size()));
+  }
+
+  in_fragmented_data.resize(((1024 - sizeof(epee::levin::bucket_head2)) * 5) - sizeof(epee::levin::bucket_head2)); // add padding zeroes
+  ASSERT_EQ(4u, m_commands_handler.notify_counter());
+  ASSERT_EQ(0u, m_commands_handler.invoke_counter());
+  ASSERT_EQ(expected_fragmented_command, m_commands_handler.last_command());
+  ASSERT_EQ(in_fragmented_data, m_commands_handler.last_in_buf());
+  ASSERT_EQ(0u, conn->send_counter());
+  ASSERT_TRUE(conn->last_send_data().empty());
+
+
+  ASSERT_TRUE(conn->m_protocol_handler.handle_recv(notify.data(), notify.size()));
+
+  ASSERT_EQ(5u, m_commands_handler.notify_counter());
+  ASSERT_EQ(0u, m_commands_handler.invoke_counter());
+  ASSERT_EQ(expected_command, m_commands_handler.last_command());
+  ASSERT_EQ(in_data, m_commands_handler.last_in_buf());
+  ASSERT_EQ(0u, conn->send_counter());
+  ASSERT_TRUE(conn->last_send_data().empty());
+}
+
 
 TEST_F(test_levin_protocol_handler__hanle_recv_with_invalid_data, handles_big_packet_1)
 {
@@ -529,7 +618,23 @@ TEST_F(test_levin_protocol_handler__hanle_recv_with_invalid_data, handles_two_re
 
 TEST_F(test_levin_protocol_handler__hanle_recv_with_invalid_data, handles_unexpected_response)
 {
-  m_req_head.m_flags = LEVIN_PACKET_RESPONSE;
+  m_req_head.m_flags = SWAP32LE(LEVIN_PACKET_RESPONSE);
+  prepare_buf();
+
+  ASSERT_FALSE(m_conn->m_protocol_handler.handle_recv(m_buf.data(), m_buf.size()));
+}
+
+TEST_F(test_levin_protocol_handler__hanle_recv_with_invalid_data, handles_short_fragment)
+{
+  m_req_head.m_cb = 1;
+  m_req_head.m_flags = LEVIN_PACKET_BEGIN;
+  m_req_head.m_command = 0;
+  m_in_data.resize(1);
+  prepare_buf();
+
+  ASSERT_TRUE(m_conn->m_protocol_handler.handle_recv(m_buf.data(), m_buf.size()));
+
+  m_req_head.m_flags = LEVIN_PACKET_END;
   prepare_buf();
 
   ASSERT_FALSE(m_conn->m_protocol_handler.handle_recv(m_buf.data(), m_buf.size()));

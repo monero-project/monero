@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -123,6 +123,6 @@ namespace tools {
    */
   template<typename InputIt, typename T>
     int read_varint(InputIt &&first, InputIt &&last, T &i) {
-    return read_varint<std::numeric_limits<T>::digits, InputIt, T>(std::move(first), std::move(last), i);
+    return read_varint<std::numeric_limits<T>::digits>(std::forward<InputIt>(first), std::forward<InputIt>(last), i);
   }
 }

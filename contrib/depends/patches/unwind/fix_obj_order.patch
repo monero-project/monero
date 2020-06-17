@@ -1,0 +1,11 @@
+--- config/ltmain.sh.O	2017-01-13 16:00:54.000000000 +0000
++++ config/ltmain.sh	2019-11-17 06:46:51.994402494 +0000
+@@ -7957,6 +7957,8 @@
+ 	    esac
+ 	  done
+ 	fi
++	oldobjs=`for obj in $oldobjs; do echo $obj; done | sort`
++	oldobjs=" `echo $oldobjs`"
+ 	eval cmds=\"$old_archive_cmds\"
+ 
+ 	func_len " $cmds"

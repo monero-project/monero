@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2018, The Monero Project
+// Copyright (c) 2017-2019, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -33,19 +33,22 @@
 #include "cryptonote_basic/account.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "multisig.h"
+#include "cryptonote_config.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "multisig"
 
 using namespace std;
 
-static const rct::key multisig_salt = { {'M', 'u', 'l', 't' , 'i', 's', 'i', 'g', 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 } };
-
 namespace cryptonote
 {
   //-----------------------------------------------------------------
   crypto::secret_key get_multisig_blinded_secret_key(const crypto::secret_key &key)
   {
+    rct::key multisig_salt;
+    static_assert(sizeof(rct::key) == sizeof(config::HASH_KEY_MULTISIG), "Hash domain separator is an unexpected size");
+    memcpy(multisig_salt.bytes, config::HASH_KEY_MULTISIG, sizeof(rct::key));
+
     rct::keyV data;
     data.reserve(2);
     data.push_back(rct::sk2rct(key));
@@ -79,6 +82,7 @@ namespace cryptonote
     {
       rct::key sk = rct::scalarmultKey(rct::pk2rct(k), rct::sk2rct(blinded_skey));
       crypto::secret_key msk = get_multisig_blinded_secret_key(rct::rct2sk(sk));
+      memwipe(&sk, sizeof(sk));
       multisig_keys.push_back(msk);
       sc_add(spend_skey.bytes, spend_skey.bytes, (const unsigned char*)msk.data);
     }
@@ -123,10 +127,10 @@ namespace cryptonote
   //-----------------------------------------------------------------
   crypto::secret_key generate_multisig_view_secret_key(const crypto::secret_key &skey, const std::vector<crypto::secret_key> &skeys)
   {
-    rct::key view_skey = rct::sk2rct(get_multisig_blinded_secret_key(skey));
+    crypto::secret_key view_skey = get_multisig_blinded_secret_key(skey);
     for (const auto &k: skeys)
-      sc_add(view_skey.bytes, view_skey.bytes, rct::sk2rct(k).bytes);
-    return rct::rct2sk(view_skey);
+      sc_add((unsigned char*)&view_skey, rct::sk2rct(view_skey).bytes, rct::sk2rct(k).bytes);
+    return view_skey;
   }
   //-----------------------------------------------------------------
   crypto::public_key generate_multisig_M_N_spend_public_key(const std::vector<crypto::public_key> &pkeys)
