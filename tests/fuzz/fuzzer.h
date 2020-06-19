@@ -56,7 +56,7 @@ extern "C" { \
       static bool first = true; \
       if (first) \
       { \
-        if (!init()) \
+        if (init()) \
           return 1; \
         first = false; \
       } \
@@ -66,8 +66,12 @@ extern "C" { \
     catch (const std::exception &e) \
     { \
       fprintf(stderr, "Exception: %s\n", e.what()); \
-      return 1; \
+      delete el::base::elStorage; \
+      el::base::elStorage = NULL; \
+      return 0; \
     } \
+    delete el::base::elStorage; \
+    el::base::elStorage = NULL; \
     return 0; \
   } \
 }
@@ -122,8 +126,12 @@ int run_fuzzer(int argc, const char **argv, Fuzzer &fuzzer);
       catch (const std::exception &e) \
       { \
         fprintf(stderr, "Exception: %s\n", e.what()); \
-        return 1; \
+        delete el::base::elStorage; \
+        el::base::elStorage = NULL; \
+        return 0; \
       } \
+      delete el::base::elStorage; \
+      el::base::elStorage = NULL; \
       return 0; \
     } \
   }; \
