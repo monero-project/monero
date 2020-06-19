@@ -1351,7 +1351,7 @@ namespace cryptonote
     for (; sorted_it != m_txs_by_fee_and_receive_time.end(); ++sorted_it)
     {
       txpool_tx_meta_t meta;
-      if (!m_blockchain.get_txpool_tx_meta(sorted_it->second, meta) && !meta.matches(relay_category::legacy))
+      if (!m_blockchain.get_txpool_tx_meta(sorted_it->second, meta) || !meta.matches(relay_category::legacy))
       {
         MERROR("  failed to find tx meta");
         continue;
