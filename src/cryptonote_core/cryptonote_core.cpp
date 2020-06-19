@@ -1181,11 +1181,42 @@ namespace cryptonote
   size_t core::get_block_sync_size(uint64_t height) const
   {
     static const uint64_t quick_height = m_nettype == TESTNET ? 801219 : m_nettype == MAINNET ? 1220516 : 0;
+    size_t res = 0;
     if (block_sync_size > 0)
-      return block_sync_size;
-    if (height >= quick_height)
-      return BLOCKS_SYNCHRONIZING_DEFAULT_COUNT;
-    return BLOCKS_SYNCHRONIZING_DEFAULT_COUNT_PRE_V4;
+      res = block_sync_size;
+    else if (height >= quick_height)
+      res = BLOCKS_SYNCHRONIZING_DEFAULT_COUNT;
+    else
+      res = BLOCKS_SYNCHRONIZING_DEFAULT_COUNT_PRE_V4;
+
+    static size_t max_block_size = 0;
+    if (max_block_size == 0)
+    {
+      const char *env = getenv("SEEDHASH_EPOCH_BLOCKS");
+      if (env)
+      {
+        int n = atoi(env);
+        if (n <= 0)
+          n = BLOCKS_SYNCHRONIZING_MAX_COUNT;
+        size_t p = 1;
+        while (p < (size_t)n)
+          p <<= 1;
+        max_block_size = p;
+      }
+      else
+        max_block_size = BLOCKS_SYNCHRONIZING_MAX_COUNT;
+    }
+    if (res > max_block_size)
+    {
+      static bool warned = false;
+      if (!warned)
+      {
+        MWARNING("Clamping block sync size to " << max_block_size);
+        warned = true;
+      }
+      res = max_block_size;
+    }
+    return res;
   }
   //-----------------------------------------------------------------------------------------------
   bool core::are_key_images_spent_in_pool(const std::vector<crypto::key_image>& key_im, std::vector<bool> &spent) const
