@@ -507,7 +507,7 @@ namespace cryptonote
      *
      * @return false if any key images to be removed cannot be found, otherwise true
      */
-    bool remove_transaction_keyimages(const transaction& tx);
+    bool remove_transaction_keyimages(const transaction_prefix& tx, const crypto::hash &actual_hash);
 
     /**
      * @brief check if any of a transaction's spent key images are present in a given set

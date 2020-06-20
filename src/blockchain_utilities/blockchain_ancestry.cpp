@@ -463,10 +463,10 @@ int main(int argc, char* argv[])
 
   BlockchainObjects *blockchain_objects = new BlockchainObjects();
   Blockchain *core_storage = &blockchain_objects->m_blockchain;
-  BlockchainDB *db = new_db(db_type);
+  BlockchainDB *db = new_db();
   if (db == NULL)
   {
-	  LOG_ERROR("Attempted to use non-existent database type: " << db_type);
+	  LOG_ERROR("Attempted to use non-existent database type: LMDB");
 	  throw std::runtime_error("Attempting to use non-existent database type");
   }
   LOG_PRINT_L0("database: LMDB");

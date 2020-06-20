@@ -1111,7 +1111,7 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  bool core_rpc_server::on_get_transactions_by_heights(const COMMAND_RPC_GET_TRANSACTIONS_BY_HEIGHTS::request& req, COMMAND_RPC_GET_TRANSACTIONS_BY_HEIGHTS::response& res, const connection_context *ctx))
+  bool core_rpc_server::on_get_transactions_by_heights(const COMMAND_RPC_GET_TRANSACTIONS_BY_HEIGHTS::request& req, COMMAND_RPC_GET_TRANSACTIONS_BY_HEIGHTS::response& res, const connection_context *ctx)
   {
     PERF_TIMER(on_get_transactions_by_heights);
     bool ok;
@@ -1492,7 +1492,11 @@ namespace cryptonote
       res.status = "Already mining";
       return true;
     }
-    if(!miner.start(info.address, static_cast<size_t>(req.threads_count), req.do_background_mining, req.ignore_battery))
+
+    boost::thread::attributes attrs;
+    attrs.set_stack_size(THREAD_STACK_SIZE);
+
+    if(!miner.start(info.address, static_cast<size_t>(req.threads_count), attrs, req.do_background_mining, req.ignore_battery))
     {
       res.status = "Failed, mining not started";
       LOG_PRINT_L0(res.status);
@@ -1524,39 +1528,17 @@ namespace cryptonote
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_mining_status(const COMMAND_RPC_MINING_STATUS::request& req, COMMAND_RPC_MINING_STATUS::response& res, const connection_context *ctx)
   {
-    RPC_TRACKER(mining_status);
+    PERF_TIMER(on_mining_status);
 
     const miner& lMiner = m_core.get_miner();
     res.active = lMiner.is_mining();
     res.is_background_mining_enabled = lMiner.get_is_background_mining_enabled();
-    store_difficulty(m_core.get_blockchain_storage().get_difficulty_for_next_block(), res.difficulty, res.wide_difficulty, res.difficulty_top64);
-    
-    res.block_target = m_core.get_blockchain_storage().get_current_hard_fork_version() < 2 ? DIFFICULTY_TARGET_V1 : DIFFICULTY_TARGET_V2;
+
     if ( lMiner.is_mining() ) {
       res.speed = lMiner.get_speed();
       res.threads_count = lMiner.get_threads_count();
-      res.block_reward = lMiner.get_block_reward();
-    }
-    const account_public_address& lMiningAdr = lMiner.get_mining_address();
-    if (lMiner.is_mining() || lMiner.get_is_background_mining_enabled())
+      const account_public_address& lMiningAdr = lMiner.get_mining_address();
       res.address = get_account_address_as_str(nettype(), false, lMiningAdr);
-    const uint8_t major_version = m_core.get_blockchain_storage().get_current_hard_fork_version();
-    const unsigned variant = major_version >= 7 ? major_version - 6 : 0;
-    switch (variant)
-    {
-      case 0: res.pow_algorithm = "Cryptonight"; break;
-      case 1: res.pow_algorithm = "CNv1 (Cryptonight variant 1)"; break;
-      case 2: case 3: res.pow_algorithm = "CNv2 (Cryptonight variant 2)"; break;
-      case 4: case 5: res.pow_algorithm = "CNv4 (Cryptonight variant 4)"; break;
-      case 6: res.pow_algorithm = "RandomX"; break;
-      default: res.pow_algorithm = "I'm not sure actually"; break;
-    }
-    if (res.is_background_mining_enabled)
-    {
-      res.bg_idle_threshold = lMiner.get_idle_threshold();
-      res.bg_min_idle_seconds = lMiner.get_min_idle_seconds();
-      res.bg_ignore_battery = lMiner.get_ignore_battery();
-      res.bg_target = lMiner.get_mining_target();
     }
 
     res.status = CORE_RPC_STATUS_OK;
@@ -1901,17 +1883,6 @@ namespace cryptonote
       return false;
     }
 
-    if (b.major_version >= RX_BLOCK_VERSION)
-    {
-      uint64_t next_height;
-      crypto::rx_seedheights(height, &seed_height, &next_height);
-      seed_hash = m_core.get_block_id_by_height(seed_height);
-      if (next_height != seed_height)
-        next_seed_hash = m_core.get_block_id_by_height(next_height);
-      else
-        next_seed_hash = seed_hash;
-    }
-
     if (extra_nonce.empty())
     {
       reserved_offset = 0;
@@ -2139,9 +2110,8 @@ namespace cryptonote
         return false;
       }
       b.nonce = req.starting_nonce;
-      miner::find_nonce_for_given_block([this](const cryptonote::block &b, uint64_t height, unsigned int threads, crypto::hash &hash) {
-        return cryptonote::get_block_longhash(&(m_core.get_blockchain_storage()), b, hash, height, threads);
-      }, b, template_res.difficulty, template_res.height);
+      miner::find_nonce_for_given_block(b, template_res.difficulty, template_res.height);
+
 
       submit_req.front() = string_tools::buff_to_hex_nodelimer(block_to_blob(b));
       r = on_submitblock(submit_req, submit_res, error_resp, ctx);
@@ -2545,7 +2515,7 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  bool core_rpc_server::on_resolve_open_alias(const COMMAND_RPC_RESOLVE_OPEN_ALIAS::request& req, COMMAND_RPC_RESOLVE_OPEN_ALIAS::response& res, const connection_context *ctx = NULL)
+  bool core_rpc_server::on_resolve_open_alias(const COMMAND_RPC_RESOLVE_OPEN_ALIAS::request& req, COMMAND_RPC_RESOLVE_OPEN_ALIAS::response& res, const connection_context *ctx)
   {
     PERF_TIMER(on_resolve_open_alias);
 
@@ -3105,6 +3075,7 @@ namespace cryptonote
 
 	  res.status = CORE_RPC_STATUS_OK;
 	  return result;
+  }
   bool core_rpc_server::on_pop_blocks(const COMMAND_RPC_POP_BLOCKS::request& req, COMMAND_RPC_POP_BLOCKS::response& res, const connection_context *ctx)
   {
     RPC_TRACKER(pop_blocks);
@@ -3388,7 +3359,7 @@ namespace cryptonote
   }
   bool core_rpc_server::on_get_service_node_registration_cmd(const COMMAND_RPC_GET_SERVICE_NODE_REGISTRATION_CMD::request& req,
                                                              COMMAND_RPC_GET_SERVICE_NODE_REGISTRATION_CMD::response& res,
-                                                             epee::json_rpc::error& error_resp)
+                                                             epee::json_rpc::error& error_resp, const connection_context *ctx)
   {
     PERF_TIMER(on_get_service_node_registration_cmd);
 
@@ -3435,7 +3406,7 @@ namespace cryptonote
 
   bool core_rpc_server::on_get_service_node_registration_cmd_raw(const COMMAND_RPC_GET_SERVICE_NODE_REGISTRATION_CMD_RAW::request& req,
                                                              COMMAND_RPC_GET_SERVICE_NODE_REGISTRATION_CMD_RAW::response& res,
-                                                             epee::json_rpc::error& error_resp)
+                                                             epee::json_rpc::error& error_resp, const connection_context *ctx)
   {
     PERF_TIMER(on_get_service_node_registration_cmd_raw);
 
@@ -3462,7 +3433,7 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  bool core_rpc_server::on_get_service_nodes(const COMMAND_RPC_GET_SERVICE_NODES::request& req, COMMAND_RPC_GET_SERVICE_NODES::response& res, epee::json_rpc::error& error_resp)
+  bool core_rpc_server::on_get_service_nodes(const COMMAND_RPC_GET_SERVICE_NODES::request& req, COMMAND_RPC_GET_SERVICE_NODES::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx)
   {
 	  PERF_TIMER(on_get_service_nodes);
 
@@ -3515,7 +3486,7 @@ namespace cryptonote
 	  return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  bool core_rpc_server::on_get_staking_requirement(const COMMAND_RPC_GET_STAKING_REQUIREMENT::request& req, COMMAND_RPC_GET_STAKING_REQUIREMENT::response& res, epee::json_rpc::error& error_resp)
+  bool core_rpc_server::on_get_staking_requirement(const COMMAND_RPC_GET_STAKING_REQUIREMENT::request& req, COMMAND_RPC_GET_STAKING_REQUIREMENT::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx)
   {
 	  PERF_TIMER(on_get_staking_requirement);
 	  res.staking_requirement = service_nodes::get_staking_requirement(nettype(), req.height);

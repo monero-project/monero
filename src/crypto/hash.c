@@ -42,3 +42,7 @@ void hash_permutation(union hash_state *state) {
 void cn_fast_hash(const void *data, size_t length, char *hash) {
   	keccak((const uint8_t*)data, length, (uint8_t*)hash, 32);
 }
+
+void cn_fast_hash_2(const void *data, size_t length, char *hash) {
+  	keccak((const uint8_t*)data, length, (uint8_t*)hash, 32);
+}

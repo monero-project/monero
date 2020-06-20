@@ -243,8 +243,8 @@ void toJsonValue(rapidjson::Writer<epee::byte_stream>& dest, const cryptonote::t
 
   INSERT_INTO_JSON_OBJECT(dest, version, tx.version);
   INSERT_INTO_JSON_OBJECT(dest, unlock_time, tx.unlock_time);
-  INSERT_INTO_JSON_OBJECT(val, doc, output_unlock_times, tx.output_unlock_times);
-  INSERT_INTO_JSON_OBJECT(val, doc, is_deregister, tx.is_deregister);
+  INSERT_INTO_JSON_OBJECT(dest, output_unlock_times, tx.output_unlock_times);
+  INSERT_INTO_JSON_OBJECT(dest, is_deregister, tx.is_deregister);
   INSERT_INTO_JSON_OBJECT(dest, inputs, tx.vin);
   INSERT_INTO_JSON_OBJECT(dest, outputs, tx.vout);
   INSERT_INTO_JSON_OBJECT(dest, extra, tx.extra);
@@ -265,7 +265,7 @@ void fromJsonValue(const rapidjson::Value& val, cryptonote::transaction& tx)
   GET_FROM_JSON_OBJECT(val, tx.version, version);
   GET_FROM_JSON_OBJECT(val, tx.unlock_time, unlock_time);
   GET_FROM_JSON_OBJECT(val, tx.output_unlock_times, output_unlock_times);
-GET_FROM_JSON_OBJECT(val, tx.is_deregister, is_deregister);
+  GET_FROM_JSON_OBJECT(val, tx.is_deregister, is_deregister);
   GET_FROM_JSON_OBJECT(val, tx.vin, inputs);
   GET_FROM_JSON_OBJECT(val, tx.vout, outputs);
   GET_FROM_JSON_OBJECT(val, tx.extra, extra);

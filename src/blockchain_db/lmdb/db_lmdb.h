@@ -314,8 +314,8 @@ public:
   virtual bool for_all_outputs(uint64_t amount, const std::function<bool(uint64_t height)> &f) const;
   virtual bool for_all_alt_blocks(std::function<bool(const crypto::hash &blkid, const alt_block_data_t &data, const cryptonote::blobdata *blob)> f, bool include_blob = false) const;
 
-  virtual uint64_t add_block( const block& blk
-                            , uint64_t block_weight
+  virtual uint64_t add_block( const std::pair<block, blobdata>& blk
+                            , size_t block_weight
                             , uint64_t long_term_block_weight
                             , const difficulty_type& cumulative_difficulty
                             , const uint64_t& coins_generated

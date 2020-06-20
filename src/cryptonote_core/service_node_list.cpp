@@ -104,7 +104,7 @@ namespace service_nodes
 		LOG_PRINT_L0("Recalculating service nodes list, scanning blockchain from height " << m_height);
 		LOG_PRINT_L0("This may take some time...");
 
-		std::list<std::pair<cryptonote::blobdata, cryptonote::block>> blocks;
+		std::vector<std::pair<cryptonote::blobdata, cryptonote::block>> blocks;
 		while (m_height < current_height)
 		{
 			blocks.clear();
@@ -130,7 +130,16 @@ namespace service_nodes
 					return;
 				}
 
-				block_added_generic(block, txs);
+				std::vector<std::pair<cryptonote::transaction, cryptonote::blobdata>> txwbs;
+				txwbs.reserve(txs.size());
+
+				for(const cryptonote::transaction tx : txs) {
+					cryptonote::blobdata bl;
+					t_serializable_object_to_blob(tx, bl);
+					txwbs.push_back(std::make_pair(tx, bl));
+				}
+
+				block_added_generic(block, txwbs);
 			}
 		}
 	}
@@ -764,7 +773,7 @@ namespace service_nodes
 		return;
 	}
 
-	void service_node_list::block_added(const cryptonote::block& block, const std::vector<cryptonote::transaction>& txs)
+	void service_node_list::block_added(const cryptonote::block& block, const std::vector<std::pair<cryptonote::transaction, cryptonote::blobdata>>& txs)
 	{
 		std::lock_guard<boost::recursive_mutex> lock(m_sn_mutex);
 		block_added_generic(block, txs);
@@ -772,8 +781,7 @@ namespace service_nodes
 	}
 
 
-	template<typename T>
-	void service_node_list::block_added_generic(const cryptonote::block& block, const T& txs)
+	void service_node_list::block_added_generic(const cryptonote::block& block, const std::vector<std::pair<cryptonote::transaction, cryptonote::blobdata>>&  txs)
 	{
 		uint64_t block_height = cryptonote::get_block_height(block);
 		int hard_fork_version = m_blockchain.get_hard_fork_version(block_height);
@@ -836,16 +844,16 @@ namespace service_nodes
 		size_t deregistrations = 0;
 
 		uint32_t index = 0;
-		for (const cryptonote::transaction& tx : txs)
+		for (const auto& tx_pair : txs)
 		{
 			crypto::public_key key;
 			service_node_info info;
 			cryptonote::account_public_address address;
-			if (process_registration_tx(tx, block.timestamp, block_height, index)) {
+			if (process_registration_tx(tx_pair.first, block.timestamp, block_height, index)) {
 				registrations++;
 			}
-			process_contribution_tx(tx, block_height, index);
-			if (process_deregistration_tx(tx, block_height)) {
+			process_contribution_tx(tx_pair.first, block_height, index);
+			if (process_deregistration_tx(tx_pair.first, block_height)) {
 				deregistrations++;
 			}
 			index++;
@@ -859,7 +867,7 @@ namespace service_nodes
 		// save six times the quorum lifetime, to be sure. also to help with debugging.
 		const size_t cache_state_from_height = (block_height < QUORUM_LIFETIME) ? 0 : block_height - QUORUM_LIFETIME;
 
-		store_quorum_state_from_rewards_list(block_height);
+		store_quorum_state_from_rewards_list(block_height - 1);
 
 		while (!m_quorum_states.empty() && m_quorum_states.begin()->first < cache_state_from_height)
 		{
@@ -919,14 +927,17 @@ namespace service_nodes
 		else
 		{
 			const uint64_t expired_nodes_block_height = block_height - lock_blocks;
-			std::list<std::pair<cryptonote::blobdata, cryptonote::block>> blocks;
-			if (!m_blockchain.get_blocks(expired_nodes_block_height, 1, blocks))
+			std::vector<std::pair<cryptonote::blobdata, cryptonote::block>> blocks;
+			std::vector<cryptonote::blobdata> tx_blobs;
+
+			if (!m_blockchain.get_blocks(expired_nodes_block_height, 1, blocks, tx_blobs))
 			{
 				LOG_ERROR("Unable to get historical blocks");
 				return expired_nodes;
 			}
 
 			const cryptonote::block& block = blocks.begin()->second;
+
 			std::vector<cryptonote::transaction> txs;
 			std::vector<crypto::hash> missed_txs;
 			if (!m_blockchain.get_transactions(block.tx_hashes, txs, missed_txs))
@@ -1233,9 +1244,9 @@ namespace service_nodes
 		CHECK_AND_ASSERT_MES(r, false, "Failed to store service node info: failed to serialize data");
 
 		std::string blob = ss.str();
-		m_db->block_txn_start(false/*readonly*/);
+		m_db->block_wtxn_start();
 		m_db->set_service_node_data(blob);
-		m_db->block_txn_stop();
+		m_db->block_wtxn_stop();
 
 		return true;
 	}
@@ -1253,13 +1264,13 @@ namespace service_nodes
 		data_members_for_serialization data_in;
 		std::string blob;
 
-		m_db->block_txn_start(true/*readonly*/);
+		m_db->block_wtxn_start();
 		if (!m_db->get_service_node_data(blob))
 		{
-			m_db->block_txn_stop();
+			m_db->block_wtxn_stop();
 			return false;
 		}
-		m_db->block_txn_stop();
+		m_db->block_wtxn_stop();
 
 		ss << blob;
 		binary_archive<false> ba(ss);
@@ -1328,9 +1339,9 @@ namespace service_nodes
 
 		if (m_db && delete_db_entry)
 		{
-			m_db->block_txn_start(false/*readonly*/);
+			m_db->block_wtxn_start();
 			m_db->clear_service_node_data();
-			m_db->block_txn_stop();
+			m_db->block_wtxn_stop();
 		}
 
 		m_quorum_states.clear();
@@ -1341,7 +1352,7 @@ namespace service_nodes
 		uint8_t voting;
 		m_blockchain.get_hard_fork_voting_info(5, window, votes, threshold, hardfork_5_from_height, voting);
 		}
-   		 m_height = hardfork_5_from_height;
+		m_height = hardfork_5_from_height;
 	}
 
   bool convert_registration_args(cryptonote::network_type nettype,

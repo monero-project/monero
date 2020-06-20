@@ -355,21 +355,21 @@ namespace cryptonote
       *
       * @note see Blockchain::get_blocks(uint64_t, size_t, std::vector<std::pair<cryptonote::blobdata,block>>&, std::vector<transaction>&) const
       */
-	 bool get_blocks(uint64_t start_offset, size_t count, std::list<std::pair<cryptonote::blobdata, block>>& blocks, std::list<cryptonote::blobdata>& txs) const;
+     bool get_blocks(uint64_t start_offset, size_t count, std::vector<std::pair<cryptonote::blobdata,block>>& blocks, std::vector<cryptonote::blobdata>& txs) const;
 
      /**
       * @copydoc Blockchain::get_blocks(uint64_t, size_t, std::vector<std::pair<cryptonote::blobdata,block>>&) const
       *
       * @note see Blockchain::get_blocks(uint64_t, size_t, std::vector<std::pair<cryptonote::blobdata,block>>&) const
       */
-	 bool get_blocks(uint64_t start_offset, size_t count, std::list<std::pair<cryptonote::blobdata, block>>& blocks) const;
+     bool get_blocks(uint64_t start_offset, size_t count, std::vector<std::pair<cryptonote::blobdata,block>>& blocks) const;
 
      /**
       * @copydoc Blockchain::get_blocks(uint64_t, size_t, std::vector<std::pair<cryptonote::blobdata,block>>&) const
       *
       * @note see Blockchain::get_blocks(uint64_t, size_t, std::vector<std::pair<cryptonote::blobdata,block>>&) const
       */
-	 bool get_blocks(uint64_t start_offset, size_t count, std::list<block>& blocks) const;
+     bool get_blocks(uint64_t start_offset, size_t count, std::vector<block>& blocks) const;
 
      /**
       * @copydoc Blockchain::get_blocks(const t_ids_container&, t_blocks_container&, t_missed_container&) const
@@ -1136,6 +1136,7 @@ namespace cryptonote
 
      //m_miner and m_miner_addres are probably temporary here
      miner m_miner; //!< miner instance
+     account_public_address m_miner_address; //!< address to mine to (for miner instance)
 
      std::string m_config_folder; //!< folder to look in for configs and other files
 
@@ -1147,8 +1148,8 @@ namespace cryptonote
      epee::math_helper::once_a_time_seconds<60*2, false> m_deregisters_auto_relayer; //!< interval for checking re-relaying deregister votes
      epee::math_helper::once_a_time_seconds<60*60*12, true> m_check_updates_interval; //!< interval for checking for new versions
      epee::math_helper::once_a_time_seconds<60*10, true> m_check_disk_space_interval; //!< interval for checking for disk space
-	 epee::math_helper::once_a_time_seconds<UPTIME_PROOF_BUFFER_IN_SECONDS, true> m_check_uptime_proof_interval; //!< interval for checking our own uptime proof
-	 epee::math_helper::once_a_time_seconds<30, true> m_uptime_proof_pruner;
+	    epee::math_helper::once_a_time_seconds<UPTIME_PROOF_BUFFER_IN_SECONDS, true> m_check_uptime_proof_interval; //!< interval for checking our own uptime proof
+	    epee::math_helper::once_a_time_seconds<30, true> m_uptime_proof_pruner;
      epee::math_helper::once_a_time_seconds<90, false> m_block_rate_interval; //!< interval for checking block rate
      epee::math_helper::once_a_time_seconds<60*60*5, true> m_blockchain_pruning_interval; //!< interval for incremental blockchain pruning
 

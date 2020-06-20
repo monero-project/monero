@@ -290,11 +290,9 @@ namespace hw {
                                                             const cryptonote::tx_destination_entry &dst_entr, const boost::optional<cryptonote::account_public_address> &change_addr, const size_t output_index,
                                                             const bool &need_additional_txkeys, const std::vector<crypto::secret_key> &additional_tx_keys,
                                                             std::vector<crypto::public_key> &additional_tx_public_keys,
-                                                            std::vector<rct::key> &amount_keys,  crypto::public_key &out_eph_public_key) {
+                                                            std::vector<rct::key> &amount_keys,  crypto::public_key &out_eph_public_key, bool &found_change, std::vector<uint64_t> &output_unlock_times, uint64_t unlock_time) {
 
             crypto::key_derivation derivation;
-
-            // make additional tx pubkey if necessary
             cryptonote::keypair additional_txkey;
             if (need_additional_txkeys)
             {
@@ -305,7 +303,7 @@ namespace hw {
                     additional_txkey.pub = rct::rct2pk(rct::scalarmultBase(rct::sk2rct(additional_txkey.sec)));
             }
             bool r;
-            if (change_addr && *change_addr == dst_entr && !found_change)
+            if (change_addr && *change_addr == dst_entr.addr && !found_change)
             {
                 found_change = true;
                 // sending change to yourself; derivation = a*R

@@ -176,6 +176,7 @@ namespace
   const command_line::arg_descriptor<std::string> arg_mnemonic_language = {"mnemonic-language", sw::tr("Language for mnemonic"), ""};
   const command_line::arg_descriptor<std::string> arg_electrum_seed = {"electrum-seed", sw::tr("Specify Electrum seed for wallet recovery/creation"), ""};
   const command_line::arg_descriptor<bool> arg_restore_deterministic_wallet = {"restore-from-seed", sw::tr("Recover wallet using Electrum-style mnemonic seed"), false};
+  const command_line::arg_descriptor<bool> arg_restore_from_seed = {"restore-from-seed", sw::tr("alias for --restore-deterministic-wallet"), false};
   const command_line::arg_descriptor<bool> arg_restore_multisig_wallet = {"restore-multisig-wallet", sw::tr("Recover multisig wallet using Electrum-style mnemonic seed"), false};
   const command_line::arg_descriptor<bool> arg_non_deterministic = {"non-deterministic", sw::tr("Generate non-deterministic view and spend keys"), false};
   const command_line::arg_descriptor<bool> arg_allow_mismatched_daemon_version = {"allow-mismatched-daemon-version", sw::tr("Allow communicating with a daemon that uses a different RPC version"), false};
@@ -3151,7 +3152,6 @@ simple_wallet::simple_wallet()
                            boost::bind(&simple_wallet::on_command, this, &simple_wallet::locked_sweep_all,_1),
                            tr(USAGE_LOCKED_SWEEP_ALL),
                            tr("Send all unlocked balance to an address and lock it for <lockblocks> (max. 1000000). If the parameter \"index=<N1>[,<N2>,...]\" or \"index=all\" is specified, the wallet sweeps outputs received by those or all address indices, respectively. If omitted, the wallet randomly chooses an address index to be used. <priority> is the priority of the sweep. The higher the priority, the higher the transaction fee. Valid values in priority order (from lowest to highest) are: unimportant, normal, elevated, priority. If omitted, the default value (see the command \"set priority\") is used. <ring_size> is the number of inputs to include for untraceability."));
-                           tr("Send all unlocked balance to an address and lock it for <lockblocks> (max. 1000000). If the parameter \"index<N1>[,<N2>,...]\" is specified, the wallet sweeps outputs received by those address indices. If omitted, the wallet randomly chooses an address index to be used. <priority> is the priority of the sweep. The higher the priority, the higher the transaction fee. Valid values in priority order (from lowest to highest) are: unimportant, normal, elevated, priority. If omitted, the default value (see the command \"set priority\") is used. <ring_size> is the number of inputs to include for untraceability."));
  m_cmd_binder.set_handler("register_service_node",
                            boost::bind(&simple_wallet::register_service_node, this, _1),
                            tr("register_service_node [index=<N1>[,<N2>,...]] [priority] [auto] [<address1> <fraction1> [<address2> <fraction2> [...]]] <expiration timestamp> <pubkey> <signature> <amount>"),
@@ -5771,60 +5771,41 @@ bool simple_wallet::refresh(const std::vector<std::string>& args)
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::show_balance_unlocked(bool detailed)
 {
-	std::string extra;
-	if (m_wallet->has_multisig_partial_key_images())
-		extra = tr(" (Some owned outputs have partial key images - import_multisig_info needed)");
-	else if (m_wallet->has_unknown_key_images())
-		extra += tr(" (Some owned outputs have missing key images - import_key_images needed)");
-
-
-  std::vector<transfer_view> all_transfers;
-  std::vector<std::string> local_args;
-	if (!get_transfers(local_args, all_transfers))
-		return true;
-
-	PAUSE_READLINE();
-  uint64_t snode_rewards = 0;
-  uint64_t unlocked_bal = m_wallet->unlocked_balance(m_current_subaddress_account);
-
-	for (const auto& transfer : all_transfers)
-	{
-		if (!transfer.outputs.empty())
-		{
-			for (const auto& output : transfer.outputs)
-			{
-        if (transfer.type == tools::pay_type::service_node){
-          if((snode_rewards + transfer.amount) <= unlocked_bal){
-            snode_rewards += transfer.amount;
-          }
-        }
-			}
-		}
+  std::string extra;
+  if (m_wallet->has_multisig_partial_key_images())
+    extra = tr(" (Some owned outputs have partial key images - import_multisig_info needed)");
+  else if (m_wallet->has_unknown_key_images())
+    extra += tr(" (Some owned outputs have missing key images - import_key_images needed)");
+  success_msg_writer() << tr("Currently selected account: [") << m_current_subaddress_account << tr("] ") << m_wallet->get_subaddress_label({m_current_subaddress_account, 0});
+  const std::string tag = m_wallet->get_account_tags().second[m_current_subaddress_account];
+  success_msg_writer() << tr("Tag: ") << (tag.empty() ? std::string{tr("(No tag assigned)")} : tag);
+  uint64_t blocks_to_unlock, time_to_unlock;
+  uint64_t unlocked_balance = m_wallet->unlocked_balance(m_current_subaddress_account, false, &blocks_to_unlock, &time_to_unlock);
+  std::string unlock_time_message;
+  if (blocks_to_unlock > 0 && time_to_unlock > 0)
+    unlock_time_message = (boost::format(" (%lu block(s) and %s to unlock)") % blocks_to_unlock % get_human_readable_timespan(time_to_unlock)).str();
+  else if (blocks_to_unlock > 0)
+    unlock_time_message = (boost::format(" (%lu block(s) to unlock)") % blocks_to_unlock).str();
+  else if (time_to_unlock > 0)
+    unlock_time_message = (boost::format(" (%s to unlock)") % get_human_readable_timespan(time_to_unlock)).str();
+  success_msg_writer() << tr("Balance: ") << print_money(m_wallet->balance(m_current_subaddress_account, false)) << ", "
+    << tr("unlocked balance: ") << print_money(unlocked_balance) << unlock_time_message << extra;
+  std::map<uint32_t, uint64_t> balance_per_subaddress = m_wallet->balance_per_subaddress(m_current_subaddress_account, false);
+  std::map<uint32_t, std::pair<uint64_t, std::pair<uint64_t, uint64_t>>> unlocked_balance_per_subaddress = m_wallet->unlocked_balance_per_subaddress(m_current_subaddress_account, false);
+  if (!detailed || balance_per_subaddress.empty())
+    return true;
+  success_msg_writer() << tr("Balance per address:");
+  success_msg_writer() << boost::format("%15s %21s %21s %7s %21s") % tr("Address") % tr("Balance") % tr("Unlocked balance") % tr("Outputs") % tr("Label");
+  std::vector<tools::wallet2::transfer_details> transfers;
+  m_wallet->get_transfers(transfers);
+  for (const auto& i : balance_per_subaddress)
+  {
+    cryptonote::subaddress_index subaddr_index = {m_current_subaddress_account, i.first};
+    std::string address_str = m_wallet->get_subaddress_as_str(subaddr_index).substr(0, 6);
+    uint64_t num_unspent_outputs = std::count_if(transfers.begin(), transfers.end(), [&subaddr_index](const tools::wallet2::transfer_details& td) { return !td.m_spent && td.m_subaddr_index == subaddr_index; });
+    success_msg_writer() << boost::format(tr("%8u %6s %21s %21s %7u %21s")) % i.first % address_str % print_money(i.second) % print_money(unlocked_balance_per_subaddress[i.first].first) % num_unspent_outputs % m_wallet->get_subaddress_label(subaddr_index);
   }
-
-	success_msg_writer() << tr("Currently selected account: [") << m_current_subaddress_account << tr("] ") << m_wallet->get_subaddress_label({ m_current_subaddress_account, 0 });
-	const std::string tag = m_wallet->get_account_tags().second[m_current_subaddress_account];
-	success_msg_writer() << tr("Tag: ") << (tag.empty() ? std::string{ tr("(No tag assigned)") } : tag);
-	success_msg_writer() << tr("Balance: ") << print_money(m_wallet->balance(m_current_subaddress_account)) << ", "
-		<< tr("unlocked balance: ") << print_money(unlocked_bal) << extra << ", "
-    		<< tr("Service Rewards: ") << print_money(snode_rewards);
-;
-	std::map<uint32_t, uint64_t> balance_per_subaddress = m_wallet->balance_per_subaddress(m_current_subaddress_account);
-	std::map<uint32_t, uint64_t> unlocked_balance_per_subaddress = m_wallet->unlocked_balance_per_subaddress(m_current_subaddress_account);
-	if (!detailed || balance_per_subaddress.empty())
-		return true;
-	success_msg_writer() << tr("Balance per address:");
-	success_msg_writer() << boost::format("%15s %21s %21s %7s %21s") % tr("Address") % tr("Balance") % tr("Unlocked balance") % tr("Outputs") % tr("Label");
-	std::vector<tools::wallet2::transfer_details> transfers;
-	m_wallet->get_transfers(transfers);
-	for (const auto& i : balance_per_subaddress)
-	{
-		cryptonote::subaddress_index subaddr_index = { m_current_subaddress_account, i.first };
-		std::string address_str = m_wallet->get_subaddress_as_str(subaddr_index).substr(0, 6);
-		uint64_t num_unspent_outputs = std::count_if(transfers.begin(), transfers.end(), [&subaddr_index](const tools::wallet2::transfer_details& td) { return !td.m_spent && td.m_subaddr_index == subaddr_index; });
-		success_msg_writer() << boost::format(tr("%8u %6s %21s %21s %7u %21s")) % i.first % address_str % print_money(i.second) % print_money(unlocked_balance_per_subaddress[i.first]) % num_unspent_outputs % m_wallet->get_subaddress_label(subaddr_index);
-	}
-	return true;
+  return true;
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::show_balance(const std::vector<std::string>& args/* = std::vector<std::string>()*/)
@@ -7020,7 +7001,7 @@ bool simple_wallet::register_service_node_main(
 			if (subaddr_indices.size() > 1)
 				prompt << tr("WARNING: Outputs of multiple addresses are being used together, which might potentially compromise your privacy.\n");
 		}
-		if (m_wallet->print_ring_members() && !print_ring_members(ptx_vector, prompt))
+		if (m_wallet->print_ring_members())
 		{
 			fail_msg_writer() << tr("Error printing ring members");
 			return true;
@@ -7491,7 +7472,7 @@ bool simple_wallet::stake_main(
       if (subaddr_indices.size() > 1)
         prompt << tr("WARNING: Outputs of multiple addresses are being used together, which might potentially compromise your privacy.\n");
     }
-	if (m_wallet->print_ring_members() && !print_ring_members(ptx_vector, prompt))
+	if (m_wallet->print_ring_members())
 	{
 		fail_msg_writer() << tr("Error printing ring members");
 		return true;

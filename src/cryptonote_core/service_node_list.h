@@ -144,7 +144,7 @@ namespace service_nodes
 	{
 	public:
 		service_node_list(cryptonote::Blockchain& blockchain);
-		void block_added(const cryptonote::block& block, const std::vector<cryptonote::transaction>& txs) override;
+		void block_added(const cryptonote::block& block, const std::vector<std::pair<cryptonote::transaction,cryptonote::blobdata>>& txs) override;
 		void blockchain_detached(uint64_t height) override;
 		void register_hooks(service_nodes::quorum_cop &quorum_cop);
 		void init() override;
@@ -276,8 +276,7 @@ namespace service_nodes
 
 		std::vector<crypto::public_key> get_service_nodes_pubkeys() const;
 
-		template<typename T>
-		void block_added_generic(const cryptonote::block& block, const T& txs);
+		void block_added_generic(const cryptonote::block& blck, const std::vector<std::pair<cryptonote::transaction, cryptonote::blobdata>>& txs);
 
 		bool contribution_tx_output_has_correct_unlock_time(const cryptonote::transaction& tx, size_t i, uint64_t block_height) const;
 

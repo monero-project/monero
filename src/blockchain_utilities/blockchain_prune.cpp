@@ -521,14 +521,30 @@ int main(int argc, char* argv[])
   // because unlike blockchain_storage constructor, which takes a pointer to
   // tx_memory_pool, Blockchain's constructor takes tx_memory_pool object.
   MINFO("Initializing source blockchain (BlockchainDB)");
-  std::array<std::unique_ptr<Blockchain>, 2> core_storage;
-  Blockchain *blockchain = NULL;
-  tx_memory_pool m_mempool(*blockchain);
+
+  struct BlockchainObjects
+	{
+		Blockchain m_blockchain;
+		tx_memory_pool m_mempool;
+		service_nodes::service_node_list m_service_node_list;
+		triton::deregister_vote_pool m_deregister_vote_pool;
+		BlockchainObjects() :
+			m_blockchain(m_mempool, m_service_node_list, m_deregister_vote_pool),
+			m_service_node_list(m_blockchain),
+			m_mempool(m_blockchain) { }
+	};
+  std::array<Blockchain *, 2> core_storage;
   boost::filesystem::path paths[2];
+
+
+	BlockchainDB* db = new_db();
+
+
   bool already_pruned = false;
   for (size_t n = 0; n < core_storage.size(); ++n)
   {
-    core_storage[n].reset(new Blockchain(m_mempool));
+    BlockchainObjects *blockchain_objects = new BlockchainObjects();
+    core_storage[n] = &(blockchain_objects->m_blockchain);
 
     BlockchainDB* db = new_db();
     if (db == NULL)
@@ -590,9 +606,9 @@ int main(int argc, char* argv[])
     }
   }
   core_storage[0]->deinit();
-  core_storage[0].reset(NULL);
+  delete core_storage[0];
   core_storage[1]->deinit();
-  core_storage[1].reset(NULL);
+  delete core_storage[1];
 
   MINFO("Pruning...");
   MDB_env *env0 = NULL, *env1 = NULL;

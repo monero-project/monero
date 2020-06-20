@@ -243,7 +243,7 @@ void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const std::pair
   add_tx_amount_output_indices(tx_id, amount_output_indices);
 }
 
-uint64_t BlockchainDB::add_block( const block& blk
+uint64_t BlockchainDB::add_block( const std::pair<block, blobdata>& blck
                                 , uint64_t block_weight
                                 , uint64_t long_term_block_weight
                                 , const difficulty_type& cumulative_difficulty

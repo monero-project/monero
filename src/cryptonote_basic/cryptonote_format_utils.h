@@ -142,6 +142,7 @@ namespace cryptonote
   bool get_block_hash(const block& b, crypto::hash& res);
   crypto::hash get_block_hash(const block& b);
   bool get_block_longhash(const block& b, crypto::hash& res, cn_gpu_hash &ctx);
+  bool parse_and_validate_block_from_blob(const blobdata& b_blob, block& b, crypto::hash *block_hash);
   bool parse_and_validate_block_from_blob(const blobdata& b_blob, block& b);
   bool parse_and_validate_block_from_blob(const blobdata& b_blob, block& b, crypto::hash &block_hash);
   bool get_inputs_money_amount(const transaction& tx, uint64_t& money);
@@ -166,6 +167,7 @@ namespace cryptonote
   char const *print_tx_verification_context(tx_verification_context const &tvc, transaction const *tx = nullptr);
   char const *print_vote_verification_context(vote_verification_context const &vvc, triton::service_node_deregister::vote const *vote = nullptr);
 
+  std::string print_money(uint64_t amount, unsigned int decimal_point = -1);
   std::string print_money(const boost::multiprecision::uint128_t &amount, unsigned int decimal_point = -1);
   //---------------------------------------------------------------
   template<class t_object>

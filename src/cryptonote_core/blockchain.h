@@ -120,7 +120,7 @@ namespace cryptonote
     class BlockAddedHook
    {
    public:
-     virtual void block_added(const block& block, const std::vector<transaction>& txs) = 0;
+     virtual void block_added(const block& block, const std::vector<std::pair<transaction, blobdata>>& txs) = 0;
    };
 
    class BlockchainDetachedHook
@@ -205,7 +205,7 @@ namespace cryptonote
      *
      * @return false if start_offset > blockchain height, else true
      */
-	bool get_blocks(uint64_t start_offset, size_t count, std::list<std::pair<cryptonote::blobdata, block>>& blocks, std::list<cryptonote::blobdata>& txs) const;
+	bool get_blocks(uint64_t start_offset, size_t count, std::vector<std::pair<cryptonote::blobdata,block>>& blocks, std::vector<cryptonote::blobdata>& txs) const;
 
     /**
      * @brief get blocks from blocks based on start height and count
@@ -216,7 +216,7 @@ namespace cryptonote
      *
      * @return false if start_offset > blockchain height, else true
      */
-	bool get_blocks(uint64_t start_offset, size_t count, std::list<std::pair<cryptonote::blobdata, block>>& blocks) const;
+	bool get_blocks(uint64_t start_offset, size_t count, std::vector<std::pair<cryptonote::blobdata,block>>& blocks) const;
 
     /**
      * @brief compiles a list of all blocks stored as alternative chains
@@ -721,12 +721,7 @@ namespace cryptonote
      * @return the long term block weight
      */
     uint64_t get_next_long_term_block_weight(uint64_t block_weight) const;
-    /**
-     * @brief gets the long term block weight for a new block
-     *
-     * @return the long term block weight
-     */
-    uint64_t get_next_long_term_block_weight(uint64_t block_weight) const;
+
 
     /**
      * @brief gets the block weight median based on recent blocks (same window as for the limit)
@@ -1038,7 +1033,7 @@ namespace cryptonote
      * @param blocks the blocks to be hashed
      * @param map return-by-reference the hashes for each block
      */
-    void block_longhash_worker(cn_gpu_hash &hash_ctx, const std::vector<block> &blocks,
+    void block_longhash_worker(cn_gpu_hash &hash_ctx, const epee::span<const block> &blocks,
         std::unordered_map<crypto::hash, crypto::hash> &map) const;
 
     /**
@@ -1560,15 +1555,8 @@ namespace cryptonote
      * @return true
      */
     bool update_next_cumulative_weight_limit(uint64_t *long_term_effective_median_block_weight = NULL);
-<<<<<<< HEAD
-<<<<<<< HEAD
 
-=======
->>>>>>> b423db190e9df4cd575e14ceff8b3c92481bc254
-    void return_tx_to_pool(std::vector<transaction> &txs);
-=======
     void return_tx_to_pool(std::vector<std::pair<transaction, blobdata>> &txs);
->>>>>>> 0e8d28f35e6c370b458f1b882a8da29209b60a85
 
     /**
      * @brief make sure a transaction isn't attempting a double-spend

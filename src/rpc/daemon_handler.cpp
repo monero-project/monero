@@ -412,11 +412,6 @@ namespace rpc
         if (!res.error_details.empty()) res.error_details += " and ";
         res.error_details += "fee too low";
       }
-      if (tvc.m_invalid_version)
-      {
-        if (!res.error_details.empty()) res.error_details += " and ";
-        res.error_details = "tx is not version 2 or later";
-      }
       if (tvc.m_too_few_outputs)
       {
         if (!res.error_details.empty()) res.error_details += " and ";
@@ -487,7 +482,10 @@ namespace rpc
       return;
     }
 
-    if(!m_core.get_miner().start(info.address, static_cast<size_t>(req.threads_count), req.do_background_mining, req.ignore_battery))
+    boost::thread::attributes attrs;
+    attrs.set_stack_size(THREAD_STACK_SIZE);
+
+    if(!m_core.get_miner().start(info.address, static_cast<size_t>(req.threads_count), attrs, req.do_background_mining, req.ignore_battery))
     {
       res.error_details = "Failed, mining not started";
       LOG_PRINT_L0(res.error_details);

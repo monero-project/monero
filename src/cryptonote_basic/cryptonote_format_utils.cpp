@@ -1138,7 +1138,6 @@ void add_tx_secret_key_to_tx_extra(std::vector<uint8_t>& tx_extra, const crypto:
 
 	  if (tvc.m_verifivation_failed)     bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Verification failed, connection should be dropped, "); //bad tx, should drop connection
 	  if (tvc.m_verifivation_impossible) bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Verification impossible, related to alt chain, "); //the transaction is related with an alternative blockchain
-	  if (tvc.m_should_be_relayed)       bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "TX should be relayed, ");
 	  if (tvc.m_added_to_pool)           bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "TX added to pool, ");
 	  if (tvc.m_low_mixin)               bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Insufficient mixin, ");
 	  if (tvc.m_double_spend)            bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Double spend TX, ");
@@ -1147,8 +1146,6 @@ void add_tx_secret_key_to_tx_extra(std::vector<uint8_t>& tx_extra, const crypto:
 	  if (tvc.m_too_big)                 bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "TX too big, ");
 	  if (tvc.m_overspend)               bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Overspend, ");
 	  if (tvc.m_fee_too_low)             bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Fee too low, ");
-	  if (tvc.m_not_rct)                 bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "TX is not a valid RCT TX., ");
-	  if (tvc.m_invalid_version)         bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "TX has invalid version, ");
 
 	  if (tx) bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "TX Version: %d", (int)tx->version);
 
@@ -1172,6 +1169,11 @@ void add_tx_secret_key_to_tx_extra(std::vector<uint8_t>& tx_extra, const crypto:
 	  if (vvc.m_not_enough_votes)                  bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Not enough votes, ");
 
 	  return buf;
+  }
+  //---------------------------------------------------------------
+  void get_blob_hash(const epee::span<const char>& blob, crypto::hash& res)
+  {
+    cn_fast_hash(blob.data(), blob.size(), res);
   }
   //---------------------------------------------------------------
   void get_blob_hash(const blobdata& blob, crypto::hash& res)
@@ -1366,14 +1368,30 @@ void add_tx_secret_key_to_tx_extra(std::vector<uint8_t>& tx_extra, const crypto:
 
     // prefix
     get_transaction_prefix_hash(t, hashes[0]);
+    
+    //tx
+    transaction &tt = const_cast<transaction&>(t);
 
     const blobdata blob = tx_to_blob(t);
     const unsigned int unprunable_size = t.unprunable_size;
     const unsigned int prefix_size = t.prefix_size;
 
     // base rct
-    CHECK_AND_ASSERT_MES(prefix_size <= unprunable_size && unprunable_size <= blob.size(), false, "Inconsistent transaction prefix, unprunable and blob sizes");
-    cryptonote::get_blob_hash(epee::span<const char>(blob.data() + prefix_size, unprunable_size - prefix_size), hashes[1]);
+    if (!t.is_deregister)
+     {
+        CHECK_AND_ASSERT_MES(prefix_size <= unprunable_size && unprunable_size <= blob.size(), false, "Inconsistent transaction prefix, unprunable and blob sizes");
+      cryptonote::get_blob_hash(epee::span<const char>(blob.data() + prefix_size, unprunable_size - prefix_size), hashes[1]);
+    }
+    else
+    {
+      std::stringstream ss;
+      binary_archive<true> ba(ss);
+      const size_t inputs = t.vin.size();
+      const size_t outputs = t.vout.size();
+      bool r = tt.rct_signatures.serialize_rctsig_base(ba, inputs, outputs);
+      CHECK_AND_ASSERT_MES(r, false, "Failed to serialize rct signatures base");
+      cryptonote::get_blob_hash(ss.str(), hashes[1]);
+    }
 
     // prunable rct
     if (t.rct_signatures.type == rct::RCTTypeNull)
@@ -1486,16 +1504,6 @@ void add_tx_secret_key_to_tx_extra(std::vector<uint8_t>& tx_extra, const crypto:
   bool calculate_block_hash(const block& b, crypto::hash& res, const blobdata *blob)
   {
     bool hash_result = get_object_hash(get_block_hashing_blob(b), res);
-
-    {
-      // make sure that we aren't looking at a block with the 202612 block id but not the correct blobdata
-      if (string_tools::pod_to_hex(res) == existing_block_id_202612)
-      {
-        LOG_ERROR("Block with block id for 202612 but incorrect block blob hash found!");
-        res = null_hash;
-        return false;
-      }
-    }
     return hash_result;
   }
   //---------------------------------------------------------------
@@ -1563,7 +1571,7 @@ void add_tx_secret_key_to_tx_extra(std::vector<uint8_t>& tx_extra, const crypto:
     return res;
   }
   //---------------------------------------------------------------
-  bool parse_and_validate_block_from_blob(const blobdata& b_blob, block& b)
+  bool parse_and_validate_block_from_blob(const blobdata& b_blob, block& b, crypto::hash *block_hash)
   {
     std::stringstream ss;
     ss << b_blob;

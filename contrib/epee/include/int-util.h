@@ -154,9 +154,6 @@ static inline uint64_t div128_64(uint64_t dividend_hi, uint64_t dividend_lo, uin
   return remainder;
 }
 
-// Long divisor with 2^64 base
-void div128_64(uint64_t dividend_hi, uint64_t dividend_lo, uint64_t divisor, uint64_t* quotient_hi, uint64_t *quotient_lo, uint64_t *remainder_hi, uint64_t *remainder_lo);
-
 static inline void add64clamp(uint64_t *value, uint64_t add)
 {
   static const uint64_t maxval = (uint64_t)-1;

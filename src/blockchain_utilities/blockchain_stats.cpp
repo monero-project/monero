@@ -122,9 +122,21 @@ int main(int argc, char* argv[])
   bool do_hours = command_line::get_arg(vm, arg_hours);
 
   LOG_PRINT_L0("Initializing source blockchain (BlockchainDB)");
-  std::unique_ptr<Blockchain> core_storage;
-  tx_memory_pool m_mempool(*core_storage);
-  core_storage.reset(new Blockchain(m_mempool));
+  struct BlockchainObjects
+  {
+	  Blockchain m_blockchain;
+	  tx_memory_pool m_mempool;
+	  service_nodes::service_node_list m_service_node_list;
+	  triton::deregister_vote_pool m_deregister_vote_pool;
+	  BlockchainObjects() :
+		  m_blockchain(m_mempool, m_service_node_list, m_deregister_vote_pool),
+		  m_service_node_list(m_blockchain),
+		  m_mempool(m_blockchain) { }
+  };
+  BlockchainObjects* blockchain_objects = new BlockchainObjects();
+  Blockchain* core_storage;
+  tx_memory_pool& m_mempool = blockchain_objects->m_mempool;
+  core_storage = &(blockchain_objects->m_blockchain);
   BlockchainDB *db = new_db();
   if (db == NULL)
   {

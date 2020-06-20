@@ -132,11 +132,22 @@ int main(int argc, char* argv[])
   // because unlike blockchain_storage constructor, which takes a pointer to
   // tx_memory_pool, Blockchain's constructor takes tx_memory_pool object.
   LOG_PRINT_L0("Initializing source blockchain (BlockchainDB)");
-  Blockchain* core_storage = NULL;
-  tx_memory_pool m_mempool(*core_storage);
-  core_storage = new Blockchain(m_mempool);
+  struct BlockchainObjects
+	{
+		Blockchain m_blockchain;
+		tx_memory_pool m_mempool;
+		service_nodes::service_node_list m_service_node_list;
+		triton::deregister_vote_pool m_deregister_vote_pool;
+		BlockchainObjects() :
+			m_blockchain(m_mempool, m_service_node_list, m_deregister_vote_pool),
+			m_service_node_list(m_blockchain),
+			m_mempool(m_blockchain) { }
+	};
+	BlockchainObjects* blockchain_objects = new BlockchainObjects();
+	Blockchain* core_storage = &(blockchain_objects->m_blockchain);
+	tx_memory_pool& m_mempool = blockchain_objects->m_mempool;
 
-  BlockchainDB* db = new_db();
+	BlockchainDB* db = new_db();
   if (db == NULL)
   {
     LOG_ERROR("Failed to initialize a database");

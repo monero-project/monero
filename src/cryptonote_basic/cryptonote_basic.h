@@ -178,7 +178,7 @@ namespace cryptonote
     std::vector<uint8_t> extra;
 
     std::vector<uint64_t> output_unlock_times;
-   bool is_deregister; //service node deregister tx
+    bool is_deregister; //service node deregister tx
 
     BEGIN_SERIALIZE()
       VARINT_FIELD(version)
@@ -197,7 +197,7 @@ namespace cryptonote
 
   public:
     transaction_prefix(){}
-	bool is_deregister_tx() const { return (version >= version_3_per_output_unlock_times) && is_deregister; }
+	  bool is_deregister_tx() const { return (version >= version_3_per_output_unlock_times) && is_deregister; }
 
     uint64_t get_unlock_time(size_t out_index) const
    {
@@ -216,6 +216,7 @@ namespace cryptonote
     {
       version = 1;
       unlock_time = 0;
+      is_deregister = false;
       vin.clear();
       vout.clear();
       extra.clear();
@@ -438,12 +439,8 @@ namespace cryptonote
   inline
   void transaction::set_null()
   {
-    version = 1;
-    unlock_time = 0;
-    is_deregister = false;
+
     transaction_prefix::set_null();
-    signatures.clear();
-	rct_signatures = {};
     rct_signatures.type = rct::RCTTypeNull;
     set_hash_valid(false);
     set_prunable_hash_valid(false);

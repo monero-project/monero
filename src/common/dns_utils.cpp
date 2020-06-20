@@ -284,7 +284,7 @@ DNSResolver::DNSResolver() : m_data(new DNSResolverData())
     // should be a valid DNSSEC record, and switch to known good
     // DNSSEC resolvers if verification fails
     bool available, valid;
-    static const char *probe_hostname = "updates.moneropulse.org";
+    static const char *probe_hostname = "updates.equilibria.network";
     auto records = get_txt_record(probe_hostname, available, valid);
     if (!valid)
     {

@@ -169,7 +169,7 @@ namespace cryptonote
   };
   static const command_line::arg_descriptor<std::string> arg_check_updates = {
     "check-updates"
-  , "Check for new versions of triton: [disabled|notify|download|update]"
+  , "Check for new versions of Equilibria: [disabled|notify|download|update]"
   , "notify"
   };
   static const command_line::arg_descriptor<bool> arg_fluffy_blocks  = {
@@ -233,9 +233,8 @@ namespace cryptonote
               m_service_node_list(m_blockchain_storage),
               m_blockchain_storage(m_mempool, m_service_node_list, m_deregister_vote_pool),
               m_quorum_cop(*this),
-              m_miner(this, [this](const cryptonote::block &b, uint64_t height, unsigned int threads, crypto::hash &hash) {
-                return cryptonote::get_block_longhash(&m_blockchain_storage, b, hash, height, threads);
-              }),
+              m_miner(this),
+              m_miner_address(boost::value_initialized<account_public_address>()),
               m_starter_message_showed(false),
               m_target_blockchain_height(0),
               m_checkpoints_path(""),
@@ -410,24 +409,24 @@ namespace cryptonote
     top_id = m_blockchain_storage.get_tail_id(height);
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::get_blocks(uint64_t start_offset, size_t count, std::list<std::pair<cryptonote::blobdata, block>>& blocks, std::list<cryptonote::blobdata>& txs) const
+  bool core::get_blocks(uint64_t start_offset, size_t count, std::vector<std::pair<cryptonote::blobdata,block>>& blocks, std::vector<cryptonote::blobdata>& txs) const
   {
-	  return m_blockchain_storage.get_blocks(start_offset, count, blocks, txs);
+    return m_blockchain_storage.get_blocks(start_offset, count, blocks, txs);
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::get_blocks(uint64_t start_offset, size_t count, std::list<std::pair<cryptonote::blobdata, block>>& blocks) const
+  bool core::get_blocks(uint64_t start_offset, size_t count, std::vector<std::pair<cryptonote::blobdata,block>>& blocks) const
   {
-	  return m_blockchain_storage.get_blocks(start_offset, count, blocks);
+    return m_blockchain_storage.get_blocks(start_offset, count, blocks);
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::get_blocks(uint64_t start_offset, size_t count, std::list<block>& blocks) const
+  bool core::get_blocks(uint64_t start_offset, size_t count, std::vector<block>& blocks) const
   {
-	  std::list<std::pair<cryptonote::blobdata, cryptonote::block>> bs;
-	  if (!m_blockchain_storage.get_blocks(start_offset, count, bs))
-		  return false;
-	  for (const auto &b : bs)
-		  blocks.push_back(b.second);
-	  return true;
+    std::vector<std::pair<cryptonote::blobdata, cryptonote::block>> bs;
+    if (!m_blockchain_storage.get_blocks(start_offset, count, bs))
+      return false;
+    for (const auto &b: bs)
+      blocks.push_back(b.second);
+    return true;
   }
   //-----------------------------------------------------------------------------------------------
   bool core::get_transactions(const std::vector<crypto::hash>& txs_ids, std::vector<cryptonote::blobdata>& txs, std::vector<crypto::hash>& missed_txs) const
@@ -2172,7 +2171,7 @@ namespace cryptonote
       tx_verification_context tvc = AUTO_VAL_INIT(tvc);
       blobdata const tx_blob = tx_to_blob(deregister_tx);
 
-      result = handle_incoming_tx(tx_blob, tvc, false /*keeped_by_block*/, false /*relayed*/, false /*do_not_relay*/);
+      result = handle_incoming_tx(tx_blob, tvc, relay_method::block, false /*relayed*/);
 	  if (!result || tvc.m_verifivation_failed)
 	  {
 		  LOG_PRINT_L1("A full deregister tx for height: " << vote.block_height <<
@@ -2194,18 +2193,6 @@ bool core::get_service_node_keys(crypto::public_key &pub_key, crypto::secret_key
 	}
 	return m_service_node;
 }
-  //-----------------------------------------------------------------------------------------------
-  bool core::cmd_prepare_sn(const boost::program_options::variables_map& vm, const std::vector<std::string>& args)
-  {
-    bool r = handle_command_line(vm);
-    CHECK_AND_ASSERT_MES(r, false, "Unable to parse command line arguments");
-    r = init_service_node_key();
-    CHECK_AND_ASSERT_MES(r, false, "Failed to create or load service node key");
-    std::string registration;
-    r = service_nodes::make_registration_cmd(get_nettype(), args, m_service_node_pubkey, m_service_node_key, registration, true /*make_friendly*/);
-    CHECK_AND_ASSERT_MES(r, "", tr("Failed to make registration command"));
-    std::cout << registration << std::endl;
-    return true;
   uint32_t core::get_blockchain_pruning_seed() const
   {
     return get_blockchain_storage().get_blockchain_pruning_seed();

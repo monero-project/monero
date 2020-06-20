@@ -235,18 +235,18 @@ namespace cryptonote
 
     block = is_current ? info.block : info.previous_block;
     *(uint32_t*)(hashing_blob.data() + 39) = SWAP32LE(nonce);
-    if (block.major_version >= RX_BLOCK_VERSION)
-    {
-      const uint64_t seed_height = is_current ? info.seed_height : info.previous_seed_height;
-      const crypto::hash &seed_hash = is_current ? info.seed_hash : info.previous_seed_hash;
-      const uint64_t height = cryptonote::get_block_height(block);
-      crypto::rx_slow_hash(height, seed_height, seed_hash.data, hashing_blob.data(), hashing_blob.size(), hash.data, 0, 0);
+
+    cn_gpu_hash ctx;
+
+    if(block.major_version < 6){
+      cn_v7l_hash ctx_v2 = cn_gpu_hash::make_borrowed(ctx);
+		  ctx_v2.hash(hashing_blob.data(), hashing_blob.size(), hash.data);
     }
     else
     {
-      const int cn_variant = hashing_blob[0] >= 7 ? hashing_blob[0] - 6 : 0;
-      crypto::cn_slow_hash(hashing_blob.data(), hashing_blob.size(), hash, cn_variant, cryptonote::get_block_height(block));
+		  ctx.hash(hashing_blob.data(), hashing_blob.size(), hash.data);
     }
+
     if (!check_hash(hash, m_diff))
     {
       MWARNING("Payment too low");

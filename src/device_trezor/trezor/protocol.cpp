@@ -704,10 +704,7 @@ namespace tx {
   }
 
   void Signer::step_set_vini_input_ack(std::shared_ptr<const messages::monero::MoneroTransactionInputViniAck> ack){
-<<<<<<< HEAD
-=======
 
->>>>>>> 1d41286d15596a5ca21310411677ab290253ac85
   }
 
   std::shared_ptr<messages::monero::MoneroTransactionAllInputsSetRequest> Signer::step_all_inputs_set(){

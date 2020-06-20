@@ -60,7 +60,7 @@ namespace service_nodes
 		}
 	}
 
-	void quorum_cop::block_added(const cryptonote::block& block, const std::vector<cryptonote::transaction>& txs)
+	void quorum_cop::block_added(const cryptonote::block& block, const std::vector<std::pair<cryptonote::transaction, cryptonote::blobdata>>& txs)
 	{
 		uint64_t const height = cryptonote::get_block_height(block);
 

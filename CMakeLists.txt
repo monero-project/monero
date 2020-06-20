@@ -46,7 +46,7 @@ endif()
 cmake_minimum_required(VERSION 2.8.7)
 message(STATUS "CMake version ${CMAKE_VERSION}")
 
-project(equilibria)
+project(monero)
 
 include(FindCcache) # Has to be included after the project() macro, to be able to read the CXX variable.
 
@@ -171,10 +171,10 @@ if(ARCH_ID STREQUAL "s390x")
   set(S390X 1)
 endif()
 
-if(WIN32 OR ARM)
-  add_compile_options("$<$<CONFIG:RELEASE>:-O2>")
+if(WIN32 OR ARM OR PPC64LE OR PPC64 OR PPC)
+  set(OPT_FLAGS_RELEASE "-O2")
 else()
-  add_compile_options("$<$<CONFIG:RELEASE>:-O3>")
+  set(OPT_FLAGS_RELEASE "-Ofast")
 endif()
 
 # BUILD_TAG is used to select the build type to check for a new version
@@ -198,7 +198,7 @@ if(NOT MANUAL_SUBMODULES)
         message(FATAL_ERROR "Submodule '${relative_path}' is not up-to-date. Please update all submodules with\ngit submodule update --init --force\nor run cmake with -DMANUAL_SUBMODULES=1\n")
       endif()
     endfunction ()
-
+    
     message(STATUS "Checking submodules")
     check_submodule(external/miniupnp)
     check_submodule(external/unbound)
@@ -212,7 +212,7 @@ set(CMAKE_C_FLAGS_RELEASE "-DNDEBUG ${OPT_FLAGS_RELEASE}")
 set(CMAKE_CXX_FLAGS_RELEASE "-DNDEBUG ${OPT_FLAGS_RELEASE}")
 
 # set this to 0 if per-block checkpoint needs to be disabled
-set(PER_BLOCK_CHECKPOINT 1)
+set(PER_BLOCK_CHECKPOINT 0)
 
 if(PER_BLOCK_CHECKPOINT)
   add_definitions("-DPER_BLOCK_CHECKPOINT")
@@ -261,6 +261,12 @@ else()
   set(DEFAULT_BUILD_DEBUG_UTILITIES OFF)
 endif()
 option(BUILD_DEBUG_UTILITIES "Build debug utilities." DEFAULT_BUILD_DEBUG_UTILITIES)
+
+if(OSSFUZZ)
+  message(STATUS "Using OSS-Fuzz fuzzing system")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DOSSFUZZ")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DOSSFUZZ")
+endif()
 
 # Check whether we're on a 32-bit or 64-bit system
 if(CMAKE_SIZEOF_VOID_P EQUAL "8")
@@ -474,7 +480,7 @@ include_directories(${LIBUNWIND_INCLUDE})
 link_directories(${LIBUNWIND_LIBRARY_DIRS})
 
 # Final setup for hid
-if (HIDAPI_FOUND)
+if (HIDAPI_FOUND) 
   message(STATUS "Using HIDAPI include dir at ${HIDAPI_INCLUDE_DIR}")
   add_definitions(-DHAVE_HIDAPI)
   include_directories(${HIDAPI_INCLUDE_DIR})
@@ -627,6 +633,7 @@ else()
     add_cxx_flag_if_supported(-fstack-protector CXX_SECURITY_FLAGS)
     add_c_flag_if_supported(-fstack-protector-strong C_SECURITY_FLAGS)
     add_cxx_flag_if_supported(-fstack-protector-strong CXX_SECURITY_FLAGS)
+  endif()
 
   # New in GCC 8.2
   if (NOT OPENBSD AND NOT (WIN32 AND (CMAKE_C_COMPILER_ID STREQUAL "GNU" AND CMAKE_C_COMPILER_VERSION VERSION_LESS 9.1)))
@@ -645,7 +652,8 @@ else()
   endif()
 
   # linker
-  if (NOT (WIN32 AND (CMAKE_C_COMPILER_ID STREQUAL "GNU" AND CMAKE_C_COMPILER_VERSION VERSION_LESS 9.1)))
+  if (NOT SANITIZE AND NOT (WIN32 AND (CMAKE_C_COMPILER_ID STREQUAL "GNU" AND CMAKE_C_COMPILER_VERSION VERSION_LESS 9.1)))
+    # PIE executables randomly crash at startup with ASAN
     # Windows binaries die on startup with PIE when compiled with GCC <9.x
     add_linker_flag_if_supported(-pie LD_SECURITY_FLAGS)
   endif()
@@ -767,8 +775,9 @@ else()
 
   endif(ARM)
 
-  if(ANDROID AND NOT BUILD_GUI_DEPS STREQUAL "ON" OR IOS)
-    #From Android 5: "only position independent executables (PIE) are supported"
+  # random crash on startup when asan is on if pie is enabled
+  if(NOT SANITIZE AND ANDROID AND NOT BUILD_GUI_DEPS STREQUAL "ON" OR IOS)
+    #From Android 5: "only position independent executables (PIE) are supported" 
     message(STATUS "Enabling PIE executable")
     set(PIC_FLAG "")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIE")

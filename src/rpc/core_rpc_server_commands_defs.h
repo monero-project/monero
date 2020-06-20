@@ -3019,6 +3019,7 @@ namespace cryptonote
     };
     typedef epee::misc_utils::struct_init<response_t> response;
   };
+
   struct COMMAND_RPC_GET_QUORUM_STATE
   {
     struct request_t
@@ -3031,7 +3032,7 @@ namespace cryptonote
 
   typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response_t
+    struct response_t: public rpc_response_base
     {
       std::string status;
       std::vector<std::string> quorum_nodes;
@@ -3045,11 +3046,13 @@ namespace cryptonote
         KV_SERIALIZE(untrusted)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<response_t> response;
+
   };
 
     struct COMMAND_RPC_GET_SERVICE_NODE_REGISTRATION_CMD_RAW
   {
-    struct request_t
+    struct request_t: public rpc_request_base
     {
       std::vector<std::string> args;
       bool make_friendly; // Provide information about how to use the command in the result
@@ -3059,7 +3062,10 @@ namespace cryptonote
       END_KV_SERIALIZE_MAP()
     };
 
-    struct response_t
+    typedef epee::misc_utils::struct_init<request_t> request;
+
+
+    struct response_t: public rpc_response_base
     {
       std::string status;
       std::string registration_cmd;
@@ -3069,6 +3075,8 @@ namespace cryptonote
         KV_SERIALIZE(registration_cmd)
       END_KV_SERIALIZE_MAP()
     };
+    
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   struct COMMAND_RPC_GET_SERVICE_NODE_REGISTRATION_CMD
@@ -3083,7 +3091,7 @@ namespace cryptonote
       END_KV_SERIALIZE_MAP()
     };
 
-    struct request_t
+    struct request_t: public rpc_request_base
     {
       bool autostake;
       std::string operator_cut;
@@ -3098,7 +3106,7 @@ namespace cryptonote
 
     typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response_t
+    struct response_t: public rpc_response_base
     {
       std::string status;
       std::string registration_cmd;
@@ -3108,10 +3116,13 @@ namespace cryptonote
         KV_SERIALIZE(registration_cmd)
       END_KV_SERIALIZE_MAP()
     };
+
+    typedef epee::misc_utils::struct_init<response_t> response;
+
   };
   struct COMMAND_RPC_GET_SERVICE_NODE_KEY
   {
-	  struct request_t
+    struct request_t: public rpc_request_base
 	  {
 		  BEGIN_KV_SERIALIZE_MAP()
 		  END_KV_SERIALIZE_MAP()
@@ -3119,7 +3130,8 @@ namespace cryptonote
 
     typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response_t	  {
+    struct response_t: public rpc_response_base
+    {
 		  std::string service_node_pubkey;
 		  std::string status;
 		  BEGIN_KV_SERIALIZE_MAP()
@@ -3127,11 +3139,12 @@ namespace cryptonote
 			  KV_SERIALIZE(status)
 		  END_KV_SERIALIZE_MAP()
 	  };
+    typedef epee::misc_utils::struct_init<response_t> response;
   };
 
   struct COMMAND_RPC_GET_SERVICE_NODES
   {
-	  struct request_t
+    struct request_t: public rpc_request_base
 	  {
 		  std::vector<std::string> service_node_pubkeys; // pass empty vector to get all the service nodes
 		  BEGIN_KV_SERIALIZE_MAP()
@@ -3141,7 +3154,7 @@ namespace cryptonote
 
 	  typedef epee::misc_utils::struct_init<request_t> request;
 
-    struct response_t
+    struct response_t: public rpc_response_base
 	  {
 		  struct contribution
 		  {
@@ -3155,7 +3168,7 @@ namespace cryptonote
 				  KV_SERIALIZE(address)
 			  END_KV_SERIALIZE_MAP()
 		  };
-
+      
 		  struct entry
 		  {
 			  std::string                        service_node_pubkey;
@@ -3193,10 +3206,12 @@ namespace cryptonote
 			  KV_SERIALIZE(status)
 		  END_KV_SERIALIZE_MAP()
 	  };
+    typedef epee::misc_utils::struct_init<response_t> response;
+
   };
   struct COMMAND_RPC_GET_STAKING_REQUIREMENT
   {
-	  struct request_t
+    struct request_t: public rpc_request_base
 	  {
 		  uint64_t height;
 		  BEGIN_KV_SERIALIZE_MAP()
@@ -3215,6 +3230,7 @@ namespace cryptonote
 			  KV_SERIALIZE(status)
 		  END_KV_SERIALIZE_MAP()
 	  };
+      typedef epee::misc_utils::struct_init<response_t> response;
   };
   struct COMMAND_RPC_POP_BLOCKS
   {

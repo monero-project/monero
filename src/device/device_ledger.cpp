@@ -947,6 +947,11 @@ namespace hw {
         #ifdef DEBUG_HWDEVICE
         const rct::key a_x    =  hw::ledger::decrypt(a);
         rct::key aG_x;
+        log_hexbuffer("scalarmultKey: [[IN]]  a ", (char*)a_x.bytes, 32);       
+        this->controle_device->scalarmultBase(aG_x, a_x);
+        log_hexbuffer("scalarmultKey: [[OUT]] aG", (char*)aG_x.bytes, 32);       
+        #endif
+
         int offset = set_command_header_noopt(INS_SECRET_SCAL_MUL_BASE);
         //sec
         this->send_secret(a.bytes, offset);
@@ -1527,7 +1532,7 @@ namespace hw {
                                                        const bool &need_additional_txkeys,  const std::vector<crypto::secret_key> &additional_tx_keys,
                                                        std::vector<crypto::public_key> &additional_tx_public_keys,
                                                        std::vector<rct::key> &amount_keys,
-                                                       crypto::public_key &out_eph_public_key) {
+                                                       crypto::public_key &out_eph_public_key, bool &found_change, std::vector<uint64_t> &output_unlock_times, uint64_t unlock_time) {
       AUTO_LOCK_CMD();
 
       #ifdef DEBUG_HWDEVICE

@@ -292,8 +292,10 @@ namespace nodetool
 
   private:
     const std::vector<std::string> m_seed_nodes_list =
-    { "138.68.63.97"
-    , "104.248.225.218"
+    { "138.197.204.202"
+    , "192.81.218.37"
+    , "51.15.50.83"
+    , "212.47.251.15"
     };
 
     bool islimitup=false;
