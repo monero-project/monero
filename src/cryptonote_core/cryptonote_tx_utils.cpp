@@ -153,7 +153,7 @@ namespace cryptonote
 	  tx.extra.clear();
 	  tx.output_unlock_times.clear();
 	  tx.is_deregister = false;
-  if(hard_fork_version >= SERVICE_NODE_VERSION)
+    if(hard_fork_version >= SERVICE_NODE_VERSION)
 	   tx.version =  3;
     if(hard_fork_version == 4)
       tx.version = 2;

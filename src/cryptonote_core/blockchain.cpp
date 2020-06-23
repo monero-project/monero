@@ -1254,15 +1254,15 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
     median_weight = epee::misc_utils::median(last_blocks_weights);
   }
   triton_block_reward_context block_reward_context = {};
+  block_reward_context.fee                       = fee;
+  block_reward_context.height                    = height;
+  
 	block_reward_parts reward_parts;
 	if (!get_triton_block_reward(median_weight, cumulative_block_weight, already_generated_coins, version, reward_parts, block_reward_context))
 	{
 		MERROR_VER("block weight " << cumulative_block_weight << " is bigger than allowed for this blockchain");
 		return false;
 	}
-
-  block_reward_context.fee                       = fee;
-  block_reward_context.height                    = height;
 
 	for (ValidateMinerTxHook* hook : m_validate_miner_tx_hooks)
 	{
@@ -4359,10 +4359,6 @@ leave:
 
   rtxn_guard.stop();
 
-  
-  for (BlockAddedHook* hook : m_block_added_hooks)
-    hook->block_added(bl, txs);
-
   TIME_MEASURE_START(addblock);
   uint64_t new_height = 0;
   if (!bvc.m_verifivation_failed)
@@ -4396,6 +4392,8 @@ leave:
     LOG_ERROR("Blocks that failed verification should not reach here");
   }
 
+  for (BlockAddedHook* hook : m_block_added_hooks)
+    hook->block_added(bl, txs);
   TIME_MEASURE_FINISH(addblock);
 
   // do this after updating the hard fork state since the weight limit may change due to fork

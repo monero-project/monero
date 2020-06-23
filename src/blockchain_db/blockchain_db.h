@@ -160,7 +160,8 @@ struct txpool_tx_meta_t
   uint64_t max_used_block_height;
   uint64_t last_failed_height;
   uint64_t receive_time;
-  uint64_t last_relayed_time; //!< If Dandelion++ stem, randomized embargo timestamp. Otherwise, last relayed timestmap.
+  uint64_t last_relayed_time;
+  bool is_deregister; //!< If Dandelion++ stem, randomized embargo timestamp. Otherwise, last relayed timestmap.
   // 112 bytes
   uint8_t kept_by_block;
   uint8_t relayed;

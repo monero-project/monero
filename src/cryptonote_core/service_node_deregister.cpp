@@ -128,7 +128,7 @@ namespace triton
 		bool r = service_node_deregister::verify_votes_signature(deregister.block_height, deregister.service_node_index, keys_and_sigs);
 		if (!r)
 		{
-			LOG_PRINT_L1("Invalid signatures for votes");
+			LOG_PRINT_L1("Invalid signatures for votes: ");
 			vvc.m_verification_failed = true;
 		}
 

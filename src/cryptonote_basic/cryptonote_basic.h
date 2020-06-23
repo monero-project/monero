@@ -441,6 +441,8 @@ namespace cryptonote
   {
 
     transaction_prefix::set_null();
+    signatures.clear();
+    rct_signatures = {};
     rct_signatures.type = rct::RCTTypeNull;
     set_hash_valid(false);
     set_prunable_hash_valid(false);

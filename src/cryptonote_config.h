@@ -37,7 +37,7 @@
 #define CRYPTONOTE_DNS_TIMEOUT_MS                       20000
 
 #define CRYPTONOTE_MAX_BLOCK_NUMBER                     500000000
-#define CRYPTONOTE_GETBLOCKTEMPLATE_MAX_BLOCK_SIZE	196608 //size of block (bytes) that is the maximum that miners will produce
+#define CRYPTONOTE_GETBLOCKTEMPLATE_MAX_BLOCK_SIZE	    196608 //size of block (bytes) that is the maximum that miners will produce
 #define CRYPTONOTE_MAX_TX_SIZE                          1000000
 #define CRYPTONOTE_MAX_TX_PER_BLOCK                     0x10000000
 #define CRYPTONOTE_PUBLIC_ADDRESS_TEXTBLOB_VER          0

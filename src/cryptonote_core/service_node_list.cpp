@@ -132,11 +132,10 @@ namespace service_nodes
 
 				std::vector<std::pair<cryptonote::transaction, cryptonote::blobdata>> txwbs;
 				txwbs.reserve(txs.size());
-
 				for(const cryptonote::transaction tx : txs) {
 					cryptonote::blobdata bl;
 					t_serializable_object_to_blob(tx, bl);
-					txwbs.push_back(std::make_pair(tx, bl));
+					txwbs.push_back(std::make_pair(std::move(tx), std::move(bl)));
 				}
 
 				block_added_generic(block, txwbs);
@@ -867,7 +866,7 @@ namespace service_nodes
 		// save six times the quorum lifetime, to be sure. also to help with debugging.
 		const size_t cache_state_from_height = (block_height < QUORUM_LIFETIME) ? 0 : block_height - QUORUM_LIFETIME;
 
-		store_quorum_state_from_rewards_list(block_height - 1);
+		store_quorum_state_from_rewards_list(block_height);
 
 		while (!m_quorum_states.empty() && m_quorum_states.begin()->first < cache_state_from_height)
 		{

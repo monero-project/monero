@@ -303,6 +303,7 @@ namespace cryptonote
 		    meta.double_spend_seen = (have_tx_keyimges_as_spent(tx, id) || have_deregister_tx_already(tx));
         meta.pruned = tx.pruned;
         meta.bf_padding = 0;
+        meta.is_deregister = tx.is_deregister_tx();
         memset(meta.padding, 0, sizeof(meta.padding));
         try
         {
@@ -369,6 +370,7 @@ namespace cryptonote
           meta.double_spend_seen = false;
           meta.pruned = tx.pruned;
           meta.bf_padding = 0;
+          meta.is_deregister = tx.is_deregister_tx();
           memset(meta.padding, 0, sizeof(meta.padding));
 
           if (!insert_key_images(tx, id, tx_relay))
@@ -511,9 +513,9 @@ namespace cryptonote
         // remove first, in case this throws, so key images aren't removed
         MINFO("Pruning tx " << txid << " from txpool: weight: " << meta.weight << ", fee/byte: " << std::get<1>(it->first));
         m_blockchain.remove_txpool_tx(txid);
-        m_txpool_weight -= meta.weight;
+        m_txpool_weight -=  meta.weight;
         remove_transaction_keyimages(tx, txid);
-        MINFO("Pruned tx " << txid << " from txpool: weight: " << meta.weight << ", fee/byte: " << std::get<1>(it->first));
+        MINFO("Pruned tx " << txid << " from txpool: weight: " <<  meta.weight << ", fee/byte: " << std::get<1>(it->first));
         m_txs_by_fee_and_receive_time.erase(it--);
         changed = true;
       }
@@ -818,8 +820,9 @@ namespace cryptonote
     const uint64_t now = time(NULL);
     txs.reserve(m_blockchain.get_txpool_tx_count());
     m_blockchain.for_all_txpool_txes([this, now, &txs](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata *){
+
       // 0 fee transactions are never relayed
-      if(!meta.pruned && meta.fee > 0 && !meta.do_not_relay)
+      if(!meta.pruned && meta.fee > 0 && !meta.do_not_relay && !meta.is_deregister)
       {
         if (!meta.dandelionpp_stem && now - meta.last_relayed_time <= get_relay_delay(now, meta.receive_time))
           return true;
