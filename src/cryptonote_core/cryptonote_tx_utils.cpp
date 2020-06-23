@@ -81,6 +81,36 @@ namespace cryptonote
     }
     LOG_PRINT_L2("destinations include " << num_stdaddresses << " standard addresses and " << num_subaddresses << " subaddresses");
   }
+  
+	bool get_deterministic_output_key(const account_public_address& address, const keypair& tx_key, size_t output_index, crypto::public_key& output_key)
+	{
+		crypto::key_derivation derivation = AUTO_VAL_INIT(derivation);
+		bool r = crypto::generate_key_derivation(address.m_view_public_key, tx_key.sec, derivation);
+		CHECK_AND_ASSERT_MES(r, false, "failed to generate key derivation(" << address.m_view_public_key << ", " << tx_key.sec << ")");
+
+		r = crypto::derive_public_key(derivation, output_index, address.m_spend_public_key, output_key);
+		CHECK_AND_ASSERT_MES(r, false, "Failed to derive_public_key(" << derivation << ", " << output_index << ", " << address.m_spend_public_key << ")");
+
+		return true;
+	}
+
+	bool validate_governance_reward_key(uint64_t height, const std::string& governance_wallet_address_str, size_t output_index, const crypto::public_key& output_key, const cryptonote::network_type nettype)
+	{
+		keypair sn_key = get_deterministic_keypair_from_height(height);
+
+		cryptonote::address_parse_info governance_wallet_address;
+		cryptonote::get_account_address_from_str(governance_wallet_address, nettype, governance_wallet_address_str);
+
+		crypto::public_key correct_key;
+
+		if(!get_deterministic_output_key(governance_wallet_address.address, sn_key, output_index, correct_key))
+		{
+			MERROR("Failed to generate deterministic output key for governance wallet output validation");
+			return false;
+		}
+
+		return correct_key == output_key;
+  }
   //
   keypair get_deterministic_keypair_from_height(uint64_t height)
   {
@@ -128,7 +158,7 @@ namespace cryptonote
   }
 
 
-  triton_miner_tx_context::triton_miner_tx_context(network_type type, crypto::public_key winner, std::vector<std::pair<account_public_address, stake_portions>> winner_info)
+  miner_tx_context::miner_tx_context(network_type type, crypto::public_key winner, std::vector<std::pair<account_public_address, stake_portions>> winner_info)
 	  : nettype(type)
 	  , snode_winner_key(winner)
 	  , snode_winner_info(winner_info)
@@ -146,7 +176,7 @@ namespace cryptonote
      transaction& tx,
      const blobdata& extra_nonce,
      uint8_t hard_fork_version,
-	 const triton_miner_tx_context &miner_tx_context)
+	 const miner_tx_context &miner_context)
     {
 	  tx.vin.clear();
 	  tx.vout.clear();
@@ -160,11 +190,11 @@ namespace cryptonote
     if(hard_fork_version <= 3)
       tx.version = 1;
 
-	  const network_type                                             nettype = miner_tx_context.nettype;
-	  const crypto::public_key                                       &service_node_key = miner_tx_context.snode_winner_key;
+	  const network_type                                             nettype = miner_context.nettype;
+	  const crypto::public_key                                       &service_node_key = miner_context.snode_winner_key;
 	  const std::vector<std::pair<account_public_address, uint64_t>> &service_node_info =
-		  miner_tx_context.snode_winner_info.empty() ?
-		  service_nodes::null_winner : miner_tx_context.snode_winner_info;
+		  miner_context.snode_winner_info.empty() ?
+		  service_nodes::null_winner : miner_context.snode_winner_info;
 
 	  keypair txkey = keypair::generate(hw::get_device("default"));
 	  add_tx_pub_key_to_extra(tx, txkey.pub);
@@ -186,10 +216,11 @@ namespace cryptonote
     txin_gen in;
     in.height = height;
 
-	triton_block_reward_context block_reward_context = {};
+	miner_reward_context block_reward_context = {};
 	block_reward_context.fee = fee;
 	block_reward_context.height = height;
-	block_reward_context.snode_winner_info = miner_tx_context.snode_winner_info;
+	block_reward_context.snode_winner_info = miner_context.snode_winner_info;
+  block_reward_context.governance = miner_context.governance;
 
 	block_reward_parts reward_parts;
 	if(!get_triton_block_reward(median_size, current_block_size, already_generated_coins, hard_fork_version, reward_parts, block_reward_context))
@@ -251,7 +282,33 @@ namespace cryptonote
 		}
 	}
 
-	uint64_t expected_amount = reward_parts.miner_reward() + reward_parts.service_node_paid;
+  if(hard_fork_version >= 7){
+
+      std::string governance_wallet_address_str;
+			cryptonote::address_parse_info governance_wallet_address;
+      cryptonote::get_account_address_from_str(governance_wallet_address, nettype, *cryptonote::get_config(nettype).GOVERNANCE_WALLET_ADDRESS);
+      crypto::public_key out_eph_public_key = AUTO_VAL_INIT(out_eph_public_key);
+
+			if(!get_deterministic_output_key(governance_wallet_address.address, sn_key, tx.vout.size(), out_eph_public_key))
+			{
+				MERROR("Failed to generate deterministic output key for governance wallet output creation");
+				return false;
+			}
+
+      txout_to_key tk;
+			tk.key = out_eph_public_key;  
+      tx_out out;
+
+      summary_amounts += out.amount = reward_parts.governance;
+
+      out.target = tk;
+			tx.vout.push_back(out);
+			tx.output_unlock_times.push_back(height + CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW);
+  }
+
+
+
+	uint64_t expected_amount = reward_parts.miner_reward() + reward_parts.governance + reward_parts.service_node_paid;
 	CHECK_AND_ASSERT_MES(summary_amounts == expected_amount, false, "Failed to construct miner tx, summary_amounts = " << summary_amounts << " not equal total block_reward = " << expected_amount);
 
 	//lock
@@ -263,7 +320,7 @@ namespace cryptonote
 	return true;
   }
 
-  bool get_triton_block_reward(size_t median_weight, size_t current_block_weight, uint64_t already_generated_coins, int hard_fork_version, block_reward_parts &result, const triton_block_reward_context &triton_context)
+  bool get_triton_block_reward(size_t median_weight, size_t current_block_weight, uint64_t already_generated_coins, int hard_fork_version, block_reward_parts &result, const miner_reward_context &miner_context)
   {
 	  result = {};
 	  uint64_t base_reward;
@@ -287,13 +344,13 @@ namespace cryptonote
 
 	  result.original_base_reward = base_reward;
 	  result.service_node_total = service_node_reward_formula(base_reward, hard_fork_version);
-	  if (triton_context.snode_winner_info.empty()) result.service_node_paid = calculate_sum_of_portions(service_nodes::null_winner, result.service_node_total);
-	  else                                        result.service_node_paid = calculate_sum_of_portions(triton_context.snode_winner_info, result.service_node_total);
+	  if (miner_context.snode_winner_info.empty()) result.service_node_paid = calculate_sum_of_portions(service_nodes::null_winner, result.service_node_total);
+	  else                                        result.service_node_paid = calculate_sum_of_portions(miner_context.snode_winner_info, result.service_node_total);
 
 	  result.adjusted_base_reward = result.original_base_reward;
 
 	  result.base_miner = result.adjusted_base_reward - result.service_node_paid;
-	  result.base_miner_fee = triton_context.fee;
+	  result.base_miner_fee = miner_context.fee;
 	  return true;
   }
 
@@ -778,6 +835,7 @@ namespace cryptonote
      std::vector<tx_destination_entry> destinations_copy = destinations;
      return construct_tx_and_get_tx_key(sender_account_keys, subaddresses, sources, destinations_copy, change_addr, extra, tx, unlock_time, tx_key, additional_tx_keys, false, { rct::RangeProofBorromean, 0 }, NULL, is_staking, per_output_unlock);
   }
+  
   //---------------------------------------------------------------
   bool generate_genesis_block(
       block& bl

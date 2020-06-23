@@ -260,6 +260,10 @@ namespace config
   const unsigned char HASH_KEY_MEMORY = 'k';
   const unsigned char HASH_KEY_MULTISIG[] = {'M', 'u', 'l', 't' , 'i', 's', 'i', 'g', 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
+  uint64_t const GOVERNANCE_REWARD_INTERVAL_IN_BLOCKS = 5;
+
+  std::string const GOVERNANCE_WALLET_ADDRESS = "";
+
   namespace testnet
   {
     uint64_t const CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX = 0x536;
@@ -273,6 +277,10 @@ namespace config
      } }; // Bender's daydream
    std::string const GENESIS_TX = "013c01ff0001ffffff03029b2e4c0281c0b02e7c53291a94d1d0cbff8883f8024f5142ee494ffbbd08807121017767aafcde9be00dcfd098715ebcf7f410daebc582fda69d24a28e9d0bc890d1";
    uint32_t const GENESIS_NONCE = 71;
+
+   uint64_t const GOVERNANCE_REWARD_INTERVAL_IN_BLOCKS = 5;
+
+    std::string const GOVERNANCE_WALLET_ADDRESS = "";
   }
 
   namespace stagenet
@@ -288,6 +296,11 @@ namespace config
      } }; // Bender's daydream
    std::string const GENESIS_TX = "013c01ff0001ffffffffffff0302df5d56da0c7d643ddd1ce61901c7bdc5fb1738bfe39fbe69c28a3a7032729c0f2101168d0c4ca86fb55a4cf6a36d31431be1c53a3bd7411bb24e8832410289fa6f3b";
    uint32_t const GENESIS_NONCE = 72;
+
+   uint64_t const GOVERNANCE_REWARD_INTERVAL_IN_BLOCKS = 5;
+
+  std::string const GOVERNANCE_WALLET_ADDRESS = "";
+
   }
 }
 
@@ -312,6 +325,8 @@ namespace cryptonote
     boost::uuids::uuid const NETWORK_ID;
     std::string const GENESIS_TX;
     uint32_t const GENESIS_NONCE;
+    uint64_t GOVERNANCE_REWARD_INTERVAL_IN_BLOCKS;
+    std::string const *GOVERNANCE_WALLET_ADDRESS;
   };
   inline const config_t& get_config(network_type nettype)
   {

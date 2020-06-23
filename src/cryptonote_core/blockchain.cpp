@@ -1253,10 +1253,19 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
     get_last_n_blocks_weights(last_blocks_weights, CRYPTONOTE_REWARD_BLOCKS_WINDOW);
     median_weight = epee::misc_utils::median(last_blocks_weights);
   }
-  triton_block_reward_context block_reward_context = {};
+  miner_reward_context block_reward_context = {};
   block_reward_context.fee                       = fee;
   block_reward_context.height                    = height;
-  
+
+  if(allow_governance(height))
+  {
+    block_reward_context.governance = 10000000000;
+  }
+  else 
+  {
+    block_reward_context.governance = 0;
+  }
+
 	block_reward_parts reward_parts;
 	if (!get_triton_block_reward(median_weight, cumulative_block_weight, already_generated_coins, version, reward_parts, block_reward_context))
 	{
@@ -1271,6 +1280,21 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
 	}
 
 	base_reward = reward_parts.adjusted_base_reward;
+
+  if(version >= 7){
+    if(b.miner_tx.vout.back().amount != reward_parts.governance)
+    {
+      MERROR("Governance reward amount incorrect.  Should be: " << print_money(reward_parts.governance) << ", is: " << print_money(b.miner_tx.vout.back().amount));
+      return false;
+    }
+
+    if (!validate_governance_reward_key(m_db->height(), *cryptonote::get_config(m_nettype).GOVERNANCE_WALLET_ADDRESS, b.miner_tx.vout.size() - 1, boost::get<txout_to_key>(b.miner_tx.vout.back().target).key, m_nettype))
+    {
+      MERROR("Governance reward public key incorrect");
+      return false;
+    }
+  }
+
   if(base_reward + fee < money_in_use)
   {
     MERROR_VER("coinbase transaction spend too much money (" << print_money(money_in_use) << "). Block reward is " << print_money(base_reward + fee) << "(" << print_money(base_reward) << "+" << print_money(fee) << "), cumulative_block_weight " << cumulative_block_weight);
@@ -1297,6 +1321,57 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
   }
   return true;
 }
+
+//Checks if allowed governance every 30 days worth of blocks for 210 days
+//TODO: come back to this and restructure it to get hardfork height instead of hardcoding
+bool Blockchain::allow_governance(uint64_t height)
+{
+
+  uint64_t fork_height;
+  if(m_nettype == MAINNET)
+  {
+    fork_height = 356446;
+  }
+  else if(m_nettype == TESTNET)
+  {
+    fork_height = 12000;
+  }
+  else if (m_nettype == STAGENET)
+  {
+    fork_height = 12000;  
+  }
+  
+  if (height == fork_height)
+  {
+    return true;
+  }
+  else if (height == fork_height + 21600)
+  {
+    return true;
+  }
+  else if (height == fork_height+ (2 * 21600))
+  {
+    return true;
+  }
+  else if (height == fork_height + (3 * 21600))
+  {
+    return true;
+  }
+  else if (height == fork_height + (4 * 21600))
+  {
+    return true;
+  }
+  else if(height == fork_height + (5 * 21600))
+  {
+    return true;
+  }
+  else if(height == fork_height + (6 * 21600))
+  {
+    return true;
+  }
+  return false;
+}
+
 //------------------------------------------------------------------
 // get the block weights of the last <count> blocks, and return by reference <sz>.
 void Blockchain::get_last_n_blocks_weights(std::vector<uint64_t>& weights, size_t count) const
@@ -1565,11 +1640,11 @@ bool Blockchain::create_block_template(block& b, const crypto::hash *from_block,
   uint8_t hf_version = m_hardfork->get_current_version();
 
 
-  triton_miner_tx_context miner_tx_context(m_nettype,
+    miner_tx_context miner_context(m_nettype,
 	  m_service_node_list.select_winner(b.prev_id),
 	  m_service_node_list.get_winner_addresses_and_portions(b.prev_id));
 
-  bool r = construct_miner_tx(height, median_weight, already_generated_coins, txs_weight, fee, miner_address, b.miner_tx, ex_nonce, hf_version, miner_tx_context);
+  bool r = construct_miner_tx(height, median_weight, already_generated_coins, txs_weight, fee, miner_address, b.miner_tx, ex_nonce, hf_version, miner_context);
 
   CHECK_AND_ASSERT_MES(r, false, "Failed to construct miner tx, first chance");
   size_t cumulative_weight = txs_weight + get_transaction_weight(b.miner_tx);
@@ -1579,7 +1654,7 @@ bool Blockchain::create_block_template(block& b, const crypto::hash *from_block,
 #endif
   for (size_t try_count = 0; try_count != 10; ++try_count)
   {
-    r = construct_miner_tx(height, median_weight, already_generated_coins, cumulative_weight, fee, miner_address, b.miner_tx, ex_nonce, hf_version, miner_tx_context);
+    r = construct_miner_tx(height, median_weight, already_generated_coins, cumulative_weight, fee, miner_address, b.miner_tx, ex_nonce, hf_version, miner_context);
 
     CHECK_AND_ASSERT_MES(r, false, "Failed to construct miner tx, second chance");
     size_t coinbase_weight = get_transaction_weight(b.miner_tx);

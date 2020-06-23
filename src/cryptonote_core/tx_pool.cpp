@@ -1426,7 +1426,7 @@ namespace cryptonote
     fee = 0;
 
     //baseline empty block
-	triton_block_reward_context block_reward_context = {};
+	miner_reward_context block_reward_context = {};
 
 	block_reward_parts reward_parts = {};
     if (!	get_triton_block_reward(median_weight, total_weight, already_generated_coins, version, reward_parts, block_reward_context))

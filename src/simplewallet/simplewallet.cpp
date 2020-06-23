@@ -2310,19 +2310,19 @@ bool simple_wallet::public_nodes(const std::vector<std::string> &args)
 
 bool simple_wallet::welcome(const std::vector<std::string> &args)
 {
-  message_writer() << tr("Welcome to Monero, the private cryptocurrency.");
+  message_writer() << tr("Welcome to Equilibria, the private cryptocurrency.");
   message_writer() << "";
-  message_writer() << tr("Monero, like Bitcoin, is a cryptocurrency. That is, it is digital money.");
-  message_writer() << tr("Unlike Bitcoin, your Monero transactions and balance stay private and are not visible to the world by default.");
+  message_writer() << tr("Equilibria, like Bitcoin, is a cryptocurrency. That is, it is digital money.");
+  message_writer() << tr("Unlike Bitcoin, your Equilibria transactions and balance stay private and are not visible to the world by default.");
   message_writer() << tr("However, you have the option of making those available to select parties if you choose to.");
   message_writer() << "";
-  message_writer() << tr("Monero protects your privacy on the blockchain, and while Monero strives to improve all the time,");
-  message_writer() << tr("no privacy technology can be 100% perfect, Monero included.");
-  message_writer() << tr("Monero cannot protect you from malware, and it may not be as effective as we hope against powerful adversaries.");
-  message_writer() << tr("Flaws in Monero may be discovered in the future, and attacks may be developed to peek under some");
-  message_writer() << tr("of the layers of privacy Monero provides. Be safe and practice defense in depth.");
+  message_writer() << tr("Equilibria protects your privacy on the blockchain, and while Equilibria strives to improve all the time,");
+  message_writer() << tr("no privacy technology can be 100% perfect, Equilibria included.");
+  message_writer() << tr("Equilibria cannot protect you from malware, and it may not be as effective as we hope against powerful adversaries.");
+  message_writer() << tr("Flaws in Equilibria may be discovered in the future, and attacks may be developed to peek under some");
+  message_writer() << tr("of the layers of privacy Equilibria provides. Be safe and practice defense in depth.");
   message_writer() << "";
-  message_writer() << tr("Welcome to Monero and financial privacy. For more information see https://GetMonero.org");
+  message_writer() << tr("Welcome to Equilibria and financial privacy. For more information see https://equilibria.network");
   return true;
 }
 
@@ -3181,7 +3181,7 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("donate",
                            boost::bind(&simple_wallet::on_command, this, &simple_wallet::donate, _1),
                            tr(USAGE_DONATE),
-                           tr("Donate <amount> to the development team (donate.getmonero.org)."));
+                           tr("Donate <amount> to the development team (Equilibria.network)."));
   m_cmd_binder.set_handler("sign_transfer",
                            boost::bind(&simple_wallet::on_command, this, &simple_wallet::sign_transfer, _1),
                            tr(USAGE_SIGN_TRANSFER),
@@ -4556,7 +4556,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
     bool ssl = false;
     if (m_wallet->check_connection(NULL, &ssl) && !ssl)
       message_writer(console_color_red, true) << boost::format(tr("Using your own without SSL exposes your RPC traffic to monitoring"));
-    message_writer(console_color_red, true) << boost::format(tr("You are strongly encouraged to connect to the Monero network using your own daemon"));
+    message_writer(console_color_red, true) << boost::format(tr("You are strongly encouraged to connect to the Equilibria network using your own daemon"));
     message_writer(console_color_red, true) << boost::format(tr("If you or someone you trust are operating this daemon, you can use --trusted-daemon"));
 
     COMMAND_RPC_GET_INFO::request req;
@@ -4577,7 +4577,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
     check_background_mining(password);
 
   if (welcome)
-    message_writer(console_color_yellow, true) << tr("If you are new to Monero, type \"welcome\" for a brief overview.");
+    message_writer(console_color_yellow, true) << tr("If you are new to Equilibria, type \"welcome\" for a brief overview.");
 
   m_last_activity_time = time(NULL);
   return true;
@@ -6323,7 +6323,7 @@ void simple_wallet::check_for_inactivity_lock(bool user)
     m_in_command = true;
     if (!user)
     {
-      const std::string speech = tr("I locked your Monero wallet to protect you while you were away\nsee \"help set\" to configure/disable");
+      const std::string speech = tr("I locked your Equilibria wallet to protect you while you were away\nsee \"help set\" to configure/disable");
       std::vector<std::pair<std::string, size_t>> lines = tools::split_string_by_width(speech, 45);
 
       size_t max_len = 0;
@@ -11466,7 +11466,7 @@ void simple_wallet::list_mms_messages(const std::vector<mms::message> &messages)
 void simple_wallet::list_signers(const std::vector<mms::authorized_signer> &signers)
 {
   message_writer() << boost::format("%2s %-20s %-s") % tr("#") % tr("Label") % tr("Transport Address");
-  message_writer() << boost::format("%2s %-20s %-s") % "" % tr("Auto-Config Token") % tr("Monero Address");
+  message_writer() << boost::format("%2s %-20s %-s") % "" % tr("Auto-Config Token") % tr("Equilibria Address");
   for (size_t i = 0; i < signers.size(); ++i)
   {
     const mms::authorized_signer &signer = signers[i];

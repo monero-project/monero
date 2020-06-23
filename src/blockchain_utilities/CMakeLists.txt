@@ -285,7 +285,7 @@ target_link_libraries(blockchain_stats
 
 set_property(TARGET blockchain_stats
 	PROPERTY
-	OUTPUT_NAME "monero-blockchain-stats")
+	OUTPUT_NAME "blockchain-stats")
 install(TARGETS blockchain_stats DESTINATION bin)
 
 monero_add_executable(blockchain_prune_known_spent_data
@@ -307,7 +307,7 @@ target_link_libraries(blockchain_prune_known_spent_data
 
 set_property(TARGET blockchain_prune_known_spent_data
 	PROPERTY
-	OUTPUT_NAME "monero-blockchain-prune-known-spent-data")
+	OUTPUT_NAME "blockchain-prune-known-spent-data")
 install(TARGETS blockchain_prune_known_spent_data DESTINATION bin)
 
 monero_add_executable(blockchain_prune
@@ -316,7 +316,7 @@ monero_add_executable(blockchain_prune
 
 set_property(TARGET blockchain_prune
 	PROPERTY
-	OUTPUT_NAME "monero-blockchain-prune")
+	OUTPUT_NAME "blockchain-prune")
 install(TARGETS blockchain_prune DESTINATION bin)
 
 target_link_libraries(blockchain_prune

@@ -1400,6 +1400,9 @@ namespace cryptonote
      * @return false if anything is found wrong with the miner transaction, otherwise true
      */
     bool validate_miner_transaction(const block& b, size_t cumulative_block_weight, uint64_t fee, uint64_t& base_reward, uint64_t already_generated_coins, bool &partial_block_reward, uint8_t version);
+
+    bool allow_governance(uint64_t height);
+
 	/**
 	* @brief adds the given output to the requested set of random outputs
 	*
