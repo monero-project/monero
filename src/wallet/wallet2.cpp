@@ -1830,6 +1830,7 @@ void wallet2::scan_output(const cryptonote::transaction &tx, bool miner_tx, cons
   }
   outs.push_back(i);
 
+
   if (tx_scan_info.money_transfered == 0 && !miner_tx)
 	{
 		tx_scan_info.money_transfered = tools::decodeRct(tx.rct_signatures, tx_scan_info.received->derivation, i, tx_scan_info.mask, m_account.get_device());
@@ -2282,11 +2283,11 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
           if (!pool)
           {
             transfer_details &td = m_transfers[kit->second];
-	    td.m_block_height = height;
-	    td.m_internal_output_index = o;
-	    td.m_global_output_index = o_indices[o];
-	    td.m_tx = (const cryptonote::transaction_prefix&)tx;
-	    td.m_txid = txid;
+            td.m_block_height = height;
+            td.m_internal_output_index = o;
+            td.m_global_output_index = o_indices[o];
+            td.m_tx = (const cryptonote::transaction_prefix&)tx;
+            td.m_txid = txid;
             td.m_amount = amount;
             td.m_pk_index = pk_index - 1;
             td.m_subaddr_index = tx_scan_info[o].received->index;
@@ -2330,7 +2331,6 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
     }
   }
 
-  THROW_WALLET_EXCEPTION_IF(tx_money_got_in_outs.size() != tx_amounts_individual_outs.size(), error::wallet_internal_error, "Inconsistent size of output arrays");
 
   uint64_t tx_money_spent_in_ins = 0;
   // The line below is equivalent to "boost::optional<uint32_t> subaddr_account;", but avoids the GCC warning: ‘*((void*)& subaddr_account +4)’ may be used uninitialized in this function
@@ -12689,7 +12689,7 @@ uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_imag
       ++it;
 
       // get received (change) amount
-      uint64_t tx_money_got_in_outs1 = 0;
+      uint64_t tx_money_got_in_outs = 0;
       const cryptonote::account_keys& keys = m_account.get_keys();
       const crypto::public_key tx_pub_key = get_tx_pub_key_from_extra(spent_tx);
       crypto::key_derivation derivation;
@@ -12717,9 +12717,9 @@ uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_imag
             rct::key mask;
             tx_scan_info.money_transfered = tools::decodeRct(spent_tx.rct_signatures, tx_scan_info.received->derivation, output_index, mask, hwdev);
           }
-          THROW_WALLET_EXCEPTION_IF(tx_money_got_in_outs1 >= std::numeric_limits<uint64_t>::max() - tx_scan_info.money_transfered,
+          THROW_WALLET_EXCEPTION_IF(tx_money_got_in_outs >= std::numeric_limits<uint64_t>::max() - tx_scan_info.money_transfered,
               error::wallet_internal_error, "Overflow in received amounts");
-          tx_money_got_in_outs1 += tx_scan_info.money_transfered;
+          tx_money_got_in_outs += tx_scan_info.money_transfered;
         }
         ++output_index;
       }
@@ -12759,7 +12759,7 @@ uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_imag
       }
 
       // create outgoing payment
-      process_outgoing(*spent_txid, spent_tx, e.block_height, e.block_timestamp, tx_money_spent_in_ins, tx_money_got_in_outs1, subaddr_account, subaddr_indices);
+      process_outgoing(*spent_txid, spent_tx, e.block_height, e.block_timestamp, tx_money_spent_in_ins, tx_money_got_in_outs, subaddr_account, subaddr_indices);
 
       // erase corresponding incoming payment
       for (auto j = m_payments.begin(); j != m_payments.end(); ++j)
