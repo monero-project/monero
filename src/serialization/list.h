@@ -44,7 +44,7 @@ namespace serialization
     template <typename T>
     void do_add(std::list<T> &c, T &&e)
     {
-      c.emplace_back(std::move(e));
+      c.emplace_back(std::forward<T>(e));
     }
   }
 }

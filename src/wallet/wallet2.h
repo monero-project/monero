@@ -57,7 +57,10 @@
 #include "ringct/rctTypes.h"
 #include "ringct/rctOps.h"
 #include "checkpoints/checkpoints.h"
+#include "serialization/crypto.h"
+#include "serialization/string.h"
 #include "serialization/pair.h"
+#include "serialization/containers.h"
 
 #include "wallet_errors.h"
 #include "common/password.h"
@@ -204,6 +207,13 @@ private:
       a & m_genesis;
       a & m_blockchain;
     }
+
+    BEGIN_SERIALIZE_OBJECT()
+      VERSION_FIELD(0)
+      VARINT_FIELD(m_offset)
+      FIELD(m_genesis)
+      FIELD(m_blockchain)
+    END_SERIALIZE()
 
   private:
     size_t m_offset;
@@ -381,6 +391,19 @@ private:
       uint64_t m_timestamp;
       bool m_coinbase;
       cryptonote::subaddress_index m_subaddr_index;
+
+      BEGIN_SERIALIZE_OBJECT()
+        VERSION_FIELD(0)
+        FIELD(m_tx_hash)
+        VARINT_FIELD(m_amount)
+        FIELD(m_amounts)
+        VARINT_FIELD(m_fee)
+        VARINT_FIELD(m_block_height)
+        VARINT_FIELD(m_unlock_time)
+        VARINT_FIELD(m_timestamp)
+        FIELD(m_coinbase)
+        FIELD(m_subaddr_index)
+      END_SERIALIZE()
     };
 
     struct address_tx : payment_details
@@ -393,6 +416,12 @@ private:
     {
       payment_details m_pd;
       bool m_double_spend_seen;
+
+      BEGIN_SERIALIZE_OBJECT()
+        VERSION_FIELD(0)
+        FIELD(m_pd)
+        FIELD(m_double_spend_seen)
+      END_SERIALIZE()
     };
 
     struct unconfirmed_transfer_details
@@ -409,6 +438,21 @@ private:
       uint32_t m_subaddr_account;   // subaddress account of your wallet to be used in this transfer
       std::set<uint32_t> m_subaddr_indices;  // set of address indices used as inputs in this transfer
       std::vector<std::pair<crypto::key_image, std::vector<uint64_t>>> m_rings; // relative
+
+      BEGIN_SERIALIZE_OBJECT()
+        VERSION_FIELD(0)
+        FIELD(m_tx)
+        VARINT_FIELD(m_amount_in)
+        VARINT_FIELD(m_amount_out)
+        VARINT_FIELD(m_change)
+        VARINT_FIELD(m_sent_time)
+        FIELD(m_dests)
+        FIELD(m_payment_id)
+        VARINT_FIELD(m_timestamp)
+        VARINT_FIELD(m_subaddr_account)
+        FIELD(m_subaddr_indices)
+        FIELD(m_rings)
+      END_SERIALIZE()
     };
 
     struct confirmed_transfer_details
@@ -428,6 +472,21 @@ private:
       confirmed_transfer_details(): m_amount_in(0), m_amount_out(0), m_change((uint64_t)-1), m_block_height(0), m_payment_id(crypto::null_hash), m_timestamp(0), m_unlock_time(0), m_subaddr_account((uint32_t)-1) {}
       confirmed_transfer_details(const unconfirmed_transfer_details &utd, uint64_t height):
         m_amount_in(utd.m_amount_in), m_amount_out(utd.m_amount_out), m_change(utd.m_change), m_block_height(height), m_dests(utd.m_dests), m_payment_id(utd.m_payment_id), m_timestamp(utd.m_timestamp), m_unlock_time(utd.m_tx.unlock_time), m_subaddr_account(utd.m_subaddr_account), m_subaddr_indices(utd.m_subaddr_indices), m_rings(utd.m_rings) {}
+
+      BEGIN_SERIALIZE_OBJECT()
+        VERSION_FIELD(0)
+        VARINT_FIELD(m_amount_in)
+        VARINT_FIELD(m_amount_out)
+        VARINT_FIELD(m_change)
+        VARINT_FIELD(m_block_height)
+        FIELD(m_dests)
+        FIELD(m_payment_id)
+        VARINT_FIELD(m_timestamp)
+        VARINT_FIELD(m_unlock_time)
+        VARINT_FIELD(m_subaddr_account)
+        FIELD(m_subaddr_indices)
+        FIELD(m_rings)
+      END_SERIALIZE()
     };
 
     struct tx_construction_data
@@ -460,7 +519,7 @@ private:
     };
 
     typedef std::vector<transfer_details> transfer_container;
-    typedef std::unordered_multimap<crypto::hash, payment_details> payment_container;
+    typedef serializable_unordered_multimap<crypto::hash, payment_details> payment_container;
 
     struct multisig_sig
     {
@@ -469,6 +528,15 @@ private:
       std::unordered_set<rct::key> used_L;
       std::unordered_set<crypto::public_key> signing_keys;
       rct::multisig_out msout;
+
+      BEGIN_SERIALIZE_OBJECT()
+        VERSION_FIELD(0)
+        FIELD(sigs)
+        FIELD(ignore)
+        FIELD(used_L)
+        FIELD(signing_keys)
+        FIELD(msout)
+      END_SERIALIZE()
     };
 
     // The convention for destinations is:
@@ -511,13 +579,26 @@ private:
     {
       std::vector<tx_construction_data> txes;
       std::pair<size_t, wallet2::transfer_container> transfers;
+
+      BEGIN_SERIALIZE_OBJECT()
+        VERSION_FIELD(0)
+        FIELD(txes)
+        FIELD(transfers)
+      END_SERIALIZE()
     };
 
     struct signed_tx_set
     {
       std::vector<pending_tx> ptx;
       std::vector<crypto::key_image> key_images;
-      std::unordered_map<crypto::public_key, crypto::key_image> tx_key_images;
+      serializable_unordered_map<crypto::public_key, crypto::key_image> tx_key_images;
+
+      BEGIN_SERIALIZE_OBJECT()
+        VERSION_FIELD(0)
+        FIELD(ptx)
+        FIELD(key_images)
+        FIELD(tx_key_images)
+      END_SERIALIZE()
     };
 
     struct multisig_tx_set
@@ -552,7 +633,7 @@ private:
         FIELD(cache_data)
       END_SERIALIZE()
     };
-    
+
     // GUI Address book
     struct address_book_row
     {
@@ -561,6 +642,15 @@ private:
       std::string m_description;   
       bool m_is_subaddress;
       bool m_has_payment_id;
+
+      BEGIN_SERIALIZE_OBJECT()
+        VERSION_FIELD(0)
+        FIELD(m_address)
+        FIELD(m_payment_id)
+        FIELD(m_description)
+        FIELD(m_is_subaddress)
+        FIELD(m_has_payment_id)
+      END_SERIALIZE()
     };
 
     struct reserve_proof_entry
@@ -571,6 +661,16 @@ private:
       crypto::key_image key_image;
       crypto::signature shared_secret_sig;
       crypto::signature key_image_sig;
+
+      BEGIN_SERIALIZE_OBJECT()
+        VERSION_FIELD(0)
+        FIELD(txid)
+        VARINT_FIELD(index_in_tx)
+        FIELD(shared_secret)
+        FIELD(key_image)
+        FIELD(shared_secret_sig)
+        FIELD(key_image_sig)
+      END_SERIALIZE()
     };
 
     typedef std::tuple<uint64_t, crypto::public_key, rct::key> get_outs_entry;
@@ -927,6 +1027,7 @@ private:
       {
         std::vector<crypto::hash> blockchain;
         a & blockchain;
+        m_blockchain.clear();
         for (const auto &b: blockchain)
         {
           m_blockchain.push_back(b);
@@ -938,25 +1039,25 @@ private:
       }
       a & m_transfers;
       a & m_account_public_address;
-      a & m_key_images;
+      a & m_key_images.parent();
       if(ver < 6)
         return;
-      a & m_unconfirmed_txs;
+      a & m_unconfirmed_txs.parent();
       if(ver < 7)
         return;
-      a & m_payments;
+      a & m_payments.parent();
       if(ver < 8)
         return;
-      a & m_tx_keys;
+      a & m_tx_keys.parent();
       if(ver < 9)
         return;
-      a & m_confirmed_txs;
+      a & m_confirmed_txs.parent();
       if(ver < 11)
         return;
       a & dummy_refresh_height;
       if(ver < 12)
         return;
-      a & m_tx_notes;
+      a & m_tx_notes.parent();
       if(ver < 13)
         return;
       if (ver < 17)
@@ -964,6 +1065,7 @@ private:
         // we're loading an old version, where m_unconfirmed_payments was a std::map
         std::unordered_map<crypto::hash, payment_details> m;
         a & m;
+        m_unconfirmed_payments.clear();
         for (std::unordered_map<crypto::hash, payment_details>::const_iterator i = m.begin(); i != m.end(); ++i)
           m_unconfirmed_payments.insert(std::make_pair(i->first, pool_payment_details{i->second, false}));
       }
@@ -972,6 +1074,7 @@ private:
       if(ver < 15)
       {
         // we're loading an older wallet without a pubkey map, rebuild it
+        m_pub_keys.clear();
         for (size_t i = 0; i < m_transfers.size(); ++i)
         {
           const transfer_details &td = m_transfers[i];
@@ -981,7 +1084,7 @@ private:
         }
         return;
       }
-      a & m_pub_keys;
+      a & m_pub_keys.parent();
       if(ver < 16)
         return;
       a & m_address_book;
@@ -992,6 +1095,7 @@ private:
         // we're loading an old version, where m_unconfirmed_payments payload was payment_details
         std::unordered_multimap<crypto::hash, payment_details> m;
         a & m;
+        m_unconfirmed_payments.clear();
         for (const auto &i: m)
           m_unconfirmed_payments.insert(std::make_pair(i.first, pool_payment_details{i.second, false}));
       }
@@ -1001,20 +1105,20 @@ private:
       a & m_scanned_pool_txs[1];
       if (ver < 20)
         return;
-      a & m_subaddresses;
+      a & m_subaddresses.parent();
       std::unordered_map<cryptonote::subaddress_index, crypto::public_key> dummy_subaddresses_inv;
       a & dummy_subaddresses_inv;
       a & m_subaddress_labels;
-      a & m_additional_tx_keys;
+      a & m_additional_tx_keys.parent();
       if(ver < 21)
         return;
-      a & m_attributes;
+      a & m_attributes.parent();
       if(ver < 22)
         return;
-      a & m_unconfirmed_payments;
+      a & m_unconfirmed_payments.parent();
       if(ver < 23)
         return;
-      a & m_account_tags;
+      a & (std::pair<std::map<std::string, std::string>, std::vector<std::string>>&)m_account_tags;
       if(ver < 24)
         return;
       a & m_ring_history_saved;
@@ -1023,17 +1127,47 @@ private:
       a & m_last_block_reward;
       if(ver < 26)
         return;
-      a & m_tx_device;
+      a & m_tx_device.parent();
       if(ver < 27)
         return;
       a & m_device_last_key_image_sync;
       if(ver < 28)
         return;
-      a & m_cold_key_images;
+      a & m_cold_key_images.parent();
       if(ver < 29)
         return;
       a & m_rpc_client_secret_key;
     }
+
+    BEGIN_SERIALIZE_OBJECT()
+      MAGIC_FIELD("monero wallet cache")
+      VERSION_FIELD(0)
+      FIELD(m_blockchain)
+      FIELD(m_transfers)
+      FIELD(m_account_public_address)
+      FIELD(m_key_images)
+      FIELD(m_unconfirmed_txs)
+      FIELD(m_payments)
+      FIELD(m_tx_keys)
+      FIELD(m_confirmed_txs)
+      FIELD(m_tx_notes)
+      FIELD(m_unconfirmed_payments)
+      FIELD(m_pub_keys)
+      FIELD(m_address_book)
+      FIELD(m_scanned_pool_txs[0])
+      FIELD(m_scanned_pool_txs[1])
+      FIELD(m_subaddresses)
+      FIELD(m_subaddress_labels)
+      FIELD(m_additional_tx_keys)
+      FIELD(m_attributes)
+      FIELD(m_account_tags)
+      FIELD(m_ring_history_saved)
+      FIELD(m_last_block_reward)
+      FIELD(m_tx_device)
+      FIELD(m_device_last_key_image_sync)
+      FIELD(m_cold_key_images)
+      FIELD(m_rpc_client_secret_key)
+    END_SERIALIZE()
 
     /*!
      * \brief  Check if wallet keys and bin files exist
@@ -1106,6 +1240,8 @@ private:
     void device_derivation_path(const std::string &device_derivation_path) { m_device_derivation_path = device_derivation_path; }
     const ExportFormat & export_format() const { return m_export_format; }
     inline void set_export_format(const ExportFormat& export_format) { m_export_format = export_format; }
+    bool load_deprecated_formats() const { return m_load_deprecated_formats; }
+    void load_deprecated_formats(bool load) { m_load_deprecated_formats = load; }
     bool persistent_rpc_client_id() const { return m_persistent_rpc_client_id; }
     void persistent_rpc_client_id(bool persistent) { m_persistent_rpc_client_id = persistent; }
     void auto_mine_for_rpc_payment_threshold(float threshold) { m_auto_mine_for_rpc_payment_threshold = threshold; }
@@ -1197,7 +1333,7 @@ private:
      * \brief  Get the list of registered account tags. 
      * \return first.Key=(tag's name), first.Value=(tag's label), second[i]=(i-th account's tag)
      */
-    const std::pair<std::map<std::string, std::string>, std::vector<std::string>>& get_account_tags();
+    const std::pair<serializable_map<std::string, std::string>, std::vector<std::string>>& get_account_tags();
     /*!
      * \brief  Set a tag to the given accounts.
      * \param  account_indices  Indices of accounts.
@@ -1539,28 +1675,28 @@ private:
     std::string m_mms_file;
     const std::unique_ptr<epee::net_utils::http::abstract_http_client> m_http_client;
     hashchain m_blockchain;
-    std::unordered_map<crypto::hash, unconfirmed_transfer_details> m_unconfirmed_txs;
-    std::unordered_map<crypto::hash, confirmed_transfer_details> m_confirmed_txs;
-    std::unordered_multimap<crypto::hash, pool_payment_details> m_unconfirmed_payments;
-    std::unordered_map<crypto::hash, crypto::secret_key> m_tx_keys;
+    serializable_unordered_map<crypto::hash, unconfirmed_transfer_details> m_unconfirmed_txs;
+    serializable_unordered_map<crypto::hash, confirmed_transfer_details> m_confirmed_txs;
+    serializable_unordered_multimap<crypto::hash, pool_payment_details> m_unconfirmed_payments;
+    serializable_unordered_map<crypto::hash, crypto::secret_key> m_tx_keys;
     cryptonote::checkpoints m_checkpoints;
-    std::unordered_map<crypto::hash, std::vector<crypto::secret_key>> m_additional_tx_keys;
+    serializable_unordered_map<crypto::hash, std::vector<crypto::secret_key>> m_additional_tx_keys;
 
     transfer_container m_transfers;
     payment_container m_payments;
-    std::unordered_map<crypto::key_image, size_t> m_key_images;
-    std::unordered_map<crypto::public_key, size_t> m_pub_keys;
+    serializable_unordered_map<crypto::key_image, size_t> m_key_images;
+    serializable_unordered_map<crypto::public_key, size_t> m_pub_keys;
     cryptonote::account_public_address m_account_public_address;
-    std::unordered_map<crypto::public_key, cryptonote::subaddress_index> m_subaddresses;
+    serializable_unordered_map<crypto::public_key, cryptonote::subaddress_index> m_subaddresses;
     std::vector<std::vector<std::string>> m_subaddress_labels;
-    std::unordered_map<crypto::hash, std::string> m_tx_notes;
-    std::unordered_map<std::string, std::string> m_attributes;
+    serializable_unordered_map<crypto::hash, std::string> m_tx_notes;
+    serializable_unordered_map<std::string, std::string> m_attributes;
     std::vector<tools::wallet2::address_book_row> m_address_book;
-    std::pair<std::map<std::string, std::string>, std::vector<std::string>> m_account_tags;
+    std::pair<serializable_map<std::string, std::string>, std::vector<std::string>> m_account_tags;
     uint64_t m_upper_transaction_weight_limit; //TODO: auto-calc this value or request from daemon, now use some fixed value
     const std::vector<std::vector<tools::wallet2::multisig_info>> *m_multisig_rescan_info;
     const std::vector<std::vector<rct::key>> *m_multisig_rescan_k;
-    std::unordered_map<crypto::public_key, crypto::key_image> m_cold_key_images;
+    serializable_unordered_map<crypto::public_key, crypto::key_image> m_cold_key_images;
 
     std::atomic<bool> m_run;
 
@@ -1627,7 +1763,7 @@ private:
     uint64_t m_credits_target;
 
     // Aux transaction data from device
-    std::unordered_map<crypto::hash, std::string> m_tx_device;
+    serializable_unordered_map<crypto::hash, std::string> m_tx_device;
 
     // Light wallet
     bool m_light_wallet; /* sends view key to daemon for scanning */
@@ -1641,7 +1777,7 @@ private:
     // We save the info from the first call in m_light_wallet_address_txs for easier lookup.
     std::unordered_map<crypto::hash, address_tx> m_light_wallet_address_txs;
     // store calculated key image for faster lookup
-    std::unordered_map<crypto::public_key, std::map<uint64_t, crypto::key_image> > m_key_image_cache;
+    serializable_unordered_map<crypto::public_key, serializable_map<uint64_t, crypto::key_image> > m_key_image_cache;
 
     std::string m_ring_database;
     bool m_ring_history_saved;
@@ -1668,6 +1804,7 @@ private:
     std::unique_ptr<wallet_device_callback> m_device_callback;
 
     ExportFormat m_export_format;
+    bool m_load_deprecated_formats;
 
     static boost::mutex default_daemon_address_lock;
     static std::string default_daemon_address;
@@ -2064,7 +2201,7 @@ namespace boost
       a & x.key_images;
       if (ver < 1)
         return;
-      a & x.tx_key_images;
+      a & x.tx_key_images.parent();
     }
 
     template <class Archive>

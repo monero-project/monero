@@ -28,10 +28,6 @@
 // 
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
-#pragma once
-
-#include "serialization.h"
-
 namespace serialization
 {
   namespace detail
@@ -103,7 +99,7 @@ bool do_serialize_container(Archive<true> &ar, C &v)
       return false;
     if (i != v.begin())
       ar.delimit_array();
-    if(!::serialization::detail::serialize_container_element(ar, const_cast<typename C::value_type&>(*i)))
+    if(!::serialization::detail::serialize_container_element(ar, (typename C::value_type&)*i))
       return false;
     if (!ar.stream().good())
       return false;

@@ -31,10 +31,17 @@
 #include <string>
 #include <unordered_set>
 #include <unordered_map>
+#include <map>
 #include <boost/thread/mutex.hpp>
 #include <boost/serialization/version.hpp>
 #include "cryptonote_basic/blobdatatype.h"
 #include "cryptonote_basic/cryptonote_basic.h"
+#include <boost/serialization/list.hpp>
+#include <boost/serialization/vector.hpp>
+#include "serialization/crypto.h"
+#include "serialization/string.h"
+#include "serialization/pair.h"
+#include "serialization/containers.h"
 
 namespace cryptonote
 {
@@ -96,6 +103,33 @@ namespace cryptonote
         a & nonces_bad;
         a & nonces_dupe;
       }
+
+      BEGIN_SERIALIZE_OBJECT()
+        VERSION_FIELD(0)
+        FIELD(block)
+        FIELD(previous_block)
+        FIELD(hashing_blob)
+        FIELD(previous_hashing_blob)
+        VARINT_FIELD(seed_height)
+        VARINT_FIELD(previous_seed_height)
+        FIELD(seed_hash)
+        FIELD(previous_seed_hash)
+        VARINT_FIELD(cookie)
+        FIELD(top)
+        FIELD(previous_top)
+        VARINT_FIELD(credits)
+        FIELD(payments)
+        FIELD(previous_payments)
+        FIELD(update_time)
+        FIELD(last_request_timestamp)
+        FIELD(block_template_update_time)
+        VARINT_FIELD(credits_total)
+        VARINT_FIELD(credits_used)
+        VARINT_FIELD(nonces_good)
+        VARINT_FIELD(nonces_stale)
+        VARINT_FIELD(nonces_bad)
+        VARINT_FIELD(nonces_dupe)
+      END_SERIALIZE()
     };
 
   public:
@@ -114,8 +148,8 @@ namespace cryptonote
     template <class t_archive>
     inline void serialize(t_archive &a, const unsigned int ver)
     {
-      a & m_client_info;
-      a & m_hashrate;
+      a & m_client_info.parent();
+      a & m_hashrate.parent();
       a & m_credits_total;
       a & m_credits_used;
       a & m_nonces_good;
@@ -124,6 +158,18 @@ namespace cryptonote
       a & m_nonces_dupe;
     }
 
+    BEGIN_SERIALIZE_OBJECT()
+      VERSION_FIELD(0)
+      FIELD(m_client_info)
+      FIELD(m_hashrate)
+      VARINT_FIELD(m_credits_total)
+      VARINT_FIELD(m_credits_used)
+      VARINT_FIELD(m_nonces_good)
+      VARINT_FIELD(m_nonces_stale)
+      VARINT_FIELD(m_nonces_bad)
+      VARINT_FIELD(m_nonces_dupe)
+    END_SERIALIZE()
+
     bool load(std::string directory);
     bool store(const std::string &directory = std::string()) const;
 
@@ -131,9 +177,9 @@ namespace cryptonote
     cryptonote::account_public_address m_address;
     uint64_t m_diff;
     uint64_t m_credits_per_hash_found;
-    std::unordered_map<crypto::public_key, client_info> m_client_info;
+    serializable_unordered_map<crypto::public_key, client_info> m_client_info;
     std::string m_directory;
-    std::map<uint64_t, uint64_t> m_hashrate;
+    serializable_map<uint64_t, uint64_t> m_hashrate;
     uint64_t m_credits_total;
     uint64_t m_credits_used;
     uint64_t m_nonces_good;
@@ -143,6 +189,3 @@ namespace cryptonote
     mutable boost::mutex mutex;
   };
 }
-
-BOOST_CLASS_VERSION(cryptonote::rpc_payment, 0);
-BOOST_CLASS_VERSION(cryptonote::rpc_payment::client_info, 0);

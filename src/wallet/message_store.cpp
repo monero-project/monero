@@ -27,7 +27,6 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "message_store.h"
-#include <boost/archive/portable_binary_oarchive.hpp>
 #include <boost/archive/portable_binary_iarchive.hpp>
 #include <boost/format.hpp>
 #include <boost/algorithm/string.hpp>
@@ -182,8 +181,8 @@ bool message_store::signer_labels_complete() const
 void message_store::get_signer_config(std::string &signer_config)
 {
   std::stringstream oss;
-  boost::archive::portable_binary_oarchive ar(oss);
-  ar << m_signers;
+  binary_archive<true> ar(oss);
+  THROW_WALLET_EXCEPTION_IF(!::serialization::serialize(ar, m_signers), tools::error::wallet_internal_error, "Failed to serialize signer config");
   signer_config = oss.str();
 }
 
@@ -194,8 +193,8 @@ void message_store::unpack_signer_config(const multisig_wallet_state &state, con
   {
     std::stringstream iss;
     iss << signer_config;
-    boost::archive::portable_binary_iarchive ar(iss);
-    ar >> signers;
+    binary_archive<false> ar(iss);
+    THROW_WALLET_EXCEPTION_IF(!::serialization::serialize(ar, signers), tools::error::wallet_internal_error, "Failed to serialize signer config");
   }
   catch (...)
   {
@@ -364,8 +363,8 @@ size_t message_store::add_auto_config_data_message(const multisig_wallet_state &
   data.monero_address = me.monero_address;
 
   std::stringstream oss;
-  boost::archive::portable_binary_oarchive ar(oss);
-  ar << data;
+  binary_archive<true> ar(oss);
+  THROW_WALLET_EXCEPTION_IF(!::serialization::serialize(ar, data), tools::error::wallet_internal_error, "Failed to serialize auto config data");
 
   return add_message(state, 0, message_type::auto_config_data, message_direction::out, oss.str());
 }
@@ -384,8 +383,8 @@ void message_store::process_auto_config_data_message(uint32_t id)
   {
     std::stringstream iss;
     iss << m.content;
-    boost::archive::portable_binary_iarchive ar(iss);
-    ar >> data;
+    binary_archive<false> ar(iss);
+    THROW_WALLET_EXCEPTION_IF(!::serialization::serialize(ar, data), tools::error::wallet_internal_error, "Failed to serialize auto config data");
   }
   catch (...)
   {
@@ -745,8 +744,8 @@ std::string message_store::get_sanitized_text(const std::string &text, size_t ma
 void message_store::write_to_file(const multisig_wallet_state &state, const std::string &filename)
 {
   std::stringstream oss;
-  boost::archive::portable_binary_oarchive ar(oss);
-  ar << *this;
+  binary_archive<true> ar(oss);
+  THROW_WALLET_EXCEPTION_IF(!::serialization::serialize(ar, *this), tools::error::wallet_internal_error, "Failed to serialize MMS state");
   std::string buf = oss.str();
 
   crypto::chacha_key key;
@@ -762,14 +761,14 @@ void message_store::write_to_file(const multisig_wallet_state &state, const std:
   write_file_data.encrypted_data = encrypted_data;
 
   std::stringstream file_oss;
-  boost::archive::portable_binary_oarchive file_ar(file_oss);
-  file_ar << write_file_data;
+  binary_archive<true> file_ar(file_oss);
+  THROW_WALLET_EXCEPTION_IF(!::serialization::serialize(file_ar, write_file_data), tools::error::wallet_internal_error, "Failed to serialize MMS state");
 
   bool success = epee::file_io_utils::save_string_to_file(filename, file_oss.str());
   THROW_WALLET_EXCEPTION_IF(!success, tools::error::file_save_error, filename);
 }
 
-void message_store::read_from_file(const multisig_wallet_state &state, const std::string &filename)
+void message_store::read_from_file(const multisig_wallet_state &state, const std::string &filename, bool load_deprecated_formats)
 {
   boost::system::error_code ignored_ec;
   bool file_exists = boost::filesystem::exists(filename, ignored_ec);
@@ -785,17 +784,37 @@ void message_store::read_from_file(const multisig_wallet_state &state, const std
   bool success = epee::file_io_utils::load_file_to_string(filename, buf);
   THROW_WALLET_EXCEPTION_IF(!success, tools::error::file_read_error, filename);
 
+  bool loaded = false;
   file_data read_file_data;
   try
   {
     std::stringstream iss;
     iss << buf;
-    boost::archive::portable_binary_iarchive ar(iss);
-    ar >> read_file_data;
+    binary_archive<false> ar(iss);
+    if (::serialization::serialize(ar, read_file_data))
+      if (::serialization::check_stream_state(ar))
+        loaded = true;
   }
-  catch (const std::exception &e)
+  catch (...) {}
+  if (!loaded && load_deprecated_formats)
   {
-    MERROR("MMS file " << filename << " has bad structure <iv,encrypted_data>: " << e.what());
+    try
+    {
+      std::stringstream iss;
+      iss << buf;
+      boost::archive::portable_binary_iarchive ar(iss);
+      ar >> read_file_data;
+      loaded = true;
+    }
+    catch (const std::exception &e)
+    {
+      MERROR("MMS file " << filename << " has bad structure <iv,encrypted_data>: " << e.what());
+      THROW_WALLET_EXCEPTION_IF(true, tools::error::file_read_error, filename);
+    }
+  }
+  if (!loaded)
+  {
+    MERROR("MMS file " << filename << " has bad structure <iv,encrypted_data>");
     THROW_WALLET_EXCEPTION_IF(true, tools::error::file_read_error, filename);
   }
 
@@ -805,16 +824,36 @@ void message_store::read_from_file(const multisig_wallet_state &state, const std
   decrypted_data.resize(read_file_data.encrypted_data.size());
   crypto::chacha20(read_file_data.encrypted_data.data(), read_file_data.encrypted_data.size(), key, read_file_data.iv, &decrypted_data[0]);
 
+  loaded = false;
   try
   {
     std::stringstream iss;
     iss << decrypted_data;
-    boost::archive::portable_binary_iarchive ar(iss);
-    ar >> *this;
+    binary_archive<false> ar(iss);
+    if (::serialization::serialize(ar, *this))
+      if (::serialization::check_stream_state(ar))
+        loaded = true;
   }
-  catch (const std::exception &e)
+  catch(...) {}
+  if (!loaded && load_deprecated_formats)
   {
-    MERROR("MMS file " << filename << " has bad structure: " << e.what());
+    try
+    {
+      std::stringstream iss;
+      iss << decrypted_data;
+      boost::archive::portable_binary_iarchive ar(iss);
+      ar >> *this;
+      loaded = true;
+    }
+    catch (const std::exception &e)
+    {
+      MERROR("MMS file " << filename << " has bad structure: " << e.what());
+      THROW_WALLET_EXCEPTION_IF(true, tools::error::file_read_error, filename);
+    }
+  }
+  if (!loaded)
+  {
+    MERROR("MMS file " << filename << " has bad structure");
     THROW_WALLET_EXCEPTION_IF(true, tools::error::file_read_error, filename);
   }
 

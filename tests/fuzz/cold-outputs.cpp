@@ -40,7 +40,7 @@ BEGIN_INIT_SIMPLE_FUZZER()
   static tools::wallet2 local_wallet;
   wallet = &local_wallet;
 
-  static const char * const spendkey_hex = "0b4f47697ec99c3de6579304e5f25c68b07afbe55b71d99620bf6cbf4e45a80f";
+  static const char * const spendkey_hex = "f285d4ac9e66271256fc7cde0d3d6b36f66efff6ccd766706c408e86f4997a0d";
   crypto::secret_key spendkey;
   epee::string_tools::hex_to_pod(spendkey_hex, spendkey);
 
@@ -50,12 +50,12 @@ BEGIN_INIT_SIMPLE_FUZZER()
 END_INIT_SIMPLE_FUZZER()
 
 BEGIN_SIMPLE_FUZZER()
-  std::string s = std::string("\x01\x16serialization::archive") + std::string((const char*)buf, len);
+  std::string s((const char*)buf, len);
   std::pair<size_t, std::vector<tools::wallet2::transfer_details>> outputs;
   std::stringstream iss;
   iss << s;
-  boost::archive::portable_binary_iarchive ar(iss);
-  ar >> outputs;
+  binary_archive<false> ar(iss);
+  ::serialization::serialize(ar, outputs);
   size_t n_outputs = wallet->import_outputs(outputs);
   std::cout << boost::lexical_cast<std::string>(n_outputs) << " outputs imported" << std::endl;
 END_SIMPLE_FUZZER()
