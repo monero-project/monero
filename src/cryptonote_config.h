@@ -280,7 +280,7 @@ namespace config
 
    uint64_t const GOVERNANCE_REWARD_INTERVAL_IN_BLOCKS = 5;
 
-    std::string const GOVERNANCE_WALLET_ADDRESS = "";
+    std::string const GOVERNANCE_WALLET_ADDRESS = "XT3WPJtTDJZeAHCazcUw6WFVM4K6eywaz2dLyRR1BNedE8m5uZYHK9eLEjfs8BHGpE295STrV5y819ArccFZWYiz399bKRRyB";
   }
 
   namespace stagenet
