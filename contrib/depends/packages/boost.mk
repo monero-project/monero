@@ -1,8 +1,8 @@
-package=boost                                                                                                                                                                                                                      
-$(package)_version=1_64_0
-$(package)_download_path=https://dl.bintray.com/boostorg/release/1.64.0/source/
+package=boost
+$(package)_version=1_68_0
+$(package)_download_path=https://dl.bintray.com/boostorg/release/1.68.0/source/
 $(package)_file_name=$(package)_$($(package)_version).tar.bz2
-$(package)_sha256_hash=7bcc5caace97baa948931d712ea5f37038dbb1c5d89b43ad4def4ed7cb683332
+$(package)_sha256_hash=7f6130bc3cf65f56a618888ce9d5ea704fa10b462be126ad053e80e553d6d8b7
 $(package)_dependencies=libiconv
 $(package)_patches=fix_aroptions.patch
 
