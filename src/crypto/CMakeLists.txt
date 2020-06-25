@@ -33,6 +33,7 @@ set(crypto_sources
   crypto-ops-data.c
   crypto-ops.c
   crypto.cpp
+  ftime.c
   groestl.c
   hash-extra-blake.c
   hash-extra-groestl.c
@@ -43,6 +44,7 @@ set(crypto_sources
   jh.c
   keccak.c
   oaes_lib.c
+  rand.c
   random.c
   skein.c
   slow-hash.c
@@ -63,6 +65,7 @@ set(crypto_private_headers
   chacha.h
   crypto-ops.h
   crypto.h
+  ftime.h
   generic-ops.h
   groestl.h
   groestl_tables.h
@@ -74,9 +77,11 @@ set(crypto_private_headers
   keccak.h
   oaes_config.h
   oaes_lib.h
+  rand.h
   random.h
   skein.h
   skein_port.h
+  standard.h
   CryptonightR_JIT.h
   CryptonightR_template.h)
 

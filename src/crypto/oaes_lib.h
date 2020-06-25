@@ -34,6 +34,10 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#ifdef OAES_HAVE_ISAAC
+#include "rand.h"
+#endif // OAES_HAVE_ISAAC
+
 #ifdef __cplusplus 
 extern "C" {
 #endif
@@ -213,3 +217,4 @@ OAES_API OAES_RET oaes_pseudo_encrypt_ecb( OAES_CTX * ctx, uint8_t * c );
 #endif
 
 #endif // _OAES_LIB_H
+

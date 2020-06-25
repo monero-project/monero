@@ -28,7 +28,7 @@
  * ---------------------------------------------------------------------------
  */
 #include <stddef.h>
-#include <time.h> 
+#include <time.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -39,17 +39,10 @@
  #include <malloc.h>
 #endif
 
-// ANDROID, FreeBSD, OpenBSD and NetBSD also don't need timeb.h
-#if !defined(__FreeBSD__) && !defined(__OpenBSD__) && !defined(__ANDROID__) \
-  && !defined(__NetBSD__)
- #include <sys/timeb.h>
-#else
- #include <sys/time.h>
-#endif
-
 #ifdef WIN32
 #include <process.h>
 #else
+#include "ftime.h"
 #include <sys/types.h>
 #include <unistd.h>
 #endif
@@ -62,10 +55,6 @@
 
 #include "oaes_config.h"
 #include "oaes_lib.h"
-
-#ifdef OAES_HAVE_ISAAC
-#include "rand.h"
-#endif // OAES_HAVE_ISAAC
 
 #define OAES_RKEY_LEN 4
 #define OAES_COL_LEN 4
@@ -912,8 +901,8 @@ OAES_CTX * oaes_alloc(void)
 		}
 
 		oaes_get_seed( _seed );
-		memset( _ctx->rctx->randrsl, 0, RANDSIZ );
-		memcpy( _ctx->rctx->randrsl, _seed, RANDSIZ );
+		memset( _ctx->rctx->randrsl, 0, sizeof(RANDSIZ) );
+		memcpy( _ctx->rctx->randrsl, _seed, sizeof(RANDSIZ) );
 		randinit( _ctx->rctx, TRUE);
 	}
 #else
