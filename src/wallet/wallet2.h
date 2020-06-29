@@ -2022,14 +2022,14 @@ namespace boost
       a & x.m_timestamp;
       if (ver < 2)
       {
-		x.m_type = tools::pay_type::unspecified;
+		    x.m_type = tools::pay_type::unspecified;
         x.m_subaddr_index = {};
         return;
       }
       a & x.m_subaddr_index;
       if (ver < 3)
       {
-		  x.m_type = tools::pay_type::unspecified;
+		    x.m_type = tools::pay_type::unspecified;
         x.m_fee = 0;
         return;
       }
