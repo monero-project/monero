@@ -400,7 +400,7 @@ private:
    * @param blk_hash the hash of the block
    */
   virtual void add_block( const block& blk
-                , uint64_t block_weight
+                , size_t block_weight
                 , uint64_t long_term_block_weight
                 , const difficulty_type& cumulative_difficulty
                 , const uint64_t& coins_generated
@@ -852,8 +852,8 @@ public:
    *
    * @return the height of the chain post-addition
    */
-  virtual uint64_t add_block( const std::pair<block, blobdata>& blk
-                            , uint64_t block_weight
+ virtual uint64_t add_block( const std::pair<block, blobdata>& blk
+                            , size_t block_weight
                             , uint64_t long_term_block_weight
                             , const difficulty_type& cumulative_difficulty
                             , const uint64_t& coins_generated
