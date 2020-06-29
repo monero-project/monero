@@ -826,7 +826,6 @@ difficulty_type Blockchain::get_difficulty_for_next_block()
   LOG_PRINT_L3("Blockchain::" << __func__);
 
   std::stringstream ss;
-  bool print = false;
 
   int done = 0;
   ss << "get_difficulty_for_next_block: height " << m_db->height() << std::endl;
@@ -925,7 +924,6 @@ start:
         difficulty_type d = m_db->get_block_cumulative_difficulty(h);
         ss << "  " << h << " " << ts << " " << d << std::endl;
       }
-      print = true;
     }
     m_timestamps_and_difficulties_height = height;
     m_timestamps = timestamps;

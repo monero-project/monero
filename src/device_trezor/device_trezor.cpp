@@ -760,55 +760,6 @@ namespace trezor {
       }
     }
 
-    void device_trezor::transaction_pre_check(std::shared_ptr<messages::monero::MoneroTransactionInitRequest> init_msg)
-    {
-      CHECK_AND_ASSERT_THROW_MES(init_msg, "TransactionInitRequest is empty");
-      CHECK_AND_ASSERT_THROW_MES(init_msg->has_tsx_data(), "TransactionInitRequest has no transaction data");
-      CHECK_AND_ASSERT_THROW_MES(m_features, "Device state not initialized");  // make sure the caller did not reset features
-      const bool nonce_required = init_msg->tsx_data().has_payment_id() && init_msg->tsx_data().payment_id().size() > 0;
-
-      if (nonce_required && init_msg->tsx_data().payment_id().size() == 8){
-        // Versions 2.0.9 and lower do not support payment ID
-        if (get_version() <= pack_version(2, 0, 9)) {
-          throw exc::TrezorException("Trezor firmware 2.0.9 and lower does not support transactions with short payment IDs or integrated addresses. Please update.");
-        }
-      }
-    }
-
-    void device_trezor::transaction_check(const protocol::tx::TData & tdata, const hw::tx_aux_data & aux_data)
-    {
-      // Simple serialization check
-      cryptonote::blobdata tx_blob;
-      cryptonote::transaction tx_deserialized;
-      bool r = cryptonote::t_serializable_object_to_blob(tdata.tx, tx_blob);
-      CHECK_AND_ASSERT_THROW_MES(r, "Transaction serialization failed");
-      r = cryptonote::parse_and_validate_tx_from_blob(tx_blob, tx_deserialized);
-      CHECK_AND_ASSERT_THROW_MES(r, "Transaction deserialization failed");
-
-      // Extras check
-      std::vector<cryptonote::tx_extra_field> tx_extra_fields;
-      cryptonote::tx_extra_nonce nonce;
-
-      r = cryptonote::parse_tx_extra(tdata.tx.extra, tx_extra_fields);
-      CHECK_AND_ASSERT_THROW_MES(r, "tx.extra parsing failed");
-
-      const bool nonce_required = tdata.tsx_data.has_payment_id() && tdata.tsx_data.payment_id().size() > 0;
-      const bool has_nonce = cryptonote::find_tx_extra_field_by_type(tx_extra_fields, nonce);
-      CHECK_AND_ASSERT_THROW_MES(has_nonce || !nonce_required, "Transaction nonce not present");
-
-      if (nonce_required){
-        const std::string & payment_id = tdata.tsx_data.payment_id();
-        if (payment_id.size() == 32){
-          crypto::hash payment_id_long{};
-          CHECK_AND_ASSERT_THROW_MES(cryptonote::get_payment_id_from_tx_extra_nonce(nonce.nonce, payment_id_long), "Long payment ID not present");
-
-        } else if (payment_id.size() == 8){
-          crypto::hash8 payment_id_short{};
-          CHECK_AND_ASSERT_THROW_MES(cryptonote::get_encrypted_payment_id_from_tx_extra_nonce(nonce.nonce, payment_id_short), "Short payment ID not present");
-        }
-      }
-    }
-
 #else //WITH_DEVICE_TREZOR
 
     void register_all(std::map<std::string, std::unique_ptr<device>> &registry) {

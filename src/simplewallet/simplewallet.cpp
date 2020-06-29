@@ -7233,10 +7233,7 @@ bool simple_wallet::register_service_node(const std::vector<std::string> &args_)
 #ifndef WIN32 // NOTE: Fork not supported on Windows
 		if (m_wallet->fork_on_autostake())
 		{
-			success_msg_writer(true /*color*/) << tr("Successfully entered autostaking mode, this wallet is moving into the background to automatically renew your service node every period.");
-			tools::threadpool::getInstance().stop();
-			posix::fork("");
-			tools::threadpool::getInstance().start();
+      fail_msg_writer() << tr("Autostaking is disabled on non windows.");
 		}
 		else
 #endif
@@ -7703,10 +7700,9 @@ bool simple_wallet::stake(const std::vector<std::string> &args_)
 		stop();
 		m_idle_thread.join();
 #ifndef WIN32
-		success_msg_writer(true /*color*/) << tr("Successfully entered autostaking mode, this wallet is moving into the background to automatically renew your service node every period.");
-		tools::threadpool::getInstance().stop();
-		posix::fork("");
-		tools::threadpool::getInstance().start();
+      fail_msg_writer() << tr("Autostaking is disabled on non windows.");
+
+		return false;
 #else
 		success_msg_writer(true /*color*/) << tr("Successfully entered autostaking mode, please leave this wallet running to automatically renew your service node every period.");
 #endif
