@@ -167,6 +167,7 @@ int check_flush(cryptonote::core &core, std::vector<block_complete_entry> &block
     return 1;
   }
 
+
   size_t blockidx = 0;
   for(const block_complete_entry& block_entry: blocks)
   {
