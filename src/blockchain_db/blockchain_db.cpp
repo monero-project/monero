@@ -215,6 +215,7 @@ void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const std::pair
   // we need the index
   for (uint64_t i = 0; i < tx.vout.size(); ++i)
   {
+    uint64_t unlock_time = 0;
    if (tx.version > 2)
    {
      unlock_time = tx.output_unlock_times[i];
@@ -230,12 +231,12 @@ void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const std::pair
       cryptonote::tx_out vout = tx.vout[i];
       rct::key commitment = rct::zeroCommit(vout.amount);
       vout.amount = 0;
-      amount_output_indices[i] = add_output(tx_hash, vout, i, tx.unlock_time,
+      amount_output_indices[i] = add_output(tx_hash, vout, i, unlock_time,
         &commitment);
     }
     else
     {
-      amount_output_indices[i] = add_output(tx_hash, tx.vout[i], i, tx.unlock_time,
+      amount_output_indices[i] = add_output(tx_hash, tx.vout[i], i, unlock_time,
         tx.version > 1 ? &tx.rct_signatures.outPk[i].mask : NULL);
     }
   }
@@ -243,7 +244,7 @@ void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const std::pair
 }
 
 uint64_t BlockchainDB::add_block( const std::pair<block, blobdata>& blck
-                                , uint64_t block_weight
+                                , size_t block_weight
                                 , uint64_t long_term_block_weight
                                 , const difficulty_type& cumulative_difficulty
                                 , const uint64_t& coins_generated
