@@ -150,9 +150,6 @@ namespace cryptonote
       fork_height = 12000;  
     }
 
-    if(height == 1208 || height == 1211)
-      return 10000000000;
-
     if (height == fork_height)
     {
       return 10000000000;
