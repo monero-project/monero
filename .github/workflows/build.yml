@@ -9,8 +9,12 @@ jobs:
     - uses: actions/checkout@v1
       with:
         submodules: recursive
+    - name: fetch zeromq headers
+      run: git clone https://github.com/zeromq/cppzmq
+    - name: move zmq header
+      run: sudo cp cppzmq/zmq.hpp /usr/local/include  
     - name: update brew and install dependencies
-      run: brew update && brew install boost hidapi zmq libpgm miniupnpc ldns expat libunwind-headers protobuf
+      run: brew update && brew install openssl pkg-config boost hidapi zmq libpgm miniupnpc ldns expat libunwind-headers protobuf readline
     - name: build
       run: make -j3
 

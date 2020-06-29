@@ -34,6 +34,7 @@
  * \brief Source file that defines simple_wallet class.
  */
 #include <locale.h>
+
 #include <thread>
 #include <iostream>
 #include <sstream>

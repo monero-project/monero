@@ -2167,7 +2167,7 @@ std::vector<uint64_t> Blockchain::get_random_outputs(uint64_t amount, uint64_t c
 	if (num_outs <= count)
 	{
 		for (uint64_t i = 0; i < num_outs; i++)
-		{
+		{ 
 			// if tx is unlocked, add output to indices
 			if (is_output_spendtime_unlocked(m_db->get_output_unlock_time(amount, i)))
 			{
