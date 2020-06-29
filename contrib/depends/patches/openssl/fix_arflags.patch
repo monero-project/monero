@@ -1,0 +1,24 @@
+--- Makefile.org.O	2019-02-26 14:20:20.000000000 +0000
++++ Makefile.org	2019-11-15 13:05:54.370086856 +0000
+@@ -63,8 +63,8 @@
+ PEX_LIBS= 
+ EX_LIBS= 
+ EXE_EXT= 
+-ARFLAGS=
+-AR=ar $(ARFLAGS) r
++ARFLAGS= r
++AR=ar $(ARFLAGS)
+ RANLIB= ranlib
+ RC= windres
+ NM= nm
+--- Configure.O	2019-02-26 14:20:20.000000000 +0000
++++ Configure	2019-11-16 07:43:14.933990774 +0000
+@@ -1251,7 +1251,7 @@
+ my $shared_extension = $fields[$idx_shared_extension];
+ my $ranlib = $ENV{'RANLIB'} || $fields[$idx_ranlib];
+ my $ar = $ENV{'AR'} || "ar";
+-my $arflags = $fields[$idx_arflags];
++my $arflags = $ENV{'ARFLAGS'} || $fields[$idx_arflags];
+ my $windres = $ENV{'RC'} || $ENV{'WINDRES'} || "windres";
+ my $multilib = $fields[$idx_multilib];
+ 

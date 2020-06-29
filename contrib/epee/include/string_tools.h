@@ -40,10 +40,11 @@
 #include <cstdlib>
 #include <string>
 #include <type_traits>
-#include <boost/uuid/uuid.hpp>
-#include <boost/uuid/uuid_io.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string/predicate.hpp>
+#include <boost/utility/string_ref.hpp>
+#include "misc_log_ex.h"
+#include "storages/parserse_base_utils.h"
 #include "hex.h"
 #include "memwipe.h"
 #include "mlocker.h"
@@ -63,85 +64,15 @@ namespace epee
 {
 namespace string_tools
 {
-	//----------------------------------------------------------------------------
-	inline std::string get_str_from_guid_a(const boost::uuids::uuid& rid)
-	{
-		return boost::lexical_cast<std::string>(rid);
-	}
-	//----------------------------------------------------------------------------
-	inline bool get_guid_from_string(OUT boost::uuids::uuid& inetifer, const std::string& str_id)
-	{
-		std::string local_str_id = str_id;
-		if(local_str_id.size() < 36)
-			return false;
-
-		if('{' == *local_str_id.begin())
-			local_str_id.erase(0, 1);
-
-		if('}' == *(--local_str_id.end()))
-			local_str_id.erase(--local_str_id.end());
-
-		try
-		{
-			inetifer = boost::lexical_cast<boost::uuids::uuid>(local_str_id);
-			return true;
-		}
-		catch(...)
-		{
-			return false;
-		}
-	}
   //----------------------------------------------------------------------------
   inline std::string buff_to_hex_nodelimer(const std::string& src)
   {
     return to_hex::string(to_byte_span(to_span(src)));
   }
   //----------------------------------------------------------------------------
-  template<class CharT>
-  bool parse_hexstr_to_binbuff(const std::basic_string<CharT>& s, std::basic_string<CharT>& res, bool allow_partial_byte = false)
+  inline bool parse_hexstr_to_binbuff(const boost::string_ref s, std::string& res)
   {
-    res.clear();
-    if (!allow_partial_byte && (s.size() & 1))
-      return false;
-    try
-    {
-      long v = 0;
-      for(size_t i = 0; i < (s.size() + 1) / 2; i++)
-      {
-        CharT byte_str[3];
-        size_t copied = s.copy(byte_str, 2, 2 * i);
-        byte_str[copied] = CharT(0);
-        CharT* endptr;
-        v = strtoul(byte_str, &endptr, 16);
-        if (v < 0 || 0xFF < v || endptr != byte_str + copied)
-        {
-          return false;
-        }
-        res.push_back(static_cast<unsigned char>(v));
-      }
-
-      return true;
-    }catch(...)
-    {
-      return false;
-    }
-  }
-  //----------------------------------------------------------------------------
-  template<class t_pod_type>
-  bool parse_tpod_from_hex_string(const std::string& str_hash, t_pod_type& t_pod)
-  {
-    static_assert(std::is_pod<t_pod_type>::value, "expected pod type");
-    std::string buf;
-    bool res = epee::string_tools::parse_hexstr_to_binbuff(str_hash, buf);
-    if (!res || buf.size() != sizeof(t_pod_type))
-    {
-      return false;
-    }
-    else
-    {
-      buf.copy(reinterpret_cast<char *>(&t_pod), sizeof(t_pod_type));
-      return true;
-    }
+    return from_hex::to_string(res, s);
   }
   //----------------------------------------------------------------------------
 PUSH_WARNINGS
@@ -153,7 +84,7 @@ DISABLE_GCC_WARNING(maybe-uninitialized)
     {
       for (char c : str_id)
       {
-        if (!std::isdigit(c))
+        if (!epee::misc_utils::parse::isdigit(c))
           return false;
       }
     }
@@ -231,6 +162,17 @@ POP_WARNINGS
 		i64toa_s(val, buff, sizeof(buff)-1, 10);
 		return buff;*/
 		return boost::lexical_cast<std::string>(val);
+	}
+	//----------------------------------------------------------------------------
+	template<typename T>
+	inline std::string to_string_hex(const T &val)
+	{
+		static_assert(std::is_arithmetic<T>::value, "only arithmetic types");
+		std::stringstream ss;
+		ss << std::hex << val;
+		std::string s;
+		ss >> s;
+		return s;
 	}
 	//----------------------------------------------------------------------------
 	
@@ -337,30 +279,20 @@ POP_WARNINGS
   }
   //----------------------------------------------------------------------------
   template<class t_pod_type>
-  bool hex_to_pod(const std::string& hex_str, t_pod_type& s)
+  bool hex_to_pod(const boost::string_ref hex_str, t_pod_type& s)
   {
-    static_assert(std::is_pod<t_pod_type>::value, "expected pod type");
-    std::string hex_str_tr = trim(hex_str);
-    if(sizeof(s)*2 != hex_str.size())
-      return false;
-    std::string bin_buff;
-    if(!parse_hexstr_to_binbuff(hex_str_tr, bin_buff))
-      return false;
-    if(bin_buff.size()!=sizeof(s))
-      return false;
-
-    s = *(t_pod_type*)bin_buff.data();
-    return true;
+    static_assert(std::is_standard_layout<t_pod_type>(), "expected standard layout type");
+    return from_hex::to_buffer(as_mut_byte_span(s), hex_str);
   }
   //----------------------------------------------------------------------------
   template<class t_pod_type>
-  bool hex_to_pod(const std::string& hex_str, tools::scrubbed<t_pod_type>& s)
+  bool hex_to_pod(const boost::string_ref hex_str, tools::scrubbed<t_pod_type>& s)
   {
     return hex_to_pod(hex_str, unwrap(s));
   }
   //----------------------------------------------------------------------------
   template<class t_pod_type>
-  bool hex_to_pod(const std::string& hex_str, epee::mlocked<t_pod_type>& s)
+  bool hex_to_pod(const boost::string_ref hex_str, epee::mlocked<t_pod_type>& s)
   {
     return hex_to_pod(hex_str, unwrap(s));
   }

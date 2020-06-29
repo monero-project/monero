@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2018, The Monero Project
+// Copyright (c) 2017-2019, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -33,6 +33,7 @@
 #include <cstddef>
 #include <string>
 #include "device.hpp"
+#include "log.hpp"
 #include "device_io_hid.hpp"
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/recursive_mutex.hpp>
@@ -41,9 +42,61 @@ namespace hw {
 
     namespace ledger {
 
+    /* Minimal supported version */
+    #define MINIMAL_APP_VERSION_MAJOR    1
+    #define MINIMAL_APP_VERSION_MINOR    3
+    #define MINIMAL_APP_VERSION_MICRO    1
+
+    #define VERSION(M,m,u)       ((M)<<16|(m)<<8|(u))
+    #define VERSION_MAJOR(v)     (((v)>>16)&0xFF)
+    #define VERSION_MINOR(v)     (((v)>>8)&0xFF)
+    #define VERSION_MICRO(v)     (((v)>>0)&0xFF)
+    
+    #define MINIMAL_APP_VERSION   VERSION(MINIMAL_APP_VERSION_MAJOR, MINIMAL_APP_VERSION_MINOR, MINIMAL_APP_VERSION_MICRO)
+
     void register_all(std::map<std::string, std::unique_ptr<device>> &registry);
 
     #ifdef WITH_DEVICE_LEDGER
+
+    // Origin: https://github.com/LedgerHQ/ledger-app-monero/blob/master/src/monero_types.h
+    #define SW_BYTES_REMAINING_00                0x6100
+    #define SW_WARNING_STATE_UNCHANGED           0x6200
+    #define SW_STATE_TERMINATED                  0x6285
+    #define SW_MORE_DATA_AVAILABLE               0x6310
+    #define SW_WRONG_LENGTH                      0x6700
+    #define SW_LOGICAL_CHANNEL_NOT_SUPPORTED     0x6881
+    #define SW_SECURE_MESSAGING_NOT_SUPPORTED    0x6882
+    #define SW_LAST_COMMAND_EXPECTED             0x6883
+    #define SW_COMMAND_CHAINING_NOT_SUPPORTED    0x6884
+    #define SW_SECURITY_LOAD_KEY                 0x6900
+    #define SW_SECURITY_COMMITMENT_CONTROL       0x6911
+    #define SW_SECURITY_AMOUNT_CHAIN_CONTROL     0x6912
+    #define SW_SECURITY_COMMITMENT_CHAIN_CONTROL 0x6913
+    #define SW_SECURITY_OUTKEYS_CHAIN_CONTROL    0x6914
+    #define SW_SECURITY_MAXOUTPUT_REACHED        0x6915
+    #define SW_SECURITY_TRUSTED_INPUT            0x6916
+    #define SW_CLIENT_NOT_SUPPORTED              0x6930
+    #define SW_SECURITY_STATUS_NOT_SATISFIED     0x6982
+    #define SW_FILE_INVALID                      0x6983
+    #define SW_PIN_BLOCKED                       0x6983
+    #define SW_DATA_INVALID                      0x6984
+    #define SW_CONDITIONS_NOT_SATISFIED          0x6985
+    #define SW_COMMAND_NOT_ALLOWED               0x6986
+    #define SW_APPLET_SELECT_FAILED              0x6999
+    #define SW_WRONG_DATA                        0x6a80
+    #define SW_FUNC_NOT_SUPPORTED                0x6a81
+    #define SW_FILE_NOT_FOUND                    0x6a82
+    #define SW_RECORD_NOT_FOUND                  0x6a83
+    #define SW_FILE_FULL                         0x6a84
+    #define SW_INCORRECT_P1P2                    0x6a86
+    #define SW_REFERENCED_DATA_NOT_FOUND         0x6a88
+    #define SW_WRONG_P1P2                        0x6b00
+    #define SW_CORRECT_LENGTH_00                 0x6c00
+    #define SW_INS_NOT_SUPPORTED                 0x6d00
+    #define SW_CLA_NOT_SUPPORTED                 0x6e00
+    #define SW_UNKNOWN                           0x6f00
+    #define SW_OK                                0x9000
+    #define SW_ALGORITHM_UNSUPPORTED             0x9484
 
     namespace {
         bool apdu_verbose =true;
@@ -63,7 +116,8 @@ namespace hw {
         rct::key AKout;
         ABPkeys(const rct::key& A, const rct::key& B, const bool is_subaddr, bool is_subaddress, bool is_change_address, size_t index, const rct::key& P,const rct::key& AK);
         ABPkeys(const ABPkeys& keys) ;
-        ABPkeys() {index=0;is_subaddress=false;is_subaddress=false;is_change_address=false;}
+        ABPkeys() {index=0;is_subaddress=false;is_change_address=false;additional_key=false;}
+        ABPkeys &operator=(const ABPkeys &keys);
     };
 
     class Keymap {
@@ -76,6 +130,25 @@ namespace hw {
         void log();
     };
 
+    class SecHMAC {
+    public:
+        uint32_t  sec[32];
+        uint32_t  hmac[32];
+
+        SecHMAC(const uint8_t s[32], const uint8_t m[32]);
+
+    };
+
+    class HMACmap {
+    public:
+        std::vector<SecHMAC>  hmacs;
+
+        void find_mac(const uint8_t sec[32], uint8_t hmac[32]) ;
+        void add_mac(const uint8_t sec[32], const uint8_t hmac[32]) ;
+        void clear() ;
+    };
+
+
     #define BUFFER_SEND_SIZE 262
     #define BUFFER_RECV_SIZE 262
 
@@ -87,7 +160,6 @@ namespace hw {
 
         //IO
         hw::io::device_io_hid hw_device;
-        std::string   full_name;        
         unsigned int  length_send;
         unsigned char buffer_send[BUFFER_SEND_SIZE];
         unsigned int  length_recv;
@@ -96,20 +168,27 @@ namespace hw {
         unsigned int  id;
         void logCMD(void);
         void logRESP(void);
-        unsigned int exchange(unsigned int ok=0x9000, unsigned int mask=0xFFFF);
+        unsigned int exchange(unsigned int ok=SW_OK, unsigned int mask=0xFFFF);
+        unsigned int exchange_wait_on_input(unsigned int ok=SW_OK, unsigned int mask=0xFFFF);
         void reset_buffer(void);
         int  set_command_header(unsigned char ins, unsigned char p1 = 0x00, unsigned char p2 = 0x00);
         int  set_command_header_noopt(unsigned char ins, unsigned char p1 = 0x00, unsigned char p2 = 0x00);
         void send_simple(unsigned char ins, unsigned char p1 = 0x00);
-
+        void send_secret(const unsigned char sec[32], int &offset);
+        void receive_secret(unsigned char sec[32], int &offset);
 
         // hw running mode
         device_mode mode;
+        bool tx_in_progress;
+
         // map public destination key to ephemeral destination key
         Keymap key_map;
         bool  add_output_key_mapping(const crypto::public_key &Aout, const crypto::public_key &Bout, const bool is_subaddress, const bool is_change,
                                      const bool need_additional, const size_t real_output_index,
                                      const rct::key &amount_key,  const crypto::public_key &out_eph_public_key);
+        //hmac for some encrypted value
+        HMACmap hmac_map;
+
         // To speed up blockchain parsing the view key maybe handle here.
         crypto::secret_key viewkey;
         bool has_view_key;
@@ -145,6 +224,7 @@ namespace hw {
         bool set_mode(device_mode mode) override;
 
         device_type get_type() const override {return device_type::LEDGER;};
+        device_protocol_t device_protocol() const override { return PROTOCOL_PROXY; };
 
         /* ======================================================================= */
         /*  LOCKER                                                                 */
@@ -159,7 +239,7 @@ namespace hw {
         bool  get_public_address(cryptonote::account_public_address &pubkey) override;
         bool  get_secret_keys(crypto::secret_key &viewkey , crypto::secret_key &spendkey) override;
         bool  generate_chacha_key(const cryptonote::account_keys &keys, crypto::chacha_key &key, uint64_t kdf_rounds) override;
-
+        void  display_address(const cryptonote::subaddress_index& index, const boost::optional<crypto::hash8> &payment_id) override;
 
         /* ======================================================================= */
         /*                               SUB ADDRESS                               */
@@ -189,9 +269,14 @@ namespace hw {
         /* ======================================================================= */
         /*                               TRANSACTION                               */
         /* ======================================================================= */
-
+        void generate_tx_proof(const crypto::hash &prefix_hash, 
+                                   const crypto::public_key &R, const crypto::public_key &A, const boost::optional<crypto::public_key> &B, const crypto::public_key &D, const crypto::secret_key &r, 
+                                   crypto::signature &sig) override;
+        
         bool  open_tx(crypto::secret_key &tx_key) override;
 
+        void get_transaction_prefix_hash(const cryptonote::transaction_prefix& tx, crypto::hash& h) override;
+    
         bool  encrypt_payment_id(crypto::hash8 &payment_id, const crypto::public_key &public_key, const crypto::secret_key &secret_key) override;
 
         rct::key genCommitmentMask(const rct::key &amount_key) override;
@@ -200,7 +285,7 @@ namespace hw {
         bool  ecdhDecode(rct::ecdhTuple & masked, const rct::key & sharedSec, bool short_format) override;
 
         bool  generate_output_ephemeral_keys(const size_t tx_version, const cryptonote::account_keys &sender_account_keys, const crypto::public_key &txkey_pub,  const crypto::secret_key &tx_key,
-                                             const cryptonote::tx_destination_entry &dst_entr, const boost::optional<cryptonote::tx_destination_entry> &change_addr, const size_t output_index,
+                                             const cryptonote::tx_destination_entry &dst_entr, const boost::optional<cryptonote::account_public_address> &change_addr, const size_t output_index,
                                              const bool &need_additional_txkeys, const std::vector<crypto::secret_key> &additional_tx_keys,
                                              std::vector<crypto::public_key> &additional_tx_public_keys,
                                              std::vector<rct::key> &amount_keys, 

@@ -74,7 +74,7 @@ levin_client_impl::~levin_client_impl()
 }
 //------------------------------------------------------------------------------
 inline
-int levin_client_impl::invoke(int command, const std::string& in_buff, std::string& buff_out)
+int levin_client_impl::invoke(int command, const epee::span<const uint8_t> in_buff, std::string& buff_out)
 {
 	if(!is_connected())
 		return -1;
@@ -133,7 +133,7 @@ int levin_client_impl::notify(int command, const std::string& in_buff)
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
 inline
-  int levin_client_impl2::invoke(int command, const std::string& in_buff, std::string& buff_out)
+  int levin_client_impl2::invoke(int command, epee::span<const uint8_t>string& in_buff, std::string& buff_out)
 {
   if(!is_connected())
     return -1;

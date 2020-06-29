@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -73,3 +73,6 @@
 #define WALLET_RPC_ERROR_CODE_BAD_SIGNED_TX_DATA     -40
 #define WALLET_RPC_ERROR_CODE_SIGNED_SUBMISSION      -41
 #define WALLET_RPC_ERROR_CODE_SIGN_UNSIGNED          -42
+#define WALLET_RPC_ERROR_CODE_NON_DETERMINISTIC      -43
+#define WALLET_RPC_ERROR_CODE_INVALID_LOG_LEVEL      -44
+#define WALLET_RPC_ERROR_CODE_ATTRIBUTE_NOT_FOUND    -45

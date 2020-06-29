@@ -1,5 +1,5 @@
 // Copyright (c) 2013, Sergey Lyubka
-// Copyright (c) 2017-2018, The Monero Project
+// Copyright (c) 2017-2019, The Monero Project
 // All rights reserved.
 // Released under the MIT license.
 
@@ -48,6 +48,7 @@ int main(int argc, char *argv[]) {
 
   for (i = 1; i < argc; i++) {
     if ((fp = fopen(argv[i], "rb")) == NULL) {
+      fclose(foutput);
       exit(EXIT_FAILURE);
     } else {
       fprintf(foutput, "static const std::string translation_file_name_%d = \"%s\";\n", i, argv[i]);

@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 //
 // All rights reserved.
 //
@@ -40,7 +40,6 @@
 #include "cryptonote_core/cryptonote_core.h"
 #include "cryptonote_core/blockchain.h"
 #include "blockchain_db/blockchain_db.h"
-#include "blockchain_db/db_types.h"
 #include "version.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
@@ -51,6 +50,8 @@ using namespace epee;
 using namespace cryptonote;
 
 static bool stop_requested = false;
+static uint64_t cached_txes = 0, cached_blocks = 0, cached_outputs = 0, total_txes = 0, total_blocks = 0, total_outputs = 0;
+static bool opt_cache_outputs = false, opt_cache_txes = false, opt_cache_blocks = false;
 
 struct ancestor
 {
@@ -137,6 +138,8 @@ struct ancestry_state_t
   std::unordered_map<crypto::hash, ::tx_data_t> tx_cache;
   std::vector<cryptonote::block> block_cache;
 
+  ancestry_state_t(): height(0) {}
+
   template <typename t_archive> void serialize(t_archive &a, const unsigned int ver)
   {
     a & height;
@@ -219,16 +222,118 @@ static std::unordered_set<ancestor> get_ancestry(const std::unordered_map<crypto
   return i->second;
 }
 
+static bool get_block_from_height(ancestry_state_t &state, BlockchainDB *db, uint64_t height, cryptonote::block &b)
+{
+  ++total_blocks;
+  if (state.block_cache.size() > height && !state.block_cache[height].miner_tx.vin.empty())
+  {
+    ++cached_blocks;
+    b = state.block_cache[height];
+    return true;
+  }
+  cryptonote::blobdata bd = db->get_block_blob_from_height(height);
+  if (!cryptonote::parse_and_validate_block_from_blob(bd, b))
+  {
+    LOG_PRINT_L0("Bad block from db");
+    return false;
+  }
+  if (opt_cache_blocks)
+  {
+    state.block_cache.resize(height + 1);
+    state.block_cache[height] = b;
+  }
+  return true;
+}
+
+static bool get_transaction(ancestry_state_t &state, BlockchainDB *db, const crypto::hash &txid, ::tx_data_t &tx_data)
+{
+  std::unordered_map<crypto::hash, ::tx_data_t>::const_iterator i = state.tx_cache.find(txid);
+  ++total_txes;
+  if (i != state.tx_cache.end())
+  {
+    ++cached_txes;
+    tx_data = i->second;
+    return true;
+  }
+
+  cryptonote::blobdata bd;
+  if (!db->get_pruned_tx_blob(txid, bd))
+  {
+    LOG_PRINT_L0("Failed to get txid " << txid << " from db");
+    return false;
+  }
+  cryptonote::transaction tx;
+  if (!cryptonote::parse_and_validate_tx_base_from_blob(bd, tx))
+  {
+    LOG_PRINT_L0("Bad tx: " << txid);
+    return false;
+  }
+  tx_data = ::tx_data_t(tx);
+  if (opt_cache_txes)
+    state.tx_cache.insert(std::make_pair(txid, tx_data));
+  return true;
+}
+
+static bool get_output_txid(ancestry_state_t &state, BlockchainDB *db, uint64_t amount, uint64_t offset, crypto::hash &txid)
+{
+  ++total_outputs;
+  std::unordered_map<ancestor, crypto::hash>::const_iterator i = state.output_cache.find({amount, offset});
+  if (i != state.output_cache.end())
+  {
+    ++cached_outputs;
+    txid = i->second;
+    return true;
+  }
+
+  const output_data_t od = db->get_output_key(amount, offset, false);
+  cryptonote::block b;
+  if (!get_block_from_height(state, db, od.height, b))
+    return false;
+
+  for (size_t out = 0; out < b.miner_tx.vout.size(); ++out)
+  {
+    if (b.miner_tx.vout[out].target.type() == typeid(cryptonote::txout_to_key))
+    {
+      const auto &txout = boost::get<cryptonote::txout_to_key>(b.miner_tx.vout[out].target);
+      if (txout.key == od.pubkey)
+      {
+        txid = cryptonote::get_transaction_hash(b.miner_tx);
+        if (opt_cache_outputs)
+          state.output_cache.insert(std::make_pair(ancestor{amount, offset}, txid));
+        return true;
+      }
+    }
+    else
+    {
+      LOG_PRINT_L0("Bad vout type in txid " << cryptonote::get_transaction_hash(b.miner_tx));
+      return false;
+    }
+  }
+  for (const crypto::hash &block_txid: b.tx_hashes)
+  {
+    ::tx_data_t tx_data3;
+    if (!get_transaction(state, db, block_txid, tx_data3))
+      return false;
+
+    for (size_t out = 0; out < tx_data3.vout.size(); ++out)
+    {
+      if (tx_data3.vout[out] == od.pubkey)
+      {
+        txid = block_txid;
+        if (opt_cache_outputs)
+          state.output_cache.insert(std::make_pair(ancestor{amount, offset}, txid));
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 int main(int argc, char* argv[])
 {
   TRY_ENTRY();
 
   epee::string_tools::set_module_name_and_folder(argv[0]);
-
-  std::string default_db_type = "lmdb";
-
-  std::string available_dbs = cryptonote::blockchain_db_types(", ");
-  available_dbs = "available: " + available_dbs;
 
   uint32_t log_level = 0;
 
@@ -239,26 +344,24 @@ int main(int argc, char* argv[])
   po::options_description desc_cmd_only("Command line options");
   po::options_description desc_cmd_sett("Command line options and settings options");
   const command_line::arg_descriptor<std::string> arg_log_level  = {"log-level",  "0-4 or categories", ""};
-  const command_line::arg_descriptor<std::string> arg_database = {
-    "database", available_dbs.c_str(), default_db_type
-  };
   const command_line::arg_descriptor<std::string> arg_txid  = {"txid", "Get ancestry for this txid", ""};
+  const command_line::arg_descriptor<std::string> arg_output  = {"output", "Get ancestry for this output (amount/offset format)", ""};
   const command_line::arg_descriptor<uint64_t> arg_height  = {"height", "Get ancestry for all txes at this height", 0};
-  const command_line::arg_descriptor<bool> arg_all  = {"all", "Include the whole chain", false};
+  const command_line::arg_descriptor<bool> arg_refresh  = {"refresh", "Refresh the whole chain first", false};
   const command_line::arg_descriptor<bool> arg_cache_outputs  = {"cache-outputs", "Cache outputs (memory hungry)", false};
   const command_line::arg_descriptor<bool> arg_cache_txes  = {"cache-txes", "Cache txes (memory hungry)", false};
   const command_line::arg_descriptor<bool> arg_cache_blocks  = {"cache-blocks", "Cache blocks (memory hungry)", false};
-  const command_line::arg_descriptor<bool> arg_include_coinbase  = {"include-coinbase", "Including coinbase tx", false};
+  const command_line::arg_descriptor<bool> arg_include_coinbase  = {"include-coinbase", "Including coinbase tx in per height average", false};
   const command_line::arg_descriptor<bool> arg_show_cache_stats  = {"show-cache-stats", "Show cache statistics", false};
 
   command_line::add_arg(desc_cmd_sett, cryptonote::arg_data_dir);
   command_line::add_arg(desc_cmd_sett, cryptonote::arg_testnet_on);
   command_line::add_arg(desc_cmd_sett, cryptonote::arg_stagenet_on);
   command_line::add_arg(desc_cmd_sett, arg_log_level);
-  command_line::add_arg(desc_cmd_sett, arg_database);
   command_line::add_arg(desc_cmd_sett, arg_txid);
+  command_line::add_arg(desc_cmd_sett, arg_output);
   command_line::add_arg(desc_cmd_sett, arg_height);
-  command_line::add_arg(desc_cmd_sett, arg_all);
+  command_line::add_arg(desc_cmd_sett, arg_refresh);
   command_line::add_arg(desc_cmd_sett, arg_cache_outputs);
   command_line::add_arg(desc_cmd_sett, arg_cache_txes);
   command_line::add_arg(desc_cmd_sett, arg_cache_blocks);
@@ -300,20 +403,22 @@ int main(int argc, char* argv[])
   bool opt_stagenet = command_line::get_arg(vm, cryptonote::arg_stagenet_on);
   network_type net_type = opt_testnet ? TESTNET : opt_stagenet ? STAGENET : MAINNET;
   std::string opt_txid_string = command_line::get_arg(vm, arg_txid);
+  std::string opt_output_string = command_line::get_arg(vm, arg_output);
   uint64_t opt_height = command_line::get_arg(vm, arg_height);
-  bool opt_all = command_line::get_arg(vm, arg_all);
-  bool opt_cache_outputs = command_line::get_arg(vm, arg_cache_outputs);
-  bool opt_cache_txes = command_line::get_arg(vm, arg_cache_txes);
-  bool opt_cache_blocks = command_line::get_arg(vm, arg_cache_blocks);
+  bool opt_refresh = command_line::get_arg(vm, arg_refresh);
+  opt_cache_outputs = command_line::get_arg(vm, arg_cache_outputs);
+  opt_cache_txes = command_line::get_arg(vm, arg_cache_txes);
+  opt_cache_blocks = command_line::get_arg(vm, arg_cache_blocks);
   bool opt_include_coinbase = command_line::get_arg(vm, arg_include_coinbase);
   bool opt_show_cache_stats = command_line::get_arg(vm, arg_show_cache_stats);
 
-  if ((!opt_txid_string.empty()) + !!opt_height + !!opt_all > 1)
+  if ((!opt_txid_string.empty()) + !!opt_height + !opt_output_string.empty() > 1)
   {
-    std::cerr << "Only one of --txid, --height and --all can be given" << std::endl;
+    std::cerr << "Only one of --txid, --height, --output can be given" << std::endl;
     return 1;
   }
   crypto::hash opt_txid = crypto::null_hash;
+  uint64_t output_amount = 0, output_offset = 0;
   if (!opt_txid_string.empty())
   {
     if (!epee::string_tools::hex_to_pod(opt_txid_string, opt_txid))
@@ -322,12 +427,13 @@ int main(int argc, char* argv[])
       return 1;
     }
   }
-
-  std::string db_type = command_line::get_arg(vm, arg_database);
-  if (!cryptonote::blockchain_valid_db_type(db_type))
+  else if (!opt_output_string.empty())
   {
-    std::cerr << "Invalid database type: " << db_type << std::endl;
-    return 1;
+    if (sscanf(opt_output_string.c_str(), "%" SCNu64 "/%" SCNu64, &output_amount, &output_offset) != 2)
+    {
+      std::cerr << "Invalid output" << std::endl;
+      return 1;
+    }
   }
 
   // If we wanted to use the memory pool, we would set up a fake_core.
@@ -357,13 +463,13 @@ int main(int argc, char* argv[])
 
   BlockchainObjects *blockchain_objects = new BlockchainObjects();
   Blockchain *core_storage = &blockchain_objects->m_blockchain;
-  BlockchainDB *db = new_db(db_type);
+  BlockchainDB *db = new_db();
   if (db == NULL)
   {
-	  LOG_ERROR("Attempted to use non-existent database type: " << db_type);
+	  LOG_ERROR("Attempted to use non-existent database type: LMDB");
 	  throw std::runtime_error("Attempting to use non-existent database type");
   }
-  LOG_PRINT_L0("database: " << db_type);
+  LOG_PRINT_L0("database: LMDB");
 
   const std::string filename = (boost::filesystem::path(opt_data_dir) / db->get_db_name()).string();
   LOG_PRINT_L0("Loading blockchain from folder " << filename << " ...");
@@ -384,261 +490,179 @@ int main(int argc, char* argv[])
 
   std::vector<crypto::hash> start_txids;
 
-  // forward method
-  if (opt_all)
+  ancestry_state_t state;
+
+  const std::string state_file_path = (boost::filesystem::path(opt_data_dir) / "ancestry-state.bin").string();
+  LOG_PRINT_L0("Loading state data from " << state_file_path);
+  std::ifstream state_data_in;
+  state_data_in.open(state_file_path, std::ios_base::binary | std::ios_base::in);
+  if (!state_data_in.fail())
   {
-	  uint64_t cached_txes = 0, cached_blocks = 0, cached_outputs = 0, total_txes = 0, total_blocks = 0, total_outputs = 0;
-	  ancestry_state_t state;
+    try
+    {
+      boost::archive::portable_binary_iarchive a(state_data_in);
+      a >> state;
+    }
+    catch (const std::exception &e)
+    {
+      MERROR("Failed to load state data from " << state_file_path << ", restarting from scratch");
+      state = ancestry_state_t();
+    }
+    state_data_in.close();
+  }
 
-	  const std::string state_file_path = (boost::filesystem::path(opt_data_dir) / "ancestry-state.bin").string();
-	  LOG_PRINT_L0("Loading state data from " << state_file_path);
-	  std::ifstream state_data_in;
-	  state_data_in.open(state_file_path, std::ios_base::binary | std::ios_base::in);
-	  if (!state_data_in.fail())
-	  {
-		  try
-		  {
-			  boost::archive::portable_binary_iarchive a(state_data_in);
-			  a >> state;
-		  }
-		  catch (const std::exception &e)
-		  {
-			  MERROR("Failed to load state data from " << state_file_path << ", restarting from scratch");
-			  state = ancestry_state_t();
-		  }
-		  state_data_in.close();
-	  }
+  tools::signal_handler::install([](int type) {
+    stop_requested = true;
+  });
 
-	  tools::signal_handler::install([](int type) {
-		  stop_requested = true;
-	  });
+  // forward method
+  const uint64_t db_height = db->height();
+  if (opt_refresh)
+  {
+    MINFO("Starting from height " << state.height);
+    state.block_cache.reserve(db_height);
+    for (uint64_t h = state.height; h < db_height; ++h)
+    {
+      size_t block_ancestry_size = 0;
+      const cryptonote::blobdata bd = db->get_block_blob_from_height(h);
+      ++total_blocks;
+      cryptonote::block b;
+      if (!cryptonote::parse_and_validate_block_from_blob(bd, b))
+      {
+        LOG_PRINT_L0("Bad block from db");
+        return 1;
+      }
+      if (opt_cache_blocks)
+      {
+        state.block_cache.resize(h + 1);
+        state.block_cache[h] = b;
+      }
+      std::vector<crypto::hash> txids;
+      txids.reserve(1 + b.tx_hashes.size());
+      if (opt_include_coinbase)
+        txids.push_back(cryptonote::get_transaction_hash(b.miner_tx));
+      for (const auto &h: b.tx_hashes)
+        txids.push_back(h);
+      for (const crypto::hash &txid: txids)
+      {
+        printf("%lu/%lu               \r", (unsigned long)h, (unsigned long)db_height);
+        fflush(stdout);
+        ::tx_data_t tx_data;
+        std::unordered_map<crypto::hash, ::tx_data_t>::const_iterator i = state.tx_cache.find(txid);
+        ++total_txes;
+        if (i != state.tx_cache.end())
+        {
+          ++cached_txes;
+          tx_data = i->second;
+        }
+        else
+        {
+          cryptonote::blobdata bd;
+          if (!db->get_pruned_tx_blob(txid, bd))
+          {
+            LOG_PRINT_L0("Failed to get txid " << txid << " from db");
+            return 1;
+          }
+          cryptonote::transaction tx;
+          if (!cryptonote::parse_and_validate_tx_base_from_blob(bd, tx))
+          {
+            LOG_PRINT_L0("Bad tx: " << txid);
+            return 1;
+          }
+          tx_data = ::tx_data_t(tx);
+          if (opt_cache_txes)
+            state.tx_cache.insert(std::make_pair(txid, tx_data));
+        }
+        if (tx_data.coinbase)
+        {
+          add_ancestry(state.ancestry, txid, std::unordered_set<ancestor>());
+        }
+        else
+        {
+          for (size_t ring = 0; ring < tx_data.vin.size(); ++ring)
+          {
+            const uint64_t amount = tx_data.vin[ring].first;
+            const std::vector<uint64_t> &absolute_offsets = tx_data.vin[ring].second;
+            for (uint64_t offset: absolute_offsets)
+            {
+              add_ancestry(state.ancestry, txid, ancestor{amount, offset});
+              // find the tx which created this output
+              bool found = false;
+              crypto::hash output_txid;
+              if (!get_output_txid(state, db, amount, offset, output_txid))
+              {
+                LOG_PRINT_L0("Output originating transaction not found");
+                return 1;
+              }
+              add_ancestry(state.ancestry, txid, get_ancestry(state.ancestry, output_txid));
+            }
+          }
+        }
+        const size_t ancestry_size = get_ancestry(state.ancestry, txid).size();
+        block_ancestry_size += ancestry_size;
+        MINFO(txid << ": " << ancestry_size);
+      }
+      if (!txids.empty())
+      {
+        std::string stats_msg;
+        MINFO("Height " << h << ": " << (block_ancestry_size / txids.size()) << " average over " << txids.size() << stats_msg);
+      }
+      state.height = h;
+      if (stop_requested)
+        break;
+    }
 
-	  MINFO("Starting from height " << state.height);
-	  const uint64_t db_height = db->height();
-	  state.block_cache.reserve(db_height);
-	  for (uint64_t h = state.height; h < db_height; ++h)
-	  {
-		  size_t block_ancestry_size = 0;
-		  const cryptonote::blobdata bd = db->get_block_blob_from_height(h);
-		  ++total_blocks;
-		  cryptonote::block b;
-		  if (!cryptonote::parse_and_validate_block_from_blob(bd, b))
-		  {
-			  LOG_PRINT_L0("Bad block from db");
-			  return 1;
-		  }
-		  if (opt_cache_blocks)
-		  {
-			  state.block_cache.resize(h + 1);
-			  state.block_cache[h] = b;
-		  }
-		  std::vector<crypto::hash> txids;
-		  txids.reserve(1 + b.tx_hashes.size());
-		  if (opt_include_coinbase)
-			  txids.push_back(cryptonote::get_transaction_hash(b.miner_tx));
-		  for (const auto &h : b.tx_hashes)
-			  txids.push_back(h);
-		  for (const crypto::hash &txid : txids)
-		  {
-			  printf("%lu/%lu               \r", (unsigned long)h, (unsigned long)db_height);
-			  fflush(stdout);
-			  ::tx_data_t tx_data;
-			  std::unordered_map<crypto::hash, ::tx_data_t>::const_iterator i = state.tx_cache.find(txid);
-			  ++total_txes;
-			  if (i != state.tx_cache.end())
-			  {
-				  ++cached_txes;
-				  tx_data = i->second;
-			  }
-			  else
-			  {
-				  cryptonote::blobdata bd;
-				  if (!db->get_pruned_tx_blob(txid, bd))
-				  {
-					  LOG_PRINT_L0("Failed to get txid " << txid << " from db");
-					  return 1;
-				  }
-				  cryptonote::transaction tx;
-				  if (!cryptonote::parse_and_validate_tx_base_from_blob(bd, tx))
-				  {
-					  LOG_PRINT_L0("Bad tx: " << txid);
-					  return 1;
-				  }
-				  tx_data = ::tx_data_t(tx);
-				  if (opt_cache_txes)
-					  state.tx_cache.insert(std::make_pair(txid, tx_data));
-			  }
-			  if (tx_data.coinbase)
-			  {
-				  add_ancestry(state.ancestry, txid, std::unordered_set<ancestor>());
-			  }
-			  else
-			  {
-				  for (size_t ring = 0; ring < tx_data.vin.size(); ++ring)
-				  {
-					  if (1)
-					  {
-						  const uint64_t amount = tx_data.vin[ring].first;
-						  const std::vector<uint64_t> &absolute_offsets = tx_data.vin[ring].second;
-						  for (uint64_t offset : absolute_offsets)
-						  {
-							  const output_data_t od = db->get_output_key(amount, offset);
-							  add_ancestry(state.ancestry, txid, ancestor{ amount, offset });
-							  cryptonote::block b;
-							  ++total_blocks;
-							  if (state.block_cache.size() > od.height && !state.block_cache[od.height].miner_tx.vin.empty())
-							  {
-								  ++cached_blocks;
-								  b = state.block_cache[od.height];
-							  }
-							  else
-							  {
-								  cryptonote::blobdata bd = db->get_block_blob_from_height(od.height);
-								  if (!cryptonote::parse_and_validate_block_from_blob(bd, b))
-								  {
-									  LOG_PRINT_L0("Bad block from db");
-									  return 1;
-								  }
-								  if (opt_cache_blocks)
-								  {
-									  state.block_cache.resize(od.height + 1);
-									  state.block_cache[od.height] = b;
-								  }
-							  }
-							  // find the tx which created this output
-							  bool found = false;
-							  std::unordered_map<ancestor, crypto::hash>::const_iterator i = state.output_cache.find({ amount, offset });
-							  ++total_outputs;
-							  if (i != state.output_cache.end())
-							  {
-								  ++cached_outputs;
-								  add_ancestry(state.ancestry, txid, get_ancestry(state.ancestry, i->second));
-								  found = true;
-							  }
-							  else for (size_t out = 0; out < b.miner_tx.vout.size(); ++out)
-							  {
-								  if (b.miner_tx.vout[out].target.type() == typeid(cryptonote::txout_to_key))
-								  {
-									  const auto &txout = boost::get<cryptonote::txout_to_key>(b.miner_tx.vout[out].target);
-									  if (txout.key == od.pubkey)
-									  {
-										  found = true;
-										  add_ancestry(state.ancestry, txid, get_ancestry(state.ancestry, cryptonote::get_transaction_hash(b.miner_tx)));
-										  if (opt_cache_outputs)
-											  state.output_cache.insert(std::make_pair(ancestor{ amount, offset }, cryptonote::get_transaction_hash(b.miner_tx)));
-										  break;
-									  }
-								  }
-								  else
-								  {
-									  LOG_PRINT_L0("Bad vout type in txid " << cryptonote::get_transaction_hash(b.miner_tx));
-									  return 1;
-								  }
-							  }
-							  for (const crypto::hash &block_txid : b.tx_hashes)
-							  {
-								  if (found)
-									  break;
-								  ::tx_data_t tx_data2;
-								  std::unordered_map<crypto::hash, ::tx_data_t>::const_iterator i = state.tx_cache.find(block_txid);
-								  ++total_txes;
-								  if (i != state.tx_cache.end())
-								  {
-									  ++cached_txes;
-									  tx_data2 = i->second;
-								  }
-								  else
-								  {
-									  cryptonote::blobdata bd;
-									  if (!db->get_pruned_tx_blob(block_txid, bd))
-									  {
-										  LOG_PRINT_L0("Failed to get txid " << block_txid << " from db");
-										  return 1;
-									  }
-									  cryptonote::transaction tx;
-									  if (!cryptonote::parse_and_validate_tx_base_from_blob(bd, tx))
-									  {
-										  LOG_PRINT_L0("Bad tx: " << block_txid);
-										  return 1;
-									  }
-									  tx_data2 = ::tx_data_t(tx);
-									  if (opt_cache_txes)
-										  state.tx_cache.insert(std::make_pair(block_txid, tx_data2));
-								  }
-								  for (size_t out = 0; out < tx_data2.vout.size(); ++out)
-								  {
-									  if (tx_data2.vout[out] == od.pubkey)
-									  {
-										  found = true;
-										  add_ancestry(state.ancestry, txid, get_ancestry(state.ancestry, block_txid));
-										  if (opt_cache_outputs)
-											  state.output_cache.insert(std::make_pair(ancestor{ amount, offset }, block_txid));
-										  break;
-									  }
-								  }
-							  }
-							  if (!found)
-							  {
-								  LOG_PRINT_L0("Output originating transaction not found");
-								  return 1;
-							  }
-						  }
-					  }
-				  }
-			  }
-			  const size_t ancestry_size = get_ancestry(state.ancestry, txid).size();
-			  block_ancestry_size += ancestry_size;
-			  MINFO(txid << ": " << ancestry_size);
-		  }
-		  if (!txids.empty())
-		  {
-			  std::string stats_msg;
-			  if (opt_show_cache_stats)
-				  stats_msg = std::string(", cache: txes ") + std::to_string(cached_txes*100. / total_txes)
-				  + ", blocks " + std::to_string(cached_blocks*100. / total_blocks) + ", outputs "
-				  + std::to_string(cached_outputs*100. / total_outputs);
-			  MINFO("Height " << h << ": " << (block_ancestry_size / txids.size()) << " average over " << txids.size() << stats_msg);
-		  }
-		  state.height = h;
-		  if (stop_requested)
-			  break;
-	  }
-
-	  LOG_PRINT_L0("Saving state data to " << state_file_path);
-	  std::ofstream state_data_out;
-	  state_data_out.open(state_file_path, std::ios_base::binary | std::ios_base::out | std::ios::trunc);
-	  if (!state_data_out.fail())
-	  {
-		  try
-		  {
-			  boost::archive::portable_binary_oarchive a(state_data_out);
-			  a << state;
-		  }
-		  catch (const std::exception &e)
-		  {
-			  MERROR("Failed to save state data to " << state_file_path);
-		  }
-		  state_data_out.close();
-	  }
-
-	  goto done;
+    LOG_PRINT_L0("Saving state data to " << state_file_path);
+    std::ofstream state_data_out;
+    state_data_out.open(state_file_path, std::ios_base::binary | std::ios_base::out | std::ios::trunc);
+    if (!state_data_out.fail())
+    {
+      try
+      {
+        boost::archive::portable_binary_oarchive a(state_data_out);
+        a << state;
+      }
+      catch (const std::exception &e)
+      {
+        MERROR("Failed to save state data to " << state_file_path);
+      }
+      state_data_out.close();
+    }
+  }
+  else
+  {
+    if (state.height < db_height)
+    {
+      MWARNING("The state file is only built up to height " << state.height << ", but the blockchain reached height " << db_height);
+      MWARNING("You may want to run with --refresh if you want to get ancestry for newer data");
+    }
   }
 
   if (!opt_txid_string.empty())
   {
 	  start_txids.push_back(opt_txid);
   }
+  else if (!opt_output_string.empty())
+  {
+    crypto::hash txid;
+    if (!get_output_txid(state, db, output_amount, output_offset, txid))
+    {
+      LOG_PRINT_L0("Output not found in db");
+      return 1;
+    }
+    start_txids.push_back(txid);
+  }
   else
   {
-	  const cryptonote::blobdata bd = db->get_block_blob_from_height(opt_height);
-	  cryptonote::block b;
-	  if (!cryptonote::parse_and_validate_block_from_blob(bd, b))
-	  {
-		  LOG_PRINT_L0("Bad block from db");
-		  return 1;
-	  }
-	  for (const crypto::hash &txid : b.tx_hashes)
-		  start_txids.push_back(txid);
+    const cryptonote::blobdata bd = db->get_block_blob_from_height(opt_height);
+    cryptonote::block b;
+    if (!cryptonote::parse_and_validate_block_from_blob(bd, b))
+    {
+      LOG_PRINT_L0("Bad block from db");
+      return 1;
+    }
+    for (const crypto::hash &txid: b.tx_hashes)
+      start_txids.push_back(txid);
   }
 
   if (start_txids.empty())
@@ -649,131 +673,70 @@ int main(int argc, char* argv[])
 
   for (const crypto::hash &start_txid : start_txids)
   {
-	  LOG_PRINT_L0("Checking ancestry for txid " << start_txid);
+    LOG_PRINT_L0("Checking ancestry for txid " << start_txid);
 
-	  std::unordered_map<ancestor, unsigned int> ancestry;
+    std::unordered_map<ancestor, unsigned int> ancestry;
 
-	  std::list<crypto::hash> txids;
-	  txids.push_back(start_txid);
-	  while (!txids.empty())
-	  {
-		  const crypto::hash txid = txids.front();
-		  txids.pop_front();
+    std::list<crypto::hash> txids;
+    txids.push_back(start_txid);
+    while (!txids.empty())
+    {
+      const crypto::hash txid = txids.front();
+      txids.pop_front();
 
-		  cryptonote::blobdata bd;
-		  if (!db->get_pruned_tx_blob(txid, bd))
-		  {
-			  LOG_PRINT_L0("Failed to get txid " << txid << " from db");
-			  return 1;
-		  }
-		  cryptonote::transaction tx;
-		  if (!cryptonote::parse_and_validate_tx_base_from_blob(bd, tx))
-		  {
-			  LOG_PRINT_L0("Bad tx: " << txid);
-			  return 1;
-		  }
-		  const bool coinbase = tx.vin.size() == 1 && tx.vin[0].type() == typeid(cryptonote::txin_gen);
-		  if (coinbase)
-			  continue;
+      if (stop_requested)
+        goto done;
 
-		  for (size_t ring = 0; ring < tx.vin.size(); ++ring)
-		  {
-			  if (tx.vin[ring].type() == typeid(cryptonote::txin_to_key))
-			  {
-				  const cryptonote::txin_to_key &txin = boost::get<cryptonote::txin_to_key>(tx.vin[ring]);
-				  const uint64_t amount = txin.amount;
-				  auto absolute_offsets = cryptonote::relative_output_offsets_to_absolute(txin.key_offsets);
-				  for (uint64_t offset : absolute_offsets)
-				  {
-					  add_ancestor(ancestry, amount, offset);
-					  const output_data_t od = db->get_output_key(amount, offset);
-					  bd = db->get_block_blob_from_height(od.height);
-					  cryptonote::block b;
-					  if (!cryptonote::parse_and_validate_block_from_blob(bd, b))
-					  {
-						  LOG_PRINT_L0("Bad block from db");
-						  return 1;
-					  }
-					  // find the tx which created this output
-					  bool found = false;
-					  for (size_t out = 0; out < b.miner_tx.vout.size(); ++out)
-					  {
-						  if (b.miner_tx.vout[out].target.type() == typeid(cryptonote::txout_to_key))
-						  {
-							  const auto &txout = boost::get<cryptonote::txout_to_key>(b.miner_tx.vout[out].target);
-							  if (txout.key == od.pubkey)
-							  {
-								  found = true;
-								  txids.push_back(cryptonote::get_transaction_hash(b.miner_tx));
-								  MDEBUG("adding txid: " << cryptonote::get_transaction_hash(b.miner_tx));
-								  break;
-							  }
-						  }
-						  else
-						  {
-							  LOG_PRINT_L0("Bad vout type in txid " << cryptonote::get_transaction_hash(b.miner_tx));
-							  return 1;
-						  }
-					  }
-					  for (const crypto::hash &block_txid : b.tx_hashes)
-					  {
-						  if (found)
-							  break;
-						  if (!db->get_pruned_tx_blob(block_txid, bd))
-						  {
-							  LOG_PRINT_L0("Failed to get txid " << block_txid << " from db");
-							  return 1;
-						  }
-						  cryptonote::transaction tx2;
-						  if (!cryptonote::parse_and_validate_tx_base_from_blob(bd, tx2))
-						  {
-							  LOG_PRINT_L0("Bad tx: " << block_txid);
-							  return 1;
-						  }
-						  for (size_t out = 0; out < tx2.vout.size(); ++out)
-						  {
-							  if (tx2.vout[out].target.type() == typeid(cryptonote::txout_to_key))
-							  {
-								  const auto &txout = boost::get<cryptonote::txout_to_key>(tx2.vout[out].target);
-								  if (txout.key == od.pubkey)
-								  {
-									  found = true;
-									  txids.push_back(block_txid);
-									  MDEBUG("adding txid: " << block_txid);
-									  break;
-								  }
-							  }
-							  else
-							  {
-								  LOG_PRINT_L0("Bad vout type in txid " << block_txid);
-								  return 1;
-							  }
-						  }
-					  }
-					  if (!found)
-					  {
-						  LOG_PRINT_L0("Output originating transaction not found");
-						  return 1;
-					  }
-				  }
-			  }
-			  else
-			  {
-				  LOG_PRINT_L0("Bad vin type in txid " << txid);
-				  return 1;
-			  }
-		  }
-	  }
+      ::tx_data_t tx_data2;
+      if (!get_transaction(state, db, txid, tx_data2))
+        return 1;
 
-	  MINFO("Ancestry for " << start_txid << ": " << get_deduplicated_ancestry(ancestry) << " / " << get_full_ancestry(ancestry));
-	  for (const auto &i : ancestry)
-	  {
-		  MINFO(cryptonote::print_money(i.first.amount) << "/" << i.first.offset << ": " << i.second);
-	  }
+      const bool coinbase = tx_data2.coinbase;
+      if (coinbase)
+        continue;
+
+      for (size_t ring = 0; ring < tx_data2.vin.size(); ++ring)
+      {
+        {
+          const uint64_t amount = tx_data2.vin[ring].first;
+          auto absolute_offsets = tx_data2.vin[ring].second;
+          for (uint64_t offset: absolute_offsets)
+          {
+            add_ancestor(ancestry, amount, offset);
+
+            // find the tx which created this output
+            bool found = false;
+            crypto::hash output_txid;
+            if (!get_output_txid(state, db, amount, offset, output_txid))
+            {
+              LOG_PRINT_L0("Output originating transaction not found");
+              return 1;
+            }
+
+            add_ancestry(state.ancestry, txid, get_ancestry(state.ancestry, output_txid));
+            txids.push_back(output_txid);
+            MDEBUG("adding txid: " << output_txid);
+          }
+        }
+      }
+    }
+
+    MINFO("Ancestry for " << start_txid << ": " << get_deduplicated_ancestry(ancestry) << " / " << get_full_ancestry(ancestry));
+    for (const auto &i: ancestry)
+    {
+      MINFO(cryptonote::print_money(i.first.amount) << "/" << i.first.offset << ": " << i.second);
+    }
   }
 
 done:
   core_storage->deinit();
+
+  if (opt_show_cache_stats)
+  MINFO("cache: txes " << std::to_string(cached_txes*100./total_txes)
+        << "%, blocks " << std::to_string(cached_blocks*100./total_blocks)
+        << "%, outputs " << std::to_string(cached_outputs*100./total_outputs)
+        << "%");
+
   return 0;
 
   CATCH_ENTRY("Depth query error", 1);

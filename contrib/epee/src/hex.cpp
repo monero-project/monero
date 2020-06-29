@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2018, The Monero Project
+// Copyright (c) 2017-2020, The Monero Project
 //
 // All rights reserved.
 //
@@ -32,6 +32,8 @@
 #include <limits>
 #include <ostream>
 #include <stdexcept>
+
+#include "storages/parserse_base_utils.h"
 
 namespace epee
 {
@@ -82,5 +84,103 @@ namespace epee
   void to_hex::buffer_unchecked(char* out, const span<const std::uint8_t> src) noexcept
   {
     return write_hex(out, src);
+  }
+
+
+  bool from_hex::to_string(std::string& out, const boost::string_ref src)
+  {
+    out.resize(src.size() / 2);
+    return to_buffer_unchecked(reinterpret_cast<std::uint8_t*>(&out[0]), src);
+  }
+
+  bool from_hex::to_buffer(span<std::uint8_t> out, const boost::string_ref src) noexcept
+  {
+    if (src.size() / 2 != out.size())
+      return false;
+    return to_buffer_unchecked(out.data(), src);
+  }
+
+  bool from_hex::to_buffer_unchecked(std::uint8_t* dst, const boost::string_ref s) noexcept
+  {
+      if (s.size() % 2 != 0)
+        return false;
+
+      const unsigned char *src = (const unsigned char *)s.data();
+      for(size_t i = 0; i < s.size(); i += 2)
+      {
+        int tmp = *src++;
+        tmp = epee::misc_utils::parse::isx[tmp];
+        if (tmp == 0xff) return false;
+        int t2 = *src++;
+        t2 = epee::misc_utils::parse::isx[t2];
+        if (t2 == 0xff) return false;
+        *dst++ = (tmp << 4) | t2;
+      }
+
+      return true;
+  }
+
+
+  std::vector<uint8_t> from_hex_locale::to_vector(const boost::string_ref src)
+  {
+    // should we include a specific character
+    auto include = [](char input) {
+        // we ignore spaces and colons
+        return !std::isspace(input) && input != ':';
+    };
+
+    // the number of relevant characters to decode
+    auto count = std::count_if(src.begin(), src.end(), include);
+
+    // this must be a multiple of two, otherwise we have a truncated input
+    if (count % 2) {
+      throw std::length_error{ "Invalid hexadecimal input length" };
+    }
+
+    std::vector<uint8_t> result;
+    result.reserve(count / 2);
+
+    // the data to work with (std::string is always null-terminated)
+    auto data = src.begin();
+
+    // convert a single hex character to an unsigned integer
+    auto char_to_int = [](const char *input) {
+      switch (std::tolower(*input)) {
+        case '0': return  0;
+        case '1': return  1;
+        case '2': return  2;
+        case '3': return  3;
+        case '4': return  4;
+        case '5': return  5;
+        case '6': return  6;
+        case '7': return  7;
+        case '8': return  8;
+        case '9': return  9;
+        case 'a': return 10;
+        case 'b': return 11;
+        case 'c': return 12;
+        case 'd': return 13;
+        case 'e': return 14;
+        case 'f': return 15;
+        default:  throw std::range_error{ "Invalid hexadecimal input" };
+      }
+    };
+
+    // keep going until we reach the end
+    while (data != src.end()) {
+      // skip unwanted characters
+      if (!include(*data)) {
+        ++data;
+        continue;
+      }
+
+      // convert two matching characters to int
+      auto high = char_to_int(data++);
+      auto low  = char_to_int(data++);
+
+      result.push_back(high << 4 | low);
+    }
+
+    return result;
   }
 }

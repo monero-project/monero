@@ -18,7 +18,10 @@ RUN set -ex && \
         libtool-bin \
         autoconf \
         automake \
-        bzip2
+        bzip2 \
+        xsltproc \
+        gperf \
+        unzip
 
 WORKDIR /usr/local
 
@@ -26,10 +29,9 @@ ENV CFLAGS='-fPIC'
 ENV CXXFLAGS='-fPIC'
 
 #Cmake
-
-ARG CMAKE_VERSION=3.14.0
+ARG CMAKE_VERSION=3.14.6
 ARG CMAKE_VERSION_DOT=v3.14
-ARG CMAKE_HASH=aa76ba67b3c2af1946701f847073f4652af5cbd9f141f221c97af99127e75502
+ARG CMAKE_HASH=4e8ea11cabe459308671b476469eace1622e770317a15951d7b55a82ccaaccb9
 RUN set -ex \
     && curl -s -O https://cmake.org/files/${CMAKE_VERSION_DOT}/cmake-${CMAKE_VERSION}.tar.gz \
     && echo "${CMAKE_HASH}  cmake-${CMAKE_VERSION}.tar.gz" | sha256sum -c \
@@ -40,9 +42,9 @@ RUN set -ex \
     && make install
 
 ## Boost
-ARG BOOST_VERSION=1_69_0
-ARG BOOST_VERSION_DOT=1.69.0
-ARG BOOST_HASH=8f32d4617390d1c2d16f26a27ab60d97807b35440d45891fa340fc2648b04406
+ARG BOOST_VERSION=1_70_0
+ARG BOOST_VERSION_DOT=1.70.0
+ARG BOOST_HASH=430ae8354789de4fd19ee52f3b1f739e1fba576f0aded0897c3c2bc00fb38778
 RUN set -ex \
     && curl -s -L -o  boost_${BOOST_VERSION}.tar.bz2 https://dl.bintray.com/boostorg/release/${BOOST_VERSION_DOT}/source/boost_${BOOST_VERSION}.tar.bz2 \
     && echo "${BOOST_HASH}  boost_${BOOST_VERSION}.tar.bz2" | sha256sum -c \
@@ -53,8 +55,8 @@ RUN set -ex \
 ENV BOOST_ROOT /usr/local/boost_${BOOST_VERSION}
 
 # OpenSSL
-ARG OPENSSL_VERSION=1.1.1b
-ARG OPENSSL_HASH=5c557b023230413dfb0756f3137a13e6d726838ccd1430888ad15bfb2b43ea4b
+ARG OPENSSL_VERSION=1.1.1g
+ARG OPENSSL_HASH=ddb04774f1e32f0c49751e21b67216ac87852ceb056b75209af2443400636d46
 RUN set -ex \
     && curl -s -O https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz \
     && echo "${OPENSSL_HASH}  openssl-${OPENSSL_VERSION}.tar.gz" | sha256sum -c \
@@ -67,8 +69,8 @@ RUN set -ex \
 ENV OPENSSL_ROOT_DIR=/usr/local/openssl-${OPENSSL_VERSION}
 
 # ZMQ
-ARG ZMQ_VERSION=v4.3.1
-ARG ZMQ_HASH=2cb1240db64ce1ea299e00474c646a2453a8435b
+ARG ZMQ_VERSION=v4.3.2
+ARG ZMQ_HASH=a84ffa12b2eb3569ced199660bac5ad128bff1f0
 RUN set -ex \
     && git clone https://github.com/zeromq/libzmq.git -b ${ZMQ_VERSION} \
     && cd libzmq \
@@ -80,8 +82,8 @@ RUN set -ex \
     && ldconfig
 
 # zmq.hpp
-ARG CPPZMQ_VERSION=v4.2.3
-ARG CPPZMQ_HASH=6aa3ab686e916cb0e62df7fa7d12e0b13ae9fae6
+ARG CPPZMQ_VERSION=v4.4.1
+ARG CPPZMQ_HASH=f5b36e563598d48fcc0d82e589d3596afef945ae
 RUN set -ex \
     && git clone https://github.com/zeromq/cppzmq.git -b ${CPPZMQ_VERSION} \
     && cd cppzmq \
@@ -101,8 +103,8 @@ RUN set -ex \
     && make install
 
 # Sodium
-ARG SODIUM_VERSION=1.0.17
-ARG SODIUM_HASH=b732443c442239c2e0184820e9b23cca0de0828c
+ARG SODIUM_VERSION=1.0.18
+ARG SODIUM_HASH=4f5e89fa84ce1d178a6765b8b46f2b6f91216677
 RUN set -ex \
     && git clone https://github.com/jedisct1/libsodium.git -b ${SODIUM_VERSION} \
     && cd libsodium \
@@ -113,10 +115,9 @@ RUN set -ex \
     && make check \
     && make install
 
-
 # Udev
-ARG UDEV_VERSION=v3.2.7
-ARG UDEV_HASH=4758e346a14126fc3a964de5831e411c27ebe487
+ARG UDEV_VERSION=v3.2.8
+ARG UDEV_HASH=d69f3f28348123ab7fa0ebac63ec2fd16800c5e0
 RUN set -ex \
     && git clone https://github.com/gentoo/eudev -b ${UDEV_VERSION} \
     && cd eudev \
@@ -151,8 +152,8 @@ RUN set -ex \
     && make install
 
 # Protobuf
-ARG PROTOBUF_VERSION=v3.7.0
-ARG PROTOBUF_HASH=582743bf40c5d3639a70f98f183914a2c0cd0680
+ARG PROTOBUF_VERSION=v3.7.1
+ARG PROTOBUF_HASH=6973c3a5041636c1d8dc5f7f6c8c1f3c15bc63d6
 RUN set -ex \
     && git clone https://github.com/protocolbuffers/protobuf -b ${PROTOBUF_VERSION} \
     && cd protobuf \
@@ -187,8 +188,14 @@ RUN set -ex && \
     rm -rf /var/lib/apt
 COPY --from=builder /src/build/release/bin /usr/local/bin/
 
+# Create monero user
+RUN adduser --system --group --disabled-password monero && \
+	mkdir -p /wallet /home/monero/.bitmonero && \
+	chown -R monero:monero /home/monero/.bitmonero && \
+	chown -R monero:monero /wallet
+
 # Contains the blockchain
-VOLUME /root/.triton
+VOLUME /home/monero/.bitmonero
 
 # Generate your wallet via accessing the container and run:
 # cd /wallet
@@ -198,5 +205,8 @@ VOLUME /wallet
 EXPOSE 9230
 EXPOSE 9231
 
-ENTRYPOINT ["tritond", "--p2p-bind-ip=0.0.0.0", "--p2p-bind-port=9230", "--rpc-bind-ip=0.0.0.0", "--rpc-bind-port=9231", "--non-interactive", "--confirm-external-bind"]
+# switch to user monero
+USER monero
+
+ENTRYPOINT ["monerod", "--p2p-bind-ip=0.0.0.0", "--p2p-bind-port=18080", "--rpc-bind-ip=0.0.0.0", "--rpc-bind-port=18081", "--non-interactive", "--confirm-external-bind"]
 

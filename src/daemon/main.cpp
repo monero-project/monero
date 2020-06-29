@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 //
 // All rights reserved.
 //
@@ -39,11 +39,11 @@
 #include "daemon/executor.h"
 #include "daemonizer/daemonizer.h"
 #include "misc_log_ex.h"
+#include "net/parse.h"
 #include "p2p/net_node.h"
 #include "rpc/core_rpc_server.h"
 #include "rpc/rpc_args.h"
 #include "daemon/command_line_args.h"
-#include "blockchain_db/db_types.h"
 #include "version.h"
 
 #ifdef STACK_TRACE
@@ -55,6 +55,57 @@
 
 namespace po = boost::program_options;
 namespace bf = boost::filesystem;
+
+uint16_t parse_public_rpc_port(const po::variables_map &vm)
+{
+  const auto &public_node_arg = daemon_args::arg_public_node;
+  const bool public_node = command_line::get_arg(vm, public_node_arg);
+  if (!public_node)
+  {
+    return 0;
+  }
+
+  std::string rpc_port_str;
+  const auto &restricted_rpc_port = cryptonote::core_rpc_server::arg_rpc_restricted_bind_port;
+  if (!command_line::is_arg_defaulted(vm, restricted_rpc_port))
+  {
+    rpc_port_str = command_line::get_arg(vm, restricted_rpc_port);
+  }
+  else if (command_line::get_arg(vm, cryptonote::core_rpc_server::arg_restricted_rpc))
+  {
+    rpc_port_str = command_line::get_arg(vm, cryptonote::core_rpc_server::arg_rpc_bind_port);
+  }
+  else
+  {
+    throw std::runtime_error("restricted RPC mode is required");
+  }
+
+  uint16_t rpc_port;
+  if (!string_tools::get_xtype_from_string(rpc_port, rpc_port_str))
+  {
+    throw std::runtime_error("invalid RPC port " + rpc_port_str);
+  }
+
+  const auto rpc_bind_address = command_line::get_arg(vm, cryptonote::rpc_args::descriptors().rpc_bind_ip);
+  const auto address = net::get_network_address(rpc_bind_address, rpc_port);
+  if (!address) {
+    throw std::runtime_error("failed to parse RPC bind address");
+  }
+  if (address->get_zone() != epee::net_utils::zone::public_)
+  {
+    throw std::runtime_error(std::string(zone_to_string(address->get_zone()))
+      + " network zone is not supported, please check RPC server bind address");
+  }
+
+  if (address->is_loopback() || address->is_local())
+  {
+    MLOG_RED(el::Level::Warning, "--" << public_node_arg.name 
+      << " is enabled, but RPC server " << address->str() 
+      << " may be unreachable from outside, please check RPC server bind address");
+  }
+
+  return rpc_port;
+}
 
 int main(int argc, char const * argv[])
 {
@@ -87,8 +138,10 @@ int main(int argc, char const * argv[])
       command_line::add_arg(core_settings, daemon_args::arg_max_log_file_size);
       command_line::add_arg(core_settings, daemon_args::arg_max_log_files);
       command_line::add_arg(core_settings, daemon_args::arg_max_concurrency);
+      command_line::add_arg(core_settings, daemon_args::arg_public_node);
       command_line::add_arg(core_settings, daemon_args::arg_zmq_rpc_bind_ip);
       command_line::add_arg(core_settings, daemon_args::arg_zmq_rpc_bind_port);
+      command_line::add_arg(core_settings, daemon_args::arg_zmq_rpc_disabled);
 
       daemonizer::init_options(hidden_options, visible_options);
       daemonize::t_executor::init_options(core_settings);
@@ -171,16 +224,6 @@ int main(int argc, char const * argv[])
 		return 1;
 	}
 
-    std::string db_type = command_line::get_arg(vm, cryptonote::arg_db_type);
-
-    // verify that blockchaindb type is valid
-    if(!cryptonote::blockchain_valid_db_type(db_type))
-    {
-      std::cout << "Invalid database type (" << db_type << "), available types are: " <<
-        cryptonote::blockchain_db_types(", ") << std::endl;
-      return 0;
-    }
-
     // data_dir
     //   default: e.g. ~/.bitmonero/ or ~/.bitmonero/testnet
     //   if data-dir argument given:
@@ -205,7 +248,8 @@ int main(int argc, char const * argv[])
     bf::path log_file_path {data_dir / std::string(CRYPTONOTE_NAME ".log")};
     if (!command_line::is_arg_defaulted(vm, daemon_args::arg_log_file))
       log_file_path = command_line::get_arg(vm, daemon_args::arg_log_file);
-    log_file_path = bf::absolute(log_file_path, relative_path_base);
+    if (!log_file_path.has_parent_path())
+      log_file_path = bf::absolute(log_file_path, relative_path_base);
     mlog_configure(log_file_path.string(), true, command_line::get_arg(vm, daemon_args::arg_max_log_file_size), command_line::get_arg(vm, daemon_args::arg_max_log_files));
 
     // Set log level
@@ -216,6 +260,16 @@ int main(int argc, char const * argv[])
 
     // after logs initialized
     tools::create_directories_if_necessary(data_dir.string());
+
+#ifdef STACK_TRACE
+    tools::set_stack_trace_log(log_file_path.filename().string());
+#endif // STACK_TRACE
+
+    if (!command_line::is_arg_defaulted(vm, daemon_args::arg_max_concurrency))
+      tools::set_max_concurrency(command_line::get_arg(vm, daemon_args::arg_max_concurrency));
+
+    // logging is now set up
+    MGINFO("Equilibria '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")");
 
     // If there are positional options, we're running a daemon command
     {
@@ -248,9 +302,7 @@ int main(int argc, char const * argv[])
         {
           login = tools::login::parse(
             has_rpc_arg ? command_line::get_arg(vm, arg.rpc_login) : std::string(env_rpc_login), false, [](bool verify) {
-#ifdef HAVE_READLINE
-        rdln::suspend_readline pause_readline;
-#endif
+              PAUSE_READLINE();
               return tools::password_container::prompt(verify, "Daemon client password");
             }
           );
@@ -261,16 +313,18 @@ int main(int argc, char const * argv[])
           }
         }
 
-        daemonize::t_command_server rpc_commands{rpc_ip, rpc_port, std::move(login)};
+        auto ssl_options = cryptonote::rpc_args::process_ssl(vm, true);
+        if (!ssl_options)
+          return 1;
+
+        daemonize::t_command_server rpc_commands{rpc_ip, rpc_port, std::move(login), std::move(*ssl_options)};
         if (rpc_commands.process_command_vec(command))
         {
           return 0;
         }
         else
         {
-#ifdef HAVE_READLINE
-          rdln::suspend_readline pause_readline;
-#endif
+          PAUSE_READLINE();
           std::cerr << "Unknown command: " << command.front() << std::endl;
           return 1;
         }
@@ -289,7 +343,7 @@ int main(int argc, char const * argv[])
 
     MINFO("Moving from main() into the daemonize now.");
 
-    return daemonizer::daemonize(argc, argv, daemonize::t_executor{}, vm) ? 0 : 1;
+    return daemonizer::daemonize(argc, argv, daemonize::t_executor{parse_public_rpc_port(vm)}, vm) ? 0 : 1;
   }
   catch (std::exception const & ex)
   {

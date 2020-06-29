@@ -57,7 +57,7 @@ namespace levin
 		bool is_connected();
 		bool disconnect();
 
-		virtual int invoke(int command, const std::string& in_buff, std::string& buff_out);
+		virtual int invoke(int command, const epee::span<const uint8_t> in_buff, std::string& buff_out);
 		virtual int notify(int command, const std::string& in_buff);
 
 	protected: 
@@ -72,7 +72,7 @@ namespace levin
   {
   public:
 
-    int invoke(int command, const std::string& in_buff, std::string& buff_out);
+    int invoke(int command, const epee::span<const uint8_t> in_buff, std::string& buff_out);
     int notify(int command, const std::string& in_buff);
   };
 

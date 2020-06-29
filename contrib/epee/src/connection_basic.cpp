@@ -2,7 +2,7 @@
 /// @author rfree (current maintainer in monero.cc project)
 /// @brief base for connection, contains e.g. the ratelimit hooks
 
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -34,53 +34,27 @@
 
 #include "net/connection_basic.hpp"
 
-#include <boost/asio.hpp>
-#include <string>
-#include <vector>
-#include <boost/noncopyable.hpp>
-#include <boost/shared_ptr.hpp>
-#include <atomic>
-
-#include <boost/asio.hpp>
-#include <boost/array.hpp>
-#include <boost/noncopyable.hpp>
-#include <boost/shared_ptr.hpp>
-#include <boost/enable_shared_from_this.hpp>
-#include <boost/interprocess/detail/atomic.hpp>
-#include <boost/thread/thread.hpp>
-
-#include <memory>
-
-#include "syncobj.h"
-
 #include "net/net_utils_base.h" 
 #include "misc_log_ex.h" 
-#include <boost/lambda/bind.hpp>
-#include <boost/lambda/lambda.hpp>
-#include <boost/uuid/random_generator.hpp>
-#include <boost/chrono.hpp>
-#include <boost/utility/value_init.hpp>
-#include <boost/asio/deadline_timer.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/thread/thread.hpp>
-#include <boost/filesystem.hpp>
 #include "misc_language.h"
 #include "pragma_comp_defs.h"
-#include <fstream>
-#include <sstream>
 #include <iomanip>
-#include <algorithm>
-#include <mutex>
 
 #include <boost/asio/basic_socket.hpp>
-#include <boost/asio/ip/unicast.hpp>
-#include "net/abstract_tcp_server2.h"
 
 // TODO:
 #include "net/network_throttle-detail.hpp"
 
+#if BOOST_VERSION >= 107000
+#define GET_IO_SERVICE(s) ((boost::asio::io_context&)(s).get_executor().context())
+#else
+#define GET_IO_SERVICE(s) ((s).get_io_service())
+#endif
+
 #undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "net.p2p"
+#define MONERO_DEFAULT_LOG_CATEGORY "net.conn"
 
 // ################################################################################################
 // local (TU local) headers
@@ -90,6 +64,15 @@ namespace epee
 {
 namespace net_utils
 {
+
+namespace
+{
+	boost::asio::ssl::context& get_context(connection_basic_shared_state* state)
+	{
+		CHECK_AND_ASSERT_THROW_MES(state != nullptr, "state shared_ptr cannot be null");
+		return state->ssl_context;
+	}
+}
 
   std::string to_string(t_connection_type type)
   {
@@ -135,7 +118,7 @@ namespace net_utils
 // connection_basic_pimpl
 // ================================================================================================
 	
-connection_basic_pimpl::connection_basic_pimpl(const std::string &name) : m_throttle(name) { }
+connection_basic_pimpl::connection_basic_pimpl(const std::string &name) : m_throttle(name), m_peer_number(0) { }
 
 // ================================================================================================
 // connection_basic
@@ -145,30 +128,60 @@ connection_basic_pimpl::connection_basic_pimpl(const std::string &name) : m_thro
 int connection_basic_pimpl::m_default_tos;
 
 // methods:
-connection_basic::connection_basic(boost::asio::io_service& io_service, std::atomic<long> &ref_sock_count, std::atomic<long> &sock_number)
-	: 
+connection_basic::connection_basic(boost::asio::ip::tcp::socket&& sock, std::shared_ptr<connection_basic_shared_state> state, ssl_support_t ssl_support)
+	:
+	m_state(std::move(state)),
 	mI( new connection_basic_pimpl("peer") ),
-	strand_(io_service),
-	socket_(io_service),
-	m_want_close_connection(false), 
+	strand_(GET_IO_SERVICE(sock)),
+	socket_(GET_IO_SERVICE(sock), get_context(m_state.get())),
+	m_want_close_connection(false),
 	m_was_shutdown(false),
-	m_ref_sock_count(ref_sock_count)
-{ 
-	++ref_sock_count; // increase the global counter
-	mI->m_peer_number = sock_number.fetch_add(1); // use, and increase the generated number
+	m_is_multithreaded(false),
+	m_ssl_support(ssl_support)
+{
+	// add nullptr checks if removed
+	assert(m_state != nullptr); // release runtime check in get_context
+
+        socket_.next_layer() = std::move(sock);
+
+	++(m_state->sock_count); // increase the global counter
+	mI->m_peer_number = m_state->sock_number.fetch_add(1); // use, and increase the generated number
 
 	std::string remote_addr_str = "?";
-	try { boost::system::error_code e; remote_addr_str = socket_.remote_endpoint(e).address().to_string(); } catch(...){} ;
+	try { boost::system::error_code e; remote_addr_str = socket().remote_endpoint(e).address().to_string(); } catch(...){} ;
 
-	_note("Spawned connection p2p#"<<mI->m_peer_number<<" to " << remote_addr_str << " currently we have sockets count:" << m_ref_sock_count);
-	//boost::filesystem::create_directories("log/dr-monero/net/");
+	_note("Spawned connection #"<<mI->m_peer_number<<" to " << remote_addr_str << " currently we have sockets count:" << m_state->sock_count);
+}
+
+connection_basic::connection_basic(boost::asio::io_service &io_service, std::shared_ptr<connection_basic_shared_state> state, ssl_support_t ssl_support)
+	:
+	m_state(std::move(state)),
+	mI( new connection_basic_pimpl("peer") ),
+	strand_(io_service),
+	socket_(io_service, get_context(m_state.get())),
+	m_want_close_connection(false),
+	m_was_shutdown(false),
+	m_is_multithreaded(false),
+	m_ssl_support(ssl_support)
+{
+	// add nullptr checks if removed
+	assert(m_state != nullptr); // release runtime check in get_context
+
+	++(m_state->sock_count); // increase the global counter
+	mI->m_peer_number = m_state->sock_number.fetch_add(1); // use, and increase the generated number
+
+	std::string remote_addr_str = "?";
+	try { boost::system::error_code e; remote_addr_str = socket().remote_endpoint(e).address().to_string(); } catch(...){} ;
+
+	_note("Spawned connection #"<<mI->m_peer_number<<" to " << remote_addr_str << " currently we have sockets count:" << m_state->sock_count);
 }
 
 connection_basic::~connection_basic() noexcept(false) {
+	--(m_state->sock_count);
+
 	std::string remote_addr_str = "?";
-	m_ref_sock_count--;
-	try { boost::system::error_code e; remote_addr_str = socket_.remote_endpoint(e).address().to_string(); } catch(...){} ;
-	_note("Destructing connection p2p#"<<mI->m_peer_number << " to " << remote_addr_str);
+	try { boost::system::error_code e; remote_addr_str = socket().remote_endpoint(e).address().to_string(); } catch(...){} ;
+	_note("Destructing connection #"<<mI->m_peer_number << " to " << remote_addr_str);
 }
 
 void connection_basic::set_rate_up_limit(uint64_t limit) {
@@ -271,9 +284,6 @@ double connection_basic::get_sleep_time(size_t cb) {
 	CRITICAL_REGION_LOCAL(epee::net_utils::network_throttle_manager::network_throttle_manager::m_lock_get_global_throttle_out);
     auto t = network_throttle_manager::get_global_throttle_out().get_sleep_time(cb);
     return t;
-}
-
-void connection_basic::set_save_graph(bool save_graph) {
 }
 
 

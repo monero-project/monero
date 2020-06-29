@@ -30,6 +30,7 @@
 
 #include "misc_language.h"
 #include "portable_storage_base.h"
+#include "portable_storage_bin_utils.h"
 
 #ifdef EPEE_PORTABLE_STORAGE_RECURSION_LIMIT
 #define EPEE_PORTABLE_STORAGE_RECURSION_LIMIT_INTERNAL EPEE_PORTABLE_STORAGE_RECURSION_LIMIT
@@ -117,6 +118,7 @@ namespace epee
       RECURSION_LIMITATION();
       static_assert(std::is_pod<t_pod_type>::value, "POD type expected");
       read(&pod_val, sizeof(pod_val));
+      pod_val = CONVERT_POD(pod_val);
     }
     
     template<class t_type>
@@ -136,10 +138,12 @@ namespace epee
       //for pod types
       array_entry_t<type_name> sa;
       size_t size = read_varint();
+      CHECK_AND_ASSERT_THROW_MES(size <= m_count, "Size sanity check failed");
+      sa.reserve(size);
       //TODO: add some optimization here later
       while(size--)
-        sa.m_array.push_back(read<type_name>());        
-      return storage_entry(array_entry(sa));
+        sa.m_array.push_back(read<type_name>());
+      return storage_entry(array_entry(std::move(sa)));
     }
 
     inline 
@@ -209,7 +213,7 @@ namespace epee
     {
       RECURSION_LIMITATION();
       section s;//use extra variable due to vs bug, line "storage_entry se(section()); " can't be compiled in visual studio
-      storage_entry se(s);
+      storage_entry se(std::move(s));
       section& section_entry = boost::get<section>(se);
       read(section_entry);
       return se;
@@ -264,7 +268,7 @@ namespace epee
         //read section name string
         std::string sec_name;
         read_sec_name(sec_name);
-        sec.m_entries.insert(std::make_pair(sec_name, load_storage_entry()));
+        sec.m_entries.emplace(std::move(sec_name), load_storage_entry());
       }
     }
     inline 

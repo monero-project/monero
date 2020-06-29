@@ -1,5 +1,5 @@
-// Copyright (c) 2014-2018, The Monero Project
-//
+// Copyright (c) 2014-2019, The Monero Project
+// 
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without modification, are
@@ -152,6 +152,10 @@ namespace cryptonote
 
   };
 
+  template<typename T> static inline unsigned int getpos(T &ar) { return 0; }
+  template<> inline unsigned int getpos(binary_archive<true> &ar) { return ar.stream().tellp(); }
+  template<> inline unsigned int getpos(binary_archive<false> &ar) { return ar.stream().tellg(); }
+
   class transaction_prefix
   {
 
@@ -174,7 +178,7 @@ namespace cryptonote
     std::vector<uint8_t> extra;
 
     std::vector<uint64_t> output_unlock_times;
-   bool is_deregister; //service node deregister tx
+    bool is_deregister; //service node deregister tx
 
     BEGIN_SERIALIZE()
       VARINT_FIELD(version)
@@ -193,7 +197,7 @@ namespace cryptonote
 
   public:
     transaction_prefix(){}
-	bool is_deregister_tx() const { return (version >= version_3_per_output_unlock_times) && is_deregister; }
+	  bool is_deregister_tx() const { return (version >= version_3_per_output_unlock_times) && is_deregister; }
 
     uint64_t get_unlock_time(size_t out_index) const
    {
@@ -208,6 +212,16 @@ namespace cryptonote
      }
      return unlock_time;
    }
+    void set_null()
+    {
+      version = 1;
+      unlock_time = 0;
+      is_deregister = false;
+      vin.clear();
+      vout.clear();
+      extra.clear();
+      output_unlock_times.clear();
+    }
   };
 
   class transaction: public transaction_prefix
@@ -215,6 +229,7 @@ namespace cryptonote
   private:
     // hash cash
     mutable std::atomic<bool> hash_valid;
+    mutable std::atomic<bool> prunable_hash_valid;
     mutable std::atomic<bool> blob_size_valid;
 
   public:
@@ -223,30 +238,50 @@ namespace cryptonote
 
     // hash cash
     mutable crypto::hash hash;
+    mutable crypto::hash prunable_hash;
     mutable size_t blob_size;
 
+    bool pruned;
+
+    std::atomic<unsigned int> unprunable_size;
+    std::atomic<unsigned int> prefix_size;
+
     transaction();
-    transaction(const transaction &t): transaction_prefix(t), hash_valid(false), blob_size_valid(false), signatures(t.signatures), rct_signatures(t.rct_signatures) { if (t.is_hash_valid()) { hash = t.hash; set_hash_valid(true); } if (t.is_blob_size_valid()) { blob_size = t.blob_size; set_blob_size_valid(true); } }
-    transaction &operator=(const transaction &t) { transaction_prefix::operator=(t); set_hash_valid(false); set_blob_size_valid(false); signatures = t.signatures; rct_signatures = t.rct_signatures; if (t.is_hash_valid()) { hash = t.hash; set_hash_valid(true); } if (t.is_blob_size_valid()) { blob_size = t.blob_size; set_blob_size_valid(true); } return *this; }
+    transaction(const transaction &t);
+    transaction &operator=(const transaction &t);
     virtual ~transaction();
     void set_null();
     void invalidate_hashes();
     bool is_hash_valid() const { return hash_valid.load(std::memory_order_acquire); }
     void set_hash_valid(bool v) const { hash_valid.store(v,std::memory_order_release); }
+    bool is_prunable_hash_valid() const { return prunable_hash_valid.load(std::memory_order_acquire); }
+    void set_prunable_hash_valid(bool v) const { prunable_hash_valid.store(v,std::memory_order_release); }
     bool is_blob_size_valid() const { return blob_size_valid.load(std::memory_order_acquire); }
     void set_blob_size_valid(bool v) const { blob_size_valid.store(v,std::memory_order_release); }
+    void set_hash(const crypto::hash &h) const { hash = h; set_hash_valid(true); }
+    void set_prunable_hash(const crypto::hash &h) const { prunable_hash = h; set_prunable_hash_valid(true); }
+    void set_blob_size(size_t sz) const { blob_size = sz; set_blob_size_valid(true); }
 
     BEGIN_SERIALIZE_OBJECT()
       if (!typename Archive<W>::is_saving())
       {
         set_hash_valid(false);
+        set_prunable_hash_valid(false);
         set_blob_size_valid(false);
       }
 
+      const unsigned int start_pos = getpos(ar);
+
       FIELDS(*static_cast<transaction_prefix *>(this))
+
+      if (std::is_same<Archive<W>, binary_archive<W>>())
+        prefix_size = getpos(ar) - start_pos;
 
       if (version == 1)
       {
+        if (std::is_same<Archive<W>, binary_archive<W>>())
+          unprunable_size = getpos(ar) - start_pos;
+
         ar.tag("signatures");
         ar.begin_array();
         PREPARE_CUSTOM_VECTOR_SERIALIZATION(vin.size(), signatures);
@@ -254,7 +289,7 @@ namespace cryptonote
         if (!signatures_not_expected && vin.size() != signatures.size())
           return false;
 
-        for (size_t i = 0; i < vin.size(); ++i)
+        if (!pruned) for (size_t i = 0; i < vin.size(); ++i)
         {
           size_t signature_size = get_signature_size(vin[i]);
           if (signatures_not_expected)
@@ -285,7 +320,11 @@ namespace cryptonote
           bool r = rct_signatures.serialize_rctsig_base(ar, vin.size(), vout.size());
           if (!r || !ar.stream().good()) return false;
           ar.end_object();
-          if (rct_signatures.type != rct::RCTTypeNull)
+
+          if (std::is_same<Archive<W>, binary_archive<W>>())
+            unprunable_size = getpos(ar) - start_pos;
+
+          if (!pruned && rct_signatures.type != rct::RCTTypeNull)
           {
             ar.tag("rctsig_prunable");
             ar.begin_object();
@@ -296,6 +335,8 @@ namespace cryptonote
           }
         }
       }
+      if (!typename Archive<W>::is_saving())
+        pruned = false;
     END_SERIALIZE()
 
     template<bool W, template <bool> class Archive>
@@ -317,13 +358,72 @@ namespace cryptonote
           ar.end_object();
         }
       }
-      return true;
+      if (!typename Archive<W>::is_saving())
+        pruned = true;
+      return ar.stream().good();
     }
 
   private:
     static size_t get_signature_size(const txin_v& tx_in);
   };
 
+  inline transaction::transaction(const transaction &t):
+    transaction_prefix(t),
+    hash_valid(false),
+    prunable_hash_valid(false),
+    blob_size_valid(false),
+    signatures(t.signatures),
+    rct_signatures(t.rct_signatures),
+    pruned(t.pruned),
+    unprunable_size(t.unprunable_size.load()),
+    prefix_size(t.prefix_size.load())
+  {
+    if (t.is_hash_valid())
+    {
+      hash = t.hash;
+      set_hash_valid(true);
+    }
+    if (t.is_blob_size_valid())
+    {
+      blob_size = t.blob_size;
+      set_blob_size_valid(true);
+    }
+    if (t.is_prunable_hash_valid())
+    {
+      prunable_hash = t.prunable_hash;
+      set_prunable_hash_valid(true);
+    }
+  }
+
+  inline transaction &transaction::operator=(const transaction &t)
+  {
+    transaction_prefix::operator=(t);
+
+    set_hash_valid(false);
+    set_prunable_hash_valid(false);
+    set_blob_size_valid(false);
+    signatures = t.signatures;
+    rct_signatures = t.rct_signatures;
+    if (t.is_hash_valid())
+    {
+      hash = t.hash;
+      set_hash_valid(true);
+    }
+    if (t.is_prunable_hash_valid())
+    {
+      prunable_hash = t.prunable_hash;
+      set_prunable_hash_valid(true);
+    }
+    if (t.is_blob_size_valid())
+    {
+      blob_size = t.blob_size;
+      set_blob_size_valid(true);
+    }
+    pruned = t.pruned;
+    unprunable_size = t.unprunable_size.load();
+    prefix_size = t.prefix_size.load();
+    return *this;
+  }
 
   inline
   transaction::transaction()
@@ -334,30 +434,29 @@ namespace cryptonote
   inline
   transaction::~transaction()
   {
-    //set_null();
   }
 
   inline
   void transaction::set_null()
   {
-    version = 1;
-    unlock_time = 0;
-    output_unlock_times.clear();
-    is_deregister = false;
-    vin.clear();
-    vout.clear();
-    extra.clear();
+
+    transaction_prefix::set_null();
     signatures.clear();
-	rct_signatures = {};
+    rct_signatures = {};
     rct_signatures.type = rct::RCTTypeNull;
     set_hash_valid(false);
+    set_prunable_hash_valid(false);
     set_blob_size_valid(false);
+    pruned = false;
+    unprunable_size = 0;
+    prefix_size = 0;
   }
 
   inline
   void transaction::invalidate_hashes()
   {
     set_hash_valid(false);
+    set_prunable_hash_valid(false);
     set_blob_size_valid(false);
   }
 
@@ -410,6 +509,7 @@ namespace cryptonote
     void invalidate_hashes() { set_hash_valid(false); }
     bool is_hash_valid() const { return hash_valid.load(std::memory_order_acquire); }
     void set_hash_valid(bool v) const { hash_valid.store(v,std::memory_order_release); }
+    void set_hash(const crypto::hash &h) const { hash = h; set_hash_valid(true); }
 
     transaction miner_tx;
     std::vector<crypto::hash> tx_hashes;
@@ -424,6 +524,8 @@ namespace cryptonote
       FIELDS(*static_cast<block_header *>(this))
       FIELD(miner_tx)
       FIELD(tx_hashes)
+      if (tx_hashes.size() > CRYPTONOTE_MAX_TX_PER_BLOCK)
+        return false;
     END_SERIALIZE()
   };
 

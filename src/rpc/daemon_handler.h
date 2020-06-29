@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2018, The Monero Project
+// Copyright (c) 2017-2019, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -28,6 +28,7 @@
 
 #pragma once
 
+#include "byte_slice.h"
 #include "daemon_messages.h"
 #include "daemon_rpc_version.h"
 #include "rpc_handler.h"
@@ -50,7 +51,7 @@ class DaemonHandler : public RpcHandler
 {
   public:
 
-    DaemonHandler(cryptonote::core& c, t_p2p& p2p) : m_core(c), m_p2p(p2p) { }
+    DaemonHandler(cryptonote::core& c, t_p2p& p2p);
 
     ~DaemonHandler() { }
 
@@ -67,6 +68,8 @@ class DaemonHandler : public RpcHandler
     void handle(const GetTxGlobalOutputIndices::Request& req, GetTxGlobalOutputIndices::Response& res);
 
     void handle(const SendRawTx::Request& req, SendRawTx::Response& res);
+
+    void handle(const SendRawTxHex::Request& req, SendRawTxHex::Response& res);
 
     void handle(const StartMining::Request& req, StartMining::Response& res);
 
@@ -126,13 +129,17 @@ class DaemonHandler : public RpcHandler
 
     void handle(const GetRPCVersion::Request& req, GetRPCVersion::Response& res);
 
-    void handle(const GetPerKBFeeEstimate::Request& req, GetPerKBFeeEstimate::Response& res);
+    void handle(const GetFeeEstimate::Request& req, GetFeeEstimate::Response& res);
 
-    std::string handle(const std::string& request);
+    void handle(const GetOutputDistribution::Request& req, GetOutputDistribution::Response& res);
+
+    epee::byte_slice handle(const std::string& request) override final;
 
   private:
 
     bool getBlockHeaderByHash(const crypto::hash& hash_in, cryptonote::rpc::BlockHeaderResponse& response);
+
+    void handleTxBlob(std::string&& tx_blob, bool relay, SendRawTx::Response& res);
 
     cryptonote::core& m_core;
     t_p2p& m_p2p;

@@ -1,4 +1,4 @@
-# Copyright (c) 2014-2018, The Monero Project
+# Copyright (c) 2014-2019, The Monero Project
 #
 # All rights reserved.
 #
@@ -49,6 +49,31 @@ target_link_libraries(functional_tests
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${CMAKE_THREAD_LIBS_INIT}
     ${EXTRA_LIBRARIES})
-set_property(TARGET functional_tests
-  PROPERTY
-    FOLDER "tests")
+
+set(make_test_signature_sources
+  make_test_signature.cc)
+
+add_executable(make_test_signature
+  ${make_test_signature_sources})
+
+target_link_libraries(make_test_signature
+  PRIVATE
+    rpc_base
+    cncrypto
+    epee
+    ${CMAKE_THREAD_LIBS_INIT}
+    ${EXTRA_LIBRARIES})
+
+execute_process(COMMAND ${PYTHON_EXECUTABLE} "-c" "import requests; print('OK')" OUTPUT_VARIABLE REQUESTS_OUTPUT OUTPUT_STRIP_TRAILING_WHITESPACE)
+if (REQUESTS_OUTPUT STREQUAL "OK")
+  add_test(
+    NAME    functional_tests_rpc
+    COMMAND ${PYTHON_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/functional_tests_rpc.py" "${PYTHON_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_BINARY_DIR}" all)
+else()
+  message(WARNING "functional_tests_rpc skipped, needs the 'requests' python module")
+  set(CTEST_CUSTOM_TESTS_IGNORE ${CTEST_CUSTOM_TESTS_IGNORE} functional_tests_rpc)
+endif()
+
+add_test(
+  NAME    check_missing_rpc_methods
+  COMMAND ${PYTHON_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/check_missing_rpc_methods.py" "${CMAKE_SOURCE_DIR}")

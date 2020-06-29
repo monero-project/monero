@@ -128,7 +128,7 @@ namespace triton
 		bool r = service_node_deregister::verify_votes_signature(deregister.block_height, deregister.service_node_index, keys_and_sigs);
 		if (!r)
 		{
-			LOG_PRINT_L1("Invalid signatures for votes");
+			LOG_PRINT_L1("Invalid signatures for votes: ");
 			vvc.m_verification_failed = true;
 		}
 
@@ -281,16 +281,16 @@ namespace triton
 		return true;
 	}
 
-	void deregister_vote_pool::remove_used_votes(std::vector<cryptonote::transaction> const &txs)
+	void deregister_vote_pool::remove_used_votes(std::vector<std::pair<cryptonote::transaction, cryptonote::blobdata>> const &txs)
 	{
 		CRITICAL_REGION_LOCAL(m_lock);
-		for (const cryptonote::transaction &tx : txs)
+		for (const std::pair<cryptonote::transaction, cryptonote::blobdata> &tx : txs)
 		{
-			if (!tx.is_deregister_tx())
+			if (!tx.first.is_deregister_tx())
 				continue;
 
 			cryptonote::tx_extra_service_node_deregister deregister;
-			if (!get_service_node_deregister_from_tx_extra(tx.extra, deregister))
+			if (!get_service_node_deregister_from_tx_extra(tx.first.extra, deregister))
 			{
 				LOG_ERROR("Could not get deregister from tx version 3, possibly corrupt tx");
 				continue;

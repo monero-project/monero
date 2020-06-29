@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -31,7 +31,6 @@
 #include "password.h"
 
 #include <iostream>
-#include <memory.h>
 #include <stdio.h>
 
 #if defined(_WIN32)
@@ -41,8 +40,6 @@
 #include <termios.h>
 #include <unistd.h>
 #endif
-
-#include "memwipe.h"
 
 #define EOT 0x4
 
@@ -60,7 +57,7 @@ namespace
 
     DWORD mode_old;
     ::GetConsoleMode(h_cin, &mode_old);
-    DWORD mode_new = mode_old & ~(hide_input ? ENABLE_ECHO_INPUT : 0);
+    DWORD mode_new = mode_old & ~((hide_input ? ENABLE_ECHO_INPUT : 0) | ENABLE_LINE_INPUT);
     ::SetConsoleMode(h_cin, mode_new);
 
     bool r = true;
@@ -79,10 +76,6 @@ namespace
         break;
       }
       else if (ucs2_ch == L'\r')
-      {
-        continue;
-      }
-      else if (ucs2_ch == L'\n')
       {
         std::cout << std::endl;
         break;

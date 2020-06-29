@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -38,7 +38,10 @@
 #include <vector>
 #include <unordered_map>
 #include <string>
+#include <boost/algorithm/string.hpp>
 #include "misc_log_ex.h"
+#include "fnv1.h"
+#include "common/utf8.h"
 
 /*!
  * \namespace Language
@@ -71,6 +74,25 @@ namespace Language
     return prefix;
   }
 
+  struct WordHash
+  {
+    std::size_t operator()(const epee::wipeable_string &s) const
+    {
+      const epee::wipeable_string sc = tools::utf8canonical(s, [](wint_t c) -> wint_t { return std::towlower(c); });
+      return epee::fnv::FNV1a(sc.data(), sc.size());
+    }
+  };
+
+  struct WordEqual
+  {
+    bool operator()(const epee::wipeable_string &s0, const epee::wipeable_string &s1) const
+    {
+      const epee::wipeable_string s0c = tools::utf8canonical(s0, [](wint_t c) -> wint_t { return std::towlower(c); });
+      const epee::wipeable_string s1c = tools::utf8canonical(s1, [](wint_t c) -> wint_t { return std::towlower(c); });
+      return s0c == s1c;
+    }
+  };
+
   /*!
    * \class Base
    * \brief A base language class which all languages have to inherit from for
@@ -87,8 +109,8 @@ namespace Language
       NWORDS = 1626
     };
     std::vector<std::string> word_list; /*!< A pointer to the array of words */
-    std::unordered_map<epee::wipeable_string, uint32_t> word_map; /*!< hash table to find word's index */
-    std::unordered_map<epee::wipeable_string, uint32_t> trimmed_word_map; /*!< hash table to find word's trimmed index */
+    std::unordered_map<epee::wipeable_string, uint32_t, WordHash, WordEqual> word_map; /*!< hash table to find word's index */
+    std::unordered_map<epee::wipeable_string, uint32_t, WordHash, WordEqual> trimmed_word_map; /*!< hash table to find word's trimmed index */
     std::string language_name; /*!< Name of language */
     std::string english_language_name; /*!< Name of language */
     uint32_t unique_prefix_length; /*!< Number of unique starting characters to trim the wordlist to when matching */
@@ -159,7 +181,7 @@ namespace Language
      * \brief Returns a pointer to the word map.
      * \return A pointer to the word map.
      */
-    const std::unordered_map<epee::wipeable_string, uint32_t>& get_word_map() const
+    const std::unordered_map<epee::wipeable_string, uint32_t, WordHash, WordEqual>& get_word_map() const
     {
       return word_map;
     }
@@ -167,7 +189,7 @@ namespace Language
      * \brief Returns a pointer to the trimmed word map.
      * \return A pointer to the trimmed word map.
      */
-    const std::unordered_map<epee::wipeable_string, uint32_t>& get_trimmed_word_map() const
+    const std::unordered_map<epee::wipeable_string, uint32_t, WordHash, WordEqual>& get_trimmed_word_map() const
     {
       return trimmed_word_map;
     }

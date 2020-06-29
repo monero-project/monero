@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2017, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -82,6 +82,6 @@ public:
 private:
   rct::keyV sk;
   rct::keyM P;
-  size_t ind;
+  size_t ind{};
   rct::mgSig IIccss;
 };

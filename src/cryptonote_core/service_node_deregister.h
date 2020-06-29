@@ -34,6 +34,7 @@
 
 #include "crypto/crypto.h"
 #include "cryptonote_basic/cryptonote_basic.h"
+#include "cryptonote_tx_utils.h"
 
 #include "math_helper.h"
 #include "syncobj.h"
@@ -89,7 +90,7 @@ namespace triton
 		// TODO(triton): Review relay behaviour and all the cases when it should be triggered
 		void                                       set_relayed(const std::vector<service_node_deregister::vote>& votes);
 		void                                       remove_expired_votes(uint64_t height);
-		void                                       remove_used_votes(std::vector<cryptonote::transaction> const &txs);
+		void                                       remove_used_votes(std::vector<std::pair<cryptonote::transaction, cryptonote::blobdata>> const &txs);
 		std::vector<service_node_deregister::vote> get_relayable_votes() const;
 
 		cryptonote::network_type m_nettype = cryptonote::UNDEFINED;

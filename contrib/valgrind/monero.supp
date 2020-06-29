@@ -17,3 +17,12 @@
    fun:maybe_unlock_and_signal_one<boost::asio::detail::scoped_lock<boost::asio::detail::posix_mutex> >
    ...
 }
+
+{
+   we leak the logger, for performance reasons in on-the-fly init
+   Memcheck:Leak
+   match-leak-kinds: definite
+   fun:_Znwm
+   fun:_ZN2el4base7Storage7getELPPEv
+   ...
+}

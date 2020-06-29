@@ -66,10 +66,12 @@ namespace trezor {
 
   // Base HTTP comm serialization.
   bool t_serialize(const std::string & in, std::string & out);
+  bool t_serialize(const epee::wipeable_string & in, std::string & out);
   bool t_serialize(const json_val & in, std::string & out);
   std::string t_serialize(const json_val & in);
 
   bool t_deserialize(const std::string & in, std::string & out);
+  bool t_deserialize(std::string & in, epee::wipeable_string & out);
   bool t_deserialize(const std::string & in, json & out);
 
   // Flexible json serialization. HTTP client tailored for bridge API
@@ -84,6 +86,13 @@ namespace trezor {
     additional_params.push_back(std::make_pair("Content-Type","application/json; charset=utf-8"));
 
     const http::http_response_info* pri = nullptr;
+    const auto data_cleaner = epee::misc_utils::create_scope_leave_handler([&]() {
+      if (!req_param.empty()) {
+        memwipe(&req_param[0], req_param.size());
+      }
+      transport.wipe_response();
+    });
+
     if(!transport.invoke(uri, method, req_param, timeout, &pri, std::move(additional_params)))
     {
       MERROR("Failed to invoke http request to  " << uri);
@@ -103,7 +112,7 @@ namespace trezor {
       return false;
     }
 
-    return t_deserialize(pri->m_body, result_struct);
+    return t_deserialize(const_cast<http::http_response_info*>(pri)->m_body, result_struct);
   }
 
   // Forward decl
@@ -163,15 +172,7 @@ namespace trezor {
   public:
     BridgeTransport(
         boost::optional<std::string> device_path = boost::none,
-        boost::optional<std::string> bridge_host = boost::none):
-        m_device_path(device_path),
-        m_bridge_host(bridge_host ? bridge_host.get() : DEFAULT_BRIDGE),
-        m_response(boost::none),
-        m_session(boost::none),
-        m_device_info(boost::none)
-    {
-      m_http_client.set_server(m_bridge_host, boost::none, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
-    }
+        boost::optional<std::string> bridge_host = boost::none);
 
     virtual ~BridgeTransport() = default;
 
@@ -194,7 +195,7 @@ namespace trezor {
     std::string m_bridge_host;
     boost::optional<std::string> m_device_path;
     boost::optional<std::string> m_session;
-    boost::optional<std::string> m_response;
+    boost::optional<epee::wipeable_string> m_response;
     boost::optional<json> m_device_info;
   };
 
@@ -309,6 +310,11 @@ namespace trezor {
    * Enumerates all transports
    */
   void enumerate(t_transport_vect & res);
+
+  /**
+   * Sorts found transports by TREZOR_PATH environment variable.
+   */
+  void sort_transports_by_env(t_transport_vect & res);
 
   /**
    * Transforms path to the transport

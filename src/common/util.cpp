@@ -1,5 +1,5 @@
-// Copyright (c) 2014-2018, The Monero Project
-//
+// Copyright (c) 2014-2019, The Monero Project
+// 
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without modification, are
@@ -30,6 +30,7 @@
 
 #include <unistd.h>
 #include <cstdio>
+#include <wchar.h>
 
 #ifdef __GLIBC__
 #include <gnu/libc-version.h>
@@ -58,16 +59,20 @@
 #include "include_base_utils.h"
 #include "file_io_utils.h"
 #include "wipeable_string.h"
+#include "misc_os_dependent.h"
 using namespace epee;
 
 #include "crypto/crypto.h"
 #include "util.h"
 #include "stack_trace.h"
 #include "memwipe.h"
-#include "cryptonote_config.h"
 #include "net/http_client.h"                        // epee::net_utils::...
+#include "readline_buffer.h"
 
 #ifdef WIN32
+#ifndef STRSAFE_NO_DEPRECATE
+#define STRSAFE_NO_DEPRECATE
+#endif
   #include <windows.h>
   #include <shlobj.h>
   #include <strsafe.h>
@@ -79,7 +84,34 @@ using namespace epee;
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/asio.hpp>
+#include <boost/format.hpp>
 #include <openssl/sha.h>
+
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "util"
+
+namespace
+{
+
+#ifndef _WIN32
+static int flock_exnb(int fd)
+{
+  struct flock fl;
+  int ret;
+
+  memset(&fl, 0, sizeof(fl));
+  fl.l_type = F_WRLCK;
+  fl.l_whence = SEEK_SET;
+  fl.l_start = 0;
+  fl.l_len = 0;
+  ret = fcntl(fd, F_SETLK, &fl);
+  if (ret < 0)
+    MERROR("Error locking fd " << fd << ": " << errno << " (" << strerror(errno) << ")");
+  return ret;
+}
+#endif
+
+}
 
 namespace tools
 {
@@ -181,7 +213,7 @@ namespace tools
         struct stat wstats = {};
         if (fstat(fdw, std::addressof(wstats)) == 0 &&
             rstats.st_dev == wstats.st_dev && rstats.st_ino == wstats.st_ino &&
-            flock(fdw, (LOCK_EX | LOCK_NB)) == 0 && ftruncate(fdw, 0) == 0)
+            flock_exnb(fdw) == 0 && ftruncate(fdw, 0) == 0)
         {
           std::FILE* file = fdopen(fdw, "w");
           if (file) return {file, std::move(name)};
@@ -234,10 +266,10 @@ namespace tools
       MERROR("Failed to open " << filename << ": " << std::error_code(GetLastError(), std::system_category()));
     }
 #else
-    m_fd = open(filename.c_str(), O_RDONLY | O_CREAT | O_CLOEXEC, 0666);
+    m_fd = open(filename.c_str(), O_RDWR | O_CREAT | O_CLOEXEC, 0666);
     if (m_fd != -1)
     {
-      if (flock(m_fd, LOCK_EX | LOCK_NB) == -1)
+      if (flock_exnb(m_fd) == -1)
       {
         MERROR("Failed to lock " << filename << ": " << std::strerror(errno));
         close(m_fd);
@@ -613,16 +645,16 @@ std::string get_nix_version_display_string()
     return res;
   }
 
-  std::error_code replace_file(const std::string& replacement_name, const std::string& replaced_name)
+  std::error_code replace_file(const std::string& old_name, const std::string& new_name)
   {
     int code;
 #if defined(WIN32)
     // Maximizing chances for success
     std::wstring wide_replacement_name;
-    try { wide_replacement_name = string_tools::utf8_to_utf16(replacement_name); }
+    try { wide_replacement_name = string_tools::utf8_to_utf16(old_name); }
     catch (...) { return std::error_code(GetLastError(), std::system_category()); }
     std::wstring wide_replaced_name;
-    try { wide_replaced_name = string_tools::utf8_to_utf16(replaced_name); }
+    try { wide_replaced_name = string_tools::utf8_to_utf16(new_name); }
     catch (...) { return std::error_code(GetLastError(), std::system_category()); }
 
     DWORD attributes = ::GetFileAttributesW(wide_replaced_name.c_str());
@@ -634,7 +666,7 @@ std::string get_nix_version_display_string()
     bool ok = 0 != ::MoveFileExW(wide_replacement_name.c_str(), wide_replaced_name.c_str(), MOVEFILE_REPLACE_EXISTING);
     code = ok ? 0 : static_cast<int>(::GetLastError());
 #else
-    bool ok = 0 == std::rename(replacement_name.c_str(), replaced_name.c_str());
+    bool ok = 0 == std::rename(old_name.c_str(), new_name.c_str());
     code = ok ? 0 : errno;
 #endif
     return std::error_code(code, std::system_category());
@@ -726,6 +758,21 @@ std::string get_nix_version_display_string()
     }
 #endif
     return true;
+  }
+
+  ssize_t get_lockable_memory()
+  {
+#ifdef __GLIBC__
+    struct rlimit rlim;
+    if (getrlimit(RLIMIT_MEMLOCK, &rlim) < 0)
+    {
+      MERROR("Failed to determine the lockable memory limit");
+      return -1;
+    }
+    return rlim.rlim_cur;
+#else
+    return -1;
+#endif
   }
 
   bool on_startup()
@@ -1010,4 +1057,335 @@ std::string get_nix_version_display_string()
 #endif
   }
 
+  std::string get_human_readable_timestamp(uint64_t ts)
+  {
+    char buffer[64];
+    if (ts < 1234567890)
+      return "<unknown>";
+    time_t tt = ts;
+    struct tm tm;
+    misc_utils::get_gmt_time(tt, tm);
+    strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", &tm);
+    return std::string(buffer);
+  }
+
+  std::string get_human_readable_timespan(uint64_t seconds)
+  {
+    if (seconds < 60)
+      return std::to_string(seconds) + " seconds";
+    std::stringstream ss;
+    ss << std::fixed << std::setprecision(1);
+    if (seconds < 3600)
+    {
+      ss << seconds / 60.f;
+      return ss.str() + " minutes";
+    }
+    if (seconds < 3600 * 24)
+    {
+      ss << seconds / 3600.f;
+      return ss.str() + " hours";
+    }
+    if (seconds < 3600 * 24 * 30.5f)
+    {
+      ss << seconds / (3600 * 24.f);
+      return ss.str() + " days";
+    }
+    if (seconds < 3600 * 24 * 365.25f)
+    {
+      ss << seconds / (3600 * 24 * 30.5f);
+      return ss.str() + " months";
+    }
+    if (seconds < 3600 * 24 * 365.25f * 100)
+    {
+      ss << seconds / (3600 * 24 * 365.25f);
+      return ss.str() + " years";
+    }
+    return "a long time";
+  }
+
+  std::string get_human_readable_bytes(uint64_t bytes)
+  {
+    // Use 1024 for "kilo", 1024*1024 for "mega" and so on instead of the more modern and standard-conforming
+    // 1000, 1000*1000 and so on, to be consistent with other Monero code that also uses base 2 units
+    struct byte_map
+    {
+        const char* const format;
+        const std::uint64_t bytes;
+    };
+
+    static constexpr const byte_map sizes[] =
+    {
+        {"%.0f B", 1024},
+        {"%.2f KB", 1024 * 1024},
+        {"%.2f MB", std::uint64_t(1024) * 1024 * 1024},
+        {"%.2f GB", std::uint64_t(1024) * 1024 * 1024 * 1024},
+        {"%.2f TB", std::uint64_t(1024) * 1024 * 1024 * 1024 * 1024}
+    };
+
+    struct bytes_less
+    {
+        bool operator()(const byte_map& lhs, const byte_map& rhs) const noexcept
+        {
+            return lhs.bytes < rhs.bytes;
+        }
+    };
+
+    const auto size = std::upper_bound(
+        std::begin(sizes), std::end(sizes) - 1, byte_map{"", bytes}, bytes_less{}
+    );
+    const std::uint64_t divisor = size->bytes / 1024;
+    return (boost::format(size->format) % (double(bytes) / divisor)).str();
+  }
+
+  void clear_screen()
+  {
+    std::cout << "\033[2K" << std::flush; // clear whole line
+    std::cout << "\033c" << std::flush; // clear current screen and scrollback
+    std::cout << "\033[2J" << std::flush; // clear current screen only, scrollback is still around
+    std::cout << "\033[3J" << std::flush; // does nothing, should clear current screen and scrollback
+    std::cout << "\033[1;1H" << std::flush; // move cursor top/left
+    std::cout << "\r                                                \r" << std::flush; // erase odd chars if the ANSI codes were printed raw
+#ifdef _WIN32
+    COORD coord{0, 0};
+    CONSOLE_SCREEN_BUFFER_INFO csbi;
+    HANDLE h = GetStdHandle(STD_OUTPUT_HANDLE);
+    if (GetConsoleScreenBufferInfo(h, &csbi))
+    {
+      DWORD cbConSize = csbi.dwSize.X * csbi.dwSize.Y, w;
+      FillConsoleOutputCharacter(h, (TCHAR)' ', cbConSize, coord, &w);
+      if (GetConsoleScreenBufferInfo(h, &csbi))
+        FillConsoleOutputAttribute(h, csbi.wAttributes, cbConSize, coord, &w);
+      SetConsoleCursorPosition(h, coord);
+    }
+#endif
+  }
+
+  std::pair<std::string, size_t> get_string_prefix_by_width(const std::string &s, size_t columns)
+  {
+    std::string sc = "";
+    size_t avail = s.size();
+    const char *ptr = s.data();
+    wint_t cp = 0;
+    int bytes = 1;
+    size_t sw = 0;
+    char wbuf[8], *wptr;
+    while (avail--)
+    {
+      if ((*ptr & 0x80) == 0)
+      {
+        cp = *ptr++;
+        bytes = 1;
+      }
+      else if ((*ptr & 0xe0) == 0xc0)
+      {
+        if (avail < 1)
+        {
+          MERROR("Invalid UTF-8");
+          return std::make_pair(s, s.size());
+        }
+        cp = (*ptr++ & 0x1f) << 6;
+        cp |= *ptr++ & 0x3f;
+        --avail;
+        bytes = 2;
+      }
+      else if ((*ptr & 0xf0) == 0xe0)
+      {
+        if (avail < 2)
+        {
+          MERROR("Invalid UTF-8");
+          return std::make_pair(s, s.size());
+        }
+        cp = (*ptr++ & 0xf) << 12;
+        cp |= (*ptr++ & 0x3f) << 6;
+        cp |= *ptr++ & 0x3f;
+        avail -= 2;
+        bytes = 3;
+      }
+      else if ((*ptr & 0xf8) == 0xf0)
+      {
+        if (avail < 3)
+        {
+          MERROR("Invalid UTF-8");
+          return std::make_pair(s, s.size());
+        }
+        cp = (*ptr++ & 0x7) << 18;
+        cp |= (*ptr++ & 0x3f) << 12;
+        cp |= (*ptr++ & 0x3f) << 6;
+        cp |= *ptr++ & 0x3f;
+        avail -= 3;
+        bytes = 4;
+      }
+      else
+      {
+        MERROR("Invalid UTF-8");
+        return std::make_pair(s, s.size());
+      }
+
+      wptr = wbuf;
+      switch (bytes)
+      {
+        case 1: *wptr++ = cp; break;
+        case 2: *wptr++ = 0xc0 | (cp >> 6); *wptr++ = 0x80 | (cp & 0x3f); break;
+        case 3: *wptr++ = 0xe0 | (cp >> 12); *wptr++ = 0x80 | ((cp >> 6) & 0x3f); *wptr++ = 0x80 | (cp & 0x3f); break;
+        case 4: *wptr++ = 0xf0 | (cp >> 18); *wptr++ = 0x80 | ((cp >> 12) & 0x3f); *wptr++ = 0x80 | ((cp >> 6) & 0x3f); *wptr++ = 0x80 | (cp & 0x3f); break;
+        default: MERROR("Invalid UTF-8"); return std::make_pair(s, s.size());
+      }
+      *wptr = 0;
+      sc += std::string(wbuf, bytes);
+#ifdef _WIN32
+      int cpw = 1; // Guess who does not implement wcwidth
+#else
+      int cpw = wcwidth(cp);
+#endif
+      if (cpw > 0)
+      {
+        if (cpw > (int)columns)
+          break;
+        columns -= cpw;
+        sw += cpw;
+      }
+      cp = 0;
+      bytes = 1;
+    }
+    return std::make_pair(sc, sw);
+  }
+
+  size_t get_string_width(const std::string &s)
+  {
+    return get_string_prefix_by_width(s, 999999999).second;
+  };
+
+  std::vector<std::pair<std::string, size_t>> split_line_by_width(const std::string &s, size_t columns)
+  {
+    std::vector<std::string> words;
+    std::vector<std::pair<std::string, size_t>> lines;
+    boost::split(words, s, boost::is_any_of(" "), boost::token_compress_on);
+    // split large "words"
+    for (size_t i = 0; i < words.size(); ++i)
+    {
+      for (;;)
+      {
+        std::string prefix = get_string_prefix_by_width(words[i], columns).first;
+        if (prefix == words[i])
+          break;
+        words[i] = words[i].substr(prefix.size());
+        words.insert(words.begin() + i, prefix);
+      }
+    }
+
+    lines.push_back(std::make_pair("", 0));
+    while (!words.empty())
+    {
+      const size_t word_len = get_string_width(words.front());
+      size_t line_len = get_string_width(lines.back().first);
+      if (line_len > 0 && line_len + 1 + word_len > columns)
+      {
+        lines.push_back(std::make_pair("", 0));
+        line_len = 0;
+      }
+      if (line_len > 0)
+      {
+        lines.back().first += " ";
+        lines.back().second++;
+      }
+      lines.back().first += words.front();
+      lines.back().second += word_len;
+      words.erase(words.begin());
+    }
+    return lines;
+  }
+
+  // Calculate a "sync weight" over ranges of blocks in the blockchain, suitable for
+  // calculating sync time estimates
+  uint64_t cumulative_block_sync_weight(cryptonote::network_type nettype, uint64_t start_block, uint64_t num_blocks)
+  {
+    if (nettype != cryptonote::MAINNET)
+    {
+      // No detailed data available except for Mainnet: Give back the number of blocks
+      // as a very simple and non-varying block sync weight for ranges of Testnet and
+      // Stagenet blocks
+      return num_blocks;
+    }
+
+    // The following is a table of average blocks sizes in bytes over the Monero mainnet
+    // blockchain, where the block size is averaged over ranges of 10,000 blocks
+    // (about 2 weeks worth of blocks each).
+    // The first array entry of 442 thus means "The average byte size of the blocks
+    // 0 .. 9,999 is 442". The info "block_size" from the "get_block_header_by_height"
+    // RPC call was used for calculating this. This table (and the whole mechanism
+    // of calculating a "sync weight") is most important when estimating times for
+    // syncing from scratch. Without it the fast progress through the (in comparison)
+    // rather small blocks in the early blockchain) would lead to vastly underestimated
+    // total sync times.
+    // It's no big problem for estimates that this table will, over time, and if not
+    // updated, miss larger and larger parts at the top of the blockchain, as long
+    // as block size averages there do not differ wildly.
+    // Without time-consuming tests it's hard to say how much the estimates would
+    // improve if one would not only take block sizes into account, but also varying
+    // verification times i.e. the different CPU effort needed for the different
+    // transaction types (pre / post RingCT, pre / post Bulletproofs).
+    // Testnet and Stagenet are neglected here because of their much smaller
+    // importance.
+    static const uint32_t average_block_sizes[] =
+    {
+      442, 1211, 1445, 1763, 2272, 8217, 5603, 9999, 16358, 10805, 5290, 4362,
+      4325, 5584, 4515, 5008, 4789, 5196, 7660, 3829, 6034, 2925, 3762, 2545,
+      2437, 2553, 2167, 2761, 2015, 1969, 2350, 1731, 2367, 2078, 2026, 3518,
+      2214, 1908, 1780, 1640, 1976, 1647, 1921, 1716, 1895, 2150, 2419, 2451,
+      2147, 2327, 2251, 1644, 1750, 1481, 1570, 1524, 1562, 1668, 1386, 1494,
+      1637, 1880, 1431, 1472, 1637, 1363, 1762, 1597, 1999, 1564, 1341, 1388,
+      1530, 1476, 1617, 1488, 1368, 1906, 1403, 1695, 1535, 1598, 1318, 1234,
+      1358, 1406, 1698, 1554, 1591, 1758, 1426, 2389, 1946, 1533, 1308, 2701,
+      1525, 1653, 3580, 1889, 2913, 8164, 5154, 3762, 3356, 4360, 3589, 4844,
+      4232, 3781, 3882, 5924, 10790, 7185, 7442, 8214, 8509, 7484, 6939, 7391,
+      8210, 15572, 39680, 44810, 53873, 54639, 68227, 63428, 62386, 68504,
+      83073, 103858, 117573, 98089, 96793, 102337, 94714, 129568, 251584,
+      132026, 94579, 94516, 95722, 106495, 121824, 153983, 162338, 136608,
+      137104, 109872, 91114, 84757, 96339, 74251, 94314, 143216, 155837,
+      129968, 120201, 109913, 101588, 97332, 104611, 95310, 93419, 113345,
+      100743, 92152, 57565, 22533, 37564, 21823, 19980, 18277, 18402, 14344,
+      12142, 15842, 13677, 17631, 18294, 22270, 41422, 39296, 36688, 33512,
+      33831, 27582, 22276, 27516, 27317, 25505, 24426, 20566, 23045, 26766,
+      28185, 26169, 27011,
+      28642    // Blocks 1,990,000 to 1,999,999 in December 2019
+    };
+    const uint64_t block_range_size = 10000;
+
+    uint64_t num_block_sizes = sizeof(average_block_sizes) / sizeof(average_block_sizes[0]);
+    uint64_t weight = 0;
+    uint64_t table_index = start_block / block_range_size;
+    for (;;) {
+      if (num_blocks == 0)
+      {
+        break;
+      }
+      if (table_index >= num_block_sizes)
+      {
+        // Take all blocks beyond our table as having the size of the blocks
+        // in the last table entry i.e. in the most recent known block range
+        weight += num_blocks * average_block_sizes[num_block_sizes - 1];
+        break;
+      }
+      uint64_t portion_size = std::min(num_blocks, block_range_size - start_block % block_range_size);
+      weight += portion_size * average_block_sizes[table_index];
+      table_index++;
+      num_blocks -= portion_size;
+      start_block += portion_size;
+    }
+    return weight;
+  }
+
+  std::vector<std::pair<std::string, size_t>> split_string_by_width(const std::string &s, size_t columns)
+  {
+    std::vector<std::string> lines;
+    std::vector<std::pair<std::string, size_t>> all_lines;
+    boost::split(lines, s, boost::is_any_of("\n"), boost::token_compress_on);
+    for (const auto &e: lines)
+    {
+      std::vector<std::pair<std::string, size_t>> new_lines = split_line_by_width(e, columns);
+      for (auto &l: new_lines)
+        all_lines.push_back(std::move(l));
+    }
+    return all_lines;
+  }
 }

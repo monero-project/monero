@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2018, The Monero Project
+// Copyright (c) 2017-2019, The Monero Project
 //
 // All rights reserved.
 //
@@ -69,27 +69,32 @@ namespace tools
 		// task to finish.
 		void submit(waiter *waiter, std::function<void()> f, bool leaf = false);
 
-		unsigned int get_max_concurrency() const;
+  // destroy and recreate threads
+  void recycle();
+
+  unsigned int get_max_concurrency() const;
 
 		~threadpool();
 		void stop();
 		void start(unsigned int max_threads = 0);
 
-	private:
-		threadpool(unsigned int max_threads = 0);
-		typedef struct entry {
-			waiter *wo;
-			std::function<void()> f;
-			bool leaf;
-		} entry;
-		std::deque<entry> queue;
-		boost::condition_variable has_work;
-		boost::mutex mutex;
-		std::vector<boost::thread> threads;
-		unsigned int active;
-		unsigned int max;
-		bool running;
-		void run(bool flush = false);
-	};
+  private:
+    threadpool(unsigned int max_threads = 0);
+    void destroy();
+    void create(unsigned int max_threads);
+    typedef struct entry {
+      waiter *wo;
+      std::function<void()> f;
+      bool leaf;
+    } entry;
+    std::deque<entry> queue;
+    boost::condition_variable has_work;
+    boost::mutex mutex;
+    std::vector<boost::thread> threads;
+    unsigned int active;
+    unsigned int max;
+    bool running;
+    void run(bool flush = false);
+};
 
 }

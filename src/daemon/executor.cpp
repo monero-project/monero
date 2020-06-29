@@ -1,5 +1,5 @@
-// Copyright (c) 2014-2018, The Monero Project
-//
+// Copyright (c) 2014-2019, The Monero Project
+// 
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without modification, are
@@ -66,13 +66,13 @@ namespace daemonize
       boost::program_options::variables_map const & vm
     )
   {
-    return t_daemon{vm}.run(false);
+    return t_daemon{vm, public_rpc_port}.run(false);
   }
 
   bool t_executor::run_interactive(
       boost::program_options::variables_map const & vm
     )
   {
-    return t_daemon{vm}.run(true);
+    return t_daemon{vm, public_rpc_port}.run(true);
   }
 }

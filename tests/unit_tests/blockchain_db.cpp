@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -38,9 +38,6 @@
 #include "string_tools.h"
 #include "blockchain_db/blockchain_db.h"
 #include "blockchain_db/lmdb/db_lmdb.h"
-#ifdef BERKELEY_DB
-#include "blockchain_db/berkeleydb/db_bdb.h"
-#endif
 #include "cryptonote_basic/cryptonote_format_utils.h"
 
 using namespace cryptonote;
@@ -162,18 +159,18 @@ protected:
     {
       block bl;
       blobdata bd = h2b(i);
-      parse_and_validate_block_from_blob(bd, bl);
-      m_blocks.push_back(bl);
+      CHECK_AND_ASSERT_THROW_MES(parse_and_validate_block_from_blob(bd, bl), "Invalid block");
+      m_blocks.push_back(std::make_pair(bl, bd));
     }
     for (auto& i : t_transactions)
     {
-      std::vector<transaction> txs;
+      std::vector<std::pair<transaction, blobdata>> txs;
       for (auto& j : i)
       {
         transaction tx;
         blobdata bd = h2b(j);
-        parse_and_validate_tx_from_blob(bd, tx);
-        txs.push_back(tx);
+        CHECK_AND_ASSERT_THROW_MES(parse_and_validate_tx_from_blob(bd, tx), "Invalid transaction");
+        txs.push_back(std::make_pair(tx, bd));
       }
       m_txs.push_back(txs);
     }
@@ -187,8 +184,8 @@ protected:
   BlockchainDB* m_db;
   HardFork m_hardfork;
   std::string m_prefix;
-  std::vector<block> m_blocks;
-  std::vector<std::vector<transaction> > m_txs;
+  std::vector<std::pair<block, blobdata>> m_blocks;
+  std::vector<std::vector<std::pair<transaction, blobdata>>> m_txs;
   std::vector<std::string> m_filenames;
 
   void init_hard_fork()
@@ -233,11 +230,7 @@ protected:
 
 using testing::Types;
 
-typedef Types<BlockchainLMDB
-#ifdef BERKELEY_DB
-  , BlockchainBDB
-#endif
-> implementations;
+typedef Types<BlockchainLMDB> implementations;
 
 TYPED_TEST_CASE(BlockchainDBTest, implementations);
 
@@ -271,31 +264,33 @@ TYPED_TEST(BlockchainDBTest, AddBlock)
   this->get_filenames();
   this->init_hard_fork();
 
+  db_wtxn_guard guard(this->m_db);
+
   // adding a block with no parent in the blockchain should throw.
   // note: this shouldn't be possible, but is a good (and cheap) failsafe.
   //
   // TODO: need at least one more block to make this reasonable, as the
   // BlockchainDB implementation should not check for parent if
   // no blocks have been added yet (because genesis has no parent).
-  //ASSERT_THROW(this->m_db->add_block(this->m_blocks[1], t_sizes[1], t_diffs[1], t_coins[1], this->m_txs[1]), BLOCK_PARENT_DNE);
+  //ASSERT_THROW(this->m_db->add_block(this->m_blocks[1], t_sizes[1], t_sizes[1], t_diffs[1], t_coins[1], this->m_txs[1]), BLOCK_PARENT_DNE);
 
-  ASSERT_NO_THROW(this->m_db->add_block(this->m_blocks[0], t_sizes[0], t_diffs[0], t_coins[0], this->m_txs[0]));
-  ASSERT_NO_THROW(this->m_db->add_block(this->m_blocks[1], t_sizes[1], t_diffs[1], t_coins[1], this->m_txs[1]));
+  ASSERT_NO_THROW(this->m_db->add_block(this->m_blocks[0], t_sizes[0], t_sizes[0], t_diffs[0], t_coins[0], this->m_txs[0]));
+  ASSERT_NO_THROW(this->m_db->add_block(this->m_blocks[1], t_sizes[1], t_sizes[1], t_diffs[1], t_coins[1], this->m_txs[1]));
 
   block b;
-  ASSERT_TRUE(this->m_db->block_exists(get_block_hash(this->m_blocks[0])));
-  ASSERT_NO_THROW(b = this->m_db->get_block(get_block_hash(this->m_blocks[0])));
+  ASSERT_TRUE(this->m_db->block_exists(get_block_hash(this->m_blocks[0].first)));
+  ASSERT_NO_THROW(b = this->m_db->get_block(get_block_hash(this->m_blocks[0].first)));
 
-  ASSERT_TRUE(compare_blocks(this->m_blocks[0], b));
+  ASSERT_TRUE(compare_blocks(this->m_blocks[0].first, b));
 
   ASSERT_NO_THROW(b = this->m_db->get_block_from_height(0));
 
-  ASSERT_TRUE(compare_blocks(this->m_blocks[0], b));
+  ASSERT_TRUE(compare_blocks(this->m_blocks[0].first, b));
 
   // assert that we can't add the same block twice
-  ASSERT_THROW(this->m_db->add_block(this->m_blocks[0], t_sizes[0], t_diffs[0], t_coins[0], this->m_txs[0]), TX_EXISTS);
+  ASSERT_THROW(this->m_db->add_block(this->m_blocks[0], t_sizes[0], t_sizes[0], t_diffs[0], t_coins[0], this->m_txs[0]), TX_EXISTS);
 
-  for (auto& h : this->m_blocks[0].tx_hashes)
+  for (auto& h : this->m_blocks[0].first.tx_hashes)
   {
     transaction tx;
     ASSERT_TRUE(this->m_db->tx_exists(h));
@@ -317,31 +312,33 @@ TYPED_TEST(BlockchainDBTest, RetrieveBlockData)
   this->get_filenames();
   this->init_hard_fork();
 
-  ASSERT_NO_THROW(this->m_db->add_block(this->m_blocks[0], t_sizes[0], t_diffs[0], t_coins[0], this->m_txs[0]));
+  db_wtxn_guard guard(this->m_db);
+
+  ASSERT_NO_THROW(this->m_db->add_block(this->m_blocks[0], t_sizes[0], t_sizes[0],  t_diffs[0], t_coins[0], this->m_txs[0]));
 
   ASSERT_EQ(t_sizes[0], this->m_db->get_block_weight(0));
   ASSERT_EQ(t_diffs[0], this->m_db->get_block_cumulative_difficulty(0));
   ASSERT_EQ(t_diffs[0], this->m_db->get_block_difficulty(0));
   ASSERT_EQ(t_coins[0], this->m_db->get_block_already_generated_coins(0));
 
-  ASSERT_NO_THROW(this->m_db->add_block(this->m_blocks[1], t_sizes[1], t_diffs[1], t_coins[1], this->m_txs[1]));
+  ASSERT_NO_THROW(this->m_db->add_block(this->m_blocks[1], t_sizes[1], t_sizes[1], t_diffs[1], t_coins[1], this->m_txs[1]));
   ASSERT_EQ(t_diffs[1] - t_diffs[0], this->m_db->get_block_difficulty(1));
 
-  ASSERT_HASH_EQ(get_block_hash(this->m_blocks[0]), this->m_db->get_block_hash_from_height(0));
+  ASSERT_HASH_EQ(get_block_hash(this->m_blocks[0].first), this->m_db->get_block_hash_from_height(0));
 
   std::vector<block> blks;
   ASSERT_NO_THROW(blks = this->m_db->get_blocks_range(0, 1));
   ASSERT_EQ(2, blks.size());
   
-  ASSERT_HASH_EQ(get_block_hash(this->m_blocks[0]), get_block_hash(blks[0]));
-  ASSERT_HASH_EQ(get_block_hash(this->m_blocks[1]), get_block_hash(blks[1]));
+  ASSERT_HASH_EQ(get_block_hash(this->m_blocks[0].first), get_block_hash(blks[0]));
+  ASSERT_HASH_EQ(get_block_hash(this->m_blocks[1].first), get_block_hash(blks[1]));
 
   std::vector<crypto::hash> hashes;
   ASSERT_NO_THROW(hashes = this->m_db->get_hashes_range(0, 1));
   ASSERT_EQ(2, hashes.size());
 
-  ASSERT_HASH_EQ(get_block_hash(this->m_blocks[0]), hashes[0]);
-  ASSERT_HASH_EQ(get_block_hash(this->m_blocks[1]), hashes[1]);
+  ASSERT_HASH_EQ(get_block_hash(this->m_blocks[0].first), hashes[0]);
+  ASSERT_HASH_EQ(get_block_hash(this->m_blocks[1].first), hashes[1]);
 }
 
 }  // anonymous namespace

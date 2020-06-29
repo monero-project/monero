@@ -182,6 +182,7 @@ TEST(wipeable_string, split)
   ASSERT_TRUE(check_split(" foo     bar   baz         ", {"foo", "bar", "baz"}));
   ASSERT_TRUE(check_split("  foo     bar   baz", {"foo", "bar", "baz"}));
   ASSERT_TRUE(check_split("foo     bar   baz ", {"foo", "bar", "baz"}));
+  ASSERT_TRUE(check_split("\tfoo\n bar\r\nbaz", {"foo", "bar", "baz"}));
 }
 
 TEST(wipeable_string, parse_hexstr)

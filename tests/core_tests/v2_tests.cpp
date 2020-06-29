@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -85,7 +85,6 @@ bool gen_v2_tx_validation_base::generate_with(std::vector<test_event_entry>& eve
     tx_source_entry& src = sources.back();
 
     src.amount = blocks[0].miner_tx.vout[out_idx[out_idx_idx]].amount;
-  std::cout << "using " << print_money(src.amount) << " output at index " << out_idx[out_idx_idx] << std::endl;
     for (int m = 0; m <= mixin; ++m) {
       int idx;
       if (is_valid_decomposed_amount(src.amount))

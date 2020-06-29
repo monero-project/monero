@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -29,6 +29,7 @@
 #pragma once
 
 #include "syncobj.h"
+#include "hardforks/hardforks.h"
 #include "cryptonote_basic/cryptonote_basic.h"
 
 namespace cryptonote
@@ -150,6 +151,16 @@ namespace cryptonote
     bool reorganize_from_chain_height(uint64_t height);
 
     /**
+     * @brief called when one or more blocks are popped from the blockchain
+     *
+     * The current fork will be updated by looking up the db,
+     * which is much cheaper than recomputing everything
+     *
+     * @param new_chain_height the height of the chain after popping
+     */
+    void on_block_popped(uint64_t new_chain_height);
+
+    /**
      * @brief returns current state at the given time
      *
      * Based on the approximate time of the last known hard fork,
@@ -220,14 +231,6 @@ namespace cryptonote
      */
     uint64_t get_window_size() const { return window_size; }
 
-    struct Params {
-      uint8_t version;
-      uint8_t threshold;
-      uint64_t height;
-      time_t time;
-      Params(uint8_t version, uint64_t height, uint8_t threshold, time_t time): version(version), threshold(threshold), height(height), time(time) {}
-    };
-
   private:
 
     uint8_t get_block_version(uint64_t height) const;
@@ -252,7 +255,7 @@ namespace cryptonote
     uint8_t original_version;
     uint64_t original_version_till_height;
 
-    std::vector<Params> heights;
+    std::vector<hardfork_t> heights;
 
     std::deque<uint8_t> versions; /* rolling window of the last N blocks' versions */
     unsigned int last_versions[256]; /* count of the block versions in the last N blocks */

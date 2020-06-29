@@ -1,4 +1,4 @@
-# Copyright (c) 2016-2018, The Monero Project
+# Copyright (c) 2016-2019, The Monero Project
 #
 # All rights reserved.
 #
@@ -44,6 +44,7 @@ target_link_libraries(serialization
   LINK_PRIVATE
     cryptonote_core
     cryptonote_protocol
+    epee
     ${Boost_CHRONO_LIBRARY}
     ${Boost_REGEX_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}

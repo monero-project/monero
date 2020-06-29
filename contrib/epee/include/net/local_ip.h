@@ -27,13 +27,47 @@
 
 #pragma once
 
+#include <string>
+#include <boost/algorithm/string/predicate.hpp>
+#include <boost/asio/ip/address_v6.hpp>
+#include "int-util.h"
+
+// IP addresses are kept in network byte order
+// Masks below are little endian
+// -> convert from network byte order to host byte order before comparing
+
 namespace epee
 {
   namespace net_utils
   {
+
+    inline
+    bool is_ipv6_local(const std::string& ip)
+    {
+      auto addr = boost::asio::ip::address_v6::from_string(ip);
+
+      // ipv6 link-local unicast addresses are fe80::/10
+      bool is_link_local = addr.is_link_local();
+
+      auto addr_bytes = addr.to_bytes();
+
+      // ipv6 unique local unicast addresses start with fc00::/7 -- (fcXX or fdXX)
+      bool is_unique_local_unicast = (addr_bytes[0] == 0xfc || addr_bytes[0] == 0xfd);
+
+      return is_link_local || is_unique_local_unicast;
+    }
+
+    inline
+    bool is_ipv6_loopback(const std::string& ip)
+    {
+      // ipv6 loopback is ::1
+      return boost::asio::ip::address_v6::from_string(ip).is_loopback();
+    }
+
     inline
     bool is_ip_local(uint32_t ip)
     {
+      ip = SWAP32LE(ip);
       /*
       local ip area
       10.0.0.0 — 10.255.255.255 
@@ -57,6 +91,7 @@ namespace epee
     inline
     bool is_ip_loopback(uint32_t ip)
     {
+      ip = SWAP32LE(ip);
       if( (ip | 0xffffff00) == 0xffffff7f)
         return true;
       //MAKE_IP

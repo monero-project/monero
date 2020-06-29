@@ -29,6 +29,18 @@ const uint64_t keccakf_rndc[24] = {
 	0x8000000000008080, 0x0000000080000001, 0x8000000080008008
 };
 
+const int keccakf_rotc[24] = 
+{
+    1,  3,  6,  10, 15, 21, 28, 36, 45, 55, 2,  14, 
+    27, 41, 56, 8,  25, 43, 62, 18, 39, 61, 20, 44
+};
+
+const int keccakf_piln[24] = 
+{
+    10, 7,  11, 17, 18, 3, 5,  16, 8,  21, 24, 4, 
+    15, 23, 19, 13, 12, 2, 20, 14, 22, 9,  6,  1 
+};
+
 #ifndef ROTL64
 #define ROTL64(x, y) (((x) << (y)) | ((x) >> (64 - (y))))
 #endif
@@ -131,6 +143,47 @@ void keccakf(uint64_t st[25])
 	}
 }
 
+
+void keccakf_2(uint64_t st[25], int rounds)
+{
+    int i, j, round;
+    uint64_t t, bc[5];
+
+    for (round = 0; round < rounds; round++) {
+
+        // Theta
+        for (i = 0; i < 5; i++)     
+            bc[i] = st[i] ^ st[i + 5] ^ st[i + 10] ^ st[i + 15] ^ st[i + 20];
+
+        for (i = 0; i < 5; i++) {
+            t = bc[(i + 4) % 5] ^ ROTL64(bc[(i + 1) % 5], 1);
+            for (j = 0; j < 25; j += 5)
+                st[j + i] ^= t;
+        }
+
+        // Rho Pi
+        t = st[1];
+        for (i = 0; i < 24; i++) {
+            j = keccakf_piln[i];
+            bc[0] = st[j];
+            st[j] = ROTL64(t, keccakf_rotc[i]);
+            t = bc[0];
+        }
+
+        //  Chi
+        for (j = 0; j < 25; j += 5) {
+            for (i = 0; i < 5; i++)
+                bc[i] = st[j + i];
+            for (i = 0; i < 5; i++)
+                st[j + i] ^= (~bc[(i + 1) % 5]) & bc[(i + 2) % 5];
+        }
+
+        //  Iota
+        st[0] ^= keccakf_rndc[round];
+    }
+}
+
+
 // compute a keccak hash (md) of given byte length from "in"
 typedef uint64_t state_t[25];
 
@@ -175,4 +228,78 @@ void keccak(const uint8_t *in, size_t inlen, uint8_t *md, int mdlen)
 	keccakf(st);
 
 	memcpy(md, st, mdlen);
+}
+
+#define KECCAK_FINALIZED 0x80000000
+#define KECCAK_BLOCKLEN 136
+#define KECCAK_WORDS 17
+#define KECCAK_DIGESTSIZE 32
+#define IS_ALIGNED_64(p) (0 == (7 & ((const char*)(p) - (const char*)0)))
+#define KECCAK_PROCESS_BLOCK(st, block) { \
+    for (int i_ = 0; i_ < KECCAK_WORDS; i_++){ \
+        ((st))[i_] ^= ((block))[i_]; \
+    }; \
+    keccakf_2(st, KECCAK_ROUNDS); }
+
+
+void keccak_init(KECCAK_CTX * ctx){
+    memset(ctx, 0, sizeof(KECCAK_CTX));
+}
+
+void keccak_update(KECCAK_CTX * ctx, const uint8_t *in, size_t inlen){
+    if (ctx->rest & KECCAK_FINALIZED) {
+        local_abort("Bad keccak use");
+    }
+
+    const size_t idx = ctx->rest;
+    ctx->rest = (ctx->rest + inlen) % KECCAK_BLOCKLEN;
+
+    // fill partial block
+    if (idx) {
+        size_t left = KECCAK_BLOCKLEN - idx;
+        memcpy((char*)ctx->message + idx, in, (inlen < left ? inlen : left));
+        if (inlen < left) return;
+
+        KECCAK_PROCESS_BLOCK(ctx->hash, ctx->message);
+
+        in  += left;
+        inlen -= left;
+    }
+
+    const bool is_aligned = IS_ALIGNED_64(in);
+    while (inlen >= KECCAK_BLOCKLEN) {
+        const uint64_t* aligned_message_block;
+        if (is_aligned) {
+            aligned_message_block = (uint64_t*)in;
+        } else {
+            memcpy(ctx->message, in, KECCAK_BLOCKLEN);
+            aligned_message_block = ctx->message;
+        }
+
+        KECCAK_PROCESS_BLOCK(ctx->hash, aligned_message_block);
+        in  += KECCAK_BLOCKLEN;
+        inlen -= KECCAK_BLOCKLEN;
+    }
+    if (inlen) {
+        memcpy(ctx->message, in, inlen);
+    }
+}
+
+void keccak_finish(KECCAK_CTX * ctx, uint8_t *md){
+    if (!(ctx->rest & KECCAK_FINALIZED))
+    {
+        // clear the rest of the data queue
+        memset((char*)ctx->message + ctx->rest, 0, KECCAK_BLOCKLEN - ctx->rest);
+        ((char*)ctx->message)[ctx->rest] |= 0x01;
+        ((char*)ctx->message)[KECCAK_BLOCKLEN - 1] |= 0x80;
+
+        // process final block
+        KECCAK_PROCESS_BLOCK(ctx->hash, ctx->message);
+        ctx->rest = KECCAK_FINALIZED; // mark context as finalized
+    }
+
+    static_assert(KECCAK_BLOCKLEN > KECCAK_DIGESTSIZE, "");
+    if (md) {
+        memcpy(md, ctx->hash, KECCAK_DIGESTSIZE);
+    }
 }

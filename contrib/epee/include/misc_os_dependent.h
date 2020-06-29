@@ -124,5 +124,14 @@ namespace misc_utils
 		return boost::lexical_cast<std::string>(pthread_self());
 #endif
 	}
+
+	inline bool get_gmt_time(time_t t, struct tm &tm)
+	{
+#ifdef _WIN32
+		return gmtime_s(&tm, &t);
+#else
+		return gmtime_r(&t, &tm);
+#endif
+	}
 }
 }

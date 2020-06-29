@@ -1,6 +1,6 @@
 FROM debian:stable
 
-RUN apt-get update && apt-get install -y unzip automake build-essential curl file pkg-config git python libtool
+RUN apt-get update && apt-get install -y unzip automake build-essential curl file pkg-config git python libtool libtinfo5
 
 WORKDIR /opt/android
 ## INSTALL ANDROID SDK
@@ -112,14 +112,6 @@ RUN git clone https://github.com/zeromq/libzmq.git -b ${ZMQ_VERSION} \
     && CC=clang CXX=clang++ ./configure --prefix=${PREFIX} --host=aarch64-linux-android --enable-static --disable-shared \
     && make -j${NPROC} \
     && make install
-
-# zmq.hpp
-ARG CPPZMQ_VERSION=v4.2.3
-ARG CPPZMQ_HASH=6aa3ab686e916cb0e62df7fa7d12e0b13ae9fae6
-RUN git clone https://github.com/zeromq/cppzmq.git -b ${CPPZMQ_VERSION} \
-    && cd cppzmq \
-    && test `git rev-parse HEAD` = ${CPPZMQ_HASH} || exit 1 \
-    && cp *.hpp ${PREFIX}/include
 
 # Sodium
 ARG SODIUM_VERSION=1.0.16

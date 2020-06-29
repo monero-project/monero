@@ -52,7 +52,7 @@ namespace service_nodes
 		explicit quorum_cop(cryptonote::core& core);
 
 		void init() override;
-		void block_added(const cryptonote::block& block, const std::vector<cryptonote::transaction>& txs) override;
+		void block_added(const cryptonote::block& block, const std::vector<std::pair<cryptonote::transaction, cryptonote::blobdata>>& txs) override;
 		void blockchain_detached(uint64_t height) override;
 
 		bool handle_uptime_proof(const cryptonote::NOTIFY_UPTIME_PROOF::request &proof);

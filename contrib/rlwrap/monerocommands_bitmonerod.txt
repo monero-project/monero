@@ -27,10 +27,8 @@ save
 set_log
 show_hr
 start_mining
-start_save_graph
 status
 stop_daemon
 stop_mining
-stop_save_graph
 sync_info
 unban

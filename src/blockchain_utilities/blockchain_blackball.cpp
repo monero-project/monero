@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 //
 // All rights reserved.
 //
@@ -39,7 +39,6 @@
 #include "cryptonote_core/cryptonote_core.h"
 #include "cryptonote_core/blockchain.h"
 #include "blockchain_db/blockchain_db.h"
-#include "blockchain_db/db_types.h"
 #include "wallet/ringdb.h"
 #include "version.h"
 
@@ -59,6 +58,7 @@ static MDB_dbi dbi_relative_rings;
 static MDB_dbi dbi_outputs;
 static MDB_dbi dbi_processed_txidx;
 static MDB_dbi dbi_spent;
+static MDB_dbi dbi_per_amount;
 static MDB_dbi dbi_ring_instances;
 static MDB_dbi dbi_stats;
 static MDB_env *env = NULL;
@@ -238,7 +238,7 @@ static void init(std::string cache_filename)
 
   dbr = mdb_env_create(&env);
   CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to create LDMB environment: " + std::string(mdb_strerror(dbr)));
-  dbr = mdb_env_set_maxdbs(env, 6);
+  dbr = mdb_env_set_maxdbs(env, 7);
   CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to set max env dbs: " + std::string(mdb_strerror(dbr)));
   const std::string actual_filename = get_cache_filename(cache_filename);
   dbr = mdb_env_open(env, actual_filename.c_str(), flags, 0664);
@@ -265,6 +265,10 @@ static void init(std::string cache_filename)
   CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to open LMDB dbi: " + std::string(mdb_strerror(dbr)));
   mdb_set_dupsort(txn, dbi_spent, compare_uint64);
 
+  dbr = mdb_dbi_open(txn, "per_amount", MDB_CREATE | MDB_INTEGERKEY, &dbi_per_amount);
+  CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to open LMDB dbi: " + std::string(mdb_strerror(dbr)));
+  mdb_set_compare(txn, dbi_per_amount, compare_uint64);
+
   dbr = mdb_dbi_open(txn, "ring_instances", MDB_CREATE, &dbi_ring_instances);
   CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to open LMDB dbi: " + std::string(mdb_strerror(dbr)));
 
@@ -283,6 +287,7 @@ static void close()
     mdb_dbi_close(env, dbi_relative_rings);
     mdb_dbi_close(env, dbi_outputs);
     mdb_dbi_close(env, dbi_processed_txidx);
+    mdb_dbi_close(env, dbi_per_amount);
     mdb_dbi_close(env, dbi_spent);
     mdb_dbi_close(env, dbi_ring_instances);
     mdb_dbi_close(env, dbi_stats);
@@ -405,6 +410,115 @@ static bool for_all_transactions(const std::string &filename, uint64_t &start_id
   if (dbr) throw std::runtime_error("Failed to commit db transaction: " + std::string(mdb_strerror(dbr)));
   tx_active = false;
   mdb_dbi_close(env, dbi);
+  mdb_env_close(env);
+  return fret;
+}
+
+static bool for_all_transactions(const std::string &filename, const uint64_t &start_idx, uint64_t &n_txes, const std::function<bool(bool, uint64_t, const cryptonote::transaction_prefix&)> &f)
+{
+  MDB_env *env;
+  MDB_dbi dbi_blocks, dbi_txs;
+  MDB_txn *txn;
+  MDB_cursor *cur_blocks, *cur_txs;
+  int dbr;
+  bool tx_active = false;
+  MDB_val k;
+  MDB_val v;
+
+  dbr = mdb_env_create(&env);
+  if (dbr) throw std::runtime_error("Failed to create LDMB environment: " + std::string(mdb_strerror(dbr)));
+  dbr = mdb_env_set_maxdbs(env, 3);
+  if (dbr) throw std::runtime_error("Failed to set max env dbs: " + std::string(mdb_strerror(dbr)));
+  const std::string actual_filename = filename;
+  dbr = mdb_env_open(env, actual_filename.c_str(), 0, 0664);
+  if (dbr) throw std::runtime_error("Failed to open rings database file '"
+      + actual_filename + "': " + std::string(mdb_strerror(dbr)));
+
+  dbr = mdb_txn_begin(env, NULL, MDB_RDONLY, &txn);
+  if (dbr) throw std::runtime_error("Failed to create LMDB transaction: " + std::string(mdb_strerror(dbr)));
+  epee::misc_utils::auto_scope_leave_caller txn_dtor = epee::misc_utils::create_scope_leave_handler([&](){if (tx_active) mdb_txn_abort(txn);});
+  tx_active = true;
+
+  dbr = mdb_dbi_open(txn, "blocks", MDB_INTEGERKEY, &dbi_blocks);
+  if (dbr) throw std::runtime_error("Failed to open LMDB dbi: " + std::string(mdb_strerror(dbr)));
+  dbr = mdb_dbi_open(txn, "txs_pruned", MDB_INTEGERKEY, &dbi_txs);
+  if (dbr) throw std::runtime_error("Failed to open LMDB dbi: " + std::string(mdb_strerror(dbr)));
+
+  dbr = mdb_cursor_open(txn, dbi_blocks, &cur_blocks);
+  if (dbr) throw std::runtime_error("Failed to create LMDB cursor: " + std::string(mdb_strerror(dbr)));
+  dbr = mdb_cursor_open(txn, dbi_txs, &cur_txs);
+  if (dbr) throw std::runtime_error("Failed to create LMDB cursor: " + std::string(mdb_strerror(dbr)));
+
+  MDB_stat stat;
+  dbr = mdb_stat(txn, dbi_blocks, &stat);
+  if (dbr) throw std::runtime_error("Failed to query txs stat: " + std::string(mdb_strerror(dbr)));
+  uint64_t n_blocks = stat.ms_entries;
+  dbr = mdb_stat(txn, dbi_txs, &stat);
+  if (dbr) throw std::runtime_error("Failed to query txs stat: " + std::string(mdb_strerror(dbr)));
+  n_txes = stat.ms_entries;
+
+  bool fret = true;
+
+  MDB_cursor_op op_blocks = MDB_FIRST;
+  MDB_cursor_op op_txs = MDB_FIRST;
+  uint64_t tx_idx = 0;
+  while (1)
+  {
+    int ret = mdb_cursor_get(cur_blocks, &k, &v, op_blocks);
+    op_blocks = MDB_NEXT;
+    if (ret == MDB_NOTFOUND)
+      break;
+    if (ret)
+      throw std::runtime_error("Failed to enumerate blocks: " + std::string(mdb_strerror(ret)));
+
+    if (k.mv_size != sizeof(uint64_t))
+      throw std::runtime_error("Bad key size");
+    uint64_t height = *(const uint64_t*)k.mv_data;
+    blobdata bd;
+    bd.assign(reinterpret_cast<char*>(v.mv_data), v.mv_size);
+    block b;
+    if (!parse_and_validate_block_from_blob(bd, b))
+      throw std::runtime_error("Failed to parse block from blob retrieved from the db");
+
+    ret = mdb_cursor_get(cur_txs, &k, &v, op_txs);
+    if (ret)
+      throw std::runtime_error("Failed to fetch transaction " + string_tools::pod_to_hex(get_transaction_hash(b.miner_tx)) + ": " + std::string(mdb_strerror(ret)));
+    op_txs = MDB_NEXT;
+
+    bool last_block = height == n_blocks - 1;
+    if (start_idx <= tx_idx++  && !f(last_block && b.tx_hashes.empty(), height, b.miner_tx))
+    {
+      fret = false;
+      break;
+    }
+    for (size_t i = 0; i < b.tx_hashes.size(); ++i)
+    {
+      const crypto::hash& txid = b.tx_hashes[i];
+      ret = mdb_cursor_get(cur_txs, &k, &v, op_txs);
+      if (ret)
+        throw std::runtime_error("Failed to fetch transaction " + string_tools::pod_to_hex(txid) + ": " + std::string(mdb_strerror(ret)));
+      if (start_idx <= tx_idx++)
+      {
+        cryptonote::transaction_prefix tx;
+        bd.assign(reinterpret_cast<char*>(v.mv_data), v.mv_size);
+        CHECK_AND_ASSERT_MES(parse_and_validate_tx_prefix_from_blob(bd, tx), false, "Failed to parse transaction from blob");
+        if (!f(last_block && i == b.tx_hashes.size() - 1, height, tx))
+        {
+          fret = false;
+          break;
+        }
+      }
+    }
+    if (!fret)
+      break;
+  }
+
+  mdb_cursor_close(cur_blocks);
+  mdb_cursor_close(cur_txs);
+  mdb_txn_commit(txn);
+  tx_active = false;
+  mdb_dbi_close(env, dbi_blocks);
+  mdb_dbi_close(env, dbi_txs);
   mdb_env_close(env);
   return fret;
 }
@@ -583,6 +697,56 @@ static std::vector<output_data> get_spent_outputs(MDB_txn *txn)
   }
   mdb_cursor_close(cur);
   return outs;
+}
+
+static void get_per_amount_outputs(MDB_txn *txn, uint64_t amount, uint64_t &total, uint64_t &spent)
+{
+  MDB_cursor *cur;
+  int dbr = mdb_cursor_open(txn, dbi_per_amount, &cur);
+  CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to open cursor for per amount outputs: " + std::string(mdb_strerror(dbr)));
+  MDB_val k, v;
+  mdb_size_t count = 0;
+  k.mv_size = sizeof(uint64_t);
+  k.mv_data = (void*)&amount;
+  dbr = mdb_cursor_get(cur, &k, &v, MDB_SET);
+  if (dbr == MDB_NOTFOUND)
+  {
+    total = spent = 0;
+  }
+  else
+  {
+    CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to get per amount outputs: " + std::string(mdb_strerror(dbr)));
+    total = ((const uint64_t*)v.mv_data)[0];
+    spent = ((const uint64_t*)v.mv_data)[1];
+  }
+  mdb_cursor_close(cur);
+}
+
+static void inc_per_amount_outputs(MDB_txn *txn, uint64_t amount, uint64_t total, uint64_t spent)
+{
+  MDB_cursor *cur;
+  int dbr = mdb_cursor_open(txn, dbi_per_amount, &cur);
+  CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to open cursor for per amount outputs: " + std::string(mdb_strerror(dbr)));
+  MDB_val k, v;
+  mdb_size_t count = 0;
+  k.mv_size = sizeof(uint64_t);
+  k.mv_data = (void*)&amount;
+  dbr = mdb_cursor_get(cur, &k, &v, MDB_SET);
+  if (dbr == 0)
+  {
+    total += ((const uint64_t*)v.mv_data)[0];
+    spent += ((const uint64_t*)v.mv_data)[1];
+  }
+  else
+  {
+    CHECK_AND_ASSERT_THROW_MES(dbr == MDB_NOTFOUND, "Failed to get per amount outputs: " + std::string(mdb_strerror(dbr)));
+  }
+  uint64_t data[2] = {total, spent};
+  v.mv_size = 2 * sizeof(uint64_t);
+  v.mv_data = (void*)data;
+  dbr = mdb_cursor_put(cur, &k, &v, 0);
+  CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to write record for per amount outputs: " + std::string(mdb_strerror(dbr)));
+  mdb_cursor_close(cur);
 }
 
 static uint64_t get_processed_txidx(const std::string &name)
@@ -1005,11 +1169,6 @@ int main(int argc, char* argv[])
 
   epee::string_tools::set_module_name_and_folder(argv[0]);
 
-  std::string default_db_type = "lmdb";
-
-  std::string available_dbs = cryptonote::blockchain_db_types(", ");
-  available_dbs = "available: " + available_dbs;
-
   uint32_t log_level = 0;
 
   tools::on_startup();
@@ -1023,9 +1182,6 @@ int main(int argc, char* argv[])
       get_default_db_path(),
   };
   const command_line::arg_descriptor<std::string> arg_log_level  = {"log-level",  "0-4 or categories", ""};
-  const command_line::arg_descriptor<std::string> arg_database = {
-    "database", available_dbs.c_str(), default_db_type
-  };
   const command_line::arg_descriptor<bool> arg_rct_only  = {"rct-only", "Only work on ringCT outputs", false};
   const command_line::arg_descriptor<bool> arg_check_subsets  = {"check-subsets", "Check ring subsets (very expensive)", false};
   const command_line::arg_descriptor<bool> arg_verbose  = {"verbose", "Verbose output)", false};
@@ -1038,10 +1194,10 @@ int main(int argc, char* argv[])
   const command_line::arg_descriptor<std::string> arg_extra_spent_list = {"extra-spent-list", "Optional list of known spent outputs",""};
   const command_line::arg_descriptor<std::string> arg_export = {"export", "Filename to export the backball list to"};
   const command_line::arg_descriptor<bool> arg_force_chain_reaction_pass = {"force-chain-reaction-pass", "Run the chain reaction pass even if no new blockchain data was processed"};
+  const command_line::arg_descriptor<bool> arg_historical_stat = {"historical-stat", "Report historical stat of spent outputs for every 10000 blocks window"};
 
   command_line::add_arg(desc_cmd_sett, arg_blackball_db_dir);
   command_line::add_arg(desc_cmd_sett, arg_log_level);
-  command_line::add_arg(desc_cmd_sett, arg_database);
   command_line::add_arg(desc_cmd_sett, arg_rct_only);
   command_line::add_arg(desc_cmd_sett, arg_check_subsets);
   command_line::add_arg(desc_cmd_sett, arg_verbose);
@@ -1049,6 +1205,7 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_cmd_sett, arg_extra_spent_list);
   command_line::add_arg(desc_cmd_sett, arg_export);
   command_line::add_arg(desc_cmd_sett, arg_force_chain_reaction_pass);
+  command_line::add_arg(desc_cmd_sett, arg_historical_stat);
   command_line::add_arg(desc_cmd_sett, arg_inputs);
   command_line::add_arg(desc_cmd_only, command_line::arg_help);
 
@@ -1089,16 +1246,11 @@ int main(int argc, char* argv[])
   bool opt_check_subsets = command_line::get_arg(vm, arg_check_subsets);
   bool opt_verbose = command_line::get_arg(vm, arg_verbose);
   bool opt_force_chain_reaction_pass = command_line::get_arg(vm, arg_force_chain_reaction_pass);
+  bool opt_historical_stat = command_line::get_arg(vm, arg_historical_stat);
   std::string opt_export = command_line::get_arg(vm, arg_export);
   std::string extra_spent_list = command_line::get_arg(vm, arg_extra_spent_list);
   std::vector<std::pair<uint64_t, uint64_t>> extra_spent_outputs = extra_spent_list.empty() ? std::vector<std::pair<uint64_t, uint64_t>>() : load_outputs(extra_spent_list);
 
-  std::string db_type = command_line::get_arg(vm, arg_database);
-  if (!cryptonote::blockchain_valid_db_type(db_type))
-  {
-    std::cerr << "Invalid database type: " << db_type << std::endl;
-    return 1;
-  }
 
   std::string db_sync_mode = command_line::get_arg(vm, arg_db_sync_mode);
   if (!parse_db_sync_mode(db_sync_mode))
@@ -1139,6 +1291,69 @@ int main(int argc, char* argv[])
   MDB_dbi dbi0;
   MDB_cursor *cur0;
   open_db(inputs[0], &env0, &txn0, &cur0, &dbi0);
+
+  std::vector<output_data> work_spent;
+
+  if (opt_historical_stat)
+  {
+    if (!start_blackballed_outputs)
+    {
+      MINFO("Spent outputs database is empty. Either you haven't run the analysis mode yet, or there is really no output marked as spent.");
+      goto skip_secondary_passes;
+    }
+    MDB_txn *txn;
+    int dbr = mdb_txn_begin(env, NULL, 0, &txn);
+    CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to create LMDB transaction: " + std::string(mdb_strerror(dbr)));
+    MDB_cursor *cur;
+    dbr = mdb_cursor_open(txn, dbi_spent, &cur);
+    CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to open LMDB cursor: " + std::string(mdb_strerror(dbr)));
+
+    const uint64_t STAT_WINDOW = 10000;
+    uint64_t outs_total = 0;
+    uint64_t outs_spent = 0;
+    std::unordered_map<uint64_t, uint64_t> outs_per_amount;
+    uint64_t start_idx = 0, n_txes;
+    uint64_t prev_height = 0;
+    for_all_transactions(inputs[0], start_idx, n_txes, [&](bool last_tx, uint64_t height, const cryptonote::transaction_prefix &tx)->bool
+    {
+      if (height != prev_height)
+      {
+        if (height % 100 == 0) std::cout << "\r" << height << ": " << (100.0f * outs_spent / outs_total) << "% ( " << outs_spent << " / " << outs_total << " )       \r" << std::flush;
+        if (height % STAT_WINDOW == 0)
+        {
+          uint64_t window_front = (height / STAT_WINDOW - 1) * STAT_WINDOW;
+          uint64_t window_back = window_front + STAT_WINDOW - 1;
+          LOG_PRINT_L0(window_front << "-" << window_back << ": " << (100.0f * outs_spent / outs_total) << "% ( " << outs_spent << " / " << outs_total << " )");
+          outs_total = outs_spent = 0;
+        }
+      }
+      prev_height = height;
+      for (const auto &out: tx.vout)
+      {
+        ++outs_total;
+        CHECK_AND_ASSERT_THROW_MES(out.target.type() == typeid(txout_to_key), "Out target type is not txout_to_key: height=" + std::to_string(height));
+        uint64_t out_global_index = outs_per_amount[out.amount]++;
+        if (is_output_spent(cur, output_data(out.amount, out_global_index)))
+          ++outs_spent;
+      }
+      if (last_tx)
+      {
+        uint64_t window_front = (height / STAT_WINDOW) * STAT_WINDOW;
+        uint64_t window_back = height;
+        LOG_PRINT_L0(window_front << "-" << window_back << ": " << (100.0f * outs_spent / outs_total) << "% ( " << outs_spent << " / " << outs_total << " )");
+      }
+      if (stop_requested)
+      {
+        MINFO("Stopping scan...");
+        return false;
+      }
+      return true;
+    });
+    mdb_cursor_close(cur);
+    dbr = mdb_txn_commit(txn);
+    CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to commit txn creating/opening database: " + std::string(mdb_strerror(dbr)));
+    goto skip_secondary_passes;
+  }
 
   if (!extra_spent_outputs.empty())
   {
@@ -1193,6 +1408,7 @@ int main(int argc, char* argv[])
     for_all_transactions(filename, start_idx, n_txes, [&](const cryptonote::transaction_prefix &tx)->bool
     {
       std::cout << "\r" << start_idx << "/" << n_txes << "         \r" << std::flush;
+      const bool miner_tx = tx.vin.size() == 1 && tx.vin[0].type() == typeid(txin_gen);
       for (const auto &in: tx.vin)
       {
         if (in.type() != typeid(txin_to_key))
@@ -1210,6 +1426,9 @@ int main(int argc, char* argv[])
         std::vector<uint64_t> new_ring = canonicalize(txin.key_offsets);
         const uint32_t ring_size = txin.key_offsets.size();
         const uint64_t instances = inc_ring_instances(txn, txin.amount, new_ring);
+        uint64_t pa_total = 0, pa_spent = 0;
+        if (!opt_rct_only)
+          get_per_amount_outputs(txn, txin.amount, pa_total, pa_spent);
         if (n == 0 && ring_size == 1)
         {
           const std::pair<uint64_t, uint64_t> output = std::make_pair(txin.amount, absolute[0]);
@@ -1235,6 +1454,21 @@ int main(int argc, char* argv[])
             blackballs.push_back(output);
             if (add_spent_output(cur, output_data(txin.amount, absolute[o])))
               inc_stat(txn, txin.amount ? "pre-rct-duplicate-rings" : "rct-duplicate-rings");
+          }
+        }
+        else if (n == 0 && !opt_rct_only && pa_spent + 1 == pa_total)
+        {
+          for (size_t o = 0; o < pa_total; ++o)
+          {
+            const std::pair<uint64_t, uint64_t> output = std::make_pair(txin.amount, o);
+            if (opt_verbose)
+            {
+              MINFO("Marking output " << output.first << "/" << output.second << " as spent, due to as many outputs of that amount being spent as exist so far");
+              std::cout << "\r" << start_idx << "/" << n_txes << "         \r" << std::flush;
+            }
+            blackballs.push_back(output);
+            if (add_spent_output(cur, output_data(txin.amount, o)))
+              inc_stat(txn, txin.amount ? "pre-rct-full-count" : "rct-full-count");
           }
         }
         else if (n == 0 && opt_check_subsets && get_ring_subset_instances(txn, txin.amount, new_ring) >= new_ring.size())
@@ -1299,9 +1533,28 @@ int main(int argc, char* argv[])
           }
         }
         if (n == 0)
+        {
           set_relative_ring(txn, txin.k_image, new_ring);
+          if (!opt_rct_only)
+            inc_per_amount_outputs(txn, txin.amount, 0, 1);
+        }
       }
       set_processed_txidx(txn, canonical, start_idx+1);
+      if (!opt_rct_only)
+      {
+        for (const auto &out: tx.vout)
+        {
+          uint64_t amount = out.amount;
+          if (miner_tx && tx.version >= 2)
+            amount = 0;
+
+          if (opt_rct_only && amount != 0)
+            continue;
+          if (out.target.type() != typeid(txout_to_key))
+            continue;
+          inc_per_amount_outputs(txn, amount, 1, 0);
+        }
+      }
 
       ++records;
       if (records >= records_per_sync)
@@ -1337,8 +1590,6 @@ int main(int argc, char* argv[])
     if (stop_requested)
       break;
   }
-
-  std::vector<output_data> work_spent;
 
   if (stop_requested)
     goto skip_secondary_passes;
@@ -1433,6 +1684,7 @@ skip_secondary_passes:
     { "pre-rct-ring-size-1", pre_rct }, { "rct-ring-size-1", rct },
     { "pre-rct-duplicate-rings", pre_rct }, { "rct-duplicate-rings", rct },
     { "pre-rct-subset-rings", pre_rct }, { "rct-subset-rings", rct },
+    { "pre-rct-full-count", pre_rct }, { "rct-full-count", rct },
     { "pre-rct-key-image-attack", pre_rct }, { "rct-key-image-attack", rct },
     { "pre-rct-extra", pre_rct }, { "rct-ring-extra", rct },
     { "pre-rct-chain-reaction", pre_rct }, { "rct-chain-reaction", rct },

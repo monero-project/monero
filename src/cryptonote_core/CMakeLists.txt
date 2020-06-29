@@ -1,4 +1,4 @@
-# Copyright (c) 2014-2018, The Monero Project
+# Copyright (c) 2014-2019, The Monero Project
 #
 # All rights reserved.
 #
@@ -34,6 +34,7 @@ set(cryptonote_core_sources
   service_node_deregister.cpp
   quorum_cop.cpp
   tx_pool.cpp
+  tx_sanity_check.cpp
   cryptonote_tx_utils.cpp)
 
 set(cryptonote_core_headers)
@@ -47,6 +48,7 @@ set(cryptonote_core_private_headers
   service_node_deregister.h
   quorum_cop.h
   tx_pool.h
+  tx_sanity_check.h
   cryptonote_tx_utils.h)
 
 monero_private_headers(cryptonote_core
@@ -64,6 +66,7 @@ target_link_libraries(cryptonote_core
     multisig
     ringct
     device
+    hardforks
     ${Boost_DATE_TIME_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${Boost_SERIALIZATION_LIBRARY}

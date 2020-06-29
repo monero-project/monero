@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2018, The Monero Project
+// Copyright (c) 2017-2019, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -107,7 +107,12 @@ namespace hw {
             /*                               TRANSACTION                               */
             /* ======================================================================= */
 
+            void generate_tx_proof(const crypto::hash &prefix_hash, 
+                                   const crypto::public_key &R, const crypto::public_key &A, const boost::optional<crypto::public_key> &B, const crypto::public_key &D, const crypto::secret_key &r, 
+                                   crypto::signature &sig) override;
+
             bool  open_tx(crypto::secret_key &tx_key) override;
+            void get_transaction_prefix_hash(const cryptonote::transaction_prefix& tx, crypto::hash& h) override;
 
             bool  encrypt_payment_id(crypto::hash8 &payment_id, const crypto::public_key &public_key, const crypto::secret_key &secret_key) override;
 
@@ -117,7 +122,7 @@ namespace hw {
             bool  ecdhDecode(rct::ecdhTuple & masked, const rct::key & sharedSec, bool short_amount) override;
 
             bool  generate_output_ephemeral_keys(const size_t tx_version, const cryptonote::account_keys &sender_account_keys, const crypto::public_key &txkey_pub,  const crypto::secret_key &tx_key,
-                                                 const cryptonote::tx_destination_entry &dst_entr, const boost::optional<cryptonote::tx_destination_entry> &change_addr, const size_t output_index,
+                                                 const cryptonote::tx_destination_entry &dst_entr, const boost::optional<cryptonote::account_public_address> &change_addr, const size_t output_index,
                                                  const bool &need_additional_txkeys, const std::vector<crypto::secret_key> &additional_tx_keys,
                                                  std::vector<crypto::public_key> &additional_tx_public_keys,
                                                  std::vector<rct::key> &amount_keys,

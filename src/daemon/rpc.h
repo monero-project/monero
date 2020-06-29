@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -56,12 +56,13 @@ public:
     , const bool restricted
     , const std::string & port
     , const std::string & description
+    , bool allow_rpc_payment
     )
     : m_server{core.get(), p2p.get()}, m_description{description}
   {
     MGINFO("Initializing " << m_description << " RPC server...");
 
-    if (!m_server.init(vm, restricted, port))
+    if (!m_server.init(vm, restricted, port, allow_rpc_payment))
     {
       throw std::runtime_error("Failed to initialize " + m_description + " RPC server.");
     }

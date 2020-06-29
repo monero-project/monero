@@ -70,7 +70,7 @@ namespace trezor {
 
       void on_button_request(uint64_t code=0) override;
       boost::optional<epee::wipeable_string> on_pin_request() override;
-      boost::optional<epee::wipeable_string> on_passphrase_request(bool on_device) override;
+      boost::optional<epee::wipeable_string> on_passphrase_request(bool & on_device) override;
       void on_passphrase_state_request(const std::string &state);
       void on_disconnect();
     protected:
@@ -94,10 +94,11 @@ namespace trezor {
 
       std::string m_full_name;
       std::vector<unsigned int> m_wallet_deriv_path;
-      std::string m_device_state;  // returned after passphrase entry, session
+      epee::wipeable_string m_device_session_id;  // returned after passphrase entry, session
       std::shared_ptr<messages::management::Features> m_features;  // features from the last device reset
       boost::optional<epee::wipeable_string> m_pin;
       boost::optional<epee::wipeable_string> m_passphrase;
+      messages::MessageType m_last_msg_type;
 
       cryptonote::network_type network_type;
 
@@ -116,8 +117,17 @@ namespace trezor {
       void require_initialized() const;
       void call_ping_unsafe();
       void test_ping();
-      virtual void device_state_reset_unsafe();
+      virtual void device_state_initialize_unsafe();
       void ensure_derivation_path() noexcept;
+
+      // Communication methods
+
+      void write_raw(const google::protobuf::Message * msg);
+      GenericMessage read_raw();
+      GenericMessage call_raw(const google::protobuf::Message * msg);
+
+      // Trezor message protocol handler. Handles specific signalling messages.
+      bool message_handler(GenericMessage & input);
 
       // Communication methods
 
@@ -311,9 +321,10 @@ namespace trezor {
 
     // Protocol callbacks
     void on_button_request(GenericMessage & resp, const messages::common::ButtonRequest * msg);
+    void on_button_pressed();
     void on_pin_request(GenericMessage & resp, const messages::common::PinMatrixRequest * msg);
     void on_passphrase_request(GenericMessage & resp, const messages::common::PassphraseRequest * msg);
-    void on_passphrase_state_request(GenericMessage & resp, const messages::common::PassphraseStateRequest * msg);
+    void on_passphrase_state_request(GenericMessage & resp, const messages::common::Deprecated_PassphraseStateRequest * msg);
 
 #ifdef WITH_TREZOR_DEBUGGING
     void set_debug(bool debug){
