@@ -1257,17 +1257,8 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
   block_reward_context.fee                       = fee;
   block_reward_context.height                    = height;
 
-  if(allow_governance(height))
-  {
-    block_reward_context.governance = 10000000000;
-  }
-  else 
-  {
-    block_reward_context.governance = 0;
-  }
-
 	block_reward_parts reward_parts;
-	if (!get_triton_block_reward(median_weight, cumulative_block_weight, already_generated_coins, version, reward_parts, block_reward_context))
+	if (!get_triton_block_reward(median_weight, cumulative_block_weight, already_generated_coins, version, reward_parts, block_reward_context, m_nettype))
 	{
 		MERROR_VER("block weight " << cumulative_block_weight << " is bigger than allowed for this blockchain");
 		return false;
@@ -1279,7 +1270,7 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
 			return false;
 	}
 
-	base_reward = reward_parts.adjusted_base_reward;
+	base_reward = reward_parts.original_base_reward;
 
   if(version >= 7){
     if(b.miner_tx.vout.back().amount != reward_parts.governance)
@@ -1334,7 +1325,7 @@ bool Blockchain::allow_governance(uint64_t height)
   }
   else if(m_nettype == TESTNET)
   {
-    fork_height = 12000;
+    fork_height = 1200;
   }
   else if (m_nettype == STAGENET)
   {

@@ -1019,7 +1019,7 @@ namespace service_nodes
 		// original amount, i.e. 50% of the original base reward goes to service
 		// nodes not 50% of the reward after removing the governance component (the
 		// adjusted base reward post hardfork 10).
-		uint64_t base_reward = reward_parts.original_base_reward;
+		uint64_t base_reward = reward_parts.original_base_reward - reward_parts.governance;
 		uint64_t total_service_node_reward = cryptonote::service_node_reward_formula(base_reward, hard_fork_version);
 
 		crypto::public_key winner = select_winner(prev_id);

@@ -280,7 +280,7 @@ namespace config
 
    uint64_t const GOVERNANCE_REWARD_INTERVAL_IN_BLOCKS = 5;
 
-    std::string const GOVERNANCE_WALLET_ADDRESS = "XT3WPJtTDJZeAHCazcUw6WFVM4K6eywaz2dLyRR1BNedE8m5uZYHK9eLEjfs8BHGpE295STrV5y819ArccFZWYiz399bKRRyB";
+    std::string const GOVERNANCE_WALLET_ADDRESS = "XT2pBBCUGXiNL3LeM3HDGzcAGYV8rXnCAEUKbFFb3hDZdX4qr2Eyf2GK58Tpje3LVZisbUEVq9J6gEYB76H76ZtN1wmfXqePo";
   }
 
   namespace stagenet
@@ -325,12 +325,11 @@ namespace cryptonote
     boost::uuids::uuid const NETWORK_ID;
     std::string const GENESIS_TX;
     uint32_t const GENESIS_NONCE;
-    uint64_t GOVERNANCE_REWARD_INTERVAL_IN_BLOCKS;
     std::string const *GOVERNANCE_WALLET_ADDRESS;
   };
   inline const config_t& get_config(network_type nettype)
   {
-    static const config_t mainnet = {
+    static config_t mainnet = {
       ::config::CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX,
       ::config::CRYPTONOTE_PUBLIC_INTEGRATED_ADDRESS_BASE58_PREFIX,
       ::config::CRYPTONOTE_PUBLIC_SUBADDRESS_BASE58_PREFIX,
@@ -339,9 +338,11 @@ namespace cryptonote
       ::config::ZMQ_RPC_DEFAULT_PORT,
       ::config::NETWORK_ID,
       ::config::GENESIS_TX,
-      ::config::GENESIS_NONCE
+      ::config::GENESIS_NONCE,
+      &::config::GOVERNANCE_WALLET_ADDRESS
+
     };
-    static const config_t testnet = {
+    static config_t testnet = {
       ::config::testnet::CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX,
       ::config::testnet::CRYPTONOTE_PUBLIC_INTEGRATED_ADDRESS_BASE58_PREFIX,
       ::config::testnet::CRYPTONOTE_PUBLIC_SUBADDRESS_BASE58_PREFIX,
@@ -350,9 +351,10 @@ namespace cryptonote
       ::config::testnet::ZMQ_RPC_DEFAULT_PORT,
       ::config::testnet::NETWORK_ID,
       ::config::testnet::GENESIS_TX,
-      ::config::testnet::GENESIS_NONCE
+      ::config::testnet::GENESIS_NONCE,
+      &::config::testnet::GOVERNANCE_WALLET_ADDRESS
     };
-    static const config_t stagenet = {
+    static config_t stagenet = {
       ::config::stagenet::CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX,
       ::config::stagenet::CRYPTONOTE_PUBLIC_INTEGRATED_ADDRESS_BASE58_PREFIX,
       ::config::stagenet::CRYPTONOTE_PUBLIC_SUBADDRESS_BASE58_PREFIX,
@@ -361,7 +363,9 @@ namespace cryptonote
       ::config::stagenet::ZMQ_RPC_DEFAULT_PORT,
       ::config::stagenet::NETWORK_ID,
       ::config::stagenet::GENESIS_TX,
-      ::config::stagenet::GENESIS_NONCE
+      ::config::stagenet::GENESIS_NONCE,
+      &::config::stagenet::GOVERNANCE_WALLET_ADDRESS
+
     };
     switch (nettype)
     {

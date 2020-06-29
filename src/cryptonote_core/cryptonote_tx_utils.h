@@ -77,7 +77,6 @@ namespace cryptonote
 	  // reward paid out to the service node? This would mean that a user can
 	  // specify less portions but still contribute the full amount?
 	  // Or was this just a sanity check? I don't think the first case is possible
-
     uint64_t governance;
 
 	  uint64_t service_node_total;
@@ -99,6 +98,7 @@ namespace cryptonote
 	  uint64_t original_base_reward;
 
 	  uint64_t miner_reward() { return base_miner + base_miner_fee; }
+
   };
 
   struct miner_reward_context
@@ -110,7 +110,7 @@ namespace cryptonote
     uint64_t governance;
   };
 
-  bool get_triton_block_reward(size_t median_weight, size_t current_block_weight, uint64_t already_generated_coins, int hard_fork_version, block_reward_parts &result, const miner_reward_context &miner_context);
+  bool get_triton_block_reward(size_t median_weight, size_t current_block_weight, uint64_t already_generated_coins, int hard_fork_version, block_reward_parts &result, const miner_reward_context &miner_context, const cryptonote::network_type nettype);
 
   struct tx_source_entry
   {
