@@ -1057,7 +1057,7 @@ struct Wallet
 /**
  * @brief WalletManager - provides functions to manage wallets
  */
-struct WalletManagerBase
+struct WalletManager
 {
 
     /*!
@@ -1320,7 +1320,7 @@ struct WalletManagerFactory
         LogLevel_Max = LogLevel_4
     };
 
-    static WalletManagerBase * getWalletManager();
+    static WalletManager * getWalletManager();
     static void setLogLevel(int level);
     static void setLogCategories(const std::string &categories);
 };

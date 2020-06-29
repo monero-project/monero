@@ -35,7 +35,7 @@
 
 namespace Monero {
 
-class WalletManagerImpl : public WalletManagerBase
+class WalletManagerImpl : public WalletManager
 {
 public:
     Wallet * createWallet(const std::string &path, const std::string &password,
