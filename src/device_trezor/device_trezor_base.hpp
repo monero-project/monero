@@ -129,15 +129,6 @@ namespace trezor {
       // Trezor message protocol handler. Handles specific signalling messages.
       bool message_handler(GenericMessage & input);
 
-      // Communication methods
-
-      void write_raw(const google::protobuf::Message * msg);
-      GenericMessage read_raw();
-      GenericMessage call_raw(const google::protobuf::Message * msg);
-
-      // Trezor message protocol handler. Handles specific signalling messages.
-      bool message_handler(GenericMessage & input);
-
       /**
        * Client communication wrapper, handles specific Trezor protocol.
        *
