@@ -1019,20 +1019,25 @@ namespace service_nodes
 		// original amount, i.e. 50% of the original base reward goes to service
 		// nodes not 50% of the reward after removing the governance component (the
 		// adjusted base reward post hardfork 10).
-		uint64_t base_reward = reward_parts.original_base_reward - reward_parts.governance;
+		uint64_t base_reward = reward_parts.adjusted_base_reward;
+		
 		uint64_t total_service_node_reward = cryptonote::service_node_reward_formula(base_reward, hard_fork_version);
-
 		crypto::public_key winner = select_winner(prev_id);
 
 		crypto::public_key check_winner_pubkey = cryptonote::get_service_node_winner_from_tx_extra(miner_tx.extra);
 		if (check_winner_pubkey != winner)
+		{
+			MERROR("Service Node Winner Pubkey not winner!");
 			return false;
+		}
 
 		const std::vector<std::pair<cryptonote::account_public_address, uint64_t>> addresses_and_portions = get_winner_addresses_and_portions(prev_id);
 
-		if (miner_tx.vout.size() - 1 < addresses_and_portions.size())
+		if (miner_tx.vout.size() - 1 < addresses_and_portions.size())\
+		{
+			MERROR("Miner TX outputs smaller than addresses_and_portions");
 			return false;
-
+		}
 		for (size_t i = 0; i < addresses_and_portions.size(); i++)
 		{
 			size_t vout_index = i + 1;
@@ -1065,7 +1070,6 @@ namespace service_nodes
 				return false;
 			}
 		}
-
 		return true;
 	}
 

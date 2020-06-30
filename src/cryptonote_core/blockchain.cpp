@@ -930,7 +930,7 @@ start:
     m_difficulties = difficulties;
   }
 
-  size_t target = get_ideal_hard_fork_version(height) < 6 ? DIFFICULTY_TARGET_V2 : DIFFICULTY_TARGET_V3;
+  size_t target = version < 6 ? DIFFICULTY_TARGET_V2 : DIFFICULTY_TARGET_V3;
 
   if ((version < 4 && height < 235)) {
 	  D = 1000;
@@ -1264,11 +1264,13 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
 
 	for (ValidateMinerTxHook* hook : m_validate_miner_tx_hooks)
 	{
-		if (!hook->validate_miner_tx(b.prev_id, b.miner_tx, m_db->height(), version, reward_parts))
+		if (!hook->validate_miner_tx(b.prev_id, b.miner_tx, m_db->height(), version, reward_parts)){
+      MERROR_VER("Validate Miner TX Failed for hook!");
 			return false;
+    }
 	}
-
 	base_reward = reward_parts.original_base_reward;
+
 
   if(version >= 7){
     if(b.miner_tx.vout.back().amount != reward_parts.governance)
@@ -1857,7 +1859,7 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
     // Check the block's hash against the difficulty target for its alt chain
     difficulty_type current_diff = get_next_difficulty_for_alternative_chain(alt_chain, bei);
     CHECK_AND_ASSERT_MES(current_diff, false, "!!!!!!! DIFFICULTY OVERHEAD !!!!!!!");
-    crypto::hash proof_of_work;
+    crypto::hash proof_of_work = crypto::null_hash;
     memset(proof_of_work.data, 0xff, sizeof(proof_of_work.data));
 
     get_block_longhash(bei.bl, proof_of_work, m_pow_ctx);
@@ -4173,7 +4175,7 @@ leave:
 
   TIME_MEASURE_START(longhash_calculating_time);
 
-  crypto::hash proof_of_work;
+  crypto::hash proof_of_work = crypto::null_hash;
   memset(proof_of_work.data, 0xff, sizeof(proof_of_work.data));
 
   // Formerly the code below contained an if loop with the following condition

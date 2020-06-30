@@ -373,9 +373,14 @@ namespace cryptonote
     if(hard_fork_version >= 7)
     {
       result.governance = allow_governance(miner_context.height, nettype);
-      base_reward += result.governance;
     }
-    
+    else 
+    {
+      result.governance = 0;
+    }
+
+    base_reward += result.governance;
+
 	  if (base_reward == 0)
 	  {
 		  MERROR("Unexpected base reward of 0");
