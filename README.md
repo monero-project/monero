@@ -115,7 +115,7 @@ invokes cmake commands as needed.
 * Change to the root of the source code directory, change to the most recent release branch, and build:
 
         cd equilibria
-        git checkout v5.0.2
+        git checkout v5.0.4
         make
 
     *Optional*: If your machine has several cores and enough memory, enable
@@ -186,8 +186,8 @@ Tested on a Raspberry Pi Zero with a clean install of minimal Raspbian Stretch (
 
     ```bash
     git clone https://github.com/monero-project/monero.git
-    cd monero
-    git checkout tags/v0.16.0.0
+    cd Equilibria
+    git checkout tags/v5.0.4
     ```
 
 * Build:
@@ -202,7 +202,7 @@ Tested on a Raspberry Pi Zero with a clean install of minimal Raspbian Stretch (
 
 * Add `PATH="$PATH:$HOME/monero/build/release/bin"` to `.profile`
 
-* Run Monero with `monerod --detach`
+* Run Monero with `daemon --detach`
 
 * You may wish to reduce the size of the swap file after the build has finished, and delete the boost directory from your home directory
 
@@ -300,7 +300,7 @@ application.
 
         cd equilibria
 
-        git checkout v5.0.2
+        git checkout v5.0.4
 
 * If you are on a 64-bit system, run:
 
