@@ -1025,7 +1025,8 @@ bool Blockchain::switch_to_alternative_blockchain(std::list<block_extended_info>
   }
 
   auto split_height = m_db->height();
-
+  for (BlockchainDetachedHook* hook : m_blockchain_detached_hooks)
+    hook->blockchain_detached(split_height);
   //connecting new alternative chain
   for(auto alt_ch_iter = alt_chain.begin(); alt_ch_iter != alt_chain.end(); alt_ch_iter++)
   {
