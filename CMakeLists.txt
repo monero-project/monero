@@ -46,7 +46,7 @@ endif()
 cmake_minimum_required(VERSION 2.8.7)
 message(STATUS "CMake version ${CMAKE_VERSION}")
 
-project(monero)
+project(equilibria)
 
 include(FindCcache) # Has to be included after the project() macro, to be able to read the CXX variable.
 
