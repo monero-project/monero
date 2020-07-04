@@ -19,7 +19,7 @@ namespace service_nodes {
 
 		uint64_t height_adjusted = height - hardfork_height;
 		uint64_t base = 0, variable = 0;
-		if (height >= 356446)
+		if (height >= 352846)
 		{
 			base = 70000 * COIN;
 			variable = (20000.0 * COIN) / triton::exp2(height_adjusted / 356446.0);

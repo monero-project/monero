@@ -1322,7 +1322,7 @@ bool Blockchain::allow_governance(uint64_t height)
   uint64_t fork_height;
   if(m_nettype == MAINNET)
   {
-    fork_height = 356446;
+    fork_height = 352846;
   }
   else if(m_nettype == TESTNET)
   {

@@ -139,7 +139,7 @@ namespace cryptonote
     uint64_t fork_height = 0;
     if(nettype == MAINNET)
     {
-      fork_height = 356446;
+      fork_height = 352846;
     }
     else if(nettype == TESTNET)
     {
