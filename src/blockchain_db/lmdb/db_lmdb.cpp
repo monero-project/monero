@@ -1352,7 +1352,7 @@ void BlockchainLMDB::open(const std::string& filename, const int db_flags)
   if (db_flags & DBF_FASTEST)
     mdb_flags |= MDB_NOSYNC | MDB_WRITEMAP | MDB_MAPASYNC;
   if (db_flags & DBF_RDONLY)
-    mdb_flags = MDB_RDONLY;
+    mdb_flags = MDB_RDONLY | MDB_NOLOCK;
   if (db_flags & DBF_SALVAGE)
     mdb_flags |= MDB_PREVSNAPSHOT;
 
