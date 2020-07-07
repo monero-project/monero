@@ -8,6 +8,10 @@ darwin_packages = sodium-darwin hidapi-darwin
 
 linux_packages = eudev libusb hidapi-linux
 
+ifeq ($(build_tests),ON)
+packages += gtest
+endif
+
 ifeq ($(host_os),linux)
 packages += unwind
 packages += sodium

@@ -1,9 +1,17 @@
 # Set the system name, either Darwin, Linux, or Windows
 SET(CMAKE_SYSTEM_NAME @depends@)
-SET(CMAKE_BUILD_TYPE release)
+SET(CMAKE_BUILD_TYPE @release_type@)
 
-SET(STATIC true)
-SET(UNBOUND_STATIC true)
+OPTION(STATIC "Link libraries statically" ON)
+OPTION(TREZOR_DEBUG "Main trezor debugging switch" OFF)
+OPTION(BUILD_TESTS "Build tests." OFF)
+
+SET(STATIC ON)
+SET(UNBOUND_STATIC ON)
+SET(ARCH "default")
+
+SET(BUILD_TESTS @build_tests@)
+SET(TREZOR_DEBUG @build_tests@)
 
 # where is the target environment 
 SET(CMAKE_FIND_ROOT_PATH @prefix@ /usr)
@@ -48,7 +56,6 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
   SET(APPLE True)
   SET(BUILD_TAG "mac-x64")
   SET(BUILD_64 ON)
-  SET(ARCH "x86_64")
   SET(BREW OFF)
   SET(PORT OFF)
   SET(CMAKE_OSX_SYSROOT "@sdk@/MacOSX10.11.sdk/")
