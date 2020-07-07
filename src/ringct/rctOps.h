@@ -132,6 +132,7 @@ namespace rct {
     //for curve points: AB = A + B
     void addKeys(key &AB, const key &A, const key &B);
     rct::key addKeys(const key &A, const key &B);
+    rct::key addKeys(const keyV &A);
     //aGB = aG + B where a is a scalar, G is the basepoint, and B is a point
     void addKeys1(key &aGB, const key &a, const key & B);
     //aGbB = aG + bB where a, b are scalars, G is the basepoint and B is a point

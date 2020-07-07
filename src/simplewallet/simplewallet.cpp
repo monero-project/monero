@@ -3321,10 +3321,10 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
     
     else if (!m_generate_from_json.empty())
     {
-      m_wallet_file = m_generate_from_json;
       try
       {
-        m_wallet = tools::wallet2::make_from_json(vm, false, m_wallet_file, password_prompter);
+        m_wallet = tools::wallet2::make_from_json(vm, false, m_generate_from_json, password_prompter);
+        m_wallet_file = m_wallet->path();
       }
       catch (const std::exception &e)
       {
@@ -4251,7 +4251,7 @@ boost::optional<epee::wipeable_string> simple_wallet::on_get_password(const char
   // can't ask for password from a background thread
   if (!m_in_manual_refresh.load(std::memory_order_relaxed))
   {
-    message_writer(console_color_red, false) << tr("Password needed - use the refresh command");
+    message_writer(console_color_red, false) << boost::format(tr("Password needed (%s) - use the refresh command")) % reason;
     m_cmd_binder.print_prompt();
     return boost::none;
   }
@@ -8316,6 +8316,8 @@ void simple_wallet::commit_or_save(std::vector<tools::wallet2::pending_tx>& ptx_
 //----------------------------------------------------------------------------------------------------
 int main(int argc, char* argv[])
 {
+  TRY_ENTRY();
+
 #ifdef WIN32
   // Activate UTF-8 support for Boost filesystem classes on Windows
   std::locale::global(boost::locale::generator().generate(""));
@@ -8412,5 +8414,5 @@ int main(int argc, char* argv[])
     w.deinit();
   }
   return 0;
-  //CATCH_ENTRY_L0("main", 1);
+  CATCH_ENTRY_L0("main", 1);
 }

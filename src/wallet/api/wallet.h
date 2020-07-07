@@ -79,6 +79,7 @@ public:
     bool recoverFromDevice(const std::string &path,
                            const std::string &password,
                            const std::string &device_name);
+    Device getDeviceType() const;
     bool close(bool store = true);
     std::string seed() const override;
     std::string getSeedLanguage() const override;
@@ -139,6 +140,7 @@ public:
     bool finalizeMultisig(const std::vector<std::string>& extraMultisigInfo) override;
     bool exportMultisigImages(std::string& images) override;
     size_t importMultisigImages(const std::vector<std::string>& images) override;
+    bool hasMultisigPartialKeyImages() const override;
     PendingTransaction*  restoreMultisigTransaction(const std::string& signData) override;
 
     PendingTransaction * createTransaction(const std::string &dst_addr, const std::string &payment_id,
@@ -214,16 +216,16 @@ private:
     friend class SubaddressImpl;
     friend class SubaddressAccountImpl;
 
-    tools::wallet2 * m_wallet;
+    std::unique_ptr<tools::wallet2> m_wallet;
     mutable boost::mutex m_statusMutex;
     mutable int m_status;
     mutable std::string m_errorString;
     std::string m_password;
-    TransactionHistoryImpl * m_history;
-    Wallet2CallbackImpl * m_wallet2Callback;
-    AddressBookImpl *  m_addressBook;
-    SubaddressImpl *  m_subaddress;
-    SubaddressAccountImpl *  m_subaddressAccount;
+    std::unique_ptr<TransactionHistoryImpl> m_history;
+    std::unique_ptr<Wallet2CallbackImpl> m_wallet2Callback;
+    std::unique_ptr<AddressBookImpl>  m_addressBook;
+    std::unique_ptr<SubaddressImpl>  m_subaddress;
+    std::unique_ptr<SubaddressAccountImpl>  m_subaddressAccount;
 
     // multi-threaded refresh stuff
     std::atomic<bool> m_refreshEnabled;

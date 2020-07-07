@@ -51,6 +51,7 @@ using namespace epee;
 #include "mnemonics/electrum-words.h"
 #include "rpc/rpc_args.h"
 #include "rpc/core_rpc_server_commands_defs.h"
+#include "daemonizer/daemonizer.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "wallet.rpc"
@@ -1561,8 +1562,8 @@ namespace tools
         rpc_transfers.spent        = td.m_spent;
         rpc_transfers.global_index = td.m_global_output_index;
         rpc_transfers.tx_hash      = epee::string_tools::pod_to_hex(td.m_txid);
-        rpc_transfers.subaddr_index = td.m_subaddr_index.minor;
-        rpc_transfers.key_image    = req.verbose && td.m_key_image_known ? epee::string_tools::pod_to_hex(td.m_key_image) : "";
+        rpc_transfers.subaddr_index = {td.m_subaddr_index.major, td.m_subaddr_index.minor};
+        rpc_transfers.key_image    = td.m_key_image_known ? epee::string_tools::pod_to_hex(td.m_key_image) : "";
         res.transfers.push_back(rpc_transfers);
       }
     }
@@ -3823,11 +3824,182 @@ namespace tools
   //------------------------------------------------------------------------------------------------------------------------------
 }
 
+class t_daemon
+{
+private:
+  const boost::program_options::variables_map& vm;
+
+  std::unique_ptr<tools::wallet_rpc_server> wrpc;
+
+public:
+  t_daemon(boost::program_options::variables_map const & _vm)
+    : vm(_vm)
+    , wrpc(new tools::wallet_rpc_server)
+  {
+  }
+
+  bool run()
+  {
+    std::unique_ptr<tools::wallet2> wal;
+    try
+    {
+      const bool testnet = tools::wallet2::has_testnet_option(vm);
+      const bool stagenet = tools::wallet2::has_stagenet_option(vm);
+      if (testnet && stagenet)
+      {
+        MERROR(tools::wallet_rpc_server::tr("Can't specify more than one of --testnet and --stagenet"));
+        return false;
+      }
+
+      const auto arg_wallet_file = wallet_args::arg_wallet_file();
+      const auto arg_from_json = wallet_args::arg_generate_from_json();
+
+      const auto wallet_file = command_line::get_arg(vm, arg_wallet_file);
+      const auto from_json = command_line::get_arg(vm, arg_from_json);
+      const auto wallet_dir = command_line::get_arg(vm, arg_wallet_dir);
+      const auto prompt_for_password = command_line::get_arg(vm, arg_prompt_for_password);
+      const auto password_prompt = prompt_for_password ? password_prompter : nullptr;
+
+      if(!wallet_file.empty() && !from_json.empty())
+      {
+        LOG_ERROR(tools::wallet_rpc_server::tr("Can't specify more than one of --wallet-file and --generate-from-json"));
+        return false;
+      }
+
+      if (!wallet_dir.empty())
+      {
+        wal = NULL;
+        goto just_dir;
+      }
+
+      if (wallet_file.empty() && from_json.empty())
+      {
+        LOG_ERROR(tools::wallet_rpc_server::tr("Must specify --wallet-file or --generate-from-json or --wallet-dir"));
+        return false;
+      }
+
+      LOG_PRINT_L0(tools::wallet_rpc_server::tr("Loading wallet..."));
+      if(!wallet_file.empty())
+      {
+        wal = tools::wallet2::make_from_file(vm, true, wallet_file, password_prompt).first;
+      }
+      else
+      {
+        try
+        {
+          wal = tools::wallet2::make_from_json(vm, true, from_json, password_prompt);
+        }
+        catch (const std::exception &e)
+        {
+          MERROR("Error creating wallet: " << e.what());
+          return false;
+        }
+      }
+      if (!wal)
+      {
+        return false;
+      }
+
+      bool quit = false;
+      tools::signal_handler::install([&wal, &quit](int) {
+        assert(wal);
+        quit = true;
+        wal->stop();
+      });
+
+      wal->refresh(wal->is_trusted_daemon());
+      // if we ^C during potentially length load/refresh, there's no server loop yet
+      if (quit)
+      {
+        MINFO(tools::wallet_rpc_server::tr("Saving wallet..."));
+        wal->store();
+        MINFO(tools::wallet_rpc_server::tr("Successfully saved"));
+        return false;
+      }
+      MINFO(tools::wallet_rpc_server::tr("Successfully loaded"));
+    }
+    catch (const std::exception& e)
+    {
+      LOG_ERROR(tools::wallet_rpc_server::tr("Wallet initialization failed: ") << e.what());
+      return false;
+    }
+  just_dir:
+    if (wal) wrpc->set_wallet(wal.release());
+    bool r = wrpc->init(&vm);
+    CHECK_AND_ASSERT_MES(r, false, tools::wallet_rpc_server::tr("Failed to initialize wallet RPC server"));
+    tools::signal_handler::install([this](int) {
+      wrpc->send_stop_signal();
+    });
+    LOG_PRINT_L0(tools::wallet_rpc_server::tr("Starting wallet RPC server"));
+    try
+    {
+      wrpc->run();
+    }
+    catch (const std::exception &e)
+    {
+      LOG_ERROR(tools::wallet_rpc_server::tr("Failed to run wallet: ") << e.what());
+      return false;
+    }
+    LOG_PRINT_L0(tools::wallet_rpc_server::tr("Stopped wallet RPC server"));
+    try
+    {
+      LOG_PRINT_L0(tools::wallet_rpc_server::tr("Saving wallet..."));
+      wrpc->stop();
+      LOG_PRINT_L0(tools::wallet_rpc_server::tr("Successfully saved"));
+    }
+    catch (const std::exception& e)
+    {
+      LOG_ERROR(tools::wallet_rpc_server::tr("Failed to save wallet: ") << e.what());
+      return false;
+    }
+    return true;
+  }
+
+  void stop()
+  {
+    wrpc->send_stop_signal();
+  }
+};
+
+class t_executor final
+{
+public:
+  static std::string const NAME;
+
+  typedef ::t_daemon t_daemon;
+
+  std::string const & name() const
+  {
+    return NAME;
+  }
+
+  t_daemon create_daemon(boost::program_options::variables_map const & vm)
+  {
+    return t_daemon(vm);
+  }
+
+  bool run_non_interactive(boost::program_options::variables_map const & vm)
+  {
+    return t_daemon(vm).run();
+  }
+
+  bool run_interactive(boost::program_options::variables_map const & vm)
+  {
+    return t_daemon(vm).run();
+  }
+};
+
+std::string const t_executor::NAME = "Wallet RPC Daemon";
+
 int main(int argc, char** argv) {
+  TRY_ENTRY();
+
   namespace po = boost::program_options;
 
   const auto arg_wallet_file = wallet_args::arg_wallet_file();
   const auto arg_from_json = wallet_args::arg_generate_from_json();
+
+  po::options_description hidden_options("Hidden");
 
   po::options_description desc_params(wallet_args::tr("Wallet options"));
   tools::wallet2::init_options(desc_params);
@@ -3839,6 +4011,9 @@ int main(int argc, char** argv) {
   command_line::add_arg(desc_params, arg_from_json);
   command_line::add_arg(desc_params, arg_wallet_dir);
   command_line::add_arg(desc_params, arg_prompt_for_password);
+
+  daemonizer::init_options(hidden_options, desc_params);
+  desc_params.add(hidden_options);
 
   boost::optional<po::variables_map> vm;
   bool should_terminate = false;
@@ -3861,115 +4036,6 @@ int main(int argc, char** argv) {
     return 0;
   }
 
-  std::unique_ptr<tools::wallet2> wal;
-  try
-  {
-    const bool testnet = tools::wallet2::has_testnet_option(*vm);
-    const bool stagenet = tools::wallet2::has_stagenet_option(*vm);
-    if (testnet && stagenet)
-    {
-      MERROR(tools::wallet_rpc_server::tr("Can't specify more than one of --testnet and --stagenet"));
-      return 1;
-    }
-
-    const auto wallet_file = command_line::get_arg(*vm, arg_wallet_file);
-    const auto from_json = command_line::get_arg(*vm, arg_from_json);
-    const auto wallet_dir = command_line::get_arg(*vm, arg_wallet_dir);
-    const auto prompt_for_password = command_line::get_arg(*vm, arg_prompt_for_password);
-    const auto password_prompt = prompt_for_password ? password_prompter : nullptr;
-
-    if(!wallet_file.empty() && !from_json.empty())
-    {
-      LOG_ERROR(tools::wallet_rpc_server::tr("Can't specify more than one of --wallet-file and --generate-from-json"));
-      return 1;
-    }
-
-    if (!wallet_dir.empty())
-    {
-      wal = NULL;
-      goto just_dir;
-    }
-
-    if (wallet_file.empty() && from_json.empty())
-    {
-      LOG_ERROR(tools::wallet_rpc_server::tr("Must specify --wallet-file or --generate-from-json or --wallet-dir"));
-      return 1;
-    }
-
-    LOG_PRINT_L0(tools::wallet_rpc_server::tr("Loading wallet..."));
-    if(!wallet_file.empty())
-    {
-      wal = tools::wallet2::make_from_file(*vm, true, wallet_file, password_prompt).first;
-    }
-    else
-    {
-      try
-      {
-        wal = tools::wallet2::make_from_json(*vm, true, from_json, password_prompt);
-      }
-      catch (const std::exception &e)
-      {
-        MERROR("Error creating wallet: " << e.what());
-        return 1;
-      }
-    }
-    if (!wal)
-    {
-      return 1;
-    }
-
-    bool quit = false;
-    tools::signal_handler::install([&wal, &quit](int) {
-      assert(wal);
-      quit = true;
-      wal->stop();
-    });
-
-    wal->refresh(wal->is_trusted_daemon());
-    // if we ^C during potentially length load/refresh, there's no server loop yet
-    if (quit)
-    {
-      MINFO(tools::wallet_rpc_server::tr("Saving wallet..."));
-      wal->store();
-      MINFO(tools::wallet_rpc_server::tr("Successfully saved"));
-      return 1;
-    }
-    MINFO(tools::wallet_rpc_server::tr("Successfully loaded"));
-  }
-  catch (const std::exception& e)
-  {
-    LOG_ERROR(tools::wallet_rpc_server::tr("Wallet initialization failed: ") << e.what());
-    return 1;
-  }
-just_dir:
-  tools::wallet_rpc_server wrpc;
-  if (wal) wrpc.set_wallet(wal.release());
-  bool r = wrpc.init(&(vm.get()));
-  CHECK_AND_ASSERT_MES(r, 1, tools::wallet_rpc_server::tr("Failed to initialize wallet RPC server"));
-  tools::signal_handler::install([&wrpc](int) {
-    wrpc.send_stop_signal();
-  });
-  LOG_PRINT_L0(tools::wallet_rpc_server::tr("Starting wallet RPC server"));
-  try
-  {
-    wrpc.run();
-  }
-  catch (const std::exception &e)
-  {
-    LOG_ERROR(tools::wallet_rpc_server::tr("Failed to run wallet: ") << e.what());
-    return 1;
-  }
-  LOG_PRINT_L0(tools::wallet_rpc_server::tr("Stopped wallet RPC server"));
-  try
-  {
-    LOG_PRINT_L0(tools::wallet_rpc_server::tr("Saving wallet..."));
-    wrpc.stop();
-    LOG_PRINT_L0(tools::wallet_rpc_server::tr("Successfully saved"));
-  }
-  catch (const std::exception& e)
-  {
-    LOG_ERROR(tools::wallet_rpc_server::tr("Failed to save wallet: ") << e.what());
-    return 1;
-  }
-  return 0;
+  return daemonizer::daemonize(argc, const_cast<const char**>(argv), t_executor{}, *vm) ? 0 : 1;
+  CATCH_ENTRY_L0("main", 1);
 }

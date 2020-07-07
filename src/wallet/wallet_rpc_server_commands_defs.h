@@ -863,7 +863,7 @@ namespace wallet_rpc
     bool spent;
     uint64_t global_index;
     std::string tx_hash;
-    uint32_t subaddr_index;
+    cryptonote::subaddress_index subaddr_index;
     std::string key_image;
 
     BEGIN_KV_SERIALIZE_MAP()
@@ -883,13 +883,11 @@ namespace wallet_rpc
       std::string transfer_type;
       uint32_t account_index;
       std::set<uint32_t> subaddr_indices;
-      bool verbose;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(transfer_type)
         KV_SERIALIZE(account_index)
         KV_SERIALIZE(subaddr_indices)
-        KV_SERIALIZE(verbose)
       END_KV_SERIALIZE_MAP()
     };
 

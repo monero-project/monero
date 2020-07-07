@@ -1,21 +1,20 @@
-// Copyright (c) 2017-2019, AEON, The Monero Project
-// 
+//
 // All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without modification, are
 // permitted provided that the following conditions are met:
-// 
+//
 // 1. Redistributions of source code must retain the above copyright notice, this list of
 //    conditions and the following disclaimer.
-// 
+//
 // 2. Redistributions in binary form must reproduce the above copyright notice, this list
 //    of conditions and the following disclaimer in the documentation and/or other
 //    materials provided with the distribution.
-// 
+//
 // 3. Neither the name of the copyright holder nor the names of its contributors may be
 //    used to endorse or promote products derived from this software without specific
 //    prior written permission.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 // MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -26,51 +25,46 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include <boost/program_options.hpp>
-#include "include_base_utils.h"
-#include "string_tools.h"
-#include "common/command_line.h"
-#include "common/util.h"
-#include "fuzzer.h"
+#include "expect.h"
 
-#if (!defined(__clang__) || (__clang__ < 5))
-static int __AFL_LOOP(int)
+#include <easylogging++.h>
+#include <string>
+
+namespace detail
 {
-  static int once = 0;
-  if (once)
-    return 0;
-  once = 1;
-  return 1;
-}
-#endif
+    namespace
+    {
+        std::string generate_error(const char* msg, const char* file, unsigned line)
+        {
+            std::string error_msg{};
+            if (msg)
+            {
+                error_msg.append(msg);
+                if (file)
+                    error_msg.append(" (");
+            }
+            if (file)
+            {
+                error_msg.append("thrown at ");
 
-int run_fuzzer(int argc, const char **argv, Fuzzer &fuzzer)
-{
-  TRY_ENTRY();
+                // remove path, get just filename + extension
+                char buff[256] = {0};
+                el::base::utils::File::buildBaseFilename(file, buff, sizeof(buff) - 1);
+                error_msg.append(buff);
 
-  if (argc < 2)
-  {
-    std::cout << "usage: " << argv[0] << " " << "<filename>" << std::endl;
-    return 1;
-  }
+                error_msg.push_back(':');
+                error_msg.append(std::to_string(line));
+            }
+            if (msg && file)
+                error_msg.push_back(')');
+            return error_msg;
+        }
+    }
 
-#ifdef __AFL_HAVE_MANUAL_CONTROL
-  __AFL_INIT();
-#endif
-
-  int ret = fuzzer.init();
-  if (ret)
-    return ret;
-
-  const std::string filename = argv[1];
-  while (__AFL_LOOP(1000))
-  {
-    ret = fuzzer.run(filename);
-    if (ret)
-      return ret;
-  }
-
-  return 0;
-
-  CATCH_ENTRY_L0("run_fuzzer", 1);
-}
+    void expect::throw_(std::error_code ec, const char* msg, const char* file, unsigned line)
+    {
+        if (msg || file)
+            throw std::system_error{ec, generate_error(msg, file, line)};
+        throw std::system_error{ec};
+    }
+} // detail

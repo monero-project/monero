@@ -167,6 +167,8 @@ static bool generate_multisig(uint32_t threshold, uint32_t total, const std::str
 
 int main(int argc, char* argv[])
 {
+  TRY_ENTRY();
+
   po::options_description desc_params(wallet_args::tr("Wallet options"));
   command_line::add_arg(desc_params, arg_filename_base);
   command_line::add_arg(desc_params, arg_scheme);
@@ -254,5 +256,5 @@ int main(int argc, char* argv[])
     return 1;
 
   return 0;
-  //CATCH_ENTRY_L0("main", 1);
+  CATCH_ENTRY_L0("main", 1);
 }

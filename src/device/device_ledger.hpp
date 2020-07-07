@@ -139,7 +139,9 @@ namespace hw {
         bool disconnect() override;
         bool connected(void) const;
 
-        bool  set_mode(device_mode mode) override;
+        bool set_mode(device_mode mode) override;
+
+        device_type get_type() const override {return device_type::LEDGER;};
 
         /* ======================================================================= */
         /*  LOCKER                                                                 */

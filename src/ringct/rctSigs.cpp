@@ -963,18 +963,16 @@ namespace rct {
           const bool bulletproof = is_rct_bulletproof(rv.type);
           const keyV &pseudoOuts = bulletproof ? rv.p.pseudoOuts : rv.pseudoOuts;
 
-          key sumOutpks = identity();
+          rct::keyV masks(rv.outPk.size());
           for (size_t i = 0; i < rv.outPk.size(); i++) {
-            addKeys(sumOutpks, sumOutpks, rv.outPk[i].mask);
+            masks[i] = rv.outPk[i].mask;
           }
+          key sumOutpks = addKeys(masks);
           DP(sumOutpks);
-          key txnFeeKey = scalarmultH(d2h(rv.txnFee));
+          const key txnFeeKey = scalarmultH(d2h(rv.txnFee));
           addKeys(sumOutpks, txnFeeKey, sumOutpks);
 
-          key sumPseudoOuts = identity();
-          for (size_t i = 0 ; i < pseudoOuts.size() ; i++) {
-            addKeys(sumPseudoOuts, sumPseudoOuts, pseudoOuts[i]);
-          }
+          key sumPseudoOuts = addKeys(pseudoOuts);
           DP(sumPseudoOuts);
 
           //check pseudoOuts vs Outs..

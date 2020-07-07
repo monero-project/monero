@@ -97,7 +97,7 @@ static const char *get_default_categories(int level)
   switch (level)
   {
     case 0:
-      categories = "*:WARNING,net:FATAL,net.p2p:FATAL,net.cn:FATAL,global:INFO,verify:FATAL,stacktrace:INFO,logging:INFO,msgwriter:INFO";
+      categories = "*:WARNING,net:FATAL,net.http:FATAL,net.p2p:FATAL,net.cn:FATAL,global:INFO,verify:FATAL,stacktrace:INFO,logging:INFO,msgwriter:INFO";
       break;
     case 1:
       categories = "*:INFO,global:INFO,stacktrace:INFO,logging:INFO,msgwriter:INFO";
@@ -137,7 +137,12 @@ void mlog_configure(const std::string &filename_base, bool console, const std::s
   el::Loggers::addFlag(el::LoggingFlag::StrictLogFileSizeCheck);
   el::Helpers::installPreRollOutCallback([filename_base, max_log_files](const char *name, size_t){
     std::string rname = generate_log_filename(filename_base.c_str());
-    rename(name, rname.c_str());
+    int ret = rename(name, rname.c_str());
+    if (ret < 0)
+    {
+      // can't log a failure, but don't do the file removal below
+      return;
+    }
     if (max_log_files != 0)
     {
       std::vector<boost::filesystem::path> found_files;
