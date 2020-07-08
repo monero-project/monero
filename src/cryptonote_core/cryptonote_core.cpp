@@ -1656,7 +1656,6 @@ namespace cryptonote
       m_starter_message_showed = true;
     }
 
-    m_fork_moaner.do_call(boost::bind(&core::check_fork_time, this));
     m_txpool_auto_relayer.do_call(boost::bind(&core::relay_txpool_transactions, this));
     m_check_updates_interval.do_call(boost::bind(&core::check_updates, this));
     m_check_disk_space_interval.do_call(boost::bind(&core::check_disk_space, this));
@@ -1664,29 +1663,6 @@ namespace cryptonote
     m_blockchain_pruning_interval.do_call(boost::bind(&core::update_blockchain_pruning, this));
     m_miner.on_idle();
     m_mempool.on_idle();
-    return true;
-  }
-  //-----------------------------------------------------------------------------------------------
-  bool core::check_fork_time()
-  {
-    if (m_nettype == FAKECHAIN)
-      return true;
-
-    HardFork::State state = m_blockchain_storage.get_hard_fork_state();
-    el::Level level;
-    switch (state) {
-      case HardFork::LikelyForked:
-        level = el::Level::Warning;
-        MCLOG_RED(level, "global", "**********************************************************************");
-        MCLOG_RED(level, "global", "Last scheduled hard fork is too far in the past.");
-        MCLOG_RED(level, "global", "We are most likely forked from the network. Daemon update needed now.");
-        MCLOG_RED(level, "global", "**********************************************************************");
-        break;
-      case HardFork::UpdateNeeded:
-        break;
-      default:
-        break;
-    }
     return true;
   }
   //-----------------------------------------------------------------------------------------------
