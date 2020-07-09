@@ -463,6 +463,7 @@ namespace cryptonote
       std::vector<std::vector<public_key>> borromean_pubs(sources.size());
       std::vector<secret_key> borromean_secs(sources.size());
       std::vector<std::size_t> borromean_sec_indices(sources.size());
+      std::vector<rct::multisig_kLRki> kLRki;
       for(const tx_source_entry& src_entr:  sources)
       {
         ss_ring_s << "pub_keys:" << ENDL;
@@ -475,6 +476,10 @@ namespace cryptonote
           keys_ptrs.push_back(&keys[ii]);
           ss_ring_s << o.second.dest << ENDL;
           ++ii;
+        }
+        if (msout)
+        {
+          kLRki.push_back(sources[i].multisig_kLRki);
         }
 
         if (tx.minor_version == 0)
@@ -499,7 +504,7 @@ namespace cryptonote
       }
       if (tx.minor_version > 0)
       {
-        crypto::generate_borromean_signature(tx_prefix_hash, borromean_images, borromean_pubs, borromean_secs, borromean_sec_indices, {}, nullptr, tx.borromean_signature);
+        crypto::generate_borromean_signature(tx_prefix_hash, borromean_images, borromean_pubs, borromean_secs, borromean_sec_indices, kLRki, msout, tx.borromean_signature);
         ss_ring_s << "borromean_signature:" << ENDL;
         ss_ring_s << "c:" << tx.borromean_signature.c << ENDL;
         for (size_t j = 0; j < sources.size(); ++j)
