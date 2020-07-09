@@ -137,6 +137,8 @@ using namespace cryptonote;
 #define GAMMA_SHAPE 19.28
 #define GAMMA_SCALE (1/1.61)
 
+#define GAMMA_PICK_HALF_WINDOW 5
+
 #define DEFAULT_MIN_OUTPUT_COUNT 5
 #define DEFAULT_MIN_OUTPUT_VALUE (2*COIN)
 
@@ -1000,44 +1002,6 @@ const size_t MAX_SPLIT_ATTEMPTS = 30;
 
 constexpr const std::chrono::seconds wallet2::rpc_timeout;
 const char* wallet2::tr(const char* str) { return i18n_translate(str, "tools::wallet2"); }
-
-gamma_picker::gamma_picker(const std::vector<uint64_t> &rct_offsets, double shape, double scale):
-    rct_offsets(rct_offsets)
-{
-  gamma = std::gamma_distribution<double>(shape, scale);
-  THROW_WALLET_EXCEPTION_IF(rct_offsets.size() <= CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE, error::wallet_internal_error, "Bad offset calculation");
-  const size_t blocks_in_a_year = 86400 * 365 / DIFFICULTY_TARGET_V2;
-  const size_t blocks_to_consider = std::min<size_t>(rct_offsets.size(), blocks_in_a_year);
-  const size_t outputs_to_consider = rct_offsets.back() - (blocks_to_consider < rct_offsets.size() ? rct_offsets[rct_offsets.size() - blocks_to_consider - 1] : 0);
-  begin = rct_offsets.data();
-  end = rct_offsets.data() + rct_offsets.size() - CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE;
-  num_rct_outputs = *(end - 1);
-  THROW_WALLET_EXCEPTION_IF(num_rct_outputs == 0, error::wallet_internal_error, "No rct outputs");
-  average_output_time = DIFFICULTY_TARGET_V2 * blocks_to_consider / outputs_to_consider; // this assumes constant target over the whole rct range
-};
-
-gamma_picker::gamma_picker(const std::vector<uint64_t> &rct_offsets): gamma_picker(rct_offsets, GAMMA_SHAPE, GAMMA_SCALE) {}
-
-uint64_t gamma_picker::pick()
-{
-  double x = gamma(engine);
-  x = exp(x);
-  uint64_t output_index = x / average_output_time;
-  if (output_index >= num_rct_outputs)
-    return std::numeric_limits<uint64_t>::max(); // bad pick
-  output_index = num_rct_outputs - 1 - output_index;
-
-  const uint64_t *it = std::lower_bound(begin, end, output_index);
-  THROW_WALLET_EXCEPTION_IF(it == end, error::wallet_internal_error, "output_index not found");
-  uint64_t index = std::distance(begin, it);
-
-  const uint64_t first_rct = index == 0 ? 0 : rct_offsets[index - 1];
-  const uint64_t n_rct = rct_offsets[index] - first_rct;
-  if (n_rct == 0)
-    return std::numeric_limits<uint64_t>::max(); // bad pick
-  MTRACE("Picking 1/" << n_rct << " in block " << index);
-  return first_rct + crypto::rand_idx(n_rct);
-};
 
 boost::mutex wallet_keys_unlocker::lockers_lock;
 unsigned int wallet_keys_unlocker::lockers = 0;
@@ -8225,9 +8189,54 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
     COMMAND_RPC_GET_OUTPUTS_BIN::request req = AUTO_VAL_INIT(req);
     COMMAND_RPC_GET_OUTPUTS_BIN::response daemon_resp = AUTO_VAL_INIT(daemon_resp);
 
-    std::unique_ptr<gamma_picker> gamma;
-    if (has_rct_distribution)
-      gamma.reset(new gamma_picker(rct_offsets));
+    struct gamma_engine
+    {
+      typedef uint64_t result_type;
+      static constexpr result_type min() { return 0; }
+      static constexpr result_type max() { return std::numeric_limits<result_type>::max(); }
+      result_type operator()() { return crypto::rand<result_type>(); }
+    } engine;
+    static const double shape = 19.28/*16.94*/;
+    //static const double shape = m_testnet ? 17.02 : 17.28;
+    static const double scale = 1/1.61;
+    std::gamma_distribution<double> gamma(shape, scale);
+    auto pick_gamma = [&]()
+    {
+      double x = gamma(engine);
+      x = exp(x);
+      uint64_t block_offset = x / DIFFICULTY_TARGET_V2; // this assumes constant target over the whole rct range
+      if (block_offset >= rct_offsets.size() - 1)
+        return std::numeric_limits<uint64_t>::max(); // bad pick
+      block_offset = rct_offsets.size() - 2 - block_offset;
+      THROW_WALLET_EXCEPTION_IF(block_offset >= rct_offsets.size() - 1, error::wallet_internal_error, "Bad offset calculation");
+      THROW_WALLET_EXCEPTION_IF(rct_offsets[block_offset + 1] < rct_offsets[block_offset],
+          error::get_output_distribution, "Decreasing offsets in rct distribution: " +
+          std::to_string(block_offset) + ": " + std::to_string(rct_offsets[block_offset]) + ", " +
+          std::to_string(block_offset + 1) + ": " + std::to_string(rct_offsets[block_offset + 1]));
+      uint64_t first_block_offset = block_offset, last_block_offset = block_offset;
+      for (size_t half_window = 0; half_window < GAMMA_PICK_HALF_WINDOW; ++half_window)
+      {
+        // end when we have a non empty block
+        uint64_t cum0 = first_block_offset > 0 ? rct_offsets[first_block_offset] - rct_offsets[first_block_offset - 1] : rct_offsets[0];
+        if (cum0 > 1)
+          break;
+        uint64_t cum1 = last_block_offset > 0 ? rct_offsets[last_block_offset] - rct_offsets[last_block_offset - 1] : rct_offsets[0];
+        if (cum1 > 1)
+          break;
+        if (first_block_offset == 0 && last_block_offset >= rct_offsets.size() - 2)
+          break;
+        // expand up to bounds
+        if (first_block_offset > 0)
+          --first_block_offset;
+        if (last_block_offset < rct_offsets.size() - 1)
+          ++last_block_offset;
+      }
+      const uint64_t n_rct = rct_offsets[last_block_offset] - (first_block_offset == 0 ? 0 : rct_offsets[first_block_offset - 1]);
+      if (n_rct == 0)
+        return rct_offsets[block_offset] ? rct_offsets[block_offset] - 1 : 0;
+      MDEBUG("Picking 1/" << n_rct << " in " << (last_block_offset - first_block_offset + 1) << " blocks centered around " << block_offset);
+      return rct_offsets[first_block_offset - 1] + crypto::rand<uint64_t>() % n_rct;
+    };
 
     size_t num_selected_transfers = 0;
     for(size_t idx: selected_transfers)
@@ -8425,21 +8434,20 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
           const char *type = "";
           if (amount == 0 && has_rct_distribution)
           {
-            THROW_WALLET_EXCEPTION_IF(!gamma, error::wallet_internal_error, "No gamma picker");
             // gamma distribution
             if (num_found -1 < recent_outputs_count + pre_fork_outputs_count)
             {
-              do i = gamma->pick(); while (i >= segregation_limit[amount].first);
+              do i = pick_gamma(); while (i >= segregation_limit[amount].first);
               type = "pre-fork gamma";
             }
             else if (num_found -1 < recent_outputs_count + pre_fork_outputs_count + post_fork_outputs_count)
             {
-              do i = gamma->pick(); while (i < segregation_limit[amount].first || i >= num_outs);
+              do i = pick_gamma(); while (i < segregation_limit[amount].first || i >= num_outs);
               type = "post-fork gamma";
             }
             else
             {
-              do i = gamma->pick(); while (i >= num_outs);
+              do i = pick_gamma(); while (i >= num_outs);
               type = "gamma";
             }
           }
