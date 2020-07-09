@@ -499,7 +499,7 @@ namespace cryptonote
       }
       if (tx.minor_version > 0)
       {
-        crypto::generate_borromean_signature(tx_prefix_hash, borromean_images, borromean_pubs, borromean_secs, borromean_sec_indices, tx.borromean_signature);
+        crypto::generate_borromean_signature(tx_prefix_hash, borromean_images, borromean_pubs, borromean_secs, borromean_sec_indices, {}, nullptr, tx.borromean_signature);
         ss_ring_s << "borromean_signature:" << ENDL;
         ss_ring_s << "c:" << tx.borromean_signature.c << ENDL;
         for (size_t j = 0; j < sources.size(); ++j)

@@ -43,6 +43,7 @@
 #include "warnings.h"
 #include "crypto.h"
 #include "hash.h"
+#include "ringct/rctTypes.h"
 
 namespace {
   static void local_abort(const char *msg)
@@ -616,7 +617,7 @@ POP_WARNINGS
   };
 
   void crypto_ops::generate_borromean_signature(const hash &prefix_hash, const std::vector<key_image> &images, const std::vector<std::vector<public_key>> &pubs,
-    const std::vector<secret_key> &secs, const std::vector<std::size_t> &sec_indices,
+    const std::vector<secret_key> &secs, const std::vector<std::size_t> &sec_indices, const std::vector<rct::multisig_kLRki> &kLRki, rct::multisig_out * const msout,
     borromean_signature &sig) {
     const size_t n = pubs.size();
     if (images.size() != n) {
@@ -628,6 +629,15 @@ POP_WARNINGS
     if (sec_indices.size() != n) {
       local_abort("invalid sec_indices size");
     }
+    const bool multisig = !kLRki.empty();
+    if ((multisig && !msout) || (!multisig && msout)) {
+      local_abort("Only one of kLRki/msout is present");
+    }
+    if (multisig && kLRki.size() != n) {
+      local_abort("invalid kLRki size");
+    }
+    if (multisig)
+      msout->c.resize(n);
     sig.r.resize(n);
     for (size_t i = 0; i < n; ++i) {
       const size_t ring_size = pubs[i].size();
@@ -636,6 +646,7 @@ POP_WARNINGS
       }
       sig.r[i].resize(ring_size);
 #if !defined(NDEBUG)
+      if (multisig) continue;
       ge_p3 t;
       public_key t2;
       key_image t3;
@@ -667,12 +678,21 @@ POP_WARNINGS
         ge_p2 tmp2;
         ge_p3 tmp3;
         if (j == sec_indices[i]) {
-          random_scalar(k[i]);
-          ge_scalarmult_base(&tmp3, &k[i]);
-          ge_p3_tobytes(&buf_inner.L, &tmp3);
-          hash_to_ec(pubs[i][j], tmp3);
-          ge_scalarmult(&tmp2, &k[i], &tmp3);
-          ge_tobytes(&buf_inner.R, &tmp2);
+          if (multisig)
+          {
+            k[i] = (const ec_scalar&)kLRki[i].k;
+            buf_inner.L = (const ec_point&)kLRki[i].L;
+            buf_inner.R = (const ec_point&)kLRki[i].R;
+          }
+          else
+          {
+            random_scalar(k[i]);
+            ge_scalarmult_base(&tmp3, &k[i]);
+            ge_p3_tobytes(&buf_inner.L, &tmp3);
+            hash_to_ec(pubs[i][j], tmp3);
+            ge_scalarmult(&tmp2, &k[i], &tmp3);
+            ge_tobytes(&buf_inner.R, &tmp2);
+          }
         } else {
           random_scalar(sig.r[i][j]);
           if (ge_frombytes_vartime(&tmp3, &pubs[i][j]) != 0) {
@@ -723,6 +743,8 @@ POP_WARNINGS
         hash_to_scalar(&buf_inner, sizeof(buf_inner), c);
       }
       sc_mulsub(&sig.r[i][sec_indices[i]], &c, &unwrap(secs[i]), &k[i]);
+      if (multisig)
+        msout->c[i] = (rct::key&)c;
     }
   }
 

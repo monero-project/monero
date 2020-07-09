@@ -38,11 +38,6 @@
 #include <cinttypes>
 #include <sodium/crypto_verify_32.h>
 
-extern "C" {
-#include "crypto/crypto-ops.h"
-#include "crypto/random.h"
-#include "crypto/keccak.h"
-}
 #include "crypto/generic-ops.h"
 #include "crypto/crypto.h"
 
@@ -145,11 +140,6 @@ namespace rct {
         key ee;
     };
   
-    //Container for precomp
-    struct geDsmp {
-        ge_dsmp k;
-    };
-    
     //just contains the necessary keys to represent MLSAG sigs
     //c.f. https://eprint.iacr.org/2015/1098
     struct mgSig {

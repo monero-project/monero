@@ -48,6 +48,11 @@
 #include "span.h"
 #include "hash.h"
 
+namespace rct {
+  struct multisig_kLRki;
+  struct multisig_out;
+}
+
 namespace crypto {
 
   extern "C" {
@@ -152,8 +157,8 @@ namespace crypto {
       const public_key *const *, std::size_t, const signature *);
     friend bool check_ring_signature(const hash &, const key_image &,
       const public_key *const *, std::size_t, const signature *);
-    static void generate_borromean_signature(const hash &, const std::vector<key_image> &, const std::vector<std::vector<public_key>> &, const std::vector<secret_key> &, const std::vector<std::size_t> &, borromean_signature &);
-    friend void generate_borromean_signature(const hash &, const std::vector<key_image> &, const std::vector<std::vector<public_key>> &, const std::vector<secret_key> &, const std::vector<std::size_t> &, borromean_signature &);
+    static void generate_borromean_signature(const hash &, const std::vector<key_image> &, const std::vector<std::vector<public_key>> &, const std::vector<secret_key> &, const std::vector<std::size_t> &, const std::vector<rct::multisig_kLRki> &, rct::multisig_out * const, borromean_signature &);
+    friend void generate_borromean_signature(const hash &, const std::vector<key_image> &, const std::vector<std::vector<public_key>> &, const std::vector<secret_key> &, const std::vector<std::size_t> &, const std::vector<rct::multisig_kLRki> &, rct::multisig_out * const, borromean_signature &);
     static bool check_borromean_signature(const hash &, const std::vector<key_image> &, const std::vector<std::vector<public_key>> &, const borromean_signature &);
     friend bool check_borromean_signature(const hash &, const std::vector<key_image> &, const std::vector<std::vector<public_key>> &, const borromean_signature &);
   };
@@ -301,9 +306,9 @@ namespace crypto {
   /* More compact ring signature scheme using Borromean [Maxwell & Poelstra, 2015]
    */
   inline void generate_borromean_signature(const hash &prefix_hash, const std::vector<key_image> &images, const std::vector<std::vector<public_key>> &pubs,
-    const std::vector<secret_key> &secs, const std::vector<std::size_t> &sec_indices,
+    const std::vector<secret_key> &secs, const std::vector<std::size_t> &sec_indices, const std::vector<rct::multisig_kLRki> &kLRki, rct::multisig_out * const msout,
     borromean_signature &sig) {
-    crypto_ops::generate_borromean_signature(prefix_hash, images, pubs, secs, sec_indices, sig);
+    crypto_ops::generate_borromean_signature(prefix_hash, images, pubs, secs, sec_indices, kLRki, msout, sig);
   }
   inline bool check_borromean_signature(const hash &prefix_hash, const std::vector<key_image> &images, const std::vector<std::vector<public_key>> &pubs,
     const borromean_signature &sig) {

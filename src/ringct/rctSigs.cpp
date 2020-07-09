@@ -44,6 +44,14 @@ using namespace std;
 
 #define CHECK_AND_ASSERT_MES_L1(expr, ret, message) {if(!(expr)) {MCERROR("verify", message); return ret;}}
 
+extern "C" {
+#include "crypto/crypto-ops.h"
+}
+//Container for precomp
+struct geDsmp {
+    ge_dsmp k;
+};
+
 namespace rct {
     Bulletproof proveRangeBulletproof(key &C, key &mask, uint64_t amount)
     {
@@ -1172,6 +1180,22 @@ namespace rct {
             rct::key diff;
             sc_mulsub(diff.bytes, msout.c[n].bytes, secret_key.bytes, k[n].bytes);
             sc_add(rv.p.MGs[n].ss[indices[n]][0].bytes, rv.p.MGs[n].ss[indices[n]][0].bytes, diff.bytes);
+        }
+        return true;
+    }
+
+    bool signMultisig(crypto::borromean_signature &bsig, const std::vector<unsigned int> &indices, const keyV &k, const multisig_out &msout, const key &secret_key) {
+        CHECK_AND_ASSERT_MES(indices.size() == k.size(), false, "Mismatched k/indices sizes");
+        CHECK_AND_ASSERT_MES(k.size() == bsig.r.size(), false, "Mismatched k/bsig size");
+        CHECK_AND_ASSERT_MES(k.size() == msout.c.size(), false, "Mismatched k/msout.c size");
+        for (size_t n = 0; n < indices.size(); ++n) {
+            CHECK_AND_ASSERT_MES(indices[n] < bsig.r[n].size(), false, "Index out of range");
+        }
+
+        for (size_t n = 0; n < indices.size(); ++n) {
+            rct::key diff;
+            sc_mulsub(diff.bytes, msout.c[n].bytes, secret_key.bytes, k[n].bytes);
+            sc_add((unsigned char*)bsig.r[n][indices[n]].data, (unsigned char*)bsig.r[n][indices[n]].data, diff.bytes);
         }
         return true;
     }

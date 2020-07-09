@@ -33,6 +33,7 @@
 #include <vector>
 
 #include "crypto/crypto.h"
+#include "ringct/rctTypes.h"
 
 using namespace crypto;
 
@@ -64,7 +65,7 @@ TEST(borromean_signature, valid)
       }
     }
     borromean_signature sig;
-    generate_borromean_signature(prefix_hash, images, pubs, secs, sec_indices, sig);
+    generate_borromean_signature(prefix_hash, images, pubs, secs, sec_indices, {}, nullptr, sig);
     EXPECT_TRUE(check_borromean_signature(prefix_hash, images, pubs, sig));
   }
 }
@@ -97,7 +98,7 @@ TEST(borromean_signature, invalid)
       }
     }
     borromean_signature sig;
-    generate_borromean_signature(prefix_hash, images, pubs, secs, sec_indices, sig);
+    generate_borromean_signature(prefix_hash, images, pubs, secs, sec_indices, {}, nullptr, sig);
     borromean_signature bad_sig = sig;
     public_key pub;
     secret_key sec;
