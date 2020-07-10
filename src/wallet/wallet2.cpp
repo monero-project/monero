@@ -6882,8 +6882,12 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
             THROW_WALLET_EXCEPTION_IF(nonrct_distributions[amount].size() <= 1, error::wallet_internal_error, "bad nonrct distribution size: " + std::to_string(nonrct_distributions[amount].size()));
             const size_t blocks_to_consider = nonrct_distributions[amount].size() - 1;
             THROW_WALLET_EXCEPTION_IF(nonrct_distributions[amount].back() < nonrct_distributions[amount].front(), error::wallet_internal_error, "bad nonrct distribution: front=" + std::to_string(nonrct_distributions[amount].front()) + ", back=" + std::to_string(nonrct_distributions[amount].back()));
-            const uint64_t outputs_to_consider = nonrct_distributions[amount].back() - nonrct_distributions[amount].front();
-            THROW_WALLET_EXCEPTION_IF(outputs_to_consider == 0, error::wallet_internal_error, "no ouputs created for the last " + std::to_string(blocks_to_consider) + " blocks");
+            uint64_t outputs_to_consider = nonrct_distributions[amount].back() - nonrct_distributions[amount].front();
+            if (outputs_to_consider == 0)
+            {
+              LOG_ERROR("no ouputs created for the last " << blocks_to_consider << " blocks, amount=" << amount);
+              outputs_to_consider = 1;
+            }
             const double average_output_time = DIFFICULTY_TARGET_V2 * blocks_to_consider / outputs_to_consider;
             MDEBUG("amount=" << print_money(amount) << ", blocks_to_consider=" << blocks_to_consider << ", outputs_to_consider=" << outputs_to_consider << ", average_output_time=" << average_output_time);
             auto pick_gamma_nonrct = [&]()
