@@ -505,14 +505,13 @@ namespace rct
         }
 
         // Build the f-matrix
-        proof.f = keyMInit(n,m);
+        proof.f = keyMInit(n-1,m);
         for (size_t j = 0; j < m; j++)
         {
-            proof.f[j][0] = ZERO;
             for (size_t i = 1; i < n; i++)
             {
-                sc_muladd(proof.f[j][i].bytes,sigma[j][i].bytes,x.bytes,a[j][i].bytes);
-                CHECK_AND_ASSERT_THROW_MES(!(proof.f[j][i] == ZERO), "Proof matrix element should not be zero!");
+                sc_muladd(proof.f[j][i-1].bytes,sigma[j][i].bytes,x.bytes,a[j][i].bytes);
+                CHECK_AND_ASSERT_THROW_MES(!(proof.f[j][i-1] == ZERO), "Proof matrix element should not be zero!");
             }
         }
 
@@ -578,8 +577,8 @@ namespace rct
             CHECK_AND_ASSERT_THROW_MES(proof.f.size() == m, "Bad proof matrix size!");
             for (size_t j = 0; j < m; j++)
             {
-                CHECK_AND_ASSERT_THROW_MES(proof.f[j].size() == n, "Bad proof matrix size!");
-                for (size_t i = 0; i < n; i++)
+                CHECK_AND_ASSERT_THROW_MES(proof.f[j].size() == n-1, "Bad proof matrix size!");
+                for (size_t i = 0; i < n-1; i++)
                 {
                     CHECK_AND_ASSERT_THROW_MES(sc_check(proof.f[j][i].bytes) == 0, "Bad scalar element in proof!");
                 }
@@ -689,15 +688,17 @@ namespace rct
             }
 
             // Reconstruct the f-matrix
+            keyM f = keyMInit(n,m);
             for (size_t j = 0; j < m; j++)
             {
-                proof.f[j][0] = x;
+                f[j][0] = x;
                 for (size_t i = 1; i < n; i++)
                 {
-                    CHECK_AND_ASSERT_THROW_MES(!(proof.f[j][i] == ZERO), "Proof matrix element should not be zero!");
-                    sc_sub(proof.f[j][0].bytes,proof.f[j][0].bytes,proof.f[j][i].bytes);
+                    CHECK_AND_ASSERT_THROW_MES(!(proof.f[j][i-1] == ZERO), "Proof matrix element should not be zero!");
+                    f[j][i] = proof.f[j][i-1];
+                    sc_sub(f[j][0].bytes,f[j][0].bytes,f[j][i].bytes);
                 }
-                CHECK_AND_ASSERT_THROW_MES(!(proof.f[j][0] == ZERO), "Proof matrix element should not be zero!");
+                CHECK_AND_ASSERT_THROW_MES(!(f[j][0] == ZERO), "Proof matrix element should not be zero!");
             }
 
             // Matrix generators
@@ -707,15 +708,15 @@ namespace rct
                 {
                     // Hi: w1*f + w2*f*(x-f) = w1*f + w2*f*x - w2*f*f
                     key Hi_scalar;
-                    sc_mul(Hi_scalar.bytes,w1.bytes,proof.f[j][i].bytes);
+                    sc_mul(Hi_scalar.bytes,w1.bytes,f[j][i].bytes);
 
-                    sc_mul(temp.bytes,w2.bytes,proof.f[j][i].bytes);
+                    sc_mul(temp.bytes,w2.bytes,f[j][i].bytes);
                     sc_mul(temp.bytes,temp.bytes,x.bytes);
                     sc_add(Hi_scalar.bytes,Hi_scalar.bytes,temp.bytes);
 
                     sc_mul(temp.bytes,MINUS_ONE.bytes,w2.bytes);
-                    sc_mul(temp.bytes,temp.bytes,proof.f[j][i].bytes);
-                    sc_mul(temp.bytes,temp.bytes,proof.f[j][i].bytes);
+                    sc_mul(temp.bytes,temp.bytes,f[j][i].bytes);
+                    sc_mul(temp.bytes,temp.bytes,f[j][i].bytes);
                     sc_add(Hi_scalar.bytes,Hi_scalar.bytes,temp.bytes);
 
                     sc_add(data[j*n + i].scalar.bytes,data[j*n + i].scalar.bytes,Hi_scalar.bytes);
@@ -757,7 +758,7 @@ namespace rct
 
                 for (size_t j = 0; j < m; j++)
                 {
-                    sc_mul(t.bytes,t.bytes,proof.f[j][decomp_k[j]].bytes);
+                    sc_mul(t.bytes,t.bytes,f[j][decomp_k[j]].bytes);
                 }
 
                 sc_mul(temp.bytes,w3.bytes,t.bytes);
