@@ -95,8 +95,8 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
     account_base &account = n < inputs ? miner_account[creator] : miner_accounts[n];
     CHECK_AND_ASSERT_MES(generator.construct_block_manually(blocks[n], *prev_block, account,
         test_generator::bf_major_ver | test_generator::bf_minor_ver | test_generator::bf_timestamp | test_generator::bf_hf_version | test_generator::bf_max_outs,
-        HF_VERSION_ALLOW_RCT, HF_VERSION_ALLOW_RCT, prev_block->timestamp + DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN * 4, // v2 has blocks four times as long
-          crypto::hash(), 0, transaction(), std::vector<crypto::hash>(), 0, 1, HF_VERSION_ALLOW_RCT),
+        HF_VERSION_ALLOW_V1_BORROMEAN, HF_VERSION_ALLOW_V1_BORROMEAN, prev_block->timestamp + DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN * 4, // v2 has blocks four times as long
+          crypto::hash(), 0, transaction(), std::vector<crypto::hash>(), 0, 10, HF_VERSION_ALLOW_V1_BORROMEAN),
         false, "Failed to generate block");
     events.push_back(blocks[n]);
     prev_block = blocks + n;
@@ -113,8 +113,8 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
       cryptonote::block blk;
       CHECK_AND_ASSERT_MES(generator.construct_block_manually(blk, blk_last, miner_accounts[0],
           test_generator::bf_major_ver | test_generator::bf_minor_ver | test_generator::bf_timestamp | test_generator::bf_hf_version | test_generator::bf_max_outs,
-          HF_VERSION_ALLOW_RCT, HF_VERSION_ALLOW_RCT, blk_last.timestamp + DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN * 4, // v2 has blocks four times as long
-          crypto::hash(), 0, transaction(), std::vector<crypto::hash>(), 0, 1, HF_VERSION_ALLOW_RCT),
+          HF_VERSION_ALLOW_V1_BORROMEAN, HF_VERSION_ALLOW_V1_BORROMEAN, blk_last.timestamp + DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN * 4, // v2 has blocks four times as long
+          crypto::hash(), 0, transaction(), std::vector<crypto::hash>(), 0, 10, HF_VERSION_ALLOW_V1_BORROMEAN),
           false, "Failed to generate block");
       events.push_back(blk);
       blk_last = blk;
@@ -129,7 +129,7 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
   {
     tx_pub_key[n] = get_tx_pub_key_from_extra(blocks[n].miner_tx);
     MDEBUG("tx_pub_key: " << tx_pub_key);
-    output_pub_key[n] = boost::get<txout_to_key>(blocks[n].miner_tx.vout[0].target).key;
+    output_pub_key[n] = boost::get<txout_to_key>(blocks[n].miner_tx.vout[2].target).key;
     MDEBUG("output_pub_key: " << output_pub_key);
   }
 
@@ -225,7 +225,7 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
     for (size_t msidx = 0; msidx < total; ++msidx)
       for (size_t n = 0; n < account_ki[msidx][tdidx].size(); ++n)
         pkis.push_back(account_ki[msidx][tdidx][n]);
-    r = cryptonote::generate_multisig_composite_key_image(miner_account[0].get_keys(), subaddresses, output_pub_key[tdidx], tx_pub_key[tdidx], additional_tx_keys, 0, pkis, (crypto::key_image&)kLRki.ki);
+    r = cryptonote::generate_multisig_composite_key_image(miner_account[0].get_keys(), subaddresses, output_pub_key[tdidx], tx_pub_key[tdidx], additional_tx_keys, 2, pkis, (crypto::key_image&)kLRki.ki);
     CHECK_AND_ASSERT_MES(r, false, "Failed to generate composite key image");
     MDEBUG("composite ki: " << kLRki.ki);
     MDEBUG("L: " << kLRki.L);
@@ -233,7 +233,7 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
     for (size_t n = 1; n < total; ++n)
     {
       rct::key ki;
-      r = cryptonote::generate_multisig_composite_key_image(miner_account[n].get_keys(), subaddresses, output_pub_key[tdidx], tx_pub_key[tdidx], additional_tx_keys, 0, pkis, (crypto::key_image&)ki);
+      r = cryptonote::generate_multisig_composite_key_image(miner_account[n].get_keys(), subaddresses, output_pub_key[tdidx], tx_pub_key[tdidx], additional_tx_keys, 2, pkis, (crypto::key_image&)ki);
       CHECK_AND_ASSERT_MES(r, false, "Failed to generate composite key image");
       CHECK_AND_ASSERT_MES(kLRki.ki == ki, false, "Composite key images do not match");
     }
@@ -248,19 +248,19 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
     tx_source_entry& src = sources.back();
 
     src.real_output = 0;
-    src.amount = blocks[n].miner_tx.vout[0].amount;
+    src.amount = blocks[n].miner_tx.vout[2].amount;
     src.real_out_tx_key = tx_pub_key[n];
-    src.real_output_in_tx_index = 0;
+    src.real_output_in_tx_index = 2;
     src.mask = rct::identity();
-    src.rct = true;
+    src.rct = false;
     src.multisig_kLRki = kLRkis[n];
 
     for (size_t m = 0; m <= mixin; ++m)
     {
       rct::ctkey ctkey;
-      ctkey.dest = rct::pk2rct(boost::get<txout_to_key>(blocks[n + m].miner_tx.vout[0].target).key);
+      ctkey.dest = rct::pk2rct(boost::get<txout_to_key>(blocks[n + m].miner_tx.vout[2].target).key);
       MDEBUG("using " << (m == 0 ? "real" : "fake") << " input " << ctkey.dest);
-      ctkey.mask = rct::commit(blocks[n + m].miner_tx.vout[0].amount, rct::identity()); // since those are coinbases, the masks are known
+      // ctkey.mask = rct::commit(blocks[n + m].miner_tx.vout[0].amount, rct::identity()); // since those are coinbases, the masks are known
       src.outputs.push_back(std::make_pair(n + m, ctkey));
     }
   }
@@ -285,7 +285,7 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
 #endif
   std::vector<crypto::secret_key> additional_tx_secret_keys;
   auto sources_copy = sources;
-  r = construct_tx_and_get_tx_key(miner_account[creator].get_keys(), subaddresses, sources, destinations, boost::none, std::vector<uint8_t>(), tx, 0, tx_key, additional_tx_secret_keys, false, true, rct::RangeProofBorromean, msoutp);
+  r = construct_tx_and_get_tx_key(miner_account[creator].get_keys(), subaddresses, sources, destinations, boost::none, std::vector<uint8_t>(), tx, 0, tx_key, additional_tx_secret_keys, true, false, rct::RangeProofBorromean, msoutp);
   CHECK_AND_ASSERT_MES(r, false, "failed to construct transaction");
 
 #ifndef NO_MULTISIG
@@ -352,7 +352,7 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
       MDEBUG("  created with sk " << sk);
     MDEBUG("signing with c size " << msout.c.size());
     MDEBUG("signing with c " << msout.c.back());
-    r = rct::signMultisig(tx.rct_signatures, indices, k, msout, skey);
+    r = rct::signMultisig(tx.borromean_signature, indices, k, msout, skey);
     CHECK_AND_ASSERT_MES(r, false, "failed to sign transaction");
   }
 #endif
@@ -370,16 +370,8 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
     if (is_out_to_acc_precomp(subaddresses, boost::get<txout_to_key>(tx.vout[n].target).key, derivation, additional_derivations, n, hw::get_device(("default"))))
     {
       ++n_outs;
-      CHECK_AND_ASSERT_MES(tx.vout[n].amount == 0, false, "Destination amount is not zero");
-      rct::key Ctmp;
-      crypto::secret_key scalar1;
-      crypto::derivation_to_scalar(derivation, n, scalar1);
-      rct::ecdhTuple ecdh_info = tx.rct_signatures.ecdhInfo[n];
-      rct::ecdhDecode(ecdh_info, rct::sk2rct(scalar1));
-      rct::key C = tx.rct_signatures.outPk[n].mask;
-      rct::addKeys2(Ctmp, ecdh_info.mask, ecdh_info.amount, rct::H);
-      CHECK_AND_ASSERT_MES(rct::equalKeys(C, Ctmp), false, "Failed to decode amount");
-      amount += rct::h2d(ecdh_info.amount);
+      CHECK_AND_ASSERT_MES(tx.vout[n].amount > 0, false, "Destination amount is zero");
+      amount += tx.vout[n].amount;
     }
   }
   CHECK_AND_ASSERT_MES(n_outs == 1, false, "Not exactly 1 output was received");
