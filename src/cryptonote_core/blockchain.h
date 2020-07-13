@@ -277,7 +277,7 @@ namespace cryptonote
      *
      * @return true if the key image is already spent in the blockchain, else false
      */
-    bool have_tx_keyimg_as_spent(const crypto::key_image &key_im) const;
+    bool have_tx_keyimg_as_spent(const crypto::key_image &key_im, uint64_t *height = NULL) const;
 
     /**
      * @brief get the current height of the blockchain
@@ -968,7 +968,7 @@ namespace cryptonote
     bool get_txpool_tx_meta(const crypto::hash& txid, txpool_tx_meta_t &meta) const;
     bool get_txpool_tx_blob(const crypto::hash& txid, cryptonote::blobdata &bd, relay_category tx_category) const;
     cryptonote::blobdata get_txpool_tx_blob(const crypto::hash& txid, relay_category tx_category) const;
-    bool for_all_txpool_txes(std::function<bool(const crypto::hash&, const txpool_tx_meta_t&, const cryptonote::blobdata*)>, bool include_blob = false, relay_category tx_category = relay_category::broadcasted) const;
+    bool for_all_txpool_txes(std::function<bool(const crypto::hash&, const txpool_tx_meta_t&, const cryptonote::blobdata_ref*)>, bool include_blob = false, relay_category tx_category = relay_category::broadcasted) const;
     bool txpool_tx_matches_category(const crypto::hash& tx_hash, relay_category category);
 
     bool is_within_compiled_block_hash_area() const { return is_within_compiled_block_hash_area(m_db->height()); }

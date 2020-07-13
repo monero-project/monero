@@ -117,14 +117,14 @@ bool Blockchain::have_tx(const crypto::hash &id) const
   return m_db->tx_exists(id);
 }
 //------------------------------------------------------------------
-bool Blockchain::have_tx_keyimg_as_spent(const crypto::key_image &key_im) const
+bool Blockchain::have_tx_keyimg_as_spent(const crypto::key_image &key_im, uint64_t *height) const
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   // WARNING: this function does not take m_blockchain_lock, and thus should only call read only
   // m_db functions which do not depend on one another (ie, no getheight + gethash(height-1), as
   // well as not accessing class members, even read only (ie, m_invalid_blocks). The caller must
   // lock if it is otherwise needed.
-  return  m_db->has_key_image(key_im);
+  return  m_db->has_key_image(key_im, height);
 }
 //------------------------------------------------------------------
 // This function makes sure that each "input" in an input (mixins) exists
@@ -2037,7 +2037,7 @@ bool Blockchain::get_alternative_blocks(std::vector<block>& blocks) const
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
 
   blocks.reserve(m_db->get_alt_block_count());
-  m_db->for_all_alt_blocks([&blocks](const crypto::hash &blkid, const cryptonote::alt_block_data_t &data, const cryptonote::blobdata *blob) {
+  m_db->for_all_alt_blocks([&blocks](const crypto::hash &blkid, const cryptonote::alt_block_data_t &data, const cryptonote::blobdata_ref *blob) {
     if (!blob)
     {
       MERROR("No blob, but blobs were requested");
@@ -4992,7 +4992,7 @@ cryptonote::blobdata Blockchain::get_txpool_tx_blob(const crypto::hash& txid, re
   return m_db->get_txpool_tx_blob(txid, tx_category);
 }
 
-bool Blockchain::for_all_txpool_txes(std::function<bool(const crypto::hash&, const txpool_tx_meta_t&, const cryptonote::blobdata*)> f, bool include_blob, relay_category tx_category) const
+bool Blockchain::for_all_txpool_txes(std::function<bool(const crypto::hash&, const txpool_tx_meta_t&, const cryptonote::blobdata_ref*)> f, bool include_blob, relay_category tx_category) const
 {
   return m_db->for_all_txpool_txes(f, include_blob, tx_category);
 }
@@ -5054,7 +5054,7 @@ std::vector<std::pair<Blockchain::block_extended_info,std::vector<crypto::hash>>
 
   blocks_ext_by_hash alt_blocks;
   alt_blocks.reserve(m_db->get_alt_block_count());
-  m_db->for_all_alt_blocks([&alt_blocks](const crypto::hash &blkid, const cryptonote::alt_block_data_t &data, const cryptonote::blobdata *blob) {
+  m_db->for_all_alt_blocks([&alt_blocks](const crypto::hash &blkid, const cryptonote::alt_block_data_t &data, const cryptonote::blobdata_ref *blob) {
     if (!blob)
     {
       MERROR("No blob, but blobs were requested");
