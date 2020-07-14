@@ -431,56 +431,12 @@ namespace cryptonote
   //---------------------------------------------------------------------------------
   void tx_memory_pool::prune(size_t bytes)
   {
-    CRITICAL_REGION_LOCAL(m_transactions_lock);
-	  if (bytes == 0)
+      CRITICAL_REGION_LOCAL(m_transactions_lock);
+    if (bytes == 0)
       bytes = m_txpool_max_weight;
     CRITICAL_REGION_LOCAL1(m_blockchain);
     LockedTXN lock(m_blockchain.get_db());
     bool changed = false;
-
-	for (auto it = m_txs_by_fee_and_receive_time.begin(); it != m_txs_by_fee_and_receive_time.end(); )
-	{
-		if (!std::get<0>(it->first))
-			break;
-		// is deregister. keep if has not be around for a long time
-		if (std::get<2>(it->first) >= time(nullptr) - MEMPOOL_PRUNE_DEREGISTER_LIFETIME)
-			break;
-		try
-		{
-			const crypto::hash &txid = it->second;
-			txpool_tx_meta_t meta;
-			if (!m_blockchain.get_txpool_tx_meta(txid, meta))
-			{
-				MERROR("Failed to find tx in txpool");
-				return;
-			}
-			// don't prune the kept_by_block ones, they're likely added because we're adding a block with those
-			if (meta.kept_by_block)
-			{
-				it++;
-				continue;
-			}
-			cryptonote::blobdata txblob = m_blockchain.get_txpool_tx_blob(txid, relay_category::all);
-			cryptonote::transaction tx;
-			if (!parse_and_validate_tx_from_blob(txblob, tx))
-			{
-				MERROR("Failed to parse tx from txpool");
-				return;
-			}
-			// remove first, in case this throws, so key images aren't removed
-			MINFO("Pruning deregister tx " << txid << " from txpool");
-			m_blockchain.remove_txpool_tx(txid);
-			m_txpool_weight -= txblob.size();
-			remove_transaction_keyimages(tx, txid);
-			MINFO("Pruned deregister tx " << txid << " from txpool");
-			it = m_txs_by_fee_and_receive_time.erase(it);
-		}
-		catch (const std::exception &e)
-		{
-			MERROR("Error while pruning txpool: " << e.what());
-			return;
-		}
-	}
 
     // this will never remove the first one, but we don't care
     auto it = --m_txs_by_fee_and_receive_time.end();
@@ -513,7 +469,7 @@ namespace cryptonote
         // remove first, in case this throws, so key images aren't removed
         MINFO("Pruning tx " << txid << " from txpool: weight: " << meta.weight << ", fee/byte: " << std::get<1>(it->first));
         m_blockchain.remove_txpool_tx(txid);
-        m_txpool_weight -=  meta.weight;
+        m_txpool_weight -= meta.weight;
         remove_transaction_keyimages(tx, txid);
         MINFO("Pruned tx " << txid << " from txpool: weight: " <<  meta.weight << ", fee/byte: " << std::get<1>(it->first));
         m_txs_by_fee_and_receive_time.erase(it--);
@@ -1312,6 +1268,34 @@ namespace cryptonote
       return false;
     }
 	
+     // Check that the deregister hasn't become too old to be included in the block, if so reject.
+    if (tx.is_deregister_tx())
+    {
+      uint64_t curr_height    = m_blockchain.get_current_blockchain_height();
+      bool failed_ready_check = true;
+
+      tx_extra_service_node_deregister deregister;
+      if (get_service_node_deregister_from_tx_extra(tx.extra, deregister))
+      {
+        uint64_t delta_height = curr_height - deregister.block_height;
+        if (delta_height <= triton::service_node_deregister::DEREGISTER_LIFETIME_BY_HEIGHT)
+        {
+          failed_ready_check = false;
+        }
+      }
+
+      if (failed_ready_check)
+      {
+        // NOTE: This deregistration is too old to be considered, but we can't delete it incase we
+        // pop blocks and they suddenly become valid again. Let them fail to get included in blocks
+        // until they expire.
+        txd.last_failed_height    = curr_height - 1;
+        txd.last_failed_id        = m_blockchain.get_block_id_by_height(txd.last_failed_height);
+        txd.max_used_block_height = txd.last_failed_height;
+        txd.max_used_block_id     = txd.last_failed_id;
+        return false;
+      }
+    }
 
     //transaction is ok.
     return true;
