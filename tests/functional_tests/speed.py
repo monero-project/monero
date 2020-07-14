@@ -67,7 +67,7 @@ class SpeedTest():
 
         destinations = []
         for i in range(3):
-            destinations.append({"amount":1,"address":'44AFFq5kSiGBoZ4NMDwYtN18obc8AemS33DBLWs3H7otXft3XjrpDtQGv7SqSsaBYBb98uNbr2VBBEt7f2wfn3RVGQBEP3A'})
+            destinations.append({"amount":1,"address":'888tNkZrPN6JsEgekjMnABU4TBzc2Dt29EPAvkRxbANsAnjyPbb3iQ1YBRk1UXcdRsiKc9dhwMVgN5S9cQUiyoogDavup3H'})
 
         self._test_speed_generateblocks(daemon=daemon, blocks=70)
         for i in range(1, 10):
@@ -89,7 +89,7 @@ class SpeedTest():
         print('Test speed of transfer')
         start = time.time()
 
-        destinations = [{"amount":1,"address":'44AFFq5kSiGBoZ4NMDwYtN18obc8AemS33DBLWs3H7otXft3XjrpDtQGv7SqSsaBYBb98uNbr2VBBEt7f2wfn3RVGQBEP3A'}]
+        destinations = [{"amount":1,"address":'888tNkZrPN6JsEgekjMnABU4TBzc2Dt29EPAvkRxbANsAnjyPbb3iQ1YBRk1UXcdRsiKc9dhwMVgN5S9cQUiyoogDavup3H'}]
         res = wallet.transfer_split(destinations)
 
         print('generating tx took: ', time.time() - start, 'seconds')

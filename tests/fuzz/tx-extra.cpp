@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2019, The Monero Project
+// Copyright (c) 2020, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -27,16 +27,14 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "include_base_utils.h"
-#include "file_io_utils.h"
-#include "serialization/keyvalue_serialization.h"
-#include "storages/portable_storage_template_helper.h"
-#include "storages/portable_storage_base.h"
+#include "cryptonote_basic/cryptonote_format_utils.h"
 #include "fuzzer.h"
 
 BEGIN_INIT_SIMPLE_FUZZER()
 END_INIT_SIMPLE_FUZZER()
 
 BEGIN_SIMPLE_FUZZER()
-  epee::serialization::portable_storage ps;
-  ps.load_from_json(std::string((const char*)buf, len));
+  std::vector<cryptonote::tx_extra_field> tx_extra_fields;
+  cryptonote::parse_tx_extra(std::vector<uint8_t>(buf, buf + len), tx_extra_fields);
 END_SIMPLE_FUZZER()
+

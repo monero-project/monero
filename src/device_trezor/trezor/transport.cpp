@@ -32,6 +32,7 @@
 #endif
 
 #include <algorithm>
+#include <functional>
 #include <boost/endian/conversion.hpp>
 #include <boost/asio/io_service.hpp>
 #include <boost/asio/ip/udp.hpp>
@@ -711,7 +712,7 @@ namespace trezor{
     // Start the asynchronous operation itself. The handle_receive function
     // used as a callback will update the ec and length variables.
     m_socket->async_receive_from(boost::asio::buffer(buffer), m_endpoint,
-                                 boost::bind(&UdpTransport::handle_receive, boost::placeholders::_1, boost::placeholders::_2, &ec, &length));
+                                 std::bind(&UdpTransport::handle_receive, std::placeholders::_1, std::placeholders::_2, &ec, &length));
 
     // Block until the asynchronous operation has completed.
     do {

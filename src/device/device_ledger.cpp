@@ -1468,8 +1468,8 @@ namespace hw {
         offset = set_command_header(INS_PREFIX_HASH,2,cnt);      
         len = pref_length - pref_offset;
         //options
-        if (len > (BUFFER_SEND_SIZE-7)) {
-          len = BUFFER_SEND_SIZE-7;
+        if (len > (BUFFER_SEND_SIZE-offset-3)) {
+          len = BUFFER_SEND_SIZE-offset-3;
           this->buffer_send[offset] = 0x80;
         } else {
           this->buffer_send[offset] = 0x00;

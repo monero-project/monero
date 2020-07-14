@@ -130,11 +130,11 @@ void message_store::set_signer(const multisig_wallet_state &state,
   authorized_signer &m = m_signers[index];
   if (label)
   {
-    get_sanitized_text(label.get(), 50, m.label);
+    m.label = get_sanitized_text(label.get(), 50);
   }
   if (transport_address)
   {
-    get_sanitized_text(transport_address.get(), 200, m.transport_address);
+    m.transport_address = get_sanitized_text(transport_address.get(), 200);
   }
   if (monero_address)
   {
@@ -206,13 +206,9 @@ void message_store::unpack_signer_config(const multisig_wallet_state &state, con
   for (uint32_t i = 0; i < num_signers; ++i)
   {
     authorized_signer &m = signers[i];
-    std::string temp;
-    get_sanitized_text(m.label, 50, temp);
-    m.label = temp;
-    get_sanitized_text(m.transport_address, 200, temp);
-    m.transport_address = temp;
-    get_sanitized_text(m.auto_config_token, 20, temp);
-    m.auto_config_token = temp;
+    m.label = get_sanitized_text(m.label, 50);
+    m.transport_address = get_sanitized_text(m.transport_address, 200);
+    m.auto_config_token = get_sanitized_text(m.auto_config_token, 20);
   }
 }
 
@@ -254,10 +250,10 @@ void message_store::process_signer_config(const multisig_wallet_state &state, co
       }
     }
     authorized_signer &modify = m_signers[take_index];
-    get_sanitized_text(m.label, 50, modify.label);  // ALWAYS set label, see comments above
+    modify.label = get_sanitized_text(m.label, 50);  // ALWAYS set label, see comments above
     if (!modify.me)
     {
-      get_sanitized_text(m.transport_address, 200, modify.transport_address);
+      modify.transport_address = get_sanitized_text(m.transport_address, 200);
       modify.monero_address_known = m.monero_address_known;
       if (m.monero_address_known)
       {
@@ -714,11 +710,11 @@ void message_store::delete_all_messages()
 
 // Make a text, which is "attacker controlled data", reasonably safe to display
 // This is mostly geared towards the safe display of notes sent by "mms note" with a "mms show" command
-void message_store::get_sanitized_text(const std::string &text, size_t max_length, std::string &sanitized_text) const
+std::string message_store::get_sanitized_text(const std::string &text, size_t max_length)
 {
   // Restrict the size to fend of DOS-style attacks with heaps of data
   size_t length = std::min(text.length(), max_length);
-  sanitized_text = text.substr(0, length);
+  std::string sanitized_text = text.substr(0, length);
 
   try
   {
@@ -743,6 +739,7 @@ void message_store::get_sanitized_text(const std::string &text, size_t max_lengt
   {
     sanitized_text = "(Illegal UTF-8 string)";
   }
+  return sanitized_text;
 }
 
 void message_store::write_to_file(const multisig_wallet_state &state, const std::string &filename)

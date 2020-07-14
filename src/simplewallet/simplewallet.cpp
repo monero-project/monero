@@ -33,6 +33,11 @@
  *
  * \brief Source file that defines simple_wallet class.
  */
+
+// use boost bind placeholders for now
+#define BOOST_BIND_GLOBAL_PLACEHOLDERS 1
+#include <boost/bind.hpp>
+
 #include <locale.h>
 
 #include <thread>
@@ -3482,7 +3487,7 @@ simple_wallet::simple_wallet()
                               "<subcommand> is one of:\n"
                               "  init, info, signer, list, next, sync, transfer, delete, send, receive, export, note, show, set, help\n"
                               "  send_signer_config, start_auto_config, stop_auto_config, auto_config, config_checksum\n"
-                              "Get help about a subcommand with: help mms <subcommand>, or mms help <subcommand>"));
+                              "Get help about a subcommand with: help_advanced mms <subcommand>"));
   m_cmd_binder.set_handler("mms init",
                            boost::bind(&simple_wallet::on_command, this, &simple_wallet::mms, _1),
                            tr(USAGE_MMS_INIT),
@@ -5846,7 +5851,7 @@ bool simple_wallet::estimate_sn_rewards(const std::vector<std::string>& args/* =
         success_msg_writer() << tr("\t \t (7 day) ") << print_money(( 3360 / response.service_node_states.size()) * last_block_reward * num_nodes) << tr(" XTRI");
         success_msg_writer() << tr("\t \t (31 day) ") << print_money(( 14880 / response.service_node_states.size()) * last_block_reward * num_nodes) << tr(" XTRI");
     }
-  } 
+  }
   catch (const std::exception &e)
   {
 		fail_msg_writer() << e.what();
@@ -6635,7 +6640,7 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
         {
           fail_msg_writer() << tr("transaction cancelled.");
 
-          return false; 
+          return false;
         }
       }
     }
@@ -6720,7 +6725,7 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
           prompt << tr("WARNING: this is a non default ring size, which may harm your privacy. Default is recommended.");
         }
         prompt << ENDL << tr("Is this okay?");
-        
+
         std::string accepted = input_line(prompt.str(), true);
         if (std::cin.eof())
           return false;
@@ -11511,7 +11516,7 @@ void simple_wallet::show_message(const mms::message &m)
   case mms::message_type::additional_key_set:
   case mms::message_type::note:
     display_content = true;
-    ms.get_sanitized_text(m.content, 1000, sanitized_text);
+    sanitized_text = mms::message_store::get_sanitized_text(m.content, 1000);
     break;
   default:
     display_content = false;
@@ -12379,4 +12384,3 @@ bool simple_wallet::mms(const std::vector<std::string> &args)
   return true;
 }
 // End MMS ------------------------------------------------------------------------------------------------
-

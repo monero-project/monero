@@ -196,7 +196,7 @@ namespace misc_utils
                 uint32_t dst = 0;
                 for (int i = 0; i < 4; ++i)
                 {
-                  const unsigned char tmp = isx[(int)*++it];
+                  const unsigned char tmp = isx[(unsigned char)*++it];
                   CHECK_AND_ASSERT_THROW_MES(tmp != 0xff, "Bad Unicode encoding");
                   dst = dst << 4 | tmp;
                 }

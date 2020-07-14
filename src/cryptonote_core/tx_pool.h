@@ -203,10 +203,11 @@ namespace cryptonote
      * @brief loads pool state (if any) from disk, and initializes pool
      *
      * @param max_txpool_weight the max weight in bytes
+     * @param mine_stem_txes whether to mine txes in stem relay mode
      *
      * @return true
      */
-    bool init(size_t max_txpool_weight = 0);
+    bool init(size_t max_txpool_weight = 0, bool mine_stem_txes = false);
 
     /**
      * @brief attempts to save the transaction pool state to disk
@@ -607,6 +608,7 @@ private:
 
     size_t m_txpool_max_weight;
     size_t m_txpool_weight;
+    bool m_mine_stem_txes;
 
     mutable std::unordered_map<crypto::hash, std::tuple<bool, tx_verification_context, uint64_t, crypto::hash>> m_input_cache;
 

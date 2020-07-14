@@ -241,6 +241,17 @@ class TransferTest():
             assert x.fee == txes[txid].fee
             assert x.tx_blob == txes[txid].tx_blob
 
+        print('Checking relaying txes')
+        res = daemon.get_transaction_pool_hashes()
+        assert len(res.tx_hashes) > 0
+        txid = res.tx_hashes[0]
+        daemon.relay_tx([txid])
+        res = daemon.get_transactions([txid])
+        assert len(res.txs) == 1
+        assert res.txs[0].tx_hash == txid
+        assert res.txs[0].in_pool
+        assert res.txs[0].relayed
+
         daemon.flush_txpool()
         self.check_empty_pool()
 

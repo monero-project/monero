@@ -276,7 +276,7 @@ namespace mms
     void set_message_processed_or_sent(uint32_t id);
     void delete_message(uint32_t id);
     void delete_all_messages();
-    void get_sanitized_text(const std::string &text, size_t max_length, std::string &sanitized_text) const;
+    static std::string get_sanitized_text(const std::string &text, size_t max_length);
 
     void send_message(const multisig_wallet_state &state, uint32_t id);
     bool check_for_messages(const multisig_wallet_state &state, std::vector<message> &messages);

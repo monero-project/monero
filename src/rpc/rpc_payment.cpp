@@ -290,7 +290,7 @@ namespace cryptonote
     TRY_ENTRY();
     boost::lock_guard<boost::mutex> lock(mutex);
     m_directory = std::move(directory);
-    std::string state_file_path = directory + "/" + RPC_PAYMENTS_DATA_FILENAME;
+    std::string state_file_path = m_directory + "/" + RPC_PAYMENTS_DATA_FILENAME;
     MINFO("loading rpc payments data from " << state_file_path);
     std::ifstream data;
     data.open(state_file_path, std::ios_base::binary | std::ios_base::in);
@@ -366,7 +366,7 @@ namespace cryptonote
     for (std::unordered_map<crypto::public_key, client_info>::iterator i = m_client_info.begin(); i != m_client_info.end(); )
     {
       std::unordered_map<crypto::public_key, client_info>::iterator j = i++;
-      const time_t t = std::max(j->second.last_request_timestamp, j->second.update_time);
+      const time_t t = std::max(j->second.last_request_timestamp / 1000000, j->second.update_time);
       const bool erase = t < ((j->second.credits == 0) ? threshold0 : threshold);
       if (erase)
       {

@@ -119,7 +119,7 @@ namespace cryptonote
   }
   //---------------------------------------------------------------------------------
   //---------------------------------------------------------------------------------
-  tx_memory_pool::tx_memory_pool(Blockchain& bchs): m_blockchain(bchs), m_txpool_max_weight(DEFAULT_TXPOOL_MAX_WEIGHT), m_txpool_weight(0), m_cookie(0)
+  tx_memory_pool::tx_memory_pool(Blockchain& bchs): m_blockchain(bchs), m_cookie(0), m_txpool_max_weight(DEFAULT_TXPOOL_MAX_WEIGHT), m_txpool_weight(0), m_mine_stem_txes(false)
   {
 
   }
@@ -1434,13 +1434,18 @@ namespace cryptonote
     for (; sorted_it != m_txs_by_fee_and_receive_time.end(); ++sorted_it)
     {
       txpool_tx_meta_t meta;
-      if (!m_blockchain.get_txpool_tx_meta(sorted_it->second, meta) && !meta.matches(relay_category::legacy))
+      if (!m_blockchain.get_txpool_tx_meta(sorted_it->second, meta))
       {
         MERROR("  failed to find tx meta");
         continue;
       }
-      LOG_PRINT_L2("Considering " << sorted_it->second << ", weight " << meta.weight << ", current block weight " << total_weight << "/" << max_total_weight << ", current coinbase " << print_money(best_coinbase));
+      LOG_PRINT_L2("Considering " << sorted_it->second << ", weight " << meta.weight << ", current block weight " << total_weight << "/" << max_total_weight << ", current coinbase " << print_money(best_coinbase) << ", relay method " << (unsigned)meta.get_relay_method());
 
+      if (!meta.matches(relay_category::legacy) && !(m_mine_stem_txes && meta.get_relay_method() == relay_method::stem))
+      {
+        LOG_PRINT_L2("  tx relay method is " << (unsigned)meta.get_relay_method());
+        continue;
+      }
       if (meta.pruned)
       {
         LOG_PRINT_L2("  tx is pruned");
@@ -1605,7 +1610,7 @@ namespace cryptonote
     return n_removed;
   }
   //---------------------------------------------------------------------------------
-  bool tx_memory_pool::init(size_t max_txpool_weight)
+  bool tx_memory_pool::init(size_t max_txpool_weight, bool mine_stem_txes)
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     CRITICAL_REGION_LOCAL1(m_blockchain);
@@ -1662,6 +1667,7 @@ namespace cryptonote
       lock.commit();
     }
 
+    m_mine_stem_txes = mine_stem_txes;
     m_cookie = 0;
 
     // Ignore deserialization error
