@@ -46,7 +46,6 @@
 #include "ringct/rctTypes.h"
 #include "ringct/rctOps.h"
 
-BOOST_CLASS_VERSION(rct::ecdhTuple, 1)
 
 //namespace cryptonote {
 namespace boost

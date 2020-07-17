@@ -1280,8 +1280,9 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
 	base_reward = reward_parts.original_base_reward;
 
 
-  if(version >= 7){
-    if(b.miner_tx.vout.back().amount != reward_parts.governance)
+if(version >= 7 && b.miner_tx.vout.size() > 2)
+{    
+  if(b.miner_tx.vout.back().amount != reward_parts.governance)
     {
       MERROR("Governance reward amount incorrect.  Should be: " << print_money(reward_parts.governance) << ", is: " << print_money(b.miner_tx.vout.back().amount));
       return false;
@@ -1333,7 +1334,7 @@ bool Blockchain::allow_governance(uint64_t height)
   }
   else if(m_nettype == TESTNET)
   {
-    fork_height = 1200;
+    fork_height = 350;
   }
   else if (m_nettype == STAGENET)
   {

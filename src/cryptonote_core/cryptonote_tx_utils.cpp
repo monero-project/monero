@@ -143,7 +143,7 @@ namespace cryptonote
     }
     else if(nettype == TESTNET)
     {
-      fork_height = 1200;
+      fork_height = 350;
     }
     else if (nettype == STAGENET)
     {
@@ -154,27 +154,27 @@ namespace cryptonote
     {
       return 10000000000;
     }
-    else if (height == fork_height + 21600)
+    else if (height == (fork_height + 21600))
     {
       return 10000000000;
     }
-    else if (height == fork_height+ (2 * 21600))
+    else if (height == (fork_height + (2 * 21600)))
     {
       return 10000000000;
     }
-    else if (height == fork_height + (3 * 21600))
+    else if (height == (fork_height + (3 * 21600)))
     {
       return 10000000000;
     }
-    else if (height == fork_height + (4 * 21600))
+    else if (height == (fork_height + (4 * 21600)))
     {
       return 10000000000;
     }
-    else if(height == fork_height + (5 * 21600))
+    else if(height == (fork_height + (5 * 21600)))
     {
       return 10000000000;
     }
-    else if(height == fork_height + (6 * 21600))
+    else if(height == (fork_height + (6 * 21600)))
     {
       return 10000000000;
     }
@@ -326,7 +326,7 @@ namespace cryptonote
 		}
 	}
 
-  if(hard_fork_version >= 7)
+  if(hard_fork_version >= 7 && reward_parts.governance > 0)
   {
       std::string governance_wallet_address_str;
 			cryptonote::address_parse_info governance_wallet_address;
@@ -829,6 +829,7 @@ namespace cryptonote
       crypto::hash tx_prefix_hash;
       get_transaction_prefix_hash(tx, tx_prefix_hash, hwdev);
       rct::ctkeyV outSk;
+
       if (use_simple_rct)
         tx.rct_signatures = rct::genRctSimple(rct::hash2rct(tx_prefix_hash), inSk, destinations, inamounts, outamounts, amount_in - amount_out, mixRing, amount_keys, msout ? &kLRki : NULL, msout, index, outSk, rct_config, hwdev);
       else
@@ -849,7 +850,6 @@ namespace cryptonote
   {
     hw::device &hwdev = sender_account_keys.get_device();
     hwdev.open_tx(tx_key);
-    std::cout << "ctagtk: " << per_output_unlock << std::endl;
 
     try {
     if (is_staking_tx)
@@ -869,7 +869,7 @@ namespace cryptonote
       for (const auto &d: destinations)
         additional_tx_keys.push_back(keypair::generate(sender_account_keys.get_device()).sec);
     }
-      bool r = construct_tx_with_tx_key(sender_account_keys, subaddresses, sources, destinations, change_addr, extra, tx, unlock_time, tx_key, additional_tx_keys, rct, rct_config, msout, false, per_output_unlock);
+      bool r = construct_tx_with_tx_key(sender_account_keys, subaddresses, sources, destinations, change_addr, extra, tx, unlock_time, tx_key, additional_tx_keys, rct, rct_config, msout, true, per_output_unlock);
       hwdev.close_tx();
       return r;
     } catch(...) {
