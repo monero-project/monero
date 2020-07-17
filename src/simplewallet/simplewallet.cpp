@@ -7111,7 +7111,7 @@ static const char ASK_PASSWORD_MUST_BE_OFF_MSG[] = "Cannot autostake with ask-pa
 static bool prompt_autostaking_non_trusted_contributors_warning()
 {
 	success_msg_writer(false/*color*/)
-		<< tr("Auto staking to a reserved service node with non-trusted contributors may lock up your triton for the staking duration "
+		<< tr("Auto staking to a reserved service node with non-trusted contributors may lock up your XEQ for the staking duration "
 			"if they do not restake after service node expiration.")
 		<< tr("\n\nIf this behaviour is not desirable, please reuse the staking command without the auto command");
 	bool result = input_line_and_parse_yes_no_result("Accept auto staking towards a reserved service node");
@@ -7688,15 +7688,15 @@ bool simple_wallet::stake(const std::vector<std::string> &args_)
 
 		if (amount_fraction == 0) // Fixed amount loki warning
 		{
-			success_msg_writer(false/*color*/) << tr("You're autostaking to a service node using a fixed amount of triton: ")
+			success_msg_writer(false/*color*/) << tr("You're autostaking to a service node using a fixed amount of XEQ: ")
 				<< print_money(amount)
 				<< tr(".\nThe staking requirement will be different after the service node expires. Staking a fixed amount "
 					"may change your percentage of stake towards the service node and consequently your block reward allocation.")
 				<< tr("\n\nIf this behaviour is not desirable, please reuse the staking command with a percentage sign.");
 
-			if (!input_line_and_parse_yes_no_result("Accept staking with a fixed amount of triton"))
+			if (!input_line_and_parse_yes_no_result("Accept staking with a fixed amount of XEQ"))
 			{
-				fail_msg_writer() << tr("Staking transaction with fixed triton specified cancelled.");
+				fail_msg_writer() << tr("Staking transaction with fixed XEQ specified cancelled.");
 				return true;
 			}
 
@@ -8719,7 +8719,7 @@ bool simple_wallet::submit_transfer(const std::vector<std::string> &args_)
   try
   {
     std::vector<tools::wallet2::pending_tx> ptx_vector;
-    bool r = m_wallet->load_tx("signed_triton_tx", ptx_vector, [&](const tools::wallet2::signed_tx_set &tx){ return accept_loaded_tx(tx); });
+    bool r = m_wallet->load_tx("signed_equilibria_tx", ptx_vector, [&](const tools::wallet2::signed_tx_set &tx){ return accept_loaded_tx(tx); });
     if (!r)
     {
       fail_msg_writer() << tr("Failed to load transaction from file");
