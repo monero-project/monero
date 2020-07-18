@@ -8140,7 +8140,6 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
     for (size_t idx: selected_transfers)
       if (m_transfers[idx].is_rct())
       {
-        std::cout << has_rct << std::endl;
         has_rct = true;
         max_rct_index = std::max(max_rct_index, m_transfers[idx].m_global_output_index);
       }
