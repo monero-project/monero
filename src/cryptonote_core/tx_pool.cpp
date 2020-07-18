@@ -442,6 +442,13 @@ namespace cryptonote
     auto it = --m_txs_by_fee_and_receive_time.end();
     while (it != m_txs_by_fee_and_receive_time.begin())
     {
+
+      const bool is_deregister  = std::get<0>(it->first);
+      const time_t receive_time = std::get<2>(it->first);
+
+      if (!is_deregister || receive_time >= time(nullptr) - MEMPOOL_PRUNE_DEREGISTER_LIFETIME)
+        break;
+
       if (m_txpool_weight <= bytes)
         break;
       try
