@@ -35,7 +35,7 @@
 
 struct memcmp32
 {
-  static const size_t loop_count = 1000000000;
+  static const size_t loop_count = 10000000;
   static int call(const unsigned char *k0, const unsigned char *k1){ return memcmp(k0, k1, 32); }
 };
 

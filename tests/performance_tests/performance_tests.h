@@ -195,7 +195,7 @@ void run_test(const std::string &filter, Params &params, const char* test_name)
      scale = 1000;
      time_per_call = runner.time_per_call(1000);
 #ifdef _WIN32
-     unit = "\xb5s";
+     unit = "us";
 #else
      unit = "µs";
 #endif
