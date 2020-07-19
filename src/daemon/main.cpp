@@ -107,6 +107,20 @@ uint16_t parse_public_rpc_port(const po::variables_map &vm)
   return rpc_port;
 }
 
+#ifdef WIN32
+bool isFat32(const wchar_t* root_path)
+{
+  std::vector<wchar_t> fs(MAX_PATH + 1);
+  if (!::GetVolumeInformationW(root_path, nullptr, 0, nullptr, 0, nullptr, &fs[0], MAX_PATH))
+  {
+    MERROR("Failed to get '" << root_path << "' filesystem name. Error code: " << ::GetLastError());
+    return false;
+  }
+
+  return wcscmp(L"FAT32", &fs[0]) == 0;
+}
+#endif
+
 int main(int argc, char const * argv[])
 {
   try {
@@ -232,6 +246,13 @@ int main(int argc, char const * argv[])
     // Create data dir if it doesn't exist
     boost::filesystem::path data_dir = boost::filesystem::absolute(
         command_line::get_arg(vm, cryptonote::arg_data_dir));
+
+#ifdef WIN32
+    if (isFat32(data_dir.root_name().c_str()))
+    {
+      MERROR("Data directory resides on FAT32 volume that has 4GiB file size limit, blockchain might get corrupted.");
+    }
+#endif
 
     // FIXME: not sure on windows implementation default, needs further review
     //bf::path relative_path_base = daemonizer::get_relative_path_base(vm);
