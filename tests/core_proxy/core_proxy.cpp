@@ -47,7 +47,6 @@
 #include "cryptonote_protocol/cryptonote_protocol_handler.h"
 #include "cryptonote_protocol/cryptonote_protocol_handler.inl"
 #include "core_proxy.h"
-#include "version.h"
 
 #if defined(WIN32)
 #include <crtdbg.h>

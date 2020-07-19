@@ -31,7 +31,6 @@
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "cryptonote_basic/cryptonote_boost_serialization.h"
 #include "cryptonote_basic/account_boost_serialization.h"
-#include "cryptonote_basic/cryptonote_basic.h"
 #include "net/http_server_impl_base.h"
 #include "net/http_client.h"
 #include "net/abstract_http_client.h"
