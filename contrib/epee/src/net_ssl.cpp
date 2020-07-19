@@ -511,7 +511,7 @@ bool ssl_options_t::handshake(
         // autodetect will reconnect without SSL - warn and keep connection encrypted
         if (support != ssl_support_t::e_ssl_support_autodetect)
         {
-          MERROR("SSL certificate is not in the allowed list, connection droppped");
+          MERROR("SSL certificate is not in the allowed list, connection dropped");
           return false;
         }
         MWARNING("SSL peer has not been verified");

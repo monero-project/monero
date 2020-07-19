@@ -4115,7 +4115,7 @@ void BlockchainLMDB::get_output_tx_and_index_from_global(const std::vector<uint6
 void BlockchainLMDB::get_output_key(const epee::span<const uint64_t> &amounts, const std::vector<uint64_t> &offsets, std::vector<output_data_t> &outputs, bool allow_partial) const
 {
   if (amounts.size() != 1 && amounts.size() != offsets.size())
-    throw0(DB_ERROR("Invalid sizes of amounts and offets"));
+    throw0(DB_ERROR("Invalid sizes of amounts and offsets"));
 
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   TIME_MEASURE_START(db3);
