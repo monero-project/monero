@@ -41,17 +41,20 @@
 
 find_program(CCACHE_FOUND ccache)
 if (CCACHE_FOUND)
-	set(TEMP_CPP_FILE "${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeTmp/test-program.cpp")
+	# Try to compile a test program with ccache, in order to verify if it really works. (needed on exotic setups)
+	# Create a temporary file with a simple program.
+	set(TEMP_CPP_FILE "${CMAKE_BINARY_DIR}/${CMAKE_FILES_DIRECTORY}/CMakeTmp/test-program.cpp")
 	file(WRITE "${TEMP_CPP_FILE}" "int main() { return 0; }")
+	# And run the found ccache on it.
 	execute_process(COMMAND "${CCACHE_FOUND}" "${CMAKE_CXX_COMPILER}" "${TEMP_CPP_FILE}"  RESULT_VARIABLE RET)
 	if (${RET} EQUAL 0)
-		message("found usable ccache: ${CCACHE_FOUND}")
+		# Success
+		message(STATUS "Found usable ccache: ${CCACHE_FOUND}")
 		set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${CCACHE_FOUND}")
 		set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK    "${CCACHE_FOUND}")
 	else()
-		message("found ccache ${CCACHE_FOUND}, but is UNUSABLE! Return code: ${RET}")
-	endif()	    	
+		message(STATUS "Found ccache ${CCACHE_FOUND}, but is UNUSABLE! Return code: ${RET}")
+	endif()
 else()
-	message("ccache NOT found!")
+	message(STATUS "ccache NOT found! Please install it for faster rebuilds.")
 endif()
-
