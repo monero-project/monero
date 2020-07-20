@@ -179,10 +179,6 @@ namespace service_nodes
    			LOG_PRINT_L2("Accepted uptime proof from " << proof.pubkey);
 		}
 
-		//1573975194 = v6 hf timestamp + 12 hours
-		if(proof.snode_version_major <= 4 && proof.timestamp >= 1573975194)
-			return false;
-
 		CRITICAL_REGION_LOCAL(m_lock);
 		if (m_uptime_proof_seen[pubkey] >= now - (UPTIME_PROOF_FREQUENCY_IN_SECONDS / 2))
 			return false; // already received one uptime proof for this node recently.
