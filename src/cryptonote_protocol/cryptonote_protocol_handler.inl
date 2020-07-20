@@ -792,12 +792,33 @@ namespace cryptonote
   template<class t_core>
   int t_cryptonote_protocol_handler<t_core>::handle_uptime_proof(int command, NOTIFY_UPTIME_PROOF::request& arg, cryptonote_connection_context& context)
  {
-   MLOG_P2P_MESSAGE("Received NOTIFY_UPTIME_PROOF");
-   if(context.m_state != cryptonote_connection_context::state_normal)
-     return 1;
-   if (m_core.handle_uptime_proof(arg))
-     relay_uptime_proof(arg, context);
-   return 1;
+    MLOG_P2P_MESSAGE("Received NOTIFY_UPTIME_PROOF");
+    // NOTE: Don't relay your own uptime proof, otherwise we have the following situation
+
+    // Node1 sends uptime ->
+    // Node2 receives uptime and relays it back to Node1 for acknowledgement ->
+    // Node1 receives it, handle_uptime_proof returns true to acknowledge, Node1 tries to resend to the same peers again
+
+    // Instead, if we receive our own uptime proof, then acknowledge but don't
+    // send on. If the we are missing an uptime proof it will have been
+    // submitted automatically by the daemon itself instead of
+    // using my own proof relayed by other nodes.
+
+    (void)context;
+    bool my_uptime_proof_confirmation = false;
+    if (m_core.handle_uptime_proof(arg, my_uptime_proof_confirmation))
+    {
+      if (!my_uptime_proof_confirmation)
+      {
+        // NOTE: The default exclude context contains the peer who sent us this
+        // uptime proof, we want to ensure we relay it back so they know that the
+        // peer they relayed to received their uptime and confirm it, so send in an
+        // empty context so we don't omit the source peer from the relay back.
+        cryptonote_connection_context empty_context = {};
+        relay_uptime_proof(arg, empty_context);
+      }
+    }
+    return 1;
  }
  //------------------------------------------------------------------------------------------------------------------------
  template<class t_core>
@@ -2587,7 +2608,7 @@ skip:
   template<class t_core>
   bool t_cryptonote_protocol_handler<t_core>::relay_deregister_votes(NOTIFY_NEW_DEREGISTER_VOTE::request& arg, cryptonote_connection_context& exclude_context)
  {
-   bool result = relay_post_notify<NOTIFY_NEW_DEREGISTER_VOTE>(arg, exclude_context);
+   bool result = relay_to_synchronized_peers<NOTIFY_NEW_DEREGISTER_VOTE>(arg, exclude_context);
    m_core.set_deregister_votes_relayed(arg.votes);
    return result;
  }
@@ -2595,8 +2616,10 @@ skip:
  template<class t_core>
  bool t_cryptonote_protocol_handler<t_core>::relay_uptime_proof(NOTIFY_UPTIME_PROOF::request& arg, cryptonote_connection_context& exclude_context)
  {
-   return relay_post_notify<NOTIFY_UPTIME_PROOF>(arg, exclude_context);
- }
+    bool result = relay_to_synchronized_peers<NOTIFY_UPTIME_PROOF>(arg, exclude_context);
+    return result;
+  }
+
  //------------------------------------------------------------------------------------------------------------------------
  template<class t_core>
   bool t_cryptonote_protocol_handler<t_core>::request_txpool_complement(cryptonote_connection_context &context)

@@ -134,7 +134,33 @@ namespace cryptonote
 
 
     int handle_notify_get_txpool_complement(int command, NOTIFY_GET_TXPOOL_COMPLEMENT::request& arg, cryptonote_connection_context& context);
-		
+
+    template<class T>
+    bool relay_to_synchronized_peers(typename T::request& arg, cryptonote_connection_context& exclude_context)
+    {
+      LOG_PRINT_L2("[" << epee::net_utils::print_connection_context_short(exclude_context) << "] post relay " << typeid(T).name() << " -->");
+      std::vector<std::pair<epee::net_utils::zone, boost::uuids::uuid>> connections;
+      m_p2p->for_each_connection([&exclude_context, &connections](connection_context& context, nodetool::peerid_type peer_id, uint32_t support_flags)
+      {
+        if (context.m_state > cryptonote_connection_context::state_synchronizing)
+        {
+          epee::net_utils::zone zone = context.m_remote_address.get_zone();
+          if (peer_id && exclude_context.m_connection_id != context.m_connection_id)
+            connections.push_back({zone, context.m_connection_id});
+        }
+        return true;
+      });
+
+      if (connections.size())
+      {
+        std::string arg_buff;
+        epee::serialization::store_t_to_binary(arg, arg_buff);
+        return m_p2p->relay_notify_to_list(T::ID, epee::strspan<uint8_t>(arg_buff), std::move(connections));
+      }
+
+      return true;
+    }
+
     //----------------- i_bc_protocol_layout ---------------------------------------
     virtual bool relay_block(NOTIFY_NEW_BLOCK::request& arg, cryptonote_connection_context& exclude_context);
 		virtual bool relay_deregister_votes(NOTIFY_NEW_DEREGISTER_VOTE::request& arg, cryptonote_connection_context& exclude_context);
@@ -202,14 +228,6 @@ namespace cryptonote
         epee::serialization::store_t_to_binary(arg, blob);
         //handler_response_blocks_now(blob.size()); // XXX
         return m_p2p->invoke_notify_to_peer(t_parameter::ID, epee::strspan<uint8_t>(blob), context);
-      }
-      template<class t_parameter>
-      bool relay_post_notify(typename t_parameter::request& arg, cryptonote_connection_context& exclude_context)
-      {
-        LOG_PRINT_L2("[" << epee::net_utils::print_connection_context_short(exclude_context) << "] post relay " << typeid(t_parameter).name() << " -->");
-        std::string arg_buff;
-        epee::serialization::store_t_to_binary(arg, arg_buff);
-        return m_p2p->invoke_notify_to_peer(t_parameter::ID, epee::strspan<uint8_t>(arg_buff), exclude_context);
       }
   };
 

@@ -147,8 +147,14 @@ namespace service_nodes
 		return result;
 	}
 
-	bool quorum_cop::handle_uptime_proof(const cryptonote::NOTIFY_UPTIME_PROOF::request &proof)
+	bool quorum_cop::handle_uptime_proof(const cryptonote::NOTIFY_UPTIME_PROOF::request &proof, bool &my_uptime_proof_confirmation)
 	{
+
+		crypto::public_key my_pubkey;
+		crypto::secret_key my_seckey;
+		if (!m_core.get_service_node_keys(my_pubkey, my_seckey))
+			return false;
+
 		uint64_t now = time(nullptr);
 
 		uint64_t timestamp = proof.timestamp;
@@ -159,8 +165,20 @@ namespace service_nodes
 		if ((timestamp < now - UPTIME_PROOF_BUFFER_IN_SECONDS) || (timestamp > now + UPTIME_PROOF_BUFFER_IN_SECONDS))
 			return false;
 
-		if (!m_core.is_service_node(pubkey))
-			return false;
+		if (!m_core.is_service_node(pubkey) )
+			return false;    
+
+		if(pubkey == my_pubkey)
+		{
+			my_uptime_proof_confirmation = true;
+			MGINFO("Received uptime-proof confirmation back from network for Service Node (yours): " << proof.pubkey);
+		}
+		else 
+		{
+			my_uptime_proof_confirmation = false;
+   			LOG_PRINT_L2("Accepted uptime proof from " << proof.pubkey);
+		}
+
 		//1573975194 = v6 hf timestamp + 12 hours
 		if(proof.snode_version_major <= 4 && proof.timestamp >= 1573975194)
 			return false;

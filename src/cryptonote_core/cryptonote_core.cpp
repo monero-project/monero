@@ -740,8 +740,10 @@ namespace cryptonote
       std::string keystr;
       bool r = epee::file_io_utils::load_file_to_string(keypath, keystr);
       memcpy(&unwrap(unwrap(m_service_node_key)), keystr.data(), sizeof(m_service_node_key));
-      wipeable_string wipe(keystr);
-      CHECK_AND_ASSERT_MES(r, false, "failed to load service node key from file");
+      memwipe(&keystr[0], keystr.size());
+      CHECK_AND_ASSERT_MES(r, false, "failed to load service node key from " + keypath);
+      CHECK_AND_ASSERT_MES(keystr.size() == sizeof(m_service_node_key), false,
+          "service node key file " + keypath + " has an invalid size");
 
       r = crypto::secret_key_to_public_key(m_service_node_key, m_service_node_pubkey);
       CHECK_AND_ASSERT_MES(r, false, "failed to generate pubkey from secret key");
@@ -754,8 +756,8 @@ namespace cryptonote
 
       std::string keystr(reinterpret_cast<const char *>(&m_service_node_key), sizeof(m_service_node_key));
       bool r = epee::file_io_utils::save_string_to_file(keypath, keystr);
-      wipeable_string wipe(keystr);
-      CHECK_AND_ASSERT_MES(r, false, "failed to save service node key to file");
+      memwipe(&keystr[0], keystr.size());
+      CHECK_AND_ASSERT_MES(r, false, "failed to save service node key to " + keypath);
 
       using namespace boost::filesystem;
       permissions(keypath, owner_read);
@@ -1373,8 +1375,8 @@ namespace cryptonote
   {
     if (m_service_node)
     {
-      cryptonote_connection_context fake_context = AUTO_VAL_INIT(fake_context);
-      NOTIFY_UPTIME_PROOF::request r;
+    cryptonote_connection_context fake_context = AUTO_VAL_INIT(fake_context);
+    NOTIFY_UPTIME_PROOF::request r;
 	  service_nodes::generate_uptime_proof_request(m_service_node_pubkey, m_service_node_key, r);
 	  bool relayed = get_protocol()->relay_uptime_proof(r, fake_context);
 
@@ -1390,9 +1392,9 @@ namespace cryptonote
 	  return result;
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::handle_uptime_proof(const NOTIFY_UPTIME_PROOF::request &proof)
+  bool core::handle_uptime_proof(const NOTIFY_UPTIME_PROOF::request &proof, bool &my_uptime_proof_confirmation)
   {
-	  return m_quorum_cop.handle_uptime_proof(proof);
+	  return m_quorum_cop.handle_uptime_proof(proof, my_uptime_proof_confirmation);
   }
   //-----------------------------------------------------------------------------------------------
   void core::on_transactions_relayed(const epee::span<const cryptonote::blobdata> tx_blobs, const relay_method tx_relay)

@@ -407,7 +407,7 @@ namespace cryptonote
   /************************************************************************/
   struct NOTIFY_GET_TXPOOL_COMPLEMENT
   {
-    const static int ID = BC_COMMANDS_POOL_BASE + 10;
+    const static int ID = BC_COMMANDS_POOL_BASE + 12;
 
     struct request_t
     {
