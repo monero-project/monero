@@ -885,14 +885,6 @@ namespace net_utils
 			}
 		};
 		typedef http_simple_client_template<blocked_mode_client> http_simple_client;
-
-    class http_simple_client_factory : public http_client_factory
-    {
-    public:
-      std::unique_ptr<abstract_http_client> create() override {
-        return std::unique_ptr<epee::net_utils::http::abstract_http_client>(new epee::net_utils::http::http_simple_client());
-      }
-    };
 	}
 }
 }

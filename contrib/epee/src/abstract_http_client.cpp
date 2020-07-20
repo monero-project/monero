@@ -137,6 +137,11 @@ namespace http
     set_server(std::move(parsed.host), std::to_string(parsed.port), std::move(user), std::move(ssl_options));
     return true;
   }
+
+  bool epee::net_utils::http::abstract_http_client::set_proxy(const std::string& address)
+  {
+    return false;
+  }
 }
 }
 }
