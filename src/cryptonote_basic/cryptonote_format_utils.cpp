@@ -1207,7 +1207,7 @@ void add_tx_secret_key_to_tx_extra(std::vector<uint8_t>& tx_extra, const crypto:
     switch (decimal_point)
     {
       case 4:
-        return "triton";
+        return "equilibria";
       case 2:
         return "nenoton";
       case 0:
