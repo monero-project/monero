@@ -34,6 +34,8 @@
 
 #pragma once
 
+#include "misc_language.h"
+
 #include <stdlib.h>
 #include <stdint.h>
 
@@ -226,7 +228,7 @@ public:
     Item v = data[heap[0]];
     if (minCt < maxCt)
     {
-      v = (v + data[heap[-1]]) / 2;
+      v = get_mid<Item>(v, data[heap[-1]]);
     }
     return v;
   }
