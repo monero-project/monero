@@ -39,6 +39,7 @@
 #include <locale>
 #include <cstdlib>
 #include <string>
+#include <sstream>
 #include <type_traits>
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string/predicate.hpp>
@@ -162,6 +163,23 @@ POP_WARNINGS
 		i64toa_s(val, buff, sizeof(buff)-1, 10);
 		return buff;*/
 		return boost::lexical_cast<std::string>(val);
+	}
+	/*!
+	 \brief Locale-independent version of `std::to_string`.
+
+	 Using `std::to_string` can lead to different results when a different
+	 locale is used on the target computer.
+
+	 \param[in] t The value to convert to string.
+
+	 \return `std::string` the value as a string.
+	 */
+	template <typename T>
+	inline std::string to_string(const T t) {
+		std::ostringstream oss;
+		oss.imbue(std::locale::classic());
+		oss << t;
+		return oss.str();
 	}
 	//----------------------------------------------------------------------------
 	template<typename T>
