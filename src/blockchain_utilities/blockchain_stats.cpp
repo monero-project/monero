@@ -275,6 +275,8 @@ skip:
         return 1;
       }
       currsz += bd.size();
+      if (db->get_prunable_tx_blob(tx_id, bd))
+        currsz += bd.size();
       currtxs++;
       if (do_hours)
         txhr[currtm.tm_hour]++;
