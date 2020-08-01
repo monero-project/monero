@@ -68,6 +68,8 @@ int main(int argc, char* argv[])
   const command_line::arg_descriptor<bool> arg_outputs  = {"with-outputs", "with output stats", false};
   const command_line::arg_descriptor<bool> arg_ringsize  = {"with-ringsize", "with ringsize stats", false};
   const command_line::arg_descriptor<bool> arg_hours  = {"with-hours", "with txns per hour", false};
+  const command_line::arg_descriptor<bool> arg_emission  = {"with-emission", "with coin emission", false};
+  const command_line::arg_descriptor<bool> arg_fees  = {"with-fees", "with txn fees", false};
 
   command_line::add_arg(desc_cmd_sett, cryptonote::arg_data_dir);
   command_line::add_arg(desc_cmd_sett, cryptonote::arg_testnet_on);
@@ -79,6 +81,8 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_cmd_sett, arg_outputs);
   command_line::add_arg(desc_cmd_sett, arg_ringsize);
   command_line::add_arg(desc_cmd_sett, arg_hours);
+  command_line::add_arg(desc_cmd_sett, arg_emission);
+  command_line::add_arg(desc_cmd_sett, arg_fees);
   command_line::add_arg(desc_cmd_only, command_line::arg_help);
 
   po::options_description desc_options("Allowed options");
@@ -120,6 +124,8 @@ int main(int argc, char* argv[])
   bool do_outputs = command_line::get_arg(vm, arg_outputs);
   bool do_ringsize = command_line::get_arg(vm, arg_ringsize);
   bool do_hours = command_line::get_arg(vm, arg_hours);
+  bool do_emission = command_line::get_arg(vm, arg_emission);
+  bool do_fees = command_line::get_arg(vm, arg_fees);
 
   LOG_PRINT_L0("Initializing source blockchain (BlockchainDB)");
   std::unique_ptr<Blockchain> core_storage;
@@ -177,6 +183,10 @@ plot 'stats.csv' index "DATA" using (timecolumn(1,"%Y-%m-%d")):4 with lines, '' 
   // spit out a comment that GnuPlot can use as an index
   std::cout << ENDL << "# DATA" << ENDL;
   std::cout << "Date\tBlocks/day\tBlocks\tTxs/Day\tTxs\tBytes/Day\tBytes";
+  if (do_emission)
+    std::cout << "\tEmission/day\tEmission";
+  if (do_fees)
+    std::cout << "\tFees/day\tFees";
   if (do_inputs)
     std::cout << "\tInMin\tInMax\tInAvg";
   if (do_outputs)
@@ -198,6 +208,8 @@ plot 'stats.csv' index "DATA" using (timecolumn(1,"%Y-%m-%d")):4 with lines, '' 
   uint64_t prevtxs = 0, currtxs = 0;
   uint64_t currblks = 0;
   uint64_t totins = 0, totouts = 0, totrings = 0;
+  boost::multiprecision::uint128_t prevemission = 0, prevfees = 0;
+  boost::multiprecision::uint128_t emission = 0, fees = 0;
   uint32_t minins = 10, maxins = 0;
   uint32_t minouts = 10, maxouts = 0;
   uint32_t minrings = 50, maxrings = 0;
@@ -235,6 +247,16 @@ plot 'stats.csv' index "DATA" using (timecolumn(1,"%Y-%m-%d")):4 with lines, '' 
       currtxs = 0;
       if (!tottxs)
         tottxs = 1;
+      if (do_emission) {
+        std::cout << "\t" << print_money(emission) << "\t" << print_money(prevemission + emission);
+        prevemission += emission;
+        emission = 0;
+      }
+      if (do_fees) {
+        std::cout << "\t" << print_money(fees) << "\t" << print_money(prevfees + fees);
+        prevfees += fees;
+        fees = 0;
+      }
       if (do_inputs) {
         std::cout << "\t" << (maxins ? minins : 0) << "\t" << maxins << "\t" << totins / tottxs;
         minins = 10; maxins = 0; totins = 0;
@@ -258,6 +280,8 @@ plot 'stats.csv' index "DATA" using (timecolumn(1,"%Y-%m-%d")):4 with lines, '' 
     }
 skip:
     currsz += bd.size();
+    uint64_t coinbase_amount;
+    uint64_t tx_fee_amount = 0;
     for (const auto& tx_id : blk.tx_hashes)
     {
       if (tx_id == crypto::null_hash)
@@ -278,6 +302,9 @@ skip:
       if (db->get_prunable_tx_blob(tx_id, bd))
         currsz += bd.size();
       currtxs++;
+      if (do_fees || do_emission) {
+        tx_fee_amount += get_tx_fee(tx);
+      }
       if (do_hours)
         txhr[currtm.tm_hour]++;
       if (do_inputs) {
@@ -307,6 +334,11 @@ skip:
         totouts += io;
       }
       tottxs++;
+    }
+    if (do_emission) {
+      coinbase_amount = get_outs_money_amount(blk.miner_tx);
+      emission += coinbase_amount - tx_fee_amount;
+      fees += tx_fee_amount;
     }
     currblks++;
 
