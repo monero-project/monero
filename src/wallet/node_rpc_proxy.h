@@ -52,6 +52,7 @@ public:
   void set_height(uint64_t h);
   boost::optional<std::string> get_target_height(uint64_t &height);
   boost::optional<std::string> get_block_weight_limit(uint64_t &block_weight_limit);
+  boost::optional<std::string> get_adjusted_time(uint64_t &adjusted_time);
   boost::optional<std::string> get_earliest_height(uint8_t version, uint64_t &earliest_height);
   boost::optional<std::string> get_dynamic_base_fee_estimate(uint64_t grace_blocks, uint64_t &fee);
   boost::optional<std::string> get_fee_quantization_mask(uint64_t &fee_quantization_mask);
@@ -84,6 +85,7 @@ private:
   uint64_t m_dynamic_base_fee_estimate_cached_height;
   uint64_t m_dynamic_base_fee_estimate_grace_blocks;
   uint64_t m_fee_quantization_mask;
+  uint64_t m_adjusted_time;
   uint32_t m_rpc_version;
   uint64_t m_target_height;
   uint64_t m_block_weight_limit;
