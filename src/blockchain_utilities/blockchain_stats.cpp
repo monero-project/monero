@@ -68,6 +68,9 @@ int main(int argc, char* argv[])
   const command_line::arg_descriptor<bool> arg_outputs  = {"with-outputs", "with output stats", false};
   const command_line::arg_descriptor<bool> arg_ringsize  = {"with-ringsize", "with ringsize stats", false};
   const command_line::arg_descriptor<bool> arg_hours  = {"with-hours", "with txns per hour", false};
+  const command_line::arg_descriptor<bool> arg_emission  = {"with-emission", "with coin emission", false};
+  const command_line::arg_descriptor<bool> arg_fees  = {"with-fees", "with txn fees", false};
+  const command_line::arg_descriptor<bool> arg_diff  = {"with-diff", "with difficulty", false};
 
   command_line::add_arg(desc_cmd_sett, cryptonote::arg_data_dir);
   command_line::add_arg(desc_cmd_sett, cryptonote::arg_testnet_on);
@@ -79,6 +82,9 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_cmd_sett, arg_outputs);
   command_line::add_arg(desc_cmd_sett, arg_ringsize);
   command_line::add_arg(desc_cmd_sett, arg_hours);
+  command_line::add_arg(desc_cmd_sett, arg_emission);
+  command_line::add_arg(desc_cmd_sett, arg_fees);
+  command_line::add_arg(desc_cmd_sett, arg_diff);
   command_line::add_arg(desc_cmd_only, command_line::arg_help);
 
   po::options_description desc_options("Allowed options");
@@ -120,6 +126,9 @@ int main(int argc, char* argv[])
   bool do_outputs = command_line::get_arg(vm, arg_outputs);
   bool do_ringsize = command_line::get_arg(vm, arg_ringsize);
   bool do_hours = command_line::get_arg(vm, arg_hours);
+  bool do_emission = command_line::get_arg(vm, arg_emission);
+  bool do_fees = command_line::get_arg(vm, arg_fees);
+  bool do_diff = command_line::get_arg(vm, arg_diff);
 
   LOG_PRINT_L0("Initializing source blockchain (BlockchainDB)");
   std::unique_ptr<Blockchain> core_storage;
@@ -177,12 +186,20 @@ plot 'stats.csv' index "DATA" using (timecolumn(1,"%Y-%m-%d")):4 with lines, '' 
   // spit out a comment that GnuPlot can use as an index
   std::cout << ENDL << "# DATA" << ENDL;
   std::cout << "Date\tBlocks/day\tBlocks\tTxs/Day\tTxs\tBytes/Day\tBytes";
+  if (do_emission)
+    std::cout << "\tEmission/day\tEmission";
+  if (do_fees)
+    std::cout << "\tFees/day\tFees";
+  if (do_diff)
+    std::cout << "\tDiffMin\tDiffMax\tDiffAvg";
   if (do_inputs)
     std::cout << "\tInMin\tInMax\tInAvg";
   if (do_outputs)
     std::cout << "\tOutMin\tOutMax\tOutAvg";
   if (do_ringsize)
     std::cout << "\tRingMin\tRingMax\tRingAvg";
+  if (do_inputs || do_outputs || do_ringsize)
+    std::cout << std::setprecision(2) << std::fixed;
   if (do_hours) {
     char buf[8];
     unsigned int i;
@@ -193,14 +210,20 @@ plot 'stats.csv' index "DATA" using (timecolumn(1,"%Y-%m-%d")):4 with lines, '' 
   }
   std::cout << ENDL;
 
+#define MAX_INOUT	0xffffffff
+#define MAX_RINGS	0xffffffff
+
   struct tm prevtm = {0}, currtm;
   uint64_t prevsz = 0, currsz = 0;
   uint64_t prevtxs = 0, currtxs = 0;
   uint64_t currblks = 0;
   uint64_t totins = 0, totouts = 0, totrings = 0;
-  uint32_t minins = 10, maxins = 0;
-  uint32_t minouts = 10, maxouts = 0;
-  uint32_t minrings = 50, maxrings = 0;
+  boost::multiprecision::uint128_t prevemission = 0, prevfees = 0;
+  boost::multiprecision::uint128_t emission = 0, fees = 0;
+  boost::multiprecision::uint128_t totdiff = 0, mindiff = 0, maxdiff = 0;
+  uint32_t minins = MAX_INOUT, maxins = 0;
+  uint32_t minouts = MAX_INOUT, maxouts = 0;
+  uint32_t minrings = MAX_RINGS, maxrings = 0;
   uint32_t io, tottxs = 0;
   uint32_t txhr[24] = {0};
   unsigned int i;
@@ -230,34 +253,50 @@ plot 'stats.csv' index "DATA" using (timecolumn(1,"%Y-%m-%d")):4 with lines, '' 
       std::cout << timebuf << "\t" << currblks << "\t" << h << "\t" << currtxs << "\t" << prevtxs + currtxs << "\t" << currsz << "\t" << prevsz + currsz;
       prevsz += currsz;
       currsz = 0;
-      currblks = 0;
       prevtxs += currtxs;
       currtxs = 0;
       if (!tottxs)
         tottxs = 1;
+      if (do_emission) {
+        std::cout << "\t" << print_money(emission) << "\t" << print_money(prevemission + emission);
+        prevemission += emission;
+        emission = 0;
+      }
+      if (do_fees) {
+        std::cout << "\t" << print_money(fees) << "\t" << print_money(prevfees + fees);
+        prevfees += fees;
+        fees = 0;
+      }
+      if (do_diff) {
+        std::cout << "\t" << (maxdiff ? mindiff : 0) << "\t" << maxdiff << "\t" << totdiff / currblks;
+        mindiff = 0; maxdiff = 0; totdiff = 0;
+      }
       if (do_inputs) {
-        std::cout << "\t" << (maxins ? minins : 0) << "\t" << maxins << "\t" << totins / tottxs;
-        minins = 10; maxins = 0; totins = 0;
+        std::cout << "\t" << (maxins ? minins : 0) << "\t" << maxins << "\t" << totins * 1.0 / tottxs;
+        minins = MAX_INOUT; maxins = 0; totins = 0;
       }
       if (do_outputs) {
-        std::cout << "\t" << (maxouts ? minouts : 0) << "\t" << maxouts << "\t" << totouts / tottxs;
-        minouts = 10; maxouts = 0; totouts = 0;
+        std::cout << "\t" << (maxouts ? minouts : 0) << "\t" << maxouts << "\t" << totouts * 1.0 / tottxs;
+        minouts = MAX_INOUT; maxouts = 0; totouts = 0;
       }
       if (do_ringsize) {
-        std::cout << "\t" << (maxrings ? minrings : 0) << "\t" << maxrings << "\t" << totrings / tottxs;
-        minrings = 50; maxrings = 0; totrings = 0;
+        std::cout << "\t" << (maxrings ? minrings : 0) << "\t" << maxrings << "\t" << totrings * 1.0 / tottxs;
+        minrings = MAX_RINGS; maxrings = 0; totrings = 0;
       }
-      tottxs = 0;
       if (do_hours) {
         for (i=0; i<24; i++) {
           std::cout << "\t" << txhr[i];
           txhr[i] = 0;
         }
       }
+      currblks = 0;
+      tottxs = 0;
       std::cout << ENDL;
     }
 skip:
     currsz += bd.size();
+    uint64_t coinbase_amount;
+    uint64_t tx_fee_amount = 0;
     for (const auto& tx_id : blk.tx_hashes)
     {
       if (tx_id == crypto::null_hash)
@@ -275,7 +314,12 @@ skip:
         return 1;
       }
       currsz += bd.size();
+      if (db->get_prunable_tx_blob(tx_id, bd))
+        currsz += bd.size();
       currtxs++;
+      if (do_fees || do_emission) {
+        tx_fee_amount += get_tx_fee(tx);
+      }
       if (do_hours)
         txhr[currtm.tm_hour]++;
       if (do_inputs) {
@@ -305,6 +349,21 @@ skip:
         totouts += io;
       }
       tottxs++;
+    }
+    if (do_diff) {
+      difficulty_type diff = db->get_block_difficulty(h);
+      if (!mindiff || diff < mindiff)
+        mindiff = diff;
+      if (diff > maxdiff)
+        maxdiff = diff;
+      totdiff += diff;
+    }
+    if (do_emission) {
+      coinbase_amount = get_outs_money_amount(blk.miner_tx);
+      emission += coinbase_amount - tx_fee_amount;
+    }
+    if (do_fees) {
+      fees += tx_fee_amount;
     }
     currblks++;
 
