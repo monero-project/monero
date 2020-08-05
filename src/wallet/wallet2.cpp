@@ -5058,7 +5058,7 @@ std::string wallet2::exchange_multisig_keys(const epee::wipeable_string &passwor
     m_account.finalize_multisig(spend_public_key);
 
     m_multisig_signers = signers;
-    std::sort(m_multisig_signers.begin(), m_multisig_signers.end(), [](const crypto::public_key &e0, const crypto::public_key &e1){ return memcmp(&e0, &e1, sizeof(e0)); });
+    std::sort(m_multisig_signers.begin(), m_multisig_signers.end(), [](const crypto::public_key &e0, const crypto::public_key &e1){ return memcmp(&e0, &e1, sizeof(e0)) < 0; });
 
     ++m_multisig_rounds_passed;
     m_multisig_derivations.clear();
@@ -13124,7 +13124,7 @@ size_t wallet2::import_multisig(std::vector<cryptonote::blobdata> blobs)
   // sort by signer
   if (!info.empty() && !info.front().empty())
   {
-    std::sort(info.begin(), info.end(), [](const std::vector<tools::wallet2::multisig_info> &i0, const std::vector<tools::wallet2::multisig_info> &i1){ return memcmp(&i0[0].m_signer, &i1[0].m_signer, sizeof(i0[0].m_signer)); });
+    std::sort(info.begin(), info.end(), [](const std::vector<tools::wallet2::multisig_info> &i0, const std::vector<tools::wallet2::multisig_info> &i1){ return memcmp(&i0[0].m_signer, &i1[0].m_signer, sizeof(i0[0].m_signer)) < 0; });
   }
 
   // first pass to determine where to detach the blockchain
