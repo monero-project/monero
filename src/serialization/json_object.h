@@ -356,7 +356,7 @@ inline typename std::enable_if<sfinae::is_vector_like<Vec>::value, void>::type t
   dest.StartArray();
   for (const auto& t : vec)
     toJsonValue(dest, t);
-  dest.EndArray(vec.size());
+  dest.EndArray();
 }
 
 template <typename Vec>
