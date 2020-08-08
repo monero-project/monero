@@ -6512,8 +6512,8 @@ void wallet2::commit_tx(pending_tx& ptx)
   add_unconfirmed_tx(ptx.tx, amount_in, dests, payment_id, ptx.change_dts.amount, ptx.construction_data.subaddr_account, ptx.construction_data.subaddr_indices);
   if (store_tx_info() && ptx.tx_key != crypto::null_skey)
   {
-    m_tx_keys.insert(std::make_pair(txid, ptx.tx_key));
-    m_additional_tx_keys.insert(std::make_pair(txid, ptx.additional_tx_keys));
+    m_tx_keys[txid] = ptx.tx_key;
+    m_additional_tx_keys[txid] = ptx.additional_tx_keys;
   }
 
   LOG_PRINT_L2("transaction " << txid << " generated ok and sent to daemon, key_images: [" << ptx.key_images << "]");
@@ -6702,8 +6702,8 @@ bool wallet2::sign_tx(unsigned_tx_set &exported_txs, std::vector<wallet2::pendin
     if (store_tx_info() && tx_key != crypto::null_skey)
     {
       const crypto::hash txid = get_transaction_hash(ptx.tx);
-      m_tx_keys.insert(std::make_pair(txid, tx_key));
-      m_additional_tx_keys.insert(std::make_pair(txid, additional_tx_keys));
+      m_tx_keys[txid] = tx_key;
+      m_additional_tx_keys[txid] = additional_tx_keys;
     }
 
     std::string key_images;
@@ -7103,8 +7103,8 @@ bool wallet2::load_multisig_tx(cryptonote::blobdata s, multisig_tx_set &exported
       const crypto::hash txid = get_transaction_hash(ptx.tx);
       if (store_tx_info())
       {
-        m_tx_keys.insert(std::make_pair(txid, ptx.tx_key));
-        m_additional_tx_keys.insert(std::make_pair(txid, ptx.additional_tx_keys));
+        m_tx_keys[txid] = ptx.tx_key;
+        m_additional_tx_keys[txid] = ptx.additional_tx_keys;
       }
     }
   }
@@ -7224,8 +7224,8 @@ bool wallet2::sign_multisig_tx(multisig_tx_set &exported_txs, std::vector<crypto
       const crypto::hash txid = get_transaction_hash(ptx.tx);
       if (store_tx_info())
       {
-        m_tx_keys.insert(std::make_pair(txid, ptx.tx_key));
-        m_additional_tx_keys.insert(std::make_pair(txid, ptx.additional_tx_keys));
+        m_tx_keys[txid] = ptx.tx_key;
+        m_additional_tx_keys[txid] = ptx.additional_tx_keys;
       }
       txids.push_back(txid);
     }
@@ -10961,8 +10961,8 @@ void wallet2::set_tx_key(const crypto::hash &txid, const crypto::secret_key &tx_
   tx_extra_additional_pub_keys additional_tx_pub_keys;
   find_tx_extra_field_by_type(tx_extra_fields, additional_tx_pub_keys);
   THROW_WALLET_EXCEPTION_IF(additional_tx_keys.size() != additional_tx_pub_keys.data.size(), error::wallet_internal_error, "The number of additional tx secret keys doesn't agree with the number of additional tx public keys in the blockchain" );
-  m_tx_keys.insert(std::make_pair(txid, tx_key));
-  m_additional_tx_keys.insert(std::make_pair(txid, additional_tx_keys));
+  m_tx_keys[txid] = tx_key;
+  m_additional_tx_keys[txid] = additional_tx_keys;
 }
 //----------------------------------------------------------------------------------------------------
 std::string wallet2::get_spend_proof(const crypto::hash &txid, const std::string &message)
