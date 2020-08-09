@@ -1303,6 +1303,7 @@ namespace cryptonote
     {
       NOTIFY_NEW_TRANSACTIONS::request public_req{};
       NOTIFY_NEW_TRANSACTIONS::request private_req{};
+      NOTIFY_NEW_TRANSACTIONS::request stem_req{};
       for (auto& tx : txs)
       {
         switch (std::get<2>(tx))
@@ -1312,6 +1313,9 @@ namespace cryptonote
             break;
           case relay_method::local:
             private_req.txs.push_back(std::move(std::get<1>(tx)));
+            break;
+          case relay_method::forward:
+            stem_req.txs.push_back(std::move(std::get<1>(tx)));
             break;
           case relay_method::block:
           case relay_method::fluff:
@@ -1330,6 +1334,8 @@ namespace cryptonote
         get_protocol()->relay_transactions(public_req, source, epee::net_utils::zone::public_, relay_method::fluff);
       if (!private_req.txs.empty())
         get_protocol()->relay_transactions(private_req, source, epee::net_utils::zone::invalid, relay_method::local);
+      if (!stem_req.txs.empty())
+        get_protocol()->relay_transactions(stem_req, source, epee::net_utils::zone::public_, relay_method::stem);
     }
     return true;
   }

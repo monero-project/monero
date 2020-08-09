@@ -357,11 +357,15 @@ namespace levin
           return true;
         });
 
-        // Always send txs in stem mode over i2p/tor, see comments in `send_txs` below.
+        /* Always send with `fluff` flag, even over i2p/tor. The hidden service
+	   will disable the forwarding delay and immediately fluff. The i2p/tor
+	   network is therefore replacing the sybil protection of Dandelion++.
+	   Dandelion++ stem phase over i2p/tor is also worth investigating
+	   (with/without "noise"?). */
         for (auto& connection : connections)
         {
           std::sort(connection.first.begin(), connection.first.end()); // don't leak receive order
-          make_payload_send_txs(*zone_->p2p, std::move(connection.first), connection.second, zone_->pad_txs, zone_->is_public);
+          make_payload_send_txs(*zone_->p2p, std::move(connection.first), connection.second, zone_->pad_txs, true);
         }
 
         if (next_flush != std::chrono::steady_clock::time_point::max())
@@ -811,12 +815,11 @@ namespace levin
         case relay_method::block:
           return false;
         case relay_method::stem:
-	  tx_relay = relay_method::fluff; // don't set stempool embargo when skipping to fluff
-	  /* fallthrough */
+        case relay_method::forward:
         case relay_method::local:
           if (zone_->is_public)
           {
-	    // this will change a local tx to stem or fluff ...
+            // this will change a local/forward tx to stem or fluff ...
             zone_->strand.dispatch(
               dandelionpp_notify{zone_, std::addressof(core), std::move(txs), source}
             );
@@ -824,6 +827,11 @@ namespace levin
           }
           /* fallthrough */
         case relay_method::fluff:
+          /* If sending stem/forward/local txes over non public networks,
+             continue to claim that relay mode even though it used the "fluff"
+             routine. A "fluff" over i2p/tor is not the same as a "fluff" over
+             ipv4/6. Marking it as "fluff" here will make the tx immediately
+             visible externally from this node, which is not desired. */
           core.on_transactions_relayed(epee::to_span(txs), tx_relay);
           zone_->strand.dispatch(fluff_notify{zone_, std::move(txs), source});
           break;
