@@ -1,0 +1,76 @@
+#----------------------------------------------------------------------------------------
+# Copyright (c) 2020, The Monero Project
+#
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without modification, are
+# permitted provided that the following conditions are met:
+#
+# 1. Redistributions of source code must retain the above copyright notice, this list of
+#    conditions and the following disclaimer.
+#
+# 2. Redistributions in binary form must reproduce the above copyright notice, this list
+#    of conditions and the following disclaimer in the documentation and/or other
+#    materials provided with the distribution.
+#
+# 3. Neither the name of the copyright holder nor the names of its contributors may be
+#    used to endorse or promote products derived from this software without specific
+#    prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
+# EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
+# THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+# SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+# PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+# STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
+# THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#----------------------------------------------------------------------------------------
+# vim: ft=apparmor
+
+abi <abi/3.0>,
+
+include <tunables/global>
+include <tunables/monero>
+
+@{MONEROD_DATA_DIRS}=@{MONEROD_DATA_DIR}/{,stagenet/,testnet/,fake/}
+
+# Add `flags=(attach_disconnected)` before the opening curly bracket if you
+# have audit log messages like "Failed name lookup - disconnected path". This
+# reduces the effectiveness of AppArmor.
+#
+# See: https://lists.ubuntu.com/archives/apparmor/2018-July/011718.html
+# See: https://github.com/monero-project/monero/pull/6758#issuecomment-699275306
+profile monerod /usr/{,local/}bin/monerod {
+  include <abstractions/base>
+  include <abstractions/nameservice>
+  include <abstractions/openssl>
+
+  capability sys_nice,
+
+  /etc/inputrc r,
+  /etc/terminfo/** r,
+
+  /sys/devices/**/rotational r,
+
+  /etc/tor/torsocks.conf r,
+
+  # Allow another apparmored program to start monerod.
+  /usr/{,local/}bin/monerod mr,
+
+  /etc/monerod.conf r,
+
+  owner @{MONEROD_DATA_DIRS}/ rw,
+  owner @{MONEROD_DATA_DIRS}/lmdb/ w,
+  owner @{MONEROD_DATA_DIRS}/lmdb/data.mdb rwk,
+  owner @{MONEROD_DATA_DIRS}/lmdb/lock.mdb rwk,
+  owner @{MONEROD_DATA_DIRS}/ssl/* r,
+  owner @{MONEROD_DATA_DIRS}/bitmonero.conf r,
+  owner @{MONEROD_DATA_DIRS}/bitmonero.log* w,
+  owner @{MONEROD_DATA_DIRS}/p2pstate.bin rw,
+  owner @{MONEROD_DATA_DIRS}/monerod.pid w,
+
+  # Site-specific additions and overrides. See local/README for details.
+  #include if exists <local/usr.bin.monerod>
+}
