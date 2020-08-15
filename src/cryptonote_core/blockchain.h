@@ -291,6 +291,22 @@ namespace cryptonote
     difficulty_type get_difficulty_for_next_block();
 
     /**
+     * @brief check currently stored difficulties against difficulty checkpoints
+     *
+     * @return {flag, height} flag: true if all difficulty checkpoints pass, height: the last checkpoint height before the difficulty drift bug starts
+     */
+    std::pair<bool, uint64_t> check_difficulty_checkpoints() const;
+
+    /**
+     * @brief recalculate difficulties for blocks after the last difficulty checkpoints to circumvent the annoying 'difficulty drift' bug
+     *
+     * @param start_height: if omitted, starts recalculation from the last difficulty checkpoint
+     *
+     * @return number of blocks whose difficulties got corrected
+     */
+    size_t recalculate_difficulties(boost::optional<uint64_t> start_height = boost::none);
+
+    /**
      * @brief adds a block to the blockchain
      *
      * Adds a new block to the blockchain.  If the block's parent is not the
@@ -981,6 +997,7 @@ namespace cryptonote
     std::vector<uint64_t> m_timestamps;
     std::vector<difficulty_type> m_difficulties;
     uint64_t m_timestamps_and_difficulties_height;
+    bool m_reset_timestamps_and_difficulties_height;
     uint64_t m_long_term_block_weights_window;
     uint64_t m_long_term_effective_median_block_weight;
     mutable crypto::hash m_long_term_block_weights_cache_tip_hash;

@@ -266,6 +266,9 @@ namespace cryptonote {
     difficulty_type total_work = cumulative_difficulties[cut_end - 1] - cumulative_difficulties[cut_begin];
     assert(total_work > 0);
     boost::multiprecision::uint256_t res =  (boost::multiprecision::uint256_t(total_work) * target_seconds + time_span - 1) / time_span;
+    if (height >= HARDFORK_1_HEIGHT && height < HARDFORK_1_HEIGHT+HARDFORK_1_DIFFADJ_WINDOW) {
+      res += res*(HARDFORK_1_HEIGHT+HARDFORK_1_DIFFADJ_WINDOW-height)*(HARDFORK_1_DIFFADJ-1)/HARDFORK_1_DIFFADJ_WINDOW;
+    }
     if(res > max128bit)
       return 0; // to behave like previous implementation, may be better return max128bit?
     return res.convert_to<difficulty_type>();
