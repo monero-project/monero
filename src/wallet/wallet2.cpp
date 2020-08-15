@@ -260,7 +260,7 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
       trusted_daemon = false;
       if (tools::is_local_address(daemon_address))
       {
-        MINFO(tr("Daemon is local, assuming trusted"));
+        MINFO(tools::wallet2::tr("Daemon is local, assuming trusted"));
         trusted_daemon = true;
       }
     }
@@ -312,10 +312,10 @@ boost::optional<tools::password_container> get_password(const boost::program_opt
 
   THROW_WALLET_EXCEPTION_IF(!password_prompter, tools::error::wallet_internal_error, tools::wallet2::tr("no password specified; use --prompt-for-password to prompt for a password"));
 
-  return password_prompter(verify ? tr("Enter a new password for the wallet") : tr("Wallet password"), verify);
+  return password_prompter(verify ? tools::wallet2::tr("Enter a new password for the wallet") : tools::wallet2::tr("Wallet password"), verify);
 }
 
-std::unique_ptr<tools::wallet2> generate_from_json(const std::string& json_file, const boost::program_options::variables_map& vm, bool unattended, const options& opts, const std::function<boost::optional<tools::password_container>(const char *, bool)> &password_prompter)
+std::pair<std::unique_ptr<tools::wallet2>, tools::password_container> generate_from_json(const std::string& json_file, const boost::program_options::variables_map& vm, bool unattended, const options& opts, const std::function<boost::optional<tools::password_container>(const char *, bool)> &password_prompter)
 {
   const bool testnet = command_line::get_arg(vm, opts.testnet);
   const bool stagenet = command_line::get_arg(vm, opts.stagenet);
@@ -325,6 +325,7 @@ std::unique_ptr<tools::wallet2> generate_from_json(const std::string& json_file,
   false. Gcc will coerce this into unique_ptr(nullptr), but clang correctly
   fails. This large wrapper is for the use of that macro */
   std::unique_ptr<tools::wallet2> wallet;
+  epee::wipeable_string password;
   const auto do_generate = [&]() -> bool {
     std::string buf;
     if (!epee::file_io_utils::load_file_to_string(json_file, buf)) {
@@ -462,10 +463,12 @@ std::unique_ptr<tools::wallet2> generate_from_json(const std::string& json_file,
       if (!field_seed.empty())
       {
         wallet->generate(field_filename, field_password, recovery_key, recover, false, create_address_file);
+        password = field_password;
       }
       else if (field_viewkey.empty() && !field_spendkey.empty())
       {
         wallet->generate(field_filename, field_password, spendkey, recover, false, create_address_file);
+        password = field_password;
       }
       else
       {
@@ -492,6 +495,7 @@ std::unique_ptr<tools::wallet2> generate_from_json(const std::string& json_file,
             THROW_WALLET_EXCEPTION(tools::error::wallet_internal_error, tools::wallet2::tr("Address must be specified in order to create watch-only wallet"));
           }
           wallet->generate(field_filename, field_password, address, viewkey, create_address_file);
+          password = field_password;
         }
         else
         {
@@ -499,6 +503,7 @@ std::unique_ptr<tools::wallet2> generate_from_json(const std::string& json_file,
             THROW_WALLET_EXCEPTION(tools::error::wallet_internal_error, tools::wallet2::tr("failed to verify spend key secret key"));
           }
           wallet->generate(field_filename, field_password, address, spendkey, viewkey, create_address_file);
+          password = field_password;
         }
       }
     }
@@ -511,9 +516,9 @@ std::unique_ptr<tools::wallet2> generate_from_json(const std::string& json_file,
 
   if (do_generate())
   {
-    return wallet;
+    return {std::move(wallet), tools::password_container(password)};
   }
-  return nullptr;
+  return {nullptr, tools::password_container{}};
 }
 
 static void throw_on_rpc_response_error(const boost::optional<std::string> &status, const char *method)
@@ -839,7 +844,7 @@ void wallet2::init_options(boost::program_options::options_description& desc_par
   command_line::add_arg(desc_params, opts.tx_notify);
 }
 
-std::unique_ptr<wallet2> wallet2::make_from_json(const boost::program_options::variables_map& vm, bool unattended, const std::string& json_file, const std::function<boost::optional<tools::password_container>(const char *, bool)> &password_prompter)
+std::pair<std::unique_ptr<wallet2>, tools::password_container> wallet2::make_from_json(const boost::program_options::variables_map& vm, bool unattended, const std::string& json_file, const std::function<boost::optional<tools::password_container>(const char *, bool)> &password_prompter)
 {
   const options opts{};
   return generate_from_json(json_file, vm, unattended, opts, password_prompter);
@@ -1332,7 +1337,6 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
   // (that is, the prunable stuff may or may not be included)
   if (!miner_tx && !pool)
     process_unconfirmed(txid, tx, height);
-  std::vector<size_t> outs;
   std::unordered_map<cryptonote::subaddress_index, uint64_t> tx_money_got_in_outs;  // per receiving subaddress index
   crypto::public_key tx_pub_key = null_pkey;
   bool notify = false;
@@ -1355,6 +1359,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
   uint64_t total_received_1 = 0;
   while (!tx.vout.empty())
   {
+    std::vector<size_t> outs;
     // if tx.vout is not empty, we loop through all tx pubkeys
 
     tx_extra_pub_key pub_key_field;

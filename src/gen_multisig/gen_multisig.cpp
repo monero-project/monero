@@ -104,7 +104,7 @@ static bool generate_multisig(uint32_t threshold, uint32_t total, const std::str
       wallets[n]->decrypt_keys(pwd_container->password());
       if (!tools::wallet2::verify_multisig_info(wallets[n]->get_multisig_info(), sk[n], pk[n]))
       {
-        tools::fail_msg_writer() << tr("Failed to verify multisig info");
+        tools::fail_msg_writer() << genms::tr("Failed to verify multisig info");
         return false;
       }
       wallets[n]->encrypt_keys(pwd_container->password());

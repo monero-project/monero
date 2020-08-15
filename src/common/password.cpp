@@ -56,8 +56,6 @@ namespace
 
   bool read_from_tty(epee::wipeable_string& pass, bool hide_input)
   {
-    static constexpr const char BACKSPACE = 8;
-
     HANDLE h_cin = ::GetStdHandle(STD_INPUT_HANDLE);
 
     DWORD mode_old;
@@ -67,32 +65,46 @@ namespace
 
     bool r = true;
     pass.reserve(tools::password_container::max_password_size);
+    std::vector<int> chlen;
+    chlen.reserve(tools::password_container::max_password_size);
     while (pass.size() < tools::password_container::max_password_size)
     {
       DWORD read;
-      char ch;
-      r = (TRUE == ::ReadConsoleA(h_cin, &ch, 1, &read, NULL));
+      wchar_t ucs2_ch;
+      r = (TRUE == ::ReadConsoleW(h_cin, &ucs2_ch, 1, &read, NULL));
       r &= (1 == read);
+
       if (!r)
       {
         break;
       }
-      else if (ch == '\n' || ch == '\r')
+      else if (ucs2_ch == L'\n' || ucs2_ch == L'\r')
       {
         std::cout << std::endl;
         break;
       }
-      else if (ch == BACKSPACE)
+      else if (ucs2_ch == L'\b')
       {
         if (!pass.empty())
         {
-          pass.pop_back();
+          int len = chlen.back();
+          chlen.pop_back();
+          while(len-- > 0) 
+            pass.pop_back();
         }
+        continue;
       }
-      else
-      {
-        pass.push_back(ch);
-      }
+      
+      char utf8_ch[8] = {0};
+      int len;
+      if((len = WideCharToMultiByte(CP_UTF8, 0, &ucs2_ch, 1, utf8_ch, sizeof(utf8_ch), NULL, NULL)) <= 0)
+        break;
+
+      if(pass.size() + len >= tools::password_container::max_password_size)
+        break;
+
+      chlen.push_back(len);
+      pass += utf8_ch;
     }
 
     ::SetConsoleMode(h_cin, mode_old);
@@ -219,6 +231,10 @@ namespace tools
   password_container::password_container() noexcept : m_password() {}
   password_container::password_container(std::string&& password) noexcept
     : m_password(std::move(password)) 
+  {
+  }
+  password_container::password_container(const epee::wipeable_string& password) noexcept
+    : m_password(password)
   {
   }
 
