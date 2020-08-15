@@ -31,6 +31,11 @@
 #include "misc_log_ex.h"
 #include "cryptonote_config.h"
 #include "rctTypes.h"
+
+extern "C" {
+#include "crypto/crypto-ops.h"
+}
+
 using namespace crypto;
 using namespace std;
 

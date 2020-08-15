@@ -206,6 +206,7 @@ int main(int argc, char* argv[])
     GENERATE_AND_PLAY(gen_rct_tx_pre_rct_altered_extra);
     GENERATE_AND_PLAY(gen_rct_tx_rct_altered_extra);
     GENERATE_AND_PLAY(gen_rct_tx_uses_output_too_early);
+#endif
 
     GENERATE_AND_PLAY(gen_multisig_tx_valid_22_1_2);
     GENERATE_AND_PLAY(gen_multisig_tx_valid_22_1_2_many_inputs);
@@ -225,7 +226,6 @@ int main(int argc, char* argv[])
     GENERATE_AND_PLAY(gen_multisig_tx_invalid_33_1__no_threshold);
     GENERATE_AND_PLAY(gen_multisig_tx_invalid_33_1_2_no_threshold);
     GENERATE_AND_PLAY(gen_multisig_tx_invalid_33_1_3_no_threshold);
-#endif
 
     GENERATE_AND_PLAY(gen_borromean_tx_valid_pre_fork_without);
     GENERATE_AND_PLAY(gen_borromean_tx_invalid_pre_fork_with);

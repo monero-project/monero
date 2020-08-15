@@ -373,6 +373,7 @@ namespace tools
     struct multisig_sig
     {
       rct::rctSig sigs;
+      crypto::borromean_signature bsig;
       crypto::public_key ignore;
       std::unordered_set<rct::key> used_L;
       std::unordered_set<crypto::public_key> signing_keys;
@@ -1744,12 +1745,14 @@ namespace boost
       if (ver < 3)
         return;
       a & x.use_bulletproofs;
+      a & x.use_v1_borromean;
     }
 
     template <class Archive>
     inline void serialize(Archive &a, tools::wallet2::multisig_sig &x, const boost::serialization::version_type ver)
     {
       a & x.sigs;
+      a & x.bsig;
       a & x.ignore;
       a & x.used_L;
       a & x.signing_keys;
