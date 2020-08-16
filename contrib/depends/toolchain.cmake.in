@@ -56,7 +56,7 @@ SET(Boost_NO_SYSTEM_PATHS ON)
 SET(Boost_USE_STATIC_LIBS ON)
 SET(Boost_USE_STATIC_RUNTIME ON)
 
-SET(OpenSSL_DIR @prefix@/lib)
+SET(OPENSSL_ROOT_DIR @prefix@)
 SET(ARCHITECTURE @arch@)
 
 # for libraries and headers in the target directories
