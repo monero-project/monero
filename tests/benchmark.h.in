@@ -1,0 +1,5 @@
+#pragma once
+
+// A Boost PP sequence
+#define BENCHMARK_LIBRARIES @MONERO_WALLET_CRYPTO_BENCH_NAMES@
+
