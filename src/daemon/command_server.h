@@ -73,6 +73,7 @@ public:
 
 private:
   bool help(const std::vector<std::string>& args);
+  bool apropos(const std::vector<std::string>& args);
 
   std::string get_commands_str();
   std::string get_command_usage(const std::vector<std::string> &args);
