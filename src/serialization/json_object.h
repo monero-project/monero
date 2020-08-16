@@ -154,6 +154,9 @@ inline void toJsonValue(rapidjson::Writer<epee::byte_stream>& dest, const std::s
 }
 void fromJsonValue(const rapidjson::Value& val, std::string& str);
 
+void toJsonValue(rapidjson::Writer<epee::byte_stream>& dest, const std::vector<std::uint8_t>&);
+void fromJsonValue(const rapidjson::Value& src, std::vector<std::uint8_t>& i);
+
 void toJsonValue(rapidjson::Writer<epee::byte_stream>& dest, bool i);
 void fromJsonValue(const rapidjson::Value& val, bool& b);
 
@@ -357,6 +360,10 @@ inline typename std::enable_if<sfinae::is_map_like<Map>::value, void>::type from
 template <typename Vec>
 inline typename std::enable_if<sfinae::is_vector_like<Vec>::value, void>::type toJsonValue(rapidjson::Writer<epee::byte_stream>& dest, const Vec &vec)
 {
+  using value_type = typename Vec::value_type;
+  static_assert(!std::is_same<value_type, char>::value, "encoding an array of chars is faster as hex");
+  static_assert(!std::is_same<value_type, unsigned char>::value, "encoding an array of unsigned char is faster as hex");
+
   dest.StartArray();
   for (const auto& t : vec)
     toJsonValue(dest, t);
@@ -379,6 +386,10 @@ namespace traits
 template <typename Vec>
 inline typename std::enable_if<sfinae::is_vector_like<Vec>::value, void>::type fromJsonValue(const rapidjson::Value& val, Vec& vec)
 {
+  using value_type = typename Vec::value_type;
+  static_assert(!std::is_same<value_type, char>::value, "encoding a vector of chars is faster as hex");
+  static_assert(!std::is_same<value_type, unsigned char>::value, "encoding a vector of unsigned char is faster as hex");
+
   if (!val.IsArray())
   {
     throw WRONG_TYPE("json array");

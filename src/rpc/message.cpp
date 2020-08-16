@@ -65,8 +65,6 @@ const rapidjson::Value& get_method_field(const rapidjson::Value& src)
 void Message::toJson(rapidjson::Writer<epee::byte_stream>& dest) const
 {
   dest.StartObject();
-  INSERT_INTO_JSON_OBJECT(dest, status, status);
-  INSERT_INTO_JSON_OBJECT(dest, error_details, error_details);
   INSERT_INTO_JSON_OBJECT(dest, rpc_version, DAEMON_RPC_VERSION_ZMQ);
   doToJson(dest);
   dest.EndObject();
@@ -74,8 +72,6 @@ void Message::toJson(rapidjson::Writer<epee::byte_stream>& dest) const
 
 void Message::fromJson(const rapidjson::Value& val)
 {
-  GET_FROM_JSON_OBJECT(val, status, status);
-  GET_FROM_JSON_OBJECT(val, error_details, error_details);
   GET_FROM_JSON_OBJECT(val, rpc_version, rpc_version);
 }
 
