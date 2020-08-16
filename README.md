@@ -468,6 +468,14 @@ c++: error: unable to execute command: Abort trap (core dumped)
 
 Then you need to increase the data ulimit size to 2GB and try again: `ulimit -d 2000000`
 
+### On NetBSD:
+
+Check that the dependencies are present: `pkg_info -c libexecinfo boost-headers boost-libs protobuf readline libusb1 zeromq git-base pkgconf gmake cmake | more`, and install any that are reported missing, using `pkg_add` or from your pkgsrc tree.  Readline is optional but worth having.
+
+Third-party dependencies are usually under `/usr/pkg/`, but if you have a custom setup, adjust the "/usr/pkg" (below) accordingly.
+
+Clone the monero repository recursively and checkout the most recent release as described above. Then build monero: `gmake BOOST_ROOT=/usr/pkg LDFLAGS="-Wl,-R/usr/pkg/lib" release`.  The resulting executables can be found in `build/NetBSD/[Release version]/Release/bin/`.
+
 ### On Solaris:
 
 The default Solaris linker can't be used, you have to install GNU ld, then run cmake manually with the path to your copy of GNU ld:
