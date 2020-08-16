@@ -304,7 +304,7 @@ namespace
       : cryptonote::rpc::RpcHandler()
     {}
 
-    virtual epee::byte_slice handle(const std::string& request) override final
+    virtual epee::byte_slice handle(std::string&& request) override final
     {
       throw std::logic_error{"not implemented"};
     }

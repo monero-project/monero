@@ -79,9 +79,12 @@ void Message::fromJson(const rapidjson::Value& val)
   GET_FROM_JSON_OBJECT(val, rpc_version, rpc_version);
 }
 
-FullMessage::FullMessage(const std::string& json_string, bool request)
+FullMessage::FullMessage(std::string&& json_string, bool request)
+  : contents(std::move(json_string)), doc()
 {
-  doc.Parse(json_string.c_str());
+  /* Insitu parsing does not copy data from `contents` to DOM,
+     accelerating string heavy content. */
+  doc.ParseInsitu(std::addressof(contents[0]));
   if (doc.HasParseError() || !doc.IsObject())
   {
     throw cryptonote::json::PARSE_FAIL();

@@ -72,9 +72,7 @@ namespace rpc
     public:
       ~FullMessage() { }
 
-      FullMessage(FullMessage&& rhs) noexcept : doc(std::move(rhs.doc)) { }
-
-      FullMessage(const std::string& json_string, bool request=false);
+      FullMessage(std::string&& json_string, bool request=false);
 
       std::string getRequestType() const;
 
@@ -91,10 +89,13 @@ namespace rpc
     private:
 
       FullMessage() = default;
+      FullMessage(const FullMessage&) = delete;
+      FullMessage& operator=(const FullMessage&) = delete;
 
       FullMessage(const std::string& request, Message* message);
       FullMessage(Message* message);
 
+      std::string contents;
       rapidjson::Document doc;
   };
 

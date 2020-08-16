@@ -33,6 +33,8 @@
 #include <limits>
 #include <type_traits>
 
+#include "cryptonote_basic/cryptonote_basic_impl.h"
+
 // drop macro from windows.h
 #ifdef GetObject
   #undef GetObject
@@ -246,7 +248,10 @@ void toJsonValue(rapidjson::Writer<epee::byte_stream>& dest, const cryptonote::t
   INSERT_INTO_JSON_OBJECT(dest, inputs, tx.vin);
   INSERT_INTO_JSON_OBJECT(dest, outputs, tx.vout);
   INSERT_INTO_JSON_OBJECT(dest, extra, tx.extra);
-  INSERT_INTO_JSON_OBJECT(dest, signatures, tx.signatures);
+  if (!tx.pruned)
+  {
+    INSERT_INTO_JSON_OBJECT(dest, signatures, tx.signatures);
+  }
   INSERT_INTO_JSON_OBJECT(dest, ringct, tx.rct_signatures);
 
   dest.EndObject();
@@ -265,8 +270,17 @@ void fromJsonValue(const rapidjson::Value& val, cryptonote::transaction& tx)
   GET_FROM_JSON_OBJECT(val, tx.vin, inputs);
   GET_FROM_JSON_OBJECT(val, tx.vout, outputs);
   GET_FROM_JSON_OBJECT(val, tx.extra, extra);
-  GET_FROM_JSON_OBJECT(val, tx.signatures, signatures);
   GET_FROM_JSON_OBJECT(val, tx.rct_signatures, ringct);
+
+  const auto& sigs = val.FindMember("signatures");
+  if (sigs != val.MemberEnd())
+  {
+    fromJsonValue(sigs->value, tx.signatures);
+  }
+
+  const auto& rsig = tx.rct_signatures;
+  if (!cryptonote::is_coinbase(tx) && rsig.p.bulletproofs.empty() && rsig.p.rangeSigs.empty() && rsig.p.MGs.empty() && rsig.get_pseudo_outs().empty() && sigs == val.MemberEnd())
+    tx.pruned = true;
 }
 
 void toJsonValue(rapidjson::Writer<epee::byte_stream>& dest, const cryptonote::block& b)
@@ -1062,6 +1076,7 @@ void toJsonValue(rapidjson::Writer<epee::byte_stream>& dest, const rct::rctSig& 
   INSERT_INTO_JSON_OBJECT(dest, fee, sig.txnFee);
 
   // prunable
+  if (!sig.p.bulletproofs.empty() || !sig.p.rangeSigs.empty() || !sig.p.MGs.empty() || !sig.get_pseudo_outs().empty())
   {
     dest.Key("prunable");
     dest.StartObject();
@@ -1086,33 +1101,37 @@ void fromJsonValue(const rapidjson::Value& val, rct::rctSig& sig)
     throw WRONG_TYPE("json object");
   }
 
-  std::vector<rct::key> commitments;
-
   GET_FROM_JSON_OBJECT(val, sig.type, type);
   GET_FROM_JSON_OBJECT(val, sig.ecdhInfo, encrypted);
-  GET_FROM_JSON_OBJECT(val, commitments, commitments);
+  GET_FROM_JSON_OBJECT(val, sig.outPk, commitments);
   GET_FROM_JSON_OBJECT(val, sig.txnFee, fee);
 
   // prunable
+  const auto prunable = val.FindMember("prunable");
+  if (prunable != val.MemberEnd())
   {
-    OBJECT_HAS_MEMBER_OR_THROW(val, "prunable");
-    const auto& prunable = val["prunable"];
+    rct::keyV pseudo_outs = std::move(sig.get_pseudo_outs());
 
-    rct::keyV pseudo_outs;
-
-    GET_FROM_JSON_OBJECT(prunable, sig.p.rangeSigs, range_proofs);
-    GET_FROM_JSON_OBJECT(prunable, sig.p.bulletproofs, bulletproofs);
-    GET_FROM_JSON_OBJECT(prunable, sig.p.MGs, mlsags);
-    GET_FROM_JSON_OBJECT(prunable, pseudo_outs, pseudo_outs);
+    GET_FROM_JSON_OBJECT(prunable->value, sig.p.rangeSigs, range_proofs);
+    GET_FROM_JSON_OBJECT(prunable->value, sig.p.bulletproofs, bulletproofs);
+    GET_FROM_JSON_OBJECT(prunable->value, sig.p.MGs, mlsags);
+    GET_FROM_JSON_OBJECT(prunable->value, pseudo_outs, pseudo_outs);
 
     sig.get_pseudo_outs() = std::move(pseudo_outs);
   }
-
-  sig.outPk.reserve(commitments.size());
-  for (rct::key const& commitment : commitments)
+  else
   {
-    sig.outPk.push_back({{}, commitment});
+    sig.p.rangeSigs.clear();
+    sig.p.bulletproofs.clear();
+    sig.p.MGs.clear();
+    sig.get_pseudo_outs().clear();
   }
+}
+
+void fromJsonValue(const rapidjson::Value& val, rct::ctkey& key)
+{
+  key.dest = {};
+  fromJsonValue(val, key.mask);
 }
 
 void toJsonValue(rapidjson::Writer<epee::byte_stream>& dest, const rct::ecdhTuple& tuple)

@@ -133,7 +133,7 @@ class DaemonHandler : public RpcHandler
 
     void handle(const GetOutputDistribution::Request& req, GetOutputDistribution::Response& res);
 
-    epee::byte_slice handle(const std::string& request) override final;
+    epee::byte_slice handle(std::string&& request) override final;
 
   private:
 

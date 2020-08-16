@@ -182,6 +182,7 @@ namespace rpc
       for (const auto& blob : it->second)
       {
         bwt.transactions.emplace_back();
+        bwt.transactions.back().pruned = req.prune;
         if (!parse_and_validate_tx_from_blob(blob.second, bwt.transactions.back()))
         {
           res.blocks.clear();
@@ -905,13 +906,13 @@ namespace rpc
     return true;
   }
 
-  epee::byte_slice DaemonHandler::handle(const std::string& request)
+  epee::byte_slice DaemonHandler::handle(std::string&& request)
   {
     MDEBUG("Handling RPC request: " << request);
 
     try
     {
-      FullMessage req_full(request, true);
+      FullMessage req_full(std::move(request), true);
 
       const std::string request_type = req_full.getRequestType();
       const auto matched_handler = std::lower_bound(std::begin(handlers), std::end(handlers), request_type);
