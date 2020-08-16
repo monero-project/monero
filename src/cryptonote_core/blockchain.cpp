@@ -4371,6 +4371,9 @@ bool Blockchain::update_next_cumulative_weight_limit(uint64_t *long_term_effecti
 //------------------------------------------------------------------
 bool Blockchain::add_new_block(const block& bl, block_verification_context& bvc)
 {
+  try
+  {
+
   LOG_PRINT_L3("Blockchain::" << __func__);
   crypto::hash id = get_block_hash(bl);
   CRITICAL_REGION_LOCAL(m_tx_pool);//to avoid deadlock lets lock tx_pool for whole add/reorganize process
@@ -4398,6 +4401,14 @@ bool Blockchain::add_new_block(const block& bl, block_verification_context& bvc)
 
   rtxn_guard.stop();
   return handle_block_to_main_chain(bl, id, bvc);
+
+  }
+  catch (const std::exception &e)
+  {
+    LOG_ERROR("Exception at [add_new_block], what=" << e.what());
+    bvc.m_verifivation_failed = true;
+    return false;
+  }
 }
 //------------------------------------------------------------------
 //TODO: Refactor, consider returning a failure height and letting
