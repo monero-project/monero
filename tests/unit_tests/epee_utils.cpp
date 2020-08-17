@@ -1117,6 +1117,47 @@ TEST(ByteStream, ToByteSlice)
   EXPECT_EQ(nullptr, empty_slice.data());
 }
 
+TEST(ByteStream, Clear)
+{
+  static constexpr const std::uint8_t source[] =
+    {0xde, 0xad, 0xbe, 0xef, 0xef};
+
+  epee::byte_stream stream{4};
+
+  EXPECT_EQ(4u, stream.increase_size());
+
+  EXPECT_EQ(nullptr, stream.data());
+  EXPECT_EQ(nullptr, stream.tellp());
+  EXPECT_EQ(0u, stream.size());
+  EXPECT_EQ(0u, stream.available());
+  EXPECT_EQ(0u, stream.capacity());
+
+  stream.clear();
+
+  EXPECT_EQ(nullptr, stream.data());
+  EXPECT_EQ(nullptr, stream.tellp());
+  EXPECT_EQ(0u, stream.size());
+  EXPECT_EQ(0u, stream.available());
+  EXPECT_EQ(0u, stream.capacity());
+
+  stream.write({source, 3});
+  std::uint8_t const* const loc = stream.data();
+
+  EXPECT_EQ(loc, stream.data());
+  EXPECT_EQ(loc + 3, stream.tellp());
+  EXPECT_EQ(3u, stream.size());
+  EXPECT_EQ(1u, stream.available());
+  EXPECT_EQ(4u, stream.capacity());
+
+  stream.clear();
+
+  EXPECT_EQ(loc, stream.data());
+  EXPECT_EQ(loc, stream.tellp());
+  EXPECT_EQ(0u, stream.size());
+  EXPECT_EQ(4u, stream.available());
+  EXPECT_EQ(4u, stream.capacity());
+}
+
 TEST(ToHex, String)
 {
   EXPECT_TRUE(epee::to_hex::string(nullptr).empty());
