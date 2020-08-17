@@ -219,15 +219,6 @@ private:
     friend class wallet_keys_unlocker;
     friend class wallet_device_callback;
   public:
-    // Contains data on how keys were loaded, primarily for unit test purposes
-    struct load_info_t {
-        bool is_legacy_key_encryption;
-    };
-
-    const load_info_t &get_load_info() const {
-        return load_info;
-    }
-
     static constexpr const std::chrono::seconds rpc_timeout = std::chrono::minutes(3) + std::chrono::seconds(30);
 
     enum RefreshType {
@@ -1417,8 +1408,6 @@ private:
     static std::string get_default_daemon_address() { CRITICAL_REGION_LOCAL(default_daemon_address_lock); return default_daemon_address; }
 
   private:
-    load_info_t load_info;
-
     /*!
      * \brief  Stores wallet information to wallet file.
      * \param  keys_file_name Name of wallet file

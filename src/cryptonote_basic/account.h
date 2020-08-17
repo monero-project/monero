@@ -57,15 +57,16 @@ namespace cryptonote
 
     account_keys& operator=(account_keys const&) = default;
 
-    void encrypt_wrapper(const crypto::chacha_key &key, const bool all_keys);
-    void decrypt_wrapper(const crypto::chacha_key &key, const bool all_keys);
-    void decrypt_legacy(const crypto::chacha_key &key);
+    void encrypt(const crypto::chacha_key &key);
+    void decrypt(const crypto::chacha_key &key);
+    void encrypt_viewkey(const crypto::chacha_key &key);
+    void decrypt_viewkey(const crypto::chacha_key &key);
 
     hw::device& get_device()  const ;
     void set_device( hw::device &hwdev) ;
 
   private:
-    void chacha_wrapper(const crypto::chacha_key &key, const bool all_keys);
+    void xor_with_key_stream(const crypto::chacha_key &key);
   };
 
   /************************************************************************/
@@ -99,12 +100,10 @@ namespace cryptonote
     void forget_spend_key();
     const std::vector<crypto::secret_key> &get_multisig_keys() const { return m_keys.m_multisig_keys; }
 
-    void encrypt_keys(const crypto::chacha_key &key) { m_keys.encrypt_wrapper(key, true); }
-    void encrypt_keys_same_iv(const crypto::chacha_key &key) { m_keys.decrypt_wrapper(key, true); } // encryption with the same IV is the same as decryption due to symmetry
-    void decrypt_keys(const crypto::chacha_key &key) { m_keys.decrypt_wrapper(key, true); }
-    void encrypt_viewkey(const crypto::chacha_key &key) { m_keys.encrypt_wrapper(key, false); }
-    void decrypt_viewkey(const crypto::chacha_key &key) { m_keys.decrypt_wrapper(key, false); }
-    void decrypt_legacy(const crypto::chacha_key &key) { m_keys.decrypt_legacy(key); }
+    void encrypt_keys(const crypto::chacha_key &key) { m_keys.encrypt(key); }
+    void decrypt_keys(const crypto::chacha_key &key) { m_keys.decrypt(key); }
+    void encrypt_viewkey(const crypto::chacha_key &key) { m_keys.encrypt_viewkey(key); }
+    void decrypt_viewkey(const crypto::chacha_key &key) { m_keys.decrypt_viewkey(key); }
 
     template <class t_archive>
     inline void serialize(t_archive &a, const unsigned int /*ver*/)

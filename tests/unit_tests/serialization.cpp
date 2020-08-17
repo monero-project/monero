@@ -616,46 +616,6 @@ TEST(Serialization, serializes_ringct_types)
   ASSERT_EQ(bp0, bp1);
 }
 
-TEST(Serialization, key_encryption_transition)
-{
-  const cryptonote::network_type nettype = cryptonote::TESTNET;
-  tools::wallet2 w(nettype);
-  const boost::filesystem::path wallet_file = unit_test::data_dir / "wallet_9svHk1";
-  const boost::filesystem::path key_file = unit_test::data_dir / "wallet_9svHk1.keys";
-  const boost::filesystem::path temp_wallet_file = unit_test::data_dir / "wallet_9svHk1_temp";
-  const boost::filesystem::path temp_key_file = unit_test::data_dir / "wallet_9svHk1_temp.keys";
-  string password = "test";
-  bool r = false;
-
-  // Copy the original files for this test
-  boost::filesystem::copy(wallet_file,temp_wallet_file);
-  boost::filesystem::copy(key_file,temp_key_file);
-
-  try
-  {
-    // Key transition
-    w.load(temp_wallet_file.string(), password); // legacy decryption method
-    ASSERT_TRUE(w.get_load_info().is_legacy_key_encryption);
-    const crypto::secret_key view_secret_key = w.get_account().get_keys().m_view_secret_key;
-
-    w.rewrite(temp_wallet_file.string(), password); // transition to new key format
-
-    w.load(temp_wallet_file.string(), password); // new decryption method
-    ASSERT_FALSE(w.get_load_info().is_legacy_key_encryption);
-    ASSERT_EQ(w.get_account().get_keys().m_view_secret_key,view_secret_key);
-
-    r = true;
-  }
-  catch (const exception& e)
-  {}
-
-  // Remove the temporary files
-  boost::filesystem::remove(temp_wallet_file);
-  boost::filesystem::remove(temp_key_file);
-
-  ASSERT_TRUE(r);
-}
-
 TEST(Serialization, portability_wallet)
 {
   const cryptonote::network_type nettype = cryptonote::TESTNET;

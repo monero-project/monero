@@ -29,30 +29,14 @@
 #include "gtest/gtest.h"
 
 #include "cryptonote_basic/account.h"
-#include "ringct/rctOps.h"
 
-// Tests in-memory encryption of account secret keys
 TEST(account, encrypt_keys)
 {
-  // Generate account keys and random multisig keys
   cryptonote::keypair recovery_key = cryptonote::keypair::generate(hw::get_device("default"));
   cryptonote::account_base account;
   crypto::secret_key key = account.generate(recovery_key.sec);
-
-  const size_t n_multisig = 4;
-  std::vector<crypto::secret_key> multisig_keys;
-  multisig_keys.reserve(n_multisig);
-  multisig_keys.resize(0);
-  for (size_t i = 0; i < n_multisig; ++i)
-  {
-    multisig_keys.push_back(rct::rct2sk(rct::skGen()));
-  }
-  ASSERT_TRUE(account.make_multisig(account.get_keys().m_view_secret_key, account.get_keys().m_spend_secret_key, account.get_keys().m_account_address.m_spend_public_key, multisig_keys));
-
   const cryptonote::account_keys keys = account.get_keys();
-  ASSERT_EQ(keys.m_multisig_keys.size(),n_multisig);
 
-  // Encrypt and decrypt keys
   ASSERT_EQ(account.get_keys().m_account_address, keys.m_account_address);
   ASSERT_EQ(account.get_keys().m_spend_secret_key, keys.m_spend_secret_key);
   ASSERT_EQ(account.get_keys().m_view_secret_key, keys.m_view_secret_key);
@@ -66,40 +50,22 @@ TEST(account, encrypt_keys)
   ASSERT_EQ(account.get_keys().m_account_address, keys.m_account_address);
   ASSERT_NE(account.get_keys().m_spend_secret_key, keys.m_spend_secret_key);
   ASSERT_NE(account.get_keys().m_view_secret_key, keys.m_view_secret_key);
-  ASSERT_NE(account.get_keys().m_multisig_keys, keys.m_multisig_keys);
 
   account.decrypt_viewkey(chacha_key);
 
   ASSERT_EQ(account.get_keys().m_account_address, keys.m_account_address);
   ASSERT_NE(account.get_keys().m_spend_secret_key, keys.m_spend_secret_key);
   ASSERT_EQ(account.get_keys().m_view_secret_key, keys.m_view_secret_key);
-  ASSERT_NE(account.get_keys().m_multisig_keys, keys.m_multisig_keys);
 
   account.encrypt_viewkey(chacha_key);
 
   ASSERT_EQ(account.get_keys().m_account_address, keys.m_account_address);
   ASSERT_NE(account.get_keys().m_spend_secret_key, keys.m_spend_secret_key);
   ASSERT_NE(account.get_keys().m_view_secret_key, keys.m_view_secret_key);
-  ASSERT_NE(account.get_keys().m_multisig_keys, keys.m_multisig_keys);
-
-  account.decrypt_viewkey(chacha_key);
-
-  ASSERT_EQ(account.get_keys().m_account_address, keys.m_account_address);
-  ASSERT_NE(account.get_keys().m_spend_secret_key, keys.m_spend_secret_key);
-  ASSERT_EQ(account.get_keys().m_view_secret_key, keys.m_view_secret_key);
-  ASSERT_NE(account.get_keys().m_multisig_keys, keys.m_multisig_keys);
-
-  account.encrypt_viewkey(chacha_key);
-
-  ASSERT_EQ(account.get_keys().m_account_address, keys.m_account_address);
-  ASSERT_NE(account.get_keys().m_spend_secret_key, keys.m_spend_secret_key);
-  ASSERT_NE(account.get_keys().m_view_secret_key, keys.m_view_secret_key);
-  ASSERT_NE(account.get_keys().m_multisig_keys, keys.m_multisig_keys);
 
   account.decrypt_keys(chacha_key);
 
   ASSERT_EQ(account.get_keys().m_account_address, keys.m_account_address);
   ASSERT_EQ(account.get_keys().m_spend_secret_key, keys.m_spend_secret_key);
   ASSERT_EQ(account.get_keys().m_view_secret_key, keys.m_view_secret_key);
-  ASSERT_EQ(account.get_keys().m_multisig_keys, keys.m_multisig_keys);
 }

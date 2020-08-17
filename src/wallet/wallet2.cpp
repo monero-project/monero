@@ -4336,24 +4336,9 @@ bool wallet2::load_keys_buf(const std::string& keys_buf, const epee::wipeable_st
 
   if (r)
   {
-    // Decrypt keys, using one of two possible methods
     if (encrypted_secret_keys)
     {
-      // First try the updated method
       m_account.decrypt_keys(key);
-      load_info.is_legacy_key_encryption = false;
-
-      // Test address construction to see if decryption succeeded
-      const cryptonote::account_keys &keys = m_account.get_keys();
-      hw::device &hwdev = m_account.get_device();
-      if (!hwdev.verify_keys(keys.m_view_secret_key, keys.m_account_address.m_view_public_key) || !hwdev.verify_keys(keys.m_spend_secret_key, keys.m_account_address.m_spend_public_key))
-      {
-        // Updated method failed; try the legacy method
-        // Note that we must first encrypt the keys again with the same IV
-        m_account.encrypt_keys_same_iv(key);
-        m_account.decrypt_legacy(key);
-        load_info.is_legacy_key_encryption = true;
-      }
     }
     else
     {
@@ -5557,7 +5542,6 @@ void wallet2::load(const std::string& wallet_, const epee::wipeable_string& pass
 {
   clear();
   prepare_file_names(wallet_);
-  MINFO("Keys file: " << m_keys_file);
 
   // determine if loading from file system or string buffer
   bool use_fs = !wallet_.empty();
