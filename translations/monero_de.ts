@@ -3588,7 +3588,7 @@ By using &apos;sync&apos; processing of waiting messages with multisig sync info
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="5112"/>
-        <source>Background mining enabled. Thank you for supporting the Monero network.</source>
+        <source>Background mining enabled. Thank you for supporting the Equilibria network.</source>
         <translation>Hintergrund-Mining aktiviert. Danke, dass du das Monero-Netzwerk unterstützt.</translation>
     </message>
     <message>
