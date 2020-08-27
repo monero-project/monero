@@ -552,6 +552,10 @@ The produced binaries still link libc dynamically. If the binary is compiled on 
 
 Packages are available for
 
+* Debian Buster
+
+    See the [instructions in the whonix/monero-gui repository](https://gitlab.com/whonix/monero-gui#how-to-install-monero-using-apt-get)
+
 * Debian Bullseye and Sid
 
     ```bash
@@ -559,9 +563,9 @@ Packages are available for
     ```
 More info and versions in the [Debian package tracker](https://tracker.debian.org/pkg/monero).
 
-* Arch Linux (via [AUR](https://aur.archlinux.org/)):
-  - Stable release: [`monero`](https://aur.archlinux.org/packages/monero)
-  - Bleeding edge: [`monero-git`](https://aur.archlinux.org/packages/monero-git)
+
+* Arch Linux (via Community packages):
+    [`monero`](https://www.archlinux.org/packages/community/x86_64/monero/)
 
 * Void Linux:
 
@@ -573,6 +577,21 @@ More info and versions in the [Debian package tracker](https://tracker.debian.or
 
     ```bash
     guix package -i monero
+    ```
+
+* Gentoo [Monero overlay](https://github.com/gentoo-monero/gentoo-monero)
+
+    ```bash
+    emerge --noreplace eselect-repository
+    eselect repository enable monero
+    emaint sync -r monero
+    echo '*/*::monero ~amd64' >> /etc/portage/package.accept_keywords
+    emerge net-p2p/monero
+    ```
+
+* macOS (homebrew)
+    ```bash
+    brew install monero
     ```
 
 * Docker
