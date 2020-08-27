@@ -51,11 +51,15 @@ enum test_op
   op_scalarmult8_p3,
   op_ge_dsm_precomp,
   op_ge_double_scalarmult_base_vartime,
+  op_ge_triple_scalarmult_base_vartime,
   op_ge_double_scalarmult_precomp_vartime,
+  op_ge_triple_scalarmult_precomp_vartime,
   op_ge_double_scalarmult_precomp_vartime2,
   op_addKeys2,
   op_addKeys3,
   op_addKeys3_2,
+  op_addKeys_aGbBcC,
+  op_addKeys_aAbBcC,
   op_isInMainSubgroup,
   op_zeroCommitUncached,
 };
@@ -70,15 +74,20 @@ public:
   {
     scalar0 = rct::skGen();
     scalar1 = rct::skGen();
+    scalar2 = rct::skGen();
     point0 = rct::scalarmultBase(rct::skGen());
     point1 = rct::scalarmultBase(rct::skGen());
+    point2 = rct::scalarmultBase(rct::skGen());
     if (ge_frombytes_vartime(&p3_0, point0.bytes) != 0)
       return false;
     if (ge_frombytes_vartime(&p3_1, point1.bytes) != 0)
       return false;
+    if (ge_frombytes_vartime(&p3_2, point2.bytes) != 0)
+      return false;
     ge_p3_to_cached(&cached, &p3_0);
     rct::precomp(precomp0, point0);
     rct::precomp(precomp1, point1);
+    rct::precomp(precomp2, point2);
     return true;
   }
 
@@ -109,11 +118,15 @@ public:
       case op_scalarmult8_p3: rct::scalarmult8(p3_0,point0); break;
       case op_ge_dsm_precomp: ge_dsm_precomp(dsmp, &p3_0); break;
       case op_ge_double_scalarmult_base_vartime: ge_double_scalarmult_base_vartime(&tmp_p2, scalar0.bytes, &p3_0, scalar1.bytes); break;
+      case op_ge_triple_scalarmult_base_vartime: ge_triple_scalarmult_base_vartime(&tmp_p2, scalar0.bytes, scalar1.bytes, precomp1, scalar2.bytes, precomp2); break;
       case op_ge_double_scalarmult_precomp_vartime: ge_double_scalarmult_precomp_vartime(&tmp_p2, scalar0.bytes, &p3_0, scalar1.bytes, precomp0); break;
+      case op_ge_triple_scalarmult_precomp_vartime: ge_triple_scalarmult_precomp_vartime(&tmp_p2, scalar0.bytes, precomp0, scalar1.bytes, precomp1, scalar2.bytes, precomp2); break;
       case op_ge_double_scalarmult_precomp_vartime2: ge_double_scalarmult_precomp_vartime2(&tmp_p2, scalar0.bytes, precomp0, scalar1.bytes, precomp1); break;
       case op_addKeys2: rct::addKeys2(key, scalar0, scalar1, point0); break;
       case op_addKeys3: rct::addKeys3(key, scalar0, point0, scalar1, precomp1); break;
       case op_addKeys3_2: rct::addKeys3(key, scalar0, precomp0, scalar1, precomp1); break;
+      case op_addKeys_aGbBcC: rct::addKeys_aGbBcC(key, scalar0, scalar1, precomp1, scalar2, precomp2); break;
+      case op_addKeys_aAbBcC: rct::addKeys_aAbBcC(key, scalar0, precomp0, scalar1, precomp1, scalar2, precomp2); break;
       case op_isInMainSubgroup: rct::isInMainSubgroup(point0); break;
       case op_zeroCommitUncached: rct::zeroCommit(9001); break;
       case op_zeroCommitCached: rct::zeroCommit(9000); break;
@@ -123,9 +136,9 @@ public:
   }
 
 private:
-  rct::key scalar0, scalar1;
-  rct::key point0, point1;
-  ge_p3 p3_0, p3_1;
+  rct::key scalar0, scalar1, scalar2;
+  rct::key point0, point1, point2;
+  ge_p3 p3_0, p3_1, p3_2;
   ge_cached cached;
-  ge_dsmp precomp0, precomp1;
+  ge_dsmp precomp0, precomp1, precomp2;
 };

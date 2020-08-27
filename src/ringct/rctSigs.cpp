@@ -36,6 +36,7 @@
 #include "rctSigs.h"
 #include "bulletproofs.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
+#include "cryptonote_config.h"
 
 using namespace crypto;
 using namespace std;
@@ -163,6 +164,167 @@ namespace rct {
         CHECK_AND_ASSERT_MES_L1(ge_frombytes_vartime(&P2_p3[i], P2[i].bytes) == 0, false, "point conv failed");
       }
       return verifyBorromean(bb, P1_p3, P2_p3);
+    }
+
+    // Generate a CLSAG signature
+    // See paper by Goodell et al. (https://eprint.iacr.org/2019/654)
+    //
+    // The keys are set as follows:
+    //   P[l] == p*G
+    //   C[l] == z*G
+    //   C[i] == C_nonzero[i] - C_offset (for hashing purposes) for all i
+    clsag CLSAG_Gen(const key &message, const keyV & P, const key & p, const keyV & C, const key & z, const keyV & C_nonzero, const key & C_offset, const unsigned int l, const multisig_kLRki *kLRki, key *mscout, key *mspout, hw::device &hwdev) {
+        clsag sig;
+        size_t n = P.size(); // ring size
+        CHECK_AND_ASSERT_THROW_MES(n == C.size(), "Signing and commitment key vector sizes must match!");
+        CHECK_AND_ASSERT_THROW_MES(n == C_nonzero.size(), "Signing and commitment key vector sizes must match!");
+        CHECK_AND_ASSERT_THROW_MES(l < n, "Signing index out of range!");
+        CHECK_AND_ASSERT_THROW_MES((kLRki && mscout) || (!kLRki && !mscout), "Only one of kLRki/mscout is present");
+        CHECK_AND_ASSERT_THROW_MES((mscout && mspout) || !kLRki, "Multisig pointers are not all present");
+
+        // Key images
+        ge_p3 H_p3;
+        hash_to_p3(H_p3,P[l]);
+        key H;
+        ge_p3_tobytes(H.bytes,&H_p3);
+
+        key D;
+
+        // Initial values
+        key a;
+        key aG;
+        key aH;
+
+        // Multisig
+        if (kLRki)
+        {
+            sig.I = kLRki->ki;
+            scalarmultKey(D,H,z);
+        }
+        else
+        {
+            hwdev.clsag_prepare(p,z,sig.I,D,H,a,aG,aH);
+        }
+
+        geDsmp I_precomp;
+        geDsmp D_precomp;
+        precomp(I_precomp.k,sig.I);
+        precomp(D_precomp.k,D);
+
+        // Offset key image
+        scalarmultKey(sig.D,D,INV_EIGHT);
+
+        // Aggregation hashes
+        keyV mu_P_to_hash(2*n+4); // domain, I, D, P, C, C_offset
+        keyV mu_C_to_hash(2*n+4); // domain, I, D, P, C, C_offset
+        sc_0(mu_P_to_hash[0].bytes);
+        memcpy(mu_P_to_hash[0].bytes,config::HASH_KEY_CLSAG_AGG_0,sizeof(config::HASH_KEY_CLSAG_AGG_0)-1);
+        sc_0(mu_C_to_hash[0].bytes);
+        memcpy(mu_C_to_hash[0].bytes,config::HASH_KEY_CLSAG_AGG_1,sizeof(config::HASH_KEY_CLSAG_AGG_1)-1);
+        for (size_t i = 1; i < n+1; ++i) {
+            mu_P_to_hash[i] = P[i-1];
+            mu_C_to_hash[i] = P[i-1];
+        }
+        for (size_t i = n+1; i < 2*n+1; ++i) {
+            mu_P_to_hash[i] = C_nonzero[i-n-1];
+            mu_C_to_hash[i] = C_nonzero[i-n-1];
+        }
+        mu_P_to_hash[2*n+1] = sig.I;
+        mu_P_to_hash[2*n+2] = sig.D;
+        mu_P_to_hash[2*n+3] = C_offset;
+        mu_C_to_hash[2*n+1] = sig.I;
+        mu_C_to_hash[2*n+2] = sig.D;
+        mu_C_to_hash[2*n+3] = C_offset;
+        key mu_P, mu_C;
+        mu_P = hash_to_scalar(mu_P_to_hash);
+        mu_C = hash_to_scalar(mu_C_to_hash);
+
+        // Initial commitment
+        keyV c_to_hash(2*n+5); // domain, P, C, C_offset, message, aG, aH
+        key c;
+        sc_0(c_to_hash[0].bytes);
+        memcpy(c_to_hash[0].bytes,config::HASH_KEY_CLSAG_ROUND,sizeof(config::HASH_KEY_CLSAG_ROUND)-1);
+        for (size_t i = 1; i < n+1; ++i)
+        {
+            c_to_hash[i] = P[i-1];
+            c_to_hash[i+n] = C_nonzero[i-1];
+        }
+        c_to_hash[2*n+1] = C_offset;
+        c_to_hash[2*n+2] = message;
+
+        // Multisig data is present
+        if (kLRki)
+        {
+            a = kLRki->k;
+            c_to_hash[2*n+3] = kLRki->L;
+            c_to_hash[2*n+4] = kLRki->R;
+        }
+        else
+        {
+            c_to_hash[2*n+3] = aG;
+            c_to_hash[2*n+4] = aH;
+        }
+        hwdev.clsag_hash(c_to_hash,c);
+        
+        size_t i;
+        i = (l + 1) % n;
+        if (i == 0)
+            copy(sig.c1, c);
+
+        // Decoy indices
+        sig.s = keyV(n);
+        key c_new;
+        key L;
+        key R;
+        key c_p; // = c[i]*mu_P
+        key c_c; // = c[i]*mu_C
+        geDsmp P_precomp;
+        geDsmp C_precomp;
+        geDsmp H_precomp;
+        ge_p3 Hi_p3;
+
+        while (i != l) {
+            sig.s[i] = skGen();
+            sc_0(c_new.bytes);
+            sc_mul(c_p.bytes,mu_P.bytes,c.bytes);
+            sc_mul(c_c.bytes,mu_C.bytes,c.bytes);
+
+            // Precompute points
+            precomp(P_precomp.k,P[i]);
+            precomp(C_precomp.k,C[i]);
+
+            // Compute L
+            addKeys_aGbBcC(L,sig.s[i],c_p,P_precomp.k,c_c,C_precomp.k);
+
+            // Compute R
+            hash_to_p3(Hi_p3,P[i]);
+            ge_dsm_precomp(H_precomp.k, &Hi_p3);
+            addKeys_aAbBcC(R,sig.s[i],H_precomp.k,c_p,I_precomp.k,c_c,D_precomp.k);
+
+            c_to_hash[2*n+3] = L;
+            c_to_hash[2*n+4] = R;
+            hwdev.clsag_hash(c_to_hash,c_new);
+            copy(c,c_new);
+            
+            i = (i + 1) % n;
+            if (i == 0)
+                copy(sig.c1,c);
+        }
+
+        // Compute final scalar
+        hwdev.clsag_sign(c,a,p,z,mu_P,mu_C,sig.s[l]);
+        memwipe(&a, sizeof(key));
+
+        if (mscout)
+          *mscout = c;
+        if (mspout)
+          *mspout = mu_P;
+
+        return sig;
+    }
+
+    clsag CLSAG_Gen(const key &message, const keyV & P, const key & p, const keyV & C, const key & z, const keyV & C_nonzero, const key & C_offset, const unsigned int l) {
+        return CLSAG_Gen(message, P, p, C, z, C_nonzero, C_offset, l, NULL, NULL, NULL, hw::get_device("default"));
     }
 
     // MLSAG signatures
@@ -427,7 +589,7 @@ namespace rct {
       hashes.push_back(hash2rct(h));
 
       keyV kv;
-      if (rv.type == RCTTypeBulletproof || rv.type == RCTTypeBulletproof2)
+      if (rv.type == RCTTypeBulletproof || rv.type == RCTTypeBulletproof2 || rv.type == RCTTypeCLSAG)
       {
         kv.reserve((6*2+9) * rv.p.bulletproofs.size());
         for (const auto &p: rv.p.bulletproofs)
@@ -555,6 +717,37 @@ namespace rct {
         return result;
     }
 
+    clsag proveRctCLSAGSimple(const key &message, const ctkeyV &pubs, const ctkey &inSk, const key &a, const key &Cout, const multisig_kLRki *kLRki, key *mscout, key *mspout, unsigned int index, hw::device &hwdev) {
+        //setup vars
+        size_t rows = 1;
+        size_t cols = pubs.size();
+        CHECK_AND_ASSERT_THROW_MES(cols >= 1, "Empty pubs");
+        CHECK_AND_ASSERT_THROW_MES((kLRki && mscout) || (!kLRki && !mscout), "Only one of kLRki/mscout is present");
+        keyV tmp(rows + 1);
+        keyV sk(rows + 1);
+        size_t i;
+        keyM M(cols, tmp);
+
+        keyV P, C, C_nonzero;
+        P.reserve(pubs.size());
+        C.reserve(pubs.size());
+        C_nonzero.reserve(pubs.size());
+        for (const ctkey &k: pubs)
+        {
+            P.push_back(k.dest);
+            C_nonzero.push_back(k.mask);
+            rct::key tmp;
+            subKeys(tmp, k.mask, Cout);
+            C.push_back(tmp);
+        }
+
+        sk[0] = copy(inSk.dest);
+        sc_sub(sk[1].bytes, inSk.mask.bytes, a.bytes);
+        clsag result = CLSAG_Gen(message, P, sk[0], C, sk[1], C_nonzero, Cout, index, kLRki, mscout, mspout, hwdev);
+        memwipe(sk.data(), sk.size() * sizeof(key));
+        return result;
+    }
+
 
     //Ring-ct MG sigs
     //Prove: 
@@ -630,6 +823,120 @@ namespace rct {
             }
             //DP(C);
             return MLSAG_Ver(message, M, mg, rows);
+        }
+        catch (...) { return false; }
+    }
+
+    bool verRctCLSAGSimple(const key &message, const clsag &sig, const ctkeyV & pubs, const key & C_offset) {
+        try
+        {
+            PERF_TIMER(verRctCLSAGSimple);
+            const size_t n = pubs.size();
+
+            // Check data
+            CHECK_AND_ASSERT_MES(n >= 1, false, "Empty pubs");
+            CHECK_AND_ASSERT_MES(n == sig.s.size(), false, "Signature scalar vector is the wrong size!");
+            for (size_t i = 0; i < n; ++i)
+                CHECK_AND_ASSERT_MES(sc_check(sig.s[i].bytes) == 0, false, "Bad signature scalar!");
+            CHECK_AND_ASSERT_MES(sc_check(sig.c1.bytes) == 0, false, "Bad signature commitment!");
+            CHECK_AND_ASSERT_MES(!(sig.I == rct::identity()), false, "Bad key image!");
+
+            // Cache commitment offset for efficient subtraction later
+            ge_p3 C_offset_p3;
+            CHECK_AND_ASSERT_MES(ge_frombytes_vartime(&C_offset_p3, C_offset.bytes) == 0, false, "point conv failed");
+            ge_cached C_offset_cached;
+            ge_p3_to_cached(&C_offset_cached, &C_offset_p3);
+
+            // Prepare key images
+            key c = copy(sig.c1);
+            key D_8 = scalarmult8(sig.D);
+            CHECK_AND_ASSERT_MES(!(D_8 == rct::identity()), false, "Bad auxiliary key image!");
+            geDsmp I_precomp;
+            geDsmp D_precomp;
+            precomp(I_precomp.k,sig.I);
+            precomp(D_precomp.k,D_8);
+
+            // Aggregation hashes
+            keyV mu_P_to_hash(2*n+4); // domain, I, D, P, C, C_offset
+            keyV mu_C_to_hash(2*n+4); // domain, I, D, P, C, C_offset
+            sc_0(mu_P_to_hash[0].bytes);
+            memcpy(mu_P_to_hash[0].bytes,config::HASH_KEY_CLSAG_AGG_0,sizeof(config::HASH_KEY_CLSAG_AGG_0)-1);
+            sc_0(mu_C_to_hash[0].bytes);
+            memcpy(mu_C_to_hash[0].bytes,config::HASH_KEY_CLSAG_AGG_1,sizeof(config::HASH_KEY_CLSAG_AGG_1)-1);
+            for (size_t i = 1; i < n+1; ++i) {
+                mu_P_to_hash[i] = pubs[i-1].dest;
+                mu_C_to_hash[i] = pubs[i-1].dest;
+            }
+            for (size_t i = n+1; i < 2*n+1; ++i) {
+                mu_P_to_hash[i] = pubs[i-n-1].mask;
+                mu_C_to_hash[i] = pubs[i-n-1].mask;
+            }
+            mu_P_to_hash[2*n+1] = sig.I;
+            mu_P_to_hash[2*n+2] = sig.D;
+            mu_P_to_hash[2*n+3] = C_offset;
+            mu_C_to_hash[2*n+1] = sig.I;
+            mu_C_to_hash[2*n+2] = sig.D;
+            mu_C_to_hash[2*n+3] = C_offset;
+            key mu_P, mu_C;
+            mu_P = hash_to_scalar(mu_P_to_hash);
+            mu_C = hash_to_scalar(mu_C_to_hash);
+
+            // Set up round hash
+            keyV c_to_hash(2*n+5); // domain, P, C, C_offset, message, L, R
+            sc_0(c_to_hash[0].bytes);
+            memcpy(c_to_hash[0].bytes,config::HASH_KEY_CLSAG_ROUND,sizeof(config::HASH_KEY_CLSAG_ROUND)-1);
+            for (size_t i = 1; i < n+1; ++i)
+            {
+                c_to_hash[i] = pubs[i-1].dest;
+                c_to_hash[i+n] = pubs[i-1].mask;
+            }
+            c_to_hash[2*n+1] = C_offset;
+            c_to_hash[2*n+2] = message;
+            key c_p; // = c[i]*mu_P
+            key c_c; // = c[i]*mu_C
+            key c_new;
+            key L;
+            key R;
+            geDsmp P_precomp;
+            geDsmp C_precomp;
+            geDsmp H_precomp;
+            size_t i = 0;
+            ge_p3 hash8_p3;
+            geDsmp hash_precomp;
+            ge_p3 temp_p3;
+            ge_p1p1 temp_p1;
+
+            while (i < n) {
+                sc_0(c_new.bytes);
+                sc_mul(c_p.bytes,mu_P.bytes,c.bytes);
+                sc_mul(c_c.bytes,mu_C.bytes,c.bytes);
+
+                // Precompute points for L/R
+                precomp(P_precomp.k,pubs[i].dest);
+
+                CHECK_AND_ASSERT_MES(ge_frombytes_vartime(&temp_p3, pubs[i].mask.bytes) == 0, false, "point conv failed");
+                ge_sub(&temp_p1,&temp_p3,&C_offset_cached);
+                ge_p1p1_to_p3(&temp_p3,&temp_p1);
+                ge_dsm_precomp(C_precomp.k,&temp_p3);
+
+                // Compute L
+                addKeys_aGbBcC(L,sig.s[i],c_p,P_precomp.k,c_c,C_precomp.k);
+
+                // Compute R
+                hash_to_p3(hash8_p3,pubs[i].dest);
+                ge_dsm_precomp(hash_precomp.k, &hash8_p3);
+                addKeys_aAbBcC(R,sig.s[i],hash_precomp.k,c_p,I_precomp.k,c_c,D_precomp.k);
+
+                c_to_hash[2*n+3] = L;
+                c_to_hash[2*n+4] = R;
+                c_new = hash_to_scalar(c_to_hash);
+                CHECK_AND_ASSERT_MES(!(c_new == rct::zero()), false, "Bad signature hash");
+                copy(c,c_new);
+
+                i = i + 1;
+            }
+            sc_sub(c_new.bytes,c.bytes,sig.c1.bytes);
+            return sc_isnonzero(c_new.bytes) == 0;
         }
         catch (...) { return false; }
     }
@@ -726,7 +1033,7 @@ namespace rct {
             //mask amount and mask
             rv.ecdhInfo[i].mask = copy(outSk[i].mask);
             rv.ecdhInfo[i].amount = d2h(amounts[i]);
-            hwdev.ecdhEncode(rv.ecdhInfo[i], amount_keys[i], rv.type == RCTTypeBulletproof2);
+            hwdev.ecdhEncode(rv.ecdhInfo[i], amount_keys[i], rv.type == RCTTypeBulletproof2 || rv.type == RCTTypeCLSAG);
         }
 
         //set txn fee
@@ -774,7 +1081,27 @@ namespace rct {
         }
 
         rctSig rv;
-        rv.type = bulletproof ? (rct_config.bp_version == 0 || rct_config.bp_version >= 2 ? RCTTypeBulletproof2 : RCTTypeBulletproof) : RCTTypeSimple;
+        if (bulletproof)
+        {
+          switch (rct_config.bp_version)
+          {
+            case 0:
+            case 3:
+              rv.type = RCTTypeCLSAG;
+              break;
+            case 2:
+              rv.type = RCTTypeBulletproof2;
+              break;
+            case 1:
+              rv.type = RCTTypeBulletproof;
+              break;
+            default:
+              ASSERT_MES_AND_THROW("Unsupported BP version: " << rct_config.bp_version);
+          }
+        }
+        else
+          rv.type = RCTTypeSimple;
+
         rv.message = message;
         rv.outPk.resize(destinations.size());
         if (!bulletproof)
@@ -864,7 +1191,7 @@ namespace rct {
             //mask amount and mask
             rv.ecdhInfo[i].mask = copy(outSk[i].mask);
             rv.ecdhInfo[i].amount = d2h(outamounts[i]);
-            hwdev.ecdhEncode(rv.ecdhInfo[i], amount_keys[i], rv.type == RCTTypeBulletproof2);
+            hwdev.ecdhEncode(rv.ecdhInfo[i], amount_keys[i], rv.type == RCTTypeBulletproof2 || rv.type == RCTTypeCLSAG);
         }
             
         //set txn fee
@@ -874,7 +1201,10 @@ namespace rct {
         rv.mixRing = mixRing;
         keyV &pseudoOuts = bulletproof ? rv.p.pseudoOuts : rv.pseudoOuts;
         pseudoOuts.resize(inamounts.size());
-        rv.p.MGs.resize(inamounts.size());
+        if (rv.type == RCTTypeCLSAG)
+            rv.p.CLSAGs.resize(inamounts.size());
+        else
+            rv.p.MGs.resize(inamounts.size());
         key sumpouts = zero(); //sum pseudoOut masks
         keyV a(inamounts.size());
         for (i = 0 ; i < inamounts.size() - 1; i++) {
@@ -888,9 +1218,20 @@ namespace rct {
 
         key full_message = get_pre_mlsag_hash(rv,hwdev);
         if (msout)
-          msout->c.resize(inamounts.size());
-        for (i = 0 ; i < inamounts.size(); i++) {
-            rv.p.MGs[i] = proveRctMGSimple(full_message, rv.mixRing[i], inSk[i], a[i], pseudoOuts[i], kLRki ? &(*kLRki)[i]: NULL, msout ? &msout->c[i] : NULL, index[i], hwdev);
+        {
+            msout->c.resize(inamounts.size());
+            msout->mu_p.resize(rv.type == RCTTypeCLSAG ? inamounts.size() : 0);
+        }
+        for (i = 0 ; i < inamounts.size(); i++)
+        {
+            if (rv.type == RCTTypeCLSAG)
+            {
+                rv.p.CLSAGs[i] = proveRctCLSAGSimple(full_message, rv.mixRing[i], inSk[i], a[i], pseudoOuts[i], kLRki ? &(*kLRki)[i]: NULL, msout ? &msout->c[i] : NULL, msout ? &msout->mu_p[i] : NULL, index[i], hwdev);
+            }
+            else
+            {
+                rv.p.MGs[i] = proveRctMGSimple(full_message, rv.mixRing[i], inSk[i], a[i], pseudoOuts[i], kLRki ? &(*kLRki)[i]: NULL, msout ? &msout->c[i] : NULL, index[i], hwdev);
+            }
         }
         return rv;
     }
@@ -995,13 +1336,22 @@ namespace rct {
         {
           CHECK_AND_ASSERT_MES(rvp, false, "rctSig pointer is NULL");
           const rctSig &rv = *rvp;
-          CHECK_AND_ASSERT_MES(rv.type == RCTTypeSimple || rv.type == RCTTypeBulletproof || rv.type == RCTTypeBulletproof2,
+          CHECK_AND_ASSERT_MES(rv.type == RCTTypeSimple || rv.type == RCTTypeBulletproof || rv.type == RCTTypeBulletproof2 || rv.type == RCTTypeCLSAG,
               false, "verRctSemanticsSimple called on non simple rctSig");
           const bool bulletproof = is_rct_bulletproof(rv.type);
           if (bulletproof)
           {
             CHECK_AND_ASSERT_MES(rv.outPk.size() == n_bulletproof_amounts(rv.p.bulletproofs), false, "Mismatched sizes of outPk and bulletproofs");
-            CHECK_AND_ASSERT_MES(rv.p.pseudoOuts.size() == rv.p.MGs.size(), false, "Mismatched sizes of rv.p.pseudoOuts and rv.p.MGs");
+            if (rv.type == RCTTypeCLSAG)
+            {
+              CHECK_AND_ASSERT_MES(rv.p.MGs.empty(), false, "MGs are not empty for CLSAG");
+              CHECK_AND_ASSERT_MES(rv.p.pseudoOuts.size() == rv.p.CLSAGs.size(), false, "Mismatched sizes of rv.p.pseudoOuts and rv.p.CLSAGs");
+            }
+            else
+            {
+              CHECK_AND_ASSERT_MES(rv.p.CLSAGs.empty(), false, "CLSAGs are not empty for MLSAG");
+              CHECK_AND_ASSERT_MES(rv.p.pseudoOuts.size() == rv.p.MGs.size(), false, "Mismatched sizes of rv.p.pseudoOuts and rv.p.MGs");
+            }
             CHECK_AND_ASSERT_MES(rv.pseudoOuts.empty(), false, "rv.pseudoOuts is not empty");
           }
           else
@@ -1095,7 +1445,7 @@ namespace rct {
       {
         PERF_TIMER(verRctNonSemanticsSimple);
 
-        CHECK_AND_ASSERT_MES(rv.type == RCTTypeSimple || rv.type == RCTTypeBulletproof || rv.type == RCTTypeBulletproof2,
+        CHECK_AND_ASSERT_MES(rv.type == RCTTypeSimple || rv.type == RCTTypeBulletproof || rv.type == RCTTypeBulletproof2 || rv.type == RCTTypeCLSAG,
             false, "verRctNonSemanticsSimple called on non simple rctSig");
         const bool bulletproof = is_rct_bulletproof(rv.type);
         // semantics check is early, and mixRing/MGs aren't resolved yet
@@ -1118,14 +1468,19 @@ namespace rct {
         results.resize(rv.mixRing.size());
         for (size_t i = 0 ; i < rv.mixRing.size() ; i++) {
           tpool.submit(&waiter, [&, i] {
-              results[i] = verRctMGSimple(message, rv.p.MGs[i], rv.mixRing[i], pseudoOuts[i]);
+              if (rv.type == RCTTypeCLSAG)
+              {
+                  results[i] = verRctCLSAGSimple(message, rv.p.CLSAGs[i], rv.mixRing[i], pseudoOuts[i]);
+              }
+              else
+                  results[i] = verRctMGSimple(message, rv.p.MGs[i], rv.mixRing[i], pseudoOuts[i]);
           });
         }
         waiter.wait(&tpool);
 
         for (size_t i = 0; i < results.size(); ++i) {
           if (!results[i]) {
-            LOG_PRINT_L1("verRctMGSimple failed for input " << i);
+            LOG_PRINT_L1("verRctMGSimple/verRctCLSAGSimple failed for input " << i);
             return false;
           }
         }
@@ -1162,7 +1517,7 @@ namespace rct {
 
         //mask amount and mask
         ecdhTuple ecdh_info = rv.ecdhInfo[i];
-        hwdev.ecdhDecode(ecdh_info, sk, rv.type == RCTTypeBulletproof2);
+        hwdev.ecdhDecode(ecdh_info, sk, rv.type == RCTTypeBulletproof2 || rv.type == RCTTypeCLSAG);
         mask = ecdh_info.mask;
         key amount = ecdh_info.amount;
         key C = rv.outPk[i].mask;
@@ -1186,13 +1541,13 @@ namespace rct {
     }
 
     xmr_amount decodeRctSimple(const rctSig & rv, const key & sk, unsigned int i, key &mask, hw::device &hwdev) {
-        CHECK_AND_ASSERT_MES(rv.type == RCTTypeSimple || rv.type == RCTTypeBulletproof || rv.type == RCTTypeBulletproof2, false, "decodeRct called on non simple rctSig");
+        CHECK_AND_ASSERT_MES(rv.type == RCTTypeSimple || rv.type == RCTTypeBulletproof || rv.type == RCTTypeBulletproof2 || rv.type == RCTTypeCLSAG, false, "decodeRct called on non simple rctSig");
         CHECK_AND_ASSERT_THROW_MES(i < rv.ecdhInfo.size(), "Bad index");
         CHECK_AND_ASSERT_THROW_MES(rv.outPk.size() == rv.ecdhInfo.size(), "Mismatched sizes of rv.outPk and rv.ecdhInfo");
 
         //mask amount and mask
         ecdhTuple ecdh_info = rv.ecdhInfo[i];
-        hwdev.ecdhDecode(ecdh_info, sk, rv.type == RCTTypeBulletproof2);
+        hwdev.ecdhDecode(ecdh_info, sk, rv.type == RCTTypeBulletproof2 || rv.type == RCTTypeCLSAG);
         mask = ecdh_info.mask;
         key amount = ecdh_info.amount;
         key C = rv.outPk[i].mask;
@@ -1215,12 +1570,13 @@ namespace rct {
       return decodeRctSimple(rv, sk, i, mask, hwdev);
     }
 
-    bool signMultisig(rctSig &rv, const std::vector<unsigned int> &indices, const keyV &k, const multisig_out &msout, const key &secret_key) {
+    bool signMultisigMLSAG(rctSig &rv, const std::vector<unsigned int> &indices, const keyV &k, const multisig_out &msout, const key &secret_key) {
         CHECK_AND_ASSERT_MES(rv.type == RCTTypeFull || rv.type == RCTTypeSimple || rv.type == RCTTypeBulletproof || rv.type == RCTTypeBulletproof2,
             false, "unsupported rct type");
         CHECK_AND_ASSERT_MES(indices.size() == k.size(), false, "Mismatched k/indices sizes");
         CHECK_AND_ASSERT_MES(k.size() == rv.p.MGs.size(), false, "Mismatched k/MGs size");
         CHECK_AND_ASSERT_MES(k.size() == msout.c.size(), false, "Mismatched k/msout.c size");
+        CHECK_AND_ASSERT_MES(rv.p.CLSAGs.empty(), false, "CLSAGs not empty for MLSAGs");
         if (rv.type == RCTTypeFull)
         {
           CHECK_AND_ASSERT_MES(rv.p.MGs.size() == 1, false, "MGs not a single element");
@@ -1230,11 +1586,42 @@ namespace rct {
             CHECK_AND_ASSERT_MES(!rv.p.MGs[n].ss[indices[n]].empty(), false, "empty ss line");
         }
 
+        // MLSAG: each player contributes a share to the secret-index ss: k - cc*secret_key_share
+        //     cc: msout.c[n], secret_key_share: secret_key
         for (size_t n = 0; n < indices.size(); ++n) {
             rct::key diff;
             sc_mulsub(diff.bytes, msout.c[n].bytes, secret_key.bytes, k[n].bytes);
             sc_add(rv.p.MGs[n].ss[indices[n]][0].bytes, rv.p.MGs[n].ss[indices[n]][0].bytes, diff.bytes);
         }
         return true;
+    }
+
+    bool signMultisigCLSAG(rctSig &rv, const std::vector<unsigned int> &indices, const keyV &k, const multisig_out &msout, const key &secret_key) {
+        CHECK_AND_ASSERT_MES(rv.type == RCTTypeCLSAG, false, "unsupported rct type");
+        CHECK_AND_ASSERT_MES(indices.size() == k.size(), false, "Mismatched k/indices sizes");
+        CHECK_AND_ASSERT_MES(k.size() == rv.p.CLSAGs.size(), false, "Mismatched k/MGs size");
+        CHECK_AND_ASSERT_MES(k.size() == msout.c.size(), false, "Mismatched k/msout.c size");
+        CHECK_AND_ASSERT_MES(rv.p.MGs.empty(), false, "MGs not empty for CLSAGs");
+        CHECK_AND_ASSERT_MES(msout.c.size() == msout.mu_p.size(), false, "Bad mu_p size");
+        for (size_t n = 0; n < indices.size(); ++n) {
+            CHECK_AND_ASSERT_MES(indices[n] < rv.p.CLSAGs[n].s.size(), false, "Index out of range");
+        }
+
+        // CLSAG: each player contributes a share to the secret-index ss: k - cc*mu_p*secret_key_share
+        // cc: msout.c[n], mu_p, msout.mu_p[n], secret_key_share: secret_key
+        for (size_t n = 0; n < indices.size(); ++n) {
+            rct::key diff, sk;
+            sc_mul(sk.bytes, msout.mu_p[n].bytes, secret_key.bytes);
+            sc_mulsub(diff.bytes, msout.c[n].bytes, sk.bytes, k[n].bytes);
+            sc_add(rv.p.CLSAGs[n].s[indices[n]].bytes, rv.p.CLSAGs[n].s[indices[n]].bytes, diff.bytes);
+        }
+        return true;
+    }
+
+    bool signMultisig(rctSig &rv, const std::vector<unsigned int> &indices, const keyV &k, const multisig_out &msout, const key &secret_key) {
+        if (rv.type == RCTTypeCLSAG)
+            return signMultisigCLSAG(rv, indices, k, msout, secret_key);
+        else
+            return signMultisigMLSAG(rv, indices, k, msout, secret_key);
     }
 }

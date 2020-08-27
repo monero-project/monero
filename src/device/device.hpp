@@ -231,6 +231,10 @@ namespace hw {
         virtual bool  mlsag_hash(const rct::keyV &long_message, rct::key &c) = 0;
         virtual bool  mlsag_sign(const rct::key &c, const rct::keyV &xx, const rct::keyV &alpha, const size_t rows, const size_t dsRows, rct::keyV &ss) = 0;
 
+        virtual bool clsag_prepare(const rct::key &p, const rct::key &z, rct::key &I, rct::key &D, const rct::key &H, rct::key &a, rct::key &aG, rct::key &aH) = 0;
+        virtual bool clsag_hash(const rct::keyV &data, rct::key &hash) = 0;
+        virtual bool clsag_sign(const rct::key &c, const rct::key &a, const rct::key &p, const rct::key &z, const rct::key &mu_P, const rct::key &mu_C, rct::key &s) = 0;
+
         virtual bool  close_tx(void) = 0;
 
         virtual bool  has_ki_cold_sync(void) const { return false; }

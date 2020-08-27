@@ -402,6 +402,29 @@ namespace hw {
             return true;
         }
 
+        bool device_default::clsag_prepare(const rct::key &p, const rct::key &z, rct::key &I, rct::key &D, const rct::key &H, rct::key &a, rct::key &aG, rct::key &aH) {
+            rct::skpkGen(a,aG); // aG = a*G
+            rct::scalarmultKey(aH,H,a); // aH = a*H
+            rct::scalarmultKey(I,H,p); // I = p*H
+            rct::scalarmultKey(D,H,z); // D = z*H
+            return true;
+        }
+
+        bool device_default::clsag_hash(const rct::keyV &data, rct::key &hash) {
+            hash = rct::hash_to_scalar(data);
+            return true;
+        }
+
+        bool device_default::clsag_sign(const rct::key &c, const rct::key &a, const rct::key &p, const rct::key &z, const rct::key &mu_P, const rct::key &mu_C, rct::key &s) {
+            rct::key s0_p_mu_P;
+            sc_mul(s0_p_mu_P.bytes,mu_P.bytes,p.bytes);
+            rct::key s0_add_z_mu_C;
+            sc_muladd(s0_add_z_mu_C.bytes,mu_C.bytes,z.bytes,s0_p_mu_P.bytes);
+            sc_mulsub(s.bytes,c.bytes,s0_add_z_mu_C.bytes,a.bytes);
+
+            return true;
+        }
+
         bool device_default::close_tx() {
             return true;
         }

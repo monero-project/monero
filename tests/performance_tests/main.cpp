@@ -60,6 +60,8 @@
 #include "bulletproof.h"
 #include "crypto_ops.h"
 #include "multiexp.h"
+#include "sig_mlsag.h"
+#include "sig_clsag.h"
 
 namespace po = boost::program_options;
 
@@ -213,6 +215,21 @@ int main(int argc, char** argv)
   TEST_PERFORMANCE1(filter, p, test_cn_fast_hash, 32);
   TEST_PERFORMANCE1(filter, p, test_cn_fast_hash, 16384);
 
+  TEST_PERFORMANCE3(filter, p, test_sig_mlsag, 4, 2, 2); // MLSAG verification
+  TEST_PERFORMANCE3(filter, p, test_sig_mlsag, 8, 2, 2);
+  TEST_PERFORMANCE3(filter, p, test_sig_mlsag, 16, 2, 2);
+  TEST_PERFORMANCE3(filter, p, test_sig_mlsag, 32, 2, 2);
+  TEST_PERFORMANCE3(filter, p, test_sig_mlsag, 64, 2, 2);
+  TEST_PERFORMANCE3(filter, p, test_sig_mlsag, 128, 2, 2);
+  TEST_PERFORMANCE3(filter, p, test_sig_mlsag, 256, 2, 2);
+  TEST_PERFORMANCE3(filter, p, test_sig_clsag, 4, 2, 2); // CLSAG verification
+  TEST_PERFORMANCE3(filter, p, test_sig_clsag, 8, 2, 2);
+  TEST_PERFORMANCE3(filter, p, test_sig_clsag, 16, 2, 2);
+  TEST_PERFORMANCE3(filter, p, test_sig_clsag, 32, 2, 2);
+  TEST_PERFORMANCE3(filter, p, test_sig_clsag, 64, 2, 2);
+  TEST_PERFORMANCE3(filter, p, test_sig_clsag, 128, 2, 2);
+  TEST_PERFORMANCE3(filter, p, test_sig_clsag, 256, 2, 2);
+
   TEST_PERFORMANCE2(filter, p, test_ringct_mlsag, 11, false);
   TEST_PERFORMANCE2(filter, p, test_ringct_mlsag, 11, true);
 
@@ -257,11 +274,15 @@ int main(int argc, char** argv)
   TEST_PERFORMANCE1(filter, p, test_crypto_ops, op_scalarmult8_p3);
   TEST_PERFORMANCE1(filter, p, test_crypto_ops, op_ge_dsm_precomp);
   TEST_PERFORMANCE1(filter, p, test_crypto_ops, op_ge_double_scalarmult_base_vartime);
+  TEST_PERFORMANCE1(filter, p, test_crypto_ops, op_ge_triple_scalarmult_base_vartime);
   TEST_PERFORMANCE1(filter, p, test_crypto_ops, op_ge_double_scalarmult_precomp_vartime);
+  TEST_PERFORMANCE1(filter, p, test_crypto_ops, op_ge_triple_scalarmult_precomp_vartime);
   TEST_PERFORMANCE1(filter, p, test_crypto_ops, op_ge_double_scalarmult_precomp_vartime2);
   TEST_PERFORMANCE1(filter, p, test_crypto_ops, op_addKeys2);
   TEST_PERFORMANCE1(filter, p, test_crypto_ops, op_addKeys3);
   TEST_PERFORMANCE1(filter, p, test_crypto_ops, op_addKeys3_2);
+  TEST_PERFORMANCE1(filter, p, test_crypto_ops, op_addKeys_aGbBcC);
+  TEST_PERFORMANCE1(filter, p, test_crypto_ops, op_addKeys_aAbBcC);
   TEST_PERFORMANCE1(filter, p, test_crypto_ops, op_isInMainSubgroup);
   TEST_PERFORMANCE1(filter, p, test_crypto_ops, op_zeroCommitUncached);
   TEST_PERFORMANCE1(filter, p, test_crypto_ops, op_zeroCommitCached);

@@ -135,7 +135,7 @@ class TransferTest():
         assert res.fee > 0
         fee = res.fee
         assert len(res.tx_blob) > 0
-        blob_size = len(res.tx_blob) // 2
+        tx_weight = res.weight
         assert len(res.tx_metadata) == 0
         assert len(res.multisig_txset) == 0
         assert len(res.unsigned_txset) == 0
@@ -144,7 +144,7 @@ class TransferTest():
         res = daemon.get_fee_estimate(10)
         assert res.fee > 0
         assert res.quantization_mask > 0
-        expected_fee = (res.fee * 1 * blob_size + res.quantization_mask - 1) // res.quantization_mask * res.quantization_mask
+        expected_fee = (res.fee * 1 * tx_weight + res.quantization_mask - 1) // res.quantization_mask * res.quantization_mask
         assert abs(1 - fee / expected_fee) < 0.01
 
         self.wallet[0].refresh()

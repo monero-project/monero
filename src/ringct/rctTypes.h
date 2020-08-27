@@ -113,9 +113,14 @@ namespace rct {
 
     struct multisig_out {
         std::vector<key> c; // for all inputs
+        std::vector<key> mu_p; // for all inputs
+        std::vector<key> c0; // for all inputs
 
         BEGIN_SERIALIZE_OBJECT()
           FIELD(c)
+          FIELD(mu_p)
+          if (!mu_p.empty() && mu_p.size() != c.size())
+            return false;
         END_SERIALIZE()
     };
 
@@ -163,6 +168,23 @@ namespace rct {
             // FIELD(II) - not serialized, it can be reconstructed
         END_SERIALIZE()
     };
+
+    // CLSAG signature
+    struct clsag {
+        keyV s; // scalars
+        key c1;
+
+        key I; // signing key image
+        key D; // commitment key image
+
+        BEGIN_SERIALIZE_OBJECT()
+            FIELD(s)
+            FIELD(c1)
+            // FIELD(I) - not serialized, it can be reconstructed
+            FIELD(D)
+        END_SERIALIZE()
+    };
+
     //contains the data for an Borromean sig
     // also contains the "Ci" values such that
     // \sum Ci = C
@@ -234,6 +256,7 @@ namespace rct {
       RCTTypeSimple = 2,
       RCTTypeBulletproof = 3,
       RCTTypeBulletproof2 = 4,
+      RCTTypeCLSAG = 5,
     };
     enum RangeProofType { RangeProofBorromean, RangeProofBulletproof, RangeProofMultiOutputBulletproof, RangeProofPaddedBulletproof };
     struct RCTConfig {
@@ -262,7 +285,7 @@ namespace rct {
           FIELD(type)
           if (type == RCTTypeNull)
             return ar.stream().good();
-          if (type != RCTTypeFull && type != RCTTypeSimple && type != RCTTypeBulletproof && type != RCTTypeBulletproof2)
+          if (type != RCTTypeFull && type != RCTTypeSimple && type != RCTTypeBulletproof && type != RCTTypeBulletproof2 && type != RCTTypeCLSAG)
             return false;
           VARINT_FIELD(txnFee)
           // inputs/outputs not saved, only here for serialization help
@@ -291,7 +314,7 @@ namespace rct {
             return false;
           for (size_t i = 0; i < outputs; ++i)
           {
-            if (type == RCTTypeBulletproof2)
+            if (type == RCTTypeBulletproof2 || type == RCTTypeCLSAG)
             {
               ar.begin_object();
               if (!typename Archive<W>::is_saving())
@@ -338,6 +361,7 @@ namespace rct {
         std::vector<rangeSig> rangeSigs;
         std::vector<Bulletproof> bulletproofs;
         std::vector<mgSig> MGs; // simple rct has N, full has 1
+        std::vector<clsag> CLSAGs;
         keyV pseudoOuts; //C - for simple rct
 
         // when changing this function, update cryptonote::get_pruned_transaction_weight
@@ -346,12 +370,12 @@ namespace rct {
         {
           if (type == RCTTypeNull)
             return ar.stream().good();
-          if (type != RCTTypeFull && type != RCTTypeSimple && type != RCTTypeBulletproof && type != RCTTypeBulletproof2)
+          if (type != RCTTypeFull && type != RCTTypeSimple && type != RCTTypeBulletproof && type != RCTTypeBulletproof2 && type != RCTTypeCLSAG)
             return false;
-          if (type == RCTTypeBulletproof || type == RCTTypeBulletproof2)
+          if (type == RCTTypeBulletproof || type == RCTTypeBulletproof2 || type == RCTTypeCLSAG)
           {
             uint32_t nbp = bulletproofs.size();
-            if (type == RCTTypeBulletproof2)
+            if (type == RCTTypeBulletproof2 || type == RCTTypeCLSAG)
               VARINT_FIELD(nbp)
             else
               FIELD(nbp)
@@ -386,55 +410,98 @@ namespace rct {
             ar.end_array();
           }
 
-          ar.tag("MGs");
-          ar.begin_array();
-          // we keep a byte for size of MGs, because we don't know whether this is
-          // a simple or full rct signature, and it's starting to annoy the hell out of me
-          size_t mg_elements = (type == RCTTypeSimple || type == RCTTypeBulletproof || type == RCTTypeBulletproof2) ? inputs : 1;
-          PREPARE_CUSTOM_VECTOR_SERIALIZATION(mg_elements, MGs);
-          if (MGs.size() != mg_elements)
-            return false;
-          for (size_t i = 0; i < mg_elements; ++i)
+          if (type == RCTTypeCLSAG)
           {
-            // we save the MGs contents directly, because we want it to save its
-            // arrays and matrices without the size prefixes, and the load can't
-            // know what size to expect if it's not in the data
-            ar.begin_object();
-            ar.tag("ss");
+            ar.tag("CLSAGs");
             ar.begin_array();
-            PREPARE_CUSTOM_VECTOR_SERIALIZATION(mixin + 1, MGs[i].ss);
-            if (MGs[i].ss.size() != mixin + 1)
+            PREPARE_CUSTOM_VECTOR_SERIALIZATION(inputs, CLSAGs);
+            if (CLSAGs.size() != inputs)
               return false;
-            for (size_t j = 0; j < mixin + 1; ++j)
+            for (size_t i = 0; i < inputs; ++i)
             {
+              // we save the CLSAGs contents directly, because we want it to save its
+              // arrays without the size prefixes, and the load can't know what size
+              // to expect if it's not in the data
+              ar.begin_object();
+              ar.tag("s");
               ar.begin_array();
-              size_t mg_ss2_elements = ((type == RCTTypeSimple || type == RCTTypeBulletproof || type == RCTTypeBulletproof2) ? 1 : inputs) + 1;
-              PREPARE_CUSTOM_VECTOR_SERIALIZATION(mg_ss2_elements, MGs[i].ss[j]);
-              if (MGs[i].ss[j].size() != mg_ss2_elements)
+              PREPARE_CUSTOM_VECTOR_SERIALIZATION(mixin + 1, CLSAGs[i].s);
+              if (CLSAGs[i].s.size() != mixin + 1)
                 return false;
-              for (size_t k = 0; k < mg_ss2_elements; ++k)
+              for (size_t j = 0; j <= mixin; ++j)
               {
-                FIELDS(MGs[i].ss[j][k])
-                if (mg_ss2_elements - k > 1)
+                FIELDS(CLSAGs[i].s[j])
+                if (mixin + 1 - j > 1)
                   ar.delimit_array();
               }
               ar.end_array();
 
-              if (mixin + 1 - j > 1)
-                ar.delimit_array();
+              ar.tag("c1");
+              FIELDS(CLSAGs[i].c1)
+
+              // CLSAGs[i].I not saved, it can be reconstructed
+              ar.tag("D");
+              FIELDS(CLSAGs[i].D)
+              ar.end_object();
+
+              if (inputs - i > 1)
+                 ar.delimit_array();
+            }
+
+            ar.end_array();
+          }
+          else
+          {
+            ar.tag("MGs");
+            ar.begin_array();
+            // we keep a byte for size of MGs, because we don't know whether this is
+            // a simple or full rct signature, and it's starting to annoy the hell out of me
+            size_t mg_elements = (type == RCTTypeSimple || type == RCTTypeBulletproof || type == RCTTypeBulletproof2) ? inputs : 1;
+            PREPARE_CUSTOM_VECTOR_SERIALIZATION(mg_elements, MGs);
+            if (MGs.size() != mg_elements)
+              return false;
+            for (size_t i = 0; i < mg_elements; ++i)
+            {
+              // we save the MGs contents directly, because we want it to save its
+              // arrays and matrices without the size prefixes, and the load can't
+              // know what size to expect if it's not in the data
+              ar.begin_object();
+              ar.tag("ss");
+              ar.begin_array();
+              PREPARE_CUSTOM_VECTOR_SERIALIZATION(mixin + 1, MGs[i].ss);
+              if (MGs[i].ss.size() != mixin + 1)
+                return false;
+              for (size_t j = 0; j < mixin + 1; ++j)
+              {
+                ar.begin_array();
+                size_t mg_ss2_elements = ((type == RCTTypeSimple || type == RCTTypeBulletproof || type == RCTTypeBulletproof2) ? 1 : inputs) + 1;
+                PREPARE_CUSTOM_VECTOR_SERIALIZATION(mg_ss2_elements, MGs[i].ss[j]);
+                if (MGs[i].ss[j].size() != mg_ss2_elements)
+                  return false;
+                for (size_t k = 0; k < mg_ss2_elements; ++k)
+                {
+                  FIELDS(MGs[i].ss[j][k])
+                  if (mg_ss2_elements - k > 1)
+                    ar.delimit_array();
+                }
+                ar.end_array();
+  
+                if (mixin + 1 - j > 1)
+                  ar.delimit_array();
+              }
+              ar.end_array();
+
+              ar.tag("cc");
+              FIELDS(MGs[i].cc)
+              // MGs[i].II not saved, it can be reconstructed
+              ar.end_object();
+
+              if (mg_elements - i > 1)
+                 ar.delimit_array();
             }
             ar.end_array();
-
-            ar.tag("cc");
-            FIELDS(MGs[i].cc)
-            // MGs[i].II not saved, it can be reconstructed
-            ar.end_object();
-
-            if (mg_elements - i > 1)
-               ar.delimit_array();
           }
-          ar.end_array();
-          if (type == RCTTypeBulletproof || type == RCTTypeBulletproof2)
+          if (type == RCTTypeBulletproof || type == RCTTypeBulletproof2 || type == RCTTypeCLSAG)
           {
             ar.tag("pseudoOuts");
             ar.begin_array();
@@ -464,12 +531,12 @@ namespace rct {
 
         keyV& get_pseudo_outs()
         {
-          return type == RCTTypeBulletproof || type == RCTTypeBulletproof2 ? p.pseudoOuts : pseudoOuts;
+          return type == RCTTypeBulletproof || type == RCTTypeBulletproof2 || type == RCTTypeCLSAG ? p.pseudoOuts : pseudoOuts;
         }
 
         keyV const& get_pseudo_outs() const
         {
-          return type == RCTTypeBulletproof || type == RCTTypeBulletproof2 ? p.pseudoOuts : pseudoOuts;
+          return type == RCTTypeBulletproof || type == RCTTypeBulletproof2 || type == RCTTypeCLSAG ? p.pseudoOuts : pseudoOuts;
         }
 
         BEGIN_SERIALIZE_OBJECT()
@@ -636,6 +703,7 @@ VARIANT_TAG(debug_archive, rct::rctSig, "rct::rctSig");
 VARIANT_TAG(debug_archive, rct::Bulletproof, "rct::bulletproof");
 VARIANT_TAG(debug_archive, rct::multisig_kLRki, "rct::multisig_kLRki");
 VARIANT_TAG(debug_archive, rct::multisig_out, "rct::multisig_out");
+VARIANT_TAG(debug_archive, rct::clsag, "rct::clsag");
 
 VARIANT_TAG(binary_archive, rct::key, 0x90);
 VARIANT_TAG(binary_archive, rct::key64, 0x91);
@@ -652,6 +720,7 @@ VARIANT_TAG(binary_archive, rct::rctSig, 0x9b);
 VARIANT_TAG(binary_archive, rct::Bulletproof, 0x9c);
 VARIANT_TAG(binary_archive, rct::multisig_kLRki, 0x9d);
 VARIANT_TAG(binary_archive, rct::multisig_out, 0x9e);
+VARIANT_TAG(binary_archive, rct::clsag, 0x9f);
 
 VARIANT_TAG(json_archive, rct::key, "rct_key");
 VARIANT_TAG(json_archive, rct::key64, "rct_key64");
@@ -668,5 +737,6 @@ VARIANT_TAG(json_archive, rct::rctSig, "rct_rctSig");
 VARIANT_TAG(json_archive, rct::Bulletproof, "rct_bulletproof");
 VARIANT_TAG(json_archive, rct::multisig_kLRki, "rct_multisig_kLR");
 VARIANT_TAG(json_archive, rct::multisig_out, "rct_multisig_out");
+VARIANT_TAG(json_archive, rct::clsag, "rct_clsag");
 
 #endif  /* RCTTYPES_H */

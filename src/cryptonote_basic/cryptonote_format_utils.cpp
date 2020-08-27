@@ -436,7 +436,7 @@ namespace cryptonote
   {
     CHECK_AND_ASSERT_MES(tx.pruned, std::numeric_limits<uint64_t>::max(), "get_pruned_transaction_weight does not support non pruned txes");
     CHECK_AND_ASSERT_MES(tx.version >= 2, std::numeric_limits<uint64_t>::max(), "get_pruned_transaction_weight does not support v1 txes");
-    CHECK_AND_ASSERT_MES(tx.rct_signatures.type >= rct::RCTTypeBulletproof2,
+    CHECK_AND_ASSERT_MES(tx.rct_signatures.type >= rct::RCTTypeBulletproof2 || tx.rct_signatures.type == rct::RCTTypeCLSAG,
         std::numeric_limits<uint64_t>::max(), "get_pruned_transaction_weight does not support older range proof types");
     CHECK_AND_ASSERT_MES(!tx.vin.empty(), std::numeric_limits<uint64_t>::max(), "empty vin");
     CHECK_AND_ASSERT_MES(tx.vin[0].type() == typeid(cryptonote::txin_to_key), std::numeric_limits<uint64_t>::max(), "empty vin");
@@ -458,9 +458,12 @@ namespace cryptonote
     extra = 32 * (9 + 2 * nrl) + 2;
     weight += extra;
 
-    // calculate deterministic MLSAG data size
+    // calculate deterministic CLSAG/MLSAG data size
     const size_t ring_size = boost::get<cryptonote::txin_to_key>(tx.vin[0]).key_offsets.size();
-    extra = tx.vin.size() * (ring_size * (1 + 1) * 32 + 32 /* cc */);
+    if (tx.rct_signatures.type == rct::RCTTypeCLSAG)
+      extra = tx.vin.size() * (ring_size + 2) * 32;
+    else
+      extra = tx.vin.size() * (ring_size * (1 + 1) * 32 + 32 /* cc */);
     weight += extra;
 
     // calculate deterministic pseudoOuts size
