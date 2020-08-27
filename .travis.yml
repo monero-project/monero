@@ -25,7 +25,7 @@ env:
 # ARM v8
     - HOST=aarch64-linux-gnu PACKAGES="python3 gperf g++-aarch64-linux-gnu"
 # i686 Win
-    - HOST=i686-w64-mingw32 DEP_OPTS="NO_QT=1" PACKAGES="python3 g++-mingw-w64-i686 qttools5-dev-tools"
+    - HOST=i686-w64-mingw32 DEP_OPTS="NO_QT=1" PACKAGES="python3 g++-mingw-w64-i686 qttools5-dev-tools" MAKEJOBS=-j2
 # i686 Linux
     - HOST=i686-pc-linux-gnu PACKAGES="gperf cmake g++-multilib python3-zmq"
 # Win64
