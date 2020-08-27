@@ -218,3 +218,15 @@ struct get_test_options<gen_block_late_v1_coinbase_tx> {
     hard_forks, 0
   };
 };
+
+struct gen_block_low_coinbase : public gen_block_verification_base<1>
+{
+  bool generate(std::vector<test_event_entry>& events) const;
+};
+template<>
+struct get_test_options<gen_block_low_coinbase> {
+  const std::pair<uint8_t, uint64_t> hard_forks[3] = {std::make_pair(1, 0), std::make_pair(HF_VERSION_EXACT_COINBASE, 1), std::make_pair(0, 0)};
+  const cryptonote::test_options test_options = {
+    hard_forks, 0
+  };
+};

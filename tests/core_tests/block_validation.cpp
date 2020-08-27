@@ -655,3 +655,19 @@ bool gen_block_late_v1_coinbase_tx::generate(std::vector<test_event_entry>& even
 
   return true;
 }
+
+bool gen_block_low_coinbase::generate(std::vector<test_event_entry>& events) const
+{
+  BLOCK_VALIDATION_INIT_GENERATE();
+
+  block blk_1;
+  std::vector<size_t> block_weights;
+  generator.construct_block(blk_1, cryptonote::get_block_height(blk_0) + 1, cryptonote::get_block_hash(blk_0),
+    miner_account, blk_0.timestamp + DIFFICULTY_TARGET_V2, COIN + generator.get_already_generated_coins(cryptonote::get_block_hash(blk_0)),
+    block_weights, {}, HF_VERSION_EXACT_COINBASE);
+  events.push_back(blk_1);
+
+  DO_CALLBACK(events, "check_block_purged");
+
+  return true;
+}
