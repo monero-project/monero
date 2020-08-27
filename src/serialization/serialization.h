@@ -48,6 +48,7 @@
 #include <string>
 #include <boost/type_traits/is_integral.hpp>
 #include <boost/type_traits/integral_constant.hpp>
+#include <boost/mpl/bool.hpp>
 
 /*! \struct is_blob_type 
  *
@@ -275,6 +276,27 @@ inline bool do_serialize(Archive &ar, bool &v)
   do {						\
     ar.tag(t);					\
     ar.serialize_varint(f);			\
+    if (!ar.stream().good()) return false;	\
+  } while(0);
+
+/*! \macro MAGIC_FIELD(m)
+ */
+#define MAGIC_FIELD(m)				\
+  std::string magic = m;			\
+  do {						\
+    ar.tag("magic");				\
+    ar.serialize_blob((void*)magic.data(), magic.size()); \
+    if (!ar.stream().good()) return false;	\
+    if (magic != m) return false;		\
+  } while(0);
+
+/*! \macro VERSION_FIELD(v)
+ */
+#define VERSION_FIELD(v)			\
+  uint32_t version = v;				\
+  do {						\
+    ar.tag("version");				\
+    ar.serialize_varint(version);		\
     if (!ar.stream().good()) return false;	\
   } while(0);
 

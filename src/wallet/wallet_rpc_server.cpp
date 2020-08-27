@@ -838,10 +838,11 @@ namespace tools
   static std::string ptx_to_string(const tools::wallet2::pending_tx &ptx)
   {
     std::ostringstream oss;
-    boost::archive::portable_binary_oarchive ar(oss);
+    binary_archive<true> ar(oss);
     try
     {
-      ar << ptx;
+      if (!::serialization::serialize(ar, const_cast<tools::wallet2::pending_tx&>(ptx)))
+        return "";
     }
     catch (...)
     {
@@ -1550,14 +1551,31 @@ namespace tools
       return false;
     }
 
+    bool loaded = false;
     tools::wallet2::pending_tx ptx;
+
     try
     {
       std::istringstream iss(blob);
-      boost::archive::portable_binary_iarchive ar(iss);
-      ar >> ptx;
+      binary_archive<false> ar(iss);
+      if (::serialization::serialize(ar, ptx))
+        loaded = true;
     }
-    catch (...)
+    catch(...) {}
+
+    if (!loaded && !m_restricted)
+    {
+      try
+      {
+        std::istringstream iss(blob);
+        boost::archive::portable_binary_iarchive ar(iss);
+        ar >> ptx;
+        loaded = true;
+      }
+      catch (...) {}
+    }
+
+    if (!loaded)
     {
       er.code = WALLET_RPC_ERROR_CODE_BAD_TX_METADATA;
       er.message = "Failed to parse tx metadata.";
