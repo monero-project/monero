@@ -523,6 +523,7 @@ namespace rct {
           FIELD(rangeSigs)
           FIELD(bulletproofs)
           FIELD(MGs)
+          FIELD(CLSAGs)
           FIELD(pseudoOuts)
         END_SERIALIZE()
     };
