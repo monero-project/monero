@@ -226,11 +226,9 @@ uint64_t test_generator::get_already_generated_coins(const cryptonote::block& bl
   return get_already_generated_coins(blk_hash);
 }
 
-void test_generator::add_block(const cryptonote::block& blk, size_t txs_weight, std::vector<size_t>& block_weights, uint64_t already_generated_coins, uint8_t hf_version)
+void test_generator::add_block(const cryptonote::block& blk, size_t txs_weight, std::vector<size_t>& block_weights, uint64_t already_generated_coins, uint64_t block_reward, uint8_t hf_version)
 {
   const size_t block_weight = txs_weight + get_transaction_weight(blk.miner_tx);
-  uint64_t block_reward;
-  get_block_reward(misc_utils::median(block_weights), block_weight, already_generated_coins, block_reward, hf_version);
   m_blocks_info[get_block_hash(blk)] = block_info(blk.prev_id, already_generated_coins + block_reward, block_weight);
 }
 
@@ -311,7 +309,8 @@ bool test_generator::construct_block(cryptonote::block& blk, uint64_t height, co
   //blk.tree_root_hash = get_tx_tree_hash(blk);
 
   fill_nonce(blk, get_test_difficulty(hf_ver), height);
-  add_block(blk, txs_weight, block_weights, already_generated_coins, hf_ver ? hf_ver.get() : 1);
+  const uint64_t block_reward = get_outs_money_amount(blk.miner_tx) - total_fee;
+  add_block(blk, txs_weight, block_weights, already_generated_coins, block_reward, hf_ver ? hf_ver.get() : 1);
 
   return true;
 }
@@ -345,7 +344,8 @@ bool test_generator::construct_block_manually(block& blk, const block& prev_bloc
                                               const crypto::hash& prev_id/* = crypto::hash()*/, const difficulty_type& diffic/* = 1*/,
                                               const transaction& miner_tx/* = transaction()*/,
                                               const std::vector<crypto::hash>& tx_hashes/* = std::vector<crypto::hash>()*/,
-                                              size_t txs_weight/* = 0*/, size_t max_outs/* = 0*/, uint8_t hf_version/* = 1*/)
+                                              size_t txs_weight/* = 0*/, size_t max_outs/* = 0*/, uint8_t hf_version/* = 1*/,
+                                              uint64_t fees/* = 0*/)
 {
   blk.major_version = actual_params & bf_major_ver ? major_ver : CURRENT_BLOCK_MAJOR_VERSION;
   blk.minor_version = actual_params & bf_minor_ver ? minor_ver : CURRENT_BLOCK_MINOR_VERSION;
@@ -354,6 +354,7 @@ bool test_generator::construct_block_manually(block& blk, const block& prev_bloc
   blk.tx_hashes     = actual_params & bf_tx_hashes ? tx_hashes : std::vector<crypto::hash>();
   max_outs          = actual_params & bf_max_outs ? max_outs : 9999;
   hf_version        = actual_params & bf_hf_version ? hf_version : 1;
+  fees              = actual_params & bf_tx_fees ? fees : 0;
 
   size_t height = get_block_height(prev_block) + 1;
   uint64_t already_generated_coins = get_already_generated_coins(prev_block);
@@ -367,7 +368,7 @@ bool test_generator::construct_block_manually(block& blk, const block& prev_bloc
   {
     size_t current_block_weight = txs_weight + get_transaction_weight(blk.miner_tx);
     // TODO: This will work, until size of constructed block is less then CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE
-    if (!construct_miner_tx(height, misc_utils::median(block_weights), already_generated_coins, current_block_weight, 0, miner_acc.get_keys().m_account_address, blk.miner_tx, blobdata(), max_outs, hf_version))
+    if (!construct_miner_tx(height, misc_utils::median(block_weights), already_generated_coins, current_block_weight, fees, miner_acc.get_keys().m_account_address, blk.miner_tx, blobdata(), max_outs, hf_version))
       return false;
   }
 
@@ -376,7 +377,8 @@ bool test_generator::construct_block_manually(block& blk, const block& prev_bloc
   difficulty_type a_diffic = actual_params & bf_diffic ? diffic : get_test_difficulty(hf_version);
   fill_nonce(blk, a_diffic, height);
 
-  add_block(blk, txs_weight, block_weights, already_generated_coins, hf_version);
+  const uint64_t block_reward = get_outs_money_amount(blk.miner_tx) - fees;
+  add_block(blk, txs_weight, block_weights, already_generated_coins, block_reward, hf_version);
 
   return true;
 }

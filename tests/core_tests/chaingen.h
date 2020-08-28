@@ -225,7 +225,8 @@ public:
     bf_tx_hashes = 1 << 5,
     bf_diffic    = 1 << 6,
     bf_max_outs  = 1 << 7,
-    bf_hf_version= 1 << 8
+    bf_hf_version= 1 << 8,
+    bf_tx_fees   = 1 << 9
   };
 
   test_generator(): m_events(nullptr) {}
@@ -235,7 +236,7 @@ public:
   uint64_t get_already_generated_coins(const crypto::hash& blk_id) const;
   uint64_t get_already_generated_coins(const cryptonote::block& blk) const;
 
-  void add_block(const cryptonote::block& blk, size_t tsx_size, std::vector<size_t>& block_weights, uint64_t already_generated_coins,
+  void add_block(const cryptonote::block& blk, size_t tsx_size, std::vector<size_t>& block_weights, uint64_t already_generated_coins, uint64_t block_reward,
     uint8_t hf_version = 1);
   bool construct_block(cryptonote::block& blk, uint64_t height, const crypto::hash& prev_id,
     const cryptonote::account_base& miner_acc, uint64_t timestamp, uint64_t already_generated_coins,
@@ -251,7 +252,7 @@ public:
     uint8_t minor_ver = 0, uint64_t timestamp = 0, const crypto::hash& prev_id = crypto::hash(),
     const cryptonote::difficulty_type& diffic = 1, const cryptonote::transaction& miner_tx = cryptonote::transaction(),
     const std::vector<crypto::hash>& tx_hashes = std::vector<crypto::hash>(), size_t txs_sizes = 0, size_t max_outs = 999,
-    uint8_t hf_version = 1);
+    uint8_t hf_version = 1, uint64_t fees = 0);
   bool construct_block_manually_tx(cryptonote::block& blk, const cryptonote::block& prev_block,
     const cryptonote::account_base& miner_acc, const std::vector<crypto::hash>& tx_hashes, size_t txs_size);
   void fill_nonce(cryptonote::block& blk, const cryptonote::difficulty_type& diffic, uint64_t height);

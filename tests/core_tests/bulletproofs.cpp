@@ -87,6 +87,7 @@ bool gen_bp_tx_validation_base::generate_with(std::vector<test_event_entry>& eve
   std::vector<transaction> rct_txes;
   cryptonote::block blk_txes;
   std::vector<crypto::hash> starting_rct_tx_hashes;
+  uint64_t fees = 0;
   static const uint64_t input_amounts_available[] = {5000000000000, 30000000000000, 100000000000, 80000000000};
   for (size_t n = 0; n < n_txes; ++n)
   {
@@ -166,15 +167,19 @@ bool gen_bp_tx_validation_base::generate_with(std::vector<test_event_entry>& eve
     while (amounts_paid[0] != (size_t)-1)
       ++amounts_paid;
     ++amounts_paid;
+
+    uint64_t fee = 0;
+    get_tx_fee(rct_txes.back(), fee);
+    fees += fee;
   }
   if (!valid)
     DO_CALLBACK(events, "mark_invalid_tx");
   events.push_back(rct_txes);
 
   CHECK_AND_ASSERT_MES(generator.construct_block_manually(blk_txes, blk_last, miner_account,
-      test_generator::bf_major_ver | test_generator::bf_minor_ver | test_generator::bf_timestamp | test_generator::bf_tx_hashes | test_generator::bf_hf_version | test_generator::bf_max_outs,
+      test_generator::bf_major_ver | test_generator::bf_minor_ver | test_generator::bf_timestamp | test_generator::bf_tx_hashes | test_generator::bf_hf_version | test_generator::bf_max_outs | test_generator::bf_tx_fees,
       hf_version, hf_version, blk_last.timestamp + DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN * 2, // v2 has blocks twice as long
-      crypto::hash(), 0, transaction(), starting_rct_tx_hashes, 0, 6, 10),
+      crypto::hash(), 0, transaction(), starting_rct_tx_hashes, 0, 6, hf_version, fees),
       false, "Failed to generate block");
   if (!valid)
     DO_CALLBACK(events, "mark_invalid_block");
