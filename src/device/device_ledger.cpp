@@ -259,7 +259,7 @@ namespace hw {
 
     static int device_id = 0;
 
-    #define PROTOCOL_VERSION                    3
+    #define PROTOCOL_VERSION                    4
 
     #define INS_NONE                            0x00
     #define INS_RESET                           0x02
