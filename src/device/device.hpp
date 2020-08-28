@@ -162,7 +162,6 @@ namespace hw {
         virtual std::vector<crypto::public_key>  get_subaddress_spend_public_keys(const cryptonote::account_keys &keys, uint32_t account, uint32_t begin, uint32_t end) = 0;
         virtual cryptonote::account_public_address  get_subaddress(const cryptonote::account_keys& keys, const cryptonote::subaddress_index &index) = 0;
         virtual crypto::secret_key  get_subaddress_secret_key(const crypto::secret_key &sec, const cryptonote::subaddress_index &index) = 0;
-        virtual crypto::secret_key  get_subaddress_view_secret_key(const crypto::secret_key &sec, const cryptonote::subaddress_index &index) = 0;
 
         /* ======================================================================= */
         /*                            DERIVATION & KEY                             */

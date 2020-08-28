@@ -12207,11 +12207,16 @@ void wallet2::set_account_tag_description(const std::string& tag, const std::str
   m_account_tags.first[tag] = description;
 }
 
-static crypto::hash get_message_hash(const std::string &data)
+// Set up an address signature message hash
+// Hash data: domain separator, spend public key, view public key, mode identifier, payload data
+static crypto::hash get_message_hash(const std::string &data, const crypto::public_key &spend_key, const crypto::public_key &view_key, const uint8_t mode)
 {
   KECCAK_CTX ctx;
   keccak_init(&ctx);
   keccak_update(&ctx, (const uint8_t*)config::HASH_KEY_MESSAGE_SIGNING, sizeof(config::HASH_KEY_MESSAGE_SIGNING)); // includes NUL
+  keccak_update(&ctx, (const uint8_t*)&spend_key, sizeof(crypto::public_key));
+  keccak_update(&ctx, (const uint8_t*)&view_key, sizeof(crypto::public_key));
+  keccak_update(&ctx, (const uint8_t*)&mode, sizeof(uint8_t));
   char len_buf[(sizeof(size_t) * 8 + 6) / 7];
   char *ptr = len_buf;
   tools::write_varint(ptr, data.size());
@@ -12223,13 +12228,20 @@ static crypto::hash get_message_hash(const std::string &data)
   return hash;
 }
 
+// Sign a message with a private key from either the base address or a subaddress
+// The signature is also bound to both keys and the signature mode (spend, view) to prevent unintended reuse
 std::string wallet2::sign(const std::string &data, message_signature_type_t signature_type, cryptonote::subaddress_index index) const
 {
-  const crypto::hash hash = get_message_hash(data);
   const cryptonote::account_keys &keys = m_account.get_keys();
   crypto::signature signature;
   crypto::secret_key skey, m;
+  crypto::secret_key skey_spend, skey_view;
   crypto::public_key pkey;
+  crypto::public_key pkey_spend, pkey_view; // to include both in hash
+  crypto::hash hash;
+  uint8_t mode;
+
+  // Use the base address
   if (index.is_zero())
   {
     switch (signature_type)
@@ -12237,38 +12249,42 @@ std::string wallet2::sign(const std::string &data, message_signature_type_t sign
       case sign_with_spend_key:
         skey = keys.m_spend_secret_key;
         pkey = keys.m_account_address.m_spend_public_key;
+        mode = 0;
         break;
       case sign_with_view_key:
         skey = keys.m_view_secret_key;
         pkey = keys.m_account_address.m_view_public_key;
+        mode = 1;
         break;
-#if 0
-      case sign_with_both_keys:
-#endif
       default: CHECK_AND_ASSERT_THROW_MES(false, "Invalid signature type requested");
     }
+    hash = get_message_hash(data,keys.m_account_address.m_spend_public_key,keys.m_account_address.m_view_public_key,mode);
   }
+  // Use a subaddress
   else
   {
+    skey_spend = keys.m_spend_secret_key;
+    m = m_account.get_device().get_subaddress_secret_key(keys.m_view_secret_key, index);
+    sc_add((unsigned char*)&skey_spend, (unsigned char*)&m, (unsigned char*)&skey_spend);
+    secret_key_to_public_key(skey_spend,pkey_spend);
+    sc_mul((unsigned char*)&skey_view, (unsigned char*)&keys.m_view_secret_key, (unsigned char*)&skey_spend);
+    secret_key_to_public_key(skey_view,pkey_view);
     switch (signature_type)
     {
       case sign_with_spend_key:
-        skey = keys.m_spend_secret_key;
-        m = m_account.get_device().get_subaddress_secret_key(keys.m_view_secret_key, index);
-        sc_add((unsigned char*)&skey, (unsigned char*)&m, (unsigned char*)&skey);
+        skey = skey_spend;
+        pkey = pkey_spend;
+        mode = 0;
         break;
       case sign_with_view_key:
-        skey = keys.m_spend_secret_key;
-        m = m_account.get_device().get_subaddress_secret_key(keys.m_view_secret_key, index);
-        sc_add((unsigned char*)&skey, (unsigned char*)&m, (unsigned char*)&skey);
-        sc_mul((unsigned char*)&skey, (unsigned char*)&keys.m_view_secret_key, (unsigned char*)&skey);
+        skey = skey_view;
+        pkey = pkey_view;
+        mode = 1;
         break;
-#if 0
-      case sign_with_both_keys: skey = ...; break;
-#endif
       default: CHECK_AND_ASSERT_THROW_MES(false, "Invalid signature type requested");
     }
     secret_key_to_public_key(skey, pkey);
+    hash = get_message_hash(data,pkey_spend,pkey_view,mode);
   }
   crypto::generate_signature(hash, pkey, skey, signature);
   return std::string("SigV2") + tools::base58::encode(std::string((const char *)&signature, sizeof(signature)));
@@ -12290,10 +12306,6 @@ tools::wallet2::message_signature_result_t wallet2::verify(const std::string &da
   {
     crypto::cn_fast_hash(data.data(), data.size(), hash);
   }
-  else
-  {
-    hash = get_message_hash(data);
-  }
   std::string decoded;
   if (!tools::base58::decode(signature.substr(v1 ? v1_header_len : v2_header_len), decoded)) {
     LOG_PRINT_L0("Signature decoding error");
@@ -12305,15 +12317,19 @@ tools::wallet2::message_signature_result_t wallet2::verify(const std::string &da
     return {};
   }
   memcpy(&s, decoded.data(), sizeof(s));
+
+  // Test each mode and return which mode, if either, succeeded
+  if (v2)
+      hash = get_message_hash(data,address.m_spend_public_key,address.m_view_public_key,(uint8_t) 0);
   if (crypto::check_signature(hash, address.m_spend_public_key, s))
     return {true, v1 ? 1u : 2u, !v2, sign_with_spend_key };
+
+  if (v2)
+      hash = get_message_hash(data,address.m_spend_public_key,address.m_view_public_key,(uint8_t) 1);
   if (crypto::check_signature(hash, address.m_view_public_key, s))
     return {true, v1 ? 1u : 2u, !v2, sign_with_view_key };
-#if 0
-  rct::key both = ...;
-  if (crypto::check_signature(hash, rct::rct2pk(both), s))
-    return {true, v1 ? 1u : 2u, !v2, sign_with_both_keys };
-#endif
+
+  // Both modes failed
   return {};
 }
 

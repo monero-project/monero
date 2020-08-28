@@ -100,6 +100,8 @@ class MessageSigningTest():
                 assert not res.good
                 res = self.wallet[i].verify(message, address[0], signature + 'x')
                 assert not res.good
+                res = self.wallet[i].verify(message, address[0], signature.replace('SigV2','SigV1'))
+                assert not res.good
 
 if __name__ == '__main__':
     MessageSigningTest().run_test()

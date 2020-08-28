@@ -2012,8 +2012,6 @@ namespace tools
       signature_type = tools::wallet2::sign_with_spend_key;
     else if (req.signature_type == "view")
       signature_type = tools::wallet2::sign_with_view_key;
-    else if (req.signature_type == "both")
-      signature_type = tools::wallet2::sign_with_both_keys;
     else
     {
       er.code = WALLET_RPC_ERROR_CODE_INVALID_SIGNATURE_TYPE;
@@ -2063,7 +2061,6 @@ namespace tools
     {
       case tools::wallet2::sign_with_spend_key: res.signature_type = "spend"; break;
       case tools::wallet2::sign_with_view_key: res.signature_type = "view"; break;
-      case tools::wallet2::sign_with_both_keys: res.signature_type = "both"; break;
       default: res.signature_type = "invalid"; break;
     }
     return true;

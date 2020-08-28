@@ -223,7 +223,7 @@ namespace
   const char* USAGE_GET_TX_NOTE("get_tx_note <txid>");
   const char* USAGE_GET_DESCRIPTION("get_description");
   const char* USAGE_SET_DESCRIPTION("set_description [free text note]");
-  const char* USAGE_SIGN("sign [<account_index>,<address_index>] [--spend|--view|--both] <filename>");
+  const char* USAGE_SIGN("sign [<account_index>,<address_index>] [--spend|--view] <filename>");
   const char* USAGE_VERIFY("verify <filename> <address> <signature>");
   const char* USAGE_EXPORT_KEY_IMAGES("export_key_images [all] <filename>");
   const char* USAGE_IMPORT_KEY_IMAGES("import_key_images <filename>");
@@ -9911,10 +9911,6 @@ bool simple_wallet::sign(const std::vector<std::string> &args)
     {
       message_signature_type = tools::wallet2::sign_with_view_key;
     }
-    else if (args[idx] == "--both")
-    {
-      message_signature_type = tools::wallet2::sign_with_both_keys;
-    }
     else
     {
       fail_msg_writer() << tr("Invalid subaddress index format, and not a signature type: ") << args[idx];
@@ -9971,7 +9967,7 @@ bool simple_wallet::verify(const std::vector<std::string> &args)
   }
   else
   {
-    success_msg_writer() << tr("Good signature from ") << address_string << (result.old ? " (using old signature algorithm)" : "") << " with " << (result.type == tools::wallet2::sign_with_spend_key ? "spend key" : result.type == tools::wallet2::sign_with_view_key ? "view key" : result.type == tools::wallet2::sign_with_both_keys ? "both spend and view keys" : "unknown key combination (suspicious)");
+    success_msg_writer() << tr("Good signature from ") << address_string << (result.old ? " (using old signature algorithm)" : "") << " with " << (result.type == tools::wallet2::sign_with_spend_key ? "spend key" : result.type == tools::wallet2::sign_with_view_key ? "view key" : "unknown key combination (suspicious)");
   }
   return true;
 }
