@@ -2126,7 +2126,7 @@ namespace hw {
         AUTO_LOCK_CMD();
         #ifdef DEBUG_HWDEVICE
         const rct::key p_x   = hw::ledger::decrypt(p);
-        const rct::key z_x   = hw::ledger::decrypt(z);
+        const rct::key z_x   = z;
         rct::key       I_x;
         rct::key       D_x;
         const rct::key H_x   = H;
@@ -2146,7 +2146,8 @@ namespace hw {
         //p
         this->send_secret(p.bytes, offset);
         //z
-        this->send_secret(z.bytes, offset);
+        memmove(this->buffer_send+offset, z.bytes, 32);
+        offset += 32;
         //H
         memmove(this->buffer_send+offset, H.bytes, 32);
         offset += 32;
@@ -2225,7 +2226,7 @@ namespace hw {
         const rct::key c_x    = c;
         const rct::key a_x    = hw::ledger::decrypt(a);
         const rct::key p_x    = hw::ledger::decrypt(p);
-        const rct::key z_x    = hw::ledger::decrypt(z);
+        const rct::key z_x    = z;
         const rct::key mu_P_x = mu_P;
         const rct::key mu_C_x = mu_C;
         rct::key       s_x;
@@ -2249,7 +2250,8 @@ namespace hw {
         //p
         this->send_secret(p.bytes, offset);
         //z
-        this->send_secret(z.bytes, offset);
+        memmove(this->buffer_send+offset, z.bytes, 32);
+        offset += 32;
         //mu_P
         memmove(this->buffer_send+offset, mu_P.bytes, 32);
         offset += 32;
