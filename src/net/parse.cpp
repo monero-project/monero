@@ -138,7 +138,7 @@ namespace net
             case epee::net_utils::ipv4_network_address::get_type_id():
             {
                 const auto &ipv4 = parsed->as<epee::net_utils::ipv4_network_address>();
-                result = boost::asio::ip::tcp::endpoint(boost::asio::ip::address_v4(ipv4.ip()), ipv4.port());
+                result = boost::asio::ip::tcp::endpoint(boost::asio::ip::address_v4(SWAP32BE(ipv4.ip())), ipv4.port());
                 break;
             }
             case epee::net_utils::ipv6_network_address::get_type_id():
