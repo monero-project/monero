@@ -706,13 +706,14 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(check_reserve_proof)
 
-    def sign(self, data, account_index = 0, address_index = 0):
+    def sign(self, data, account_index = 0, address_index = 0, signature_type = ""):
         sign = {
             'method': 'sign',
             'params' : {
                 'data': data,
                 'account_index': account_index,
                 'address_index': address_index,
+                'signature_type': signature_type,
             },
             'jsonrpc': '2.0', 
             'id': '0'
