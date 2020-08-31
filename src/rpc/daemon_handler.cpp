@@ -183,7 +183,11 @@ namespace rpc
       {
         bwt.transactions.emplace_back();
         bwt.transactions.back().pruned = req.prune;
-        if (!parse_and_validate_tx_from_blob(blob.second, bwt.transactions.back()))
+
+        const bool parsed = req.prune ?
+          parse_and_validate_tx_base_from_blob(blob.second, bwt.transactions.back()) :
+          parse_and_validate_tx_from_blob(blob.second, bwt.transactions.back());
+        if (!parsed)
         {
           res.blocks.clear();
           res.output_indices.clear();
