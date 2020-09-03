@@ -561,11 +561,6 @@ namespace tx {
       assign_to_repeatable(tsx_data.mutable_minor_indices(), tx.subaddr_indices.begin(), tx.subaddr_indices.end());
     }
 
-    // TODO: use HF_VERSION_CLSAG after CLSAG is merged
-    if (tsx_data.hard_fork() >= 13){
-      throw exc::ProtocolException("CLSAG is not yet implemented");
-    }
-
     // Rsig decision
     auto rsig_data = tsx_data.mutable_rsig_data();
     m_ct.rsig_type = get_rsig_type(tx.rct_config, tx.splitted_dsts.size());
@@ -1017,14 +1012,24 @@ namespace tx {
       }
     }
 
-    // CLSAG support comes here once it is merged to the Monero
-    m_ct.rv->p.MGs.reserve(m_ct.signatures.size());
-    for(size_t i = 0; i < m_ct.signatures.size(); ++i) {
-      rct::mgSig mg;
-      if (!cn_deserialize(m_ct.signatures[i], mg)) {
-        throw exc::ProtocolException("Cannot deserialize mg[i]");
+    if (m_ct.rv->type == rct::RCTTypeCLSAG){
+      m_ct.rv->p.CLSAGs.reserve(m_ct.signatures.size());
+      for (size_t i = 0; i < m_ct.signatures.size(); ++i) {
+        rct::clsag clsag;
+        if (!cn_deserialize(m_ct.signatures[i], clsag)) {
+          throw exc::ProtocolException("Cannot deserialize clsag[i]");
+        }
+        m_ct.rv->p.CLSAGs.push_back(clsag);
       }
-      m_ct.rv->p.MGs.push_back(mg);
+    } else {
+      m_ct.rv->p.MGs.reserve(m_ct.signatures.size());
+      for (size_t i = 0; i < m_ct.signatures.size(); ++i) {
+        rct::mgSig mg;
+        if (!cn_deserialize(m_ct.signatures[i], mg)) {
+          throw exc::ProtocolException("Cannot deserialize mg[i]");
+        }
+        m_ct.rv->p.MGs.push_back(mg);
+      }
     }
 
     m_ct.tx.rct_signatures = *(m_ct.rv);

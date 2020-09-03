@@ -247,7 +247,7 @@ bool mock_daemon::run_main()
 
     if (m_start_zmq)
     {
-      if (!zmq_server.addTCPSocket("127.0.0.1", m_zmq_bind_port))
+      if (!zmq_server.init_rpc("127.0.0.1", m_zmq_bind_port))
       {
         MERROR("Failed to add TCP Socket (127.0.0.1:" << m_zmq_bind_port << ") to ZMQ RPC Server");
 
