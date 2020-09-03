@@ -44,6 +44,7 @@ using namespace epee;
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "cryptonote_basic/account.h"
 #include "cryptonote_basic/cryptonote_basic_impl.h"
+#include "cryptonote_basic/merge_mining.h"
 #include "cryptonote_core/tx_sanity_check.h"
 #include "misc_language.h"
 #include "net/parse.h"
@@ -1824,6 +1825,125 @@ namespace cryptonote
     res.prev_hash = string_tools::pod_to_hex(b.prev_id);
     res.blocktemplate_blob = string_tools::buff_to_hex_nodelimer(block_blob);
     res.blockhashing_blob =  string_tools::buff_to_hex_nodelimer(hashing_blob);
+    res.status = CORE_RPC_STATUS_OK;
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_add_aux_pow(const COMMAND_RPC_ADD_AUX_POW::request& req, COMMAND_RPC_ADD_AUX_POW::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx)
+  {
+    RPC_TRACKER(add_aux_pow);
+    bool r;
+    if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_ADD_AUX_POW>(invoke_http_mode::JON_RPC, "add_aux_pow", req, res, r))
+      return r;
+
+    if (req.aux_pow.empty())
+    {
+      error_resp.code = CORE_RPC_ERROR_CODE_WRONG_PARAM;
+      error_resp.message = "Empty aux pow hash vector";
+      return false;
+    }
+
+    crypto::hash merkle_root;
+    size_t merkle_tree_depth = 0;
+    std::vector<std::pair<crypto::hash, crypto::hash>> aux_pow;
+    std::vector<crypto::hash> aux_pow_raw;
+    aux_pow.reserve(req.aux_pow.size());
+    aux_pow_raw.reserve(req.aux_pow.size());
+    for (const auto &s: req.aux_pow)
+    {
+      aux_pow.push_back({});
+      if (!epee::string_tools::hex_to_pod(s.id, aux_pow.back().first))
+      {
+        error_resp.code = CORE_RPC_ERROR_CODE_WRONG_PARAM;
+        error_resp.message = "Invalid aux pow id";
+        return false;
+      }
+      if (!epee::string_tools::hex_to_pod(s.hash, aux_pow.back().second))
+      {
+        error_resp.code = CORE_RPC_ERROR_CODE_WRONG_PARAM;
+        error_resp.message = "Invalid aux pow hash";
+        return false;
+      }
+      aux_pow_raw.push_back(aux_pow.back().second);
+    }
+
+    size_t path_domain = 1;
+    while ((1u << path_domain) < aux_pow.size())
+      ++path_domain;
+    uint32_t nonce;
+    const uint32_t max_nonce = 65535;
+    bool collision = true;
+    for (nonce = 0; nonce <= max_nonce; ++nonce)
+    {
+      std::vector<bool> slots(aux_pow.size(), false);
+      collision = false;
+      for (size_t idx = 0; idx < aux_pow.size(); ++idx)
+      {
+        const uint32_t slot = cryptonote::get_aux_slot(aux_pow[idx].first, nonce, aux_pow.size());
+        if (slot >= aux_pow.size())
+        {
+          error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
+          error_resp.message = "Computed slot is out of range";
+          return false;
+        }
+        if (slots[slot])
+        {
+          collision = true;
+          break;
+        }
+        slots[slot] = true;
+      }
+      if (!collision)
+        break;
+    }
+    if (collision)
+    {
+      error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
+      error_resp.message = "Failed to find a suitable nonce";
+      return false;
+    }
+
+    crypto::tree_hash((const char(*)[crypto::HASH_SIZE])aux_pow_raw.data(), aux_pow_raw.size(), merkle_root.data);
+    res.merkle_root = epee::string_tools::pod_to_hex(merkle_root);
+    res.merkle_tree_depth = cryptonote::encode_mm_depth(aux_pow.size(), nonce);
+
+    blobdata blocktemplate_blob;
+    if (!epee::string_tools::parse_hexstr_to_binbuff(req.blocktemplate_blob, blocktemplate_blob))
+    {
+      error_resp.code = CORE_RPC_ERROR_CODE_WRONG_PARAM;
+      error_resp.message = "Invalid blocktemplate_blob";
+      return false;
+    }
+
+    block b;
+    if (!parse_and_validate_block_from_blob(blocktemplate_blob, b))
+    {
+      error_resp.code = CORE_RPC_ERROR_CODE_WRONG_BLOCKBLOB;
+      error_resp.message = "Wrong blocktemplate_blob";
+      return false;
+    }
+
+    if (!remove_field_from_tx_extra(b.miner_tx.extra, typeid(cryptonote::tx_extra_merge_mining_tag)))
+    {
+      error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
+      error_resp.message = "Error removing existing merkle root";
+      return false;
+    }
+    if (!add_mm_merkle_root_to_tx_extra(b.miner_tx.extra, merkle_root, merkle_tree_depth))
+    {
+      error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
+      error_resp.message = "Error adding merkle root";
+      return false;
+    }
+    b.invalidate_hashes();
+    b.miner_tx.invalidate_hashes();
+
+    const blobdata block_blob = t_serializable_object_to_blob(b);
+    const blobdata hashing_blob = get_block_hashing_blob(b);
+
+    res.blocktemplate_blob = string_tools::buff_to_hex_nodelimer(block_blob);
+    res.blockhashing_blob = string_tools::buff_to_hex_nodelimer(hashing_blob);
+    res.aux_pow = req.aux_pow;
     res.status = CORE_RPC_STATUS_OK;
     return true;
   }

@@ -88,7 +88,7 @@ namespace cryptonote
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define CORE_RPC_VERSION_MAJOR 3
-#define CORE_RPC_VERSION_MINOR 5
+#define CORE_RPC_VERSION_MINOR 6
 #define MAKE_CORE_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define CORE_RPC_VERSION MAKE_CORE_RPC_VERSION(CORE_RPC_VERSION_MAJOR, CORE_RPC_VERSION_MINOR)
 
@@ -933,6 +933,52 @@ namespace cryptonote
         KV_SERIALIZE(blockhashing_blob)
         KV_SERIALIZE(seed_hash)
         KV_SERIALIZE(next_seed_hash)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<response_t> response;
+  };
+
+  struct COMMAND_RPC_ADD_AUX_POW
+  {
+    struct aux_pow_t
+    {
+      std::string id;
+      std::string hash;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(id)
+        KV_SERIALIZE(hash)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct request_t: public rpc_request_base
+    {
+      blobdata blocktemplate_blob;
+      std::vector<aux_pow_t> aux_pow;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE_PARENT(rpc_request_base)
+        KV_SERIALIZE(blocktemplate_blob)
+        KV_SERIALIZE(aux_pow)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<request_t> request;
+
+    struct response_t: public rpc_response_base
+    {
+      blobdata blocktemplate_blob;
+      blobdata blockhashing_blob;
+      std::string merkle_root;
+      uint32_t merkle_tree_depth;
+      std::vector<aux_pow_t> aux_pow;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE_PARENT(rpc_response_base)
+        KV_SERIALIZE(blocktemplate_blob)
+        KV_SERIALIZE(blockhashing_blob)
+        KV_SERIALIZE(merkle_root)
+        KV_SERIALIZE(merkle_tree_depth)
+        KV_SERIALIZE(aux_pow)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;
