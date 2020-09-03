@@ -3298,8 +3298,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
   results.resize(tx.vin.size(), 0);
 
   tools::threadpool& tpool = tools::threadpool::getInstance();
-  tools::threadpool::waiter waiter;
-  const auto waiter_guard = epee::misc_utils::create_scope_leave_handler([&]() { waiter.wait(&tpool); });
+  tools::threadpool::waiter waiter(tpool);
   int threads = tpool.get_max_concurrency();
 
   uint64_t max_used_block_height = 0;
@@ -3369,7 +3368,8 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
     sig_index++;
   }
   if (tx.version == 1 && threads > 1)
-    waiter.wait(&tpool);
+    if (!waiter.wait())
+      return false;
 
   // enforce min output age
   if (hf_version >= HF_VERSION_ENFORCE_MIN_AGE)
@@ -4908,7 +4908,7 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
     {
       m_blocks_longhash_table.clear();
       uint64_t thread_height = height;
-      tools::threadpool::waiter waiter;
+      tools::threadpool::waiter waiter(tpool);
       m_prepare_height = height;
       m_prepare_nblocks = blocks_entry.size();
       m_prepare_blocks = &blocks;
@@ -4921,7 +4921,8 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
         thread_height += nblocks;
       }
 
-      waiter.wait(&tpool);
+      if (!waiter.wait())
+        return false;
       m_prepare_height = 0;
 
       if (m_cancel)
@@ -5055,14 +5056,15 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
 
   if (threads > 1 && amounts.size() > 1)
   {
-    tools::threadpool::waiter waiter;
+    tools::threadpool::waiter waiter(tpool);
 
     for (size_t i = 0; i < amounts.size(); i++)
     {
       uint64_t amount = amounts[i];
       tpool.submit(&waiter, boost::bind(&Blockchain::output_scan_worker, this, amount, std::cref(offset_map[amount]), std::ref(tx_map[amount])), true);
     }
-    waiter.wait(&tpool);
+    if (!waiter.wait())
+      return false;
   }
   else
   {

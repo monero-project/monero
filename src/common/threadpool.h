@@ -55,12 +55,16 @@ public:
   class waiter {
     boost::mutex mt;
     boost::condition_variable cv;
+    threadpool &pool;
     int num;
+    bool error_flag;
     public:
     void inc();
     void dec();
-    void wait(threadpool *tpool);  //! Wait for a set of tasks to finish.
-    waiter() : num(0){}
+    bool wait();  //! Wait for a set of tasks to finish, returns false iff any error
+    void set_error() noexcept { error_flag = true; }
+    bool error() const noexcept { return error_flag; }
+    waiter(threadpool &pool) : pool(pool), num(0), error_flag(false) {}
     ~waiter();
   };
 

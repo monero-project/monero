@@ -521,14 +521,14 @@ bool load_txt_records_from_dns(std::vector<std::string> &good_records, const std
   // send all requests in parallel
   std::deque<bool> avail(dns_urls.size(), false), valid(dns_urls.size(), false);
   tools::threadpool& tpool = tools::threadpool::getInstance();
-  tools::threadpool::waiter waiter;
+  tools::threadpool::waiter waiter(tpool);
   for (size_t n = 0; n < dns_urls.size(); ++n)
   {
     tpool.submit(&waiter,[n, dns_urls, &records, &avail, &valid](){
       records[n] = tools::DNSResolver::instance().get_txt_record(dns_urls[n], avail[n], valid[n]); 
     });
   }
-  waiter.wait(&tpool);
+  waiter.wait();
 
   size_t cur_index = first_index;
   do

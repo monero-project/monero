@@ -1278,12 +1278,13 @@ namespace rct {
         {
           if (semantics) {
             tools::threadpool& tpool = tools::threadpool::getInstance();
-            tools::threadpool::waiter waiter;
+            tools::threadpool::waiter waiter(tpool);
             std::deque<bool> results(rv.outPk.size(), false);
             DP("range proofs verified?");
             for (size_t i = 0; i < rv.outPk.size(); i++)
               tpool.submit(&waiter, [&, i] { results[i] = verRange(rv.outPk[i].mask, rv.p.rangeSigs[i]); });
-            waiter.wait(&tpool);
+            if (!waiter.wait())
+              return false;
 
             for (size_t i = 0; i < results.size(); ++i) {
               if (!results[i]) {
@@ -1327,7 +1328,7 @@ namespace rct {
         PERF_TIMER(verRctSemanticsSimple);
 
         tools::threadpool& tpool = tools::threadpool::getInstance();
-        tools::threadpool::waiter waiter;
+        tools::threadpool::waiter waiter(tpool);
         std::deque<bool> results;
         std::vector<const Bulletproof*> proofs;
         size_t max_non_bp_proofs = 0, offset = 0;
@@ -1410,7 +1411,8 @@ namespace rct {
           return false;
         }
 
-        waiter.wait(&tpool);
+        if (!waiter.wait())
+          return false;
         for (size_t i = 0; i < results.size(); ++i) {
           if (!results[i]) {
             LOG_PRINT_L1("Range proof verified failed for proof " << i);
@@ -1458,7 +1460,7 @@ namespace rct {
 
         std::deque<bool> results(threads);
         tools::threadpool& tpool = tools::threadpool::getInstance();
-        tools::threadpool::waiter waiter;
+        tools::threadpool::waiter waiter(tpool);
 
         const keyV &pseudoOuts = bulletproof ? rv.p.pseudoOuts : rv.pseudoOuts;
 
@@ -1476,7 +1478,8 @@ namespace rct {
                   results[i] = verRctMGSimple(message, rv.p.MGs[i], rv.mixRing[i], pseudoOuts[i]);
           });
         }
-        waiter.wait(&tpool);
+        if (!waiter.wait())
+          return false;
 
         for (size_t i = 0; i < results.size(); ++i) {
           if (!results[i]) {
