@@ -1306,8 +1306,8 @@ namespace cryptonote
       case 1: res.pow_algorithm = "CNv1 (Cryptonight variant 1)"; break;
       case 2: case 3: res.pow_algorithm = "CNv2 (Cryptonight variant 2)"; break;
       case 4: case 5: res.pow_algorithm = "CNv4 (Cryptonight variant 4)"; break;
-      case 6: case 7: res.pow_algorithm = "RandomX"; break;
-      default: res.pow_algorithm = "I'm not sure actually"; break;
+      case 6: case 7: case 8: case 9: res.pow_algorithm = "RandomX"; break;
+      default: res.pow_algorithm = "RandomX"; break; // assumed
     }
     if (res.is_background_mining_enabled)
     {
