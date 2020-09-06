@@ -92,6 +92,9 @@ try:
   os.environ['PYTHONIOENCODING'] = 'utf-8'
   os.environ['DIFFICULTY'] = str(DIFFICULTY)
   os.environ['MAKE_TEST_SIGNATURE'] = builddir + '/tests/functional_tests/make_test_signature'
+  os.environ['SEEDHASH_EPOCH_BLOCKS'] = "8"
+  os.environ['SEEDHASH_EPOCH_LAG'] = "4"
+
   for i in range(len(command_lines)):
     #print('Running: ' + str(command_lines[i]))
     processes.append(subprocess.Popen(command_lines[i], stdout = outputs[i]))

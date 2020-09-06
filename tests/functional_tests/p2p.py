@@ -139,6 +139,25 @@ class P2PTest():
         assert res.height == height + 6
         assert res.top_block_hash == daemon2_top_block_hash
 
+        # disconnect and mine a lot on daemon3
+        daemon2.out_peers(0)
+        daemon3.out_peers(0)
+        res = daemon3.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 500)
+
+        # reconnect and wait for sync
+        daemon2.out_peers(8)
+        daemon3.out_peers(8)
+        loops = 100
+        while True:
+            res2 = daemon2.get_info()
+            res3 = daemon3.get_info()
+            if res2.top_block_hash == res3.top_block_hash:
+                break
+            time.sleep(10)
+            loops -= 1
+            assert loops >= 0
+
+
     def test_p2p_tx_propagation(self):
         print('Testing P2P tx propagation')
         daemon2 = Daemon(idx = 2)

@@ -47,12 +47,12 @@ namespace cryptonote
   struct i_miner_handler
   {
     virtual bool handle_block_found(block& b, block_verification_context &bvc) = 0;
-    virtual bool get_block_template(block& b, const account_public_address& adr, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, const blobdata& ex_nonce) = 0;
+    virtual bool get_block_template(block& b, const account_public_address& adr, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash) = 0;
   protected:
     ~i_miner_handler(){};
   };
 
-  typedef std::function<bool(const cryptonote::block&, uint64_t, unsigned int, crypto::hash&)> get_block_hash_t;
+  typedef std::function<bool(const cryptonote::block&, uint64_t, const crypto::hash*, unsigned int, crypto::hash&)> get_block_hash_t;
 
   /************************************************************************/
   /*                                                                      */
@@ -76,7 +76,7 @@ namespace cryptonote
     bool on_idle();
     void on_synchronized();
     //synchronous analog (for fast calls)
-    static bool find_nonce_for_given_block(const get_block_hash_t &gbh, block& bl, const difficulty_type& diffic, uint64_t height);
+    static bool find_nonce_for_given_block(const get_block_hash_t &gbh, block& bl, const difficulty_type& diffic, uint64_t height, const crypto::hash *seed_hash = NULL);
     void pause();
     void resume();
     void do_print_hashrate(bool do_hr);

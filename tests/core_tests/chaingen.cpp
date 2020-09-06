@@ -409,9 +409,9 @@ void test_generator::fill_nonce(cryptonote::block& blk, const difficulty_type& d
   }
 
   blk.nonce = 0;
-  while (!miner::find_nonce_for_given_block([blockchain](const cryptonote::block &b, uint64_t height, unsigned int threads, crypto::hash &hash){
-    return cryptonote::get_block_longhash(blockchain, b, hash, height, threads);
-  }, blk, diffic, height)) {
+  while (!miner::find_nonce_for_given_block([blockchain](const cryptonote::block &b, uint64_t height, const crypto::hash *seed_hash, unsigned int threads, crypto::hash &hash){
+    return cryptonote::get_block_longhash(blockchain, b, hash, height, seed_hash, threads);
+  }, blk, diffic, height, NULL)) {
     blk.timestamp++;
   }
 }
