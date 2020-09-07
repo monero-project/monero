@@ -115,7 +115,7 @@ const hardfork_t stagenet_hard_forks[] = {
   { 10, 269000, 0, 1550153694 },
   { 11, 269720, 0, 1550225678 },
   { 12, 454721, 0, 1571419280 },
-  { 13, 699045, 0, 1598180817 },
-  { 14, 699765, 0, 1598180818 },
+  { 13, 675405, 0, 1598180817 },
+  { 14, 676125, 0, 1598180818 },
 };
 const size_t num_stagenet_hard_forks = sizeof(stagenet_hard_forks) / sizeof(stagenet_hard_forks[0]);
