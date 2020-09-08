@@ -6,16 +6,15 @@ After=network.target
 User=monero
 Group=monero
 WorkingDirectory=~
-RuntimeDirectory=monero
 StateDirectory=monero
 LogsDirectory=monero
 
 # Clearnet config
 #
-Type=forking
-PIDFile=/run/monero/monerod.pid
-ExecStart=/usr/bin/monerod --config-file /etc/monerod.conf \
-    --detach --pidfile /run/monero/monerod.pid
+Type=simple
+ExecStart=/usr/bin/monerod --config-file /etc/monerod.conf --non-interactive
+StandardOutput=null
+StandardError=null
 
 # Tor config
 #
