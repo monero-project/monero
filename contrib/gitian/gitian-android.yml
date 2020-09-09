@@ -1,5 +1,5 @@
 ---
-name: "monero-android-0.16"
+name: "monero-android-0.17"
 enable_cache: true
 suites:
 - "bionic"

@@ -1,5 +1,5 @@
 ---
-name: "monero-osx-0.16"
+name: "monero-osx-0.17"
 enable_cache: true
 suites:
 - "bionic"
