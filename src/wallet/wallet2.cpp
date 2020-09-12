@@ -8052,12 +8052,15 @@ std::pair<std::set<uint64_t>, size_t> outs_unique(const std::vector<std::vector<
   return std::make_pair(std::move(unique), total);
 }
 
-void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> &outs, const std::vector<size_t> &selected_transfers, size_t fake_outputs_count)
+void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> &outs, const std::vector<size_t> &selected_transfers, size_t fake_outputs_count, bool rct)
 {
   std::vector<uint64_t> rct_offsets;
   for (size_t attempts = 3; attempts > 0; --attempts)
   {
     get_outs(outs, selected_transfers, fake_outputs_count, rct_offsets);
+
+    if (!rct)
+      return;
 
     const auto unique = outs_unique(outs);
     if (tx_sanity_check(unique.first, unique.second, rct_offsets.empty() ? 0 : rct_offsets.back()))
@@ -8696,7 +8699,7 @@ void wallet2::transfer_selected(const std::vector<cryptonote::tx_destination_ent
     THROW_WALLET_EXCEPTION_IF(subaddr_account != m_transfers[*i].m_subaddr_index.major, error::wallet_internal_error, "the tx uses funds from multiple accounts");
 
   if (outs.empty())
-    get_outs(outs, selected_transfers, fake_outputs_count); // may throw
+    get_outs(outs, selected_transfers, fake_outputs_count, false); // may throw
 
   //prepare inputs
   LOG_PRINT_L2("preparing outputs");
@@ -8897,10 +8900,12 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
     MDEBUG("We will create " << n_multisig_txes << " txes");
   }
 
+  bool all_rct = true;
   uint64_t found_money = 0;
   for(size_t idx: selected_transfers)
   {
     found_money += m_transfers[idx].amount();
+    all_rct &= m_transfers[idx].is_rct();
   }
 
   LOG_PRINT_L2("wanted " << print_money(needed_money) << ", found " << print_money(found_money) << ", fee " << print_money(fee));
@@ -8911,7 +8916,7 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
     THROW_WALLET_EXCEPTION_IF(subaddr_account != m_transfers[*i].m_subaddr_index.major, error::wallet_internal_error, "the tx uses funds from multiple accounts");
 
   if (outs.empty())
-    get_outs(outs, selected_transfers, fake_outputs_count); // may throw
+    get_outs(outs, selected_transfers, fake_outputs_count, all_rct); // may throw
 
   //prepare inputs
   LOG_PRINT_L2("preparing outputs");
