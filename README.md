@@ -19,7 +19,7 @@ Portions Copyright (c) 2012-2013 The Cryptonote developers.
 
 ## Development resources
 
-- Web: [aeon.cash](https://aeon.cash)
+- Web: [aeon.cash](https://www.aeon.cash)
 - Bitcointalk: https://bitcointalk.org/index.php?topic=641696.0
 - Reddit: https://www.reddit.com/r/Aeon
 - GitHub: [https://github.com/aeonix/aeon](https://github.com/aeonix/aeon)
