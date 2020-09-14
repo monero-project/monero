@@ -1,5 +1,5 @@
 ---
-name: "monero-freebsd-0.16"
+name: "monero-freebsd-0.17"
 enable_cache: true
 suites:
 - "bionic"
