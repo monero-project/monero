@@ -1793,7 +1793,7 @@ namespace cryptonote
       }
     }
     CHECK_CORE_READY();
-    if(req.size()!=1)
+    if(req.size()!=1 && req.size()!=2)
     {
       error_resp.code = CORE_RPC_ERROR_CODE_WRONG_PARAM;
       error_resp.message = "Wrong param";
