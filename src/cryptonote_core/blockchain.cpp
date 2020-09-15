@@ -120,6 +120,9 @@ static const struct {
 
   // version 8 (PoW change to k12) starts from block 112000 with reset diff 500 million
   { 8, 112000, 0, 1553869222, 500000000 },
+
+  // version 9 (difficulty algorithm variant 9) starts from block 131111 with no diff reset
+  { 9, 131111, 0, 1600148906, 0 },
 };
 static const uint64_t testnet_hard_fork_version_1_till = 43999;
 
