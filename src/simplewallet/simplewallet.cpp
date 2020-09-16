@@ -3393,7 +3393,7 @@ simple_wallet::simple_wallet()
                                   "  Device name for hardware wallet.\n "
                                   "export-format <\"binary\"|\"ascii\">\n "
                                   "  Save all exported files as binary (cannot be copied and pasted) or ascii (can be).\n "
-                                  "persistent-client-id <1|0>\n "
+                                  "persistent-rpc-client-id <1|0>\n "
                                   "  Whether to keep using the same client id for RPC payment over wallet restarts.\n"
                                   "auto-mine-for-rpc-payment-threshold <float>\n "
                                   "  Whether to automatically start mining for RPC payment if the daemon requires it.\n"
