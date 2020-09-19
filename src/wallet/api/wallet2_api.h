@@ -208,6 +208,7 @@ struct TransactionHistory
     virtual TransactionInfo * transaction(const std::string &id) const = 0;
     virtual std::vector<TransactionInfo*> getAll() const = 0;
     virtual void refresh() = 0;
+    virtual void setTxNote(const std::string &txid, const std::string &note) = 0;
 };
 
 /**
