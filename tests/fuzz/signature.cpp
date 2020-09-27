@@ -59,6 +59,6 @@ BEGIN_INIT_SIMPLE_FUZZER()
 END_INIT_SIMPLE_FUZZER()
 
 BEGIN_SIMPLE_FUZZER()
-  tools::wallet2::message_signature_result_t result = wallet->verify("test", address, s);
+  tools::wallet2::message_signature_result_t result = wallet->verify("test", address, std::string((const char*)buf, len));
   std::cout << "Signature " << (result.valid ? "valid" : "invalid") << std::endl;
 END_SIMPLE_FUZZER()
