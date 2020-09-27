@@ -95,20 +95,19 @@ class MiningTest():
         assert res_status.block_reward >= 600000000000
 
         # wait till we mined a few of them
+        target_height = prev_height + 5
+        height = prev_height
         timeout = 60 # randomx is slow to init
-        timeout_height = prev_height
-        while True:
-            time.sleep(1)
-            res_info = daemon.get_info()
-            height = res_info.height
-            if height >= prev_height + 5:
-                break
-            if height > timeout_height:
-              timeout = 5
-              timeout_height = height
+        while height < target_height:
+            seen_height = height
+            for _ in range(timeout):
+                time.sleep(1)
+                height = daemon.get_info().height
+                if height > seen_height:
+                    break
             else:
-              timeout -= 1
-            assert timeout >= 0
+                assert False, 'Failed to mine successor to block %d (initial block = %d)' % (seen_height, prev_height)
+            timeout = 5
 
         if via_daemon:
             res = daemon.stop_mining()
