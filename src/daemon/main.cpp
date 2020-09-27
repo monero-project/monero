@@ -249,7 +249,7 @@ int main(int argc, char const * argv[])
         command_line::get_arg(vm, cryptonote::arg_data_dir));
 
 #ifdef WIN32
-    if (isFat32(data_dir.root_name().c_str()))
+    if (isFat32(data_dir.root_path().c_str()))
     {
       MERROR("Data directory resides on FAT32 volume that has 4GiB file size limit, blockchain might get corrupted.");
     }
