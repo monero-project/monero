@@ -10,7 +10,7 @@ c = sys.argv[3]
 data = sys.argv[4]
 
 first = python + " " + py + " > " + data
-second = [c, '--wide', data]
+second = [c, '--wide', '--filename', data]
 
 try:
   print('running: ', first)

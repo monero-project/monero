@@ -78,9 +78,11 @@
 #define DIFFICULTY_TARGET_V2                            240  // seconds
 #define DIFFICULTY_TARGET_V1                            60  // seconds - before first fork
 #define DIFFICULTY_WINDOW                               720 // blocks
-#define DIFFICULTY_LAG                                  15  // !!!
+#define DIFFICULTY_LAG_V1                               15  // !!!
+#define DIFFICULTY_LAG_V9                               8
+static_assert(DIFFICULTY_LAG_V9 < DIFFICULTY_LAG_V1, "");
 #define DIFFICULTY_CUT                                  60  // timestamps to cut after sorting
-#define DIFFICULTY_BLOCKS_COUNT                         (DIFFICULTY_WINDOW + DIFFICULTY_LAG)
+#define DIFFICULTY_BLOCKS_COUNT                         (DIFFICULTY_WINDOW + DIFFICULTY_LAG_V1)
 
 
 #define CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_SECONDS_V1   DIFFICULTY_TARGET_V1 * CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_BLOCKS
@@ -140,6 +142,7 @@
 #define HF_VERSION_FIXED_RING_SIZE              8
 #define HF_VERSION_ENFORCE_MIN_AGE              8
 #define HF_VERSION_EFFECTIVE_SHORT_TERM_MEDIAN_IN_PENALTY 9
+#define HF_VERSION_REMOVE_DIFFICULTY_SORT       9
 
 #define HASH_OF_HASHES_STEP                     256
 
