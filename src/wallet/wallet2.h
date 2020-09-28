@@ -374,7 +374,7 @@ namespace tools
     {
       rct::rctSig sigs;
       crypto::borromean_signature bsig;
-      crypto::public_key ignore;
+      std::unordered_set<crypto::public_key> ignore;
       std::unordered_set<rct::key> used_L;
       std::unordered_set<crypto::public_key> signing_keys;
       rct::multisig_out msout;
@@ -577,6 +577,14 @@ namespace tools
       const std::vector<crypto::secret_key> &view_keys,
       const std::vector<crypto::public_key> &spend_keys,
       uint32_t threshold);
+    std::string exchange_multisig_keys(const epee::wipeable_string &password,
+      const std::vector<std::string> &info);
+    /*!
+     * \brief Any but first round of keys exchange
+     */
+    std::string exchange_multisig_keys(const epee::wipeable_string &password,
+      std::unordered_set<crypto::public_key> pkeys,
+      std::vector<crypto::public_key> signers);
     /*!
      * \brief Finalizes creation of a multisig wallet
      */
@@ -1243,7 +1251,7 @@ namespace tools
     void scan_output(const cryptonote::transaction &tx, bool miner_tx, const crypto::public_key &tx_pub_key, size_t i, tx_scan_info_t &tx_scan_info, int &num_vouts_received, std::unordered_map<cryptonote::subaddress_index, uint64_t> &tx_money_got_in_outs, std::vector<size_t> &outs);
     void trim_hashchain();
     crypto::key_image get_multisig_composite_key_image(size_t n) const;
-    rct::multisig_kLRki get_multisig_composite_kLRki(size_t n, const crypto::public_key &ignore, std::unordered_set<rct::key> &used_L, std::unordered_set<rct::key> &new_used_L) const;
+    rct::multisig_kLRki get_multisig_composite_kLRki(size_t n,  const std::unordered_set<crypto::public_key> &ignore_set, std::unordered_set<rct::key> &used_L, std::unordered_set<rct::key> &new_used_L) const;
     rct::multisig_kLRki get_multisig_kLRki(size_t n, const rct::key &k) const;
     rct::key get_multisig_k(size_t idx, const std::unordered_set<rct::key> &used_L) const;
     void update_multisig_rescan_info(const std::vector<std::vector<rct::key>> &multisig_k, const std::vector<std::vector<tools::wallet2::multisig_info>> &info, size_t n);
@@ -1257,6 +1265,12 @@ namespace tools
     bool get_rct_distribution(uint64_t &start_height, std::vector<uint64_t> &distribution);
 
     uint64_t get_segregation_fork_height() const;
+    void unpack_multisig_info(const std::vector<std::string>& info,
+      std::vector<crypto::public_key> &public_keys,
+      std::vector<crypto::secret_key> &secret_keys) const;
+    bool unpack_extra_multisig_info(const std::vector<std::string>& info,
+      std::vector<crypto::public_key> &signers,
+      std::unordered_set<crypto::public_key> &pkeys) const;
 
     uint64_t calculate_fee(uint64_t fee_per_kb, size_t bytes, uint64_t fee_multiplier);
     uint64_t calculate_fee(uint64_t fee_per_kb, const cryptonote::blobdata &blob, uint64_t fee_multiplier);
@@ -1310,6 +1324,9 @@ namespace tools
     bool m_multisig; /*!< if > 1 spend secret key will not match spend public key */
     uint32_t m_multisig_threshold;
     std::vector<crypto::public_key> m_multisig_signers;
+    //in case of general M/N multisig wallet we should perform N - M + 1 key exchange rounds and remember how many rounds are passed.
+    uint32_t m_multisig_rounds_passed;
+    std::vector<crypto::public_key> m_multisig_derivations;
     bool m_always_confirm_transfers;
     bool m_print_ring_members;
     bool m_store_tx_info; /*!< request txkey to be returned in RPC, and store in the wallet cache file */

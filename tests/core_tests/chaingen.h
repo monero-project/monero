@@ -544,6 +544,7 @@ inline bool do_replay_file(const std::string& filename)
   }
   return do_replay_events<t_test_class>(events);
 }
+
 //--------------------------------------------------------------------------
 #define GENERATE_ACCOUNT(account) \
     cryptonote::account_base account; \
@@ -556,47 +557,7 @@ inline bool do_replay_file(const std::string& filename)
     { \
       for (size_t msidx = 0; msidx < total; ++msidx) \
         account[msidx].generate(); \
-      std::unordered_set<crypto::public_key> all_multisig_keys; \
-      std::vector<std::vector<crypto::secret_key>> view_keys(total); \
-      std::vector<std::vector<crypto::public_key>> spend_keys(total); \
-      for (size_t msidx = 0; msidx < total; ++msidx) \
-      { \
-        for (size_t msidx_inner = 0; msidx_inner < total; ++msidx_inner) \
-        { \
-          if (msidx_inner != msidx) \
-          { \
-            crypto::secret_key vkh = cryptonote::get_multisig_blinded_secret_key(account[msidx_inner].get_keys().m_view_secret_key); \
-            view_keys[msidx].push_back(vkh); \
-            crypto::secret_key skh = cryptonote::get_multisig_blinded_secret_key(account[msidx_inner].get_keys().m_spend_secret_key); \
-            crypto::public_key pskh; \
-            crypto::secret_key_to_public_key(skh, pskh); \
-            spend_keys[msidx].push_back(pskh); \
-          } \
-        } \
-      } \
-      for (size_t msidx = 0; msidx < total; ++msidx) \
-      { \
-        std::vector<crypto::secret_key> multisig_keys; \
-        crypto::secret_key spend_skey; \
-        crypto::public_key spend_pkey; \
-        if (threshold == total) \
-          cryptonote::generate_multisig_N_N(account[msidx].get_keys(), spend_keys[msidx], multisig_keys, (rct::key&)spend_skey, (rct::key&)spend_pkey); \
-        else \
-          cryptonote::generate_multisig_N1_N(account[msidx].get_keys(), spend_keys[msidx], multisig_keys, (rct::key&)spend_skey, (rct::key&)spend_pkey); \
-        crypto::secret_key view_skey = cryptonote::generate_multisig_view_secret_key(account[msidx].get_keys().m_view_secret_key, view_keys[msidx]); \
-        account[msidx].make_multisig(view_skey, spend_skey, spend_pkey, multisig_keys); \
-        for (const auto &k: multisig_keys) \
-          all_multisig_keys.insert(rct::rct2pk(rct::scalarmultBase(rct::sk2rct(k)))); \
-      } \
-      if (threshold < total) \
-      { \
-        std::vector<crypto::public_key> spend_public_keys; \
-        for (const auto &k: all_multisig_keys) \
-          spend_public_keys.push_back(k); \
-        crypto::public_key spend_pkey = cryptonote::generate_multisig_N1_N_spend_public_key(spend_public_keys); \
-        for (size_t msidx = 0; msidx < total; ++msidx) \
-          account[msidx].finalize_multisig(spend_pkey); \
-      } \
+      make_multisig_accounts(account, threshold); \
     } while(0)
 
 #define MAKE_ACCOUNT(VEC_EVENTS, account) \

@@ -13,6 +13,7 @@ $(package)_config_opts_linux+=libudev_LIBS="-L$(host_prefix)/lib -ludev"
 $(package)_config_opts_linux+=libudev_CFLAGS=-I$(host_prefix)/include
 $(package)_config_opts_linux+=libusb_LIBS="-L$(host_prefix)/lib -lusb-1.0"
 $(package)_config_opts_linux+=libusb_CFLAGS=-I$(host_prefix)/include/libusb-1.0
+$(package)_config_opts_linux+=--with-pic
 endef
 
 define $(package)_config_cmds
