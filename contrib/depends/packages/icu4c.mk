@@ -1,7 +1,7 @@
 package=icu4c
 $(package)_version=55.1
-$(package)_download_path=https://github.com/TheCharlatan/icu4c/archive
-$(package)_file_name=55.1.tar.gz
+$(package)_download_path=https://github.com/stoffu/depends-sources/releases/download/v1 # https://github.com/TheCharlatan/icu4c/archive
+$(package)_file_name=$(package)-$($(package)_version).tar.gz
 $(package)_sha256_hash=1f912c54035533fb4268809701d65c7468d00e292efbc31e6444908450cc46ef
 $(package)_patches=icu-001-dont-build-static-dynamic-twice.patch
 
