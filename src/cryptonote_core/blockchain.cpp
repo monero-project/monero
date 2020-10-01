@@ -101,6 +101,9 @@ static const struct {
 
   // version 8 (PoW change to k12) starts from block 1146200 (with reset diff 20 trillion) which is on or around the 25th of October, 2019. Fork time finalised on 2019-09-19.
   { 8, 1146200, 0, 1568879768, 20000000000000 },
+
+  // version 9 (difficulty algorithm variant 9) starts from block 1280000 (with no diff reset) which is on or around the 11th of November, 2020
+  { 9, 1280000, 0, 1601281605, 0 },
 };
 static const uint64_t mainnet_hard_fork_version_1_till = 963499;
 
@@ -142,6 +145,9 @@ static const struct {
 
   // version 8 (PoW change to k12) starts from block 261000 with reset diff 40 million
   { 8, 261000, 0, 1568879768, 40000000 },
+
+  // version 9 (difficulty algorithm variant 9) starts from block 261800 with no diff reset
+  { 9, 261800, 0, 1601281605, 0 },
 };
 
 //------------------------------------------------------------------
@@ -4718,7 +4724,7 @@ void Blockchain::cancel()
 }
 
 #if defined(PER_BLOCK_CHECKPOINT)
-static const char expected_block_hashes_hash[] = "279b65bb65ad101eeb3d639265c39f7042f0da8134ee57e9e5f39dc35b8a6147";
+static const char expected_block_hashes_hash[] = "b48e3da66412efa76fd5bef558c057eb606cadc4f71777b04b03ae7264ec8deb";
 void Blockchain::load_compiled_in_block_hashes()
 {
   const bool testnet = m_nettype == TESTNET;
