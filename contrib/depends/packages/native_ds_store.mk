@@ -1,7 +1,7 @@
 package=native_ds_store
 $(package)_version=1.1.0
-$(package)_download_path=https://github.com/al45tair/ds_store/archive
-$(package)_download_file=v$($(package)_version).tar.gz
+$(package)_download_path=https://github.com/stoffu/depends-sources/releases/download/v1 # https://github.com/al45tair/ds_store/archive
+$(package)_download_file=$(package)-v$($(package)_version).tar.gz
 $(package)_file_name=$(package)-$($(package)_version).tar.gz
 $(package)_sha256_hash=a9f4c0755c6be7224ff7029e188dd262e830bb81e801424841db9eb0780ec8ed
 $(package)_install_libdir=$(build_prefix)/lib/python/dist-packages
