@@ -10,7 +10,7 @@ extensibility.
 One of the goals of this document is to clearly indicate what is being sent
 "on the wire" to identify metadata that could de-anonymize users over I2P/Tor.
 These issues will be addressed as they are found. See `ANONMITY_NETWORKS.md` in
-the top-level folder for any outstanding issues.
+the `docs` folder for any outstanding issues.
 
 > This document does not currently list all data being sent by the monero
 > protocol, that portion is a work-in-progress. Please take the time to do it
