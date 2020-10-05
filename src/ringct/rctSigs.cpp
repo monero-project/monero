@@ -1414,7 +1414,8 @@ namespace rct {
         }
         if (!proofs.empty() && !verBulletproof(proofs))
         {
-          waiter.wait(&tpool);
+          if (!waiter.wait())
+            return false;
           LOG_PRINT_L1("Aggregate range proof verified failed");
           return false;
         }

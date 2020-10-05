@@ -147,6 +147,7 @@ bool wallet2::search_for_rpc_payment(uint64_t credits_target, uint32_t n_threads
     tools::threadpool& tpool = tools::threadpool::getInstance();
     tools::threadpool::waiter waiter(tpool);
 
+    bool error = false;
     const uint32_t local_nonce = nonce += n_threads; // wrapping's OK
     for (size_t i = 0; i < n_threads; i++)
     {
@@ -156,7 +157,14 @@ bool wallet2::search_for_rpc_payment(uint64_t credits_target, uint32_t n_threads
         if (major_version >= RX_BLOCK_VERSION)
         {
           const int miners = 1;
-          crypto::rx_slow_hash(height, seed_height, seed_hash.data, hashing_blob.data(), hashing_blob.size(), hash[i].data, miners, 0);
+          try { crypto::rx_slow_hash(height, seed_height, seed_hash.data, hashing_blob.data(), hashing_blob.size(), hash[i].data, miners, 0); }
+          catch (const std::exception &e)
+          {
+            MERROR("Hashing error");
+            if (errorfunc)
+              errorfunc("Hashing error");
+            error = true;
+          }
         }
         else
         {
@@ -167,6 +175,8 @@ bool wallet2::search_for_rpc_payment(uint64_t credits_target, uint32_t n_threads
     }
     waiter.wait();
     n_hashes += n_threads;
+    if (error)
+      return false;
 
     for(size_t i=0; i < n_threads; i++)
     {
