@@ -238,7 +238,8 @@ namespace cryptonote
       const uint64_t seed_height = is_current ? info.seed_height : info.previous_seed_height;
       const crypto::hash &seed_hash = is_current ? info.seed_hash : info.previous_seed_hash;
       const uint64_t height = cryptonote::get_block_height(block);
-      crypto::rx_slow_hash(height, seed_height, seed_hash.data, hashing_blob.data(), hashing_blob.size(), hash.data, 0, 0);
+      try { crypto::rx_slow_hash(height, seed_height, seed_hash.data, hashing_blob.data(), hashing_blob.size(), hash.data, 0, 0); }
+      catch (const std::exception &e) { error_code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR; error_message = "Hashing error"; return false; }
     }
     else
     {
