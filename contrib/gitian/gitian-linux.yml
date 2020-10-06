@@ -111,6 +111,11 @@ script: |
   rm -f $WRAP_DIR/extra_includes/i686-linux-gnu/asm
   ln -s /usr/include/x86_64-linux-gnu/asm $EXTRA_INCLUDES_BASE/i686-linux-gnu/asm
 
+  # glibc 2.23 breaks compatibility with <=2.19 use of lgamma function.
+  # Hack the math header to restore the old behavior.
+  mkdir $EXTRA_INCLUDES_BASE/bits
+  sed -e '/__REDIRFROM .lgamma,/,+3s/_USE_/_DONTUSE_/g' /usr/include/x86_64-linux-gnu/bits/math-finite.h > $EXTRA_INCLUDES_BASE/bits/math-finite.h
+
   # gcc 7+ honors SOURCE_DATE_EPOCH, no faketime needed
   export SOURCE_DATE_EPOCH=`date -d 2000-01-01T12:00:00 +%s`
 
@@ -127,14 +132,14 @@ script: |
   # Build dependencies for each host
   export TAR_OPTIONS=--mtime=2000-01-01T12:00:00
   for i in $HOSTS; do
-    EXTRA_INCLUDES="$EXTRA_INCLUDES_BASE/$i"
-    if [ -d "$EXTRA_INCLUDES" ]; then
-      export C_INCLUDE_PATH="$EXTRA_INCLUDES"
-      export CPLUS_INCLUDE_PATH="$EXTRA_INCLUDES"
+    ARCH_INCLUDES="$EXTRA_INCLUDES_BASE/$i"
+    if [ -d "$ARCH_INCLUDES" ]; then
+      EXTRA_INCLUDES="${EXTRA_INCLUDES_BASE}:${ARCH_INCLUDES}"
     else
-      unset C_INCLUDE_PATH
-      unset CPLUS_INCLUDE_PATH
+      EXTRA_INCLUDES="${EXTRA_INCLUDES_BASE}"
     fi
+    export C_INCLUDE_PATH="$EXTRA_INCLUDES"
+    export CPLUS_INCLUDE_PATH="$EXTRA_INCLUDES"
     make ${MAKEOPTS} -C ${BASEPREFIX} HOST="${i}" V=1
   done
 
@@ -151,14 +156,14 @@ script: |
   for i in ${HOSTS}; do
     export PATH=${BASEPREFIX}/${i}/native/bin:${ORIGPATH}
     mkdir build && cd build
-    EXTRA_INCLUDES="$EXTRA_INCLUDES_BASE/$i"
-    if [ -d "$EXTRA_INCLUDES" ]; then
-      export C_INCLUDE_PATH="$EXTRA_INCLUDES"
-      export CPLUS_INCLUDE_PATH="$EXTRA_INCLUDES"
+    ARCH_INCLUDES="$EXTRA_INCLUDES_BASE/$i"
+    if [ -d "$ARCH_INCLUDES" ]; then
+      EXTRA_INCLUDES="${EXTRA_INCLUDES_BASE}:${ARCH_INCLUDES}"
     else
-      unset C_INCLUDE_PATH
-      unset CPLUS_INCLUDE_PATH
+      EXTRA_INCLUDES="${EXTRA_INCLUDES_BASE}"
     fi
+    export C_INCLUDE_PATH="$EXTRA_INCLUDES"
+    export CPLUS_INCLUDE_PATH="$EXTRA_INCLUDES"
     cmake .. -DCMAKE_TOOLCHAIN_FILE=${BASEPREFIX}/${i}/share/toolchain.cmake -DBACKCOMPAT=ON
     make ${MAKEOPTS}
     chmod 755 bin/*
