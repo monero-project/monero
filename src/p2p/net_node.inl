@@ -131,6 +131,7 @@ namespace nodetool
     command_line::add_arg(desc, arg_limit_rate_down);
     command_line::add_arg(desc, arg_limit_rate);
     command_line::add_arg(desc, arg_pad_transactions);
+    command_line::add_arg(desc, arg_max_connections_per_ip);
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
@@ -614,6 +615,8 @@ namespace nodetool
       if (!set_max_in_peers(zone, inbound.max_connections))
         return false;
     }
+
+    max_connections = command_line::get_arg(vm, arg_max_connections_per_ip);
 
     return true;
   }
@@ -2846,8 +2849,7 @@ namespace nodetool
     if (address.get_zone() != epee::net_utils::zone::public_)
       return false; // Unable to determine how many connections from host
 
-    const size_t max_connections = 1;
-    size_t count = 0;
+    uint32_t count = 0;
 
     m_network_zones.at(epee::net_utils::zone::public_).m_net_server.get_config_object().foreach_connection([&](const p2p_connection_context& cntxt)
     {
