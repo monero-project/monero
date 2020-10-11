@@ -1467,14 +1467,14 @@ struct MDB_env {
 #endif
 	/** Failed to update the meta page. Probably an I/O error. */
 #define	MDB_FATAL_ERROR	0x80000000U
+	/** using a raw block device */
+#define	MDB_RAWPART		0x40000000U
 	/** Some fields are initialized. */
 #define	MDB_ENV_ACTIVE	0x20000000U
 	/** me_txkey is set */
 #define	MDB_ENV_TXKEY	0x10000000U
 	/** fdatasync is unreliable */
 #define	MDB_FSYNCONLY	0x08000000U
-	/** using a raw block device */
-#define	MDB_RAWPART		0x04000000U
 	uint32_t 	me_flags;		/**< @ref mdb_env */
 	unsigned int	me_psize;	/**< DB page size, inited from me_os_psize */
 	unsigned int	me_os_psize;	/**< OS page size, from #GET_PAGESIZE */
