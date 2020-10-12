@@ -1391,7 +1391,10 @@ namespace cryptonote
       txpool_tx_meta_t meta;
       if (!m_blockchain.get_txpool_tx_meta(sorted_it->second, meta))
       {
-        MERROR("  failed to find tx meta");
+        static bool warned = false;
+        if (!warned)
+          MERROR("  failed to find tx meta: " << sorted_it->second << " (will only print once)");
+        warned = true;
         continue;
       }
       LOG_PRINT_L2("Considering " << sorted_it->second << ", weight " << meta.weight << ", current block weight " << total_weight << "/" << max_total_weight << ", current coinbase " << print_money(best_coinbase) << ", relay method " << (unsigned)meta.get_relay_method());
