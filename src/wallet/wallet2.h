@@ -853,6 +853,9 @@ private:
     void explicit_refresh_from_block_height(bool expl) {m_explicit_refresh_from_block_height = expl;}
     bool explicit_refresh_from_block_height() const {return m_explicit_refresh_from_block_height;}
 
+    void max_reorg_depth(uint64_t depth) {m_max_reorg_depth = depth;}
+    uint64_t max_reorg_depth() const {return m_max_reorg_depth;}
+
     bool deinit();
     bool init(std::string daemon_address = "http://localhost:8080",
       boost::optional<epee::net_utils::http::login> daemon_login = boost::none,
@@ -1726,6 +1729,7 @@ private:
     bool m_explicit_refresh_from_block_height;
     bool m_confirm_non_default_ring_size;
     AskPasswordType m_ask_password;
+    uint64_t m_max_reorg_depth;
     uint32_t m_min_output_count;
     uint64_t m_min_output_value;
     bool m_merge_destinations;

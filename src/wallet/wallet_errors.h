@@ -428,6 +428,16 @@ namespace tools
       std::string to_string() const { return refresh_error::to_string(); }
     };
     //----------------------------------------------------------------------------------------------------
+    struct reorg_depth_error : public refresh_error
+    {
+      explicit reorg_depth_error(std::string&& loc, const std::string& message)
+        : refresh_error(std::move(loc), message)
+      {
+      }
+
+      std::string to_string() const { return refresh_error::to_string(); }
+    };
+    //----------------------------------------------------------------------------------------------------
     struct signature_check_failed : public wallet_logic_error
     {
       explicit signature_check_failed(std::string&& loc, const std::string& message)
