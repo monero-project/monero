@@ -1090,11 +1090,13 @@ TEST(ByteStream, ToByteSlice)
 
   epee::byte_stream stream;
 
+  stream.reserve(128*1024);
   stream.write(source);
   EXPECT_EQ(sizeof(source), stream.size());
+  EXPECT_EQ(128*1024, stream.capacity());
   EXPECT_TRUE(equal(source, byte_span{stream.data(), stream.size()}));
 
-  const epee::byte_slice slice{std::move(stream)};
+  const epee::byte_slice slice{std::move(stream), true};
   EXPECT_EQ(0u, stream.size());
   EXPECT_EQ(0u, stream.available());
   EXPECT_EQ(0u, stream.capacity());
