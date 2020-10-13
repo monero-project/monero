@@ -70,6 +70,25 @@ bool AddressBookImpl::addRow(const std::string &dst_addr , const std::string &pa
   return r;
 }
 
+bool AddressBookImpl::setDescription(std::size_t index, const std::string &description)
+{
+    clearStatus();
+
+    const auto ab = m_wallet->m_wallet->get_address_book();
+    if (index >= ab.size()){
+        return false;
+    }
+
+    tools::wallet2::address_book_row entry = ab[index];
+    entry.m_description = description;
+    bool r =  m_wallet->m_wallet->set_address_book_row(index, entry.m_address, NULL, entry.m_description, entry.m_is_subaddress);
+    if (r)
+        refresh();
+    else
+        m_errorCode = General_Error;
+    return r;
+}
+
 void AddressBookImpl::refresh() 
 {
   LOG_PRINT_L2("Refreshing addressbook");
