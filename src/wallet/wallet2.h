@@ -434,7 +434,7 @@ private:
       std::vector<std::pair<crypto::key_image, std::vector<uint64_t>>> m_rings; // relative
 
       BEGIN_SERIALIZE_OBJECT()
-        VERSION_FIELD(0)
+        VERSION_FIELD(1)
         FIELD(m_tx)
         VARINT_FIELD(m_amount_in)
         VARINT_FIELD(m_amount_out)
@@ -442,6 +442,8 @@ private:
         VARINT_FIELD(m_sent_time)
         FIELD(m_dests)
         FIELD(m_payment_id)
+        if (version >= 1)
+          VARINT_FIELD(m_state)
         VARINT_FIELD(m_timestamp)
         VARINT_FIELD(m_subaddr_account)
         FIELD(m_subaddr_indices)
