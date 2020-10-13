@@ -49,6 +49,8 @@
 #define THREADV __thread
 #endif
 
+static CTHR_RWLOCK_TYPE rwlock = CTHR_RWLOCK_INIT;
+
 typedef struct rx_state {
   CTHR_MUTEX_TYPE rs_mutex;
   char rs_hash[HASH_SIZE];
@@ -240,6 +242,7 @@ void rx_slow_hash(const uint64_t mainheight, const uint64_t seedheight, const ch
   randomx_flags flags = enabled_flags() & ~disabled_flags();
   rx_state *rx_sp;
   randomx_cache *cache;
+  int lock_needed = 0;
 
   CTHR_MUTEX_LOCK(rx_mutex);
 
@@ -253,13 +256,17 @@ void rx_slow_hash(const uint64_t mainheight, const uint64_t seedheight, const ch
       is_alt = 1;
     /* miner can be ahead of mainchain */
     else if (s_height < seedheight)
+    {
       toggle ^= 1;
+      lock_needed = 1;
+    }
   }
 
   toggle ^= (is_alt != 0);
 
   rx_sp = &rx_s[toggle];
   CTHR_MUTEX_LOCK(rx_sp->rs_mutex);
+  CTHR_RWLOCK_LOCK(rwlock, is_alt || lock_needed);
   CTHR_MUTEX_UNLOCK(rx_mutex);
 
   cache = rx_sp->rs_cache;
@@ -336,12 +343,13 @@ void rx_slow_hash(const uint64_t mainheight, const uint64_t seedheight, const ch
     randomx_vm_set_cache(rx_vm, rx_sp->rs_cache);
   }
   /* mainchain users can run in parallel */
-  if (!is_alt)
+  if (!(is_alt || lock_needed))
     CTHR_MUTEX_UNLOCK(rx_sp->rs_mutex);
   randomx_calculate_hash(rx_vm, data, length, hash);
   /* altchain slot users always get fully serialized */
-  if (is_alt)
+  if (is_alt || lock_needed)
     CTHR_MUTEX_UNLOCK(rx_sp->rs_mutex);
+  CTHR_RWLOCK_UNLOCK(rwlock, is_alt || lock_needed);
 }
 
 void rx_slow_hash_allocate_state(void) {
