@@ -119,7 +119,7 @@ script: |
   for i in ${HOSTS}; do
     export PATH=${WRAP_DIR}:${BASEPREFIX}/${i}/native/bin:${ORIGPATH}
     mkdir build && cd build
-    cmake .. -DCMAKE_TOOLCHAIN_FILE=${BASEPREFIX}/${i}/share/toolchain.cmake -DCMAKE_BUILD_TYPE=Release
+    cmake .. -DCMAKE_TOOLCHAIN_FILE=${BASEPREFIX}/${i}/share/toolchain.cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_SKIP_RPATH=ON
     make ${MAKEOPTS}
     chmod 755 bin/*
     cp ../LICENSE bin
