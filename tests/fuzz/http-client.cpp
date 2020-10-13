@@ -26,6 +26,7 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#include <boost/utility/string_ref.hpp>
 #include "include_base_utils.h"
 #include "file_io_utils.h"
 #include "net/http_client.h"
@@ -38,7 +39,7 @@ public:
   bool connect(const std::string& addr, int port, std::chrono::milliseconds timeout, bool ssl = false, const std::string& bind_ip = "0.0.0.0") { return true; }
   bool connect(const std::string& addr, const std::string& port, std::chrono::milliseconds timeout, bool ssl = false, const std::string& bind_ip = "0.0.0.0") { return true; }
   bool disconnect() { return true; }
-  bool send(const std::string& buff, std::chrono::milliseconds timeout) { return true; }
+  bool send(const boost::string_ref buff, std::chrono::milliseconds timeout) { return true; }
   bool send(const void* data, size_t sz) { return true; }
   bool is_connected() { return true; }
   bool recv(std::string& buff, std::chrono::milliseconds timeout)

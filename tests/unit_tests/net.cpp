@@ -245,7 +245,7 @@ namespace
 
 TEST(tor_address, epee_serializev_v2)
 {
-    std::string buffer{};
+    epee::byte_slice buffer{};
     {
         test_command_tor command{MONERO_UNWRAP(net::tor_address::make(v2_onion, 10))};
         EXPECT_FALSE(command.tor.is_unknown());
@@ -266,7 +266,7 @@ TEST(tor_address, epee_serializev_v2)
         EXPECT_EQ(0u, command.tor.port());
 
         epee::serialization::portable_storage stg{};
-        EXPECT_TRUE(stg.load_from_binary(buffer));
+        EXPECT_TRUE(stg.load_from_binary(epee::to_span(buffer)));
         EXPECT_TRUE(command.load(stg));
     }
     EXPECT_FALSE(command.tor.is_unknown());
@@ -277,7 +277,7 @@ TEST(tor_address, epee_serializev_v2)
     // make sure that exceeding max buffer doesn't destroy tor_address::_load
     {
         epee::serialization::portable_storage stg{};
-        stg.load_from_binary(buffer);
+        stg.load_from_binary(epee::to_span(buffer));
 
         std::string host{};
         ASSERT_TRUE(stg.get_value("host", host, stg.open_section("tor", nullptr, false)));
@@ -296,7 +296,7 @@ TEST(tor_address, epee_serializev_v2)
 
 TEST(tor_address, epee_serializev_v3)
 {
-    std::string buffer{};
+    epee::byte_slice buffer{};
     {
         test_command_tor command{MONERO_UNWRAP(net::tor_address::make(v3_onion, 10))};
         EXPECT_FALSE(command.tor.is_unknown());
@@ -317,7 +317,7 @@ TEST(tor_address, epee_serializev_v3)
         EXPECT_EQ(0u, command.tor.port());
 
         epee::serialization::portable_storage stg{};
-        EXPECT_TRUE(stg.load_from_binary(buffer));
+        EXPECT_TRUE(stg.load_from_binary(epee::to_span(buffer)));
         EXPECT_TRUE(command.load(stg));
     }
     EXPECT_FALSE(command.tor.is_unknown());
@@ -328,7 +328,7 @@ TEST(tor_address, epee_serializev_v3)
     // make sure that exceeding max buffer doesn't destroy tor_address::_load
     {
         epee::serialization::portable_storage stg{};
-        stg.load_from_binary(buffer);
+        stg.load_from_binary(epee::to_span(buffer));
 
         std::string host{};
         ASSERT_TRUE(stg.get_value("host", host, stg.open_section("tor", nullptr, false)));
@@ -347,7 +347,7 @@ TEST(tor_address, epee_serializev_v3)
 
 TEST(tor_address, epee_serialize_unknown)
 {
-    std::string buffer{};
+    epee::byte_slice buffer{};
     {
         test_command_tor command{net::tor_address::unknown()};
         EXPECT_TRUE(command.tor.is_unknown());
@@ -368,7 +368,7 @@ TEST(tor_address, epee_serialize_unknown)
         EXPECT_EQ(0u, command.tor.port());
 
         epee::serialization::portable_storage stg{};
-        EXPECT_TRUE(stg.load_from_binary(buffer));
+        EXPECT_TRUE(stg.load_from_binary(epee::to_span(buffer)));
         EXPECT_TRUE(command.load(stg));
     }
     EXPECT_TRUE(command.tor.is_unknown());
@@ -379,7 +379,7 @@ TEST(tor_address, epee_serialize_unknown)
     // make sure that exceeding max buffer doesn't destroy tor_address::_load
     {
         epee::serialization::portable_storage stg{};
-        stg.load_from_binary(buffer);
+        stg.load_from_binary(epee::to_span(buffer));
 
         std::string host{};
         ASSERT_TRUE(stg.get_value("host", host, stg.open_section("tor", nullptr, false)));
@@ -700,7 +700,7 @@ namespace
 
 TEST(i2p_address, epee_serializev_b32)
 {
-    std::string buffer{};
+    epee::byte_slice buffer{};
     {
         test_command_i2p command{MONERO_UNWRAP(net::i2p_address::make(b32_i2p, 10))};
         EXPECT_FALSE(command.i2p.is_unknown());
@@ -721,7 +721,7 @@ TEST(i2p_address, epee_serializev_b32)
         EXPECT_EQ(0u, command.i2p.port());
 
         epee::serialization::portable_storage stg{};
-        EXPECT_TRUE(stg.load_from_binary(buffer));
+        EXPECT_TRUE(stg.load_from_binary(epee::to_span(buffer)));
         EXPECT_TRUE(command.load(stg));
     }
     EXPECT_FALSE(command.i2p.is_unknown());
@@ -732,7 +732,7 @@ TEST(i2p_address, epee_serializev_b32)
     // make sure that exceeding max buffer doesn't destroy i2p_address::_load
     {
         epee::serialization::portable_storage stg{};
-        stg.load_from_binary(buffer);
+        stg.load_from_binary(epee::to_span(buffer));
 
         std::string host{};
         ASSERT_TRUE(stg.get_value("host", host, stg.open_section("i2p", nullptr, false)));
@@ -751,7 +751,7 @@ TEST(i2p_address, epee_serializev_b32)
 
 TEST(i2p_address, epee_serialize_unknown)
 {
-    std::string buffer{};
+    epee::byte_slice buffer{};
     {
         test_command_i2p command{net::i2p_address::unknown()};
         EXPECT_TRUE(command.i2p.is_unknown());
@@ -772,7 +772,7 @@ TEST(i2p_address, epee_serialize_unknown)
         EXPECT_EQ(0u, command.i2p.port());
 
         epee::serialization::portable_storage stg{};
-        EXPECT_TRUE(stg.load_from_binary(buffer));
+        EXPECT_TRUE(stg.load_from_binary(epee::to_span(buffer)));
         EXPECT_TRUE(command.load(stg));
     }
     EXPECT_TRUE(command.i2p.is_unknown());
@@ -783,7 +783,7 @@ TEST(i2p_address, epee_serialize_unknown)
     // make sure that exceeding max buffer doesn't destroy i2p_address::_load
     {
         epee::serialization::portable_storage stg{};
-        stg.load_from_binary(buffer);
+        stg.load_from_binary(epee::to_span(buffer));
 
         std::string host{};
         ASSERT_TRUE(stg.get_value("host", host, stg.open_section("i2p", nullptr, false)));
