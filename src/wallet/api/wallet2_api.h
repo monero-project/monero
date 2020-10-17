@@ -508,6 +508,11 @@ struct Wallet
     virtual std::string publicMultisigSignerKey() const = 0;
 
     /*!
+     * \brief stop - interrupts wallet refresh() loop once (doesn't stop background refresh thread)
+     */
+    virtual void stop() = 0;
+
+    /*!
      * \brief store - stores wallet to file.
      * \param path - main filename to store wallet to. additionally stores address file and keys file.
      *               to store to the same file - just pass empty string;
