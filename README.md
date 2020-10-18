@@ -132,8 +132,8 @@ Dates are provided in the format YYYY-MM-DD.
 | 1788000                        | 2019-03-09 | v10               | v0.14.0.0              | v0.14.1.2                  | New PoW based on Cryptonight-R, new block weight algorithm, slightly more efficient RingCT format
 | 1788720                        | 2019-03-10 | v11               | v0.14.0.0              | v0.14.1.2                  | forbid old RingCT transaction format
 | 1978433                        | 2019-11-30* | v12                | v0.15.0.0              | v0.16.0.0                  | New PoW based on RandomX, only allow >= 2 outputs, change to the block median used to calculate penalty, v1 coinbases are forbidden, rct sigs in coinbase forbidden, 10 block lock time for incoming outputs
-| 2210000                        | 2020-10-17 | v13                | v0.17.0.0              | v0.17.1.0                  | New CLSAG transaction format
-| 2210720                        | 2020-10-18 | v14               | v0.17.0.0              | v0.17.1.0                  | forbid old MLSAG transaction format
+| 2210000                        | 2020-10-17 | v13                | v0.17.0.0              | v0.17.1.1                  | New CLSAG transaction format
+| 2210720                        | 2020-10-18 | v14               | v0.17.1.1              | v0.17.1.1                  | forbid old MLSAG transaction format
 | XXXXXXX                        | XXX-XX-XX | XXX                | vX.XX.X.X              | vX.XX.X.X                  | XXX |
 
 X's indicate that these details have not been determined as of commit date.
