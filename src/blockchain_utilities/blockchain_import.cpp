@@ -227,6 +227,7 @@ int import_from_file(cryptonote::core& core, const std::string& import_file_path
     return false;
   }
 
+  uint64_t block_first, block_last;
   uint64_t start_height = 1, seek_height;
   if (opt_resume)
     start_height = core.get_blockchain_storage().get_current_blockchain_height();
@@ -235,10 +236,10 @@ int import_from_file(cryptonote::core& core, const std::string& import_file_path
   BootstrapFile bootstrap;
   std::streampos pos;
   // BootstrapFile bootstrap(import_file_path);
-  uint64_t total_source_blocks = bootstrap.count_blocks(import_file_path, pos, seek_height);
-  MINFO("bootstrap file last block number: " << total_source_blocks-1 << " (zero-based height)  total blocks: " << total_source_blocks);
+  uint64_t total_source_blocks = bootstrap.count_blocks(import_file_path, pos, seek_height, block_first);
+  MINFO("bootstrap file last block number: " << total_source_blocks+block_first-1 << " (zero-based height)  total blocks: " << total_source_blocks);
 
-  if (total_source_blocks-1 <= start_height)
+  if (total_source_blocks+block_first-1 <= start_height)
   {
     return false;
   }
@@ -260,7 +261,8 @@ int import_from_file(cryptonote::core& core, const std::string& import_file_path
 
   // 4 byte magic + (currently) 1024 byte header structures
   uint8_t major_version, minor_version;
-  bootstrap.seek_to_first_chunk(import_file, major_version, minor_version);
+  uint64_t dummy;
+  bootstrap.seek_to_first_chunk(import_file, major_version, minor_version, dummy, dummy);
 
   std::string str1;
   char buffer1[1024];
@@ -275,7 +277,7 @@ int import_from_file(cryptonote::core& core, const std::string& import_file_path
 
   if (! block_stop)
   {
-    block_stop = total_source_blocks - 1;
+    block_stop = total_source_blocks+block_first - 1;
   }
 
   // These are what we'll try to use, and they don't have to be a determination
