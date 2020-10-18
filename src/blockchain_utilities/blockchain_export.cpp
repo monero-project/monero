@@ -47,6 +47,7 @@ int main(int argc, char* argv[])
   epee::string_tools::set_module_name_and_folder(argv[0]);
 
   uint32_t log_level = 0;
+  uint64_t block_start = 0;
   uint64_t block_stop = 0;
   bool blocks_dat = false;
 
@@ -58,6 +59,7 @@ int main(int argc, char* argv[])
   po::options_description desc_cmd_sett("Command line options and settings options");
   const command_line::arg_descriptor<std::string> arg_output_file = {"output-file", "Specify output file", "", true};
   const command_line::arg_descriptor<std::string> arg_log_level  = {"log-level",  "0-4 or categories", ""};
+  const command_line::arg_descriptor<uint64_t> arg_block_start = {"block-start", "Start at block number", block_start};
   const command_line::arg_descriptor<uint64_t> arg_block_stop = {"block-stop", "Stop at block number", block_stop};
   const command_line::arg_descriptor<bool> arg_blocks_dat = {"blocksdat", "Output in blocks.dat format", blocks_dat};
 
@@ -67,6 +69,7 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_cmd_sett, cryptonote::arg_testnet_on);
   command_line::add_arg(desc_cmd_sett, cryptonote::arg_stagenet_on);
   command_line::add_arg(desc_cmd_sett, arg_log_level);
+  command_line::add_arg(desc_cmd_sett, arg_block_start);
   command_line::add_arg(desc_cmd_sett, arg_block_stop);
   command_line::add_arg(desc_cmd_sett, arg_blocks_dat);
 
@@ -97,6 +100,7 @@ int main(int argc, char* argv[])
     mlog_set_log(command_line::get_arg(vm, arg_log_level).c_str());
   else
     mlog_set_log(std::string(std::to_string(log_level) + ",bcutil:INFO").c_str());
+  block_start = command_line::get_arg(vm, arg_block_start);
   block_stop = command_line::get_arg(vm, arg_block_stop);
 
   LOG_PRINT_L0("Starting...");
@@ -178,7 +182,7 @@ int main(int argc, char* argv[])
   else
   {
     BootstrapFile bootstrap;
-    r = bootstrap.store_blockchain_raw(core_storage, NULL, output_file_path, block_stop);
+    r = bootstrap.store_blockchain_raw(core_storage, NULL, output_file_path, block_start, block_stop);
   }
   CHECK_AND_ASSERT_MES(r, 1, "Failed to export blockchain raw data");
   LOG_PRINT_L0("Blockchain raw data exported OK");
