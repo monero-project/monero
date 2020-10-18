@@ -57,12 +57,12 @@ class BootstrapFile
 public:
 
   uint64_t count_bytes(std::ifstream& import_file, uint64_t blocks, uint64_t& h, bool& quit);
-  uint64_t count_blocks(const std::string& dir_path, std::streampos& start_pos, uint64_t& seek_height);
+  uint64_t count_blocks(const std::string& dir_path, std::streampos& start_pos, uint64_t& seek_height, uint64_t& block_first);
   uint64_t count_blocks(const std::string& dir_path);
-  uint64_t seek_to_first_chunk(std::ifstream& import_file, uint8_t &major_version, uint8_t &minor_version);
+  uint64_t seek_to_first_chunk(std::ifstream& import_file, uint8_t &major_version, uint8_t &minor_version, uint64_t &block_first, uint64_t &block_last);
 
   bool store_blockchain_raw(cryptonote::Blockchain* cs, cryptonote::tx_memory_pool* txp,
-      boost::filesystem::path& output_file, uint64_t use_block_height=0);
+      boost::filesystem::path& output_file, uint64_t start_block=0, uint64_t stop_block=0);
 
 protected:
 
@@ -75,8 +75,8 @@ protected:
   boost::iostreams::stream<boost::iostreams::back_insert_device<buffer_type>>* m_output_stream;
 
   // open export file for write
-  bool open_writer(const boost::filesystem::path& file_path);
-  bool initialize_file();
+  bool open_writer(const boost::filesystem::path& file_path, uint64_t start_block, uint64_t stop_block);
+  bool initialize_file(uint64_t start_block, uint64_t stop_block);
   bool close();
   void write_block(block& block);
   void flush_chunk();
