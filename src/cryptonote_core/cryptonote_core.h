@@ -663,7 +663,7 @@ namespace cryptonote
       *
       * @param target_blockchain_height the target height
       */
-     uint64_t get_target_blockchain_height() const;
+     virtual uint64_t get_target_blockchain_height() const override;
 
      /**
       * @brief returns the newest hardfork version known to the blockchain
