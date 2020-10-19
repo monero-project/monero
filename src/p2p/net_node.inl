@@ -106,6 +106,7 @@ namespace nodetool
     command_line::add_arg(desc, arg_p2p_seed_node);
     command_line::add_arg(desc, arg_tx_proxy);
     command_line::add_arg(desc, arg_anonymous_inbound);
+    command_line::add_arg(desc, arg_ban_list);
     command_line::add_arg(desc, arg_p2p_hide_my_port);
     command_line::add_arg(desc, arg_no_sync);
     command_line::add_arg(desc, arg_no_igd);
@@ -439,6 +440,36 @@ namespace nodetool
 
       if (!parse_peers_and_add_to_container(vm, arg_p2p_seed_node, m_seed_nodes))
         return false;
+    }
+
+    if (!command_line::is_arg_defaulted(vm, arg_ban_list))
+    {
+      const std::string ban_list = command_line::get_arg(vm, arg_ban_list);
+
+      const boost::filesystem::path ban_list_path(ban_list);
+      boost::system::error_code ec;
+      if (!boost::filesystem::exists(ban_list_path, ec))
+      {
+        throw std::runtime_error("Can't find ban list file " + ban_list + " - " + ec.message());
+      }
+
+      std::string banned_ips;
+      if (!epee::file_io_utils::load_file_to_string(ban_list_path.string(), banned_ips))
+      {
+        throw std::runtime_error("Failed to read ban list file " + ban_list);
+      }
+
+      std::istringstream iss(banned_ips);
+      for (std::string line; std::getline(iss, line); )
+      {
+        const expect<epee::net_utils::network_address> parsed_addr = net::get_network_address(line, 0);
+        if (!parsed_addr)
+        {
+          MERROR("Invalid IP address: " << line << " - " << parsed_addr.error());
+          continue;
+        }
+        block_host(*parsed_addr, std::numeric_limits<time_t>::max());
+      }
     }
 
     if(command_line::has_arg(vm, arg_p2p_hide_my_port))
