@@ -224,14 +224,14 @@ namespace cryptonote
       *
       * @return true if the block was added to the main chain, otherwise false
       */
-     virtual bool handle_block_found(block& b, block_verification_context &bvc);
+     virtual bool handle_block_found(block& b, block_verification_context &bvc) override;
 
      /**
       * @copydoc Blockchain::create_block_template
       *
       * @note see Blockchain::create_block_template
       */
-     virtual bool get_block_template(block& b, const account_public_address& adr, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash);
+     virtual bool get_block_template(block& b, const account_public_address& adr, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash) override;
      virtual bool get_block_template(block& b, const crypto::hash *prev_block, const account_public_address& adr, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash);
 
      /**
