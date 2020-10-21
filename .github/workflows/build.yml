@@ -13,6 +13,11 @@ jobs:
       run: brew update && brew install boost hidapi zmq libpgm miniupnpc ldns expat libunwind-headers protobuf
     - name: build
       run: make -j3
+    - name: upload binaries
+      uses: actions/upload-artifact@v2
+      with:
+        name: macos
+        path: build/**/bin/
 
   build-windows:
     runs-on: windows-latest
@@ -29,6 +34,11 @@ jobs:
         install: mingw-w64-x86_64-toolchain make mingw-w64-x86_64-cmake mingw-w64-x86_64-boost mingw-w64-x86_64-openssl mingw-w64-x86_64-zeromq mingw-w64-x86_64-libsodium mingw-w64-x86_64-hidapi mingw-w64-x86_64-protobuf-c mingw-w64-x86_64-libusb git
     - name: build
       run: make release-static-win64 -j2
+    - name: upload binaries
+      uses: actions/upload-artifact@v2
+      with:
+        name: windows
+        path: build/**/bin/
 
   build-ubuntu:
     runs-on: ubuntu-latest
@@ -49,6 +59,11 @@ jobs:
       run: sudo apt -y install build-essential cmake libboost-all-dev miniupnpc libunbound-dev graphviz doxygen libunwind8-dev pkg-config libssl-dev libzmq3-dev libsodium-dev libhidapi-dev libnorm-dev libusb-1.0-0-dev libpgm-dev libprotobuf-dev protobuf-compiler
     - name: build
       run: make -j3
+    - name: upload binaries
+      uses: actions/upload-artifact@v2
+      with:
+        name: ubuntu
+        path: build/**/bin/
 
   libwallet-ubuntu:
     runs-on: ubuntu-latest
