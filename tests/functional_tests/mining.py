@@ -107,7 +107,7 @@ class MiningTest():
                     break
             else:
                 assert False, 'Failed to mine successor to block %d (initial block = %d)' % (seen_height, prev_height)
-            timeout = 5
+            timeout = 10
 
         if via_daemon:
             res = daemon.stop_mining()
