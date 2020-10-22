@@ -9,8 +9,8 @@ jobs:
     - uses: actions/checkout@v1
       with:
         submodules: recursive
-    - name: update brew and install dependencies
-      run: brew update && brew install boost hidapi zmq libpgm miniupnpc ldns expat libunwind-headers protobuf
+    - name: install dependencies
+      run: HOMEBREW_NO_AUTO_UPDATE=1 brew install boost hidapi zmq libpgm miniupnpc ldns expat libunwind-headers protobuf
     - name: build
       run: make -j3
 
