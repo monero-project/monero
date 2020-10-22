@@ -99,6 +99,7 @@ public:
     std::string publicSpendKey() const override;
     std::string publicMultisigSignerKey() const override;
     std::string path() const override;
+    void stop() override;
     bool store(const std::string &path) override;
     std::string filename() const override;
     std::string keysFilename() const override;
