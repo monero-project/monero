@@ -28,8 +28,10 @@
 
 #pragma once
 
+#include "fwd/boost_monero_program_options_fwd.h"
 #include "common/scoped_message_writer.h"
 #include "common/util.h"
+#include "common/command_line_functions.h"
 #include "daemonizer/posix_fork.h"
 
 #include <boost/filesystem/operations.hpp>

@@ -41,6 +41,7 @@
 #include "common/base58.h"
 #include "common/util.h"
 #include "common/utf8.h"
+#include "common/command_line_functions.h"
 #include "string_tools.h"
 
 

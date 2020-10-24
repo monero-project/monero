@@ -33,6 +33,7 @@
 #include "cryptonote_basic/tx_extra.h"
 #include "cryptonote_core/blockchain.h"
 #include "common/command_line.h"
+#include "common/command_line_functions.h"
 #include "version.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY

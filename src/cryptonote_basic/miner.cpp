@@ -38,7 +38,7 @@
 #include "cryptonote_format_utils.h"
 #include "cryptonote_core/cryptonote_tx_utils.h"
 #include "file_io_utils.h"
-#include "common/command_line.h"
+#include "common/command_line_functions.h"
 #include "common/util.h"
 #include "string_coding.h"
 #include "string_tools.h"

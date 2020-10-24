@@ -31,7 +31,7 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/filesystem.hpp>
-#include "common/command_line.h"
+#include "common/command_line_functions.h"
 #include "common/pruning.h"
 #include "cryptonote_core/cryptonote_core.h"
 #include "cryptonote_core/blockchain.h"

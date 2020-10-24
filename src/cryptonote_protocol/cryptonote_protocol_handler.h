@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include <boost/program_options/variables_map.hpp>
+#include "fwd/boost_monero_program_options_fwd.h"
 #include <string>
 
 #include "byte_slice.h"

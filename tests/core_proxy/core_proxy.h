@@ -30,7 +30,7 @@
 
 #pragma once
 
-#include <boost/program_options/variables_map.hpp>
+#include "fwd/boost_monero_program_options_fwd.h"
 
 #include "cryptonote_basic/cryptonote_basic_impl.h"
 #include "cryptonote_basic/verification_context.h"

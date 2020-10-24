@@ -32,9 +32,7 @@
 
 #include <memory>
 
-#include <boost/program_options/options_description.hpp>
-#include <boost/program_options/variables_map.hpp>
-
+#include "fwd/boost_monero_program_options_fwd.h"
 #include "bootstrap_daemon.h"
 #include "net/http_server_impl_base.h"
 #include "net/http_client.h"

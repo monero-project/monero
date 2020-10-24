@@ -31,7 +31,7 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/asio/ip/address.hpp>
 #include <functional>
-#include "common/command_line.h"
+#include "common/command_line_functions.h"
 #include "common/i18n.h"
 #include "hex.h"
 

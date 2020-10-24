@@ -30,8 +30,7 @@
 
 #pragma  once
 
-#include <boost/program_options/options_description.hpp>
-#include <boost/program_options/variables_map.hpp>
+#include "fwd/boost_monero_program_options_fwd.h"
 #include <string>
 #include "common/util.h"
 #include "net/http_server_impl_base.h"

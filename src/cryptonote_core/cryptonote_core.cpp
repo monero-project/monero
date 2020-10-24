@@ -40,7 +40,7 @@ using namespace epee;
 #include "common/updates.h"
 #include "common/download.h"
 #include "common/threadpool.h"
-#include "common/command_line.h"
+#include "common/command_line_functions.h"
 #include "cryptonote_basic/events.h"
 #include "warnings.h"
 #include "crypto/crypto.h"

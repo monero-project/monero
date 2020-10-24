@@ -37,7 +37,7 @@
 #include "crypto/crypto.h"
 #include "common/util.h"
 #include "common/i18n.h"
-#include "common/command_line.h"
+#include "common/command_line_functions.h"
 #include "common/scoped_message_writer.h"
 #include "common/password.h"
 #include "version.h"

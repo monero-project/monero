@@ -35,8 +35,7 @@
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/thread.hpp>
 #include <boost/optional/optional_fwd.hpp>
-#include <boost/program_options/options_description.hpp>
-#include <boost/program_options/variables_map.hpp>
+#include "fwd/boost_monero_program_options_fwd.h"
 #include <boost/uuid/uuid.hpp>
 #include <chrono>
 #include <functional>

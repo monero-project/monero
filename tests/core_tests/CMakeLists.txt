@@ -53,6 +53,7 @@ set(core_tests_headers
   chain_split_1.h
   chain_switch_1.h
   chaingen.h
+  chaingen_program_options.h
   chaingen_tests_list.h
   double_spend.h
   double_spend.inl

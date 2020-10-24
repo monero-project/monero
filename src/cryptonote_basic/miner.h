@@ -30,7 +30,7 @@
 
 #pragma once 
 
-#include <boost/program_options.hpp>
+#include "fwd/boost_monero_program_options_fwd.h"
 #include <boost/logic/tribool_fwd.hpp>
 #include <atomic>
 #include "cryptonote_basic.h"

@@ -28,9 +28,8 @@
 
 #pragma once
 
+#include "fwd/boost_monero_program_options_fwd.h"
 #include "daemon/daemon.h"
-#include <boost/program_options/options_description.hpp>
-#include <boost/program_options/variables_map.hpp>
 #include <string>
 
 #undef MONERO_DEFAULT_LOG_CATEGORY

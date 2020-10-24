@@ -28,7 +28,7 @@
 
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
-#include "common/command_line.h"
+#include "common/command_line_functions.h"
 #include "common/varint.h"
 #include "cryptonote_basic/cryptonote_boost_serialization.h"
 #include "cryptonote_core/tx_pool.h"
