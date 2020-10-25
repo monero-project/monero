@@ -1432,6 +1432,19 @@ namespace nodetool
             const uint32_t actual_ip = na.as<const epee::net_utils::ipv4_network_address>().ip();
             classB.insert(actual_ip & 0x0000ffff);
           }
+#if BOOST_VERSION > 106600
+          else if (cntxt.m_remote_address.get_type_id() == epee::net_utils::ipv6_network_address::get_type_id())
+          {
+            const epee::net_utils::network_address na = cntxt.m_remote_address;
+            boost::asio::ip::address_v6 actual_ip = na.as<const epee::net_utils::ipv6_network_address>().ip();
+            if (actual_ip.is_v4_mapped())
+            {
+              boost::asio::ip::address_v4 v4ip = make_address_v4(boost::asio::ip::v4_mapped, actual_ip);
+              uint32_t actual_ip4 = (v4ip.to_bytes()[1] << 8) | v4ip.to_bytes()[0];
+              classB.insert(actual_ip4 & 0x0000ffff);
+            }
+          }
+#endif
           return true;
         });
       }
@@ -1452,6 +1465,19 @@ namespace nodetool
             uint32_t actual_ip = na.as<const epee::net_utils::ipv4_network_address>().ip();
             skip = classB.find(actual_ip & 0x0000ffff) != classB.end();
           }
+#if BOOST_VERSION > 106600
+          else if (skip_duplicate_class_B && pe.adr.get_type_id() == epee::net_utils::ipv6_network_address::get_type_id())
+          {
+            const epee::net_utils::network_address na = pe.adr;
+            boost::asio::ip::address_v6 actual_ip = na.as<const epee::net_utils::ipv6_network_address>().ip();
+            if (actual_ip.is_v4_mapped())
+            {
+              boost::asio::ip::address_v4 v4ip = make_address_v4(boost::asio::ip::v4_mapped, actual_ip);
+              uint32_t actual_ip4 = (((unsigned)v4ip.to_bytes()[1]) << 8) | (unsigned)v4ip.to_bytes()[0];
+              skip = classB.find(actual_ip4 & 0x0000ffff) != classB.end();
+            }
+          }
+#endif
           if (skip)
             ++skipped;
           else if (next_needed_pruning_stripe == 0 || pe.pruning_seed == 0)
@@ -1464,11 +1490,11 @@ namespace nodetool
         if (skipped == 0 || !filtered.empty())
           break;
         if (skipped)
-          MINFO("Skipping " << skipped << " possible peers as they share a class B with existing peers");
+          MDEBUG("Skipping " << skipped << " possible peers as they share a class B with existing peers");
       }
       if (filtered.empty())
       {
-        MDEBUG("No available peer in " << (use_white_list ? "white" : "gray") << " list filtered by " << next_needed_pruning_stripe);
+        MINFO("No available peer in " << (use_white_list ? "white" : "gray") << " list filtered by " << next_needed_pruning_stripe);
         return false;
       }
       if (use_white_list)
