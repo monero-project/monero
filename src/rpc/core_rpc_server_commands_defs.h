@@ -1213,6 +1213,30 @@ namespace cryptonote
     typedef epee::misc_utils::struct_init<response_t> response;
   };
 
+  struct COMMAND_RPC_GET_PEER_PEER_LIST
+  {
+    struct request_t: public rpc_request_base
+    {
+      std::string peer;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(peer)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<request_t> request;
+
+    struct response_t: public rpc_response_base
+    {
+      std::vector<std::string> peers;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE_PARENT(rpc_response_base)
+        KV_SERIALIZE(peers)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<response_t> response;
+  };
+
   struct public_node
   {
     std::string host;
