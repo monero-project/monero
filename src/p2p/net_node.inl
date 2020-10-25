@@ -2001,6 +2001,23 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
+  std::set<epee::net_utils::network_address> node_server<t_payload_net_handler>::get_peer_list(const epee::net_utils::network_address &address)
+  {
+    std::set<epee::net_utils::network_address> addresses;
+    for(auto& zone : m_network_zones)
+    {
+      zone.second.m_net_server.get_config_object().foreach_connection([&addresses, &address](p2p_connection_context& cntxt)
+      {
+        if (cntxt.m_remote_address != address)
+          return true;
+        addresses = cntxt.received_addresses;
+        return false;
+      });
+    }
+    return addresses;
+  }
+  //-----------------------------------------------------------------------------------
+  template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::idle_worker()
   {
     m_peer_handshake_idle_maker_interval.do_call(boost::bind(&node_server<t_payload_net_handler>::peer_sync_idle_maker, this));
@@ -2168,7 +2185,7 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
-  bool node_server<t_payload_net_handler>::handle_remote_peerlist(const std::vector<peerlist_entry>& peerlist, const epee::net_utils::connection_context_base& context)
+  bool node_server<t_payload_net_handler>::handle_remote_peerlist(const std::vector<peerlist_entry>& peerlist, p2p_connection_context& context)
   {
     if (peerlist.size() > P2P_MAX_PEERS_IN_HANDSHAKE)
     {
@@ -2191,6 +2208,8 @@ namespace nodetool
 
     LOG_DEBUG_CC(context, "REMOTE PEERLIST: remote peerlist size=" << peerlist_.size());
     LOG_TRACE_CC(context, "REMOTE PEERLIST: " << ENDL << print_peerlist_to_string(peerlist_));
+    for (const auto &e: peerlist_)
+      context.received_addresses.insert(e.adr);
     CRITICAL_REGION_LOCAL(m_blocked_hosts_lock);
     return m_network_zones.at(context.m_remote_address.get_zone()).m_peerlist.merge_peerlist(peerlist_, [this](const peerlist_entry &pe) {
       return !is_addr_recently_failed(pe.adr) && is_remote_host_allowed(pe.adr);

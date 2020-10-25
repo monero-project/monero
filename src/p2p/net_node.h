@@ -124,6 +124,7 @@ namespace nodetool
     uint32_t support_flags;
     bool m_in_timedsync;
     std::set<epee::net_utils::network_address> sent_addresses;
+    std::set<epee::net_utils::network_address> received_addresses;
   };
 
   template<class t_payload_net_handler>
@@ -285,6 +286,8 @@ namespace nodetool
     void get_public_peerlist(std::vector<peerlist_entry>& gray, std::vector<peerlist_entry>& white);
     void get_peerlist(std::vector<peerlist_entry>& gray, std::vector<peerlist_entry>& white);
 
+    std::set<epee::net_utils::network_address> get_peer_list(const epee::net_utils::network_address &address);
+
     void change_max_out_public_peers(size_t count);
     uint32_t get_max_out_public_peers() const;
     void change_max_in_public_peers(size_t count);
@@ -361,7 +364,7 @@ namespace nodetool
         const boost::program_options::variables_map& vm
       );
     bool idle_worker();
-    bool handle_remote_peerlist(const std::vector<peerlist_entry>& peerlist, const epee::net_utils::connection_context_base& context);
+    bool handle_remote_peerlist(const std::vector<peerlist_entry>& peerlist, p2p_connection_context& context);
     bool get_local_node_data(basic_node_data& node_data, const network_zone& zone);
     //bool get_local_handshake_data(handshake_data& hshd);
 
