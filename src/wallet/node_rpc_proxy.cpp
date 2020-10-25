@@ -53,6 +53,7 @@ void NodeRPCProxy::invalidate()
   m_rpc_version = 0;
   m_target_height = 0;
   m_block_weight_limit = 0;
+  m_adjusted_time = 0;
   m_get_info_time = 0;
   m_height_time = 0;
 }
@@ -99,6 +100,7 @@ boost::optional<std::string> NodeRPCProxy::get_info() const
     m_height = resp_t.height;
     m_target_height = resp_t.target_height;
     m_block_weight_limit = resp_t.block_weight_limit ? resp_t.block_weight_limit : resp_t.block_size_limit;
+    m_adjusted_time = resp_t.adjusted_time;
     m_get_info_time = now;
     m_height_time = now;
   }
@@ -137,6 +139,15 @@ boost::optional<std::string> NodeRPCProxy::get_block_weight_limit(uint64_t &bloc
     return res;
   block_weight_limit = m_block_weight_limit;
   return boost::optional<std::string>();
+}
+
+boost::optional<std::string> NodeRPCProxy::get_adjusted_time(uint64_t &adjusted_time) const
+{
+    auto res = get_info();
+    if (res)
+        return res;
+    adjusted_time = m_adjusted_time;
+    return boost::optional<std::string>();
 }
 
 boost::optional<std::string> NodeRPCProxy::get_earliest_height(uint8_t version, uint64_t &earliest_height) const

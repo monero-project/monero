@@ -48,6 +48,7 @@ public:
   void set_height(uint64_t h);
   boost::optional<std::string> get_target_height(uint64_t &height) const;
   boost::optional<std::string> get_block_weight_limit(uint64_t &block_weight_limit) const;
+  boost::optional<std::string> get_adjusted_time(uint64_t &adjusted_time) const;
   boost::optional<std::string> get_earliest_height(uint8_t version, uint64_t &earliest_height) const;
 
 private:
@@ -58,6 +59,7 @@ private:
 
   mutable uint64_t m_height;
   mutable uint64_t m_earliest_height[256];
+  mutable uint64_t m_adjusted_time;
   mutable uint32_t m_rpc_version;
   mutable uint64_t m_target_height;
   mutable uint64_t m_block_weight_limit;
