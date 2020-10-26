@@ -106,7 +106,7 @@ set(hash_targets_sources
 
 set(hash_targets_headers)
 
-add_executable(hash-target-tests
+monero_add_minimal_executable(hash-target-tests
   ${hash_targets_sources}
   ${hash_targets_headers})
 target_link_libraries(hash-target-tests
@@ -149,7 +149,7 @@ foreach(BENCH IN LISTS MONERO_WALLET_CRYPTO_BENCH)
 endforeach ()
 
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/benchmark.h.in" "${MONERO_GENERATED_HEADERS_DIR}/tests/benchmark.h")
-add_executable(monero-wallet-crypto-bench benchmark.cpp ${BENCH_OBJECTS})
+monero_add_minimal_executable(monero-wallet-crypto-bench benchmark.cpp ${BENCH_OBJECTS})
 target_link_libraries(monero-wallet-crypto-bench cncrypto)
 
 add_test(NAME wallet-crypto-bench COMMAND monero-wallet-crypto-bench)

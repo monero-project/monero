@@ -75,6 +75,8 @@ function (monero_add_executable name)
     PROPERTY
       RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
   enable_stack_trace("${name}")
+  
+  monero_set_target_no_relink("${name}")
 endfunction ()
 
 function (monero_add_library name)
@@ -92,6 +94,7 @@ function (monero_add_library_with_deps)
   set(objlib obj_${MONERO_ADD_LIBRARY_NAME})
   add_library(${objlib} OBJECT ${MONERO_ADD_LIBRARY_SOURCES})
   add_library("${MONERO_ADD_LIBRARY_NAME}" $<TARGET_OBJECTS:${objlib}>)
+  monero_set_target_no_relink("${MONERO_ADD_LIBRARY_NAME}")
   if (MONERO_ADD_LIBRARY_DEPENDS)
     add_dependencies(${objlib} ${MONERO_ADD_LIBRARY_DEPENDS})
   endif()

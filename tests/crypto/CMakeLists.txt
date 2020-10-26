@@ -37,7 +37,7 @@ set(crypto_sources
 set(crypto_headers
   crypto-tests.h)
 
-add_executable(cncrypto-tests
+monero_add_minimal_executable(cncrypto-tests
   ${crypto_sources}
   ${crypto_headers})
 target_link_libraries(cncrypto-tests
@@ -53,7 +53,7 @@ add_test(
   NAME    cncrypto
   COMMAND cncrypto-tests "${CMAKE_CURRENT_SOURCE_DIR}/tests.txt")
 
-add_executable(cnv4-jit-tests cnv4-jit.c)
+monero_add_minimal_executable(cnv4-jit-tests cnv4-jit.c)
 target_link_libraries(cnv4-jit-tests
   PRIVATE
     common

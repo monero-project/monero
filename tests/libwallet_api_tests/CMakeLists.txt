@@ -33,7 +33,7 @@ set(libwallet_api_tests_sources
 set(libwallet_api_tests_headers
   )
 
-add_executable(libwallet_api_tests
+monero_add_minimal_executable(libwallet_api_tests
   ${libwallet_api_tests_sources}
   ${libwallet_api_tests_headers})
 

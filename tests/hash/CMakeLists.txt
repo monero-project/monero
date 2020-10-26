@@ -31,7 +31,7 @@ set(hash_sources
 
 set(hash_headers)
 
-add_executable(hash-tests
+monero_add_minimal_executable(hash-tests
   ${hash_sources}
   ${hash_headers})
 target_link_libraries(hash-tests

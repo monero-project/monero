@@ -32,7 +32,7 @@ set(core_proxy_sources
 set(core_proxy_headers
   core_proxy.h)
 
-add_executable(core_proxy
+monero_add_minimal_executable(core_proxy
   ${core_proxy_sources}
   ${core_proxy_headers})
 target_link_libraries(core_proxy
