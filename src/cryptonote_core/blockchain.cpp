@@ -1279,10 +1279,9 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
 	}
 	base_reward = reward_parts.original_base_reward;
 
-
-if(version >= 7 && b.miner_tx.vout.size() > 2)
-{    
-  if(b.miner_tx.vout.back().amount != reward_parts.governance)
+  if(version >= 7 && allow_governance(m_db->height()))
+  {    
+    if(b.miner_tx.vout.back().amount != reward_parts.governance)
     {
       MERROR("Governance reward amount incorrect.  Should be: " << print_money(reward_parts.governance) << ", is: " << print_money(b.miner_tx.vout.back().amount));
       return false;
@@ -1331,44 +1330,72 @@ bool Blockchain::allow_governance(uint64_t height)
   if(m_nettype == MAINNET)
   {
     fork_height = 352846;
+    if (height == fork_height)
+    {
+      return true;
+    }
+    else if (height == fork_height + 21600)
+    {
+      return true;
+    }
+    else if (height == fork_height+ (2 * 21600))
+    {
+      return true;
+    }
+    else if (height == fork_height + (3 * 21600))
+    {
+      return true;
+    }
+    else if (height == fork_height + (4 * 21600))
+    {
+      return true;
+    }
+    else if(height == fork_height + (5 * 21600))
+    {
+      return true;
+    }
+    else if(height == fork_height + (6 * 21600))
+    {
+      return true;
+    }
   }
   else if(m_nettype == TESTNET)
   {
-    fork_height = 350;
+    fork_height = 3750;
+    if (height == fork_height)
+    {
+      return true;
+    }
+    else if (height == fork_height + 216)
+    {
+      return true;
+    }
+    else if (height == fork_height+ (2 * 216))
+    {
+      return true;
+    }
+    else if (height == fork_height + (3 * 216))
+    {
+      return true;
+    }
+    else if (height == fork_height + (4 * 216))
+    {
+      return true;
+    }
+    else if(height == fork_height + (5 * 216))
+    {
+      return true;
+    }
+    else if(height == fork_height + (6 * 216))
+    {
+      return true;
+    }
   }
   else if (m_nettype == STAGENET)
   {
     fork_height = 12000;  
   }
   
-  if (height == fork_height)
-  {
-    return true;
-  }
-  else if (height == fork_height + 21600)
-  {
-    return true;
-  }
-  else if (height == fork_height+ (2 * 21600))
-  {
-    return true;
-  }
-  else if (height == fork_height + (3 * 21600))
-  {
-    return true;
-  }
-  else if (height == fork_height + (4 * 21600))
-  {
-    return true;
-  }
-  else if(height == fork_height + (5 * 21600))
-  {
-    return true;
-  }
-  else if(height == fork_height + (6 * 21600))
-  {
-    return true;
-  }
   return false;
 }
 

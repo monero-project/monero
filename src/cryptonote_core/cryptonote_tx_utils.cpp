@@ -140,44 +140,74 @@ namespace cryptonote
     if(nettype == MAINNET)
     {
       fork_height = 352846;
+
+      if (height == fork_height)
+      {
+        return 10000000000;
+      }
+      else if (height == (fork_height + 21600))
+      {
+        return 10000000000;
+      }
+      else if (height == (fork_height + (2 * 21600)))
+      {
+        return 10000000000;
+      }
+      else if (height == (fork_height + (3 * 21600)))
+      {
+        return 10000000000;
+      }
+      else if (height == (fork_height + (4 * 21600)))
+      {
+        return 10000000000;
+      }
+      else if(height == (fork_height + (5 * 21600)))
+      {
+        return 10000000000;
+      }
+      else if(height == (fork_height + (6 * 21600)))
+      {
+        return 10000000000;
+      }
+
     }
     else if(nettype == TESTNET)
     {
-      fork_height = 350;
+      fork_height = 3750;
+      if (height == fork_height && nettype == TESTNET)
+      {
+        return 10000000000;
+      }
+      else if (height == (fork_height + 216))
+      {
+        return 10000000000;
+      }
+      else if (height == (fork_height + (2 * 216)))
+      {
+        return 10000000000;
+      }
+      else if (height == (fork_height + (3 * 216)))
+      {
+        return 10000000000;
+      }
+      else if (height == (fork_height + (4 * 216)))
+      {
+        return 10000000000;
+      }
+      else if(height == (fork_height + (5 * 216)))
+      {
+        return 10000000000;
+      }
+      else if(height == (fork_height + (6 * 216)))
+      {
+        return 10000000000;
+      }
     }
     else if (nettype == STAGENET)
     {
       fork_height = 12000;  
     }
 
-    if (height == fork_height)
-    {
-      return 10000000000;
-    }
-    else if (height == (fork_height + 21600))
-    {
-      return 10000000000;
-    }
-    else if (height == (fork_height + (2 * 21600)))
-    {
-      return 10000000000;
-    }
-    else if (height == (fork_height + (3 * 21600)))
-    {
-      return 10000000000;
-    }
-    else if (height == (fork_height + (4 * 21600)))
-    {
-      return 10000000000;
-    }
-    else if(height == (fork_height + (5 * 21600)))
-    {
-      return 10000000000;
-    }
-    else if(height == (fork_height + (6 * 21600)))
-    {
-      return 10000000000;
-    }
     return 0;
   }
   //---------------------------------------------------------------
