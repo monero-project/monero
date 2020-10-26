@@ -74,14 +74,12 @@ namespace tools
 
   unsigned int get_max_concurrency() const;
 
-		~threadpool();
-		void stop();
-		void start(unsigned int max_threads = 0);
+	~threadpool();
+    void destroy();
+    void create(unsigned int max_threads);
 
   private:
     threadpool(unsigned int max_threads = 0);
-    void destroy();
-    void create(unsigned int max_threads);
     typedef struct entry {
       waiter *wo;
       std::function<void()> f;

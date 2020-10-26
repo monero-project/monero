@@ -63,6 +63,7 @@ void threadpool::destroy() {
     catch (...) { /* ignore */ }
   }
   threads.clear();
+  queue.clear();
 }
 
 void threadpool::recycle() {
