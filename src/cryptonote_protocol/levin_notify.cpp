@@ -106,7 +106,7 @@ namespace levin
     }
 
     //! \return Outgoing connections supporting fragments in `connections` filtered by remote blockchain height.
-    std::vector<boost::uuids::uuid> get_out_connections(connections& p2p, uint64_t min_blockchain_height)
+    std::vector<boost::uuids::uuid> get_out_connections(connections& p2p, uint64_t min_blockchain_height, int64_t min_score)
     {
       std::vector<boost::uuids::uuid> outs;
       outs.reserve(connection_id_reserve_size);
@@ -115,8 +115,8 @@ namespace levin
          the reserve call so a strand is not used. Investigate if there is lots
          of waiting in here. */
 
-      p2p.foreach_connection([&outs, min_blockchain_height] (detail::p2p_context& context) {
-        if (!context.m_is_income && context.m_remote_blockchain_height >= min_blockchain_height)
+      p2p.foreach_connection([&outs, min_blockchain_height, min_score] (detail::p2p_context& context) {
+        if (!context.m_is_income && context.m_remote_blockchain_height >= min_blockchain_height && context.m_score >= min_score)
           outs.emplace_back(context.m_connection_id);
         return true;
       });
@@ -544,7 +544,7 @@ namespace levin
             }
 
             // connection list may be outdated, try again
-            update_channels::run(zone_, get_out_connections(*zone_->p2p, core_->get_target_blockchain_height()));
+            update_channels::run(zone_, get_out_connections(*zone_->p2p, core_->get_target_blockchain_height(), 0));
           }
 
           MERROR("Unable to send transaction(s) via Dandelion++ stem");
@@ -646,7 +646,7 @@ namespace levin
             channel.active = nullptr;
             channel.connection = boost::uuids::nil_uuid();
 
-            auto connections = get_out_connections(*zone_->p2p, core_->get_target_blockchain_height());
+            auto connections = get_out_connections(*zone_->p2p, core_->get_target_blockchain_height(), 0);
             if (connections.empty())
               MWARNING("Lost all outbound connections to anonymity network - currently unable to send transaction(s)");
 
@@ -679,7 +679,7 @@ namespace levin
 
         const bool fluffing = crypto::rand_idx(unsigned(100)) < CRYPTONOTE_DANDELIONPP_FLUFF_PROBABILITY;
         const auto start = std::chrono::steady_clock::now();
-        auto connections = get_out_connections(*(zone_->p2p), core_->get_target_blockchain_height());
+        auto connections = get_out_connections(*(zone_->p2p), core_->get_target_blockchain_height(), 0);
         zone_->strand.dispatch(
           change_channels{zone_, net::dandelionpp::connection_map{std::move(connections), count_}, fluffing}
         );
@@ -730,7 +730,7 @@ namespace levin
       return;
 
     zone_->strand.dispatch(
-      update_channels{zone_, get_out_connections(*(zone_->p2p), core_->get_target_blockchain_height())}
+      update_channels{zone_, get_out_connections(*(zone_->p2p), core_->get_target_blockchain_height(), 0)}
     );
   }
 
