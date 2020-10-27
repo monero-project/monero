@@ -1505,7 +1505,7 @@ namespace cryptonote
       for(auto& tx:  txs)
         arg.b.txs.push_back({tx, crypto::null_hash});
 
-      m_pprotocol->relay_block(arg, exclude_context);
+      m_pprotocol->relay_block(arg, exclude_context, boost::uuids::nil_uuid());
     }
     return true;
   }
