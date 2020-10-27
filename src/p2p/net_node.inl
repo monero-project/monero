@@ -71,6 +71,22 @@
 
 #define MIN_WANTED_SEED_NODES 12
 
+namespace
+{
+
+boost::asio::ip::address_v4 make_address_v4_from_v6(boost::asio::ip::v4_mapped_t m, const boost::asio::ip::address_v6& a)
+{
+  const auto &bytes = a.to_bytes();
+  uint32_t v4 = 0;
+  v4 = (v4 << 8) | bytes[12];
+  v4 = (v4 << 8) | bytes[13];
+  v4 = (v4 << 8) | bytes[14];
+  v4 = (v4 << 8) | bytes[15];
+  return boost::asio::ip::address_v4(v4);
+}
+
+}
+
 namespace nodetool
 {
   template<class t_payload_net_handler>
@@ -1432,35 +1448,31 @@ namespace nodetool
             const uint32_t actual_ip = na.as<const epee::net_utils::ipv4_network_address>().ip();
             classB.insert(actual_ip & 0x0000ffff);
           }
-#if BOOST_VERSION > 106600
           else if (cntxt.m_remote_address.get_type_id() == epee::net_utils::ipv6_network_address::get_type_id())
           {
             const epee::net_utils::network_address na = cntxt.m_remote_address;
             boost::asio::ip::address_v6 actual_ip = na.as<const epee::net_utils::ipv6_network_address>().ip();
             if (actual_ip.is_v4_mapped())
             {
-              boost::asio::ip::address_v4 v4ip = make_address_v4(boost::asio::ip::v4_mapped, actual_ip);
+              boost::asio::ip::address_v4 v4ip = make_address_v4_from_v6(boost::asio::ip::v4_mapped, actual_ip);
               uint32_t actual_ip4 = (v4ip.to_bytes()[1] << 8) | v4ip.to_bytes()[0];
               classB.insert(actual_ip4 & 0x0000ffff);
             }
           }
-#endif
           return true;
         });
       }
 
       auto get_host_string = [](const epee::net_utils::network_address &address) {
-#if BOOST_VERSION > 106600
         if (address.get_type_id() == epee::net_utils::ipv6_network_address::get_type_id())
         {
           boost::asio::ip::address_v6 actual_ip = address.as<const epee::net_utils::ipv6_network_address>().ip();
           if (actual_ip.is_v4_mapped())
           {
-            boost::asio::ip::address_v4 v4ip = make_address_v4(boost::asio::ip::v4_mapped, actual_ip);
+            boost::asio::ip::address_v4 v4ip = make_address_v4_from_v6(boost::asio::ip::v4_mapped, actual_ip);
             return epee::net_utils::ipv4_network_address(v4ip.to_uint(), 0).host_str();
           }
         }
-#endif
         return address.host_str();
       };
       std::unordered_set<std::string> hosts_added;
@@ -1480,19 +1492,17 @@ namespace nodetool
             uint32_t actual_ip = na.as<const epee::net_utils::ipv4_network_address>().ip();
             skip = classB.find(actual_ip & 0x0000ffff) != classB.end();
           }
-#if BOOST_VERSION > 106600
           else if (skip_duplicate_class_B && pe.adr.get_type_id() == epee::net_utils::ipv6_network_address::get_type_id())
           {
             const epee::net_utils::network_address na = pe.adr;
             boost::asio::ip::address_v6 actual_ip = na.as<const epee::net_utils::ipv6_network_address>().ip();
             if (actual_ip.is_v4_mapped())
             {
-              boost::asio::ip::address_v4 v4ip = make_address_v4(boost::asio::ip::v4_mapped, actual_ip);
+              boost::asio::ip::address_v4 v4ip = make_address_v4_from_v6(boost::asio::ip::v4_mapped, actual_ip);
               uint32_t actual_ip4 = (((unsigned)v4ip.to_bytes()[1]) << 8) | (unsigned)v4ip.to_bytes()[0];
               skip = classB.find(actual_ip4 & 0x0000ffff) != classB.end();
             }
           }
-#endif
 
           // consider each host once, to avoid giving undue inflence to hosts running several nodes
           if (!skip)
