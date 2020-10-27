@@ -72,6 +72,8 @@
 #define PASSIVE_PEER_KICK_TIME (60 * 1000000) // microseconds
 #define DROP_ON_SYNC_WEDGE_THRESHOLD (30 * 1000000000ull) // nanoseconds
 #define LAST_ACTIVITY_STALL_THRESHOLD (2.0f) // seconds
+#define WAIT_FOR_BLOCK_TIME (20) // seconds
+#define DROP_PEERS_ON_SCORE -2
 
 namespace cryptonote
 {
@@ -427,7 +429,7 @@ namespace cryptonote
     template<class t_core>
     int t_cryptonote_protocol_handler<t_core>::handle_notify_new_block(int command, NOTIFY_NEW_BLOCK::request& arg, cryptonote_connection_context& context)
   {
-    MLOGIF_P2P_MESSAGE(crypto::hash hash; cryptonote::block b; bool ret = cryptonote::parse_and_validate_block_from_blob(arg.b.block, b, &hash);, ret, "Received NOTIFY_NEW_BLOCK " << hash << " (height " << arg.current_blockchain_height << ", " << arg.b.txs.size() << " txes)");
+    MLOGIF_P2P_MESSAGE(crypto::hash hash; cryptonote::block b; bool ret = cryptonote::parse_and_validate_block_from_blob(arg.b.block, b, &hash);, ret, context << "Received NOTIFY_NEW_BLOCK " << hash << " (height " << arg.current_blockchain_height << ", " << arg.b.txs.size() << " txes)");
     if(context.m_state != cryptonote_connection_context::state_normal)
       return 1;
     if(!is_synchronized() || m_no_sync) // can happen if a peer connection goes to normal but another thread still hasn't finished adding queued blocks
@@ -475,10 +477,18 @@ namespace cryptonote
       drop_connection_with_score(context, bvc.m_bad_pow ? P2P_IP_FAILS_BEFORE_BLOCK : 1, false);
       return 1;
     }
+
+    std::vector<boost::uuids::uuid> no_relay_connection_id;
+    if(bvc.m_added_to_main_chain || !bvc.m_marked_as_orphaned)
+    {
+      check_tested_peer(context, arg.b.block);
+      if (bvc.m_added_to_main_chain)
+        select_peer_for_testing(arg.current_blockchain_height - 1, arg.b.block, context.m_connection_id, no_relay_connection_id);
+    }
     if(bvc.m_added_to_main_chain)
     {
       //TODO: Add here announce protocol usage
-      relay_block(arg, context);
+      relay_block(arg, context, std::move(no_relay_connection_id));
     }else if(bvc.m_marked_as_orphaned)
     {
       context.m_needed_objects.clear();
@@ -498,7 +508,7 @@ namespace cryptonote
   template<class t_core>
   int t_cryptonote_protocol_handler<t_core>::handle_notify_new_fluffy_block(int command, NOTIFY_NEW_FLUFFY_BLOCK::request& arg, cryptonote_connection_context& context)
   {
-    MLOGIF_P2P_MESSAGE(crypto::hash hash; cryptonote::block b; bool ret = cryptonote::parse_and_validate_block_from_blob(arg.b.block, b, &hash);, ret, "Received NOTIFY_NEW_FLUFFY_BLOCK " << hash << " (height " << arg.current_blockchain_height << ", " << arg.b.txs.size() << " txes)");
+    MLOGIF_P2P_MESSAGE(crypto::hash hash; cryptonote::block b; bool ret = cryptonote::parse_and_validate_block_from_blob(arg.b.block, b, &hash);, ret, context << "Received NOTIFY_NEW_FLUFFY_BLOCK " << hash << " (height " << arg.current_blockchain_height << ", " << arg.b.txs.size() << " txes)");
     if(context.m_state != cryptonote_connection_context::state_normal)
       return 1;
     if(!is_synchronized() || m_no_sync) // can happen if a peer connection goes to normal but another thread still hasn't finished adding queued blocks
@@ -749,13 +759,21 @@ namespace cryptonote
           drop_connection_with_score(context, bvc.m_bad_pow ? P2P_IP_FAILS_BEFORE_BLOCK : 1, false);
           return 1;
         }
+
+        std::vector<boost::uuids::uuid> no_relay_connection_id;
+        if(bvc.m_added_to_main_chain || !bvc.m_marked_as_orphaned)
+        {
+          check_tested_peer(context, arg.b.block);
+          if (bvc.m_added_to_main_chain)
+            select_peer_for_testing(arg.current_blockchain_height - 1, arg.b.block, context.m_connection_id, no_relay_connection_id);
+        }
         if( bvc.m_added_to_main_chain )
         {
           //TODO: Add here announce protocol usage
           NOTIFY_NEW_BLOCK::request reg_arg = AUTO_VAL_INIT(reg_arg);
           reg_arg.current_blockchain_height = arg.current_blockchain_height;
           reg_arg.b = b;
-          relay_block(reg_arg, context);
+          relay_block(reg_arg, context, std::move(no_relay_connection_id));
         }
         else if( bvc.m_marked_as_orphaned )
         {
@@ -1652,6 +1670,7 @@ skip:
     m_idle_peer_kicker.do_call(boost::bind(&t_cryptonote_protocol_handler<t_core>::kick_idle_peers, this));
     m_standby_checker.do_call(boost::bind(&t_cryptonote_protocol_handler<t_core>::check_standby_peers, this));
     m_sync_search_checker.do_call(boost::bind(&t_cryptonote_protocol_handler<t_core>::update_sync_search, this));
+    m_bad_peer_checker.do_call(boost::bind(&t_cryptonote_protocol_handler<t_core>::check_bad_peers, this));
     return m_core.on_idle();
   }
   //------------------------------------------------------------------------------------------------------------------------
@@ -1677,6 +1696,45 @@ skip:
       }
       return true;
     });
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------
+  template<class t_core>
+  bool t_cryptonote_protocol_handler<t_core>::check_bad_peers()
+  {
+    const uint64_t target = m_core.get_target_blockchain_height();
+    const uint64_t height = m_core.get_current_blockchain_height();
+    if (target > height) // if we're not synced yet, don't do it
+      return true;
+
+    MTRACE("Checking for bad peers...");
+    std::vector<boost::uuids::uuid> bad_peers;
+    const time_t now = time(NULL);
+    m_p2p->for_each_connection([&](cryptonote_connection_context& context, nodetool::peerid_type peer_id, uint32_t support_flags)->bool
+    {
+      if (!context.m_waiting_for_block.empty())
+      {
+        if (now >= context.m_waiting_for_block_deadline)
+        {
+          context.m_score -= 1;
+          MINFO(context << "We did not get the block we were waiting for in time from " << context.m_connection_id << ": bad peer: score decreased to " << context.m_score);
+          context.m_waiting_for_block.clear();
+          context.m_waiting_for_block_deadline = std::numeric_limits<time_t>::max();
+        }
+      }
+      if (context.m_score <= DROP_PEERS_ON_SCORE)
+        bad_peers.push_back(context.m_connection_id);
+      return true;
+    });
+    for (const auto &uuid: bad_peers)
+    {
+      if (!m_p2p->for_connection(uuid, [&](cryptonote_connection_context& ctx, nodetool::peerid_type peer_id, uint32_t f)->bool{
+        MINFO(ctx << "dropping bad peer (score " << ctx.m_score << ")");
+        drop_connection_with_score(ctx, 5, false);
+        return true;
+      }))
+        MDEBUG("Failed to find peer we wanted to drop");
+    }
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------
@@ -1735,6 +1793,65 @@ skip:
       return true;
     });
     return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------
+  template<class t_core>
+  void t_cryptonote_protocol_handler<t_core>::select_peer_for_testing(uint64_t block_height, const cryptonote::blobdata &block, const boost::uuids::uuid &except, std::vector<boost::uuids::uuid> &selected)
+  {
+    boost::unique_lock<boost::mutex> lock(m_bad_peer_check_lock);
+
+    std::vector<std::pair<boost::uuids::uuid, int64_t>> peers;
+    peers.reserve(m_p2p->get_public_connections_count());
+    m_p2p->for_each_connection([&](cryptonote_connection_context& ctx, nodetool::peerid_type peer_id, uint32_t support_flags)->bool{
+      if (ctx.m_remote_blockchain_height < block_height)
+        return true;
+      if (ctx.m_state < cryptonote_connection_context::state_normal)
+        return true;
+      if (ctx.m_connection_id == except)
+        return true;
+      if (!ctx.m_waiting_for_block.empty())
+        return true;
+      if (ctx.m_remote_address.get_zone() != epee::net_utils::zone::public_)
+        return true;
+      peers.emplace_back(std::make_pair(ctx.m_connection_id, ctx.m_score));
+      return true;
+    });
+    if (peers.size() <= 2)
+      return;
+    const size_t n_tests = 1 + peers.size() / 9;
+    const bool sort_by_score = !!(crypto::rand<uint8_t>() & 1);
+    selected.reserve(n_tests);
+    std::shuffle(peers.begin(), peers.end(), crypto::random_device{});
+    if (sort_by_score)
+      std::sort(peers.begin(), peers.end(), [](const std::pair<boost::uuids::uuid, int64_t> &e0, const std::pair<boost::uuids::uuid, int64_t> &e1) {
+        return e0.second < e1.second;
+      });
+    for (size_t idx = 0; idx < n_tests; ++idx)
+    {
+      const auto &uuid = peers[idx].first;
+      selected.push_back(uuid);
+      m_p2p->for_connection(uuid, [&](cryptonote_connection_context& ctx, nodetool::peerid_type peer_id, uint32_t f)->bool{
+        ctx.m_waiting_for_block = block;
+        ctx.m_waiting_for_block_deadline = time(NULL) + WAIT_FOR_BLOCK_TIME;
+        MINFO(ctx << "We will be waiting to see if we get block " << block_height << " from peer " << uuid);
+        return true;
+      });
+    }
+  }
+  //------------------------------------------------------------------------------------------------------------------------
+  template<class t_core>
+  void t_cryptonote_protocol_handler<t_core>::check_tested_peer(cryptonote_connection_context& context, const cryptonote::blobdata &block)
+  {
+    boost::unique_lock<boost::mutex> lock(m_bad_peer_check_lock);
+    if (context.m_waiting_for_block == block)
+    {
+      MINFO(context << "Peer " << context.m_connection_id << " relayed the block we were waiting on");
+      context.m_score += 1;
+      if (context.m_score > 5) // prevent a node from being all nice for a while then switching to asshole
+        context.m_score = 5;
+      context.m_waiting_for_block.clear();
+      context.m_waiting_for_block_deadline = std::numeric_limits<time_t>::max();
+    }
   }
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core>
@@ -2485,7 +2602,7 @@ skip:
   }
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core>
-  bool t_cryptonote_protocol_handler<t_core>::relay_block(NOTIFY_NEW_BLOCK::request& arg, cryptonote_connection_context& exclude_context)
+  bool t_cryptonote_protocol_handler<t_core>::relay_block(NOTIFY_NEW_BLOCK::request& arg, cryptonote_connection_context& exclude_context, std::vector<boost::uuids::uuid> exclude_ids)
   {
     NOTIFY_NEW_FLUFFY_BLOCK::request fluffy_arg = AUTO_VAL_INIT(fluffy_arg);
     fluffy_arg.current_blockchain_height = arg.current_blockchain_height;    
@@ -2495,9 +2612,10 @@ skip:
 
     // sort peers between fluffy ones and others
     std::vector<std::pair<epee::net_utils::zone, boost::uuids::uuid>> fullConnections, fluffyConnections;
-    m_p2p->for_each_connection([this, &exclude_context, &fullConnections, &fluffyConnections](connection_context& context, nodetool::peerid_type peer_id, uint32_t support_flags)
+    std::sort(exclude_ids.begin(), exclude_ids.end());
+    m_p2p->for_each_connection([this, &exclude_context, &exclude_ids, &fullConnections, &fluffyConnections](connection_context& context, nodetool::peerid_type peer_id, uint32_t support_flags)
     {
-      if (peer_id && exclude_context.m_connection_id != context.m_connection_id && context.m_remote_address.get_zone() == epee::net_utils::zone::public_)
+      if (peer_id && exclude_context.m_connection_id != context.m_connection_id && !std::binary_search(exclude_ids.begin(), exclude_ids.end(), context.m_connection_id) && context.m_remote_address.get_zone() == epee::net_utils::zone::public_)
       {
         if(m_core.fluffy_blocks_enabled() && (support_flags & P2P_SUPPORT_FLAG_FLUFFY_BLOCKS))
         {

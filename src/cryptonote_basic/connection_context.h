@@ -43,7 +43,8 @@ namespace cryptonote
   {
     cryptonote_connection_context(): m_state(state_before_handshake), m_remote_blockchain_height(0), m_last_response_height(0),
         m_last_request_time(boost::date_time::not_a_date_time), m_callback_request_count(0),
-        m_last_known_hash(crypto::null_hash), m_pruning_seed(0), m_rpc_port(0), m_rpc_credits_per_hash(0),  m_anchor(false) {}
+        m_last_known_hash(crypto::null_hash), m_pruning_seed(0), m_rpc_port(0), m_rpc_credits_per_hash(0), m_anchor(false),
+        m_waiting_for_block_deadline(std::numeric_limits<time_t>::max()), m_score(0) {}
 
     enum state
     {
@@ -66,7 +67,15 @@ namespace cryptonote
     uint16_t m_rpc_port;
     uint32_t m_rpc_credits_per_hash;
     bool m_anchor;
-    //size_t m_score;  TODO: add score calculations
+
+    // when we first get a block from a peer, we pick a random other peer,
+    // and we will not relay the block to it, but instead wait to see if we
+    // do get it from that peer. If we do not get this block after a set
+    // time delay, we subtract 1 to its score. If we do, we add 1.
+    // We ban peers with a score less than a threshold
+    cryptonote::blobdata m_waiting_for_block;
+    time_t m_waiting_for_block_deadline;
+    int64_t m_score;
   };
 
   inline std::string get_protocol_state_string(cryptonote_connection_context::state s)
