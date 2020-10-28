@@ -66,10 +66,12 @@ uint16_t parse_public_rpc_port(const po::variables_map &vm)
   }
 
   std::string rpc_port_str;
+  std::string rpc_bind_address = command_line::get_arg(vm, cryptonote::rpc_args::descriptors().rpc_bind_ip);
   const auto &restricted_rpc_port = cryptonote::core_rpc_server::arg_rpc_restricted_bind_port;
   if (!command_line::is_arg_defaulted(vm, restricted_rpc_port))
   {
     rpc_port_str = command_line::get_arg(vm, restricted_rpc_port);
+    rpc_bind_address = command_line::get_arg(vm, cryptonote::rpc_args::descriptors().rpc_restricted_bind_ip);
   }
   else if (command_line::get_arg(vm, cryptonote::core_rpc_server::arg_restricted_rpc))
   {
@@ -86,7 +88,6 @@ uint16_t parse_public_rpc_port(const po::variables_map &vm)
     throw std::runtime_error("invalid RPC port " + rpc_port_str);
   }
 
-  const auto rpc_bind_address = command_line::get_arg(vm, cryptonote::rpc_args::descriptors().rpc_bind_ip);
   const auto address = net::get_network_address(rpc_bind_address, rpc_port);
   if (!address) {
     throw std::runtime_error("failed to parse RPC bind address");

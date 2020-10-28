@@ -53,6 +53,8 @@ namespace cryptonote
 
       const command_line::arg_descriptor<std::string> rpc_bind_ip;
       const command_line::arg_descriptor<std::string> rpc_bind_ipv6_address;
+      const command_line::arg_descriptor<std::string> rpc_restricted_bind_ip;
+      const command_line::arg_descriptor<std::string> rpc_restricted_bind_ipv6_address;
       const command_line::arg_descriptor<bool> rpc_use_ipv6;
       const command_line::arg_descriptor<bool> rpc_ignore_ipv4;
       const command_line::arg_descriptor<std::string> rpc_login;
@@ -81,6 +83,8 @@ namespace cryptonote
 
     std::string bind_ip;
     std::string bind_ipv6_address;
+    std::string restricted_bind_ip;
+    std::string restricted_bind_ipv6_address;
     bool use_ipv6;
     bool require_ipv4;
     std::vector<std::string> access_control_origins;
