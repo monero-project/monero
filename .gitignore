@@ -23,6 +23,7 @@ cscope.po.out
 external/miniupnpc/Makefile
 miniupnpcstrings.h
 version/
+ClangBuildAnalyzerSession.txt
 # Created by https://www.gitignore.io
 
 ### C++ ###
