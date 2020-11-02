@@ -1131,6 +1131,11 @@ namespace cryptonote
   {
     RPC_TRACKER(send_raw_tx);
 
+    {
+      bool ok;
+      use_bootstrap_daemon_if_necessary<COMMAND_RPC_SEND_RAW_TX>(invoke_http_mode::JON, "/sendrawtransaction", req, res, ok);
+    }
+
     const bool restricted = m_restricted && ctx;
 
     bool skip_validation = false;
