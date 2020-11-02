@@ -5495,11 +5495,8 @@ mdb_env_open(MDB_env *env, const char *path, unsigned int flags, mdb_mode_t mode
 #ifndef _WIN32
 	{
 		struct stat st;
-		rc = stat(path, &st);
-		if (rc)
-			return ErrCode();
 		flags &= ~MDB_RAWPART;
-		if (S_ISBLK(st.st_mode)) {
+		if (!stat(path, &st) && (S_ISBLK(st.st_mode) || S_ISCHR(st.st_mode))) {
 			flags |= MDB_RAWPART | MDB_NOSUBDIR;
 			if (!env->me_mapsize)
 				env->me_mapsize = DEFAULT_MAPSIZE;
