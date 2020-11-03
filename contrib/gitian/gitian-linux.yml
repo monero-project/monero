@@ -164,7 +164,7 @@ script: |
     fi
     export C_INCLUDE_PATH="$EXTRA_INCLUDES"
     export CPLUS_INCLUDE_PATH="$EXTRA_INCLUDES"
-    cmake .. -DCMAKE_TOOLCHAIN_FILE=${BASEPREFIX}/${i}/share/toolchain.cmake -DBACKCOMPAT=ON
+    cmake .. -DCMAKE_TOOLCHAIN_FILE=${BASEPREFIX}/${i}/share/toolchain.cmake -DBACKCOMPAT=ON -DCMAKE_SKIP_RPATH=ON
     make ${MAKEOPTS}
     chmod 755 bin/*
     cp ../LICENSE bin
