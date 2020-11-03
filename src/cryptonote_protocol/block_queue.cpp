@@ -201,7 +201,7 @@ std::string block_queue::get_overview(uint64_t blockchain_height) const
     else
     {
       if (expected < i->start_block_height)
-        s += std::string(std::max((uint64_t)1, (i->start_block_height - expected) / (i->nblocks ? i->nblocks : 1)), '_');
+        s += std::string(std::min(std::max((uint64_t)1, (i->start_block_height - expected) / (i->nblocks ? i->nblocks : 1)), (uint64_t)1024), '_');
       s += i->blocks.empty() ? "." : i->start_block_height == blockchain_height ? "m" : "o";
       expected = i->start_block_height + i->nblocks;
     }
