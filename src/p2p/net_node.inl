@@ -1436,13 +1436,28 @@ namespace nodetool
         });
       }
 
+      auto get_host_string = [](const epee::net_utils::network_address &address) {
+#if BOOST_VERSION > 106600
+        if (address.get_type_id() == epee::net_utils::ipv6_network_address::get_type_id())
+        {
+          boost::asio::ip::address_v6 actual_ip = address.as<const epee::net_utils::ipv6_network_address>().ip();
+          if (actual_ip.is_v4_mapped())
+          {
+            boost::asio::ip::address_v4 v4ip = make_address_v4(boost::asio::ip::v4_mapped, actual_ip);
+            return epee::net_utils::ipv4_network_address(v4ip.to_uint(), 0).host_str();
+          }
+        }
+#endif
+        return address.host_str();
+      };
+      std::unordered_set<std::string> hosts_added;
       std::deque<size_t> filtered;
       const size_t limit = use_white_list ? 20 : std::numeric_limits<size_t>::max();
       for (int step = 0; step < 2; ++step)
       {
         bool skip_duplicate_class_B = step == 0;
         size_t idx = 0, skipped = 0;
-        zone.m_peerlist.foreach (use_white_list, [&classB, &filtered, &idx, &skipped, skip_duplicate_class_B, limit, next_needed_pruning_stripe](const peerlist_entry &pe){
+        zone.m_peerlist.foreach (use_white_list, [&classB, &filtered, &idx, &skipped, skip_duplicate_class_B, limit, next_needed_pruning_stripe, &hosts_added, &get_host_string](const peerlist_entry &pe){
           if (filtered.size() >= limit)
             return false;
           bool skip = false;
@@ -1452,6 +1467,15 @@ namespace nodetool
             uint32_t actual_ip = na.as<const epee::net_utils::ipv4_network_address>().ip();
             skip = classB.find(actual_ip & 0x0000ffff) != classB.end();
           }
+
+          // consider each host once, to avoid giving undue inflence to hosts running several nodes
+          if (!skip)
+          {
+            const auto i = hosts_added.find(get_host_string(pe.adr));
+            if (i != hosts_added.end())
+              skip = true;
+          }
+
           if (skip)
             ++skipped;
           else if (next_needed_pruning_stripe == 0 || pe.pruning_seed == 0)
@@ -1459,6 +1483,7 @@ namespace nodetool
           else if (next_needed_pruning_stripe == tools::get_pruning_stripe(pe.pruning_seed))
             filtered.push_front(idx);
           ++idx;
+          hosts_added.insert(get_host_string(pe.adr));
           return true;
         });
         if (skipped == 0 || !filtered.empty())
