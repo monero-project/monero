@@ -511,12 +511,7 @@ namespace levin
         if (!zone_ || !core_ || txs_.empty())
           return;
 
-        if (zone_->fluffing)
-        {
-          core_->on_transactions_relayed(epee::to_span(txs_), relay_method::fluff);
-          fluff_notify::run(std::move(zone_), epee::to_span(txs_), source_);
-        }
-        else // forward tx in stem
+        if (!zone_->fluffing)
         {
           core_->on_transactions_relayed(epee::to_span(txs_), relay_method::stem);
           for (int tries = 2; 0 < tries; tries--)
@@ -536,6 +531,9 @@ namespace levin
 
           MERROR("Unable to send transaction(s) via Dandelion++ stem");
         }
+
+        core_->on_transactions_relayed(epee::to_span(txs_), relay_method::fluff);
+        fluff_notify::run(std::move(zone_), epee::to_span(txs_), source_);
       }
     };
 

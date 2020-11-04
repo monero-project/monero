@@ -613,6 +613,61 @@ TEST_F(levin_notify, stem_without_padding)
     }
 }
 
+TEST_F(levin_notify, stem_no_outs_without_padding)
+{
+    cryptonote::levin::notify notifier = make_notifier(0, true, false);
+
+    for (unsigned count = 0; count < 10; ++count)
+        add_connection(true);
+
+    {
+        const auto status = notifier.get_status();
+        EXPECT_FALSE(status.has_noise);
+        EXPECT_FALSE(status.connections_filled);
+    }
+    notifier.new_out_connection();
+    io_service_.poll();
+
+    std::vector<cryptonote::blobdata> txs(2);
+    txs[0].resize(100, 'f');
+    txs[1].resize(200, 'e');
+
+    std::vector<cryptonote::blobdata> sorted_txs = txs;
+    std::sort(sorted_txs.begin(), sorted_txs.end());
+
+    ASSERT_EQ(10u, contexts_.size());
+
+    auto context = contexts_.begin();
+    EXPECT_TRUE(notifier.send_txs(txs, context->get_id(), cryptonote::relay_method::stem));
+
+    io_service_.reset();
+    ASSERT_LT(0u, io_service_.poll());
+    EXPECT_EQ(txs, events_.take_relayed(cryptonote::relay_method::fluff));
+    if (events_.has_stem_txes())
+        EXPECT_EQ(txs, events_.take_relayed(cryptonote::relay_method::stem));
+
+
+    notifier.run_fluff();
+    ASSERT_LT(0u, io_service_.poll());
+
+    std::size_t send_count = 0;
+    EXPECT_EQ(0u, context->process_send_queue());
+    for (++context; context != contexts_.end(); ++context)
+    {
+        send_count += context->process_send_queue();
+    }
+
+    EXPECT_EQ(9u, send_count);
+    ASSERT_EQ(9u, receiver_.notified_size());
+    for (unsigned count = 0; count < 9u; ++count)
+    {
+        auto notification = receiver_.get_notification<cryptonote::NOTIFY_NEW_TRANSACTIONS>().second;
+        EXPECT_EQ(sorted_txs, notification.txs);
+        EXPECT_TRUE(notification._.empty());
+        EXPECT_TRUE(notification.dandelionpp_fluff);
+    }
+}
+
 TEST_F(levin_notify, local_without_padding)
 {
     cryptonote::levin::notify notifier = make_notifier(0, true, false);
@@ -925,6 +980,60 @@ TEST_F(levin_notify, stem_with_padding)
         has_stemmed |= is_stem;
         has_fluffed |= !is_stem;
         notifier.run_epoch();
+    }
+}
+
+TEST_F(levin_notify, stem_no_outs_with_padding)
+{
+    cryptonote::levin::notify notifier = make_notifier(0, true, true);
+
+    for (unsigned count = 0; count < 10; ++count)
+        add_connection(true);
+
+    {
+        const auto status = notifier.get_status();
+        EXPECT_FALSE(status.has_noise);
+        EXPECT_FALSE(status.connections_filled);
+    }
+    notifier.new_out_connection();
+    io_service_.poll();
+
+    std::vector<cryptonote::blobdata> txs(2);
+    txs[0].resize(100, 'f');
+    txs[1].resize(200, 'e');
+
+    std::vector<cryptonote::blobdata> sorted_txs = txs;
+    std::sort(sorted_txs.begin(), sorted_txs.end());
+
+    ASSERT_EQ(10u, contexts_.size());
+
+    auto context = contexts_.begin();
+    EXPECT_TRUE(notifier.send_txs(txs, context->get_id(), cryptonote::relay_method::stem));
+
+    io_service_.reset();
+    ASSERT_LT(0u, io_service_.poll());
+    EXPECT_EQ(txs, events_.take_relayed(cryptonote::relay_method::fluff));
+    if (events_.has_stem_txes())
+        EXPECT_EQ(txs, events_.take_relayed(cryptonote::relay_method::stem));
+
+    notifier.run_fluff();
+    ASSERT_LT(0u, io_service_.poll());
+
+    std::size_t send_count = 0;
+    EXPECT_EQ(0u, context->process_send_queue());
+    for (++context; context != contexts_.end(); ++context)
+    {
+        send_count += context->process_send_queue();
+    }
+
+    EXPECT_EQ(9u, send_count);
+    ASSERT_EQ(9u, receiver_.notified_size());
+    for (unsigned count = 0; count < 9u; ++count)
+    {
+        auto notification = receiver_.get_notification<cryptonote::NOTIFY_NEW_TRANSACTIONS>().second;
+        EXPECT_EQ(sorted_txs, notification.txs);
+        EXPECT_FALSE(notification._.empty());
+        EXPECT_TRUE(notification.dandelionpp_fluff);
     }
 }
 
