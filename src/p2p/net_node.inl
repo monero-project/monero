@@ -781,9 +781,21 @@ namespace nodetool
     case epee::net_utils::zone::public_:
       return get_dns_seed_nodes();
     case epee::net_utils::zone::tor:
-      return {};
+      if (m_nettype == cryptonote::MAINNET)
+      {
+        return {
+          "xwvz3ekocr3dkyxfkmgm2hvbpzx2ysqmaxgter7znnqrhoicygkfswid.onion:18083",
+          "4pixvbejrvihnkxmduo2agsnmc3rrulrqc7s3cbwwrep6h6hrzsibeqd.onion:18083"
+        };
+      }
     case epee::net_utils::zone::i2p:
-      return {};
+      if (m_nettype == cryptonote::MAINNET)
+      {
+        return {
+          "s3l6ke4ed3df466khuebb4poienoingwof7oxtbo6j4n56sghe3a.b32.i2p:18080",
+          "sel36x6fibfzujwvt4hf5gxolz6kd3jpvbjqg6o3ud2xtionyl2q.b32.i2p:18080"
+        };
+     }
     default:
       break;
     }
