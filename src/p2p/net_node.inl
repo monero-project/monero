@@ -671,6 +671,10 @@ namespace nodetool
       full_addrs.insert("209.250.243.248:18080");
       full_addrs.insert("104.238.221.81:18080");
       full_addrs.insert("66.85.74.134:18080");
+      full_addrs.insert("xwvz3ekocr3dkyxfkmgm2hvbpzx2ysqmaxgter7znnqrhoicygkfswid.onion:18083");
+      full_addrs.insert("4pixvbejrvihnkxmduo2agsnmc3rrulrqc7s3cbwwrep6h6hrzsibeqd.onion:18083");
+      full_addrs.insert("s3l6ke4ed3df466khuebb4poienoingwof7oxtbo6j4n56sghe3a.b32.i2p:18080");
+      full_addrs.insert("sel36x6fibfzujwvt4hf5gxolz6kd3jpvbjqg6o3ud2xtionyl2q.b32.i2p:18080");
     }
     return full_addrs;
   }
