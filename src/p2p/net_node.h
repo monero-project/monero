@@ -164,6 +164,7 @@ namespace nodetool
       network_zone()
         : m_connect(nullptr),
           m_net_server(epee::net_utils::e_connection_type_P2P),
+          m_seed_nodes(),
           m_bind_ip(),
           m_bind_ipv6_address(),
           m_port(),
@@ -175,7 +176,9 @@ namespace nodetool
           m_proxy_address(),
           m_current_number_of_out_peers(0),
           m_current_number_of_in_peers(0),
-          m_can_pingback(false)
+          m_seed_nodes_lock(),
+          m_can_pingback(false),
+          m_seed_nodes_initialized(false)
       {
         set_config_defaults();
       }
@@ -183,6 +186,7 @@ namespace nodetool
       network_zone(boost::asio::io_service& public_service)
         : m_connect(nullptr),
           m_net_server(public_service, epee::net_utils::e_connection_type_P2P),
+          m_seed_nodes(),
           m_bind_ip(),
           m_bind_ipv6_address(),
           m_port(),
@@ -194,13 +198,16 @@ namespace nodetool
           m_proxy_address(),
           m_current_number_of_out_peers(0),
           m_current_number_of_in_peers(0),
-          m_can_pingback(false)
+          m_seed_nodes_lock(),
+          m_can_pingback(false),
+          m_seed_nodes_initialized(false)
       {
         set_config_defaults();
       }
 
       connect_func* m_connect;
       net_server m_net_server;
+      std::vector<epee::net_utils::network_address> m_seed_nodes;
       std::string m_bind_ip;
       std::string m_bind_ipv6_address;
       std::string m_port;
@@ -212,7 +219,9 @@ namespace nodetool
       boost::asio::ip::tcp::endpoint m_proxy_address;
       std::atomic<unsigned int> m_current_number_of_out_peers;
       std::atomic<unsigned int> m_current_number_of_in_peers;
+      boost::shared_mutex m_seed_nodes_lock;
       bool m_can_pingback;
+      bool m_seed_nodes_initialized;
 
     private:
       void set_config_defaults() noexcept
@@ -383,9 +392,10 @@ namespace nodetool
     void record_addr_failed(const epee::net_utils::network_address& addr);
     bool is_addr_recently_failed(const epee::net_utils::network_address& addr);
     bool is_priority_node(const epee::net_utils::network_address& na);
-    std::set<std::string> get_seed_nodes(cryptonote::network_type nettype) const;
-    std::set<std::string> get_seed_nodes();
-    bool connect_to_seed();
+    std::set<std::string> get_ip_seed_nodes() const;
+    std::set<std::string> get_dns_seed_nodes();
+    std::set<std::string> get_seed_nodes(epee::net_utils::zone);
+    bool connect_to_seed(epee::net_utils::zone);
 
     template <class Container>
     bool connect_to_peerlist(const Container& peers);
@@ -467,9 +477,6 @@ namespace nodetool
 
     std::list<epee::net_utils::network_address>   m_priority_peers;
     std::vector<epee::net_utils::network_address> m_exclusive_peers;
-    std::vector<epee::net_utils::network_address> m_seed_nodes;
-    bool m_seed_nodes_initialized = false;
-    boost::shared_mutex m_seed_nodes_lock;
     std::atomic_flag m_fallback_seed_nodes_added;
     std::vector<nodetool::peerlist_entry> m_command_line_peers;
     uint64_t m_peer_livetime;
