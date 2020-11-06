@@ -6049,6 +6049,14 @@ std::map<uint32_t, uint64_t> wallet2::balance_per_subaddress(uint32_t index_majo
         found->second += utx.second.m_change;
     }
    }
+
+   for (const auto& utx: m_unconfirmed_payments)
+   {
+    if (utx.second.m_pd.m_subaddr_index.major == index_major)
+    {
+      amount_per_subaddr[utx.second.m_pd.m_subaddr_index.minor] += utx.second.m_pd.m_amount;
+    }
+   }
   }
   return amount_per_subaddr;
 }
