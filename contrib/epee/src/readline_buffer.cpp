@@ -51,6 +51,7 @@ rdln::readline_buffer::readline_buffer()
 
 void rdln::readline_buffer::start()
 {
+  boost::lock_guard<boost::mutex> lock(sync_mutex);
   if(m_cout_buf != NULL)
     return;
   m_cout_buf = std::cout.rdbuf();
@@ -60,6 +61,7 @@ void rdln::readline_buffer::start()
 
 void rdln::readline_buffer::stop()
 {
+  boost::lock_guard<boost::mutex> lock(sync_mutex);
   if(m_cout_buf == NULL)
     return;
   std::cout.rdbuf(m_cout_buf);
@@ -88,9 +90,9 @@ rdln::linestatus rdln::readline_buffer::get_line(std::string& line) const
 
 void rdln::readline_buffer::set_prompt(const std::string& prompt)
 {
+  boost::lock_guard<boost::mutex> lock(sync_mutex);
   if(m_cout_buf == NULL)
     return;
-  boost::lock_guard<boost::mutex> lock(sync_mutex);
   rl_set_prompt(std::string(m_prompt_length, ' ').c_str());
   rl_redisplay();
   rl_set_prompt(prompt.c_str());
@@ -113,6 +115,12 @@ const std::vector<std::string>& rdln::readline_buffer::get_completions()
 int rdln::readline_buffer::sync()
 {
   boost::lock_guard<boost::mutex> lock(sync_mutex);
+
+  if (m_cout_buf == nullptr)
+  {
+    return -1;
+  }
+
 #if RL_READLINE_VERSION < 0x0700
   char lbuf[2] = {0,0};
   char *line = NULL;
