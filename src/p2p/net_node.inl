@@ -1299,7 +1299,10 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::try_to_connect_and_handshake_with_new_peer(const epee::net_utils::network_address& na, bool just_take_peerlist, uint64_t last_seen_stamp, PeerType peer_type, uint64_t first_seen_stamp)
   {
-    network_zone& zone = m_network_zones.at(na.get_zone());
+    const auto i = m_network_zones.find(na.get_zone());
+    if (i == m_network_zones.end())
+      return false;
+    network_zone& zone = i->second;
     if (zone.m_connect == nullptr) // outgoing connections in zone not possible
       return false;
 
