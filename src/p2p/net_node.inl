@@ -671,11 +671,6 @@ namespace nodetool
       full_addrs.insert("209.250.243.248:18080");
       full_addrs.insert("104.238.221.81:18080");
       full_addrs.insert("66.85.74.134:18080");
-      full_addrs.insert("xwvz3ekocr3dkyxfkmgm2hvbpzx2ysqmaxgter7znnqrhoicygkfswid.onion:18083");
-      full_addrs.insert("4pixvbejrvihnkxmduo2agsnmc3rrulrqc7s3cbwwrep6h6hrzsibeqd.onion:18083");
-      full_addrs.insert("s3l6ke4ed3df466khuebb4poienoingwof7oxtbo6j4n56sghe3a.b32.i2p:18080");
-      full_addrs.insert("sel36x6fibfzujwvt4hf5gxolz6kd3jpvbjqg6o3ud2xtionyl2q.b32.i2p:18080");
-      full_addrs.insert("zbjkbsxc5munw3qusl7j2hpcmikhqocdf4pqhnhtpzw5nt5jrmofptid.onion:18083");
     }
     return full_addrs;
   }
@@ -797,8 +792,23 @@ namespace nodetool
     case epee::net_utils::zone::public_:
       return get_dns_seed_nodes();
     case epee::net_utils::zone::tor:
+      if (m_nettype == cryptonote::MAINNET)
+      {
+        return {
+          "xwvz3ekocr3dkyxfkmgm2hvbpzx2ysqmaxgter7znnqrhoicygkfswid.onion:18083",
+          "4pixvbejrvihnkxmduo2agsnmc3rrulrqc7s3cbwwrep6h6hrzsibeqd.onion:18083",
+          "zbjkbsxc5munw3qusl7j2hpcmikhqocdf4pqhnhtpzw5nt5jrmofptid.onion:18083"
+        };
+      }
       return {};
     case epee::net_utils::zone::i2p:
+      if (m_nettype == cryptonote::MAINNET)
+      {
+        return {
+          "s3l6ke4ed3df466khuebb4poienoingwof7oxtbo6j4n56sghe3a.b32.i2p:18080",
+          "sel36x6fibfzujwvt4hf5gxolz6kd3jpvbjqg6o3ud2xtionyl2q.b32.i2p:18080"
+        };
+      }
       return {};
     default:
       break;
@@ -1302,7 +1312,10 @@ namespace nodetool
   {
     const auto i = m_network_zones.find(na.get_zone());
     if (i == m_network_zones.end())
+    {
+      MERROR("Tried connecting to address for disabled network");
       return false;
+    }
     network_zone& zone = i->second;
     if (zone.m_connect == nullptr) // outgoing connections in zone not possible
       return false;
