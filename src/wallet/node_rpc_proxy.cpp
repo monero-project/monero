@@ -32,6 +32,8 @@
 #include "rpc/rpc_payment_costs.h"
 #include "storages/http_abstract_invoke.h"
 
+#include <boost/thread.hpp>
+
 #define RETURN_ON_RPC_RESPONSE_ERROR(r, error, res, method) \
   do { \
     CHECK_AND_ASSERT_MES(error.code == 0, error.message, error.message); \
