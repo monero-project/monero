@@ -28,6 +28,7 @@
 
 #include <boost/range/adaptor/transformed.hpp>
 #include <boost/algorithm/string.hpp>
+#include <boost/filesystem/path.hpp>
 #include "common/command_line.h"
 #include "common/varint.h"
 #include "cryptonote_core/tx_pool.h"
