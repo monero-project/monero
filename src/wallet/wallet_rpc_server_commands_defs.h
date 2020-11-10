@@ -101,8 +101,8 @@ namespace wallet_rpc
 
     struct response_t
     {
-      uint64_t 	 balance;
-      uint64_t 	 unlocked_balance;
+      uint64_t   balance;
+      uint64_t   unlocked_balance;
       bool       multisig_import_needed;
       std::vector<per_subaddress_info> per_subaddress;
       uint64_t   blocks_to_unlock;
