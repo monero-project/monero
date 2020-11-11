@@ -221,7 +221,7 @@ namespace
   void add_subscriptions(std::array<std::size_t, N>& subs, const epee::span<const context<T>> range, context<T> const* const first)
   {
     assert(range.size() <= N);
-    assert(range.begin() - first <= N - range.size());
+    assert((unsigned long)(range.begin() - first) <= N - range.size());
 
     for (const auto& ctx : range)
     {
@@ -234,7 +234,7 @@ namespace
   void remove_subscriptions(std::array<std::size_t, N>& subs, const epee::span<const context<T>> range, context<T> const* const first)
   {
     assert(range.size() <= N);
-    assert(range.begin() - first <= N - range.size());
+    assert((unsigned long)(range.begin() - first) <= N - range.size());
 
     for (const auto& ctx : range)
     {
