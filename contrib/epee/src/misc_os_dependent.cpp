@@ -24,38 +24,21 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // 
 
-
-#ifndef _TINY_INI_H_
-#define _TINY_INI_H_
-
-#include "string_tools.h"
+#include "misc_os_dependent.h"
+#include <boost/lexical_cast.hpp>
 
 namespace epee
 {
-namespace tiny_ini
+namespace misc_utils
 {
-
-	bool get_param_value(const std::string& param_name, const std::string& ini_entry, std::string& res);
-	inline std::string get_param_value(const std::string& param_name, const std::string& ini_entry)
+    // TODO: (vtnerd) This function is weird since boost::this_thread::get_id() exists but returns a different value.    
+	std::string get_thread_string_id()
 	{
-		std::string buff;
-		get_param_value(param_name, ini_entry, buff);
-		return buff;
+#if defined(_WIN32)
+		return boost::lexical_cast<std::string>(GetCurrentThreadId());
+#elif defined(__GNUC__)  
+		return boost::lexical_cast<std::string>(pthread_self());
+#endif
 	}
-
-	template<class T>
-		bool get_param_value_as_t(const std::string& param_name, const std::string& ini_entry, T& res)
-	{
-		std::string str_res = get_param_value(param_name, ini_entry);
-	
-		string_tools::trim(str_res);
-		if(!str_res.size())
-			return false;
-		
-		return string_tools::get_xtype_from_string(res, str_res);
-	}
-
 }
 }
-
-#endif //_TINY_INI_H_

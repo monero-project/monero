@@ -28,6 +28,8 @@
 //
 
 #include "device_trezor.hpp"
+#include <boost/filesystem.hpp>
+#include <boost/algorithm/string/predicate.hpp>
 
 namespace hw {
 namespace trezor {

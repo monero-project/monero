@@ -30,7 +30,6 @@
 #include <ctype.h>
 #include <boost/shared_ptr.hpp>
 #include <boost/regex.hpp>
-#include <boost/lexical_cast.hpp>
 #include <boost/optional/optional.hpp>
 #include <boost/utility/string_ref.hpp>
 //#include <mbstring.h>
@@ -46,6 +45,7 @@
 #endif 
 
 #include "string_tools.h"
+#include "string_tools_lexical.h"
 #include "reg_exp_definer.h"
 #include "abstract_http_client.h"
 #include "http_base.h" 

@@ -42,7 +42,7 @@
 #include <boost/make_shared.hpp>
 #include <boost/thread.hpp>
 #include "warnings.h"
-#include "string_tools.h"
+#include "string_tools_lexical.h"
 #include "misc_language.h"
 #include "net/local_ip.h"
 #include "pragma_comp_defs.h"
