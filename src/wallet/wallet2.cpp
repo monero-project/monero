@@ -13377,6 +13377,20 @@ size_t wallet2::import_multisig(std::vector<cryptonote::blobdata> blobs)
       loaded = true;
     }
     CHECK_AND_ASSERT_THROW_MES(loaded, "Failed to load output data");
+
+    for (const auto &e: i)
+    {
+      for (const auto &lr: e.m_LR)
+      {
+        CHECK_AND_ASSERT_THROW_MES(rct::isInMainSubgroup(lr.m_L), "Multisig value is not in the main subgroup");
+        CHECK_AND_ASSERT_THROW_MES(rct::isInMainSubgroup(lr.m_R), "Multisig value is not in the main subgroup");
+      }
+      for (const auto &ki: e.m_partial_key_images)
+      {
+        CHECK_AND_ASSERT_THROW_MES(rct::isInMainSubgroup(rct::ki2rct(ki)), "Multisig partial key image is not in the main subgroup");
+      }
+    }
+
     MINFO(boost::format("%u outputs found") % boost::lexical_cast<std::string>(i.size()));
     info.push_back(std::move(i));
   }
