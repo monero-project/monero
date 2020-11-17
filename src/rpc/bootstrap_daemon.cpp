@@ -45,12 +45,12 @@ namespace cryptonote
     return host + ":" + m_http_client.get_port();
   }
 
-  boost::optional<uint64_t> bootstrap_daemon::get_height()
+  boost::optional<std::pair<uint64_t, uint64_t>> bootstrap_daemon::get_height()
   {
-    cryptonote::COMMAND_RPC_GET_HEIGHT::request req;
-    cryptonote::COMMAND_RPC_GET_HEIGHT::response res;
+    cryptonote::COMMAND_RPC_GET_INFO::request req;
+    cryptonote::COMMAND_RPC_GET_INFO::response res;
 
-    if (!invoke_http_json("/getheight", req, res))
+    if (!invoke_http_json("/getinfo", req, res))
     {
       return boost::none;
     }
@@ -60,7 +60,7 @@ namespace cryptonote
       return boost::none;
     }
 
-    return res.height;
+    return {{res.height, res.target_height}};
   }
 
   bool bootstrap_daemon::handle_result(bool success, const std::string &status)
