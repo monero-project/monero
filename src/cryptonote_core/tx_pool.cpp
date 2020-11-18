@@ -75,11 +75,11 @@ namespace cryptonote
         not ideal since a blackhole is more likely to reveal earlier nodes in
         the chain.
 
-        This value was calculated with k=10, ep=0.10, and hop = 175 ms. A
+        This value was calculated with k=5, ep=0.10, and hop = 175 ms. A
         testrun from a recent Intel laptop took ~80ms to
         receive+parse+proces+send transaction. At least 50ms will be added to
         the latency if crossing an ocean. So 175ms is the fudge factor for
-        a single hop with 173s being the embargo timer. */
+        a single hop with 39s being the embargo timer. */
     constexpr const std::chrono::seconds dandelionpp_embargo_average{CRYPTONOTE_DANDELIONPP_EMBARGO_AVERAGE};
 
     //TODO: constants such as these should at least be in the header,
