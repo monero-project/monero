@@ -329,7 +329,7 @@ namespace cryptonote
       *
       * @note see Blockchain::get_current_blockchain_height()
       */
-     uint64_t get_current_blockchain_height() const;
+     virtual uint64_t get_current_blockchain_height() const final;
 
      /**
       * @brief get the hash and height of the most recent block
@@ -638,6 +638,13 @@ namespace cryptonote
      std::string print_pool(bool short_format) const;
 
      /**
+      * @brief gets the core synchronization status
+      *
+      * @return core synchronization status
+      */
+     virtual bool is_synchronized() const final;
+
+     /**
       * @copydoc miner::on_synchronized
       *
       * @note see miner::on_synchronized
@@ -663,7 +670,7 @@ namespace cryptonote
       *
       * @param target_blockchain_height the target height
       */
-     virtual uint64_t get_target_blockchain_height() const override;
+     uint64_t get_target_blockchain_height() const;
 
      /**
       * @brief returns the newest hardfork version known to the blockchain
