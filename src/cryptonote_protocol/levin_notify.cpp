@@ -105,8 +105,44 @@ namespace levin
       return std::chrono::steady_clock::duration{crypto::rand_range(rep(0), range.count())};
     }
 
-    //! \return Outgoing connections supporting fragments in `connections` filtered by remote blockchain height.
-    std::vector<boost::uuids::uuid> get_out_connections(connections& p2p, uint64_t min_blockchain_height)
+    uint64_t get_median_remote_height(connections& p2p)
+    {
+        std::vector<uint64_t> remote_heights;
+        remote_heights.reserve(connection_id_reserve_size);
+        p2p.foreach_connection([&remote_heights] (detail::p2p_context& context) {
+          if (!context.m_is_income)
+          {
+            remote_heights.emplace_back(context.m_remote_blockchain_height);
+          }
+          return true;
+        });
+
+        if (remote_heights.empty())
+        {
+          return 0;
+        }
+
+        const size_t n = remote_heights.size() / 2;
+        std::sort(remote_heights.begin(), remote_heights.end());
+        if (remote_heights.size() % 2 != 0)
+        {
+          return remote_heights[n];
+        }
+        return remote_heights[n-1];
+    }
+
+    uint64_t get_blockchain_height(connections& p2p, const i_core_events* core)
+    {
+      const uint64_t local_blockchain_height = core->get_current_blockchain_height();
+      if (core->is_synchronized())
+      {
+        return local_blockchain_height;
+      }
+      return std::max(local_blockchain_height, get_median_remote_height(p2p));
+    }
+
+    //! \return Outgoing connections supporting fragments in `connections` filtered by blockchain height.
+    std::vector<boost::uuids::uuid> get_out_connections(connections& p2p, uint64_t blockchain_height)
     {
       std::vector<boost::uuids::uuid> outs;
       outs.reserve(connection_id_reserve_size);
@@ -115,13 +151,19 @@ namespace levin
          the reserve call so a strand is not used. Investigate if there is lots
          of waiting in here. */
 
-      p2p.foreach_connection([&outs, min_blockchain_height] (detail::p2p_context& context) {
-        if (!context.m_is_income && context.m_remote_blockchain_height >= min_blockchain_height)
+      p2p.foreach_connection([&outs, blockchain_height] (detail::p2p_context& context) {
+        if (!context.m_is_income && context.m_remote_blockchain_height >= blockchain_height)
           outs.emplace_back(context.m_connection_id);
         return true;
       });
 
+      MDEBUG("Found " << outs.size() << " out connections having height >= " << blockchain_height);
       return outs;
+    }
+
+    std::vector<boost::uuids::uuid> get_out_connections(connections& p2p, const i_core_events* core)
+    {
+      return get_out_connections(p2p, get_blockchain_height(p2p, core));
     }
 
     std::string make_tx_payload(std::vector<blobdata>&& txs, const bool pad, const bool fluff)
@@ -527,7 +569,7 @@ namespace levin
             }
 
             // connection list may be outdated, try again
-            update_channels::run(zone_, get_out_connections(*zone_->p2p, core_->get_target_blockchain_height()));
+            update_channels::run(zone_, get_out_connections(*zone_->p2p, core_));
           }
 
           MERROR("Unable to send transaction(s) via Dandelion++ stem");
@@ -631,7 +673,7 @@ namespace levin
           {
             channel.active = nullptr;
             channel.connection = boost::uuids::nil_uuid();
-            auto height = core_->get_target_blockchain_height();
+            auto height = get_blockchain_height(*zone_->p2p, core_);
 
             auto connections = get_out_connections(*zone_->p2p, height);
             if (connections.empty())
@@ -667,7 +709,7 @@ namespace levin
 
         const bool fluffing = crypto::rand_idx(unsigned(100)) < CRYPTONOTE_DANDELIONPP_FLUFF_PROBABILITY;
         const auto start = std::chrono::steady_clock::now();
-        auto connections = get_out_connections(*(zone_->p2p), core_->get_target_blockchain_height());
+        auto connections = get_out_connections(*(zone_->p2p), core_);
         zone_->strand.dispatch(
           change_channels{zone_, net::dandelionpp::connection_map{std::move(connections), count_}, fluffing}
         );
@@ -718,7 +760,7 @@ namespace levin
       return;
 
     zone_->strand.dispatch(
-      update_channels{zone_, get_out_connections(*(zone_->p2p), core_->get_target_blockchain_height())}
+      update_channels{zone_, get_out_connections(*(zone_->p2p), core_)}
     );
   }
 

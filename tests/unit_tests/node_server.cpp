@@ -47,9 +47,10 @@ namespace cryptonote {
 class test_core : public cryptonote::i_core_events
 {
 public:
+  virtual bool is_synchronized() const final { return true; }
   void on_synchronized(){}
   void safesyncmode(const bool){}
-  uint64_t get_current_blockchain_height() const {return 1;}
+  virtual uint64_t get_current_blockchain_height() const final {return 1;}
   void set_target_blockchain_height(uint64_t) {}
   bool init(const boost::program_options::variables_map& vm) {return true ;}
   bool deinit(){return true;}
