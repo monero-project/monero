@@ -1091,6 +1091,13 @@ namespace cryptonote
 
     //epee::net_utils::network_throttle_manager::get_global_throttle_inreq().logger_handle_net("log/dr-monero/net/req-all.data", sec, get_avg_block_size());
 
+    if(arg.blocks.empty())
+    {
+      LOG_ERROR_CCONTEXT("sent wrong NOTIFY_HAVE_OBJECTS: no blocks");
+      drop_connection(context, true, false);
+      ++m_sync_bad_spans_downloaded;
+      return 1;
+    }
     if(context.m_last_response_height > arg.current_blockchain_height)
     {
       LOG_ERROR_CCONTEXT("sent wrong NOTIFY_HAVE_OBJECTS: arg.m_current_blockchain_height=" << arg.current_blockchain_height
