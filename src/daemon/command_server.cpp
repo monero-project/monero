@@ -223,7 +223,8 @@ t_command_server::t_command_server(
     m_command_lookup.set_handler(
       "hard_fork_info"
     , std::bind(&t_command_parser_executor::hard_fork_info, &m_parser, p::_1)
-    , "Print the hard fork voting information."
+    , "hard_fork_info <version>"
+    , "Print the hard fork voting information. If given a version, prints whether is this version enabled."
     );
     m_command_lookup.set_handler(
       "bans"
@@ -314,6 +315,7 @@ t_command_server::t_command_server(
     m_command_lookup.set_handler(
       "prune_blockchain"
     , std::bind(&t_command_parser_executor::prune_blockchain, &m_parser, p::_1)
+    , "prune_blockchain [confirm]"
     , "Prune the blockchain."
     );
     m_command_lookup.set_handler(
