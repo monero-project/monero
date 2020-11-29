@@ -1137,7 +1137,7 @@ namespace cryptonote
     if (!restricted)
     {
       boost::shared_lock<boost::shared_mutex> lock(m_bootstrap_daemon_mutex);
-      if (m_bootstrap_daemon.get() != nullptr)
+      if (m_should_use_bootstrap_daemon)
       {
         skip_validation = !check_core_ready();
       }
