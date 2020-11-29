@@ -66,7 +66,7 @@ set(rpc_pub_headers zmq_pub.h)
 
 set(daemon_rpc_server_headers)
 
-set(rpc_daemon_private_headers
+set(rpc_private_headers
   bootstrap_daemon.h
   core_rpc_server.h
   rpc_payment.h
