@@ -120,7 +120,12 @@ namespace
     {
         std::map<cryptonote::relay_method, std::vector<cryptonote::blobdata>> relayed_;
 
-        uint64_t get_target_blockchain_height() const override
+        virtual bool is_synchronized() const final
+        {
+            return false;
+        }
+
+        virtual uint64_t get_current_blockchain_height() const final
         {
             return 0;
         }
