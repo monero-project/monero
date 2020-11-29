@@ -111,7 +111,7 @@ See [LICENSE](LICENSE).
 
 ## Contributing
 
-If you want to help out, see [CONTRIBUTING](CONTRIBUTING.md) for a set of guidelines.
+If you want to help out, see [CONTRIBUTING](docs/CONTRIBUTING.md) for a set of guidelines.
 
 ## Scheduled software upgrades
 
@@ -648,11 +648,11 @@ monero-wallet-cli, and possibly monerod, if you get crashes refreshing.
 
 ## Internationalization
 
-See [README.i18n.md](README.i18n.md).
+See [README.i18n.md](docs/README.i18n.md).
 
 ## Using Tor
 
-> There is a new, still experimental, [integration with Tor](ANONYMITY_NETWORKS.md). The
+> There is a new, still experimental, [integration with Tor](docs/ANONYMITY_NETWORKS.md). The
 > feature allows connecting over IPv4 and Tor simultaneously - IPv4 is used for
 > relaying blocks and relaying transactions received by peers whereas Tor is
 > used solely for relaying transactions received over local RPC. This provides
