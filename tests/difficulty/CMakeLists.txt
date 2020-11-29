@@ -31,7 +31,7 @@ set(difficulty_sources
 
 set(difficulty_headers)
 
-add_executable(difficulty-tests
+monero_add_minimal_executable(difficulty-tests
   ${difficulty_sources}
   ${difficulty_headers})
 target_link_libraries(difficulty-tests

@@ -40,7 +40,7 @@ set(trezor_tests_headers
         ../core_tests/chaingen.h
         ../core_tests/wallet_tools.h)
 
-add_executable(trezor_tests
+monero_add_minimal_executable(trezor_tests
   ${trezor_tests_sources}
   ${trezor_tests_headers})
 

@@ -55,7 +55,7 @@ set(performance_tests_headers
   performance_utils.h
   single_tx_test_base.h)
 
-add_executable(performance_tests
+monero_add_minimal_executable(performance_tests
   ${performance_tests_sources}
   ${performance_tests_headers})
 target_link_libraries(performance_tests
