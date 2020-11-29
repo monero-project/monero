@@ -2180,7 +2180,7 @@ namespace nodetool
 
     const epee::net_utils::network_address na = context.m_remote_address;
     std::string ip;
-    uint32_t ipv4_addr;
+    uint32_t ipv4_addr = 0;
     boost::asio::ip::address_v6 ipv6_addr;
     bool is_ipv4;
     if (na.get_type_id() == epee::net_utils::ipv4_network_address::get_type_id())
