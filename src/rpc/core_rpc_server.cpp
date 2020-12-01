@@ -2003,34 +2003,37 @@ namespace cryptonote
     }
 
     auto current_time = std::chrono::system_clock::now();
-    if (!m_p2p.get_payload_object().no_sync() &&
-        current_time - m_bootstrap_height_check_time > std::chrono::seconds(30))  // update every 30s
+    if (current_time - m_bootstrap_height_check_time > std::chrono::seconds(30))  // update every 30s
     {
       {
         boost::upgrade_to_unique_lock<boost::shared_mutex> lock(upgrade_lock);
         m_bootstrap_height_check_time = current_time;
       }
 
-      boost::optional<uint64_t> bootstrap_daemon_height = m_bootstrap_daemon->get_height();
-      if (!bootstrap_daemon_height)
+      boost::optional<std::pair<uint64_t, uint64_t>> bootstrap_daemon_height_info = m_bootstrap_daemon->get_height();
+      if (!bootstrap_daemon_height_info)
       {
         MERROR("Failed to fetch bootstrap daemon height");
         return false;
       }
 
-      uint64_t target_height = m_core.get_target_blockchain_height();
-      if (*bootstrap_daemon_height < target_height)
+      const uint64_t bootstrap_daemon_height = bootstrap_daemon_height_info->first;
+      const uint64_t bootstrap_daemon_target_height = bootstrap_daemon_height_info->second;
+      if (bootstrap_daemon_height < bootstrap_daemon_target_height)
       {
         MINFO("Bootstrap daemon is out of sync");
         return m_bootstrap_daemon->handle_result(false, {});
       }
 
-      uint64_t top_height = m_core.get_current_blockchain_height();
-      m_should_use_bootstrap_daemon = top_height + 10 < *bootstrap_daemon_height;
-      MINFO((m_should_use_bootstrap_daemon ? "Using" : "Not using") << " the bootstrap daemon (our height: " << top_height << ", bootstrap daemon's height: " << *bootstrap_daemon_height << ")");
+      if (!m_p2p.get_payload_object().no_sync())
+      {
+        uint64_t top_height = m_core.get_current_blockchain_height();
+        m_should_use_bootstrap_daemon = top_height + 10 < bootstrap_daemon_height;
+        MINFO((m_should_use_bootstrap_daemon ? "Using" : "Not using") << " the bootstrap daemon (our height: " << top_height << ", bootstrap daemon's height: " << bootstrap_daemon_height << ")");
 
-      if (!m_should_use_bootstrap_daemon)
-        return false;
+        if (!m_should_use_bootstrap_daemon)
+          return false;
+      }
     }
 
     if (mode == invoke_http_mode::JON)
