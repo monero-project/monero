@@ -148,6 +148,7 @@ namespace cryptonote
     void notify_new_stripe(cryptonote_connection_context &context, uint32_t stripe);
     void skip_unneeded_hashes(cryptonote_connection_context& context, bool check_block_queue) const;
     bool request_txpool_complement(cryptonote_connection_context &context);
+    void hit_score(cryptonote_connection_context &context, int32_t score);
 
     t_core& m_core;
 
@@ -163,6 +164,7 @@ namespace cryptonote
     epee::math_helper::once_a_time_seconds<30> m_idle_peer_kicker;
     epee::math_helper::once_a_time_milliseconds<100> m_standby_checker;
     epee::math_helper::once_a_time_seconds<101> m_sync_search_checker;
+    epee::math_helper::once_a_time_seconds<43> m_bad_peer_checker;
     std::atomic<unsigned int> m_max_out_peers;
     tools::PerformanceTimer m_sync_timer, m_add_timer;
     uint64_t m_last_add_end_time;
@@ -182,6 +184,8 @@ namespace cryptonote
     boost::mutex m_buffer_mutex;
     double get_avg_block_size();
     boost::circular_buffer<size_t> m_avg_buffer = boost::circular_buffer<size_t>(10);
+
+    boost::mutex m_bad_peer_check_lock;
 
     template<class t_parameter>
       bool post_notify(typename t_parameter::request& arg, cryptonote_connection_context& context)
