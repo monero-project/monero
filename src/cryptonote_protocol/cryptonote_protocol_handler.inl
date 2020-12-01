@@ -68,10 +68,11 @@
 #define BLOCK_QUEUE_FORCE_DOWNLOAD_NEAR_BLOCKS 1000
 #define REQUEST_NEXT_SCHEDULED_SPAN_THRESHOLD_STANDBY (5 * 1000000) // microseconds
 #define REQUEST_NEXT_SCHEDULED_SPAN_THRESHOLD (30 * 1000000) // microseconds
-#define IDLE_PEER_KICK_TIME (600 * 1000000) // microseconds
+#define IDLE_PEER_KICK_TIME (240 * 1000000) // microseconds
 #define PASSIVE_PEER_KICK_TIME (60 * 1000000) // microseconds
 #define DROP_ON_SYNC_WEDGE_THRESHOLD (30 * 1000000000ull) // nanoseconds
 #define LAST_ACTIVITY_STALL_THRESHOLD (2.0f) // seconds
+#define DROP_PEERS_ON_SCORE -2
 
 namespace cryptonote
 {
@@ -142,6 +143,7 @@ namespace cryptonote
       m_core.get_short_chain_history(r.block_ids);
       handler_request_blocks_history( r.block_ids ); // change the limit(?), sleep(?)
       r.prune = m_sync_pruned_blocks;
+      context.m_last_request_time = boost::posix_time::microsec_clock::universal_time();
       MLOG_P2P_MESSAGE("-->>NOTIFY_REQUEST_CHAIN: m_block_ids.size()=" << r.block_ids.size() );
       post_notify<NOTIFY_REQUEST_CHAIN>(r, context);
       MLOG_PEER_STATE("requesting chain");
@@ -427,7 +429,7 @@ namespace cryptonote
     template<class t_core>
     int t_cryptonote_protocol_handler<t_core>::handle_notify_new_block(int command, NOTIFY_NEW_BLOCK::request& arg, cryptonote_connection_context& context)
   {
-    MLOGIF_P2P_MESSAGE(crypto::hash hash; cryptonote::block b; bool ret = cryptonote::parse_and_validate_block_from_blob(arg.b.block, b, &hash);, ret, "Received NOTIFY_NEW_BLOCK " << hash << " (height " << arg.current_blockchain_height << ", " << arg.b.txs.size() << " txes)");
+    MLOGIF_P2P_MESSAGE(crypto::hash hash; cryptonote::block b; bool ret = cryptonote::parse_and_validate_block_from_blob(arg.b.block, b, &hash);, ret, context << "Received NOTIFY_NEW_BLOCK " << hash << " (height " << arg.current_blockchain_height << ", " << arg.b.txs.size() << " txes)");
     if(context.m_state != cryptonote_connection_context::state_normal)
       return 1;
     if(!is_synchronized()) // can happen if a peer connection goes to normal but another thread still hasn't finished adding queued blocks
@@ -487,6 +489,7 @@ namespace cryptonote
       m_core.get_short_chain_history(r.block_ids);
       r.prune = m_sync_pruned_blocks;
       handler_request_blocks_history( r.block_ids ); // change the limit(?), sleep(?)
+      context.m_last_request_time = boost::posix_time::microsec_clock::universal_time();
       MLOG_P2P_MESSAGE("-->>NOTIFY_REQUEST_CHAIN: m_block_ids.size()=" << r.block_ids.size() );
       post_notify<NOTIFY_REQUEST_CHAIN>(r, context);
       MLOG_PEER_STATE("requesting chain");
@@ -498,7 +501,7 @@ namespace cryptonote
   template<class t_core>
   int t_cryptonote_protocol_handler<t_core>::handle_notify_new_fluffy_block(int command, NOTIFY_NEW_FLUFFY_BLOCK::request& arg, cryptonote_connection_context& context)
   {
-    MLOGIF_P2P_MESSAGE(crypto::hash hash; cryptonote::block b; bool ret = cryptonote::parse_and_validate_block_from_blob(arg.b.block, b, &hash);, ret, "Received NOTIFY_NEW_FLUFFY_BLOCK " << hash << " (height " << arg.current_blockchain_height << ", " << arg.b.txs.size() << " txes)");
+    MLOGIF_P2P_MESSAGE(crypto::hash hash; cryptonote::block b; bool ret = cryptonote::parse_and_validate_block_from_blob(arg.b.block, b, &hash);, ret, context << "Received NOTIFY_NEW_FLUFFY_BLOCK " << hash << " (height " << arg.current_blockchain_height << ", " << arg.b.txs.size() << " txes)");
     if(context.m_state != cryptonote_connection_context::state_normal)
       return 1;
     if(!is_synchronized()) // can happen if a peer connection goes to normal but another thread still hasn't finished adding queued blocks
@@ -765,6 +768,7 @@ namespace cryptonote
           m_core.get_short_chain_history(r.block_ids);
           handler_request_blocks_history( r.block_ids ); // change the limit(?), sleep(?)
           r.prune = m_sync_pruned_blocks;
+          context.m_last_request_time = boost::posix_time::microsec_clock::universal_time();
           MLOG_P2P_MESSAGE("-->>NOTIFY_REQUEST_CHAIN: m_block_ids.size()=" << r.block_ids.size() );
           post_notify<NOTIFY_REQUEST_CHAIN>(r, context);
           MLOG_PEER_STATE("requesting chain");
@@ -1029,6 +1033,7 @@ namespace cryptonote
       drop_connection(context, false, false);
       return 1;
     }
+    context.m_last_request_time = boost::posix_time::microsec_clock::universal_time();
     MLOG_P2P_MESSAGE("-->>NOTIFY_RESPONSE_GET_OBJECTS: blocks.size()="
                      << rsp.blocks.size() << ", rsp.m_current_blockchain_height=" << rsp.current_blockchain_height
                      << ", missed_ids.size()=" << rsp.missed_ids.size());
@@ -1666,6 +1671,7 @@ skip:
   bool t_cryptonote_protocol_handler<t_core>::kick_idle_peers()
   {
     MTRACE("Checking for idle peers...");
+    std::vector<boost::uuids::uuid> idle_peers;
     m_p2p->for_each_connection([&](cryptonote_connection_context& context, nodetool::peerid_type peer_id, uint32_t support_flags)->bool
     {
       if (context.m_state == cryptonote_connection_context::state_synchronizing && context.m_last_request_time != boost::date_time::not_a_date_time)
@@ -1674,16 +1680,34 @@ skip:
         const boost::posix_time::time_duration dt = now - context.m_last_request_time;
         if (dt.total_microseconds() > IDLE_PEER_KICK_TIME)
         {
-          MINFO(context << " kicking idle peer, last update " << (dt.total_microseconds() / 1.e6) << " seconds ago");
-          LOG_PRINT_CCONTEXT_L2("requesting callback");
-          context.m_last_request_time = boost::date_time::not_a_date_time;
-          context.m_state = cryptonote_connection_context::state_standby; // we'll go back to adding, then (if we can't), download
-          ++context.m_callback_request_count;
-          m_p2p->request_callback(context);
+          if (context.m_score-- >= 0)
+          {
+            MINFO(context << " kicking idle peer, last update " << (dt.total_microseconds() / 1.e6) << " seconds ago");
+            LOG_PRINT_CCONTEXT_L2("requesting callback");
+            context.m_last_request_time = boost::date_time::not_a_date_time;
+            context.m_state = cryptonote_connection_context::state_standby; // we'll go back to adding, then (if we can't), download
+            ++context.m_callback_request_count;
+            m_p2p->request_callback(context);
+          }
+          else
+          {
+            idle_peers.push_back(context.m_connection_id);
+          }
         }
       }
       return true;
     });
+
+    for (const auto &uuid: idle_peers)
+    {
+      if (!m_p2p->for_connection(uuid, [&](cryptonote_connection_context& ctx, nodetool::peerid_type peer_id, uint32_t f)->bool{
+        MINFO(ctx << "dropping idle peer with negative score");
+        drop_connection(ctx, true, false);
+        return true;
+      }))
+        MDEBUG("Failed to find peer we wanted to drop");
+    }
+
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------
@@ -2561,6 +2585,19 @@ skip:
     post_notify<NOTIFY_GET_TXPOOL_COMPLEMENT>(r, context);
     MLOG_PEER_STATE("requesting txpool complement");
     return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------
+  template<class t_core>
+  void t_cryptonote_protocol_handler<t_core>::hit_score(cryptonote_connection_context &context, int32_t score)
+  {
+    if (score <= 0)
+    {
+      MERROR("Negative score hit");
+      return;
+    }
+    context.m_score -= score;
+    if (context.m_score <= DROP_PEERS_ON_SCORE)
+      drop_connection_with_score(context, 5, false);
   }
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core>

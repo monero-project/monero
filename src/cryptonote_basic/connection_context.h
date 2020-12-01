@@ -43,7 +43,7 @@ namespace cryptonote
   {
     cryptonote_connection_context(): m_state(state_before_handshake), m_remote_blockchain_height(0), m_last_response_height(0),
         m_last_request_time(boost::date_time::not_a_date_time), m_callback_request_count(0),
-        m_last_known_hash(crypto::null_hash), m_pruning_seed(0), m_rpc_port(0), m_rpc_credits_per_hash(0),  m_anchor(false) {}
+        m_last_known_hash(crypto::null_hash), m_pruning_seed(0), m_rpc_port(0), m_rpc_credits_per_hash(0), m_anchor(false), m_score(0) {}
 
     enum state
     {
@@ -66,7 +66,7 @@ namespace cryptonote
     uint16_t m_rpc_port;
     uint32_t m_rpc_credits_per_hash;
     bool m_anchor;
-    //size_t m_score;  TODO: add score calculations
+    int32_t m_score;
   };
 
   inline std::string get_protocol_state_string(cryptonote_connection_context::state s)
