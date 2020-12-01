@@ -1000,13 +1000,13 @@ std::string get_nix_version_display_string()
     for (char c: val)
     {
       if (c == '*')
-        newval += escape ? "*" : ".*";
+        newval += escape ? "*" : ".*", escape = false;
       else if (c == '?')
-        newval += escape ? "?" : ".";
+        newval += escape ? "?" : ".", escape = false;
       else if (c == '\\')
         newval += '\\', escape = !escape;
       else
-        newval += c;
+        newval += c, escape = false;
     }
     return newval;
   }
