@@ -41,6 +41,7 @@ using namespace epee;
 #include "crypto/hash.h"
 #include "int-util.h"
 #include "common/dns_utils.h"
+#include "device/device.hpp"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "cn"
@@ -310,6 +311,13 @@ namespace cryptonote {
   bool operator ==(const cryptonote::block& a, const cryptonote::block& b) {
     return cryptonote::get_block_hash(a) == cryptonote::get_block_hash(b);
   }
+  
+  keypair keypair::generate(hw::device &hwdev)
+  {
+    keypair k;
+    hwdev.generate_keys(k.pub, k.sec);
+    return k;
+  }
 }
 
 //--------------------------------------------------------------------------------
@@ -328,3 +336,4 @@ bool parse_hash256(const std::string &str_hash, crypto::hash& hash)
     return true;
   }
 }
+

@@ -24,6 +24,7 @@ external/miniupnpc/Makefile
 miniupnpcstrings.h
 version/
 ClangBuildAnalyzerSession.txt
+src/wallet/trezor_link_flags.txt
 # Created by https://www.gitignore.io
 
 ### C++ ###

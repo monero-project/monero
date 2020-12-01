@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, The Monero Project
+// Copyright (c) 2017-2021, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -27,19 +27,26 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 
-#include "device.hpp"
-#include "device_registry.hpp"
+#pragma once
+
+#include "device/device.hpp"
+
+#include <map>
+#include <string>
+#include <memory>
 
 namespace hw {
-    device_registry *get_device_registry(const device_registry_factory_abstract & reg_factory, bool clear)
-    {
-      //static device_registry *registry = new device_registry_impl();
-      static device_registry *registry = reg_factory.Create();
-      if (clear)
-      {
-        delete registry;
-        registry = NULL;
-      }
-      return registry;
-    }
+    class device_registry {
+    private:
+
+    public:
+      virtual ~device_registry();
+      bool register_device(const std::string & device_name, device * hw_device);
+      device& get_device(const std::string & device_descriptor);
+    protected:
+        virtual void init() = 0;
+
+        std::map<std::string, std::unique_ptr<device>> registry;
+    };
 }
+

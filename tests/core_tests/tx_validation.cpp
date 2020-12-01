@@ -30,7 +30,7 @@
 
 #include "chaingen.h"
 #include "tx_validation.h"
-#include "device/device.hpp"
+#include "device/device_registry_impl.hpp"
 
 using namespace epee;
 using namespace crypto;

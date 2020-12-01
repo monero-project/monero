@@ -39,12 +39,13 @@ monero_add_minimal_executable(libwallet_api_tests
 
 target_link_libraries(libwallet_api_tests
   PUBLIC
-  device
+  device_abstr
   PRIVATE
     wallet_api
     wallet
     version
     epee
+    device
     ${Boost_CHRONO_LIBRARY}
     ${Boost_SERIALIZATION_LIBRARY}
     ${Boost_FILESYSTEM_LIBRARY}

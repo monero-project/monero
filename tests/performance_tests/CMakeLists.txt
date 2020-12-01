@@ -65,6 +65,7 @@ target_link_libraries(performance_tests
     common
     cncrypto
     epee
+    device
     ${Boost_CHRONO_LIBRARY}
     ${CMAKE_THREAD_LIBS_INIT}
     ${EXTRA_LIBRARIES})

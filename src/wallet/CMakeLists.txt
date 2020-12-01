@@ -65,7 +65,6 @@ target_link_libraries(wallet
     common
     cryptonote_core
     mnemonics
-    device_trezor
     net
     ${LMDB_LIBRARY}
     ${Boost_CHRONO_LIBRARY}
@@ -75,6 +74,8 @@ target_link_libraries(wallet
     ${Boost_THREAD_LIBRARY}
     ${Boost_REGEX_LIBRARY}
   PRIVATE
+    device_trezor
+    device
     ${EXTRA_LIBRARIES})
 
 if(NOT IOS)
@@ -97,7 +98,9 @@ if(NOT IOS)
     PRIVATE
       wallet
       rpc_base
+      device
       cryptonote_core
+      ringct
       cncrypto
       common
       version

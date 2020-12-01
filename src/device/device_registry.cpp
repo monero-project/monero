@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, The Monero Project
+// Copyright (c) 2017-2021, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -27,19 +27,39 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 
-#include "device.hpp"
 #include "device_registry.hpp"
+#include "device.hpp"
+#include "misc_log_ex.h"
 
 namespace hw {
-    device_registry *get_device_registry(const device_registry_factory_abstract & reg_factory, bool clear)
-    {
-      //static device_registry *registry = new device_registry_impl();
-      static device_registry *registry = reg_factory.Create();
-      if (clear)
-      {
-        delete registry;
-        registry = NULL;
-      }
-      return registry;
+    device_registry::~device_registry(){}
+
+    bool device_registry::register_device(const std::string & device_name, device * hw_device){
+        auto search = registry.find(device_name);
+        if (search != registry.end()){
+            return false;
+        }
+
+        registry.insert(std::make_pair(device_name, std::unique_ptr<device>(hw_device)));
+        return true;
+    }
+
+    device& device_registry::get_device(const std::string & device_descriptor){
+        // Device descriptor can contain further specs after first :
+        auto delim = device_descriptor.find(':');
+        auto device_descriptor_lookup = device_descriptor;
+        if (delim != std::string::npos) {
+            device_descriptor_lookup = device_descriptor.substr(0, delim);
+        }
+
+        auto device = registry.find(device_descriptor_lookup);
+        if (device == registry.end()) {
+            MERROR("Device not found in registry: '" << device_descriptor << "'. Known devices: ");
+            for( const auto& sm_pair : registry ) {
+                MERROR(" - " << sm_pair.first);
+            }
+            throw std::runtime_error("device not found: " + device_descriptor);
+        }
+        return *device->second;
     }
 }

@@ -37,6 +37,7 @@
 #include "bulletproofs.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "cryptonote_config.h"
+#include "device/device_registry_impl.hpp"
 
 using namespace crypto;
 using namespace std;

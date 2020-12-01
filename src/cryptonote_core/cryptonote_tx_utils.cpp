@@ -44,6 +44,7 @@ using namespace epee;
 #include "crypto/hash.h"
 #include "ringct/rctSigs.h"
 #include "multisig/multisig.h"
+#include "device/device_registry_impl.hpp"
 
 using namespace crypto;
 

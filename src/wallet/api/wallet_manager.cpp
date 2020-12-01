@@ -37,6 +37,7 @@
 #include "common/updates.h"
 #include "version.h"
 #include "net/http_client.h"
+#include "device/device_registry_impl.hpp"
 #include <boost/filesystem.hpp>
 #include <boost/regex.hpp>
 

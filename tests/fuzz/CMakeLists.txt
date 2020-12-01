@@ -204,6 +204,7 @@ monero_add_minimal_executable(tx-extra_fuzz_tests tx-extra.cpp fuzzer.cpp)
 target_link_libraries(tx-extra_fuzz_tests
   PRIVATE
     cryptonote_basic
+    device
     common
     epee
     ${Boost_THREAD_LIBRARY}

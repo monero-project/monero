@@ -41,6 +41,7 @@ extern "C"
 #include "cryptonote_basic_impl.h"
 #include "cryptonote_format_utils.h"
 #include "cryptonote_config.h"
+#include "device/device_registry_impl.hpp"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "account"
@@ -51,6 +52,10 @@ DISABLE_VS_WARNINGS(4244 4345)
 
   namespace cryptonote
 {
+  account_keys::account_keys()
+  {
+      m_device = &hw::get_device("default");
+  }
 
   //-----------------------------------------------------------------
   hw::device& account_keys::get_device() const  {

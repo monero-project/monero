@@ -27,7 +27,7 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "gtest/gtest.h"
-
+#include "device/device_registry_impl.hpp"
 #include "cryptonote_basic/account.h"
 
 TEST(account, encrypt_keys)

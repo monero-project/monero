@@ -28,6 +28,7 @@
 //
 
 #include "device_trezor.hpp"
+#include "device/device_registry_impl.hpp"
 
 namespace hw {
 namespace trezor {

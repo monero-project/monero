@@ -54,7 +54,7 @@
 #include "blockchain_db/testdb.h"
 
 #include "chaingen.h"
-#include "device/device.hpp"
+#include "device/device_registry_impl.hpp"
 using namespace std;
 
 using namespace epee;

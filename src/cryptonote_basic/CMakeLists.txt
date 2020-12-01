@@ -72,7 +72,8 @@ target_link_libraries(cryptonote_basic
     common
     cncrypto
     checkpoints
-    device
+    ringct_basic
+    device_abstr
     ${Boost_DATE_TIME_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${Boost_SERIALIZATION_LIBRARY}
@@ -80,4 +81,5 @@ target_link_libraries(cryptonote_basic
     ${Boost_SYSTEM_LIBRARY}
     ${Boost_THREAD_LIBRARY}
   PRIVATE
+    device
     ${EXTRA_LIBRARIES})

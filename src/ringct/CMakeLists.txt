@@ -70,10 +70,11 @@ monero_add_library(ringct
   ${ringct_private_headers})
 target_link_libraries(ringct
   PUBLIC
+    ringct_basic
     common
     cncrypto
     cryptonote_basic
-    device
+    device_abstr
   PRIVATE
     ${OPENSSL_LIBRARIES}
     ${EXTRA_LIBRARIES})

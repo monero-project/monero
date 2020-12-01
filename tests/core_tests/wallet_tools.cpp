@@ -3,6 +3,7 @@
 //
 
 #include "wallet_tools.h"
+#include "device/device_registry_impl.hpp"
 #include <random>
 
 using namespace std;

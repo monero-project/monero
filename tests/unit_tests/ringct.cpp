@@ -37,7 +37,7 @@
 #include "ringct/rctTypes.h"
 #include "ringct/rctSigs.h"
 #include "ringct/rctOps.h"
-#include "device/device.hpp"
+#include "device/device_registry_impl.hpp"
 #include "string_tools.h"
 
 using namespace std;

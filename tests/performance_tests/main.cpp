@@ -42,6 +42,7 @@
 #include "cn_slow_hash.h"
 #include "derive_public_key.h"
 #include "derive_secret_key.h"
+#include "device/device_registry_impl.hpp"
 #include "ge_frombytes_vartime.h"
 #include "ge_tobytes.h"
 #include "generate_key_derivation.h"

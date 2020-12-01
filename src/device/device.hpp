@@ -34,20 +34,6 @@
 #include "ringct/rctTypes.h"
 #include "cryptonote_config.h"
 
-
-#ifndef USE_DEVICE_LEDGER
-#define USE_DEVICE_LEDGER 1
-#endif
-
-#if !defined(HAVE_HIDAPI) 
-#undef  USE_DEVICE_LEDGER
-#define USE_DEVICE_LEDGER 0
-#endif
-
-#if USE_DEVICE_LEDGER
-#define WITH_DEVICE_LEDGER
-#endif
-
 // forward declaration needed because this header is included by headers in libcryptonote_basic which depends on libdevice
 namespace cryptonote
 {
@@ -67,6 +53,15 @@ namespace hw {
                                     std::string(" (device.hpp line ")+std::to_string(__LINE__)+std::string(").")); \
            return false;
     }
+    class device_registry;
+    class device_registry_factory_abstract
+    {
+    public:
+        virtual ~device_registry_factory_abstract() {}
+        virtual device_registry * Create() const = 0;
+    };
+    
+    device_registry *get_device_registry(const device_registry_factory_abstract & reg_factory, bool clear = false);
 
     class device_progress {
     public:
@@ -254,18 +249,5 @@ namespace hw {
         reset_mode(hw::device& dev) : hwref(dev) { }
         ~reset_mode() { hwref.set_mode(hw::device::NONE);}
     };
-
-    class device_registry {
-    private:
-      std::map<std::string, std::unique_ptr<device>> registry;
-
-    public:
-      device_registry();
-      bool register_device(const std::string & device_name, device * hw_device);
-      device& get_device(const std::string & device_descriptor);
-    };
-
-    device& get_device(const std::string & device_descriptor);
-    bool register_device(const std::string & device_name, device * hw_device);
 }
 

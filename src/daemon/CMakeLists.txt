@@ -80,6 +80,7 @@ target_link_libraries(daemon
     daemonizer
     serialization
     daemon_rpc_server
+    device_abstr
     ${EPEE_READLINE}
     version
     ${Boost_CHRONO_LIBRARY}

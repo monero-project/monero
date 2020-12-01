@@ -33,17 +33,20 @@
 #include "cryptonote_basic.h"
 #include "crypto/crypto.h"
 #include "serialization/keyvalue_serialization.h"
+#include "device/device.hpp"
 
 namespace cryptonote
 {
 
   struct account_keys
   {
+      account_keys();
+      
     account_public_address m_account_address;
     crypto::secret_key   m_spend_secret_key;
     crypto::secret_key   m_view_secret_key;
     std::vector<crypto::secret_key> m_multisig_keys;
-    hw::device *m_device = &hw::get_device("default");
+    hw::device *m_device = nullptr;
     crypto::chacha_iv m_encryption_iv;
 
     BEGIN_KV_SERIALIZE_MAP()

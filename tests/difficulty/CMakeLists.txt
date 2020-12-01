@@ -37,6 +37,7 @@ monero_add_minimal_executable(difficulty-tests
 target_link_libraries(difficulty-tests
   PRIVATE
     cryptonote_basic
+    device
     ${EXTRA_LIBRARIES})
 set_property(TARGET difficulty-tests
   PROPERTY

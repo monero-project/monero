@@ -26,15 +26,21 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+
 set(device_sources
   device.cpp
+  device_registry.cpp
+  )
+  
+set(device_impl_sources
   device_default.cpp
+  device_registry_impl.cpp
   log.cpp
   )
 
 if(HIDAPI_FOUND)
-  set(device_sources 
-    ${device_sources} 
+  set(device_impl_sources 
+    ${device_impl_sources} 
     device_ledger.cpp
     device_io_hid.cpp
     )
@@ -42,34 +48,56 @@ endif()
 
 set(device_headers
   device.hpp
+  device_registry.hpp
   device_io.hpp
+ )
+
+set(device_impl_headers
+  device_registry_impl.hpp
   device_default.hpp
   device_cold.hpp
   log.hpp
  )
 
 if(HIDAPI_FOUND)
-  set(device_headers 
-    ${device_headers} 
+  set(device_impl_headers 
+    ${device_impl_headers} 
     device_ledger.hpp
     device_io_hid.hpp
     )
 endif()
 
 set(device_private_headers)
+set(device_impl_private_headers)
 
 
-monero_private_headers(device
+monero_private_headers(device_abstr
   ${device_private_headers})
+monero_private_headers(device
+  ${device_impl_private_headers})
 
-monero_add_library(device
+monero_add_library(device_abstr
   ${device_sources}
   ${device_headers}
   ${device_private_headers})
+  
+monero_add_library(device
+  ${device_impl_sources}
+  ${device_impl_headers}
+  ${device_impl_private_headers})
+  
+target_link_libraries(device_abstr
+  PUBLIC
+    ${OPENSSL_CRYPTO_LIBRARIES}
+    ${Boost_SERIALIZATION_LIBRARY}
+  PRIVATE
+    version
+    ${EXTRA_LIBRARIES})
 
 target_link_libraries(device
   PUBLIC
     ${HIDAPI_LIBRARIES}
+    device_abstr
     cncrypto
     ringct_basic
     wallet-crypto
