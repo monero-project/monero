@@ -288,6 +288,19 @@ namespace nodetool
     copy_peers(peers.gray, m_peers_gray.get<by_addr>());
     copy_peers(peers.anchor, m_peers_anchor.get<by_addr>());
   }
+
+  void peerlist_manager::evict_host_from_white_peerlist(const peerlist_entry& pr)
+  {
+    peers_indexed::index<by_time>::type& sorted_index=m_peers_white.get<by_time>();
+    auto i = sorted_index.begin();
+    while (i != sorted_index.end())
+    {
+      if (i->adr.is_same_host(pr.adr))
+        i = sorted_index.erase(i);
+      else
+        ++i;
+    }
+  }
 }
 
 BOOST_CLASS_VERSION(nodetool::peerlist_types, nodetool::CURRENT_PEERLIST_STORAGE_ARCHIVE_VER);
