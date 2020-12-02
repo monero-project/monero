@@ -6,6 +6,17 @@
 #include "string_tools.h"
 #include "net/local_ip.h"
 
+static inline uint32_t make_address_v4_from_v6(const boost::asio::ip::address_v6& a)
+{
+  const auto &bytes = a.to_bytes();
+  uint32_t v4 = 0;
+  v4 = (v4 << 8) | bytes[12];
+  v4 = (v4 << 8) | bytes[13];
+  v4 = (v4 << 8) | bytes[14];
+  v4 = (v4 << 8) | bytes[15];
+  return htonl(v4);
+}
+
 namespace epee { namespace net_utils
 {
 	bool ipv4_network_address::equal(const ipv4_network_address& other) const noexcept
@@ -83,6 +94,28 @@ namespace epee { namespace net_utils
 		network_address::interface const* const other_self = other.self.get();
 		if (self_ == other_self) return true;
 		if (!self_ || !other_self) return false;
+		const bool this_is_4 = get_type_id() == epee::net_utils::ipv4_network_address::get_type_id();
+		const bool this_is_6 = get_type_id() == epee::net_utils::ipv6_network_address::get_type_id();
+		const bool other_is_4 = other.get_type_id() == epee::net_utils::ipv4_network_address::get_type_id();
+		const bool other_is_6 = other.get_type_id() == epee::net_utils::ipv6_network_address::get_type_id();
+		if (this_is_4 && other_is_6)
+		{
+			const boost::asio::ip::address_v6 &actual_ip = other.as<const epee::net_utils::ipv6_network_address>().ip();
+			if (actual_ip.is_v4_mapped())
+			{
+				const uint32_t v4ip = make_address_v4_from_v6(actual_ip);
+				return is_same_host(ipv4_network_address(v4ip, 0));
+			}
+		}
+		else if (this_is_6 && other_is_4)
+		{
+			const boost::asio::ip::address_v6 &actual_ip = this->as<const epee::net_utils::ipv6_network_address>().ip();
+			if (actual_ip.is_v4_mapped())
+			{
+				const uint32_t v4ip = make_address_v4_from_v6(actual_ip);
+				return other.is_same_host(ipv4_network_address(v4ip, 0));
+			}
+		}
 		if (typeid(*self_) != typeid(*other_self)) return false;
 		return self_->is_same_host(*other_self);
 	}
