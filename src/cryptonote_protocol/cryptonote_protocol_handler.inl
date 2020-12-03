@@ -69,6 +69,7 @@
 #define REQUEST_NEXT_SCHEDULED_SPAN_THRESHOLD_STANDBY (5 * 1000000) // microseconds
 #define REQUEST_NEXT_SCHEDULED_SPAN_THRESHOLD (30 * 1000000) // microseconds
 #define IDLE_PEER_KICK_TIME (240 * 1000000) // microseconds
+#define NON_RESPONSIVE_PEER_KICK_TIME (20 * 1000000) // microseconds
 #define PASSIVE_PEER_KICK_TIME (60 * 1000000) // microseconds
 #define DROP_ON_SYNC_WEDGE_THRESHOLD (30 * 1000000000ull) // nanoseconds
 #define LAST_ACTIVITY_STALL_THRESHOLD (2.0f) // seconds
@@ -144,6 +145,7 @@ namespace cryptonote
       handler_request_blocks_history( r.block_ids ); // change the limit(?), sleep(?)
       r.prune = m_sync_pruned_blocks;
       context.m_last_request_time = boost::posix_time::microsec_clock::universal_time();
+      context.m_expect_response = NOTIFY_RESPONSE_CHAIN_ENTRY::ID;
       MLOG_P2P_MESSAGE("-->>NOTIFY_REQUEST_CHAIN: m_block_ids.size()=" << r.block_ids.size() );
       post_notify<NOTIFY_REQUEST_CHAIN>(r, context);
       MLOG_PEER_STATE("requesting chain");
@@ -495,6 +497,7 @@ namespace cryptonote
       r.prune = m_sync_pruned_blocks;
       handler_request_blocks_history( r.block_ids ); // change the limit(?), sleep(?)
       context.m_last_request_time = boost::posix_time::microsec_clock::universal_time();
+      context.m_expect_response = NOTIFY_RESPONSE_CHAIN_ENTRY::ID;
       MLOG_P2P_MESSAGE("-->>NOTIFY_REQUEST_CHAIN: m_block_ids.size()=" << r.block_ids.size() );
       post_notify<NOTIFY_REQUEST_CHAIN>(r, context);
       MLOG_PEER_STATE("requesting chain");
@@ -774,6 +777,7 @@ namespace cryptonote
           handler_request_blocks_history( r.block_ids ); // change the limit(?), sleep(?)
           r.prune = m_sync_pruned_blocks;
           context.m_last_request_time = boost::posix_time::microsec_clock::universal_time();
+          context.m_expect_response = NOTIFY_RESPONSE_CHAIN_ENTRY::ID;
           MLOG_P2P_MESSAGE("-->>NOTIFY_REQUEST_CHAIN: m_block_ids.size()=" << r.block_ids.size() );
           post_notify<NOTIFY_REQUEST_CHAIN>(r, context);
           MLOG_PEER_STATE("requesting chain");
@@ -1071,6 +1075,14 @@ namespace cryptonote
 
     boost::posix_time::ptime request_time = context.m_last_request_time;
     context.m_last_request_time = boost::date_time::not_a_date_time;
+
+    if (context.m_expect_response != NOTIFY_RESPONSE_GET_OBJECTS::ID)
+    {
+      LOG_ERROR_CCONTEXT("Got NOTIFY_RESPONSE_GET_OBJECTS out of the blue, dropping connection");
+      drop_connection(context, true, false);
+      return 1;
+    }
+    context.m_expect_response = 0;
 
     // calculate size of request
     size_t size = 0;
@@ -1681,41 +1693,43 @@ skip:
   bool t_cryptonote_protocol_handler<t_core>::kick_idle_peers()
   {
     MTRACE("Checking for idle peers...");
-    std::vector<boost::uuids::uuid> idle_peers;
+    std::vector<std::pair<boost::uuids::uuid, unsigned>> idle_peers;
     m_p2p->for_each_connection([&](cryptonote_connection_context& context, nodetool::peerid_type peer_id, uint32_t support_flags)->bool
     {
       if (context.m_state == cryptonote_connection_context::state_synchronizing && context.m_last_request_time != boost::date_time::not_a_date_time)
       {
         const boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
         const boost::posix_time::time_duration dt = now - context.m_last_request_time;
-        if (dt.total_microseconds() > IDLE_PEER_KICK_TIME)
+        const auto ms = dt.total_microseconds();
+        if (ms > IDLE_PEER_KICK_TIME || (context.m_expect_response && ms > NON_RESPONSIVE_PEER_KICK_TIME))
         {
           if (context.m_score-- >= 0)
           {
-            MINFO(context << " kicking idle peer, last update " << (dt.total_microseconds() / 1.e6) << " seconds ago");
+            MINFO(context << " kicking idle peer, last update " << (dt.total_microseconds() / 1.e6) << " seconds ago, expecting " << (int)context.m_expect_response);
             LOG_PRINT_CCONTEXT_L2("requesting callback");
             context.m_last_request_time = boost::date_time::not_a_date_time;
+            context.m_expect_response = 0;
             context.m_state = cryptonote_connection_context::state_standby; // we'll go back to adding, then (if we can't), download
             ++context.m_callback_request_count;
             m_p2p->request_callback(context);
           }
           else
           {
-            idle_peers.push_back(context.m_connection_id);
+            idle_peers.push_back(std::make_pair(context.m_connection_id, context.m_expect_response == 0 ? 1 : 5));
           }
         }
       }
       return true;
     });
 
-    for (const auto &uuid: idle_peers)
+    for (const auto &e: idle_peers)
     {
-      if (!m_p2p->for_connection(uuid, [&](cryptonote_connection_context& ctx, nodetool::peerid_type peer_id, uint32_t f)->bool{
+      const auto &uuid = e.first;
+      m_p2p->for_connection(uuid, [&](cryptonote_connection_context& ctx, nodetool::peerid_type peer_id, uint32_t f)->bool{
         MINFO(ctx << "dropping idle peer with negative score");
-        drop_connection(ctx, true, false);
+        drop_connection_with_score(ctx, e.second, false);
         return true;
-      }))
-        MDEBUG("Failed to find peer we wanted to drop");
+      });
     }
 
     return true;
@@ -2240,6 +2254,7 @@ skip:
           }
         }
         context.m_last_request_time = boost::posix_time::microsec_clock::universal_time();
+        context.m_expect_response = NOTIFY_RESPONSE_GET_OBJECTS::ID;
         MLOG_P2P_MESSAGE("-->>NOTIFY_REQUEST_GET_OBJECTS: blocks.size()=" << req.blocks.size()
             << "requested blocks count=" << count << " / " << count_limit << " from " << span.first << ", first hash " << req.blocks.front());
         //epee::net_utils::network_throttle_manager::get_global_throttle_inreq().logger_handle_net("log/dr-monero/net/req-all.data", sec, get_avg_block_size());
@@ -2330,6 +2345,7 @@ skip:
       //LOG_PRINT_CCONTEXT_L1("r = " << 200);
 
       context.m_last_request_time = boost::posix_time::microsec_clock::universal_time();
+      context.m_expect_response = NOTIFY_RESPONSE_CHAIN_ENTRY::ID;
       MLOG_P2P_MESSAGE("-->>NOTIFY_REQUEST_CHAIN: m_block_ids.size()=" << r.block_ids.size() << ", start_from_current_chain " << start_from_current_chain);
       post_notify<NOTIFY_REQUEST_CHAIN>(r, context);
       MLOG_PEER_STATE("requesting chain");
@@ -2451,6 +2467,14 @@ skip:
     MLOG_P2P_MESSAGE("Received NOTIFY_RESPONSE_CHAIN_ENTRY: m_block_ids.size()=" << arg.m_block_ids.size()
       << ", m_start_height=" << arg.start_height << ", m_total_height=" << arg.total_height);
     MLOG_PEER_STATE("received chain");
+
+    if (context.m_expect_response != NOTIFY_RESPONSE_CHAIN_ENTRY::ID)
+    {
+      LOG_ERROR_CCONTEXT("Got NOTIFY_RESPONSE_CHAIN_ENTRY out of the blue, dropping connection");
+      drop_connection(context, true, false);
+      return 1;
+    }
+    context.m_expect_response = 0;
 
     context.m_last_request_time = boost::date_time::not_a_date_time;
 
