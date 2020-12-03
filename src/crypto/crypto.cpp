@@ -123,13 +123,17 @@ namespace crypto {
   void random32_unbiased(unsigned char *bytes)
   {
     // l = 2^252 + 27742317777372353535851937790883648493.
-    // it fits 15 in 32 bytes
+    // l fits 15 times in 32 bytes (iow, 15 l is the highest multiple of l that fits in 32 bytes)
     static const unsigned char limit[32] = { 0xe3, 0x6a, 0x67, 0x72, 0x8b, 0xce, 0x13, 0x29, 0x8f, 0x30, 0x82, 0x8c, 0x0b, 0xa4, 0x10, 0x39, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xf0 };
-    do
+    while(1)
     {
       generate_random_bytes_thread_safe(32, bytes);
-    } while (!sc_isnonzero(bytes) && !less32(bytes, limit)); // should be good about 15/16 of the time
-    sc_reduce32(bytes);
+      if (!less32(bytes, limit))
+        continue;
+      sc_reduce32(bytes);
+      if (sc_isnonzero(bytes))
+        break;
+    }
   }
   /* generate a random 32-byte (256-bit) integer and copy it to res */
   static inline void random_scalar(ec_scalar &res) {
