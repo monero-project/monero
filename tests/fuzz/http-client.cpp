@@ -26,6 +26,7 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#include <boost/system/error_code.hpp>
 #include <boost/utility/string_ref.hpp>
 #include "include_base_utils.h"
 #include "file_io_utils.h"
@@ -42,6 +43,7 @@ public:
   bool send(const boost::string_ref buff, std::chrono::milliseconds timeout) { return true; }
   bool send(const void* data, size_t sz) { return true; }
   bool is_connected() { return true; }
+  static boost::system::error_code last_error() noexcept { return {}; }
   bool recv(std::string& buff, std::chrono::milliseconds timeout)
   {
     buff = data;

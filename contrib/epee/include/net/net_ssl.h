@@ -133,9 +133,8 @@ namespace net_utils
           `verification == system_ca` the client also does a rfc2818 check to
           ensure that the server certificate is to the provided hostname.
 
-        \return True if the SSL handshake completes with peer verification
-          settings. */
-    bool handshake(
+        \return Non-empty error_code on failure. */
+    boost::system::error_code handshake(
       boost::asio::ssl::stream<boost::asio::ip::tcp::socket> &socket,
       boost::asio::ssl::stream_base::handshake_type type,
       boost::asio::const_buffer buffer = {},

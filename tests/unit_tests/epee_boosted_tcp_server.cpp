@@ -567,7 +567,7 @@ TEST(test_epee_connection, ssl_handshake)
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
       });
     }
-    EXPECT_EQ(
+    EXPECT_NE(
       ssl_options.handshake(
         *ssl_socket,
         ssl_socket_t::server,
@@ -575,7 +575,7 @@ TEST(test_epee_connection, ssl_handshake)
         {},
         std::chrono::milliseconds(0)
       ),
-      false
+      boost::system::error_code{}
     );
     ssl_socket->next_layer().close();
     ssl_socket.reset();
