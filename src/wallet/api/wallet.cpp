@@ -1075,7 +1075,10 @@ bool WalletImpl::daemonSynced() const
     if(connected() == Wallet::ConnectionStatus_Disconnected)
         return false;
     uint64_t blockChainHeight = daemonBlockChainHeight();
-    return (blockChainHeight >= daemonBlockChainTargetHeight() && blockChainHeight > 1);
+    // Consider daemon synchronized if blockChainHeight is within negligible distance of target height.
+    // Mitigates an issue where bad peers can trick the daemon into reporting a slightly overestimated
+    // target height which would cause wallets to stop refreshing
+    return (blockChainHeight + 10 >= daemonBlockChainTargetHeight() && blockChainHeight > 1);
 }
 
 bool WalletImpl::synchronized() const
