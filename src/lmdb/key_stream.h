@@ -80,7 +80,7 @@ namespace lmdb
 
         /*!
             \param cur Iterate over keys starting at this cursor position.
-            \throw std::system_error if unexpected LMDB error. This can happen
+            \throw monero::system_error if unexpected LMDB error. This can happen
                 if `cur` is invalid.
         */
         key_iterator(MDB_cursor* cur)
@@ -148,7 +148,7 @@ namespace lmdb
             object - the other fields in the struct `account` are never copied
             from the database.
 
-            \throw std::system_error if LMDB has unexpected errors.
+            \throw monero::system_error if LMDB has unexpected errors.
             \return C++ iterator starting at current cursor position.
         */
         template<typename T = V, typename F = T, std::size_t offset = 0>
@@ -166,7 +166,7 @@ namespace lmdb
             will return a range of `decltype(account.id)` objects - the other
             fields in the struct `account` are never copied from the database.
 
-            \throw std::system_error if LMDB has unexpected errors.
+            \throw monero::system_error if LMDB has unexpected errors.
             \return An InputIterator range over values at cursor position.
         */
         template<typename T = V, typename F = T, std::size_t offset = 0>
@@ -227,7 +227,7 @@ namespace lmdb
         }
 
         /*!
-            \throw std::system_error if LMDB has unexpected errors.
+            \throw monero::system_error if LMDB has unexpected errors.
             \return C++ iterator over database keys from current cursor
                 position that will reach `.is_end()` after the last key.
         */
@@ -237,7 +237,7 @@ namespace lmdb
         }
 
         /*!
-            \throw std::system_error if LMDB has unexpected errors.
+            \throw monero::system_error if LMDB has unexpected errors.
             \return Range from current cursor position until last key record.
                 Useful in for-each range loops or in templated code
         */

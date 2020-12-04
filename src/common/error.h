@@ -26,27 +26,37 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #pragma once
 
-#include <system_error>
+#include <boost/system/error_code.hpp>
+#include <boost/system/system_error.hpp>
 #include <type_traits>
 
-enum class common_error : int
-{
-    // 0 is reserved for no error, as per expect<T>
-    kInvalidArgument = 1, //!< A function argument is invalid
-    kInvalidErrorCode     //!< Default `std::error_code` given to `expect<T>`
-};
+#define MONERO_DECLARE_ERROR_ENUM(name)         \
+    namespace boost {                           \
+        namespace system {                      \
+            template<>                          \
+            struct is_error_code_enum< name >   \
+                : std::true_type                \
+            {};                                 \
+        }                                       \
+    }
 
-std::error_category const& common_category() noexcept;
-
-inline std::error_code make_error_code(::common_error value) noexcept
+namespace monero
 {
-    return std::error_code{int(value), common_category()};
+    namespace errc = boost::system::errc;
+    using error_category = boost::system::error_category;
+    using error_code = boost::system::error_code;
+    using error_condition = boost::system::error_condition;
+    using system_error = boost::system::system_error;
+
+    enum class error : int
+    {
+        none = 0,
+        invalid_argument,  //!< A function argument is invalid
+        invalid_error_code //!< Default `monero::error_code` given to `expect<T>`
+    };
+
+    error_category const& default_category() noexcept;
+    error_code make_error_code(monero::error value) noexcept;
 }
 
-namespace std
-{
-    template<>
-    struct is_error_code_enum<::common_error>
-      : true_type
-    {};
-}
+MONERO_DECLARE_ERROR_ENUM(monero::error)

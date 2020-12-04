@@ -118,15 +118,15 @@ namespace
     template<typename T>
     void conversion_bench()
     {
-        EXPECT_TRUE((std::is_convertible<std::error_code, expect<T>>()));
-        EXPECT_TRUE((std::is_convertible<std::error_code&&, expect<T>>()));
-        EXPECT_TRUE((std::is_convertible<std::error_code&, expect<T>>()));
-        EXPECT_TRUE((std::is_convertible<std::error_code const&, expect<T>>()));
+        EXPECT_TRUE((std::is_convertible<monero::error_code, expect<T>>()));
+        EXPECT_TRUE((std::is_convertible<monero::error_code&&, expect<T>>()));
+        EXPECT_TRUE((std::is_convertible<monero::error_code&, expect<T>>()));
+        EXPECT_TRUE((std::is_convertible<monero::error_code const&, expect<T>>()));
 
-        EXPECT_TRUE((std::is_constructible<expect<T>, std::error_code>()));
-        EXPECT_TRUE((std::is_constructible<expect<T>, std::error_code&&>()));
-        EXPECT_TRUE((std::is_constructible<expect<T>, std::error_code&>()));
-        EXPECT_TRUE((std::is_constructible<expect<T>, std::error_code const&>()));
+        EXPECT_TRUE((std::is_constructible<expect<T>, monero::error_code>()));
+        EXPECT_TRUE((std::is_constructible<expect<T>, monero::error_code&&>()));
+        EXPECT_TRUE((std::is_constructible<expect<T>, monero::error_code&>()));
+        EXPECT_TRUE((std::is_constructible<expect<T>, monero::error_code const&>()));
     }
 }
 
@@ -236,10 +236,10 @@ TEST(Expect, NoExcept)
     EXPECT_TRUE(noexcept(std::declval<expect<int>>() != 0));
     EXPECT_TRUE(noexcept(0 != std::declval<expect<int>>()));
 
-    EXPECT_TRUE((std::is_nothrow_constructible<expect<throw_construct>, std::error_code>()));
-    EXPECT_TRUE((std::is_nothrow_constructible<expect<throw_construct>, std::error_code&&>()));
-    EXPECT_TRUE((std::is_nothrow_constructible<expect<throw_construct>, std::error_code&>()));
-    EXPECT_TRUE((std::is_nothrow_constructible<expect<throw_construct>, std::error_code const&>()));
+    EXPECT_TRUE((std::is_nothrow_constructible<expect<throw_construct>, monero::error_code>()));
+    EXPECT_TRUE((std::is_nothrow_constructible<expect<throw_construct>, monero::error_code&&>()));
+    EXPECT_TRUE((std::is_nothrow_constructible<expect<throw_construct>, monero::error_code&>()));
+    EXPECT_TRUE((std::is_nothrow_constructible<expect<throw_construct>, monero::error_code const&>()));
     EXPECT_TRUE((std::is_nothrow_constructible<expect<throw_construct>, throw_construct>()));
     EXPECT_TRUE((std::is_nothrow_constructible<expect<throw_construct>, throw_construct&&>()));
     EXPECT_TRUE((std::is_nothrow_constructible<expect<throw_construct>, throw_construct&>()));
@@ -254,10 +254,10 @@ TEST(Expect, NoExcept)
     EXPECT_TRUE(std::is_nothrow_move_assignable<expect<throw_construct>>());
     EXPECT_TRUE(std::is_nothrow_destructible<expect<throw_construct>>());
 
-    EXPECT_TRUE((std::is_nothrow_constructible<expect<throw_copies>, std::error_code>()));
-    EXPECT_TRUE((std::is_nothrow_constructible<expect<throw_copies>, std::error_code&&>()));
-    EXPECT_TRUE((std::is_nothrow_constructible<expect<throw_copies>, std::error_code&>()));
-    EXPECT_TRUE((std::is_nothrow_constructible<expect<throw_copies>, std::error_code const&>()));
+    EXPECT_TRUE((std::is_nothrow_constructible<expect<throw_copies>, monero::error_code>()));
+    EXPECT_TRUE((std::is_nothrow_constructible<expect<throw_copies>, monero::error_code&&>()));
+    EXPECT_TRUE((std::is_nothrow_constructible<expect<throw_copies>, monero::error_code&>()));
+    EXPECT_TRUE((std::is_nothrow_constructible<expect<throw_copies>, monero::error_code const&>()));
     EXPECT_TRUE((std::is_nothrow_constructible<expect<throw_copies>, throw_copies>()));
     EXPECT_TRUE((std::is_nothrow_constructible<expect<throw_copies>, throw_copies&&>()));
     EXPECT_TRUE(!(std::is_nothrow_constructible<expect<throw_copies>, throw_copies&>()));
@@ -284,10 +284,10 @@ TEST(Expect, NoExcept)
     EXPECT_TRUE(noexcept(std::declval<expect<throw_copies>>() != std::declval<throw_moves>()));
     EXPECT_TRUE(noexcept(std::declval<throw_moves>() != std::declval<expect<throw_copies>>()));
 
-    EXPECT_TRUE((std::is_nothrow_constructible<expect<throw_moves>, std::error_code>()));
-    EXPECT_TRUE((std::is_nothrow_constructible<expect<throw_moves>, std::error_code&&>()));
-    EXPECT_TRUE((std::is_nothrow_constructible<expect<throw_moves>, std::error_code&>()));
-    EXPECT_TRUE((std::is_nothrow_constructible<expect<throw_moves>, std::error_code const&>()));
+    EXPECT_TRUE((std::is_nothrow_constructible<expect<throw_moves>, monero::error_code>()));
+    EXPECT_TRUE((std::is_nothrow_constructible<expect<throw_moves>, monero::error_code&&>()));
+    EXPECT_TRUE((std::is_nothrow_constructible<expect<throw_moves>, monero::error_code&>()));
+    EXPECT_TRUE((std::is_nothrow_constructible<expect<throw_moves>, monero::error_code const&>()));
     EXPECT_TRUE(!(std::is_nothrow_constructible<expect<throw_moves>, throw_moves>()));
     EXPECT_TRUE(!(std::is_nothrow_constructible<expect<throw_moves>, throw_moves&&>()));
     EXPECT_TRUE(!(std::is_nothrow_constructible<expect<throw_moves>, throw_moves&>()));
@@ -339,20 +339,20 @@ TEST(Expect, Assignment)
     EXPECT_TRUE(val2.value() == "foobar");
     EXPECT_TRUE(*val2 == "foobar");
     EXPECT_TRUE(boost::equals(val2->c_str(), "foobar"));
-    EXPECT_EQ(val1.error(), std::error_code{});
-    EXPECT_EQ(val2.error(), std::error_code{});
-    EXPECT_TRUE(!val1.equal(std::error_code{}));
-    EXPECT_TRUE(!val2.equal(std::error_code{}));
-    EXPECT_TRUE(!(val1 == std::error_code{}));
-    EXPECT_TRUE(!(std::error_code{} == val1));
-    EXPECT_TRUE(!(val2 == std::error_code{}));
-    EXPECT_TRUE(!(std::error_code{} == val2));
-    EXPECT_TRUE(val1 != std::error_code{});
-    EXPECT_TRUE(std::error_code{} != val1);
-    EXPECT_TRUE(val2 != std::error_code{});
-    EXPECT_TRUE(std::error_code{} != val2);
-    EXPECT_TRUE(!val1.matches(std::error_condition{}));
-    EXPECT_TRUE(!val2.matches(std::error_condition{}));
+    EXPECT_EQ(val1.error(), monero::error::none);
+    EXPECT_EQ(val2.error(), monero::error::none);
+    EXPECT_TRUE(!val1.equal(monero::error::none));
+    EXPECT_TRUE(!val2.equal(monero::error::none));
+    EXPECT_TRUE(!(val1 == monero::error::none));
+    EXPECT_TRUE(!(monero::error::none == val1));
+    EXPECT_TRUE(!(val2 == monero::error::none));
+    EXPECT_TRUE(!(monero::error::none == val2));
+    EXPECT_TRUE(val1 != monero::error::none);
+    EXPECT_TRUE(monero::error::none != val1);
+    EXPECT_TRUE(val2 != monero::error::none);
+    EXPECT_TRUE(monero::error::none != val2);
+    EXPECT_TRUE(!val1.matches(monero::error_condition{}));
+    EXPECT_TRUE(!val2.matches(monero::error_condition{}));
 
     val1 = std::move(val2);
 
@@ -368,20 +368,20 @@ TEST(Expect, Assignment)
     EXPECT_EQ(val2.value(), std::string{});
     EXPECT_TRUE(*val2 == std::string{});
     EXPECT_TRUE(boost::equals(val2->c_str(), ""));
-    EXPECT_EQ(val1.error(), std::error_code{});
-    EXPECT_EQ(val2.error(), std::error_code{});
-    EXPECT_TRUE(!val1.equal(std::error_code{}));
-    EXPECT_TRUE(!val2.equal(std::error_code{}));
-    EXPECT_TRUE(!(val1 == std::error_code{}));
-    EXPECT_TRUE(!(std::error_code{} == val1));
-    EXPECT_TRUE(!(val2 == std::error_code{}));
-    EXPECT_TRUE(!(std::error_code{} == val2));
-    EXPECT_TRUE(val1 != std::error_code{});
-    EXPECT_TRUE(std::error_code{} != val1);
-    EXPECT_TRUE(val2 != std::error_code{});
-    EXPECT_TRUE(std::error_code{} != val2);
-    EXPECT_TRUE(!val1.matches(std::error_condition{}));
-    EXPECT_TRUE(!val2.matches(std::error_condition{}));
+    EXPECT_EQ(val1.error(), monero::error::none);
+    EXPECT_EQ(val2.error(), monero::error::none);
+    EXPECT_TRUE(!val1.equal(monero::error::none));
+    EXPECT_TRUE(!val2.equal(monero::error::none));
+    EXPECT_TRUE(!(val1 == monero::error::none));
+    EXPECT_TRUE(!(monero::error::none == val1));
+    EXPECT_TRUE(!(val2 == monero::error::none));
+    EXPECT_TRUE(!(monero::error::none == val2));
+    EXPECT_TRUE(val1 != monero::error::none);
+    EXPECT_TRUE(monero::error::none != val1);
+    EXPECT_TRUE(val2 != monero::error::none);
+    EXPECT_TRUE(monero::error::none != val2);
+    EXPECT_TRUE(!val1.matches(monero::error_condition{}));
+    EXPECT_TRUE(!val2.matches(monero::error_condition{}));
 
     val2 = val1;
 
@@ -397,22 +397,22 @@ TEST(Expect, Assignment)
     EXPECT_EQ(val2.value(), "foobar");
     EXPECT_TRUE(*val2 == "foobar");
     EXPECT_TRUE(boost::equals(val2->c_str(), "foobar"));
-    EXPECT_EQ(val1.error(), std::error_code{});
-    EXPECT_EQ(val2.error(), std::error_code{});
-    EXPECT_TRUE(!val1.equal(std::error_code{}));
-    EXPECT_TRUE(!val2.equal(std::error_code{}));
-    EXPECT_TRUE(!(val1 == std::error_code{}));
-    EXPECT_TRUE(!(std::error_code{} == val1));
-    EXPECT_TRUE(!(val2 == std::error_code{}));
-    EXPECT_TRUE(!(std::error_code{} == val2));
-    EXPECT_TRUE(val1 != std::error_code{});
-    EXPECT_TRUE(std::error_code{} != val1);
-    EXPECT_TRUE(val2 != std::error_code{});
-    EXPECT_TRUE(std::error_code{} != val2);
-    EXPECT_TRUE(!val1.matches(std::error_condition{}));
-    EXPECT_TRUE(!val2.matches(std::error_condition{}));
+    EXPECT_EQ(val1.error(), monero::error::none);
+    EXPECT_EQ(val2.error(), monero::error::none);
+    EXPECT_TRUE(!val1.equal(monero::error::none));
+    EXPECT_TRUE(!val2.equal(monero::error::none));
+    EXPECT_TRUE(!(val1 == monero::error::none));
+    EXPECT_TRUE(!(monero::error::none == val1));
+    EXPECT_TRUE(!(val2 == monero::error::none));
+    EXPECT_TRUE(!(monero::error::none == val2));
+    EXPECT_TRUE(val1 != monero::error::none);
+    EXPECT_TRUE(monero::error::none != val1);
+    EXPECT_TRUE(val2 != monero::error::none);
+    EXPECT_TRUE(monero::error::none != val2);
+    EXPECT_TRUE(!val1.matches(monero::error_condition{}));
+    EXPECT_TRUE(!val2.matches(monero::error_condition{}));
 
-    val1 = make_error_code(common_error::kInvalidArgument);
+    val1 = make_error_code(monero::error::invalid_argument);
 
     ASSERT_TRUE(val1.has_error());
     ASSERT_TRUE(val2.has_value());
@@ -420,27 +420,27 @@ TEST(Expect, Assignment)
     EXPECT_TRUE(bool(val2));
     EXPECT_TRUE(!val1.has_value());
     EXPECT_TRUE(!val2.has_error());
-    EXPECT_EQ(val1.error(), common_error::kInvalidArgument);
-    EXPECT_TRUE(val1 == common_error::kInvalidArgument);
-    EXPECT_TRUE(common_error::kInvalidArgument == val1);
+    EXPECT_EQ(val1.error(), monero::error::invalid_argument);
+    EXPECT_TRUE(val1 == monero::error::invalid_argument);
+    EXPECT_TRUE(monero::error::invalid_argument == val1);
     EXPECT_STREQ(val2.value().c_str(), "foobar");
     EXPECT_TRUE(*val2 == "foobar");
     EXPECT_TRUE(boost::equals(val2->c_str(), "foobar"));
-    EXPECT_NE(val1.error(), std::error_code{});
-    EXPECT_EQ(val2.error(), std::error_code{});
-    EXPECT_TRUE(val1.equal(common_error::kInvalidArgument));
-    EXPECT_TRUE(!val2.equal(std::error_code{}));
-    EXPECT_TRUE(!(val1 == std::error_code{}));
-    EXPECT_TRUE(!(std::error_code{} == val1));
-    EXPECT_TRUE(!(val2 == std::error_code{}));
-    EXPECT_TRUE(!(std::error_code{} == val2));
-    EXPECT_TRUE(val1 != std::error_code{});
-    EXPECT_TRUE(std::error_code{} != val1);
-    EXPECT_TRUE(val2 != std::error_code{});
-    EXPECT_TRUE(std::error_code{} != val2);
-    EXPECT_TRUE(val1.matches(std::errc::invalid_argument));
-    EXPECT_TRUE(!val1.matches(std::error_condition{}));
-    EXPECT_TRUE(!val2.matches(std::error_condition{}));
+    EXPECT_NE(val1.error(), monero::error::none);
+    EXPECT_EQ(val2.error(), monero::error::none);
+    EXPECT_TRUE(val1.equal(monero::error::invalid_argument));
+    EXPECT_TRUE(!val2.equal(monero::error::none));
+    EXPECT_TRUE(!(val1 == monero::error::none));
+    EXPECT_TRUE(!(monero::error::none == val1));
+    EXPECT_TRUE(!(val2 == monero::error::none));
+    EXPECT_TRUE(!(monero::error::none == val2));
+    EXPECT_TRUE(val1 != monero::error::none);
+    EXPECT_TRUE(monero::error::none != val1);
+    EXPECT_TRUE(val2 != monero::error::none);
+    EXPECT_TRUE(monero::error::none != val2);
+    EXPECT_TRUE(val1.matches(monero::errc::invalid_argument));
+    EXPECT_TRUE(!val1.matches(monero::error_condition{}));
+    EXPECT_TRUE(!val2.matches(monero::error_condition{}));
 
     val2 = val1;
 
@@ -450,28 +450,28 @@ TEST(Expect, Assignment)
     EXPECT_TRUE(!val2);
     EXPECT_TRUE(!val1.has_value());
     EXPECT_TRUE(!val2.has_value());
-    EXPECT_EQ(val1.error(), common_error::kInvalidArgument);
-    EXPECT_TRUE(val1 == common_error::kInvalidArgument);
-    EXPECT_TRUE(common_error::kInvalidArgument == val1);
-    EXPECT_EQ(val2.error(), common_error::kInvalidArgument);
-    EXPECT_TRUE(val2 == common_error::kInvalidArgument);
-    EXPECT_TRUE(common_error::kInvalidArgument == val2);
-    EXPECT_NE(val1.error(), std::error_code{});
-    EXPECT_NE(val2.error(), std::error_code{});
-    EXPECT_TRUE(val1.equal(common_error::kInvalidArgument));
-    EXPECT_TRUE(val2.equal(common_error::kInvalidArgument));
-    EXPECT_TRUE(!(val1 == std::error_code{}));
-    EXPECT_TRUE(!(std::error_code{} == val1));
-    EXPECT_TRUE(!(val2 == std::error_code{}));
-    EXPECT_TRUE(!(std::error_code{} == val2));
-    EXPECT_TRUE(val1 != std::error_code{});
-    EXPECT_TRUE(std::error_code{} != val1);
-    EXPECT_TRUE(val2 != std::error_code{});
-    EXPECT_TRUE(std::error_code{} != val2);
-    EXPECT_TRUE(val1.matches(std::errc::invalid_argument));
-    EXPECT_TRUE(val2.matches(std::errc::invalid_argument));
-    EXPECT_TRUE(!val1.matches(std::error_condition{}));
-    EXPECT_TRUE(!val2.matches(std::error_condition{}));
+    EXPECT_EQ(val1.error(), monero::error::invalid_argument);
+    EXPECT_TRUE(val1 == monero::error::invalid_argument);
+    EXPECT_TRUE(monero::error::invalid_argument == val1);
+    EXPECT_EQ(val2.error(), monero::error::invalid_argument);
+    EXPECT_TRUE(val2 == monero::error::invalid_argument);
+    EXPECT_TRUE(monero::error::invalid_argument == val2);
+    EXPECT_NE(val1.error(), monero::error::none);
+    EXPECT_NE(val2.error(), monero::error::none);
+    EXPECT_TRUE(val1.equal(monero::error::invalid_argument));
+    EXPECT_TRUE(val2.equal(monero::error::invalid_argument));
+    EXPECT_TRUE(!(val1 == monero::error::none));
+    EXPECT_TRUE(!(monero::error::none == val1));
+    EXPECT_TRUE(!(val2 == monero::error::none));
+    EXPECT_TRUE(!(monero::error::none == val2));
+    EXPECT_TRUE(val1 != monero::error::none);
+    EXPECT_TRUE(monero::error::none != val1);
+    EXPECT_TRUE(val2 != monero::error::none);
+    EXPECT_TRUE(monero::error::none != val2);
+    EXPECT_TRUE(val1.matches(monero::errc::invalid_argument));
+    EXPECT_TRUE(val2.matches(monero::errc::invalid_argument));
+    EXPECT_TRUE(!val1.matches(monero::error_condition{}));
+    EXPECT_TRUE(!val2.matches(monero::error_condition{}));
 
     val1 = std::string{"barfoo"};
 
@@ -484,24 +484,24 @@ TEST(Expect, Assignment)
     EXPECT_STREQ(val1.value().c_str(), "barfoo");
     EXPECT_TRUE(*val1 == "barfoo");
     EXPECT_TRUE(boost::equals(val1->c_str(), "barfoo"));
-    EXPECT_EQ(val2.error(), common_error::kInvalidArgument);
-    EXPECT_TRUE(val2 == common_error::kInvalidArgument);
-    EXPECT_TRUE(common_error::kInvalidArgument == val2);
-    EXPECT_EQ(val1.error(), std::error_code{});
-    EXPECT_NE(val2.error(), std::error_code{});
-    EXPECT_TRUE(!val1.equal(std::error_code{}));
-    EXPECT_TRUE(val2.equal(common_error::kInvalidArgument));
-    EXPECT_TRUE(!(val1 == std::error_code{}));
-    EXPECT_TRUE(!(std::error_code{} == val1));
-    EXPECT_TRUE(!(val2 == std::error_code{}));
-    EXPECT_TRUE(!(std::error_code{} == val2));
-    EXPECT_TRUE(val1 != std::error_code{});
-    EXPECT_TRUE(std::error_code{} != val1);
-    EXPECT_TRUE(val2 != std::error_code{});
-    EXPECT_TRUE(std::error_code{} != val2);
-    EXPECT_TRUE(val2.matches(std::errc::invalid_argument));
-    EXPECT_TRUE(!val1.matches(std::error_condition{}));
-    EXPECT_TRUE(!val2.matches(std::error_condition{}));
+    EXPECT_EQ(val2.error(), monero::error::invalid_argument);
+    EXPECT_TRUE(val2 == monero::error::invalid_argument);
+    EXPECT_TRUE(monero::error::invalid_argument == val2);
+    EXPECT_EQ(val1.error(), monero::error::none);
+    EXPECT_NE(val2.error(), monero::error::none);
+    EXPECT_TRUE(!val1.equal(monero::error::none));
+    EXPECT_TRUE(val2.equal(monero::error::invalid_argument));
+    EXPECT_TRUE(!(val1 == monero::error::none));
+    EXPECT_TRUE(!(monero::error::none == val1));
+    EXPECT_TRUE(!(val2 == monero::error::none));
+    EXPECT_TRUE(!(monero::error::none == val2));
+    EXPECT_TRUE(val1 != monero::error::none);
+    EXPECT_TRUE(monero::error::none != val1);
+    EXPECT_TRUE(val2 != monero::error::none);
+    EXPECT_TRUE(monero::error::none != val2);
+    EXPECT_TRUE(val2.matches(monero::errc::invalid_argument));
+    EXPECT_TRUE(!val1.matches(monero::error_condition{}));
+    EXPECT_TRUE(!val2.matches(monero::error_condition{}));
 
     val2 = val1;
 
@@ -517,20 +517,20 @@ TEST(Expect, Assignment)
     EXPECT_EQ(val2.value(), "barfoo");
     EXPECT_TRUE(*val2 == "barfoo");
     EXPECT_TRUE(boost::equals(val2->c_str(), "barfoo"));
-    EXPECT_EQ(val1.error(), std::error_code{});
-    EXPECT_EQ(val2.error(), std::error_code{});
-    EXPECT_TRUE(!val1.equal(std::error_code{}));
-    EXPECT_TRUE(!val2.equal(std::error_code{}));
-    EXPECT_TRUE(!(val1 == std::error_code{}));
-    EXPECT_TRUE(!(std::error_code{} == val1));
-    EXPECT_TRUE(!(val2 == std::error_code{}));
-    EXPECT_TRUE(!(std::error_code{} == val2));
-    EXPECT_TRUE(val1 != std::error_code{});
-    EXPECT_TRUE(std::error_code{} != val1);
-    EXPECT_TRUE(val2 != std::error_code{});
-    EXPECT_TRUE(std::error_code{} != val2);
-    EXPECT_TRUE(!val1.matches(std::error_condition{}));
-    EXPECT_TRUE(!val2.matches(std::error_condition{}));
+    EXPECT_EQ(val1.error(), monero::error::none);
+    EXPECT_EQ(val2.error(), monero::error::none);
+    EXPECT_TRUE(!val1.equal(monero::error::none));
+    EXPECT_TRUE(!val2.equal(monero::error::none));
+    EXPECT_TRUE(!(val1 == monero::error::none));
+    EXPECT_TRUE(!(monero::error::none == val1));
+    EXPECT_TRUE(!(val2 == monero::error::none));
+    EXPECT_TRUE(!(monero::error::none == val2));
+    EXPECT_TRUE(val1 != monero::error::none);
+    EXPECT_TRUE(monero::error::none != val1);
+    EXPECT_TRUE(val2 != monero::error::none);
+    EXPECT_TRUE(monero::error::none != val2);
+    EXPECT_TRUE(!val1.matches(monero::error_condition{}));
+    EXPECT_TRUE(!val2.matches(monero::error_condition{}));
 }
 
 TEST(Expect, AssignmentThrowsOnMove)
@@ -554,14 +554,14 @@ TEST(Expect, AssignmentThrowsOnMove)
     };
 
     expect<throw_on_move> val1{expect<const char*>{"foobar"}};
-    expect<throw_on_move> val2{common_error::kInvalidArgument};
+    expect<throw_on_move> val2{monero::error::invalid_argument};
 
     ASSERT_TRUE(val1.has_value());
     ASSERT_TRUE(val2.has_error());
     EXPECT_TRUE(!val1.has_error());
     EXPECT_TRUE(!val2.has_value());
     EXPECT_STREQ(val1->msg.c_str(), "foobar");
-    EXPECT_EQ(val2.error(), common_error::kInvalidArgument);
+    EXPECT_EQ(val2.error(), monero::error::invalid_argument);
 
     EXPECT_THROW(val2 = std::move(val1), construct_error);
 
@@ -570,7 +570,7 @@ TEST(Expect, AssignmentThrowsOnMove)
     EXPECT_TRUE(!val1.has_error());
     EXPECT_TRUE(!val2.has_value());
     EXPECT_STREQ(val1->msg.c_str(), "foobar");
-    EXPECT_EQ(val2.error(), common_error::kInvalidArgument);
+    EXPECT_EQ(val2.error(), monero::error::invalid_argument);
 
     EXPECT_THROW(val1 = expect<const char*>{"barfoo"}, assignment_error);
 
@@ -579,7 +579,7 @@ TEST(Expect, AssignmentThrowsOnMove)
     EXPECT_TRUE(!val1.has_error());
     EXPECT_TRUE(!val2.has_value());
     EXPECT_STREQ(val1->msg.c_str(), "foobar");
-    EXPECT_EQ(val2.error(), common_error::kInvalidArgument);
+    EXPECT_EQ(val2.error(), monero::error::invalid_argument);
 
     EXPECT_NO_THROW(val2 = val1);
 
@@ -619,9 +619,9 @@ TEST(Expect, EqualWithStrings)
     EXPECT_TRUE(val1.equal(""));
     EXPECT_TRUE(val2.equal("barfoo"));
     EXPECT_TRUE(val3.equal(""));
-    EXPECT_TRUE(!val1.equal(std::error_code{}));
-    EXPECT_TRUE(!val2.equal(std::error_code{}));
-    EXPECT_TRUE(!val3.equal(std::error_code{}));
+    EXPECT_TRUE(!val1.equal(monero::error_code{}));
+    EXPECT_TRUE(!val2.equal(monero::error_code{}));
+    EXPECT_TRUE(!val3.equal(monero::error_code{}));
     EXPECT_TRUE(val1 == "");
     EXPECT_TRUE("" == val1);
     EXPECT_TRUE(val2 == "barfoo");
@@ -634,23 +634,23 @@ TEST(Expect, EqualWithStrings)
     EXPECT_TRUE(!("barfoo" != val2));
     EXPECT_TRUE(!(val3 != ""));
     EXPECT_TRUE(!("" != val3));
-    EXPECT_TRUE(!(val1 == std::error_code{}));
-    EXPECT_TRUE(!(std::error_code{} == val1));
-    EXPECT_TRUE(!(val2 == std::error_code{}));
-    EXPECT_TRUE(!(std::error_code{} == val2));
-    EXPECT_TRUE(!(val3 == std::error_code{}));
-    EXPECT_TRUE(!(std::error_code{} == val3));
-    EXPECT_TRUE(val1 != std::error_code{});
-    EXPECT_TRUE(std::error_code{} != val1);
-    EXPECT_TRUE(val2 != std::error_code{});
-    EXPECT_TRUE(std::error_code{} != val2);
-    EXPECT_TRUE(val3 != std::error_code{});
-    EXPECT_TRUE(std::error_code{} != val3);
-    EXPECT_TRUE(!val1.matches(std::error_condition{}));
-    EXPECT_TRUE(!val2.matches(std::error_condition{}));
-    EXPECT_TRUE(!val3.matches(std::error_condition{}));
+    EXPECT_TRUE(!(val1 == monero::error_code{}));
+    EXPECT_TRUE(!(monero::error_code{} == val1));
+    EXPECT_TRUE(!(val2 == monero::error_code{}));
+    EXPECT_TRUE(!(monero::error_code{} == val2));
+    EXPECT_TRUE(!(val3 == monero::error_code{}));
+    EXPECT_TRUE(!(monero::error_code{} == val3));
+    EXPECT_TRUE(val1 != monero::error_code{});
+    EXPECT_TRUE(monero::error_code{} != val1);
+    EXPECT_TRUE(val2 != monero::error_code{});
+    EXPECT_TRUE(monero::error_code{} != val2);
+    EXPECT_TRUE(val3 != monero::error_code{});
+    EXPECT_TRUE(monero::error_code{} != val3);
+    EXPECT_TRUE(!val1.matches(monero::error_condition{}));
+    EXPECT_TRUE(!val2.matches(monero::error_condition{}));
+    EXPECT_TRUE(!val3.matches(monero::error_condition{}));
 
-    val2 = make_error_code(common_error::kInvalidArgument);
+    val2 = make_error_code(monero::error::invalid_argument);
 
     EXPECT_TRUE(!val1.equal(val2));
     EXPECT_TRUE(val1.equal(val3));
@@ -671,15 +671,15 @@ TEST(Expect, EqualWithStrings)
     EXPECT_TRUE(val2 != val3);
     EXPECT_TRUE(val3 != val2);
 
-    EXPECT_TRUE(!val1.equal(common_error::kInvalidArgument));
-    EXPECT_TRUE(val2.equal(common_error::kInvalidArgument));
-    EXPECT_TRUE(!val3.equal(common_error::kInvalidArgument));
-    EXPECT_TRUE(val2 == common_error::kInvalidArgument);
-    EXPECT_TRUE(common_error::kInvalidArgument == val2);
-    EXPECT_TRUE(!(val2 != common_error::kInvalidArgument));
-    EXPECT_TRUE(!(common_error::kInvalidArgument != val2));
-    EXPECT_TRUE(val2.matches(std::errc::invalid_argument));
-    EXPECT_TRUE(!val2.matches(std::error_condition{}));
+    EXPECT_TRUE(!val1.equal(monero::error::invalid_argument));
+    EXPECT_TRUE(val2.equal(monero::error::invalid_argument));
+    EXPECT_TRUE(!val3.equal(monero::error::invalid_argument));
+    EXPECT_TRUE(val2 == monero::error::invalid_argument);
+    EXPECT_TRUE(monero::error::invalid_argument == val2);
+    EXPECT_TRUE(!(val2 != monero::error::invalid_argument));
+    EXPECT_TRUE(!(monero::error::invalid_argument != val2));
+    EXPECT_TRUE(val2.matches(monero::errc::invalid_argument));
+    EXPECT_TRUE(!val2.matches(monero::error_condition{}));
 
     val1 = expect<std::string>{"barfoo"};
 
@@ -707,13 +707,13 @@ TEST(Expect, EqualWithStrings)
     EXPECT_TRUE("barfoo" == val1);
     EXPECT_TRUE(!(val1 != "barfoo"));
     EXPECT_TRUE(!("barfoo" != val1));
-    EXPECT_TRUE(!val1.equal(common_error::kInvalidArgument));
-    EXPECT_TRUE(!(val1 == common_error::kInvalidArgument));
-    EXPECT_TRUE(!(common_error::kInvalidArgument == val1));
-    EXPECT_TRUE(!(val1 == std::error_code{}));
-    EXPECT_TRUE(!(std::error_code{} == val1));
-    EXPECT_TRUE(!val1.matches(std::error_condition{}));
-    EXPECT_TRUE(!val1.matches(std::errc::invalid_argument));
+    EXPECT_TRUE(!val1.equal(monero::error::invalid_argument));
+    EXPECT_TRUE(!(val1 == monero::error::invalid_argument));
+    EXPECT_TRUE(!(monero::error::invalid_argument == val1));
+    EXPECT_TRUE(!(val1 == monero::error_code{}));
+    EXPECT_TRUE(!(monero::error_code{} == val1));
+    EXPECT_TRUE(!val1.matches(monero::error_condition{}));
+    EXPECT_TRUE(!val1.matches(monero::errc::invalid_argument));
 }
 
 TEST(Expect, EqualWithVoid)
@@ -723,40 +723,40 @@ TEST(Expect, EqualWithVoid)
 
     EXPECT_TRUE(val1.equal(val2));
     EXPECT_TRUE(val2.equal(val1));
-    EXPECT_TRUE(!val1.equal(std::error_code{}));
-    EXPECT_TRUE(!val2.equal(std::error_code{}));
+    EXPECT_TRUE(!val1.equal(monero::error_code{}));
+    EXPECT_TRUE(!val2.equal(monero::error_code{}));
     EXPECT_TRUE(val1 == val2);
     EXPECT_TRUE(val2 == val1);
-    EXPECT_TRUE(!(val1 == std::error_code{}));
-    EXPECT_TRUE(!(std::error_code{} == val1));
-    EXPECT_TRUE(!(val2 == std::error_code{}));
-    EXPECT_TRUE(!(std::error_code{} == val2));
+    EXPECT_TRUE(!(val1 == monero::error_code{}));
+    EXPECT_TRUE(!(monero::error_code{} == val1));
+    EXPECT_TRUE(!(val2 == monero::error_code{}));
+    EXPECT_TRUE(!(monero::error_code{} == val2));
     EXPECT_TRUE(!(val1 != val2));
     EXPECT_TRUE(!(val2 != val1));
-    EXPECT_TRUE(val1 != std::error_code{});
-    EXPECT_TRUE(std::error_code{} != val1);
-    EXPECT_TRUE(!(val2 == std::error_code{}));
-    EXPECT_TRUE(!(std::error_code{} == val2));
+    EXPECT_TRUE(val1 != monero::error_code{});
+    EXPECT_TRUE(monero::error_code{} != val1);
+    EXPECT_TRUE(!(val2 == monero::error_code{}));
+    EXPECT_TRUE(!(monero::error_code{} == val2));
 
-    val2 = make_error_code(common_error::kInvalidArgument);
+    val2 = make_error_code(monero::error::invalid_argument);
 
     EXPECT_TRUE(!val1.equal(val2));
     EXPECT_TRUE(!val2.equal(val1));
-    EXPECT_TRUE(!val1.equal(common_error::kInvalidArgument));
-    EXPECT_TRUE(val2.equal(common_error::kInvalidArgument));
-    EXPECT_TRUE(!val2.equal(std::error_code{}));
+    EXPECT_TRUE(!val1.equal(monero::error::invalid_argument));
+    EXPECT_TRUE(val2.equal(monero::error::invalid_argument));
+    EXPECT_TRUE(!val2.equal(monero::error_code{}));
     EXPECT_TRUE(!(val1 == val2));
     EXPECT_TRUE(!(val2 == val1));
-    EXPECT_TRUE(val2 == common_error::kInvalidArgument);
-    EXPECT_TRUE(common_error::kInvalidArgument == val2);
-    EXPECT_TRUE(!(val2 == std::error_code{}));
-    EXPECT_TRUE(!(std::error_code{} == val2));
+    EXPECT_TRUE(val2 == monero::error::invalid_argument);
+    EXPECT_TRUE(monero::error::invalid_argument == val2);
+    EXPECT_TRUE(!(val2 == monero::error_code{}));
+    EXPECT_TRUE(!(monero::error_code{} == val2));
     EXPECT_TRUE(val1 != val2);
     EXPECT_TRUE(val2 != val1);
-    EXPECT_TRUE(!(val2 != common_error::kInvalidArgument));
-    EXPECT_TRUE(!(common_error::kInvalidArgument != val2));
-    EXPECT_TRUE(val2 != std::error_code{});
-    EXPECT_TRUE(std::error_code{} != val2);
+    EXPECT_TRUE(!(val2 != monero::error::invalid_argument));
+    EXPECT_TRUE(!(monero::error::invalid_argument != val2));
+    EXPECT_TRUE(val2 != monero::error_code{});
+    EXPECT_TRUE(monero::error_code{} != val2);
 }
 
 TEST(Expect, EqualNoCopies)
@@ -801,7 +801,7 @@ TEST(Expect, EqualNoCopies)
     EXPECT_TRUE(!(val1 != val3));
     EXPECT_TRUE(!(val3 != val1));
 
-    expect<throw_on_copy> val4{common_error::kInvalidArgument};
+    expect<throw_on_copy> val4{monero::error::invalid_argument};
 
     EXPECT_TRUE(!val4.equal(throw_on_copy{}));
     EXPECT_TRUE(!(val4 == throw_on_copy{}));
@@ -817,99 +817,99 @@ TEST(Expect, EqualNoCopies)
 
 TEST(Expect, Macros) {
     EXPECT_TRUE(
-        [] () -> ::common_error {
+        [] () -> ::monero::error {
             MONERO_PRECOND(true);
-            return {common_error::kInvalidErrorCode};
-        } () == common_error::kInvalidErrorCode
+            return {monero::error::invalid_error_code};
+        } () == monero::error::invalid_error_code
     );
     EXPECT_TRUE(
-        [] () -> ::common_error {
+        [] () -> ::monero::error {
             MONERO_PRECOND(false);
-            return {common_error::kInvalidErrorCode};
-        } () == common_error::kInvalidArgument
+            return {monero::error::invalid_error_code};
+        } () == monero::error::invalid_argument
     );
     EXPECT_TRUE(
-        [] () -> std::error_code {
+        [] () -> monero::error_code {
             MONERO_PRECOND(true);
-            return {common_error::kInvalidErrorCode};
-        } () == common_error::kInvalidErrorCode
+            return {monero::error::invalid_error_code};
+        } () == monero::error::invalid_error_code
     );
     EXPECT_TRUE(
-        [] () -> std::error_code {
+        [] () -> monero::error_code {
             MONERO_PRECOND(false);
-            return {common_error::kInvalidErrorCode};
-        } () == common_error::kInvalidArgument
+            return {monero::error::invalid_error_code};
+        } () == monero::error::invalid_argument
     );
     EXPECT_TRUE(
         [] () -> expect<void> {
             MONERO_PRECOND(true);
-            return {common_error::kInvalidErrorCode};
-        } () == common_error::kInvalidErrorCode
+            return {monero::error::invalid_error_code};
+        } () == monero::error::invalid_error_code
     );
     EXPECT_TRUE(
         [] () -> expect<void> {
             MONERO_PRECOND(false);
-            return {common_error::kInvalidErrorCode};
-        } () == common_error::kInvalidArgument
+            return {monero::error::invalid_error_code};
+        } () == monero::error::invalid_argument
     );
     EXPECT_TRUE(
         [] () -> expect<int> {
             MONERO_PRECOND(true);
-            return {common_error::kInvalidErrorCode};
-        } () == common_error::kInvalidErrorCode
+            return {monero::error::invalid_error_code};
+        } () == monero::error::invalid_error_code
     );
     EXPECT_TRUE(
         [] () -> expect<int> {
             MONERO_PRECOND(false);
-            return {common_error::kInvalidErrorCode};
-        } () == common_error::kInvalidArgument
+            return {monero::error::invalid_error_code};
+        } () == monero::error::invalid_argument
     );
 
     EXPECT_TRUE(
-        [] () -> std::error_code {
+        [] () -> monero::error_code {
             MONERO_CHECK(expect<void>{});
-            return {common_error::kInvalidErrorCode};
-        } () == common_error::kInvalidErrorCode
+            return {monero::error::invalid_error_code};
+        } () == monero::error::invalid_error_code
     );
     EXPECT_TRUE(
-        [] () -> std::error_code {
-            MONERO_CHECK(expect<void>{common_error::kInvalidArgument});
-            return {common_error::kInvalidErrorCode};
-        } () == common_error::kInvalidArgument
+        [] () -> monero::error_code {
+            MONERO_CHECK(expect<void>{monero::error::invalid_argument});
+            return {monero::error::invalid_error_code};
+        } () == monero::error::invalid_argument
     );
     EXPECT_TRUE(
         [] () -> expect<void> {
             MONERO_CHECK(expect<void>{});
-            return {common_error::kInvalidErrorCode};
-        } () == common_error::kInvalidErrorCode
+            return {monero::error::invalid_error_code};
+        } () == monero::error::invalid_error_code
     );
     EXPECT_TRUE(
         [] () -> expect<void> {
-            MONERO_CHECK(expect<void>{common_error::kInvalidArgument});
-            return {common_error::kInvalidErrorCode};
-        } () == common_error::kInvalidArgument
+            MONERO_CHECK(expect<void>{monero::error::invalid_argument});
+            return {monero::error::invalid_error_code};
+        } () == monero::error::invalid_argument
     );
     EXPECT_TRUE(
         [] () -> expect<int> {
             MONERO_CHECK(expect<void>{});
-            return {common_error::kInvalidErrorCode};
-        } () == common_error::kInvalidErrorCode
+            return {monero::error::invalid_error_code};
+        } () == monero::error::invalid_error_code
     );
     EXPECT_TRUE(
         [] () -> expect<int> {
-            MONERO_CHECK(expect<void>{common_error::kInvalidArgument});
-            return {common_error::kInvalidErrorCode};
-        } () == common_error::kInvalidArgument
+            MONERO_CHECK(expect<void>{monero::error::invalid_argument});
+            return {monero::error::invalid_error_code};
+        } () == monero::error::invalid_argument
     );
 
     EXPECT_NO_THROW(MONERO_UNWRAP(success()));
     EXPECT_NO_THROW(MONERO_UNWRAP(expect<void>{}));
     EXPECT_NO_THROW(MONERO_UNWRAP(expect<int>{0}));
     EXPECT_THROW(
-        MONERO_UNWRAP(expect<void>{common_error::kInvalidArgument}), std::system_error
+        MONERO_UNWRAP(expect<void>{monero::error::invalid_argument}), monero::system_error
     );
     EXPECT_THROW(
-        MONERO_UNWRAP(expect<int>{common_error::kInvalidArgument}), std::system_error
+        MONERO_UNWRAP(expect<int>{monero::error::invalid_argument}), monero::system_error
     );
 }
 

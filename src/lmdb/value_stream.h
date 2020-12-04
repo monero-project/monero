@@ -40,7 +40,7 @@ namespace lmdb
     namespace stream
     {
         /*
-            \throw std::system_error if unexpected LMDB error.
+            \throw monero::system_error if unexpected LMDB error.
             \return 0 if `cur == nullptr`, otherwise count of values at current key.
         */
         mdb_size_t count(MDB_cursor* cur);
@@ -53,9 +53,9 @@ namespace lmdb
             \param key expected key size or 0 to skip key size check.
             \param value expected value size or 0 to skip value size check.
 
-            \throw std::system_error if `key != 0` and `key_.mv_size != key`.
-            \throw std::system_error if `value != 0` and `value_.mv_size != value`.
-            \throw std::system_error if `mdb_cursor_get` returns any error
+            \throw monero::system_error if `key != 0` and `key_.mv_size != key`.
+            \throw monero::system_error if `value != 0` and `value_.mv_size != value`.
+            \throw monero::system_error if `mdb_cursor_get` returns any error
                 other than `MDB_NOTFOUND`.
 
             \return {key bytes, value bytes} or two empty spans if `MDB_NOTFOUND`.
@@ -105,7 +105,7 @@ namespace lmdb
 
         /*!
             \param cur Iterate over values starting at this cursor position.
-            \throw std::system_error if unexpected LMDB error. This can happen
+            \throw monero::system_error if unexpected LMDB error. This can happen
                 if `cur` is invalid.
         */
         value_iterator(MDB_cursor* cur)
@@ -224,7 +224,7 @@ namespace lmdb
         }
 
         /*!
-            \throw std::system_error if LMDB has unexpected errors.
+            \throw monero::system_error if LMDB has unexpected errors.
             \return Number of values at this key.
         */
         std::size_t count() const
@@ -242,7 +242,7 @@ namespace lmdb
             object - the other fields in the struct `account` are never copied
             from the database.
 
-            \throw std::system_error if LMDB has unexpected errors.
+            \throw monero::system_error if LMDB has unexpected errors.
             \return C++ iterator starting at current cursor position.
         */
         template<typename U = T, typename F = U, std::size_t offset = 0>
@@ -260,7 +260,7 @@ namespace lmdb
             will return a range of `decltype(account.id)` objects - the other
             fields in the struct `account` are never copied from the database.
 
-            \throw std::system_error if LMDB has unexpected errors.
+            \throw monero::system_error if LMDB has unexpected errors.
             \return An InputIterator range over values at cursor position.
         */
         template<typename U = T, typename F = U, std::size_t offset = 0>

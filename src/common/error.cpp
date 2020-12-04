@@ -30,8 +30,12 @@
 
 namespace
 {
-    struct category final : std::error_category
+    struct category final : monero::error_category
     {
+        category() noexcept
+          : monero::error_category()
+        {}
+
         virtual const char* name() const noexcept override final
         {
             return "common_category()";
@@ -39,11 +43,13 @@ namespace
 
         virtual std::string message(int value) const override final
         {
-            switch (common_error(value))
+            switch (monero::error(value))
             {
-                case common_error::kInvalidArgument:
-                    return make_error_code(std::errc::invalid_argument).message();
-                case common_error::kInvalidErrorCode:
+                case monero::error::none:
+                    return "No error (success)";
+                case monero::error::invalid_argument:
+                    return make_error_code(monero::errc::invalid_argument).message();
+                case monero::error::invalid_error_code:
                     return "expect<T> was given an error value of zero";
                 default:
                     break;
@@ -51,25 +57,38 @@ namespace
             return "Unknown basic_category() value";
         }
 
-        virtual std::error_condition default_error_condition(int value) const noexcept override final
+        virtual monero::error_condition default_error_condition(int value) const noexcept override final
         {
             // maps specific errors to generic `std::errc` cases.
-            switch (common_error(value))
+            switch (monero::error(value))
             {
-                case common_error::kInvalidArgument:
-                case common_error::kInvalidErrorCode:
-                    return std::errc::invalid_argument;
+                case monero::error::none:
+                    return monero::errc::success;
+                case monero::error::invalid_argument:
+                case monero::error::invalid_error_code:
+                    return monero::errc::invalid_argument;
                 default:
                     break;
             }
-            return std::error_condition{value, *this};
+            return monero::error_condition{value, *this};
         }
     };
+    //! function in anonymous namespace allows compiler to optimize `error_category::failed` call
+    category const& category_instance() noexcept
+    {
+        static const category instance;
+        return instance;
+    }
 }
 
-std::error_category const& common_category() noexcept
+namespace monero
 {
-    static const category instance{};
-    return instance;
+    error_category const& default_category() noexcept
+    {
+        return category_instance();
+    }
+    error_code make_error_code(monero::error value) noexcept
+    {
+        return {int(value), category_instance()};
+    }
 }
-

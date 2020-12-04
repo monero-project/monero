@@ -190,7 +190,7 @@ TEST(LMDB, Table)
     static_assert(test.flags == 0, "bad flags");
     static_assert(&lmdb::less<unsigned> == test.key_cmp, "bad key_cmp");
     static_assert(test.value_cmp == nullptr, "bad value_cmp");
-    EXPECT_TRUE(test.get_value<bytes>(MDB_val{}).matches(std::errc::invalid_argument));
+    EXPECT_TRUE(test.get_value<bytes>(MDB_val{}).matches(monero::errc::invalid_argument));
 
     lmdb::basic_table<big_choice, one> test2{
         "foo2", MDB_DUPSORT, &lmdb::compare<one>
@@ -200,7 +200,7 @@ TEST(LMDB, Table)
     EXPECT_EQ((MDB_DUPSORT | MDB_DUPFIXED), test2.flags);
     EXPECT_EQ(&lmdb::less<unsigned long>, test2.key_cmp);
     EXPECT_EQ(&lmdb::compare<one>, test2.value_cmp);
-    EXPECT_TRUE(test2.get_value<one>(MDB_val{}).matches(std::errc::invalid_argument));
+    EXPECT_TRUE(test2.get_value<one>(MDB_val{}).matches(monero::errc::invalid_argument));
 
     one record{};
     boost::iota(record.i.data, 0);
@@ -216,18 +216,18 @@ TEST(LMDB, Table)
     EXPECT_TRUE(boost::equal(record.j.data, j_copy.data));
 
     EXPECT_TRUE(
-        test.get_key_stream(test_cursor{}).matches(std::errc::invalid_argument)
+        test.get_key_stream(test_cursor{}).matches(monero::errc::invalid_argument)
     );
     EXPECT_TRUE(
-        test2.get_key_stream(test_cursor{}).matches(std::errc::invalid_argument)
+        test2.get_key_stream(test_cursor{}).matches(monero::errc::invalid_argument)
     );
 
 
     EXPECT_TRUE(
-        test.get_value_stream(choice(0), test_cursor{}).matches(std::errc::invalid_argument)
+        test.get_value_stream(choice(0), test_cursor{}).matches(monero::errc::invalid_argument)
     );
     EXPECT_TRUE(
-        test2.get_value_stream(big_choice(0), test_cursor{}).matches(std::errc::invalid_argument)
+        test2.get_value_stream(big_choice(0), test_cursor{}).matches(monero::errc::invalid_argument)
     );
 }
 
@@ -235,14 +235,14 @@ TEST(LMDB, InvalidDatabase)
 {
    lmdb::database test{lmdb::environment{}};
 
-    EXPECT_TRUE(test.resize().matches(std::errc::invalid_argument));
-    EXPECT_TRUE(test.create_read_txn().matches(std::errc::invalid_argument));
-    EXPECT_TRUE(test.reset_txn(lmdb::read_txn{}).matches(std::errc::invalid_argument));
-    EXPECT_TRUE(test.create_write_txn().matches(std::errc::invalid_argument));
-    EXPECT_TRUE(test.commit(lmdb::write_txn{}).matches(std::errc::invalid_argument));
+    EXPECT_TRUE(test.resize().matches(monero::errc::invalid_argument));
+    EXPECT_TRUE(test.create_read_txn().matches(monero::errc::invalid_argument));
+    EXPECT_TRUE(test.reset_txn(lmdb::read_txn{}).matches(monero::errc::invalid_argument));
+    EXPECT_TRUE(test.create_write_txn().matches(monero::errc::invalid_argument));
+    EXPECT_TRUE(test.commit(lmdb::write_txn{}).matches(monero::errc::invalid_argument));
 
     EXPECT_TRUE(
-        test.try_write( [](MDB_txn&) { return success(); } ).matches(std::errc::invalid_argument)
+        test.try_write( [](MDB_txn&) { return success(); } ).matches(monero::errc::invalid_argument)
     );
 }
 

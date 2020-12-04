@@ -31,8 +31,12 @@
 #include <string>
 
 namespace {
-    struct category final : std::error_category
+    struct category final : monero::error_category
     {
+        category() noexcept
+          : monero::error_category()
+        {}
+
         virtual const char* name() const noexcept override final
         {
             return "lmdb::error_category()";
@@ -46,7 +50,7 @@ namespace {
             return "Unknown lmdb::error_category() value";
         }
 
-        virtual std::error_condition default_error_condition(int value) const noexcept override final
+        virtual monero::error_condition default_error_condition(int value) const noexcept override final
         {
             switch (value)
             {
@@ -55,44 +59,53 @@ namespace {
                     break; // map to nothing generic
                 case MDB_PAGE_NOTFOUND:
                 case MDB_CORRUPTED:
-                    return std::errc::bad_address;
+                    return monero::errc::bad_address;
                 case MDB_PANIC:
                 case MDB_VERSION_MISMATCH:
                 case MDB_INVALID:
                     break; // map to nothing generic
                 case MDB_MAP_FULL:
-                    return std::errc::no_buffer_space;
+                    return monero::errc::no_buffer_space;
                 case MDB_DBS_FULL:
                     break; // map to nothing generic
                 case MDB_READERS_FULL:
                 case MDB_TLS_FULL:
-                    return std::errc::no_lock_available;
+                    return monero::errc::no_lock_available;
                 case MDB_TXN_FULL:
                 case MDB_CURSOR_FULL:
                 case MDB_PAGE_FULL:
                 case MDB_MAP_RESIZED:
                     break; // map to nothing generic
                 case MDB_INCOMPATIBLE:
-                    return std::errc::invalid_argument;
+                    return monero::errc::invalid_argument;
                 case MDB_BAD_RSLOT:
                 case MDB_BAD_TXN:
                 case MDB_BAD_VALSIZE:
                 case MDB_BAD_DBI:
-                    return std::errc::invalid_argument;
+                    return monero::errc::invalid_argument;
                 default:
-                    return std::error_condition{value, std::generic_category()};
+                    return monero::errc::errc_t(value);
             }
-            return std::error_condition{value, *this};
+            return monero::error_condition{value, *this};
         }
     };
+    //! function in anonymous namespace allows compiler to optimize `error_category::failed` call
+    category const& category_instance() noexcept
+    {
+        static const category instance{};
+        return instance;
+    }
 }
 
 namespace lmdb
 {
-    std::error_category const& error_category() noexcept
+    monero::error_category const& error_category() noexcept
     {
-        static const category instance{};
-        return instance;
+        return category_instance();
+    }
+    monero::error_code make_error_code(const error value) noexcept
+    {
+        return {int(value), category_instance()};
     }
 }
 

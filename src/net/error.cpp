@@ -32,18 +32,18 @@
 
 namespace
 {
-    struct net_category : std::error_category
+    struct net_category final : monero::error_category
     {
         net_category() noexcept
-          : std::error_category()
+          : monero::error_category()
         {}
 
-        const char* name() const noexcept override
+        const char* name() const noexcept override final
         {
             return "net::error_category";
         }
 
-        std::string message(int value) const override
+        std::string message(int value) const override final
         {
             switch (net::error(value))
             {
@@ -72,28 +72,38 @@ namespace
             return "Unknown net::error";
         }
 
-        std::error_condition default_error_condition(int value) const noexcept override
+        monero::error_condition default_error_condition(int value) const noexcept override final
         {
             switch (net::error(value))
             {
             case net::error::invalid_port:
             case net::error::invalid_mask:
-                return std::errc::result_out_of_range;
+                return monero::errc::result_out_of_range;
             case net::error::expected_tld:
             case net::error::invalid_tor_address:
             default:
                 break;
             }
-            return std::error_condition{value, *this};
+            return monero::error_condition{value, *this};
         }
     };
+    //! function in anonymous namespace allows compiler to optimize `error_category::failed` call
+    net_category const& category_instance() noexcept
+    {
+        static const net_category category;
+        return category;
+    }
 } // anonymous
 
 namespace net
 {
-    std::error_category const& error_category() noexcept
+    monero::error_category const& error_category() noexcept
     {
-        static const net_category instance{};
-        return instance;
+        return category_instance();
+    }
+
+    monero::error_code make_error_code(error value) noexcept
+    {
+        return {int(value), category_instance()};
     }
 }

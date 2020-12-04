@@ -35,12 +35,12 @@
 
 #include "common/error.h"
 
-//! If precondition fails, return `::error::kInvalidArgument` in current scope.
-#define MONERO_PRECOND(...)                            \
-    do                                                 \
-    {                                                  \
-        if (!( __VA_ARGS__ ))                          \
-            return {::common_error::kInvalidArgument}; \
+//! If precondition fails, return `monero::error::invalid_argument` in current scope.
+#define MONERO_PRECOND(...)                             \
+    do                                                  \
+    {                                                   \
+        if (!( __VA_ARGS__ ))                           \
+            return {::monero::error::invalid_argument}; \
     } while (0)
 
 //! Check `expect<void>` and return errors in current scope.
@@ -55,14 +55,14 @@
 /*! Get `T` from `expect<T>` by `std::move` as-if by function call.
     `expect<void>` returns nothing.
 
-    \throw std::system_error with `expect<T>::error()`, filename and line
+    \throw monero::system_error with `expect<T>::error()`, filename and line
         number when `expect<T>::has_error() == true`.*/
 #define MONERO_UNWRAP(...)                                        \
     ::detail::expect::unwrap( __VA_ARGS__ , nullptr, __FILE__ , __LINE__ )
 
-/* \throw std::system_error with `code` and `msg` as part of the details. The
+/* \throw monero::system_error with `code` and `msg` as part of the details. The
 filename and line number will automatically be injected into the explanation
-string. `code` can be any enum convertible to `std::error_code`. */
+string. `code` can be any enum convertible to `monero::error_code`. */
 #define MONERO_THROW(code, msg) \
     ::detail::expect::throw_( code , msg , __FILE__ , __LINE__ )
 
@@ -77,8 +77,8 @@ namespace detail
  
     struct expect
     {
-        //! \throw std::system_error with `ec`, optional `msg` and/or optional `file` + `line`.
-        static void throw_(std::error_code ec, const char* msg, const char* file, unsigned line);
+        //! \throw monero::system_error with `ec`, optional `msg` and/or optional `file` + `line`.
+        static void throw_(monero::error_code ec, const char* msg, const char* file, unsigned line);
 
         //! If `result.has_error()` call `throw_`. Otherwise, \return `*result` by move.
         template<typename T>
@@ -97,9 +97,9 @@ namespace detail
 /*!
     `expect<T>` is a value or error implementation, similar to Rust std::result
     or various C++ proposals (boost::expected, boost::outcome). This
-    implementation currently has a strict error type, `std::error_code`, and a
-    templated value type `T`. `expect<T>` is implicitly convertible from `T`
-    or `std::error_code`, and one `expect<T>` object type is implicitly
+    implementation currently has a strict error type, `monero::error_code`, and
+    a templated value type `T`. `expect<T>` is implicitly convertible from `T`
+    or `monero::error_code`, and one `expect<T>` object type is implicitly
     convertible to another `expect<U>` object iff the destination value type
     can be implicitly constructed from the source value type (i.e.
     `struct U { ... U(T src) { ...} ... };`).
@@ -108,14 +108,14 @@ namespace detail
     comparison between different value types is allowed provided the two values
     types have a `operator==` defined between them (i.e.
     `assert(expect<int>{100} == expect<short>{100});`). Comparisons can also be
-    done against `std::error_code` objects or error code enums directly (i.e.
-    `assert(expect<int>{make_error_code(common_error::kInvalidArgument)} == error::kInvalidArgument)`).
-    Comparison of default constructed `std::error_code` will always fail.
-    "Generic" comparisons can be done with `std::error_condition` via the `matches`
-    method only (i.e.
-    `assert(expect<int>{make_error_code{common_error::kInvalidErrorCode}.matches(std::errc::invalid_argument))`),
-    `operator==` and `operator!=` will not work with `std::errc` or
-    `std::error_condition`. A comparison with `matches` is more expensive
+    done against `monero::error_code` objects or error code enums directly (i.e.
+    `assert(expect<int>{make_error_code(monero::error::invalid_argument)} == error::invalid_argument)`).
+    Comparison of default constructed `monero::error_code` will always fail.
+    "Generic" comparisons can be done with `monero::error_condition` via the
+    `matches` method only (i.e.
+    `assert(expect<int>{make_error_code{monero::error::invalid_error_code}.matches(monero::errc::invalid_argument))`),
+    `operator==` and `operator!=` will not work with `monero::errc` or
+    `monero::error_condition`. A comparison with `matches` is more expensive
     because an equivalency between error categories is computed, but is
     recommended when an error can be one of several categories (this is going
     to be the case in nearly every situation when calling a function from
@@ -141,7 +141,7 @@ class expect
     }
 
     // MEMBERS
-    std::error_code code_;
+    monero::error_code code_;
     typename std::aligned_storage<sizeof(T), alignof(T)>::type storage_;
     // MEMBERS
 
@@ -161,7 +161,6 @@ class expect
     void store(U&& value) noexcept(std::is_nothrow_constructible<T, U>())
     {
         new (std::addressof(storage_)) T{std::forward<U>(value)};
-        code_ = std::error_code{};
     }
 
     void maybe_throw() const
@@ -172,24 +171,27 @@ class expect
 
 public:
     using value_type = T;
-    using error_type = std::error_code;
+    using error_type = monero::error_code;
 
     expect() = delete;
 
     /*! Store an error, `code`, in the `expect` object. If `code` creates a
-    `std::error_code` object whose `.value() == 0`, then `error()` will be set
-    to `::common_error::kInvalidErrorCode`. */
-    expect(std::error_code const& code) noexcept
+    `monero::error_code` object whose `.value() == 0`, then `error()` will be
+    set to `::monero::error::invalid_error_code`. */
+    expect(error_type const& code) noexcept
       : code_(code), storage_()
     {
         if (!has_error())
-            code_ = ::common_error::kInvalidErrorCode;
+            code_ = ::monero::error::invalid_error_code;
     }
 
     //! Store a value, `val`, in the `expect` object.
     expect(T val) noexcept(std::is_nothrow_move_constructible<T>())
-      : code_(), storage_()
+      : code_(monero::error::none), storage_()
     {
+        /* `monero::error::none` is used instead of default constructor because
+           Boost error_code in 1.68+ is header based and drags many instructions
+           into other functions unless compiling in C++14+. */
         store(std::move(val));
     }
 
@@ -273,16 +275,16 @@ public:
     bool has_value() const noexcept { return !has_error(); }
 
     //! \return Error - always safe to call. Empty when `!has_error()`.
-    std::error_code error() const noexcept { return code_; }
+    error_type error() const noexcept { return code_; }
 
-    //! \return Value if `has_value()` otherwise \throw `std::system_error{error()}`.
+    //! \return Value if `has_value()` otherwise \throw `monero::system_error{error()}`.
     T& value() &
     {
         maybe_throw();
         return get();
     }
 
-    //! \return Value if `has_value()` otherwise \throw `std::system_error{error()}`.
+    //! \return Value if `has_value()` otherwise \throw `monero::system_error{error()}`.
     T const& value() const &
     {
         maybe_throw();
@@ -318,7 +320,7 @@ public:
     }
 
     //! \return False if `has_value()`, otherwise `error() == rhs`.
-    bool equal(std::error_code const& rhs) const noexcept
+    bool equal(error_type const& rhs) const noexcept
     {
         return has_error() && error() == rhs;
     }
@@ -327,14 +329,14 @@ public:
         \note This function is `noexcept` when `U == T` is `noexcept`.
         \return False if `has_error()`, otherwise `value() == rhs`.
     */
-    template<typename U, typename = detail::enable_if<!std::is_constructible<std::error_code, U>::value>>
+    template<typename U, typename = detail::enable_if<!std::is_constructible<error_type, U>::value>>
     bool equal(U const& rhs) const noexcept(noexcept(*std::declval<expect<T>>() == rhs))
     {
         return has_value() && get() == rhs;
     }
 
     //! \return False if `has_value()`, otherwise `error() == rhs`.
-    bool matches(std::error_condition const& rhs) const noexcept
+    bool matches(monero::error_condition const& rhs) const noexcept
     {
         return has_error() && error() == rhs;
     }
@@ -343,22 +345,26 @@ public:
 template<>
 class expect<void>
 {
-    std::error_code code_;
+    monero::error_code code_;
 
 public:
     using value_type = void;
-    using error_type = std::error_code;
+    using error_type = monero::error_code;
 
     //! Create a successful object.
     expect() noexcept
-      : code_()
+      : code_(monero::error::none)
     {}
 
-    expect(std::error_code const& code) noexcept
+    /* `monero::error::none` is used instead of default constructor because
+       Boost error_code in 1.68+ is header based and drags many instructions
+       into other functions unless compiling in C++14+. */
+
+    expect(error_type const& code) noexcept
       : code_(code)
     {
         if (!has_error())
-            code_ = ::common_error::kInvalidErrorCode;
+            code_ = ::monero::error::invalid_error_code;
     }
 
     expect(expect const&) = default;
@@ -372,7 +378,7 @@ public:
     bool has_error() const noexcept { return bool(code_); }
 
     //! \return Error - alway
-    std::error_code error() const noexcept { return code_; }
+    error_type error() const noexcept { return code_; }
 
     //! \return `error() == rhs.error()`.
     bool equal(expect const& rhs) const noexcept
@@ -381,13 +387,13 @@ public:
     }
 
     //! \return `has_error() && error() == rhs`.
-    bool equal(std::error_code const& rhs) const noexcept
+    bool equal(error_type const& rhs) const noexcept
     {
         return has_error() && error() == rhs;
     }
 
     //! \return False if `has_value()`, otherwise `error() == rhs`.
-    bool matches(std::error_condition const& rhs) const noexcept
+    bool matches(monero::error_condition const& rhs) const noexcept
     {
         return has_error() && error() == rhs;
     }

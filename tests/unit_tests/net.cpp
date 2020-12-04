@@ -1653,7 +1653,7 @@ TEST(zmq, error_codes)
         std::addressof(net::zmq::make_error_code(0).category())
     );
     EXPECT_EQ(
-        std::make_error_condition(std::errc::not_a_socket),
+        make_error_condition(monero::errc::not_a_socket),
         net::zmq::make_error_code(ENOTSOCK)
     );
 
@@ -1662,7 +1662,7 @@ TEST(zmq, error_codes)
         {
             MONERO_ZMQ_CHECK(zmq_msg_send(nullptr, nullptr, 0));
             return success();
-        }().matches(std::errc::not_a_socket)
+        }().matches(monero::errc::not_a_socket)
     );
 
     bool thrown = false;
@@ -1670,10 +1670,10 @@ TEST(zmq, error_codes)
     {
         MONERO_ZMQ_THROW("stuff");
     }
-    catch (const std::system_error& e)
+    catch (const boost::system::system_error& e)
     {
         thrown = true;
-        EXPECT_EQ(std::make_error_condition(std::errc::not_a_socket), e.code());
+        EXPECT_EQ(make_error_condition(monero::errc::not_a_socket), e.code());
     }
     EXPECT_TRUE(thrown);
 }

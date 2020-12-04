@@ -28,8 +28,7 @@
 
 #pragma once
 
-#include <system_error>
-#include <type_traits>
+#include "common/error.h"
 
 namespace net
 {
@@ -49,20 +48,11 @@ namespace net
 
     };
 
-    //! \return `std::error_category` for `net` namespace.
-    std::error_category const& error_category() noexcept;
+    //! \return `monero::error_category` for `net` namespace.
+    monero::error_category const& error_category() noexcept;
 
     //! \return `net::error` as a `std::error_code` value.
-    inline std::error_code make_error_code(error value) noexcept
-    {
-        return std::error_code{int(value), error_category()};
-    }
+    monero::error_code make_error_code(error value) noexcept;
 }
 
-namespace std
-{
-    template<>
-    struct is_error_code_enum<::net::error>
-      : true_type
-    {};
-}
+MONERO_DECLARE_ERROR_ENUM(net::error)

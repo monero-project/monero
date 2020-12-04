@@ -168,7 +168,7 @@ void ZmqServer::serve()
       }
     }
   }
-  catch (const std::system_error& e)
+  catch (const boost::system::system_error& e)
   {
     if (e.code() != net::zmq::make_error_code(ETERM))
       MERROR("ZMQ RPC Server Error: " << e.what());
