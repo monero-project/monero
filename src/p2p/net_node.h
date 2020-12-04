@@ -149,7 +149,7 @@ namespace nodetool
     {
       config_t()
         : m_net_config(),
-          m_peer_id(crypto::rand<uint64_t>()),
+          m_peer_id(1),
           m_support_flags(0)
       {}
 
