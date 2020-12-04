@@ -799,6 +799,7 @@ namespace nodetool
           "4pixvbejrvihnkxmduo2agsnmc3rrulrqc7s3cbwwrep6h6hrzsibeqd.onion:18083"
         };
       }
+      return {};
     case epee::net_utils::zone::i2p:
       if (m_nettype == cryptonote::MAINNET)
       {
@@ -806,7 +807,8 @@ namespace nodetool
           "s3l6ke4ed3df466khuebb4poienoingwof7oxtbo6j4n56sghe3a.b32.i2p:18080",
           "sel36x6fibfzujwvt4hf5gxolz6kd3jpvbjqg6o3ud2xtionyl2q.b32.i2p:18080"
         };
-     }
+      }
+      return {};
     default:
       break;
     }
