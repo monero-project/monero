@@ -68,6 +68,8 @@
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "net.p2p"
 
+#define FAILCONNMSG(context, x) MCWARNING("net.connfail", context << x)
+
 #define NET_MAKE_IP(b1,b2,b3,b4)  ((LPARAM)(((DWORD)(b1)<<24)+((DWORD)(b2)<<16)+((DWORD)(b3)<<8)+((DWORD)(b4))))
 
 #define MIN_WANTED_SEED_NODES 12
@@ -1156,13 +1158,13 @@ namespace nodetool
 
       if(rsp.node_data.network_id != m_network_id)
       {
-        LOG_WARNING_CC(context, "COMMAND_HANDSHAKE Failed, wrong network!  (" << rsp.node_data.network_id << "), closing connection.");
+        MCWARNING("net.connfail", context << "COMMAND_HANDSHAKE Failed, wrong network!  (" << rsp.node_data.network_id << "), dropping connection");
         return;
       }
 
       if(!handle_remote_peerlist(rsp.local_peerlist_new, context))
       {
-        LOG_WARNING_CC(context, "COMMAND_HANDSHAKE: failed to handle_remote_peerlist(...), closing connection.");
+        MCWARNING("net.connfail", context << "COMMAND_HANDSHAKE: failed to handle_remote_peerlist(...), dropping connection");
         add_host_fail(context.m_remote_address);
         return;
       }
@@ -1170,7 +1172,7 @@ namespace nodetool
 
       if(!m_payload_handler.process_payload_sync_data(rsp.payload_data, context, just_take_peerlist, true))
       {
-        LOG_WARNING_CC(context, "COMMAND_HANDSHAKE invoked, but process_payload_sync_data returned false, dropping connection.");
+        MCWARNING("net.connfail", context << "COMMAND_HANDSHAKE invoked, but process_payload_sync_data returned false, dropping connection");
         hsh_result = false;
         return;
       }
@@ -2494,7 +2496,7 @@ namespace nodetool
   {
     if(!m_payload_handler.process_payload_sync_data(arg.payload_data, context, false, false))
     {
-      LOG_WARNING_CC(context, "Failed to process_payload_sync_data(), dropping connection");
+      FAILCONNMSG(context, "Failed to process_payload_sync_data(), dropping connection");
       drop_connection(context);
       return 1;
     }
@@ -2545,7 +2547,7 @@ namespace nodetool
 
     if(!context.m_is_income)
     {
-      LOG_WARNING_CC(context, "COMMAND_HANDSHAKE came not from incoming connection");
+      FAILCONNMSG(context, "COMMAND_HANDSHAKE came not from incoming connection, dropping connection");
       drop_connection(context);
       add_host_fail(context.m_remote_address);
       return 1;
@@ -2553,7 +2555,7 @@ namespace nodetool
 
     if(context.peer_id)
     {
-      LOG_WARNING_CC(context, "COMMAND_HANDSHAKE came, but seems that connection already have associated peer_id (double COMMAND_HANDSHAKE?)");
+      FAILCONNMSG(context, "COMMAND_HANDSHAKE came, but seems that connection already have associated peer_id (double COMMAND_HANDSHAKE?), dropping connection");
       drop_connection(context);
       return 1;
     }
@@ -2572,21 +2574,21 @@ namespace nodetool
 
     if (zone.m_current_number_of_in_peers >= zone.m_config.m_net_config.max_in_connection_count) // in peers limit
     {
-      LOG_WARNING_CC(context, "COMMAND_HANDSHAKE came, but already have max incoming connections, so dropping this one.");
+      LOG_WARNING_CC(context, "COMMAND_HANDSHAKE came, but already have max incoming connections, dropping connection");
       drop_connection(context);
       return 1;
     }
 
     if(!m_payload_handler.process_payload_sync_data(arg.payload_data, context, false, true))
     {
-      LOG_WARNING_CC(context, "COMMAND_HANDSHAKE came, but process_payload_sync_data returned false, dropping connection.");
+      FAILCONNMSG(context, "COMMAND_HANDSHAKE came, but process_payload_sync_data returned false, dropping connection");
       drop_connection(context);
       return 1;
     }
 
     if(has_too_many_connections(context.m_remote_address))
     {
-      LOG_PRINT_CCONTEXT_L1("CONNECTION FROM " << context.m_remote_address.host_str() << " REFUSED, too many connections from the same address");
+      LOG_PRINT_CCONTEXT_L1("CONNECTION FROM " << context.m_remote_address.host_str() << " REFUSED, too many connections from the same address, dropping connection");
       drop_connection(context);
       return 1;
     }

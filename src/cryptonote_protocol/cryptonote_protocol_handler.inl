@@ -520,7 +520,7 @@ namespace cryptonote
     std::vector<block> pblocks;
     if (!m_core.prepare_handle_incoming_blocks(blocks, pblocks))
     {
-      LOG_PRINT_CCONTEXT_L1("Block verification failed: prepare_handle_incoming_blocks failed, dropping connection");
+      FAILCONNMSG(context, "Block verification failed: prepare_handle_incoming_blocks failed, dropping connection");
       drop_connection(context, false, false);
       m_core.resume_mine();
       return 1;
@@ -531,7 +531,7 @@ namespace cryptonote
       m_core.handle_incoming_tx(*tx_blob_it, tvc, relay_method::block, true);
       if(tvc.m_verifivation_failed)
       {
-        LOG_PRINT_CCONTEXT_L1("Block verification failed: transaction verification failed, dropping connection");
+        FAILCONNMSG(context, "Block verification failed: transaction verification failed, dropping connection");
         drop_connection(context, false, false);
         m_core.cleanup_handle_incoming_blocks();
         m_core.resume_mine();
@@ -550,7 +550,7 @@ namespace cryptonote
     m_core.resume_mine();
     if(bvc.m_verifivation_failed)
     {
-      LOG_PRINT_CCONTEXT_L0("Block verification failed, dropping connection");
+      FAILCONNMSG(context, "Block verification failed, dropping connection");
       drop_connection_with_score(context, bvc.m_bad_pow ? P2P_IP_FAILS_BEFORE_BLOCK : 1, false);
       return 1;
     }
@@ -601,9 +601,9 @@ namespace cryptonote
         // What we asked for != to what we received ..
         if(context.m_requested_objects.size() != arg.b.txs.size())
         {
-          LOG_ERROR_CCONTEXT
+          FAILCONNMSG
           (
-            "NOTIFY_NEW_FLUFFY_BLOCK -> request/response mismatch, " 
+            context, "NOTIFY_NEW_FLUFFY_BLOCK -> request/response mismatch, " 
             << "block = " << epee::string_tools::pod_to_hex(get_blob_hash(arg.b.block))
             << ", requested = " << context.m_requested_objects.size() 
             << ", received = " << new_block.tx_hashes.size()
@@ -639,9 +639,9 @@ namespace cryptonote
           {
             if(!get_transaction_hash(tx, tx_hash))
             {
-              LOG_PRINT_CCONTEXT_L1
+              FAILCONNMSG
               (
-                  "NOTIFY_NEW_FLUFFY_BLOCK: get_transaction_hash failed"
+                  context, "NOTIFY_NEW_FLUFFY_BLOCK: get_transaction_hash failed"
                   << ", dropping connection"
               );
               
@@ -652,9 +652,9 @@ namespace cryptonote
           }
           catch(...)
           {
-            LOG_PRINT_CCONTEXT_L1
+            FAILCONNMSG
             (
-                "NOTIFY_NEW_FLUFFY_BLOCK: get_transaction_hash failed"
+                context, "NOTIFY_NEW_FLUFFY_BLOCK: get_transaction_hash failed"
                 << ", exception thrown"
                 << ", dropping connection"
             );
@@ -676,9 +676,9 @@ namespace cryptonote
             auto req_tx_it = context.m_requested_objects.find(tx_hash);
             if(req_tx_it == context.m_requested_objects.end())
             {
-              LOG_ERROR_CCONTEXT
+              FAILCONNMSG
               (
-                "Peer sent wrong transaction (NOTIFY_NEW_FLUFFY_BLOCK): "
+                context, "Peer sent wrong transaction (NOTIFY_NEW_FLUFFY_BLOCK): "
                 << "transaction with id = " << tx_hash << " wasn't requested, "
                 << "dropping connection"
               );
@@ -699,7 +699,7 @@ namespace cryptonote
             cryptonote::tx_verification_context tvc = AUTO_VAL_INIT(tvc);                        
             if(!m_core.handle_incoming_tx(tx_blob, tvc, relay_method::block, true) || tvc.m_verifivation_failed)
             {
-              LOG_PRINT_CCONTEXT_L1("Block verification failed: transaction verification failed, dropping connection");
+              FAILCONNMSG(context, "Block verification failed: transaction verification failed, dropping connection");
               drop_connection(context, false, false);
               m_core.resume_mine();
               return 1;
@@ -715,9 +715,9 @@ namespace cryptonote
         }
         else
         {
-          LOG_ERROR_CCONTEXT
+          FAILCONNMSG
           (
-            "sent wrong tx: failed to parse and validate transaction: "
+            context, "sent wrong tx: failed to parse and validate transaction: "
             << epee::string_tools::buff_to_hex_nodelimer(tx_blob.blob)
             << ", dropping connection"
           );
@@ -734,9 +734,9 @@ namespace cryptonote
       // ones we received.
       if(context.m_requested_objects.size())
       {
-        MERROR
+        FAILCONNMSG
         (
-          "NOTIFY_NEW_FLUFFY_BLOCK: peer sent the number of transaction requested"
+          context, "NOTIFY_NEW_FLUFFY_BLOCK: peer sent the number of transaction requested"
           << ", but not the actual transactions requested"
           << ", context.m_requested_objects.size() = " << context.m_requested_objects.size() 
           << ", dropping connection"
@@ -829,7 +829,7 @@ namespace cryptonote
         
         if( bvc.m_verifivation_failed )
         {
-          LOG_PRINT_CCONTEXT_L0("Block verification failed, dropping connection");
+          FAILCONNMSG(context, "Block verification failed, dropping connection");
           drop_connection_with_score(context, bvc.m_bad_pow ? P2P_IP_FAILS_BEFORE_BLOCK : 1, false);
           return 1;
         }
@@ -860,9 +860,9 @@ namespace cryptonote
     } 
     else
     {
-      LOG_ERROR_CCONTEXT
+      FAILCONNMSG
       (
-        "sent wrong block: failed to parse and validate block: "
+        context, "sent wrong block: failed to parse and validate block: "
         << epee::string_tools::buff_to_hex_nodelimer(arg.b.block) 
         << ", dropping connection"
       );
@@ -882,7 +882,7 @@ namespace cryptonote
     MLOG_P2P_MESSAGE("Received NOTIFY_REQUEST_FLUFFY_MISSING_TX (" << arg.missing_tx_indices.size() << " txes), block hash " << arg.block_hash);
     if (context.m_state == cryptonote_connection_context::state_before_handshake)
     {
-      LOG_ERROR_CCONTEXT("Requested fluffy tx before handshake, dropping connection");
+      FAILCONNMSG(context, "Requested fluffy tx before handshake, dropping connection");
       drop_connection(context, false, false);
       return 1;
     }
@@ -893,7 +893,7 @@ namespace cryptonote
     block b;
     if (!m_core.get_block_by_hash(arg.block_hash, b))
     {
-      LOG_ERROR_CCONTEXT("failed to find block: " << arg.block_hash << ", dropping connection");
+      FAILCONNMSG(context, "failed to find block: " << arg.block_hash << ", dropping connection");
       drop_connection(context, false, false);
       return 1;
     }
@@ -911,9 +911,9 @@ namespace cryptonote
         MDEBUG("  tx " << b.tx_hashes[tx_idx]);
         if (seen[tx_idx])
         {
-          LOG_ERROR_CCONTEXT
+          FAILCONNMSG
           (
-            "Failed to handle request NOTIFY_REQUEST_FLUFFY_MISSING_TX"
+            context, "Failed to handle request NOTIFY_REQUEST_FLUFFY_MISSING_TX"
             << ", request is asking for duplicate tx "
             << ", tx index = " << tx_idx << ", block tx count " << b.tx_hashes.size()
             << ", block_height = " << arg.current_blockchain_height
@@ -927,9 +927,9 @@ namespace cryptonote
       }
       else
       {
-        LOG_ERROR_CCONTEXT
+        FAILCONNMSG
         (
-          "Failed to handle request NOTIFY_REQUEST_FLUFFY_MISSING_TX"
+          context, "Failed to handle request NOTIFY_REQUEST_FLUFFY_MISSING_TX"
           << ", request is asking for a tx whose index is out of bounds "
           << ", tx index = " << tx_idx << ", block tx count " << b.tx_hashes.size()
           << ", block_height = " << arg.current_blockchain_height
@@ -945,14 +945,14 @@ namespace cryptonote
     std::vector<crypto::hash> missed;
     if (!m_core.get_transactions(txids, txs, missed))
     {
-      LOG_ERROR_CCONTEXT("Failed to handle request NOTIFY_REQUEST_FLUFFY_MISSING_TX, "
-        << "failed to get requested transactions");
+      FAILCONNMSG(context, "Failed to handle request NOTIFY_REQUEST_FLUFFY_MISSING_TX, "
+        << "failed to get requested transactions, dropping connecrion");
       drop_connection(context, false, false);
       return 1;
     }
     if (!missed.empty() || txs.size() != txids.size())
     {
-      LOG_ERROR_CCONTEXT("Failed to handle request NOTIFY_REQUEST_FLUFFY_MISSING_TX, "
+      FAILCONNMSG(context, "Failed to handle request NOTIFY_REQUEST_FLUFFY_MISSING_TX, "
         << missed.size() << " requested transactions not found" << ", dropping connection");
       drop_connection(context, false, false);
       return 1;
@@ -1051,7 +1051,7 @@ namespace cryptonote
       tx_verification_context tvc{};
       if (!m_core.handle_incoming_tx({tx, crypto::null_hash}, tvc, tx_relay, true))
       {
-        LOG_PRINT_CCONTEXT_L1("Tx verification failed, dropping connection");
+        FAILCONNMSG(context, "Tx verification failed, dropping connection");
         drop_connection(context, false, false);
         return 1;
       }
@@ -1095,17 +1095,17 @@ namespace cryptonote
   {
     if (context.m_state == cryptonote_connection_context::state_before_handshake)
     {
-      LOG_ERROR_CCONTEXT("Requested objects before handshake, dropping connection");
+      FAILCONNMSG(context, "Requested objects before handshake, dropping connection");
       drop_connection(context, false, false);
       return 1;
     }
     MLOG_P2P_MESSAGE("Received NOTIFY_REQUEST_GET_OBJECTS (" << arg.blocks.size() << " blocks)");
     if (arg.blocks.size() > CURRENCY_PROTOCOL_MAX_OBJECT_REQUEST_COUNT)
       {
-        LOG_ERROR_CCONTEXT(
-            "Requested objects count is too big ("
+        FAILCONNMSG(
+            context, "Requested objects count is too big ("
             << arg.blocks.size() << ") expected not more then "
-            << CURRENCY_PROTOCOL_MAX_OBJECT_REQUEST_COUNT);
+            << CURRENCY_PROTOCOL_MAX_OBJECT_REQUEST_COUNT << ", dropping connection");
         drop_connection(context, false, false);
         return 1;
       }
@@ -1121,7 +1121,7 @@ namespace cryptonote
     NOTIFY_RESPONSE_GET_OBJECTS::request rsp;
     if(!m_core.handle_get_objects(arg, rsp, context))
     {
-      LOG_ERROR_CCONTEXT("failed to handle request NOTIFY_REQUEST_GET_OBJECTS, dropping connection");
+      FAILCONNMSG(context, "failed to handle request NOTIFY_REQUEST_GET_OBJECTS, dropping connection");
       drop_connection(context, false, false);
       return 1;
     }
@@ -1236,14 +1236,14 @@ MGINFO("Transactions pruned: original size " << original_size << ", pruned size 
 
     if(arg.blocks.empty())
     {
-      LOG_ERROR_CCONTEXT("sent wrong NOTIFY_HAVE_OBJECTS: no blocks");
+      FAILCONNMSG(context, "sent wrong NOTIFY_HAVE_OBJECTS: no blocks, dropping connection");
       drop_connection(context, true, false);
       ++m_sync_bad_spans_downloaded;
       return 1;
     }
     if(context.m_last_response_height > arg.current_blockchain_height)
     {
-      LOG_ERROR_CCONTEXT("sent wrong NOTIFY_HAVE_OBJECTS: arg.m_current_blockchain_height=" << arg.current_blockchain_height
+      FAILCONNMSG(context, "sent wrong NOTIFY_HAVE_OBJECTS: arg.m_current_blockchain_height=" << arg.current_blockchain_height
         << " < m_last_response_height=" << context.m_last_response_height << ", dropping connection");
       drop_connection(context, false, false);
       ++m_sync_bad_spans_downloaded;
@@ -1274,7 +1274,7 @@ MGINFO("Transactions pruned: original size " << original_size << ", pruned size 
       crypto::hash block_hash;
       if(!parse_and_validate_block_from_blob(block_entry.block, b, block_hash))
       {
-        LOG_ERROR_CCONTEXT("sent wrong block: failed to parse and validate block: "
+        FAILCONNMSG(context, "sent wrong block: failed to parse and validate block: "
           << epee::string_tools::buff_to_hex_nodelimer(block_entry.block) << ", dropping connection");
         drop_connection(context, false, false);
         ++m_sync_bad_spans_downloaded;
@@ -1282,7 +1282,7 @@ MGINFO("Transactions pruned: original size " << original_size << ", pruned size 
       }
       if (b.miner_tx.vin.size() != 1 || b.miner_tx.vin.front().type() != typeid(txin_gen))
       {
-        LOG_ERROR_CCONTEXT("sent wrong block: block: miner tx does not have exactly one txin_gen input"
+        FAILCONNMSG(context, "sent wrong block: block: miner tx does not have exactly one txin_gen input"
           << epee::string_tools::buff_to_hex_nodelimer(block_entry.block) << ", dropping connection");
         drop_connection(context, false, false);
         ++m_sync_bad_spans_downloaded;
@@ -1303,7 +1303,7 @@ MGINFO("Transactions pruned: original size " << original_size << ", pruned size 
       auto req_it = context.m_requested_objects.find(block_hash);
       if(req_it == context.m_requested_objects.end())
       {
-        LOG_ERROR_CCONTEXT("sent wrong NOTIFY_RESPONSE_GET_OBJECTS: block with id=" << epee::string_tools::pod_to_hex(get_blob_hash(block_entry.block))
+        FAILCONNMSG(context, "sent wrong NOTIFY_RESPONSE_GET_OBJECTS: block with id=" << epee::string_tools::pod_to_hex(get_blob_hash(block_entry.block))
           << " wasn't requested, dropping connection");
         drop_connection(context, false, false);
         ++m_sync_bad_spans_downloaded;
@@ -1311,7 +1311,7 @@ MGINFO("Transactions pruned: original size " << original_size << ", pruned size 
       }
       if(b.tx_hashes.size() != block_entry.txs.size())
       {
-        LOG_ERROR_CCONTEXT("sent wrong NOTIFY_RESPONSE_GET_OBJECTS: block with id=" << epee::string_tools::pod_to_hex(get_blob_hash(block_entry.block))
+        FAILCONNMSG(context, "sent wrong NOTIFY_RESPONSE_GET_OBJECTS: block with id=" << epee::string_tools::pod_to_hex(get_blob_hash(block_entry.block))
           << ", tx_hashes.size()=" << b.tx_hashes.size() << " mismatch with block_complete_entry.m_txs.size()=" << block_entry.txs.size() << ", dropping connection");
         drop_connection(context, false, false);
         ++m_sync_bad_spans_downloaded;
@@ -1324,7 +1324,7 @@ MGINFO("Transactions pruned: original size " << original_size << ", pruned size 
 
     if(!context.m_requested_objects.empty())
     {
-      MERROR(context << "returned not all requested objects (context.m_requested_objects.size()="
+      FAILCONNMSG(context, "returned not all requested objects (context.m_requested_objects.size()="
         << context.m_requested_objects.size() << "), dropping connection");
       drop_connection(context, false, false);
       ++m_sync_bad_spans_downloaded;
@@ -1339,14 +1339,14 @@ MGINFO("Transactions pruned: original size " << original_size << ", pruned size 
       {
         if (block_entry.pruned)
         {
-          MERROR(context << "returned a pruned block, dropping connection");
+          FAILCONNMSG(context, "returned a pruned block, dropping connection");
           drop_connection(context, false, false);
           ++m_sync_bad_spans_downloaded;
           return 1;
         }
         if (block_entry.block_weight)
         {
-          MERROR(context << "returned a block weight for a non pruned block, dropping connection");
+          FAILCONNMSG(context, "returned a block weight for a non pruned block, dropping connection");
           drop_connection(context, false, false);
           ++m_sync_bad_spans_downloaded;
           return 1;
@@ -1355,7 +1355,7 @@ MGINFO("Transactions pruned: original size " << original_size << ", pruned size 
         {
           if (tx_entry.prunable_hash != crypto::null_hash)
           {
-            MERROR(context << "returned at least one pruned object which we did not expect, dropping connection");
+            FAILCONNMSG(context, "returned at least one pruned object which we did not expect, dropping connection");
             drop_connection(context, false, false);
             ++m_sync_bad_spans_downloaded;
             return 1;
@@ -1370,7 +1370,7 @@ MGINFO("Transactions pruned: original size " << original_size << ", pruned size 
       {
         if (block_entry.block_weight == 0 && block_entry.pruned)
         {
-          MERROR(context << "returned at least one pruned block with 0 weight, dropping connection");
+          FAILCONNMSG(context, "returned at least one pruned block with 0 weight, dropping connection");
           drop_connection(context, false, false);
           ++m_sync_bad_spans_downloaded;
           return 1;
@@ -1642,7 +1642,7 @@ MGINFO("Transactions pruned: original size " << original_size << ", pruned size 
                     parse_and_validate_tx_base_from_blob(it->blob, tx); // must succeed if we got here
                     txid = get_pruned_transaction_hash(tx, it->prunable_hash);
                   }
-                  LOG_ERROR_CCONTEXT("transaction verification failed on NOTIFY_RESPONSE_GET_OBJECTS, tx_id = "
+                  FAILCONNMSG(context, "transaction verification failed on NOTIFY_RESPONSE_GET_OBJECTS, tx_id = "
                       << epee::string_tools::pod_to_hex(txid) << ", dropping connection");
                   drop_connection(context, false, true);
                   return 1;
@@ -1673,7 +1673,7 @@ MGINFO("Transactions pruned: original size " << original_size << ", pruned size 
             {
               drop_connections(span_origin);
               if (!m_p2p->for_connection(span_connection_id, [&](cryptonote_connection_context& context, nodetool::peerid_type peer_id, uint32_t f)->bool{
-                LOG_PRINT_CCONTEXT_L1("Block verification failed, dropping connection");
+                FAILCONNMSG(context, "Block verification failed, dropping connection");
                 drop_connection_with_score(context, bvc.m_bad_pow ? P2P_IP_FAILS_BEFORE_BLOCK : 1, true);
                 return 1;
               }))
@@ -1693,7 +1693,7 @@ MGINFO("Transactions pruned: original size " << original_size << ", pruned size 
             {
               drop_connections(span_origin);
               if (!m_p2p->for_connection(span_connection_id, [&](cryptonote_connection_context& context, nodetool::peerid_type peer_id, uint32_t f)->bool{
-                LOG_PRINT_CCONTEXT_L1("Block received at sync phase was marked as orphaned, dropping connection");
+                FAILCONNMSG(context, "Block received at sync phase was marked as orphaned, dropping connection");
                 drop_connection(context, true, true);
                 return 1;
               }))
@@ -2008,7 +2008,7 @@ skip:
     MLOG_P2P_MESSAGE("Received NOTIFY_REQUEST_CHAIN (" << arg.block_ids.size() << " blocks");
     if (context.m_state == cryptonote_connection_context::state_before_handshake)
     {
-      LOG_ERROR_CCONTEXT("Requested chain before handshake, dropping connection");
+      FAILCONNMSG(context, "Requested chain before handshake, dropping connection");
       drop_connection(context, false, false);
       return 1;
     }
@@ -2729,19 +2729,19 @@ skip:
 
     if(!arg.m_block_ids.size())
     {
-      LOG_ERROR_CCONTEXT("sent empty m_block_ids, dropping connection");
+      FAILCONNMSG(context, "sent empty m_block_ids, dropping connection");
       drop_connection(context, true, false);
       return 1;
     }
     if (arg.total_height < arg.m_block_ids.size() || arg.start_height > arg.total_height - arg.m_block_ids.size())
     {
-      LOG_ERROR_CCONTEXT("sent invalid start/nblocks/height, dropping connection");
+      FAILCONNMSG(context, "sent invalid start/nblocks/height, dropping connection");
       drop_connection(context, true, false);
       return 1;
     }
     if (!arg.m_block_weights.empty() && arg.m_block_weights.size() != arg.m_block_ids.size())
     {
-      LOG_ERROR_CCONTEXT("sent invalid block weight array, dropping connection");
+      FAILCONNMSG(context, "sent invalid block weight array, dropping connection");
       drop_connection(context, true, false);
       return 1;
     }
@@ -2749,7 +2749,7 @@ skip:
 
     if (arg.total_height >= CRYPTONOTE_MAX_BLOCK_NUMBER || arg.m_block_ids.size() > BLOCKS_IDS_SYNCHRONIZING_MAX_COUNT)
     {
-      LOG_ERROR_CCONTEXT("sent wrong NOTIFY_RESPONSE_CHAIN_ENTRY, with total_height=" << arg.total_height << " and block_ids=" << arg.m_block_ids.size());
+      FAILCONNMSG(context, "sent wrong NOTIFY_RESPONSE_CHAIN_ENTRY, with total_height=" << arg.total_height << " and block_ids=" << arg.m_block_ids.size() << ", dropping connection");
       drop_connection(context, false, false);
       return 1;
     }
@@ -2762,9 +2762,10 @@ skip:
     context.m_last_response_height = arg.start_height + arg.m_block_ids.size()-1;
     if(context.m_last_response_height > context.m_remote_blockchain_height)
     {
-      LOG_ERROR_CCONTEXT("sent wrong NOTIFY_RESPONSE_CHAIN_ENTRY, with m_total_height=" << arg.total_height
+      FAILCONNMSG(context, "sent wrong NOTIFY_RESPONSE_CHAIN_ENTRY, with m_total_height=" << arg.total_height
                                                                          << ", m_start_height=" << arg.start_height
-                                                                         << ", m_block_ids.size()=" << arg.m_block_ids.size());
+                                                                         << ", m_block_ids.size()=" << arg.m_block_ids.size()
+                                                                         << ", dropping connection");
       drop_connection(context, false, false);
       return 1;
     }
@@ -2772,7 +2773,7 @@ skip:
     uint64_t n_use_blocks = m_core.prevalidate_block_hashes(arg.start_height, arg.m_block_ids, arg.m_block_weights);
     if (n_use_blocks == 0 || n_use_blocks + HASH_OF_HASHES_STEP <= arg.m_block_ids.size())
     {
-      LOG_ERROR_CCONTEXT("Most blocks are invalid, dropping connection");
+      FAILCONNMSG(context, "Most blocks are invalid, dropping connection");
       drop_connection(context, true, false);
       return 1;
     }
