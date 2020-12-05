@@ -1149,6 +1149,7 @@ namespace cryptonote
 
 
     bool m_batch_success;
+    bool m_update_pruning;
 
     /* `boost::function` is used because the implementation never allocates if
        the callable object has a single `std::shared_ptr` or `std::weap_ptr`
