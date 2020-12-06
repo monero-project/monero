@@ -37,6 +37,7 @@
 #include <boost/thread/mutex.hpp>
 #include <boost/algorithm/string/join.hpp>
 #include <boost/optional.hpp>
+#include <boost/utility/string_ref.hpp>
 using namespace epee;
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
@@ -124,6 +125,7 @@ static const char *get_record_name(int record_type)
     case DNS_TYPE_A: return "A";
     case DNS_TYPE_TXT: return "TXT";
     case DNS_TYPE_AAAA: return "AAAA";
+    case DNS_TYPE_TLSA: return "TLSA";
     default: return "unknown";
   }
 }
@@ -184,6 +186,13 @@ boost::optional<std::string> txt_to_string(const char* src, size_t len)
   if (len == 0)
     return boost::none;
   return std::string(src+1, len-1);
+}
+
+boost::optional<std::string> tlsa_to_string(const char* src, size_t len)
+{
+  if (len < 4)
+    return boost::none;
+  return std::string(src, len);
 }
 
 // custom smart pointer.
@@ -326,11 +335,15 @@ std::vector<std::string> DNSResolver::get_record(const std::string& url, int rec
   // destructor takes care of cleanup
   ub_result_ptr result;
 
+  MDEBUG("Performing DNSSEC " << get_record_name(record_type) << " record query for " << url);
+
   // call DNS resolver, blocking.  if return value not zero, something went wrong
   if (!ub_resolve(m_data->m_ub_context, string_copy(url.c_str()), record_type, DNS_CLASS_IN, &result))
   {
     dnssec_available = (result->secure || result->bogus);
     dnssec_valid = result->secure && !result->bogus;
+    if (dnssec_available && !dnssec_valid)
+      MWARNING("Invalid DNSSEC " << get_record_name(record_type) << " record signature for " << url << ": " << result->why_bogus);
     if (result->havedata)
     {
       for (size_t i=0; result->data[i] != NULL; i++)
@@ -338,8 +351,9 @@ std::vector<std::string> DNSResolver::get_record(const std::string& url, int rec
         boost::optional<std::string> res = (*reader)(result->data[i], result->len[i]);
         if (res)
         {
-          MINFO("Found \"" << *res << "\" in " << get_record_name(record_type) << " record for " << url);
-          addresses.push_back(*res);
+          // do not dump dns record directly from dns into log
+          MINFO("Found " << get_record_name(record_type) << " record for " << url);
+          addresses.push_back(std::move(*res));
         }
       }
     }
@@ -361,6 +375,17 @@ std::vector<std::string> DNSResolver::get_ipv6(const std::string& url, bool& dns
 std::vector<std::string> DNSResolver::get_txt_record(const std::string& url, bool& dnssec_available, bool& dnssec_valid)
 {
   return get_record(url, DNS_TYPE_TXT, txt_to_string, dnssec_available, dnssec_valid);
+}
+
+std::vector<std::string> DNSResolver::get_tlsa_tcp_record(const boost::string_ref url, const boost::string_ref port, bool& dnssec_available, bool& dnssec_valid)
+{
+  std::string service_addr;
+  service_addr.reserve(url.size() + port.size() + 7);
+  service_addr.push_back('_');
+  service_addr.append(port.data(), port.size());
+  service_addr.append("._tcp.");
+  service_addr.append(url.data(), url.size());
+  return get_record(service_addr, DNS_TYPE_TLSA, tlsa_to_string, dnssec_available, dnssec_valid);
 }
 
 std::string DNSResolver::get_dns_format_from_oa_address(const std::string& oa_addr)

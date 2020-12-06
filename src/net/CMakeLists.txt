@@ -26,10 +26,10 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-set(net_sources dandelionpp.cpp error.cpp http.cpp i2p_address.cpp parse.cpp socks.cpp
-    socks_connect.cpp tor_address.cpp zmq.cpp)
-set(net_headers dandelionpp.h error.h http.cpp i2p_address.h parse.h socks.h socks_connect.h
-    tor_address.h zmq.h)
+set(net_sources dandelionpp.cpp error.cpp http.cpp i2p_address.cpp parse.cpp resolve.cpp
+    socks.cpp socks_connect.cpp tor_address.cpp zmq.cpp)
+set(net_headers dandelionpp.h error.h http.cpp i2p_address.h parse.h socks.h resolve.h
+    socks_connect.h tor_address.h zmq.h)
 
 monero_add_library(net ${net_sources} ${net_headers})
 target_link_libraries(net common epee ${ZMQ_LIB} ${Boost_ASIO_LIBRARY})
