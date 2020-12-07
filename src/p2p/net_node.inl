@@ -2064,6 +2064,11 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::handle_remote_peerlist(const std::vector<peerlist_entry>& peerlist, const epee::net_utils::connection_context_base& context)
   {
+    if (peerlist.size() > P2P_MAX_PEERS_IN_HANDSHAKE)
+    {
+      MWARNING(context << "peer sent " << peerlist.size() << " peers, considered spamming");
+      return false;
+    }
     std::vector<peerlist_entry> peerlist_ = peerlist;
     if(!sanitize_peerlist(peerlist_))
       return false;
