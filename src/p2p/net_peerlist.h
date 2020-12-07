@@ -109,6 +109,7 @@ namespace nodetool
     bool get_white_peer_by_index(peerlist_entry& p, size_t i);
     bool get_gray_peer_by_index(peerlist_entry& p, size_t i);
     template<typename F> bool foreach(bool white, const F &f);
+    void evict_host_from_white_peerlist(const peerlist_entry& pr);
     bool append_with_peer_white(const peerlist_entry& pr);
     bool append_with_peer_gray(const peerlist_entry& pr);
     bool append_with_peer_anchor(const anchor_peerlist_entry& ple);
@@ -345,6 +346,7 @@ namespace nodetool
     if(by_addr_it_wt == m_peers_white.get<by_addr>().end())
     {
       //put new record into white list
+      evict_host_from_white_peerlist(ple);
       m_peers_white.insert(ple);
       trim_white_peerlist();
     }else
