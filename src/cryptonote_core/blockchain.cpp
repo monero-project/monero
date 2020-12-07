@@ -113,7 +113,8 @@ Blockchain::Blockchain(tx_memory_pool& tx_pool) :
   m_difficulty_for_next_block(1),
   m_btc_valid(false),
   m_batch_success(true),
-  m_prepare_height(0)
+  m_prepare_height(0),
+  m_min_relay_fee_multiplier(1.0f)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
 }
@@ -3731,7 +3732,13 @@ uint64_t Blockchain::get_dynamic_base_fee(uint64_t block_reward, size_t median_b
 }
 
 //------------------------------------------------------------------
-bool Blockchain::check_fee(size_t tx_weight, uint64_t fee) const
+void Blockchain::set_min_relay_fee_multiplier(float fee_multiplier)
+{
+  m_min_relay_fee_multiplier = fee_multiplier;
+  MINFO("Local relay fee multiplier set to " << fee_multiplier);
+}
+//------------------------------------------------------------------
+std::pair<bool, bool> Blockchain::check_fee(size_t tx_weight, uint64_t fee) const
 {
   const uint8_t version = get_current_hard_fork_version();
 
@@ -3744,19 +3751,28 @@ bool Blockchain::check_fee(size_t tx_weight, uint64_t fee) const
     const uint64_t blockchain_height = m_db->height();
     already_generated_coins = blockchain_height ? m_db->get_block_already_generated_coins(blockchain_height - 1) : 0;
     if (!get_block_reward(median, 1, already_generated_coins, base_reward, version))
-      return false;
+      return std::make_pair(false, false);
   }
 
-  uint64_t needed_fee;
+  uint64_t needed_fee = 0, needed_fee_local = 0;
   if (version >= HF_VERSION_PER_BYTE_FEE)
   {
     const bool use_long_term_median_in_fee = version >= HF_VERSION_LONG_TERM_BLOCK_WEIGHT;
     uint64_t fee_per_byte = get_dynamic_base_fee(base_reward, use_long_term_median_in_fee ? std::min<uint64_t>(median, m_long_term_effective_median_block_weight) : median, version);
-    MDEBUG("Using " << print_money(fee_per_byte) << "/byte fee");
+    MDEBUG("Network fee: " << print_money(fee_per_byte) << "/byte");
     needed_fee = tx_weight * fee_per_byte;
     // quantize fee up to 8 decimals
     const uint64_t mask = get_fee_quantization_mask();
     needed_fee = (needed_fee + mask - 1) / mask * mask;
+
+    uint64_t local_fee_per_byte = fee_per_byte * m_min_relay_fee_multiplier;
+    if (local_fee_per_byte > fee_per_byte)
+    {
+      MDEBUG("Local fee: " << print_money(local_fee_per_byte) << "/byte");
+      needed_fee_local = tx_weight * local_fee_per_byte;
+      // quantize fee up to 8 decimals
+      needed_fee_local = (needed_fee_local + mask - 1) / mask * mask;
+    }
   }
   else
   {
@@ -3776,12 +3792,13 @@ bool Blockchain::check_fee(size_t tx_weight, uint64_t fee) const
     needed_fee *= fee_per_kb;
   }
 
-  if (fee < needed_fee - needed_fee / 50) // keep a little 2% buffer on acceptance - no integer overflow
-  {
-    MERROR_VER("transaction fee is not enough: " << print_money(fee) << ", minimum fee: " << print_money(needed_fee));
-    return false;
-  }
-  return true;
+  const bool enough_network = fee >= needed_fee - needed_fee / 50;
+  const bool enough_local = fee >= needed_fee_local - needed_fee_local / 50;
+  if (!enough_local)
+    MWARNING("transaction fee is not enough: " << print_money(fee) << ", local minimum fee: " << print_money(needed_fee_local));
+  else if (!enough_network)
+    MERROR_VER("transaction fee is not enough: " << print_money(fee) << ", network minimum fee: " << print_money(needed_fee));
+  return std::make_pair(enough_network, enough_local);
 }
 
 //------------------------------------------------------------------

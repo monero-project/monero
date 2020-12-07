@@ -226,6 +226,11 @@ namespace cryptonote
   , "Keep alternative blocks on restart"
   , false
   };
+  static const command_line::arg_descriptor<float> arg_min_relay_fee_multiplier  = {
+    "min-relay-fee-multiplier"
+  , "Multiplier for the minimum fee per byte below which to ignore transactions."
+  , 1.0f
+  };
 
   //-----------------------------------------------------------------------------------------------
   core::core(i_cryptonote_protocol* pprotocol):
@@ -352,6 +357,7 @@ namespace cryptonote
     command_line::add_arg(desc, arg_reorg_notify);
     command_line::add_arg(desc, arg_block_rate_notify);
     command_line::add_arg(desc, arg_keep_alt_blocks);
+    command_line::add_arg(desc, arg_min_relay_fee_multiplier);
 
     miner::init_options(desc);
     BlockchainDB::init_options(desc);
@@ -484,6 +490,9 @@ namespace cryptonote
     bool prune_blockchain = command_line::get_arg(vm, arg_prune_blockchain);
     bool keep_alt_blocks = command_line::get_arg(vm, arg_keep_alt_blocks);
     bool keep_fakechain = command_line::get_arg(vm, arg_keep_fakechain);
+    float min_relay_fee_multiplier = command_line::get_arg(vm, arg_min_relay_fee_multiplier);
+    CHECK_AND_ASSERT_MES(min_relay_fee_multiplier >= 1.0f, false, "minimum relay fee is below 1");
+    CHECK_AND_ASSERT_MES(min_relay_fee_multiplier <= 9000, false, "minimum relay fee is over 9000"); // sanity, arbitrary huge bound, avoids possible integer overflows
 
     boost::filesystem::path folder(m_config_folder);
     if (m_nettype == FAKECHAIN)
@@ -732,6 +741,8 @@ namespace cryptonote
         CHECK_AND_ASSERT_MES(m_blockchain_storage.update_blockchain_pruning(), false, "Failed to update blockchain pruning");
       }
     }
+
+    m_blockchain_storage.set_min_relay_fee_multiplier(min_relay_fee_multiplier);
 
     return load_state_data();
   }

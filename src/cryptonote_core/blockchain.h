@@ -653,9 +653,10 @@ namespace cryptonote
      * @param tx_weight the transaction weight
      * @param fee the fee
      *
-     * @return true if the fee is enough, false otherwise
+     * @return first: true if the fee is enough for the network, false otherwise
+     * @return second: true if the fee is enough for the user selected minimum, false otherwise
      */
-    bool check_fee(size_t tx_weight, uint64_t fee) const;
+    std::pair<bool, bool> check_fee(size_t tx_weight, uint64_t fee) const;
 
     /**
      * @brief check that a transaction's outputs conform to current standards
@@ -1079,6 +1080,11 @@ namespace cryptonote
      */
     uint64_t get_adjusted_time(uint64_t height) const;
 
+    /**
+     * brief set the multiplier for the local minimum relay fee per byte (1 -> default)
+     */
+    void set_min_relay_fee_multiplier(float fee_multiplier);
+
 #ifndef IN_UNIT_TESTS
   private:
 #endif
@@ -1179,6 +1185,8 @@ namespace cryptonote
     uint64_t m_prepare_height;
     uint64_t m_prepare_nblocks;
     std::vector<block> *m_prepare_blocks;
+
+    float m_min_relay_fee_multiplier;
 
     /**
      * @brief collects the keys for all outputs being "spent" as an input
