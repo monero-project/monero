@@ -226,7 +226,7 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
-  bool node_server<t_payload_net_handler>::block_host(const epee::net_utils::network_address &addr, time_t seconds)
+  bool node_server<t_payload_net_handler>::block_host(epee::net_utils::network_address addr, time_t seconds)
   {
     if(!addr.is_blockable())
       return false;
@@ -239,7 +239,8 @@ namespace nodetool
       limit = std::numeric_limits<time_t>::max();
     else
       limit = now + seconds;
-    m_blocked_hosts[addr.host_str()] = limit;
+    const std::string host_str = addr.host_str();
+    m_blocked_hosts[host_str] = limit;
 
     // drop any connection to that address. This should only have to look into
     // the zone related to the connection, but really make sure everything is
@@ -255,17 +256,18 @@ namespace nodetool
         }
         return true;
       });
-      for (const auto &c: conns)
-        zone.second.m_net_server.get_config_object().close(c);
-
-      conns.clear();
 
       peerlist_entry pe{};
       pe.adr = addr;
       zone.second.m_peerlist.remove_from_peer_white(pe);
+
+      for (const auto &c: conns)
+        zone.second.m_net_server.get_config_object().close(c);
+
+      conns.clear();
     }
 
-    MCLOG_CYAN(el::Level::Info, "global", "Host " << addr.host_str() << " blocked.");
+    MCLOG_CYAN(el::Level::Info, "global", "Host " << host_str << " blocked.");
     return true;
   }
   //-----------------------------------------------------------------------------------
