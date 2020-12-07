@@ -203,11 +203,21 @@ namespace cryptonote
       fee = tx.rct_signatures.txnFee;
     }
 
-    if (!kept_by_block && !m_blockchain.check_fee(tx_weight, fee))
+    if (!kept_by_block)
     {
-      tvc.m_verifivation_failed = true;
-      tvc.m_fee_too_low = true;
-      return false;
+      const auto enough = m_blockchain.check_fee(tx_weight, fee);
+      if (!enough.first)
+      {
+        tvc.m_verifivation_failed = true;
+        tvc.m_fee_too_low = true;
+        return false;
+      }
+      if (!enough.second)
+      {
+        MDEBUG("Transaction has enough fee for the network, but not for our local minimum, not adding");
+        tvc.m_relay = relay_method::none;
+        return true;
+      }
     }
 
     size_t tx_weight_limit = get_transaction_weight_limit(version);
