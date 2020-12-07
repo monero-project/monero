@@ -61,6 +61,7 @@ public:
   bool handle_incoming_tx(const cryptonote::tx_blob_entry& tx_blob, cryptonote::tx_verification_context& tvc, cryptonote::relay_method tx_relay, bool relayed) { return true; }
   bool handle_incoming_txs(const std::vector<cryptonote::tx_blob_entry>& tx_blob, std::vector<cryptonote::tx_verification_context>& tvc, cryptonote::relay_method tx_relay, bool relayed) { return true; }
   bool handle_incoming_block(const cryptonote::blobdata& block_blob, const cryptonote::block *block, cryptonote::block_verification_context& bvc, bool update_miner_blocktemplate = true) { return true; }
+    bool handle_incoming_txs(epee::span<const cryptonote::tx_blob_entry> tx_blobs, epee::span<cryptonote::tx_verification_context> tvc, cryptonote::relay_method tx_relay, bool relayed) { return true; }
   void pause_mine(){}
   void resume_mine(){}
   bool on_idle(){return true;}
