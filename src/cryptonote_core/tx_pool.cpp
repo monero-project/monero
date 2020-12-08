@@ -1367,7 +1367,7 @@ namespace cryptonote
           }
           if (!meta.double_spend_seen)
           {
-            MDEBUG("Marking " << txid << " as double spending " << itk.k_image);
+            MDEBUG("Marking " << txid << " as double spending " << itk.k_image << ", already spent in " << txid);
             meta.double_spend_seen = true;
             changed = true;
             try
