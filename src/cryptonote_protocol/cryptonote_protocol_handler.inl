@@ -2309,8 +2309,7 @@ skip:
         uint64_t start_height;
         std::vector<cryptonote::block_complete_entry> blocks;
         boost::uuids::uuid span_connection_id;
-        bool filled = false;
-        if (m_block_queue.get_next_span(start_height, blocks, span_connection_id, filled) && filled)
+        if (m_block_queue.get_next_span(start_height, blocks, span_connection_id, true))
         {
           LOG_DEBUG_CC(context, "No other thread is adding blocks, resuming");
           MLOG_PEER_STATE("will try to add blocks next");
