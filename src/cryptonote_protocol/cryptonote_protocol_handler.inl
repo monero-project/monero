@@ -2770,7 +2770,7 @@ skip:
       drop_connection(context, true, false);
       return 1;
     }
-    if (arg.total_height < arg.m_block_ids.size() || arg.start_height > arg.total_height - arg.m_block_ids.size())
+    if (arg.total_height < arg.m_block_ids.size() || arg.start_height > arg.total_height - arg.m_block_ids.size() || arg.start_height >= m_core.get_current_blockchain_height())
     {
       FAILCONNMSG(context, "sent invalid start/nblocks/height, dropping connection");
       drop_connection(context, true, false);
