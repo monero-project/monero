@@ -1332,7 +1332,7 @@ MGINFO("Transactions pruned: original size " << original_size << ", pruned size 
         start_height = boost::get<txin_gen>(b.miner_tx.vin[0]).height;
         if (start_height > context.m_expect_height)
         {
-          LOG_ERROR_CCONTEXT("sent block ahead of expected height, dropping connection");
+          FAILCONNMSG(context, "sent block ahead of expected height, dropping connection");
           drop_connection(context, false, false);
           ++m_sync_bad_spans_downloaded;
           return 1;
