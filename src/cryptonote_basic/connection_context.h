@@ -69,6 +69,7 @@ namespace cryptonote
     bool m_anchor;
     int32_t m_score;
     int m_expect_response;
+    uint64_t m_expect_height;
   };
 
   inline std::string get_protocol_state_string(cryptonote_connection_context::state s)
