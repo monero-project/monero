@@ -118,8 +118,10 @@
         return true; \
       } \
       uint64_t ticks2 = misc_utils::get_tick_count(); \
-      epee::serialization::store_t_to_binary(static_cast<command_type::response&>(resp), response_info.m_body); \
+      epee::byte_slice buffer; \
+      epee::serialization::store_t_to_binary(static_cast<command_type::response&>(resp), buffer, 64 * 1024); \
       uint64_t ticks3 = epee::misc_utils::get_tick_count(); \
+      response_info.m_body.assign(reinterpret_cast<const char*>(buffer.data()), buffer.size()); \
       response_info.m_mime_tipe = " application/octet-stream"; \
       response_info.m_header_info.m_content_type = " application/octet-stream"; \
       MDEBUG( s_pattern << "() processed with " << ticks1-ticks << "/"<< ticks2-ticks1 << "/" << ticks3-ticks2 << "ms"); \

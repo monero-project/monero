@@ -64,7 +64,7 @@ namespace net_load_tests
     {
     }
 
-    virtual int invoke(int command, const epee::span<const uint8_t> in_buff, std::string& buff_out, test_connection_context& context)
+    virtual int invoke(int command, const epee::span<const uint8_t> in_buff, epee::byte_slice& buff_out, test_connection_context& context)
     {
       //m_invoke_counter.inc();
       //std::unique_lock<std::mutex> lock(m_mutex);

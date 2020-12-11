@@ -514,16 +514,15 @@ public:
           {
             if(m_current_head.m_have_to_return_data)
             {
-              std::string return_buff;
+              byte_slice return_buff;
               const uint32_t return_code = m_config.m_pcommands_handler->invoke(
                 m_current_head.m_command, buff_to_invoke, return_buff, m_connection_context
               );
 
               bucket_head2 head = make_header(m_current_head.m_command, return_buff.size(), LEVIN_PACKET_RESPONSE, false);
               head.m_return_code = SWAP32LE(return_code);
-              return_buff.insert(0, reinterpret_cast<const char*>(&head), sizeof(head));
 
-              if(!m_pservice_endpoint->do_send(byte_slice{std::move(return_buff)}))
+              if(!m_pservice_endpoint->do_send(byte_slice{{epee::as_byte_span(head), epee::to_span(return_buff)}}))
                 return false;
 
               MDEBUG(m_connection_context << "LEVIN_PACKET_SENT. [len=" << head.m_cb

@@ -233,7 +233,7 @@ namespace net_utils
 			}
 
 			//---------------------------------------------------------------------------
-			inline bool invoke(const boost::string_ref uri, const boost::string_ref method, const std::string& body, std::chrono::milliseconds timeout, const http_response_info** ppresponse_info = NULL, const fields_list& additional_params = fields_list()) override
+			inline bool invoke(const boost::string_ref uri, const boost::string_ref method, const boost::string_ref body, std::chrono::milliseconds timeout, const http_response_info** ppresponse_info = NULL, const fields_list& additional_params = fields_list()) override
 			{
 				CRITICAL_REGION_LOCAL(m_lock);
 				if(!is_connected())

@@ -29,6 +29,7 @@
 #include <boost/utility/string_ref.hpp>
 #include <chrono>
 #include <string>
+#include "byte_slice.h"
 #include "portable_storage_template_helper.h"
 #include "net/http_base.h"
 #include "net/http_server_handlers_map2.h"
@@ -74,12 +75,12 @@ namespace epee
     template<class t_request, class t_response, class t_transport>
     bool invoke_http_bin(const boost::string_ref uri, const t_request& out_struct, t_response& result_struct, t_transport& transport, std::chrono::milliseconds timeout = std::chrono::seconds(15), const boost::string_ref method = "POST")
     {
-      std::string req_param;
-      if(!serialization::store_t_to_binary(out_struct, req_param))
+      byte_slice req_param;
+      if(!serialization::store_t_to_binary(out_struct, req_param, 16 * 1024))
         return false;
 
       const http::http_response_info* pri = NULL;
-      if(!transport.invoke(uri, method, req_param, timeout, std::addressof(pri)))
+      if(!transport.invoke(uri, method, boost::string_ref{reinterpret_cast<const char*>(req_param.data()), req_param.size()}, timeout, std::addressof(pri)))
       {
         LOG_PRINT_L1("Failed to invoke http request to  " << uri);
         return false;

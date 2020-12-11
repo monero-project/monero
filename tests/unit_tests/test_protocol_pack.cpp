@@ -36,7 +36,7 @@
 
 TEST(protocol_pack, protocol_pack_command) 
 {
-  std::string buff;
+  epee::byte_slice buff;
   cryptonote::NOTIFY_RESPONSE_CHAIN_ENTRY::request r;
   r.start_height = 1;
   r.total_height = 3;
@@ -47,7 +47,7 @@ TEST(protocol_pack, protocol_pack_command)
     ASSERT_TRUE(res);
 
     cryptonote::NOTIFY_RESPONSE_CHAIN_ENTRY::request r2;
-    res = epee::serialization::load_t_from_binary(r2, buff);
+    res = epee::serialization::load_t_from_binary(r2, epee::to_span(buff));
     ASSERT_TRUE(res);
     ASSERT_TRUE(r.m_block_ids.size() == i);
     ASSERT_TRUE(r.start_height == 1);

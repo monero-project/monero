@@ -238,9 +238,9 @@ namespace
             return {connection, std::move(request)};
         }
 
-        virtual int invoke(int command, const epee::span<const uint8_t> in_buff, std::string& buff_out, cryptonote::levin::detail::p2p_context& context) override final
+        virtual int invoke(int command, const epee::span<const uint8_t> in_buff, epee::byte_slice& buff_out, cryptonote::levin::detail::p2p_context& context) override final
         {
-            buff_out.clear();
+            buff_out = nullptr;
             invoked_.push_back(
                 {context.m_connection_id, command, std::string{reinterpret_cast<const char*>(in_buff.data()), in_buff.size()}}
             );
