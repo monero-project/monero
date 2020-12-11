@@ -2528,7 +2528,7 @@ skip:
     }
 
     uint64_t n_use_blocks = m_core.prevalidate_block_hashes(arg.start_height, arg.m_block_ids, arg.m_block_weights);
-    if (n_use_blocks + HASH_OF_HASHES_STEP <= arg.m_block_ids.size())
+    if (n_use_blocks == 0 || n_use_blocks + HASH_OF_HASHES_STEP <= arg.m_block_ids.size())
     {
       LOG_ERROR_CCONTEXT("Most blocks are invalid, dropping connection");
       drop_connection(context, true, false);
