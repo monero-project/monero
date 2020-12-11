@@ -2485,7 +2485,7 @@ skip:
       drop_connection(context, true, false);
       return 1;
     }
-    if (arg.total_height < arg.m_block_ids.size() || arg.start_height > arg.total_height - arg.m_block_ids.size())
+    if (arg.total_height < arg.m_block_ids.size() || arg.start_height > arg.total_height - arg.m_block_ids.size() || arg.start_height >= m_core.get_current_blockchain_height())
     {
       LOG_ERROR_CCONTEXT("sent invalid start/nblocks/height, dropping connection");
       drop_connection(context, true, false);
@@ -2531,8 +2531,15 @@ skip:
 
     context.m_needed_objects.clear();
     uint64_t added = 0;
+    std::unordered_set<crypto::hash> blocks_found;
     for (size_t i = 0; i < arg.m_block_ids.size(); ++i)
     {
+      if (!blocks_found.insert(arg.m_block_ids[i]).second)
+      {
+        LOG_ERROR_CCONTEXT("Duplicate blocks in chain entry response, dropping connection");
+        drop_connection(context, true, false);
+        return 1;
+      }
       const uint64_t block_weight = arg.m_block_weights.empty() ? 0 : arg.m_block_weights[i];
       context.m_needed_objects.push_back(std::make_pair(arg.m_block_ids[i], block_weight));
       if (++added == n_use_blocks)
