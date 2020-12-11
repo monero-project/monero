@@ -886,8 +886,6 @@ TEST(ByteStream, Empty)
 {
   epee::byte_stream stream;
 
-  EXPECT_EQ(epee::byte_stream::default_increase(), stream.increase_size());
-
   EXPECT_EQ(nullptr, stream.data());
   EXPECT_EQ(nullptr, stream.tellp());
   EXPECT_EQ(0u, stream.available());
@@ -912,43 +910,55 @@ TEST(ByteStream, Write)
     {0xde, 0xad, 0xbe, 0xef, 0xef};
 
   std::vector<std::uint8_t> bytes;
-  epee::byte_stream stream{4};
-
-  EXPECT_EQ(4u, stream.increase_size());
+  epee::byte_stream stream{};
 
   stream.write({source, 3});
   bytes.insert(bytes.end(), source, source + 3);
   EXPECT_EQ(3u, stream.size());
-  EXPECT_EQ(1u, stream.available());
-  EXPECT_EQ(4u, stream.capacity());
+  EXPECT_LE(3u, stream.capacity());
+  EXPECT_EQ(stream.available(), stream.capacity() - stream.size());
   EXPECT_TRUE(equal(bytes, byte_span{stream.data(), stream.size()}));
+
+  const std::size_t capacity = stream.capacity();
 
   stream.write({source, 2});
   bytes.insert(bytes.end(), source, source + 2);
   EXPECT_EQ(5u, stream.size());
-  EXPECT_EQ(3u, stream.available());
-  EXPECT_EQ(8u, stream.capacity());
+  EXPECT_LE(5u, stream.capacity());
+  EXPECT_EQ(stream.available(), stream.capacity() - stream.size());
   EXPECT_TRUE(equal(bytes, byte_span{stream.data(), stream.size()}));
 
   stream.write({source, 5});
   bytes.insert(bytes.end(), source, source + 5);
   EXPECT_EQ(10u, stream.size());
-  EXPECT_EQ(2u, stream.available());
-  EXPECT_EQ(12u, stream.capacity());
+  EXPECT_LE(10u, stream.capacity());
+  EXPECT_EQ(stream.available(), stream.capacity() - stream.size());
   EXPECT_TRUE(equal(bytes, byte_span{stream.data(), stream.size()}));
 
   stream.write({source, 2});
   bytes.insert(bytes.end(), source, source + 2);
   EXPECT_EQ(12u, stream.size());
-  EXPECT_EQ(0u, stream.available());
-  EXPECT_EQ(12u, stream.capacity());
+  EXPECT_LE(12u, stream.capacity());
+  EXPECT_EQ(stream.available(), stream.capacity() - stream.size());
   EXPECT_TRUE(equal(bytes, byte_span{stream.data(), stream.size()}));
 
   stream.write({source, 5});
   bytes.insert(bytes.end(), source, source + 5);
   EXPECT_EQ(17u, stream.size());
-  EXPECT_EQ(0u, stream.available());
-  EXPECT_EQ(17u, stream.capacity());
+  EXPECT_LE(17u, stream.capacity());
+  EXPECT_EQ(stream.available(), stream.capacity() - stream.size());
+  EXPECT_TRUE(equal(bytes, byte_span{stream.data(), stream.size()}));
+
+  // ensure it can overflow properly
+  while (capacity == stream.capacity())
+  {
+    stream.write({source, 5});
+    bytes.insert(bytes.end(), source, source + 5);
+  }
+
+  EXPECT_EQ(bytes.size(), stream.size());
+  EXPECT_LE(bytes.size(), stream.capacity());
+  EXPECT_EQ(stream.available(), stream.capacity() - stream.size());
   EXPECT_TRUE(equal(bytes, byte_span{stream.data(), stream.size()}));
 }
 
@@ -967,8 +977,8 @@ TEST(ByteStream, Put)
   }
 
   EXPECT_EQ(200u, stream.size());
-  EXPECT_EQ(epee::byte_stream::default_increase() - 200, stream.available());
-  EXPECT_EQ(epee::byte_stream::default_increase(), stream.capacity());
+  EXPECT_LE(200u, stream.capacity());
+  EXPECT_EQ(stream.available(), stream.capacity() - stream.size());
   EXPECT_TRUE(equal(bytes, byte_span{stream.data(), stream.size()}));
 }
 
@@ -981,14 +991,12 @@ TEST(ByteStream, Reserve)
     {0xde, 0xad, 0xbe, 0xef, 0xef};
 
   std::vector<std::uint8_t> bytes;
-  epee::byte_stream stream{4};
-
-  EXPECT_EQ(4u, stream.increase_size());
+  epee::byte_stream stream{};
 
   stream.reserve(100);
-  EXPECT_EQ(100u, stream.capacity());
+  EXPECT_LE(100u, stream.capacity());
   EXPECT_EQ(0u, stream.size());
-  EXPECT_EQ(100u, stream.available());
+  EXPECT_EQ(stream.available(), stream.capacity());
 
   for (std::size_t i = 0; i < 100 / sizeof(source); ++i)
   {
@@ -997,8 +1005,8 @@ TEST(ByteStream, Reserve)
   }
 
   EXPECT_EQ(100u, stream.size());
-  EXPECT_EQ(0u, stream.available());
-  EXPECT_EQ(100u, stream.capacity());
+  EXPECT_LE(100u, stream.capacity());
+  EXPECT_EQ(stream.available(), stream.capacity() - stream.size());
   EXPECT_TRUE(equal(bytes, byte_span{stream.data(), stream.size()}));
 }
 
@@ -1033,29 +1041,31 @@ TEST(ByteStream, Move)
   static constexpr const std::uint8_t source[] =
     {0xde, 0xad, 0xbe, 0xef, 0xef};
 
-  epee::byte_stream stream{10};
+  epee::byte_stream stream{};
   stream.write(source);
+
+  const std::size_t capacity = stream.capacity();
+  std::uint8_t const* const data = stream.data();
+  EXPECT_LE(5u, capacity);
+  EXPECT_NE(nullptr, data);
 
   epee::byte_stream stream2{std::move(stream)};
 
-  EXPECT_EQ(10u, stream.increase_size());
   EXPECT_EQ(0u, stream.size());
   EXPECT_EQ(0u, stream.available());
   EXPECT_EQ(0u, stream.capacity());
   EXPECT_EQ(nullptr, stream.data());
   EXPECT_EQ(nullptr, stream.tellp());
 
-  EXPECT_EQ(10u, stream2.increase_size());
   EXPECT_EQ(5u, stream2.size());
-  EXPECT_EQ(5u, stream2.available());
-  EXPECT_EQ(10u, stream2.capacity());
-  EXPECT_NE(nullptr, stream2.data());
-  EXPECT_NE(nullptr, stream2.tellp());
+  EXPECT_EQ(capacity, stream2.capacity());
+  EXPECT_EQ(capacity - 5, stream2.available());
+  EXPECT_EQ(data, stream2.data());
+  EXPECT_EQ(data + 5u, stream2.tellp());
   EXPECT_TRUE(equal(source, byte_span{stream2.data(), stream2.size()}));
 
   stream = epee::byte_stream{};
 
-  EXPECT_EQ(epee::byte_stream::default_increase(), stream.increase_size());
   EXPECT_EQ(0u, stream.size());
   EXPECT_EQ(0u, stream.available());
   EXPECT_EQ(0u, stream.capacity());
@@ -1064,15 +1074,13 @@ TEST(ByteStream, Move)
 
   stream = std::move(stream2);
 
-  EXPECT_EQ(10u, stream.increase_size());
   EXPECT_EQ(5u, stream.size());
-  EXPECT_EQ(5u, stream.available());
-  EXPECT_EQ(10u, stream.capacity());
+  EXPECT_EQ(capacity, stream.capacity());
+  EXPECT_EQ(capacity - 5, stream.available());
   EXPECT_NE(nullptr, stream.data());
   EXPECT_NE(nullptr, stream.tellp());
   EXPECT_TRUE(equal(source, byte_span{stream.data(), stream.size()}));
 
-  EXPECT_EQ(10u, stream2.increase_size());
   EXPECT_EQ(0u, stream2.size());
   EXPECT_EQ(0u, stream2.available());
   EXPECT_EQ(0u, stream2.capacity());
@@ -1122,9 +1130,7 @@ TEST(ByteStream, Clear)
   static constexpr const std::uint8_t source[] =
     {0xde, 0xad, 0xbe, 0xef, 0xef};
 
-  epee::byte_stream stream{4};
-
-  EXPECT_EQ(4u, stream.increase_size());
+  epee::byte_stream stream{};
 
   EXPECT_EQ(nullptr, stream.data());
   EXPECT_EQ(nullptr, stream.tellp());
@@ -1146,16 +1152,17 @@ TEST(ByteStream, Clear)
   EXPECT_EQ(loc, stream.data());
   EXPECT_EQ(loc + 3, stream.tellp());
   EXPECT_EQ(3u, stream.size());
-  EXPECT_EQ(1u, stream.available());
-  EXPECT_EQ(4u, stream.capacity());
+  EXPECT_LE(stream.size(), stream.capacity());
+  EXPECT_EQ(stream.available(), stream.capacity() - stream.size());
 
+  const std::size_t capacity = stream.capacity();
   stream.clear();
 
   EXPECT_EQ(loc, stream.data());
   EXPECT_EQ(loc, stream.tellp());
   EXPECT_EQ(0u, stream.size());
-  EXPECT_EQ(4u, stream.available());
-  EXPECT_EQ(4u, stream.capacity());
+  EXPECT_EQ(capacity, stream.capacity());
+  EXPECT_EQ(stream.available(), stream.capacity() - stream.size());
 }
 
 TEST(ToHex, String)

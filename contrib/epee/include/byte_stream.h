@@ -58,7 +58,6 @@ namespace epee
     byte_buffer buffer_;        //! Beginning of buffer
     std::uint8_t* next_write_;  //! Current write position
     const std::uint8_t* end_;   //! End of buffer
-    std::size_t increase_size_; //! Minimum buffer size increase
 
     //! \post `requested <= available()`
     void overflow(const std::size_t requested);
@@ -75,28 +74,16 @@ namespace epee
     using char_type = std::uint8_t;
     using Ch = char_type;
 
-    //! \return Default minimum size increase on buffer overflow
-    static constexpr std::size_t default_increase() noexcept { return 4096; }
-
     //! Increase internal buffer by at least `byte_stream_increase` bytes.
     byte_stream() noexcept
-      : byte_stream(default_increase())
-    {}
-
-    //! Increase internal buffer by at least `increase` bytes.
-    explicit byte_stream(const std::size_t increase) noexcept
       : buffer_(nullptr),
         next_write_(nullptr),
-        end_(nullptr),
-        increase_size_(increase)
+        end_(nullptr)
     {}
 
     byte_stream(byte_stream&& rhs) noexcept;
     ~byte_stream() noexcept = default;
     byte_stream& operator=(byte_stream&& rhs) noexcept;
-
-    //! \return The minimum increase size on buffer overflow
-    std::size_t increase_size() const noexcept { return increase_size_; }
 
     const std::uint8_t* data() const noexcept { return buffer_.get(); }
     std::uint8_t* tellp() const noexcept { return next_write_; }

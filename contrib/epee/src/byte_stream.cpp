@@ -34,6 +34,11 @@
 
 #include <iostream>
 
+namespace
+{
+  constexpr const std::size_t minimum_increase = 4096;
+}
+
 namespace epee
 {
   void byte_stream::overflow(const std::size_t requested)
@@ -46,7 +51,7 @@ namespace epee
 
     const std::size_t len = size();
     const std::size_t cap = capacity();
-    const std::size_t increase = std::max(need, increase_size());
+    const std::size_t increase = std::max(std::max(need, cap), minimum_increase);
 
     next_write_ = nullptr;
     end_ = nullptr;
@@ -62,8 +67,7 @@ namespace epee
   byte_stream::byte_stream(byte_stream&& rhs) noexcept
     : buffer_(std::move(rhs.buffer_)),
       next_write_(rhs.next_write_),
-      end_(rhs.end_),
-      increase_size_(rhs.increase_size_)
+      end_(rhs.end_)
   {
     rhs.next_write_ = nullptr;
     rhs.end_ = nullptr;
@@ -76,7 +80,6 @@ namespace epee
       buffer_ = std::move(rhs.buffer_);
       next_write_ = rhs.next_write_;
       end_ = rhs.end_;
-      increase_size_ = rhs.increase_size_;
       rhs.next_write_ = nullptr;
       rhs.end_ = nullptr;
     }
