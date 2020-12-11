@@ -1997,7 +1997,7 @@ skip:
     if (local_stripe == 0)
       return false;
     // don't request pre-bulletprooof pruned blocks, we can't reconstruct their weight (yet)
-    static const uint64_t bp_fork_height = m_core.get_earliest_ideal_height_for_version(HF_VERSION_SMALLER_BP);
+    static const uint64_t bp_fork_height = m_core.get_earliest_ideal_height_for_version(HF_VERSION_SMALLER_BP + 1);
     if (first_block_height < bp_fork_height)
       return false;
     // assumes the span size is less or equal to the stripe size
