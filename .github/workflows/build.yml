@@ -1,4 +1,4 @@
-name: continuous-integration/gh-actions/cli
+name: ci/gh-actions/cli
 
 on: [push, pull_request]
 
