@@ -2560,9 +2560,6 @@ skip:
       return 1;
     }
 
-    if (arg.total_height > m_core.get_target_blockchain_height())
-      m_core.set_target_blockchain_height(arg.total_height);
-
     return 1;
   }
   //------------------------------------------------------------------------------------------------------------------------
