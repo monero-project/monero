@@ -92,7 +92,9 @@ namespace cryptonote
                                                                                                               m_synchronized(offline),
                                                                                                               m_ask_for_txpool_complement(true),
                                                                                                               m_stopping(false),
-                                                                                                              m_no_sync(false)
+                                                                                                              m_no_sync(false),
+                                                                                                              m_max_out_peers(P2P_DEFAULT_CONNECTIONS_COUNT),
+                                                                                                              m_out_peers_sync_boost(P2P_DEFAULT_SYNCING_CONNECTIONS_COUNT_BOOST)
 
   {
     if(!m_p2p)
@@ -1919,7 +1921,8 @@ skip:
     MTRACE(n_syncing << " syncing, " << n_synced << " synced");
 
     // if we're at max out peers, and not enough are syncing
-    if (n_synced + n_syncing >= m_max_out_peers && n_syncing < P2P_DEFAULT_SYNC_SEARCH_CONNECTIONS_COUNT && last_synced_peer_id != boost::uuids::nil_uuid())
+    const auto target_conns = m_max_out_peers + (is_synchronized() ? 0u : m_out_peers_sync_boost.load());
+    if (n_synced + n_syncing >= target_conns && n_syncing < P2P_DEFAULT_SYNC_SEARCH_CONNECTIONS_COUNT && last_synced_peer_id != boost::uuids::nil_uuid())
     {
       if (!m_p2p->for_connection(last_synced_peer_id, [&](cryptonote_connection_context& ctx, nodetool::peerid_type peer_id, uint32_t f)->bool{
         MINFO(ctx << "dropping synced peer, " << n_syncing << " syncing, " << n_synced << " synced");
@@ -2203,10 +2206,11 @@ skip:
         return true;
       });
       const uint32_t distance = (peer_stripe + (1<<CRYPTONOTE_PRUNING_LOG_STRIPES) - next_stripe) % (1<<CRYPTONOTE_PRUNING_LOG_STRIPES);
-      if ((n_out_peers >= m_max_out_peers && n_peers_on_next_stripe == 0) || (distance > 1 && n_peers_on_next_stripe <= 2) || distance > 2)
+      const auto target_conns = m_max_out_peers + (is_synchronized() ? 0u : m_out_peers_sync_boost.load());
+      if ((n_out_peers >= target_conns && n_peers_on_next_stripe == 0) || (distance > 1 && n_peers_on_next_stripe <= 2) || distance > 2)
       {
         MDEBUG(context << "we want seed " << next_stripe << ", and either " << n_out_peers << " is at max out peers ("
-            << m_max_out_peers << ") or distance " << distance << " from " << next_stripe << " to " << peer_stripe <<
+            << target_conns << ") or distance " << distance << " from " << next_stripe << " to " << peer_stripe <<
             " is too large and we have only " << n_peers_on_next_stripe << " peers on next seed, dropping connection to make space");
         return true;
       }
@@ -3035,11 +3039,12 @@ skip:
       }
       return true;
     });
-    const bool use_next = (n_next > m_max_out_peers / 2 && n_subsequent <= 1) || (n_next > 2 && n_subsequent == 0);
+    const auto target_conns = m_max_out_peers + (is_synchronized() ? 0u : m_out_peers_sync_boost.load());
+    const bool use_next = (n_next > target_conns / 2 && n_subsequent <= 1) || (n_next > 2 && n_subsequent == 0);
     const uint32_t ret_stripe = use_next ? subsequent_pruning_stripe: next_pruning_stripe;
     MIDEBUG(const std::string po = get_peers_overview(), "get_next_needed_pruning_stripe: want height " << want_height << " (" <<
         want_height_from_blockchain << " from blockchain, " << want_height_from_block_queue << " from block queue), stripe " <<
-        next_pruning_stripe << " (" << n_next << "/" << m_max_out_peers << " on it and " << n_subsequent << " on " <<
+        next_pruning_stripe << " (" << n_next << "/" << target_conns << " on it and " << n_subsequent << " on " <<
         subsequent_pruning_stripe << ", " << n_others << " others) -> " << ret_stripe << " (+" <<
         (ret_stripe - next_pruning_stripe + (1 << CRYPTONOTE_PRUNING_LOG_STRIPES)) % (1 << CRYPTONOTE_PRUNING_LOG_STRIPES) <<
         "), current peers " << po);
@@ -3059,7 +3064,7 @@ skip:
         ++n_out_peers;
       return true;
     });
-    if (n_out_peers >= m_max_out_peers)
+    if (n_out_peers >= m_max_out_peers + (is_synchronized() ? 0u : m_out_peers_sync_boost.load()))
       return false;
     return true;
   }

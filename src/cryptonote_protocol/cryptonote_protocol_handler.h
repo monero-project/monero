@@ -110,7 +110,7 @@ namespace cryptonote
     const block_queue &get_block_queue() const { return m_block_queue; }
     void stop();
     void on_connection_close(cryptonote_connection_context &context);
-    void set_max_out_peers(unsigned int max) { m_max_out_peers = max; }
+    void set_max_out_peers(unsigned int max, unsigned int sync_boost) { m_max_out_peers = max; m_out_peers_sync_boost = sync_boost; }
     bool no_sync() const { return m_no_sync; }
     void set_no_sync(bool value) { m_no_sync = value; }
     std::string get_peers_overview() const;
@@ -171,6 +171,7 @@ namespace cryptonote
     epee::math_helper::once_a_time_seconds<101> m_sync_search_checker;
     epee::math_helper::once_a_time_seconds<43> m_bad_peer_checker;
     std::atomic<unsigned int> m_max_out_peers;
+    std::atomic<unsigned int> m_out_peers_sync_boost;
     tools::PerformanceTimer m_sync_timer, m_add_timer;
     uint64_t m_last_add_end_time;
     uint64_t m_sync_spans_downloaded, m_sync_old_spans_downloaded, m_sync_bad_spans_downloaded;

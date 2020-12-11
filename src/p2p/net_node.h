@@ -260,7 +260,8 @@ namespace nodetool
         m_offline(false),
         is_closing(false),
         m_network_id(),
-        max_connections(1)
+        max_connections(1),
+        m_out_peers_sync_boost(P2P_DEFAULT_SYNCING_CONNECTIONS_COUNT_BOOST)
     {}
     virtual ~node_server();
 
@@ -525,6 +526,8 @@ namespace nodetool
     bool m_enable_dns_blocklist;
 
     uint32_t max_connections;
+
+    uint32_t m_out_peers_sync_boost;
   };
 
     const int64_t default_limit_up = P2P_DEFAULT_LIMIT_RATE_UP;      // kB/s
@@ -552,6 +555,7 @@ namespace nodetool
     extern const command_line::arg_descriptor<std::string> arg_igd;
     extern const command_line::arg_descriptor<bool>        arg_offline;
     extern const command_line::arg_descriptor<int64_t>     arg_out_peers;
+    extern const command_line::arg_descriptor<uint32_t>    arg_out_peers_sync_boost;
     extern const command_line::arg_descriptor<int64_t>     arg_in_peers;
     extern const command_line::arg_descriptor<int> arg_tos_flag;
 
