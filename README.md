@@ -687,6 +687,9 @@ Example command line to start monerod through Tor:
 DNS_PUBLIC=tcp torsocks monerod --p2p-bind-ip 127.0.0.1 --no-igd
 ```
 
+A helper script is in contrib/tor/monero-over-tor.sh. It assumes Tor is installed
+already, and runs Tor and Monero with the right configuration.
+
 ### Using Tor on Tails
 
 TAILS ships with a very restrictive set of firewall rules. Therefore, you need
