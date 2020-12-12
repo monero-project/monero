@@ -70,7 +70,7 @@
 #define REQUEST_NEXT_SCHEDULED_SPAN_THRESHOLD_STANDBY (5 * 1000000) // microseconds
 #define REQUEST_NEXT_SCHEDULED_SPAN_THRESHOLD (30 * 1000000) // microseconds
 #define IDLE_PEER_KICK_TIME (240 * 1000000) // microseconds
-#define NON_RESPONSIVE_PEER_KICK_TIME (20 * 1000000) // microseconds
+#define NON_RESPONSIVE_PEER_KICK_TIME (60 * 1000000) // microseconds
 #define PASSIVE_PEER_KICK_TIME (60 * 1000000) // microseconds
 #define DROP_ON_SYNC_WEDGE_THRESHOLD (30 * 1000000000ull) // nanoseconds
 #define LAST_ACTIVITY_STALL_THRESHOLD (2.0f) // seconds
@@ -117,6 +117,7 @@ namespace cryptonote
 
     m_block_download_max_size = command_line::get_arg(vm, cryptonote::arg_block_download_max_size);
     m_sync_pruned_blocks = command_line::get_arg(vm, cryptonote::arg_sync_pruned_blocks);
+    m_early_pow_sanity_check = command_line::get_arg(vm, cryptonote::arg_early_pow_sanity_check);
 
     return true;
   }
@@ -182,8 +183,8 @@ namespace cryptonote
     {
       NOTIFY_REQUEST_CHAIN::request r = {};
       context.m_needed_objects.clear();
-      context.m_expect_height = m_core.get_current_blockchain_height();
-      m_core.get_short_chain_history(r.block_ids);
+      m_core.get_short_chain_history(r.block_ids, context.m_expect_height, context.m_expect_difficulty);
+      context.m_expect_hash = r.block_ids.front();
       handler_request_blocks_history( r.block_ids ); // change the limit(?), sleep(?)
       r.prune = m_sync_pruned_blocks;
       context.m_last_request_time = boost::posix_time::microsec_clock::universal_time();
@@ -579,8 +580,8 @@ namespace cryptonote
       context.m_needed_objects.clear();
       context.m_state = cryptonote_connection_context::state_synchronizing;
       NOTIFY_REQUEST_CHAIN::request r = {};
-      context.m_expect_height = m_core.get_current_blockchain_height();
-      m_core.get_short_chain_history(r.block_ids);
+      m_core.get_short_chain_history(r.block_ids, context.m_expect_height, context.m_expect_difficulty);
+      context.m_expect_hash = r.block_ids.front();
       r.prune = m_sync_pruned_blocks;
       handler_request_blocks_history( r.block_ids ); // change the limit(?), sleep(?)
       context.m_last_request_time = boost::posix_time::microsec_clock::universal_time();
@@ -875,8 +876,8 @@ namespace cryptonote
           context.m_needed_objects.clear();
           context.m_state = cryptonote_connection_context::state_synchronizing;
           NOTIFY_REQUEST_CHAIN::request r = {};
-          context.m_expect_height = m_core.get_current_blockchain_height();
-          m_core.get_short_chain_history(r.block_ids);
+          m_core.get_short_chain_history(r.block_ids, context.m_expect_height, context.m_expect_difficulty);
+          context.m_expect_hash = r.block_ids.front();
           handler_request_blocks_history( r.block_ids ); // change the limit(?), sleep(?)
           r.prune = m_sync_pruned_blocks;
           context.m_last_request_time = boost::posix_time::microsec_clock::universal_time();
@@ -2597,8 +2598,8 @@ skip:
     {//we have to fetch more objects ids, request blockchain entry
 
       NOTIFY_REQUEST_CHAIN::request r = {};
-      context.m_expect_height = m_core.get_current_blockchain_height();
-      m_core.get_short_chain_history(r.block_ids);
+      m_core.get_short_chain_history(r.block_ids, context.m_expect_height, context.m_expect_difficulty);
+      context.m_expect_hash = r.block_ids.front();
       CHECK_AND_ASSERT_MES(!r.block_ids.empty(), false, "Short chain history is empty");
 
       if (!start_from_current_chain)
@@ -2607,6 +2608,8 @@ skip:
         if (context.m_last_known_hash != crypto::null_hash && r.block_ids.front() != context.m_last_known_hash)
         {
           context.m_expect_height = std::numeric_limits<uint64_t>::max();
+          context.m_expect_difficulty = 0;
+          context.m_expect_hash = context.m_last_known_hash;
           r.block_ids.push_front(context.m_last_known_hash);
         }
       }
@@ -2759,19 +2762,25 @@ skip:
     context.m_expect_response = 0;
     if (arg.start_height + 1 > context.m_expect_height) // we expect an overlapping block
     {
-      LOG_ERROR_CCONTEXT("Got NOTIFY_RESPONSE_CHAIN_ENTRY past expected height, dropping connection");
-      drop_connection(context, true, false);
+      LOG_ERROR_CCONTEXT("Got NOTIFY_RESPONSE_CHAIN_ENTRY past expected height, dropping connection (expected " << context.m_expect_height << ", got " << arg.start_height + 1 << ")");
+      drop_connection_with_score(context, 5, false);
       return 1;
     }
 
     context.m_last_request_time = boost::date_time::not_a_date_time;
 
     m_sync_download_chain_size += arg.m_block_ids.size() * sizeof(crypto::hash);
+    m_sync_download_chain_size += arg.first_block.size();
 
-    if(!arg.m_block_ids.size())
+    if(arg.m_block_ids.empty())
     {
       FAILCONNMSG(context, "sent empty m_block_ids, dropping connection");
       drop_connection(context, true, false);
+      return 1;
+    }
+    if(arg.m_block_ids.size() == 1)
+    {
+      MDEBUG(context << "Got 1 element chain, ignored");
       return 1;
     }
     if (arg.total_height < arg.m_block_ids.size() || arg.start_height > arg.total_height - arg.m_block_ids.size())
@@ -2787,6 +2796,32 @@ skip:
       return 1;
     }
     MDEBUG(context << "first block hash " << arg.m_block_ids.front() << ", last " << arg.m_block_ids.back());
+
+#if 0
+    if (arg.m_block_ids.front() != context.m_expect_hash)
+    {
+      FAILCONNMSG(context, "Chain entry does not start with the expected hash, dropping connection");
+      drop_connection(context, true, false);
+      return 1;
+    }
+#endif
+
+    // if the chain attaches to block B, the new block after that cannot be the same as
+    // B's child block, if any. We check it's not known (because if it is, the PoW check
+    // is meaningless since an attacker could reuse it and still add bad data beyond it)
+    // Now, this might happen a fair bit during initial sync
+    // So if we get a set of hashes with a matching PoW for the second block *and* we
+    // already know that second block, we will want to trim the set we get to what was
+    // also covered by PoW from another peer
+    // OK, that's complicated. So maybe just hide the target height so clients can't see
+    // it in the first place.
+    if (m_core.have_block(arg.m_block_ids[1]))
+    {
+      // this can happen without malice so just drop without fail score
+      MDEBUG(context << "Second block is known");
+      drop_connection(context, false, false);
+      return 1;
+    }
 
     if (arg.total_height >= CRYPTONOTE_MAX_BLOCK_NUMBER || arg.m_block_ids.size() > BLOCKS_IDS_SYNCHRONIZING_MAX_COUNT)
     {
@@ -2893,6 +2928,51 @@ skip:
       first = false;
     }
     context.m_last_response_height -= arg.m_block_ids.size() - n_use_blocks;
+
+    if (m_early_pow_sanity_check && arg.first_block.empty())
+    {
+      LOG_ERROR_CCONTEXT("First block in chain entry is empty, dropping connection");
+      drop_connection(context, false, false);
+      return 1;
+    }
+
+    if (!arg.first_block.empty() && context.m_expect_difficulty != 0)
+    {
+      cryptonote::block b;
+      if (!cryptonote::parse_and_validate_block_from_blob(arg.first_block, b))
+      {
+        LOG_ERROR_CCONTEXT("Failed to parse first block in chain entry, dropping connection");
+        drop_connection_with_score(context, 5, false);
+        return 1;
+      }
+      const crypto::hash block_hash = cryptonote::get_block_hash(b);
+      if (block_hash != arg.m_block_ids[1])
+      {
+        LOG_ERROR_CCONTEXT("First block hash in chain entry does not match block data, dropping connection");
+        drop_connection_with_score(context, 5, false);
+        return 1;
+      }
+      if (b.prev_id != arg.m_block_ids[0])
+      {
+        LOG_ERROR_CCONTEXT("First block prev id in chain entry does not match first block hash, dropping connection");
+        drop_connection_with_score(context, 5, false);
+        return 1;
+      }
+      crypto::hash pow;
+      // see if we can avoid a blockchain lookup for the seed hash, this can lock for a long time when in sync mode
+      if (!cryptonote::get_block_longhash(&m_core.get_blockchain_storage(), b, pow, arg.start_height, 0))
+      {
+        LOG_ERROR_CCONTEXT("Failed to calculate PoW hash of first block in chain entry, dropping connection");
+        drop_connection(context, true, false);
+        return 1;
+      }
+      if (!cryptonote::check_hash(pow, context.m_expect_difficulty))
+      {
+        LOG_ERROR_CCONTEXT("First block PoW does not meet expected difficulty, dropping connection");
+        drop_connection_with_score(context, 5, false);
+        return 1;
+      }
+    }
 
     if (!request_missing_objects(context, false))
     {

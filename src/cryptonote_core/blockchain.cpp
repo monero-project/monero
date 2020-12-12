@@ -716,13 +716,15 @@ crypto::hash Blockchain::get_tail_id() const
  *   powers of 2 less recent from there, so 13, 17, 25, etc...
  *
  */
-bool Blockchain::get_short_chain_history(std::list<crypto::hash>& ids) const
+bool Blockchain::get_short_chain_history(std::list<crypto::hash>& ids, uint64_t &height, cryptonote::difficulty_type &next_difficulty)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
   uint64_t i = 0;
   uint64_t current_multiplier = 1;
-  uint64_t sz = m_db->height();
+  height = m_db->height();
+  uint64_t sz = height;
+  next_difficulty = get_difficulty_for_next_block();
 
   if(!sz)
     return true;

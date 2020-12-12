@@ -62,7 +62,7 @@ namespace tests
       std::list<cryptonote::transaction> txes;
 
       bool add_block(const crypto::hash &_id, const crypto::hash &_longhash, const cryptonote::block &_blk, const cryptonote::blobdata &_blob);
-      void build_short_history(std::list<crypto::hash> &m_history, const crypto::hash &m_start);
+      void build_short_history(std::list<crypto::hash> &m_history, const crypto::hash &m_start, uint64_t &height, cryptonote::difficulty_type &next_difficulty);
       
 
   public:
@@ -73,7 +73,7 @@ namespace tests
     void set_target_blockchain_height(uint64_t) {}
     bool init(const boost::program_options::variables_map& vm);
     bool deinit(){return true;}
-    bool get_short_chain_history(std::list<crypto::hash>& ids);
+    bool get_short_chain_history(std::list<crypto::hash>& ids, uint64_t &height, cryptonote::difficulty_type &next_difficulty);
     bool have_block(const crypto::hash& id, int *where = NULL);
     bool have_block_unlocked(const crypto::hash& id, int *where = NULL);
     void get_blockchain_top(uint64_t& height, crypto::hash& top_id);

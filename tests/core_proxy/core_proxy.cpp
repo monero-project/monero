@@ -233,8 +233,8 @@ bool tests::proxy_core::handle_incoming_block(const cryptonote::blobdata& block_
     return true;
 }
 
-bool tests::proxy_core::get_short_chain_history(std::list<crypto::hash>& ids) {
-    build_short_history(ids, m_lastblk);
+bool tests::proxy_core::get_short_chain_history(std::list<crypto::hash>& ids, uint64_t &height, cryptonote::difficulty_type &next_difficulty) {
+    build_short_history(ids, m_lastblk, height, next_difficulty);
     return true;
 }
 
@@ -257,12 +257,10 @@ bool tests::proxy_core::have_block_unlocked(const crypto::hash& id, int *where) 
     return true;
 }
 
-bool tests::proxy_core::have_block(const crypto::hash& id, int *where) {
-    return have_block_unlocked(id, where);
-}
-
-void tests::proxy_core::build_short_history(std::list<crypto::hash> &m_history, const crypto::hash &m_start) {
+void tests::proxy_core::build_short_history(std::list<crypto::hash> &m_history, const crypto::hash &m_start, uint64_t &height, cryptonote::difficulty_type &next_difficulty) {
     m_history.push_front(get_block_hash(m_genesis));
+    height = 0;
+    next_difficulty = 1;
     /*std::unordered_map<crypto::hash, tests::block_index>::const_iterator cit = m_hash2blkidx.find(m_lastblk);
 
     do {

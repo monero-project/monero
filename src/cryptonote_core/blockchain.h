@@ -402,10 +402,12 @@ namespace cryptonote
      *   powers of 2 less recent from there, so 13, 17, 25, etc...
      *
      * @param ids return-by-reference list to put the resulting hashes in
+     * @param height return-by-reference blockchain height
+     * @param next_difficulty return-by-reference the PoW difficulty the next block to be added has to meet
      *
      * @return true
      */
-    bool get_short_chain_history(std::list<crypto::hash>& ids) const;
+    bool get_short_chain_history(std::list<crypto::hash>& ids, uint64_t &height, cryptonote::difficulty_type &next_difficulty);
 
     /**
      * @brief get recent block hashes for a foreign chain

@@ -131,6 +131,10 @@ namespace cryptonote
     "sync-pruned-blocks"
   , "Allow syncing from nodes with only pruned blocks"
   };
+  const command_line::arg_descriptor<bool> arg_early_pow_sanity_check  = {
+    "early-pow-sanity-check"
+  , "Check first block pow when getting new block hashes from peers (requires peer support)"
+  };
 
   static const command_line::arg_descriptor<bool> arg_test_drop_download = {
     "test-drop-download"
@@ -351,6 +355,7 @@ namespace cryptonote
     command_line::add_arg(desc, arg_disable_dns_checkpoints);
     command_line::add_arg(desc, arg_block_download_max_size);
     command_line::add_arg(desc, arg_sync_pruned_blocks);
+    command_line::add_arg(desc, arg_early_pow_sanity_check);
     command_line::add_arg(desc, arg_max_txpool_weight);
     command_line::add_arg(desc, arg_block_notify);
     command_line::add_arg(desc, arg_prune_blockchain);
@@ -1716,9 +1721,9 @@ namespace cryptonote
     return m_mempool.get_pool_for_rpc(tx_infos, key_image_infos);
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::get_short_chain_history(std::list<crypto::hash>& ids) const
+  bool core::get_short_chain_history(std::list<crypto::hash>& ids, uint64_t &height, cryptonote::difficulty_type &next_difficulty)
   {
-    return m_blockchain_storage.get_short_chain_history(ids);
+    return m_blockchain_storage.get_short_chain_history(ids, height, next_difficulty);
   }
   //-----------------------------------------------------------------------------------------------
   bool core::is_request_sane(const NOTIFY_REQUEST_GET_OBJECTS::request& arg, std::string &error_message) const

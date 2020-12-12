@@ -179,6 +179,7 @@ namespace cryptonote
     epee::math_helper::once_a_time_seconds<150> m_wedged_sync_restarter;
     size_t m_block_download_max_size;
     bool m_sync_pruned_blocks;
+    bool m_early_pow_sanity_check;
     epee::math_helper::once_a_time_seconds<20> m_broken_peer_dropper;
 
     // Values for sync time estimates
