@@ -6,6 +6,7 @@
 #include <boost/thread/lock_guard.hpp>
 #include <boost/algorithm/string.hpp>
 
+static bool same_as_last_line(const std::string&);
 static void install_line_handler();
 static void remove_line_handler();
 
@@ -175,8 +176,11 @@ static void handle_line(char* line)
     boost::trim_right(test_line);
     if(!test_line.empty())
     {
-      add_history(test_line.c_str());
-      history_set_pos(history_length);
+      if (!same_as_last_line(test_line))
+      {
+        add_history(test_line.c_str());
+        history_set_pos(history_length);
+      }
       if (test_line == "exit" || test_line == "q")
         exit = true;
     }
@@ -190,6 +194,16 @@ static void handle_line(char* line)
   if (exit)
     rl_set_prompt("");
   return;
+}
+
+// same_as_last_line returns true, if the last line in the history is
+// equal to test_line.
+static bool same_as_last_line(const std::string& test_line)
+{
+  // Note that state->offset == state->length, when a new line was entered.
+  HISTORY_STATE* state = history_get_history_state();
+  return state->length > 0
+    && test_line.compare(state->entries[state->length-1]->line) == 0;
 }
 
 static char* completion_matches(const char* text, int state)
