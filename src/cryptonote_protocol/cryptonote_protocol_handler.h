@@ -174,6 +174,7 @@ namespace cryptonote
     uint64_t m_sync_download_chain_size, m_sync_download_objects_size;
     size_t m_block_download_max_size;
     bool m_sync_pruned_blocks;
+    bool m_early_pow_sanity_check;
 
     // Values for sync time estimates
     boost::posix_time::ptime m_sync_start_time;
