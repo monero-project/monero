@@ -1826,6 +1826,16 @@ skip:
       LOG_ERROR_CCONTEXT("Failed to handle NOTIFY_REQUEST_CHAIN.");
       return 1;
     }
+    if (r.m_block_ids.size() >= 2)
+    {
+      cryptonote::block b;
+      if (!m_core.get_block_by_hash(r.m_block_ids[1], b))
+      {
+        LOG_ERROR_CCONTEXT("Failed to handle NOTIFY_REQUEST_CHAIN: first block not found");
+        return 1;
+      }
+      r.first_block = cryptonote::block_to_blob(b);
+    }
     MLOG_P2P_MESSAGE("-->>NOTIFY_RESPONSE_CHAIN_ENTRY: m_start_height=" << r.start_height << ", m_total_height=" << r.total_height << ", m_block_ids.size()=" << r.m_block_ids.size());
     post_notify<NOTIFY_RESPONSE_CHAIN_ENTRY>(r, context);
     return 1;
