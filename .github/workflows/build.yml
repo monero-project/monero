@@ -5,14 +5,24 @@ on: [push, pull_request]
 jobs:
   build-macos:
     runs-on: macOS-latest
+    env:
+      CCACHE_COMPRESS: 1
+      CCACHE_TEMPDIR: /tmp/.ccache-temp
     steps:
     - uses: actions/checkout@v1
       with:
         submodules: recursive
+    - uses: actions/cache@v2
+      with:
+        path: ~/.ccache
+        key: ccache-macos-build-${{ github.sha }}
+        restore-keys: ccache-macos-build-
     - name: install dependencies
-      run: HOMEBREW_NO_AUTO_UPDATE=1 brew install boost hidapi zmq libpgm miniupnpc ldns expat libunwind-headers protobuf
+      run: HOMEBREW_NO_AUTO_UPDATE=1 brew install boost hidapi zmq libpgm miniupnpc ldns expat libunwind-headers protobuf ccache
     - name: build
-      run: make -j3
+      run: |
+        ccache --max-size=150M
+        make -j3
 
   build-windows:
     runs-on: windows-latest
@@ -32,10 +42,18 @@ jobs:
 
   build-ubuntu:
     runs-on: ubuntu-latest
+    env:
+      CCACHE_COMPRESS: 1
+      CCACHE_TEMPDIR: /tmp/.ccache-temp
     steps:
     - uses: actions/checkout@v1
       with:
         submodules: recursive
+    - uses: actions/cache@v2
+      with:
+        path: ~/.ccache
+        key: ccache-ubuntu-build-${{ github.sha }}
+        restore-keys: ccache-ubuntu-build-
     - name: remove bundled boost
       run: sudo rm -rf /usr/local/share/boost
     - name: set apt conf
@@ -46,16 +64,26 @@ jobs:
     - name: update apt
       run: sudo apt update
     - name: install monero dependencies
-      run: sudo apt -y install build-essential cmake libboost-all-dev miniupnpc libunbound-dev graphviz doxygen libunwind8-dev pkg-config libssl-dev libzmq3-dev libsodium-dev libhidapi-dev libnorm-dev libusb-1.0-0-dev libpgm-dev libprotobuf-dev protobuf-compiler
+      run: sudo apt -y install build-essential cmake libboost-all-dev miniupnpc libunbound-dev graphviz doxygen libunwind8-dev pkg-config libssl-dev libzmq3-dev libsodium-dev libhidapi-dev libnorm-dev libusb-1.0-0-dev libpgm-dev libprotobuf-dev protobuf-compiler ccache
     - name: build
-      run: make -j3
+      run: |
+        ccache --max-size=150M
+        make -j3
 
   libwallet-ubuntu:
     runs-on: ubuntu-latest
+    env:
+      CCACHE_COMPRESS: 1
+      CCACHE_TEMPDIR: /tmp/.ccache-temp
     steps:
     - uses: actions/checkout@v1
       with:
         submodules: recursive
+    - uses: actions/cache@v2
+      with:
+        path: ~/.ccache
+        key: ccache-ubuntu-libwallet-${{ github.sha }}
+        restore-keys: ccache-ubuntu-libwallet-
     - name: remove bundled boost
       run: sudo rm -rf /usr/local/share/boost
     - name: set apt conf
@@ -66,9 +94,12 @@ jobs:
     - name: update apt
       run: sudo apt update
     - name: install monero dependencies
-      run: sudo apt -y install build-essential cmake libboost-all-dev miniupnpc libunbound-dev graphviz doxygen libunwind8-dev pkg-config libssl-dev libzmq3-dev libsodium-dev libhidapi-dev libnorm-dev libusb-1.0-0-dev libpgm-dev libprotobuf-dev protobuf-compiler
+      run: sudo apt -y install build-essential cmake libboost-all-dev miniupnpc libunbound-dev graphviz doxygen libunwind8-dev pkg-config libssl-dev libzmq3-dev libsodium-dev libhidapi-dev libnorm-dev libusb-1.0-0-dev libpgm-dev libprotobuf-dev protobuf-compiler ccache
     - name: build
-      run: cmake -DBUILD_GUI_DEPS=ON && make -j3
+      run: |
+        ccache --max-size=150M
+        cmake -DBUILD_GUI_DEPS=ON
+        make -j3
 
   test-ubuntu:
     needs: build-ubuntu
