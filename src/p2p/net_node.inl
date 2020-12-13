@@ -37,6 +37,7 @@
 #include <boost/optional/optional.hpp>
 #include <boost/thread/thread.hpp>
 #include <boost/uuid/uuid_io.hpp>
+#include <boost/algorithm/string.hpp>
 #include <atomic>
 #include <functional>
 #include <limits>
@@ -120,6 +121,7 @@ namespace nodetool
     command_line::add_arg(desc, arg_ban_list);
     command_line::add_arg(desc, arg_p2p_hide_my_port);
     command_line::add_arg(desc, arg_no_sync);
+    command_line::add_arg(desc, arg_enable_dns_blocklist);
     command_line::add_arg(desc, arg_no_igd);
     command_line::add_arg(desc, arg_igd);
     command_line::add_arg(desc, arg_out_peers);
@@ -226,7 +228,7 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
-  bool node_server<t_payload_net_handler>::block_host(epee::net_utils::network_address addr, time_t seconds)
+  bool node_server<t_payload_net_handler>::block_host(epee::net_utils::network_address addr, time_t seconds, bool add_only)
   {
     if(!addr.is_blockable())
       return false;
@@ -240,7 +242,11 @@ namespace nodetool
     else
       limit = now + seconds;
     const std::string host_str = addr.host_str();
-    m_blocked_hosts[host_str] = limit;
+    auto it = m_blocked_hosts.find(host_str);
+    if (it == m_blocked_hosts.end())
+      m_blocked_hosts[host_str] = limit;
+    else if (it->second < limit || !add_only)
+      it->second = limit;
 
     // drop any connection to that address. This should only have to look into
     // the zone related to the connection, but really make sure everything is
@@ -496,6 +502,8 @@ namespace nodetool
 
     if (command_line::has_arg(vm, arg_no_sync))
       m_payload_handler.set_no_sync(true);
+
+    m_enable_dns_blocklist = command_line::get_arg(vm, arg_enable_dns_blocklist);
 
     if ( !set_max_out_peers(public_zone, command_line::get_arg(vm, arg_out_peers) ) )
       return false;
@@ -1963,6 +1971,52 @@ namespace nodetool
     m_gray_peerlist_housekeeping_interval.do_call(boost::bind(&node_server<t_payload_net_handler>::gray_peerlist_housekeeping, this));
     m_peerlist_store_interval.do_call(boost::bind(&node_server<t_payload_net_handler>::store_config, this));
     m_incoming_connections_interval.do_call(boost::bind(&node_server<t_payload_net_handler>::check_incoming_connections, this));
+    m_dns_blocklist_interval.do_call(boost::bind(&node_server<t_payload_net_handler>::update_dns_blocklist, this));
+    return true;
+  }
+  //-----------------------------------------------------------------------------------
+  template<class t_payload_net_handler>
+  bool node_server<t_payload_net_handler>::update_dns_blocklist()
+  {
+    if (!m_enable_dns_blocklist)
+      return true;
+    if (m_nettype != cryptonote::MAINNET)
+      return true;
+
+    static const std::vector<std::string> dns_urls = {
+      "blocklist.moneropulse.se"
+    , "blocklist.moneropulse.org"
+    , "blocklist.moneropulse.net"
+    , "blocklist.moneropulse.no"
+    , "blocklist.moneropulse.fr"
+    , "blocklist.moneropulse.de"
+    , "blocklist.moneropulse.ch"
+    };
+
+    std::vector<std::string> records;
+    if (!tools::dns_utils::load_txt_records_from_dns(records, dns_urls))
+      return true;
+
+    unsigned good = 0, bad = 0;
+    for (const auto& record : records)
+    {
+      std::vector<std::string> ips;
+      boost::split(ips, record, boost::is_any_of(";"));
+      for (const auto &ip: ips)
+      {
+        const expect<epee::net_utils::network_address> parsed_addr = net::get_network_address(ip, 0);
+        if (!parsed_addr)
+        {
+          MWARNING("Invalid IP address from DNS blocklist: " << ip << " - " << parsed_addr.error());
+          ++bad;
+          continue;
+        }
+        block_host(*parsed_addr, DNS_BLOCKLIST_LIFETIME, true);
+        ++good;
+      }
+    }
+    if (good > 0)
+      MINFO(good << " addresses added to the blocklist");
     return true;
   }
   //-----------------------------------------------------------------------------------
