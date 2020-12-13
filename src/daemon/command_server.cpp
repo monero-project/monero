@@ -234,8 +234,8 @@ t_command_server::t_command_server(
     m_command_lookup.set_handler(
       "ban"
     , std::bind(&t_command_parser_executor::ban, &m_parser, p::_1)
-    , "ban <IP> [<seconds>]"
-    , "Ban a given <IP> for a given amount of <seconds>."
+    , "ban [<IP>|@<filename>] [<seconds>]"
+    , "Ban a given <IP> or list of IPs from a file for a given amount of <seconds>."
     );
     m_command_lookup.set_handler(
       "unban"
