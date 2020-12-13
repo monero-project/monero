@@ -58,6 +58,7 @@
 #include "equality.h"
 #include "range_proof.h"
 #include "bulletproof.h"
+#include "bulletproof_plus.h"
 #include "crypto_ops.h"
 #include "multiexp.h"
 #include "sig_mlsag.h"
@@ -240,6 +241,26 @@ int main(int argc, char** argv)
 
   TEST_PERFORMANCE1(filter, p, test_range_proof, true);
   TEST_PERFORMANCE1(filter, p, test_range_proof, false);
+
+  TEST_PERFORMANCE2(filter, p, test_bulletproof_plus, true, 1); // 1 bulletproof_plus with 1 amount
+  TEST_PERFORMANCE2(filter, p, test_bulletproof_plus, false, 1);
+
+  TEST_PERFORMANCE2(filter, p, test_bulletproof_plus, true, 2); // 1 bulletproof_plus with 2 amounts
+  TEST_PERFORMANCE2(filter, p, test_bulletproof_plus, false, 2);
+
+  TEST_PERFORMANCE2(filter, p, test_bulletproof_plus, true, 15); // 1 bulletproof_plus with 15 amounts
+  TEST_PERFORMANCE2(filter, p, test_bulletproof_plus, false, 15);
+
+  TEST_PERFORMANCE6(filter, p, test_aggregated_bulletproof_plus, false, 2, 1, 1, 0, 4);
+  TEST_PERFORMANCE6(filter, p, test_aggregated_bulletproof_plus, true, 2, 1, 1, 0, 4); // 4 proofs, each with 2 amounts
+  TEST_PERFORMANCE6(filter, p, test_aggregated_bulletproof_plus, false, 8, 1, 1, 0, 4);
+  TEST_PERFORMANCE6(filter, p, test_aggregated_bulletproof_plus, true, 8, 1, 1, 0, 4); // 4 proofs, each with 8 amounts
+  TEST_PERFORMANCE6(filter, p, test_aggregated_bulletproof_plus, false, 1, 1, 2, 0, 4);
+  TEST_PERFORMANCE6(filter, p, test_aggregated_bulletproof_plus, true, 1, 1, 2, 0, 4); // 4 proofs with 1, 2, 4, 8 amounts
+  TEST_PERFORMANCE6(filter, p, test_aggregated_bulletproof_plus, false, 1, 8, 1, 1, 4);
+  TEST_PERFORMANCE6(filter, p, test_aggregated_bulletproof_plus, true, 1, 8, 1, 1, 4); // 32 proofs, with 1, 2, 3, 4 amounts, 8 of each
+  TEST_PERFORMANCE6(filter, p, test_aggregated_bulletproof_plus, false, 2, 1, 1, 0, 64);
+  TEST_PERFORMANCE6(filter, p, test_aggregated_bulletproof_plus, true, 2, 1, 1, 0, 64); // 64 proof, each with 2 amounts
 
   TEST_PERFORMANCE2(filter, p, test_bulletproof, true, 1); // 1 bulletproof with 1 amount
   TEST_PERFORMANCE2(filter, p, test_bulletproof, false, 1);

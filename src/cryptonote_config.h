@@ -221,6 +221,8 @@ namespace config
 
   // Hash domain separators
   const char HASH_KEY_BULLETPROOF_EXPONENT[] = "bulletproof";
+  const char HASH_KEY_BULLETPROOF_PLUS_EXPONENT[] = "bulletproof_plus";
+  const char HASH_KEY_BULLETPROOF_PLUS_TRANSCRIPT[] = "bulletproof_plus_transcript";
   const char HASH_KEY_RINGDB[] = "ringdsb";
   const char HASH_KEY_SUBADDRESS[] = "SubAddr";
   const unsigned char HASH_KEY_ENCRYPTED_PAYMENT_ID = 0x8d;
