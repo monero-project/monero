@@ -982,6 +982,23 @@ TEST(ByteStream, Put)
   EXPECT_TRUE(equal(bytes, byte_span{stream.data(), stream.size()}));
 }
 
+TEST(ByteStream, PutN)
+{
+  using boost::range::equal;
+  using byte_span = epee::span<const std::uint8_t>;
+
+  std::vector<std::uint8_t> bytes;
+  bytes.resize(1000, 'f');
+
+  epee::byte_stream stream;
+  stream.put_n('f', 1000);
+
+  EXPECT_EQ(1000u, stream.size());
+  EXPECT_LE(1000u, stream.capacity());
+  EXPECT_EQ(stream.available(), stream.capacity() - stream.size());
+  EXPECT_TRUE(equal(bytes, byte_span{stream.data(), stream.size()}));
+}
+
 TEST(ByteStream, Reserve)
 {
   using boost::range::equal;

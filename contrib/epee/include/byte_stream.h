@@ -175,7 +175,7 @@ namespace epee
     void put_n(const std::uint8_t ch, const std::size_t count)
     {
       check(count);
-      std::memset(tellp(), count, ch);
+      std::memset(tellp(), ch, count);
       next_write_ += count;
     }
 
