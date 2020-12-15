@@ -2548,6 +2548,8 @@ skip:
     }
 
     std::unordered_set<crypto::hash> hashes;
+    uint64_t height = arg.start_height;
+    const uint64_t blockchain_height = m_core.get_current_blockchain_height();
     for (const auto &h: arg.m_block_ids)
     {
       if (!hashes.insert(h).second)
@@ -2556,6 +2558,17 @@ skip:
         drop_connection(context, true, false);
         return 1;
       }
+      if (height < blockchain_height)
+      {
+        const crypto::hash block_in_chain = m_core.get_block_id_by_height(height);
+        if ((height < context.m_expect_height - 1 && block_in_chain == h) || (height == context.m_expect_height - 1 && block_in_chain != h))
+        {
+          LOG_ERROR_CCONTEXT("sent existing block " << h << " at height " << height << ", expected height was " << context.m_expect_height << ", dropping connection");
+          drop_connection(context, true, false);
+          return 1;
+        }
+      }
+      ++height;
     }
 
     uint64_t n_use_blocks = m_core.prevalidate_block_hashes(arg.start_height, arg.m_block_ids, arg.m_block_weights);
