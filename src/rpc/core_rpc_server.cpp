@@ -1408,6 +1408,26 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_get_peer_peer_list(const COMMAND_RPC_GET_PEER_PEER_LIST::request& req, COMMAND_RPC_GET_PEER_PEER_LIST::response& res, const connection_context *ctx)
+  {
+    RPC_TRACKER(get_peer_peer_list);
+
+    expect<epee::net_utils::network_address> address = net::get_network_address(req.peer, 0);
+    if (!address)
+    {
+      res.status = "Error parsing address";
+      return true;
+    }
+
+    std::set<epee::net_utils::network_address> addresses = m_p2p.get_peer_list(*address);
+    res.peers.reserve(addresses.size());
+    for (const auto &e: addresses)
+      res.peers.push_back(e.str());
+
+    res.status = CORE_RPC_STATUS_OK;
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_get_public_nodes(const COMMAND_RPC_GET_PUBLIC_NODES::request& req, COMMAND_RPC_GET_PUBLIC_NODES::response& res, const connection_context *ctx)
   {
     RPC_TRACKER(get_public_nodes);

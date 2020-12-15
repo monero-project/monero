@@ -429,6 +429,12 @@ class Daemon(object):
         }
         return self.rpc.send_request('/get_peer_list', get_peer_list)
 
+    def get_peer_peer_list(self, peer):
+        get_peer_peer_list = {
+            'peer': peer
+        }
+        return self.rpc.send_request('/get_peer_peer_list', get_peer_peer_list)
+
     def set_log_hash_rate(self, visible):
         set_log_hash_rate = {
             'visible': visible,
