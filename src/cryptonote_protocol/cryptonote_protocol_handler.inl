@@ -340,6 +340,50 @@ namespace cryptonote
   }
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core>
+  void t_cryptonote_protocol_handler<t_core>::process_new_apparent_chain(cryptonote_connection_context& context)
+  {
+    const uint64_t current_blockchain_height = m_core.get_current_blockchain_height();
+    const uint64_t target = m_core.get_target_blockchain_height();
+    if (context.m_remote_blockchain_height >= target && target == current_blockchain_height)
+      on_connection_synchronized();
+
+    int64_t diff = static_cast<int64_t>(context.m_remote_blockchain_height) - static_cast<int64_t>(current_blockchain_height);
+    uint64_t abs_diff = std::abs(diff);
+    uint64_t max_block_height = std::max(context.m_remote_blockchain_height, current_blockchain_height);
+    uint64_t last_block_v1 = m_core.get_nettype() == TESTNET ? 624633 : m_core.get_nettype() == MAINNET ? 1009826 : (uint64_t)-1;
+    uint64_t diff_v2 = max_block_height > last_block_v1 ? std::min(abs_diff, max_block_height - last_block_v1) : 0;
+    bool is_new = true;
+    m_p2p->for_each_connection([&](cryptonote_connection_context& ctx, nodetool::peerid_type peer_id, uint32_t support_flags)->bool {
+      // not quite correct since it depends on top block hash, but close enough for our purpose here
+      if (ctx.m_connection_id != context.m_connection_id && ctx.m_remote_blockchain_height >= context.m_remote_blockchain_height)
+        is_new = false;
+      return true;
+    });
+    MCLOG(is_new ? el::Level::Info : el::Level::Debug, "global", el::Color::Yellow, context <<  "Sync data returned a new top block candidate: " << current_blockchain_height << " -> " << context.m_remote_blockchain_height
+      << " [Your node is " << abs_diff << " blocks (" << tools::get_human_readable_timespan((abs_diff - diff_v2) * DIFFICULTY_TARGET_V1 + diff_v2 * DIFFICULTY_TARGET_V2) << ") "
+      << (0 <= diff ? std::string("behind") : std::string("ahead"))
+      << "] " << ENDL << "SYNCHRONIZATION started");
+    if (context.m_remote_blockchain_height >= current_blockchain_height + 5) // don't switch to unsafe mode just for a few blocks
+    {
+      m_core.safesyncmode(false);
+    }
+    if (target == 0) // only when sync starts
+    {
+      m_sync_timer.resume();
+      m_sync_timer.reset();
+      m_add_timer.pause();
+      m_add_timer.reset();
+      m_last_add_end_time = 0;
+      m_sync_spans_downloaded = 0;
+      m_sync_old_spans_downloaded = 0;
+      m_sync_bad_spans_downloaded = 0;
+      m_sync_download_chain_size = 0;
+      m_sync_download_objects_size = 0;
+    }
+    m_core.set_target_blockchain_height(context.m_remote_blockchain_height);
+  }
+  //------------------------------------------------------------------------------------------------------------------------
+  template<class t_core>
   bool t_cryptonote_protocol_handler<t_core>::process_payload_sync_data(const CORE_SYNC_DATA& hshd, cryptonote_connection_context& context, bool just_check_height, bool is_inital)
   {
     if(context.m_state == cryptonote_connection_context::state_before_handshake && !is_inital)
@@ -419,8 +463,6 @@ namespace cryptonote
     if(m_core.have_block(hshd.top_id))
     {
       context.m_state = cryptonote_connection_context::state_normal;
-      if(is_inital  && hshd.current_height >= target && target == m_core.get_current_blockchain_height())
-        on_connection_synchronized();
       return true;
     }
 
@@ -431,41 +473,6 @@ namespace cryptonote
       return true;
     }
 
-    if (hshd.current_height > target)
-    {
-    /* As I don't know if accessing hshd from core could be a good practice,
-    I prefer pushing target height to the core at the same time it is pushed to the user.
-    Nz. */
-    int64_t diff = static_cast<int64_t>(hshd.current_height) - static_cast<int64_t>(m_core.get_current_blockchain_height());
-    uint64_t abs_diff = std::abs(diff);
-    uint64_t max_block_height = std::max(hshd.current_height,m_core.get_current_blockchain_height());
-    uint64_t last_block_v1 = m_core.get_nettype() == TESTNET ? 624633 : m_core.get_nettype() == MAINNET ? 1009826 : (uint64_t)-1;
-    uint64_t diff_v2 = max_block_height > last_block_v1 ? std::min(abs_diff, max_block_height - last_block_v1) : 0;
-    const float plausibility = m_core.get_blockchain_height_plausibility(hshd.current_height);
-    MCLOG(is_inital ? el::Level::Info : el::Level::Debug, "global", el::Color::Yellow, context <<  "Sync data returned a new top block candidate: " << m_core.get_current_blockchain_height() << " -> " << hshd.current_height
-      << " (plausibility " << plausibility << ")"
-      << " [Your node is " << abs_diff << " blocks (" << tools::get_human_readable_timespan((abs_diff - diff_v2) * DIFFICULTY_TARGET_V1 + diff_v2 * DIFFICULTY_TARGET_V2) << ") "
-      << (0 <= diff ? std::string("behind") : std::string("ahead"))
-      << "] " << ENDL << "SYNCHRONIZATION started");
-      if (hshd.current_height >= m_core.get_current_blockchain_height() + 5) // don't switch to unsafe mode just for a few blocks
-      {
-        m_core.safesyncmode(false);
-      }
-      if (m_core.get_target_blockchain_height() == 0) // only when sync starts
-      {
-        m_sync_timer.resume();
-        m_sync_timer.reset();
-        m_add_timer.pause();
-        m_add_timer.reset();
-        m_last_add_end_time = 0;
-        m_sync_spans_downloaded = 0;
-        m_sync_old_spans_downloaded = 0;
-        m_sync_bad_spans_downloaded = 0;
-        m_sync_download_chain_size = 0;
-        m_sync_download_objects_size = 0;
-      }
-    m_core.set_target_blockchain_height((hshd.current_height));
-    }
     MINFO(context << "Remote blockchain height: " << hshd.current_height << ", id: " << hshd.top_id);
 
     if (m_no_sync)
@@ -2981,10 +2988,10 @@ skip:
       return 1;
     }
 
-    if (arg.total_height > m_core.get_target_blockchain_height())
-      m_core.set_target_blockchain_height(arg.total_height);
 
+    process_new_apparent_chain(context);
     context.m_num_requested = 0;
+
     return 1;
   }
   //------------------------------------------------------------------------------------------------------------------------

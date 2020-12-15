@@ -154,6 +154,7 @@ namespace cryptonote
     size_t skip_unneeded_hashes(cryptonote_connection_context& context, bool check_block_queue) const;
     bool request_txpool_complement(cryptonote_connection_context &context);
     void hit_score(cryptonote_connection_context &context, int32_t score);
+    void process_new_apparent_chain(cryptonote_connection_context& context);
 
     t_core& m_core;
 
