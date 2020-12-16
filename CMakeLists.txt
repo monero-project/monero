@@ -237,6 +237,7 @@ if(WIN32 OR ARM OR PPC64LE OR PPC64 OR PPC)
   set(OPT_FLAGS_RELEASE "-O2")
 elseif(LINUX)
   set(OPT_FLAGS_RELEASE "-O2") # Experimental
+  message(STATUS "Linux using compilation flags = ${OPT_FLAGS_RELEASE}" )
 else()
   set(OPT_FLAGS_RELEASE "-Ofast")
 endif()
