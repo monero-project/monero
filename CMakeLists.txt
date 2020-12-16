@@ -46,6 +46,14 @@ endif()
 cmake_minimum_required(VERSION 3.5)
 message(STATUS "CMake version ${CMAKE_VERSION}")
 
+option (USE_ICECC "Use icecc/icecream if a usable instance is found" OFF) # Off by default, since it influences the CPU architecture
+if (USE_ICECC)
+	include(FindIcecream) # Has to be called before project() macro to preset the C and CXX vars.
+	set(ARCH "default") # The top condition for icecream to work is to compile a generic binary.
+else()
+	message(STATUS "icecc deselected")
+endif()
+
 project(monero)
 
 option (USE_CCACHE "Use ccache if a usable instance is found" ON)
@@ -54,6 +62,7 @@ if (USE_CCACHE)
 else()
 	message(STATUS "ccache deselected")
 endif()
+
 option (USE_COMPILATION_TIME_PROFILER "Use compilation time profiler (for CLang >= 9 only)" OFF)
 if (USE_COMPILATION_TIME_PROFILER)
 	if (NOT "${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")

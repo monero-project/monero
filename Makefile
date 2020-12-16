@@ -75,6 +75,10 @@ debug-all:
 	mkdir -p $(builddir)/debug
 	cd $(builddir)/debug && cmake -D BUILD_TESTS=ON -D BUILD_SHARED_LIBS=OFF -D CMAKE_BUILD_TYPE=Debug $(topdir) && $(MAKE)
 
+debug-all-icecc:
+	mkdir -p $(builddir)/debug
+	cd $(builddir)/debug && cmake -D BUILD_TESTS=ON -D CMAKE_BUILD_TYPE=debug -D USE_ICECC=ON -D BUILD_SHARED_LIBS=ON $(topdir) && $(MAKE) -j25
+
 debug-static-all:
 	mkdir -p $(builddir)/debug
 	cd $(builddir)/debug && cmake -D BUILD_TESTS=ON -D STATIC=ON -D CMAKE_BUILD_TYPE=Debug $(topdir) && $(MAKE)
@@ -101,6 +105,11 @@ release-test:
 release-all:
 	mkdir -p $(builddir)/release
 	cd $(builddir)/release && cmake -D BUILD_TESTS=ON -D CMAKE_BUILD_TYPE=release $(topdir) && $(MAKE)
+
+release-all-icecc:
+	mkdir -p $(builddir)/release
+	cd $(builddir)/release && cmake -D BUILD_TESTS=ON -D CMAKE_BUILD_TYPE=release -D USE_ICECC=ON -D BUILD_SHARED_LIBS=ON $(topdir) && $(MAKE) -j25
+
 
 release-static:
 	mkdir -p $(builddir)/release
