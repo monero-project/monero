@@ -229,8 +229,14 @@ if(ARCH_ID STREQUAL "s390x")
   set(S390X 1)
 endif()
 
+if(UNIX AND NOT APPLE)
+  set(LINUX TRUE)
+endif()
+
 if(WIN32 OR ARM OR PPC64LE OR PPC64 OR PPC)
   set(OPT_FLAGS_RELEASE "-O2")
+elseif(LINUX)
+  set(OPT_FLAGS_RELEASE "-O2") # Experimental
 else()
   set(OPT_FLAGS_RELEASE "-Ofast")
 endif()
