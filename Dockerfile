@@ -1,7 +1,7 @@
 # Multistage docker build, requires docker 17.05
 
 # builder stage
-FROM ubuntu:16.04 as builder
+FROM ubuntu:18.04 as builder
 
 RUN set -ex && \
     apt-get update && \
@@ -29,9 +29,9 @@ ENV CFLAGS='-fPIC'
 ENV CXXFLAGS='-fPIC'
 
 #Cmake
-ARG CMAKE_VERSION=3.14.6
-ARG CMAKE_VERSION_DOT=v3.14
-ARG CMAKE_HASH=4e8ea11cabe459308671b476469eace1622e770317a15951d7b55a82ccaaccb9
+ARG CMAKE_VERSION=3.15.7
+ARG CMAKE_VERSION_DOT=v3.15
+ARG CMAKE_HASH=71999d8a14c9b51708847371250a61533439a7331eb7702ac105cfb3cb1be54b
 RUN set -ex \
     && curl -s -O https://cmake.org/files/${CMAKE_VERSION_DOT}/cmake-${CMAKE_VERSION}.tar.gz \
     && echo "${CMAKE_HASH}  cmake-${CMAKE_VERSION}.tar.gz" | sha256sum -c \
@@ -69,8 +69,8 @@ RUN set -ex \
 ENV OPENSSL_ROOT_DIR=/usr/local/openssl-${OPENSSL_VERSION}
 
 # ZMQ
-ARG ZMQ_VERSION=v4.3.2
-ARG ZMQ_HASH=a84ffa12b2eb3569ced199660bac5ad128bff1f0
+ARG ZMQ_VERSION=v4.3.3
+ARG ZMQ_HASH=04f5bbedee58c538934374dc45182d8fc5926fa3
 RUN set -ex \
     && git clone https://github.com/zeromq/libzmq.git -b ${ZMQ_VERSION} \
     && cd libzmq \
@@ -91,8 +91,8 @@ RUN set -ex \
     && mv *.hpp /usr/local/include
 
 # Readline
-ARG READLINE_VERSION=8.0
-ARG READLINE_HASH=e339f51971478d369f8a053a330a190781acb9864cf4c541060f12078948e461
+ARG READLINE_VERSION=8.1
+ARG READLINE_HASH=f8ceb4ee131e3232226a17f51b164afc46cd0b9e6cef344be87c65962cb82b02
 RUN set -ex \
     && curl -s -O https://ftp.gnu.org/gnu/readline/readline-${READLINE_VERSION}.tar.gz \
     && echo "${READLINE_HASH}  readline-${READLINE_VERSION}.tar.gz" | sha256sum -c \
@@ -116,8 +116,8 @@ RUN set -ex \
     && make install
 
 # Udev
-ARG UDEV_VERSION=v3.2.8
-ARG UDEV_HASH=d69f3f28348123ab7fa0ebac63ec2fd16800c5e0
+ARG UDEV_VERSION=v3.2.9
+ARG UDEV_HASH=2ab887ec67afd15eb9b0849467f1f9c036a2b6c8
 RUN set -ex \
     && git clone https://github.com/gentoo/eudev -b ${UDEV_VERSION} \
     && cd eudev \
@@ -179,7 +179,7 @@ RUN set -ex && \
     fi
 
 # runtime stage
-FROM ubuntu:16.04
+FROM ubuntu:18.04
 
 RUN set -ex && \
     apt-get update && \
@@ -209,4 +209,3 @@ EXPOSE 18081
 USER monero
 
 ENTRYPOINT ["monerod", "--p2p-bind-ip=0.0.0.0", "--p2p-bind-port=18080", "--rpc-bind-ip=0.0.0.0", "--rpc-bind-port=18081", "--non-interactive", "--confirm-external-bind"]
-
