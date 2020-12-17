@@ -81,6 +81,9 @@ namespace rct
     static const rct::key MINUS_INV_EIGHT = { { 0x74, 0xa4, 0x19, 0x7a, 0xf0, 0x7d, 0x0b, 0xf7, 0x05, 0xc2, 0xda, 0x25, 0x2b, 0x5c, 0x0b, 0x0d, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0a } }; // -(8**(-1))
     static rct::key TWO_SIXTY_FOUR_MINUS_ONE; // 2**64 - 1
 
+    // Initial transcript hash
+    static rct::key initial_transcript;
+
     static boost::mutex init_mutex;
 
     // Use the generator caches to compute a multiscalar multiplication
@@ -149,6 +152,12 @@ namespace rct
             sc_mul(TWO_SIXTY_FOUR_MINUS_ONE.bytes, TWO_SIXTY_FOUR_MINUS_ONE.bytes, TWO_SIXTY_FOUR_MINUS_ONE.bytes);
         }
         sc_sub(TWO_SIXTY_FOUR_MINUS_ONE.bytes, TWO_SIXTY_FOUR_MINUS_ONE.bytes, ONE.bytes);
+
+        // Generate the initial Fiat-Shamir transcript hash, which is constant across all proofs
+        static const std::string domain_separator(config::HASH_KEY_BULLETPROOF_PLUS_TRANSCRIPT);
+        ge_p3 initial_transcript_p3;
+        rct::hash_to_p3(initial_transcript_p3, rct::hash2rct(crypto::cn_fast_hash(domain_separator.data(), domain_separator.size())));
+        ge_p3_tobytes(initial_transcript.bytes, &initial_transcript_p3);
 
         init_done = true;
     }
@@ -479,17 +488,6 @@ namespace rct
         return epee::span<const rct::key>(&a[start], stop - start);
     }
 
-    // Initialize the Fiat-Shamir transcript
-    static rct::key transcript_initialize()
-    {
-        static const std::string domain_separator(config::HASH_KEY_BULLETPROOF_PLUS_TRANSCRIPT);
-        rct::key transcript;
-        ge_p3 transcript_p3;
-        rct::hash_to_p3(transcript_p3, rct::hash2rct(crypto::cn_fast_hash(domain_separator.data(), domain_separator.size())));
-        ge_p3_tobytes(transcript.bytes, &transcript_p3);
-        return transcript;
-    }
-
     // Update the transcript
     static rct::key transcript_update(rct::key &transcript, const rct::key &update_0)
     {
@@ -592,7 +590,7 @@ namespace rct
 
 try_again:
         // This is a Fiat-Shamir transcript
-        rct::key transcript = transcript_initialize();
+        rct::key transcript = copy(initial_transcript);
         transcript = transcript_update(transcript, rct::hash_to_scalar(V));
 
         // A
@@ -851,7 +849,7 @@ try_again:
             bp_plus_proof_data_t pd;
 
             // Reconstruct the challenges
-            rct::key transcript = transcript_initialize();
+            rct::key transcript = copy(initial_transcript);
             transcript = transcript_update(transcript, rct::hash_to_scalar(proof.V));
             pd.y = transcript_update(transcript, proof.A);
             CHECK_AND_ASSERT_MES(!(pd.y == rct::zero()), false, "y == 0");
