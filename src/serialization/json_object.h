@@ -292,6 +292,9 @@ void fromJsonValue(const rapidjson::Value& val, rct::rangeSig& sig);
 void toJsonValue(rapidjson::Writer<epee::byte_stream>& dest, const rct::Bulletproof& p);
 void fromJsonValue(const rapidjson::Value& val, rct::Bulletproof& p);
 
+void toJsonValue(rapidjson::Writer<epee::byte_stream>& dest, const rct::BulletproofPlus& p);
+void fromJsonValue(const rapidjson::Value& val, rct::BulletproofPlus& p);
+
 void toJsonValue(rapidjson::Writer<epee::byte_stream>& dest, const rct::boroSig& sig);
 void fromJsonValue(const rapidjson::Value& val, rct::boroSig& sig);
 

@@ -133,7 +133,7 @@ bool gen_rct_tx_validation_base::generate_with_full(std::vector<test_event_entry
       crypto::secret_key amount_key;
       crypto::derivation_to_scalar(derivation, o, amount_key);
       const uint8_t type = rct_txes[n].rct_signatures.type;
-      if (type == rct::RCTTypeSimple || type == rct::RCTTypeBulletproof || type == rct::RCTTypeBulletproof2 || type == rct::RCTTypeCLSAG)
+      if (rct::is_rct_simple(type))
         rct::decodeRctSimple(rct_txes[n].rct_signatures, rct::sk2rct(amount_key), o, rct_tx_masks[o+n*4], hw::get_device("default"));
       else
         rct::decodeRct(rct_txes[n].rct_signatures, rct::sk2rct(amount_key), o, rct_tx_masks[o+n*4], hw::get_device("default"));

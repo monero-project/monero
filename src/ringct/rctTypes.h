@@ -276,6 +276,11 @@ namespace rct {
     size_t n_bulletproof_amounts(const std::vector<Bulletproof> &proofs);
     size_t n_bulletproof_max_amounts(const std::vector<Bulletproof> &proofs);
 
+    size_t n_bulletproof_plus_amounts(const BulletproofPlus &proof);
+    size_t n_bulletproof_plus_max_amounts(const BulletproofPlus &proof);
+    size_t n_bulletproof_plus_amounts(const std::vector<BulletproofPlus> &proofs);
+    size_t n_bulletproof_plus_max_amounts(const std::vector<BulletproofPlus> &proofs);
+
     //A container to hold all signatures necessary for RingCT
     // rangeSigs holds all the rangeproof data of a transaction
     // MG holds the MLSAG signature of a transaction
@@ -290,6 +295,7 @@ namespace rct {
       RCTTypeBulletproof = 3,
       RCTTypeBulletproof2 = 4,
       RCTTypeCLSAG = 5,
+      RCTTypeBulletproofPlus = 6,
     };
     enum RangeProofType { RangeProofBorromean, RangeProofBulletproof, RangeProofMultiOutputBulletproof, RangeProofPaddedBulletproof };
     struct RCTConfig {
@@ -318,7 +324,7 @@ namespace rct {
           FIELD(type)
           if (type == RCTTypeNull)
             return ar.stream().good();
-          if (type != RCTTypeFull && type != RCTTypeSimple && type != RCTTypeBulletproof && type != RCTTypeBulletproof2 && type != RCTTypeCLSAG)
+          if (type != RCTTypeFull && type != RCTTypeSimple && type != RCTTypeBulletproof && type != RCTTypeBulletproof2 && type != RCTTypeCLSAG && type != RCTTypeBulletproofPlus)
             return false;
           VARINT_FIELD(txnFee)
           // inputs/outputs not saved, only here for serialization help
@@ -347,7 +353,7 @@ namespace rct {
             return false;
           for (size_t i = 0; i < outputs; ++i)
           {
-            if (type == RCTTypeBulletproof2 || type == RCTTypeCLSAG)
+            if (type == RCTTypeBulletproof2 || type == RCTTypeCLSAG || type == RCTTypeBulletproofPlus)
             {
               ar.begin_object();
               if (!typename Archive<W>::is_saving())
@@ -393,6 +399,7 @@ namespace rct {
     struct rctSigPrunable {
         std::vector<rangeSig> rangeSigs;
         std::vector<Bulletproof> bulletproofs;
+        std::vector<BulletproofPlus> bulletproofs_plus;
         std::vector<mgSig> MGs; // simple rct has N, full has 1
         std::vector<clsag> CLSAGs;
         keyV pseudoOuts; //C - for simple rct
@@ -409,9 +416,28 @@ namespace rct {
             return false;
           if (type == RCTTypeNull)
             return ar.stream().good();
-          if (type != RCTTypeFull && type != RCTTypeSimple && type != RCTTypeBulletproof && type != RCTTypeBulletproof2 && type != RCTTypeCLSAG)
+          if (type != RCTTypeFull && type != RCTTypeSimple && type != RCTTypeBulletproof && type != RCTTypeBulletproof2 && type != RCTTypeCLSAG && type != RCTTypeBulletproofPlus)
             return false;
-          if (type == RCTTypeBulletproof || type == RCTTypeBulletproof2 || type == RCTTypeCLSAG)
+          if (type == RCTTypeBulletproofPlus)
+          {
+            uint32_t nbp = bulletproofs_plus.size();
+            VARINT_FIELD(nbp)
+            ar.tag(type >= RCTTypeBulletproofPlus ? "bpp" : "bp");
+            ar.begin_array();
+            if (nbp > outputs)
+              return false;
+            PREPARE_CUSTOM_VECTOR_SERIALIZATION(nbp, bulletproofs_plus);
+            for (size_t i = 0; i < nbp; ++i)
+            {
+              FIELDS(bulletproofs_plus[i])
+              if (nbp - i > 1)
+                ar.delimit_array();
+            }
+            if (n_bulletproof_plus_max_amounts(bulletproofs_plus) < outputs)
+              return false;
+            ar.end_array();
+          }
+          else if (type == RCTTypeBulletproof || type == RCTTypeBulletproof2 || type == RCTTypeCLSAG)
           {
             uint32_t nbp = bulletproofs.size();
             if (type == RCTTypeBulletproof2 || type == RCTTypeCLSAG)
@@ -449,7 +475,7 @@ namespace rct {
             ar.end_array();
           }
 
-          if (type == RCTTypeCLSAG)
+          if (type == RCTTypeCLSAG || type == RCTTypeBulletproofPlus)
           {
             ar.tag("CLSAGs");
             ar.begin_array();
@@ -540,7 +566,7 @@ namespace rct {
             }
             ar.end_array();
           }
-          if (type == RCTTypeBulletproof || type == RCTTypeBulletproof2 || type == RCTTypeCLSAG)
+          if (type == RCTTypeBulletproof || type == RCTTypeBulletproof2 || type == RCTTypeCLSAG || type == RCTTypeBulletproofPlus)
           {
             ar.tag("pseudoOuts");
             ar.begin_array();
@@ -561,6 +587,7 @@ namespace rct {
         BEGIN_SERIALIZE_OBJECT()
           FIELD(rangeSigs)
           FIELD(bulletproofs)
+          FIELD(bulletproofs_plus)
           FIELD(MGs)
           FIELD(CLSAGs)
           FIELD(pseudoOuts)
@@ -571,12 +598,12 @@ namespace rct {
 
         keyV& get_pseudo_outs()
         {
-          return type == RCTTypeBulletproof || type == RCTTypeBulletproof2 || type == RCTTypeCLSAG ? p.pseudoOuts : pseudoOuts;
+          return type == RCTTypeBulletproof || type == RCTTypeBulletproof2 || type == RCTTypeCLSAG || type == RCTTypeBulletproofPlus ? p.pseudoOuts : pseudoOuts;
         }
 
         keyV const& get_pseudo_outs() const
         {
-          return type == RCTTypeBulletproof || type == RCTTypeBulletproof2 || type == RCTTypeCLSAG ? p.pseudoOuts : pseudoOuts;
+          return type == RCTTypeBulletproof || type == RCTTypeBulletproof2 || type == RCTTypeCLSAG || type == RCTTypeBulletproofPlus ? p.pseudoOuts : pseudoOuts;
         }
 
         BEGIN_SERIALIZE_OBJECT()
@@ -688,7 +715,9 @@ namespace rct {
 
     bool is_rct_simple(int type);
     bool is_rct_bulletproof(int type);
+    bool is_rct_bulletproof_plus(int type);
     bool is_rct_borromean(int type);
+    bool is_rct_clsag(int type);
 
     static inline const rct::key &pk2rct(const crypto::public_key &pk) { return (const rct::key&)pk; }
     static inline const rct::key &sk2rct(const crypto::secret_key &sk) { return (const rct::key&)sk; }
@@ -744,6 +773,7 @@ VARIANT_TAG(debug_archive, rct::Bulletproof, "rct::bulletproof");
 VARIANT_TAG(debug_archive, rct::multisig_kLRki, "rct::multisig_kLRki");
 VARIANT_TAG(debug_archive, rct::multisig_out, "rct::multisig_out");
 VARIANT_TAG(debug_archive, rct::clsag, "rct::clsag");
+VARIANT_TAG(debug_archive, rct::BulletproofPlus, "rct::bulletproof_plus");
 
 VARIANT_TAG(binary_archive, rct::key, 0x90);
 VARIANT_TAG(binary_archive, rct::key64, 0x91);
@@ -761,6 +791,7 @@ VARIANT_TAG(binary_archive, rct::Bulletproof, 0x9c);
 VARIANT_TAG(binary_archive, rct::multisig_kLRki, 0x9d);
 VARIANT_TAG(binary_archive, rct::multisig_out, 0x9e);
 VARIANT_TAG(binary_archive, rct::clsag, 0x9f);
+VARIANT_TAG(binary_archive, rct::BulletproofPlus, 0xa0);
 
 VARIANT_TAG(json_archive, rct::key, "rct_key");
 VARIANT_TAG(json_archive, rct::key64, "rct_key64");
@@ -778,5 +809,6 @@ VARIANT_TAG(json_archive, rct::Bulletproof, "rct_bulletproof");
 VARIANT_TAG(json_archive, rct::multisig_kLRki, "rct_multisig_kLR");
 VARIANT_TAG(json_archive, rct::multisig_out, "rct_multisig_out");
 VARIANT_TAG(json_archive, rct::clsag, "rct_clsag");
+VARIANT_TAG(json_archive, rct::BulletproofPlus, "rct_bulletproof_plus");
 
 #endif  /* RCTTYPES_H */

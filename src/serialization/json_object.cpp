@@ -299,7 +299,7 @@ void fromJsonValue(const rapidjson::Value& val, cryptonote::transaction& tx)
   }
 
   const auto& rsig = tx.rct_signatures;
-  if (!cryptonote::is_coinbase(tx) && rsig.p.bulletproofs.empty() && rsig.p.rangeSigs.empty() && rsig.p.MGs.empty() && rsig.get_pseudo_outs().empty() && sigs == val.MemberEnd())
+  if (!cryptonote::is_coinbase(tx) && rsig.p.bulletproofs.empty() && rsig.p.bulletproofs_plus.empty() && rsig.p.rangeSigs.empty() && rsig.p.MGs.empty() && rsig.get_pseudo_outs().empty() && sigs == val.MemberEnd())
     tx.pruned = true;
 }
 
@@ -1096,13 +1096,14 @@ void toJsonValue(rapidjson::Writer<epee::byte_stream>& dest, const rct::rctSig& 
   INSERT_INTO_JSON_OBJECT(dest, fee, sig.txnFee);
 
   // prunable
-  if (!sig.p.bulletproofs.empty() || !sig.p.rangeSigs.empty() || !sig.p.MGs.empty() || !sig.get_pseudo_outs().empty())
+  if (!sig.p.bulletproofs.empty() || !sig.p.bulletproofs_plus.empty() || !sig.p.rangeSigs.empty() || !sig.p.MGs.empty() || !sig.get_pseudo_outs().empty())
   {
     dest.Key("prunable");
     dest.StartObject();
 
     INSERT_INTO_JSON_OBJECT(dest, range_proofs, sig.p.rangeSigs);
     INSERT_INTO_JSON_OBJECT(dest, bulletproofs, sig.p.bulletproofs);
+    INSERT_INTO_JSON_OBJECT(dest, bulletproofs_plus, sig.p.bulletproofs_plus);
     INSERT_INTO_JSON_OBJECT(dest, mlsags, sig.p.MGs);
     INSERT_INTO_JSON_OBJECT(dest, pseudo_outs, sig.get_pseudo_outs());
 
@@ -1134,6 +1135,7 @@ void fromJsonValue(const rapidjson::Value& val, rct::rctSig& sig)
 
     GET_FROM_JSON_OBJECT(prunable->value, sig.p.rangeSigs, range_proofs);
     GET_FROM_JSON_OBJECT(prunable->value, sig.p.bulletproofs, bulletproofs);
+    GET_FROM_JSON_OBJECT(prunable->value, sig.p.bulletproofs_plus, bulletproofs_plus);
     GET_FROM_JSON_OBJECT(prunable->value, sig.p.MGs, mlsags);
     GET_FROM_JSON_OBJECT(prunable->value, pseudo_outs, pseudo_outs);
 
@@ -1143,6 +1145,7 @@ void fromJsonValue(const rapidjson::Value& val, rct::rctSig& sig)
   {
     sig.p.rangeSigs.clear();
     sig.p.bulletproofs.clear();
+    sig.p.bulletproofs_plus.clear();
     sig.p.MGs.clear();
     sig.get_pseudo_outs().clear();
   }
@@ -1249,6 +1252,41 @@ void fromJsonValue(const rapidjson::Value& val, rct::Bulletproof& p)
   GET_FROM_JSON_OBJECT(val, p.a, a);
   GET_FROM_JSON_OBJECT(val, p.b, b);
   GET_FROM_JSON_OBJECT(val, p.t, t);
+}
+
+void toJsonValue(rapidjson::Writer<epee::byte_stream>& dest, const rct::BulletproofPlus& p)
+{
+  dest.StartObject();
+
+  INSERT_INTO_JSON_OBJECT(dest, V, p.V);
+  INSERT_INTO_JSON_OBJECT(dest, A, p.A);
+  INSERT_INTO_JSON_OBJECT(dest, A1, p.A1);
+  INSERT_INTO_JSON_OBJECT(dest, B, p.B);
+  INSERT_INTO_JSON_OBJECT(dest, r1, p.r1);
+  INSERT_INTO_JSON_OBJECT(dest, s1, p.s1);
+  INSERT_INTO_JSON_OBJECT(dest, d1, p.d1);
+  INSERT_INTO_JSON_OBJECT(dest, L, p.L);
+  INSERT_INTO_JSON_OBJECT(dest, R, p.R);
+
+  dest.EndObject();
+}
+
+void fromJsonValue(const rapidjson::Value& val, rct::BulletproofPlus& p)
+{
+  if (!val.IsObject())
+  {
+    throw WRONG_TYPE("json object");
+  }
+
+  GET_FROM_JSON_OBJECT(val, p.V, V);
+  GET_FROM_JSON_OBJECT(val, p.A, A);
+  GET_FROM_JSON_OBJECT(val, p.A1, A1);
+  GET_FROM_JSON_OBJECT(val, p.B, B);
+  GET_FROM_JSON_OBJECT(val, p.r1, r1);
+  GET_FROM_JSON_OBJECT(val, p.s1, s1);
+  GET_FROM_JSON_OBJECT(val, p.d1, d1);
+  GET_FROM_JSON_OBJECT(val, p.L, L);
+  GET_FROM_JSON_OBJECT(val, p.R, R);
 }
 
 void toJsonValue(rapidjson::Writer<epee::byte_stream>& dest, const rct::boroSig& sig)

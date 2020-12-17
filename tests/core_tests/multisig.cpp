@@ -175,7 +175,7 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
     account_base &account = n < inputs ? miner_account[creator] : miner_accounts[n];
     CHECK_AND_ASSERT_MES(generator.construct_block_manually(blocks[n], *prev_block, account,
         test_generator::bf_major_ver | test_generator::bf_minor_ver | test_generator::bf_timestamp | test_generator::bf_hf_version | test_generator::bf_max_outs,
-        10, 10, prev_block->timestamp + DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN * 2, // v2 has blocks twice as long
+        HF_VERSION_BULLETPROOF_PLUS, HF_VERSION_BULLETPROOF_PLUS, prev_block->timestamp + DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN * 2, // v2 has blocks twice as long
           crypto::hash(), 0, transaction(), std::vector<crypto::hash>(), 0, 1, 4),
         false, "Failed to generate block");
     events.push_back(blocks[n]);
@@ -191,7 +191,7 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
       cryptonote::block blk;
       CHECK_AND_ASSERT_MES(generator.construct_block_manually(blk, blk_last, miner_accounts[0],
           test_generator::bf_major_ver | test_generator::bf_minor_ver | test_generator::bf_timestamp | test_generator::bf_hf_version | test_generator::bf_max_outs,
-          10, 10, blk_last.timestamp + DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN * 2, // v2 has blocks twice as long
+          HF_VERSION_BULLETPROOF_PLUS, HF_VERSION_BULLETPROOF_PLUS, blk_last.timestamp + DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN * 2, // v2 has blocks twice as long
           crypto::hash(), 0, transaction(), std::vector<crypto::hash>(), 0, 1, 4),
           false, "Failed to generate block");
       events.push_back(blk);
@@ -349,6 +349,11 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
   td.amount = amount_paid;
   std::vector<tx_destination_entry> destinations;
   destinations.push_back(td);
+  cryptonote::account_base dummy;
+  dummy.generate();
+  td.addr = dummy.get_keys().m_account_address;
+  td.amount = 0;
+  destinations.push_back(td);
 
   if (pre_tx)
     pre_tx(sources, destinations);
@@ -363,7 +368,7 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
 #endif
   std::vector<crypto::secret_key> additional_tx_secret_keys;
   auto sources_copy = sources;
-  r = construct_tx_and_get_tx_key(miner_account[creator].get_keys(), subaddresses, sources, destinations, boost::none, std::vector<uint8_t>(), tx, 0, tx_key, additional_tx_secret_keys, true, { rct::RangeProofPaddedBulletproof, 2 }, msoutp);
+  r = construct_tx_and_get_tx_key(miner_account[creator].get_keys(), subaddresses, sources, destinations, boost::none, std::vector<uint8_t>(), tx, 0, tx_key, additional_tx_secret_keys, true, { rct::RangeProofPaddedBulletproof, 0 }, msoutp);
   CHECK_AND_ASSERT_MES(r, false, "failed to construct transaction");
 
 #ifndef NO_MULTISIG
@@ -453,7 +458,7 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
       crypto::secret_key scalar1;
       crypto::derivation_to_scalar(derivation, n, scalar1);
       rct::ecdhTuple ecdh_info = tx.rct_signatures.ecdhInfo[n];
-      rct::ecdhDecode(ecdh_info, rct::sk2rct(scalar1), tx.rct_signatures.type == rct::RCTTypeBulletproof2 || tx.rct_signatures.type == rct::RCTTypeCLSAG);
+      rct::ecdhDecode(ecdh_info, rct::sk2rct(scalar1), tx.rct_signatures.type == rct::RCTTypeBulletproof2 || tx.rct_signatures.type == rct::RCTTypeCLSAG || tx.rct_signatures.type == rct::RCTTypeBulletproofPlus);
       rct::key C = tx.rct_signatures.outPk[n].mask;
       rct::addKeys2(Ctmp, ecdh_info.mask, ecdh_info.amount, rct::H);
       CHECK_AND_ASSERT_MES(rct::equalKeys(C, Ctmp), false, "Failed to decode amount");
