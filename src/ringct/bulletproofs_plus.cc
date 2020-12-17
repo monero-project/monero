@@ -65,7 +65,7 @@ namespace rct
 
     // Proof bounds
     static constexpr size_t maxN = 64; // maximum number of bits in range
-    static constexpr size_t maxM = BULLETPROOF_MAX_OUTPUTS; // maximum number of outputs to aggregate into a single proof
+    static constexpr size_t maxM = BULLETPROOF_PLUS_MAX_OUTPUTS; // maximum number of outputs to aggregate into a single proof
 
     // Cached public generators
     static rct::key Hi[maxN*maxM], Gi[maxN*maxM];
@@ -796,15 +796,7 @@ try_again:
         rct::keyV sv(v.size());
         for (size_t i = 0; i < v.size(); ++i)
         {
-            sv[i] = rct::zero();
-            sv[i].bytes[0] = v[i] & 255;
-            sv[i].bytes[1] = (v[i] >> 8) & 255;
-            sv[i].bytes[2] = (v[i] >> 16) & 255;
-            sv[i].bytes[3] = (v[i] >> 24) & 255;
-            sv[i].bytes[4] = (v[i] >> 32) & 255;
-            sv[i].bytes[5] = (v[i] >> 40) & 255;
-            sv[i].bytes[6] = (v[i] >> 48) & 255;
-            sv[i].bytes[7] = (v[i] >> 56) & 255;
+            sv[i] = rct::d2h(v[i]);
         }
         return bulletproof_plus_PROVE(sv, gamma);
     }
@@ -836,7 +828,7 @@ try_again:
         // We'll perform only a single batch inversion across all proofs in the batch,
         //  since batch inversion requires only one scalar inversion operation.
         std::vector<rct::key> to_invert;
-        to_invert.reserve(11 * sizeof(proofs)); // maximal size, given the aggregation limit
+        to_invert.reserve(11 * proofs.size()); // maximal size, given the aggregation limit
 
         for (const BulletproofPlus *p: proofs)
         {

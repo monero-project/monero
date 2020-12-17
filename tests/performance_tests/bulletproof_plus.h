@@ -72,7 +72,6 @@ public:
     size_t o = start;
     for (size_t n = 0; n < N; ++n)
     {
-      //printf("adding %zu times %zu\n", repeat, o);
       for (size_t i = 0; i < repeat; ++i)
         proofs.push_back(rct::bulletproof_plus_PROVE(std::vector<uint64_t>(o, 749327532984), rct::skvGen(o)));
       o = o * mul + add;

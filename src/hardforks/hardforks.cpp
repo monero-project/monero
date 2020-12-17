@@ -70,6 +70,9 @@ const hardfork_t mainnet_hard_forks[] = {
 
   { 13, 2210000, 0, 1598180817 },
   { 14, 2210720, 0, 1598180818 },
+
+  { 15, 8000000, 0, 1608223241 }, // temp so tests test with these consensus rules
+  { 16, 8000001, 0, 1608223242 }, // temp so tests test with these consensus rules
 };
 const size_t num_mainnet_hard_forks = sizeof(mainnet_hard_forks) / sizeof(mainnet_hard_forks[0]);
 const uint64_t mainnet_hard_fork_version_1_till = 1009826;
