@@ -1307,6 +1307,7 @@ private:
     uint64_t get_daemon_blockchain_height(std::string& err);
     uint64_t get_daemon_blockchain_target_height(std::string& err);
     uint64_t get_daemon_adjusted_time();
+    bool is_daemon_busy_syncing();
 
    /*!
     * \brief Calculates the approximate blockchain height from current date/time.

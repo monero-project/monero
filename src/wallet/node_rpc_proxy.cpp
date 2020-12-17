@@ -62,6 +62,7 @@ NodeRPCProxy::NodeRPCProxy(epee::net_utils::http::abstract_http_client &http_cli
 
 void NodeRPCProxy::invalidate()
 {
+  m_busy_syncing = false;
   m_height = 0;
   for (size_t n = 0; n < 256; ++n)
     m_earliest_height[n] = 0;
@@ -83,6 +84,15 @@ void NodeRPCProxy::invalidate()
   m_rpc_payment_credits_per_hash_found = 0;
   m_rpc_payment_height = 0;
   m_rpc_payment_cookie = 0;
+}
+
+boost::optional<std::string> NodeRPCProxy::get_busy_syncing(bool &busy_syncing)
+{
+  auto res = get_info();
+  if (res)
+    return res;
+  busy_syncing = m_busy_syncing;
+  return boost::optional<std::string>();
 }
 
 boost::optional<std::string> NodeRPCProxy::get_rpc_version(uint32_t &rpc_version)
@@ -129,6 +139,7 @@ boost::optional<std::string> NodeRPCProxy::get_info()
       check_rpc_cost(m_rpc_payment_state, "get_info", resp_t.credits, pre_call_credits, COST_PER_GET_INFO);
     }
 
+    m_busy_syncing = resp_t.busy_syncing;
     m_height = resp_t.height;
     m_target_height = resp_t.target_height;
     m_block_weight_limit = resp_t.block_weight_limit ? resp_t.block_weight_limit : resp_t.block_size_limit;

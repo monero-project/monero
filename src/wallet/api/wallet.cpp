@@ -2167,8 +2167,9 @@ void WalletImpl::doRefresh()
     do try {
         LOG_PRINT_L3(__FUNCTION__ << ": doRefresh, rescan = "<<rescan);
         // Syncing daemon and refreshing wallet simultaneously is very resource intensive.
-        // Disable refresh if wallet is disconnected or daemon isn't synced.
-        if (m_wallet->light_wallet() || daemonSynced()) {
+        // Disable refresh if wallet is disconnected or daemon is busy syncing.
+        const bool remote_node = m_wallet->light_wallet() || !tools::is_local_address(m_wallet->get_daemon_address());
+        if (remote_node || !m_wallet->is_daemon_busy_syncing()) {
             if(rescan)
                 m_wallet->rescan_blockchain(false);
             m_wallet->refresh(trustedDaemon());

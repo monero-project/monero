@@ -47,6 +47,7 @@ public:
   void invalidate();
   void set_offline(bool offline) { m_offline = offline; }
 
+  boost::optional<std::string> get_busy_syncing(bool &busy_syncing);
   boost::optional<std::string> get_rpc_version(uint32_t &version);
   boost::optional<std::string> get_height(uint64_t &height);
   void set_height(uint64_t h);
@@ -79,6 +80,7 @@ private:
   crypto::secret_key m_client_id_secret_key;
   bool m_offline;
 
+  bool m_busy_syncing;
   uint64_t m_height;
   uint64_t m_earliest_height[256];
   uint64_t m_dynamic_base_fee_estimate;

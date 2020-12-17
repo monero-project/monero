@@ -12137,6 +12137,13 @@ uint64_t wallet2::get_daemon_blockchain_target_height(string &err)
   return target_height;
 }
 
+bool wallet2::is_daemon_busy_syncing()
+{
+  bool busy_syncing = false;
+  m_node_rpc_proxy.get_busy_syncing(busy_syncing);
+  return busy_syncing;
+}
+
 uint64_t wallet2::get_approximate_blockchain_height() const
 {
   // time of v2 fork
