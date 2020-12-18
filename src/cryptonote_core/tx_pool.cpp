@@ -1568,61 +1568,59 @@ namespace cryptonote
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     CRITICAL_REGION_LOCAL1(m_blockchain);
-    size_t tx_weight_limit = get_transaction_weight_limit(version);
-    std::unordered_set<crypto::hash> remove;
 
-    m_txpool_weight = 0;
-    m_blockchain.for_all_txpool_txes([this, &remove, tx_weight_limit](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata_ref*) {
-      m_txpool_weight += meta.weight;
-      if (meta.weight > tx_weight_limit) {
-        LOG_PRINT_L1("Transaction " << txid << " is too big (" << meta.weight << " bytes), removing it from pool");
-        remove.insert(txid);
-      }
-      else if (m_blockchain.have_tx(txid)) {
-        LOG_PRINT_L1("Transaction " << txid << " is in the blockchain, removing it from pool");
-        remove.insert(txid);
-      }
+    MINFO("Validating txpool contents for v" << (unsigned)version);
+
+    LockedTXN lock(m_blockchain.get_db());
+
+    struct tx_entry_t
+    {
+      crypto::hash txid;
+      txpool_tx_meta_t meta;
+    };
+
+    // get all txids
+    std::vector<tx_entry_t> txes;
+    m_blockchain.for_all_txpool_txes([this, &txes](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata_ref*) {
+      if (!meta.pruned) // skip pruned txes
+        txes.push_back({txid, meta});
       return true;
     }, false, relay_category::all);
 
-    size_t n_removed = 0;
-    if (!remove.empty())
+    // take them all out and add them back in, some might fail
+    size_t added = 0;
+    for (auto &e: txes)
     {
-      LockedTXN lock(m_blockchain.get_db());
-      for (const crypto::hash &txid: remove)
+      try
       {
-        try
+        size_t weight;
+        uint64_t fee;
+        cryptonote::transaction tx;
+        cryptonote::blobdata blob;
+        bool relayed, do_not_relay, double_spend_seen, pruned;
+        if (!take_tx(e.txid, tx, blob, weight, fee, relayed, do_not_relay, double_spend_seen, pruned))
+          MERROR("Failed to get tx " << e.txid << " from txpool for re-validation");
+
+        cryptonote::tx_verification_context tvc{};
+        relay_method tx_relay = e.meta.get_relay_method();
+        if (!add_tx(tx, e.txid, blob, e.meta.weight, tvc, tx_relay, relayed, version))
         {
-          cryptonote::blobdata txblob = m_blockchain.get_txpool_tx_blob(txid, relay_category::all);
-          cryptonote::transaction tx;
-          if (!parse_and_validate_tx_from_blob(txblob, tx)) // remove pruned ones on startup, they're meant to be temporary
-          {
-            MERROR("Failed to parse tx from txpool");
-            continue;
-          }
-          // remove tx from db first
-          m_blockchain.remove_txpool_tx(txid);
-          m_txpool_weight -= get_transaction_weight(tx, txblob.size());
-          remove_transaction_keyimages(tx, txid);
-          auto sorted_it = find_tx_in_sorted_container(txid);
-          if (sorted_it == m_txs_by_fee_and_receive_time.end())
-          {
-            LOG_PRINT_L1("Removing tx " << txid << " from tx pool, but it was not found in the sorted txs container!");
-          }
-          else
-          {
-            m_txs_by_fee_and_receive_time.erase(sorted_it);
-          }
-          ++n_removed;
+          MINFO("Failed to re-validate tx " << e.txid << " for v" << (unsigned)version << ", dropped");
+          continue;
         }
-        catch (const std::exception &e)
-        {
-          MERROR("Failed to remove invalid tx from pool");
-          // continue
-        }
+        m_blockchain.update_txpool_tx(e.txid, e.meta);
+        ++added;
       }
-      lock.commit();
+      catch (const std::exception &e)
+      {
+        MERROR("Failed to re-validate tx from pool");
+        continue;
+      }
     }
+
+    lock.commit();
+
+    const size_t n_removed = txes.size() - added;
     if (n_removed > 0)
       ++m_cookie;
     return n_removed;
