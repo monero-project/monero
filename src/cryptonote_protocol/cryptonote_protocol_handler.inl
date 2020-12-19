@@ -625,16 +625,16 @@ namespace cryptonote
     if(parse_and_validate_block_from_blob(arg.b.block, new_block))
     {
       // This is a second notification, we must have asked for some missing tx
-      if(!context.m_requested_objects.empty())
+      if(!context.m_requested_fluffy_block_txes.empty())
       {
         // What we asked for != to what we received ..
-        if(context.m_requested_objects.size() != num_txes)
+        if(context.m_requested_fluffy_block_txes.size() != num_txes)
         {
           FAILCONNMSG
           (
             context, "NOTIFY_NEW_FLUFFY_BLOCK -> request/response mismatch, " 
             << "block = " << epee::string_tools::pod_to_hex(get_blob_hash(arg.b.block))
-            << ", requested = " << context.m_requested_objects.size() 
+            << ", requested = " << context.m_requested_fluffy_block_txes.size()
             << ", received = " << new_block.tx_hashes.size()
             << ", dropping connection"
           );
@@ -698,12 +698,10 @@ namespace cryptonote
           // sending (0...n-1) transactions.
           // If requested objects is not empty, then we must have asked for 
           // some missing transacionts, make sure that they're all there.
-          //
-          // Can I safely re-use this field? I think so, but someone check me!
-          if(!context.m_requested_objects.empty()) 
+          if(!context.m_requested_fluffy_block_txes.empty())
           {
-            auto req_tx_it = context.m_requested_objects.find(tx_hash);
-            if(req_tx_it == context.m_requested_objects.end())
+            auto req_tx_it = context.m_requested_fluffy_block_txes.find(tx_hash);
+            if(req_tx_it == context.m_requested_fluffy_block_txes.end())
             {
               FAILCONNMSG
               (
@@ -717,7 +715,7 @@ namespace cryptonote
               return 1;
             }
             
-            context.m_requested_objects.erase(req_tx_it);
+            context.m_requested_fluffy_block_txes.erase(req_tx_it);
           }          
           
           // we might already have the tx that the peer
@@ -756,13 +754,13 @@ namespace cryptonote
       // gave us the number of transactions we asked for, but not the right 
       // ones. This check make sure the transactions we asked for were the
       // ones we received.
-      if(context.m_requested_objects.size())
+      if(context.m_requested_fluffy_block_txes.size())
       {
         FAILCONNMSG
         (
           context, "NOTIFY_NEW_FLUFFY_BLOCK: peer sent the number of transaction requested"
           << ", but not the actual transactions requested"
-          << ", context.m_requested_objects.size() = " << context.m_requested_objects.size() 
+          << ", context.m_requested_fluffy_block_txes.size() = " << context.m_requested_fluffy_block_txes.size()
           << ", dropping connection"
         );
         
