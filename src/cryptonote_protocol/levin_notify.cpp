@@ -287,7 +287,6 @@ namespace levin
           connection_count(0),
           flush_callbacks(0),
           nzone(zone),
-          is_public(is_public),
           pad_txs(pad_txs),
           fluffing(false)
       {
@@ -305,7 +304,6 @@ namespace levin
       std::atomic<std::size_t> connection_count; //!< Only update in strand, can be read at any time
       std::uint32_t flush_callbacks;             //!< Number of active fluff flush callbacks queued
       const epee::net_utils::zone nzone;         //!< Zone is public ipv4/ipv6 connections, or i2p or tor
-      const bool is_public;                      //!< Zone is public ipv4/ipv6 connections
       const bool pad_txs;                        //!< Pad txs to the next boundary for privacy
       bool fluffing;                             //!< Zone is in Dandelion++ fluff epoch
     };
