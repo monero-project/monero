@@ -249,12 +249,12 @@ void connection_basic::sleep_before_packet(size_t packet_size, int phase,  int q
 		}
 
 		delay *= 0.50;
-		if (delay > 0) {
-            long int ms = (long int)(delay * 1000);
-			MTRACE("Sleeping in " << __FUNCTION__ << " for " << ms << " ms before packet_size="<<packet_size); // debug sleep
-			boost::this_thread::sleep(boost::posix_time::milliseconds( ms ) );
-		}
-	} while(delay > 0);
+		const long int ms = (long int)(delay * 1000);
+		if (ms <= 0)
+			break;
+		MTRACE("Sleeping in " << __FUNCTION__ << " for " << ms << " ms before packet_size="<<packet_size); // debug sleep
+		boost::this_thread::sleep(boost::posix_time::milliseconds( ms ) );
+	} while(1);
 
 // XXX LATER XXX
 	{
