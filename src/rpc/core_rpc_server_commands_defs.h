@@ -1195,10 +1195,12 @@ namespace cryptonote
     struct request_t: public rpc_request_base
     {
       bool public_only;
+      bool include_blocked;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_request_base)
         KV_SERIALIZE_OPT(public_only, true)
+        KV_SERIALIZE_OPT(include_blocked, false)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
@@ -1244,11 +1246,13 @@ namespace cryptonote
     {
       bool gray;
       bool white;
+      bool include_blocked;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_request_base)
         KV_SERIALIZE_OPT(gray, false)
         KV_SERIALIZE_OPT(white, true)
+        KV_SERIALIZE_OPT(include_blocked, false)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;

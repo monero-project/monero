@@ -191,6 +191,9 @@ bool t_rpc_command_executor::print_peer_list(bool white, bool gray, size_t limit
   cryptonote::COMMAND_RPC_GET_PEER_LIST::response res;
 
   std::string failure_message = "Couldn't retrieve peer list";
+
+  req.include_blocked = true;
+
   if (m_is_rpc)
   {
     if (!m_rpc_client->rpc_request(req, res, "/get_peer_list", failure_message.c_str()))
@@ -237,6 +240,7 @@ bool t_rpc_command_executor::print_peer_list_stats() {
   std::string failure_message = "Couldn't retrieve peer list";
 
   req.public_only = false;
+  req.include_blocked = true;
 
   if (m_is_rpc)
   {
