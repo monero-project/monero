@@ -1033,7 +1033,7 @@ namespace cryptonote
   }
   //------------------------------------------------------------------
   //TODO: investigate whether boolean return is appropriate
-  bool tx_memory_pool::get_transactions_and_spent_keys_info(std::vector<tx_info>& tx_infos, std::vector<spent_key_image_info>& key_image_infos, bool include_sensitive_data) const
+  bool tx_memory_pool::get_transactions_and_spent_keys_info(std::vector<tx_info>& tx_infos, std::vector<spent_key_image_info>& key_image_infos, bool pruned, bool include_sensitive_data) const
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     CRITICAL_REGION_LOCAL1(m_blockchain);
@@ -1041,12 +1041,12 @@ namespace cryptonote
     const size_t count = m_blockchain.get_txpool_tx_count(include_sensitive_data);
     tx_infos.reserve(count);
     key_image_infos.reserve(count);
-    m_blockchain.for_all_txpool_txes([&tx_infos, key_image_infos, include_sensitive_data](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata_ref *bd){
+    m_blockchain.for_all_txpool_txes([&tx_infos, pruned, include_sensitive_data](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata_ref *bd){
       tx_info txi;
       txi.id_hash = epee::string_tools::pod_to_hex(txid);
       txi.tx_blob = blobdata(bd->data(), bd->size());
       transaction tx;
-      if (!(meta.pruned ? parse_and_validate_tx_base_from_blob(*bd, tx) : parse_and_validate_tx_from_blob(*bd, tx)))
+      if (!((meta.pruned || pruned) ? parse_and_validate_tx_base_from_blob(*bd, tx) : parse_and_validate_tx_from_blob(*bd, tx)))
       {
         MERROR("Failed to parse tx from txpool");
         // continue

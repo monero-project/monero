@@ -1477,8 +1477,11 @@ namespace cryptonote
   {
     struct request_t: public rpc_access_request_base
     {
+      bool pruned;
+
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_access_request_base)
+        KV_SERIALIZE_OPT(pruned, true);
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;

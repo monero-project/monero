@@ -906,7 +906,7 @@ namespace cryptonote
     {
       std::vector<tx_info> pool_tx_info;
       std::vector<spent_key_image_info> pool_key_image_info;
-      bool r = m_core.get_pool_transactions_and_spent_keys_info(pool_tx_info, pool_key_image_info, !request_has_rpc_origin || !restricted);
+      bool r = m_core.get_pool_transactions_and_spent_keys_info(pool_tx_info, pool_key_image_info, req.prune, !request_has_rpc_origin || !restricted);
       if(r)
       {
         // sort to match original request
@@ -1151,7 +1151,7 @@ namespace cryptonote
     // check the pool too
     std::vector<cryptonote::tx_info> txs;
     std::vector<cryptonote::spent_key_image_info> ki;
-    r = m_core.get_pool_transactions_and_spent_keys_info(txs, ki, !request_has_rpc_origin || !restricted);
+    r = m_core.get_pool_transactions_and_spent_keys_info(txs, ki, true, !request_has_rpc_origin || !restricted);
     if(!r)
     {
       res.status = "Failed";
@@ -1570,7 +1570,7 @@ namespace cryptonote
     if (n_txes > 0)
     {
       CHECK_PAYMENT_SAME_TS(req, res, n_txes * COST_PER_TX);
-      m_core.get_pool_transactions_and_spent_keys_info(res.transactions, res.spent_key_images, allow_sensitive);
+      m_core.get_pool_transactions_and_spent_keys_info(res.transactions, res.spent_key_images, req.pruned, allow_sensitive);
       for (tx_info& txi : res.transactions)
         txi.tx_blob = epee::string_tools::buff_to_hex_nodelimer(txi.tx_blob);
     }

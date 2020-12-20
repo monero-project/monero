@@ -281,12 +281,13 @@ namespace cryptonote
      *
      * @param tx_infos return-by-reference the transactions' information
      * @param key_image_infos return-by-reference the spent key images' information
+     * @param pruned whether to get pruned or (when possible) full txes
      * @param include_sensitive_data return stempool, anonymity-pool, and unrelayed
      *    txes and fields that are sensitive to the node privacy
      *
      * @return true
      */
-    bool get_transactions_and_spent_keys_info(std::vector<tx_info>& tx_infos, std::vector<spent_key_image_info>& key_image_infos, bool include_sensitive_data = false) const;
+    bool get_transactions_and_spent_keys_info(std::vector<tx_info>& tx_infos, std::vector<spent_key_image_info>& key_image_infos, bool pruned, bool include_sensitive_data = false) const;
 
     /**
      * @brief get information about all transactions and key images in the pool

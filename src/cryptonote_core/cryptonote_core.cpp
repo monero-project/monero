@@ -1732,9 +1732,9 @@ namespace cryptonote
     return m_mempool.have_tx(id, relay_category::legacy);
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::get_pool_transactions_and_spent_keys_info(std::vector<tx_info>& tx_infos, std::vector<spent_key_image_info>& key_image_infos, bool include_sensitive_data) const
+  bool core::get_pool_transactions_and_spent_keys_info(std::vector<tx_info>& tx_infos, std::vector<spent_key_image_info>& key_image_infos, bool pruned, bool include_sensitive_data) const
   {
-    return m_mempool.get_transactions_and_spent_keys_info(tx_infos, key_image_infos, include_sensitive_data);
+    return m_mempool.get_transactions_and_spent_keys_info(tx_infos, key_image_infos, pruned, include_sensitive_data);
   }
   //-----------------------------------------------------------------------------------------------
   bool core::get_pool_for_rpc(std::vector<cryptonote::rpc::tx_in_pool>& tx_infos, cryptonote::rpc::key_images_with_tx_hashes& key_image_infos) const
