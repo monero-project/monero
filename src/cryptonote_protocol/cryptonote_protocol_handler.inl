@@ -615,15 +615,23 @@ namespace cryptonote
     
     m_core.pause_mine();
 
-    const size_t num_txes = arg.b.txs.size();
-    std::vector<tx_blob_entry> tx_blobs;
-    tx_blobs.reserve(num_txes);
-    std::vector<tx_verification_context> tvc;
-    tvc.reserve(num_txes);
     block new_block;
-    transaction miner_tx;
     if(parse_and_validate_block_from_blob(arg.b.block, new_block))
     {
+      // most of the time, we'll already have it - check the top, since it doesn't lock the chain mutex
+      if (m_core.get_tail_id() == cryptonote::get_block_hash(new_block))
+      {
+        LOG_DEBUG_CC(context, "Received new block we already have a stop block, ignored");
+        return 1;
+      }
+
+      transaction miner_tx;
+      const size_t num_txes = arg.b.txs.size();
+      std::vector<tx_blob_entry> tx_blobs;
+      tx_blobs.reserve(num_txes);
+      std::vector<tx_verification_context> tvc;
+      tvc.reserve(num_txes);
+
       // This is a second notification, we must have asked for some missing tx
       if(!context.m_requested_fluffy_block_txes.empty())
       {

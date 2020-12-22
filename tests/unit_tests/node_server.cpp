@@ -99,6 +99,7 @@ public:
   float get_blockchain_height_plausibility(uint64_t height) { return 0.0f; }
   bool is_request_sane(const cryptonote::NOTIFY_REQUEST_GET_OBJECTS::request& arg, std::string &error_message) const { return true; }
   void stop() {}
+  crypto::hash get_tail_id() const { return crypto::null_hash; }
 };
 
 typedef nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<test_core>> Server;
