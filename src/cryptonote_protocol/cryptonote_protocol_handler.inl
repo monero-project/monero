@@ -635,7 +635,7 @@ namespace cryptonote
             context, "NOTIFY_NEW_FLUFFY_BLOCK -> request/response mismatch, " 
             << "block = " << epee::string_tools::pod_to_hex(get_blob_hash(arg.b.block))
             << ", requested = " << context.m_requested_fluffy_block_txes.size()
-            << ", received = " << new_block.tx_hashes.size()
+            << ", received = " << num_txes
             << ", dropping connection"
           );
           
@@ -810,8 +810,12 @@ namespace cryptonote
       {
         // request non-mempool txs
         MDEBUG("We are missing " << need_tx_indices.size() << " txes for this fluffy block");
+        context.m_requested_fluffy_block_txes.clear();
         for (auto txidx: need_tx_indices)
+        {
           MDEBUG("  tx " << new_block.tx_hashes[txidx]);
+          context.m_requested_fluffy_block_txes.insert(new_block.tx_hashes[txidx]);
+        }
         NOTIFY_REQUEST_FLUFFY_MISSING_TX::request missing_tx_req;
         missing_tx_req.block_hash = get_block_hash(new_block);
         missing_tx_req.current_blockchain_height = arg.current_blockchain_height;
