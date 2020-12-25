@@ -123,6 +123,7 @@ namespace nodetool
     command_line::add_arg(desc, arg_no_igd);
     command_line::add_arg(desc, arg_igd);
     command_line::add_arg(desc, arg_out_peers);
+    command_line::add_arg(desc, arg_out_peers_sync_boost);
     command_line::add_arg(desc, arg_in_peers);
     command_line::add_arg(desc, arg_tos_flag);
     command_line::add_arg(desc, arg_limit_rate_up);
@@ -499,9 +500,8 @@ namespace nodetool
 
     if ( !set_max_out_peers(public_zone, command_line::get_arg(vm, arg_out_peers) ) )
       return false;
-    else
-      m_payload_handler.set_max_out_peers(public_zone.m_config.m_net_config.max_out_connection_count);
-
+    m_out_peers_sync_boost = command_line::get_arg(vm, arg_out_peers_sync_boost);
+    m_payload_handler.set_max_out_peers(public_zone.m_config.m_net_config.max_out_connection_count, m_out_peers_sync_boost);
 
     if ( !set_max_in_peers(public_zone, command_line::get_arg(vm, arg_in_peers) ) )
       return false;
@@ -1327,7 +1327,7 @@ namespace nodetool
     {
       return false;
     }
-    else if (zone.m_current_number_of_out_peers > zone.m_config.m_net_config.max_out_connection_count)
+    else if (zone.m_current_number_of_out_peers > (zone.m_config.m_net_config.max_out_connection_count + ((m_payload_handler.get_core().is_synchronized() ? 0 : m_out_peers_sync_boost))))
     {
       zone.m_net_server.get_config_object().del_out_connections(1);
       --(zone.m_current_number_of_out_peers); // atomic variable, update time = 1s
@@ -1778,9 +1778,18 @@ namespace nodetool
       // carefully avoid `continue` in nested loop
       
       size_t conn_count = get_outgoing_connections_count(zone.second);
-      while(conn_count < zone.second.m_config.m_net_config.max_out_connection_count)
+      while (1)
       {
-        const size_t expected_white_connections = m_payload_handler.get_next_needed_pruning_stripe().second ? zone.second.m_config.m_net_config.max_out_connection_count : base_expected_white_connections;
+        const bool sync_boost = zone.first == zone_type::public_ && !m_payload_handler.get_core().is_synchronized();
+        const size_t conn_target = zone.second.m_config.m_net_config.max_out_connection_count + (sync_boost ? m_out_peers_sync_boost : 0);
+        if (conn_count >= conn_target)
+        {
+          if (conn_count > conn_target)
+            zone.second.m_net_server.get_config_object().del_out_connections(conn_count - conn_target);
+          break;
+        }
+
+        const size_t expected_white_connections = m_payload_handler.get_next_needed_pruning_stripe().second ? conn_target : base_expected_white_connections;
         if(conn_count < expected_white_connections)
         {
           //start from anchor list
@@ -1790,16 +1799,16 @@ namespace nodetool
           while (get_outgoing_connections_count(zone.second) < expected_white_connections
             && make_expected_connections_count(zone.second, white, expected_white_connections));
           //then do grey list
-          while (get_outgoing_connections_count(zone.second) < zone.second.m_config.m_net_config.max_out_connection_count
-            && make_expected_connections_count(zone.second, gray, zone.second.m_config.m_net_config.max_out_connection_count));
+          while (get_outgoing_connections_count(zone.second) < conn_target
+            && make_expected_connections_count(zone.second, gray, conn_target));
         }else
         {
           //start from grey list
-          while (get_outgoing_connections_count(zone.second) < zone.second.m_config.m_net_config.max_out_connection_count
-            && make_expected_connections_count(zone.second, gray, zone.second.m_config.m_net_config.max_out_connection_count));
+          while (get_outgoing_connections_count(zone.second) < conn_target
+            && make_expected_connections_count(zone.second, gray, conn_target));
           //and then do white list
-          while (get_outgoing_connections_count(zone.second) < zone.second.m_config.m_net_config.max_out_connection_count
-            && make_expected_connections_count(zone.second, white, zone.second.m_config.m_net_config.max_out_connection_count));
+          while (get_outgoing_connections_count(zone.second) < conn_target
+            && make_expected_connections_count(zone.second, white, conn_target));
         }
         if(zone.second.m_net_server.is_stop_signal_sent())
           return false;
@@ -1814,7 +1823,9 @@ namespace nodetool
         conn_count = new_conn_count;
       }
 
-      if (start_conn_count == get_outgoing_connections_count(zone.second) && start_conn_count < zone.second.m_config.m_net_config.max_out_connection_count)
+      const bool sync_boost = zone.first == zone_type::public_ && !m_payload_handler.get_core().is_synchronized();
+      const size_t conn_target = zone.second.m_config.m_net_config.max_out_connection_count + (sync_boost ? m_out_peers_sync_boost : 0);
+      if (start_conn_count == get_outgoing_connections_count(zone.second) && start_conn_count < conn_target)
       {
         MINFO("Failed to connect to any, trying seeds");
         if (!connect_to_seed(zone.first))
@@ -2667,7 +2678,7 @@ namespace nodetool
       public_zone->second.m_config.m_net_config.max_out_connection_count = count;
       if(current > count)
         public_zone->second.m_net_server.get_config_object().del_out_connections(current - count);
-      m_payload_handler.set_max_out_peers(count);
+      m_payload_handler.set_max_out_peers(count, m_out_peers_sync_boost);
     }
   }
 
