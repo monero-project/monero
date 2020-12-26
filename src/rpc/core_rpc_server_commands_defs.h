@@ -686,6 +686,7 @@ namespace cryptonote
       bool update_available;
       bool busy_syncing;
       std::string version;
+      bool synchronized;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_access_response_base)
@@ -726,6 +727,7 @@ namespace cryptonote
         KV_SERIALIZE(update_available)
         KV_SERIALIZE(busy_syncing)
         KV_SERIALIZE(version)
+        KV_SERIALIZE(synchronized)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;
