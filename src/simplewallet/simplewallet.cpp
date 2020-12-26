@@ -181,7 +181,7 @@ namespace
   const command_line::arg_descriptor< std::vector<std::string> > arg_command = {"command", ""};
 
   const char* USAGE_START_MINING("start_mining [<number_of_threads>] [bg_mining] [ignore_battery]");
-  const char* USAGE_SET_DAEMON("set_daemon <host>[:<port>] [trusted|untrusted]");
+  const char* USAGE_SET_DAEMON("set_daemon <host>[:<port>] [trusted|untrusted|this-is-probably-a-spy-node]");
   const char* USAGE_SHOW_BALANCE("balance [detail]");
   const char* USAGE_INCOMING_TRANSFERS("incoming_transfers [available|unavailable] [verbose] [uses] [index=<N1>[,<N2>[,...]]]");
   const char* USAGE_PAYMENTS("payments <PID_1> [<PID_2> ... <PID_N>]");
@@ -2286,6 +2286,7 @@ bool simple_wallet::public_nodes(const std::vector<std::string> &args)
   {
     fail_msg_writer() << tr("Error retrieving public node list: ") << e.what();
   }
+  message_writer(console_color_red, true) << tr("Most of these nodes are probably spies. You should not use them unless connecting via Tor or I2P");
   return true;
 }
 
@@ -3222,7 +3223,7 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("set_daemon",
                            boost::bind(&simple_wallet::on_command, this, &simple_wallet::set_daemon, _1),
                            tr(USAGE_SET_DAEMON),
-                           tr("Set another daemon to connect to."));
+                           tr("Set another daemon to connect to. If it's not yours, it'll probably spy on you."));
   m_cmd_binder.set_handler("save_bc",
                            boost::bind(&simple_wallet::on_command, this, &simple_wallet::save_bc, _1),
                            tr("Save the current blockchain data."));
@@ -5507,20 +5508,50 @@ bool simple_wallet::set_daemon(const std::vector<std::string>& args)
     } else {
       daemon_url = args[0];
     }
-    LOCK_IDLE_SCOPE();
-    m_wallet->init(daemon_url);
 
+    epee::net_utils::http::url_content parsed{};
+    const bool r = epee::net_utils::parse_url(daemon_url, parsed);
+    if (!r)
+    {
+      fail_msg_writer() << tr("Failed to parse address");
+      return true;
+    }
+
+    std::string trusted;
     if (args.size() == 2)
     {
       if (args[1] == "trusted")
-        m_wallet->set_trusted_daemon(true);
+        trusted = "trusted";
       else if (args[1] == "untrusted")
-        m_wallet->set_trusted_daemon(false);
+        trusted = "untrusted";
+      else if (args[1] == "this-is-probably-a-spy-node")
+        trusted = "this-is-probably-a-spy-node";
       else
       {
-        fail_msg_writer() << tr("Expected trusted or untrusted, got ") << args[1] << ": assuming untrusted";
-        m_wallet->set_trusted_daemon(false);
+        fail_msg_writer() << tr("Expected trusted, untrusted or this-is-probably-a-spy-node got ") << args[1];
+        return true;
       }
+    }
+
+    if (!tools::is_privacy_preserving_network(parsed.host) && !tools::is_local_address(parsed.host))
+    {
+      if (trusted == "untrusted" || trusted == "")
+      {
+        fail_msg_writer() << tr("This is not Tor/I2P address, and is not a trusted daemon.");
+        fail_msg_writer() << tr("Either use your own trusted node, connect via Tor or I2P, or pass this-is-probably-a-spy-node and be spied on.");
+        return true;
+      }
+
+      if (parsed.schema != "https")
+        message_writer(console_color_red) << tr("Warning: connecting to a non-local daemon without SSL, passive adversaries will be able to spy on you.");
+    }
+
+    LOCK_IDLE_SCOPE();
+    m_wallet->init(daemon_url);
+
+    if (!trusted.empty())
+    {
+      m_wallet->set_trusted_daemon(trusted == "trusted");
     }
     else
     {
