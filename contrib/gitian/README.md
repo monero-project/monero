@@ -188,6 +188,7 @@ gpg --detach-sign ${VERSION}-linux/${GH_USER}/monero-linux-*-build.assert
 gpg --detach-sign ${VERSION}-win/${GH_USER}/monero-win-*-build.assert
 gpg --detach-sign ${VERSION}-osx/${GH_USER}/monero-osx-*-build.assert
 gpg --detach-sign ${VERSION}-android/${GH_USER}/monero-android-*-build.assert
+gpg --detach-sign ${VERSION}-freebsd/${GH_USER}/monero-freebsd-*-build.assert
 ```
 
 This will create a `.sig` file for each `.assert` file above (2 files for each platform).
