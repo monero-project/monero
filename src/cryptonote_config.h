@@ -197,6 +197,8 @@
 
 #define RPC_CREDITS_PER_HASH_SCALE ((float)(1<<24))
 
+#define DNS_BLOCKLIST_LIFETIME (86400 * 8)
+
 // New constants are intended to go here
 namespace config
 {
