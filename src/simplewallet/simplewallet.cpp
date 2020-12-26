@@ -143,6 +143,7 @@ typedef cryptonote::simple_wallet sw;
 #define CREDITS_TARGET 50000
 #define MAX_PAYMENT_DIFF 10000
 #define MIN_PAYMENT_RATE 0.01f // per hash
+#define MAX_MNEW_ADDRESSES 1000
 
 enum TransferType {
   Transfer,
@@ -203,7 +204,7 @@ namespace
                             "  account tag <tag_name> <account_index_1> [<account_index_2> ...]\n"
                             "  account untag <account_index_1> [<account_index_2> ...]\n"
                             "  account tag_description <tag_name> <description>");
-  const char* USAGE_ADDRESS("address [ new <label text with white spaces allowed> | all | <index_min> [<index_max>] | label <index> <label text with white spaces allowed> | device [<index>] | one-off <account> <subaddress>]");
+  const char* USAGE_ADDRESS("address [ new <label text with white spaces allowed> | mnew <amount of new addresses> | all | <index_min> [<index_max>] | label <index> <label text with white spaces allowed> | device [<index>] | one-off <account> <subaddress>]");
   const char* USAGE_INTEGRATED_ADDRESS("integrated_address [device] [<payment_id> | <address>]");
   const char* USAGE_ADDRESS_BOOK("address_book [(add (<address>|<integrated address>) [<description possibly with whitespaces>])|(delete <index>)]");
   const char* USAGE_SET_VARIABLE("set <option> [<value>]");
@@ -3320,7 +3321,7 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("address",
                            boost::bind(&simple_wallet::on_command, this, &simple_wallet::print_address, _1),
                            tr(USAGE_ADDRESS),
-                           tr("If no arguments are specified or <index> is specified, the wallet shows the default or specified address. If \"all\" is specified, the wallet shows all the existing addresses in the currently selected account. If \"new \" is specified, the wallet creates a new address with the provided label text (which can be empty). If \"label\" is specified, the wallet sets the label of the address specified by <index> to the provided label text. If \"one-off\" is specified, the address for the specified index is generated and displayed, and remembered by the wallet"));
+                           tr("If no arguments are specified or <index> is specified, the wallet shows the default or specified address. If \"all\" is specified, the wallet shows all the existing addresses in the currently selected account. If \"new \" is specified, the wallet creates a new address with the provided label text (which can be empty). If \"mnew\" is specified, the wallet creates as many new addresses as specified by the argument; the default label is set for the new addresses. If \"label\" is specified, the wallet sets the label of the address specified by <index> to the provided label text. If \"one-off\" is specified, the address for the specified index is generated and displayed, and remembered by the wallet"));
   m_cmd_binder.set_handler("integrated_address",
                            boost::bind(&simple_wallet::on_command, this, &simple_wallet::print_integrated_address, _1),
                            tr(USAGE_INTEGRATED_ADDRESS),
@@ -9527,6 +9528,31 @@ bool simple_wallet::print_address(const std::vector<std::string> &args/* = std::
     m_wallet->add_subaddress(m_current_subaddress_account, label);
     print_address_sub(m_wallet->get_num_subaddresses(m_current_subaddress_account) - 1);
     m_wallet->device_show_address(m_current_subaddress_account, m_wallet->get_num_subaddresses(m_current_subaddress_account) - 1, boost::none);
+  }
+  else if (local_args[0] == "mnew")
+  {
+    local_args.erase(local_args.begin());
+    if (local_args.size() != 1)
+    {
+      fail_msg_writer() << tr("Expected exactly one argument for the amount of new addresses");
+      return true;
+    }
+    uint32_t n;
+    if (!epee::string_tools::get_xtype_from_string(n, local_args[0]))
+    {
+      fail_msg_writer() << tr("failed to parse the amount of new addresses: ") << local_args[0];
+      return true;
+    }
+    if (n > MAX_MNEW_ADDRESSES)
+    {
+      fail_msg_writer() << tr("the amount of new addresses must be lower or equal to ") << MAX_MNEW_ADDRESSES;
+      return true;
+    }
+    for (uint32_t i = 0; i < n; ++i)
+    {
+      m_wallet->add_subaddress(m_current_subaddress_account, tr("(Untitled address)"));
+      print_address_sub(m_wallet->get_num_subaddresses(m_current_subaddress_account) - 1);
+    }
   }
   else if (local_args[0] == "one-off")
   {
