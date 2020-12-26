@@ -116,6 +116,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
   template<class t_protocol_handler>
   connection<t_protocol_handler>::~connection() noexcept(false)
   {
+    _dbg3("[sock " << socket().native_handle() << "] Socket dtor called.");
     if(!m_was_shutdown)
     {
       _dbg3("[sock " << socket().native_handle() << "] Socket destroyed without shutdown.");
@@ -186,13 +187,13 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     auto local_ep = socket().local_endpoint(ec);
     CHECK_AND_NO_ASSERT_MES(!ec, false, "Failed to get local endpoint: " << ec.message() << ':' << ec.value());
 
-    _dbg3("[sock " << socket_.native_handle() << "] new connection from " << print_connection_context_short(context) <<
+    _dbg3(context << "[sock " << socket().native_handle() << "] new connection from " << print_connection_context_short(context) <<
       " to " << local_ep.address().to_string() << ':' << local_ep.port() <<
       ", total sockets objects " << get_state().sock_count);
 
     if(static_cast<shared_state&>(get_state()).pfilter && !static_cast<shared_state&>(get_state()).pfilter->is_remote_host_allowed(context.m_remote_address))
     {
-      _dbg2("[sock " << socket().native_handle() << "] host denied " << context.m_remote_address.host_str() << ", shutdowning connection");
+      _dbg2(context << "[sock " << socket().native_handle() << "] host denied " << context.m_remote_address.host_str() << ", shutdowning connection");
       close();
       return false;
     }
@@ -270,6 +271,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     //_dbg3("[sock " << socket().native_handle() << "] add_ref, m_peer_number=" << mI->m_peer_number);
     CRITICAL_REGION_LOCAL(self->m_self_refs_lock);
     //_dbg3("[sock " << socket().native_handle() << "] add_ref 2, m_peer_number=" << mI->m_peer_number);
+    LOG_TRACE_CC(context, "[sock " << socket().native_handle() << "] add_ref");
     ++m_reference_count;
     m_self_ref = std::move(self);
     return true;
@@ -330,7 +332,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     std::size_t bytes_transferred)
   {
     TRY_ENTRY();
-    //_info("[sock " << socket().native_handle() << "] Async read calledback.");
+    MTRACE(context << "[sock " << socket().native_handle() << "] handle_read: " << bytes_transferred << " bytes, " << e.message());
     
     if (m_was_shutdown)
         return;
@@ -374,7 +376,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 			} while(delay > 0);
 		} // any form of sleeping
 		
-      //_info("[sock " << socket().native_handle() << "] RECV " << bytes_transferred);
+      MTRACE(context << "[sock " << socket().native_handle() << "] RECV " << bytes_transferred);
       logger_handle_net_read(bytes_transferred);
       context.m_last_recv = time(NULL);
       context.m_recv_cnt += bytes_transferred;
@@ -383,7 +385,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
       bool recv_res = m_protocol_handler.handle_recv(buffer_.data(), bytes_transferred);
       if(!recv_res)
       {  
-        //_info("[sock " << socket().native_handle() << "] protocol_want_close");
+        MTRACE(context << "[sock " << socket().native_handle() << "] protocol_want_close");
         //some error in protocol, protocol handler ask to close connection
         boost::interprocess::ipcdetail::atomic_write32(&m_want_close_connection, 1);
         bool do_shutdown = false;
@@ -405,15 +407,15 @@ PRAGMA_WARNING_DISABLE_VS(4355)
       }
     }else
     {
-      _dbg3("[sock " << socket().native_handle() << "] Some not success at read: " << e.message() << ':' << e.value());
+      MDEBUG(context << "[sock " << socket().native_handle() << "] Some not success at read: " << e.message() << ':' << e.value());
       if(e.value() != 2)
       {
-        _dbg3("[sock " << socket().native_handle() << "] Some problems at read: " << e.message() << ':' << e.value());
+        MDEBUG(context << "[sock " << socket().native_handle() << "] Some problems at read: " << e.message() << ':' << e.value());
         shutdown();
       }
       else
       {
-        _dbg3("[sock " << socket().native_handle() << "] peer closed connection");
+        MDEBUG(context << "[sock " << socket().native_handle() << "] peer closed connection");
         bool do_shutdown = false;
         CRITICAL_REGION_BEGIN(m_send_que_lock);
         if(!m_send_que.size())
@@ -439,6 +441,8 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 
     if (m_was_shutdown) return;
 
+    MTRACE(context << "[sock " << socket().native_handle() << "] handle_receive: " << bytes_transferred << " bytes, " << e.message());
+
     if (e)
     {
       // offload the error case
@@ -463,12 +467,12 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     {
       if (is_ssl((const unsigned char*)buffer_.data(), buffer_ssl_init_fill))
       {
-        MDEBUG("That looks like SSL");
+        MDEBUG(context << "[sock " << socket().native_handle() << "] That looks like SSL");
         m_ssl_support = epee::net_utils::ssl_support_t::e_ssl_support_enabled; // read/write to the SSL socket
       }
       else
       {
-        MDEBUG("That does not look like SSL");
+        MDEBUG(context << "[sock " << socket().native_handle() << "] That does not look like SSL");
         m_ssl_support = epee::net_utils::ssl_support_t::e_ssl_support_disabled; // read/write to the raw socket
       }
     }
@@ -478,7 +482,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
       // Handshake
       if (!handshake(boost::asio::ssl::stream_base::server, boost::asio::const_buffer(buffer_.data(), buffer_ssl_init_fill)))
       {
-        MERROR("SSL handshake failed");
+        MERROR(context << "[sock " << socket().native_handle() << "] SSL handshake failed");
         boost::interprocess::ipcdetail::atomic_write32(&m_want_close_connection, 1);
         m_ready_to_close = true;
         bool do_shutdown = false;
@@ -562,7 +566,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 			{ // LOCK: chunking
     		epee::critical_region_t<decltype(m_chunking_lock)> send_guard(m_chunking_lock); // *** critical *** 
 
-				MDEBUG("do_send() will SPLIT into small chunks, from packet="<<message_size<<" B for ptr="<<(const void*)message_data);
+				MDEBUG(context << "do_send() will SPLIT into small chunks, from packet="<<message_size<<" B for ptr="<<(const void*)message_data);
 				// 01234567890 
 				// ^^^^        (pos=0, len=4)     ;   pos:=pos+len, pos=4
 				//     ^^^^    (pos=4, len=4)     ;   pos:=pos+len, pos=8
@@ -575,24 +579,24 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 				while (!message.empty()) {
 					byte_slice chunk = message.take_slice(chunksize_good);
 
-					MDEBUG("chunk_start="<<(void*)chunk.data()<<" ptr="<<(const void*)message_data<<" pos="<<(chunk.data() - message_data));
-					MDEBUG("part of " << message.size() << ": pos="<<(chunk.data() - message_data) << " len="<<chunk.size());
+					MTRACE(context << "chunk_start="<<(void*)chunk.data()<<" ptr="<<(const void*)message_data<<" pos="<<(chunk.data() - message_data));
+					MTRACE(context << "part of " << message.size() << ": pos="<<(chunk.data() - message_data) << " len="<<chunk.size());
 
 					bool ok = do_send_chunk(std::move(chunk)); // <====== ***
 
 					all_ok = all_ok && ok;
 					if (!all_ok) {
-						MDEBUG("do_send() DONE ***FAILED*** from packet="<<message_size<<" B for ptr="<<(const void*)message_data);
-						MDEBUG("do_send() SEND was aborted in middle of big package - this is mostly harmless "
+						MDEBUG(context << "do_send() DONE ***FAILED*** from packet="<<message_size<<" B for ptr="<<(const void*)message_data);
+						MDEBUG(context << "do_send() SEND was aborted in middle of big package - this is mostly harmless "
 							<< " (e.g. peer closed connection) but if it causes trouble tell us at #monero-dev. " << message_size);
 						return false; // partial failure in sending
 					}
 					// (in catch block, or uniq pointer) delete buf;
+					if (m_was_shutdown)
+						return false;
 				} // each chunk
 
-				MDEBUG("do_send() DONE SPLIT from packet="<<message_size<<" B for ptr="<<(const void*)message_data);
-
-                MDEBUG("do_send() m_connection_type = " << m_connection_type);
+				MTRACE(context << "do_send() DONE SPLIT from packet="<<message_size<<" B for ptr="<<(const void*)message_data);
 
 				return all_ok; // done - e.g. queued - all the chunks of current do_send call
 			} // LOCK: chunking
@@ -624,7 +628,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     context.m_current_speed_up = current_speed_up;
     context.m_max_speed_up = std::max(context.m_max_speed_up, current_speed_up);
 
-    //_info("[sock " << socket().native_handle() << "] SEND " << cb);
+    MTRACE(context << "[sock " << socket().native_handle() << "] SEND " << chunk.size());
     context.m_last_send = time(NULL);
     context.m_send_cnt += chunk.size();
     //some data should be wrote to stream
@@ -657,16 +661,16 @@ PRAGMA_WARNING_DISABLE_VS(4355)
         rng.seed(seed);
 
         long int ms = 250 + (rng() % 50);
-        MDEBUG("Sleeping because QUEUE is FULL, in " << __FUNCTION__ << " for " << ms << " ms before packet_size="<<chunk.size()); // XXX debug sleep
+        MDEBUG(context << "Sleeping because QUEUE is FULL, in " << __FUNCTION__ << " for " << ms << " ms before packet_size="<<chunk.size()); // XXX debug sleep
         m_send_que_lock.unlock();
         boost::this_thread::sleep(boost::posix_time::milliseconds( ms ) );
         m_send_que_lock.lock();
-        _dbg1("sleep for queue: " << ms);
+        MDEBUG(context << "slept for queue: " << ms);
 	if (m_was_shutdown)
 		return false;
 
         if (retry > retry_limit) {
-            MWARNING("send que size is more than ABSTRACT_SERVER_SEND_QUE_MAX_COUNT(" << ABSTRACT_SERVER_SEND_QUE_MAX_COUNT << "), shutting down connection");
+            MWARNING(context << "send que size is more than ABSTRACT_SERVER_SEND_QUE_MAX_COUNT(" << ABSTRACT_SERVER_SEND_QUE_MAX_COUNT << "), shutting down connection");
             shutdown();
             return false;
         }
@@ -677,7 +681,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     if(m_send_que.size() > 1)
     { // active operation should be in progress, nothing to do, just wait last operation callback
         auto size_now = m_send_que.back().size();
-        MDEBUG("do_send_chunk() NOW just queues: packet="<<size_now<<" B, is added to queue-size="<<m_send_que.size());
+        MTRACE(context << "do_send_chunk() NOW just queues: packet="<<size_now<<" B, is added to queue-size="<<m_send_que.size());
         //do_send_handler_delayed( ptr , size_now ); // (((H))) // empty function
       
       LOG_TRACE_CC(context, "[sock " << socket().native_handle() << "] Async send requested " << m_send_que.front().size());
@@ -687,12 +691,12 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 
         if(m_send_que.size()!=1)
         {
-            _erro("Looks like no active operations, but send que size != 1!!");
+            _erro(context << "Looks like no active operations, but send que size != 1!!");
             return false;
         }
 
         auto size_now = m_send_que.front().size();
-        MDEBUG(context << "do_send_chunk() NOW SENSD: packet="<<size_now<<" B");
+        MDEBUG(context << "do_send_chunk() NOW SENDS: packet="<<size_now<<" B");
         if (speed_limit_is_enabled())
 			do_send_handler_write( m_send_que.back().data(), m_send_que.back().size() ); // (((H)))
 
@@ -764,19 +768,19 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     const auto tms = ms.total_milliseconds();
     if (tms < 0 || (add && tms == 0))
     {
-      MWARNING("Ignoring negative timeout " << ms);
+      MWARNING(context << "Ignoring negative or zero timeout " << ms);
       return;
     }
-    MTRACE((add ? "Adding" : "Setting") << " " << ms << " expiry");
+    MTRACE(context << (add ? "Adding" : "Setting") << " " << ms << " expiry");
     auto self = safe_shared_from_this();
     if(!self)
     {
-      MERROR("Resetting timer on a dead object");
+      MERROR(context << "Resetting timer on a dead object");
       return;
     }
     if (m_was_shutdown)
     {
-      MERROR("Setting timer on a shut down object");
+      MERROR(context << "Setting timer on a shut down object");
       return;
     }
     if (add)
@@ -802,6 +806,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     if (m_was_shutdown)
       return true;
     m_was_shutdown = true;
+    MDEBUG(context << "[sock " << socket().native_handle() << "] shutdown called");
     // Initiate graceful connection closure.
     m_timer.cancel();
     boost::system::error_code ignored_ec;
@@ -809,7 +814,10 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     {
       const shared_state &state = static_cast<const shared_state&>(get_state());
       if (!state.stop_signal_sent)
+      {
+        socket().cancel(ignored_ec);
         socket_.shutdown(ignored_ec);
+      }
     }
     socket().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ignored_ec);
     if (!m_host.empty())
@@ -818,6 +826,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
       m_host = "";
     }
     CRITICAL_REGION_END();
+    MDEBUG(context << "[sock " << socket().native_handle() << "] shutdown done");
     m_protocol_handler.release_protocol();
     return true;
   }
@@ -829,7 +838,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     auto self = safe_shared_from_this();
     if(!self)
       return false;
-    //_info("[sock " << socket().native_handle() << "] Que Shutdown called.");
+    MDEBUG(context << "[sock " << socket().native_handle() << "] close called.");
     m_timer.cancel();
     size_t send_que_size = 0;
     CRITICAL_REGION_BEGIN(m_send_que_lock);
@@ -838,6 +847,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     boost::interprocess::ipcdetail::atomic_write32(&m_want_close_connection, 1);
     if(!send_que_size)
     {
+      MDEBUG(context << "[sock " << socket().native_handle() << "] queue empty in close, calling shutdown");
       shutdown();
     }
     
@@ -865,10 +875,11 @@ PRAGMA_WARNING_DISABLE_VS(4355)
   {
     TRY_ENTRY();
     LOG_TRACE_CC(context, "[sock " << socket().native_handle() << "] Async send calledback " << cb);
+    MTRACE(context << "[sock " << socket().native_handle() << "] handle_write: " << cb << " bytes, " << e.message());
 
     if (e)
     {
-      _dbg1("[sock " << socket().native_handle() << "] Some problems at write: " << e.message() << ':' << e.value());
+      MDEBUG(context << "[sock " << socket().native_handle() << "] Some problems at write: " << e.message() << ':' << e.value());
       shutdown();
       return;
     }
@@ -884,7 +895,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     CRITICAL_REGION_BEGIN(m_send_que_lock);
     if(m_send_que.empty())
     {
-      _erro("[sock " << socket().native_handle() << "] m_send_que.size() == 0 at handle_write!");
+      MERROR(context << "[sock " << socket().native_handle() << "] m_send_que.size() == 0 at handle_write!");
       return;
     }
 
@@ -925,7 +936,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
   void connection<t_protocol_handler>::setRpcStation()
   {
     m_connection_type = e_connection_type_RPC; 
-    MDEBUG("set m_connection_type = RPC ");
+    MDEBUG(context << "set m_connection_type = RPC ");
   }
 
 
