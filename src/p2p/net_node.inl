@@ -266,6 +266,8 @@ namespace nodetool
       peerlist_entry pe{};
       pe.adr = addr;
       zone.second.m_peerlist.remove_from_peer_white(pe);
+      zone.second.m_peerlist.remove_from_peer_gray(pe);
+      zone.second.m_peerlist.remove_from_peer_anchor(addr);
 
       for (const auto &c: conns)
         zone.second.m_net_server.get_config_object().close(c);
