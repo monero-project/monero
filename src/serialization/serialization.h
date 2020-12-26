@@ -237,6 +237,17 @@ inline bool do_serialize(Archive &ar, bool &v)
     if (!r || !ar.stream().good()) return false;	\
   } while(0);
 
+/*! \macro FIELD_N(t,f)
+ *
+ * \brief serializes a field \a f tagged \a t  
+ */
+#define FIELD_CONTAINER(f, max_size, first_min_size, additional_min_size) \
+  do {							\
+    ar.tag(#f);						\
+    bool r = ::do_serialize_container(ar, f, max_size, first_min_size, additional_min_size); \
+    if (!r || !ar.stream().good()) return false;	\
+  } while(0);
+
 /*! \macro FIELD(f)
  *
  * \brief tags the field with the variable name and then serializes it

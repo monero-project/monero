@@ -63,7 +63,7 @@ namespace serialization
 }
 
 template <template <bool> class Archive, typename C>
-bool do_serialize_container(Archive<false> &ar, C &v)
+bool do_serialize_container(Archive<false> &ar, C &v, size_t max_size = std::numeric_limits<size_t>::max(), size_t first_min_size = 1, size_t additional_min_size = 1)
 {
   size_t cnt;
   ar.begin_array(cnt);
@@ -71,8 +71,20 @@ bool do_serialize_container(Archive<false> &ar, C &v)
     return false;
   v.clear();
 
+  if (cnt > max_size)
+  {
+    ar.stream().setstate(std::ios::failbit);
+    return false;
+  }
+
+  size_t min_bytes = 0;
+  if (cnt == 1)
+    min_bytes = first_min_size;
+  else if (cnt > 1)
+    min_bytes = first_min_size + (cnt - 1) * additional_min_size;
+
   // very basic sanity check
-  if (ar.remaining_bytes() < cnt) {
+  if (ar.remaining_bytes() < min_bytes) {
     ar.stream().setstate(std::ios::failbit);
     return false;
   }
@@ -94,7 +106,7 @@ bool do_serialize_container(Archive<false> &ar, C &v)
 }
 
 template <template <bool> class Archive, typename C>
-bool do_serialize_container(Archive<true> &ar, C &v)
+bool do_serialize_container(Archive<true> &ar, C &v, size_t max_size = std::numeric_limits<size_t>::max(), size_t first_min_size = 1, size_t additional_min_size = 1)
 {
   size_t cnt = v.size();
   ar.begin_array(cnt);
