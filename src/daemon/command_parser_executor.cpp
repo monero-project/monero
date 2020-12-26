@@ -694,13 +694,19 @@ bool t_command_parser_executor::ban(const std::vector<std::string>& args)
       std::ifstream ifs(ban_list_path.string());
       for (std::string line; std::getline(ifs, line); )
       {
-        const expect<epee::net_utils::network_address> parsed_addr = net::get_network_address(line, 0);
-        if (!parsed_addr)
+        auto subnet = net::get_ipv4_subnet_address(line);
+        if (subnet)
         {
-          std::cout << "Invalid IP address: " << line << " - " << parsed_addr.error() << std::endl;
+          ret &= m_executor.ban(subnet->str(), seconds);
           continue;
         }
-        ret &= m_executor.ban(parsed_addr->host_str(), seconds);
+        const expect<epee::net_utils::network_address> parsed_addr = net::get_network_address(line, 0);
+        if (parsed_addr)
+        {
+          ret &= m_executor.ban(parsed_addr->host_str(), seconds);
+          continue;
+        }
+        std::cout << "Invalid IP address or IPv4 subnet: " << line << std::endl;
       }
       return ret;
     }
