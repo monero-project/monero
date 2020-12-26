@@ -871,10 +871,19 @@ std::string get_nix_version_display_string()
     return max_concurrency;
   }
 
+  bool is_privacy_preserving_network(const std::string &address)
+  {
+    if (boost::ends_with(address, ".onion"))
+      return true;
+    if (boost::ends_with(address, ".i2p"))
+      return true;
+    return false;
+  }
+
   bool is_local_address(const std::string &address)
   {
     // always assume Tor/I2P addresses to be untrusted by default
-    if (boost::ends_with(address, ".onion") || boost::ends_with(address, ".i2p"))
+    if (is_privacy_preserving_network(address))
     {
       MDEBUG("Address '" << address << "' is Tor/I2P, non local");
       return false;
