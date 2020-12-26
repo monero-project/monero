@@ -37,11 +37,32 @@
 #else 
 #define EPEE_PORTABLE_STORAGE_RECURSION_LIMIT_INTERNAL 100
 #endif
+#define EPEE_PORTABLE_STORAGE_OBJECT_LIMIT_INTERNAL 65536
+#define EPEE_PORTABLE_STORAGE_ARRAY_ELEMENT_LIMIT_INTERNAL 65536
 
 namespace epee
 {
   namespace serialization
   {
+    template<typename T>
+    struct ps_min_bytes {
+      static constexpr const size_t strict = 4096; // actual low bound
+      static constexpr const size_t rough = 4096; // when we want to be stricter for DoS prevention
+    };
+    template<> struct ps_min_bytes<uint64_t> { static constexpr const size_t strict = 8, rough = 8; };
+    template<> struct ps_min_bytes<int64_t> { static constexpr const size_t strict = 8, rough = 8; };
+    template<> struct ps_min_bytes<uint32_t> { static constexpr const size_t strict = 4, rough = 4; };
+    template<> struct ps_min_bytes<int32_t> { static constexpr const size_t strict = 4, rough = 4; };
+    template<> struct ps_min_bytes<uint16_t> { static constexpr const size_t strict = 2, rough = 2; };
+    template<> struct ps_min_bytes<int16_t> { static constexpr const size_t strict = 2, rough = 2; };
+    template<> struct ps_min_bytes<uint8_t> { static constexpr const size_t strict = 1, rough = 1; };
+    template<> struct ps_min_bytes<int8_t> { static constexpr const size_t strict = 1, rough = 1; };
+    template<> struct ps_min_bytes<double> { static constexpr const size_t strict = 8, rough = 8; };
+    template<> struct ps_min_bytes<bool> { static constexpr const size_t strict = 1, rough = 1; };
+    template<> struct ps_min_bytes<std::string> { static constexpr const size_t strict = 2, rough = 16; };
+    template<> struct ps_min_bytes<section> { static constexpr const size_t strict = 1, rough = 256; };
+    template<> struct ps_min_bytes<array_entry> { static constexpr const size_t strict = 1, rough = 128; };
+
     struct throwable_buffer_reader
     {
       throwable_buffer_reader(const void* ptr, size_t sz);
@@ -61,6 +82,8 @@ namespace epee
       void read(section& sec);
       void read(std::string& str);
       void read(array_entry &ae);
+      template<class t_type>
+      size_t min_bytes() const;
     private:
       struct recursuion_limitation_guard
       {
@@ -81,6 +104,8 @@ namespace epee
       const uint8_t* m_ptr;
       size_t m_count;
       size_t m_recursion_count;
+      size_t m_objects;
+      size_t m_array_elements;
     };
 
     inline throwable_buffer_reader::throwable_buffer_reader(const void* ptr, size_t sz)
@@ -92,6 +117,8 @@ namespace epee
       m_ptr = (uint8_t*)ptr;
       m_count = sz;
       m_recursion_count = 0;
+      m_objects = 0;
+      m_array_elements = 0;
     }
     inline 
     void throwable_buffer_reader::read(void* target, size_t count)
@@ -138,7 +165,12 @@ namespace epee
       //for pod types
       array_entry_t<type_name> sa;
       size_t size = read_varint();
-      CHECK_AND_ASSERT_THROW_MES(size <= m_count, "Size sanity check failed");
+      CHECK_AND_ASSERT_THROW_MES(size < EPEE_PORTABLE_STORAGE_ARRAY_ELEMENT_LIMIT_INTERNAL - m_array_elements, "Too many array elements");
+      m_array_elements += size;
+      CHECK_AND_ASSERT_THROW_MES(size <= m_count / ps_min_bytes<type_name>::strict, "Size sanity check failed");
+      const size_t threshold = 16384 - std::min<size_t>(m_array_elements, 16384);
+      CHECK_AND_ASSERT_THROW_MES(size <= threshold || size <= m_count / ps_min_bytes<type_name>::rough, "Large array stricter size sanity check failed");
+
       sa.reserve(size);
       //TODO: add some optimization here later
       while(size--)
@@ -263,6 +295,8 @@ namespace epee
       RECURSION_LIMITATION();
       sec.m_entries.clear();
       size_t count = read_varint();
+      CHECK_AND_ASSERT_THROW_MES(count < EPEE_PORTABLE_STORAGE_OBJECT_LIMIT_INTERNAL - m_objects, "Too many objects");
+      m_objects += count;
       while(count--)
       {
         //read section name string
