@@ -60,7 +60,7 @@ jobs:
         echo "Acquire::http::Timeout \"120\";" | sudo tee -a /etc/apt/apt.conf.d/80-custom
         echo "Acquire::ftp::Timeout \"120\";" | sudo tee -a /etc/apt/apt.conf.d/80-custom
     - name: install dependencies
-      run: sudo apt -y install build-essential libtool cmake autotools-dev automake pkg-config bsdmainutils curl git ca-certificates ccache ${{ matrix.toolchain.packages }}
+      run: sudo apt update; sudo apt -y install build-essential libtool cmake autotools-dev automake pkg-config bsdmainutils curl git ca-certificates ccache ${{ matrix.toolchain.packages }}
     - name: prepare apple-darwin11
       if: ${{ matrix.toolchain.host == 'x86_64-apple-darwin11' }}
       run: |
