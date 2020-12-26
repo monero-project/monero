@@ -489,13 +489,19 @@ namespace nodetool
       std::istringstream iss(banned_ips);
       for (std::string line; std::getline(iss, line); )
       {
-        const expect<epee::net_utils::network_address> parsed_addr = net::get_network_address(line, 0);
-        if (!parsed_addr)
+        auto subnet = net::get_ipv4_subnet_address(line);
+        if (subnet)
         {
-          MERROR("Invalid IP address: " << line << " - " << parsed_addr.error());
+          block_subnet(*subnet, std::numeric_limits<time_t>::max());
           continue;
         }
-        block_host(*parsed_addr, std::numeric_limits<time_t>::max());
+        const expect<epee::net_utils::network_address> parsed_addr = net::get_network_address(line, 0);
+        if (parsed_addr)
+        {
+          block_host(*parsed_addr, std::numeric_limits<time_t>::max());
+          continue;
+        }
+        MERROR("Invalid IP address or IPv4 subnet: " << line);
       }
     }
 
