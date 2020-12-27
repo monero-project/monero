@@ -2718,7 +2718,7 @@ void wallet2::parse_block_round(const cryptonote::blobdata &blob, cryptonote::bl
   error = !cryptonote::parse_and_validate_block_from_blob(blob, bl, bl_id);
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::pull_blocks(uint64_t start_height, uint64_t &blocks_start_height, const std::list<crypto::hash> &short_chain_history, std::vector<cryptonote::block_complete_entry> &blocks, std::vector<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices> &o_indices, uint64_t &current_height)
+void wallet2::pull_blocks(uint64_t start_height, uint64_t max_blocks, uint64_t &blocks_start_height, const std::list<crypto::hash> &short_chain_history, std::vector<cryptonote::block_complete_entry> &blocks, std::vector<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices> &o_indices, uint64_t &current_height)
 {
   cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::request req = AUTO_VAL_INIT(req);
   cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::response res = AUTO_VAL_INIT(res);
@@ -2729,6 +2729,7 @@ void wallet2::pull_blocks(uint64_t start_height, uint64_t &blocks_start_height, 
   req.prune = true;
   req.start_height = start_height;
   req.no_miner_tx = m_refresh_type == RefreshNoCoinbase;
+  req.max_blocks = max_blocks;
 
   {
     const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};
@@ -2931,7 +2932,7 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
   refresh(trusted_daemon, start_height, blocks_fetched, received_money);
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::pull_and_parse_next_blocks(uint64_t start_height, uint64_t &blocks_start_height, std::list<crypto::hash> &short_chain_history, const std::vector<cryptonote::block_complete_entry> &prev_blocks, const std::vector<parsed_block> &prev_parsed_blocks, std::vector<cryptonote::block_complete_entry> &blocks, std::vector<parsed_block> &parsed_blocks, bool &last, bool &error, std::exception_ptr &exception)
+void wallet2::pull_and_parse_next_blocks(uint64_t start_height, uint64_t max_blocks, uint64_t &blocks_start_height, std::list<crypto::hash> &short_chain_history, const std::vector<cryptonote::block_complete_entry> &prev_blocks, const std::vector<parsed_block> &prev_parsed_blocks, std::vector<cryptonote::block_complete_entry> &blocks, std::vector<parsed_block> &parsed_blocks, bool &last, bool &error, std::exception_ptr &exception)
 {
   error = false;
   last = false;
@@ -2953,7 +2954,7 @@ void wallet2::pull_and_parse_next_blocks(uint64_t start_height, uint64_t &blocks
     // pull the new blocks
     std::vector<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices> o_indices;
     uint64_t current_height;
-    pull_blocks(start_height, blocks_start_height, short_chain_history, blocks, o_indices, current_height);
+    pull_blocks(start_height, max_blocks, blocks_start_height, short_chain_history, blocks, o_indices, current_height);
     THROW_WALLET_EXCEPTION_IF(blocks.size() != o_indices.size(), error::wallet_internal_error, "Mismatched sizes of blocks and o_indices");
 
     tools::threadpool& tpool = tools::threadpool::getInstance();
@@ -3485,6 +3486,7 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
   update_pool_state(process_pool_txs, true);
 
   bool first = true, last = false;
+  uint64_t max_blocks = COMMAND_RPC_GET_BLOCKS_FAST_MAX_COUNT;
   while(m_run.load(std::memory_order_relaxed))
   {
     uint64_t next_blocks_start_height;
@@ -3507,7 +3509,7 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
         break;
       }
       if (!last)
-        tpool.submit(&waiter, [&]{pull_and_parse_next_blocks(start_height, next_blocks_start_height, short_chain_history, blocks, parsed_blocks, next_blocks, next_parsed_blocks, last, error, exception);});
+        tpool.submit(&waiter, [&]{pull_and_parse_next_blocks(start_height, max_blocks, next_blocks_start_height, short_chain_history, blocks, parsed_blocks, next_blocks, next_parsed_blocks, last, error, exception);});
 
       if (!first)
       {
@@ -3613,6 +3615,7 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
         parsed_blocks.clear();
         short_chain_history.clear();
         get_short_chain_history(short_chain_history, 1);
+        max_blocks /= 2;
         ++try_count;
       }
       else
