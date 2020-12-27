@@ -132,6 +132,7 @@ namespace net_utils
     bool handshake(
       boost::asio::ssl::stream<boost::asio::ip::tcp::socket> &socket,
       boost::asio::ssl::stream_base::handshake_type type,
+      boost::asio::const_buffer buffer = {},
       const std::string& host = {},
       std::chrono::milliseconds timeout = std::chrono::seconds(15)) const;
   };
