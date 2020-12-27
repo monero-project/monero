@@ -168,8 +168,6 @@ namespace epee
       CHECK_AND_ASSERT_THROW_MES(size < EPEE_PORTABLE_STORAGE_ARRAY_ELEMENT_LIMIT_INTERNAL - m_array_elements, "Too many array elements");
       m_array_elements += size;
       CHECK_AND_ASSERT_THROW_MES(size <= m_count / ps_min_bytes<type_name>::strict, "Size sanity check failed");
-      const size_t threshold = 16384 - std::min<size_t>(m_array_elements, 16384);
-      CHECK_AND_ASSERT_THROW_MES(size <= threshold || size <= m_count / ps_min_bytes<type_name>::rough, "Large array stricter size sanity check failed");
 
       sa.reserve(size);
       //TODO: add some optimization here later
