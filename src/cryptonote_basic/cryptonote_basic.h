@@ -173,8 +173,8 @@ namespace cryptonote
       VARINT_FIELD(version)
       if(version == 0 || CURRENT_TRANSACTION_VERSION < version) return false;
       VARINT_FIELD(unlock_time)
-      FIELD_CONTAINER(vin, 65536, 1, 32)
-      FIELD_CONTAINER(vout, 65536, 32, 32)
+      FIELD(vin)
+      FIELD(vout)
       FIELD(extra)
     END_SERIALIZE()
 
@@ -487,7 +487,7 @@ namespace cryptonote
 
       FIELDS(*static_cast<block_header *>(this))
       FIELD(miner_tx)
-      FIELD_CONTAINER(tx_hashes, CRYPTONOTE_MAX_TX_PER_BLOCK, 32, 32)
+      FIELD(tx_hashes)
       if (tx_hashes.size() > CRYPTONOTE_MAX_TX_PER_BLOCK)
         return false;
     END_SERIALIZE()
