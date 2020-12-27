@@ -588,7 +588,7 @@ namespace cryptonote
 
     CHECK_PAYMENT_SAME_TS(req, res, bs.size() * COST_PER_BLOCK);
 
-    size_t size = 0, ntxes = 0;
+    size_t size = 0, ntxes = 0, n_indices = 0;
     res.blocks.reserve(bs.size());
     res.output_indices.reserve(bs.size());
     for(auto& bd: bs)
@@ -627,8 +627,33 @@ namespace cryptonote
           return false;
         }
         for (size_t i = 0; i < indices.size(); ++i)
+        {
+          for (size_t j = 0; j < indices[i].size(); ++j)
+            n_indices += indices[i].size();
           res.output_indices.back().indices.push_back({std::move(indices[i])});
+        }
       }
+    }
+
+    if (req.packed_output_indices)
+    {
+      res.packed_output_indices.resize(n_indices * sizeof(uint64_t) + res.output_indices.size() * sizeof(uint64_t)); // high bound
+      char *ptr = res.packed_output_indices.data();
+      for (size_t i = 0; i < res.output_indices.size(); ++i)
+      {
+        tools::write_varint(ptr, res.output_indices[i].indices.size());
+        for (size_t j = 0; j < res.output_indices[i].indices.size(); ++j)
+        {
+          tools::write_varint(ptr, res.output_indices[i].indices[j].indices.size());
+          for (size_t k = 0; k < res.output_indices[i].indices[j].indices.size(); ++k)
+          {
+            const uint64_t idx = res.output_indices[i].indices[j].indices[k];
+            tools::write_varint(ptr, idx);
+          }
+        }
+      }
+      res.output_indices.clear();
+      res.packed_output_indices.resize(ptr - res.packed_output_indices.data());
     }
 
     MDEBUG("on_get_blocks: " << bs.size() << " blocks, " << ntxes << " txes, size " << size);
