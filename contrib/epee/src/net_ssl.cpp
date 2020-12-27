@@ -473,6 +473,7 @@ bool ssl_options_t::has_fingerprint(boost::asio::ssl::verify_context &ctx) const
 bool ssl_options_t::handshake(
   boost::asio::ssl::stream<boost::asio::ip::tcp::socket> &socket,
   boost::asio::ssl::stream_base::handshake_type type,
+  boost::asio::const_buffer buffer,
   const std::string& host,
   std::chrono::milliseconds timeout) const
 {
@@ -530,7 +531,7 @@ bool ssl_options_t::handshake(
   });
 
   boost::system::error_code ec = boost::asio::error::would_block;
-  socket.async_handshake(type, boost::lambda::var(ec) = boost::lambda::_1);
+  socket.async_handshake(type, boost::asio::buffer(buffer), boost::lambda::var(ec) = boost::lambda::_1);
   if (io_service.stopped())
   {
     io_service.reset();
