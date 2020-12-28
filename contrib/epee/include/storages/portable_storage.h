@@ -266,6 +266,7 @@ namespace epee
       static_assert(std::is_rvalue_reference<entry_type&&>(), "unexpected copy of value");
       TRY_ENTRY();
       CHECK_AND_ASSERT(psection, nullptr);
+      CHECK_AND_ASSERT(!pentry_name.empty(), nullptr);
       auto ins_res = psection->m_entries.emplace(pentry_name, std::forward<entry_type>(entry));
       return &ins_res.first->second;
       CATCH_ENTRY("portable_storage::insert_new_entry_get_storage_entry", nullptr);
