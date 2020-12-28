@@ -75,7 +75,23 @@ if (${CMAKE_VERSION} VERSION_GREATER "3.0.0" AND CMAKE_MAKE_PROGRAM MATCHES "nin
     set(CMAKE_JOB_POOL_LINK link_job_pool)
   endif ()
 endif ()
-  
+
+option (USE_UNITY "Use unity builds" ON) # TODO: switch to OFF before review
+if (USE_UNITY)
+	set(UNITY_MIN_CMAKE_VERSION "3.16.6")
+	if(${CMAKE_VERSION} VERSION_LESS ${UNITY_MIN_CMAKE_VERSION})
+		message(WARNING "Unity builds cannot be used with CMake prior to ${UNITY_MIN_CMAKE_VERSION}")
+		set(USE_UNITY OFF)
+	else()
+		message(STATUS "Using unity builds")
+	endif()
+endif()
+macro (monero_target_unity target)
+	if (USE_UNITY)
+		set_target_properties(${target} PROPERTIES UNITY_BUILD "TRUE")
+	endif()
+endmacro()
+
 option (USE_CLANG_TIDY_C   "Lint the code with clang-tidy - variant C"   OFF)
 option (USE_CLANG_TIDY_CXX "Lint the code with clang-tidy - variant C++" OFF)
 if (USE_CLANG_TIDY_C AND USE_CLANG_TIDY_CXX)
