@@ -1312,17 +1312,20 @@ public:
    * height. The number of blocks returned is variable, based on the max_size passed.
    *
    * @param start_height the height of the first block
-   * @param min_count the minimum number of blocks to return, if they exist
-   * @param max_count the maximum number of blocks to return
+   * @param min_block_count the minimum number of blocks to return, if they exist
+   * @param max_block_count the maximum number of blocks to return
+   * @param max_tx_count the maximum number of txes to return
    * @param max_size the maximum size of block/transaction data to return (will be exceeded by one blocks's worth at most, if min_count is met)
    * @param blocks the returned block/transaction data
    * @param pruned whether to return full or pruned tx data
    * @param skip_coinbase whether to return or skip coinbase transactions (they're in blocks regardless)
    * @param get_miner_tx_hash whether to calculate and return the miner (coinbase) tx hash
    *
+   * The call will return at least min_block_count if possible, even if this contravenes max_tx_count
+   *
    * @return true iff the blocks and transactions were found
    */
-  virtual bool get_blocks_from(uint64_t start_height, size_t min_count, size_t max_count, size_t max_size, std::vector<std::pair<std::pair<cryptonote::blobdata, crypto::hash>, std::vector<std::pair<crypto::hash, cryptonote::blobdata>>>>& blocks, bool pruned, bool skip_coinbase, bool get_miner_tx_hash) const = 0;
+  virtual bool get_blocks_from(uint64_t start_height, size_t min_block_count, size_t max_block_count, size_t max_tx_count, size_t max_size, std::vector<std::pair<std::pair<cryptonote::blobdata, crypto::hash>, std::vector<std::pair<crypto::hash, cryptonote::blobdata>>>>& blocks, bool pruned, bool skip_coinbase, bool get_miner_tx_hash) const = 0;
 
   /**
    * @brief fetches the prunable transaction blob with the given hash
