@@ -207,7 +207,6 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     buffer_ssl_init_fill = 0;
     if (is_income && m_ssl_support != epee::net_utils::ssl_support_t::e_ssl_support_disabled)
       socket().async_receive(boost::asio::buffer(buffer_),
-        boost::asio::socket_base::message_peek,
         strand_.wrap(
           std::bind(&connection<t_protocol_handler>::handle_receive, self,
             std::placeholders::_1,
@@ -447,16 +446,11 @@ PRAGMA_WARNING_DISABLE_VS(4355)
       return;
     }
 
-    buffer_ssl_init_fill = bytes_transferred;
+    buffer_ssl_init_fill += bytes_transferred;
     MTRACE("we now have " << buffer_ssl_init_fill << "/" << get_ssl_magic_size() << " bytes needed to detect SSL");
     if (buffer_ssl_init_fill < get_ssl_magic_size())
     {
-      // don't busy loop on this, ideally we'd want to queue a "async_receive_if_new_data" but there doesn't
-      // seem to be something like that in boost if we want to just peek at the data, so we'd need to copy and
-      // have a bit more code just for this. Though I'm just seeing async_read_until which might just work.
-      epee::misc_utils::sleep_no_w(100);
-      socket().async_receive(boost::asio::buffer(buffer_.data(), buffer_.size()),
-        boost::asio::socket_base::message_peek,
+      socket().async_receive(boost::asio::buffer(buffer_.data() + buffer_ssl_init_fill, buffer_.size() - buffer_ssl_init_fill),
         strand_.wrap(
           boost::bind(&connection<t_protocol_handler>::handle_receive, connection<t_protocol_handler>::shared_from_this(),
             boost::asio::placeholders::error,
@@ -482,7 +476,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     if (m_ssl_support == epee::net_utils::ssl_support_t::e_ssl_support_enabled)
     {
       // Handshake
-      if (!handshake(boost::asio::ssl::stream_base::server))
+      if (!handshake(boost::asio::ssl::stream_base::server, boost::asio::const_buffer(buffer_.data(), buffer_ssl_init_fill)))
       {
         MERROR("SSL handshake failed");
         boost::interprocess::ipcdetail::atomic_write32(&m_want_close_connection, 1);
@@ -496,6 +490,11 @@ PRAGMA_WARNING_DISABLE_VS(4355)
           shutdown();
         return;
       }
+    }
+    else
+    {
+      handle_read(e, buffer_ssl_init_fill);
+      return;
     }
 
     async_read_some(boost::asio::buffer(buffer_),
