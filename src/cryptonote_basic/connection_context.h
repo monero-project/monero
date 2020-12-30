@@ -55,6 +55,8 @@ namespace cryptonote
       state_normal
     };
 
+    bool handshake_complete() const noexcept { return m_state != state_before_handshake; }
+
     state m_state;
     std::vector<std::pair<crypto::hash, uint64_t>> m_needed_objects;
     std::unordered_set<crypto::hash> m_requested_objects;
