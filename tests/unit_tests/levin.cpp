@@ -178,6 +178,7 @@ namespace
         {
             using base_type = epee::net_utils::connection_context_base;
             static_cast<base_type&>(context_) = base_type{random_generator(), {}, is_incoming, false};
+            context_.m_state = cryptonote::cryptonote_connection_context::state_normal;
             handler_.after_init_connection();
         }
 

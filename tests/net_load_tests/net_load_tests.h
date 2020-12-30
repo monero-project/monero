@@ -48,6 +48,8 @@ namespace net_load_tests
   struct test_connection_context : epee::net_utils::connection_context_base
   {
     test_connection_context(): epee::net_utils::connection_context_base(boost::uuids::nil_uuid(), {}, false, false), m_closed(false) {}
+    static constexpr int handshake_command() noexcept { return 1001; }
+    static constexpr bool handshake_complete() noexcept { return true; }
     volatile bool m_closed;
   };
 
