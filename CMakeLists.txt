@@ -178,6 +178,10 @@ string(TOLOWER ${CMAKE_BUILD_TYPE} CMAKE_BUILD_TYPE_LOWER)
 # when ARCH is not set to an explicit identifier, cmake's builtin is used
 # to identify the target architecture, to direct logic in this cmake script.
 # Since ARCH is a cached variable, it will not be set on first cmake invocation.
+
+if (NOT ARCH AND DEFINED ENV{SOURCE_DATE_EPOCH})
+  set(ARCH "default")
+endif()
 if (NOT ARCH_ID)
 if (NOT ARCH OR ARCH STREQUAL "" OR ARCH STREQUAL "native" OR ARCH STREQUAL "default")
   if(CMAKE_SYSTEM_PROCESSOR STREQUAL "")
