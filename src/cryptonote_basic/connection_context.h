@@ -31,6 +31,7 @@
 #pragma once
 #include <unordered_set>
 #include <atomic>
+#include <algorithm>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include "net/net_utils_base.h"
 #include "copyable_atomic.h"
@@ -57,6 +58,27 @@ namespace cryptonote
 
     bool handshake_complete() const noexcept { return m_state != state_before_handshake; }
 
+    void set_max_bytes(int command, size_t bytes) {
+      const auto i = std::lower_bound(m_max_bytes.begin(), m_max_bytes.end(), std::make_pair(command, bytes), [](const std::pair<int, size_t> &e0, const std::pair<int, size_t> &e1){
+        return e0.first < e1.first;
+      });
+      if (i == m_max_bytes.end())
+        m_max_bytes.push_back(std::make_pair(command, bytes));
+      else if (i->first == command)
+        i->second = bytes;
+      else
+        m_max_bytes.insert(i, std::make_pair(command, bytes));
+    }
+    size_t get_max_bytes(int command) const {
+      const auto i = std::lower_bound(m_max_bytes.begin(), m_max_bytes.end(), std::make_pair(command, 0), [](const std::pair<int, size_t> &e0, const std::pair<int, size_t> &e1){
+        return e0.first < e1.first;
+      });
+      if (i == m_max_bytes.end() || i->first != command)
+        return std::numeric_limits<size_t>::max();
+      else
+        return i->second;
+    }
+
     state m_state;
     std::vector<std::pair<crypto::hash, uint64_t>> m_needed_objects;
     std::unordered_set<crypto::hash> m_requested_objects;
@@ -73,6 +95,7 @@ namespace cryptonote
     int m_expect_response;
     uint64_t m_expect_height;
     size_t m_num_requested;
+    std::vector<std::pair<int, size_t>> m_max_bytes;
   };
 
   inline std::string get_protocol_state_string(cryptonote_connection_context::state s)
