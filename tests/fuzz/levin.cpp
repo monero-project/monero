@@ -52,6 +52,8 @@ namespace
 
   struct test_levin_connection_context : public epee::net_utils::connection_context_base
   {
+    static constexpr int handshake_command() noexcept { return 1001; }
+    static constexpr bool handshake_complete() noexcept { return true; }
   };
 
   typedef epee::levin::async_protocol_handler_config<test_levin_connection_context> test_levin_protocol_handler_config;
