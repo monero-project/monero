@@ -257,6 +257,10 @@ bool tests::proxy_core::have_block_unlocked(const crypto::hash& id, int *where) 
     return true;
 }
 
+bool tests::proxy_core::have_block(const crypto::hash& id, int *where) {
+    return have_block_unlocked(id, where);
+}
+
 void tests::proxy_core::build_short_history(std::list<crypto::hash> &m_history, const crypto::hash &m_start, uint64_t &height, cryptonote::difficulty_type &next_difficulty) {
     m_history.push_front(get_block_hash(m_genesis));
     height = 0;
