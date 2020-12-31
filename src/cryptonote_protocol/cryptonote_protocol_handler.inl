@@ -2873,6 +2873,25 @@ skip:
   }
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core>
+  void t_cryptonote_protocol_handler<t_core>::on_connection_new(cryptonote_connection_context &context)
+  {
+    context.set_max_bytes(nodetool::COMMAND_HANDSHAKE_T<cryptonote::CORE_SYNC_DATA>::ID, 65536);
+    context.set_max_bytes(nodetool::COMMAND_TIMED_SYNC_T<cryptonote::CORE_SYNC_DATA>::ID, 65536);
+    context.set_max_bytes(nodetool::COMMAND_PING::ID, 4096);
+    context.set_max_bytes(nodetool::COMMAND_REQUEST_SUPPORT_FLAGS::ID, 4096);
+
+    context.set_max_bytes(cryptonote::NOTIFY_NEW_BLOCK::ID, 1024 * 1024 * 128); // 128 MB (max packet is a bit less than 100 MB though)
+    context.set_max_bytes(cryptonote::NOTIFY_NEW_TRANSACTIONS::ID, 1024 * 1024 * 128); // 128 MB (max packet is a bit less than 100 MB though)
+    context.set_max_bytes(cryptonote::NOTIFY_REQUEST_GET_OBJECTS::ID, 1024 * 1024 * 2); // 2 MB
+    context.set_max_bytes(cryptonote::NOTIFY_RESPONSE_GET_OBJECTS::ID, 1024 * 1024 * 128); // 128 MB (max packet is a bit less than 100 MB though)
+    context.set_max_bytes(cryptonote::NOTIFY_REQUEST_CHAIN::ID, 512 * 1024); // 512 kB
+    context.set_max_bytes(cryptonote::NOTIFY_RESPONSE_CHAIN_ENTRY::ID, 1024 * 1024 * 4); // 4 MB
+    context.set_max_bytes(cryptonote::NOTIFY_NEW_FLUFFY_BLOCK::ID, 1024 * 1024 * 4); // 4 MB, but it does not includes transaction data
+    context.set_max_bytes(cryptonote::NOTIFY_REQUEST_FLUFFY_MISSING_TX::ID, 1024 * 1024); // 1 MB
+    context.set_max_bytes(cryptonote::NOTIFY_GET_TXPOOL_COMPLEMENT::ID, 1024 * 1024 * 4); // 4 MB
+  }
+  //------------------------------------------------------------------------------------------------------------------------
+  template<class t_core>
   void t_cryptonote_protocol_handler<t_core>::on_connection_close(cryptonote_connection_context &context)
   {
     uint64_t target = 0;

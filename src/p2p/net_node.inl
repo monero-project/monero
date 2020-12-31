@@ -2633,6 +2633,7 @@ namespace nodetool
   void node_server<t_payload_net_handler>::on_connection_new(p2p_connection_context& context)
   {
     MINFO("["<< epee::net_utils::print_connection_context(context) << "] NEW CONNECTION");
+    m_payload_handler.on_connection_new(context);
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
