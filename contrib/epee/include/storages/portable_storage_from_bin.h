@@ -163,6 +163,11 @@ namespace epee
       array_entry_t<type_name> sa;
       size_t size = read_varint();
       CHECK_AND_ASSERT_THROW_MES(size <= m_count / ps_min_bytes<type_name>::strict, "Size sanity check failed");
+      if (std::is_same<type_name, section>())
+      {
+        CHECK_AND_ASSERT_THROW_MES(size <= EPEE_PORTABLE_STORAGE_OBJECT_LIMIT_INTERNAL - m_objects, "Too many objects");
+        m_objects += size;
+      }
 
       sa.reserve(size);
       //TODO: add some optimization here later
@@ -288,7 +293,7 @@ namespace epee
       RECURSION_LIMITATION();
       sec.m_entries.clear();
       size_t count = read_varint();
-      CHECK_AND_ASSERT_THROW_MES(count < EPEE_PORTABLE_STORAGE_OBJECT_LIMIT_INTERNAL - m_objects, "Too many objects");
+      CHECK_AND_ASSERT_THROW_MES(count <= EPEE_PORTABLE_STORAGE_OBJECT_LIMIT_INTERNAL - m_objects, "Too many objects");
       m_objects += count;
       while(count--)
       {
