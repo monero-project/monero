@@ -2275,6 +2275,7 @@ bool t_rpc_command_executor::sync_info()
       tools::success_msg_writer() << "Next needed pruning seed: " << res.next_needed_pruning_seed;
 
     tools::success_msg_writer() << std::to_string(res.peers.size()) << " peers";
+    tools::success_msg_writer() << "Remote Host                        Peer_ID   State   Prune_Seed          Height  DL kB/s, Queued Blocks / MB";
     for (const auto &p: res.peers)
     {
       std::string address = epee::string_tools::pad_string(p.info.address, 24);
