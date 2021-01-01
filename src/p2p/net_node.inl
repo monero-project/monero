@@ -2014,6 +2014,8 @@ namespace nodetool
       boost::split(ips, record, boost::is_any_of(";"));
       for (const auto &ip: ips)
       {
+        if (ip.empty())
+          continue;
         const expect<epee::net_utils::network_address> parsed_addr = net::get_network_address(ip, 0);
         if (!parsed_addr)
         {
