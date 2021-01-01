@@ -234,6 +234,7 @@ namespace nodetool
       return false;
 
     const time_t now = time(nullptr);
+    bool added = false;
 
     CRITICAL_REGION_LOCAL(m_blocked_hosts_lock);
     time_t limit;
@@ -244,7 +245,10 @@ namespace nodetool
     const std::string host_str = addr.host_str();
     auto it = m_blocked_hosts.find(host_str);
     if (it == m_blocked_hosts.end())
+    {
       m_blocked_hosts[host_str] = limit;
+      added = true;
+    }
     else if (it->second < limit || !add_only)
       it->second = limit;
 
@@ -275,7 +279,10 @@ namespace nodetool
       conns.clear();
     }
 
-    MCLOG_CYAN(el::Level::Info, "global", "Host " << host_str << " blocked.");
+    if (added)
+      MCLOG_CYAN(el::Level::Info, "global", "Host " << host_str << " blocked.");
+    else
+      MINFO("Host " << host_str << " block time updated.");
     return true;
   }
   //-----------------------------------------------------------------------------------
