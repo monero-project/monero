@@ -1243,8 +1243,8 @@ namespace nodetool
     if(!max_index)
       return 0;
 
-    size_t x = crypto::rand<size_t>()%(max_index+1);
-    size_t res = (x*x*x)/(max_index*max_index); //parabola \/
+    size_t x = crypto::rand<size_t>()%(16*max_index+1);
+    size_t res = (x*x*x)/(max_index*max_index*16*16*16); //parabola \/
     MDEBUG("Random connection index=" << res << "(x="<< x << ", max_index=" << max_index << ")");
     return res;
   }
