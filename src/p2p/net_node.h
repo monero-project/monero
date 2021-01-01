@@ -440,6 +440,8 @@ namespace nodetool
     //debug functions
     std::string print_connections_container();
 
+    uint64_t get_host_fail_score(const epee::net_utils::network_address &address);
+    uint64_t get_host_fail_score_unlocked(const epee::net_utils::network_address &address);
 
   public:
 
