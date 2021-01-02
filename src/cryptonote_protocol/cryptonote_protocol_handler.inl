@@ -2593,11 +2593,16 @@ skip:
       }
       int where;
       const bool have_block = m_core.have_block_unlocked(arg.m_block_ids[i], &where);
-      if (first && !have_block)
+      if (first)
       {
-        LOG_ERROR_CCONTEXT("First block hash is unknown, dropping connection");
-        drop_connection_with_score(context, 5, false);
-        return 1;
+        if (!have_block && !m_block_queue.requested(arg.m_block_ids[i]) && !m_block_queue.have(arg.m_block_ids[i]))
+        {
+          LOG_ERROR_CCONTEXT("First block hash is unknown, dropping connection");
+          drop_connection_with_score(context, 5, false);
+          return 1;
+        }
+        if (!have_block)
+          expect_unknown = true;
       }
       if (!first)
       {
