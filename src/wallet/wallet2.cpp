@@ -2636,6 +2636,7 @@ void wallet2::pull_blocks(uint64_t start_height, uint64_t &blocks_start_height, 
   req.prune = true;
   req.start_height = start_height;
   req.no_miner_tx = m_refresh_type == RefreshNoCoinbase;
+  req.packed_output_indices = true;
 
   {
     const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};
@@ -2643,7 +2644,11 @@ void wallet2::pull_blocks(uint64_t start_height, uint64_t &blocks_start_height, 
     req.client = get_client_signature();
     bool r = net_utils::invoke_http_bin("/getblocks.bin", req, res, *m_http_client, rpc_timeout);
     THROW_ON_RPC_RESPONSE_ERROR(r, {}, res, "getblocks.bin", error::get_blocks_error, get_rpc_status(res.status));
-    THROW_WALLET_EXCEPTION_IF(res.blocks.size() != res.output_indices.size(), error::wallet_internal_error,
+    if (res.output_indices.empty())
+      THROW_WALLET_EXCEPTION_IF(res.packed_output_indices.empty(), error::wallet_internal_error,
+        "output_indices and packed_output_indices are both empty");
+    else
+      THROW_WALLET_EXCEPTION_IF(res.blocks.size() != res.output_indices.size(), error::wallet_internal_error,
         "mismatched blocks (" + boost::lexical_cast<std::string>(res.blocks.size()) + ") and output_indices (" +
         boost::lexical_cast<std::string>(res.output_indices.size()) + ") sizes from daemon");
     check_rpc_cost("/getblocks.bin", res.credits, pre_call_credits, 1 + res.blocks.size() * COST_PER_BLOCK);
@@ -2653,6 +2658,39 @@ void wallet2::pull_blocks(uint64_t start_height, uint64_t &blocks_start_height, 
   blocks = std::move(res.blocks);
   o_indices = std::move(res.output_indices);
   current_height = res.current_height;
+
+  if (o_indices.empty() && !res.packed_output_indices.empty())
+  {
+    const char *ptr = res.packed_output_indices.data();
+    size_t len = res.packed_output_indices.size();
+    boost::string_ref str(ptr, len);
+    uint64_t out;
+
+    o_indices.resize(blocks.size());
+    for (size_t i = 0; i < o_indices.size(); ++i)
+    {
+      const int read = tools::read_varint(str.begin(), str.end(), out);
+      THROW_WALLET_EXCEPTION_IF(read <= 0, error::wallet_internal_error, "0 bytes read for idx delta");
+      THROW_WALLET_EXCEPTION_IF(out > COMMAND_RPC_GET_BLOCKS_FAST_MAX_COUNT, error::wallet_internal_error, "size too large");
+      str.remove_prefix(read);
+      o_indices[i].indices.resize(out);
+      for (size_t j = 0; j < o_indices[i].indices.size(); ++j)
+      {
+        const int read = tools::read_varint(str.begin(), str.end(), out);
+        THROW_WALLET_EXCEPTION_IF(read <= 0, error::wallet_internal_error, "0 bytes read for idx delta");
+        THROW_WALLET_EXCEPTION_IF(out > 65536, error::wallet_internal_error, "size too large");
+        str.remove_prefix(read);
+        o_indices[i].indices[j].indices.resize(out);
+        for (size_t k = 0; k < o_indices[i].indices[j].indices.size(); ++k)
+        {
+          const int read = tools::read_varint(str.begin(), str.end(), out);
+          THROW_WALLET_EXCEPTION_IF(read <= 0, error::wallet_internal_error, "0 bytes read for idx delta");
+          str.remove_prefix(read);
+          o_indices[i].indices[j].indices[k] = out;
+        }
+      }
+    }
+  }
 
   MDEBUG("Pulled blocks: blocks_start_height " << blocks_start_height << ", count " << blocks.size()
       << ", height " << blocks_start_height + blocks.size() << ", node height " << res.current_height);
@@ -12026,7 +12064,7 @@ bool wallet2::check_reserve_proof(const cryptonote::account_public_address &addr
     THROW_WALLET_EXCEPTION_IF(proof.index_in_tx >= tx.vout.size(), error::wallet_internal_error, "index_in_tx is out of bound");
 
     const cryptonote::txout_to_key* const out_key = boost::get<cryptonote::txout_to_key>(std::addressof(tx.vout[proof.index_in_tx].target));
-    THROW_WALLET_EXCEPTION_IF(!out_key, error::wallet_internal_error, "Output key wasn't found")
+    THROW_WALLET_EXCEPTION_IF(!out_key, error::wallet_internal_error, "Output key wasn't found");
 
     // get tx pub key
     const crypto::public_key tx_pub_key = get_tx_pub_key_from_extra(tx);
