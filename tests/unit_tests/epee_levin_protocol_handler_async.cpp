@@ -43,6 +43,8 @@ namespace
 {
   struct test_levin_connection_context : public epee::net_utils::connection_context_base
   {
+    static constexpr int handshake_command() noexcept { return 1001; }
+    static constexpr bool handshake_complete() noexcept { return true; }
   };
 
   typedef epee::levin::async_protocol_handler_config<test_levin_connection_context> test_levin_protocol_handler_config;
@@ -193,6 +195,7 @@ namespace
     {
       m_handler_config.set_handler(m_pcommands_handler, [](epee::levin::levin_commands_handler<test_levin_connection_context> *handler) { delete handler; });
       m_handler_config.m_invoke_timeout = invoke_timeout;
+      m_handler_config.m_initial_max_packet_size = max_packet_size;
       m_handler_config.m_max_packet_size = max_packet_size;
     }
 
