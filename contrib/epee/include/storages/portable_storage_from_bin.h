@@ -301,7 +301,9 @@ namespace epee
         //read section name string
         std::string sec_name;
         read_sec_name(sec_name);
-        sec.m_entries.emplace(std::move(sec_name), load_storage_entry());
+        const auto insert_loc = sec.m_entries.lower_bound(sec_name);
+        CHECK_AND_ASSERT_THROW_MES(insert_loc == sec.m_entries.end() || insert_loc->first != sec_name, "duplicate key: " << sec_name);
+        sec.m_entries.emplace_hint(insert_loc, std::move(sec_name), load_storage_entry());
       }
     }
     inline 
