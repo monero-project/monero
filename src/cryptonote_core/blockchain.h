@@ -377,10 +377,12 @@ namespace cryptonote
      * for a block with the given hash
      *
      * @param id the hash to search for
+     * @param where the type of block, if non NULL
      *
      * @return true if the block is known, else false
      */
-    bool have_block(const crypto::hash& id) const;
+    bool have_block_unlocked(const crypto::hash& id, int *where = NULL) const;
+    bool have_block(const crypto::hash& id, int *where = NULL) const;
 
     /**
      * @brief gets the total number of transactions on the main chain

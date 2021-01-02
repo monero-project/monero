@@ -2758,30 +2758,42 @@ void Blockchain::flush_invalid_blocks()
   m_invalid_blocks.clear();
 }
 //------------------------------------------------------------------
-bool Blockchain::have_block(const crypto::hash& id) const
+bool Blockchain::have_block_unlocked(const crypto::hash& id, int *where) const
 {
+  // WARNING: this function does not take m_blockchain_lock, and thus should only call read only
+  // m_db functions which do not depend on one another (ie, no getheight + gethash(height-1), as
+  // well as not accessing class members, even read only (ie, m_invalid_blocks). The caller must
+  // lock if it is otherwise needed.
   LOG_PRINT_L3("Blockchain::" << __func__);
-  CRITICAL_REGION_LOCAL(m_blockchain_lock);
 
   if(m_db->block_exists(id))
   {
     LOG_PRINT_L2("block " << id << " found in main chain");
+    if (where) *where = HAVE_BLOCK_MAIN_CHAIN;
     return true;
   }
 
   if(m_db->get_alt_block(id, NULL, NULL))
   {
     LOG_PRINT_L2("block " << id << " found in alternative chains");
+    if (where) *where = HAVE_BLOCK_ALT_CHAIN;
     return true;
   }
 
   if(m_invalid_blocks.count(id))
   {
     LOG_PRINT_L2("block " << id << " found in m_invalid_blocks");
+    if (where) *where = HAVE_BLOCK_INVALID;
     return true;
   }
 
   return false;
+}
+//------------------------------------------------------------------
+bool Blockchain::have_block(const crypto::hash& id, int *where) const
+{
+  CRITICAL_REGION_LOCAL(m_blockchain_lock);
+  return have_block_unlocked(id, where);
 }
 //------------------------------------------------------------------
 bool Blockchain::handle_block_to_main_chain(const block& bl, block_verification_context& bvc, bool notify/* = true*/)

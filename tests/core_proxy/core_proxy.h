@@ -74,7 +74,8 @@ namespace tests
     bool init(const boost::program_options::variables_map& vm);
     bool deinit(){return true;}
     bool get_short_chain_history(std::list<crypto::hash>& ids);
-    bool have_block(const crypto::hash& id);
+    bool have_block(const crypto::hash& id, int *where = NULL);
+    bool have_block_unlocked(const crypto::hash& id, int *where = NULL);
     void get_blockchain_top(uint64_t& height, crypto::hash& top_id);
     bool handle_incoming_tx(const cryptonote::tx_blob_entry& tx_blob, cryptonote::tx_verification_context& tvc, cryptonote::relay_method tx_relay, bool relayed);
     bool handle_incoming_txs(const std::vector<cryptonote::tx_blob_entry>& tx_blobs, std::vector<cryptonote::tx_verification_context>& tvc, cryptonote::relay_method tx_relay, bool relayed);

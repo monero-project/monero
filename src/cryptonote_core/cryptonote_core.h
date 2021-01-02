@@ -55,6 +55,8 @@
 PUSH_WARNINGS
 DISABLE_VS_WARNINGS(4355)
 
+enum { HAVE_BLOCK_MAIN_CHAIN, HAVE_BLOCK_ALT_CHAIN, HAVE_BLOCK_INVALID };
+
 namespace cryptonote
 {
    struct test_options {
@@ -543,7 +545,8 @@ namespace cryptonote
       *
       * @note see Blockchain::have_block
       */
-     bool have_block(const crypto::hash& id) const;
+     bool have_block_unlocked(const crypto::hash& id, int *where = NULL) const;
+     bool have_block(const crypto::hash& id, int *where = NULL) const;
 
      /**
       * @copydoc Blockchain::get_short_chain_history
