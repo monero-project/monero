@@ -137,7 +137,7 @@ namespace cryptonote
     CHECK_AND_ASSERT_MES_CC( context.m_callback_request_count > 0, false, "false callback fired, but context.m_callback_request_count=" << context.m_callback_request_count);
     --context.m_callback_request_count;
 
-    if(context.m_state == cryptonote_connection_context::state_synchronizing)
+    if(context.m_state == cryptonote_connection_context::state_synchronizing && context.m_last_request_time == boost::posix_time::not_a_date_time)
     {
       NOTIFY_REQUEST_CHAIN::request r = {};
       context.m_needed_objects.clear();
