@@ -132,6 +132,7 @@ namespace epee
       RECURSION_LIMITATION();
       uint8_t name_len = 0;
       read(name_len);
+      CHECK_AND_ASSERT_THROW_MES(name_len > 0, "Section name is missing");
       sce_name.resize(name_len);
       read((void*)sce_name.data(), name_len);
     }

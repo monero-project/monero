@@ -211,6 +211,7 @@ namespace epee
       for(const section_pair& se: sec.m_entries)
       {
         CHECK_AND_ASSERT_THROW_MES(se.first.size() < std::numeric_limits<uint8_t>::max(), "storage_entry_name is too long: " << se.first.size() << ", val: " << se.first);
+        CHECK_AND_ASSERT_THROW_MES(!se.first.empty(), "storage_entry_name is empty");
         uint8_t len = static_cast<uint8_t>(se.first.size());
         strm.write((const char*)&len, sizeof(len));
         strm.write(se.first.data(), size_t(len));
