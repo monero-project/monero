@@ -4728,6 +4728,8 @@ uint64_t Blockchain::prevalidate_block_hashes(uint64_t height, const std::vector
 
   CHECK_AND_ASSERT_MES(weights.empty() || weights.size() == hashes.size(), 0, "Unexpected weights size");
 
+  CRITICAL_REGION_LOCAL(m_blockchain_lock);
+
   // easy case: height >= hashes
   if (height >= m_blocks_hash_of_hashes.size() * HASH_OF_HASHES_STEP)
     return hashes.size();
