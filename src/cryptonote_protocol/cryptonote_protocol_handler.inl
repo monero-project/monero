@@ -2835,12 +2835,15 @@ skip:
         epee::string_tools::to_string_hex(context.m_pruning_seed) <<
         "), score " << score << ", flush_all_spans " << flush_all_spans);
 
-    if (score > 0)
-      m_p2p->add_host_fail(context.m_remote_address, score);
-
     m_block_queue.flush_spans(context.m_connection_id, flush_all_spans);
 
+    // copy since dropping the connection will invalidate the context, and thus the address
+    const auto remote_address = context.m_remote_address;
+
     m_p2p->drop_connection(context);
+
+    if (score > 0)
+      m_p2p->add_host_fail(remote_address, score);
   }
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core>
