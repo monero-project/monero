@@ -1155,6 +1155,7 @@ namespace nodetool
         pi = context.peer_id = rsp.node_data.peer_id;
         context.m_rpc_port = rsp.node_data.rpc_port;
         context.m_rpc_credits_per_hash = rsp.node_data.rpc_credits_per_hash;
+        context.support_flags = rsp.node_data.support_flags;
         const auto azone = context.m_remote_address.get_zone();
         network_zone& zone = m_network_zones.at(azone);
         zone.m_peerlist.set_peer_just_seen(rsp.node_data.peer_id, context.m_remote_address, context.m_pruning_seed, context.m_rpc_port, context.m_rpc_credits_per_hash);
@@ -1188,10 +1189,11 @@ namespace nodetool
     }
     else if (!just_take_peerlist)
     {
-      try_get_support_flags(context_, [](p2p_connection_context& flags_context, const uint32_t& support_flags) 
-      {
-        flags_context.support_flags = support_flags;
-      });
+      if (context_.support_flags == 0)
+        try_get_support_flags(context_, [](p2p_connection_context& flags_context, const uint32_t& support_flags) 
+        {
+          flags_context.support_flags = support_flags;
+        });
     }
 
     return hsh_result;
@@ -2166,6 +2168,7 @@ namespace nodetool
     node_data.rpc_port = zone.m_can_pingback ? m_rpc_port : 0;
     node_data.rpc_credits_per_hash = zone.m_can_pingback ? m_rpc_credits_per_hash : 0;
     node_data.network_id = m_network_id;
+    node_data.support_flags = zone.m_config.m_support_flags;
     return true;
   }
   //-----------------------------------------------------------------------------------
@@ -2534,6 +2537,7 @@ namespace nodetool
     context.m_in_timedsync = false;
     context.m_rpc_port = arg.node_data.rpc_port;
     context.m_rpc_credits_per_hash = arg.node_data.rpc_credits_per_hash;
+    context.support_flags = arg.node_data.support_flags;
 
     if(arg.node_data.my_port && zone.m_can_pingback)
     {
@@ -2567,10 +2571,11 @@ namespace nodetool
       });
     }
     
-    try_get_support_flags(context, [](p2p_connection_context& flags_context, const uint32_t& support_flags) 
-    {
-      flags_context.support_flags = support_flags;
-    });
+    if (context.support_flags == 0)
+      try_get_support_flags(context, [](p2p_connection_context& flags_context, const uint32_t& support_flags) 
+      {
+        flags_context.support_flags = support_flags;
+      });
 
     //fill response
     zone.m_peerlist.get_peerlist_head(rsp.local_peerlist_new, true);
