@@ -434,7 +434,7 @@ public:
               //async call scenario
               boost::shared_ptr<invoke_response_handler_base> response_handler = m_invoke_response_handlers.front();
               response_handler->reset_timer();
-              MDEBUG(m_connection_context << "LEVIN_PACKET partial msg received. len=" << cb);
+              MDEBUG(m_connection_context << "LEVIN_PACKET partial msg received. len=" << cb << ", current total " << m_cache_in_buffer.size() << "/" << m_current_head.m_cb << " (" << (100.0f * m_cache_in_buffer.size() / (m_current_head.m_cb ? m_current_head.m_cb : 1)) << "%)");
             }
           }
           break;
@@ -469,6 +469,14 @@ public:
             temp = std::move(m_fragment_buffer);
             m_fragment_buffer.clear();
             std::memcpy(std::addressof(m_current_head), std::addressof(temp[0]), sizeof(bucket_head2));
+            const size_t max_bytes = m_connection_context.get_max_bytes(m_current_head.m_command);
+            if(m_current_head.m_cb > std::min<size_t>(max_packet_size, max_bytes))
+            {
+              MERROR(m_connection_context << "Maximum packet size exceed!, m_max_packet_size = " << std::min<size_t>(max_packet_size, max_bytes)
+                << ", packet header received " << m_current_head.m_cb << ", command " << m_current_head.m_command
+                << ", connection will be closed.");
+              return false;
+            }
             buff_to_invoke = {reinterpret_cast<const uint8_t*>(temp.data()) + sizeof(bucket_head2), temp.size() - sizeof(bucket_head2)};
           }
 
@@ -584,10 +592,11 @@ public:
           m_cache_in_buffer.erase(sizeof(bucket_head2));
           m_state = stream_state_body;
           m_oponent_protocol_ver = m_current_head.m_protocol_version;
-          if(m_current_head.m_cb > max_packet_size)
+          const size_t max_bytes = m_connection_context.get_max_bytes(m_current_head.m_command);
+          if(m_current_head.m_cb > std::min<size_t>(max_packet_size, max_bytes))
           {
-            LOG_ERROR_CC(m_connection_context, "Maximum packet size exceed!, m_max_packet_size = " << max_packet_size
-              << ", packet header received " << m_current_head.m_cb 
+            LOG_ERROR_CC(m_connection_context, "Maximum packet size exceed!, m_max_packet_size = " << std::min<size_t>(max_packet_size, max_bytes)
+              << ", packet header received " << m_current_head.m_cb << ", command " << m_current_head.m_command
               << ", connection will be closed.");
             return false;
           }
