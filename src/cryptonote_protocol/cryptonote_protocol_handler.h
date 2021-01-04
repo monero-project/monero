@@ -138,7 +138,7 @@ namespace cryptonote
     bool should_drop_connection(cryptonote_connection_context& context, uint32_t next_stripe);
     bool request_missing_objects(cryptonote_connection_context& context, bool check_having_blocks, bool force_next_span = false);
     size_t get_synchronizing_connections_count();
-    bool on_connection_synchronized();
+    bool on_connection_synchronized(cryptonote_connection_context& context);
     bool should_download_next_span(cryptonote_connection_context& context, bool standby);
     bool should_ask_for_pruned_data(cryptonote_connection_context& context, uint64_t first_block_height, uint64_t nblocks, bool check_block_weights) const;
     void drop_connection(cryptonote_connection_context &context, bool add_fail, bool flush_all_spans);
@@ -196,6 +196,7 @@ namespace cryptonote
     boost::circular_buffer<size_t> m_avg_buffer = boost::circular_buffer<size_t>(10);
 
     boost::mutex m_bad_peer_check_lock;
+    epee::copyable_atomic m_sync_txpool_notification;
 
     template<class t_parameter>
       bool post_notify(typename t_parameter::request& arg, cryptonote_connection_context& context)

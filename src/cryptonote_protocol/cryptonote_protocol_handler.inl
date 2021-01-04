@@ -94,7 +94,8 @@ namespace cryptonote
                                                                                                               m_stopping(false),
                                                                                                               m_no_sync(false),
                                                                                                               m_max_out_peers(P2P_DEFAULT_CONNECTIONS_COUNT),
-                                                                                                              m_out_peers_sync_boost(P2P_DEFAULT_SYNCING_CONNECTIONS_COUNT_BOOST)
+                                                                                                              m_out_peers_sync_boost(P2P_DEFAULT_SYNCING_CONNECTIONS_COUNT_BOOST),
+                                                                                                              m_sync_txpool_notification(false)
 
   {
     if(!m_p2p)
@@ -177,6 +178,12 @@ namespace cryptonote
     {
       if (context.m_state == cryptonote_connection_context::state_normal)
         context.m_state = cryptonote_connection_context::state_synchronizing;
+    }
+
+    notified = true;
+    if (m_sync_txpool_notification.compare_exchange_strong(notified, not notified))
+    {
+      sync_txpool();
     }
 
     if(context.m_state == cryptonote_connection_context::state_synchronizing && context.m_last_request_time == boost::posix_time::not_a_date_time)
@@ -345,7 +352,7 @@ namespace cryptonote
     const uint64_t current_blockchain_height = m_core.get_current_blockchain_height();
     const uint64_t target = m_core.get_target_blockchain_height();
     if (context.m_remote_blockchain_height >= target && target == current_blockchain_height)
-      on_connection_synchronized();
+      on_connection_synchronized(context);
 
     int64_t diff = static_cast<int64_t>(context.m_remote_blockchain_height) - static_cast<int64_t>(current_blockchain_height);
     uint64_t abs_diff = std::abs(diff);
@@ -463,6 +470,7 @@ namespace cryptonote
     if(m_core.have_block(hshd.top_id))
     {
       context.m_state = cryptonote_connection_context::state_normal;
+      on_connection_synchronized(context);
       return true;
     }
 
@@ -2661,7 +2669,7 @@ skip:
         if (m_core.get_current_blockchain_height() >= m_core.get_target_blockchain_height())
         {
           MGINFO_GREEN("SYNCHRONIZED OK");
-          on_connection_synchronized();
+          on_connection_synchronized(context);
         }
       }
       else
@@ -2673,7 +2681,7 @@ skip:
   }
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core>
-  bool t_cryptonote_protocol_handler<t_core>::on_connection_synchronized()
+  bool t_cryptonote_protocol_handler<t_core>::on_connection_synchronized(cryptonote_connection_context& context)
   {
     bool val_expected = false;
     uint64_t current_blockchain_height = m_core.get_current_blockchain_height();
@@ -2725,7 +2733,11 @@ skip:
     val_expected = true;
     if (m_ask_for_txpool_complement.compare_exchange_strong(val_expected, false))
     {
-      sync_txpool();
+      m_sync_txpool_notification = true;
+      LOG_PRINT_CCONTEXT_L2("requesting callback");
+      ++context.m_callback_request_count;
+      m_p2p->request_callback(context);
+      MLOG_PEER_STATE("requesting callback");
     }
 
     return true;
