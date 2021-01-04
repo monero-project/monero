@@ -38,6 +38,7 @@
 #define EPEE_PORTABLE_STORAGE_RECURSION_LIMIT_INTERNAL 100
 #endif
 #define EPEE_PORTABLE_STORAGE_OBJECT_LIMIT_INTERNAL 65536
+#define EPEE_PORTABLE_STORAGE_OBJECT_FIELD_LIMIT_INTERNAL 262144
 
 namespace epee
 {
@@ -104,6 +105,7 @@ namespace epee
       size_t m_count;
       size_t m_recursion_count;
       size_t m_objects;
+      size_t m_fields;
     };
 
     inline throwable_buffer_reader::throwable_buffer_reader(const void* ptr, size_t sz)
@@ -116,6 +118,7 @@ namespace epee
       m_count = sz;
       m_recursion_count = 0;
       m_objects = 0;
+      m_fields = 0;
     }
     inline 
     void throwable_buffer_reader::read(void* target, size_t count)
@@ -243,6 +246,8 @@ namespace epee
     inline storage_entry throwable_buffer_reader::read_se<section>()
     {
       RECURSION_LIMITATION();
+      CHECK_AND_ASSERT_THROW_MES(m_objects < EPEE_PORTABLE_STORAGE_OBJECT_LIMIT_INTERNAL, "Too many objects");
+      ++m_objects;
       section s;//use extra variable due to vs bug, line "storage_entry se(section()); " can't be compiled in visual studio
       storage_entry se(std::move(s));
       section& section_entry = boost::get<section>(se);
@@ -294,8 +299,8 @@ namespace epee
       RECURSION_LIMITATION();
       sec.m_entries.clear();
       size_t count = read_varint();
-      CHECK_AND_ASSERT_THROW_MES(count <= EPEE_PORTABLE_STORAGE_OBJECT_LIMIT_INTERNAL - m_objects, "Too many objects");
-      m_objects += count;
+      CHECK_AND_ASSERT_THROW_MES(count <= EPEE_PORTABLE_STORAGE_OBJECT_FIELD_LIMIT_INTERNAL - m_fields, "Too many object fields");
+      m_fields += count;
       while(count--)
       {
         //read section name string
