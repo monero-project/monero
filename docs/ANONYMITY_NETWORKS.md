@@ -234,3 +234,5 @@ leak information to hidden services if done improperly.
 At the current time, if users need to frequently make transactions, I2P/Tor
 will improve privacy from ISPs and other common adversaries, but still have
 some metadata leakages to unknown hidden service operators.
+
+
