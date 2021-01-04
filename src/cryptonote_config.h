@@ -203,6 +203,8 @@
 
 #define DNS_BLOCKLIST_LIFETIME (86400 * 8)
 
+#define MAX_TXES_BYTES_IN_TX_NOTIFICATION       (8 * 1024 * 1024) // 8 MB, not a hard limit, more like a target
+
 // New constants are intended to go here
 namespace config
 {

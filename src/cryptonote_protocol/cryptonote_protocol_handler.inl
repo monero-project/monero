@@ -1045,17 +1045,26 @@ namespace cryptonote
       LOG_ERROR_CCONTEXT("failed to get txpool complement");
       return 1;
     }
+    if (txes.empty()) // no need for a reply, whch is not expected
+      return 1;
 
     NOTIFY_NEW_TRANSACTIONS::request new_txes;
-    new_txes.txs = std::move(txes);
-
-    MLOG_P2P_MESSAGE
-    (
-        "-->>NOTIFY_NEW_TRANSACTIONS: "
-        << ", txs.size()=" << new_txes.txs.size()
-    );
-
-    post_notify<NOTIFY_NEW_TRANSACTIONS>(new_txes, context);
+    std::vector<cryptonote::blobdata> chunk;
+    new_txes.txs.reserve(txes.size());
+    size_t total_size = 0;
+    for (size_t i = 0; i < txes.size(); ++i)
+    {
+      const size_t bytes = txes[i].size();
+      total_size += bytes;
+      new_txes.txs.push_back(std::move(txes[i]));
+      if (total_size >= MAX_TXES_BYTES_IN_TX_NOTIFICATION || i == txes.size() - 1)
+      {
+        MLOG_P2P_MESSAGE("-->>NOTIFY_NEW_TRANSACTIONS: txs.size()=" << new_txes.txs.size());
+        post_notify<NOTIFY_NEW_TRANSACTIONS>(new_txes, context);
+        new_txes.txs.clear();
+        total_size = 0;
+      }
+    }
     return 1;
   }
   //------------------------------------------------------------------------------------------------------------------------

@@ -202,12 +202,29 @@ namespace levin
 
     bool make_payload_send_txs(connections& p2p, std::vector<blobdata>&& txs, const boost::uuids::uuid& destination, const bool pad, const bool fluff)
     {
-      const epee::byte_slice blob = make_tx_payload(std::move(txs), pad, fluff);
-      p2p.for_connection(destination, [&blob](detail::p2p_context& context) {
-        on_levin_traffic(context, true, true, false, blob.size(), NOTIFY_NEW_TRANSACTIONS::ID);
-        return true;
-      });
-      return p2p.notify(NOTIFY_NEW_TRANSACTIONS::ID, epee::to_span(blob), destination);
+      std::vector<cryptonote::blobdata> chunk;
+      chunk.reserve(txs.size());
+      size_t total_size = 0;
+      for (size_t i = 0; i < txs.size(); ++i)
+      {
+        const size_t bytes = txs[i].size();
+        total_size += bytes;
+        chunk.push_back(std::move(txs[i]));
+        if (total_size >= MAX_TXES_BYTES_IN_TX_NOTIFICATION || i == txs.size() - 1)
+        {
+          const epee::byte_slice blob = make_tx_payload(std::move(chunk), pad, fluff);
+          p2p.for_connection(destination, [&blob](detail::p2p_context& context) {
+            on_levin_traffic(context, true, true, false, blob.size(), NOTIFY_NEW_TRANSACTIONS::ID);
+            return true;
+          });
+          if (!p2p.notify(NOTIFY_NEW_TRANSACTIONS::ID, epee::to_span(blob), destination))
+            return false;
+
+          chunk.clear();
+          total_size = 0;
+        }
+      }
+      return true;
     }
 
     /* The current design uses `asio::strand`s. The documentation isn't as clear
