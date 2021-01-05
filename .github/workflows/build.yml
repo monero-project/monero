@@ -153,7 +153,7 @@ jobs:
         CTEST_OUTPUT_ON_FAILURE: ON
       run: |
         ${{env.BUILD_DEFAULT_LINUX}}
-        cmake --build build --target test
+        cd build && MONERO_PARALLEL_TEST_JOBS=2 ../tests/run-tests-parallel.py
 
 # ARCH="default" (not "native") ensures, that a different execution host can execute binaries compiled elsewhere.
 # BUILD_SHARED_LIBS=ON speeds up the linkage part a bit, reduces size, and is the only place where the dynamic linkage is tested.
