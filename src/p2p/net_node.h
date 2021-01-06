@@ -118,8 +118,6 @@ namespace nodetool
         m_in_timedsync(false)
     {}
 
-    static constexpr int handshake_command() noexcept { return 1001; }
-
     std::vector<cryptonote::blobdata> fluff_txs;
     std::chrono::steady_clock::time_point flush_time;
     peerid_type peer_id;
