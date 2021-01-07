@@ -4438,7 +4438,14 @@ public:
         wal->stop();
       });
 
-      wal->refresh(wal->is_trusted_daemon());
+      try
+      {
+        wal->refresh(wal->is_trusted_daemon());
+      }
+      catch (const std::exception& e)
+      {
+        LOG_ERROR(tools::wallet_rpc_server::tr("Initial refresh failed: ") << e.what());
+      }
       // if we ^C during potentially length load/refresh, there's no server loop yet
       if (quit)
       {
