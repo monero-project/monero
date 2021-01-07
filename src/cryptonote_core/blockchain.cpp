@@ -2731,7 +2731,10 @@ bool Blockchain::find_blockchain_supplement(const std::list<crypto::hash>& qbloc
     if (start_height < tools::get_next_unpruned_block_height(start_height, current_height, pruning_seed))
     {
       MDEBUG("We only have a pruned version of the common ancestor");
-      return false;
+      hashes.push_back(m_db->get_block_hash_from_height(start_height));
+      if (weights)
+        weights->push_back(m_db->get_block_weight(start_height));
+      return true;
     }
     stop_height = tools::get_next_pruned_block_height(start_height, current_height, pruning_seed);
   }
