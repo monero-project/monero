@@ -183,13 +183,12 @@ namespace
         }
 
         //\return Number of messages processed
-        std::size_t process_send_queue()
+        std::size_t process_send_queue(const bool valid = true)
         {
             std::size_t count = 0;
             for ( ; !endpoint_.send_queue_.empty(); ++count, endpoint_.send_queue_.pop_front())
             {
-                // invalid messages shoudn't be possible in this test;
-                EXPECT_TRUE(handler_.handle_recv(endpoint_.send_queue_.front().data(), endpoint_.send_queue_.front().size()));
+                EXPECT_EQ(valid, handler_.handle_recv(endpoint_.send_queue_.front().data(), endpoint_.send_queue_.front().size()));
             }
             return count;
         }
@@ -237,6 +236,13 @@ namespace
             boost::uuids::uuid connection = queue.front().connection;
             queue.pop_front();
             return {connection, std::move(request)};
+        }
+
+        static received_message get_raw_message(std::deque<received_message>& queue)
+        {
+            received_message out{std::move(queue.front())};
+            queue.pop_front();
+            return out;
         }
 
         virtual int invoke(int command, const epee::span<const uint8_t> in_buff, epee::byte_slice& buff_out, cryptonote::levin::detail::p2p_context& context) override final
@@ -295,6 +301,11 @@ namespace
         {
             return get_message<T>(notified_);
         }
+
+        received_message get_raw_notification()
+        {
+            return get_raw_message(notified_);
+        }
     };
 
     class levin_notify : public ::testing::Test
@@ -322,6 +333,8 @@ namespace
             EXPECT_EQ(0u, receiver_.notified_size());
             EXPECT_EQ(0u, events_.relayed_method_size());
         }
+
+        cryptonote::levin::connections& get_connections() noexcept { return *connections_; }
 
         void add_connection(const bool is_incoming)
         {
@@ -2140,4 +2153,28 @@ TEST_F(levin_notify, noise_stem)
             EXPECT_FALSE(notification.dandelionpp_fluff);
         }
     }
+}
+
+TEST_F(levin_notify, command_max_bytes)
+{
+    static constexpr int ping_command = nodetool::COMMAND_PING::ID;
+
+    add_connection(true);
+
+    std::string bytes(4096, 'h');
+
+    EXPECT_EQ(1, get_connections().notify(ping_command, epee::strspan<std::uint8_t>(bytes), contexts_.front().get_id()));
+    EXPECT_EQ(1u, contexts_.front().process_send_queue(true));
+    EXPECT_EQ(1u, receiver_.notified_size());
+
+    const received_message msg = receiver_.get_raw_notification();
+    EXPECT_EQ(ping_command, msg.command);
+    EXPECT_EQ(contexts_.front().get_id(), msg.connection);
+    EXPECT_EQ(bytes, msg.payload);
+
+    bytes.push_back('e');
+
+    EXPECT_EQ(1, get_connections().notify(ping_command, epee::strspan<std::uint8_t>(bytes), contexts_.front().get_id()));
+    EXPECT_EQ(1u, contexts_.front().process_send_queue(false));
+    EXPECT_EQ(0u, receiver_.notified_size());
 }

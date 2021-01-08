@@ -38,6 +38,7 @@ endif()
 
 set(cryptonote_basic_sources
   account.cpp
+  connection_context.cpp
   cryptonote_basic_impl.cpp
   cryptonote_format_utils.cpp
   difficulty.cpp
