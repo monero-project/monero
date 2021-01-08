@@ -54,6 +54,13 @@ namespace epee
       typedef epee::serialization::harray  harray;
       typedef storage_entry meta_entry;
 
+      struct limits_t
+      {
+        size_t n_objects;
+        size_t n_fields;
+        size_t n_strings; // not counting field names
+      };
+
       portable_storage(){}
       virtual ~portable_storage(){}
       hsection   open_section(const std::string& section_name,  hsection hparent_section, bool create_if_notexist = false);
@@ -84,8 +91,8 @@ namespace epee
 
       //-------------------------------------------------------------------------------
       bool		store_to_binary(byte_slice& target, std::size_t initial_buffer_size = 8192);
-      bool		load_from_binary(const epee::span<const uint8_t> target);
-      bool		load_from_binary(const std::string& target) { return load_from_binary(epee::strspan<uint8_t>(target)); }
+      bool		load_from_binary(const epee::span<const uint8_t> target, const limits_t *limits = NULL);
+      bool		load_from_binary(const std::string& target, const limits_t *limits = NULL) { return load_from_binary(epee::strspan<uint8_t>(target), limits); }
       template<class trace_policy>
       bool		  dump_as_xml(std::string& targetObj, const std::string& root_name = "");
       bool		  dump_as_json(std::string& targetObj, size_t indent = 0, bool insert_newlines = true);
@@ -134,7 +141,7 @@ namespace epee
       return false;//TODO: don't think i ever again will use xml - ambiguous and "overtagged" format
     }
     inline
-    bool portable_storage::load_from_binary(const epee::span<const uint8_t> source)
+    bool portable_storage::load_from_binary(const epee::span<const uint8_t> source, const limits_t *limits)
     {
       m_root.m_entries.clear();
       if(source.size() < sizeof(storage_block_header))
@@ -157,6 +164,8 @@ namespace epee
       }
       TRY_ENTRY();
       throwable_buffer_reader buf_reader(source.data()+sizeof(storage_block_header), source.size()-sizeof(storage_block_header));
+      if (limits)
+        buf_reader.set_limits(limits->n_objects, limits->n_fields, limits->n_strings);
       buf_reader.read(m_root);
       return true;//TODO:
       CATCH_ENTRY("portable_storage::load_from_binary", false);
