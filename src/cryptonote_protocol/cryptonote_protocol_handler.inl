@@ -2583,6 +2583,8 @@ skip:
     std::unordered_set<crypto::hash> blocks_found;
     bool first = true;
     bool expect_unknown = false;
+    int where;
+    bool have_block = false;
     for (size_t i = 0; i < arg.m_block_ids.size(); ++i)
     {
       if (!blocks_found.insert(arg.m_block_ids[i]).second)
@@ -2591,8 +2593,7 @@ skip:
         drop_connection_with_score(context, 5, false);
         return 1;
       }
-      int where;
-      const bool have_block = m_core.have_block_unlocked(arg.m_block_ids[i], &where);
+      have_block = m_core.have_block_unlocked(arg.m_block_ids[i], &where);
       if (first)
       {
         if (!have_block && !m_block_queue.requested(arg.m_block_ids[i]) && !m_block_queue.have(arg.m_block_ids[i]))
@@ -2651,6 +2652,23 @@ skip:
       first = false;
     }
     context.m_last_response_height -= arg.m_block_ids.size() - n_use_blocks;
+
+    // if we have the last block in the set and it's the tip, we don't have anything else to do
+    if (have_block && arg.total_height == arg.start_height + arg.m_block_ids.size())
+    {
+      if (arg.start_height < context.m_expect_height)
+      {
+        LOG_ERROR_CCONTEXT("We have the last block, and the new chain grafts in the past, dropping connection");
+        drop_connection_with_score(context, 5, false);
+      }
+      else
+      {
+        MLOG_PEER_STATE("We have the last block, switching to normal");
+        context.m_state = cryptonote_connection_context::state_normal;
+        hit_score(context, 1);
+      }
+      return 1;
+    }
 
     if (!request_missing_objects(context, false))
     {
@@ -2749,7 +2767,10 @@ skip:
     }
     context.m_score -= score;
     if (context.m_score <= DROP_PEERS_ON_SCORE)
+    {
+      LOG_PRINT_CCONTEXT_L1("Local score reached " << DROP_PEERS_ON_SCORE << ", dropping connection");
       drop_connection_with_score(context, 5, false);
+    }
   }
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core>
