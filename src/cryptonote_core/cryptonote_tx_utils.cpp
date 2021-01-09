@@ -704,7 +704,30 @@ namespace cryptonote
       rx_slow_hash(main_height, seed_height, hash.data, bd.data(), bd.size(), res.data, seed_hash ? 0 : miners, !!seed_hash);
     } else {
       const int pow_variant = b.major_version >= 7 ? b.major_version - 6 : 0;
-      crypto::cn_slow_hash(bd.data(), bd.size(), res, pow_variant, height);
+      
+      // Caching pattern declaration
+      using key_type = std::tuple<blobdata, int, uint64_t>;
+      const key_type key = std::make_tuple(bd, pow_variant, height);
+      static std::map<key_type, crypto::hash> cache_blobdata_2_hash;
+      // Caching pattern declaration ends
+      
+      const auto itcache = cache_blobdata_2_hash.find(key);
+      if (itcache == cache_blobdata_2_hash.end())
+      {
+          // Cache was not hit. Need to generate the hash.
+          crypto::cn_slow_hash(bd.data(), bd.size(), res, pow_variant, height);
+          cache_blobdata_2_hash.emplace(key, res); // Store the resulting hash in the cache for later reuse.
+      }
+      else
+      {
+          // Cache was hit.
+          static uint64_t times_hit = 0;
+          if (++times_hit % 10000000 == 0) // Limit verbosity
+          {
+              MCINFO("cryptonote::get_block_longhash", "Cache hit : " << times_hit <<  " times already" << ENDL);
+          }
+          res = itcache->second; // Assign the found hash to be returned.
+      }
     }
     return true;
   }
