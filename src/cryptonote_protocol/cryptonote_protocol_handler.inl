@@ -1937,8 +1937,10 @@ skip:
       return true;
 
     MTRACE("Checking for outgoing syncing peers...");
+    const auto target_conns = m_max_out_peers + (is_synchronized() ? 0u : m_out_peers_sync_boost.load());
     unsigned n_syncing = 0, n_synced = 0;
-    boost::uuids::uuid last_synced_peer_id(boost::uuids::nil_uuid());
+    std::vector<boost::uuids::uuid> synced_peer_ids;
+    synced_peer_ids.reserve(target_conns);
     m_p2p->for_each_connection([&](cryptonote_connection_context& context, nodetool::peerid_type peer_id, uint32_t support_flags)->bool
     {
       if (!peer_id || context.m_is_income) // only consider connected outgoing peers
@@ -1948,18 +1950,18 @@ skip:
       if (context.m_state == cryptonote_connection_context::state_normal)
       {
         ++n_synced;
-        if (!context.m_anchor)
-          last_synced_peer_id = context.m_connection_id;
+        if (!context.m_anchor && context.m_remote_address.get_zone() == epee::net_utils::zone::public_)
+          synced_peer_ids.push_back(context.m_connection_id);
       }
       return true;
     });
     MTRACE(n_syncing << " syncing, " << n_synced << " synced");
 
     // if we're at max out peers, and not enough are syncing
-    const auto target_conns = m_max_out_peers + (is_synchronized() ? 0u : m_out_peers_sync_boost.load());
-    if (n_synced + n_syncing >= target_conns && n_syncing < P2P_DEFAULT_SYNC_SEARCH_CONNECTIONS_COUNT && last_synced_peer_id != boost::uuids::nil_uuid())
+    if (n_synced + n_syncing >= target_conns && n_syncing < P2P_DEFAULT_SYNC_SEARCH_CONNECTIONS_COUNT && !synced_peer_ids.empty())
     {
-      if (!m_p2p->for_connection(last_synced_peer_id, [&](cryptonote_connection_context& ctx, nodetool::peerid_type peer_id, uint32_t f)->bool{
+      const boost::uuids::uuid &selected_synced_peer_id = synced_peer_ids[crypto::rand_idx(synced_peer_ids.size())];
+      if (!m_p2p->for_connection(selected_synced_peer_id, [&](cryptonote_connection_context& ctx, nodetool::peerid_type peer_id, uint32_t f)->bool{
         MINFO(ctx << "dropping synced peer, " << n_syncing << " syncing, " << n_synced << " synced");
         drop_connection(ctx, false, false);
         return true;
