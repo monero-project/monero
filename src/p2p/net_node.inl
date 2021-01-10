@@ -1402,8 +1402,9 @@ namespace nodetool
     if (!m_use_ipv6 && na.get_type_id() == epee::net_utils::ipv6_network_address::get_type_id())
       return false;
 
-    MDEBUG("Connecting to " << na.str() << "(peer_type=" << peer_type << ", last_seen: "
-        << (last_seen_stamp ? epee::misc_utils::get_time_interval_string(time(NULL) - last_seen_stamp):"never")
+    const uint64_t seen_stamp = peer_type == anchor ? first_seen_stamp : last_seen_stamp;
+    MDEBUG("Connecting to " << na.str() << "(peer_type=" << peer_type << ", " << (peer_type == anchor ? "first" : "last") << "_seen: "
+        << (seen_stamp ? epee::misc_utils::get_time_interval_string(time(NULL) - seen_stamp):"never")
         << ")...");
 
     auto con = zone.m_connect(zone, na, m_ssl_support);
