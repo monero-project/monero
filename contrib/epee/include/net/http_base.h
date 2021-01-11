@@ -204,7 +204,8 @@ namespace net_utils
 
 			void wipe()
 			{
-				memwipe(&m_body[0], m_body.size());
+				if (!m_body.empty())
+					memwipe(&m_body[0], m_body.size());
 			}
 		};
 	}
