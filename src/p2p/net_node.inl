@@ -1199,6 +1199,7 @@ namespace nodetool
       if(!just_take_peerlist)
       {
         pi = context.peer_id = rsp.node_data.peer_id;
+        context.m_anchor = context_.m_anchor;
         context.m_rpc_port = rsp.node_data.rpc_port;
         context.m_rpc_credits_per_hash = rsp.node_data.rpc_credits_per_hash;
         context.support_flags = rsp.node_data.support_flags;

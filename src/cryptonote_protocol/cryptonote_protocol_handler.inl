@@ -285,6 +285,7 @@ namespace cryptonote
       auto timestamp = time(NULL);
 
       cnx.incoming = cntxt.m_is_income ? true : false;
+      cnx.anchor = cntxt.m_anchor;
 
       cnx.address = cntxt.m_remote_address.str();
       cnx.host = cntxt.m_remote_address.host_str();

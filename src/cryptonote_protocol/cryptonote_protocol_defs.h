@@ -47,6 +47,7 @@ namespace cryptonote
   struct connection_info
   {
     bool incoming;
+    bool anchor;
     bool localhost;
     bool local_ip;
     bool ssl;
@@ -88,6 +89,7 @@ namespace cryptonote
 
     BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE(incoming)
+      KV_SERIALIZE(anchor)
       KV_SERIALIZE(localhost)
       KV_SERIALIZE(local_ip)
       KV_SERIALIZE(address)
