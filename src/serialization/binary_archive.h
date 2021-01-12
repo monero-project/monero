@@ -98,7 +98,7 @@ template <>
 struct binary_archive<false> : public binary_archive_base<std::istream, false>
 {
 
-  explicit binary_archive(stream_type &s) : base_type(s) {
+  explicit binary_archive(stream_type &s) : base_type(s), varint_bug_backward_compatibility_(false) {
     stream_type::pos_type pos = stream_.tellg();
     stream_.seekg(0, std::ios_base::end);
     eof_pos_ = stream_.tellg();
@@ -173,8 +173,13 @@ struct binary_archive<false> : public binary_archive_base<std::istream, false>
     assert(stream_.tellg() <= eof_pos_);
     return eof_pos_ - stream_.tellg();
   }
+
+  void enable_varint_bug_backward_compatibility() { varint_bug_backward_compatibility_ = true; }
+  bool varint_bug_backward_compatibility_enabled() const { return varint_bug_backward_compatibility_; }
+
 protected:
   std::streamoff eof_pos_;
+  bool varint_bug_backward_compatibility_;
 };
 
 template <>
@@ -227,6 +232,8 @@ struct binary_archive<true> : public binary_archive_base<std::ostream, true>
   void write_variant_tag(variant_tag_type t) {
     serialize_int(t);
   }
+
+  bool varint_bug_backward_compatibility_enabled() const { return false; }
 };
 
 POP_WARNINGS

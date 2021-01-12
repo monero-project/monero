@@ -30,21 +30,34 @@
 
 #pragma once
 #include <memory>
+#include <boost/type_traits/make_unsigned.hpp>
 #include "serialization.h"
 
 namespace serialization
 {
   namespace detail
   {
+    template<typename T>
+    inline constexpr bool use_pair_varint() noexcept
+    {
+      return std::is_integral<T>::value && std::is_unsigned<T>::value && sizeof(T) > 1;
+    }
+
     template <typename Archive, class T>
-    bool serialize_pair_element(Archive& ar, T& e)
+    typename std::enable_if<!use_pair_varint<T>(), bool>::type
+    serialize_pair_element(Archive& ar, T& e)
     {
       return ::do_serialize(ar, e);
     }
 
-    template <typename Archive>
-    bool serialize_pair_element(Archive& ar, uint64_t& e)
+    template<typename Archive, typename T>
+    typename std::enable_if<use_pair_varint<T>(), bool>::type
+    serialize_pair_element(Archive& ar, T& e)
     {
+      static constexpr const bool previously_varint = std::is_same<uint64_t, T>();
+
+      if (!previously_varint && ar.varint_bug_backward_compatibility_enabled() && !typename Archive::is_saving())
+        return ::do_serialize(ar, e);
       ar.serialize_varint(e);
       return true;
     }

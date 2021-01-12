@@ -5706,6 +5706,16 @@ void wallet2::load(const std::string& wallet_, const epee::wipeable_string& pass
           if (::serialization::serialize(ar, *this))
             if (::serialization::check_stream_state(ar))
               loaded = true;
+          if (!loaded)
+          {
+            std::stringstream iss;
+            iss << cache_data;
+            binary_archive<false> ar(iss);
+            ar.enable_varint_bug_backward_compatibility();
+            if (::serialization::serialize(ar, *this))
+              if (::serialization::check_stream_state(ar))
+                loaded = true;
+          }
         }
         catch(...) { }
 
@@ -12528,7 +12538,7 @@ crypto::public_key wallet2::get_tx_pub_key_from_received_outs(const tools::walle
 bool wallet2::export_key_images(const std::string &filename, bool all) const
 {
   PERF_TIMER(export_key_images);
-  std::pair<size_t, std::vector<std::pair<crypto::key_image, crypto::signature>>> ski = export_key_images(all);
+  std::pair<uint64_t, std::vector<std::pair<crypto::key_image, crypto::signature>>> ski = export_key_images(all);
   std::string magic(KEY_IMAGE_EXPORT_FILE_MAGIC, strlen(KEY_IMAGE_EXPORT_FILE_MAGIC));
   const cryptonote::account_public_address &keys = get_account().get_keys().m_account_address;
   const uint32_t offset = ski.first;
@@ -12555,7 +12565,7 @@ bool wallet2::export_key_images(const std::string &filename, bool all) const
 }
 
 //----------------------------------------------------------------------------------------------------
-std::pair<size_t, std::vector<std::pair<crypto::key_image, crypto::signature>>> wallet2::export_key_images(bool all) const
+std::pair<uint64_t, std::vector<std::pair<crypto::key_image, crypto::signature>>> wallet2::export_key_images(bool all) const
 {
   PERF_TIMER(export_key_images_raw);
   std::vector<std::pair<crypto::key_image, crypto::signature>> ski;
@@ -13052,7 +13062,7 @@ void wallet2::import_blockchain(const std::tuple<size_t, crypto::hash, std::vect
   m_last_block_reward = cryptonote::get_outs_money_amount(genesis.miner_tx);
 }
 //----------------------------------------------------------------------------------------------------
-std::pair<size_t, std::vector<tools::wallet2::transfer_details>> wallet2::export_outputs(bool all) const
+std::pair<uint64_t, std::vector<tools::wallet2::transfer_details>> wallet2::export_outputs(bool all) const
 {
   PERF_TIMER(export_outputs);
   std::vector<tools::wallet2::transfer_details> outs;
@@ -13092,7 +13102,7 @@ std::string wallet2::export_outputs_to_str(bool all) const
   return magic + ciphertext;
 }
 //----------------------------------------------------------------------------------------------------
-size_t wallet2::import_outputs(const std::pair<size_t, std::vector<tools::wallet2::transfer_details>> &outputs)
+size_t wallet2::import_outputs(const std::pair<uint64_t, std::vector<tools::wallet2::transfer_details>> &outputs)
 {
   PERF_TIMER(import_outputs);
 
@@ -13198,7 +13208,7 @@ size_t wallet2::import_outputs_from_str(const std::string &outputs_st)
   try
   {
     std::string body(data, headerlen);
-    std::pair<size_t, std::vector<tools::wallet2::transfer_details>> outputs;
+    std::pair<uint64_t, std::vector<tools::wallet2::transfer_details>> outputs;
     try
     {
       std::stringstream iss;

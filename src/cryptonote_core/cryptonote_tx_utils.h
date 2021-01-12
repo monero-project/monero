@@ -44,10 +44,10 @@ namespace cryptonote
     typedef std::pair<uint64_t, rct::ctkey> output_entry;
 
     std::vector<output_entry> outputs;  //index + key + optional ringct commitment
-    size_t real_output;                 //index in outputs vector of real output_entry
+    uint64_t real_output;               //index in outputs vector of real output_entry
     crypto::public_key real_out_tx_key; //incoming real tx public key
     std::vector<crypto::public_key> real_out_additional_tx_keys; //incoming real tx additional public keys
-    size_t real_output_in_tx_index;     //index in transaction outputs vector
+    uint64_t real_output_in_tx_index;   //index in transaction outputs vector
     uint64_t amount;                    //money
     bool rct;                           //true if the output is rct
     rct::key mask;                      //ringct amount mask
