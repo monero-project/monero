@@ -1217,9 +1217,8 @@ namespace nodetool
       if(!handle_remote_peerlist(rsp.local_peerlist_new, context))
       {
         LOG_WARNING_CC(context, "COMMAND_TIMED_SYNC: failed to handle_remote_peerlist(...), closing connection.");
-        const auto remote_address = context.m_remote_address;
         m_network_zones.at(context.m_remote_address.get_zone()).m_net_server.get_config_object().close(context.m_connection_id );
-        add_host_fail(remote_address);
+        add_host_fail(context.m_remote_address);
       }
       if(!context.m_is_income)
         m_network_zones.at(context.m_remote_address.get_zone()).m_peerlist.set_peer_just_seen(context.peer_id, context.m_remote_address, context.m_pruning_seed, context.m_rpc_port, context.m_rpc_credits_per_hash);
@@ -1383,7 +1382,7 @@ namespace nodetool
     if(just_take_peerlist)
     {
       zone.m_net_server.get_config_object().close(con->m_connection_id);
-      MDEBUG(na.str() << "CONNECTION HANDSHAKED OK AND CLOSED.");
+      LOG_DEBUG_CC(*con, "CONNECTION HANDSHAKED OK AND CLOSED.");
       return true;
     }
 
@@ -1445,7 +1444,7 @@ namespace nodetool
 
     zone.m_net_server.get_config_object().close(con->m_connection_id);
 
-    MDEBUG(na.str() << "CONNECTION HANDSHAKED OK AND CLOSED.");
+    LOG_DEBUG_CC(*con, "CONNECTION HANDSHAKED OK AND CLOSED.");
 
     return true;
   }
@@ -2473,14 +2472,12 @@ namespace nodetool
   template<class t_payload_net_handler>
   int node_server<t_payload_net_handler>::handle_handshake(int command, typename COMMAND_HANDSHAKE::request& arg, typename COMMAND_HANDSHAKE::response& rsp, p2p_connection_context& context)
   {
-    // copy since dropping the connection will invalidate the context, and thus the address
-    const auto remote_address = context.m_remote_address;
-
     if(arg.node_data.network_id != m_network_id)
     {
+
       LOG_INFO_CC(context, "WRONG NETWORK AGENT CONNECTED! id=" << arg.node_data.network_id);
       drop_connection(context);
-      add_host_fail(remote_address);
+      add_host_fail(context.m_remote_address);
       return 1;
     }
 
@@ -2488,7 +2485,7 @@ namespace nodetool
     {
       LOG_WARNING_CC(context, "COMMAND_HANDSHAKE came not from incoming connection");
       drop_connection(context);
-      add_host_fail(remote_address);
+      add_host_fail(context.m_remote_address);
       return 1;
     }
 
