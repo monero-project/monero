@@ -38,8 +38,10 @@
 find_package(Miniupnpc REQUIRED)
 
 message(STATUS "Using in-tree miniupnpc")
+set(UPNPC_NO_INSTALL TRUE CACHE BOOL "Disable miniupnp installation" FORCE)
 add_subdirectory(miniupnp/miniupnpc)
 set_property(TARGET libminiupnpc-static PROPERTY FOLDER "external")
+set_property(TARGET libminiupnpc-static PROPERTY POSITION_INDEPENDENT_CODE ON)
 if(MSVC)
   set_property(TARGET libminiupnpc-static APPEND_STRING PROPERTY COMPILE_FLAGS " -wd4244 -wd4267")
 elseif(NOT MSVC)
