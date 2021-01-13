@@ -808,9 +808,9 @@ Transaktion </translation>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="3973"/>
         <source>.
-This transaction will unlock on block %llu, in approximately %s days (assuming 2 minutes per block)</source>
+This transaction will unlock on block %llu, in approximately %s days (assuming 4 minutes per block)</source>
         <translation>.
-Denna transaktion låses upp vid block %llu, om ungefär %s dagar (förutsatt en blocktid på 2 minuter)</translation>
+Denna transaktion låses upp vid block %llu, om ungefär %s dagar (förutsatt en blocktid på 4 minuter)</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="3999"/>

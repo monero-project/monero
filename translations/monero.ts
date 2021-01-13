@@ -652,7 +652,7 @@
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="5009"/>
         <source>.
-This transaction will unlock on block %llu, in approximately %s days (assuming 2 minutes per block)</source>
+This transaction will unlock on block %llu, in approximately %s days (assuming 4 minutes per block)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

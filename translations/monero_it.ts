@@ -753,9 +753,9 @@
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="3973"/>
         <source>.
-This transaction will unlock on block %llu, in approximately %s days (assuming 2 minutes per block)</source>
+This transaction will unlock on block %llu, in approximately %s days (assuming 4 minutes per block)</source>
         <translation>.
-Questa transazione verrà sbloccata al blocco %llu, in approssimativamente %s giorni (supponendo 2 minuti per blocco)</translation>
+Questa transazione verrà sbloccata al blocco %llu, in approssimativamente %s giorni (supponendo 4 minuti per blocco)</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="3999"/>

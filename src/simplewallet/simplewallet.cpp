@@ -5115,8 +5115,8 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
                                                    % print_money(dust_not_in_fee);
         if (transfer_type == TransferLocked)
         {
-          float days = locked_blocks / 720.0f;
-          prompt << boost::format(tr(".\nThis transaction will unlock on block %llu, in approximately %s days (assuming 2 minutes per block)")) % ((unsigned long long)unlock_block) % days;
+          float days = locked_blocks / 360.0f;
+          prompt << boost::format(tr(".\nThis transaction will unlock on block %llu, in approximately %s days (assuming 4 minutes per block)")) % ((unsigned long long)unlock_block) % days;
         }
         if (m_wallet->print_ring_members())
         {
