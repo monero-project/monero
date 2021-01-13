@@ -165,7 +165,7 @@ namespace trezor {
 
         // Scoped session closer
         BOOST_SCOPE_EXIT_ALL(&, this) {
-          if (open_session){
+          if (open_session && this->get_transport()){
             this->get_transport()->close();
           }
         };
