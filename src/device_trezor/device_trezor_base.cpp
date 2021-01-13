@@ -368,7 +368,10 @@ namespace trezor {
       std::string tmp_session_id;
       auto initMsg = std::make_shared<messages::management::Initialize>();
       const auto data_cleaner = epee::misc_utils::create_scope_leave_handler([&]() {
-        memwipe(&tmp_session_id[0], tmp_session_id.size());
+        initMsg->release_session_id();
+        if (!tmp_session_id.empty()) {
+          memwipe(&tmp_session_id[0], tmp_session_id.size());
+        }
       });
 
       if(!m_device_session_id.empty()) {
@@ -382,8 +385,6 @@ namespace trezor {
       } else {
         m_device_session_id.clear();
       }
-
-      initMsg->release_session_id();
     }
 
     void device_trezor_base::device_state_reset()
