@@ -15,6 +15,10 @@ On the first run, the script will complain about the missing ClangBuildAnalyzer 
 `utils/health/clang-tidy-run.sh`
 Performs Lint checks on the source code and stores the result in the build directory. More information on the [home page](https://clang.llvm.org/extra/clang-tidy/).
 
+##include-what-you-use
+`utils/health/clang-include-what-you-use-run.sh`
+Analyses the header file hierarchy and delivers hints on how to reduce their complexity. More information on the [home page](https://include-what-you-use.org/).
+
 
 ##Valgrind checks
 `utils/health/valgrind-tests.sh`
