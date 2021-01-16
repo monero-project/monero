@@ -597,7 +597,6 @@ namespace net_utils
 			response_data += response.m_body;
 
 		m_psnd_hndlr->do_send(byte_slice{std::move(response_data)});
-		m_psnd_hndlr->send_done();
 		return res;
 	}
 	//-----------------------------------------------------------------------------------

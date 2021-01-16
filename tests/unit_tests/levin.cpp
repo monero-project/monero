@@ -68,11 +68,6 @@ namespace
             return true;
         }
 
-        virtual bool send_done() override final
-        {
-            throw std::logic_error{"send_done not implemented"};
-        }
-
         virtual bool call_run_once_service_io() override final
         {
             return io_service_.run_one();

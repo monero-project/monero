@@ -36,6 +36,7 @@
 #include <boost/uuid/random_generator.hpp>
 #include <boost/chrono.hpp>
 #include <boost/utility/value_init.hpp>
+#include <boost/asio/coroutine.hpp>
 #include <boost/asio/deadline_timer.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp> // TODO
 #include <boost/thread/condition_variable.hpp> // TODO
@@ -105,8 +106,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 		m_throttle_speed_in("speed_in", "throttle_speed_in"),
 		m_throttle_speed_out("speed_out", "throttle_speed_out"),
 		m_timer(GET_IO_SERVICE(socket_)),
-		m_local(false),
-		m_ready_to_close(false)
+		m_local(false)
   {
     MDEBUG("test, connection constructor set m_connection_type="<<m_connection_type);
   }
@@ -116,10 +116,10 @@ PRAGMA_WARNING_DISABLE_VS(4355)
   template<class t_protocol_handler>
   connection<t_protocol_handler>::~connection() noexcept(false)
   {
-    if(!m_was_shutdown)
+    if(m_shutdown_status != status::cleanup)
     {
       _dbg3("[sock " << socket().native_handle() << "] Socket destroyed without shutdown.");
-      shutdown();
+      cleanup();
     }
 
     _dbg3("[sock " << socket().native_handle() << "] Socket destroyed");
@@ -193,7 +193,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     if(static_cast<shared_state&>(get_state()).pfilter && !static_cast<shared_state&>(get_state()).pfilter->is_remote_host_allowed(context.m_remote_address))
     {
       _dbg2("[sock " << socket().native_handle() << "] host denied " << context.m_remote_address.host_str() << ", shutdowning connection");
-      close();
+      shutdown(false);
       return false;
     }
 
@@ -332,8 +332,8 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     TRY_ENTRY();
     //_info("[sock " << socket().native_handle() << "] Async read calledback.");
     
-    if (m_was_shutdown)
-        return;
+    if (m_shutdown_status != status::none)
+      return;
 
     if (!e)
     {
@@ -362,7 +362,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 					delay = epee::net_utils::network_throttle_manager::get_global_throttle_in().get_sleep_time_after_tick( bytes_transferred );
 				}
 
-				if (m_was_shutdown)
+				if (m_shutdown_status != status::none)
 					return;
 				
 				delay *= 0.5;
@@ -378,20 +378,12 @@ PRAGMA_WARNING_DISABLE_VS(4355)
       logger_handle_net_read(bytes_transferred);
       context.m_last_recv = time(NULL);
       context.m_recv_cnt += bytes_transferred;
-      m_ready_to_close = false;
       bool recv_res = m_protocol_handler.handle_recv(buffer_.data(), bytes_transferred);
       if(!recv_res)
       {  
         //_info("[sock " << socket().native_handle() << "] protocol_want_close");
         //some error in protocol, protocol handler ask to close connection
-        boost::interprocess::ipcdetail::atomic_write32(&m_want_close_connection, 1);
-        bool do_shutdown = false;
-        CRITICAL_REGION_BEGIN(m_send_que_lock);
-        if(!m_send_que.size())
-          do_shutdown = true;
-        CRITICAL_REGION_END();
-        if(do_shutdown)
-          shutdown();
+        shutdown(true);
       }else
       {
         reset_timer(get_timeout_from_bytes_read(bytes_transferred), false);
@@ -408,20 +400,13 @@ PRAGMA_WARNING_DISABLE_VS(4355)
       if(e.value() != 2)
       {
         _dbg3("[sock " << socket().native_handle() << "] Some problems at read: " << e.message() << ':' << e.value());
-        shutdown();
+        shutdown(false);
       }
       else
       {
         _dbg3("[sock " << socket().native_handle() << "] peer closed connection");
-        bool do_shutdown = false;
-        CRITICAL_REGION_BEGIN(m_send_que_lock);
-        if(!m_send_que.size())
-          do_shutdown = true;
-        CRITICAL_REGION_END();
-        if (m_ready_to_close || do_shutdown)
-          shutdown();
+        shutdown(true);
       }
-      m_ready_to_close = true;
     }
     // If an error occurs then no new asynchronous operations are started. This
     // means that all shared_ptr references to the connection object will
@@ -436,7 +421,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
   {
     TRY_ENTRY();
 
-    if (m_was_shutdown) return;
+    if (m_shutdown_status != status::none) return;
 
     if (e)
     {
@@ -478,15 +463,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
       if (!handshake(boost::asio::ssl::stream_base::server, boost::asio::const_buffer(buffer_.data(), buffer_ssl_init_fill)))
       {
         MERROR("SSL handshake failed");
-        boost::interprocess::ipcdetail::atomic_write32(&m_want_close_connection, 1);
-        m_ready_to_close = true;
-        bool do_shutdown = false;
-        CRITICAL_REGION_BEGIN(m_send_que_lock);
-        if(!m_send_que.size())
-          do_shutdown = true;
-        CRITICAL_REGION_END();
-        if(do_shutdown)
-          shutdown();
+        shutdown(false);
         return;
       }
     }
@@ -542,7 +519,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     // Use safe_shared_from_this, because of this is public method and it can be called on the object being deleted
     auto self = safe_shared_from_this();
     if (!self) return false;
-    if (m_was_shutdown) return false;
+    if (m_shutdown_status != status::none) return false;
 		// TODO avoid copy
 
 		std::uint8_t const* const message_data = message.data();
@@ -612,8 +589,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     auto self = safe_shared_from_this();
     if(!self)
       return false;
-    if(m_was_shutdown)
-      return false;
+
     double current_speed_up;
     {
 		CRITICAL_REGION_LOCAL(m_throttle_speed_out_mutex);
@@ -661,15 +637,19 @@ PRAGMA_WARNING_DISABLE_VS(4355)
         boost::this_thread::sleep(boost::posix_time::milliseconds( ms ) );
         m_send_que_lock.lock();
         _dbg1("sleep for queue: " << ms);
-	if (m_was_shutdown)
+	if (m_shutdown_status != status::none)
 		return false;
 
         if (retry > retry_limit) {
             MWARNING("send que size is more than ABSTRACT_SERVER_SEND_QUE_MAX_COUNT(" << ABSTRACT_SERVER_SEND_QUE_MAX_COUNT << "), shutting down connection");
-            shutdown();
+            shutdown(false);
             return false;
         }
     }
+
+    // check inside of `m_send_que_lock` to ensure shutdown synchronization
+    if(m_shutdown_status != status::none)
+      return false;
 
     m_send_que.push_back(std::move(chunk));
 
@@ -773,7 +753,8 @@ PRAGMA_WARNING_DISABLE_VS(4355)
       MERROR("Resetting timer on a dead object");
       return;
     }
-    if (m_was_shutdown)
+    // do not update timer after shutdown; fixed amount of time to complete sends
+    if (m_shutdown_status != status::none)
     {
       MERROR("Setting timer on a shut down object");
       return;
@@ -790,66 +771,108 @@ PRAGMA_WARNING_DISABLE_VS(4355)
       if(ec == boost::asio::error::operation_aborted)
         return;
       MDEBUG(context << "connection timeout, closing");
-      self->close();
+      self->shutdown(false); // already timed out waiting for send, bail on flush
     });
   }
   //---------------------------------------------------------------------------------
   template<class t_protocol_handler>
-  bool connection<t_protocol_handler>::shutdown()
+  void connection<t_protocol_handler>::finish_shutdown()
   {
-    CRITICAL_REGION_BEGIN(m_shutdown_lock);
-    if (m_was_shutdown)
-      return true;
-    m_was_shutdown = true;
-    // Initiate graceful connection closure.
-    m_timer.cancel();
-    boost::system::error_code ignored_ec;
-    if (m_ssl_support == epee::net_utils::ssl_support_t::e_ssl_support_enabled)
+    //! non-blocking (ssl?) shutdown resumable coroutine
+    class shutdown_routine : public boost::asio::coroutine
     {
-      const shared_state &state = static_cast<const shared_state&>(get_state());
-      if (!state.stop_signal_sent)
-        socket_.shutdown(ignored_ec);
+      boost::shared_ptr<connection> self;
+
+    public:
+      explicit shutdown_routine(boost::shared_ptr<connection> self)
+        : boost::asio::coroutine(), self(std::move(self))
+      {}
+
+      shutdown_routine(const shutdown_routine&) = default;
+      shutdown_routine(shutdown_routine&&) = default;
+      ~shutdown_routine() = default;
+
+      void operator()(const boost::system::error_code = {})
+      {
+        // A "forced" (unclean) shutdown can be called while waiting
+        if (!self || status::cleanup <= self->m_shutdown_status)
+          return;
+
+        const boost::shared_ptr<connection>& self_copy = self; // for lambda
+        BOOST_ASIO_CORO_REENTER(this)
+        {
+          {
+            CRITICAL_REGION_LOCAL(self->m_send_que_lock);
+            CHECK_AND_ASSERT_MES(self->m_send_que.empty(), /*void*/, "Expected empty queue in finish_shutdown");
+          }
+
+          if (self->m_ssl_support == epee::net_utils::ssl_support_t::e_ssl_support_enabled)
+          {
+            if (!static_cast<const shared_state&>(self->get_state()).stop_signal_sent)
+            {
+              // reset_timer will not update timer since shutdown has been called
+              LOG_TRACE_CC(self->context, "[sock " << self->socket().native_handle() << "] Starting SSL shutdown");
+              self->m_timer.expires_from_now(static_cast<const shared_state&>(self->get_state()).shutdown_timeout());
+              self->m_timer.async_wait(self->strand_.wrap([self_copy] (const boost::system::error_code timer_error)
+              {
+                if(timer_error == boost::asio::error::operation_aborted)
+                  return;
+                MDEBUG(self_copy->context << "connection shutdown timeout, cleaning up");
+                self_copy->cleanup();
+              }));
+              BOOST_ASIO_CORO_YIELD self->socket_.async_shutdown(self->strand_.wrap(*this));
+            }
+          }
+          self->cleanup();
+        }
+      }
+    };
+
+    strand_.post(shutdown_routine{this->shared_from_this()});
+  }
+
+  //---------------------------------------------------------------------------------
+  template<class t_protocol_handler>
+  void connection<t_protocol_handler>::shutdown(const bool flush_queue)
+  {
+    // all read/write ops are in strand. Some shutdown calls can come from outside strand
+    LOG_TRACE_CC(context, "[sock " << socket().native_handle() << "] Shutdown requested with flush=" << flush_queue);
+    status last_status = status::none;
+    m_shutdown_status.compare_exchange_strong(last_status, status::flushing);
+    if (flush_queue && last_status == status::none)
+    {
+      CRITICAL_REGION_LOCAL(m_send_que_lock);
+      if (m_send_que.empty())
+        finish_shutdown();
     }
+    else if (last_status < status::cleanup) // force shutdown on second call
+      strand_.post(std::bind(&connection::cleanup, this->shared_from_this()));
+  }
+  //---------------------------------------------------------------------------------
+  template<class t_protocol_handler>
+  void connection<t_protocol_handler>::cleanup()
+  {
+    if (status::cleanup <= m_shutdown_status) return;
+    m_shutdown_status = status::cleanup;
+    LOG_TRACE_CC(context, "[sock " << socket().native_handle() << "] Cleaning up connection");
+
+    // do not add blocking calls here!
+    boost::system::error_code ignored_ec;
+    m_timer.cancel(ignored_ec);
+    socket().cancel(ignored_ec);
     socket().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ignored_ec);
     if (!m_host.empty())
     {
       try { host_count(m_host, -1); } catch (...) { /* ignore */ }
       m_host = "";
     }
-    CRITICAL_REGION_END();
     m_protocol_handler.release_protocol();
-    return true;
   }
   //---------------------------------------------------------------------------------
   template<class t_protocol_handler>
   bool connection<t_protocol_handler>::close()
   {
-    TRY_ENTRY();
-    auto self = safe_shared_from_this();
-    if(!self)
-      return false;
-    //_info("[sock " << socket().native_handle() << "] Que Shutdown called.");
-    m_timer.cancel();
-    size_t send_que_size = 0;
-    CRITICAL_REGION_BEGIN(m_send_que_lock);
-    send_que_size = m_send_que.size();
-    CRITICAL_REGION_END();
-    boost::interprocess::ipcdetail::atomic_write32(&m_want_close_connection, 1);
-    if(!send_que_size)
-    {
-      shutdown();
-    }
-    
-    return true;
-    CATCH_ENTRY_L0("connection<t_protocol_handler>::close", false);
-  }
-  //---------------------------------------------------------------------------------
-  template<class t_protocol_handler>
-  bool connection<t_protocol_handler>::send_done()
-  {
-    if (m_ready_to_close)
-      return close();
-    m_ready_to_close = true;
+    shutdown(true);
     return true;
   }
   //---------------------------------------------------------------------------------
@@ -865,10 +888,22 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     TRY_ENTRY();
     LOG_TRACE_CC(context, "[sock " << socket().native_handle() << "] Async send calledback " << cb);
 
+    if (status::cleanup <= m_shutdown_status)
+      return;
+
+    bool do_shutdown = false;
+    CRITICAL_REGION_BEGIN(m_send_que_lock);
+
+    // a partial amount can be sent before error
+    CHECK_AND_ASSERT_MES(!m_send_que.empty(), /*void*/, "Unexpected empty queue");
+    m_send_que.front().remove_prefix(cb);
+    if (m_send_que.front().empty())
+      m_send_que.pop_front();
+
     if (e)
     {
       _dbg1("[sock " << socket().native_handle() << "] Some problems at write: " << e.message() << ':' << e.value());
-      shutdown();
+      shutdown(false);
       return;
     }
     logger_handle_net_write(cb);
@@ -878,21 +913,9 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 			sleep_before_packet(cb, 1, 1);
 		}
 
-    bool do_shutdown = false;
-    CRITICAL_REGION_BEGIN(m_send_que_lock);
     if(m_send_que.empty())
     {
-      _erro("[sock " << socket().native_handle() << "] m_send_que.size() == 0 at handle_write!");
-      return;
-    }
-
-    m_send_que.pop_front();
-    if(m_send_que.empty())
-    {
-      if(boost::interprocess::ipcdetail::atomic_read32(&m_want_close_connection))
-      {
-        do_shutdown = true;
-      }
+      do_shutdown = (m_shutdown_status != status::none); // recheck with lock held
     }else
     {
       //have more data to send
@@ -913,7 +936,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 
     if(do_shutdown)
     {
-      shutdown();
+      finish_shutdown();
     }
     CATCH_ENTRY_L0("connection<t_protocol_handler>::handle_write", void());
   }

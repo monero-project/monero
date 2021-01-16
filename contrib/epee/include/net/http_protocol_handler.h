@@ -53,6 +53,11 @@ namespace net_utils
 		/************************************************************************/
 		struct http_server_config
 		{
+			static boost::posix_time::milliseconds shutdown_timeout()
+			{
+				return boost::posix_time::milliseconds{10 * 1000};
+			}
+
 			std::string m_folder;
 			std::vector<std::string> m_access_control_origins;
 			boost::optional<login> m_user;

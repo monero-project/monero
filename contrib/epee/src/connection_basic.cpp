@@ -135,7 +135,7 @@ connection_basic::connection_basic(boost::asio::ip::tcp::socket&& sock, std::sha
 	strand_(GET_IO_SERVICE(sock)),
 	socket_(GET_IO_SERVICE(sock), get_context(m_state.get())),
 	m_want_close_connection(false),
-	m_was_shutdown(false),
+	m_shutdown_status(status::none),
 	m_is_multithreaded(false),
 	m_ssl_support(ssl_support)
 {
@@ -160,7 +160,7 @@ connection_basic::connection_basic(boost::asio::io_service &io_service, std::sha
 	strand_(io_service),
 	socket_(io_service, get_context(m_state.get())),
 	m_want_close_connection(false),
-	m_was_shutdown(false),
+	m_shutdown_status(status::none),
 	m_is_multithreaded(false),
 	m_ssl_support(ssl_support)
 {
@@ -238,8 +238,8 @@ void connection_basic::sleep_before_packet(size_t packet_size, int phase,  int q
 	double delay=0; // will be calculated
 	do
 	{ // rate limiting
-		if (m_was_shutdown) { 
-			_dbg2("m_was_shutdown - so abort sleep");
+		if (m_shutdown_status != status::none) {
+			_dbg2("m_shutdown_status - so abort sleep");
 			return;
 		}
 

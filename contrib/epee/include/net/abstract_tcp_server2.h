@@ -134,7 +134,6 @@ namespace net_utils
   private:
     //----------------- i_service_endpoint ---------------------
     virtual bool do_send(byte_slice message); ///< (see do_send from i_service_endpoint)
-    virtual bool send_done();
     virtual bool close();
     virtual bool call_run_once_service_io();
     virtual bool request_callback();
@@ -145,7 +144,16 @@ namespace net_utils
     bool do_send_chunk(byte_slice chunk); ///< will send (or queue) a part of data. internal use only
 
     boost::shared_ptr<connection<t_protocol_handler> > safe_shared_from_this();
-    bool shutdown();
+
+    /// Initiate socket cleanup. \param flush_queue try to complete pending writes and perform SSL shutdown
+    void shutdown(bool flush_queue);
+
+    /// Only call from `shutdown` or `handle_write` (for `shutdown(flush_queue = true)` case).
+    void finish_shutdown();
+
+    /// Only call from destructor, `shutdown`, and `finish_shutdown`.
+    void cleanup();
+
     /// Handle completion of a receive operation.
     void handle_receive(const boost::system::error_code& e,
       std::size_t bytes_transferred);
@@ -179,7 +187,6 @@ namespace net_utils
     boost::shared_ptr<connection<t_protocol_handler> > m_self_ref; // the reference to hold
     critical_section m_self_refs_lock;
     critical_section m_chunking_lock; // held while we add small chunks of the big do_send() to small do_send_chunk()
-    critical_section m_shutdown_lock; // held while shutting down
     
     t_connection_type m_connection_type;
     
@@ -191,7 +198,6 @@ namespace net_utils
 
     boost::asio::deadline_timer m_timer;
     bool m_local;
-    bool m_ready_to_close;
     std::string m_host;
 
 	public:
