@@ -218,3 +218,13 @@ set_property(TARGET tx-extra_fuzz_tests
   PROPERTY
     FOLDER "tests")
 
+monero_add_minimal_executable(utf8_fuzz_tests utf8.cpp fuzzer.cpp)
+target_link_libraries(utf8_fuzz_tests
+  PRIVATE
+    common
+    epee
+    ${Boost_THREAD_LIBRARY}
+    ${Boost_CHRONO_LIBRARY}
+    ${CMAKE_THREAD_LIBS_INIT}
+    ${EXTRA_LIBRARIES}
+    $ENV{LIB_FUZZING_ENGINE})
