@@ -1549,6 +1549,7 @@ private:
     void finish_rescan_bc_keep_key_images(uint64_t transfer_height, const crypto::hash &hash);
     void enable_dns(bool enable) { m_use_dns = enable; }
     void set_offline(bool offline = true);
+    bool is_offline() const { return m_offline; }
 
     uint64_t credits() const { return m_rpc_payment_state.credits; }
     void credit_report(uint64_t &expected_spent, uint64_t &discrepancy) const { expected_spent = m_rpc_payment_state.expected_spent; discrepancy = m_rpc_payment_state.discrepancy; }

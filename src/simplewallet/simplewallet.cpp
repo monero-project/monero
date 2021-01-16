@@ -4765,9 +4765,14 @@ bool simple_wallet::try_connect_to_daemon(bool silent, uint32_t* version)
   if (!m_wallet->check_connection(version))
   {
     if (!silent)
-      fail_msg_writer() << tr("wallet failed to connect to daemon: ") << m_wallet->get_daemon_address() << ". " <<
-        tr("Daemon either is not started or wrong port was passed. "
-        "Please make sure daemon is running or change the daemon address using the 'set_daemon' command.");
+    {
+      if (m_wallet->is_offline())
+        fail_msg_writer() << tr("wallet failed to connect to daemon, because it is set to offline mode");
+      else
+        fail_msg_writer() << tr("wallet failed to connect to daemon: ") << m_wallet->get_daemon_address() << ". " <<
+          tr("Daemon either is not started or wrong port was passed. "
+          "Please make sure daemon is running or change the daemon address using the 'set_daemon' command.");
+    }
     return false;
   }
   if (!m_allow_mismatched_daemon_version && ((*version >> 16) != CORE_RPC_VERSION_MAJOR))
@@ -9298,7 +9303,7 @@ bool simple_wallet::run()
 
   refresh_main(0, ResetNone, true);
 
-  m_auto_refresh_enabled = m_wallet->auto_refresh();
+  m_auto_refresh_enabled = !m_wallet->is_offline() && m_wallet->auto_refresh();
   m_idle_thread = boost::thread([&]{wallet_idle_thread();});
 
   message_writer(console_color_green, false) << "Background refresh thread started";
