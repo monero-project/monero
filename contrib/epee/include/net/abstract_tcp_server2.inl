@@ -131,7 +131,10 @@ PRAGMA_WARNING_DISABLE_VS(4355)
   {
     try
     {
-      return connection<t_protocol_handler>::shared_from_this();
+      auto w = connection<t_protocol_handler>::weak_from_this();
+      if (w.expired())
+        return boost::shared_ptr<connection<t_protocol_handler>>();
+      return boost::shared_ptr<connection<t_protocol_handler>>(w);
     }
     catch (const boost::bad_weak_ptr&)
     {
