@@ -3486,7 +3486,7 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
   update_pool_state(process_pool_txs, true);
 
   bool first = true, last = false;
-  uint64_t max_blocks = COMMAND_RPC_GET_BLOCKS_FAST_MAX_COUNT;
+  uint64_t max_blocks = 1000;//COMMAND_RPC_GET_BLOCKS_FAST_MAX_COUNT;
   while(m_run.load(std::memory_order_relaxed))
   {
     uint64_t next_blocks_start_height;
@@ -14483,7 +14483,7 @@ uint64_t wallet2::get_bytes_received() const
   return m_http_client->get_bytes_received();
 }
 //----------------------------------------------------------------------------------------------------
-std::vector<cryptonote::public_node> wallet2::get_public_nodes(bool white_only)
+std::vector<cryptonote::public_node> wallet2::get_public_nodes(bool white_only, bool private_zones_only)
 {
   cryptonote::COMMAND_RPC_GET_PUBLIC_NODES::request req = AUTO_VAL_INIT(req);
   cryptonote::COMMAND_RPC_GET_PUBLIC_NODES::response res = AUTO_VAL_INIT(res);
@@ -14491,6 +14491,10 @@ std::vector<cryptonote::public_node> wallet2::get_public_nodes(bool white_only)
   req.white = true;
   req.gray = !white_only;
   req.include_blocked = false;
+  if (private_zones_only)
+    req.zones = (1u << (unsigned)epee::net_utils::zone::i2p) | (1u << (unsigned)epee::net_utils::zone::tor);
+  else
+    req.zones = std::numeric_limits<uint32_t>::max();
 
   {
     const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};

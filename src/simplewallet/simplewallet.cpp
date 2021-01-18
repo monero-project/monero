@@ -273,7 +273,7 @@ namespace
   const char* USAGE_FROZEN("frozen <key_image>");
   const char* USAGE_LOCK("lock");
   const char* USAGE_NET_STATS("net_stats");
-  const char* USAGE_PUBLIC_NODES("public_nodes");
+  const char* USAGE_PUBLIC_NODES("public_nodes [include-unsafe]");
   const char* USAGE_WELCOME("welcome");
   const char* USAGE_RPC_PAYMENT_INFO("rpc_payment_info");
   const char* USAGE_START_MINING_FOR_RPC("start_mining_for_rpc [<number_of_threads>]");
@@ -2272,9 +2272,11 @@ bool simple_wallet::net_stats(const std::vector<std::string> &args)
 
 bool simple_wallet::public_nodes(const std::vector<std::string> &args)
 {
+  const bool include_unsafe = !args.empty() && args[0] == "include-unsafe";
+
   try
   {
-    auto nodes = m_wallet->get_public_nodes(false);
+    auto nodes = m_wallet->get_public_nodes(false, !include_unsafe);
     m_claimed_cph.clear();
     if (nodes.empty())
     {
@@ -2306,7 +2308,8 @@ bool simple_wallet::public_nodes(const std::vector<std::string> &args)
   {
     fail_msg_writer() << tr("Error retrieving public node list: ") << e.what();
   }
-  message_writer(console_color_red, true) << tr("Most of these nodes are probably spies. You should not use them unless connecting via Tor or I2P");
+  if (include_unsafe)
+    message_writer(console_color_red, true) << tr("Most of these nodes are probably spies. You should not use them unless connecting via Tor or I2P");
   return true;
 }
 
