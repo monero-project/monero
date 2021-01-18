@@ -437,7 +437,7 @@ TEST(cryptonote_protocol_handler, race_condition)
   using context_t = contexts::p2p;
   using handler_t = epee::levin::async_protocol_handler<context_t>;
   using connection_t = epee::net_utils::connection<handler_t>;
-  using connection_ptr = boost::shared_ptr<connection_t>;
+  using connection_ptr = std::shared_ptr<connection_t>;
   using connections_t = std::vector<connection_ptr>;
   using shared_state_t = typename connection_t::shared_state;
   using shared_state_ptr = std::shared_ptr<shared_state_t>;
@@ -1145,7 +1145,7 @@ TEST(node_server, race_condition)
     };
     using handler_t = epee::levin::async_protocol_handler<context_t>;
     using connection_t = epee::net_utils::connection<handler_t>;
-    using connection_ptr = boost::shared_ptr<connection_t>;
+    using connection_ptr = std::shared_ptr<connection_t>;
     using shared_state_t = typename connection_t::shared_state;
     using shared_state_ptr = std::shared_ptr<shared_state_t>;
     using io_context_t = boost::asio::io_context;
