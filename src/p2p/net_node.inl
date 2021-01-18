@@ -1965,14 +1965,6 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
-  void node_server<t_payload_net_handler>::get_public_peerlist(std::vector<peerlist_entry>& gray, std::vector<peerlist_entry>& white)
-  {
-    auto public_zone = m_network_zones.find(epee::net_utils::zone::public_);
-    if (public_zone != m_network_zones.end())
-      public_zone->second.m_peerlist.get_peerlist(gray, white);
-  }
-  //-----------------------------------------------------------------------------------
-  template<class t_payload_net_handler>
   void node_server<t_payload_net_handler>::get_peerlist(std::vector<peerlist_entry>& gray, std::vector<peerlist_entry>& white)
   {
     for (auto &zone: m_network_zones)

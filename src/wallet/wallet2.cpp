@@ -14172,7 +14172,7 @@ uint64_t wallet2::get_bytes_received() const
   return m_http_client->get_bytes_received();
 }
 //----------------------------------------------------------------------------------------------------
-std::vector<cryptonote::public_node> wallet2::get_public_nodes(bool white_only)
+std::vector<cryptonote::public_node> wallet2::get_public_nodes(bool white_only, bool private_zones_only)
 {
   cryptonote::COMMAND_RPC_GET_PUBLIC_NODES::request req = AUTO_VAL_INIT(req);
   cryptonote::COMMAND_RPC_GET_PUBLIC_NODES::response res = AUTO_VAL_INIT(res);
@@ -14180,6 +14180,10 @@ std::vector<cryptonote::public_node> wallet2::get_public_nodes(bool white_only)
   req.white = true;
   req.gray = !white_only;
   req.include_blocked = false;
+  if (private_zones_only)
+    req.zones = (1u << (unsigned)epee::net_utils::zone::i2p) | (1u << (unsigned)epee::net_utils::zone::tor);
+  else
+    req.zones = std::numeric_limits<uint32_t>::max();
 
   {
     const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};

@@ -1373,18 +1373,15 @@ namespace cryptonote
     std::vector<nodetool::peerlist_entry> white_list;
     std::vector<nodetool::peerlist_entry> gray_list;
 
-    if (req.public_only)
-    {
-      m_p2p.get_public_peerlist(gray_list, white_list);
-    }
-    else
-    {
-      m_p2p.get_peerlist(gray_list, white_list);
-    }
+    m_p2p.get_peerlist(gray_list, white_list);
 
     for (auto & entry : white_list)
     {
       if (!req.include_blocked && m_p2p.is_host_blocked(entry.adr, NULL))
+        continue;
+      if (req.public_only && entry.rpc_port == 0)
+        continue;
+      if (!((1u << (unsigned)entry.adr.get_zone()) & req.zones))
         continue;
       if (entry.adr.get_type_id() == epee::net_utils::ipv4_network_address::get_type_id())
         res.white_list.emplace_back(entry.id, entry.adr.as<epee::net_utils::ipv4_network_address>().ip(),
@@ -1399,6 +1396,10 @@ namespace cryptonote
     for (auto & entry : gray_list)
     {
       if (!req.include_blocked && m_p2p.is_host_blocked(entry.adr, NULL))
+        continue;
+      if (req.public_only && entry.rpc_port == 0)
+        continue;
+      if (!((1u << (unsigned)entry.adr.get_zone()) & req.zones))
         continue;
       if (entry.adr.get_type_id() == epee::net_utils::ipv4_network_address::get_type_id())
         res.gray_list.emplace_back(entry.id, entry.adr.as<epee::net_utils::ipv4_network_address>().ip(),
@@ -1421,6 +1422,7 @@ namespace cryptonote
     COMMAND_RPC_GET_PEER_LIST::request peer_list_req;
     COMMAND_RPC_GET_PEER_LIST::response peer_list_res;
     peer_list_req.include_blocked = req.include_blocked;
+    peer_list_req.zones = req.zones;
     const bool success = on_get_peer_list(peer_list_req, peer_list_res, ctx);
     res.status = peer_list_res.status;
     if (!success)

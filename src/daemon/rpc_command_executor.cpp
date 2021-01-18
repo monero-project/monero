@@ -193,6 +193,7 @@ bool t_rpc_command_executor::print_peer_list(bool white, bool gray, size_t limit
   std::string failure_message = "Couldn't retrieve peer list";
 
   req.include_blocked = true;
+  req.zones = std::numeric_limits<uint32_t>::max();
 
   if (m_is_rpc)
   {
