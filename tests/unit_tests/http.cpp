@@ -84,8 +84,6 @@ public:
   bool call_run_once_service_io() override { return true; }
   bool request_callback() override { return true; }
   boost::asio::io_context& get_io_context() override { return io_context; }
-  bool add_ref() override { return true; }
-  bool release() override { return true; }
 
   boost::asio::io_context io_context;
   std::string sent;
