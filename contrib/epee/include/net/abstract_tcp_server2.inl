@@ -269,8 +269,6 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     //_dbg3("[sock " << socket().native_handle() << "] add_ref, m_peer_number=" << mI->m_peer_number);
     CRITICAL_REGION_LOCAL(self->m_self_refs_lock);
     //_dbg3("[sock " << socket().native_handle() << "] add_ref 2, m_peer_number=" << mI->m_peer_number);
-    if(m_was_shutdown)
-      return false;
     ++m_reference_count;
     m_self_ref = std::move(self);
     return true;
