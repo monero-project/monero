@@ -7,6 +7,7 @@
 #include "crypto/crypto.h"
 #include "cryptonote_core/cryptonote_core.h"
 #include "misc_log_ex.h"
+#include "net/parse.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "daemon.rpc.bootstrap_daemon"
@@ -16,19 +17,23 @@ namespace cryptonote
 
   bootstrap_daemon::bootstrap_daemon(
     std::function<std::map<std::string, bool>()> get_public_nodes,
-    bool rpc_payment_enabled)
+    bool rpc_payment_enabled,
+    const std::string &proxy)
     : m_selector(new bootstrap_node::selector_auto(std::move(get_public_nodes)))
     , m_rpc_payment_enabled(rpc_payment_enabled)
   {
+    set_proxy(proxy);
   }
 
   bootstrap_daemon::bootstrap_daemon(
     const std::string &address,
     boost::optional<epee::net_utils::http::login> credentials,
-    bool rpc_payment_enabled)
+    bool rpc_payment_enabled,
+    const std::string &proxy)
     : m_selector(nullptr)
     , m_rpc_payment_enabled(rpc_payment_enabled)
   {
+    set_proxy(proxy);
     if (!set_server(address, std::move(credentials)))
     {
       throw std::runtime_error("invalid bootstrap daemon address or credentials");
@@ -76,6 +81,18 @@ namespace cryptonote
     }
 
     return success;
+  }
+
+  void bootstrap_daemon::set_proxy(const std::string &address)
+  {
+    if (!address.empty() && !net::get_tcp_endpoint(address))
+    {
+      throw std::runtime_error("invalid proxy address format");
+    }
+    if (!m_http_client.set_proxy(address))
+    {
+      throw std::runtime_error("failed to set proxy address");
+    }
   }
 
   bool bootstrap_daemon::set_server(const std::string &address, const boost::optional<epee::net_utils::http::login> &credentials /* = boost::none */)
