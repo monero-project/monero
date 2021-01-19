@@ -56,13 +56,15 @@
 namespace po = boost::program_options;
 namespace bf = boost::filesystem;
 
-uint16_t parse_public_rpc_port(const po::variables_map &vm)
+std::pair<uint16_t, uint16_t> parse_public_rpc_port(const po::variables_map &vm)
 {
   const auto &public_node_arg = daemon_args::arg_public_node;
+  const auto &public_node_as_hidden_service_arg = daemon_args::arg_public_node_as_hidden_service;
   const bool public_node = command_line::get_arg(vm, public_node_arg);
-  if (!public_node)
+  const bool public_node_as_hidden_service = command_line::get_arg(vm, public_node_as_hidden_service_arg);
+  if (!public_node && !public_node_as_hidden_service)
   {
-    return 0;
+    return std::make_pair(0, 0);
   }
 
   std::string rpc_port_str;
@@ -98,14 +100,18 @@ uint16_t parse_public_rpc_port(const po::variables_map &vm)
       + " network zone is not supported, please check RPC server bind address");
   }
 
-  if (address->is_loopback() || address->is_local())
+  uint16_t hidden_service_rpc_port = 0;
+  if (command_line::get_arg(vm, daemon_args::arg_public_node_as_hidden_service))
+    hidden_service_rpc_port = rpc_port;
+
+  if (public_node && (address->is_loopback() || address->is_local()))
   {
     MLOG_RED(el::Level::Warning, "--" << public_node_arg.name 
       << " is enabled, but RPC server " << address->str() 
       << " may be unreachable from outside, please check RPC server bind address");
   }
 
-  return rpc_port;
+  return std::make_pair(rpc_port, hidden_service_rpc_port);
 }
 
 #ifdef WIN32
@@ -153,6 +159,7 @@ int main(int argc, char const * argv[])
       command_line::add_arg(core_settings, daemon_args::arg_max_log_files);
       command_line::add_arg(core_settings, daemon_args::arg_max_concurrency);
       command_line::add_arg(core_settings, daemon_args::arg_public_node);
+      command_line::add_arg(core_settings, daemon_args::arg_public_node_as_hidden_service);
       command_line::add_arg(core_settings, daemon_args::arg_zmq_rpc_bind_ip);
       command_line::add_arg(core_settings, daemon_args::arg_zmq_rpc_bind_port);
       command_line::add_arg(core_settings, daemon_args::arg_zmq_pub);

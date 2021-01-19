@@ -45,7 +45,7 @@ namespace daemonize
 
     static std::string const NAME;
 
-    t_executor(uint16_t public_rpc_port = 0) : public_rpc_port(public_rpc_port)
+    t_executor(std::pair<uint16_t, uint16_t> public_rpc_port = std::make_pair(0, 0)) : public_rpc_port(public_rpc_port)
     {
     }
 
@@ -68,6 +68,6 @@ namespace daemonize
       );
 
   private:
-    uint16_t public_rpc_port;
+    std::pair<uint16_t, uint16_t> public_rpc_port;
   };
 }

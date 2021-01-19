@@ -135,7 +135,7 @@ void t_daemon::init_options(boost::program_options::options_description & option
 
 t_daemon::t_daemon(
     boost::program_options::variables_map const & vm,
-    uint16_t public_rpc_port
+    std::pair<uint16_t, uint16_t> public_rpc_port
   )
   : mp_internals{new t_internals{vm}},
   public_rpc_port(public_rpc_port)
@@ -208,11 +208,15 @@ bool t_daemon::run(bool interactive)
     else
       MINFO("ZMQ server disabled");
 
-    if (public_rpc_port > 0)
+    if (public_rpc_port.first > 0)
     {
-      MGINFO("Public RPC port " << public_rpc_port << " will be advertised to other peers over P2P");
-      mp_internals->p2p.get().set_rpc_port(public_rpc_port);
+      MGINFO("Public RPC port " << public_rpc_port.first << " will be advertised to other peers over public P2P");
     }
+    if (public_rpc_port.second > 0)
+    {
+      MGINFO("Public RPC port " << public_rpc_port.second << " will be advertised to other peers over private P2P");
+    }
+    mp_internals->p2p.get().set_rpc_port(public_rpc_port);
     
     mp_internals->p2p.run(); // blocks until p2p goes down
 

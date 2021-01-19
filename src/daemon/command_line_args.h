@@ -102,6 +102,12 @@ namespace daemon_args
   , false
   };
 
+  const command_line::arg_descriptor<bool> arg_public_node_as_hidden_service = {
+    "public-node-as-hidden-service"
+  , "Advertise the public RPC port over Tor and I2P"
+  , false
+  };
+
   const command_line::arg_descriptor<std::string> arg_zmq_rpc_bind_ip   = {
     "zmq-rpc-bind-ip"
       , "IP for ZMQ RPC server to listen on"

@@ -2163,7 +2163,8 @@ namespace nodetool
       node_data.my_port = m_external_port ? m_external_port : m_listening_port;
     else
       node_data.my_port = 0;
-    node_data.rpc_port = zone.m_can_pingback ? m_rpc_port : 0;
+    const bool is_private_zone = zone.m_our_address.get_zone() == epee::net_utils::zone::tor || zone.m_our_address.get_zone() == epee::net_utils::zone::i2p;
+    node_data.rpc_port = is_private_zone ? m_rpc_port.second : zone.m_can_pingback ? m_rpc_port.first : 0;
     node_data.rpc_credits_per_hash = zone.m_can_pingback ? m_rpc_credits_per_hash : 0;
     node_data.network_id = m_network_id;
     return true;
