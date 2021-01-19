@@ -986,17 +986,67 @@ bool t_command_parser_executor::check_blockchain_pruning(const std::vector<std::
 
 bool t_command_parser_executor::set_bootstrap_daemon(const std::vector<std::string>& args)
 {
-  const size_t args_count = args.size();
-  if (args_count < 1 || args_count > 3)
+  struct parsed_t
+  {
+    std::string address;
+    std::string user;
+    std::string password;
+    std::string proxy;
+  };
+
+  boost::optional<parsed_t> parsed = [&args]() -> boost::optional<parsed_t> {
+    const size_t args_count = args.size();
+    if (args_count == 0)
+    {
+      return {};
+    }
+    if (args[0] == "auto")
+    {
+      if (args_count == 1)
+      {
+        return {{args[0], "", "", ""}};
+      }
+      if (args_count == 2)
+      {
+        return {{args[0], "", "", args[1]}};
+      }
+    }
+    else if (args[0] == "none")
+    {
+      if (args_count == 1)
+      {
+        return {{"", "", "", ""}};
+      }
+    }
+    else
+    {
+      if (args_count == 1)
+      {
+        return {{args[0], "", "", ""}};
+      }
+      if (args_count == 2)
+      {
+        return {{args[0], "", "", args[1]}};
+      }
+      if (args_count == 3)
+      {
+        return {{args[0], args[1], args[2], ""}};
+      }
+      if (args_count == 4)
+      {
+        return {{args[0], args[1], args[2], args[3]}};
+      }
+    }
+    return {};
+  }();
+
+  if (!parsed)
   {
     std::cout << "Invalid syntax: Wrong number of parameters. For more details, use the help command." << std::endl;
     return true;
   }
 
-  return m_executor.set_bootstrap_daemon(
-    args[0] != "none" ? args[0] : std::string(),
-    args_count > 1 ? args[1] : std::string(),
-    args_count > 2 ? args[2] : std::string());
+  return m_executor.set_bootstrap_daemon(parsed->address, parsed->user, parsed->password, parsed->proxy);
 }
 
 bool t_command_parser_executor::flush_cache(const std::vector<std::string>& args)

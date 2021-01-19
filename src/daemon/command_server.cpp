@@ -326,7 +326,7 @@ t_command_server::t_command_server(
     m_command_lookup.set_handler(
       "set_bootstrap_daemon"
     , std::bind(&t_command_parser_executor::set_bootstrap_daemon, &m_parser, p::_1)
-    , "set_bootstrap_daemon (auto | none | host[:port] [username] [password])"
+    , "set_bootstrap_daemon (auto | none | host[:port] [username] [password]) [proxy_ip:proxy_port]"
     , "URL of a 'bootstrap' remote daemon that the connected wallets can use while this daemon is still not fully synced.\n"
       "Use 'auto' to enable automatic public nodes discovering and bootstrap daemon switching"
     );

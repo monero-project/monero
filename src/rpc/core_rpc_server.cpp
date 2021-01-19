@@ -154,6 +154,7 @@ namespace cryptonote
     command_line::add_arg(desc, arg_restricted_rpc);
     command_line::add_arg(desc, arg_bootstrap_daemon_address);
     command_line::add_arg(desc, arg_bootstrap_daemon_login);
+    command_line::add_arg(desc, arg_bootstrap_daemon_proxy);
     cryptonote::rpc_args::init_options(desc, true);
     command_line::add_arg(desc, arg_rpc_payment_address);
     command_line::add_arg(desc, arg_rpc_payment_difficulty);
@@ -172,7 +173,10 @@ namespace cryptonote
     , m_rpc_payment_allow_free_loopback(false)
   {}
   //------------------------------------------------------------------------------------------------------------------------------
-  bool core_rpc_server::set_bootstrap_daemon(const std::string &address, const std::string &username_password)
+  bool core_rpc_server::set_bootstrap_daemon(
+    const std::string &address,
+    const std::string &username_password,
+    const std::string &proxy)
   {
     boost::optional<epee::net_utils::http::login> credentials;
     const auto loc = username_password.find(':');
@@ -180,7 +184,7 @@ namespace cryptonote
     {
       credentials = epee::net_utils::http::login(username_password.substr(0, loc), username_password.substr(loc + 1));
     }
-    return set_bootstrap_daemon(address, credentials);
+    return set_bootstrap_daemon(address, credentials, proxy);
   }
   //------------------------------------------------------------------------------------------------------------------------------
   std::map<std::string, bool> core_rpc_server::get_public_nodes(uint32_t credits_per_hash_threshold/* = 0*/)
@@ -217,7 +221,10 @@ namespace cryptonote
     return result;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  bool core_rpc_server::set_bootstrap_daemon(const std::string &address, const boost::optional<epee::net_utils::http::login> &credentials)
+  bool core_rpc_server::set_bootstrap_daemon(
+    const std::string &address,
+    const boost::optional<epee::net_utils::http::login> &credentials,
+    const std::string &proxy)
   {
     boost::unique_lock<boost::shared_mutex> lock(m_bootstrap_daemon_mutex);
 
@@ -233,11 +240,11 @@ namespace cryptonote
       auto get_nodes = [this]() {
         return get_public_nodes(credits_per_hash_threshold);
       };
-      m_bootstrap_daemon.reset(new bootstrap_daemon(std::move(get_nodes), rpc_payment_enabled));
+      m_bootstrap_daemon.reset(new bootstrap_daemon(std::move(get_nodes), rpc_payment_enabled, proxy));
     }
     else
     {
-      m_bootstrap_daemon.reset(new bootstrap_daemon(address, credentials, rpc_payment_enabled));
+      m_bootstrap_daemon.reset(new bootstrap_daemon(address, credentials, rpc_payment_enabled, proxy));
     }
 
     m_should_use_bootstrap_daemon = m_bootstrap_daemon.get() != nullptr;
@@ -318,8 +325,10 @@ namespace cryptonote
         MWARNING("The RPC server is accessible from the outside, but no RPC payment was setup. RPC access will be free for all.");
     }
 
-    if (!set_bootstrap_daemon(command_line::get_arg(vm, arg_bootstrap_daemon_address),
-      command_line::get_arg(vm, arg_bootstrap_daemon_login)))
+    if (!set_bootstrap_daemon(
+          command_line::get_arg(vm, arg_bootstrap_daemon_address),
+          command_line::get_arg(vm, arg_bootstrap_daemon_login),
+          command_line::get_arg(vm, arg_bootstrap_daemon_proxy)))
     {
       MFATAL("Failed to parse bootstrap daemon address");
       return false;
@@ -1596,15 +1605,15 @@ namespace cryptonote
     {
       credentials = epee::net_utils::http::login(req.username, req.password);
     }
-    
-    if (set_bootstrap_daemon(req.address, credentials))
+
+    if (set_bootstrap_daemon(req.address, credentials, req.proxy))
     {
       res.status = CORE_RPC_STATUS_OK;
     }
     else
     {
       res.status = "Failed to set bootstrap daemon";
-    }    
+    }
 
     return true;
   }
@@ -3346,6 +3355,12 @@ namespace cryptonote
   const command_line::arg_descriptor<std::string> core_rpc_server::arg_bootstrap_daemon_login = {
       "bootstrap-daemon-login"
     , "Specify username:password for the bootstrap daemon login"
+    , ""
+    };
+
+  const command_line::arg_descriptor<std::string> core_rpc_server::arg_bootstrap_daemon_proxy = {
+      "bootstrap-daemon-proxy"
+    , "<ip>:<port> socks proxy to use for bootstrap daemon connections"
     , ""
     };
 
