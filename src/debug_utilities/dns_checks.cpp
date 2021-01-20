@@ -144,6 +144,8 @@ int main(int argc, char* argv[])
 
   lookup(LOOKUP_TXT, {"segheights.moneropulse.org", "segheights.moneropulse.net", "segheights.moneropulse.co", "segheights.moneropulse.se"});
 
+  lookup(LOOKUP_TXT, {"blocklist.moneropulse.se", "blocklist.moneropulse.org", "blocklist.moneropulse.net", "blocklist.moneropulse.no", "blocklist.moneropulse.fr", "blocklist.moneropulse.de", "blocklist.moneropulse.ch"});
+
   return 0;
   CATCH_ENTRY_L0("main", 1);
 }
