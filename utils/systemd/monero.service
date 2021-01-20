@@ -61,7 +61,7 @@ ProtectHome=true
 
 ### Please see the relevant entries in the systemd.exec(5) man page for more information about the following directory sandboxing options.
 ### Also, the following two monerod configuration options must be set in /etc/monero/monerod.conf:
-### data-dir=var/lib/monero
+### data-dir=/var/lib/monero
 ### log-file=/var/log/monero/monerod.log
 
 RuntimeDirectory=monero
