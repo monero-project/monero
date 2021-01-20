@@ -1,0 +1,87 @@
+### Unit file for running monerod as a systemd service ###
+
+### For more information about the options specified in the [Unit] and [Install] sections,
+### please see the systemd.unit(5) man page.
+
+[Unit]
+
+After=network.target
+Description=Monero Daemon
+
+### If monerod is configured to use Tor via "--tx-proxy" and, optionally, "--anonymous-inbound",
+### and if Tor is installed and running as a systemd service,
+### then replace lines 8 and 9 with the following three options:
+
+# After=network.target tor.service
+# Description=Monero Daemon
+# Wants=tor.service
+
+### The following [Install] section allows monero.service to be enabled via "systemctl enable",
+### which in turn causes monero.service to be automatically started at system startup.
+
+[Install]
+
+WantedBy=multi-user.target
+
+### For more information about the options specified in the [Service] section,
+### please see the systemd.service(5) and systemd.exec(5) man pages.
+
+[Service]
+
+Type=forking
+PIDFile=/run/monero/monerod.pid
+
+### The following "ExecStart=" line assumes that:
+### (a) the monerod binary has been copied to the /usr/local/bin directory and is owned by the "monero" system user and group,
+### (b) the /etc/monero directory exists and is owned by the "monero" system user and group, and
+### (c) the monerod.conf configuration file exists, is located in /etc/monero, and is owned by the "monero" system user and group.
+
+ExecStart=/usr/local/bin/monerod --config-file /etc/monero/monerod.conf --detach --pidfile /run/monero/monerod.pid
+ExecStop=/usr/local/bin/monerod exit
+RestartSec=60
+TimeoutStopSec=300
+Restart=on-failure
+
+### For more information about the following security, sandboxing, and system call filtering options,
+### please see the systemd.exec(5) man page.
+
+### The following two options assume that the "monero" system user already exists and belongs to the "monero" system group.
+
+User=monero
+Group=monero
+
+## Security
+
+NoNewPrivileges=true
+
+## Sandboxing
+
+ProtectSystem=full
+ProtectHome=true
+
+### Please see the relevant entries in the systemd.exec(5) man page for more information about the following directory sandboxing options.
+### Also, the following two monerod configuration options must be set in /etc/monero/monerod.conf:
+### data-dir=var/lib/monero
+### log-file=/var/log/monero/monerod.log
+
+RuntimeDirectory=monero
+StateDirectory=monero
+LogsDirectory=monero
+ConfigurationDirectory=monero
+RuntimeDirectoryMode=0700
+StateDirectoryMode=0700
+LogsDirectoryMode=0700
+ConfigurationDirectoryMode=0700
+
+PrivateTmp=true
+PrivateDevices=true
+PrivateUsers=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+LockPersonality=true
+RemoveIPC=true
+
+## System Call Filtering
+
+SystemCallArchitectures=native
