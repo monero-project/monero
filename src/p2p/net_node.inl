@@ -2002,15 +2002,22 @@ namespace nodetool
       {
         if (ip.empty())
           continue;
-        const expect<epee::net_utils::network_address> parsed_addr = net::get_network_address(ip, 0);
-        if (!parsed_addr)
+        auto subnet = net::get_ipv4_subnet_address(ip);
+        if (subnet)
         {
-          MWARNING("Invalid IP address from DNS blocklist: " << ip << " - " << parsed_addr.error());
-          ++bad;
+          block_subnet(*subnet, DNS_BLOCKLIST_LIFETIME);
+          ++good;
           continue;
         }
-        block_host(*parsed_addr, DNS_BLOCKLIST_LIFETIME, true);
-        ++good;
+        const expect<epee::net_utils::network_address> parsed_addr = net::get_network_address(ip, 0);
+        if (parsed_addr)
+        {
+          block_host(*parsed_addr, DNS_BLOCKLIST_LIFETIME, true);
+          ++good;
+          continue;
+        }
+        MWARNING("Invalid IP address or subnet from DNS blocklist: " << ip << " - " << parsed_addr.error());
+        ++bad;
       }
     }
     if (good > 0)
