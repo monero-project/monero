@@ -365,15 +365,14 @@ namespace trezor {
     void device_trezor_base::device_state_initialize_unsafe()
     {
       require_connected();
-      std::string tmp_session_id;
       auto initMsg = std::make_shared<messages::management::Initialize>();
       const auto data_cleaner = epee::misc_utils::create_scope_leave_handler([&]() {
-        memwipe(&tmp_session_id[0], tmp_session_id.size());
+        if (initMsg->has_session_id())
+          memwipe(&(*initMsg->mutable_session_id())[0], initMsg->mutable_session_id()->size());
       });
 
       if(!m_device_session_id.empty()) {
-        tmp_session_id.assign(m_device_session_id.data(), m_device_session_id.size());
-        initMsg->set_allocated_session_id(&tmp_session_id);
+        initMsg->set_allocated_session_id(new std::string(m_device_session_id.data(), m_device_session_id.size()));
       }
 
       m_features = this->client_exchange<messages::management::Features>(initMsg);
@@ -382,8 +381,6 @@ namespace trezor {
       } else {
         m_device_session_id.clear();
       }
-
-      initMsg->release_session_id();
     }
 
     void device_trezor_base::device_state_reset()
@@ -453,18 +450,14 @@ namespace trezor {
         pin = m_pin;
       }
 
-      std::string pin_field;
       messages::common::PinMatrixAck m;
       if (pin) {
-        pin_field.assign(pin->data(), pin->size());
-        m.set_allocated_pin(&pin_field);
+        m.set_allocated_pin(new std::string(pin->data(), pin->size()));
       }
 
       const auto data_cleaner = epee::misc_utils::create_scope_leave_handler([&]() {
-        m.release_pin();
-        if (!pin_field.empty()){
-          memwipe(&pin_field[0], pin_field.size());
-        }
+        if (m.has_pin())
+          memwipe(&(*m.mutable_pin())[0], m.mutable_pin()->size());
       });
 
       resp = call_raw(&m);
@@ -499,7 +492,6 @@ namespace trezor {
       boost::optional<epee::wipeable_string> passphrase;
       TREZOR_CALLBACK_GET(passphrase, on_passphrase_request, on_device);
 
-      std::string passphrase_field;
       messages::common::PassphraseAck m;
       m.set_on_device(on_device);
       if (!on_device) {
@@ -512,16 +504,13 @@ namespace trezor {
         }
 
         if (passphrase) {
-          passphrase_field.assign(passphrase->data(), passphrase->size());
-          m.set_allocated_passphrase(&passphrase_field);
+          m.set_allocated_passphrase(new std::string(passphrase->data(), passphrase->size()));
         }
       }
 
       const auto data_cleaner = epee::misc_utils::create_scope_leave_handler([&]() {
-        m.release_passphrase();
-        if (!passphrase_field.empty()){
-          memwipe(&passphrase_field[0], passphrase_field.size());
-        }
+        if (m.has_passphrase())
+          memwipe(&(m.mutable_passphrase())[0], m.mutable_passphrase()->size());
       });
 
       resp = call_raw(&m);
