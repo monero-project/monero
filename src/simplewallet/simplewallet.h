@@ -466,6 +466,7 @@ namespace cryptonote
     bool m_daemon_rpc_payment_message_displayed;
     float m_rpc_payment_hash_rate;
     std::atomic<bool> m_suspend_rpc_payment_mining;
+    std::atomic<bool> m_rpc_payment_mining_manual_stop;
 
     std::unordered_map<std::string, uint32_t> m_claimed_cph;
 
