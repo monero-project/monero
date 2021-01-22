@@ -5,22 +5,23 @@
 
 [Unit]
 
-After=network.target
 Description=Monero Daemon
+After=network.target
 
 ### If monerod is configured to use Tor via "--tx-proxy" and, optionally, "--anonymous-inbound",
 ### and if Tor is installed and running as a systemd service,
-### then replace lines 8 and 9 with the following three options:
+### then replace the above "After=network.target" directive with the following two directives:
 
 # After=network.target tor.service
-# Description=Monero Daemon
 # Wants=tor.service
 
 ### The following [Install] section allows monero.service to be enabled via "systemctl enable",
 ### which in turn causes monero.service to be automatically started at system startup.
+### It also allows monero.service to be invoked as monerod.service in various systemctl commands.
 
 [Install]
 
+Alias=monerod.service
 WantedBy=multi-user.target
 
 ### For more information about the options specified in the [Service] section,
