@@ -1340,7 +1340,10 @@ bool message_store::check_for_messages(const multisig_wallet_state &state, std::
     }
   }
   std::vector<transport_message> transport_messages;
-  bool r = m_transporter.receive_messages(destinations, transport_messages);
+  if (!m_transporter.receive_messages(destinations, transport_messages))
+  {
+    return false;
+  }
   if (!m_run.load(std::memory_order_relaxed))
   {
     // Stop was called, don't waste time processing the messages

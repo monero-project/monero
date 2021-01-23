@@ -42,9 +42,6 @@
 
 #define V1TAG ((uint64_t)798237759845202)
 
-static const char zerokey[8] = {0};
-static const MDB_val zerokeyval = { sizeof(zerokey), (void *)zerokey };
-
 static int compare_hash32(const MDB_val *a, const MDB_val *b)
 {
   uint32_t *va = (uint32_t*) a->mv_data;

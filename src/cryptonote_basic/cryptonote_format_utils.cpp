@@ -104,7 +104,6 @@ namespace cryptonote
 
   uint64_t get_transaction_weight_clawback(const transaction &tx, size_t n_padded_outputs)
   {
-    const rct::rctSig &rv = tx.rct_signatures;
     const uint64_t bp_base = 368;
     const size_t n_outputs = tx.vout.size();
     if (n_padded_outputs <= 2)

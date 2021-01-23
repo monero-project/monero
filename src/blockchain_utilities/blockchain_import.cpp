@@ -227,7 +227,7 @@ int import_from_file(cryptonote::core& core, const std::string& import_file_path
     return false;
   }
 
-  uint64_t block_first, block_last;
+  uint64_t block_first;
   uint64_t start_height = 1, seek_height;
   if (opt_resume)
     start_height = core.get_blockchain_storage().get_current_blockchain_height();

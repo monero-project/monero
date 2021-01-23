@@ -78,8 +78,6 @@ bool test_transaction_generation_and_ring_signature()
   tx_source_entry& src = sources.back();
   src.amount = 70368744177663;
   {
-    tx_output_entry oe;
-
     src.push_output(0, boost::get<txout_to_key>(tx_mine_1.vout[0].target).key, src.amount);
 
     src.push_output(1, boost::get<txout_to_key>(tx_mine_2.vout[0].target).key, src.amount);

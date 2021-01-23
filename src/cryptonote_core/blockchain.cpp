@@ -3438,7 +3438,6 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
       bool failed = false;
       for (size_t i = 0; i < tx.vin.size(); i++)
       {
-        const txin_to_key& in_to_key = boost::get<txin_to_key>(tx.vin[i]);
         if(!failed && !results[i])
           failed = true;
       }

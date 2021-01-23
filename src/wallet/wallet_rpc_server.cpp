@@ -1282,7 +1282,6 @@ namespace tools
             dests.erase(cd.change_dts.addr);
         }
 
-        size_t n_dummy_outputs = 0;
         for (auto i = dests.begin(); i != dests.end(); )
         {
           if (i->second.second > 0)

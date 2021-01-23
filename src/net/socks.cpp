@@ -48,7 +48,6 @@ namespace socks
 {
     namespace
     {
-        constexpr const unsigned v4_reply_size = 8;
         constexpr const std::uint8_t v4_connect_command = 1;
         constexpr const std::uint8_t v4tor_resolve_command = 0xf0;
         constexpr const std::uint8_t v4_request_granted = 90;

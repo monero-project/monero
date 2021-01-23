@@ -180,7 +180,6 @@ int main(int argc, char* argv[])
 
   LOG_PRINT_L0("Building usage patterns...");
 
-  size_t done = 0;
   std::unordered_map<output_data, std::list<reference>> outputs;
   std::unordered_map<uint64_t,uint64_t> indices;
 
@@ -195,7 +194,7 @@ int main(int argc, char* argv[])
     {
       if (opt_rct_only && out.amount)
         continue;
-      uint64_t index = indices[out.amount]++;
+      indices[out.amount]++;
       output_data od(out.amount, indices[out.amount], coinbase, height);
       auto itb = outputs.emplace(od, std::list<reference>());
       itb.first->first.info(coinbase, height);

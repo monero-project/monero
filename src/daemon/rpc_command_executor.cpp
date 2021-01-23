@@ -1059,7 +1059,6 @@ bool t_rpc_command_executor::print_transaction(crypto::hash transaction_hash,
     // Print json if requested
     if (include_json)
     {
-      crypto::hash tx_hash, tx_prefix_hash;
       cryptonote::transaction tx;
       cryptonote::blobdata blob;
       std::string source = as_hex.empty() ? pruned_as_hex + prunable_as_hex : as_hex;
