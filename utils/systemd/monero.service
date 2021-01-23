@@ -1,4 +1,4 @@
-### Unit file for running monerod as a systemd service ###
+### Sample unit file for running monerod as a systemd service ###
 
 ### For more information about the options specified in the [Unit] and [Install] sections,
 ### please see the systemd.unit(5) man page.
@@ -17,7 +17,8 @@ After=network.target
 
 ### The following [Install] section allows monero.service to be enabled via "systemctl enable",
 ### which in turn causes monero.service to be automatically started at system startup.
-### It also allows monero.service to be invoked as monerod.service in various systemctl commands.
+### The "Alias=monerod.service" directive allows monero.service to be invoked as monerod.service in various systemctl commands
+### if monero.service is enabled via "systemctl enable".
 
 [Install]
 
@@ -29,15 +30,14 @@ WantedBy=multi-user.target
 
 [Service]
 
-Type=forking
-PIDFile=/run/monero/monerod.pid
+Type=simple
 
 ### The following "ExecStart=" line assumes that:
 ### (a) the monerod binary has been copied to the /usr/local/bin directory and is owned by the "monero" system user and group,
 ### (b) the /etc/monero directory exists and is owned by the "monero" system user and group, and
 ### (c) the monerod.conf configuration file exists, is located in /etc/monero, and is owned by the "monero" system user and group.
 
-ExecStart=/usr/local/bin/monerod --config-file /etc/monero/monerod.conf --detach --pidfile /run/monero/monerod.pid
+ExecStart=/usr/local/bin/monerod --config-file /etc/monero/monerod.conf --non-interactive
 ExecStop=/usr/local/bin/monerod exit
 RestartSec=60
 TimeoutStopSec=300
