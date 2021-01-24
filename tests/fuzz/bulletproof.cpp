@@ -37,9 +37,7 @@ BEGIN_INIT_SIMPLE_FUZZER()
 END_INIT_SIMPLE_FUZZER()
 
 BEGIN_SIMPLE_FUZZER()
-  std::stringstream ss;
-  ss << std::string((const char*)buf, len);
-  binary_archive<false> ba(ss);
+  binary_archive<false> ba{{buf, len}};
   rct::Bulletproof proof = AUTO_VAL_INIT(proof);
   ::serialization::serialize(ba, proof);
 END_SIMPLE_FUZZER()
