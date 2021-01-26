@@ -15,14 +15,11 @@ After=network.target
 # After=network.target tor.service
 # Wants=tor.service
 
-### The following [Install] section allows monero.service to be enabled via "systemctl enable",
-### which in turn causes monero.service to be automatically started at system startup.
-### The "Alias=monerod.service" directive allows monero.service to be invoked as monerod.service in various systemctl commands
-### if monero.service is enabled via "systemctl enable".
+### The following [Install] section allows monerod.service to be enabled via "systemctl enable",
+### which in turn causes monerod.service to be automatically started at system startup.
 
 [Install]
 
-Alias=monerod.service
 WantedBy=multi-user.target
 
 ### For more information about the options specified in the [Service] section,
