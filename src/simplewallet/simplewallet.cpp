@@ -9466,7 +9466,7 @@ void simple_wallet::print_accounts()
 {
   const std::pair<std::map<std::string, std::string>, std::vector<std::string>>& account_tags = m_wallet->get_account_tags();
   size_t num_untagged_accounts = m_wallet->get_num_subaddress_accounts();
-  for (const std::pair<std::string, std::string>& p : account_tags.first)
+  for (const std::pair<const std::string, std::string>& p : account_tags.first)
   {
     const std::string& tag = p.first;
     print_accounts(tag);

@@ -630,7 +630,7 @@ namespace cryptonote
 
           void operator()(std::uint64_t, epee::span<const block> blocks) const
           {
-            for (const block bl : blocks)
+            for (const block& bl : blocks)
               cmdline.notify("%s", epee::string_tools::pod_to_hex(get_block_hash(bl)).c_str(), NULL);
           }
         };
