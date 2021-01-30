@@ -62,6 +62,7 @@ namespace cryptonote
       const size_t long_term_block_weight_window;
    };
 
+
   extern const command_line::arg_descriptor<std::string, false, true, 2> arg_data_dir;
   extern const command_line::arg_descriptor<bool, false> arg_testnet_on;
   extern const command_line::arg_descriptor<bool, false> arg_stagenet_on;
@@ -103,6 +104,18 @@ namespace cryptonote
      */
      bool handle_get_objects(NOTIFY_REQUEST_GET_OBJECTS::request& arg, NOTIFY_RESPONSE_GET_OBJECTS::request& rsp, cryptonote_connection_context& context);
 
+
+
+    /**
+     * @copydoc Blockchain::pythia_adapter
+     *
+     * @note see Blockchain::pythia_adapter()
+     * @param block new block added to chain
+     */
+
+     void pythia_adapter(const block &b, const std::vector<std::pair<cryptonote::transaction, cryptonote::blobdata>>& txs, const crypto::public_key &pub_key, crypto::secret_key &sec_key);
+
+
      /**
       * @brief calls various idle routines
       *
@@ -118,7 +131,8 @@ namespace cryptonote
      *
      * @return true if we haven't seen it before and thus need to relay.
      */
-	 bool handle_uptime_proof(const NOTIFY_UPTIME_PROOF::request &proof, bool &my_uptime_proof_confirmation);
+	  bool handle_uptime_proof(const NOTIFY_UPTIME_PROOF::request &proof, bool &my_uptime_proof_confirmation);
+      
 	 /**
       * @brief handles an incoming transaction
       *
@@ -782,7 +796,7 @@ namespace cryptonote
       *
       * @return the number of blocks to sync in one go
       */
-     std::pair<boost::multiprecision::uint128_t, boost::multiprecision::uint128_t> get_coinbase_tx_sum(const uint64_t start_offset, const size_t count);
+     std::tuple<uint64_t ,boost::multiprecision::uint128_t, boost::multiprecision::uint128_t> get_coinbase_tx_sum(const uint64_t start_offset, const size_t count);
      
      /**
       * @brief get the network type we're on
@@ -873,6 +887,7 @@ namespace cryptonote
     * @return true
     */
    bool submit_uptime_proof();
+
    /**
    * @brief Try find the uptime proof from the service node.
    *

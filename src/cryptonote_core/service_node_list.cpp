@@ -578,9 +578,9 @@ namespace service_nodes
 			return false;
 
 		// check the initial contribution exists
-
+		const auto hf_version = m_blockchain.get_hard_fork_version(block_height);
 		info.staking_requirement = get_staking_requirement(m_blockchain.nettype(), block_height);
-
+	
 		cryptonote::account_public_address address;
 		uint64_t transferred = 0;
 		if (!get_contribution(tx, block_height, address, transferred))
@@ -604,8 +604,6 @@ namespace service_nodes
 		info.last_reward_transaction_index = index;
 		info.total_contributed = 0;
 		info.total_reserved = 0;
-
-		const auto hf_version = m_blockchain.get_hard_fork_version(block_height);
 
 		if (hf_version >= 5) {
 			info.version = service_node_info::version_1_swarms;

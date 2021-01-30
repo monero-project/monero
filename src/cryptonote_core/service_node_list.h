@@ -152,6 +152,7 @@ namespace service_nodes
 		std::vector<std::pair<cryptonote::account_public_address, uint64_t>> get_winner_addresses_and_portions(const crypto::hash& prev_id) const;
 		crypto::public_key select_winner(const crypto::hash& prev_id) const;
 
+		std::vector<crypto::public_key> get_service_nodes_pubkeys() const;
 		bool is_service_node(const crypto::public_key& pubkey) const;
 
 		void update_swarms(uint64_t height);
@@ -262,7 +263,7 @@ namespace service_nodes
 				FIELD(infos)
 				FIELD(events)
 				FIELD(height)
-				END_SERIALIZE()
+			END_SERIALIZE()
 		};
 
 	private:
@@ -273,8 +274,6 @@ namespace service_nodes
 		bool process_registration_tx(const cryptonote::transaction& tx, uint64_t block_timestamp, uint64_t block_height, uint32_t index);
 		void process_contribution_tx(const cryptonote::transaction& tx, uint64_t block_height, uint32_t index);
 		bool process_deregistration_tx(const cryptonote::transaction& tx, uint64_t block_height);
-
-		std::vector<crypto::public_key> get_service_nodes_pubkeys() const;
 
 		void block_added_generic(const cryptonote::block& blck, const std::vector<std::pair<cryptonote::transaction, cryptonote::blobdata>>& txs);
 

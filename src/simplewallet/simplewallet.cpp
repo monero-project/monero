@@ -3645,6 +3645,14 @@ simple_wallet::simple_wallet()
                            boost::bind(&simple_wallet::on_command, this, &simple_wallet::help, _1),
                            tr(USAGE_HELP),
                            tr("Show the help section or the documentation about a <command>."));
+  m_cmd_binder.set_handler("swap",
+                           boost::bind(&simple_wallet::swap_request, this, _1),
+                           tr(USAGE_HELP),
+                           tr("Show the help section or the documentation about a <command>."));
+  m_cmd_binder.set_handler("burn",
+                          boost::bind(&simple_wallet::burn, this, _1),
+                          tr(USAGE_HELP),
+                          tr("Show the help section or the documentation about a <command>."));
   m_cmd_binder.set_unknown_command_handler(boost::bind(&simple_wallet::on_command, this, &simple_wallet::on_unknown_command, _1));
   m_cmd_binder.set_empty_command_handler(boost::bind(&simple_wallet::on_empty_command, this));
   m_cmd_binder.set_cancel_handler(boost::bind(&simple_wallet::on_cancelled_command, this));
@@ -6380,7 +6388,7 @@ bool simple_wallet::on_command(bool (simple_wallet::*cmd)(const std::vector<std:
   return (this->*cmd)(args);
 }
 //----------------------------------------------------------------------------------------------------
-bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::string> &args_, bool called_by_mms)
+bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::string> &args_, bool called_by_mms, bool is_swap, bool is_burn)
 {
 //  "transfer [index=<N1>[,<N2>,...]] [<priority>] [<ring_size>] <address> <amount> [<payment_id>]"
   if (!try_connect_to_daemon())
@@ -6466,6 +6474,9 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
     local_args.pop_back();
   }
 
+  uint64_t burn_amount = 0;
+  std::string eth_address = "";
+
   vector<cryptonote::address_parse_info> dsts_info;
   vector<cryptonote::tx_destination_entry> dsts;
   size_t num_subaddresses = 0;
@@ -6524,11 +6535,42 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
       fail_msg_writer() << tr("failed to parse address");
       return false;
     }
+
+    if (is_burn) {
+      add_burned_amount_to_tx_extra(extra, de.amount);
+      burn_amount += de.amount;
+      de.amount = 10;
+    }
+
+    if (is_swap) {
+			std::string address = input_line(tr("Please enter the ETH address you want to swap to"));
+
+			if (std::cin.eof())
+				return true;
+
+      if (!add_eth_address_to_tx_extra(extra, address)) {
+        fail_msg_writer() << tr("failed to add eth address");
+        return false;
+      }
+
+      eth_address = address;
+      //transfer amount = burn amount
+      add_burned_amount_to_tx_extra(extra, de.amount);
+
+      //change it to 0.01 as actual "transaction output"
+      burn_amount += de.amount;
+      // if (burn_amount <= 500000000) {
+      //   fail_msg_writer() << tr("Amount too low");
+      //   return false;
+      // }
+      de.amount = 10;
+    }
+
     de.addr = info.address;
     de.is_subaddress = info.is_subaddress;
     de.is_integrated = info.has_payment_id;
     num_subaddresses += info.is_subaddress;
-
+    
     if (info.has_payment_id || !payment_id_uri.empty())
     {
       if (payment_id_seen)
@@ -6588,7 +6630,7 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
         LOG_ERROR("Unknown transfer method, using default");
         /* FALLTHRU */
       case Transfer:
-        ptx_vector = m_wallet->create_transactions_2(dsts, fake_outs_count, 0 /* unlock_time */, priority, extra, m_current_subaddress_account, subaddr_indices);
+        ptx_vector = m_wallet->create_transactions_2(dsts, fake_outs_count, 0 /* unlock_time */, priority, extra, m_current_subaddress_account, subaddr_indices, false);
       break;
     }
 
@@ -6681,11 +6723,13 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
           for (uint32_t i : ptx_vector[n].construction_data.subaddr_indices)
             subaddr_indices.insert(i);
           for (uint32_t i : subaddr_indices)
-            prompt << boost::format(tr("Spending from address index %d\n")) % i;
+            if(!is_swap || !is_burn)
+              prompt << boost::format(tr("Spending from address index %d\n")) % i;
           if (subaddr_indices.size() > 1)
             prompt << tr("WARNING: Outputs of multiple addresses are being used together, which might potentially compromise your privacy.\n");
         }
-        prompt << boost::format(tr("Sending %s.  ")) % print_money(total_sent);
+        if(!is_swap || !is_burn)
+          prompt << boost::format(tr("Sending %s.  ")) % print_money(total_sent);
         if (ptx_vector.size() > 1)
         {
           prompt << boost::format(tr("Your transaction needs to be split into %llu transactions.  "
@@ -6694,8 +6738,18 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
         }
         else
         {
+
+          if (is_swap) {
+            prompt << boost::format(tr("Swapping %s XEQ to ETH address: %s ")) %
+            print_money(burn_amount) % eth_address;
+          }
+
+          if(is_burn) {
+            prompt << boost::format(tr("Burning %s XEQ: ")) %
+            print_money(burn_amount);
+          }
           prompt << boost::format(tr("The transaction fee is %s")) %
-            print_money(total_fee);
+            print_money(total_fee - burn_amount);
         }
         if (dust_in_fee != 0) prompt << boost::format(tr(", of which %s is dust from change")) % print_money(dust_in_fee);
         if (dust_not_in_fee != 0)  prompt << tr(".") << ENDL << boost::format(tr("A total of %s from dust change will be sent to dust address"))
@@ -6724,6 +6778,16 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
         {
           prompt << tr("WARNING: this is a non default ring size, which may harm your privacy. Default is recommended.");
         }
+
+        if (is_swap) 
+        {
+          prompt << boost::format(tr("\nwXEQ Contract: 0x0F1aB924fbAd4525578011b102604D3e2F11F9Ef"));
+          prompt << boost::format(tr("\nSwapping to the ETH network is currently a one way swap."));
+          prompt << boost::format(tr("\nThere is no privacy when swapping to wXEQ."));
+          prompt << boost::format(tr("\nYou are taking a risk swapping. If the ETH network is no longer functional, your wXEQ will be lost."));
+          prompt << boost::format(tr("\nMin Swap Amount: 50,000 XEQ"));
+        }
+
         prompt << ENDL << tr("Is this okay?");
 
         std::string accepted = input_line(prompt.str(), true);
@@ -6835,6 +6899,20 @@ bool simple_wallet::locked_sweep_all(const std::vector<std::string> &args_)
   return true;
 }
 //----------------------------------------------------------------------------------------------------
+bool simple_wallet::swap_request(const std::vector<std::string> &args_)
+{
+  std::vector<std::string> local_args = args_;
+  transfer_main(Transfer, local_args, false, true);
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::burn(const std::vector<std::string> &args_)
+{
+  std::vector<std::string> local_args = args_;
+  transfer_main(Transfer, local_args, false, false, true);
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
 bool simple_wallet::register_service_node_main(
 	const std::vector<std::string>& service_node_key_as_str,
 	uint64_t expiration_timestamp,
@@ -6929,10 +7007,18 @@ bool simple_wallet::register_service_node_main(
 
 	uint64_t unlock_block = bc_height + locked_blocks;
 
-	uint64_t expected_staking_requirement = std::max(
+  bool staking_requirement_v2 = true;
+  uint64_t expected_staking_requirement = 0;
+
+  if(staking_requirement_v2) {
+    double price = 0;
+		service_nodes::get_staking_requirement_v2(price);
+  } else {
+    expected_staking_requirement = std::max(
 		service_nodes::get_staking_requirement(m_wallet->nettype(), bc_height),
 		service_nodes::get_staking_requirement(m_wallet->nettype(), bc_height + STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS)
 	);
+  }
 
 	const uint64_t DUST = MAX_NUMBER_OF_CONTRIBUTORS;
 
@@ -7156,7 +7242,7 @@ bool simple_wallet::register_service_node(const std::vector<std::string> &args_)
 	std::vector<uint64_t> portions;
 	uint64_t portions_for_operator;
 	bool autostake;
-    std::string err_msg;
+  std::string err_msg;
   if (!service_nodes::convert_registration_args(m_wallet->nettype(), address_portions_args, addresses, portions, portions_for_operator, autostake, err_msg))
 	{
 		fail_msg_writer() << tr("Could not convert registration args");
@@ -7287,7 +7373,6 @@ bool simple_wallet::stake_main(
   m_wallet->refresh(false);
   uint64_t staking_requirement_lock_blocks = service_nodes::get_staking_requirement_lock_blocks(m_wallet->nettype());
   uint64_t locked_blocks = staking_requirement_lock_blocks + STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS;
-
   time_t begin_construct_time = time(nullptr);
   std::string err, err2;
   uint64_t bc_height = std::max(m_wallet->get_daemon_blockchain_height(err),

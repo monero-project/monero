@@ -58,6 +58,8 @@ using namespace epee;
 #include "wipeable_string.h"
 #include "common/i18n.h"
 
+#include "pythia_adapter/send_data.h"
+
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "cn"
 
@@ -688,6 +690,12 @@ namespace cryptonote
     if (block_sync_size > BLOCKS_SYNCHRONIZING_MAX_COUNT)
       MERROR("Error --block-sync-size cannot be greater than " << BLOCKS_SYNCHRONIZING_MAX_COUNT);
 
+    //karai::Graph graph_ = karai::spawnGraph();
+    //graph_.addTx(2, "hiya");
+
+    //graph_.printTransactions();
+
+
     MGINFO("Loading checkpoints");
 
     // load json & DNS checkpoints, and verify them
@@ -1232,15 +1240,16 @@ namespace cryptonote
     return m_mempool.check_for_key_images(key_im, spent);
   }
   //-----------------------------------------------------------------------------------------------
-  std::pair<boost::multiprecision::uint128_t, boost::multiprecision::uint128_t> core::get_coinbase_tx_sum(const uint64_t start_offset, const size_t count)
+  std::tuple<uint64_t, boost::multiprecision::uint128_t, boost::multiprecision::uint128_t> core::get_coinbase_tx_sum(const uint64_t start_offset, const size_t count)
   {
     boost::multiprecision::uint128_t emission_amount = 0;
     boost::multiprecision::uint128_t total_fee_amount = 0;
+    uint64_t burnt_xeq = 0;
     if (count)
     {
       const uint64_t end = start_offset + count - 1;
       m_blockchain_storage.for_blocks_range(start_offset, end,
-        [this, &emission_amount, &total_fee_amount](uint64_t, const crypto::hash& hash, const block& b){
+        [this, &emission_amount, &total_fee_amount, &burnt_xeq](uint64_t, const crypto::hash& hash, const block& b){
 		  std::vector <transaction> txs;
       std::vector<crypto::hash> missed_txs;
       uint64_t coinbase_amount = get_outs_money_amount(b.miner_tx);
@@ -1248,7 +1257,11 @@ namespace cryptonote
       uint64_t tx_fee_amount = 0;
       for(const auto& tx: txs)
       {
-        tx_fee_amount += get_tx_fee(tx);
+        tx_fee_amount += get_tx_miner_fee(tx, b.major_version >= HF_VERSION_FEE_BURNING);
+        if(b.major_version >= HF_VERSION_FEE_BURNING)
+        {
+          burnt_xeq += get_burned_amount_from_tx_extra(tx.extra);
+        }
       }
 
       emission_amount += coinbase_amount - tx_fee_amount;
@@ -1257,7 +1270,7 @@ namespace cryptonote
       });
     }
 
-    return std::pair<boost::multiprecision::uint128_t, boost::multiprecision::uint128_t>(emission_amount, total_fee_amount);
+    return std::tuple<uint64_t ,boost::multiprecision::uint128_t, boost::multiprecision::uint128_t>(burnt_xeq, emission_amount, total_fee_amount);
   }
   //-----------------------------------------------------------------------------------------------
   bool core::check_tx_inputs_keyimages_diff(const transaction& tx) const
@@ -1382,9 +1395,24 @@ namespace cryptonote
 
 	  if (relayed)
 		  MGINFO("Submitted uptime-proof for service node (yours): " << m_service_node_pubkey);
-	}
+	  }
     return true;
   }
+  //-----------------------------------------------------------------------------------------------
+  void core::pythia_adapter(const block &b, const std::vector<std::pair<cryptonote::transaction, cryptonote::blobdata>>& txs, const crypto::public_key &pub_key, crypto::secret_key &sec_key)
+  {
+    // const uint8_t version = m_blockchain_storage.get_current_hard_fork_version();
+    // if (m_service_node && version >= 10)
+    // {
+    //   crypto::hash last_block_hash = get_block_id_by_height(get_block_height(b) - 1);
+
+    //   block last_block;
+    //   get_block_by_hash(last_block_hash, last_block);
+
+    //   karai::handle_block(b, txs, last_block, m_service_node_pubkey, m_service_node_key, m_service_node_list.get_service_nodes_pubkeys());
+    // }
+  }
+
   //-----------------------------------------------------------------------------------------------
   uint64_t core::get_uptime_proof(const crypto::public_key &key) const
   {
@@ -1505,6 +1533,7 @@ namespace cryptonote
     }
     return bce;
   }
+
   //-----------------------------------------------------------------------------------------------
   bool core::handle_block_found(block& b, block_verification_context &bvc)
   {

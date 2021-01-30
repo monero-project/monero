@@ -572,9 +572,8 @@ namespace cryptonote
       return k;
     }
   };
-  //---------------------------------------------------------------
-
 }
+
 
 namespace std {
   template <>

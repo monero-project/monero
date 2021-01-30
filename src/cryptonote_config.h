@@ -213,6 +213,10 @@ static_assert(STAKING_PORTIONS % 3 == 0, "Use a multiple of three, so that it di
 #define HF_VERSION_ENFORCE_MIN_AGE              12
 #define HF_VERSION_EFFECTIVE_SHORT_TERM_MEDIAN_IN_PENALTY 12
 
+
+#define HF_VERSION_FEE_BURNING                  9
+
+
 #define PER_KB_FEE_QUANTIZATION_DECIMALS       4
 
 #define HASH_OF_HASHES_STEP                     512

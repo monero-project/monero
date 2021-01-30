@@ -17,6 +17,7 @@ inline uint64_t get_min_node_contribution(uint64_t staking_requirement, uint64_t
 }
 
 uint64_t get_staking_requirement(cryptonote::network_type nettype, uint64_t height);
+uint64_t get_staking_requirement_v2(const double &price);
 
 uint64_t portions_to_amount(uint64_t portions, uint64_t staking_requirement);
 

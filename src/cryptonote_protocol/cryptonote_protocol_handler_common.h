@@ -68,5 +68,6 @@ namespace cryptonote
     {
       return false;
     }
+
   };
 }

@@ -603,8 +603,8 @@ namespace nodetool
     std::set<std::string> full_addrs;
     if (nettype == cryptonote::TESTNET)
     {
-		full_addrs.insert("159.89.146.92:9330"); //outdated
-		full_addrs.insert("138.68.239.125:9330"); //outdated
+		full_addrs.insert("167.172.156.118:9330"); //outdated
+		full_addrs.insert("157.230.91.2:9330"); //outdated
 
     }
     else if (nettype == cryptonote::STAGENET)

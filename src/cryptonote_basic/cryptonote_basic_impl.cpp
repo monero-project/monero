@@ -104,6 +104,7 @@ namespace cryptonote {
 
      static_assert(DIFFICULTY_TARGET_V2 % 60 == 0 && DIFFICULTY_TARGET_V1 % 60 == 0, "difficulty targets must be a multiple of 60");
 	   int target = DIFFICULTY_TARGET_V2; 
+
       if(version < 6)
       {
         target = DIFFICULTY_TARGET_V2;
@@ -114,6 +115,10 @@ namespace cryptonote {
 	   const int target_minutes = target / 60;
 	   const int emission_speed_factor = get_emission_speed_factor(version);
 	   uint64_t base_reward = (MONEY_SUPPLY - already_generated_coins) >> emission_speed_factor;
+
+    if (version >= 9) {
+      base_reward -= (1 * COIN); // 720 XEQ reward for wXEQ staking. Should change to % so it never becomes negative. We are good for now though.
+    }
 
 	   uint64_t full_reward_zone = get_min_block_weight(version);
 

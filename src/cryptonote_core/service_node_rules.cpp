@@ -34,6 +34,18 @@ namespace service_nodes {
 		return result;
 	}
 
+	uint64_t get_staking_requirement_v2(const double &price)
+	{
+		//USD req
+		const uint64_t base_req = 5000;
+		uint64_t req = (base_req) / price;
+
+		if (req > 80000)	
+			req = 80000;
+			
+		return req * COIN;
+	}
+
 	uint64_t portions_to_amount(uint64_t portions, uint64_t staking_requirement)
 	{
 		uint64_t hi, lo, resulthi, resultlo;

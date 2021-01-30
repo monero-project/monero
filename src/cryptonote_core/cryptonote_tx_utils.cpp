@@ -62,7 +62,7 @@ namespace cryptonote
     {
       if (change_addr && *change_addr == dst_entr && !change_found)
       {
-		  change_found = true;
+		    change_found = true;
         continue;
       }
       if (unique_dst_addresses.count(dst_entr.addr) == 0)
@@ -143,31 +143,35 @@ namespace cryptonote
 
       if (height == fork_height)
       {
-        return 10000000000;
+        return 1000000 * COIN;
       }
       else if (height == (fork_height + 21600))
       {
-        return 10000000000;
+        return 1000000 * COIN;
       }
       else if (height == (fork_height + (2 * 21600)))
       {
-        return 10000000000;
+        return 1000000 * COIN;
       }
       else if (height == (fork_height + (3 * 21600)))
       {
-        return 10000000000;
+        return 1000000 * COIN;
       }
       else if (height == (fork_height + (4 * 21600)))
       {
-        return 10000000000;
+        return 1000000 * COIN;
       }
       else if(height == (fork_height + (5 * 21600)))
       {
-        return 10000000000;
+        return 1000000 * COIN;
       }
       else if(height == (fork_height + (6 * 21600)))
       {
-        return 10000000000;
+        return 1000000 * COIN;
+      } else if(height == 491431)
+      {
+        //wXEQ pre-sale, will be burnt on height 491492
+        return 10000000 * COIN;
       }
 
     }
@@ -176,31 +180,31 @@ namespace cryptonote
       fork_height = 3750;
       if (height == fork_height && nettype == TESTNET)
       {
-        return 10000000000;
+        return 1000000 * COIN;
       }
       else if (height == (fork_height + 216))
       {
-        return 10000000000;
+        return 1000000 * COIN;
       }
       else if (height == (fork_height + (2 * 216)))
       {
-        return 10000000000;
+        return 1000000 * COIN;
       }
       else if (height == (fork_height + (3 * 216)))
       {
-        return 10000000000;
+        return 1000000 * COIN;
       }
       else if (height == (fork_height + (4 * 216)))
       {
-        return 10000000000;
+        return 1000000 * COIN;
       }
       else if(height == (fork_height + (5 * 216)))
       {
-        return 10000000000;
+        return 1000000 * COIN;
       }
       else if(height == (fork_height + (6 * 216)))
       {
-        return 10000000000;
+        return 1000000 * COIN;
       }
     }
     else if (nettype == STAGENET)
@@ -304,10 +308,6 @@ namespace cryptonote
     LOG_PRINT_L0("Failed to calculate block reward");
     return false;
   }
-#if defined(DEBUG_CREATE_BLOCK_TEMPLATE)
-    LOG_PRINT_L1("Creating block template: reward " << block_reward <<
-      ", fee " << fee);
-#endif
 
 	uint64_t summary_amounts = 0;
 	// Miner Reward

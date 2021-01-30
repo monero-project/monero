@@ -2619,7 +2619,6 @@ skip:
     bool result = relay_to_synchronized_peers<NOTIFY_UPTIME_PROOF>(arg, exclude_context);
     return result;
   }
-
  //------------------------------------------------------------------------------------------------------------------------
  template<class t_core>
   bool t_cryptonote_protocol_handler<t_core>::request_txpool_complement(cryptonote_connection_context &context)

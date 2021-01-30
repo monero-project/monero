@@ -499,32 +499,29 @@ namespace cryptonote
     return get_transaction_weight(tx, blob_size);
   }
   //---------------------------------------------------------------
-  bool get_tx_fee(const transaction& tx, uint64_t & fee)
+  bool get_tx_miner_fee(const transaction& tx, uint64_t & fee, bool burning_enabled)
   {
     if (tx.version > 1)
     {
       fee = tx.rct_signatures.txnFee;
+      if (burning_enabled)
+        fee -= std::min(fee, get_burned_amount_from_tx_extra(tx.extra));
       return true;
     }
-    uint64_t amount_in = 0;
-    uint64_t amount_out = 0;
-    for(auto& in: tx.vin)
-    {
-      CHECK_AND_ASSERT_MES(in.type() == typeid(txin_to_key), 0, "unexpected type id in transaction");
-      amount_in += boost::get<txin_to_key>(in).amount;
-    }
-    for(auto& o: tx.vout)
-      amount_out += o.amount;
+
+    uint64_t amount_in;
+    if (!get_inputs_money_amount(tx, amount_in)) return false;
+    uint64_t amount_out = get_outs_money_amount(tx);
 
     CHECK_AND_ASSERT_MES(amount_in >= amount_out, false, "transaction spend (" <<amount_in << ") more than it has (" << amount_out << ")");
     fee = amount_in - amount_out;
     return true;
   }
   //---------------------------------------------------------------
-  uint64_t get_tx_fee(const transaction& tx)
+  uint64_t get_tx_miner_fee(const transaction& tx, bool burning_enabled)
   {
     uint64_t r = 0;
-    if(!get_tx_fee(tx, r))
+    if(!get_tx_miner_fee(tx, r, burning_enabled))
       return 0;
     return r;
   }
@@ -626,12 +623,16 @@ namespace cryptonote
     if (!pick<tx_extra_mysterious_minergate>(nar, tx_extra_fields, TX_EXTRA_MYSTERIOUS_MINERGATE_TAG)) return false;
     if (!pick<tx_extra_padding>(nar, tx_extra_fields, TX_EXTRA_TAG_PADDING)) return false;
 
-	if (!pick<tx_extra_service_node_register>(nar, tx_extra_fields, TX_EXTRA_TAG_SERVICE_NODE_REGISTER)) return false;
-	if (!pick<tx_extra_service_node_deregister>(nar, tx_extra_fields, TX_EXTRA_TAG_SERVICE_NODE_DEREGISTER)) return false;
-	if (!pick<tx_extra_service_node_winner>(nar, tx_extra_fields, TX_EXTRA_TAG_SERVICE_NODE_WINNER)) return false;
-	if (!pick<tx_extra_service_node_contributor>(nar, tx_extra_fields, TX_EXTRA_TAG_SERVICE_NODE_CONTRIBUTOR)) return false;
-	if (!pick<tx_extra_service_node_pubkey>(nar, tx_extra_fields, TX_EXTRA_TAG_SERVICE_NODE_PUBKEY)) return false;
-	if (!pick<tx_extra_tx_secret_key>(nar, tx_extra_fields, TX_EXTRA_TAG_TX_SECRET_KEY)) return false;
+    if (!pick<tx_extra_service_node_register>(nar, tx_extra_fields, TX_EXTRA_TAG_SERVICE_NODE_REGISTER)) return false;
+    if (!pick<tx_extra_service_node_deregister>(nar, tx_extra_fields, TX_EXTRA_TAG_SERVICE_NODE_DEREGISTER)) return false;
+    if (!pick<tx_extra_service_node_winner>(nar, tx_extra_fields, TX_EXTRA_TAG_SERVICE_NODE_WINNER)) return false;
+    if (!pick<tx_extra_service_node_contributor>(nar, tx_extra_fields, TX_EXTRA_TAG_SERVICE_NODE_CONTRIBUTOR)) return false;
+    if (!pick<tx_extra_service_node_pubkey>(nar, tx_extra_fields, TX_EXTRA_TAG_SERVICE_NODE_PUBKEY)) return false;
+    if (!pick<tx_extra_tx_secret_key>(nar, tx_extra_fields, TX_EXTRA_TAG_TX_SECRET_KEY)) return false;
+
+    if (!pick<tx_extra_burn>                        (nar, tx_extra_fields, TX_EXTRA_TAG_BURN)) return false;
+    if (!pick<tx_extra_eth_address>                        (nar, tx_extra_fields, TX_EXTRA_ETH_ADDRESS)) return false;
+
     // if not empty, someone added a new type and did not add a case above
     if (!tx_extra_fields.empty())
     {
@@ -648,7 +649,21 @@ namespace cryptonote
     sorted_tx_extra = std::vector<uint8_t>(oss_str.begin(), oss_str.end());
     return true;
   }
-  //---------------------------------------------------------------
+    //---------------------------------------------------------------
+  static bool add_tx_extra_field_to_tx_extra(std::vector<uint8_t>& tx_extra, tx_extra_field &field)
+  {
+    std::ostringstream oss;
+    binary_archive<true> ar(oss);
+    if (!::do_serialize(ar, field))
+      return false;
+
+    std::string tx_extra_str = oss.str();
+    size_t pos = tx_extra.size();
+    tx_extra.resize(tx_extra.size() + tx_extra_str.size());
+    memcpy(&tx_extra[pos], tx_extra_str.data(), tx_extra_str.size());
+
+    return true;
+  }
   crypto::public_key get_tx_pub_key_from_extra(const std::vector<uint8_t>& tx_extra, size_t pk_index)
   {
     std::vector<tx_extra_field> tx_extra_fields;
@@ -673,7 +688,7 @@ namespace cryptonote
   //---------------------------------------------------------------
   static void add_data_to_tx_extra(std::vector<uint8_t>& tx_extra, char const *data, size_t data_size, uint8_t tag)
   {
-    size_t pos = tx_extra.size();
+   size_t pos = tx_extra.size();
    tx_extra.resize(tx_extra.size() + sizeof(tag) + data_size);
    tx_extra[pos++] = tag;
    std::memcpy(&tx_extra[pos], data, data_size);
@@ -953,6 +968,63 @@ void add_tx_secret_key_to_tx_extra(std::vector<uint8_t>& tx_extra, const crypto:
       return false;
     payment_id = *reinterpret_cast<const crypto::hash8*>(extra_nonce.data() + 1);
     return true;
+  }
+  //---------------------------------------------------------------
+    uint64_t get_burned_amount_from_tx_extra(const std::vector<uint8_t>& tx_extra)
+  {
+    std::vector<tx_extra_field> tx_extra_fields;
+    parse_tx_extra(tx_extra, tx_extra_fields);
+
+    tx_extra_burn burn;
+    if (find_tx_extra_field_by_type(tx_extra_fields, burn))
+      return burn.amount;
+    return 0;
+  }
+  //---------------------------------------------------------------
+  bool add_burned_amount_to_tx_extra(std::vector<uint8_t>& tx_extra, const uint64_t &burn)
+  {
+    tx_extra_field field = tx_extra_burn{burn};
+    bool result = add_tx_extra_field_to_tx_extra(tx_extra, field);
+    CHECK_AND_NO_ASSERT_MES_L1(result, false, "failed to serialize tx extra burn amount");
+    return result;
+  }
+  //---------------------------------------------------------------
+  bool check_burned_amount_from_tx_extra(const std::vector<uint8_t>& tx_extra) 
+  {
+    std::vector<tx_extra_field> tx_extra_fields;
+    parse_tx_extra(tx_extra, tx_extra_fields);
+
+    tx_extra_burn burn;
+    if (find_tx_extra_field_by_type(tx_extra_fields, burn)) {
+      //atomic units for 25,000 XEQ
+      if (burn.amount >= 50000 * COIN)
+        return true;
+      else
+        return false;
+    }
+    return true;
+  }
+ 
+  //---------------------------------------------------------------
+  std::string get_eth_address_from_tx_extra(const std::vector<uint8_t>& tx_extra)
+  {
+    std::vector<tx_extra_field> tx_extra_fields;
+    parse_tx_extra(tx_extra, tx_extra_fields);
+
+    tx_extra_eth_address eth_address;
+    if (find_tx_extra_field_by_type(tx_extra_fields, eth_address))
+      return eth_address.eth_address;
+    return "";
+  }
+  //---------------------------------------------------------------
+  bool add_eth_address_to_tx_extra(std::vector<uint8_t>& tx_extra, const std::string &eth_string)
+  {
+    if (eth_string == "")
+      return false;
+    tx_extra_field field = tx_extra_eth_address{eth_string};
+    bool result = add_tx_extra_field_to_tx_extra(tx_extra, field);
+    CHECK_AND_NO_ASSERT_MES_L1(result, false, "failed to serialize tx extra burn amount");
+    return result;
   }
   //---------------------------------------------------------------
   bool get_inputs_money_amount(const transaction& tx, uint64_t& money)

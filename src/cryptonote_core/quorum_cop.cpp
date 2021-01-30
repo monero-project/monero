@@ -72,6 +72,8 @@ namespace service_nodes
 		if (!m_core.get_service_node_keys(my_pubkey, my_seckey))
 			return;
 
+		uint64_t const latest_height = std::max(m_core.get_current_blockchain_height(), m_core.get_target_blockchain_height());
+
 		time_t const now = time(nullptr);
 		time_t const min_lifetime = 60 * 60 * 2;
 		bool alive_for_min_time = (now - m_core.get_start_time()) >= min_lifetime;
@@ -80,7 +82,6 @@ namespace service_nodes
 			return;
 		}
 
-		uint64_t const latest_height = std::max(m_core.get_current_blockchain_height(), m_core.get_target_blockchain_height());
 
 		if (latest_height < triton::service_node_deregister::VOTE_LIFETIME_BY_HEIGHT)
 			return;
@@ -91,7 +92,6 @@ namespace service_nodes
 
 		if (m_last_height < execute_justice_from_height)
 			m_last_height = execute_justice_from_height;
-
 
 		for (; m_last_height < (height - REORG_SAFETY_BUFFER_IN_BLOCKS); m_last_height++)
 		{

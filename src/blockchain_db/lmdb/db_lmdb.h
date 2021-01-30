@@ -72,7 +72,6 @@ typedef struct mdb_txn_cursors
   MDB_cursor *m_txc_hf_versions;
   MDB_cursor *m_txc_service_node_data;
 
-
   MDB_cursor *m_txc_properties;
 } mdb_txn_cursors;
 

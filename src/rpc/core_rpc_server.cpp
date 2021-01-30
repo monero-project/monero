@@ -57,6 +57,7 @@ using namespace epee;
 #include "core_rpc_server_error_codes.h"
 #include "p2p/net_node.h"
 #include "version.h"
+#include "pythia_adapter/send_data.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "daemon.rpc"
@@ -2795,9 +2796,11 @@ namespace cryptonote
       return true;
     }
     CHECK_PAYMENT_MIN1(req, res, COST_PER_COINBASE_TX_SUM_BLOCK * req.count, false);
-    std::pair<boost::multiprecision::uint128_t, boost::multiprecision::uint128_t> amounts = m_core.get_coinbase_tx_sum(req.height, req.count);
-    store_128(amounts.first, res.emission_amount, res.wide_emission_amount, res.emission_amount_top64);
-    store_128(amounts.second, res.fee_amount, res.wide_fee_amount, res.fee_amount_top64);
+    std::tuple<uint64_t, boost::multiprecision::uint128_t, boost::multiprecision::uint128_t> amounts = m_core.get_coinbase_tx_sum(req.height, req.count);
+    store_128(std::get<1>(amounts), res.emission_amount, res.wide_emission_amount, res.emission_amount_top64);
+    store_128(std::get<2>(amounts), res.fee_amount, res.wide_fee_amount, res.fee_amount_top64);
+
+    res.burn_amount = std::get<0>(amounts);
     res.status = CORE_RPC_STATUS_OK;
     return true;
   }
@@ -3368,8 +3371,9 @@ namespace cryptonote
     if (req.autostake) {
       args.push_back("auto");
     }
-
-    uint64_t staking_requirement = service_nodes::get_staking_requirement(m_core.get_nettype(), m_core.get_current_blockchain_height());
+    uint64_t staking_requirement = 0;
+    uint64_t hf_version = m_core.get_ideal_hard_fork_version();
+    staking_requirement = service_nodes::get_staking_requirement(m_core.get_nettype(), m_core.get_current_blockchain_height());
 
     {
       uint64_t portions_cut;
@@ -3489,7 +3493,10 @@ namespace cryptonote
   bool core_rpc_server::on_get_staking_requirement(const COMMAND_RPC_GET_STAKING_REQUIREMENT::request& req, COMMAND_RPC_GET_STAKING_REQUIREMENT::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx)
   {
 	  PERF_TIMER(on_get_staking_requirement);
-	  res.staking_requirement = service_nodes::get_staking_requirement(nettype(), req.height);
+
+    uint64_t hf_version = m_core.get_ideal_hard_fork_version();
+    res.staking_requirement = service_nodes::get_staking_requirement(m_core.get_nettype(), m_core.get_current_blockchain_height());
+ 
 	  res.status = CORE_RPC_STATUS_OK;
 	  return true;
   }
@@ -3673,6 +3680,45 @@ namespace cryptonote
 
     res.credits = m_rpc_payment->balance(client, req.delta_balance);
 
+    res.status = CORE_RPC_STATUS_OK;
+    return true;
+  }
+    //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_get_signature(const COMMAND_RPC_GET_SIGNATURE::request& req, COMMAND_RPC_GET_SIGNATURE::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx)
+  {
+		crypto::public_key my_pubkey;
+		crypto::secret_key my_seckey;
+		if (!m_core.get_service_node_keys(my_pubkey, my_seckey))
+			return false;    
+      
+    crypto::hash data_hash = karai::make_data_hash(my_pubkey, req.message);
+
+    crypto::signature signature;
+    crypto::generate_signature(data_hash, my_pubkey, my_seckey, signature);
+
+    res.signature = epee::string_tools::pod_to_hex(signature);
+    res.hash = epee::string_tools::pod_to_hex(data_hash);
+
+    res.status = CORE_RPC_STATUS_OK;
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_verify_signature(const COMMAND_RPC_VERIFY_SIGNATURE::request& req, COMMAND_RPC_VERIFY_SIGNATURE::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx)
+  {
+    crypto::hash data_hash;
+    if(!epee::string_tools::hex_to_pod(req.hash, data_hash)){
+      return false;
+    }
+    crypto::signature signature;
+    if(!epee::string_tools::hex_to_pod(req.signature, signature)){
+      return false;
+    }
+    crypto::public_key pub_key;
+    if(!epee::string_tools::hex_to_pod(req.pubkey, pub_key)){
+      return false;
+    }
+
+    res.good_signature = crypto::check_signature(data_hash, pub_key, signature);
     res.status = CORE_RPC_STATUS_OK;
     return true;
   }

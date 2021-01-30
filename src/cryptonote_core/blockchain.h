@@ -194,7 +194,6 @@ namespace cryptonote
      * @param chk_pts the set of checkpoints to assign
      */
     void set_checkpoints(checkpoints&& chk_pts) { m_checkpoints = chk_pts; }
-
     /**
      * @brief get blocks and transactions from blocks based on start height and count
      *
@@ -1111,6 +1110,7 @@ namespace cryptonote
      */
     void flush_invalid_blocks();
 
+
 #ifndef IN_UNIT_TESTS
   private:
 #endif
@@ -1209,7 +1209,7 @@ namespace cryptonote
 
     std::shared_ptr<tools::Notify> m_block_notify;
     std::shared_ptr<tools::Notify> m_reorg_notify;
-
+    
     // for prepare_handle_incoming_blocks
     uint64_t m_prepare_height;
     uint64_t m_prepare_nblocks;

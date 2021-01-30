@@ -1426,7 +1426,6 @@ void BlockchainLMDB::open(const std::string& filename, const int db_flags)
   lmdb_db_open(txn, LMDB_SERVICE_NODE_DATA, MDB_INTEGERKEY | MDB_CREATE, m_service_node_data, "Failed to open db handle for m_service_node_data");
 
 
-
   lmdb_db_open(txn, LMDB_PROPERTIES, MDB_CREATE, m_properties, "Failed to open db handle for m_properties");
 
   mdb_set_dupsort(txn, m_spent_keys, compare_hash32);
@@ -1617,6 +1616,7 @@ void BlockchainLMDB::reset()
 	  throw0(DB_ERROR(lmdb_error("Failed to drop m_service_node_data: ", result).c_str()));
   if (auto result = mdb_drop(txn, m_properties, 0))
     throw0(DB_ERROR(lmdb_error("Failed to drop m_properties: ", result).c_str()));
+
 
   // init with current version
   MDB_val_str(k, "version");
@@ -5715,5 +5715,6 @@ void BlockchainLMDB::clear_service_node_data()
 	if ((result = mdb_cursor_del(m_cur_service_node_data, 0)))
 		throw1(DB_ERROR(lmdb_error("Failed to add removal of service node data to db transaction: ", result).c_str()));
 }
+
 
 }  // namespace cryptonote
