@@ -276,7 +276,7 @@ namespace
   const char* USAGE_PUBLIC_NODES("public_nodes");
   const char* USAGE_WELCOME("welcome");
   const char* USAGE_RPC_PAYMENT_INFO("rpc_payment_info");
-  const char* USAGE_START_MINING_FOR_RPC("start_mining_for_rpc");
+  const char* USAGE_START_MINING_FOR_RPC("start_mining_for_rpc [<number_of_threads>]");
   const char* USAGE_STOP_MINING_FOR_RPC("stop_mining_for_rpc");
   const char* USAGE_SHOW_QR_CODE("show_qr_code [<subaddress_index>]");
   const char* USAGE_VERSION("version");
@@ -2359,6 +2359,24 @@ bool simple_wallet::start_mining_for_rpc(const std::vector<std::string> &args)
 {
   if (!try_connect_to_daemon())
     return true;
+
+  bool ok = true;
+  if(args.size() >= 1)
+  {
+    uint16_t num = 0;
+    ok = string_tools::get_xtype_from_string(num, args[0]);
+    m_rpc_payment_threads = num;
+  }
+  else
+  {
+    m_rpc_payment_threads = 0;
+  }
+
+  if (!ok)
+  {
+    PRINT_USAGE(USAGE_START_MINING_FOR_RPC);
+    return true;
+  }
 
   LOCK_IDLE_SCOPE();
 
@@ -9272,7 +9290,7 @@ bool simple_wallet::check_rpc_payment()
       fail_msg_writer() << tr("Error mining to daemon: ") << error;
       m_cmd_binder.print_prompt();
     };
-    bool ret = m_wallet->search_for_rpc_payment(target, startfunc, contfunc, foundfunc, errorfunc);
+    bool ret = m_wallet->search_for_rpc_payment(target, m_rpc_payment_threads, startfunc, contfunc, foundfunc, errorfunc);
     if (!ret)
     {
       fail_msg_writer() << tr("Failed to start mining for RPC payment");
