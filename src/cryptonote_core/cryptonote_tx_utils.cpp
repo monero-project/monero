@@ -168,7 +168,7 @@ namespace cryptonote
       else if(height == (fork_height + (6 * 21600)))
       {
         return 1000000 * COIN;
-      } else if(height == 491431)
+      } else if(height == 500000)
       {
         //wXEQ pre-sale, will be burnt on height 500100
         return 11000000 * COIN;
@@ -206,7 +206,7 @@ namespace cryptonote
       {
         return 1000000 * COIN;
       }
-      else if(height == 500000))
+      else if(height == 500000)
       { //wXEQ + extra wXEQ 1M LP rewards!
         return 11000000 * COIN;
       }
