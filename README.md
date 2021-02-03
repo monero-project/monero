@@ -115,7 +115,7 @@ invokes cmake commands as needed.
 * Change to the root of the source code directory, change to the most recent release branch, and build:
 
         cd equilibria
-        git checkout v6.0.2
+        git checkout v8.0.0
         make
 
     *Optional*: If your machine has several cores and enough memory, enable
