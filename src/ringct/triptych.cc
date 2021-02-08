@@ -42,6 +42,9 @@ extern "C"
 #include "cryptonote_config.h"
 #include "misc_log_ex.h"
 
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "triptych"
+
 namespace rct
 {
     // Maximum matrix entries
@@ -66,7 +69,7 @@ namespace rct
     // Initialize transcript
     static void transcript_init(key &transcript)
     {
-        std::string salt(config::HASH_KEY_TRIPTYCH_TRANSCRIPT);
+        static const std::string salt(config::HASH_KEY_TRIPTYCH_TRANSCRIPT);
         hash_to_scalar(transcript,salt.data(),salt.size());
     }
 
@@ -77,20 +80,20 @@ namespace rct
 
         std::string hash;
         hash.reserve((2*M.size() + 9)*sizeof(key));
-        hash = std::string((const char*) transcript.bytes, sizeof(transcript));
-        hash += std::string((const char*) message.bytes, sizeof(message));
+        hash.append((const char*) transcript.bytes, sizeof(transcript));
+        hash.append((const char*) message.bytes, sizeof(message));
         for (size_t k = 0; k < M.size(); k++)
         {
-            hash += std::string((const char*) M[k].bytes, sizeof(M[k]));
-            hash += std::string((const char*) P[k].bytes, sizeof(P[k]));
+            hash.append((const char*) M[k].bytes, sizeof(M[k]));
+            hash.append((const char*) P[k].bytes, sizeof(P[k]));
         }
-        hash += std::string((const char*) C_offset.bytes, sizeof(C_offset));
-        hash += std::string((const char*) J.bytes, sizeof(J));
-        hash += std::string((const char*) K.bytes, sizeof(K));
-        hash += std::string((const char*) A.bytes, sizeof(A));
-        hash += std::string((const char*) B.bytes, sizeof(B));
-        hash += std::string((const char*) C.bytes, sizeof(C));
-        hash += std::string((const char*) D.bytes, sizeof(D));
+        hash.append((const char*) C_offset.bytes, sizeof(C_offset));
+        hash.append((const char*) J.bytes, sizeof(J));
+        hash.append((const char*) K.bytes, sizeof(K));
+        hash.append((const char*) A.bytes, sizeof(A));
+        hash.append((const char*) B.bytes, sizeof(B));
+        hash.append((const char*) C.bytes, sizeof(C));
+        hash.append((const char*) D.bytes, sizeof(D));
         CHECK_AND_ASSERT_THROW_MES(hash.size() > 1, "Bad hash input size!");
         hash_to_scalar(transcript,hash.data(),hash.size());
 
@@ -104,11 +107,11 @@ namespace rct
 
         std::string hash;
         hash.reserve((2*X.size() + 1)*sizeof(key));
-        hash = std::string((const char*) transcript.bytes, sizeof(transcript));
+        hash.append((const char*) transcript.bytes, sizeof(transcript));
         for (size_t j = 0; j < X.size(); j++)
         {
-            hash += std::string((const char*) X[j].bytes, sizeof(X[j]));
-            hash += std::string((const char*) Y[j].bytes, sizeof(Y[j]));
+            hash.append((const char*) X[j].bytes, sizeof(X[j]));
+            hash.append((const char*) Y[j].bytes, sizeof(Y[j]));
         }
         CHECK_AND_ASSERT_THROW_MES(hash.size() > 1, "Bad hash input size!");
         hash_to_scalar(transcript,hash.data(),hash.size());
@@ -181,6 +184,11 @@ namespace rct
         return inv;
     }
 
+    static size_t powi(size_t n, size_t m)
+    {
+      return m == 0 ? 1 : (n * powi(n, m - 1));
+    }
+
     // Make generators, but only once
     static void init_gens()
     {
@@ -226,7 +234,7 @@ namespace rct
 
         for (size_t i = 0; i < size; i++)
         {
-            size_t slot = pow(base,size-i-1);
+            size_t slot = powi(base,size-i-1);
             r[size-i-1] = temp/slot;
             temp -= slot*r[size-i-1];
         }
@@ -295,7 +303,7 @@ namespace rct
         CHECK_AND_ASSERT_THROW_MES(n > 1, "Must have n > 1!");
         CHECK_AND_ASSERT_THROW_MES(m > 1, "Must have m > 1!");
 
-        const size_t N = pow(n,m);
+        const size_t N = powi(n,m);
 
         CHECK_AND_ASSERT_THROW_MES(m*n <= max_mn, "Size parameters are too large!");
         CHECK_AND_ASSERT_THROW_MES(M.size() == N, "Public key vector is wrong size!");
@@ -405,11 +413,12 @@ namespace rct
         keyM p = keyMInit(m+1,N);
         CHECK_AND_ASSERT_THROW_MES(p.size() == N, "Bad matrix size!");
         CHECK_AND_ASSERT_THROW_MES(p[0].size() == m+1, "Bad matrix size!");
+        std::vector<size_t> decomp_k;
+        decomp_k.resize(m);
+        keyV tempV;
+        tempV.resize(2);
         for (size_t k = 0; k < N; k++)
         {
-            std::vector<size_t> decomp_k;
-            decomp_k.reserve(m);
-            decomp_k.resize(m);
             decompose(decomp_k,k,n,m);
 
             for (size_t j = 0; j < m+1; j++)
@@ -421,13 +430,10 @@ namespace rct
 
             for (size_t j = 1; j < m; j++)
             {
-                keyV temp;
-                temp.reserve(2);
-                temp.resize(2);
-                temp[0] = a[j][decomp_k[j]];
-                temp[1] = delta(decomp_l[j],decomp_k[j]);
+                tempV[0] = a[j][decomp_k[j]];
+                tempV[1] = delta(decomp_l[j],decomp_k[j]);
 
-                p[k] = convolve(p[k],temp,m);
+                p[k] = convolve(p[k],tempV,m);
             }
         }
 
@@ -549,14 +555,14 @@ namespace rct
     }
 
     // Verify a batch of Triptych proofs with common input keys
-    bool triptych_verify(const keyV &M, const keyV &P, const keyV &C_offsets, std::vector<TriptychProof *> &proofs, const size_t n, const size_t m, const keyV &messages)
+    bool triptych_verify(const keyV &M, const keyV &P, const keyV &C_offsets, const std::vector<const TriptychProof *> &proofs, const size_t n, const size_t m, const keyV &messages)
     {
         // Global checks
         CHECK_AND_ASSERT_THROW_MES(n > 1, "Must have n > 1!");
         CHECK_AND_ASSERT_THROW_MES(m > 1, "Must have m > 1!");
         CHECK_AND_ASSERT_THROW_MES(m*n <= max_mn, "Size parameters are too large!");
 
-        const size_t N = pow(n,m); // anonymity set size
+        const size_t N = powi(n,m); // anonymity set size
 
         CHECK_AND_ASSERT_THROW_MES(M.size() == N, "Public key vector is wrong size!");
         CHECK_AND_ASSERT_THROW_MES(P.size() == N, "Commitment vector is wrong size!");
@@ -567,9 +573,9 @@ namespace rct
         CHECK_AND_ASSERT_THROW_MES(messages.size() == N_proofs, "Incorrect number of messages!");
 
         // Per-proof checks
-        for (TriptychProof *p: proofs)
+        for (const TriptychProof *p: proofs)
         {
-            TriptychProof &proof = *p;
+            const TriptychProof &proof = *p;
 
             CHECK_AND_ASSERT_THROW_MES(!(proof.J == IDENTITY), "Proof group element should not be zero!");
             CHECK_AND_ASSERT_THROW_MES(proof.X.size() == m, "Bad proof vector size!");
@@ -631,7 +637,7 @@ namespace rct
         // Start per-proof data assembly
         for (size_t i_proofs = 0; i_proofs < N_proofs; i_proofs++)
         {
-            TriptychProof &proof = *proofs[i_proofs];
+            const TriptychProof &proof = *proofs[i_proofs];
 
             // Per-proof random weights
             key w1 = ZERO;
