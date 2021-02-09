@@ -265,6 +265,12 @@ namespace net_utils
     template<class t_callback>
     bool connect_async(const std::string& adr, const std::string& port, uint32_t conn_timeot, const t_callback &cb, const std::string& bind_ip = "0.0.0.0", epee::net_utils::ssl_support_t ssl_support = epee::net_utils::ssl_support_t::e_ssl_support_autodetect);
 
+    boost::asio::ssl::context& get_ssl_context() noexcept
+    {
+      assert(m_state != nullptr);
+      return m_state->ssl_context;
+    }
+
     typename t_protocol_handler::config_type& get_config_object()
     {
       assert(m_state != nullptr); // always set in constructor

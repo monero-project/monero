@@ -36,6 +36,7 @@
 #include <boost/utility/string_ref.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/ssl.hpp>
+#include <boost/filesystem/path.hpp>
 #include <boost/system/error_code.hpp>
 
 #define SSL_FINGERPRINT_SIZE 32
@@ -144,6 +145,9 @@ namespace net_utils
 
 	bool create_ec_ssl_certificate(EVP_PKEY *&pkey, X509 *&cert);
 	bool create_rsa_ssl_certificate(EVP_PKEY *&pkey, X509 *&cert);
+
+  //! Store private key for `ssl` at `base + ".key"` unencrypted and certificate for `ssl` at `base + ".crt"`.
+  boost::system::error_code store_ssl_keys(boost::asio::ssl::context& ssl, const boost::filesystem::path& base);
 }
 }
 
