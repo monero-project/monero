@@ -1461,8 +1461,7 @@ void BlockchainLMDB::open(const std::string& filename, const int db_flags)
   mdb_set_dupsort(txn, m_block_info, compare_uint64);
   if (!(mdb_flags & MDB_RDONLY))
     mdb_set_dupsort(txn, m_txs_prunable_tip, compare_uint64);
-  mdb_set_compare(txn, m_txs_prunable, compare_uint64);
-  mdb_set_dupsort(txn, m_txs_prunable_hash, compare_uint64);
+  mdb_set_dupsort(txn, m_txs_prunable_hash, compare_hash32);
 
   mdb_set_compare(txn, m_txpool_meta, compare_hash32);
   mdb_set_compare(txn, m_txpool_blob, compare_hash32);
