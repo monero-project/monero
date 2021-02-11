@@ -97,7 +97,7 @@ class MiningTest():
         # wait till we mined a few of them
         target_height = prev_height + 5
         height = prev_height
-        timeout = 60 # randomx is slow to init
+        timeout = 240 # randomx is slow to init
         while height < target_height:
             seen_height = height
             for _ in range(timeout):
