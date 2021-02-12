@@ -224,9 +224,9 @@ namespace rct
     // Output (1,x,x**2,...,x**{n-1})
     static rct::keyV vector_of_scalar_powers(const rct::key &x, size_t n)
     {
+        CHECK_AND_ASSERT_THROW_MES(n != 0, "Need n > 0");
+
         rct::keyV res(n);
-        if (n == 0)
-            return res;
         res[0] = rct::identity();
         if (n == 1)
             return res;
@@ -244,6 +244,7 @@ namespace rct
     static rct::key sum_of_even_powers(const rct::key &x, size_t n)
     {
         CHECK_AND_ASSERT_THROW_MES((n & (n - 1)) == 0, "Need n to be a power of 2");
+        CHECK_AND_ASSERT_THROW_MES(n != 0, "Need n > 0");
 
         rct::key x1 = copy(x);
         sc_mul(x1.bytes, x1.bytes, x1.bytes);
@@ -264,6 +265,8 @@ namespace rct
     // Output x**1 + x**2 + x**3 + ... + x**n
     static rct::key sum_of_scalar_powers(const rct::key &x, size_t n)
     {
+        CHECK_AND_ASSERT_THROW_MES(n != 0, "Need n > 0");
+
         rct::key res = ONE;
         if (n == 1)
             return res;
@@ -764,6 +767,11 @@ try_again:
         rct::addKeys2(B, temp2, temp, rct::H);
 
         rct::key e = transcript_update(transcript, A1, B);
+        if (e == rct::zero())
+        {
+            MINFO("e is 0, trying again");
+            goto try_again;
+        }
         rct::key e_squared;
         sc_mul(e_squared.bytes, e.bytes, e.bytes);
 
