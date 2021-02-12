@@ -70,13 +70,12 @@ static rct::key inner_product(const rct::keyV &a, const rct::keyV &b);
 
 static constexpr size_t maxN = 64;
 static constexpr size_t maxM = BULLETPROOF_MAX_OUTPUTS;
-static rct::key Hi[maxN*maxM], Gi[maxN*maxM];
 static ge_p3 Hi_p3[maxN*maxM], Gi_p3[maxN*maxM];
 static std::shared_ptr<straus_cached_data> straus_HiGi_cache;
 static std::shared_ptr<pippenger_cached_data> pippenger_HiGi_cache;
-static const rct::key TWO = { {0x02, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00  } };
-static const rct::key MINUS_ONE = { { 0xec, 0xd3, 0xf5, 0x5c, 0x1a, 0x63, 0x12, 0x58, 0xd6, 0x9c, 0xf7, 0xa2, 0xde, 0xf9, 0xde, 0x14, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10 } };
-static const rct::key MINUS_INV_EIGHT = { { 0x74, 0xa4, 0x19, 0x7a, 0xf0, 0x7d, 0x0b, 0xf7, 0x05, 0xc2, 0xda, 0x25, 0x2b, 0x5c, 0x0b, 0x0d, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0a } };
+static const constexpr rct::key TWO = { {0x02, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00  } };
+static const constexpr rct::key MINUS_ONE = { { 0xec, 0xd3, 0xf5, 0x5c, 0x1a, 0x63, 0x12, 0x58, 0xd6, 0x9c, 0xf7, 0xa2, 0xde, 0xf9, 0xde, 0x14, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10 } };
+static const constexpr rct::key MINUS_INV_EIGHT = { { 0x74, 0xa4, 0x19, 0x7a, 0xf0, 0x7d, 0x0b, 0xf7, 0x05, 0xc2, 0xda, 0x25, 0x2b, 0x5c, 0x0b, 0x0d, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0a } };
 static const rct::keyV oneN = vector_dup(rct::identity(), maxN);
 static const rct::keyV twoN = vector_powers(TWO, maxN);
 static const rct::key ip12 = inner_product(oneN, twoN);
@@ -100,8 +99,7 @@ static inline bool is_reduced(const rct::key &scalar)
 
 static rct::key get_exponent(const rct::key &base, size_t idx)
 {
-  static const std::string domain_separator(config::HASH_KEY_BULLETPROOF_EXPONENT);
-  std::string hashed = std::string((const char*)base.bytes, sizeof(base)) + domain_separator + tools::get_varint_data(idx);
+  std::string hashed = std::string((const char*)base.bytes, sizeof(base)) + config::HASH_KEY_BULLETPROOF_EXPONENT + tools::get_varint_data(idx);
   rct::key e;
   ge_p3 e_p3;
   rct::hash_to_p3(e_p3, rct::hash2rct(crypto::cn_fast_hash(hashed.data(), hashed.size())));
@@ -121,10 +119,10 @@ static void init_exponents()
   data.reserve(maxN*maxM*2);
   for (size_t i = 0; i < maxN*maxM; ++i)
   {
-    Hi[i] = get_exponent(rct::H, i * 2);
-    CHECK_AND_ASSERT_THROW_MES(ge_frombytes_vartime(&Hi_p3[i], Hi[i].bytes) == 0, "ge_frombytes_vartime failed");
-    Gi[i] = get_exponent(rct::H, i * 2 + 1);
-    CHECK_AND_ASSERT_THROW_MES(ge_frombytes_vartime(&Gi_p3[i], Gi[i].bytes) == 0, "ge_frombytes_vartime failed");
+    const rct::key Hi = get_exponent(rct::H, i * 2);
+    CHECK_AND_ASSERT_THROW_MES(ge_frombytes_vartime(&Hi_p3[i], Hi.bytes) == 0, "ge_frombytes_vartime failed");
+    const rct::key Gi = get_exponent(rct::H, i * 2 + 1);
+    CHECK_AND_ASSERT_THROW_MES(ge_frombytes_vartime(&Gi_p3[i], Gi.bytes) == 0, "ge_frombytes_vartime failed");
 
     data.push_back({rct::zero(), Gi_p3[i]});
     data.push_back({rct::zero(), Hi_p3[i]});
@@ -133,11 +131,10 @@ static void init_exponents()
   straus_HiGi_cache = straus_init_cache(data, STRAUS_SIZE_LIMIT);
   pippenger_HiGi_cache = pippenger_init_cache(data, 0, PIPPENGER_SIZE_LIMIT);
 
-  MINFO("Hi/Gi cache size: " << (sizeof(Hi)+sizeof(Gi))/1024 << " kB");
   MINFO("Hi_p3/Gi_p3 cache size: " << (sizeof(Hi_p3)+sizeof(Gi_p3))/1024 << " kB");
   MINFO("Straus cache size: " << straus_get_cache_size(straus_HiGi_cache)/1024 << " kB");
   MINFO("Pippenger cache size: " << pippenger_get_cache_size(pippenger_HiGi_cache)/1024 << " kB");
-  size_t cache_size = (sizeof(Hi)+sizeof(Hi_p3))*2 + straus_get_cache_size(straus_HiGi_cache) + pippenger_get_cache_size(pippenger_HiGi_cache);
+  size_t cache_size = straus_get_cache_size(straus_HiGi_cache) + pippenger_get_cache_size(pippenger_HiGi_cache);
   MINFO("Total cache size: " << cache_size/1024 << "kB");
   init_done = true;
 }
@@ -895,7 +892,8 @@ bool bulletproof_VERIFY(const std::vector<const Bulletproof*> &proofs)
   multiexp_data.resize(2 * maxMN);
 
   PERF_TIMER_START_BP(VERIFY_line_24_25_invert);
-  const std::vector<rct::key> inverses = invert(to_invert);
+  const std::vector<rct::key> inverses = invert(std::move(to_invert));
+  to_invert.clear();
   PERF_TIMER_STOP_BP(VERIFY_line_24_25_invert);
 
   // setup weighted aggregates
