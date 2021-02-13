@@ -26,6 +26,10 @@ jobs:
 
   build-windows:
     runs-on: windows-latest
+    env:
+      CCACHE_COMPRESS: 1
+      CCACHE_TEMPDIR: C:\Users\runneradmin\.ccache-temp
+      CCACHE_DIR: C:\Users\runneradmin\.ccache
     defaults:
       run:
         shell: msys2 {0}
@@ -33,12 +37,19 @@ jobs:
     - uses: actions/checkout@v1
       with:
         submodules: recursive
+    - uses: actions/cache@v2
+      with:
+        path: C:\Users\runneradmin\.ccache
+        key: ccache-windows-build-${{ github.sha }}
+        restore-keys: ccache-windows-build-
     - uses: eine/setup-msys2@v2
       with:
         update: true
-        install: mingw-w64-x86_64-toolchain make mingw-w64-x86_64-cmake mingw-w64-x86_64-boost mingw-w64-x86_64-openssl mingw-w64-x86_64-zeromq mingw-w64-x86_64-libsodium mingw-w64-x86_64-hidapi mingw-w64-x86_64-protobuf-c mingw-w64-x86_64-libusb git
+        install: mingw-w64-x86_64-toolchain make mingw-w64-x86_64-cmake mingw-w64-x86_64-ccache mingw-w64-x86_64-boost mingw-w64-x86_64-openssl mingw-w64-x86_64-zeromq mingw-w64-x86_64-libsodium mingw-w64-x86_64-hidapi mingw-w64-x86_64-protobuf-c mingw-w64-x86_64-libusb git
     - name: build
-      run: make release-static-win64 -j2
+      run: |
+        ccache --max-size=150M
+        make release-static-win64 -j2
 
   build-ubuntu:
     runs-on: ubuntu-latest
