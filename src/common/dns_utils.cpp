@@ -484,36 +484,12 @@ std::string get_account_address_as_str_from_url(const std::string& url, bool& dn
   return dns_confirm(url, addresses, dnssec_valid);
 }
 
-namespace
-{
-  bool dns_records_match(const std::vector<std::string>& a, const std::vector<std::string>& b)
-  {
-    if (a.size() != b.size()) return false;
-
-    for (const auto& record_in_a : a)
-    {
-      bool ok = false;
-      for (const auto& record_in_b : b)
-      {
-	if (record_in_a == record_in_b)
-	{
-	  ok = true;
-	  break;
-	}
-      }
-      if (!ok) return false;
-    }
-
-    return true;
-  }
-}
-
 bool load_txt_records_from_dns(std::vector<std::string> &good_records, const std::vector<std::string> &dns_urls)
 {
   // Prevent infinite recursion when distributing
   if (dns_urls.empty()) return false;
 
-  std::vector<std::vector<std::string> > records;
+  std::vector<std::set<std::string> > records;
   records.resize(dns_urls.size());
 
   size_t first_index = crypto::rand_idx(dns_urls.size());
@@ -525,7 +501,9 @@ bool load_txt_records_from_dns(std::vector<std::string> &good_records, const std
   for (size_t n = 0; n < dns_urls.size(); ++n)
   {
     tpool.submit(&waiter,[n, dns_urls, &records, &avail, &valid](){
-      records[n] = tools::DNSResolver::instance().get_txt_record(dns_urls[n], avail[n], valid[n]); 
+       const auto res = tools::DNSResolver::instance().get_txt_record(dns_urls[n], avail[n], valid[n]);
+       for (const auto &s: res)
+         records[n].insert(s);
     });
   }
   waiter.wait();
@@ -568,29 +546,31 @@ bool load_txt_records_from_dns(std::vector<std::string> &good_records, const std
     return false;
   }
 
-  int good_records_index = -1;
-  for (size_t i = 0; i < records.size() - 1; ++i)
+  typedef std::map<std::set<std::string>, uint32_t> map_t;
+  map_t record_count;
+  for (const auto &e: records)
   {
-    if (records[i].size() == 0) continue;
-
-    for (size_t j = i + 1; j < records.size(); ++j)
-    {
-      if (dns_records_match(records[i], records[j]))
-      {
-        good_records_index = i;
-        break;
-      }
-    }
-    if (good_records_index >= 0) break;
+    if (!e.empty())
+      ++record_count[e];
   }
 
-  if (good_records_index < 0)
+  map_t::const_iterator good_record = record_count.end();
+  for (map_t::const_iterator i = record_count.begin(); i != record_count.end(); ++i)
   {
-    LOG_PRINT_L0("WARNING: no two DNS TXT records matched");
+    if (good_record == record_count.end() || i->second > good_record->second)
+      good_record = i;
+  }
+
+  MDEBUG("Found " << (good_record == record_count.end() ? 0 : good_record->second) << "/" << dns_urls.size() << " matching records from " << num_valid_records << " valid records");
+  if (good_record == record_count.end() || good_record->second < dns_urls.size() / 2 + 1)
+  {
+    LOG_PRINT_L0("WARNING: no majority of DNS TXT records matched (only " << good_record->second << "/" << dns_urls.size() << ")");
     return false;
   }
 
-  good_records = records[good_records_index];
+  good_records = {};
+  for (const auto &s: good_record->first)
+    good_records.push_back(s);
   return true;
 }
 
