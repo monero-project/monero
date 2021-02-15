@@ -574,7 +574,7 @@ namespace cryptonote
       if (max_blocks == 0)
       {
         res.status = CORE_RPC_STATUS_PAYMENT_REQUIRED;
-        return false;
+        return true;
       }
     }
 
@@ -583,7 +583,7 @@ namespace cryptonote
     {
       res.status = "Failed";
       add_host_fail(ctx);
-      return false;
+      return true;
     }
 
     CHECK_PAYMENT_SAME_TS(req, res, bs.size() * COST_PER_BLOCK);
@@ -619,12 +619,12 @@ namespace cryptonote
         if (!r)
         {
           res.status = "Failed";
-          return false;
+          return true;
         }
         if (indices.size() != n_txes_to_lookup || res.output_indices.back().indices.size() != (req.no_miner_tx ? 1 : 0))
         {
           res.status = "Failed";
-          return false;
+          return true;
         }
         for (size_t i = 0; i < indices.size(); ++i)
           res.output_indices.back().indices.push_back({std::move(indices[i])});
@@ -647,7 +647,7 @@ namespace cryptonote
       if(!m_core.get_alternative_blocks(blks))
       {
           res.status = "Failed";
-          return false;
+          return true;
       }
 
       res.blks_hashes.reserve(blks.size());
@@ -718,7 +718,7 @@ namespace cryptonote
     {
       res.status = "Failed";
       add_host_fail(ctx);
-      return false;
+      return true;
     }
 
     CHECK_PAYMENT_SAME_TS(req, res, res.m_block_ids.size() * COST_PER_BLOCK_HASH);
@@ -1049,7 +1049,7 @@ namespace cryptonote
         if (!r)
         {
           res.status = "Failed";
-          return false;
+          return true;
         }
       }
     }
@@ -1425,7 +1425,8 @@ namespace cryptonote
     res.status = peer_list_res.status;
     if (!success)
     {      
-      return false;
+      res.status = "Failed to get peer list";
+      return true;
     }
     if (res.status != CORE_RPC_STATUS_OK)
     {
@@ -1627,7 +1628,7 @@ namespace cryptonote
       if (m_should_use_bootstrap_daemon)
       {
         res.status = "This command is unsupported for bootstrap daemon";
-        return false;
+        return true;
       }
     }
     res.count = m_core.get_current_blockchain_height();
@@ -1643,7 +1644,7 @@ namespace cryptonote
       if (m_should_use_bootstrap_daemon)
       {
         res = "This command is unsupported for bootstrap daemon";
-        return false;
+        return true;
       }
     }
     if(req.size() != 1)
@@ -1835,7 +1836,8 @@ namespace cryptonote
       boost::shared_lock<boost::shared_mutex> lock(m_bootstrap_daemon_mutex);
       if (m_should_use_bootstrap_daemon)
       {
-        res.status = "This command is unsupported for bootstrap daemon";
+        error_resp.code = CORE_RPC_ERROR_CODE_UNSUPPORTED_BOOTSTRAP;
+        error_resp.message = "This command is unsupported for bootstrap daemon";
         return false;
       }
     }
@@ -2527,7 +2529,7 @@ namespace cryptonote
     if (!m_core.get_blockchain_storage().flush_txes_from_pool(txids))
     {
       res.status = "Failed to remove one or more tx(es)";
-      return false;
+      return true;
     }
 
     if (failed)
@@ -2536,7 +2538,7 @@ namespace cryptonote
         res.status = "Failed to parse txid";
       else
         res.status = "Failed to parse some of the txids";
-      return false;
+      return true;
     }
 
     res.status = CORE_RPC_STATUS_OK;
@@ -2695,7 +2697,7 @@ namespace cryptonote
       if (req.limit_down != -1)
       {
         res.status = CORE_RPC_ERROR_CODE_WRONG_PARAM;
-        return false;
+        return true;
       }
       epee::net_utils::connection_basic::set_rate_down_limit(nodetool::default_limit_down);
     }
@@ -2709,7 +2711,7 @@ namespace cryptonote
       if (req.limit_up != -1)
       {
         res.status = CORE_RPC_ERROR_CODE_WRONG_PARAM;
-        return false;
+        return true;
       }
       epee::net_utils::connection_basic::set_rate_up_limit(nodetool::default_limit_up);
     }
@@ -2813,17 +2815,17 @@ namespace cryptonote
       if (!tools::download(path.string(), res.auto_uri))
       {
         MERROR("Failed to download " << res.auto_uri);
-        return false;
+        return true;
       }
       if (!tools::sha256sum(path.string(), file_hash))
       {
         MERROR("Failed to hash " << path);
-        return false;
+        return true;
       }
       if (hash != epee::string_tools::pod_to_hex(file_hash))
       {
         MERROR("Download from " << res.auto_uri << " does not match the expected hash");
-        return false;
+        return true;
       }
       MINFO("New version downloaded to " << path);
     }
@@ -2898,6 +2900,8 @@ namespace cryptonote
 
     if (failed)
     {
+      error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
+      error_resp.message = res.status;
       return false;
     }
 
@@ -3009,7 +3013,7 @@ namespace cryptonote
     if (!req.binary)
     {
       res.status = "Binary only call";
-      return false;
+      return true;
     }
     try
     {
@@ -3021,7 +3025,7 @@ namespace cryptonote
         if (!data)
         {
           res.status = "Failed to get output distribution";
-          return false;
+          return true;
         }
 
         res.distributions.push_back({std::move(*data), amount, "", req.binary, req.compress});
@@ -3030,7 +3034,7 @@ namespace cryptonote
     catch (const std::exception &e)
     {
       res.status = "Failed to get output distribution";
-      return false;
+      return true;
     }
 
     res.status = CORE_RPC_STATUS_OK;
@@ -3264,7 +3268,8 @@ namespace cryptonote
 
     if (!m_rpc_payment)
     {
-      res.status = "Payments not enabled";
+      error_resp.code = CORE_RPC_ERROR_CODE_PAYMENTS_NOT_ENABLED;
+      error_resp.message = "Payments not enabled";
       return false;
     }
 
@@ -3292,7 +3297,8 @@ namespace cryptonote
 
     if (!m_rpc_payment)
     {
-      res.status = "Payments not enabled";
+      error_resp.code = CORE_RPC_ERROR_CODE_PAYMENTS_NOT_ENABLED;
+      error_resp.message = "Payments not enabled";
       return false;
     }
 
