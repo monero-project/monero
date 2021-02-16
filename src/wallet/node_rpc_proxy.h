@@ -30,6 +30,7 @@
 
 #include <string>
 #include <boost/thread/mutex.hpp>
+#include <boost/thread/recursive_mutex.hpp>
 #include "include_base_utils.h"
 #include "net/abstract_http_client.h"
 #include "rpc/core_rpc_server_commands_defs.h"

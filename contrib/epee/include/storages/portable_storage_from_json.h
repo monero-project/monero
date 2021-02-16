@@ -26,6 +26,7 @@
 
 #pragma once
 #include <boost/lexical_cast.hpp>
+#include <boost/utility/string_ref.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include "parserse_base_utils.h"
 #include "file_io_utils.h"

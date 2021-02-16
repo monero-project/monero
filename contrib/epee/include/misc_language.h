@@ -28,9 +28,11 @@
 
 #pragma once
 
-#include <limits>
-#include <boost/thread.hpp>
 #include <boost/utility/value_init.hpp>
+#include <boost/shared_ptr.hpp>
+#include <limits>
+#include <functional>
+#include <vector>
 namespace epee
 {
 #define STD_TRY_BEGIN() try {
@@ -95,16 +97,7 @@ namespace misc_utils
       return memcmp(&_Left, &_Right, sizeof(_Left)) < 0;
   }
 	
-
-	inline
-	bool sleep_no_w(long ms )
-	{
-		boost::this_thread::sleep( 
-			boost::get_system_time() + 
-			boost::posix_time::milliseconds( std::max<long>(ms,0) ) );
-		
-		return true;
-	}
+	bool sleep_no_w(long ms );
 
   template <typename T>
   T get_mid(const T &a, const T &b)

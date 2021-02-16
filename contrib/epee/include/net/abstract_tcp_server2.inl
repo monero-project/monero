@@ -40,6 +40,7 @@
 #include <boost/date_time/posix_time/posix_time.hpp> // TODO
 #include <boost/thread/condition_variable.hpp> // TODO
 #include <boost/make_shared.hpp>
+#include <boost/thread.hpp>
 #include "warnings.h"
 #include "string_tools.h"
 #include "misc_language.h"

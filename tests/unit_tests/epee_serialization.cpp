@@ -30,6 +30,7 @@
 #include <gtest/gtest.h>
 
 #include "storages/portable_storage.h"
+#include "span.h"
 
 TEST(epee_binary, two_keys)
 {
