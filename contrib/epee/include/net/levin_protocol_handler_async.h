@@ -891,12 +891,22 @@ template<class t_connection_context> template<class callback_t>
 bool async_protocol_handler_config<t_connection_context>::foreach_connection(const callback_t &cb)
 {
   CRITICAL_REGION_LOCAL(m_connects_lock);
-  for(auto& c: m_connects)
-  {
-    async_protocol_handler<t_connection_context>* aph = c.second;
-    if(!cb(aph->get_context_ref()))
+  std::vector<typename connections_map::mapped_type> conn;
+  conn.reserve(m_connects.size());
+
+  auto scope_exit_handler = misc_utils::create_scope_leave_handler([&conn]{
+    for (auto &aph: conn)
+      aph->finish_outer_call();
+  });
+
+  for (auto &e: m_connects)
+    if (e.second->start_outer_call())
+      conn.push_back(e.second);
+
+  for (auto &aph: conn)
+    if (!cb(aph->get_context_ref()))
       return false;
-  }
+
   return true;
 }
 //------------------------------------------------------------------------------------------
@@ -907,6 +917,10 @@ bool async_protocol_handler_config<t_connection_context>::for_connection(const b
   async_protocol_handler<t_connection_context>* aph = find_connection(connection_id);
   if (!aph)
     return false;
+  if (!aph->start_outer_call())
+    return false;
+  auto scope_exit_handler = misc_utils::create_scope_leave_handler(
+    boost::bind(&async_protocol_handler<t_connection_context>::finish_outer_call, aph));
   if(!cb(aph->get_context_ref()))
     return false;
   return true;
