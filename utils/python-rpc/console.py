@@ -29,7 +29,7 @@ for n in range(1, len(sys.argv)):
         raise Exception(USAGE)
       if port <= 0 or port > 65535:
         raise Exception(USAGE)
-  except Exception, e:
+  except Exception as e:
     print('Error: ' + str(e))
     raise Exception(USAGE)
 
@@ -49,7 +49,7 @@ for n in range(1, len(sys.argv)):
   }
   try:
     res = rpc.send_json_rpc_request(get_version)
-  except Exception, e:
+  except Exception as e:
     raise Exception('Failed to call version RPC: ' + str(e))
 
   if 'version' not in res:
