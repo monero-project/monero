@@ -36,10 +36,6 @@ with additional exclusive IPv4 address(es).
 
 ## Usage
 
-Anonymity networks have no seed nodes (the feature is still considered
-experimental), so a user must specify an address. If configured properly,
-additional peers can be found through typical p2p peerlist sharing.
-
 ### Outbound Connections
 
 Connecting to an anonymous address requires the command line option
@@ -54,8 +50,9 @@ separate process. On most systems the configuration will look like:
 which tells `monerod` that ".onion" p2p addresses can be forwarded to a socks
 proxy at IP 127.0.0.1 port 9050 with a max of 10 outgoing connections and
 ".b32.i2p" p2p addresses can be forwarded to a socks proxy at IP 127.0.0.1 port
-9000 with the default max outgoing connections. Since there are no seed nodes
-for anonymity connections, peers must be manually specified:
+9000 with the default max outgoing connections.
+
+If desired, peers can be manually specified:
 
 ```
 --add-exclusive-node rveahdfho7wo4b2m.onion:28083
