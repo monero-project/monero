@@ -38,10 +38,6 @@
 #include "net/i2p_address.h"
 #include "p2p/p2p_protocol_defs.h"
 
-#ifdef CRYPTONOTE_PRUNING_DEBUG_SPOOF_SEED
-#include "common/pruning.h"
-#endif
-
 BOOST_CLASS_VERSION(nodetool::peerlist_entry, 3)
 
 namespace boost
@@ -228,12 +224,6 @@ namespace boost
         return;
       }
       a & pl.pruning_seed;
-#ifdef CRYPTONOTE_PRUNING_DEBUG_SPOOF_SEED
-      if (!typename Archive::is_saving())
-      {
-        pl.pruning_seed = tools::make_pruning_seed(1+pl.adr.as<epee::net_utils::ipv4_network_address>().ip() % (1<<CRYPTONOTE_PRUNING_LOG_STRIPES), CRYPTONOTE_PRUNING_LOG_STRIPES);
-      }
-#endif
       if (ver < 2)
       {
         if (!typename Archive::is_saving())
