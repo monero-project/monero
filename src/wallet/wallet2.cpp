@@ -345,8 +345,6 @@ std::string get_weight_string(const cryptonote::transaction &tx, size_t blob_siz
 
 std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variables_map& vm, bool unattended, const options& opts, const std::function<boost::optional<tools::password_container>(const char *, bool)> &password_prompter)
 {
-  namespace ip = boost::asio::ip;
-
   const bool testnet = command_line::get_arg(vm, opts.testnet);
   const bool stagenet = command_line::get_arg(vm, opts.stagenet);
   const network_type nettype = testnet ? TESTNET : stagenet ? STAGENET : MAINNET;

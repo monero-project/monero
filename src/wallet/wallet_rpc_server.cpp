@@ -687,7 +687,7 @@ namespace tools
   {
     if (!m_wallet) return not_open(er);
     const std::pair<std::map<std::string, std::string>, std::vector<std::string>> account_tags = m_wallet->get_account_tags();
-    for (const std::pair<std::string, std::string>& p : account_tags.first)
+    for (const std::pair<const std::string, std::string>& p : account_tags.first)
     {
       res.account_tags.resize(res.account_tags.size() + 1);
       auto& info = res.account_tags.back();

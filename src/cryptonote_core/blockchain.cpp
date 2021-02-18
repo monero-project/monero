@@ -973,7 +973,7 @@ start:
 std::pair<bool, uint64_t> Blockchain::check_difficulty_checkpoints() const
 {
   uint64_t res = 0;
-  for (const std::pair<uint64_t, difficulty_type>& i : m_checkpoints.get_difficulty_points())
+  for (const std::pair<const uint64_t, difficulty_type>& i : m_checkpoints.get_difficulty_points())
   {
     if (i.first >= m_db->height())
       break;

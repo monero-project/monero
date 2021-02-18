@@ -1351,7 +1351,7 @@ TEST(dandelionpp_map, dropped_connection)
         }
 
         EXPECT_EQ(3u, used.size());
-        for (const std::pair<boost::uuids::uuid, std::size_t>& entry : used)
+        for (const std::pair<const boost::uuids::uuid, std::size_t>& entry : used)
             EXPECT_EQ(3u, entry.second);
 
         for (const boost::uuids::uuid& connection : in_connections)
@@ -1409,7 +1409,7 @@ TEST(dandelionpp_map, dropped_connection)
         }
 
         EXPECT_EQ(3u, used.size());
-        for (const std::pair<boost::uuids::uuid, std::size_t>& entry : used)
+        for (const std::pair<const boost::uuids::uuid, std::size_t>& entry : used)
             EXPECT_EQ(3u, entry.second);
     }
     {
@@ -1472,7 +1472,7 @@ TEST(dandelionpp_map, dropped_connection_remapped)
         }
 
         EXPECT_EQ(3u, used.size());
-        for (const std::pair<boost::uuids::uuid, std::size_t>& entry : used)
+        for (const std::pair<const boost::uuids::uuid, std::size_t>& entry : used)
             EXPECT_EQ(3u, entry.second);
 
         for (const boost::uuids::uuid& connection : in_connections)
@@ -1511,7 +1511,7 @@ TEST(dandelionpp_map, dropped_connection_remapped)
         }
 
         EXPECT_EQ(2u, used.size());
-        for (const std::pair<boost::uuids::uuid, std::size_t>& entry : used)
+        for (const std::pair<const boost::uuids::uuid, std::size_t>& entry : used)
             EXPECT_EQ(5u, entry.second);
     }
     // select 3 of 3 connections but do not remap existing links
@@ -1532,7 +1532,7 @@ TEST(dandelionpp_map, dropped_connection_remapped)
         }
 
         EXPECT_EQ(2u, used.size());
-        for (const std::pair<boost::uuids::uuid, std::size_t>& entry : used)
+        for (const std::pair<const boost::uuids::uuid, std::size_t>& entry : used)
             EXPECT_EQ(5u, entry.second);
     }
     // map 8 new incoming connections across 3 outgoing links
@@ -1555,7 +1555,7 @@ TEST(dandelionpp_map, dropped_connection_remapped)
         }
 
         EXPECT_EQ(3u, used.size());
-        for (const std::pair<boost::uuids::uuid, std::size_t>& entry : used)
+        for (const std::pair<const boost::uuids::uuid, std::size_t>& entry : used)
             EXPECT_EQ(6u, entry.second);
     }
 }
@@ -1609,7 +1609,7 @@ TEST(dandelionpp_map, dropped_all_connections)
         }
 
         EXPECT_EQ(3u, used.size());
-        for (const std::pair<boost::uuids::uuid, std::size_t>& entry : used)
+        for (const std::pair<const boost::uuids::uuid, std::size_t>& entry : used)
             EXPECT_EQ(3u, entry.second);
 
         for (const boost::uuids::uuid& connection : in_connections)
@@ -1641,7 +1641,7 @@ TEST(dandelionpp_map, dropped_all_connections)
         }
 
         EXPECT_EQ(3u, used.size());
-        for (const std::pair<boost::uuids::uuid, std::size_t>& entry : used)
+        for (const std::pair<const boost::uuids::uuid, std::size_t>& entry : used)
             EXPECT_EQ(3u, entry.second);
     }
 }
