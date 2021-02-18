@@ -146,7 +146,6 @@ public:
     stream_state_body
   };
 
-  std::atomic<bool> m_deletion_initiated;
   std::atomic<bool> m_protocol_released;
   volatile uint32_t m_invoke_buf_ready;
 
@@ -297,7 +296,6 @@ public:
             m_state(stream_state_head)
   {
     m_close_called = 0;
-    m_deletion_initiated = false;
     m_protocol_released = false;
     m_wait_count = 0;
     m_oponent_protocol_ver = 0;
@@ -310,7 +308,6 @@ public:
     try
     {
 
-    m_deletion_initiated = true;
     if(m_connection_initialized)
     {
       m_config.del_connection(this);
@@ -633,19 +630,7 @@ public:
     int err_code = LEVIN_OK;
     do
     {
-      if(m_deletion_initiated)
-      {
-        err_code = LEVIN_ERROR_CONNECTION_DESTROYED;
-        break;
-      }
-
       CRITICAL_REGION_LOCAL(m_call_lock);
-
-      if(m_deletion_initiated)
-      {
-        err_code = LEVIN_ERROR_CONNECTION_DESTROYED;
-        break;
-      }
 
       boost::interprocess::ipcdetail::atomic_write32(&m_invoke_buf_ready, 0);
       CRITICAL_REGION_BEGIN(m_invoke_response_handlers_lock);
@@ -684,13 +669,7 @@ public:
     misc_utils::auto_scope_leave_caller scope_exit_handler = misc_utils::create_scope_leave_handler(
                                       boost::bind(&async_protocol_handler::finish_outer_call, this));
 
-    if(m_deletion_initiated)
-      return LEVIN_ERROR_CONNECTION_DESTROYED;
-
     CRITICAL_REGION_LOCAL(m_call_lock);
-
-    if(m_deletion_initiated)
-      return LEVIN_ERROR_CONNECTION_DESTROYED;
 
     boost::interprocess::ipcdetail::atomic_write32(&m_invoke_buf_ready, 0);
 
@@ -706,7 +685,7 @@ public:
     uint64_t ticks_start = misc_utils::get_tick_count();
     size_t prev_size = 0;
 
-    while(!boost::interprocess::ipcdetail::atomic_read32(&m_invoke_buf_ready) && !m_deletion_initiated && !m_protocol_released)
+    while(!boost::interprocess::ipcdetail::atomic_read32(&m_invoke_buf_ready) && !m_protocol_released)
     {
       if(m_cache_in_buffer.size() - prev_size >= MIN_BYTES_WANTED)
       {
@@ -723,7 +702,7 @@ public:
         return LEVIN_ERROR_CONNECTION_DESTROYED;
     }
 
-    if(m_deletion_initiated || m_protocol_released)
+    if(m_protocol_released)
       return LEVIN_ERROR_CONNECTION_DESTROYED;
 
     CRITICAL_REGION_BEGIN(m_local_inv_buff_lock);
@@ -739,13 +718,7 @@ public:
     misc_utils::auto_scope_leave_caller scope_exit_handler = misc_utils::create_scope_leave_handler(
                           boost::bind(&async_protocol_handler::finish_outer_call, this));
 
-    if(m_deletion_initiated)
-      return LEVIN_ERROR_CONNECTION_DESTROYED;
-
     CRITICAL_REGION_LOCAL(m_call_lock);
-
-    if(m_deletion_initiated)
-      return LEVIN_ERROR_CONNECTION_DESTROYED;
 
     if (!send_message(command, in_buff, LEVIN_PACKET_REQUEST, false))
     {
@@ -767,9 +740,6 @@ public:
     const misc_utils::auto_scope_leave_caller scope_exit_handler = misc_utils::create_scope_leave_handler(
       boost::bind(&async_protocol_handler::finish_outer_call, this)
     );
-
-    if(m_deletion_initiated)
-      return LEVIN_ERROR_CONNECTION_DESTROYED;
 
     const std::size_t length = message.size();
     if (!m_pservice_endpoint->do_send(std::move(message)))
