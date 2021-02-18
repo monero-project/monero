@@ -165,9 +165,6 @@ bool txpool_double_spend_base::timestamp_change_pause(cryptonote::core& /*c*/, s
 
 bool txpool_double_spend_base::check_changed(cryptonote::core& c, const size_t ev_index, relay_test condition)
 {
-  const std::size_t public_hash_count = m_broadcasted_hashes.size();
-  const std::size_t all_hash_count = m_all_hashes.size();
-
   const std::size_t new_broadcasted_hash_count = m_broadcasted_hashes.size() + unsigned(condition == relay_test::broadcasted);
   const std::size_t new_all_hash_count = m_all_hashes.size() + unsigned(condition == relay_test::hidden) + unsigned(condition == relay_test::no_relay);
 

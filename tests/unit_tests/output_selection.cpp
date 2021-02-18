@@ -206,7 +206,7 @@ TEST(select_outputs, same_distribution)
   for (size_t i = 0; i < chain_picks.size(); ++i)
     chain_norm[i * 100 / chain_picks.size()] += chain_picks[i];
 
-  double max_dev = 0.0, avg_dev = 0.0;
+  double avg_dev = 0.0;
   for (size_t i = 0; i < 100; ++i)
   {
     const double diff = (double)output_norm[i] - (double)chain_norm[i];

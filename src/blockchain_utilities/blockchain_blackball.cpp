@@ -47,9 +47,6 @@ namespace po = boost::program_options;
 using namespace epee;
 using namespace cryptonote;
 
-static const char zerokey[8] = {0};
-static const MDB_val zerokval = { sizeof(zerokey), (void *)zerokey };
-
 static uint64_t records_per_sync = 200;
 static uint64_t db_flags = 0;
 static MDB_dbi dbi_relative_rings;
@@ -703,7 +700,6 @@ static void get_per_amount_outputs(MDB_txn *txn, uint64_t amount, uint64_t &tota
   int dbr = mdb_cursor_open(txn, dbi_per_amount, &cur);
   CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to open cursor for per amount outputs: " + std::string(mdb_strerror(dbr)));
   MDB_val k, v;
-  mdb_size_t count = 0;
   k.mv_size = sizeof(uint64_t);
   k.mv_data = (void*)&amount;
   dbr = mdb_cursor_get(cur, &k, &v, MDB_SET);
@@ -726,7 +722,6 @@ static void inc_per_amount_outputs(MDB_txn *txn, uint64_t amount, uint64_t total
   int dbr = mdb_cursor_open(txn, dbi_per_amount, &cur);
   CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to open cursor for per amount outputs: " + std::string(mdb_strerror(dbr)));
   MDB_val k, v;
-  mdb_size_t count = 0;
   k.mv_size = sizeof(uint64_t);
   k.mv_data = (void*)&amount;
   dbr = mdb_cursor_get(cur, &k, &v, MDB_SET);
@@ -1077,7 +1072,6 @@ static std::vector<std::pair<uint64_t, uint64_t>> load_outputs(const std::string
       s[len - 1] = 0;
     if (!s[0])
       continue;
-    std::pair<uint64_t, uint64_t> output;
     uint64_t offset, num_offsets;
     if (sscanf(s, "@%" PRIu64, &amount) == 1)
     {
@@ -1268,8 +1262,6 @@ int main(int argc, char* argv[])
   init(cache_dir);
 
   LOG_PRINT_L0("Scanning for spent outputs...");
-
-  size_t done = 0;
 
   const uint64_t start_blackballed_outputs = get_num_spent_outputs();
 

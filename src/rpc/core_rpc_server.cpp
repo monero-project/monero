@@ -367,7 +367,6 @@ namespace cryptonote
       message = "Client signature does not verify for " + rpc;
       return false;
     }
-    crypto::public_key local_client;
     if (!m_rpc_payment->pay(client, ts, payment, rpc, same_ts, credits))
     {
       message = CORE_RPC_STATUS_PAYMENT_REQUIRED;
@@ -1806,7 +1805,6 @@ namespace cryptonote
         return false;
       }
     }
-    uint64_t seed_height;
     crypto::hash seed_hash, next_seed_hash;
     if (!get_block_template(info.address, req.prev_block.empty() ? NULL : &prev_block, blob_reserve, reserved_offset, wdiff, res.height, res.expected_reward, b, res.seed_height, seed_hash, next_seed_hash, error_resp))
       return false;

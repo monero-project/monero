@@ -250,7 +250,6 @@ TEST(ban, subnet)
 
 TEST(ban, ignores_port)
 {
-  time_t seconds;
   test_core pr_core;
   cryptonote::t_cryptonote_protocol_handler<test_core> cprotocol(pr_core, NULL);
   Server server(cprotocol);

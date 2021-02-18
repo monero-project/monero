@@ -1845,10 +1845,8 @@ skip:
   bool t_cryptonote_protocol_handler<t_core>::should_download_next_span(cryptonote_connection_context& context, bool standby)
   {
     std::vector<crypto::hash> hashes;
-    boost::uuids::uuid span_connection_id;
     boost::posix_time::ptime request_time;
     boost::uuids::uuid connection_id;
-    std::pair<uint64_t, uint64_t> span;
     bool filled;
 
     const uint64_t blockchain_height = m_core.get_current_blockchain_height();
@@ -1874,7 +1872,6 @@ skip:
 
         // in standby, be ready to double download early since we're idling anyway
         // let the fastest peer trigger first
-        long threshold;
         const double dl_speed = context.m_max_speed_down;
         if (standby && dt >= REQUEST_NEXT_SCHEDULED_SPAN_THRESHOLD_STANDBY && dl_speed > 0)
         {

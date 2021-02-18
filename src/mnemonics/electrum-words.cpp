@@ -194,7 +194,6 @@ namespace
   {
     epee::wipeable_string trimmed_words = "", word;
 
-    const auto &word_map = language->get_word_map();
     const auto &trimmed_word_map = language->get_trimmed_word_map();
     const uint32_t unique_prefix_length = language->get_unique_prefix_length();
     for (std::vector<epee::wipeable_string>::const_iterator it = word_list.begin(); it != word_list.end(); it++)
