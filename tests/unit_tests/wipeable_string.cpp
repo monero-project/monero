@@ -189,20 +189,20 @@ TEST(wipeable_string, parse_hexstr)
 {
   boost::optional<epee::wipeable_string> s;
 
-  ASSERT_EQ(boost::none, epee::wipeable_string("x").parse_hexstr());
-  ASSERT_EQ(boost::none, epee::wipeable_string("x0000000000000000").parse_hexstr());
-  ASSERT_EQ(boost::none, epee::wipeable_string("0000000000000000x").parse_hexstr());
-  ASSERT_EQ(boost::none, epee::wipeable_string("0").parse_hexstr());
-  ASSERT_EQ(boost::none, epee::wipeable_string("000").parse_hexstr());
+  ASSERT_TRUE(boost::none == epee::wipeable_string("x").parse_hexstr());
+  ASSERT_TRUE(boost::none == epee::wipeable_string("x0000000000000000").parse_hexstr());
+  ASSERT_TRUE(boost::none == epee::wipeable_string("0000000000000000x").parse_hexstr());
+  ASSERT_TRUE(boost::none == epee::wipeable_string("0").parse_hexstr());
+  ASSERT_TRUE(boost::none == epee::wipeable_string("000").parse_hexstr());
 
   ASSERT_TRUE((s = epee::wipeable_string("").parse_hexstr()) != boost::none);
-  ASSERT_EQ(*s, "");
+  ASSERT_TRUE(*s == "");
   ASSERT_TRUE((s = epee::wipeable_string("00").parse_hexstr()) != boost::none);
-  ASSERT_EQ(*s, epee::wipeable_string("", 1));
+  ASSERT_TRUE(*s == epee::wipeable_string("", 1));
   ASSERT_TRUE((s = epee::wipeable_string("41").parse_hexstr()) != boost::none);
-  ASSERT_EQ(*s, epee::wipeable_string("A"));
+  ASSERT_TRUE(*s == epee::wipeable_string("A"));
   ASSERT_TRUE((s = epee::wipeable_string("414243").parse_hexstr()) != boost::none);
-  ASSERT_EQ(*s, epee::wipeable_string("ABC"));
+  ASSERT_TRUE(*s == epee::wipeable_string("ABC"));
 }
 
 TEST(wipeable_string, to_hex)
