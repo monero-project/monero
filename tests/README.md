@@ -52,6 +52,11 @@ To run the same tests on a release build, replace `debug` with `release`.
 [TODO]
 Functional tests are located under the `tests/functional` directory.
 
+Building all the tests requires installing the following dependencies:
+```bash
+pip install requests psutil monotonic
+```
+
 First, run a regtest daemon in the offline mode and with a fixed difficulty:
 ```bash
 monerod --regtest --offline --fixed-difficulty 1
