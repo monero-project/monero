@@ -143,14 +143,24 @@ TEST(test_epee_connection, test_lifetime)
     static constexpr bool handshake_complete() noexcept { return true; }
   };
 
+  using functional_obj_t = std::function<void ()>;
   struct command_handler_t: epee::levin::levin_commands_handler<context_t> {
     size_t delay;
-    command_handler_t(size_t delay = 0): delay(delay) {}
+    functional_obj_t on_connection_close_f;
+    command_handler_t(size_t delay = 0,
+      functional_obj_t on_connection_close_f = nullptr
+    ):
+      delay(delay),
+      on_connection_close_f(on_connection_close_f)
+    {}
     virtual int invoke(int, const epee::span<const uint8_t>, epee::byte_slice&, context_t&) override { epee::misc_utils::sleep_no_w(delay); return {}; }
     virtual int notify(int, const epee::span<const uint8_t>, context_t&) override { return {}; }
     virtual void callback(context_t&) override {}
     virtual void on_connection_new(context_t&) override {}
-    virtual void on_connection_close(context_t&) override {}
+    virtual void on_connection_close(context_t&) override {
+      if (on_connection_close_f)
+        on_connection_close_f();
+    }
     virtual ~command_handler_t() override {}
     static void destroy(epee::levin::levin_commands_handler<context_t>* ptr) { delete ptr; }
   };
@@ -168,6 +178,14 @@ TEST(test_epee_connection, test_lifetime)
   using work_ptr = std::shared_ptr<work_t>;
   using workers_t = std::vector<std::thread>;
   using server_t = epee::net_utils::boosted_tcp_server<handler_t>;
+  using lock_t = std::mutex;
+  using lock_guard_t = std::lock_guard<lock_t>;
+  using connection_weak_ptr = boost::weak_ptr<connection_t>;
+  struct shared_conn_t {
+    lock_t lock;
+    connection_weak_ptr conn;
+  };
+  using shared_conn_ptr = std::shared_ptr<shared_conn_t>;
 
   io_context_t io_context;
   work_ptr work(std::make_shared<work_t>(io_context));
@@ -255,6 +273,7 @@ TEST(test_epee_connection, test_lifetime)
     ASSERT_TRUE(index == N * N);
     ASSERT_TRUE(shared_state->get_connections_count() == 0);
 
+    while (shared_state->sock_count);
     ASSERT_TRUE(shared_state->get_connections_count() == 0);
     constexpr auto DELAY = 30;
     constexpr auto TIMEOUT = 1;
@@ -271,6 +290,58 @@ TEST(test_epee_connection, test_lifetime)
         ASSERT_TRUE(success);
       }
       shared_state->close(tag);
+      ASSERT_TRUE(shared_state->get_connections_count() == 0);
+    }
+
+    while (shared_state->sock_count);
+    constexpr auto ZERO_DELAY = 0;
+    size_t counter = 0;
+    shared_state->set_handler(new command_handler_t(ZERO_DELAY,
+        [&counter]{
+          ASSERT_TRUE(counter++ == 0);
+        }
+      ),
+      &command_handler_t::destroy
+    );
+    connection_ptr conn(new connection_t(io_context, shared_state, {}, {}));
+    conn->socket().connect(endpoint);
+    conn->start({}, {});
+    ASSERT_TRUE(shared_state->get_connections_count() == 1);
+    shared_state->del_out_connections(1);
+    ASSERT_TRUE(shared_state->get_connections_count() == 0);
+    conn.reset();
+
+    while (shared_state->sock_count);
+    shared_conn_ptr shared_conn(std::make_shared<shared_conn_t>());
+    shared_state->set_handler(new command_handler_t(ZERO_DELAY,
+        [shared_state, shared_conn]{
+          {
+            connection_ptr conn;
+            {
+              lock_guard_t guard(shared_conn->lock);
+              conn = std::move(shared_conn->conn.lock());
+            }
+            if (conn)
+              conn->cancel();
+          }
+          const auto success = shared_state->foreach_connection([](context_t&){
+            return true;
+          });
+          ASSERT_TRUE(success);
+        }
+      ),
+      &command_handler_t::destroy
+    );
+    for (auto i = 0; i < N; ++i) {
+      {
+        connection_ptr conn(new connection_t(io_context, shared_state, {}, {}));
+        conn->socket().connect(endpoint);
+        conn->start({}, {});
+        lock_guard_t guard(shared_conn->lock);
+        shared_conn->conn = conn;
+      }
+      ASSERT_TRUE(shared_state->get_connections_count() == 1);
+      shared_state->del_out_connections(1);
       ASSERT_TRUE(shared_state->get_connections_count() == 0);
     }
   });
