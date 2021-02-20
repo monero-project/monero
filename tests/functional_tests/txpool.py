@@ -36,6 +36,8 @@ from __future__ import print_function
 from framework.daemon import Daemon
 from framework.wallet import Wallet
 
+TRIPTYCH_RING_SIZE = 128
+
 class TransferTest():
     def run_test(self):
         self.reset()
@@ -64,7 +66,7 @@ class TransferTest():
         daemon = Daemon()
         wallet = Wallet()
 
-        daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 80)
+        daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 80 + TRIPTYCH_RING_SIZE * 2)
         wallet.refresh()
 
     def create_txes(self, address, ntxes):

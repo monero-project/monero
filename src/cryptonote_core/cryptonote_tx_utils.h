@@ -50,6 +50,7 @@ namespace cryptonote
     uint64_t real_output_in_tx_index;   //index in transaction outputs vector
     uint64_t amount;                    //money
     bool rct;                           //true if the output is rct
+    bool triptych;                      //true if the output is triptych
     rct::key mask;                      //ringct amount mask
     rct::multisig_kLRki multisig_kLRki; //multisig info
 
@@ -63,6 +64,7 @@ namespace cryptonote
       FIELD(real_output_in_tx_index)
       FIELD(amount)
       FIELD(rct)
+      FIELD(triptych)
       FIELD(mask)
       FIELD(multisig_kLRki)
 
@@ -142,7 +144,7 @@ namespace cryptonote
 
 }
 
-BOOST_CLASS_VERSION(cryptonote::tx_source_entry, 1)
+BOOST_CLASS_VERSION(cryptonote::tx_source_entry, 2)
 BOOST_CLASS_VERSION(cryptonote::tx_destination_entry, 2)
 
 namespace boost
@@ -163,6 +165,12 @@ namespace boost
         return;
       a & x.multisig_kLRki;
       a & x.real_out_additional_tx_keys;
+      if (ver < 2)
+      {
+        x.triptych = false;
+        return;
+      }
+      a & x.triptych;
     }
 
     template <class Archive>

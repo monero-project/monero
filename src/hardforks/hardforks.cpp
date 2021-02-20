@@ -26,6 +26,7 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#include "cryptonote_config.h"
 #include "hardforks.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
@@ -73,6 +74,8 @@ const hardfork_t mainnet_hard_forks[] = {
 
   { 15, 8000000, 0, 1608223241 }, // temp so tests test with these consensus rules
   { 16, 8000001, 0, 1608223242 }, // temp so tests test with these consensus rules
+
+  { 17, CRYPTONOTE_MAX_BLOCK_NUMBER, 0, 1608223243 }, // temp so tests test with these consensus rules
 };
 const size_t num_mainnet_hard_forks = sizeof(mainnet_hard_forks) / sizeof(mainnet_hard_forks[0]);
 const uint64_t mainnet_hard_fork_version_1_till = 1009826;
@@ -98,6 +101,7 @@ const hardfork_t testnet_hard_forks[] = {
   { 12, 1308737, 0, 1569582000 },
   { 13, 1543939, 0, 1599069376 },
   { 14, 1544659, 0, 1599069377 },
+  { 17, 1635478, 0, 1608223243 },
 };
 const size_t num_testnet_hard_forks = sizeof(testnet_hard_forks) / sizeof(testnet_hard_forks[0]);
 const uint64_t testnet_hard_fork_version_1_till = 624633;
@@ -120,5 +124,6 @@ const hardfork_t stagenet_hard_forks[] = {
   { 12, 454721, 0, 1571419280 },
   { 13, 675405, 0, 1598180817 },
   { 14, 676125, 0, 1598180818 },
+  { 17, CRYPTONOTE_MAX_BLOCK_NUMBER, 0, 1608223243 },
 };
 const size_t num_stagenet_hard_forks = sizeof(stagenet_hard_forks) / sizeof(stagenet_hard_forks[0]);

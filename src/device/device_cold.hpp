@@ -53,7 +53,7 @@ namespace hw {
   class device_cold {
   public:
 
-    using exported_key_image = std::vector<std::pair<crypto::key_image, crypto::signature>>;
+    using exported_key_image = tools::key_image_data_t;
 
     class op_progress : public hw::device_progress {
     public:

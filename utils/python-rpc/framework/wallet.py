@@ -1075,12 +1075,13 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(stop_mining)
 
-    def estimate_tx_size_and_weight(self, n_inputs, n_outputs, ring_size = 0, rct = True):
+    def estimate_tx_size_and_weight(self, n_pre_tryptich_inputs, n_triptych_inputs, n_outputs, ring_size = 0, rct = True):
         estimate_tx_size_and_weight = {
             'method': 'estimate_tx_size_and_weight',
             'jsonrpc': '2.0',
             'params': {
-                'n_inputs': n_inputs,
+                'n_pre_tryptich_inputs': n_pre_tryptich_inputs,
+                'n_triptych_inputs': n_triptych_inputs,
                 'n_outputs': n_outputs,
                 'ring_size': ring_size,
                 'rct': rct,

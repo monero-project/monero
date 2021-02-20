@@ -583,6 +583,17 @@ class Daemon(object):
         }
         return self.rpc.send_json_rpc_request(sync_txpool)
 
+    def get_first_triptych_output_index(self, client):
+        get_first_triptych_output_index = {
+            'method': 'get_first_triptych_output_index',
+            'params': {
+                'client': client,
+            },
+            'jsonrpc': '2.0',
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(get_first_triptych_output_index)
+
     def rpc_access_info(self, client):
         rpc_access_info = {
             'method': 'rpc_access_info',

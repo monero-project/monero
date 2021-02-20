@@ -83,18 +83,21 @@ TEST(bulletproofs, multi_splitting)
   rct::ctkey sctmp, pctmp;
   std::vector<unsigned int> index;
   std::vector<uint64_t> inamounts, outamounts;
+  std::vector<bool> is_triptych;
 
   std::tie(sctmp, pctmp) = rct::ctskpkGen(6000);
   sc.push_back(sctmp);
   pc.push_back(pctmp);
   inamounts.push_back(6000);
   index.push_back(1);
+  is_triptych.push_back(false);
 
   std::tie(sctmp, pctmp) = rct::ctskpkGen(7000);
   sc.push_back(sctmp);
   pc.push_back(pctmp);
   inamounts.push_back(7000);
   index.push_back(1);
+  is_triptych.push_back(false);
 
   const int mixin = 3, max_outputs = 16;
 
@@ -132,7 +135,7 @@ TEST(bulletproofs, multi_splitting)
 
     rct::ctkeyV outSk;
     rct::RCTConfig rct_config { rct::RangeProofPaddedBulletproof, 4 };
-    rct::rctSig s = rct::genRctSimple(rct::zero(), sc, destinations, inamounts, outamounts, available, mixRing, amount_keys, NULL, NULL, index, outSk, rct_config, hw::get_device("default"));
+    rct::rctSig s = rct::genRctSimple(rct::zero(), sc, destinations, is_triptych, inamounts, outamounts, available, mixRing, amount_keys, NULL, NULL, index, outSk, rct_config, hw::get_device("default"));
     ASSERT_TRUE(rct::verRctSimple(s));
     for (size_t i = 0; i < n_outputs; ++i)
     {

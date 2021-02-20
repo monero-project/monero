@@ -306,17 +306,20 @@ TEST(ringct, range_proofs)
         ctkeyV sc, pc;
         ctkey sctmp, pctmp;
         std::vector<uint64_t> inamounts;
+        std::vector<bool> is_triptych;
         //add fake input 6000
         inamounts.push_back(6000);
         tie(sctmp, pctmp) = ctskpkGen(inamounts.back());
         sc.push_back(sctmp);
         pc.push_back(pctmp);
+        is_triptych.push_back(false);
 
 
         inamounts.push_back(7000);
         tie(sctmp, pctmp) = ctskpkGen(inamounts.back());
         sc.push_back(sctmp);
         pc.push_back(pctmp);
+        is_triptych.push_back(false);
         vector<xmr_amount >amounts;
         rct::keyV amount_keys;
         key mask;
@@ -345,7 +348,7 @@ TEST(ringct, range_proofs)
         ASSERT_TRUE(ok);
 
         //compute rct data with mixin 3
-        rctSig s = genRctSimple(rct::zero(), sc, pc, destinations, inamounts, amounts, amount_keys, NULL, NULL, 0, 3, rct_config, hw::get_device("default"));
+        rctSig s = genRctSimple(rct::zero(), sc, pc, destinations, is_triptych, inamounts, amounts, amount_keys, NULL, NULL, 0, 3, rct_config, hw::get_device("default"));
 
         //verify rct data
         ASSERT_TRUE(verRctSimple(s));
@@ -362,7 +365,7 @@ TEST(ringct, range_proofs)
 
 
         //compute rct data with mixin 3
-        s = genRctSimple(rct::zero(), sc, pc, destinations, inamounts, amounts, amount_keys, NULL, NULL, 0, 3, rct_config, hw::get_device("default"));
+        s = genRctSimple(rct::zero(), sc, pc, destinations, is_triptych, inamounts, amounts, amount_keys, NULL, NULL, 0, 3, rct_config, hw::get_device("default"));
 
         //verify rct data
         ASSERT_FALSE(verRctSimple(s));
@@ -378,17 +381,20 @@ TEST(ringct, range_proofs_with_fee)
         ctkeyV sc, pc;
         ctkey sctmp, pctmp;
         std::vector<uint64_t> inamounts;
+        std::vector<bool> is_triptych;
         //add fake input 6001
         inamounts.push_back(6001);
         tie(sctmp, pctmp) = ctskpkGen(inamounts.back());
         sc.push_back(sctmp);
         pc.push_back(pctmp);
-
+        is_triptych.push_back(false);
 
         inamounts.push_back(7000);
         tie(sctmp, pctmp) = ctskpkGen(inamounts.back());
         sc.push_back(sctmp);
         pc.push_back(pctmp);
+        is_triptych.push_back(false);
+
         vector<xmr_amount >amounts;
         keyV amount_keys;
         key mask;
@@ -410,7 +416,7 @@ TEST(ringct, range_proofs_with_fee)
         const rct::RCTConfig rct_config { RangeProofBorromean, 0 };
 
         //compute rct data with mixin 3
-        rctSig s = genRctSimple(rct::zero(), sc, pc, destinations, inamounts, amounts, amount_keys, NULL, NULL, 1, 3, rct_config, hw::get_device("default"));
+        rctSig s = genRctSimple(rct::zero(), sc, pc, destinations, is_triptych, inamounts, amounts, amount_keys, NULL, NULL, 1, 3, rct_config, hw::get_device("default"));
 
         //verify rct data
         ASSERT_TRUE(verRctSimple(s));
@@ -427,7 +433,7 @@ TEST(ringct, range_proofs_with_fee)
 
 
         //compute rct data with mixin 3
-        s = genRctSimple(rct::zero(), sc, pc, destinations, inamounts, amounts, amount_keys, NULL, NULL, 500, 3, rct_config, hw::get_device("default"));
+        s = genRctSimple(rct::zero(), sc, pc, destinations, is_triptych, inamounts, amounts, amount_keys, NULL, NULL, 500, 3, rct_config, hw::get_device("default"));
 
         //verify rct data
         ASSERT_FALSE(verRctSimple(s));
@@ -444,6 +450,7 @@ TEST(ringct, simple)
         vector<xmr_amount>outamounts;
        //this vector corresponds to input amounts
         vector<xmr_amount>inamounts;
+        vector<bool>is_triptych;
         //this keyV corresponds to destination pubkeys
         keyV destinations;
         keyV amount_keys;
@@ -456,6 +463,7 @@ TEST(ringct, simple)
         sc.push_back(sctmp);
         pc.push_back(pctmp);
         inamounts.push_back(3000);
+        is_triptych.push_back(false);
 
         //add fake input 3000
         //the sc is secret data
@@ -464,6 +472,7 @@ TEST(ringct, simple)
         sc.push_back(sctmp);
         pc.push_back(pctmp);
         inamounts.push_back(3000);
+        is_triptych.push_back(false);
 
         //add output 5000
         outamounts.push_back(5000);
@@ -486,7 +495,7 @@ TEST(ringct, simple)
         xmr_amount txnfee = 1;
 
         const rct::RCTConfig rct_config { RangeProofBorromean, 0 };
-        rctSig s = genRctSimple(message, sc, pc, destinations,inamounts, outamounts, amount_keys, NULL, NULL, txnfee, 2, rct_config, hw::get_device("default"));
+        rctSig s = genRctSimple(message, sc, pc, destinations, is_triptych, inamounts, outamounts, amount_keys, NULL, NULL, txnfee, 2, rct_config, hw::get_device("default"));
 
         //verify ring ct signature
         ASSERT_TRUE(verRctSimple(s));
@@ -532,12 +541,14 @@ static rct::rctSig make_sample_simple_rct_sig(int n_inputs, const uint64_t input
     keyV destinations;
     keyV amount_keys;
     key Sk, Pk;
+    std::vector<bool> is_triptych;
 
     for (int n = 0; n < n_inputs; ++n) {
         inamounts.push_back(input_amounts[n]);
         tie(sctmp, pctmp) = ctskpkGen(input_amounts[n]);
         sc.push_back(sctmp);
         pc.push_back(pctmp);
+        is_triptych.push_back(false);
     }
 
     for (int n = 0; n < n_outputs; ++n) {
@@ -548,7 +559,7 @@ static rct::rctSig make_sample_simple_rct_sig(int n_inputs, const uint64_t input
     }
 
     const rct::RCTConfig rct_config { RangeProofBorromean, 0 };
-    return genRctSimple(rct::zero(), sc, pc, destinations, inamounts, outamounts, amount_keys, NULL, NULL, fee, 3, rct_config, hw::get_device("default"));
+    return genRctSimple(rct::zero(), sc, pc, destinations,  is_triptych, inamounts, outamounts, amount_keys, NULL, NULL, fee, 3, rct_config, hw::get_device("default"));
 }
 
 static bool range_proof_test(bool expected_valid,

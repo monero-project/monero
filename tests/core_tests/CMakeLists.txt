@@ -46,6 +46,7 @@ set(core_tests_sources
   bulletproofs.cpp
   bulletproof_plus.cpp
   rct2.cpp
+  triptych.cpp
   wallet_tools.cpp)
 
 set(core_tests_headers
@@ -68,6 +69,7 @@ set(core_tests_headers
   bulletproofs.h
   bulletproof_plus.h
   rct2.h
+  triptych.h
   wallet_tools.h)
 
 monero_add_test_executable(core_tests

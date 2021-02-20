@@ -195,6 +195,7 @@ namespace trezor {
           const ::crypto::key_derivation& recv_derivation,
           size_t real_output_index,
           const ::cryptonote::subaddress_index& received_index,
+          bool triptych,
           ::cryptonote::keypair& in_ephemeral,
           ::crypto::key_image& ki) override;
 

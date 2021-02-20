@@ -105,6 +105,7 @@ bool gen_rct_tx_validation_base::generate_with_full(std::vector<test_event_entry
     src.real_output_in_tx_index = index_in_tx;
     src.mask = rct::identity();
     src.rct = false;
+    src.triptych = false;
 
     //fill outputs entry
     tx_destination_entry td;
@@ -181,6 +182,7 @@ bool gen_rct_tx_validation_base::generate_with_full(std::vector<test_event_entry
       src.real_output_in_tx_index = rct_idx&3;
       src.mask = rct_tx_masks[rct_idx];
       src.rct = true;
+      src.triptych = false;
       for (int m = 0; m <= mixin; ++m) {
         rct::ctkey ctkey;
         ctkey.dest = rct::pk2rct(boost::get<txout_to_key>(rct_txes[rct_idx/4].vout[rct_idx&3].target).key);
@@ -200,6 +202,7 @@ bool gen_rct_tx_validation_base::generate_with_full(std::vector<test_event_entry
       src.real_output_in_tx_index = 4;
       src.mask = rct::identity();
       src.rct = false;
+      src.triptych = false;
       for (int m = 0; m <= mixin; ++m) {
         src.push_output(m, boost::get<txout_to_key>(blocks[pre_rct_idx].miner_tx.vout[4].target).key, src.amount);
         ++pre_rct_idx;

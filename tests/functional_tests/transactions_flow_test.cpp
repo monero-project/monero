@@ -85,7 +85,8 @@ bool do_send_money(tools::wallet2& w1, tools::wallet2& w2, size_t mix_in_factor,
   try
   {
     std::vector<tools::wallet2::pending_tx> ptx;
-    ptx = w1.create_transactions_2(dsts, mix_in_factor, 0, 0, std::vector<uint8_t>(), 0, {});
+    const size_t mix_in_factor_2[2] = { mix_in_factor, TRIPTYCH_RING_SIZE - 1 };
+    ptx = w1.create_transactions_2(dsts, mix_in_factor_2, 0, 0, std::vector<uint8_t>(), 0, {});
     for (auto &p: ptx)
       w1.commit_tx(p);
     return true;

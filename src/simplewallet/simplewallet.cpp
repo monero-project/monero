@@ -589,7 +589,7 @@ void simple_wallet::handle_transfer_exception(const std::exception_ptr &e, bool 
     catch (const tools::error::not_enough_outs_to_mix& e)
     {
       auto writer = fail_msg_writer();
-      writer << sw::tr("not enough outputs for specified ring size") << " = " << (e.mixin_count() + 1) << ":";
+      writer << sw::tr("not enough outputs for specified ring size") << " = " << (e.pre_triptych_mixin_count() + 1) << "/" << (e.triptych_mixin_count() + 1) << ":";
       for (std::pair<uint64_t, uint64_t> outs_for_amount : e.scanty_outs())
       {
         writer << "\n" << sw::tr("output amount") << " = " << print_money(outs_for_amount.first) << ", " << sw::tr("found outputs to use") << " = " << outs_for_amount.second;
@@ -6308,11 +6308,11 @@ bool simple_wallet::show_incoming_transfers(const std::vector<std::string>& args
         extra_string += std::string("\n    ") + tr("Used at heights: ") + line.first + "\n    " + line.second;
       }
       message_writer(td.m_spent ? console_color_magenta : console_color_green, false) <<
-        boost::format("%21s%8s%12s%8s%16u%68s%16u%s") %
+        boost::format("%21s%8s%12s%10s%16u%68s%16u%s") %
         print_money(td.amount()) %
         (td.m_spent ? tr("T") : tr("F")) %
         (m_wallet->frozen(td) ? tr("[frozen]") : m_wallet->is_transfer_unlocked(td) ? tr("unlocked") : tr("locked")) %
-        (td.is_rct() ? tr("RingCT") : tr("-")) %
+        (td.is_triptych() ? tr("Triptych") : td.is_rct() ? tr("RingCT") : tr("-")) %
         td.m_global_output_index %
         td.m_txid %
         td.m_subaddr_index.minor %
@@ -6913,6 +6913,7 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
     std::vector<tools::wallet2::pending_tx> ptx_vector;
     uint64_t bc_height, unlock_block = 0;
     std::string err;
+    size_t fake_outs_count_2[2] = {fake_outs_count, TRIPTYCH_RING_SIZE - 1};
     switch (transfer_type)
     {
       case TransferLocked:
@@ -6923,13 +6924,13 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
           return false;
         }
         unlock_block = bc_height + locked_blocks;
-        ptx_vector = m_wallet->create_transactions_2(dsts, fake_outs_count, unlock_block /* unlock_time */, priority, extra, m_current_subaddress_account, subaddr_indices);
+        ptx_vector = m_wallet->create_transactions_2(dsts, fake_outs_count_2, unlock_block /* unlock_time */, priority, extra, m_current_subaddress_account, subaddr_indices);
       break;
       default:
         LOG_ERROR("Unknown transfer method, using default");
         /* FALLTHRU */
       case Transfer:
-        ptx_vector = m_wallet->create_transactions_2(dsts, fake_outs_count, 0 /* unlock_time */, priority, extra, m_current_subaddress_account, subaddr_indices);
+        ptx_vector = m_wallet->create_transactions_2(dsts, fake_outs_count_2, 0 /* unlock_time */, priority, extra, m_current_subaddress_account, subaddr_indices);
       break;
     }
 
@@ -7051,12 +7052,15 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
         bool default_ring_size = true;
         for (const auto &ptx: ptx_vector)
         {
-          for (const auto &vin: ptx.tx.vin)
+          for (size_t i = 0; i < ptx.tx.vin.size(); ++i)
           {
+            const auto &vin = ptx.tx.vin[i];
             if (vin.type() == typeid(txin_to_key))
             {
               const txin_to_key& in_to_key = boost::get<txin_to_key>(vin);
-              if (in_to_key.key_offsets.size() != DEFAULT_MIX + 1)
+              const bool triptych = rct::is_rct_triptych(ptx.tx.rct_signatures.type) && ptx.tx.rct_signatures.p.triptych[i].type() == typeid(rct::TriptychProof);
+              const size_t expected_ring_size = triptych ? TRIPTYCH_RING_SIZE : (DEFAULT_MIX + 1);
+              if (in_to_key.key_offsets.size() != expected_ring_size)
                 default_ring_size = false;
             }
           }
@@ -7471,8 +7475,9 @@ bool simple_wallet::sweep_main(uint32_t account, uint64_t below, bool locked, co
 
   try
   {
+    size_t fake_outs_count_2[2] = {fake_outs_count, TRIPTYCH_RING_SIZE - 1};
     // figure out what tx will be necessary
-    auto ptx_vector = m_wallet->create_transactions_all(below, info.address, info.is_subaddress, outputs, fake_outs_count, unlock_block /* unlock_time */, priority, extra, account, subaddr_indices);
+    auto ptx_vector = m_wallet->create_transactions_all(below, info.address, info.is_subaddress, outputs, fake_outs_count_2, unlock_block /* unlock_time */, priority, extra, account, subaddr_indices);
 
     if (ptx_vector.empty())
     {
@@ -7727,8 +7732,9 @@ bool simple_wallet::sweep_single(const std::vector<std::string> &args_)
 
   try
   {
+    size_t fake_outs_count_2[2] = {fake_outs_count, TRIPTYCH_RING_SIZE - 1};
     // figure out what tx will be necessary
-    auto ptx_vector = m_wallet->create_transactions_single(ki, info.address, info.is_subaddress, outputs, fake_outs_count, 0 /* unlock_time */, priority, extra);
+    auto ptx_vector = m_wallet->create_transactions_single(ki, info.address, info.is_subaddress, outputs, fake_outs_count_2, 0 /* unlock_time */, priority, extra);
 
     if (ptx_vector.empty())
     {

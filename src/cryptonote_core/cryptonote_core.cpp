@@ -976,6 +976,7 @@ namespace cryptonote
           rvv.push_back(&rv); // delayed batch verification
           break;
         case rct::RCTTypeBulletproofPlus:
+        case rct::RCTTypeTriptych:
           if (!is_canonical_bulletproof_plus_layout(rv.p.bulletproofs_plus))
           {
             MERROR_VER("Bulletproof_plus does not have canonical form");
@@ -1003,7 +1004,7 @@ namespace cryptonote
       {
         if (!tx_info[n].result)
           continue;
-        if (tx_info[n].tx->rct_signatures.type != rct::RCTTypeBulletproof && tx_info[n].tx->rct_signatures.type != rct::RCTTypeBulletproof2 && tx_info[n].tx->rct_signatures.type != rct::RCTTypeCLSAG && tx_info[n].tx->rct_signatures.type != rct::RCTTypeBulletproofPlus)
+        if (tx_info[n].tx->rct_signatures.type != rct::RCTTypeBulletproof && tx_info[n].tx->rct_signatures.type != rct::RCTTypeBulletproof2 && tx_info[n].tx->rct_signatures.type != rct::RCTTypeCLSAG && tx_info[n].tx->rct_signatures.type != rct::RCTTypeBulletproofPlus && tx_info[n].tx->rct_signatures.type != rct::RCTTypeTriptych)
           continue;
         if (assumed_bad || !rct::verRctSemanticsSimple(tx_info[n].tx->rct_signatures))
         {

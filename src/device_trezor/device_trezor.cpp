@@ -334,7 +334,7 @@ namespace trezor {
 
       auto final_req = std::make_shared<messages::monero::MoneroKeyImageSyncFinalRequest>();
       auto final_ack = this->client_exchange<messages::monero::MoneroKeyImageSyncFinalAck>(final_req);
-      ski.reserve(kis.size());
+      ski.key_images.reserve(kis.size());
 
       for(auto & sub : kis){
         ::crypto::signature sig{};
@@ -351,7 +351,8 @@ namespace trezor {
         memcpy(ki.data, buff, sizeof(ki.data));
         memcpy(sig.c.data, buff + sizeof(ki.data), sizeof(ki.data));
         memcpy(sig.r.data, buff + 2*sizeof(ki.data), sizeof(ki.data));
-        ski.push_back(std::make_pair(ki, sig));
+#warning: TODO: triptych
+        ski.key_images.push_back({ki, tools::key_image_data_t::schnorr_signature{sig}});
       }
 #undef EVENT_PROGRESS
     }
@@ -471,9 +472,16 @@ namespace trezor {
         const ::crypto::key_derivation& recv_derivation,
         size_t real_output_index,
         const ::cryptonote::subaddress_index& received_index,
+        bool triptych,
         ::cryptonote::keypair& in_ephemeral,
         ::crypto::key_image& ki)
     {
+      if (triptych)
+      {
+        MERROR("Not implemented yet");
+        return false;
+      }
+
       if (!is_live_refresh_enabled())
       {
         return false;

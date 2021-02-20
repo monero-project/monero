@@ -38,6 +38,7 @@
 #include "cryptonote_basic/subaddress_index.h"
 #include "cryptonote_core/cryptonote_tx_utils.h"
 #include "ringct/rctOps.h"
+#include "ringct/triptych.h"
 #include "cryptonote_config.h"
 
 namespace hw {
@@ -259,8 +260,11 @@ namespace hw {
             return crypto::secret_key_to_public_key(sec,pub);
         }
 
-        bool device_default::generate_key_image(const crypto::public_key &pub, const crypto::secret_key &sec, crypto::key_image &image){
-            crypto::generate_key_image(pub, sec,image);
+        bool device_default::generate_key_image(const crypto::public_key &pub, const crypto::secret_key &sec, bool triptych, crypto::key_image &image){
+            if (triptych)
+              image = rct::rct2ki(rct::triptych_key_image(rct::sk2rct(sec)));
+            else
+              crypto::generate_key_image(pub, sec,image);
             return true;
         }
 

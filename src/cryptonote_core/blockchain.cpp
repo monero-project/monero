@@ -3197,6 +3197,33 @@ bool Blockchain::check_tx_outputs(const transaction& tx, tx_verification_context
     }
   }
 
+  // from v17, allow triptych
+  if (hf_version < HF_VERSION_TRIPTYCH) {
+    if (tx.version >= 2) {
+      const bool triptych = rct::is_rct_triptych(tx.rct_signatures.type);
+      if (triptych || !tx.rct_signatures.p.triptych.empty())
+      {
+        MERROR_VER("Triptych is not allowed before v" << std::to_string(HF_VERSION_TRIPTYCH));
+        tvc.m_invalid_output = true;
+        return false;
+      }
+    }
+  }
+
+  // from v17, only triptych and clsag signature types allowed in triptych vector
+  if (hf_version >= HF_VERSION_TRIPTYCH) {
+    if (tx.version >= 2) {
+      for (const auto &e: tx.rct_signatures.p.triptych) {
+        if (e.type() != typeid(rct::clsag) && e.type() != typeid(rct::TriptychProof))
+        {
+          MERROR_VER("Invalid proof type in triptych vector");
+          tvc.m_invalid_input = true;
+          return false;
+        }
+      }
+    }
+  }
+
   return true;
 }
 //------------------------------------------------------------------
@@ -3237,7 +3264,7 @@ bool Blockchain::expand_transaction_2(transaction &tx, const crypto::hash &tx_pr
       }
     }
   }
-  else if (rv.type == rct::RCTTypeSimple || rv.type == rct::RCTTypeBulletproof || rv.type == rct::RCTTypeBulletproof2 || rv.type == rct::RCTTypeCLSAG || rv.type == rct::RCTTypeBulletproofPlus)
+  else if (rv.type == rct::RCTTypeSimple || rv.type == rct::RCTTypeBulletproof || rv.type == rct::RCTTypeBulletproof2 || rv.type == rct::RCTTypeCLSAG || rv.type == rct::RCTTypeBulletproofPlus || rv.type == rct::RCTTypeTriptych)
   {
     CHECK_AND_ASSERT_MES(!pubkeys.empty() && !pubkeys[0].empty(), false, "empty pubkeys");
     rv.mixRing.resize(pubkeys.size());
@@ -3286,6 +3313,20 @@ bool Blockchain::expand_transaction_2(transaction &tx, const crypto::hash &tx_pr
       for (size_t n = 0; n < tx.vin.size(); ++n)
       {
         rv.p.CLSAGs[n].I = rct::ki2rct(boost::get<txin_to_key>(tx.vin[n]).k_image);
+      }
+    }
+  }
+  else if (rv.type == rct::RCTTypeTriptych)
+  {
+    if (!tx.pruned)
+    {
+      CHECK_AND_ASSERT_MES(rv.p.triptych.size() == tx.vin.size(), false, "Bad Triptych proof size");
+      for (size_t n = 0; n < tx.vin.size(); ++n)
+      {
+        if (rv.p.triptych[n].type() == typeid(rct::TriptychProof))
+          boost::get<rct::TriptychProof>(rv.p.triptych[n]).J = rct::ki2rct(boost::get<txin_to_key>(tx.vin[n]).k_image);
+        else if (rv.p.triptych[n].type() == typeid(rct::clsag))
+          boost::get<rct::clsag>(rv.p.triptych[n]).I = rct::ki2rct(boost::get<txin_to_key>(tx.vin[n]).k_image);
       }
     }
   }
@@ -3338,11 +3379,21 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
   if (hf_version >= 2)
   {
     size_t n_unmixable = 0, n_mixable = 0;
-    size_t min_actual_mixin = std::numeric_limits<size_t>::max();
-    size_t max_actual_mixin = 0;
-    const size_t min_mixin = hf_version >= HF_VERSION_MIN_MIXIN_10 ? 10 : hf_version >= HF_VERSION_MIN_MIXIN_6 ? 6 : hf_version >= HF_VERSION_MIN_MIXIN_4 ? 4 : 2;
-    for (const auto& txin : tx.vin)
+    enum { mixin_index_pre_triptych = 0, mixin_index_triptych = 1};
+    size_t min_actual_mixin[2] = {std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max()};
+    size_t max_actual_mixin[2] = {0, 0};
+    const bool is_triptych = tx.version > 1 && rct::is_rct_triptych(tx.rct_signatures.type);
+    const size_t min_mixin[2] = {
+        hf_version >= HF_VERSION_MIN_MIXIN_10 ? 10u
+      : hf_version >= HF_VERSION_MIN_MIXIN_6 ? 6u
+      : hf_version >= HF_VERSION_MIN_MIXIN_4 ? 4u
+      : 2u,
+      TRIPTYCH_RING_SIZE - 1
+    };
+    bool found_input[2] = {false, false};
+    for (size_t i = 0; i < tx.vin.size(); ++i)
     {
+      const auto& txin = tx.vin[i];
       // non txin_to_key inputs will be rejected below
       if (txin.type() == typeid(txin_to_key))
       {
@@ -3359,50 +3410,79 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
           uint64_t n_outputs = m_db->get_num_outputs(in_to_key.amount);
           MDEBUG("output size " << print_money(in_to_key.amount) << ": " << n_outputs << " available");
           // n_outputs includes the output we're considering
-          if (n_outputs <= min_mixin)
+          if (n_outputs <= min_mixin[mixin_index_pre_triptych])
             ++n_unmixable;
           else
             ++n_mixable;
         }
-        size_t ring_mixin = in_to_key.key_offsets.size() - 1;
-        if (ring_mixin < min_actual_mixin)
-          min_actual_mixin = ring_mixin;
-        if (ring_mixin > max_actual_mixin)
-          max_actual_mixin = ring_mixin;
+
+        // find the earliest input's creation time to see if this ring is triptych
+        const int idx = (is_triptych && in_to_key.amount == 0 && tx.rct_signatures.p.triptych[i].type() == typeid(rct::TriptychProof)) ? mixin_index_triptych : mixin_index_pre_triptych;
+        found_input[idx] = true;
+
+        const size_t ring_mixin = in_to_key.key_offsets.size() - 1;
+        if (ring_mixin < min_actual_mixin[idx])
+          min_actual_mixin[idx] = ring_mixin;
+        if (ring_mixin > max_actual_mixin[idx])
+          max_actual_mixin[idx] = ring_mixin;
       }
     }
-    MDEBUG("Mixin: " << min_actual_mixin << "-" << max_actual_mixin);
+
+    if (is_triptych && !found_input[mixin_index_triptych])
+    {
+      MERROR_VER("Tx " << get_transaction_hash(tx) << " is Triptych but has no Triptych output");
+      tvc.m_invalid_input = true;
+      return false;
+    }
+
+    if (found_input[mixin_index_pre_triptych])
+      MDEBUG("Mixin (pre-triptych): " << min_actual_mixin[mixin_index_pre_triptych] << "-" << max_actual_mixin[mixin_index_pre_triptych]);
+    if (found_input[mixin_index_triptych])
+      MDEBUG("Mixin (triptych): " << min_actual_mixin[mixin_index_triptych] << "-" << max_actual_mixin[mixin_index_triptych]);
 
     if (hf_version >= HF_VERSION_SAME_MIXIN)
     {
-      if (min_actual_mixin != max_actual_mixin)
+      if (found_input[mixin_index_pre_triptych] && min_actual_mixin[mixin_index_pre_triptych] != max_actual_mixin[mixin_index_pre_triptych])
       {
-        MERROR_VER("Tx " << get_transaction_hash(tx) << " has varying ring size (" << (min_actual_mixin + 1) << "-" << (max_actual_mixin + 1) << "), it should be constant");
+        MERROR_VER("Tx " << get_transaction_hash(tx) << " has varying pre-triptych ring size (" << (min_actual_mixin[mixin_index_pre_triptych] + 1) << "-" << (max_actual_mixin[mixin_index_pre_triptych] + 1) << "), it should be constant");
         tvc.m_low_mixin = true;
         return false;
       }
     }
-
-    if (((hf_version == HF_VERSION_MIN_MIXIN_10 || hf_version == HF_VERSION_MIN_MIXIN_10+1) && min_actual_mixin != 10) || (hf_version >= HF_VERSION_MIN_MIXIN_10+2 && min_actual_mixin > 10))
+    if (found_input[mixin_index_triptych] && min_actual_mixin[mixin_index_triptych] != max_actual_mixin[mixin_index_triptych])
     {
-      MERROR_VER("Tx " << get_transaction_hash(tx) << " has invalid ring size (" << (min_actual_mixin + 1) << "), it should be 11");
+      MERROR_VER("Tx " << get_transaction_hash(tx) << " has varying triptych ring size (" << (min_actual_mixin[mixin_index_triptych] + 1) << "-" << (max_actual_mixin[mixin_index_triptych] + 1) << "), it should be constant");
       tvc.m_low_mixin = true;
       return false;
     }
 
-    if (min_actual_mixin < min_mixin)
+    if (((hf_version == HF_VERSION_MIN_MIXIN_10 || hf_version == HF_VERSION_MIN_MIXIN_10+1) && min_actual_mixin[mixin_index_pre_triptych] != 10) || (hf_version >= HF_VERSION_MIN_MIXIN_10+2 && min_actual_mixin[mixin_index_pre_triptych] > 10))
     {
-      if (n_unmixable == 0)
+      if (found_input[mixin_index_pre_triptych])
       {
-        MERROR_VER("Tx " << get_transaction_hash(tx) << " has too low ring size (" << (min_actual_mixin + 1) << "), and no unmixable inputs");
+        MERROR_VER("Tx " << get_transaction_hash(tx) << " has invalid pre-triptych ring size (" << (min_actual_mixin[mixin_index_pre_triptych] + 1) << "), it should be " << (10 + 1));
         tvc.m_low_mixin = true;
         return false;
       }
-      if (n_mixable > 1)
+    }
+
+    for (int idx = 0; idx < 2; ++idx)
+    {
+      const char *stype = idx == mixin_index_pre_triptych ? "pre-triptych" : "triptych";
+      if (min_actual_mixin[idx] < min_mixin[idx])
       {
-        MERROR_VER("Tx " << get_transaction_hash(tx) << " has too low ring size (" << (min_actual_mixin + 1) << "), and more than one mixable input with unmixable inputs");
-        tvc.m_low_mixin = true;
-        return false;
+        if (n_unmixable == 0)
+        {
+          MERROR_VER("Tx " << get_transaction_hash(tx) << " has too low " << stype << " ring size (" << (min_actual_mixin[idx] + 1) << "), and no unmixable inputs");
+          tvc.m_low_mixin = true;
+          return false;
+        }
+        if (n_mixable > 1)
+        {
+          MERROR_VER("Tx " << get_transaction_hash(tx) << " has too low " << stype << " ring size (" << (min_actual_mixin[idx] + 1) << "), and more than one mixable input with unmixable inputs");
+          tvc.m_low_mixin = true;
+          return false;
+        }
       }
     }
 
@@ -3439,6 +3519,76 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
           return false;
         }
         last_key_image = &in_to_key.k_image;
+      }
+    }
+  }
+
+  // from v17, either all ring members in a ring before the triptych fork, or all after
+  if (hf_version >= HF_VERSION_TRIPTYCH)
+  {
+    uint64_t first_triptych_output_index = std::numeric_limits<uint64_t>::max();
+    const uint64_t triptych_height = m_hardfork->get_earliest_ideal_height_for_version(HF_VERSION_TRIPTYCH);
+    if (triptych_height < m_db->height())
+    {
+      const cryptonote::block blk = m_db->get_block_from_height(triptych_height);
+      const crypto::hash hash = cryptonote::get_transaction_hash(blk.miner_tx);
+      std::vector<uint64_t> indices;
+      bool r = get_tx_outputs_gindexs(hash, indices);
+      if (!r || indices.empty())
+      {
+        MERROR_VER("Failed to retrieve first Triptych output index");
+        tvc.m_verifivation_failed = true;
+        return false;
+      }
+      first_triptych_output_index = indices.front();
+    }
+
+    for (size_t n = 0; n < tx.vin.size(); ++n)
+    {
+      const txin_v &txin = tx.vin[n];
+      if (txin.type() == typeid(txin_to_key))
+      {
+        const txin_to_key& in_to_key = boost::get<txin_to_key>(txin);
+        if (in_to_key.amount != 0)
+          continue;
+        const bool first_triptych = in_to_key.key_offsets.front() >= first_triptych_output_index;
+        if (!first_triptych)
+        {
+          uint64_t last = 0;
+          for (uint64_t k: in_to_key.key_offsets)
+            last += k;
+          const bool last_triptych = last >= first_triptych_output_index;
+          if (last_triptych)
+          {
+            MERROR_VER("Ring contains both Triptych and pre-Triptych inputs (first triptych output index " << first_triptych_output_index << " at height " << triptych_height << ", first ring member " << in_to_key.key_offsets.front() << ", last ring member " << last << ")");
+            tvc.m_invalid_input = true;
+            return false;
+          }
+        }
+        if (tx.version >= 2 && rct::is_rct_triptych(tx.rct_signatures.type))
+        {
+          if (first_triptych && tx.rct_signatures.p.triptych[n].type() != typeid(rct::TriptychProof))
+          {
+            MERROR_VER("Ring has Triptych members but a non-Triptych proof");
+            tvc.m_invalid_input = true;
+            return false;
+          }
+          if (!first_triptych && tx.rct_signatures.p.triptych[n].type() == typeid(rct::TriptychProof))
+          {
+            MERROR_VER("Ring has a Triptych proof but non-Triptych ring members");
+            tvc.m_invalid_input = true;
+            return false;
+          }
+        }
+        else
+        {
+          if (first_triptych)
+          {
+            MERROR_VER("Ring has Triptych members but is a non-Triptych transaction");
+            tvc.m_invalid_input = true;
+            return false;
+          }
+        }
       }
     }
   }
@@ -3571,6 +3721,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
     case rct::RCTTypeBulletproof2:
     case rct::RCTTypeCLSAG:
     case rct::RCTTypeBulletproofPlus:
+    case rct::RCTTypeTriptych:
     {
       // check all this, either reconstructed (so should really pass), or not
       {
@@ -3606,7 +3757,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
         }
       }
 
-      const size_t n_sigs = rv.type == rct::RCTTypeCLSAG || rv.type == rct::RCTTypeBulletproofPlus ? rv.p.CLSAGs.size() : rv.p.MGs.size();
+      const size_t n_sigs = rv.type == rct::RCTTypeCLSAG || rv.type == rct::RCTTypeBulletproofPlus ? rv.p.CLSAGs.size() : rv.type == rct::RCTTypeTriptych ? rv.p.triptych.size() : rv.p.MGs.size();
       if (n_sigs != tx.vin.size())
       {
         MERROR_VER("Failed to check ringct signatures: mismatched MGs/vin sizes");
@@ -3615,7 +3766,14 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
       for (size_t n = 0; n < tx.vin.size(); ++n)
       {
         bool error;
-        if (rv.type == rct::RCTTypeCLSAG || rv.type == rct::RCTTypeBulletproofPlus)
+        if (rv.type == rct::RCTTypeTriptych)
+        {
+          if (rv.p.triptych[n].type() == typeid(rct::TriptychProof))
+            error = memcmp(&boost::get<txin_to_key>(tx.vin[n]).k_image, &boost::get<rct::TriptychProof>(rv.p.triptych[n]).J, 32);
+          else if (rv.p.triptych[n].type() == typeid(rct::clsag))
+            error = memcmp(&boost::get<txin_to_key>(tx.vin[n]).k_image, &boost::get<rct::clsag>(rv.p.triptych[n]).I, 32);
+        }
+        else if (rv.type == rct::RCTTypeCLSAG || rv.type == rct::RCTTypeBulletproofPlus)
           error = memcmp(&boost::get<txin_to_key>(tx.vin[n]).k_image, &rv.p.CLSAGs[n].I, 32);
         else
           error = rv.p.MGs[n].II.empty() || memcmp(&boost::get<txin_to_key>(tx.vin[n]).k_image, &rv.p.MGs[n].II[0], 32);

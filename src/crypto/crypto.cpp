@@ -504,7 +504,7 @@ namespace crypto {
     memwipe(&k, sizeof(k));
   }
 
-  // Verify a proof: either v1 (version == 1) or v2 (version == 2)
+  // Verify a proof: either v1 (version == 1) or v2/v3 (version == 2 or 3)
   bool crypto_ops::check_tx_proof(const hash &prefix_hash, const public_key &R, const public_key &A, const boost::optional<public_key> &B, const public_key &D, const signature &sig, const int version) {
     // sanity check
     ge_p3 R_p3;
@@ -600,7 +600,7 @@ namespace crypto {
 
     // Hash depends on version
     if (version == 1) hash_to_scalar(&buf, sizeof(s_comm_2) - 3*sizeof(ec_point) - sizeof(hash), c2);
-    else if (version == 2) hash_to_scalar(&buf, sizeof(s_comm_2), c2);
+    else if (version == 2 || version == 3) hash_to_scalar(&buf, sizeof(s_comm_2), c2);
     else return false;
 
     // test if c2 == sig.c

@@ -36,11 +36,13 @@ from __future__ import print_function
 from framework.daemon import Daemon
 from framework.wallet import Wallet
 
+TRIPTYCH_RING_SIZE = 128
+
 class ProofsTest():
     def run_test(self):
         self.reset()
         self.create_wallets()
-        self.mine('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 80)
+        self.mine('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 80 + TRIPTYCH_RING_SIZE * 2)
         txid, tx_key, amount, fee, height = self.transfer()
         self.check_tx_key(txid, tx_key, amount)
         self.check_tx_proof(txid, amount)
@@ -301,9 +303,10 @@ class ProofsTest():
         balance1 = res.balance
 
         res = self.wallet[0].get_reserve_proof(all_ = True, message = 'foo')
-        assert res.signature.startswith('ReserveProofV2')
+        assert res.signature.startswith('ReserveProofV3')
         signature = res.signature
         for i in range(2):
+          self.wallet[i].get_bulk_payments()
           res = self.wallet[i].check_reserve_proof(address = address0, message = 'foo', signature = signature)
           assert res.good
           assert res.total == balance0
@@ -320,13 +323,13 @@ class ProofsTest():
 
           # Test bad cross-version verification
           ok = False
-          try: res = self.wallet[i].check_reserve_proof(address = address0, message = 'foo', signature = signature.replace('ProofV2','ProofV1'))
+          try: res = self.wallet[i].check_reserve_proof(address = address0, message = 'foo', signature = signature.replace('ProofV3','ProofV1'))
           except: ok = True
           assert ok or not res.good
 
         amount = int(balance0 / 10)
         res = self.wallet[0].get_reserve_proof(all_ = False, amount = amount, message = 'foo')
-        assert res.signature.startswith('ReserveProofV2')
+        assert res.signature.startswith('ReserveProofV3')
         signature = res.signature
         for i in range(2):
           res = self.wallet[i].check_reserve_proof(address = address0, message = 'foo', signature = signature)
@@ -345,7 +348,7 @@ class ProofsTest():
 
           # Test bad cross-version verification
           ok = False
-          try: res = self.wallet[i].check_reserve_proof(address = address0, message = 'foo', signature = signature.replace('ProofV2','ProofV1'))
+          try: res = self.wallet[i].check_reserve_proof(address = address0, message = 'foo', signature = signature.replace('ProofV3','ProofV1'))
           except: ok = True
           assert ok or not res.good
 
@@ -378,10 +381,11 @@ class ProofsTest():
             expected_balance += headers[h].reward
             if h == height:
                 expected_balance -= paid
-            res = self.wallet[0].get_reserve_proof(all_ = True, blockchain_height = h + 1, message = 'foo')
-            signature = res.signature
-            res = self.wallet[1].check_reserve_proof(address = address0, blockchain_height = h + 1, message = 'foo', signature = signature)
-            assert res.total - res.spent == expected_balance
+            if h in [1, 2, 3, bc_height // 4, bc_height // 2, bc_height * 3 // 4, bc_height - 3, bc_height - 2, bc_height - 1]:
+                res = self.wallet[0].get_reserve_proof(all_ = True, blockchain_height = h + 1, message = 'foo')
+                signature = res.signature
+                res = self.wallet[1].check_reserve_proof(address = address0, blockchain_height = h + 1, message = 'foo', signature = signature)
+                assert res.total - res.spent == expected_balance
         res = self.wallet[1].check_reserve_proof(address = address0, blockchain_height = 1, message = 'foo', signature = signature)
         assert res.total - res.spent == 0
 

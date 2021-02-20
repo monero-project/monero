@@ -54,6 +54,13 @@ bool tx_sanity_check(const cryptonote::blobdata &tx_blob, uint64_t rct_outs_avai
     MERROR("Transaction is coinbase");
     return false;
   }
+
+  if (tx.version >= 2 && tx.rct_signatures.type >= rct::RCTTypeTriptych)
+  {
+    MINFO("Skipping sanity check for Triptych transaction until there are enough Triptych outputs");
+    return true;
+  }
+
   std::set<uint64_t> rct_indices;
   size_t n_indices = 0;
 

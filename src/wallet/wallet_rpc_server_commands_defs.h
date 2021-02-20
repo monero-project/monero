@@ -2661,13 +2661,17 @@ namespace wallet_rpc
       uint32_t n_inputs;
       uint32_t n_outputs;
       uint32_t ring_size;
+      uint32_t n_pre_triptych_inputs;
+      uint32_t n_triptych_inputs;
       bool rct;
 
       BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(n_inputs)
+        KV_SERIALIZE_OPT(n_inputs, 0u)
         KV_SERIALIZE(n_outputs)
         KV_SERIALIZE_OPT(ring_size, 0u)
         KV_SERIALIZE_OPT(rct, true)
+        KV_SERIALIZE_OPT(n_pre_triptych_inputs, 0u)
+        KV_SERIALIZE_OPT(n_triptych_inputs, 0u)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;

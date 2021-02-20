@@ -485,7 +485,7 @@ bool init_spent_output_indices(map_output_idx_t& outs, map_output_t& outs_mine, 
             crypto::public_key out_key = boost::get<txout_to_key>(oi.out).key;
             boost::container::flat_map<crypto::public_key, cryptonote::subaddress_index> subaddresses;
             subaddresses[from.get_keys().m_account_address.m_spend_public_key] = {0,0};
-            generate_key_image_helper(from.get_keys(), subaddresses, out_key, get_tx_pub_key_from_extra(*oi.p_tx), get_additional_tx_pub_keys_from_extra(*oi.p_tx), oi.out_no, in_ephemeral, img, hw::get_device(("default")));
+            generate_key_image_helper(from.get_keys(), subaddresses, out_key, get_tx_pub_key_from_extra(*oi.p_tx), get_additional_tx_pub_keys_from_extra(*oi.p_tx), oi.out_no, oi.triptych, in_ephemeral, img, hw::get_device(("default")));
 
             // lookup for this key image in the events vector
             BOOST_FOREACH(auto& tx_pair, mtx) {
@@ -583,6 +583,7 @@ bool fill_tx_sources(std::vector<tx_source_entry>& sources, const std::vector<te
 
             ts.real_output = realOutput;
             ts.rct = false;
+            ts.triptych = false;
             ts.mask = rct::identity();  // non-rct has identity mask by definition
 
             rct::key comm = rct::zeroCommit(ts.amount);
@@ -672,6 +673,7 @@ void block_tracker::process(const block* blk, const transaction * tx, size_t i)
 
     output_index oi(out.target, out.amount, boost::get<txin_gen>(blk->miner_tx.vin.front()).height, i, j, blk, tx);
     oi.set_rct(tx->version == 2);
+    oi.set_triptych(false); // TODO
     oi.idx = m_outs[rct_amount].size();
     oi.unlock_time = tx->unlock_time;
     oi.is_coin_base = tx->vin.size() == 1 && tx->vin.back().type() == typeid(cryptonote::txin_gen);

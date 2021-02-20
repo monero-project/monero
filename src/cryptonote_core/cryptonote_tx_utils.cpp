@@ -356,7 +356,7 @@ namespace cryptonote
       keypair& in_ephemeral = in_contexts.back().in_ephemeral;
       crypto::key_image img;
       const auto& out_key = reinterpret_cast<const crypto::public_key&>(src_entr.outputs[src_entr.real_output].second.dest);
-      if(!generate_key_image_helper(sender_account_keys, subaddresses, out_key, src_entr.real_out_tx_key, src_entr.real_out_additional_tx_keys, src_entr.real_output_in_tx_index, in_ephemeral,img, hwdev))
+      if(!generate_key_image_helper(sender_account_keys, subaddresses, out_key, src_entr.real_out_tx_key, src_entr.real_out_additional_tx_keys, src_entr.real_output_in_tx_index, src_entr.triptych, in_ephemeral, img, hwdev))
       {
         LOG_ERROR("Key image generation failed!");
         return false;
@@ -560,12 +560,14 @@ namespace cryptonote
       std::vector<uint64_t> inamounts, outamounts;
       std::vector<unsigned int> index;
       std::vector<rct::multisig_kLRki> kLRki;
+      std::vector<bool> is_triptych;
       for (size_t i = 0; i < sources.size(); ++i)
       {
         rct::ctkey ctkey;
         amount_in += sources[i].amount;
         inamounts.push_back(sources[i].amount);
         index.push_back(sources[i].real_output);
+        is_triptych.push_back(sources[i].triptych);
         // inSk: (secret key, mask)
         ctkey.dest = rct::sk2rct(in_contexts[i].in_ephemeral.sec);
         ctkey.mask = sources[i].mask;
@@ -630,7 +632,7 @@ namespace cryptonote
 
       rct::ctkeyV outSk;
       if (use_simple_rct)
-        tx.rct_signatures = rct::genRctSimple(rct::hash2rct(tx_prefix_hash), inSk, destinations, inamounts, outamounts, amount_in - amount_out, mixRing, amount_keys, msout ? &kLRki : NULL, msout, index, outSk, rct_config, hwdev);
+        tx.rct_signatures = rct::genRctSimple(rct::hash2rct(tx_prefix_hash), inSk, destinations, is_triptych, inamounts, outamounts, amount_in - amount_out, mixRing, amount_keys, msout ? &kLRki : NULL, msout, index, outSk, rct_config, hwdev);
       else
         tx.rct_signatures = rct::genRct(rct::hash2rct(tx_prefix_hash), inSk, destinations, outamounts, mixRing, amount_keys, msout ? &kLRki[0] : NULL, msout, sources[0].real_output, outSk, rct_config, hwdev); // same index assumption
       memwipe(inSk.data(), inSk.size() * sizeof(rct::ctkey));

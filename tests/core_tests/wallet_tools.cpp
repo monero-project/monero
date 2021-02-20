@@ -163,6 +163,7 @@ void wallet_tools::gen_tx_src(size_t mixin, uint64_t cur_height, const tools::wa
   CHECK_AND_ASSERT_THROW_MES(mixin != 0, "mixin is zero");
   src.amount = td.amount();
   src.rct = td.is_rct();
+  src.triptych = td.is_triptych();
 
   std::vector<tools::wallet2::get_outs_entry> outs;
   bt.get_fake_outs(mixin, td.is_rct() ? 0 : td.amount(), td.m_global_output_index, cur_height, outs);

@@ -302,19 +302,20 @@ struct output_index {
   bool is_coin_base;
   bool spent;
   bool rct;
+  bool triptych;
   rct::key comm;
   const cryptonote::block *p_blk;
   const cryptonote::transaction *p_tx;
 
   output_index(const cryptonote::txout_target_v &_out, uint64_t _a, size_t _h, size_t tno, size_t ono, const cryptonote::block *_pb, const cryptonote::transaction *_pt)
       : out(_out), amount(_a), blk_height(_h), tx_no(tno), out_no(ono), idx(0), unlock_time(0),
-      is_coin_base(false), spent(false), rct(false), p_blk(_pb), p_tx(_pt)
+      is_coin_base(false), spent(false), rct(false), triptych(false), p_blk(_pb), p_tx(_pt)
   {
 
   }
 
   output_index(const output_index &other)
-      : out(other.out), amount(other.amount), blk_height(other.blk_height), tx_no(other.tx_no), rct(other.rct),
+      : out(other.out), amount(other.amount), blk_height(other.blk_height), tx_no(other.tx_no), rct(other.rct), triptych(other.triptych),
       out_no(other.out_no), idx(other.idx), unlock_time(other.unlock_time), is_coin_base(other.is_coin_base),
       spent(other.spent), comm(other.comm), p_blk(other.p_blk), p_tx(other.p_tx) {  }
 
@@ -324,6 +325,10 @@ struct output_index {
       comm = p_tx->rct_signatures.outPk[out_no].mask;
     else
       comm = rct::commit(amount, rct::identity());
+  }
+
+  void set_triptych(bool atriptych) {
+    triptych = atriptych;
   }
 
   rct::key commitment() const {
@@ -342,6 +347,7 @@ struct output_index {
        << " spent=" << spent
        << " is_coin_base=" << is_coin_base
        << " rct=" << rct
+       << " triptych=" << triptych
        << " comm=" << dump_keys(comm.bytes)
        << "}";
 

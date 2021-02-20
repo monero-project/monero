@@ -173,5 +173,5 @@ class test_triptych
         keyV C_offsets;
         keyV messages;
         std::vector<TriptychProof> p;
-        std::vector<TriptychProof *> proofs;
+        std::vector<const TriptychProof *> proofs;
 };

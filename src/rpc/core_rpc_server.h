@@ -190,6 +190,7 @@ namespace cryptonote
         MAP_JON_RPC_WE_IF("rpc_access_account",  on_rpc_access_account,         COMMAND_RPC_ACCESS_ACCOUNT, !m_restricted)
         MAP_JON_RPC_WE("get_block_rate",         on_get_block_rate,             COMMAND_RPC_GET_BLOCK_RATE)
         MAP_JON_RPC_WE_IF("sync_txpool",         on_sync_txpool,                COMMAND_RPC_SYNC_TXPOOL, !m_restricted)
+        MAP_JON_RPC_WE("get_first_triptych_output_index", on_get_first_triptych_output_index, COMMAND_RPC_GET_FIRST_TRIPTYCH_OUTPUT_INDEX)
       END_JSON_RPC_MAP()
     END_URI_MAP2()
 
@@ -269,6 +270,7 @@ namespace cryptonote
     bool on_rpc_access_account(const COMMAND_RPC_ACCESS_ACCOUNT::request& req, COMMAND_RPC_ACCESS_ACCOUNT::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx = NULL);
     bool on_get_block_rate(const COMMAND_RPC_GET_BLOCK_RATE::request& req, COMMAND_RPC_GET_BLOCK_RATE::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx = NULL);
     bool on_sync_txpool(const COMMAND_RPC_SYNC_TXPOOL::request& req, COMMAND_RPC_SYNC_TXPOOL::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx = NULL);
+    bool on_get_first_triptych_output_index(const COMMAND_RPC_GET_FIRST_TRIPTYCH_OUTPUT_INDEX::request& req, COMMAND_RPC_GET_FIRST_TRIPTYCH_OUTPUT_INDEX::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx = NULL);
     //-----------------------
 
 private:

@@ -225,6 +225,95 @@ private:
     std::deque<crypto::hash> m_blockchain;
   };
 
+  struct spend_proof_data_t
+  {
+    struct ring_signature
+    {
+      std::vector<crypto::signature> signatures;
+
+      ring_signature() {}
+      ring_signature(std::vector<crypto::signature> &&s): signatures(std::move(s)) {}
+
+      BEGIN_SERIALIZE_OBJECT()
+        FIELD(signatures)
+      END_SERIALIZE()
+    };
+
+    struct triptych_signature
+    {
+      rct::TriptychProof triptych;
+      rct::key pseudoOut;
+
+      triptych_signature() {}
+      triptych_signature(rct::TriptychProof &&proof, const rct::key &pseudoOut): triptych(std::move(proof)), pseudoOut(pseudoOut) {}
+
+      BEGIN_SERIALIZE_OBJECT()
+        VERSION_FIELD(0)
+        FIELD(triptych)
+        FIELD(pseudoOut)
+      END_SERIALIZE()
+    };
+
+    boost::variant<ring_signature, triptych_signature> signature;
+
+    spend_proof_data_t(): signature(std::move(ring_signature(std::vector<crypto::signature>()))) {}
+    spend_proof_data_t(std::vector<crypto::signature> &&sigs): signature(ring_signature(std::move(sigs))) {}
+    spend_proof_data_t(rct::TriptychProof &&tp, const rct::key &pseudoOut): signature(triptych_signature{std::move(tp), pseudoOut}) {}
+
+    BEGIN_SERIALIZE_OBJECT()
+      FIELD(signature)
+    END_SERIALIZE()
+  };
+
+  struct key_image_data_t
+  {
+    struct schnorr_signature
+    {
+      crypto::signature signature;
+
+      BEGIN_SERIALIZE_OBJECT()
+        FIELD(signature)
+      END_SERIALIZE()
+    };
+
+    struct triptych_signature
+    {
+      rct::TriptychProof signature;
+      rct::key pseudoOut;
+
+      triptych_signature() {}
+      triptych_signature(rct::TriptychProof &&p, const rct::key pseudoOut): signature(p), pseudoOut(pseudoOut) {}
+
+      BEGIN_SERIALIZE_OBJECT()
+        FIELD(signature)
+        FIELD(pseudoOut)
+      END_SERIALIZE()
+    };
+
+    struct entry_t
+    {
+      crypto::key_image key_image;
+      boost::variant<schnorr_signature, triptych_signature> signature;
+
+      BEGIN_SERIALIZE_OBJECT()
+        FIELD(key_image)
+        FIELD(signature)
+      END_SERIALIZE()
+    };
+
+    uint32_t offset;
+    crypto::public_key spend_public_key;
+    crypto::public_key view_public_key;
+    std::vector<entry_t> key_images;
+
+    BEGIN_SERIALIZE_OBJECT()
+      FIELD(offset)
+      FIELD(view_public_key)
+      FIELD(spend_public_key)
+      FIELD(key_images)
+    END_SERIALIZE()
+  };
+
   class wallet_keys_unlocker;
   class wallet2
   {
@@ -337,6 +426,7 @@ private:
       rct::key m_mask;
       uint64_t m_amount;
       bool m_rct;
+      bool m_triptych;
       bool m_key_image_known;
       bool m_key_image_request; // view wallets: we want to request it; cold wallets: it was requested
       uint64_t m_pk_index;
@@ -347,6 +437,7 @@ private:
       std::vector<std::pair<uint64_t, crypto::hash>> m_uses;
 
       bool is_rct() const { return m_rct; }
+      bool is_triptych() const { return m_triptych; }
       uint64_t amount() const { return m_amount; }
       const crypto::public_key &get_public_key() const { return boost::get<const cryptonote::txout_to_key>(m_tx.vout[m_internal_output_index].target).key; }
 
@@ -363,6 +454,7 @@ private:
         FIELD(m_mask)
         FIELD(m_amount)
         FIELD(m_rct)
+        FIELD(m_triptych)
         FIELD(m_key_image_known)
         FIELD(m_key_image_request)
         FIELD(m_pk_index)
@@ -497,6 +589,7 @@ private:
       std::vector<uint8_t> extra;
       uint64_t unlock_time;
       bool use_rct;
+      bool use_triptych;
       rct::RCTConfig rct_config;
       std::vector<cryptonote::tx_destination_entry> dests; // original setup, does not include change
       uint32_t subaddr_account;   // subaddress account of your wallet to be used in this transfer
@@ -510,6 +603,7 @@ private:
         FIELD(extra)
         FIELD(unlock_time)
         FIELD(use_rct)
+        FIELD(use_triptych)
         FIELD(rct_config)
         FIELD(dests)
         FIELD(subaddr_account)
@@ -659,16 +753,33 @@ private:
       crypto::public_key shared_secret;
       crypto::key_image key_image;
       crypto::signature shared_secret_sig;
+      bool triptych;
       crypto::signature key_image_sig;
+      rct::key triptych_mask;
+      rct::TriptychProof key_image_triptych_proof;
+      rct::key key_image_triptych_pseudoOut;
 
       BEGIN_SERIALIZE_OBJECT()
-        VERSION_FIELD(0)
+        VERSION_FIELD(1)
         FIELD(txid)
         VARINT_FIELD(index_in_tx)
         FIELD(shared_secret)
         FIELD(key_image)
         FIELD(shared_secret_sig)
-        FIELD(key_image_sig)
+        if (version >= 1)
+          FIELD(triptych)
+        else
+          triptych = false;
+        if (triptych)
+        {
+          FIELD(triptych_mask)
+          FIELD(key_image_triptych_proof)
+          FIELD(key_image_triptych_pseudoOut)
+        }
+        else
+        {
+          FIELD(key_image_sig)
+        }
       END_SERIALIZE()
     };
 
@@ -955,10 +1066,10 @@ private:
     uint64_t balance_all(bool strict) const;
     uint64_t unlocked_balance_all(bool strict, uint64_t *blocks_to_unlock = NULL, uint64_t *time_to_unlock = NULL);
     template<typename T>
-    void transfer_selected(const std::vector<cryptonote::tx_destination_entry>& dsts, const std::vector<size_t>& selected_transfers, size_t fake_outputs_count,
+    void transfer_selected(const std::vector<cryptonote::tx_destination_entry>& dsts, const std::vector<size_t>& selected_transfers, const size_t fake_outputs_count[2],
       std::vector<std::vector<tools::wallet2::get_outs_entry>> &outs,
       uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, T destination_split_strategy, const tx_dust_policy& dust_policy, cryptonote::transaction& tx, pending_tx &ptx);
-    void transfer_selected_rct(std::vector<cryptonote::tx_destination_entry> dsts, const std::vector<size_t>& selected_transfers, size_t fake_outputs_count,
+    void transfer_selected_rct(std::vector<cryptonote::tx_destination_entry> dsts, const std::vector<size_t>& selected_transfers, const size_t fake_outputs_count[2],
       std::vector<std::vector<tools::wallet2::get_outs_entry>> &outs,
       uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, cryptonote::transaction& tx, pending_tx &ptx, const rct::RCTConfig &rct_config);
 
@@ -982,10 +1093,10 @@ private:
     bool parse_unsigned_tx_from_str(const std::string &unsigned_tx_st, unsigned_tx_set &exported_txs) const;
     bool load_tx(const std::string &signed_filename, std::vector<tools::wallet2::pending_tx> &ptx, std::function<bool(const signed_tx_set&)> accept_func = NULL);
     bool parse_tx_from_str(const std::string &signed_tx_st, std::vector<tools::wallet2::pending_tx> &ptx, std::function<bool(const signed_tx_set &)> accept_func);
-    std::vector<wallet2::pending_tx> create_transactions_2(std::vector<cryptonote::tx_destination_entry> dsts, const size_t fake_outs_count, const uint64_t unlock_time, uint32_t priority, const std::vector<uint8_t>& extra, uint32_t subaddr_account, std::set<uint32_t> subaddr_indices);     // pass subaddr_indices by value on purpose
-    std::vector<wallet2::pending_tx> create_transactions_all(uint64_t below, const cryptonote::account_public_address &address, bool is_subaddress, const size_t outputs, const size_t fake_outs_count, const uint64_t unlock_time, uint32_t priority, const std::vector<uint8_t>& extra, uint32_t subaddr_account, std::set<uint32_t> subaddr_indices);
-    std::vector<wallet2::pending_tx> create_transactions_single(const crypto::key_image &ki, const cryptonote::account_public_address &address, bool is_subaddress, const size_t outputs, const size_t fake_outs_count, const uint64_t unlock_time, uint32_t priority, const std::vector<uint8_t>& extra);
-    std::vector<wallet2::pending_tx> create_transactions_from(const cryptonote::account_public_address &address, bool is_subaddress, const size_t outputs, std::vector<size_t> unused_transfers_indices, std::vector<size_t> unused_dust_indices, const size_t fake_outs_count, const uint64_t unlock_time, uint32_t priority, const std::vector<uint8_t>& extra);
+    std::vector<wallet2::pending_tx> create_transactions_2(std::vector<cryptonote::tx_destination_entry> dsts, const size_t fake_outs_count[2], const uint64_t unlock_time, uint32_t priority, const std::vector<uint8_t>& extra, uint32_t subaddr_account, std::set<uint32_t> subaddr_indices);
+    std::vector<wallet2::pending_tx> create_transactions_all(uint64_t below, const cryptonote::account_public_address &address, bool is_subaddress, const size_t outputs, const size_t fake_outs_count[2], const uint64_t unlock_time, uint32_t priority, const std::vector<uint8_t>& extra, uint32_t subaddr_account, std::set<uint32_t> subaddr_indices);
+    std::vector<wallet2::pending_tx> create_transactions_single(const crypto::key_image &ki, const cryptonote::account_public_address &address, bool is_subaddress, const size_t outputs, const size_t fake_outs_count[2], const uint64_t unlock_time, uint32_t priority, const std::vector<uint8_t>& extra);
+    std::vector<wallet2::pending_tx> create_transactions_from(const cryptonote::account_public_address &address, bool is_subaddress, const size_t outputs, std::vector<size_t> unused_transfers_indices, std::vector<size_t> unused_dust_indices, const size_t fake_outs_count[2], const uint64_t unlock_time, uint32_t priority, const std::vector<uint8_t>& extra);
     bool sanity_check(const std::vector<wallet2::pending_tx> &ptx_vector, std::vector<cryptonote::tx_destination_entry> dsts) const;
     void cold_tx_aux_import(const std::vector<pending_tx>& ptx, const std::vector<std::string>& tx_device_aux);
     void cold_sign_tx(const std::vector<pending_tx>& ptx_vector, signed_tx_set &exported_txs, std::vector<cryptonote::address_parse_info> &dsts_info, std::vector<std::string> & tx_device_aux);
@@ -1406,8 +1517,8 @@ private:
     std::tuple<size_t, crypto::hash, std::vector<crypto::hash>> export_blockchain() const;
     void import_blockchain(const std::tuple<size_t, crypto::hash, std::vector<crypto::hash>> &bc);
     bool export_key_images(const std::string &filename, bool all = false) const;
-    std::pair<uint64_t, std::vector<std::pair<crypto::key_image, crypto::signature>>> export_key_images(bool all = false) const;
-    uint64_t import_key_images(const std::vector<std::pair<crypto::key_image, crypto::signature>> &signed_key_images, size_t offset, uint64_t &spent, uint64_t &unspent, bool check_spent = true);
+    key_image_data_t export_key_images(bool all = false) const;
+    uint64_t import_key_images(const key_image_data_t &signed_key_images, uint64_t &spent, uint64_t &unspent, bool check_spent = true);
     uint64_t import_key_images(const std::string &filename, uint64_t &spent, uint64_t &unspent);
     bool import_key_images(std::vector<crypto::key_image> key_images, size_t offset=0, boost::optional<std::unordered_set<size_t>> selected_transfers=boost::none);
     bool import_key_images(signed_tx_set & signed_tx, size_t offset=0, bool only_selected_transfers=false);
@@ -1435,19 +1546,20 @@ private:
     std::vector<std::pair<uint64_t, uint64_t>> estimate_backlog(const std::vector<std::pair<double, double>> &fee_levels);
     std::vector<std::pair<uint64_t, uint64_t>> estimate_backlog(uint64_t min_tx_weight, uint64_t max_tx_weight, const std::vector<uint64_t> &fees);
 
-    uint64_t estimate_fee(bool use_per_byte_fee, bool use_rct, int n_inputs, int mixin, int n_outputs, size_t extra_size, bool bulletproof, bool clsag, bool bulletproof_plus, uint64_t base_fee, uint64_t fee_multiplier, uint64_t fee_quantization_mask) const;
+    uint64_t estimate_fee(bool use_per_byte_fee, bool use_rct, int n_pre_triptych_inputs, int mixin, int n_outputs, size_t extra_size, bool bulletproof, bool clsag, bool bulletproof_plus, uint64_t base_fee, uint64_t fee_multiplier, uint64_t fee_quantization_mask, int n_triptych_inputs, int triptych_mixin) const;
     uint64_t get_fee_multiplier(uint32_t priority, int fee_algorithm = -1);
     uint64_t get_base_fee();
     uint64_t get_fee_quantization_mask();
     uint64_t get_min_ring_size();
     uint64_t get_max_ring_size();
     uint64_t adjust_mixin(uint64_t mixin);
+    std::pair<uint64_t, uint64_t> get_first_triptych_output_index_and_height();
 
     uint32_t adjust_priority(uint32_t priority);
 
     bool is_unattended() const { return m_unattended; }
 
-    std::pair<size_t, uint64_t> estimate_tx_size_and_weight(bool use_rct, int n_inputs, int ring_size, int n_outputs, size_t extra_size);
+    std::pair<size_t, uint64_t> estimate_tx_size_and_weight(bool use_rct, int n_pre_triptych_inputs, int ring_size, int n_outputs, size_t extra_size, int n_triptych_inputs, int triptych_ring_size);
 
     bool get_rpc_payment_info(bool mining, bool &payment_required, uint64_t &credits, uint64_t &diff, uint64_t &credits_per_hash_found, cryptonote::blobdata &hashing_blob, uint64_t &height, uint64_t &seed_height, crypto::hash &seed_hash, crypto::hash &next_seed_hash, uint32_t &cookie);
     bool daemon_requires_payment();
@@ -1646,12 +1758,12 @@ private:
     bool is_spent(const transfer_details &td, bool strict = true) const;
     bool is_spent(size_t idx, bool strict = true) const;
     bool is_multisig_spent(const transfer_details &td) const;
-    void get_outs(std::vector<std::vector<get_outs_entry>> &outs, const std::vector<size_t> &selected_transfers, size_t fake_outputs_count, bool rct);
-    void get_outs(std::vector<std::vector<get_outs_entry>> &outs, const std::vector<size_t> &selected_transfers, size_t fake_outputs_count, std::vector<uint64_t> &rct_offsets);
+    void get_outs(std::vector<std::vector<get_outs_entry>> &outs, const std::vector<size_t> &selected_transfers, const size_t fake_outputs_count[2], bool sanity_check);
+    void get_outs(std::vector<std::vector<get_outs_entry>> &outs, const std::vector<size_t> &selected_transfers, const size_t fake_outputs_count[2], std::vector<uint64_t> &rct_offsets, uint64_t &rct_start_height);
     bool tx_add_fake_output(std::vector<std::vector<tools::wallet2::get_outs_entry>> &outs, uint64_t global_index, const crypto::public_key& tx_public_key, const rct::key& mask, uint64_t real_index, bool unlocked) const;
     bool should_pick_a_second_output(bool use_rct, size_t n_transfers, const std::vector<size_t> &unused_transfers_indices, const std::vector<size_t> &unused_dust_indices) const;
     std::vector<size_t> get_only_rct(const std::vector<size_t> &unused_dust_indices, const std::vector<size_t> &unused_transfers_indices) const;
-    void scan_output(const cryptonote::transaction &tx, bool miner_tx, const crypto::public_key &tx_pub_key, size_t i, tx_scan_info_t &tx_scan_info, int &num_vouts_received, std::unordered_map<cryptonote::subaddress_index, uint64_t> &tx_money_got_in_outs, std::vector<size_t> &outs, bool pool);
+    void scan_output(const cryptonote::transaction &tx, bool miner_tx, const crypto::public_key &tx_pub_key, size_t i, bool triptych, tx_scan_info_t &tx_scan_info, int &num_vouts_received, std::unordered_map<cryptonote::subaddress_index, uint64_t> &tx_money_got_in_outs, std::vector<size_t> &outs, bool pool);
     void trim_hashchain();
     crypto::key_image get_multisig_composite_key_image(size_t n) const;
     rct::multisig_kLRki get_multisig_composite_kLRki(size_t n,  const std::unordered_set<crypto::public_key> &ignore_set, std::unordered_set<rct::key> &used_L, std::unordered_set<rct::key> &new_used_L) const;
@@ -1848,7 +1960,7 @@ private:
   };
 }
 BOOST_CLASS_VERSION(tools::wallet2, 30)
-BOOST_CLASS_VERSION(tools::wallet2::transfer_details, 12)
+BOOST_CLASS_VERSION(tools::wallet2::transfer_details, 13)
 BOOST_CLASS_VERSION(tools::wallet2::multisig_info, 1)
 BOOST_CLASS_VERSION(tools::wallet2::multisig_info::LR, 0)
 BOOST_CLASS_VERSION(tools::wallet2::multisig_tx_set, 1)
@@ -1860,7 +1972,7 @@ BOOST_CLASS_VERSION(tools::wallet2::address_book_row, 18)
 BOOST_CLASS_VERSION(tools::wallet2::reserve_proof_entry, 0)
 BOOST_CLASS_VERSION(tools::wallet2::unsigned_tx_set, 0)
 BOOST_CLASS_VERSION(tools::wallet2::signed_tx_set, 1)
-BOOST_CLASS_VERSION(tools::wallet2::tx_construction_data, 4)
+BOOST_CLASS_VERSION(tools::wallet2::tx_construction_data, 5)
 BOOST_CLASS_VERSION(tools::wallet2::pending_tx, 3)
 BOOST_CLASS_VERSION(tools::wallet2::multisig_sig, 0)
 
@@ -1913,6 +2025,10 @@ namespace boost
         if (ver < 12)
         {
           x.m_frozen = false;
+        }
+        if (ver < 13)
+        {
+          x.m_triptych = false;
         }
     }
 
@@ -2013,6 +2129,12 @@ namespace boost
         return;
       }
       a & x.m_frozen;
+      if (ver < 13)
+      {
+        initialize_transfer_details(a, x, ver);
+        return;
+      }
+      a & x.m_triptych;
     }
 
     template <class Archive>
@@ -2293,6 +2415,13 @@ namespace boost
         return;
       }
       a & x.rct_config;
+      if (ver < 5)
+      {
+        if (!typename Archive::is_saving())
+          x.use_triptych = false;
+        return;
+      }
+      a & x.use_triptych;
     }
 
     template <class Archive>
@@ -2423,3 +2552,9 @@ namespace tools
   }
   //----------------------------------------------------------------------------------------------------
 }
+
+VARIANT_TAG(binary_archive, tools::spend_proof_data_t::ring_signature, 0x20);
+VARIANT_TAG(binary_archive, tools::spend_proof_data_t::triptych_signature, 0x21);
+
+VARIANT_TAG(binary_archive, tools::key_image_data_t::schnorr_signature, 0x20);
+VARIANT_TAG(binary_archive, tools::key_image_data_t::triptych_signature, 0x21);

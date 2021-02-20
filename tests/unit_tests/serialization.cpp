@@ -580,9 +580,12 @@ TEST(Serialization, serializes_ringct_types)
   pc.push_back(pctmp);
   vector<uint64_t> amounts;
   rct::keyV amount_keys;
+  std::vector<bool> is_triptych;
+
   //add output 500
   amounts.push_back(500);
   amount_keys.push_back(rct::hash_to_scalar(rct::zero()));
+  is_triptych.push_back(false);
   rct::keyV destinations;
   rct::key Sk, Pk;
   rct::skpkGen(Sk, Pk);
@@ -590,11 +593,12 @@ TEST(Serialization, serializes_ringct_types)
   //add output for 12500
   amounts.push_back(12500);
   amount_keys.push_back(rct::hash_to_scalar(rct::zero()));
+  is_triptych.push_back(false);
   rct::skpkGen(Sk, Pk);
   destinations.push_back(Pk);
   //compute rct data with mixin 3
   const rct::RCTConfig rct_config{ rct::RangeProofPaddedBulletproof, 2 };
-  s0 = rct::genRctSimple(rct::zero(), sc, pc, destinations, inamounts, amounts, amount_keys, NULL, NULL, 0, 3, rct_config, hw::get_device("default"));
+  s0 = rct::genRctSimple(rct::zero(), sc, pc, destinations, is_triptych, inamounts, amounts, amount_keys, NULL, NULL, 0, 3, rct_config, hw::get_device("default"));
 
   ASSERT_FALSE(s0.p.MGs.empty());
   ASSERT_TRUE(s0.p.CLSAGs.empty());
@@ -619,7 +623,7 @@ TEST(Serialization, serializes_ringct_types)
   ASSERT_EQ(bp0, bp1);
 
   const rct::RCTConfig rct_config_clsag{ rct::RangeProofPaddedBulletproof, 3 };
-  s0 = rct::genRctSimple(rct::zero(), sc, pc, destinations, inamounts, amounts, amount_keys, NULL, NULL, 0, 3, rct_config_clsag, hw::get_device("default"));
+  s0 = rct::genRctSimple(rct::zero(), sc, pc, destinations, is_triptych, inamounts, amounts, amount_keys, NULL, NULL, 0, 3, rct_config_clsag, hw::get_device("default"));
 
   ASSERT_FALSE(s0.p.CLSAGs.empty());
   ASSERT_TRUE(s0.p.MGs.empty());

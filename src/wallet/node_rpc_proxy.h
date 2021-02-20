@@ -58,6 +58,7 @@ public:
   boost::optional<std::string> get_dynamic_base_fee_estimate(uint64_t grace_blocks, uint64_t &fee);
   boost::optional<std::string> get_fee_quantization_mask(uint64_t &fee_quantization_mask);
   boost::optional<std::string> get_rpc_payment_info(bool mining, bool &payment_required, uint64_t &credits, uint64_t &diff, uint64_t &credits_per_hash_found, cryptonote::blobdata &blob, uint64_t &height, uint64_t &seed_height, crypto::hash &seed_hash, crypto::hash &next_seed_hash, uint32_t &cookie);
+  boost::optional<std::string> get_first_triptych_output_index(uint64_t &idx, uint64_t &height);
 
 private:
   template<typename T> void handle_payment_changes(const T &res, std::true_type) {
@@ -101,6 +102,8 @@ private:
   crypto::hash m_rpc_payment_next_seed_hash;
   uint32_t m_rpc_payment_cookie;
   time_t m_height_time;
+  uint64_t m_first_triptych_output_index;
+  uint64_t m_first_triptych_output_height;
 };
 
 }

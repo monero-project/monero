@@ -35,6 +35,8 @@ from __future__ import print_function
 from framework.daemon import Daemon
 from framework.wallet import Wallet
 
+TRIPTYCH_RING_SIZE = 128
+
 class ColdSigningTest():
     def run_test(self):
         self.reset()
@@ -85,7 +87,7 @@ class ColdSigningTest():
         daemon = Daemon()
         wallet = Wallet()
 
-        daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 80)
+        daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 80 + TRIPTYCH_RING_SIZE * 2)
         wallet.refresh()
 
     def transfer(self):
@@ -121,7 +123,7 @@ class ColdSigningTest():
         desc = res.desc[0]
         assert desc.amount_in >= amount + fee
         assert desc.amount_out == desc.amount_in - fee
-        assert desc.ring_size == 11
+        assert desc.ring_size == TRIPTYCH_RING_SIZE
         assert desc.unlock_time == 0
         assert desc.payment_id in ['', '0000000000000000']
         assert desc.change_amount == desc.amount_in - 1000000000000 - fee

@@ -309,7 +309,7 @@ namespace rct
         CHECK_AND_ASSERT_THROW_MES(M.size() == N, "Public key vector is wrong size!");
         CHECK_AND_ASSERT_THROW_MES(P.size() == N, "Commitment vector is wrong size!");
         CHECK_AND_ASSERT_THROW_MES(l < M.size(), "Signing index out of bounds!");
-        CHECK_AND_ASSERT_THROW_MES(scalarmultBase(r) == M[l], "Bad signing key!");
+        CHECK_AND_ASSERT_THROW_MES(r == ZERO || scalarmultBase(r) == M[l], "Bad signing key!");
 
         subKeys(temp,P[l],C_offset);
         CHECK_AND_ASSERT_THROW_MES(scalarmultBase(s) == temp, "Bad commitment key!");
@@ -821,5 +821,11 @@ namespace rct
         }
 
         return true;
+    }
+
+    key triptych_key_image(const key &r)
+    {
+      init_gens();
+      return scalarmultKey(U,invert(r));
     }
 }

@@ -36,6 +36,7 @@
 #include "rctSigs.h"
 #include "bulletproofs.h"
 #include "bulletproofs_plus.h"
+#include "triptych.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "cryptonote_config.h"
 
@@ -53,6 +54,19 @@ std::string debug_test_invalid_tx;
 
 namespace
 {
+    size_t log2i(size_t n)
+    {
+        // this will only work for n a power of 2
+        CHECK_AND_ASSERT_THROW_MES(n && (n & (n-1)) == 0, "n must be a power of 2 but is " << n);
+
+        size_t l = 0;
+        while (n > 1)
+        {
+            n /= 2;
+            ++l;
+        }
+        return l;
+    }
     rct::Bulletproof make_dummy_bulletproof(const std::vector<uint64_t> &outamounts, rct::keyV &C, rct::keyV &masks)
     {
         const size_t n_outs = outamounts.size();
@@ -112,6 +126,15 @@ namespace
         }
 
         return rct::BulletproofPlus{rct::keyV(n_outs, I), I, I, I, I, I, I, rct::keyV(nrl, I), rct::keyV(nrl, I)};
+    }
+    rct::TriptychProof make_dummy_triptych(size_t ring_size)
+    {
+        const rct::key I = rct::identity();
+        size_t XY_size = log2i(ring_size);
+        rct::keyM f = rct::keyMInit(1, XY_size);
+        for (auto &e: f[0])
+          e = I;
+        return rct::TriptychProof{I, I, I, I, I, I, rct::keyV(XY_size, I), rct::keyV(XY_size, I), f, I, I, I};
     }
 }
 
@@ -672,7 +695,7 @@ namespace rct {
           kv.push_back(p.t);
         }
       }
-      else if (rv.type == RCTTypeBulletproofPlus)
+      else if (rv.type == RCTTypeBulletproofPlus || rv.type == RCTTypeTriptych)
       {
         kv.reserve((6*2+6) * rv.p.bulletproofs_plus.size());
         for (const auto &p: rv.p.bulletproofs_plus)
@@ -1019,6 +1042,47 @@ namespace rct {
         catch (...) { return false; }
     }
 
+    TriptychProof proveRctTriptych(const key &message, const ctkeyV &pubs, const ctkey &inSk, const key &a, const key &Cout, const multisig_kLRki *kLRki, key *mscout, key *mspout, unsigned int index, hw::device &hwdev) {
+        //setup vars
+        size_t cols = pubs.size();
+        CHECK_AND_ASSERT_THROW_MES(!kLRki, "Multisig is not supported for Triptych yet");
+        CHECK_AND_ASSERT_THROW_MES(cols >= 1, "Empty pubs");
+        CHECK_AND_ASSERT_THROW_MES(index < pubs.size(), "Invalid index");
+        CHECK_AND_ASSERT_THROW_MES((kLRki && mscout) || (!kLRki && !mscout), "Only one of kLRki/mscout is present");
+
+        keyV M, P;
+        M.reserve(pubs.size());
+        P.reserve(pubs.size());
+        for (const ctkey &k: pubs)
+        {
+            M.push_back(k.dest);
+            P.push_back(k.mask);
+        }
+
+        key s;
+        sc_sub(s.bytes, inSk.mask.bytes, a.bytes);
+        return triptych_prove(M, P, Cout, index, inSk.dest, s, 2, log2i(pubs.size()), message);
+    }
+
+    bool verRctTriptych(const key &message, const TriptychProof &sig, const ctkeyV & pubs, const key & C_offset)
+    {
+      try
+      {
+        std::vector<key> M, P, C_offsets, messages;
+        std::vector<const TriptychProof*> sigs;
+        for (const auto &e: pubs)
+        {
+          M.push_back(e.dest);
+          P.push_back(e.mask);
+        }
+        sigs.push_back(&sig);
+        C_offsets.push_back(C_offset);
+        messages.push_back(message);
+        return triptych_verify(M, P, C_offsets, sigs, 2, log2i(pubs.size()), messages);
+      }
+      catch (...) { return false; }
+    }
+
 
     //These functions get keys from blockchain
     //replace these when connecting blockchain
@@ -1112,7 +1176,7 @@ namespace rct {
             //mask amount and mask
             rv.ecdhInfo[i].mask = copy(outSk[i].mask);
             rv.ecdhInfo[i].amount = d2h(amounts[i]);
-            hwdev.ecdhEncode(rv.ecdhInfo[i], amount_keys[i], rv.type == RCTTypeBulletproof2 || rv.type == RCTTypeCLSAG || rv.type == RCTTypeBulletproofPlus);
+            hwdev.ecdhEncode(rv.ecdhInfo[i], amount_keys[i], rv.type == RCTTypeBulletproof2 || rv.type == RCTTypeCLSAG || rv.type == RCTTypeBulletproofPlus || rv.type == RCTTypeTriptych);
         }
 
         //set txn fee
@@ -1143,11 +1207,12 @@ namespace rct {
     
     //RCT simple    
     //for post-rct only
-    rctSig genRctSimple(const key &message, const ctkeyV & inSk, const keyV & destinations, const vector<xmr_amount> &inamounts, const vector<xmr_amount> &outamounts, xmr_amount txnFee, const ctkeyM & mixRing, const keyV &amount_keys, const std::vector<multisig_kLRki> *kLRki, multisig_out *msout, const std::vector<unsigned int> & index, ctkeyV &outSk, const RCTConfig &rct_config, hw::device &hwdev) {
+    rctSig genRctSimple(const key &message, const ctkeyV & inSk, const keyV & destinations, const std::vector<bool> &is_triptych, const vector<xmr_amount> &inamounts, const vector<xmr_amount> &outamounts, xmr_amount txnFee, const ctkeyM & mixRing, const keyV &amount_keys, const std::vector<multisig_kLRki> *kLRki, multisig_out *msout, const std::vector<unsigned int> & index, ctkeyV &outSk, const RCTConfig &rct_config, hw::device &hwdev) {
         PERF_TIMER(genRctSimple);
         const bool bulletproof_or_plus = rct_config.range_proof_type > RangeProofBorromean;
         CHECK_AND_ASSERT_THROW_MES(inamounts.size() > 0, "Empty inamounts");
         CHECK_AND_ASSERT_THROW_MES(inamounts.size() == inSk.size(), "Different number of inamounts/inSk");
+        CHECK_AND_ASSERT_THROW_MES(inamounts.size() == is_triptych.size(), "Different number of inamounts/is_triptych");
         CHECK_AND_ASSERT_THROW_MES(outamounts.size() == destinations.size(), "Different number of amounts/destinations");
         CHECK_AND_ASSERT_THROW_MES(amount_keys.size() == destinations.size(), "Different number of amount_keys/destinations");
         CHECK_AND_ASSERT_THROW_MES(index.size() == inSk.size(), "Different number of index/inSk");
@@ -1166,6 +1231,13 @@ namespace rct {
           switch (rct_config.bp_version)
           {
             case 0:
+            case 5:
+              rv.type = RCTTypeBulletproofPlus;
+              // if we have any triptych output, use triptych
+              for (bool e: is_triptych)
+                if (e)
+                  rv.type = RCTTypeTriptych;
+              break;
             case 4:
               rv.type = RCTTypeBulletproofPlus;
               break;
@@ -1211,7 +1283,7 @@ namespace rct {
         rv.p.bulletproofs_plus.clear();
         if (bulletproof_or_plus)
         {
-            const bool plus = rv.type == RCTTypeBulletproofPlus;
+            const bool plus = is_rct_bulletproof_plus(rv.type);
             size_t n_amounts = outamounts.size();
             size_t amounts_proved = 0;
             if (rct_config.range_proof_type == RangeProofPaddedBulletproof)
@@ -1296,7 +1368,7 @@ namespace rct {
             //mask amount and mask
             rv.ecdhInfo[i].mask = copy(outSk[i].mask);
             rv.ecdhInfo[i].amount = d2h(outamounts[i]);
-            hwdev.ecdhEncode(rv.ecdhInfo[i], amount_keys[i], rv.type == RCTTypeBulletproof2 || rv.type == RCTTypeCLSAG || rv.type == RCTTypeBulletproofPlus);
+            hwdev.ecdhEncode(rv.ecdhInfo[i], amount_keys[i], rv.type == RCTTypeBulletproof2 || rv.type == RCTTypeCLSAG || rv.type == RCTTypeBulletproofPlus || rv.type == RCTTypeTriptych);
         }
             
         //set txn fee
@@ -1306,7 +1378,9 @@ namespace rct {
         rv.mixRing = mixRing;
         keyV &pseudoOuts = bulletproof_or_plus ? rv.p.pseudoOuts : rv.pseudoOuts;
         pseudoOuts.resize(inamounts.size());
-        if (is_rct_clsag(rv.type))
+        if (is_rct_triptych(rv.type))
+            rv.p.triptych.resize(inamounts.size());
+        else if (is_rct_clsag(rv.type))
             rv.p.CLSAGs.resize(inamounts.size());
         else
             rv.p.MGs.resize(inamounts.size());
@@ -1330,7 +1404,19 @@ namespace rct {
         }
         for (i = 0 ; i < inamounts.size(); i++)
         {
-            if (is_rct_clsag(rv.type))
+            if (is_rct_triptych(rv.type))
+            {
+                if (is_triptych[i])
+                {
+                    if (inSk[i].dest == rct::zero())
+                        rv.p.triptych[i] = make_dummy_triptych(rv.mixRing[i].size());
+                    else
+                        rv.p.triptych[i] = proveRctTriptych(full_message, rv.mixRing[i], inSk[i], a[i], pseudoOuts[i], kLRki ? &(*kLRki)[i]: NULL, msout ? &msout->c[i] : NULL, msout ? &msout->mu_p[i] : NULL, index[i], hwdev);
+                }
+                else
+                    rv.p.triptych[i] = proveRctCLSAGSimple(full_message, rv.mixRing[i], inSk[i], a[i], pseudoOuts[i], kLRki ? &(*kLRki)[i]: NULL, msout ? &msout->c[i] : NULL, msout ? &msout->mu_p[i] : NULL, index[i], hwdev);
+            }
+            else if (is_rct_clsag(rv.type))
             {
                 rv.p.CLSAGs[i] = proveRctCLSAGSimple(full_message, rv.mixRing[i], inSk[i], a[i], pseudoOuts[i], kLRki ? &(*kLRki)[i]: NULL, msout ? &msout->c[i] : NULL, msout ? &msout->mu_p[i] : NULL, index[i], hwdev);
             }
@@ -1342,7 +1428,7 @@ namespace rct {
         return rv;
     }
 
-    rctSig genRctSimple(const key &message, const ctkeyV & inSk, const ctkeyV & inPk, const keyV & destinations, const vector<xmr_amount> &inamounts, const vector<xmr_amount> &outamounts, const keyV &amount_keys, const std::vector<multisig_kLRki> *kLRki, multisig_out *msout, xmr_amount txnFee, unsigned int mixin, const RCTConfig &rct_config, hw::device &hwdev) {
+    rctSig genRctSimple(const key &message, const ctkeyV & inSk, const ctkeyV & inPk, const keyV & destinations, const std::vector<bool> &is_triptych, const vector<xmr_amount> &inamounts, const vector<xmr_amount> &outamounts, const keyV &amount_keys, const std::vector<multisig_kLRki> *kLRki, multisig_out *msout, xmr_amount txnFee, unsigned int mixin, const RCTConfig &rct_config, hw::device &hwdev) {
         std::vector<unsigned int> index;
         index.resize(inPk.size());
         ctkeyM mixRing;
@@ -1352,7 +1438,7 @@ namespace rct {
           mixRing[i].resize(mixin+1);
           index[i] = populateFromBlockchainSimple(mixRing[i], inPk[i], mixin);
         }
-        return genRctSimple(message, inSk, destinations, inamounts, outamounts, txnFee, mixRing, amount_keys, kLRki, msout, index, outSk, rct_config, hwdev);
+        return genRctSimple(message, inSk, destinations, is_triptych, inamounts, outamounts, txnFee, mixRing, amount_keys, kLRki, msout, index, outSk, rct_config, hwdev);
     }
 
     //RingCT protocol
@@ -1444,7 +1530,7 @@ namespace rct {
         {
           CHECK_AND_ASSERT_MES(rvp, false, "rctSig pointer is NULL");
           const rctSig &rv = *rvp;
-          CHECK_AND_ASSERT_MES(rv.type == RCTTypeSimple || rv.type == RCTTypeBulletproof || rv.type == RCTTypeBulletproof2 || rv.type == RCTTypeCLSAG || rv.type == RCTTypeBulletproofPlus,
+          CHECK_AND_ASSERT_MES(rv.type == RCTTypeSimple || rv.type == RCTTypeBulletproof || rv.type == RCTTypeBulletproof2 || rv.type == RCTTypeCLSAG || rv.type == RCTTypeBulletproofPlus || rv.type == RCTTypeTriptych,
               false, "verRctSemanticsSimple called on non simple rctSig");
           const bool bulletproof = is_rct_bulletproof(rv.type);
           const bool bulletproof_plus = is_rct_bulletproof_plus(rv.type);
@@ -1454,14 +1540,22 @@ namespace rct {
               CHECK_AND_ASSERT_MES(rv.outPk.size() == n_bulletproof_plus_amounts(rv.p.bulletproofs_plus), false, "Mismatched sizes of outPk and bulletproofs_plus");
             else
               CHECK_AND_ASSERT_MES(rv.outPk.size() == n_bulletproof_amounts(rv.p.bulletproofs), false, "Mismatched sizes of outPk and bulletproofs");
-            if (is_rct_clsag(rv.type))
+            if (is_rct_triptych(rv.type))
+            {
+              CHECK_AND_ASSERT_MES(rv.p.CLSAGs.empty(), false, "CLSAGs are not empty for Triptych");
+              CHECK_AND_ASSERT_MES(rv.p.MGs.empty(), false, "MGs are not empty for Triptych");
+              CHECK_AND_ASSERT_MES(rv.p.pseudoOuts.size() == rv.p.triptych.size(), false, "Mismatched sizes of rv.p.pseudoOuts and rv.p.triptych");
+            }
+            else if (is_rct_clsag(rv.type))
             {
               CHECK_AND_ASSERT_MES(rv.p.MGs.empty(), false, "MGs are not empty for CLSAG");
+              CHECK_AND_ASSERT_MES(rv.p.triptych.empty(), false, "triptych are not empty for CLSAG");
               CHECK_AND_ASSERT_MES(rv.p.pseudoOuts.size() == rv.p.CLSAGs.size(), false, "Mismatched sizes of rv.p.pseudoOuts and rv.p.CLSAGs");
             }
             else
             {
               CHECK_AND_ASSERT_MES(rv.p.CLSAGs.empty(), false, "CLSAGs are not empty for MLSAG");
+              CHECK_AND_ASSERT_MES(rv.p.triptych.empty(), false, "triptych are not empty for MLSAG");
               CHECK_AND_ASSERT_MES(rv.p.pseudoOuts.size() == rv.p.MGs.size(), false, "Mismatched sizes of rv.p.pseudoOuts and rv.p.MGs");
             }
             CHECK_AND_ASSERT_MES(rv.pseudoOuts.empty(), false, "rv.pseudoOuts is not empty");
@@ -1573,7 +1667,7 @@ namespace rct {
       {
         PERF_TIMER(verRctNonSemanticsSimple);
 
-        CHECK_AND_ASSERT_MES(rv.type == RCTTypeSimple || rv.type == RCTTypeBulletproof || rv.type == RCTTypeBulletproof2 || rv.type == RCTTypeCLSAG || rv.type == RCTTypeBulletproofPlus,
+        CHECK_AND_ASSERT_MES(rv.type == RCTTypeSimple || rv.type == RCTTypeBulletproof || rv.type == RCTTypeBulletproof2 || rv.type == RCTTypeCLSAG || rv.type == RCTTypeBulletproofPlus || rv.type == RCTTypeTriptych,
             false, "verRctNonSemanticsSimple called on non simple rctSig");
         const bool bulletproof = is_rct_bulletproof(rv.type);
         const bool bulletproof_plus = is_rct_bulletproof_plus(rv.type);
@@ -1597,7 +1691,15 @@ namespace rct {
         results.resize(rv.mixRing.size());
         for (size_t i = 0 ; i < rv.mixRing.size() ; i++) {
           tpool.submit(&waiter, [&, i] {
-              if (is_rct_clsag(rv.type))
+              if (is_rct_triptych(rv.type))
+              {
+                  if (rv.p.triptych[i].type() == typeid(rct::TriptychProof))
+                      results[i] = verRctTriptych(message, boost::get<rct::TriptychProof>(rv.p.triptych[i]), rv.mixRing[i], pseudoOuts[i]);
+                  else if (rv.p.triptych[i].type() == typeid(rct::clsag))
+                      results[i] = verRctCLSAGSimple(message, boost::get<rct::clsag>(rv.p.triptych[i]), rv.mixRing[i], pseudoOuts[i]);
+                  else { MERROR("Invalid post-triptych signature type"); results[i] = false; }
+              }
+              else if (is_rct_clsag(rv.type))
                   results[i] = verRctCLSAGSimple(message, rv.p.CLSAGs[i], rv.mixRing[i], pseudoOuts[i]);
               else
                   results[i] = verRctMGSimple(message, rv.p.MGs[i], rv.mixRing[i], pseudoOuts[i]);
@@ -1608,7 +1710,7 @@ namespace rct {
 
         for (size_t i = 0; i < results.size(); ++i) {
           if (!results[i]) {
-            LOG_PRINT_L1("verRctMGSimple/verRctCLSAGSimple failed for input " << i);
+            LOG_PRINT_L1("verRctMGSimple/verRctCLSAGSimple/verRctTriptych failed for input " << i);
             return false;
           }
         }
@@ -1645,7 +1747,7 @@ namespace rct {
 
         //mask amount and mask
         ecdhTuple ecdh_info = rv.ecdhInfo[i];
-        hwdev.ecdhDecode(ecdh_info, sk, rv.type == RCTTypeBulletproof2 || rv.type == RCTTypeCLSAG || rv.type == RCTTypeBulletproofPlus);
+        hwdev.ecdhDecode(ecdh_info, sk, rv.type == RCTTypeBulletproof2 || rv.type == RCTTypeCLSAG || rv.type == RCTTypeBulletproofPlus || rv.type == RCTTypeTriptych);
         mask = ecdh_info.mask;
         key amount = ecdh_info.amount;
         key C = rv.outPk[i].mask;
@@ -1669,14 +1771,14 @@ namespace rct {
     }
 
     xmr_amount decodeRctSimple(const rctSig & rv, const key & sk, unsigned int i, key &mask, hw::device &hwdev) {
-        CHECK_AND_ASSERT_MES(rv.type == RCTTypeSimple || rv.type == RCTTypeBulletproof || rv.type == RCTTypeBulletproof2 || rv.type == RCTTypeCLSAG || rv.type == RCTTypeBulletproofPlus,
+        CHECK_AND_ASSERT_MES(rv.type == RCTTypeSimple || rv.type == RCTTypeBulletproof || rv.type == RCTTypeBulletproof2 || rv.type == RCTTypeCLSAG || rv.type == RCTTypeBulletproofPlus || rv.type == RCTTypeTriptych,
             false, "decodeRct called on non simple rctSig");
         CHECK_AND_ASSERT_THROW_MES(i < rv.ecdhInfo.size(), "Bad index");
         CHECK_AND_ASSERT_THROW_MES(rv.outPk.size() == rv.ecdhInfo.size(), "Mismatched sizes of rv.outPk and rv.ecdhInfo");
 
         //mask amount and mask
         ecdhTuple ecdh_info = rv.ecdhInfo[i];
-        hwdev.ecdhDecode(ecdh_info, sk, rv.type == RCTTypeBulletproof2 || rv.type == RCTTypeCLSAG || rv.type == RCTTypeBulletproofPlus);
+        hwdev.ecdhDecode(ecdh_info, sk, rv.type == RCTTypeBulletproof2 || rv.type == RCTTypeCLSAG || rv.type == RCTTypeBulletproofPlus || rv.type == RCTTypeTriptych);
         mask = ecdh_info.mask;
         key amount = ecdh_info.amount;
         key C = rv.outPk[i].mask;

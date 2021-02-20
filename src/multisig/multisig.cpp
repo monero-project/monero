@@ -160,12 +160,12 @@ namespace cryptonote
     crypto::generate_key_image(pkey, k, (crypto::key_image&)R);
   }
   //-----------------------------------------------------------------
-  bool generate_multisig_composite_key_image(const account_keys &keys, const boost::container::flat_map<crypto::public_key, subaddress_index>& subaddresses, const crypto::public_key& out_key, const crypto::public_key &tx_public_key, const std::vector<crypto::public_key>& additional_tx_public_keys, size_t real_output_index, const std::vector<crypto::key_image> &pkis, crypto::key_image &ki)
+  bool generate_multisig_composite_key_image(const account_keys &keys, const boost::container::flat_map<crypto::public_key, subaddress_index>& subaddresses, const crypto::public_key& out_key, const crypto::public_key &tx_public_key, const std::vector<crypto::public_key>& additional_tx_public_keys, size_t real_output_index, const std::vector<crypto::key_image> &pkis, bool triptych, crypto::key_image &ki)
   {
     PERF_TIMER(generate_multisig_composite_key_image);
     cryptonote::keypair in_ephemeral;
     PERF_TIMER_START(generate_key_image_helper);
-    if (!cryptonote::generate_key_image_helper(keys, subaddresses, out_key, tx_public_key, additional_tx_public_keys, real_output_index, in_ephemeral, ki, keys.get_device()))
+    if (!cryptonote::generate_key_image_helper(keys, subaddresses, out_key, tx_public_key, additional_tx_public_keys, real_output_index, triptych, in_ephemeral, ki, keys.get_device()))
       return false;
     PERF_TIMER_STOP(generate_key_image_helper);
     std::unordered_set<crypto::key_image> used;

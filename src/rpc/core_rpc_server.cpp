@@ -3387,6 +3387,42 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_get_first_triptych_output_index(const COMMAND_RPC_GET_FIRST_TRIPTYCH_OUTPUT_INDEX::request& req, COMMAND_RPC_GET_FIRST_TRIPTYCH_OUTPUT_INDEX::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx)
+  {
+    RPC_TRACKER(get_first_triptych_output_index);
+    const uint64_t height = m_core.get_earliest_ideal_height_for_version(HF_VERSION_TRIPTYCH);
+    if (height >= m_core.get_blockchain_storage().get_db().height())
+    {
+      res.index = std::numeric_limits<uint64_t>::max();
+      res.height = CRYPTONOTE_MAX_BLOCK_NUMBER;
+      res.status = CORE_RPC_STATUS_OK;
+      return true;
+    }
+    try
+    {
+      const cryptonote::block blk = m_core.get_blockchain_storage().get_db().get_block_from_height(height);
+      const crypto::hash hash = cryptonote::get_transaction_hash(blk.miner_tx);
+      std::vector<uint64_t> indices;
+      bool r = m_core.get_tx_outputs_gindexs(hash, indices);
+      if (!r || indices.empty())
+      {
+        error_resp.code = CORE_RPC_ERROR_CODE_NOT_FOUND;
+        error_resp.message = "Error getting first triptych output index";
+        return false;
+      }
+      res.index = indices.front();
+      res.height = height;
+    }
+    catch (const std::exception &e)
+    {
+      error_resp.code = CORE_RPC_ERROR_CODE_NOT_FOUND;
+      error_resp.message = "Error getting first triptych output index";
+      return false;
+    }
+    res.status = CORE_RPC_STATUS_OK;
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_rpc_access_submit_nonce(const COMMAND_RPC_ACCESS_SUBMIT_NONCE::request& req, COMMAND_RPC_ACCESS_SUBMIT_NONCE::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx)
   {
     RPC_TRACKER(rpc_access_submit_nonce);

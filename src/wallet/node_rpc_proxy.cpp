@@ -85,6 +85,8 @@ void NodeRPCProxy::invalidate()
   m_rpc_payment_credits_per_hash_found = 0;
   m_rpc_payment_height = 0;
   m_rpc_payment_cookie = 0;
+  m_first_triptych_output_index = 0;
+  m_first_triptych_output_height = 0;
 }
 
 boost::optional<std::string> NodeRPCProxy::get_rpc_version(uint32_t &rpc_version)
@@ -342,6 +344,27 @@ boost::optional<std::string> NodeRPCProxy::get_rpc_payment_info(bool mining, boo
   seed_hash = m_rpc_payment_seed_hash;
   next_seed_hash = m_rpc_payment_next_seed_hash;
   cookie = m_rpc_payment_cookie;
+  return boost::none;
+}
+
+boost::optional<std::string> NodeRPCProxy::get_first_triptych_output_index(uint64_t &idx, uint64_t &height)
+{
+  if (m_first_triptych_output_index == 0)
+  {
+    cryptonote::COMMAND_RPC_GET_FIRST_TRIPTYCH_OUTPUT_INDEX::request req_t = AUTO_VAL_INIT(req_t);
+    cryptonote::COMMAND_RPC_GET_FIRST_TRIPTYCH_OUTPUT_INDEX::response resp_t = AUTO_VAL_INIT(resp_t);
+
+    const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};
+    req_t.client = cryptonote::make_rpc_payment_signature(m_client_id_secret_key);
+    bool r = net_utils::invoke_http_json_rpc("/json_rpc", "get_first_triptych_output_index", req_t, resp_t, m_http_client, rpc_timeout);
+    RETURN_ON_RPC_RESPONSE_ERROR(r, epee::json_rpc::error{}, resp_t, "get_first_triptych_output_index");
+    m_first_triptych_output_index = resp_t.index;
+    m_first_triptych_output_height = resp_t.height;
+    m_rpc_payment_state.stale = false;
+  }
+
+  idx = m_first_triptych_output_index;
+  height = m_first_triptych_output_height;
   return boost::none;
 }
 

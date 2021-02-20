@@ -62,6 +62,7 @@ namespace
     se.push_output(0, boost::get<cryptonote::txout_to_key>(tx.vout[out_idx].target).key, se.amount);
     se.real_output = 0;
     se.rct = false;
+    se.triptych = false;
     se.real_out_tx_key = get_tx_pub_key_from_extra(tx);
     se.real_out_additional_tx_keys = get_additional_tx_pub_keys_from_extra(tx);
     se.real_output_in_tx_index = out_idx;

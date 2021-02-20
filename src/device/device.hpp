@@ -177,7 +177,7 @@ namespace hw {
         virtual bool  derive_secret_key(const crypto::key_derivation &derivation, const std::size_t output_index, const crypto::secret_key &sec,  crypto::secret_key &derived_sec) = 0;
         virtual bool  derive_public_key(const crypto::key_derivation &derivation, const std::size_t output_index, const crypto::public_key &pub,  crypto::public_key &derived_pub) = 0;
         virtual bool  secret_key_to_public_key(const crypto::secret_key &sec, crypto::public_key &pub) = 0;
-        virtual bool  generate_key_image(const crypto::public_key &pub, const crypto::secret_key &sec, crypto::key_image &image) = 0;
+        virtual bool  generate_key_image(const crypto::public_key &pub, const crypto::secret_key &sec, bool triptych, crypto::key_image &image) = 0;
 
         // alternative prototypes available in libringct
         rct::key scalarmultKey(const rct::key &P, const rct::key &a)
@@ -246,7 +246,7 @@ namespace hw {
         virtual bool  has_ki_cold_sync(void) const { return false; }
         virtual bool  has_tx_cold_sign(void) const { return false; }
         virtual bool  has_ki_live_refresh(void) const { return true; }
-        virtual bool  compute_key_image(const cryptonote::account_keys& ack, const crypto::public_key& out_key, const crypto::key_derivation& recv_derivation, size_t real_output_index, const cryptonote::subaddress_index& received_index, cryptonote::keypair& in_ephemeral, crypto::key_image& ki) { return false; }
+        virtual bool  compute_key_image(const cryptonote::account_keys& ack, const crypto::public_key& out_key, const crypto::key_derivation& recv_derivation, size_t real_output_index, const cryptonote::subaddress_index& received_index, bool triptych, cryptonote::keypair& in_ephemeral, crypto::key_image& ki) { return false; }
         virtual void  computing_key_images(bool started) {};
         virtual void  set_network_type(cryptonote::network_type network_type) { }
         virtual void  display_address(const cryptonote::subaddress_index& index, const boost::optional<crypto::hash8> &payment_id) {}

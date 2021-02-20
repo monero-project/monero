@@ -35,6 +35,8 @@ from __future__ import print_function
 from framework.daemon import Daemon
 from framework.wallet import Wallet
 
+TRIPTYCH_RING_SIZE = 128
+
 class GetOutputDistributionTest():
     def run_test(self):
         self.reset()
@@ -107,7 +109,7 @@ class GetOutputDistributionTest():
         assert d.distribution[3] == 3
 
         # extend
-        res = daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 80)
+        res = daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 80 + TRIPTYCH_RING_SIZE * 2)
 
         res = daemon.get_output_distribution([0], 0, 0, cumulative = True)
         assert len(res.distributions) == 1
@@ -115,7 +117,7 @@ class GetOutputDistributionTest():
         assert d.amount == 0
         assert d.base == 0
         assert d.binary == False
-        assert len(d.distribution) == 84
+        assert len(d.distribution) == 84 + TRIPTYCH_RING_SIZE * 2
         for h in range(len(d.distribution)):
             assert d.distribution[h] == h
 
@@ -132,7 +134,7 @@ class GetOutputDistributionTest():
             assert d.amount == 0
             assert d.base == 0
             assert d.binary == False
-            assert len(d.distribution) == 83
+            assert len(d.distribution) == 83 + TRIPTYCH_RING_SIZE * 2
             for h in range(len(d.distribution)):
                 assert d.distribution[h] == (h if step < 3 else 1) + (2 if h == len(d.distribution) - 1 else 0)
 
@@ -208,7 +210,7 @@ class GetOutputDistributionTest():
         assert d.amount == 1
         assert d.base == 0
         assert d.binary == False
-        assert len(d.distribution) == 83
+        assert len(d.distribution) == 83 + TRIPTYCH_RING_SIZE * 2
         for h in range(len(d.distribution)):
             assert d.distribution[h] == 0
 

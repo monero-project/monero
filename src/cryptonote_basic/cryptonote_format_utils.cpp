@@ -105,7 +105,7 @@ namespace cryptonote
   uint64_t get_transaction_weight_clawback(const transaction &tx, size_t n_padded_outputs)
   {
     const rct::rctSig &rv = tx.rct_signatures;
-    const bool plus = rv.type == rct::RCTTypeBulletproofPlus;
+    const bool plus = rv.type == rct::is_rct_bulletproof_plus(rv.type);
     const uint64_t bp_base = (32 * ((plus ? 6 : 9) + 7 * 2)) / 2; // notional size of a 2 output proof, normalized to 1 proof (ie, divided by 2)
     const size_t n_outputs = tx.vout.size();
     if (n_padded_outputs <= 2)
@@ -122,6 +122,19 @@ namespace cryptonote
     return bp_clawback;
   }
   //---------------------------------------------------------------
+  size_t log2i(size_t n)
+  {
+    // this will only work for n a power of 2
+    CHECK_AND_ASSERT_THROW_MES(n && (n & (n-1)) == 0, "n must be a power of 2");
+
+    size_t l = 0;
+    while (n > 1)
+    {
+      n /= 2;
+      ++l;
+    }
+    return l;
+  }
 }
 
 namespace cryptonote
@@ -308,7 +321,7 @@ namespace cryptonote
     return is_v1_tx(blobdata_ref{tx_blob.data(), tx_blob.size()});
   }
   //---------------------------------------------------------------
-  bool generate_key_image_helper(const account_keys& ack, const boost::container::flat_map<crypto::public_key, subaddress_index>& subaddresses, const crypto::public_key& out_key, const crypto::public_key& tx_public_key, const std::vector<crypto::public_key>& additional_tx_public_keys, size_t real_output_index, keypair& in_ephemeral, crypto::key_image& ki, hw::device &hwdev)
+  bool generate_key_image_helper(const account_keys& ack, const boost::container::flat_map<crypto::public_key, subaddress_index>& subaddresses, const crypto::public_key& out_key, const crypto::public_key& tx_public_key, const std::vector<crypto::public_key>& additional_tx_public_keys, size_t real_output_index, bool triptych, keypair& in_ephemeral, crypto::key_image& ki, hw::device &hwdev)
   {
     crypto::key_derivation recv_derivation = AUTO_VAL_INIT(recv_derivation);
     bool r = hwdev.generate_key_derivation(tx_public_key, ack.m_view_secret_key, recv_derivation);
@@ -336,12 +349,12 @@ namespace cryptonote
     boost::optional<subaddress_receive_info> subaddr_recv_info = is_out_to_acc_precomp(subaddresses, out_key, recv_derivation, additional_recv_derivations, real_output_index,hwdev);
     CHECK_AND_ASSERT_MES(subaddr_recv_info, false, "key image helper: given output pubkey doesn't seem to belong to this address");
 
-    return generate_key_image_helper_precomp(ack, out_key, subaddr_recv_info->derivation, real_output_index, subaddr_recv_info->index, in_ephemeral, ki, hwdev);
+    return generate_key_image_helper_precomp(ack, out_key, subaddr_recv_info->derivation, real_output_index, subaddr_recv_info->index, triptych, in_ephemeral, ki, hwdev);
   }
   //---------------------------------------------------------------
-  bool generate_key_image_helper_precomp(const account_keys& ack, const crypto::public_key& out_key, const crypto::key_derivation& recv_derivation, size_t real_output_index, const subaddress_index& received_index, keypair& in_ephemeral, crypto::key_image& ki, hw::device &hwdev)
+  bool generate_key_image_helper_precomp(const account_keys& ack, const crypto::public_key& out_key, const crypto::key_derivation& recv_derivation, size_t real_output_index, const subaddress_index& received_index, bool triptych, keypair& in_ephemeral, crypto::key_image& ki, hw::device &hwdev)
   {
-    if (hwdev.compute_key_image(ack, out_key, recv_derivation, real_output_index, received_index, in_ephemeral, ki))
+    if (hwdev.compute_key_image(ack, out_key, recv_derivation, real_output_index, received_index, triptych, in_ephemeral, ki))
     {
       return true;
     }
@@ -351,6 +364,19 @@ namespace cryptonote
       // for watch-only wallet, simply copy the known output pubkey
       in_ephemeral.pub = out_key;
       in_ephemeral.sec = crypto::null_skey;
+
+      if (triptych)
+      {
+        // for triptych, calculating the key image from a zero secret key will try to invert 0,
+        // which can't be done, so since this yields a dummy key image anyway, we just create
+        // some other valid point
+        char data[64 + sizeof(config::HASH_KEY_TRIPTYCH_PLACEHOLDER_KEY_IMAGE) - 1];
+        memcpy(data, &in_ephemeral.pub, 32);
+        memcpy(data + 32, &in_ephemeral.sec, 32);
+        memcpy(data + 64, config::HASH_KEY_TRIPTYCH_PLACEHOLDER_KEY_IMAGE, sizeof(config::HASH_KEY_TRIPTYCH_PLACEHOLDER_KEY_IMAGE) - 1);
+        cn_fast_hash(data, sizeof(data), (hash&)ki);
+        return true;
+      }
     }
     else
     {
@@ -395,7 +421,7 @@ namespace cryptonote
            false, "key image helper precomp: given output pubkey doesn't match the derived one");
     }
 
-    hwdev.generate_key_image(in_ephemeral.pub, in_ephemeral.sec, ki);
+    hwdev.generate_key_image(in_ephemeral.pub, in_ephemeral.sec, triptych, ki);
     return true;
   }
   //---------------------------------------------------------------
@@ -464,7 +490,7 @@ namespace cryptonote
   {
     CHECK_AND_ASSERT_MES(tx.pruned, std::numeric_limits<uint64_t>::max(), "get_pruned_transaction_weight does not support non pruned txes");
     CHECK_AND_ASSERT_MES(tx.version >= 2, std::numeric_limits<uint64_t>::max(), "get_pruned_transaction_weight does not support v1 txes");
-    CHECK_AND_ASSERT_MES(tx.rct_signatures.type == rct::RCTTypeBulletproof2 || tx.rct_signatures.type == rct::RCTTypeCLSAG || tx.rct_signatures.type == rct::RCTTypeBulletproofPlus,
+    CHECK_AND_ASSERT_MES(tx.rct_signatures.type == rct::RCTTypeBulletproof2 || tx.rct_signatures.type == rct::RCTTypeCLSAG || tx.rct_signatures.type == rct::RCTTypeBulletproofPlus || tx.rct_signatures.type == rct::RCTTypeTriptych,
         std::numeric_limits<uint64_t>::max(), "get_pruned_transaction_weight does not support older range proof types");
     CHECK_AND_ASSERT_MES(!tx.vin.empty(), std::numeric_limits<uint64_t>::max(), "empty vin");
     CHECK_AND_ASSERT_MES(tx.vin[0].type() == typeid(cryptonote::txin_to_key), std::numeric_limits<uint64_t>::max(), "empty vin");
@@ -488,7 +514,9 @@ namespace cryptonote
 
     // calculate deterministic CLSAG/MLSAG data size
     const size_t ring_size = boost::get<cryptonote::txin_to_key>(tx.vin[0]).key_offsets.size();
-    if (tx.rct_signatures.type == rct::RCTTypeCLSAG || tx.rct_signatures.type == rct::RCTTypeBulletproofPlus)
+    if (tx.rct_signatures.type == rct::RCTTypeTriptych)
+      extra = (3 * log2i(ring_size) + 8) * 32;
+    else if (tx.rct_signatures.type == rct::RCTTypeCLSAG || tx.rct_signatures.type == rct::RCTTypeBulletproofPlus)
       extra = tx.vin.size() * (ring_size + 2) * 32;
     else
       extra = tx.vin.size() * (ring_size * (1 + 1) * 32 + 32 /* cc */);

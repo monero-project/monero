@@ -303,7 +303,7 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
     for (size_t msidx = 0; msidx < total; ++msidx)
       for (size_t n = 0; n < account_ki[msidx][tdidx].size(); ++n)
         pkis.push_back(account_ki[msidx][tdidx][n]);
-    r = cryptonote::generate_multisig_composite_key_image(miner_account[0].get_keys(), subaddresses, output_pub_key[tdidx], tx_pub_key[tdidx], additional_tx_keys, 0, pkis, (crypto::key_image&)kLRki.ki);
+    r = cryptonote::generate_multisig_composite_key_image(miner_account[0].get_keys(), subaddresses, output_pub_key[tdidx], tx_pub_key[tdidx], additional_tx_keys, 0, pkis, false, (crypto::key_image&)kLRki.ki);
     CHECK_AND_ASSERT_MES(r, false, "Failed to generate composite key image");
     MDEBUG("composite ki: " << kLRki.ki);
     MDEBUG("L: " << kLRki.L);
@@ -311,7 +311,7 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
     for (size_t n = 1; n < total; ++n)
     {
       rct::key ki;
-      r = cryptonote::generate_multisig_composite_key_image(miner_account[n].get_keys(), subaddresses, output_pub_key[tdidx], tx_pub_key[tdidx], additional_tx_keys, 0, pkis, (crypto::key_image&)ki);
+      r = cryptonote::generate_multisig_composite_key_image(miner_account[n].get_keys(), subaddresses, output_pub_key[tdidx], tx_pub_key[tdidx], additional_tx_keys, 0, pkis, false, (crypto::key_image&)ki);
       CHECK_AND_ASSERT_MES(r, false, "Failed to generate composite key image");
       CHECK_AND_ASSERT_MES(kLRki.ki == ki, false, "Composite key images do not match");
     }
@@ -331,6 +331,7 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
     src.real_output_in_tx_index = 0;
     src.mask = rct::identity();
     src.rct = true;
+    src.triptych = false;
     src.multisig_kLRki = kLRkis[n];
 
     for (size_t m = 0; m <= mixin; ++m)
@@ -368,7 +369,7 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
 #endif
   std::vector<crypto::secret_key> additional_tx_secret_keys;
   auto sources_copy = sources;
-  r = construct_tx_and_get_tx_key(miner_account[creator].get_keys(), subaddresses, sources, destinations, boost::none, std::vector<uint8_t>(), tx, 0, tx_key, additional_tx_secret_keys, true, { rct::RangeProofPaddedBulletproof, 0 }, msoutp);
+  r = construct_tx_and_get_tx_key(miner_account[creator].get_keys(), subaddresses, sources, destinations, boost::none, std::vector<uint8_t>(), tx, 0, tx_key, additional_tx_secret_keys, true, { rct::RangeProofPaddedBulletproof, 4 }, msoutp);
   CHECK_AND_ASSERT_MES(r, false, "failed to construct transaction");
 
 #ifndef NO_MULTISIG
@@ -458,7 +459,7 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
       crypto::secret_key scalar1;
       crypto::derivation_to_scalar(derivation, n, scalar1);
       rct::ecdhTuple ecdh_info = tx.rct_signatures.ecdhInfo[n];
-      rct::ecdhDecode(ecdh_info, rct::sk2rct(scalar1), tx.rct_signatures.type == rct::RCTTypeBulletproof2 || tx.rct_signatures.type == rct::RCTTypeCLSAG || tx.rct_signatures.type == rct::RCTTypeBulletproofPlus);
+      rct::ecdhDecode(ecdh_info, rct::sk2rct(scalar1), tx.rct_signatures.type == rct::RCTTypeBulletproof2 || tx.rct_signatures.type == rct::RCTTypeCLSAG || tx.rct_signatures.type == rct::RCTTypeBulletproofPlus || tx.rct_signatures.type == rct::RCTTypeTriptych);
       rct::key C = tx.rct_signatures.outPk[n].mask;
       rct::addKeys2(Ctmp, ecdh_info.mask, ecdh_info.amount, rct::H);
       CHECK_AND_ASSERT_MES(rct::equalKeys(C, Ctmp), false, "Failed to decode amount");

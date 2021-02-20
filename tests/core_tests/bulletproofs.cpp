@@ -114,6 +114,7 @@ bool gen_bp_tx_validation_base::generate_with(std::vector<test_event_entry>& eve
     src.real_output_in_tx_index = real_index_in_tx;
     src.mask = rct::identity();
     src.rct = false;
+    src.triptych = false;
 
     //fill outputs entry
     tx_destination_entry td;

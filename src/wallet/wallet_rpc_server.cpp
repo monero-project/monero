@@ -976,7 +976,7 @@ namespace tools
 
     try
     {
-      uint64_t mixin = m_wallet->adjust_mixin(req.ring_size ? req.ring_size - 1 : 0);
+      const size_t mixin[2] = { m_wallet->adjust_mixin(req.ring_size ? req.ring_size - 1 : 0), (TRIPTYCH_RING_SIZE - 1) };
       uint32_t priority = m_wallet->adjust_priority(req.priority);
       debug_test_invalid_tx = req.debug_invalid;
       std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_transactions_2(dsts, mixin, req.unlock_time, priority, extra, req.account_index, req.subaddr_indices);
@@ -1030,7 +1030,7 @@ namespace tools
 
     try
     {
-      uint64_t mixin = m_wallet->adjust_mixin(req.ring_size ? req.ring_size - 1 : 0);
+      const size_t mixin[2] = { m_wallet->adjust_mixin(req.ring_size ? req.ring_size - 1 : 0), (TRIPTYCH_RING_SIZE - 1) };
       uint32_t priority = m_wallet->adjust_priority(req.priority);
       LOG_PRINT_L2("on_transfer_split calling create_transactions_2");
       std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_transactions_2(dsts, mixin, req.unlock_time, priority, extra, req.account_index, req.subaddr_indices);
@@ -1460,7 +1460,7 @@ namespace tools
 
     try
     {
-      uint64_t mixin = m_wallet->adjust_mixin(req.ring_size ? req.ring_size - 1 : 0);
+      const size_t mixin[2] = { m_wallet->adjust_mixin(req.ring_size ? req.ring_size - 1 : 0), TRIPTYCH_RING_SIZE - 1};
       uint32_t priority = m_wallet->adjust_priority(req.priority);
       std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_transactions_all(req.below_amount, dsts[0].addr, dsts[0].is_subaddress, req.outputs, mixin, req.unlock_time, priority, extra, req.account_index, subaddr_indices);
 
@@ -1515,7 +1515,7 @@ namespace tools
 
     try
     {
-      uint64_t mixin = m_wallet->adjust_mixin(req.ring_size ? req.ring_size - 1 : 0);
+      const size_t mixin[2] = { m_wallet->adjust_mixin(req.ring_size ? req.ring_size - 1 : 0), TRIPTYCH_RING_SIZE - 1 };
       uint32_t priority = m_wallet->adjust_priority(req.priority);
       std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_transactions_single(ki, dsts[0].addr, dsts[0].is_subaddress, req.outputs, mixin, req.unlock_time, priority, extra);
 
@@ -2728,13 +2728,36 @@ namespace tools
     if (!m_wallet) return not_open(er);
     try
     {
-      std::pair<uint64_t, std::vector<std::pair<crypto::key_image, crypto::signature>>> ski = m_wallet->export_key_images(req.all);
-      res.offset = ski.first;
-      res.signed_key_images.resize(ski.second.size());
-      for (size_t n = 0; n < ski.second.size(); ++n)
+      tools::key_image_data_t ski = m_wallet->export_key_images(req.all);
+      res.offset = ski.offset;
+      res.signed_key_images.resize(ski.key_images.size());
+      for (size_t n = 0; n < ski.key_images.size(); ++n)
       {
-         res.signed_key_images[n].key_image = epee::string_tools::pod_to_hex(ski.second[n].first);
-         res.signed_key_images[n].signature = epee::string_tools::pod_to_hex(ski.second[n].second);
+         res.signed_key_images[n].key_image = epee::string_tools::pod_to_hex(ski.key_images[n].key_image);
+         if (ski.key_images[n].signature.type() == typeid(tools::key_image_data_t::schnorr_signature))
+         {
+           const auto &e = boost::get<tools::key_image_data_t::schnorr_signature>(ski.key_images[n].signature);
+           res.signed_key_images[n].signature = epee::string_tools::pod_to_hex(e.signature);
+         }
+         else if (ski.key_images[n].signature.type() == typeid(tools::key_image_data_t::triptych_signature))
+         {
+           auto &e = boost::get<tools::key_image_data_t::triptych_signature>(ski.key_images[n].signature);
+           std::ostringstream oss;
+           binary_archive<true> ar(oss);
+           if (!::serialization::serialize(ar, e))
+           {
+             er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+             er.message = "Failed to serialize Triptych proof";
+             return false;
+           }
+           res.signed_key_images[n].signature = epee::string_tools::buff_to_hex_nodelimer(oss.str());
+         }
+         else
+         {
+           er.code = WALLET_RPC_ERROR_CODE_WRONG_KEY_IMAGE;
+           er.message = "Wrong key image proof type";
+           return false;
+         }
       }
     }
 
@@ -2764,26 +2787,56 @@ namespace tools
     }
     try
     {
-      std::vector<std::pair<crypto::key_image, crypto::signature>> ski;
-      ski.resize(req.signed_key_images.size());
-      for (size_t n = 0; n < ski.size(); ++n)
+      tools::key_image_data_t ski;
+      ski.key_images.reserve(req.signed_key_images.size());
+      for (size_t n = 0; n < req.signed_key_images.size(); ++n)
       {
-        if (!epee::string_tools::hex_to_pod(req.signed_key_images[n].key_image, ski[n].first))
+        crypto::key_image ki;
+        if (!epee::string_tools::hex_to_pod(req.signed_key_images[n].key_image, ki))
         {
           er.code = WALLET_RPC_ERROR_CODE_WRONG_KEY_IMAGE;
           er.message = "failed to parse key image";
           return false;
         }
 
-        if (!epee::string_tools::hex_to_pod(req.signed_key_images[n].signature, ski[n].second))
+        if (req.signed_key_images[n].signature.size() == 128)
         {
-          er.code = WALLET_RPC_ERROR_CODE_WRONG_SIGNATURE;
-          er.message = "failed to parse signature";
-          return false;
+          crypto::signature s;
+          if (!epee::string_tools::hex_to_pod(req.signed_key_images[n].signature, s))
+          {
+            er.code = WALLET_RPC_ERROR_CODE_WRONG_SIGNATURE;
+            er.message = "failed to parse signature";
+            return false;
+          }
+          ski.key_images.push_back({ki, key_image_data_t::schnorr_signature{s}});
+        }
+        else
+        {
+          cryptonote::blobdata blob;
+          if (!epee::string_tools::parse_hexstr_to_binbuff(req.signed_key_images[n].signature, blob))
+          {
+            er.code = WALLET_RPC_ERROR_CODE_BAD_HEX;
+            er.message = "failed to parse Triptych signature hex";
+            return false;
+          }
+          key_image_data_t::triptych_signature s;
+          std::istringstream iss(blob);
+          binary_archive<false> ar(iss);
+          if (!::serialization::serialize(ar, s))
+          {
+            er.code = WALLET_RPC_ERROR_CODE_WRONG_SIGNATURE;
+            er.message = "failed to parse Triptych signature";
+            return false;
+          }
+          ski.key_images.push_back({ki, key_image_data_t::triptych_signature{s}});
         }
       }
+      ski.offset = req.offset;
+      ski.view_public_key = m_wallet->get_account().get_keys().m_account_address.m_view_public_key;
+      ski.spend_public_key = m_wallet->get_account().get_keys().m_account_address.m_spend_public_key;
+
       uint64_t spent = 0, unspent = 0;
-      uint64_t height = m_wallet->import_key_images(ski, req.offset, spent, unspent);
+      uint64_t height = m_wallet->import_key_images(ski, spent, unspent);
       res.spent = spent;
       res.unspent = unspent;
       res.height = height;
@@ -4377,7 +4430,9 @@ namespace tools
     try
     {
       size_t extra_size = 34 /* pubkey */ + 10 /* encrypted payment id */; // typical makeup
-      const std::pair<size_t, uint64_t> sw = m_wallet->estimate_tx_size_and_weight(req.rct, req.n_inputs, req.ring_size, req.n_outputs, extra_size);
+      const uint32_t n_pre_triptych_inputs = req.n_inputs ? req.n_inputs : req.n_pre_triptych_inputs;
+      const uint32_t n_triptych_inputs = req.n_inputs ? 0 : req.n_triptych_inputs;
+      const std::pair<size_t, uint64_t> sw = m_wallet->estimate_tx_size_and_weight(req.rct, n_pre_triptych_inputs, req.ring_size, req.n_outputs, extra_size, n_triptych_inputs, TRIPTYCH_RING_SIZE);
       res.size = sw.first;
       res.weight = sw.second;
     }

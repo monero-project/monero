@@ -37,6 +37,8 @@ import json
 from framework.daemon import Daemon
 from framework.wallet import Wallet
 
+TRIPTYCH_RING_SIZE = 128
+
 class TransferTest():
     def run_test(self):
         self.reset()
@@ -83,11 +85,11 @@ class TransferTest():
         res = daemon.get_info()
         height = res.height
 
-        daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 80)
+        daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 80 + TRIPTYCH_RING_SIZE * 2)
         for i in range(len(self.wallet)):
             self.wallet[i].refresh()
             res = self.wallet[i].get_height()
-            assert res.height == height + 80
+            assert res.height == height + 80 + TRIPTYCH_RING_SIZE * 2
 
     def transfer(self):
         daemon = Daemon()
@@ -146,7 +148,7 @@ class TransferTest():
         assert res.fee > 0
         assert res.quantization_mask > 0
         expected_fee = (res.fee * 1 * tx_weight + res.quantization_mask - 1) // res.quantization_mask * res.quantization_mask
-        assert abs(1 - fee / expected_fee) < 0.01
+        assert abs(1 - fee / expected_fee) < 0.1 # more leeway, triptych size estimation is worse due to the larger ring size
 
         self.wallet[0].refresh()
 
@@ -566,7 +568,14 @@ class TransferTest():
 
     def check_double_spend_detection(self):
         print('Checking double spend detection')
+
+        daemon = Daemon()
         txes = [[None, None], [None, None]]
+
+        # get rid of all outputs now, creating just a few so we end up with a single tx on the loop below
+        res = self.wallet[0].sweep_all(address = '44Kbx4sJ7JDRDV5aAhLJzQCjDz2ViLRduE3ijDZu3osWKBjMGkV1XPk4pfDUMqt1Aiezvephdqm6YD19GKFD9ZcXVUTp6BW', do_not_relay = False, get_tx_hex = False)
+        daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 10)
+
         for i in range(2):
             self.wallet[0].restore_deterministic_wallet(seed = 'velvet lymph giddy number token physics poetry unquoted nibs useful sabotage limits benches lifestyle eden nitrogen anvil fewest avoid batch vials washing fences goat unquoted')
             self.wallet[0].refresh()
@@ -588,7 +597,6 @@ class TransferTest():
             assert len(res.tx_blob_list) == 1
             txes[i][1] = res.tx_blob_list[0]
 
-        daemon = Daemon()
         res = daemon.send_raw_transaction(txes[0][1])
         assert res.not_relayed == False
         assert res.low_mixin == False
@@ -665,7 +673,7 @@ class TransferTest():
         self.wallet[0].refresh()
         res = self.wallet[0].get_balance()
         new_balance = res.balance
-        res = daemon.get_transactions([tx_hash], decode_as_json = True)
+        res = daemon.get_transactions([tx_hash], decode_as_json = True, prune = True)
         assert len(res.txs) == 1
         tx = res.txs[0]
         assert tx.tx_hash == tx_hash

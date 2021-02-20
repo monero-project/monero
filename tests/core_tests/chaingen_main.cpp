@@ -290,6 +290,17 @@ int main(int argc, char* argv[])
 
     GENERATE_AND_PLAY(gen_block_low_coinbase);
 
+    GENERATE_AND_PLAY(gen_triptych_tx_valid_from_pre_rct);
+    GENERATE_AND_PLAY(gen_triptych_tx_valid_from_pre_triptych);
+    GENERATE_AND_PLAY(gen_triptych_tx_valid_from_post_triptych);
+    GENERATE_AND_PLAY(gen_triptych_tx_valid_mixed_inputs);
+    GENERATE_AND_PLAY(gen_triptych_tx_invalid_bp);
+    GENERATE_AND_PLAY(gen_triptych_tx_invalid_mixed_rings_pre_triptych);
+    GENERATE_AND_PLAY(gen_triptych_tx_invalid_mixed_rings_post_triptych);
+    GENERATE_AND_PLAY(gen_triptych_tx_invalid_double_spend);
+    GENERATE_AND_PLAY(gen_triptych_tx_invalid_missing_signature);
+    GENERATE_AND_PLAY(gen_triptych_tx_invalid_low_ring_size);
+
     el::Level level = (failed_tests.empty() ? el::Level::Info : el::Level::Error);
     if (!list_tests)
     {

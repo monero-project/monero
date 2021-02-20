@@ -1264,8 +1264,14 @@ namespace hw {
         return true;
     }
 
-    bool device_ledger::generate_key_image(const crypto::public_key &pub, const crypto::secret_key &sec, crypto::key_image &image){
+    bool device_ledger::generate_key_image(const crypto::public_key &pub, const crypto::secret_key &sec, bool triptych, crypto::key_image &image){
         AUTO_LOCK_CMD();
+
+        if (triptych)
+        {
+          MERROR("Not implemented yet");
+          return false;
+        }
 
         #ifdef DEBUG_HWDEVICE
         const crypto::public_key pub_x = pub;

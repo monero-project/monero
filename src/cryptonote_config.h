@@ -184,6 +184,7 @@
 #define HF_VERSION_CLSAG                        13
 #define HF_VERSION_DETERMINISTIC_UNLOCK_TIME    13
 #define HF_VERSION_BULLETPROOF_PLUS             15
+#define HF_VERSION_TRIPTYCH                     17
 #define HF_VERSION_ALL_RCT_OUTPUTS              254
 
 #define PER_KB_FEE_QUANTIZATION_DECIMALS        8
@@ -204,6 +205,8 @@
 #define DNS_BLOCKLIST_LIFETIME (86400 * 8)
 
 #define MAX_TXES_BYTES_IN_TX_NOTIFICATION       (8 * 1024 * 1024) // 8 MB, not a hard limit, more like a target
+
+#define TRIPTYCH_RING_SIZE                      128
 
 // New constants are intended to go here
 namespace config
@@ -248,6 +251,7 @@ namespace config
   const char HASH_KEY_TRIPTYCH_H[] = "triptych H";
   const char HASH_KEY_TRIPTYCH_U[] = "triptych U";
   const char HASH_KEY_TRIPTYCH_TRANSCRIPT[] = "triptych transcript";
+  const char HASH_KEY_TRIPTYCH_PLACEHOLDER_KEY_IMAGE[] = "tpki";
 
   namespace testnet
   {
@@ -313,7 +317,7 @@ namespace cryptonote
       ::config::ZMQ_RPC_DEFAULT_PORT,
       ::config::NETWORK_ID,
       ::config::GENESIS_TX,
-      ::config::GENESIS_NONCE
+      ::config::GENESIS_NONCE,
     };
     static const config_t testnet = {
       ::config::testnet::CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX,
@@ -324,7 +328,7 @@ namespace cryptonote
       ::config::testnet::ZMQ_RPC_DEFAULT_PORT,
       ::config::testnet::NETWORK_ID,
       ::config::testnet::GENESIS_TX,
-      ::config::testnet::GENESIS_NONCE
+      ::config::testnet::GENESIS_NONCE,
     };
     static const config_t stagenet = {
       ::config::stagenet::CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX,
@@ -335,7 +339,7 @@ namespace cryptonote
       ::config::stagenet::ZMQ_RPC_DEFAULT_PORT,
       ::config::stagenet::NETWORK_ID,
       ::config::stagenet::GENESIS_TX,
-      ::config::stagenet::GENESIS_NONCE
+      ::config::stagenet::GENESIS_NONCE,
     };
     switch (nettype)
     {

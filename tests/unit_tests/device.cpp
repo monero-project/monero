@@ -109,7 +109,7 @@ TEST(device, ops)
   crypto::secret_key_to_public_key(rct::rct2sk(sk), pk1);
   ASSERT_EQ(pk0, pk1);
 
-  dev.generate_key_image(pk0, sk0, ki0);
+  dev.generate_key_image(pk0, sk0, false, ki0);
   crypto::generate_key_image(pk0, sk0, ki1);
   ASSERT_EQ(ki0, ki1);
 }
