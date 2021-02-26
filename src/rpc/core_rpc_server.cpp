@@ -2929,6 +2929,13 @@ namespace cryptonote
       res.status = CORE_RPC_STATUS_OK;
       return true;
     }
+
+    if (!m_core.verify_update_hash(hash, software, buildtag, version))
+    {
+      res.status = "Failed to verify update hash";
+      return true;
+    }
+
     res.update = true;
     res.version = version;
     res.user_uri = tools::get_update_url(software, subdir, buildtag, version, true);

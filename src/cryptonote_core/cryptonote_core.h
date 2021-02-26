@@ -797,6 +797,17 @@ namespace cryptonote
      bool is_update_available() const { return m_update_available; }
 
      /**
+      * @brief verifies new version hash against published Gitian reproducible build hashes
+      *
+      * @return true on success, false otherwise
+      */
+     bool verify_update_hash(
+       const std::string &expected_hash,
+       const std::string &software,
+       const std::string &build_tag,
+       const std::string &version) const;
+
+     /**
       * @brief get whether fluffy blocks are enabled
       *
       * @return whether fluffy blocks are enabled
@@ -1113,6 +1124,7 @@ namespace cryptonote
      tools::download_async_handle m_update_download;
      size_t m_last_update_length;
      boost::mutex m_update_mutex;
+     bool m_update_verify_hash;
 
      bool m_fluffy_blocks_enabled;
      bool m_offline;

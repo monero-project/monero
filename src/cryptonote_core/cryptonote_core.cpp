@@ -31,11 +31,13 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/uuid/nil_generator.hpp>
 
+#include "net/http_client.h"
 #include "string_tools.h"
 using namespace epee;
 
 #include <unordered_set>
 #include "cryptonote_core.h"
+#include "common/update_hash_checker.h"
 #include "common/util.h"
 #include "common/updates.h"
 #include "common/download.h"
@@ -173,6 +175,11 @@ namespace cryptonote
   , "Check for new versions of monero: [disabled|notify|download|update]"
   , "notify"
   };
+  static const command_line::arg_descriptor<bool> arg_no_verify_update_hash  = {
+    "no-verify-update-hash"
+  , "Skip reproducible build hash verification on new versions check"
+  , false
+  };
   static const command_line::arg_descriptor<bool> arg_fluffy_blocks  = {
     "fluffy-blocks"
   , "Relay blocks as fluffy blocks (obsolete, now default)"
@@ -237,6 +244,7 @@ namespace cryptonote
               m_last_dns_checkpoints_update(0),
               m_last_json_checkpoints_update(0),
               m_disable_dns_checkpoints(false),
+              m_update_verify_hash(true),
               m_update_download(0),
               m_nettype(UNDEFINED),
               m_update_available(false)
@@ -336,6 +344,7 @@ namespace cryptonote
     command_line::add_arg(desc, arg_show_time_stats);
     command_line::add_arg(desc, arg_block_sync_size);
     command_line::add_arg(desc, arg_check_updates);
+    command_line::add_arg(desc, arg_no_verify_update_hash);
     command_line::add_arg(desc, arg_fluffy_blocks);
     command_line::add_arg(desc, arg_no_fluffy_blocks);
     command_line::add_arg(desc, arg_test_dbg_lock_sleep);
@@ -477,6 +486,7 @@ namespace cryptonote
     bool fast_sync = command_line::get_arg(vm, arg_fast_block_sync) != 0;
     uint64_t blocks_threads = command_line::get_arg(vm, arg_prep_blocks_threads);
     std::string check_updates_string = command_line::get_arg(vm, arg_check_updates);
+    m_update_verify_hash = !command_line::get_arg(vm, arg_no_verify_update_hash);
     size_t max_txpool_weight = command_line::get_arg(vm, arg_max_txpool_weight);
     bool prune_blockchain = command_line::get_arg(vm, arg_prune_blockchain);
     bool keep_alt_blocks = command_line::get_arg(vm, arg_keep_alt_blocks);
@@ -1796,6 +1806,11 @@ namespace cryptonote
       return true;
     }
 
+    if (!verify_update_hash(hash, software, buildtag, version))
+    {
+      return false;
+    }
+
     std::string url = tools::get_update_url(software, subdir, buildtag, version, true);
     MCLOG_CYAN(el::Level::Info, "global", "Version " << version << " of " << software << " for " << buildtag << " is available: " << url << ", SHA256 hash " << hash);
     m_update_available = true;
@@ -1976,6 +1991,57 @@ namespace cryptonote
 
         break; // no need to look further
       }
+    }
+
+    return true;
+  }
+  //-----------------------------------------------------------------------------------------------
+  bool core::verify_update_hash(
+    const std::string &expected_hash,
+    const std::string &software,
+    const std::string &build_tag,
+    const std::string &version) const
+  {
+    if (!m_update_verify_hash)
+    {
+      return true;
+    }
+
+    if (build_tag == "source")
+    {
+      return true;
+    }
+
+    try
+    {
+      static constexpr const char gitian_repo_host[] = "repo.getmonero.org";
+      constexpr uint16_t gitian_repo_port = 443;
+      static constexpr const char gitian_repo_owner[] = "monero-project";
+      static constexpr const char gitian_repo_name[] = "gitian.sigs";
+      constexpr size_t gitian_minimum_participants = 3;
+      constexpr bool gitian_check_all_available = true;
+
+      // TODO: implement OpenPGP signature verification
+      tools::gitian_hash_checker gitian(
+        std::unique_ptr<tools::repo_explorer>(new tools::gitlab_repo(
+          gitian_repo_host,
+          gitian_repo_port,
+          gitian_repo_owner,
+          gitian_repo_name,
+          std::unique_ptr<epee::net_utils::http::abstract_http_client>{new epee::net_utils::http::http_simple_client()},
+          std::chrono::seconds(30),
+          gitian_repo_owner)),
+        std::unique_ptr<tools::signature_verifier>(new tools::dummy_signature_verifier()),
+        software,
+        gitian_minimum_participants,
+        gitian_check_all_available);
+
+      gitian.check(expected_hash, version, build_tag);
+    }
+    catch (const std::exception &e)
+    {
+      MCERROR("updates", "Update hash verification failed: " << e.what());
+      return false;
     }
 
     return true;

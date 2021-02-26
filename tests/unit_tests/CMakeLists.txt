@@ -87,6 +87,7 @@ set(unit_tests_sources
   tx_proof.cpp
   hardfork.cpp
   unbound.cpp
+  update_hash_checker.cpp
   uri.cpp
   varint.cpp
   ringct.cpp
