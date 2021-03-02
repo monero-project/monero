@@ -208,3 +208,10 @@ TEST(logging, operator_equals_segfault)
     el::Logger log2("id2", nullptr);
     log2 = log1;
 }
+
+TEST(logging, empty_configurations_throws)
+{
+    el::Logger log1("id1", nullptr);
+    const el::Configurations cfg;
+    EXPECT_ANY_THROW(log1.configure(cfg));
+}
