@@ -502,21 +502,9 @@ namespace tx {
   }
 
   void Signer::compute_integrated_indices(TsxData * tsx_data){
-    if (m_aux_data == nullptr || m_aux_data->tx_recipients.empty()){
-      return;
-    }
-
     auto & chg = tsx_data->change_dts();
     std::string change_hash = hash_addr(&chg.addr(), chg.amount(), chg.is_subaddress());
-
     std::vector<uint32_t> integrated_indices;
-    std::set<std::string> integrated_hashes;
-    for (auto & cur : m_aux_data->tx_recipients){
-      if (!cur.has_payment_id){
-        continue;
-      }
-      integrated_hashes.emplace(hash_addr(&cur.address.m_spend_public_key, &cur.address.m_view_public_key));
-    }
 
     ssize_t idx = -1;
     for (auto & cur : tsx_data->outputs()){
@@ -527,8 +515,7 @@ namespace tx {
         continue;
       }
 
-      c_hash = hash_addr(&cur.addr());
-      if (integrated_hashes.find(c_hash) != integrated_hashes.end()){
+      if (cur.is_integrated()){
         integrated_indices.push_back((uint32_t)idx);
       }
     }
