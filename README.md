@@ -712,6 +712,8 @@ to prune an existing blockchain using the `monero-blockchain-prune` tool or usin
 with an existing chain. If an existing chain exists, pruning will temporarily require disk space to store both the full
 and pruned blockchains.
 
+For more detailed information see the ['Pruning' entry in the Moneropedia](https://www.getmonero.org/resources/moneropedia/pruning.html)
+
 ## Debugging
 
 This section contains general instructions for debugging failed installs or problems encountered with Monero. First, ensure you are running the latest version built from the Github repo.
