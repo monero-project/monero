@@ -47,7 +47,7 @@
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define WALLET_RPC_VERSION_MAJOR 1
-#define WALLET_RPC_VERSION_MINOR 20
+#define WALLET_RPC_VERSION_MINOR 21
 #define MAKE_WALLET_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define WALLET_RPC_VERSION MAKE_WALLET_RPC_VERSION(WALLET_RPC_VERSION_MAJOR, WALLET_RPC_VERSION_MINOR)
 namespace tools
@@ -1010,6 +1010,7 @@ namespace wallet_rpc
     std::string tx_hash;
     cryptonote::subaddress_index subaddr_index;
     std::string key_image;
+    std::string pubkey; // owned output public key found
     uint64_t block_height;
     bool frozen;
     bool unlocked;
@@ -1021,6 +1022,7 @@ namespace wallet_rpc
       KV_SERIALIZE(tx_hash)
       KV_SERIALIZE(subaddr_index)
       KV_SERIALIZE(key_image)
+      KV_SERIALIZE(pubkey);
       KV_SERIALIZE(block_height)
       KV_SERIALIZE(frozen)
       KV_SERIALIZE(unlocked)
