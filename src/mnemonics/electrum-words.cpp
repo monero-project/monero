@@ -491,6 +491,14 @@ namespace crypto
       return "<language not found>";
     }
 
+    bool is_valid_language(const std::string &language)
+    {
+      const std::vector<const Language::Base*> language_instances = get_language_list();
+      for (std::vector<const Language::Base*>::const_iterator it = language_instances.begin(); it != language_instances.end(); it++)
+        if ((*it)->get_english_language_name() == language || (*it)->get_language_name() == language)
+          return true;
+      return false;
+    }
   }
 
 }

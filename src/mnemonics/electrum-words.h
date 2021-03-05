@@ -124,6 +124,8 @@ namespace crypto
      * \return      the name of the language in English
      */
     std::string get_english_name_for(const std::string &name);
+
+    bool is_valid_language(const std::string &language);
   }
 }
 
