@@ -787,7 +787,7 @@ void async_protocol_handler_config<t_connection_context>::delete_connections(siz
     {
       auto i = connections.end() - 1;
       async_protocol_handler<t_connection_context> *conn = m_connects.at(*i);
-      del_connection(conn);
+      m_connects.erase(*i);
       conn->close();
       connections.erase(i);
     }
