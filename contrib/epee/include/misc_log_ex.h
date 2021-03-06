@@ -41,7 +41,7 @@
 #define MAX_LOG_FILES 50
 
 #define MCLOG_TYPE(level, cat, color, type, x) do { \
-    if (ELPP->vRegistry()->allowed(level, cat)) { \
+    if (el::Loggers::allowed(level, cat)) { \
       el::base::Writer(level, color, __FILE__, __LINE__, ELPP_FUNC, type).construct(cat) << x; \
     } \
   } while (0)
@@ -89,7 +89,7 @@
 
 #define IFLOG(level, cat, color, type, init, x) \
   do { \
-    if (ELPP->vRegistry()->allowed(level, cat)) { \
+    if (el::Loggers::allowed(level, cat)) { \
       init; \
       el::base::Writer(level, color, __FILE__, __LINE__, ELPP_FUNC, type).construct(cat) << x; \
     } \
