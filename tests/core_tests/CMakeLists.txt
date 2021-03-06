@@ -87,6 +87,21 @@ set_property(TARGET core_tests
   PROPERTY
     FOLDER "tests")
 
-add_test(
-  NAME    core_tests
-  COMMAND core_tests --generate_and_play_test_data)
+
+if (TESTS_REUSE_CACHE)
+  # The most time spend by core_tests is generating the test data. It makes sense to reuse them.
+
+  # Such a simplified test cache directory was chosen, for it to be easily accessible from the Workflows.
+  set(DIR_TEST_CACHE "${PROJECT_SOURCE_DIR}/build/test_cache")
+  add_test(
+    NAME    core_tests
+    # Chaining commands is only possible via sh.
+    COMMAND sh -c "./core_tests --generate_test_data --test_data_path=${DIR_TEST_CACHE} && ./core_tests --play_test_data --test_data_path=${DIR_TEST_CACHE}"
+  )
+else()
+  add_test(
+    NAME    core_tests
+    COMMAND core_tests --generate_and_play_test_data
+  )
+endif()
+
