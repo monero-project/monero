@@ -195,7 +195,7 @@ Install all dependencies at once on Debian/Ubuntu:
 
 Install all dependencies at once on openSUSE:
 
-``` sudo zypper ref && sudo zypper in cppzmq-devel  ldns-devel libboost_chrono-devel libboost_date_time-devel libboost_filesystem-devel libboost_locale-devel libboost_program_options-devel libboost_regex-devel libboost_serialization-devel libboost_system-devel libboost_thread-devel libexpat-devel libminiupnpc-devel libsodium-devel libunwind-devel unbound-devel libevent-devel cmake cppzmq-devel doxygen fdupes gcc-c++ ldns-devel libevent-devel libexpat-devel libminiupnpc-devel libopenssl-devel libsodium-devel libunwind-devel pkgconf-pkg-config readline-devel unbound-devel xz-devel libqt5-qttools-devel patterns-devel-C-C++-devel_C_C++```
+``` sudo zypper ref && sudo zypper in cppzmq-devel  ldns-devel libboost_chrono-devel libboost_date_time-devel libboost_filesystem-devel libboost_locale-devel libboost_program_options-devel libboost_regex-devel libboost_serialization-devel libboost_system-devel libboost_thread-devel libexpat-devel libminiupnpc-devel libsodium-devel libunwind-devel unbound-devel  cmake doxygen fdupes gcc-c++ libevent-devel libopenssl-devel pkgconf-pkg-config readline-devel  xz-devel libqt5-qttools-devel patterns-devel-C-C++-devel_C_C++```
 
 Install all dependencies at once on macOS with the provided Brewfile:
 ``` brew update && brew bundle --file=contrib/brew/Brewfile ```
