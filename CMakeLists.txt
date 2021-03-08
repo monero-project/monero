@@ -744,6 +744,13 @@ else()
     add_linker_flag_if_supported(-Wl,--high-entropy-va LD_SECURITY_FLAGS)
   endif()
 
+  # Warnings, that when ignored are so severe, that they can segfault or even UB any application.
+  # Treat them as errors.
+  add_c_flag_if_supported(  -Werror=switch      C_SECURITY_FLAGS)
+  add_cxx_flag_if_supported(-Werror=switch      CXX_SECURITY_FLAGS)
+  add_c_flag_if_supported(  -Werror=return-type C_SECURITY_FLAGS)
+  add_cxx_flag_if_supported(-Werror=return-type CXX_SECURITY_FLAGS)
+
   message(STATUS "Using C security hardening flags: ${C_SECURITY_FLAGS}")
   message(STATUS "Using C++ security hardening flags: ${CXX_SECURITY_FLAGS}")
   message(STATUS "Using linker security hardening flags: ${LD_SECURITY_FLAGS}")
