@@ -204,20 +204,21 @@ void mlog_configure(const std::string &filename_base, bool console, const std::s
           static_assert(std::is_integral<time_t>(), "bad time_t");
           return ta < tb;
         });
-        for (size_t i = 0; i <= found_files.size() - max_log_files; ++i)
+        for (size_t i = 0; i < found_files.size() - max_log_files; ++i)
         {
           try
           {
+            const boost::filesystem::path & found_file = found_files.at(i);
             boost::system::error_code ec;
-            boost::filesystem::remove(found_files[i], ec);
+            boost::filesystem::remove(found_file, ec);
             if (ec)
             {
-              MERROR("Failed to remove " << found_files[i] << ": " << ec);
+              MERROR("Failed to remove " << found_file << ": " << ec);
             }
           }
           catch (const std::exception &e)
           {
-            MERROR("Failed to remove " << found_files[i] << ": " << e.what());
+            MERROR("Failed to remove file at index " << i << ": " << e.what());
           }
         }
       }

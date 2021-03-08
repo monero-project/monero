@@ -91,7 +91,7 @@ namespace
 
 class connection_basic_pimpl {
 	public:
-		connection_basic_pimpl(const std::string &name);
+		explicit connection_basic_pimpl(const std::string &name);
 
 		static int m_default_tos;
 

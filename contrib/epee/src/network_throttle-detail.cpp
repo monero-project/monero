@@ -81,7 +81,7 @@ namespace net_utils
 
 class connection_basic_pimpl {
 	public:
-		connection_basic_pimpl(const std::string &name);
+		explicit connection_basic_pimpl(const std::string &name);
 
 		static int m_default_tos;
 
@@ -266,7 +266,10 @@ void network_throttle::calculate_times(size_t packet_size, calculate_times_struc
 	// window_len e.g. 5.7 because takes into account current slot time
 
 	size_t Epast = 0; // summ of traffic till now
-	for (auto sample : m_history) Epast += sample.m_size; 
+	for (const auto & sample : m_history)
+	{
+		Epast += sample.m_size;
+	}
 
 	const size_t E = Epast;
 	const size_t Enow = Epast + packet_size ; // including the data we're about to send now
@@ -279,7 +282,7 @@ void network_throttle::calculate_times(size_t packet_size, calculate_times_struc
 	//				update_overheat();
 	cts.average = Epast/cts.window; // current avg. speed (for info)
 
-	if (Epast <= 0) {
+	if (Epast == 0) {
 		if (cts.delay>=0) cts.delay = 0; // no traffic in history so we will not wait
 	}
 
