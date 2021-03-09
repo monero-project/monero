@@ -115,10 +115,19 @@ jobs:
   test-ubuntu:
     needs: build-ubuntu
     runs-on: ubuntu-latest
+    env:
+      CCACHE_COMPRESS: 1
+      CCACHE_TEMPDIR: /tmp/.ccache-temp
     steps:
     - uses: actions/checkout@v1
       with:
         submodules: recursive
+    - name: ccache
+      uses: actions/cache@v2
+      with:
+        path: ~/.ccache
+        key: test-ubuntu-ccache-${{ github.sha }}
+        restore-keys: test-ubuntu-ccache-
     - name: remove bundled boost
       run: sudo rm -rf /usr/local/share/boost
     - name: set apt conf
@@ -129,10 +138,19 @@ jobs:
     - name: update apt
       run: sudo apt update
     - name: install monero dependencies
-      run: sudo apt -y install build-essential cmake libboost-all-dev miniupnpc libunbound-dev graphviz doxygen libunwind8-dev pkg-config libssl-dev libzmq3-dev libsodium-dev libhidapi-dev libnorm-dev libusb-1.0-0-dev libpgm-dev libprotobuf-dev protobuf-compiler
+      run: sudo apt -y install build-essential cmake libboost-all-dev miniupnpc libunbound-dev graphviz doxygen libunwind8-dev pkg-config libssl-dev libzmq3-dev libsodium-dev libhidapi-dev libnorm-dev libusb-1.0-0-dev libpgm-dev libprotobuf-dev protobuf-compiler ccache
     - name: install Python dependencies
       run: pip install requests psutil monotonic
     - name: tests
       env:
         CTEST_OUTPUT_ON_FAILURE: ON
-      run: make release-test -j3
+      run: |
+        ccache --max-size=150M
+        DIR_BUILD="build/ci/release"
+        DIR_SRC="`pwd`"
+        mkdir -p "${DIR_BUILD}" && cd "${DIR_BUILD}"
+        cmake -S "${DIR_SRC}" -D ARCH="default" -D BUILD_SHARED_LIBS=ON -D BUILD_TESTS=ON -D CMAKE_BUILD_TYPE=release && make -j3 && make test
+
+# ARCH="default" (not "native") ensures, that a different execution host can execute binaries compiled elsewhere.
+# BUILD_SHARED_LIBS=ON speeds up the linkage part a bit, reduces size, and is the only place where the dynamic linkage is tested.
+
