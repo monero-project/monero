@@ -204,7 +204,8 @@ void mlog_configure(const std::string &filename_base, bool console, const std::s
           static_assert(std::is_integral<time_t>(), "bad time_t");
           return ta < tb;
         });
-        for (size_t i = 0; i < found_files.size() - max_log_files; ++i)
+        const int max_index_found_files = static_cast<int>(found_files.size()) - static_cast<int>(max_log_files); // Prevents unsigned var overflowing
+        for (int i = 0; i < max_index_found_files; ++i)
         {
           try
           {
