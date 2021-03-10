@@ -1,6 +1,6 @@
 # Monero
 
-Copyright (c) 2014-2020, The Monero Project
+Copyright (c) 2014-2021, The Monero Project
 
 ## Crypto Ops Builder
 
