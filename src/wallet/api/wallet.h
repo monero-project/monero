@@ -129,6 +129,7 @@ public:
     void setRecoveringFromDevice(bool recoveringFromDevice) override;
     void setSubaddressLookahead(uint32_t major, uint32_t minor) override;
     bool watchOnly() const override;
+    bool isDeterministic() const override;
     bool rescanSpent() override;
     NetworkType nettype() const override {return static_cast<NetworkType>(m_wallet->nettype());}
     void hardForkInfo(uint8_t &version, uint64_t &earliest_height) const override;
