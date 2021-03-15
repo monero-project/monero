@@ -42,6 +42,7 @@
 #include "string_tools.h"
 #include "misc_os_dependent.h"
 #include "misc_log_ex.h"
+#include "file_compression.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "logging"
@@ -171,6 +172,10 @@ void mlog_configure(const std::string &filename_base, bool console, const std::s
       // can't log a failure, but don't do the file removal below
       return;
     }
+    // Log rotation works best with compression
+    epee::file_compression::compress_file(rname);
+    remove(rname.c_str());
+
     if (max_log_files != 0)
     {
       std::vector<boost::filesystem::path> found_files;

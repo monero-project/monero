@@ -1,4 +1,4 @@
-packages:=boost openssl zeromq libiconv expat ldns unbound
+packages:=boost openssl zeromq libiconv expat ldns unbound zlib
 
 native_packages := native_ccache
 

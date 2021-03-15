@@ -49,6 +49,7 @@ set(unit_tests_sources
   epee_levin_protocol_handler_async.cpp
   epee_serialization.cpp
   epee_utils.cpp
+  epee_file_compression.cpp
   expect.cpp
   fee.cpp
   json_serialization.cpp
