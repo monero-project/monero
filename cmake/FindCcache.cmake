@@ -42,12 +42,19 @@
 find_program(CCACHE_FOUND ccache)
 if (CCACHE_FOUND)
 	# Try to compile a test program with ccache, in order to verify if it really works. (needed on exotic setups)
-	# Create a temporary file with a simple program.
-	set(TEMP_CPP_FILE "${CMAKE_BINARY_DIR}/${CMAKE_FILES_DIRECTORY}/CMakeTmp/test-program.cpp")
-	file(WRITE "${TEMP_CPP_FILE}" "int main() { return 0; }")
-	# And run the found ccache on it.
-	execute_process(COMMAND "${CCACHE_FOUND}" "${CMAKE_CXX_COMPILER}" "${TEMP_CPP_FILE}"  RESULT_VARIABLE RET)
-	if (${RET} EQUAL 0)
+	set(TEST_PROJECT "${CMAKE_BINARY_DIR}/${CMAKE_FILES_DIRECTORY}/CMakeTmp")
+	file(WRITE "${TEST_PROJECT}/CMakeLists.txt" [=[
+cmake_minimum_required(VERSION 3.1)
+project(test)
+option (CCACHE "")
+file(WRITE "${CMAKE_SOURCE_DIR}/test.cpp" "int main() { return 0; }")
+set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${CCACHE}")
+set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK    "${CCACHE}")
+add_executable(test test.cpp)
+]=])
+	try_compile(RET "${TEST_PROJECT}/build" "${TEST_PROJECT}" "test" CMAKE_FLAGS -DCCACHE="${CCACHE_FOUND}")
+	unset(TEST_PROJECT)
+	if (${RET})
 		# Success
 		message(STATUS "Found usable ccache: ${CCACHE_FOUND}")
 		set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${CCACHE_FOUND}")
