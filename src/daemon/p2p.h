@@ -33,6 +33,7 @@
 #include "cryptonote_protocol/cryptonote_protocol_handler.h"
 #include "p2p/net_node.h"
 #include "daemon/protocol.h"
+#include "daemon/command_line_args.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "daemon"
@@ -61,7 +62,7 @@ public:
   {
     //initialize objects
     MGINFO("Initializing p2p server...");
-    if (!m_server.init(vm))
+    if (!m_server.init(vm, command_line::get_arg(vm, daemon_args::arg_proxy), command_line::get_arg(vm, daemon_args::arg_proxy_allow_dns_leaks)))
     {
       throw std::runtime_error("Failed to initialize p2p server.");
     }
