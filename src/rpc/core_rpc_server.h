@@ -91,7 +91,8 @@ namespace cryptonote
         const boost::program_options::variables_map& vm,
         const bool restricted,
         const std::string& port,
-        bool allow_rpc_payment
+        bool allow_rpc_payment,
+        const std::string& proxy = {}
       );
     network_type nettype() const { return m_core.get_nettype(); }
 
@@ -289,6 +290,7 @@ private:
     nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> >& m_p2p;
     boost::shared_mutex m_bootstrap_daemon_mutex;
     std::unique_ptr<bootstrap_daemon> m_bootstrap_daemon;
+    std::string m_bootstrap_daemon_proxy;
     bool m_should_use_bootstrap_daemon;
     std::chrono::system_clock::time_point m_bootstrap_height_check_time;
     bool m_was_bootstrap_ever_used;

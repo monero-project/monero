@@ -32,6 +32,7 @@
 #include "cryptonote_core/cryptonote_core.h"
 #include "cryptonote_protocol/cryptonote_protocol_handler.h"
 #include "misc_log_ex.h"
+#include "daemon/command_line_args.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "daemon"
@@ -66,7 +67,14 @@ public:
 #else
     const cryptonote::GetCheckpointsCallback& get_checkpoints = nullptr;
 #endif
-    if (!m_core.init(m_vm_HACK, nullptr, get_checkpoints))
+
+    if (command_line::is_arg_defaulted(vm, daemon_args::arg_proxy) && command_line::get_arg(vm, daemon_args::arg_proxy_allow_dns_leaks)) {
+      MLOG_RED(el::Level::Warning, "--" << daemon_args::arg_proxy_allow_dns_leaks.name << " is enabled, but --"
+        << daemon_args::arg_proxy.name << " is not specified.");
+    }
+
+    const bool allow_dns = command_line::is_arg_defaulted(vm, daemon_args::arg_proxy) || command_line::get_arg(vm, daemon_args::arg_proxy_allow_dns_leaks);
+    if (!m_core.init(m_vm_HACK, nullptr, get_checkpoints, allow_dns))
     {
       throw std::runtime_error("Failed to initialize core");
     }
