@@ -2608,7 +2608,7 @@ bool Blockchain::get_split_transactions_blobs(const t_ids_container& txs_ids, t_
 }
 //------------------------------------------------------------------
 template<class t_ids_container, class t_tx_container, class t_missed_container>
-bool Blockchain::get_transactions(const t_ids_container& txs_ids, t_tx_container& txs, t_missed_container& missed_txs) const
+bool Blockchain::get_transactions(const t_ids_container& txs_ids, t_tx_container& txs, t_missed_container& missed_txs, bool pruned) const
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
@@ -2619,10 +2619,12 @@ bool Blockchain::get_transactions(const t_ids_container& txs_ids, t_tx_container
     try
     {
       cryptonote::blobdata tx;
-      if (m_db->get_tx_blob(tx_hash, tx))
+      bool res = pruned ? m_db->get_pruned_tx_blob(tx_hash, tx) : m_db->get_tx_blob(tx_hash, tx);
+      if (res)
       {
         txs.push_back(transaction());
-        if (!parse_and_validate_tx_from_blob(tx, txs.back()))
+        res = pruned ? parse_and_validate_tx_base_from_blob(tx, txs.back()) : parse_and_validate_tx_from_blob(tx, txs.back());
+        if (!res)
         {
           LOG_ERROR("Invalid transaction");
           return false;
@@ -5526,6 +5528,6 @@ void Blockchain::cache_block_template(const block &b, const cryptonote::account_
 }
 
 namespace cryptonote {
-template bool Blockchain::get_transactions(const std::vector<crypto::hash>&, std::vector<transaction>&, std::vector<crypto::hash>&) const;
+template bool Blockchain::get_transactions(const std::vector<crypto::hash>&, std::vector<transaction>&, std::vector<crypto::hash>&, bool) const;
 template bool Blockchain::get_split_transactions_blobs(const std::vector<crypto::hash>&, std::vector<std::tuple<crypto::hash, cryptonote::blobdata, crypto::hash, cryptonote::blobdata>>&, std::vector<crypto::hash>&) const;
 }
