@@ -727,6 +727,25 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------
+  bool add_mm_merkle_root_to_tx_extra(std::vector<uint8_t>& tx_extra, const crypto::hash& mm_merkle_root, size_t mm_merkle_tree_depth)
+  {
+    CHECK_AND_ASSERT_MES(mm_merkle_tree_depth < 32, false, "merge mining merkle tree depth should be less than 32");
+    size_t start_pos = tx_extra.size();
+    tx_extra.resize(tx_extra.size() + 3 + 32);
+    //write tag
+    tx_extra[start_pos] = TX_EXTRA_MERGE_MINING_TAG;
+    //write data size
+    ++start_pos;
+    tx_extra[start_pos] = 33;
+    //write depth varint (always one byte here)
+    ++start_pos;
+    tx_extra[start_pos] = mm_merkle_tree_depth;
+    //write data
+    ++start_pos;
+    memcpy(&tx_extra[start_pos], &mm_merkle_root, 32);
+    return true;
+  }
+  //---------------------------------------------------------------
   bool remove_field_from_tx_extra(std::vector<uint8_t>& tx_extra, const std::type_info &type)
   {
     if (tx_extra.empty())

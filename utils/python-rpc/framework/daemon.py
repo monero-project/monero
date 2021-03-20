@@ -53,6 +53,19 @@ class Daemon(object):
         return self.rpc.send_json_rpc_request(getblocktemplate)
     get_block_template = getblocktemplate
 
+    def add_aux_pow(self, blocktemplate_blob, aux_pow, client = ""):
+        add_aux_pow = {
+            'method': 'add_aux_pow',
+            'params': {
+                'blocktemplate_blob': blocktemplate_blob,
+                'aux_pow' : aux_pow,
+                'client' : client,
+            },
+            'jsonrpc': '2.0',
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(add_aux_pow)
+
     def send_raw_transaction(self, tx_as_hex, do_not_relay = False, do_sanity_checks = True, client = ""):
         send_raw_transaction = {
             'client': client,
