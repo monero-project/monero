@@ -4,7 +4,16 @@ from __future__ import print_function
 import sys
 import subprocess
 import socket
-import urlparse
+try:
+  import urllib.parse
+  url_parser = urllib.parse.urlparse
+except:
+  try:
+    import urlparse
+    url_parser = urlparse.urlparse
+  except:
+    print('urllib or urlparse is needed')
+    sys.exit(1)
 import framework.rpc
 import framework.daemon
 import framework.wallet
@@ -21,7 +30,7 @@ for n in range(1, len(sys.argv)):
     try:
       port = int(sys.argv[n])
     except:
-      t = urlparse.urlparse(sys.argv[n], allow_fragments = False)
+      t = url_parser(sys.argv[n], allow_fragments = False)
       scheme = t.scheme or scheme
       host = t.hostname or host
       port = t.port or port
