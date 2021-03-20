@@ -3013,6 +3013,41 @@ namespace tools
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_scan_tx(const wallet_rpc::COMMAND_RPC_SCAN_TX::request& req, wallet_rpc::COMMAND_RPC_SCAN_TX::response& res, epee::json_rpc::error& er, const connection_context *ctx)
+  {
+      if (!m_wallet) return not_open(er);
+      if (m_restricted)
+      {
+          er.code = WALLET_RPC_ERROR_CODE_DENIED;
+          er.message = "Command unavailable in restricted mode.";
+          return false;
+      }
+
+      std::vector<crypto::hash> txids;
+      std::list<std::string>::const_iterator i = req.txids.begin();
+      while (i != req.txids.end())
+      {
+          cryptonote::blobdata txid_blob;
+          if(!epee::string_tools::parse_hexstr_to_binbuff(*i++, txid_blob) || txid_blob.size() != sizeof(crypto::hash))
+          {
+              er.code = WALLET_RPC_ERROR_CODE_WRONG_TXID;
+              er.message = "TX ID has invalid format";
+              return false;
+          }
+
+          crypto::hash txid = *reinterpret_cast<const crypto::hash*>(txid_blob.data());
+          txids.push_back(txid);
+      }
+
+      try {
+          m_wallet->scan_tx(txids);
+      } catch (const std::exception &e) {
+          handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR);
+          return false;
+      }
+      return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::on_rescan_spent(const wallet_rpc::COMMAND_RPC_RESCAN_SPENT::request& req, wallet_rpc::COMMAND_RPC_RESCAN_SPENT::response& res, epee::json_rpc::error& er, const connection_context *ctx)
   {
     if (!m_wallet) return not_open(er);
