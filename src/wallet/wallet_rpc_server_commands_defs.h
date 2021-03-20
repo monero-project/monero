@@ -1010,6 +1010,7 @@ namespace wallet_rpc
     std::string tx_hash;
     cryptonote::subaddress_index subaddr_index;
     std::string key_image;
+    std::string pubkey; // owned output public key found
     uint64_t block_height;
     bool frozen;
     bool unlocked;
@@ -1021,6 +1022,7 @@ namespace wallet_rpc
       KV_SERIALIZE(tx_hash)
       KV_SERIALIZE(subaddr_index)
       KV_SERIALIZE(key_image)
+      KV_SERIALIZE(pubkey);
       KV_SERIALIZE(block_height)
       KV_SERIALIZE(frozen)
       KV_SERIALIZE(unlocked)
