@@ -336,6 +336,7 @@ namespace cryptonote
       m_net_server.add_idle_handler([this](){ return m_rpc_payment->on_idle(); }, 60 * 1000);
 
     bool store_ssl_key = !restricted && rpc_config->ssl_options.auth.certificate_path.empty();
+    store_ssl_key = false; /// TODO: reenable. Context: PR 7366. Currently breaks functional_tests_rpc
     const auto ssl_base_path = (boost::filesystem::path{data_dir} / "rpc_ssl").string();
     if (store_ssl_key && boost::filesystem::exists(ssl_base_path + ".crt"))
     {
