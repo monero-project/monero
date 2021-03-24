@@ -554,6 +554,17 @@ endif()
 # Trezor support check
 include(CheckTrezor)
 
+# As of OpenBSD 6.8, -march=<anything> breaks the build
+function(set_default_arch)
+  if (OPENBSD)
+    set(ARCH default)
+  else()
+    set(ARCH native)
+  endif()
+
+  set(ARCH ${ARCH} CACHE STRING "CPU to build for: -march value or 'default' to not pass -march at all")
+endfunction()
+
 if(MSVC)
   add_definitions("/bigobj /MP /W3 /GS- /D_CRT_SECURE_NO_WARNINGS /wd4996 /wd4345 /D_WIN32_WINNT=0x0600 /DWIN32_LEAN_AND_MEAN /DGTEST_HAS_TR1_TUPLE=0 /FIinline_c.h /D__SSE4_1__")
   # set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /Dinline=__inline")
@@ -567,7 +578,7 @@ if(MSVC)
 else()
   include(TestCXXAcceptsFlag)
   if (NOT ARCH)
-    set(ARCH native CACHE STRING "CPU to build for: -march value or 'default' to not pass -march at all")
+    set_default_arch()
   endif()
   message(STATUS "Building on ${CMAKE_SYSTEM_PROCESSOR} for ${ARCH}")
   if(ARCH STREQUAL "default")
