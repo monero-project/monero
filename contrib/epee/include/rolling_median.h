@@ -141,7 +141,6 @@ public:
 
   rolling_median_t(rolling_median_t &&m)
   {
-    free(data);
     memcpy(this, &m, sizeof(rolling_median_t));
     m.data = NULL;
   }
