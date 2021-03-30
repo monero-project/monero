@@ -170,6 +170,7 @@ TEST(test_epee_connection, test_lifetime)
   using connection_ptr = boost::shared_ptr<connection_t>;
   using shared_state_t = typename connection_t::shared_state;
   using shared_state_ptr = std::shared_ptr<shared_state_t>;
+  using shared_states_t = std::vector<shared_state_ptr>;
   using tag_t = boost::uuids::uuid;
   using tags_t = std::vector<tag_t>;
   using io_context_t = boost::asio::io_service;
@@ -344,6 +345,115 @@ TEST(test_epee_connection, test_lifetime)
       shared_state->del_out_connections(1);
       ASSERT_TRUE(shared_state->get_connections_count() == 0);
     }
+
+    shared_states_t shared_states;
+    while (shared_states.size() < 2) {
+      shared_states.emplace_back(std::make_shared<shared_state_t>());
+      shared_states.back()->set_handler(new command_handler_t(ZERO_DELAY,
+          [&shared_states]{
+            for (auto &s: shared_states) {
+              auto success = s->foreach_connection([](context_t&){
+                return true;
+              });
+              ASSERT_TRUE(success);
+            }
+          }
+        ),
+        &command_handler_t::destroy
+      );
+    }
+    workers_t workers;
+
+    for (auto &s: shared_states) {
+      workers.emplace_back([&io_context, &s, &endpoint]{
+        for (auto i = 0; i < N * N; ++i) {
+          connection_ptr conn(new connection_t(io_context, s, {}, {}));
+          conn->socket().connect(endpoint);
+          conn->start({}, {});
+          io_context.post([conn]{
+            conn->cancel();
+          });
+          conn.reset();
+          s->del_out_connections(1);
+          while (s->sock_count);
+        }
+      });
+    }
+    for (;workers.size(); workers.pop_back())
+      workers.back().join();
+
+    for (auto &s: shared_states) {
+      workers.emplace_back([&io_context, &s, &endpoint]{
+        for (auto i = 0; i < N * N; ++i) {
+          connection_ptr conn(new connection_t(io_context, s, {}, {}));
+          conn->socket().connect(endpoint);
+          conn->start({}, {});
+          conn->cancel();
+          while (conn.use_count() > 1);
+          s->foreach_connection([&io_context, &s, &endpoint, &conn](context_t& context){
+            conn.reset(new connection_t(io_context, s, {}, {}));
+            conn->socket().connect(endpoint);
+            conn->start({}, {});
+            conn->cancel();
+            while (conn.use_count() > 1);
+            conn.reset();
+            return true;
+          });
+          while (s->sock_count);
+        }
+      });
+    }
+    for (;workers.size(); workers.pop_back())
+      workers.back().join();
+
+    for (auto &s: shared_states) {
+      workers.emplace_back([&io_context, &s, &endpoint]{
+        for (auto i = 0; i < N; ++i) {
+          connection_ptr conn(new connection_t(io_context, s, {}, {}));
+          conn->socket().connect(endpoint);
+          conn->start({}, {});
+          context_t context;
+          conn->get_context(context);
+          auto tag = context.m_connection_id;
+          conn->cancel();
+          while (conn.use_count() > 1);
+          s->for_connection(tag, [&io_context, &s, &endpoint, &conn](context_t& context){
+            conn.reset(new connection_t(io_context, s, {}, {}));
+            conn->socket().connect(endpoint);
+            conn->start({}, {});
+            conn->cancel();
+            while (conn.use_count() > 1);
+            conn.reset();
+            return true;
+          });
+          while (s->sock_count);
+        }
+      });
+    }
+    for (;workers.size(); workers.pop_back())
+      workers.back().join();
+
+    for (auto &s: shared_states) {
+      workers.emplace_back([&io_context, &s, &endpoint]{
+        for (auto i = 0; i < N; ++i) {
+          connection_ptr conn(new connection_t(io_context, s, {}, {}));
+          conn->socket().connect(endpoint);
+          conn->start({}, {});
+          context_t context;
+          conn->get_context(context);
+          auto tag = context.m_connection_id;
+          io_context.post([conn]{
+            conn->cancel();
+          });
+          conn.reset();
+          s->close(tag);
+          while (s->sock_count);
+        }
+      });
+    }
+    for (;workers.size(); workers.pop_back())
+      workers.back().join();
+
   });
 
   for (auto& w: workers) {
