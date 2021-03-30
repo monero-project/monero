@@ -42,6 +42,7 @@
 #include "cryptonote_basic/blobdatatype.h"
 #include "common/i18n.h"
 #include "common/util.h"
+#include "common/threadpool.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "wallet.wallet2.rpc_payments"
@@ -101,7 +102,7 @@ bool wallet2::make_rpc_payment(uint32_t nonce, uint32_t cookie, uint64_t &credit
   return true;
 }
 //----------------------------------------------------------------------------------------------------
-bool wallet2::search_for_rpc_payment(uint64_t credits_target, const std::function<bool(uint64_t, uint64_t)> &startfunc, const std::function<bool(unsigned)> &contfunc, const std::function<bool(uint64_t)> &foundfunc, const std::function<void(const std::string&)> &errorfunc)
+bool wallet2::search_for_rpc_payment(uint64_t credits_target, uint32_t n_threads, const std::function<bool(uint64_t, uint64_t)> &startfunc, const std::function<bool(unsigned)> &contfunc, const std::function<bool(uint64_t)> &foundfunc, const std::function<void(const std::string&)> &errorfunc)
 {
   bool need_payment = false;
   bool payment_required;
@@ -139,49 +140,65 @@ bool wallet2::search_for_rpc_payment(uint64_t credits_target, const std::functio
       continue;
     }
 
-    crypto::hash hash;
-    const uint32_t local_nonce = nonce++; // wrapping's OK
-    *(uint32_t*)(hashing_blob.data() + 39) = SWAP32LE(local_nonce);
-    const uint8_t major_version = hashing_blob[0];
-    if (major_version >= RX_BLOCK_VERSION)
+    if(n_threads == 0)
+      n_threads = boost::thread::hardware_concurrency();
+
+    std::vector<crypto::hash> hash(n_threads);
+    tools::threadpool& tpool = tools::threadpool::getInstance();
+    tools::threadpool::waiter waiter(tpool);
+
+    const uint32_t local_nonce = nonce += n_threads; // wrapping's OK
+    for (size_t i = 0; i < n_threads; i++)
     {
-      const int miners = 1;
-      crypto::rx_slow_hash(height, seed_height, seed_hash.data, hashing_blob.data(), hashing_blob.size(), hash.data, miners, 0);
-    }
-    else
-    {
-      int cn_variant = hashing_blob[0] >= 7 ? hashing_blob[0] - 6 : 0;
-      crypto::cn_slow_hash(hashing_blob.data(), hashing_blob.size(), hash, cn_variant, height);
-    }
-    ++n_hashes;
-    if (cryptonote::check_hash(hash, diff))
-    {
-      uint64_t credits, balance;
-      try
-      {
-        make_rpc_payment(local_nonce, cookie, credits, balance);
-        if (credits != credits_per_hash_found)
+      tpool.submit(&waiter, [&, i] {
+        *(uint32_t*)(hashing_blob.data() + 39) = SWAP32LE(local_nonce-i);
+        const uint8_t major_version = hashing_blob[0];
+        if (major_version >= RX_BLOCK_VERSION)
         {
-          MERROR("Found nonce, but daemon did not credit us with the expected amount");
-          if (errorfunc)
-            errorfunc("Found nonce, but daemon did not credit us with the expected amount");
-          return false;
+          const int miners = 1;
+          crypto::rx_slow_hash(height, seed_height, seed_hash.data, hashing_blob.data(), hashing_blob.size(), hash[i].data, miners, 0);
         }
-        MDEBUG("Found nonce " << local_nonce << " at diff " << diff << ", gets us " << credits_per_hash_found << ", now " << balance << " credits");
-        if (!foundfunc(credits))
-          break;
-      }
-      catch (const tools::error::wallet_coded_rpc_error &e)
+        else
+        {
+          int cn_variant = hashing_blob[0] >= 7 ? hashing_blob[0] - 6 : 0;
+          crypto::cn_slow_hash(hashing_blob.data(), hashing_blob.size(), hash[i], cn_variant, height);
+        }
+      });
+    }
+    waiter.wait();
+    n_hashes += n_threads;
+
+    for(size_t i=0; i < n_threads; i++)
+    {
+      if (cryptonote::check_hash(hash[i], diff))
       {
-        MWARNING("Found a local_nonce at diff " << diff << ", but failed to send it to the daemon");
-        if (errorfunc)
-          errorfunc("Found nonce, but daemon errored out with error " + std::to_string(e.code()) + ": " + e.status() + ", continuing");
-      }
-      catch (const std::exception &e)
-      {
-        MWARNING("Found a local_nonce at diff " << diff << ", but failed to send it to the daemon");
-        if (errorfunc)
-          errorfunc("Found nonce, but daemon errored out with: '" + std::string(e.what()) + "', continuing");
+        uint64_t credits, balance;
+        try
+        {
+          make_rpc_payment(local_nonce-i, cookie, credits, balance);
+          if (credits != credits_per_hash_found)
+          {
+            MERROR("Found nonce, but daemon did not credit us with the expected amount");
+            if (errorfunc)
+              errorfunc("Found nonce, but daemon did not credit us with the expected amount");
+            return false;
+          }
+          MDEBUG("Found nonce " << local_nonce-i << " at diff " << diff << ", gets us " << credits_per_hash_found << ", now " << balance << " credits");
+          if (!foundfunc(credits))
+            break;
+        }
+        catch (const tools::error::wallet_coded_rpc_error &e)
+        {
+          MWARNING("Found a local_nonce at diff " << diff << ", but failed to send it to the daemon");
+          if (errorfunc)
+            errorfunc("Found nonce, but daemon errored out with error " + std::to_string(e.code()) + ": " + e.status() + ", continuing");
+        }
+        catch (const std::exception &e)
+        {
+          MWARNING("Found a local_nonce at diff " << diff << ", but failed to send it to the daemon");
+          if (errorfunc)
+            errorfunc("Found nonce, but daemon errored out with: '" + std::string(e.what()) + "', continuing");
+        }
       }
     }
   }
