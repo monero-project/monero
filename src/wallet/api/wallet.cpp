@@ -2104,6 +2104,11 @@ bool WalletImpl::watchOnly() const
     return m_wallet->watch_only();
 }
 
+bool WalletImpl::isDeterministic() const
+{
+    return m_wallet->is_deterministic();
+}
+
 void WalletImpl::clearStatus() const
 {
     boost::lock_guard<boost::mutex> l(m_statusMutex);
