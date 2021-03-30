@@ -300,14 +300,16 @@ Tested on a Raspberry Pi Zero with a clean install of minimal Raspbian Stretch (
 * Build:
 
     ```bash
-    make release
+    USE_SINGLE_BUILDDIR=1 make release
     ```
 
 * Wait 4-6 hours
 
 * The resulting executables can be found in `build/release/bin`
 
-* Add `PATH="$PATH:$HOME/monero/build/release/bin"` to `.profile`
+* Add `export PATH="$PATH:$HOME/monero/build/release/bin"` to `$HOME/.profile`
+
+* Run `source $HOME/.profile`
 
 * Run Monero with `monerod --detach`
 
