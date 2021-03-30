@@ -1,4 +1,4 @@
-// Copyright (c) 2018, The Monero Project
+// Copyright (c) 2020, The Monero Project
 //
 // All rights reserved.
 //
@@ -26,43 +26,46 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#pragma once
+#include "net/resolve.h"
 
-#include <system_error>
-#include <type_traits>
+#include <boost/utility/string_ref.hpp>
+#include "common/dns_utils.h"
+#include "common/expect.h"
+#include "net/error.h"
 
 namespace net
 {
-    //! General net errors
-    enum class error : int
-    {
-        // 0 reserved for success (as per expect<T>)
-        bogus_dnssec = 1,   //!< Invalid response signature from DNSSEC enabled domain
-        dns_query_failure,  //!< Failed to retrieve desired DNS record
-        expected_tld,       //!< Expected a tld
-        invalid_host,       //!< Hostname is not valid
-        invalid_i2p_address,
-        invalid_mask,       //!< Outside of 0-32 range
-        invalid_port,       //!< Outside of 0-65535 range
-        invalid_tor_address,//!< Invalid base32 or length
-        unsupported_address,//!< Type not supported by `get_network_address`
-
-    };
-
-    //! \return `std::error_category` for `net` namespace.
-    std::error_category const& error_category() noexcept;
-
-    //! \return `net::error` as a `std::error_code` value.
-    inline std::error_code make_error_code(error value) noexcept
-    {
-        return std::error_code{int(value), error_category()};
-    }
-}
-
-namespace std
+namespace dnssec
 {
-    template<>
-    struct is_error_code_enum<::net::error>
-      : true_type
-    {};
-}
+  expect<service_response> resolve_hostname(const std::string& addr, const std::string& tlsa_port)
+  {
+    // use basic (blocking) unbound for now, possibly refactor later
+    tools::DNSResolver& resolver = tools::DNSResolver::instance();
+
+    bool dnssec_available = false;
+    bool dnssec_valid = false;
+    std::vector<std::string> ip_records = resolver.get_ipv4(addr, dnssec_available, dnssec_valid);
+
+    if (dnssec_available && !dnssec_valid)
+      return {net::error::bogus_dnssec};
+
+    if (ip_records.empty())
+    {
+      ip_records = resolver.get_ipv6(addr, dnssec_available, dnssec_valid);
+      if (dnssec_available && !dnssec_valid)
+        return {net::error::bogus_dnssec};
+      if (ip_records.empty())
+        return {net::error::dns_query_failure};
+    }
+
+    std::vector<std::string> tlsa{};
+    if (dnssec_available && !tlsa_port.empty())
+    {
+      tlsa = resolver.get_tlsa_tcp_record(addr, tlsa_port, dnssec_available, dnssec_valid);
+      if (!dnssec_valid)
+        return {net::error::bogus_dnssec};
+    }
+    return {{std::move(ip_records), std::move(tlsa)}};
+  }
+} // dnssec
+} // net
