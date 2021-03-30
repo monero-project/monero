@@ -81,7 +81,7 @@ public:
                            const std::string &device_name);
     Device getDeviceType() const override;
     bool close(bool store = true);
-    std::string seed() const override;
+    std::string seed(const std::string& seed_offset = "") const override;
     std::string getSeedLanguage() const override;
     void setSeedLanguage(const std::string &arg) override;
     // void setListener(Listener *) {}

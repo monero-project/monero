@@ -446,7 +446,7 @@ struct Wallet
     };
 
     virtual ~Wallet() = 0;
-    virtual std::string seed() const = 0;
+    virtual std::string seed(const std::string& seed_offset = "") const = 0;
     virtual std::string getSeedLanguage() const = 0;
     virtual void setSeedLanguage(const std::string &arg) = 0;
     //! returns wallet status (Status_Ok | Status_Error)
