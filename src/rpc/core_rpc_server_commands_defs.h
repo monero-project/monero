@@ -1659,11 +1659,13 @@ namespace cryptonote
       std::string address;
       std::string username;
       std::string password;
+      std::string proxy;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(address)
         KV_SERIALIZE(username)
         KV_SERIALIZE(password)
+        KV_SERIALIZE(proxy)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;

@@ -2405,7 +2405,8 @@ bool t_rpc_command_executor::check_blockchain_pruning()
 bool t_rpc_command_executor::set_bootstrap_daemon(
   const std::string &address,
   const std::string &username,
-  const std::string &password)
+  const std::string &password,
+  const std::string &proxy)
 {
     cryptonote::COMMAND_RPC_SET_BOOTSTRAP_DAEMON::request req;
     cryptonote::COMMAND_RPC_SET_BOOTSTRAP_DAEMON::response res;
@@ -2414,6 +2415,7 @@ bool t_rpc_command_executor::set_bootstrap_daemon(
     req.address = address;
     req.username = username;
     req.password = password;
+    req.proxy = proxy;
 
     if (m_is_rpc)
     {
