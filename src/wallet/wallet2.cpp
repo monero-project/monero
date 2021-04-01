@@ -12340,7 +12340,7 @@ std::string wallet2::get_reserve_proof(const boost::optional<std::pair<uint32_t,
   return "ReserveProofV3" + tools::base58::encode(oss.str());
 }
 
-bool wallet2::check_reserve_proof(const cryptonote::account_public_address &address, const boost::optional<uint64_t> &blockchain_height, const std::string &message, const std::string &sig_str, uint64_t &total, uint64_t &spent)
+bool wallet2::check_reserve_proof(const cryptonote::account_public_address &address, const boost::optional<uint64_t> &blockchain_height, const std::string &message, const std::string &sig_str, uint64_t &total, uint64_t &spent, uint64_t &actual_blockchain_height)
 {
   uint32_t rpc_version;
   THROW_WALLET_EXCEPTION_IF(!check_connection(&rpc_version), error::wallet_internal_error, "Failed to connect to daemon: " + get_daemon_address());
@@ -12533,6 +12533,14 @@ bool wallet2::check_reserve_proof(const cryptonote::account_public_address &addr
   {
     if (!crypto::check_signature(prefix_hash, i.first, i.second))
       return false;
+  }
+
+  std::string err;
+  actual_blockchain_height = blockchain_height ? *blockchain_height : get_daemon_blockchain_height(err);
+  if (!err.empty())
+  {
+    MERROR("Failed to get daemon height");
+    return false;
   }
   return true;
 }

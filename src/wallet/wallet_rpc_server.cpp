@@ -2476,7 +2476,7 @@ namespace tools
 
     try
     {
-      res.good = m_wallet->check_reserve_proof(info.address, blockchain_height, req.message, req.signature, res.total, res.spent);
+      res.good = m_wallet->check_reserve_proof(info.address, blockchain_height, req.message, req.signature, res.total, res.spent, res.blockchain_height);
     }
     catch (const std::exception &e)
     {

@@ -301,6 +301,8 @@ class ProofsTest():
         self.wallet[1].refresh()
         res = self.wallet[1].get_balance()
         balance1 = res.balance
+        res = daemon.get_height()
+        blockchain_height = res.height
 
         res = self.wallet[0].get_reserve_proof(all_ = True, message = 'foo')
         assert res.signature.startswith('ReserveProofV3')
@@ -310,6 +312,7 @@ class ProofsTest():
           res = self.wallet[i].check_reserve_proof(address = address0, message = 'foo', signature = signature)
           assert res.good
           assert res.total == balance0
+          assert res.blockchain_height == blockchain_height
 
           ok = False
           try: res = self.wallet[i].check_reserve_proof(address = address0, message = 'bar', signature = signature)
@@ -335,6 +338,7 @@ class ProofsTest():
           res = self.wallet[i].check_reserve_proof(address = address0, message = 'foo', signature = signature)
           assert res.good
           assert res.total >= amount and res.total <= balance0
+          assert res.blockchain_height == blockchain_height
 
           ok = False
           try: res = self.wallet[i].check_reserve_proof(address = address0, message = 'bar', signature = signature)
@@ -386,8 +390,10 @@ class ProofsTest():
                 signature = res.signature
                 res = self.wallet[1].check_reserve_proof(address = address0, blockchain_height = h + 1, message = 'foo', signature = signature)
                 assert res.total - res.spent == expected_balance
+                assert res.blockchain_height == h + 1
         res = self.wallet[1].check_reserve_proof(address = address0, blockchain_height = 1, message = 'foo', signature = signature)
         assert res.total - res.spent == 0
+        assert res.blockchain_height == 1
 
 
 class Guard:

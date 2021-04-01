@@ -1416,9 +1416,10 @@ private:
      * \param  sig_str                  Signature string
      * \param  total                    [OUT] the sum of funds included in the signature
      * \param  spent                    [OUT] the sum of spent funds included in the signature
+     * \param  actual_blockchain_height [OUT] the blockchain height at which the balance corresponds
      * \return                          true if the signature verifies correctly
      */
-    bool check_reserve_proof(const cryptonote::account_public_address &address, const boost::optional<uint64_t> &blockchain_height, const std::string &message, const std::string &sig_str, uint64_t &total, uint64_t &spent);
+    bool check_reserve_proof(const cryptonote::account_public_address &address, const boost::optional<uint64_t> &blockchain_height, const std::string &message, const std::string &sig_str, uint64_t &total, uint64_t &spent, uint64_t &actual_blockchain_height);
 
    /*!
     * \brief GUI Address book get/store
