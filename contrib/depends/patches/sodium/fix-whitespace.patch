@@ -10,3 +10,4 @@ index b29f769..ca008ae 100755
 +PACKAGE_STRING='libsodium'
  PACKAGE_BUGREPORT='https://github.com/jedisct1/libsodium/issues'
  PACKAGE_URL='https://github.com/jedisct1/libsodium'
+ 

@@ -35,3 +35,4 @@ define $(package)_postprocess_cmds
   rm -rf bin share &&\
   rm lib/*.la
 endef
+
