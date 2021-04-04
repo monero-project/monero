@@ -82,7 +82,10 @@ inline bool check_avx2()
 {
 	int32_t cpu_info[4];
 	cpuid(7, 0, cpu_info);
-	return (cpu_info[1] & (1 << 5)) != 0;
+	const bool has_avx2 = (cpu_info[1] & (1 << 5)) != 0;
+	cpuid(1, 0, cpu_info);
+	const bool osxsave = (cpu_info[2] & (1 << 27)) != 0;
+	return has_avx2 && osxsave;
 }
 #endif
 

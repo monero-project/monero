@@ -49,6 +49,16 @@ if(ARCH_ID STREQUAL "i386" OR ARCH_ID STREQUAL "x86_64" OR ARCH_ID STREQUAL "x86
 list(APPEND crypto_sources CryptonightR_template.S)
 endif()
 
+if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
+	if (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "x86_64" OR ${CMAKE_SYSTEM_PROCESSOR} STREQUAL "x86_64")
+		set_source_files_properties(pow_hash/cn_slow_hash_intel_avx2.cpp PROPERTIES COMPILE_FLAGS "-mavx2")
+		set_source_files_properties(pow_hash/cn_slow_hard_intel.cpp PROPERTIES COMPILE_FLAGS "-msse2 -maes")
+	elseif (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "aarch64")
+		set_source_files_properties(pow_hash/cn_slow_hash_hard_arm.cpp PROPERTIES COMPILE_FLAGS "-march=armv8-a+crypto")
+	endif()
+endif()
+
+
 set(crypto_headers)
 
 set(crypto_private_headers
