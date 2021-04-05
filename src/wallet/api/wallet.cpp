@@ -2305,6 +2305,10 @@ bool WalletImpl::rescanSpent()
   return true;
 }
 
+void WalletImpl::setOffline(bool offline)
+{
+    m_wallet->set_offline(offline);
+}
 
 void WalletImpl::hardForkInfo(uint8_t &version, uint64_t &earliest_height) const
 {
