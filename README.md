@@ -29,7 +29,7 @@ Copyright (c) 2018-2019 Project Triton/Equilibria.
 Portions Copyright (c) 2012-2013 The Cryptonote developers.
 
 ## Current maintainer
-- Harrison Hesslink (yodeh,krakn)
+- Harrison Hesslink
 
 **Anyone is welcome to contribute to Equilibria's codebase!** If you have a fix or code change, feel free to submit it as a pull request directly to the "master" branch. In cases where the change is relatively small or does not affect other parts of the codebase it may be merged in immediately by any one of the collaborators. On the other hand, if the change is particularly large or complex, it is expected that it will be discussed at length either well in advance of the pull request being submitted, or even directly on the pull request.
 
@@ -115,7 +115,7 @@ invokes cmake commands as needed.
 * Change to the root of the source code directory, change to the most recent release branch, and build:
 
         cd equilibria
-        git checkout v8.0.0
+        git checkout v9.0.0
         make
 
     *Optional*: If your machine has several cores and enough memory, enable
@@ -187,7 +187,7 @@ Tested on a Raspberry Pi Zero with a clean install of minimal Raspbian Stretch (
     ```bash
     git clone https://github.com/monero-project/monero.git
     cd Equilibria
-    git checkout tags/v6.0.2
+    git checkout tags/v9.0.0
     ```
 
 * Build:
