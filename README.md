@@ -213,6 +213,10 @@ If you already have a repo cloned, initialize and update:
 
 `$ cd monero && git submodule init && git submodule update`
 
+*Note*: If there are submodule differences between branches, you may need 
+to use ```git submodule sync && git submodule update``` after changing branches
+to build successfully.
+
 ### Build instructions
 
 Monero uses the CMake build system and a top-level [Makefile](Makefile) that
