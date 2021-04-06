@@ -664,8 +664,9 @@ TEST_F(levin_notify, stem_no_outs_without_padding)
     ASSERT_LT(0u, io_service_.poll());
     EXPECT_EQ(txs, events_.take_relayed(cryptonote::relay_method::fluff));
     if (events_.has_stem_txes())
+    {
         EXPECT_EQ(txs, events_.take_relayed(cryptonote::relay_method::stem));
-
+    }
 
     notifier.run_fluff();
     ASSERT_LT(0u, io_service_.poll());
@@ -1034,7 +1035,9 @@ TEST_F(levin_notify, stem_no_outs_with_padding)
     ASSERT_LT(0u, io_service_.poll());
     EXPECT_EQ(txs, events_.take_relayed(cryptonote::relay_method::fluff));
     if (events_.has_stem_txes())
+    {
         EXPECT_EQ(txs, events_.take_relayed(cryptonote::relay_method::stem));
+    }
 
     notifier.run_fluff();
     ASSERT_LT(0u, io_service_.poll());
