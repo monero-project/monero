@@ -6035,7 +6035,7 @@ uint64_t wallet2::balance(uint32_t index_major, bool strict) const
 {
   uint64_t amount = 0;
   if(m_light_wallet)
-    return m_light_wallet_unlocked_balance;
+    return m_light_wallet_balance;
   for (const auto& i : balance_per_subaddress(index_major, strict))
     amount += i.second;
   return amount;
@@ -6049,7 +6049,7 @@ uint64_t wallet2::unlocked_balance(uint32_t index_major, bool strict, uint64_t *
   if (time_to_unlock)
     *time_to_unlock = 0;
   if(m_light_wallet)
-    return m_light_wallet_balance;
+    return m_light_wallet_unlocked_balance;
   for (const auto& i : unlocked_balance_per_subaddress(index_major, strict))
   {
     amount += i.second.first;
