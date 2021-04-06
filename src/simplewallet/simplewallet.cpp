@@ -73,6 +73,8 @@
 #include "crypto/crypto.h"  // for crypto::secret_key definition
 #include "mnemonics/electrum-words.h"
 #include "rapidjson/document.h"
+#include "rapidjson/writer.h"
+#include "rapidjson/stringbuffer.h"
 #include "common/json_util.h"
 #include "ringct/rctSigs.h"
 #include "multisig/multisig.h"
@@ -3653,6 +3655,10 @@ simple_wallet::simple_wallet()
                           boost::bind(&simple_wallet::burn, this, _1),
                           tr(USAGE_HELP),
                           tr("Show the help section or the documentation about a <command>."));
+  m_cmd_binder.set_handler("create_contract",
+                        boost::bind(&simple_wallet::create_contract, this, _1),
+                        tr(USAGE_HELP),
+                        tr("Show the help section or the documentation about a <command>."));
   m_cmd_binder.set_unknown_command_handler(boost::bind(&simple_wallet::on_command, this, &simple_wallet::on_unknown_command, _1));
   m_cmd_binder.set_empty_command_handler(boost::bind(&simple_wallet::on_empty_command, this));
   m_cmd_binder.set_cancel_handler(boost::bind(&simple_wallet::on_cancelled_command, this));
@@ -6387,8 +6393,18 @@ bool simple_wallet::on_command(bool (simple_wallet::*cmd)(const std::vector<std:
   check_for_inactivity_lock(false);
   return (this->*cmd)(args);
 }
+
+std::string jsonString(const rapidjson::Document& d)
+{
+    rapidjson::StringBuffer strbuf;
+    rapidjson::Writer<rapidjson::StringBuffer> writer(strbuf);
+    d.Accept(writer);
+
+    return strbuf.GetString();
+}
+
 //----------------------------------------------------------------------------------------------------
-bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::string> &args_, bool called_by_mms, bool is_swap, bool is_burn)
+bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::string> &args_, bool called_by_mms, txType transferType)
 {
 //  "transfer [index=<N1>[,<N2>,...]] [<priority>] [<ring_size>] <address> <amount> [<payment_id>]"
   if (!try_connect_to_daemon())
@@ -6409,6 +6425,17 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
     local_args.erase(local_args.begin());
 
   priority = m_wallet->adjust_priority(priority);
+
+  bool is_burn = false;
+  bool is_swap = false;
+  bool is_create_contract = false;
+  if (transferType == txType::Burn) {
+    is_burn = true;
+  } else if (transferType == txType::Swap) {
+    is_swap = true;
+  } else if (transferType == txType::Create_Contract) {
+    is_create_contract = true;
+  }
 
   size_t fake_outs_count = DEFAULT_MIX;
   if(local_args.size() > 0) {
@@ -6563,6 +6590,60 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
       //   fail_msg_writer() << tr("Amount too low");
       //   return false;
       // }
+      de.amount = 10;
+    }
+
+    if (is_create_contract) {
+
+      std::string pair_name = input_line(tr("Please enter the pair name (example: XEQ/USD): "));
+      std::string url = input_line(tr("Please enter the url name (example: https://api.kucoin.com): "));
+      std::string uri = input_line(tr("Please enter the url name (example: /api/v1/market/orderbook/level1?symbol=BTC-USDT): "));
+      std::string data_path_needed = input_line(tr("Please enter the json path for written data (example: /data/price): "));
+      std::string type = input_line(tr("Please select type: (example: aggergate/cross-aggergate): "));
+
+      std::string cross_contract_hash = "";
+      if(type == "cross-aggergate")
+      {
+        cross_contract_hash = input_line(tr("Please enter the cross-currency contract hash (example: XEQ/BTC can use BTC/USD to create XEQ/USD): "));
+      }
+
+      rapidjson::Document d;
+
+      d.SetObject();
+      rapidjson::Document::AllocatorType& a = d.GetAllocator();
+
+      rapidjson::Value pairs_;
+      pairs_.SetString(pair_name.c_str(), a);
+      d.AddMember("pair", pairs_, a);
+
+      rapidjson::Value url_;
+      url_.SetString(url.c_str(), a);
+      d.AddMember("url", url_, a);
+
+      rapidjson::Value uri_;
+      uri_.SetString(uri.c_str(), a);
+      d.AddMember("uri", uri_, a);
+
+      rapidjson::Value data_path_;
+      data_path_.SetString(data_path_needed.c_str(), a);
+      d.AddMember("path", data_path_, a);
+
+      rapidjson::Value type_;
+      type_.SetString(type.c_str(), a);
+      d.AddMember("type", type_, a);
+
+      if(type == "cross-aggergate") 
+      {
+        rapidjson::Value cross_contract_hash_;
+        cross_contract_hash_.SetString(cross_contract_hash.c_str(), a);
+        d.AddMember("cross_currency_hash", cross_contract_hash_, a);
+      }
+
+      //std::string contract_json = "{\"pairs\":[\"xhvusd\"], \"url\":\"https://api.kucoin.com\", \"uri\":\"/api/v1/market/orderbook/level1?symbol=XHV-USDT\"}";
+      std::cout << jsonString(d) << std::endl;
+
+      add_contract_info_to_tx_extra(extra, jsonString(d));
+
       de.amount = 10;
     }
 
@@ -6902,14 +6983,21 @@ bool simple_wallet::locked_sweep_all(const std::vector<std::string> &args_)
 bool simple_wallet::swap_request(const std::vector<std::string> &args_)
 {
   std::vector<std::string> local_args = args_;
-  transfer_main(Transfer, local_args, false, true);
+  transfer_main(Transfer, local_args, false, txType::Swap);
   return true;
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::burn(const std::vector<std::string> &args_)
 {
   std::vector<std::string> local_args = args_;
-  transfer_main(Transfer, local_args, false, false, true);
+  transfer_main(Transfer, local_args, false, txType::Burn);
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::create_contract(const std::vector<std::string> &args_)
+{
+  std::vector<std::string> local_args = args_;
+  transfer_main(Transfer, local_args, false, txType::Create_Contract);
   return true;
 }
 //----------------------------------------------------------------------------------------------------
@@ -7006,6 +7094,7 @@ bool simple_wallet::register_service_node_main(
 	}
 
 	uint64_t unlock_block = bc_height + locked_blocks;
+
  
   uint64_t expected_staking_requirement = std::max(
 		service_nodes::get_staking_requirement(m_wallet->nettype(), bc_height),
@@ -7282,7 +7371,7 @@ bool simple_wallet::register_service_node(const std::vector<std::string> &args_)
 		fail_msg_writer() << tr("failed to parse service node signature");
 		return true;
 	}
-
+  
 	std::vector<uint8_t> extra;
 
 	add_service_node_pubkey_to_tx_extra(extra, service_node_key);
@@ -7418,18 +7507,20 @@ bool simple_wallet::stake_main(
     }
 
     const auto& snode_info = response.service_node_states.front();
-    const uint64_t DUST = MAX_NUMBER_OF_CONTRIBUTORS;
+    const uint64_t DUST = m_wallet->use_fork_rules(10, 0) ? MAX_NUMBER_OF_CONTRIBUTORS_V2 : MAX_NUMBER_OF_CONTRIBUTORS;
 
     if (amount == 0)
       amount = snode_info.staking_requirement * amount_fraction;
 
-    const bool full = snode_info.contributors.size() >= MAX_NUMBER_OF_CONTRIBUTORS;
+
+
+    const bool full = m_wallet->use_fork_rules(10, 0) ? snode_info.contributors.size() >= MAX_NUMBER_OF_CONTRIBUTORS_V2 : snode_info.contributors.size() >= MAX_NUMBER_OF_CONTRIBUTORS;
     uint64_t can_contrib_total = 0;
     uint64_t must_contrib_total = 0;
     if (!full)
     {
       can_contrib_total = snode_info.staking_requirement - snode_info.total_reserved;
-      must_contrib_total = service_nodes::get_min_node_contribution(snode_info.staking_requirement, snode_info.total_reserved);
+      must_contrib_total = m_wallet->use_fork_rules(10, 0) ? std::min(snode_info.staking_requirement - snode_info.total_reserved, snode_info.staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS_V2) : std::min(snode_info.staking_requirement - snode_info.total_reserved, snode_info.staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS);
     }
 
     bool is_preexisting_contributor = false;

@@ -112,3 +112,5 @@ nbproject
 /testnet
 
 __pycache__/
+
+eth_adapter/node_modules

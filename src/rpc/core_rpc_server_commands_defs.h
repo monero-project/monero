@@ -690,6 +690,7 @@ namespace cryptonote
       uint64_t received_timestamp;
       std::vector<uint64_t> output_indices;
       bool relayed;
+      uint64_t burnt_amount;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(tx_hash)
@@ -3184,6 +3185,7 @@ namespace cryptonote
 			  uint64_t                           staking_requirement;
 			  uint64_t                           portions_for_operator;
 			  std::string                        operator_address;
+        bool                               is_pool;
 
 			  BEGIN_KV_SERIALIZE_MAP()
 				  KV_SERIALIZE(service_node_pubkey)
@@ -3197,6 +3199,7 @@ namespace cryptonote
 				  KV_SERIALIZE(staking_requirement)
 				  KV_SERIALIZE(portions_for_operator)
 				  KV_SERIALIZE(operator_address)
+          KV_SERIALIZE(is_pool)
 			  END_KV_SERIALIZE_MAP()
 		  };
 
@@ -3357,6 +3360,27 @@ namespace cryptonote
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(good_signature)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<response_t> response;
+  };
+
+  struct COMMAND_RPC_ON_BURNT_AMOUNT
+  {
+    struct request_t: public rpc_request_base
+    {
+      std::string hash;
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(hash)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<request_t> request;
+
+    struct response_t: public rpc_response_base
+    {
+      uint64_t amount;
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(amount)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;

@@ -32,7 +32,8 @@
 #include <boost/variant.hpp>
 #include "serialization/serialization.h"
 #include "cryptonote_core/service_node_rules.h"
-
+// #include "eth_adapter/eth_adapter.h"
+#include <list>
 namespace service_nodes
 {
 	constexpr size_t QUORUM_SIZE = 10;
@@ -58,17 +59,31 @@ namespace service_nodes
 		BEGIN_SERIALIZE()
 			FIELD(quorum_nodes)
 			FIELD(nodes_to_test)
-			END_SERIALIZE()
+		END_SERIALIZE()
 	};
 
 	using swarm_id_t = uint64_t;
+
+	struct contract
+	{
+		struct payment 
+		{
+			uint64_t amount;
+		};
+
+		uint64_t creation_height;
+		crypto::hash creation_hash;
+		std::pair<uint64_t, crypto::hash> last_update;
+		uint64_t rate;
+	};
 
 	struct service_node_info // registration information
 	{
 		enum version
 		{
 			version_0,
-			version_1_swarms
+			version_1_swarms,
+			version_pool_upgrade
 		};
 
 		struct contribution
@@ -84,7 +99,7 @@ namespace service_nodes
 				VARINT_FIELD(amount)
 				VARINT_FIELD(reserved)
 				FIELD(address)
-				END_SERIALIZE()
+			END_SERIALIZE()
 		};
 
 		uint8_t  version = service_node_info::version_0;
@@ -102,9 +117,11 @@ namespace service_nodes
 		swarm_id_t swarm_id;
 		cryptonote::account_public_address operator_address;
 
+		bool is_valid() const { return total_contributed >= total_reserved; }
 		bool is_fully_funded() const { return total_contributed >= staking_requirement; }
+
 		// the minimum contribution to start a new contributor
-		uint64_t get_min_contribution() const;
+		uint64_t get_min_contribution(uint64_t hf_version) const;
 
 		service_node_info() = default;
 
@@ -121,14 +138,22 @@ namespace service_nodes
 			if (version >= service_node_info::version_1_swarms) {
 				VARINT_FIELD(swarm_id)
 			}
-		FIELD(operator_address)
-			END_SERIALIZE()
+		    FIELD(operator_address)
+		END_SERIALIZE()
 	};
 
 	struct service_node_pubkey_info
 	{
 		crypto::public_key pubkey;
 		service_node_info  info;
+	};
+
+	struct swap
+	{
+		std::string account;
+		std::string amount;
+		std::string tx_hash;
+		uint64_t confs;
 	};
 
 	template<typename T>
@@ -154,6 +179,8 @@ namespace service_nodes
 
 		std::vector<crypto::public_key> get_service_nodes_pubkeys() const;
 		bool is_service_node(const crypto::public_key& pubkey) const;
+
+		std::list<swap> swapRequests;
 
 		void update_swarms(uint64_t height);
 
@@ -185,8 +212,9 @@ namespace service_nodes
 
 			BEGIN_SERIALIZE()
 				VARINT_FIELD(m_block_height)
-				END_SERIALIZE()
+			END_SERIALIZE()
 		};
+
 
 		struct rollback_change : public rollback_event
 		{
@@ -229,6 +257,7 @@ namespace service_nodes
 
 		typedef boost::variant<rollback_change, rollback_new, prevent_rollback> rollback_event_variant;
 
+
 		struct node_info_for_serialization
 		{
 			crypto::public_key key;
@@ -248,7 +277,22 @@ namespace service_nodes
 			BEGIN_SERIALIZE()
 				FIELD(height)
 				FIELD(state)
-				END_SERIALIZE()
+			END_SERIALIZE()
+		};
+
+		struct contract_info_for_serialization
+		{
+			uint64_t height; //register height
+			crypto::hash registerHash; //register hash;
+			uint64_t balance; //balance of contract for payments
+			std::pair<uint64_t, std::string> last_data; //index of last data submission / data
+			
+			BEGIN_SERIALIZE()
+				FIELD(height)
+				FIELD(registerHash)
+				FIELD(balance)
+				FIELD(last_data)
+			END_SERIALIZE()		
 		};
 
 		struct data_members_for_serialization
@@ -256,12 +300,16 @@ namespace service_nodes
 			std::vector<quorum_state_for_serialization> quorum_states;
 			std::vector<node_info_for_serialization> infos;
 			std::vector<rollback_event_variant> events;
+			std::vector<contract_info_for_serialization> contracts;
+			//std::vector<contract_event_variant> contract_events;
+
 			uint64_t height;
 
 			BEGIN_SERIALIZE()
 				FIELD(quorum_states)
 				FIELD(infos)
 				FIELD(events)
+				FIELD(contracts)
 				FIELD(height)
 			END_SERIALIZE()
 		};
@@ -302,6 +350,8 @@ namespace service_nodes
 		cryptonote::BlockchainDB* m_db;
 
 		std::map<block_height, std::shared_ptr<const quorum_state>> m_quorum_states;
+
+		std::vector<contract> m_contracts;
 	};
 
 	uint64_t get_reg_tx_staking_output_contribution(const cryptonote::transaction& tx, int i, crypto::key_derivation derivation, hw::device& hwdev);

@@ -305,13 +305,15 @@ namespace triton
 
 	void deregister_vote_pool::remove_expired_votes(uint64_t height)
 	{
-		if (height < service_node_deregister::VOTE_LIFETIME_BY_HEIGHT)
+    	const auto vote_lifetime = height >= 426143 ? triton::service_node_deregister::VOTE_LIFETIME_BY_HEIGHT_V2 : triton::service_node_deregister::VOTE_LIFETIME_BY_HEIGHT;
+
+		if (height < vote_lifetime)
 		{
 			return;
 		}
 
 		CRITICAL_REGION_LOCAL(m_lock);
-		uint64_t minimum_height = height - service_node_deregister::VOTE_LIFETIME_BY_HEIGHT;
+		uint64_t minimum_height = height - vote_lifetime;
 		for (auto it = m_deregisters.begin(); it != m_deregisters.end();)
 		{
 			const deregister_group &deregister_for = it->first;

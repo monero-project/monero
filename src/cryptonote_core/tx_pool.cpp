@@ -1260,7 +1260,10 @@ namespace cryptonote
       if (get_service_node_deregister_from_tx_extra(tx.extra, deregister))
       {
         uint64_t delta_height = curr_height - deregister.block_height;
-        if (delta_height <= triton::service_node_deregister::DEREGISTER_LIFETIME_BY_HEIGHT)
+        const size_t hf_version = m_blockchain.get_hard_fork_version(curr_height);
+    	  const auto deregister_lifetime = hf_version >= 9 ? triton::service_node_deregister::DEREGISTER_LIFETIME_BY_HEIGHT_V2 : triton::service_node_deregister::DEREGISTER_LIFETIME_BY_HEIGHT;
+
+        if (delta_height <= deregister_lifetime)
         {
           failed_ready_check = false;
         }

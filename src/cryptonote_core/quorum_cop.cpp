@@ -82,11 +82,14 @@ namespace service_nodes
 			return;
 		}
 
+	  	const size_t hf_version = m_core.get_hard_fork_version(height);
+    	const auto vote_lifetime = hf_version >= 8 ? triton::service_node_deregister::VOTE_LIFETIME_BY_HEIGHT_V2 : triton::service_node_deregister::VOTE_LIFETIME_BY_HEIGHT;
 
-		if (latest_height < triton::service_node_deregister::VOTE_LIFETIME_BY_HEIGHT)
+
+		if (latest_height < vote_lifetime)
 			return;
 
-		uint64_t const execute_justice_from_height = latest_height - triton::service_node_deregister::VOTE_LIFETIME_BY_HEIGHT;
+		uint64_t const execute_justice_from_height = latest_height - vote_lifetime;
 		if (height < execute_justice_from_height)
 			return;
 
@@ -149,11 +152,8 @@ namespace service_nodes
 
 	bool quorum_cop::handle_uptime_proof(const cryptonote::NOTIFY_UPTIME_PROOF::request &proof, bool &my_uptime_proof_confirmation)
 	{
-
 		crypto::public_key my_pubkey;
 		crypto::secret_key my_seckey;
-		if (!m_core.get_service_node_keys(my_pubkey, my_seckey))
-			return false;
 
 		uint64_t now = time(nullptr);
 

@@ -33,7 +33,8 @@
 
 #define TX_EXTRA_PADDING_MAX_COUNT          255
 #define TX_EXTRA_NONCE_MAX_COUNT            255
-
+#define TX_EXTRA_MEMO_MAX_COUNT             255
+ 
 #define TX_EXTRA_TAG_PADDING                  0x00
 #define TX_EXTRA_TAG_PUBKEY                   0x01
 #define TX_EXTRA_NONCE                        0x02
@@ -45,11 +46,14 @@
 #define TX_EXTRA_TAG_SERVICE_NODE_CONTRIBUTOR 0x73
 #define TX_EXTRA_TAG_SERVICE_NODE_PUBKEY      0x74
 #define TX_EXTRA_TAG_TX_SECRET_KEY            0x75
+#define TX_EXTRA_TAG_MEMO                     0x81
 #define TX_EXTRA_MYSTERIOUS_MINERGATE_TAG     0xDE
 
 #define TX_EXTRA_TAG_BURN                     0x76
 #define TX_EXTRA_ETH_ADDRESS                  0x77
-
+#define TX_EXTRA_CONTRACT_INFO                0x78
+#define TX_EXTRA_CONTRACT_STATE               0x79
+#define TX_EXTRA_CONTRACT_INTERACTION         0x80
 
 #define TX_EXTRA_NONCE_PAYMENT_ID             0x00
 #define TX_EXTRA_NONCE_ENCRYPTED_PAYMENT_ID   0x01
@@ -207,16 +211,16 @@ namespace cryptonote
  struct tx_extra_service_node_register
   {
     std::vector<crypto::public_key> m_public_spend_keys;
-   std::vector<crypto::public_key> m_public_view_keys;
-   uint64_t  m_portions_for_operator;
-   std::vector<uint64_t > m_portions;
-   uint64_t m_expiration_timestamp;
-   crypto::signature m_service_node_signature;
+    std::vector<crypto::public_key> m_public_view_keys;
+    uint64_t  m_portions_for_operator;
+    std::vector<uint64_t > m_portions;
+    uint64_t m_expiration_timestamp;
+    crypto::signature m_service_node_signature;
 
     BEGIN_SERIALIZE()
       FIELD(m_public_spend_keys)
       FIELD(m_public_view_keys)
-	  FIELD(m_portions_for_operator)
+	    FIELD(m_portions_for_operator)
       FIELD(m_portions)
       FIELD(m_expiration_timestamp)
       FIELD(m_service_node_signature)
@@ -277,6 +281,25 @@ struct tx_extra_service_node_deregister
     END_SERIALIZE()
   };
 
+  struct tx_extra_contract_info
+  {
+    std::string contract_json;
+
+    BEGIN_SERIALIZE()
+      FIELD(contract_json)
+    END_SERIALIZE()
+  };
+
+  struct tx_extra_memo
+  {
+   // Actual memo data as string
+    std::string data;
+
+    BEGIN_SERIALIZE()
+      FIELD(data)
+    END_SERIALIZE()
+  };
+
   // tx_extra_field format, except tx_extra_padding and tx_extra_pub_key:
   //   varint tag;
   //   varint size;
@@ -294,7 +317,9 @@ struct tx_extra_service_node_deregister
 	 tx_extra_service_node_deregister,
 	 tx_extra_tx_secret_key,
    tx_extra_burn,
-   tx_extra_eth_address> tx_extra_field;
+   tx_extra_eth_address,
+   tx_extra_contract_info,
+   tx_extra_memo> tx_extra_field;
   }
   BLOB_SERIALIZER(cryptonote::tx_extra_service_node_deregister::vote);
 
@@ -312,3 +337,5 @@ struct tx_extra_service_node_deregister
   VARIANT_TAG(binary_archive, cryptonote::tx_extra_tx_secret_key, TX_EXTRA_TAG_TX_SECRET_KEY);
   VARIANT_TAG(binary_archive, cryptonote::tx_extra_burn,                        TX_EXTRA_TAG_BURN);
   VARIANT_TAG(binary_archive, cryptonote::tx_extra_eth_address,                        TX_EXTRA_ETH_ADDRESS);
+  VARIANT_TAG(binary_archive, cryptonote::tx_extra_contract_info,                        TX_EXTRA_CONTRACT_INFO);
+  VARIANT_TAG(binary_archive, cryptonote::tx_extra_memo, TX_EXTRA_TAG_MEMO);

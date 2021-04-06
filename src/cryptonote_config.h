@@ -62,7 +62,9 @@
 #define STAKING_AUTHORIZATION_EXPIRATION_WINDOW         (60*60*24*7*2)  // 2 weeks
 #define STAKING_AUTHORIZATION_EXPIRATION_AUTOSTAKE      (60*60*24*365*2) // 2 years
 #define MAX_NUMBER_OF_CONTRIBUTORS                      4
+#define MAX_NUMBER_OF_CONTRIBUTORS_V2                   100
 #define MIN_PORTIONS                                    (STAKING_PORTIONS / MAX_NUMBER_OF_CONTRIBUTORS)
+#define MIN_PORTIONS_V2                                 (STAKING_PORTIONS / MAX_NUMBER_OF_CONTRIBUTORS_V2)
 #define MEMPOOL_PRUNE_DEREGISTER_LIFETIME               (24 * 60 * 60) // seconds, 2 hours
 
 static_assert(STAKING_PORTIONS % MAX_NUMBER_OF_CONTRIBUTORS == 0, "Use a multiple of four, so that it divides easily by max number of contributors.");
@@ -93,7 +95,6 @@ static_assert(STAKING_PORTIONS % 3 == 0, "Use a multiple of three, so that it di
 //LongTermWeight
 #define CRYPTONOTE_LONG_TERM_BLOCK_WEIGHT_WINDOW_SIZE   100000 // size in blocks of the long term block weight median window
 #define CRYPTONOTE_SHORT_TERM_BLOCK_WEIGHT_SURGE_FACTOR 50
-#define HF_VERSION_LONG_TERM_BLOCK_WEIGHT       10
 
 // COIN - number of smallest units in one coin
 #define COIN                                            ((uint64_t)10000) // pow(10, 12)
@@ -197,16 +198,16 @@ static_assert(STAKING_PORTIONS % 3 == 0, "Use a multiple of three, so that it di
 
 #define THREAD_STACK_SIZE                       5 * 1024 * 1024
 
-#define HF_VERSION_DYNAMIC_FEE                  10
+#define HF_VERSION_DYNAMIC_FEE                  11
 #define HF_VERSION_MIN_MIXIN_4                  4
-#define HF_VERSION_MIN_MIXIN_6                  10
-#define HF_VERSION_MIN_MIXIN_10                 10
+#define HF_VERSION_MIN_MIXIN_6                  11
+#define HF_VERSION_MIN_MIXIN_10                 11
 #define HF_VERSION_MIN_MIXIN_15                 6
 #define HF_VERSION_ENFORCE_RCT                  4
-#define HF_VERSION_PER_BYTE_FEE                 10
+#define HF_VERSION_PER_BYTE_FEE                 11
 #define HF_VERSION_SMALLER_BP                   6
 
-#define HF_VERSION_LONG_TERM_BLOCK_WEIGHT       10
+#define HF_VERSION_LONG_TERM_BLOCK_WEIGHT       11
 #define HF_VERSION_MIN_2_OUTPUTS                12
 #define HF_VERSION_MIN_V2_COINBASE_TX           12
 #define HF_VERSION_SAME_MIXIN                   12

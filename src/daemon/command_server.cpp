@@ -111,7 +111,7 @@ t_command_server::t_command_server(
 	   "print_sn_key"
 	   , std::bind(&t_command_parser_executor::print_sn_key, &m_parser, p::_1)
 	   , "print_sn_key"
-	   , "Print this daemon's service node key, if it is one and launched in service node mode."
+	   , "Print this daemon's oracle node key, if it is one and launched in oracle node mode."
    );
    m_command_lookup.set_handler(
 	   "print_sr"
@@ -123,19 +123,19 @@ t_command_server::t_command_server(
 	   "prepare_sn"
 	   , std::bind(&t_command_parser_executor::prepare_sn, &m_parser)
 	   , "prepare_sn"
-     , "Interactive prompt to prepare a service node registration command. The resulting registration command can be run in the command-line wallet to send the registration to the blockchain."
+     , "Interactive prompt to prepare a oracle node registration command. The resulting registration command can be run in the command-line wallet to send the registration to the blockchain."
    );
    m_command_lookup.set_handler(
 	   "print_sn"
 	   , std::bind(&t_command_parser_executor::print_sn, &m_parser, p::_1)
 	   , "print_sn [<pubkey> [...]]"
-	   , "Print service node registration info for the current height"
+	   , "Print oracle node registration info for the current height"
    );
    m_command_lookup.set_handler(
 	   "print_sn_status"
 	   , std::bind(&t_command_parser_executor::print_sn_status, &m_parser, p::_1)
 	   , "print_sn_status"
-	   , "Print service node registration info for this service node"
+	   , "Print oracle node registration info for this oracle node"
    );
   m_command_lookup.set_handler(
       "is_key_image_spent"

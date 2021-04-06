@@ -860,14 +860,14 @@ bool t_rpc_command_executor::print_quorum_state(uint64_t height)
     }
   }
 
-  tools::msg_writer() << "Quorum Service Nodes [" << res.quorum_nodes.size() << "]";
+  tools::msg_writer() << "Quorum Oracle Nodes [" << res.quorum_nodes.size() << "]";
   for (size_t i = 0; i < res.quorum_nodes.size(); i++)
   {
     const std::string &entry = res.quorum_nodes[i];
     tools::msg_writer() << "[" << i << "] " << entry;
   }
 
-  tools::msg_writer() << "Service Nodes To Test [" << res.nodes_to_test.size() << "]";
+  tools::msg_writer() << "Oracle Nodes To Test [" << res.nodes_to_test.size() << "]";
   for (size_t i = 0; i < res.nodes_to_test.size(); i++)
   {
     const std::string &entry = res.nodes_to_test[i];
@@ -1465,19 +1465,6 @@ bool t_rpc_command_executor::stop_daemon()
 {
   cryptonote::COMMAND_RPC_STOP_DAEMON::request req;
   cryptonote::COMMAND_RPC_STOP_DAEMON::response res;
-
-//# ifdef WIN32
-//    // Stop via service API
-//    // TODO - this is only temporary!  Get rid of hard-coded constants!
-//    bool ok = windows::stop_service("Triton Daemon");
-//    ok = windows::uninstall_service("Triton Daemon");
-//    //bool ok = windows::stop_service(SERVICE_NAME);
-//    //ok = windows::uninstall_service(SERVICE_NAME);
-//    if (ok)
-//    {
-//      return true;
-//    }
-//# endif
 
   // Stop via RPC
   std::string fail_message = "Daemon did not stop";
@@ -2375,12 +2362,13 @@ static void print_service_node_list_state(cryptonote::network_type nettype, int 
 	{
 		const cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry &entry = *list[i];
 
-		bool is_registered = entry.total_contributed >= entry.staking_requirement;
+		bool is_registered = entry.total_contributed >= entry.total_reserved;
 		epee::console_colors color = is_registered ? console_color_green : epee::console_color_yellow;
-
+    
 		// Print Funding Status
 		{
-			tools::msg_writer(color) << indent1 << "[" << i << "] Service Node: " << entry.service_node_pubkey;
+			tools::msg_writer(color) << indent1 << "[" << i << "] Oracle Node: " << entry.service_node_pubkey;
+
 			tools::msg_writer() << indent2 << "Total Contributed/Staking Requirement: " << cryptonote::print_money(entry.total_contributed) << "/" << cryptonote::print_money(entry.staking_requirement);
 			tools::msg_writer() << indent2 << "Total Reserved: " << cryptonote::print_money(entry.total_reserved);
 		}
@@ -2513,7 +2501,7 @@ bool t_rpc_command_executor::print_sn(const std::vector<std::string> &args)
 
 	for (auto &entry : res.service_node_states)
 	{
-		if (entry.total_contributed == entry.staking_requirement)
+		if (entry.total_contributed >= entry.total_reserved)
 		{
 			registered.push_back(&entry);
 		}
@@ -2708,6 +2696,7 @@ bool t_rpc_command_executor::prepare_sn()
 
   // Query the latest known block height and nettype
   uint64_t block_height            = 0;
+  uint64_t hf_version              = 0;
   cryptonote::network_type nettype = cryptonote::UNDEFINED;
   {
     cryptonote::COMMAND_RPC_GET_INFO::request req;
@@ -2765,7 +2754,7 @@ bool t_rpc_command_executor::prepare_sn()
       uint64_t delta = now - header.timestamp;
       if (delta > (60 * 60))
       {
-        tools::fail_msg_writer() << "The last block this Service Node knows about was at least " << get_human_time_ago(header.timestamp, now)
+        tools::fail_msg_writer() << "The last block this Oracle Node knows about was at least " << get_human_time_ago(header.timestamp, now)
                                  << "\nYour node is possibly desynced from the network or still syncing to the network."
                                  << "\n\nRegistering this node may result in a deregistration due to being out of date with the network\n";
       }
@@ -2776,18 +2765,32 @@ bool t_rpc_command_executor::prepare_sn()
       uint64_t delta = block_height - header.height;
       if (delta > 15)
       {
-        tools::fail_msg_writer() << "The last block this Service Node synced is " << delta << " blocks away from the longest chain we know about."
+        tools::fail_msg_writer() << "The last block this Oracle Node synced is " << delta << " blocks away from the longest chain we know about."
                                  << "\n\nRegistering this node may result in a deregistration due to being out of date with the network\n";
       }
     }
+    hf_version = header.major_version;
   }
 
 #ifdef HAVE_READLINE
   rdln::suspend_readline pause_readline;
 #endif
 
+
   size_t number_participants = 1;
+  uint64_t max_num_stakers = MAX_NUMBER_OF_CONTRIBUTORS;
+  uint64_t staking_portions = STAKING_PORTIONS;
+  uint64_t DUST = MAX_NUMBER_OF_CONTRIBUTORS;
+  uint64_t min_portions = MIN_PORTIONS;
   uint64_t operating_cost_portions = STAKING_PORTIONS;
+
+  if(hf_version >= 9)
+  {
+    DUST = MAX_NUMBER_OF_CONTRIBUTORS_V2;
+    max_num_stakers = MAX_NUMBER_OF_CONTRIBUTORS_V2;
+    min_portions = MIN_PORTIONS_V2;
+  }
+
   bool is_solo_stake = false;
 
   std::vector<std::string> addresses;
@@ -2796,11 +2799,9 @@ bool t_rpc_command_executor::prepare_sn()
   const uint64_t staking_requirement =
     std::max(service_nodes::get_staking_requirement(nettype, block_height),
              service_nodes::get_staking_requirement(nettype, block_height + 30 * 24)); // allow 1 day
-  uint64_t portions_remaining = STAKING_PORTIONS;
   uint64_t total_reserved_contributions = 0;
-
+  uint64_t portions_remaining = STAKING_PORTIONS;
   // anything less than DUST will be added to operator stake
-  const uint64_t DUST = MAX_NUMBER_OF_CONTRIBUTORS;
 
   std::cout << "Current staking requirement: " << cryptonote::print_money(staking_requirement) << " " << cryptonote::get_unit() << std::endl;
   
@@ -2830,7 +2831,7 @@ bool t_rpc_command_executor::prepare_sn()
   else
   {
     std::string operating_cost_string;
-    std::cout << "What percentage of the total staking reward would the operator like to reserve as an operator fee [0-100]%: ";
+    std::cout << "What percentage of the total reward would the operator like to reserve as an operator fee [0-100]%: ";
     std::cin >> operating_cost_string;
 
     bool res = service_nodes::get_portions_from_percent_str(operating_cost_string, operating_cost_portions);
@@ -2846,7 +2847,7 @@ bool t_rpc_command_executor::prepare_sn()
 
     std::cout << "Minimum amount that can be reserved: " << cryptonote::print_money(min_contribution) << " " << cryptonote::get_unit() << std::endl;
 
-    std::cout << "How much equilibria does the operator want to reserve in the stake? ";
+    std::cout << "How much XEQ does the operator want to reserve in the pool? ";
     std::string contribution_string;
     std::cin >> contribution_string;
     uint64_t operator_cut;
@@ -2878,11 +2879,11 @@ bool t_rpc_command_executor::prepare_sn()
     std::cin >> allow_multiple_contributors;
     if(command_line::is_yes(allow_multiple_contributors))
     {
-      std::cout << "Number of additional contributors [1-" << (MAX_NUMBER_OF_CONTRIBUTORS - 1) << "]: ";
+      std::cout << "Number of additional contributors [1-" << (max_num_stakers - 1) << "]: ";
       int additional_contributors;
-      if(!(std::cin >> additional_contributors) || additional_contributors < 1 || additional_contributors > (MAX_NUMBER_OF_CONTRIBUTORS - 1))
+      if(!(std::cin >> additional_contributors) || additional_contributors < 1 || additional_contributors > (max_num_stakers - 1))
       {
-        std::cout << "Invalid value. Should be between [1-" << (MAX_NUMBER_OF_CONTRIBUTORS - 1) << "]" << std::endl;
+        std::cout << "Invalid value. Should be between [1-" << (max_num_stakers - 1) << "]" << std::endl;
         return true;
       }
       number_participants += static_cast<size_t>(additional_contributors);
@@ -2896,12 +2897,12 @@ bool t_rpc_command_executor::prepare_sn()
 
     if (!is_operator)
     {
-      const uint64_t min_contribution_portions = std::min(portions_remaining, MIN_PORTIONS);
+      const uint64_t min_contribution_portions = std::min(portions_remaining, min_portions);
       const uint64_t min_contribution = get_amount_to_make_portions(staking_requirement, min_contribution_portions);
       const uint64_t amount_left = get_amount_to_make_portions(staking_requirement, portions_remaining);
       std::cout << "The minimum amount possible to contribute is " << cryptonote::print_money(min_contribution) << " " << cryptonote::get_unit() << std::endl;
       std::cout << "There is " << cryptonote::print_money(amount_left) << " " << cryptonote::get_unit() << " left to meet the staking requirement." << std::endl;
-      std::cout << "How much equilibria does " << contributor_name << " want to reserve in the stake? ";
+      std::cout << "How much XEQ does " << contributor_name << " want to reserve in the stake? ";
       uint64_t contribution_amount;
       std::string contribution_string;
       std::cin >> contribution_string;
@@ -2944,7 +2945,7 @@ bool t_rpc_command_executor::prepare_sn()
     if (amount_left > DUST)
     {
       std::cout << "Your total reservations do not equal the staking requirement." << std::endl;
-      std::cout << "You will leave the remaining portion of " << cryptonote::print_money(amount_left) << " " << cryptonote::get_unit() << " open to contributions from anyone, and the Service Node will not activate until the full staking requirement is filled." << std::endl;
+      std::cout << "You will leave the remaining portion of " << cryptonote::print_money(amount_left) << " " << cryptonote::get_unit() << " open to contributions from anyone, and the Oracle Node will not activate until the full staking requirement is filled." << std::endl;
       std::cout << "Is this ok? (Y/Yes/N/No): ";
       std::string accept_pool_staking;
       std::cin >> accept_pool_staking;

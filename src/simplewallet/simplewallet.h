@@ -82,10 +82,12 @@ namespace cryptonote
     bool process_command(const std::vector<std::string> &args);
     std::string get_commands_str();
     std::string get_command_usage(const std::vector<std::string> &args);
+
+
+    
   private:
-
     enum ResetType { ResetNone, ResetSoft, ResetHard, ResetSoftKeepKI };
-
+    enum txType { None, Burn, Swap, Create_Contract };
     bool handle_command_line(const boost::program_options::variables_map& vm);
 
     bool run_console_handler();
@@ -167,7 +169,7 @@ namespace cryptonote
     bool show_incoming_transfers(const std::vector<std::string> &args);
     bool show_payments(const std::vector<std::string> &args);
     bool show_blockchain_height(const std::vector<std::string> &args);
-    bool transfer_main(int transfer_type, const std::vector<std::string> &args, bool called_by_mms, bool is_swap = false, bool is_burn = false);
+    bool transfer_main(int transfer_type, const std::vector<std::string> &args, bool called_by_mms, txType transferType = txType::None);
     bool transfer(const std::vector<std::string> &args);
     bool locked_transfer(const std::vector<std::string> &args);
     bool stake(const std::vector<std::string> &args_);
@@ -271,6 +273,7 @@ namespace cryptonote
 
     bool swap_request(const std::vector<std::string>& args);
     bool burn(const std::vector<std::string>& args);
+    bool create_contract(const std::vector<std::string>& args);
 
 
     bool cold_sign_tx(const std::vector<tools::wallet2::pending_tx>& ptx_vector, tools::wallet2::signed_tx_set &exported_txs, std::vector<cryptonote::address_parse_info> &dsts_info, std::function<bool(const tools::wallet2::signed_tx_set &)> accept_func);

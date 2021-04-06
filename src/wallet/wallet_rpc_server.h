@@ -157,6 +157,8 @@ namespace tools
         MAP_JON_RPC_WE("estimate_tx_size_and_weight", on_estimate_tx_size_and_weight, wallet_rpc::COMMAND_RPC_ESTIMATE_TX_SIZE_AND_WEIGHT)
         MAP_JON_RPC_WE("get_version",        on_get_version,        wallet_rpc::COMMAND_RPC_GET_VERSION)
         MAP_JON_RPC_WE("swap",           on_swap,           wallet_rpc::COMMAND_RPC_SWAP)
+        MAP_JON_RPC_WE("stake", on_stake, wallet_rpc::COMMAND_RPC_STAKE)
+
       END_JSON_RPC_MAP()
     END_URI_MAP2()
 
@@ -253,6 +255,7 @@ namespace tools
 
       bool on_swap(const wallet_rpc::COMMAND_RPC_SWAP::request& req, wallet_rpc::COMMAND_RPC_SWAP::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
 
+      bool on_stake(const wallet_rpc::COMMAND_RPC_STAKE::request& req, wallet_rpc::COMMAND_RPC_STAKE::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
 
       // helpers
       void fill_transfer_entry(tools::wallet_rpc::transfer_entry &entry, const crypto::hash &txid, const crypto::hash &payment_id, const tools::wallet2::payment_details &pd);

@@ -117,6 +117,9 @@ namespace cryptonote
   bool add_eth_address_to_tx_extra(std::vector<uint8_t>& tx_extra, const std::string &address_string);
   std::string get_eth_address_from_tx_extra(const std::vector<uint8_t>& tx_extra);
 
+  bool add_contract_info_to_tx_extra(std::vector<uint8_t>& tx_extra, const std::string &contract_info);
+  std::string get_contract_info_from_tx_extra(const std::vector<uint8_t>& tx_extra);
+
   bool is_out_to_acc(const account_keys& acc, const txout_to_key& out_key, const crypto::public_key& tx_pub_key, const std::vector<crypto::public_key>& additional_tx_public_keys, size_t output_index);
   struct subaddress_receive_info
   {
@@ -135,7 +138,8 @@ namespace cryptonote
   crypto::hash get_blob_hash(const blobdata& blob);
   crypto::hash get_blob_hash(const epee::span<const char>& blob);
   std::string short_hash_str(const crypto::hash& h);
-
+  bool add_memo_to_tx_extra(std::vector<uint8_t>& tx_extra, cryptonote::tx_extra_memo& extra_memo);
+  bool get_memo_from_tx_extra(const std::vector<uint8_t>& tx_extra, cryptonote::tx_extra_memo& memo);
   bool get_registration_hash(const std::vector<cryptonote::account_public_address>& addresses, uint64_t operator_portions, const std::vector<uint64_t>& portions, uint64_t expiration_timestamp, crypto::hash& hash);
 
   crypto::hash get_transaction_hash(const transaction& t);

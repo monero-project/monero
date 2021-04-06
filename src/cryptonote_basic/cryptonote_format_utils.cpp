@@ -632,6 +632,8 @@ namespace cryptonote
 
     if (!pick<tx_extra_burn>                        (nar, tx_extra_fields, TX_EXTRA_TAG_BURN)) return false;
     if (!pick<tx_extra_eth_address>                        (nar, tx_extra_fields, TX_EXTRA_ETH_ADDRESS)) return false;
+    if (!pick<tx_extra_contract_info>                        (nar, tx_extra_fields, TX_EXTRA_CONTRACT_INFO)) return false;
+    if (!pick<tx_extra_memo>                        (nar, tx_extra_fields, TX_EXTRA_TAG_MEMO)) return false;
 
     // if not empty, someone added a new type and did not add a case above
     if (!tx_extra_fields.empty())
@@ -836,18 +838,19 @@ void add_tx_secret_key_to_tx_extra(std::vector<uint8_t>& tx_extra, const crypto:
   }
   //---------------------------------------------------------------
   bool add_service_node_register_to_tx_extra(
-     std::vector<uint8_t>& tx_extra,
-     const std::vector<cryptonote::account_public_address>& addresses,
-	  uint64_t portions_for_operator,
-	  const std::vector<uint64_t>& portions,
-     uint64_t expiration_timestamp,
-     const crypto::signature& service_node_signature)
+    std::vector<uint8_t>& tx_extra,
+    const std::vector<cryptonote::account_public_address>& addresses,
+    uint64_t portions_for_operator,
+    const std::vector<uint64_t>& portions,
+    uint64_t expiration_timestamp,
+    const crypto::signature& service_node_signature)
   {
     if (addresses.size() != portions.size())
     {
       LOG_ERROR("Tried to serialize registration with more addresses than portions, this should never happen");
       return false;
     }
+    
     std::vector<crypto::public_key> public_view_keys(addresses.size());
     std::vector<crypto::public_key> public_spend_keys(addresses.size());
     for (size_t i = 0; i < addresses.size(); i++)
@@ -860,7 +863,7 @@ void add_tx_secret_key_to_tx_extra(std::vector<uint8_t>& tx_extra, const crypto:
       tx_extra_service_node_register{
         public_spend_keys,
         public_view_keys,
-		portions_for_operator,
+		    portions_for_operator,
         portions,
         expiration_timestamp,
         service_node_signature
@@ -902,6 +905,26 @@ void add_tx_secret_key_to_tx_extra(std::vector<uint8_t>& tx_extra, const crypto:
     return crypto::null_pkey;
   return winner.m_service_node_key;
 }
+  //---------------------------------------------------------------
+  bool get_memo_from_tx_extra(const std::vector<uint8_t>& tx_extra, cryptonote::tx_extra_memo& memo)
+  {
+    std::vector<tx_extra_field> tx_extra_fields;
+    parse_tx_extra(tx_extra, tx_extra_fields);
+    return find_tx_extra_field_by_type(tx_extra_fields, memo);
+  }
+  //---------------------------------------------------------------
+  bool add_memo_to_tx_extra(std::vector<uint8_t>& tx_extra, cryptonote::tx_extra_memo& extra_memo)
+  {
+    size_t start_pos = tx_extra.size();
+    tx_extra.resize(tx_extra.size() + 2 + extra_memo.data.size());
+    tx_extra[start_pos] = TX_EXTRA_TAG_MEMO;
+    ++start_pos;
+    tx_extra[start_pos] = static_cast<uint8_t>(extra_memo.data.size());
+    ++start_pos;
+    memcpy(&tx_extra[start_pos], reinterpret_cast<const char*>(extra_memo.data.data()), extra_memo.data.size());
+    return true;
+  }
+
 //---------------------------------------------------------------
   bool remove_field_from_tx_extra(std::vector<uint8_t>& tx_extra, const std::type_info &type)
   {
@@ -1022,6 +1045,27 @@ void add_tx_secret_key_to_tx_extra(std::vector<uint8_t>& tx_extra, const crypto:
     if (eth_string == "")
       return false;
     tx_extra_field field = tx_extra_eth_address{eth_string};
+    bool result = add_tx_extra_field_to_tx_extra(tx_extra, field);
+    CHECK_AND_NO_ASSERT_MES_L1(result, false, "failed to serialize tx extra burn amount");
+    return result;
+  }
+  //---------------------------------------------------------------
+  std::string get_contract_info_from_tx_extra(const std::vector<uint8_t>& tx_extra)
+  {
+    std::vector<tx_extra_field> tx_extra_fields;
+    parse_tx_extra(tx_extra, tx_extra_fields);
+
+    tx_extra_contract_info contract_info;
+    if (find_tx_extra_field_by_type(tx_extra_fields, contract_info))
+      return contract_info.contract_json;
+    return "";
+  }
+  //---------------------------------------------------------------
+  bool add_contract_info_to_tx_extra(std::vector<uint8_t>& tx_extra, const std::string &contract_info)
+  {
+    if (contract_info == "")
+      return false;
+    tx_extra_field field = tx_extra_contract_info{contract_info};
     bool result = add_tx_extra_field_to_tx_extra(tx_extra, field);
     CHECK_AND_NO_ASSERT_MES_L1(result, false, "failed to serialize tx extra burn amount");
     return result;

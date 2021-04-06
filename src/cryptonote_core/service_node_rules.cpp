@@ -42,64 +42,65 @@ namespace service_nodes {
 		return resultlo;
 	}
 
-	bool check_service_node_portions(const std::vector<uint64_t>& portions)
+	bool check_service_node_portions(const std::vector<uint64_t>& portions, const uint64_t min_portions)
 	{
 		uint64_t portions_left = STAKING_PORTIONS;
 
 		for (const auto portion : portions) {
-			const uint64_t min_portions = std::min(portions_left, MIN_PORTIONS);
+			const uint64_t min_portions = std::min(portions_left, min_portions);
 			if (portion < min_portions || portion > portions_left) return false;
 			portions_left -= portion;
 		}
 
 		return true;
 	}
-uint64_t get_portions_to_make_amount(uint64_t staking_requirement, uint64_t amount)
-{
-  uint64_t lo, hi, resulthi, resultlo;
-  lo = mul128(amount, STAKING_PORTIONS, &hi);
-  if (lo > UINT64_MAX - (staking_requirement - 1))
-    hi++;
-  lo += staking_requirement-1;
-  div128_64(hi, lo, staking_requirement, &resulthi, &resultlo);
-  return resultlo;
-}
 
-static bool get_portions_from_percent(double cur_percent, uint64_t& portions) {
+	uint64_t get_portions_to_make_amount(uint64_t staking_requirement, uint64_t amount)
+	{
+		uint64_t lo, hi, resulthi, resultlo;
+		lo = mul128(amount, STAKING_PORTIONS, &hi);
+		if (lo > UINT64_MAX - (staking_requirement - 1))
+			hi++;
+		lo += staking_requirement-1;
+		div128_64(hi, lo, staking_requirement, &resulthi, &resultlo);
+		return resultlo;
+	}
 
-  if(cur_percent < 0.0 || cur_percent > 100.0) return false;
+	static bool get_portions_from_percent(double cur_percent, uint64_t& portions) {
 
-  // Fix for truncation issue when operator cut = 100 for a pool Service Node.
-  if (cur_percent == 100.0)
-  {
-    portions = STAKING_PORTIONS;
-  }
-  else
-  {
-    portions = (cur_percent / 100.0) * STAKING_PORTIONS;
-  }
+		if(cur_percent < 0.0 || cur_percent > 100.0) return false;
 
-  return true;
-}
+		// Fix for truncation issue when operator cut = 100 for a pool Service Node.
+		if (cur_percent == 100.0)
+		{
+			portions = STAKING_PORTIONS;
+		}
+		else
+		{
+			portions = (cur_percent / 100.0) * STAKING_PORTIONS;
+		}
 
-bool get_portions_from_percent_str(std::string cut_str, uint64_t& portions) {
+		return true;
+	}
 
-    if(!cut_str.empty() && cut_str.back() == '%')
-    {
-      cut_str.pop_back();
-    }
+	bool get_portions_from_percent_str(std::string cut_str, uint64_t& portions) {
 
-    double cut_percent;
-    try
-    {
-      cut_percent = boost::lexical_cast<double>(cut_str);
-    }
-    catch(...)
-    {
-      return false;
-    }
+		if(!cut_str.empty() && cut_str.back() == '%')
+		{
+		cut_str.pop_back();
+		}
 
-    return get_portions_from_percent(cut_percent, portions);
-}
+		double cut_percent;
+		try
+		{
+		cut_percent = boost::lexical_cast<double>(cut_str);
+		}
+		catch(...)
+		{
+		return false;
+		}
+
+		return get_portions_from_percent(cut_percent, portions);
+	}
 
 }

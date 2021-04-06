@@ -57,7 +57,6 @@ using namespace epee;
 #include "version.h"
 #include "wipeable_string.h"
 #include "common/i18n.h"
-
 #include "pythia_adapter/send_data.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
@@ -689,12 +688,6 @@ namespace cryptonote
     block_sync_size = command_line::get_arg(vm, arg_block_sync_size);
     if (block_sync_size > BLOCKS_SYNCHRONIZING_MAX_COUNT)
       MERROR("Error --block-sync-size cannot be greater than " << BLOCKS_SYNCHRONIZING_MAX_COUNT);
-
-    //karai::Graph graph_ = karai::spawnGraph();
-    //graph_.addTx(2, "hiya");
-
-    //graph_.printTransactions();
-
 
     MGINFO("Loading checkpoints");
 
@@ -1833,21 +1826,21 @@ namespace cryptonote
     m_deregisters_auto_relayer.do_call(boost::bind(&core::relay_deregister_votes, this));
     m_check_updates_interval.do_call(boost::bind(&core::check_updates, this));
     m_check_disk_space_interval.do_call(boost::bind(&core::check_disk_space, this));
-	time_t const lifetime = time(nullptr) - get_start_time();
+	  time_t const lifetime = time(nullptr) - get_start_time();
 
-  int target = DIFFICULTY_TARGET_V2; 
-  if(get_ideal_hard_fork_version() < 6){
-    target = DIFFICULTY_TARGET_V2;
-  } else if(get_ideal_hard_fork_version() >= 6){
-    target = DIFFICULTY_TARGET_V3;
-  }
+    int target = DIFFICULTY_TARGET_V2; 
+    if(get_ideal_hard_fork_version() < 6){
+      target = DIFFICULTY_TARGET_V2;
+    } else if(get_ideal_hard_fork_version() >= 6){
+      target = DIFFICULTY_TARGET_V3;
+    }
 
-	if (m_service_node && lifetime > target) // Give us some time to connect to peers before sending uptimes
-	{
-		do_uptime_proof_call();
-	}
+    if (m_service_node && lifetime > target) // Give us some time to connect to peers before sending uptimes
+    {
+      do_uptime_proof_call();
+    }
 
-	m_uptime_proof_pruner.do_call(boost::bind(&service_nodes::quorum_cop::prune_uptime_proof, &m_quorum_cop));
+	  m_uptime_proof_pruner.do_call(boost::bind(&service_nodes::quorum_cop::prune_uptime_proof, &m_quorum_cop));
     m_block_rate_interval.do_call(boost::bind(&core::check_block_rate, this));
     m_blockchain_pruning_interval.do_call(boost::bind(&core::update_blockchain_pruning, this));
     m_miner.on_idle();
@@ -2166,11 +2159,14 @@ namespace cryptonote
 	  uint64_t latest_block_height = std::max(get_current_blockchain_height(), get_target_blockchain_height());
 	  uint64_t delta_height = latest_block_height - vote.block_height;
 
-	  if (vote.block_height < latest_block_height && delta_height >= triton::service_node_deregister::VOTE_LIFETIME_BY_HEIGHT)
+    const size_t hf_version = m_blockchain_storage.get_current_hard_fork_version();
+    const auto vote_lifetime = hf_version >= 8 ? triton::service_node_deregister::VOTE_LIFETIME_BY_HEIGHT_V2 : triton::service_node_deregister::VOTE_LIFETIME_BY_HEIGHT;
+
+	  if (vote.block_height < latest_block_height && delta_height >= vote_lifetime)
 	  {
 		  LOG_PRINT_L1("Received vote for height: " << vote.block_height
 			  << " and service node: " << vote.service_node_index
-			  << ", is older than: " << triton::service_node_deregister::VOTE_LIFETIME_BY_HEIGHT
+			  << ", is older than: " << vote_lifetime
 			  << " blocks and has been rejected.");
 		  vvc.m_invalid_block_height = true;
 	  }

@@ -236,10 +236,10 @@ namespace cryptonote
 
   static uint64_t calculate_sum_of_portions(const std::vector<std::pair<cryptonote::account_public_address, uint64_t>>& portions, uint64_t total_service_node_reward)
   {
-	uint64_t reward = 0;
-	for (size_t i = 0; i < portions.size(); i++)
-		reward += get_portion_of_reward(portions[i].second, total_service_node_reward);
-	return reward;
+    uint64_t reward = 0;
+    for (size_t i = 0; i < portions.size(); i++)
+      reward += get_portion_of_reward(portions[i].second, total_service_node_reward);
+	  return reward;
   }
 
 
@@ -434,7 +434,7 @@ namespace cryptonote
 	  else                                        result.service_node_paid = calculate_sum_of_portions(miner_context.snode_winner_info, result.service_node_total);
 
 
-	  result.base_miner = result.adjusted_base_reward - result.service_node_paid;
+	  result.base_miner = result.adjusted_base_reward - result.service_node_total;
 	  result.base_miner_fee = miner_context.fee;
 	  return true;
   }

@@ -39,6 +39,8 @@
 #include "common/i18n.h"
 #include "quorum_cop.h"
 #include "common/exp2.h"
+#include "rapidjson/document.h"
+#include "rapidjson/pointer.h"
 
 #include "service_node_list.h"
 #include "service_node_rules.h"
@@ -56,9 +58,9 @@ namespace service_nodes
 		return  x / (secureMax / n);
 	}
 
-	uint64_t service_node_info::get_min_contribution() const
+	uint64_t service_node_info::get_min_contribution(uint64_t hf_version) const
 	{
-		uint64_t result = get_min_node_contribution(staking_requirement, total_reserved);
+		uint64_t result = get_min_node_contribution(hf_version, staking_requirement, total_reserved);
 		return result;
 	}
 
@@ -95,6 +97,7 @@ namespace service_nodes
 		}
 
 		uint64_t current_height = m_blockchain.get_current_blockchain_height();
+
 		bool loaded = load();
 
 		if (loaded && m_height == current_height) return;
@@ -145,10 +148,13 @@ namespace service_nodes
 
 	std::vector<crypto::public_key> service_node_list::get_service_nodes_pubkeys() const
 	{
+		int hard_fork_version = m_blockchain.get_hard_fork_version(m_height);
 		std::vector<crypto::public_key> result;
-		for (const auto& iter : m_service_nodes_infos)
-			if (iter.second.is_fully_funded())
+		for (const auto& iter : m_service_nodes_infos) {
+			//if(iter.second.is_valid())
+			if ((iter.second.is_valid() && hard_fork_version > 9) || iter.second.is_fully_funded())
 				result.push_back(iter.first);
+		}
 
 		std::sort(result.begin(), result.end(),
 			[](const crypto::public_key &a, const crypto::public_key &b) {
@@ -255,7 +261,6 @@ namespace service_nodes
 		expiration_timestamp = registration.m_expiration_timestamp;
 		signature = registration.m_service_node_signature;
 		tx_pub_key = cryptonote::get_tx_pub_key_from_extra(tx.extra);
-
 		return true;
 	}
 
@@ -581,16 +586,18 @@ namespace service_nodes
 		const auto hf_version = m_blockchain.get_hard_fork_version(block_height);
 		info.staking_requirement = get_staking_requirement(m_blockchain.nettype(), block_height);
 	
+		const auto max_contribs = MAX_NUMBER_OF_CONTRIBUTORS;
+
 		cryptonote::account_public_address address;
 		uint64_t transferred = 0;
 		if (!get_contribution(tx, block_height, address, transferred))
 			return false;
-		if (transferred < info.staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS)
+		if (transferred < info.staking_requirement / max_contribs)
 			return false;
 		int is_this_a_new_address = 0;
 		if (std::find(service_node_addresses.begin(), service_node_addresses.end(), address) == service_node_addresses.end())
 			is_this_a_new_address = 1;
-		if (service_node_addresses.size() + is_this_a_new_address > MAX_NUMBER_OF_CONTRIBUTORS)
+		if (service_node_addresses.size() + is_this_a_new_address > max_contribs)
 			return false;
 
 		// don't actually process this contribution now, do it when we fall through later.
@@ -627,6 +634,7 @@ namespace service_nodes
 
 		return true;
 	}
+
 
 	bool service_node_list::process_registration_tx(const cryptonote::transaction& tx, uint64_t block_timestamp, uint64_t block_height, uint32_t index)
 	{
@@ -726,6 +734,8 @@ namespace service_nodes
 			return;
 
 		auto& contributors = info.contributors;
+		const auto hf_version = m_blockchain.get_hard_fork_version(block_height);
+		const auto max_contribs = hf_version > 9 ? MAX_NUMBER_OF_CONTRIBUTORS_V2 : MAX_NUMBER_OF_CONTRIBUTORS;
 
 		// Only create a new contributor if they stake at least a quarter
 		// and if we don't already have the maximum
@@ -733,7 +743,7 @@ namespace service_nodes
 			[&address](const service_node_info::contribution& contributor) { return contributor.address == address; });
 		if (contrib_iter == contributors.end())
 		{
-			if (contributors.size() >= MAX_NUMBER_OF_CONTRIBUTORS || transferred < info.get_min_contribution())
+			if (contributors.size() >= max_contribs || transferred < info.get_min_contribution(m_blockchain.get_hard_fork_version(block_height)))
 				return;
 		}
 
@@ -839,7 +849,7 @@ namespace service_nodes
 
 		size_t registrations = 0;
 		size_t deregistrations = 0;
-
+		size_t contracts = 0;
 		uint32_t index = 0;
 		for (const auto& tx_pair : txs)
 		{
@@ -853,6 +863,7 @@ namespace service_nodes
 			if (process_deregistration_tx(tx_pair.first, block_height)) {
 				deregistrations++;
 			}
+
 			index++;
 		}
 
@@ -860,7 +871,9 @@ namespace service_nodes
 			update_swarms(block_height);
 		}
 
-		const size_t QUORUM_LIFETIME = (6 * triton::service_node_deregister::DEREGISTER_LIFETIME_BY_HEIGHT);
+    	const auto deregister_lifetime = hard_fork_version >= 9 ? triton::service_node_deregister::DEREGISTER_LIFETIME_BY_HEIGHT_V2 : triton::service_node_deregister::DEREGISTER_LIFETIME_BY_HEIGHT;
+
+		const size_t QUORUM_LIFETIME = (6 * deregister_lifetime);
 		// save six times the quorum lifetime, to be sure. also to help with debugging.
 		const size_t cache_state_from_height = (block_height < QUORUM_LIFETIME) ? 0 : block_height - QUORUM_LIFETIME;
 
@@ -989,11 +1002,13 @@ namespace service_nodes
 
 	crypto::public_key service_node_list::select_winner(const crypto::hash& prev_id) const
 	{
+		int hard_fork_version = m_blockchain.get_hard_fork_version(m_height);
 		std::lock_guard<boost::recursive_mutex> lock(m_sn_mutex);
 		auto oldest_waiting = std::pair<uint64_t, uint32_t>(std::numeric_limits<uint64_t>::max(), std::numeric_limits<uint32_t>::max());
 		crypto::public_key key = crypto::null_pkey;
 		for (const auto& info : m_service_nodes_infos)
-			if (info.second.is_fully_funded())
+		{
+			if ((info.second.is_valid() && hard_fork_version > 9) || info.second.is_fully_funded())
 			{
 				auto waiting_since = std::make_pair(info.second.last_reward_block_height, info.second.last_reward_transaction_index);
 				if (waiting_since < oldest_waiting)
@@ -1002,6 +1017,7 @@ namespace service_nodes
 					key = info.first;
 				}
 			}
+		}
 		return key;
 	}
 
@@ -1364,6 +1380,9 @@ namespace service_nodes
                                  bool& autostake,
                                  boost::optional<std::string&> err_msg)	{
 		autostake = false;
+
+		size_t max_num_stakers = 0;
+
 		if (!args.empty() && args[0] == "auto")
 		{
 			autostake = true;
@@ -1375,15 +1394,17 @@ namespace service_nodes
 			MERROR(tr("Usage: [auto] <operator cut> <address> <fraction> [<address> <fraction> [...]]]"));
 			return false;
 		}
-		if ((args.size()-1)/ 2 > MAX_NUMBER_OF_CONTRIBUTORS)
+		if ((args.size()-1)/ 2 > MAX_NUMBER_OF_CONTRIBUTORS_V2)
 		{
-		std::string msg = tr("Exceeds the maximum number of contributors, which is ") + std::to_string(MAX_NUMBER_OF_CONTRIBUTORS);
-		if (err_msg) *err_msg = msg;
-		MERROR(tr("Exceeds the maximum number of contributors, which is ") << MAX_NUMBER_OF_CONTRIBUTORS);
-		return false;
+			std::string msg = tr("Exceeds the maximum number of contributors, which is ") + std::to_string(MAX_NUMBER_OF_CONTRIBUTORS_V2);
+			if (err_msg) *err_msg = msg;
+			MERROR(tr("Exceeds the maximum number of contributors, which is ") << MAX_NUMBER_OF_CONTRIBUTORS_V2);
+			return false;
 		}
+
 		addresses.clear();
 		portions.clear();
+
 		try
 		{
 			portions_for_operator = boost::lexical_cast<uint64_t>(args[0]);
@@ -1398,6 +1419,7 @@ namespace service_nodes
 			MERROR(tr("Invalid portion amount: ") << args[0] << tr(". ") << tr("Must be between 0 and ") << STAKING_PORTIONS);
 			return false;
 		}
+
 		uint64_t portions_left = STAKING_PORTIONS;
 		for (size_t i = 1; i < args.size(); i += 2)
 		{
@@ -1435,7 +1457,7 @@ namespace service_nodes
 				if (num_portions < min_portions || num_portions > portions_left)
 				{
 					if (err_msg) *err_msg = "invalid amount for contributor " + args[i];
-					MERROR(tr("Invalid portion amount: ") << args[i + 1] << tr(". ") << tr("The contributors must each have at least 25%, except for the last contributor which may have the remaining amount"));
+					MERROR(tr("Invalid portion amount: ") << args[i + 1] << tr(". ") << tr("The operator must contribute at least 25%, all other contributors can have any amount open."));
 					return false;
 				}
 				portions_left -= num_portions;
@@ -1444,7 +1466,7 @@ namespace service_nodes
 			catch (const std::exception &e)
 			{
 				if (err_msg) *err_msg = "invalid amount for contributor " + args[i];
-				MERROR(tr("Invalid portion amount: ") << args[i + 1] << tr(". ") << tr("The contributors must each have at least 25%, except for the last contributor which may have the remaining amount"));
+				MERROR(tr("Invalid portion amount: ") << args[i + 1] << tr(". ") << tr("The operator must contribute at least 25%, all other contributors can have any amount open."));
 				return false;
 			}
 		}
