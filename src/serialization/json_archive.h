@@ -84,6 +84,8 @@ struct json_archive_base
   void end_variant() { end_object(); }
   Stream &stream() { return stream_; }
 
+  bool varint_bug_backward_compatibility_enabled() const { return false; }
+
 protected:
   void make_indent()
   {
