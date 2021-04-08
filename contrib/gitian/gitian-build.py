@@ -94,10 +94,6 @@ def build():
     os.chdir('builder')
     os.makedirs('inputs', exist_ok=True)
 
-    subprocess.check_call(['wget', '-N', '-P', 'inputs', 'https://downloads.sourceforge.net/project/osslsigncode/osslsigncode/osslsigncode-1.7.1.tar.gz'])
-    subprocess.check_call(['wget', '-N', '-P', 'inputs', 'https://bitcoincore.org/cfields/osslsigncode-Backports-to-1.7.1.patch'])
-    subprocess.check_output(["echo 'a8c4e9cafba922f89de0df1f2152e7be286aba73f78505169bc351a7938dd911 inputs/osslsigncode-Backports-to-1.7.1.patch' | sha256sum -c"], shell=True)
-    subprocess.check_output(["echo 'f9a8cdb38b9c309326764ebc937cba1523a3a751a7ab05df3ecc99d18ae466c9 inputs/osslsigncode-1.7.1.tar.gz' | sha256sum -c"], shell=True)
     subprocess.check_call(['make', '-C', 'inputs/monero/contrib/depends', 'download', 'SOURCES_PATH=' + os.getcwd() + '/cache/common'])
 
     rebuild()
