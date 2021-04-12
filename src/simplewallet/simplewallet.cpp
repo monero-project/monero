@@ -8755,8 +8755,8 @@ bool simple_wallet::check_reserve_proof(const std::vector<std::string> &args)
 
   try
   {
-    uint64_t total, spent;
-    if (m_wallet->check_reserve_proof(info.address, blockchain_height, args.size() == extra_args + 3 ? args[extra_args + 2] : "", sig_str, total, spent))
+    uint64_t total, spent, bc_height;
+    if (m_wallet->check_reserve_proof(info.address, blockchain_height, args.size() == extra_args + 3 ? args[extra_args + 2] : "", sig_str, total, spent, bc_height))
     {
       success_msg_writer() << boost::format(tr("Good signature -- received: %s, spent: %s, balance: %s as of block %u")) % print_money(total) % print_money(spent) % print_money(total - spent) % *blockchain_height;
     }
