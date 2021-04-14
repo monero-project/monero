@@ -35,6 +35,12 @@ set(crypto_sources
   hmac-keccak.c
   keccak.c
   tree-hash.c
+  groestl.c
+  hash-extra-blake.c
+  hash-extra-groestl.c
+  hash-extra-jh.c
+  hash-extra-skein.c
+  oaes_lib.c
   pow_hash/aux_hash.c
   pow_hash/cn_slow_hash_soft.cpp
   pow_hash/cn_slow_hash_hard_intel.cpp
@@ -62,15 +68,22 @@ endif()
 set(crypto_headers)
 
 set(crypto_private_headers
+  blake256.h
   chacha.h
   crypto-ops.h
   crypto.h
   generic-ops.h
+    groestl.h
+  groestl_tables.h
   hash-ops.h
   hash.h
+    jh.h
   hmac-keccak.h
   initializer.h
   keccak.h
+  skein_port.h
+  oaes_config.h
+  oaes_lib.h
   pow_hash/cn_slow_hash.hpp
   random.h
   sha512.h)
