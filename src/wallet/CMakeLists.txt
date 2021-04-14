@@ -75,6 +75,7 @@ target_link_libraries(wallet
     ${Boost_THREAD_LIBRARY}
     ${Boost_REGEX_LIBRARY}
   PRIVATE
+    ${ZMQ_LIB}
     ${EXTRA_LIBRARIES})
 
 if(NOT IOS)
