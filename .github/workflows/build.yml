@@ -2,6 +2,15 @@ name: ci/gh-actions/cli
 
 on: [push, pull_request]
 
+# The below variables reduce repetitions across similar targets
+env:
+  REMOVE_BUNDLED_BOOST : rm -rf /usr/local/share/boost
+  APT_INSTALL_LINUX: 'sudo apt -y install build-essential cmake libboost-all-dev miniupnpc libunbound-dev graphviz doxygen libunwind8-dev pkg-config libssl-dev libzmq3-dev libsodium-dev libhidapi-dev libnorm-dev libusb-1.0-0-dev libpgm-dev libprotobuf-dev protobuf-compiler ccache'
+  APT_SET_CONF: |
+        echo "Acquire::Retries \"3\";" | sudo tee -a /etc/apt/apt.conf.d/80-custom
+        echo "Acquire::http::Timeout \"120\";" | sudo tee -a /etc/apt/apt.conf.d/80-custom
+        echo "Acquire::ftp::Timeout \"120\";" | sudo tee -a /etc/apt/apt.conf.d/80-custom
+
 jobs:
   build-macos:
     runs-on: macOS-latest
@@ -66,16 +75,13 @@ jobs:
         key: ccache-ubuntu-build-${{ github.sha }}
         restore-keys: ccache-ubuntu-build-
     - name: remove bundled boost
-      run: sudo rm -rf /usr/local/share/boost
+      run: ${{env.REMOVE_BUNDLED_BOOST}}
     - name: set apt conf
-      run: |
-        echo "Acquire::Retries \"3\";" | sudo tee -a /etc/apt/apt.conf.d/80-custom
-        echo "Acquire::http::Timeout \"120\";" | sudo tee -a /etc/apt/apt.conf.d/80-custom
-        echo "Acquire::ftp::Timeout \"120\";" | sudo tee -a /etc/apt/apt.conf.d/80-custom
+      run: ${{env.APT_SET_CONF}}
     - name: update apt
       run: sudo apt update
     - name: install monero dependencies
-      run: sudo apt -y install build-essential cmake libboost-all-dev miniupnpc libunbound-dev graphviz doxygen libunwind8-dev pkg-config libssl-dev libzmq3-dev libsodium-dev libhidapi-dev libnorm-dev libusb-1.0-0-dev libpgm-dev libprotobuf-dev protobuf-compiler ccache
+      run: ${{env.APT_INSTALL_LINUX}}
     - name: build
       run: |
         ccache --max-size=150M
@@ -96,16 +102,13 @@ jobs:
         key: ccache-ubuntu-libwallet-${{ github.sha }}
         restore-keys: ccache-ubuntu-libwallet-
     - name: remove bundled boost
-      run: sudo rm -rf /usr/local/share/boost
+      run: ${{env.REMOVE_BUNDLED_BOOST}}
     - name: set apt conf
-      run: |
-        echo "Acquire::Retries \"3\";" | sudo tee -a /etc/apt/apt.conf.d/80-custom
-        echo "Acquire::http::Timeout \"120\";" | sudo tee -a /etc/apt/apt.conf.d/80-custom
-        echo "Acquire::ftp::Timeout \"120\";" | sudo tee -a /etc/apt/apt.conf.d/80-custom
+      run: ${{env.APT_SET_CONF}}
     - name: update apt
       run: sudo apt update
     - name: install monero dependencies
-      run: sudo apt -y install build-essential cmake libboost-all-dev miniupnpc libunbound-dev graphviz doxygen libunwind8-dev pkg-config libssl-dev libzmq3-dev libsodium-dev libhidapi-dev libnorm-dev libusb-1.0-0-dev libpgm-dev libprotobuf-dev protobuf-compiler ccache
+      run: ${{env.APT_INSTALL_LINUX}}
     - name: build
       run: |
         ccache --max-size=150M
@@ -129,16 +132,13 @@ jobs:
         key: test-ubuntu-ccache-${{ github.sha }}
         restore-keys: test-ubuntu-ccache-
     - name: remove bundled boost
-      run: sudo rm -rf /usr/local/share/boost
+      run: ${{env.REMOVE_BUNDLED_BOOST}}
     - name: set apt conf
-      run: |
-        echo "Acquire::Retries \"3\";" | sudo tee -a /etc/apt/apt.conf.d/80-custom
-        echo "Acquire::http::Timeout \"120\";" | sudo tee -a /etc/apt/apt.conf.d/80-custom
-        echo "Acquire::ftp::Timeout \"120\";" | sudo tee -a /etc/apt/apt.conf.d/80-custom
+      run: ${{env.APT_SET_CONF}}
     - name: update apt
       run: sudo apt update
     - name: install monero dependencies
-      run: sudo apt -y install build-essential cmake libboost-all-dev miniupnpc libunbound-dev graphviz doxygen libunwind8-dev pkg-config libssl-dev libzmq3-dev libsodium-dev libhidapi-dev libnorm-dev libusb-1.0-0-dev libpgm-dev libprotobuf-dev protobuf-compiler ccache
+      run: ${{env.APT_INSTALL_LINUX}}
     - name: install Python dependencies
       run: pip install requests psutil monotonic
     - name: tests
