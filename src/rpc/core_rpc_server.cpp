@@ -1043,6 +1043,7 @@ namespace cryptonote
       if (e.in_pool)
       {
         e.block_height = e.block_timestamp = std::numeric_limits<uint64_t>::max();
+        e.confirmations = 0;
         auto it = per_tx_pool_tx_info.find(tx_hash);
         if (it != per_tx_pool_tx_info.end())
         {
@@ -1061,6 +1062,7 @@ namespace cryptonote
       else
       {
         e.block_height = m_core.get_blockchain_storage().get_db().get_tx_block_height(tx_hash);
+        e.confirmations = m_core.get_current_blockchain_height() - e.block_height;
         e.block_timestamp = m_core.get_blockchain_storage().get_db().get_block_timestamp(e.block_height);
         e.received_timestamp = 0;
         e.double_spend_seen = false;
