@@ -164,6 +164,18 @@ function (monero_add_minimal_executable name)
     monero_set_target_no_relink( ${name} )
 endfunction()
 
+# Finds all headers in a directory and its subdirs, to be able to search for them and autosave in IDEs.
+#
+# Parameters:
+# - headers_found:    Output variable, which will hold the found headers
+# - module_root_dir:  The search path for the headers. Typically it will be the module's root dir.
+macro (monero_find_all_headers headers_found module_root_dir)
+  file(GLOB ${headers_found}
+           "${module_root_dir}/*.h*"    # h* will include hpps as well.
+           "${module_root_dir}/**/*.h*" # Any number of subdirs will be included.
+)
+endmacro()
+
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
   message(STATUS "Setting default build type: ${CMAKE_BUILD_TYPE}")
