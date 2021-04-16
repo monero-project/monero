@@ -27,6 +27,7 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <boost/archive/portable_binary_iarchive.hpp>
+#include <boost/filesystem.hpp>
 #include "cryptonote_config.h"
 #include "include_base_utils.h"
 #include "string_tools.h"

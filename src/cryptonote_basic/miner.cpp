@@ -44,6 +44,7 @@
 #include "string_tools.h"
 #include "storages/portable_storage_template_helper.h"
 #include "boost/logic/tribool.hpp"
+#include <boost/filesystem.hpp>
 
 #ifdef __APPLE__
   #include <sys/times.h>

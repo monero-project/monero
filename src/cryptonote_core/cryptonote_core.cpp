@@ -57,6 +57,8 @@ using namespace epee;
 #include "hardforks/hardforks.h"
 #include "version.h"
 
+#include <boost/filesystem.hpp>
+
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "cn"
 

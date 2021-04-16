@@ -38,7 +38,7 @@ add_library(epee STATIC byte_slice.cpp byte_stream.cpp hex.cpp abstract_http_cli
     wipeable_string.cpp levin_base.cpp memwipe.c connection_basic.cpp network_throttle.cpp network_throttle-detail.cpp mlocker.cpp buffer.cpp net_ssl.cpp
     int-util.cpp portable_storage.cpp
     misc_language.cpp
-
+    file_io_utils.cpp
     ${EPEE_HEADERS_PUBLIC}
     )
 
