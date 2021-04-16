@@ -2490,20 +2490,20 @@ void DefaultLogDispatchCallback::handle(const LogDispatchData* data) {
 
 
 template<typename Transform>
-static inline std::string utf8canonical(const std::string &s, Transform t = [](wint_t c)->wint_t { return c; })
+static inline void utf8canonical(std::string &s, Transform t = [](wint_t c)->wint_t { return c; })
 {
-    std::string sc = "";
     size_t avail = s.size();
     const char *ptr = s.data();
     wint_t cp = 0;
-    int bytes = 1;
+    int rbytes = 1, bytes = -1;
     char wbuf[8], *wptr;
+    size_t w_offset = 0;
     while (avail--)
     {
       if ((*ptr & 0x80) == 0)
       {
         cp = *ptr++;
-        bytes = 1;
+        rbytes = 1;
       }
       else if ((*ptr & 0xe0) == 0xc0)
       {
@@ -2512,7 +2512,7 @@ static inline std::string utf8canonical(const std::string &s, Transform t = [](w
         cp = (*ptr++ & 0x1f) << 6;
         cp |= *ptr++ & 0x3f;
         --avail;
-        bytes = 2;
+        rbytes = 2;
       }
       else if ((*ptr & 0xf0) == 0xe0)
       {
@@ -2522,7 +2522,7 @@ static inline std::string utf8canonical(const std::string &s, Transform t = [](w
         cp |= (*ptr++ & 0x3f) << 6;
         cp |= *ptr++ & 0x3f;
         avail -= 2;
-        bytes = 3;
+        rbytes = 3;
       }
       else if ((*ptr & 0xf8) == 0xf0)
       {
@@ -2533,7 +2533,7 @@ static inline std::string utf8canonical(const std::string &s, Transform t = [](w
         cp |= (*ptr++ & 0x3f) << 6;
         cp |= *ptr++ & 0x3f;
         avail -= 3;
-        bytes = 4;
+        rbytes = 4;
       }
       else
         throw std::runtime_error("Invalid UTF-8");
@@ -2550,6 +2550,9 @@ static inline std::string utf8canonical(const std::string &s, Transform t = [](w
       else
         throw std::runtime_error("Invalid code point UTF-8 transformation");
 
+      if (bytes > rbytes)
+        throw std::runtime_error("In place sanitization requires replacements to not take more space than the original code points");
+
       wptr = wbuf;
       switch (bytes)
       {
@@ -2560,16 +2563,17 @@ static inline std::string utf8canonical(const std::string &s, Transform t = [](w
         default: throw std::runtime_error("Invalid UTF-8");
       }
       *wptr = 0;
-      sc.append(wbuf, bytes);
+      memcpy(&s[w_offset], wbuf, bytes);
+      w_offset += bytes;
       cp = 0;
       bytes = 1;
     }
-    return sc;
+    s.resize(w_offset);
 }
 
 void sanitize(std::string &s)
 {
-  s = utf8canonical(s, [](wint_t c)->wint_t {
+  utf8canonical(s, [](wint_t c)->wint_t {
     if (c == 9 || c == 10 || c == 13)
       return c;
     if (c < 0x20)
