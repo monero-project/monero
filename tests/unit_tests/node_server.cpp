@@ -351,7 +351,7 @@ TEST(cryptonote_protocol_handler, race_condition)
     acceptor.set_option(boost::asio::ip::tcp::acceptor::reuse_address(true));
     acceptor.bind(endpoint, ec);
     EXPECT_EQ(ec.value(), 0);
-    acceptor.listen(boost::asio::socket_base::max_listen_connections, ec);
+    acceptor.listen(boost::asio::socket_base::max_connections, ec);
     EXPECT_EQ(ec.value(), 0);
     out->socket().open(endpoint.protocol(), ec);
     EXPECT_EQ(ec.value(), 0);
