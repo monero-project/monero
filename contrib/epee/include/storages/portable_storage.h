@@ -34,7 +34,6 @@
 namespace epee
 {
   class byte_slice;
-  class byte_stream;
   namespace serialization
   {
     /************************************************************************/
@@ -84,13 +83,8 @@ namespace epee
 
       //-------------------------------------------------------------------------------
       bool		store_to_binary(byte_slice& target, std::size_t initial_buffer_size = 8192);
-      bool		store_to_binary(byte_stream& ss);
-      bool		load_from_binary(const epee::span<const uint8_t> target, const limits_t *limits = nullptr);
-      bool		load_from_binary(const std::string& target, const limits_t *limits = nullptr)
-      {
-        return load_from_binary(epee::strspan<uint8_t>(target), limits);
-      }
-
+      bool		load_from_binary(const epee::span<const uint8_t> target, const limits_t *limits = NULL);
+      bool		load_from_binary(const std::string& target, const limits_t *limits = NULL);
       template<class trace_policy>
       bool		  dump_as_xml(std::string& targetObj, const std::string& root_name = "");
       bool		  dump_as_json(std::string& targetObj, size_t indent = 0, bool insert_newlines = true);

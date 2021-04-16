@@ -31,7 +31,6 @@
 
 #include <cstdint>
 
-#include "byte_stream.h"
 #include "net_utils_base.h"
 #include "span.h"
 
@@ -84,12 +83,11 @@ namespace levin
 
 #define LEVIN_PROTOCOL_VER_0         0
 #define LEVIN_PROTOCOL_VER_1         1
-
  
   template<class t_connection_context = net_utils::connection_context_base>
   struct levin_commands_handler
   {
-    virtual int invoke(int command, const epee::span<const uint8_t> in_buff, byte_stream& buff_out, t_connection_context& context)=0;
+    virtual int invoke(int command, const epee::span<const uint8_t> in_buff, byte_slice& buff_out, t_connection_context& context)=0;
     virtual int notify(int command, const epee::span<const uint8_t> in_buff, t_connection_context& context)=0;
     virtual void callback(t_connection_context& context){};
 
@@ -127,40 +125,11 @@ namespace levin
     }
   }
 
-  //! Provides space for levin (p2p) header, so that payload can be sent without copy
-  class message_writer
-  {
-    byte_slice finalize(uint32_t command, uint32_t flags, uint32_t return_code, bool expect_response);
-  public:
-    using header = bucket_head2;
-
-    explicit message_writer(std::size_t reserve = 8192);
-
-    message_writer(const message_writer&) = delete;
-    message_writer(message_writer&&) = default;
-    ~message_writer() = default;
-    message_writer& operator=(const message_writer&) = delete;
-    message_writer& operator=(message_writer&&) = default;
-
-    //! \return Size of payload (excludes header size).
-    std::size_t payload_size() const noexcept
-    {
-      return buffer.size() < sizeof(header) ? 0 : buffer.size() - sizeof(header);
-    }
-
-    byte_slice finalize_invoke(uint32_t command) { return finalize(command, LEVIN_PACKET_REQUEST, 0, true); }
-    byte_slice finalize_notify(uint32_t command) { return finalize(command, LEVIN_PACKET_REQUEST, 0, false); }
-    byte_slice finalize_response(uint32_t command, uint32_t return_code)
-    {
-      return finalize(command, LEVIN_PACKET_RESPONSE, return_code, false);
-    }
-
-    //! Has space for levin header until a finalize method is used
-    byte_stream buffer;
-  };
-
   //! \return Intialized levin header.
   bucket_head2 make_header(uint32_t command, uint64_t msg_size, uint32_t flags, bool expect_response) noexcept;
+
+  //! \return A levin notification message.
+  byte_slice make_notify(int command, epee::span<const std::uint8_t> payload);
 
   /*! Generate a dummy levin message.
 
@@ -171,11 +140,12 @@ namespace levin
 
   /*! Generate 1+ levin messages that are identical to the noise message size.
 
-   \param noise_size Each levin message will be identical to this value.
+   \param noise Each levin message will be identical to the size of this
+      message. The bytes from this message will be used for padding.
    \return `nullptr` if `noise.size()` is less than the levin header size.
       Otherwise, a levin notification message OR 2+ levin fragment messages.
       Each message is `noise.size()` in length. */
-  byte_slice make_fragmented_notify(const std::size_t noise_size, int command, message_writer message);
+  byte_slice make_fragmented_notify(const byte_slice& noise, int command, epee::span<const std::uint8_t> payload);
 }
 }
 

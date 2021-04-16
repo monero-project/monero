@@ -68,13 +68,13 @@ namespace
     {
     }
 
-    virtual int invoke(int command, const epee::span<const uint8_t> in_buff, epee::byte_stream& buff_out, test_levin_connection_context& context)
+    virtual int invoke(int command, const epee::span<const uint8_t> in_buff, epee::byte_slice& buff_out, test_levin_connection_context& context)
     {
       m_invoke_counter.inc();
       boost::unique_lock<boost::mutex> lock(m_mutex);
       m_last_command = command;
       m_last_in_buf = std::string((const char*)in_buff.data(), in_buff.size());
-      buff_out.write(epee::to_span(m_invoke_out_buf));
+      buff_out = m_invoke_out_buf.clone();
       return m_return_code;
     }
 
