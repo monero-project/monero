@@ -151,8 +151,9 @@ if (BUILD_GUI_DEPS)
 
     install(FILES ${TREZOR_DEP_LIBS}
             DESTINATION ${lib_folder})
-    file(WRITE "trezor_link_flags.txt" ${TREZOR_DEP_LINKER})
-    install(FILES "trezor_link_flags.txt"
+    set(TREZOR_LINK_FLAGS_FILE "${CMAKE_BINARY_DIR}/${CMAKE_FILES_DIRECTORY}/trezor_link_flags.txt")
+    file(WRITE ${TREZOR_LINK_FLAGS_FILE} ${TREZOR_DEP_LINKER})
+    install(FILES ${TREZOR_LINK_FLAGS_FILE}
             DESTINATION ${lib_folder})
 endif()
 
