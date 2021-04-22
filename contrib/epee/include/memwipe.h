@@ -32,6 +32,7 @@
 
 #ifdef __cplusplus
 #include <array>
+#include <cstddef>
 
 extern "C" {
 #endif

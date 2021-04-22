@@ -28,6 +28,7 @@
 
 #include <stdio.h>
 #include "misc_language.h"
+#include "misc_log_ex.h"
 #include "string_tools.h"
 #include "rpc/rpc_payment_signature.h"
 
