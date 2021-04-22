@@ -83,6 +83,7 @@ namespace tools
     //         tx_rejected
     //         tx_sum_overflow
     //         tx_too_big
+    //         zero_amount
     //         zero_destination
     //       wallet_rpc_error *
     //         daemon_busy
@@ -750,10 +751,18 @@ namespace tools
       uint64_t m_tx_weight_limit;
     };
     //----------------------------------------------------------------------------------------------------
+    struct zero_amount: public transfer_error
+    {
+      explicit zero_amount(std::string&& loc)
+        : transfer_error(std::move(loc), "destination amount is zero")
+      {
+      }
+    };
+    //----------------------------------------------------------------------------------------------------
     struct zero_destination : public transfer_error
     {
       explicit zero_destination(std::string&& loc)
-        : transfer_error(std::move(loc), "destination amount is zero")
+        : transfer_error(std::move(loc), "transaction has no destination")
       {
       }
     };
