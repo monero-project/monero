@@ -919,6 +919,19 @@ struct Wallet
     */
     virtual bool importKeyImages(const std::string &filename) = 0;
 
+    /*!
+     * \brief importOutputs - exports outputs to file
+     * \param filename
+     * \return                  - true on success
+     */
+    virtual bool exportOutputs(const std::string &filename, bool all = false) = 0;
+
+    /*!
+     * \brief importOutputs - imports outputs from file
+     * \param filename
+     * \return                  - true on success
+     */
+    virtual bool importOutputs(const std::string &filename) = 0;
 
     virtual TransactionHistory * history() = 0;
     virtual AddressBook * addressBook() = 0;
