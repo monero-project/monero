@@ -34,6 +34,25 @@ namespace epee
 {
 namespace levin
 {
+  message_writer::message_writer(const std::size_t reserve)
+    : buffer()
+  {
+    buffer.reserve(reserve);
+    buffer.put_n(0, sizeof(header));
+  }
+
+  byte_slice message_writer::finalize(const uint32_t command, const uint32_t flags, const uint32_t return_code, const bool expect_response)
+  {
+    if (buffer.size() < sizeof(header))
+      throw std::runtime_error{"levin_writer::finalize already called"};
+
+    header head = make_header(command, payload_size(), flags, expect_response);
+    head.m_return_code = SWAP32LE(return_code);
+
+    std::memcpy(buffer.tellp() - buffer.size(), std::addressof(head), sizeof(head));
+    return byte_slice{std::move(buffer)};
+  }
+
   bucket_head2 make_header(uint32_t command, uint64_t msg_size, uint32_t flags, bool expect_response) noexcept
   {
     bucket_head2 head = {0};
@@ -45,12 +64,6 @@ namespace levin
     head.m_protocol_version = SWAP32LE(LEVIN_PROTOCOL_VER_1);
     head.m_flags = SWAP32LE(flags);
     return head;
-  }
-
-  byte_slice make_notify(int command, epee::span<const std::uint8_t> payload)
-  {
-    const bucket_head2 head = make_header(command, payload.size(), LEVIN_PACKET_REQUEST, false);
-    return byte_slice{epee::as_byte_span(head), payload};
   }
 
   byte_slice make_noise_notify(const std::size_t noise_bytes)
@@ -68,46 +81,40 @@ namespace levin
     return byte_slice{std::move(buffer)};
   }
 
-  byte_slice make_fragmented_notify(const byte_slice& noise_message, int command, epee::span<const std::uint8_t> payload)
+  byte_slice make_fragmented_notify(const std::size_t noise_size, const int command, message_writer message)
   {
-    const size_t noise_size = noise_message.size();
     if (noise_size < sizeof(bucket_head2) * 2)
       return nullptr;
 
-    if (payload.size() <= noise_size - sizeof(bucket_head2))
+    if (message.buffer.size() <= noise_size)
     {
       /* The entire message can be sent at once, and the levin binary parser
          will ignore extra bytes. So just pad with zeroes and otherwise send
          a "normal", not fragmented message. */
-      const size_t padding = noise_size - sizeof(bucket_head2) - payload.size();
-      const span<const uint8_t> padding_bytes{noise_message.end() - padding, padding};
 
-      const bucket_head2 head = make_header(command, noise_size - sizeof(bucket_head2), LEVIN_PACKET_REQUEST, false);
-      return byte_slice{as_byte_span(head), payload, padding_bytes};
+      message.buffer.put_n(0, noise_size - message.buffer.size());
+      return message.finalize_notify(command);
     }
 
     // fragment message
+    const byte_slice payload_bytes = message.finalize_notify(command);
+    span<const std::uint8_t> payload = to_span(payload_bytes);
+
     const size_t payload_space = noise_size - sizeof(bucket_head2);
     const size_t expected_fragments = ((payload.size() - 2) / payload_space) + 1;
 
-    std::string buffer{};
-    buffer.reserve((expected_fragments + 1) * noise_size); // +1 here overselects for internal bucket_head2 value
+    byte_stream buffer{};
+    buffer.reserve(expected_fragments * noise_size);
 
-    bucket_head2 head = make_header(0, noise_size - sizeof(bucket_head2), LEVIN_PACKET_BEGIN, false);
-    buffer.append(reinterpret_cast<const char*>(&head), sizeof(head));
+    bucket_head2 head = make_header(0, payload_space, LEVIN_PACKET_BEGIN, false);
+    buffer.write(as_byte_span(head));
 
-    head.m_command = command;
-    head.m_flags = LEVIN_PACKET_REQUEST;
-    head.m_cb = payload.size();
-    buffer.append(reinterpret_cast<const char*>(&head), sizeof(head));
+    // internal levin header is in payload already
 
-    size_t copy_size = payload.remove_prefix(payload_space - sizeof(bucket_head2));
-    buffer.append(reinterpret_cast<const char*>(payload.data()) - copy_size, copy_size);
+    size_t copy_size = payload.remove_prefix(payload_space);
+    buffer.write(payload.data() - copy_size, copy_size);
 
-    head.m_command = 0;
     head.m_flags = 0;
-    head.m_cb = noise_size - sizeof(bucket_head2);
-
     while (!payload.empty())
     {
       copy_size = payload.remove_prefix(payload_space);
@@ -115,12 +122,12 @@ namespace levin
       if (payload.empty())
         head.m_flags = LEVIN_PACKET_END;
 
-      buffer.append(reinterpret_cast<const char*>(&head), sizeof(head));
-      buffer.append(reinterpret_cast<const char*>(payload.data()) - copy_size, copy_size);
+      buffer.write(as_byte_span(head));
+      buffer.write(payload.data() - copy_size, copy_size);
     }
 
     const size_t padding = noise_size - copy_size - sizeof(bucket_head2);
-    buffer.append(reinterpret_cast<const char*>(noise_message.end()) - padding, padding);
+    buffer.put_n(0, padding);
 
     return byte_slice{std::move(buffer)};
   }

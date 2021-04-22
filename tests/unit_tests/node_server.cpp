@@ -449,7 +449,6 @@ TEST(cryptonote_protocol_handler, race_condition)
   };
   struct net_node_t: commands_handler_t, p2p_endpoint_t {
     using span_t = epee::span<const uint8_t>;
-    using string_t = std::string;
     using zone_t = epee::net_utils::zone;
     using uuid_t = boost::uuids::uuid;
     using relay_t = cryptonote::relay_method;
@@ -462,12 +461,9 @@ TEST(cryptonote_protocol_handler, race_condition)
       using subnets = std::map<epee::net_utils::ipv4_network_subnet, time_t>;
       using hosts = std::map<std::string, time_t>;
     };
-    struct slice {
-      using bytes = epee::byte_slice;
-    };
     shared_state_ptr shared_state;
     core_protocol_ptr core_protocol;
-    virtual int invoke(int command, const span_t in, slice::bytes &out, context_t &context) override {
+    virtual int invoke(int command, const span_t in, epee::byte_stream &out, context_t &context) override {
       if (core_protocol) {
         if (command == messages::handshake::ID) {
           return epee::net_utils::buff_to_t_adapter<void, typename messages::handshake::request, typename messages::handshake::response>(
@@ -491,7 +487,7 @@ TEST(cryptonote_protocol_handler, race_condition)
     virtual int notify(int command, const span_t in, context_t &context) override {
       if (core_protocol) {
         bool handled;
-        slice::bytes out;
+        epee::byte_stream out;
         return core_protocol->handle_invoke_map(true, command, in, out, context, handled);
       }
       else
@@ -527,22 +523,16 @@ TEST(cryptonote_protocol_handler, race_condition)
       else
         return {};
     }
-    virtual bool invoke_command_to_peer(int command, const span_t in, string_t& out, const contexts::basic& context) override {
+    virtual bool invoke_notify_to_peer(int command, epee::levin::message_writer in, const contexts::basic& context) override {
       if (shared_state)
-        return shared_state->invoke(command, in, out, context.m_connection_id);
+        return shared_state->send(in.finalize_notify(command), context.m_connection_id);
       else
         return {};
     }
-    virtual bool invoke_notify_to_peer(int command, const span_t in, const contexts::basic& context) override {
-      if (shared_state)
-        return shared_state->notify(command, in, context.m_connection_id);
-      else
-        return {};
-    }
-    virtual bool relay_notify_to_list(int command, const span_t in, connections_t connections) override {
+    virtual bool relay_notify_to_list(int command, epee::levin::message_writer in, connections_t connections) override {
       if (shared_state) {
         for (auto &e: connections)
-          shared_state->notify(command, in, e.second);
+          shared_state->send(in.finalize_notify(command), e.second);
       }
       return {};
     }
