@@ -1587,6 +1587,12 @@ bool wallet2::should_expand(const cryptonote::subaddress_index &index) const
     return false;
   return true;
 }
+
+std::vector<crypto::public_key> wallet2::get_subaddress_spend_public_keys(uint32_t account, uint32_t begin, uint32_t end) const
+{
+    hw::device &hwdev = m_account.get_device();
+    return hwdev.get_subaddress_spend_public_keys(m_account.get_keys(), account, begin, end);
+}
 //----------------------------------------------------------------------------------------------------
 void wallet2::expand_subaddresses(const cryptonote::subaddress_index& index)
 {
@@ -12424,9 +12430,14 @@ static crypto::hash get_message_hash(const std::string &data, const crypto::publ
   return hash;
 }
 
+std::string wallet2::sign(const std::string &data, message_signature_type_t signature_type) const
+{
+    return sign(data, signature_type, {0, 0}); // A way to supply a default parameter, without having to expose the cryptonote::subaddress_index type
+}
+
 // Sign a message with a private key from either the base address or a subaddress
 // The signature is also bound to both keys and the signature mode (spend, view) to prevent unintended reuse
-std::string wallet2::sign(const std::string &data, message_signature_type_t signature_type, cryptonote::subaddress_index index) const
+std::string wallet2::sign(const std::string &data, message_signature_type_t signature_type, const cryptonote::subaddress_index & index) const
 {
   const cryptonote::account_keys &keys = m_account.get_keys();
   crypto::signature signature;

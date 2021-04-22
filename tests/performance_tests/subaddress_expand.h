@@ -30,7 +30,7 @@
 
 #pragma once
 
-#include "wallet/wallet2.h"
+#include "wallet/wallet2_base.h"
 #include "ringct/rctOps.h"
 
 #include "single_tx_test_base.h"
@@ -42,24 +42,30 @@ public:
   static const size_t loop_count = 1;
   static const size_t major = Major;
   static const size_t minor = Minor;
+  
+  test_wallet2_expand_subaddresses()
+  : wallet(tools::wallet2_base::create())
+  {
+      
+  }
 
   bool init()
   {
     if (!single_tx_test_base::init())
       return false;
-    wallet.set_subaddress_lookahead(1, 1);
+    wallet->set_subaddress_lookahead(1, 1);
     crypto::secret_key spendkey = rct::rct2sk(rct::skGen());
-    wallet.generate("", "", spendkey, true, false);
-    wallet.set_subaddress_lookahead(major, minor);
+    wallet->generate("", "", spendkey, true, false);
+    wallet->set_subaddress_lookahead(major, minor);
     return true;
   }
 
   bool test()
   {
-    wallet.expand_subaddresses({1, 0});
+    wallet->expand_subaddresses({1, 0});
     return true;
   }
 
 private:
-  tools::wallet2 wallet;
+  std::unique_ptr<tools::wallet2_base> wallet;
 };

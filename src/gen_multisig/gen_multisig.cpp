@@ -45,7 +45,10 @@
 #include "common/util.h"
 #include "common/scoped_message_writer.h"
 #include "wallet/wallet_args.h"
-#include "wallet/wallet2.h"
+#include "wallet/wallet2_base.h"
+#include "common/password.h"
+#include "ringct/rctOps.h"
+#include "cryptonote_basic/account.h"
 
 using namespace std;
 using namespace epee;
@@ -85,11 +88,11 @@ static bool generate_multisig(uint32_t threshold, uint32_t total, const std::str
   try
   {
     // create M wallets first
-    std::vector<boost::shared_ptr<tools::wallet2>> wallets(total);
+    std::vector<std::unique_ptr<tools::wallet2_base>> wallets(total);
     for (size_t n = 0; n < total; ++n)
     {
       std::string name = basename + "-" + std::to_string(n + 1);
-      wallets[n].reset(new tools::wallet2(nettype, 1, false));
+      wallets[n] = tools::wallet2_base::create(nettype, 1, false);
       wallets[n]->init("");
       wallets[n]->generate(name, pwd_container->password(), rct::rct2sk(rct::skGen()), false, false, create_address_file);
     }
@@ -100,7 +103,7 @@ static bool generate_multisig(uint32_t threshold, uint32_t total, const std::str
     for (size_t n = 0; n < total; ++n)
     {
       wallets[n]->decrypt_keys(pwd_container->password());
-      if (!tools::wallet2::verify_multisig_info(wallets[n]->get_multisig_info(), sk[n], pk[n]))
+      if (!tools::wallet2_base::verify_multisig_info(wallets[n]->get_multisig_info(), sk[n], pk[n]))
       {
         tools::fail_msg_writer() << genms::tr("Failed to verify multisig info");
         return false;
@@ -135,7 +138,7 @@ static bool generate_multisig(uint32_t threshold, uint32_t total, const std::str
       std::vector<crypto::public_key> signers(total);
       for (size_t n = 0; n < total; ++n)
       {
-        if (!tools::wallet2::verify_extra_multisig_info(extra_info[n], pkeys, signers[n]))
+        if (!tools::wallet2_base::verify_extra_multisig_info(extra_info[n], pkeys, signers[n]))
         {
           tools::fail_msg_writer() << genms::tr("Error verifying multisig extra info");
           return false;

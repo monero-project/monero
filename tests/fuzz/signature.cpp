@@ -31,15 +31,15 @@
 #include "cryptonote_basic/blobdatatype.h"
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
-#include "wallet/wallet2.h"
+#include "wallet/wallet2_base.h"
 #include "fuzzer.h"
 
-static tools::wallet2 *wallet = NULL;
+static tools::wallet2_base *wallet = nullptr;
 static cryptonote::account_public_address address;
 
 BEGIN_INIT_SIMPLE_FUZZER()
-  static tools::wallet2 local_wallet(cryptonote::TESTNET);
-  wallet = &local_wallet;
+  static std::unique_ptr<tools::wallet2_base> local_wallet = tools::wallet2_base::create(cryptonote::TESTNET);
+  wallet = local_wallet.get();
 
   static const char * const spendkey_hex = "0b4f47697ec99c3de6579304e5f25c68b07afbe55b71d99620bf6cbf4e45a80f";
   crypto::secret_key spendkey;
@@ -59,6 +59,6 @@ BEGIN_INIT_SIMPLE_FUZZER()
 END_INIT_SIMPLE_FUZZER()
 
 BEGIN_SIMPLE_FUZZER()
-  tools::wallet2::message_signature_result_t result = wallet->verify("test", address, std::string((const char*)buf, len));
+  tools::wallet2_base::message_signature_result_t result = wallet->verify("test", address, std::string((const char*)buf, len));
   std::cout << "Signature " << (result.valid ? "valid" : "invalid") << std::endl;
 END_SIMPLE_FUZZER()

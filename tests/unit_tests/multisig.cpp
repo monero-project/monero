@@ -30,7 +30,8 @@
 
 #include <cstdint>
 
-#include "wallet/wallet2.h"
+#include "wallet/wallet2_base.h"
+#include "cryptonote_basic/account.h"
 
 static const struct
 {
@@ -62,7 +63,7 @@ static const struct
 
 static const size_t KEYS_COUNT = 5;
 
-static void make_wallet(unsigned int idx, tools::wallet2 &wallet)
+static void make_wallet(unsigned int idx, tools::wallet2_base &wallet)
 {
   ASSERT_TRUE(idx < sizeof(test_addresses) / sizeof(test_addresses[0]));
 
@@ -86,39 +87,44 @@ static void make_wallet(unsigned int idx, tools::wallet2 &wallet)
   }
 }
 
-static std::vector<std::string> exchange_round(std::vector<tools::wallet2>& wallets, const std::vector<std::string>& mis)
+static std::vector<std::string> exchange_round(std::vector<std::unique_ptr<tools::wallet2_base>>& wallets, const std::vector<std::string>& mis)
 {
   std::vector<std::string> new_infos;
   for (size_t i = 0; i < wallets.size(); ++i) {
-      new_infos.push_back(wallets[i].exchange_multisig_keys("", mis));
+      new_infos.push_back(wallets[i]->exchange_multisig_keys("", mis));
   }
 
   return new_infos;
 }
 
-static void make_wallets(std::vector<tools::wallet2>& wallets, unsigned int M)
+static void make_wallets(std::vector<std::unique_ptr<tools::wallet2_base>>& wallets, unsigned int M)
 {
+  for (auto & walletPtr : wallets)
+  {
+    walletPtr = tools::wallet2_base::create();
+  }
   ASSERT_TRUE(wallets.size() > 1 && wallets.size() <= KEYS_COUNT);
   ASSERT_TRUE(M <= wallets.size());
 
   std::vector<std::string> mis(wallets.size());
 
   for (size_t i = 0; i < wallets.size(); ++i) {
-    make_wallet(i, wallets[i]);
+    auto & wallet = *wallets[i];
+    make_wallet(i, wallet);
 
-    wallets[i].decrypt_keys("");
-    mis[i] = wallets[i].get_multisig_info();
-    wallets[i].encrypt_keys("");
+    wallet.decrypt_keys("");
+    mis[i] = wallet.get_multisig_info();
+    wallet.encrypt_keys("");
   }
 
   for (auto& wallet: wallets) {
-    ASSERT_FALSE(wallet.multisig());
+    ASSERT_FALSE(wallet->multisig());
   }
 
   std::vector<std::string> mxis;
   for (size_t i = 0; i < wallets.size(); ++i) {
     // it's ok to put all of multisig keys in this function. it throws in case of error
-    mxis.push_back(wallets[i].make_multisig("", mis, M));
+    mxis.push_back(wallets[i]->make_multisig("", mis, M));
   }
 
   while (!mxis[0].empty()) {
@@ -129,44 +135,44 @@ static void make_wallets(std::vector<tools::wallet2>& wallets, unsigned int M)
     ASSERT_TRUE(mxis[i].empty());
     bool ready;
     uint32_t threshold, total;
-    ASSERT_TRUE(wallets[i].multisig(&ready, &threshold, &total));
+    ASSERT_TRUE(wallets[i]->multisig(&ready, &threshold, &total));
     ASSERT_TRUE(ready);
     ASSERT_TRUE(threshold == M);
     ASSERT_TRUE(total == wallets.size());
 
     if (i != 0) {
       // "equals" is transitive relation so we need only to compare first wallet's address to each others' addresses. no need to compare 0's address with itself.
-      ASSERT_TRUE(wallets[0].get_account().get_public_address_str(cryptonote::TESTNET) == wallets[i].get_account().get_public_address_str(cryptonote::TESTNET));
+      ASSERT_TRUE(wallets[0]->get_account().get_public_address_str(cryptonote::TESTNET) == wallets[i]->get_account().get_public_address_str(cryptonote::TESTNET));
     }
   }
 }
 
 TEST(multisig, make_2_2)
 {
-  std::vector<tools::wallet2> wallets(2);
+  std::vector<std::unique_ptr<tools::wallet2_base>> wallets(2);
   make_wallets(wallets, 2);
 }
 
 TEST(multisig, make_3_3)
 {
-  std::vector<tools::wallet2> wallets(3);
+  std::vector<std::unique_ptr<tools::wallet2_base>> wallets(3);
   make_wallets(wallets, 3);
 }
 
 TEST(multisig, make_2_3)
 {
-  std::vector<tools::wallet2> wallets(3);
+  std::vector<std::unique_ptr<tools::wallet2_base>> wallets(3);
   make_wallets(wallets, 2);
 }
 
 TEST(multisig, make_2_4)
 {
-  std::vector<tools::wallet2> wallets(4);
+  std::vector<std::unique_ptr<tools::wallet2_base>> wallets(4);
   make_wallets(wallets, 2);
 }
 
 TEST(multisig, make_2_5)
 {
-  std::vector<tools::wallet2> wallets(5);
+  std::vector<std::unique_ptr<tools::wallet2_base>> wallets(5);
   make_wallets(wallets, 2);
 }
