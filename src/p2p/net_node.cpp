@@ -32,7 +32,7 @@
 #include <boost/algorithm/string/finder.hpp>
 #include <boost/chrono/duration.hpp>
 #include <boost/endian/conversion.hpp>
-#include <boost/optional/optional.hpp>
+#include "3rd/boost_monero_optional.h"
 #include <boost/thread/future.hpp>
 #include <boost/utility/string_ref.hpp>
 #include <chrono>

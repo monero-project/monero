@@ -35,7 +35,7 @@
 #include <boost/serialization/vector.hpp>
 #include <boost/program_options/variables_map.hpp>
 #include <boost/program_options/options_description.hpp>
-#include <boost/optional/optional.hpp>
+#include "fwd/boost_monero_optional_fwd.h"
 #include "serialization/serialization.h"
 #include "cryptonote_basic/cryptonote_boost_serialization.h"
 #include "cryptonote_basic/account_boost_serialization.h"

@@ -39,7 +39,7 @@
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/identity.hpp>
 #include <boost/multi_index/member.hpp>
-#include <boost/optional/optional.hpp>
+#include "fwd/boost_monero_optional_fwd.h"
 #include <boost/range/adaptor/reversed.hpp>
 
 

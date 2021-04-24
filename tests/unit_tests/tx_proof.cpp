@@ -34,6 +34,7 @@ extern "C" {
 }
 #include "crypto/hash.h"
 #include <boost/algorithm/string.hpp>
+#include "3rd/boost_monero_optional.h"
 
 static inline unsigned char *operator &(crypto::ec_point &point) {
     return &reinterpret_cast<unsigned char &>(point);

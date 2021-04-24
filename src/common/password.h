@@ -32,7 +32,8 @@
 
 #include <string>
 #include <atomic>
-#include <boost/optional/optional.hpp>
+#include <functional>
+#include "fwd/boost_monero_optional_fwd.h"
 #include "wipeable_string.h"
 
 namespace tools

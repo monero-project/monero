@@ -32,6 +32,7 @@
 
 #include "crypto/crypto.h"
 #include "cryptonote_basic/cryptonote_basic.h"
+#include "3rd/boost_monero_optional.h"
 
 #include "single_tx_test_base.h"
 

@@ -30,7 +30,7 @@
 #include <vector>
 #include <string>
 #include <functional>
-#include <boost/optional/optional_fwd.hpp>
+#include "fwd/boost_monero_optional_fwd.h"
 #include <boost/utility/string_ref_fwd.hpp>
 
 namespace tools

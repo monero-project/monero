@@ -39,6 +39,7 @@
 #include "crypto/crypto.h"
 #include "crypto/hash.h"
 #include "ringct/rctSigs.h"
+#include "3rd/boost_monero_optional.h"
 
 using namespace epee;
 

@@ -34,7 +34,7 @@
 #include <boost/bind/bind.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/filesystem/operations.hpp>
-#include <boost/optional/optional.hpp>
+#include "3rd/boost_monero_optional.h"
 #include <boost/thread/thread.hpp>
 #include <boost/uuid/uuid_io.hpp>
 #include <boost/algorithm/string.hpp>

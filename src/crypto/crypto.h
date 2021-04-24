@@ -32,7 +32,7 @@
 
 #include <cstddef>
 #include <iostream>
-#include <boost/optional.hpp>
+#include "fwd/boost_monero_optional_fwd.h"
 #include <type_traits>
 #include <vector>
 #include <random>

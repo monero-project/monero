@@ -26,9 +26,9 @@
 #pragma once
 
 #include <string>
-#include <boost/optional/optional.hpp>
-#include "http_auth.h"
+#include "fwd/boost_monero_optional_fwd.h"
 #include "net/net_ssl.h"
+#include "net/http_types.h"
 
 namespace epee
 {
@@ -63,9 +63,9 @@ namespace http
   public:
     abstract_http_client() {}
     virtual ~abstract_http_client() {}
-    bool set_server(const std::string& address, boost::optional<login> user, ssl_options_t ssl_options = ssl_support_t::e_ssl_support_autodetect);
+    bool set_server(const std::string& address, const boost::optional<login> & user, ssl_options_t ssl_options = ssl_support_t::e_ssl_support_autodetect);
     virtual bool set_proxy(const std::string& address);
-    virtual void set_server(std::string host, std::string port, boost::optional<login> user, ssl_options_t ssl_options = ssl_support_t::e_ssl_support_autodetect) = 0;
+    virtual void set_server(std::string host, std::string port, const boost::optional<login> & user, ssl_options_t ssl_options = ssl_support_t::e_ssl_support_autodetect) = 0;
     virtual void set_auto_connect(bool auto_connect) = 0;
     virtual bool connect(std::chrono::milliseconds timeout) = 0;
     virtual bool disconnect() = 0;

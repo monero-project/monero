@@ -32,7 +32,7 @@
 
 #include <boost/thread/locks.hpp>
 #include <boost/thread/mutex.hpp>
-#include <boost/optional.hpp>
+#include "fwd/boost_monero_optional_fwd.h"
 #include <system_error>
 #include <csignal>
 #include <cstdio>

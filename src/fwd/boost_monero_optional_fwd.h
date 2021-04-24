@@ -1,4 +1,4 @@
-// Copyright (c) 2016-2020, The Monero Project
+// Copyright (c) 2014-2020, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -25,43 +25,14 @@
 // INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// 
+// Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 #pragma once
 
-#include "fwd/boost_monero_optional_fwd.h"
-#include <cstdint>
-#include <string>
-#include <vector>
-#include "byte_slice.h"
-#include "crypto/hash.h"
+/*
+Only boost::optional fwds go here
+*/
 
-namespace cryptonote
-{
-class core;
+#include <boost/optional/optional_fwd.hpp>
 
-namespace rpc
-{
-
-struct output_distribution_data
-{
-  std::vector<std::uint64_t> distribution;
-  std::uint64_t start_height;
-  std::uint64_t base;
-};
-
-class RpcHandler
-{
-  public:
-    RpcHandler() { }
-    virtual ~RpcHandler() { }
-
-    virtual epee::byte_slice handle(std::string&& request) = 0;
-
-    static boost::optional<output_distribution_data>
-      get_output_distribution(const std::function<bool(uint64_t, uint64_t, uint64_t, uint64_t&, std::vector<uint64_t>&, uint64_t&)> &f, uint64_t amount, uint64_t from_height, uint64_t to_height, const std::function<crypto::hash(uint64_t)> &get_hash, bool cumulative, uint64_t blockchain_height);
-};
-
-
-}  // rpc
-
-}  // cryptonote

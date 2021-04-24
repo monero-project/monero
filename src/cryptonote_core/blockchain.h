@@ -41,6 +41,7 @@
 #include <boost/multi_index/global_fun.hpp>
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>
+#include "3rd/boost_monero_optional.h"
 #include <atomic>
 #include <functional>
 #include <unordered_map>

@@ -34,6 +34,8 @@
 #endif
 #include "misc_log_ex.h"
 
+#include "3rd/boost_monero_optional.h"
+
 
 namespace hw {
     
@@ -101,5 +103,8 @@ namespace hw {
         device_registry *registry = get_device_registry();
         return registry->register_device(device_name, hw_device);
     }
+    
+    boost::optional<epee::wipeable_string> i_device_callback::on_pin_request() { return boost::none; }
+    boost::optional<epee::wipeable_string> i_device_callback::on_passphrase_request(bool & on_device) { on_device = true; return boost::none; }
 
 }

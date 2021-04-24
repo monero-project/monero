@@ -31,6 +31,7 @@
 #include <boost/scope_exit.hpp>
 #include "log.hpp"
 #include "device_io_hid.hpp"
+#include "3rd/boost_monero_optional.h"
 
 namespace hw {
   namespace io {
@@ -112,7 +113,7 @@ namespace hw {
       ASSERT_X(false, "No device found");
     }
 
-    hid_device_info *device_io_hid::find_device(hid_device_info *devices_list, boost::optional<int> interface_number, boost::optional<unsigned short> usage_page) {
+    hid_device_info *device_io_hid::find_device(hid_device_info *devices_list, const boost::optional<int> & interface_number, const boost::optional<unsigned short> & usage_page) {
       bool select_any = !interface_number && !usage_page;
 
       MDEBUG( "Looking for " <<
@@ -148,7 +149,7 @@ namespace hw {
       return result;
     }
 
-    hid_device  *device_io_hid::connect(unsigned int vid, unsigned  int pid, boost::optional<int> interface_number, boost::optional<unsigned short> usage_page) {
+    hid_device  *device_io_hid::connect(unsigned int vid, unsigned  int pid, const boost::optional<int> & interface_number, const boost::optional<unsigned short> & usage_page) {
       hid_device_info *hwdev_info_list;
       hid_device      *hwdev;
 

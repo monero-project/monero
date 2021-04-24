@@ -37,7 +37,7 @@
 
 #include <memory>
 
-#include <boost/optional/optional.hpp>
+#include "fwd/boost_monero_optional_fwd.h"
 #include <boost/program_options/variables_map.hpp>
 
 #include "cryptonote_basic/account.h"

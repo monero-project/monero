@@ -36,7 +36,7 @@
 #include "crypto/crypto.h"
 #include <boost/thread/mutex.hpp>
 #include <boost/algorithm/string/join.hpp>
-#include <boost/optional.hpp>
+#include "3rd/boost_monero_optional.h"
 #include <boost/utility/string_ref.hpp>
 using namespace epee;
 

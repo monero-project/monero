@@ -27,14 +27,14 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #pragma once
 
-#include <boost/optional/optional.hpp>
+#include "3rd/boost_monero_optional.h"
 #include <boost/utility/string_ref.hpp>
 #include <cstdint>
 #include <functional>
 #include <string>
 #include <utility>
 #include "wipeable_string.h"
-#include "http_base.h"
+#include "http_types.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "net.http"
@@ -75,12 +75,7 @@ namespace net_utils
       http_server_auth(login credentials, std::function<void(size_t, uint8_t*)> r);
 
       //! \return Auth response, or `boost::none` iff `request` had valid auth.
-      boost::optional<http_response_info> get_response(const http_request_info& request)
-      {
-        if (user)
-          return do_get_response(request);
-        return boost::none;
-      }
+      boost::optional<http_response_info> get_response(const http_request_info& request);
 
     private:
       boost::optional<http_response_info> do_get_response(const http_request_info& request);
