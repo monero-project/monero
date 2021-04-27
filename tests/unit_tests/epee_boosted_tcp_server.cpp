@@ -320,7 +320,8 @@ TEST(test_epee_connection, test_lifetime)
             connection_ptr conn;
             {
               lock_guard_t guard(shared_conn->lock);
-              conn = std::move(shared_conn->conn.lock());
+              conn = shared_conn->conn.lock();
+              shared_conn->conn.reset();
             }
             if (conn)
               conn->cancel();
