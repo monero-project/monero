@@ -188,6 +188,52 @@ macro (monero_find_all_headers headers_found module_root_dir)
 )
 endmacro()
 
+# Function to forbid undefined symbols and also verify
+# 1) Test project with all types of libraries and without undefined symbols can compile successfully
+# 2) Test project with all types of libraries and undefined symbols can not compile successfully
+function(forbid_undefined_symbols)
+  unset(TMP)
+  # https://www.unix.com/man-page/linux/1/ld, --no-undefined, Report unresolved symbol references from regular object files.
+  add_linker_flag_if_supported(-Wl,--no-undefined TMP)
+  # https://www.unix.com/man-page/osx/1/ld/, -undefined, Specifies how undefined symbols are to be treated.
+  add_linker_flag_if_supported(-Wl,-undefined,error TMP)
+  string(APPEND CMAKE_SHARED_LINKER_FLAGS ${TMP})
+  string(APPEND CMAKE_MODULE_LINKER_FLAGS ${TMP})
+  set(CMAKE_SHARED_LINKER_FLAGS ${CMAKE_SHARED_LINKER_FLAGS} PARENT_SCOPE)
+  set(CMAKE_MODULE_LINKER_FLAGS ${CMAKE_MODULE_LINKER_FLAGS} PARENT_SCOPE)
+  set(TEST_PROJECT "${CMAKE_BINARY_DIR}/${CMAKE_FILES_DIRECTORY}/CMakeTmp/test_project")
+  foreach(EXPECT IN ITEMS TRUE FALSE)
+    file(REMOVE_RECURSE "${TEST_PROJECT}")
+    file(MAKE_DIRECTORY "${TEST_PROJECT}")
+    file(WRITE "${TEST_PROJECT}/CMakeLists.txt"
+      [=[
+cmake_minimum_required(VERSION 3.1)
+project(test)
+option(EXPECT_SUCCESS "" ON)
+file(WRITE "${CMAKE_SOURCE_DIR}/incorrect_source.cpp" "void undefined_symbol(); void symbol() { undefined_symbol(); }")
+if (EXPECT_SUCCESS)
+  file(APPEND "${CMAKE_SOURCE_DIR}/incorrect_source.cpp" " void undefined_symbol() {}; ")
+endif()
+add_library(l0 SHARED incorrect_source.cpp)
+add_library(l1 MODULE incorrect_source.cpp)
+add_library(l2 STATIC incorrect_source.cpp)
+add_library(l3 OBJECT incorrect_source.cpp)
+]=]
+    )
+    try_compile(SUCCESS "${TEST_PROJECT}/build" "${TEST_PROJECT}" test
+      CMAKE_FLAGS
+      "-DCMAKE_SHARED_LINKER_FLAGS=${CMAKE_SHARED_LINKER_FLAGS}"
+      "-DCMAKE_MODULE_LINKER_FLAGS=${CMAKE_MODULE_LINKER_FLAGS}"
+      "-DEXPECT_SUCCESS=${EXPECT}"
+    )
+    if (NOT ${SUCCESS} STREQUAL ${EXPECT})
+      message(FATAL_ERROR "Undefined symbols test failure: expect(${EXPECT}), success(${SUCCESS})")
+    endif()
+    file(REMOVE_RECURSE "${TEST_PROJECT}")
+  endforeach()
+endfunction()
+forbid_undefined_symbols()
+
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
   message(STATUS "Setting default build type: ${CMAKE_BUILD_TYPE}")
