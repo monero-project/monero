@@ -572,6 +572,10 @@ if(STATIC AND NOT IOS)
   endif()
 endif()
 
+if (WIN32)
+  list(APPEND OPENSSL_LIBRARIES ws2_32 crypt32)
+endif()
+
 find_package(HIDAPI)
 
 add_definition_if_library_exists(c memset_s "string.h" HAVE_MEMSET_S)
