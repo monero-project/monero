@@ -51,7 +51,7 @@ namespace test
             if (!cryptonote::find_tx_extra_field_by_type(extra_fields, key_field))
                 throw std::runtime_error{"invalid transaction"};
 
-            for (auto const& input : boost::adaptors::index(source.vout))
+            for (auto const input : boost::adaptors::index(source.vout))
             {
                 source_amount += input.value().amount;
                 auto const& key = boost::get<cryptonote::txout_to_key>(input.value().target);
