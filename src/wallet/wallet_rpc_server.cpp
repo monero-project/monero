@@ -1145,10 +1145,10 @@ namespace tools
       if (ptx_vector.size() != 1)
       {
         er.code = WALLET_RPC_ERROR_CODE_TX_TOO_LARGE;
-        er.message = "Transaction would be too large. Use the sweep all function in your walet.";
+        er.message = "Transaction would be too large. Use the sweep all function in your wallet. After 10 confirmations, try staking again.";
         return false;
       }
-      
+
       return fill_response(ptx_vector, req.get_tx_key, res.tx_key, res.amount, res.fee, res.weight, res.multisig_txset, res.unsigned_txset, req.do_not_relay,
           res.tx_hash, req.get_tx_hex, res.tx_blob, req.get_tx_metadata, res.tx_metadata, er);
   }
