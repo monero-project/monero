@@ -114,6 +114,12 @@ namespace cryptonote {
       
 	   const int target_minutes = target / 60;
 	   const int emission_speed_factor = get_emission_speed_factor(version);
+
+
+     //Adds the burn amount to emission effectively burning the amount added.  
+     if (version > 10)
+      already_generated_coins += BURN_1;
+      
 	   uint64_t base_reward = (MONEY_SUPPLY - already_generated_coins) >> emission_speed_factor;
 
     if (version >= 9) {
