@@ -3488,6 +3488,11 @@ namespace cryptonote
 		  res.service_node_states.push_back(entry);
 	  }
 
+    std::sort(res.service_node_states.begin(), res.service_node_states.end(), [](COMMAND_RPC_GET_SERVICE_NODES::response::entry a, COMMAND_RPC_GET_SERVICE_NODES::response::entry b) {
+        return a.total_contributed < b.total_contributed;
+    });
+
+
 	  return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
