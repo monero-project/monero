@@ -431,7 +431,6 @@ namespace
 }
 
 bool init_output_indices(map_output_idx_t& outs, std::map<uint64_t, std::vector<size_t> >& outs_mine, const std::vector<cryptonote::block>& blockchain, const map_hash2tx_t& mtx, const cryptonote::account_base& from) {
-
     BOOST_FOREACH (const block& blk, blockchain) {
         vector<const transaction*> vtx;
         vtx.push_back(&blk.miner_tx);
@@ -448,22 +447,40 @@ bool init_output_indices(map_output_idx_t& outs, std::map<uint64_t, std::vector<
         // TODO: add all other txes
         for (size_t i = 0; i < vtx.size(); i++) {
             const transaction &tx = *vtx[i];
+            const crypto::public_key& tx_pub_key = get_tx_pub_key_from_extra(tx);
+            const std::vector<crypto::public_key>& additional_tx_pub_keys = get_additional_tx_pub_keys_from_extra(tx);
+
+            bool is_key_derived = false;
+            bool is_key_derived_success = false;
+            crypto::key_derivation derivation {};
 
             for (size_t j = 0; j < tx.vout.size(); ++j) {
                 const tx_out &out = tx.vout[j];
 
-                output_index oi(out.target, out.amount, boost::get<txin_gen>(*blk.miner_tx.vin.begin()).height, i, j, &blk, vtx[i]);
-                oi.set_rct(tx.version == 2);
-                oi.unlock_time = tx.unlock_time;
-                oi.is_coin_base = i == 0;
-
                 if (2 == out.target.which()) { // out_to_key
+                    const txout_to_key & out_key = boost::get<txout_to_key>(out.target);
+                    output_index oi(out.target, out.amount, boost::get<txin_gen>(*blk.miner_tx.vin.begin()).height, i, j, &blk, vtx[i]);
+                    oi.set_rct(tx.version == 2);
+                    oi.unlock_time = tx.unlock_time;
+                    oi.is_coin_base = i == 0;
+
                     outs[out.amount].push_back(oi);
-                    size_t tx_global_idx = outs[out.amount].size() - 1;
+                    const size_t tx_global_idx = outs[out.amount].size() - 1;
                     outs[out.amount][tx_global_idx].idx = tx_global_idx;
-                    // Is out to me?
-                    if (is_out_to_acc(from.get_keys(), boost::get<txout_to_key>(out.target), get_tx_pub_key_from_extra(tx), get_additional_tx_pub_keys_from_extra(tx), j)) {
-                        outs_mine[out.amount].push_back(tx_global_idx);
+
+                    const account_keys& acc = from.get_keys();
+                    if (!is_key_derived)
+                    {
+                        // Derive key only once per i-iteration, and only on demand (i.e. within this scope).
+                        is_key_derived_success = generate_key_derivation(acc, tx_pub_key, derivation);
+                        is_key_derived = true;
+                    }
+                    if (is_key_derived_success)
+                    {
+                        // Is out to me?
+                        if (is_out_to_acc(acc, out_key, derivation, additional_tx_pub_keys, j)) {
+                            outs_mine[out.amount].push_back(tx_global_idx);
+                        }
                     }
                 }
             }

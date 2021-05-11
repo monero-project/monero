@@ -882,27 +882,79 @@ namespace cryptonote
     return res;
   }
   //---------------------------------------------------------------
-  bool is_out_to_acc(const account_keys& acc, const txout_to_key& out_key, const crypto::public_key& tx_pub_key, const std::vector<crypto::public_key>& additional_tx_pub_keys, size_t output_index)
+  static bool is_pk_out_key(const crypto::key_derivation & derivation, const crypto::public_key & pk, const txout_to_key& out_key)
+  {
+    return pk == out_key.key;
+  }
+
+  static bool is_pk_out_key_deriv(const account_keys& acc, const txout_to_key& out_key, const crypto::key_derivation & derivation, size_t output_index)
+  {
+    crypto::public_key pk;
+    if (!derive_public_key(acc, derivation, output_index, pk))
+    {
+      return false;
+    }
+    return is_pk_out_key(derivation, pk, out_key);
+  }
+
+  static bool is_pk_out_key(const account_keys& acc, const txout_to_key& out_key, const crypto::public_key& tx_pub_key, size_t output_index)
   {
     crypto::key_derivation derivation;
-    bool r = acc.get_device().generate_key_derivation(tx_pub_key, acc.m_view_secret_key, derivation);
-    CHECK_AND_ASSERT_MES(r, false, "Failed to generate key derivation");
+    if (!generate_key_derivation(acc, tx_pub_key, derivation))
+    {
+      return false;
+    }
     crypto::public_key pk;
-    r = acc.get_device().derive_public_key(derivation, output_index, acc.m_account_address.m_spend_public_key, pk);
-    CHECK_AND_ASSERT_MES(r, false, "Failed to derive public key");
-    if (pk == out_key.key)
-      return true;
-    // try additional tx pubkeys if available
+    if (!derive_public_key(acc, derivation, output_index, pk))
+    {
+      return false;
+    }
+    return is_pk_out_key(derivation, pk, out_key);
+  }
+
+  static bool is_out_to_acc_additional(const account_keys& acc, const txout_to_key& out_key, const std::vector<crypto::public_key>& additional_tx_pub_keys, size_t output_index)
+  {
     if (!additional_tx_pub_keys.empty())
     {
       CHECK_AND_ASSERT_MES(output_index < additional_tx_pub_keys.size(), false, "wrong number of additional tx pubkeys");
-      r = acc.get_device().generate_key_derivation(additional_tx_pub_keys[output_index], acc.m_view_secret_key, derivation);
-      CHECK_AND_ASSERT_MES(r, false, "Failed to generate key derivation");
-      r = acc.get_device().derive_public_key(derivation, output_index, acc.m_account_address.m_spend_public_key, pk);
-      CHECK_AND_ASSERT_MES(r, false, "Failed to derive public key");
-      return pk == out_key.key;
+      const crypto::public_key& tx_pub_key_additional = additional_tx_pub_keys[output_index];
+      return is_pk_out_key(acc, out_key, tx_pub_key_additional, output_index);
     }
     return false;
+  }
+
+  bool is_out_to_acc(const account_keys& acc, const txout_to_key& out_key, const crypto::key_derivation & derivation, const std::vector<crypto::public_key>& additional_tx_pub_keys, size_t output_index)
+  {
+    if (is_pk_out_key_deriv(acc, out_key, derivation, output_index))
+    {
+       return true;
+    }
+    // try additional tx pubkeys if available
+    return is_out_to_acc_additional(acc, out_key, additional_tx_pub_keys, output_index);
+  }
+
+  bool is_out_to_acc(const account_keys& acc, const txout_to_key& out_key, const crypto::public_key& tx_pub_key, const std::vector<crypto::public_key>& additional_tx_pub_keys, size_t output_index)
+  {
+    if (is_pk_out_key(acc, out_key, tx_pub_key, output_index))
+    {
+       return true;
+    }
+    // try additional tx pubkeys if available
+    return is_out_to_acc_additional(acc, out_key, additional_tx_pub_keys, output_index);
+  }
+
+  bool generate_key_derivation(const account_keys& acc, const crypto::public_key& tx_pub_key, crypto::key_derivation & derivation)
+  {
+    const bool r = acc.get_device().generate_key_derivation(tx_pub_key, acc.m_view_secret_key, derivation);
+    CHECK_AND_ASSERT_MES(r, false, "Failed to generate key derivation");
+    return true;
+  }
+
+  bool derive_public_key(const account_keys& acc, const crypto::key_derivation & derivation, size_t output_index, crypto::public_key & pk)
+  {
+    const bool r = acc.get_device().derive_public_key(derivation, output_index, acc.m_account_address.m_spend_public_key, pk);
+    CHECK_AND_ASSERT_MES(r, false, "Failed to derive public key");
+    return true;
   }
   //---------------------------------------------------------------
   boost::optional<subaddress_receive_info> is_out_to_acc_precomp(const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses, const crypto::public_key& out_key, const crypto::key_derivation& derivation, const std::vector<crypto::key_derivation>& additional_derivations, size_t output_index, hw::device &hwdev)

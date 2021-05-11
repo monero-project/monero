@@ -89,6 +89,9 @@ namespace cryptonote
   void set_encrypted_payment_id_to_tx_extra_nonce(blobdata& extra_nonce, const crypto::hash8& payment_id);
   bool get_payment_id_from_tx_extra_nonce(const blobdata& extra_nonce, crypto::hash& payment_id);
   bool get_encrypted_payment_id_from_tx_extra_nonce(const blobdata& extra_nonce, crypto::hash8& payment_id);
+  bool generate_key_derivation(const account_keys& acc, const crypto::public_key& tx_pub_key, crypto::key_derivation & derivation);
+  bool derive_public_key(const account_keys& acc, const crypto::key_derivation & derivation, size_t output_index, crypto::public_key & pk);
+  bool is_out_to_acc(const account_keys& acc, const txout_to_key& out_key, const crypto::key_derivation & derivation, const std::vector<crypto::public_key>& additional_tx_pub_keys, size_t output_index);
   bool is_out_to_acc(const account_keys& acc, const txout_to_key& out_key, const crypto::public_key& tx_pub_key, const std::vector<crypto::public_key>& additional_tx_public_keys, size_t output_index);
   struct subaddress_receive_info
   {
