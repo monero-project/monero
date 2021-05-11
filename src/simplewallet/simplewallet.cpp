@@ -4932,8 +4932,7 @@ boost::optional<epee::wipeable_string> simple_wallet::new_wallet(const boost::pr
     m_wallet->set_subaddress_lookahead(lookahead->first, lookahead->second);
   }
 
-  bool was_deprecated_wallet = m_restore_deterministic_wallet && ((old_language == crypto::ElectrumWords::old_language_name) ||
-    crypto::ElectrumWords::get_is_old_style_seed(m_electrum_seed));
+  bool was_deprecated_wallet = m_restore_deterministic_wallet && crypto::ElectrumWords::get_is_old_style_seed(m_electrum_seed);
 
   std::string mnemonic_language = old_language;
 
@@ -4949,7 +4948,7 @@ boost::optional<epee::wipeable_string> simple_wallet::new_wallet(const boost::pr
   // a seed language is not already specified AND
   // (it is not a wallet restore OR if it was a deprecated wallet
   // that was earlier used before this restore)
-  if ((!two_random) && (mnemonic_language.empty() || mnemonic_language == crypto::ElectrumWords::old_language_name) && (!m_restore_deterministic_wallet || was_deprecated_wallet))
+  if ((!two_random) && mnemonic_language.empty() && (!m_restore_deterministic_wallet || was_deprecated_wallet))
   {
     if (was_deprecated_wallet)
     {

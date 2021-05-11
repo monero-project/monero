@@ -58,7 +58,6 @@
 #include "russian.h"
 #include "esperanto.h"
 #include "lojban.h"
-#include "english_old.h"
 #include "language_base.h"
 #include "singleton.h"
 
@@ -104,8 +103,7 @@ namespace
       Language::Singleton<Language::Japanese>::instance(),
       Language::Singleton<Language::Russian>::instance(),
       Language::Singleton<Language::Esperanto>::instance(),
-      Language::Singleton<Language::Lojban>::instance(),
-      Language::Singleton<Language::EnglishOld>::instance()
+      Language::Singleton<Language::Lojban>::instance()
     });
     Language::Base *fallback = NULL;
 
