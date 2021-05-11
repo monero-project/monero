@@ -1084,7 +1084,7 @@ inline bool do_replay_file(const std::string& filename)
   }
 
 #define QUOTEME(x) #x
-#define DEFINE_TESTS_ERROR_CONTEXT(text) const char* perr_context = text;
+#define DEFINE_TESTS_ERROR_CONTEXT(text) const char* perr_context = text; (void) perr_context;
 #define CHECK_TEST_CONDITION(cond) CHECK_AND_ASSERT_MES(cond, false, "[" << perr_context << "] failed: \"" << QUOTEME(cond) << "\"")
 #define CHECK_EQ(v1, v2) CHECK_AND_ASSERT_MES(v1 == v2, false, "[" << perr_context << "] failed: \"" << QUOTEME(v1) << " == " << QUOTEME(v2) << "\", " << v1 << " != " << v2)
 #define CHECK_NOT_EQ(v1, v2) CHECK_AND_ASSERT_MES(!(v1 == v2), false, "[" << perr_context << "] failed: \"" << QUOTEME(v1) << " != " << QUOTEME(v2) << "\", " << v1 << " == " << v2)
