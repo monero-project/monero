@@ -42,6 +42,10 @@ Test the following RPCs:
     - start_mining
     - stop_mining
     - mining_status
+    
+Control the behavior with these environment variables:
+    MINING_NO_MEASUREMENT - set to anything to use large enough and fixed mining timeouts
+    MINING_SILENT         - set to anything to disable mining logging
 """
 
 from framework.daemon import Daemon
@@ -77,8 +81,11 @@ class MiningTest():
 
         cores_init = multiprocessing.cpu_count() # RX init uses all cores
         cores_mine = 1                           # Mining uses a parametric number of cores
-        time_pi_single_cpu = self.measure_cpu_power_get_time(cores_mine)
-        time_pi_all_cores = self.measure_cpu_power_get_time(cores_init)
+        is_mining_measurent = 'MINING_NO_MEASUREMENT' not in os.environ
+
+        if is_mining_measurent: # A dynamic calculation of the CPU power requested
+            time_pi_single_cpu = self.measure_cpu_power_get_time(cores_mine)
+            time_pi_all_cores = self.measure_cpu_power_get_time(cores_init)
         # This is the last measurement, since it takes very little time and can be placed timewise-closer to the mining itself.
         available_ram = self.get_available_ram() # So far no ideas how to use this var, other than printing it
 
@@ -110,38 +117,42 @@ class MiningTest():
         target_height = initial_height + 5
         height = initial_height
         
-        """
-        Randomx init has high variance on CI machines due to noisy neighbors, 
-        taking up resources in parallel (including by our own jobs).
-        
-        Mining is organized in the following scheme:
-            1) first loop's pass: RandomX init and mining
-            2) every next pass:   only mining
-        Pass 1) takes much more time than pass 2)
-        Pass 1) uses all cores, pass 2) just one (currently)
-        For the above reasons both passes need separate timeouts and adjustments.
-        After the first pass, the timeout is being reset to a lower value.
-        """
-        
-        def calc_timeout(seconds_constant, time_pi, cores):
+        if not is_mining_measurent:
+            timeout_init = 600
+            timeout_mine = 300
+        else:
             """
-            The time it took to calculate pi under certain conditions 
-            is proportional to the time it will take to calculate the real job.
+            Randomx init has high variance on CI machines due to noisy neighbors,
+            taking up resources in parallel (including by our own jobs).
             
-            The number of cores used decreases the time almost linearly.
+            Mining is organized in the following scheme:
+                1) first loop's pass: RandomX init and mining
+                2) every next pass:   only mining
+            Pass 1) takes much more time than pass 2)
+            Pass 1) uses all cores, pass 2) just one (currently)
+            For the above reasons both passes need separate timeouts and adjustments.
+            After the first pass, the timeout is being reset to a lower value.
             """
-            timeout = float(seconds_constant) * time_pi / float(cores)
-            return timeout
 
-        timeout_base_init = 60 # RX init needs more time
-        timeout_base_mine = 20
-        timeout_init = calc_timeout(timeout_base_init, time_pi_all_cores,  cores_init)
-        timeout_mine = calc_timeout(timeout_base_mine, time_pi_single_cpu, cores_mine)
+            def calc_timeout(seconds_constant, time_pi, cores):
+                """
+                The time it took to calculate pi under certain conditions
+                is proportional to the time it will take to calculate the real job.
+
+                The number of cores used decreases the time almost linearly.
+                """
+                timeout = float(seconds_constant) * time_pi / float(cores)
+                return timeout
+
+            timeout_base_init = 60 # RX init needs more time
+            timeout_base_mine = 20
+            timeout_init = calc_timeout(timeout_base_init, time_pi_all_cores,  cores_init)
+            timeout_mine = calc_timeout(timeout_base_mine, time_pi_single_cpu, cores_mine)
         
-        msg = "Timeout for {} adjusted for the currently available CPU power, is {:.1f} s"
-        print(msg.format("init,  ", timeout_init))
-        print(msg.format("mining,", timeout_mine))
-        
+        msg_timeout_src = "adjusted for the currently available CPU power" if is_mining_measurent else "selected to have the default value"
+        msg = "Timeout for {} {}, is {:.1f} s"
+        self.print_mining_info(msg.format("init,  ", msg_timeout_src, timeout_init))
+        self.print_mining_info(msg.format("mining,", msg_timeout_src, timeout_mine))
         timeout = timeout_init
         rx_inited = False  # Gets initialized in the first pass of the below loop
         while height < target_height:
@@ -197,17 +208,18 @@ class MiningTest():
             res = wallet.stop_mining()
         res_status = daemon.mining_status()
         assert res_status.active == False
-        
+
     def measure_cpu_power_get_time(self, cores):
-        print("Measuring the currently available CPU power...")
-        time_pi = util_resources.get_time_pi_seconds(cores)
-        print("Time taken to calculate Pi on {} core(s) was {:.2f} s.".format(cores, time_pi))
+        self.print_mining_info("Measuring the currently available CPU power...")
+        build_dir_funcional_tests = os.environ['FUNCTIONAL_TESTS_DIRECTORY']
+        time_pi = util_resources.get_time_pi_seconds(cores, build_dir_funcional_tests)
+        self.print_mining_info("Time taken to calculate Pi on {} core(s) was {:.2f} s.".format(cores, time_pi))
         return time_pi
-    
+
     def get_available_ram(self):
         available_ram = util_resources.available_ram_gb()
         threshold_ram = 3
-        print("Available RAM =", round(available_ram, 1), "GB")
+        self.print_mining_info("Available RAM = " + str(round(available_ram, 1)) + " GB")
         if available_ram < threshold_ram:
             print("Warning! Available RAM =", round(available_ram, 1), 
                   "GB is less than the reasonable threshold =", threshold_ram,
@@ -240,8 +252,18 @@ class MiningTest():
             res = daemon.get_height()
             assert res.height == height + i + 1
             assert res.hash == block_hash
-            
+
+    def is_mining_silent(self):
+        return 'MINING_SILENT' in os.environ
+
+    def print_mining_info(self, msg):
+        if self.is_mining_silent():
+            return
+        print(msg)
+
     def print_time_taken(self, start, msg_context):
+        if self.is_mining_silent():
+            return
         seconds_passed = monotonic.monotonic() - start
         print("Time taken for", msg_context, "=", round(seconds_passed, 1), "s.")
 

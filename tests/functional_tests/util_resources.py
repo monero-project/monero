@@ -43,8 +43,8 @@ def available_ram_gb():
     ram_gb = ram_bytes / kilo**3
     return ram_gb
 
-def get_time_pi_seconds(cores):
-    app_path = './cpu_power_test'
+def get_time_pi_seconds(cores, app_dir='.'):
+    app_path = '{}/cpu_power_test'.format(app_dir)
     time_calc = subprocess.check_output([app_path, str(cores)])
     decoded = time_calc.decode('utf-8')
     miliseconds = int(decoded)
