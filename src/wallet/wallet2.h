@@ -1547,7 +1547,7 @@ private:
 
     bool is_tx_spendtime_unlocked(uint64_t unlock_time, uint64_t block_height);
     void hash_m_transfer(const transfer_details & transfer, crypto::hash &hash) const;
-    uint64_t hash_m_transfers(int64_t transfer_height, crypto::hash &hash) const;
+    uint64_t hash_m_transfers(boost::optional<uint64_t> transfer_height, crypto::hash &hash) const;
     void finish_rescan_bc_keep_key_images(uint64_t transfer_height, const crypto::hash &hash);
     void enable_dns(bool enable) { m_use_dns = enable; }
     void set_offline(bool offline = true);
