@@ -154,3 +154,20 @@ jobs:
 # ARCH="default" (not "native") ensures, that a different execution host can execute binaries compiled elsewhere.
 # BUILD_SHARED_LIBS=ON speeds up the linkage part a bit, reduces size, and is the only place where the dynamic linkage is tested.
 
+  source-archive:
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: actions/checkout@v1
+      with:
+        submodules: recursive
+    - name: archive
+      run: |
+        pip install git-archive-all
+        export VERSION="monero-$(git describe)"
+        export OUTPUT="$VERSION.tar"
+        echo "OUTPUT=$OUTPUT" >> $GITHUB_ENV
+        /home/runner/.local/bin/git-archive-all --prefix "$VERSION/" --force-submodules "$OUTPUT"
+    - uses: actions/upload-artifact@v2
+      with:
+        name: ${{ env.OUTPUT }}
+        path: /home/runner/work/monero/monero/${{ env.OUTPUT }}
