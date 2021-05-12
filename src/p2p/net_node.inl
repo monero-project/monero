@@ -617,9 +617,22 @@ namespace nodetool
     else
     {
       full_addrs.insert("212.47.251.15:9230"); // BobbieLtd
-      full_addrs.insert("51.15.50.83:9230"); // EU
-      full_addrs.insert("138.197.204.202:9230"); // Harrison 
-      full_addrs.insert("192.81.218.37:9230"); // Harrison 
+      full_addr.insert("sanfran.equilibria.network:9230");
+      full_addr.insert("newyork.equilibria.network:9230");
+      full_addr.insert("singapore.equilibria.network:9230");
+      full_addr.insert("tbilisi.equilibria.network:9230");
+      //Amsterdam
+      full_addr.insert("ams.equilibria.network:9230");
+      //Middle East Bahrain
+      full_addr.insert("me.equilibria.network:9230");
+      //Brazil
+      full_addr.insert("br.equilibria.network:9230");
+      //Australia
+      full_addr.insert("au.equilibria.network:9230");
+      //south korea
+      full_addr.insert("sk.equilibria.network:9230");
+      //africa - South Africa
+      full_addr.insert("africa.equilibria.network:9230");
     }
     return full_addrs;
   }
