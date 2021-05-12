@@ -28,11 +28,8 @@
 
 set(EPEE_INCLUDE_DIR_BASE "${CMAKE_CURRENT_SOURCE_DIR}/../include")
 
-# Adding headers to the file list, to be able to search for them in IDEs.
-file(GLOB EPEE_HEADERS_PUBLIC 
-	"${EPEE_INCLUDE_DIR_BASE}/*.h*"    # h* will include hpps as well.
-	"${EPEE_INCLUDE_DIR_BASE}/**/*.h*" # Any number of subdirs will be included.
-)
+# Add headers to the file list, to be able to search for them and autosave in IDEs.
+monero_find_all_headers(EPEE_HEADERS_PUBLIC "${EPEE_INCLUDE_DIR_BASE}")
 
 add_library(epee STATIC byte_slice.cpp byte_stream.cpp hex.cpp abstract_http_client.cpp http_auth.cpp mlog.cpp net_helper.cpp net_utils_base.cpp string_tools.cpp
     wipeable_string.cpp levin_base.cpp memwipe.c connection_basic.cpp network_throttle.cpp network_throttle-detail.cpp mlocker.cpp buffer.cpp net_ssl.cpp
