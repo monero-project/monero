@@ -116,6 +116,7 @@ endif()
 
 # cheat because cmake and ccache hate each other
 set_property(SOURCE CryptonightR_template.S PROPERTY LANGUAGE C)
+set_property(SOURCE CryptonightR_template.S PROPERTY XCODE_EXPLICIT_FILE_TYPE sourcecode.asm)
 
 # Must be done last, because it references libraries in this directory
 add_subdirectory(wallet)
