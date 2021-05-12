@@ -151,7 +151,7 @@ namespace epee
     : byte_slice()
   {
     std::size_t space_needed = 0;
-    for (const auto source : sources)
+    for (const auto& source : sources)
       space_needed += source.size();
 
     if (space_needed)
@@ -160,7 +160,7 @@ namespace epee
       span<std::uint8_t> out{reinterpret_cast<std::uint8_t*>(storage.get() + 1), space_needed};
       portion_ = {out.data(), out.size()};
 
-      for (const auto source : sources)
+      for (const auto& source : sources)
       {
         std::memcpy(out.data(), source.data(), source.size());
         if (out.remove_prefix(source.size()) < source.size())
