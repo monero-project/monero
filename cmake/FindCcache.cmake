@@ -44,7 +44,7 @@ if (CCACHE_FOUND)
 	# Try to compile a test program with ccache, in order to verify if it really works. (needed on exotic setups)
 	set(TEST_PROJECT "${CMAKE_BINARY_DIR}/${CMAKE_FILES_DIRECTORY}/CMakeTmp")
 	file(WRITE "${TEST_PROJECT}/CMakeLists.txt" [=[
-cmake_minimum_required(VERSION 3.1)
+cmake_minimum_required(VERSION 3.5)
 project(test)
 option (CCACHE "")
 file(WRITE "${CMAKE_SOURCE_DIR}/test.cpp" "int main() { return 0; }")
