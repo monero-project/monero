@@ -157,7 +157,7 @@ namespace trezor{
 #define PROTO_HEADER_SIZE 6
 
   static size_t message_size(const google::protobuf::Message &req){
-    return static_cast<size_t>(req.ByteSize());
+    return req.ByteSizeLong();
   }
 
   static size_t serialize_message_buffer_size(size_t msg_size) {
