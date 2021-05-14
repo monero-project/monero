@@ -168,11 +168,13 @@ endfunction()
 #
 # Parameters:
 # - headers_found:    Output variable, which will hold the found headers
-# - module_root_dir:  The search path for the headers. Typically it will be the module's root dir.
+# - module_root_dir:  The search path for the headers. Typically it will be the module's root dir, so "${CMAKE_CURRENT_SOURCE_DIR}" or a derivative of it.
 macro (monero_find_all_headers headers_found module_root_dir)
   file(GLOB ${headers_found}
            "${module_root_dir}/*.h*"    # h* will include hpps as well.
            "${module_root_dir}/**/*.h*" # Any number of subdirs will be included.
+           "${module_root_dir}/*.inl"   # .inl is typically template code and is being treated as headers (it's being included).
+           "${module_root_dir}/**/*.inl"
 )
 endmacro()
 
