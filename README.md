@@ -115,7 +115,7 @@ invokes cmake commands as needed.
 * Change to the root of the source code directory, change to the most recent release branch, and build:
 
         cd equilibria
-        git checkout v9.0.0
+        git checkout v9.0.3
         make
 
     *Optional*: If your machine has several cores and enough memory, enable
@@ -187,7 +187,7 @@ Tested on a Raspberry Pi Zero with a clean install of minimal Raspbian Stretch (
     ```bash
     git clone https://github.com/monero-project/monero.git
     cd Equilibria
-    git checkout tags/v9.0.0
+    git checkout tags/v9.0.3
     ```
 
 * Build:
