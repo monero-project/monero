@@ -36,8 +36,12 @@ monero_enable_coverage()
 find_package(Threads)
 find_package(Backtrace)
 
+monero_find_all_headers(EASYLOGGING_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}")
+
 add_library(easylogging
-  easylogging++.cc)
+  easylogging++.cc
+  ${EASYLOGGING_HEADERS}
+  )
 
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}")
 include_directories("${CMAKE_CURRENT_BINARY_DIR}")
