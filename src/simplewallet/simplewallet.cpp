@@ -6518,10 +6518,18 @@ void simple_wallet::check_for_inactivity_lock(bool user)
           "                ||     ||" << std::endl <<
           "" << std::endl;
     }
+    int loop_counter = 0;
+    const int MAX_UI_LOOPS = 3;
     while (1)
     {
+      if (loop_counter++ >= MAX_UI_LOOPS)
+      {
+          tools::fail_msg_writer() << tr("Error: Too many attempts. Exiting.");
+          m_wallet->store();
+          exit(5);
+      }
       const char *inactivity_msg = user ? "" : tr("Locked due to inactivity.");
-      tools::msg_writer() << inactivity_msg << (inactivity_msg[0] ? " " : "") << tr("The wallet password is required to unlock the console.");
+      tools::msg_writer() << inactivity_msg << (inactivity_msg[0] ? " " : "") << tr("The wallet password is required to unlock the console. ") << (MAX_UI_LOOPS - loop_counter + 1) << " attempts remaining.";
       try
       {
         if (get_and_verify_password())
