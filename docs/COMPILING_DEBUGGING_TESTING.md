@@ -72,6 +72,8 @@ If everything looks fine, then after setting some breakpoints of your choice, th
 `Debug -> Start/Continue`
 
 ## To be done (and merged):
+The below changes have yet to be merged, but are already available in a form of independent patches available [in this GitHub project](https://github.com/mj-xmr/monero-patches). The patches **are not yet fully approved** by the Monero Maintainers and **must not enter** the Monero's master branch. They can only serve as temporary solutions. Please refer to the link to learn how to use them.
+
 ### Multihost parallel compilation
 https://github.com/monero-project/monero/pull/7160
 
