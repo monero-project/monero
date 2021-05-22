@@ -1420,7 +1420,7 @@ private:
 
 
     /// Note that the amount will be modified to maximum possible if too large
-    bool check_stake_allowed(const crypto::public_key& sn_key, const cryptonote::address_parse_info& addr_info, uint64_t& amount);
+    bool check_stake_allowed(const crypto::public_key& sn_key, const cryptonote::address_parse_info& addr_info, uint64_t& amount, uint64_t& reg_height);
 
     std::vector<wallet2::pending_tx> create_stake_tx(const crypto::public_key& service_node_key, const cryptonote::address_parse_info& addr_info, uint64_t amount);
     void freeze(size_t idx);

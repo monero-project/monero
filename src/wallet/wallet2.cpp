@@ -7773,7 +7773,7 @@ bool wallet2::is_output_blackballed(const std::pair<uint64_t, uint64_t> &output)
   try { return m_ringdb->blackballed(output); }
   catch (const std::exception &e) { return false; }
 }
-bool wallet2::check_stake_allowed(const crypto::public_key& sn_key, const cryptonote::address_parse_info& addr_info, uint64_t& amount) {
+bool wallet2::check_stake_allowed(const crypto::public_key& sn_key, const cryptonote::address_parse_info& addr_info, uint64_t& amount, uint64_t& reg_height) {
 
   if (addr_info.has_payment_id) {
     LOG_ERROR("Do not use payment ids for staking.");
@@ -7846,18 +7846,23 @@ bool wallet2::check_stake_allowed(const crypto::public_key& sn_key, const crypto
     amount = max_contrib_total;
   }
 
+  reg_height = snode_info.registration_height;
+
   return true;
 }
 
 std::vector<wallet2::pending_tx> wallet2::create_stake_tx(const crypto::public_key& service_node_key, const cryptonote::address_parse_info& addr_info, uint64_t amount)
 {
 
-  
+  uint64_t reg_height = 0; 
   /// check stake parameters (this might adjust the amount)
-  if (!check_stake_allowed(service_node_key, addr_info, amount)) {
+  if (!check_stake_allowed(service_node_key, addr_info, amount, reg_height)) {
     LOG_ERROR("Invalid stake parameters");
     return {};
   }
+
+  if(reg_height == 0)
+    return {}
 
   const cryptonote::account_public_address& address = addr_info.address;
 
@@ -7886,7 +7891,14 @@ std::vector<wallet2::pending_tx> wallet2::create_stake_tx(const crypto::public_k
     return {};
   }
 
-  const uint64_t unlock_at_block = bc_height + locked_blocks;
+  const auto v11 = use_fork_rules(11, 10) ? true : false;
+
+  uint64_t unlock_at_block = 0;
+  if (v11)
+    unlock_at_blocks = reg_height + locked_blocks;
+  else
+    unlock_at_block = bc_height + locked_blocks;
+
   const uint32_t priority = adjust_priority(0);
 
   /// Default values
