@@ -40,6 +40,8 @@
 #include "span.h"
 #include "int-util.h"
 
+#include <boost/mpl/contains.hpp>
+
 namespace epee
 {
   namespace serialization
