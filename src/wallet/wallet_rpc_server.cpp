@@ -2776,7 +2776,16 @@ namespace tools
   {
     if (!m_wallet) return not_open(er);
     std::string error;
-    std::string uri = m_wallet->make_uri(req.address, req.payment_id, req.amount, req.tx_description, req.recipient_name, error);
+    std::vector<tools::wallet2::uri_data> data;
+    for (tools::wallet_rpc::uri_payment entry : req.payments)
+    {
+      tools::wallet2::uri_data entry_data;
+      entry_data.address = entry.address;
+      entry_data.amount = entry.amount;
+      entry_data.recipient_name = entry.recipient_name;
+      data.push_back(entry_data);
+    }
+    std::string uri = m_wallet->make_uri(data, req.payment_id, req.tx_description, error);
     if (uri.empty())
     {
       er.code = WALLET_RPC_ERROR_CODE_WRONG_URI;
@@ -2792,11 +2801,17 @@ namespace tools
   {
     if (!m_wallet) return not_open(er);
     std::string error;
-    if (!m_wallet->parse_uri(req.uri, res.uri.address, res.uri.payment_id, res.uri.amount, res.uri.tx_description, res.uri.recipient_name, res.unknown_parameters, error))
+    std::vector<tools::wallet2::uri_data> uri_data;
+    if (!m_wallet->parse_uri(req.uri, uri_data, res.uri.payment_id, res.uri.tx_description, res.unknown_parameters, error))
     {
       er.code = WALLET_RPC_ERROR_CODE_WRONG_URI;
       er.message = "Error parsing URI: " + error;
       return false;
+    }
+    for (const tools::wallet2::uri_data entry : uri_data)
+    {
+      tools::wallet_rpc::uri_payment entry_spec = {entry.address, entry.amount, entry.recipient_name};
+      res.uri.payments.push_back(entry_spec);
     }
     return true;
   }

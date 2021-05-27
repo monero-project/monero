@@ -6650,25 +6650,70 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
     bool r = true;
 
     // check for a URI
-    std::string address_uri, payment_id_uri, tx_description, recipient_name, error;
+    std::string payment_id_uri, tx_description, error;
     std::vector<std::string> unknown_parameters;
-    uint64_t amount = 0;
-    bool has_uri = m_wallet->parse_uri(local_args[i], address_uri, payment_id_uri, amount, tx_description, recipient_name, unknown_parameters, error);
+    std::vector<tools::wallet2::uri_data> uri_data;
+    bool has_uri = m_wallet->parse_uri(local_args[i], uri_data, payment_id_uri, tx_description, unknown_parameters, error);
     if (has_uri)
     {
-      r = cryptonote::get_account_address_from_str_or_url(info, m_wallet->nettype(), address_uri, oa_prompter);
-      if (payment_id_uri.size() == 16)
+      for (size_t j = 0; i < uri_data.size(); j++)
       {
-        if (!tools::wallet2::parse_short_payment_id(payment_id_uri, info.payment_id))
+        r = cryptonote::get_account_address_from_str_or_url(info, m_wallet->nettype(), uri_data[j].address, oa_prompter);
+        if (payment_id_uri.size() == 16)
         {
-          fail_msg_writer() << tr("failed to parse short payment ID from URI");
+          if (!tools::wallet2::parse_short_payment_id(payment_id_uri, info.payment_id))
+          {
+            fail_msg_writer() << tr("failed to parse short payment ID from URI");
+            return false;
+          }
+          info.has_payment_id = true;
+        }
+        de.amount = uri_data[j].amount;
+        de.original = uri_data[j].address;
+        if (!r)
+        {
+          fail_msg_writer() << tr("failed to parse address");
           return false;
         }
-        info.has_payment_id = true;
+        de.addr = info.address;
+        de.is_subaddress = info.is_subaddress;
+        de.is_integrated = info.has_payment_id;
+        num_subaddresses += info.is_subaddress;
+
+        if (info.has_payment_id || !payment_id_uri.empty())
+        {
+          if (payment_id_seen)
+          {
+            fail_msg_writer() << tr("a single transaction cannot use more than one payment id");
+            return false;
+          }
+          crypto::hash payment_id;
+          std::string extra_nonce;
+          if (info.has_payment_id)
+          {
+            set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce, info.payment_id);
+          }
+          else if (tools::wallet2::parse_payment_id(payment_id_uri, payment_id))
+          {
+            LONG_PAYMENT_ID_SUPPORT_CHECK();
+          }
+          else
+          {
+            fail_msg_writer() << tr("failed to parse payment id, though it was detected");
+            return false;
+          }
+          bool r = add_extra_nonce_to_tx_extra(extra, extra_nonce);
+          if(!r)
+          {
+            fail_msg_writer() << tr("failed to set up payment id, though it was decoded correctly");
+            return false;
+          }
+          payment_id_seen = true;
+        }
+        dsts.push_back(de);
       }
-      de.amount = amount;
-      de.original = local_args[i];
-      ++i;
+      i++;
+      break;
     }
     else if (i + 1 < local_args.size())
     {
@@ -6704,7 +6749,7 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
 
     if (info.has_payment_id || !payment_id_uri.empty())
     {
-      if (payment_id_seen)
+      if (payment_id_seen )
       {
         fail_msg_writer() << tr("a single transaction cannot use more than one payment id");
         return false;
