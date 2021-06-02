@@ -50,7 +50,7 @@ To run the same tests on a release build, replace `debug` with `release`.
 # Functional tests
 
 [TODO]
-Functional tests are located under the `tests/functional` directory.
+Functional tests are located under the `tests/functional_tests` directory.
 
 Building all the tests requires installing the following dependencies:
 ```bash
@@ -69,6 +69,25 @@ velvet lymph giddy number token physics poetry unquoted nibs useful sabotage lim
 ```
 
 Open the wallet file with `monero-wallet-rpc` with RPC port 18083. Finally, start tests by invoking ./blockchain.py or ./speed.py
+
+## Parameters
+
+Configuration of individual tests.
+
+### Mining test
+
+The following environment variables may be set to control the mining test:
+
+- `MINING_NO_MEASUREMENT` - set to anything to use large enough and fixed mining timeouts (use case: very slow PCs and no intention to change the mining code)
+- `MINING_SILENT`         - set to anything to disable mining logging
+
+For example, to customize the run of the functional tests, you may run the following commands from the build directory:
+
+```bash
+export MINING_NO_MEASUREMENT=1
+ctest -V -R functional_tests_rpc
+unset MINING_NO_MEASUREMENT
+```
 
 # Fuzz tests
 
