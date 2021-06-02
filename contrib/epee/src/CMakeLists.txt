@@ -84,5 +84,8 @@ if (USE_READLINE AND (GNU_READLINE_FOUND OR (DEPENDS AND NOT MINGW)))
     ${GNU_READLINE_LIBRARY})
 endif()
 
-target_include_directories(epee PUBLIC "${EPEE_INCLUDE_DIR_BASE}")
+target_include_directories(epee
+  PUBLIC
+    "${EPEE_INCLUDE_DIR_BASE}"
+    "${OPENSSL_INCLUDE_DIR}")
 
