@@ -791,11 +791,11 @@ bool WalletImpl::close(bool store)
     return result;
 }
 
-std::string WalletImpl::seed() const
+std::string WalletImpl::seed(const std::string &offset_passphrase) const
 {
     epee::wipeable_string seed;
     if (m_wallet)
-        m_wallet->get_seed(seed);
+        m_wallet->get_seed(seed, offset_passphrase);
     return std::string(seed.data(), seed.size()); // TODO
 }
 
