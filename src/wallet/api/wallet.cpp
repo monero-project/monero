@@ -2603,4 +2603,15 @@ bool WalletImpl::reconnectDevice()
 
     return r;
 }
+
+uint64_t WalletImpl::getBytesReceived()
+{
+    return m_wallet->get_bytes_received();
+}
+
+uint64_t WalletImpl::getBytesSent()
+{
+    return m_wallet->get_bytes_sent();
+}
+
 } // namespace
