@@ -2577,5 +2577,3 @@ void WalletImpl::deviceShowAddress(uint32_t accountIndex, uint32_t addressIndex,
     m_wallet->device_show_address(accountIndex, addressIndex, payment_id_param);
 }
 } // namespace
-
-namespace Bitmonero = Monero;

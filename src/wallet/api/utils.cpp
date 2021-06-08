@@ -60,5 +60,3 @@ void onStartup()
 
 
 } // namespace
-
-namespace Bitmonero = Monero;

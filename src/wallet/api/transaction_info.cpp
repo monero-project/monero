@@ -150,5 +150,3 @@ uint64_t TransactionInfoImpl::unlockTime() const
 }
 
 } // namespace
-
-namespace Bitmonero = Monero;
