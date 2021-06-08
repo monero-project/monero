@@ -81,7 +81,7 @@ bool AddressBookImpl::setDescription(std::size_t index, const std::string &descr
 
     tools::wallet2::address_book_row entry = ab[index];
     entry.m_description = description;
-    bool r =  m_wallet->m_wallet->set_address_book_row(index, entry.m_address, NULL, entry.m_description, entry.m_is_subaddress);
+    bool r =  m_wallet->m_wallet->set_address_book_row(index, entry.m_address, entry.m_has_payment_id ? &entry.m_payment_id : nullptr, entry.m_description, entry.m_is_subaddress);
     if (r)
         refresh();
     else
