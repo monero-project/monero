@@ -566,6 +566,8 @@ void Blockchain::pop_blocks(uint64_t nblocks)
     return;
   }
 
+  CHECK_AND_ASSERT_THROW_MES(update_next_cumulative_weight_limit(), "Error updating next cumulative weight limit");
+
   if (stop_batch)
     m_db->batch_stop();
 }
@@ -643,7 +645,6 @@ block Blockchain::pop_block_from_blockchain()
   m_scan_table.clear();
   m_blocks_txs_check.clear();
 
-  CHECK_AND_ASSERT_THROW_MES(update_next_cumulative_weight_limit(), "Error updating next cumulative weight limit");
   uint64_t top_block_height;
   crypto::hash top_block_hash = get_tail_id(top_block_height);
   m_tx_pool.on_blockchain_dec(top_block_height, top_block_hash);
@@ -1110,6 +1111,7 @@ bool Blockchain::rollback_blockchain_switching(std::list<block>& original_chain,
   {
     pop_block_from_blockchain();
   }
+  CHECK_AND_ASSERT_THROW_MES(update_next_cumulative_weight_limit(), "Error updating next cumulative weight limit");
 
   // make sure the hard fork object updates its current version
   m_hardfork->reorganize_from_chain_height(rollback_height);
@@ -1160,6 +1162,7 @@ bool Blockchain::switch_to_alternative_blockchain(std::list<block_extended_info>
     block b = pop_block_from_blockchain();
     disconnected_chain.push_front(b);
   }
+  CHECK_AND_ASSERT_THROW_MES(update_next_cumulative_weight_limit(), "Error updating next cumulative weight limit");
 
   auto split_height = m_db->height();
 
