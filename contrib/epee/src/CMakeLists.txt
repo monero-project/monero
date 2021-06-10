@@ -31,7 +31,7 @@ set(EPEE_INCLUDE_DIR_BASE "${CMAKE_CURRENT_SOURCE_DIR}/../include")
 # Add headers to the file list, to be able to search for them and autosave in IDEs.
 monero_find_all_headers(EPEE_HEADERS_PUBLIC "${EPEE_INCLUDE_DIR_BASE}")
 
-add_library(epee STATIC byte_slice.cpp byte_stream.cpp hex.cpp abstract_http_client.cpp http_auth.cpp mlog.cpp net_helper.cpp net_utils_base.cpp string_tools.cpp
+monero_add_library(epee byte_slice.cpp byte_stream.cpp hex.cpp abstract_http_client.cpp http_auth.cpp mlog.cpp net_helper.cpp net_utils_base.cpp string_tools.cpp
     wipeable_string.cpp levin_base.cpp memwipe.c connection_basic.cpp network_throttle.cpp network_throttle-detail.cpp mlocker.cpp buffer.cpp net_ssl.cpp
     int-util.cpp portable_storage.cpp
     misc_language.cpp
@@ -44,7 +44,7 @@ add_library(epee STATIC byte_slice.cpp byte_stream.cpp hex.cpp abstract_http_cli
     )
 
 if (USE_READLINE AND (GNU_READLINE_FOUND OR (DEPENDS AND NOT MINGW)))
-  add_library(epee_readline STATIC readline_buffer.cpp)
+  monero_add_library(epee_readline readline_buffer.cpp)
 endif()
 
 if(HAVE_C11)
@@ -72,8 +72,9 @@ target_link_libraries(epee
     ${Boost_CHRONO_LIBRARY}
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_THREAD_LIBRARY}
-  PRIVATE
+    ${Boost_REGEX_LIBRARY}
     ${OPENSSL_LIBRARIES}
+  PRIVATE
     ${EXTRA_LIBRARIES})
 
 if (USE_READLINE AND (GNU_READLINE_FOUND OR (DEPENDS AND NOT MINGW)))
