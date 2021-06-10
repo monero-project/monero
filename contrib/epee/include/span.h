@@ -31,7 +31,6 @@
 #include <algorithm>
 #include <cstdint>
 #include <memory>
-#include <string>
 #include <type_traits>
 
 namespace epee
@@ -167,10 +166,11 @@ namespace epee
   }
 
   //! make a span from a std::string
-  template<typename T>
-  span<const T> strspan(const std::string &s) noexcept
+  template<typename T, typename U>
+  span<const T> strspan(const U&s) noexcept
   {
-    static_assert(std::is_same<T, char>() || std::is_same<T, unsigned char>() || std::is_same<T, int8_t>() || std::is_same<T, uint8_t>(), "Unexpected type");
+    static_assert(std::is_same<typename U::value_type, char>(), "unexpected source type");
+    static_assert(std::is_same<T, char>() || std::is_same<T, unsigned char>() || std::is_same<T, int8_t>() || std::is_same<T, uint8_t>(), "Unexpected destination type");
     return {reinterpret_cast<const T*>(s.data()), s.size()};
   }
 }

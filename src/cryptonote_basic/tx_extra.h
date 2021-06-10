@@ -57,11 +57,7 @@ namespace cryptonote
       // size - 1 - because of variant tag
       for (size = 1; size <= TX_EXTRA_PADDING_MAX_COUNT; ++size)
       {
-        std::ios_base::iostate state = ar.stream().rdstate();
-        bool eof = EOF == ar.stream().peek();
-        ar.stream().clear(state);
-
-        if (eof)
+        if (ar.eof())
           break;
 
         uint8_t zero;
@@ -139,8 +135,7 @@ namespace cryptonote
       if(!::do_serialize(ar, field))
         return false;
 
-      std::istringstream iss(field);
-      binary_archive<false> iar(iss);
+      binary_archive<false> iar{epee::strspan<std::uint8_t>(field)};
       serialize_helper helper(*this);
       return ::serialization::serialize(iar, helper);
     }

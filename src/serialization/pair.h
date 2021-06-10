@@ -69,19 +69,19 @@ inline bool do_serialize(Archive<false>& ar, std::pair<F,S>& p)
 {
   size_t cnt;
   ar.begin_array(cnt);
-  if (!ar.stream().good())
+  if (!ar.good())
     return false;
   if (cnt != 2)
     return false;
 
   if (!::serialization::detail::serialize_pair_element(ar, p.first))
     return false;
-  if (!ar.stream().good())
+  if (!ar.good())
     return false;
   ar.delimit_array();
   if (!::serialization::detail::serialize_pair_element(ar, p.second))
     return false;
-  if (!ar.stream().good())
+  if (!ar.good())
     return false;
 
   ar.end_array();
@@ -92,16 +92,16 @@ template <template <bool> class Archive, class F, class S>
 inline bool do_serialize(Archive<true>& ar, std::pair<F,S>& p)
 {
   ar.begin_array(2);
-  if (!ar.stream().good())
+  if (!ar.good())
     return false;
   if(!::serialization::detail::serialize_pair_element(ar, p.first))
     return false;
-  if (!ar.stream().good())
+  if (!ar.good())
     return false;
   ar.delimit_array();
   if(!::serialization::detail::serialize_pair_element(ar, p.second))
     return false;
-  if (!ar.stream().good())
+  if (!ar.good())
     return false;
   ar.end_array();
   return true;

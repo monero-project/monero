@@ -152,10 +152,6 @@ namespace cryptonote
 
   };
 
-  template<typename T> static inline unsigned int getpos(T &ar) { return 0; }
-  template<> inline unsigned int getpos(binary_archive<true> &ar) { return ar.stream().tellp(); }
-  template<> inline unsigned int getpos(binary_archive<false> &ar) { return ar.stream().tellg(); }
-
   class transaction_prefix
   {
 
@@ -236,17 +232,17 @@ namespace cryptonote
         set_blob_size_valid(false);
       }
 
-      const unsigned int start_pos = getpos(ar);
+      const auto start_pos = ar.getpos();
 
       FIELDS(*static_cast<transaction_prefix *>(this))
 
       if (std::is_same<Archive<W>, binary_archive<W>>())
-        prefix_size = getpos(ar) - start_pos;
+        prefix_size = ar.getpos() - start_pos;
 
       if (version == 1)
       {
         if (std::is_same<Archive<W>, binary_archive<W>>())
-          unprunable_size = getpos(ar) - start_pos;
+          unprunable_size = ar.getpos() - start_pos;
 
         ar.tag("signatures");
         ar.begin_array();
@@ -284,11 +280,11 @@ namespace cryptonote
         {
           ar.begin_object();
           bool r = rct_signatures.serialize_rctsig_base(ar, vin.size(), vout.size());
-          if (!r || !ar.stream().good()) return false;
+          if (!r || !ar.good()) return false;
           ar.end_object();
 
           if (std::is_same<Archive<W>, binary_archive<W>>())
-            unprunable_size = getpos(ar) - start_pos;
+            unprunable_size = ar.getpos() - start_pos;
 
           if (!pruned && rct_signatures.type != rct::RCTTypeNull)
           {
@@ -296,7 +292,7 @@ namespace cryptonote
             ar.begin_object();
             r = rct_signatures.p.serialize_rctsig_prunable(ar, rct_signatures.type, vin.size(), vout.size(),
                 vin.size() > 0 && vin[0].type() == typeid(txin_to_key) ? boost::get<txin_to_key>(vin[0]).key_offsets.size() - 1 : 0);
-            if (!r || !ar.stream().good()) return false;
+            if (!r || !ar.good()) return false;
             ar.end_object();
           }
         }
@@ -320,13 +316,13 @@ namespace cryptonote
         {
           ar.begin_object();
           bool r = rct_signatures.serialize_rctsig_base(ar, vin.size(), vout.size());
-          if (!r || !ar.stream().good()) return false;
+          if (!r || !ar.good()) return false;
           ar.end_object();
         }
       }
       if (!typename Archive<W>::is_saving())
         pruned = true;
-      return ar.stream().good();
+      return ar.good();
     }
 
   private:

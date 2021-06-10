@@ -58,6 +58,10 @@ struct json_archive_base
   json_archive_base(stream_type &s, bool indent = false)
   : stream_(s), indent_(indent), object_begin(false), depth_(0) { }
 
+  bool good() const { return stream_.good(); }
+  void set_fail() { stream_.setstate(std::ios::failbit); }
+  void clear_fail() { stream_.clear(); }
+
   void tag(const char *tag) {
     if (!object_begin)
       stream_ << ", ";
@@ -82,7 +86,6 @@ struct json_archive_base
 
   void begin_variant() { begin_object(); }
   void end_variant() { end_object(); }
-  Stream &stream() { return stream_; }
 
   bool varint_bug_backward_compatibility_enabled() const { return false; }
 
@@ -116,6 +119,8 @@ template <>
 struct json_archive<true> : public json_archive_base<std::ostream, true>
 {
   json_archive(stream_type &s, bool indent = false) : base_type(s, indent), inner_array_size_(0) { }
+
+  std::streampos getpos() const { return stream_.tellp(); }
 
   template<typename T>
   static auto promote_to_printable_integer_type(T v) -> decltype(+v)

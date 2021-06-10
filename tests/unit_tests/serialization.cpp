@@ -132,11 +132,10 @@ TEST(Serialization, BinaryArchiveInts) {
   ASSERT_EQ(8, oss.str().size());
   ASSERT_EQ(string("\0\0\0\0\xff\0\0\0", 8), oss.str());
 
-  istringstream iss(oss.str());
-  binary_archive<false> iar(iss);
+  binary_archive<false> iar{epee::strspan<std::uint8_t>(oss.str())};
   iar.serialize_int(x1);
-  ASSERT_EQ(8, iss.tellg());
-  ASSERT_TRUE(iss.good());
+  ASSERT_EQ(8, iar.getpos());
+  ASSERT_TRUE(iar.good());
 
   ASSERT_EQ(x, x1);
 }
@@ -151,10 +150,9 @@ TEST(Serialization, BinaryArchiveVarInts) {
   ASSERT_EQ(6, oss.str().size());
   ASSERT_EQ(string("\x80\x80\x80\x80\xF0\x1F", 6), oss.str());
 
-  istringstream iss(oss.str());
-  binary_archive<false> iar(iss);
+  binary_archive<false> iar{epee::strspan<std::uint8_t>(oss.str())};
   iar.serialize_varint(x1);
-  ASSERT_TRUE(iss.good());
+  ASSERT_TRUE(iar.good());
   ASSERT_EQ(x, x1);
 }
 
