@@ -154,6 +154,15 @@ function (monero_set_target_no_relink target)
   endif()
 endfunction()
 
+option(STRIP_TARGETS "Strip symbols from targets?" OFF)
+function (monero_set_target_strip target)
+  if (STRIP_TARGETS)
+    set_target_properties("${target}" PROPERTIES LINK_FLAGS_RELEASE -s)
+    set_target_properties("${target}" PROPERTIES LINK_FLAGS_DEBUG -s)
+    # Stripping from Debug might make sense if you're low on disk space, but want to test if debug version builds properly.
+  endif()
+endfunction()
+
 function (monero_add_minimal_executable name)
   source_group("${name}"
     FILES
@@ -161,7 +170,8 @@ function (monero_add_minimal_executable name)
 
   add_executable("${name}"
     ${ARGN})
-    monero_set_target_no_relink( ${name} )
+    monero_set_target_no_relink("${name}")
+    monero_set_target_strip    ("${name}")
 endfunction()
 
 # Finds all headers in a directory and its subdirs, to be able to search for them and autosave in IDEs.
@@ -556,6 +566,7 @@ function (monero_add_library_with_deps)
   add_library(${objlib} OBJECT ${MONERO_ADD_LIBRARY_SOURCES})
   add_library("${MONERO_ADD_LIBRARY_NAME}" $<TARGET_OBJECTS:${objlib}>)
   monero_set_target_no_relink("${MONERO_ADD_LIBRARY_NAME}")
+  monero_set_target_strip    ("${MONERO_ADD_LIBRARY_NAME}")
   if (MONERO_ADD_LIBRARY_DEPENDS)
     add_dependencies(${objlib} ${MONERO_ADD_LIBRARY_DEPENDS})
   endif()

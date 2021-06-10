@@ -77,6 +77,7 @@ function (monero_add_executable name)
   enable_stack_trace("${name}")
   
   monero_set_target_no_relink("${name}")
+  monero_set_target_strip    ("${name}")
 endfunction ()
 
 include(Version)
