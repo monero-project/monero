@@ -714,7 +714,6 @@ Logger::Logger(const std::string& id, const Configurations& configurations,
 }
 
 Logger::Logger(const Logger& logger) {
-  base::utils::safeDelete(m_typedConfigurations);
   m_id = logger.m_id;
   m_typedConfigurations = logger.m_typedConfigurations;
   m_parentApplicationName = logger.m_parentApplicationName;
