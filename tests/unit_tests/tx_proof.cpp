@@ -58,14 +58,14 @@ TEST(tx_proof, prove_verify_v2)
     // R_B = rB
     crypto::public_key R_B;
     ge_p3 B_p3;
-    ge_frombytes_vartime(&B_p3,&B);
+    ASSERT_EQ(ge_frombytes_vartime(&B_p3,&B), 0);
     ge_p2 R_B_p2;
     ge_scalarmult(&R_B_p2, &unwrap(r), &B_p3);
     ge_tobytes(&R_B, &R_B_p2);
 
     // R_G = rG
     crypto::public_key R_G;
-    ge_frombytes_vartime(&B_p3,&B);
+    ASSERT_EQ(ge_frombytes_vartime(&B_p3,&B), 0);
     ge_p3 R_G_p3;
     ge_scalarmult_base(&R_G_p3, &unwrap(r));
     ge_p3_tobytes(&R_G, &R_G_p3);
@@ -73,7 +73,7 @@ TEST(tx_proof, prove_verify_v2)
     // D = rA
     crypto::public_key D;
     ge_p3 A_p3;
-    ge_frombytes_vartime(&A_p3,&A);
+    ASSERT_EQ(ge_frombytes_vartime(&A_p3,&A), 0);
     ge_p2 D_p2;
     ge_scalarmult(&D_p2, &unwrap(r), &A_p3);
     ge_tobytes(&D, &D_p2);
