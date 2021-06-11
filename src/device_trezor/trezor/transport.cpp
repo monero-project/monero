@@ -573,8 +573,13 @@ namespace trezor{
       std::string req = "PINGPING";
       char res[8];
 
-      m_socket->send_to(boost::asio::buffer(req.c_str(), req.size()), m_endpoint);
-      receive(res, 8, nullptr, false, timeout);
+      const auto written = m_socket->send_to(boost::asio::buffer(req.c_str(), req.size()), m_endpoint);
+      if (written != req.size())
+        return false;
+      memset(res, 0, sizeof(res));
+      const auto received = receive(res, 8, nullptr, false, timeout);
+      if (received != 8)
+        return false;
 
       return memcmp(res, "PONGPONG", 8) == 0;
 
