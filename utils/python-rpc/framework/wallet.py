@@ -1099,3 +1099,36 @@ class Wallet(object):
             'id': '0'
         }
         return self.rpc.send_json_rpc_request(scan_tx)
+
+    def freeze(self, key_image):
+        freeze = {
+            'method': 'freeze',
+            'jsonrpc': '2.0',
+            'params' : {
+                'key_image': key_image,
+            },
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(freeze)
+
+    def thaw(self, key_image):
+        thaw = {
+            'method': 'thaw',
+            'jsonrpc': '2.0',
+            'params' : {
+                'key_image': key_image,
+            },
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(thaw)
+
+    def frozen(self, key_image):
+        frozen = {
+            'method': 'frozen',
+            'jsonrpc': '2.0',
+            'params' : {
+                'key_image': key_image,
+            },
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(frozen)
