@@ -7862,7 +7862,7 @@ std::vector<wallet2::pending_tx> wallet2::create_stake_tx(const crypto::public_k
   }
 
   if(reg_height == 0)
-    return {}
+    return {};
 
   const cryptonote::account_public_address& address = addr_info.address;
 
