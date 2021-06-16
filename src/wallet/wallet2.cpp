@@ -7895,7 +7895,7 @@ std::vector<wallet2::pending_tx> wallet2::create_stake_tx(const crypto::public_k
 
   uint64_t unlock_at_block = 0;
   if (v11)
-    unlock_at_blocks = reg_height + locked_blocks;
+    unlock_at_block = reg_height + locked_blocks;
   else
     unlock_at_block = bc_height + locked_blocks;
 
