@@ -1354,7 +1354,8 @@ void BlockchainLMDB::open(const std::string& filename, const int db_flags)
 
   m_folder = filename;
 
-  check_mmap_support();
+  try { check_mmap_support(); }
+  catch(...) { MERROR("Failed to check for mmap support, proceeding"); }
 
 #ifdef __OpenBSD__
   if ((mdb_flags & MDB_WRITEMAP) == 0) {
