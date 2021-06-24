@@ -714,9 +714,8 @@ Logger::Logger(const std::string& id, const Configurations& configurations,
 }
 
 Logger::Logger(const Logger& logger) {
-  base::utils::safeDelete(m_typedConfigurations);
   m_id = logger.m_id;
-  m_typedConfigurations = logger.m_typedConfigurations;
+  m_typedConfigurations = logger.m_typedConfigurations ? new base::TypedConfigurations(*logger.m_typedConfigurations) : nullptr;
   m_parentApplicationName = logger.m_parentApplicationName;
   m_isConfigured = logger.m_isConfigured;
   m_configurations = logger.m_configurations;
@@ -728,7 +727,7 @@ Logger& Logger::operator=(const Logger& logger) {
   if (&logger != this) {
     base::utils::safeDelete(m_typedConfigurations);
     m_id = logger.m_id;
-    m_typedConfigurations = logger.m_typedConfigurations;
+    m_typedConfigurations = logger.m_typedConfigurations ? new base::TypedConfigurations(*logger.m_typedConfigurations) : nullptr;
     m_parentApplicationName = logger.m_parentApplicationName;
     m_isConfigured = logger.m_isConfigured;
     m_configurations = logger.m_configurations;
