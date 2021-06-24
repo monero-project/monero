@@ -1087,6 +1087,12 @@ struct Wallet
 
     //! attempt to reconnect to hardware device
     virtual bool reconnectDevice() = 0;
+
+    //! get bytes received
+    virtual uint64_t getBytesReceived() = 0;
+
+    //! get bytes sent
+    virtual uint64_t getBytesSent() = 0;
 };
 
 /**
