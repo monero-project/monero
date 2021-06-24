@@ -1365,6 +1365,3 @@ struct WalletManagerFactory
 
 
 }
-
-namespace Bitmonero = Monero;
-

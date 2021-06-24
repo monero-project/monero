@@ -73,5 +73,3 @@ private:
 
 
 }
-
-namespace Bitmonero = Monero;

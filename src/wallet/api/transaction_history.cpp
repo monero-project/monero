@@ -266,5 +266,3 @@ void TransactionHistoryImpl::refresh()
 }
 
 } // namespace
-
-namespace Bitmonero = Monero;

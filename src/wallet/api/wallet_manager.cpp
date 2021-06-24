@@ -406,5 +406,3 @@ void WalletManagerFactory::setLogCategories(const std::string &categories)
 
 
 }
-
-namespace Bitmonero = Monero;

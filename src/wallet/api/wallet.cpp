@@ -2604,5 +2604,3 @@ bool WalletImpl::reconnectDevice()
     return r;
 }
 } // namespace
-
-namespace Bitmonero = Monero;
