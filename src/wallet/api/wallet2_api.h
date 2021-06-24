@@ -1084,6 +1084,9 @@ struct Wallet
 
     //! shows address on device display
     virtual void deviceShowAddress(uint32_t accountIndex, uint32_t addressIndex, const std::string &paymentId) = 0;
+
+    //! attempt to reconnect to hardware device
+    virtual bool reconnectDevice() = 0;
 };
 
 /**
