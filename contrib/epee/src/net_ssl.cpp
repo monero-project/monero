@@ -32,6 +32,8 @@
 #include <boost/asio/ssl.hpp>
 #include <boost/cerrno.hpp>
 #include <boost/filesystem/operations.hpp>
+#include <boost/asio/strand.hpp>
+#include <condition_variable>
 #include <boost/lambda/lambda.hpp>
 #include <openssl/ssl.h>
 #include <openssl/pem.h>
@@ -488,12 +490,10 @@ bool ssl_options_t::has_fingerprint(boost::asio::ssl::verify_context &ctx) const
   return false;
 }
 
-bool ssl_options_t::handshake(
+void ssl_options_t::configure(
   boost::asio::ssl::stream<boost::asio::ip::tcp::socket> &socket,
   boost::asio::ssl::stream_base::handshake_type type,
-  boost::asio::const_buffer buffer,
-  const std::string& host,
-  std::chrono::milliseconds timeout) const
+  const std::string& host) const
 {
   socket.next_layer().set_option(boost::asio::ip::tcp::no_delay(true));
 
@@ -538,30 +538,101 @@ bool ssl_options_t::handshake(
       return true;
     });
   }
+}
 
-  auto& io_service = GET_IO_SERVICE(socket);
-  boost::asio::steady_timer deadline(io_service, timeout);
-  deadline.async_wait([&socket](const boost::system::error_code& error) {
-    if (error != boost::asio::error::operation_aborted)
+bool ssl_options_t::handshake(
+  boost::asio::ssl::stream<boost::asio::ip::tcp::socket> &socket,
+  boost::asio::ssl::stream_base::handshake_type type,
+  boost::asio::const_buffer buffer,
+  const std::string& host,
+  std::chrono::milliseconds timeout) const
+{
+  configure(socket, type, host);
+
+  auto start_handshake = [&]{
+    using ec_t = boost::system::error_code;
+    using timer_t = boost::asio::steady_timer;
+    using strand_t = boost::asio::io_service::strand;
+    using lock_t = std::mutex;
+    using lock_guard_t = std::lock_guard<lock_t>;
+    using condition_t = std::condition_variable_any;
+    using socket_t = boost::asio::ip::tcp::socket;
+
+    auto &io_context = GET_IO_SERVICE(socket);
+    if (io_context.stopped())
+      io_context.reset();
+    strand_t strand(io_context);
+    timer_t deadline(io_context, timeout);
+
+    struct state_t {
+      lock_t lock;
+      condition_t condition;
+      ec_t result;
+      bool wait_timer;
+      bool wait_handshake;
+      bool cancel_timer;
+      bool cancel_handshake;
+    };
+    state_t state{};
+
+    state.wait_timer = true;
+    auto on_timer = [&](const ec_t &ec){
+      lock_guard_t guard(state.lock);
+      state.wait_timer = false;
+      state.condition.notify_all();
+      if (not state.cancel_timer) {
+        state.cancel_handshake = true;
+        ec_t ec;
+        socket.next_layer().cancel(ec);
+      }
+    };
+
+    state.wait_handshake = true;
+    auto on_handshake = [&](const ec_t &ec, size_t bytes_transferred){
+      lock_guard_t guard(state.lock);
+      state.wait_handshake = false;
+      state.condition.notify_all();
+      state.result = ec;
+      if (not state.cancel_handshake) {
+        state.cancel_timer = true;
+        ec_t ec;
+        deadline.cancel(ec);
+      }
+    };
+
+    deadline.async_wait(on_timer);
+    strand.post(
+      [&]{
+        socket.async_handshake(
+          type,
+          boost::asio::buffer(buffer),
+          strand.wrap(on_handshake)
+        );
+      }
+    );
+
+    while (!io_context.stopped())
     {
-      socket.next_layer().close();
+      io_context.poll_one();
+      lock_guard_t guard(state.lock);
+      state.condition.wait_for(
+        state.lock,
+        std::chrono::milliseconds(30),
+        [&]{
+          return not state.wait_timer and not state.wait_handshake;
+        }
+      );
+      if (not state.wait_timer and not state.wait_handshake)
+        break;
     }
-  });
-
-  boost::system::error_code ec = boost::asio::error::would_block;
-  socket.async_handshake(type, boost::asio::buffer(buffer), boost::lambda::var(ec) = boost::lambda::_1);
-  if (io_service.stopped())
-  {
-    io_service.reset();
-  }
-  while (ec == boost::asio::error::would_block && !io_service.stopped())
-  {
-    // should poll_one(), can't run_one() because it can block if there is
-    // another worker thread executing io_service's tasks
-    // TODO: once we get Boost 1.66+, replace with run_one_for/run_until
-    std::this_thread::sleep_for(std::chrono::milliseconds(30));
-    io_service.poll_one();
-  }
+    if (state.result.value()) {
+      ec_t ec;
+      socket.next_layer().shutdown(socket_t::shutdown_both, ec);
+      socket.next_layer().close(ec);
+    }
+    return state.result;
+  };
+  const auto ec = start_handshake();
 
   if (ec)
   {
