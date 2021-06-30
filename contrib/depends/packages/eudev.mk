@@ -1,7 +1,8 @@
 package=eudev
 $(package)_version=v3.2.6
 $(package)_download_path=https://github.com/gentoo/eudev/archive/
-$(package)_file_name=$($(package)_version).tar.gz
+$(package)_download_file=$($(package)_version).tar.gz
+$(package)_file_name=$(package)-$($(package)_version).tar.gz
 $(package)_sha256_hash=a96ecb8637667897b8bd4dee4c22c7c5f08b327be45186e912ce6bc768385852
 
 define $(package)_set_vars
