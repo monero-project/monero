@@ -1754,6 +1754,13 @@ bool wallet2::frozen(const transfer_details &td) const
   return td.m_frozen;
 }
 //----------------------------------------------------------------------------------------------------
+void wallet2::set_output_description(size_t idx, const std::string &description)
+{
+  CHECK_AND_ASSERT_THROW_MES(idx < m_transfers.size(), "Invalid transfer_details index");
+  transfer_details &td = m_transfers[idx];
+  td.m_description = description;
+}
+//----------------------------------------------------------------------------------------------------
 void wallet2::check_acc_out_precomp(const tx_out &o, const crypto::key_derivation &derivation, const std::vector<crypto::key_derivation> &additional_derivations, size_t i, tx_scan_info_t &tx_scan_info) const
 {
   hw::device &hwdev = m_account.get_device();

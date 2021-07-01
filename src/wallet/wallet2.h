@@ -344,6 +344,7 @@ private:
       std::vector<rct::key> m_multisig_k;
       std::vector<multisig_info> m_multisig_info; // one per other participant
       std::vector<std::pair<uint64_t, crypto::hash>> m_uses;
+      std::string m_description;
 
       bool is_rct() const { return m_rct; }
       uint64_t amount() const { return m_amount; }
@@ -370,6 +371,7 @@ private:
         FIELD(m_multisig_k)
         FIELD(m_multisig_info)
         FIELD(m_uses)
+        FIELD(m_description)
       END_SERIALIZE()
     };
 
@@ -1526,6 +1528,8 @@ private:
     bool frozen(const crypto::key_image &ki) const;
     bool frozen(const transfer_details &td) const;
 
+    void set_output_description(size_t idx, const std::string &description);
+
     bool save_to_file(const std::string& path_to_file, const std::string& binary, bool is_printable = false) const;
     static bool load_from_file(const std::string& path_to_file, std::string& target_str, size_t max_size = 1000000000);
 
@@ -1816,7 +1820,7 @@ private:
   };
 }
 BOOST_CLASS_VERSION(tools::wallet2, 29)
-BOOST_CLASS_VERSION(tools::wallet2::transfer_details, 12)
+BOOST_CLASS_VERSION(tools::wallet2::transfer_details, 13)
 BOOST_CLASS_VERSION(tools::wallet2::multisig_info, 1)
 BOOST_CLASS_VERSION(tools::wallet2::multisig_info::LR, 0)
 BOOST_CLASS_VERSION(tools::wallet2::multisig_tx_set, 1)
@@ -1881,6 +1885,10 @@ namespace boost
         if (ver < 12)
         {
           x.m_frozen = false;
+        }
+        if (ver < 13)
+        {
+          x.m_description = "";
         }
     }
 
@@ -1981,6 +1989,12 @@ namespace boost
         return;
       }
       a & x.m_frozen;
+      if (ver < 13)
+      {
+        initialize_transfer_details(a, x, ver);
+        return;
+      }
+      a & x.m_description;
     }
 
     template <class Archive>
