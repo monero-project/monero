@@ -5,11 +5,17 @@ on: [push, pull_request]
 # The below variables reduce repetitions across similar targets
 env:
   REMOVE_BUNDLED_BOOST : rm -rf /usr/local/share/boost
+  APT_PURGE_DEFAULT_BOOST : |
+        sudo apt -y purge libboost-all-dev
+        sudo apt -y autoremove
   APT_INSTALL_LINUX: 'sudo apt -y install build-essential cmake libboost-all-dev miniupnpc libunbound-dev graphviz doxygen libunwind8-dev pkg-config libssl-dev libzmq3-dev libsodium-dev libhidapi-dev libnorm-dev libusb-1.0-0-dev libpgm-dev libprotobuf-dev protobuf-compiler ccache'
   APT_SET_CONF: |
         echo "Acquire::Retries \"3\";" | sudo tee -a /etc/apt/apt.conf.d/80-custom
         echo "Acquire::http::Timeout \"120\";" | sudo tee -a /etc/apt/apt.conf.d/80-custom
         echo "Acquire::ftp::Timeout \"120\";" | sudo tee -a /etc/apt/apt.conf.d/80-custom
+  BUILD_DEFAULT_LINUX: |
+        ccache --max-size=150M
+        make -j3
 
 jobs:
   build-macos:
@@ -171,3 +177,87 @@ jobs:
       with:
         name: ${{ env.OUTPUT }}
         path: /home/runner/work/monero/monero/${{ env.OUTPUT }}
+
+######################################
+# Backward compatibility test builds #
+######################################
+
+# See the OS labels and monitor deprecations here:
+# https://docs.github.com/en/actions/using-github-hosted-runners/about-github-hosted-runners#supported-runners-and-hardware-resources
+
+  build-ubuntu-18-04:
+    runs-on: ubuntu-18.04
+    env:
+      CCACHE_COMPRESS: 1
+      CCACHE_TEMPDIR: /tmp/.ccache-temp
+    strategy:
+      fail-fast: false
+      matrix:
+        boost-ver:
+        # The only available Boost versions for this distro's release version.
+          - name: "Boost 1.62"
+            ver: "1.62"
+          - name: "Boost 1.65"
+            ver: "1.65"
+    steps:
+    - uses: actions/checkout@v1
+      with:
+        submodules: recursive
+    - uses: actions/cache@v2
+      with:
+        path: ~/.ccache
+        key: ccache-ubuntu-18-04-${{ matrix.boost-ver.ver }}-${{ github.sha }}
+        restore-keys: ccache-ubuntu-18-04-${{ matrix.boost-ver.ver }}-
+    - name: remove bundled boost
+      run: ${{env.REMOVE_BUNDLED_BOOST}}
+    - name: set apt conf
+      run: ${{env.APT_SET_CONF}}
+    - name: update apt
+      run: sudo apt update
+    - name: install monero dependencies
+      run: ${{env.APT_INSTALL_LINUX}}
+    # Remove the default boost version and purge all the leftovers, that would prevent the installation of the specific version
+    - name: purge default boost version
+      run: ${{env.APT_PURGE_DEFAULT_BOOST}}
+    - name: install specific boost version
+      run: sudo apt -y install libboost${{ matrix.boost-ver.ver }}-all-dev
+    - name: build
+      run: ${{env.BUILD_DEFAULT_LINUX}}
+
+  build-ubuntu-20-04:
+    runs-on: ubuntu-20.04
+    env:
+      CCACHE_COMPRESS: 1
+      CCACHE_TEMPDIR: /tmp/.ccache-temp
+    strategy:
+      fail-fast: false
+      matrix:
+        boost-ver:
+          - name: "Boost 1.67"
+            ver: "1.67"
+          - name: "Boost 1.71"
+            ver: "1.71"
+    steps:
+    - uses: actions/checkout@v1
+      with:
+        submodules: recursive
+    - uses: actions/cache@v2
+      with:
+        path: ~/.ccache
+        key: ccache-ubuntu-20-04-${{ matrix.boost-ver.ver }}-${{ github.sha }}
+        restore-keys: ccache-ubuntu-20-04-${{ matrix.boost-ver.ver }}-
+    - name: remove bundled boost
+      run: ${{env.REMOVE_BUNDLED_BOOST}}
+    - name: set apt conf
+      run: ${{env.APT_SET_CONF}}
+    - name: update apt
+      run: sudo apt update
+    - name: install monero dependencies
+      run: ${{env.APT_INSTALL_LINUX}}
+    - name: purge default boost version
+      run: ${{env.APT_PURGE_DEFAULT_BOOST}}
+    - name: install specific boost version
+      run: sudo apt -y install libboost${{ matrix.boost-ver.ver }}-all-dev
+    - name: build
+      run: ${{env.BUILD_DEFAULT_LINUX}}
+
