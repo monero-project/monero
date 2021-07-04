@@ -60,11 +60,17 @@ jobs:
         ccache --max-size=150M
         make release-static-win64 -j2
 
+# See the OS labels and monitor deprecations here:
+# https://docs.github.com/en/actions/using-github-hosted-runners/about-github-hosted-runners#supported-runners-and-hardware-resources
+
   build-ubuntu:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     env:
       CCACHE_COMPRESS: 1
       CCACHE_TEMPDIR: /tmp/.ccache-temp
+    strategy:
+      matrix:
+        os: [ubuntu-latest, ubuntu-18.04]
     steps:
     - uses: actions/checkout@v1
       with:
@@ -72,8 +78,10 @@ jobs:
     - uses: actions/cache@v2
       with:
         path: ~/.ccache
-        key: ccache-ubuntu-build-${{ github.sha }}
-        restore-keys: ccache-ubuntu-build-
+        key: ccache-ubuntu-build-${{ matrix.os }}-${{ github.sha }}
+        restore-keys: | 
+          ccache-ubuntu-build-${{ matrix.os }}
+          ccache-ubuntu-build-
     - name: remove bundled boost
       run: ${{env.REMOVE_BUNDLED_BOOST}}
     - name: set apt conf
