@@ -77,5 +77,7 @@ target_link_libraries(device
     ${Boost_SERIALIZATION_LIBRARY}
   PRIVATE
     version
+    obj_cryptonote_basic
+    ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${Blocks}
     ${EXTRA_LIBRARIES})
