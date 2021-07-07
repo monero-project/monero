@@ -1307,14 +1307,8 @@ void BlockchainLMDB::open(const std::string& filename, const int db_flags)
     throw0(DB_OPEN_FAILURE("Attempted to open db, but it's already open"));
 
   boost::filesystem::path direc(filename);
-  if (boost::filesystem::exists(direc))
-  {
-    if (!boost::filesystem::is_directory(direc))
-      throw0(DB_OPEN_FAILURE("LMDB needs a directory path, but a file was passed"));
-  }
-  else
-  {
-    if (!boost::filesystem::create_directories(direc))
+  if (!boost::filesystem::exists(direc) &&
+      !boost::filesystem::create_directories(direc)) {
       throw0(DB_OPEN_FAILURE(std::string("Failed to create directory ").append(filename).c_str()));
   }
 
