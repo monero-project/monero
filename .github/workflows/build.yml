@@ -112,8 +112,8 @@ jobs:
     - name: build
       run: |
         ccache --max-size=150M
-        cmake -DBUILD_GUI_DEPS=ON
-        make -j3
+        cmake .
+        make wallet_api -j3
 
   test-ubuntu:
     needs: build-ubuntu
