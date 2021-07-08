@@ -508,19 +508,6 @@ cd ../..
 
 Then you can run make as usual.
 
-### On Linux for Android (using docker):
-
-```bash
-# Build image (for ARM 32-bit)
-docker build -f utils/build_scripts/android32.Dockerfile -t monero-android .
-# Build image (for ARM 64-bit)
-docker build -f utils/build_scripts/android64.Dockerfile -t monero-android .
-# Create container
-docker create -it --name monero-android monero-android bash
-# Get binaries
-docker cp monero-android:/src/build/release/bin .
-```
-
 ### Building portable statically linked binaries
 
 By default, in either dynamically or statically linked builds, binaries target the specific host processor on which the build happens and are not portable to other processors. Portable binaries can be built using the following targets:
