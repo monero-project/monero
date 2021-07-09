@@ -88,9 +88,7 @@ jobs:
         if [ -f contrib/depends/sdk-sources/MacOSX${{ matrix.toolchain.osx_sdk }}.sdk.tar.gz ]; then tar -C contrib/depends/SDKs -xf contrib/depends/sdk-sources/MacOSX${{ matrix.toolchain.osx_sdk }}.sdk.tar.gz; fi
     - name: prepare w64-mingw32
       if: ${{ matrix.toolchain.host == 'x86_64-w64-mingw32' || matrix.toolchain.host == 'i686-w64-mingw32' }}
-      run: |
-        sudo update-alternatives --set ${{ matrix.toolchain.host }}-g++ $(which ${{ matrix.toolchain.host }}-g++-posix)
-        sudo update-alternatives --set ${{ matrix.toolchain.host }}-gcc $(which ${{ matrix.toolchain.host }}-gcc-posix)
+      run: sudo contrib/depends/util/mingw32-update-gcc-posix.sh ${{ matrix.toolchain.host }}
     - name: build
       run: |
         ${{env.CCACHE_SETTINGS}}
