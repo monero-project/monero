@@ -15,7 +15,7 @@ of software solid and usable.
 Patches are preferably to be sent via a Github pull request. If that
 can't be done, patches in "git format-patch" format can be sent
 (eg, posted to fpaste.org with a long enough timeout and a link
-posted to #monero-dev on irc.freenode.net).
+posted to #monero-dev on irc.libera.chat).
 
 Patches should be self contained. A good rule of thumb is to have
 one patch per separate issue, feature, or logical change. Also, no
