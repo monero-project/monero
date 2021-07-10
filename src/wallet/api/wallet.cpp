@@ -1180,7 +1180,7 @@ bool WalletImpl::exportKeyImages(const string &filename, bool all)
   
   try
   {
-    if (!m_wallet->export_key_images(filename), all)
+    if (!m_wallet->export_key_images(filename, all))
     {
       setStatusError(tr("failed to save file ") + filename);
       return false;
