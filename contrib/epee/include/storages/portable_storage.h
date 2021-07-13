@@ -31,8 +31,6 @@
 #include "misc_log_ex.h"
 #include "span.h"
 
-#include <boost/mpl/contains.hpp>
-
 namespace epee
 {
   class byte_slice;
