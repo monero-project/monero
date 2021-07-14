@@ -31,7 +31,7 @@
 #include <boost/regex.hpp>
 
 #include "common/util.h"
-#include "common/command_line.h"
+#include "common/command_line_functions.h"
 #include "performance_tests.h"
 #include "performance_utils.h"
 

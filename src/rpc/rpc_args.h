@@ -29,8 +29,7 @@
 #pragma once
 
 #include <boost/optional/optional.hpp>
-#include <boost/program_options/options_description.hpp>
-#include <boost/program_options/variables_map.hpp>
+#include "fwd/boost_monero_program_options_fwd.h"
 #include <string>
 
 #include "common/command_line.h"

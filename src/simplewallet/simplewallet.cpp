@@ -54,7 +54,7 @@
 #include "include_base_utils.h"
 #include "console_handler.h"
 #include "common/i18n.h"
-#include "common/command_line.h"
+#include "common/command_line_functions.h"
 #include "common/util.h"
 #include "common/dns_utils.h"
 #include "common/base58.h"

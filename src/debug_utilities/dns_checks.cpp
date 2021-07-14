@@ -34,6 +34,7 @@
 #include "misc_log_ex.h"
 #include "common/util.h"
 #include "common/command_line.h"
+#include "common/command_line_functions.h"
 #include "common/dns_utils.h"
 #include "version.h"
 

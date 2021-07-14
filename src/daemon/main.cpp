@@ -28,7 +28,7 @@
 //
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
-#include "common/command_line.h"
+#include "common/command_line_functions.h"
 #include "common/scoped_message_writer.h"
 #include "common/password.h"
 #include "common/util.h"

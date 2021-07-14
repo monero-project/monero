@@ -41,7 +41,7 @@
 #include "include_base_utils.h"
 #include "crypto/crypto.h"  // for crypto::secret_key definition
 #include "common/i18n.h"
-#include "common/command_line.h"
+#include "common/command_line_functions.h"
 #include "common/util.h"
 #include "common/scoped_message_writer.h"
 #include "wallet/wallet_args.h"

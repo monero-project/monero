@@ -33,8 +33,7 @@
 #include <vector>
 #include "crypto/hash.h"
 #include <boost/serialization/vector.hpp>
-#include <boost/program_options/variables_map.hpp>
-#include <boost/program_options/options_description.hpp>
+#include "fwd/boost_monero_program_options_fwd.h"
 #include <boost/optional/optional.hpp>
 #include "serialization/serialization.h"
 #include "cryptonote_basic/cryptonote_boost_serialization.h"

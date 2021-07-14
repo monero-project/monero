@@ -32,7 +32,7 @@
 
 #include <string>
 #include <exception>
-#include <boost/program_options.hpp>
+#include "fwd/boost_monero_program_options_fwd.h"
 #include "common/command_line.h"
 #include "crypto/hash.h"
 #include "cryptonote_basic/blobdatatype.h"
@@ -1489,7 +1489,7 @@ public:
    * @param outputs return-by-reference a list of outputs' metadata
    */
   virtual void get_output_key(const epee::span<const uint64_t> &amounts, const std::vector<uint64_t> &offsets, std::vector<output_data_t> &outputs, bool allow_partial = false) const = 0;
-  
+
   /*
    * FIXME: Need to check with git blame and ask what this does to
    * document it

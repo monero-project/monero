@@ -33,9 +33,7 @@
 #include <ctime>
 
 #include <boost/function.hpp>
-#include <boost/program_options/options_description.hpp>
-#include <boost/program_options/variables_map.hpp>
-
+#include "fwd/boost_monero_program_options_fwd.h"
 #include "cryptonote_basic/fwd.h"
 #include "cryptonote_core/i_core_events.h"
 #include "cryptonote_protocol/cryptonote_protocol_handler_common.h"

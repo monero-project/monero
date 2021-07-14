@@ -28,7 +28,9 @@
 
 #pragma once
 
+#include "fwd/boost_monero_program_options_fwd.h"
 #include "common/util.h"
+#include "common/command_line_functions.h"
 #include "daemonizer/windows_service.h"
 #include "daemonizer/windows_service_runner.h"
 #include "cryptonote_core/cryptonote_core.h"

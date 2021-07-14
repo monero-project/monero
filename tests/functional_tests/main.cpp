@@ -34,7 +34,7 @@
 #include "string_tools.h"
 using namespace epee;
 
-#include "common/command_line.h"
+#include "common/command_line_functions.h"
 #include "common/util.h"
 #include "transactions_flow_test.h"
 

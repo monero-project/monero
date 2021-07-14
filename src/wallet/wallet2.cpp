@@ -59,7 +59,7 @@ using namespace epee;
 #include "cryptonote_basic/cryptonote_basic_impl.h"
 #include "multisig/multisig.h"
 #include "common/boost_serialization_helper.h"
-#include "common/command_line.h"
+#include "common/command_line_functions.h"
 #include "common/threadpool.h"
 #include "int-util.h"
 #include "profile_tools.h"

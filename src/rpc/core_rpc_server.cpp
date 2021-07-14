@@ -36,7 +36,7 @@
 using namespace epee;
 
 #include "core_rpc_server.h"
-#include "common/command_line.h"
+#include "common/command_line_functions.h"
 #include "common/updates.h"
 #include "common/download.h"
 #include "common/util.h"

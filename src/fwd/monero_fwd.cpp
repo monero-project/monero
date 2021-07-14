@@ -25,35 +25,13 @@
 // INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// 
+// Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
-#pragma once
-#include "fwd/boost_monero_program_options_fwd.h"
+/*
+This file serves 2 purposes:
+1) It allows older versions of CMake create an INTERFACE library.
+2) It performs preprocessor checks on the target, before it's distributed to the dependees.
+*/
 
-#undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "daemon"
-
-namespace daemonize {
-
-struct t_internals;
-
-class t_daemon final {
-public:
-  static void init_options(boost::program_options::options_description & option_spec);
-private:
-  void stop_p2p();
-private:
-  std::unique_ptr<t_internals> mp_internals;
-  uint16_t public_rpc_port;
-public:
-  t_daemon(
-      boost::program_options::variables_map const & vm,
-      uint16_t public_rpc_port = 0
-    );
-  t_daemon(t_daemon && other);
-  t_daemon & operator=(t_daemon && other);
-  ~t_daemon();
-
-  bool run(bool interactive = false);
-  void stop();
-};
-}
+#include "monero_fwd.h"

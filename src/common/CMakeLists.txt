@@ -63,6 +63,7 @@ set(common_private_headers
   base58.h
   boost_serialization_helper.h
   command_line.h
+  command_line_functions.h
   common_fwd.h
   dns_utils.h
   download.h

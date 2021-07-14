@@ -35,7 +35,7 @@
 #include <iostream>
 #include <stdint.h>
 
-#include <boost/program_options.hpp>
+#include "fwd/boost_monero_program_options_fwd.h"
 #include <boost/optional.hpp>
 #include <boost/serialization/vector.hpp>
 #include <boost/serialization/variant.hpp>
@@ -729,60 +729,6 @@ struct get_test_options {
 };
 //--------------------------------------------------------------------------
 template<class t_test_class>
-inline bool do_replay_events_get_core(std::vector<test_event_entry>& events, cryptonote::core *core)
-{
-  boost::program_options::options_description desc("Allowed options");
-  cryptonote::core::init_options(desc);
-  boost::program_options::variables_map vm;
-  bool r = command_line::handle_error_helper(desc, [&]()
-  {
-    boost::program_options::store(boost::program_options::basic_parsed_options<char>(&desc), vm);
-    boost::program_options::notify(vm);
-    return true;
-  });
-  if (!r)
-    return false;
-
-  auto & c = *core;
-
-  // FIXME: make sure that vm has arg_testnet_on set to true or false if
-  // this test needs for it to be so.
-  get_test_options<t_test_class> gto;
-
-  // Hardforks can be specified in events.
-  v_hardforks_t hardforks;
-  cryptonote::test_options test_options_tmp{nullptr, 0};
-  const cryptonote::test_options * test_options_ = &gto.test_options;
-  if (extract_hard_forks(events, hardforks)){
-    hardforks.push_back(std::make_pair((uint8_t)0, (uint64_t)0));  // terminator
-    test_options_tmp.hard_forks = hardforks.data();
-    test_options_ = &test_options_tmp;
-  }
-
-  if (!c.init(vm, test_options_))
-  {
-    MERROR("Failed to init core");
-    return false;
-  }
-  c.get_blockchain_storage().get_db().set_batch_transactions(true);
-
-  // start with a clean pool
-  std::vector<crypto::hash> pool_txs;
-  if (!c.get_pool_transaction_hashes(pool_txs))
-  {
-    MERROR("Failed to flush txpool");
-    return false;
-  }
-  c.get_blockchain_storage().flush_txes_from_pool(pool_txs);
-
-  t_test_class validator;
-  bool ret = replay_events_through_core<t_test_class>(c, events, validator);
-  tools::threadpool::getInstance().recycle();
-//  c.deinit();
-  return ret;
-}
-//--------------------------------------------------------------------------
-template<class t_test_class>
 inline bool replay_events_through_core_validate(std::vector<test_event_entry>& events, cryptonote::core & c)
 {
   std::vector<crypto::hash> pool_txs;
@@ -795,27 +741,6 @@ inline bool replay_events_through_core_validate(std::vector<test_event_entry>& e
 
   t_test_class validator;
   return replay_events_through_core_plain<t_test_class>(c, events, validator, false);
-}
-//--------------------------------------------------------------------------
-template<class t_test_class>
-inline bool do_replay_events(std::vector<test_event_entry>& events)
-{
-  cryptonote::core core(nullptr);
-  bool ret = do_replay_events_get_core<t_test_class>(events, &core);
-  core.deinit();
-  return ret;
-}
-//--------------------------------------------------------------------------
-template<class t_test_class>
-inline bool do_replay_file(const std::string& filename)
-{
-  std::vector<test_event_entry> events;
-  if (!tools::unserialize_obj_from_file(events, filename))
-  {
-    MERROR("Failed to deserialize data from file: ");
-    return false;
-  }
-  return do_replay_events<t_test_class>(events);
 }
 
 //--------------------------------------------------------------------------
@@ -987,14 +912,6 @@ inline bool do_replay_file(const std::string& filename)
             MERROR("Failed to serialize data to file: " << filename); \
             throw std::runtime_error("Failed to serialize data to file"); \
         } \
-    }
-
-
-#define PLAY(filename, genclass) \
-    if(!do_replay_file<genclass>(filename)) \
-    { \
-      MERROR("Failed to pass test : " << #genclass); \
-      return 1; \
     }
 
 #define CATCH_REPLAY(genclass)                                                                             \

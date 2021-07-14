@@ -30,6 +30,7 @@
 
 // IP blocking adapted from Boolberry
 
+#include "fwd/boost_monero_program_options_fwd.h"
 #include <algorithm>
 #include <boost/bind/bind.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
@@ -50,6 +51,7 @@
 #include "common/util.h"
 #include "common/dns_utils.h"
 #include "common/pruning.h"
+#include "common/command_line_functions.h"
 #include "net/error.h"
 #include "net/net_helper.h"
 #include "math_helper.h"
