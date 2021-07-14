@@ -518,9 +518,7 @@ namespace hw {
     }
 
     bool device_ledger::init(void) {
-      #ifdef DEBUG_HWDEVICE
       this->controle_device = &hw::get_device("default");
-      #endif
       this->release();
       hw_device.init();      
       MDEBUG( "Device "<<this->id <<" HIDUSB inited");
@@ -739,6 +737,12 @@ namespace hw {
     }
 
     crypto::public_key device_ledger::get_subaddress_spend_public_key(const cryptonote::account_keys& keys, const cryptonote::subaddress_index &index) {
+        if (has_view_key) {
+            cryptonote::account_keys keys_{keys};
+            keys_.m_view_secret_key = this->viewkey;
+            return this->controle_device->get_subaddress_spend_public_key(keys_, index);
+        }
+
         AUTO_LOCK_CMD();
         crypto::public_key D;
 
@@ -790,6 +794,12 @@ namespace hw {
     }
 
     cryptonote::account_public_address device_ledger::get_subaddress(const cryptonote::account_keys& keys, const cryptonote::subaddress_index &index) {
+        if (has_view_key) {
+            cryptonote::account_keys keys_{keys};
+            keys_.m_view_secret_key = this->viewkey;
+            return this->controle_device->get_subaddress(keys_, index);
+        }
+
         AUTO_LOCK_CMD();
         cryptonote::account_public_address address;
 

@@ -181,11 +181,8 @@ namespace hw {
         // To speed up blockchain parsing the view key maybe handle here.
         crypto::secret_key viewkey;
         bool has_view_key;
-        
-        //extra debug
-        #ifdef DEBUG_HWDEVICE
+
         device *controle_device;
-        #endif
 
     public:
         device_ledger();
