@@ -3491,14 +3491,6 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
         blocks_fetched += added_blocks;
       }
       THROW_WALLET_EXCEPTION_IF(!waiter.wait(), error::wallet_internal_error, "Exception in thread pool");
-      if(!first && blocks_start_height == next_blocks_start_height)
-      {
-        m_node_rpc_proxy.set_height(m_blockchain.size());
-        refreshed = true;
-        break;
-      }
-
-      first = false;
 
       // handle error from async fetching thread
       if (error)
@@ -3508,6 +3500,15 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
         else
           throw std::runtime_error("proxy exception in refresh thread");
       }
+
+      if(!first && blocks_start_height == next_blocks_start_height)
+      {
+        m_node_rpc_proxy.set_height(m_blockchain.size());
+        refreshed = true;
+        break;
+      }
+
+      first = false;
 
       if (!next_blocks.empty())
       {
