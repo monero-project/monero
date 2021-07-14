@@ -32,7 +32,7 @@
 
 #include <exception>
 #include <string>
-#include <boost/optional.hpp>
+#include "3rd/boost_monero_optional.h"
 
 namespace hw {
 namespace trezor {

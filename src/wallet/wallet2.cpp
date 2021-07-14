@@ -32,7 +32,7 @@
 #include <tuple>
 #include <queue>
 #include <boost/format.hpp>
-#include <boost/optional/optional.hpp>
+#include "3rd/boost_monero_optional.h"
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/trim.hpp>
 #include <boost/algorithm/string/split.hpp>

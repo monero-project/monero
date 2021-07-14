@@ -37,6 +37,7 @@
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/lock_guard.hpp>
 #include <boost/shared_ptr.hpp>
+#include "3rd/boost_monero_optional.h"
 
 #include "common/varint.h"
 #include "warnings.h"

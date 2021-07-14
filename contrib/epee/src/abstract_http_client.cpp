@@ -130,7 +130,7 @@ namespace net_utils
 namespace http
 {
   //----------------------------------------------------------------------------------------------------
-  bool epee::net_utils::http::abstract_http_client::set_server(const std::string& address, boost::optional<login> user, ssl_options_t ssl_options)
+  bool epee::net_utils::http::abstract_http_client::set_server(const std::string& address, const boost::optional<login> & user, ssl_options_t ssl_options)
   {
     http::url_content parsed{};
     const bool r = parse_url(address, parsed);

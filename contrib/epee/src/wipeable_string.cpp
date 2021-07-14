@@ -26,7 +26,7 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include <boost/optional/optional.hpp>
+#include "3rd/boost_monero_optional.h"
 #include <string.h>
 #include "memwipe.h"
 #include "misc_log_ex.h"
@@ -220,6 +220,21 @@ boost::optional<epee::wipeable_string> wipeable_string::parse_hexstr() const
     res->push_back(((ptr0-hex)<<4) | (ptr1-hex));
   }
   return res;
+}
+
+/**
+The only purpose of this method is to encapsulate the boost::optional within this .cpp file,
+in order not to spread the boost/optional/optional.hpp header to files, that don't need it.
+*/
+bool wipeable_string::parse_hexstr_optional(wipeable_string & str_to_init) const
+{
+    boost::optional<epee::wipeable_string> blob = parse_hexstr();
+    if (blob)
+    {
+        str_to_init = std::move(blob.get());
+        return true;
+    }
+    return false;
 }
 
 char wipeable_string::pop_back()

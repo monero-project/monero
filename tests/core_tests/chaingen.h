@@ -36,7 +36,7 @@
 #include <stdint.h>
 
 #include <boost/program_options.hpp>
-#include <boost/optional.hpp>
+#include "3rd/boost_monero_optional.h"
 #include <boost/serialization/vector.hpp>
 #include <boost/serialization/variant.hpp>
 #include <boost/serialization/optional.hpp>

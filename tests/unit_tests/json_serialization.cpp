@@ -1,5 +1,5 @@
 
-#include <boost/optional/optional.hpp>
+#include "3rd/boost_monero_optional.h"
 #include <boost/range/adaptor/indexed.hpp>
 #include <gtest/gtest.h>
 #include <rapidjson/document.h>

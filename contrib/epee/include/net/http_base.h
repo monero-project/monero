@@ -34,6 +34,7 @@
 #include <string>
 #include <utility>
 #include <list>
+#include "http_types.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "net.http"
@@ -44,7 +45,6 @@ namespace net_utils
 {
 	namespace http
 	{
-
 		enum http_method{
 			http_method_options,
 			http_method_get,
@@ -62,8 +62,6 @@ namespace net_utils
 			http_content_type_other,
 			http_content_type_not_set
 		};
-
-		typedef std::list<std::pair<std::string, std::string> > fields_list;
 
 		std::string get_value_from_fields_list(const std::string& param_name, const net_utils::http::fields_list& fields);
 

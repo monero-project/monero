@@ -28,6 +28,7 @@
 
 #include "gtest/gtest.h"
 #include "net/http_auth.h"
+#include "net/http_base.h"
 
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string/join.hpp>

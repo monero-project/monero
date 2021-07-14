@@ -33,8 +33,10 @@
 #include "cryptonote_basic/account.h"
 #include "cryptonote_basic/subaddress_index.h"
 #include "cryptonote_core/cryptonote_tx_utils.h"
+#include "crypto/hash.h"
 
-#include <boost/thread/locks.hpp> 
+#include "3rd/boost_monero_optional.h"
+#include <boost/thread/locks.hpp>
 #include <boost/thread/lock_guard.hpp>
 
 namespace hw {

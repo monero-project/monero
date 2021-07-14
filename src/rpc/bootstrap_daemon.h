@@ -4,7 +4,7 @@
 #include <map>
 #include <utility>
 
-#include <boost/optional/optional.hpp>
+#include "fwd/boost_monero_optional_fwd.h"
 #include <boost/thread/mutex.hpp>
 #include <boost/utility/string_ref.hpp>
 

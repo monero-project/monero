@@ -30,6 +30,7 @@
 
 #include "password.h"
 
+#include "3rd/boost_monero_optional.h"
 #include <iostream>
 #include <stdio.h>
 

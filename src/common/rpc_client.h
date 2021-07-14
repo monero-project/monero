@@ -28,7 +28,7 @@
 
 #pragma once
 
-#include <boost/optional/optional.hpp>
+#include "3rd/boost_monero_optional.h"
 
 #include "common/http_connection.h"
 #include "common/scoped_message_writer.h"

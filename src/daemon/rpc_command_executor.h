@@ -38,7 +38,7 @@
 
 #pragma once
 
-#include <boost/optional/optional_fwd.hpp>
+#include "fwd/boost_monero_optional_fwd.h"
 
 #include "common/common_fwd.h"
 #include "common/rpc_client.h"

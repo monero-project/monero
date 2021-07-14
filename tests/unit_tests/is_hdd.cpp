@@ -1,4 +1,5 @@
 #include "common/util.h"
+#include "3rd/boost_monero_optional.h"
 #include <string>
 #include <gtest/gtest.h>
 

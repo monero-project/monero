@@ -28,7 +28,7 @@
 
 #pragma once
 
-#include <boost/optional/optional.hpp>
+#include "fwd/boost_monero_optional_fwd.h"
 #include <stddef.h>
 #include <vector>
 #include <string>
@@ -37,6 +37,7 @@
 
 namespace epee
 {
+  struct ws_optional;
   class wipeable_string
   {
   public:
@@ -78,6 +79,7 @@ namespace epee
 
   private:
     void grow(size_t sz, size_t reserved = 0);
+    bool parse_hexstr_optional(wipeable_string & str_to_init) const;
 
   private:
     std::vector<char> buffer;
@@ -88,12 +90,12 @@ namespace epee
     static_assert(std::is_pod<T>::value, "expected pod type");
     if (size() != sizeof(T) * 2)
       return false;
-    boost::optional<epee::wipeable_string> blob = parse_hexstr();
-    if (!blob)
+    epee::wipeable_string str;
+    if (! parse_hexstr_optional(str))
       return false;
-    if (blob->size() != sizeof(T))
+    if (str.size() != sizeof(T))
       return false;
-    pod = *(const T*)blob->data();
+    pod = *(const T*)str.data();
     return true;
   }
 }

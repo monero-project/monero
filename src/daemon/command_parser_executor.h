@@ -36,7 +36,7 @@
 
 #pragma once
 
-#include <boost/optional/optional.hpp>
+#include "fwd/boost_monero_optional_fwd.h"
 
 #include "daemon/rpc_command_executor.h"
 #include "common/common_fwd.h"

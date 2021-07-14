@@ -69,6 +69,7 @@
 #include "hex.h"
 #include "md5_l.h"
 #include "string_coding.h"
+#include "net/http_base.h"
 
 /* This file uses the `u8` prefix and specifies all chars by ASCII numeric
 value. This is for maximum portability - C++ does not actually specify ASCII
@@ -90,7 +91,7 @@ namespace
   {
     return boost::string_ref(arg, N - 1);
   }
-
+  
   constexpr const auto client_auth_field = ceref(u8"Authorization");
   constexpr const auto server_auth_field = ceref(u8"WWW-authenticate");
   constexpr const auto auth_realm = ceref(u8"monero-rpc");
@@ -712,6 +713,13 @@ namespace epee
     {
       http_server_auth::http_server_auth(login credentials, std::function<void(size_t, uint8_t*)> r)
         : user(session{std::move(credentials)}), rng(std::move(r)) {
+      }
+      
+      boost::optional<http_response_info> http_server_auth::get_response(const http_request_info& request)
+      {
+        if (user)
+          return do_get_response(request);
+        return boost::none;
       }
 
       boost::optional<http_response_info> http_server_auth::do_get_response(const http_request_info& request)

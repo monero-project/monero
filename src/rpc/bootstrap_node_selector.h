@@ -37,7 +37,7 @@
 #include <boost/multi_index_container.hpp>
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/ordered_index.hpp>
-#include <boost/optional/optional.hpp>
+#include "3rd/boost_monero_optional.h"
 
 #include "net/http_client.h"
 

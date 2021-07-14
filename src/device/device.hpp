@@ -34,6 +34,8 @@
 #include "ringct/rctTypes.h"
 #include "cryptonote_config.h"
 
+#include "fwd/boost_monero_optional_fwd.h"
+
 
 #ifndef USE_DEVICE_LEDGER
 #define USE_DEVICE_LEDGER 1
@@ -78,8 +80,8 @@ namespace hw {
     public:
         virtual void on_button_request(uint64_t code=0) {}
         virtual void on_button_pressed() {}
-        virtual boost::optional<epee::wipeable_string> on_pin_request() { return boost::none; }
-        virtual boost::optional<epee::wipeable_string> on_passphrase_request(bool & on_device) { on_device = true; return boost::none; }
+        virtual boost::optional<epee::wipeable_string> on_pin_request();
+        virtual boost::optional<epee::wipeable_string> on_passphrase_request(bool & on_device);
         virtual void on_progress(const device_progress& event) {}
         virtual ~i_device_callback() = default;
     };

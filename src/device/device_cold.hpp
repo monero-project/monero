@@ -31,7 +31,7 @@
 #define MONERO_DEVICE_COLD_H
 
 #include "wallet/wallet2.h"
-#include <boost/optional/optional.hpp>
+#include "3rd/boost_monero_optional.h"
 #include <boost/function.hpp>
 
 

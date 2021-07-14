@@ -38,6 +38,7 @@
 #include "cryptonote_core/cryptonote_tx_utils.h"
 #include "ringct/rctOps.h"
 #include "cryptonote_config.h"
+#include "3rd/boost_monero_optional.h"
 
 namespace hw {
 

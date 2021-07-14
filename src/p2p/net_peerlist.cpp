@@ -33,6 +33,7 @@
 #include <fstream>
 #include <iterator>
 
+#include "3rd/boost_monero_optional.h"
 #include <boost/archive/binary_iarchive.hpp>
 #include <boost/archive/portable_binary_oarchive.hpp>
 #include <boost/archive/portable_binary_iarchive.hpp>

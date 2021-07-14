@@ -34,5 +34,12 @@ namespace epee
   {
     struct ssl_authentication_t;
     class ssl_options_t;
+    
+    namespace http
+    {
+        struct login;
+        struct http_response_info;
+	    struct http_request_info;
+    }
   }
 }
