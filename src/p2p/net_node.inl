@@ -726,6 +726,11 @@ namespace nodetool
     {
       return get_ip_seed_nodes();
     }
+    if (not m_enable_dns_seed_nodes)
+    {
+      m_fallback_seed_nodes_added.test_and_set();
+      return get_ip_seed_nodes();
+    }
 
     std::set<std::string> full_addrs;
 
@@ -865,10 +870,21 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
-  bool node_server<t_payload_net_handler>::init(const boost::program_options::variables_map& vm)
+  bool node_server<t_payload_net_handler>::init(const boost::program_options::variables_map& vm, const std::string& proxy, bool proxy_dns_leaks_allowed)
   {
     bool res = handle_command_line(vm);
     CHECK_AND_ASSERT_MES(res, false, "Failed to handle command line");
+    if (proxy.size())
+    {
+      const auto endpoint = net::get_tcp_endpoint(proxy);
+      CHECK_AND_ASSERT_MES(endpoint, false, "Failed to parse proxy: " << proxy << " - " << endpoint.error());
+      network_zone& public_zone = m_network_zones[epee::net_utils::zone::public_];
+      public_zone.m_connect = &socks_connect;
+      public_zone.m_proxy_address = *endpoint;
+      public_zone.m_can_pingback = false;
+      m_enable_dns_seed_nodes &= proxy_dns_leaks_allowed;
+      m_enable_dns_blocklist &= proxy_dns_leaks_allowed;
+    }
 
     if (m_nettype == cryptonote::TESTNET)
     {

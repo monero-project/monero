@@ -94,6 +94,9 @@ namespace
         case net::i2p_address::get_type_id():
             set = client->set_connect_command(remote.as<net::i2p_address>());
             break;
+        case epee::net_utils::ipv4_network_address::get_type_id():
+            set = client->set_connect_command(remote.as<epee::net_utils::ipv4_network_address>());
+            break;
         default:
             MERROR("Unsupported network address in socks_connect");
             return false;

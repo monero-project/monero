@@ -267,7 +267,7 @@ namespace nodetool
 
     bool run();
     network_zone& add_zone(epee::net_utils::zone zone);
-    bool init(const boost::program_options::variables_map& vm);
+    bool init(const boost::program_options::variables_map& vm, const std::string& proxy = {}, bool proxy_dns_leaks_allowed = {});
     bool deinit();
     bool send_stop_signal();
     uint32_t get_this_peer_port(){return m_listening_port;}
@@ -516,6 +516,7 @@ namespace nodetool
 
     epee::net_utils::ssl_support_t m_ssl_support;
 
+    bool m_enable_dns_seed_nodes{true};
     bool m_enable_dns_blocklist;
 
     uint32_t max_connections;
