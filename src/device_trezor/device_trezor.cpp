@@ -178,6 +178,15 @@ namespace trezor {
       }
     }
 
+    bool device_trezor::get_public_address_with_no_passphrase(cryptonote::account_public_address &pubkey) {
+      m_reply_with_empty_passphrase = true;
+      const auto empty_passphrase_reverter = epee::misc_utils::create_scope_leave_handler([&]() {
+        m_reply_with_empty_passphrase = false;
+      });
+
+      return get_public_address(pubkey);
+    }
+
     bool device_trezor::get_secret_keys(crypto::secret_key &viewkey , crypto::secret_key &spendkey) {
       try {
         MDEBUG("Loading view-only key from the Trezor. Please check the Trezor for a confirmation.");
@@ -204,6 +213,18 @@ namespace trezor {
 
     void device_trezor::display_address(const cryptonote::subaddress_index& index, const boost::optional<crypto::hash8> &payment_id) {
       get_address(index, payment_id, true);
+    }
+
+    void device_trezor::reset_session() {
+      m_device_session_id.clear();
+    }
+
+    bool device_trezor::seen_passphrase_entry_prompt() {
+      return m_seen_passphrase_entry_message;
+    }
+
+    void device_trezor::set_use_empty_passphrase(bool always_use_empty_passphrase) {
+      m_always_use_empty_passphrase = always_use_empty_passphrase;
     }
 
     /* ======================================================================= */
