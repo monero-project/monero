@@ -103,7 +103,10 @@ public:
   uint64_t m_max_packet_size;
   uint64_t m_invoke_timeout;
 
+  static boost::posix_time::milliseconds shutdown_timeout() { return boost::posix_time::milliseconds{10 * 1000}; }
+
   int invoke(int command, message_writer in_msg, std::string& buff_out, boost::uuids::uuid connection_id);
+
   template<class callback_t>
   int invoke_async(int command, message_writer in_msg, boost::uuids::uuid connection_id, const callback_t &cb, size_t timeout = LEVIN_DEFAULT_TIMEOUT_PRECONFIGURED);
 

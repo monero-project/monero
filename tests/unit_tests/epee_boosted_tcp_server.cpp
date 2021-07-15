@@ -50,6 +50,7 @@ namespace
 
   struct test_protocol_handler_config
   {
+    static boost::posix_time::milliseconds shutdown_timeout() { return boost::posix_time::milliseconds{500}; }
   };
 
   struct test_protocol_handler

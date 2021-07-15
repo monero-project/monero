@@ -102,12 +102,14 @@ class connection_basic { // not-templated base class for rapid developmet of som
 		// beware of removing const, net_utils::connection is sketchily doing a cast to prevent storing ptr twice
 		const std::shared_ptr<connection_basic_shared_state> m_state;
 	public:
+		// do not change order (logic changes)
+		enum class status : std::uint8_t { none = 0, flushing, cleanup };
 
 		std::unique_ptr< connection_basic_pimpl > mI; // my Implementation
 
 		// moved here from orginal connecton<> - common member variables that do not depend on template in connection<>
     volatile uint32_t m_want_close_connection;
-    std::atomic<bool> m_was_shutdown;
+    std::atomic<status> m_shutdown_status;
     critical_section m_send_que_lock;
     std::deque<byte_slice> m_send_que;
     volatile bool m_is_multithreaded;
