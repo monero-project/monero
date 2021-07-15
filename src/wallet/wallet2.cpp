@@ -8587,18 +8587,30 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
     }
 
     // get the keys for those
-    req.get_txid = false;
-
+    // the response can get large and end up rejected by the anti DoS limits, so chunk it if needed
+    size_t offset = 0;
+    while (offset < req.outputs.size())
     {
+      static const size_t chunk_size = 1000;
+      COMMAND_RPC_GET_OUTPUTS_BIN::request chunk_req = AUTO_VAL_INIT(chunk_req);
+      COMMAND_RPC_GET_OUTPUTS_BIN::response chunk_daemon_resp = AUTO_VAL_INIT(chunk_daemon_resp);
+      chunk_req.get_txid = false;
+      for (size_t i = 0; i < std::min<size_t>(req.outputs.size() - offset, chunk_size); ++i)
+        chunk_req.outputs.push_back(req.outputs[offset + i]);
+
       const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};
       uint64_t pre_call_credits = m_rpc_payment_state.credits;
-      req.client = get_client_signature();
-      bool r = epee::net_utils::invoke_http_bin("/get_outs.bin", req, daemon_resp, *m_http_client, rpc_timeout);
-      THROW_ON_RPC_RESPONSE_ERROR(r, {}, daemon_resp, "get_outs.bin", error::get_outs_error, get_rpc_status(daemon_resp.status));
-      THROW_WALLET_EXCEPTION_IF(daemon_resp.outs.size() != req.outputs.size(), error::wallet_internal_error,
+      chunk_req.client = get_client_signature();
+      bool r = epee::net_utils::invoke_http_bin("/get_outs.bin", chunk_req, chunk_daemon_resp, *m_http_client, rpc_timeout);
+      THROW_ON_RPC_RESPONSE_ERROR(r, {}, chunk_daemon_resp, "get_outs.bin", error::get_outs_error, get_rpc_status(chunk_daemon_resp.status));
+      THROW_WALLET_EXCEPTION_IF(chunk_daemon_resp.outs.size() != chunk_req.outputs.size(), error::wallet_internal_error,
         "daemon returned wrong response for get_outs.bin, wrong amounts count = " +
-        std::to_string(daemon_resp.outs.size()) + ", expected " +  std::to_string(req.outputs.size()));
-      check_rpc_cost("/get_outs.bin", daemon_resp.credits, pre_call_credits, daemon_resp.outs.size() * COST_PER_OUT);
+        std::to_string(chunk_daemon_resp.outs.size()) + ", expected " +  std::to_string(chunk_req.outputs.size()));
+      check_rpc_cost("/get_outs.bin", chunk_daemon_resp.credits, pre_call_credits, chunk_daemon_resp.outs.size() * COST_PER_OUT);
+
+      offset += chunk_size;
+      for (size_t i = 0; i < chunk_daemon_resp.outs.size(); ++i)
+        daemon_resp.outs.push_back(std::move(chunk_daemon_resp.outs[i]));
     }
 
     std::unordered_map<uint64_t, uint64_t> scanty_outs;
