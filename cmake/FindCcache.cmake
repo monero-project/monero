@@ -41,6 +41,29 @@
 
 find_program(CCACHE_FOUND ccache)
 if (CCACHE_FOUND)
+	string(REGEX MATCH ".*depends/x86_64-unknown-freebsd" IS_FREEBSD_XCOMPILING "${CMAKE_CXX_COMPILER}")
+	if (IS_FREEBSD_XCOMPILING)
+		# During FreeBSD cross compilation the ccache fails, due to the "CMAKE_CXX_COMPILER" pointing actually to a script,
+		# rather than to an executable, which is not accepted by ccache.
+		# The solutiuon is to extract the contents of the script and strip it off its unnecessary (for ccache) commands.
+		message(STATUS "Cross compiling for FreeBSD")
+		file(READ "${CMAKE_CXX_COMPILER}" SCRIPT_CONTENT)
+
+		string(REGEX MATCH "clang.*\-[0-9]+" CLANG_COMPILER ${SCRIPT_CONTENT}) # Extract compiler
+		string(REGEX MATCH          "[0-9]+" CLANG_VER      ${CLANG_COMPILER}) # Extract compiler's version
+
+		# Prepare the compiler options by extracting them from the "compiler" script
+		string(REPLACE "/usr/bin/clang++-${CLANG_VER}" "" OPTS "${SCRIPT_CONTENT}") # Remove the compiler command
+		string(REPLACE "exec" "" OPTS "${OPTS}") # Remove the leading script command
+		string(REPLACE "$@"   "" OPTS "${OPTS}") # Remove the trailing redirection argument
+		string(STRIP "${OPTS}" OPTS)
+
+		set(CMAKE_C_FLAGS      "${CMAKE_C_FLAGS}   ${OPTS}")
+		set(CMAKE_CXX_FLAGS    "${CMAKE_CXX_FLAGS} ${OPTS}")
+		set(CMAKE_C_COMPILER   "/usr/bin/clang-${CLANG_VER}"  )
+		set(CMAKE_CXX_COMPILER "/usr/bin/clang++-${CLANG_VER}")
+	endif()
+
 	# Try to compile a test program with ccache, in order to verify if it really works. (needed on exotic setups)
 	set(TEST_PROJECT "${CMAKE_BINARY_DIR}/${CMAKE_FILES_DIRECTORY}/CMakeTmp")
 	file(WRITE "${TEST_PROJECT}/CMakeLists.txt" [=[
@@ -50,11 +73,14 @@ option (CCACHE "")
 file(WRITE "${CMAKE_SOURCE_DIR}/test.cpp" "int main() { return 0; }")
 set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${CCACHE}")
 set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK    "${CCACHE}")
+
 add_executable(test test.cpp)
 ]=])
+	# Tried:
+	#try_compile(RET "${TEST_PROJECT}/build" "${TEST_PROJECT}" "test" CMAKE_FLAGS -DCCACHE="${CCACHE_FOUND}" -DCMAKE_C_COMPILER="${CMAKE_C_COMPILER}" -DCMAKE_CXX_COMPILER="${CMAKE_CXX_COMPILER}" -DCMAKE_CXX_FLAGS="${CMAKE_CXX_FLAGS}" -DCMAKE_C_FLAGS="${CMAKE_C_FLAGS}")
 	try_compile(RET "${TEST_PROJECT}/build" "${TEST_PROJECT}" "test" CMAKE_FLAGS -DCCACHE="${CCACHE_FOUND}")
 	unset(TEST_PROJECT)
-	if (${RET})
+	if (${RET} OR IS_FREEBSD_XCOMPILING)
 		# Success
 		message(STATUS "Found usable ccache: ${CCACHE_FOUND}")
 		set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${CCACHE_FOUND}")
