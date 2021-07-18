@@ -1091,9 +1091,12 @@ void toJsonValue(rapidjson::Writer<epee::byte_stream>& dest, const rct::rctSig& 
   };
 
   INSERT_INTO_JSON_OBJECT(dest, type, sig.type);
-  INSERT_INTO_JSON_OBJECT(dest, encrypted, sig.ecdhInfo);
-  INSERT_INTO_JSON_OBJECT(dest, commitments, transform(sig.outPk, just_mask));
-  INSERT_INTO_JSON_OBJECT(dest, fee, sig.txnFee);
+  if (sig.type != rct::RCTTypeNull)
+  {
+    INSERT_INTO_JSON_OBJECT(dest, encrypted, sig.ecdhInfo);
+    INSERT_INTO_JSON_OBJECT(dest, commitments, transform(sig.outPk, just_mask));
+    INSERT_INTO_JSON_OBJECT(dest, fee, sig.txnFee);
+  }
 
   // prunable
   if (!sig.p.bulletproofs.empty() || !sig.p.rangeSigs.empty() || !sig.p.MGs.empty() || !sig.get_pseudo_outs().empty())
@@ -1122,9 +1125,12 @@ void fromJsonValue(const rapidjson::Value& val, rct::rctSig& sig)
   }
 
   GET_FROM_JSON_OBJECT(val, sig.type, type);
-  GET_FROM_JSON_OBJECT(val, sig.ecdhInfo, encrypted);
-  GET_FROM_JSON_OBJECT(val, sig.outPk, commitments);
-  GET_FROM_JSON_OBJECT(val, sig.txnFee, fee);
+  if (sig.type != rct::RCTTypeNull)
+  {
+    GET_FROM_JSON_OBJECT(val, sig.ecdhInfo, encrypted);
+    GET_FROM_JSON_OBJECT(val, sig.outPk, commitments);
+    GET_FROM_JSON_OBJECT(val, sig.txnFee, fee);
+  }
 
   // prunable
   const auto prunable = val.FindMember("prunable");
