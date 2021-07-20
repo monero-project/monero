@@ -1,6 +1,11 @@
 name: ci/gh-actions/depends
 
-on: [push, pull_request]
+on:
+  push:
+  pull_request:
+    paths-ignore:
+      - 'docs/**'
+      - '**/README.md'
 
 jobs:
   build-macos:
