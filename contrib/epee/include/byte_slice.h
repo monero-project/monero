@@ -132,6 +132,7 @@ namespace epee
     bool empty() const noexcept { return storage_ == nullptr; }
     const std::uint8_t* data() const noexcept { return portion_.data(); }
     std::size_t size() const noexcept { return portion_.size(); }
+    int compare(const byte_slice&) const noexcept;
 
     /*! Drop bytes from the beginning of `this` slice.
 
@@ -158,6 +159,50 @@ namespace epee
 
     //! \post `empty()` \return Ownership of ref-counted buffer.
     std::unique_ptr<byte_slice_data, release_byte_slice> take_buffer() noexcept;
+  };
+
+  //! \return True iff `lhs` is lexicographically less than `rhs`.
+  inline bool operator<(const epee::byte_slice& lhs, const epee::byte_slice& rhs) noexcept
+  {
+    return lhs.compare(rhs) < 0;
+  }
+
+  //! \return True if `lhs` is identical in content to `rhs`
+  inline bool operator==(const epee::byte_slice& lhs, const epee::byte_slice& rhs) noexcept
+  {
+    return lhs.compare(rhs) == 0;
+  }
+
+  //! \return True if `lhs` is not identical in content to `rhs`
+  inline bool operator!=(const epee::byte_slice& lhs, const epee::byte_slice& rhs) noexcept
+  {
+    return lhs.compare(rhs) != 0;
+  }
+
+  //! `byte_slice` is not copyable to trap hidden copies; use this class where a byte_slice copy-constructor is necessary
+  struct copyable_byte_slice
+  {
+    byte_slice slice;
+
+    copyable_byte_slice() = default;
+    copyable_byte_slice(byte_slice&& src) noexcept
+      : slice(std::move(src))
+    {}
+
+    copyable_byte_slice(copyable_byte_slice&&) = default;
+    copyable_byte_slice(const copyable_byte_slice& rhs) noexcept
+      : slice(rhs.slice.clone())
+    {}
+
+    ~copyable_byte_slice() = default;
+
+    copyable_byte_slice& operator=(copyable_byte_slice&&) = default;
+    copyable_byte_slice& operator=(const copyable_byte_slice& rhs) noexcept
+    {
+      if (this != std::addressof(rhs))
+        this->slice = rhs.slice.clone();
+      return *this;
+    }
   };
 
   //! Alias for a buffer that has space for a `byte_slice` ref count.

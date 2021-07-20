@@ -57,7 +57,7 @@ namespace epee
     template<> struct ps_min_bytes<int8_t> { static constexpr const size_t strict = 1; };
     template<> struct ps_min_bytes<double> { static constexpr const size_t strict = 8; };
     template<> struct ps_min_bytes<bool> { static constexpr const size_t strict = 1; };
-    template<> struct ps_min_bytes<std::string> { static constexpr const size_t strict = 2; };
+    template<> struct ps_min_bytes<copyable_byte_slice> { static constexpr const size_t strict = 2; };
     template<> struct ps_min_bytes<section> { static constexpr const size_t strict = 1; };
     template<> struct ps_min_bytes<array_entry> { static constexpr const size_t strict = 1; };
 
@@ -78,7 +78,7 @@ namespace epee
       storage_entry read_se();
       storage_entry load_storage_entry();
       void read(section& sec);
-      void read(std::string& str);
+      void read(copyable_byte_slice& str);
       void read(array_entry &ae);
       template<class t_type>
       size_t min_bytes() const;
@@ -210,7 +210,7 @@ namespace epee
       case SERIALIZE_TYPE_UINT8:  return read_ae<uint8_t>();
       case SERIALIZE_TYPE_DUOBLE: return read_ae<double>();
       case SERIALIZE_TYPE_BOOL:   return read_ae<bool>();
-      case SERIALIZE_TYPE_STRING: return read_ae<std::string>();
+      case SERIALIZE_TYPE_STRING: return read_ae<copyable_byte_slice>();
       case SERIALIZE_TYPE_OBJECT: return read_ae<section>();
       case SERIALIZE_TYPE_ARRAY:  return read_ae<array_entry>();
       default: 
@@ -248,12 +248,12 @@ namespace epee
     }
 
     template<>
-    inline storage_entry throwable_buffer_reader::read_se<std::string>()
+    inline storage_entry throwable_buffer_reader::read_se<copyable_byte_slice>()
     {
       RECURSION_LIMITATION();
       CHECK_AND_ASSERT_THROW_MES(m_strings + 1 <= max_strings, "Too many strings");
       m_strings += 1;
-      return storage_entry(read<std::string>());
+      return storage_entry(read<copyable_byte_slice>());
     }
 
 
@@ -301,7 +301,7 @@ namespace epee
       case SERIALIZE_TYPE_UINT8:  return read_se<uint8_t>();
       case SERIALIZE_TYPE_DUOBLE: return read_se<double>();
       case SERIALIZE_TYPE_BOOL:   return read_se<bool>();
-      case SERIALIZE_TYPE_STRING: return read_se<std::string>();
+      case SERIALIZE_TYPE_STRING: return read_se<copyable_byte_slice>();
       case SERIALIZE_TYPE_OBJECT: return read_se<section>();
       case SERIALIZE_TYPE_ARRAY:  return read_se<array_entry>();
       default: 
@@ -327,14 +327,14 @@ namespace epee
       }
     }
     inline 
-    void throwable_buffer_reader::read(std::string& str)
+    void throwable_buffer_reader::read(copyable_byte_slice& str)
     {
       RECURSION_LIMITATION();
       size_t len = read_varint();
       CHECK_AND_ASSERT_THROW_MES(len < MAX_STRING_LEN_POSSIBLE, "to big string len value in storage: " << len);
       CHECK_AND_ASSERT_THROW_MES(m_count >= len, "string len count value " << len << " goes out of remain storage len " << m_count);
       //do this manually to avoid double memory write in huge strings (first time at resize, second at read)
-      str.assign((const char*)m_ptr, len);
+      str = byte_slice{{reinterpret_cast<const uint8_t*>(m_ptr), len}};
       m_ptr+=len;
       m_count -= len;
     }

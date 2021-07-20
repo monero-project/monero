@@ -850,6 +850,40 @@ TEST(ByteSlice, GetSlice)
   EXPECT_TRUE(boost::range::equal(base_string, original));
 }
 
+TEST(ByteSlice, Compare)
+{
+  const epee::byte_slice slice_a{std::string{"aabb"}};
+  const epee::byte_slice slice_b{std::string{"bbcc"}};
+  const epee::byte_slice slice_c{std::string{"ccdd"}};
+
+  EXPECT_GT(0, slice_a.compare(slice_b));
+  EXPECT_GT(0, slice_a.compare(slice_c));
+  EXPECT_GT(0, slice_b.compare(slice_c));
+  EXPECT_LT(0, slice_b.compare(slice_a));
+  EXPECT_LT(0, slice_c.compare(slice_b));
+  EXPECT_LT(0, slice_c.compare(slice_a));
+  EXPECT_LT(slice_a, slice_b);
+  EXPECT_LT(slice_b, slice_c);
+  EXPECT_FALSE(slice_b < slice_a);
+  EXPECT_FALSE(slice_c < slice_a);
+
+  EXPECT_EQ(slice_a, slice_a);
+  EXPECT_EQ(slice_a, slice_a.clone());
+  EXPECT_EQ(slice_b, slice_b);
+  EXPECT_EQ(slice_c, slice_c);
+  EXPECT_EQ(slice_a, epee::byte_slice{std::string{"aabb"}});
+  EXPECT_NE(slice_a, slice_b);
+  EXPECT_NE(slice_b, slice_c);
+  EXPECT_NE(slice_a, slice_c);
+
+  EXPECT_LT(slice_a, epee::byte_slice{std::string{"abbb"}});
+  EXPECT_LT(epee::byte_slice{std::string{"aab"}}, slice_a);
+
+  EXPECT_EQ(epee::byte_slice{}, epee::byte_slice{});
+  EXPECT_LT(epee::byte_slice{}, slice_a);
+  EXPECT_FALSE(slice_a < epee::byte_slice{});
+}
+
 TEST(ByteStream, Construction)
 {
   EXPECT_TRUE(std::is_default_constructible<epee::byte_stream>());

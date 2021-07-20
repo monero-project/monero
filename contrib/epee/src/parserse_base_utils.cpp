@@ -26,9 +26,10 @@
 
 #include "storages/parserse_base_utils.h"
 
-#include "misc_log_ex.h"
-#include <boost/utility/string_ref.hpp>
 #include <algorithm>
+#include <boost/utility/string_ref.hpp>
+#include "byte_stream.h"
+#include "misc_log_ex.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "serialization"
@@ -39,12 +40,12 @@ namespace misc_utils
 {
   namespace parse
   {
-    std::string transform_to_escape_sequence(const std::string& src)
+    std::string transform_to_escape_sequence(const boost::string_ref src)
     {
       static const char escaped[] = "\b\f\n\r\t\v\"\\/";
-      std::string::const_iterator it = std::find_first_of(src.begin(), src.end(), escaped, escaped + sizeof(escaped));
+      boost::string_ref::const_iterator it = std::find_first_of(src.begin(), src.end(), escaped, escaped + sizeof(escaped));
       if (it == src.end())
-        return src;
+        return std::string{src};
 
       std::string res;
       res.reserve(2 * src.size());
@@ -79,6 +80,9 @@ namespace misc_utils
       }
       return res;
     }
+
+    namespace
+    {
     /*
       
       \b  Backspace (ascii code 08)
@@ -92,7 +96,8 @@ namespace misc_utils
       \\  Backslash character
 
       */
-      void match_string2(std::string::const_iterator& star_end_string, std::string::const_iterator buf_end, std::string& val)
+      template<typename T>
+      void match_string2_internal(std::string::const_iterator& star_end_string, std::string::const_iterator buf_end, T& val)
       {
         bool escape_mode = false;
         std::string::const_iterator it = star_end_string;
@@ -100,7 +105,9 @@ namespace misc_utils
         std::string::const_iterator fi = it;
         while (fi != buf_end && ((lut[(uint8_t)*fi] & 32)) == 0)
           ++fi;
-        val.assign(it, fi);
+        val.clear();
+        val.reserve(fi - it);
+        std::copy(it, fi, std::back_inserter(val));
         it = fi;
         for(;it != buf_end;it++)
         {
@@ -184,6 +191,16 @@ namespace misc_utils
         }
         ASSERT_MES_AND_THROW("Failed to match string in json entry: " << std::string(star_end_string, buf_end));
       }
+    } // anonymous
+    void match_string2(std::string::const_iterator& star_end_string, std::string::const_iterator buf_end, byte_stream& val)
+    {
+      match_string2_internal(star_end_string, buf_end, val);
+    }
+    void match_string2(std::string::const_iterator& star_end_string, std::string::const_iterator buf_end, std::string& val)
+    {
+      match_string2_internal(star_end_string, buf_end, val);
+    }
+      
       void match_number2(std::string::const_iterator& star_end_string, std::string::const_iterator buf_end, boost::string_ref& val, bool& is_float_val, bool& is_signed_val)
       {
         val.clear();

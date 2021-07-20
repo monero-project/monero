@@ -2488,11 +2488,12 @@ static bool fill(BlockchainDB *db, const crypto::hash &tx_hash, cryptonote::blob
 //------------------------------------------------------------------
 static bool fill(BlockchainDB *db, const crypto::hash &tx_hash, tx_blob_entry &tx, bool pruned)
 {
-  if (!fill(db, tx_hash, tx.blob, pruned))
+  blobdata blob;
+  if (!fill(db, tx_hash, blob, pruned))
     return false;
   if (pruned)
   {
-    if (is_v1_tx(tx.blob))
+    if (is_v1_tx(blob))
     {
       // v1 txes aren't pruned, so fetch the whole thing
       cryptonote::blobdata prunable_blob;
@@ -2501,7 +2502,7 @@ static bool fill(BlockchainDB *db, const crypto::hash &tx_hash, tx_blob_entry &t
         MDEBUG("Prunable transaction blob not found for " << tx_hash);
         return false;
       }
-      tx.blob.append(prunable_blob);
+      blob.append(prunable_blob);
       tx.prunable_hash = crypto::null_hash;
     }
     else
@@ -2513,6 +2514,7 @@ static bool fill(BlockchainDB *db, const crypto::hash &tx_hash, tx_blob_entry &t
       }
     }
   }
+  tx.blob = epee::byte_slice{std::move(blob)};
   return true;
 }
 //------------------------------------------------------------------
@@ -3950,7 +3952,7 @@ void Blockchain::return_tx_to_pool(std::vector<std::pair<transaction, blobdata>>
     // all the transactions in a popped block when a reorg happens.
     const size_t weight = get_transaction_weight(tx.first, tx.second.size());
     const crypto::hash tx_hash = get_transaction_hash(tx.first);
-    if (!m_tx_pool.add_tx(tx.first, tx_hash, tx.second, weight, tvc, relay_method::block, true, version))
+    if (!m_tx_pool.add_tx(tx.first, tx_hash, epee::strspan<std::uint8_t>(tx.second), weight, tvc, relay_method::block, true, version))
     {
       MERROR("Failed to return taken transaction with hash: " << get_transaction_hash(tx.first) << " to tx_pool");
     }
@@ -4899,7 +4901,7 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
     bytes += entry.block.size();
     for (const auto &tx_blob : entry.txs)
     {
-      bytes += tx_blob.blob.size();
+      bytes += tx_blob.blob.slice.size();
     }
     total_txs += entry.txs.size();
   }
@@ -5060,7 +5062,7 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
       crypto::hash &tx_prefix_hash = txes[tx_index].second;
       ++tx_index;
 
-      if (!parse_and_validate_tx_base_from_blob(tx_blob.blob, tx))
+      if (!parse_and_validate_tx_base_from_blob(boost::string_ref{reinterpret_cast<const char*>(tx_blob.blob.slice.data()), tx_blob.blob.slice.size()}, tx))
         SCAN_TABLE_QUIT("Could not parse tx from incoming blocks.");
       cryptonote::get_transaction_prefix_hash(tx, tx_prefix_hash);
 
@@ -5211,9 +5213,9 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
   return true;
 }
 
-void Blockchain::add_txpool_tx(const crypto::hash &txid, const cryptonote::blobdata &blob, const txpool_tx_meta_t &meta)
+void Blockchain::add_txpool_tx(const crypto::hash &txid, const epee::span<const std::uint8_t> blob, const txpool_tx_meta_t &meta)
 {
-  m_db->add_txpool_tx(txid, blob, meta);
+  m_db->add_txpool_tx(txid, boost::string_ref{reinterpret_cast<const char*>(blob.data()), blob.size()}, meta);
 }
 
 void Blockchain::update_txpool_tx(const crypto::hash &txid, const txpool_tx_meta_t &meta)

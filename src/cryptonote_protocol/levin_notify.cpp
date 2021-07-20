@@ -159,7 +159,7 @@ namespace levin
       return get_out_connections(p2p, get_blockchain_height(p2p, core));
     }
 
-    epee::levin::message_writer make_tx_message(std::vector<blobdata>&& txs, const bool pad, const bool fluff)
+    epee::levin::message_writer make_tx_message(std::vector<epee::byte_slice>&& txs, const bool pad, const bool fluff)
     {
       NOTIFY_NEW_TRANSACTIONS::request request{};
       request.txs = std::move(txs);
@@ -179,17 +179,18 @@ namespace levin
           padding = 0;
         else
           padding -= overhead;
-        request._ = std::string(padding, ' ');
+
+        {
+          epee::byte_stream padding_out;
+          padding_out.put_n(' ', padding);
+          request._ = epee::byte_slice{std::move(padding_out)};
+        }
 
         epee::byte_slice arg_buff;
         epee::serialization::store_t_to_binary(request, arg_buff);
 
         // we probably lowballed the payload size a bit, so added a but too much. Fix this now.
-        size_t remove = arg_buff.size() % granularity;
-        if (remove > request._.size())
-          request._.clear();
-        else
-          request._.resize(request._.size() - remove);
+        request._.remove_prefix(arg_buff.size() % granularity);
         // if the size of _ moved enough, we might lose byte in size encoding, we don't care
       }
 
@@ -200,7 +201,7 @@ namespace levin
       return out;
     }
 
-    bool make_payload_send_txs(connections& p2p, std::vector<blobdata>&& txs, const boost::uuids::uuid& destination, const bool pad, const bool fluff)
+    bool make_payload_send_txs(connections& p2p, std::vector<epee::byte_slice>&& txs, const boost::uuids::uuid& destination, const bool pad, const bool fluff)
     {
       epee::byte_slice blob = make_tx_message(std::move(txs), pad, fluff).finalize_notify(NOTIFY_NEW_TRANSACTIONS::ID);
       return p2p.send(std::move(blob), destination);
@@ -362,7 +363,7 @@ namespace levin
 
         const auto now = std::chrono::steady_clock::now();
         auto next_flush = std::chrono::steady_clock::time_point::max();
-        std::vector<std::pair<std::vector<blobdata>, boost::uuids::uuid>> connections{};
+        std::vector<std::pair<std::vector<epee::byte_slice>, boost::uuids::uuid>> connections{};
         zone_->p2p->foreach_connection([timer_error, now, &next_flush, &connections] (detail::p2p_context& context)
         {
           if (!context.fluff_txs.empty())
@@ -370,7 +371,9 @@ namespace levin
             if (context.flush_time <= now || timer_error) // flush on canceled timer
             {
               context.flush_time = std::chrono::steady_clock::time_point::max();
-              connections.emplace_back(std::move(context.fluff_txs), context.m_connection_id);
+              connections.emplace_back(std::vector<epee::byte_slice>{}, context.m_connection_id);
+              for (auto& tx : context.fluff_txs)
+                connections.back().first.push_back(std::move(tx.slice));
               context.fluff_txs.clear();
             }
             else // not flushing yet
@@ -404,7 +407,7 @@ namespace levin
     struct fluff_notify
     {
       std::shared_ptr<detail::zone> zone_;
-      std::vector<blobdata> txs_;
+      std::vector<epee::byte_slice> txs_;
       boost::uuids::uuid source_;
 
       void operator()()
@@ -412,7 +415,7 @@ namespace levin
         run(std::move(zone_), epee::to_span(txs_), source_);
       }
 
-      static void run(std::shared_ptr<detail::zone> zone, epee::span<const blobdata> txs, const boost::uuids::uuid& source)
+      static void run(std::shared_ptr<detail::zone> zone, epee::span<const epee::byte_slice> txs, const boost::uuids::uuid& source)
       {
         if (!zone || !zone->p2p || txs.empty())
           return;
@@ -438,8 +441,8 @@ namespace levin
 
             next_flush = std::min(next_flush, context.flush_time);
             context.fluff_txs.reserve(context.fluff_txs.size() + txs.size());
-            for (const blobdata& tx : txs)
-              context.fluff_txs.push_back(tx); // must copy instead of move (multiple conns)
+            for (const epee::byte_slice& tx : txs)
+              context.fluff_txs.push_back(tx.clone()); // must copy instead of move (multiple conns)
           }
           return true;
         });
@@ -534,7 +537,7 @@ namespace levin
     {
       std::shared_ptr<detail::zone> zone_;
       i_core_events* core_;
-      std::vector<blobdata> txs_;
+      std::vector<epee::byte_slice> txs_;
       boost::uuids::uuid source_;
 
       //! \pre Called in `zone_->strand`
@@ -548,8 +551,13 @@ namespace levin
           core_->on_transactions_relayed(epee::to_span(txs_), relay_method::stem);
           for (int tries = 2; 0 < tries; tries--)
           {
+            std::vector<epee::byte_slice> txs;
+            txs.reserve(txs_.size());
+            for (const epee::byte_slice& tx : txs_)
+              txs.push_back(tx.clone());
+
             const boost::uuids::uuid destination = zone_->map.get_stem(source_);
-            if (!destination.is_nil() && make_payload_send_txs(*zone_->p2p, std::vector<blobdata>{txs_}, destination, zone_->pad_txs, false))
+            if (!destination.is_nil() && make_payload_send_txs(*zone_->p2p, std::move(txs), destination, zone_->pad_txs, false))
             {
               /* Source is intentionally omitted in debug log for privacy - a
                  nil uuid indicates source is that node. */
@@ -772,7 +780,7 @@ namespace levin
     zone_->flush_txs.cancel();
   }
 
-  bool notify::send_txs(std::vector<blobdata> txs, const boost::uuids::uuid& source, relay_method tx_relay)
+  bool notify::send_txs(std::vector<epee::byte_slice> txs, const boost::uuids::uuid& source, relay_method tx_relay)
   {
     if (txs.empty())
       return true;

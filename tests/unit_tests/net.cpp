@@ -280,11 +280,11 @@ TEST(tor_address, epee_serializev_v2)
         stg.load_from_binary(epee::to_span(buffer));
 
         std::string host{};
-        ASSERT_TRUE(stg.get_value("host", host, stg.open_section("tor", nullptr, false)));
+        ASSERT_TRUE(epee::serialization::kv_unserialize(host, stg, stg.open_section("tor", nullptr, false), "host"));
         EXPECT_EQ(std::strlen(v2_onion), host.size());
 
         host.push_back('k');
-        EXPECT_TRUE(stg.set_value("host", std::move(host), stg.open_section("tor", nullptr, false)));
+        EXPECT_TRUE(epee::serialization::kv_serialize(std::move(host), stg, stg.open_section("tor", nullptr, false), "host"));
         EXPECT_TRUE(command.load(stg)); // poor error reporting from `KV_SERIALIZE`
     }
 
@@ -331,11 +331,11 @@ TEST(tor_address, epee_serializev_v3)
         stg.load_from_binary(epee::to_span(buffer));
 
         std::string host{};
-        ASSERT_TRUE(stg.get_value("host", host, stg.open_section("tor", nullptr, false)));
+        ASSERT_TRUE(epee::serialization::kv_unserialize(host, stg, stg.open_section("tor", nullptr, false), "host"));
         EXPECT_EQ(std::strlen(v3_onion), host.size());
 
         host.push_back('k');
-        EXPECT_TRUE(stg.set_value("host", std::move(host), stg.open_section("tor", nullptr, false)));
+        EXPECT_TRUE(epee::serialization::kv_serialize(std::move(host), stg, stg.open_section("tor", nullptr, false), "host"));
         EXPECT_TRUE(command.load(stg)); // poor error reporting from `KV_SERIALIZE`
     }
 
@@ -382,11 +382,11 @@ TEST(tor_address, epee_serialize_unknown)
         stg.load_from_binary(epee::to_span(buffer));
 
         std::string host{};
-        ASSERT_TRUE(stg.get_value("host", host, stg.open_section("tor", nullptr, false)));
+        ASSERT_TRUE(epee::serialization::kv_unserialize(host, stg, stg.open_section("tor", nullptr, false), "host"));
         EXPECT_EQ(std::strlen(net::tor_address::unknown_str()), host.size());
 
         host.push_back('k');
-        EXPECT_TRUE(stg.set_value("host", std::move(host), stg.open_section("tor", nullptr, false)));
+        EXPECT_TRUE(epee::serialization::kv_serialize(std::move(host), stg, stg.open_section("tor", nullptr, false), "host"));
         EXPECT_TRUE(command.load(stg)); // poor error reporting from `KV_SERIALIZE`
     }
 
@@ -735,11 +735,11 @@ TEST(i2p_address, epee_serializev_b32)
         stg.load_from_binary(epee::to_span(buffer));
 
         std::string host{};
-        ASSERT_TRUE(stg.get_value("host", host, stg.open_section("i2p", nullptr, false)));
+        ASSERT_TRUE(epee::serialization::kv_unserialize(host, stg, stg.open_section("i2p", nullptr, false), "host"));
         EXPECT_EQ(std::strlen(b32_i2p), host.size());
 
         host.push_back('k');
-        EXPECT_TRUE(stg.set_value("host", std::string{host}, stg.open_section("i2p", nullptr, false)));
+        EXPECT_TRUE(epee::serialization::kv_serialize(std::string{host}, stg, stg.open_section("i2p", nullptr, false), "host"));
         EXPECT_TRUE(command.load(stg)); // poor error reporting from `KV_SERIALIZE`
     }
 
@@ -786,11 +786,11 @@ TEST(i2p_address, epee_serialize_unknown)
         stg.load_from_binary(epee::to_span(buffer));
 
         std::string host{};
-        ASSERT_TRUE(stg.get_value("host", host, stg.open_section("i2p", nullptr, false)));
+        ASSERT_TRUE(epee::serialization::kv_unserialize(host, stg, stg.open_section("i2p", nullptr, false), "host"));
         EXPECT_EQ(std::strlen(net::i2p_address::unknown_str()), host.size());
 
         host.push_back('k');
-        EXPECT_TRUE(stg.set_value("host", std::string{host}, stg.open_section("i2p", nullptr, false)));
+        EXPECT_TRUE(epee::serialization::kv_serialize(std::string{host}, stg, stg.open_section("i2p", nullptr, false), "host"));
         EXPECT_TRUE(command.load(stg)); // poor error reporting from `KV_SERIALIZE`
     }
 

@@ -218,6 +218,18 @@ namespace epee
     return *this;
   }
 
+  int byte_slice::compare(const byte_slice& rhs) const noexcept
+  {
+    // quick check
+    if (data() != rhs.data() && !empty() && !rhs.empty())
+    {
+      const int rc = std::memcmp(data(), rhs.data(), std::min(size(), rhs.size()));
+      if (rc)
+        return rc;
+    }
+    return size() < rhs.size() ? -1 : bool(rhs.size() < size());
+  }
+
   std::size_t byte_slice::remove_prefix(std::size_t max_bytes) noexcept
   {
     max_bytes = portion_.remove_prefix(max_bytes);

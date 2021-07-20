@@ -159,10 +159,10 @@
        return true; \
     } \
     epee::serialization::storage_entry id_; \
-    id_ = epee::serialization::storage_entry(std::string()); \
+    id_ = epee::serialization::storage_entry(); \
     ps.get_value("id", id_, nullptr); \
-    std::string callback_name; \
-    if(!ps.get_value("method", callback_name, nullptr)) \
+    std::string callback_name;				\
+    if(!epee::serialization::kv_unserialize(callback_name, ps, nullptr, "method")) \
     { \
       epee::json_rpc::error_response rsp; \
       rsp.jsonrpc = "2.0"; \

@@ -77,11 +77,11 @@ namespace epee
     PRAGMA_WARNING_POP
 
       template<class t_stream>
-    bool put_string(t_stream& strm, const std::string& v)
+    bool put_slice(t_stream& strm, const copyable_byte_slice& v)
     {
-      pack_varint(strm, v.size());
-      if(v.size())
-        strm.write((const char*)v.data(), v.size());        
+      pack_varint(strm, v.slice.size());
+      if(v.slice.size())
+        strm.write(to_span(v.slice));
       return true;
     }
 
@@ -115,13 +115,13 @@ namespace epee
       bool operator()(const array_entry_t<int8_t>& v)  { return pack_pod_array_type(SERIALIZE_TYPE_INT8, v);}
       bool operator()(const array_entry_t<double>& v)  { return pack_pod_array_type(SERIALIZE_TYPE_DUOBLE, v);}
       bool operator()(const array_entry_t<bool>& v)    { return pack_pod_array_type(SERIALIZE_TYPE_BOOL, v);}
-      bool operator()(const array_entry_t<std::string>& arr_str)
+      bool operator()(const array_entry_t<copyable_byte_slice>& arr_str)
       {
         uint8_t type = SERIALIZE_TYPE_STRING|SERIALIZE_FLAG_ARRAY;
         m_strm.write((const char*)&type, 1);
         pack_varint(m_strm, arr_str.m_array.size());
-        for(const std::string& s: arr_str.m_array)
-          put_string(m_strm, s);
+        for(const copyable_byte_slice& s: arr_str.m_array)
+          put_slice(m_strm, s);
         return true;
       }
       bool operator()(const array_entry_t<section>& arr_sec)    
@@ -168,11 +168,11 @@ namespace epee
       bool operator()(const int8_t& v)  { return pack_pod_type(SERIALIZE_TYPE_INT8, v);}
       bool operator()(const double& v)  { return pack_pod_type(SERIALIZE_TYPE_DUOBLE, v);}
       bool operator()(const bool& v)  { return pack_pod_type(SERIALIZE_TYPE_BOOL, v);}
-      bool operator()(const std::string& v)
+      bool operator()(const copyable_byte_slice& v)
       {
         uint8_t type = SERIALIZE_TYPE_STRING;
         m_strm.write((const char*)&type, 1);
-        put_string(m_strm, v);
+        put_slice(m_strm, v);
         return true;
       }
       bool operator()(const section& v)  

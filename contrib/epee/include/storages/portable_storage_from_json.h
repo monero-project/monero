@@ -112,10 +112,10 @@ namespace epee
           case match_state_wonder_after_separator:
             if(*it == '"')
             {//just a named string value started
-              std::string val;
+              byte_stream val;
               match_string2(it, buf_end, val);
               //insert text value 
-              stg.set_value(name, std::move(val), current_section);
+              stg.set_value(name, copyable_byte_slice{byte_slice{std::move(val)}}, current_section);
               state = match_state_wonder_after_value;
             }else if (epee::misc_utils::parse::isdigit(*it) || *it == '-')
             {//just a named number value started
@@ -202,9 +202,9 @@ namespace epee
             }else if(*it == '"')
             {
               //mean array of strings
-              std::string val;
+              byte_stream val;
               match_string2(it, buf_end, val);
-              h_array = stg.insert_first_value(name, std::move(val), current_section);
+              h_array = stg.insert_first_value(name, copyable_byte_slice{byte_slice{std::move(val)}}, current_section);
               CHECK_AND_ASSERT_THROW_MES(h_array, " failed to insert values entry");
               state = match_state_array_after_value;
               array_md = array_mode_string;
@@ -290,9 +290,9 @@ namespace epee
             case array_mode_string:
               if(*it == '"')
               {
-                std::string val;
+                byte_stream val;
                 match_string2(it, buf_end, val);
-                bool res = stg.insert_next_value(h_array, std::move(val));
+                bool res = stg.insert_next_value(h_array, copyable_byte_slice{byte_slice{std::move(val)}});
                 CHECK_AND_ASSERT_THROW_MES(res, "failed to insert values");
                 state = match_state_array_after_value;
               }else CHECK_ISSPACE();

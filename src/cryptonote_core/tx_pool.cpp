@@ -34,6 +34,7 @@
 #include <vector>
 
 #include "tx_pool.h"
+#include "byte_slice.h"
 #include "cryptonote_tx_utils.h"
 #include "cryptonote_basic/cryptonote_boost_serialization.h"
 #include "cryptonote_config.h"
@@ -135,7 +136,7 @@ namespace cryptonote
       throw std::runtime_error{"Unexpected time_t (system clock) value"};
   }
   //---------------------------------------------------------------------------------
-  bool tx_memory_pool::add_tx(transaction &tx, /*const crypto::hash& tx_prefix_hash,*/ const crypto::hash &id, const cryptonote::blobdata &blob, size_t tx_weight, tx_verification_context& tvc, relay_method tx_relay, bool relayed, uint8_t version)
+  bool tx_memory_pool::add_tx(transaction &tx, /*const crypto::hash& tx_prefix_hash,*/ const crypto::hash &id, const epee::span<const std::uint8_t> blob, size_t tx_weight, tx_verification_context& tvc, relay_method tx_relay, bool relayed, uint8_t version)
   {
     const bool kept_by_block = (tx_relay == relay_method::block);
 
@@ -387,7 +388,7 @@ namespace cryptonote
     t_serializable_object_to_blob(tx, bl);
     if (bl.size() == 0 || !get_transaction_hash(tx, h))
       return false;
-    return add_tx(tx, h, bl, get_transaction_weight(tx, bl.size()), tvc, tx_relay, relayed, version);
+    return add_tx(tx, h, epee::strspan<std::uint8_t>(bl), get_transaction_weight(tx, bl.size()), tvc, tx_relay, relayed, version);
   }
   //---------------------------------------------------------------------------------
   size_t tx_memory_pool::get_txpool_weight() const
@@ -631,7 +632,7 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------------------------
-  bool tx_memory_pool::get_complement(const std::vector<crypto::hash> &hashes, std::vector<cryptonote::blobdata> &txes) const
+  bool tx_memory_pool::get_complement(const std::vector<crypto::hash> &hashes, std::vector<epee::byte_slice> &txes) const
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     CRITICAL_REGION_LOCAL1(m_blockchain);
