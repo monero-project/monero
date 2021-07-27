@@ -2340,7 +2340,7 @@ skip:
           MDEBUG(context << "Nothing to get from this peer, and it's not ahead of us, all done");
           context.m_state = cryptonote_connection_context::state_normal;
           if (m_core.get_current_blockchain_height() >= m_core.get_target_blockchain_height())
-            on_connection_synchronized();
+            on_connection_synchronized(context);
           return true;
         }
         uint64_t next_needed_height = m_block_queue.get_next_needed_height(bc_height);
@@ -2489,7 +2489,7 @@ skip:
           MDEBUG(context << "Nothing to get from this peer, and it's not ahead of us, all done");
           context.m_state = cryptonote_connection_context::state_normal;
           if (m_core.get_current_blockchain_height() >= m_core.get_target_blockchain_height())
-            on_connection_synchronized();
+            on_connection_synchronized(context);
           return true;
         }
 
