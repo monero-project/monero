@@ -511,7 +511,7 @@ namespace trezor {
 
       const auto data_cleaner = epee::misc_utils::create_scope_leave_handler([&]() {
         if (m.has_passphrase())
-          memwipe(&(m.mutable_passphrase())[0], m.mutable_passphrase()->size());
+          memwipe(&(*m.mutable_passphrase())[0], m.mutable_passphrase()->size());
       });
 
       resp = call_raw(&m);
