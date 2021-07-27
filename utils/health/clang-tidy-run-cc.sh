@@ -1,6 +1,6 @@
 #!/bin/bash -e
 
-# Copyright (c) 2014-2020, The Monero Project
+# Copyright (c) 2014-2021, The Monero Project
 #
 # All rights reserved.
 #
@@ -31,35 +31,7 @@
 # clang-tidy runs lint checks on C & C++ sources and headers.
 # Run this script from the source directory.
 
-DIR_BUILD_BASE="build/clang-tidy"
-RESULT_BASE="clang-tidy-result"
-
-function tidy_for_language() {
-	LANG="${1}"
-	DIR_BUILD="${DIR_BUILD_BASE}-${LANG}"
-	RESULT="${RESULT_BASE}-${LANG}.txt"
-
-	mkdir -p "$DIR_BUILD" && pushd "$DIR_BUILD"
-
-	cmake ../.. \
-	-DCMAKE_C_COMPILER=clang \
-	-DCMAKE_CXX_COMPILER=clang++ \
-	-DUSE_CCACHE=ON \
-	-DUSE_CLANG_TIDY_${LANG}=ON \
-	-DBUILD_SHARED_LIBS=ON \
-	-DBUILD_TESTS=ON
-
-	make clean 					# Clean up, so that the result can be regenerated from scratch
-	time make -k 2>&1 | tee "$RESULT"		# Build and store the result. -k means: ignore errors
-	#time make -k easylogging 2>&1 | tee "$RESULT"	# Quick testing: build a single target
-	gzip -f "$RESULT" # Zip the result, because it's huge. -f overwrites the previously generated result
-
-	echo ""
-	echo "Readable result stored in: $DIR_BUILD/$RESULT.gz"
-
-	popd
-}
+DIR_THIS="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+source "$DIR_THIS/clang-tidy-run-common.sh"
 
 tidy_for_language "C"
-tidy_for_language "CXX"
-

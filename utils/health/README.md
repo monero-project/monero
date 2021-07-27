@@ -16,7 +16,8 @@ On the first run, the script will complain about the missing ClangBuildAnalyzer 
 
 ## clang-tidy
 
-`utils/health/clang-tidy-run.sh`
+`utils/health/clang-tidy-run-cc.sh`
+`utils/health/clang-tidy-run-cpp.sh`
 Performs Lint checks on the source code and stores the result in the build directory. More information on the [home page](https://clang.llvm.org/extra/clang-tidy/).
 
 ## include-what-you-use
