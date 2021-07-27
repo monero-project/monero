@@ -139,22 +139,6 @@ namespace cryptonote
     return h;
   }
   
-  //---------------------------------------------------------------  
-  void get_transaction_prefix_hash(const transaction_prefix& tx, crypto::hash& h)
-  {
-    std::ostringstream s;
-    binary_archive<true> a(s);
-    ::serialization::serialize(a, const_cast<transaction_prefix&>(tx));
-    crypto::cn_fast_hash(s.str().data(), s.str().size(), h);
-  }
-  //---------------------------------------------------------------
-  crypto::hash get_transaction_prefix_hash(const transaction_prefix& tx)
-  {
-    crypto::hash h = null_hash;
-    get_transaction_prefix_hash(tx, h);
-    return h;
-  }
-  //---------------------------------------------------------------
   bool expand_transaction_1(transaction &tx, bool base_only)
   {
     if (tx.version >= 2 && !is_coinbase(tx))
