@@ -523,35 +523,62 @@ bool ssl_options_t::handshake(
     });
   }
 
-  auto& io_service = GET_IO_SERVICE(socket);
-  boost::asio::steady_timer deadline(io_service, timeout);
-  deadline.async_wait([&socket](const boost::system::error_code& error) {
-    if (error != boost::asio::error::operation_aborted)
+  enum class handshake { waiting = 0, failed, success };
+  struct handler_t
+  {
+    std::shared_ptr<std::atomic<handshake>> status;
+    void operator()(const boost::system::error_code error, const std::size_t) const
     {
-      socket.next_layer().close();
+      if (status)
+        *status = (error ? handshake::failed : handshake::success);
+      if (error)
+        MERROR("SSL handshake failed, connection dropped: " << error.message());
     }
-  });
+  };
+  const handler_t handler{
+    std::make_shared<std::atomic<handshake>>(handshake::waiting)
+  };
 
-  boost::system::error_code ec = boost::asio::error::would_block;
-  socket.async_handshake(type, boost::asio::buffer(buffer), boost::lambda::var(ec) = boost::lambda::_1);
+  struct close_t
+  {
+    boost::asio::ip::tcp::socket* socket;
+    ~close_t() { run(); }
+    void run()
+    {
+      if (!socket)
+        return;
+      boost::system::error_code ec{};
+      socket->shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
+      socket->close(ec);
+      socket = nullptr;
+    }
+  } close{std::addressof(socket.next_layer())};
+
+  auto& io_service = GET_IO_SERVICE(socket);
+  socket.async_handshake(type, boost::asio::buffer(buffer), handler);
+
   if (io_service.stopped())
   {
     io_service.reset();
   }
-  while (ec == boost::asio::error::would_block && !io_service.stopped())
+
+  const auto start = std::chrono::steady_clock::now();
+  while (!io_service.stopped())
   {
     // should poll_one(), can't run_one() because it can block if there is
     // another worker thread executing io_service's tasks
     // TODO: once we get Boost 1.66+, replace with run_one_for/run_until
     std::this_thread::sleep_for(std::chrono::milliseconds(30));
     io_service.poll_one();
+    if (*handler.status != handshake::waiting)
+      break;
+    if (timeout <= (std::chrono::steady_clock::now() - start))
+      close.run();
   }
 
-  if (ec)
-  {
-    MERROR("SSL handshake failed, connection dropped: " << ec.message());
+  if (*handler.status != handshake::success)
     return false;
-  }
+  close.socket = nullptr;
   MDEBUG("SSL handshake success");
   return true;
 }

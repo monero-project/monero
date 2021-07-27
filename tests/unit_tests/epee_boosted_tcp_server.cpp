@@ -462,3 +462,111 @@ TEST(test_epee_connection, test_lifetime)
   server.timed_wait_server_stop(5 * 1000);
   server.deinit_server();
 }
+
+TEST(test_epee_connection, ssl_handshake_thread)
+{
+  static constexpr std::chrono::seconds timeout{5};
+  using ssl_socket_t = boost::asio::ssl::stream<boost::asio::ip::tcp::socket>;
+
+  boost::asio::io_service io_context;
+  std::thread thread{};
+  {
+    boost::asio::io_service::work work{io_context};
+    thread = std::thread{[&io_context] () { io_context.run(); }};
+
+    struct data_t
+    {
+      data_t(boost::asio::io_service& io_context)
+        : client_options{epee::net_utils::ssl_support_t::e_ssl_support_enabled},
+          server_options{epee::net_utils::ssl_support_t::e_ssl_support_enabled},
+          client_context{client_options.create_context()},
+          server_context{server_options.create_context()},
+          acceptor{io_context, boost::asio::ip::tcp::endpoint{boost::asio::ip::tcp::v4(), 0}},
+          client{io_context, client_context},
+          server{io_context, server_context},
+          completed{0}
+      {
+        client_options.verification = epee::net_utils::ssl_verification_t::none;
+        server_options.verification = epee::net_utils::ssl_verification_t::none;
+      }
+
+      epee::net_utils::ssl_options_t client_options;
+      epee::net_utils::ssl_options_t server_options;
+      boost::asio::ssl::context client_context;
+      boost::asio::ssl::context server_context;
+      boost::asio::ip::tcp::acceptor acceptor;
+      ssl_socket_t client;
+      ssl_socket_t server;
+      std::atomic<unsigned> completed;
+    };
+    auto data = std::make_shared<data_t>(io_context);
+
+    struct on_connect
+    {
+      std::shared_ptr<data_t> data_;
+      boost::asio::ssl::stream_base::handshake_type type_;
+      void operator()(const boost::system::error_code error) const
+      {
+        EXPECT_FALSE(error);
+        if (!error && type_ == boost::asio::ssl::stream_base::client)
+        {
+          EXPECT_TRUE(data_->client_options.handshake(data_->client, type_));
+          EXPECT_TRUE(data_->client.next_layer().is_open());
+        }
+        else if (!error)
+        {
+          EXPECT_TRUE(data_->server_options.handshake(data_->server, type_));
+          EXPECT_TRUE(data_->server.next_layer().is_open());
+        }
+        data_->completed++;
+      }
+    };
+
+    const boost::asio::ip::tcp::endpoint endpoint = data->acceptor.local_endpoint();
+    data->acceptor.async_accept(data->server.next_layer(), on_connect{data, boost::asio::ssl::stream_base::server});
+    data->client.next_layer().async_connect(endpoint, on_connect{data, boost::asio::ssl::stream_base::client});
+    const auto end = std::chrono::steady_clock::now() + timeout;
+    while (data->completed < 2 && std::chrono::steady_clock::now() < end)
+    {
+      if (!io_context.poll_one())
+        std::this_thread::sleep_for(std::chrono::milliseconds{5});
+    }
+    EXPECT_EQ(2u, data->completed);
+  }
+  io_context.stop();
+  thread.join();
+}
+
+TEST(test_epee_connection, ssl_handshake_race)
+{
+  using ssl_socket_t = boost::asio::ssl::stream<boost::asio::ip::tcp::socket>;
+
+  boost::asio::io_service io_context;
+  auto work = std::make_shared<boost::asio::io_service::work>(io_context);
+  std::vector<std::thread> workers;
+  auto constexpr N = 2;
+  while (workers.size() < N) {
+    workers.emplace_back([&io_context]{
+      io_context.run();
+    });
+  }
+  epee::net_utils::ssl_options_t ssl_options{{}};
+  auto ssl_context = ssl_options.create_context();
+  for (size_t i = 0; i < N * N * N; ++i) {
+    ssl_socket_t ssl_socket{io_context, ssl_context};
+    ssl_socket.next_layer().open(boost::asio::ip::tcp::v4());
+    for (size_t i = 0; i < N; ++i) {
+      io_context.post([]{
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+      });
+    }
+    EXPECT_EQ(
+      ssl_options.handshake(ssl_socket, ssl_socket_t::server, {}, {}, std::chrono::milliseconds(0)),
+      false
+    );
+    ssl_socket.next_layer().close();
+  }
+  work.reset();
+  for (;workers.size(); workers.pop_back())
+    workers.back().join();
+}
