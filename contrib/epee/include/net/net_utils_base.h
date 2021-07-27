@@ -236,6 +236,7 @@ namespace net_utils
 			virtual address_type get_type_id() const = 0;
 			virtual zone get_zone() const = 0;
 			virtual bool is_blockable() const = 0;
+			virtual std::uint16_t port() const = 0;
 		};
 
 		template<typename T>
@@ -266,6 +267,7 @@ namespace net_utils
 			virtual address_type get_type_id() const override { return value.get_type_id(); }
 			virtual zone get_zone() const override { return value.get_zone(); }
 			virtual bool is_blockable() const override { return value.is_blockable(); }
+			virtual std::uint16_t port() const override { return value.port(); }
 		};
 
 		std::shared_ptr<interface> self;
@@ -312,6 +314,7 @@ namespace net_utils
 		address_type get_type_id() const { return self ? self->get_type_id() : address_type::invalid; }
 		zone get_zone() const { return self ? self->get_zone() : zone::invalid; }
 		bool is_blockable() const { return self ? self->is_blockable() : false; }
+		std::uint16_t port() const { return self ? self->port() : 0; }
 		template<typename Type> const Type &as() const { return as_mutable<const Type>(); }
 
 		BEGIN_KV_SERIALIZE_MAP()

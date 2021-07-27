@@ -270,9 +270,17 @@ namespace nodetool
 
       peerlist_entry pe{};
       pe.adr = addr;
-      zone.second.m_peerlist.remove_from_peer_white(pe);
-      zone.second.m_peerlist.remove_from_peer_gray(pe);
-      zone.second.m_peerlist.remove_from_peer_anchor(addr);
+      if (addr.port() == 0)
+      {
+        zone.second.m_peerlist.evict_host_from_peerlist(true, pe);
+        zone.second.m_peerlist.evict_host_from_peerlist(false, pe);
+      }
+      else
+      {
+        zone.second.m_peerlist.remove_from_peer_white(pe);
+        zone.second.m_peerlist.remove_from_peer_gray(pe);
+        zone.second.m_peerlist.remove_from_peer_anchor(addr);
+     }
 
       for (const auto &c: conns)
         zone.second.m_net_server.get_config_object().close(c);
@@ -331,6 +339,13 @@ namespace nodetool
       });
       for (const auto &c: conns)
         zone.second.m_net_server.get_config_object().close(c);
+
+      for (int i = 0; i < 2; ++i)
+        zone.second.m_peerlist.filter(i == 0, [&subnet](const peerlist_entry &pe){
+          if (pe.adr.get_type_id() != epee::net_utils::ipv4_network_address::get_type_id())
+            return false;
+          return subnet.matches(pe.adr.as<const epee::net_utils::ipv4_network_address>());
+        });
 
       conns.clear();
     }
