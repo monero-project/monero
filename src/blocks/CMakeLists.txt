@@ -53,7 +53,7 @@ foreach(BLOB_NAME checkpoints testnet_blocks stagenet_blocks)
         "-DINPUT_DAT_FILE=${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_DAT_FILE}"
         "-DBLOB_NAME=${BLOB_NAME}"
         "-DOUTPUT_C_SOURCE=${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_C_SOURCE}"
-        "-P${GENERATOR}"
+        -P "${GENERATOR}"
     )
 endforeach()
 
