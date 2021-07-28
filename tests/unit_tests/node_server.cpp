@@ -795,9 +795,11 @@ TEST(cryptonote_protocol_handler, race_condition)
       workers_t workers;
     } check;
     check.work = std::make_shared<work_t>(check.io_context);
-    check.workers.emplace_back([&check]{
-      check.io_context.run();
-    });
+    while (check.workers.size() < 2) {
+      check.workers.emplace_back([&check]{
+        check.io_context.run();
+      });
+    }
     while (daemon.main.conn.size() < 1) {
       daemon.main.conn.emplace_back(new connection_t(check.io_context, daemon.main.shared_state, {}, {}));
       daemon.alt.conn.emplace_back(new connection_t(io_context, daemon.alt.shared_state, {}, {}));
@@ -856,7 +858,7 @@ TEST(cryptonote_protocol_handler, race_condition)
       }
     }
     while (daemon.main.conn.size() < 2) {
-      daemon.main.conn.emplace_back(new connection_t(io_context, daemon.main.shared_state, {}, {}));
+      daemon.main.conn.emplace_back(new connection_t(check.io_context, daemon.main.shared_state, {}, {}));
       daemon.alt.conn.emplace_back(new connection_t(io_context, daemon.alt.shared_state, {}, {}));
       create_conn_pair(daemon.main.conn.back(), daemon.alt.conn.back());
       conduct_handshake(daemon.alt.net_node, daemon.alt.conn.back());
