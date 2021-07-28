@@ -601,6 +601,23 @@ add_definitions(-DAUTO_INITIALIZE_EASYLOGGINGPP)
 set(MONERO_GENERATED_HEADERS_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated_include")
 include_directories(${MONERO_GENERATED_HEADERS_DIR})
 
+# As of OpenBSD 6.8, -march=<anything> breaks the build
+function(set_default_arch)
+  if (OPENBSD)
+    set(ARCH default)
+  else()
+    set(ARCH native)
+  endif()
+
+  set(ARCH ${ARCH} CACHE STRING "CPU to build for: -march value or 'default' to not pass -march at all")
+endfunction()
+
+if (NOT (MSVC OR ARCH))
+    set_default_arch()
+endif()
+
+CHECK_C_COMPILER_FLAG(-std=c11 HAVE_C11)
+
 option(COVERAGE "Enable profiling for test coverage report" OFF)
 if(COVERAGE)
     message(STATUS "Building with profiling for test coverage report")
@@ -680,17 +697,6 @@ endif()
 # Trezor support check
 include(CheckTrezor)
 
-# As of OpenBSD 6.8, -march=<anything> breaks the build
-function(set_default_arch)
-  if (OPENBSD)
-    set(ARCH default)
-  else()
-    set(ARCH native)
-  endif()
-
-  set(ARCH ${ARCH} CACHE STRING "CPU to build for: -march value or 'default' to not pass -march at all")
-endfunction()
-
 if(MSVC)
   add_definitions("/bigobj /MP /W3 /GS- /D_CRT_SECURE_NO_WARNINGS /wd4996 /wd4345 /D_WIN32_WINNT=0x0600 /DWIN32_LEAN_AND_MEAN /DGTEST_HAS_TR1_TUPLE=0 /FIinline_c.h /D__SSE4_1__")
   # set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /Dinline=__inline")
@@ -703,9 +709,6 @@ if(MSVC)
   include_directories(SYSTEM src/platform/msc)
 else()
   include(TestCXXAcceptsFlag)
-  if (NOT ARCH)
-    set_default_arch()
-  endif()
   message(STATUS "Building on ${CMAKE_SYSTEM_PROCESSOR} for ${ARCH}")
   if(ARCH STREQUAL "default")
     set(ARCH_FLAG "")
@@ -1240,9 +1243,6 @@ option(BUILD_GUI_DEPS "Build GUI dependencies." OFF)
 # This is not nice, distribution packagers should not enable this, but depend
 # on libunbound shipped with their distribution instead
 option(INSTALL_VENDORED_LIBUNBOUND "Install libunbound binary built from source vendored with this repo." OFF)
-
-
-CHECK_C_COMPILER_FLAG(-std=c11 HAVE_C11)
 
 find_package(PythonInterp)
 find_program(iwyu_tool_path NAMES iwyu_tool.py iwyu_tool)
