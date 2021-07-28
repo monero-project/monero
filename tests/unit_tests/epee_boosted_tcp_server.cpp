@@ -111,8 +111,7 @@ TEST(boosted_tcp_server, worker_threads_are_exception_resistant)
 
   {
     boost::unique_lock<boost::mutex> lock(mtx);
-    ASSERT_NE(boost::cv_status::timeout, cond.wait_for(lock, boost::chrono::seconds(5)));
-    ASSERT_EQ(4, counter);
+    ASSERT_TRUE(cond.wait_for(lock, boost::chrono::seconds(5), [&counter]{ return counter == 4; }));
   }
 
   // Check if threads are alive
@@ -125,8 +124,7 @@ TEST(boosted_tcp_server, worker_threads_are_exception_resistant)
 
   {
     boost::unique_lock<boost::mutex> lock(mtx);
-    ASSERT_NE(boost::cv_status::timeout, cond.wait_for(lock, boost::chrono::seconds(5)));
-    ASSERT_EQ(4, counter);
+    ASSERT_TRUE(cond.wait_for(lock, boost::chrono::seconds(5), [&counter]{ return counter == 4; }));
   }
 
   srv.send_stop_signal();
