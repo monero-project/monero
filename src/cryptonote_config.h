@@ -185,9 +185,11 @@
 #define HF_VERSION_DETERMINISTIC_UNLOCK_TIME    13
 #define HF_VERSION_BULLETPROOF_PLUS             15
 #define HF_VERSION_TRIPTYCH                     17
+#define HF_VERSION_2021_SCALING                 17
 #define HF_VERSION_ALL_RCT_OUTPUTS              254
 
 #define PER_KB_FEE_QUANTIZATION_DECIMALS        8
+#define CRYPTONOTE_SCALING_2021_FEE_ROUNDING_PLACES 3
 
 #define HASH_OF_HASHES_STEP                     512
 

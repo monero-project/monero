@@ -1180,6 +1180,54 @@ namespace cryptonote
     return s;
   }
   //---------------------------------------------------------------
+  uint64_t round_money(uint64_t amount, unsigned places)
+  {
+    CHECK_AND_ASSERT_THROW_MES(places > 0, "Places must not be 0");
+    static_assert(sizeof(unsigned long long) == sizeof(uint64_t), "Unexpected unsigned long long size");
+
+    // we don't need speed, so we do it via text, as it's easier to get right
+    char buf[32];
+    snprintf(buf, sizeof(buf), "%llu", (unsigned long long)amount);
+    const size_t len = strlen(buf);
+    if (len > places)
+    {
+      bool bump = false;
+      char *ptr;
+      for (ptr = buf + places; *ptr; ++ptr)
+      {
+        if (*ptr != '0')
+          bump = true;
+        *ptr = '0';
+      }
+      ptr = buf + places;
+      while (bump && ptr > buf)
+      {
+        --ptr;
+        if (*ptr == '9')
+          *ptr = '0';
+        else
+        {
+          ++*ptr;
+          bump = false;
+        }
+      }
+    }
+    char *end = NULL;
+    errno = 0;
+    const unsigned long long ull = strtoull(buf, &end, 10);
+    CHECK_AND_ASSERT_THROW_MES(ull != ULONG_MAX || errno == 0, "Failed to parse rounded amount: " << buf);
+    CHECK_AND_ASSERT_THROW_MES(ull != 0 || amount == 0, "Overflow in rounding");
+    return ull;
+  }
+  //---------------------------------------------------------------
+  std::string round_money(const std::string &s, unsigned places)
+  {
+    uint64_t amount;
+    CHECK_AND_ASSERT_THROW_MES(parse_amount(amount, s), "Failed to parse amount: " << s);
+    amount = round_money(amount, places);
+    return print_money(amount);
+  }
+  //---------------------------------------------------------------
   crypto::hash get_blob_hash(const blobdata& blob)
   {
     crypto::hash h = null_hash;
