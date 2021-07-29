@@ -126,7 +126,6 @@ private:
 
 protected:
   rolling_median_t &operator=(const rolling_median_t&) = delete;
-  rolling_median_t(const rolling_median_t&) = delete;
 
 public:
   //creates new rolling_median_t: to calculate `nItems` running median. 
@@ -137,6 +136,20 @@ public:
     pos = (int*) (data + N);
     heap = pos + N + (N / 2); //points to middle of storage.
     clear();
+  }
+
+  rolling_median_t(const rolling_median_t &other)
+  {
+    N = other.N;
+    int size = N * (sizeof(Item) + sizeof(int) * 2);
+    data = (Item*)malloc(size);
+    memcpy(data, other.data, size);
+    pos = (int*) (data + N);
+    heap = pos + N + (N / 2); //points to middle of storage.
+    idx = other.idx;
+    minCt = other.minCt;
+    maxCt = other.maxCt;
+    sz = other.sz;
   }
 
   rolling_median_t(rolling_median_t &&m)
