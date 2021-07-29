@@ -648,6 +648,22 @@ namespace cryptonote
      * @return the fee estimate
      */
     uint64_t get_dynamic_base_fee_estimate(uint64_t grace_blocks) const;
+    void get_dynamic_base_fee_estimate_2021_scaling(uint64_t grace_blocks, uint64_t base_reward, uint64_t Mnw, uint64_t Mlw, std::vector<uint64_t> &fees) const;
+
+    /**
+     * @brief get four levels of dynamic per byte fee estimate for the next few blocks
+     *
+     * The dynamic fee is based on the block weight in a past window, and
+     * the current block reward. It is expressed per byte, and is based on
+     * https://github.com/ArticMine/Monero-Documents/blob/master/MoneroScaling2021-02.pdf
+     * This function calculates an estimate for a dynamic fee which will be
+     * valid for the next grace_blocks
+     *
+     * @param grace_blocks number of blocks we want the fee to be valid for
+     *
+     * @return the fee estimates (4 of them)
+     */
+    void get_dynamic_base_fee_estimate_2021_scaling(uint64_t grace_blocks, std::vector<uint64_t> &fees) const;
 
     /**
      * @brief validate a transaction's fee

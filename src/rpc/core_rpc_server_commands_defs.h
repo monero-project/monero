@@ -2191,11 +2191,13 @@ namespace cryptonote
     {
       uint64_t fee;
       uint64_t quantization_mask;
+      std::vector<uint64_t> fees;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_access_response_base)
         KV_SERIALIZE(fee)
         KV_SERIALIZE_OPT(quantization_mask, (uint64_t)1)
+        KV_SERIALIZE(fees)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;

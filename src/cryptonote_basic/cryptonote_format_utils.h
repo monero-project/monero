@@ -144,6 +144,8 @@ namespace cryptonote
   std::string get_unit(unsigned int decimal_point = -1);
   std::string print_money(uint64_t amount, unsigned int decimal_point = -1);
   std::string print_money(const boost::multiprecision::uint128_t &amount, unsigned int decimal_point = -1);
+  uint64_t round_money_up(uint64_t amount, unsigned significant_digits);
+  std::string round_money_up(const std::string &amount, unsigned significant_digits);
   //---------------------------------------------------------------
   template<class t_object>
   bool t_serializable_object_from_blob(t_object& to, const blobdata& b_blob)
