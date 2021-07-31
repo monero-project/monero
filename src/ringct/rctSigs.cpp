@@ -165,28 +165,28 @@ namespace rct {
       catch (...) { return false; }
     }
 
-    BulletproofPlus proveRangeBulletproofPlus(keyV &C, keyV &masks, const std::vector<uint64_t> &amounts, epee::span<const key> sk, hw::device &hwdev)
+    BulletproofPlus proveRangeBulletproofPlus(keyV &C, keyV &masks, const std::vector<uint64_t> &amounts, epee::span<const key> sk, const rct::key *aux, size_t aux_index, hw::device &hwdev)
     {
         CHECK_AND_ASSERT_THROW_MES(amounts.size() == sk.size(), "Invalid amounts/sk sizes");
         masks.resize(amounts.size());
         for (size_t i = 0; i < masks.size(); ++i)
             masks[i] = hwdev.genCommitmentMask(sk[i]);
-        BulletproofPlus proof = bulletproof_plus_PROVE(amounts, masks);
+        BulletproofPlus proof = bulletproof_plus_PROVE(amounts, masks, aux, aux_index);
         CHECK_AND_ASSERT_THROW_MES(proof.V.size() == amounts.size(), "V does not have the expected size");
         C = proof.V;
         return proof;
     }
 
-    bool verBulletproofPlus(const BulletproofPlus &proof)
+    bool verBulletproofPlus(const BulletproofPlus &proof, const rct::key *gamma, rct::key *aux)
     {
-      try { return bulletproof_plus_VERIFY(proof); }
+      try { return bulletproof_plus_VERIFY(proof, gamma, aux); }
       // we can get deep throws from ge_frombytes_vartime if input isn't valid
       catch (...) { return false; }
     }
 
-    bool verBulletproofPlus(const std::vector<const BulletproofPlus*> &proofs)
+    bool verBulletproofPlus(const std::vector<const BulletproofPlus*> &proofs, const rct::keyV *gamma, rct::keyV *aux)
     {
-      try { return bulletproof_plus_VERIFY(proofs); }
+      try { return bulletproof_plus_VERIFY(proofs, gamma, aux); }
       // we can get deep throws from ge_frombytes_vartime if input isn't valid
       catch (...) { return false; }
     }
@@ -1301,7 +1301,7 @@ namespace rct {
                 {
                     const epee::span<const key> keys{&amount_keys[0], amount_keys.size()};
                     if (plus)
-                      rv.p.bulletproofs_plus.push_back(proveRangeBulletproofPlus(C, masks, outamounts, keys, hwdev));
+                      rv.p.bulletproofs_plus.push_back(proveRangeBulletproofPlus(C, masks, outamounts, keys, NULL, 0, hwdev));
                     else
                       rv.p.bulletproofs.push_back(proveRangeBulletproof(C, masks, outamounts, keys, hwdev));
                     TEST_INVALID_TX("bad-bp", {rv.p.bulletproofs.back().t.bytes[3]^=1;});
@@ -1340,7 +1340,7 @@ namespace rct {
                 {
                     const epee::span<const key> keys{&amount_keys[amounts_proved], batch_size};
                     if (plus)
-                      rv.p.bulletproofs_plus.push_back(proveRangeBulletproofPlus(C, masks, batch_amounts, keys, hwdev));
+                      rv.p.bulletproofs_plus.push_back(proveRangeBulletproofPlus(C, masks, batch_amounts, keys, NULL, 0, hwdev));
                     else
                       rv.p.bulletproofs.push_back(proveRangeBulletproof(C, masks, batch_amounts, keys, hwdev));
                     TEST_INVALID_TX("bad-bp", {rv.p.bulletproofs.back().t.bytes[3]^=1;});
@@ -1616,7 +1616,7 @@ namespace rct {
             offset += rv.p.rangeSigs.size();
           }
         }
-        if (!bpp_proofs.empty() && !verBulletproofPlus(bpp_proofs))
+        if (!bpp_proofs.empty() && !verBulletproofPlus(bpp_proofs, NULL, NULL))
         {
           if (!waiter.wait())
             return false;
