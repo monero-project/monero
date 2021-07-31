@@ -509,18 +509,18 @@ namespace rct
     }
 
     // Given a value v [0..2**N) and a mask gamma, construct a range proof
-    BulletproofPlus bulletproof_plus_PROVE(const rct::key &sv, const rct::key &gamma)
+    BulletproofPlus bulletproof_plus_PROVE(const rct::key &sv, const rct::key &gamma, const rct::key *aux)
     {
-        return bulletproof_plus_PROVE(rct::keyV(1, sv), rct::keyV(1, gamma));
+        return bulletproof_plus_PROVE(rct::keyV(1, sv), rct::keyV(1, gamma), aux, 0);
     }
 
-    BulletproofPlus bulletproof_plus_PROVE(uint64_t v, const rct::key &gamma)
+    BulletproofPlus bulletproof_plus_PROVE(uint64_t v, const rct::key &gamma, const rct::key *aux)
     {
-        return bulletproof_plus_PROVE(std::vector<uint64_t>(1, v), rct::keyV(1, gamma));
+        return bulletproof_plus_PROVE(std::vector<uint64_t>(1, v), rct::keyV(1, gamma), aux, 0);
     }
 
     // Given a set of values v [0..2**N) and masks gamma, construct a range proof
-    BulletproofPlus bulletproof_plus_PROVE(const rct::keyV &sv, const rct::keyV &gamma)
+    BulletproofPlus bulletproof_plus_PROVE(const rct::keyV &sv, const rct::keyV &gamma, const rct::key* aux, size_t aux_index)
     {
         // Sanity check on inputs
         CHECK_AND_ASSERT_THROW_MES(sv.size() == gamma.size(), "Incompatible sizes of sv and gamma");
@@ -529,6 +529,7 @@ namespace rct
             CHECK_AND_ASSERT_THROW_MES(is_reduced(sve), "Invalid sv input");
         for (const rct::key &g: gamma)
             CHECK_AND_ASSERT_THROW_MES(is_reduced(g), "Invalid gamma input");
+        CHECK_AND_ASSERT_THROW_MES(aux_index < gamma.size(), "Invalid aux_index");
 
         init_exponents();
 
@@ -780,9 +781,10 @@ try_again:
         return BulletproofPlus(std::move(V), A, A1, B, r1, s1, d1, std::move(L), std::move(R));
     }
 
-    BulletproofPlus bulletproof_plus_PROVE(const std::vector<uint64_t> &v, const rct::keyV &gamma)
+    BulletproofPlus bulletproof_plus_PROVE(const std::vector<uint64_t> &v, const rct::keyV &gamma, const rct::key* aux, size_t aux_index)
     {
         CHECK_AND_ASSERT_THROW_MES(v.size() == gamma.size(), "Incompatible sizes of v and gamma");
+        CHECK_AND_ASSERT_THROW_MES(aux_index < gamma.size(), "Invalid aux_index");
 
         // vG + gammaH
         rct::keyV sv(v.size());
@@ -798,7 +800,7 @@ try_again:
             sv[i].bytes[6] = (v[i] >> 48) & 255;
             sv[i].bytes[7] = (v[i] >> 56) & 255;
         }
-        return bulletproof_plus_PROVE(sv, gamma);
+        return bulletproof_plus_PROVE(sv, gamma, aux, aux_index);
     }
 
     struct bp_plus_proof_data_t
@@ -809,9 +811,13 @@ try_again:
     };
 
     // Given a batch of range proofs, determine if they are all valid
-    bool bulletproof_plus_VERIFY(const std::vector<const BulletproofPlus*> &proofs)
+    bool bulletproof_plus_VERIFY(const std::vector<const BulletproofPlus*> &proofs, const rct::keyV *gamma, rct::keyV *aux)
     {
         init_exponents();
+
+        CHECK_AND_ASSERT_MES(!gamma || proofs.size() == gamma->size(), false, "Incompatible size of proofs and gamma");
+        CHECK_AND_ASSERT_MES(!aux || proofs.size() == aux->size(), false, "Incompatible size of proofs and aux");
+        CHECK_AND_ASSERT_MES(!!gamma == !!aux, false, "gamma and aux must be both present or both missing");
 
         const size_t logN = 6;
         const size_t N = 1 << logN;
@@ -1115,19 +1121,33 @@ try_again:
         return true;
     }
 
-    bool bulletproof_plus_VERIFY(const std::vector<BulletproofPlus> &proofs)
+    bool bulletproof_plus_VERIFY(const std::vector<BulletproofPlus> &proofs, const rct::keyV *gamma, rct::keyV *aux)
     {
         std::vector<const BulletproofPlus*> proof_pointers;
         proof_pointers.reserve(proofs.size());
         for (const BulletproofPlus &proof: proofs)
             proof_pointers.push_back(&proof);
-        return bulletproof_plus_VERIFY(proof_pointers);
+        return bulletproof_plus_VERIFY(proof_pointers, gamma, aux);
     }
 
-    bool bulletproof_plus_VERIFY(const BulletproofPlus &proof)
+    bool bulletproof_plus_VERIFY(const BulletproofPlus &proof, const rct::key *gamma, rct::key *aux)
     {
+        CHECK_AND_ASSERT_MES(!!gamma == !!aux, false, "gamma and aux must be both present or both missing");
         std::vector<const BulletproofPlus*> proofs;
         proofs.push_back(&proof);
-        return bulletproof_plus_VERIFY(proofs);
+        if (gamma)
+        {
+          rct::keyV gammas, auxs;
+          gammas.push_back(*gamma);
+          auxs.resize(1);
+          if (!bulletproof_plus_VERIFY(proofs, &gammas, &auxs))
+            return false;
+          *aux = auxs[0];
+          return true;
+        }
+        else
+        {
+          return bulletproof_plus_VERIFY(proofs);
+        }
     }
 }
