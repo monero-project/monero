@@ -137,7 +137,8 @@ bool gen_bpp_tx_validation_base::generate_with(std::vector<test_event_entry>& ev
     boost::container::flat_map<crypto::public_key, cryptonote::subaddress_index> subaddresses;
     subaddresses[miner_accounts[n].get_keys().m_account_address.m_spend_public_key] = {0,0};
     rct_txes.resize(rct_txes.size() + 1);
-    bool r = construct_tx_and_get_tx_key(miner_accounts[n].get_keys(), subaddresses, sources, destinations, cryptonote::account_public_address{}, std::vector<uint8_t>(), rct_txes.back(), 0, tx_key, additional_tx_keys, true, rct_config[n]);
+    const rct::key aux = rct::skGen();
+    bool r = construct_tx_and_get_tx_key(miner_accounts[n].get_keys(), subaddresses, sources, destinations, cryptonote::account_public_address{}, std::vector<uint8_t>(), rct_txes.back(), 0, tx_key, additional_tx_keys, &aux, 0, true, rct_config[n]);
     CHECK_AND_ASSERT_MES(r, false, "failed to construct transaction");
 
     if (post_tx && !post_tx(rct_txes.back(), n))
@@ -357,7 +358,7 @@ bool gen_bpp_tx_invalid_wrong_amount::generate(std::vector<test_event_entry>& ev
   return generate_with(events, mixin, 1, amounts_paid, false, rct_config, HF_VERSION_BULLETPROOF_PLUS, NULL, [&](cryptonote::transaction &tx, size_t idx){
     CHECK_TEST_CONDITION(tx.rct_signatures.type == rct::RCTTypeBulletproofPlus);
     CHECK_TEST_CONDITION(!tx.rct_signatures.p.bulletproofs_plus.empty());
-    tx.rct_signatures.p.bulletproofs_plus.back() = rct::bulletproof_plus_PROVE(1000, rct::skGen());
+    tx.rct_signatures.p.bulletproofs_plus.back() = rct::bulletproof_plus_PROVE(1000, rct::skGen(), NULL);
     return true;
   });
 }

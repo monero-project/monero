@@ -72,15 +72,16 @@ cryptonote::account_public_address get_address(const tools::wallet2*);
 
 bool construct_tx_to_key(cryptonote::transaction& tx, tools::wallet2 * from_wallet, const var_addr_t& to, uint64_t amount,
                          std::vector<cryptonote::tx_source_entry> &sources,
-                         uint64_t fee, bool rct=false, rct::RangeProofType range_proof_type=rct::RangeProofBorromean, int bp_version = 0);
+                         uint64_t fee, const rct::key *aux, size_t aux_index, bool rct=false, rct::RangeProofType range_proof_type=rct::RangeProofBorromean, int bp_version = 0);
 
 bool construct_tx_to_key(cryptonote::transaction& tx, tools::wallet2 * sender_wallet, const std::vector<cryptonote::tx_destination_entry>& destinations,
                          std::vector<cryptonote::tx_source_entry> &sources,
-                         uint64_t fee, bool rct, rct::RangeProofType range_proof_type, int bp_version = 0);
+                         uint64_t fee, const rct::key *aux, size_t aux_index, bool rct, rct::RangeProofType range_proof_type, int bp_version = 0);
 
 bool construct_tx_rct(tools::wallet2 * sender_wallet,
                       std::vector<cryptonote::tx_source_entry>& sources,
                       const std::vector<cryptonote::tx_destination_entry>& destinations,
                       const boost::optional<cryptonote::account_public_address>& change_addr,
                       std::vector<uint8_t> extra, cryptonote::transaction& tx, uint64_t unlock_time,
+                      const rct::key *aux = NULL, size_t aux_index = 0,
                       bool rct=false, rct::RangeProofType range_proof_type=rct::RangeProofBorromean, int bp_version = 0);

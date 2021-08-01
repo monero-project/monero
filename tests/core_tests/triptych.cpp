@@ -134,7 +134,7 @@ bool gen_triptych_tx_validation_base::generate_with_full(std::vector<test_event_
     std::vector<crypto::secret_key> additional_tx_keys;
     boost::container::flat_map<crypto::public_key, cryptonote::subaddress_index> subaddresses;
     subaddresses[miner_accounts[n].get_keys().m_account_address.m_spend_public_key] = {0,0};
-    bool r = construct_tx_and_get_tx_key(miner_accounts[n].get_keys(), subaddresses, sources, destinations, cryptonote::account_public_address{}, std::vector<uint8_t>(), rct_txes[n], 0, tx_key, additional_tx_keys, true);
+    bool r = construct_tx_and_get_tx_key(miner_accounts[n].get_keys(), subaddresses, sources, destinations, cryptonote::account_public_address{}, std::vector<uint8_t>(), rct_txes[n], 0, tx_key, additional_tx_keys, NULL, 0, true);
     CHECK_AND_ASSERT_MES(r, false, "failed to construct transaction");
     events.push_back(rct_txes[n]);
     starting_rct_tx_hashes.push_back(get_transaction_hash(rct_txes[n]));
@@ -214,7 +214,7 @@ bool gen_triptych_tx_validation_base::generate_with_full(std::vector<test_event_
     std::vector<crypto::secret_key> additional_tx_keys;
     boost::container::flat_map<crypto::public_key, cryptonote::subaddress_index> subaddresses;
     subaddresses[miner_account.get_keys().m_account_address.m_spend_public_key] = {0,0};
-    bool r = construct_tx_and_get_tx_key(miner_account.get_keys(), subaddresses, sources, destinations, cryptonote::account_public_address{}, std::vector<uint8_t>(), triptych_txes[n], 0, tx_key, additional_tx_keys, true, {rct::RangeProofPaddedBulletproof, 4});
+    bool r = construct_tx_and_get_tx_key(miner_account.get_keys(), subaddresses, sources, destinations, cryptonote::account_public_address{}, std::vector<uint8_t>(), triptych_txes[n], 0, tx_key, additional_tx_keys, NULL, 0, true, {rct::RangeProofPaddedBulletproof, 4});
     CHECK_AND_ASSERT_MES(r, false, "failed to construct transaction");
     events.push_back(triptych_txes[n]);
     starting_rct_tx_hashes.push_back(get_transaction_hash(triptych_txes[n]));
@@ -378,7 +378,7 @@ bool gen_triptych_tx_validation_base::generate_with_full(std::vector<test_event_
     std::vector<crypto::secret_key> additional_tx_keys;
     boost::container::flat_map<crypto::public_key, cryptonote::subaddress_index> subaddresses;
     subaddresses[miner_accounts[0].get_keys().m_account_address.m_spend_public_key] = {0,0};
-    bool r = construct_tx_and_get_tx_key(miner_accounts[0].get_keys(), subaddresses, sources, destinations, cryptonote::account_public_address{}, std::vector<uint8_t>(), tx, 0, tx_key, additional_tx_keys, true, rct_config);
+    bool r = construct_tx_and_get_tx_key(miner_accounts[0].get_keys(), subaddresses, sources, destinations, cryptonote::account_public_address{}, std::vector<uint8_t>(), tx, 0, tx_key, additional_tx_keys, NULL, 0, true, rct_config);
     CHECK_AND_ASSERT_MES(r, false, "failed to construct transaction");
 
     if (n_tx == n_txes - 1 && post_tx)

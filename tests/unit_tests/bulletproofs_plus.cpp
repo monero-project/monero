@@ -41,13 +41,13 @@
 
 TEST(bulletproofs_plus, valid_zero)
 {
-  rct::BulletproofPlus proof = bulletproof_plus_PROVE(0, rct::skGen());
+  rct::BulletproofPlus proof = bulletproof_plus_PROVE(0, rct::skGen(), NULL);
   ASSERT_TRUE(rct::bulletproof_plus_VERIFY(proof));
 }
 
 TEST(bulletproofs_plus, valid_max)
 {
-  rct::BulletproofPlus proof = bulletproof_plus_PROVE(0xffffffffffffffff, rct::skGen());
+  rct::BulletproofPlus proof = bulletproof_plus_PROVE(0xffffffffffffffff, rct::skGen(), NULL);
   ASSERT_TRUE(rct::bulletproof_plus_VERIFY(proof));
 }
 
@@ -55,7 +55,7 @@ TEST(bulletproofs_plus, valid_random)
 {
   for (int n = 0; n < 8; ++n)
   {
-    rct::BulletproofPlus proof = bulletproof_plus_PROVE(crypto::rand<uint64_t>(), rct::skGen());
+    rct::BulletproofPlus proof = bulletproof_plus_PROVE(crypto::rand<uint64_t>(), rct::skGen(), NULL);
     ASSERT_TRUE(rct::bulletproof_plus_VERIFY(proof));
   }
 }
@@ -72,7 +72,7 @@ TEST(bulletproofs_plus, valid_multi_random)
       amounts.push_back(crypto::rand<uint64_t>());
       gamma.push_back(rct::skGen());
     }
-    rct::BulletproofPlus proof = bulletproof_plus_PROVE(amounts, gamma);
+    rct::BulletproofPlus proof = bulletproof_plus_PROVE(amounts, gamma, NULL, 0);
     ASSERT_TRUE(rct::bulletproof_plus_VERIFY(proof));
   }
 }
@@ -91,7 +91,7 @@ TEST(bulletproofs_plus, valid_aggregated)
       amounts.push_back(crypto::rand<uint64_t>());
       gamma.push_back(rct::skGen());
     }
-    proofs[n] = bulletproof_plus_PROVE(amounts, gamma);
+    proofs[n] = bulletproof_plus_PROVE(amounts, gamma, NULL, 0);
   }
   ASSERT_TRUE(rct::bulletproof_plus_VERIFY(proofs));
 }
@@ -100,7 +100,7 @@ TEST(bulletproofs_plus, invalid_8)
 {
   rct::key invalid_amount = rct::zero();
   invalid_amount[8] = 1;
-  rct::BulletproofPlus proof = bulletproof_plus_PROVE(invalid_amount, rct::skGen());
+  rct::BulletproofPlus proof = bulletproof_plus_PROVE(invalid_amount, rct::skGen(), NULL);
   ASSERT_FALSE(rct::bulletproof_plus_VERIFY(proof));
 }
 
@@ -108,7 +108,7 @@ TEST(bulletproofs_plus, invalid_31)
 {
   rct::key invalid_amount = rct::zero();
   invalid_amount[31] = 1;
-  rct::BulletproofPlus proof = bulletproof_plus_PROVE(invalid_amount, rct::skGen());
+  rct::BulletproofPlus proof = bulletproof_plus_PROVE(invalid_amount, rct::skGen(), NULL);
   ASSERT_FALSE(rct::bulletproof_plus_VERIFY(proof));
 }
 
@@ -125,7 +125,7 @@ static const char * const torsion_elements[] =
 
 TEST(bulletproofs_plus, invalid_torsion)
 {
-  rct::BulletproofPlus proof = bulletproof_plus_PROVE(7329838943733, rct::skGen());
+  rct::BulletproofPlus proof = bulletproof_plus_PROVE(7329838943733, rct::skGen(), NULL);
   ASSERT_TRUE(rct::bulletproof_plus_VERIFY(proof));
   for (const auto &xs: torsion_elements)
   {
@@ -166,4 +166,12 @@ TEST(bulletproofs_plus, invalid_torsion)
     ASSERT_FALSE(rct::bulletproof_plus_VERIFY(proof));
     proof.B = org_B;
   }
+}
+
+TEST(bulletproofs_plus, aux)
+{
+  const rct::key aux = rct::skGen();
+  rct::BulletproofPlus proof = bulletproof_plus_PROVE(7329838943733, rct::skGen(), &aux);
+  ASSERT_TRUE(rct::bulletproof_plus_VERIFY(proof));
+#warning TODO: read it off and compare
 }
