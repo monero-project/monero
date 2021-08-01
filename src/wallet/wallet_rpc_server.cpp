@@ -853,7 +853,13 @@ namespace tools
       if (!epee::string_tools::hex_to_pod(aux, auxkey))
       {
         er.code = WALLET_RPC_ERROR_CODE_INVALID_AUX;
-        er.message = "Invalid aux value";
+        er.message = "Invalid aux value: not a 32 byte value";
+        return false;
+      }
+      if (sc_check(auxkey.bytes))
+      {
+        er.code = WALLET_RPC_ERROR_CODE_INVALID_AUX;
+        er.message = "Invalid aux value: not in scalar range";
         return false;
       }
     }
