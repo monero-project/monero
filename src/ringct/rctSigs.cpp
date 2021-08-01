@@ -1207,7 +1207,7 @@ namespace rct {
     
     //RCT simple    
     //for post-rct only
-    rctSig genRctSimple(const key &message, const ctkeyV & inSk, const keyV & destinations, const std::vector<bool> &is_triptych, const vector<xmr_amount> &inamounts, const vector<xmr_amount> &outamounts, xmr_amount txnFee, const ctkeyM & mixRing, const keyV &amount_keys, const std::vector<multisig_kLRki> *kLRki, multisig_out *msout, const std::vector<unsigned int> & index, ctkeyV &outSk, const RCTConfig &rct_config, hw::device &hwdev) {
+    rctSig genRctSimple(const key &message, const ctkeyV & inSk, const keyV & destinations, const std::vector<bool> &is_triptych, const vector<xmr_amount> &inamounts, const vector<xmr_amount> &outamounts, xmr_amount txnFee, const ctkeyM & mixRing, const keyV &amount_keys, const std::vector<multisig_kLRki> *kLRki, multisig_out *msout, const std::vector<unsigned int> & index, ctkeyV &outSk, const rct::key *aux, size_t aux_index, const RCTConfig &rct_config, hw::device &hwdev) {
         PERF_TIMER(genRctSimple);
         const bool bulletproof_or_plus = rct_config.range_proof_type > RangeProofBorromean;
         CHECK_AND_ASSERT_THROW_MES(inamounts.size() > 0, "Empty inamounts");
@@ -1224,6 +1224,8 @@ namespace rct {
         if (kLRki && msout) {
           CHECK_AND_ASSERT_THROW_MES(kLRki->size() == inamounts.size(), "Mismatched kLRki/inamounts sizes");
         }
+        CHECK_AND_ASSERT_THROW_MES(!aux || rct_config.range_proof_type == RCTTypeBulletproofPlus, "Aux data can only be embedded in BP+");
+        CHECK_AND_ASSERT_THROW_MES(!aux || aux_index < destinations.size(), "aux_index out of range");
 
         rctSig rv;
         if (bulletproof_or_plus)
@@ -1301,7 +1303,7 @@ namespace rct {
                 {
                     const epee::span<const key> keys{&amount_keys[0], amount_keys.size()};
                     if (plus)
-                      rv.p.bulletproofs_plus.push_back(proveRangeBulletproofPlus(C, masks, outamounts, keys, NULL, 0, hwdev));
+                      rv.p.bulletproofs_plus.push_back(proveRangeBulletproofPlus(C, masks, outamounts, keys, aux, aux_index, hwdev));
                     else
                       rv.p.bulletproofs.push_back(proveRangeBulletproof(C, masks, outamounts, keys, hwdev));
                     TEST_INVALID_TX("bad-bp", {rv.p.bulletproofs.back().t.bytes[3]^=1;});
@@ -1340,7 +1342,7 @@ namespace rct {
                 {
                     const epee::span<const key> keys{&amount_keys[amounts_proved], batch_size};
                     if (plus)
-                      rv.p.bulletproofs_plus.push_back(proveRangeBulletproofPlus(C, masks, batch_amounts, keys, NULL, 0, hwdev));
+                      rv.p.bulletproofs_plus.push_back(proveRangeBulletproofPlus(C, masks, batch_amounts, keys, aux, aux_index, hwdev));
                     else
                       rv.p.bulletproofs.push_back(proveRangeBulletproof(C, masks, batch_amounts, keys, hwdev));
                     TEST_INVALID_TX("bad-bp", {rv.p.bulletproofs.back().t.bytes[3]^=1;});
@@ -1438,7 +1440,7 @@ namespace rct {
           mixRing[i].resize(mixin+1);
           index[i] = populateFromBlockchainSimple(mixRing[i], inPk[i], mixin);
         }
-        return genRctSimple(message, inSk, destinations, is_triptych, inamounts, outamounts, txnFee, mixRing, amount_keys, kLRki, msout, index, outSk, rct_config, hwdev);
+        return genRctSimple(message, inSk, destinations, is_triptych, inamounts, outamounts, txnFee, mixRing, amount_keys, kLRki, msout, index, outSk, NULL, 0, rct_config, hwdev);
     }
 
     //RingCT protocol
