@@ -508,6 +508,19 @@ namespace rct
         return transcript;
     }
 
+    static rct::key bpp_hash_to_scalar(const rct::key &key, uint16_t nonce, uint8_t c, const rct::key &extra_key = rct::ZERO)
+    {
+      char data[sizeof(rct::key) + sizeof(nonce) + sizeof(c) + sizeof(rct::key)];
+      memcpy(data, &key, sizeof(rct::key));
+      memcpy(data + sizeof(key), &extra_key, sizeof(rct::key));
+      data[2 * sizeof(rct::key)] = nonce >> 8;
+      data[2 * sizeof(rct::key) + 1] = nonce & 0xff;
+      data[2 * sizeof(rct::key) + 2] = c;
+      crypto::hash hash = crypto::cn_fast_hash(data, sizeof(data));
+      sc_reduce32((unsigned char*)hash.data);
+      return rct::hash2rct(hash);
+    }
+
     // Given a value v [0..2**N) and a mask gamma, construct a range proof
     BulletproofPlus bulletproof_plus_PROVE(const rct::key &sv, const rct::key &gamma, const rct::key *aux)
     {
@@ -592,10 +605,18 @@ namespace rct
 try_again:
         // This is a Fiat-Shamir transcript
         rct::key transcript = copy(initial_transcript);
-        transcript = transcript_update(transcript, rct::hash_to_scalar(V));
+        const rct::key Vs = rct::hash_to_scalar(V);
+        transcript = transcript_update(transcript, Vs);
 
         // A
-        rct::key alpha = rct::skGen();
+        rct::key alpha;
+        if (aux)
+        {
+          alpha = bpp_hash_to_scalar(gamma[aux_index], config::HASH_KEY_BPP_AUX_ALPHA, 0, Vs);
+          sc_add(alpha.bytes, alpha.bytes, aux->bytes);
+        }
+        else
+          alpha = rct::skGen();
         rct::key pre_A = vector_exponent(aL8, aR8);
         rct::key A;
         sc_mul(temp.bytes, alpha.bytes, INV_EIGHT.bytes);
@@ -692,8 +713,8 @@ try_again:
             rct::key cL = weighted_inner_product(slice(aprime, 0, nprime), slice(bprime, nprime, bprime.size()), y);
             rct::key cR = weighted_inner_product(vector_scalar(slice(aprime, nprime, aprime.size()), y_powers[nprime]), slice(bprime, 0, nprime), y);
 
-            rct::key dL = rct::skGen();
-            rct::key dR = rct::skGen();
+            rct::key dL = aux ? bpp_hash_to_scalar(gamma[aux_index], config::HASH_KEY_BPP_AUX_DL, round) : rct::skGen();
+            rct::key dR = aux ? bpp_hash_to_scalar(gamma[aux_index], config::HASH_KEY_BPP_AUX_DR, round) : rct::skGen();
 
             L[round] = compute_LR(nprime, yinvpow[nprime], Gprime, nprime, Hprime, 0, aprime, 0, bprime, nprime, cL, dL);
             R[round] = compute_LR(nprime, y_powers[nprime], Gprime, 0, Hprime, nprime, aprime, nprime, bprime, 0, cR, dR);
@@ -727,8 +748,8 @@ try_again:
         // Final round computations
         rct::key r = rct::skGen();
         rct::key s = rct::skGen();
-        rct::key d_ = rct::skGen();
-        rct::key eta = rct::skGen();
+        rct::key d_ = aux ? bpp_hash_to_scalar(gamma[aux_index], config::HASH_KEY_BPP_AUX_D, 0) : rct::skGen();
+        rct::key eta = aux ? bpp_hash_to_scalar(gamma[aux_index], config::HASH_KEY_BPP_AUX_ETA, 0) : rct::skGen();
 
         std::vector<MultiexpData> A1_data;
         A1_data.reserve(4);

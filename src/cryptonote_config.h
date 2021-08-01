@@ -254,6 +254,11 @@ namespace config
   const char HASH_KEY_TRIPTYCH_U[] = "triptych U";
   const char HASH_KEY_TRIPTYCH_TRANSCRIPT[] = "triptych transcript";
   const char HASH_KEY_TRIPTYCH_PLACEHOLDER_KEY_IMAGE[] = "tpki";
+  const uint16_t HASH_KEY_BPP_AUX_D = 0x6b00;
+  const uint16_t HASH_KEY_BPP_AUX_ETA = 0x6b01;
+  const uint16_t HASH_KEY_BPP_AUX_DL = 0x6b02;
+  const uint16_t HASH_KEY_BPP_AUX_DR = 0x6b03;
+  const uint16_t HASH_KEY_BPP_AUX_ALPHA = 0x6b04;
 
   namespace testnet
   {
