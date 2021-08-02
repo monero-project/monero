@@ -1217,7 +1217,7 @@ namespace rct {
     
     //RCT simple    
     //for post-rct only
-    rctSig genRctSimple(const key &message, const ctkeyV & inSk, const keyV & destinations, const std::vector<bool> &is_triptych, const vector<xmr_amount> &inamounts, const vector<xmr_amount> &outamounts, xmr_amount txnFee, const ctkeyM & mixRing, const keyV &amount_keys, const std::vector<multisig_kLRki> *kLRki, multisig_out *msout, const std::vector<unsigned int> & index, ctkeyV &outSk, const rct::key *aux, size_t aux_index, const RCTConfig &rct_config, hw::device &hwdev) {
+    rctSig genRctSimple(const key &message, const ctkeyV & inSk, const keyV & destinations, const std::vector<bool> &is_triptych, const vector<xmr_amount> &inamounts, const vector<xmr_amount> &outamounts, xmr_amount txnFee, const ctkeyM & mixRing, const keyV &amount_keys, const std::vector<multisig_kLRki> *kLRki, multisig_out *msout, const std::vector<unsigned int> & index, ctkeyV &outSk, const rct::key *aux, const RCTConfig &rct_config, hw::device &hwdev) {
         PERF_TIMER(genRctSimple);
         const bool bulletproof_or_plus = rct_config.range_proof_type > RangeProofBorromean;
         CHECK_AND_ASSERT_THROW_MES(inamounts.size() > 0, "Empty inamounts");
@@ -1235,7 +1235,6 @@ namespace rct {
           CHECK_AND_ASSERT_THROW_MES(kLRki->size() == inamounts.size(), "Mismatched kLRki/inamounts sizes");
         }
         CHECK_AND_ASSERT_THROW_MES(!aux || rct_config.bp_version >= RCTTypeBulletproofPlus, "Aux data can only be embedded in BP+");
-        CHECK_AND_ASSERT_THROW_MES(!aux || aux_index < destinations.size(), "aux_index out of range");
 
         rctSig rv;
         if (bulletproof_or_plus)
@@ -1319,8 +1318,7 @@ namespace rct {
                       {
                         auxd.gamma = &masks;
                         auxd.aux = *aux;
-                        CHECK_AND_ASSERT_THROW_MES(aux_index < masks.size(), "aux_index out of masks range");
-                        auxd.seed = make_aux_seed(masks[aux_index], seed_type_range_proof);
+                        auxd.seed = make_aux_seed(masks[0], seed_type_range_proof);
                       }
                       rv.p.bulletproofs_plus.push_back(proveRangeBulletproofPlus(C, masks, outamounts, keys, aux ? &auxd : NULL, hwdev));
                     }
@@ -1368,8 +1366,7 @@ namespace rct {
                       {
                         auxd.gamma = &masks;
                         auxd.aux = *aux;
-                        CHECK_AND_ASSERT_THROW_MES(aux_index < masks.size(), "aux_index out of masks range");
-                        auxd.seed = make_aux_seed(masks[aux_index], seed_type_range_proof);
+                        auxd.seed = make_aux_seed(masks[0], seed_type_range_proof);
                       }
                       rv.p.bulletproofs_plus.push_back(proveRangeBulletproofPlus(C, masks, batch_amounts, keys, aux ? &auxd : NULL, hwdev));
                     }
@@ -1470,7 +1467,7 @@ namespace rct {
           mixRing[i].resize(mixin+1);
           index[i] = populateFromBlockchainSimple(mixRing[i], inPk[i], mixin);
         }
-        return genRctSimple(message, inSk, destinations, is_triptych, inamounts, outamounts, txnFee, mixRing, amount_keys, kLRki, msout, index, outSk, NULL, 0, rct_config, hwdev);
+        return genRctSimple(message, inSk, destinations, is_triptych, inamounts, outamounts, txnFee, mixRing, amount_keys, kLRki, msout, index, outSk, NULL, rct_config, hwdev);
     }
 
     //RingCT protocol

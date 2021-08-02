@@ -1014,18 +1014,18 @@ bool construct_miner_tx_manually(size_t height, uint64_t already_generated_coins
 
 bool construct_tx_to_key(const std::vector<test_event_entry>& events, cryptonote::transaction& tx, const cryptonote::block& blk_head,
                          const cryptonote::account_base& from, const var_addr_t& to, uint64_t amount,
-                         uint64_t fee, size_t nmix, const rct::key *aux, size_t aux_index, bool rct, rct::RangeProofType range_proof_type, int bp_version)
+                         uint64_t fee, size_t nmix, const rct::key *aux, bool rct, rct::RangeProofType range_proof_type, int bp_version)
 {
   vector<tx_source_entry> sources;
   vector<tx_destination_entry> destinations;
   fill_tx_sources_and_destinations(events, blk_head, from, get_address(to), amount, fee, nmix, sources, destinations);
 
-  return construct_tx_rct(from.get_keys(), sources, destinations, from.get_keys().m_account_address, std::vector<uint8_t>(), tx, 0, aux, aux_index, rct, range_proof_type, bp_version);
+  return construct_tx_rct(from.get_keys(), sources, destinations, from.get_keys().m_account_address, std::vector<uint8_t>(), tx, 0, aux, rct, range_proof_type, bp_version);
 }
 
 bool construct_tx_to_key(const std::vector<test_event_entry>& events, cryptonote::transaction& tx, const cryptonote::block& blk_head,
                          const cryptonote::account_base& from, std::vector<cryptonote::tx_destination_entry> destinations,
-                         uint64_t fee, size_t nmix, const rct::key *aux, size_t aux_index, bool rct, rct::RangeProofType range_proof_type, int bp_version)
+                         uint64_t fee, size_t nmix, const rct::key *aux, bool rct, rct::RangeProofType range_proof_type, int bp_version)
 {
   vector<tx_source_entry> sources;
   vector<tx_destination_entry> destinations_all;
@@ -1036,31 +1036,31 @@ bool construct_tx_to_key(const std::vector<test_event_entry>& events, cryptonote
 
   fill_tx_destinations(from, destinations, fee, sources, destinations_all, false);
 
-  return construct_tx_rct(from.get_keys(), sources, destinations_all, get_address(from), std::vector<uint8_t>(), tx, 0, aux, aux_index, rct, range_proof_type, bp_version);
+  return construct_tx_rct(from.get_keys(), sources, destinations_all, get_address(from), std::vector<uint8_t>(), tx, 0, aux, rct, range_proof_type, bp_version);
 }
 
 bool construct_tx_to_key(cryptonote::transaction& tx,
                          const cryptonote::account_base& from, const var_addr_t& to, uint64_t amount,
                          std::vector<cryptonote::tx_source_entry> &sources,
-                         uint64_t fee, const rct::key *aux, size_t aux_index, bool rct, rct::RangeProofType range_proof_type, int bp_version)
+                         uint64_t fee, const rct::key *aux, bool rct, rct::RangeProofType range_proof_type, int bp_version)
 {
   vector<tx_destination_entry> destinations;
   fill_tx_destinations(from, get_address(to), amount, fee, sources, destinations, rct);
-  return construct_tx_rct(from.get_keys(), sources, destinations, get_address(from), std::vector<uint8_t>(), tx, 0, aux, aux_index, rct, range_proof_type, bp_version);
+  return construct_tx_rct(from.get_keys(), sources, destinations, get_address(from), std::vector<uint8_t>(), tx, 0, aux, rct, range_proof_type, bp_version);
 }
 
 bool construct_tx_to_key(cryptonote::transaction& tx,
                          const cryptonote::account_base& from,
                          const std::vector<cryptonote::tx_destination_entry>& destinations,
                          std::vector<cryptonote::tx_source_entry> &sources,
-                         uint64_t fee, const rct::key *aux, size_t aux_index, bool rct, rct::RangeProofType range_proof_type, int bp_version)
+                         uint64_t fee, const rct::key *aux, bool rct, rct::RangeProofType range_proof_type, int bp_version)
 {
   vector<tx_destination_entry> all_destinations;
   fill_tx_destinations(from, destinations, fee, sources, all_destinations, rct);
-  return construct_tx_rct(from.get_keys(), sources, all_destinations, get_address(from), std::vector<uint8_t>(), tx, 0, aux, aux_index, rct, range_proof_type, bp_version);
+  return construct_tx_rct(from.get_keys(), sources, all_destinations, get_address(from), std::vector<uint8_t>(), tx, 0, aux, rct, range_proof_type, bp_version);
 }
 
-bool construct_tx_rct(const cryptonote::account_keys& sender_account_keys, std::vector<cryptonote::tx_source_entry>& sources, const std::vector<cryptonote::tx_destination_entry>& destinations, const boost::optional<cryptonote::account_public_address>& change_addr, std::vector<uint8_t> extra, cryptonote::transaction& tx, uint64_t unlock_time, const rct::key *aux, size_t aux_index, bool rct, rct::RangeProofType range_proof_type, int bp_version)
+bool construct_tx_rct(const cryptonote::account_keys& sender_account_keys, std::vector<cryptonote::tx_source_entry>& sources, const std::vector<cryptonote::tx_destination_entry>& destinations, const boost::optional<cryptonote::account_public_address>& change_addr, std::vector<uint8_t> extra, cryptonote::transaction& tx, uint64_t unlock_time, const rct::key *aux, bool rct, rct::RangeProofType range_proof_type, int bp_version)
 {
   boost::container::flat_map<crypto::public_key, cryptonote::subaddress_index> subaddresses;
   subaddresses[sender_account_keys.m_account_address.m_spend_public_key] = {0, 0};
@@ -1068,7 +1068,7 @@ bool construct_tx_rct(const cryptonote::account_keys& sender_account_keys, std::
   std::vector<crypto::secret_key> additional_tx_keys;
   std::vector<tx_destination_entry> destinations_copy = destinations;
   rct::RCTConfig rct_config = {range_proof_type, bp_version};
-  return construct_tx_and_get_tx_key(sender_account_keys, subaddresses, sources, destinations_copy, change_addr, extra, tx, unlock_time, tx_key, additional_tx_keys, aux, aux_index, rct, rct_config, nullptr);
+  return construct_tx_and_get_tx_key(sender_account_keys, subaddresses, sources, destinations_copy, change_addr, extra, tx, unlock_time, tx_key, additional_tx_keys, aux, rct, rct_config, nullptr);
 }
 
 transaction construct_tx_with_fee(std::vector<test_event_entry>& events, const block& blk_head,

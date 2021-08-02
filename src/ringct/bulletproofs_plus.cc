@@ -913,8 +913,7 @@ try_again:
             // extract aux data, we don't really mind if this is slow since it's not done for all txes
             if (aux)
             {
-              const size_t aux_index = proof_data.size();
-              aux_data_t &auxref = (*aux)[aux_index];
+              aux_data_t &auxref = (*aux)[proof_data.size()];
               rct::key &this_aux = auxref.aux, tmp, e2, einv2, c2, cinv2;
 
               sc_mul(e2.bytes, pd.e.bytes, pd.e.bytes);
