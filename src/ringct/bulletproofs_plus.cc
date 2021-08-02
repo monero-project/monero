@@ -508,32 +508,35 @@ namespace rct
         return transcript;
     }
 
-    static rct::key bpp_hash_to_scalar(const rct::key &key, uint16_t nonce, uint8_t c, const rct::key &extra_key = rct::ZERO)
+    static rct::key bpp_hash_to_scalar(const rct::key &key, uint16_t nonce, uint32_t c = 0, const rct::key &extra_key = rct::ZERO)
     {
-      char data[sizeof(rct::key) + sizeof(nonce) + sizeof(c) + sizeof(rct::key)];
+      char data[2 * sizeof(rct::key) + sizeof(nonce) + sizeof(c)];
       memcpy(data, &key, sizeof(rct::key));
       memcpy(data + sizeof(key), &extra_key, sizeof(rct::key));
-      data[2 * sizeof(rct::key)] = nonce >> 8;
-      data[2 * sizeof(rct::key) + 1] = nonce & 0xff;
-      data[2 * sizeof(rct::key) + 2] = c;
+      data[2 * sizeof(rct::key)] = (nonce >> 8) & 0xff;
+      data[2 * sizeof(rct::key) + 1] = (nonce >> 0) & 0xff;
+      data[2 * sizeof(rct::key) + 2] = (c >> 24) & 0xff;
+      data[2 * sizeof(rct::key) + 3] = (c >> 16) & 0xff;
+      data[2 * sizeof(rct::key) + 4] = (c >> 8) & 0xff;
+      data[2 * sizeof(rct::key) + 5] = (c >> 0) & 0xff;
       crypto::hash hash = crypto::cn_fast_hash(data, sizeof(data));
       sc_reduce32((unsigned char*)hash.data);
       return rct::hash2rct(hash);
     }
 
     // Given a value v [0..2**N) and a mask gamma, construct a range proof
-    BulletproofPlus bulletproof_plus_PROVE(const rct::key &sv, const rct::key &gamma, const rct::key *aux)
+    BulletproofPlus bulletproof_plus_PROVE(const rct::key &sv, const rct::key &gamma, const rct::aux_data_t *aux)
     {
-        return bulletproof_plus_PROVE(rct::keyV(1, sv), rct::keyV(1, gamma), aux, 0);
+        return bulletproof_plus_PROVE(rct::keyV(1, sv), rct::keyV(1, gamma), aux);
     }
 
-    BulletproofPlus bulletproof_plus_PROVE(uint64_t v, const rct::key &gamma, const rct::key *aux)
+    BulletproofPlus bulletproof_plus_PROVE(uint64_t v, const rct::key &gamma, const rct::aux_data_t *aux)
     {
-        return bulletproof_plus_PROVE(std::vector<uint64_t>(1, v), rct::keyV(1, gamma), aux, 0);
+        return bulletproof_plus_PROVE(std::vector<uint64_t>(1, v), rct::keyV(1, gamma), aux);
     }
 
     // Given a set of values v [0..2**N) and masks gamma, construct a range proof
-    BulletproofPlus bulletproof_plus_PROVE(const rct::keyV &sv, const rct::keyV &gamma, const rct::key* aux, size_t aux_index)
+    BulletproofPlus bulletproof_plus_PROVE(const rct::keyV &sv, const rct::keyV &gamma, const rct::aux_data_t *aux)
     {
         // Sanity check on inputs
         CHECK_AND_ASSERT_THROW_MES(sv.size() == gamma.size(), "Incompatible sizes of sv and gamma");
@@ -542,7 +545,7 @@ namespace rct
             CHECK_AND_ASSERT_THROW_MES(is_reduced(sve), "Invalid sv input");
         for (const rct::key &g: gamma)
             CHECK_AND_ASSERT_THROW_MES(is_reduced(g), "Invalid gamma input");
-        CHECK_AND_ASSERT_THROW_MES(aux_index < gamma.size(), "Invalid aux_index");
+        CHECK_AND_ASSERT_THROW_MES(!aux || *aux->gamma == gamma, "Mismatched gamma");
 
         init_exponents();
 
@@ -612,8 +615,8 @@ try_again:
         rct::key alpha;
         if (aux)
         {
-          alpha = bpp_hash_to_scalar(gamma[aux_index], config::HASH_KEY_BPP_AUX_ALPHA, 0, Vs);
-          sc_add(alpha.bytes, alpha.bytes, aux->bytes);
+          alpha = bpp_hash_to_scalar(aux->seed, config::HASH_KEY_BPP_AUX_ALPHA, 0, Vs);
+          sc_add(alpha.bytes, alpha.bytes, aux->aux.bytes);
         }
         else
           alpha = rct::skGen();
@@ -713,8 +716,8 @@ try_again:
             rct::key cL = weighted_inner_product(slice(aprime, 0, nprime), slice(bprime, nprime, bprime.size()), y);
             rct::key cR = weighted_inner_product(vector_scalar(slice(aprime, nprime, aprime.size()), y_powers[nprime]), slice(bprime, 0, nprime), y);
 
-            rct::key dL = aux ? bpp_hash_to_scalar(gamma[aux_index], config::HASH_KEY_BPP_AUX_DL, round) : rct::skGen();
-            rct::key dR = aux ? bpp_hash_to_scalar(gamma[aux_index], config::HASH_KEY_BPP_AUX_DR, round) : rct::skGen();
+            rct::key dL = aux ? bpp_hash_to_scalar(aux->seed, config::HASH_KEY_BPP_AUX_DL, round) : rct::skGen();
+            rct::key dR = aux ? bpp_hash_to_scalar(aux->seed, config::HASH_KEY_BPP_AUX_DR, round) : rct::skGen();
 
             L[round] = compute_LR(nprime, yinvpow[nprime], Gprime, nprime, Hprime, 0, aprime, 0, bprime, nprime, cL, dL);
             R[round] = compute_LR(nprime, y_powers[nprime], Gprime, 0, Hprime, nprime, aprime, nprime, bprime, 0, cR, dR);
@@ -748,8 +751,8 @@ try_again:
         // Final round computations
         rct::key r = rct::skGen();
         rct::key s = rct::skGen();
-        rct::key d_ = aux ? bpp_hash_to_scalar(gamma[aux_index], config::HASH_KEY_BPP_AUX_D, 0) : rct::skGen();
-        rct::key eta = aux ? bpp_hash_to_scalar(gamma[aux_index], config::HASH_KEY_BPP_AUX_ETA, 0) : rct::skGen();
+        rct::key d_ = aux ? bpp_hash_to_scalar(aux->seed, config::HASH_KEY_BPP_AUX_D, 0) : rct::skGen();
+        rct::key eta = aux ? bpp_hash_to_scalar(aux->seed, config::HASH_KEY_BPP_AUX_ETA, 0) : rct::skGen();
 
         std::vector<MultiexpData> A1_data;
         A1_data.reserve(4);
@@ -802,10 +805,9 @@ try_again:
         return BulletproofPlus(std::move(V), A, A1, B, r1, s1, d1, std::move(L), std::move(R));
     }
 
-    BulletproofPlus bulletproof_plus_PROVE(const std::vector<uint64_t> &v, const rct::keyV &gamma, const rct::key* aux, size_t aux_index)
+    BulletproofPlus bulletproof_plus_PROVE(const std::vector<uint64_t> &v, const rct::keyV &gamma, const rct::aux_data_t *aux)
     {
         CHECK_AND_ASSERT_THROW_MES(v.size() == gamma.size(), "Incompatible sizes of v and gamma");
-        CHECK_AND_ASSERT_THROW_MES(aux_index < gamma.size(), "Invalid aux_index");
 
         // vG + gammaH
         rct::keyV sv(v.size());
@@ -821,7 +823,7 @@ try_again:
             sv[i].bytes[6] = (v[i] >> 48) & 255;
             sv[i].bytes[7] = (v[i] >> 56) & 255;
         }
-        return bulletproof_plus_PROVE(sv, gamma, aux, aux_index);
+        return bulletproof_plus_PROVE(sv, gamma, aux);
     }
 
     struct bp_plus_proof_data_t
@@ -832,13 +834,16 @@ try_again:
     };
 
     // Given a batch of range proofs, determine if they are all valid
-    bool bulletproof_plus_VERIFY(const std::vector<const BulletproofPlus*> &proofs, const rct::keyV *gamma, rct::keyV *aux)
+    bool bulletproof_plus_VERIFY(const std::vector<const BulletproofPlus*> &proofs, std::vector<rct::aux_data_t> *aux)
     {
         init_exponents();
 
-        CHECK_AND_ASSERT_MES(!gamma || proofs.size() == gamma->size(), false, "Incompatible size of proofs and gamma");
-        CHECK_AND_ASSERT_MES(!aux || proofs.size() == aux->size(), false, "Incompatible size of proofs and aux");
-        CHECK_AND_ASSERT_MES(!!gamma == !!aux, false, "gamma and aux must be both present or both missing");
+        if (aux)
+        {
+          CHECK_AND_ASSERT_MES(proofs.size() == aux->size(), false, "Incompatible size of proofs and aux");
+          for (const auto &e: *aux)
+            CHECK_AND_ASSERT_MES(e.gamma, false, "No gamma in aux_data_t");
+        }
 
         const size_t logN = 6;
         const size_t N = 1 << logN;
@@ -877,7 +882,8 @@ try_again:
 
             // Reconstruct the challenges
             rct::key transcript = copy(initial_transcript);
-            transcript = transcript_update(transcript, rct::hash_to_scalar(proof.V));
+            const rct::key Vs = rct::hash_to_scalar(proof.V);
+            transcript = transcript_update(transcript, Vs);
             pd.y = transcript_update(transcript, proof.A);
             CHECK_AND_ASSERT_MES(!(pd.y == rct::zero()), false, "y == 0");
             pd.z = transcript = rct::hash_to_scalar(pd.y);
@@ -903,6 +909,52 @@ try_again:
             // Final challenge
             pd.e = transcript_update(transcript,proof.A1,proof.B);
             CHECK_AND_ASSERT_MES(!(pd.e == rct::zero()), false, "e == 0");
+
+            // extract aux data, we don't really mind if this is slow since it's not done for all txes
+            if (aux)
+            {
+              const size_t aux_index = proof_data.size();
+              aux_data_t &auxref = (*aux)[aux_index];
+              rct::key &this_aux = auxref.aux, tmp, e2, einv2, c2, cinv2;
+
+              sc_mul(e2.bytes, pd.e.bytes, pd.e.bytes);
+              tmp = invert(pd.e);
+              sc_mul(einv2.bytes, tmp.bytes, tmp.bytes);
+
+              sc_mul(tmp.bytes, pd.e.bytes, bpp_hash_to_scalar(auxref.seed, config::HASH_KEY_BPP_AUX_D, 0).bytes);
+              sc_add(tmp.bytes, tmp.bytes, bpp_hash_to_scalar(auxref.seed, config::HASH_KEY_BPP_AUX_ETA, 0).bytes);
+              sc_sub(this_aux.bytes, proof.d1.bytes, tmp.bytes);
+
+              tmp = rct::ZERO;
+              for (size_t j = 0; j < pd.challenges.size(); ++j)
+              {
+                sc_mul(c2.bytes, pd.challenges[j].bytes, pd.challenges[j].bytes);
+                cinv2 = invert(pd.challenges[j]);
+                sc_mul(cinv2.bytes, cinv2.bytes, cinv2.bytes);
+                sc_muladd(tmp.bytes, bpp_hash_to_scalar(auxref.seed, config::HASH_KEY_BPP_AUX_DL, j).bytes, c2.bytes, tmp.bytes);
+                sc_muladd(tmp.bytes, bpp_hash_to_scalar(auxref.seed, config::HASH_KEY_BPP_AUX_DR, j).bytes, cinv2.bytes, tmp.bytes);
+              }
+
+              sc_mulsub(this_aux.bytes, tmp.bytes, e2.bytes, this_aux.bytes);
+              sc_mulsub(this_aux.bytes, bpp_hash_to_scalar(auxref.seed, config::HASH_KEY_BPP_AUX_ALPHA, 0, Vs).bytes, e2.bytes, this_aux.bytes);
+
+              tmp = rct::ZERO;
+              rct::key zpow, z2;
+              sc_mul(z2.bytes, pd.z.bytes, pd.z.bytes);
+              zpow = z2;
+              for (size_t j = 0; j < auxref.gamma->size(); ++j)
+              {
+                sc_muladd(tmp.bytes, zpow.bytes, (*auxref.gamma)[j].bytes, tmp.bytes);
+                sc_mul(zpow.bytes, zpow.bytes, z2.bytes);
+              }
+
+              sc_mul(tmp.bytes, e2.bytes, tmp.bytes);
+              for (size_t j = 0; j <= M * N; ++j)
+                sc_mul(tmp.bytes, tmp.bytes, pd.y.bytes);
+              sc_sub(this_aux.bytes, this_aux.bytes, tmp.bytes);
+
+              sc_mul(this_aux.bytes, einv2.bytes, this_aux.bytes);
+            }
 
             // Batch scalar inversions
             pd.inv_offset = inv_offset;
@@ -1142,28 +1194,26 @@ try_again:
         return true;
     }
 
-    bool bulletproof_plus_VERIFY(const std::vector<BulletproofPlus> &proofs, const rct::keyV *gamma, rct::keyV *aux)
+    bool bulletproof_plus_VERIFY(const std::vector<BulletproofPlus> &proofs, std::vector<rct::aux_data_t> *aux)
     {
         std::vector<const BulletproofPlus*> proof_pointers;
         proof_pointers.reserve(proofs.size());
         for (const BulletproofPlus &proof: proofs)
             proof_pointers.push_back(&proof);
-        return bulletproof_plus_VERIFY(proof_pointers, gamma, aux);
+        return bulletproof_plus_VERIFY(proof_pointers, aux);
     }
 
-    bool bulletproof_plus_VERIFY(const BulletproofPlus &proof, const rct::key *gamma, rct::key *aux)
+    bool bulletproof_plus_VERIFY(const BulletproofPlus &proof, rct::aux_data_t *aux)
     {
-        CHECK_AND_ASSERT_MES(!!gamma == !!aux, false, "gamma and aux must be both present or both missing");
         std::vector<const BulletproofPlus*> proofs;
         proofs.push_back(&proof);
-        if (gamma)
+        if (aux)
         {
-          rct::keyV gammas, auxs;
-          gammas.push_back(*gamma);
-          auxs.resize(1);
-          if (!bulletproof_plus_VERIFY(proofs, &gammas, &auxs))
+          std::vector<aux_data_t> auxs;
+          auxs.push_back(*aux);
+          if (!bulletproof_plus_VERIFY(proofs, &auxs))
             return false;
-          *aux = auxs[0];
+          *aux = auxs.front();
           return true;
         }
         else

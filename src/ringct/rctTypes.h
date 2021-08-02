@@ -334,6 +334,15 @@ namespace rct {
         VARINT_FIELD(bp_version)
       END_SERIALIZE()
     };
+
+    struct aux_data_t {
+      const rct::keyV *gamma;
+      rct::key seed;
+      rct::key aux;
+
+      aux_data_t(): gamma(NULL) {}
+    };
+
     struct rctSigBase {
         uint8_t type;
         key message;

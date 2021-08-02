@@ -36,13 +36,13 @@
 namespace rct
 {
 
-BulletproofPlus bulletproof_plus_PROVE(const rct::key &v, const rct::key &gamma, const rct::key *aux);
-BulletproofPlus bulletproof_plus_PROVE(uint64_t v, const rct::key &gamma, const rct::key *aux);
-BulletproofPlus bulletproof_plus_PROVE(const rct::keyV &v, const rct::keyV &gamma, const rct::key *aux, size_t aux_index);
-BulletproofPlus bulletproof_plus_PROVE(const std::vector<uint64_t> &v, const rct::keyV &gamma, const rct::key *aux, size_t aux_index);
-bool bulletproof_plus_VERIFY(const BulletproofPlus &proof, const rct::key *gamma = NULL, rct::key *aux = NULL);
-bool bulletproof_plus_VERIFY(const std::vector<const BulletproofPlus*> &proofs, const rct::keyV *gamma = NULL, rct::keyV *aux = NULL);
-bool bulletproof_plus_VERIFY(const std::vector<BulletproofPlus> &proofs, const rct::keyV *gamma = NULL, rct::keyV *aux = NULL);
+BulletproofPlus bulletproof_plus_PROVE(const rct::key &v, const rct::key &gamma, const rct::aux_data_t *aux);
+BulletproofPlus bulletproof_plus_PROVE(uint64_t v, const rct::key &gamma, const rct::aux_data_t *aux);
+BulletproofPlus bulletproof_plus_PROVE(const rct::keyV &v, const rct::keyV &gamma, const rct::aux_data_t *aux);
+BulletproofPlus bulletproof_plus_PROVE(const std::vector<uint64_t> &v, const rct::keyV &gamma, const rct::aux_data_t *aux);
+bool bulletproof_plus_VERIFY(const BulletproofPlus &proof, rct::aux_data_t *aux = NULL);
+bool bulletproof_plus_VERIFY(const std::vector<const BulletproofPlus*> &proofs, std::vector<rct::aux_data_t> *aux = NULL);
+bool bulletproof_plus_VERIFY(const std::vector<BulletproofPlus> &proofs, std::vector<rct::aux_data_t> *aux = NULL);
 
 }
 

@@ -259,6 +259,7 @@ namespace config
   const uint16_t HASH_KEY_BPP_AUX_DL = 0x6b02;
   const uint16_t HASH_KEY_BPP_AUX_DR = 0x6b03;
   const uint16_t HASH_KEY_BPP_AUX_ALPHA = 0x6b04;
+  const char HASH_KEY_AUX_SEED[] = "aux_seed";
 
   namespace testnet
   {

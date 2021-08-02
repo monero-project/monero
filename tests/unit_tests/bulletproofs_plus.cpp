@@ -72,7 +72,7 @@ TEST(bulletproofs_plus, valid_multi_random)
       amounts.push_back(crypto::rand<uint64_t>());
       gamma.push_back(rct::skGen());
     }
-    rct::BulletproofPlus proof = bulletproof_plus_PROVE(amounts, gamma, NULL, 0);
+    rct::BulletproofPlus proof = bulletproof_plus_PROVE(amounts, gamma, NULL);
     ASSERT_TRUE(rct::bulletproof_plus_VERIFY(proof));
   }
 }
@@ -91,7 +91,7 @@ TEST(bulletproofs_plus, valid_aggregated)
       amounts.push_back(crypto::rand<uint64_t>());
       gamma.push_back(rct::skGen());
     }
-    proofs[n] = bulletproof_plus_PROVE(amounts, gamma, NULL, 0);
+    proofs[n] = bulletproof_plus_PROVE(amounts, gamma, NULL);
   }
   ASSERT_TRUE(rct::bulletproof_plus_VERIFY(proofs));
 }
@@ -168,10 +168,54 @@ TEST(bulletproofs_plus, invalid_torsion)
   }
 }
 
-TEST(bulletproofs_plus, aux)
+TEST(bulletproofs_plus, aux_single)
 {
-  const rct::key aux = rct::skGen();
-  rct::BulletproofPlus proof = bulletproof_plus_PROVE(7329838943733, rct::skGen(), &aux);
-  ASSERT_TRUE(rct::bulletproof_plus_VERIFY(proof));
-#warning TODO: read it off and compare
+  rct::aux_data_t aux;
+  rct::keyV gamma(1, rct::skGen());
+  aux.gamma = &gamma;
+  aux.seed = rct::skGen();
+  aux.aux = rct::skGen();
+  rct::BulletproofPlus proof = bulletproof_plus_PROVE(7329838943733, gamma.front(), &aux);
+
+  rct::aux_data_t res;
+  res.gamma = aux.gamma;
+  res.seed = aux.seed;
+  ASSERT_TRUE(rct::bulletproof_plus_VERIFY(proof, &res));
+
+  ASSERT_EQ(res.aux, aux.aux);
+}
+
+TEST(bulletproofs_plus, aux_multi)
+{
+  std::vector<rct::aux_data_t> aux;
+  std::vector<rct::keyV> gamma;
+  std::vector<rct::BulletproofPlus> proofs;
+  gamma.resize(5);
+  proofs.resize(5);
+  aux.resize(5);
+  for (size_t i = 0; i < 5; ++i)
+  {
+    gamma[i] = rct::keyV(1, rct::skGen());
+    aux[i].gamma = &gamma[i];
+    aux[i].seed = rct::skGen();
+    aux[i].aux = rct::skGen();
+    proofs[i] = bulletproof_plus_PROVE(7329838943733 + i * 12934, gamma[i][0], &aux[i]);
+  }
+
+  std::vector<const rct::BulletproofPlus*> proof_pointers;
+  std::vector<rct::aux_data_t> res;
+  proof_pointers.resize(5);
+  res.resize(5);
+  for (size_t i = 0; i < 5; ++i)
+  {
+    proof_pointers[i] = &proofs[i];
+    res[i].gamma = aux[i].gamma;
+    res[i].seed = aux[i].seed;
+  }
+
+  ASSERT_TRUE(rct::bulletproof_plus_VERIFY(proof_pointers, &res));
+
+  ASSERT_EQ(res.size(), 5);
+  for (size_t i = 0; i < 5; ++i)
+    ASSERT_EQ(res[i].aux, aux[i].aux);
 }

@@ -43,7 +43,7 @@ public:
 
   bool init()
   {
-    proof = rct::bulletproof_plus_PROVE(std::vector<uint64_t>(n_amounts, 749327532984), rct::skvGen(n_amounts), NULL, 0);
+    proof = rct::bulletproof_plus_PROVE(std::vector<uint64_t>(n_amounts, 749327532984), rct::skvGen(n_amounts), NULL);
     return true;
   }
 
@@ -53,7 +53,7 @@ public:
     if (verify)
       ret = rct::bulletproof_plus_VERIFY(proof);
     else
-      rct::bulletproof_plus_PROVE(std::vector<uint64_t>(n_amounts, 749327532984), rct::skvGen(n_amounts), NULL, 0);
+      rct::bulletproof_plus_PROVE(std::vector<uint64_t>(n_amounts, 749327532984), rct::skvGen(n_amounts), NULL);
     return ret;
   }
 
@@ -74,7 +74,7 @@ public:
     {
       //printf("adding %zu times %zu\n", repeat, o);
       for (size_t i = 0; i < repeat; ++i)
-        proofs.push_back(rct::bulletproof_plus_PROVE(std::vector<uint64_t>(o, 749327532984), rct::skvGen(o), NULL, 0));
+        proofs.push_back(rct::bulletproof_plus_PROVE(std::vector<uint64_t>(o, 749327532984), rct::skvGen(o), NULL));
       o = o * mul + add;
     }
     return true;

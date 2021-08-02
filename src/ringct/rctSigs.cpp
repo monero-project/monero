@@ -136,6 +136,16 @@ namespace
           e = I;
         return rct::TriptychProof{I, I, I, I, I, I, rct::keyV(XY_size, I), rct::keyV(XY_size, I), f, I, I, I};
     }
+
+    enum { seed_type_range_proof };
+    rct::key make_aux_seed(const rct::key &base, uint8_t type)
+    {
+      char buf[sizeof(rct::key) + sizeof(type) + sizeof(config::HASH_KEY_AUX_SEED)];
+      memcpy(buf, &base, sizeof(base));
+      buf[sizeof(base)] = type;
+      memcpy(buf + sizeof(base) + 1, config::HASH_KEY_AUX_SEED, sizeof(config::HASH_KEY_AUX_SEED));
+      return rct::hash2rct(cn_fast_hash(buf, sizeof(buf)));
+    }
 }
 
 namespace rct {
@@ -165,28 +175,28 @@ namespace rct {
       catch (...) { return false; }
     }
 
-    BulletproofPlus proveRangeBulletproofPlus(keyV &C, keyV &masks, const std::vector<uint64_t> &amounts, epee::span<const key> sk, const rct::key *aux, size_t aux_index, hw::device &hwdev)
+    BulletproofPlus proveRangeBulletproofPlus(keyV &C, keyV &masks, const std::vector<uint64_t> &amounts, epee::span<const key> sk, const rct::aux_data_t *aux, hw::device &hwdev)
     {
         CHECK_AND_ASSERT_THROW_MES(amounts.size() == sk.size(), "Invalid amounts/sk sizes");
         masks.resize(amounts.size());
         for (size_t i = 0; i < masks.size(); ++i)
             masks[i] = hwdev.genCommitmentMask(sk[i]);
-        BulletproofPlus proof = bulletproof_plus_PROVE(amounts, masks, aux, aux_index);
+        BulletproofPlus proof = bulletproof_plus_PROVE(amounts, masks, aux);
         CHECK_AND_ASSERT_THROW_MES(proof.V.size() == amounts.size(), "V does not have the expected size");
         C = proof.V;
         return proof;
     }
 
-    bool verBulletproofPlus(const BulletproofPlus &proof, const rct::key *gamma, rct::key *aux)
+    bool verBulletproofPlus(const BulletproofPlus &proof, rct::aux_data_t *aux = NULL)
     {
-      try { return bulletproof_plus_VERIFY(proof, gamma, aux); }
+      try { return bulletproof_plus_VERIFY(proof, aux); }
       // we can get deep throws from ge_frombytes_vartime if input isn't valid
       catch (...) { return false; }
     }
 
-    bool verBulletproofPlus(const std::vector<const BulletproofPlus*> &proofs, const rct::keyV *gamma, rct::keyV *aux)
+    bool verBulletproofPlus(const std::vector<const BulletproofPlus*> &proofs, std::vector<rct::aux_data_t> *aux = NULL)
     {
-      try { return bulletproof_plus_VERIFY(proofs, gamma, aux); }
+      try { return bulletproof_plus_VERIFY(proofs, aux); }
       // we can get deep throws from ge_frombytes_vartime if input isn't valid
       catch (...) { return false; }
     }
@@ -1224,7 +1234,7 @@ namespace rct {
         if (kLRki && msout) {
           CHECK_AND_ASSERT_THROW_MES(kLRki->size() == inamounts.size(), "Mismatched kLRki/inamounts sizes");
         }
-        CHECK_AND_ASSERT_THROW_MES(!aux || rct_config.range_proof_type == RCTTypeBulletproofPlus, "Aux data can only be embedded in BP+");
+        CHECK_AND_ASSERT_THROW_MES(!aux || rct_config.bp_version >= RCTTypeBulletproofPlus, "Aux data can only be embedded in BP+");
         CHECK_AND_ASSERT_THROW_MES(!aux || aux_index < destinations.size(), "aux_index out of range");
 
         rctSig rv;
@@ -1303,7 +1313,17 @@ namespace rct {
                 {
                     const epee::span<const key> keys{&amount_keys[0], amount_keys.size()};
                     if (plus)
-                      rv.p.bulletproofs_plus.push_back(proveRangeBulletproofPlus(C, masks, outamounts, keys, aux, aux_index, hwdev));
+                    {
+                      rct::aux_data_t auxd;
+                      if (aux)
+                      {
+                        auxd.gamma = &masks;
+                        auxd.aux = *aux;
+                        CHECK_AND_ASSERT_THROW_MES(aux_index < masks.size(), "aux_index out of masks range");
+                        auxd.seed = make_aux_seed(masks[aux_index], seed_type_range_proof);
+                      }
+                      rv.p.bulletproofs_plus.push_back(proveRangeBulletproofPlus(C, masks, outamounts, keys, aux ? &auxd : NULL, hwdev));
+                    }
                     else
                       rv.p.bulletproofs.push_back(proveRangeBulletproof(C, masks, outamounts, keys, hwdev));
                     TEST_INVALID_TX("bad-bp", {rv.p.bulletproofs.back().t.bytes[3]^=1;});
@@ -1342,7 +1362,17 @@ namespace rct {
                 {
                     const epee::span<const key> keys{&amount_keys[amounts_proved], batch_size};
                     if (plus)
-                      rv.p.bulletproofs_plus.push_back(proveRangeBulletproofPlus(C, masks, batch_amounts, keys, aux, aux_index, hwdev));
+                    {
+                      rct::aux_data_t auxd;
+                      if (aux)
+                      {
+                        auxd.gamma = &masks;
+                        auxd.aux = *aux;
+                        CHECK_AND_ASSERT_THROW_MES(aux_index < masks.size(), "aux_index out of masks range");
+                        auxd.seed = make_aux_seed(masks[aux_index], seed_type_range_proof);
+                      }
+                      rv.p.bulletproofs_plus.push_back(proveRangeBulletproofPlus(C, masks, batch_amounts, keys, aux ? &auxd : NULL, hwdev));
+                    }
                     else
                       rv.p.bulletproofs.push_back(proveRangeBulletproof(C, masks, batch_amounts, keys, hwdev));
                     TEST_INVALID_TX("bad-bp", {rv.p.bulletproofs.back().t.bytes[3]^=1;});
@@ -1618,7 +1648,7 @@ namespace rct {
             offset += rv.p.rangeSigs.size();
           }
         }
-        if (!bpp_proofs.empty() && !verBulletproofPlus(bpp_proofs, NULL, NULL))
+        if (!bpp_proofs.empty() && !verBulletproofPlus(bpp_proofs, NULL))
         {
           if (!waiter.wait())
             return false;
