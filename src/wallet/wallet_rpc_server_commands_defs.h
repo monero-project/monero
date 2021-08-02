@@ -47,7 +47,7 @@
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define WALLET_RPC_VERSION_MAJOR 1
-#define WALLET_RPC_VERSION_MINOR 22
+#define WALLET_RPC_VERSION_MINOR 23
 #define MAKE_WALLET_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define WALLET_RPC_VERSION MAKE_WALLET_RPC_VERSION(WALLET_RPC_VERSION_MAJOR, WALLET_RPC_VERSION_MINOR)
 namespace tools
@@ -701,6 +701,25 @@ namespace wallet_rpc
       END_KV_SERIALIZE_MAP()
     };
 
+    struct txset_summary
+    {
+      uint64_t amount_in;
+      uint64_t amount_out;
+      std::list<recipient> recipients;
+      uint64_t change_amount;
+      std::string change_address;
+      uint64_t fee;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(amount_in)
+        KV_SERIALIZE(amount_out)
+        KV_SERIALIZE(recipients)
+        KV_SERIALIZE(change_amount)
+        KV_SERIALIZE(change_address)
+        KV_SERIALIZE(fee)
+      END_KV_SERIALIZE_MAP()
+    };
+
     struct request_t
     {
       std::string unsigned_txset;
@@ -716,8 +735,10 @@ namespace wallet_rpc
     struct response_t
     {
       std::list<transfer_description> desc;
+      struct txset_summary summary;
 
       BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(summary)
         KV_SERIALIZE(desc)
       END_KV_SERIALIZE_MAP()
     };

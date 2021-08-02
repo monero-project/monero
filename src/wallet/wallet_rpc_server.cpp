@@ -1292,13 +1292,20 @@ namespace tools
     try
     {
       // gather info to ask the user
-      std::unordered_map<cryptonote::account_public_address, std::pair<std::string, uint64_t>> dests;
+      std::unordered_map<cryptonote::account_public_address, std::pair<std::string, uint64_t>> tx_dests;
+      std::unordered_map<cryptonote::account_public_address, std::pair<std::string, uint64_t>> all_dests;
       int first_known_non_zero_change_index = -1;
+      res.summary.amount_in = 0;
+      res.summary.amount_out = 0;
+      res.summary.change_amount = 0;
+      res.summary.fee = 0;
       for (size_t n = 0; n < tx_constructions.size(); ++n)
       {
         const tools::wallet2::tx_construction_data &cd = tx_constructions[n];
         res.desc.push_back({0, 0, std::numeric_limits<uint32_t>::max(), 0, {}, "", 0, "", 0, 0, ""});
         wallet_rpc::COMMAND_RPC_DESCRIBE_TRANSFER::transfer_description &desc = res.desc.back();
+        // Clear the recipients collection ready for this loop iteration
+        tx_dests.clear();
 
         std::vector<cryptonote::tx_extra_field> tx_extra_fields;
         bool has_encrypted_payment_id = false;
@@ -1337,17 +1344,17 @@ namespace tools
           std::string address = cryptonote::get_account_address_as_str(m_wallet->nettype(), entry.is_subaddress, entry.addr);
           if (has_encrypted_payment_id && !entry.is_subaddress && address != entry.original)
             address = cryptonote::get_account_integrated_address_as_str(m_wallet->nettype(), entry.addr, payment_id8);
-          auto i = dests.find(entry.addr);
-          if (i == dests.end())
-            dests.insert(std::make_pair(entry.addr, std::make_pair(address, entry.amount)));
+          auto i = tx_dests.find(entry.addr);
+          if (i == tx_dests.end())
+            tx_dests.insert(std::make_pair(entry.addr, std::make_pair(address, entry.amount)));
           else
             i->second.second += entry.amount;
           desc.amount_out += entry.amount;
         }
         if (cd.change_dts.amount > 0)
         {
-          auto it = dests.find(cd.change_dts.addr);
-          if (it == dests.end())
+          auto it = tx_dests.find(cd.change_dts.addr);
+          if (it == tx_dests.end())
           {
             er.code = WALLET_RPC_ERROR_CODE_BAD_UNSIGNED_TX_DATA;
             er.message = "Claimed change does not go to a paid address";
@@ -1374,29 +1381,45 @@ namespace tools
           desc.change_amount += cd.change_dts.amount;
           it->second.second -= cd.change_dts.amount;
           if (it->second.second == 0)
-            dests.erase(cd.change_dts.addr);
+            tx_dests.erase(cd.change_dts.addr);
         }
 
-        for (auto i = dests.begin(); i != dests.end(); )
+        for (auto i = tx_dests.begin(); i != tx_dests.end(); ++i)
         {
           if (i->second.second > 0)
           {
             desc.recipients.push_back({i->second.first, i->second.second});
+            auto it_in_all = all_dests.find(i->first);
+            if (it_in_all == all_dests.end())
+              all_dests.insert(std::make_pair(i->first, i->second));
+            else
+              it_in_all->second.second += i->second.second;
           }
           else
             ++desc.dummy_outputs;
-          ++i;
         }
 
         if (desc.change_amount > 0)
         {
           const tools::wallet2::tx_construction_data &cd0 = tx_constructions[0];
           desc.change_address = get_account_address_as_str(m_wallet->nettype(), cd0.subaddr_account > 0, cd0.change_dts.addr);
+          res.summary.change_address = desc.change_address;
         }
 
         desc.fee = desc.amount_in - desc.amount_out;
         desc.unlock_time = cd.unlock_time;
         desc.extra = epee::to_hex::string({cd.extra.data(), cd.extra.size()});
+
+        // Update summary items
+        res.summary.amount_in += desc.amount_in;
+        res.summary.amount_out += desc.amount_out;
+        res.summary.change_amount += desc.change_amount;
+        res.summary.fee += desc.fee;
+      }
+      // Populate the summary recipients list
+      for (auto i = all_dests.begin(); i != all_dests.end(); ++i)
+      {
+        res.summary.recipients.push_back({i->second.first, i->second.second});
       }
     }
     catch (const std::exception &e)
