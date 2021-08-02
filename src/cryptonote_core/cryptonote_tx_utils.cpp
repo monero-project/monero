@@ -204,7 +204,7 @@ namespace cryptonote
     return addr.m_view_public_key;
   }
   //---------------------------------------------------------------
-  bool construct_tx_with_tx_key(const account_keys& sender_account_keys, const boost::container::flat_map<crypto::public_key, subaddress_index>& subaddresses, std::vector<tx_source_entry>& sources, std::vector<tx_destination_entry>& destinations, const boost::optional<cryptonote::account_public_address>& change_addr, const std::vector<uint8_t> &extra, transaction& tx, uint64_t unlock_time, const crypto::secret_key &tx_key, const std::vector<crypto::secret_key> &additional_tx_keys, const rct::key *aux, bool rct, const rct::RCTConfig &rct_config, rct::multisig_out *msout, bool shuffle_outs)
+  bool construct_tx_with_tx_key(const account_keys& sender_account_keys, const boost::container::flat_map<crypto::public_key, subaddress_index>& subaddresses, std::vector<tx_source_entry>& sources, std::vector<tx_destination_entry>& destinations, const boost::optional<cryptonote::account_public_address>& change_addr, const std::vector<uint8_t> &extra, transaction& tx, uint64_t unlock_time, const crypto::secret_key &tx_key, const std::vector<crypto::secret_key> &additional_tx_keys, const rct::key *aux, bool rct, const rct::RCTConfig &rct_config, rct::multisig_out *msout, bool shuffle_outs, rct::keyV *masks)
   {
     PERF_TIMER(construct_tx_with_tx_key);
 
@@ -223,6 +223,8 @@ namespace cryptonote
     {
       msout->c.clear();
     }
+    if (masks)
+      masks->clear();
 
     tx.version = rct ? 2 : 1;
     tx.unlock_time = unlock_time;
@@ -638,6 +640,13 @@ namespace cryptonote
       memwipe(inSk.data(), inSk.size() * sizeof(rct::ctkey));
 
       CHECK_AND_ASSERT_MES(tx.vout.size() == outSk.size(), false, "outSk size does not match vout");
+
+      if (masks)
+      {
+        masks->resize(outSk.size());
+        for (const auto &e: outSk)
+          masks->push_back(e.mask);
+      }
 
       TEST_INVALID_TX("bad-mg", {tx.rct_signatures.p.MGs[0].ss[0][0].bytes[1] ^= 1;});
       TEST_INVALID_TX("bad-tx-fee", {tx.rct_signatures.txnFee++;});

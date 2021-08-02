@@ -1830,6 +1830,22 @@ namespace rct {
       return decodeRctSimple(rv, sk, i, mask, hwdev);
     }
 
+    void decodeRctSimple(const rctSig &rv, const rct::keyV &masks, rct::key &aux)
+    {
+      aux = rct::zero();
+      if (rct::is_rct_bulletproof_plus(rv.type))
+      {
+        aux_data_t auxd;
+        auxd.gamma = &masks;
+        auxd.seed = make_aux_seed(masks[0], seed_type_range_proof);
+        // assumes only one bulletproof, which is currently consensus
+        if (rv.p.bulletproofs_plus.size() != 1)
+          MERROR("Expected one BP+, got " << rv.p.bulletproofs_plus.size());
+        if (verBulletproofPlus(rv.p.bulletproofs_plus[0], &auxd))
+          aux = auxd.aux;
+      }
+    }
+
     bool signMultisigMLSAG(rctSig &rv, const std::vector<unsigned int> &indices, const keyV &k, const multisig_out &msout, const key &secret_key) {
         CHECK_AND_ASSERT_MES(rv.type == RCTTypeFull || rv.type == RCTTypeSimple || rv.type == RCTTypeBulletproof || rv.type == RCTTypeBulletproof2,
             false, "unsupported rct type");
