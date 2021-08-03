@@ -65,6 +65,7 @@
 #include "serialization/pair.h"
 #include "serialization/containers.h"
 #include "serialization/flat_map.h"
+#include "serialization/optional.h"
 
 #include "wallet_errors.h"
 #include "common/password.h"
@@ -594,6 +595,7 @@ private:
       std::vector<cryptonote::tx_destination_entry> dests; // original setup, does not include change
       uint32_t subaddr_account;   // subaddress account of your wallet to be used in this transfer
       std::set<uint32_t> subaddr_indices;  // set of address indices used as inputs in this transfer
+      boost::optional<rct::key> aux;
 
       BEGIN_SERIALIZE_OBJECT()
         FIELD(sources)
@@ -608,6 +610,7 @@ private:
         FIELD(dests)
         FIELD(subaddr_account)
         FIELD(subaddr_indices)
+        FIELD(aux)
       END_SERIALIZE()
     };
 
