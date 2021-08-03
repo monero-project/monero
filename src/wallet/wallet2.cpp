@@ -3852,6 +3852,7 @@ bool wallet2::clear()
   m_unconfirmed_txs.clear();
   m_payments.clear();
   m_tx_keys.clear();
+  m_masks.clear();
   m_additional_tx_keys.clear();
   m_confirmed_txs.clear();
   m_unconfirmed_payments.clear();
@@ -6753,6 +6754,7 @@ void wallet2::commit_tx(pending_tx& ptx)
   {
     m_tx_keys[txid] = ptx.tx_key;
     m_additional_tx_keys[txid] = ptx.additional_tx_keys;
+    m_masks[txid] = ptx.masks;
   }
 
   LOG_PRINT_L2("transaction " << txid << " generated ok and sent to daemon, key_images: [" << ptx.key_images << "]");
@@ -6959,7 +6961,8 @@ bool wallet2::sign_tx(unsigned_tx_set &exported_txs, std::vector<wallet2::pendin
     crypto::secret_key tx_key;
     std::vector<crypto::secret_key> additional_tx_keys;
     rct::multisig_out msout;
-    bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), m_subaddresses, sd.sources, sd.splitted_dsts, sd.change_dts.addr, sd.extra, ptx.tx, sd.unlock_time, tx_key, additional_tx_keys, sd.aux ? &*sd.aux : NULL, sd.use_rct, rct_config, m_multisig ? &msout : NULL);
+    rct::keyV masks;
+    bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), m_subaddresses, sd.sources, sd.splitted_dsts, sd.change_dts.addr, sd.extra, ptx.tx, sd.unlock_time, tx_key, additional_tx_keys, sd.aux ? &*sd.aux : NULL, sd.use_rct, rct_config, m_multisig ? &msout : NULL, &masks);
     THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sd.sources, sd.splitted_dsts, sd.unlock_time, m_nettype);
     // we don't test tx size, because we don't know the current limit, due to not having a blockchain,
     // and it's a bit pointless to fail there anyway, since it'd be a (good) guess only. We sign anyway,
@@ -6972,8 +6975,12 @@ bool wallet2::sign_tx(unsigned_tx_set &exported_txs, std::vector<wallet2::pendin
     if (store_tx_info() && tx_key != crypto::null_skey)
     {
       const crypto::hash txid = get_transaction_hash(ptx.tx);
-      m_tx_keys[txid] = tx_key;
-      m_additional_tx_keys[txid] = additional_tx_keys;
+      if (tx_key != crypto::null_skey)
+      {
+        m_tx_keys[txid] = tx_key;
+        m_additional_tx_keys[txid] = additional_tx_keys;
+      }
+      m_masks[txid] = masks;
     }
 
     std::string key_images;
@@ -6994,6 +7001,7 @@ bool wallet2::sign_tx(unsigned_tx_set &exported_txs, std::vector<wallet2::pendin
     ptx.change_dts = sd.change_dts;
     ptx.selected_transfers = sd.selected_transfers;
     ptx.tx_key = rct::rct2sk(rct::identity()); // don't send it back to the untrusted view wallet
+    ptx.masks.clear(); // don't send them back to the untrusted view wallet
     ptx.dests = sd.dests;
     ptx.construction_data = sd;
 
@@ -7427,6 +7435,7 @@ bool wallet2::load_multisig_tx(cryptonote::blobdata s, multisig_tx_set &exported
       {
         m_tx_keys[txid] = ptx.tx_key;
         m_additional_tx_keys[txid] = ptx.additional_tx_keys;
+        m_masks[txid] = ptx.masks;
       }
     }
   }
@@ -7548,6 +7557,7 @@ bool wallet2::sign_multisig_tx(multisig_tx_set &exported_txs, std::vector<crypto
       {
         m_tx_keys[txid] = ptx.tx_key;
         m_additional_tx_keys[txid] = ptx.additional_tx_keys;
+        m_masks[txid] = ptx.masks;
       }
       txids.push_back(txid);
     }
@@ -9128,12 +9138,14 @@ void wallet2::transfer_selected(const std::vector<cryptonote::tx_destination_ent
   ptx.selected_transfers = selected_transfers;
   ptx.tx_key = tx_key;
   ptx.additional_tx_keys = additional_tx_keys;
+  ptx.masks.clear();
   ptx.dests = dsts;
   ptx.construction_data.sources = sources;
   ptx.construction_data.change_dts = change_dts;
   ptx.construction_data.splitted_dsts = splitted_dsts;
   ptx.construction_data.selected_transfers = selected_transfers;
   ptx.construction_data.extra = tx.extra;
+  ptx.construction_data.aux = boost::none;
   ptx.construction_data.unlock_time = unlock_time;
   ptx.construction_data.use_rct = false;
   ptx.construction_data.use_triptych = false;
@@ -9349,9 +9361,10 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
   crypto::secret_key tx_key;
   std::vector<crypto::secret_key> additional_tx_keys;
   rct::multisig_out msout;
+  rct::keyV masks;
   LOG_PRINT_L2("constructing tx");
   auto sources_copy = sources;
-  bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), m_subaddresses, sources, splitted_dsts, change_dts.addr, extra, tx, unlock_time, tx_key, additional_tx_keys, aux, true, rct_config, m_multisig ? &msout : NULL);
+  bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), m_subaddresses, sources, splitted_dsts, change_dts.addr, extra, tx, unlock_time, tx_key, additional_tx_keys, aux, true, rct_config, m_multisig ? &msout : NULL, &masks);
   LOG_PRINT_L2("constructed tx, r="<<r);
   THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sources, dsts, unlock_time, m_nettype);
   THROW_WALLET_EXCEPTION_IF(upper_transaction_weight_limit <= get_transaction_weight(tx), error::tx_too_big, tx, upper_transaction_weight_limit);
@@ -9430,6 +9443,7 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
   tools::apply_permutation(ins_order, ptx.selected_transfers);
   ptx.tx_key = tx_key;
   ptx.additional_tx_keys = additional_tx_keys;
+  ptx.masks = masks;
   ptx.dests = dsts;
   ptx.multisig_sigs = multisig_sigs;
   ptx.construction_data.sources = sources_copy;
@@ -9437,6 +9451,10 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
   ptx.construction_data.splitted_dsts = splitted_dsts;
   ptx.construction_data.selected_transfers = ptx.selected_transfers;
   ptx.construction_data.extra = tx.extra;
+  if (aux)
+    ptx.construction_data.aux = *aux;
+  else
+    ptx.construction_data.aux = boost::none;
   ptx.construction_data.unlock_time = unlock_time;
   ptx.construction_data.use_rct = true;
   ptx.construction_data.use_triptych = use_fork_rules(HF_VERSION_TRIPTYCH);

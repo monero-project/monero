@@ -650,6 +650,7 @@ private:
       std::vector<crypto::secret_key> additional_tx_keys;
       std::vector<cryptonote::tx_destination_entry> dests;
       std::vector<multisig_sig> multisig_sigs;
+      std::vector<rct::key> masks;
 
       tx_construction_data construction_data;
 
@@ -666,6 +667,7 @@ private:
         FIELD(dests)
         FIELD(construction_data)
         FIELD(multisig_sigs)
+        FIELD(masks)
       END_SERIALIZE()
     };
 
@@ -1267,11 +1269,14 @@ private:
       if(ver < 30)
         return;
       a & m_subaddresses;
+      if(ver < 31)
+        return;
+      a & m_masks.parent();
     }
 
     BEGIN_SERIALIZE_OBJECT()
       MAGIC_FIELD("monero wallet cache")
-      VERSION_FIELD(0)
+      VERSION_FIELD(1)
       FIELD(m_blockchain)
       FIELD(m_transfers)
       FIELD(m_account_public_address)
@@ -1297,6 +1302,8 @@ private:
       FIELD(m_device_last_key_image_sync)
       FIELD(m_cold_key_images)
       FIELD(m_rpc_client_secret_key)
+      if (version >= 1)
+        FIELD(m_masks)
     END_SERIALIZE()
 
     /*!
@@ -1831,6 +1838,7 @@ private:
     serializable_unordered_map<crypto::hash, confirmed_transfer_details> m_confirmed_txs;
     serializable_unordered_multimap<crypto::hash, pool_payment_details> m_unconfirmed_payments;
     serializable_unordered_map<crypto::hash, crypto::secret_key> m_tx_keys;
+    serializable_unordered_map<crypto::hash, std::vector<rct::key>> m_masks;
     cryptonote::checkpoints m_checkpoints;
     serializable_unordered_map<crypto::hash, std::vector<crypto::secret_key>> m_additional_tx_keys;
 
@@ -1964,7 +1972,7 @@ private:
     static std::string default_daemon_address;
   };
 }
-BOOST_CLASS_VERSION(tools::wallet2, 30)
+BOOST_CLASS_VERSION(tools::wallet2, 31)
 BOOST_CLASS_VERSION(tools::wallet2::transfer_details, 13)
 BOOST_CLASS_VERSION(tools::wallet2::multisig_info, 1)
 BOOST_CLASS_VERSION(tools::wallet2::multisig_info::LR, 0)
@@ -1978,7 +1986,7 @@ BOOST_CLASS_VERSION(tools::wallet2::reserve_proof_entry, 0)
 BOOST_CLASS_VERSION(tools::wallet2::unsigned_tx_set, 0)
 BOOST_CLASS_VERSION(tools::wallet2::signed_tx_set, 1)
 BOOST_CLASS_VERSION(tools::wallet2::tx_construction_data, 5)
-BOOST_CLASS_VERSION(tools::wallet2::pending_tx, 3)
+BOOST_CLASS_VERSION(tools::wallet2::pending_tx, 4)
 BOOST_CLASS_VERSION(tools::wallet2::multisig_sig, 0)
 
 namespace boost
@@ -2470,6 +2478,9 @@ namespace boost
       if (ver < 3)
         return;
       a & x.multisig_sigs;
+      if (ver < 4)
+        return;
+      a & x.masks;
     }
 
     template <class Archive>
