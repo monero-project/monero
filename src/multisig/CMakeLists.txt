@@ -27,12 +27,17 @@
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 set(multisig_sources
-  multisig.cpp)
+  multisig.cpp
+  multisig_account.cpp
+  multisig_account_kex_impl.cpp
+  multisig_kex_msg.cpp)
 
 set(multisig_headers)
 
 set(multisig_private_headers
-  multisig.h)
+  multisig.h
+  multisig_account.h
+  multisig_kex_msg.h)
 
 monero_private_headers(multisig
   ${multisig_private_headers})

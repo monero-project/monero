@@ -512,14 +512,12 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(make_multisig)
 
-    def finalize_multisig(self, multisig_info, password = ''):
+    def finalize_multisig(self):
         finalize_multisig = {
             'method': 'finalize_multisig',
             'params' : {
-                'multisig_info': multisig_info,
-                'password': password,
             },
-            'jsonrpc': '2.0',
+            'jsonrpc': '2.0', 
             'id': '0'
         }
         return self.rpc.send_json_rpc_request(finalize_multisig)

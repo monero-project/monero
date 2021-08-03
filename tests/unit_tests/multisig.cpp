@@ -26,11 +26,15 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#include "crypto/crypto.h"
+#include "multisig/multisig_account.h"
+#include "multisig/multisig_kex_msg.h"
+#include "ringct/rctOps.h"
+#include "wallet/wallet2.h"
+
 #include "gtest/gtest.h"
 
 #include <cstdint>
-
-#include "wallet/wallet2.h"
 
 static const struct
 {
@@ -86,59 +90,145 @@ static void make_wallet(unsigned int idx, tools::wallet2 &wallet)
   }
 }
 
-static std::vector<std::string> exchange_round(std::vector<tools::wallet2>& wallets, const std::vector<std::string>& mis)
+static std::vector<std::string> exchange_round(std::vector<tools::wallet2>& wallets, const std::vector<std::string>& infos)
 {
   std::vector<std::string> new_infos;
-  for (size_t i = 0; i < wallets.size(); ++i) {
-      new_infos.push_back(wallets[i].exchange_multisig_keys("", mis));
+  new_infos.reserve(infos.size());
+
+  for (size_t i = 0; i < wallets.size(); ++i)
+  {
+      new_infos.push_back(wallets[i].exchange_multisig_keys("", infos));
   }
 
   return new_infos;
+}
+
+static void check_results(const std::vector<std::string> &intermediate_infos,
+  std::vector<tools::wallet2>& wallets,
+  std::uint32_t M)
+{
+  // check results
+  std::unordered_set<crypto::secret_key> unique_privkeys;
+  rct::key composite_pubkey = rct::identity();
+
+  wallets[0].decrypt_keys("");
+  crypto::public_key spend_pubkey = wallets[0].get_account().get_keys().m_account_address.m_spend_public_key;
+  crypto::secret_key view_privkey = wallets[0].get_account().get_keys().m_view_secret_key;
+  crypto::public_key view_pubkey;
+  EXPECT_TRUE(crypto::secret_key_to_public_key(view_privkey, view_pubkey));
+  wallets[0].encrypt_keys("");
+
+  for (size_t i = 0; i < wallets.size(); ++i)
+  {
+    EXPECT_TRUE(intermediate_infos[i].empty());
+    bool ready;
+    uint32_t threshold, total;
+    EXPECT_TRUE(wallets[i].multisig(&ready, &threshold, &total));
+    EXPECT_TRUE(ready);
+    EXPECT_TRUE(threshold == M);
+    EXPECT_TRUE(total == wallets.size());
+
+    wallets[i].decrypt_keys("");
+
+    if (i != 0)
+    {
+      // "equals" is transitive relation so we need only to compare first wallet's address to each others' addresses.
+      // no need to compare 0's address with itself.
+      EXPECT_TRUE(wallets[0].get_account().get_public_address_str(cryptonote::TESTNET) ==
+        wallets[i].get_account().get_public_address_str(cryptonote::TESTNET));
+      
+      EXPECT_EQ(spend_pubkey, wallets[i].get_account().get_keys().m_account_address.m_spend_public_key);
+      EXPECT_EQ(view_privkey, wallets[i].get_account().get_keys().m_view_secret_key);
+      EXPECT_EQ(view_pubkey, wallets[i].get_account().get_keys().m_account_address.m_view_public_key);
+    }
+
+    // sum together unique multisig keys
+    for (const auto &privkey : wallets[i].get_account().get_keys().m_multisig_keys)
+    {
+      EXPECT_NE(privkey, crypto::null_skey);
+
+      if (unique_privkeys.find(privkey) == unique_privkeys.end())
+      {
+        unique_privkeys.insert(privkey);
+        crypto::public_key pubkey;
+        crypto::secret_key_to_public_key(privkey, pubkey);
+        EXPECT_NE(privkey, crypto::null_skey);
+        EXPECT_NE(pubkey, crypto::null_pkey);
+        EXPECT_NE(pubkey, rct::rct2pk(rct::identity()));
+        rct::addKeys(composite_pubkey, composite_pubkey, rct::pk2rct(pubkey));
+      }
+    }
+    wallets[i].encrypt_keys("");
+  }
+
+  // final key via sums should equal the wallets' public spend key
+  wallets[0].decrypt_keys("");
+  EXPECT_EQ(wallets[0].get_account().get_keys().m_account_address.m_spend_public_key, rct::rct2pk(composite_pubkey));
+  wallets[0].encrypt_keys("");
 }
 
 static void make_wallets(std::vector<tools::wallet2>& wallets, unsigned int M)
 {
   ASSERT_TRUE(wallets.size() > 1 && wallets.size() <= KEYS_COUNT);
   ASSERT_TRUE(M <= wallets.size());
+  std::uint32_t rounds_required = multisig::multisig_kex_rounds_required(wallets.size(), M);
+  std::uint32_t rounds_complete{0};
 
-  std::vector<std::string> mis(wallets.size());
+  // initialize wallets, get first round multisig kex msgs
+  std::vector<std::string> initial_infos(wallets.size());
 
-  for (size_t i = 0; i < wallets.size(); ++i) {
+  for (size_t i = 0; i < wallets.size(); ++i)
+  {
     make_wallet(i, wallets[i]);
 
     wallets[i].decrypt_keys("");
-    mis[i] = wallets[i].get_multisig_info();
+    initial_infos[i] = wallets[i].get_multisig_first_kex_msg();
     wallets[i].encrypt_keys("");
   }
 
-  for (auto& wallet: wallets) {
+  // wallets should not be multisig yet
+  for (const auto &wallet: wallets)
+  {
     ASSERT_FALSE(wallet.multisig());
   }
 
-  std::vector<std::string> mxis;
-  for (size_t i = 0; i < wallets.size(); ++i) {
-    // it's ok to put all of multisig keys in this function. it throws in case of error
-    mxis.push_back(wallets[i].make_multisig("", mis, M));
+  // make wallets multisig, get second round kex messages (if appropriate)
+  std::vector<std::string> intermediate_infos(wallets.size());
+
+  for (size_t i = 0; i < wallets.size(); ++i)
+  {
+    intermediate_infos[i] = wallets[i].make_multisig("", initial_infos, M);
   }
 
-  while (!mxis[0].empty()) {
-    mxis = exchange_round(wallets, mxis);
+  ++rounds_complete;
+
+  // perform kex rounds until kex is complete
+  while (!intermediate_infos[0].empty())
+  {
+    bool ready{false};
+    wallets[0].multisig(&ready);
+    EXPECT_FALSE(ready);
+
+    intermediate_infos = exchange_round(wallets, intermediate_infos);
+
+    ++rounds_complete;
   }
 
-  for (size_t i = 0; i < wallets.size(); ++i) {
-    ASSERT_TRUE(mxis[i].empty());
-    bool ready;
-    uint32_t threshold, total;
-    ASSERT_TRUE(wallets[i].multisig(&ready, &threshold, &total));
-    ASSERT_TRUE(ready);
-    ASSERT_TRUE(threshold == M);
-    ASSERT_TRUE(total == wallets.size());
+  EXPECT_EQ(rounds_required, rounds_complete);
 
-    if (i != 0) {
-      // "equals" is transitive relation so we need only to compare first wallet's address to each others' addresses. no need to compare 0's address with itself.
-      ASSERT_TRUE(wallets[0].get_account().get_public_address_str(cryptonote::TESTNET) == wallets[i].get_account().get_public_address_str(cryptonote::TESTNET));
-    }
-  }
+  check_results(intermediate_infos, wallets, M);
+}
+
+TEST(multisig, make_1_2)
+{
+  std::vector<tools::wallet2> wallets(2);
+  make_wallets(wallets, 1);
+}
+
+TEST(multisig, make_1_3)
+{
+  std::vector<tools::wallet2> wallets(3);
+  make_wallets(wallets, 1);
 }
 
 TEST(multisig, make_2_2)
@@ -165,8 +255,88 @@ TEST(multisig, make_2_4)
   make_wallets(wallets, 2);
 }
 
-TEST(multisig, make_2_5)
+TEST(multisig, multisig_kex_msg)
 {
-  std::vector<tools::wallet2> wallets(5);
-  make_wallets(wallets, 2);
+  using namespace multisig;
+
+  crypto::public_key pubkey1;
+  crypto::public_key pubkey2;
+  crypto::public_key pubkey3;
+  crypto::secret_key_to_public_key(rct::rct2sk(rct::skGen()), pubkey1);
+  crypto::secret_key_to_public_key(rct::rct2sk(rct::skGen()), pubkey2);
+  crypto::secret_key_to_public_key(rct::rct2sk(rct::skGen()), pubkey3);
+
+  crypto::secret_key signing_skey = rct::rct2sk(rct::skGen());
+  crypto::public_key signing_pubkey;
+  while(!crypto::secret_key_to_public_key(signing_skey, signing_pubkey))
+  {
+    signing_skey = rct::rct2sk(rct::skGen());
+  }
+
+  crypto::secret_key ancillary_skey = rct::rct2sk(rct::skGen());
+  while (ancillary_skey == crypto::null_skey)
+    ancillary_skey = rct::rct2sk(rct::skGen());
+
+  // misc. edge cases
+  EXPECT_NO_THROW((multisig_kex_msg{}));
+  EXPECT_ANY_THROW((multisig_kex_msg{multisig_kex_msg{}.get_msg()}));
+  EXPECT_ANY_THROW((multisig_kex_msg{"abc"}));
+  EXPECT_ANY_THROW((multisig_kex_msg{0, crypto::null_skey, std::vector<crypto::public_key>{}, crypto::null_skey}));
+  EXPECT_ANY_THROW((multisig_kex_msg{1, crypto::null_skey, std::vector<crypto::public_key>{}, crypto::null_skey}));
+  EXPECT_ANY_THROW((multisig_kex_msg{1, signing_skey, std::vector<crypto::public_key>{}, crypto::null_skey}));
+  EXPECT_ANY_THROW((multisig_kex_msg{1, crypto::null_skey, std::vector<crypto::public_key>{}, ancillary_skey}));
+
+  // test that messages are both constructible and reversible
+
+  // round 1
+  EXPECT_NO_THROW((multisig_kex_msg{
+      multisig_kex_msg{1, signing_skey, std::vector<crypto::public_key>{}, ancillary_skey}.get_msg()
+    }));
+  EXPECT_NO_THROW((multisig_kex_msg{
+      multisig_kex_msg{1, signing_skey, std::vector<crypto::public_key>{pubkey1}, ancillary_skey}.get_msg()
+    }));
+
+  // round 2
+  EXPECT_NO_THROW((multisig_kex_msg{
+      multisig_kex_msg{2, signing_skey, std::vector<crypto::public_key>{pubkey1}, ancillary_skey}.get_msg()
+    }));
+  EXPECT_NO_THROW((multisig_kex_msg{
+      multisig_kex_msg{2, signing_skey, std::vector<crypto::public_key>{pubkey1}, crypto::null_skey}.get_msg()
+    }));
+  EXPECT_NO_THROW((multisig_kex_msg{
+      multisig_kex_msg{2, signing_skey, std::vector<crypto::public_key>{pubkey1, pubkey2}, ancillary_skey}.get_msg()
+    }));
+  EXPECT_NO_THROW((multisig_kex_msg{
+      multisig_kex_msg{2, signing_skey, std::vector<crypto::public_key>{pubkey1, pubkey2, pubkey3}, crypto::null_skey}.get_msg()
+    }));
+
+  // test that keys can be recovered if stored in a message and the message's reverse
+
+  // round 1
+  multisig_kex_msg msg_rnd1{1, signing_skey, std::vector<crypto::public_key>{pubkey1}, ancillary_skey};
+  multisig_kex_msg msg_rnd1_reverse{msg_rnd1.get_msg()};
+  EXPECT_EQ(msg_rnd1.get_round(), 1);
+  EXPECT_EQ(msg_rnd1.get_round(), msg_rnd1_reverse.get_round());
+  EXPECT_EQ(msg_rnd1.get_signing_pubkey(), signing_pubkey);
+  EXPECT_EQ(msg_rnd1.get_signing_pubkey(), msg_rnd1_reverse.get_signing_pubkey());
+  EXPECT_EQ(msg_rnd1.get_msg_pubkeys().size(), 0);
+  EXPECT_EQ(msg_rnd1.get_msg_pubkeys().size(), msg_rnd1_reverse.get_msg_pubkeys().size());
+  EXPECT_EQ(msg_rnd1.get_msg_privkey(), ancillary_skey);
+  EXPECT_EQ(msg_rnd1.get_msg_privkey(), msg_rnd1_reverse.get_msg_privkey());
+
+  // round 2
+  multisig_kex_msg msg_rnd2{2, signing_skey, std::vector<crypto::public_key>{pubkey1, pubkey2}, ancillary_skey};
+  multisig_kex_msg msg_rnd2_reverse{msg_rnd2.get_msg()};
+  EXPECT_EQ(msg_rnd2.get_round(), 2);
+  EXPECT_EQ(msg_rnd2.get_round(), msg_rnd2_reverse.get_round());
+  EXPECT_EQ(msg_rnd2.get_signing_pubkey(), signing_pubkey);
+  EXPECT_EQ(msg_rnd2.get_signing_pubkey(), msg_rnd2_reverse.get_signing_pubkey());
+  ASSERT_EQ(msg_rnd2.get_msg_pubkeys().size(), 2);
+  ASSERT_EQ(msg_rnd2.get_msg_pubkeys().size(), msg_rnd2_reverse.get_msg_pubkeys().size());
+  EXPECT_EQ(msg_rnd2.get_msg_pubkeys()[0], pubkey1);
+  EXPECT_EQ(msg_rnd2.get_msg_pubkeys()[1], pubkey2);
+  EXPECT_EQ(msg_rnd2.get_msg_pubkeys()[0], msg_rnd2_reverse.get_msg_pubkeys()[0]);
+  EXPECT_EQ(msg_rnd2.get_msg_pubkeys()[1], msg_rnd2_reverse.get_msg_pubkeys()[1]);
+  EXPECT_EQ(msg_rnd2.get_msg_privkey(), crypto::null_skey);
+  EXPECT_EQ(msg_rnd2.get_msg_privkey(), msg_rnd2_reverse.get_msg_privkey());
 }

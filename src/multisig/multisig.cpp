@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, The Monero Project
+// Copyright (c) 2017-2021, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -26,29 +26,34 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include <unordered_set>
-#include "include_base_utils.h"
 #include "crypto/crypto.h"
-#include "ringct/rctOps.h"
 #include "cryptonote_basic/account.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
-#include "multisig.h"
 #include "cryptonote_config.h"
+#include "include_base_utils.h"
+#include "multisig.h"
+#include "ringct/rctOps.h"
+
+#include <algorithm>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "multisig"
 
-using namespace std;
-
-namespace cryptonote
+namespace multisig
 {
-  //-----------------------------------------------------------------
+  //----------------------------------------------------------------------------------------------------------------------
   crypto::secret_key get_multisig_blinded_secret_key(const crypto::secret_key &key)
   {
+    CHECK_AND_ASSERT_THROW_MES(key != crypto::null_skey, "Unexpected null secret key (danger!).");
+
     rct::key multisig_salt;
     static_assert(sizeof(rct::key) == sizeof(config::HASH_KEY_MULTISIG), "Hash domain separator is an unexpected size");
     memcpy(multisig_salt.bytes, config::HASH_KEY_MULTISIG, sizeof(rct::key));
 
+    // private key = H(key, domain-sep)
     rct::keyV data;
     data.reserve(2);
     data.push_back(rct::sk2rct(key));
@@ -57,134 +62,79 @@ namespace cryptonote
     memwipe(&data[0], sizeof(rct::key));
     return result;
   }
-  //-----------------------------------------------------------------
-  void generate_multisig_N_N(const account_keys &keys, const std::vector<crypto::public_key> &spend_keys, std::vector<crypto::secret_key> &multisig_keys, rct::key &spend_skey, rct::key &spend_pkey)
-  {
-    // the multisig spend public key is the sum of all spend public keys
-    multisig_keys.clear();
-    const crypto::secret_key spend_secret_key = get_multisig_blinded_secret_key(keys.m_spend_secret_key);
-    CHECK_AND_ASSERT_THROW_MES(crypto::secret_key_to_public_key(spend_secret_key, (crypto::public_key&)spend_pkey), "Failed to derive public key");
-    for (const auto &k: spend_keys)
-      rct::addKeys(spend_pkey, spend_pkey, rct::pk2rct(k));
-    multisig_keys.push_back(spend_secret_key);
-    spend_skey = rct::sk2rct(spend_secret_key);
-  }
-  //-----------------------------------------------------------------
-  void generate_multisig_N1_N(const account_keys &keys, const std::vector<crypto::public_key> &spend_keys, std::vector<crypto::secret_key> &multisig_keys, rct::key &spend_skey, rct::key &spend_pkey)
-  {
-    multisig_keys.clear();
-    spend_pkey = rct::identity();
-    spend_skey = rct::zero();
-
-    // create all our composite private keys
-    crypto::secret_key blinded_skey = get_multisig_blinded_secret_key(keys.m_spend_secret_key);
-    for (const auto &k: spend_keys)
-    {
-      rct::key sk = rct::scalarmultKey(rct::pk2rct(k), rct::sk2rct(blinded_skey));
-      crypto::secret_key msk = get_multisig_blinded_secret_key(rct::rct2sk(sk));
-      memwipe(&sk, sizeof(sk));
-      multisig_keys.push_back(msk);
-      sc_add(spend_skey.bytes, spend_skey.bytes, (const unsigned char*)msk.data);
-    }
-  }
-  //-----------------------------------------------------------------
-  std::vector<crypto::public_key> generate_multisig_derivations(const account_keys &keys, const std::vector<crypto::public_key> &derivations)
-  {
-    std::vector<crypto::public_key> multisig_keys;
-    crypto::secret_key blinded_skey = get_multisig_blinded_secret_key(keys.m_spend_secret_key);
-    for (const auto &k: derivations)
-    {
-      rct::key d = rct::scalarmultKey(rct::pk2rct(k), rct::sk2rct(blinded_skey));
-      multisig_keys.push_back(rct::rct2pk(d));
-    }
-
-    return multisig_keys;
-  }
-  //-----------------------------------------------------------------
-  crypto::secret_key calculate_multisig_signer_key(const std::vector<crypto::secret_key>& multisig_keys)
-  {
-    rct::key secret_key = rct::zero();
-    for (const auto &k: multisig_keys)
-    {
-      sc_add(secret_key.bytes, secret_key.bytes, (const unsigned char*)k.data);
-    }
-
-    return rct::rct2sk(secret_key);
-  }
-  //-----------------------------------------------------------------
-  std::vector<crypto::secret_key> calculate_multisig_keys(const std::vector<crypto::public_key>& derivations)
-  {
-    std::vector<crypto::secret_key> multisig_keys;
-    multisig_keys.reserve(derivations.size());
-
-    for (const auto &k: derivations)
-    {
-      multisig_keys.emplace_back(get_multisig_blinded_secret_key(rct::rct2sk(rct::pk2rct(k))));
-    }
-
-    return multisig_keys;
-  }
-  //-----------------------------------------------------------------
-  crypto::secret_key generate_multisig_view_secret_key(const crypto::secret_key &skey, const std::vector<crypto::secret_key> &skeys)
-  {
-    crypto::secret_key view_skey = get_multisig_blinded_secret_key(skey);
-    for (const auto &k: skeys)
-      sc_add((unsigned char*)&view_skey, rct::sk2rct(view_skey).bytes, rct::sk2rct(k).bytes);
-    return view_skey;
-  }
-  //-----------------------------------------------------------------
-  crypto::public_key generate_multisig_M_N_spend_public_key(const std::vector<crypto::public_key> &pkeys)
-  {
-    rct::key spend_public_key = rct::identity();
-    for (const auto &pk: pkeys)
-    {
-      rct::addKeys(spend_public_key, spend_public_key, rct::pk2rct(pk));
-    }
-    return rct::rct2pk(spend_public_key);
-  }
-  //-----------------------------------------------------------------
-  bool generate_multisig_key_image(const account_keys &keys, size_t multisig_key_index, const crypto::public_key& out_key, crypto::key_image& ki)
+  //----------------------------------------------------------------------------------------------------------------------
+  bool generate_multisig_key_image(const cryptonote::account_keys &keys,
+    std::size_t multisig_key_index,
+    const crypto::public_key& out_key,
+    crypto::key_image& ki)
   {
     if (multisig_key_index >= keys.m_multisig_keys.size())
       return false;
     crypto::generate_key_image(out_key, keys.m_multisig_keys[multisig_key_index], ki);
     return true;
   }
-  //-----------------------------------------------------------------
-  void generate_multisig_LR(const crypto::public_key pkey, const crypto::secret_key &k, crypto::public_key &L, crypto::public_key &R)
+  //----------------------------------------------------------------------------------------------------------------------
+  void generate_multisig_LR(const crypto::public_key pkey,
+    const crypto::secret_key &k,
+    crypto::public_key &L,
+    crypto::public_key &R)
   {
     rct::scalarmultBase((rct::key&)L, rct::sk2rct(k));
     crypto::generate_key_image(pkey, k, (crypto::key_image&)R);
   }
-  //-----------------------------------------------------------------
-  bool generate_multisig_composite_key_image(const account_keys &keys, const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses, const crypto::public_key& out_key, const crypto::public_key &tx_public_key, const std::vector<crypto::public_key>& additional_tx_public_keys, size_t real_output_index, const std::vector<crypto::key_image> &pkis, crypto::key_image &ki)
+  //----------------------------------------------------------------------------------------------------------------------
+  bool generate_multisig_composite_key_image(const cryptonote::account_keys &keys,
+    const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddresses,
+    const crypto::public_key &out_key,
+    const crypto::public_key &tx_public_key,
+    const std::vector<crypto::public_key> &additional_tx_public_keys,
+    std::size_t real_output_index,
+    const std::vector<crypto::key_image> &pkis,
+    crypto::key_image &ki)
   {
+    // create a multisig partial key image
+    // KI_partial = ([view key component] + [subaddress component] + [multisig privkeys]) * Hp(output one-time address)
+    // - the 'multisig priv keys' here are those held by the local account
+    // - later, we add in the components held by other participants
     cryptonote::keypair in_ephemeral;
     if (!cryptonote::generate_key_image_helper(keys, subaddresses, out_key, tx_public_key, additional_tx_public_keys, real_output_index, in_ephemeral, ki, keys.get_device()))
       return false;
     std::unordered_set<crypto::key_image> used;
-    for (size_t m = 0; m < keys.m_multisig_keys.size(); ++m)
+
+    // create a key image component for each of the local account's multisig private keys
+    for (std::size_t m = 0; m < keys.m_multisig_keys.size(); ++m)
     {
       crypto::key_image pki;
-      bool r = cryptonote::generate_multisig_key_image(keys, m, out_key, pki);
+      // pki = keys.m_multisig_keys[m] * Hp(out_key)
+      // pki = key image component
+      // out_key = one-time address of an output owned by the multisig group
+      bool r = generate_multisig_key_image(keys, m, out_key, pki);
       if (!r)
         return false;
+
+      // this KI component is 'used' because it was included in the partial key image 'ki' above
       used.insert(pki);
     }
+
+    // add the KI components from other participants to the partial KI
+    // if they not included yet
     for (const auto &pki: pkis)
     {
       if (used.find(pki) == used.end())
       {
+        // ignore components that have already been 'used'
         used.insert(pki);
+
+        // KI_partial = KI_partial + KI_component[...]
         rct::addKeys((rct::key&)ki, rct::ki2rct(ki), rct::ki2rct(pki));
       }
     }
+
+    // at the end, 'ki' will hold the true key image for our output if inputs were sufficient
+    // - if 'pkis' (the other participants' KI components) is missing some components
+    //   then 'ki' will not be complete
+
     return true;
   }
-  //-----------------------------------------------------------------
-  uint32_t multisig_rounds_required(uint32_t participants, uint32_t threshold)
-  {
-    CHECK_AND_ASSERT_THROW_MES(participants >= threshold, "participants must be greater or equal than threshold");
-    return participants - threshold + 1;
-  }
-}
+  //----------------------------------------------------------------------------------------------------------------------
+} //namespace multisig
