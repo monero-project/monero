@@ -233,7 +233,6 @@ namespace cryptonote
     bool prepare_multisig_main(const std::vector<std::string>& args, bool called_by_mms);
     bool make_multisig(const std::vector<std::string>& args);
     bool make_multisig_main(const std::vector<std::string>& args, bool called_by_mms);
-    bool finalize_multisig(const std::vector<std::string> &args);
     bool exchange_multisig_keys(const std::vector<std::string> &args);
     bool exchange_multisig_keys_main(const std::vector<std::string> &args, bool called_by_mms);
     bool export_multisig(const std::vector<std::string>& args);

@@ -1332,7 +1332,7 @@ MultisigState WalletImpl::multisig() const {
 string WalletImpl::getMultisigInfo() const {
     try {
         clearStatus();
-        return m_wallet->get_multisig_info();
+        return m_wallet->get_multisig_first_kex_msg();
     } catch (const exception& e) {
         LOG_ERROR("Error on generating multisig info: " << e.what());
         setStatusError(string(tr("Failed to get multisig info: ")) + e.what());
@@ -1341,7 +1341,7 @@ string WalletImpl::getMultisigInfo() const {
     return string();
 }
 
-string WalletImpl::makeMultisig(const vector<string>& info, uint32_t threshold) {
+string WalletImpl::makeMultisig(const vector<string>& info, const uint32_t threshold) {
     try {
         clearStatus();
 
@@ -1366,28 +1366,10 @@ std::string WalletImpl::exchangeMultisigKeys(const std::vector<std::string> &inf
         return m_wallet->exchange_multisig_keys(epee::wipeable_string(m_password), info);
     } catch (const exception& e) {
         LOG_ERROR("Error on exchanging multisig keys: " << e.what());
-        setStatusError(string(tr("Failed to make multisig: ")) + e.what());
+        setStatusError(string(tr("Failed to exchange multisig keys: ")) + e.what());
     }
 
     return string();
-}
-
-bool WalletImpl::finalizeMultisig(const vector<string>& extraMultisigInfo) {
-    try {
-        clearStatus();
-        checkMultisigWalletNotReady(m_wallet);
-
-        if (m_wallet->finalize_multisig(epee::wipeable_string(m_password), extraMultisigInfo)) {
-            return true;
-        }
-
-        setStatusError(tr("Failed to finalize multisig wallet creation"));
-    } catch (const exception& e) {
-        LOG_ERROR("Error on finalizing multisig wallet creation: " << e.what());
-        setStatusError(string(tr("Failed to finalize multisig wallet creation: ")) + e.what());
-    }
-
-    return false;
 }
 
 bool WalletImpl::exportMultisigImages(string& images) {

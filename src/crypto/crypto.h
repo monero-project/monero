@@ -64,6 +64,11 @@ namespace crypto {
     friend class crypto_ops;
   };
 
+  POD_CLASS public_key_memsafe : epee::mlocked<tools::scrubbed<public_key>> {
+    public_key_memsafe() = default;
+    public_key_memsafe(const public_key &original) { memcpy(this->data, original.data, 32); }
+  };
+
   using secret_key = epee::mlocked<tools::scrubbed<ec_scalar>>;
 
   POD_CLASS public_keyV {
@@ -100,7 +105,7 @@ namespace crypto {
   void random32_unbiased(unsigned char *bytes);
 
   static_assert(sizeof(ec_point) == 32 && sizeof(ec_scalar) == 32 &&
-    sizeof(public_key) == 32 && sizeof(secret_key) == 32 &&
+    sizeof(public_key) == 32 && sizeof(public_key_memsafe) == 32 && sizeof(secret_key) == 32 &&
     sizeof(key_derivation) == 32 && sizeof(key_image) == 32 &&
     sizeof(signature) == 64, "Invalid structure size");
 
@@ -310,9 +315,13 @@ namespace crypto {
 
   const extern crypto::public_key null_pkey;
   const extern crypto::secret_key null_skey;
+
+  inline bool operator<(const public_key &p1, const public_key &p2) { return memcmp(&p1, &p2, sizeof(public_key)) < 0; }
+  inline bool operator>(const public_key &p1, const public_key &p2) { return p2 < p1; }
 }
 
 CRYPTO_MAKE_HASHABLE(public_key)
 CRYPTO_MAKE_HASHABLE_CONSTANT_TIME(secret_key)
+CRYPTO_MAKE_HASHABLE_CONSTANT_TIME(public_key_memsafe)
 CRYPTO_MAKE_HASHABLE(key_image)
 CRYPTO_MAKE_COMPARABLE(signature)
