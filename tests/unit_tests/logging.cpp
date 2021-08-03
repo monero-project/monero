@@ -195,3 +195,9 @@ TEST(logging, multiline)
   cleanup();
 }
 
+TEST(logging, empty_configurations_throws)
+{
+    el::Logger log1("id1", nullptr);
+    const el::Configurations cfg;
+    EXPECT_ANY_THROW(log1.configure(cfg));
+}
