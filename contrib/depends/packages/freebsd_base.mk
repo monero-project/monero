@@ -12,8 +12,8 @@ endef
 
 define $(package)_build_cmds
   mkdir bin &&\
-  echo "exec /usr/bin/clang-8 -target x86_64-unknown-freebsd$($(package)_version) --sysroot=$(host_prefix)/native $$$$""@" > bin/clang-8 &&\
-  echo "exec /usr/bin/clang++-8 -target x86_64-unknown-freebsd$($(package)_version) --sysroot=$(host_prefix)/native $$$$""@" > bin/clang++-8 &&\
+  echo "#!/bin/sh\n\nexec /usr/bin/clang-8 -target x86_64-unknown-freebsd$($(package)_version) --sysroot=$(host_prefix)/native $$$$""@" > bin/clang-8 &&\
+  echo "#!/bin/sh\n\nexec /usr/bin/clang++-8 -target x86_64-unknown-freebsd$($(package)_version) --sysroot=$(host_prefix)/native $$$$""@" > bin/clang++-8 &&\
   chmod 755 bin/*
 endef
 
