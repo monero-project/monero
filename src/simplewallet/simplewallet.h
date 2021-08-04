@@ -289,6 +289,7 @@ namespace cryptonote
     bool on_empty_command();
     bool on_cancelled_command();
     void check_for_inactivity_lock(bool user);
+    std::string get_aux(const crypto::hash &txid);
 
     struct transfer_view
     {
@@ -305,6 +306,7 @@ namespace cryptonote
       std::set<uint32_t> index;
       std::string note;
       std::string unlocked;
+      std::string aux;
     };
     bool get_transfers(std::vector<std::string>& args_, std::vector<transfer_view>& transfers);
 

@@ -14972,4 +14972,39 @@ void wallet2::default_change_address(const std::string &address)
   m_default_change_address = std::make_pair(info.address, info.is_subaddress);
 }
 //----------------------------------------------------------------------------------------------------
+bool wallet2::get_aux_from_tx(const crypto::hash &txid, rct::key &aux)
+{
+  const auto i_masks = m_masks.find(txid);
+  if (i_masks == m_masks.end())
+    return false;
+  const auto i_confirmed = m_confirmed_txs.find(txid);
+  const auto i_unconfirmed = m_unconfirmed_txs.find(txid);
+  if (i_confirmed == m_confirmed_txs.end() && i_unconfirmed == m_unconfirmed_txs.end())
+    return false;
+
+  cryptonote::COMMAND_RPC_GET_TRANSACTIONS::request req = AUTO_VAL_INIT(req);
+  cryptonote::COMMAND_RPC_GET_TRANSACTIONS::response res = AUTO_VAL_INIT(res);
+  req.decode_as_json = false;
+  req.prune = false;
+  req.txs_hashes.push_back(epee::string_tools::pod_to_hex(txid));
+
+  {
+    const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};
+    req.client = get_client_signature();
+    bool r = epee::net_utils::invoke_http_json("/gettransactions", req, res, *m_http_client, rpc_timeout);
+    CHECK_AND_ASSERT_MES(r, false, "Failed to get transaction from daemon");
+    CHECK_AND_ASSERT_MES(res.txs.size() == req.txs_hashes.size(), false, "Failed to get transaction from daemon");
+  }
+
+  const COMMAND_RPC_GET_TRANSACTIONS::entry &e = res.txs[0];
+  cryptonote::blobdata bd;
+  CHECK_AND_ASSERT_MES(epee::string_tools::parse_hexstr_to_binbuff(e.as_hex, bd), false, "Failed to parse tx data");
+  cryptonote::transaction tx;
+  CHECK_AND_ASSERT_MES(cryptonote::parse_and_validate_tx_from_blob(bd, tx), false, "Invalid tx data");
+
+  aux = rct::get_aux(tx.rct_signatures, i_masks->second);
+
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
 }

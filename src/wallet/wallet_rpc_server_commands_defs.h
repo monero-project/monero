@@ -619,6 +619,7 @@ namespace wallet_rpc
       uint64_t fee;
       uint32_t dummy_outputs;
       std::string extra;
+      std::string aux;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(amount_in)
@@ -632,6 +633,7 @@ namespace wallet_rpc
         KV_SERIALIZE(fee)
         KV_SERIALIZE(dummy_outputs)
         KV_SERIALIZE(extra)
+        KV_SERIALIZE(aux)
       END_KV_SERIALIZE_MAP()
     };
 

@@ -634,7 +634,7 @@ namespace cryptonote
 
       rct::ctkeyV outSk;
       if (use_simple_rct)
-        tx.rct_signatures = rct::genRctSimple(rct::hash2rct(tx_prefix_hash), inSk, destinations, is_triptych, inamounts, outamounts, amount_in - amount_out, mixRing, amount_keys, msout ? &kLRki : NULL, msout, index, outSk, NULL, rct_config, hwdev);
+        tx.rct_signatures = rct::genRctSimple(rct::hash2rct(tx_prefix_hash), inSk, destinations, is_triptych, inamounts, outamounts, amount_in - amount_out, mixRing, amount_keys, msout ? &kLRki : NULL, msout, index, outSk, aux, rct_config, hwdev);
       else
         tx.rct_signatures = rct::genRct(rct::hash2rct(tx_prefix_hash), inSk, destinations, outamounts, mixRing, amount_keys, msout ? &kLRki[0] : NULL, msout, sources[0].real_output, outSk, rct_config, hwdev); // same index assumption
       memwipe(inSk.data(), inSk.size() * sizeof(rct::ctkey));
@@ -643,7 +643,7 @@ namespace cryptonote
 
       if (masks)
       {
-        masks->resize(outSk.size());
+        masks->reserve(outSk.size());
         for (const auto &e: outSk)
           masks->push_back(e.mask);
       }

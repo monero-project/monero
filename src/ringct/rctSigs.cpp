@@ -175,12 +175,17 @@ namespace rct {
       catch (...) { return false; }
     }
 
-    BulletproofPlus proveRangeBulletproofPlus(keyV &C, keyV &masks, const std::vector<uint64_t> &amounts, epee::span<const key> sk, const rct::aux_data_t *aux, hw::device &hwdev)
+    BulletproofPlus proveRangeBulletproofPlus(keyV &C, keyV &masks, const std::vector<uint64_t> &amounts, epee::span<const key> sk, rct::aux_data_t *aux, hw::device &hwdev)
     {
         CHECK_AND_ASSERT_THROW_MES(amounts.size() == sk.size(), "Invalid amounts/sk sizes");
         masks.resize(amounts.size());
         for (size_t i = 0; i < masks.size(); ++i)
             masks[i] = hwdev.genCommitmentMask(sk[i]);
+        if (aux)
+        {
+          aux->gamma = &masks;
+          aux->seed = make_aux_seed(masks[0], seed_type_range_proof);
+        }
         BulletproofPlus proof = bulletproof_plus_PROVE(amounts, masks, aux);
         CHECK_AND_ASSERT_THROW_MES(proof.V.size() == amounts.size(), "V does not have the expected size");
         C = proof.V;
@@ -1234,7 +1239,6 @@ namespace rct {
         if (kLRki && msout) {
           CHECK_AND_ASSERT_THROW_MES(kLRki->size() == inamounts.size(), "Mismatched kLRki/inamounts sizes");
         }
-        CHECK_AND_ASSERT_THROW_MES(!aux || rct_config.bp_version >= RCTTypeBulletproofPlus, "Aux data can only be embedded in BP+");
 
         rctSig rv;
         if (bulletproof_or_plus)
@@ -1268,6 +1272,8 @@ namespace rct {
         else
           rv.type = RCTTypeSimple;
 
+        CHECK_AND_ASSERT_THROW_MES(!aux || is_rct_bulletproof_plus(rv.type), "Aux data can only be embedded in BP+");
+
         rv.message = message;
         rv.outPk.resize(destinations.size());
         if (!bulletproof_or_plus)
@@ -1275,7 +1281,6 @@ namespace rct {
         rv.ecdhInfo.resize(destinations.size());
 
         size_t i;
-        keyV masks(destinations.size()); //sk mask..
         outSk.resize(destinations.size());
         for (i = 0; i < destinations.size(); i++) {
 
@@ -1315,11 +1320,7 @@ namespace rct {
                     {
                       rct::aux_data_t auxd;
                       if (aux)
-                      {
-                        auxd.gamma = &masks;
                         auxd.aux = *aux;
-                        auxd.seed = make_aux_seed(masks[0], seed_type_range_proof);
-                      }
                       rv.p.bulletproofs_plus.push_back(proveRangeBulletproofPlus(C, masks, outamounts, keys, aux ? &auxd : NULL, hwdev));
                     }
                     else
@@ -1363,11 +1364,7 @@ namespace rct {
                     {
                       rct::aux_data_t auxd;
                       if (aux)
-                      {
-                        auxd.gamma = &masks;
                         auxd.aux = *aux;
-                        auxd.seed = make_aux_seed(masks[0], seed_type_range_proof);
-                      }
                       rv.p.bulletproofs_plus.push_back(proveRangeBulletproofPlus(C, masks, batch_amounts, keys, aux ? &auxd : NULL, hwdev));
                     }
                     else
@@ -1900,5 +1897,17 @@ namespace rct {
             return signMultisigCLSAG(rv, indices, k, msout, secret_key);
         else
             return signMultisigMLSAG(rv, indices, k, msout, secret_key);
+    }
+
+    key get_aux(const rctSig &rv, const keyV &gamma)
+    {
+      CHECK_AND_ASSERT_THROW_MES(is_rct_bulletproof_plus(rv.type), "Aux may only be found in BP+");
+      CHECK_AND_ASSERT_THROW_MES(!gamma.empty(), "gamma is empty");
+      rct::aux_data_t aux;
+      aux.gamma = &gamma;
+      aux.seed = make_aux_seed(gamma[0], seed_type_range_proof);
+      CHECK_AND_ASSERT_THROW_MES(rv.p.bulletproofs_plus.size() == 1, "Unexpected amount of BP+");
+      CHECK_AND_ASSERT_THROW_MES(verBulletproofPlus(rv.p.bulletproofs_plus[0], &aux), "Failed to decode aux");
+      return aux.aux;
     }
 }

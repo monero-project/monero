@@ -1535,6 +1535,8 @@ private:
     bool import_key_images(signed_tx_set & signed_tx, size_t offset=0, bool only_selected_transfers=false);
     crypto::public_key get_tx_pub_key_from_received_outs(const tools::wallet2::transfer_details &td) const;
 
+    bool get_aux_from_tx(const crypto::hash &txid, rct::key &aux);
+
     void update_pool_state(std::vector<std::tuple<cryptonote::transaction, crypto::hash, bool>> &process_txs, bool refreshed = false);
     void process_pool_state(const std::vector<std::tuple<cryptonote::transaction, crypto::hash, bool>> &txs);
     void remove_obsolete_pool_txs(const std::vector<crypto::hash> &tx_hashes);

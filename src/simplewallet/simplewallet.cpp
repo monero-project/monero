@@ -8793,6 +8793,21 @@ static std::string get_human_readable_timespan(uint64_t seconds)
   return get_human_readable_timespan(std::chrono::seconds(seconds));
 }
 //----------------------------------------------------------------------------------------------------
+std::string simple_wallet::get_aux(const crypto::hash &txid)
+{
+  try
+  {
+    rct::key aux;
+    if (!m_wallet->get_aux_from_tx(txid, aux))
+      return "unknown";
+    return epee::string_tools::pod_to_hex(aux);
+  }
+  catch(...)
+  {
+    return "unknown";
+  }
+}
+//----------------------------------------------------------------------------------------------------
 // mutates local_args as it parses and consumes arguments
 bool simple_wallet::get_transfers(std::vector<std::string>& local_args, std::vector<transfer_view>& transfers)
 {
@@ -8917,7 +8932,8 @@ bool simple_wallet::get_transfers(std::vector<std::string>& local_args, std::vec
         {{destination, pd.m_amount}},
         {pd.m_subaddr_index.minor},
         note,
-        locked_msg
+        locked_msg,
+        ""
       });
     }
   }
@@ -8991,7 +9007,8 @@ bool simple_wallet::get_transfers(std::vector<std::string>& local_args, std::vec
           {{destination, pd.m_amount}},
           {pd.m_subaddr_index.minor},
           note + double_spend_note,
-          "locked"
+          "locked",
+          ""
         });
       }
     }
@@ -10691,6 +10708,7 @@ bool simple_wallet::show_transfer(const std::vector<std::string> &args)
       success_msg_writer() << "Fee: " << print_money(fee);
       success_msg_writer() << "Destinations: " << dests;
       success_msg_writer() << "Note: " << m_wallet->get_tx_note(txid);
+      success_msg_writer() << "Aux: " << get_aux(txid);
       return true;
     }
   }
@@ -10750,6 +10768,7 @@ bool simple_wallet::show_transfer(const std::vector<std::string> &args)
       success_msg_writer() << "Change: " << print_money(pd.m_change);
       success_msg_writer() << "Fee: " << print_money(fee);
       success_msg_writer() << "Note: " << m_wallet->get_tx_note(txid);
+      success_msg_writer() << "Aux: " << get_aux(txid);
       return true;
     }
   }

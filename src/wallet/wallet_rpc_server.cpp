@@ -1343,6 +1343,9 @@ namespace tools
         desc.fee = desc.amount_in - desc.amount_out;
         desc.unlock_time = cd.unlock_time;
         desc.extra = epee::to_hex::string({cd.extra.data(), cd.extra.size()});
+
+        if (cd.aux)
+          desc.aux = epee::string_tools::pod_to_hex(*cd.aux);
       }
     }
     catch (const std::exception &e)
