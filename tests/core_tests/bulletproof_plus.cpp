@@ -138,7 +138,7 @@ bool gen_bpp_tx_validation_base::generate_with(std::vector<test_event_entry>& ev
     subaddresses[miner_accounts[n].get_keys().m_account_address.m_spend_public_key] = {0,0};
     rct_txes.resize(rct_txes.size() + 1);
     const rct::key aux = rct::skGen();
-    bool r = construct_tx_and_get_tx_key(miner_accounts[n].get_keys(), subaddresses, sources, destinations, cryptonote::account_public_address{}, std::vector<uint8_t>(), rct_txes.back(), 0, tx_key, additional_tx_keys, &aux, true, rct_config[n]);
+    bool r = construct_tx_and_get_tx_key(miner_accounts[n].get_keys(), subaddresses, sources, destinations, cryptonote::account_public_address{}, std::vector<uint8_t>(), rct_txes.back(), 0, tx_key, additional_tx_keys, rct_config[n].bp_version == 0 || rct_config[n].bp_version >= 5 ? &aux : NULL, true, rct_config[n]);
     CHECK_AND_ASSERT_MES(r, false, "failed to construct transaction");
 
     if (post_tx && !post_tx(rct_txes.back(), n))
