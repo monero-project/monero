@@ -2255,6 +2255,14 @@ bool simple_wallet::net_stats(const std::vector<std::string> &args)
 {
   message_writer() << std::to_string(m_wallet->get_bytes_sent()) + tr(" bytes sent");
   message_writer() << std::to_string(m_wallet->get_bytes_received()) + tr(" bytes received");
+#ifdef JNI2P
+  auto i2p_router = m_wallet->get_i2p_router();
+  if (i2p_router)
+  {
+    auto writer = message_writer();
+    i2p_router->printStats(writer);
+  }
+#endif
   return true;
 }
 
@@ -9984,9 +9992,17 @@ bool simple_wallet::status(const std::vector<std::string> &args)
   uint64_t local_height = m_wallet->get_blockchain_current_height();
   uint32_t version = 0;
   bool ssl = false;
+  std::string extra;
+
+#ifdef JNI2P
+  auto i2p_router = m_wallet->get_i2p_router();
+  if (i2p_router)
+    extra += ", Embedded I2P: " + i2p_router->status();
+#endif
+
   if (!m_wallet->check_connection(&version, &ssl))
   {
-    success_msg_writer() << "Refreshed " << local_height << "/?, no daemon connected";
+    success_msg_writer() << "Refreshed " << local_height << "/?, no daemon connected" << extra;
     return true;
   }
 
@@ -9996,11 +10012,11 @@ bool simple_wallet::status(const std::vector<std::string> &args)
   {
     bool synced = local_height == bc_height;
     success_msg_writer() << "Refreshed " << local_height << "/" << bc_height << ", " << (synced ? "synced" : "syncing")
-        << ", daemon RPC v" << get_version_string(version) << ", " << (ssl ? "SSL" : "no SSL");
+        << ", daemon RPC v" << get_version_string(version) << ", " << (ssl ? "SSL" : "no SSL") << extra;
   }
   else
   {
-    fail_msg_writer() << "Refreshed " << local_height << "/?, daemon connection error";
+    fail_msg_writer() << "Refreshed " << local_height << "/?, daemon connection error" << extra;
   }
   return true;
 }

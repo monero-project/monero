@@ -283,6 +283,10 @@ struct options {
   const command_line::arg_descriptor<std::vector<std::string>> daemon_ssl_allowed_fingerprints = {"daemon-ssl-allowed-fingerprints", tools::wallet2::tr("List of valid fingerprints of allowed RPC servers")};
   const command_line::arg_descriptor<bool> daemon_ssl_allow_any_cert = {"daemon-ssl-allow-any-cert", tools::wallet2::tr("Allow any SSL certificate from the daemon"), false};
   const command_line::arg_descriptor<bool> daemon_ssl_allow_chained = {"daemon-ssl-allow-chained", tools::wallet2::tr("Allow user (via --daemon-ssl-ca-certificates) chain certificates"), false};
+#ifdef JNI2P
+  const command_line::arg_descriptor<bool> embedded_i2p = {"embedded-i2p", tools::wallet2::tr("Use embedded i2p router"), false};
+  const command_line::arg_descriptor<std::vector<std::string>> embedded_i2p_args = {"embedded-i2p-args", tools::wallet2::tr("List of I2P arguments")};
+#endif
   const command_line::arg_descriptor<bool> testnet = {"testnet", tools::wallet2::tr("For testnet. Daemon must also be launched with --testnet flag"), false};
   const command_line::arg_descriptor<bool> stagenet = {"stagenet", tools::wallet2::tr("For stagenet. Daemon must also be launched with --stagenet flag"), false};
   const command_line::arg_descriptor<std::string, false, true, 2> shared_ringdb_dir = {
@@ -489,6 +493,23 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
   }
 
   std::unique_ptr<tools::wallet2> wallet(new tools::wallet2(nettype, kdf_rounds, unattended));
+
+#ifdef JNI2P
+  auto embedded_i2p = command_line::get_arg(vm, opts.embedded_i2p);
+  THROW_WALLET_EXCEPTION_IF(embedded_i2p && use_proxy,
+    tools::error::wallet_internal_error, tools::wallet2::tr("Embedded I2P is incompatible with --proxy"));
+
+  if (embedded_i2p)
+  {
+    jni2p::RouterProperties defaults;
+    defaults["i2p.dir.base"] = (boost::filesystem::path{epee::string_tools::get_current_module_folder()} / "i2p-zero" / "lib" / "runtime" / "i2p.base").string();
+    // TODO wallet dir ?
+    // defaults["i2p.dir.config"] = (boost::filesystem::path{wallet_dir} / "i2p.config").string();
+    auto router = new jni2p::Router(command_line::get_arg(vm, opts.embedded_i2p_args), defaults);
+    wallet->set_i2p_router(router);
+  }
+#endif
+
   if (!wallet->init(std::move(daemon_address), std::move(login), std::move(proxy), 0, *trusted_daemon, std::move(ssl_options)))
   {
     THROW_WALLET_EXCEPTION(tools::error::wallet_internal_error, tools::wallet2::tr("failed to initialize the wallet"));
@@ -1265,6 +1286,10 @@ void wallet2::init_options(boost::program_options::options_description& desc_par
   command_line::add_arg(desc_params, opts.no_dns);
   command_line::add_arg(desc_params, opts.offline);
   command_line::add_arg(desc_params, opts.extra_entropy);
+#ifdef JNI2P
+  command_line::add_arg(desc_params, opts.embedded_i2p);
+  command_line::add_arg(desc_params, opts.embedded_i2p_args);
+#endif
 }
 
 std::pair<std::unique_ptr<wallet2>, tools::password_container> wallet2::make_from_json(const boost::program_options::variables_map& vm, bool unattended, const std::string& json_file, const std::function<boost::optional<tools::password_container>(const char *, bool)> &password_prompter)
@@ -1344,6 +1369,16 @@ bool wallet2::set_proxy(const std::string &address)
 bool wallet2::init(std::string daemon_address, boost::optional<epee::net_utils::http::login> daemon_login, const std::string &proxy_address, uint64_t upper_transaction_weight_limit, bool trusted_daemon, epee::net_utils::ssl_options_t ssl_options)
 {
   CHECK_AND_ASSERT_MES(set_proxy(proxy_address), false, "failed to set proxy address");
+
+#ifdef JNI2P
+  if (m_i2p_router)
+  {
+    MGINFO("Creating client tunnel to " + daemon_address);
+    daemon_address = m_i2p_router->connectTo(daemon_address);
+    MGINFO("Binding I2P tunnel on " + daemon_address);
+  }
+#endif
+
   m_checkpoints.init_default_checkpoints(m_nettype);
   m_is_initialized = true;
   m_upper_transaction_weight_limit = upper_transaction_weight_limit;
@@ -3745,6 +3780,10 @@ void wallet2::detach_blockchain(uint64_t height, std::map<std::pair<uint64_t, ui
 //----------------------------------------------------------------------------------------------------
 bool wallet2::deinit()
 {
+#ifdef JNI2P
+  if (m_i2p_router)
+    m_i2p_router->stop();
+#endif
   m_is_initialized=false;
   unlock_keys_file();
   m_account.deinit();

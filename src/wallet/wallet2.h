@@ -43,6 +43,9 @@
 #include <boost/thread/lock_guard.hpp>
 #include <atomic>
 #include <random>
+#ifdef JNI2P
+#include <jni2p.h>
+#endif
 
 #include "include_base_utils.h"
 #include "cryptonote_basic/account.h"
@@ -1558,6 +1561,11 @@ private:
 
     static std::string get_default_daemon_address() { CRITICAL_REGION_LOCAL(default_daemon_address_lock); return default_daemon_address; }
 
+#ifdef JNI2P
+    void set_i2p_router(jni2p::Router* router) { m_i2p_router.reset(router); }
+    jni2p::Router* get_i2p_router(void) { return m_i2p_router.get(); }
+#endif
+
   private:
     /*!
      * \brief  Stores wallet information to wallet file.
@@ -1813,6 +1821,10 @@ private:
 
     static boost::mutex default_daemon_address_lock;
     static std::string default_daemon_address;
+
+#ifdef JNI2P
+    std::unique_ptr<jni2p::Router> m_i2p_router;
+#endif
   };
 }
 BOOST_CLASS_VERSION(tools::wallet2, 29)
