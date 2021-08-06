@@ -1130,6 +1130,18 @@ if(SODIUM_LIBRARY)
   set(ZMQ_LIB "${ZMQ_LIB};${SODIUM_LIBRARY}")
 endif()
 
+# TODO OFF by default
+option(WITH_JNI2P "Include embedded Java I2P router" ON)
+if (WITH_JNI2P)
+  set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
+  set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+  set(CMAKE_INSTALL_RPATH "$ORIGIN/i2p-zero/lib/runtime/lib/server")
+  add_subdirectory(external/jni2p)
+  include_directories(${JNI2P_INCLUDE_DIRS})
+  list(APPEND EXTRA_LIBRARIES ${JNI2P_LIBRARIES})
+  add_definitions("-DJNI2P=1")
+endif()
+
 include(external/supercop/functions.cmake) # place after setting flags and before src directory inclusion
 add_subdirectory(contrib)
 add_subdirectory(src)
