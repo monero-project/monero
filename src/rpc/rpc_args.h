@@ -68,6 +68,10 @@ namespace cryptonote
       const command_line::arg_descriptor<bool> rpc_ssl_allow_chained;
       const command_line::arg_descriptor<bool> rpc_ssl_allow_any_cert;
       const command_line::arg_descriptor<bool> disable_rpc_ban;
+#ifdef JNI2P
+      const command_line::arg_descriptor<std::string> rpc_i2p_key_path;
+      const command_line::arg_descriptor<std::vector<std::string>> embedded_i2p_args;
+#endif
     };
 
     // `allow_any_cert` bool toggles `--rpc-ssl-allow-any-cert` configuration
@@ -91,5 +95,9 @@ namespace cryptonote
     boost::optional<tools::login> login; // currently `boost::none` if unspecified by user
     epee::net_utils::ssl_options_t ssl_options = epee::net_utils::ssl_support_t::e_ssl_support_enabled;
     bool disable_rpc_ban = false;
+#ifdef JNI2P
+    std::string rpc_i2p_key_path;
+    std::vector<std::string> embedded_i2p_args;
+#endif
   };
 }

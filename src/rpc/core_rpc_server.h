@@ -43,6 +43,9 @@
 #include "p2p/net_node.h"
 #include "cryptonote_protocol/cryptonote_protocol_handler.h"
 #include "rpc_payment.h"
+#ifdef JNI2P
+#include <jni2p.h>
+#endif
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "daemon.rpc"
@@ -262,6 +265,10 @@ namespace cryptonote
     bool on_rpc_access_account(const COMMAND_RPC_ACCESS_ACCOUNT::request& req, COMMAND_RPC_ACCESS_ACCOUNT::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx = NULL);
     //-----------------------
 
+#ifdef JNI2P
+    jni2p::Router* get_i2p_router(void) { return m_i2p_router.get();}
+#endif
+
 private:
     bool check_core_busy();
     bool check_core_ready();
@@ -298,6 +305,9 @@ private:
     std::unique_ptr<rpc_payment> m_rpc_payment;
     bool disable_rpc_ban;
     bool m_rpc_payment_allow_free_loopback;
+#ifdef JNI2P
+    std::unique_ptr<jni2p::Router> m_i2p_router;
+#endif
   };
 }
 

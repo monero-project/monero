@@ -540,6 +540,12 @@ bool t_rpc_command_executor::show_status() {
     ;
   }
 
+#ifdef JNI2P
+  auto i2p_router = m_rpc_server->get_i2p_router();
+  if (i2p_router)
+    str << ", Embedded I2P: " << i2p_router->status();
+#endif
+
   tools::success_msg_writer() << str.str();
 
   return true;
@@ -719,6 +725,14 @@ bool t_rpc_command_executor::print_net_stats()
       tools::fail_msg_writer() << make_error(fail_message, limit_res.status);
       return true;
     }
+#ifdef JNI2P
+    auto i2p_router = m_rpc_server->get_i2p_router();
+    if (i2p_router)
+    {
+      auto writer = tools::success_msg_writer();
+      i2p_router->printStats(writer);
+    }
+#endif
   }
 
   uint64_t seconds = (uint64_t)time(NULL) - net_stats_res.start_time;
