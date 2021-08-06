@@ -257,6 +257,20 @@ namespace cryptonote
   {
     if (m_rpc_payment)
       m_rpc_payment->store();
+#ifdef JNI2P
+    if (m_i2p_router)
+    {
+      try
+      {
+        MGINFO("Deinitializing I2P router...");
+        m_i2p_router->stop();
+      }
+      catch (...)
+      {
+        MFATAL("Failed to cleanly deinit I2P router");
+      }
+    }
+#endif
   }
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::init(
@@ -370,6 +384,30 @@ namespace cryptonote
         MFATAL("Failed to store HTTP SSL cert/key for " << (restricted ? "restricted " : "") << "RPC server: " << error.message());
       return !bool(error);
     }
+
+#ifdef JNI2P
+    if (!rpc_config->rpc_i2p_key_path.empty())
+    {
+      jni2p::RouterProperties defaults;
+      defaults["i2p.dir.base"] = (boost::filesystem::path{epee::string_tools::get_current_module_folder()} / "i2p-zero" / "lib" / "runtime" / "i2p.base").string();
+      defaults["i2p.dir.config"] = (boost::filesystem::path{data_dir} / "i2p.config").string();
+      try
+      {
+        MGINFO("Initializing I2P router (may take minutes)...");
+        m_i2p_router.reset(new jni2p::Router(rpc_config->embedded_i2p_args, defaults));
+        m_i2p_router->waitForRunning();
+        MGINFO("Initializing I2P tunnel (may take minutes)...");
+        auto i2p_addr = m_i2p_router->listen(rpc_config->rpc_i2p_key_path, port);
+        MGINFO("I2P server address: " + i2p_addr);
+      }
+      catch(const std::exception &e)
+      {
+        MFATAL(e.what());
+        return false;
+      }
+    }
+#endif
+
     return inited;
   }
   //------------------------------------------------------------------------------------------------------------------------------
