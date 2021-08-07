@@ -45,6 +45,9 @@ TEST(triptych, random)
     const size_t n = 2; // size base: N = n**m
     const size_t N_proofs = 2; // number of proofs with common keys to verify in a batch
 
+    const rct::key aux_data[N_proofs] = { rct::skGen(), rct::skGen() };
+    const rct::key seeds[N_proofs] = { rct::skGen(), rct::skGen() };
+
     // Ring sizes: N = n**m
     for (size_t m = 2; m <= 6; m++)
     {
@@ -86,7 +89,10 @@ TEST(triptych, random)
         // Build proofs
         for (size_t i = 0; i < N_proofs; i++)
         {
-            p.push_back(triptych_prove(M,P,C_offsets[i],i,r[i],s[i],n,m,messages[i]));
+            rct::aux_data_t aux;
+            aux.aux = aux_data[i];
+            aux.seed = seeds[i];
+            p.push_back(triptych_prove(M,P,C_offsets[i],i,r[i],s[i],n,m,messages[i], &aux));
         }
         for (TriptychProof &proof: p)
         {
@@ -94,7 +100,13 @@ TEST(triptych, random)
         }
 
         // Verify batch
-        ASSERT_TRUE(triptych_verify(M,P,C_offsets,proofs,n,m,messages));
+        std::vector<rct::aux_data_t> aux;
+        aux.resize(2);
+        for (size_t i = 0; i < N_proofs; ++i)
+          aux[i].seed = seeds[i];
+        ASSERT_TRUE(triptych_verify(M,P,C_offsets,proofs,n,m,messages, &aux));
+        for (size_t i = 0; i < N_proofs; ++i)
+          ASSERT_EQ(aux[i].aux, aux_data[i]);
     }
 }
 

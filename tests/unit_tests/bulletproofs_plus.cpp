@@ -172,7 +172,7 @@ TEST(bulletproofs_plus, aux_single)
 {
   rct::aux_data_t aux;
   rct::keyV gamma(1, rct::skGen());
-  aux.gamma = &gamma;
+  aux.gamma = gamma;
   aux.seed = rct::skGen();
   aux.aux = rct::skGen();
   rct::BulletproofPlus proof = bulletproof_plus_PROVE(7329838943733, gamma.front(), &aux);
@@ -196,7 +196,7 @@ TEST(bulletproofs_plus, aux_multi)
   for (size_t i = 0; i < 5; ++i)
   {
     gamma[i] = rct::keyV(1, rct::skGen());
-    aux[i].gamma = &gamma[i];
+    aux[i].gamma = gamma[i];
     aux[i].seed = rct::skGen();
     aux[i].aux = rct::skGen();
     proofs[i] = bulletproof_plus_PROVE(7329838943733 + i * 12934, gamma[i][0], &aux[i]);

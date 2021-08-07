@@ -336,11 +336,16 @@ namespace rct {
     };
 
     struct aux_data_t {
-      const rct::keyV *gamma;
+      rct::keyV gamma;
       rct::key seed;
       rct::key aux;
 
-      aux_data_t(): gamma(NULL) {}
+      BEGIN_SERIALIZE_OBJECT()
+        VERSION_FIELD(0)
+        FIELD(gamma)
+        FIELD(seed)
+        FIELD(aux)
+      END_SERIALIZE()
     };
 
     struct rctSigBase {

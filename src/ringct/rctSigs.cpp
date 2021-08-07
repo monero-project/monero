@@ -137,13 +137,25 @@ namespace
         return rct::TriptychProof{I, I, I, I, I, I, rct::keyV(XY_size, I), rct::keyV(XY_size, I), f, I, I, I};
     }
 
-    enum { seed_type_range_proof };
-    rct::key make_aux_seed(const rct::key &base, uint8_t type)
+    enum { seed_type_range_proof, seed_type_inputs };
+    rct::key make_aux_seed(const rct::key &base, uint32_t i, uint8_t type)
     {
-      char buf[sizeof(rct::key) + sizeof(type) + sizeof(config::HASH_KEY_AUX_SEED)];
+//#warning TODO - work out a suitble base for triptych
+//rct::key base = rct::INV_EIGHT;
+      static_assert(sizeof(config::HASH_KEY_AUX_SEED_RANGE_PROOF) == sizeof(config::HASH_KEY_AUX_SEED_INPUTS), "Incompatible HASH_KEY_AUX_SEED_*");
+      char buf[sizeof(rct::key) + sizeof(uint32_t) + sizeof(type) + sizeof(config::HASH_KEY_AUX_SEED_INPUTS)];
       memcpy(buf, &base, sizeof(base));
-      buf[sizeof(base)] = type;
-      memcpy(buf + sizeof(base) + 1, config::HASH_KEY_AUX_SEED, sizeof(config::HASH_KEY_AUX_SEED));
+      buf[sizeof(base)] = (i >> 24) & 0xff;
+      buf[sizeof(base) + 1] = (i >> 16) & 0xff;
+      buf[sizeof(base) + 2] = (i >> 8) & 0xff;
+      buf[sizeof(base) + 3] = i & 0xff;
+      buf[sizeof(base) + sizeof(uint32_t)] = type;
+      switch (type)
+      {
+        case seed_type_range_proof: memcpy(buf + sizeof(base) + 5, config::HASH_KEY_AUX_SEED_RANGE_PROOF, sizeof(config::HASH_KEY_AUX_SEED_RANGE_PROOF)); break;
+        case seed_type_inputs: memcpy(buf + sizeof(base) + 5, config::HASH_KEY_AUX_SEED_INPUTS, sizeof(config::HASH_KEY_AUX_SEED_INPUTS)); break;
+        default: CHECK_AND_ASSERT_THROW_MES(false, "Invalid seed type: " << (unsigned)type);
+      }
       return rct::hash2rct(cn_fast_hash(buf, sizeof(buf)));
     }
 }
@@ -175,17 +187,17 @@ namespace rct {
       catch (...) { return false; }
     }
 
-    BulletproofPlus proveRangeBulletproofPlus(keyV &C, keyV &masks, const std::vector<uint64_t> &amounts, epee::span<const key> sk, rct::aux_data_t *aux, hw::device &hwdev)
+    BulletproofPlus proveRangeBulletproofPlus(keyV &C, keyV &masks, const std::vector<uint64_t> &amounts, epee::span<const key> sk, const rct::aux_data_t *aux, hw::device &hwdev)
     {
         CHECK_AND_ASSERT_THROW_MES(amounts.size() == sk.size(), "Invalid amounts/sk sizes");
         masks.resize(amounts.size());
         for (size_t i = 0; i < masks.size(); ++i)
             masks[i] = hwdev.genCommitmentMask(sk[i]);
-        if (aux)
-        {
-          aux->gamma = &masks;
-          aux->seed = make_aux_seed(masks[0], seed_type_range_proof);
-        }
+        //if (aux)
+        //{
+          //aux->gamma = &masks;
+          //aux->seed = make_aux_seed(masks[0], 0, seed_type_range_proof);
+        //}
         BulletproofPlus proof = bulletproof_plus_PROVE(amounts, masks, aux);
         CHECK_AND_ASSERT_THROW_MES(proof.V.size() == amounts.size(), "V does not have the expected size");
         C = proof.V;
@@ -1057,7 +1069,7 @@ namespace rct {
         catch (...) { return false; }
     }
 
-    TriptychProof proveRctTriptych(const key &message, const ctkeyV &pubs, const ctkey &inSk, const key &a, const key &Cout, const multisig_kLRki *kLRki, key *mscout, key *mspout, unsigned int index, hw::device &hwdev) {
+    TriptychProof proveRctTriptych(const key &message, const ctkeyV &pubs, const ctkey &inSk, const key &a, const key &Cout, const multisig_kLRki *kLRki, key *mscout, key *mspout, unsigned int index, const aux_data_t *aux, hw::device &hwdev) {
         //setup vars
         size_t cols = pubs.size();
         CHECK_AND_ASSERT_THROW_MES(!kLRki, "Multisig is not supported for Triptych yet");
@@ -1076,15 +1088,16 @@ namespace rct {
 
         key s;
         sc_sub(s.bytes, inSk.mask.bytes, a.bytes);
-        return triptych_prove(M, P, Cout, index, inSk.dest, s, 2, log2i(pubs.size()), message);
+        return triptych_prove(M, P, Cout, index, inSk.dest, s, 2, log2i(pubs.size()), message, aux);
     }
 
-    bool verRctTriptych(const key &message, const TriptychProof &sig, const ctkeyV & pubs, const key & C_offset)
+    bool verRctTriptych(const key &message, const TriptychProof &sig, const ctkeyV & pubs, const key & C_offset, rct::aux_data_t *aux)
     {
       try
       {
         std::vector<key> M, P, C_offsets, messages;
         std::vector<const TriptychProof*> sigs;
+        std::vector<aux_data_t> auxs;
         for (const auto &e: pubs)
         {
           M.push_back(e.dest);
@@ -1093,7 +1106,13 @@ namespace rct {
         sigs.push_back(&sig);
         C_offsets.push_back(C_offset);
         messages.push_back(message);
-        return triptych_verify(M, P, C_offsets, sigs, 2, log2i(pubs.size()), messages);
+        if (aux)
+          auxs.push_back(*aux);
+        if (!triptych_verify(M, P, C_offsets, sigs, 2, log2i(pubs.size()), messages, aux ? &auxs : NULL))
+          return false;
+        if (aux)
+          *aux = auxs[0];
+        return true;
       }
       catch (...) { return false; }
     }
@@ -1222,7 +1241,7 @@ namespace rct {
     
     //RCT simple    
     //for post-rct only
-    rctSig genRctSimple(const key &message, const ctkeyV & inSk, const keyV & destinations, const std::vector<bool> &is_triptych, const vector<xmr_amount> &inamounts, const vector<xmr_amount> &outamounts, xmr_amount txnFee, const ctkeyM & mixRing, const keyV &amount_keys, const std::vector<multisig_kLRki> *kLRki, multisig_out *msout, const std::vector<unsigned int> & index, ctkeyV &outSk, const rct::key *aux, const RCTConfig &rct_config, hw::device &hwdev) {
+    rctSig genRctSimple(const key &message, const ctkeyV & inSk, const keyV & destinations, const std::vector<bool> &is_triptych, const vector<xmr_amount> &inamounts, const vector<xmr_amount> &outamounts, xmr_amount txnFee, const ctkeyM & mixRing, const keyV &amount_keys, const std::vector<multisig_kLRki> *kLRki, multisig_out *msout, const std::vector<unsigned int> & index, ctkeyV &outSk, const rct::aux_data_t *aux, const RCTConfig &rct_config, hw::device &hwdev) {
         PERF_TIMER(genRctSimple);
         const bool bulletproof_or_plus = rct_config.range_proof_type > RangeProofBorromean;
         CHECK_AND_ASSERT_THROW_MES(inamounts.size() > 0, "Empty inamounts");
@@ -1318,10 +1337,7 @@ namespace rct {
                     const epee::span<const key> keys{&amount_keys[0], amount_keys.size()};
                     if (plus)
                     {
-                      rct::aux_data_t auxd;
-                      if (aux)
-                        auxd.aux = *aux;
-                      rv.p.bulletproofs_plus.push_back(proveRangeBulletproofPlus(C, masks, outamounts, keys, aux ? &auxd : NULL, hwdev));
+                      rv.p.bulletproofs_plus.push_back(proveRangeBulletproofPlus(C, masks, outamounts, keys, NULL, hwdev));
                     }
                     else
                       rv.p.bulletproofs.push_back(proveRangeBulletproof(C, masks, outamounts, keys, hwdev));
@@ -1362,10 +1378,10 @@ namespace rct {
                     const epee::span<const key> keys{&amount_keys[amounts_proved], batch_size};
                     if (plus)
                     {
-                      rct::aux_data_t auxd;
-                      if (aux)
-                        auxd.aux = *aux;
-                      rv.p.bulletproofs_plus.push_back(proveRangeBulletproofPlus(C, masks, batch_amounts, keys, aux ? &auxd : NULL, hwdev));
+                      //rct::aux_data_t auxd;
+                      //if (aux)
+                        //auxd.aux = *aux;
+                      rv.p.bulletproofs_plus.push_back(proveRangeBulletproofPlus(C, masks, batch_amounts, keys, aux, hwdev));
                     }
                     else
                       rv.p.bulletproofs.push_back(proveRangeBulletproof(C, masks, batch_amounts, keys, hwdev));
@@ -1437,7 +1453,16 @@ namespace rct {
                     if (inSk[i].dest == rct::zero())
                         rv.p.triptych[i] = make_dummy_triptych(rv.mixRing[i].size());
                     else
-                        rv.p.triptych[i] = proveRctTriptych(full_message, rv.mixRing[i], inSk[i], a[i], pseudoOuts[i], kLRki ? &(*kLRki)[i]: NULL, msout ? &msout->c[i] : NULL, msout ? &msout->mu_p[i] : NULL, index[i], hwdev);
+                    {
+                        //rct::aux_data_t auxd;
+                        //if (aux)
+                        //{
+                            //auxd.aux = *aux;
+//#warning TODO
+                            //auxd.seed = make_aux_seed(INV_EIGHT, i, seed_type_inputs);
+                        //}
+                        rv.p.triptych[i] = proveRctTriptych(full_message, rv.mixRing[i], inSk[i], a[i], pseudoOuts[i], kLRki ? &(*kLRki)[i]: NULL, msout ? &msout->c[i] : NULL, msout ? &msout->mu_p[i] : NULL, index[i], aux, hwdev);
+                    }
                 }
                 else
                     rv.p.triptych[i] = proveRctCLSAGSimple(full_message, rv.mixRing[i], inSk[i], a[i], pseudoOuts[i], kLRki ? &(*kLRki)[i]: NULL, msout ? &msout->c[i] : NULL, msout ? &msout->mu_p[i] : NULL, index[i], hwdev);
@@ -1720,7 +1745,7 @@ namespace rct {
               if (is_rct_triptych(rv.type))
               {
                   if (rv.p.triptych[i].type() == typeid(rct::TriptychProof))
-                      results[i] = verRctTriptych(message, boost::get<rct::TriptychProof>(rv.p.triptych[i]), rv.mixRing[i], pseudoOuts[i]);
+                      results[i] = verRctTriptych(message, boost::get<rct::TriptychProof>(rv.p.triptych[i]), rv.mixRing[i], pseudoOuts[i], NULL);
                   else if (rv.p.triptych[i].type() == typeid(rct::clsag))
                       results[i] = verRctCLSAGSimple(message, boost::get<rct::clsag>(rv.p.triptych[i]), rv.mixRing[i], pseudoOuts[i]);
                   else { MERROR("Invalid post-triptych signature type"); results[i] = false; }
@@ -1827,22 +1852,6 @@ namespace rct {
       return decodeRctSimple(rv, sk, i, mask, hwdev);
     }
 
-    void decodeRctSimple(const rctSig &rv, const rct::keyV &masks, rct::key &aux)
-    {
-      aux = rct::zero();
-      if (rct::is_rct_bulletproof_plus(rv.type))
-      {
-        aux_data_t auxd;
-        auxd.gamma = &masks;
-        auxd.seed = make_aux_seed(masks[0], seed_type_range_proof);
-        // assumes only one bulletproof, which is currently consensus
-        if (rv.p.bulletproofs_plus.size() != 1)
-          MERROR("Expected one BP+, got " << rv.p.bulletproofs_plus.size());
-        if (verBulletproofPlus(rv.p.bulletproofs_plus[0], &auxd))
-          aux = auxd.aux;
-      }
-    }
-
     bool signMultisigMLSAG(rctSig &rv, const std::vector<unsigned int> &indices, const keyV &k, const multisig_out &msout, const key &secret_key) {
         CHECK_AND_ASSERT_MES(rv.type == RCTTypeFull || rv.type == RCTTypeSimple || rv.type == RCTTypeBulletproof || rv.type == RCTTypeBulletproof2,
             false, "unsupported rct type");
@@ -1899,15 +1908,33 @@ namespace rct {
             return signMultisigMLSAG(rv, indices, k, msout, secret_key);
     }
 
-    key get_aux(const rctSig &rv, const keyV &gamma)
+/*
+    key get_aux(const rctSig &rv, const keyV &gamma, aux_data_t *aux)
     {
       CHECK_AND_ASSERT_THROW_MES(is_rct_bulletproof_plus(rv.type), "Aux may only be found in BP+");
       CHECK_AND_ASSERT_THROW_MES(!gamma.empty(), "gamma is empty");
-      rct::aux_data_t aux;
-      aux.gamma = &gamma;
-      aux.seed = make_aux_seed(gamma[0], seed_type_range_proof);
+      //rct::aux_data_t aux;
+      //aux.gamma = &gamma;
+      //aux.seed = make_aux_seed(gamma[0], 0, seed_type_range_proof);
       CHECK_AND_ASSERT_THROW_MES(rv.p.bulletproofs_plus.size() == 1, "Unexpected amount of BP+");
-      CHECK_AND_ASSERT_THROW_MES(verBulletproofPlus(rv.p.bulletproofs_plus[0], &aux), "Failed to decode aux");
+      CHECK_AND_ASSERT_THROW_MES(verBulletproofPlus(rv.p.bulletproofs_plus[0], aux), "Failed to decode aux");
       return aux.aux;
+    }
+*/
+
+    bool get_aux(const rctSig &rv, const rct::key &message, /*const rct::key &base,*/ size_t i, aux_data_t *aux)
+    {
+      CHECK_AND_ASSERT_MES(aux, false, "missing aux");
+      CHECK_AND_ASSERT_MES(is_rct_triptych(rv.type), false, "Aux may only be found in Triptych proofs");
+      CHECK_AND_ASSERT_MES(i < rv.p.triptych.size(), false, "Triptych index out of range");
+      //rct::aux_data_t aux;
+      //aux.gamma = NULL;
+      //aux.seed = make_aux_seed(base, i, seed_type_inputs);
+      const bool bulletproof_or_plus = rct::is_rct_bulletproof(rv.type) || rct::is_rct_bulletproof_plus(rv.type);
+      const keyV &pseudoOuts = bulletproof_or_plus ? rv.p.pseudoOuts : rv.pseudoOuts;
+      CHECK_AND_ASSERT_MES(i < pseudoOuts.size(), false, "pseudoOuts not found");
+      CHECK_AND_ASSERT_MES(verRctTriptych(message, boost::get<rct::TriptychProof>(rv.p.triptych[i]), rv.mixRing[i], pseudoOuts[i], aux), false, "Failed to decode aux");
+      //return aux.aux;
+      return true;
     }
 }

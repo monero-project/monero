@@ -9362,9 +9362,17 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
   std::vector<crypto::secret_key> additional_tx_keys;
   rct::multisig_out msout;
   rct::keyV masks;
+  rct::aux_data_t auxd;
+  if (aux)
+  {
+#warning TODO
+    //auxd.gamma = NULL;
+    auxd.seed = rct::INV_EIGHT;
+    auxd.aux = *aux;
+  }
   LOG_PRINT_L2("constructing tx");
   auto sources_copy = sources;
-  bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), m_subaddresses, sources, splitted_dsts, change_dts.addr, extra, tx, unlock_time, tx_key, additional_tx_keys, aux, true, rct_config, m_multisig ? &msout : NULL, &masks);
+  bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), m_subaddresses, sources, splitted_dsts, change_dts.addr, extra, tx, unlock_time, tx_key, additional_tx_keys, aux ? &auxd : NULL, true, rct_config, m_multisig ? &msout : NULL, &masks);
   LOG_PRINT_L2("constructed tx, r="<<r);
   THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sources, dsts, unlock_time, m_nettype);
   THROW_WALLET_EXCEPTION_IF(upper_transaction_weight_limit <= get_transaction_weight(tx), error::tx_too_big, tx, upper_transaction_weight_limit);
@@ -9409,7 +9417,7 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
         LOG_PRINT_L2("Creating supplementary multisig transaction");
         cryptonote::transaction ms_tx;
         auto sources_copy_copy = sources_copy;
-        bool r = cryptonote::construct_tx_with_tx_key(m_account.get_keys(), m_subaddresses, sources_copy_copy, splitted_dsts, change_dts.addr, extra, ms_tx, unlock_time,tx_key, additional_tx_keys, aux, true, rct_config, &msout, false);
+        bool r = cryptonote::construct_tx_with_tx_key(m_account.get_keys(), m_subaddresses, sources_copy_copy, splitted_dsts, change_dts.addr, extra, ms_tx, unlock_time,tx_key, additional_tx_keys, aux ? &auxd : NULL, true, rct_config, &msout, false);
         LOG_PRINT_L2("constructed tx, r="<<r);
         THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sources, splitted_dsts, unlock_time, m_nettype);
         THROW_WALLET_EXCEPTION_IF(upper_transaction_weight_limit <= get_transaction_weight(tx), error::tx_too_big, tx, upper_transaction_weight_limit);
@@ -9452,7 +9460,7 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
   ptx.construction_data.selected_transfers = ptx.selected_transfers;
   ptx.construction_data.extra = tx.extra;
   if (aux)
-    ptx.construction_data.aux = *aux;
+    ptx.construction_data.aux = auxd;
   else
     ptx.construction_data.aux = boost::none;
   ptx.construction_data.unlock_time = unlock_time;
@@ -15002,9 +15010,87 @@ bool wallet2::get_aux_from_tx(const crypto::hash &txid, rct::key &aux)
   cryptonote::transaction tx;
   CHECK_AND_ASSERT_MES(cryptonote::parse_and_validate_tx_from_blob(bd, tx), false, "Invalid tx data");
 
-  aux = rct::get_aux(tx.rct_signatures, i_masks->second);
 
-  return true;
+/*
+  auto &rv = tx.rct_signatures;
+
+  // we need the output keys in order to decode the aux data
+  COMMAND_RPC_GET_OUTPUTS_BIN::request req = AUTO_VAL_INIT(chunk_req);
+  COMMAND_RPC_GET_OUTPUTS_BIN::response daemon_resp = AUTO_VAL_INIT(chunk_daemon_resp);
+  for (const auto &vin: tx.vin)
+  {
+    if (vin.type() != typeid(cryptonote::txin_to_key))
+      continue;
+    boost::get<cryptonote::txin_to_key>(vin).key_offsets
+    }
+  }
+
+    PERF_TIMER_START(get_outs_bin);
+    size_t offset = 0;
+    while (offset < req.outputs.size())
+    {
+      static const size_t chunk_size = 1000;
+      COMMAND_RPC_GET_OUTPUTS_BIN::request chunk_req = AUTO_VAL_INIT(chunk_req);
+      COMMAND_RPC_GET_OUTPUTS_BIN::response chunk_daemon_resp = AUTO_VAL_INIT(chunk_daemon_resp);
+      chunk_req.get_txid = false;
+      for (size_t i = 0; i < std::min<size_t>(req.outputs.size() - offset, chunk_size); ++i)
+        chunk_req.outputs.push_back(req.outputs[offset + i]);
+
+      const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};
+      uint64_t pre_call_credits = m_rpc_payment_state.credits;
+      chunk_req.client = get_client_signature();
+      bool r = epee::net_utils::invoke_http_bin("/get_outs.bin", chunk_req, chunk_daemon_resp, *m_http_client, rpc_timeout);
+      THROW_ON_RPC_RESPONSE_ERROR(r, {}, chunk_daemon_resp, "get_outs.bin", error::get_outs_error, get_rpc_status(chunk_daemon_resp.status));
+      THROW_WALLET_EXCEPTION_IF(chunk_daemon_resp.outs.size() != chunk_req.outputs.size(), error::wallet_internal_error,
+        "daemon returned wrong response for get_outs.bin, wrong amounts count = " +
+        std::to_string(chunk_daemon_resp.outs.size()) + ", expected " +  std::to_string(chunk_req.outputs.size()));
+      check_rpc_cost("/get_outs.bin", chunk_daemon_resp.credits, pre_call_credits, chunk_daemon_resp.outs.size() * COST_PER_OUT);
+
+      offset += chunk_size;
+      for (size_t i = 0; i < chunk_daemon_resp.outs.size(); ++i)
+        daemon_resp.outs.push_back(std::move(chunk_daemon_resp.outs[i]));
+    }
+    PERF_TIMER_STOP(get_outs_bin);
+  
+
+    CHECK_AND_ASSERT_MES(!pubkeys.empty() && !pubkeys[0].empty(), false, "empty pubkeys");
+    rv.mixRing.resize(pubkeys.size());
+    for (size_t n = 0; n < pubkeys.size(); ++n)
+    {
+      rv.mixRing[n].clear();
+      for (size_t m = 0; m < pubkeys[n].size(); ++m)
+      {
+        rv.mixRing[n].push_back(pubkeys[n][m]);
+      }
+    }
+*/
+
+
+  // Range proof aux
+  // aux = rct::get_aux(tx.rct_signatures, i_masks->second);
+
+  // Input aux
+  const rct::key message = rct::hash2rct(cryptonote::get_transaction_prefix_hash(tx));
+
+  const crypto::public_key pkey = get_tx_pub_key_from_extra(tx, 0);
+  const rct::key K = rct::scalarmultKey(rct::pk2rct(pkey), rct::sk2rct(get_account().get_keys().m_view_secret_key));
+  char buf[sizeof(K) + sizeof(config::HASH_KEY_TRIPTYCH_AUX_BASE)];
+  memcpy(buf, &K, sizeof(K));
+  memcpy(buf + sizeof(K), &config::HASH_KEY_TRIPTYCH_AUX_BASE, sizeof(config::HASH_KEY_TRIPTYCH_AUX_BASE));
+  rct::key base;
+  hash_to_scalar(base, buf, sizeof(buf));
+  for (size_t i = 0; i < tx.rct_signatures.p.triptych.size(); ++i)
+  {
+    rct::aux_data_t auxd;
+    if (rct::get_aux(tx.rct_signatures, message,/* base,*/ i, &auxd))
+    {
+MGINFO("Found aux in triptych " << i << ": " << auxd.aux);
+      aux = auxd.aux;
+      //return true;
+    }
+  }
+
+  return false;
 }
 //----------------------------------------------------------------------------------------------------
 }

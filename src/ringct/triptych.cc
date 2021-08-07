@@ -42,6 +42,8 @@ extern "C"
 #include "cryptonote_config.h"
 #include "misc_log_ex.h"
 
+#include "string_tools.h"
+
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "triptych"
 
@@ -118,7 +120,42 @@ namespace rct
 
         CHECK_AND_ASSERT_THROW_MES(!(transcript == ZERO), "Transcript challenge must be nonzero!");
     }
-    
+
+    static key aux_hash_to_scalar(const rct::key &seed, const keyV &M, const keyV &P, const key &J, const key &K, const char *magic)
+    {
+      const size_t len = strlen(magic);
+      CHECK_AND_ASSERT_THROW_MES(len == 2, "Bad magic size");
+      char buf[sizeof(key) * (1 + M.size() + P.size() + 2) + 2 * sizeof(uint32_t) + 2], *ptr = buf;
+      memcpy(ptr, &seed, sizeof(seed));
+      ptr += sizeof(seed);
+      *ptr++ = (M.size() >> 24) & 0xff;
+      *ptr++ = (M.size() >> 16) & 0xff;
+      *ptr++ = (M.size() >> 8) & 0xff;
+      *ptr++ = (M.size() >> 0) & 0xff;
+      for (const key &m: M)
+      {
+        memcpy(ptr, &m, sizeof(m));
+        ptr += sizeof(m);
+      }
+      *ptr++ = (P.size() >> 24) & 0xff;
+      *ptr++ = (P.size() >> 16) & 0xff;
+      *ptr++ = (P.size() >> 8) & 0xff;
+      *ptr++ = (P.size() >> 0) & 0xff;
+      for (const key &p: P)
+      {
+        memcpy(ptr, &p, sizeof(p));
+        ptr += sizeof(p);
+      }
+      memcpy(ptr, &J, sizeof(J));
+      ptr += sizeof(J);
+      memcpy(ptr, &K, sizeof(K));
+      ptr += sizeof(K);
+      memcpy(ptr, magic, len);
+      crypto::hash hash = crypto::cn_fast_hash(buf, sizeof(buf));
+      sc_reduce32((unsigned char*)hash.data);
+      return rct::hash2rct(hash);
+    }
+
     // Helper function for scalar inversion
     static key sm(key y, int n, const key &x)
     {
@@ -296,10 +333,11 @@ namespace rct
     }
 
     // Generate a Triptych proof
-    TriptychProof triptych_prove(const keyV &M, const keyV &P, const key &C_offset, const size_t l, const key &r, const key &s, const size_t n, const size_t m, const key &message)
+    TriptychProof triptych_prove(const keyV &M, const keyV &P, const key &C_offset, const size_t l, const key &r, const key &s, const size_t n, const size_t m, const key &message, const aux_data_t *aux)
     {
         key temp,temp2;
 
+if (aux) MGINFO("Proving with aux " << aux->aux << " and seed " << aux->seed);
         CHECK_AND_ASSERT_THROW_MES(n > 1, "Must have n > 1!");
         CHECK_AND_ASSERT_THROW_MES(m > 1, "Must have m > 1!");
 
@@ -334,8 +372,19 @@ namespace rct
         // Matrix masks
         key rA = skGen();
         key rB = skGen();
-        key rC = skGen();
-        key rD = skGen();
+        key rC, rD;
+        if (aux)
+        {
+          const rct::key K8 = rct::scalarmultKey(proof.K, INV_EIGHT);
+          rC = aux_hash_to_scalar(aux->seed, M, P, proof.J, K8, config::HASH_KEY_TRIPTYCH_AUX_rC);
+          rD = aux_hash_to_scalar(aux->seed, M, P, proof.J, K8, config::HASH_KEY_TRIPTYCH_AUX_rD);
+          sc_add(rD.bytes, rD.bytes, aux->aux.bytes);
+        }
+        else
+        {
+          rC = skGen();
+          rD = skGen();
+        }
 
         // Commit to zero-sum values
         keyM a = keyMInit(n,m);
@@ -555,12 +604,13 @@ namespace rct
     }
 
     // Verify a batch of Triptych proofs with common input keys
-    bool triptych_verify(const keyV &M, const keyV &P, const keyV &C_offsets, const std::vector<const TriptychProof *> &proofs, const size_t n, const size_t m, const keyV &messages)
+    bool triptych_verify(const keyV &M, const keyV &P, const keyV &C_offsets, const std::vector<const TriptychProof *> &proofs, const size_t n, const size_t m, const keyV &messages, std::vector<aux_data_t> *aux)
     {
         // Global checks
         CHECK_AND_ASSERT_THROW_MES(n > 1, "Must have n > 1!");
         CHECK_AND_ASSERT_THROW_MES(m > 1, "Must have m > 1!");
         CHECK_AND_ASSERT_THROW_MES(m*n <= max_mn, "Size parameters are too large!");
+        CHECK_AND_ASSERT_THROW_MES(!aux || aux->size() == proofs.size(), "Incompatible proofs/aux");
 
         const size_t N = powi(n,m); // anonymity set size
 
@@ -705,6 +755,15 @@ namespace rct
                     sc_sub(f[j][0].bytes,f[j][0].bytes,f[j][i].bytes);
                 }
                 CHECK_AND_ASSERT_THROW_MES(!(f[j][0] == ZERO), "Proof matrix element should not be zero!");
+            }
+
+            if (aux)
+            {
+              auto &auxref = aux->at(i_proofs);
+
+              sc_mulsub(auxref.aux.bytes, aux_hash_to_scalar(auxref.seed, M, P, proof.J, proof.K, config::HASH_KEY_TRIPTYCH_AUX_rC).bytes, x.bytes, proof.zC.bytes);
+              sc_sub(auxref.aux.bytes, auxref.aux.bytes, aux_hash_to_scalar(auxref.seed, M, P, proof.J, proof.K, config::HASH_KEY_TRIPTYCH_AUX_rD).bytes);
+if (aux) MGINFO("Verifying with aux " << auxref.aux << " and seed " << auxref.seed);
             }
 
             // Matrix generators

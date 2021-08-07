@@ -545,7 +545,7 @@ namespace rct
             CHECK_AND_ASSERT_THROW_MES(is_reduced(sve), "Invalid sv input");
         for (const rct::key &g: gamma)
             CHECK_AND_ASSERT_THROW_MES(is_reduced(g), "Invalid gamma input");
-        CHECK_AND_ASSERT_THROW_MES(!aux || *aux->gamma == gamma, "Mismatched gamma");
+        CHECK_AND_ASSERT_THROW_MES(!aux || aux->gamma == gamma, "Mismatched gamma");
 
         init_exponents();
 
@@ -841,8 +841,6 @@ try_again:
         if (aux)
         {
           CHECK_AND_ASSERT_MES(proofs.size() == aux->size(), false, "Incompatible size of proofs and aux");
-          for (const auto &e: *aux)
-            CHECK_AND_ASSERT_MES(e.gamma, false, "No gamma in aux_data_t");
         }
 
         const size_t logN = 6;
@@ -941,9 +939,9 @@ try_again:
               rct::key zpow, z2;
               sc_mul(z2.bytes, pd.z.bytes, pd.z.bytes);
               zpow = z2;
-              for (size_t j = 0; j < auxref.gamma->size(); ++j)
+              for (size_t j = 0; j < auxref.gamma.size(); ++j)
               {
-                sc_muladd(tmp.bytes, zpow.bytes, (*auxref.gamma)[j].bytes, tmp.bytes);
+                sc_muladd(tmp.bytes, zpow.bytes, auxref.gamma[j].bytes, tmp.bytes);
                 sc_mul(zpow.bytes, zpow.bytes, z2.bytes);
               }
 

@@ -595,7 +595,7 @@ private:
       std::vector<cryptonote::tx_destination_entry> dests; // original setup, does not include change
       uint32_t subaddr_account;   // subaddress account of your wallet to be used in this transfer
       std::set<uint32_t> subaddr_indices;  // set of address indices used as inputs in this transfer
-      boost::optional<rct::key> aux;
+      boost::optional<rct::aux_data_t> aux;
 
       BEGIN_SERIALIZE_OBJECT()
         FIELD(sources)

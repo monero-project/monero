@@ -1345,7 +1345,7 @@ namespace tools
         desc.extra = epee::to_hex::string({cd.extra.data(), cd.extra.size()});
 
         if (cd.aux)
-          desc.aux = epee::string_tools::pod_to_hex(*cd.aux);
+          desc.aux = epee::string_tools::pod_to_hex(cd.aux->aux);
       }
     }
     catch (const std::exception &e)

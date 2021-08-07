@@ -35,7 +35,7 @@
 
 namespace rct
 {
-    TriptychProof triptych_prove(const keyV &, const keyV &, const key &, const size_t, const key &, const key &, const size_t, const size_t, const key &);
-    bool triptych_verify(const keyV &, const keyV &, const keyV &, const std::vector<const TriptychProof *> &, const size_t, const size_t, const keyV &);
+    TriptychProof triptych_prove(const keyV &, const keyV &, const key &, const size_t, const key &, const key &, const size_t, const size_t, const key &, const aux_data_t* = NULL);
+    bool triptych_verify(const keyV &, const keyV &, const keyV &, const std::vector<const TriptychProof *> &, const size_t, const size_t, const keyV &, std::vector<aux_data_t>* = NULL);
     key triptych_key_image(const key &r);
 }

@@ -10638,6 +10638,7 @@ bool simple_wallet::show_transfer(const std::vector<std::string> &args)
       success_msg_writer() << "Timestamp: " << tools::get_human_readable_timestamp(pd.m_timestamp);
       success_msg_writer() << "Amount: " << print_money(pd.m_amount);
       success_msg_writer() << "Payment ID: " << payment_id;
+      success_msg_writer() << "Aux: " << get_aux(txid);
       for (const auto &rd: pd.m_recipient_private_data)
       {
         bool is_print = true;
@@ -10708,7 +10709,6 @@ bool simple_wallet::show_transfer(const std::vector<std::string> &args)
       success_msg_writer() << "Fee: " << print_money(fee);
       success_msg_writer() << "Destinations: " << dests;
       success_msg_writer() << "Note: " << m_wallet->get_tx_note(txid);
-      success_msg_writer() << "Aux: " << get_aux(txid);
       return true;
     }
   }
