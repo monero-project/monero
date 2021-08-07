@@ -6924,13 +6924,13 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
           return false;
         }
         unlock_block = bc_height + locked_blocks;
-        ptx_vector = m_wallet->create_transactions_2(dsts, fake_outs_count_2, unlock_block /* unlock_time */, priority, extra, NULL, m_current_subaddress_account, subaddr_indices);
+        ptx_vector = m_wallet->create_transactions_2(dsts, fake_outs_count_2, unlock_block /* unlock_time */, priority, extra, NULL, 0, m_current_subaddress_account, subaddr_indices);
       break;
       default:
         LOG_ERROR("Unknown transfer method, using default");
         /* FALLTHRU */
       case Transfer:
-        ptx_vector = m_wallet->create_transactions_2(dsts, fake_outs_count_2, 0 /* unlock_time */, priority, extra, NULL, m_current_subaddress_account, subaddr_indices);
+        ptx_vector = m_wallet->create_transactions_2(dsts, fake_outs_count_2, 0 /* unlock_time */, priority, extra, NULL, 0, m_current_subaddress_account, subaddr_indices);
       break;
     }
 
@@ -7477,7 +7477,7 @@ bool simple_wallet::sweep_main(uint32_t account, uint64_t below, bool locked, co
   {
     size_t fake_outs_count_2[2] = {fake_outs_count, TRIPTYCH_RING_SIZE - 1};
     // figure out what tx will be necessary
-    auto ptx_vector = m_wallet->create_transactions_all(below, info.address, info.is_subaddress, outputs, fake_outs_count_2, unlock_block /* unlock_time */, priority, extra, NULL, account, subaddr_indices);
+    auto ptx_vector = m_wallet->create_transactions_all(below, info.address, info.is_subaddress, outputs, fake_outs_count_2, unlock_block /* unlock_time */, priority, extra, NULL, 0, account, subaddr_indices);
 
     if (ptx_vector.empty())
     {
@@ -7734,7 +7734,7 @@ bool simple_wallet::sweep_single(const std::vector<std::string> &args_)
   {
     size_t fake_outs_count_2[2] = {fake_outs_count, TRIPTYCH_RING_SIZE - 1};
     // figure out what tx will be necessary
-    auto ptx_vector = m_wallet->create_transactions_single(ki, info.address, info.is_subaddress, outputs, fake_outs_count_2, 0 /* unlock_time */, priority, extra, NULL);
+    auto ptx_vector = m_wallet->create_transactions_single(ki, info.address, info.is_subaddress, outputs, fake_outs_count_2, 0 /* unlock_time */, priority, extra, NULL, 0);
 
     if (ptx_vector.empty())
     {

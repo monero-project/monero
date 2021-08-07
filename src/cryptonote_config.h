@@ -262,6 +262,8 @@ namespace config
   const char HASH_KEY_AUX_SEED_RANGE_PROOF[] = "aux_seed_range";
   const char HASH_KEY_AUX_SEED_INPUTS[] = "aux_seed_input";
   const char HASH_KEY_TRIPTYCH_AUX_BASE[] = "aux_triptych";
+  const char HASH_KEY_TRIPTYCH_AUX_BLINDER0[] = "aux_triptych_blinder0";
+  const char HASH_KEY_TRIPTYCH_AUX_BLINDER1[] = "aux_triptych_blinder1";
   const char HASH_KEY_TRIPTYCH_AUX_rA[] = "rA";
   const char HASH_KEY_TRIPTYCH_AUX_rB[] = "rB";
   const char HASH_KEY_TRIPTYCH_AUX_rC[] = "rC";

@@ -469,6 +469,7 @@ namespace wallet_rpc
       std::string payment_id;
       std::string recipient_private_data;
       std::string aux;
+      uint32_t aux_index;
       bool get_tx_key;
       bool do_not_relay;
       bool get_tx_hex;
@@ -485,6 +486,7 @@ namespace wallet_rpc
         KV_SERIALIZE(payment_id)
         KV_SERIALIZE(recipient_private_data)
         KV_SERIALIZE(aux)
+        KV_SERIALIZE(aux_index)
         KV_SERIALIZE(get_tx_key)
         KV_SERIALIZE_OPT(do_not_relay, false)
         KV_SERIALIZE_OPT(get_tx_hex, false)
@@ -534,6 +536,7 @@ namespace wallet_rpc
       std::string payment_id;
       std::string recipient_private_data;
       std::string aux;
+      uint32_t aux_index;
       bool get_tx_keys;
       bool do_not_relay;
       bool get_tx_hex;
@@ -549,6 +552,7 @@ namespace wallet_rpc
         KV_SERIALIZE(payment_id)
         KV_SERIALIZE(recipient_private_data)
         KV_SERIALIZE(aux)
+        KV_SERIALIZE(aux_index)
         KV_SERIALIZE(get_tx_keys)
         KV_SERIALIZE_OPT(do_not_relay, false)
         KV_SERIALIZE_OPT(get_tx_hex, false)
@@ -620,6 +624,7 @@ namespace wallet_rpc
       uint32_t dummy_outputs;
       std::string extra;
       std::string aux;
+      uint32_t aux_index;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(amount_in)
@@ -634,6 +639,7 @@ namespace wallet_rpc
         KV_SERIALIZE(dummy_outputs)
         KV_SERIALIZE(extra)
         KV_SERIALIZE(aux)
+        KV_SERIALIZE(aux_index)
       END_KV_SERIALIZE_MAP()
     };
 
@@ -785,6 +791,7 @@ namespace wallet_rpc
       std::string payment_id;
       std::string recipient_private_data;
       std::string aux;
+      uint32_t aux_index;
       bool get_tx_keys;
       uint64_t below_amount;
       bool do_not_relay;
@@ -803,6 +810,7 @@ namespace wallet_rpc
         KV_SERIALIZE(payment_id)
         KV_SERIALIZE(recipient_private_data)
         KV_SERIALIZE(aux)
+        KV_SERIALIZE(aux_index)
         KV_SERIALIZE(get_tx_keys)
         KV_SERIALIZE(below_amount)
         KV_SERIALIZE_OPT(do_not_relay, false)
@@ -860,6 +868,7 @@ namespace wallet_rpc
       std::string payment_id;
       std::string recipient_private_data;
       std::string aux;
+      uint32_t aux_index;
       bool get_tx_key;
       std::string key_image;
       bool do_not_relay;
@@ -875,6 +884,7 @@ namespace wallet_rpc
         KV_SERIALIZE(payment_id)
         KV_SERIALIZE(recipient_private_data)
         KV_SERIALIZE(aux)
+        KV_SERIALIZE(aux_index)
         KV_SERIALIZE(get_tx_key)
         KV_SERIALIZE(key_image)
         KV_SERIALIZE_OPT(do_not_relay, false)

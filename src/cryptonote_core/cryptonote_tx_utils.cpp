@@ -659,27 +659,43 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------
+  bool prepare_construct_tx(const account_keys& sender_account_keys, crypto::secret_key &tx_key)
+  {
+    hw::device &hwdev = sender_account_keys.get_device();
+    return hwdev.open_tx(tx_key);
+  }
+  //---------------------------------------------------------------
+  void finish_construct_tx(const account_keys& sender_account_keys)
+  {
+    hw::device &hwdev = sender_account_keys.get_device();
+    hwdev.close_tx();
+  }
+  //---------------------------------------------------------------
+  bool construct_tx_with_tx_key_opened(const account_keys& sender_account_keys, const boost::container::flat_map<crypto::public_key, subaddress_index>& subaddresses, std::vector<tx_source_entry>& sources, std::vector<tx_destination_entry>& destinations, const boost::optional<cryptonote::account_public_address>& change_addr, const std::vector<uint8_t> &extra, transaction& tx, uint64_t unlock_time, const crypto::secret_key &tx_key, std::vector<crypto::secret_key> &additional_tx_keys, const rct::aux_data_t *aux, bool rct, const rct::RCTConfig &rct_config, rct::multisig_out *msout, rct::keyV *masks)
+  {
+    // figure out if we need to make additional tx pubkeys
+    size_t num_stdaddresses = 0;
+    size_t num_subaddresses = 0;
+    account_public_address single_dest_subaddress;
+    classify_addresses(destinations, change_addr, num_stdaddresses, num_subaddresses, single_dest_subaddress);
+    bool need_additional_txkeys = num_subaddresses > 0 && (num_stdaddresses > 0 || num_subaddresses > 1);
+    if (need_additional_txkeys)
+    {
+      additional_tx_keys.clear();
+      for (const auto &d: destinations)
+        additional_tx_keys.push_back(keypair::generate(sender_account_keys.get_device()).sec);
+    }
+
+    return construct_tx_with_tx_key(sender_account_keys, subaddresses, sources, destinations, change_addr, extra, tx, unlock_time, tx_key, additional_tx_keys, aux, rct, rct_config, msout, true, masks);
+  }
+  //---------------------------------------------------------------
   bool construct_tx_and_get_tx_key(const account_keys& sender_account_keys, const boost::container::flat_map<crypto::public_key, subaddress_index>& subaddresses, std::vector<tx_source_entry>& sources, std::vector<tx_destination_entry>& destinations, const boost::optional<cryptonote::account_public_address>& change_addr, const std::vector<uint8_t> &extra, transaction& tx, uint64_t unlock_time, crypto::secret_key &tx_key, std::vector<crypto::secret_key> &additional_tx_keys, const rct::aux_data_t *aux, bool rct, const rct::RCTConfig &rct_config, rct::multisig_out *msout, rct::keyV *masks)
   {
     hw::device &hwdev = sender_account_keys.get_device();
-    hwdev.open_tx(tx_key);
+    if (!hwdev.open_tx(tx_key))
+      return false;
     try {
-      // figure out if we need to make additional tx pubkeys
-      size_t num_stdaddresses = 0;
-      size_t num_subaddresses = 0;
-      account_public_address single_dest_subaddress;
-      classify_addresses(destinations, change_addr, num_stdaddresses, num_subaddresses, single_dest_subaddress);
-      bool need_additional_txkeys = num_subaddresses > 0 && (num_stdaddresses > 0 || num_subaddresses > 1);
-      if (need_additional_txkeys)
-      {
-        additional_tx_keys.clear();
-        for (const auto &d: destinations)
-          additional_tx_keys.push_back(keypair::generate(sender_account_keys.get_device()).sec);
-      }
-
-      bool r = construct_tx_with_tx_key(sender_account_keys, subaddresses, sources, destinations, change_addr, extra, tx, unlock_time, tx_key, additional_tx_keys, aux, rct, rct_config, msout, true, masks);
-      hwdev.close_tx();
-      return r;
+      return construct_tx_with_tx_key_opened(sender_account_keys, subaddresses, sources, destinations, change_addr, extra, tx, unlock_time, tx_key, additional_tx_keys, aux, rct, rct_config, msout, masks);
     } catch(...) {
       hwdev.close_tx();
       throw;
