@@ -4895,7 +4895,7 @@ std::string simple_wallet::get_mnemonic_language()
       fail_msg_writer() << tr("invalid language choice entered. Please try again.\n");
     }
   }
-  return language_list_self[language_number];
+  return language_list_self.at(language_number);
 }
 //----------------------------------------------------------------------------------------------------
 boost::optional<tools::password_container> simple_wallet::get_and_verify_password() const
