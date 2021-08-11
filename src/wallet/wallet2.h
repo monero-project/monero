@@ -57,6 +57,7 @@
 #include "common/util.h"
 #include "crypto/chacha.h"
 #include "crypto/hash.h"
+#include "multisig/multisig_account.h"
 #include "ringct/rctTypes.h"
 #include "ringct/rctOps.h"
 #include "checkpoints/checkpoints.h"
@@ -1031,7 +1032,7 @@ private:
 
     cryptonote::network_type nettype() const { return m_nettype; }
     bool watch_only() const { return m_watch_only; }
-    bool multisig(bool *ready = NULL, uint32_t *threshold = NULL, uint32_t *total = NULL) const;
+    multisig::multisig_account_status get_multisig_status() const;
     bool has_multisig_partial_key_images() const;
     bool has_unknown_key_images() const;
     bool get_multisig_seed(epee::wipeable_string& seed, const epee::wipeable_string &passphrase = std::string(), bool raw = true) const;

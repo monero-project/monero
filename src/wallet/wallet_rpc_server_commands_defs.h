@@ -2402,12 +2402,14 @@ namespace wallet_rpc
     struct response_t
     {
       bool multisig;
+      bool kex_is_done;
       bool ready;
       uint32_t threshold;
       uint32_t total;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(multisig)
+        KV_SERIALIZE(kex_is_done)
         KV_SERIALIZE(ready)
         KV_SERIALIZE(threshold)
         KV_SERIALIZE(total)

@@ -321,9 +321,10 @@ struct SubaddressAccount
 };
 
 struct MultisigState {
-    MultisigState() : isMultisig(false), isReady(false), threshold(0), total(0) {}
+    MultisigState() : isMultisig(false), kexIsDone(false), isReady(false), threshold(0), total(0) {}
 
     bool isMultisig;
+    bool kexIsDone;
     bool isReady;
     uint32_t threshold;
     uint32_t total;
