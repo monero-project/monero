@@ -106,6 +106,8 @@ function (die msg)
 endfunction ()
 
 function (add_c_flag_if_supported flag var)
+  # Prepending the flag with -Werror will only add the flag,
+  # if it doesn't result in generation of a warning of using a flag unknown to the compiler.
   set(TMP "-Werror ${flag}")
   string(REGEX REPLACE "[- ]" "_" supported ${TMP}_c)
   check_c_compiler_flag(${TMP} ${supported})
