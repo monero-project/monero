@@ -48,7 +48,7 @@ namespace net_utils
     state st = st_param_name;
     std::string::const_iterator start_it = query.begin();
     std::pair<std::string, std::string> e;
-    for(std::string::const_iterator it = query.begin(); it != query.end(); it++)
+    for(std::string::const_iterator it = query.begin(); it != query.end(); ++it)
     {
       switch(st)
       {

@@ -44,7 +44,7 @@ namespace http
     std::string get_value_from_fields_list(const std::string& param_name, const net_utils::http::fields_list& fields)
     {
         fields_list::const_iterator it = fields.begin();
-        for(; it != fields.end(); it++)
+        for(; it != fields.end(); ++it)
             if(!string_tools::compare_no_case(param_name, it->first))
                 break;
 
