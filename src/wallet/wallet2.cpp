@@ -1213,6 +1213,7 @@ wallet2::wallet2(network_type nettype, uint64_t kdf_rounds, bool unattended, std
 
 wallet2::~wallet2()
 {
+  deinit();
 }
 
 bool wallet2::has_testnet_option(const boost::program_options::variables_map& vm)
@@ -3748,9 +3749,11 @@ void wallet2::detach_blockchain(uint64_t height, std::map<std::pair<uint64_t, ui
 //----------------------------------------------------------------------------------------------------
 bool wallet2::deinit()
 {
-  m_is_initialized=false;
-  unlock_keys_file();
-  m_account.deinit();
+  if(m_is_initialized) {
+    m_is_initialized = false;
+    unlock_keys_file();
+    m_account.deinit();
+  }
   return true;
 }
 //----------------------------------------------------------------------------------------------------
