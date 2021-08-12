@@ -2392,6 +2392,11 @@ void WalletImpl::setOffline(bool offline)
     m_wallet->set_offline(offline);
 }
 
+bool WalletImpl::isOffline() const
+{
+    return m_wallet->is_offline();
+}
+
 void WalletImpl::hardForkInfo(uint8_t &version, uint64_t &earliest_height) const
 {
     m_wallet->get_hard_fork_info(version, earliest_height);
