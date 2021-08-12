@@ -29,6 +29,7 @@
 #pragma once
 
 #include "misc_language.h"
+#include "misc_log_ex.h"
 
 namespace epee
 {
