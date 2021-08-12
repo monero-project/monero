@@ -39,9 +39,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 
-namespace epee
-{
-namespace misc_utils
+namespace cryptonote
 {
 
 template<typename Item>
@@ -233,5 +231,4 @@ public:
   }
 };
 
-}
 }

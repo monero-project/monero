@@ -43,7 +43,7 @@
 #include "cryptonote_config.h"
 #include "cryptonote_basic/miner.h"
 #include "hardforks/hardforks.h"
-#include "misc_language.h"
+#include "math.h"
 #include "profile_tools.h"
 #include "file_io_utils.h"
 #include "int-util.h"
@@ -53,6 +53,7 @@
 #include "crypto/hash.h"
 #include "cryptonote_core.h"
 #include "ringct/rctSigs.h"
+#include "rolling_median.h"
 #include "common/perf_timer.h"
 #include "common/notify.h"
 #include "common/varint.h"
@@ -439,7 +440,7 @@ bool Blockchain::init(BlockchainDB* db, const network_type nettype, bool offline
   if (test_options && test_options->long_term_block_weight_window)
   {
     m_long_term_block_weights_window = test_options->long_term_block_weight_window;
-    m_long_term_block_weights_cache_rolling_median = epee::misc_utils::rolling_median_t<uint64_t>(m_long_term_block_weights_window);
+    m_long_term_block_weights_cache_rolling_median = rolling_median_t<uint64_t>(m_long_term_block_weights_window);
   }
 
   bool difficulty_ok;
@@ -1389,7 +1390,7 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
   {
     std::vector<uint64_t> last_blocks_weights;
     get_last_n_blocks_weights(last_blocks_weights, CRYPTONOTE_REWARD_BLOCKS_WINDOW);
-    median_weight = epee::misc_utils::median(last_blocks_weights);
+    median_weight = median(last_blocks_weights);
   }
   if (!get_block_reward(median_weight, cumulative_block_weight, already_generated_coins, base_reward, version))
   {
@@ -3743,7 +3744,7 @@ uint64_t Blockchain::get_dynamic_base_fee_estimate(uint64_t grace_blocks) const
   for (size_t i = 0; i < grace_blocks; ++i)
     weights.push_back(min_block_weight);
 
-  uint64_t median = epee::misc_utils::median(weights);
+  uint64_t median = median(weights);
   if(median <= min_block_weight)
     median = min_block_weight;
 
@@ -3870,7 +3871,7 @@ uint64_t Blockchain::get_adjusted_time(uint64_t height) const
   {
     timestamps.push_back(m_db->get_block_timestamp(offset));
   }
-  uint64_t median_ts = epee::misc_utils::median(timestamps);
+  uint64_t median_ts = median(timestamps);
 
   // project the median to match approximately when the block being validated will appear
   // the median is calculated from a chunk of past blocks, so we use +1 to offset onto the current block
@@ -3889,7 +3890,7 @@ uint64_t Blockchain::get_adjusted_time(uint64_t height) const
 bool Blockchain::check_block_timestamp(std::vector<uint64_t>& timestamps, const block& b, uint64_t& median_ts) const
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
-  median_ts = epee::misc_utils::median(timestamps);
+  median_ts = median(timestamps);
 
   if(b.timestamp < median_ts)
   {
@@ -4431,7 +4432,7 @@ bool Blockchain::update_next_cumulative_weight_limit(uint64_t *long_term_effecti
   {
     std::vector<uint64_t> weights;
     get_last_n_blocks_weights(weights, CRYPTONOTE_REWARD_BLOCKS_WINDOW);
-    m_current_block_cumul_weight_median = epee::misc_utils::median(weights);
+    m_current_block_cumul_weight_median = median(weights);
   }
   else
   {
@@ -4470,7 +4471,7 @@ bool Blockchain::update_next_cumulative_weight_limit(uint64_t *long_term_effecti
     std::vector<uint64_t> weights;
     get_last_n_blocks_weights(weights, CRYPTONOTE_REWARD_BLOCKS_WINDOW);
 
-    uint64_t short_term_median = epee::misc_utils::median(weights);
+    uint64_t short_term_median = median(weights);
     uint64_t effective_median_block_weight = std::min<uint64_t>(std::max<uint64_t>(CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V5, short_term_median), CRYPTONOTE_SHORT_TERM_BLOCK_WEIGHT_SURGE_FACTOR * m_long_term_effective_median_block_weight);
 
     m_current_block_cumul_weight_median = effective_median_block_weight;

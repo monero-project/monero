@@ -107,27 +107,6 @@ namespace misc_utils
     return (a/2) + (b/2) + ((a - 2*(a/2)) + (b - 2*(b/2)))/2;
   }
 
-  template<class type_vec_type>
-  type_vec_type median(std::vector<type_vec_type> &v)
-  {
-    if(v.empty())
-      return boost::value_initialized<type_vec_type>();
-    if(v.size() == 1)
-      return v[0];
-
-    size_t n = (v.size()) / 2;
-    std::sort(v.begin(), v.end());
-    //nth_element(v.begin(), v.begin()+n-1, v.end());
-    if(v.size()%2)
-    {//1, 3, 5...
-      return v[n];
-    }else 
-    {//2, 4, 6...
-      return get_mid<type_vec_type>(v[n-1],v[n]);
-    }
-
-  }
-
   /************************************************************************/
   /*                                                                      */
   /************************************************************************/

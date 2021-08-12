@@ -31,6 +31,7 @@
 #include "gtest/gtest.h"
 
 #include "cryptonote_basic/cryptonote_basic_impl.h"
+#include "math.h"
 
 using namespace cryptonote;
 
@@ -152,14 +153,14 @@ namespace
 
       m_last_block_weights_median = 7 * CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V1;
 
-      m_block_not_too_big = get_block_reward(epee::misc_utils::median(m_last_block_weights), 0, already_generated_coins, m_standard_block_reward, 1);
+      m_block_not_too_big = get_block_reward(median(m_last_block_weights), 0, already_generated_coins, m_standard_block_reward, 1);
       ASSERT_TRUE(m_block_not_too_big);
       ASSERT_LT(CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V1, m_standard_block_reward);
     }
 
     void do_test(size_t current_block_weight)
     {
-      m_block_not_too_big = get_block_reward(epee::misc_utils::median(m_last_block_weights), current_block_weight, already_generated_coins, m_block_reward, 1);
+      m_block_not_too_big = get_block_reward(median(m_last_block_weights), current_block_weight, already_generated_coins, m_block_reward, 1);
     }
 
     static const uint64_t already_generated_coins = 0;

@@ -35,6 +35,7 @@
 #include "cryptonote_core/cryptonote_core.h"
 #include "cryptonote_core/blockchain.h"
 #include "blockchain_db/blockchain_db.h"
+#include "math.h"
 #include "version.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
@@ -325,7 +326,7 @@ done:
   for (uint64_t depth: depths)
     cumulative_depth += depth;
   LOG_PRINT_L0("Average min depth for " << start_txids.size() << " transaction(s): " << cumulative_depth/(float)depths.size());
-  LOG_PRINT_L0("Median min depth for " << start_txids.size() << " transaction(s): " << epee::misc_utils::median(depths));
+  LOG_PRINT_L0("Median min depth for " << start_txids.size() << " transaction(s): " << median(depths));
 
   core_storage->deinit();
   return 0;

@@ -62,6 +62,7 @@ set(unit_tests_sources
   long_term_block_weight.cpp
   lmdb.cpp
   main.cpp
+  math.cpp
   memwipe.cpp
   mlocker.cpp
   mnemonics.cpp
