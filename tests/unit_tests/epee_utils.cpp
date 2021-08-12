@@ -1512,6 +1512,7 @@ TEST(NetUtils, NetworkAddress)
     constexpr static epee::net_utils::address_type get_type_id() noexcept { return epee::net_utils::address_type(-1); }
     constexpr static epee::net_utils::zone get_zone() noexcept { return epee::net_utils::zone::invalid; }
     constexpr static bool is_blockable() noexcept { return false; }
+    constexpr static uint16_t port() { return 0; }
   };
 
   const epee::net_utils::network_address empty;
