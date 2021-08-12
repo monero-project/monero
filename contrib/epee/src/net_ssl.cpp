@@ -576,7 +576,8 @@ boost::system::error_code store_ssl_keys(boost::asio::ssl::context& ssl, const b
   const auto ctx = ssl.native_handle();
   CHECK_AND_ASSERT_MES(ctx, boost::system::error_code(EINVAL, boost::system::system_category()), "Context is null");
   CHECK_AND_ASSERT_MES(base.has_filename(), boost::system::error_code(EINVAL, boost::system::system_category()), "Need filename");
-  if (!(ssl_key = SSL_CTX_get0_privatekey(ctx)) || !(ssl_cert = SSL_CTX_get0_certificate(ctx)))
+  std::unique_ptr<SSL, decltype(&SSL_free)> dflt_SSL(SSL_new(ctx), SSL_free);
+  if (!dflt_SSL || !(ssl_key = SSL_get_privatekey(dflt_SSL.get())) || !(ssl_cert = SSL_get_certificate(dflt_SSL.get())))
     return {EINVAL, boost::system::system_category()};
 
   using file_closer = int(std::FILE*);
