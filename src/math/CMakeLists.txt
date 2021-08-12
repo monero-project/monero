@@ -1,4 +1,4 @@
-# Copyright (c) 2014-2020, The Monero Project
+# Copyright (c) 2021, The Monero Project
 #
 # All rights reserved.
 #
@@ -26,32 +26,19 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-set(blockchain_db_sources
-  blockchain_db.cpp
-  lmdb/db_lmdb.cpp
-  )
+set(math_sources
+  math.cpp)
 
-set(blockchain_db_headers)
+monero_find_all_headers(math_headers, "${CMAKE_CURRENT_SOURCE_DIR}")
 
-set(blockchain_db_private_headers
-  blockchain_db.h
-  lmdb/db_lmdb.h
-  )
+monero_add_library(math
+  ${math_sources}
+  ${math_headers})
 
-monero_private_headers(blockchain_db
-  ${crypto_private_headers})
-monero_add_library(blockchain_db
-  ${blockchain_db_sources}
-  ${blockchain_db_headers}
-  ${blockchain_db_private_headers})
-target_link_libraries(blockchain_db
+target_link_libraries(math
   PUBLIC
-    common
-    cncrypto
-    math
-    ringct
-    ${LMDB_LIBRARY}
-    ${Boost_FILESYSTEM_LIBRARY}
-    ${Boost_THREAD_LIBRARY}
+    epee
   PRIVATE
     ${EXTRA_LIBRARIES})
+
+target_include_directories(math PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")

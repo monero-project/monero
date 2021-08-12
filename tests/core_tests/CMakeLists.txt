@@ -75,6 +75,7 @@ target_link_libraries(core_tests
   PRIVATE
     multisig
     cryptonote_core
+    math
     p2p
     version
     epee

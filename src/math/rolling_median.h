@@ -39,9 +39,9 @@
 #include <stdlib.h>
 #include <stdint.h>
 
-namespace epee
+namespace cryptonote
 {
-namespace misc_utils
+namespace math
 {
 
 template<typename Item>
@@ -227,11 +227,11 @@ public:
     Item v = data[heap[0]];
     if (minCt < maxCt)
     {
-      v = get_mid<Item>(v, data[heap[-1]]);
+      v = epee::misc_utils::get_mid<Item>(v, data[heap[-1]]);
     }
     return v;
   }
 };
 
-}
-}
+} //namespace math
+} //namespace cryptonote

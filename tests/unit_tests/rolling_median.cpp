@@ -28,13 +28,16 @@
 
 #include <random>
 #include "gtest/gtest.h"
+#include "math_utils.h"
 #include "misc_language.h"
 #include "rolling_median.h"
 #include "crypto/crypto.h"
 
+using namespace cryptonote::math;
+
 TEST(rolling_median, one)
 {
-  epee::misc_utils::rolling_median_t<uint64_t> m(1);
+  rolling_median_t<uint64_t> m(1);
   m.insert(42);
   ASSERT_EQ(m.median(), 42);
   m.insert(18);
@@ -45,7 +48,7 @@ TEST(rolling_median, one)
 
 TEST(rolling_median, two)
 {
-  epee::misc_utils::rolling_median_t<uint64_t> m(2);
+  rolling_median_t<uint64_t> m(2);
   m.insert(42);
   ASSERT_EQ(m.median(), 42);
   m.insert(45);
@@ -64,7 +67,7 @@ TEST(rolling_median, two)
 
 TEST(rolling_median, series)
 {
-  epee::misc_utils::rolling_median_t<uint64_t> m(100);
+  rolling_median_t<uint64_t> m(100);
   std::vector<uint64_t> v;
   v.reserve(100);
   for (int i = 0; i < 10000; ++i)
@@ -75,13 +78,13 @@ TEST(rolling_median, series)
       v.erase(v.begin());
     m.insert(r);
     std::vector<uint64_t> vcopy = v;
-    ASSERT_EQ(m.median(), epee::misc_utils::median(vcopy));
+    ASSERT_EQ(m.median(), median(vcopy));
   }
 }
 
 TEST(rolling_median, clear_whole)
 {
-  epee::misc_utils::rolling_median_t<uint64_t> m(100);
+  rolling_median_t<uint64_t> m(100);
   std::vector<uint64_t> random, median;
   random.reserve(10000);
   median.reserve(10000);
@@ -101,7 +104,7 @@ TEST(rolling_median, clear_whole)
 
 TEST(rolling_median, clear_partway)
 {
-  epee::misc_utils::rolling_median_t<uint64_t> m(100);
+  rolling_median_t<uint64_t> m(100);
   std::vector<uint64_t> random, median;
   random.reserve(10000);
   median.reserve(10000);
@@ -121,7 +124,7 @@ TEST(rolling_median, clear_partway)
 
 TEST(rolling_median, order)
 {
-  epee::misc_utils::rolling_median_t<uint64_t> m(1000);
+  rolling_median_t<uint64_t> m(1000);
   std::vector<uint64_t> random;
   random.reserve(1000);
   for (int i = 0; i < 1000; ++i)
@@ -152,7 +155,7 @@ TEST(rolling_median, order)
 
 TEST(rolling_median, history_blind)
 {
-  epee::misc_utils::rolling_median_t<uint64_t> m(10);
+  rolling_median_t<uint64_t> m(10);
 
   uint64_t median = 0;
   for (int i = 0; i < 1000; ++i)
@@ -172,7 +175,7 @@ TEST(rolling_median, history_blind)
 
 TEST(rolling_median, overflow)
 {
-  epee::misc_utils::rolling_median_t<uint64_t> m(2);
+  rolling_median_t<uint64_t> m(2);
 
   uint64_t over_half = static_cast<uint64_t>(3) << static_cast<uint64_t>(62);
   m.insert(over_half);
@@ -183,7 +186,7 @@ TEST(rolling_median, overflow)
 
 TEST(rolling_median, size)
 {
-  epee::misc_utils::rolling_median_t<uint64_t> m(10);
+  rolling_median_t<uint64_t> m(10);
 
   ASSERT_EQ(m.size(), 0);
   m.insert(1);

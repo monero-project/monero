@@ -42,7 +42,7 @@
 #include "blockchain_db/blockchain_db.h"
 #include "common/boost_serialization_helper.h"
 #include "int-util.h"
-#include "misc_language.h"
+#include "math/math_utils.h"
 #include "warnings.h"
 #include "common/perf_timer.h"
 #include "crypto/hash.h"
@@ -973,7 +973,7 @@ namespace cryptonote
       return true;
     }, false, category);
 
-    stats.bytes_med = epee::misc_utils::median(weights);
+    stats.bytes_med = math::median(weights);
     if (stats.txs_total > 1)
     {
       /* looking for 98th percentile */

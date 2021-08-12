@@ -50,6 +50,7 @@ monero_add_library(wallet
 target_link_libraries(wallet
   PUBLIC
     rpc_base
+    math
     multisig
     common
     cryptonote_core

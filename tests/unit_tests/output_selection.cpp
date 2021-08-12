@@ -30,6 +30,7 @@
 
 #include "gtest/gtest.h"
 
+#include "math_utils.h"
 #include "wallet/wallet2.h"
 #include <string>
 
@@ -127,7 +128,7 @@ TEST(select_outputs, gamma)
     ASSERT_LE(ages[i], offsets.size() * 120);
     ++i;
   }
-  double median = epee::misc_utils::median(ages);
+  double median = cryptonote::math::median(ages);
   MDEBUG("median age: " << median / 86400. << " days");
   ASSERT_GE(median, 1.3 * 86400);
   ASSERT_LE(median, 1.4 * 86400);

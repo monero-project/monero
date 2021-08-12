@@ -49,7 +49,7 @@
 #include "span.h"
 #include "syncobj.h"
 #include "string_tools.h"
-#include "rolling_median.h"
+#include "math/rolling_median.h"
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "common/powerof.h"
 #include "common/util.h"
@@ -1139,7 +1139,7 @@ namespace cryptonote
     uint64_t m_long_term_block_weights_window;
     uint64_t m_long_term_effective_median_block_weight;
     mutable crypto::hash m_long_term_block_weights_cache_tip_hash;
-    mutable epee::misc_utils::rolling_median_t<uint64_t> m_long_term_block_weights_cache_rolling_median;
+    mutable math::rolling_median_t<uint64_t> m_long_term_block_weights_cache_rolling_median;
 
     epee::critical_section m_difficulty_lock;
     crypto::hash m_difficulty_for_next_block_top_hash;

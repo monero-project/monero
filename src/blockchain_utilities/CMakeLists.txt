@@ -254,6 +254,7 @@ target_link_libraries(blockchain_depth
   PRIVATE
     cryptonote_core
     blockchain_db
+    math
     version
     epee
     ${Boost_FILESYSTEM_LIBRARY}

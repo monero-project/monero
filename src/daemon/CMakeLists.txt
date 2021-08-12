@@ -75,6 +75,7 @@ target_link_libraries(daemon
     cryptonote_core
     cncrypto
     common
+    math
     p2p
     cryptonote_protocol
     daemonizer

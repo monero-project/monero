@@ -32,7 +32,7 @@
 #include "cryptonote_basic/cryptonote_basic_impl.h"
 #include "cryptonote_basic/account.h"
 #include "cryptonote_core/cryptonote_tx_utils.h"
-#include "misc_language.h"
+#include "math_utils.h"
 
 using namespace cryptonote;
 
@@ -137,7 +137,7 @@ bool test_block_creation()
   bool r = get_account_address_from_str(info, MAINNET, "0099be99c70ef10fd534c43c88e9d13d1c8853213df7e362afbec0e4ee6fec4948d0c190b58f4b356cd7feaf8d9d0a76e7c7e5a9a0a497a6b1faf7a765882dd08ac2");
   CHECK_AND_ASSERT_MES(r, false, "failed to import");
   block b;
-  r = construct_miner_tx(90, epee::misc_utils::median(szs), 3553616528562147, 33094, 10000000, info.address, b.miner_tx, blobdata(), 11);
+  r = construct_miner_tx(90, math::median(szs), 3553616528562147, 33094, 10000000, info.address, b.miner_tx, blobdata(), 11);
   return r;
 }
 
