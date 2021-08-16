@@ -66,8 +66,8 @@ namespace trezor {
 
     device_trezor::~device_trezor() {
       try {
-        disconnect();
-        release();
+        device_trezor::disconnect();
+        device_trezor::release();
       } catch(std::exception const& e){
         MWARNING("Could not disconnect and release: " << e.what());
       }
