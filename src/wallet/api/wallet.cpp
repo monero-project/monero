@@ -450,7 +450,7 @@ WalletImpl::~WalletImpl()
     LOG_PRINT_L1(__FUNCTION__);
     m_wallet->callback(NULL);
     // Pause refresh thread - prevents refresh from starting again
-    pauseRefresh();
+    WalletImpl::pauseRefresh(); // Call the method directly (not polymorphically) to protect against UB in destructor.
     // Close wallet - stores cache and stops ongoing refresh operation 
     close(false); // do not store wallet as part of the closing activities
     // Stop refresh thread
