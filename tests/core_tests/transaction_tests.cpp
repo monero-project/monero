@@ -72,7 +72,6 @@ bool test_transaction_generation_and_ring_signature()
   construct_miner_tx(0, 0, 0, 0, 0, miner_acc6.get_keys().m_account_address, tx_mine_6);
 
   //fill inputs entry
-  typedef tx_source_entry::output_entry tx_output_entry;
   std::vector<tx_source_entry> sources;
   sources.resize(sources.size()+1);
   tx_source_entry& src = sources.back();
