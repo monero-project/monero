@@ -449,7 +449,6 @@ rct::key straus(const std::vector<MultiexpData> &data, const std::shared_ptr<str
   STEP = STEP ? STEP : 192;
 
   MULTIEXP_PERF(PERF_TIMER_START_UNIT(setup, 1000000));
-  static constexpr unsigned int mask = (1<<STRAUS_C)-1;
   std::shared_ptr<straus_cached_data> local_cache = cache == NULL ? straus_init_cache(data) : cache;
   ge_cached cached;
   ge_p1p1 p1;
@@ -483,6 +482,7 @@ rct::key straus(const std::vector<MultiexpData> &data, const std::shared_ptr<str
     memcpy(bytes33,  data[j].scalar.bytes, 32);
     bytes33[32] = 0;
     bytes = bytes33;
+    static constexpr unsigned int mask = (1<<STRAUS_C)-1;
     for (size_t i = 0; i < 256; ++i)
       digits[j*256+i] = ((bytes[i>>3] | (bytes[(i>>3)+1]<<8)) >> (i&7)) & mask;
 #else
