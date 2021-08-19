@@ -73,6 +73,7 @@ target_link_libraries(epee
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_THREAD_LIBRARY}
     ${Boost_REGEX_LIBRARY}
+    ${Boost_SYSTEM_LIBRARY}
     ${OPENSSL_LIBRARIES}
   PRIVATE
     ${EXTRA_LIBRARIES})
@@ -81,6 +82,7 @@ if (USE_READLINE AND (GNU_READLINE_FOUND OR (DEPENDS AND NOT MINGW)))
   target_link_libraries(epee_readline
     PUBLIC
       easylogging
+      ${Boost_SYSTEM_LIBRARY}
     PRIVATE
     ${GNU_READLINE_LIBRARY})
 endif()
