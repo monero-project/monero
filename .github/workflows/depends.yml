@@ -45,15 +45,29 @@ jobs:
     - uses: actions/checkout@v1
       with:
         submodules: recursive
+# Most volatile cache
     - name: ccache
       uses: actions/cache@v2
       with:
-        path: |
-            ~/.ccache
-            contrib/depends/built
-            contrib/depends/sdk-sources
+        path: ~/.ccache
         key: ccache-${{ matrix.toolchain.host }}-${{ github.sha }}
         restore-keys: ccache-${{ matrix.toolchain.host }}-
+# Less volatile cache
+    - name: depends cache
+      uses: actions/cache@v2
+      with:
+        path: contrib/depends/built
+        key: depends-${{ matrix.toolchain.host }}-${{ hashFiles('contrib/depends/packages/*') }}
+        restore-keys: |
+          depends-${{ matrix.toolchain.host }}-${{ hashFiles('contrib/depends/packages/*') }}
+          depends-${{ matrix.toolchain.host }}-
+# Static cache
+    - name: OSX SDK cache
+      uses: actions/cache@v2
+      with:
+        path: contrib/depends/sdk-sources
+        key: sdk-${{ matrix.toolchain.host }}-${{ matrix.toolchain.osx_sdk }}
+        restore-keys: sdk-${{ matrix.toolchain.host }}-${{ matrix.toolchain.osx_sdk }}
     - name: set apt conf
       run: |
         echo "Acquire::Retries \"3\";" | sudo tee -a /etc/apt/apt.conf.d/80-custom
