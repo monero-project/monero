@@ -144,6 +144,9 @@ using namespace cryptonote;
 
 #define IGNORE_LONG_PAYMENT_ID_FROM_BLOCK_VERSION 12
 
+#define DEFAULT_UNLOCK_TIME (CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE * DIFFICULTY_TARGET_V2)
+#define RECENT_SPEND_WINDOW (50 * DIFFICULTY_TARGET_V2)
+
 static const std::string MULTISIG_SIGNATURE_MAGIC = "SigMultisigPkV1";
 static const std::string MULTISIG_EXTRA_INFO_MAGIC = "MultisigxV1";
 
@@ -1028,6 +1031,34 @@ uint64_t gamma_picker::pick()
 {
   double x = gamma(engine);
   x = exp(x);
+
+  if (x > DEFAULT_UNLOCK_TIME) 
+  {
+    // We are trying to select an output from the chain that appeared 'x' seconds before the
+    // current chain tip, where 'x' is selected from the gamma distribution recommended in Miller et al.
+    // (https://arxiv.org/pdf/1704.04299/).
+    // Our method is to get the average time delta between outputs in the recent past, estimate the number of
+    // outputs 'n' that would have appeared between 'chain_tip - x' and 'chain_tip', select the real output at
+    // 'current_num_outputs - n', then randomly select an output from the block where that output appears.
+    // Source code to paper: https://github.com/maltemoeser/moneropaper
+    //
+    // Due to the 'default spendable age' mechanic in Monero, 'current_num_outputs' only contains
+    // currently *unlocked* outputs, which means the earliest output that can be selected is not at the chain tip!
+    // Therefore, we must offset 'x' so it matches up with the timing of the outputs being considered. We do
+    // this by saying if 'x` equals the expected age of the first unlocked output (compared to the current
+    // chain tip - i.e. DEFAULT_UNLOCK_TIME), then select the first unlocked output.
+    x -= DEFAULT_UNLOCK_TIME;
+  }
+  else 
+  {
+    // If the spent time suggested by the gamma is less than the unlock time, that means the gamma is suggesting an output
+    // that is no longer feasible to be spent (possible since the gamma was constructed when consensus rules did not enforce the
+    // lock time). The assumption made in this code is that an output expected spent quicker than the unlock time would likely
+    // be spent within RECENT_SPEND_WINDOW after allowed. So it returns an output that falls between 0 and the RECENT_SPEND_WINDOW.
+    // The RECENT_SPEND_WINDOW was determined with empirical analysis of observed data.
+    x = crypto::rand_idx(static_cast<uint64_t>(RECENT_SPEND_WINDOW));
+  }
+
   uint64_t output_index = x / average_output_time;
   if (output_index >= num_rct_outputs)
     return std::numeric_limits<uint64_t>::max(); // bad pick
