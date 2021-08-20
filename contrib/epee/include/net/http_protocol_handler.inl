@@ -668,7 +668,7 @@ namespace net_utils
 		// Cross-origin resource sharing
 		if(m_query_info.m_header_info.m_origin.size())
 		{
-			if (std::binary_search(m_config.m_access_control_origins.begin(), m_config.m_access_control_origins.end(), m_query_info.m_header_info.m_origin))
+			if (std::binary_search(m_config.m_access_control_origins.begin(), m_config.m_access_control_origins.end(), "*") || std::binary_search(m_config.m_access_control_origins.begin(), m_config.m_access_control_origins.end(), m_query_info.m_header_info.m_origin))
 			{
 				buf += "Access-Control-Allow-Origin: ";
 				buf += m_query_info.m_header_info.m_origin;
