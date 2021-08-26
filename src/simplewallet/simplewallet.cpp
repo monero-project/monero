@@ -87,7 +87,6 @@
 #include "readline_buffer.h"
 #endif
 
-using namespace std;
 using namespace epee;
 using namespace cryptonote;
 using boost::lexical_cast;

@@ -45,7 +45,6 @@ extern "C"
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "account"
 
-using namespace std;
 
 DISABLE_VS_WARNINGS(4244 4345)
 
