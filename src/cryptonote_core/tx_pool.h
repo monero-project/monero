@@ -266,6 +266,15 @@ namespace cryptonote
     void get_transaction_backlog(std::vector<tx_backlog_entry>& backlog, bool include_sensitive = false) const;
 
     /**
+     * @brief get (hash, weight, fee) for all transactions in the pool - the minimum required information to create a block template
+     *
+     * @param backlog return-by-reference that data
+     * @param include_sensitive return stempool, anonymity-pool, and unrelayed txes
+     *
+     */
+    void get_block_template_backlog(std::vector<tx_block_template_backlog_entry>& backlog, bool include_sensitive = false) const;
+
+    /**
      * @brief get a summary statistics of all transaction hashes in the pool
      *
      * @param stats return-by-reference the pool statistics

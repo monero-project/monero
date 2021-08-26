@@ -53,6 +53,14 @@ class Daemon(object):
         return self.rpc.send_json_rpc_request(getblocktemplate)
     get_block_template = getblocktemplate
 
+    def get_miner_data(self):
+        get_miner_data = {
+            'method': 'get_miner_data',
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(get_miner_data)
+
     def send_raw_transaction(self, tx_as_hex, do_not_relay = False, do_sanity_checks = True, client = ""):
         send_raw_transaction = {
             'client': client,
