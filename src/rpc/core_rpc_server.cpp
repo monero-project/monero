@@ -1861,6 +1861,43 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_getminerdata(const COMMAND_RPC_GETMINERDATA::request& req, COMMAND_RPC_GETMINERDATA::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx)
+  {
+    if(!check_core_ready())
+    {
+      error_resp.code = CORE_RPC_ERROR_CODE_CORE_BUSY;
+      error_resp.message = "Core is busy";
+      return false;
+    }
+
+    crypto::hash prev_id, seed_hash;
+    difficulty_type difficulty;
+
+    std::vector<tx_block_template_backlog_entry> tx_backlog;
+    if (!m_core.get_miner_data(res.major_version, res.height, prev_id, seed_hash, difficulty, res.median_weight, res.already_generated_coins, tx_backlog))
+    {
+      error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
+      error_resp.message = "Internal error: failed to get miner data";
+      LOG_ERROR("Failed to get miner data");
+      return false;
+    }
+
+    res.tx_backlog.clear();
+    res.tx_backlog.reserve(tx_backlog.size());
+
+    for (const auto& entry : tx_backlog)
+    {
+      res.tx_backlog.emplace_back(COMMAND_RPC_GETMINERDATA::response::tx_backlog_entry{string_tools::pod_to_hex(entry.id), entry.weight, entry.fee});
+    }
+
+    res.prev_id = string_tools::pod_to_hex(prev_id);
+    res.seed_hash = string_tools::pod_to_hex(seed_hash);
+    res.difficulty = cryptonote::hex(difficulty);
+
+    res.status = CORE_RPC_STATUS_OK;
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_add_aux_pow(const COMMAND_RPC_ADD_AUX_POW::request& req, COMMAND_RPC_ADD_AUX_POW::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx)
   {
     RPC_TRACKER(add_aux_pow);

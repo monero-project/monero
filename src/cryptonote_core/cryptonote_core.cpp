@@ -1063,8 +1063,9 @@ namespace cryptonote
       if (already_have[i])
         continue;
 
-      const uint64_t weight = results[i].tx.pruned ? get_pruned_transaction_weight(results[i].tx) : get_transaction_weight(results[i].tx, it->blob.size());
-      ok &= add_new_tx(results[i].tx, results[i].hash, tx_blobs[i].blob, weight, tvc[i], tx_relay, relayed);
+      results[i].blob_size = it->blob.size();
+      results[i].weight = results[i].tx.pruned ? get_pruned_transaction_weight(results[i].tx) : get_transaction_weight(results[i].tx, it->blob.size());
+      ok &= add_new_tx(results[i].tx, results[i].hash, tx_blobs[i].blob, results[i].weight, tvc[i], tx_relay, relayed);
 
       if(tvc[i].m_verifivation_failed)
       {MERROR_VER("Transaction verification failed: " << results[i].hash);}
@@ -1401,6 +1402,11 @@ namespace cryptonote
   bool core::get_block_template(block& b, const crypto::hash *prev_block, const account_public_address& adr, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash)
   {
     return m_blockchain_storage.create_block_template(b, prev_block, adr, diffic, height, expected_reward, ex_nonce, seed_height, seed_hash);
+  }
+  //-----------------------------------------------------------------------------------------------
+  bool core::get_miner_data(uint8_t& major_version, uint64_t& height, crypto::hash& prev_id, crypto::hash& seed_hash, difficulty_type& difficulty, uint64_t& median_weight, uint64_t& already_generated_coins, std::vector<tx_block_template_backlog_entry>& tx_backlog)
+  {
+    return m_blockchain_storage.get_miner_data(major_version, height, prev_id, seed_hash, difficulty, median_weight, already_generated_coins, tx_backlog);
   }
   //-----------------------------------------------------------------------------------------------
   bool core::find_blockchain_supplement(const std::list<crypto::hash>& qblock_ids, bool clip_pruned, NOTIFY_RESPONSE_CHAIN_ENTRY::request& resp) const

@@ -53,6 +53,14 @@ class Daemon(object):
         return self.rpc.send_json_rpc_request(getblocktemplate)
     get_block_template = getblocktemplate
 
+    def get_miner_data(self):
+        get_miner_data = {
+            'method': 'get_miner_data',
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(get_miner_data)
+
     def add_aux_pow(self, blocktemplate_blob, aux_pow, client = ""):
         add_aux_pow = {
             'method': 'add_aux_pow',

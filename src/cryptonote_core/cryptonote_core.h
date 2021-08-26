@@ -237,6 +237,13 @@ namespace cryptonote
      virtual bool get_block_template(block& b, const crypto::hash *prev_block, const account_public_address& adr, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash);
 
      /**
+      * @copydoc Blockchain::get_miner_data
+      *
+      * @note see Blockchain::get_miner_data
+      */
+     bool get_miner_data(uint8_t& major_version, uint64_t& height, crypto::hash& prev_id, crypto::hash& seed_hash, difficulty_type& difficulty, uint64_t& median_weight, uint64_t& already_generated_coins, std::vector<tx_block_template_backlog_entry>& tx_backlog);
+
+     /**
       * @brief called when a transaction is relayed.
       * @note Should only be invoked from `levin_notify`.
       */
