@@ -89,6 +89,9 @@ namespace cryptonote
    */
   typedef std::function<const epee::span<const unsigned char>(cryptonote::network_type network)> GetCheckpointsCallback;
 
+  typedef boost::function<void(uint64_t /* height */, epee::span<const block> /* blocks */)> BlockNotifyCallback;
+  typedef boost::function<void(uint8_t /* major_version */, uint64_t /* height */, const crypto::hash& /* prev_id */, const crypto::hash& /* seed_hash */, difficulty_type /* diff */, uint64_t /* median_weight */, uint64_t /* already_generated_coins */, const std::vector<tx_block_template_backlog_entry>& /* tx_backlog */)> MinerNotifyCallback;
+
   /************************************************************************/
   /*                                                                      */
   /************************************************************************/
@@ -368,6 +371,22 @@ namespace cryptonote
      */
     bool create_block_template(block& b, const account_public_address& miner_address, difficulty_type& di, uint64_t& height, uint64_t& expected_reward, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash);
     bool create_block_template(block& b, const crypto::hash *from_block, const account_public_address& miner_address, difficulty_type& di, uint64_t& height, uint64_t& expected_reward, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash);
+
+    /**
+     * @brief gets data required to create a block template and start mining on it
+     *
+     * @param major_version current hardfork version
+     * @param height current blockchain height
+     * @param prev_id hash of the top block
+     * @param seed_hash seed hash used for RandomX initialization
+     * @param difficulty current mining difficulty
+     * @param median_weight current median block weight
+     * @param already_generated_coins current emission
+     * @param tx_backlog transactions in mempool ready to be mined
+     *
+     * @return true if block template filled in successfully, else false
+     */
+    bool get_miner_data(uint8_t& major_version, uint64_t& height, crypto::hash& prev_id, crypto::hash& seed_hash, difficulty_type& difficulty, uint64_t& median_weight, uint64_t& already_generated_coins, std::vector<tx_block_template_backlog_entry>& tx_backlog);
 
     /**
      * @brief checks if a block is known about with a given hash
@@ -771,7 +790,14 @@ namespace cryptonote
      *
      * @param notify the notify object to call at every new block
      */
-    void add_block_notify(boost::function<void(std::uint64_t, epee::span<const block>)> &&notify);
+    void add_block_notify(BlockNotifyCallback&& notify);
+
+    /**
+     * @brief sets a miner notify object to call for every new block
+     *
+     * @param notify the notify object to call at every new block
+     */
+    void add_miner_notify(MinerNotifyCallback&& notify);
 
     /**
      * @brief sets a reorg notify object to call for every reorg
@@ -1153,7 +1179,8 @@ namespace cryptonote
        the callable object has a single `std::shared_ptr` or `std::weap_ptr`
        internally. Whereas, the libstdc++ `std::function` will allocate. */
 
-    std::vector<boost::function<void(std::uint64_t, epee::span<const block>)>> m_block_notifiers;
+    std::vector<BlockNotifyCallback> m_block_notifiers;
+    std::vector<MinerNotifyCallback> m_miner_notifiers;
     std::shared_ptr<tools::Notify> m_reorg_notify;
 
     // for prepare_handle_incoming_blocks
@@ -1533,5 +1560,13 @@ namespace cryptonote
      * At some point, may be used to push an update to miners
      */
     void cache_block_template(const block &b, const cryptonote::account_public_address &address, const blobdata &nonce, const difficulty_type &diff, uint64_t height, uint64_t expected_reward, uint64_t seed_height, const crypto::hash &seed_hash, uint64_t pool_cookie);
+
+    /**
+     * @brief sends new block notifications to ZMQ `miner_data` subscribers
+     *
+     * @param prev_id hash of new blockchain tip
+     * @param already_generated_coins total coins mined by the network so far
+     */
+    void send_miner_notifications(const crypto::hash &prev_id, uint64_t already_generated_coins);
   };
 }  // namespace cryptonote

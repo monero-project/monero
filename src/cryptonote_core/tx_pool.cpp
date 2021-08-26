@@ -914,6 +914,34 @@ namespace cryptonote
     }, false, category);
   }
   //------------------------------------------------------------------
+  void tx_memory_pool::get_block_template_backlog(std::vector<tx_block_template_backlog_entry>& backlog, bool include_sensitive) const
+  {
+    CRITICAL_REGION_LOCAL(m_transactions_lock);
+    CRITICAL_REGION_LOCAL1(m_blockchain);
+    const relay_category category = include_sensitive ? relay_category::all : relay_category::broadcasted;
+    backlog.reserve(m_blockchain.get_txpool_tx_count(include_sensitive));
+    cryptonote::blobdata tmp_blob;
+    txpool_tx_meta_t tmp_meta;
+    m_blockchain.for_all_txpool_txes([this, &backlog, &tmp_blob, &tmp_meta](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata_ref *bd){
+      tmp_blob = m_blockchain.get_txpool_tx_blob(txid, relay_category::all);
+      transaction tx;
+      if (!(meta.pruned ? parse_and_validate_tx_base_from_blob(tmp_blob, tx) : parse_and_validate_tx_from_blob(tmp_blob, tx)))
+      {
+        MERROR("Failed to parse tx from txpool");
+        // continue
+        return true;
+      }
+      tx.set_hash(txid);
+
+      tmp_meta = meta;
+
+      if (is_transaction_ready_to_go(tmp_meta, txid, tmp_blob, tx))
+        backlog.push_back({txid, meta.weight, meta.fee});
+
+      return true;
+    }, false, category);
+  }
+  //------------------------------------------------------------------
   void tx_memory_pool::get_transaction_stats(struct txpool_stats& stats, bool include_sensitive) const
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
