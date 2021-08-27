@@ -28,20 +28,32 @@
 
 set(GENERATED_SOURCES "")
 
+set(GENERATOR "${CMAKE_CURRENT_BINARY_DIR}/blocks_generator.cmake")
+file(GENERATE OUTPUT ${GENERATOR} CONTENT [=[
+file(READ "${INPUT_DAT_FILE}" DATA HEX)
+string(REGEX REPLACE "[0-9a-fA-F][0-9a-fA-F]" "0x\\0," DATA "${DATA}")
+file(WRITE "${OUTPUT_C_SOURCE}" "
+#include <stddef.h>
+const unsigned char ${BLOB_NAME}[]={
+  ${DATA}
+};
+const size_t ${BLOB_NAME}_len = sizeof(${BLOB_NAME});
+"
+)
+]=])
 foreach(BLOB_NAME checkpoints testnet_blocks stagenet_blocks)
     set(OUTPUT_C_SOURCE "generated_${BLOB_NAME}.c")
     list(APPEND GENERATED_SOURCES ${OUTPUT_C_SOURCE})
     set(INPUT_DAT_FILE "${BLOB_NAME}.dat")
     add_custom_command(
-        OUTPUT ${OUTPUT_C_SOURCE} 
-        MAIN_DEPENDENCY ${INPUT_DAT_FILE} 
-        COMMAND 
-            cd ${CMAKE_CURRENT_BINARY_DIR} && 
-            echo "'#include\t<stddef.h>'" > ${OUTPUT_C_SOURCE} &&
-            echo "'const\tunsigned\tchar\t${BLOB_NAME}[]={'" >> ${OUTPUT_C_SOURCE} &&
-            od -v -An -tx1 ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_DAT_FILE} | sed -e "'s/[0-9a-fA-F]\\{1,\\}/0x&,/g'" -e "'$$s/.$$//'" >> ${OUTPUT_C_SOURCE} &&
-            echo "'};'" >> ${OUTPUT_C_SOURCE} &&
-            echo "'const\tsize_t\t${BLOB_NAME}_len\t=\tsizeof(${BLOB_NAME});'" >> ${OUTPUT_C_SOURCE}
+      OUTPUT ${OUTPUT_C_SOURCE}
+      MAIN_DEPENDENCY ${INPUT_DAT_FILE}
+      DEPENDS ${GENERATOR}
+      COMMAND ${CMAKE_COMMAND}
+        "-DINPUT_DAT_FILE=${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_DAT_FILE}"
+        "-DBLOB_NAME=${BLOB_NAME}"
+        "-DOUTPUT_C_SOURCE=${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_C_SOURCE}"
+        -P "${GENERATOR}"
     )
 endforeach()
 
