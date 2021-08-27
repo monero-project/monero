@@ -41,6 +41,7 @@ using namespace epee;
 #include "wallet/wallet_args.h"
 #include "common/command_line.h"
 #include "common/i18n.h"
+#include "common/scoped_message_writer.h"
 #include "cryptonote_config.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "cryptonote_basic/account.h"
@@ -4716,7 +4717,7 @@ int main(int argc, char** argv) {
     tools::wallet_rpc_server::tr("This is the RPC monero wallet. It needs to connect to a monero\ndaemon to work correctly."),
     desc_params,
     po::positional_options_description(),
-    [](const std::string &s, bool emphasis){ epee::set_console_color(emphasis ? epee::console_color_white : epee::console_color_default, true); std::cout << s << std::endl; if (emphasis) epee::reset_console_color(); },
+    [](const std::string &s, bool emphasis){ tools::scoped_message_writer(emphasis ? epee::console_color_white : epee::console_color_default, true) << s; },
     "monero-wallet-rpc.log",
     true
   );
