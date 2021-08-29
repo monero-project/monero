@@ -6570,27 +6570,27 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
     }
 
     if (is_swap) {
-			std::string address = input_line(tr("Please enter the ETH address you want to swap to"));
+			// std::string address = input_line(tr("Please enter the ETH address you want to swap to"));
 
-			if (std::cin.eof())
-				return true;
+			// if (std::cin.eof())
+			// 	return true;
 
-      if (!add_eth_address_to_tx_extra(extra, address)) {
-        fail_msg_writer() << tr("failed to add eth address");
-        return false;
-      }
-
-      eth_address = address;
-      //transfer amount = burn amount
-      add_burned_amount_to_tx_extra(extra, de.amount);
-
-      //change it to 0.01 as actual "transaction output"
-      burn_amount += de.amount;
-      // if (burn_amount <= 500000000) {
-      //   fail_msg_writer() << tr("Amount too low");
+      // if (!add_eth_address_to_tx_extra(extra, address)) {
+      //   fail_msg_writer() << tr("failed to add eth address");
       //   return false;
       // }
-      de.amount = 10;
+
+      // eth_address = address;
+      // //transfer amount = burn amount
+      // add_burned_amount_to_tx_extra(extra, de.amount);
+
+      // //change it to 0.01 as actual "transaction output"
+      // burn_amount += de.amount;
+      // // if (burn_amount <= 500000000) {
+      // //   fail_msg_writer() << tr("Amount too low");
+      // //   return false;
+      // // }
+      // de.amount = 10;
     }
 
     if (is_create_contract) {

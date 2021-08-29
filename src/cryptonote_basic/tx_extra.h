@@ -50,7 +50,6 @@
 #define TX_EXTRA_MYSTERIOUS_MINERGATE_TAG     0xDE
 
 #define TX_EXTRA_TAG_BURN                     0x76
-#define TX_EXTRA_ETH_ADDRESS                  0x77
 #define TX_EXTRA_CONTRACT_INFO                0x78
 #define TX_EXTRA_CONTRACT_STATE               0x79
 #define TX_EXTRA_CONTRACT_INTERACTION         0x80
@@ -272,15 +271,6 @@ struct tx_extra_service_node_deregister
     END_SERIALIZE()
   };
 
-  struct tx_extra_eth_address
-  {
-    std::string eth_address;
-
-    BEGIN_SERIALIZE()
-      FIELD(eth_address)
-    END_SERIALIZE()
-  };
-
   struct tx_extra_contract_info
   {
     std::string contract_json;
@@ -317,7 +307,6 @@ struct tx_extra_service_node_deregister
 	 tx_extra_service_node_deregister,
 	 tx_extra_tx_secret_key,
    tx_extra_burn,
-   tx_extra_eth_address,
    tx_extra_contract_info,
    tx_extra_memo> tx_extra_field;
   }
@@ -336,6 +325,5 @@ struct tx_extra_service_node_deregister
   VARIANT_TAG(binary_archive, cryptonote::tx_extra_service_node_pubkey, TX_EXTRA_TAG_SERVICE_NODE_PUBKEY);
   VARIANT_TAG(binary_archive, cryptonote::tx_extra_tx_secret_key, TX_EXTRA_TAG_TX_SECRET_KEY);
   VARIANT_TAG(binary_archive, cryptonote::tx_extra_burn,                        TX_EXTRA_TAG_BURN);
-  VARIANT_TAG(binary_archive, cryptonote::tx_extra_eth_address,                        TX_EXTRA_ETH_ADDRESS);
   VARIANT_TAG(binary_archive, cryptonote::tx_extra_contract_info,                        TX_EXTRA_CONTRACT_INFO);
   VARIANT_TAG(binary_archive, cryptonote::tx_extra_memo, TX_EXTRA_TAG_MEMO);

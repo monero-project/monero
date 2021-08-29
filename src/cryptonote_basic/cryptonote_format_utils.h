@@ -114,9 +114,6 @@ namespace cryptonote
   uint64_t get_burned_amount_from_tx_extra(const std::vector<uint8_t>& tx_extra);
   bool check_burned_amount_from_tx_extra(const std::vector<uint8_t>& tx_extra);
 
-  bool add_eth_address_to_tx_extra(std::vector<uint8_t>& tx_extra, const std::string &address_string);
-  std::string get_eth_address_from_tx_extra(const std::vector<uint8_t>& tx_extra);
-
   bool add_contract_info_to_tx_extra(std::vector<uint8_t>& tx_extra, const std::string &contract_info);
   std::string get_contract_info_from_tx_extra(const std::vector<uint8_t>& tx_extra);
 

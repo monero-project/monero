@@ -631,7 +631,6 @@ namespace cryptonote
     if (!pick<tx_extra_tx_secret_key>(nar, tx_extra_fields, TX_EXTRA_TAG_TX_SECRET_KEY)) return false;
 
     if (!pick<tx_extra_burn>                        (nar, tx_extra_fields, TX_EXTRA_TAG_BURN)) return false;
-    if (!pick<tx_extra_eth_address>                        (nar, tx_extra_fields, TX_EXTRA_ETH_ADDRESS)) return false;
     if (!pick<tx_extra_contract_info>                        (nar, tx_extra_fields, TX_EXTRA_CONTRACT_INFO)) return false;
     if (!pick<tx_extra_memo>                        (nar, tx_extra_fields, TX_EXTRA_TAG_MEMO)) return false;
 
@@ -1026,28 +1025,6 @@ void add_tx_secret_key_to_tx_extra(std::vector<uint8_t>& tx_extra, const crypto:
         return false;
     }
     return true;
-  }
- 
-  //---------------------------------------------------------------
-  std::string get_eth_address_from_tx_extra(const std::vector<uint8_t>& tx_extra)
-  {
-    std::vector<tx_extra_field> tx_extra_fields;
-    parse_tx_extra(tx_extra, tx_extra_fields);
-
-    tx_extra_eth_address eth_address;
-    if (find_tx_extra_field_by_type(tx_extra_fields, eth_address))
-      return eth_address.eth_address;
-    return "";
-  }
-  //---------------------------------------------------------------
-  bool add_eth_address_to_tx_extra(std::vector<uint8_t>& tx_extra, const std::string &eth_string)
-  {
-    if (eth_string == "")
-      return false;
-    tx_extra_field field = tx_extra_eth_address{eth_string};
-    bool result = add_tx_extra_field_to_tx_extra(tx_extra, field);
-    CHECK_AND_NO_ASSERT_MES_L1(result, false, "failed to serialize tx extra burn amount");
-    return result;
   }
   //---------------------------------------------------------------
   std::string get_contract_info_from_tx_extra(const std::vector<uint8_t>& tx_extra)
