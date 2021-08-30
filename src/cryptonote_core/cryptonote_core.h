@@ -106,16 +106,6 @@ namespace cryptonote
 
 
 
-    /**
-     * @copydoc Blockchain::pythia_adapter
-     *
-     * @note see Blockchain::pythia_adapter()
-     * @param block new block added to chain
-     */
-
-     void pythia_adapter(const block &b, const std::vector<std::pair<cryptonote::transaction, cryptonote::blobdata>>& txs, const crypto::public_key &pub_key, crypto::secret_key &sec_key);
-
-
      /**
       * @brief calls various idle routines
       *
