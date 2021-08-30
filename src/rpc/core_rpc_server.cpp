@@ -3691,21 +3691,21 @@ namespace cryptonote
     //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_get_signature(const COMMAND_RPC_GET_SIGNATURE::request& req, COMMAND_RPC_GET_SIGNATURE::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx)
   {
-		crypto::public_key my_pubkey;
-		crypto::secret_key my_seckey;
-		if (!m_core.get_service_node_keys(my_pubkey, my_seckey))
-			return false;    
+		// crypto::public_key my_pubkey;
+		// crypto::secret_key my_seckey;
+		// if (!m_core.get_service_node_keys(my_pubkey, my_seckey))
+		// 	return false;    
       
-    crypto::hash data_hash = karai::make_data_hash(my_pubkey, req.message);
+    // // crypto::hash data_hash = karai::make_data_hash(my_pubkey, req.message);
 
-    crypto::signature signature;
-    crypto::generate_signature(data_hash, my_pubkey, my_seckey, signature);
+    // crypto::signature signature;
+    // crypto::generate_signature(data_hash, my_pubkey, my_seckey, signature);
 
-    res.signature = epee::string_tools::pod_to_hex(signature);
-    res.hash = epee::string_tools::pod_to_hex(data_hash);
+    // res.signature = epee::string_tools::pod_to_hex(signature);
+    // res.hash = epee::string_tools::pod_to_hex(data_hash);
 
-    res.status = CORE_RPC_STATUS_OK;
-    return true;
+    // res.status = CORE_RPC_STATUS_OK;
+    // return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_verify_signature(const COMMAND_RPC_VERIFY_SIGNATURE::request& req, COMMAND_RPC_VERIFY_SIGNATURE::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx)
