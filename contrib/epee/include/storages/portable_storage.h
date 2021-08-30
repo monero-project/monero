@@ -39,6 +39,7 @@
 #include "portable_storage_val_converters.h"
 #include "span.h"
 #include "int-util.h"
+#include <boost/mpl/contains.hpp>
 
 namespace epee
 {
