@@ -20,7 +20,6 @@ packages:
 - "zip"
 - "ca-certificates"
 - "python"
-- "rename"
 - "cmake"
 alternatives:
 -
