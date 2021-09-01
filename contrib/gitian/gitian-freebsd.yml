@@ -25,11 +25,6 @@ packages:
 - "ca-certificates"
 - "python"
 - "cmake"
-- "protobuf-compiler"
-- "libdbus-1-dev"
-- "libharfbuzz-dev"
-- "libprotobuf-dev"
-- "python3-zmq"
 remotes:
 - "url": "https://github.com/monero-project/monero.git"
   "dir": "monero"
