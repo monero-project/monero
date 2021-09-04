@@ -46,7 +46,7 @@ static inline boost::asio::ip::address_v4 make_address_v4_from_v6(const boost::a
   return boost::asio::ip::address_v4(v4);
 }
 
-uint32_t get_group(const epee::net_utils::network_address& address);
-std::vector<bool> readASMap(const std::string &path);
+uint32_t get_group(const epee::net_utils::network_address& address, const std::vector<bool> &asmap);
+bool read_asmap(const std::string &path, std::vector<bool>& bits);
 } // group
 } // net

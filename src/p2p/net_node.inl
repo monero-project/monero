@@ -117,6 +117,7 @@ namespace nodetool
     command_line::add_arg(desc, arg_limit_rate);
     command_line::add_arg(desc, arg_pad_transactions);
     command_line::add_arg(desc, arg_max_connections_per_ip);
+    command_line::add_arg(desc, arg_asmap);
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
@@ -649,6 +650,10 @@ namespace nodetool
     }
 
     max_connections = command_line::get_arg(vm, arg_max_connections_per_ip);
+
+    auto asmap_path = command_line::get_arg(vm, arg_asmap);
+    if (!asmap_path.empty() && !net::group::read_asmap(asmap_path, m_asmap))
+      return false;
 
     return true;
   }
@@ -1562,7 +1567,7 @@ namespace nodetool
       {
         zone.m_net_server.get_config_object().foreach_connection([&](const p2p_connection_context& cntxt)
         {
-          auto group = net::group::get_group(cntxt.m_remote_address);
+          auto group = net::group::get_group(cntxt.m_remote_address, m_asmap);
           if (group)
             classB.insert(group);
           return true;
@@ -1590,13 +1595,13 @@ namespace nodetool
       {
         bool skip_duplicate_class_B = step == 0;
         size_t idx = 0, skipped = 0;
-        zone.m_peerlist.foreach (use_white_list, [&classB, &filtered, &idx, &skipped, skip_duplicate_class_B, limit, next_needed_pruning_stripe, &hosts_added, &get_host_string](const peerlist_entry &pe){
+        zone.m_peerlist.foreach (use_white_list, [&classB, &filtered, &idx, &skipped, skip_duplicate_class_B, limit, next_needed_pruning_stripe, &hosts_added, &get_host_string, this](const peerlist_entry &pe){
           if (filtered.size() >= limit)
             return false;
           bool skip = false;
           if (skip_duplicate_class_B)
           {
-            auto group = net::group::get_group(pe.adr);
+            auto group = net::group::get_group(pe.adr, m_asmap);
             if (group)
               skip = classB.find(group) != classB.end();
           }

@@ -170,6 +170,7 @@ namespace nodetool
       "pad-transactions", "Pad relayed transactions to help defend against traffic volume analysis", false
     };
     const command_line::arg_descriptor<uint32_t> arg_max_connections_per_ip = {"max-connections-per-ip", "Maximum number of connections allowed from the same IP address", 1};
+    const command_line::arg_descriptor<std::string> arg_asmap = {"asmap", "Path to AS mapping file"};
 
     boost::optional<std::vector<proxy>> get_proxies(boost::program_options::variables_map const& vm)
     {
