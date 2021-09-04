@@ -51,6 +51,7 @@
 #include "common/dns_utils.h"
 #include "common/pruning.h"
 #include "net/error.h"
+#include "net/group.h"
 #include "misc_log_ex.h"
 #include "p2p_protocol_defs.h"
 #include "crypto/crypto.h"
@@ -66,17 +67,6 @@
 #define MONERO_DEFAULT_LOG_CATEGORY "net.p2p"
 
 #define MIN_WANTED_SEED_NODES 12
-
-static inline boost::asio::ip::address_v4 make_address_v4_from_v6(const boost::asio::ip::address_v6& a)
-{
-  const auto &bytes = a.to_bytes();
-  uint32_t v4 = 0;
-  v4 = (v4 << 8) | bytes[12];
-  v4 = (v4 << 8) | bytes[13];
-  v4 = (v4 << 8) | bytes[14];
-  v4 = (v4 << 8) | bytes[15];
-  return boost::asio::ip::address_v4(v4);
-}
 
 namespace nodetool
 {
@@ -1572,25 +1562,9 @@ namespace nodetool
       {
         zone.m_net_server.get_config_object().foreach_connection([&](const p2p_connection_context& cntxt)
         {
-          if (cntxt.m_remote_address.get_type_id() == epee::net_utils::ipv4_network_address::get_type_id())
-          {
-
-            const epee::net_utils::network_address na = cntxt.m_remote_address;
-            const uint32_t actual_ip = na.as<const epee::net_utils::ipv4_network_address>().ip();
-            classB.insert(actual_ip & 0x0000ffff);
-          }
-          else if (cntxt.m_remote_address.get_type_id() == epee::net_utils::ipv6_network_address::get_type_id())
-          {
-            const epee::net_utils::network_address na = cntxt.m_remote_address;
-            const boost::asio::ip::address_v6 &actual_ip = na.as<const epee::net_utils::ipv6_network_address>().ip();
-            if (actual_ip.is_v4_mapped())
-            {
-              boost::asio::ip::address_v4 v4ip = make_address_v4_from_v6(actual_ip);
-              uint32_t actual_ipv4;
-              memcpy(&actual_ipv4, v4ip.to_bytes().data(), sizeof(actual_ipv4));
-              classB.insert(actual_ipv4 & ntohl(0xffff0000));
-            }
-          }
+          auto group = net::group::get_group(cntxt.m_remote_address);
+          if (group)
+            classB.insert(group);
           return true;
         });
       }
@@ -1601,7 +1575,7 @@ namespace nodetool
           boost::asio::ip::address_v6 actual_ip = address.as<const epee::net_utils::ipv6_network_address>().ip();
           if (actual_ip.is_v4_mapped())
           {
-            boost::asio::ip::address_v4 v4ip = make_address_v4_from_v6(actual_ip);
+            boost::asio::ip::address_v4 v4ip = net::group::make_address_v4_from_v6(actual_ip);
             uint32_t actual_ipv4;
             memcpy(&actual_ipv4, v4ip.to_bytes().data(), sizeof(actual_ipv4));
             return epee::net_utils::ipv4_network_address(actual_ipv4, 0).host_str();
@@ -1620,23 +1594,11 @@ namespace nodetool
           if (filtered.size() >= limit)
             return false;
           bool skip = false;
-          if (skip_duplicate_class_B && pe.adr.get_type_id() == epee::net_utils::ipv4_network_address::get_type_id())
+          if (skip_duplicate_class_B)
           {
-            const epee::net_utils::network_address na = pe.adr;
-            uint32_t actual_ip = na.as<const epee::net_utils::ipv4_network_address>().ip();
-            skip = classB.find(actual_ip & 0x0000ffff) != classB.end();
-          }
-          else if (skip_duplicate_class_B && pe.adr.get_type_id() == epee::net_utils::ipv6_network_address::get_type_id())
-          {
-            const epee::net_utils::network_address na = pe.adr;
-            const boost::asio::ip::address_v6 &actual_ip = na.as<const epee::net_utils::ipv6_network_address>().ip();
-            if (actual_ip.is_v4_mapped())
-            {
-              boost::asio::ip::address_v4 v4ip = make_address_v4_from_v6(actual_ip);
-              uint32_t actual_ipv4;
-              memcpy(&actual_ipv4, v4ip.to_bytes().data(), sizeof(actual_ipv4));
-              skip = classB.find(actual_ipv4 & ntohl(0xffff0000)) != classB.end();
-            }
+            auto group = net::group::get_group(pe.adr);
+            if (group)
+              skip = classB.find(group) != classB.end();
           }
 
           // consider each host once, to avoid giving undue inflence to hosts running several nodes
