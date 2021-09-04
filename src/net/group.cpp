@@ -38,6 +38,7 @@ namespace group
 namespace {
 
 constexpr uint32_t INVALID = 0xFFFFFFFF;
+static const unsigned char pchIPv4[12] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff };
 
 // NB: from bitcoin's <crypto/common.h>
 /** Return the smallest number n such that (x >> n) == 0 (or 64 if the highest bit in x is set. */
@@ -261,27 +262,57 @@ bool read_asmap(const std::string &path, std::vector<bool>& bits)
     return true;
 }
 
-uint32_t get_group(const epee::net_utils::network_address& address)
+uint32_t get_group(const uint32_t ip, const std::vector<bool> &asmap)
 {
-    if (address.get_type_id() == epee::net_utils::ipv4_network_address::get_type_id())
-    {
-        const epee::net_utils::network_address na = address;
-        const uint32_t actual_ip = na.as<const epee::net_utils::ipv4_network_address>().ip();
-        return actual_ip & 0x0000ffff;
-    }
-    else if (address.get_type_id() == epee::net_utils::ipv6_network_address::get_type_id())
-    {
-        const epee::net_utils::network_address na = address;
-        const boost::asio::ip::address_v6 &actual_ip = na.as<const epee::net_utils::ipv6_network_address>().ip();
-        if (actual_ip.is_v4_mapped())
-        {
-          boost::asio::ip::address_v4 v4ip = make_address_v4_from_v6(actual_ip);
-          uint32_t actual_ipv4;
-          memcpy(&actual_ipv4, v4ip.to_bytes().data(), sizeof(actual_ipv4));
-          return actual_ipv4 & ntohl(0xffff0000);
+    if (asmap.size() == 0)
+        return ip & 0x0000ffff;
+
+    std::vector<bool> ip_bits(128);
+    // For lookup, treat as if it was just an IPv4 address (pchIPv4 prefix + IPv4 bits)
+    for (int8_t byte_i = 0; byte_i < 12; ++byte_i) {
+        for (uint8_t bit_i = 0; bit_i < 8; ++bit_i) {
+            ip_bits[byte_i * 8 + bit_i] = (pchIPv4[byte_i] >> (7 - bit_i)) & 1;
         }
     }
+    // Bitcoin's code uses big endian internally
+    auto ip_be = swap32(ip);
+    for (int i = 0; i < 32; ++i) {
+        ip_bits[96 + i] = (ip_be >> (31 - i)) & 1;
+    }
+    auto group = Interpret(asmap, ip_bits);
+    if (group) return group;
+    return ip & 0x0000ffff;
+}
+
+uint32_t get_group(const boost::asio::ip::address_v6& ip, const std::vector<bool> &asmap)
+{
+    if (ip.is_v4_mapped())
+    {
+        boost::asio::ip::address_v4 v4ip = make_address_v4_from_v6(ip);
+        uint32_t actual_ipv4;
+        memcpy(&actual_ipv4, v4ip.to_bytes().data(), sizeof(actual_ipv4));
+        return get_group(actual_ipv4, asmap);
+    }
     return 0;
+}
+
+uint32_t get_group(const epee::net_utils::network_address& address, const std::vector<bool> &asmap)
+{
+    switch(address.get_type_id())
+    {
+        case epee::net_utils::ipv4_network_address::get_type_id():
+        {
+            const epee::net_utils::network_address na = address;
+            return get_group(na.as<const epee::net_utils::ipv4_network_address>().ip(), asmap);
+        }
+        case epee::net_utils::ipv6_network_address::get_type_id():
+        {
+            const epee::net_utils::network_address na = address;
+            return get_group(na.as<const epee::net_utils::ipv6_network_address>().ip(), asmap);
+        }
+        default:
+            return 0;
+    }
 }
 
 } // group
