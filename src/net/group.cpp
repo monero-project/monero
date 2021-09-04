@@ -234,6 +234,33 @@ bool SanityCheckASMap(const std::vector<bool>& asmap, int bits)
     return false; // Reached EOF without RETURN instruction
 }
 
+// Equivalent to bitcoin's CAddrMan::DecodeAsmap(fs::path path)
+bool read_asmap(const std::string &path, std::vector<bool>& bits)
+{
+    MINFO("Using AS mapping file: " << path);
+    std::ifstream ifs(path, std::ios::binary | std::ios::in | std::ios::ate);
+    if (!ifs.is_open())
+    {
+        MERROR("Failed to open asmap file " << path);
+        return false;
+    }
+    bits.clear();
+    bits.reserve(8 * ifs.tellg());
+    ifs.seekg(std::ios_base::beg);
+    char cur_byte;
+    while (ifs.get(cur_byte))
+    {
+        for (int bit = 0; bit < 8; ++bit) {
+            bits.push_back((cur_byte >> bit) & 1);
+        }
+    }
+    if (!SanityCheckASMap(bits, 128)) {
+        MERROR("Sanity check of asmap file failed, path: " << path);
+        return false;
+    }
+    return true;
+}
+
 uint32_t get_group(const epee::net_utils::network_address& address)
 {
     if (address.get_type_id() == epee::net_utils::ipv4_network_address::get_type_id())
