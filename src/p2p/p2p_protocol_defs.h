@@ -37,6 +37,7 @@
 #include "net/net_utils_base.h"
 #include "net/tor_address.h" // needed for serialization
 #include "net/i2p_address.h" // needed for serialization
+#include "net/group.h"
 #include "misc_language.h"
 #include "string_tools.h"
 #include "time_helper.h"
@@ -143,7 +144,7 @@ namespace nodetool
 #pragma pack(pop)
 
   inline 
-  std::string print_peerlist_to_string(const std::vector<peerlist_entry>& pl)
+  std::string print_peerlist_to_string(const std::vector<peerlist_entry>& pl, const std::vector<bool> &asmap)
   {
     time_t now_time = 0;
     time(&now_time);
@@ -156,6 +157,7 @@ namespace nodetool
         << " \trpc credits per hash " << (pe.rpc_credits_per_hash > 0 ? std::to_string(pe.rpc_credits_per_hash) : "-")
         << " \tpruning seed " << pe.pruning_seed 
         << " \tlast_seen: " << (pe.last_seen == 0 ? std::string("never") : epee::misc_utils::get_time_interval_string(now_time - pe.last_seen))
+        << " \tbucket: " << net::group::get_group(pe.adr, asmap)
         << std::endl;
     }
     return ss.str();

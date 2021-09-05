@@ -2164,7 +2164,7 @@ namespace nodetool
     }
 
     LOG_DEBUG_CC(context, "REMOTE PEERLIST: remote peerlist size=" << peerlist_.size());
-    LOG_TRACE_CC(context, "REMOTE PEERLIST: " << ENDL << print_peerlist_to_string(peerlist_));
+    LOG_TRACE_CC(context, "REMOTE PEERLIST: " << ENDL << print_peerlist_to_string(peerlist_, m_asmap));
     CRITICAL_REGION_LOCAL(m_blocked_hosts_lock);
     return m_network_zones.at(context.m_remote_address.get_zone()).m_peerlist.merge_peerlist(peerlist_, [this](const peerlist_entry &pe) {
       return !is_addr_recently_failed(pe.adr) && is_remote_host_allowed(pe.adr);
@@ -2614,7 +2614,7 @@ namespace nodetool
     std::vector<peerlist_entry> pl_gray;
     for (auto& zone : m_network_zones)
       zone.second.m_peerlist.get_peerlist(pl_gray, pl_white);
-    MINFO(ENDL << "Peerlist white:" << ENDL << print_peerlist_to_string(pl_white) << ENDL << "Peerlist gray:" << ENDL << print_peerlist_to_string(pl_gray) );
+    MINFO(ENDL << "Peerlist white:" << ENDL << print_peerlist_to_string(pl_white, m_asmap) << ENDL << "Peerlist gray:" << ENDL << print_peerlist_to_string(pl_gray, m_asmap) );
     return true;
   }
   //-----------------------------------------------------------------------------------
