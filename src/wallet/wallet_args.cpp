@@ -80,6 +80,10 @@ namespace wallet_args
   {
     return {"rpc-client-secret-key", wallet_args::tr("Set RPC client secret key for RPC payments"), ""};
   }
+  command_line::arg_descriptor<std::string> arg_password_file()
+  {
+    return {"password-file", wallet_args::tr("Wallet password file"), ""};
+  }
 
   const char* tr(const char* str)
   {
