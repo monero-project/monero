@@ -24,6 +24,9 @@ SET(Readline_INCLUDE_DIR @prefix@/include)
 SET(Readline_LIBRARY @prefix@/lib/libreadline.a)
 SET(Terminfo_LIBRARY @prefix@/lib/libtinfo.a)
 
+SET(UNBOUND_INCLUDE_DIR @prefix@/include)
+SET(UNBOUND_LIBRARIES @prefix@/lib/libunbound.a)
+
 SET(LRELEASE_PATH @prefix@/native/bin CACHE FILEPATH "path to lrelease" FORCE)
 
 if(NOT CMAKE_SYSTEM_NAME STREQUAL "Android")
