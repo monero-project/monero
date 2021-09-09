@@ -388,6 +388,7 @@ namespace cryptonote
     m_fluffy_blocks_enabled = !get_arg(vm, arg_no_fluffy_blocks);
     m_offline = get_arg(vm, arg_offline);
     m_disable_dns_checkpoints = get_arg(vm, arg_disable_dns_checkpoints);
+
     if (!command_line::is_arg_defaulted(vm, arg_fluffy_blocks))
       MWARNING(arg_fluffy_blocks.name << " is obsolete, it is now default");
 
@@ -460,7 +461,7 @@ namespace cryptonote
     return m_blockchain_storage.get_alternative_blocks_count();
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::init(const boost::program_options::variables_map& vm, const cryptonote::test_options *test_options, const GetCheckpointsCallback& get_checkpoints/* = nullptr */)
+  bool core::init(const boost::program_options::variables_map& vm, const cryptonote::test_options *test_options, const GetCheckpointsCallback& get_checkpoints/* = nullptr */, bool allow_dns)
   {
     start_time = std::time(nullptr);
 
@@ -471,6 +472,7 @@ namespace cryptonote
     }
     bool r = handle_command_line(vm);
     CHECK_AND_ASSERT_MES(r, false, "Failed to handle command line");
+    m_disable_dns_checkpoints |= not allow_dns;
 
     std::string db_sync_mode = command_line::get_arg(vm, cryptonote::arg_db_sync_mode);
     bool db_salvage = command_line::get_arg(vm, cryptonote::arg_db_salvage) != 0;
@@ -697,7 +699,7 @@ namespace cryptonote
     CHECK_AND_ASSERT_MES(update_checkpoints(skip_dns_checkpoints), false, "One or more checkpoints loaded from json or dns conflicted with existing checkpoints.");
 
    // DNS versions checking
-    if (check_updates_string == "disabled")
+    if (check_updates_string == "disabled" || not allow_dns)
       check_updates_level = UPDATES_DISABLED;
     else if (check_updates_string == "notify")
       check_updates_level = UPDATES_NOTIFY;
