@@ -2,11 +2,19 @@ name: ci/gh-actions/depends
 
 on: [push, pull_request]
 
+env:
+  APT_SET_CONF: |
+        echo "Acquire::Retries \"3\";"         | sudo tee -a /etc/apt/apt.conf.d/80-custom
+        echo "Acquire::http::Timeout \"120\";" | sudo tee -a /etc/apt/apt.conf.d/80-custom
+        echo "Acquire::ftp::Timeout \"120\";"  | sudo tee -a /etc/apt/apt.conf.d/80-custom
+  CCACHE_SETTINGS: |
+        ccache --max-size=150M
+        ccache --set-config=compression=true
+
 jobs:
   build-macos:
     runs-on: ubuntu-18.04
     env:
-      CCACHE_COMPRESS: 1
       CCACHE_TEMPDIR: /tmp/.ccache-temp
     strategy:
       fail-fast: false
@@ -69,10 +77,7 @@ jobs:
         key: sdk-${{ matrix.toolchain.host }}-${{ matrix.toolchain.osx_sdk }}
         restore-keys: sdk-${{ matrix.toolchain.host }}-${{ matrix.toolchain.osx_sdk }}
     - name: set apt conf
-      run: |
-        echo "Acquire::Retries \"3\";" | sudo tee -a /etc/apt/apt.conf.d/80-custom
-        echo "Acquire::http::Timeout \"120\";" | sudo tee -a /etc/apt/apt.conf.d/80-custom
-        echo "Acquire::ftp::Timeout \"120\";" | sudo tee -a /etc/apt/apt.conf.d/80-custom
+      run: ${{env.APT_SET_CONF}}
     - name: install dependencies
       run: sudo apt update; sudo apt -y install build-essential libtool cmake autotools-dev automake pkg-config bsdmainutils curl git ca-certificates ccache ${{ matrix.toolchain.packages }}
     - name: prepare apple-darwin11
@@ -88,7 +93,7 @@ jobs:
         sudo update-alternatives --set ${{ matrix.toolchain.host }}-gcc $(which ${{ matrix.toolchain.host }}-gcc-posix)
     - name: build
       run: |
-        ccache --max-size=150M
+        ${{env.CCACHE_SETTINGS}}
         make depends target=${{ matrix.toolchain.host }} -j2
     - uses: actions/upload-artifact@v2
       if: ${{ matrix.toolchain.host == 'x86_64-w64-mingw32' || matrix.toolchain.host == 'x86_64-apple-darwin11' || matrix.toolchain.host == 'x86_64-unknown-linux-gnu' }}
