@@ -91,7 +91,6 @@ namespace hw {
     public:
 
         device(): mode(NONE)  {}
-        device(const device &hwdev) {}
         virtual ~device()   {}
 
         explicit virtual operator bool() const = 0;
