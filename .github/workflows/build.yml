@@ -27,8 +27,8 @@ jobs:
     - uses: actions/cache@v2
       with:
         path: /Users/runner/Library/Caches/ccache
-        key: ccache-macos-build-${{ github.sha }}
-        restore-keys: ccache-macos-build-
+        key: ccache-${{ runner.os }}-build-${{ github.sha }}
+        restore-keys: ccache-${{ runner.os }}-build-
     - name: install dependencies
       run: HOMEBREW_NO_AUTO_UPDATE=1 brew install boost hidapi zmq libpgm miniupnpc ldns expat libunwind-headers protobuf ccache
     - name: build
@@ -52,8 +52,8 @@ jobs:
     - uses: actions/cache@v2
       with:
         path: C:\Users\runneradmin\.ccache
-        key: ccache-windows-build-${{ github.sha }}
-        restore-keys: ccache-windows-build-
+        key: ccache-${{ runner.os }}-build-${{ github.sha }}
+        restore-keys: ccache-${{ runner.os }}-build-
     - uses: eine/setup-msys2@v2
       with:
         update: true
@@ -81,8 +81,8 @@ jobs:
     - uses: actions/cache@v2
       with:
         path: ~/.ccache
-        key: ccache-ubuntu-build-${{ matrix.os }}-${{ github.sha }}
-        restore-keys: ccache-ubuntu-build-${{ matrix.os }}
+        key: ccache-${{ runner.os }}-build-${{ matrix.os }}-${{ github.sha }}
+        restore-keys: ccache-${{ runner.os }}-build-${{ matrix.os }}
     - name: remove bundled boost
       run: ${{env.REMOVE_BUNDLED_BOOST}}
     - name: set apt conf
@@ -106,8 +106,8 @@ jobs:
     - uses: actions/cache@v2
       with:
         path: ~/.ccache
-        key: ccache-ubuntu-libwallet-${{ github.sha }}
-        restore-keys: ccache-ubuntu-libwallet-
+        key: ccache-${{ runner.os }}-libwallet-${{ github.sha }}
+        restore-keys: ccache-${{ runner.os }}-libwallet-
     - name: remove bundled boost
       run: ${{env.REMOVE_BUNDLED_BOOST}}
     - name: set apt conf
@@ -136,8 +136,8 @@ jobs:
       uses: actions/cache@v2
       with:
         path: ~/.ccache
-        key: ccache-ubuntu-build-ubuntu-latest-${{ github.sha }}
-        restore-keys: ccache-ubuntu-build-ubuntu-latest
+        key: ccache-${{ runner.os }}-build-ubuntu-latest-${{ github.sha }}
+        restore-keys: ccache-${{ runner.os }}-build-ubuntu-latest
     - name: remove bundled boost
       run: ${{env.REMOVE_BUNDLED_BOOST}}
     - name: set apt conf
