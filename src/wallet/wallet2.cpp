@@ -10261,6 +10261,38 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
       const size_t num_outputs = get_num_outputs(tx.dsts, m_transfers, tx.selected_transfers);
       needed_fee = estimate_fee(use_per_byte_fee, use_rct ,tx.selected_transfers.size(), fake_outs_count, num_outputs, extra.size(), bulletproof, clsag, base_fee, fee_multiplier, fee_quantization_mask);
 
+      auto try_carving_from_partial_payment = [&](uint64_t needed_fee, uint64_t available_for_fee)
+      {
+        // The check against original_output_index is to ensure the last entry in tx.dsts is really
+        // a partial payment. Otherwise multiple requested outputs to the same address could
+        // fool this logic into thinking there is a partial payment.
+        if (needed_fee > available_for_fee && !dsts.empty() && dsts[0].amount > 0 && tx.dsts.size() > original_output_index)
+        {
+          // we don't have enough for the fee, but we've only partially paid the current address,
+          // so we can take the fee from the paid amount, since we'll have to make another tx anyway
+          LOG_PRINT_L2("Attempting to carve tx fee " << print_money(needed_fee) << " from partial payment (first pass)");
+          std::vector<cryptonote::tx_destination_entry>::iterator i;
+          i = std::find_if(tx.dsts.begin(), tx.dsts.end(),
+          [&](const cryptonote::tx_destination_entry &d) { return !memcmp (&d.addr, &dsts[0].addr, sizeof(dsts[0].addr)); });
+          THROW_WALLET_EXCEPTION_IF(i == tx.dsts.end(), error::wallet_internal_error, "paid address not found in outputs");
+          if (i->amount > needed_fee)
+          {
+            uint64_t new_paid_amount = i->amount /*+ test_ptx.fee*/ - needed_fee;
+            LOG_PRINT_L2("Adjusting amount paid to " << get_account_address_as_str(m_nettype, i->is_subaddress, i->addr) << " from " <<
+                print_money(i->amount) << " to " << print_money(new_paid_amount) << " to accommodate " <<
+                print_money(needed_fee) << " fee");
+            dsts[0].amount += i->amount - new_paid_amount;
+            i->amount = new_paid_amount;
+            test_ptx.fee = needed_fee;
+            available_for_fee = needed_fee;
+          }
+        }
+        return available_for_fee;
+      };
+
+      // Try to carve the estimated fee from the partial payment (if there is one)
+      available_for_fee = try_carving_from_partial_payment(needed_fee, available_for_fee);
+
       uint64_t inputs = 0, outputs = needed_fee;
       for (size_t idx: tx.selected_transfers) inputs += m_transfers[idx].amount();
       for (const auto &o: tx.dsts) outputs += o.amount;
@@ -10286,26 +10318,8 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
       LOG_PRINT_L2("Made a " << get_weight_string(test_ptx.tx, txBlob.size()) << " tx, with " << print_money(available_for_fee) << " available for fee (" <<
         print_money(needed_fee) << " needed)");
 
-      if (needed_fee > available_for_fee && !dsts.empty() && dsts[0].amount > 0)
-      {
-        // we don't have enough for the fee, but we've only partially paid the current address,
-        // so we can take the fee from the paid amount, since we'll have to make another tx anyway
-        std::vector<cryptonote::tx_destination_entry>::iterator i;
-        i = std::find_if(tx.dsts.begin(), tx.dsts.end(),
-          [&](const cryptonote::tx_destination_entry &d) { return !memcmp (&d.addr, &dsts[0].addr, sizeof(dsts[0].addr)); });
-        THROW_WALLET_EXCEPTION_IF(i == tx.dsts.end(), error::wallet_internal_error, "paid address not found in outputs");
-        if (i->amount > needed_fee)
-        {
-          uint64_t new_paid_amount = i->amount /*+ test_ptx.fee*/ - needed_fee;
-          LOG_PRINT_L2("Adjusting amount paid to " << get_account_address_as_str(m_nettype, i->is_subaddress, i->addr) << " from " <<
-            print_money(i->amount) << " to " << print_money(new_paid_amount) << " to accommodate " <<
-            print_money(needed_fee) << " fee");
-          dsts[0].amount += i->amount - new_paid_amount;
-          i->amount = new_paid_amount;
-          test_ptx.fee = needed_fee;
-          available_for_fee = needed_fee;
-        }
-      }
+      // Try to carve the fee from the partial payment again after updating from estimate to actual
+      available_for_fee = try_carving_from_partial_payment(needed_fee, available_for_fee);
 
       if (needed_fee > available_for_fee)
       {
