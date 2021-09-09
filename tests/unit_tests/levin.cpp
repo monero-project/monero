@@ -37,6 +37,7 @@
 #include <map>
 
 #include "byte_slice.h"
+#include "byte_stream.h"
 #include "crypto/crypto.h"
 #include "cryptonote_basic/connection_context.h"
 #include "cryptonote_config.h"
@@ -52,6 +53,21 @@
 
 namespace
 {
+    epee::byte_slice prep_slice(const std::size_t count, const char ch)
+    {
+        epee::byte_stream stream;
+        stream.put_n(ch, count);
+        return epee::byte_slice{std::move(stream)};
+    }
+
+    std::vector<epee::byte_slice> copy_slices(const std::vector<epee::byte_slice>& source)
+    {
+        std::vector<epee::byte_slice> out;
+	for (const auto& slice : source)
+	    out.emplace_back(slice.clone());
+	return out;
+    }
+
     class test_endpoint final : public epee::net_utils::i_service_endpoint
     {
         boost::asio::io_service& io_service_;
@@ -118,7 +134,7 @@ namespace
 
     class test_core_events final : public cryptonote::i_core_events
     {
-        std::map<cryptonote::relay_method, std::vector<cryptonote::blobdata>> relayed_;
+        std::map<cryptonote::relay_method, std::vector<epee::byte_slice>> relayed_;
 
         virtual bool is_synchronized() const final
         {
@@ -130,11 +146,11 @@ namespace
             return 0;
         }
 
-        virtual void on_transactions_relayed(epee::span<const cryptonote::blobdata> txes, cryptonote::relay_method relay) override final
+        virtual void on_transactions_relayed(epee::span<const epee::byte_slice> txes, cryptonote::relay_method relay) override final
         {
-            std::vector<cryptonote::blobdata>& cached = relayed_[relay];
+            std::vector<epee::byte_slice>& cached = relayed_[relay];
             for (const auto& tx : txes)
-                cached.push_back(tx);
+	        cached.push_back(tx.clone());
         }
 
     public:
@@ -152,13 +168,13 @@ namespace
             return relayed_.count(cryptonote::relay_method::stem);
         }
 
-        std::vector<cryptonote::blobdata> take_relayed(cryptonote::relay_method relay)
+        std::vector<epee::byte_slice> take_relayed(cryptonote::relay_method relay)
         {
             auto elems = relayed_.find(relay);
             if (elems == relayed_.end())
                 throw std::logic_error{"on_transactions_relayed empty"};
 
-            std::vector<cryptonote::blobdata> out{std::move(elems->second)};
+            std::vector<epee::byte_slice> out{std::move(elems->second)};
             relayed_.erase(elems);
             return out;
         }
@@ -583,8 +599,8 @@ TEST_F(levin_notify, defaulted)
     }
     EXPECT_TRUE(notifier.send_txs({}, random_generator_(), cryptonote::relay_method::local));
 
-    std::vector<cryptonote::blobdata> txs(2);
-    txs[0].resize(100, 'e');
+    std::vector<epee::byte_slice> txs(2);
+    txs[0] = prep_slice(100, 'e');
     EXPECT_FALSE(notifier.send_txs(std::move(txs), random_generator_(), cryptonote::relay_method::local));
 }
 
@@ -603,14 +619,14 @@ TEST_F(levin_notify, fluff_without_padding)
     notifier.new_out_connection();
     io_service_.poll();
 
-    std::vector<cryptonote::blobdata> txs(2);
-    txs[0].resize(100, 'f');
-    txs[1].resize(200, 'e');
+    std::vector<epee::byte_slice> txs(2);
+    txs[0] = prep_slice(100, 'f');
+    txs[1] = prep_slice(200, 'e');
 
     ASSERT_EQ(10u, contexts_.size());
     {
         auto context = contexts_.begin();
-        EXPECT_TRUE(notifier.send_txs(txs, context->get_id(), cryptonote::relay_method::fluff));
+        EXPECT_TRUE(notifier.send_txs(copy_slices(txs), context->get_id(), cryptonote::relay_method::fluff));
 
         io_service_.reset();
         ASSERT_LT(0u, io_service_.poll());
@@ -649,11 +665,11 @@ TEST_F(levin_notify, stem_without_padding)
     notifier.new_out_connection();
     io_service_.poll();
 
-    std::vector<cryptonote::blobdata> txs(2);
-    txs[0].resize(100, 'f');
-    txs[1].resize(200, 'e');
+    std::vector<epee::byte_slice> txs(2);
+    txs[0] = prep_slice(100, 'f');
+    txs[1] = prep_slice(200, 'e');
 
-    std::vector<cryptonote::blobdata> sorted_txs = txs;
+    std::vector<epee::byte_slice> sorted_txs = copy_slices(txs);
     std::sort(sorted_txs.begin(), sorted_txs.end());
 
     ASSERT_EQ(10u, contexts_.size());
@@ -662,7 +678,7 @@ TEST_F(levin_notify, stem_without_padding)
     while (!has_stemmed || !has_fluffed)
     {
         auto context = contexts_.begin();
-        EXPECT_TRUE(notifier.send_txs(txs, context->get_id(), cryptonote::relay_method::stem));
+        EXPECT_TRUE(notifier.send_txs(copy_slices(txs), context->get_id(), cryptonote::relay_method::stem));
 
         io_service_.reset();
         ASSERT_LT(0u, io_service_.poll());
@@ -721,17 +737,17 @@ TEST_F(levin_notify, stem_no_outs_without_padding)
     notifier.new_out_connection();
     io_service_.poll();
 
-    std::vector<cryptonote::blobdata> txs(2);
-    txs[0].resize(100, 'f');
-    txs[1].resize(200, 'e');
+    std::vector<epee::byte_slice> txs(2);
+    txs[0] = prep_slice(100, 'f');
+    txs[1] = prep_slice(200, 'e');
 
-    std::vector<cryptonote::blobdata> sorted_txs = txs;
+    std::vector<epee::byte_slice> sorted_txs = copy_slices(txs);
     std::sort(sorted_txs.begin(), sorted_txs.end());
 
     ASSERT_EQ(10u, contexts_.size());
 
     auto context = contexts_.begin();
-    EXPECT_TRUE(notifier.send_txs(txs, context->get_id(), cryptonote::relay_method::stem));
+    EXPECT_TRUE(notifier.send_txs(copy_slices(txs), context->get_id(), cryptonote::relay_method::stem));
 
     io_service_.reset();
     ASSERT_LT(0u, io_service_.poll());
@@ -777,11 +793,11 @@ TEST_F(levin_notify, local_without_padding)
     notifier.new_out_connection();
     io_service_.poll();
 
-    std::vector<cryptonote::blobdata> txs(2);
-    txs[0].resize(100, 'f');
-    txs[1].resize(200, 'e');
+    std::vector<epee::byte_slice> txs(2);
+    txs[0] = prep_slice(100, 'f');
+    txs[1] = prep_slice(200, 'e');
 
-    std::vector<cryptonote::blobdata> sorted_txs = txs;
+    std::vector<epee::byte_slice> sorted_txs = copy_slices(txs);
     std::sort(sorted_txs.begin(), sorted_txs.end());
 
     ASSERT_EQ(10u, contexts_.size());
@@ -790,7 +806,7 @@ TEST_F(levin_notify, local_without_padding)
     while (!has_stemmed || !has_fluffed)
     {
         auto context = contexts_.begin();
-        EXPECT_TRUE(notifier.send_txs(txs, context->get_id(), cryptonote::relay_method::local));
+        EXPECT_TRUE(notifier.send_txs(copy_slices(txs), context->get_id(), cryptonote::relay_method::local));
 
         io_service_.reset();
         ASSERT_LT(0u, io_service_.poll());
@@ -849,11 +865,11 @@ TEST_F(levin_notify, forward_without_padding)
     notifier.new_out_connection();
     io_service_.poll();
 
-    std::vector<cryptonote::blobdata> txs(2);
-    txs[0].resize(100, 'f');
-    txs[1].resize(200, 'e');
+    std::vector<epee::byte_slice> txs(2);
+    txs[0] = prep_slice(100, 'f');
+    txs[1] = prep_slice(200, 'e');
 
-    std::vector<cryptonote::blobdata> sorted_txs = txs;
+    std::vector<epee::byte_slice> sorted_txs = copy_slices(txs);
     std::sort(sorted_txs.begin(), sorted_txs.end());
 
     ASSERT_EQ(10u, contexts_.size());
@@ -862,7 +878,7 @@ TEST_F(levin_notify, forward_without_padding)
     while (!has_stemmed || !has_fluffed)
     {
         auto context = contexts_.begin();
-        EXPECT_TRUE(notifier.send_txs(txs, context->get_id(), cryptonote::relay_method::forward));
+        EXPECT_TRUE(notifier.send_txs(copy_slices(txs), context->get_id(), cryptonote::relay_method::forward));
 
         io_service_.reset();
         ASSERT_LT(0u, io_service_.poll());
@@ -921,14 +937,14 @@ TEST_F(levin_notify, block_without_padding)
     notifier.new_out_connection();
     io_service_.poll();
 
-    std::vector<cryptonote::blobdata> txs(2);
-    txs[0].resize(100, 'e');
-    txs[1].resize(200, 'f');
+    std::vector<epee::byte_slice> txs(2);
+    txs[0] = prep_slice(100, 'e');
+    txs[1] = prep_slice(200, 'f');
 
     ASSERT_EQ(10u, contexts_.size());
     {
         auto context = contexts_.begin();
-        EXPECT_FALSE(notifier.send_txs(txs, context->get_id(), cryptonote::relay_method::block));
+        EXPECT_FALSE(notifier.send_txs(copy_slices(txs), context->get_id(), cryptonote::relay_method::block));
 
         io_service_.reset();
         ASSERT_EQ(0u, io_service_.poll());
@@ -950,14 +966,14 @@ TEST_F(levin_notify, none_without_padding)
     notifier.new_out_connection();
     io_service_.poll();
 
-    std::vector<cryptonote::blobdata> txs(2);
-    txs[0].resize(100, 'e');
-    txs[1].resize(200, 'f');
+    std::vector<epee::byte_slice> txs(2);
+    txs[0] = prep_slice(100, 'e');
+    txs[1] = prep_slice(200, 'f');
 
     ASSERT_EQ(10u, contexts_.size());
     {
         auto context = contexts_.begin();
-        EXPECT_FALSE(notifier.send_txs(txs, context->get_id(), cryptonote::relay_method::none));
+        EXPECT_FALSE(notifier.send_txs(copy_slices(txs), context->get_id(), cryptonote::relay_method::none));
 
         io_service_.reset();
         ASSERT_EQ(0u, io_service_.poll());
@@ -979,14 +995,14 @@ TEST_F(levin_notify, fluff_with_padding)
     notifier.new_out_connection();
     io_service_.poll();
 
-    std::vector<cryptonote::blobdata> txs(2);
-    txs[0].resize(100, 'f');
-    txs[1].resize(200, 'e');
+    std::vector<epee::byte_slice> txs(2);
+    txs[0] = prep_slice(100, 'f');
+    txs[1] = prep_slice(200, 'e');
 
     ASSERT_EQ(10u, contexts_.size());
     {
         auto context = contexts_.begin();
-        EXPECT_TRUE(notifier.send_txs(txs, context->get_id(), cryptonote::relay_method::fluff));
+        EXPECT_TRUE(notifier.send_txs(copy_slices(txs), context->get_id(), cryptonote::relay_method::fluff));
 
         io_service_.reset();
         ASSERT_LT(0u, io_service_.poll());
@@ -1025,9 +1041,9 @@ TEST_F(levin_notify, stem_with_padding)
     notifier.new_out_connection();
     io_service_.poll();
 
-    std::vector<cryptonote::blobdata> txs(2);
-    txs[0].resize(100, 'e');
-    txs[1].resize(200, 'f');
+    std::vector<epee::byte_slice> txs(2);
+    txs[0] = prep_slice(100, 'e');
+    txs[1] = prep_slice(200, 'f');
 
     ASSERT_EQ(10u, contexts_.size());
     bool has_stemmed = false;
@@ -1035,7 +1051,7 @@ TEST_F(levin_notify, stem_with_padding)
     while (!has_stemmed || !has_fluffed)
     {
         auto context = contexts_.begin();
-        EXPECT_TRUE(notifier.send_txs(txs, context->get_id(), cryptonote::relay_method::stem));
+        EXPECT_TRUE(notifier.send_txs(copy_slices(txs), context->get_id(), cryptonote::relay_method::stem));
 
         io_service_.reset();
         ASSERT_LT(0u, io_service_.poll());
@@ -1092,17 +1108,17 @@ TEST_F(levin_notify, stem_no_outs_with_padding)
     notifier.new_out_connection();
     io_service_.poll();
 
-    std::vector<cryptonote::blobdata> txs(2);
-    txs[0].resize(100, 'f');
-    txs[1].resize(200, 'e');
+    std::vector<epee::byte_slice> txs(2);
+    txs[0] = prep_slice(100, 'f');
+    txs[1] = prep_slice(200, 'e');
 
-    std::vector<cryptonote::blobdata> sorted_txs = txs;
+    std::vector<epee::byte_slice> sorted_txs = copy_slices(txs);
     std::sort(sorted_txs.begin(), sorted_txs.end());
 
     ASSERT_EQ(10u, contexts_.size());
 
     auto context = contexts_.begin();
-    EXPECT_TRUE(notifier.send_txs(txs, context->get_id(), cryptonote::relay_method::stem));
+    EXPECT_TRUE(notifier.send_txs(copy_slices(txs), context->get_id(), cryptonote::relay_method::stem));
 
     io_service_.reset();
     ASSERT_LT(0u, io_service_.poll());
@@ -1148,9 +1164,9 @@ TEST_F(levin_notify, local_with_padding)
     notifier.new_out_connection();
     io_service_.poll();
 
-    std::vector<cryptonote::blobdata> txs(2);
-    txs[0].resize(100, 'e');
-    txs[1].resize(200, 'f');
+    std::vector<epee::byte_slice> txs(2);
+    txs[0] = prep_slice(100, 'e');
+    txs[1] = prep_slice(200, 'f');
 
     ASSERT_EQ(10u, contexts_.size());
     bool has_stemmed = false;
@@ -1158,7 +1174,7 @@ TEST_F(levin_notify, local_with_padding)
     while (!has_stemmed || !has_fluffed)
     {
         auto context = contexts_.begin();
-        EXPECT_TRUE(notifier.send_txs(txs, context->get_id(), cryptonote::relay_method::local));
+        EXPECT_TRUE(notifier.send_txs(copy_slices(txs), context->get_id(), cryptonote::relay_method::local));
 
         io_service_.reset();
         ASSERT_LT(0u, io_service_.poll());
@@ -1215,9 +1231,9 @@ TEST_F(levin_notify, forward_with_padding)
     notifier.new_out_connection();
     io_service_.poll();
 
-    std::vector<cryptonote::blobdata> txs(2);
-    txs[0].resize(100, 'e');
-    txs[1].resize(200, 'f');
+    std::vector<epee::byte_slice> txs(2);
+    txs[0] = prep_slice(100, 'e');
+    txs[1] = prep_slice(200, 'f');
 
     ASSERT_EQ(10u, contexts_.size());
     bool has_stemmed = false;
@@ -1225,7 +1241,7 @@ TEST_F(levin_notify, forward_with_padding)
     while (!has_stemmed || !has_fluffed)
     {
         auto context = contexts_.begin();
-        EXPECT_TRUE(notifier.send_txs(txs, context->get_id(), cryptonote::relay_method::forward));
+        EXPECT_TRUE(notifier.send_txs(copy_slices(txs), context->get_id(), cryptonote::relay_method::forward));
 
         io_service_.reset();
         ASSERT_LT(0u, io_service_.poll());
@@ -1282,14 +1298,14 @@ TEST_F(levin_notify, block_with_padding)
     notifier.new_out_connection();
     io_service_.poll();
 
-    std::vector<cryptonote::blobdata> txs(2);
-    txs[0].resize(100, 'e');
-    txs[1].resize(200, 'f');
+    std::vector<epee::byte_slice> txs(2);
+    txs[0] = prep_slice(100, 'e');
+    txs[1] = prep_slice(200, 'f');
 
     ASSERT_EQ(10u, contexts_.size());
     {
         auto context = contexts_.begin();
-        EXPECT_FALSE(notifier.send_txs(txs, context->get_id(), cryptonote::relay_method::block));
+        EXPECT_FALSE(notifier.send_txs(copy_slices(txs), context->get_id(), cryptonote::relay_method::block));
 
         io_service_.reset();
         ASSERT_EQ(0u, io_service_.poll());
@@ -1311,14 +1327,14 @@ TEST_F(levin_notify, none_with_padding)
     notifier.new_out_connection();
     io_service_.poll();
 
-    std::vector<cryptonote::blobdata> txs(2);
-    txs[0].resize(100, 'e');
-    txs[1].resize(200, 'f');
+    std::vector<epee::byte_slice> txs(2);
+    txs[0] = prep_slice(100, 'e');
+    txs[1] = prep_slice(200, 'f');
 
     ASSERT_EQ(10u, contexts_.size());
     {
         auto context = contexts_.begin();
-        EXPECT_FALSE(notifier.send_txs(txs, context->get_id(), cryptonote::relay_method::none));
+        EXPECT_FALSE(notifier.send_txs(copy_slices(txs), context->get_id(), cryptonote::relay_method::none));
 
         io_service_.reset();
         ASSERT_EQ(0u, io_service_.poll());
@@ -1340,14 +1356,14 @@ TEST_F(levin_notify, private_fluff_without_padding)
     notifier.new_out_connection();
     io_service_.poll();
 
-    std::vector<cryptonote::blobdata> txs(2);
-    txs[0].resize(100, 'e');
-    txs[1].resize(200, 'f');
+    std::vector<epee::byte_slice> txs(2);
+    txs[0] = prep_slice(100, 'e');
+    txs[1] = prep_slice(200, 'f');
 
     ASSERT_EQ(10u, contexts_.size());
     {
         auto context = contexts_.begin();
-        EXPECT_TRUE(notifier.send_txs(txs, context->get_id(), cryptonote::relay_method::fluff));
+        EXPECT_TRUE(notifier.send_txs(copy_slices(txs), context->get_id(), cryptonote::relay_method::fluff));
 
         io_service_.reset();
         ASSERT_LT(0u, io_service_.poll());
@@ -1391,14 +1407,14 @@ TEST_F(levin_notify, private_stem_without_padding)
     notifier.new_out_connection();
     io_service_.poll();
 
-    std::vector<cryptonote::blobdata> txs(2);
-    txs[0].resize(100, 'e');
-    txs[1].resize(200, 'f');
+    std::vector<epee::byte_slice> txs(2);
+    txs[0] = prep_slice(100, 'e');
+    txs[1] = prep_slice(200, 'f');
 
     ASSERT_EQ(10u, contexts_.size());
     {
         auto context = contexts_.begin();
-        EXPECT_TRUE(notifier.send_txs(txs, context->get_id(), cryptonote::relay_method::stem));
+        EXPECT_TRUE(notifier.send_txs(copy_slices(txs), context->get_id(), cryptonote::relay_method::stem));
 
         io_service_.reset();
         ASSERT_LT(0u, io_service_.poll());
@@ -1442,14 +1458,14 @@ TEST_F(levin_notify, private_local_without_padding)
     notifier.new_out_connection();
     io_service_.poll();
 
-    std::vector<cryptonote::blobdata> txs(2);
-    txs[0].resize(100, 'e');
-    txs[1].resize(200, 'f');
+    std::vector<epee::byte_slice> txs(2);
+    txs[0] = prep_slice(100, 'e');
+    txs[1] = prep_slice(200, 'f');
 
     ASSERT_EQ(10u, contexts_.size());
     {
         auto context = contexts_.begin();
-        EXPECT_TRUE(notifier.send_txs(txs, context->get_id(), cryptonote::relay_method::local));
+        EXPECT_TRUE(notifier.send_txs(copy_slices(txs), context->get_id(), cryptonote::relay_method::local));
 
         io_service_.reset();
         ASSERT_LT(0u, io_service_.poll());
@@ -1493,14 +1509,14 @@ TEST_F(levin_notify, private_forward_without_padding)
     notifier.new_out_connection();
     io_service_.poll();
 
-    std::vector<cryptonote::blobdata> txs(2);
-    txs[0].resize(100, 'e');
-    txs[1].resize(200, 'f');
+    std::vector<epee::byte_slice> txs(2);
+    txs[0] = prep_slice(100, 'e');
+    txs[1] = prep_slice(200, 'f');
 
     ASSERT_EQ(10u, contexts_.size());
     {
         auto context = contexts_.begin();
-        EXPECT_TRUE(notifier.send_txs(txs, context->get_id(), cryptonote::relay_method::forward));
+        EXPECT_TRUE(notifier.send_txs(copy_slices(txs), context->get_id(), cryptonote::relay_method::forward));
 
         io_service_.reset();
         ASSERT_LT(0u, io_service_.poll());
@@ -1544,14 +1560,14 @@ TEST_F(levin_notify, private_block_without_padding)
     notifier.new_out_connection();
     io_service_.poll();
 
-    std::vector<cryptonote::blobdata> txs(2);
-    txs[0].resize(100, 'e');
-    txs[1].resize(200, 'f');
+    std::vector<epee::byte_slice> txs(2);
+    txs[0] = prep_slice(100, 'e');
+    txs[1] = prep_slice(200, 'f');
 
     ASSERT_EQ(10u, contexts_.size());
     {
         auto context = contexts_.begin();
-        EXPECT_FALSE(notifier.send_txs(txs, context->get_id(), cryptonote::relay_method::block));
+        EXPECT_FALSE(notifier.send_txs(copy_slices(txs), context->get_id(), cryptonote::relay_method::block));
 
         io_service_.reset();
         ASSERT_EQ(0u, io_service_.poll());
@@ -1574,14 +1590,14 @@ TEST_F(levin_notify, private_none_without_padding)
     notifier.new_out_connection();
     io_service_.poll();
 
-    std::vector<cryptonote::blobdata> txs(2);
-    txs[0].resize(100, 'e');
-    txs[1].resize(200, 'f');
+    std::vector<epee::byte_slice> txs(2);
+    txs[0] = prep_slice(100, 'e');
+    txs[1] = prep_slice(200, 'f');
 
     ASSERT_EQ(10u, contexts_.size());
     {
         auto context = contexts_.begin();
-        EXPECT_FALSE(notifier.send_txs(txs, context->get_id(), cryptonote::relay_method::none));
+        EXPECT_FALSE(notifier.send_txs(copy_slices(txs), context->get_id(), cryptonote::relay_method::none));
 
         io_service_.reset();
         ASSERT_EQ(0u, io_service_.poll());
@@ -1603,14 +1619,14 @@ TEST_F(levin_notify, private_fluff_with_padding)
     notifier.new_out_connection();
     io_service_.poll();
 
-    std::vector<cryptonote::blobdata> txs(2);
-    txs[0].resize(100, 'e');
-    txs[1].resize(200, 'f');
+    std::vector<epee::byte_slice> txs(2);
+    txs[0] = prep_slice(100, 'e');
+    txs[1] = prep_slice(200, 'f');
 
     ASSERT_EQ(10u, contexts_.size());
     {
         auto context = contexts_.begin();
-        EXPECT_TRUE(notifier.send_txs(txs, context->get_id(), cryptonote::relay_method::fluff));
+        EXPECT_TRUE(notifier.send_txs(copy_slices(txs), context->get_id(), cryptonote::relay_method::fluff));
 
         io_service_.reset();
         ASSERT_LT(0u, io_service_.poll());
@@ -1653,14 +1669,14 @@ TEST_F(levin_notify, private_stem_with_padding)
     notifier.new_out_connection();
     io_service_.poll();
 
-    std::vector<cryptonote::blobdata> txs(2);
-    txs[0].resize(100, 'e');
-    txs[1].resize(200, 'f');
+    std::vector<epee::byte_slice> txs(2);
+    txs[0] = prep_slice(100, 'e');
+    txs[1] = prep_slice(200, 'f');
 
     ASSERT_EQ(10u, contexts_.size());
     {
         auto context = contexts_.begin();
-        EXPECT_TRUE(notifier.send_txs(txs, context->get_id(), cryptonote::relay_method::stem));
+        EXPECT_TRUE(notifier.send_txs(copy_slices(txs), context->get_id(), cryptonote::relay_method::stem));
 
         io_service_.reset();
         ASSERT_LT(0u, io_service_.poll());
@@ -1703,14 +1719,14 @@ TEST_F(levin_notify, private_local_with_padding)
     notifier.new_out_connection();
     io_service_.poll();
 
-    std::vector<cryptonote::blobdata> txs(2);
-    txs[0].resize(100, 'e');
-    txs[1].resize(200, 'f');
+    std::vector<epee::byte_slice> txs(2);
+    txs[0] = prep_slice(100, 'e');
+    txs[1] = prep_slice(200, 'f');
 
     ASSERT_EQ(10u, contexts_.size());
     {
         auto context = contexts_.begin();
-        EXPECT_TRUE(notifier.send_txs(txs, context->get_id(), cryptonote::relay_method::local));
+        EXPECT_TRUE(notifier.send_txs(copy_slices(txs), context->get_id(), cryptonote::relay_method::local));
 
         io_service_.reset();
         ASSERT_LT(0u, io_service_.poll());
@@ -1753,14 +1769,14 @@ TEST_F(levin_notify, private_forward_with_padding)
     notifier.new_out_connection();
     io_service_.poll();
 
-    std::vector<cryptonote::blobdata> txs(2);
-    txs[0].resize(100, 'e');
-    txs[1].resize(200, 'f');
+    std::vector<epee::byte_slice> txs(2);
+    txs[0] = prep_slice(100, 'e');
+    txs[1] = prep_slice(200, 'f');
 
     ASSERT_EQ(10u, contexts_.size());
     {
         auto context = contexts_.begin();
-        EXPECT_TRUE(notifier.send_txs(txs, context->get_id(), cryptonote::relay_method::forward));
+        EXPECT_TRUE(notifier.send_txs(copy_slices(txs), context->get_id(), cryptonote::relay_method::forward));
 
         io_service_.reset();
         ASSERT_LT(0u, io_service_.poll());
@@ -1803,14 +1819,14 @@ TEST_F(levin_notify, private_block_with_padding)
     notifier.new_out_connection();
     io_service_.poll();
 
-    std::vector<cryptonote::blobdata> txs(2);
-    txs[0].resize(100, 'e');
-    txs[1].resize(200, 'f');
+    std::vector<epee::byte_slice> txs(2);
+    txs[0] = prep_slice(100, 'e');
+    txs[1] = prep_slice(200, 'f');
 
     ASSERT_EQ(10u, contexts_.size());
     {
         auto context = contexts_.begin();
-        EXPECT_FALSE(notifier.send_txs(txs, context->get_id(), cryptonote::relay_method::block));
+        EXPECT_FALSE(notifier.send_txs(copy_slices(txs), context->get_id(), cryptonote::relay_method::block));
 
         io_service_.reset();
         ASSERT_EQ(0u, io_service_.poll());
@@ -1832,14 +1848,14 @@ TEST_F(levin_notify, private_none_with_padding)
     notifier.new_out_connection();
     io_service_.poll();
 
-    std::vector<cryptonote::blobdata> txs(2);
-    txs[0].resize(100, 'e');
-    txs[1].resize(200, 'f');
+    std::vector<epee::byte_slice> txs(2);
+    txs[0] = prep_slice(100, 'e');
+    txs[1] = prep_slice(200, 'f');
 
     ASSERT_EQ(10u, contexts_.size());
     {
         auto context = contexts_.begin();
-        EXPECT_FALSE(notifier.send_txs(txs, context->get_id(), cryptonote::relay_method::none));
+        EXPECT_FALSE(notifier.send_txs(copy_slices(txs), context->get_id(), cryptonote::relay_method::none));
 
         io_service_.reset();
         ASSERT_EQ(0u, io_service_.poll());
@@ -1863,15 +1879,15 @@ TEST_F(levin_notify, stem_mappings)
     notifier.new_out_connection();
     io_service_.poll();
 
-    std::vector<cryptonote::blobdata> txs(2);
-    txs[0].resize(100, 'e');
-    txs[1].resize(200, 'f');
+    std::vector<epee::byte_slice> txs(2);
+    txs[0] = prep_slice(100, 'e');
+    txs[1] = prep_slice(200, 'f');
 
     ASSERT_EQ(test_connections_count, contexts_.size());
     for (;;)
     {
         auto context = contexts_.begin();
-        EXPECT_TRUE(notifier.send_txs(txs, context->get_id(), cryptonote::relay_method::stem));
+        EXPECT_TRUE(notifier.send_txs(copy_slices(txs), context->get_id(), cryptonote::relay_method::stem));
 
         io_service_.reset();
         ASSERT_LT(0u, io_service_.poll());
@@ -1933,7 +1949,7 @@ TEST_F(levin_notify, stem_mappings)
     for (unsigned i = 0; i < contexts_.size() * 2; i += 2)
     {
         auto& incoming = contexts_[i % contexts_.size()];
-        EXPECT_TRUE(notifier.send_txs(txs, incoming.get_id(), cryptonote::relay_method::stem));
+        EXPECT_TRUE(notifier.send_txs(copy_slices(txs), incoming.get_id(), cryptonote::relay_method::stem));
 
         io_service_.reset();
         ASSERT_LT(0u, io_service_.poll());
@@ -1986,15 +2002,15 @@ TEST_F(levin_notify, fluff_multiple)
     notifier.new_out_connection();
     io_service_.poll();
 
-    std::vector<cryptonote::blobdata> txs(2);
-    txs[0].resize(100, 'e');
-    txs[1].resize(200, 'f');
+    std::vector<epee::byte_slice> txs(2);
+    txs[0] = prep_slice(100, 'e');
+    txs[1] = prep_slice(200, 'f');
 
     ASSERT_EQ(test_connections_count, contexts_.size());
     for (;;)
     {
         auto context = contexts_.begin();
-        EXPECT_TRUE(notifier.send_txs(txs, context->get_id(), cryptonote::relay_method::stem));
+        EXPECT_TRUE(notifier.send_txs(copy_slices(txs), context->get_id(), cryptonote::relay_method::stem));
 
         io_service_.reset();
         ASSERT_LT(0u, io_service_.poll());
@@ -2053,7 +2069,7 @@ TEST_F(levin_notify, fluff_multiple)
     for (unsigned i = 0; i < contexts_.size() * 2; i += 2)
     {
         auto& incoming = contexts_[i % contexts_.size()];
-        EXPECT_TRUE(notifier.send_txs(txs, incoming.get_id(), cryptonote::relay_method::stem));
+        EXPECT_TRUE(notifier.send_txs(copy_slices(txs), incoming.get_id(), cryptonote::relay_method::stem));
 
         io_service_.reset();
         ASSERT_LT(0u, io_service_.poll());
@@ -2087,8 +2103,8 @@ TEST_F(levin_notify, noise)
     for (unsigned count = 0; count < 10; ++count)
         add_connection(count % 2 == 0);
 
-    std::vector<cryptonote::blobdata> txs(1);
-    txs[0].resize(1900, 'h');
+    std::vector<epee::byte_slice> txs(1);
+    txs[0] = prep_slice(1900, 'h');
 
     const boost::uuids::uuid incoming_id = random_generator_();
     cryptonote::levin::notify notifier = make_notifier(2048, false, true);
@@ -2117,7 +2133,7 @@ TEST_F(levin_notify, noise)
         EXPECT_EQ(0u, receiver_.notified_size());
     }
 
-    EXPECT_TRUE(notifier.send_txs(txs, incoming_id, cryptonote::relay_method::local));
+    EXPECT_TRUE(notifier.send_txs(copy_slices(txs), incoming_id, cryptonote::relay_method::local));
     notifier.run_stems();
     io_service_.reset();
     ASSERT_LT(0u, io_service_.poll());
@@ -2138,8 +2154,8 @@ TEST_F(levin_notify, noise)
         }
     }
 
-    txs[0].resize(3000, 'r');
-    EXPECT_TRUE(notifier.send_txs(txs, incoming_id, cryptonote::relay_method::fluff));
+    txs[0] = prep_slice(3000, 'r');
+    EXPECT_TRUE(notifier.send_txs(copy_slices(txs), incoming_id, cryptonote::relay_method::fluff));
     notifier.run_stems();
     io_service_.reset();
     ASSERT_LT(0u, io_service_.poll());
@@ -2178,8 +2194,8 @@ TEST_F(levin_notify, noise_stem)
     for (unsigned count = 0; count < 10; ++count)
         add_connection(count % 2 == 0);
 
-    std::vector<cryptonote::blobdata> txs(1);
-    txs[0].resize(1900, 'h');
+    std::vector<epee::byte_slice> txs(1);
+    txs[0] = prep_slice(1900, 'h');
 
     const boost::uuids::uuid incoming_id = random_generator_();
     cryptonote::levin::notify notifier = make_notifier(2048, false, true);
@@ -2208,7 +2224,7 @@ TEST_F(levin_notify, noise_stem)
         EXPECT_EQ(0u, receiver_.notified_size());
     }
 
-    EXPECT_TRUE(notifier.send_txs(txs, incoming_id, cryptonote::relay_method::stem));
+    EXPECT_TRUE(notifier.send_txs(copy_slices(txs), incoming_id, cryptonote::relay_method::stem));
     notifier.run_stems();
     io_service_.reset();
     ASSERT_LT(0u, io_service_.poll());

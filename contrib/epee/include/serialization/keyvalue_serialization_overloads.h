@@ -33,11 +33,17 @@
 #include <boost/mpl/vector.hpp>
 #include <boost/mpl/contains_fwd.hpp>
 
+#include "byte_slice.h"
+#include "byte_stream.h"
+#include "span.h"
+
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "serialization"
 
+namespace tools { template<typename> struct scrubbed; }
 namespace epee
 {
+  template<typename> struct mlocked;
   namespace
   {
     template<class C> void hint_resize(C &container, size_t size) {}
@@ -45,23 +51,85 @@ namespace epee
   }
   namespace serialization
   {
+    template<class t_type>
+    inline void copy_t_blob(t_type& d, const std::uint8_t* bytes)
+    {
+      std::memcpy(std::addressof(d), bytes, sizeof(d));
+    }
+
+    template<class t_type>
+    inline void copy_t_blob(tools::scrubbed<t_type>& d, const std::uint8_t* bytes)
+    {
+      copy_t_blob(unwrap(d), bytes);
+    }
+
+    template<class t_type>
+    inline void copy_t_blob(mlocked<t_type>& d, const std::uint8_t* bytes)
+    {
+      copy_t_blob(unwrap(d), bytes);
+    }
+
+    template<class t_type>
+    inline t_type copy_t_val(t_type val)
+    {
+      return val;
+    }
+
+    inline epee::copyable_byte_slice copy_t_val(const epee::byte_slice& val)
+    {
+      return {val.clone()};
+    }
+
+    inline epee::copyable_byte_slice copy_t_val(std::string val)
+    {
+      return {epee::byte_slice{std::move(val)}};
+    }
+
+    template<typename t_type>
+    struct unwrap_t_val
+    {
+      using type = t_type;
+      static type call(type val)
+      {
+        return val;
+      }
+    };
+
+    template<>
+    struct unwrap_t_val<epee::byte_slice>
+    {
+      using type = epee::copyable_byte_slice;
+      static epee::byte_slice call(type val)
+      {
+        return {std::move(val.slice)};
+      }
+    };
+
+    template<>
+    struct unwrap_t_val<std::string>
+    {
+      using type = epee::copyable_byte_slice;
+      static std::string call(type val)
+      {
+        return std::string{reinterpret_cast<const char*>(val.slice.data()), val.slice.size()};
+      }
+    };
 
     //-------------------------------------------------------------------------------------------------------------------
     template<class t_type, class t_storage>
     static bool serialize_t_val_as_blob(const t_type& d, t_storage& stg, typename t_storage::hsection hparent_section, const char* pname)
     {      
-      std::string blob((const char *)&d, sizeof(d));
-      return stg.set_value(pname, std::move(blob), hparent_section);
+      return stg.set_value(pname, copyable_byte_slice{byte_slice{as_byte_span(d)}}, hparent_section);
     }
     //-------------------------------------------------------------------------------------------------------------------
     template<class t_type, class t_storage>
     static bool unserialize_t_val_as_blob(t_type& d, t_storage& stg, typename t_storage::hsection hparent_section, const char* pname)
     {
-      std::string blob;
+      copyable_byte_slice blob;
       if(!stg.get_value(pname, blob, hparent_section))
         return false;
-      CHECK_AND_ASSERT_MES(blob.size() == sizeof(d), false, "unserialize_t_val_as_blob: size of " << typeid(t_type).name() << " = " << sizeof(t_type) << ", but stored blod size = " << blob.size() << ", value name = " << pname);
-      d = *(const t_type*)blob.data();
+      CHECK_AND_ASSERT_MES(blob.slice.size() == sizeof(d), false, "unserialize_t_val_as_blob: size of " << typeid(t_type).name() << " = " << sizeof(t_type) << ", but stored blod size = " << blob.slice.size() << ", value name = " << pname);
+      copy_t_blob(d, blob.slice.data());
       return true;
     } 
     //-------------------------------------------------------------------------------------------------------------------
@@ -102,15 +170,13 @@ namespace epee
     template<class stl_container, class t_storage>
     static bool serialize_stl_container_t_val  (const stl_container& container, t_storage& stg, typename t_storage::hsection hparent_section, const char* pname)
     {
-      using value_type = typename stl_container::value_type;
-
       if(!container.size()) return true;
       typename stl_container::const_iterator it = container.begin();
-      typename t_storage::harray hval_array = stg.insert_first_value(pname, value_type(*it), hparent_section);
+      typename t_storage::harray hval_array = stg.insert_first_value(pname, copy_t_val(*it), hparent_section);
       CHECK_AND_ASSERT_MES(hval_array, false, "failed to insert first value to storage");
       it++;
       for(;it!= container.end();it++)
-        stg.insert_next_value(hval_array, value_type(*it));
+        stg.insert_next_value(hval_array, copy_t_val(*it));
 
       return true;
     }
@@ -118,47 +184,55 @@ namespace epee
     template<class stl_container, class t_storage>
     static bool unserialize_stl_container_t_val(stl_container& container, t_storage& stg, typename t_storage::hsection hparent_section, const char* pname)
     {
+      using value_type = typename stl_container::value_type;
+      using unwrapper = unwrap_t_val<value_type>;
+
       container.clear();
-      typename stl_container::value_type exchange_val;
+      typename unwrapper::type exchange_val;
       typename t_storage::harray hval_array = stg.get_first_value(pname, exchange_val, hparent_section);
       if(!hval_array) return false;
-      container.insert(container.end(), std::move(exchange_val));
+      container.insert(container.end(), unwrapper::call(std::move(exchange_val)));
       while(stg.get_next_value(hval_array, exchange_val))
-        container.insert(container.end(), std::move(exchange_val));
+        container.insert(container.end(), unwrapper::call(std::move(exchange_val)));
       return true;
     }//--------------------------------------------------------------------------------------------------------------------
     template<class stl_container, class t_storage>
     static bool serialize_stl_container_pod_val_as_blob(const stl_container& container, t_storage& stg, typename t_storage::hsection hparent_section, const char* pname)
     {
       if(!container.size()) return true;
-      std::string mb;
-      mb.resize(sizeof(typename stl_container::value_type)*container.size());
-      typename stl_container::value_type* p_elem = (typename stl_container::value_type*)mb.data();
-      BOOST_FOREACH(const typename stl_container::value_type& v, container)
-      {
-        *p_elem = v;
-        p_elem++;
-      }
-      return stg.set_value(pname, std::move(mb), hparent_section);
+
+      byte_stream mb;
+      mb.reserve(sizeof(typename stl_container::value_type)*container.size());
+      for (const typename stl_container::value_type& v : container)
+        mb.write(reinterpret_cast<const char*>(std::addressof(v)), sizeof(v));
+
+      return stg.set_value(pname, copyable_byte_slice{byte_slice{std::move(mb)}}, hparent_section);
     }
     //--------------------------------------------------------------------------------------------------------------------
     template<class stl_container, class t_storage>
     static bool unserialize_stl_container_pod_val_as_blob(stl_container& container, t_storage& stg, typename t_storage::hsection hparent_section, const char* pname)
     {
+      using value_type = typename stl_container::value_type;
+
       container.clear();
-      std::string buff;
+      copyable_byte_slice buff;
       bool res = stg.get_value(pname, buff, hparent_section);
       if(res)
       {
-        size_t loaded_size = buff.size();
-        typename stl_container::value_type* pelem =  (typename stl_container::value_type*)buff.data();
-        CHECK_AND_ASSERT_MES(!(loaded_size%sizeof(typename stl_container::value_type)), 
+        const std::uint8_t* bytes = buff.slice.data();
+        size_t loaded_size = buff.slice.size();
+        CHECK_AND_ASSERT_MES(!(loaded_size%sizeof(value_type)),
           false, 
-          "size in blob " << loaded_size << " not have not zero modulo for sizeof(value_type) = " << sizeof(typename stl_container::value_type) << ", type " << typeid(typename stl_container::value_type).name());
-        size_t count = (loaded_size/sizeof(typename stl_container::value_type));
+          "size in blob " << loaded_size << " not have not zero modulo for sizeof(value_type) = " << sizeof(value_type) << ", type " << typeid(value_type).name());
+        size_t count = (loaded_size/sizeof(value_type));
         hint_resize(container, count);
         for(size_t i = 0; i < count; i++)
-          container.insert(container.end(), *(pelem++));
+        {
+          value_type obj;
+          copy_t_blob(obj, bytes);
+          container.insert(container.end(), obj);
+          bytes += sizeof(obj);
+        }
       }
       return res;
     }
@@ -211,14 +285,19 @@ namespace epee
       template<class t_type, class t_storage>
       static bool kv_serialize(const t_type& d, t_storage& stg, typename t_storage::hsection hparent_section, const char* pname)
       {
-        return stg.set_value(pname, t_type(d), hparent_section);
+        return stg.set_value(pname, copy_t_val(d), hparent_section);
       }
       //-------------------------------------------------------------------------------------------------------------------
       template<class t_type, class t_storage>
       static bool kv_unserialize(t_type& d, t_storage& stg, typename t_storage::hsection hparent_section, const char* pname)
       {
-        return stg.get_value(pname, d, hparent_section);
-      } 
+        using unwrapper = unwrap_t_val<t_type>;
+        typename unwrapper::type actual;
+        if (!stg.get_value(pname, actual, hparent_section))
+          return false;
+        d = unwrapper::call(std::move(actual));
+        return true;
+      }
       //-------------------------------------------------------------------------------------------------------------------
       template<class t_type, class t_storage>
       static bool kv_serialize(const std::vector<t_type>& d, t_storage& stg, typename t_storage::hsection hparent_section, const char* pname)
@@ -334,7 +413,7 @@ namespace epee
       } 
     };
     template<class t_storage>
-    struct base_serializable_types: public boost::mpl::vector<uint64_t, uint32_t, uint16_t, uint8_t, int64_t, int32_t, int16_t, int8_t, double, bool, std::string, typename t_storage::meta_entry>::type
+    struct base_serializable_types: public boost::mpl::vector<uint64_t, uint32_t, uint16_t, uint8_t, int64_t, int32_t, int16_t, int8_t, double, bool, copyable_byte_slice, byte_slice, std::string, typename t_storage::meta_entry>::type
     {};
     //-------------------------------------------------------------------------------------------------------------------
     template<bool> struct selector;

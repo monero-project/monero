@@ -596,7 +596,7 @@ namespace cryptonote
 
       for(auto& tx_blob: arg.b.txs)
       {
-        if(parse_and_validate_tx_from_blob(tx_blob.blob, tx))
+        if(parse_and_validate_tx_from_blob(boost::string_ref{reinterpret_cast<const char*>(tx_blob.blob.slice.data()), tx_blob.blob.slice.size()}, tx))
         {
           try
           {
@@ -681,7 +681,7 @@ namespace cryptonote
           LOG_ERROR_CCONTEXT
           (
             "sent wrong tx: failed to parse and validate transaction: "
-            << epee::string_tools::buff_to_hex_nodelimer(tx_blob.blob)
+            << epee::to_hex::string(epee::to_span(tx_blob.blob.slice))
             << ", dropping connection"
           );
             
@@ -716,7 +716,7 @@ namespace cryptonote
         cryptonote::blobdata txblob;
         if(m_core.get_pool_transaction(tx_hash, txblob, relay_category::broadcasted))
         {
-          have_tx.push_back({txblob, crypto::null_hash});
+          have_tx.emplace_back(epee::byte_slice{epee::strspan<std::uint8_t>(txblob)}, crypto::null_hash);
         }
         else
         {
@@ -728,7 +728,7 @@ namespace cryptonote
           {
             if (txes.size() == 1)
             {
-              have_tx.push_back({tx_to_blob(txes.front()), crypto::null_hash});
+              have_tx.emplace_back(epee::byte_slice{tx_to_blob(txes.front())}, crypto::null_hash);
             }
             else
             {
@@ -923,7 +923,7 @@ namespace cryptonote
 
     for(auto& tx: txs)
     {
-      fluffy_response.b.txs.push_back({t_serializable_object_to_blob(tx), crypto::null_hash});
+      fluffy_response.b.txs.emplace_back(epee::byte_slice{t_serializable_object_to_blob(tx)}, crypto::null_hash);
     }
 
     MLOG_P2P_MESSAGE
@@ -945,9 +945,8 @@ namespace cryptonote
       return 1;
 
     std::vector<std::pair<cryptonote::blobdata, block>> local_blocks;
-    std::vector<cryptonote::blobdata> local_txs;
 
-    std::vector<cryptonote::blobdata> txes;
+    std::vector<epee::byte_slice> txes;
     if (!m_core.get_txpool_complement(arg.hashes, txes))
     {
       LOG_ERROR_CCONTEXT("failed to get txpool complement");
@@ -972,7 +971,7 @@ namespace cryptonote
   {
     MLOG_P2P_MESSAGE("Received NOTIFY_NEW_TRANSACTIONS (" << arg.txs.size() << " txes)");
     for (const auto &blob: arg.txs)
-      MLOGIF_P2P_MESSAGE(cryptonote::transaction tx; crypto::hash hash; bool ret = cryptonote::parse_and_validate_tx_from_blob(blob, tx, hash);, ret, "Including transaction " << hash);
+      MLOGIF_P2P_MESSAGE(cryptonote::transaction tx; crypto::hash hash; bool ret = cryptonote::parse_and_validate_tx_from_blob(boost::string_ref{reinterpret_cast<const char*>(blob.data()), blob.size()}, tx, hash);, ret, "Including transaction " << hash);
 
     if(context.m_state != cryptonote_connection_context::state_normal)
       return 1;
@@ -999,8 +998,8 @@ namespace cryptonote
     relay_method tx_relay = zone == epee::net_utils::zone::public_ ?
       relay_method::stem : relay_method::forward;
 
-    std::vector<blobdata> stem_txs{};
-    std::vector<blobdata> fluff_txs{};
+    std::vector<epee::byte_slice> stem_txs{};
+    std::vector<epee::byte_slice> fluff_txs{};
     if (arg.dandelionpp_fluff)
     {
       tx_relay = relay_method::fluff;
@@ -1012,7 +1011,7 @@ namespace cryptonote
     for (auto& tx : arg.txs)
     {
       tx_verification_context tvc{};
-      if (!m_core.handle_incoming_tx({tx, crypto::null_hash}, tvc, tx_relay, true))
+      if (!m_core.handle_incoming_tx({tx.clone(), crypto::null_hash}, tvc, tx_relay, true))
       {
         LOG_PRINT_CCONTEXT_L1("Tx verification failed, dropping connection");
         drop_connection(context, false, false);
@@ -1128,7 +1127,7 @@ namespace cryptonote
     for (const auto &element : arg.blocks) {
       blocks_size += element.block.size();
       for (const auto &tx : element.txs)
-        blocks_size += tx.blob.size();
+        blocks_size += tx.blob.slice.size();
     }
     size += blocks_size;
 
@@ -1550,11 +1549,11 @@ namespace cryptonote
                   crypto::hash txid;
                   if (it->prunable_hash == crypto::null_hash)
                   {
-                    parse_and_validate_tx_from_blob(it->blob, tx, txid); // must succeed if we got here
+                    parse_and_validate_tx_from_blob(boost::string_ref{reinterpret_cast<const char*>(it->blob.slice.data()), it->blob.slice.size()}, tx, txid); // must succeed if we got here
                   }
                   else
                   {
-                    parse_and_validate_tx_base_from_blob(it->blob, tx); // must succeed if we got here
+                    parse_and_validate_tx_base_from_blob(boost::string_ref{reinterpret_cast<const char*>(it->blob.slice.data()), it->blob.slice.size()}, tx); // must succeed if we got here
                     txid = get_pruned_transaction_hash(tx, it->prunable_hash);
                   }
                   LOG_ERROR_CCONTEXT("transaction verification failed on NOTIFY_RESPONSE_GET_OBJECTS, tx_id = "

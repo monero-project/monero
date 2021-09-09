@@ -73,6 +73,7 @@ namespace epee
   public:
     using char_type = std::uint8_t;
     using Ch = char_type;
+    using value_type = char_type;
 
     //! Increase internal buffer by at least `byte_stream_increase` bytes.
     byte_stream() noexcept

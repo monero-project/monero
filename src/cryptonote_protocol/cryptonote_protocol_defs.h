@@ -31,6 +31,7 @@
 #pragma once
 
 #include <list>
+#include "byte_slice.h"
 #include "serialization/keyvalue_serialization.h"
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "cryptonote_basic/blobdatatype.h"
@@ -120,14 +121,14 @@ namespace cryptonote
   /************************************************************************/
   struct tx_blob_entry
   {
-    blobdata blob;
+    epee::copyable_byte_slice blob;
     crypto::hash prunable_hash;
     BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE(blob)
       KV_SERIALIZE_VAL_POD_AS_BLOB(prunable_hash)
     END_KV_SERIALIZE_MAP()
 
-    tx_blob_entry(const blobdata &bd = {}, const crypto::hash &h = crypto::null_hash): blob(bd), prunable_hash(h) {}
+    tx_blob_entry(epee::byte_slice bd = {}, const crypto::hash &h = crypto::null_hash): blob(std::move(bd)), prunable_hash(h) {}
   };
   struct block_complete_entry
   {
@@ -145,11 +146,11 @@ namespace cryptonote
       }
       else
       {
-        std::vector<blobdata> txs;
+        std::vector<epee::byte_slice> txs;
         if (is_store)
         {
           txs.reserve(this_ref.txs.size());
-          for (const auto &e: this_ref.txs) txs.push_back(e.blob);
+          for (const auto &e: this_ref.txs) txs.push_back(e.blob.slice.clone());
         }
         epee::serialization::selector<is_store>::serialize(txs, stg, hparent_section, "txs");
         if (!is_store)
@@ -195,8 +196,8 @@ namespace cryptonote
 
     struct request_t
     {
-      std::vector<blobdata>   txs;
-      std::string _; // padding
+      std::vector<epee::byte_slice>   txs;
+      epee::byte_slice _; // padding
       bool dandelionpp_fluff; //zero initialization defaults to stem mode
 
       BEGIN_KV_SERIALIZE_MAP()

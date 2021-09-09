@@ -52,6 +52,7 @@
 #include "rpc/core_rpc_server_commands_defs.h"
 #include "rpc/message_data_structs.h"
 
+namespace epee { class byte_slice; }
 namespace cryptonote
 {
   class Blockchain;
@@ -112,7 +113,7 @@ namespace cryptonote
      * @tx_relay how the transaction was received
      * @param tx_weight the transaction's weight
      */
-    bool add_tx(transaction &tx, const crypto::hash &id, const cryptonote::blobdata &blob, size_t tx_weight, tx_verification_context& tvc, relay_method tx_relay, bool relayed, uint8_t version);
+    bool add_tx(transaction &tx, const crypto::hash &id, const epee::span<const std::uint8_t> blob, size_t tx_weight, tx_verification_context& tvc, relay_method tx_relay, bool relayed, uint8_t version);
 
     /**
      * @brief add a transaction to the transaction pool
@@ -449,7 +450,7 @@ namespace cryptonote
     /**
      * @brief get transactions not in the passed set
      */
-    bool get_complement(const std::vector<crypto::hash> &hashes, std::vector<cryptonote::blobdata> &txes) const;
+    bool get_complement(const std::vector<crypto::hash> &hashes, std::vector<epee::byte_slice> &txes) const;
 
   private:
 

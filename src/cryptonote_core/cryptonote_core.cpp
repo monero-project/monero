@@ -784,9 +784,9 @@ namespace cryptonote
   {
     tvc = {};
 
-    if(tx_blob.blob.size() > get_max_tx_size())
+    if(tx_blob.blob.slice.size() > get_max_tx_size())
     {
-      LOG_PRINT_L1("WRONG TRANSACTION BLOB, too big size " << tx_blob.blob.size() << ", rejected");
+      LOG_PRINT_L1("WRONG TRANSACTION BLOB, too big size " << tx_blob.blob.slice.size() << ", rejected");
       tvc.m_verifivation_failed = true;
       tvc.m_too_big = true;
       return false;
@@ -797,11 +797,11 @@ namespace cryptonote
     bool r;
     if (tx_blob.prunable_hash == crypto::null_hash)
     {
-      r = parse_tx_from_blob(tx, tx_hash, tx_blob.blob);
+      r = parse_tx_from_blob(tx, tx_hash, boost::string_ref{reinterpret_cast<const char*>(tx_blob.blob.slice.data()), tx_blob.blob.slice.size()});
     }
     else
     {
-      r = parse_and_validate_tx_base_from_blob(tx_blob.blob, tx);
+      r = parse_and_validate_tx_base_from_blob(boost::string_ref{reinterpret_cast<const char*>(tx_blob.blob.slice.data()), tx_blob.blob.slice.size()}, tx);
       if (r)
       {
         tx.set_prunable_hash(tx_blob.prunable_hash);
@@ -1065,8 +1065,8 @@ namespace cryptonote
       if (already_have[i])
         continue;
 
-      const uint64_t weight = results[i].tx.pruned ? get_pruned_transaction_weight(results[i].tx) : get_transaction_weight(results[i].tx, it->blob.size());
-      ok &= add_new_tx(results[i].tx, results[i].hash, tx_blobs[i].blob, weight, tvc[i], tx_relay, relayed);
+      const uint64_t weight = results[i].tx.pruned ? get_pruned_transaction_weight(results[i].tx) : get_transaction_weight(results[i].tx, it->blob.slice.size());
+      ok &= add_new_tx(results[i].tx, results[i].hash, epee::to_span(tx_blobs[i].blob.slice), weight, tvc[i], tx_relay, relayed);
 
       if(tvc[i].m_verifivation_failed)
       {MERROR_VER("Transaction verification failed: " << results[i].hash);}
@@ -1307,7 +1307,7 @@ namespace cryptonote
     blobdata bl;
     t_serializable_object_to_blob(tx, bl);
     size_t tx_weight = get_transaction_weight(tx, bl.size());
-    return add_new_tx(tx, tx_hash, bl, tx_weight, tvc, tx_relay, relayed);
+    return add_new_tx(tx, tx_hash, epee::strspan<std::uint8_t>(bl), tx_weight, tvc, tx_relay, relayed);
   }
   //-----------------------------------------------------------------------------------------------
   size_t core::get_blockchain_total_transactions() const
@@ -1315,7 +1315,7 @@ namespace cryptonote
     return m_blockchain_storage.get_total_transactions();
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::add_new_tx(transaction& tx, const crypto::hash& tx_hash, const cryptonote::blobdata &blob, size_t tx_weight, tx_verification_context& tvc, relay_method tx_relay, bool relayed)
+  bool core::add_new_tx(transaction& tx, const crypto::hash& tx_hash, const epee::span<const std::uint8_t> blob, size_t tx_weight, tx_verification_context& tvc, relay_method tx_relay, bool relayed)
   {
     if(m_mempool.have_tx(tx_hash, relay_category::legacy))
     {
@@ -1350,15 +1350,15 @@ namespace cryptonote
           case relay_method::none:
             break;
           case relay_method::local:
-            private_req.txs.push_back(std::move(std::get<1>(tx)));
+            private_req.txs.push_back(epee::byte_slice{std::move(std::get<1>(tx))});
             break;
           case relay_method::forward:
-            stem_req.txs.push_back(std::move(std::get<1>(tx)));
+            stem_req.txs.push_back(epee::byte_slice{std::move(std::get<1>(tx))});
             break;
           case relay_method::block:
           case relay_method::fluff:
           case relay_method::stem:
-            public_req.txs.push_back(std::move(std::get<1>(tx)));
+            public_req.txs.push_back(epee::byte_slice{std::move(std::get<1>(tx))});
             break;
         }
       }
@@ -1378,7 +1378,7 @@ namespace cryptonote
     return true;
   }
   //-----------------------------------------------------------------------------------------------
-  void core::on_transactions_relayed(const epee::span<const cryptonote::blobdata> tx_blobs, const relay_method tx_relay)
+  void core::on_transactions_relayed(const epee::span<const epee::byte_slice> tx_blobs, const relay_method tx_relay)
   {
     std::vector<crypto::hash> tx_hashes{};
     tx_hashes.resize(tx_blobs.size());
@@ -1386,7 +1386,7 @@ namespace cryptonote
     for (std::size_t i = 0; i < tx_blobs.size(); ++i)
     {
       cryptonote::transaction tx{};
-      if (!parse_and_validate_tx_from_blob(tx_blobs[i], tx, tx_hashes[i]))
+      if (!parse_and_validate_tx_from_blob(boost::string_ref{reinterpret_cast<const char*>(tx_blobs[i].data()), tx_blobs[i].size()}, tx, tx_hashes[i]))
       {
         LOG_ERROR("Failed to parse relayed transaction");
         return;
@@ -1454,7 +1454,7 @@ namespace cryptonote
     {
       cryptonote::blobdata txblob;
       CHECK_AND_ASSERT_THROW_MES(pool.get_transaction(tx_hash, txblob, relay_category::all), "Transaction not found in pool");
-      bce.txs.push_back({txblob, crypto::null_hash});
+      bce.txs.emplace_back(epee::byte_slice{std::move(txblob)}, crypto::null_hash);
     }
     return bce;
   }
@@ -1507,7 +1507,7 @@ namespace cryptonote
       block_to_blob(b, arg.b.block);
       //pack transactions
       for(auto& tx:  txs)
-        arg.b.txs.push_back({tx, crypto::null_hash});
+        arg.b.txs.emplace_back(epee::byte_slice{std::move(tx)}, crypto::null_hash);
 
       m_pprotocol->relay_block(arg, exclude_context);
     }
@@ -1639,7 +1639,7 @@ namespace cryptonote
     return m_blockchain_storage.have_block(id, where);
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::parse_tx_from_blob(transaction& tx, crypto::hash& tx_hash, const blobdata& blob) const
+  bool core::parse_tx_from_blob(transaction& tx, crypto::hash& tx_hash, const boost::string_ref blob) const
   {
     return parse_and_validate_tx_from_blob(blob, tx, tx_hash);
   }
@@ -2002,7 +2002,7 @@ namespace cryptonote
     m_blockchain_storage.flush_invalid_blocks();
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::get_txpool_complement(const std::vector<crypto::hash> &hashes, std::vector<cryptonote::blobdata> &txes)
+  bool core::get_txpool_complement(const std::vector<crypto::hash> &hashes, std::vector<epee::byte_slice> &txes)
   {
     return m_mempool.get_complement(hashes, txes);
   }

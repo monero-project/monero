@@ -34,6 +34,8 @@
 #include <deque>
 #include <map>
 
+#include "byte_slice.h"
+
 #define PORTABLE_STORAGE_SIGNATUREA 0x01011101
 #define PORTABLE_STORAGE_SIGNATUREB 0x01020101 // bender's nightmare 
 #define PORTABLE_STORAGE_FORMAT_VER 1
@@ -153,14 +155,12 @@ namespace epee
       array_entry_t<int8_t>, 
       array_entry_t<double>, 
       array_entry_t<bool>, 
-      array_entry_t<std::string>,
+      array_entry_t<copyable_byte_slice>,
       array_entry_t<section>, 
       array_entry_t<boost::recursive_variant_> 
     >::type array_entry;
 
-    typedef boost::variant<uint64_t, uint32_t, uint16_t, uint8_t, int64_t, int32_t, int16_t, int8_t, double, bool, std::string, section, array_entry> storage_entry;
-
-    typedef std::string binarybuffer;//it's ok      
+    typedef boost::variant<uint64_t, uint32_t, uint16_t, uint8_t, int64_t, int32_t, int16_t, int8_t, double, bool, copyable_byte_slice, section, array_entry> storage_entry;
 
     /************************************************************************/
     /*                                                                      */

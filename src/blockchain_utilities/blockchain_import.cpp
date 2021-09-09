@@ -178,7 +178,7 @@ int check_flush(cryptonote::core &core, std::vector<block_complete_entry> &block
       if(tvc.m_verifivation_failed)
       {
         cryptonote::transaction transaction;
-        if (cryptonote::parse_and_validate_tx_from_blob(tx_blob.blob, transaction))
+        if (cryptonote::parse_and_validate_tx_from_blob(boost::string_ref{reinterpret_cast<const char*>(tx_blob.blob.slice.data()), tx_blob.blob.slice.size()}, transaction))
           MERROR("Transaction verification failed, tx_id = " << cryptonote::get_transaction_hash(transaction));
         else
           MERROR("Transaction verification failed, transaction is unparsable");
@@ -440,8 +440,9 @@ int import_from_file(cryptonote::core& core, const std::string& import_file_path
           std::vector<tx_blob_entry> txs;
           for (const auto &tx: bp.txs)
           {
-            txs.push_back({cryptonote::blobdata(), crypto::null_hash});
-            cryptonote::tx_to_blob(tx, txs.back().blob);
+            std::string blob;
+            cryptonote::tx_to_blob(tx, blob);
+            txs.emplace_back(epee::byte_slice{std::move(blob)}, crypto::null_hash);
           }
           block_complete_entry bce;
           bce.pruned = false;

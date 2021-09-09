@@ -33,6 +33,8 @@
 
 namespace epee 
 {
+class byte_stream;
+
 namespace misc_utils
 {
   namespace parse
@@ -92,7 +94,7 @@ namespace misc_utils
       return lut[(uint8_t)c] & 1;
     }
 
-    std::string transform_to_escape_sequence(const std::string& src);
+    std::string transform_to_escape_sequence(boost::string_ref src);
     /*
       
       \b  Backspace (ascii code 08)
@@ -106,6 +108,7 @@ namespace misc_utils
       \\  Backslash character
 
       */
+      void match_string2(std::string::const_iterator& star_end_string, std::string::const_iterator buf_end, byte_stream& val);
       void match_string2(std::string::const_iterator& star_end_string, std::string::const_iterator buf_end, std::string& val);
       inline bool match_string(std::string::const_iterator& star_end_string, std::string::const_iterator buf_end, std::string& val)
       {

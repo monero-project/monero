@@ -73,7 +73,7 @@ public:
   bool cleanup_handle_incoming_blocks(bool force_sync = false) { return true; }
   uint64_t get_target_blockchain_height() const { return 1; }
   size_t get_block_sync_size(uint64_t height) const { return BLOCKS_SYNCHRONIZING_DEFAULT_COUNT; }
-  virtual void on_transactions_relayed(epee::span<const cryptonote::blobdata> tx_blobs, cryptonote::relay_method tx_relay) {}
+  virtual void on_transactions_relayed(epee::span<const epee::byte_slice> tx_blobs, cryptonote::relay_method tx_relay) {}
   cryptonote::network_type get_nettype() const { return cryptonote::MAINNET; }
   bool get_pool_transaction(const crypto::hash& id, cryptonote::blobdata& tx_blob, cryptonote::relay_category tx_category) const { return false; }
   bool pool_has_tx(const crypto::hash &txid) const { return false; }
@@ -92,7 +92,7 @@ public:
   bool prune_blockchain(uint32_t pruning_seed = 0) { return true; }
   bool is_within_compiled_block_hash_area(uint64_t height) const { return false; }
   bool has_block_weights(uint64_t height, uint64_t nblocks) const { return false; }
-  bool get_txpool_complement(const std::vector<crypto::hash> &hashes, std::vector<cryptonote::blobdata> &txes) { return false; }
+  bool get_txpool_complement(const std::vector<crypto::hash> &hashes, std::vector<epee::byte_slice> &txes) { return false; }
   bool get_pool_transaction_hashes(std::vector<crypto::hash>& txs, bool include_unrelayed_txes = true) const { return false; }
   crypto::hash get_block_id_by_height(uint64_t height) const { return crypto::null_hash; }
   void stop() {}
@@ -452,7 +452,7 @@ TEST(cryptonote_protocol_handler, race_condition)
     using zone_t = epee::net_utils::zone;
     using uuid_t = boost::uuids::uuid;
     using relay_t = cryptonote::relay_method;
-    using blobs_t = std::vector<cryptonote::blobdata>;
+    using blobs_t = std::vector<epee::byte_slice>;
     using id_t = nodetool::peerid_type;
     using callback_t = std::function<bool(contexts::cryptonote &, id_t, uint32_t)>;
     using address_t = epee::net_utils::network_address;

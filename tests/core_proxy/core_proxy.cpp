@@ -173,7 +173,8 @@ bool tests::proxy_core::handle_incoming_tx(const cryptonote::tx_blob_entry& tx_b
         return false;
     }
 
-    if (!parse_and_validate_tx_from_blob(tx_blob.blob, tx, tx_hash, tx_prefix_hash)) {
+    const boost::string_ref blob{reinterpret_cast<const char*>(tx_blob.blob.slice.data()), tx_blob.blob.slice.size()};
+    if (!parse_and_validate_tx_from_blob(blob, tx, tx_hash, tx_prefix_hash)) {
         cerr << "WRONG TRANSACTION BLOB, Failed to parse, rejected" << endl;
         return false;
     }
@@ -181,7 +182,7 @@ bool tests::proxy_core::handle_incoming_tx(const cryptonote::tx_blob_entry& tx_b
     cout << "TX " << endl << endl;
     cout << tx_hash << endl;
     cout << tx_prefix_hash << endl;
-    cout << tx_blob.blob.size() << endl;
+    cout << tx_blob.blob.slice.size() << endl;
     //cout << string_tools::buff_to_hex_nodelimer(tx_blob) << endl << endl;
     cout << obj_to_json_str(tx) << endl;
     cout << endl << "ENDTX" << endl;

@@ -240,7 +240,7 @@ namespace cryptonote
       * @brief called when a transaction is relayed.
       * @note Should only be invoked from `levin_notify`.
       */
-     virtual void on_transactions_relayed(epee::span<const cryptonote::blobdata> tx_blobs, relay_method tx_relay) final;
+     virtual void on_transactions_relayed(epee::span<const epee::byte_slice> tx_blobs, relay_method tx_relay) final;
 
 
      /**
@@ -884,7 +884,7 @@ namespace cryptonote
       *
       * @return true iff success, false otherwise
       */
-     bool get_txpool_complement(const std::vector<crypto::hash> &hashes, std::vector<cryptonote::blobdata> &txes);
+     bool get_txpool_complement(const std::vector<crypto::hash> &hashes, std::vector<epee::byte_slice> &txes);
 
    private:
 
@@ -898,7 +898,7 @@ namespace cryptonote
       * @param relayed whether or not the transaction was relayed to us
       *
       */
-     bool add_new_tx(transaction& tx, const crypto::hash& tx_hash, const cryptonote::blobdata &blob, size_t tx_weight, tx_verification_context& tvc, relay_method tx_relay, bool relayed);
+     bool add_new_tx(transaction& tx, const crypto::hash& tx_hash, const epee::span<const std::uint8_t> blob, size_t tx_weight, tx_verification_context& tvc, relay_method tx_relay, bool relayed);
 
      /**
       * @brief add a new transaction to the transaction pool
@@ -937,7 +937,7 @@ namespace cryptonote
       *
       * @note see parse_tx_from_blob(transaction&, crypto::hash&, crypto::hash&, const blobdata&) const
       */
-     bool parse_tx_from_blob(transaction& tx, crypto::hash& tx_hash, const blobdata& blob) const;
+     bool parse_tx_from_blob(transaction& tx, crypto::hash& tx_hash, boost::string_ref blob) const;
 
      /**
       * @brief check a transaction's syntax

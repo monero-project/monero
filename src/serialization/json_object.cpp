@@ -706,7 +706,8 @@ void toJsonValue(rapidjson::Writer<epee::byte_stream>& dest, const cryptonote::t
 {
   dest.StartObject();
 
-  INSERT_INTO_JSON_OBJECT(dest, blob, tx.blob);
+  const boost::string_ref blob{reinterpret_cast<const char*>(tx.blob.slice.data()), tx.blob.slice.size()};
+  INSERT_INTO_JSON_OBJECT(dest, blob, blob);
   INSERT_INTO_JSON_OBJECT(dest, prunable_hash, tx.prunable_hash);
 
   dest.EndObject();
@@ -719,8 +720,10 @@ void fromJsonValue(const rapidjson::Value& val, cryptonote::tx_blob_entry& tx)
     throw WRONG_TYPE("json object");
   }
 
-  GET_FROM_JSON_OBJECT(val, tx.blob, blob);
+  std::string blob;
+  GET_FROM_JSON_OBJECT(val, blob, blob);
   GET_FROM_JSON_OBJECT(val, tx.prunable_hash, prunable_hash);
+  tx.blob = epee::byte_slice{std::move(blob)};
 }
 
 void toJsonValue(rapidjson::Writer<epee::byte_stream>& dest, const cryptonote::block_complete_entry& blk)

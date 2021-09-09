@@ -28,6 +28,7 @@
 
 #pragma once 
 
+#include <boost/utility/string_ref.hpp>
 #include "misc_language.h"
 #include "portable_storage_base.h"
 #include "parserse_base_utils.h"
@@ -42,7 +43,7 @@ namespace epee
     template<class t_stream>
     void dump_as_json(t_stream& strm, const storage_entry& se, size_t indent, bool insert_newlines);
     template<class t_stream>
-    void dump_as_json(t_stream& strm, const std::string& v, size_t indent, bool insert_newlines);
+    void dump_as_json(t_stream& strm, const copyable_byte_slice& v, size_t indent, bool insert_newlines);
     template<class t_stream>
     void dump_as_json(t_stream& strm, const int8_t& v, size_t indent, bool insert_newlines);
     template<class t_stream>
@@ -122,9 +123,10 @@ namespace epee
     }
 
     template<class t_stream>
-    void dump_as_json(t_stream& strm, const std::string& v, size_t indent, bool insert_newlines)
+    void dump_as_json(t_stream& strm, const copyable_byte_slice& v, size_t indent, bool insert_newlines)
     {
-      strm << "\"" << misc_utils::parse::transform_to_escape_sequence(v) << "\"";
+      const boost::string_ref sequence{reinterpret_cast<const char*>(v.slice.data()), v.slice.size()};
+      strm << "\"" << misc_utils::parse::transform_to_escape_sequence(sequence) << "\"";
     }
 
     template<class t_stream>

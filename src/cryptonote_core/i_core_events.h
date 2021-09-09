@@ -28,10 +28,10 @@
 
 #pragma once
 
-#include "cryptonote_basic/blobdatatype.h"
 #include "cryptonote_protocol/enums.h"
 #include "span.h"
 
+namespace epee { class byte_slice; }
 namespace cryptonote
 {
   struct i_core_events
@@ -41,6 +41,6 @@ namespace cryptonote
 
     virtual uint64_t get_current_blockchain_height() const = 0;
     virtual bool is_synchronized() const = 0;
-    virtual void on_transactions_relayed(epee::span<const cryptonote::blobdata> tx_blobs, relay_method tx_relay) = 0;
+    virtual void on_transactions_relayed(epee::span<const epee::byte_slice> tx_blobs, relay_method tx_relay) = 0;
   };
 }
