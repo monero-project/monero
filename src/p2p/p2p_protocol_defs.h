@@ -181,10 +181,12 @@ namespace nodetool
     uint32_t send_peerlist_sz;
   };
 
-  struct basic_node_data
+  template<typename AddressType>
+  struct basic_node_data_base
   {
     uuid network_id;                   
     uint32_t my_port;
+    AddressType my_advertise_network_address;  //optional...
     uint16_t rpc_port;
     uint32_t rpc_credits_per_hash;
     peerid_type peer_id;
@@ -194,12 +196,13 @@ namespace nodetool
       KV_SERIALIZE_VAL_POD_AS_BLOB(network_id)
       KV_SERIALIZE(peer_id)
       KV_SERIALIZE(my_port)
+      KV_SERIALIZE(my_advertise_network_address)
       KV_SERIALIZE_OPT(rpc_port, (uint16_t)(0))
       KV_SERIALIZE_OPT(rpc_credits_per_hash, (uint32_t)0)
       KV_SERIALIZE_OPT(support_flags, (uint32_t)0)
     END_KV_SERIALIZE_MAP()
   };
-  
+  using basic_node_data = basic_node_data_base<epee::net_utils::network_address>; 
 
 #define P2P_COMMANDS_POOL_BASE 1000
 
