@@ -446,6 +446,9 @@ namespace cryptonote
 
     CHECK_PAYMENT_MIN1(req, res, COST_PER_GET_INFO, false);
 
+    // ensures current thread's db reads execute in a single lmdb txn to make function safe from concurrent writes
+    db_rtxn_guard rtxn_guard(&m_core.get_blockchain_storage().get_db());
+
     const bool restricted = m_restricted && ctx;
 
     crypto::hash top_hash;
@@ -501,6 +504,8 @@ namespace cryptonote
     res.version = restricted ? "" : MONERO_VERSION_FULL;
     res.busy_syncing = m_p2p.get_payload_object().is_busy_syncing();
     res.synchronized = check_core_ready();
+
+    rtxn_guard.stop();
 
     res.status = CORE_RPC_STATUS_OK;
     return true;
@@ -559,7 +564,7 @@ namespace cryptonote
       if (last_block_hash == req.block_ids.front())
       {
         res.start_height = 0;
-        res.current_height = m_core.get_current_blockchain_height();
+        res.current_height = last_block_height + 1;
         res.status = CORE_RPC_STATUS_OK;
         return true;
       }
@@ -1653,10 +1658,11 @@ namespace cryptonote
       return false;
     }
     uint64_t h = req[0];
-    if(m_core.get_current_blockchain_height() <= h)
+    uint64_t blockchain_height = m_core.get_current_blockchain_height();
+    if(blockchain_height <= h)
     {
       error_resp.code = CORE_RPC_ERROR_CODE_TOO_BIG_HEIGHT;
-      error_resp.message = std::string("Requested block height: ") + std::to_string(h) + " greater than current top block height: " +  std::to_string(m_core.get_current_blockchain_height() - 1);
+      error_resp.message = std::string("Requested block height: ") + std::to_string(h) + " greater than current top block height: " +  std::to_string(blockchain_height - 1);
     }
     res = string_tools::pod_to_hex(m_core.get_block_id_by_height(h));
     return true;
@@ -2245,10 +2251,11 @@ namespace cryptonote
     if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_GET_BLOCK_HEADER_BY_HEIGHT>(invoke_http_mode::JON_RPC, "getblockheaderbyheight", req, res, r))
       return r;
 
-    if(m_core.get_current_blockchain_height() <= req.height)
+    uint64_t blockchain_height = m_core.get_current_blockchain_height();
+    if(blockchain_height <= req.height)
     {
       error_resp.code = CORE_RPC_ERROR_CODE_TOO_BIG_HEIGHT;
-      error_resp.message = std::string("Requested block height: ") + std::to_string(req.height) + " greater than current top block height: " +  std::to_string(m_core.get_current_blockchain_height() - 1);
+      error_resp.message = std::string("Requested block height: ") + std::to_string(req.height) + " greater than current top block height: " +  std::to_string(blockchain_height - 1);
       return false;
     }
     CHECK_PAYMENT_MIN1(req, res, COST_PER_BLOCK_HEADER, false);
@@ -2295,10 +2302,11 @@ namespace cryptonote
     }
     else
     {
-      if(m_core.get_current_blockchain_height() <= req.height)
+      uint64_t blockchain_height = m_core.get_current_blockchain_height();
+      if(blockchain_height <= req.height)
       {
         error_resp.code = CORE_RPC_ERROR_CODE_TOO_BIG_HEIGHT;
-        error_resp.message = std::string("Requested block height: ") + std::to_string(req.height) + " greater than current top block height: " +  std::to_string(m_core.get_current_blockchain_height() - 1);
+        error_resp.message = std::string("Requested block height: ") + std::to_string(req.height) + " greater than current top block height: " +  std::to_string(blockchain_height - 1);
         return false;
       }
       block_hash = m_core.get_block_id_by_height(req.height);
