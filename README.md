@@ -315,7 +315,7 @@ Tested on a Raspberry Pi Zero with a clean install of minimal Raspbian Stretch (
 * Build:
 
     ```bash
-    USE_SINGLE_BUILDDIR=1 make release
+    USE_SINGLE_BUILDDIR=1 make release-rpi
     ```
 
 * Wait 4-6 hours
