@@ -2849,7 +2849,7 @@ namespace cryptonote
     {
       if (req.limit_down != -1)
       {
-        res.status = CORE_RPC_ERROR_CODE_WRONG_PARAM;
+        res.status = "Invalid parameter";
         return true;
       }
       epee::net_utils::connection_basic::set_rate_down_limit(nodetool::default_limit_down);
@@ -2863,7 +2863,7 @@ namespace cryptonote
     {
       if (req.limit_up != -1)
       {
-        res.status = CORE_RPC_ERROR_CODE_WRONG_PARAM;
+        res.status = "Invalid parameter";
         return true;
       }
       epee::net_utils::connection_basic::set_rate_up_limit(nodetool::default_limit_up);
