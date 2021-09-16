@@ -104,7 +104,7 @@ release-all:
 	
 release-rpi:
 	mkdir -p $(builddir)/release-rpi
-	cd $(builddir)/release-rpi && cmake -D NO_AES=ON -D BUILD_TESTS=OFF -D CMAKE_BUILD_TYPE=Release $(topdir) && $(MAKE)
+	cd $(builddir)/release-rpi && cmake -D NO_AES=ON -D CMAKE_BUILD_TYPE=Release $(topdir) && $(MAKE)
 
 release-static:
 	mkdir -p $(builddir)/release
