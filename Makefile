@@ -102,6 +102,10 @@ release-all:
 	mkdir -p $(builddir)/release
 	cd $(builddir)/release && cmake -D BUILD_TESTS=ON -D CMAKE_BUILD_TYPE=release $(topdir) && $(MAKE)
 
+release-rpi:
+	mkdir -p $(builddir)/release-rpi
+	cd $(builddir)/release-rpi && cmake -D NO_AES=ON -D CMAKE_BUILD_TYPE=release $(topdir) && $(MAKE)
+
 release-static:
 	mkdir -p $(builddir)/release
 	cd $(builddir)/release && cmake -D STATIC=ON -D ARCH="x86-64" -D BUILD_64=ON -D CMAKE_BUILD_TYPE=release $(topdir) && $(MAKE)
