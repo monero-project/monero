@@ -1367,7 +1367,7 @@ bool Blockchain::allow_governance(uint64_t height)
     {
       return true;
     }
-    else if(height == 700000)
+    else if(height == 663269)
     {
       return true;
     }

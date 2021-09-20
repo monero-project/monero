@@ -172,7 +172,7 @@ namespace cryptonote
       {
         //wXEQ pre-sale, will be burnt on height 500100
         return 11000000 * COIN;
-      } else if(height == 700000)
+      } else if(height == 663269)
       {
         return MINT_BRIDGE;
       }
