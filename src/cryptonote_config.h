@@ -81,7 +81,8 @@ static_assert(STAKING_PORTIONS % 3 == 0, "Use a multiple of three, so that it di
 #define MONEY_SUPPLY                                    ((uint64_t)840000000000)
 #define TRITON_SWAP                                     ((uint64_t)107695988100)
 
-#define BURN_1                                    ((uint64_t)48500000000)
+#define BURN_1                                          ((uint64_t)70000000000) // 7,000,000 XEQ BURN
+#define MINT_BRIDGE                                     ((uint64_t)167195840000) //16,719,584 XEQ MINT for Bridge
 
 
 
@@ -110,7 +111,7 @@ static_assert(STAKING_PORTIONS % 3 == 0, "Use a multiple of three, so that it di
 #define DYNAMIC_FEE_PER_KB_BASE_FEE                     ((uint64_t)2) // 2 * pow(10,9)
 #define DYNAMIC_FEE_PER_KB_BASE_BLOCK_REWARD            ((uint64_t)1) // 10 * pow(10,12)
 #define DYNAMIC_FEE_PER_KB_BASE_FEE_V5                  ((uint64_t)2 * (uint64_t)CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V2 / CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V5)
-#define DYNAMIC_FEE_REFERENCE_TRANSACTION_WEIGHT         ((uint64_t)3)
+#define DYNAMIC_FEE_REFERENCE_TRANSACTION_WEIGHT        ((uint64_t)3)
 
 #define ORPHANED_BLOCKS_MAX_COUNT                       100
 
@@ -203,22 +204,22 @@ static_assert(STAKING_PORTIONS % 3 == 0, "Use a multiple of three, so that it di
 
 #define THREAD_STACK_SIZE                       5 * 1024 * 1024
 
-#define HF_VERSION_DYNAMIC_FEE                  11
+#define HF_VERSION_DYNAMIC_FEE                  100
 #define HF_VERSION_MIN_MIXIN_4                  4
-#define HF_VERSION_MIN_MIXIN_6                  11
-#define HF_VERSION_MIN_MIXIN_10                 11
+#define HF_VERSION_MIN_MIXIN_6                  100
+#define HF_VERSION_MIN_MIXIN_10                 100
 #define HF_VERSION_MIN_MIXIN_15                 6
 #define HF_VERSION_ENFORCE_RCT                  4
-#define HF_VERSION_PER_BYTE_FEE                 11
+#define HF_VERSION_PER_BYTE_FEE                 100
 #define HF_VERSION_SMALLER_BP                   6
 
-#define HF_VERSION_LONG_TERM_BLOCK_WEIGHT       11
-#define HF_VERSION_MIN_2_OUTPUTS                12
-#define HF_VERSION_MIN_V2_COINBASE_TX           12
-#define HF_VERSION_SAME_MIXIN                   12
-#define HF_VERSION_REJECT_SIGS_IN_COINBASE      12
-#define HF_VERSION_ENFORCE_MIN_AGE              12
-#define HF_VERSION_EFFECTIVE_SHORT_TERM_MEDIAN_IN_PENALTY 12
+#define HF_VERSION_LONG_TERM_BLOCK_WEIGHT       100
+#define HF_VERSION_MIN_2_OUTPUTS                100
+#define HF_VERSION_MIN_V2_COINBASE_TX           100
+#define HF_VERSION_SAME_MIXIN                   100
+#define HF_VERSION_REJECT_SIGS_IN_COINBASE      100
+#define HF_VERSION_ENFORCE_MIN_AGE              100
+#define HF_VERSION_EFFECTIVE_SHORT_TERM_MEDIAN_IN_PENALTY 100
 
 
 #define HF_VERSION_FEE_BURNING                  9
@@ -274,6 +275,7 @@ namespace config
   uint64_t const GOVERNANCE_REWARD_INTERVAL_IN_BLOCKS = 5;
 
   std::string const GOVERNANCE_WALLET_ADDRESS = "TvziQSEi93chTMViBzw8Y4eerEjmGq2Q6ajekvgyTyqkGcsj97YJDzF8TMnTWdv7NXQ2ZXfeWJPwRAbVHUjbgFcN2AvU35KfX";
+  std::string const BRIDGE_WALLET_ADDRESS = "Tw16wVGVwjqY2sSKx11UNjQ8NAosTSwzzitYZfVrXt3iP3DgL5beLz55quDcqpqUvoQTvjyNyRb7mUXf3JKDAyLd36AtDf2ei";
 
   namespace testnet
   {
@@ -291,8 +293,10 @@ namespace config
 
    uint64_t const GOVERNANCE_REWARD_INTERVAL_IN_BLOCKS = 5;
 
-    std::string const GOVERNANCE_WALLET_ADDRESS = "XT1mQ4qNhqARHKawpsC4DkCmJxGSiW6EfGej4jssjY7QEzKZgSHmkeuQYHsY3gRhDv4KMt8QQX8TEPBmJQe1SEea38fHATH5C";
-  }
+  std::string const GOVERNANCE_WALLET_ADDRESS = "XT1mQ4qNhqARHKawpsC4DkCmJxGSiW6EfGej4jssjY7QEzKZgSHmkeuQYHsY3gRhDv4KMt8QQX8TEPBmJQe1SEea38fHATH5C";
+  std::string const BRIDGE_WALLET_ADDRESS = "";
+
+}
 
   namespace stagenet
   {
@@ -311,6 +315,7 @@ namespace config
    uint64_t const GOVERNANCE_REWARD_INTERVAL_IN_BLOCKS = 5;
 
   std::string const GOVERNANCE_WALLET_ADDRESS = "";
+  std::string const BRIDGE_WALLET_ADDRESS = "";
 
   }
 }
@@ -337,6 +342,8 @@ namespace cryptonote
     std::string const GENESIS_TX;
     uint32_t const GENESIS_NONCE;
     std::string const *GOVERNANCE_WALLET_ADDRESS;
+    std::string const *BRIDGE_WALLET_ADDRESS;
+
   };
   inline const config_t& get_config(network_type nettype)
   {
@@ -350,7 +357,9 @@ namespace cryptonote
       ::config::NETWORK_ID,
       ::config::GENESIS_TX,
       ::config::GENESIS_NONCE,
-      &::config::GOVERNANCE_WALLET_ADDRESS
+      &::config::GOVERNANCE_WALLET_ADDRESS,
+      &::config::BRIDGE_WALLET_ADDRESS,
+
 
     };
     static config_t testnet = {
@@ -363,7 +372,9 @@ namespace cryptonote
       ::config::testnet::NETWORK_ID,
       ::config::testnet::GENESIS_TX,
       ::config::testnet::GENESIS_NONCE,
-      &::config::testnet::GOVERNANCE_WALLET_ADDRESS
+      &::config::testnet::GOVERNANCE_WALLET_ADDRESS,
+      &::config::testnet::BRIDGE_WALLET_ADDRESS,
+
     };
     static config_t stagenet = {
       ::config::stagenet::CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX,
@@ -375,8 +386,8 @@ namespace cryptonote
       ::config::stagenet::NETWORK_ID,
       ::config::stagenet::GENESIS_TX,
       ::config::stagenet::GENESIS_NONCE,
-      &::config::stagenet::GOVERNANCE_WALLET_ADDRESS
-
+      &::config::stagenet::GOVERNANCE_WALLET_ADDRESS,
+      &::config::stagenet::BRIDGE_WALLET_ADDRESS,
     };
     switch (nettype)
     {

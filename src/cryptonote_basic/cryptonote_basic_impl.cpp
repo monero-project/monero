@@ -117,12 +117,16 @@ namespace cryptonote {
 
 
      //Adds the burn amount to emission effectively burning the amount added.  
-     if (version > 10)
-      already_generated_coins += BURN_1;
-      
+     if (version > 10) {
+      already_generated_coins -= MINT_BRIDGE; //subtracts from already_generated_coins as we already burned ~10M
+      already_generated_coins += BURN_1; //adds in the burn 
+     }
+
 	   uint64_t base_reward = (MONEY_SUPPLY - already_generated_coins) >> emission_speed_factor;
 
-    if (version >= 9) {
+
+    //emissions will be seperate from now on. A better system is needed in the future.
+    if (version >= 9 && version < 10) {
       base_reward -= (1 * COIN); // 720 XEQ reward for wXEQ staking. Should change to % so it never becomes negative. We are good for now though.
     }
 

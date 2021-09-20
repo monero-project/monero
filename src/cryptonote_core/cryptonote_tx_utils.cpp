@@ -172,6 +172,9 @@ namespace cryptonote
       {
         //wXEQ pre-sale, will be burnt on height 500100
         return 11000000 * COIN;
+      } else if(height == 700000)
+      {
+        return MINT_BRIDGE;
       }
 
     }
@@ -364,7 +367,11 @@ namespace cryptonote
   {
       std::string governance_wallet_address_str;
 			cryptonote::address_parse_info governance_wallet_address;
-      cryptonote::get_account_address_from_str(governance_wallet_address, nettype, *cryptonote::get_config(nettype).GOVERNANCE_WALLET_ADDRESS);
+      if(hard_fork_version < 11) {
+        cryptonote::get_account_address_from_str(governance_wallet_address, nettype, *cryptonote::get_config(nettype).GOVERNANCE_WALLET_ADDRESS);
+      } else {
+        cryptonote::get_account_address_from_str(governance_wallet_address, nettype, *cryptonote::get_config(nettype).BRIDGE_WALLET_ADDRESS);
+      }
       crypto::public_key out_eph_public_key = AUTO_VAL_INIT(out_eph_public_key);
 
 			if(!get_deterministic_output_key(governance_wallet_address.address, sn_key, tx.vout.size(), out_eph_public_key))
