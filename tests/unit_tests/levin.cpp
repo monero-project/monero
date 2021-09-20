@@ -265,11 +265,17 @@ namespace
         virtual void callback(cryptonote::levin::detail::p2p_context& context) override final
         {}
 
-        virtual void on_connection_new(cryptonote::levin::detail::p2p_context&) override final
-        {}
+        virtual void on_connection_new(cryptonote::levin::detail::p2p_context& context) override final
+        {
+            if (notifier)
+                notifier->on_handshake_complete(context.m_connection_id, context.m_is_income);
+        }
 
-        virtual void on_connection_close(cryptonote::levin::detail::p2p_context&) override final
-        {}
+        virtual void on_connection_close(cryptonote::levin::detail::p2p_context& context) override final
+        {
+            if (notifier)
+                notifier->on_connection_close(context.m_connection_id);
+        }
 
     public:
         test_receiver()
@@ -306,6 +312,8 @@ namespace
         {
             return get_raw_message(notified_);
         }
+
+        std::shared_ptr<cryptonote::levin::notify> notifier{};
     };
 
     class levin_notify : public ::testing::Test
@@ -343,13 +351,16 @@ namespace
             EXPECT_EQ(connection_ids_.size(), connections_->get_connections_count());
         }
 
-        cryptonote::levin::notify make_notifier(const std::size_t noise_size, bool is_public, bool pad_txs)
+        std::shared_ptr<cryptonote::levin::notify> make_notifier(const std::size_t noise_size, bool is_public, bool pad_txs)
         {
             epee::byte_slice noise = nullptr;
             if (noise_size)
                 noise = epee::levin::make_noise_notify(noise_size);
             epee::net_utils::zone zone = is_public ? epee::net_utils::zone::public_ : epee::net_utils::zone::i2p;
-            return cryptonote::levin::notify{io_service_, connections_, std::move(noise), zone, pad_txs, events_};
+            receiver_.notifier.reset(
+              new cryptonote::levin::notify{io_service_, connections_, std::move(noise), zone, pad_txs, events_}
+            );
+            return receiver_.notifier;
         }
 
         boost::uuids::random_generator random_generator_;
@@ -590,7 +601,8 @@ TEST_F(levin_notify, defaulted)
 
 TEST_F(levin_notify, fluff_without_padding)
 {
-    cryptonote::levin::notify notifier = make_notifier(0, true, false);
+    std::shared_ptr<cryptonote::levin::notify> notifier_ptr = make_notifier(0, true, false);
+    auto &notifier = *notifier_ptr;
 
     for (unsigned count = 0; count < 10; ++count)
         add_connection(count % 2 == 0);
@@ -636,7 +648,8 @@ TEST_F(levin_notify, fluff_without_padding)
 
 TEST_F(levin_notify, stem_without_padding)
 {
-    cryptonote::levin::notify notifier = make_notifier(0, true, false);
+    std::shared_ptr<cryptonote::levin::notify> notifier_ptr = make_notifier(0, true, false);
+    auto &notifier = *notifier_ptr;
 
     for (unsigned count = 0; count < 10; ++count)
         add_connection(count % 2 == 0);
@@ -708,7 +721,8 @@ TEST_F(levin_notify, stem_without_padding)
 
 TEST_F(levin_notify, stem_no_outs_without_padding)
 {
-    cryptonote::levin::notify notifier = make_notifier(0, true, false);
+    std::shared_ptr<cryptonote::levin::notify> notifier_ptr = make_notifier(0, true, false);
+    auto &notifier = *notifier_ptr;
 
     for (unsigned count = 0; count < 10; ++count)
         add_connection(true);
@@ -764,7 +778,8 @@ TEST_F(levin_notify, stem_no_outs_without_padding)
 
 TEST_F(levin_notify, local_without_padding)
 {
-    cryptonote::levin::notify notifier = make_notifier(0, true, false);
+    std::shared_ptr<cryptonote::levin::notify> notifier_ptr = make_notifier(0, true, false);
+    auto &notifier = *notifier_ptr;
 
     for (unsigned count = 0; count < 10; ++count)
         add_connection(count % 2 == 0);
@@ -836,7 +851,8 @@ TEST_F(levin_notify, local_without_padding)
 
 TEST_F(levin_notify, forward_without_padding)
 {
-    cryptonote::levin::notify notifier = make_notifier(0, true, false);
+    std::shared_ptr<cryptonote::levin::notify> notifier_ptr = make_notifier(0, true, false);
+    auto &notifier = *notifier_ptr;
 
     for (unsigned count = 0; count < 10; ++count)
         add_connection(count % 2 == 0);
@@ -908,7 +924,8 @@ TEST_F(levin_notify, forward_without_padding)
 
 TEST_F(levin_notify, block_without_padding)
 {
-    cryptonote::levin::notify notifier = make_notifier(0, true, false);
+    std::shared_ptr<cryptonote::levin::notify> notifier_ptr = make_notifier(0, true, false);
+    auto &notifier = *notifier_ptr;
 
     for (unsigned count = 0; count < 10; ++count)
         add_connection(count % 2 == 0);
@@ -937,7 +954,8 @@ TEST_F(levin_notify, block_without_padding)
 
 TEST_F(levin_notify, none_without_padding)
 {
-    cryptonote::levin::notify notifier = make_notifier(0, true, false);
+    std::shared_ptr<cryptonote::levin::notify> notifier_ptr = make_notifier(0, true, false);
+    auto &notifier = *notifier_ptr;
 
     for (unsigned count = 0; count < 10; ++count)
         add_connection(count % 2 == 0);
@@ -966,7 +984,8 @@ TEST_F(levin_notify, none_without_padding)
 
 TEST_F(levin_notify, fluff_with_padding)
 {
-    cryptonote::levin::notify notifier = make_notifier(0, true, true);
+    std::shared_ptr<cryptonote::levin::notify> notifier_ptr = make_notifier(0, true, true);
+    auto &notifier = *notifier_ptr;
 
     for (unsigned count = 0; count < 10; ++count)
         add_connection(count % 2 == 0);
@@ -1012,7 +1031,8 @@ TEST_F(levin_notify, fluff_with_padding)
 
 TEST_F(levin_notify, stem_with_padding)
 {
-    cryptonote::levin::notify notifier = make_notifier(0, true, true);
+    std::shared_ptr<cryptonote::levin::notify> notifier_ptr = make_notifier(0, true, true);
+    auto &notifier = *notifier_ptr;
 
     for (unsigned count = 0; count < 10; ++count)
         add_connection(count % 2 == 0);
@@ -1079,7 +1099,8 @@ TEST_F(levin_notify, stem_with_padding)
 
 TEST_F(levin_notify, stem_no_outs_with_padding)
 {
-    cryptonote::levin::notify notifier = make_notifier(0, true, true);
+    std::shared_ptr<cryptonote::levin::notify> notifier_ptr = make_notifier(0, true, true);
+    auto &notifier = *notifier_ptr;
 
     for (unsigned count = 0; count < 10; ++count)
         add_connection(true);
@@ -1135,7 +1156,8 @@ TEST_F(levin_notify, stem_no_outs_with_padding)
 
 TEST_F(levin_notify, local_with_padding)
 {
-    cryptonote::levin::notify notifier = make_notifier(0, true, true);
+    std::shared_ptr<cryptonote::levin::notify> notifier_ptr = make_notifier(0, true, true);
+    auto &notifier = *notifier_ptr;
 
     for (unsigned count = 0; count < 10; ++count)
         add_connection(count % 2 == 0);
@@ -1202,7 +1224,8 @@ TEST_F(levin_notify, local_with_padding)
 
 TEST_F(levin_notify, forward_with_padding)
 {
-    cryptonote::levin::notify notifier = make_notifier(0, true, true);
+    std::shared_ptr<cryptonote::levin::notify> notifier_ptr = make_notifier(0, true, true);
+    auto &notifier = *notifier_ptr;
 
     for (unsigned count = 0; count < 10; ++count)
         add_connection(count % 2 == 0);
@@ -1269,7 +1292,8 @@ TEST_F(levin_notify, forward_with_padding)
 
 TEST_F(levin_notify, block_with_padding)
 {
-    cryptonote::levin::notify notifier = make_notifier(0, true, true);
+    std::shared_ptr<cryptonote::levin::notify> notifier_ptr = make_notifier(0, true, true);
+    auto &notifier = *notifier_ptr;
 
     for (unsigned count = 0; count < 10; ++count)
         add_connection(count % 2 == 0);
@@ -1298,7 +1322,8 @@ TEST_F(levin_notify, block_with_padding)
 
 TEST_F(levin_notify, none_with_padding)
 {
-    cryptonote::levin::notify notifier = make_notifier(0, true, true);
+    std::shared_ptr<cryptonote::levin::notify> notifier_ptr = make_notifier(0, true, true);
+    auto &notifier = *notifier_ptr;
 
     for (unsigned count = 0; count < 10; ++count)
         add_connection(count % 2 == 0);
@@ -1327,7 +1352,8 @@ TEST_F(levin_notify, none_with_padding)
 
 TEST_F(levin_notify, private_fluff_without_padding)
 {
-    cryptonote::levin::notify notifier = make_notifier(0, false, false);
+    std::shared_ptr<cryptonote::levin::notify> notifier_ptr = make_notifier(0, false, false);
+    auto &notifier = *notifier_ptr;
 
     for (unsigned count = 0; count < 10; ++count)
         add_connection(count % 2 == 0);
@@ -1378,7 +1404,8 @@ TEST_F(levin_notify, private_fluff_without_padding)
 TEST_F(levin_notify, private_stem_without_padding)
 {
     // private mode always uses fluff but marked as stem
-    cryptonote::levin::notify notifier = make_notifier(0, false, false);
+    std::shared_ptr<cryptonote::levin::notify> notifier_ptr = make_notifier(0, false, false);
+    auto &notifier = *notifier_ptr;
 
     for (unsigned count = 0; count < 10; ++count)
         add_connection(count % 2 == 0);
@@ -1429,7 +1456,8 @@ TEST_F(levin_notify, private_stem_without_padding)
 TEST_F(levin_notify, private_local_without_padding)
 {
     // private mode always uses fluff but marked as stem
-    cryptonote::levin::notify notifier = make_notifier(0, false, false);
+    std::shared_ptr<cryptonote::levin::notify> notifier_ptr = make_notifier(0, false, false);
+    auto &notifier = *notifier_ptr;
 
     for (unsigned count = 0; count < 10; ++count)
         add_connection(count % 2 == 0);
@@ -1480,7 +1508,8 @@ TEST_F(levin_notify, private_local_without_padding)
 TEST_F(levin_notify, private_forward_without_padding)
 {
     // private mode always uses fluff but marked as stem
-    cryptonote::levin::notify notifier = make_notifier(0, false, false);
+    std::shared_ptr<cryptonote::levin::notify> notifier_ptr = make_notifier(0, false, false);
+    auto &notifier = *notifier_ptr;
 
     for (unsigned count = 0; count < 10; ++count)
         add_connection(count % 2 == 0);
@@ -1531,7 +1560,8 @@ TEST_F(levin_notify, private_forward_without_padding)
 TEST_F(levin_notify, private_block_without_padding)
 {
     // private mode always uses fluff but marked as stem
-    cryptonote::levin::notify notifier = make_notifier(0, false, false);
+    std::shared_ptr<cryptonote::levin::notify> notifier_ptr = make_notifier(0, false, false);
+    auto &notifier = *notifier_ptr;
 
     for (unsigned count = 0; count < 10; ++count)
         add_connection(count % 2 == 0);
@@ -1561,7 +1591,8 @@ TEST_F(levin_notify, private_block_without_padding)
 TEST_F(levin_notify, private_none_without_padding)
 {
     // private mode always uses fluff but marked as stem
-    cryptonote::levin::notify notifier = make_notifier(0, false, false);
+    std::shared_ptr<cryptonote::levin::notify> notifier_ptr = make_notifier(0, false, false);
+    auto &notifier = *notifier_ptr;
 
     for (unsigned count = 0; count < 10; ++count)
         add_connection(count % 2 == 0);
@@ -1590,7 +1621,8 @@ TEST_F(levin_notify, private_none_without_padding)
 
 TEST_F(levin_notify, private_fluff_with_padding)
 {
-    cryptonote::levin::notify notifier = make_notifier(0, false, true);
+    std::shared_ptr<cryptonote::levin::notify> notifier_ptr = make_notifier(0, false, true);
+    auto &notifier = *notifier_ptr;
 
     for (unsigned count = 0; count < 10; ++count)
         add_connection(count % 2 == 0);
@@ -1640,7 +1672,8 @@ TEST_F(levin_notify, private_fluff_with_padding)
 
 TEST_F(levin_notify, private_stem_with_padding)
 {
-    cryptonote::levin::notify notifier = make_notifier(0, false, true);
+    std::shared_ptr<cryptonote::levin::notify> notifier_ptr = make_notifier(0, false, true);
+    auto &notifier = *notifier_ptr;
 
     for (unsigned count = 0; count < 10; ++count)
         add_connection(count % 2 == 0);
@@ -1690,7 +1723,8 @@ TEST_F(levin_notify, private_stem_with_padding)
 
 TEST_F(levin_notify, private_local_with_padding)
 {
-    cryptonote::levin::notify notifier = make_notifier(0, false, true);
+    std::shared_ptr<cryptonote::levin::notify> notifier_ptr = make_notifier(0, false, true);
+    auto &notifier = *notifier_ptr;
 
     for (unsigned count = 0; count < 10; ++count)
         add_connection(count % 2 == 0);
@@ -1740,7 +1774,8 @@ TEST_F(levin_notify, private_local_with_padding)
 
 TEST_F(levin_notify, private_forward_with_padding)
 {
-    cryptonote::levin::notify notifier = make_notifier(0, false, true);
+    std::shared_ptr<cryptonote::levin::notify> notifier_ptr = make_notifier(0, false, true);
+    auto &notifier = *notifier_ptr;
 
     for (unsigned count = 0; count < 10; ++count)
         add_connection(count % 2 == 0);
@@ -1790,7 +1825,8 @@ TEST_F(levin_notify, private_forward_with_padding)
 
 TEST_F(levin_notify, private_block_with_padding)
 {
-    cryptonote::levin::notify notifier = make_notifier(0, false, true);
+    std::shared_ptr<cryptonote::levin::notify> notifier_ptr = make_notifier(0, false, true);
+    auto &notifier = *notifier_ptr;
 
     for (unsigned count = 0; count < 10; ++count)
         add_connection(count % 2 == 0);
@@ -1819,7 +1855,8 @@ TEST_F(levin_notify, private_block_with_padding)
 
 TEST_F(levin_notify, private_none_with_padding)
 {
-    cryptonote::levin::notify notifier = make_notifier(0, false, true);
+    std::shared_ptr<cryptonote::levin::notify> notifier_ptr = make_notifier(0, false, true);
+    auto &notifier = *notifier_ptr;
 
     for (unsigned count = 0; count < 10; ++count)
         add_connection(count % 2 == 0);
@@ -1850,7 +1887,8 @@ TEST_F(levin_notify, stem_mappings)
 {
     static constexpr const unsigned test_connections_count = (CRYPTONOTE_DANDELIONPP_STEMS + 1) * 2;
 
-    cryptonote::levin::notify notifier = make_notifier(0, true, false);
+    std::shared_ptr<cryptonote::levin::notify> notifier_ptr = make_notifier(0, true, false);
+    auto &notifier = *notifier_ptr;
 
     for (unsigned count = 0; count < test_connections_count; ++count)
         add_connection(count % 2 == 0);
@@ -1973,7 +2011,8 @@ TEST_F(levin_notify, fluff_multiple)
 {
     static constexpr const unsigned test_connections_count = (CRYPTONOTE_DANDELIONPP_STEMS + 1) * 2;
 
-    cryptonote::levin::notify notifier = make_notifier(0, true, false);
+    std::shared_ptr<cryptonote::levin::notify> notifier_ptr = make_notifier(0, true, false);
+    auto &notifier = *notifier_ptr;
 
     for (unsigned count = 0; count < test_connections_count; ++count)
         add_connection(count % 2 == 0);
@@ -2091,7 +2130,8 @@ TEST_F(levin_notify, noise)
     txs[0].resize(1900, 'h');
 
     const boost::uuids::uuid incoming_id = random_generator_();
-    cryptonote::levin::notify notifier = make_notifier(2048, false, true);
+    std::shared_ptr<cryptonote::levin::notify> notifier_ptr = make_notifier(2048, false, true);
+    auto &notifier = *notifier_ptr;
 
     {
         const auto status = notifier.get_status();
@@ -2182,7 +2222,8 @@ TEST_F(levin_notify, noise_stem)
     txs[0].resize(1900, 'h');
 
     const boost::uuids::uuid incoming_id = random_generator_();
-    cryptonote::levin::notify notifier = make_notifier(2048, false, true);
+    std::shared_ptr<cryptonote::levin::notify> notifier_ptr = make_notifier(2048, false, true);
+    auto &notifier = *notifier_ptr;
 
     {
         const auto status = notifier.get_status();

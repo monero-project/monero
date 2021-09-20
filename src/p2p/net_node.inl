@@ -1412,6 +1412,7 @@ namespace nodetool
     ape.first_seen = first_seen_stamp ? first_seen_stamp : time(nullptr);
 
     zone.m_peerlist.append_with_peer_anchor(ape);
+    zone.m_notifier.on_handshake_complete(con->m_connection_id, con->m_is_income);
     zone.m_notifier.new_out_connection();
 
     LOG_DEBUG_CC(*con, "CONNECTION HANDSHAKED OK.");
@@ -2526,6 +2527,8 @@ namespace nodetool
       return 1;
     }
 
+    zone.m_notifier.on_handshake_complete(context.m_connection_id, context.m_is_income);
+
     if(has_too_many_connections(context.m_remote_address))
     {
       LOG_PRINT_CCONTEXT_L1("CONNECTION FROM " << context.m_remote_address.host_str() << " REFUSED, too many connections from the same address");
@@ -2652,6 +2655,9 @@ namespace nodetool
       zone.m_peerlist.remove_from_peer_anchor(na);
     }
 
+    if (!zone.m_net_server.is_stop_signal_sent()) {
+      zone.m_notifier.on_connection_close(context.m_connection_id);
+    }
     m_payload_handler.on_connection_close(context);
 
     MINFO("["<< epee::net_utils::print_connection_context(context) << "] CLOSE CONNECTION");

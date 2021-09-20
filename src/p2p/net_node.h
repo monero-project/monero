@@ -111,15 +111,11 @@ namespace nodetool
   struct p2p_connection_context_t: base_type //t_payload_net_handler::connection_context //public net_utils::connection_context_base
   {
     p2p_connection_context_t()
-      : fluff_txs(),
-        flush_time(std::chrono::steady_clock::time_point::max()),
-        peer_id(0),
+      : peer_id(0),
         support_flags(0),
         m_in_timedsync(false)
     {}
 
-    std::vector<cryptonote::blobdata> fluff_txs;
-    std::chrono::steady_clock::time_point flush_time;
     peerid_type peer_id;
     uint32_t support_flags;
     bool m_in_timedsync;
