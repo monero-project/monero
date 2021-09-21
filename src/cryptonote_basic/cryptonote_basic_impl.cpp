@@ -126,7 +126,7 @@ namespace cryptonote {
 
 
     //emissions will be seperate from now on. A better system is needed in the future.
-    if (version >= 9 && version < 10) {
+    if (version >= 9 && version <= 10) {
       base_reward -= (1 * COIN); // 720 XEQ reward for wXEQ staking. Should change to % so it never becomes negative. We are good for now though.
     }
 
