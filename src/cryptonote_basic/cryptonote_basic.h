@@ -49,6 +49,7 @@
 #include "misc_language.h"
 #include "ringct/rctTypes.h"
 #include "device/device.hpp"
+#include "cryptonote_basic/fwd.h"
 
 namespace cryptonote
 {
