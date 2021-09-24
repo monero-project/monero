@@ -201,6 +201,13 @@ namespace socks
             std::shared_ptr<client> self_;
             void operator()(boost::system::error_code error = boost::system::error_code{});
         };
+
+        //! Calls `async_close` on `self` at destruction. NOP if `nullptr`.
+        struct close_on_exit
+        {
+            std::shared_ptr<client> self;
+            ~close_on_exit() { async_close{std::move(self)}(); }
+        };
     };
 
     template<typename Handler>
