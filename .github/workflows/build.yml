@@ -6,19 +6,20 @@ on: [push, pull_request]
 env:
   REMOVE_BUNDLED_BOOST : rm -rf /usr/local/share/boost
   BUILD_DEFAULT_LINUX: |
-        ccache --max-size=150M
         cmake -S . -B build -D ARCH="default" -D BUILD_TESTS=ON -D CMAKE_BUILD_TYPE=release && cmake --build build -j3
   APT_INSTALL_LINUX: 'sudo apt -y install build-essential cmake libboost-all-dev miniupnpc libunbound-dev graphviz doxygen libunwind8-dev pkg-config libssl-dev libzmq3-dev libsodium-dev libhidapi-dev libnorm-dev libusb-1.0-0-dev libpgm-dev libprotobuf-dev protobuf-compiler ccache'
   APT_SET_CONF: |
-        echo "Acquire::Retries \"3\";" | sudo tee -a /etc/apt/apt.conf.d/80-custom
+        echo "Acquire::Retries \"3\";"         | sudo tee -a /etc/apt/apt.conf.d/80-custom
         echo "Acquire::http::Timeout \"120\";" | sudo tee -a /etc/apt/apt.conf.d/80-custom
-        echo "Acquire::ftp::Timeout \"120\";" | sudo tee -a /etc/apt/apt.conf.d/80-custom
+        echo "Acquire::ftp::Timeout \"120\";"  | sudo tee -a /etc/apt/apt.conf.d/80-custom
+  CCACHE_SETTINGS: |
+        ccache --max-size=150M
+        ccache --set-config=compression=true
 
 jobs:
   build-macos:
     runs-on: macOS-latest
     env:
-      CCACHE_COMPRESS: 1
       CCACHE_TEMPDIR: /tmp/.ccache-temp
     steps:
     - uses: actions/checkout@v1
@@ -33,13 +34,12 @@ jobs:
       run: HOMEBREW_NO_AUTO_UPDATE=1 brew install boost hidapi zmq libpgm miniupnpc ldns expat libunwind-headers protobuf ccache
     - name: build
       run: |
-        ccache --max-size=150M
+        ${{env.CCACHE_SETTINGS}}
         make -j3
 
   build-windows:
     runs-on: windows-latest
     env:
-      CCACHE_COMPRESS: 1
       CCACHE_TEMPDIR: C:\Users\runneradmin\.ccache-temp
       CCACHE_DIR: C:\Users\runneradmin\.ccache
     defaults:
@@ -60,7 +60,7 @@ jobs:
         install: mingw-w64-x86_64-toolchain make mingw-w64-x86_64-cmake mingw-w64-x86_64-ccache mingw-w64-x86_64-boost mingw-w64-x86_64-openssl mingw-w64-x86_64-zeromq mingw-w64-x86_64-libsodium mingw-w64-x86_64-hidapi mingw-w64-x86_64-protobuf-c mingw-w64-x86_64-libusb mingw-w64-x86_64-unbound git
     - name: build
       run: |
-        ccache --max-size=150M
+        ${{env.CCACHE_SETTINGS}}
         make release-static-win64 -j2
 
 # See the OS labels and monitor deprecations here:
@@ -69,7 +69,6 @@ jobs:
   build-ubuntu:
     runs-on: ${{ matrix.os }}
     env:
-      CCACHE_COMPRESS: 1
       CCACHE_TEMPDIR: /tmp/.ccache-temp
     strategy:
       matrix:
@@ -92,12 +91,13 @@ jobs:
     - name: install monero dependencies
       run: ${{env.APT_INSTALL_LINUX}}
     - name: build
-      run: ${{env.BUILD_DEFAULT_LINUX}}
+      run: |
+        ${{env.CCACHE_SETTINGS}}
+        ${{env.BUILD_DEFAULT_LINUX}}
 
   libwallet-ubuntu:
     runs-on: ubuntu-latest
     env:
-      CCACHE_COMPRESS: 1
       CCACHE_TEMPDIR: /tmp/.ccache-temp
     steps:
     - uses: actions/checkout@v1
@@ -118,7 +118,7 @@ jobs:
       run: ${{env.APT_INSTALL_LINUX}}
     - name: build
       run: |
-        ccache --max-size=150M
+        ${{env.CCACHE_SETTINGS}}
         cmake .
         make wallet_api -j3
 
@@ -126,7 +126,6 @@ jobs:
     needs: build-ubuntu
     runs-on: ubuntu-latest
     env:
-      CCACHE_COMPRESS: 1
       CCACHE_TEMPDIR: /tmp/.ccache-temp
     steps:
     - uses: actions/checkout@v1
@@ -152,6 +151,7 @@ jobs:
       env:
         CTEST_OUTPUT_ON_FAILURE: ON
       run: |
+        ${{env.CCACHE_SETTINGS}}
         ${{env.BUILD_DEFAULT_LINUX}}
         cmake --build build --target test
 
