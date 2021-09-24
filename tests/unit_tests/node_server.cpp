@@ -303,6 +303,9 @@ TEST(node_server, bind_same_p2p_port)
 
     Relevant part about REUSEADDR from man:
     https://www.man7.org/linux/man-pages/man7/ip.7.html
+
+    For Mac OSX, set the following alias, before running the test, or else it will fail:
+    sudo ifconfig lo0 alias 127.0.0.2
     */
     vm.find(nodetool::arg_p2p_bind_ip.name)->second   = boost::program_options::variable_value(std::string("127.0.0.2"), false);
     vm.find(nodetool::arg_p2p_bind_port.name)->second = boost::program_options::variable_value(std::string(port), false);
