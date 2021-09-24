@@ -120,6 +120,7 @@ public:
       if (shared)
       {
         core.get().get_blockchain_storage().add_block_notify(cryptonote::listener::zmq_pub::chain_main{shared});
+        core.get().get_blockchain_storage().add_miner_notify(cryptonote::listener::zmq_pub::miner_data{shared});
         core.get().set_txpool_listener(cryptonote::listener::zmq_pub::txpool_add{shared});
       }
     }

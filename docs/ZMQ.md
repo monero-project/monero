@@ -25,6 +25,8 @@ allows for filtering on: (1) format, (2) context, and (3) event.
      Includes previously unseen transactions in a block but _not_ the
      `miner_tx`. Does not "re-publish" after a reorg. Includes `do_not_relay`
      transactions.
+   * `miner_data` - provides the necessary data to create a custom block template
+     Available only in the `full` context.
 
 The subscription topics are formatted as `format-context-event`, with prefix
 matching supported by both Monero and ZMQ. The `format`, `context` and `event`

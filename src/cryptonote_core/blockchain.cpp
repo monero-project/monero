@@ -1238,6 +1238,12 @@ bool Blockchain::switch_to_alternative_blockchain(std::list<block_extended_info>
     reorg_notify->notify("%s", std::to_string(split_height).c_str(), "%h", std::to_string(m_db->height()).c_str(),
         "%n", std::to_string(m_db->height() - split_height).c_str(), "%d", std::to_string(discarded_blocks).c_str(), NULL);
 
+  crypto::hash prev_id;
+  if (!get_block_hash(alt_chain.back().bl, prev_id))
+    MERROR("Failed to get block hash of an alternative chain's tip");
+  else
+    send_miner_notifications(prev_id, alt_chain.back().already_generated_coins);
+
   for (const auto& notifier : m_block_notifiers)
   {
     std::size_t notify_height = split_height;
@@ -1782,6 +1788,30 @@ bool Blockchain::create_block_template(block& b, const crypto::hash *from_block,
 bool Blockchain::create_block_template(block& b, const account_public_address& miner_address, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash)
 {
   return create_block_template(b, NULL, miner_address, diffic, height, expected_reward, ex_nonce, seed_height, seed_hash);
+}
+//------------------------------------------------------------------
+bool Blockchain::get_miner_data(uint8_t& major_version, uint64_t& height, crypto::hash& prev_id, crypto::hash& seed_hash, difficulty_type& difficulty, uint64_t& median_weight, uint64_t& already_generated_coins, std::vector<tx_block_template_backlog_entry>& tx_backlog)
+{
+  prev_id = m_db->top_block_hash(&height);
+  ++height;
+
+  major_version = m_hardfork->get_ideal_version(height);
+
+  seed_hash = crypto::null_hash;
+  if (m_hardfork->get_current_version() >= RX_BLOCK_VERSION)
+  {
+    uint64_t seed_height, next_height;
+    crypto::rx_seedheights(height, &seed_height, &next_height);
+    seed_hash = get_block_id_by_height(seed_height);
+  }
+
+  difficulty = get_difficulty_for_next_block();
+  median_weight = m_current_block_cumul_weight_median;
+  already_generated_coins = m_db->get_block_already_generated_coins(height - 1);
+
+  m_tx_pool.get_block_template_backlog(tx_backlog);
+
+  return true;
 }
 //------------------------------------------------------------------
 // for an alternate chain, get the timestamps from the main chain to complete
@@ -4362,6 +4392,7 @@ leave:
   get_difficulty_for_next_block(); // just to cache it
   invalidate_block_template_cache();
 
+  send_miner_notifications(id, already_generated_coins);
 
   for (const auto& notifier: m_block_notifiers)
     notifier(new_height - 1, {std::addressof(bl), 1});
@@ -5270,12 +5301,21 @@ void Blockchain::set_user_options(uint64_t maxthreads, bool sync_on_blocks, uint
   m_max_prepare_blocks_threads = maxthreads;
 }
 
-void Blockchain::add_block_notify(boost::function<void(std::uint64_t, epee::span<const block>)>&& notify)
+void Blockchain::add_block_notify(BlockNotifyCallback&& notify)
 {
   if (notify)
   {
     CRITICAL_REGION_LOCAL(m_blockchain_lock);
     m_block_notifiers.push_back(std::move(notify));
+  }
+}
+
+void Blockchain::add_miner_notify(MinerNotifyCallback&& notify)
+{
+  if (notify)
+  {
+    CRITICAL_REGION_LOCAL(m_blockchain_lock);
+    m_miner_notifiers.push_back(std::move(notify));
   }
 }
 
@@ -5529,6 +5569,33 @@ void Blockchain::cache_block_template(const block &b, const cryptonote::account_
   m_btc_seed_height = seed_height;
   m_btc_pool_cookie = pool_cookie;
   m_btc_valid = true;
+}
+
+void Blockchain::send_miner_notifications(const crypto::hash &prev_id, uint64_t already_generated_coins)
+{
+  if (m_miner_notifiers.empty())
+    return;
+
+  const uint64_t height = m_db->height();
+  const uint8_t major_version = m_hardfork->get_ideal_version(height);
+  const difficulty_type diff = get_difficulty_for_next_block();
+  const uint64_t median_weight = m_current_block_cumul_weight_median;
+
+  crypto::hash seed_hash = crypto::null_hash;
+  if (m_hardfork->get_current_version() >= RX_BLOCK_VERSION)
+  {
+    uint64_t seed_height, next_height;
+    crypto::rx_seedheights(height, &seed_height, &next_height);
+    seed_hash = get_block_id_by_height(seed_height);
+  }
+
+  std::vector<tx_block_template_backlog_entry> tx_backlog;
+  m_tx_pool.get_block_template_backlog(tx_backlog);
+
+  for (const auto& notifier : m_miner_notifiers)
+  {
+    notifier(major_version, height, prev_id, seed_hash, diff, median_weight, already_generated_coins, tx_backlog);
+  }
 }
 
 namespace cryptonote {
