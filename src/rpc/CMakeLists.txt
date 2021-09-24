@@ -122,6 +122,7 @@ monero_add_library(daemon_rpc_server
 target_link_libraries(rpc_base
   PUBLIC
     common
+    cryptonote_core
     epee
     ${Boost_REGEX_LIBRARY}
     ${Boost_THREAD_LIBRARY}

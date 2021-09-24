@@ -33,6 +33,7 @@
 #include <functional>
 #include "common/command_line.h"
 #include "common/i18n.h"
+#include "daemon/command_line_args.h"
 #include "hex.h"
 
 namespace cryptonote
