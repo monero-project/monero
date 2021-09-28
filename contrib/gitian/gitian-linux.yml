@@ -49,7 +49,7 @@ files: []
 script: |
 
   WRAP_DIR=$HOME/wrapped
-  HOSTS="x86_64-linux-gnu arm-linux-gnueabihf aarch64-linux-gnu i686-linux-gnu"
+  HOSTS="x86_64-linux-gnu arm-linux-gnueabihf aarch64-linux-gnu rpi64-linux-gnu i686-linux-gnu"
   FAKETIME_HOST_PROGS=""
   FAKETIME_PROGS="date"
   HOST_CFLAGS="-O2 -g"
@@ -129,6 +129,12 @@ script: |
   fi
 
   BASEPREFIX=`pwd`/contrib/depends
+
+  # Rpi64 uses the same base as aarch64, so it needs to be symlinked.
+  # It only differs by one CMake option.
+  ln -s $EXTRA_INCLUDES_BASE/aarch64-linux-gnu $EXTRA_INCLUDES_BASE/rpi64-linux-gnu
+  ln -s $BASEPREFIX/aarch64-linux-gnu $BASEPREFIX/rpi64-linux-gnu
+
   # Build dependencies for each host
   export TAR_OPTIONS=--mtime=2000-01-01T12:00:00
   for i in $HOSTS; do
@@ -162,9 +168,12 @@ script: |
     else
       EXTRA_INCLUDES="${EXTRA_INCLUDES_BASE}"
     fi
+    if [[ $i == *"rpi64"* ]]; then
+      CMAKE_OPTS="-DNO_AES=ON"
+    fi
     export C_INCLUDE_PATH="$EXTRA_INCLUDES"
     export CPLUS_INCLUDE_PATH="$EXTRA_INCLUDES"
-    cmake .. -DCMAKE_TOOLCHAIN_FILE=${BASEPREFIX}/${i}/share/toolchain.cmake -DBACKCOMPAT=ON -DCMAKE_SKIP_RPATH=ON
+    cmake .. -DCMAKE_TOOLCHAIN_FILE=${BASEPREFIX}/${i}/share/toolchain.cmake -DBACKCOMPAT=ON -DCMAKE_SKIP_RPATH=ON ${CMAKE_OPTS}
     make ${MAKEOPTS}
     chmod 755 bin/*
     cp ../LICENSE bin

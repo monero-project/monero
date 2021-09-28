@@ -29,6 +29,10 @@ jobs:
           - name: "ARM v8"
             host: "aarch64-linux-gnu"
             packages: "python3 gperf g++-aarch64-linux-gnu"
+          - name: "ARM v8 RPi"
+            host: "aarch64-linux-gnu"
+            packages: "python3 gperf g++-aarch64-linux-gnu"
+            cmake_opts: "-DNO_AES=ON"
           - name: "i686 Win"
             host: "i686-w64-mingw32"
             packages: "python3 g++-mingw-w64-i686 qttools5-dev-tools"
@@ -58,8 +62,8 @@ jobs:
       uses: actions/cache@v2
       with:
         path: ~/.ccache
-        key: ccache-${{ matrix.toolchain.host }}-${{ github.sha }}
-        restore-keys: ccache-${{ matrix.toolchain.host }}-
+        key: ccache-${{ matrix.toolchain.host }}${{ matrix.toolchain.cmake_opts }}-${{ github.sha }}
+        restore-keys: ccache-${{ matrix.toolchain.host }}${{ matrix.toolchain.cmake_opts }}-
 # Less volatile cache
     - name: depends cache
       uses: actions/cache@v2
@@ -94,9 +98,9 @@ jobs:
     - name: build
       run: |
         ${{env.CCACHE_SETTINGS}}
-        make depends target=${{ matrix.toolchain.host }} -j2
+        make depends target=${{ matrix.toolchain.host }} cmake_opts=${{ matrix.toolchain.cmake_opts }} -j2
     - uses: actions/upload-artifact@v2
-      if: ${{ matrix.toolchain.host == 'x86_64-w64-mingw32' || matrix.toolchain.host == 'x86_64-apple-darwin11' || matrix.toolchain.host == 'x86_64-unknown-linux-gnu' }}
+      if: ${{ matrix.toolchain.host == 'x86_64-w64-mingw32' || matrix.toolchain.host == 'x86_64-apple-darwin11' || matrix.toolchain.host == 'x86_64-unknown-linux-gnu' || matrix.toolchain.host == 'aarch64-linux-gnu' || 'arm-linux-gnueabihf' }}
       with:
         name: ${{ matrix.toolchain.name }}
         path: |
