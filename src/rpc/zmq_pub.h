@@ -59,6 +59,7 @@ class zmq_pub
     net::zmq::socket relay_;
     std::deque<std::vector<txpool_event>> txes_;
     std::array<std::size_t, 2> chain_subs_;
+    std::array<std::size_t, 2> sync_subs_;
     std::array<std::size_t, 2> txpool_subs_;
     boost::mutex sync_; //!< Synchronizes counts in `*_subs_` arrays.
 
@@ -88,6 +89,11 @@ class zmq_pub
         \return Number of ZMQ messages sent to relay. */
     std::size_t send_chain_main(std::uint64_t height, epee::span<const cryptonote::block> blocks);
 
+    /*! Send a `ZMQ_PUB` notification when starting/stopping syncing.
+        Thread-safe.
+        \return Number of ZMQ messages sent to relay. */
+    std::size_t send_sync(bool syncing, std::uint64_t height, std::uint64_t target);
+
     /*! Send a `ZMQ_PUB` notification for new tx(es) being added to the local
         pool. Thread-safe.
         \return Number of ZMQ messages sent to relay. */
@@ -98,6 +104,13 @@ class zmq_pub
     {
       std::weak_ptr<zmq_pub> self_;
       void operator()(std::uint64_t height, epee::span<const cryptonote::block> blocks) const;
+    };
+
+    //! Callable for `send_sync` with weak ownership to `zmq_pub` object.
+    struct sync
+    {
+      std::weak_ptr<zmq_pub> self_;
+      void operator()(bool, std::uint64_t height, std::uint64_t target) const;
     };
 
     //! Callable for `send_txpool_add` with weak ownership to `zmq_pub` object.

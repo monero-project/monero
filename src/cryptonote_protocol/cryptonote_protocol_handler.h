@@ -108,6 +108,7 @@ namespace cryptonote
     void log_connections();
     std::list<connection_info> get_connections();
     const block_queue &get_block_queue() const { return m_block_queue; }
+    bool has_more_blocks_queued() const { return m_block_queue.get_data_size() > 0; }
     void stop();
     void on_connection_close(cryptonote_connection_context &context);
     void set_max_out_peers(unsigned int max, unsigned int sync_boost) { m_max_out_peers = max; m_out_peers_sync_boost = sync_boost; }
