@@ -407,10 +407,6 @@ namespace cryptonote
       << " [Your node is " << abs_diff << " blocks (" << tools::get_human_readable_timespan((abs_diff - diff_v2) * DIFFICULTY_TARGET_V1 + diff_v2 * DIFFICULTY_TARGET_V2) << ") "
       << (0 <= diff ? std::string("behind") : std::string("ahead"))
       << "] " << ENDL << "SYNCHRONIZATION started");
-      if (hshd.current_height >= m_core.get_current_blockchain_height() + 5) // don't switch to unsafe mode just for a few blocks
-      {
-        m_core.safesyncmode(false);
-      }
       if (m_core.get_target_blockchain_height() == 0) // only when sync starts
       {
         m_sync_timer.resume();
@@ -2479,7 +2475,6 @@ skip:
       }
       m_core.on_synchronized();
     }
-    m_core.safesyncmode(true);
     m_p2p->clear_used_stripe_peers();
 
     // ask for txpool complement from any suitable node if we did not yet
