@@ -89,6 +89,28 @@ static inline int use_v4_jit(void)
 #endif
 }
 
+#if defined(__x86_64__) || defined(__aarch64__)
+static inline int force_software_aes(void)
+{
+  static int use = -1;
+
+  if (use != -1)
+    return use;
+
+  const char *env = getenv("MONERO_USE_SOFTWARE_AES");
+  if (!env) {
+    use = 0;
+  }
+  else if (!strcmp(env, "0") || !strcmp(env, "no")) {
+    use = 0;
+  }
+  else {
+    use = 1;
+  }
+  return use;
+}
+#endif
+
 #define VARIANT1_1(p) \
   do if (variant == 1) \
   { \
@@ -498,25 +520,6 @@ STATIC INLINE void xor64(uint64_t *a, const uint64_t b)
  * @return true if the CPU supports AES, false otherwise
  */
 
-STATIC INLINE int force_software_aes(void)
-{
-  static int use = -1;
-
-  if (use != -1)
-    return use;
-
-  const char *env = getenv("MONERO_USE_SOFTWARE_AES");
-  if (!env) {
-    use = 0;
-  }
-  else if (!strcmp(env, "0") || !strcmp(env, "no")) {
-    use = 0;
-  }
-  else {
-    use = 1;
-  }
-  return use;
-}
 
 STATIC INLINE int check_aes_hw(void)
 {
@@ -1060,6 +1063,23 @@ union cn_slow_hash_state
  * and moving between vector and regular registers stalls the pipeline.
  */
 #include <arm_neon.h>
+#ifndef __APPLE__
+#include <sys/auxv.h>
+#include <asm/hwcap.h>
+#endif
+
+STATIC INLINE int check_aes_hw(void)
+{
+#ifdef __APPLE___
+    return 1;
+#else
+    static int supported = -1;
+
+    if(supported < 0)
+        supported = (getauxval(AT_HWCAP) & HWCAP_AES) != 0;
+    return supported;
+#endif
+}
 
 #define TOTALBLOCKS (MEMORY / AES_BLOCK_SIZE)
 
@@ -1156,7 +1176,6 @@ __asm__(
 STATIC INLINE void aes_pseudo_round(const uint8_t *in, uint8_t *out, const uint8_t *expandedKey, int nblocks)
 {
 	const uint8x16_t *k = (const uint8x16_t *)expandedKey, zero = {0};
-	uint8x16_t tmp;
 	int i;
 
 	for (i=0; i<nblocks; i++)
@@ -1191,7 +1210,6 @@ STATIC INLINE void aes_pseudo_round_xor(const uint8_t *in, uint8_t *out, const u
 {
 	const uint8x16_t *k = (const uint8x16_t *)expandedKey;
 	const uint8x16_t *x = (const uint8x16_t *)xor;
-	uint8x16_t tmp;
 	int i;
 
 	for (i=0; i<nblocks; i++)
@@ -1244,6 +1262,12 @@ STATIC INLINE void aligned_free(void *ptr)
 }
 #endif /* FORCE_USE_HEAP */
 
+STATIC INLINE void xor_blocks(uint8_t* a, const uint8_t* b)
+{
+  U64(a)[0] ^= U64(b)[0];
+  U64(a)[1] ^= U64(b)[1];
+}
+
 void cn_slow_hash(const void *data, size_t length, char *hash, int variant, int prehashed, uint64_t height)
 {
     RDATA_ALIGN16 uint8_t expandedKey[240];
@@ -1264,6 +1288,8 @@ void cn_slow_hash(const void *data, size_t length, char *hash, int variant, int 
 
     size_t i, j;
     uint64_t *p = NULL;
+    oaes_ctx *aes_ctx = NULL;
+    int useAes = !force_software_aes() && check_aes_hw();
 
     static void (*const extra_hashes[4])(const void *, size_t, char *) =
     {
@@ -1287,11 +1313,26 @@ void cn_slow_hash(const void *data, size_t length, char *hash, int variant, int 
      * the 2MB large random access buffer.
      */
 
-    aes_expand_key(state.hs.b, expandedKey);
-    for(i = 0; i < MEMORY / INIT_SIZE_BYTE; i++)
+    if(useAes)
     {
-        aes_pseudo_round(text, text, expandedKey, INIT_SIZE_BLK);
-        memcpy(&local_hp_state[i * INIT_SIZE_BYTE], text, INIT_SIZE_BYTE);
+        aes_expand_key(state.hs.b, expandedKey);
+        for(i = 0; i < MEMORY / INIT_SIZE_BYTE; i++)
+        {
+            aes_pseudo_round(text, text, expandedKey, INIT_SIZE_BLK);
+            memcpy(&local_hp_state[i * INIT_SIZE_BYTE], text, INIT_SIZE_BYTE);
+        }
+    }
+    else
+    {
+        aes_ctx = (oaes_ctx *) oaes_alloc();
+        oaes_key_import_data(aes_ctx, state.hs.b, AES_KEY_SIZE);
+        for(i = 0; i < MEMORY / INIT_SIZE_BYTE; i++)
+        {
+            for(j = 0; j < INIT_SIZE_BLK; j++)
+                aesb_pseudo_round(&text[AES_BLOCK_SIZE * j], &text[AES_BLOCK_SIZE * j], aes_ctx->key->exp_data);
+
+            memcpy(&local_hp_state[i * INIT_SIZE_BYTE], text, INIT_SIZE_BYTE);
+        }
     }
 
     U64(a)[0] = U64(&state.k[0])[0] ^ U64(&state.k[32])[0];
@@ -1307,13 +1348,26 @@ void cn_slow_hash(const void *data, size_t length, char *hash, int variant, int 
     _b = vld1q_u8((const uint8_t *)b);
     _b1 = vld1q_u8(((const uint8_t *)b) + AES_BLOCK_SIZE);
 
-    for(i = 0; i < ITER / 2; i++)
+    if(useAes)
     {
-        pre_aes();
-        _c = vaeseq_u8(_c, zero);
-        _c = vaesmcq_u8(_c);
-        _c = veorq_u8(_c, _a);
-        post_aes();
+        for(i = 0; i < ITER / 2; i++)
+        {
+            pre_aes();
+            _c = vaeseq_u8(_c, zero);
+            _c = vaesmcq_u8(_c);
+            _c = veorq_u8(_c, _a);
+            post_aes();
+        }
+    }
+    else
+    {
+        for(i = 0; i < ITER / 2; i++)
+        {
+            pre_aes();
+            aesb_single_round((uint8_t *) &_c, (uint8_t *) &_c, (uint8_t *) &_a);
+            post_aes();
+        }
+
     }
 
     /* CryptoNight Step 4:  Sequentially pass through the mixing buffer and use 10 rounds
@@ -1322,11 +1376,27 @@ void cn_slow_hash(const void *data, size_t length, char *hash, int variant, int 
 
     memcpy(text, state.init, INIT_SIZE_BYTE);
 
-    aes_expand_key(&state.hs.b[32], expandedKey);
-    for(i = 0; i < MEMORY / INIT_SIZE_BYTE; i++)
+    if(useAes)
     {
-        // add the xor to the pseudo round
-        aes_pseudo_round_xor(text, text, expandedKey, &local_hp_state[i * INIT_SIZE_BYTE], INIT_SIZE_BLK);
+        aes_expand_key(&state.hs.b[32], expandedKey);
+        for(i = 0; i < MEMORY / INIT_SIZE_BYTE; i++)
+        {
+            // add the xor to the pseudo round
+            aes_pseudo_round_xor(text, text, expandedKey, &local_hp_state[i * INIT_SIZE_BYTE], INIT_SIZE_BLK);
+        }
+    }
+    else
+    {
+        oaes_key_import_data(aes_ctx, &state.hs.b[32], AES_KEY_SIZE);
+        for(i = 0; i < MEMORY / INIT_SIZE_BYTE; i++)
+        {
+            for(j = 0; j < INIT_SIZE_BLK; j++)
+            {
+                xor_blocks(&text[j * AES_BLOCK_SIZE], &local_hp_state[i * INIT_SIZE_BYTE + j * AES_BLOCK_SIZE]);
+                aesb_pseudo_round(&text[AES_BLOCK_SIZE * j], &text[AES_BLOCK_SIZE * j], aes_ctx->key->exp_data);
+            }
+        }
+        oaes_free((OAES_CTX **) &aes_ctx);
     }
 
     /* CryptoNight Step 5:  Apply Keccak to the state again, and then
