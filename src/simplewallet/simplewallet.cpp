@@ -6570,27 +6570,16 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
     }
 
     if (is_swap) {
-			// std::string address = input_line(tr("Please enter the ETH address you want to swap to"));
+			std::string address = input_line(tr("Please enter the ETH address you want to swap to: "));
 
-			// if (std::cin.eof())
-			// 	return true;
+			if (std::cin.eof())
+				return true;
 
-      // if (!add_eth_address_to_tx_extra(extra, address)) {
-      //   fail_msg_writer() << tr("failed to add eth address");
-      //   return false;
-      // }
-
-      // eth_address = address;
-      // //transfer amount = burn amount
-      // add_burned_amount_to_tx_extra(extra, de.amount);
-
-      // //change it to 0.01 as actual "transaction output"
-      // burn_amount += de.amount;
-      // // if (burn_amount <= 500000000) {
-      // //   fail_msg_writer() << tr("Amount too low");
-      // //   return false;
-      // // }
-      // de.amount = 10;
+      cryptonote::tx_extra_memo memo;
+      memo.data = address;
+      cryptonote::add_memo_to_tx_extra(extra, memo);
+      
+      eth_address = address;
     }
 
     if (is_create_contract) {
@@ -6820,11 +6809,6 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
         else
         {
 
-          if (is_swap) {
-            prompt << boost::format(tr("Swapping %s XEQ to ETH address: %s ")) %
-            print_money(burn_amount) % eth_address;
-          }
-
           if(is_burn) {
             prompt << boost::format(tr("Burning %s XEQ: ")) %
             print_money(burn_amount);
@@ -6862,11 +6846,7 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
 
         if (is_swap) 
         {
-          prompt << boost::format(tr("\nwXEQ Contract: 0x0F1aB924fbAd4525578011b102604D3e2F11F9Ef"));
-          prompt << boost::format(tr("\nSwapping to the ETH network is currently a one way swap."));
-          prompt << boost::format(tr("\nThere is no privacy when swapping to wXEQ."));
-          prompt << boost::format(tr("\nYou are taking a risk swapping. If the ETH network is no longer functional, your wXEQ will be lost."));
-          prompt << boost::format(tr("\nMin Swap Amount: 50,000 XEQ"));
+
         }
 
         prompt << ENDL << tr("Is this okay?");
@@ -7508,13 +7488,9 @@ bool simple_wallet::stake_main(
 
     const auto& snode_info = response.service_node_states.front();
     const uint64_t DUST = m_wallet->use_fork_rules(10, 0) ? MAX_NUMBER_OF_CONTRIBUTORS_V2 : MAX_NUMBER_OF_CONTRIBUTORS;
-
-    unlock_block = snode_info.registration_height + locked_blocks;
     
     if (amount == 0)
       amount = snode_info.staking_requirement * amount_fraction;
-
-
 
     const bool full = m_wallet->use_fork_rules(10, 0) ? snode_info.contributors.size() >= MAX_NUMBER_OF_CONTRIBUTORS_V2 : snode_info.contributors.size() >= MAX_NUMBER_OF_CONTRIBUTORS;
     uint64_t can_contrib_total = 0;
