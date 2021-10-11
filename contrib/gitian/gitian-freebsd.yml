@@ -25,12 +25,6 @@ packages:
 - "ca-certificates"
 - "python"
 - "cmake"
-- "ccache"
-- "protobuf-compiler"
-- "libdbus-1-dev"
-- "libharfbuzz-dev"
-- "libprotobuf-dev"
-- "python3-zmq"
 remotes:
 - "url": "https://github.com/monero-project/monero.git"
   "dir": "monero"
@@ -52,6 +46,7 @@ script: |
   if test -n "$GBUILD_CACHE_ENABLED"; then
     export SOURCES_PATH=${GBUILD_COMMON_CACHE}
     export BASE_CACHE=${GBUILD_PACKAGE_CACHE}
+    export GITIAN=1
     mkdir -p ${BASE_CACHE} ${SOURCES_PATH}
   fi
 
