@@ -131,7 +131,7 @@
       } \
       uint64_t ticks2 = misc_utils::get_tick_count(); \
       epee::byte_slice buffer; \
-      epee::serialization::store_t_to_binary(static_cast<command_type::response&>(resp), buffer, 64 * 1024); \
+      epee::serialization::store_t_to_binary(static_cast<command_type::response&>(resp), buffer); \
       uint64_t ticks3 = epee::misc_utils::get_tick_count(); \
       response_info.m_body.assign(reinterpret_cast<const char*>(buffer.data()), buffer.size()); \
       response_info.m_mime_tipe = " application/octet-stream"; \

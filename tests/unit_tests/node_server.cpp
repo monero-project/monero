@@ -1088,10 +1088,11 @@ TEST(node_server, race_condition)
     context_t context;
     conn->get_context(context);
     event_t handshaked;
-    typename messages::handshake::request_t msg{{
+    typename messages::handshake::request msg;
+    msg.node_data = {
       ::config::NETWORK_ID,
       58080,
-    }};
+    };
     epee::net_utils::async_invoke_remote_command2<typename messages::handshake::response>(
       context,
       messages::handshake::ID,

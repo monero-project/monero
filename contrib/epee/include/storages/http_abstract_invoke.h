@@ -76,7 +76,7 @@ namespace epee
     bool invoke_http_bin(const boost::string_ref uri, const t_request& out_struct, t_response& result_struct, t_transport& transport, std::chrono::milliseconds timeout = std::chrono::seconds(15), const boost::string_ref method = "POST")
     {
       byte_slice req_param;
-      if(!serialization::store_t_to_binary(out_struct, req_param, 16 * 1024))
+      if(!serialization::store_t_to_binary(out_struct, req_param))
         return false;
 
       const http::http_response_info* pri = NULL;
@@ -98,12 +98,7 @@ namespace epee
         return false;
       }
 
-      static const constexpr epee::serialization::portable_storage::limits_t default_http_bin_limits = {
-        65536 * 3, // objects
-        65536 * 3, // fields
-        65536 * 3, // strings
-      };
-      return serialization::load_t_from_binary(result_struct, epee::strspan<uint8_t>(pri->m_body), &default_http_bin_limits);
+      return serialization::load_t_from_binary(result_struct, epee::strspan<uint8_t>(pri->m_body));
     }
 
     template<class t_request, class t_response, class t_transport>
