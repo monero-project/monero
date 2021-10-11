@@ -184,7 +184,14 @@ library archives (`.a`).
 | libudev      | ?             | No       | `libudev-dev`        | `systemd`    | `eudev-libudev-devel` | `systemd-devel`  | YES      | Hardware wallet |
 
 [1] On Debian/Ubuntu `libgtest-dev` only includes sources and headers. You must
-build the library binary manually. This can be done with the following command ```sudo apt-get install libgtest-dev && cd /usr/src/gtest && sudo cmake . && sudo make && sudo mv libg* /usr/lib/ ```
+build the library binary manually. This can be done with the following command `sudo apt-get install libgtest-dev && cd /usr/src/gtest && sudo cmake . && sudo make`
+then:
+
+* on Debian:
+  `sudo mv libg* /usr/lib/`
+* on Ubuntu:
+  `sudo mv lib/libg* /usr/lib/`
+
 [2] libnorm-dev is needed if your zmq library was built with libnorm, and not needed otherwise
 
 Install all dependencies at once on Debian/Ubuntu:
