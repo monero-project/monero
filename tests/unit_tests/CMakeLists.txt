@@ -74,6 +74,7 @@ set(unit_tests_sources
   output_distribution.cpp
   parse_amount.cpp
   pruning.cpp
+  p2p_portable_scheme.cpp
   random.cpp
   rolling_median.cpp
   serialization.cpp
