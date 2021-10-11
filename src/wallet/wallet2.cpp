@@ -4467,7 +4467,26 @@ bool wallet2::load_keys_buf(const std::string& keys_buf, const epee::wipeable_st
     m_account.set_device(hwdev);
 
     account_public_address device_account_public_address;
-    THROW_WALLET_EXCEPTION_IF(!hwdev.get_public_address(device_account_public_address), error::wallet_internal_error, "Cannot get a device address");
+    bool fetch_device_address = true;
+
+    ::hw::device_cold* dev_cold = nullptr;
+    if (m_key_device_type == hw::device::device_type::TREZOR && (dev_cold = dynamic_cast<::hw::device_cold*>(&hwdev)) != nullptr) {
+      THROW_WALLET_EXCEPTION_IF(!dev_cold->get_public_address_with_no_passphrase(device_account_public_address), error::wallet_internal_error, "Cannot get a device address");
+      if (device_account_public_address == m_account.get_keys().m_account_address) {
+        LOG_PRINT_L0("Wallet opened with an empty passphrase");
+        fetch_device_address = false;
+        dev_cold->set_use_empty_passphrase(true);
+      } else {
+        fetch_device_address = true;
+        LOG_PRINT_L0("Wallet opening with an empty passphrase failed. Retry again: " << fetch_device_address);
+        dev_cold->reset_session();
+      }
+    }
+
+    if (fetch_device_address) {
+      THROW_WALLET_EXCEPTION_IF(!hwdev.get_public_address(device_account_public_address), error::wallet_internal_error, "Cannot get a device address");
+    }
+
     THROW_WALLET_EXCEPTION_IF(device_account_public_address != m_account.get_keys().m_account_address, error::wallet_internal_error, "Device wallet does not match wallet address. If the device uses the passphrase feature, please check whether the passphrase was entered correctly (it may have been misspelled - different passphrases generate different wallets, passphrase is case-sensitive). "
                                                                                                                                      "Device address: " + cryptonote::get_account_address_as_str(m_nettype, false, device_account_public_address) +
                                                                                                                                      ", wallet address: " + m_account.get_public_address_str(m_nettype));

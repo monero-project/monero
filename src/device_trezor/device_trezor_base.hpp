@@ -101,6 +101,9 @@ namespace trezor {
       messages::MessageType m_last_msg_type;
 
       cryptonote::network_type network_type;
+      bool m_reply_with_empty_passphrase;
+      bool m_always_use_empty_passphrase;
+      bool m_seen_passphrase_entry_message;
 
 #ifdef WITH_TREZOR_DEBUGGING
       std::shared_ptr<trezor_debug_callback> m_debug_callback;
