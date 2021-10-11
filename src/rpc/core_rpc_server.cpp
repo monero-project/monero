@@ -972,14 +972,26 @@ namespace cryptonote
       LOG_PRINT_L2("Found " << found_in_pool << "/" << vh.size() << " transactions in the pool");
     }
 
-    std::vector<std::string>::const_iterator txhi = req.txs_hashes.begin();
-    std::vector<crypto::hash>::const_iterator vhi = vh.begin();
+    CHECK_AND_ASSERT_MES(txs.size() + missed_txs.size() == vh.size(), false, "mismatched number of txs");
+
+    auto txhi = req.txs_hashes.cbegin();
+    auto vhi = vh.cbegin();
+    auto missedi = missed_txs.cbegin();
+
     for(auto& tx: txs)
     {
       res.txs.push_back(COMMAND_RPC_GET_TRANSACTIONS::entry());
       COMMAND_RPC_GET_TRANSACTIONS::entry &e = res.txs.back();
 
+      while (missedi != missed_txs.end() && *missedi == *vhi)
+      {
+          ++vhi;
+          ++txhi;
+          ++missedi;
+      }
+
       crypto::hash tx_hash = *vhi++;
+      CHECK_AND_ASSERT_MES(tx_hash == std::get<0>(tx), false, "mismatched tx hash");
       e.tx_hash = *txhi++;
       e.prunable_hash = epee::string_tools::pod_to_hex(std::get<2>(tx));
       if (req.split || req.prune || std::get<3>(tx).empty())
