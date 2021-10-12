@@ -2945,7 +2945,7 @@ bool t_rpc_command_executor::prepare_sn()
     if (amount_left > DUST)
     {
       std::cout << "Your total reservations do not equal the staking requirement." << std::endl;
-      std::cout << "You will leave the remaining portion of " << cryptonote::print_money(amount_left) << " " << cryptonote::get_unit() << " open to contributions from anyone, and the Oracle Node will not activate until the full staking requirement is filled." << std::endl;
+      std::cout << "You will leave the remaining portion of " << cryptonote::print_money(amount_left) << " " << cryptonote::get_unit() << " open to contributions from anyone!" << std::endl;
       std::cout << "Is this ok? (Y/Yes/N/No): ";
       std::string accept_pool_staking;
       std::cin >> accept_pool_staking;
