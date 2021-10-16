@@ -31,6 +31,9 @@
 #pragma once
 #include <boost/asio/io_service.hpp>
 #include <boost/serialization/serialization.hpp>
+#if BOOST_VERSION >= 107400
+#include <boost/serialization/library_version_type.hpp>
+#endif
 #include <boost/serialization/version.hpp>
 #include <boost/serialization/list.hpp>
 #include <boost/multi_index_container.hpp>
