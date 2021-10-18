@@ -166,8 +166,6 @@ namespace hw {
         void send_secret(const unsigned char sec[32], int &offset);
         void receive_secret(unsigned char sec[32], int &offset);
 
-        // hw running mode
-        device_mode mode;
         bool tx_in_progress;
 
         // map public destination key to ephemeral destination key
