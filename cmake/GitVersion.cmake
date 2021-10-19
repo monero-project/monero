@@ -32,7 +32,7 @@
 
 function (get_version_tag_from_git GIT)
     execute_process(COMMAND "${GIT}" rev-parse --short=9 HEAD
-                    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+                    WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
                     RESULT_VARIABLE RET
                     OUTPUT_VARIABLE COMMIT
                     OUTPUT_STRIP_TRAILING_WHITESPACE)
@@ -49,7 +49,7 @@ function (get_version_tag_from_git GIT)
 
         # Get all the tags
         execute_process(COMMAND "${GIT}" tag -l --points-at HEAD
-                        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+                        WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
                         RESULT_VARIABLE RET
                         OUTPUT_VARIABLE TAG
                         OUTPUT_STRIP_TRAILING_WHITESPACE)
