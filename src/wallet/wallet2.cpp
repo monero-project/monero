@@ -492,7 +492,7 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
     catch (const std::exception &e) { }
   }
 
-  std::unique_ptr<tools::wallet2> wallet(new tools::wallet2(nettype, kdf_rounds, unattended));
+  std::unique_ptr<tools::wallet2> wallet{std::make_unique<tools::wallet2>(nettype, kdf_rounds, unattended)};
   if (!wallet->init(std::move(daemon_address), std::move(login), std::move(proxy), 0, *trusted_daemon, std::move(ssl_options)))
   {
     THROW_WALLET_EXCEPTION(tools::error::wallet_internal_error, tools::wallet2::tr("failed to initialize the wallet"));
@@ -521,7 +521,7 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
   try
   {
     if (!command_line::is_arg_defaulted(vm, opts.tx_notify))
-      wallet->set_tx_notify(std::shared_ptr<tools::Notify>(new tools::Notify(command_line::get_arg(vm, opts.tx_notify).c_str())));
+      wallet->set_tx_notify(std::make_shared<tools::Notify>(command_line::get_arg(vm, opts.tx_notify).c_str()));
   }
   catch (const std::exception &e)
   {
@@ -3362,7 +3362,7 @@ bool wallet2::delete_address_book_row(std::size_t row_id) {
 //----------------------------------------------------------------------------------------------------
 std::shared_ptr<std::map<std::pair<uint64_t, uint64_t>, size_t>> wallet2::create_output_tracker_cache() const
 {
-  std::shared_ptr<std::map<std::pair<uint64_t, uint64_t>, size_t>> cache{new std::map<std::pair<uint64_t, uint64_t>, size_t>()};
+  std::shared_ptr<std::map<std::pair<uint64_t, uint64_t>, size_t>> cache{std::make_shared<std::map<std::pair<uint64_t, uint64_t>, size_t>>()};
   for (size_t i = 0; i < m_transfers.size(); ++i)
   {
     const transfer_details &td = m_transfers[i];
@@ -7755,7 +7755,7 @@ bool wallet2::set_ring_database(const std::string &filename)
     {
       cryptonote::block b;
       generate_genesis(b);
-      m_ringdb.reset(new tools::ringdb(m_ring_database, epee::string_tools::pod_to_hex(get_block_hash(b))));
+      m_ringdb = std::make_unique<ringdb>(m_ring_database, epee::string_tools::pod_to_hex(get_block_hash(b)));
     }
     catch (const std::exception &e)
     {
@@ -8010,7 +8010,7 @@ bool wallet2::lock_keys_file()
     MDEBUG(m_keys_file << " is already locked.");
     return false;
   }
-  m_keys_file_locker.reset(new tools::file_locker(m_keys_file));
+  m_keys_file_locker = std::make_unique<tools::file_locker>(m_keys_file);
   return true;
 }
 
@@ -8340,7 +8340,7 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
 
     std::unique_ptr<gamma_picker> gamma;
     if (has_rct_distribution)
-      gamma.reset(new gamma_picker(rct_offsets));
+      gamma = std::make_unique<gamma_picker>(rct_offsets);
 
     size_t num_selected_transfers = 0;
     for(size_t idx: selected_transfers)
@@ -13716,7 +13716,7 @@ T wallet2::decrypt(const std::string &ciphertext, const crypto::secret_key &skey
     THROW_WALLET_EXCEPTION_IF(!crypto::check_signature(hash, pkey, signature),
       error::wallet_internal_error, "Failed to authenticate ciphertext");
   }
-  std::unique_ptr<char[]> buffer{new char[ciphertext.size() - prefix_size]};
+  std::unique_ptr<char[]> buffer{std::make_unique<char[]>(ciphertext.size() - prefix_size)};
   auto wiper = epee::misc_utils::create_scope_leave_handler([&]() { memwipe(buffer.get(), ciphertext.size() - prefix_size); });
   crypto::chacha20(ciphertext.data() + sizeof(iv), ciphertext.size() - prefix_size, key, iv, buffer.get());
   return T(buffer.get(), ciphertext.size() - prefix_size);
@@ -14126,7 +14126,7 @@ mms::multisig_wallet_state wallet2::get_multisig_wallet_state() const
 wallet_device_callback * wallet2::get_device_callback()
 {
   if (!m_device_callback){
-    m_device_callback.reset(new wallet_device_callback(this));
+    m_device_callback = std::make_unique<wallet_device_callback>(this);
   }
   return m_device_callback.get();
 }//----------------------------------------------------------------------------------------------------
