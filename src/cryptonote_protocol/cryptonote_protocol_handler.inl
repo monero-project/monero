@@ -153,6 +153,7 @@ namespace cryptonote
             context.m_last_request_time = boost::date_time::not_a_date_time;
             context.m_expect_response = 0;
             context.m_expect_height = 0;
+            context.m_requested_objects.clear();
             context.m_state = cryptonote_connection_context::state_standby; // we'll go back to adding, then (if we can't), download
           }
           else
