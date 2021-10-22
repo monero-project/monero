@@ -1,8 +1,9 @@
 package=openssl
-$(package)_version=1.1.1k
+$(package)_version=1.1.1l
 $(package)_download_path=https://www.openssl.org/source
 $(package)_file_name=$(package)-$($(package)_version).tar.gz
-$(package)_sha256_hash=892a0875b9872acd04a9fde79b1f943075d5ea162415de3047c327df33fbaee5
+$(package)_sha256_hash=0b7a3e5e59c34827fe0c3a74b7ec8baef302b98fa80088d7f9153aa16fa76bd1
+$(package)_patches=fix_darwin.patch
 
 define $(package)_set_vars
 $(package)_config_env=AR="$($(package)_ar)" ARFLAGS=$($(package)_arflags) RANLIB="$($(package)_ranlib)" CC="$($(package)_cc)"
@@ -51,7 +52,8 @@ endef
 
 define $(package)_preprocess_cmds
   sed -i.old 's|"engines", "apps", "test", "util", "tools", "fuzz"|"engines", "tools"|' Configure && \
-  sed -i -e 's|cflags --sysroot.*",|cflags",|' Configurations/15-android.conf
+  sed -i -e 's|cflags --sysroot.*",|cflags",|' Configurations/15-android.conf && \
+  patch -p1 < $($(package)_patch_dir)/fix_darwin.patch
 endef
 
 define $(package)_config_cmds
