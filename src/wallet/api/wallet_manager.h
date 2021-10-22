@@ -95,7 +95,7 @@ public:
     bool setProxy(const std::string &address) override;
 
 private:
-    WalletManagerImpl() {}
+    WalletManagerImpl();
     friend struct WalletManagerFactory;
     net::http::client m_http_client;
     std::string m_errorString;
