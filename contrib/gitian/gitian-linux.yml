@@ -162,8 +162,8 @@ script: |
     cmake .. -DCMAKE_TOOLCHAIN_FILE=${BASEPREFIX}/${i}/share/toolchain.cmake -DBACKCOMPAT=ON -DCMAKE_SKIP_RPATH=ON
     make ${MAKEOPTS}
     chmod 755 bin/*
-    cp ../LICENSE bin
-    chmod 644 bin/LICENSE
+    cp ../LICENSE ../README.md ../docs/ANONYMITY_NETWORKS.md bin
+    chmod 644 bin/LICENSE bin/*.md
     DISTNAME=monero-${i}-${version}
     mv bin ${DISTNAME}
     find ${DISTNAME}/ | sort | tar --no-recursion --owner=0 --group=0 -c -T - | bzip2 -9 > ${OUTDIR}/${DISTNAME}.tar.bz2
