@@ -198,6 +198,10 @@ Install all dependencies at once on Debian/Ubuntu:
 
 ``` sudo apt update && sudo apt install build-essential cmake pkg-config libssl-dev libzmq3-dev libunbound-dev libsodium-dev libunwind8-dev liblzma-dev libreadline6-dev libldns-dev libexpat1-dev libpgm-dev qttools5-dev-tools libhidapi-dev libusb-1.0-0-dev libprotobuf-dev protobuf-compiler libudev-dev libboost-chrono-dev libboost-date-time-dev libboost-filesystem-dev libboost-locale-dev libboost-program-options-dev libboost-regex-dev libboost-serialization-dev libboost-system-dev libboost-thread-dev ccache doxygen graphviz ```
 
+Install all dependencies at once on Fedora:
+
+```dnf install systemd-devel protobuf-compiler protobuf-devel libusbx-devel hidapi-devel qt5-linguist graphviz doxygen ccache gtest-devel expat-devel ldns-devel readline-devel xz-devel  libunwind-devel libsodium-devel unbound-devel openpgm-devel zeromq-devel openssl-devel boost-devel pkgconf cmake gcc```
+
 Install all dependencies at once on openSUSE:
 
 ``` sudo zypper ref && sudo zypper in cppzmq-devel  ldns-devel libboost_chrono-devel libboost_date_time-devel libboost_filesystem-devel libboost_locale-devel libboost_program_options-devel libboost_regex-devel libboost_serialization-devel libboost_system-devel libboost_thread-devel libexpat-devel libminiupnpc-devel libsodium-devel libunwind-devel unbound-devel  cmake doxygen ccache fdupes gcc-c++ libevent-devel libopenssl-devel pkgconf-pkg-config readline-devel  xz-devel libqt5-qttools-devel patterns-devel-C-C++-devel_C_C++```
