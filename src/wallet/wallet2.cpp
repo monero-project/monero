@@ -314,7 +314,6 @@ void do_prepare_file_names(const std::string& file_path, std::string& keys_file,
 {
   keys_file = file_path;
   wallet_file = file_path;
-  boost::system::error_code e;
   if(string_tools::get_extension(keys_file) == "keys")
   {//provided keys file name
     wallet_file = string_tools::cut_off_extension(wallet_file);
@@ -7073,7 +7072,6 @@ bool wallet2::load_tx(const std::string &signed_filename, std::vector<tools::wal
 bool wallet2::parse_tx_from_str(const std::string &signed_tx_st, std::vector<tools::wallet2::pending_tx> &ptx, std::function<bool(const signed_tx_set &)> accept_func)
 {
   std::string s = signed_tx_st;
-  boost::system::error_code errcode;
   signed_tx_set signed_txs;
 
   const size_t magiclen = strlen(SIGNED_TX_PREFIX) - 1;
