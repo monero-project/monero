@@ -1798,9 +1798,7 @@ private:
     crypto::secret_key m_original_view_secret_key;
 
     crypto::chacha_key m_cache_key;
-    boost::optional<epee::wipeable_string> m_encrypt_keys_after_refresh;
-    boost::mutex m_decrypt_keys_lock;
-    unsigned int m_decrypt_keys_lockers;
+    std::shared_ptr<wallet_keys_unlocker> m_encrypt_keys_after_refresh;
 
     bool m_unattended;
     bool m_devices_registered;
