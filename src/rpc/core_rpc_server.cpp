@@ -2042,8 +2042,23 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  template <typename COMMAND_TYPE>
-  bool core_rpc_server::use_bootstrap_daemon_if_necessary(const invoke_http_mode &mode, const std::string &command_name, const typename COMMAND_TYPE::request& req, typename COMMAND_TYPE::response& res, bool &r)
+  template<>
+  struct core_rpc_server::bootstrap_daemon_invoke<core_rpc_server::invoke_http_mode::mode_t::JON> {
+    template<typename ...T>
+    static bool invoke(bootstrap_daemon &daemon, T... t) { return daemon.invoke_http_json(t...); }
+  };
+  template<>
+  struct core_rpc_server::bootstrap_daemon_invoke<core_rpc_server::invoke_http_mode::mode_t::BIN> {
+    template<typename ...T>
+    static bool invoke(bootstrap_daemon &daemon, T... t) { return daemon.invoke_http_bin(t...); }
+  };
+  template<>
+  struct core_rpc_server::bootstrap_daemon_invoke<core_rpc_server::invoke_http_mode::mode_t::JON_RPC> {
+    template<typename ...T>
+    static bool invoke(bootstrap_daemon &daemon, T... t) { return daemon.invoke_http_json_rpc(t...); }
+  };
+  template<typename COMMAND_TYPE, typename T>
+  bool core_rpc_server::use_bootstrap_daemon_if_necessary(T, const std::string &command_name, const typename COMMAND_TYPE::request& req, typename COMMAND_TYPE::response& res, bool &r)
   {
     res.untrusted = false;
 
@@ -2094,23 +2109,7 @@ namespace cryptonote
       }
     }
 
-    if (mode == invoke_http_mode::JON)
-    {
-      r = m_bootstrap_daemon->invoke_http_json(command_name, req, res);
-    }
-    else if (mode == invoke_http_mode::BIN)
-    {
-      r = m_bootstrap_daemon->invoke_http_bin(command_name, req, res);
-    }
-    else if (mode == invoke_http_mode::JON_RPC)
-    {
-      r = m_bootstrap_daemon->invoke_http_json_rpc(command_name, req, res);
-    }
-    else
-    {
-      MERROR("Unknown invoke_http_mode: " << mode);
-      return false;
-    }
+    r = bootstrap_daemon_invoke<T::value>::invoke(*m_bootstrap_daemon, command_name, req, res);
 
     {
       boost::upgrade_to_unique_lock<boost::shared_mutex> lock(upgrade_lock);

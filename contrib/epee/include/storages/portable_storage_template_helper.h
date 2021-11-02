@@ -29,6 +29,7 @@
 #include <string>
 
 #include "parserse_base_utils.h"
+#include "p2p/portable_scheme/load_store_wrappers.h"
 #include "portable_storage.h"
 #include "file_io_utils.h"
 
@@ -84,14 +85,9 @@ namespace epee
     }
     //-----------------------------------------------------------------------------------------------------------
     template<class t_struct>
-    bool load_t_from_binary(t_struct& out, const epee::span<const uint8_t> binary_buff, const epee::serialization::portable_storage::limits_t *limits = NULL)
+    bool load_t_from_binary(t_struct& out, const epee::span<const uint8_t> binary_buff)
     {
-      portable_storage ps;
-      bool rs = ps.load_from_binary(binary_buff, limits);
-      if(!rs)
-        return false;
-
-      return out.load(ps);
+      return portable_scheme::load_from_binary(out, binary_buff);
     }
     //-----------------------------------------------------------------------------------------------------------
     template<class t_struct>
@@ -113,9 +109,7 @@ namespace epee
     template<class t_struct>
     bool store_t_to_binary(t_struct& str_in, std::string& binary_buff, size_t indent = 0)
     {
-      portable_storage ps;
-      str_in.store(ps);
-      return ps.store_to_binary(binary_buff);
+      return portable_scheme::store_to_binary(str_in, binary_buff);
     }
     //-----------------------------------------------------------------------------------------------------------
     template<class t_struct>
