@@ -1,7 +1,7 @@
 # Compiling, debugging and testing efficiently
 
 This document describes ways of compiling, debugging and testing efficiently for various use cases.
-The intented audience are developers, who want to leverage newly added tricks to Monero via `CMake`. The document will lower the entry point for these developers.
+The intended audience are developers, who want to leverage newly added tricks to Monero via `CMake`. The document will lower the entry point for these developers.
 Before reading this document, please consult section "Build instructions" in the main README.md. 
 Some information from README.md will be repeated here, but the aim is to go beyond it.
 

@@ -75,7 +75,7 @@ An unsigned 32-bit little endian integer representing the Monero specific
 command being invoked.
 
 ### Return Code
-A signed 32-bit little integer integer representing the response from the peer
+A signed 32-bit little endian integer representing the response from the peer
 from the last command that was invoked. This is `0` for request messages.
 
 ### Flags
@@ -131,7 +131,7 @@ be zero. The first fragment has the `B` bit set, neither `B` nor `E` is set for
 
 ### Dummy
 Dummy messages have the `B` and `E` bits set, the `Q` and `S` bits unset, and
-the `Expect Reponse` field zeroed. When a message of this type is received, the
+the `Expect Response` field zeroed. When a message of this type is received, the
 contents can be safely ignored.
 
 
@@ -149,7 +149,7 @@ contents can be safely ignored.
 #### (`1005` Request) Network State
 #### (`1005` Response) Network State
 #### (`1006` Request) Peer ID
-#### (`1006` Reponse) Peer ID
+#### (`1006` Response) Peer ID
 #### (`1007` Request) Support Flags
 #### (`1007` Response) Support Flags
 
