@@ -306,7 +306,12 @@ boost::optional<std::string> NodeRPCProxy::get_rpc_payment_info(bool mining, boo
     m_rpc_payment_seed_height = resp_t.seed_height;
     m_rpc_payment_cookie = resp_t.cookie;
 
-    if (!epee::string_tools::parse_hexstr_to_binbuff(resp_t.hashing_blob, m_rpc_payment_blob) || m_rpc_payment_blob.size() < 43)
+    if (m_rpc_payment_diff == 0)
+    {
+      // If no payment required daemon doesn't give us back a hashing blob
+      m_rpc_payment_blob.clear();
+    }
+    else if (!epee::string_tools::parse_hexstr_to_binbuff(resp_t.hashing_blob, m_rpc_payment_blob) || m_rpc_payment_blob.size() < 43)
     {
       MERROR("Invalid hashing blob: " << resp_t.hashing_blob);
       return std::string("Invalid hashing blob");
