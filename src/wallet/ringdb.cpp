@@ -387,25 +387,36 @@ bool ringdb::get_ring(const crypto::chacha_key &chacha_key, const crypto::key_im
   return true;
 }
 
-bool ringdb::set_ring(const crypto::chacha_key &chacha_key, const crypto::key_image &key_image, const std::vector<uint64_t> &outs, bool relative)
+bool ringdb::set_rings(const crypto::chacha_key &chacha_key, const std::vector<std::pair<crypto::key_image, std::vector<uint64_t>>> &rings, bool relative)
 {
   MDB_txn *txn;
   int dbr;
   bool tx_active = false;
 
-  dbr = resize_env(env, filename.c_str(), outs.size() * 64);
+  size_t n_outs = 0;
+  for (const auto &e: rings)
+    n_outs += e.second.size();
+  dbr = resize_env(env, filename.c_str(), n_outs * 64);
   THROW_WALLET_EXCEPTION_IF(dbr, tools::error::wallet_internal_error, "Failed to set env map size: " + std::string(mdb_strerror(dbr)));
   dbr = mdb_txn_begin(env, NULL, 0, &txn);
   THROW_WALLET_EXCEPTION_IF(dbr, tools::error::wallet_internal_error, "Failed to create LMDB transaction: " + std::string(mdb_strerror(dbr)));
   epee::misc_utils::auto_scope_leave_caller txn_dtor = epee::misc_utils::create_scope_leave_handler([&](){if (tx_active) mdb_txn_abort(txn);});
   tx_active = true;
 
-  store_relative_ring(txn, dbi_rings, key_image, relative ? outs : cryptonote::absolute_output_offsets_to_relative(outs), chacha_key);
+  for (const auto &e: rings)
+    store_relative_ring(txn, dbi_rings, e.first, relative ? e.second : cryptonote::absolute_output_offsets_to_relative(e.second), chacha_key);
 
   dbr = mdb_txn_commit(txn);
   THROW_WALLET_EXCEPTION_IF(dbr, tools::error::wallet_internal_error, "Failed to commit txn setting ring to database: " + std::string(mdb_strerror(dbr)));
   tx_active = false;
   return true;
+}
+
+bool ringdb::set_ring(const crypto::chacha_key &chacha_key, const crypto::key_image &key_image, const std::vector<uint64_t> &outs, bool relative)
+{
+  std::vector<std::pair<crypto::key_image, std::vector<uint64_t>>> rings;
+  rings.push_back(std::make_pair(key_image, outs));
+  return set_rings(chacha_key, rings, relative);
 }
 
 bool ringdb::blackball_worker(const std::vector<std::pair<uint64_t, uint64_t>> &outputs, int op)

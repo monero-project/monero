@@ -1559,6 +1559,7 @@ private:
     bool get_ring(const crypto::key_image &key_image, std::vector<uint64_t> &outs);
     bool get_rings(const crypto::hash &txid, std::vector<std::pair<crypto::key_image, std::vector<uint64_t>>> &outs);
     bool set_ring(const crypto::key_image &key_image, const std::vector<uint64_t> &outs, bool relative);
+    bool set_rings(const std::vector<std::pair<crypto::key_image, std::vector<uint64_t>>> &rings, bool relative);
     bool unset_ring(const std::vector<crypto::key_image> &key_images);
     bool unset_ring(const crypto::hash &txid);
     bool find_and_save_rings(bool force = true);

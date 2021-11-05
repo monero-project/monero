@@ -7644,6 +7644,15 @@ bool wallet2::set_ring(const crypto::key_image &key_image, const std::vector<uin
   catch (const std::exception &e) { return false; }
 }
 
+bool wallet2::set_rings(const std::vector<std::pair<crypto::key_image, std::vector<uint64_t>>> &rings, bool relative)
+{
+  if (!m_ringdb)
+    return false;
+
+  try { return m_ringdb->set_rings(get_ringdb_key(), rings, relative); }
+  catch (const std::exception &e) { return false; }
+}
+
 bool wallet2::unset_ring(const std::vector<crypto::key_image> &key_images)
 {
   if (!m_ringdb)
@@ -8580,6 +8589,8 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
   }
 
   // save those outs in the ringdb for reuse
+  std::vector<std::pair<crypto::key_image, std::vector<uint64_t>>> rings;
+  rings.reserve(selected_transfers.size());
   for (size_t i = 0; i < selected_transfers.size(); ++i)
   {
     const size_t idx = selected_transfers[i];
@@ -8589,9 +8600,10 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
     ring.reserve(outs[i].size());
     for (const auto &e: outs[i])
       ring.push_back(std::get<0>(e));
-    if (!set_ring(td.m_key_image, ring, false))
-      MERROR("Failed to set ring for " << td.m_key_image);
+    rings.push_back(std::make_pair(td.m_key_image, std::move(ring)));
   }
+  if (!set_rings(rings, false))
+    MERROR("Failed to set rings");
 }
 
 template<typename T>
