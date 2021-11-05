@@ -34,6 +34,7 @@
 #include "cryptonote_core/cryptonote_core.h"
 #include "cryptonote_core/blockchain.h"
 #include "blockchain_db/blockchain_db.h"
+#include "blockchain_and_pool.h"
 #include "version.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
@@ -160,9 +161,8 @@ int main(int argc, char* argv[])
   const std::string input = command_line::get_arg(vm, arg_input);
 
   LOG_PRINT_L0("Initializing source blockchain (BlockchainDB)");
-  std::unique_ptr<Blockchain> core_storage;
-  tx_memory_pool m_mempool(*core_storage);
-  core_storage.reset(new Blockchain(m_mempool));
+  std::unique_ptr<BlockchainAndPool> core_storage = std::make_unique<BlockchainAndPool>();
+
   BlockchainDB *db = new_db();
   if (db == NULL)
   {
@@ -182,7 +182,7 @@ int main(int argc, char* argv[])
     LOG_PRINT_L0("Error opening database: " << e.what());
     return 1;
   }
-  r = core_storage->init(db, net_type);
+  r = core_storage->blockchain.init(db, net_type);
 
   CHECK_AND_ASSERT_MES(r, 1, "Failed to initialize source blockchain storage");
   LOG_PRINT_L0("Source blockchain storage initialized OK");
@@ -280,7 +280,7 @@ int main(int argc, char* argv[])
   MINFO("Prunable outputs: " << num_prunable_outputs);
 
   LOG_PRINT_L0("Blockchain known spent data pruned OK");
-  core_storage->deinit();
+  core_storage->blockchain.deinit();
   return 0;
 
   CATCH_ENTRY("Error", 1);

@@ -33,6 +33,7 @@
 #include <boost/system/error_code.hpp>
 #include <boost/filesystem.hpp>
 #include "common/command_line.h"
+#include "blockchain_and_pool.h"
 #include "common/pruning.h"
 #include "cryptonote_core/cryptonote_core.h"
 #include "cryptonote_core/blockchain.h"
@@ -562,22 +563,15 @@ int main(int argc, char* argv[])
   // Use Blockchain instead of lower-level BlockchainDB for two reasons:
   // 1. Blockchain has the init() method for easy setup
   // 2. exporter needs to use get_current_blockchain_height(), get_block_id_by_height(), get_block_by_hash()
-  //
-  // cannot match blockchain_storage setup above with just one line,
-  // e.g.
-  //   Blockchain* core_storage = new Blockchain(NULL);
-  // because unlike blockchain_storage constructor, which takes a pointer to
-  // tx_memory_pool, Blockchain's constructor takes tx_memory_pool object.
   MINFO("Initializing source blockchain (BlockchainDB)");
-  std::array<std::unique_ptr<Blockchain>, 2> core_storage;
-  Blockchain *blockchain = NULL;
-  tx_memory_pool m_mempool(*blockchain);
+  std::array<std::unique_ptr<BlockchainAndPool>, 2> core_storage{
+      std::make_unique<BlockchainAndPool>(),
+      std::make_unique<BlockchainAndPool>()};
+
   boost::filesystem::path paths[2];
   bool already_pruned = false;
   for (size_t n = 0; n < core_storage.size(); ++n)
   {
-    core_storage[n].reset(new Blockchain(m_mempool));
-
     BlockchainDB* db = new_db();
     if (db == NULL)
     {
@@ -622,12 +616,12 @@ int main(int argc, char* argv[])
       MERROR("Error opening database: " << e.what());
       return 1;
     }
-    r = core_storage[n]->init(db, net_type);
+    r = core_storage[n]->blockchain.init(db, net_type);
 
     std::string source_dest = n == 0 ? "source" : "pruned";
     CHECK_AND_ASSERT_MES(r, 1, "Failed to initialize " << source_dest << " blockchain storage");
     MINFO(source_dest << " blockchain storage initialized OK");
-    if (n == 0 && core_storage[0]->get_blockchain_pruning_seed())
+    if (n == 0 && core_storage[0]->blockchain.get_blockchain_pruning_seed())
     {
       if (!opt_copy_pruned_database)
       {
@@ -637,9 +631,9 @@ int main(int argc, char* argv[])
       already_pruned = true;
     }
   }
-  core_storage[0]->deinit();
+  core_storage[0]->blockchain.deinit();
   core_storage[0].reset(NULL);
-  core_storage[1]->deinit();
+  core_storage[1]->blockchain.deinit();
   core_storage[1].reset(NULL);
 
   MINFO("Pruning...");
