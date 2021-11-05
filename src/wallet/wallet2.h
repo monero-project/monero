@@ -1558,6 +1558,7 @@ private:
     const std::string get_ring_database() const { return m_ring_database; }
     bool get_ring(const crypto::key_image &key_image, std::vector<uint64_t> &outs);
     bool get_rings(const crypto::hash &txid, std::vector<std::pair<crypto::key_image, std::vector<uint64_t>>> &outs);
+    bool get_rings(const crypto::chacha_key &key, const std::vector<crypto::key_image> &key_images, std::vector<std::vector<uint64_t>> &outs);
     bool set_ring(const crypto::key_image &key_image, const std::vector<uint64_t> &outs, bool relative);
     bool set_rings(const std::vector<std::pair<crypto::key_image, std::vector<uint64_t>>> &rings, bool relative);
     bool unset_ring(const std::vector<crypto::key_image> &key_images);
