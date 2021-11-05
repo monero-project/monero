@@ -28,6 +28,7 @@
 
 #include "bootstrap_file.h"
 #include "blocksdat_file.h"
+#include "blockchain_and_pool.h"
 #include "common/command_line.h"
 #include "cryptonote_core/tx_pool.h"
 #include "cryptonote_core/cryptonote_core.h"
@@ -129,16 +130,8 @@ int main(int argc, char* argv[])
   // Use Blockchain instead of lower-level BlockchainDB for two reasons:
   // 1. Blockchain has the init() method for easy setup
   // 2. exporter needs to use get_current_blockchain_height(), get_block_id_by_height(), get_block_by_hash()
-  //
-  // cannot match blockchain_storage setup above with just one line,
-  // e.g.
-  //   Blockchain* core_storage = new Blockchain(NULL);
-  // because unlike blockchain_storage constructor, which takes a pointer to
-  // tx_memory_pool, Blockchain's constructor takes tx_memory_pool object.
   LOG_PRINT_L0("Initializing source blockchain (BlockchainDB)");
-  Blockchain* core_storage = NULL;
-  tx_memory_pool m_mempool(*core_storage);
-  core_storage = new Blockchain(m_mempool);
+  std::unique_ptr<BlockchainAndPool> core_storage = std::make_unique<BlockchainAndPool>();
 
   BlockchainDB* db = new_db();
   if (db == NULL)
@@ -162,9 +155,9 @@ int main(int argc, char* argv[])
     LOG_PRINT_L0("Error opening database: " << e.what());
     return 1;
   }
-  r = core_storage->init(db, opt_testnet ? cryptonote::TESTNET : opt_stagenet ? cryptonote::STAGENET : cryptonote::MAINNET);
+  r = core_storage->blockchain.init(db, opt_testnet ? cryptonote::TESTNET : opt_stagenet ? cryptonote::STAGENET : cryptonote::MAINNET);
 
-  if (core_storage->get_blockchain_pruning_seed() && !opt_blocks_dat)
+  if (core_storage->blockchain.get_blockchain_pruning_seed() && !opt_blocks_dat)
   {
     LOG_PRINT_L0("Blockchain is pruned, cannot export");
     return 1;
@@ -177,12 +170,12 @@ int main(int argc, char* argv[])
   if (opt_blocks_dat)
   {
     BlocksdatFile blocksdat;
-    r = blocksdat.store_blockchain_raw(core_storage, NULL, output_file_path, block_stop);
+    r = blocksdat.store_blockchain_raw(&core_storage->blockchain, NULL, output_file_path, block_stop);
   }
   else
   {
     BootstrapFile bootstrap;
-    r = bootstrap.store_blockchain_raw(core_storage, NULL, output_file_path, block_start, block_stop);
+    r = bootstrap.store_blockchain_raw(&core_storage->blockchain, NULL, output_file_path, block_start, block_stop);
   }
   CHECK_AND_ASSERT_MES(r, 1, "Failed to export blockchain raw data");
   LOG_PRINT_L0("Blockchain raw data exported OK");
