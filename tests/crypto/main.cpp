@@ -259,6 +259,16 @@ int main(int argc, char *argv[]) {
       if (expected != actual) {
         goto error;
       }
+    } else if (cmd == "check_ge_p3_identity") {
+      cerr << "Testing: " << cmd << endl;
+      public_key point;
+      bool expected_bad, expected_good, result_badfunc, result_goodfunc;
+      get(input, point, expected_bad, expected_good);
+      result_badfunc = check_ge_p3_identity_failure(point);
+      result_goodfunc = check_ge_p3_identity_success(point);
+      if (expected_bad != result_badfunc || expected_good != result_goodfunc) {
+        goto error;
+      }
     } else {
       throw ios_base::failure("Unknown function: " + cmd);
     }

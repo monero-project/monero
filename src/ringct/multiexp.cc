@@ -235,7 +235,7 @@ rct::key bos_coster_heap_conv_robust(std::vector<MultiexpData> data)
   heap.reserve(points);
   for (size_t n = 0; n < points; ++n)
   {
-    if (!(data[n].scalar == rct::zero()) && !ge_p3_is_point_at_infinity(&data[n].point))
+    if (!(data[n].scalar == rct::zero()) && !ge_p3_is_point_at_infinity_vartime(&data[n].point))
       heap.push_back(n);
   }
   points = heap.size();
@@ -457,7 +457,7 @@ rct::key straus(const std::vector<MultiexpData> &data, const std::shared_ptr<str
   MULTIEXP_PERF(PERF_TIMER_START_UNIT(skip, 1000000));
   std::vector<uint8_t> skip(data.size());
   for (size_t i = 0; i < data.size(); ++i)
-    skip[i] = data[i].scalar == rct::zero() || ge_p3_is_point_at_infinity(&data[i].point);
+    skip[i] = data[i].scalar == rct::zero() || ge_p3_is_point_at_infinity_vartime(&data[i].point);
   MULTIEXP_PERF(PERF_TIMER_STOP(skip));
 #endif
 

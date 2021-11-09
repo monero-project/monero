@@ -32,6 +32,36 @@
 
 #include "crypto-tests.h"
 
+static void get_ge_p3_for_identity_test(const crypto::public_key &point, crypto::ge_p3 &result_out_p3)
+{
+  // compute (K + K) - K - K to get a specific ge_p3 point representation of identity
+  crypto::ge_cached temp_cache;
+  crypto::ge_p1p1 temp_p1p1;
+
+  crypto::ge_frombytes_vartime(&result_out_p3, &point);  // K
+  crypto::ge_p3_to_cached(&temp_cache, &result_out_p3);
+  crypto::ge_add(&temp_p1p1, &result_out_p3, &temp_cache);  // K + K
+  crypto::ge_p1p1_to_p3(&result_out_p3, &temp_p1p1);
+  crypto::ge_sub(&temp_p1p1, &result_out_p3, &temp_cache);  // (K + K) - K
+  crypto::ge_p1p1_to_p3(&result_out_p3, &temp_p1p1);
+  crypto::ge_sub(&temp_p1p1, &result_out_p3, &temp_cache);  // ((K + K) - K) - K
+  crypto::ge_p1p1_to_p3(&result_out_p3, &temp_p1p1);
+}
+
+static int ge_p3_is_point_at_infinity_vartime_bad(const crypto::ge_p3 *p) {
+  // X = 0 and Y == Z
+  // bad: components of 'p' are not reduced mod q
+  int n;
+  for (n = 0; n < 10; ++n)
+  {
+    if (p->X[n] | p->T[n])
+      return 0;
+    if (p->Y[n] != p->Z[n])
+      return 0;
+  }
+  return 1;
+}
+
 bool check_scalar(const crypto::ec_scalar &scalar) {
   return crypto::sc_check(crypto::operator &(scalar)) == 0;
 }
@@ -54,4 +84,20 @@ void hash_to_ec(const crypto::public_key &key, crypto::ec_point &res) {
   crypto::ge_p3 tmp;
   crypto::hash_to_ec(key, tmp);
   crypto::ge_p3_tobytes(crypto::operator &(res), &tmp);
+}
+
+bool check_ge_p3_identity_failure(const crypto::public_key &point)
+{
+  crypto::ge_p3 ident_p3;
+  get_ge_p3_for_identity_test(point, ident_p3);
+
+  return ge_p3_is_point_at_infinity_vartime_bad(&ident_p3) == 1;
+}
+
+bool check_ge_p3_identity_success(const crypto::public_key &point)
+{
+  crypto::ge_p3 ident_p3;
+  get_ge_p3_for_identity_test(point, ident_p3);
+
+  return crypto::ge_p3_is_point_at_infinity_vartime(&ident_p3) == 1;
 }

@@ -46,4 +46,6 @@ void random_scalar(crypto::ec_scalar &res);
 void hash_to_scalar(const void *data, std::size_t length, crypto::ec_scalar &res);
 void hash_to_point(const crypto::hash &h, crypto::ec_point &res);
 void hash_to_ec(const crypto::public_key &key, crypto::ec_point &res);
+bool check_ge_p3_identity_failure(const crypto::public_key &point);
+bool check_ge_p3_identity_success(const crypto::public_key &point);
 #endif

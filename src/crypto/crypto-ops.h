@@ -162,4 +162,4 @@ void fe_add(fe h, const fe f, const fe g);
 void fe_tobytes(unsigned char *, const fe);
 void fe_invert(fe out, const fe z);
 
-int ge_p3_is_point_at_infinity(const ge_p3 *p);
+int ge_p3_is_point_at_infinity_vartime(const ge_p3 *p);
