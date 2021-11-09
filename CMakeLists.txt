@@ -687,7 +687,7 @@ if (HIDAPI_FOUND)
   add_definitions(-DHAVE_HIDAPI)
   include_directories(${HIDAPI_INCLUDE_DIR})
   link_directories(${LIBHIDAPI_LIBRARY_DIRS})
-else (HIDAPI_FOUND)
+else()
   message(STATUS "Could not find HIDAPI")
 endif()
 
