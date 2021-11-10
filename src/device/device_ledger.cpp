@@ -83,44 +83,33 @@ namespace hw {
     // Must be sorted in ascending order by the code
     #define LEDGER_STATUS(status) {status, #status}
     constexpr Status status_codes[] = {
-      LEDGER_STATUS(SW_BYTES_REMAINING_00),
-      LEDGER_STATUS(SW_WARNING_STATE_UNCHANGED),
-      LEDGER_STATUS(SW_STATE_TERMINATED),
-      LEDGER_STATUS(SW_MORE_DATA_AVAILABLE),
+      LEDGER_STATUS(SW_OK),
       LEDGER_STATUS(SW_WRONG_LENGTH),
-      LEDGER_STATUS(SW_LOGICAL_CHANNEL_NOT_SUPPORTED),
-      LEDGER_STATUS(SW_SECURE_MESSAGING_NOT_SUPPORTED),
-      LEDGER_STATUS(SW_LAST_COMMAND_EXPECTED),
-      LEDGER_STATUS(SW_COMMAND_CHAINING_NOT_SUPPORTED),
+      LEDGER_STATUS(SW_SECURITY_PIN_LOCKED),
       LEDGER_STATUS(SW_SECURITY_LOAD_KEY),
       LEDGER_STATUS(SW_SECURITY_COMMITMENT_CONTROL),
       LEDGER_STATUS(SW_SECURITY_AMOUNT_CHAIN_CONTROL),
       LEDGER_STATUS(SW_SECURITY_COMMITMENT_CHAIN_CONTROL),
       LEDGER_STATUS(SW_SECURITY_OUTKEYS_CHAIN_CONTROL),
       LEDGER_STATUS(SW_SECURITY_MAXOUTPUT_REACHED),
-      LEDGER_STATUS(SW_SECURITY_TRUSTED_INPUT),
-      LEDGER_STATUS(SW_CLIENT_NOT_SUPPORTED),
-      LEDGER_STATUS(SW_SECURITY_STATUS_NOT_SATISFIED),
-      LEDGER_STATUS(SW_FILE_INVALID),
-      LEDGER_STATUS(SW_PIN_BLOCKED),
-      LEDGER_STATUS(SW_DATA_INVALID),
-      LEDGER_STATUS(SW_CONDITIONS_NOT_SATISFIED),
+      LEDGER_STATUS(SW_SECURITY_HMAC),
+      LEDGER_STATUS(SW_SECURITY_RANGE_VALUE),
+      LEDGER_STATUS(SW_SECURITY_INTERNAL),
+      LEDGER_STATUS(SW_SECURITY_MAX_SIGNATURE_REACHED),
+      LEDGER_STATUS(SW_SECURITY_PREFIX_HASH),
+      LEDGER_STATUS(SW_SECURITY_LOCKED),
       LEDGER_STATUS(SW_COMMAND_NOT_ALLOWED),
-      LEDGER_STATUS(SW_APPLET_SELECT_FAILED),
+      LEDGER_STATUS(SW_SUBCOMMAND_NOT_ALLOWED),
+      LEDGER_STATUS(SW_DENY),
+      LEDGER_STATUS(SW_KEY_NOT_SET),
       LEDGER_STATUS(SW_WRONG_DATA),
-      LEDGER_STATUS(SW_FUNC_NOT_SUPPORTED),
-      LEDGER_STATUS(SW_FILE_NOT_FOUND),
-      LEDGER_STATUS(SW_RECORD_NOT_FOUND),
-      LEDGER_STATUS(SW_FILE_FULL),
-      LEDGER_STATUS(SW_INCORRECT_P1P2),
-      LEDGER_STATUS(SW_REFERENCED_DATA_NOT_FOUND),
+      LEDGER_STATUS(SW_WRONG_DATA_RANGE),
+      LEDGER_STATUS(SW_IO_FULL),
+      LEDGER_STATUS(SW_CLIENT_NOT_SUPPORTED),
       LEDGER_STATUS(SW_WRONG_P1P2),
-      LEDGER_STATUS(SW_CORRECT_LENGTH_00),
       LEDGER_STATUS(SW_INS_NOT_SUPPORTED),
-      LEDGER_STATUS(SW_CLA_NOT_SUPPORTED),
-      LEDGER_STATUS(SW_UNKNOWN),
-      LEDGER_STATUS(SW_OK),
-      LEDGER_STATUS(SW_ALGORITHM_UNSUPPORTED)
+      LEDGER_STATUS(SW_PROTOCOL_NOT_SUPPORTED),
+      LEDGER_STATUS(SW_UNKNOWN)
     };
 
     const char *Status::to_string(unsigned int code)
@@ -462,13 +451,6 @@ namespace hw {
 
       ASSERT_X(this->length_recv>=3, "Communication error, less than three bytes received. Check your application version.");
 
-      unsigned int device_version = 0;
-      device_version = VERSION(this->buffer_recv[0], this->buffer_recv[1], this->buffer_recv[2]);
-  
-      ASSERT_X (device_version >= MINIMAL_APP_VERSION,  
-                "Unsupported device application version: " << VERSION_MAJOR(device_version)<<"."<<VERSION_MINOR(device_version)<<"."<<VERSION_MICRO(device_version) << 
-                " At least " << MINIMAL_APP_VERSION_MAJOR<<"."<<MINIMAL_APP_VERSION_MINOR<<"."<<MINIMAL_APP_VERSION_MICRO<<" is required.");
-     
       return true;
     }
      
@@ -481,6 +463,9 @@ namespace hw {
       this->length_recv -= 2;
       this->sw = (this->buffer_recv[length_recv]<<8) | this->buffer_recv[length_recv+1];
       logRESP();
+      MDEBUG("Device "<< this->id << " exchange: sw: " << this->sw << " expected: " << ok);
+      ASSERT_X(sw != SW_CLIENT_NOT_SUPPORTED, "Monero Ledger App doesn't support current monero version. Try to update the Monero Ledger App, at least " << MINIMAL_APP_VERSION_MAJOR<< "." << MINIMAL_APP_VERSION_MINOR << "." << MINIMAL_APP_VERSION_MICRO << " is required.");
+      ASSERT_X(sw != SW_PROTOCOL_NOT_SUPPORTED, "Make sure no other program is communicating with the Ledger.");
       ASSERT_SW(this->sw,ok,msk);
 
       return this->sw;
