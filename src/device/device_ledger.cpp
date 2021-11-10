@@ -451,13 +451,6 @@ namespace hw {
 
       ASSERT_X(this->length_recv>=3, "Communication error, less than three bytes received. Check your application version.");
 
-      unsigned int device_version = 0;
-      device_version = VERSION(this->buffer_recv[0], this->buffer_recv[1], this->buffer_recv[2]);
-  
-      ASSERT_X (device_version >= MINIMAL_APP_VERSION,  
-                "Unsupported device application version: " << VERSION_MAJOR(device_version)<<"."<<VERSION_MINOR(device_version)<<"."<<VERSION_MICRO(device_version) << 
-                " At least " << MINIMAL_APP_VERSION_MAJOR<<"."<<MINIMAL_APP_VERSION_MINOR<<"."<<MINIMAL_APP_VERSION_MICRO<<" is required.");
-     
       return true;
     }
      
@@ -470,6 +463,9 @@ namespace hw {
       this->length_recv -= 2;
       this->sw = (this->buffer_recv[length_recv]<<8) | this->buffer_recv[length_recv+1];
       logRESP();
+      MDEBUG("Device "<< this->id << " exchange: sw: " << this->sw << " expected: " << ok);
+      ASSERT_X(sw != SW_CLIENT_NOT_SUPPORTED, "Monero Ledger App doesn't support current monero version. Try to update the Monero Ledger App, at least " << MINIMAL_APP_VERSION_MAJOR<< "." << MINIMAL_APP_VERSION_MINOR << "." << MINIMAL_APP_VERSION_MICRO << " is required.");
+      ASSERT_X(sw != SW_PROTOCOL_NOT_SUPPORTED, "Make sure no other program is communicating with the Ledger.");
       ASSERT_SW(this->sw,ok,msk);
 
       return this->sw;
