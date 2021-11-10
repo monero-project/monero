@@ -694,11 +694,15 @@ namespace nodetool
       full_addrs.insert("212.83.175.67:28080");
       full_addrs.insert("212.83.172.165:28080");
       full_addrs.insert("192.110.160.146:28080");
+      full_addrs.insert("88.99.173.38:28080");
+      full_addrs.insert("51.79.173.165:28080");
     }
     else if (m_nettype == cryptonote::STAGENET)
     {
       full_addrs.insert("162.210.173.150:38080");
       full_addrs.insert("192.110.160.146:38080");
+      full_addrs.insert("88.99.173.38:38080");
+      full_addrs.insert("51.79.173.165:38080");
     }
     else if (m_nettype == cryptonote::FAKECHAIN)
     {
@@ -713,6 +717,8 @@ namespace nodetool
       full_addrs.insert("209.250.243.248:18080");
       full_addrs.insert("104.238.221.81:18080");
       full_addrs.insert("66.85.74.134:18080");
+      full_addrs.insert("88.99.173.38:18080");
+      full_addrs.insert("51.79.173.165:18080");
     }
     return full_addrs;
   }
@@ -730,6 +736,12 @@ namespace nodetool
     }
     if (m_nettype == cryptonote::STAGENET)
     {
+      return get_ip_seed_nodes();
+    }
+    if (!m_enable_dns_seed_nodes)
+    {
+      // TODO: a domain can be set through socks, so that the remote side does the lookup for the DNS seed nodes.
+      m_fallback_seed_nodes_added.test_and_set();
       return get_ip_seed_nodes();
     }
 
@@ -839,7 +851,8 @@ namespace nodetool
         return {
           "xwvz3ekocr3dkyxfkmgm2hvbpzx2ysqmaxgter7znnqrhoicygkfswid.onion:18083",
           "4pixvbejrvihnkxmduo2agsnmc3rrulrqc7s3cbwwrep6h6hrzsibeqd.onion:18083",
-          "zbjkbsxc5munw3qusl7j2hpcmikhqocdf4pqhnhtpzw5nt5jrmofptid.onion:18083"
+          "zbjkbsxc5munw3qusl7j2hpcmikhqocdf4pqhnhtpzw5nt5jrmofptid.onion:18083",
+          "qz43zul2x56jexzoqgkx2trzwcfnr6l3hbtfcfx54g4r3eahy3bssjyd.onion:18083",
         };
       }
       return {};
@@ -870,10 +883,21 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
-  bool node_server<t_payload_net_handler>::init(const boost::program_options::variables_map& vm)
+  bool node_server<t_payload_net_handler>::init(const boost::program_options::variables_map& vm, const std::string& proxy, bool proxy_dns_leaks_allowed)
   {
     bool res = handle_command_line(vm);
     CHECK_AND_ASSERT_MES(res, false, "Failed to handle command line");
+    if (proxy.size())
+    {
+      const auto endpoint = net::get_tcp_endpoint(proxy);
+      CHECK_AND_ASSERT_MES(endpoint, false, "Failed to parse proxy: " << proxy << " - " << endpoint.error());
+      network_zone& public_zone = m_network_zones[epee::net_utils::zone::public_];
+      public_zone.m_connect = &socks_connect;
+      public_zone.m_proxy_address = *endpoint;
+      public_zone.m_can_pingback = false;
+      m_enable_dns_seed_nodes &= proxy_dns_leaks_allowed;
+      m_enable_dns_blocklist &= proxy_dns_leaks_allowed;
+    }
 
     if (m_nettype == cryptonote::TESTNET)
     {

@@ -1,0 +1,22 @@
+From 06aba27b04c5822cb88a69677382a0f053367143 Mon Sep 17 00:00:00 2001
+From: sabotagebeats <27985126+sabotagebeats@users.noreply.github.com>
+Date: Thu, 22 Jul 2021 21:53:19 -0700
+Subject: [PATCH] fix: building libzmq fails with error src/clock.cpp:131:16:
+ error: unused variable 'nsecs_per_usec'
+
+---
+ src/clock.cpp | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/src/clock.cpp b/src/clock.cpp
+index 93da90a8e..63c0100a5 100644
+--- a/src/clock.cpp
++++ b/src/clock.cpp
+@@ -195,6 +195,7 @@ uint64_t zmq::clock_t::now_us ()
+ 
+ #else
+ 
++    LIBZMQ_UNUSED (nsecs_per_usec);
+     //  Use POSIX gettimeofday function to get precise time.
+     struct timeval tv;
+     int rc = gettimeofday (&tv, NULL);

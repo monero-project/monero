@@ -95,7 +95,7 @@ class MiningTest():
         assert res_status.block_reward >= 600000000000
 
         # wait till we mined a few of them
-        timeout = 60 # randomx is slow to init
+        timeout = 240 # randomx is slow to init
         timeout_height = prev_height
         while True:
             time.sleep(1)
