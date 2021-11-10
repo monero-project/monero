@@ -45,7 +45,7 @@ namespace hw {
     /* Minimal supported version */
     #define MINIMAL_APP_VERSION_MAJOR    1
     #define MINIMAL_APP_VERSION_MINOR    7
-    #define MINIMAL_APP_VERSION_MICRO    6
+    #define MINIMAL_APP_VERSION_MICRO    8
 
     #define VERSION(M,m,u)       ((M)<<16|(m)<<8|(u))
     #define VERSION_MAJOR(v)     (((v)>>16)&0xFF)
