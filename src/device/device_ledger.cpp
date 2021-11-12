@@ -55,10 +55,10 @@ namespace hw {
     }
 
     #define TRACKD MTRACE("hw")
-    #define ASSERT_SW(sw,ok,msk) CHECK_AND_ASSERT_THROW_MES(((sw)&(mask))==(ok), \
+    #define ASSERT_SW(sw,ok,msk) CHECK_AND_ASSERT_THROW_MES(((sw)&(msk))==(ok), \
       "Wrong Device Status: " << "0x" << std::hex << (sw) << " (" << Status::to_string(sw) << "), " << \
       "EXPECTED 0x" << std::hex << (ok) << " (" << Status::to_string(ok) << "), " << \
-      "MASK 0x" << std::hex << (mask));
+      "MASK 0x" << std::hex << (msk));
     #define ASSERT_T0(exp)       CHECK_AND_ASSERT_THROW_MES(exp, "Protocol assert failure: "#exp ) ;
     #define ASSERT_X(exp,msg)    CHECK_AND_ASSERT_THROW_MES(exp, msg); 
 
@@ -466,7 +466,7 @@ namespace hw {
       MDEBUG("Device "<< this->id << " exchange: sw: " << this->sw << " expected: " << ok);
       ASSERT_X(sw != SW_CLIENT_NOT_SUPPORTED, "Monero Ledger App doesn't support current monero version. Try to update the Monero Ledger App, at least " << MINIMAL_APP_VERSION_MAJOR<< "." << MINIMAL_APP_VERSION_MINOR << "." << MINIMAL_APP_VERSION_MICRO << " is required.");
       ASSERT_X(sw != SW_PROTOCOL_NOT_SUPPORTED, "Make sure no other program is communicating with the Ledger.");
-      ASSERT_SW(this->sw,ok,msk);
+      ASSERT_SW(this->sw,ok,mask);
 
       return this->sw;
     }
@@ -483,7 +483,7 @@ namespace hw {
         // cancel on device
         deny = 1;
       } else {
-        ASSERT_SW(this->sw,ok,msk);
+        ASSERT_SW(this->sw,ok,mask);
       }
 
       logRESP();
