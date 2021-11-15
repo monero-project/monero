@@ -1527,7 +1527,8 @@ namespace hw {
                                                        const bool &need_additional_txkeys,  const std::vector<crypto::secret_key> &additional_tx_keys,
                                                        std::vector<crypto::public_key> &additional_tx_public_keys,
                                                        std::vector<rct::key> &amount_keys,
-                                                       crypto::public_key &out_eph_public_key) {
+                                                       crypto::public_key &out_eph_public_key,
+                                                       bool use_view_tags, crypto::view_tag &view_tag) {
       AUTO_LOCK_CMD();
 
       #ifdef DEBUG_HWDEVICE
@@ -1541,6 +1542,8 @@ namespace hw {
       const boost::optional<cryptonote::account_public_address> change_addr_x = change_addr;
       const size_t                             output_index_x                 = output_index;
       const bool                               need_additional_txkeys_x       = need_additional_txkeys;
+      const bool                               use_view_tags_x                = use_view_tags;
+      const crypto::view_tag                   view_tag_x                     = view_tag;
       
       std::vector<crypto::secret_key>    additional_tx_keys_x;
       for (const auto &k: additional_tx_keys) {
@@ -1568,7 +1571,7 @@ namespace hw {
         log_hexbuffer("generate_output_ephemeral_keys: [[IN]] additional_tx_keys[oi]", additional_tx_keys_x[output_index].data, 32);
       }
       this->controle_device->generate_output_ephemeral_keys(tx_version_x, sender_account_keys_x, txkey_pub_x, tx_key_x, dst_entr_x, change_addr_x, output_index_x, need_additional_txkeys_x,  additional_tx_keys_x,
-                                                            additional_tx_public_keys_x, amount_keys_x, out_eph_public_key_x);
+                                                            additional_tx_public_keys_x, amount_keys_x, out_eph_public_key_x, use_view_tags_x, view_tag_x);
       if(need_additional_txkeys_x) {
         log_hexbuffer("additional_tx_public_keys_x: [[OUT]] additional_tx_public_keys_x", additional_tx_public_keys_x.back().data, 32);
       }

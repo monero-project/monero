@@ -671,3 +671,127 @@ bool gen_block_low_coinbase::generate(std::vector<test_event_entry>& events) con
 
   return true;
 }
+
+bool gen_block_miner_tx_out_has_no_view_tag_before_hf_view_tags::generate(std::vector<test_event_entry>& events) const
+{
+  bool use_view_tags = false;
+
+  BLOCK_VALIDATION_INIT_GENERATE();
+
+  MAKE_MINER_TX_MANUALLY(miner_tx, blk_0);
+
+  CHECK_AND_ASSERT_MES(!cryptonote::get_output_view_tag(miner_tx.vout[0]), false, "output should not have a view tag");
+
+  crypto::public_key output_public_key;
+  crypto::view_tag view_tag;
+  cryptonote::get_output_public_key(miner_tx.vout[0], output_public_key);
+
+  // explicitly call the setter to ensure it does not set a view tag on the miner tx output
+  cryptonote::set_tx_out(miner_tx.vout[0].amount, output_public_key, use_view_tags, view_tag, miner_tx.vout[0]);
+  CHECK_AND_ASSERT_MES(!cryptonote::get_output_view_tag(miner_tx.vout[0]), false, "output should still not have a view tag");
+
+  block blk_1;
+  generator.construct_block_manually(blk_1, blk_0, miner_account, test_generator::bf_miner_tx, 0, 0, 0, crypto::hash(), 0, miner_tx);
+  events.push_back(blk_1);
+
+  DO_CALLBACK(events, "check_block_accepted");
+
+  return true;
+}
+
+bool gen_block_miner_tx_out_has_no_view_tag_from_hf_view_tags::generate(std::vector<test_event_entry>& events) const
+{
+  bool use_view_tags = false;
+
+  BLOCK_VALIDATION_INIT_GENERATE();
+
+  keypair txkey;
+  MAKE_MINER_TX_AND_KEY_AT_HF_MANUALLY(miner_tx, blk_0, HF_VERSION_VIEW_TAGS+1, &txkey);
+
+  crypto::public_key output_public_key;
+  crypto::view_tag view_tag;
+  cryptonote::get_output_public_key(miner_tx.vout[0], output_public_key);
+
+  // remove the view tag that is currently set on the miner tx output at this point
+  cryptonote::set_tx_out(miner_tx.vout[0].amount, output_public_key, use_view_tags, view_tag, miner_tx.vout[0]);
+  CHECK_AND_ASSERT_MES(!cryptonote::get_output_view_tag(miner_tx.vout[0]), false, "output should not have a view tag");
+
+  block blk_1;
+  generator.construct_block_manually(blk_1, blk_0, miner_account,
+      test_generator::bf_major_ver | test_generator::bf_minor_ver | test_generator::bf_miner_tx,
+      HF_VERSION_VIEW_TAGS+1, HF_VERSION_VIEW_TAGS+1, 0, crypto::hash(), 0, miner_tx);
+  events.push_back(blk_1);
+
+  DO_CALLBACK(events, "check_block_purged");
+
+  return true;
+}
+
+bool gen_block_miner_tx_out_has_view_tag_before_hf_view_tags::generate(std::vector<test_event_entry>& events) const
+{
+  bool use_view_tags = true;
+
+  BLOCK_VALIDATION_INIT_GENERATE();
+
+  keypair txkey;
+  MAKE_MINER_TX_AND_KEY_MANUALLY(miner_tx, blk_0, &txkey);
+
+  // derive the view tag for the miner tx output
+  crypto::key_derivation derivation;
+  crypto::public_key output_public_key;
+  crypto::view_tag view_tag;
+  crypto::generate_key_derivation(miner_account.get_keys().m_account_address.m_view_public_key, txkey.sec, derivation);
+  crypto::derive_public_key(derivation, 0, miner_account.get_keys().m_account_address.m_spend_public_key, output_public_key);
+  crypto::derive_view_tag(derivation, 0, view_tag);
+
+  // set the view tag on the miner tx output
+  cryptonote::set_tx_out(miner_tx.vout[0].amount, output_public_key, use_view_tags, view_tag, miner_tx.vout[0]);
+  boost::optional<crypto::view_tag> actual_vt = cryptonote::get_output_view_tag(miner_tx.vout[0]);
+  CHECK_AND_ASSERT_MES(actual_vt && *actual_vt == view_tag, false, "unexpected output view tag");
+
+  block blk_1;
+  generator.construct_block_manually(blk_1, blk_0, miner_account, test_generator::bf_miner_tx, 0, 0, 0, crypto::hash(), 0, miner_tx);
+  events.push_back(blk_1);
+
+  DO_CALLBACK(events, "check_block_purged");
+
+  return true;
+}
+
+bool gen_block_miner_tx_out_has_view_tag_from_hf_view_tags::generate(std::vector<test_event_entry>& events) const
+{
+  bool use_view_tags = true;
+
+  BLOCK_VALIDATION_INIT_GENERATE();
+
+  keypair txkey;
+  MAKE_MINER_TX_AND_KEY_AT_HF_MANUALLY(miner_tx, blk_0, HF_VERSION_VIEW_TAGS, &txkey);
+
+  CHECK_AND_ASSERT_MES(cryptonote::get_output_view_tag(miner_tx.vout[0]), false, "output should have a view tag");
+
+  // derive the view tag for the miner tx output
+  crypto::key_derivation derivation;
+  crypto::public_key output_public_key;
+  crypto::view_tag view_tag;
+  crypto::generate_key_derivation(miner_account.get_keys().m_account_address.m_view_public_key, txkey.sec, derivation);
+  crypto::derive_public_key(derivation, 0, miner_account.get_keys().m_account_address.m_spend_public_key, output_public_key);
+  crypto::derive_view_tag(derivation, 0, view_tag);
+
+  boost::optional<crypto::view_tag> actual_vt = cryptonote::get_output_view_tag(miner_tx.vout[0]);
+  CHECK_AND_ASSERT_MES(actual_vt && *actual_vt == view_tag, false, "unexpected output view tag");
+
+  // set the view tag on the miner tx output
+  cryptonote::set_tx_out(miner_tx.vout[0].amount, output_public_key, use_view_tags, view_tag, miner_tx.vout[0]);
+  boost::optional<crypto::view_tag> actual_vt_after_setting = cryptonote::get_output_view_tag(miner_tx.vout[0]);
+  CHECK_AND_ASSERT_MES(actual_vt_after_setting && *actual_vt_after_setting == view_tag, false, "unexpected output view tag after setting");
+
+  block blk_1;
+  generator.construct_block_manually(blk_1, blk_0, miner_account,
+      test_generator::bf_major_ver | test_generator::bf_minor_ver | test_generator::bf_miner_tx,
+      HF_VERSION_VIEW_TAGS, HF_VERSION_VIEW_TAGS, 0, crypto::hash(), 0, miner_tx);
+  events.push_back(blk_1);
+
+  DO_CALLBACK(events, "check_block_accepted");
+
+  return true;
+}

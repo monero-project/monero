@@ -154,8 +154,7 @@ namespace ki {
 
       res.emplace_back();
       auto & cres = res.back();
-
-      cres.set_out_key(key_to_string(boost::get<cryptonote::txout_to_key>(td.m_tx.vout[td.m_internal_output_index].target).key));
+      cres.set_out_key(key_to_string(td.get_public_key()));
       cres.set_tx_pub_key(key_to_string(tx_pub_key));
       cres.set_internal_output_index(td.m_internal_output_index);
       cres.set_sub_addr_major(td.m_subaddr_index.major);
