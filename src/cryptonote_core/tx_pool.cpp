@@ -1581,7 +1581,7 @@ namespace cryptonote
 
     // get all txids
     std::vector<tx_entry_t> txes;
-    m_blockchain.for_all_txpool_txes([this, &txes](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata_ref*) {
+    m_blockchain.for_all_txpool_txes([&txes](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata_ref*) {
       if (!meta.pruned) // skip pruned txes
         txes.push_back({txid, meta});
       return true;
