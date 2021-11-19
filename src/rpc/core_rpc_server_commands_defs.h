@@ -88,7 +88,7 @@ namespace cryptonote
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define CORE_RPC_VERSION_MAJOR 3
-#define CORE_RPC_VERSION_MINOR 8
+#define CORE_RPC_VERSION_MINOR 9
 #define MAKE_CORE_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define CORE_RPC_VERSION MAKE_CORE_RPC_VERSION(CORE_RPC_VERSION_MAJOR, CORE_RPC_VERSION_MINOR)
 
@@ -988,6 +988,28 @@ namespace cryptonote
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;
+  };
+
+  struct COMMAND_RPC_CALCPOW
+  {
+    struct request_t: public rpc_request_base
+    {
+      uint8_t major_version;
+      uint64_t height;
+      blobdata block_blob;
+      std::string seed_hash;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE_PARENT(rpc_request_base)
+        KV_SERIALIZE(major_version)
+        KV_SERIALIZE(height)
+        KV_SERIALIZE(block_blob)
+        KV_SERIALIZE(seed_hash)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<request_t> request;
+
+    typedef std::string response;
   };
 
   struct COMMAND_RPC_ADD_AUX_POW
