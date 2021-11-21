@@ -448,6 +448,7 @@ namespace cryptonote
       bool do_not_relay; //!< to avoid relay this transaction to the network
 
       bool double_spend_seen; //!< true iff another tx was seen double spending this one
+      bool sensitive;
     };
 
     /**
@@ -459,6 +460,13 @@ namespace cryptonote
      * @brief get transactions not in the passed set
      */
     bool get_complement(const std::vector<crypto::hash> &hashes, std::vector<cryptonote::blobdata> &txes) const;
+
+    /**
+     * @brief get info necessary for update of pool-related info in a wallet, preferably incremental
+     *
+     * @return true on success, false on error
+     */
+    bool get_pool_info(time_t start_time, bool include_sensitive, std::vector<tx_details>& added_txs, std::vector<crypto::hash>& removed_txs, bool& incremental) const;
 
   private:
 
@@ -564,6 +572,10 @@ namespace cryptonote
      */
     void prune(size_t bytes = 0);
 
+    void add_tx_to_transient_lists(const crypto::hash& txid, double fee, time_t receive_time);
+    void remove_tx_from_transient_lists(const cryptonote::sorted_tx_container::iterator& sorted_it, const crypto::hash& txid, bool sensitive);
+    void track_removed_tx(const crypto::hash& txid, bool sensitive);
+
     //TODO: confirm the below comments and investigate whether or not this
     //      is the desired behavior
     //! map key images to transactions which spent them
@@ -595,6 +607,26 @@ private:
     sorted_tx_container m_txs_by_fee_and_receive_time;
 
     std::atomic<uint64_t> m_cookie; //!< incremented at each change
+
+    // Info when transactions entered the pool, accessible by txid
+    std::unordered_map<crypto::hash, time_t> m_added_txs_by_id;
+
+    // Info at what time the pool started to track the adding of transactions
+    time_t m_added_txs_start_time;
+
+    struct removed_tx_info
+    {
+      crypto::hash txid;
+      bool sensitive;
+    };
+
+    // Info about transactions that were removed from the pool, ordered by the time
+    // of deletion
+    std::multimap<time_t, removed_tx_info> m_removed_txs_by_time;
+
+    // Info how far back in time the list of removed tx ids currently reaches
+    // (it gets shorted periodically to prevent overflow)
+    time_t m_removed_txs_start_time;
 
     /**
      * @brief get an iterator to a transaction in the sorted container

@@ -503,6 +503,14 @@ namespace cryptonote
      bool get_pool_transaction_hashes(std::vector<crypto::hash>& txs, bool include_sensitive_txes = false) const;
 
      /**
+      * @copydoc tx_memory_pool::get_pool_info
+      * @param include_sensitive_txes include private transactions
+      *
+      * @note see tx_memory_pool::get_pool_info
+      */
+     bool get_pool_info(time_t start_time, bool include_sensitive_txes, std::vector<tx_memory_pool::tx_details>& added_txs, std::vector<crypto::hash>& removed_txs, bool& incremental) const;
+
+    /**
       * @copydoc tx_memory_pool::get_transactions
       * @param include_sensitive_txes include private transactions
       *

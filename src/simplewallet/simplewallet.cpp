@@ -5871,7 +5871,10 @@ bool simple_wallet::refresh_main(uint64_t start_height, enum ResetType reset, bo
   {
     m_in_manual_refresh.store(true, std::memory_order_relaxed);
     epee::misc_utils::auto_scope_leave_caller scope_exit_handler = epee::misc_utils::create_scope_leave_handler([&](){m_in_manual_refresh.store(false, std::memory_order_relaxed);});
-    m_wallet->refresh(m_wallet->is_trusted_daemon(), start_height, fetched_blocks, received_money);
+    // For manual refresh don't allow incremental checking of the pool: Because we did not process the txs
+    // for us in the pool during automatic refresh we could miss some of them if we checked the pool
+    // incrementally here
+    m_wallet->refresh(m_wallet->is_trusted_daemon(), start_height, fetched_blocks, received_money, true, false);
 
     if (reset == ResetSoftKeepKI)
     {

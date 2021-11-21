@@ -1694,6 +1694,11 @@ namespace cryptonote
     return true;
   }
   //-----------------------------------------------------------------------------------------------
+  bool core::get_pool_info(time_t start_time, bool include_sensitive_txes, std::vector<tx_memory_pool::tx_details>& added_txs, std::vector<crypto::hash>& removed_txs, bool& incremental) const
+  {
+    return m_mempool.get_pool_info(start_time, include_sensitive_txes, added_txs, removed_txs, incremental);
+  }
+  //-----------------------------------------------------------------------------------------------
   bool core::get_pool_transaction_stats(struct txpool_stats& stats, bool include_sensitive_data) const
   {
     m_mempool.get_transaction_stats(stats, include_sensitive_data);
