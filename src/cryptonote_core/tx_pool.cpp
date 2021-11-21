@@ -133,6 +133,12 @@ namespace cryptonote
     // class code expects unsigned values throughout
     if (m_next_check < time_t(0))
       throw std::runtime_error{"Unexpected time_t (system clock) value"};
+
+    m_added_txs_start_time = (time_t)0;
+    m_removed_txs_start_time = (time_t)0;
+    // We don't set these to "now" already here as we don't know how long it takes from construction
+    // of the pool until it "goes to work". It's safer to set when the first actual txs enter the
+    // corresponding lists.
   }
   //---------------------------------------------------------------------------------
   bool tx_memory_pool::add_tx(transaction &tx, /*const crypto::hash& tx_prefix_hash,*/ const crypto::hash &id, const cryptonote::blobdata &blob, size_t tx_weight, tx_verification_context& tvc, relay_method tx_relay, bool relayed, uint8_t version)
@@ -281,7 +287,7 @@ namespace cryptonote
             return false;
 
           m_blockchain.add_txpool_tx(id, blob, meta);
-          m_txs_by_fee_and_receive_time.emplace(std::pair<double, std::time_t>(fee / (double)(tx_weight ? tx_weight : 1), receive_time), id);
+          add_tx_to_transient_lists(id, fee / (double)(tx_weight ? tx_weight : 1), receive_time);
           lock.commit();
         }
         catch (const std::exception &e)
@@ -352,7 +358,7 @@ namespace cryptonote
 
           m_blockchain.remove_txpool_tx(id);
           m_blockchain.add_txpool_tx(id, blob, meta);
-          m_txs_by_fee_and_receive_time.emplace(std::pair<double, std::time_t>(fee / (double)(tx_weight ? tx_weight : 1), receive_time), id);
+          add_tx_to_transient_lists(id, meta.fee / (double)(tx_weight ? tx_weight : 1), receive_time);
         }
         lock.commit();
       }
@@ -373,7 +379,7 @@ namespace cryptonote
 
     ++m_cookie;
 
-    MINFO("Transaction added to pool: txid " << id << " weight: " << tx_weight << " fee/byte: " << (fee / (double)(tx_weight ? tx_weight : 1)));
+    MINFO("Transaction added to pool: txid " << id << " weight: " << tx_weight << " fee/byte: " << (fee / (double)(tx_weight ? tx_weight : 1)) << ", count: " << m_added_txs_by_id.size());
 
     prune(m_txpool_max_weight);
 
@@ -464,7 +470,8 @@ namespace cryptonote
         reduce_txpool_weight(meta.weight);
         remove_transaction_keyimages(tx, txid);
         MINFO("Pruned tx " << txid << " from txpool: weight: " << meta.weight << ", fee/byte: " << it->first.first);
-        m_txs_by_fee_and_receive_time.erase(it--);
+        remove_tx_from_transient_lists(it, txid, !meta.matches(relay_category::broadcasted));
+        it--;
         changed = true;
       }
       catch (const std::exception &e)
@@ -546,8 +553,7 @@ namespace cryptonote
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     CRITICAL_REGION_LOCAL1(m_blockchain);
 
-    auto sorted_it = find_tx_in_sorted_container(id);
-
+    bool sensitive = false;
     try
     {
       LockedTXN lock(m_blockchain.get_db());
@@ -578,6 +584,7 @@ namespace cryptonote
       do_not_relay = meta.do_not_relay;
       double_spend_seen = meta.double_spend_seen;
       pruned = meta.pruned;
+      sensitive = !meta.matches(relay_category::broadcasted);
 
       // remove first, in case this throws, so key images aren't removed
       m_blockchain.remove_txpool_tx(id);
@@ -591,8 +598,7 @@ namespace cryptonote
       return false;
     }
 
-    if (sorted_it != m_txs_by_fee_and_receive_time.end())
-      m_txs_by_fee_and_receive_time.erase(sorted_it);
+    remove_tx_from_transient_lists(find_tx_in_sorted_container(id), id, sensitive);
     ++m_cookie;
     return true;
   }
@@ -640,6 +646,7 @@ namespace cryptonote
       td.relayed = meta.relayed;
       td.do_not_relay = meta.do_not_relay;
       td.double_spend_seen = meta.double_spend_seen;
+      td.sensitive = !meta.matches(relay_category::broadcasted);
     }
     catch (const std::exception &e)
     {
@@ -710,15 +717,7 @@ namespace cryptonote
          (tx_age > CRYPTONOTE_MEMPOOL_TX_FROM_ALT_BLOCK_LIVETIME && meta.kept_by_block) )
       {
         LOG_PRINT_L1("Tx " << txid << " removed from tx pool due to outdated, age: " << tx_age );
-        auto sorted_it = find_tx_in_sorted_container(txid);
-        if (sorted_it == m_txs_by_fee_and_receive_time.end())
-        {
-          LOG_PRINT_L1("Removing tx " << txid << " from tx pool, but it was not found in the sorted txs container!");
-        }
-        else
-        {
-          m_txs_by_fee_and_receive_time.erase(sorted_it);
-        }
+        remove_tx_from_transient_lists(find_tx_in_sorted_container(txid), txid, !meta.matches(relay_category::broadcasted));
         m_timed_out_transactions.insert(txid);
         remove.push_back(std::make_pair(txid, meta.weight));
       }
@@ -872,9 +871,12 @@ namespace cryptonote
             meta.last_relayed_time = std::chrono::system_clock::to_time_t(now);
 
           m_blockchain.update_txpool_tx(hash, meta);
-
           // wait until db update succeeds to ensure tx is visible in the pool
           was_just_broadcasted = !already_broadcasted && meta.matches(relay_category::broadcasted);
+
+          if (was_just_broadcasted)
+            // Make sure the tx gets re-added with an updated time
+            add_tx_to_transient_lists(hash, meta.fee / (double)meta.weight, std::chrono::system_clock::to_time_t(now));
         }
       }
       catch (const std::exception &e)
@@ -925,6 +927,88 @@ namespace cryptonote
       txs.push_back(txid);
       return true;
     }, false, category);
+  }
+  //------------------------------------------------------------------
+  bool tx_memory_pool::get_pool_info(time_t start_time, bool include_sensitive, std::vector<tx_details>& added_txs, std::vector<crypto::hash>& removed_txs, bool& incremental) const
+  {
+    CRITICAL_REGION_LOCAL(m_transactions_lock);
+    CRITICAL_REGION_LOCAL1(m_blockchain);
+
+    incremental = true;
+    if (start_time == (time_t)0)
+    {
+      // Giving no start time means give back whole pool
+      incremental = false;
+    }
+    else if ((m_added_txs_start_time != (time_t)0) && (m_removed_txs_start_time != (time_t)0))
+    {
+      if ((start_time <= m_added_txs_start_time) || (start_time <= m_removed_txs_start_time))
+      {
+        // If either of the two lists do not go back far enough it's not possible to
+        // deliver incremental pool info
+        incremental = false;
+      }
+      // The check uses "<=": We cannot be sure to have ALL txs exactly at start_time, only AFTER that time
+    }
+    else
+    {
+      // Some incremental info still missing completely
+      incremental = false;
+    }
+
+    added_txs.clear();
+    removed_txs.clear();
+
+    if (!incremental)
+    {
+      // Give back the whole pool in 'added_txs'; because calling 'get_transaction_info' right inside the
+      // anonymous method somehow results in an LMDB error with transactions we have to build a list of
+      // ids first and get the full info afterwards
+      std::vector<crypto::hash> txids;
+      const relay_category category = include_sensitive ? relay_category::all : relay_category::broadcasted;
+      m_blockchain.for_all_txpool_txes([&txids](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata_ref *bd){
+        txids.push_back(txid);
+        return true;
+      }, false, category);
+      tx_details details;
+      for (const auto &it: txids)
+      {
+        bool success = get_transaction_info(it, details);
+        if (success)
+        {
+          added_txs.push_back(std::move(details));
+        }
+      }
+      return true;
+    }
+
+    // Give back incrementally, based on time of entry into the map
+    tx_details details;
+    for (const auto &pit : m_added_txs_by_id)
+    {
+      if (pit.second >= start_time)
+      {
+        bool success = get_transaction_info(pit.first, details);
+        if (success)
+        {
+          if (include_sensitive || !details.sensitive)
+          {
+            added_txs.push_back(std::move(details));
+          }
+        }
+      }
+    }
+
+    std::multimap<time_t, removed_tx_info>::const_iterator rit = m_removed_txs_by_time.lower_bound(start_time);
+    while (rit != m_removed_txs_by_time.end())
+    {
+      if (include_sensitive || !rit->second.sensitive)
+      {
+        removed_txs.push_back(rit->second.txid);
+      }
+      ++rit;
+    }
+    return true;
   }
   //------------------------------------------------------------------
   void tx_memory_pool::get_transaction_backlog(std::vector<tx_backlog_entry>& backlog, bool include_sensitive) const
@@ -1631,6 +1715,12 @@ namespace cryptonote
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     CRITICAL_REGION_LOCAL1(m_blockchain);
 
+    // Simply throw away incremental info, too difficult to update
+    m_added_txs_by_id.clear();
+    m_added_txs_start_time = (time_t)0;
+    m_removed_txs_by_time.clear();
+    m_removed_txs_start_time = (time_t)0;
+
     MINFO("Validating txpool contents for v" << (unsigned)version);
 
     LockedTXN lock(m_blockchain.get_db());
@@ -1688,6 +1778,106 @@ namespace cryptonote
     return n_removed;
   }
   //---------------------------------------------------------------------------------
+  void tx_memory_pool::add_tx_to_transient_lists(const crypto::hash& txid, double fee, time_t receive_time)
+  {
+
+    time_t now = time(NULL);
+    const std::unordered_map<crypto::hash, time_t>::iterator it = m_added_txs_by_id.find(txid);
+    if (it == m_added_txs_by_id.end())
+    {
+       m_added_txs_by_id.insert(std::make_pair(txid, now));
+    }
+    else
+    {
+      // This tx was already added to the map earlier, probably because then it was in the "stem"
+      // phase of Dandelion++ and now is in the "fluff" phase i.e. got broadcasted: We have to set
+      // a new time for clients that are not allowed to see sensitive txs to make sure they will
+      // see it now if they query incrementally
+      it->second = now;
+
+      auto sorted_it = find_tx_in_sorted_container(txid);
+      if (sorted_it == m_txs_by_fee_and_receive_time.end())
+      {
+        MERROR("Re-adding tx " << txid << " to tx pool, but it was not found in the sorted txs container");
+      }
+      else
+      {
+        m_txs_by_fee_and_receive_time.erase(sorted_it);
+      }
+    }
+    m_txs_by_fee_and_receive_time.emplace(std::pair<double, time_t>(fee, receive_time), txid);
+
+    // Don't check for "resurrected" txs in case of reorgs i.e. don't check in 'm_removed_txs_by_time'
+    // whether we have that txid there and if yes remove it; this results in possible duplicates
+    // where we return certain txids as deleted AND in the pool at the same time which requires
+    // clients to process deleted ones BEFORE processing pool txs
+    if (m_added_txs_start_time == (time_t)0)
+    {
+      m_added_txs_start_time = now;
+    }
+  }
+  //---------------------------------------------------------------------------------
+  void tx_memory_pool::remove_tx_from_transient_lists(const cryptonote::sorted_tx_container::iterator& sorted_it, const crypto::hash& txid, bool sensitive)
+  {
+    if (sorted_it == m_txs_by_fee_and_receive_time.end())
+    {
+      LOG_PRINT_L1("Removing tx " << txid << " from tx pool, but it was not found in the sorted txs container!");
+    }
+    else
+    {
+      m_txs_by_fee_and_receive_time.erase(sorted_it);
+    }
+
+    const std::unordered_map<crypto::hash, time_t>::iterator it = m_added_txs_by_id.find(txid);
+    if (it != m_added_txs_by_id.end())
+    {
+       m_added_txs_by_id.erase(it);
+    }
+    else
+    {
+      MDEBUG("Removing tx " << txid << " from tx pool, but it was not found in the map of added txs");
+    }
+    track_removed_tx(txid, sensitive);
+  }
+  //---------------------------------------------------------------------------------
+  void tx_memory_pool::track_removed_tx(const crypto::hash& txid, bool sensitive)
+  {
+    time_t now = time(NULL);
+    m_removed_txs_by_time.insert(std::make_pair(now, removed_tx_info{txid, sensitive}));
+    MDEBUG("Transaction removed from pool: txid " << txid << ", total entries in removed list now " << m_removed_txs_by_time.size());
+    if (m_removed_txs_start_time == (time_t)0)
+    {
+      m_removed_txs_start_time = now;
+    }
+
+    // Simple system to make sure the list of removed ids does not swell to an unmanageable size: Set
+    // an absolute size limit plus delete entries that are x minutes old (which is ok because clients
+    // will sync with sensible time intervalls and should not ask for incremental info e.g. 1 hour back)
+    const int MAX_REMOVED = 20000;
+    if (m_removed_txs_by_time.size() > MAX_REMOVED)
+    {
+      auto erase_it = m_removed_txs_by_time.begin();
+      std::advance(erase_it, MAX_REMOVED / 4 + 1);
+      m_removed_txs_by_time.erase(m_removed_txs_by_time.begin(), erase_it);
+      m_removed_txs_start_time = m_removed_txs_by_time.begin()->first;
+      MDEBUG("Erased old transactions from big removed list, leaving " << m_removed_txs_by_time.size());
+    }
+    else
+    {
+      time_t earliest = now - (30 * 60);  // 30 minutes
+      std::map<time_t, removed_tx_info>::iterator from, to;
+      from = m_removed_txs_by_time.begin();
+      to = m_removed_txs_by_time.lower_bound(earliest);
+      int distance = std::distance(from, to);
+      if (distance > 0)
+      {
+        m_removed_txs_by_time.erase(from, to);
+        m_removed_txs_start_time = earliest;
+        MDEBUG("Erased " << distance << " old transactions from removed list, leaving " << m_removed_txs_by_time.size());
+      }
+    }
+  }
+  //---------------------------------------------------------------------------------
   bool tx_memory_pool::init(size_t max_txpool_weight, bool mine_stem_txes)
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
@@ -1695,6 +1885,10 @@ namespace cryptonote
 
     m_txpool_max_weight = max_txpool_weight ? max_txpool_weight : DEFAULT_TXPOOL_MAX_WEIGHT;
     m_txs_by_fee_and_receive_time.clear();
+    m_added_txs_by_id.clear();
+    m_added_txs_start_time = (time_t)0;
+    m_removed_txs_by_time.clear();
+    m_removed_txs_start_time = (time_t)0;
     m_spent_key_images.clear();
     m_txpool_weight = 0;
     std::vector<crypto::hash> remove;
@@ -1719,7 +1913,7 @@ namespace cryptonote
           MFATAL("Failed to insert key images from txpool tx");
           return false;
         }
-        m_txs_by_fee_and_receive_time.emplace(std::pair<double, time_t>(meta.fee / (double)meta.weight, meta.receive_time), txid);
+        add_tx_to_transient_lists(txid, meta.fee / (double)meta.weight, meta.receive_time);
         m_txpool_weight += meta.weight;
         return true;
       }, true, relay_category::all);
