@@ -88,7 +88,7 @@ namespace cryptonote
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define CORE_RPC_VERSION_MAJOR 3
-#define CORE_RPC_VERSION_MINOR 10
+#define CORE_RPC_VERSION_MINOR 11
 #define MAKE_CORE_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define CORE_RPC_VERSION MAKE_CORE_RPC_VERSION(CORE_RPC_VERSION_MAJOR, CORE_RPC_VERSION_MINOR)
 
@@ -162,18 +162,29 @@ namespace cryptonote
   struct COMMAND_RPC_GET_BLOCKS_FAST
   {
 
+    enum REQUESTED_INFO
+    {
+      BLOCKS_ONLY = 0,
+      BLOCKS_AND_POOL = 1,
+      POOL_ONLY = 2
+    };
+
     struct request_t: public rpc_access_request_base
     {
+      uint8_t     requested_info;
       std::list<crypto::hash> block_ids; //*first 10 blocks id goes sequential, next goes in pow(2,n) offset, like 2, 4, 8, 16, 32, 64 and so on, and the last one is always genesis block */
       uint64_t    start_height;
       bool        prune;
       bool        no_miner_tx;
+      uint64_t    pool_info_since;
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_access_request_base)
+        KV_SERIALIZE_OPT(requested_info, (uint8_t)0)
         KV_SERIALIZE_CONTAINER_POD_AS_BLOB(block_ids)
         KV_SERIALIZE(start_height)
         KV_SERIALIZE(prune)
         KV_SERIALIZE_OPT(no_miner_tx, false)
+        KV_SERIALIZE_OPT(pool_info_since, (uint64_t)0)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
@@ -196,12 +207,36 @@ namespace cryptonote
       END_KV_SERIALIZE_MAP()
     };
 
+    struct pool_tx_info
+    {
+      crypto::hash tx_hash;
+      blobdata tx_blob;
+      bool double_spend_seen;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE_VAL_POD_AS_BLOB(tx_hash)
+        KV_SERIALIZE(tx_blob)
+        KV_SERIALIZE(double_spend_seen)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    enum POOL_INFO_EXTENT
+    {
+      NONE = 0,
+      INCREMENTAL = 1,
+      FULL = 2
+    };
+
     struct response_t: public rpc_access_response_base
     {
       std::vector<block_complete_entry> blocks;
       uint64_t    start_height;
       uint64_t    current_height;
       std::vector<block_output_indices> output_indices;
+      uint64_t    daemon_time;
+      uint8_t     pool_info_extent;
+      std::vector<pool_tx_info> added_pool_txs;
+      std::vector<crypto::hash> removed_pool_txids;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_access_response_base)
@@ -209,6 +244,10 @@ namespace cryptonote
         KV_SERIALIZE(start_height)
         KV_SERIALIZE(current_height)
         KV_SERIALIZE(output_indices)
+        KV_SERIALIZE(daemon_time)
+        KV_SERIALIZE(pool_info_extent)
+        KV_SERIALIZE(added_pool_txs)
+        KV_SERIALIZE_CONTAINER_POD_AS_BLOB(removed_pool_txids)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;

@@ -598,88 +598,162 @@ namespace cryptonote
 
     CHECK_PAYMENT(req, res, 1);
 
-    // quick check for noop
-    if (!req.block_ids.empty())
+    res.daemon_time = (uint64_t)time(NULL);
+    // Always set daemon time, and set it early rather than late, as delivering some incremental pool
+    // info twice because of slightly overlapping time intervals is no problem, whereas producing gaps
+    // and never delivering something is
+
+    bool get_blocks = false;
+    bool get_pool = false;
+    switch (req.requested_info)
     {
-      uint64_t last_block_height;
-      crypto::hash last_block_hash;
-      m_core.get_blockchain_top(last_block_height, last_block_hash);
-      if (last_block_hash == req.block_ids.front())
+      case COMMAND_RPC_GET_BLOCKS_FAST::BLOCKS_ONLY:
+        // Compatibility value 0: Clients that do not set 'requested_info' want blocks, and only blocks
+        get_blocks = true;
+        break;
+      case COMMAND_RPC_GET_BLOCKS_FAST::BLOCKS_AND_POOL:
+        get_blocks = true;
+        get_pool = true;
+        break;
+      case COMMAND_RPC_GET_BLOCKS_FAST::POOL_ONLY:
+        get_pool = true;
+        break;
+      default:
+        res.status = "Failed, wrong requested info";
+        return true;
+    }
+
+    res.pool_info_extent = COMMAND_RPC_GET_BLOCKS_FAST::NONE;
+
+    if (get_pool)
+    {
+      const bool restricted = m_restricted && ctx;
+      const bool request_has_rpc_origin = ctx != NULL;
+      const bool allow_sensitive = !request_has_rpc_origin || !restricted;
+
+      bool incremental;
+      std::vector<tx_memory_pool::tx_details> added_pool_txs;
+      bool success = m_core.get_pool_info((time_t)req.pool_info_since, allow_sensitive, added_pool_txs, res.removed_pool_txids, incremental);
+      if (success)
       {
-        res.start_height = 0;
-        res.current_height = m_core.get_current_blockchain_height();
-        res.status = CORE_RPC_STATUS_OK;
+        res.added_pool_txs.clear();
+        if (m_rpc_payment)
+        {
+          CHECK_PAYMENT_SAME_TS(req, res, added_pool_txs.size() * COST_PER_TX + res.removed_pool_txids.size() * COST_PER_POOL_HASH);
+        }
+        for (auto tx_detail: added_pool_txs)
+        {
+          COMMAND_RPC_GET_BLOCKS_FAST::pool_tx_info info;
+          info.tx_hash = cryptonote::get_transaction_hash(tx_detail.tx);
+          std::stringstream oss;
+          binary_archive<true> ar(oss);
+          bool r = ::serialization::serialize(ar, tx_detail.tx);
+          if (!r)
+          {
+            res.status = "Failed to serialize transaction";
+            return true;
+          }
+          info.tx_blob = oss.str();
+          info.double_spend_seen = tx_detail.double_spend_seen;
+          res.added_pool_txs.push_back(std::move(info));
+        }
+      }
+      if (success)
+      {
+        res.pool_info_extent = incremental ? COMMAND_RPC_GET_BLOCKS_FAST::INCREMENTAL : COMMAND_RPC_GET_BLOCKS_FAST::FULL;
+      }
+      else
+      {
+        res.status = "Failed to get pool info";
         return true;
       }
     }
 
-    size_t max_blocks = COMMAND_RPC_GET_BLOCKS_FAST_MAX_BLOCK_COUNT;
-    if (m_rpc_payment)
+    if (get_blocks)
     {
-      max_blocks = res.credits / COST_PER_BLOCK;
-      if (max_blocks > COMMAND_RPC_GET_BLOCKS_FAST_MAX_BLOCK_COUNT)
-        max_blocks = COMMAND_RPC_GET_BLOCKS_FAST_MAX_BLOCK_COUNT;
-      if (max_blocks == 0)
+      // quick check for noop
+      if (!req.block_ids.empty())
       {
-        res.status = CORE_RPC_STATUS_PAYMENT_REQUIRED;
+        uint64_t last_block_height;
+        crypto::hash last_block_hash;
+        m_core.get_blockchain_top(last_block_height, last_block_hash);
+        if (last_block_hash == req.block_ids.front())
+        {
+          res.start_height = 0;
+          res.current_height = last_block_height + 1;
+          res.status = CORE_RPC_STATUS_OK;
+          return true;
+        }
+      }
+
+      size_t max_blocks = COMMAND_RPC_GET_BLOCKS_FAST_MAX_BLOCK_COUNT;
+      if (m_rpc_payment)
+      {
+        max_blocks = res.credits / COST_PER_BLOCK;
+        if (max_blocks > COMMAND_RPC_GET_BLOCKS_FAST_MAX_BLOCK_COUNT)
+          max_blocks = COMMAND_RPC_GET_BLOCKS_FAST_MAX_BLOCK_COUNT;
+        if (max_blocks == 0)
+        {
+          res.status = CORE_RPC_STATUS_PAYMENT_REQUIRED;
+          return true;
+        }
+      }
+
+      std::vector<std::pair<std::pair<cryptonote::blobdata, crypto::hash>, std::vector<std::pair<crypto::hash, cryptonote::blobdata> > > > bs;
+      if(!m_core.find_blockchain_supplement(req.start_height, req.block_ids, bs, res.current_height, res.start_height, req.prune, !req.no_miner_tx, max_blocks, COMMAND_RPC_GET_BLOCKS_FAST_MAX_TX_COUNT))
+      {
+        res.status = "Failed";
+        add_host_fail(ctx);
         return true;
       }
-    }
 
-    std::vector<std::pair<std::pair<cryptonote::blobdata, crypto::hash>, std::vector<std::pair<crypto::hash, cryptonote::blobdata> > > > bs;
-    if(!m_core.find_blockchain_supplement(req.start_height, req.block_ids, bs, res.current_height, res.start_height, req.prune, !req.no_miner_tx, max_blocks, COMMAND_RPC_GET_BLOCKS_FAST_MAX_TX_COUNT))
-    {
-      res.status = "Failed";
-      add_host_fail(ctx);
-      return true;
-    }
+      CHECK_PAYMENT_SAME_TS(req, res, bs.size() * COST_PER_BLOCK);
 
-    CHECK_PAYMENT_SAME_TS(req, res, bs.size() * COST_PER_BLOCK);
-
-    size_t size = 0, ntxes = 0;
-    res.blocks.reserve(bs.size());
-    res.output_indices.reserve(bs.size());
-    for(auto& bd: bs)
-    {
-      res.blocks.resize(res.blocks.size()+1);
-      res.blocks.back().pruned = req.prune;
-      res.blocks.back().block = bd.first.first;
-      size += bd.first.first.size();
-      res.output_indices.push_back(COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices());
-      ntxes += bd.second.size();
-      res.output_indices.back().indices.reserve(1 + bd.second.size());
-      if (req.no_miner_tx)
-        res.output_indices.back().indices.push_back(COMMAND_RPC_GET_BLOCKS_FAST::tx_output_indices());
-      res.blocks.back().txs.reserve(bd.second.size());
-      for (std::vector<std::pair<crypto::hash, cryptonote::blobdata>>::iterator i = bd.second.begin(); i != bd.second.end(); ++i)
+      size_t size = 0, ntxes = 0;
+      res.blocks.reserve(bs.size());
+      res.output_indices.reserve(bs.size());
+      for(auto& bd: bs)
       {
-        res.blocks.back().txs.push_back({std::move(i->second), crypto::null_hash});
-        i->second.clear();
-        i->second.shrink_to_fit();
-        size += res.blocks.back().txs.back().blob.size();
-      }
+        res.blocks.resize(res.blocks.size()+1);
+        res.blocks.back().pruned = req.prune;
+        res.blocks.back().block = bd.first.first;
+        size += bd.first.first.size();
+        res.output_indices.push_back(COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices());
+        ntxes += bd.second.size();
+        res.output_indices.back().indices.reserve(1 + bd.second.size());
+        if (req.no_miner_tx)
+          res.output_indices.back().indices.push_back(COMMAND_RPC_GET_BLOCKS_FAST::tx_output_indices());
+        res.blocks.back().txs.reserve(bd.second.size());
+        for (std::vector<std::pair<crypto::hash, cryptonote::blobdata>>::iterator i = bd.second.begin(); i != bd.second.end(); ++i)
+        {
+          res.blocks.back().txs.push_back({std::move(i->second), crypto::null_hash});
+          i->second.clear();
+          i->second.shrink_to_fit();
+          size += res.blocks.back().txs.back().blob.size();
+        }
 
-      const size_t n_txes_to_lookup = bd.second.size() + (req.no_miner_tx ? 0 : 1);
-      if (n_txes_to_lookup > 0)
-      {
-        std::vector<std::vector<uint64_t>> indices;
-        bool r = m_core.get_tx_outputs_gindexs(req.no_miner_tx ? bd.second.front().first : bd.first.second, n_txes_to_lookup, indices);
-        if (!r)
+        const size_t n_txes_to_lookup = bd.second.size() + (req.no_miner_tx ? 0 : 1);
+        if (n_txes_to_lookup > 0)
         {
-          res.status = "Failed";
-          return true;
+          std::vector<std::vector<uint64_t>> indices;
+          bool r = m_core.get_tx_outputs_gindexs(req.no_miner_tx ? bd.second.front().first : bd.first.second, n_txes_to_lookup, indices);
+          if (!r)
+          {
+            res.status = "Failed";
+            return true;
+          }
+          if (indices.size() != n_txes_to_lookup || res.output_indices.back().indices.size() != (req.no_miner_tx ? 1 : 0))
+          {
+            res.status = "Failed";
+            return true;
+          }
+          for (size_t i = 0; i < indices.size(); ++i)
+            res.output_indices.back().indices.push_back({std::move(indices[i])});
         }
-        if (indices.size() != n_txes_to_lookup || res.output_indices.back().indices.size() != (req.no_miner_tx ? 1 : 0))
-        {
-          res.status = "Failed";
-          return true;
-        }
-        for (size_t i = 0; i < indices.size(); ++i)
-          res.output_indices.back().indices.push_back({std::move(indices[i])});
       }
+      MDEBUG("on_get_blocks: " << bs.size() << " blocks, " << ntxes << " txes, size " << size);
     }
 
-    MDEBUG("on_get_blocks: " << bs.size() << " blocks, " << ntxes << " txes, size " << size);
     res.status = CORE_RPC_STATUS_OK;
     return true;
   }
