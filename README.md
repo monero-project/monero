@@ -153,7 +153,7 @@ and ignores the vendored sources. However, if no library is found installed on
 the system, then the vendored source will be built and used. The vendored
 sources are also used for statically-linked builds because distribution
 packages often include only shared library binaries (`.so`) but not static
-library archives (`.a`). Below the table is are oneliner commands to install all dependencies on Debian/Ubuntu and openSUSE.
+library archives (`.a`). Below the table are oneliner commands to install all dependencies on Debian/Ubuntu and openSUSE.
 
 | Dep          | Min. version  | Vendored | Debian/Ubuntu pkg    | Arch pkg     | Void pkg              | Fedora pkg          | Optional | Purpose         |
 | ------------ | ------------- | -------- | -------------------- | ------------ | ----------------------| ------------------- | -------- | --------------- |
