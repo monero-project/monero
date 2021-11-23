@@ -1,7 +1,7 @@
 # Anonymity Networks with Monero
 
 Currently only Tor and I2P have been integrated into Monero. The usage of
-these networks is still considered experimental - there are a few pessimistic
+these networks are still considered experimental - there are a few pessimistic
 cases where privacy is leaked. The design is intended to maximize privacy of
 the source of a transaction by broadcasting it over an anonymity network, while
 relying on IPv4 for the remainder of messages to make surrounding node attacks
