@@ -75,7 +75,7 @@ An unsigned 32-bit little endian integer representing the Monero specific
 command being invoked.
 
 ### Return Code
-A signed 32-bit little integer integer representing the response from the peer
+A signed 32-bit little integer representing the response from the peer
 from the last command that was invoked. This is `0` for request messages.
 
 ### Flags
