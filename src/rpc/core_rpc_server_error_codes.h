@@ -51,6 +51,7 @@
 #define CORE_RPC_ERROR_CODE_RESTRICTED            -19
 #define CORE_RPC_ERROR_CODE_UNSUPPORTED_BOOTSTRAP -20
 #define CORE_RPC_ERROR_CODE_PAYMENTS_NOT_ENABLED  -21
+#define CORE_RPC_ERROR_CODE_TOO_BIG_TIMESTAMP     -22
 
 static inline const char *get_rpc_server_error_message(int64_t code)
 {
@@ -76,6 +77,7 @@ static inline const char *get_rpc_server_error_message(int64_t code)
     case CORE_RPC_ERROR_CODE_RESTRICTED: return "Parameters beyond restricted allowance";
     case CORE_RPC_ERROR_CODE_UNSUPPORTED_BOOTSTRAP: return "Command is unsupported in bootstrap mode";
     case CORE_RPC_ERROR_CODE_PAYMENTS_NOT_ENABLED: return "Payments not enabled";
+    case CORE_RPC_ERROR_CODE_TOO_BIG_TIMESTAMP: return "Timestamp is too high";
     default: MERROR("Unknown error: " << code); return "Unknown error";
   }
 }

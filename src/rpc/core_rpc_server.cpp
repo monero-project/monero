@@ -3570,6 +3570,93 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_get_height_by_time(const COMMAND_RPC_GET_HEIGHT_BY_TIME::request& req, COMMAND_RPC_GET_HEIGHT_BY_TIME::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx)
+  {
+    RPC_TRACKER(get_height_by_time);
+    bool r;
+    if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_GET_HEIGHT_BY_TIME>(invoke_http_mode::JON_RPC, "get_height_by_time", req, res, r))
+      return r;
+
+    if((uint64_t)time(NULL) <= req.timestamp)
+    {
+      error_resp.code = CORE_RPC_ERROR_CODE_TOO_BIG_TIMESTAMP;
+      error_resp.message = "Requested timestamp is in the future";
+      return false;
+    }
+    CHECK_PAYMENT(req, res, COST_PER_HEIGHT_BY_TIME);
+
+    constexpr uint64_t buffer_time = 1 * 60 * 60; //1 hour
+    constexpr uint64_t buffer_height = 1 * 30;    //1 hour
+
+    uint64_t height_min, height_mid, height_max;
+    uint64_t timestamp_min = 0, timestamp_mid, timestamp_max = 0;
+
+    height_min = 0;
+    height_max = m_core.get_current_blockchain_height() - 1;
+
+    auto& db = m_core.get_blockchain_storage().get_db();
+
+    for (;;)
+    {
+      height_mid = (height_min + height_max) / 2;
+
+      try
+      {
+        timestamp_mid = db.get_block_timestamp(height_mid);
+        if (timestamp_min == 0)
+          timestamp_min = db.get_block_timestamp(height_min);
+        if (timestamp_max == 0)
+          timestamp_max = db.get_block_timestamp(height_max);
+      }
+      catch (...)
+      {
+        res.status = std::string("Error retrieving block timestamps: ")
+          + std::to_string(height_min) + ", "
+          + std::to_string(height_mid) + ", "
+          + std::to_string(height_max);
+        return true;
+      }
+
+      if (!(timestamp_min <= timestamp_mid && timestamp_mid <= timestamp_max))
+      {
+        // The timestamps are not in chronological order.
+        // Assuming they're sufficiently close to each other, we're done.
+        break;
+      }
+      if (req.timestamp > timestamp_max)
+      {
+        error_resp.code = CORE_RPC_ERROR_CODE_TOO_BIG_TIMESTAMP;
+        error_resp.message = std::string("Requested timestamp is larger than the current top block timestamp: ")
+          + std::to_string(timestamp_max);
+        return false;
+      }
+      if (req.timestamp <= timestamp_min + buffer_time)
+      {
+        //height_min within tolerance
+        break;
+      }
+      if (height_max - height_min <= buffer_height)
+      {
+        //interval too small
+        break;
+      }
+      if (req.timestamp <= timestamp_mid)
+      {
+        height_max = height_mid;
+        timestamp_max = timestamp_mid;
+      }
+      else
+      {
+        height_min = height_mid;
+        timestamp_min = timestamp_mid;
+      }
+    }
+    res.height = height_min;
+    res.timestamp = timestamp_min;
+    res.status = CORE_RPC_STATUS_OK;
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
   const command_line::arg_descriptor<std::string, false, true, 2> core_rpc_server::arg_rpc_bind_port = {
       "rpc-bind-port"
     , "Port for RPC server"

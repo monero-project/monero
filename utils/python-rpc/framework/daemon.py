@@ -668,3 +668,15 @@ class Daemon(object):
             'id': '0'
         }
         return self.rpc.send_json_rpc_request(rpc_access_account)
+
+    def get_height_by_time(self, timestamp, client = ""):
+        get_height_by_time = {
+            'method': 'get_height_by_time',
+            'params': {
+                'client': client,
+                'timestamp': timestamp,
+            },
+            'jsonrpc': '2.0',
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(get_height_by_time)
