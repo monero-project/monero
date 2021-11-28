@@ -33,7 +33,7 @@ walks you through all the changes and asks whether or not to
 include this particular change. This helps create clean patches
 without any irrelevant changes. git diff will show you the changes
 in your tree. git diff --cached will show what is currently staged
-for commit. As you add hunks with git add -p, those hunks will
+for commit. As you add chunks with git add -p, those chunks will
 "move" from the git diff output to the git diff --cached output,
 so you can see clearly what your commit is going to look like.
 
