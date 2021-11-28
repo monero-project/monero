@@ -18,9 +18,15 @@ env:
 
 jobs:
   build-macos:
-    runs-on: macOS-latest
+    runs-on: ${{ matrix.os }}
     env:
       CCACHE_TEMPDIR: /tmp/.ccache-temp
+    strategy:
+      matrix:
+        os: [macOS-latest, macOS-11]
+# TODO: After 13 Dec. 2021 (*) the above line should become either:  (* https://github.com/actions/virtual-environments/issues/4060 )
+#        os: [macOS-latest, macOS-10.15]  - to retain mac10 compatibility and check also against mac11, or
+#        os: [macOS-latest]               - to   drop mac10 compatibility and check only against mac11, but ease the future transitions
     steps:
     - uses: actions/checkout@v1
       with:
@@ -28,8 +34,8 @@ jobs:
     - uses: actions/cache@v2
       with:
         path: /Users/runner/Library/Caches/ccache
-        key: ccache-${{ runner.os }}-build-${{ github.sha }}
-        restore-keys: ccache-${{ runner.os }}-build-
+        key:          ccache-${{ runner.os }}-build-${{ matrix.os }}-${{ github.sha }}
+        restore-keys: ccache-${{ runner.os }}-build-${{ matrix.os }}
     - name: install dependencies
       run: HOMEBREW_NO_AUTO_UPDATE=1 brew install boost hidapi openssl zmq libpgm miniupnpc ldns expat libunwind-headers protobuf ccache
     - name: build
