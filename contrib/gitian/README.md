@@ -31,6 +31,8 @@ This guide explains how to set up the environment, and how to start the builds.
 
 * Gitian gives you the option of using any of 3 different virtualization tools: `kvm`, `docker` or `lxc`. This documentation will only show how to build with `lxc` and `docker` (documentation for `kvm` is welcome). Building with `lxc` is the default, but is more complicated, so we recommend docker your first time.
 
+* For a shortcut using `docker` follow the instructions in [DOCKRUN.md](DOCKRUN.md) instead
+of following the rest of this document..
 
 ## Create the gitianuser account
 
