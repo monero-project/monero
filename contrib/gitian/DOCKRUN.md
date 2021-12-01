@@ -56,7 +56,7 @@ The dockrun.sh script will do everything to build the binaries. Just specify the
 version to build as its only argument, e.g.
 
 ```bash
-./dockrun.sh v0.17.2.3
+./dockrun.sh v0.17.3.0
 ```
 
 The build should run to completion with no errors, and will display the SHA256 checksums
@@ -74,12 +74,18 @@ You can set other options for that script by setting the OPT variable when runni
 e.g.
 
 ```bash
-OPT="-j 8" ./dockrun.sh v0.17.2.3
+OPT="-j 8" ./dockrun.sh v0.17.3.0
 ```
 
 You can also examine the build and install logs by running a shell in the container, e.g.
 
 ```bash
+# Tail running logs
+docker exec -it gitrun /bin/bash
+tail -f builder/var/*.log
+
+# Inspect logs
 docker exec -it gitrun /bin/bash
 more builder/var/install-linux.log
+more builder/var/build.log
 ```
