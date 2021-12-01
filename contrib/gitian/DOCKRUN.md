@@ -74,6 +74,7 @@ You can set other options for that script by setting the OPT variable when runni
 e.g.
 
 ```bash
+# Run build processes with 8 threads
 OPT="-j 8" ./dockrun.sh v0.17.3.0
 ```
 
@@ -82,10 +83,10 @@ You can also examine the build and install logs by running a shell in the contai
 ```bash
 # Tail running logs
 docker exec -it gitrun /bin/bash
-tail -f builder/var/*.log
+tail -F builder/var/*.log
 
-# Inspect logs
+# Inspect logs, in format install-<OS>.log and build-<OS>.log
 docker exec -it gitrun /bin/bash
 more builder/var/install-linux.log
-more builder/var/build.log
+more builder/var/build-linux.log
 ```
