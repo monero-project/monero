@@ -87,15 +87,26 @@ e.g.
 OPT="-j 8" ./dockrun.sh v0.17.3.0
 ```
 
-You can also examine the build and install logs by running a shell in the container, e.g.
+Post-build
+----------
+
+You can examine the build and install logs by running a shell in the container, e.g.
 
 ```bash
 # Tail running logs
 docker exec -it gitrun /bin/bash
-tail -F builder/var/*.log
+tail -F builder/var/install.log
+tail -F builder/var/build.log
 
 # Inspect logs, in format install-<OS>.log and build-<OS>.log
 docker exec -it gitrun /bin/bash
 more builder/var/install-linux.log
 more builder/var/build-linux.log
+```
+
+You can find the compiled archives inside of the container at the following directory (be sure to replace `v0.17.3.0` with the version being built):
+
+```bash
+docker exec -it gitrun /bin/bash
+ls -la out/v0.17.3.0/
 ```
