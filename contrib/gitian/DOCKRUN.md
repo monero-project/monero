@@ -23,6 +23,13 @@ su $USER
 The final `su` command is needed to start a new shell with your new group membership,
 since the `usermod` command doesn't affect any existing sessions.
 
+You'll also need to clone the monero repository and navigate to the `contrib/gitian` directory:
+
+```bash
+git clone https://github.com/monero-project/monero.git
+cd monero/contrib/gitian
+```
+
 If you want Mac binaries included in your build, you need to obtain the MacOS SDK:
 
 ```bash
