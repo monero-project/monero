@@ -63,6 +63,8 @@ The build should run to completion with no errors, and will display the SHA256 c
 of the resulting binaries. You'll be prompted to check if the sums look good, and if so
 then the results will be signed, and the signatures will be pushed to GitHub.
 
+***Note: In order to publish the signed assertions via this script, you need to have your SSH key uploaded to Github beforehand. See https://docs.github.com/articles/generating-an-ssh-key/ for more info.***
+
 You can also look in the [gitian.sigs](https://github.com/monero-project/gitian.sigs/) repo and / or [getmonero.org release checksums](https://web.getmonero.org/downloads/hashes.txt) to see if others got the same checksum for the same version tag.  If there is ever a mismatch -- **STOP! Something is wrong**.  Contact others on IRC / GitHub to figure out what is going on.
 
 
