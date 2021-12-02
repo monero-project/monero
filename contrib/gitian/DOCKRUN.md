@@ -110,3 +110,10 @@ You can find the compiled archives inside of the container at the following dire
 docker exec -it gitrun /bin/bash
 ls -la out/v0.17.3.0/
 ```
+
+To copy the compiled archives to the local host out of the Docker container, you can run the following (be sure to replace `v0.17.3.0` with the version being built):
+
+```bash
+mkdir out
+docker cp gitrun:/home/ubuntu/out/v0.17.3.0 out
+```
