@@ -40,8 +40,6 @@ using namespace epee;
 using namespace crypto;
 using namespace cryptonote;
 
-//#define NO_MULTISIG
-
 void make_multisig_accounts(std::vector<cryptonote::account_base>& account, uint32_t threshold)
 {
   std::vector<crypto::secret_key> all_view_keys;
@@ -137,9 +135,6 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
 
   CHECK_AND_ASSERT_MES(total >= 2, false, "Bad scheme");
   CHECK_AND_ASSERT_MES(threshold <= total, false, "Bad scheme");
-#ifdef NO_MULTISIG
-  CHECK_AND_ASSERT_MES(total <= 5, false, "Unsupported scheme");
-#endif
   CHECK_AND_ASSERT_MES(inputs >= 1 && inputs <= 8, false, "Inputs should between 1 and 8");
 
   // given as 1 based for clarity
@@ -151,16 +146,7 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
   for (size_t signer: signers)
     CHECK_AND_ASSERT_MES(signer < total, false, "invalid signer");
 
-#ifdef NO_MULTISIG
-  GENERATE_ACCOUNT(acc0);
-  GENERATE_ACCOUNT(acc1);
-  GENERATE_ACCOUNT(acc2);
-  GENERATE_ACCOUNT(acc3);
-  GENERATE_ACCOUNT(acc4);
-  account_base miner_account[5] = {acc0, acc1, acc2, acc3, acc4};
-#else
   GENERATE_MULTISIG_ACCOUNT(miner_account, threshold, total);
-#endif
 
   MAKE_GENESIS_BLOCK(events, blk_0, miner_account[creator], ts_start);
 
@@ -215,7 +201,6 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
   std::unordered_map<crypto::public_key, cryptonote::subaddress_index> subaddresses;
   subaddresses[miner_account[0].get_keys().m_account_address.m_spend_public_key] = {0,0};
 
-#ifndef NO_MULTISIG
   // create k/L/R/ki for that output we're going to spend
   std::vector<std::vector<std::vector<crypto::secret_key>>> account_k(total);
   std::vector<std::vector<std::vector<crypto::public_key>>> account_L(total);
@@ -264,7 +249,6 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
         MDEBUG("ki: " << ki);
     }
   }
-#endif
 
   // create kLRki
   std::vector<rct::multisig_kLRki> kLRkis;
@@ -273,34 +257,6 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
   {
     kLRkis.push_back(rct::multisig_kLRki());
     rct::multisig_kLRki &kLRki = kLRkis.back();
-#ifdef NO_MULTISIG
-    kLRki = {rct::zero(), rct::zero(), rct::zero(), rct::zero()};
-#else
-    kLRki.k = rct::sk2rct(account_k[creator][tdidx][0]);
-    kLRki.L = rct::pk2rct(account_L[creator][tdidx][0]);
-    kLRki.R = rct::pk2rct(account_R[creator][tdidx][0]);
-    MDEBUG("Starting with k " << kLRki.k);
-    MDEBUG("Starting with L " << kLRki.L);
-    MDEBUG("Starting with R " << kLRki.R);
-    for (size_t msidx = 0; msidx < total; ++msidx)
-    {
-      if (msidx == creator)
-        continue;
-      if (std::find(signers.begin(), signers.end(), msidx) == signers.end())
-        continue;
-      for (size_t lr = 0; lr < account_L[msidx][tdidx].size(); ++lr)
-      {
-        if (used_L.find(account_L[msidx][tdidx][lr]) == used_L.end())
-        {
-          used_L.insert(account_L[msidx][tdidx][lr]);
-          MDEBUG("Adding L " << account_L[msidx][tdidx][lr] << " (for k " << account_k[msidx][tdidx][lr] << ")");
-          MDEBUG("Adding R " << account_R[msidx][tdidx][lr]);
-          rct::addKeys((rct::key&)kLRki.L, kLRki.L, rct::pk2rct(account_L[msidx][tdidx][lr]));
-          rct::addKeys((rct::key&)kLRki.R, kLRki.R, rct::pk2rct(account_R[msidx][tdidx][lr]));
-          break;
-        }
-      }
-    }
     std::vector<crypto::key_image> pkis;
     for (size_t msidx = 0; msidx < total; ++msidx)
       for (size_t n = 0; n < account_ki[msidx][tdidx].size(); ++n)
@@ -308,8 +264,6 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
     r = cryptonote::generate_multisig_composite_key_image(miner_account[0].get_keys(), subaddresses, output_pub_key[tdidx], tx_pub_key[tdidx], additional_tx_keys, 0, pkis, (crypto::key_image&)kLRki.ki);
     CHECK_AND_ASSERT_MES(r, false, "Failed to generate composite key image");
     MDEBUG("composite ki: " << kLRki.ki);
-    MDEBUG("L: " << kLRki.L);
-    MDEBUG("R: " << kLRki.R);
     for (size_t n = 1; n < total; ++n)
     {
       rct::key ki;
@@ -318,7 +272,6 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
       CHECK_AND_ASSERT_MES(kLRki.ki == ki, false, "Composite key images do not match");
     }
   }
-#endif
 
   // create a tx: we have 8 outputs, all from coinbase, so "fake" rct - use 2
   std::vector<tx_source_entry> sources;
@@ -364,7 +317,6 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
   multisig::signing::tx_builder_t tx_builder;
   CHECK_AND_ASSERT_MES(tx_builder.init(miner_account[creator].get_keys(), {}, 0, 0, {0}, sources, destinations, {}, {rct::RangeProofPaddedBulletproof, 3}, true, false, tx_key, additional_tx_secret_keys, tx), false, "error: multisig::signing::tx_builder_t::init");
 
-#ifndef NO_MULTISIG
   // work out the permutation done on sources
   std::vector<size_t> ins_order;
   for (size_t n = 0; n < sources.size(); ++n)
@@ -378,9 +330,7 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
     }
   }
   CHECK_AND_ASSERT_MES(ins_order.size() == sources.size(), false, "Failed to work out sources permutation");
-#endif
 
-#ifndef NO_MULTISIG
   struct {
     rct::keyM total_alpha_G;
     rct::keyM total_alpha_H;
@@ -437,9 +387,6 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
       }
     }
     CHECK_AND_ASSERT_MES(!(skey == rct::zero()), false, "failed to find secret multisig key to sign transaction");
-    std::vector<unsigned int> indices;
-    for (const auto &src: sources_copy)
-      indices.push_back(src.real_output);
     rct::keyM k(sources.size(), rct::keyV(multisig::signing::kAlphaComponents));
     for (std::size_t i = 0; i < sources.size(); ++i) {
       for (std::size_t j = 0; j < multisig::signing::kAlphaComponents; ++j) {
@@ -455,7 +402,6 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
         CHECK_AND_ASSERT_MES(!(k[i][j] == rct::zero()), false, "failed to find k to sign transaction");
       }
     }
-    tools::apply_permutation(ins_order, indices);
     tools::apply_permutation(ins_order, k);
     multisig::signing::tx_builder_t signer_tx_builder;
     CHECK_AND_ASSERT_MES(signer_tx_builder.init(miner_account[signer].get_keys(), {}, 0, 0, {0}, sources, destinations, {}, {rct::RangeProofPaddedBulletproof, 3}, true, true, tx_key, additional_tx_secret_keys, tx), false, "error: multisig::signing::tx_builder_t::init");
@@ -469,7 +415,6 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
     CHECK_AND_ASSERT_MES(signer_tx_builder.next_partial_sign(sig.total_alpha_G, sig.total_alpha_H, k, skey, sig.c_0, sig.s), false, "error: multisig::signing::tx_builder_t::next_partial_sign");
     CHECK_AND_ASSERT_MES(signer_tx_builder.construct_tx(sources, sig.c_0, sig.s, tx), false, "error: multisig::signing::tx_builder_t::construct_tx");
   }
-#endif
 
   // verify this tx is really to the expected address
   const crypto::public_key tx_pub_key2 = get_tx_pub_key_from_extra(tx, 0);
