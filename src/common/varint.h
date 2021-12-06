@@ -78,6 +78,22 @@ namespace tools {
     dest++;			/* Seems kinda pointless... */
   }
 
+  /*! \brief writes a varint to a fixed-size uchar array of size N.
+   */
+  template<typename T, std::size_t N>
+  void encode_varint(T t, unsigned char (&out)[N]) {
+    static_assert(std::is_integral<T>::value, "");
+    static_assert(std::is_unsigned<T>::value, "");
+    static_assert((sizeof(T) * 8 + 6) / 7 <= N, "");  //output array must be large enough to store any varint encoding of 't'
+    for (std::size_t i = 0; i < N && t; ++i) {
+      if (t >= 0x80)
+        out[i] = (static_cast<unsigned char>(t) & 0x7F) | 0x80;
+      else
+        out[i] = static_cast<unsigned char>(t);
+      t >>= 7;
+    }
+  }
+
   /*! \brief Returns the string that represents the varint
    */
   template<typename T>

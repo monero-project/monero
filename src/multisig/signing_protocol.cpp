@@ -1,10 +1,41 @@
+// Copyright (c) 2021, The Monero Project
+// 
+// All rights reserved.
+// 
+// Redistribution and use in source and binary forms, with or without modification, are
+// permitted provided that the following conditions are met:
+// 
+// 1. Redistributions of source code must retain the above copyright notice, this list of
+//    conditions and the following disclaimer.
+// 
+// 2. Redistributions in binary form must reproduce the above copyright notice, this list
+//    of conditions and the following disclaimer in the documentation and/or other
+//    materials provided with the distribution.
+// 
+// 3. Neither the name of the copyright holder nor the names of its contributors may be
+//    used to endorse or promote products derived from this software without specific
+//    prior written permission.
+// 
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
+// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+// MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
+// THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
+// THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 #include "signing_protocol.h"
+
 #include "memwipe.h"
-#include "device/device.hpp"
+
+#include "common/varint.h"
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "cryptonote_basic/account.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "cryptonote_core/cryptonote_tx_utils.h"
+#include "device/device.hpp"
 #include "ringct/bulletproofs.h"
 #include "ringct/rctSigs.h"
 
@@ -14,19 +45,6 @@ namespace signing {
 
 cached_CLSAG_Gen_t::cached_CLSAG_Gen_t(): initialized{false} {}
 
-template<typename T, std::size_t N>
-void encode_varint(T t, unsigned char (&out)[N]) {
-  static_assert(std::is_integral<T>::value, "");
-  static_assert(std::is_unsigned<T>::value, "");
-  static_assert((sizeof(T) + 6) / 7 <= N, "");
-  for (std::size_t i = 0; i < N && t; ++i) {
-    if (t >= 0x80)
-      out[i] = (static_cast<unsigned char>(t) & 0x7F) | 0x80;
-    else
-      out[i] = static_cast<unsigned char>(t);
-    t >>= 7;
-  }
-}
 
 template<std::size_t N>
 rct::key string_to_key(const unsigned char (&str)[N]) {
@@ -70,24 +88,24 @@ bool cached_CLSAG_Gen_t::init(
   b_params.insert(b_params.end(), P.begin(), P.end());
   c_params.insert(c_params.end(), C_nonzero.begin(), C_nonzero.end());
   b_params.insert(b_params.end(), C_nonzero.begin(), C_nonzero.end());
-  c_params.push_back(C_offset);
-  b_params.push_back(C_offset);
-  c_params.push_back(message);
-  b_params.push_back(message);
+  c_params.emplace_back(C_offset);
+  b_params.emplace_back(C_offset);
+  c_params.emplace_back(message);
+  b_params.emplace_back(message);
   c_params_L_offset = c_params.size();
   b_params_L_offset = b_params.size();
-  c_params.resize(c_params.size() + 1);
-  b_params.resize(b_params.size() + multisig::signing::kAlphaComponents);
+  c_params.resize(c_params.size() + 1);  //this is where L will be inserted later
+  b_params.resize(b_params.size() + multisig::signing::kAlphaComponents);  //multisig aggregate public nonces for L will be inserted here later
   c_params_R_offset = c_params.size();
   b_params_R_offset = b_params.size();
-  c_params.resize(c_params.size() + 1);
-  b_params.resize(b_params.size() + multisig::signing::kAlphaComponents);
-  b_params.push_back(I);
-  b_params.push_back(D);
-  b_params.insert(b_params.end(), s.begin(), s.begin() + l);
-  b_params.insert(b_params.end(), s.begin() + l + 1, s.end());
+  c_params.resize(c_params.size() + 1);  //this is where R will be inserted later
+  b_params.resize(b_params.size() + multisig::signing::kAlphaComponents);  //multisig aggregate public nonces for R will be inserted here later
+  b_params.emplace_back(I);
+  b_params.emplace_back(D);
+  b_params.insert(b_params.end(), s.begin(), s.begin() + l);    //fake responses before 'l'
+  b_params.insert(b_params.end(), s.begin() + l + 1, s.end());  //fake responses after 'l'
   b_params.emplace_back();
-  encode_varint(l, b_params.back().bytes);
+  tools::encode_varint(l, b_params.back().bytes);  //real signing index 'l'
 
   rct::keyV mu_P_params;
   rct::keyV mu_C_params;
@@ -100,14 +118,14 @@ bool cached_CLSAG_Gen_t::init(
   mu_C_params.insert(mu_C_params.end(), P.begin(), P.end());
   mu_P_params.insert(mu_P_params.end(), C_nonzero.begin(), C_nonzero.end());
   mu_C_params.insert(mu_C_params.end(), C_nonzero.begin(), C_nonzero.end());
-  mu_P_params.push_back(I);
-  mu_C_params.push_back(I);
-  mu_P_params.push_back(scalarmultKey(D, rct::INV_EIGHT));
-  mu_C_params.push_back(scalarmultKey(D, rct::INV_EIGHT));
-  mu_P_params.push_back(C_offset);
-  mu_C_params.push_back(C_offset);
-  mu_P = rct::hash_to_scalar(mu_P_params);
-  mu_C = rct::hash_to_scalar(mu_C_params);
+  mu_P_params.emplace_back(I);
+  mu_C_params.emplace_back(I);
+  mu_P_params.emplace_back(scalarmultKey(D, rct::INV_EIGHT));
+  mu_C_params.emplace_back(scalarmultKey(D, rct::INV_EIGHT));
+  mu_P_params.emplace_back(C_offset);
+  mu_C_params.emplace_back(C_offset);
+  mu_P = hash_to_scalar(mu_P_params);
+  mu_C = hash_to_scalar(mu_C_params);
 
   rct::geDsmp I_precomp;
   rct::geDsmp D_precomp;
@@ -151,33 +169,47 @@ bool cached_CLSAG_Gen_t::combine_alpha_and_compute_challenge(
 {
   if (not initialized)
     return false;
-  {
-    const std::size_t dim_alpha_components = multisig::signing::kAlphaComponents;
-    if (dim_alpha_components != total_alpha_G.size())
-      return false;
-    if (dim_alpha_components != total_alpha_H.size())
-      return false;
-    if (dim_alpha_components != alpha.size())
-      return false;
-    for (std::size_t i = 0; i < dim_alpha_components; ++i) {
-      b_params[b_params_L_offset + i] = total_alpha_G[i];
-      b_params[b_params_R_offset + i] = total_alpha_H[i];
-    }
-    rct::key b = rct::hash_to_scalar(b_params);
-    rct::key& L_l = c_params[c_params_L_offset];
-    rct::key& R_l = c_params[c_params_R_offset];
-    rct::key b_i = rct::identity();
-    L_l = rct::identity();
-    R_l = rct::identity();
-    alpha_combined = rct::zero();
-    for (std::size_t i = 0; i < dim_alpha_components; ++i) {
-      rct::addKeys(L_l, L_l, rct::scalarmultKey(total_alpha_G[i], b_i));
-      rct::addKeys(R_l, R_l, rct::scalarmultKey(total_alpha_H[i], b_i));
-      sc_muladd(alpha_combined.bytes, alpha[i].bytes, b_i.bytes, alpha_combined.bytes);
-      sc_mul(b_i.bytes, b_i.bytes, b.bytes);
-    }
+
+  const std::size_t num_alpha_components = multisig::signing::kAlphaComponents;
+  if (num_alpha_components != total_alpha_G.size())
+    return false;
+  if (num_alpha_components != total_alpha_H.size())
+    return false;
+  if (num_alpha_components != alpha.size())
+    return false;
+
+  // insert aggregate public nonces for L and R components
+  for (std::size_t i = 0; i < num_alpha_components; ++i) {
+    b_params[b_params_L_offset + i] = total_alpha_G[i];
+    b_params[b_params_R_offset + i] = total_alpha_H[i];
   }
+
+  // musig2-style combination factor 'b'
+  rct::key b = rct::hash_to_scalar(b_params);
+
+  // 1) store combined public nonces in the 'L' and 'R' slots for computing the initial challenge
+  //    - L = sum_i(b^i total_alpha_G[i])
+  //    - R = sum_i(b^i total_alpha_H[i])
+  // 2) compute the local signer's combined private nonce
+  //    - alpha_combined = sum_i(b^i * alpha[i])
+  rct::key& L_l = c_params[c_params_L_offset];
+  rct::key& R_l = c_params[c_params_R_offset];
+  rct::key b_i = rct::identity();
+  L_l = rct::identity();
+  R_l = rct::identity();
+  alpha_combined = rct::zero();
+  for (std::size_t i = 0; i < num_alpha_components; ++i) {
+    rct::addKeys(L_l, L_l, rct::scalarmultKey(total_alpha_G[i], b_i));
+    rct::addKeys(R_l, R_l, rct::scalarmultKey(total_alpha_H[i], b_i));
+    sc_muladd(alpha_combined.bytes, alpha[i].bytes, b_i.bytes, alpha_combined.bytes);
+    sc_mul(b_i.bytes, b_i.bytes, b.bytes);
+  }
+
+  // compute initial challenge from real spend components
   c = rct::hash_to_scalar(c_params);
+
+  // 1) c_0: find the CLSAG's challenge for index '0', which will be stored in the proof
+  // 2) c:   find the final challenge for the multisig signers to respond to
   for (std::size_t i = (l + 1) % n; i != l; i = (i + 1) % n) {
     if (i == 0)
       c_0 = c;
@@ -187,6 +219,7 @@ bool cached_CLSAG_Gen_t::combine_alpha_and_compute_challenge(
   }
   if (l == 0)
     c_0 = c;
+
   return true;
 }
 
@@ -225,20 +258,20 @@ static bool compute_keys_for_sources(
   rct::keyV& input_secret_keys
 )
 {
-  const std::size_t dim_sources = sources.size();
+  const std::size_t num_sources = sources.size();
   hw::device& hwdev = account_keys.get_device();
   std::unordered_map<crypto::public_key, cryptonote::subaddress_index> subaddresses;
-  for (const std::uint32_t& minor_index: subaddr_minor_indices) {
+  for (const std::uint32_t minor_index: subaddr_minor_indices) {
     subaddresses[hwdev.get_subaddress_spend_public_key(
       account_keys,
       {subaddr_account, minor_index}
     )] = {subaddr_account, minor_index};
   }
-  input_secret_keys.resize(dim_sources);
-  for (std::size_t i = 0; i < dim_sources; ++i) {
+  input_secret_keys.resize(num_sources);
+  for (std::size_t i = 0; i < num_sources; ++i) {
     const auto& src = sources[i];
-    crypto::key_image tmp_image;
-    cryptonote::keypair tmp_key;
+    crypto::key_image tmp_key_image;
+    cryptonote::keypair tmp_keys;
     if (src.real_output >= src.outputs.size())
       return false;
     if (not cryptonote::generate_key_image_helper(
@@ -248,13 +281,13 @@ static bool compute_keys_for_sources(
       src.real_out_tx_key,
       src.real_out_additional_tx_keys,
       src.real_output_in_tx_index,
-      tmp_key,
-      tmp_image,
+      tmp_keys,
+      tmp_key_image,
       hwdev
     )) {
       return false;
     }
-    input_secret_keys[i] = rct::sk2rct(tmp_key.sec);
+    input_secret_keys[i] = rct::sk2rct(tmp_keys.sec);
   }
   return true;
 }
@@ -305,10 +338,10 @@ static bool set_tx_extra(
           return false;
         }
 
-        std::string extra_nonce;
-        cryptonote::set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce, payment_id8);
+        std::string extra_nonce_updated;
+        cryptonote::set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce_updated, payment_id8);
         cryptonote::remove_field_from_tx_extra(tx.extra, typeid(cryptonote::tx_extra_nonce));
-        if (!cryptonote::add_extra_nonce_to_tx_extra(tx.extra, extra_nonce))
+        if (!cryptonote::add_extra_nonce_to_tx_extra(tx.extra, extra_nonce_updated))
         {
           LOG_ERROR("Failed to add encrypted payment id to tx extra");
           return false;
@@ -330,7 +363,7 @@ static bool set_tx_extra(
     {
       // if we have neither long nor short payment id, add a dummy short one,
       // this should end up being the vast majority of txes as time goes on
-      std::string extra_nonce;
+      std::string extra_nonce_updated;
       crypto::hash8 payment_id8 = crypto::null_hash8;
       crypto::public_key view_key_pub = cryptonote::get_destination_view_key_pub(destinations, change.addr);
       if (view_key_pub == crypto::null_pkey)
@@ -340,8 +373,8 @@ static bool set_tx_extra(
       else
       {
         hwdev.encrypt_payment_id(payment_id8, view_key_pub, tx_secret_key);
-        cryptonote::set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce, payment_id8);
-        if (!cryptonote::add_extra_nonce_to_tx_extra(tx.extra, extra_nonce))
+        cryptonote::set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce_updated, payment_id8);
+        if (!cryptonote::add_extra_nonce_to_tx_extra(tx.extra, extra_nonce_updated))
         {
           LOG_ERROR("Failed to add dummy encrypted payment id to tx extra");
           // continue anyway
@@ -385,7 +418,7 @@ static bool compute_keys_for_destinations(
   cryptonote::transaction& unsigned_tx
 )
 {
-  const std::size_t dim_destinations = destinations.size();
+  const std::size_t num_destinations = destinations.size();
   crypto::public_key tx_public_key;
   std::vector<crypto::public_key> tx_aux_public_keys;
   hw::device &hwdev = account_keys.get_device();
@@ -414,11 +447,13 @@ static bool compute_keys_for_destinations(
   );
   const bool need_tx_aux_keys = unique_sub.size() + bool(unique_std.size()) > 1;
   if (not reconstruction and need_tx_aux_keys) {
-    for(std::size_t i = 0; i < dim_destinations; ++i)
-      tx_aux_secret_keys.push_back(rct::rct2sk(rct::skGen()));
+    tx_aux_secret_keys.clear();
+    tx_aux_secret_keys.reserve(tx_aux_secret_keys.size() + num_destinations);
+    for(std::size_t i = 0; i < num_destinations; ++i)
+      tx_aux_secret_keys.emplace_back(rct::rct2sk(rct::skGen()));
   }
-  output_public_keys.resize(dim_destinations);
-  for (std::size_t i = 0; i < dim_destinations; ++i) {
+  output_public_keys.resize(num_destinations);
+  for (std::size_t i = 0; i < num_destinations; ++i) {
     if (not hwdev.generate_output_ephemeral_keys(
       unsigned_tx.version,
       account_keys,
@@ -436,7 +471,7 @@ static bool compute_keys_for_destinations(
       return false;
     }
   }
-  if (dim_destinations != output_amount_secret_keys.size())
+  if (num_destinations != output_amount_secret_keys.size())
     return false;
   CHECK_AND_ASSERT_MES(
     tx_aux_public_keys.size() == tx_aux_secret_keys.size(),
@@ -453,17 +488,16 @@ static void set_tx_inputs(
   cryptonote::transaction& unsigned_tx
 )
 {
-  const std::size_t dim_sources = sources.size();
-  unsigned_tx.vin.resize(dim_sources);
-  for (std::size_t i = 0; i < dim_sources; ++i) {
+  const std::size_t num_sources = sources.size();
+  unsigned_tx.vin.resize(num_sources);
+  for (std::size_t i = 0; i < num_sources; ++i) {
     std::vector<std::uint64_t> offsets;
+    offsets.reserve(sources[i].outputs.size());
     for (const auto& e: sources[i].outputs)
-      offsets.push_back(e.first);
+      offsets.emplace_back(e.first);
     unsigned_tx.vin[i] = cryptonote::txin_to_key{
       .amount = 0,
-      .key_offsets = cryptonote::absolute_output_offsets_to_relative(
-        offsets
-      ),
+      .key_offsets = cryptonote::absolute_output_offsets_to_relative(offsets),
       .k_image = rct::rct2ki(sources[i].multisig_kLRki.ki),
     };
   }
@@ -474,9 +508,9 @@ static void set_tx_outputs(
   cryptonote::transaction& unsigned_tx
 )
 {
-  const std::size_t dim_destinations = output_public_keys.size();
-  unsigned_tx.vout.resize(dim_destinations);
-  for (std::size_t i = 0; i < dim_destinations; ++i) {
+  const std::size_t num_destinations = output_public_keys.size();
+  unsigned_tx.vout.resize(num_destinations);
+  for (std::size_t i = 0; i < num_destinations; ++i) {
     unsigned_tx.vout[i] = cryptonote::tx_out{
       .amount = 0,
       .target = cryptonote::txout_to_key(rct::rct2pk(output_public_keys[i])),
@@ -498,8 +532,8 @@ static bool set_tx_rct_signatures(
   rct::keyV& cached_w
 )
 {
-  const std::size_t dim_destinations = destinations.size();
-  const std::size_t dim_sources = sources.size();
+  const std::size_t num_destinations = destinations.size();
+  const std::size_t num_sources = sources.size();
   if (rct_config.bp_version != 3)
     return false;
   if (rct_config.range_proof_type != rct::RangeProofPaddedBulletproof)
@@ -509,11 +543,11 @@ static bool set_tx_rct_signatures(
   rv.txnFee = fee;
   rv.message = rct::hash2rct(cryptonote::get_transaction_prefix_hash(unsigned_tx));
 
-  std::vector<std::uint64_t> output_amounts(dim_destinations);
-  rct::keyV output_amount_masks(dim_destinations);
-  rv.ecdhInfo.resize(dim_destinations);
-  rv.outPk.resize(dim_destinations);
-  for (std::size_t i = 0; i < dim_destinations; ++i) {
+  std::vector<std::uint64_t> output_amounts(num_destinations);
+  rct::keyV output_amount_masks(num_destinations);
+  rv.ecdhInfo.resize(num_destinations);
+  rv.outPk.resize(num_destinations);
+  for (std::size_t i = 0; i < num_destinations; ++i) {
     rv.outPk[i].dest = output_public_keys[i];
     output_amounts[i] = destinations[i].amount;
     output_amount_masks[i] = genCommitmentMask(output_amount_secret_keys[i]);
@@ -534,19 +568,19 @@ static bool set_tx_rct_signatures(
     rv.p.bulletproofs = unsigned_tx.rct_signatures.p.bulletproofs;
     if (rv.p.bulletproofs.size() != 1)
       return false;
-    rv.p.bulletproofs[0].V.resize(dim_destinations);
-    for (std::size_t i = 0; i < dim_destinations; ++i) {
+    rv.p.bulletproofs[0].V.resize(num_destinations);
+    for (std::size_t i = 0; i < num_destinations; ++i) {
       rv.p.bulletproofs[0].V[i] = rct::scalarmultKey(rv.outPk[i].mask, rct::INV_EIGHT);
     }
     if (not bulletproof_VERIFY(rv.p.bulletproofs))
       return false;
   }
 
-  rv.mixRing.resize(dim_sources);
-  for (std::size_t i = 0; i < dim_sources; ++i) {
-    const std::size_t dim_ring = sources[i].outputs.size();
-    rv.mixRing[i].resize(dim_ring);
-    for (std::size_t j = 0; j < dim_ring; ++j) {
+  rv.mixRing.resize(num_sources);
+  for (std::size_t i = 0; i < num_sources; ++i) {
+    const std::size_t ring_size = sources[i].outputs.size();
+    rv.mixRing[i].resize(ring_size);
+    for (std::size_t j = 0; j < ring_size; ++j) {
       rv.mixRing[i][j].dest = sources[i].outputs[j].second.dest;
       rv.mixRing[i][j].mask = sources[i].outputs[j].second.mask;
     }
@@ -554,85 +588,85 @@ static bool set_tx_rct_signatures(
 
   const rct::key message = get_pre_mlsag_hash(rv, hw::get_device("default"));
 
-  rct::keyV a;
+  rct::keyV a;  //pseudo-output commitment blinding factors
   auto a_wiper = epee::misc_utils::create_scope_leave_handler([&]{
     memwipe(static_cast<rct::key *>(a.data()), a.size() * sizeof(rct::key));
   });
   if (not reconstruction) {
-    a.resize(dim_sources);
-    rv.p.pseudoOuts.resize(dim_sources);
-    a[dim_sources - 1] = rct::zero();
-    for (std::size_t i = 0; i < dim_destinations; ++i) {
+    a.resize(num_sources);
+    rv.p.pseudoOuts.resize(num_sources);
+    a[num_sources - 1] = rct::zero();
+    for (std::size_t i = 0; i < num_destinations; ++i) {
       sc_add(
-        a[dim_sources - 1].bytes,
-        a[dim_sources - 1].bytes,
+        a[num_sources - 1].bytes,
+        a[num_sources - 1].bytes,
         output_amount_masks[i].bytes
       );
     }
-    for (std::size_t i = 0; i < dim_sources - 1; ++i) {
+    for (std::size_t i = 0; i < num_sources - 1; ++i) {
       rct::skGen(a[i]);
       sc_sub(
-        a[dim_sources - 1].bytes,
-        a[dim_sources - 1].bytes,
+        a[num_sources - 1].bytes,
+        a[num_sources - 1].bytes,
         a[i].bytes
       );
       rct::genC(rv.p.pseudoOuts[i], a[i], sources[i].amount);
     }
     rct::genC(
-      rv.p.pseudoOuts[dim_sources - 1],
-      a[dim_sources - 1],
-      sources[dim_sources - 1].amount
+      rv.p.pseudoOuts[num_sources - 1],
+      a[num_sources - 1],
+      sources[num_sources - 1].amount
     );
   }
   else {
     rv.p.pseudoOuts = unsigned_tx.rct_signatures.p.pseudoOuts;
-    if (dim_sources != rv.p.pseudoOuts.size())
+    if (num_sources != rv.p.pseudoOuts.size())
       return false;
-    rct::key tmp = rct::scalarmultH(rct::d2h(fee));
+    rct::key balance_accumulator = rct::scalarmultH(rct::d2h(fee));
     for (const auto& e: rv.outPk)
-      rct::addKeys(tmp, tmp, e.mask);
-    for (std::size_t i = 0; i < dim_sources; ++i)
-      rct::subKeys(tmp, tmp, rv.p.pseudoOuts[i]);
-    if (not (tmp == rct::identity()))
+      rct::addKeys(balance_accumulator, balance_accumulator, e.mask);
+    for (const auto& pseudoOut: rv.p.pseudoOuts)
+      rct::subKeys(balance_accumulator, balance_accumulator, pseudoOut);
+    if (not (balance_accumulator == rct::identity()))
       return false;
   }
 
 
-  rv.p.CLSAGs.resize(dim_sources);
+  rv.p.CLSAGs.resize(num_sources);
   if (reconstruction) {
-    if (dim_sources != unsigned_tx.rct_signatures.p.CLSAGs.size())
+    if (num_sources != unsigned_tx.rct_signatures.p.CLSAGs.size())
       return false;
   }
 
-  cached_CLSAG.resize(dim_sources);
+  cached_CLSAG.resize(num_sources);
   if (not reconstruction)
-    cached_w.resize(dim_sources);
+    cached_w.resize(num_sources);
 
-  for (std::size_t i = 0; i < dim_sources; ++i) {
-    const std::size_t dim_ring = rv.mixRing[i].size();
+  for (std::size_t i = 0; i < num_sources; ++i) {
+    const std::size_t ring_size = rv.mixRing[i].size();
     const rct::key& I = sources[i].multisig_kLRki.ki;
     const std::size_t& l = sources[i].real_output;
-    if (l >= dim_ring)
+    if (l >= ring_size)
       return false;
     rct::keyV& s = rv.p.CLSAGs[i].s;
     const rct::key& C_offset = rv.p.pseudoOuts[i];
-    rct::keyV P(dim_ring);
-    rct::keyV C_nonzero(dim_ring);
+    rct::keyV P(ring_size);
+    rct::keyV C_nonzero(ring_size);
 
     if (not reconstruction) {
-      s.resize(dim_ring);
-      for (std::size_t j = 0; j < dim_ring; ++j) {
+      s.resize(ring_size);
+      for (std::size_t j = 0; j < ring_size; ++j) {
         if (j != l)
           s[j] = rct::skGen();
       }
     }
     else {
-      if (dim_ring != unsigned_tx.rct_signatures.p.CLSAGs[i].s.size())
+      if (ring_size != unsigned_tx.rct_signatures.p.CLSAGs[i].s.size())
         return false;
       s = unsigned_tx.rct_signatures.p.CLSAGs[i].s;
     }
 
-    for (std::size_t j = 0; j < dim_ring; ++j) {
+    for (std::size_t j = 0; j < ring_size; ++j) {
       P[j] = rv.mixRing[i][j].dest;
       C_nonzero[j] = rv.mixRing[i][j].mask;
     }
@@ -738,11 +772,13 @@ bool tx_builder_t::init(
   auto output_amount_secret_keys_wiper = epee::misc_utils::create_scope_leave_handler([&]{
     memwipe(static_cast<rct::key *>(output_amount_secret_keys.data()), output_amount_secret_keys.size() * sizeof(rct::key));
   });
-  if (not compute_keys_for_destinations(account_keys, subaddr_account, destinations, change, extra, reconstruction, tx_secret_key, tx_aux_secret_keys, output_public_keys, output_amount_secret_keys, unsigned_tx))
+  if (not compute_keys_for_destinations(account_keys, subaddr_account, destinations, change, extra, reconstruction, tx_secret_key,
+      tx_aux_secret_keys, output_public_keys, output_amount_secret_keys, unsigned_tx))
     return false;
   set_tx_inputs(sources, unsigned_tx);
   set_tx_outputs(output_public_keys, unsigned_tx);
-  if (not set_tx_rct_signatures(fee, sources, destinations, input_secret_keys, output_public_keys, output_amount_secret_keys, rct_config, reconstruction, unsigned_tx, cached_CLSAG, cached_w))
+  if (not set_tx_rct_signatures(fee, sources, destinations, input_secret_keys, output_public_keys, output_amount_secret_keys,
+      rct_config, reconstruction, unsigned_tx, cached_CLSAG, cached_w))
     return false;
   initialized = true;
   return true;
@@ -759,8 +795,8 @@ bool tx_builder_t::first_partial_sign(
 {
   if (not initialized or reconstruction)
     return false;
-  const std::size_t dim_sources = cached_CLSAG.size();
-  if (source >= dim_sources)
+  const std::size_t num_sources = cached_CLSAG.size();
+  if (source >= num_sources)
     return false;
   rct::key c;
   rct::key alpha_combined;
@@ -777,6 +813,10 @@ bool tx_builder_t::first_partial_sign(
   )) {
     return false;
   }
+
+  // initial partial response:
+  //      s = alpha_combined_local - challenge*[mu_P*(local keys and sender-receiver secret and subaddress material) +
+  //                                            mu_C*(commitment-to-zero secret)]
   sc_mulsub(s.bytes, c.bytes, cached_w[source].bytes, alpha_combined.bytes);
   return true;
 }
@@ -792,18 +832,18 @@ bool tx_builder_t::next_partial_sign(
 {
   if (not initialized or not reconstruction)
     return false;
-  const std::size_t dim_sources = cached_CLSAG.size();
-  if (dim_sources != total_alpha_G.size())
+  const std::size_t num_sources = cached_CLSAG.size();
+  if (num_sources != total_alpha_G.size())
     return false;
-  if (dim_sources != total_alpha_H.size())
+  if (num_sources != total_alpha_H.size())
     return false;
-  if (dim_sources != alpha.size())
+  if (num_sources != alpha.size())
     return false;
-  if (dim_sources != c_0.size())
+  if (num_sources != c_0.size())
     return false;
-  if (dim_sources != s.size())
+  if (num_sources != s.size())
     return false;
-  for (std::size_t i = 0; i < dim_sources; ++i) {
+  for (std::size_t i = 0; i < num_sources; ++i) {
     rct::key c;
     rct::key alpha_combined;
     auto alpha_combined_wiper = epee::misc_utils::create_scope_leave_handler([&]{
@@ -828,29 +868,32 @@ bool tx_builder_t::next_partial_sign(
       memwipe(static_cast<rct::key *>(&w), sizeof(rct::key));
     });
     sc_mul(w.bytes, mu_P.bytes, x.bytes);
-    sc_mulsub(s[i].bytes, c.bytes, w.bytes, s[i].bytes);
+
+    // include local signer's response:
+    //      s += alpha_combined_local - challenge*[mu_P*(local keys)]
     sc_add(s[i].bytes, s[i].bytes, alpha_combined.bytes);
+    sc_mulsub(s[i].bytes, c.bytes, w.bytes, s[i].bytes);
   }
   return true;
 }
 
-bool tx_builder_t::construct_tx(
+bool tx_builder_t::finalize_tx(
   const std::vector<cryptonote::tx_source_entry>& sources,
   const rct::keyV& c_0,
   const rct::keyV& s,
   cryptonote::transaction& unsigned_tx
 )
 {
-  const std::size_t dim_sources = sources.size();
-  if (dim_sources != unsigned_tx.rct_signatures.p.CLSAGs.size())
+  const std::size_t num_sources = sources.size();
+  if (num_sources != unsigned_tx.rct_signatures.p.CLSAGs.size())
     return false;
-  if (dim_sources != c_0.size())
+  if (num_sources != c_0.size())
     return false;
-  if (dim_sources != s.size())
+  if (num_sources != s.size())
     return false;
-  for (std::size_t i = 0; i < dim_sources; ++i) {
-    const std::size_t dim_ring = unsigned_tx.rct_signatures.p.CLSAGs[i].s.size();
-    if (sources[i].real_output >= dim_ring)
+  for (std::size_t i = 0; i < num_sources; ++i) {
+    const std::size_t ring_size = unsigned_tx.rct_signatures.p.CLSAGs[i].s.size();
+    if (sources[i].real_output >= ring_size)
       return false;
     unsigned_tx.rct_signatures.p.CLSAGs[i].s[sources[i].real_output] = s[i];
     unsigned_tx.rct_signatures.p.CLSAGs[i].c1 = c_0[i];
@@ -858,6 +901,6 @@ bool tx_builder_t::construct_tx(
   return true;
 }
 
-}
+} //namespace signing
 
-}
+} //namespace multisig
