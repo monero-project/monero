@@ -27,11 +27,13 @@
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 set(multisig_sources
+  signing_protocol.cpp
   multisig.cpp)
 
 set(multisig_headers)
 
 set(multisig_private_headers
+  signing_protocol.h
   multisig.h)
 
 monero_private_headers(multisig
@@ -46,6 +48,7 @@ target_link_libraries(multisig
   PUBLIC
     ringct
     cryptonote_basic
+    cryptonote_core
     common
     cncrypto
   PRIVATE

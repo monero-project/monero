@@ -56,6 +56,7 @@ using namespace epee;
 #include "misc_language.h"
 #include "cryptonote_basic/cryptonote_basic_impl.h"
 #include "multisig/multisig.h"
+#include "multisig/signing_protocol.h"
 #include "common/boost_serialization_helper.h"
 #include "common/command_line.h"
 #include "common/threadpool.h"
@@ -7309,30 +7310,38 @@ bool wallet2::sign_multisig_tx(multisig_tx_set &exported_txs, std::vector<crypto
     tools::wallet2::tx_construction_data &sd = ptx.construction_data;
     LOG_PRINT_L1(" " << (n+1) << ": " << sd.sources.size() << " inputs, mixin " << (sd.sources[0].outputs.size()-1) <<
         ", signed by " << exported_txs.m_signers.size() << "/" << m_multisig_threshold);
-    cryptonote::transaction tx;
-    rct::multisig_out msout = ptx.multisig_sigs.front().msout;
-    auto sources = sd.sources;
-    rct::RCTConfig rct_config = sd.rct_config;
-    bool r = cryptonote::construct_tx_with_tx_key(m_account.get_keys(), m_subaddresses, sources, sd.splitted_dsts, ptx.change_dts.addr, sd.extra, tx, sd.unlock_time, ptx.tx_key, ptx.additional_tx_keys, sd.use_rct, rct_config, &msout, false);
-    THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sd.sources, sd.splitted_dsts, sd.unlock_time, m_nettype);
-
-    THROW_WALLET_EXCEPTION_IF(get_transaction_prefix_hash (tx) != get_transaction_prefix_hash(ptx.tx),
-        error::wallet_internal_error, "Transaction prefix does not match data");
-
-    // Tests passed, sign
-    std::vector<unsigned int> indices;
-    for (const auto &source: sources)
-      indices.push_back(source.real_output);
+    multisig::signing::tx_builder_t tx_builder;
+    THROW_WALLET_EXCEPTION_IF(
+      not tx_builder.init(
+        m_account.get_keys(),
+        ptx.construction_data.extra,
+        ptx.construction_data.unlock_time,
+        ptx.construction_data.subaddr_account,
+        ptx.construction_data.subaddr_indices,
+        ptx.construction_data.sources,
+        ptx.construction_data.splitted_dsts,
+        ptx.construction_data.change_dts,
+        ptx.construction_data.rct_config,
+        ptx.construction_data.use_rct,
+        true,
+        ptx.tx_key,
+        ptx.additional_tx_keys,
+        ptx.tx
+      ),
+      error::wallet_internal_error,
+      "error: multisig::signing::tx_builder_t::init"
+    );
 
     for (auto &sig: ptx.multisig_sigs)
     {
       if (sig.ignore.find(local_signer) == sig.ignore.end())
       {
-        ptx.tx.rct_signatures = sig.sigs;
-
         rct::keyV k;
         rct::key skey = rct::zero();
-        auto wiper = epee::misc_utils::create_scope_leave_handler([&](){ memwipe(k.data(), k.size() * sizeof(k[0])); memwipe(&skey, sizeof(skey)); });
+        auto wiper = epee::misc_utils::create_scope_leave_handler([&]{
+          memwipe(static_cast<rct::key *>(k.data()), k.size() * sizeof(rct::key));
+          memwipe(static_cast<rct::key *>(&skey), sizeof(rct::key));
+        });
 
         k.resize(sd.selected_transfers.size());
         for (std::size_t i = 0; i < k.size(); ++i)
@@ -7348,10 +7357,12 @@ bool wallet2::sign_multisig_tx(multisig_tx_set &exported_txs, std::vector<crypto
             sig.signing_keys.insert(pmsk);
           }
         }
-        THROW_WALLET_EXCEPTION_IF(!rct::signMultisig(ptx.tx.rct_signatures, indices, k, sig.msout, skey),
-            error::wallet_internal_error, "Failed signing, transaction likely malformed");
 
-        sig.sigs = ptx.tx.rct_signatures;
+        THROW_WALLET_EXCEPTION_IF(
+          not tx_builder.next_partial_sign(sig.total_alpha_G, sig.total_alpha_H, k, skey, sig.c_0, sig.s),
+          error::wallet_internal_error,
+          "error: multisig::signing::tx_builder_t::next_partial_sign"
+        );
       }
     }
 
@@ -7366,7 +7377,11 @@ bool wallet2::sign_multisig_tx(multisig_tx_set &exported_txs, std::vector<crypto
         if (sig.ignore.find(local_signer) == sig.ignore.end() && !keys_intersect(sig.ignore, exported_txs.m_signers))
         {
           THROW_WALLET_EXCEPTION_IF(found, error::wallet_internal_error, "More than one transaction is final");
-          ptx.tx.rct_signatures = sig.sigs;
+          THROW_WALLET_EXCEPTION_IF(
+            not tx_builder.construct_tx(ptx.construction_data.sources, sig.c_0, sig.s, ptx.tx),
+            error::wallet_internal_error,
+            "error: multisig::signing::tx_builder_t::construct_tx"
+          );
           found = true;
         }
       }
@@ -8970,7 +8985,6 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
   LOG_PRINT_L2("preparing outputs");
   size_t i = 0, out_index = 0;
   std::vector<cryptonote::tx_source_entry> sources;
-  std::unordered_set<rct::key> used_L;
   for(size_t idx: selected_transfers)
   {
     sources.resize(sources.size()+1);
@@ -9013,10 +9027,7 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
     src.real_output_in_tx_index = td.m_internal_output_index;
     src.mask = td.m_mask;
     if (m_multisig)
-    {
-      auto ignore_set = ignore_sets.empty() ? std::unordered_set<crypto::public_key>() : ignore_sets.front();
-      src.multisig_kLRki = get_multisig_composite_kLRki(idx, ignore_set, used_L, used_L);
-    }
+      src.multisig_kLRki = {.k = {}, .L = {}, .R = {}, .ki = rct::ki2rct(td.m_key_image)};
     else
       src.multisig_kLRki = rct::multisig_kLRki({rct::zero(), rct::zero(), rct::zero(), rct::zero()});
     detail::print_source_entry(src);
@@ -9053,12 +9064,25 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
 
   crypto::secret_key tx_key;
   std::vector<crypto::secret_key> additional_tx_keys;
-  rct::multisig_out msout;
   LOG_PRINT_L2("constructing tx");
   auto sources_copy = sources;
-  bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), m_subaddresses, sources, splitted_dsts, change_dts.addr, extra, tx, unlock_time, tx_key, additional_tx_keys, true, rct_config, m_multisig ? &msout : NULL);
-  LOG_PRINT_L2("constructed tx, r="<<r);
-  THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sources, dsts, unlock_time, m_nettype);
+  multisig::signing::tx_builder_t tx_builder;
+  if (m_multisig) {
+    std::set<std::uint32_t> subaddr_minor_indices;
+    for (size_t idx: selected_transfers) {
+      subaddr_minor_indices.insert(m_transfers[idx].m_subaddr_index.minor);
+    }
+    THROW_WALLET_EXCEPTION_IF(
+      not tx_builder.init(m_account.get_keys(), extra, unlock_time, subaddr_account, subaddr_minor_indices, sources, splitted_dsts, change_dts, rct_config, true, false, tx_key, additional_tx_keys, tx),
+      error::wallet_internal_error,
+      "error: multisig::signing::tx_builder_t::init"
+    );
+  }
+  else {
+    bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), m_subaddresses, sources, splitted_dsts, change_dts.addr, extra, tx, unlock_time, tx_key, additional_tx_keys, true, rct_config);
+    LOG_PRINT_L2("constructed tx, r="<<r);
+    THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sources, dsts, unlock_time, m_nettype);
+  }
   THROW_WALLET_EXCEPTION_IF(upper_transaction_weight_limit <= get_transaction_weight(tx), error::tx_too_big, tx, upper_transaction_weight_limit);
 
   // work out the permutation done on sources
@@ -9076,41 +9100,46 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
   THROW_WALLET_EXCEPTION_IF(ins_order.size() != sources.size(), error::wallet_internal_error, "Failed to work out sources permutation");
 
   std::vector<tools::wallet2::multisig_sig> multisig_sigs;
-  if (m_multisig)
-  {
-    auto ignore = ignore_sets.empty() ? std::unordered_set<crypto::public_key>() : ignore_sets.front();
-    multisig_sigs.push_back({tx.rct_signatures, ignore, used_L, std::unordered_set<crypto::public_key>(), msout});
-
-    if (m_multisig_threshold < m_multisig_signers.size())
-    {
-      const crypto::hash prefix_hash = cryptonote::get_transaction_prefix_hash(tx);
-
-      // create the other versions, one for every other participant (the first one's already done above)
-      for (size_t ignore_index = 1; ignore_index < ignore_sets.size(); ++ignore_index)
-      {
-        std::unordered_set<rct::key> new_used_L;
-        size_t src_idx = 0;
-        THROW_WALLET_EXCEPTION_IF(selected_transfers.size() != sources.size(), error::wallet_internal_error, "mismatched selected_transfers and sources sixes");
-        for(size_t idx: selected_transfers)
-        {
-          cryptonote::tx_source_entry& src = sources_copy[src_idx];
-          src.multisig_kLRki = get_multisig_composite_kLRki(idx, ignore_sets[ignore_index], used_L, new_used_L);
-          ++src_idx;
-        }
-
-        LOG_PRINT_L2("Creating supplementary multisig transaction");
-        cryptonote::transaction ms_tx;
-        auto sources_copy_copy = sources_copy;
-        bool r = cryptonote::construct_tx_with_tx_key(m_account.get_keys(), m_subaddresses, sources_copy_copy, splitted_dsts, change_dts.addr, extra, ms_tx, unlock_time,tx_key, additional_tx_keys, true, rct_config, &msout, false);
-        LOG_PRINT_L2("constructed tx, r="<<r);
-        THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sources, splitted_dsts, unlock_time, m_nettype);
-        THROW_WALLET_EXCEPTION_IF(upper_transaction_weight_limit <= get_transaction_weight(tx), error::tx_too_big, tx, upper_transaction_weight_limit);
-        THROW_WALLET_EXCEPTION_IF(cryptonote::get_transaction_prefix_hash(ms_tx) != prefix_hash, error::wallet_internal_error, "Multisig txes do not share prefix");
-        multisig_sigs.push_back({ms_tx.rct_signatures, ignore_sets[ignore_index], new_used_L, std::unordered_set<crypto::public_key>(), msout});
-
-        ms_tx.rct_signatures = tx.rct_signatures;
-        THROW_WALLET_EXCEPTION_IF(cryptonote::get_transaction_hash(ms_tx) != cryptonote::get_transaction_hash(tx), error::wallet_internal_error, "Multisig txes differ by more than the signatures");
+  if (m_multisig) {
+    if (ignore_sets.empty())
+      ignore_sets.emplace_back();
+    const std::size_t dim_sigs = ignore_sets.size();
+    multisig_sigs.resize(dim_sigs);
+    std::unordered_set<rct::key> used_L;
+    std::unordered_set<crypto::public_key> signing_keys;
+    for (const crypto::secret_key &msk: get_account().get_multisig_keys())
+      signing_keys.insert(get_multisig_signing_public_key(msk));
+    const std::size_t dim_sources = sources.size();
+    for (std::size_t i = 0; i < dim_sigs; ++i) {
+      multisig_sig& sig = multisig_sigs[i];
+      sig.total_alpha_G.resize(dim_sources);
+      sig.total_alpha_H.resize(dim_sources);
+      sig.s.resize(dim_sources);
+      sig.c_0.resize(dim_sources);
+      for (std::size_t j = 0; j < dim_sources; ++j) {
+        const rct::multisig_kLRki kLRki = get_multisig_composite_kLRki(
+          selected_transfers[ins_order[j]],
+          ignore_sets[i],
+          used_L,
+          sig.used_L
+        );
+        THROW_WALLET_EXCEPTION_IF(
+          not tx_builder.first_partial_sign(j, kLRki.L, kLRki.R, kLRki.k, sig.c_0[j], sig.s[j]),
+          error::wallet_internal_error,
+          "error: multisig::signing::tx_builder_t::first_partial_sign"
+        );
+        sig.total_alpha_G[j] = kLRki.L;
+        sig.total_alpha_H[j] = kLRki.R;
       }
+      sig.ignore = ignore_sets[i];
+      sig.signing_keys = signing_keys;
+    }
+    if (m_multisig_threshold <= 1) {
+      THROW_WALLET_EXCEPTION_IF(
+        not tx_builder.construct_tx(sources, multisig_sigs[0].c_0, multisig_sigs[0].s, tx),
+        error::wallet_internal_error,
+        "error: multisig::signing::tx_builder_t::construct_tx"
+      );
     }
   }
 
