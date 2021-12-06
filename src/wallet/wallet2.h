@@ -525,13 +525,24 @@ private:
       std::unordered_set<crypto::public_key> signing_keys;
       rct::multisig_out msout;
 
+      rct::keyV total_alpha_G;
+      rct::keyV total_alpha_H;
+      rct::keyV c_0;
+      rct::keyV s;
+
       BEGIN_SERIALIZE_OBJECT()
-        VERSION_FIELD(0)
+        VERSION_FIELD(1)
         FIELD(sigs)
         FIELD(ignore)
         FIELD(used_L)
         FIELD(signing_keys)
         FIELD(msout)
+        if (version < 1)
+          return true;
+        FIELD(total_alpha_G)
+        FIELD(total_alpha_H)
+        FIELD(c_0)
+        FIELD(s)
       END_SERIALIZE()
     };
 
@@ -1828,7 +1839,7 @@ BOOST_CLASS_VERSION(tools::wallet2::unsigned_tx_set, 0)
 BOOST_CLASS_VERSION(tools::wallet2::signed_tx_set, 1)
 BOOST_CLASS_VERSION(tools::wallet2::tx_construction_data, 4)
 BOOST_CLASS_VERSION(tools::wallet2::pending_tx, 3)
-BOOST_CLASS_VERSION(tools::wallet2::multisig_sig, 0)
+BOOST_CLASS_VERSION(tools::wallet2::multisig_sig, 1)
 
 namespace boost
 {
@@ -2266,6 +2277,12 @@ namespace boost
       a & x.used_L;
       a & x.signing_keys;
       a & x.msout;
+      if (ver < 1)
+        return;
+      a & x.total_alpha_G;
+      a & x.total_alpha_H;
+      a & x.c_0;
+      a & x.s;
     }
 
     template <class Archive>

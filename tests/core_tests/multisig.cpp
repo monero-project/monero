@@ -31,6 +31,7 @@
 #include "ringct/rctSigs.h"
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "multisig/multisig.h"
+#include "multisig/signing_protocol.h"
 #include "common/apply_permutation.h"
 #include "chaingen.h"
 #include "multisig.h"
@@ -175,7 +176,7 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
     account_base &account = n < inputs ? miner_account[creator] : miner_accounts[n];
     CHECK_AND_ASSERT_MES(generator.construct_block_manually(blocks[n], *prev_block, account,
         test_generator::bf_major_ver | test_generator::bf_minor_ver | test_generator::bf_timestamp | test_generator::bf_hf_version | test_generator::bf_max_outs,
-        10, 10, prev_block->timestamp + DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN * 2, // v2 has blocks twice as long
+        HF_VERSION_CLSAG, HF_VERSION_CLSAG, prev_block->timestamp + DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN * 2, // v2 has blocks twice as long
           crypto::hash(), 0, transaction(), std::vector<crypto::hash>(), 0, 1, 4),
         false, "Failed to generate block");
     events.push_back(blocks[n]);
@@ -191,7 +192,7 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
       cryptonote::block blk;
       CHECK_AND_ASSERT_MES(generator.construct_block_manually(blk, blk_last, miner_accounts[0],
           test_generator::bf_major_ver | test_generator::bf_minor_ver | test_generator::bf_timestamp | test_generator::bf_hf_version | test_generator::bf_max_outs,
-          10, 10, blk_last.timestamp + DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN * 2, // v2 has blocks twice as long
+          HF_VERSION_CLSAG, HF_VERSION_CLSAG, blk_last.timestamp + DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN * 2, // v2 has blocks twice as long
           crypto::hash(), 0, transaction(), std::vector<crypto::hash>(), 0, 1, 4),
           false, "Failed to generate block");
       events.push_back(blk);
@@ -349,22 +350,18 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
   td.amount = amount_paid;
   std::vector<tx_destination_entry> destinations;
   destinations.push_back(td);
+  td.amount = 0;
+  destinations.push_back(td);
 
   if (pre_tx)
     pre_tx(sources, destinations);
 
   transaction tx;
   crypto::secret_key tx_key;
-#ifdef NO_MULTISIG
-  rct::multisig_out *msoutp = NULL;
-#else
-  rct::multisig_out msout;
-  rct::multisig_out *msoutp = &msout;
-#endif
   std::vector<crypto::secret_key> additional_tx_secret_keys;
   auto sources_copy = sources;
-  r = construct_tx_and_get_tx_key(miner_account[creator].get_keys(), subaddresses, sources, destinations, boost::none, std::vector<uint8_t>(), tx, 0, tx_key, additional_tx_secret_keys, true, { rct::RangeProofPaddedBulletproof, 2 }, msoutp);
-  CHECK_AND_ASSERT_MES(r, false, "failed to construct transaction");
+  multisig::signing::tx_builder_t tx_builder;
+  CHECK_AND_ASSERT_MES(tx_builder.init(miner_account[creator].get_keys(), {}, 0, 0, {0}, sources, destinations, {}, {rct::RangeProofPaddedBulletproof, 3}, true, false, tx_key, additional_tx_secret_keys, tx), false, "error: multisig::signing::tx_builder_t::init");
 
 #ifndef NO_MULTISIG
   // work out the permutation done on sources
@@ -383,6 +380,24 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
 #endif
 
 #ifndef NO_MULTISIG
+  struct {
+    rct::keyV total_alpha_G;
+    rct::keyV total_alpha_H;
+    rct::keyV c_0;
+    rct::keyV s;
+  } sig;
+  {
+    sig.total_alpha_G.resize(sources.size());
+    sig.total_alpha_H.resize(sources.size());
+    sig.c_0.resize(sources.size());
+    sig.s.resize(sources.size());
+    for (std::size_t i = 0; i < sources.size(); ++i) {
+      sig.total_alpha_G[i] = sources[i].multisig_kLRki.L;
+      sig.total_alpha_H[i] = sources[i].multisig_kLRki.R;
+      CHECK_AND_ASSERT_MES(tx_builder.first_partial_sign(i, sig.total_alpha_G[i], sig.total_alpha_H[i], sources[i].multisig_kLRki.k, sig.c_0[i], sig.s[i]), false, "error: multisig::signing::tx_builder_t::first_partial_sign");
+    }
+  }
+
   // sign
   std::unordered_set<crypto::secret_key> used_keys;
   const std::vector<crypto::secret_key> &msk0 = miner_account[creator].get_multisig_keys();
@@ -422,16 +437,16 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
     }
     tools::apply_permutation(ins_order, indices);
     tools::apply_permutation(ins_order, k);
+    multisig::signing::tx_builder_t signer_tx_builder;
+    CHECK_AND_ASSERT_MES(signer_tx_builder.init(miner_account[signer].get_keys(), {}, 0, 0, {0}, sources, destinations, {}, {rct::RangeProofPaddedBulletproof, 3}, true, true, tx_key, additional_tx_secret_keys, tx), false, "error: multisig::signing::tx_builder_t::init");
 
     MDEBUG("signing with k size " << k.size());
     MDEBUG("signing with k " << k.back());
     MDEBUG("signing with sk " << skey);
     for (const auto &sk: used_keys)
       MDEBUG("  created with sk " << sk);
-    MDEBUG("signing with c size " << msout.c.size());
-    MDEBUG("signing with c " << msout.c.back());
-    r = rct::signMultisig(tx.rct_signatures, indices, k, msout, skey);
-    CHECK_AND_ASSERT_MES(r, false, "failed to sign transaction");
+    CHECK_AND_ASSERT_MES(signer_tx_builder.next_partial_sign(sig.total_alpha_G, sig.total_alpha_H, k, skey, sig.c_0, sig.s), false, "error: multisig::signing::tx_builder_t::next_partial_sign");
+    CHECK_AND_ASSERT_MES(signer_tx_builder.construct_tx(sources, sig.c_0, sig.s, tx), false, "error: multisig::signing::tx_builder_t::construct_tx");
   }
 #endif
 
@@ -460,7 +475,7 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
       amount += rct::h2d(ecdh_info.amount);
     }
   }
-  CHECK_AND_ASSERT_MES(n_outs == 1, false, "Not exactly 1 output was received");
+  CHECK_AND_ASSERT_MES(n_outs == 2, false, "Not exactly 2 outputs were received");
   CHECK_AND_ASSERT_MES(amount == amount_paid, false, "Amount paid was not the expected amount");
 
   if (post_tx)
