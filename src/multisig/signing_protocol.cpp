@@ -14,6 +14,20 @@ namespace signing {
 
 cached_CLSAG_Gen_t::cached_CLSAG_Gen_t(): initialized{false} {}
 
+template<typename T, std::size_t N>
+void encode_varint(T t, unsigned char (&out)[N]) {
+  static_assert(std::is_integral<T>::value, "");
+  static_assert(std::is_unsigned<T>::value, "");
+  static_assert((sizeof(T) + 6) / 7 <= N, "");
+  for (std::size_t i = 0; i < N && t; ++i) {
+    if (t >= 0x80)
+      out[i] = (static_cast<unsigned char>(t) & 0x7F) | 0x80;
+    else
+      out[i] = static_cast<unsigned char>(t);
+    t >>= 7;
+  }
+}
+
 template<std::size_t N>
 rct::key string_to_key(const unsigned char (&str)[N]) {
   rct::key tmp{};
@@ -47,16 +61,33 @@ bool cached_CLSAG_Gen_t::init(
 
   c_params.clear();
   c_params.reserve(n * 2 + 5);
+  b_params.clear();
+  b_params.reserve(n * 3 + 2 * multisig::signing::kAlphaComponents + 5);
 
   c_params.push_back(string_to_key(config::HASH_KEY_CLSAG_ROUND));
+  b_params.push_back(string_to_key(config::HASH_KEY_CLSAG_ROUND_MULTISIG));
   c_params.insert(c_params.end(), P.begin(), P.end());
+  b_params.insert(b_params.end(), P.begin(), P.end());
   c_params.insert(c_params.end(), C_nonzero.begin(), C_nonzero.end());
+  b_params.insert(b_params.end(), C_nonzero.begin(), C_nonzero.end());
   c_params.push_back(C_offset);
+  b_params.push_back(C_offset);
   c_params.push_back(message);
+  b_params.push_back(message);
   c_params_L_offset = c_params.size();
+  b_params_L_offset = b_params.size();
   c_params.resize(c_params.size() + 1);
+  b_params.resize(b_params.size() + multisig::signing::kAlphaComponents);
   c_params_R_offset = c_params.size();
+  b_params_R_offset = b_params.size();
   c_params.resize(c_params.size() + 1);
+  b_params.resize(b_params.size() + multisig::signing::kAlphaComponents);
+  b_params.push_back(I);
+  b_params.push_back(D);
+  b_params.insert(b_params.end(), s.begin(), s.begin() + l);
+  b_params.insert(b_params.end(), s.begin() + l + 1, s.end());
+  b_params.emplace_back();
+  encode_varint(l, b_params.back().bytes);
 
   rct::keyV mu_P_params;
   rct::keyV mu_C_params;
@@ -109,17 +140,43 @@ bool cached_CLSAG_Gen_t::init(
   return true;
 }
 
-bool cached_CLSAG_Gen_t::compute_challenge(
-  const rct::key& total_alpha_G,
-  const rct::key& total_alpha_H,
+bool cached_CLSAG_Gen_t::combine_alpha_and_compute_challenge(
+  const rct::keyV& total_alpha_G,
+  const rct::keyV& total_alpha_H,
+  const rct::keyV& alpha,
+  rct::key& alpha_combined,
   rct::key& c_0,
   rct::key& c
 )
 {
   if (not initialized)
     return false;
-  c_params[c_params_L_offset] = total_alpha_G;
-  c_params[c_params_R_offset] = total_alpha_H;
+  {
+    const std::size_t dim_alpha_components = multisig::signing::kAlphaComponents;
+    if (dim_alpha_components != total_alpha_G.size())
+      return false;
+    if (dim_alpha_components != total_alpha_H.size())
+      return false;
+    if (dim_alpha_components != alpha.size())
+      return false;
+    for (std::size_t i = 0; i < dim_alpha_components; ++i) {
+      b_params[b_params_L_offset + i] = total_alpha_G[i];
+      b_params[b_params_R_offset + i] = total_alpha_H[i];
+    }
+    rct::key b = rct::hash_to_scalar(b_params);
+    rct::key& L_l = c_params[c_params_L_offset];
+    rct::key& R_l = c_params[c_params_R_offset];
+    rct::key b_i = rct::identity();
+    L_l = rct::identity();
+    R_l = rct::identity();
+    alpha_combined = rct::zero();
+    for (std::size_t i = 0; i < dim_alpha_components; ++i) {
+      rct::addKeys(L_l, L_l, rct::scalarmultKey(total_alpha_G[i], b_i));
+      rct::addKeys(R_l, R_l, rct::scalarmultKey(total_alpha_H[i], b_i));
+      sc_muladd(alpha_combined.bytes, alpha[i].bytes, b_i.bytes, alpha_combined.bytes);
+      sc_mul(b_i.bytes, b_i.bytes, b.bytes);
+    }
+  }
   c = rct::hash_to_scalar(c_params);
   for (std::size_t i = (l + 1) % n; i != l; i = (i + 1) % n) {
     if (i == 0)
@@ -693,9 +750,9 @@ bool tx_builder_t::init(
 
 bool tx_builder_t::first_partial_sign(
   const std::size_t source,
-  const rct::key& total_alpha_G,
-  const rct::key& total_alpha_H,
-  const rct::key& alpha,
+  const rct::keyV& total_alpha_G,
+  const rct::keyV& total_alpha_H,
+  const rct::keyV& alpha,
   rct::key& c_0,
   rct::key& s
 )
@@ -706,22 +763,28 @@ bool tx_builder_t::first_partial_sign(
   if (source >= dim_sources)
     return false;
   rct::key c;
-  if (not cached_CLSAG[source].compute_challenge(
+  rct::key alpha_combined;
+  auto alpha_combined_wiper = epee::misc_utils::create_scope_leave_handler([&]{
+    memwipe(static_cast<rct::key *>(&alpha_combined), sizeof(rct::key));
+  });
+  if (not cached_CLSAG[source].combine_alpha_and_compute_challenge(
     total_alpha_G,
     total_alpha_H,
+    alpha,
+    alpha_combined,
     c_0,
     c
   )) {
     return false;
   }
-  sc_mulsub(s.bytes, c.bytes, cached_w[source].bytes, alpha.bytes);
+  sc_mulsub(s.bytes, c.bytes, cached_w[source].bytes, alpha_combined.bytes);
   return true;
 }
 
 bool tx_builder_t::next_partial_sign(
-  const rct::keyV& total_alpha_G,
-  const rct::keyV& total_alpha_H,
-  const rct::keyV& alpha,
+  const rct::keyM& total_alpha_G,
+  const rct::keyM& total_alpha_H,
+  const rct::keyM& alpha,
   const rct::key& x,
   rct::keyV& c_0,
   rct::keyV& s
@@ -742,9 +805,15 @@ bool tx_builder_t::next_partial_sign(
     return false;
   for (std::size_t i = 0; i < dim_sources; ++i) {
     rct::key c;
-    if (not cached_CLSAG[i].compute_challenge(
+    rct::key alpha_combined;
+    auto alpha_combined_wiper = epee::misc_utils::create_scope_leave_handler([&]{
+      memwipe(static_cast<rct::key *>(&alpha_combined), sizeof(rct::key));
+    });
+    if (not cached_CLSAG[i].combine_alpha_and_compute_challenge(
       total_alpha_G[i],
       total_alpha_H[i],
+      alpha[i],
+      alpha_combined,
       c_0[i],
       c
     )) {
@@ -760,7 +829,7 @@ bool tx_builder_t::next_partial_sign(
     });
     sc_mul(w.bytes, mu_P.bytes, x.bytes);
     sc_mulsub(s[i].bytes, c.bytes, w.bytes, s[i].bytes);
-    sc_add(s[i].bytes, s[i].bytes, alpha[i].bytes);
+    sc_add(s[i].bytes, s[i].bytes, alpha_combined.bytes);
   }
   return true;
 }

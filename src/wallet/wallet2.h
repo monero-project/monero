@@ -525,8 +525,8 @@ private:
       std::unordered_set<crypto::public_key> signing_keys;
       rct::multisig_out msout;
 
-      rct::keyV total_alpha_G;
-      rct::keyV total_alpha_H;
+      rct::keyM total_alpha_G;
+      rct::keyM total_alpha_H;
       rct::keyV c_0;
       rct::keyV s;
 
