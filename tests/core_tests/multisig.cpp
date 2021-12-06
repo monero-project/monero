@@ -228,6 +228,7 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
         false, "Mismatched spend public keys");
 
     size_t nlr = threshold < total ? threshold - 1 : 1;
+    nlr *= multisig::signing::kAlphaComponents;
     account_k[msidx].resize(inputs);
     account_L[msidx].resize(inputs);
     account_R[msidx].resize(inputs);
@@ -381,20 +382,39 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
 
 #ifndef NO_MULTISIG
   struct {
-    rct::keyV total_alpha_G;
-    rct::keyV total_alpha_H;
+    rct::keyM total_alpha_G;
+    rct::keyM total_alpha_H;
     rct::keyV c_0;
     rct::keyV s;
   } sig;
   {
-    sig.total_alpha_G.resize(sources.size());
-    sig.total_alpha_H.resize(sources.size());
+    used_L.clear();
+    sig.total_alpha_G.resize(sources.size(), rct::keyV(multisig::signing::kAlphaComponents, rct::identity()));
+    sig.total_alpha_H.resize(sources.size(), rct::keyV(multisig::signing::kAlphaComponents, rct::identity()));
     sig.c_0.resize(sources.size());
     sig.s.resize(sources.size());
     for (std::size_t i = 0; i < sources.size(); ++i) {
-      sig.total_alpha_G[i] = sources[i].multisig_kLRki.L;
-      sig.total_alpha_H[i] = sources[i].multisig_kLRki.R;
-      CHECK_AND_ASSERT_MES(tx_builder.first_partial_sign(i, sig.total_alpha_G[i], sig.total_alpha_H[i], sources[i].multisig_kLRki.k, sig.c_0[i], sig.s[i]), false, "error: multisig::signing::tx_builder_t::first_partial_sign");
+      rct::keyV alpha(multisig::signing::kAlphaComponents);
+      for (std::size_t m = 0; m < multisig::signing::kAlphaComponents; ++m) {
+        alpha[m] = rct::sk2rct(account_k[creator][ins_order[i]][m]);
+        sig.total_alpha_G[i][m] = rct::pk2rct(account_L[creator][ins_order[i]][m]);
+        sig.total_alpha_H[i][m] = rct::pk2rct(account_R[creator][ins_order[i]][m]);
+        for (size_t j = 0; j < total; ++j) {
+          if (j == creator)
+            continue;
+          if (std::find(signers.begin(), signers.end(), j) == signers.end())
+            continue;
+          for (std::size_t n = 0; n < account_L[j][ins_order[i]].size(); ++n) {
+            if (used_L.find(account_L[j][ins_order[i]][n]) == used_L.end()) {
+              used_L.insert(account_L[j][ins_order[i]][n]);
+              rct::addKeys(sig.total_alpha_G[i][m], sig.total_alpha_G[i][m], rct::pk2rct(account_L[j][ins_order[i]][n]));
+              rct::addKeys(sig.total_alpha_H[i][m], sig.total_alpha_H[i][m], rct::pk2rct(account_R[j][ins_order[i]][n]));
+              break;
+            }
+          }
+        }
+      }
+      CHECK_AND_ASSERT_MES(tx_builder.first_partial_sign(i, sig.total_alpha_G[i], sig.total_alpha_H[i], alpha, sig.c_0[i], sig.s[i]), false, "error: multisig::signing::tx_builder_t::first_partial_sign");
     }
   }
 
@@ -420,20 +440,20 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
     std::vector<unsigned int> indices;
     for (const auto &src: sources_copy)
       indices.push_back(src.real_output);
-    rct::keyV k;
-    for (size_t tdidx = 0; tdidx < inputs; ++tdidx)
-    {
-      k.push_back(rct::zero());
-      for (size_t n = 0; n < account_k[signer][tdidx].size(); ++n)
-      {
-        crypto::public_key L;
-        rct::scalarmultBase((rct::key&)L, rct::sk2rct(account_k[signer][tdidx][n]));
-        if (used_L.find(L) != used_L.end())
-        {
-          sc_add(k.back().bytes, k.back().bytes, rct::sk2rct(account_k[signer][tdidx][n]).bytes);
+    rct::keyM k(sources.size(), rct::keyV(multisig::signing::kAlphaComponents));
+    for (std::size_t i = 0; i < sources.size(); ++i) {
+      for (std::size_t j = 0; j < multisig::signing::kAlphaComponents; ++j) {
+        for (std::size_t n = 0; n < account_k[signer][i].size(); ++n) {
+          crypto::public_key L;
+          rct::scalarmultBase((rct::key&)L, rct::sk2rct(account_k[signer][i][n]));
+          if (used_L.find(L) != used_L.end()) {
+            k[i][j] = rct::sk2rct(account_k[signer][i][n]);
+            account_k[signer][i][n] = rct::rct2sk(rct::zero());
+            break;
+          }
         }
+        CHECK_AND_ASSERT_MES(!(k[i][j] == rct::zero()), false, "failed to find k to sign transaction");
       }
-      CHECK_AND_ASSERT_MES(!(k.back() == rct::zero()), false, "failed to find k to sign transaction");
     }
     tools::apply_permutation(ins_order, indices);
     tools::apply_permutation(ins_order, k);
@@ -441,7 +461,8 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
     CHECK_AND_ASSERT_MES(signer_tx_builder.init(miner_account[signer].get_keys(), {}, 0, 0, {0}, sources, destinations, {}, {rct::RangeProofPaddedBulletproof, 3}, true, true, tx_key, additional_tx_secret_keys, tx), false, "error: multisig::signing::tx_builder_t::init");
 
     MDEBUG("signing with k size " << k.size());
-    MDEBUG("signing with k " << k.back());
+    for (size_t n = 0; n < multisig::signing::kAlphaComponents; ++n)
+      MDEBUG("signing with k " << k.back()[n]);
     MDEBUG("signing with sk " << skey);
     for (const auto &sk: used_keys)
       MDEBUG("  created with sk " << sk);

@@ -15,12 +15,17 @@ namespace multisig {
 
 namespace signing {
 
+constexpr std::size_t kAlphaComponents = 2;
+
 struct cached_CLSAG_Gen_t {
 private:
   bool initialized;
   rct::keyV c_params;
   std::size_t c_params_L_offset;
   std::size_t c_params_R_offset;
+  rct::keyV b_params;
+  std::size_t b_params_L_offset;
+  std::size_t b_params_R_offset;
   rct::key mu_P;
   rct::key mu_C;
   std::size_t n;
@@ -42,9 +47,11 @@ public:
     const unsigned int l,
     const rct::keyV& s
   );
-  bool compute_challenge(
-    const rct::key& total_alpha_G,
-    const rct::key& total_alpha_H,
+  bool combine_alpha_and_compute_challenge(
+    const rct::keyV& total_alpha_G,
+    const rct::keyV& total_alpha_H,
+    const rct::keyV& alpha,
+    rct::key& alpha_combined,
     rct::key& c_0,
     rct::key& c
   );
@@ -81,16 +88,16 @@ public:
   );
   bool first_partial_sign(
     const std::size_t source,
-    const rct::key& total_alpha_G,
-    const rct::key& total_alpha_H,
-    const rct::key& alpha,
+    const rct::keyV& total_alpha_G,
+    const rct::keyV& total_alpha_H,
+    const rct::keyV& alpha,
     rct::key& c_0,
     rct::key& s
   );
   bool next_partial_sign(
-    const rct::keyV& total_alpha_G,
-    const rct::keyV& total_alpha_H,
-    const rct::keyV& alpha,
+    const rct::keyM& total_alpha_G,
+    const rct::keyM& total_alpha_H,
+    const rct::keyM& alpha,
     const rct::key& x,
     rct::keyV& c_0,
     rct::keyV& s

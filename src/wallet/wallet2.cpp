@@ -7336,16 +7336,19 @@ bool wallet2::sign_multisig_tx(multisig_tx_set &exported_txs, std::vector<crypto
     {
       if (sig.ignore.find(local_signer) == sig.ignore.end())
       {
-        rct::keyV k;
+        rct::keyM k(sd.selected_transfers.size(), rct::keyV(multisig::signing::kAlphaComponents));
         rct::key skey = rct::zero();
         auto wiper = epee::misc_utils::create_scope_leave_handler([&]{
-          memwipe(static_cast<rct::key *>(k.data()), k.size() * sizeof(rct::key));
+          for (auto& e: k)
+            memwipe(static_cast<rct::key *>(e.data()), e.size() * sizeof(rct::key));
           memwipe(static_cast<rct::key *>(&skey), sizeof(rct::key));
         });
 
-        k.resize(sd.selected_transfers.size());
-        for (std::size_t i = 0; i < k.size(); ++i)
-          get_multisig_k(sd.selected_transfers[i], sig.used_L, k[i]);
+        for (std::size_t i = 0; i < k.size(); ++i) {
+          for (std::size_t j = 0; j < multisig::signing::kAlphaComponents; ++j) {
+            get_multisig_k(sd.selected_transfers[i], sig.used_L, k[i][j]);
+          }
+        }
 
         for (const auto &msk: get_account().get_multisig_keys())
         {
@@ -9110,26 +9113,34 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
     for (const crypto::secret_key &msk: get_account().get_multisig_keys())
       signing_keys.insert(get_multisig_signing_public_key(msk));
     const std::size_t dim_sources = sources.size();
+    const std::size_t dim_alpha_components = multisig::signing::kAlphaComponents;
     for (std::size_t i = 0; i < dim_sigs; ++i) {
       multisig_sig& sig = multisig_sigs[i];
-      sig.total_alpha_G.resize(dim_sources);
-      sig.total_alpha_H.resize(dim_sources);
+      sig.total_alpha_G.resize(dim_sources, rct::keyV(dim_alpha_components));
+      sig.total_alpha_H.resize(dim_sources, rct::keyV(dim_alpha_components));
       sig.s.resize(dim_sources);
       sig.c_0.resize(dim_sources);
       for (std::size_t j = 0; j < dim_sources; ++j) {
-        const rct::multisig_kLRki kLRki = get_multisig_composite_kLRki(
-          selected_transfers[ins_order[j]],
-          ignore_sets[i],
-          used_L,
-          sig.used_L
-        );
+        rct::keyV alpha(dim_alpha_components);
+        auto alpha_wiper = epee::misc_utils::create_scope_leave_handler([&]{
+          memwipe(static_cast<rct::key *>(alpha.data()), alpha.size() * sizeof(rct::key));
+        });
+        for (std::size_t m = 0; m < dim_alpha_components; ++m) {
+          const rct::multisig_kLRki kLRki = get_multisig_composite_kLRki(
+            selected_transfers[ins_order[j]],
+            ignore_sets[i],
+            used_L,
+            sig.used_L
+          );
+          alpha[m] = kLRki.k;
+          sig.total_alpha_G[j][m] = kLRki.L;
+          sig.total_alpha_H[j][m] = kLRki.R;
+        }
         THROW_WALLET_EXCEPTION_IF(
-          not tx_builder.first_partial_sign(j, kLRki.L, kLRki.R, kLRki.k, sig.c_0[j], sig.s[j]),
+          not tx_builder.first_partial_sign(j, sig.total_alpha_G[j], sig.total_alpha_H[j], alpha, sig.c_0[j], sig.s[j]),
           error::wallet_internal_error,
           "error: multisig::signing::tx_builder_t::first_partial_sign"
         );
-        sig.total_alpha_G[j] = kLRki.L;
-        sig.total_alpha_H[j] = kLRki.R;
       }
       sig.ignore = ignore_sets[i];
       sig.signing_keys = signing_keys;
@@ -13383,6 +13394,7 @@ cryptonote::blobdata wallet2::export_multisig()
     // if we have 2/4 wallet with signers: A, B, C, D and A is a transaction creator it will need to pick up 1 signer from 3 wallets left.
     // That means counting combinations for excluding 2-of-3 wallets (k = total signers count - threshold, n = total signers count - 1).
     size_t nlr = tools::combinations_count(m_multisig_signers.size() - m_multisig_threshold, m_multisig_signers.size() - 1);
+    nlr *= multisig::signing::kAlphaComponents;
     for (size_t m = 0; m < nlr; ++m)
     {
       td.m_multisig_k.push_back(rct::skGen());
