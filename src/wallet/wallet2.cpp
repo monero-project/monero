@@ -7334,8 +7334,9 @@ bool wallet2::sign_multisig_tx(multisig_tx_set &exported_txs, std::vector<crypto
         rct::key skey = rct::zero();
         auto wiper = epee::misc_utils::create_scope_leave_handler([&](){ memwipe(k.data(), k.size() * sizeof(k[0])); memwipe(&skey, sizeof(skey)); });
 
-        for (size_t idx: sd.selected_transfers)
-          k.push_back(get_multisig_k(idx, sig.used_L));
+        k.resize(sd.selected_transfers.size());
+        for (std::size_t i = 0; i < k.size(); ++i)
+          get_multisig_k(sd.selected_transfers[i], sig.used_L, k[i]);
 
         for (const auto &msk: get_account().get_multisig_keys())
         {
@@ -13248,19 +13249,24 @@ crypto::public_key wallet2::get_multisig_signing_public_key(size_t idx) const
   return get_multisig_signing_public_key(get_account().get_multisig_keys()[idx]);
 }
 //----------------------------------------------------------------------------------------------------
-rct::key wallet2::get_multisig_k(size_t idx, const std::unordered_set<rct::key> &used_L) const
+void wallet2::get_multisig_k(size_t idx, const std::unordered_set<rct::key> &used_L, rct::key &nonce)
 {
   CHECK_AND_ASSERT_THROW_MES(m_multisig, "Wallet is not multisig");
   CHECK_AND_ASSERT_THROW_MES(idx < m_transfers.size(), "idx out of range");
-  for (const auto &k: m_transfers[idx].m_multisig_k)
+  for (auto &k: m_transfers[idx].m_multisig_k)
   {
+    if (k == rct::zero())
+      continue;
     rct::key L;
     rct::scalarmultBase(L, k);
     if (used_L.find(L) != used_L.end())
-      return k;
+    {
+      nonce = k;
+      memwipe(static_cast<rct::key *>(&k), sizeof(rct::key));
+      return;
+    }
   }
   THROW_WALLET_EXCEPTION(tools::error::multisig_export_needed);
-  return rct::zero();
 }
 //----------------------------------------------------------------------------------------------------
 rct::multisig_kLRki wallet2::get_multisig_kLRki(size_t n, const rct::key &k) const
