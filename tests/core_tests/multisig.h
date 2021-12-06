@@ -71,7 +71,7 @@ struct gen_multisig_tx_validation_base : public test_chain_unit_base
 
   bool generate_with(std::vector<test_event_entry>& events, size_t inputs, size_t mixin,
       uint64_t amount_paid, bool valid,
-      size_t threshold, size_t total, size_t creator, std::vector<size_t> signers,
+      size_t threshold, size_t total, size_t creator, std::vector<size_t> other_signers,
       const std::function<void(std::vector<cryptonote::tx_source_entry> &sources, std::vector<cryptonote::tx_destination_entry> &destinations)> &pre_tx,
       const std::function<void(cryptonote::transaction &tx)> &post_tx) const;
 

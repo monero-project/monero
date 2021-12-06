@@ -49,7 +49,6 @@ target_link_libraries(cryptonote_core
     common
     cncrypto
     blockchain_db
-    multisig
     ringct
     device
     hardforks
