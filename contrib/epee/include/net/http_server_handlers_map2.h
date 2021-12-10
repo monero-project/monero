@@ -65,6 +65,9 @@
 
 #define MAP_URI2(pattern, callback)  else if(std::string::npos != query_info.m_URI.find(pattern)) return callback(query_info, response_info, &m_conn_context);
 
+#define MAP_URI2_IF(pattern, callback, cond)  else if((cond) && (std::string::npos != query_info.m_URI.find(pattern))) \
+  return callback(query_info, response_info, m_conn_context);
+
 #define MAP_URI_AUTO_XML2(s_pattern, callback_f, command_type) //TODO: don't think i ever again will use xml - ambiguous and "overtagged" format
 
 #define MAP_URI_AUTO_JON2_IF(s_pattern, callback_f, command_type, cond) \
