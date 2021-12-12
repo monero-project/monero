@@ -55,6 +55,7 @@ using namespace epee;
 #include "rpc/rpc_args.h"
 #include "rpc/core_rpc_server_commands_defs.h"
 #include "daemonizer/daemonizer.h"
+#include "http_wallet/files.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "wallet.rpc"
@@ -439,14 +440,25 @@ namespace tools
   //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::on_httpwallet(const epee::net_utils::http::http_request_info& query_info, epee::net_utils::http::http_response_info& response_info, connection_context& m_conn_context)
   {
-    if (query_info.m_URI == "/wallet")
+    for (const auto& entry : http_wallet::files)
     {
-      response_info.m_response_code = 301;
-      response_info.m_response_comment = "Moved Permanently";
-      response_info.m_additional_fields.push_back(std::pair<std::string, std::string>("Location", "/wallet/index.html"));
-      return true;
+      if (entry.first == query_info.m_URI)
+      {
+        if (entry.first != entry.second.m_name)
+        {
+          response_info.m_response_code = 301;
+          response_info.m_response_comment = "Moved Permanently";
+          response_info.m_additional_fields.push_back(std::pair<std::string, std::string>("Location", entry.second.m_name));
+          return true;
+        }
+        response_info.m_response_code = 200;
+        response_info.m_mime_tipe = entry.second.m_type;
+        response_info.m_body = entry.second.m_content;
+        response_info.m_additional_fields.push_back(std::pair<std::string, std::string>("Content-Security-Policy", "default-src 'self';"));
+        return true;
+      }
     }
-    return false; //TODO
+    return false;
   }
   //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::on_getbalance(const wallet_rpc::COMMAND_RPC_GET_BALANCE::request& req, wallet_rpc::COMMAND_RPC_GET_BALANCE::response& res, epee::json_rpc::error& er, const connection_context *ctx)

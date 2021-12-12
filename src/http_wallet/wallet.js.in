@@ -1,0 +1,814 @@
+std::string(R"c++#include(
+(function() {
+
+const PG_WELCOME = "page-welcome";
+const PG_OPEN = "page-open";
+const PG_CREATE = "page-create";
+const PG_RESTORE = "page-restore";
+const PG_WALLET = "page-wallet";
+const TAB_DEFAULT = "tab-accounts";
+const LANG_DEFAULT = "English";
+const VAR_PAGE = "page";
+const VAR_TAB = "tab";
+const VAR_WALLET_NAME = "wallet-name";
+const VAR_LANGS = "langs";
+const VAR_LANG = "lang";
+const LOG_XMR_UNIT = 12;
+const REFRESH_TIME = 30 * 1000;
+const RPC_TIMEOUT = 30 * 1000;
+const MIN_PER_BLOCK = 2;
+const HISTORY_SIZE = 100;
+const AMOUNT_REGEX_FROM = /(amount":|balance":)\s*([0-9]+)/g;
+const AMOUNT_REGEX_TO = /(amount":|balance":)\s*"([\.0-9]+)"/g;
+const AMOUNT_VALID_REGEX = /^([1-9][0-9]*)?([0-9])(\.[0-9]{1,12})?$/;
+
+let refreshTimer;
+let prevBalance;
+let idleCounter = 0;
+
+document.addEventListener("DOMContentLoaded", handleLoaded);
+document.addEventListener("mousemove", handleActivity);
+document.addEventListener("keydown", handleActivity);
+
+function $(selector, func) {
+  document.querySelectorAll(selector)
+    .forEach(x => func(x));
+}
+
+function on(selector, ev, func) {
+  $(selector, x => x.addEventListener(ev, func));
+}
+
+function val(selector, attr, value) {
+  if (value == null) {
+    return document.querySelector(selector)[attr];
+  }
+  $(selector, x => x[attr] = value);
+}
+
+function clearElem(selector) {
+  $(selector, x => x.innerHTML = "");
+}
+
+function tr(text) {
+  return text;
+}
+
+function getVar(key) {
+  var value = window.sessionStorage.getItem(key);
+  try {
+    return value && JSON.parse(value);
+  } catch (ex) {
+    return null;
+  }
+}
+
+function setVar(key, value) {
+  window.sessionStorage.setItem(key, JSON.stringify(value));
+  return value;
+}
+
+function httpPost(url, body, mime) {
+  return new Promise(function(resolve, reject) {
+    const xhr = new XMLHttpRequest();
+    xhr.timeout = RPC_TIMEOUT;
+    xhr.onreadystatechange = function handleResponse() {
+      if (xhr.readyState == 4) {
+        if (xhr.status == 0) {
+          reject(new Error("HTTP request timed out"));
+          return;
+        }
+        if (xhr.status != 200) {
+          reject(new Error(`HTTP request failed with status code ${xhr.status}`));
+          return;
+        }
+        resolve(xhr.responseText);
+      }
+    }
+    xhr.open("POST", url, true);
+    xhr.setRequestHeader("Content-type", mime);
+    xhr.send(body);
+  });
+}
+
+//convert from a 64-bit number to a decimal string
+function convertFromAmounts(match, p1, p2) {
+  let amount = p2.padStart(LOG_XMR_UNIT + 1, "0");
+  amount = amount.substring(0, amount.length - LOG_XMR_UNIT)
+    + "." + amount.substring(amount.length - LOG_XMR_UNIT);
+  return p1 + '"' + amount + '"';
+}
+
+function preprocessFromJson(json) {
+  return json.replaceAll(AMOUNT_REGEX_FROM, convertFromAmounts);
+}
+
+//convert from a decimal string to a 64-bit number
+function convertToAmounts(match, p1, p2) {
+  return p1 + p2.replace(".", "");
+}
+
+function preprocessToJson(json) {
+  return json.replaceAll(AMOUNT_REGEX_TO, convertToAmounts);
+}
+
+class RpcError extends Error {
+  constructor(code, message) {
+    super(message);
+    this.name = "RpcError";
+    this.code = code;
+  }
+}
+
+function jsonRpc(method, params) {
+  return new Promise(async function(resolve, reject) {
+    console.log(`JSON RPC: ${method}`);
+    const bodyObj = {
+      jsonrpc: "2.0",
+      id: "0",
+      method: method
+    };
+    let body;
+    if (params != null) {
+      bodyObj.params = params;
+      body = preprocessToJson(JSON.stringify(bodyObj));
+    } else {
+      body = JSON.stringify(bodyObj);
+    }
+    let responseText;
+    try {
+      responseText = await httpPost("/json_rpc", body, "application/json");
+    }
+    catch (ex) {
+      reject(ex);
+      return;
+    }
+    let obj;
+    try {
+      obj = JSON.parse(preprocessFromJson(responseText));
+    } catch (ex) {
+      reject(ex);
+      return;
+    }
+    if (obj.error) {
+      reject(new RpcError(obj.error.code, obj.error.message));
+      return;
+    }
+    resolve(obj.result);
+  });
+}
+
+function handleLoaded() {
+  setView(getVar(VAR_PAGE), true);
+  on("#tile-open", "click", x => setView(PG_OPEN));
+  on("#tile-create", "click", x => setView(PG_CREATE));
+  on("#tile-restore", "click", x => setView(PG_RESTORE));
+  on(".cancel", "click", x => setView(PG_WELCOME));
+  on("#btn-open", "click", x => openWallet());
+  on("#btn-close", "click", x => closeWalletAsk());
+  on(".password.form-txb", "keyup", formEnter);
+  on(".tab button", "click", x => setTab(x.currentTarget.id.substring(4)));
+  on("#btn-new-acc", "click", createAccount);
+  on("#list-accounts", "click", handleAddress);
+  on("#btn-create", "click", x => createWallet());
+  on("#btn-send", "click", x => sendMoney());
+  on("#btn-hist-load", "click", x => loadHistory());
+  on("#tx-history", "click", handleCopy);
+}
+
+function setView(view, init) {
+  view = view || PG_WELCOME;
+  $("main", x => x.hidden = true);
+  document.getElementById(view).hidden = false;
+  setVar(VAR_PAGE, view);
+  if (view == PG_CREATE) {
+    setupLanguages();
+  }
+  if (!init) {
+    return;
+  }
+  switch(view) {
+    case PG_OPEN:
+      val("#" + PG_OPEN + " .wallet-name", "value", getVar(VAR_WALLET_NAME));
+      break;
+    case PG_CREATE:
+      val("#" + PG_CREATE + " .wallet-name", "value", getVar(VAR_WALLET_NAME));
+      break;
+    case PG_WALLET:
+      setWalletName(getVar(VAR_WALLET_NAME));
+      loadAccounts();
+      updateSync();
+      setTab(getVar(VAR_TAB));
+      refreshTimer = setInterval(updateWallet, REFRESH_TIME);
+      break;
+  }
+}
+
+function setTab(tab) {
+  tab = tab || TAB_DEFAULT;
+  setVar(VAR_TAB, tab);
+  $(".tabcontent", x => x.hidden = true);
+  $(".tab button", x => x.classList.remove("active"));
+  document.getElementById(tab).hidden = false;
+  document.getElementById("btn-" + tab).classList.add("active");
+}
+
+function formEnter(e) {
+  if (e.keyCode === 13) {
+    e.preventDefault();
+    $("#" + getVar(VAR_PAGE) + " .form-btn.submit", x => x.click());
+  }
+}
+
+class ErrorProvider {
+  constructor(root) {
+    this.root = root;
+  }
+  display(error) {
+    $(this.root + " .error", x => { x.innerText = tr(error); x.hidden = !error; });
+  }
+}
+
+class BusyProvider {
+  constructor(root) {
+    this.root = root;
+  }
+  busy(flag) {
+    $(this.root + " .content", x => {
+      if (flag) {
+        x.classList.add("invisible");
+      } else {
+        x.classList.remove("invisible");
+      }
+    });
+    $(this.root + " .busy", x => x.hidden = !flag);
+  }
+}
+
+class BusyProviderInline {
+  constructor(root) {
+    this.root = root;
+  }
+  busy(flag) {
+    $(this.root + ".busy-container > div:first-child", x => {
+      if (flag) {
+        x.classList.add("invisible");
+      } else {
+        x.classList.remove("invisible");
+      }
+    });
+    $(this.root + " .busy-inline", x => x.hidden = !flag);
+  }
+}
+
+async function openWallet() {
+  const error = new ErrorProvider("#page-open");
+  const busy = new BusyProvider("#page-open");
+
+  const filename = val("#page-open input[type='text']", "value");
+  const password = val("#page-open input[type='password']", "value");
+  if (!filename || !password) {
+    error.display("Wallet name and password cannot be empty");
+    return;
+  }
+  error.display(false);
+  busy.busy(true);
+  try {
+    await jsonRpc("open_wallet", { filename, password });
+    val("#page-open input[type='text']", "value", "");
+    startWallet(filename);
+  }
+  catch(ex) {
+    error.display(ex.message);
+    console.error(ex);
+  }
+  finally {
+    busy.busy(false);
+    val("#page-open input[type='password']", "value", "");
+  }
+}
+
+function setBalance(total, unlocked, unlockBlocks) {
+  val("#total-balance", "innerText", total);
+  val("#unlocked-balance", "innerText", unlocked);
+  val("#unlock-time-est", "innerText", unlockBlocks ? `(~${unlockBlocks * MIN_PER_BLOCK} min.)` : "");
+}
+
+function formatPercent(pct) {
+  if (pct == 1) {
+    return "100";
+  }
+  return (Math.floor(1000 * pct)/10).toFixed(1);
+}
+
+function setSync(walletHeight, networkHeight) {
+  let syncPercent;
+  if (networkHeight && networkHeight >= walletHeight) {
+    syncPercent = formatPercent(walletHeight / networkHeight);
+  } else {
+    syncPercent = "??";
+  }
+  val("#sync-percent", "innerText", syncPercent);
+  val("#network-height", "innerText", networkHeight || "??");
+}
+
+function setWalletName(name) {
+  val("#h-wallet-name", "innerText", name);
+}
+
+function closeWalletAsk() {
+  if (window.confirm(tr("Save and close wallet?"))) {
+    closeWallet();
+    setWalletName(setVar(VAR_WALLET_NAME, ""));
+    setView(PG_WELCOME);
+  }
+}
+
+async function closeWallet() {
+  try {
+    await jsonRpc("close_wallet", { autosave_current: true });
+  }
+  catch(ex) {
+    console.error(ex);
+  }
+  finally {
+    stopWallet();
+  }
+}
+
+function startWallet(name) {
+  setVar(VAR_WALLET_NAME, name);
+  setView(PG_WALLET, true);
+}
+
+async function updateWallet() {
+  if (idleCounter > 1) {
+    closeWallet();
+    setView(PG_OPEN, true);
+    return;
+  }
+  await updateBalance();
+  await updateSync();
+  idleCounter++;
+}
+
+async function loadAccounts(unlockBlocks) {
+  let result;
+  try {
+    result = await jsonRpc("get_accounts", {});
+  }
+  catch (ex) {
+    console.error(ex);
+    return;
+  }
+  prevBalance = result.total_balance;
+  setBalance(result.total_balance, result.total_unlocked_balance, unlockBlocks);
+  let primary = result.subaddress_accounts.find(x => x.account_index == 0);
+  val("#wallet-primary-addr", "innerText", primary.base_address);
+  val("#list-accounts", "innerHTML", "<hr/>");
+  clearElem("#send-acc");
+  clearElem("#hist-acc");
+  result.subaddress_accounts.forEach(acc =>
+    addAccount(
+      acc.account_index, acc.base_address.substring(0, 6), acc.label, acc.balance
+    )
+  );
+}
+
+function getShortAddr(address) {
+  return address.substring(0, 6) + "..." +  address.slice(-6);
+}
+
+function htmlAppend(selector, append) {
+  let html = val(selector, "innerHTML");
+  html += append;
+  val(selector, "innerHTML", html);
+}
+
+function addSubaddress(accId, addrId, address, label) {
+  const parentSel = "#acc-" + accId + " ul";
+  const copy = tr("copy");
+  let addrShort = getShortAddr(address);
+  htmlAppend(parentSel, `<li>#${addrId} <kbd>${addrShort}</kbd> <button data-addr="${address}">${copy}</button> ${label}</li>`);
+}
+
+async function createSubaddress(accId, label) {
+  const busy = new BusyProviderInline("#acc-" + accId + " ");
+  busy.busy(true);
+  try {
+    const res = await jsonRpc("create_address", { account_index: accId, label });
+    addSubaddress(accId, res.address_index, res.address, label);
+  }
+  catch(ex) {
+    console.error(ex);
+  }
+  finally {
+    busy.busy(false);
+  }
+}
+
+function copyFullAddress(target) {
+  if (target.dataset.addr) {
+    console.log(target.dataset.addr);
+    if (window.isSecureContext) {
+      navigator.clipboard.writeText(target.dataset.addr);
+    }
+    return true;
+  }
+  return false;
+}
+
+async function handleSubaddrButton(target) {
+  if (!copyFullAddress(target) && target.id.startsWith("btn-new-addr-")) {
+    const accId = parseInt(target.id.substring(13));
+    const label = val("#new-addr-label-" + accId, "value");
+    await createSubaddress(accId, label);
+    val("#new-addr-label-" + accId, "value", "");
+  }
+}
+
+function handleCopy(e) {
+  if (e.target.nodeName == "BUTTON") {
+    copyFullAddress(e.target);
+  }
+}
+
+async function handleAddress(e) {
+  let target = e.target;
+  if (target.id === "list-accounts" || target.nodeName == "HR") {
+    return;
+  }
+  if (target.nodeName == "BUTTON") {
+    await handleSubaddrButton(target);
+    return;
+  }
+  while (target.nodeName != "DETAILS") {
+    target = target.parentNode;
+  }
+  if (target.querySelector("li") != null) {
+    return;
+  }
+  const busy = target.querySelector(".busy-inline");
+  if (!busy.hidden) {
+    return;
+  }
+  busy.hidden = false;
+  const account_index = parseInt(target.id.substring(4));
+  try {
+    const result = await jsonRpc("get_address", { account_index });
+    result.addresses.forEach(addr =>
+      addSubaddress(account_index, addr.address_index, addr.address, addr.label)
+    );
+  }
+  catch (ex) {
+    console.error(ex);
+  }
+  finally {
+    $("#acc-" + account_index + " .busy-inline", x => x.hidden = true);
+    $("#acc-" + account_index + " .invisible", x => x.classList.remove("invisible"));
+  }
+}
+
+function addAccount(accId, accAddr, accLabel, accBalance) {
+  let btnText = tr("New address");
+  let placeholder = tr("label");
+  htmlAppend("#list-accounts", `<details id="acc-${accId}" class="mr-025">
+<summary>
+#${accId} <kbd>${accAddr}</kbd> <span class="bold">${accLabel}</span>
+<span class="right"><span class="balance">${accBalance}</span> XMR</span>
+</summary>
+<div class="addr-list">
+<ul>
+</ul>
+<div class="busy-container">
+<div class="invisible">
+  <button id="btn-new-addr-${accId}" class="btn-inline">${btnText}</button>
+  <input id="new-addr-label-${accId}" type="text" placeholder="${placeholder}" class="acc-label" />
+</div>
+<div class="busy-inline" hidden>
+  <div class="loading-small"></div>
+</div>
+</div>
+</div>
+</details>
+<hr/>`);
+  const option = `<option value="${accId}">#${accId} ${accLabel}</option>`;
+  htmlAppend("#send-acc", option);
+  htmlAppend("#hist-acc", option);
+}
+
+async function createAccount() {
+  let label = val("#new-acc-name", "value") || tr("(Untitled account)");
+  val("#new-acc-name", "value", "");
+  const busy = new BusyProviderInline("#new-acc");
+  busy.busy(true);
+  try {
+    const acc = await jsonRpc("create_account", { label });
+    addAccount(acc.account_index, acc.address.substring(0, 6), label, "0.000000000000");
+  }
+  catch (ex) {
+    console.error(ex);
+  }
+  finally {
+    busy.busy(false);
+  }
+}
+
+async function updateBalance() {
+  try {
+    const res = await jsonRpc("get_balance", { all_accounts: true, strict: false });
+    setBalance(res.balance, res.unlocked_balance, res.blocks_to_unlock);
+    if (prevBalance != res.balance) {
+      loadAccounts(res.blocks_to_unlock);
+      prevBalance = res.balance;
+    }
+  }
+  catch (ex) {
+    console.error(ex);
+  }
+}
+
+async function updateSync() {
+  try {
+    const res = await jsonRpc("get_height");
+    setSync(res.height, res.daemon_height);
+  }
+  catch (ex) {
+    console.error(ex);
+  }
+}
+
+function handleActivity() {
+  idleCounter = 0;
+}
+
+function stopWallet() {
+  clearInterval(refreshTimer);
+  setBalance("", "", 0);
+  setSync(0, 0);
+  setVar(VAR_TAB, "");
+  clearElem("#list-accounts");
+  clearElem("#send-acc");
+  clearElem("#hist-acc");
+  clearElem("#tab-send .error");
+  $("#tx-history tr:not(.header)", x => x.remove());
+  if (idleCounter > 1) {
+    alert(tr("The wallet has been locked due to inactivity."));
+  }
+}
+
+async function createWallet() {
+  const error = new ErrorProvider("#page-create");
+  const busy = new BusyProvider("#page-create");
+
+  let filename = val("#page-create input.wallet-name", "value");
+  let password = val("#page-create input.password", "value");
+  let password_repeat = val("#page-create input.password-check", "value");
+  let language = val("#create-wallet-lang", "value");
+  if (!filename || !password) {
+    error.display("Wallet name and password cannot be empty");
+    return;
+  }
+  if (!language) {
+    error.display("Select a language");
+    return;
+  }
+  if (password !== password_repeat) {
+    error.display("Passwords don't match");
+    val("#page-create input[type='password']", "value", "");
+    return;
+  }
+  error.display(false);
+  busy.busy(true);
+  try {
+    await jsonRpc("create_wallet", { filename, password, language });
+    val("#page-create input[type='text']", "value", "");
+    startWallet(filename);
+  }
+  catch (ex) {
+    error.display(ex.message);
+    console.error(ex);
+  }
+  finally {
+    val("#page-create input[type='password']", "value", "");
+    busy.busy(false);
+  }
+}
+
+async function setupLanguages() {
+  let langs = getVar(VAR_LANGS);
+  if (!langs) {
+    try {
+      const res = await jsonRpc("get_languages");
+      langs = res.languages;
+    }
+    catch (ex) {
+      console.error(ex);
+      return;
+    }
+  }
+  let html = val("#create-wallet-lang", "innerHTML");
+  if (!html.includes("option")) {
+    langs.forEach(x => {
+      html += `<option>${x}</option>`;
+    });
+    val("#create-wallet-lang", "innerHTML", html);
+  }
+  const lang = getVar(VAR_LANG) || LANG_DEFAULT;
+  val("#create-wallet-lang", "value", lang);
+}
+
+async function sendMoney() {
+  const error = new ErrorProvider("#tab-send");
+  const busy = new BusyProvider("#tab-send");
+
+  function cleanup(ex) {
+    if (ex instanceof Error) {
+      error.display(ex.message);
+      console.error(ex);
+    }
+    else if (ex) {
+      error.display(ex);
+    }
+    busy.busy(false);
+    val("#send-password", "value", "");
+  }
+
+  error.display(false);
+  busy.busy(true);
+
+  let address = val("#send-destination", "value");
+  if (!address) {
+    cleanup("The destination cannot be empty");
+    return;
+  }
+  const password = val("#send-password", "value");
+  if (!password) {
+    cleanup("Wallet password cannot be empty");
+    return;
+  }
+  const priority = parseInt(val("#send-priority", "value"));
+  const accId = parseInt(val("#send-acc", "value"));
+  let amount = val("#send-amount", "value");
+  const match = amount.match(AMOUNT_VALID_REGEX);
+  if (!match) {
+    cleanup("Invalid amount");
+    return;
+  }
+  let p1 = match[1] || "";
+  let p2 = match[2] || "";
+  let p3 = match[3] || "";
+  if (p3.startsWith(".")) {
+    p3 = p3.slice(1);
+  }
+  p3 = p3.padEnd(LOG_XMR_UNIT, "0");
+  amount = p1 + p2 + "." + p3;
+  const balance = val("#acc-" + accId + " summary span.balance", "innerText");
+  const amountCheck = amount.padStart(balance.length, "0");
+  if (amountCheck.length > balance.length || amountCheck > balance) {
+    cleanup("Insufficient funds in the account");
+    return;
+  }
+  try {
+    const res = await jsonRpc("validate_address", { address, any_net_type: false, allow_openalias: true });
+    if (!res.valid) {
+      throw new Error("Invalid address");
+    }
+    address = res.openalias_address || address;
+  }
+  catch (ex) {
+    cleanup(ex);
+    return;
+  }
+  const shortAddr = getShortAddr(address);
+  if (!confirm(`Sending ${amount} XMR to ${shortAddr}`)) {
+    cleanup();
+    return;
+  }
+  try {
+    //poor man's way to verify the wallet password
+    await jsonRpc("change_wallet_password", { old_password: password, new_password: password });
+  }
+  catch (ex) {
+    cleanup("Password verification failure");
+    return;
+  }
+  try {
+    const res = await jsonRpc("transfer",
+      {
+        destinations: [ { amount, address } ],
+        account_index: accId,
+        priority,
+        unlock_time: 0,
+      });
+    console.log(res.tx_hash);
+  }
+  catch (ex) {
+    cleanup(ex);
+    return;
+  }
+  val("#send-destination", "value", "");
+  val("#send-amount", "value", "");
+  loadAccounts();
+  cleanup();
+  alert("Transaction has been submitted");
+}
+
+function loadHistory() {
+  const accId = parseInt(val("#hist-acc", "value"));
+  loadHistoryForAcc(accId);
+}
+
+async function loadHistoryForAcc(accId) {
+  const busy = new BusyProvider("#tab-history");
+  busy.busy(true);
+  $("#tx-history tr:not(.header)", x => x.remove());
+  const fmt = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'long' });
+
+  function formatDate(dt) {
+    return fmt.format(new Date(1000 * dt));
+  }
+
+  function formatConf(it) {
+    if (it.confirmations >= it.suggested_confirmations_threshold) {
+      return it.confirmations.toString();
+    }
+    return `${it.confirmations || 0}/${it.suggested_confirmations_threshold}`;
+  }
+
+  function formatIcon(it) {
+    if (it.confirmations >= it.suggested_confirmations_threshold) {
+      return "&#x2714";
+    }
+    return "&#x29D7;"
+  }
+
+  function addTransfer(tran) {
+    htmlAppend("#tx-history", `<tr>
+    <td>${tran.dateStr}</td>
+    <td class="text-center"><span title="${tran.confStr} confirmations">${tran.statusIcon}</span></td>
+    <td class="text-center"><kbd>${tran.shortAddr}</kbd> <button class="btn-inline" data-tr="." data-addr="${tran.addr}">copy</button></td>
+    <td class="${tran.dirClass} text-right ph-025">${tran.amount}</td>
+  </tr>`);
+  }
+
+  function addIncoming(hist, items) {
+    items.forEach(it => {
+      hist.push({
+        addr: it.address,
+        shortAddr: getShortAddr(it.address),
+        dateStr: formatDate(it.timestamp),
+        numConf: it.confirmations || 0,
+        confStr: formatConf(it),
+        statusIcon: formatIcon(it),
+        dirClass: "received",
+        amount: it.amount,
+      });
+    });
+  }
+
+  function addOutgoing(hist, items) {
+    items.forEach(it => {
+      it.destinations.forEach(dest => {
+        hist.push({
+          addr: dest.address,
+          shortAddr: getShortAddr(dest.address),
+          dateStr: formatDate(it.timestamp),
+          numConf: it.confirmations || 0,
+          confStr: formatConf(it),
+          statusIcon: formatIcon(it),
+          dirClass: "sent",
+          amount: dest.amount,
+        });
+      });
+    });
+  }
+
+  try {
+    const res = await jsonRpc("get_transfers", { account_index: accId, in: true, out: true, pending: true, pool: true });
+    const hist = [];
+    addIncoming(hist, res.in || []);
+    addIncoming(hist, res.pool || []);
+    addOutgoing(hist, res.out || []);
+    addOutgoing(hist, res.pending || []);
+    hist.sort((a, b) => a.numConf - b.numConf);
+    if (hist.length > HISTORY_SIZE) {
+      hist.length = HISTORY_SIZE;
+    }
+    if (hist.length === 0) {
+      htmlAppend("#tx-history", `<tr><td colspan="4" class="text-center">No transactions</td></tr>`);
+    }
+    else {
+      hist.forEach(x => addTransfer(x));
+    }
+  }
+  catch (ex) {
+    console.error(ex);
+  }
+  finally {
+    busy.busy(false);
+  }
+}
+
+})();
+)c++#include")

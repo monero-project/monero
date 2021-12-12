@@ -1,0 +1,304 @@
+std::string(R"c++#include(
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Monero HTTP Wallet</title>
+    <meta charset="utf-8">
+
+    <!-- page icon -->
+    <link rel="icon" href="icon.png" />
+
+    <!-- page styles -->
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <!-- header (Monero logo) -->
+    <header>
+      <img src="logo.png" alt="Monero logo" data-tr="alt" />
+    </header>
+
+    <!-- Welcome page -->
+    <main id="page-welcome">
+      <h2 data-tr=".">Welcome to Monero, the private cryptocurrency.</h2>
+
+      <p data-tr=".">
+        Monero, like Bitcoin, is a cryptocurrency. That is, it is digital money.
+        Unlike Bitcoin, your Monero transactions and balance stay private and are not visible to the world by default.
+        However, you have the option of making those available to select parties if you choose to.
+      </p>
+      <p data-tr=".">
+        Monero protects your privacy on the blockchain, and while Monero strives to improve all the time,
+        no privacy technology can be 100% perfect, Monero included.
+        Monero cannot protect you from malware, and it may not be as effective as we hope against powerful adversaries.
+        Flaws in Monero may be discovered in the future, and attacks may be developed to peek under some
+        of the layers of privacy Monero provides. Be safe and practice defense in depth.
+      </p>
+
+      <p data-tr=".">
+        Welcome to Monero and financial privacy. For more information see <a href="https://getmonero.org" target="_blank">https://GetMonero.org</a>
+      </p>
+
+      <div id="main-menu" class="container">
+        <div class="tile-group">
+
+          <div class="inner-container">
+            <div id="tile-open" class="tile" data-tr=".">Open a wallet</div>
+          </div>
+
+          <div class="inner-container">
+            <div id="tile-create" class="tile" data-tr=".">Create a wallet</div>
+          </div>
+
+          <div class="inner-container" hidden>
+            <div id="tile-restore" class="tile" data-tr=".">Restore a wallet</div>
+          </div>
+
+        </div>
+      </div>
+
+      <noscript>
+        <div class="error" data-tr=".">Please enable scripting in your browser to use the wallet.</div>
+      </noscript>
+    </main>
+
+    <!-- Open wallet page -->
+    <main id="page-open" hidden>
+      <h2 data-tr=".">Open a wallet</h2>
+      <div class="busy-container">
+        <div class="error" hidden></div>
+        <table class="content center">
+          <tr>
+            <td>
+              <input type="text" class="wallet-name form-txb" placeholder="wallet name" data-tr="placeholder" />
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <input type="password" class="password form-txb" placeholder="password" data-tr="placeholder" />
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <button id="btn-open" class="form-btn submit" data-tr=".">OK</button>
+              <button class="form-btn cancel" data-tr=".">Cancel</button>
+            </td>
+          </tr>
+        </table>
+        <div class="busy" hidden>
+          <div class="loading"></div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Create wallet page -->
+    <main id="page-create" hidden>
+      <h2 data-tr=".">Create a wallet</h2>
+      <div class="busy-container">
+        <div class="error" hidden></div>
+        <table class="content center">
+          <tr>
+            <td>
+              <input type="text" class="wallet-name form-txb" placeholder="wallet name" data-tr="placeholder" />
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <label for="create-wallet-lang" data-tr=".">Seed language:</label>
+              <select id="create-wallet-lang">
+              </select>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <input type="password" class="password form-txb" placeholder="password" data-tr="placeholder" />
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <input type="password" class="password-check form-txb" placeholder="repeat password" data-tr="placeholder" />
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <button id="btn-create" class="form-btn submit" data-tr=".">OK</button>
+              <button class="form-btn cancel" data-tr=".">Cancel</button>
+            </td>
+          </tr>
+        </table>
+        <div class="busy" hidden>
+          <div class="loading"></div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Restore wallet page -->
+    <main id="page-restore" hidden>
+      <h2 data-tr=".">Restore a wallet</h2>
+
+      <input type="text" placeholder="wallet name" data-tr="placeholder" />
+
+      <input type="password" placeholder="password" data-tr="placeholder" />
+
+      <input type="password" placeholder="repeat password" data-tr="placeholder" />
+
+      <label for="restore-seed" data-tr=".">Mnemonic seed:</label>
+      <textarea id="restore-seed" rows="4" cols="60"></textarea>
+
+      <div>
+        <button class="" data-tr=".">OK</button> <button class="cancel" data-tr=".">Cancel</button>
+      </div>
+
+      <div hidden>
+      <div class="loading"></div>
+      </div>
+    </main>
+
+    <!-- Wallet home page -->
+    <main id="page-wallet" hidden>
+      <div class="">
+        <div class="right"><button id="btn-close" title="Save and close wallet" data-tr="title">&times;</button></div>
+        <h2 id="h-wallet-name"></h2>
+
+        <kbd id="wallet-primary-addr"></kbd>
+
+        <table class="mt-05 pb-05 w-100">
+          <tr>
+            <td class="text-left w-20" data-tr=".">Total balance:</td>
+            <td class="text-right w-20">
+              <span id="total-balance" class="bold"></span>
+            </td>
+            <td class="text-left"></td>
+            <td class="text-right" data-tr=".">Synchronization:</td>
+            <td class="text-right w-10"><span id="sync-percent"></span>%</td>
+          </tr>
+          <tr>
+            <td class="text-left" data-tr=".">Unlocked balance:</td>
+            <td class="text-right"><span id="unlocked-balance" class="bold"></span></td>
+            <td class="text-left"><span id="unlock-time-est"></span></td>
+            <td class="text-right" data-tr=".">Network height:</td>
+            <td class="text-right"><span id="network-height"></span></td>
+          </tr>
+        </table>
+      </div>
+
+      <div class="tab">
+        <button id="btn-tab-accounts" class="active" data-tr=".">Accounts</button>
+        <button id="btn-tab-send" class="" data-tr=".">Send</button>
+        <button id="btn-tab-history" class="" data-tr=".">History</button>
+        <!--<button id="btn-tab-seed" class="" data-tr=".">Seed</button>-->
+      </div>
+
+      <div id="tab-accounts" class="tabcontent">
+        <div id="new-acc" class="busy-container">
+          <div class="">
+            <button id="btn-new-acc" class="btn-inline" data-tr=".">New account</button>
+            <input id="new-acc-name" type="text" placeholder="label" class="acc-label" data-tr="placeholder" />
+          </div>
+          <div class="busy-inline" hidden>
+            <div class="loading-small"></div>
+          </div>
+        </div>
+        <div id="list-accounts"  class="scrollable">
+        </div>
+      </div>
+
+      <div id="tab-send" class="tabcontent" hidden>
+        <div class="error" hidden></div>
+        <table class="content w-100">
+          <tr>
+            <td class="p-025">
+              <label for="send-acc" class="form-txb" data-tr=".">Send from account:</label>
+              <select id="send-acc" class="form-txb">
+              </select>
+            </td>
+            <td></td>
+          </tr>
+          <tr>
+            <td class="p-025" colspan="2">
+              <label for="send-destination" class="form-txb" data-tr=".">To:</label>
+              <input id="send-destination" class="monospace w-96" type="text" placeholder="Monero address or OpenAlias" data-tr="placeholder" />
+            </td>
+          </tr>
+          <tr>
+            <td class="p-025">
+              <label for="send-amount" data-tr=".">Amount:</label>
+              <input id="send-amount" class="text-right form-txb" type="text" placeholder="0.0" /> <img src="icon.png" class="inline logo" alt="XMR" />
+            </td>
+            <td class="p-025">
+              <label for="send-priority" data-tr=".">Transaction priority:</label>
+              <select id="send-priority">
+                <option value="0" data-tr=".">Low (x0.2 fee)</option>
+                <option value="1" data-tr=".">Normal (x1 fee)</option>
+                <option value="2" data-tr=".">Fast (x5 fee)</option>
+                <option value="3" data-tr=".">Fastest (x200 fee)</option>
+              </select>
+            </td>
+          </tr>
+          <tr>
+            <td class="p-025">
+              <input id="send-password" class="form-txb" type="password" placeholder="wallet password" data-tr="placeholder" />
+            </td>
+            <td></td>
+          </tr>
+          <tr>
+            <td class="p-025">
+              <button id="btn-send" class="form-btn" data-tr=".">Send</button>
+            </td>
+            <td></td>
+          </tr>
+        </table>
+        <div class="busy" hidden>
+          <div class="loading"></div>
+        </div>
+      </div>
+
+      <div id="tab-history" class="tabcontent" hidden>
+        <div class="content">
+          <div class="pb-01">
+            <label for="hist-acc" data-tr=".">Account:</label>
+            <select id="hist-acc" class="form-txb">
+            </select>
+            <button id="btn-hist-load" class="btn-inline">load</button>
+          </div>
+          <div class="scrollable h-fix">
+            <table id="tx-history" class="w-100">
+              <tr class="header">
+                <th class="text-center" data-tr=".">Time</th>
+                <th class="text-center" data-tr=".">Status</th>
+                <th class="text-center" data-tr=".">Recipient address</th>
+                <th class="text-right ph-025" data-tr=".">Amount</th>
+              </tr>
+            </table>
+          </div>
+        </div>
+        <div class="busy" hidden>
+          <div class="loading"></div>
+        </div>
+      </div>
+
+      <div id="tab-seed" class="tabcontent" hidden>
+        <div hidden>
+          <input id="seed-password" type="text" placeholder="wallet password" data-tr="placeholder" />
+          <button id="btn-seed" data-tr=".">Show mnemonic seed</button>
+        </div>
+        <div hidden>
+          <h4 data-tr=".">The following 25 words can be used to recover access to your wallet. Write them down and store them somewhere safe and secure. Please do not store them in your email or on file storage services outside of your immediate control.</h4>
+          <canvas id="seed-canvas"></canvas>
+        </div>
+        <div class="busy">
+          <div class="loading"></div>
+        </div>
+      </div>
+
+    </main>
+
+    <!-- version info -->
+    <footer class="small mv-05">
+        <kbd>v<span id="version">)c++#include"), std::string(MONERO_VERSION_FULL), std::string(R"c++#include(</span></kbd>
+    </footer>
+
+    <!-- javascript code -->
+    <script src="wallet.js"></script>
+  </body>
+</html>
+)c++#include")
