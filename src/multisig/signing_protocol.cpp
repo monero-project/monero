@@ -39,6 +39,9 @@
 #include "ringct/bulletproofs.h"
 #include "ringct/rctSigs.h"
 
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "multisig"
+
 namespace multisig {
 
 namespace signing {
@@ -328,6 +331,10 @@ static bool set_tx_extra(
         crypto::public_key view_key_pub = cryptonote::get_destination_view_key_pub(destinations, change.addr);
         if (view_key_pub == crypto::null_pkey)
         {
+          // valid combinations:
+          // - 1 output with encrypted payment ID, dummy change output (0 amount)
+          // - 0 outputs,                          1 change output with encrypted payment ID
+          // - 1 output with encrypted payment ID, 1 change output
           LOG_ERROR("Destinations have to have exactly one output to support encrypted payment ids");
           return false;
         }
@@ -418,41 +425,62 @@ static bool compute_keys_for_destinations(
   cryptonote::transaction& unsigned_tx
 )
 {
-  const std::size_t num_destinations = destinations.size();
-  crypto::public_key tx_public_key;
-  std::vector<crypto::public_key> tx_aux_public_keys;
   hw::device &hwdev = account_keys.get_device();
+
+  // only allow non-zero change amounts if the change output is directed to the local account
   if (change.amount and change.addr != hwdev.get_subaddress(account_keys, {subaddr_account}))
       return false;
-  std::unordered_set<cryptonote::account_public_address> unique_sub;
-  std::unordered_set<cryptonote::account_public_address> unique_std;
+
+  // collect non-change recipients into normal/subaddress buckets
+  std::unordered_set<cryptonote::account_public_address> unique_subbaddr_recipients;
+  std::unordered_set<cryptonote::account_public_address> unique_std_recipients;
   for(const auto& dst_entr: destinations) {
     if (dst_entr.addr == change.addr)
       continue;
     if (dst_entr.is_subaddress)
-      unique_sub.insert(dst_entr.addr);
+      unique_subbaddr_recipients.insert(dst_entr.addr);
     else
-      unique_std.insert(dst_entr.addr);
+      unique_std_recipients.insert(dst_entr.addr);
   }
+
   if (not reconstruction) {
     tx_secret_key = rct::rct2sk(rct::skGen());
   }
-  tx_public_key = rct::rct2pk(
-    unique_std.empty() && unique_sub.size() == 1 ?
-    hwdev.scalarmultKey(
-      rct::pk2rct(unique_sub.begin()->m_spend_public_key),
-      rct::sk2rct(tx_secret_key)
-    ) :
-    hwdev.scalarmultBase(rct::sk2rct(tx_secret_key))
-  );
-  const bool need_tx_aux_keys = unique_sub.size() + bool(unique_std.size()) > 1;
+
+  // tx pub key: R
+  crypto::public_key tx_public_key;
+  if (unique_std_recipients.empty() && unique_subbaddr_recipients.size() == 1) {
+    // if there is exactly 1 non-change recipient, and it's to a subaddress, then the tx pubkey = r*Ksi_nonchange_recipient
+    tx_public_key = rct::rct2pk(
+      hwdev.scalarmultKey(
+        rct::pk2rct(unique_subbaddr_recipients.begin()->m_spend_public_key),
+        rct::sk2rct(tx_secret_key)
+    ));
+  }
+  else {
+    // otherwise, the tx pub key = r*G
+    // - if there are > 1 non-change recipients, with at least one to a subaddress, then the tx pubkey is not used
+    //   (additional tx keys will be used instead)
+    // - if all non-change recipients are to normal addresses, then the tx pubkey will be used by all recipients
+    //   (including change recipient, even if change is to a subaddress)
+    tx_public_key = rct::rct2pk(hwdev.scalarmultBase(rct::sk2rct(tx_secret_key)));
+  }
+
+  // additional tx pubkeys: R_t
+  // - add if there are > 1 non-change recipients, with at least one to a subaddress
+  const std::size_t num_destinations = destinations.size();
+
+  const bool need_tx_aux_keys = unique_subbaddr_recipients.size() + bool(unique_std_recipients.size()) > 1;
   if (not reconstruction and need_tx_aux_keys) {
     tx_aux_secret_keys.clear();
     tx_aux_secret_keys.reserve(tx_aux_secret_keys.size() + num_destinations);
     for(std::size_t i = 0; i < num_destinations; ++i)
-      tx_aux_secret_keys.emplace_back(rct::rct2sk(rct::skGen()));
+      tx_aux_secret_keys.push_back(rct::rct2sk(rct::skGen()));
   }
+
   output_public_keys.resize(num_destinations);
+  std::vector<crypto::public_key> tx_aux_public_keys;
+
   for (std::size_t i = 0; i < num_destinations; ++i) {
     if (not hwdev.generate_output_ephemeral_keys(
       unsigned_tx.version,
@@ -471,15 +499,19 @@ static bool compute_keys_for_destinations(
       return false;
     }
   }
+
   if (num_destinations != output_amount_secret_keys.size())
     return false;
+
   CHECK_AND_ASSERT_MES(
     tx_aux_public_keys.size() == tx_aux_secret_keys.size(),
     false,
     "Internal error creating additional public keys"
   );
+
   if (not set_tx_extra(account_keys, destinations, change, tx_secret_key, tx_public_key, tx_aux_public_keys, extra, unsigned_tx))
     return false;
+
   return true;
 }
 
@@ -532,17 +564,23 @@ static bool set_tx_rct_signatures(
   rct::keyV& cached_w
 )
 {
-  const std::size_t num_destinations = destinations.size();
-  const std::size_t num_sources = sources.size();
   if (rct_config.bp_version != 3)
     return false;
   if (rct_config.range_proof_type != rct::RangeProofPaddedBulletproof)
     return false;
+
+  const std::size_t num_destinations = destinations.size();
+  const std::size_t num_sources = sources.size();
+
+  // rct_signatures component of tx
   rct::rctSig rv{};
+
+  // set misc. fields
   rv.type = rct::RCTTypeCLSAG;
   rv.txnFee = fee;
   rv.message = rct::hash2rct(cryptonote::get_transaction_prefix_hash(unsigned_tx));
 
+  // define outputs
   std::vector<std::uint64_t> output_amounts(num_destinations);
   rct::keyV output_amount_masks(num_destinations);
   rv.ecdhInfo.resize(num_destinations);
@@ -561,6 +599,7 @@ static bool set_tx_rct_signatures(
     rct::ecdhEncode(rv.ecdhInfo[i], output_amount_secret_keys[i], true);
   }
 
+  // output range proofs
   if (not reconstruction) {
     rv.p.bulletproofs.push_back(rct::bulletproof_PROVE(output_amounts, output_amount_masks));
   }
@@ -576,6 +615,7 @@ static bool set_tx_rct_signatures(
       return false;
   }
 
+  // prepare rings for input CLSAGs
   rv.mixRing.resize(num_sources);
   for (std::size_t i = 0; i < num_sources; ++i) {
     const std::size_t ring_size = sources[i].outputs.size();
@@ -586,8 +626,7 @@ static bool set_tx_rct_signatures(
     }
   }
 
-  const rct::key message = get_pre_mlsag_hash(rv, hw::get_device("default"));
-
+  // make pseudo-output commitments
   rct::keyV a;  //pseudo-output commitment blinding factors
   auto a_wiper = epee::misc_utils::create_scope_leave_handler([&]{
     memwipe(static_cast<rct::key *>(a.data()), a.size() * sizeof(rct::key));
@@ -618,6 +657,7 @@ static bool set_tx_rct_signatures(
       sources[num_sources - 1].amount
     );
   }
+  // check balance if reconstructing the tx
   else {
     rv.p.pseudoOuts = unsigned_tx.rct_signatures.p.pseudoOuts;
     if (num_sources != rv.p.pseudoOuts.size())
@@ -631,6 +671,8 @@ static bool set_tx_rct_signatures(
       return false;
   }
 
+  // prepare input CLSAGs for signing
+  const rct::key message = get_pre_mlsag_hash(rv, hw::get_device("default"));
 
   rv.p.CLSAGs.resize(num_sources);
   if (reconstruction) {
@@ -657,7 +699,7 @@ static bool set_tx_rct_signatures(
       s.resize(ring_size);
       for (std::size_t j = 0; j < ring_size; ++j) {
         if (j != l)
-          s[j] = rct::skGen();
+          s[j] = rct::skGen();  //make fake responses
       }
     }
     else {
@@ -677,12 +719,12 @@ static bool set_tx_rct_signatures(
       memwipe(static_cast<rct::key *>(&z), sizeof(rct::key));
     });
     if (not reconstruction) {
-      sc_sub(z.bytes, sources[i].mask.bytes, a[i].bytes);
+      sc_sub(z.bytes, sources[i].mask.bytes, a[i].bytes);  //commitment to zero privkey
       ge_p3 H_p3;
       rct::hash_to_p3(H_p3, rv.mixRing[i][l].dest);
       rct::key H_l;
       ge_p3_tobytes(H_l.bytes, &H_p3);
-      D = rct::scalarmultKey(H_l, z);
+      D = rct::scalarmultKey(H_l, z);  //auxilliary key image (for commitment to zero)
       rv.p.CLSAGs[i].D = rct::scalarmultKey(D, rct::INV_EIGHT);
       rv.p.CLSAGs[i].I = I;
     }
@@ -751,22 +793,34 @@ bool tx_builder_t::init(
     return false;
   if (sources.empty())
     return false;
+
   if (not reconstruction)
     unsigned_tx.set_null();
+
   std::uint64_t fee;
   if (not compute_tx_fee(sources, destinations, fee))
     return false;
-  unsigned_tx.version = 2;
+
+  // misc. fields
+  unsigned_tx.version = 2;  //rct = 2
   unsigned_tx.unlock_time = unlock_time;
+
+  // sort inputs
   sort_sources(sources);
+
+  // get secret keys for signing input CLSAGs (multisig: or for the initial partial signature)
   rct::keyV input_secret_keys;
   auto input_secret_keys_wiper = epee::misc_utils::create_scope_leave_handler([&]{
     memwipe(static_cast<rct::key *>(input_secret_keys.data()), input_secret_keys.size() * sizeof(rct::key));
   });
   if (not compute_keys_for_sources(account_keys, sources, subaddr_account, subaddr_minor_indices, input_secret_keys))
     return false;
+
+  // randomize output order
   if (not reconstruction)
     shuffle_destinations(destinations);
+
+  // prepare outputs
   rct::keyV output_public_keys;
   rct::keyV output_amount_secret_keys;
   auto output_amount_secret_keys_wiper = epee::misc_utils::create_scope_leave_handler([&]{
@@ -775,11 +829,18 @@ bool tx_builder_t::init(
   if (not compute_keys_for_destinations(account_keys, subaddr_account, destinations, change, extra, reconstruction, tx_secret_key,
       tx_aux_secret_keys, output_public_keys, output_amount_secret_keys, unsigned_tx))
     return false;
+
+  // add inputs to tx
   set_tx_inputs(sources, unsigned_tx);
+
+  // add output one-time addresses to tx
   set_tx_outputs(output_public_keys, unsigned_tx);
+
+  // prepare input signatures
   if (not set_tx_rct_signatures(fee, sources, destinations, input_secret_keys, output_public_keys, output_amount_secret_keys,
       rct_config, reconstruction, unsigned_tx, cached_CLSAG, cached_w))
     return false;
+
   initialized = true;
   return true;
 }
