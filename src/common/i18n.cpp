@@ -31,6 +31,7 @@
 #include <ctype.h>
 #include <string>
 #include <map>
+#include <algorithm>
 #include "file_io_utils.h"
 #include "common/i18n.h"
 #include "translation_files.h"
