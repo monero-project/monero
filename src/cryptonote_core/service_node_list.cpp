@@ -233,14 +233,14 @@ namespace service_nodes
 		return m_service_nodes_infos.find(pubkey) != m_service_nodes_infos.end();
 	}
 
-	bool service_node_list::contribution_tx_output_has_correct_unlock_time(const cryptonote::transaction& tx, size_t i, uint64_t block_height) const
+	bool service_node_list::contribution_tx_output_has_correct_unlock_time(const cryptonote::transaction& tx, size_t i, uint64_t block_height, uint64_t registration_height) const
 	{
 		uint64_t unlock_time = tx.unlock_time;
 
 		if (tx.version >= cryptonote::transaction::version_3_per_output_unlock_times)
 			unlock_time = tx.output_unlock_times[i];
 
-		return unlock_time < CRYPTONOTE_MAX_BLOCK_NUMBER && unlock_time >= block_height + get_staking_requirement_lock_blocks(m_blockchain.nettype());
+		return unlock_time < CRYPTONOTE_MAX_BLOCK_NUMBER && unlock_time >= registration_height + get_staking_requirement_lock_blocks(m_blockchain.nettype());
 	}
 
 	bool reg_tx_extract_fields(const cryptonote::transaction& tx, std::vector<cryptonote::account_public_address>& addresses, uint64_t& portions_for_operator, std::vector<uint64_t>& portions, uint64_t& expiration_timestamp, crypto::public_key& service_node_key, crypto::signature& signature, crypto::public_key& tx_pub_key)
@@ -590,7 +590,7 @@ namespace service_nodes
 
 		cryptonote::account_public_address address;
 		uint64_t transferred = 0;
-		if (!get_contribution(tx, block_height, address, transferred))
+		if (!get_contribution(tx, block_height, address, transferred, block_height))
 			return false;
 		if (transferred < info.staking_requirement / max_contribs)
 			return false;
@@ -690,7 +690,7 @@ namespace service_nodes
 		return true;
 	}
 
-	bool service_node_list::get_contribution(const cryptonote::transaction& tx, uint64_t block_height, cryptonote::account_public_address& address, uint64_t& transferred) const
+	bool service_node_list::get_contribution(const cryptonote::transaction& tx, uint64_t block_height, cryptonote::account_public_address& address, uint64_t& transferred, uint64_t registration_height) const
 	{
 		crypto::secret_key tx_key;
 
@@ -707,7 +707,7 @@ namespace service_nodes
 
 		transferred = 0;
 		for (size_t i = 0; i < tx.vout.size(); i++)
-			if (contribution_tx_output_has_correct_unlock_time(tx, i, block_height))
+			if (contribution_tx_output_has_correct_unlock_time(tx, i, block_height, registration_height))
 				transferred += get_reg_tx_staking_output_contribution(tx, i, derivation, hwdev);
 
 		return true;
@@ -721,14 +721,15 @@ namespace service_nodes
 
 		if (!cryptonote::get_service_node_pubkey_from_tx_extra(tx.extra, pubkey))
 			return;
-		if (!get_contribution(tx, block_height, address, transferred))
-			return;
 
 		auto iter = m_service_nodes_infos.find(pubkey);
 		if (iter == m_service_nodes_infos.end())
 			return;
 
 		service_node_info& info = iter->second;
+
+		if (!get_contribution(tx, block_height, address, transferred, info.registration_height))
+			return;
 
 		if (info.is_fully_funded())
 			return;
@@ -859,7 +860,9 @@ namespace service_nodes
 			if (process_registration_tx(tx_pair.first, block.timestamp, block_height, index)) {
 				registrations++;
 			}
+
 			process_contribution_tx(tx_pair.first, block_height, index);
+
 			if (process_deregistration_tx(tx_pair.first, block_height)) {
 				deregistrations++;
 			}
