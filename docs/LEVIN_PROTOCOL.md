@@ -131,7 +131,7 @@ be zero. The first fragment has the `B` bit set, neither `B` nor `E` is set for
 
 ### Dummy
 Dummy messages have the `B` and `E` bits set, the `Q` and `S` bits unset, and
-the `Expect Reponse` field zeroed. When a message of this type is received, the
+the `Expect Response` field zeroed. When a message of this type is received, the
 contents can be safely ignored.
 
 
