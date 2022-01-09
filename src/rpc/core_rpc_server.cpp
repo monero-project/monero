@@ -2127,7 +2127,6 @@ namespace cryptonote
       return r;
 
     CHECK_PAYMENT_MIN1(req, res, COST_PER_BLOCK_HEADER, false);
-    db_rtxn_guard rtxn_guard(&m_core.get_blockchain_storage().get_db());
 
     const bool restricted = m_restricted && ctx;
     if (restricted && req.hashes.size() > RESTRICTED_BLOCK_COUNT)
@@ -2136,6 +2135,8 @@ namespace cryptonote
       error_resp.message = "Too many block headers requested in restricted mode";
       return false;
     }
+
+    db_rtxn_guard rtxn_guard(&m_core.get_blockchain_storage().get_db());
 
     auto get = [this](const std::string &hash, bool fill_pow_hash, block_header_response &block_header, bool restricted, epee::json_rpc::error& error_resp) -> bool {
       crypto::hash block_hash;
@@ -2196,14 +2197,6 @@ namespace cryptonote
     if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_GET_BLOCK_HEADERS_RANGE>(invoke_http_mode::JON_RPC, "getblockheadersrange", req, res, r))
       return r;
 
-    db_rtxn_guard rtxn_guard(&m_core.get_blockchain_storage().get_db());
-    const uint64_t bc_height = m_core.get_current_blockchain_height();
-    if (req.start_height >= bc_height || req.end_height >= bc_height || req.start_height > req.end_height)
-    {
-      error_resp.code = CORE_RPC_ERROR_CODE_TOO_BIG_HEIGHT;
-      error_resp.message = "Invalid start/end heights.";
-      return false;
-    }
     const bool restricted = m_restricted && ctx;
     if (restricted && req.end_height - req.start_height > RESTRICTED_BLOCK_HEADER_RANGE)
     {
@@ -2213,6 +2206,16 @@ namespace cryptonote
     }
 
     CHECK_PAYMENT_MIN1(req, res, (req.end_height - req.start_height + 1) * COST_PER_BLOCK_HEADER, false);
+    db_rtxn_guard rtxn_guard(&m_core.get_blockchain_storage().get_db());
+
+    const uint64_t bc_height = m_core.get_current_blockchain_height();
+    if (req.start_height >= bc_height || req.end_height >= bc_height || req.start_height > req.end_height)
+    {
+      error_resp.code = CORE_RPC_ERROR_CODE_TOO_BIG_HEIGHT;
+      error_resp.message = "Invalid start/end heights.";
+      return false;
+    }
+
     for (uint64_t h = req.start_height; h <= req.end_height; ++h)
     {
       crypto::hash block_hash = m_core.get_block_id_by_height(h);
