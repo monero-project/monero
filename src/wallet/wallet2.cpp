@@ -7319,6 +7319,11 @@ bool wallet2::load_multisig_tx(cryptonote::blobdata s, multisig_tx_set &exported
   }
 
   LOG_PRINT_L1("Loaded multisig tx unsigned data from binary: " << exported_txs.m_ptx.size() << " transactions");
+  if (exported_txs.m_ptx.size() < 1)
+  {
+    LOG_PRINT_L1("Loaded transaction was empty... aborting");
+    return false;
+  }
   for (auto &ptx: exported_txs.m_ptx) LOG_PRINT_L0(cryptonote::obj_to_json_str(ptx.tx));
 
   if (accept_func && !accept_func(exported_txs))
@@ -14192,24 +14197,10 @@ bool wallet2::save_to_file(const std::string& path_to_file, const std::string& r
   }
 }
 //----------------------------------------------------------------------------------------------------
-
-bool wallet2::load_from_file(const std::string& path_to_file, std::string& target_str,
-                             size_t max_size)
+int wallet2::PEM_read_string(std::string data, std::string& target_str)
 {
-  std::string data;
-  bool r = epee::file_io_utils::load_file_to_string(path_to_file, data, max_size);
-  if (!r)
-  {
-    return false;
-  }
-
   if (!boost::algorithm::contains(boost::make_iterator_range(data.begin(), data.end()), ASCII_OUTPUT_MAGIC))
-  {
-    // It's NOT our ascii dump.
-    target_str = std::move(data);
-    return true;
-  }
-
+    return 0;
   // Creating a BIO and calling PEM_read_bio instead of simpler PEM_read
   // to avoid reading the file from disk twice.
   BIO* b = BIO_new_mem_buf((const void*) data.data(), data.length());
@@ -14228,7 +14219,7 @@ bool wallet2::load_from_file(const std::string& path_to_file, std::string& targe
   }
   catch (...)
   {
-    success = 0;
+    return 0;
   }
 
   OPENSSL_free((void *) name);
@@ -14236,14 +14227,32 @@ bool wallet2::load_from_file(const std::string& path_to_file, std::string& targe
   OPENSSL_free((void *) openssl_data);
   BIO_free(b);
 
+  return 1;
+}
+//----------------------------------------------------------------------------------------------------
+bool wallet2::load_from_file(const std::string& path_to_file, std::string& target_str,
+                             size_t max_size)
+{
+  std::string data;
+  bool r = epee::file_io_utils::load_file_to_string(path_to_file, data, max_size);
+  if (!r)
+  {
+    return false;
+  }
+
+  if (!boost::algorithm::contains(boost::make_iterator_range(data.begin(), data.end()), ASCII_OUTPUT_MAGIC))
+  {
+    // It's NOT our ascii dump.
+    target_str = std::move(data);
+    return true;
+  }
+
+  int success = PEM_read_string(data, target_str);
   if (success == 0)
   {
     return false;
   }
-  else
-  {
-    return true;
-  }
+  return true;
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::hash_m_transfer(const transfer_details & transfer, crypto::hash &hash) const

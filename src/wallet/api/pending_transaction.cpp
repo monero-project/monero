@@ -94,7 +94,15 @@ bool PendingTransactionImpl::commit(const std::string &filename, bool overwrite)
           LOG_ERROR(m_errorString);
           return false;
         }
-        bool r = m_wallet.m_wallet->save_tx(m_pending_tx, filename);
+        bool r;
+        if (m_wallet.multisig().isMultisig) {
+          auto tx_set = m_wallet.m_wallet->make_multisig_tx_set(m_pending_tx);
+          m_pending_tx = tx_set.m_ptx;
+          m_signers = tx_set.m_signers;
+          r = m_wallet.m_wallet->save_multisig_tx(tx_set, filename);
+        } else {
+          r = m_wallet.m_wallet->save_tx(m_pending_tx, filename);
+        }
         if (!r) {
           m_errorString = tr("Failed to write transaction(s) to file");
           m_status = Status_Error;
@@ -261,6 +269,17 @@ std::vector<std::string> PendingTransactionImpl::signersKeys() const {
     }
 
     return keys;
+}
+
+std::vector<std::string> PendingTransactionImpl::dest_addresses() const {
+    std::vector<tools::wallet2::pending_tx> txs = m_pending_tx;
+    std::vector<std::string> result;
+    for(tools::wallet2::pending_tx tx : txs) {
+       for (cryptonote::tx_destination_entry dest : tx.dests) {
+           result.push_back(get_account_address_as_str(m_wallet.m_wallet->nettype(), dest.is_subaddress, dest.addr));
+       }
+    }
+    return result;
 }
 
 }
