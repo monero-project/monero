@@ -4367,7 +4367,11 @@ namespace tools
       return false;
     }
 
-    if (!m_wallet->set_daemon(req.address, boost::none, req.trusted, std::move(ssl_options)))
+    boost::optional<epee::net_utils::http::login> daemon_login{};
+    if (!req.username.empty() || !req.password.empty())
+      daemon_login.emplace(req.username, req.password);
+
+    if (!m_wallet->set_daemon(req.address, daemon_login, req.trusted, std::move(ssl_options)))
     {
       er.code = WALLET_RPC_ERROR_CODE_NO_DAEMON_CONNECTION;
       er.message = std::string("Unable to set daemon");
