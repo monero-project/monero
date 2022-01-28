@@ -1,5 +1,5 @@
 # Levin Protocol
-This is a document explaining the current design of the levin protocol, as
+This is a document explaining the current design of the Levin protocol, as
 used by Monero. The protocol is largely inherited from cryptonote, but has
 undergone some changes.
 
@@ -9,7 +9,7 @@ extensibility.
 
 One of the goals of this document is to clearly indicate what is being sent
 "on the wire" to identify metadata that could de-anonymize users over I2P/Tor.
-These issues will be addressed as they are found. See `ANONMITY_NETWORKS.md` in
+These issues will be addressed as they are found. See `ANONYMITY_NETWORKS.md` in
 the `docs` folder for any outstanding issues.
 
 > This document does not currently list all data being sent by the monero
