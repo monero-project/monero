@@ -8325,6 +8325,7 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
       gamma.reset(new gamma_picker(rct_offsets));
 
     size_t num_selected_transfers = 0;
+    std::unordered_set<pair<uint64_t, uint64_t>> seen_outputs;
     for(size_t idx: selected_transfers)
     {
       ++num_selected_transfers;
@@ -8445,6 +8446,9 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
           bool own_found = false;
           for (const auto &out: ring)
           {
+            if (seen_outputs.count({amount, out}))
+              seen_indices.emplace(out);
+              continue;
             MINFO("Ring has output " << out);
             if (out < num_outs)
             {
@@ -8452,6 +8456,7 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
               req.outputs.push_back({amount, out});
               ++num_found;
               seen_indices.emplace(out);
+              seen_outputs.emplace({amount, out});
               if (out == td.m_global_output_index)
               {
                 MINFO("This is the real output");
@@ -8485,6 +8490,7 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
         {
           num_found = 1;
           seen_indices.emplace(td.m_global_output_index);
+          seen_outputs.emplace({amount, td.m_global_output_index});
           req.outputs.push_back({amount, td.m_global_output_index});
           LOG_PRINT_L1("Selecting real output: " << td.m_global_output_index << " for " << print_money(amount));
         }
@@ -8585,12 +8591,15 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
 
           if (seen_indices.count(i))
             continue;
+          if (seen_outputs.count({amount, i}))
+            continue;
           if (!allow_blackballed && is_output_blackballed(std::make_pair(amount, i))) // don't add blackballed outputs
           {
             --num_usable_outs;
             continue;
           }
           seen_indices.emplace(i);
+          seen_outputs.emplace({amount, i});
 
           picks[type].insert(i);
           req.outputs.push_back({amount, i});
