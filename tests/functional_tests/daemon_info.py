@@ -86,6 +86,11 @@ class DaemonGetInfoTest():
         assert 'height' in res.keys()
         assert res.height >= 1
 
+        # node_info should be a JSON string
+        assert 'node_info' in res.keys()
+        assert res.node_info == os.environ.get('NODE_INFO', "{}")
+
+
 
 if __name__ == '__main__':
     DaemonGetInfoTest().run_test()

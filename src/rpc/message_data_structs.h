@@ -199,6 +199,7 @@ namespace rpc
     uint64_t adjusted_time;
     uint64_t block_weight_median;
     uint64_t start_time;
+    std::string node_info;
     std::string version;
   };
 
