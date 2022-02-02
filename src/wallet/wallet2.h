@@ -72,6 +72,8 @@
 #include "wallet_light_rpc.h"
 #include "wallet_rpc_helpers.h"
 
+#include "wallet2_base.h"
+
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "wallet.wallet2"
 
@@ -225,38 +227,14 @@ private:
   };
 
   class wallet_keys_unlocker;
-  class wallet2
+  class wallet2 : public wallet2_base
   {
     friend class ::Serialization_portability_wallet_Test;
     friend class ::wallet_accessor_test;
     friend class wallet_keys_unlocker;
     friend class wallet_device_callback;
   public:
-    static constexpr const std::chrono::seconds rpc_timeout = std::chrono::minutes(3) + std::chrono::seconds(30);
-
-    enum RefreshType {
-      RefreshFull,
-      RefreshOptimizeCoinbase,
-      RefreshNoCoinbase,
-      RefreshDefault = RefreshOptimizeCoinbase,
-    };
-
-    enum AskPasswordType {
-      AskPasswordNever = 0,
-      AskPasswordOnAction = 1,
-      AskPasswordToDecrypt = 2,
-    };
-
-    enum BackgroundMiningSetupType {
-      BackgroundMiningMaybe = 0,
-      BackgroundMiningYes = 1,
-      BackgroundMiningNo = 2,
-    };
-
-    enum ExportFormat {
-      Binary = 0,
-      Ascii,
-    };
+    static constexpr const std::chrono::seconds rpc_timeout = wallet2_base::rpc_timeout;
 
     static const char* tr(const char* str);
 
@@ -1350,9 +1328,8 @@ private:
      */
     void set_account_tag_description(const std::string& tag, const std::string& description);
 
-    enum message_signature_type_t { sign_with_spend_key, sign_with_view_key };
-    std::string sign(const std::string &data, message_signature_type_t signature_type, cryptonote::subaddress_index index = {0, 0}) const;
-    struct message_signature_result_t { bool valid; unsigned version; bool old; message_signature_type_t type; };
+    std::string sign(const std::string &data, message_signature_type_t signature_type) const;
+    std::string sign(const std::string &data, message_signature_type_t signature_type, const cryptonote::subaddress_index & index) const;
     message_signature_result_t verify(const std::string &data, const cryptonote::account_public_address &address, const std::string &signature) const;
 
     /*!

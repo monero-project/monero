@@ -27,7 +27,7 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "gtest/gtest.h"
-#include "wallet/wallet2.h"
+#include "wallet/wallet2_base.h"
 
 #define TEST_ADDRESS "9tTLtauaEKSj7xoVXytVH32R1pLZBk4VV4mZFGEh4wkXhDWqw1soPyf3fGixf1kni31VznEZkWNEza9d5TvjWwq5PaohYHC"
 #define TEST_INTEGRATED_ADDRESS "A4A1uPj4qaxj7xoVXytVH32R1pLZBk4VV4mZFGEh4wkXhDWqw1soPyf3fGixf1kni31VznEZkWNEza9d5TvjWwq5acaPMJfMbn3ReTsBpp"
@@ -37,8 +37,8 @@
   std::string address, payment_id, recipient_name, description, error; \
   uint64_t amount; \
   std::vector<std::string> unknown_parameters; \
-  tools::wallet2 w(cryptonote::TESTNET); \
-  bool ret = w.parse_uri(uri, address, payment_id, amount, description, recipient_name, unknown_parameters, error); \
+  std::unique_ptr<tools::wallet2_base> w = tools::wallet2_base::create(cryptonote::TESTNET); \
+  bool ret = w->parse_uri(uri, address, payment_id, amount, description, recipient_name, unknown_parameters, error); \
   ASSERT_EQ(ret, expected);
 
 TEST(uri, empty_string)

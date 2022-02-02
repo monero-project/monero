@@ -31,10 +31,11 @@
 #include "gtest/gtest.h"
 
 #include "include_base_utils.h"
-#include "wallet/wallet2.h"
+#include "wallet/wallet2_base.h"
 #include "crypto/crypto.h"
 #include "cryptonote_basic/account.h"
 #include "cryptonote_basic/cryptonote_basic_impl.h"
+#include "cryptonote_basic/subaddress_index.h"
 #include "wallet/api/subaddress.h"
 
 class WalletSubaddress : public ::testing::Test 
@@ -44,7 +45,8 @@ class WalletSubaddress : public ::testing::Test
     {
       try
       {
-        w1.generate("", password, recovery_key, true, false);
+        w1 = tools::wallet2_base::create();
+        w1->generate("", password, recovery_key, true, false);
       }
       catch (const std::exception& e)
       {
@@ -52,15 +54,15 @@ class WalletSubaddress : public ::testing::Test
         throw;
       }
 
-      w1.add_subaddress_account(test_label);
-      w1.set_subaddress_label(subaddress_index, test_label);
+      w1->add_subaddress_account(test_label);
+      w1->set_subaddress_label(subaddress_index, test_label);
     }
 
     virtual void TearDown()
     {
     }
 
-    tools::wallet2 w1;
+    std::unique_ptr<tools::wallet2_base> w1;
     const std::string password = "testpass";
     crypto::secret_key recovery_key = crypto::secret_key();
     const std::string test_label = "subaddress test label";
@@ -72,21 +74,21 @@ class WalletSubaddress : public ::testing::Test
 
 TEST_F(WalletSubaddress, GetSubaddressLabel)
 {
-  EXPECT_EQ(test_label, w1.get_subaddress_label(subaddress_index));
+  EXPECT_EQ(test_label, w1->get_subaddress_label(subaddress_index));
 }
 
 TEST_F(WalletSubaddress, AddSubaddress)
 {
   std::string label = "test adding subaddress";
-  w1.add_subaddress(0, label);
-  EXPECT_EQ(label, w1.get_subaddress_label({0, 1}));
+  w1->add_subaddress(0, label);
+  EXPECT_EQ(label, w1->get_subaddress_label({0, 1}));
 }
 
 TEST_F(WalletSubaddress, OutOfBoundsIndexes)
 {
   try 
   {
-    w1.get_subaddress_label({1,0});
+    w1->get_subaddress_label({1,0});
   } 
   catch(const std::exception& e)
   {
@@ -94,7 +96,7 @@ TEST_F(WalletSubaddress, OutOfBoundsIndexes)
   }   
   try 
   {
-    w1.get_subaddress_label({0,2});
+    w1->get_subaddress_label({0,2});
   } 
   catch(const std::exception& e)
   {
