@@ -534,6 +534,7 @@ namespace cryptonote
     res.version = restricted ? "" : MONERO_VERSION_FULL;
     res.synchronized = check_core_ready();
     res.busy_syncing = m_p2p.get_payload_object().is_busy_syncing();
+    res.restricted = restricted;
 
     res.status = CORE_RPC_STATUS_OK;
     return true;
