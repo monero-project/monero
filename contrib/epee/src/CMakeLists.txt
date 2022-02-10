@@ -39,7 +39,6 @@ monero_add_library(epee byte_slice.cpp byte_stream.cpp hex.cpp abstract_http_cli
     file_io_utils.cpp
     net_parse_helpers.cpp
     http_base.cpp
-    tiny_ini.cpp
     ${EPEE_HEADERS_PUBLIC}
     )
 
