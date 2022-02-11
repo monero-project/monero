@@ -373,6 +373,40 @@ private:
       END_SERIALIZE()
     };
 
+    struct exported_transfer_details
+    {
+      crypto::public_key m_pubkey;
+      uint64_t m_internal_output_index;
+      uint64_t m_global_output_index;
+      crypto::public_key m_tx_pubkey;
+      union
+      {
+        struct
+        {
+          uint8_t m_spent: 1;
+          uint8_t m_frozen: 1;
+          uint8_t m_rct: 1;
+          uint8_t m_key_image_known: 1;
+          uint8_t m_key_image_request: 1; // view wallets: we want to request it; cold wallets: it was requested
+          uint8_t m_key_image_partial: 1;
+        };
+        uint8_t flags;
+      } m_flags;
+      uint64_t m_amount;
+      std::vector<crypto::public_key> m_additional_tx_keys;
+
+      BEGIN_SERIALIZE_OBJECT()
+        VERSION_FIELD(0)
+        FIELD(m_pubkey)
+        VARINT_FIELD(m_internal_output_index)
+        VARINT_FIELD(m_global_output_index)
+        FIELD(m_tx_pubkey)
+        FIELD(m_flags.flags)
+        VARINT_FIELD(m_amount)
+        FIELD(m_additional_tx_keys)
+      END_SERIALIZE()
+    };
+
     typedef std::vector<uint64_t> amounts_container;
     struct payment_details
     {
@@ -575,11 +609,15 @@ private:
     {
       std::vector<tx_construction_data> txes;
       std::pair<size_t, wallet2::transfer_container> transfers;
+      std::pair<size_t, std::vector<wallet2::exported_transfer_details>> new_transfers;
 
       BEGIN_SERIALIZE_OBJECT()
-        VERSION_FIELD(0)
+        VERSION_FIELD(1)
         FIELD(txes)
-        FIELD(transfers)
+        if (version >= 1)
+          FIELD(new_transfers)
+        else
+          FIELD(transfers)
       END_SERIALIZE()
     };
 
@@ -1347,8 +1385,9 @@ private:
     bool verify_with_public_key(const std::string &data, const crypto::public_key &public_key, const std::string &signature) const;
 
     // Import/Export wallet data
-    std::pair<uint64_t, std::vector<tools::wallet2::transfer_details>> export_outputs(bool all = false) const;
+    std::pair<uint64_t, std::vector<tools::wallet2::exported_transfer_details>> export_outputs(bool all = false) const;
     std::string export_outputs_to_str(bool all = false) const;
+    size_t import_outputs(const std::pair<uint64_t, std::vector<tools::wallet2::exported_transfer_details>> &outputs);
     size_t import_outputs(const std::pair<uint64_t, std::vector<tools::wallet2::transfer_details>> &outputs);
     size_t import_outputs_from_str(const std::string &outputs_st);
     payment_container export_payments() const;
