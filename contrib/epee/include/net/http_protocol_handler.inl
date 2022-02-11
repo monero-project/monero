@@ -376,7 +376,7 @@ namespace net_utils
 			m_query_info.m_http_method_str = result[2];
 			m_query_info.m_full_request_str = result[0];
 
-			m_cache.erase(m_cache.begin(),  to_nonsonst_iterator(m_cache, result[0].second));
+			m_cache.erase(m_cache.begin(), result[0].second);
 
 			m_state = http_state_retriving_header;
 
