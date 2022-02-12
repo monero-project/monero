@@ -101,7 +101,7 @@ class ColdSigningTest():
         res = self.cold_wallet.export_key_images(True)
         self.hot_wallet.import_key_images(res.signed_key_images, offset = res.offset)
 
-        res = self.hot_wallet.transfer([dst], ring_size = 11, get_tx_key = False)
+        res = self.hot_wallet.transfer([dst], ring_size = 16, get_tx_key = False)
         assert len(res.tx_hash) == 32*2
         txid = res.tx_hash
         assert len(res.tx_key) == 0
@@ -121,7 +121,7 @@ class ColdSigningTest():
         desc = res.desc[0]
         assert desc.amount_in >= amount + fee
         assert desc.amount_out == desc.amount_in - fee
-        assert desc.ring_size == 11
+        assert desc.ring_size == 16
         assert desc.unlock_time == 0
         assert desc.payment_id in ['', '0000000000000000']
         assert desc.change_amount == desc.amount_in - 1000000000000 - fee
