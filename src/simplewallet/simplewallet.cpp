@@ -3544,7 +3544,7 @@ simple_wallet::simple_wallet()
                               "** Set of address indices used as inputs in this transfer."));
   m_cmd_binder.set_handler("export_transfers",
                            boost::bind(&simple_wallet::on_command, this, &simple_wallet::export_transfers, _1),
-                           tr("export_transfers [in|out|all|pending|failed|pool|coinbase] [index=<N1>[,<N2>,...]] [<min_height> [<max_height>]] [output=<filepath>]"),
+                           tr("export_transfers [in|out|all|pending|failed|pool|coinbase] [index=<N1>[,<N2>,...]] [<min_height> [<max_height>]] [output=<filepath>] [option=<with_keys>]"),
                            tr("Export to CSV the incoming/outgoing transfers within an optional height range."));
   m_cmd_binder.set_handler("unspent_outputs",
                            boost::bind(&simple_wallet::on_command, this, &simple_wallet::unspent_outputs, _1),
@@ -8051,6 +8051,15 @@ bool simple_wallet::submit_transfer(const std::vector<std::string> &args_)
   return true;
 }
 //----------------------------------------------------------------------------------------------------
+std::string get_tx_key_stream(crypto::secret_key tx_key, std::vector<crypto::secret_key> additional_tx_keys)
+{
+  ostringstream oss;
+  oss << epee::string_tools::pod_to_hex(tx_key);
+  for (size_t i = 0; i < additional_tx_keys.size(); ++i)
+    oss << epee::string_tools::pod_to_hex(additional_tx_keys[i]);
+  return oss.str();
+}
+
 bool simple_wallet::get_tx_key(const std::vector<std::string> &args_)
 {
   std::vector<std::string> local_args = args_;
@@ -8080,11 +8089,8 @@ bool simple_wallet::get_tx_key(const std::vector<std::string> &args_)
   bool found_tx_key = m_wallet->get_tx_key(txid, tx_key, additional_tx_keys);
   if (found_tx_key)
   {
-    ostringstream oss;
-    oss << epee::string_tools::pod_to_hex(tx_key);
-    for (size_t i = 0; i < additional_tx_keys.size(); ++i)
-      oss << epee::string_tools::pod_to_hex(additional_tx_keys[i]);
-    success_msg_writer() << tr("Tx key: ") << oss.str();
+    std::string stream = get_tx_key_stream(tx_key, additional_tx_keys);
+    success_msg_writer() << tr("Tx key: ") << stream;
     return true;
   }
   else
@@ -8895,12 +8901,10 @@ bool simple_wallet::export_transfers(const std::vector<std::string>& args_)
 {
   std::vector<std::string> local_args = args_;
 
-  if(local_args.size() > 5) {
-    fail_msg_writer() << tr("usage: export_transfers [in|out|all|pending|failed|pool|coinbase] [index=<N1>[,<N2>,...]] [<min_height> [<max_height>]] [output=<path>]");
+  if(local_args.size() > 6) {
+    fail_msg_writer() << tr("usage: export_transfers [in|out|all|pending|failed|pool|coinbase] [index=<N1>[,<N2>,...]] [<min_height> [<max_height>]] [output=<path>] [option=<with_keys>]");
     return true;
   }
-
-  LOCK_IDLE_SCOPE();
 
   std::vector<transfer_view> all_transfers;
 
@@ -8915,17 +8919,36 @@ bool simple_wallet::export_transfers(const std::vector<std::string>& args_)
     filename = local_args[0].substr(7, -1);
     local_args.erase(local_args.begin());
   }
+  // check for export with tx keys
+  bool export_keys = false;
+  if (local_args.size() > 0 && local_args[0].substr(0, 7) == "option=")
+  {
+    export_keys = local_args[0].substr(7, -1) == "with_keys";
+    local_args.erase(local_args.begin());
+  }
+  if (export_keys)
+  {
+    if (m_wallet->key_on_device() && m_wallet->get_account().get_device().get_type() != hw::device::TREZOR)
+    {
+      fail_msg_writer() << tr("command not supported by HW wallet");
+      return true;
+    }
+    SCOPED_WALLET_UNLOCK();
+  } else 
+  {
+    LOCK_IDLE_SCOPE();
+  }
 
   std::ofstream file(filename);
 
   // header
   file <<
-      boost::format("%8.8s,%9.9s,%8.8s,%25.25s,%20.20s,%20.20s,%64.64s,%16.16s,%14.14s,%106.106s,%20.20s,%s,%s") %
-      tr("block") % tr("direction") % tr("unlocked") % tr("timestamp") % tr("amount") % tr("running balance") % tr("hash") % tr("payment ID") % tr("fee") % tr("destination") % tr("amount") % tr("index") % tr("note")
+      boost::format("%8.8s,%9.9s,%8.8s,%25.25s,%20.20s,%20.20s,%64.64s,%16.16s,%14.14s,%106.106s,%20.20s,%s,%s,%s") %
+      tr("block") % tr("direction") % tr("unlocked") % tr("timestamp") % tr("amount") % tr("running balance") % tr("hash") % tr("payment ID") % tr("fee") % tr("destination") % tr("amount") % tr("index") % tr("note") % tr("tx key")
       << std::endl;
 
   uint64_t running_balance = 0;
-  auto formatter = boost::format("%8.8llu,%9.9s,%8.8s,%25.25s,%20.20s,%20.20s,%64.64s,%16.16s,%14.14s,%106.106s,%20.20s,\"%s\",%s");
+  auto formatter = boost::format("%8.8llu,%9.9s,%8.8s,%25.25s,%20.20s,%20.20s,%64.64s,%16.16s,%14.14s,%106.106s,%20.20s,\"%s\",%s,%s");
 
   for (const auto& transfer : all_transfers)
   {
@@ -8936,6 +8959,15 @@ bool simple_wallet::export_transfers(const std::vector<std::string>& args_)
         running_balance += transfer.amount;
       else
         running_balance -= transfer.amount + transfer.fee;
+    }
+
+    crypto::secret_key tx_key;
+    std::vector<crypto::secret_key> additional_tx_keys;
+    bool found_tx_key = m_wallet->get_tx_key(transfer.hash, tx_key, additional_tx_keys);
+    std::string key_string;
+    if (export_keys && found_tx_key)
+    {
+      key_string = get_tx_key_stream(tx_key, additional_tx_keys);
     }
 
     file << formatter
@@ -8952,6 +8984,7 @@ bool simple_wallet::export_transfers(const std::vector<std::string>& args_)
       % (transfer.outputs.size() ? print_money(transfer.outputs[0].second) : "")
       % boost::algorithm::join(transfer.index | boost::adaptors::transformed([](uint32_t i) { return std::to_string(i); }), ", ")
       % transfer.note
+      % key_string
       << std::endl;
 
     for (size_t i = 1; i < transfer.outputs.size(); ++i)
@@ -8968,6 +9001,7 @@ bool simple_wallet::export_transfers(const std::vector<std::string>& args_)
         % ""
         % transfer.outputs[i].first
         % print_money(transfer.outputs[i].second)
+        % ""
         % ""
         % ""
         << std::endl;
