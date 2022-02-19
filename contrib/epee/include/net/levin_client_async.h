@@ -242,7 +242,7 @@ namespace levin
 			bucket_head head = {0};
 			head.m_signature = LEVIN_SIGNATURE;
 			head.m_cb = in_buff.size();
-			head.m_have_to_return_data = true;
+			head.m_have_to_return_data = 1;
 			head.m_id = target;
 #ifdef TRACE_LEVIN_PACKETS_BY_GUIDS
 			::UuidCreate(&head.m_id);
@@ -320,7 +320,7 @@ namespace levin
 			bucket_head head = {0};
 			head.m_signature = LEVIN_SIGNATURE;
 			head.m_cb = in_buff.size();
-			head.m_have_to_return_data = false;
+			head.m_have_to_return_data = 0;
 			head.m_id = target;
 #ifdef TRACE_LEVIN_PACKETS_BY_GUIDS
 			::UuidCreate(&head.m_id);
@@ -510,7 +510,7 @@ namespace levin
 
 
 				head.m_cb = return_buff.size();
-				head.m_have_to_return_data = false;
+				head.m_have_to_return_data = 0;
 				head.m_protocol_version = LEVIN_PROTOCOL_VER_1;
 				head.m_flags = LEVIN_PACKET_RESPONSE;
 
