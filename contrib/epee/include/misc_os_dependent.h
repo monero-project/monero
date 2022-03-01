@@ -90,33 +90,6 @@ namespace misc_utils
                 return get_ns_count() / 1000000;
         }
 
-
-        inline int call_sys_cmd(const std::string& cmd)
-	{      
-                std::cout << "# " << cmd << std::endl;
-
-		FILE * fp ;
-		//char tstCommand[] ="ls *";
-		char path[1000] = {0};
-#if !defined(__GNUC__) 
-		fp = _popen(cmd.c_str(), "r");
-#else
-		fp = popen(cmd.c_str(), "r");
-#endif
-		while ( fgets( path, 1000, fp ) != NULL )
-			std::cout << path;
-
-#if !defined(__GNUC__) 
-		_pclose(fp);
-#else
-		pclose(fp);
-#endif
-		return 0;
-
-	}
-
-	std::string get_thread_string_id();
-
 	inline bool get_gmt_time(time_t t, struct tm &tm)
 	{
 #ifdef _WIN32
