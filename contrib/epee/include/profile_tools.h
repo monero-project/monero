@@ -28,7 +28,7 @@
 #ifndef _PROFILE_TOOLS_H_
 #define _PROFILE_TOOLS_H_
 
-#include "misc_os_dependent.h"
+#include "time_helper.h"
 
 namespace epee
 {

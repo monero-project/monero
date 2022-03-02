@@ -28,83 +28,18 @@
 
 #pragma once
 
-//#include <atltime.h>
-//#include <sqlext.h>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/date_time/local_time/local_time.hpp>
+#include <chrono>
+#include <ctime>
+#include <iostream>
+
 #include "pragma_comp_defs.h"
 
 namespace epee
 {
 namespace misc_utils
 {
-
-#ifdef __ATLTIME_H__
-
-	inline
-	bool get_time_t_from_ole_date(DATE src, time_t& res)
-	{
-		SYSTEMTIME st = {0};
-		if(TRUE != ::VariantTimeToSystemTime(src, &st))
-			return false;
-		ATL::CTime ss(st);
-		res = ss.GetTime();
-		return true;
-	}
-#endif
-	inline 
-	std::string get_time_str(const time_t& time_)
-	{
-
-
-		char tmpbuf[200] = {0};
-		tm* pt = NULL;
-PRAGMA_WARNING_PUSH
-PRAGMA_WARNING_DISABLE_VS(4996)
-		pt = localtime(&time_);
-PRAGMA_WARNING_POP
-
-		if(pt)
-			strftime( tmpbuf, 199, "%d.%m.%Y %H:%M:%S", pt );
-		else
-		{
-			std::stringstream strs;
-			strs << "[wrong_time: " << std::hex << time_ << "]";
-			return strs.str();
-		}
-		return tmpbuf;
-	}
-
-	inline 
-		std::string get_time_str_v2(const time_t& time_)
-	{
-
-		char tmpbuf[200] = {0};
-		tm* pt = NULL;
-PRAGMA_WARNING_PUSH
-PRAGMA_WARNING_DISABLE_VS(4996)
-		pt = localtime(&time_);
-PRAGMA_WARNING_POP
-
-		if(pt)
-			strftime( tmpbuf, 199, "%Y_%m_%d %H_%M_%S", pt );
-		else
-		{
-			std::stringstream strs;
-			strs << "[wrong_time: " << std::hex << time_ << "]";
-			return strs.str();
-		}
-		return tmpbuf;
-	}
-
-  inline 
-    std::string get_time_str_v3(const boost::posix_time::ptime& time_)
-  {
-    return boost::posix_time::to_simple_string(time_);
-  }
-
-  
-
 	inline std::string get_internet_time_str(const time_t& time_)
 	{
 		char tmpbuf[200] = {0};
@@ -135,25 +70,25 @@ PRAGMA_WARNING_POP
 		return res;
 	}
 
-#ifdef __SQLEXT
-	inline
-	bool odbc_time_to_oledb_taime(const SQL_TIMESTAMP_STRUCT& odbc_timestamp, DATE& oledb_date)
+	inline uint64_t get_ns_count()
 	{
-		
-		SYSTEMTIME st = {0};
-		st.wYear = odbc_timestamp.year;
-		st.wDay = odbc_timestamp.day;
-		st.wHour = odbc_timestamp.hour ;
-		st.wMilliseconds = (WORD)odbc_timestamp.fraction ;
-		st.wMinute = odbc_timestamp.minute ;
-		st.wMonth = odbc_timestamp.month ;
-		st.wSecond = odbc_timestamp.second ;
-
-		if(TRUE != ::SystemTimeToVariantTime(&st, &oledb_date))
-			return false;
-		return true;
+		typedef std::chrono::duration<uint64_t, std::nano> ns_duration;
+		const ns_duration ns_since_epoch = std::chrono::steady_clock::now().time_since_epoch();
+		return ns_since_epoch.count();
 	}
 
+	inline uint64_t get_tick_count()
+	{
+		return get_ns_count() / 1000000;
+	}
+
+	inline bool get_gmt_time(time_t t, struct tm &tm)
+	{
+#ifdef _WIN32
+		return gmtime_s(&tm, &t);
+#else
+		return gmtime_r(&t, &tm);
 #endif
+	}
 }
 }

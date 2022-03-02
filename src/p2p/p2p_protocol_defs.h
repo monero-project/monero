@@ -30,6 +30,7 @@
 
 #pragma once
 
+#include <iomanip>
 #include <boost/uuid/uuid.hpp>
 #include <boost/serialization/version.hpp>
 #include "serialization/keyvalue_serialization.h"
