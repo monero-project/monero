@@ -3830,15 +3830,51 @@ int sc_isnonzero(const unsigned char *s) {
     s[27] | s[28] | s[29] | s[30] | s[31]) - 1) >> 8) + 1;
 }
 
-int ge_p3_is_point_at_infinity(const ge_p3 *p) {
-  // X = 0 and Y == Z
-  int n;
-  for (n = 0; n < 10; ++n)
+int ge_p3_is_point_at_infinity_vartime(const ge_p3 *p) {
+  // https://eprint.iacr.org/2008/522
+  // X == T == 0 and Y/Z == 1
+  // note: convert all pieces to canonical bytes in case rounding is required (i.e. an element is > q)
+  // note2: even though T = XY/Z is true for valid point representations (implying it isn't necessary to
+  //        test T == 0), the input to this function might NOT be valid, so we must test T == 0
+  char result_X_bytes[32];
+  fe_tobytes((unsigned char*)&result_X_bytes, p->X);
+
+  // X != 0
+  for (int i = 0; i < 32; ++i)
   {
-    if (p->X[n] | p->T[n])
-      return 0;
-    if (p->Y[n] != p->Z[n])
+    if (result_X_bytes[i])
       return 0;
   }
-  return 1;
+
+  char result_T_bytes[32];
+  fe_tobytes((unsigned char*)&result_T_bytes, p->T);
+
+  // T != 0
+  for (int i = 0; i < 32; ++i)
+  {
+    if (result_T_bytes[i])
+      return 0;
+  }
+
+  char result_Y_bytes[32];
+  char result_Z_bytes[32];
+  fe_tobytes((unsigned char*)&result_Y_bytes, p->Y);
+  fe_tobytes((unsigned char*)&result_Z_bytes, p->Z);
+
+  // Y != Z
+  for (int i = 0; i < 32; ++i)
+  {
+    if (result_Y_bytes[i] != result_Z_bytes[i])
+      return 0;
+  }
+
+  // is Y nonzero? then Y/Z == 1
+  for (int i = 0; i < 32; ++i)
+  {
+    if (result_Y_bytes[i] != 0)
+      return 1;
+  }
+
+  // Y/Z = 0/0
+  return 0;
 }
