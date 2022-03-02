@@ -35,8 +35,8 @@
 #include "rpc/core_rpc_server_commands_defs.h"
 #include "storages/http_abstract_invoke.h"
 #include "net/http_auth.h"
-#include "net/http_client.h"
 #include "net/net_ssl.h"
+#include "net/http.h"
 #include "string_tools.h"
 
 namespace tools
@@ -44,7 +44,7 @@ namespace tools
   class t_rpc_client final
   {
   private:
-    epee::net_utils::http::http_simple_client m_http_client;
+    std::unique_ptr<epee::net_utils::http::abstract_http_client> m_http_client;
   public:
     t_rpc_client(
         uint32_t ip
@@ -52,9 +52,9 @@ namespace tools
       , boost::optional<epee::net_utils::http::login> user
       , epee::net_utils::ssl_options_t ssl_options
       )
-      : m_http_client{}
+      : m_http_client{net::http::client_factory().create()}
     {
-      m_http_client.set_server(
+      m_http_client->set_server(
         epee::string_tools::get_ip_string_from_int32(ip), std::to_string(port), std::move(user), std::move(ssl_options)
       );
     }
@@ -66,15 +66,15 @@ namespace tools
       , std::string const & method_name
       )
     {
-      t_http_connection connection(&m_http_client);
+      t_http_connection connection(m_http_client.get());
 
       bool ok = connection.is_open();
       if (!ok)
       {
-        fail_msg_writer() << "Couldn't connect to daemon: " << m_http_client.get_host() << ":" << m_http_client.get_port();
+        fail_msg_writer() << "Couldn't connect to daemon: " << m_http_client->get_host() << ":" << m_http_client->get_port();
         return false;
       }
-      ok = epee::net_utils::invoke_http_json_rpc("/json_rpc", method_name, req, res, m_http_client, t_http_connection::TIMEOUT());
+      ok = epee::net_utils::invoke_http_json_rpc("/json_rpc", method_name, req, res, *m_http_client, t_http_connection::TIMEOUT());
       if (!ok)
       {
         fail_msg_writer() << "basic_json_rpc_request: Daemon request failed";
@@ -94,15 +94,15 @@ namespace tools
       , std::string const & fail_msg
       )
     {
-      t_http_connection connection(&m_http_client);
+      t_http_connection connection(m_http_client.get());
 
       bool ok = connection.is_open();
       if (!ok)
       {
-        fail_msg_writer() << "Couldn't connect to daemon: " << m_http_client.get_host() << ":" << m_http_client.get_port();
+        fail_msg_writer() << "Couldn't connect to daemon: " << m_http_client->get_host() << ":" << m_http_client->get_port();
         return false;
       }
-      ok = epee::net_utils::invoke_http_json_rpc("/json_rpc", method_name, req, res, m_http_client, t_http_connection::TIMEOUT());
+      ok = epee::net_utils::invoke_http_json_rpc("/json_rpc", method_name, req, res, *m_http_client, t_http_connection::TIMEOUT());
       if (!ok || res.status != CORE_RPC_STATUS_OK) // TODO - handle CORE_RPC_STATUS_BUSY ?
       {
         fail_msg_writer() << fail_msg << " -- json_rpc_request: " << res.status;
@@ -122,15 +122,15 @@ namespace tools
       , std::string const & fail_msg
       )
     {
-      t_http_connection connection(&m_http_client);
+      t_http_connection connection(m_http_client.get());
 
       bool ok = connection.is_open();
       if (!ok)
       {
-        fail_msg_writer() << "Couldn't connect to daemon: " << m_http_client.get_host() << ":" << m_http_client.get_port();
+        fail_msg_writer() << "Couldn't connect to daemon: " << m_http_client->get_host() << ":" << m_http_client->get_port();
         return false;
       }
-      ok = epee::net_utils::invoke_http_json(relative_url, req, res, m_http_client, t_http_connection::TIMEOUT());
+      ok = epee::net_utils::invoke_http_json(relative_url, req, res, *m_http_client, t_http_connection::TIMEOUT());
       if (!ok || res.status != CORE_RPC_STATUS_OK) // TODO - handle CORE_RPC_STATUS_BUSY ?
       {
         fail_msg_writer() << fail_msg << "-- rpc_request: " << res.status;
@@ -144,7 +144,7 @@ namespace tools
 
     bool check_connection()
     {
-      t_http_connection connection(&m_http_client);
+      t_http_connection connection(m_http_client.get());
       return connection.is_open();
     }
   };

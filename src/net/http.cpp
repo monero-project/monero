@@ -32,10 +32,18 @@
 #include "parse.h"
 #include "socks_connect.h"
 
+#include "net/http_client.h"
+
 namespace net
 {
 namespace http
 {
+
+class client : public epee::net_utils::http::http_simple_client
+{
+public:
+  bool set_proxy(const std::string &address) override;
+};
 
 bool client::set_proxy(const std::string &address)
 {

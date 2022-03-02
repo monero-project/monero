@@ -8,7 +8,7 @@
 #include <boost/thread/mutex.hpp>
 #include <boost/utility/string_ref.hpp>
 
-#include "net/http.h"
+#include "net/abstract_http_client.h"
 #include "storages/http_abstract_invoke.h"
 
 #include "bootstrap_node_selector.h"
@@ -41,7 +41,7 @@ namespace cryptonote
         return false;
       }
 
-      const bool result = epee::net_utils::invoke_http_json(uri, out_struct, result_struct, m_http_client);
+      const bool result = epee::net_utils::invoke_http_json(uri, out_struct, result_struct, *m_http_client);
       return handle_result(result, result_struct.status);
     }
 
@@ -53,7 +53,7 @@ namespace cryptonote
         return false;
       }
 
-      const bool result = epee::net_utils::invoke_http_bin(uri, out_struct, result_struct, m_http_client);
+      const bool result = epee::net_utils::invoke_http_bin(uri, out_struct, result_struct, *m_http_client);
       return handle_result(result, result_struct.status);
     }
 
@@ -70,7 +70,7 @@ namespace cryptonote
         std::string(command_name.begin(), command_name.end()),
         out_struct,
         result_struct,
-        m_http_client);
+        *m_http_client);
       return handle_result(result, result_struct.status);
     }
 
@@ -81,7 +81,7 @@ namespace cryptonote
     bool switch_server_if_needed();
 
   private:
-    net::http::client m_http_client;
+    const std::unique_ptr<epee::net_utils::http::abstract_http_client> m_http_client;
     const bool m_rpc_payment_enabled;
     const std::unique_ptr<bootstrap_node::selector> m_selector;
     boost::mutex m_selector_mutex;

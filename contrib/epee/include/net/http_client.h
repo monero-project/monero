@@ -162,8 +162,8 @@ namespace net_utils
 				, m_lock()
 			{}
 
-			const std::string &get_host() const { return m_host_buff; };
-			const std::string &get_port() const { return m_port; };
+			const std::string &get_host() const override { return m_host_buff; };
+			const std::string &get_port() const override { return m_port; };
 
 			using abstract_http_client::set_server;
 
@@ -324,7 +324,7 @@ namespace net_utils
 				return m_net_client.get_bytes_received();
 			}
 			//---------------------------------------------------------------------------
-			void wipe_response()
+			void wipe_response() override
 			{
 				m_response_info.wipe();
 			}

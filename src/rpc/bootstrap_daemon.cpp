@@ -8,6 +8,7 @@
 #include "cryptonote_core/cryptonote_core.h"
 #include "misc_log_ex.h"
 #include "net/parse.h"
+#include "net/http.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "daemon.rpc.bootstrap_daemon"
@@ -19,7 +20,8 @@ namespace cryptonote
     std::function<std::map<std::string, bool>()> get_public_nodes,
     bool rpc_payment_enabled,
     const std::string &proxy)
-    : m_selector(new bootstrap_node::selector_auto(std::move(get_public_nodes)))
+    : m_http_client(net::http::client_factory().create())
+    , m_selector(new bootstrap_node::selector_auto(std::move(get_public_nodes)))
     , m_rpc_payment_enabled(rpc_payment_enabled)
   {
     set_proxy(proxy);
@@ -30,7 +32,8 @@ namespace cryptonote
     boost::optional<epee::net_utils::http::login> credentials,
     bool rpc_payment_enabled,
     const std::string &proxy)
-    : m_selector(nullptr)
+    : m_http_client(net::http::client_factory().create())
+    , m_selector(nullptr)
     , m_rpc_payment_enabled(rpc_payment_enabled)
   {
     set_proxy(proxy);
@@ -42,12 +45,12 @@ namespace cryptonote
 
   std::string bootstrap_daemon::address() const noexcept
   {
-    const auto& host = m_http_client.get_host();
+    const auto& host = m_http_client->get_host();
     if (host.empty())
     {
       return std::string();
     }
-    return host + ":" + m_http_client.get_port();
+    return host + ":" + m_http_client->get_port();
   }
 
   boost::optional<std::pair<uint64_t, uint64_t>> bootstrap_daemon::get_height()
@@ -74,7 +77,7 @@ namespace cryptonote
     if (failed && m_selector)
     {
       const std::string current_address = address();
-      m_http_client.disconnect();
+      m_http_client->disconnect();
 
       const boost::unique_lock<boost::mutex> lock(m_selector_mutex);
       m_selector->handle_result(current_address, !failed);
@@ -89,7 +92,7 @@ namespace cryptonote
     {
       throw std::runtime_error("invalid proxy address format");
     }
-    if (!m_http_client.set_proxy(address))
+    if (!m_http_client->set_proxy(address))
     {
       throw std::runtime_error("failed to set proxy address");
     }
@@ -97,7 +100,7 @@ namespace cryptonote
 
   bool bootstrap_daemon::set_server(const std::string &address, const boost::optional<epee::net_utils::http::login> &credentials /* = boost::none */)
   {
-    if (!m_http_client.set_server(address, credentials))
+    if (!m_http_client->set_server(address, credentials))
     {
       MERROR("Failed to set bootstrap daemon address " << address);
       return false;
@@ -110,7 +113,7 @@ namespace cryptonote
 
   bool bootstrap_daemon::switch_server_if_needed()
   {
-    if (m_http_client.is_connected() || !m_selector)
+    if (m_http_client->is_connected() || !m_selector)
     {
       return true;
     }
