@@ -2657,6 +2657,8 @@ namespace wallet_rpc
     struct request_t
     {
       std::string address;
+      std::string username;
+      std::string password;
       bool trusted;
       std::string ssl_support; // disabled, enabled, autodetect
       std::string ssl_private_key_path;
@@ -2667,6 +2669,8 @@ namespace wallet_rpc
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(address)
+        KV_SERIALIZE(username)
+        KV_SERIALIZE(password)
         KV_SERIALIZE_OPT(trusted, false)
         KV_SERIALIZE_OPT(ssl_support, (std::string)"autodetect")
         KV_SERIALIZE(ssl_private_key_path)
