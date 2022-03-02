@@ -757,45 +757,20 @@ private:
      * to other participants
      */
     std::string make_multisig(const epee::wipeable_string &password,
-      const std::vector<std::string> &info,
-      uint32_t threshold);
+      const std::vector<std::string> &kex_messages,
+      const std::uint32_t threshold);
     /*!
-     * \brief Creates a multisig wallet
+     * \brief Increment the multisig key exchange round
      * \return empty if done, non empty if we need to send another string
      * to other participants
      */
-    std::string make_multisig(const epee::wipeable_string &password,
-      const std::vector<crypto::secret_key> &view_keys,
-      const std::vector<crypto::public_key> &spend_keys,
-      uint32_t threshold);
     std::string exchange_multisig_keys(const epee::wipeable_string &password,
-      const std::vector<std::string> &info);
+      const std::vector<std::string> &kex_messages);
     /*!
-     * \brief Any but first round of keys exchange
+     * \brief Get initial message to start multisig key exchange (before 'make_multisig()' is called)
+     * \return string to send to other participants
      */
-    std::string exchange_multisig_keys(const epee::wipeable_string &password,
-      std::unordered_set<crypto::public_key> pkeys,
-      std::vector<crypto::public_key> signers);
-    /*!
-     * \brief Finalizes creation of a multisig wallet
-     */
-    bool finalize_multisig(const epee::wipeable_string &password, const std::vector<std::string> &info);
-    /*!
-     * \brief Finalizes creation of a multisig wallet
-     */
-    bool finalize_multisig(const epee::wipeable_string &password, const std::unordered_set<crypto::public_key> &pkeys, std::vector<crypto::public_key> signers);
-    /*!
-     * Get a packaged multisig information string
-     */
-    std::string get_multisig_info() const;
-    /*!
-     * Verifies and extracts keys from a packaged multisig information string
-     */
-    static bool verify_multisig_info(const std::string &data, crypto::secret_key &skey, crypto::public_key &pkey);
-    /*!
-     * Verifies and extracts keys from a packaged multisig information string
-     */
-    static bool verify_extra_multisig_info(const std::string &data, std::unordered_set<crypto::public_key> &pkeys, crypto::public_key &signer);
+    std::string get_multisig_first_kex_msg() const;
     /*!
      * Export multisig info
      * This will generate and remember new k values
@@ -1477,7 +1452,6 @@ private:
     void set_attribute(const std::string &key, const std::string &value);
     bool get_attribute(const std::string &key, std::string &value) const;
 
-    crypto::public_key get_multisig_signer_public_key(const crypto::secret_key &spend_skey) const;
     crypto::public_key get_multisig_signer_public_key() const;
     crypto::public_key get_multisig_signing_public_key(size_t idx) const;
     crypto::public_key get_multisig_signing_public_key(const crypto::secret_key &skey) const;
@@ -1641,12 +1615,6 @@ private:
     bool get_rct_distribution(uint64_t &start_height, std::vector<uint64_t> &distribution);
 
     uint64_t get_segregation_fork_height() const;
-    void unpack_multisig_info(const std::vector<std::string>& info,
-      std::vector<crypto::public_key> &public_keys,
-      std::vector<crypto::secret_key> &secret_keys) const;
-    bool unpack_extra_multisig_info(const std::vector<std::string>& info,
-      std::vector<crypto::public_key> &signers,
-      std::unordered_set<crypto::public_key> &pkeys) const;
 
     void cache_tx_data(const cryptonote::transaction& tx, const crypto::hash &txid, tx_cache_data &tx_cache_data) const;
     std::shared_ptr<std::map<std::pair<uint64_t, uint64_t>, size_t>> create_output_tracker_cache() const;

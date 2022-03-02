@@ -3938,7 +3938,7 @@ namespace tools
       return false;
     }
 
-    res.multisig_info = m_wallet->get_multisig_info();
+    res.multisig_info = m_wallet->get_multisig_first_kex_msg();
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
@@ -4069,7 +4069,7 @@ namespace tools
     catch (const std::exception &e)
     {
       er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
-      er.message = "Error calling import_multisig";
+      er.message = std::string{"Error calling import_multisig: "} + e.what();
       return false;
     }
 
@@ -4094,53 +4094,7 @@ namespace tools
   //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::on_finalize_multisig(const wallet_rpc::COMMAND_RPC_FINALIZE_MULTISIG::request& req, wallet_rpc::COMMAND_RPC_FINALIZE_MULTISIG::response& res, epee::json_rpc::error& er, const connection_context *ctx)
   {
-    if (!m_wallet) return not_open(er);
-    if (m_restricted)
-    {
-      er.code = WALLET_RPC_ERROR_CODE_DENIED;
-      er.message = "Command unavailable in restricted mode.";
-      return false;
-    }
-    bool ready;
-    uint32_t threshold, total;
-    if (!m_wallet->multisig(&ready, &threshold, &total))
-    {
-      er.code = WALLET_RPC_ERROR_CODE_NOT_MULTISIG;
-      er.message = "This wallet is not multisig";
-      return false;
-    }
-    if (ready)
-    {
-      er.code = WALLET_RPC_ERROR_CODE_ALREADY_MULTISIG;
-      er.message = "This wallet is multisig, and already finalized";
-      return false;
-    }
-
-    if (req.multisig_info.size() < 1 || req.multisig_info.size() > total)
-    {
-      er.code = WALLET_RPC_ERROR_CODE_THRESHOLD_NOT_REACHED;
-      er.message = "Needs multisig info from more participants";
-      return false;
-    }
-
-    try
-    {
-      if (!m_wallet->finalize_multisig(req.password, req.multisig_info))
-      {
-        er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
-        er.message = "Error calling finalize_multisig";
-        return false;
-      }
-    }
-    catch (const std::exception &e)
-    {
-      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
-      er.message = std::string("Error calling finalize_multisig: ") + e.what();
-      return false;
-    }
-    res.address = m_wallet->get_account().get_public_address_str(m_wallet->nettype());
-
-    return true;
+    return false;
   }
   //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::on_exchange_multisig_keys(const wallet_rpc::COMMAND_RPC_EXCHANGE_MULTISIG_KEYS::request& req, wallet_rpc::COMMAND_RPC_EXCHANGE_MULTISIG_KEYS::response& res, epee::json_rpc::error& er, const connection_context *ctx)
@@ -4168,7 +4122,7 @@ namespace tools
       return false;
     }
 
-    if (req.multisig_info.size() < 1 || req.multisig_info.size() > total)
+    if (req.multisig_info.size() + 1 < total)
     {
       er.code = WALLET_RPC_ERROR_CODE_THRESHOLD_NOT_REACHED;
       er.message = "Needs multisig info from more participants";

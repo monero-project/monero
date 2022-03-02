@@ -836,7 +836,7 @@ inline bool do_replay_file(const std::string& filename)
     { \
       for (size_t msidx = 0; msidx < total; ++msidx) \
         account[msidx].generate(); \
-      make_multisig_accounts(account, threshold); \
+      CHECK_AND_ASSERT_MES(make_multisig_accounts(account, threshold), false, "Failed to make multisig accounts."); \
     } while(0)
 
 #define MAKE_ACCOUNT(VEC_EVENTS, account) \

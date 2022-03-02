@@ -306,7 +306,26 @@ namespace cryptonote
     {
       // derive secret key with subaddress - step 1: original CN derivation
       crypto::secret_key scalar_step1;
-      hwdev.derive_secret_key(recv_derivation, real_output_index, ack.m_spend_secret_key, scalar_step1); // computes Hs(a*R || idx) + b
+      crypto::secret_key spend_skey = crypto::null_skey;
+
+      if (ack.m_multisig_keys.empty())
+      {
+        // if not multisig, use normal spend skey
+        spend_skey = ack.m_spend_secret_key;
+      }
+      else
+      {
+        // if multisig, use sum of multisig privkeys (local account's share of aggregate spend key)
+        for (const auto &multisig_key : ack.m_multisig_keys)
+        {
+          sc_add((unsigned char*)spend_skey.data,
+            (const unsigned char*)multisig_key.data,
+            (const unsigned char*)spend_skey.data);
+        }
+      }
+
+      // computes Hs(a*R || idx) + b
+      hwdev.derive_secret_key(recv_derivation, real_output_index, spend_skey, scalar_step1);
 
       // step 2: add Hs(a || index_major || index_minor)
       crypto::secret_key subaddr_sk;

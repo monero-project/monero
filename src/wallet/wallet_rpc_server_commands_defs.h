@@ -47,7 +47,7 @@
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define WALLET_RPC_VERSION_MAJOR 1
-#define WALLET_RPC_VERSION_MINOR 23
+#define WALLET_RPC_VERSION_MINOR 24
 #define MAKE_WALLET_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define WALLET_RPC_VERSION MAKE_WALLET_RPC_VERSION(WALLET_RPC_VERSION_MAJOR, WALLET_RPC_VERSION_MINOR)
 namespace tools
@@ -2504,24 +2504,17 @@ namespace wallet_rpc
 
   struct COMMAND_RPC_FINALIZE_MULTISIG
   {
+    // NOP
     struct request_t
     {
-      std::string password;
-      std::vector<std::string> multisig_info;
-
       BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(password)
-        KV_SERIALIZE(multisig_info)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
 
     struct response_t
     {
-      std::string address;
-
       BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(address)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;

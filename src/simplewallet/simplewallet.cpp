@@ -235,7 +235,6 @@ namespace
   const char* USAGE_IMPORT_OUTPUTS("import_outputs <filename>");
   const char* USAGE_SHOW_TRANSFER("show_transfer <txid>");
   const char* USAGE_MAKE_MULTISIG("make_multisig <threshold> <string1> [<string>...]");
-  const char* USAGE_FINALIZE_MULTISIG("finalize_multisig <string> [<string>...]");
   const char* USAGE_EXCHANGE_MULTISIG_KEYS("exchange_multisig_keys <string> [<string>...]");
   const char* USAGE_EXPORT_MULTISIG_INFO("export_multisig_info <filename>");
   const char* USAGE_IMPORT_MULTISIG_INFO("import_multisig_info <filename> [<filename>...]");
@@ -1021,7 +1020,7 @@ bool simple_wallet::prepare_multisig_main(const std::vector<std::string> &args, 
 
   SCOPED_WALLET_UNLOCK_ON_BAD_PASSWORD(return false;);
 
-  std::string multisig_info = m_wallet->get_multisig_info();
+  std::string multisig_info = m_wallet->get_multisig_first_kex_msg();
   success_msg_writer() << multisig_info;
   success_msg_writer() << tr("Send this multisig info to all other participants, then use make_multisig <threshold> <info1> [<info2>...] with others' multisig info");
   success_msg_writer() << tr("This includes the PRIVATE view key, so needs to be disclosed only to that multisig wallet's participants ");
@@ -1118,58 +1117,6 @@ bool simple_wallet::make_multisig_main(const std::vector<std::string> &args, boo
   }
   success_msg_writer() << std::to_string(threshold) << "/" << total << tr(" multisig address: ")
       << m_wallet->get_account().get_public_address_str(m_wallet->nettype());
-
-  return true;
-}
-
-bool simple_wallet::finalize_multisig(const std::vector<std::string> &args)
-{
-  bool ready;
-  if (m_wallet->key_on_device())
-  {
-    fail_msg_writer() << tr("command not supported by HW wallet");
-    return true;
-  }
-
-  const auto pwd_container = get_and_verify_password();
-  if(pwd_container == boost::none)
-  {
-    fail_msg_writer() << tr("Your original password was incorrect.");
-    return true;
-  }
-
-  if (!m_wallet->multisig(&ready))
-  {
-    fail_msg_writer() << tr("This wallet is not multisig");
-    return true;
-  }
-  if (ready)
-  {
-    fail_msg_writer() << tr("This wallet is already finalized");
-    return true;
-  }
-
-  LOCK_IDLE_SCOPE();
-
-  if (args.size() < 2)
-  {
-    PRINT_USAGE(USAGE_FINALIZE_MULTISIG);
-    return true;
-  }
-
-  try
-  {
-    if (!m_wallet->finalize_multisig(pwd_container->password(), args))
-    {
-      fail_msg_writer() << tr("Failed to finalize multisig");
-      return true;
-    }
-  }
-  catch (const std::exception &e)
-  {
-    fail_msg_writer() << tr("Failed to finalize multisig: ") << e.what();
-    return true;
-  }
 
   return true;
 }
@@ -3627,10 +3574,6 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("make_multisig", boost::bind(&simple_wallet::on_command, this, &simple_wallet::make_multisig, _1),
                            tr(USAGE_MAKE_MULTISIG),
                            tr("Turn this wallet into a multisig wallet"));
-  m_cmd_binder.set_handler("finalize_multisig",
-                           boost::bind(&simple_wallet::on_command, this, &simple_wallet::finalize_multisig, _1),
-                           tr(USAGE_FINALIZE_MULTISIG),
-                           tr("Turn this wallet into a multisig wallet, extra step for N-1/N wallets"));
   m_cmd_binder.set_handler("exchange_multisig_keys",
                            boost::bind(&simple_wallet::on_command, this, &simple_wallet::exchange_multisig_keys, _1),
                            tr(USAGE_EXCHANGE_MULTISIG_KEYS),
@@ -10971,8 +10914,8 @@ void simple_wallet::mms_init(const std::vector<std::string> &args)
   std::vector<std::string> numbers;
   boost::split(numbers, mn, boost::is_any_of("/"));
   bool mn_ok = (numbers.size() == 2)
-               && get_number_from_arg(numbers[1], num_authorized_signers, 2, 100)
-               && get_number_from_arg(numbers[0], num_required_signers, 2, num_authorized_signers);
+               && get_number_from_arg(numbers[1], num_authorized_signers, 2, config::MULTISIG_MAX_SIGNERS)
+               && get_number_from_arg(numbers[0], num_required_signers, 1, num_authorized_signers);
   if (!mn_ok)
   {
     fail_msg_writer() << tr("Error in the number of required signers and/or authorized signers");
