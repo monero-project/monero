@@ -63,6 +63,7 @@ static rx_state rx_s[2] = {{CTHR_MUTEX_INIT,{0},0,0},{CTHR_MUTEX_INIT,{0},0,0}};
 
 static randomx_dataset *rx_dataset;
 static int rx_dataset_nomem;
+static int rx_dataset_nolp;
 static uint64_t rx_dataset_height;
 static THREADV randomx_vm *rx_vm = NULL;
 
@@ -316,10 +317,11 @@ void rx_slow_hash(const uint64_t mainheight, const uint64_t seedheight, const ch
       }
       CTHR_MUTEX_UNLOCK(rx_dataset_mutex);
     }
-    if (!(disabled_flags() & RANDOMX_FLAG_LARGE_PAGES)) {
+    if (!(disabled_flags() & RANDOMX_FLAG_LARGE_PAGES) && !rx_dataset_nolp) {
       rx_vm = randomx_create_vm(flags | RANDOMX_FLAG_LARGE_PAGES, rx_sp->rs_cache, rx_dataset);
       if(rx_vm == NULL) { //large pages failed
         mdebug(RX_LOGCAT, "Couldn't use largePages for RandomX VM");
+        rx_dataset_nolp = 1;
       }
     }
     if (rx_vm == NULL)
@@ -370,5 +372,6 @@ void rx_stop_mining(void) {
     randomx_release_dataset(rd);
   }
   rx_dataset_nomem = 0;
+  rx_dataset_nolp = 0;
   CTHR_MUTEX_UNLOCK(rx_dataset_mutex);
 }
