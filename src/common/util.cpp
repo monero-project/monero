@@ -604,19 +604,38 @@ std::string get_nix_version_display_string()
     // namespace fs = boost::filesystem;
     // Windows < Vista: C:\Documents and Settings\Username\Application Data\CRYPTONOTE_NAME
     // Windows >= Vista: C:\Users\Username\AppData\Roaming\CRYPTONOTE_NAME
-    // Unix & Mac: ~/.CRYPTONOTE_NAME
+    // Linux: XDG_DATA_HOME or ~/.local/share/CRYPTONOTE_NAME
+    // Mac:   ~/Library/Application Support/CRYPTONOTE_NAME
     std::string config_folder;
 
 #ifdef WIN32
     config_folder = get_special_folder_path(CSIDL_COMMON_APPDATA, true) + "\\" + CRYPTONOTE_NAME;
-#else
+#else // Posix
     std::string pathRet;
-    char* pszHome = getenv("HOME");
-    if (pszHome == NULL || strlen(pszHome) == 0)
-      pathRet = "/";
+    const std::string dirSep = "/";
+    const char* pszHomeXGD = getenv("XDG_DATA_HOME");
+    const char* pszHome = getenv("HOME");
+    const char* pszFallback = "/";
+
+    if (pszHomeXGD != NULL && strlen(pszHomeXGD) > 0)
+    {
+        pathRet = pszHomeXGD; // Preferred. Doesn't need any suffixes. See: XDG Base Directory Specification
+    }
+    else if (pszHome != NULL && strlen(pszHome) > 0)
+    {
+        #ifdef __APPLE__
+            const std::string suffixData = "Library/Application Support";
+        #else // Linux
+            const std::string suffixData = ".local/share";
+        #endif // __APPLE__
+
+        pathRet = pszHome + dirSep + suffixData; // $HOME Needs an OS specific suffix.
+    }
     else
-      pathRet = pszHome;
-    config_folder = (pathRet + "/." + CRYPTONOTE_NAME);
+    {
+        pathRet = pszFallback;
+    }
+    config_folder = (pathRet + dirSep + CRYPTONOTE_NAME);
 #endif
 
     return config_folder;
