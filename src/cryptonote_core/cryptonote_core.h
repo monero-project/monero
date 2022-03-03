@@ -40,7 +40,6 @@
 #include "cryptonote_core/i_core_events.h"
 #include "cryptonote_protocol/cryptonote_protocol_handler_common.h"
 #include "cryptonote_protocol/enums.h"
-#include "storages/portable_storage_template_helper.h"
 #include "common/download.h"
 #include "common/command_line.h"
 #include "tx_pool.h"
