@@ -2481,6 +2481,35 @@ namespace wallet_rpc
     typedef epee::misc_utils::struct_init<response_t> response;
   };
 
+  struct COMMAND_RPC_GET_MULTISIG_KEY_EXCHANGE_BOOSTER
+  {
+    struct request_t
+    {
+      std::string password;
+      std::vector<std::string> multisig_info;
+      uint32_t threshold;
+      uint32_t num_signers;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(password)
+        KV_SERIALIZE(multisig_info)
+        KV_SERIALIZE(threshold)
+        KV_SERIALIZE(num_signers)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<request_t> request;
+
+    struct response_t
+    {
+      std::string multisig_info;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(multisig_info)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<response_t> response;
+  };
+
   struct COMMAND_RPC_SIGN_MULTISIG
   {
     struct request_t

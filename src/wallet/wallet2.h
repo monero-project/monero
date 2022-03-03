@@ -86,6 +86,7 @@
 
 class Serialization_portability_wallet_Test;
 class wallet_accessor_test;
+namespace multisig { class multisig_account; }
 
 namespace tools
 {
@@ -892,6 +893,23 @@ private:
      */
     void restore(const std::string& wallet_, const epee::wipeable_string& password, const std::string &device_name, bool create_address_file = false);
 
+  private:
+    /*!
+     * \brief Decrypts the account keys
+     * \return an RAII reencryptor for the account keys
+     */
+    epee::misc_utils::auto_scope_leave_caller decrypt_account_for_multisig(const epee::wipeable_string &password);
+    /*!
+     * \brief Creates an uninitialized multisig account
+     * \outparam: the uninitialized multisig account
+     */
+    void get_uninitialized_multisig_account(multisig::multisig_account &account_out) const;
+    /*!
+     * \brief Reconstructs a multisig account from wallet2 state
+     * \outparam: the reconstructed multisig account
+     */
+    void get_reconstructed_multisig_account(multisig::multisig_account &account_out) const;
+  public:
     /*!
      * \brief Creates a multisig wallet
      * \return empty if done, non empty if we need to send another string
@@ -913,6 +931,13 @@ private:
      * \return string to send to other participants
      */
     std::string get_multisig_first_kex_msg() const;
+    /*!
+     * \brief Use multisig kex messages for an in-progress kex round to 'boost' the following round for another group member
+     */
+    std::string get_multisig_key_exchange_booster(const epee::wipeable_string &password,
+      const std::vector<std::string> &kex_messages,
+      const std::uint32_t threshold,
+      const std::uint32_t num_signers);
     /*!
      * Export multisig info
      * This will generate and remember new k values
