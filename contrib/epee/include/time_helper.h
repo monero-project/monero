@@ -28,46 +28,48 @@
 
 #pragma once
 
-#include <boost/date_time/posix_time/posix_time.hpp>
-#include <boost/date_time/local_time/local_time.hpp>
 #include <chrono>
+#include <cstdio>
 #include <ctime>
-#include <iostream>
-
-#include "pragma_comp_defs.h"
+#include <string>
 
 namespace epee
 {
 namespace misc_utils
 {
+	inline bool get_gmt_time(time_t t, struct tm &tm)
+	{
+#ifdef _WIN32
+		return gmtime_s(&tm, &t);
+#else
+		return gmtime_r(&t, &tm);
+#endif
+	}
+
 	inline std::string get_internet_time_str(const time_t& time_)
 	{
 		char tmpbuf[200] = {0};
-		tm* pt = NULL;
-PRAGMA_WARNING_PUSH
-PRAGMA_WARNING_DISABLE_VS(4996)
-		pt = gmtime(&time_);
-PRAGMA_WARNING_POP
-		strftime( tmpbuf, 199, "%a, %d %b %Y %H:%M:%S GMT", pt );
+		struct tm pt;
+		get_gmt_time(time_, pt);
+		strftime( tmpbuf, 199, "%a, %d %b %Y %H:%M:%S GMT", &pt );
 		return tmpbuf;
 	}
 
 	inline std::string get_time_interval_string(const time_t& time_)
 	{
-		std::string res;
 		time_t tail = time_;
-PRAGMA_WARNING_PUSH
-PRAGMA_WARNING_DISABLE_VS(4244)
-		int days = tail/(60*60*24);
+		const int days = (int) (tail/(60*60*24));
 		tail = tail%(60*60*24);
-		int hours = tail/(60*60);
+		const int hours = (int) (tail/(60*60));
 		tail = tail%(60*60);
-		int minutes = tail/(60);
+		const int minutes = (int) (tail/(60));
 		tail = tail%(60);
-		int seconds = tail;
-PRAGMA_WARNING_POP
-		res = std::string() + "d" + boost::lexical_cast<std::string>(days) + ".h" + boost::lexical_cast<std::string>(hours) + ".m" + boost::lexical_cast<std::string>(minutes) + ".s" + boost::lexical_cast<std::string>(seconds);
-		return res;
+		const int seconds = (int) tail;
+
+		char tmpbuf[64] = {0};
+		snprintf(tmpbuf, sizeof(tmpbuf) - 1, "d%d.h%d.m%d.s%d", days, hours, minutes, seconds);
+
+		return tmpbuf;
 	}
 
 	inline uint64_t get_ns_count()
@@ -80,15 +82,6 @@ PRAGMA_WARNING_POP
 	inline uint64_t get_tick_count()
 	{
 		return get_ns_count() / 1000000;
-	}
-
-	inline bool get_gmt_time(time_t t, struct tm &tm)
-	{
-#ifdef _WIN32
-		return gmtime_s(&tm, &t);
-#else
-		return gmtime_r(&t, &tm);
-#endif
 	}
 }
 }

@@ -31,6 +31,7 @@
 #include <boost/endian/conversion.hpp>
 #include <boost/range/algorithm/equal.hpp>
 #include <boost/range/algorithm_ext/iota.hpp>
+#include <boost/range/iterator_range.hpp>
 #include <cstdint>
 #include <gtest/gtest.h>
 #include <iterator>
