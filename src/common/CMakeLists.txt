@@ -58,36 +58,7 @@ endif()
 
 set(common_headers)
 
-set(common_private_headers
-  apply_permutation.h
-  base58.h
-  boost_serialization_helper.h
-  command_line.h
-  common_fwd.h
-  dns_utils.h
-  download.h
-  error.h
-  expect.h
-  http_connection.h
-  notify.h
-  pod-class.h
-  pruning.h
-  rpc_client.h
-  scoped_message_writer.h
-  unordered_containers_boost_serialization.h
-  util.h
-  varint.h
-  i18n.h
-  password.h
-  perf_timer.h
-  spawn.h
-  stack_trace.h
-  threadpool.h
-  updates.h
-  aligned.h
-  timings.h
-  combinator.h
-  utf8.h)
+monero_find_all_headers(common_private_headers "${CMAKE_CURRENT_SOURCE_DIR}")
 
 monero_private_headers(common
   ${common_private_headers})
