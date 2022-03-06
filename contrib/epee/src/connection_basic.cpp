@@ -39,7 +39,6 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/thread/thread.hpp>
 #include "misc_language.h"
-#include "pragma_comp_defs.h"
 #include <iomanip>
 
 #include <boost/asio/basic_socket.hpp>

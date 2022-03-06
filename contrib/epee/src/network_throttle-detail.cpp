@@ -46,7 +46,6 @@
 #include "misc_log_ex.h" 
 #include <boost/chrono.hpp>
 #include "misc_language.h"
-#include "pragma_comp_defs.h"
 #include <sstream>
 #include <iomanip>
 #include <algorithm>
