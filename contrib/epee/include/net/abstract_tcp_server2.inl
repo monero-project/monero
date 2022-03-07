@@ -44,7 +44,6 @@
 #include "warnings.h"
 #include "string_tools_lexical.h"
 #include "misc_language.h"
-#include "net/local_ip.h"
 
 #include <sstream>
 #include <iomanip>

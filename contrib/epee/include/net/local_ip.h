@@ -27,7 +27,6 @@
 
 #pragma once
 
-#include <string>
 #include "int-util.h"
 
 // IP addresses are kept in network byte order
