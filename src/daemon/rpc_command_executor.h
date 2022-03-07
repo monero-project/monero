@@ -43,7 +43,6 @@
 #include "common/common_fwd.h"
 #include "common/rpc_client.h"
 #include "cryptonote_basic/cryptonote_basic.h"
-#include "net/net_fwd.h"
 #include "rpc/core_rpc_server.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
