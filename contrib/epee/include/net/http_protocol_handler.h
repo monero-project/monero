@@ -33,7 +33,6 @@
 #include <boost/optional/optional.hpp>
 #include <string>
 #include "net_utils_base.h"
-#include "to_nonconst_iterator.h"
 #include "http_auth.h"
 #include "http_base.h"
 
