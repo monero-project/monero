@@ -59,7 +59,6 @@
 #include <boost/asio/deadline_timer.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include "misc_language.h"
-#include "pragma_comp_defs.h"
 #include <sstream>
 #include <iomanip>
 #include <algorithm>
