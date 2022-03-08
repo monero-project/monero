@@ -37,15 +37,7 @@ namespace epee
 
 namespace misc_utils
 {
-    template<typename t_iterator>
-    t_iterator move_it_backward(t_iterator it, size_t count)
-    {
-      while(count--)
-        it--;
-      return it;
-    }
-
-	bool sleep_no_w(long ms );
+  bool sleep_no_w(long ms);
 
   template <typename T>
   T get_mid(const T &a, const T &b)
