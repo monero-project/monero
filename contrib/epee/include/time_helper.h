@@ -58,13 +58,13 @@ namespace misc_utils
 	inline std::string get_time_interval_string(const time_t& time_)
 	{
 		time_t tail = time_;
-		const int days = (int) (tail/(60*60*24));
+		const int days = static_cast<int>(tail/(60*60*24));
 		tail = tail%(60*60*24);
-		const int hours = (int) (tail/(60*60));
+		const int hours = static_cast<int>(tail/(60*60));
 		tail = tail%(60*60);
-		const int minutes = (int) (tail/(60));
+		const int minutes = static_cast<int>(tail/60);
 		tail = tail%(60);
-		const int seconds = (int) tail;
+		const int seconds = static_cast<int>(tail);
 
 		char tmpbuf[64] = {0};
 		snprintf(tmpbuf, sizeof(tmpbuf) - 1, "d%d.h%d.m%d.s%d", days, hours, minutes, seconds);
