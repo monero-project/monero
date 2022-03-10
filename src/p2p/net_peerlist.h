@@ -221,7 +221,7 @@ namespace nodetool
     // Is not thread-safe nor does it check bounds. Do this before calling. Indexing starts at 0.
     peers_indexed::index<by_time>::type& by_time_index = peerlist.get<by_time>();
     auto by_time_it = --by_time_index.end();
-    std::advance(by_time_it, -((long long) n));
+    std::advance(by_time_it, -static_cast<long long>(n));
     return *by_time_it;
   }
   //--------------------------------------------------------------------------------------------------
