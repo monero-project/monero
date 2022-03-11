@@ -1760,12 +1760,6 @@ namespace tools
           er.message = "Already integrated address";
           return false;
         }
-        if (req.payment_id.empty())
-        {
-          er.code = WALLET_RPC_ERROR_CODE_WRONG_PAYMENT_ID;
-          er.message = "Payment ID shouldn't be left unspecified";
-          return false;
-        }
         res.integrated_address = get_account_integrated_address_as_str(m_wallet->nettype(), info.address, payment_id);
       }
       res.payment_id = epee::string_tools::pod_to_hex(payment_id);
