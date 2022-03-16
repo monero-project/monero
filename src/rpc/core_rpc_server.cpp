@@ -365,6 +365,8 @@ namespace cryptonote
       std::move(rpc_config->access_control_origins), std::move(http_login), std::move(rpc_config->ssl_options)
     );
 
+    m_net_server.get_config_object().m_max_content_length = MAX_RPC_CONTENT_LENGTH;
+
     if (store_ssl_key && inited)
     {
       // new keys were generated, store for next run
