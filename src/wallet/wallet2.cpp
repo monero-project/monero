@@ -6048,6 +6048,19 @@ std::map<uint32_t, uint64_t> wallet2::balance_per_subaddress(uint32_t index_majo
         amount_per_subaddr[0] = utx.second.m_change;
       else
         found->second += utx.second.m_change;
+
+      // add transfers to same wallet
+      for (const auto &dest: utx.second.m_dests) {
+        auto index = get_subaddress_index(dest.addr);
+        if (index && (*index).major == index_major)
+        {
+          auto found = amount_per_subaddr.find((*index).minor);
+          if (found == amount_per_subaddr.end())
+            amount_per_subaddr[(*index).minor] = dest.amount;
+          else
+            found->second += dest.amount;
+        }
+      }
     }
    }
 
