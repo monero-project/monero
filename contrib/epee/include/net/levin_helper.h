@@ -46,7 +46,7 @@ namespace levin
 		levin::bucket_head& head = *(levin::bucket_head*)(&buff[0]);
 		head.m_signature = SWAP64LE(LEVIN_SIGNATURE);
 		head.m_cb = 0;
-		head.m_have_to_return_data = true;
+		head.m_have_to_return_data = 1;
 		head.m_command = SWAP32LE(command_id);
 		head.m_return_code = SWAP32LE(1);
 		head.m_reservedA = rand(); //probably some flags in future
@@ -68,7 +68,7 @@ namespace levin
 		levin::bucket_head& head = *(levin::bucket_head*)(&buff[0]);
 		head.m_signature = SWAP64LE(LEVIN_SIGNATURE);
 		head.m_cb = 0;
-		head.m_have_to_return_data = true;
+		head.m_have_to_return_data = 1;
 		head.m_command = SWAP32LE(command_id);
 		head.m_return_code = SWAP32LE(1);
 		head.m_reservedA = rand(); //probably some flags in future
