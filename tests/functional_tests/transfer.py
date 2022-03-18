@@ -171,7 +171,7 @@ class TransferTest():
         assert e.double_spend_seen == False
         assert not 'confirmations' in e or e.confirmations == 0
 
-        running_balances[0] -= 1000000000000 + fee
+        running_balances[0] -= fee
 
         res = self.wallet[0].get_balance()
         assert res.balance == running_balances[0]
@@ -182,8 +182,6 @@ class TransferTest():
         res = daemon.getlastblockheader()
         running_balances[0] += res.block_header.reward
         self.wallet[0].refresh()
-
-        running_balances[0] += 1000000000000
 
         res = self.wallet[0].get_transfers()
         assert len(res['in']) == height # coinbases
@@ -337,7 +335,7 @@ class TransferTest():
         assert len(res.unsigned_txset) == 0
         unsigned_txset = res.unsigned_txset
 
-        running_balances[0] -= 1000000000000 + 1100000000000 + 1200000000000 + fee
+        running_balances[0] -= 1100000000000 + 1200000000000 + fee
 
         res = self.wallet[0].get_balance()
         assert res.balance == running_balances[0]
@@ -347,7 +345,6 @@ class TransferTest():
         daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 1)
         res = daemon.getlastblockheader()
         running_balances[0] += res.block_header.reward
-        running_balances[0] += 1000000000000
         running_balances[1] += 1100000000000
         running_balances[2] += 1200000000000
         self.wallet[0].refresh()
