@@ -439,8 +439,10 @@ namespace wallet_rpc
       struct response_t
       {
         uint64_t  height;
+        uint64_t daemon_height;
         BEGIN_KV_SERIALIZE_MAP()
           KV_SERIALIZE(height)
+          KV_SERIALIZE(daemon_height)
         END_KV_SERIALIZE_MAP()
       };
       typedef epee::misc_utils::struct_init<response_t> response;

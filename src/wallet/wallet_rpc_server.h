@@ -67,6 +67,7 @@ namespace tools
     CHAIN_HTTP_TO_MAP2(connection_context); //forward http requests to uri map
 
     BEGIN_URI_MAP2()
+      MAP_URI2_IF("/wallet", on_httpwallet, m_http_wallet)
       BEGIN_JSON_RPC_MAP("/json_rpc")
         MAP_JON_RPC_WE("get_balance",        on_getbalance,         wallet_rpc::COMMAND_RPC_GET_BALANCE)
         MAP_JON_RPC_WE("get_address",        on_getaddress,         wallet_rpc::COMMAND_RPC_GET_ADDRESS)
@@ -162,6 +163,9 @@ namespace tools
         MAP_JON_RPC_WE("get_version",        on_get_version,        wallet_rpc::COMMAND_RPC_GET_VERSION)
       END_JSON_RPC_MAP()
     END_URI_MAP2()
+
+      //HTTP wallet
+      bool on_httpwallet(const epee::net_utils::http::http_request_info& query_info, epee::net_utils::http::http_response_info& response, connection_context& m_conn_context);
 
       //json_rpc
       bool on_getbalance(const wallet_rpc::COMMAND_RPC_GET_BALANCE::request& req, wallet_rpc::COMMAND_RPC_GET_BALANCE::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
@@ -277,6 +281,7 @@ namespace tools
       tools::private_file rpc_login_file;
       std::atomic<bool> m_stop;
       bool m_restricted;
+      bool m_http_wallet;
       const boost::program_options::variables_map *m_vm;
       uint32_t m_auto_refresh_period;
       boost::posix_time::ptime m_last_auto_refresh_time;
