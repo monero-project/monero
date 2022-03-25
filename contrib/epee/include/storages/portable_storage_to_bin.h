@@ -113,7 +113,7 @@ namespace epee
       bool operator()(const array_entry_t<int32_t>& v) { return pack_pod_array_type(SERIALIZE_TYPE_INT32, v);}
       bool operator()(const array_entry_t<int16_t>& v) { return pack_pod_array_type(SERIALIZE_TYPE_INT16, v);}
       bool operator()(const array_entry_t<int8_t>& v)  { return pack_pod_array_type(SERIALIZE_TYPE_INT8, v);}
-      bool operator()(const array_entry_t<double>& v)  { return pack_pod_array_type(SERIALIZE_TYPE_DUOBLE, v);}
+      bool operator()(const array_entry_t<double>& v)  { return pack_pod_array_type(SERIALIZE_TYPE_DOUBLE, v);}
       bool operator()(const array_entry_t<bool>& v)    { return pack_pod_array_type(SERIALIZE_TYPE_BOOL, v);}
       bool operator()(const array_entry_t<std::string>& arr_str)
       {
@@ -166,7 +166,7 @@ namespace epee
       bool operator()(const int32_t& v) { return pack_pod_type(SERIALIZE_TYPE_INT32, v);}
       bool operator()(const int16_t& v) { return pack_pod_type(SERIALIZE_TYPE_INT16, v);}
       bool operator()(const int8_t& v)  { return pack_pod_type(SERIALIZE_TYPE_INT8, v);}
-      bool operator()(const double& v)  { return pack_pod_type(SERIALIZE_TYPE_DUOBLE, v);}
+      bool operator()(const double& v)  { return pack_pod_type(SERIALIZE_TYPE_DOUBLE, v);}
       bool operator()(const bool& v)  { return pack_pod_type(SERIALIZE_TYPE_BOOL, v);}
       bool operator()(const std::string& v)
       {

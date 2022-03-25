@@ -220,7 +220,7 @@ namespace epee
       case SERIALIZE_TYPE_UINT32: return read_ae<uint32_t>();
       case SERIALIZE_TYPE_UINT16: return read_ae<uint16_t>();
       case SERIALIZE_TYPE_UINT8:  return read_ae<uint8_t>();
-      case SERIALIZE_TYPE_DUOBLE: return read_ae<double>();
+      case SERIALIZE_TYPE_DOUBLE: return read_ae<double>();
       case SERIALIZE_TYPE_BOOL:   return read_ae<bool>();
       case SERIALIZE_TYPE_STRING: return read_ae<std::string>();
       case SERIALIZE_TYPE_OBJECT: return read_ae<section>();
@@ -311,7 +311,7 @@ namespace epee
       case SERIALIZE_TYPE_UINT32: return read_se<uint32_t>();
       case SERIALIZE_TYPE_UINT16: return read_se<uint16_t>();
       case SERIALIZE_TYPE_UINT8:  return read_se<uint8_t>();
-      case SERIALIZE_TYPE_DUOBLE: return read_se<double>();
+      case SERIALIZE_TYPE_DOUBLE: return read_se<double>();
       case SERIALIZE_TYPE_BOOL:   return read_se<bool>();
       case SERIALIZE_TYPE_STRING: return read_se<std::string>();
       case SERIALIZE_TYPE_OBJECT: return read_se<section>();
