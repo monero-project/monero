@@ -3831,34 +3831,10 @@ namespace tools
 
     epee::wipeable_string password = rc.second.password();
 
-    bool was_deprecated_wallet = ((old_language == crypto::ElectrumWords::old_language_name) ||
-                                  crypto::ElectrumWords::get_is_old_style_seed(req.seed));
+    // The user had used an older version of the wallet with old style mnemonics.
+    res.was_deprecated = crypto::ElectrumWords::get_is_old_style_seed(req.seed);
 
-    std::string mnemonic_language = old_language;
-    if (was_deprecated_wallet)
-    {
-      // The user had used an older version of the wallet with old style mnemonics.
-      res.was_deprecated = true;
-    }
-
-    if (old_language == crypto::ElectrumWords::old_language_name)
-    {
-      if (req.language.empty())
-      {
-        er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
-        er.message = "Wallet was using the old seed language. You need to specify a new seed language.";
-        return false;
-      }
-      if (!crypto::ElectrumWords::is_valid_language(req.language))
-      {
-        er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
-        er.message = "Wallet was using the old seed language, and the specified new seed language is invalid.";
-        return false;
-      }
-      mnemonic_language = req.language;
-    }
-
-    wal->set_seed_language(mnemonic_language);
+    wal->set_seed_language(old_language);
 
     crypto::secret_key recovery_val;
     try
@@ -3874,7 +3850,7 @@ namespace tools
 
     // // Convert the secret key back to seed
     epee::wipeable_string electrum_words;
-    if (!crypto::ElectrumWords::bytes_to_words(recovery_val, electrum_words, mnemonic_language))
+    if (!crypto::ElectrumWords::bytes_to_words(recovery_val, electrum_words, old_language))
     {
       er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
       er.message = "Failed to encode seed";

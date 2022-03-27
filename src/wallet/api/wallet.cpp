@@ -747,9 +747,6 @@ bool WalletImpl::recover(const std::string &path, const std::string &password, c
         recovery_key = cryptonote::decrypt_key(recovery_key, seed_offset);
     }
 
-    if (old_language == crypto::ElectrumWords::old_language_name)
-        old_language = Language::English().get_language_name();
-
     try {
         m_wallet->set_seed_language(old_language);
         m_wallet->generate(path, password, recovery_key, true, false);

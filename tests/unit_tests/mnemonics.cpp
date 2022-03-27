@@ -48,7 +48,6 @@
 #include "mnemonics/dutch.h"
 #include "mnemonics/esperanto.h"
 #include "mnemonics/lojban.h"
-#include "mnemonics/english_old.h"
 #include "mnemonics/singleton.h"
 
 namespace
