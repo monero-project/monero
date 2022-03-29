@@ -9,12 +9,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 set(Boost_USE_MULTITHREADED ON)
+set(NAME tests_epee)
 
 include_directories(.)
-include_directories(../../include)
-
-find_package(Boost COMPONENTS system filesystem thread date_time chrono regex)
-include_directories( ${Boost_INCLUDE_DIRS} )
 
 IF (MSVC)
 	add_definitions( "/W3 /D_CRT_SECURE_NO_WARNINGS /wd4996 /wd4345  /nologo /D_WIN32_WINNT=0x0600 /DWIN32_LEAN_AND_MEAN /bigobj" )
@@ -26,15 +23,17 @@ ELSE()
 ENDIF()
 
 
-# Add folders to filters
-file(GLOB_RECURSE SRC        RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
-			     ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp
-			     ${CMAKE_CURRENT_SOURCE_DIR}/*.inl
-			     ${CMAKE_CURRENT_SOURCE_DIR}/*.h)
+set(SRC
+	main.cpp
+)
 
-source_group(general  FILES ${SRC})
+monero_find_all_headers(EPEE_TESTS_HEADERS_PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+monero_add_minimal_executable(${NAME} ${SRC} ${EPEE_TESTS_HEADERS_PUBLIC})
+target_link_libraries(${NAME}
+	epee
+	${Boost_SYSTEM_LIBRARY}
+	${CMAKE_THREAD_LIBS_INIT}
+)
 
-
-add_executable(tests ${SRC} )
-target_link_libraries( tests ${Boost_LIBRARIES} )
+add_test(${NAME} ${NAME})
 
