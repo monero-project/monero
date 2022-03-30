@@ -239,44 +239,6 @@ namespace misc_utils
         }
         ASSERT_MES_AND_THROW("failed to match word number in json entry: " << std::string(star_end_string, buf_end));
       }
-      bool match_word_with_extrasymb(std::string::const_iterator& star_end_string, std::string::const_iterator buf_end, std::string& val)
-      {
-        val.clear();
-
-        for(std::string::const_iterator it = star_end_string;it != buf_end;++it)
-        {
-          if(!isalnum(*it) && *it != '-' && *it != '_')
-          {
-            val.assign(star_end_string, it);
-            if(val.size())
-            {
-              star_end_string = --it;
-              return true;
-            }else 
-              return false;
-          }
-        }
-        return false;
-      }
-      bool match_word_til_equal_mark(std::string::const_iterator& star_end_string, std::string::const_iterator buf_end, std::string::const_iterator& word_end)
-      {
-        word_end = star_end_string;
-
-        for(std::string::const_iterator it = star_end_string;it != buf_end;++it)
-        {
-          if(isspace(*it))
-          {
-
-            continue;
-          }else if( *it == '=' )
-          {            
-            star_end_string = it;
-            word_end = it;
-            return true;
-          }
-        }
-        return false;
-      }
   }
 }
 }
