@@ -1363,9 +1363,6 @@ bool Blockchain::prevalidate_miner_transaction(const block& b, uint64_t height, 
   CHECK_AND_ASSERT_MES(b.miner_tx.unlock_time == height + CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW, false, "coinbase transaction transaction has the wrong unlock time=" << b.miner_tx.unlock_time << ", expected " << height + CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW);
 
   //check outs overflow
-  //NOTE: not entirely sure this is necessary, given that this function is
-  //      designed simply to make sure the total amount for a transaction
-  //      does not overflow a uint64_t, and this transaction *is* a uint64_t...
   if(!check_outs_overflow(b.miner_tx))
   {
     MERROR("miner transaction has money overflow in block " << get_block_hash(b));
