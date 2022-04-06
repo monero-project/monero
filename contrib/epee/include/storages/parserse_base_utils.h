@@ -107,48 +107,10 @@ namespace misc_utils
 
       */
       void match_string2(std::string::const_iterator& star_end_string, std::string::const_iterator buf_end, std::string& val);
-      inline bool match_string(std::string::const_iterator& star_end_string, std::string::const_iterator buf_end, std::string& val)
-      {
-        try
-        {
 
-          match_string2(star_end_string, buf_end, val);
-          return true;
-        }
-        catch(...)
-        {
-          return false;
-        }
-      }
       void match_number2(std::string::const_iterator& star_end_string, std::string::const_iterator buf_end, boost::string_ref& val, bool& is_float_val, bool& is_signed_val);
-      inline bool match_number(std::string::const_iterator& star_end_string, std::string::const_iterator buf_end, boost::string_ref& val)
-      {
-        try
-        {
-          bool is_v_float = false;bool is_signed_val = false;
-          match_number2(star_end_string, buf_end, val, is_v_float, is_signed_val);
-          return !is_v_float;
-        }
-        catch(...)
-        {
-          return false;
-        }
-      }
+
       void match_word2(std::string::const_iterator& star_end_string, std::string::const_iterator buf_end, boost::string_ref& val);
-      inline bool match_word(std::string::const_iterator& star_end_string, std::string::const_iterator buf_end, boost::string_ref& val)
-      {
-        try
-        {
-          match_word2(star_end_string, buf_end, val);
-          return true;
-        }
-        catch(...)
-        {
-          return false;
-        }
-      }
-      bool match_word_with_extrasymb(std::string::const_iterator& star_end_string, std::string::const_iterator buf_end, std::string& val);
-      bool match_word_til_equal_mark(std::string::const_iterator& star_end_string, std::string::const_iterator buf_end, std::string::const_iterator& word_end);
   }
 }
 }

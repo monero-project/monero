@@ -1748,68 +1748,44 @@ TEST(parsing, isdigit)
 
 TEST(parsing, number)
 {
-  boost::string_ref val;
-  std::string s;
-  std::string::const_iterator i;
+  struct match_number_test_data {
+    std::string in_str;
+    std::string expect_out_str;
+    bool expect_is_float;
+    bool expect_is_signed;
+  };
+
+  // Add test cases as needed
+  struct match_number_test_data test_data[] = {
+    {         "0 ",         "0", false, false },
+    {       "000 ",       "000", false, false },
+    {        "10x",        "10", false, false },
+    {     "10.09/",     "10.09",  true, false },
+    {       "-1.r",       "-1.",  true,  true },
+    {      "-49.;",      "-49.",  true,  true },
+    {      "0.78/",      "0.78",  true, false },
+    {      "33E9$",      "33E9",  true, false },
+    {     ".34e2=",     ".34e2",  true, false },
+    {  "-9.34e-2=",  "-9.34e-2",  true,  true },
+    { "+9.34e+03=", "+9.34e+03",  true, false }
+  };
 
   // the parser expects another character to end the number, and accepts things
   // that aren't numbers, as it's meant as a pre-filter for strto* functions,
   // so we just check that numbers get accepted, but don't test non numbers
+  // We set is_float/signed_val to the opposite of what we expect the result to
+  // make sure that match_number2 is changing the bools as expected
 
-  s = "0 ";
-  i = s.begin();
-  epee::misc_utils::parse::match_number(i, s.end(), val);
-  ASSERT_EQ(val, "0");
-
-  s = "000 ";
-  i = s.begin();
-  epee::misc_utils::parse::match_number(i, s.end(), val);
-  ASSERT_EQ(val, "000");
-
-  s = "10x";
-  i = s.begin();
-  epee::misc_utils::parse::match_number(i, s.end(), val);
-  ASSERT_EQ(val, "10");
-
-  s = "10.09/";
-  i = s.begin();
-  epee::misc_utils::parse::match_number(i, s.end(), val);
-  ASSERT_EQ(val, "10.09");
-
-  s = "-1.r";
-  i = s.begin();
-  epee::misc_utils::parse::match_number(i, s.end(), val);
-  ASSERT_EQ(val, "-1.");
-
-  s = "-49.;";
-  i = s.begin();
-  epee::misc_utils::parse::match_number(i, s.end(), val);
-  ASSERT_EQ(val, "-49.");
-
-  s = "0.78/";
-  i = s.begin();
-  epee::misc_utils::parse::match_number(i, s.end(), val);
-  ASSERT_EQ(val, "0.78");
-
-  s = "33E9$";
-  i = s.begin();
-  epee::misc_utils::parse::match_number(i, s.end(), val);
-  ASSERT_EQ(val, "33E9");
-
-  s = ".34e2=";
-  i = s.begin();
-  epee::misc_utils::parse::match_number(i, s.end(), val);
-  ASSERT_EQ(val, ".34e2");
-
-  s = "-9.34e-2=";
-  i = s.begin();
-  epee::misc_utils::parse::match_number(i, s.end(), val);
-  ASSERT_EQ(val, "-9.34e-2");
-
-  s = "+9.34e+03=";
-  i = s.begin();
-  epee::misc_utils::parse::match_number(i, s.end(), val);
-  ASSERT_EQ(val, "+9.34e+03");
+  for (const auto& tdata : test_data) {
+    std::string::const_iterator it = tdata.in_str.begin();
+    boost::string_ref out_val = "<unassigned>";
+    bool is_float_val = !tdata.expect_is_float;
+    bool is_signed_val = !tdata.expect_is_signed;
+    epee::misc_utils::parse::match_number2(it, tdata.in_str.end(), out_val, is_float_val, is_signed_val);
+    EXPECT_EQ(out_val, tdata.expect_out_str);
+    EXPECT_EQ(is_float_val, tdata.expect_is_float);
+    EXPECT_EQ(is_signed_val, tdata.expect_is_signed);
+  }
 }
 
 TEST(parsing, unicode)
@@ -1818,13 +1794,44 @@ TEST(parsing, unicode)
   std::string s;
   std::string::const_iterator si;
 
-  s = "\"\""; si = s.begin(); ASSERT_TRUE(epee::misc_utils::parse::match_string(si, s.end(), bs)); ASSERT_EQ(bs, "");
-  s = "\"\\u0000\""; si = s.begin(); ASSERT_TRUE(epee::misc_utils::parse::match_string(si, s.end(), bs)); ASSERT_EQ(bs, std::string(1, '\0'));
-  s = "\"\\u0020\""; si = s.begin(); ASSERT_TRUE(epee::misc_utils::parse::match_string(si, s.end(), bs)); ASSERT_EQ(bs, " ");
-  s = "\"\\u1\""; si = s.begin(); ASSERT_FALSE(epee::misc_utils::parse::match_string(si, s.end(), bs));
-  s = "\"\\u12\""; si = s.begin(); ASSERT_FALSE(epee::misc_utils::parse::match_string(si, s.end(), bs));
-  s = "\"\\u123\""; si = s.begin(); ASSERT_FALSE(epee::misc_utils::parse::match_string(si, s.end(), bs));
-  s = "\"\\u1234\""; si = s.begin(); ASSERT_TRUE(epee::misc_utils::parse::match_string(si, s.end(), bs)); ASSERT_EQ(bs, "ሴ");
-  s = "\"foo\\u1234bar\""; si = s.begin(); ASSERT_TRUE(epee::misc_utils::parse::match_string(si, s.end(), bs)); ASSERT_EQ(bs, "fooሴbar");
-  s = "\"\\u3042\\u307e\\u3084\\u304b\\u3059\""; si = s.begin(); ASSERT_TRUE(epee::misc_utils::parse::match_string(si, s.end(), bs)); ASSERT_EQ(bs, "あまやかす");
+  s = "\"\"";
+  si = s.begin();
+  epee::misc_utils::parse::match_string2(si, s.end(), bs);
+  EXPECT_EQ(bs, "");
+
+  s = "\"\\u0000\"";
+  si = s.begin();
+  epee::misc_utils::parse::match_string2(si, s.end(), bs);
+  EXPECT_EQ(bs, std::string(1, '\0'));
+
+  s = "\"\\u0020\"";
+  si = s.begin();
+  epee::misc_utils::parse::match_string2(si, s.end(), bs);
+  EXPECT_EQ(bs, " ");
+
+  s = "\"\\u1\"";
+  si = s.begin();
+  EXPECT_THROW(epee::misc_utils::parse::match_string2(si, s.end(), bs), std::runtime_error);
+
+  s = "\"\\u12\"";
+  si = s.begin();
+  EXPECT_THROW(epee::misc_utils::parse::match_string2(si, s.end(), bs), std::runtime_error);
+
+  s = "\"\\u123\"";
+  si = s.begin();
+  EXPECT_THROW(epee::misc_utils::parse::match_string2(si, s.end(), bs), std::runtime_error);
+
+  s = "\"\\u1234\"";
+  si = s.begin();
+  epee::misc_utils::parse::match_string2(si, s.end(), bs);
+  EXPECT_EQ(bs, "ሴ");
+
+  s = "\"foo\\u1234bar\""; si = s.begin();
+  epee::misc_utils::parse::match_string2(si, s.end(), bs);
+  EXPECT_EQ(bs, "fooሴbar");
+
+  s = "\"\\u3042\\u307e\\u3084\\u304b\\u3059\"";
+  si = s.begin();
+  epee::misc_utils::parse::match_string2(si, s.end(), bs);
+  EXPECT_EQ(bs, "あまやかす");
 }
