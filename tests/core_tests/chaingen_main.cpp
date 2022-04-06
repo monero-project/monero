@@ -35,6 +35,8 @@
 #include "tx_pool.h"
 #include "transaction_tests.h"
 
+#include <boost/regex.hpp>
+
 namespace po = boost::program_options;
 
 namespace
