@@ -1,6 +1,6 @@
 # Monero Blockchain Utilities
 
-Copyright (c) 2014-2020, The Monero Project
+Copyright (c) 2014-2022, The Monero Project
 
 ## Introduction
 

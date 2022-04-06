@@ -1,4 +1,5 @@
-// Copyright (c) 2019, The Monero Project
+// Copyright (c) 2019-2022, The Monero Project
+
 // 
 // All rights reserved.
 // 
