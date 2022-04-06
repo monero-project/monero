@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2020, The Monero Project
+// Copyright (c) 2017-2020, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -25,43 +25,25 @@
 // INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
-// Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 #pragma once
 
-#include "chaingen.h"
-#include "block_reward.h"
-#include "block_validation.h"
-#include "chain_split_1.h"
-#include "chain_switch_1.h"
-#include "double_spend.h"
-#include "integer_overflow.h"
-#include "ring_signature_1.h"
-#include "tx_validation.h"
-#include "v2_tests.h"
-#include "rct.h"
-#include "multisig.h"
-#include "bulletproofs.h"
-#include "bulletproof_plus.h"
-#include "rct2.h"
-/************************************************************************/
-/*                                                                      */
-/************************************************************************/
-class gen_simple_chain_001: public test_chain_unit_base 
-{
-public: 
-  gen_simple_chain_001();
-  bool generate(std::vector<test_event_entry> &events);
-  bool verify_callback_1(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry> &events); 
-  bool verify_callback_2(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry> &events); 
-};
+#ifndef BULLETPROOFS_PLUS_H
+#define BULLETPROOFS_PLUS_H
 
-class one_block: public test_chain_unit_base
+#include "rctTypes.h"
+
+namespace rct
 {
-  cryptonote::account_base alice;
-public:
-  one_block();
-  bool generate(std::vector<test_event_entry> &events);
-  bool verify_1(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry> &events);
-};
+
+BulletproofPlus bulletproof_plus_PROVE(const rct::key &v, const rct::key &gamma);
+BulletproofPlus bulletproof_plus_PROVE(uint64_t v, const rct::key &gamma);
+BulletproofPlus bulletproof_plus_PROVE(const rct::keyV &v, const rct::keyV &gamma);
+BulletproofPlus bulletproof_plus_PROVE(const std::vector<uint64_t> &v, const rct::keyV &gamma);
+bool bulletproof_plus_VERIFY(const BulletproofPlus &proof);
+bool bulletproof_plus_VERIFY(const std::vector<const BulletproofPlus*> &proofs);
+bool bulletproof_plus_VERIFY(const std::vector<BulletproofPlus> &proofs);
+
+}
+
+#endif

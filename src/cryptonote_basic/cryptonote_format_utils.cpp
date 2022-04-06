@@ -105,7 +105,9 @@ namespace cryptonote
 
   uint64_t get_transaction_weight_clawback(const transaction &tx, size_t n_padded_outputs)
   {
-    const uint64_t bp_base = 368;
+    const rct::rctSig &rv = tx.rct_signatures;
+    const bool plus = rv.type == rct::RCTTypeBulletproofPlus;
+    const uint64_t bp_base = (32 * ((plus ? 6 : 9) + 7 * 2)) / 2; // notional size of a 2 output proof, normalized to 1 proof (ie, divided by 2)
     const size_t n_outputs = tx.vout.size();
     if (n_padded_outputs <= 2)
       return 0;
@@ -113,7 +115,7 @@ namespace cryptonote
     while ((1u << nlr) < n_padded_outputs)
       ++nlr;
     nlr += 6;
-    const size_t bp_size = 32 * (9 + 2 * nlr);
+    const size_t bp_size = 32 * ((plus ? 6 : 9) + 2 * nlr);
     CHECK_AND_ASSERT_THROW_MES_L1(n_outputs <= BULLETPROOF_MAX_OUTPUTS, "maximum number of outputs is " + std::to_string(BULLETPROOF_MAX_OUTPUTS) + " per transaction");
     CHECK_AND_ASSERT_THROW_MES_L1(bp_base * n_padded_outputs >= bp_size, "Invalid bulletproof clawback: bp_base " + std::to_string(bp_base) + ", n_padded_outputs "
         + std::to_string(n_padded_outputs) + ", bp_size " + std::to_string(bp_size));
@@ -164,7 +166,32 @@ namespace cryptonote
       if (!base_only)
       {
         const bool bulletproof = rct::is_rct_bulletproof(rv.type);
-        if (bulletproof)
+        const bool bulletproof_plus = rct::is_rct_bulletproof_plus(rv.type);
+        if (bulletproof_plus)
+        {
+          if (rv.p.bulletproofs_plus.size() != 1)
+          {
+            LOG_PRINT_L1("Failed to parse transaction from blob, bad bulletproofs_plus size in tx " << get_transaction_hash(tx));
+            return false;
+          }
+          if (rv.p.bulletproofs_plus[0].L.size() < 6)
+          {
+            LOG_PRINT_L1("Failed to parse transaction from blob, bad bulletproofs_plus L size in tx " << get_transaction_hash(tx));
+            return false;
+          }
+          const size_t max_outputs = rct::n_bulletproof_plus_max_amounts(rv.p.bulletproofs_plus[0]);
+          if (max_outputs < tx.vout.size())
+          {
+            LOG_PRINT_L1("Failed to parse transaction from blob, bad bulletproofs_plus max outputs in tx " << get_transaction_hash(tx));
+            return false;
+          }
+          const size_t n_amounts = tx.vout.size();
+          CHECK_AND_ASSERT_MES(n_amounts == rv.outPk.size(), false, "Internal error filling out V");
+          rv.p.bulletproofs_plus[0].V.resize(n_amounts);
+          for (size_t i = 0; i < n_amounts; ++i)
+            rv.p.bulletproofs_plus[0].V[i] = rv.outPk[i].mask;
+        }
+        else if (bulletproof)
         {
           if (rv.p.bulletproofs.size() != 1)
           {
@@ -419,9 +446,11 @@ namespace cryptonote
     if (tx.version < 2)
       return blob_size;
     const rct::rctSig &rv = tx.rct_signatures;
-    if (!rct::is_rct_bulletproof(rv.type))
+    const bool bulletproof = rct::is_rct_bulletproof(rv.type);
+    const bool bulletproof_plus = rct::is_rct_bulletproof_plus(rv.type);
+    if (!bulletproof && !bulletproof_plus)
       return blob_size;
-    const size_t n_padded_outputs = rct::n_bulletproof_max_amounts(rv.p.bulletproofs);
+    const size_t n_padded_outputs = bulletproof_plus ? rct::n_bulletproof_plus_max_amounts(rv.p.bulletproofs_plus) : rct::n_bulletproof_max_amounts(rv.p.bulletproofs);
     uint64_t bp_clawback = get_transaction_weight_clawback(tx, n_padded_outputs);
     CHECK_AND_ASSERT_THROW_MES_L1(bp_clawback <= std::numeric_limits<uint64_t>::max() - blob_size, "Weight overflow");
     return blob_size + bp_clawback;
@@ -431,8 +460,8 @@ namespace cryptonote
   {
     CHECK_AND_ASSERT_MES(tx.pruned, std::numeric_limits<uint64_t>::max(), "get_pruned_transaction_weight does not support non pruned txes");
     CHECK_AND_ASSERT_MES(tx.version >= 2, std::numeric_limits<uint64_t>::max(), "get_pruned_transaction_weight does not support v1 txes");
-    CHECK_AND_ASSERT_MES(tx.rct_signatures.type >= rct::RCTTypeBulletproof2 || tx.rct_signatures.type == rct::RCTTypeCLSAG,
-        std::numeric_limits<uint64_t>::max(), "get_pruned_transaction_weight does not support older range proof types");
+    CHECK_AND_ASSERT_MES(tx.rct_signatures.type == rct::RCTTypeBulletproof2 || tx.rct_signatures.type == rct::RCTTypeCLSAG || tx.rct_signatures.type == rct::RCTTypeBulletproofPlus,
+        std::numeric_limits<uint64_t>::max(), "Unsupported rct_signatures type in get_pruned_transaction_weight");
     CHECK_AND_ASSERT_MES(!tx.vin.empty(), std::numeric_limits<uint64_t>::max(), "empty vin");
     CHECK_AND_ASSERT_MES(tx.vin[0].type() == typeid(cryptonote::txin_to_key), std::numeric_limits<uint64_t>::max(), "empty vin");
 
@@ -450,12 +479,12 @@ namespace cryptonote
     while ((n_padded_outputs = (1u << nrl)) < tx.vout.size())
       ++nrl;
     nrl += 6;
-    extra = 32 * (9 + 2 * nrl) + 2;
+    extra = 32 * ((rct::is_rct_bulletproof_plus(tx.rct_signatures.type) ? 6 : 9) + 2 * nrl) + 2;
     weight += extra;
 
     // calculate deterministic CLSAG/MLSAG data size
     const size_t ring_size = boost::get<cryptonote::txin_to_key>(tx.vin[0]).key_offsets.size();
-    if (tx.rct_signatures.type == rct::RCTTypeCLSAG)
+    if (rct::is_rct_clsag(tx.rct_signatures.type))
       extra = tx.vin.size() * (ring_size + 2) * 32;
     else
       extra = tx.vin.size() * (ring_size * (1 + 1) * 32 + 32 /* cc */);

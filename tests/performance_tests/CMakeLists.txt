@@ -46,6 +46,7 @@ set(performance_tests_headers
   subaddress_expand.h
   range_proof.h
   bulletproof.h
+  bulletproof_plus.h
   crypto_ops.h
   sc_reduce32.h
   sc_check.h
