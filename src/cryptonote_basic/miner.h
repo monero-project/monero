@@ -118,14 +118,14 @@ namespace cryptonote
     };
 
 
-    volatile uint32_t m_stop;
+    std::atomic<bool> m_stop;
     epee::critical_section m_template_lock;
     block m_template;
     std::atomic<uint32_t> m_template_no;
     std::atomic<uint32_t> m_starter_nonce;
     difficulty_type m_diffic;
     uint64_t m_height;
-    volatile uint32_t m_thread_index; 
+    std::atomic<uint32_t> m_thread_index;
     volatile uint32_t m_threads_total;
     std::atomic<uint32_t> m_threads_active;
     std::atomic<int32_t> m_pausers_count;

@@ -384,7 +384,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
       {  
         //_info("[sock " << socket().native_handle() << "] protocol_want_close");
         //some error in protocol, protocol handler ask to close connection
-        boost::interprocess::ipcdetail::atomic_write32(&m_want_close_connection, 1);
+        m_want_close_connection = true;
         bool do_shutdown = false;
         CRITICAL_REGION_BEGIN(m_send_que_lock);
         if(!m_send_que.size())
@@ -478,7 +478,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
       if (!handshake(boost::asio::ssl::stream_base::server, boost::asio::const_buffer(buffer_.data(), buffer_ssl_init_fill)))
       {
         MERROR("SSL handshake failed");
-        boost::interprocess::ipcdetail::atomic_write32(&m_want_close_connection, 1);
+        m_want_close_connection = true;
         m_ready_to_close = true;
         bool do_shutdown = false;
         CRITICAL_REGION_BEGIN(m_send_que_lock);
@@ -834,7 +834,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     CRITICAL_REGION_BEGIN(m_send_que_lock);
     send_que_size = m_send_que.size();
     CRITICAL_REGION_END();
-    boost::interprocess::ipcdetail::atomic_write32(&m_want_close_connection, 1);
+    m_want_close_connection = true;
     if(!send_que_size)
     {
       shutdown();
@@ -889,7 +889,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     m_send_que.pop_front();
     if(m_send_que.empty())
     {
-      if(boost::interprocess::ipcdetail::atomic_read32(&m_want_close_connection))
+      if(m_want_close_connection)
       {
         do_shutdown = true;
       }
@@ -1119,7 +1119,7 @@ POP_WARNINGS
   bool boosted_tcp_server<t_protocol_handler>::worker_thread()
   {
     TRY_ENTRY();
-    uint32_t local_thr_index = boost::interprocess::ipcdetail::atomic_inc32(&m_thread_index); 
+    const uint32_t local_thr_index = m_thread_index++; // atomically increment, getting value before increment
     std::string thread_name = std::string("[") + m_thread_name_prefix;
     thread_name += boost::to_string(local_thr_index) + "]";
     MLOG_SET_THREAD_NAME(thread_name);
