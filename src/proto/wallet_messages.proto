@@ -1,0 +1,292 @@
+// Copyright (c) 2021, The Monero Project
+//
+// All rights reserved.
+//
+// Redistribution and use in source and binary forms, with or without modification, are
+// permitted provided that the following conditions are met:
+//
+// 1. Redistributions of source code must retain the above copyright notice, this list of
+//    conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright notice, this list
+//    of conditions and the following disclaimer in the documentation and/or other
+//    materials provided with the distribution.
+//
+// 3. Neither the name of the copyright holder nor the names of its contributors may be
+//    used to endorse or promote products derived from this software without specific
+//    prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
+// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+// MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
+// THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
+// THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+
+message AddressIndices {
+  repeated uint32 address_indices = 1;
+}
+
+message Balance {
+  uint64 balance = 1;
+  uint64 unlocked_balance = 2;
+}
+/*--------------------*/
+message GetBalanceRequest {
+  //Specify which account and which subaddresses on those accounts. Returns all if empty
+  map<uint32, AddressIndices> account_indices = 1;
+  // Include unconfirmed transactions, false by default
+  bool include_unconfirmed = 2;
+}
+
+message SubaddressBalance {
+  string address = 1;
+  Balance balance = 2;
+  string label = 3;
+  uint32 num_unspent_outputs = 4;
+}
+
+message AccountBalance {
+  Balance balance = 1;
+  bool multisig_import_needed = 2;
+  map <uint32,SubaddressBalance> per_subaddress = 3;
+}
+
+message GetBalanceResponse {
+  map<uint32, AccountBalance> account_info = 1;
+}
+/*--------------------*/
+
+
+message BalanceUpdateSubscription {
+  map<uint32,AddressIndices> account_subscriptions = 1;
+}
+
+message BalanceUpdate {
+  map<uint32, AccountBalance> account_info = 1;
+}
+/*--------------------*/
+message GetAccountsRequest {
+  string tag = 1;
+}
+message AccountInfo {
+  Balance balance = 1;
+  string base_address = 2;
+  string label = 3;
+  string tag = 4;
+}
+message GetAccountsResponse {
+  map<uint32,AccountInfo> accounts = 1;
+  Balance total_balance = 2;
+  bool include_unconfirmed = 3;
+}
+/*--------------------*/
+message CreateAccountRequest {
+  string label = 1;
+}
+
+message CreateAccountResponse {
+  uint32 account_index = 1;
+  string address = 2;
+}
+/*--------------------*/
+message LabelAccountRequest {
+  uint32 account_index = 1;
+  uint32 label = 2;
+}
+
+message LabelAccountResponse {
+
+}
+/*--------------------*/
+
+message GetAddressRequest {
+  uint32 account_index = 1;
+  repeated uint32 address_index = 2;
+}
+message GetAddressResponse {
+  message AddressInfo {
+    string address = 1;
+    string label = 2;
+    bool used = 3;
+  }
+  map<uint32,AddressInfo> addresses = 1;
+}
+/*--------------------*/
+
+message CreateAddressRequest {
+  uint32 account_index = 1;
+  int32 count = 2;
+  string address = 3;
+}
+
+message CreateAddressResponse {
+  map<uint32,string> addresses = 1;
+}
+/*--------------------*/
+
+message LabelAddressRequest {
+  uint32 account_index = 1;
+  uint32 address_index = 2;
+  string label = 3;
+}
+
+message LabelAddressResponse {
+
+}
+
+/*--------------------*/
+
+message ValidateAddressRequest {
+  string address = 1;
+  bool any_net_type = 2;
+  bool allow_openalias = 3;
+}
+
+message ValidateAddressResponse {
+  bool valid = 1;
+  bool integrated = 2;
+  bool subaddress = 3;
+  string network_type = 4;
+  string openalias_address = 5;
+}
+
+/*--------------------*/
+message InteractiveTransferRequest {
+  oneof transfer_request {
+    TransferRequest request = 1;
+    bool confirm = 2;
+  }
+}
+
+message InteractiveTransferResponse {
+  oneof transfer_response {
+    TransferResponse response = 1;
+    bool sent = 2;
+  }
+}
+
+/*--------------------*/
+
+message TransferRequest {
+  uint32 account_index = 1;
+  map<string, uint64> destinations = 2;
+  repeated uint32 subaddress_indices = 3;
+
+  enum Priority {
+    DEFAULT = 0;
+    UNIMPORTANT = 1;
+    NORMAL = 2;
+    ELEVATED = 3;
+  }
+
+  Priority priority = 4;
+  uint64 ring_size = 5;
+  uint64 unlock_time = 6;
+  string payment_id = 7;
+  bool do_not_relay = 8;
+  bool return_tx_key = 9;
+  bool return_tx_hex = 10;
+  bool return_tx_metadata = 11;
+}
+
+message TransferResponse {
+  uint64 amount = 1;
+  uint64 fee = 2;
+  uint64 weight = 3;
+  string tx_hash = 4;
+  string tx_key = 5;
+  string tx_blob = 6;
+  string tx_metadata = 7;
+  string multisig_txset = 8;
+  string unsigned_txset = 9;
+}
+
+/*--------------------*/
+
+message Range {
+  uint64 start = 1;
+  uint64 end = 2;
+}
+
+message GetTransfersRequest {
+  bool in = 1;
+  bool out = 2;
+  bool pending = 3;
+  bool failed = 4;
+  bool pool = 5;
+  oneof filter_by_height {
+    bool none = 6;
+    Range range = 7;
+  }
+  map<uint32,AddressIndices> account_addresses = 8;
+}
+
+enum TransferType {
+  IN = 0;
+  OUT = 1;
+}
+
+message Transfer {
+  string address = 1;
+  uint64 amount = 2;
+  uint64 confirmations = 3;
+  bool double_spend_seen = 4;
+  uint64 fee = 5;
+  uint64 height = 6;
+  string note = 7;
+  string payment_id = 8;
+  uint32 subaddress_index = 9;
+  uint64 suggested_confirmations_threshold = 10;
+  google.protobuf.Timestamp timestamp = 11;
+  string txid = 12;
+  uint64 unlock_time = 13;
+}
+
+message GetTransfersResponse{
+  // Transfers mapped by the account they belong to
+  map<uint32,Transfer> in = 1;
+  map<uint32,Transfer> out = 2;
+  map<uint32,Transfer> pending = 3;
+  map<uint32,Transfer> failed = 4;
+  map<uint32,Transfer> pool = 5;
+}
+
+/*--------------------*/
+
+message IncomingPaymentsSubscription {
+  bool on_mempool = 1;
+  bool on_mined = 2;
+  bool on_unlock = 3;
+}
+
+enum Status {
+  MEMPOOL = 0;
+  MINED = 1;
+  UNLOCKED = 2;
+}
+
+message IncomingPayment {
+  string receiving_address = 1;
+  string tx_hash = 2;
+  uint64 bc_height = 3;
+  uint64 amount = 4;
+  Status status = 5;
+}
+
+/*--------------------*/
+
+message NewBlockSubscription {
+}
+
+message NewBlock {
+  uint64 height = 1;
+  string block_hash = 2;
+}

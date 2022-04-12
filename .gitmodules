@@ -14,3 +14,7 @@
 	path = external/supercop
 	url = https://github.com/monero-project/supercop
 	branch = monero
+[submodule "external/grpc"]
+	path = external/grpc
+	url = git@github.com:vdero133/grpc.git
+	branch = monero
