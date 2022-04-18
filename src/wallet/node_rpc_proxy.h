@@ -56,6 +56,7 @@ public:
   boost::optional<std::string> get_adjusted_time(uint64_t &adjusted_time);
   boost::optional<std::string> get_earliest_height(uint8_t version, uint64_t &earliest_height);
   boost::optional<std::string> get_dynamic_base_fee_estimate(uint64_t grace_blocks, uint64_t &fee);
+  boost::optional<std::string> get_dynamic_base_fee_estimate_2021_scaling(uint64_t grace_blocks, std::vector<uint64_t> &fees);
   boost::optional<std::string> get_fee_quantization_mask(uint64_t &fee_quantization_mask);
   boost::optional<std::string> get_rpc_payment_info(bool mining, bool &payment_required, uint64_t &credits, uint64_t &diff, uint64_t &credits_per_hash_found, cryptonote::blobdata &blob, uint64_t &height, uint64_t &seed_height, crypto::hash &seed_hash, crypto::hash &next_seed_hash, uint32_t &cookie);
 
@@ -85,6 +86,7 @@ private:
   uint64_t m_dynamic_base_fee_estimate;
   uint64_t m_dynamic_base_fee_estimate_cached_height;
   uint64_t m_dynamic_base_fee_estimate_grace_blocks;
+  std::vector<uint64_t> m_dynamic_base_fee_estimate_vector;
   uint64_t m_fee_quantization_mask;
   uint64_t m_adjusted_time;
   uint32_t m_rpc_version;

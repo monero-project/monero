@@ -183,8 +183,10 @@
 #define HF_VERSION_CLSAG                        13
 #define HF_VERSION_DETERMINISTIC_UNLOCK_TIME    13
 #define HF_VERSION_BULLETPROOF_PLUS             15
+#define HF_VERSION_2021_SCALING                 15
 
 #define PER_KB_FEE_QUANTIZATION_DECIMALS        8
+#define CRYPTONOTE_SCALING_2021_FEE_ROUNDING_PLACES 2
 
 #define HASH_OF_HASHES_STEP                     512
 
