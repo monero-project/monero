@@ -59,7 +59,7 @@
 #include "include_base_utils.h"
 #include "file_io_utils.h"
 #include "wipeable_string.h"
-#include "misc_os_dependent.h"
+#include "time_helper.h"
 using namespace epee;
 
 #include "crypto/crypto.h"

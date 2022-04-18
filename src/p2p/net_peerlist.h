@@ -31,6 +31,7 @@
 #pragma once
 
 #include <iosfwd>
+#include <iterator>
 #include <list>
 #include <string>
 #include <vector>
@@ -46,7 +47,6 @@
 #include "crypto/crypto.h"
 #include "cryptonote_config.h"
 #include "net/enums.h"
-#include "net/local_ip.h"
 #include "p2p_protocol_defs.h"
 #include "syncobj.h"
 
@@ -184,6 +184,7 @@ namespace nodetool
   private: 
     void trim_white_peerlist();
     void trim_gray_peerlist();
+    static peerlist_entry get_nth_latest_peer(peers_indexed& peerlist, size_t n);
 
     friend class boost::serialization::access;
     epee::critical_section m_peerlist_lock;
@@ -214,6 +215,16 @@ namespace nodetool
     }
   }
   //--------------------------------------------------------------------------------------------------
+  inline
+  peerlist_entry peerlist_manager::get_nth_latest_peer(peers_indexed& peerlist, const size_t n)
+  {
+    // Is not thread-safe nor does it check bounds. Do this before calling. Indexing starts at 0.
+    peers_indexed::index<by_time>::type& by_time_index = peerlist.get<by_time>();
+    auto by_time_it = --by_time_index.end();
+    std::advance(by_time_it, -static_cast<long long>(n));
+    return *by_time_it;
+  }
+  //--------------------------------------------------------------------------------------------------
   inline 
   bool peerlist_manager::merge_peerlist(const std::vector<peerlist_entry>& outer_bs, const std::function<bool(const peerlist_entry&)> &f)
   {
@@ -235,8 +246,7 @@ namespace nodetool
     if(i >= m_peers_white.size())
       return false;
 
-    peers_indexed::index<by_time>::type& by_time_index = m_peers_white.get<by_time>();
-    p = *epee::misc_utils::move_it_backward(--by_time_index.end(), i);    
+    p = peerlist_manager::get_nth_latest_peer(m_peers_white, i);
     return true;
   }
   //--------------------------------------------------------------------------------------------------
@@ -247,8 +257,7 @@ namespace nodetool
     if(i >= m_peers_gray.size())
       return false;
 
-    peers_indexed::index<by_time>::type& by_time_index = m_peers_gray.get<by_time>();
-    p = *epee::misc_utils::move_it_backward(--by_time_index.end(), i);    
+    p = peerlist_manager::get_nth_latest_peer(m_peers_gray, i);
     return true;
   }
   //--------------------------------------------------------------------------------------------------
@@ -437,9 +446,7 @@ namespace nodetool
     }
 
     size_t random_index = crypto::rand_idx(m_peers_gray.size());
-
-    peers_indexed::index<by_time>::type& by_time_index = m_peers_gray.get<by_time>();
-    pe = *epee::misc_utils::move_it_backward(--by_time_index.end(), random_index);
+    pe = peerlist_manager::get_nth_latest_peer(m_peers_gray, random_index);
 
     return true;
 

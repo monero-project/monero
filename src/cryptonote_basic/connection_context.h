@@ -27,6 +27,7 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // 
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
+// Parts of this file are originally copyright (c) 2006-2013, Andrey N. Sabelnikov, www.sabelnikov.net
 
 #pragma once
 #include <unordered_set>
@@ -34,7 +35,6 @@
 #include <algorithm>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include "net/net_utils_base.h"
-#include "copyable_atomic.h"
 #include "crypto/hash.h"
 
 namespace cryptonote
@@ -55,6 +55,37 @@ namespace cryptonote
       state_normal
     };
 
+    /*
+      This class was originally from the EPEE module. It is identical in function to std::atomic<uint32_t> except
+      that it has copy-construction and copy-assignment defined, which means that earliers devs didn't have to write
+      custom copy-contructors and copy-assingment operators for the outer class, cryptonote_connection_context.
+      cryptonote_connection_context should probably be refactored because it is both trying to be POD-like while
+      also (very loosely) controlling access to its atomic members.
+    */
+    class copyable_atomic: public std::atomic<uint32_t>
+    {
+    public:
+      copyable_atomic()
+      {};
+      copyable_atomic(uint32_t value)
+      { store(value); }
+      copyable_atomic(const copyable_atomic& a):std::atomic<uint32_t>(a.load())
+      {}
+      copyable_atomic& operator= (const copyable_atomic& a)
+      {
+        store(a.load());
+        return *this;
+      }
+      uint32_t operator++()
+      {
+        return std::atomic<uint32_t>::operator++();
+      }
+      uint32_t operator++(int fake)
+      {
+        return std::atomic<uint32_t>::operator++(fake);
+      }
+    };
+
     static constexpr int handshake_command() noexcept { return 1001; }
     bool handshake_complete() const noexcept { return m_state != state_before_handshake; }
 
@@ -67,7 +98,7 @@ namespace cryptonote
     uint64_t m_remote_blockchain_height;
     uint64_t m_last_response_height;
     boost::posix_time::ptime m_last_request_time;
-    epee::copyable_atomic m_callback_request_count; //in debug purpose: problem with double callback rise
+    copyable_atomic m_callback_request_count; //in debug purpose: problem with double callback rise
     crypto::hash m_last_known_hash;
     uint32_t m_pruning_seed;
     uint16_t m_rpc_port;
@@ -77,8 +108,8 @@ namespace cryptonote
     int m_expect_response;
     uint64_t m_expect_height;
     size_t m_num_requested;
-    epee::copyable_atomic m_new_stripe_notification{0};
-    epee::copyable_atomic m_idle_peer_notification{0};
+    copyable_atomic m_new_stripe_notification{0};
+    copyable_atomic m_idle_peer_notification{0};
   };
 
   inline std::string get_protocol_state_string(cryptonote_connection_context::state s)

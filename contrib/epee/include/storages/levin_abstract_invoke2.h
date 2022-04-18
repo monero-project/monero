@@ -56,54 +56,6 @@ namespace epee
 {
   namespace net_utils
   {
-#if 0
-    template<class t_arg, class t_result, class t_transport>
-    bool invoke_remote_command2(int command, const t_arg& out_struct, t_result& result_struct, t_transport& transport)
-    {
-      if(!transport.is_connected())
-        return false;
-
-      serialization::portable_storage stg;
-      out_struct.store(stg);
-      std::string buff_to_send, buff_to_recv;
-      stg.store_to_binary(buff_to_send);
-
-      int res = transport.invoke(command, buff_to_send, buff_to_recv);
-      if( res <=0 )
-      {
-        MERROR("Failed to invoke command " << command << " return code " << res);
-        return false;
-      }
-      serialization::portable_storage stg_ret;
-      if(!stg_ret.load_from_binary(buff_to_recv, &default_levin_limits))
-      {
-        LOG_ERROR("Failed to load_from_binary on command " << command);
-        return false;
-      }
-      return result_struct.load(stg_ret);
-    }
-
-    template<class t_arg, class t_transport>
-    bool notify_remote_command2(int command, const t_arg& out_struct, t_transport& transport)
-    {
-      if(!transport.is_connected())
-        return false;
-
-      serialization::portable_storage stg;
-      out_struct.store(&stg);
-      std::string buff_to_send;
-      stg.store_to_binary(buff_to_send);
-
-      int res = transport.notify(command, buff_to_send);
-      if(res <=0 )
-      {
-        LOG_ERROR("Failed to notify command " << command << " return code " << res);
-        return false;
-      }
-      return true;
-    }
-#endif
-
     template<class t_arg, class t_result, class t_transport>
     bool invoke_remote_command2(const epee::net_utils::connection_context_base context, int command, const t_arg& out_struct, t_result& result_struct, t_transport& transport)
     {

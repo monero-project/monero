@@ -37,7 +37,7 @@
 #include "buffer.h"
 #include "misc_language.h"
 #include "syncobj.h"
-#include "misc_os_dependent.h"
+#include "time_helper.h"
 #include "int-util.h"
 
 #include <random>

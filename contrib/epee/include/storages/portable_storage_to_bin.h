@@ -28,7 +28,6 @@
 
 #pragma once 
 
-#include "pragma_comp_defs.h"
 #include "misc_language.h"
 #include "portable_storage_base.h"
 #include "portable_storage_bin_utils.h"
@@ -49,12 +48,7 @@ namespace epee
       return sizeof(pack_value);
     }
 
-    PRAGMA_WARNING_PUSH
-      PRAGMA_GCC("GCC diagnostic ignored \"-Wstrict-aliasing\"")
-#ifdef __clang__
-      PRAGMA_GCC("GCC diagnostic ignored \"-Wtautological-constant-out-of-range-compare\"")
-#endif
-      template<class t_stream>
+    template<class t_stream>
     size_t pack_varint(t_stream& strm, size_t val)
     {   //the first two bits always reserved for size information
 
@@ -70,13 +64,13 @@ namespace epee
         return pack_varint_t<uint32_t>(strm, PORTABLE_RAW_SIZE_MARK_DWORD, val);
       }else
       {
-        CHECK_AND_ASSERT_THROW_MES(val <= 4611686018427387903, "failed to pack varint - too big amount = " << val);
+        // Same as checking val <= 4611686018427387903 except that it's portable for 32-bit size_t
+        CHECK_AND_ASSERT_THROW_MES(!(val >> 31 >> 31), "failed to pack varint - too big amount = " << val);
         return pack_varint_t<uint64_t>(strm, PORTABLE_RAW_SIZE_MARK_INT64, val);
       }
     }
-    PRAGMA_WARNING_POP
 
-      template<class t_stream>
+    template<class t_stream>
     bool put_string(t_stream& strm, const std::string& v)
     {
       pack_varint(strm, v.size());

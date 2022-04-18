@@ -44,8 +44,6 @@
 #include "warnings.h"
 #include "string_tools_lexical.h"
 #include "misc_language.h"
-#include "net/local_ip.h"
-#include "pragma_comp_defs.h"
 
 #include <sstream>
 #include <iomanip>
@@ -64,7 +62,6 @@
 #define TIMEOUT_EXTRA_MS_PER_BYTE 0.2
 
 
-PRAGMA_WARNING_PUSH
 namespace epee
 {
 namespace net_utils
@@ -79,8 +76,6 @@ namespace net_utils
   /************************************************************************/
   /*                                                                      */
   /************************************************************************/
-PRAGMA_WARNING_DISABLE_VS(4355)
-
   template<class t_protocol_handler>
   connection<t_protocol_handler>::connection( boost::asio::io_service& io_service,
                 std::shared_ptr<shared_state> state,
@@ -111,7 +106,6 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     MDEBUG("test, connection constructor set m_connection_type="<<m_connection_type);
   }
 
-PRAGMA_WARNING_DISABLE_VS(4355)
   //---------------------------------------------------------------------------------
   template<class t_protocol_handler>
   connection<t_protocol_handler>::~connection() noexcept(false)
@@ -1092,8 +1086,6 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     }
   }
   //-----------------------------------------------------------------------------
-PUSH_WARNINGS
-DISABLE_GCC_WARNING(maybe-uninitialized)
   template<class t_protocol_handler>
   bool boosted_tcp_server<t_protocol_handler>::init_server(const std::string port,  const std::string& address,
       const std::string port_ipv6, const std::string address_ipv6, bool use_ipv6, bool require_ipv4,
@@ -1113,7 +1105,6 @@ DISABLE_GCC_WARNING(maybe-uninitialized)
     }
     return this->init_server(p, address, p_ipv6, address_ipv6, use_ipv6, require_ipv4, std::move(ssl_options));
   }
-POP_WARNINGS
   //---------------------------------------------------------------------------------
   template<class t_protocol_handler>
   bool boosted_tcp_server<t_protocol_handler>::worker_thread()
@@ -1734,4 +1725,3 @@ POP_WARNINGS
   
 } // namespace
 } // namespace
-PRAGMA_WARNING_POP
