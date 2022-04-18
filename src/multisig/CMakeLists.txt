@@ -34,10 +34,7 @@ set(multisig_sources
 
 set(multisig_headers)
 
-set(multisig_private_headers
-  multisig.h
-  multisig_account.h
-  multisig_kex_msg.h)
+monero_find_all_headers(multisig_private_headers "${CMAKE_CURRENT_SOURCE_DIR}")
 
 monero_private_headers(multisig
   ${multisig_private_headers})

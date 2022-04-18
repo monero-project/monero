@@ -37,30 +37,7 @@ set(daemon_sources
 
 set(daemon_headers)
 
-set(daemon_private_headers
-  command_parser_executor.h
-  command_server.h
-  core.h
-  daemon.h
-  executor.h
-  p2p.h
-  protocol.h
-  rpc.h
-  rpc_command_executor.h
-
-  # cryptonote_protocol
-  ../cryptonote_protocol/cryptonote_protocol_defs.h
-  ../cryptonote_protocol/cryptonote_protocol_handler.h
-  ../cryptonote_protocol/cryptonote_protocol_handler.inl
-  ../cryptonote_protocol/cryptonote_protocol_handler_common.h
-
-  # p2p
-  ../p2p/net_node.h
-  ../p2p/net_node_common.h
-  ../p2p/net_peerlist.h
-  ../p2p/net_peerlist_boost_serialization.h
-  ../p2p/p2p_protocol_defs.h
-  ../p2p/stdafx.h)
+monero_find_all_headers(daemon_private_headers "${CMAKE_CURRENT_SOURCE_DIR}")
 
 monero_private_headers(daemon
   ${daemon_private_headers})

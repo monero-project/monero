@@ -58,27 +58,7 @@ include_directories(${RANDOMX_INCLUDE})
 
 set(crypto_headers)
 
-set(crypto_private_headers
-  blake256.h
-  chacha.h
-  crypto-ops.h
-  crypto.h
-  generic-ops.h
-  groestl.h
-  groestl_tables.h
-  hash-ops.h
-  hash.h
-  hmac-keccak.h
-  initializer.h
-  jh.h
-  keccak.h
-  oaes_config.h
-  oaes_lib.h
-  random.h
-  skein.h
-  skein_port.h
-  CryptonightR_JIT.h
-  CryptonightR_template.h)
+monero_find_all_headers(crypto_private_headers "${CMAKE_CURRENT_SOURCE_DIR}")
 
 monero_private_headers(cncrypto
   ${crypto_private_headers})

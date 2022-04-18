@@ -35,13 +35,7 @@ set(cryptonote_core_sources
 
 set(cryptonote_core_headers)
 
-set(cryptonote_core_private_headers
-  blockchain_storage_boost_serialization.h
-  blockchain.h
-  cryptonote_core.h
-  tx_pool.h
-  tx_sanity_check.h
-  cryptonote_tx_utils.h)
+monero_find_all_headers(cryptonote_core_private_headers "${CMAKE_CURRENT_SOURCE_DIR}")
 
 monero_private_headers(cryptonote_core
   ${cryptonote_core_private_headers})
