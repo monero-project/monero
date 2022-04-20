@@ -63,11 +63,11 @@
 #include <cassert>
 #include <iterator>
 #include <limits>
+#include <openssl/md5.h>
 #include <tuple>
 #include <type_traits>
 
 #include "hex.h"
-#include "md5_l.h"
 #include "string_coding.h"
 
 /* This file uses the `u8` prefix and specifies all chars by ASCII numeric
@@ -114,7 +114,7 @@ namespace
       void operator()(const T& arg) const
       {
         const boost::iterator_range<const char*> data(boost::as_literal(arg));
-        md5::MD5Update(
+        MD5_Update(
           std::addressof(ctx),
           reinterpret_cast<const std::uint8_t*>(data.begin()),
           data.size()
@@ -126,25 +126,25 @@ namespace
       }
       void operator()(const epee::wipeable_string& arg) const
       {
-        md5::MD5Update(
+        MD5_Update(
           std::addressof(ctx),
           reinterpret_cast<const std::uint8_t*>(arg.data()),
           arg.size()
         );
       }
 
-      md5::MD5_CTX& ctx;
+      MD5_CTX& ctx;
     };
 
     template<typename... T>
     std::array<char, 32> operator()(const T&... args) const
     {      
-      md5::MD5_CTX ctx{};
-      md5::MD5Init(std::addressof(ctx));
+      MD5_CTX ctx{};
+      MD5_Init(std::addressof(ctx));
       boost::fusion::for_each(std::tie(args...), update{ctx});
 
       std::array<std::uint8_t, 16> digest{{}};
-      md5::MD5Final(digest.data(), std::addressof(ctx));
+      MD5_Final(digest.data(), std::addressof(ctx));
       return epee::to_hex::array(digest);
     }
   };

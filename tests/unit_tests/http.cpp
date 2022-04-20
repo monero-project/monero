@@ -53,12 +53,12 @@
 #include <boost/spirit/include/qi_string.hpp>
 #include <cstdint>
 #include <iterator>
+#include <openssl/md5.h>
 #include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
 
-#include "md5_l.h"
 #include "string_tools.h"
 #include "crypto/crypto.h"
 
@@ -201,16 +201,16 @@ auth_responses parse_response(const http::http_response_info& response)
 
 std::string md5_hex(const std::string& in)
 {
-  md5::MD5_CTX ctx{};
-  md5::MD5Init(std::addressof(ctx));
-  md5::MD5Update(
+  MD5_CTX ctx{};
+  MD5_Init(std::addressof(ctx));
+  MD5_Update(
     std::addressof(ctx),
     reinterpret_cast<const std::uint8_t*>(in.data()),
     in.size()
   );
 
   std::array<std::uint8_t, 16> digest{{}};
-  md5::MD5Final(digest.data(), std::addressof(ctx));
+  MD5_Final(digest.data(), std::addressof(ctx));
   return epee::string_tools::pod_to_hex(digest);
 }
 
