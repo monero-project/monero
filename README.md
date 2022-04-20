@@ -131,7 +131,9 @@ Dates are provided in the format YYYY-MM-DD.
 | 1788720                        | 2019-03-10 | v11               | v0.14.0.0              | v0.14.1.2                  | forbid old RingCT transaction format
 | 1978433                        | 2019-11-30 | v12               | v0.15.0.0              | v0.16.0.0                  | New PoW based on RandomX, only allow >= 2 outputs, change to the block median used to calculate penalty, v1 coinbases are forbidden, rct sigs in coinbase forbidden, 10 block lock time for incoming outputs
 | 2210000                        | 2020-10-17 | v13               | v0.17.0.0              | v0.17.1.1                  | New CLSAG transaction format
-| 2210720                        | 2020-10-18 | v14               | v0.17.1.1              | v0.17.1.7                  | forbid old MLSAG transaction format
+| 2210720                        | 2020-10-18 | v14               | v0.17.1.1              | v0.17.3.2                  | forbid old MLSAG transaction format
+| 2668888                        | 2022-07-16 | v15               | v0.18.0.0              | v0.18.0.0                  | ringsize = 16, bulletproofs+, view tags, adjusted dynamic block weight algorithm
+| 2669608                        | 2022-07-17 | v16               | v0.18.0.0              | v0.18.0.0                  | forbid old v14 transaction format
 | XXXXXXX                        | XXX-XX-XX | XXX                | vX.XX.X.X              | vX.XX.X.X                  | XXX |
 
 X's indicate that these details have not been determined as of commit date.
@@ -232,7 +234,7 @@ If you already have a repo cloned, initialize and update:
 cd monero && git submodule init && git submodule update
 ```
 
-*Note*: If there are submodule differences between branches, you may need 
+*Note*: If there are submodule differences between branches, you may need
 to use `git submodule sync && git submodule update` after changing branches
 to build successfully.
 
@@ -482,7 +484,7 @@ application.
 
 ### On FreeBSD:
 
-The project can be built from scratch by following instructions for Linux above(but use `gmake` instead of `make`). 
+The project can be built from scratch by following instructions for Linux above(but use `gmake` instead of `make`).
 If you are running Monero in a jail, you need to add `sysvsem="new"` to your jail configuration, otherwise lmdb will throw the error message: `Failed to open lmdb environment: Function not implemented`.
 
 Monero is also available as a port or package as `monero-cli`.
