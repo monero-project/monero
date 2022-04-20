@@ -42,6 +42,7 @@
 #include "cn_slow_hash.h"
 #include "derive_public_key.h"
 #include "derive_secret_key.h"
+#include "derive_view_tag.h"
 #include "ge_frombytes_vartime.h"
 #include "ge_tobytes.h"
 #include "generate_key_derivation.h"
@@ -50,6 +51,7 @@
 #include "generate_keypair.h"
 #include "signature.h"
 #include "is_out_to_acc.h"
+#include "out_can_be_to_acc.h"
 #include "subaddress_expand.h"
 #include "sc_reduce32.h"
 #include "sc_check.h"
@@ -194,6 +196,9 @@ int main(int argc, char** argv)
 
   TEST_PERFORMANCE0(filter, p, test_is_out_to_acc);
   TEST_PERFORMANCE0(filter, p, test_is_out_to_acc_precomp);
+  TEST_PERFORMANCE2(filter, p, test_out_can_be_to_acc, false, true); // no view tag, owned
+  TEST_PERFORMANCE2(filter, p, test_out_can_be_to_acc, true, false); // use view tag, not owned
+  TEST_PERFORMANCE2(filter, p, test_out_can_be_to_acc, true, true); // use view tag, owned
   TEST_PERFORMANCE0(filter, p, test_generate_key_image_helper);
   TEST_PERFORMANCE0(filter, p, test_generate_key_derivation);
   TEST_PERFORMANCE0(filter, p, test_generate_key_image);
@@ -206,6 +211,7 @@ int main(int argc, char** argv)
   TEST_PERFORMANCE0(filter, p, test_sc_check);
   TEST_PERFORMANCE1(filter, p, test_signature, false);
   TEST_PERFORMANCE1(filter, p, test_signature, true);
+  TEST_PERFORMANCE0(filter, p, test_derive_view_tag);
 
   TEST_PERFORMANCE2(filter, p, test_wallet2_expand_subaddresses, 50, 200);
 

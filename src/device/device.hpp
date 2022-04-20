@@ -222,7 +222,8 @@ namespace hw {
                                                      const bool &need_additional_txkeys, const std::vector<crypto::secret_key> &additional_tx_keys,
                                                      std::vector<crypto::public_key> &additional_tx_public_keys,
                                                      std::vector<rct::key> &amount_keys,
-                                                     crypto::public_key &out_eph_public_key) = 0;
+                                                     crypto::public_key &out_eph_public_key,
+                                                     const bool use_view_tags, crypto::view_tag &view_tag) = 0;
 
         virtual bool  mlsag_prehash(const std::string &blob, size_t inputs_size, size_t outputs_size, const rct::keyV &hashes, const rct::ctkeyV &outPk, rct::key &prehash) = 0;
         virtual bool  mlsag_prepare(const rct::key &H, const rct::key &xx, rct::key &a, rct::key &aG, rct::key &aHP, rct::key &rvII) = 0;

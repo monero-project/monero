@@ -563,6 +563,27 @@ void fromJsonValue(const rapidjson::Value& val, cryptonote::txout_to_key& txout)
   GET_FROM_JSON_OBJECT(val, txout.key, key);
 }
 
+void toJsonValue(rapidjson::Writer<epee::byte_stream>& dest, const cryptonote::txout_to_tagged_key& txout)
+{
+  dest.StartObject();
+
+  INSERT_INTO_JSON_OBJECT(dest, key, txout.key);
+  INSERT_INTO_JSON_OBJECT(dest, view_tag, txout.view_tag);
+
+  dest.EndObject();
+}
+
+void fromJsonValue(const rapidjson::Value& val, cryptonote::txout_to_tagged_key& txout)
+{
+  if (!val.IsObject())
+  {
+    throw WRONG_TYPE("json object");
+  }
+
+  GET_FROM_JSON_OBJECT(val, txout.key, key);
+  GET_FROM_JSON_OBJECT(val, txout.view_tag, view_tag);
+}
+
 void toJsonValue(rapidjson::Writer<epee::byte_stream>& dest, const cryptonote::tx_out& txout)
 {
   dest.StartObject();
@@ -577,6 +598,10 @@ void toJsonValue(rapidjson::Writer<epee::byte_stream>& dest, const cryptonote::t
     void operator()(cryptonote::txout_to_key const& output) const
     {
       INSERT_INTO_JSON_OBJECT(dest, to_key, output);
+    }
+    void operator()(cryptonote::txout_to_tagged_key const& output) const
+    {
+      INSERT_INTO_JSON_OBJECT(dest, to_tagged_key, output);
     }
     void operator()(cryptonote::txout_to_script const& output) const
     {
@@ -613,6 +638,12 @@ void fromJsonValue(const rapidjson::Value& val, cryptonote::tx_out& txout)
     if (elem.name == "to_key")
     {
       cryptonote::txout_to_key tmpVal;
+      fromJsonValue(elem.value, tmpVal);
+      txout.target = std::move(tmpVal);
+    }
+    else if (elem.name == "to_tagged_key")
+    {
+      cryptonote::txout_to_tagged_key tmpVal;
       fromJsonValue(elem.value, tmpVal);
       txout.target = std::move(tmpVal);
     }

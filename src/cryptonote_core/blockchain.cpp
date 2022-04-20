@@ -1341,6 +1341,7 @@ difficulty_type Blockchain::get_next_difficulty_for_alternative_chain(const std:
 //   one input, of type txin_gen, with height set to the block's height
 //   correct miner tx unlock time
 //   a non-overflowing tx amount (dubious necessity on this check)
+//   valid output types
 bool Blockchain::prevalidate_miner_transaction(const block& b, uint64_t height, uint8_t hf_version)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
@@ -1368,6 +1369,8 @@ bool Blockchain::prevalidate_miner_transaction(const block& b, uint64_t height, 
     MERROR("miner transaction has money overflow in block " << get_block_hash(b));
     return false;
   }
+
+  CHECK_AND_ASSERT_MES(check_output_types(b.miner_tx, hf_version), false, "miner transaction has invalid output type(s) in block " << get_block_hash(b));
 
   return true;
 }
@@ -3044,12 +3047,14 @@ bool Blockchain::check_tx_outputs(const transaction& tx, tx_verification_context
   // from v4, forbid invalid pubkeys
   if (hf_version >= 4) {
     for (const auto &o: tx.vout) {
-      if (o.target.type() == typeid(txout_to_key)) {
-        const txout_to_key& out_to_key = boost::get<txout_to_key>(o.target);
-        if (!crypto::check_key(out_to_key.key)) {
-          tvc.m_invalid_output = true;
-          return false;
-        }
+      crypto::public_key output_public_key;
+      if (!get_output_public_key(o, output_public_key)) {
+        tvc.m_invalid_output = true;
+        return false;
+      }
+      if (!crypto::check_key(output_public_key)) {
+        tvc.m_invalid_output = true;
+        return false;
       }
     }
   }
@@ -3164,6 +3169,13 @@ bool Blockchain::check_tx_outputs(const transaction& tx, tx_verification_context
         return false;
       }
     }
+  }
+
+  // from v15, require view tags on outputs
+  if (!check_output_types(tx, hf_version))
+  {
+    tvc.m_invalid_output = true;
+    return false;
   }
 
   return true;
@@ -3977,9 +3989,11 @@ bool Blockchain::check_tx_input(size_t tx_version, const txin_to_key& txin, cons
       }
 
       // The original code includes a check for the output corresponding to this input
-      // to be a txout_to_key. This is removed, as the database does not store this info,
-      // but only txout_to_key outputs are stored in the DB in the first place, done in
-      // Blockchain*::add_output
+      // to be a txout_to_key. This is removed, as the database does not store this info.
+      // Only txout_to_key (and since HF_VERSION_VIEW_TAGS, txout_to_tagged_key)
+      // outputs are stored in the DB in the first place, done in Blockchain*::add_output.
+      // Additional type checks on outputs were also added via cryptonote::check_output_types
+      // and cryptonote::get_output_public_key (see Blockchain::check_tx_outputs).
 
       m_output_keys.push_back(rct::ctkey({rct::pk2rct(pubkey), commitment}));
       return true;
