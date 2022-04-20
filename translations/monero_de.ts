@@ -2378,16 +2378,16 @@ Key Image, &quot;absolute&quot;, list of rings</source>
 To start synchronizing with the daemon, use the &quot;refresh&quot; command.
 Use the &quot;help&quot; command to see the list of available commands.
 Use &quot;help &lt;command&gt;&quot; to see a command&apos;s documentation.
-Always use the &quot;exit&quot; command when closing monero-wallet-cli to save 
-your current session&apos;s state. Otherwise, you might need to synchronize 
+Always use the &quot;exit&quot; command when closing monero-wallet-cli to save
+your current session&apos;s state. Otherwise, you might need to synchronize
 your wallet again (your wallet keys are NOT at risk in any case).
 </source>
         <translation>Deine Wallet wurde erstellt!
 Um die Synchronisation mit dem Hintergrunddienst zu starten, nutze den Befehl &quot;refresh&quot;.
 Nutze den Befehl &quot;help&quot;, um die Liste verfügbarer Befehle anzusehen.
 Nutze &quot;help &lt;command&gt;&quot;, um die Dokumentation eines Befehls anzuzeigen.
-Benutze stets den &quot;exit&quot;-Befehl, wenn du monero-wallet-cli schließt, 
-um den Status deiner aktuellen Sitzung zu speichern. Anderenfalls ist es eventuell notwendig, 
+Benutze stets den &quot;exit&quot;-Befehl, wenn du monero-wallet-cli schließt,
+um den Status deiner aktuellen Sitzung zu speichern. Anderenfalls ist es eventuell notwendig,
 deine Wallet erneut zu synchronisieren (deine Wallet-Schlüssel sind in KEINEM Fall in Gefahr).
 </translation>
     </message>
@@ -2664,7 +2664,7 @@ deine Wallet erneut zu synchronisieren (deine Wallet-Schlüssel sind in KEINEM F
  track-uses &lt;1|0&gt;
    Whether to keep track of owned outputs uses.
  setup-background-mining &lt;1|0&gt;
-   Whether to enable background mining. Set this to support the network and to get a chance to receive new monero.
+   Whether to enable background mining. Set this to support the network and to get a chance to receive new clerici.
  device-name &lt;device_name[:device_spec]&gt;
    Device name for hardware wallet.
  export-format &lt;&quot;binary&quot;|&quot;ascii&quot;&gt;

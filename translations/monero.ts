@@ -2007,7 +2007,7 @@ Key Image, &quot;absolute&quot;, list of rings</source>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="3694"/>
-        <source>monero, millinero, micronero, nanonero, piconero</source>
+        <source>clerici, millinero, micronero, nanonero, piconero</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -2376,8 +2376,8 @@ Key Image, &quot;absolute&quot;, list of rings</source>
 To start synchronizing with the daemon, use the &quot;refresh&quot; command.
 Use the &quot;help&quot; command to see the list of available commands.
 Use &quot;help &lt;command&gt;&quot; to see a command&apos;s documentation.
-Always use the &quot;exit&quot; command when closing monero-wallet-cli to save 
-your current session&apos;s state. Otherwise, you might need to synchronize 
+Always use the &quot;exit&quot; command when closing clerici-wallet-cli to save
+your current session&apos;s state. Otherwise, you might need to synchronize
 your wallet again (your wallet keys are NOT at risk in any case).
 </source>
         <translation type="unfinished"></translation>
@@ -2616,7 +2616,7 @@ your wallet again (your wallet keys are NOT at risk in any case).
  ask-password &lt;0|1|2   (or never|action|decrypt)&gt;
    action: ask the password before many actions such as transfer, etc
    decrypt: same as action, but keeps the spend key encrypted in memory when not needed
- unit &lt;monero|millinero|micronero|nanonero|piconero&gt;
+ unit &lt;clerici|millinero|micronero|nanonero|piconero&gt;
    Set the default monero (sub-)unit.
  min-outputs-count [n]
    Try to keep at least that many outputs of value at least min-outputs-value.
@@ -2651,7 +2651,7 @@ your wallet again (your wallet keys are NOT at risk in any case).
  track-uses &lt;1|0&gt;
    Whether to keep track of owned outputs uses.
  setup-background-mining &lt;1|0&gt;
-   Whether to enable background mining. Set this to support the network and to get a chance to receive new monero.
+   Whether to enable background mining. Set this to support the network and to get a chance to receive new clerici.
  device-name &lt;device_name[:device_spec]&gt;
    Device name for hardware wallet.
  export-format &lt;&quot;binary&quot;|&quot;ascii&quot;&gt;
@@ -3591,7 +3591,7 @@ By using &apos;sync&apos; processing of waiting messages with multisig sync info
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="5181"/>
-        <source>Enabling this supports the network you are using, and makes you eligible for receiving new monero</source>
+        <source>Enabling this supports the network you are using, and makes you eligible for receiving new clerici</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -5660,7 +5660,7 @@ Use &quot;mms note&quot; to display the waiting notes</source>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="10137"/>
-        <source>This is the command line monero wallet. It needs to connect to a monero
+        <source>This is the command line clerici wallet. It needs to connect to a clerici
 daemon to work correctly.
 WARNING: Do not reuse your Monero keys on another fork, UNLESS this fork has key reuse mitigations built in. Doing so will harm your privacy.</source>
         <translation type="unfinished"></translation>
@@ -5682,7 +5682,7 @@ WARNING: Do not reuse your Monero keys on another fork, UNLESS this fork has key
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="168"/>
-        <source>The newly created transaction will not be relayed to the monero network</source>
+        <source>The newly created transaction will not be relayed to the clerici network</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -5999,12 +5999,12 @@ WARNING: Do not reuse your Monero keys on another fork, UNLESS this fork has key
     </message>
     <message>
         <location filename="../src/wallet/wallet2.cpp" line="1762"/>
-        <source>Password is needed to compute key image for incoming monero</source>
+        <source>Password is needed to compute key image for incoming clerici</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../src/wallet/wallet2.cpp" line="1763"/>
-        <source>Invalid password: password is needed to compute key image for incoming monero</source>
+        <source>Invalid password: password is needed to compute key image for incoming clerici</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -6099,7 +6099,7 @@ WARNING: Do not reuse your Monero keys on another fork, UNLESS this fork has key
     </message>
     <message>
         <location filename="../src/wallet/wallet_rpc_server.cpp" line="4492"/>
-        <source>This is the RPC monero wallet. It needs to connect to a monero
+        <source>This is the RPC clerici wallet. It needs to connect to a clerici
 daemon to work correctly.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6217,7 +6217,7 @@ daemon to work correctly.</source>
     </message>
     <message>
         <location filename="../src/wallet/wallet_args.cpp" line="148"/>
-        <source>This is the command line monero wallet. It needs to connect to a monero
+        <source>This is the command line clerici wallet. It needs to connect to a clerici
 daemon to work correctly.</source>
         <translation type="unfinished"></translation>
     </message>

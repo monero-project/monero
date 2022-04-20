@@ -170,7 +170,7 @@ namespace cryptonote
   };
   static const command_line::arg_descriptor<std::string> arg_check_updates = {
     "check-updates"
-  , "Check for new versions of monero: [disabled|notify|download|update]"
+  , "Check for new versions of clerici: [disabled|notify|download|update]"
   , "notify"
   };
   static const command_line::arg_descriptor<bool> arg_fluffy_blocks  = {
@@ -1273,7 +1273,7 @@ namespace cryptonote
       {
         tx_fee_amount += get_tx_fee(tx);
       }
-      
+
       emission_amount += coinbase_amount - tx_fee_amount;
       total_fee_amount += tx_fee_amount;
       return true;
@@ -1697,7 +1697,7 @@ namespace cryptonote
   bool core::get_pool_transaction(const crypto::hash &id, cryptonote::blobdata& tx, relay_category tx_category) const
   {
     return m_mempool.get_transaction(id, tx, tx_category);
-  }  
+  }
   //-----------------------------------------------------------------------------------------------
   bool core::pool_has_tx(const crypto::hash &id) const
   {

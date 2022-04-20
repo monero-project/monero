@@ -2376,8 +2376,8 @@ Key Image, &quot;absolute&quot;, list of rings</source>
 To start synchronizing with the daemon, use the &quot;refresh&quot; command.
 Use the &quot;help&quot; command to see the list of available commands.
 Use &quot;help &lt;command&gt;&quot; to see a command&apos;s documentation.
-Always use the &quot;exit&quot; command when closing monero-wallet-cli to save 
-your current session&apos;s state. Otherwise, you might need to synchronize 
+Always use the &quot;exit&quot; command when closing monero-wallet-cli to save
+your current session&apos;s state. Otherwise, you might need to synchronize
 your wallet again (your wallet keys are NOT at risk in any case).
 </source>
         <translation type="unfinished"></translation>
@@ -5660,9 +5660,9 @@ Use &quot;mms note&quot; to display the waiting notes</source>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="10137"/>
-        <source>This is the command line monero wallet. It needs to connect to a monero
+        <source>This is the command line clerici wallet. It needs to connect to a clerici
 daemon to work correctly.
-WARNING: Do not reuse your Monero keys on another fork, UNLESS this fork has key reuse mitigations built in. Doing so will harm your privacy.</source>
+WARNING: Do not reuse your Clerici keys on another fork, UNLESS this fork has key reuse mitigations built in. Doing so will harm your privacy.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
