@@ -71,7 +71,11 @@ namespace boost
   {
     a & reinterpret_cast<char (&)[sizeof(crypto::key_image)]>(x);
   }
-
+  template <class Archive>
+  inline void serialize(Archive &a, crypto::view_tag &x, const boost::serialization::version_type ver)
+  {
+    a & reinterpret_cast<char (&)[sizeof(crypto::view_tag)]>(x);
+  }
   template <class Archive>
   inline void serialize(Archive &a, crypto::signature &x, const boost::serialization::version_type ver)
   {
@@ -100,6 +104,13 @@ namespace boost
   inline void serialize(Archive &a, cryptonote::txout_to_key &x, const boost::serialization::version_type ver)
   {
     a & x.key;
+  }
+
+  template <class Archive>
+  inline void serialize(Archive &a, cryptonote::txout_to_tagged_key &x, const boost::serialization::version_type ver)
+  {
+    a & x.key;
+    a & x.view_tag;
   }
 
   template <class Archive>

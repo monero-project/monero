@@ -749,4 +749,28 @@ POP_WARNINGS
     sc_sub(&h, &h, &sum);
     return sc_isnonzero(&h) == 0;
   }
+
+  void crypto_ops::derive_view_tag(const key_derivation &derivation, size_t output_index, view_tag &view_tag) {
+    #pragma pack(push, 1)
+    struct {
+      char salt[8]; // view tag domain-separator
+      key_derivation derivation;
+      char output_index[(sizeof(size_t) * 8 + 6) / 7];
+    } buf;
+    #pragma pack(pop)
+
+    char *end = buf.output_index;
+    memcpy(buf.salt, "view_tag", 8); // leave off null terminator
+    buf.derivation = derivation;
+    tools::write_varint(end, output_index);
+    assert(end <= buf.output_index + sizeof buf.output_index);
+
+    // view_tag_full = H[salt|derivation|output_index]
+    hash view_tag_full;
+    cn_fast_hash(&buf, end - reinterpret_cast<char *>(&buf), view_tag_full);
+
+    // only need a slice of view_tag_full to realize optimal perf/space efficiency
+    static_assert(sizeof(crypto::view_tag) <= sizeof(view_tag_full), "view tag should not be larger than hash result");
+    memcpy(&view_tag, &view_tag_full, sizeof(crypto::view_tag));
+  }
 }

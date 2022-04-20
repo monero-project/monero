@@ -183,6 +183,7 @@
 #define HF_VERSION_CLSAG                        13
 #define HF_VERSION_DETERMINISTIC_UNLOCK_TIME    13
 #define HF_VERSION_BULLETPROOF_PLUS             15
+#define HF_VERSION_VIEW_TAGS                    15
 #define HF_VERSION_2021_SCALING                 15
 
 #define PER_KB_FEE_QUANTIZATION_DECIMALS        8

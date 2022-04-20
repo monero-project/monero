@@ -149,12 +149,17 @@ namespace cryptonote
       r = crypto::derive_public_key(derivation, no, miner_address.m_spend_public_key, out_eph_public_key);
       CHECK_AND_ASSERT_MES(r, false, "while creating outs: failed to derive_public_key(" << derivation << ", " << no << ", "<< miner_address.m_spend_public_key << ")");
 
-      txout_to_key tk;
-      tk.key = out_eph_public_key;
+      uint64_t amount = out_amounts[no];
+      summary_amounts += amount;
+
+      bool use_view_tags = hard_fork_version >= HF_VERSION_VIEW_TAGS;
+      crypto::view_tag view_tag;
+      if (use_view_tags)
+        crypto::derive_view_tag(derivation, no, view_tag);
 
       tx_out out;
-      summary_amounts += out.amount = out_amounts[no];
-      out.target = tk;
+      cryptonote::set_tx_out(amount, out_eph_public_key, use_view_tags, view_tag, out);
+
       tx.vout.push_back(out);
     }
 
@@ -198,7 +203,7 @@ namespace cryptonote
     return addr.m_view_public_key;
   }
   //---------------------------------------------------------------
-  bool construct_tx_with_tx_key(const account_keys& sender_account_keys, const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses, std::vector<tx_source_entry>& sources, std::vector<tx_destination_entry>& destinations, const boost::optional<cryptonote::account_public_address>& change_addr, const std::vector<uint8_t> &extra, transaction& tx, uint64_t unlock_time, const crypto::secret_key &tx_key, const std::vector<crypto::secret_key> &additional_tx_keys, bool rct, const rct::RCTConfig &rct_config, rct::multisig_out *msout, bool shuffle_outs)
+  bool construct_tx_with_tx_key(const account_keys& sender_account_keys, const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses, std::vector<tx_source_entry>& sources, std::vector<tx_destination_entry>& destinations, const boost::optional<cryptonote::account_public_address>& change_addr, const std::vector<uint8_t> &extra, transaction& tx, uint64_t unlock_time, const crypto::secret_key &tx_key, const std::vector<crypto::secret_key> &additional_tx_keys, bool rct, const rct::RCTConfig &rct_config, rct::multisig_out *msout, bool shuffle_outs, bool use_view_tags)
   {
     hw::device &hwdev = sender_account_keys.get_device();
 
@@ -406,17 +411,16 @@ namespace cryptonote
     {
       CHECK_AND_ASSERT_MES(dst_entr.amount > 0 || tx.version > 1, false, "Destination with wrong amount: " << dst_entr.amount);
       crypto::public_key out_eph_public_key;
+      crypto::view_tag view_tag;
 
       hwdev.generate_output_ephemeral_keys(tx.version,sender_account_keys, txkey_pub, tx_key,
                                            dst_entr, change_addr, output_index,
                                            need_additional_txkeys, additional_tx_keys,
-                                           additional_tx_public_keys, amount_keys, out_eph_public_key);
+                                           additional_tx_public_keys, amount_keys, out_eph_public_key,
+                                           use_view_tags, view_tag);
 
       tx_out out;
-      out.amount = dst_entr.amount;
-      txout_to_key tk;
-      tk.key = out_eph_public_key;
-      out.target = tk;
+      cryptonote::set_tx_out(dst_entr.amount, out_eph_public_key, use_view_tags, view_tag, out);
       tx.vout.push_back(out);
       output_index++;
       summary_outs_money += dst_entr.amount;
@@ -546,7 +550,9 @@ namespace cryptonote
       }
       for (size_t i = 0; i < tx.vout.size(); ++i)
       {
-        destinations.push_back(rct::pk2rct(boost::get<txout_to_key>(tx.vout[i].target).key));
+        crypto::public_key output_public_key;
+        get_output_public_key(tx.vout[i], output_public_key);
+        destinations.push_back(rct::pk2rct(output_public_key));
         outamounts.push_back(tx.vout[i].amount);
         amount_out += tx.vout[i].amount;
       }
@@ -607,7 +613,7 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------
-  bool construct_tx_and_get_tx_key(const account_keys& sender_account_keys, const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses, std::vector<tx_source_entry>& sources, std::vector<tx_destination_entry>& destinations, const boost::optional<cryptonote::account_public_address>& change_addr, const std::vector<uint8_t> &extra, transaction& tx, uint64_t unlock_time, crypto::secret_key &tx_key, std::vector<crypto::secret_key> &additional_tx_keys, bool rct, const rct::RCTConfig &rct_config, rct::multisig_out *msout)
+  bool construct_tx_and_get_tx_key(const account_keys& sender_account_keys, const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses, std::vector<tx_source_entry>& sources, std::vector<tx_destination_entry>& destinations, const boost::optional<cryptonote::account_public_address>& change_addr, const std::vector<uint8_t> &extra, transaction& tx, uint64_t unlock_time, crypto::secret_key &tx_key, std::vector<crypto::secret_key> &additional_tx_keys, bool rct, const rct::RCTConfig &rct_config, rct::multisig_out *msout, bool use_view_tags)
   {
     hw::device &hwdev = sender_account_keys.get_device();
     hwdev.open_tx(tx_key);
@@ -627,7 +633,8 @@ namespace cryptonote
         }
       }
 
-      bool r = construct_tx_with_tx_key(sender_account_keys, subaddresses, sources, destinations, change_addr, extra, tx, unlock_time, tx_key, additional_tx_keys, rct, rct_config, msout);
+      bool shuffle_outs = true;
+      bool r = construct_tx_with_tx_key(sender_account_keys, subaddresses, sources, destinations, change_addr, extra, tx, unlock_time, tx_key, additional_tx_keys, rct, rct_config, msout, shuffle_outs, use_view_tags);
       hwdev.close_tx();
       return r;
     } catch(...) {
@@ -643,7 +650,7 @@ namespace cryptonote
      crypto::secret_key tx_key;
      std::vector<crypto::secret_key> additional_tx_keys;
      std::vector<tx_destination_entry> destinations_copy = destinations;
-     return construct_tx_and_get_tx_key(sender_account_keys, subaddresses, sources, destinations_copy, change_addr, extra, tx, unlock_time, tx_key, additional_tx_keys, false, { rct::RangeProofBorromean, 0}, NULL);
+     return construct_tx_and_get_tx_key(sender_account_keys, subaddresses, sources, destinations_copy, change_addr, extra, tx, unlock_time, tx_key, additional_tx_keys, false, { rct::RangeProofBorromean, 0}, NULL, false);
   }
   //---------------------------------------------------------------
   bool generate_genesis_block(

@@ -101,6 +101,7 @@ namespace hw {
             bool  derive_public_key(const crypto::key_derivation &derivation, const std::size_t output_index, const crypto::public_key &pub,  crypto::public_key &derived_pub) override;
             bool  secret_key_to_public_key(const crypto::secret_key &sec, crypto::public_key &pub) override;
             bool  generate_key_image(const crypto::public_key &pub, const crypto::secret_key &sec, crypto::key_image &image) override;
+            bool  derive_view_tag(const crypto::key_derivation &derivation, const std::size_t output_index, crypto::view_tag &view_tag);
 
 
             /* ======================================================================= */
@@ -126,7 +127,8 @@ namespace hw {
                                                  const bool &need_additional_txkeys, const std::vector<crypto::secret_key> &additional_tx_keys,
                                                  std::vector<crypto::public_key> &additional_tx_public_keys,
                                                  std::vector<rct::key> &amount_keys,
-                                                 crypto::public_key &out_eph_public_key) override;
+                                                 crypto::public_key &out_eph_public_key,
+                                                 bool use_view_tags, crypto::view_tag &view_tag) override;
 
             bool  mlsag_prehash(const std::string &blob, size_t inputs_size, size_t outputs_size, const rct::keyV &hashes, const rct::ctkeyV &outPk, rct::key &prehash) override;
             bool  mlsag_prepare(const rct::key &H, const rct::key &xx, rct::key &a, rct::key &aG, rct::key &aHP, rct::key &rvII) override;
