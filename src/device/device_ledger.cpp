@@ -524,6 +524,7 @@ namespace hw {
     static const std::vector<hw::io::hid_conn_params> known_devices {
         {0x2c97, 0x0001, 0, 0xffa0}, 
         {0x2c97, 0x0004, 0, 0xffa0},       
+        {0x2c97, 0x0005, 0, 0xffa0},
     };
 
     bool device_ledger::connect(void) {
