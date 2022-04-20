@@ -426,18 +426,18 @@ namespace crypto
     {
       // If there's a new language added, add an instance of it here. 
       static const std::vector<const Language::Base*> language_instances({
-        Language::Singleton<Language::German>::instance(),
-        Language::Singleton<Language::English>::instance(),
-        Language::Singleton<Language::Spanish>::instance(),
-        Language::Singleton<Language::French>::instance(),
-        Language::Singleton<Language::Italian>::instance(),
-        Language::Singleton<Language::Dutch>::instance(),
-        Language::Singleton<Language::Portuguese>::instance(),
-        Language::Singleton<Language::Russian>::instance(),
-        Language::Singleton<Language::Japanese>::instance(),
         Language::Singleton<Language::Chinese_Simplified>::instance(),
+        Language::Singleton<Language::English>::instance(),
+        Language::Singleton<Language::Dutch>::instance(),
+        Language::Singleton<Language::French>::instance(),
+        Language::Singleton<Language::Spanish>::instance(),
+        Language::Singleton<Language::German>::instance(),
+        Language::Singleton<Language::Italian>::instance(),
+        Language::Singleton<Language::Portuguese>::instance(),
+        Language::Singleton<Language::Japanese>::instance(),
+        Language::Singleton<Language::Russian>::instance(),
         Language::Singleton<Language::Esperanto>::instance(),
-        Language::Singleton<Language::Lojban>::instance()
+        Language::Singleton<Language::Lojban>::instance(),
       });
       return language_instances;
     }
