@@ -65,7 +65,6 @@ documentation and/or software.
 #endif
 #include "md5global.h"
 #include "md5_l.h"
-#include "hmac-md5.h"
 
 namespace md5
 {
@@ -89,33 +88,12 @@ namespace md5
 #define S43 15
 #define S44 21
 
-	/*
-	static void MD5Transform PROTO_LIST ((UINT4 [4], unsigned char [64]));
-	static void Encode PROTO_LIST
-	((unsigned char *, UINT4 *, unsigned int)); 
-	static void Decode PROTO_LIST
-	((UINT4 *, unsigned char *, unsigned int)); 
-	static void MD5_memcpy PROTO_LIST ((POINTER, POINTER, unsigned int));
-	static void MD5_memset PROTO_LIST ((POINTER, int, unsigned int));
-	*/
-
 	static void MD5_memcpy (POINTER output, POINTER input, unsigned int len)
 	{
 		unsigned int i; 
 
 		for (i = 0; i < len; i++) 
 			output[i] = input[i]; 
-	}
-
-	/* Note: Replace "for loop" with standard memset if possible.
-	*/
-
-	static void MD5_memset (POINTER output, int value, unsigned int len)
-	{
-		unsigned int i; 
-
-		for (i = 0; i < len; i++) 
-			((char *)output)[i] = (char)value; 
 	}
 
 	static void MD5Transform (UINT4 state[4], unsigned char block[64]);
@@ -370,191 +348,5 @@ namespace md5
 		/* Zeroize sensitive information.
 		*/
 		memwipe ((POINTER)x, sizeof (x));
-	}
-
-	/* Note: Replace "for loop" with standard memcpy if possible.
-
-	*/
-  inline
-	void hmac_md5_init(HMAC_MD5_CTX *hmac,
-		const unsigned char *key,
-		int key_len)
-	{
-		unsigned char k_ipad[65];    /* inner padding -
-									 * key XORd with ipad
-									 */
-		unsigned char k_opad[65];    /* outer padding -
-									 * key XORd with opad
-									 */
-		unsigned char tk[16];
-		int i;
-		/* if key is longer than 64 bytes reset it to key=MD5(key) */
-		if (key_len > 64) {
-
-			MD5_CTX      tctx;
-
-			MD5Init(&tctx); 
-			MD5Update(&tctx, key, key_len); 
-			MD5Final(tk, &tctx); 
-
-			key = tk; 
-			key_len = 16; 
-		} 
-
-		/*
-		* the HMAC_MD5 transform looks like:
-		*
-		* MD5(K XOR opad, MD5(K XOR ipad, text))
-		*
-		* where K is an n byte key
-		* ipad is the byte 0x36 repeated 64 times
-		* opad is the byte 0x5c repeated 64 times
-		* and text is the data being protected
-		*/
-
-		/* start out by storing key in pads */
-		MD5_memset(k_ipad, '\0', sizeof k_ipad);
-		MD5_memset(k_opad, '\0', sizeof k_opad);
-		MD5_memcpy( k_ipad, (POINTER)key, key_len);
-		MD5_memcpy( k_opad, (POINTER)key, key_len);
-
-		/* XOR key with ipad and opad values */
-		for (i=0; i<64; i++) {
-			k_ipad[i] ^= 0x36;
-			k_opad[i] ^= 0x5c;
-		}
-
-		MD5Init(&hmac->ictx);                   /* init inner context */
-		MD5Update(&hmac->ictx, k_ipad, 64);     /* apply inner pad */
-
-		MD5Init(&hmac->octx);                   /* init outer context */
-		MD5Update(&hmac->octx, k_opad, 64);     /* apply outer pad */
-
-		/* scrub the pads and key context (if used) */
-		memwipe( (POINTER)&k_ipad, sizeof(k_ipad));
-		memwipe( (POINTER)&k_opad, sizeof(k_opad));
-		memwipe( (POINTER)&tk, sizeof(tk));
-
-		/* and we're done. */
-	}
-
-	/* The precalc and import routines here rely on the fact that we pad
-	* the key out to 64 bytes and use that to initialize the md5
-	* contexts, and that updating an md5 context with 64 bytes of data
-	* leaves nothing left over; all of the interesting state is contained
-	* in the state field, and none of it is left over in the count and
-	* buffer fields.  So all we have to do is save the state field; we
-	* can zero the others when we reload it.  Which is why the decision
-	* was made to pad the key out to 64 bytes in the first place. */
-	inline 
-    void hmac_md5_precalc(HMAC_MD5_STATE *state,
-		const unsigned char *key,
-		int key_len)
-	{
-		HMAC_MD5_CTX hmac;
-		unsigned lupe;
-
-		hmac_md5_init(&hmac, key, key_len);
-		for (lupe = 0; lupe < 4; lupe++) {
-			state->istate[lupe] = htonl(hmac.ictx.state[lupe]);
-			state->ostate[lupe] = htonl(hmac.octx.state[lupe]);
-		}
-		memwipe( (POINTER)&hmac, sizeof(hmac));
-	}
-
-
-  inline
-	void hmac_md5_import(HMAC_MD5_CTX *hmac,
-		HMAC_MD5_STATE *state)
-	{
-		unsigned lupe;
-		MD5_memset( (POINTER)hmac, 0, sizeof(HMAC_MD5_CTX));
-		for (lupe = 0; lupe < 4; lupe++) {
-			hmac->ictx.state[lupe] = ntohl(state->istate[lupe]);
-			hmac->octx.state[lupe] = ntohl(state->ostate[lupe]);
-		}
-		/* Init the counts to account for our having applied
-		* 64 bytes of key; this works out to 0x200 (64 << 3; see
-		* MD5Update above...) */
-		hmac->ictx.count[0] = hmac->octx.count[0] = 0x200;
-	}
-
-  inline
-	void hmac_md5_final(unsigned char digest[HMAC_MD5_SIZE],
-		HMAC_MD5_CTX *hmac)
-	{
-		MD5Final(digest, &hmac->ictx);  /* Finalize inner md5 */
-		MD5Update(&hmac->octx, digest, 16); /* Update outer ctx */
-		MD5Final(digest, &hmac->octx); /* Finalize outer md5 */
-	}
-
-
-	void hmac_md5(const unsigned char* text, int text_len, const unsigned char* key, int key_len, unsigned char *digest)
-	{
-		MD5_CTX context; 
-
-		unsigned char k_ipad[65];    /* inner padding -
-									 * key XORd with ipad
-									 */
-		unsigned char k_opad[65];    /* outer padding -
-									 * key XORd with opad
-									 */
-		unsigned char tk[16];
-		int i;
-		/* if key is longer than 64 bytes reset it to key=MD5(key) */
-		if (key_len > 64) {
-
-			MD5_CTX      tctx;
-
-			MD5Init(&tctx); 
-			MD5Update(&tctx, key, key_len); 
-			MD5Final(tk, &tctx); 
-
-			key = tk; 
-			key_len = 16; 
-		} 
-
-		/*
-		* the HMAC_MD5 transform looks like:
-		*
-		* MD5(K XOR opad, MD5(K XOR ipad, text))
-		*
-		* where K is an n byte key
-		* ipad is the byte 0x36 repeated 64 times
-		* opad is the byte 0x5c repeated 64 times
-		* and text is the data being protected
-		*/
-
-		/* start out by storing key in pads */
-		MD5_memset(k_ipad, '\0', sizeof k_ipad);
-		MD5_memset(k_opad, '\0', sizeof k_opad);
-		MD5_memcpy( k_ipad,  (POINTER)key, key_len);
-		MD5_memcpy( k_opad,  (POINTER)key, key_len);
-
-		/* XOR key with ipad and opad values */
-		for (i=0; i<64; i++) {
-			k_ipad[i] ^= 0x36;
-			k_opad[i] ^= 0x5c;
-		}
-		/*
-		* perform inner MD5
-		*/
-
-		MD5Init(&context);                   /* init context for 1st
-											 * pass */
-		MD5Update(&context, k_ipad, 64);      /* start with inner pad */
-		MD5Update(&context, text, text_len); /* then text of datagram */
-		MD5Final(digest, &context);          /* finish up 1st pass */
-
-		/*
-		* perform outer MD5
-		*/
-		MD5Init(&context);                   /* init context for 2nd
-											 * pass */
-		MD5Update(&context, k_opad, 64);     /* start with outer pad */
-		MD5Update(&context, digest, 16);     /* then results of 1st
-											 * hash */
-		MD5Final(digest, &context);          /* finish up 2nd pass */
-
 	}
 }
