@@ -12519,6 +12519,37 @@ std::pair<uint64_t, std::vector<std::pair<crypto::key_image, crypto::signature>>
   return std::make_pair(offset, ski);
 }
 
+/**
+ *
+ * Erase corresponding incoming payments to the same subaddress account that is
+ * spending in a tx. "Payments" are supposed to be incoming payments from other
+ * users, or from the same user but different account. However, when scanning
+ * with just a view key and without either a spend key or knowing key images for
+ * received outputs (e.g. in a watch-only wallet that has not yet imported key
+ * images), when the scanner picks up a received output in a tx, it won't know
+ * if this received output is actually change or a self-spend, so it will look
+ * like an incoming "payment", and will incorrectly place it in the payments
+ * container. This function erases payments that are actually change, or are
+ * self-spends to the same account.
+ *
+ */
+void erase_incoming_payments_for_spent_tx(wallet2::payment_container &payments, const crypto::hash &spent_txid, uint32_t spending_subaddr_account)
+{
+  for (auto j = payments.begin(); j != payments.end(); )
+  {
+    if (j->second.m_tx_hash == spent_txid && j->second.m_subaddr_index.major == spending_subaddr_account)
+    {
+      LOG_PRINT_L2("Erasing spent tx from payments with payment ID: " << j->first << " / spent tx: " << spent_txid
+          << " / amount: " << j->second.m_amount << " / subaddr account: " << spending_subaddr_account);
+      j = payments.erase(j);
+    }
+    else
+    {
+      ++j;
+    }
+  }
+}
+
 uint64_t wallet2::import_key_images(const std::string &filename, uint64_t &spent, uint64_t &unspent)
 {
   PERF_TIMER(import_key_images_fsu);
@@ -12823,15 +12854,7 @@ uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_imag
       // create outgoing payment
       process_outgoing(*spent_txid, spent_tx, e.block_height, e.block_timestamp, tx_money_spent_in_ins, tx_money_got_in_outs, subaddr_account, subaddr_indices);
 
-      // erase corresponding incoming payment
-      for (auto j = m_payments.begin(); j != m_payments.end(); ++j)
-      {
-        if (j->second.m_tx_hash == *spent_txid)
-        {
-          m_payments.erase(j);
-          break;
-        }
-      }
+      erase_incoming_payments_for_spent_tx(m_payments, *spent_txid, subaddr_account);
 
       ++spent_txid;
     }
