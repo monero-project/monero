@@ -136,7 +136,7 @@ GH_USER=YOUR_GITHUB_USER_NAME
 VERSION=v0.17.2.0
 ```
 
-Where `GH_USER` is your Github user name and `VERSION` is the version tag you want to build. 
+Where `GH_USER` is your GitHub user name and `VERSION` is the version tag you want to build. 
 
 Setup for LXC:
 
@@ -214,7 +214,7 @@ popd
 Don't ignore the incorrect formatting of the found assert files. These files you'll have to compare manually (currently OSX and FreeBSD).
 
 
-You can also look in the [gitian.sigs](https://github.com/monero-project/gitian.sigs/) repo and / or [getmonero.org release checksums](https://web.getmonero.org/downloads/hashes.txt) to see if others got the same checksum for the same version tag.  If there is ever a mismatch -- **STOP! Something is wrong**.  Contact others on IRC / github to figure out what is going on.
+You can also look in the [gitian.sigs](https://github.com/monero-project/gitian.sigs/) repo and / or [getmonero.org release checksums](https://web.getmonero.org/downloads/hashes.txt) to see if others got the same checksum for the same version tag.  If there is ever a mismatch -- **STOP! Something is wrong**.  Contact others on IRC / GitHub to figure out what is going on.
 
 
 Signing assert files
