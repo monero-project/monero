@@ -44,7 +44,7 @@ class MultisigTest():
         self.mine('41mro238grj56GnrWkakAKTkBy2yDcXYsUZ2iXCM9pe5Ueajd2RRc6Fhh3uBXT2UAKhAsUJ7Fg5zjjF2U1iGciFk5ief4ZP', 5)
         self.mine('44vZSprQKJQRFe6t1VHgU4ESvq2dv7TjBLVGE7QscKxMdFSiyyPCEV64NnKUQssFPyWxc2meyt7j63F2S2qtCTRL6dakeff', 5)
         self.mine('47puypSwsV1gvUDratmX4y58fSwikXVehEiBhVLxJA1gRCxHyrRgTDr4NnKUQssFPyWxc2meyt7j63F2S2qtCTRL6aRPj5U', 5)
-        self.mine('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 60)
+        self.mine('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 80)
 
         self.test_states()
 
@@ -261,7 +261,7 @@ class MultisigTest():
           desc = res.desc[0]
           assert desc.amount_in >= amount + fee
           assert desc.amount_out == desc.amount_in - fee
-          assert desc.ring_size == 11
+          assert desc.ring_size == 16
           assert desc.unlock_time == 0
           assert not 'payment_id' in desc or desc.payment_id in ['', '0000000000000000']
           assert desc.change_amount == desc.amount_in - 1000000000000 - fee
