@@ -344,6 +344,8 @@ namespace cryptonote
     if (m_rpc_payment)
       m_net_server.add_idle_handler([this](){ return m_rpc_payment->on_idle(); }, 60 * 1000);
 
+    m_net_server.get_config_object().m_max_content_length = MAX_RPC_CONTENT_LENGTH;
+
     auto rng = [](size_t len, uint8_t *ptr){ return crypto::rand(len, ptr); };
     return epee::http_server_impl_base<core_rpc_server, connection_context>::init(
       rng, std::move(port), std::move(bind_ip_str),
