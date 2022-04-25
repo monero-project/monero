@@ -462,7 +462,9 @@ bool init_output_indices(map_output_idx_t& outs, std::map<uint64_t, std::vector<
                     size_t tx_global_idx = outs[out.amount].size() - 1;
                     outs[out.amount][tx_global_idx].idx = tx_global_idx;
                     // Is out to me?
-                    if (is_out_to_acc(from.get_keys(), boost::get<txout_to_key>(out.target), get_tx_pub_key_from_extra(tx), get_additional_tx_pub_keys_from_extra(tx), j)) {
+                    crypto::public_key output_public_key;
+                    cryptonote::get_output_public_key(out, output_public_key);
+                    if (is_out_to_acc(from.get_keys(), output_public_key, get_tx_pub_key_from_extra(tx), get_additional_tx_pub_keys_from_extra(tx), j)) {
                         outs_mine[out.amount].push_back(tx_global_idx);
                     }
                 }
@@ -972,7 +974,7 @@ std::vector<cryptonote::tx_destination_entry> build_dsts(std::initializer_list<d
 
 bool construct_miner_tx_manually(size_t height, uint64_t already_generated_coins,
                                  const account_public_address& miner_address, transaction& tx, uint64_t fee,
-                                 keypair* p_txkey/* = 0*/)
+                                 uint8_t hf_version/* = 1*/, keypair* p_txkey/* = 0*/)
 {
   keypair txkey;
   txkey = keypair::generate(hw::get_device("default"));
@@ -987,7 +989,7 @@ bool construct_miner_tx_manually(size_t height, uint64_t already_generated_coins
 
   // This will work, until size of constructed block is less then CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE
   uint64_t block_reward;
-  if (!get_block_reward(0, 0, already_generated_coins, block_reward, 1))
+  if (!get_block_reward(0, 0, already_generated_coins, block_reward, hf_version))
   {
     LOG_PRINT_L0("Block is too big");
     return false;
@@ -999,12 +1001,20 @@ bool construct_miner_tx_manually(size_t height, uint64_t already_generated_coins
   crypto::generate_key_derivation(miner_address.m_view_public_key, txkey.sec, derivation);
   crypto::derive_public_key(derivation, 0, miner_address.m_spend_public_key, out_eph_public_key);
 
+  bool use_view_tags = hf_version >= HF_VERSION_VIEW_TAGS;
+  crypto::view_tag view_tag;
+  if (use_view_tags)
+    crypto::derive_view_tag(derivation, 0, view_tag);
+
   tx_out out;
-  out.amount = block_reward;
-  out.target = txout_to_key(out_eph_public_key);
+  cryptonote::set_tx_out(block_reward, out_eph_public_key, use_view_tags, view_tag, out);
+
   tx.vout.push_back(out);
 
-  tx.version = 1;
+  if (hf_version >= HF_VERSION_DYNAMIC_FEE)
+    tx.version = 2;
+  else
+    tx.version = 1;
   tx.unlock_time = height + CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW;
 
   return true;

@@ -133,6 +133,10 @@ int main(int argc, char* argv[])
     GENERATE_AND_PLAY(gen_block_miner_tx_out_is_big);
     GENERATE_AND_PLAY(gen_block_miner_tx_has_no_out);
     GENERATE_AND_PLAY(gen_block_miner_tx_has_out_to_alice);
+    GENERATE_AND_PLAY(gen_block_miner_tx_out_has_no_view_tag_before_hf_view_tags);
+    GENERATE_AND_PLAY(gen_block_miner_tx_out_has_no_view_tag_from_hf_view_tags);
+    GENERATE_AND_PLAY(gen_block_miner_tx_out_has_view_tag_before_hf_view_tags);
+    GENERATE_AND_PLAY(gen_block_miner_tx_out_has_view_tag_from_hf_view_tags);
     GENERATE_AND_PLAY(gen_block_has_invalid_tx);
     GENERATE_AND_PLAY(gen_block_is_too_big);
     GENERATE_AND_PLAY(gen_block_invalid_binary_format); // Takes up to 3 hours, if CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW == 500, up to 30 minutes, if CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW == 10
@@ -219,6 +223,15 @@ int main(int argc, char* argv[])
     GENERATE_AND_PLAY(gen_rct_tx_pre_rct_increase_vin_and_fee);
     GENERATE_AND_PLAY(gen_rct_tx_pre_rct_altered_extra);
     GENERATE_AND_PLAY(gen_rct_tx_rct_altered_extra);
+    GENERATE_AND_PLAY(gen_rct_tx_pre_rct_has_no_view_tag_before_hf_view_tags);
+    // TODO: base test needs to be restructured to handle pre rct outputs after HF v12
+    // GENERATE_AND_PLAY(gen_rct_tx_pre_rct_has_no_view_tag_from_hf_view_tags);
+    GENERATE_AND_PLAY(gen_rct_tx_pre_rct_has_view_tag_before_hf_view_tags);
+    // GENERATE_AND_PLAY(gen_rct_tx_pre_rct_has_view_tag_from_hf_view_tags);
+    GENERATE_AND_PLAY(gen_rct_tx_rct_has_no_view_tag_before_hf_view_tags);
+    GENERATE_AND_PLAY(gen_rct_tx_rct_has_no_view_tag_from_hf_view_tags);
+    GENERATE_AND_PLAY(gen_rct_tx_rct_has_view_tag_before_hf_view_tags);
+    GENERATE_AND_PLAY(gen_rct_tx_rct_has_view_tag_from_hf_view_tags);
     GENERATE_AND_PLAY(gen_rct_tx_uses_output_too_early);
 
     GENERATE_AND_PLAY(gen_multisig_tx_valid_22_1_2);

@@ -43,8 +43,9 @@ public:
 
   bool test()
   {
-    const cryptonote::txout_to_key& tx_out = boost::get<cryptonote::txout_to_key>(m_tx.vout[0].target);
-    return cryptonote::is_out_to_acc(m_bob.get_keys(), tx_out, m_tx_pub_key, m_additional_tx_pub_keys, 0);
+    crypto::public_key output_public_key;
+    cryptonote::get_output_public_key(m_tx.vout[0], output_public_key);
+    return cryptonote::is_out_to_acc(m_bob.get_keys(), output_public_key, m_tx_pub_key, m_additional_tx_pub_keys, 0);
   }
 };
 
