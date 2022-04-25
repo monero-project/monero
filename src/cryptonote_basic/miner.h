@@ -36,7 +36,7 @@
 #include "cryptonote_basic.h"
 #include "verification_context.h"
 #include "difficulty.h"
-#include "math_helper.h"
+#include "time_helper.h"
 #ifdef _WIN32
 #include <windows.h>
 #endif

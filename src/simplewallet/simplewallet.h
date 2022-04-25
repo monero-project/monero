@@ -44,7 +44,7 @@
 #include "cryptonote_basic/cryptonote_basic_impl.h"
 #include "wallet/wallet2.h"
 #include "console_handler.h"
-#include "math_helper.h"
+#include "time_helper.h"
 #include "wipeable_string.h"
 #include "common/i18n.h"
 #include "common/password.h"
@@ -453,12 +453,13 @@ namespace cryptonote
     std::atomic<bool> m_locked;
     std::atomic<bool> m_in_command;
 
-    template<uint64_t mini, uint64_t maxi> struct get_random_interval { public: uint64_t operator()() const { return crypto::rand_range(mini, maxi); } };
-
+    // Mini and maxi are the bounds on the length of the random interval, in seconds, not microseconds
+    template<uint64_t mini, uint64_t maxi> struct get_random_interval { public: uint64_t operator()() const { return 1000000 * crypto::rand_range(mini, maxi); } };
+    // The following events should trigger in random intervals in order to prevent fingerprinting
     epee::math_helper::once_a_time_seconds<1> m_inactivity_checker;
-    epee::math_helper::once_a_time_seconds_range<get_random_interval<80 * 1000000, 100 * 1000000>> m_refresh_checker;
-    epee::math_helper::once_a_time_seconds_range<get_random_interval<90 * 1000000, 110 * 1000000>> m_mms_checker;
-    epee::math_helper::once_a_time_seconds_range<get_random_interval<90 * 1000000, 115 * 1000000>> m_rpc_payment_checker;
+    epee::math_helper::once_a_time<get_random_interval<80, 100>> m_refresh_checker;
+    epee::math_helper::once_a_time<get_random_interval<90, 110>> m_mms_checker;
+    epee::math_helper::once_a_time<get_random_interval<90, 115>> m_rpc_payment_checker;
     
     std::atomic<bool> m_need_payment;
     boost::posix_time::ptime m_last_rpc_payment_mining_time;

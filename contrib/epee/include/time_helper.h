@@ -24,7 +24,11 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // 
 
-
+/**
+ * \file
+ * This header contains time-related helper functions, including:
+ * string formatting, steady clock wrappers, and an interval executor.
+ */
 
 #pragma once
 
@@ -37,6 +41,16 @@ namespace epee
 {
 namespace misc_utils
 {
+	/**
+	 * @brief An OS-independent wrapper for converting time_t -> struct tm
+	 *
+	 * This function is thread-safe as long as access to t and tm is synchronized.
+	 *
+	 * @param t The number of seconds since 1970 Epoch
+	 * @param tm A mutable reference to a tm struct where the result will be placed
+	 *
+	 * @return true on success, false on failure
+	 */
 	inline bool get_gmt_time(time_t t, struct tm &tm)
 	{
 #ifdef _WIN32
@@ -46,6 +60,19 @@ namespace misc_utils
 #endif
 	}
 
+	/**
+	 * @brief Create a human-readable timestamp in standard timezone
+	 *
+	 * The timestamp is always assumed to have timezone GMT
+	 *
+	 * Example: "Mon, 25 Apr 2022 17:44:42 GMT"
+	 *
+	 * This function is thread-safe as long as reads of time_ are atomic.
+	 *
+	 * @param time_ The input time_t instance
+	 *
+	 * @return formatted time string
+	 */
 	inline std::string get_internet_time_str(const time_t& time_)
 	{
 		char tmpbuf[200] = {0};
@@ -55,6 +82,19 @@ namespace misc_utils
 		return tmpbuf;
 	}
 
+	/**
+	 * @brief Create a human-readable representation of a time interval
+	 *
+	 * Example:
+	 *
+	 * get_time_interval_string(100000) == "d1.h3.m46.s40"
+	 *
+	 * This function is thread-safe as long as reads of time_ are atomic.
+	 *
+	 * @param time_ time interval as difference in seconds
+	 *
+	 * @return formatted time interval string
+	 */
 	inline std::string get_time_interval_string(const time_t& time_)
 	{
 		time_t tail = time_;
@@ -72,6 +112,11 @@ namespace misc_utils
 		return tmpbuf;
 	}
 
+	/**
+	 * @brief Steady, monotonically increasing counter value in nanoseconds
+	 *
+	 * @return number of nanoseconds elapsed since some arbitrary point in the past
+	 */
 	inline uint64_t get_ns_count()
 	{
 		typedef std::chrono::duration<uint64_t, std::nano> ns_duration;
@@ -79,9 +124,135 @@ namespace misc_utils
 		return ns_since_epoch.count();
 	}
 
+	/**
+	 * @brief Steady, monotonically increasing counter value in microseconds
+	 *
+	 * @return number of microseconds elapsed since some arbitrary point in the past
+	 */
+	inline uint64_t get_us_count() {
+		return get_ns_count() / 1000;
+	}
+
+	/**
+	 * @brief Steady, monotonically increasing counter value in milliseconds
+	 *
+	 * This is named differently from get_us_count and get_us_count for historical
+	 * reasons, but it does the exact same thing.
+	 *
+	 * @return number of milliseconds elapsed since some arbitrary point in the past
+	 */
 	inline uint64_t get_tick_count()
 	{
 		return get_ns_count() / 1000000;
 	}
+}
+
+// class "once_a_time" used to be in math_helper.h, hence the namespace in *this* file.
+// @TODO: Move all functions in this file to a meaningful namespace (e.g. ::time)
+
+namespace math_helper
+{
+	/**
+	 * @brief Controls execution of functor(s) in timed intervals, not necessarily constant
+	 *
+	 * @tparam get_interval type of functor which is instantiated and called at the beginning of each interval, returning the length of the next interval in microseconds
+	 * @tparam start_immediate boolean value which determines whether or not to immediately fire
+	 */
+	template<typename get_interval, bool start_immediate = true>
+	class once_a_time
+	{
+	public:
+		/**
+		 * @brief Default constructor
+		 */
+		inline once_a_time():
+			m_last_worked_time(get_time()),
+			m_interval(),
+			m_force_do(start_immediate)
+		{
+			set_next_interval();
+		}
+
+		/**
+		 * @brief Force functor to be executed on next call to do_call()
+		 */
+		inline void trigger()
+		{
+			m_force_do = true;
+		}
+
+		/**
+		 * @brief Poll whether functr should be called at this time, execute if so
+		 *
+		 * @tparam functor_t Type of functr whose operater() returns a boolean-coercible value
+		 * @param functr Functor to be executed
+		 *
+		 * @return The result of functr if executed, true otherwise.
+		 */
+		template<class functor_t>
+		inline bool do_call(functor_t functr)
+		{
+			if (m_force_do || get_time() - m_last_worked_time > m_interval)
+			{
+				const bool res = functr();
+
+				m_last_worked_time = get_time();
+				set_next_interval();
+				m_force_do = false;
+
+				return res;
+			}
+
+			return true;
+		}
+
+	private:
+		/**
+		 * @brief Construct and call get_interval functor to get length of next interval
+		 */
+		inline void set_next_interval()
+		{
+			m_interval = get_interval()();
+		}
+
+		/**
+		 * @brief The source of time for this class. Should tick time in microseconds.
+		 *
+		 * @return Clock counter value in microseconds
+		 */
+		static inline uint64_t get_time()
+		{
+			return misc_utils::get_us_count();
+		}
+
+		uint64_t m_last_worked_time;
+		uint64_t m_interval;
+		bool m_force_do;
+	};
+
+	/**
+	 * @brief Constant length functor for get_interval param in class once_a_time
+	 *
+	 * @tparam N Length of interval in microseconds
+	 */
+	template<uint64_t N> struct get_constant_interval { public: uint64_t operator()() const { return N; } };
+
+	/**
+	 * @brief Specialization of once_a_time which fires every "default_interval" seconds
+	 *
+	 * @tparam default_interval Length of interval in seconds
+	 * @tparam start_immediate boolean value which determines whether or not to immediately fire
+	 */
+	template<int default_interval, bool start_immediate = true>
+	class once_a_time_seconds: public once_a_time<get_constant_interval<default_interval * (uint64_t)1000000>, start_immediate> {};
+
+	/**
+	 * @brief Specialization of once_a_time which fires every "default_interval" milliseconds
+	 *
+	 * @tparam default_interval Length of interval in milliseconds
+	 * @tparam start_immediate boolean value which determines whether or not to immediately fire
+	 */
+	template<int default_interval, bool start_immediate = true>
+	class once_a_time_milliseconds: public once_a_time<get_constant_interval<default_interval * (uint64_t)1000>, start_immediate> {};
 }
 }
