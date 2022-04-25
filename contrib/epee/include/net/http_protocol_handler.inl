@@ -206,6 +206,7 @@ namespace net_utils
 		m_config(config),
 		m_want_close(false),
 		m_newlines(0),
+		m_bytes_read(0),
 		m_psnd_hndlr(psnd_hndlr),
 		m_conn_context(conn_context)
 	{
@@ -221,6 +222,7 @@ namespace net_utils
 		m_query_info.clear();
 		m_len_summary = 0;
 		m_newlines = 0;
+		m_bytes_read = 0;
 		return true;
 	}
 	//--------------------------------------------------------------------------------------------
@@ -242,6 +244,14 @@ namespace net_utils
 	{
 
 		size_t ndel;
+
+		m_bytes_read += buf.size();
+		if (m_bytes_read > m_config.m_max_content_length)
+		{
+			LOG_ERROR("simple_http_connection_handler::handle_buff_in: Too much data: got " << m_bytes_read);
+			m_state = http_state_error;
+			return false;
+		}
 
 		if(m_cache.size())
 			m_cache += buf;
