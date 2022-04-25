@@ -423,7 +423,6 @@ struct WalletListener
 
 /**
  * @brief Interface for wallet operations.
- *        TODO: check if /include/IWallet.h is still actual
  */
 struct Wallet
 {
