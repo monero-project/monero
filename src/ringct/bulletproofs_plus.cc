@@ -644,8 +644,7 @@ try_again:
         {
             sc_mul(temp.bytes, temp.bytes, z_squared.bytes);
             sc_mul(temp2.bytes, y_powers[MN+1].bytes, temp.bytes);
-            sc_mul(temp2.bytes, temp2.bytes, gamma[j].bytes);
-            sc_add(alpha1.bytes, alpha1.bytes, temp2.bytes);
+            sc_muladd(alpha1.bytes, temp2.bytes, gamma[j].bytes, alpha1.bytes);
         }
 
         // These are used in the inner product rounds
@@ -706,7 +705,8 @@ try_again:
 
             rct::key challenge_squared;
             sc_mul(challenge_squared.bytes, challenge.bytes, challenge.bytes);
-            rct::key challenge_squared_inv = invert(challenge_squared);
+            rct::key challenge_squared_inv;
+            sc_mul(challenge_squared_inv.bytes, challenge_inv.bytes, challenge_inv.bytes);
             sc_muladd(alpha1.bytes, dL.bytes, challenge_squared.bytes, alpha1.bytes);
             sc_muladd(alpha1.bytes, dR.bytes, challenge_squared_inv.bytes, alpha1.bytes);
 
