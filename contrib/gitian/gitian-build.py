@@ -6,7 +6,7 @@ import subprocess
 import sys
 
 gsigs = 'https://github.com/monero-project/gitian.sigs.git'
-gbrepo = 'https://github.com/devrandom/gitian-builder.git'
+gbrepo = 'https://github.com/mj-xmr/gitian-builder-mj.git'
 
 platforms = {'l': ['Linux', 'linux', 'tar.bz2'],
         'a': ['Android', 'android', 'tar.bz2'],
@@ -28,7 +28,7 @@ def setup():
     if not os.path.isdir('builder'):
         subprocess.check_call(['git', 'clone', gbrepo, 'builder'])
     os.chdir('builder')
-    subprocess.check_call(['git', 'checkout', 'c0f77ca018cb5332bfd595e0aff0468f77542c23'])
+    subprocess.check_call(['git', 'checkout', '495577125b76c0fe600d3e5b76a2bb951e09f788'])
     os.makedirs('inputs', exist_ok=True)
     os.chdir('inputs')
     if not os.path.isdir('monero'):
