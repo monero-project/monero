@@ -136,7 +136,7 @@ GH_USER=YOUR_GITHUB_USER_NAME
 VERSION=v0.17.2.0
 ```
 
-Where `GH_USER` is your Github user name and `VERSION` is the version tag you want to build. 
+Where `GH_USER` is your GitHub user name and `VERSION` is the version tag you want to build. 
 
 Setup for LXC:
 
