@@ -89,7 +89,7 @@ C4 is meant to provide a reusable optimal collaboration model for open source so
 ### Preliminaries
 
 - The project MUST use the git distributed revision control system.
-- The project MUST be hosted on GitHub.com or equivalent, herein called the "Platform".
+- The project MUST be hosted on github.com or equivalent, herein called the "Platform".
 - The project MUST use the Platform issue tracker.
   - Non-GitHub example:
     - "Platform" could be a vanilla git repo and Trac hosted on the same machine/network.
