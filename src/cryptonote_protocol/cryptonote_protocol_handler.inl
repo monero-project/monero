@@ -1778,6 +1778,7 @@ skip:
     MTRACE("Checking for outgoing syncing peers...");
     unsigned n_syncing = 0, n_synced = 0;
     boost::uuids::uuid last_synced_peer_id(boost::uuids::nil_uuid());
+    int64_t lowest_score = std::numeric_limits<int64_t>::max();
     m_p2p->for_each_connection([&](cryptonote_connection_context& context, nodetool::peerid_type peer_id, uint32_t support_flags)->bool
     {
       if (!peer_id || context.m_is_income) // only consider connected outgoing peers
@@ -1787,8 +1788,14 @@ skip:
       if (context.m_state == cryptonote_connection_context::state_normal)
       {
         ++n_synced;
-        if (!context.m_anchor)
-          last_synced_peer_id = context.m_connection_id;
+        if (!context.m_anchor || context.m_score < 0)
+        {
+          if (context.m_score <= lowest_score)
+          {
+            last_synced_peer_id = context.m_connection_id;
+            lowest_score = context.m_score;
+          }
+        }
       }
       return true;
     });
