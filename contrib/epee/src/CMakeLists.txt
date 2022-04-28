@@ -33,7 +33,7 @@ monero_find_all_headers(EPEE_HEADERS_PUBLIC "${EPEE_INCLUDE_DIR_BASE}")
 
 monero_add_library(epee byte_slice.cpp byte_stream.cpp hex.cpp abstract_http_client.cpp http_auth.cpp mlog.cpp net_helper.cpp net_utils_base.cpp string_tools.cpp parserse_base_utils.cpp
     wipeable_string.cpp levin_base.cpp memwipe.c connection_basic.cpp network_throttle.cpp network_throttle-detail.cpp mlocker.cpp buffer.cpp net_ssl.cpp
-    int-util.cpp portable_storage.cpp
+    int-util.cpp portable_storage.cpp file_compression.cpp
     misc_language.cpp
     file_io_utils.cpp
     net_parse_helpers.cpp
@@ -62,6 +62,13 @@ if (BUILD_GUI_DEPS)
     endif()
 endif()
 
+if (Boost_ZLIB_FOUND)
+    set(MONERO_ZLIB ${Boost_ZLIB_LIBRARY})
+else()
+    set(MONERO_ZLIB z)
+endif()
+message(STATUS "Using zlib: ${MONERO_ZLIB}")
+
 target_link_libraries(epee
   PUBLIC
     easylogging
@@ -70,6 +77,8 @@ target_link_libraries(epee
     ${Boost_THREAD_LIBRARY}
     ${Boost_REGEX_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}
+    ${Boost_IOSTREAMS_LIBRARY}
+    ${MONERO_ZLIB}
     ${OPENSSL_LIBRARIES}
   PRIVATE
     ${EXTRA_LIBRARIES})
