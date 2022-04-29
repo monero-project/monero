@@ -5088,7 +5088,7 @@ std::string wallet2::exchange_multisig_keys(const epee::wipeable_string &passwor
 
   // reconstruct multisig account
   crypto::public_key dummy;
-  multisig::multisig_account::kex_origins_map_t kex_origins_map;
+  multisig::multisig_keyset_map_memsafe_t kex_origins_map;
 
   for (const auto &derivation : m_multisig_derivations)
     kex_origins_map[derivation];
@@ -5101,7 +5101,7 @@ std::string wallet2::exchange_multisig_keys(const epee::wipeable_string &passwor
       get_account().get_keys().m_multisig_keys,
       get_account().get_keys().m_view_secret_key,
       m_account_public_address.m_spend_public_key,
-      dummy,              //common pubkey: not used
+      m_account_public_address.m_view_public_key,
       m_multisig_rounds_passed,
       std::move(kex_origins_map),
       ""
@@ -5188,7 +5188,10 @@ bool wallet2::multisig(bool *ready, uint32_t *threshold, uint32_t *total) const
   if (total)
     *total = m_multisig_signers.size();
   if (ready)
-    *ready = !(get_account().get_keys().m_account_address.m_spend_public_key == rct::rct2pk(rct::identity()));
+  {
+    *ready = !(get_account().get_keys().m_account_address.m_spend_public_key == rct::rct2pk(rct::identity())) &&
+      (m_multisig_rounds_passed == multisig::multisig_kex_rounds_required(m_multisig_signers.size(), m_multisig_threshold) + 1);
+  }
   return true;
 }
 //----------------------------------------------------------------------------------------------------

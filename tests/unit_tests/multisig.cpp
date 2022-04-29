@@ -120,7 +120,7 @@ static void check_results(const std::vector<std::string> &intermediate_infos,
 
   for (size_t i = 0; i < wallets.size(); ++i)
   {
-    EXPECT_TRUE(intermediate_infos[i].empty());
+    EXPECT_TRUE(!intermediate_infos[i].empty());
     bool ready;
     uint32_t threshold, total;
     EXPECT_TRUE(wallets[i].multisig(&ready, &threshold, &total));
@@ -171,7 +171,7 @@ static void make_wallets(std::vector<tools::wallet2>& wallets, unsigned int M)
 {
   ASSERT_TRUE(wallets.size() > 1 && wallets.size() <= KEYS_COUNT);
   ASSERT_TRUE(M <= wallets.size());
-  std::uint32_t rounds_required = multisig::multisig_kex_rounds_required(wallets.size(), M);
+  std::uint32_t total_rounds_required = multisig::multisig_kex_rounds_required(wallets.size(), M) + 1;
   std::uint32_t rounds_complete{0};
 
   // initialize wallets, get first round multisig kex msgs
@@ -203,18 +203,17 @@ static void make_wallets(std::vector<tools::wallet2>& wallets, unsigned int M)
   ++rounds_complete;
 
   // perform kex rounds until kex is complete
-  while (!intermediate_infos[0].empty())
+  bool ready;
+  wallets[0].multisig(&ready);
+  while (!ready)
   {
-    bool ready{false};
-    wallets[0].multisig(&ready);
-    EXPECT_FALSE(ready);
-
     intermediate_infos = exchange_round(wallets, intermediate_infos);
+    wallets[0].multisig(&ready);
 
     ++rounds_complete;
   }
 
-  EXPECT_EQ(rounds_required, rounds_complete);
+  EXPECT_EQ(total_rounds_required, rounds_complete);
 
   check_results(intermediate_infos, wallets, M);
 }

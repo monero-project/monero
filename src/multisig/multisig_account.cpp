@@ -73,7 +73,7 @@ namespace multisig
     const crypto::public_key &multisig_pubkey,
     const crypto::public_key &common_pubkey,
     const std::uint32_t kex_rounds_complete,
-    kex_origins_map_t kex_origins_map,
+    multisig_keyset_map_memsafe_t kex_origins_map,
     std::string next_round_kex_message) :
       m_base_privkey{base_privkey},
       m_base_common_privkey{base_common_privkey},
@@ -89,6 +89,20 @@ namespace multisig
     CHECK_AND_ASSERT_THROW_MES(crypto::secret_key_to_public_key(m_base_privkey, m_base_pubkey),
       "Failed to derive public key");
     set_multisig_config(threshold, std::move(signers));
+
+    // kex rounds should not exceed post-kex verification round
+    const std::uint32_t kex_rounds_required{multisig_kex_rounds_required(m_signers.size(), m_threshold)};
+    CHECK_AND_ASSERT_THROW_MES(m_kex_rounds_complete <= kex_rounds_required + 1,
+      "multisig account: tried to reconstruct account, but kex rounds complete counter is invalid.");
+
+    // once an account is done with kex, the 'next kex msg' is always the post-kex verification message
+    //   i.e. the multisig account pubkey signed by the signer's privkey AND the common pubkey
+    if (main_kex_rounds_done())
+    {
+      m_next_round_kex_message = multisig_kex_msg{kex_rounds_required + 1,
+        m_base_privkey,
+        std::vector<crypto::public_key>{m_multisig_pubkey, m_common_pubkey}}.get_msg();
+    }
   }
   //----------------------------------------------------------------------------------------------------------------------
   // multisig_account: EXTERNAL
@@ -100,14 +114,24 @@ namespace multisig
   //----------------------------------------------------------------------------------------------------------------------
   // multisig_account: EXTERNAL
   //----------------------------------------------------------------------------------------------------------------------
-  bool multisig_account::multisig_is_ready() const
+  bool multisig_account::main_kex_rounds_done() const
   {
     if (account_is_active())
-      return multisig_kex_rounds_required(m_signers.size(), m_threshold) == m_kex_rounds_complete;
+      return m_kex_rounds_complete >= multisig_kex_rounds_required(m_signers.size(), m_threshold);
     else
       return false;
   }
-    //----------------------------------------------------------------------------------------------------------------------
+  //----------------------------------------------------------------------------------------------------------------------
+  // multisig_account: EXTERNAL
+  //----------------------------------------------------------------------------------------------------------------------
+  bool multisig_account::multisig_is_ready() const
+  {
+    if (main_kex_rounds_done())
+      return m_kex_rounds_complete >= multisig_kex_rounds_required(m_signers.size(), m_threshold) + 1;
+    else
+      return false;
+  }
+  //----------------------------------------------------------------------------------------------------------------------
   // multisig_account: INTERNAL
   //----------------------------------------------------------------------------------------------------------------------
   void multisig_account::set_multisig_config(const std::size_t threshold, std::vector<crypto::public_key> signers)
@@ -119,10 +143,6 @@ namespace multisig
 
     for (auto signer_it = signers.begin(); signer_it != signers.end(); ++signer_it)
     {
-      // signers should all be unique
-      CHECK_AND_ASSERT_THROW_MES(std::find(signers.begin(), signer_it, *signer_it) == signer_it,
-        "multisig account: tried to set signers, but found a duplicate signer unexpectedly.");
-
       // signer pubkeys must be in main subgroup, and not identity
       CHECK_AND_ASSERT_THROW_MES(rct::isInMainSubgroup(rct::pk2rct(*signer_it)) && !(*signer_it == rct::rct2pk(rct::identity())),
         "multisig account: tried to set signers, but a signer pubkey is invalid.");
@@ -133,12 +153,11 @@ namespace multisig
       "multisig account: tried to set signers, but did not find the account's base pubkey in signer list.");
 
     // sort signers
-    std::sort(signers.begin(), signers.end(),
-      [](const crypto::public_key &key1, const crypto::public_key &key2) -> bool
-        {
-          return memcmp(&key1, &key2, sizeof(crypto::public_key)) < 0;
-        }
-      );
+    std::sort(signers.begin(), signers.end());
+
+    // signers should all be unique
+    CHECK_AND_ASSERT_THROW_MES(std::adjacent_find(signers.begin(), signers.end()) == signers.end(),
+      "multisig account: tried to set signers, but there are duplicate signers unexpectedly.");
 
     // set
     m_threshold = threshold;
