@@ -104,7 +104,7 @@ namespace net_utils
     //! \return False iff ssl is disabled, otherwise true.
     explicit operator bool() const noexcept { return support != ssl_support_t::e_ssl_support_disabled; }
 
-    //! \retrurn True if `host` can be verified using `this` configuration WITHOUT system "root" CAs.
+    //! \return True if `host` can be verified using `this` configuration WITHOUT system "root" CAs.
     bool has_strong_verification(boost::string_ref host) const noexcept;
 
     //! Search against internal fingerprints. Always false if `behavior() != user_certificate_check`.
