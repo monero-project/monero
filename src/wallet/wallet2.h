@@ -632,10 +632,12 @@ private:
       std::vector<crypto::secret_key> additional_tx_keys;
       std::vector<cryptonote::tx_destination_entry> dests;
       std::vector<multisig_sig> multisig_sigs;
+      crypto::secret_key multisig_tx_key_entropy;
 
       tx_construction_data construction_data;
 
       BEGIN_SERIALIZE_OBJECT()
+        VERSION_FIELD(1)
         FIELD(tx)
         FIELD(dust)
         FIELD(fee)
@@ -648,6 +650,12 @@ private:
         FIELD(dests)
         FIELD(construction_data)
         FIELD(multisig_sigs)
+        if (version < 1)
+        {
+          multisig_tx_key_entropy = crypto::null_skey;
+          return true;
+        }
+        FIELD(multisig_tx_key_entropy)
       END_SERIALIZE()
     };
 

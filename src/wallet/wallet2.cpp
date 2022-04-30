@@ -7157,6 +7157,7 @@ bool wallet2::sign_multisig_tx(multisig_tx_set &exported_txs, std::vector<crypto
         true,  //true = we are reconstructing the tx (it was first constructed by the tx proposer)
         ptx.tx_key,
         ptx.additional_tx_keys,
+        ptx.multisig_tx_key_entropy,
         ptx.tx
       ),
       error::wallet_internal_error,
@@ -9006,6 +9007,7 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
 
   crypto::secret_key tx_key;
   std::vector<crypto::secret_key> additional_tx_keys;
+  crypto::secret_key multisig_tx_key_entropy;
   LOG_PRINT_L2("constructing tx");
   auto sources_copy = sources;
   multisig::signing::tx_builder_ringct_t multisig_tx_builder;
@@ -9029,6 +9031,7 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
         false,
         tx_key,
         additional_tx_keys,
+        multisig_tx_key_entropy,
         tx
       ),
       error::wallet_internal_error,
@@ -9155,6 +9158,7 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
   ptx.additional_tx_keys = additional_tx_keys;
   ptx.dests = dsts;
   ptx.multisig_sigs = multisig_sigs;
+  ptx.multisig_tx_key_entropy = multisig_tx_key_entropy;
   ptx.construction_data.sources = sources_copy;
   ptx.construction_data.change_dts = change_dts;
   ptx.construction_data.splitted_dsts = splitted_dsts;
