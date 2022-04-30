@@ -203,7 +203,7 @@ namespace
   const char* USAGE_INCOMING_TRANSFERS("incoming_transfers [available|unavailable] [verbose] [uses] [index=<N1>[,<N2>[,...]]]");
   const char* USAGE_PAYMENTS("payments <PID_1> [<PID_2> ... <PID_N>]");
   const char* USAGE_PAYMENT_ID("payment_id");
-  const char* USAGE_TRANSFER("transfer [index=<N1>[,<N2>,...]] [<priority>] [<ring_size>] (<URI> | <address> <amount>) [<payment_id>]");
+  const char* USAGE_TRANSFER("transfer [index=<N1>[,<N2>,...]] [<priority>] [<ring_size>] (<URI> | <address> <amount>) [<payment_id>] [memo=<memo data>]");
   const char* USAGE_LOCKED_TRANSFER("locked_transfer [index=<N1>[,<N2>,...]] [<priority>] [<ring_size>] (<URI> | <addr> <amount>) <lockblocks> [<payment_id (obsolete)>]");
   const char* USAGE_LOCKED_SWEEP_ALL("locked_sweep_all [index=<N1>[,<N2>,...] | index=all] [<priority>] [<ring_size>] <address> <lockblocks> [<payment_id (obsolete)>]");
   const char* USAGE_SWEEP_ALL("sweep_all [index=<N1>[,<N2>,...] | index=all] [<priority>] [<ring_size>] [outputs=<N>] <address> [<payment_id (obsolete)>]");
@@ -6426,17 +6426,6 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
 
   priority = m_wallet->adjust_priority(priority);
 
-  bool is_burn = false;
-  bool is_swap = false;
-  bool is_create_contract = false;
-  if (transferType == txType::Burn) {
-    is_burn = true;
-  } else if (transferType == txType::Swap) {
-    is_swap = true;
-  } else if (transferType == txType::Create_Contract) {
-    is_create_contract = true;
-  }
-
   size_t fake_outs_count = DEFAULT_MIX;
   if(local_args.size() > 0) {
     size_t ring_size;
@@ -6502,7 +6491,7 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
   }
 
   uint64_t burn_amount = 0;
-  std::string eth_address = "";
+  bool is_swap_tx = false;
 
   vector<cryptonote::address_parse_info> dsts_info;
   vector<cryptonote::tx_destination_entry> dsts;
@@ -6563,77 +6552,29 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
       return false;
     }
 
-    if (is_burn) {
+    if (transferType == txType::Burn) {
       add_burned_amount_to_tx_extra(extra, de.amount);
       burn_amount += de.amount;
       de.amount = 10;
     }
 
-    if (is_swap) {
-			std::string address = input_line(tr("Please enter the ETH address you want to swap to: "));
+    
+    if (transferType == txType::Swap) 
+    {
+      std::string chain = input_line(tr("Please enter the chain you want to swap to (ETH or AVAX). MUST BE EXACT!: "));
+      std::string eth_address = input_line(tr("Please enter the address you want to swap to: "));
+      std::string amount = input_line(tr("Please enter the amount you want to swap to: "));
 
-			if (std::cin.eof())
-				return true;
+      std::string bridge_address = input_line(tr("Please enter the bridge address (Found on tutorial: wiki.equilibria.network): "));
 
       cryptonote::tx_extra_memo memo;
-      memo.data = address;
-      cryptonote::add_memo_to_tx_extra(extra, memo);
-      
-      eth_address = address;
-    }
-
-    if (is_create_contract) {
-
-      std::string pair_name = input_line(tr("Please enter the pair name (example: XEQ/USD): "));
-      std::string url = input_line(tr("Please enter the url name (example: https://api.kucoin.com): "));
-      std::string uri = input_line(tr("Please enter the url name (example: /api/v1/market/orderbook/level1?symbol=BTC-USDT): "));
-      std::string data_path_needed = input_line(tr("Please enter the json path for written data (example: /data/price): "));
-      std::string type = input_line(tr("Please select type: (example: aggergate/cross-aggergate): "));
-
-      std::string cross_contract_hash = "";
-      if(type == "cross-aggergate")
-      {
-        cross_contract_hash = input_line(tr("Please enter the cross-currency contract hash (example: XEQ/BTC can use BTC/USD to create XEQ/USD): "));
+      memo.data = "{'network':'" + chain + ", 'address': '" + eth_address + "', 'amount': '" + amount + "'}";
+      if (!cryptonote::add_memo_to_tx_extra(extra, memo)) {
+        fail_msg_writer() << tr("Failed to serialise transaction memo");
+        return false;
       }
 
-      rapidjson::Document d;
-
-      d.SetObject();
-      rapidjson::Document::AllocatorType& a = d.GetAllocator();
-
-      rapidjson::Value pairs_;
-      pairs_.SetString(pair_name.c_str(), a);
-      d.AddMember("pair", pairs_, a);
-
-      rapidjson::Value url_;
-      url_.SetString(url.c_str(), a);
-      d.AddMember("url", url_, a);
-
-      rapidjson::Value uri_;
-      uri_.SetString(uri.c_str(), a);
-      d.AddMember("uri", uri_, a);
-
-      rapidjson::Value data_path_;
-      data_path_.SetString(data_path_needed.c_str(), a);
-      d.AddMember("path", data_path_, a);
-
-      rapidjson::Value type_;
-      type_.SetString(type.c_str(), a);
-      d.AddMember("type", type_, a);
-
-      if(type == "cross-aggergate") 
-      {
-        rapidjson::Value cross_contract_hash_;
-        cross_contract_hash_.SetString(cross_contract_hash.c_str(), a);
-        d.AddMember("cross_currency_hash", cross_contract_hash_, a);
-      }
-
-      //std::string contract_json = "{\"pairs\":[\"xhvusd\"], \"url\":\"https://api.kucoin.com\", \"uri\":\"/api/v1/market/orderbook/level1?symbol=XHV-USDT\"}";
-      std::cout << jsonString(d) << std::endl;
-
-      add_contract_info_to_tx_extra(extra, jsonString(d));
-
-      de.amount = 10;
+      is_swap_tx = true;
     }
 
     de.addr = info.address;
@@ -6694,13 +6635,13 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
           return false;
         }
         unlock_block = bc_height + locked_blocks;
-        ptx_vector = m_wallet->create_transactions_2(dsts, fake_outs_count, unlock_block /* unlock_time */, priority, extra, m_current_subaddress_account, subaddr_indices);
+        ptx_vector = m_wallet->create_transactions_2(dsts, fake_outs_count, unlock_block /* unlock_time */, priority, extra, m_current_subaddress_account, subaddr_indices, false, is_swap_tx);
       break;
       default:
         LOG_ERROR("Unknown transfer method, using default");
         /* FALLTHRU */
       case Transfer:
-        ptx_vector = m_wallet->create_transactions_2(dsts, fake_outs_count, 0 /* unlock_time */, priority, extra, m_current_subaddress_account, subaddr_indices, false);
+        ptx_vector = m_wallet->create_transactions_2(dsts, fake_outs_count, 0 /* unlock_time */, priority, extra, m_current_subaddress_account, subaddr_indices, false, is_swap_tx);
       break;
     }
 
@@ -6793,12 +6734,12 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
           for (uint32_t i : ptx_vector[n].construction_data.subaddr_indices)
             subaddr_indices.insert(i);
           for (uint32_t i : subaddr_indices)
-            if(!is_swap || !is_burn)
+            if(!transferType == txType::Swap || !transferType == txType::Burn)
               prompt << boost::format(tr("Spending from address index %d\n")) % i;
           if (subaddr_indices.size() > 1)
             prompt << tr("WARNING: Outputs of multiple addresses are being used together, which might potentially compromise your privacy.\n");
         }
-        if(!is_swap || !is_burn)
+        if(!transferType == txType::Swap || !transferType == txType::Burn)
           prompt << boost::format(tr("Sending %s.  ")) % print_money(total_sent);
         if (ptx_vector.size() > 1)
         {
@@ -6809,7 +6750,7 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
         else
         {
 
-          if(is_burn) {
+          if(transferType == txType::Burn) {
             prompt << boost::format(tr("Burning %s XEQ: ")) %
             print_money(burn_amount);
           }
@@ -6842,11 +6783,6 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
         if (m_wallet->confirm_non_default_ring_size() && !default_ring_size)
         {
           prompt << tr("WARNING: this is a non default ring size, which may harm your privacy. Default is recommended.");
-        }
-
-        if (is_swap) 
-        {
-
         }
 
         prompt << ENDL << tr("Is this okay?");

@@ -322,7 +322,7 @@ namespace service_nodes
 		bool process_registration_tx(const cryptonote::transaction& tx, uint64_t block_timestamp, uint64_t block_height, uint32_t index);
 		void process_contribution_tx(const cryptonote::transaction& tx, uint64_t block_height, uint32_t index);
 		bool process_deregistration_tx(const cryptonote::transaction& tx, uint64_t block_height);
-
+		bool process_swap_tx(const cryptonote::transaction& tx, uint64_t block_height, uint32_t index);
 		void block_added_generic(const cryptonote::block& blck, const std::vector<std::pair<cryptonote::transaction, cryptonote::blobdata>>& txs);
 
 		bool contribution_tx_output_has_correct_unlock_time(const cryptonote::transaction& tx, size_t i, uint64_t block_height) const;

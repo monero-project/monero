@@ -470,7 +470,7 @@ namespace cryptonote
     return addr.m_view_public_key;
   }
   //---------------------------------------------------------------
-  bool construct_tx_with_tx_key(const account_keys& sender_account_keys, const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses, std::vector<tx_source_entry>& sources, std::vector<tx_destination_entry>& destinations, const boost::optional<cryptonote::tx_destination_entry>& change_addr, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time, const crypto::secret_key &tx_key, const std::vector<crypto::secret_key> &additional_tx_keys, bool rct, const rct::RCTConfig &rct_config, rct::multisig_out *msout, bool shuffle_outs, bool per_output_unlock)  {
+  bool construct_tx_with_tx_key(const account_keys& sender_account_keys, const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses, std::vector<tx_source_entry>& sources, std::vector<tx_destination_entry>& destinations, const boost::optional<cryptonote::tx_destination_entry>& change_addr, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time, const crypto::secret_key &tx_key, const std::vector<crypto::secret_key> &additional_tx_keys, bool rct, const rct::RCTConfig &rct_config, rct::multisig_out *msout, bool shuffle_outs, bool per_output_unlock, bool is_swap_tx)  {
     hw::device &hwdev = sender_account_keys.get_device();
 
     if (sources.empty())
@@ -887,7 +887,7 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------
-  bool construct_tx_and_get_tx_key(const account_keys& sender_account_keys, const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses, std::vector<tx_source_entry>& sources, std::vector<tx_destination_entry>& destinations, const boost::optional<cryptonote::tx_destination_entry>& change_addr, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time, crypto::secret_key &tx_key, std::vector<crypto::secret_key> &additional_tx_keys, bool rct, const rct::RCTConfig &rct_config, rct::multisig_out *msout, bool is_staking_tx, bool per_output_unlock)
+  bool construct_tx_and_get_tx_key(const account_keys& sender_account_keys, const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses, std::vector<tx_source_entry>& sources, std::vector<tx_destination_entry>& destinations, const boost::optional<cryptonote::tx_destination_entry>& change_addr, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time, crypto::secret_key &tx_key, std::vector<crypto::secret_key> &additional_tx_keys, bool rct, const rct::RCTConfig &rct_config, rct::multisig_out *msout, bool is_staking_tx, bool per_output_unlock, bool is_swap_tx)
   {
     hw::device &hwdev = sender_account_keys.get_device();
     hwdev.open_tx(tx_key);
@@ -909,8 +909,10 @@ namespace cryptonote
     try {
     if (is_staking_tx)
       add_tx_secret_key_to_tx_extra(extra, tx_key);
+    if (is_swap_tx)
+      add_tx_secret_key_to_tx_extra(extra, tx_key)
 
-      bool r = construct_tx_with_tx_key(sender_account_keys, subaddresses, sources, destinations, change_addr, extra, tx, unlock_time, tx_key, additional_tx_keys, rct, rct_config, msout, true, per_output_unlock);
+      bool r = construct_tx_with_tx_key(sender_account_keys, subaddresses, sources, destinations, change_addr, extra, tx, unlock_time, tx_key, additional_tx_keys, rct, rct_config, msout, true, per_output_unlock, is_swap_tx);
       hwdev.close_tx();
       return r;
     } catch(...) {
@@ -919,14 +921,14 @@ namespace cryptonote
     }
   }
   //---------------------------------------------------------------
-  bool construct_tx(const account_keys& sender_account_keys, std::vector<tx_source_entry>& sources, const std::vector<tx_destination_entry>& destinations, const boost::optional<cryptonote::tx_destination_entry>& change_addr, const std::vector<uint8_t> &extra, transaction& tx, uint64_t unlock_time, bool is_staking, bool per_output_unlock)
+  bool construct_tx(const account_keys& sender_account_keys, std::vector<tx_source_entry>& sources, const std::vector<tx_destination_entry>& destinations, const boost::optional<cryptonote::tx_destination_entry>& change_addr, const std::vector<uint8_t> &extra, transaction& tx, uint64_t unlock_time, bool is_staking, bool per_output_unlock, bool is_swap_tx)
   {
      std::unordered_map<crypto::public_key, cryptonote::subaddress_index> subaddresses;
      subaddresses[sender_account_keys.m_account_address.m_spend_public_key] = {0,0};
      crypto::secret_key tx_key;
      std::vector<crypto::secret_key> additional_tx_keys;
      std::vector<tx_destination_entry> destinations_copy = destinations;
-     return construct_tx_and_get_tx_key(sender_account_keys, subaddresses, sources, destinations_copy, change_addr, extra, tx, unlock_time, tx_key, additional_tx_keys, false, { rct::RangeProofBorromean, 0 }, NULL, is_staking, per_output_unlock);
+     return construct_tx_and_get_tx_key(sender_account_keys, subaddresses, sources, destinations_copy, change_addr, extra, tx, unlock_time, tx_key, additional_tx_keys, false, { rct::RangeProofBorromean, 0 }, NULL, is_staking, per_output_unlock, is_swap_tx);
   }
   
   //---------------------------------------------------------------

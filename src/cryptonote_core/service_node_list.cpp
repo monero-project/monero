@@ -716,6 +716,57 @@ namespace service_nodes
 		return true;
 	}
 
+	bool service_node_list::process_swap_tx(const cryptonote::transaction& tx, uint64_t block_height, uint32_t index)
+	{
+		crypto::public_key pubkey;
+		cryptonote::account_public_address address;
+		uint64_t transferred;
+		std::string swap_amount;
+
+		crypto::secret_key tx_key;
+
+		if (!cryptonote::get_tx_secret_key_from_tx_extra(tx.extra, tx_key))
+			return false;
+
+		crypto::key_derivation derivation;
+		if (!crypto::generate_key_derivation(address.m_view_public_key, tx_key, derivation))
+			return false;
+
+		hw::device& hwdev = hw::get_device("default");
+
+		transferred = 0;
+		for (size_t i = 0; i < tx.vout.size(); i++)
+		{
+			if (contribution_tx_output_has_correct_unlock_time(tx, i, block_height))
+				transferred += get_reg_tx_staking_output_contribution(tx, i, derivation, hwdev);
+		}
+
+		cryptonote::tx_extra_memo memo;
+
+		if(!get_memo_from_tx_extra(tx.extra, memo))
+			return false;
+		
+	    rapidjson::Document d;
+
+		d.Parse(memo.data);
+
+		if(!d.IsObject())
+			return false;
+		if(!d.HasMember("network"))
+			return false;
+		if(!d.HasMember("address"))
+			return false;
+		if(!d.HasMember("amount"))
+			return false;
+
+		swap_amount = d["amount"].GetString();
+
+		if(std::to_string(transferred) != swap_amount)
+			return false;
+
+		return true;
+	}
+
 	void service_node_list::process_contribution_tx(const cryptonote::transaction& tx, uint64_t block_height, uint32_t index)
 	{
 		crypto::public_key pubkey;
@@ -871,6 +922,8 @@ namespace service_nodes
 			if (process_deregistration_tx(tx_pair.first, block_height)) {
 				deregistrations++;
 			}
+
+			process_swap_tx(tx_pair.first, block_height, index);
 
 			index++;
 		}
