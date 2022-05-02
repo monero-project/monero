@@ -86,8 +86,7 @@ namespace cryptonote {
     if(version >= 12)
     {
       return EMISSION_SPEED_FACTOR_PER_MINUTE + 1;
-    }
-    } else if(version >= 6 && version < 12){
+    } else if(version >= 6 && version < 12) {
       return EMISSION_SPEED_FACTOR_PER_MINUTE + 2;
     }else{
       return EMISSION_SPEED_FACTOR_PER_MINUTE;
