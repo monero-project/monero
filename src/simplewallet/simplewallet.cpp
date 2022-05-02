@@ -1383,7 +1383,6 @@ bool simple_wallet::import_multisig_main(const std::vector<std::string> &args, b
   {
     m_in_manual_refresh.store(true, std::memory_order_relaxed);
     epee::misc_utils::auto_scope_leave_caller scope_exit_handler = epee::misc_utils::create_scope_leave_handler([&](){m_in_manual_refresh.store(false, std::memory_order_relaxed);});
-    size_t n_outputs = m_wallet->import_multisig(info);
     // Clear line "Height xxx of xxx"
     std::cout << "\r                                                                \r";
     success_msg_writer() << tr("Multisig info imported");
@@ -6381,7 +6380,6 @@ void simple_wallet::check_for_inactivity_lock(bool user)
 bool simple_wallet::on_command(bool (simple_wallet::*cmd)(const std::vector<std::string>&), const std::vector<std::string> &args)
 {
   const time_t now = time(NULL);
-  time_t dt = now - m_last_activity_time;
   m_last_activity_time = time(NULL);
 
   m_in_command = true;
@@ -7242,7 +7240,7 @@ bool simple_wallet::register_service_node(const std::vector<std::string> &args_)
   uint64_t portions_for_operator_no_fee;
 	bool autostake;
   std::string err_msg;
-  if (!service_nodes::convert_registration_args(m_wallet->nettype(), address_portions_args, addresses, portions, portions_for_operator, portions_for_operator_no_fee, autostake, err_msg))
+  if (!service_nodes::convert_registration_args(m_wallet->nettype(), address_portions_args, addresses, portions, portions_for_operator, autostake, err_msg))
 	{
 		fail_msg_writer() << tr("Could not convert registration args");
     if (err_msg != "") fail_msg_writer() << err_msg;
@@ -8341,7 +8339,6 @@ bool simple_wallet::sweep_single(const std::vector<std::string> &args_)
   if (local_args.size() == 3)
   {
     crypto::hash payment_id;
-    crypto::hash8 payment_id8;
     std::string extra_nonce;
     if (tools::wallet2::parse_long_payment_id(local_args.back(), payment_id))
     {
@@ -9463,7 +9460,6 @@ bool simple_wallet::get_transfers(std::vector<std::string>& local_args, std::vec
       if (!unlocked)
       {
         locked_msg = "locked";
-        const uint64_t unlock_time = pd.m_unlock_time;
         if (pd.m_unlock_time < CRYPTONOTE_MAX_BLOCK_NUMBER)
         {
           uint64_t bh = std::max(pd.m_unlock_time, pd.m_block_height + CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE);
@@ -12023,7 +12019,6 @@ void simple_wallet::mms_next(const std::vector<std::string> &args)
 
 void simple_wallet::mms_sync(const std::vector<std::string> &args)
 {
-  mms::message_store& ms = m_wallet->get_message_store();
   if (args.size() != 0)
   {
     fail_msg_writer() << tr("Usage: mms sync");
@@ -12121,7 +12116,6 @@ void simple_wallet::mms_export(const std::vector<std::string> &args)
     return;
   }
   LOCK_IDLE_SCOPE();
-  mms::message_store& ms = m_wallet->get_message_store();
   mms::message m;
   bool valid_id = get_message_from_arg(args[0], m);
   if (valid_id)
@@ -12190,7 +12184,6 @@ void simple_wallet::mms_show(const std::vector<std::string> &args)
     return;
   }
   LOCK_IDLE_SCOPE();
-  mms::message_store& ms = m_wallet->get_message_store();
   mms::message m;
   bool valid_id = get_message_from_arg(args[0], m);
   if (valid_id)

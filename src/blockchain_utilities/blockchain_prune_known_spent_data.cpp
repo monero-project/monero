@@ -173,7 +173,6 @@ int main(int argc, char* argv[])
 	};
 	BlockchainObjects* blockchain_objects = new BlockchainObjects();
 	Blockchain* core_storage = &(blockchain_objects->m_blockchain);
-	tx_memory_pool& m_mempool = blockchain_objects->m_mempool;
 
 	BlockchainDB* db = new_db();
   if (db == NULL)

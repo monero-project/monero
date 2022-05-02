@@ -153,10 +153,6 @@ namespace cryptonote {
           cumulative_difficulties.resize(N + 1);
         }
 
-        size_t length = timestamps.size();
-        assert(length == cumulative_difficulties.size());
-        assert(length <= DIFFICULTY_BLOCKS_COUNT_V3);
-
         // To get an average solvetime to within +/- ~0.1%, use an adjustment factor.
         // adjust=0.999 for 80 < N < 120(?)
         const double adjust = 0.998;  // for 45 < N < 80
@@ -259,10 +255,6 @@ namespace cryptonote {
           timestamps.resize(N + 1);
           cumulative_difficulties.resize(N + 1);
         }
-
-        size_t length = timestamps.size();
-        assert(length == cumulative_difficulties.size());
-        assert(length <= DIFFICULTY_BLOCKS_COUNT_V3);
 
         // To get an average solvetime to within +/- ~0.1%, use an adjustment factor.
         // adjust=0.999 for 80 < N < 120(?)

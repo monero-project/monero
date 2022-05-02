@@ -206,7 +206,6 @@ namespace service_nodes
 	bool quorum_cop::prune_uptime_proof()
 	{
 		uint64_t now = time(nullptr);
-		uint64_t buffer = 0;
 		uint64_t const latest_height = std::max(m_core.get_current_blockchain_height(), m_core.get_target_blockchain_height());
 		uint64_t prune_from_timestamp = now - UPTIME_PROOF_MAX_TIME_IN_SECONDS;
 		if(m_core.get_hard_fork_version(latest_height) >= 10)

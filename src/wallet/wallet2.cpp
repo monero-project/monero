@@ -350,7 +350,6 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
   auto daemon_ssl_certificate = command_line::get_arg(vm, opts.daemon_ssl_certificate);
   auto daemon_ssl_ca_file = command_line::get_arg(vm, opts.daemon_ssl_ca_certificates);
   auto daemon_ssl_allowed_fingerprints = command_line::get_arg(vm, opts.daemon_ssl_allowed_fingerprints);
-  auto daemon_ssl_allow_any_cert = command_line::get_arg(vm, opts.daemon_ssl_allow_any_cert);
   auto daemon_ssl = command_line::get_arg(vm, opts.daemon_ssl);
 
   // user specified CA file or fingeprints implies enabled SSL by default
@@ -10359,7 +10358,6 @@ bool wallet2::sanity_check(const std::vector<wallet2::pending_tx> &ptx_vector, s
   for (const auto &r: required)
   {
     const account_public_address &address = r.first;
-    const crypto::public_key &view_pkey = address.m_view_public_key;
 
     uint64_t total_received = 0;
     for (const auto &ptx: ptx_vector)

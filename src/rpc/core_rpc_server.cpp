@@ -355,7 +355,6 @@ namespace cryptonote
       message = "Client signature does not verify for " + rpc;
       return false;
     }
-    crypto::public_key local_client;
     if (!m_rpc_payment->pay(client, ts, payment, rpc, same_ts, credits))
     {
       message = CORE_RPC_STATUS_PAYMENT_REQUIRED;
@@ -1130,8 +1129,6 @@ namespace cryptonote
       for (size_t i = 0; i < (req.heights[1] - req.heights[0]) + 1; i++)
       {
         block blk;
-		bool orphan = false;
-		crypto::hash block_hash = m_core.get_block_id_by_height(req.heights[0]+i);
 
         for(auto& btxs: blk.tx_hashes)
           vh.push_back(btxs);
@@ -1145,8 +1142,6 @@ namespace cryptonote
       for (size_t i = 0; i < req.heights.size(); i++)
       {
         block blk;
-        bool orphan = false;
-        crypto::hash block_hash = m_core.get_block_id_by_height(req.heights[i]);
     
         for(auto& btxs: blk.tx_hashes)
           vh.push_back(btxs);
@@ -3368,7 +3363,6 @@ namespace cryptonote
       args.push_back("auto");
     }
     uint64_t staking_requirement = 0;
-    uint64_t hf_version = m_core.get_ideal_hard_fork_version();
     staking_requirement = service_nodes::get_staking_requirement(m_core.get_nettype(), m_core.get_current_blockchain_height());
 
     {
@@ -3498,7 +3492,6 @@ namespace cryptonote
   {
 	  PERF_TIMER(on_get_staking_requirement);
 
-    uint64_t hf_version = m_core.get_ideal_hard_fork_version();
     res.staking_requirement = service_nodes::get_staking_requirement(m_core.get_nettype(), m_core.get_current_blockchain_height());
  
 	  res.status = CORE_RPC_STATUS_OK;

@@ -536,10 +536,6 @@ int main(int argc, char* argv[])
   std::array<Blockchain *, 2> core_storage;
   boost::filesystem::path paths[2];
 
-
-	BlockchainDB* db = new_db();
-
-
   bool already_pruned = false;
   for (size_t n = 0; n < core_storage.size(); ++n)
   {
