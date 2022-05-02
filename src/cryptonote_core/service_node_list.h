@@ -114,6 +114,8 @@ namespace service_nodes
 		uint64_t total_reserved;
 		uint64_t staking_requirement;
 		uint64_t portions_for_operator;
+		uint64_t portions_for_operator_no_fee;
+
 		swarm_id_t swarm_id;
 		cryptonote::account_public_address operator_address;
 
@@ -135,10 +137,12 @@ namespace service_nodes
 			VARINT_FIELD(total_reserved)
 			VARINT_FIELD(staking_requirement)
 			VARINT_FIELD(portions_for_operator)
+			VARINT_FIELD(portions_for_operator_no_fee)
 			if (version >= service_node_info::version_1_swarms) {
 				VARINT_FIELD(swarm_id)
 			}
 		    FIELD(operator_address)
+
 		END_SERIALIZE()
 	};
 
@@ -146,14 +150,6 @@ namespace service_nodes
 	{
 		crypto::public_key pubkey;
 		service_node_info  info;
-	};
-
-	struct swap
-	{
-		std::string account;
-		std::string amount;
-		std::string tx_hash;
-		uint64_t confs;
 	};
 
 	template<typename T>
@@ -174,14 +170,11 @@ namespace service_nodes
 		void register_hooks(service_nodes::quorum_cop &quorum_cop);
 		void init() override;
 		bool validate_miner_tx(const crypto::hash& prev_id, const cryptonote::transaction& miner_tx, uint64_t height, int hard_fork_version, cryptonote::block_reward_parts const &reward_parts) const override;
-		std::vector<std::pair<cryptonote::account_public_address, uint64_t>> get_winner_addresses_and_portions(const crypto::hash& prev_id) const;
+		std::vector<std::pair<cryptonote::account_public_address, uint64_t>> get_winner_addresses_and_portions(const crypto::hash& prev_id, const uint64_t height) const;
 		crypto::public_key select_winner(const crypto::hash& prev_id) const;
 
 		std::vector<crypto::public_key> get_service_nodes_pubkeys() const;
 		bool is_service_node(const crypto::public_key& pubkey) const;
-
-		std::list<swap> swapRequests;
-
 		void update_swarms(uint64_t height);
 
 		/// Note(maxim): this should not affect thread-safety as the returned object is const
@@ -357,7 +350,7 @@ namespace service_nodes
 	uint64_t get_reg_tx_staking_output_contribution(const cryptonote::transaction& tx, int i, crypto::key_derivation derivation, hw::device& hwdev);
 	bool reg_tx_extract_fields(const cryptonote::transaction& tx, std::vector<cryptonote::account_public_address>& addresses, uint64_t& portions_for_operator, std::vector<uint64_t>& portions, uint64_t& expiration_timestamp, crypto::public_key& service_node_key, crypto::signature& signature, crypto::public_key& tx_pub_key);
 
-  	bool convert_registration_args(cryptonote::network_type nettype, std::vector<std::string> args, std::vector<cryptonote::account_public_address>& addresses, std::vector<uint64_t>& portions, uint64_t& portions_for_operator, bool& autostake, boost::optional<std::string&> err_msg);
+  	bool convert_registration_args(cryptonote::network_type nettype, std::vector<std::string> args, std::vector<cryptonote::account_public_address>& addresses, std::vector<uint64_t>& portions, uint64_t& portions_for_operator, uint64_t& portions_for_operator_no_fee, bool& autostake, boost::optional<std::string&> err_msg);
 	bool make_registration_cmd(cryptonote::network_type nettype, const std::vector<std::string> args, const crypto::public_key& service_node_pubkey,
      const crypto::secret_key service_node_key, std::string &cmd, bool make_friendly, boost::optional<std::string&> err_msg);
 

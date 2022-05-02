@@ -112,14 +112,18 @@ namespace cryptonote {
         target = DIFFICULTY_TARGET_V3;
       }
       
-	   const int target_minutes = target / 60;
 	   const int emission_speed_factor = get_emission_speed_factor(version);
 
 
      //Adds the burn amount to emission effectively burning the amount added.  
-     if (version > 10) {
+     if (version > 10 && version < 12) {
       already_generated_coins -= MINT_BRIDGE; //subtracts from already_generated_coins as we already burned ~10M
       already_generated_coins += BURN_1; //adds in the burn 
+     }
+
+     if (version > 11)
+     {
+       already_generated_coins += BURN_2;
      }
 
 	   uint64_t base_reward = (MONEY_SUPPLY - already_generated_coins) >> emission_speed_factor;

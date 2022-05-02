@@ -75,7 +75,6 @@ public: \
   { \
     decltype(*this) &this_ref = *this; \
     (void) this_ref; // Suppress unused var warnings. Sometimes this var is used, sometimes not.
-    
 #define KV_SERIALIZE_N(varialble, val_name) \
   epee::serialization::selector<is_store>::serialize(this_ref.varialble, stg, hparent_section, val_name);
 

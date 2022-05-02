@@ -243,7 +243,7 @@ namespace service_nodes
 		return unlock_time < CRYPTONOTE_MAX_BLOCK_NUMBER && unlock_time >= block_height + get_staking_requirement_lock_blocks(m_blockchain.nettype());
 	}
 
-	bool reg_tx_extract_fields(const cryptonote::transaction& tx, std::vector<cryptonote::account_public_address>& addresses, uint64_t& portions_for_operator, std::vector<uint64_t>& portions, uint64_t& expiration_timestamp, crypto::public_key& service_node_key, crypto::signature& signature, crypto::public_key& tx_pub_key)
+	bool reg_tx_extract_fields(const cryptonote::transaction& tx, std::vector<cryptonote::account_public_address>& addresses, uint64_t& portions_for_operator, uint64_t& portions_for_operator_no_fee, std::vector<uint64_t>& portions, uint64_t& expiration_timestamp, crypto::public_key& service_node_key, crypto::signature& signature, crypto::public_key& tx_pub_key)
 	{
 		cryptonote::tx_extra_service_node_register registration;
 		if (!get_service_node_register_from_tx_extra(tx.extra, registration))
@@ -257,6 +257,7 @@ namespace service_nodes
 			addresses.push_back(cryptonote::account_public_address{ registration.m_public_spend_keys[i], registration.m_public_view_keys[i] });
 
 		portions_for_operator = registration.m_portions_for_operator;
+		portions_for_operator_no_fee = registration.m_portions_for_operator_no_fee;
 		portions = registration.m_portions;
 		expiration_timestamp = registration.m_expiration_timestamp;
 		signature = registration.m_service_node_signature;
@@ -557,10 +558,11 @@ namespace service_nodes
 		std::vector<cryptonote::account_public_address> service_node_addresses;
 		std::vector<uint64_t> service_node_portions;
 		uint64_t portions_for_operator;
+		uint64_t portions_for_operator_no_fee;
 		uint64_t expiration_timestamp;
 		crypto::signature signature;
 
-		if (!reg_tx_extract_fields(tx, service_node_addresses, portions_for_operator, service_node_portions, expiration_timestamp, service_node_key, signature, tx_pub_key))
+		if (!reg_tx_extract_fields(tx, service_node_addresses, portions_for_operator, portions_for_operator_no_fee, service_node_portions, expiration_timestamp, service_node_key, signature, tx_pub_key))
 			return false;
 
 		if (service_node_portions.size() != service_node_addresses.size() || service_node_portions.empty())
@@ -572,10 +574,13 @@ namespace service_nodes
 		if (portions_for_operator > STAKING_PORTIONS)
 			return false;
 
+		if (portions_for_operator_no_fee > STAKING_PORTIONS)
+			return false;
+
 		// check the signature is all good
 
 		crypto::hash hash;
-		if (!get_registration_hash(service_node_addresses, portions_for_operator, service_node_portions, expiration_timestamp, hash))
+		if (!get_registration_hash(service_node_addresses, portions_for_operator, portions_for_operator_no_fee, service_node_portions, expiration_timestamp, hash))
 			return false;
 		if (!crypto::check_key(service_node_key) || !crypto::check_signature(hash, service_node_key, signature))
 			return false;
@@ -605,8 +610,10 @@ namespace service_nodes
 
 		key = service_node_key;
 
+
 		info.operator_address = service_node_addresses[0];
 		info.portions_for_operator = portions_for_operator;
+		info.portions_for_operator_no_fee = portions_for_operator_no_fee;
 		info.registration_height = block_height;
 		info.last_reward_block_height = block_height;
 		info.last_reward_transaction_index = index;
@@ -748,7 +755,7 @@ namespace service_nodes
 		
 	    rapidjson::Document d;
 
-		d.Parse(memo.data);
+		d.Parse(memo.data.c_str());
 
 		if(!d.IsObject())
 			return false;
@@ -1033,10 +1040,11 @@ namespace service_nodes
 		return expired_nodes;
 	}
 
-	std::vector<std::pair<cryptonote::account_public_address, uint64_t>> service_node_list::get_winner_addresses_and_portions(const crypto::hash& prev_id) const
+	std::vector<std::pair<cryptonote::account_public_address, uint64_t>> service_node_list::get_winner_addresses_and_portions(const crypto::hash& prev_id, const uint64_t height) const
 	{
 		std::lock_guard<boost::recursive_mutex> lock(m_sn_mutex);
 		crypto::public_key key = select_winner(prev_id);
+
 		if (key == crypto::null_pkey)
 			return { std::make_pair(null_address, STAKING_PORTIONS) };
 
@@ -1044,7 +1052,23 @@ namespace service_nodes
 
 		const service_node_info& info = m_service_nodes_infos.at(key);
 
-		const uint64_t remaining_portions = STAKING_PORTIONS - info.portions_for_operator;
+		int hard_fork_version = m_blockchain.get_hard_fork_version(height);
+
+		uint64_t operator_portions = info.portions_for_operator_no_fee;
+		if (info.total_contributed >= info.staking_requirement - (info.staking_requirement / 10))
+		{
+
+			operator_portions = info.portions_for_operator;
+
+		} else {
+			if (hard_fork_version < 12)
+			{
+				operator_portions = info.portions_for_operator;
+			}
+			operator_portions = info.portions_for_operator_no_fee;
+		}
+
+		const uint64_t remaining_portions = STAKING_PORTIONS - operator_portions;
 
 		// Add contributors and their portions to winners.
 		for (const auto& contributor : info.contributors)
@@ -1054,7 +1078,7 @@ namespace service_nodes
 			div128_64(hi, lo, info.staking_requirement, &resulthi, &resultlo);
 
 			if (contributor.address == info.operator_address)
-				resultlo += info.portions_for_operator;
+				resultlo += operator_portions;
 
 			winners.push_back(std::make_pair(contributor.address, resultlo));
 		}
@@ -1106,7 +1130,7 @@ namespace service_nodes
 			return false;
 		}
 
-		const std::vector<std::pair<cryptonote::account_public_address, uint64_t>> addresses_and_portions = get_winner_addresses_and_portions(prev_id);
+		const std::vector<std::pair<cryptonote::account_public_address, uint64_t>> addresses_and_portions = get_winner_addresses_and_portions(prev_id, height);
 
 		if (miner_tx.vout.size() - 1 < addresses_and_portions.size())\
 		{
@@ -1438,6 +1462,7 @@ namespace service_nodes
                                  std::vector<cryptonote::account_public_address>& addresses,
                                  std::vector<uint64_t>& portions,
                                  uint64_t& portions_for_operator,
+								 uint64_t& portions_for_operator_no_fee,
                                  bool& autostake,
                                  boost::optional<std::string&> err_msg)	{
 		autostake = false;
@@ -1450,9 +1475,9 @@ namespace service_nodes
 			args.erase(args.begin());
 		}
 
-		if (args.size() % 2 == 0 || args.size() < 3)
+		if (args.size() % 2 == 0 || args.size() < 4)
 		{
-			MERROR(tr("Usage: [auto] <operator cut> <address> <fraction> [<address> <fraction> [...]]]"));
+			MERROR(tr("Usage: [auto] <operator fee> <operator no fee> <address> <fraction> [<address> <fraction> [...]]]"));
 			return false;
 		}
 		if ((args.size()-1)/ 2 > MAX_NUMBER_OF_CONTRIBUTORS_V2)
@@ -1469,7 +1494,8 @@ namespace service_nodes
 		try
 		{
 			portions_for_operator = boost::lexical_cast<uint64_t>(args[0]);
-			if (portions_for_operator > STAKING_PORTIONS)
+			portions_for_operator_no_fee = boost::lexical_cast<uint64_t>(args[1]);
+			if (portions_for_operator > STAKING_PORTIONS || portions_for_operator_no_fee > STAKING_PORTIONS)
 			{
 				MERROR(tr("Invalid portion amount: ") << args[0] << tr(". ") << tr("Must be between 0 and ") << STAKING_PORTIONS);
 				return false;
@@ -1541,8 +1567,9 @@ namespace service_nodes
 		std::vector<cryptonote::account_public_address> addresses;
 		std::vector<uint64_t> portions;
 		uint64_t operator_portions;
+		uint64_t operator_portions_no_fee;
 		bool autostake;
-    	if (!convert_registration_args(nettype, args, addresses, portions, operator_portions, autostake, err_msg))
+    	if (!convert_registration_args(nettype, args, addresses, portions, operator_portions, operator_portions_no_fee, autostake, err_msg))
 		{
 			MERROR(tr("Could not convert registration args"));
 			return false;
@@ -1551,7 +1578,7 @@ namespace service_nodes
 		uint64_t exp_timestamp = time(nullptr) + (autostake ? STAKING_AUTHORIZATION_EXPIRATION_AUTOSTAKE : STAKING_AUTHORIZATION_EXPIRATION_WINDOW);
 
 		crypto::hash hash;
-		bool hashed = cryptonote::get_registration_hash(addresses, operator_portions, portions, exp_timestamp, hash);
+		bool hashed = cryptonote::get_registration_hash(addresses, operator_portions, operator_portions_no_fee, portions, exp_timestamp, hash);
 		if (!hashed)
 		{
 			MERROR(tr("Could not make registration hash from addresses and portions"));

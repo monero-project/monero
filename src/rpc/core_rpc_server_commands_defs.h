@@ -3184,6 +3184,7 @@ namespace cryptonote
 			  uint64_t                           total_reserved;
 			  uint64_t                           staking_requirement;
 			  uint64_t                           portions_for_operator;
+        uint64_t                           portions_for_operator_no_fee;
 			  std::string                        operator_address;
         bool                               is_pool;
 
@@ -3198,6 +3199,7 @@ namespace cryptonote
 				  KV_SERIALIZE(total_reserved)
 				  KV_SERIALIZE(staking_requirement)
 				  KV_SERIALIZE(portions_for_operator)
+          KV_SERIALIZE(portions_for_operator_no_fee)
 				  KV_SERIALIZE(operator_address)
           KV_SERIALIZE(is_pool)
 			  END_KV_SERIALIZE_MAP()

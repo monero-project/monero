@@ -1169,11 +1169,6 @@ namespace tools
       return false;
     }
 
-    // if (!cryptonote::add_eth_address_to_tx_extra(extra, req.swap_address)) {
-    //   er.message = "Failure to add eth address!";
-    //   return false;
-    // }
-
     // validate the transfer requested and populate dsts & extra
     if (!validate_swap(req.destinations, req.payment_id, dsts, extra, true, er))
     {

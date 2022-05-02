@@ -175,6 +175,9 @@ namespace cryptonote
       } else if(height == 663269)
       {
         return MINT_BRIDGE;
+      } else if(height == 800000)
+      {
+        return BURN_2;
       }
 
     }
@@ -353,9 +356,11 @@ namespace cryptonote
 			LOG_PRINT_L1("while creating outs:  derive_public_key(" << derivation << ", " << (1 + i) << ", " << service_node_info[i].first.m_spend_public_key << ")");
 			CHECK_AND_ASSERT_MES(r, false, "while creating outs: failed to derive_public_key(" << derivation << ", " << (1 + i) << ", " << service_node_info[i].first.m_spend_public_key << ")");
 
+
 			txout_to_key tk;
 			tk.key = out_eph_public_key;
 			tx_out out;
+
 			summary_amounts += out.amount = get_portion_of_reward(service_node_info[i].second, reward_parts.service_node_total);
 			out.target = tk;
 			tx.vout.push_back(out);
@@ -907,10 +912,8 @@ namespace cryptonote
     }
 
     try {
-    if (is_staking_tx)
+    if (is_staking_tx || is_swap_tx)
       add_tx_secret_key_to_tx_extra(extra, tx_key);
-    if (is_swap_tx)
-      add_tx_secret_key_to_tx_extra(extra, tx_key)
 
       bool r = construct_tx_with_tx_key(sender_account_keys, subaddresses, sources, destinations, change_addr, extra, tx, unlock_time, tx_key, additional_tx_keys, rct, rct_config, msout, true, per_output_unlock, is_swap_tx);
       hwdev.close_tx();

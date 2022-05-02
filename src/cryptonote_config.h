@@ -83,6 +83,7 @@ static_assert(STAKING_PORTIONS % 3 == 0, "Use a multiple of three, so that it di
 
 #define BURN_1                                          ((uint64_t)70000000000) // 7,000,000 XEQ BURN
 #define MINT_BRIDGE                                     ((uint64_t)167195840000) //16,719,584 XEQ MINT for Bridge
+#define BURN_2                                          ((uint64_t)40000000000) // 7,000,000 XEQ BURN
 
 
 

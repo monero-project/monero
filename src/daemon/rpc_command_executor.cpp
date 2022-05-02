@@ -2783,6 +2783,7 @@ bool t_rpc_command_executor::prepare_sn()
   uint64_t DUST = MAX_NUMBER_OF_CONTRIBUTORS;
   uint64_t min_portions = MIN_PORTIONS;
   uint64_t operating_cost_portions = STAKING_PORTIONS;
+  uint64_t operating_cost_portions_no_fee = STAKING_PORTIONS;
 
   if(hf_version >= 9)
   {
@@ -2840,6 +2841,14 @@ bool t_rpc_command_executor::prepare_sn()
       std::cout << "Invalid value: " << operating_cost_string << ". Should be between [0-100]" << std::endl;
       return true;
     }
+
+    
+    bool res2 = service_nodes::get_portions_from_percent_str("0", operating_cost_portions_no_fee);
+    if (!res2) {
+      std::cout << "Invalid value: " << "0" << ". Should be between [0-100]" << std::endl;
+      return true;
+    }
+
 
     const uint64_t min_contribution_portions = std::min(portions_remaining, MIN_PORTIONS);
 
@@ -3030,12 +3039,13 @@ bool t_rpc_command_executor::prepare_sn()
     return true;
   }
 
-  // [auto] <operator cut> <address> <fraction> [<address> <fraction> [...]]]
+  // [auto] <operator without fee> <operator with fee> <address> <fraction> [<address> <fraction> [...]]]
   std::vector<std::string> args;
 
   if (autostaking)
     args.push_back("auto");
 
+  args.push_back(std::to_string(operating_cost_portions_no_fee));
   args.push_back(std::to_string(operating_cost_portions));
 
   for (size_t i = 0; i < number_participants; ++i)
