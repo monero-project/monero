@@ -83,7 +83,11 @@ namespace cryptonote {
     return CRYPTONOTE_MAX_TX_SIZE;
   }
   int get_emission_speed_factor(uint8_t version){
-    if(version >= 6){
+    if(version >= 12)
+    {
+      return EMISSION_SPEED_FACTOR_PER_MINUTE + 1;
+    }
+    } else if(version >= 6 && version < 12){
       return EMISSION_SPEED_FACTOR_PER_MINUTE + 2;
     }else{
       return EMISSION_SPEED_FACTOR_PER_MINUTE;
