@@ -5,47 +5,13 @@ $(package)_download_file=$($(package)_version).tar.gz
 $(package)_file_name=$(package)-$($(package)_version).tar.gz
 $(package)_sha256_hash=70a7189418c2086d20c299c5d59250cf5940782c778892ccc899c66516ed240e
 $(package)_build_subdir=cctools
-$(package)_clang_version=3.7.1
-$(package)_clang_download_path=http://llvm.org/releases/$($(package)_clang_version)
-$(package)_clang_download_file=clang+llvm-$($(package)_clang_version)-x86_64-linux-gnu-ubuntu-14.04.tar.xz
-$(package)_clang_file_name=clang-llvm-$($(package)_clang_version)-x86_64-linux-gnu-ubuntu-14.04.tar.xz
-$(package)_clang_sha256_hash=99b28a6b48e793705228a390471991386daa33a9717cd9ca007fcdde69608fd9
-$(package)_extra_sources=$($(package)_clang_file_name)
-$(package)_patches=skip_otool.patch
-$(package)_dependencies=native_libtapi
-
-define $(package)_fetch_cmds
-$(call fetch_file,$(package),$($(package)_download_path),$($(package)_download_file),$($(package)_file_name),$($(package)_sha256_hash)) && \
-$(call fetch_file,$(package),$($(package)_clang_download_path),$($(package)_clang_download_file),$($(package)_clang_file_name),$($(package)_clang_sha256_hash))
-endef
-
-define $(package)_extract_cmds
-  mkdir -p $($(package)_extract_dir) && \
-  echo "$($(package)_sha256_hash)  $($(package)_source)" > $($(package)_extract_dir)/.$($(package)_file_name).hash && \
-  echo "$($(package)_clang_sha256_hash)  $($(package)_source_dir)/$($(package)_clang_file_name)" >> $($(package)_extract_dir)/.$($(package)_file_name).hash && \
-  $(build_SHA256SUM) -c $($(package)_extract_dir)/.$($(package)_file_name).hash && \
-  mkdir -p toolchain/bin toolchain/lib/clang/3.5/include && \
-  tar --strip-components=1 -C toolchain -xf $($(package)_source_dir)/$($(package)_clang_file_name) && \
-  rm -f toolchain/lib/libc++abi.so* && \
-  echo "#!/bin/sh" > toolchain/bin/$(host)-dsymutil && \
-  echo "exit 0" >> toolchain/bin/$(host)-dsymutil && \
-  chmod +x toolchain/bin/$(host)-dsymutil && \
-  tar --strip-components=1 -xf $($(package)_source)
-endef
+$(package)_dependencies=native_clang native_libtapi
 
 define $(package)_set_vars
 $(package)_config_opts=--target=$(host) --disable-lto-support --with-libtapi=$(host_prefix)
 $(package)_ldflags+=-Wl,-rpath=\\$$$$$$$$\$$$$$$$$ORIGIN/../lib
-$(package)_cc=$($(package)_extract_dir)/toolchain/bin/clang
-$(package)_cxx=$($(package)_extract_dir)/toolchain/bin/clang++
-endef
-
-# If clang gets updated to a version with a fix for https://reviews.llvm.org/D50559
-# then the patch that skips otool can be removed.
-define $(package)_preprocess_cmds
-  patch -p0 < $($(package)_patch_dir)/skip_otool.patch && \
-  cd $($(package)_build_subdir); ./autogen.sh && \
-  sed -i.old "/define HAVE_PTHREADS/d" ld64/src/ld/InputFiles.h
+$(package)_cc=$(host_prefix)/native/bin/clang
+$(package)_cxx=$(host_prefix)/native/bin/clang++
 endef
 
 define $(package)_config_cmds
@@ -58,15 +24,5 @@ endef
 
 define $(package)_stage_cmds
   $(MAKE) DESTDIR=$($(package)_staging_dir) install && \
-  cp $($(package)_extract_dir)/cctools/misc/install_name_tool $($(package)_staging_prefix_dir)/bin/ &&\
-  cd $($(package)_extract_dir)/toolchain && \
-  mkdir -p $($(package)_staging_prefix_dir)/lib/clang/$($(package)_clang_version)/include && \
-  mkdir -p $($(package)_staging_prefix_dir)/bin $($(package)_staging_prefix_dir)/include && \
-  cp bin/clang $($(package)_staging_prefix_dir)/bin/ &&\
-  cp -P bin/clang++ $($(package)_staging_prefix_dir)/bin/ &&\
-  cp lib/libLTO.so $($(package)_staging_prefix_dir)/lib/ && \
-  cp -rf lib/clang/$($(package)_clang_version)/include/* $($(package)_staging_prefix_dir)/lib/clang/$($(package)_clang_version)/include/ && \
-  cp bin/llvm-dsymutil $($(package)_staging_prefix_dir)/bin/$(host)-dsymutil && \
-  if `test -d include/c++/`; then cp -rf include/c++/ $($(package)_staging_prefix_dir)/include/; fi && \
-  if `test -d lib/c++/`; then cp -rf lib/c++/ $($(package)_staging_prefix_dir)/lib/; fi
+  cp $($(package)_extract_dir)/cctools/misc/install_name_tool $($(package)_staging_prefix_dir)/bin/
 endef
