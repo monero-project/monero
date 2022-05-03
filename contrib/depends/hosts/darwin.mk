@@ -1,7 +1,7 @@
 OSX_MIN_VERSION=10.8
 OSX_SDK_VERSION=11.1
 OSX_SDK=$(SDK_PATH)/MacOSX$(OSX_SDK_VERSION).sdk
-LD64_VERSION=253.9
+LD64_VERSION=609
 ifeq (aarch64, $(host_arch))
 CC_target=arm64-apple-darwin11
 else
