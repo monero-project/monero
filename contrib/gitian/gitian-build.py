@@ -162,7 +162,7 @@ def main():
 
     # Disable MacOS build if no SDK found
     args.nomac = False
-    if 'm' in args.os and not os.path.isfile('builder/inputs/MacOSX10.11.sdk.tar.gz'):
+    if 'm' in args.os and not os.path.isfile('builder/inputs/MacOSX11.1.sdk.tar.xz'):
         if args.build:
             print('Cannot build for MacOS, SDK does not exist. Will build for other OSes')
             args.nomac = True

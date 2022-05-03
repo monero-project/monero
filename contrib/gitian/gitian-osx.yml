@@ -27,10 +27,10 @@ remotes:
 - "url": "https://github.com/monero-project/monero.git"
   "dir": "monero"
 files:
-- "MacOSX10.11.sdk.tar.gz"
+- "MacOSX11.1.sdk.tar.xz"
 script: |
   WRAP_DIR=$HOME/wrapped
-  HOSTS="x86_64-apple-darwin11"
+  HOSTS="x86_64-apple-darwin11 aarch64-apple-darwin11"
   FAKETIME_HOST_PROGS=""
   FAKETIME_PROGS="ar ranlib date dmg genisoimage python"
 
@@ -89,7 +89,7 @@ script: |
   BASEPREFIX=`pwd`/contrib/depends
 
   mkdir -p ${BASEPREFIX}/SDKs
-  tar -C ${BASEPREFIX}/SDKs -xf ${BUILD_DIR}/MacOSX10.11.sdk.tar.gz
+  tar -C ${BASEPREFIX}/SDKs -xf ${BUILD_DIR}/MacOSX11.1.sdk.tar.xz
 
   # Build dependencies for each host
   export TAR_OPTIONS=--mtime=2000-01-01T12:00:00
