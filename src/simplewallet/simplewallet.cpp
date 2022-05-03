@@ -6732,12 +6732,12 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
           for (uint32_t i : ptx_vector[n].construction_data.subaddr_indices)
             subaddr_indices.insert(i);
           for (uint32_t i : subaddr_indices)
-            if(!transferType == txType::Swap || !transferType == txType::Burn)
+            if(transferType != txType::Swap || transferType != txType::Burn)
               prompt << boost::format(tr("Spending from address index %d\n")) % i;
           if (subaddr_indices.size() > 1)
             prompt << tr("WARNING: Outputs of multiple addresses are being used together, which might potentially compromise your privacy.\n");
         }
-        if(!transferType == txType::Swap || !transferType == txType::Burn)
+        if(transferType != txType::Swap || transferType != txType::Burn)
           prompt << boost::format(tr("Sending %s.  ")) % print_money(total_sent);
         if (ptx_vector.size() > 1)
         {
@@ -7237,7 +7237,6 @@ bool simple_wallet::register_service_node(const std::vector<std::string> &args_)
 	std::vector<cryptonote::account_public_address> addresses;
 	std::vector<uint64_t> portions;
 	uint64_t portions_for_operator;
-  uint64_t portions_for_operator_no_fee;
 	bool autostake;
   std::string err_msg;
   if (!service_nodes::convert_registration_args(m_wallet->nettype(), address_portions_args, addresses, portions, portions_for_operator, autostake, err_msg))
@@ -7291,7 +7290,7 @@ bool simple_wallet::register_service_node(const std::vector<std::string> &args_)
 
 	add_service_node_pubkey_to_tx_extra(extra, service_node_key);
 
-	if (!add_service_node_register_to_tx_extra(extra, addresses, portions_for_operator, portions_for_operator_no_fee, portions, expiration_timestamp, signature))
+	if (!add_service_node_register_to_tx_extra(extra, addresses, portions_for_operator, portions, expiration_timestamp, signature))
 	{
 		fail_msg_writer() << tr("failed to serialize service node registration tx extra");
 		return true;

@@ -839,7 +839,6 @@ void add_tx_secret_key_to_tx_extra(std::vector<uint8_t>& tx_extra, const crypto:
     std::vector<uint8_t>& tx_extra,
     const std::vector<cryptonote::account_public_address>& addresses,
     uint64_t portions_for_operator,
-    uint64_t portions_for_operator_no_fee,
     const std::vector<uint64_t>& portions,
     uint64_t expiration_timestamp,
     const crypto::signature& service_node_signature)
@@ -857,13 +856,13 @@ void add_tx_secret_key_to_tx_extra(std::vector<uint8_t>& tx_extra, const crypto:
       public_view_keys[i] = addresses[i].m_view_public_key;
       public_spend_keys[i] = addresses[i].m_spend_public_key;
     }
+
     // convert to variant
     tx_extra_field field =
       tx_extra_service_node_register{
         public_spend_keys,
         public_view_keys,
 		    portions_for_operator,
-        portions_for_operator_no_fee,
         portions,
         expiration_timestamp,
         service_node_signature
@@ -1513,7 +1512,7 @@ void add_tx_secret_key_to_tx_extra(std::vector<uint8_t>& tx_extra, const crypto:
     return true;
   }
   //---------------------------------------------------------------
-  bool get_registration_hash(const std::vector<cryptonote::account_public_address>& addresses, uint64_t  operator_portions, uint64_t  operator_portions_no_fee, const std::vector<uint64_t >& portions, uint64_t expiration_timestamp, crypto::hash& hash)
+  bool get_registration_hash(const std::vector<cryptonote::account_public_address>& addresses, uint64_t  operator_portions, const std::vector<uint64_t >& portions, uint64_t expiration_timestamp, crypto::hash& hash)
 {
   if (addresses.size() != portions.size())
   {
@@ -1535,9 +1534,6 @@ void add_tx_secret_key_to_tx_extra(std::vector<uint8_t>& tx_extra, const crypto:
   char* buffer_iter = buffer;
   memcpy(buffer_iter, &operator_portions, sizeof(operator_portions));
   buffer_iter += sizeof(operator_portions);
-
-  memcpy(buffer_iter, &operator_portions_no_fee, sizeof(operator_portions_no_fee));
-  buffer_iter += sizeof(operator_portions_no_fee);
 
   for (size_t i = 0; i < addresses.size(); i++)
   {

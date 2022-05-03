@@ -3044,7 +3044,6 @@ bool t_rpc_command_executor::prepare_sn()
   if (autostaking)
     args.push_back("auto");
 
-  args.push_back(std::to_string(operating_cost_portions_no_fee));
   args.push_back(std::to_string(operating_cost_portions));
 
   for (size_t i = 0; i < number_participants; ++i)

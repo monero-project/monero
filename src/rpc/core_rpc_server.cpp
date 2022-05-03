@@ -1129,6 +1129,8 @@ namespace cryptonote
       for (size_t i = 0; i < (req.heights[1] - req.heights[0]) + 1; i++)
       {
         block blk;
+		bool orphan = false;
+		crypto::hash block_hash = m_core.get_block_id_by_height(req.heights[0]+i);
 
         for(auto& btxs: blk.tx_hashes)
           vh.push_back(btxs);
@@ -1142,6 +1144,8 @@ namespace cryptonote
       for (size_t i = 0; i < req.heights.size(); i++)
       {
         block blk;
+        bool orphan = false;
+        crypto::hash block_hash = m_core.get_block_id_by_height(req.heights[i]);
     
         for(auto& btxs: blk.tx_hashes)
           vh.push_back(btxs);
@@ -3474,7 +3478,6 @@ namespace cryptonote
 		  entry.total_reserved = pubkey_info.info.total_reserved;
 		  entry.staking_requirement = pubkey_info.info.staking_requirement;
 		  entry.portions_for_operator = pubkey_info.info.portions_for_operator;
-      entry.portions_for_operator_no_fee = pubkey_info.info.portions_for_operator_no_fee;
 		  entry.operator_address = cryptonote::get_account_address_as_str(nettype(), false/*is_subaddress*/, pubkey_info.info.operator_address);
 
 		  res.service_node_states.push_back(entry);
