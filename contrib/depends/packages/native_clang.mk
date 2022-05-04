@@ -1,9 +1,9 @@
 package=native_clang
-$(package)_version=3.7.1
-$(package)_download_path=http://llvm.org/releases/$($(package)_version)
-$(package)_download_file=clang+llvm-$($(package)_version)-x86_64-linux-gnu-ubuntu-14.04.tar.xz
-$(package)_file_name=clang-llvm-$($(package)_version)-x86_64-linux-gnu-ubuntu-14.04.tar.xz
-$(package)_sha256_hash=99b28a6b48e793705228a390471991386daa33a9717cd9ca007fcdde69608fd9
+$(package)_version=9.0.0
+$(package)_download_path=https://releases.llvm.org/$($(package)_version)
+$(package)_download_file=clang+llvm-$($(package)_version)-x86_64-linux-gnu-ubuntu-18.04.tar.xz
+$(package)_file_name=clang-llvm-$($(package)_version)-x86_64-linux-gnu-ubuntu-18.04.tar.xz
+$(package)_sha256_hash=a23b082b30c128c9831dbdd96edad26b43f56624d0ad0ea9edec506f5385038d
 
 define $(package)_extract_cmds
   echo $($(package)_sha256_hash) $($(package)_source) | sha256sum -c &&\
@@ -23,7 +23,7 @@ define $(package)_stage_cmds
   cp -P bin/clang++ $($(package)_staging_prefix_dir)/bin/ &&\
   cp lib/libLTO.so $($(package)_staging_prefix_dir)/lib/ && \
   cp -rf lib/clang/$($(package)_version)/include/* $($(package)_staging_prefix_dir)/lib/clang/$($(package)_version)/include/ && \
-  cp bin/llvm-dsymutil $($(package)_staging_prefix_dir)/bin/$(host)-dsymutil && \
+  cp bin/dsymutil $($(package)_staging_prefix_dir)/bin/$(host)-dsymutil && \
   if `test -d include/c++/`; then cp -rf include/c++/ $($(package)_staging_prefix_dir)/include/; fi && \
   if `test -d lib/c++/`; then cp -rf lib/c++/ $($(package)_staging_prefix_dir)/lib/; fi
 endef
