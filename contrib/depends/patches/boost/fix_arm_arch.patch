@@ -1,0 +1,11 @@
+--- boost_1_64_0/tools/build/src/tools/darwin.jam.O	2017-04-17 03:22:26.000000000 +0100
++++ boost_1_64_0/tools/build/src/tools/darwin.jam	2022-05-04 17:26:29.984464447 +0000
+@@ -505,7 +505,7 @@
+             if $(instruction-set) {
+                 options = -arch$(_)$(instruction-set) ;
+             } else {
+-                options = -arch arm ;
++#                options = -arch arm ;
+             }
+         }
+     }
