@@ -2362,7 +2362,11 @@ static void print_service_node_list_state(cryptonote::network_type nettype, int 
 		const cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry &entry = *list[i];
 
 		bool is_registered = entry.total_contributed >= entry.total_reserved;
-		epee::console_colors color = is_registered ? console_color_green : epee::console_color_yellow;
+
+    bool is_rewardable = ((entry.portions_for_operator != STAKING_PORTIONS && entry.contributors.size() > 1) || hard_fork_version < 12 || entry.total_contributed == entry.staking_requirement);
+
+
+		epee::console_colors color = is_registered && is_rewardable ? console_color_green : epee::console_color_yellow;
     
 		// Print Funding Status
 		{

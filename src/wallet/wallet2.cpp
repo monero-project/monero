@@ -7890,9 +7890,7 @@ std::vector<wallet2::pending_tx> wallet2::create_stake_tx(const crypto::public_k
     return {};
   }
 
-  const auto v11 = use_fork_rules(11, 10) ? true : false;
-
-  uint64_t unlock_at_block = bc_height + locked_blocks;
+  uint64_t unlock_at_block = use_fork_rules(12, 0) reg_height + locked_blocks : bc_height + locked_blocks;
 
   const uint32_t priority = adjust_priority(0);
 

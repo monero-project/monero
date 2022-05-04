@@ -557,24 +557,28 @@ namespace service_nodes
 		std::vector<cryptonote::account_public_address> service_node_addresses;
 		std::vector<uint64_t> service_node_portions;
 		uint64_t portions_for_operator;
-		uint64_t portions_for_operator_no_fee;
 		uint64_t expiration_timestamp;
 		crypto::signature signature;
 
-		if (!reg_tx_extract_fields(tx, service_node_addresses, portions_for_operator, service_node_portions, expiration_timestamp, service_node_key, signature, tx_pub_key))
+		if (!reg_tx_extract_fields(tx, service_node_addresses, portions_for_operator, service_node_portions, expiration_timestamp, service_node_key, signature, tx_pub_key)) {
+			std::cout << "Reg TX False" << std::endl;
 			return false;
+		}
 
-		if (service_node_portions.size() != service_node_addresses.size() || service_node_portions.empty())
+		if (service_node_portions.size() != service_node_addresses.size() || service_node_portions.empty()) {
+			std::cout << "sizing" << std::endl;
 			return false;
-
+		}
 		// check the portions
-		if (!check_service_node_portions(service_node_portions)) return false;
-
-		if (portions_for_operator > STAKING_PORTIONS)
+		if (!check_service_node_portions(service_node_portions)) {
+			std::cout << "check_service_node_portions" << std::endl;
 			return false;
+		}
 
-		if (portions_for_operator_no_fee > STAKING_PORTIONS)
+		if (portions_for_operator > STAKING_PORTIONS){
+			std::cout << "portions_for_operator" << std::endl;
 			return false;
+		}
 
 		if (!service_nodes::get_portions_from_percent_str("0", portions_for_operator_no_fee))
 		{
@@ -588,12 +592,18 @@ namespace service_nodes
 		// check the signature is all good
 
 		crypto::hash hash;
-		if (!get_registration_hash(service_node_addresses, portions_for_operator, service_node_portions, expiration_timestamp, hash))
+		if (!get_registration_hash(service_node_addresses, portions_for_operator, service_node_portions, expiration_timestamp, hash)) {
+			std::cout << "get_registration_hash" << std::endl;
 			return false;
-		if (!crypto::check_key(service_node_key) || !crypto::check_signature(hash, service_node_key, signature))
+		}
+		if (!crypto::check_key(service_node_key) || !crypto::check_signature(hash, service_node_key, signature)) {
+			std::cout << "check_key" << std::endl;
 			return false;
-		if (expiration_timestamp < block_timestamp)
+		}
+		if (expiration_timestamp < block_timestamp) {
+			std::cout << "expiration_timestamp" << std::endl;
 			return false;
+		}
 
 		// check the initial contribution exists
 		const auto hf_version = m_blockchain.get_hard_fork_version(block_height);
@@ -618,10 +628,9 @@ namespace service_nodes
 
 		key = service_node_key;
 
-
 		info.operator_address = service_node_addresses[0];
 		info.portions_for_operator = portions_for_operator;
-		info.portions_for_operator_no_fee = portions_for_operator_no_fee;
+		info.portions_for_operator_no_fee = 0;
 		info.registration_height = block_height;
 		info.last_reward_block_height = block_height;
 		info.last_reward_transaction_index = index;
@@ -656,8 +665,14 @@ namespace service_nodes
 	{
 		crypto::public_key key;
 		service_node_info info = {};
+		std::cout << "Hello" << std::endl;
 		if (!is_registration_tx(tx, block_timestamp, block_height, index, key, info))
+		{
+			std::cout << "Is Not Reg" << std::endl;
 			return false;
+		}
+
+		std::cout << "Is Reg" << std::endl;
 
 		// NOTE: A node doesn't expire until registration_height + lock blocks excess now which acts as the grace period
 		// So it is possible to find the node still in our list.
@@ -736,6 +751,10 @@ namespace service_nodes
 		cryptonote::account_public_address address;
 		uint64_t transferred;
 		std::string swap_amount;
+		cryptonote::tx_extra_memo memo;
+
+		if(!get_memo_from_tx_extra(tx.extra, memo))
+			return false;
 
 		crypto::secret_key tx_key;
 
@@ -754,11 +773,6 @@ namespace service_nodes
 			if (contribution_tx_output_has_correct_unlock_time(tx, i, block_height))
 				transferred += get_reg_tx_staking_output_contribution(tx, i, derivation, hwdev);
 		}
-
-		cryptonote::tx_extra_memo memo;
-
-		if(!get_memo_from_tx_extra(tx.extra, memo))
-			return false;
 		
 	    rapidjson::Document d;
 
@@ -797,7 +811,7 @@ namespace service_nodes
 		service_node_info& info = iter->second;
 		const auto hf_version = m_blockchain.get_hard_fork_version(block_height);
 
-		uint64_t block_for_unlock = hf_version >= 12 ? info.registration_height : block_height;
+		const uint64_t block_for_unlock = hf_version >= 12 ? info.registration_height : block_height;
 
 		if (!get_contribution(tx, block_for_unlock, address, transferred))
 			return;
@@ -1058,15 +1072,19 @@ namespace service_nodes
 
 		int hard_fork_version = m_blockchain.get_hard_fork_version(height);
 
-		uint64_t operator_portions = info.portions_for_operator_no_fee;
 
-		if (info.total_contributed >= info.staking_requirement - (info.staking_requirement / 10))
+		uint64_t operator_portions = info.portions_for_operator;
+
+		bool threshold_met = info.total_contributed >= info.staking_requirement - (info.staking_requirement / 10) && info.contributors.size() > 1;
+
+		if(hard_fork_version >= 12)
 		{
-			operator_portions = info.portions_for_operator;
-		} else {
-			if (hard_fork_version < 12)
+			if (threshold_met)
 			{
 				operator_portions = info.portions_for_operator;
+			} else {
+		
+				operator_portions = 0;
 			}
 		}
 
@@ -1095,9 +1113,12 @@ namespace service_nodes
 		std::lock_guard<boost::recursive_mutex> lock(m_sn_mutex);
 		auto oldest_waiting = std::pair<uint64_t, uint32_t>(std::numeric_limits<uint64_t>::max(), std::numeric_limits<uint32_t>::max());
 		crypto::public_key key = crypto::null_pkey;
+
 		for (const auto& info : m_service_nodes_infos)
 		{
-			if (((info.second.is_valid() && hard_fork_version > 9) || info.second.is_fully_funded()) && ((info.second.operator_portions != STAKING_PORTIONS && info.second.contributors.length() > 1) || hard_fork_version < 12))
+			bool threshold_met = ((info.second.portions_for_operator != STAKING_PORTIONS && info.second.contributors.size() >= 1) || hard_fork_version < 12 || (info.second.portions_for_operator == STAKING_PORTIONS && info.second.contributors.size() == 1 && info.second.is_fully_funded()));
+
+			if (((info.second.is_valid() && hard_fork_version > 9) || info.second.is_fully_funded()) && threshold_met)
 			{
 				auto waiting_since = std::make_pair(info.second.last_reward_block_height, info.second.last_reward_transaction_index);
 				if (waiting_since < oldest_waiting)
@@ -1476,9 +1497,9 @@ namespace service_nodes
 			args.erase(args.begin());
 		}
 
-		if (args.size() % 2 == 0 || args.size() < 4)
+		if (args.size() % 2 == 0 || args.size() < 3)
 		{
-			MERROR(tr("Usage: [auto] <operator fee> <operator no fee> <address> <fraction> [<address> <fraction> [...]]]"));
+			MERROR(tr("Usage: [auto] <operator fee> <address> <fraction> [<address> <fraction> [...]]]"));
 			return false;
 		}
 		if ((args.size()-1)/ 2 > MAX_NUMBER_OF_CONTRIBUTORS_V2)
@@ -1495,7 +1516,7 @@ namespace service_nodes
 		try
 		{
 			portions_for_operator = boost::lexical_cast<uint64_t>(args[0]);
-			if (portions_for_operator > STAKING_PORTIONS > STAKING_PORTIONS)
+			if (portions_for_operator > STAKING_PORTIONS)
 			{
 				MERROR(tr("Invalid portion amount: ") << args[0] << tr(". ") << tr("Must be between 0 and ") << STAKING_PORTIONS);
 				return false;
