@@ -2,7 +2,6 @@
 
 SOURCES_PATH ?= $(BASEDIR)/sources
 BASE_CACHE ?= $(BASEDIR)/built
-SDK_PATH ?= $(BASEDIR)/SDKs
 FALLBACK_DOWNLOAD_PATH ?= https://downloads.getmonero.org/depends-sources
 
 BUILD = $(shell ./config.guess)
@@ -185,7 +184,6 @@ $(host_prefix)/share/toolchain.cmake : toolchain.cmake.in $(host_prefix)/.stamp_
             -e 's|@build_tests@|$(build_tests)|' \
             -e 's|@depends@|$(host_cmake)|' \
             -e 's|@prefix@|$($(host_arch)_$(host_os)_prefix)|'\
-            -e 's|@sdk@|$(SDK_PATH)|'\
             -e 's|@arch@|$(host_arch)|'\
             $< > $@
 	$(AT)touch $@

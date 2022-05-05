@@ -165,15 +165,6 @@ popd
 Build the binaries
 ------------------
 
-**Note:** if you intend to build MacOS binaries, please follow [these instructions](https://github.com/bitcoin-core/docs/blob/master/gitian-building/gitian-building-mac-os-sdk.md) to get the required SDK.
-
-Currently working MacOS solution:
-
-```bash
-curl -O https://bitcoincore.org/depends-sources/sdks/MacOSX10.11.sdk.tar.gz
-mv MacOSX10.11.sdk.tar.gz builder/inputs
-```
-
 To build the most recent tag (pass in `--docker` if using docker):
 
 ```bash
