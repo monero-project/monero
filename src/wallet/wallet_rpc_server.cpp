@@ -330,6 +330,13 @@ namespace tools
       return false;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::not_connected(epee::json_rpc::error& er)
+  {
+      er.code = WALLET_RPC_ERROR_CODE_NO_DAEMON_CONNECTION;
+      er.message = "No connection to daemon";
+      return false;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
   void wallet_rpc_server::fill_transfer_entry(tools::wallet_rpc::transfer_entry &entry, const crypto::hash &txid, const crypto::hash &payment_id, const tools::wallet2::payment_details &pd)
   {
     entry.txid = string_tools::pod_to_hex(pd.m_tx_hash);
@@ -4390,6 +4397,8 @@ namespace tools
       er.message = std::string("Unable to set daemon");
       return false;
     }
+    uint32_t version = 0;
+    if (req.check_connection && !m_wallet->check_connection(&version)) return not_connected(er);
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------

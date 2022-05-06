@@ -47,7 +47,7 @@
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define WALLET_RPC_VERSION_MAJOR 1
-#define WALLET_RPC_VERSION_MINOR 24
+#define WALLET_RPC_VERSION_MINOR 25
 #define MAKE_WALLET_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define WALLET_RPC_VERSION MAKE_WALLET_RPC_VERSION(WALLET_RPC_VERSION_MAJOR, WALLET_RPC_VERSION_MINOR)
 namespace tools
@@ -2666,6 +2666,7 @@ namespace wallet_rpc
       std::string ssl_ca_file;
       std::vector<std::string> ssl_allowed_fingerprints;
       bool ssl_allow_any_cert;
+      bool check_connection;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(address)
@@ -2678,6 +2679,7 @@ namespace wallet_rpc
         KV_SERIALIZE(ssl_ca_file)
         KV_SERIALIZE(ssl_allowed_fingerprints)
         KV_SERIALIZE_OPT(ssl_allow_any_cert, false)
+        KV_SERIALIZE_OPT(check_connection, false)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
