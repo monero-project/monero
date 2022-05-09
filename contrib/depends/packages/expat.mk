@@ -11,7 +11,7 @@ $(package)_config_opts+=--prefix=$(host_prefix)
 endef
 
 define $(package)_config_cmds
-  $($(package)_autoconf) $($(package)_config_opts)
+  $($(package)_autoconf)
 endef
 
 define $(package)_build_cmds

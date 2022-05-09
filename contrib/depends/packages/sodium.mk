@@ -8,15 +8,16 @@ $(package)_patches=disable-glibc-getrandom-getentropy.patch fix-whitespace.patch
 define $(package)_set_vars
 $(package)_config_opts=--enable-static --disable-shared
 $(package)_config_opts+=--prefix=$(host_prefix)
-$(package)_config_opts_android=RANLIB=$($(package)_ranlib) AR=$($(package)_ar) CC=$($(package)_cc)
-$(package)_config_opts_darwin=RANLIB="$(host_prefix)/native/bin/$(host)-ranlib" AR="$(host_prefix)/native/bin/$(host)-ar" CC="$(host_prefix)/native/bin/$($(package)_cc)"
+endef
+
+define $(package)_preprocess_cmds
+  patch -p1 < $($(package)_patch_dir)/disable-glibc-getrandom-getentropy.patch &&\
+  autoconf &&\
+  patch -p1 < $($(package)_patch_dir)/fix-whitespace.patch
 endef
 
 define $(package)_config_cmds
-  patch -p1 < $($(package)_patch_dir)/disable-glibc-getrandom-getentropy.patch &&\
-  ./autogen.sh &&\
-  patch -p1 < $($(package)_patch_dir)/fix-whitespace.patch &&\
-  $($(package)_autoconf) $($(package)_config_opts) AR_FLAGS=$($(package)_arflags)
+  $($(package)_autoconf) AR_FLAGS=$($(package)_arflags)
 endef
 
 define $(package)_build_cmds

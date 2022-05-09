@@ -9,7 +9,6 @@ $(package)_patches=missing_win_include.patch
 define $(package)_set_vars
 $(package)_config_opts=--enable-static --disable-shared
 $(package)_config_opts+=--prefix=$(host_prefix)
-$(package)_config_opts_darwin+=RANLIB="$(host_prefix)/native/bin/$(host)-ranlib" AR="$(host_prefix)/native/bin/$(host)-ar" CC="$(host_prefix)/native/bin/$($(package)_cc)"
 $(package)_config_opts_linux+=libudev_LIBS="-L$(host_prefix)/lib -ludev"
 $(package)_config_opts_linux+=libudev_CFLAGS=-I$(host_prefix)/include
 $(package)_config_opts_linux+=libusb_LIBS="-L$(host_prefix)/lib -lusb-1.0"
@@ -18,12 +17,11 @@ $(package)_config_opts_linux+=--with-pic
 endef
 
 define $(package)_preprocess_cmds
-  patch -p1 < $($(package)_patch_dir)/missing_win_include.patch
+  patch -p1 < $($(package)_patch_dir)/missing_win_include.patch && ./bootstrap
 endef
 
 define $(package)_config_cmds
-  ./bootstrap &&\
-  $($(package)_autoconf) $($(package)_config_opts) AR_FLAGS=$($(package)_arflags)
+  $($(package)_autoconf) AR_FLAGS=$($(package)_arflags)
 endef
 
 define $(package)_build_cmds

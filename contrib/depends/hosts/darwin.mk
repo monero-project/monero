@@ -1,7 +1,7 @@
 OSX_MIN_VERSION=10.8
 LD64_VERSION=609
 ifeq (aarch64, $(host_arch))
-CC_target=arm64-apple-darwin11
+CC_target=arm64-apple-$(host_os)
 else
 CC_target=$(host)
 endif
