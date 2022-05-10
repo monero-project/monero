@@ -85,7 +85,6 @@ using namespace epee;
 #include <boost/algorithm/string.hpp>
 #include <boost/asio.hpp>
 #include <boost/format.hpp>
-#include <openssl/sha.h>
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "util"
@@ -937,50 +936,6 @@ std::string get_nix_version_display_string()
         return n;
     }
     return 0;
-  }
-
-  bool sha256sum(const uint8_t *data, size_t len, crypto::hash &hash)
-  {
-    SHA256_CTX ctx;
-    if (!SHA256_Init(&ctx))
-      return false;
-    if (!SHA256_Update(&ctx, data, len))
-      return false;
-    if (!SHA256_Final((unsigned char*)hash.data, &ctx))
-      return false;
-    return true;
-  }
-
-  bool sha256sum(const std::string &filename, crypto::hash &hash)
-  {
-    if (!epee::file_io_utils::is_file_exist(filename))
-      return false;
-    std::ifstream f;
-    f.exceptions(std::ifstream::failbit | std::ifstream::badbit);
-    f.open(filename, std::ios_base::binary | std::ios_base::in | std::ios::ate);
-    if (!f)
-      return false;
-    std::ifstream::pos_type file_size = f.tellg();
-    SHA256_CTX ctx;
-    if (!SHA256_Init(&ctx))
-      return false;
-    size_t size_left = file_size;
-    f.seekg(0, std::ios::beg);
-    while (size_left)
-    {
-      char buf[4096];
-      std::ifstream::pos_type read_size = size_left > sizeof(buf) ? sizeof(buf) : size_left;
-      f.read(buf, read_size);
-      if (!f || !f.good())
-        return false;
-      if (!SHA256_Update(&ctx, buf, read_size))
-        return false;
-      size_left -= read_size;
-    }
-    f.close();
-    if (!SHA256_Final((unsigned char*)hash.data, &ctx))
-      return false;
-    return true;
   }
 
   boost::optional<std::pair<uint32_t, uint32_t>> parse_subaddress_lookahead(const std::string& str)

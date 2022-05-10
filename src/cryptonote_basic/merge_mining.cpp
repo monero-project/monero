@@ -31,6 +31,7 @@
 #include "misc_log_ex.h"
 #include "int-util.h"
 #include "crypto/crypto.h"
+#include "crypto/sha256sum.h"
 #include "common/util.h"
 #include "merge_mining.h"
 

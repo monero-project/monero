@@ -51,6 +51,7 @@
 #include "common/boost_serialization_helper.h"
 #include "warnings.h"
 #include "crypto/hash.h"
+#include "crypto/sha256sum.h"
 #include "cryptonote_core.h"
 #include "ringct/rctSigs.h"
 #include "common/perf_timer.h"
