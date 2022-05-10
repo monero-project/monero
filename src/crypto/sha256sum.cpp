@@ -50,9 +50,7 @@ namespace tools
 		}
 
 		// Open file for reading in binary mode, immediately putting the cursor at the end
-		std::ifstream f;
-		f.exceptions(std::ifstream::failbit | std::ifstream::badbit);
-		f.open(filename, std::ios_base::binary | std::ios_base::in | std::ios::ate);
+		std::ifstream f(filename, std::ios_base::binary | std::ios_base::in | std::ios::ate);
 		if (!f)
 		{
 			MERROR("sha256sum: Could not open file '" << filename << "' for reading");
