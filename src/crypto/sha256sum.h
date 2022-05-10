@@ -18,10 +18,8 @@ namespace tools
 	 * \param[out] hash where message digest will be written to
 	 *
 	 * \returns true if successful, false otherwise
-	 *
-	 * \throws std::runtime_error only if the OpenSSL calls cause a buffer overflow (this shouldn't happen)
 	 */
-	bool sha256sum(const uint8_t *data, size_t len, crypto::hash &hash);
+	bool sha256sum(const uint8_t *data, size_t len, crypto::hash &hash) noexcept;
 
 	/**
 	 * \brief Creates a SHA-256 digest of a file's contents, equivalent to the sha256sum command in Linux
@@ -30,8 +28,6 @@ namespace tools
 	 * \param[out] hash where message digest will be written to
 	 *
 	 * \returns true if successful, false otherwise (OpenSSL backend failure, file I/O exceptions, etc)
-	 *
-	 * \throws std::runtime_error only if the OpenSSL calls cause a buffer overflow (this shouldn't happen)
 	 */
-	bool sha256sum(const std::string &filename, crypto::hash &hash);
+	bool sha256sum(const std::string &filename, crypto::hash &hash) noexcept;
 }

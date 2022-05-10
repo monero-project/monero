@@ -2,7 +2,7 @@
 
 #include <algorithm>       // min
 #include <cstdio>          // BUFSIZ
-#include <fstream>
+#include <fstream>         // ifstream
 #include <ios>             // ios_base::{binary, in, ate}
 #include <openssl/evp.h>
 
@@ -12,43 +12,24 @@
 #define MONERO_DEFAULT_LOG_CATEGORY "util"
 
 namespace {
-	constexpr size_t SHA256_MD_SIZE = 32; // 256/8
+	constexpr size_t SHA256_MD_SIZE = 32;
+	static_assert(sizeof(crypto::hash::data) >= SHA256_MD_SIZE, "crypto::hash::data is too small for SHA-256");
 }
 
 namespace tools
 {
-	bool sha256sum(const uint8_t *data, size_t len, crypto::hash &hash)
+	bool sha256sum(const uint8_t *data, size_t len, crypto::hash &hash) noexcept
 	{
-		// Check hash size
-		if (sizeof(hash.data) < SHA256_MD_SIZE) {
-			MERROR("crypto::hash instance passed to sha256sum() is too small: only " << sizeof(hash.data) << " bytes");
-			return false;
-		}
-
-		unsigned int final_digest_size;
-		if (!EVP_Digest(data, len, (unsigned char*) hash.data, &final_digest_size, EVP_sha256(), NULL)) {
+		if (!EVP_Digest(data, len, (unsigned char*) hash.data, NULL, EVP_sha256(), NULL)) {
 			MERROR("Failed to digest with OpenSSL SHA-256 EVP");
-			return false;
-		} else if (final_digest_size > sizeof(hash.data)) { // EVP_Digest overflows buffer. shouldn't ever happen, but you never know
-			const std::string err_msg = "sha256sum: EVP_Digest OVERFLOWED THE HASH BUFFER. ABORT.";
-			MFATAL(err_msg);
-			throw std::runtime_error(err_msg);
-		} else if (final_digest_size < SHA256_MD_SIZE) { // EVP_Digest writes too few bytes
-			MERROR("EVP_DigestFinal_ex() only wrote out " << final_digest_size << " bytes. Was expecting " << SHA256_MD_SIZE);
 			return false;
 		}
 
 		return true;
 	}
 
-	bool sha256sum(const std::string &filename, crypto::hash &hash)
+	bool sha256sum(const std::string &filename, crypto::hash &hash) noexcept
 	{
-		// Check hash size
-		if (sizeof(hash.data) < SHA256_MD_SIZE) {
-			MERROR("crypto::hash instance passed to sha256sum() is too small: only " << sizeof(hash.data) << " bytes");
-			return false;
-		}
-
 		// Open file for reading in binary mode, immediately putting the cursor at the end
 		std::ifstream f(filename, std::ios_base::binary | std::ios_base::in | std::ios::ate);
 		if (!f)
@@ -96,16 +77,8 @@ namespace tools
 		} // while (size_left)
 
 		// Finalize digest
-		unsigned int final_digest_size;
-		if (!EVP_DigestFinal_ex(ctx, (unsigned char*) hash.data, &final_digest_size)) {
+		if (!EVP_DigestFinal_ex(ctx, (unsigned char*) hash.data, NULL)) {
 			MERROR("Failed to finalize OpenSSL SHA-256 EVP digest");
-			return false;
-		} else if (final_digest_size > sizeof(hash.data)) { // DigestFinal overflows buffer. shouldn't ever happen, but you never know
-			const std::string err_msg = "sha256sum: EVP_DigestFinal_ex OVERFLOWED THE HASH BUFFER. ABORT.";
-			MFATAL(err_msg);
-			throw std::runtime_error(err_msg);
-		} else if (final_digest_size < SHA256_MD_SIZE) { // DigestFinal writes too few bytes
-			MERROR("EVP_DigestFinal_ex() only wrote out " << final_digest_size << " bytes. Was expecting " << SHA256_MD_SIZE);
 			return false;
 		}
 
