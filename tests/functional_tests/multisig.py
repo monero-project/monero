@@ -125,17 +125,18 @@ class MultisigTest():
       for i in range(N_total):
         res = self.wallet[i].is_multisig()
         assert res.multisig == True
-        assert res.ready == (M_threshold == N_total)
+        assert not res.ready
         assert res.threshold == M_threshold
         assert res.total == N_total
 
       while True:
-        n_empty = 0
-        for i in range(len(next_stage)):
-          if len(next_stage[i]) == 0:
-            n_empty += 1
-        assert n_empty == 0 or n_empty == len(next_stage)
-        if n_empty == len(next_stage):
+        n_ready = 0
+        for i in range(N_total):
+          res = self.wallet[i].is_multisig()
+          if res.ready == True:
+            n_ready += 1
+        assert n_ready == 0 or n_ready == N_total
+        if n_ready == N_total:
           break
         info = next_stage
         next_stage = []
@@ -162,54 +163,72 @@ class MultisigTest():
             'peeled mixture ionic radar utopia puddle buying illness nuns gadget river spout cavernous bounced paradise drunk looking cottage jump tequila melting went winter adjust spout',
             'dilute gutter certain antics pamphlet macro enjoy left slid guarded bogeys upload nineteen bomb jubilee enhanced irritate turnip eggs swung jukebox loudly reduce sedan slid',
         ]
-        info = []
-        wallet = [None, None, None]
-        for i in range(3):
-            wallet[i] = Wallet(idx = i)
-            try: wallet[i].close_wallet()
+        info2of2 = []
+        wallet2of2 = [None, None]
+        for i in range(2):
+            wallet2of2[i] = Wallet(idx = i)
+            try: wallet2of2[i].close_wallet()
             except: pass
-            res = wallet[i].restore_deterministic_wallet(seed = seeds[i])
-            res = wallet[i].is_multisig()
+            res = wallet2of2[i].restore_deterministic_wallet(seed = seeds[i])
+            res = wallet2of2[i].is_multisig()
             assert not res.multisig
-            res = wallet[i].prepare_multisig()
+            res = wallet2of2[i].prepare_multisig()
             assert len(res.multisig_info) > 0
-            info.append(res.multisig_info)
+            info2of2.append(res.multisig_info)
 
-        for i in range(3):
-            ok = False
-            try: res = wallet[i].exchange_multisig_keys(info)
-            except: ok = True
-            assert ok
-            res = wallet[i].is_multisig()
-            assert not res.multisig
-
-        res = wallet[0].make_multisig(info[0:2], 2)
-        res = wallet[0].is_multisig()
+        kex_info = []
+        res = wallet2of2[0].make_multisig(info2of2, 2)
+        kex_info.append(res.multisig_info)
+        res = wallet2of2[1].make_multisig(info2of2, 2)
+        kex_info.append(res.multisig_info)
+        res = wallet2of2[0].exchange_multisig_keys(kex_info)
+        res = wallet2of2[0].is_multisig()
         assert res.multisig
         assert res.ready
 
         ok = False
-        try: res = wallet[0].prepare_multisig()
+        try: res = wallet2of2[0].prepare_multisig()
         except: ok = True
         assert ok
 
         ok = False
-        try: res = wallet[0].make_multisig(info[0:2], 2)
+        try: res = wallet2of2[0].make_multisig(info2of2, 2)
         except: ok = True
         assert ok
 
-        res = wallet[1].make_multisig(info, 2)
-        res = wallet[1].is_multisig()
+        info2of3 = []
+        wallet2of3 = [None, None, None]
+        for i in range(3):
+            wallet2of3[i] = Wallet(idx = i)
+            try: wallet2of3[i].close_wallet()
+            except: pass
+            res = wallet2of3[i].restore_deterministic_wallet(seed = seeds[i])
+            res = wallet2of3[i].is_multisig()
+            assert not res.multisig
+            res = wallet2of3[i].prepare_multisig()
+            assert len(res.multisig_info) > 0
+            info2of3.append(res.multisig_info)
+
+        for i in range(3):
+            ok = False
+            try: res = wallet2of3[i].exchange_multisig_keys(info)
+            except: ok = True
+            assert ok
+            res = wallet2of3[i].is_multisig()
+            assert not res.multisig
+
+        res = wallet2of3[1].make_multisig(info2of3, 2)
+        res = wallet2of3[1].is_multisig()
         assert res.multisig
         assert not res.ready
 
         ok = False
-        try: res = wallet[1].prepare_multisig()
+        try: res = wallet2of3[1].prepare_multisig()
         except: ok = True
         assert ok
 
         ok = False
-        try: res = wallet[1].make_multisig(info[0:2], 2)
+        try: res = wallet2of3[1].make_multisig(info2of3[0:2], 2)
         except: ok = True
         assert ok
 

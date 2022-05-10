@@ -81,9 +81,7 @@ static bool make_multisig_accounts(std::vector<cryptonote::account_base> &accoun
   for (std::size_t account_index{0}; account_index < accounts.size(); ++account_index)
   {
     multisig_accounts[account_index].initialize_kex(threshold, signers, round_msgs);
-
-    if (!multisig_accounts[account_index].multisig_is_ready())
-      temp_round_msgs[account_index] = multisig_accounts[account_index].get_next_kex_round_msg();
+    temp_round_msgs[account_index] = multisig_accounts[account_index].get_next_kex_round_msg();
   }
 
   // perform key exchange rounds
@@ -94,9 +92,7 @@ static bool make_multisig_accounts(std::vector<cryptonote::account_base> &accoun
     for (std::size_t account_index{0}; account_index < multisig_accounts.size(); ++account_index)
     {
       multisig_accounts[account_index].kex_update(round_msgs);
-
-      if (!multisig_accounts[account_index].multisig_is_ready())
-        temp_round_msgs[account_index] = multisig_accounts[account_index].get_next_kex_round_msg();
+      temp_round_msgs[account_index] = multisig_accounts[account_index].get_next_kex_round_msg();
     }
   }
 

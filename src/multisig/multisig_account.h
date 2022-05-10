@@ -75,12 +75,12 @@ namespace multisig
   *   - ZtM2: https://web.getmonero.org/library/Zero-to-Monero-2-0-0.pdf Ch. 9, especially Section 9.6.3
   *   - FROST: https://eprint.iacr.org/2018/417
   */
+  using multisig_keyset_map_memsafe_t = 
+    std::unordered_map<crypto::public_key_memsafe, std::unordered_set<crypto::public_key>>;
+
   class multisig_account final
   {
   public:
-  //member types
-    using kex_origins_map_t = std::unordered_map<crypto::public_key_memsafe, std::unordered_set<crypto::public_key>>;
-
   //constructors
     // default constructor
     multisig_account() = default;
@@ -105,7 +105,7 @@ namespace multisig
       const crypto::public_key &multisig_pubkey,
       const crypto::public_key &common_pubkey,
       const std::uint32_t kex_rounds_complete,
-      kex_origins_map_t kex_origins_map,
+      multisig_keyset_map_memsafe_t kex_origins_map,
       std::string next_round_kex_message);
 
     // copy constructor: default
@@ -137,13 +137,15 @@ namespace multisig
     // get kex rounds complete
     std::uint32_t get_kex_rounds_complete() const { return m_kex_rounds_complete; }
     // get kex keys to origins map
-    const kex_origins_map_t& get_kex_keys_to_origins_map() const { return m_kex_keys_to_origins_map; }
+    const multisig_keyset_map_memsafe_t& get_kex_keys_to_origins_map() const { return m_kex_keys_to_origins_map; }
     // get the kex msg for the next round
     const std::string& get_next_kex_round_msg() const { return m_next_round_kex_message; }
 
   //account status functions
     // account has been intialized, and the account holder can use the 'common' key
     bool account_is_active() const;
+    // account has gone through main kex rounds, only remaining step is to verify all other participants are ready
+    bool main_kex_rounds_done() const;
     // account is ready to make multisig signatures
     bool multisig_is_ready() const;
 
@@ -178,21 +180,21 @@ namespace multisig
     *    - Collect the local signer's shared keys to ignore in incoming messages, build the aggregate ancillary key
     *      if appropriate.
     * param: expanded_msgs - set of multisig kex messages to process
-    * param: rounds_required - number of rounds required for kex
+    * param: kex_rounds_required - number of rounds required for kex (not including post-kex verification round)
     * outparam: exclude_pubkeys_out - keys held by the local account corresponding to round 'current_round'
     *    - If 'current_round' is the final round, these are the local account's shares of the final aggregate key.
     */
     void initialize_kex_update(const std::vector<multisig_kex_msg> &expanded_msgs,
-      const std::uint32_t rounds_required,
+      const std::uint32_t kex_rounds_required,
       std::vector<crypto::public_key> &exclude_pubkeys_out);
     /**
     * brief: finalize_kex_update - Helper for kex_update_impl()
-    * param: rounds_required - number of rounds required for kex
+    * param: kex_rounds_required - number of rounds required for kex (not including post-kex verification round)
     * param: result_keys_to_origins_map - map between keys for the next round and the other participants they correspond to
     * inoutparam: temp_account_inout - account to perform last update steps on
     */
-    void finalize_kex_update(const std::uint32_t rounds_required,
-      kex_origins_map_t result_keys_to_origins_map);
+    void finalize_kex_update(const std::uint32_t kex_rounds_required,
+      multisig_keyset_map_memsafe_t result_keys_to_origins_map);
 
   //member variables
   private:
@@ -226,7 +228,7 @@ namespace multisig
     std::uint32_t m_kex_rounds_complete{0};
     // this account's pubkeys for the in-progress key exchange round
     // - either DH derivations (intermediate rounds), H(derivation)*G (final round), empty (when kex is done)
-    kex_origins_map_t m_kex_keys_to_origins_map;
+    multisig_keyset_map_memsafe_t m_kex_keys_to_origins_map;
     // the account's message for the in-progress key exchange round
     std::string m_next_round_kex_message;
   };

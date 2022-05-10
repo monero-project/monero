@@ -4134,7 +4134,8 @@ namespace tools
     try
     {
       res.multisig_info = m_wallet->exchange_multisig_keys(req.password, req.multisig_info);
-      if (res.multisig_info.empty())
+      m_wallet->multisig(&ready);
+      if (ready)
       {
         res.address = m_wallet->get_account().get_public_address_str(m_wallet->nettype());
       }

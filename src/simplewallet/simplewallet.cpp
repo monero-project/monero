@@ -1087,7 +1087,9 @@ bool simple_wallet::make_multisig_main(const std::vector<std::string> &args, boo
     auto local_args = args;
     local_args.erase(local_args.begin());
     std::string multisig_extra_info = m_wallet->make_multisig(orig_pwd_container->password(), local_args, threshold);
-    if (!multisig_extra_info.empty())
+    bool ready;
+    m_wallet->multisig(&ready);
+    if (!ready)
     {
       success_msg_writer() << tr("Another step is needed");
       success_msg_writer() << multisig_extra_info;
@@ -1148,7 +1150,7 @@ bool simple_wallet::exchange_multisig_keys_main(const std::vector<std::string> &
       return false;
     }
 
-    if (args.size() < 2)
+    if (args.size() < 1)
     {
       PRINT_USAGE(USAGE_EXCHANGE_MULTISIG_KEYS);
       return false;
@@ -1157,7 +1159,9 @@ bool simple_wallet::exchange_multisig_keys_main(const std::vector<std::string> &
     try
     {
       std::string multisig_extra_info = m_wallet->exchange_multisig_keys(orig_pwd_container->password(), args);
-      if (!multisig_extra_info.empty())
+      bool ready;
+      m_wallet->multisig(&ready);
+      if (!ready)
       {
         message_writer() << tr("Another step is needed");
         message_writer() << multisig_extra_info;
