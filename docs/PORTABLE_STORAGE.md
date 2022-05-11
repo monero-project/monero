@@ -158,7 +158,7 @@ that most will be familiar with):
 
 ```json
 {
-  "short_quote": "Give me liberty or give me death!",
+  "short_quote": "Give me liberty or give me death",
   "long_quote": "Monero is more than just a technology. It's also what the technology stands for.",
   "signed_32bit_int": 20140418,
   "array_of_bools": [true, false, true, true],
@@ -169,9 +169,51 @@ that most will be familiar with):
 }
 ```
 
-This would translate to:
+This object would translate into the following bytes when serialized into epee portable storage format. The bytes are represented in hex, with comments and whitespace added for readability.
 
-![Epee binary storage format example](/docs/images/storage_binary_example.png)
+```
+01 11 01 01 01 01 02 01                         // Signature
+01                                              // Version
+14                                              // Varint number of section entries (5)
+0b                                              // Length of next section key (11)
+73 68 6f 72 74 5f 71 75 6f 74 65                // Section key ("short_quote")
+0a                                              // Type code (STRING)
+80                                              // Varint length of string (32)
+47 69 76 65 20 6d 65 20 6c 69 62 65 72 74 79 20 // STRING value ("Give me liberty ")
+6f 72 20 67 69 76 65 20 6d 65 20 64 65 61 74 68 // STRING value cont. ("or give me death")
+0a                                              // Length of next section key (10)
+6c 6f 6e 67 5f 71 75 6f 74 65                   // Section key ("long_quote")
+0a                                              // Type code (STRING)
+41 01                                           // Varint length of string (80). Note it's 2 bytes
+4d 6f 6e 65 72 6f 20 69 73 20 6d 6f 72 65 20 74 // STRING value ("Monero is more t")
+68 61 6e 20 6a 75 73 74 20 61 20 74 65 63 68 6e // STRING value cont. ("han just a techn")
+6f 6c 6f 67 79 2e 20 49 74 27 73 20 61 6c 73 6f // STRING value cont. ("ology. It's also")
+20 77 68 61 74 20 74 68 65 20 74 65 63 68 6e 6f // STRING value cont. (" what the techno")
+6c 6f 67 79 20 73 74 61 6e 64 73 20 66 6f 72 2e // STRING value cont. ("logy stands for.")
+10                                              // Length of next section key (16)
+73 69 67 6e 65 64 5f 33 32 62 69 74 5f 69 6e 74 // Section key ("signed_32bit_int")
+02                                              // type code (INT32)
+82 51 33 01                                     // INT32 value (20140418)
+0e                                              // Length of next section key (14)
+61 72 72 61 79 5f 6f 66 5f 62 6f 6f 6c 73       // Section key ("array_of_bools")
+8b                                              // Type code (BOOL | FLAG_ARRAY)
+10                                              // Varint number of array elements (4)
+01 00 01 01                                     // Array BOOL values [true, false, true, true]
+0e                                              // Length of next section key (14)
+6e 65 73 74 65 64 5f 73 65 63 74 69 6f 6e       // Section key ("nested_section")
+0c                                              // Type code (OBJECT)
+08                                              // Varint number of inner section entries (2)
+06                                              // Length of first inner section key (6)
+64 6f 75 62 6c 65                               // Section key ("double")
+09                                              // Type code (DOUBLE)
+9a 99 99 99 99 99 1b c0                         // DOUBLE value (-6.9)
+12                                              // Length of second inner section key (18)
+75 6e 73 69 67 6e 65 64 5f 36 34 62 69 74 5f 69 // Section key ("unsigned_64bit_i")
+6e 74                                           // Section key  cont ("nt")
+05                                              // Type code (UINT64)
+c7 71 ac b5 af 98 32 9a                         // UINT64 value (11111111111111111111)
+
+```
 
 ## Monero specifics
 
