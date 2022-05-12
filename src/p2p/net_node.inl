@@ -2462,8 +2462,12 @@ namespace nodetool
     const epee::net_utils::zone zone_type = context.m_remote_address.get_zone();
     network_zone& zone = m_network_zones.at(zone_type);
 
+    //will add self to peerlist if in same zone as outgoing later in this function
+    const bool outgoing_to_same_zone = !context.m_is_income && zone.m_our_address.get_zone() == zone_type;
+    const uint32_t max_peerlist_size = P2P_DEFAULT_PEERS_IN_HANDSHAKE - (outgoing_to_same_zone ? 1 : 0);
+
     std::vector<peerlist_entry> local_peerlist_new;
-    zone.m_peerlist.get_peerlist_head(local_peerlist_new, true, P2P_DEFAULT_PEERS_IN_HANDSHAKE);
+    zone.m_peerlist.get_peerlist_head(local_peerlist_new, true, max_peerlist_size);
 
     //only include out peers we did not already send
     rsp.local_peerlist_new.reserve(local_peerlist_new.size());
@@ -2483,7 +2487,7 @@ namespace nodetool
     etc., because someone could give faulty addresses over Tor/I2P to get the
     real peer with that identity banned/blacklisted. */
 
-    if(!context.m_is_income && zone.m_our_address.get_zone() == zone_type)
+    if(outgoing_to_same_zone)
       rsp.local_peerlist_new.push_back(peerlist_entry{zone.m_our_address, zone.m_config.m_peer_id, std::time(nullptr)});
 
     LOG_DEBUG_CC(context, "COMMAND_TIMED_SYNC");
