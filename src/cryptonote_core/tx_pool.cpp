@@ -97,9 +97,9 @@ namespace cryptonote
     constexpr const std::chrono::seconds forward_delay_average{CRYPTONOTE_FORWARD_DELAY_AVERAGE};
 
     // a kind of increasing backoff within min/max bounds
-    uint64_t get_relay_delay(time_t now, time_t received)
+    uint64_t get_relay_delay(time_t last_relay, time_t received)
     {
-      time_t d = (now - received + MIN_RELAY_TIME) / MIN_RELAY_TIME * MIN_RELAY_TIME;
+      time_t d = (last_relay - received + MIN_RELAY_TIME) / MIN_RELAY_TIME * MIN_RELAY_TIME;
       if (d > MAX_RELAY_TIME)
         d = MAX_RELAY_TIME;
       return d;
@@ -779,7 +779,7 @@ namespace cryptonote
           case relay_method::local:
           case relay_method::fluff:
           case relay_method::block:
-            if (now - meta.last_relayed_time <= get_relay_delay(now, meta.receive_time))
+            if (now - meta.last_relayed_time <= get_relay_delay(meta.last_relayed_time, meta.receive_time))
               return true; // continue to next tx
             break;
         }
@@ -812,7 +812,7 @@ namespace cryptonote
          function is only called every ~2 minutes, so this resetting should be
          unnecessary, but is primarily a precaution against potential changes
 	 to the callback routines. */
-      elem.second.last_relayed_time = now + get_relay_delay(now, elem.second.receive_time);
+      elem.second.last_relayed_time = now + get_relay_delay(elem.second.last_relayed_time, elem.second.receive_time);
       m_blockchain.update_txpool_tx(elem.first, elem.second);
     }
 
