@@ -1143,8 +1143,6 @@ private:
     void inactivity_lock_timeout(uint32_t seconds) { m_inactivity_lock_timeout = seconds; }
     const std::string & device_name() const { return m_device_name; }
     void device_name(const std::string & device_name) { m_device_name = device_name; }
-    bool fork_on_autostake() const { return m_fork_on_autostake; }
-    void fork_on_autostake(bool value) { m_fork_on_autostake = value; }
     
     const std::string & device_derivation_path() const { return m_device_derivation_path; }
     void device_derivation_path(const std::string &device_derivation_path) { m_device_derivation_path = device_derivation_path; }
@@ -1666,7 +1664,6 @@ private:
     std::unordered_set<crypto::hash> m_scanned_pool_txs[2];
     size_t m_subaddress_lookahead_major, m_subaddress_lookahead_minor;
     std::string m_device_name;
-	  bool m_fork_on_autostake;
     std::string m_device_derivation_path;
     uint64_t m_device_last_key_image_sync;
     bool m_use_dns;

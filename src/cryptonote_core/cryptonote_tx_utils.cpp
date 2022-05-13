@@ -242,11 +242,25 @@ namespace cryptonote
 	  return rewardlo;
   }
 
-  static uint64_t calculate_sum_of_portions(const std::vector<std::pair<cryptonote::account_public_address, uint64_t>>& portions, uint64_t total_service_node_reward)
+  static uint64_t calculate_sum_of_portions(const std::vector<std::pair<cryptonote::account_public_address, uint64_t>>& portions, block_reward_parts brr, size_t hf_version)
   {
     uint64_t reward = 0;
     for (size_t i = 0; i < portions.size(); i++)
-      reward += get_portion_of_reward(portions[i].second, total_service_node_reward);
+    {
+      if(hf_version >= 12)
+      {
+        if(i == 0)
+        {
+          reward += get_portion_of_reward(portions[i].second, brr.operator_reward);
+        } else {
+          reward += get_portion_of_reward(portions[i].second, brr.staker_reward);
+        }
+
+      } else {
+        reward += get_portion_of_reward(portions[i].second, brr.service_node_total);
+      }
+
+    }
 	  return reward;
   }
 
@@ -363,7 +377,14 @@ namespace cryptonote
 			tk.key = out_eph_public_key;
 			tx_out out;
 
-			summary_amounts += out.amount = get_portion_of_reward(service_node_info[i].second, reward_parts.service_node_total);
+      if(hard_fork_version >= 12)
+      {          
+        uint64_t reward_part = i == 0 ? reward_parts.operator_reward : reward_parts.staker_reward;
+        summary_amounts += out.amount = get_portion_of_reward(service_node_info[i].second, reward_part);
+      } else {
+        summary_amounts += out.amount = get_portion_of_reward(service_node_info[i].second, reward_parts.service_node_total);
+      }
+
 			out.target = tk;
 			tx.vout.push_back(out);
 			tx.output_unlock_times.push_back(height + CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW);
@@ -444,9 +465,17 @@ namespace cryptonote
 	  result.original_base_reward = base_reward;
     result.adjusted_base_reward = result.original_base_reward - result.governance;
 	  result.service_node_total = service_node_reward_formula(result.adjusted_base_reward, hard_fork_version);
-	  if (miner_context.snode_winner_info.empty()) result.service_node_paid = calculate_sum_of_portions(service_nodes::null_winner, result.service_node_total);
-	  else                                        result.service_node_paid = calculate_sum_of_portions(miner_context.snode_winner_info, result.service_node_total);
+    result.operator_reward = result.service_node_total / 2;
+    result.staker_reward = result.service_node_total - result.operator_reward;
 
+	  if (miner_context.snode_winner_info.empty())
+    {
+      result.service_node_paid = calculate_sum_of_portions(service_nodes::null_winner, result, hard_fork_version);
+    } 
+    else                                        
+    {
+      result.service_node_paid = calculate_sum_of_portions(miner_context.snode_winner_info, result, hard_fork_version);
+    }
 
 	  result.base_miner = result.adjusted_base_reward - result.service_node_total;
 	  result.base_miner_fee = miner_context.fee;

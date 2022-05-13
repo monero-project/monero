@@ -13,7 +13,7 @@ switch(nettype) {
 
 inline uint64_t get_min_node_contribution(size_t hf_version, uint64_t staking_requirement, uint64_t total_reserved)
 {
-  return hf_version > 9 ? std::min(staking_requirement - total_reserved, staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS_V2) : std::min(staking_requirement - total_reserved, staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS);
+  return hf_version > 9 ? hf_version >= 12 ? MIN_POOL_STAKERS_V12 * COIN : std::min(staking_requirement - total_reserved, staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS_V2) : std::min(staking_requirement - total_reserved, staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS);
 }
 
 uint64_t get_staking_requirement(cryptonote::network_type nettype, uint64_t height);

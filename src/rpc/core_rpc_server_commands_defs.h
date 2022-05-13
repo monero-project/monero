@@ -3096,12 +3096,10 @@ namespace cryptonote
 
     struct request_t: public rpc_request_base
     {
-      bool autostake;
       std::string operator_cut;
       std::vector<contribution_t> contributions;
 
       BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(autostake)
         KV_SERIALIZE(operator_cut)
         KV_SERIALIZE(contributions)
       END_KV_SERIALIZE_MAP()

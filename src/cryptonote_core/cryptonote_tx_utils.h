@@ -81,7 +81,9 @@ namespace cryptonote
 
 	  uint64_t service_node_total;
 	  uint64_t service_node_paid;
-
+    uint64_t operator_reward;
+    uint64_t staker_reward;
+    
 	  uint64_t base_miner;
 	  uint64_t base_miner_fee;
 

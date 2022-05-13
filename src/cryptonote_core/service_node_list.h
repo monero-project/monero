@@ -119,8 +119,12 @@ namespace service_nodes
 		swarm_id_t swarm_id;
 		cryptonote::account_public_address operator_address;
 
-		bool is_valid() const { return total_contributed >= total_reserved; }
-		bool is_fully_funded() const { return total_contributed >= staking_requirement; }
+		bool is_valid() const { 
+			return total_contributed >= total_reserved; 
+		}
+		bool is_fully_funded() const { 
+			return total_contributed >= staking_requirement; 
+		}
 
 		// the minimum contribution to start a new contributor
 		uint64_t get_min_contribution(uint64_t hf_version) const;
@@ -311,9 +315,10 @@ namespace service_nodes
 
 		// Note(maxim): private methods don't have to be protected the mutex
 		bool get_contribution(const cryptonote::transaction& tx, uint64_t block_height, cryptonote::account_public_address& address, uint64_t& transferred) const;
+	    bool process_recontribution(const cryptonote::transaction& tx, uint64_t block_height, uint32_t index);
 
 		bool process_registration_tx(const cryptonote::transaction& tx, uint64_t block_timestamp, uint64_t block_height, uint32_t index);
-		void process_contribution_tx(const cryptonote::transaction& tx, uint64_t block_height, uint32_t index);
+		void process_contribution_tx(const cryptonote::transaction& tx, uint64_t block_height, uint32_t index, const crypto::public_key &new_pubkey = crypto::null_pkey);
 		bool process_deregistration_tx(const cryptonote::transaction& tx, uint64_t block_height);
 		bool process_swap_tx(const cryptonote::transaction& tx, uint64_t block_height, uint32_t index);
 		void block_added_generic(const cryptonote::block& blck, const std::vector<std::pair<cryptonote::transaction, cryptonote::blobdata>>& txs);
@@ -350,7 +355,7 @@ namespace service_nodes
 	uint64_t get_reg_tx_staking_output_contribution(const cryptonote::transaction& tx, int i, crypto::key_derivation derivation, hw::device& hwdev);
 	bool reg_tx_extract_fields(const cryptonote::transaction& tx, std::vector<cryptonote::account_public_address>& addresses, uint64_t& portions_for_operator, std::vector<uint64_t>& portions, uint64_t& expiration_timestamp, crypto::public_key& service_node_key, crypto::signature& signature, crypto::public_key& tx_pub_key);
 
-  	bool convert_registration_args(cryptonote::network_type nettype, std::vector<std::string> args, std::vector<cryptonote::account_public_address>& addresses, std::vector<uint64_t>& portions, uint64_t& portions_for_operator, bool& autostake, boost::optional<std::string&> err_msg);
+  	bool convert_registration_args(cryptonote::network_type nettype, std::vector<std::string> args, std::vector<cryptonote::account_public_address>& addresses, std::vector<uint64_t>& portions, uint64_t& portions_for_operator, boost::optional<std::string&> err_msg);
 	bool make_registration_cmd(cryptonote::network_type nettype, const std::vector<std::string> args, const crypto::public_key& service_node_pubkey,
      const crypto::secret_key service_node_key, std::string &cmd, bool make_friendly, boost::optional<std::string&> err_msg);
 

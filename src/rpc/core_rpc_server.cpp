@@ -3363,9 +3363,6 @@ namespace cryptonote
 
     std::vector<std::string> args;
 
-    if (req.autostake) {
-      args.push_back("auto");
-    }
     uint64_t staking_requirement = 0;
     staking_requirement = service_nodes::get_staking_requirement(m_core.get_nettype(), m_core.get_current_blockchain_height());
 
