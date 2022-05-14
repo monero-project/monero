@@ -4146,13 +4146,6 @@ namespace tools
       er.message = "This wallet is not multisig";
       return false;
     }
-
-    if (ready)
-    {
-      er.code = WALLET_RPC_ERROR_CODE_ALREADY_MULTISIG;
-      er.message = "This wallet is multisig, and already finalized";
-      return false;
-    }
     CHECK_MULTISIG_ENABLED();
 
     if (req.multisig_info.size() + 1 < total)
@@ -4164,7 +4157,7 @@ namespace tools
 
     try
     {
-      res.multisig_info = m_wallet->exchange_multisig_keys(req.password, req.multisig_info);
+      res.multisig_info = m_wallet->exchange_multisig_keys(req.password, req.multisig_info, req.force_update_use_with_caution);
       m_wallet->multisig(&ready);
       if (ready)
       {

@@ -862,7 +862,8 @@ private:
      * to other participants
      */
     std::string exchange_multisig_keys(const epee::wipeable_string &password,
-      const std::vector<std::string> &kex_messages);
+      const std::vector<std::string> &kex_messages,
+      const bool force_update_use_with_caution = false);
     /*!
      * \brief Get initial message to start multisig key exchange (before 'make_multisig()' is called)
      * \return string to send to other participants

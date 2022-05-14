@@ -169,12 +169,20 @@ namespace multisig
     *    - The main interface for multisig key exchange, this handles all the work of processing input messages,
     *      creating new messages for new rounds, and finalizing the multisig shared public key when kex is complete.
     * param: expanded_msgs - kex messages corresponding to the account's 'in progress' round
+    * param: force_update_use_with_caution - try to force the account to update with messages from an incomplete signer set.
+    *    - If this is the post-kex verification round, only require one input message.
+    *      - Force updating here should only be done if we can safely assume an honest signer subgroup of size 'threshold'
+    *        will complete the account.
+    *    - If this is an intermediate round, only require messages from 'num signers - 1 - (round - 1)' other signers.
+    *      - If force updating with maliciously-crafted messages, the resulting account will be invalid (either unable
+    *        to complete signatures, or a 'hostage' to the malicious signer [i.e. can't sign without his participation]).
     */
-    void kex_update(const std::vector<multisig_kex_msg> &expanded_msgs);
+    void kex_update(const std::vector<multisig_kex_msg> &expanded_msgs,
+      const bool force_update_use_with_caution = false);
 
   private:
     // implementation of kex_update() (non-transactional)
-    void kex_update_impl(const std::vector<multisig_kex_msg> &expanded_msgs);
+    void kex_update_impl(const std::vector<multisig_kex_msg> &expanded_msgs, const bool incomplete_signer_set);
     /**
     * brief: initialize_kex_update - Helper for kex_update_impl()
     *    - Collect the local signer's shared keys to ignore in incoming messages, build the aggregate ancillary key

@@ -796,9 +796,10 @@ struct Wallet
     /**
      * @brief exchange_multisig_keys - provides additional key exchange round for arbitrary multisig schemes (like N-1/N, M/N)
      * @param info - base58 encoded key derivations returned by makeMultisig or exchangeMultisigKeys function call
+     * @param force_update_use_with_caution - force multisig account to update even if not all signers contribute round messages
      * @return new info string if more rounds required or an empty string if wallet creation is done
      */
-    virtual std::string exchangeMultisigKeys(const std::vector<std::string> &info) = 0;
+    virtual std::string exchangeMultisigKeys(const std::vector<std::string> &info, const bool force_update_use_with_caution) = 0;
     /**
      * @brief exportMultisigImages - exports transfers' key images
      * @param images - output paramter for hex encoded array of images

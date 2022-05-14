@@ -175,19 +175,20 @@ namespace multisig
     // only mutate account if update succeeds
     multisig_account temp_account{*this};
     temp_account.set_multisig_config(threshold, std::move(signers));
-    temp_account.kex_update_impl(expanded_msgs_rnd1);
+    temp_account.kex_update_impl(expanded_msgs_rnd1, false);
     *this = std::move(temp_account);
   }
   //----------------------------------------------------------------------------------------------------------------------
   // multisig_account: EXTERNAL
   //----------------------------------------------------------------------------------------------------------------------
-  void multisig_account::kex_update(const std::vector<multisig_kex_msg> &expanded_msgs)
+  void multisig_account::kex_update(const std::vector<multisig_kex_msg> &expanded_msgs,
+    const bool force_update_use_with_caution /*= false*/)
   {
     CHECK_AND_ASSERT_THROW_MES(account_is_active(), "multisig account: tried to update kex, but kex isn't initialized yet.");
     CHECK_AND_ASSERT_THROW_MES(!multisig_is_ready(), "multisig account: tried to update kex, but kex is already complete.");
 
     multisig_account temp_account{*this};
-    temp_account.kex_update_impl(expanded_msgs);
+    temp_account.kex_update_impl(expanded_msgs, force_update_use_with_caution);
     *this = std::move(temp_account);
   }
   //----------------------------------------------------------------------------------------------------------------------

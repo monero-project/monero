@@ -244,7 +244,7 @@ namespace
   const char* USAGE_IMPORT_OUTPUTS("import_outputs <filename>");
   const char* USAGE_SHOW_TRANSFER("show_transfer <txid>");
   const char* USAGE_MAKE_MULTISIG("make_multisig <threshold> <string1> [<string>...]");
-  const char* USAGE_EXCHANGE_MULTISIG_KEYS("exchange_multisig_keys <string> [<string>...]");
+  const char* USAGE_EXCHANGE_MULTISIG_KEYS("exchange_multisig_keys [force-update-use-with-caution] <string> [<string>...]");
   const char* USAGE_EXPORT_MULTISIG_INFO("export_multisig_info <filename>");
   const char* USAGE_IMPORT_MULTISIG_INFO("import_multisig_info <filename> [<filename>...]");
   const char* USAGE_SIGN_MULTISIG("sign_multisig <filename>");
@@ -1139,11 +1139,22 @@ bool simple_wallet::make_multisig_main(const std::vector<std::string> &args, boo
 bool simple_wallet::exchange_multisig_keys(const std::vector<std::string> &args)
 {
   CHECK_MULTISIG_ENABLED();
-  exchange_multisig_keys_main(args, false);
+  bool force_update_use_with_caution = false;
+
+  auto local_args = args;
+  if (args.size() >= 1 && local_args[0] == "force-update-use-with-caution")
+  {
+    force_update_use_with_caution = true;
+    local_args.erase(local_args.begin());
+  }
+
+  exchange_multisig_keys_main(local_args, force_update_use_with_caution, false);
   return true;
 }
 
-bool simple_wallet::exchange_multisig_keys_main(const std::vector<std::string> &args, bool called_by_mms) {
+bool simple_wallet::exchange_multisig_keys_main(const std::vector<std::string> &args,
+  const bool force_update_use_with_caution,
+  const bool called_by_mms) {
     CHECK_MULTISIG_ENABLED();
     bool ready;
     if (m_wallet->key_on_device())
@@ -1169,15 +1180,9 @@ bool simple_wallet::exchange_multisig_keys_main(const std::vector<std::string> &
       return false;
     }
 
-    if (args.size() < 1)
-    {
-      PRINT_USAGE(USAGE_EXCHANGE_MULTISIG_KEYS);
-      return false;
-    }
-
     try
     {
-      std::string multisig_extra_info = m_wallet->exchange_multisig_keys(orig_pwd_container->password(), args);
+      std::string multisig_extra_info = m_wallet->exchange_multisig_keys(orig_pwd_container->password(), args, force_update_use_with_caution);
       bool ready;
       m_wallet->multisig(&ready);
       if (!ready)
@@ -11157,7 +11162,8 @@ void simple_wallet::mms_next(const std::vector<std::string> &args)
         mms::message m = ms.get_message_by_id(data.message_ids[i]);
         sig_args[i] = m.content;
       }
-      command_successful = exchange_multisig_keys_main(sig_args, true);
+      // todo: update mms to enable 'key exchange force updating'
+      command_successful = exchange_multisig_keys_main(sig_args, false, true);
       break;
     }
 
