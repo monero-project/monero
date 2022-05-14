@@ -107,7 +107,7 @@ class MultisigTest():
         try: self.wallet[i].close_wallet()
         except: pass
         res = self.wallet[i].restore_deterministic_wallet(seed = seeds[i])
-        res = self.wallet[i].prepare_multisig()
+        res = self.wallet[i].prepare_multisig(enable_multisig_experimental = True)
         assert len(res.multisig_info) > 0
         info.append(res.multisig_info)
 
@@ -172,7 +172,7 @@ class MultisigTest():
             res = wallet2of2[i].restore_deterministic_wallet(seed = seeds[i])
             res = wallet2of2[i].is_multisig()
             assert not res.multisig
-            res = wallet2of2[i].prepare_multisig()
+            res = wallet2of2[i].prepare_multisig(enable_multisig_experimental = True)
             assert len(res.multisig_info) > 0
             info2of2.append(res.multisig_info)
 
@@ -187,7 +187,7 @@ class MultisigTest():
         assert res.ready
 
         ok = False
-        try: res = wallet2of2[0].prepare_multisig()
+        try: res = wallet2of2[0].prepare_multisig(enable_multisig_experimental = True)
         except: ok = True
         assert ok
 
@@ -205,7 +205,7 @@ class MultisigTest():
             res = wallet2of3[i].restore_deterministic_wallet(seed = seeds[i])
             res = wallet2of3[i].is_multisig()
             assert not res.multisig
-            res = wallet2of3[i].prepare_multisig()
+            res = wallet2of3[i].prepare_multisig(enable_multisig_experimental = True)
             assert len(res.multisig_info) > 0
             info2of3.append(res.multisig_info)
 
@@ -223,7 +223,7 @@ class MultisigTest():
         assert not res.ready
 
         ok = False
-        try: res = wallet2of3[1].prepare_multisig()
+        try: res = wallet2of3[1].prepare_multisig(enable_multisig_experimental = True)
         except: ok = True
         assert ok
 

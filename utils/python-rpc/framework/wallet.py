@@ -490,10 +490,11 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(is_multisig)
 
-    def prepare_multisig(self):
+    def prepare_multisig(self, enable_multisig_experimental = False):
         prepare_multisig = {
             'method': 'prepare_multisig',
             'params' : {
+                'enable_multisig_experimental': enable_multisig_experimental,
             },
             'jsonrpc': '2.0', 
             'id': '0'

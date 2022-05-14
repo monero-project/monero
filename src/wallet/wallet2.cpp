@@ -1216,7 +1216,8 @@ wallet2::wallet2(network_type nettype, uint64_t kdf_rounds, bool unattended, std
   m_rpc_version(0),
   m_export_format(ExportFormat::Binary),
   m_load_deprecated_formats(false),
-  m_credits_target(0)
+  m_credits_target(0),
+  m_enable_multisig(false)
 {
   set_rpc_client_secret_key(rct::rct2sk(rct::skGen()));
 }
@@ -4051,6 +4052,9 @@ boost::optional<wallet2::keys_file_data> wallet2::get_keys_file_data(const epee:
   value2.SetUint64(m_credits_target);
   json.AddMember("credits_target", value2, json.GetAllocator());
 
+  value2.SetInt(m_enable_multisig ? 1 : 0);
+  json.AddMember("enable_multisig", value2, json.GetAllocator());
+
   // Serialize the JSON object
   rapidjson::StringBuffer buffer;
   rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
@@ -4199,6 +4203,7 @@ bool wallet2::load_keys_buf(const std::string& keys_buf, const epee::wipeable_st
     m_persistent_rpc_client_id = false;
     m_auto_mine_for_rpc_payment_threshold = -1.0f;
     m_credits_target = 0;
+    m_enable_multisig = false;
   }
   else if(json.IsObject())
   {
@@ -4431,6 +4436,8 @@ bool wallet2::load_keys_buf(const std::string& keys_buf, const epee::wipeable_st
     m_auto_mine_for_rpc_payment_threshold = field_auto_mine_for_rpc_payment;
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, credits_target, uint64_t, Uint64, false, 0);
     m_credits_target = field_credits_target;
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, enable_multisig, int, Int, false, false);
+    m_enable_multisig = field_enable_multisig;
   }
   else
   {
