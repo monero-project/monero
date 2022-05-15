@@ -1,9 +1,38 @@
+// Copyright (c) 2022, The Monero Project
+//
+// All rights reserved.
+//
+// Redistribution and use in source and binary forms, with or without modification, are
+// permitted provided that the following conditions are met:
+//
+// 1. Redistributions of source code must retain the above copyright notice, this list of
+//    conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright notice, this list
+//    of conditions and the following disclaimer in the documentation and/or other
+//    materials provided with the distribution.
+//
+// 3. Neither the name of the copyright holder nor the names of its contributors may be
+//    used to endorse or promote products derived from this software without specific
+//    prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
+// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+// MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
+// THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
+// THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 #include "crypto/sha256sum.h"
 
 #include <algorithm>       // min
 #include <cstdio>          // BUFSIZ
 #include <fstream>         // ifstream
 #include <ios>             // ios_base::{binary, in, ate}
+#include <memory>          // unique_ptr
 #include <openssl/evp.h>
 
 #include "misc_log_ex.h"
@@ -42,16 +71,27 @@ namespace tools
 		size_t size_left = f.tellg();
 		f.seekg(0, std::ios::beg);
 
-		// Initialize digest context
-		EVP_MD_CTX* ctx;
-		if (NULL == (ctx = EVP_MD_CTX_new()))
+		// Initiate digest context
+		EVP_MD_CTX* ctx_raw;
+		if (NULL == (ctx_raw = EVP_MD_CTX_new()))
 		{
-			MERROR("Failed to create new OpenSSL EVP_MD_CTX");
+			MERROR("Failed to create OpenSSL EVP digest context");
 			return false;
 		}
-		else if (!EVP_DigestInit_ex(ctx, EVP_sha256(), NULL))
+
+		/**
+		 * Now we move the raw EVP_MD_CTX pointer into a unique_ptr so that we
+		 * can call EVP_MD_CTX_free when the scope changes. This is ultimately
+		 * necessary because EVP_MD_CTX is an incomplete type and can't be
+		 * allocated on the stack.
+		 */
+		auto evp_md_ctx_freer = [](EVP_MD_CTX* ctx) { EVP_MD_CTX_free(ctx); };
+		std::unique_ptr<EVP_MD_CTX, decltype(evp_md_ctx_freer)> ctx(ctx_raw, evp_md_ctx_freer);
+
+		// Initialize digest context
+		if (!EVP_DigestInit_ex(ctx.get(), EVP_sha256(), NULL))
 		{
-			MERROR("Failed to initialize OpenSSL SHA-256 EVP context");
+			MERROR("Failed to initialize OpenSSL SHA-256 EVP digest context");
 			return false;
 		}
 
@@ -68,7 +108,7 @@ namespace tools
 			}
 
 			// Update digest
-			if (!EVP_DigestUpdate(ctx, buf, read_size)) {
+			if (!EVP_DigestUpdate(ctx.get(), buf, read_size)) {
 				MERROR("Failed to update OpenSSL SHA-256 EVP digest");
 				return false;
 			}
@@ -77,13 +117,10 @@ namespace tools
 		} // while (size_left)
 
 		// Finalize digest
-		if (!EVP_DigestFinal_ex(ctx, (unsigned char*) hash.data, NULL)) {
+		if (!EVP_DigestFinal_ex(ctx.get(), (unsigned char*) hash.data, NULL)) {
 			MERROR("Failed to finalize OpenSSL SHA-256 EVP digest");
 			return false;
 		}
-
-		// Free EVP context
-		EVP_MD_CTX_free(ctx);
 
 		return true;
 	}
