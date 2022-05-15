@@ -63,4 +63,4 @@ TEST(sha256, large) { ASSERT_TRUE(check(std::string(65536*256, 0), "080acf35a507
 
 TEST(sha256, emptyfile) { EXPECT_EQ(file_to_hex_hash("empty.txt"), "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"); }
 TEST(sha256, smallfile) { EXPECT_EQ(file_to_hex_hash("small_file.txt"), "91c60f6d9ad0235306115913febccb93a5014bf4cea1ecd1fa33f3cf07ad9e8d"); }
-TEST(sha256, largefile) { EXPECT_EQ(file_to_hex_hash("Zero-to-Monero-2-0-0.pdf"), "a784a342141a6c237bdc1ef1c227e6865fae08b2a1b5f10aa4a47af01929a55a"); }
+TEST(sha256, largefile) { EXPECT_EQ(file_to_hex_hash("CLSAG.pdf"), "c38699c9a235a70285165ff8cce0bf3e48989de8092c15514116ca4c95d41e3f"); }
