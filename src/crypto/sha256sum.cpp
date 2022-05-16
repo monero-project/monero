@@ -79,14 +79,9 @@ namespace tools
 			return false;
 		}
 
-		/**
-		 * Now we move the raw EVP_MD_CTX pointer into a unique_ptr so that we
-		 * can call EVP_MD_CTX_free when the scope changes. This is ultimately
-		 * necessary because EVP_MD_CTX is an incomplete type and can't be
-		 * allocated on the stack.
-		 */
-		auto evp_md_ctx_freer = [](EVP_MD_CTX* ctx) { EVP_MD_CTX_free(ctx); };
-		std::unique_ptr<EVP_MD_CTX, decltype(evp_md_ctx_freer)> ctx(ctx_raw, evp_md_ctx_freer);
+		// Now we move raw_ctx into a unique_ptr so EVP_MD_CTX_free is alwaty called. This is
+		// necessary because EVP_MD_CTX is an incomplete type and can't be allocated on the stack.
+		std::unique_ptr<EVP_MD_CTX, decltype(&EVP_MD_CTX_free)> ctx(ctx_raw, &EVP_MD_CTX_free);
 
 		// Initialize digest context
 		if (!EVP_DigestInit_ex(ctx.get(), EVP_sha256(), NULL))
