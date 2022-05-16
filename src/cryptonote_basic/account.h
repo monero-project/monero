@@ -55,8 +55,6 @@ namespace cryptonote
       KV_SERIALIZE_VAL_POD_AS_BLOB_OPT(m_encryption_iv, default_iv)
     END_KV_SERIALIZE_MAP()
 
-    account_keys& operator=(account_keys const&) = default;
-
     void encrypt(const crypto::chacha_key &key);
     void decrypt(const crypto::chacha_key &key);
     void encrypt_viewkey(const crypto::chacha_key &key);
