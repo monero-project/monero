@@ -52,15 +52,6 @@ static void add_windows_root_certs(SSL_CTX *ctx) noexcept;
 
 namespace
 {
-  struct openssl_bio_free
-  {
-    void operator()(BIO* ptr) const noexcept
-    {
-      BIO_free(ptr);
-    }
-  };
-  using openssl_bio = std::unique_ptr<BIO, openssl_bio_free>;
-
   struct openssl_pkey_free
   {
     void operator()(EVP_PKEY* ptr) const noexcept
@@ -69,42 +60,6 @@ namespace
     }
   };
   using openssl_pkey = std::unique_ptr<EVP_PKEY, openssl_pkey_free>;
-
-  struct openssl_rsa_free
-  {
-    void operator()(RSA* ptr) const noexcept
-    {
-      RSA_free(ptr);
-    }
-  };
-  using openssl_rsa = std::unique_ptr<RSA, openssl_rsa_free>;
-
-  struct openssl_bignum_free
-  {
-    void operator()(BIGNUM* ptr) const noexcept
-    {
-      BN_free(ptr);
-    }
-  };
-  using openssl_bignum = std::unique_ptr<BIGNUM, openssl_bignum_free>;
-
-  struct openssl_ec_key_free
-  {
-    void operator()(EC_KEY* ptr) const noexcept
-    {
-      EC_KEY_free(ptr);
-    }
-  };
-  using openssl_ec_key = std::unique_ptr<EC_KEY, openssl_ec_key_free>;
-
-  struct openssl_group_free
-  {
-    void operator()(EC_GROUP* ptr) const noexcept
-    {
-      EC_GROUP_free(ptr);
-    }
-  };
-  using openssl_group = std::unique_ptr<EC_GROUP, openssl_group_free>;
 
   boost::system::error_code load_ca_file(boost::asio::ssl::context& ctx, const std::string& path)
   {
@@ -132,7 +87,7 @@ namespace net_utils
 bool create_rsa_ssl_certificate(EVP_PKEY *&pkey, X509 *&cert)
 {
   MINFO("Generating SSL certificate");
-  pkey = EVP_PKEY_new();
+  pkey = EVP_RSA_gen(SSL_PKEY_BITS);
   if (!pkey)
   {
     MERROR("Failed to create new private key");
@@ -140,117 +95,6 @@ bool create_rsa_ssl_certificate(EVP_PKEY *&pkey, X509 *&cert)
   }
 
   openssl_pkey pkey_deleter{pkey};
-  openssl_rsa rsa{RSA_new()};
-  if (!rsa)
-  {
-    MERROR("Error allocating RSA private key");
-    return false;
-  }
-
-  openssl_bignum exponent{BN_new()};
-  if (!exponent)
-  {
-    MERROR("Error allocating exponent");
-    return false;
-  }
-
-  BN_set_word(exponent.get(), RSA_F4);
-
-  if (RSA_generate_key_ex(rsa.get(), 4096, exponent.get(), nullptr) != 1)
-  {
-    MERROR("Error generating RSA private key");
-    return false;
-  }
-
-  if (EVP_PKEY_assign_RSA(pkey, rsa.get()) <= 0)
-  {
-    MERROR("Error assigning RSA private key");
-    return false;
-  }
-
-  // the RSA key is now managed by the EVP_PKEY structure
-  (void)rsa.release();
-
-  cert = X509_new();
-  if (!cert)
-  {
-    MERROR("Failed to create new X509 certificate");
-    return false;
-  }
-  ASN1_INTEGER_set(X509_get_serialNumber(cert), 1);
-  X509_gmtime_adj(X509_get_notBefore(cert), 0);
-  X509_gmtime_adj(X509_get_notAfter(cert), 3600 * 24 * 182); // half a year
-  if (!X509_set_pubkey(cert, pkey))
-  {
-    MERROR("Error setting pubkey on certificate");
-    X509_free(cert);
-    return false;
-  }
-  X509_NAME *name = X509_get_subject_name(cert);
-  X509_set_issuer_name(cert, name);
-
-  if (X509_sign(cert, pkey, EVP_sha256()) == 0)
-  {
-    MERROR("Error signing certificate");
-    X509_free(cert);
-    return false;
-  }
-  (void)pkey_deleter.release();
-  return true;
-}
-
-bool create_ec_ssl_certificate(EVP_PKEY *&pkey, X509 *&cert, int type)
-{
-  MINFO("Generating SSL certificate");
-  pkey = EVP_PKEY_new();
-  if (!pkey)
-  {
-    MERROR("Failed to create new private key");
-    return false;
-  }
-
-  openssl_pkey pkey_deleter{pkey};
-  openssl_ec_key ec_key{EC_KEY_new()};
-  if (!ec_key)
-  {
-    MERROR("Error allocating EC private key");
-    return false;
-  }
-
-  EC_GROUP *group = EC_GROUP_new_by_curve_name(type);
-  if (!group)
-  {
-    MERROR("Error getting EC group " << type);
-    return false;
-  }
-  openssl_group group_deleter{group};
-
-  EC_GROUP_set_asn1_flag(group, OPENSSL_EC_NAMED_CURVE); 
-  EC_GROUP_set_point_conversion_form(group, POINT_CONVERSION_UNCOMPRESSED);
-
-  if (!EC_GROUP_check(group, NULL))
-  {
-    MERROR("Group failed check: " << ERR_reason_error_string(ERR_get_error()));
-    return false;
-  }
-  if (EC_KEY_set_group(ec_key.get(), group) != 1)
-  {
-    MERROR("Error setting EC group");
-    return false;
-  }
-  if (EC_KEY_generate_key(ec_key.get()) != 1)
-  {
-    MERROR("Error generating EC private key");
-    return false;
-  }
-  if (EVP_PKEY_assign_EC_KEY(pkey, ec_key.get()) <= 0)
-  {
-    MERROR("Error assigning EC private key");
-    return false;
-  }
-
-  // the key is now managed by the EVP_PKEY structure
-  (void)ec_key.release();
 
   cert = X509_new();
   if (!cert)
@@ -361,17 +205,6 @@ boost::asio::ssl::context ssl_options_t::create_context() const
     EVP_PKEY *pkey;
     X509 *cert;
     bool ok = false;
-
-#ifdef USE_EXTRA_EC_CERT
-    CHECK_AND_ASSERT_THROW_MES(create_ec_ssl_certificate(pkey, cert, NID_secp256k1), "Failed to create certificate");
-    CHECK_AND_ASSERT_THROW_MES(SSL_CTX_use_certificate(ctx, cert), "Failed to use generated certificate");
-    if (!SSL_CTX_use_PrivateKey(ctx, pkey))
-      MERROR("Failed to use generated EC private key for " << NID_secp256k1);
-    else
-      ok = true;
-    X509_free(cert);
-    EVP_PKEY_free(pkey);
-#endif
 
     CHECK_AND_ASSERT_THROW_MES(create_rsa_ssl_certificate(pkey, cert), "Failed to create certificate");
     CHECK_AND_ASSERT_THROW_MES(SSL_CTX_use_certificate(ctx, cert), "Failed to use generated certificate");
