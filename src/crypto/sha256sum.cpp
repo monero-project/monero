@@ -41,82 +41,82 @@
 #define MONERO_DEFAULT_LOG_CATEGORY "util"
 
 namespace {
-	constexpr size_t SHA256_MD_SIZE = 32;
-	static_assert(sizeof(crypto::hash::data) >= SHA256_MD_SIZE, "crypto::hash::data is too small for SHA-256");
+    constexpr size_t SHA256_MD_SIZE = 32;
+    static_assert(sizeof(crypto::hash::data) >= SHA256_MD_SIZE, "crypto::hash::data is too small for SHA-256");
 }
 
 namespace tools
 {
-	bool sha256sum(const uint8_t *data, size_t len, crypto::hash &hash) noexcept
-	{
-		if (!EVP_Digest(data, len, (unsigned char*) hash.data, NULL, EVP_sha256(), NULL)) {
-			MERROR("Failed to digest with OpenSSL SHA-256 EVP");
-			return false;
-		}
+    bool sha256sum(const uint8_t *data, size_t len, crypto::hash &hash) noexcept
+    {
+        if (!EVP_Digest(data, len, (unsigned char*) hash.data, NULL, EVP_sha256(), NULL)) {
+            MERROR("Failed to digest with OpenSSL SHA-256 EVP");
+            return false;
+        }
 
-		return true;
-	}
+        return true;
+    }
 
-	bool sha256sum(const std::string &filename, crypto::hash &hash) noexcept
-	{
-		// Open file for reading in binary mode, immediately putting the cursor at the end
-		std::ifstream f(filename, std::ios_base::binary | std::ios_base::in | std::ios::ate);
-		if (!f)
-		{
-			MERROR("sha256sum: Could not open file '" << filename << "' for reading");
-			return false;
-		}
+    bool sha256sum(const std::string &filename, crypto::hash &hash) noexcept
+    {
+        // Open file for reading in binary mode, immediately putting the cursor at the end
+        std::ifstream f(filename, std::ios_base::binary | std::ios_base::in | std::ios::ate);
+        if (!f)
+        {
+            MERROR("sha256sum: Could not open file '" << filename << "' for reading");
+            return false;
+        }
 
-		// Retreive file size and go back to the beginning of the stream
-		size_t size_left = f.tellg();
-		f.seekg(0, std::ios::beg);
+        // Retreive file size and go back to the beginning of the stream
+        size_t size_left = f.tellg();
+        f.seekg(0, std::ios::beg);
 
-		// Initiate digest context
-		EVP_MD_CTX* ctx_raw;
-		if (NULL == (ctx_raw = EVP_MD_CTX_new()))
-		{
-			MERROR("Failed to create OpenSSL EVP digest context");
-			return false;
-		}
+        // Initiate digest context
+        EVP_MD_CTX* ctx_raw;
+        if (NULL == (ctx_raw = EVP_MD_CTX_new()))
+        {
+            MERROR("Failed to create OpenSSL EVP digest context");
+            return false;
+        }
 
-		// Now we move raw_ctx into a unique_ptr so EVP_MD_CTX_free is alwaty called. This is
-		// necessary because EVP_MD_CTX is an incomplete type and can't be allocated on the stack.
-		std::unique_ptr<EVP_MD_CTX, decltype(&EVP_MD_CTX_free)> ctx(ctx_raw, &EVP_MD_CTX_free);
+        // Now we move raw_ctx into a unique_ptr so EVP_MD_CTX_free is alwaty called. This is
+        // necessary because EVP_MD_CTX is an incomplete type and can't be allocated on the stack.
+        std::unique_ptr<EVP_MD_CTX, decltype(&EVP_MD_CTX_free)> ctx(ctx_raw, &EVP_MD_CTX_free);
 
-		// Initialize digest context
-		if (!EVP_DigestInit_ex(ctx.get(), EVP_sha256(), NULL))
-		{
-			MERROR("Failed to initialize OpenSSL SHA-256 EVP digest context");
-			return false;
-		}
+        // Initialize digest context
+        if (!EVP_DigestInit_ex(ctx.get(), EVP_sha256(), NULL))
+        {
+            MERROR("Failed to initialize OpenSSL SHA-256 EVP digest context");
+            return false;
+        }
 
-		while (size_left)
-		{
-			// Read N bytes from f into buf, where N is min(size_left, BUFSIZ)
-			char buf[BUFSIZ];
-			const std::ifstream::pos_type read_size = std::min(size_left, sizeof(buf));
-			f.read(buf, read_size);
-			if (!f || !f.good())
-			{
-				MERROR("sha256sum: I/O error while reading file '" << filename << "'");
-				return false;
-			}
+        while (size_left)
+        {
+            // Read N bytes from f into buf, where N is min(size_left, BUFSIZ)
+            char buf[BUFSIZ];
+            const std::ifstream::pos_type read_size = std::min(size_left, sizeof(buf));
+            f.read(buf, read_size);
+            if (!f || !f.good())
+            {
+                MERROR("sha256sum: I/O error while reading file '" << filename << "'");
+                return false;
+            }
 
-			// Update digest
-			if (!EVP_DigestUpdate(ctx.get(), buf, read_size)) {
-				MERROR("Failed to update OpenSSL SHA-256 EVP digest");
-				return false;
-			}
+            // Update digest
+            if (!EVP_DigestUpdate(ctx.get(), buf, read_size)) {
+                MERROR("Failed to update OpenSSL SHA-256 EVP digest");
+                return false;
+            }
 
-			size_left -= read_size;
-		} // while (size_left)
+            size_left -= read_size;
+        } // while (size_left)
 
-		// Finalize digest
-		if (!EVP_DigestFinal_ex(ctx.get(), (unsigned char*) hash.data, NULL)) {
-			MERROR("Failed to finalize OpenSSL SHA-256 EVP digest");
-			return false;
-		}
+        // Finalize digest
+        if (!EVP_DigestFinal_ex(ctx.get(), (unsigned char*) hash.data, NULL)) {
+            MERROR("Failed to finalize OpenSSL SHA-256 EVP digest");
+            return false;
+        }
 
-		return true;
-	}
+        return true;
+    }
 } // namespace tools
