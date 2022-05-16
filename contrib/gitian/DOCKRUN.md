@@ -30,12 +30,6 @@ git clone https://github.com/monero-project/monero.git
 cd monero/contrib/gitian
 ```
 
-If you want Mac binaries included in your build, you need to obtain the MacOS SDK:
-
-```bash
-curl -O https://bitcoincore.org/depends-sources/sdks/MacOSX10.11.sdk.tar.gz
-```
-
 Other User Preparation
 ----------------------
 
