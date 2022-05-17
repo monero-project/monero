@@ -53,7 +53,6 @@
 #define TX_EXTRA_CONTRACT_INFO                0x78
 #define TX_EXTRA_CONTRACT_STATE               0x79
 #define TX_EXTRA_CONTRACT_INTERACTION         0x80
-#define TX_EXTRA_TAG_SERVICE_NODE_RECONTRIBUTION  0x82
 
 #define TX_EXTRA_NONCE_PAYMENT_ID             0x00
 #define TX_EXTRA_NONCE_ENCRYPTED_PAYMENT_ID   0x01
@@ -305,7 +304,6 @@ struct tx_extra_service_node_deregister
 	 tx_extra_service_node_pubkey,
 	 tx_extra_service_node_register,
 	 tx_extra_service_node_contributor,
-   tx_extra_service_node_recontribution,
 	 tx_extra_service_node_winner,
 	 tx_extra_service_node_deregister,
 	 tx_extra_tx_secret_key,
@@ -324,7 +322,6 @@ struct tx_extra_service_node_deregister
   VARIANT_TAG(binary_archive, cryptonote::tx_extra_service_node_register, TX_EXTRA_TAG_SERVICE_NODE_REGISTER);
   VARIANT_TAG(binary_archive, cryptonote::tx_extra_service_node_deregister, TX_EXTRA_TAG_SERVICE_NODE_DEREGISTER);
   VARIANT_TAG(binary_archive, cryptonote::tx_extra_service_node_contributor, TX_EXTRA_TAG_SERVICE_NODE_CONTRIBUTOR);
-  VARIANT_TAG(binary_archive, cryptonote::tx_extra_service_node_recontribution, TX_EXTRA_TAG_SERVICE_NODE_RECONTRIBUTION);
   VARIANT_TAG(binary_archive, cryptonote::tx_extra_service_node_winner, TX_EXTRA_TAG_SERVICE_NODE_WINNER);
   VARIANT_TAG(binary_archive, cryptonote::tx_extra_service_node_pubkey, TX_EXTRA_TAG_SERVICE_NODE_PUBKEY);
   VARIANT_TAG(binary_archive, cryptonote::tx_extra_tx_secret_key, TX_EXTRA_TAG_TX_SECRET_KEY);
