@@ -78,6 +78,7 @@ file(COPY
   data/outputs
   data/unsigned_monero_tx
   data/signed_monero_tx
+  data/sha256sum
   DESTINATION data)
 
 if (CMAKE_BUILD_TYPE STREQUAL "fuzz" OR OSSFUZZ)
