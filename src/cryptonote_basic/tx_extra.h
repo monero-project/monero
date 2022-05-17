@@ -237,19 +237,6 @@ struct tx_extra_service_node_contributor
    END_SERIALIZE()
  };
 
- struct tx_extra_service_node_recontribution
- {
-   crypto::hash stake_transaction_hash; //Points to the transaction where the initial lock is found. 
-   uint64_t stake_transaction_height; //Points to the transaction where the initial lock is found. 
-   crypto::public_key new_pubkey; //Points to the transaction where the initial lock is found. 
-
-   BEGIN_SERIALIZE()
-     FIELD(stake_transaction_hash)
-     FIELD(stake_transaction_height)
-     FIELD(new_pubkey)
-   END_SERIALIZE()
- };
-
 struct tx_extra_service_node_deregister
 {
 	struct vote

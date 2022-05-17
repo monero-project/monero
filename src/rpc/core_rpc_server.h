@@ -198,6 +198,9 @@ namespace cryptonote
         MAP_JON_RPC_WE_IF("rpc_access_account",  on_rpc_access_account,         COMMAND_RPC_ACCESS_ACCOUNT, !m_restricted)
         MAP_JON_RPC_WE("on_get_signature",  on_get_signature,         COMMAND_RPC_GET_SIGNATURE)
         MAP_JON_RPC_WE("on_verify_signature",  on_verify_signature,         COMMAND_RPC_VERIFY_SIGNATURE)
+        MAP_JON_RPC_WE("get_oracle_node",  get_oracle_node,         COMMAND_RPC_GET_ORACLE_NODE)
+        MAP_JON_RPC_WE("get_oracle_staker",  get_oracle_staker,         COMMAND_RPC_GET_ORACLE_STAKER)
+        MAP_JON_RPC_WE("get_network_staking_stats",  get_network_staking_stats,         COMMAND_RPC_VERIFY_NETWORK_STAKING_SATS)
 
       END_JSON_RPC_MAP()
     END_URI_MAP2()
@@ -283,6 +286,10 @@ namespace cryptonote
     bool on_verify_signature(const COMMAND_RPC_VERIFY_SIGNATURE::request& req, COMMAND_RPC_VERIFY_SIGNATURE::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx = NULL);
     bool on_get_signature(const COMMAND_RPC_GET_SIGNATURE::request& req, COMMAND_RPC_GET_SIGNATURE::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx = NULL);
 
+    bool get_oracle_node();
+    bool get_oracle_staker();
+    bool get_network_staking_stats();
+    
     bool on_flush_cache(const COMMAND_RPC_FLUSH_CACHE::request& req, COMMAND_RPC_FLUSH_CACHE::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx = NULL);
     bool on_rpc_access_info(const COMMAND_RPC_ACCESS_INFO::request& req, COMMAND_RPC_ACCESS_INFO::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx = NULL);
     bool on_rpc_access_submit_nonce(const COMMAND_RPC_ACCESS_SUBMIT_NONCE::request& req, COMMAND_RPC_ACCESS_SUBMIT_NONCE::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx = NULL);

@@ -659,7 +659,7 @@ namespace service_nodes
 			if (iter != service_node_addresses.begin() + i)
 				return false;
 			uint64_t hi, lo, resulthi, resultlo;
-			if(hf_version >= 12 && service_node_addresses.size() == 1)
+			if(hf_version >= 12)
 			{
 				lo = mul128(MAX_OPERATOR_V12 * COIN, service_node_portions[i], &hi);
 				div128_64(hi, lo, STAKING_PORTIONS, &resulthi, &resultlo);
@@ -902,18 +902,11 @@ namespace service_nodes
 		const auto hf_version = m_blockchain.get_hard_fork_version(block_height);
 
 		const uint64_t block_for_unlock = hf_version >= 12 ? info.registration_height : block_height;
-
-		if(new_pubkey != crypto::null_pkey)
-		{
-			//check if new pubkey and old pubkey aren't the same (shouldn't happen)
-			if(pubkey == new_pubkey)
-				return;
-		}
-
-		if (info.is_fully_funded())
+		
+		if (!get_contribution(tx, block_for_unlock, address, transferred))
 			return;
 
-		if (!get_contribution(tx, block_for_unlock, address, transferred))
+		if (info.is_fully_funded())
 			return;
 
 		if(hf_version >= 12)
@@ -1232,12 +1225,9 @@ namespace service_nodes
 		std::lock_guard<boost::recursive_mutex> lock(m_sn_mutex);
 		auto oldest_waiting = std::pair<uint64_t, uint32_t>(std::numeric_limits<uint64_t>::max(), std::numeric_limits<uint32_t>::max());
 		crypto::public_key key = crypto::null_pkey;
-
 		for (const auto& info : m_service_nodes_infos)
 		{
-			// bool threshold_met = ((info.second.portions_for_operator != STAKING_PORTIONS && info.second.contributors.size() >= 1) || hard_fork_version < 12 || (info.second.portions_for_operator == STAKING_PORTIONS && info.second.contributors.size() == 1 && info.second.is_fully_funded()));
-			bool threshold_met = true;
-			if (((info.second.is_valid() && hard_fork_version > 9) || info.second.is_fully_funded()) && threshold_met)
+			if ((info.second.is_valid() && hard_fork_version > 9) || info.second.is_fully_funded())
 			{
 				auto waiting_since = std::make_pair(info.second.last_reward_block_height, info.second.last_reward_transaction_index);
 				if (waiting_since < oldest_waiting)

@@ -18,11 +18,11 @@ namespace service_nodes {
 		uint64_t base = 0, variable = 0;
 		
 
-		if(true)
+		if(height >= 833277)
 		{
 			return 100000 * COIN;
 		}
-		else if (height >= 352846 && height < 800000)
+		else if (height >= 352846 && height < 833277)
 		{
 			base = 70000 * COIN;
 			variable = (20000.0 * COIN) / triton::exp2(height_adjusted / 356446.0);

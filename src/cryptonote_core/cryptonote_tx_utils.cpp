@@ -81,6 +81,12 @@ namespace cryptonote
     }
     LOG_PRINT_L2("destinations include " << num_stdaddresses << " standard addresses and " << num_subaddresses << " subaddresses");
   }
+
+  uint64_t get_governance_reward(uint64_t height, uint64_t base_reward)
+  {
+    return base_reward / 10;
+  }
+
   
 	bool get_deterministic_output_key(const account_public_address& address, const keypair& tx_key, size_t output_index, crypto::public_key& output_key)
 	{
@@ -175,7 +181,7 @@ namespace cryptonote
       } else if(height == 663269)
       {
         return MINT_BRIDGE;
-      } else if(height == 800000)
+      } else if(height == 833277)
       {
         return BURN_2;
       }
@@ -439,7 +445,9 @@ namespace cryptonote
 		  return false;
 	  }
     
-    if(hard_fork_version >= 7)
+    if (hard_fork_version >= 12) {
+      result.governance = get_governance_reward(miner_context.height, base_reward);
+    } else if(hard_fork_version >= 7 && hard_fork_version < 12)
     {
       result.governance = allow_governance(miner_context.height, nettype);
     }
