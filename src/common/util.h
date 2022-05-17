@@ -46,6 +46,7 @@
 #endif
 
 #include "crypto/hash.h"
+#include "crypto/sha256sum.h" // forward for backwards compatibility
 #include "cryptonote_config.h"
 
 /*! \brief Various Tools

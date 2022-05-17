@@ -31,7 +31,6 @@
 #include "misc_log_ex.h"
 #include "int-util.h"
 #include "crypto/crypto.h"
-#include "crypto/sha256sum.h"
 #include "common/util.h"
 #include "merge_mining.h"
 
@@ -57,7 +56,7 @@ uint32_t get_aux_slot(const crypto::hash &id, uint32_t nonce, uint32_t n_aux_cha
   buf[HASH_SIZE + sizeof(uint32_t)] = config::HASH_KEY_MM_SLOT;
 
   crypto::hash res;
-  CHECK_AND_ASSERT_THROW_MES(tools::sha256sum(buf, sizeof(buf), res), "sha256sum failed in get_aux_slot");
+  tools::sha256sum(buf, sizeof(buf), res);
   v = *((const uint32_t*)&res);
   return SWAP32LE(v) % n_aux_chains;
 }

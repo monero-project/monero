@@ -52,7 +52,6 @@ using namespace epee;
 #include "net/parse.h"
 #include "storages/http_abstract_invoke.h"
 #include "crypto/hash.h"
-#include "crypto/sha256sum.h"
 #include "rpc/rpc_args.h"
 #include "rpc/rpc_handler.h"
 #include "rpc/rpc_payment_costs.h"
