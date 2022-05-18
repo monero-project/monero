@@ -2851,7 +2851,7 @@ bool t_rpc_command_executor::prepare_sn()
   contributions.push_back(portions);
   portions_remaining -= portions;
   total_reserved_contributions += get_actual_amount(max_contribution, portions);
-  
+
   for (size_t contributor_index = 0; contributor_index < number_participants; ++contributor_index)
   {
     const bool is_operator = (contributor_index == 0);

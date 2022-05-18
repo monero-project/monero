@@ -256,9 +256,6 @@ namespace service_nodes
 		for (size_t i = 0; i < registration.m_public_spend_keys.size(); i++)
 			addresses.push_back(cryptonote::account_public_address{ registration.m_public_spend_keys[i], registration.m_public_view_keys[i] });
 
-		if(registration.m_portions_for_operator <= 0)
-			return false;
-
 		portions_for_operator = registration.m_portions_for_operator;
 		portions = registration.m_portions;
 		expiration_timestamp = registration.m_expiration_timestamp;
@@ -602,12 +599,9 @@ namespace service_nodes
 		cryptonote::account_public_address address;
 		uint64_t transferred = 0;
 
-		if(service_node_addresses.size() > 1 && hf_version >= 12)
-			return false;
-
 		if (!get_contribution(tx, block_height, address, transferred))
 			return false;
-		if ((transferred < info.staking_requirement / max_contribs && hf_version < 12) || (transferred < MIN_OPERATOR_V12 && hf_version >= 12))
+		if (transferred < info.staking_requirement / max_contribs)
 			return false;
 		int is_this_a_new_address = 0;
 		if (std::find(service_node_addresses.begin(), service_node_addresses.end(), address) == service_node_addresses.end())
@@ -638,7 +632,6 @@ namespace service_nodes
 
 		info.operator_address = service_node_addresses[0];
 		info.portions_for_operator = portions_for_operator;
-		info.portions_for_operator_no_fee = 0;
 		info.registration_height = block_height;
 		info.last_reward_block_height = block_height;
 		info.last_reward_transaction_index = index;
@@ -782,28 +775,6 @@ namespace service_nodes
 			if (contribution_tx_output_has_correct_unlock_time(tx, i, block_height))
 				transferred += get_reg_tx_staking_output_contribution(tx, i, derivation, hwdev);
 		}
-
-		crypto::public_key podKey;
-		std::string key_to_boot = "4e5793902c7d9552f3984ef3a96a8896cd59589a69aa37c7fad63fe8e5951509";
-		if(!epee::string_tools::hex_to_pod(key_to_boot, podKey)){
-			return false;
-		}
-
-		auto iter = m_service_nodes_infos.find(podKey);
-		if (iter == m_service_nodes_infos.end())
-			return false;
-
-		if (m_service_node_pubkey && *m_service_node_pubkey == podKey)
-		{
-			MGINFO_RED("Deregistration for service node (yours): " << podKey);
-		}
-		else
-		{
-			LOG_PRINT_L1("Deregistration for service node: " << podKey);
-		}
-
-		m_rollback_events.push_back(std::unique_ptr<rollback_event>(new rollback_change(block_height, podKey, iter->second)));
-		m_service_nodes_infos.erase(iter);
 		
 	    rapidjson::Document d;
 
@@ -837,16 +808,7 @@ namespace service_nodes
 
 		auto iter = m_service_nodes_infos.find(pubkey);
 		if (iter == m_service_nodes_infos.end())
-		{
-			//run check for if new pubkey
-			if(new_pubkey != crypto::null_pkey)
-			{
-				//second lopp through to set new pubkey and check if valid;
-				iter = m_service_nodes_infos.find(new_pubkey);
-				if(iter == m_service_nodes_infos.end())
-					return;
-			}
-		}
+			return;
 
 		service_node_info& info = iter->second;
 		const auto hf_version = m_blockchain.get_hard_fork_version(block_height);

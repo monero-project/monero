@@ -1534,6 +1534,7 @@ void add_tx_secret_key_to_tx_extra(std::vector<uint8_t>& tx_extra, const crypto:
   char* buffer_iter = buffer;
   memcpy(buffer_iter, &operator_portions, sizeof(operator_portions));
   buffer_iter += sizeof(operator_portions);
+
   for (size_t i = 0; i < addresses.size(); i++)
   {
     memcpy(buffer_iter, &addresses[i], sizeof(cryptonote::account_public_address));
