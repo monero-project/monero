@@ -618,23 +618,20 @@ namespace nodetool
     }
     else
     {
-      full_addrs.insert("212.47.251.15:9230"); // BobbieLtd
-      full_addrs.insert("sanfran.equilibria.network:9230");
-      full_addrs.insert("newyork.equilibria.network:9230");
-      full_addrs.insert("singapore.equilibria.network:9230");
-      full_addrs.insert("tbilisi.equilibria.network:9230");
+      full_addrs.insert("188.166.123.183:9230");
+      full_addrs.insert("161.35.152.20:9230");
+      full_addrs.insert("143.110.239.208:9230");
+      full_addrs.insert("143.198.56.51:9230");
+      full_addrs.insert("159.203.189.113:9230");
+      full_addrs.insert("198.199.82.27:9230");
+      full_addrs.insert("167.71.223.140:9230");
+      full_addrs.insert("167.71.214.42:9230");
+      full_addrs.insert("139.59.58.203:9230");
+      full_addrs.insert("143.110.247.104:9230");
+      full_addrs.insert("xeq.supporters.ml:9230");
+      full_addrs.insert("xeq.gntl.uk:9230");
+      full_addrs.insert("equilibria.fastnode.eu:9230");
       //Amsterdam
-      full_addrs.insert("ams.equilibria.network:9230");
-      //Middle East Bahrain
-      full_addrs.insert("me.equilibria.network:9230");
-      //Brazil
-      full_addrs.insert("br.equilibria.network:9230");
-      //Australia
-      full_addrs.insert("au.equilibria.network:9230");
-      //south korea
-      full_addrs.insert("sk.equilibria.network:9230");
-      //africa - South Africa
-      full_addrs.insert("africa.equilibria.network:9230");
     }
     return full_addrs;
   }
