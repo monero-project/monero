@@ -3384,4 +3384,41 @@ namespace cryptonote
     typedef epee::misc_utils::struct_init<response_t> response;
   };
 
+    struct COMMAND_RPC_GET_STAKER
+  {
+    struct request_t: public rpc_request_base
+    {
+      std::string address;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(address)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<request_t> request;
+
+    struct response_t: public rpc_response_base
+    {
+      bool is_staked;
+      uint64_t total_staked_amount;
+      uint64_t total_nodes_staked_to;
+      uint64_t highest_unlock_time_by_block;
+      uint64_t lowest_unlock_time_by_block;
+      uint64_t estimated_earnings_for_staking_period_end;
+      uint64_t estimated_earnings_daily;
+      std::vector<std::string> nodes_staked_to;
+      
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(is_staked)
+        KV_SERIALIZE(total_staked_amount)
+        KV_SERIALIZE(total_nodes_staked_to)
+        KV_SERIALIZE(highest_unlock_time_by_block)
+        KV_SERIALIZE(lowest_unlock_time_by_block)
+        KV_SERIALIZE(estimated_earnings_for_staking_period_end)
+        KV_SERIALIZE(estimated_earnings_daily)
+        KV_SERIALIZE(nodes_staked_to)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<response_t> response;
+  };
+
 }

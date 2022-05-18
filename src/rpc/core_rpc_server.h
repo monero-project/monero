@@ -198,6 +198,9 @@ namespace cryptonote
         MAP_JON_RPC_WE_IF("rpc_access_account",  on_rpc_access_account,         COMMAND_RPC_ACCESS_ACCOUNT, !m_restricted)
         MAP_JON_RPC_WE("on_get_signature",  on_get_signature,         COMMAND_RPC_GET_SIGNATURE)
         MAP_JON_RPC_WE("on_verify_signature",  on_verify_signature,         COMMAND_RPC_VERIFY_SIGNATURE)
+
+        MAP_JON_RPC_WE("get_staker",  get_staker,         COMMAND_RPC_GET_STAKER)
+
       END_JSON_RPC_MAP()
     END_URI_MAP2()
 
@@ -290,6 +293,8 @@ namespace cryptonote
     bool on_rpc_access_data(const COMMAND_RPC_ACCESS_DATA::request& req, COMMAND_RPC_ACCESS_DATA::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx = NULL);
     bool on_rpc_access_account(const COMMAND_RPC_ACCESS_ACCOUNT::request& req, COMMAND_RPC_ACCESS_ACCOUNT::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx = NULL);
     //-----------------------
+
+    bool get_staker(const COMMAND_RPC_GET_STAKER::request& req, COMMAND_RPC_GET_STAKER::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx = NULL);
 
 private:
     bool check_core_busy();
