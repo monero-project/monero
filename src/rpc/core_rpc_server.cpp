@@ -3724,8 +3724,8 @@ namespace cryptonote
       cryptonote::address_parse_info info;
       if (!get_account_address_from_str(info, nettype(), req.address))
       {
-        MFATAL("Invalid staker address: " << req.address);
-        return false;
+        res.Error = "Invalid staker address: " + req.address;
+        return true;
       }
 
       std::vector<service_nodes::service_node_pubkey_info> pubkey_info_list = m_core.get_service_node_list_state({});
@@ -3736,11 +3736,16 @@ namespace cryptonote
       res.total_nodes_staked_to = 0;
       res.highest_unlock_time_by_block = 0;
       res.lowest_unlock_time_by_block = 0;
-      res.estimated_earnings_for_staking_period_end = 0;
-      res.estimated_earnings_daily = 0;
+      res.avg_reg_height = 0;
+      res.avg_staking_req = 0;
+      res.avg_unlock_time = 0;
+      res.reward = 0;
+      res.reward_divisor = 0;
+      res.total_nodes = 0;
 
       uint64_t avg_unlock_time = 0;
       uint64_t avg_reg_height = 0;
+      uint64_t avg_staking_req = 0;
 
       for (const auto &pubkey_info : pubkey_info_list)
       {
@@ -3753,14 +3758,14 @@ namespace cryptonote
           if(!res.is_staked)
             res.is_staked = true;
 
-          if(res.highest_unlock_time_by_block == 0 || pubkey_info.info.registration_height > res.highest_unlock_time_by_block)
+          if(res.highest_unlock_time_by_block == 0 || pubkey_info.info.registration_height + 20160 > res.highest_unlock_time_by_block)
           {
-            res.highest_unlock_time_by_block = pubkey_info.info.registration_height;
+            res.highest_unlock_time_by_block = pubkey_info.info.registration_height + 20160;
           }
 
-          if(res.lowest_unlock_time_by_block == 0 || pubkey_info.info.registration_height < res.lowest_unlock_time_by_block)
+          if(res.lowest_unlock_time_by_block == 0 || pubkey_info.info.registration_height + 20160 < res.lowest_unlock_time_by_block)
           {
-            res.lowest_unlock_time_by_block = pubkey_info.info.registration_height;
+            res.lowest_unlock_time_by_block = pubkey_info.info.registration_height + 20160;
           }
 
           res.total_nodes_staked_to++;
@@ -3771,14 +3776,21 @@ namespace cryptonote
           continue;
         
         res.nodes_staked_to.push_back(string_tools::pod_to_hex(pubkey_info.pubkey));
-        avg_unlock_time = pubkey_info.info.registration_height + 20160;
-        avg_reg_height = pubkey_info.info.registration_height;
+        avg_unlock_time += pubkey_info.info.registration_height + 20160;
+        avg_reg_height += pubkey_info.info.registration_height;
+        avg_staking_req += pubkey_info.info.staking_requirement;
         staked_to_node = false;
       }
 
-      avg_unlock_time = avg_unlock_time / res.nodes_staked_to.size();
-      avg_reg_height = avg_reg_height / res.nodes_staked_to.size();
+      if(!res.is_staked)
+      {
+        res.Error = "Not staked to any nodes!";
+        return true;
+      }
 
+      avg_unlock_time = avg_unlock_time / res.total_nodes_staked_to;
+      avg_reg_height = avg_reg_height / res.total_nodes_staked_to;
+      avg_staking_req = avg_staking_req / res.total_nodes_staked_to;
       uint64_t top_height = m_core.get_current_blockchain_height() - 1;
 
       block blk;
@@ -3788,15 +3800,17 @@ namespace cryptonote
       }
       catch (...)
       {
-        res.status = "Error retrieving block at height " + std::to_string(top_height);
-        return false;
+        res.Error = "Error retrieving block at height " + std::to_string(top_height);
+        return true;
       }
 
       uint64_t reward = get_block_reward(blk);
-      uint64_t staker_portion = ((reward / 4) * 3) / 2;
-
-      res.estimated_earnings_for_staking_period_end = (720/pubkey_info_list.size()) * (staker_portion) * (avg_unlock_time - avg_reg_height);
-      res.estimated_earnings_daily = (720/pubkey_info_list.size()) * (staker_portion);
+      res.reward = blk.major_version >= 12 ? ((reward / 4) * 3) / 2 : (reward / 2);
+      res.reward_divisor = blk.major_version >= 12 ? 65000 : avg_staking_req;
+      res.total_nodes = pubkey_info_list.size();
+      res.avg_unlock_time = avg_unlock_time;
+      res.avg_reg_height = avg_reg_height;
+      res.avg_staking_req = avg_staking_req;
   }
 
   //------------------------------------------------------------------------------------------------------------------------------
