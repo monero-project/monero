@@ -1063,7 +1063,7 @@ bool t_rpc_command_executor::print_transaction(crypto::hash transaction_hash,
       cryptonote::blobdata blob;
       std::string source = as_hex.empty() ? pruned_as_hex + prunable_as_hex : as_hex;
       bool pruned = !pruned_as_hex.empty() && prunable_as_hex.empty();
-      if (!string_tools::parse_hexstr_to_binbuff(source, blob))
+      if (!epee::string_tools::parse_hexstr_to_binbuff(source, blob))
       {
         tools::fail_msg_writer() << "Failed to parse tx to get json format";
       }
