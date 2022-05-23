@@ -3724,6 +3724,7 @@ namespace cryptonote
       cryptonote::address_parse_info info;
       if (!get_account_address_from_str(info, nettype(), req.address))
       {
+        res.status = CORE_RPC_STATUS_OK;
         res.Error = "Invalid staker address: " + req.address;
         return true;
       }
@@ -3746,6 +3747,7 @@ namespace cryptonote
       uint64_t avg_unlock_time = 0;
       uint64_t avg_reg_height = 0;
       uint64_t avg_staking_req = 0;
+      uint64_t contribute_amount = 0;
 
       for (const auto &pubkey_info : pubkey_info_list)
       {
@@ -3774,23 +3776,28 @@ namespace cryptonote
         }
         if(!staked_to_node)
           continue;
-        
-        res.nodes_staked_to.push_back(string_tools::pod_to_hex(pubkey_info.pubkey));
+
+
+        // COMMAND_RPC_GET_STAKER::node n = {string_tools::pod_to_hex(pubkey_info.pubkey), contribute_amount};
+        // res.nodes_staked_to.push_back(n);
+
         avg_unlock_time += pubkey_info.info.registration_height + 20160;
         avg_reg_height += pubkey_info.info.registration_height;
         avg_staking_req += pubkey_info.info.staking_requirement;
         staked_to_node = false;
+        // contribute_amount = 0;
       }
 
       if(!res.is_staked)
       {
+        res.status = CORE_RPC_STATUS_OK;
         res.Error = "Not staked to any nodes!";
         return true;
       }
-
-      avg_unlock_time = avg_unlock_time / res.total_nodes_staked_to;
-      avg_reg_height = avg_reg_height / res.total_nodes_staked_to;
-      avg_staking_req = avg_staking_req / res.total_nodes_staked_to;
+      
+      res.avg_unlock_time = avg_unlock_time / res.total_nodes_staked_to;
+      res.avg_reg_height = avg_reg_height / res.total_nodes_staked_to;
+      res.avg_staking_req = avg_staking_req / res.total_nodes_staked_to;
       uint64_t top_height = m_core.get_current_blockchain_height() - 1;
 
       block blk;
@@ -3800,6 +3807,7 @@ namespace cryptonote
       }
       catch (...)
       {
+        res.status = CORE_RPC_STATUS_OK;
         res.Error = "Error retrieving block at height " + std::to_string(top_height);
         return true;
       }
@@ -3808,9 +3816,6 @@ namespace cryptonote
       res.reward = blk.major_version >= 12 ? ((reward / 4) * 3) / 2 : (reward / 2);
       res.reward_divisor = blk.major_version >= 12 ? 65000 : avg_staking_req;
       res.total_nodes = pubkey_info_list.size();
-      res.avg_unlock_time = avg_unlock_time;
-      res.avg_reg_height = avg_reg_height;
-      res.avg_staking_req = avg_staking_req;
   }
 
   //------------------------------------------------------------------------------------------------------------------------------

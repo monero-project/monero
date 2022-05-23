@@ -3397,6 +3397,17 @@ namespace cryptonote
     };
     typedef epee::misc_utils::struct_init<request_t> request;
 
+    // struct node {
+    //   std::string node_address;
+    //   uint64_t staker_contribution;
+
+    //   BEGIN_KV_SERIALIZE_MAP()
+    //     KV_SERIALIZE(node_address)
+    //     KV_SERIALIZE(staker_contribution)
+    //   END_KV_SERIALIZE_MAP()
+
+    // };
+
     struct response_t: public rpc_response_base
     {
       bool is_staked;
@@ -3410,7 +3421,8 @@ namespace cryptonote
       uint64_t reward;
       uint64_t reward_divisor;
       uint64_t total_nodes;
-      std::vector<std::string> nodes_staked_to;
+      // std::vector<COMMAND_RPC_GET_STAKER::node> nodes_staked_to;
+
       std::string Error;
 
       BEGIN_KV_SERIALIZE_MAP()
@@ -3421,7 +3433,7 @@ namespace cryptonote
         KV_SERIALIZE(lowest_unlock_time_by_block)
         KV_SERIALIZE(avg_reg_height)
         KV_SERIALIZE(avg_staking_req)
-        KV_SERIALIZE(nodes_staked_to)
+        // KV_SERIALIZE(nodes_staked_to)
         KV_SERIALIZE(avg_unlock_time)
         KV_SERIALIZE(reward)
         KV_SERIALIZE(reward_divisor)

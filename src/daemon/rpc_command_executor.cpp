@@ -2794,13 +2794,26 @@ bool t_rpc_command_executor::prepare_sn()
     min_portions = MIN_PORTIONS_V2;
   }
 
-  const uint64_t min_contribution = MIN_OPERATOR_V12 * COIN;
-  const uint64_t max_contribution = MAX_OPERATOR_V12 * COIN;
+  uint64_t min_contribution = MIN_OPERATOR_V12 * COIN;
+  uint64_t max_contribution = MAX_OPERATOR_V12 * COIN;
+
+  uint64_t staking_requirement =
+  std::max(service_nodes::get_staking_requirement(nettype, block_height),
+            service_nodes::get_staking_requirement(nettype, block_height + 30 * 24)); // allow 1 day
 
   if(hf_version >= 12)
   {
     max_num_stakers = MAX_NUMBER_OF_CONTRIBUTORS_V3;
     min_portions = service_nodes::get_portions_to_make_amount(max_contribution, min_contribution);
+  } else {
+    if(hf_version >= 9)
+    {
+      min_contribution = service_nodes::portions_to_amount(MIN_PORTIONS_V2, staking_requirement);
+      max_contribution = service_nodes::portions_to_amount(STAKING_PORTIONS, staking_requirement);
+    } else {
+      min_contribution = service_nodes::portions_to_amount(MIN_PORTIONS, staking_requirement);
+      max_contribution = service_nodes::portions_to_amount(STAKING_PORTIONS, staking_requirement);
+    }
   }
 
   bool is_solo_stake = false;
@@ -2808,14 +2821,11 @@ bool t_rpc_command_executor::prepare_sn()
   std::vector<std::string> addresses;
   std::vector<uint64_t> contributions;
 
-  const uint64_t staking_requirement =
-    std::max(service_nodes::get_staking_requirement(nettype, block_height),
-             service_nodes::get_staking_requirement(nettype, block_height + 30 * 24)); // allow 1 day
   uint64_t total_reserved_contributions = 0;
   uint64_t portions_remaining = STAKING_PORTIONS;
   // anything less than DUST will be added to operator stake
 
-  std::cout << "Current operator staking requirement: " << cryptonote::print_money(MIN_OPERATOR_V12 * COIN) << " " << cryptonote::get_unit() << std::endl;
+  std::cout << "Current staking requirement: " << cryptonote::print_money(staking_requirement) << " " << cryptonote::get_unit() << std::endl;
   
   const uint64_t min_contribution_portions = std::min(portions_remaining, min_portions);
 
@@ -2869,7 +2879,7 @@ bool t_rpc_command_executor::prepare_sn()
   }
 
   const uint64_t amount_left = staking_requirement - total_reserved_contributions;
-
+  const uint64_t amount_left_stakers = staking_requirement - MAX_OPERATOR_V12 * COIN;
   if (!is_solo_stake)
   {
     std::cout << "Total staking contributions reserved: " << cryptonote::print_money(total_reserved_contributions) << " " << cryptonote::get_unit() << std::endl;
@@ -2898,21 +2908,21 @@ bool t_rpc_command_executor::prepare_sn()
   }
 
   std::cout << "Summary:" << std::endl;
-  printf("%-16s%-9s%-19s%-s\n", "Contributor", "Address", "Contribution", "Contribution(%)");
-  printf("%-16s%-9s%-19s%-s\n", "___________", "_______", "____________", "_______________");
+  printf("%-16s%-9s%-19s%-s\n", "Contributor", "Address", "Contribution");
+  printf("%-16s%-9s%-19s%-s\n", "___________", "_______", "____________");
 
   for (size_t i = 0; i < number_participants; ++i)
   {
     const std::string participant_name = (i==0) ? "Operator" : "Contributor " + std::to_string(i);
-    uint64_t amount = get_actual_amount(staking_requirement, contributions[i]);
+    uint64_t amount = get_actual_amount( (i==0) ? MAX_OPERATOR_V12 * COIN : MAX_POOL_STAKERS_V12 * COIN, contributions[i]);
     if (amount_left <= DUST && i == 0)
       amount += amount_left; // add dust to the operator.
-    printf("%-16s%-9s%-19s%-.9f\n", participant_name.c_str(), addresses[i].substr(0,6).c_str(), cryptonote::print_money(amount).c_str(), (double)contributions[i] * 100 / STAKING_PORTIONS);
+    printf("%-16s%-9s%-19s%-.9f\n", participant_name.c_str(), addresses[i].substr(0,6).c_str(), cryptonote::print_money(amount).c_str());
   }
 
   if (amount_left > DUST)
   {
-    printf("%-16s%-9s%-19s%-.2f\n", "(open)", "", cryptonote::print_money(amount_left).c_str(), amount_left * 100.0 / staking_requirement);
+    printf("%-16s%-9s%-19s%-.2f\n", "(open)", "", cryptonote::print_money(amount_left_stakers).c_str());
   }
   else if (amount_left > 0)
   {

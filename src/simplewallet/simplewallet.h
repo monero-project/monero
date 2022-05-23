@@ -266,7 +266,7 @@ namespace cryptonote
     bool public_nodes(const std::vector<std::string>& args);
     bool welcome(const std::vector<std::string>& args);
     bool version(const std::vector<std::string>& args);
-	  bool register_service_node_main(const std::vector<std::string>& service_node_key_as_str, uint64_t expiration_timestamp, const cryptonote::account_public_address& address, uint32_t priority, const std::vector<uint64_t >& portions, const std::vector<uint8_t>& extra, std::set<uint32_t>& subaddr_indices);
+	  bool register_service_node_main(const std::vector<std::string>& service_node_key_as_str, uint64_t expiration_timestamp, const cryptonote::account_public_address& address, uint32_t priority, const std::vector<uint64_t >& portions, std::vector<uint8_t>& extra, std::set<uint32_t>& subaddr_indices);
 	  bool stake_main(const crypto::public_key& service_node_key, const cryptonote::address_parse_info& parse_info, uint32_t priority, std::set<uint32_t>& subaddr_indices, uint64_t amount, double amount_fraction);
     bool on_unknown_command(const std::vector<std::string>& args);
 

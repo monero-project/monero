@@ -16,13 +16,27 @@ namespace service_nodes {
 
 		uint64_t height_adjusted = height - hardfork_height;
 		uint64_t base = 0, variable = 0;
-		
 
-		if(height >= 833277)
+		if(m_nettype == cryptonote::TESTNET) {
+			if(height >= 150)
+			{
+				return 100000 * COIN;
+			} else if(height >= 14) {
+				base = 70000 * COIN;
+				variable = (20000.0 * COIN) / triton::exp2(height_adjusted / 356446.0);
+				return base + variable;
+			} else {
+				base = 10000 * COIN;
+				variable = (30000.0 * COIN) / triton::exp2(height_adjusted / 129600.0);
+				return base + variable;
+			}
+		}
+		
+		if(height >= 839037)
 		{
 			return 100000 * COIN;
 		}
-		else if (height >= 352846 && height < 833277)
+		else if (height >= 352846 && height < 839037)
 		{
 			base = 70000 * COIN;
 			variable = (20000.0 * COIN) / triton::exp2(height_adjusted / 356446.0);

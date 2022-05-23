@@ -560,6 +560,8 @@ namespace service_nodes
 		crypto::signature signature;
 		uint64_t portions_for_operator;
 
+		const auto hf_version = m_blockchain.get_hard_fork_version(block_height);
+
 		if (!reg_tx_extract_fields(tx, service_node_addresses, portions_for_operator, service_node_portions, expiration_timestamp, service_node_key, signature, tx_pub_key)) {
 			return false;
 		}
@@ -591,7 +593,6 @@ namespace service_nodes
 		}
 
 		// check the initial contribution exists
-		const auto hf_version = m_blockchain.get_hard_fork_version(block_height);
 		info.staking_requirement = get_staking_requirement(m_blockchain.nettype(), block_height);
 	
 		const auto max_contribs = MAX_NUMBER_OF_CONTRIBUTORS;
@@ -600,8 +601,6 @@ namespace service_nodes
 		uint64_t transferred = 0;
 
 		if (!get_contribution(tx, block_height, address, transferred))
-			return false;
-		if (transferred < info.staking_requirement / max_contribs)
 			return false;
 		int is_this_a_new_address = 0;
 		if (std::find(service_node_addresses.begin(), service_node_addresses.end(), address) == service_node_addresses.end())
@@ -619,10 +618,25 @@ namespace service_nodes
 
 			uint64_t burn_fee = total_fee - miner_fee;
 
-			if(burn_fee < transferred / 10000000)
+			if(burned_amount < burn_fee)
+			{
+				std::cout << "burned_amount < burn_fee" << std::endl;
 				return false;
+			}
+			if(transferred > MAX_OPERATOR_V12 * COIN)
+			{
+				std::cout << "transferred > MAX_OPERATOR_V12 * COIN" << std::endl;
+				return false;
+			}			
 
-			if(burned_amount < total_fee - miner_fee)
+			if(transferred < MIN_OPERATOR_V12 * COIN)
+			{
+				std::cout << transferred << " " << MIN_OPERATOR_V12 << std::endl;
+				std::cout << "transferred < MIN_OPERATOR_V12 * COIN)" << std::endl;
+				return false;
+			}
+		} else {
+			if (transferred < info.staking_requirement / max_contribs)
 				return false;
 		}
 
@@ -741,8 +755,10 @@ namespace service_nodes
 		transferred = 0;
 		for (size_t i = 0; i < tx.vout.size(); i++)
 		{
-			if (contribution_tx_output_has_correct_unlock_time(tx, i, block_height))
+			if (contribution_tx_output_has_correct_unlock_time(tx, i, block_height)) {
+				std::cout << get_reg_tx_staking_output_contribution(tx, i, derivation, hwdev) << std::endl;
 				transferred += get_reg_tx_staking_output_contribution(tx, i, derivation, hwdev);
+			}
 		}
 
 		return true;
@@ -829,15 +845,21 @@ namespace service_nodes
 			uint64_t miner_fee = get_tx_miner_fee(tx, true);
 			uint64_t burn_fee = total_fee - miner_fee;
 
-			if(burn_fee < transferred / 10000000)
+			if(burn_fee < transferred / 1000)
 				return;
 
 			if(burned_amount < total_fee - miner_fee)
 				return;
+
+			if(transferred > MAX_POOL_STAKERS_V12 * COIN)
+				return;
+			
+			if(transferred < MIN_POOL_STAKERS_V12 * COIN)
+				return;
 		}
 
 		auto& contributors = info.contributors;
-		const auto max_contribs = hf_version > 9 ? hf_version > 11 ? MAX_NUMBER_OF_CONTRIBUTORS_V3 : MAX_NUMBER_OF_CONTRIBUTORS_V2 : MAX_NUMBER_OF_CONTRIBUTORS;
+		const auto max_contribs = hf_version > 9 ? hf_version >= 11 ? MAX_NUMBER_OF_CONTRIBUTORS_V3 : MAX_NUMBER_OF_CONTRIBUTORS_V2 : MAX_NUMBER_OF_CONTRIBUTORS;
 
 		// Only create a new contributor if they stake at least a quarter
 		// and if we don't already have the maximum
@@ -863,7 +885,7 @@ namespace service_nodes
 
 		if(hf_version >= 12)
 		{
-			staking_req = MIN_POOL_STAKERS_V12;
+			staking_req = MAX_POOL_STAKERS_V12 * COIN;
 		}
 
 		// In this action, we cannot
