@@ -149,7 +149,6 @@ namespace net_utils
 	bool ssl_support_from_string(ssl_support_t &ssl, boost::string_ref s);
 
 	bool create_ec_ssl_certificate(EVP_PKEY *&pkey, X509 *&cert);
-	bool create_rsa_ssl_certificate(EVP_PKEY *&pkey, X509 *&cert);
 
   //! Store private key for `ssl` at `base + ".key"` unencrypted and certificate for `ssl` at `base + ".crt"`.
   boost::system::error_code store_ssl_keys(boost::asio::ssl::context& ssl, const boost::filesystem::path& base);
