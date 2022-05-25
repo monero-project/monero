@@ -3901,7 +3901,7 @@ std::shared_ptr<std::map<std::pair<uint64_t, uint64_t>, size_t>> wallet2::create
   return cache;
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blocks_fetched, bool& received_money, bool check_pool, bool try_incremental)
+void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blocks_fetched, bool& received_money, bool check_pool, uint64_t max_blocks, bool try_incremental)
 {
   if (m_offline)
   {
@@ -3996,7 +3996,7 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
   // infer when we get an incoming output
 
   bool first = true, last = false;
-  while(m_run.load(std::memory_order_relaxed))
+  while(m_run.load(std::memory_order_relaxed) && blocks_fetched < max_blocks)
   {
     uint64_t next_blocks_start_height;
     std::vector<cryptonote::block_complete_entry> next_blocks;
