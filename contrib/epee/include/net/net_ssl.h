@@ -148,7 +148,17 @@ namespace net_utils
 	bool is_ssl(const unsigned char *data, size_t len);
 	bool ssl_support_from_string(ssl_support_t &ssl, boost::string_ref s);
 
-	bool create_ec_ssl_certificate(EVP_PKEY *&pkey, X509 *&cert);
+  /**
+   * @brief Generate a new OpenSSL certificate and key pair using ED25519
+   *
+   * @param[out] pkey Newly generated key pair (must be freed later)
+   * @param[out] cert Newly generated X509 certificate(must be freed later)
+   *
+   * EVP_PKEY and X509 pointers can be freed by EVP_PKEY_free() and X509_free(), respectively
+   *
+   * @return true on succcess, false otherwise
+   */
+  bool create_ec_ssl_certificate(EVP_PKEY *&pkey, X509 *&cert) noexcept;
 
   //! Store private key for `ssl` at `base + ".key"` unencrypted and certificate for `ssl` at `base + ".crt"`.
   boost::system::error_code store_ssl_keys(boost::asio::ssl::context& ssl, const boost::filesystem::path& base);

@@ -111,7 +111,7 @@ namespace epee
 namespace net_utils
 {
 
-bool create_ec_ssl_certificate(EVP_PKEY *&pkey, X509 *&cert)
+bool create_ec_ssl_certificate(EVP_PKEY *&pkey, X509 *&cert) noexcept
 {
   MINFO("Generating SSL certificate");
 
