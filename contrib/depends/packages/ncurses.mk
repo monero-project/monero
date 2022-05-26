@@ -7,7 +7,8 @@ $(package)_patches=fallback.c
 
 define $(package)_set_vars
   $(package)_build_opts=CC="$($(package)_cc)"
-  $(package)_config_env=cf_cv_ar_flags=""
+  $(package)_config_env=AR="$($(package)_ar)" RANLIB="$($(package)_ranlib)" CC="$($(package)_cc)" ARFLAGS=$($(package)_arflags) cf_cv_ar_flags=""
+  $(package)_config_env_darwin=RANLIB="$(host_prefix)/native/bin/x86_64-apple-darwin11-ranlib" AR="$(host_prefix)/native/bin/x86_64-apple-darwin11-ar" CC="$(host_prefix)/native/bin/$($(package)_cc)"
   $(package)_config_opts=--prefix=$(host_prefix)
   $(package)_config_opts+=--disable-shared
   $(package)_config_opts+=--with-build-cc=gcc
@@ -50,7 +51,7 @@ define $(package)_preprocess_cmds
 endef
 
 define $(package)_config_cmds
-  $($(package)_autoconf)
+  ./configure $($(package)_config_opts)
 endef
 
 define $(package)_build_cmds

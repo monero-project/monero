@@ -241,8 +241,15 @@ void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const std::pair
     }
     else
     {
+      rct::key commitment;
+      if (tx.version > 1)
+      {
+        commitment = tx.rct_signatures.outPk[i].mask;
+        if (rct::is_rct_bulletproof_plus(tx.rct_signatures.type))
+          commitment = rct::scalarmult8(commitment);
+      }
       amount_output_indices[i] = add_output(tx_hash, tx.vout[i], i, tx.unlock_time,
-        tx.version > 1 ? &tx.rct_signatures.outPk[i].mask : NULL);
+        tx.version > 1 ? &commitment : NULL);
     }
   }
   add_tx_amount_output_indices(tx_id, amount_output_indices);

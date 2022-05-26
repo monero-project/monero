@@ -136,7 +136,7 @@ GH_USER=YOUR_GITHUB_USER_NAME
 VERSION=v0.17.2.0
 ```
 
-Where `GH_USER` is your GitHub user name and `VERSION` is the version tag you want to build. 
+Where `GH_USER` is your Github user name and `VERSION` is the version tag you want to build. 
 
 Setup for LXC:
 
@@ -164,6 +164,15 @@ popd
 
 Build the binaries
 ------------------
+
+**Note:** if you intend to build MacOS binaries, please follow [these instructions](https://github.com/bitcoin-core/docs/blob/master/gitian-building/gitian-building-mac-os-sdk.md) to get the required SDK.
+
+Currently working MacOS solution:
+
+```bash
+curl -O https://bitcoincore.org/depends-sources/sdks/MacOSX10.11.sdk.tar.gz
+mv MacOSX10.11.sdk.tar.gz builder/inputs
+```
 
 To build the most recent tag (pass in `--docker` if using docker):
 

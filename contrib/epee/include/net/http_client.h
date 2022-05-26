@@ -39,6 +39,11 @@
 
 #include "net_helper.h"
 #include "http_client_base.h"
+
+#ifdef HTTP_ENABLE_GZIP
+#include "gzip_encoding.h"
+#endif 
+
 #include "string_tools.h"
 #include "string_tools_lexical.h"
 #include "reg_exp_definer.h"
@@ -752,9 +757,13 @@ namespace net_utils
 				boost::smatch result;						//   12      3
 				if(boost::regex_search( m_response_info.m_header_info.m_content_encoding, result, rexp_match_gzip, boost::match_default) && result[0].matched)
 				{
+#ifdef HTTP_ENABLE_GZIP
+					m_pcontent_encoding_handler.reset(new content_encoding_gzip(this, result[3].matched));
+#else
           m_pcontent_encoding_handler.reset(new do_nothing_sub_handler(this));
-          LOG_ERROR("GZIP encoding not supported");
+          LOG_ERROR("GZIP encoding not supported in this build, please add zlib to your project and define HTTP_ENABLE_GZIP");
           return false;
+#endif
 				}
 				else 
 				{
