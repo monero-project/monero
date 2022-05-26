@@ -81,24 +81,6 @@ namespace epee
       return obj._load(stg, hchild_section);
     }
     //-------------------------------------------------------------------------------------------------------------------
-    template<class serializible_type, class t_storage>
-    static bool serialize_t_obj(enableable<serializible_type>& obj, t_storage& stg, typename t_storage::hsection hparent_section, const char* pname)
-    {
-      if(!obj.enabled)
-        return true;
-      return serialize_t_obj(obj.v, stg, hparent_section, pname);
-    }
-    //-------------------------------------------------------------------------------------------------------------------
-    template<class serializible_type, class t_storage>
-    static bool unserialize_t_obj(enableable<serializible_type>& obj, t_storage& stg, typename t_storage::hsection hparent_section, const char* pname)
-    {
-      obj.enabled = false;
-      typename t_storage::hsection	hchild_section = stg.open_section(pname, hparent_section, false);
-      if(!hchild_section) return false;
-      obj.enabled = true;
-      return obj.v._load(stg, hchild_section);
-    }
-    //-------------------------------------------------------------------------------------------------------------------
     template<class stl_container, class t_storage>
     static bool serialize_stl_container_t_val  (const stl_container& container, t_storage& stg, typename t_storage::hsection hparent_section, const char* pname)
     {

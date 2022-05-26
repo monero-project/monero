@@ -12,7 +12,7 @@ of software solid and usable.
 * If modifying code for which Doxygen headers exist, that header must be modified to match.
 * Tests would be nice to have if you're adding functionality.
 
-Patches are preferably to be sent via a Github pull request. If that
+Patches are preferably to be sent via a GitHub pull request. If that
 can't be done, patches in "git format-patch" format can be sent
 (eg, posted to fpaste.org with a long enough timeout and a link
 posted to #monero-dev on irc.libera.chat).
@@ -43,7 +43,7 @@ Commit messages should be sensible. That means a subject line that
 describes the patch, with an optional longer body that gives details,
 documentation, etc.
 
-When submitting a pull request on Github, make sure your branch is
+When submitting a pull request on GitHub, make sure your branch is
 rebased. No merge commits nor stray commits from other people in
 your submitted branch, please. You may be asked to rebase if there
 are conflicts (even trivially resolvable ones).

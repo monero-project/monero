@@ -38,6 +38,7 @@
 #include "misc_log_ex.h"
 #include "net/net_helper.h"
 #include "net/net_ssl.h"
+#include "file_io_utils.h" // to validate .crt and .key paths
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "net.ssl"
@@ -356,6 +357,15 @@ boost::asio::ssl::context ssl_options_t::create_context() const
   }
 
   CHECK_AND_ASSERT_THROW_MES(auth.private_key_path.empty() == auth.certificate_path.empty(), "private key and certificate must be either both given or both empty");
+
+  const bool private_key_exists = epee::file_io_utils::is_file_exist(auth.private_key_path);
+  const bool certificate_exists = epee::file_io_utils::is_file_exist(auth.certificate_path);
+  if (private_key_exists && !certificate_exists) {
+    ASSERT_MES_AND_THROW("private key is present, but certificate file '" << auth.certificate_path << "' is missing");
+  } else if (!private_key_exists && certificate_exists) {
+    ASSERT_MES_AND_THROW("certificate is present, but private key file '" << auth.private_key_path << "' is missing");
+  }
+
   if (auth.private_key_path.empty())
   {
     EVP_PKEY *pkey;
@@ -392,7 +402,12 @@ boost::asio::ssl::context ssl_options_t::create_context() const
 
 void ssl_authentication_t::use_ssl_certificate(boost::asio::ssl::context &ssl_context) const
 {
-  ssl_context.use_private_key_file(private_key_path, boost::asio::ssl::context::pem);
+  try {
+    ssl_context.use_private_key_file(private_key_path, boost::asio::ssl::context::pem);
+  } catch (const boost::system::system_error&) {
+    MERROR("Failed to load private key file '" << private_key_path << "' into SSL context");
+    throw;
+  }
   ssl_context.use_certificate_chain_file(certificate_path);
 }
 
@@ -590,7 +605,15 @@ boost::system::error_code store_ssl_keys(boost::asio::ssl::context& ssl, const b
     const boost::filesystem::path key_file{base.string() + ".key"};
     file.reset(std::fopen(key_file.string().c_str(), "wb"));
     if (!file)
+    {
+      if (epee::file_io_utils::is_file_exist(key_file.string())) {
+        MERROR("Permission denied to overwrite SSL private key file: '" << key_file.string() << "'");
+      } else {
+        MERROR("Could not open SSL private key file for writing: '" << key_file.string() << "'");
+      }
+
       return {errno, boost::system::system_category()};
+    }
     boost::filesystem::permissions(key_file, boost::filesystem::owner_read, error);
     if (error)
       return error;

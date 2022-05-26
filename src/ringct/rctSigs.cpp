@@ -79,6 +79,7 @@ namespace
 
         return rct::Bulletproof{rct::keyV(n_outs, I), I, I, I, I, I, I, rct::keyV(nrl, I), rct::keyV(nrl, I), I, I, I};
     }
+
     rct::BulletproofPlus make_dummy_bulletproof_plus(const std::vector<uint64_t> &outamounts, rct::keyV &C, rct::keyV &masks)
     {
         const size_t n_outs = outamounts.size();
@@ -108,6 +109,13 @@ namespace
         }
 
         return rct::BulletproofPlus{rct::keyV(n_outs, I), I, I, I, I, I, I, rct::keyV(nrl, I), rct::keyV(nrl, I)};
+    }
+
+    rct::clsag make_dummy_clsag(size_t ring_size)
+    {
+        const rct::key I = rct::identity();
+        const size_t n_scalars = ring_size;
+        return rct::clsag{rct::keyV(n_scalars, I), I, I, I};
     }
 }
 
@@ -1235,10 +1243,7 @@ namespace rct {
                 }
                 for (i = 0; i < outamounts.size(); ++i)
                 {
-                    if (plus)
-                      rv.outPk[i].mask = C[i];
-                    else
-                      rv.outPk[i].mask = rct::scalarmult8(C[i]);
+                    rv.outPk[i].mask = rct::scalarmult8(C[i]);
                     outSk[i].mask = masks[i];
                 }
             }
@@ -1276,10 +1281,7 @@ namespace rct {
                 }
                 for (i = 0; i < batch_size; ++i)
                 {
-                  if (plus)
-                    rv.outPk[i + amounts_proved].mask = C[i];
-                  else
-                    rv.outPk[i + amounts_proved].mask = rct::scalarmult8(C[i]);
+                  rv.outPk[i + amounts_proved].mask = rct::scalarmult8(C[i]);
                   outSk[i + amounts_proved].mask = masks[i];
                 }
                 amounts_proved += batch_size;
@@ -1329,7 +1331,10 @@ namespace rct {
         {
             if (is_rct_clsag(rv.type))
             {
-                rv.p.CLSAGs[i] = proveRctCLSAGSimple(full_message, rv.mixRing[i], inSk[i], a[i], pseudoOuts[i], kLRki ? &(*kLRki)[i]: NULL, msout ? &msout->c[i] : NULL, msout ? &msout->mu_p[i] : NULL, index[i], hwdev);
+                if (hwdev.get_mode() == hw::device::TRANSACTION_CREATE_FAKE)
+                    rv.p.CLSAGs[i] = make_dummy_clsag(rv.mixRing[i].size());
+                else
+                    rv.p.CLSAGs[i] = proveRctCLSAGSimple(full_message, rv.mixRing[i], inSk[i], a[i], pseudoOuts[i], kLRki ? &(*kLRki)[i]: NULL, msout ? &msout->c[i] : NULL, msout ? &msout->mu_p[i] : NULL, index[i], hwdev);
             }
             else
             {
@@ -1486,10 +1491,7 @@ namespace rct {
 
           rct::keyV masks(rv.outPk.size());
           for (size_t i = 0; i < rv.outPk.size(); i++) {
-            if (bulletproof_plus)
-              masks[i] = rct::scalarmult8(rv.outPk[i].mask);
-            else
-              masks[i] = rv.outPk[i].mask;
+            masks[i] = rv.outPk[i].mask;
           }
           key sumOutpks = addKeys(masks);
           DP(sumOutpks);
@@ -1649,8 +1651,6 @@ namespace rct {
         mask = ecdh_info.mask;
         key amount = ecdh_info.amount;
         key C = rv.outPk[i].mask;
-        if (is_rct_bulletproof_plus(rv.type))
-          C = scalarmult8(C);
         DP("C");
         DP(C);
         key Ctmp;
@@ -1682,8 +1682,6 @@ namespace rct {
         mask = ecdh_info.mask;
         key amount = ecdh_info.amount;
         key C = rv.outPk[i].mask;
-        if (is_rct_bulletproof_plus(rv.type))
-          C = scalarmult8(C);
         DP("C");
         DP(C);
         key Ctmp;

@@ -350,12 +350,23 @@ namespace cryptonote
 
     bool store_ssl_key = !restricted && rpc_config->ssl_options && rpc_config->ssl_options.auth.certificate_path.empty();
     const auto ssl_base_path = (boost::filesystem::path{data_dir} / "rpc_ssl").string();
-    if (store_ssl_key && boost::filesystem::exists(ssl_base_path + ".crt"))
+    const bool ssl_cert_file_exists = boost::filesystem::exists(ssl_base_path + ".crt");
+    const bool ssl_pkey_file_exists = boost::filesystem::exists(ssl_base_path + ".key");
+    if (store_ssl_key)
     {
-      // load key from previous run, password prompted by OpenSSL
-      store_ssl_key = false;
-      rpc_config->ssl_options.auth =
-        epee::net_utils::ssl_authentication_t{ssl_base_path + ".key", ssl_base_path + ".crt"};
+      // .key files are often given different read permissions as their corresponding .crt files.
+      // Consequently, sometimes the .key file wont't get copied, while the .crt file will.
+      if (ssl_cert_file_exists != ssl_pkey_file_exists)
+      {
+        MFATAL("Certificate (.crt) and private key (.key) files must both exist or both not exist at path: " << ssl_base_path);
+        return false;
+      }
+      else if (ssl_cert_file_exists) { // and ssl_pkey_file_exists
+        // load key from previous run, password prompted by OpenSSL
+        store_ssl_key = false;
+        rpc_config->ssl_options.auth =
+          epee::net_utils::ssl_authentication_t{ssl_base_path + ".key", ssl_base_path + ".crt"};
+      }
     }
 
     auto rng = [](size_t len, uint8_t *ptr){ return crypto::rand(len, ptr); };
@@ -364,6 +375,8 @@ namespace cryptonote
       std::move(bind_ipv6_str), std::move(rpc_config->use_ipv6), std::move(rpc_config->require_ipv4),
       std::move(rpc_config->access_control_origins), std::move(http_login), std::move(rpc_config->ssl_options)
     );
+
+    m_net_server.get_config_object().m_max_content_length = MAX_RPC_CONTENT_LENGTH;
 
     if (store_ssl_key && inited)
     {

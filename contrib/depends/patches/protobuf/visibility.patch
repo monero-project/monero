@@ -1,0 +1,159 @@
+--- src/google/protobuf/descriptor.cc.O	2018-07-30 22:16:10.000000000 +0000
++++ src/google/protobuf/descriptor.cc	2022-05-06 13:38:14.827309092 +0000
+@@ -32,6 +32,9 @@
+ //  Based on original Protocol Buffers design by
+ //  Sanjay Ghemawat, Jeff Dean, and others.
+ 
++#if defined(__APPLE__) && defined(__arm64__)
++#pragma GCC visibility push(hidden)
++#endif
+ #include <algorithm>
+ #include <functional>
+ #include <google/protobuf/stubs/hash.h>
+@@ -7274,3 +7277,6 @@
+ 
+ }  // namespace protobuf
+ }  // namespace google
++#if defined(__APPLE__) && defined(__arm64__)
++#pragma GCC visibility pop
++#endif
+--- src/google/protobuf/extension_set.cc.O	2018-07-23 20:56:42.000000000 +0000
++++ src/google/protobuf/extension_set.cc	2022-05-06 14:48:55.369877050 +0000
+@@ -32,6 +32,9 @@
+ //  Based on original Protocol Buffers design by
+ //  Sanjay Ghemawat, Jeff Dean, and others.
+ 
++#if defined(__APPLE__) && defined(__arm64__)
++#pragma GCC visibility push(hidden)
++#endif
+ #include <google/protobuf/stubs/hash.h>
+ #include <tuple>
+ #include <utility>
+@@ -1914,3 +1917,6 @@
+ }  // namespace internal
+ }  // namespace protobuf
+ }  // namespace google
++#if defined(__APPLE__) && defined(__arm64__)
++#pragma GCC visibility pop
++#endif
+--- src/google/protobuf/extension_set_heavy.cc.O	2018-07-30 22:16:10.000000000 +0000
++++ src/google/protobuf/extension_set_heavy.cc	2022-05-06 14:14:27.847320946 +0000
+@@ -35,6 +35,10 @@
+ // Contains methods defined in extension_set.h which cannot be part of the
+ // lite library because they use descriptors or reflection.
+ 
++#if defined(__APPLE__) && defined(__arm64__)
++#pragma GCC visibility push(hidden)
++#endif
++
+ #include <google/protobuf/stubs/casts.h>
+ #include <google/protobuf/descriptor.pb.h>
+ #include <google/protobuf/io/coded_stream.h>
+@@ -814,3 +818,6 @@
+ }  // namespace internal
+ }  // namespace protobuf
+ }  // namespace google
++#if defined(__APPLE__) && defined(__arm64__)
++#pragma GCC visibility pop
++#endif
+--- src/google/protobuf/generated_message_reflection.cc.O	2018-07-23 20:56:42.000000000 +0000
++++ src/google/protobuf/generated_message_reflection.cc	2022-05-06 13:38:49.655540772 +0000
+@@ -32,6 +32,9 @@
+ //  Based on original Protocol Buffers design by
+ //  Sanjay Ghemawat, Jeff Dean, and others.
+ 
++#if defined(__APPLE__) && defined(__arm64__)
++#pragma GCC visibility push(hidden)
++#endif
+ #include <algorithm>
+ #include <set>
+ 
+@@ -2420,3 +2423,6 @@
+ }  // namespace internal
+ }  // namespace protobuf
+ }  // namespace google
++#if defined(__APPLE__) && defined(__arm64__)
++#pragma GCC visibility pop
++#endif
+--- src/google/protobuf/map_field.cc.O	2018-07-23 20:56:42.000000000 +0000
++++ src/google/protobuf/map_field.cc	2022-05-06 13:34:44.913905697 +0000
+@@ -28,6 +28,10 @@
+ // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ 
++#if defined(__APPLE__) && defined(__arm64__)
++#pragma GCC visibility push(hidden)
++#endif
++
+ #include <google/protobuf/map_field.h>
+ #include <google/protobuf/map_field_inl.h>
+ 
+@@ -462,3 +466,6 @@
+ }  // namespace internal
+ }  // namespace protobuf
+ }  // namespace google
++#if defined(__APPLE__) && defined(__arm64__)
++#pragma GCC visibility pop
++#endif
+--- src/google/protobuf/text_format.cc.O	2018-07-30 22:16:11.000000000 +0000
++++ src/google/protobuf/text_format.cc	2022-05-06 13:34:58.881999517 +0000
+@@ -32,6 +32,10 @@
+ //  Based on original Protocol Buffers design by
+ //  Sanjay Ghemawat, Jeff Dean, and others.
+ 
++#if defined(__APPLE__) && defined(__arm64__)
++#pragma GCC visibility push(hidden)
++#endif
++
+ #include <algorithm>
+ #include <float.h>
+ #include <math.h>
+@@ -2258,3 +2262,6 @@
+ 
+ }  // namespace protobuf
+ }  // namespace google
++#if defined(__APPLE__) && defined(__arm64__)
++#pragma GCC visibility pop
++#endif
+--- src/google/protobuf/wire_format.cc.O	2018-07-23 20:56:42.000000000 +0000
++++ src/google/protobuf/wire_format.cc	2022-05-06 13:06:23.294219228 +0000
+@@ -32,6 +32,10 @@
+ //  Based on original Protocol Buffers design by
+ //  Sanjay Ghemawat, Jeff Dean, and others.
+ 
++#if defined(__APPLE__) && defined(__arm64__)
++#pragma GCC visibility push(hidden)
++#endif
++
+ #include <stack>
+ #include <string>
+ #include <vector>
+@@ -1445,3 +1449,7 @@
+ }  // namespace internal
+ }  // namespace protobuf
+ }  // namespace google
++
++#if defined(__APPLE__) && defined(__arm64__)
++#pragma GCC visibility pop
++#endif
+--- src/google/protobuf/stubs/status.cc.O	2018-07-23 20:56:42.000000000 +0000
++++ src/google/protobuf/stubs/status.cc	2022-05-06 15:18:53.393208814 +0000
+@@ -27,6 +27,11 @@
+ // THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++
++#if defined(__APPLE__) && defined(__arm64__)
++#pragma GCC visibility push(hidden)
++#endif
++
+ #include <google/protobuf/stubs/status.h>
+ 
+ #include <ostream>
+@@ -132,3 +137,6 @@
+ }  // namespace util
+ }  // namespace protobuf
+ }  // namespace google
++#if defined(__APPLE__) && defined(__arm64__)
++#pragma GCC visibility pop
++#endif
