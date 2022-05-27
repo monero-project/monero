@@ -1026,12 +1026,12 @@ TEST(node_server, race_condition)
     }
     void stop() {}
     void on_connection_close(context_t &context) {}
-    void set_max_out_peers(unsigned int max) {}
+    void set_max_out_peers(epee::net_utils::zone zone, unsigned int max) {}
     bool no_sync() const { return {}; }
     void set_no_sync(bool value) {}
     string_t get_peers_overview() const { return {}; }
     stripes_t get_next_needed_pruning_stripe() const { return {}; }
-    bool needs_new_sync_connections() const { return {}; }
+    bool needs_new_sync_connections(epee::net_utils::zone zone) const { return {}; }
     bool is_busy_syncing() { return {}; }
   };
   using node_server_t = nodetool::node_server<protocol_t>;
