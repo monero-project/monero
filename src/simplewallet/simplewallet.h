@@ -153,6 +153,7 @@ namespace cryptonote
     bool set_device_name(const std::vector<std::string> &args = std::vector<std::string>());
     bool set_export_format(const std::vector<std::string> &args = std::vector<std::string>());
     bool set_load_deprecated_formats(const std::vector<std::string> &args = std::vector<std::string>());
+    bool set_enable_multisig(const std::vector<std::string> &args = std::vector<std::string>());
     bool set_persistent_rpc_client_id(const std::vector<std::string> &args = std::vector<std::string>());
     bool set_auto_mine_for_rpc_payment_threshold(const std::vector<std::string> &args = std::vector<std::string>());
     bool set_credits_target(const std::vector<std::string> &args = std::vector<std::string>());
