@@ -149,7 +149,7 @@ namespace net_utils
 	bool ssl_support_from_string(ssl_support_t &ssl, boost::string_ref s);
 
   /**
-   * @brief Generate a new OpenSSL certificate and key pair using ED25519
+   * @brief Generate a new OpenSSL certificate and key pair using secp256k1
    *
    * @param[out] pkey Newly generated key pair (must be freed later)
    * @param[out] cert Newly generated X509 certificate(must be freed later)

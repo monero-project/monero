@@ -115,19 +115,29 @@ bool create_ec_ssl_certificate(EVP_PKEY *&pkey, X509 *&cert) noexcept
 {
   MINFO("Generating SSL certificate");
 
-  // Generate key pair: https://www.openssl.org/docs/man1.1.1/man7/Ed25519.html
-  openssl_pkey_ctx pctx{EVP_PKEY_CTX_new_id(EVP_PKEY_ED25519, NULL)};
+  // EVP_PKEY_keygen will segfault if pkey input is not initialized and != NULL
+  pkey = NULL;
+
+  // Generate key pair
+  openssl_pkey_ctx pctx{EVP_PKEY_CTX_new_id(EVP_PKEY_EC, NULL)};
   if (!pctx)
   {
-    MERROR_OPENSSL("Failed to create new ED25519 key context");
+    MERROR_OPENSSL("Failed to create new EC context");
     return false;
   }
-  if (!EVP_PKEY_keygen_init(pctx.get())) {
-    MERROR_OPENSSL("Error initiating key context");
+  if (!EVP_PKEY_keygen_init(pctx.get()))
+  {
+    MERROR_OPENSSL("Error initializing EC context");
     return false;
   }
-  if (!EVP_PKEY_keygen(pctx.get(), &pkey)) {
-    MERROR_OPENSSL("Error generating key pair with OpenSSL ED25519 context");
+  if (!EVP_PKEY_CTX_set_ec_paramgen_curve_nid(pctx.get(), NID_secp256k1))
+  {
+    MERROR_OPENSSL("Error setting curve to SECP256K1");
+    return false;
+  }
+  if (!EVP_PKEY_keygen(pctx.get(), &pkey))
+  {
+    MERROR_OPENSSL("Error generating key pair with EC context");
     return false;
   }
   openssl_pkey pkey_deleter{pkey};
@@ -153,17 +163,8 @@ bool create_ec_ssl_certificate(EVP_PKEY *&pkey, X509 *&cert) noexcept
   X509_NAME *name = X509_get_subject_name(cert);
   X509_set_issuer_name(cert, name);
 
-  // Sign certificate with ED25519 key pair: https://www.openssl.org/docs/manmaster/man7/Ed25519.html
-  openssl_md_ctx md_ctx{EVP_MD_CTX_new()};
-  if (!md_ctx) {
-    MERROR_OPENSSL("Failed to allocate new OpenSSL digest context");
-    return false;
-  }
-  if (!EVP_DigestSignInit(md_ctx.get(), NULL, NULL, NULL, pkey)) {
-    MERROR_OPENSSL("Error initiating digest context from key pair");
-    return false;
-  }
-  if (X509_sign_ctx(cert, md_ctx.get()) == 0)
+  // Sign certificate
+  if (!X509_sign(cert, pkey, EVP_sha256()))
   {
     MERROR_OPENSSL("Error signing certificate");
     return false;
