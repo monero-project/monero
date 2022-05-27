@@ -2908,8 +2908,8 @@ bool t_rpc_command_executor::prepare_sn()
   }
 
   std::cout << "Summary:" << std::endl;
-  printf("%-16s%-9s%-19s%-s\n", "Contributor", "Address", "Contribution");
-  printf("%-16s%-9s%-19s%-s\n", "___________", "_______", "____________");
+  printf("%-16s%-9s%-19s\n", "Contributor", "Address", "Contribution");
+  printf("%-16s%-9s%-19s\n", "___________", "_______", "____________");
 
   for (size_t i = 0; i < number_participants; ++i)
   {
@@ -2922,7 +2922,7 @@ bool t_rpc_command_executor::prepare_sn()
 
   if (amount_left > DUST)
   {
-    printf("%-16s%-9s%-19s%-.2f\n", "(open)", "", cryptonote::print_money(amount_left_stakers).c_str());
+    printf("%-16s%-9s%-19s\n", "(open)", "", cryptonote::print_money(amount_left_stakers).c_str());
   }
   else if (amount_left > 0)
   {

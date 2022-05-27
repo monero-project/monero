@@ -682,7 +682,6 @@ namespace service_nodes
 		return true;
 	}
 
-
 	bool service_node_list::process_registration_tx(const cryptonote::transaction& tx, uint64_t block_timestamp, uint64_t block_height, uint32_t index)
 	{
 		crypto::public_key key;
