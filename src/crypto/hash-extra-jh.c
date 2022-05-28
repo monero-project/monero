@@ -36,7 +36,9 @@
 #include "jh.h"
 #include "hash-ops.h"
 
+#define JH_HASH_BITLEN HASH_SIZE * 8
+
 void hash_extra_jh(const void *data, size_t length, char *hash) {
-  int r = jh_hash(HASH_SIZE * 8, data, 8 * length, (uint8_t*)hash);
-  assert(SUCCESS == r);
+  // No need to check for failure b/c jh_hash only fails for invalid hash size
+  jh_hash(JH_HASH_BITLEN, data, 8 * length, (uint8_t*)hash);
 }

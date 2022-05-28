@@ -87,10 +87,6 @@ namespace hw {
     #define SW_PROTOCOL_NOT_SUPPORTED               0x6e00
     #define SW_UNKNOWN                              0x6f00
 
-    namespace {
-        bool apdu_verbose =true;
-    }
-
     void set_apdu_verbose(bool verbose);
 
     class ABPkeys {
