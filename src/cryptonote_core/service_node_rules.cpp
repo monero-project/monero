@@ -32,11 +32,11 @@ namespace service_nodes {
 			}
 		}
 		
-		if(height >= 841917)
+		if(height >= 841197)
 		{
 			return 100000 * COIN;
 		}
-		else if (height >= 352846 && height < 841917)
+		else if (height >= 352846 && height < 841197)
 		{
 			base = 70000 * COIN;
 			variable = (20000.0 * COIN) / triton::exp2(height_adjusted / 356446.0);
