@@ -620,19 +620,15 @@ namespace service_nodes
 
 			if(burned_amount < burn_fee)
 			{
-				std::cout << "burned_amount < burn_fee" << std::endl;
 				return false;
 			}
 			if(transferred > MAX_OPERATOR_V12 * COIN)
 			{
-				std::cout << "transferred > MAX_OPERATOR_V12 * COIN" << std::endl;
 				return false;
 			}			
 
 			if(transferred < MIN_OPERATOR_V12 * COIN)
 			{
-				std::cout << transferred << " " << MIN_OPERATOR_V12 << std::endl;
-				std::cout << "transferred < MIN_OPERATOR_V12 * COIN)" << std::endl;
 				return false;
 			}
 		} else {
@@ -755,7 +751,6 @@ namespace service_nodes
 		for (size_t i = 0; i < tx.vout.size(); i++)
 		{
 			if (contribution_tx_output_has_correct_unlock_time(tx, i, block_height)) {
-				std::cout << get_reg_tx_staking_output_contribution(tx, i, derivation, hwdev) << std::endl;
 				transferred += get_reg_tx_staking_output_contribution(tx, i, derivation, hwdev);
 			}
 		}
