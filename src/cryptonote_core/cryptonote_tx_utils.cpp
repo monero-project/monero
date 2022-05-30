@@ -175,7 +175,7 @@ namespace cryptonote
       } else if(height == 663269)
       {
         return MINT_BRIDGE;
-      } else if(height == 835437)
+      } else if(height == 841197)
       {
         return BURN_2;
       }
