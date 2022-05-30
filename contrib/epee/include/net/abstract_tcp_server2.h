@@ -44,6 +44,7 @@
 #include <cassert>
 #include <map>
 #include <memory>
+#include <random>
 
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
@@ -192,6 +193,8 @@ namespace net_utils
     bool m_local;
     bool m_ready_to_close;
     std::string m_host;
+
+    std::mt19937_64 m_rng;
 
 	public:
 			void setRpcStation();
