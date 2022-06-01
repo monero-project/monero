@@ -161,9 +161,9 @@ struct Wallet2CallbackImpl : public tools::i_wallet2_callback
 
         LOG_PRINT_L3(__FUNCTION__ << ": money received. height:  " << height
                      << ", tx: " << tx_hash
-                     << ", amount: " << print_money(amount - burnt),
-                     << ", burnt: " << print_money(burnt),
-                     << ", raw_output_value: " << print_money(amount),
+                     << ", amount: " << print_money(amount - burnt)
+                     << ", burnt: " << print_money(burnt)
+                     << ", raw_output_value: " << print_money(amount)
                      << ", idx: " << subaddr_index);
         // do not signal on received tx if wallet is not syncronized completely
         if (m_listener && m_wallet->synchronized()) {
