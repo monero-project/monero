@@ -3719,6 +3719,43 @@ namespace cryptonote
     res.status = CORE_RPC_STATUS_OK;
     return true;
   }
+
+  bool core_rpc_server::on_get_staker(const COMMAND_RPC_ON_GET_STAKER::request& req, COMMAND_RPC_ON_GET_STAKER::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx)
+  {
+
+    cryptonote::address_parse_info info;
+    if (!get_account_address_from_str(info, nettype(), req.address))
+    {
+      return false;
+    }
+
+	  std::vector<crypto::public_key> pubkeys(req.service_node_pubkeys.size());
+
+    std::vector<service_nodes::service_node_pubkey_info> pubkey_info_list = m_core.get_service_node_list_state(pubkeys);
+
+   for (const auto &pubkey_info : pubkey_info_list)
+    {
+      COMMAND_RPC_ON_GET_STAKER::response::node n;
+      for (service_nodes::service_node_info::contribution const &contributor : pubkey_info.info.contributors)
+      {
+        if(contributor.address != info.address)
+          continue;
+
+        n.amount = contributor.amount;
+        n.unlock_time = pubkey_info.info.registration_height + 20180;
+        n.reg_time = pubkey_info.info.registration_height;
+        n.is_operator = pubkey_info.info.operator_address == info.address;
+        n.node_key = epee::string_tools::pod_to_hex(pubkey_info.pubkey);
+        res.total_staked += n.amount;
+        res.burnt_xeq += res.total_staked > 0 ? res.total_staked / 1000 : 0;
+        res.staked_nodes.push_back(n);
+      }
+    }
+
+    res.status = CORE_RPC_STATUS_OK;
+    return true;
+
+  }
   //------------------------------------------------------------------------------------------------------------------------------
     bool core_rpc_server::on_get_staked_txs(const COMMAND_RPC_ON_GET_STAKED_TXS::request& req, COMMAND_RPC_ON_GET_STAKED_TXS::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx)
   {

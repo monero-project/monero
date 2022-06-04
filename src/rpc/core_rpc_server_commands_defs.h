@@ -3385,6 +3385,49 @@ namespace cryptonote
     typedef epee::misc_utils::struct_init<response_t> response;
   };
 
+  struct COMMAND_RPC_ON_GET_STAKER
+  {
+
+    struct request_t: public rpc_request_base
+    {
+      std::vector<std::string> service_node_pubkeys; // pass empty vector to get all the service nodes
+      std::string address;
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(address)
+        KV_SERIALIZE(service_node_pubkeys)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<request_t> request;
+
+    struct response_t: public rpc_response_base
+    {
+      struct node {
+        uint64_t amount;
+        uint64_t unlock_time;
+        uint64_t reg_time;
+        std::string node_key;
+        bool is_operator;
+        BEGIN_KV_SERIALIZE_MAP()
+          KV_SERIALIZE(amount)
+          KV_SERIALIZE(unlock_time)
+          KV_SERIALIZE(reg_time)
+          KV_SERIALIZE(node_key)
+          KV_SERIALIZE(is_operator)
+        END_KV_SERIALIZE_MAP()
+      };
+
+      std::vector<node> staked_nodes;
+      uint64_t total_staked;
+      uint64_t burnt_xeq;
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(staked_nodes)
+        KV_SERIALIZE(total_staked)
+        KV_SERIALIZE(burnt_xeq)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<response_t> response;
+  };
+
   struct COMMAND_RPC_ON_GET_STAKED_TXS
   {
     struct request_t: public rpc_request_base
