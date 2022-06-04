@@ -36,7 +36,6 @@ jobs:
       run: |
         ${{env.CCACHE_SETTINGS}}
         ${{env.CLONE_PATCHES}}
-        ${{env.TEST_BUILD_TIME}}
 
 # See the OS labels and monitor deprecations here:
 # https://docs.github.com/en/actions/using-github-hosted-runners/about-github-hosted-runners#supported-runners-and-hardware-resources
