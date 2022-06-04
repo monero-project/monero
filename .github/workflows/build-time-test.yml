@@ -19,7 +19,7 @@ env:
         ccache --max-size=150M
         ccache --set-config=compression=true
   CLONE_PATCHES: git clone --recursive https://github.com/mj-xmr/monero-patches.git
-  TEST_BUILD_TIME: time ./monero-patches/src/monero-test-build-time.sh compil-epee-http-client wallet/api/wallet_api
+  TEST_BUILD_TIME: time ./monero-patches/src/monero-test-build-time.sh compil-epee-http-client src/wallet/api
 
 jobs:
   time-macos:
