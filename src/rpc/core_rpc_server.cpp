@@ -3720,6 +3720,96 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+    bool core_rpc_server::on_get_staked_txs(const COMMAND_RPC_ON_GET_STAKED_TXS::request& req, COMMAND_RPC_ON_GET_STAKED_TXS::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx)
+  {
+
+    block blk;
+    try
+    {
+      blk = m_core.get_blockchain_storage().get_db().get_block_from_height(req.block_height);
+    }
+    catch (...)
+    {
+      res.status = "Error retrieving block at height " + std::to_string(req.block_height);
+      return true;
+    }
+    std::vector<transaction> txs;
+    std::vector<crypto::hash> missed_txs;
+    m_core.get_transactions(blk.tx_hashes, txs, missed_txs);
+
+    for(auto tx : txs)
+    {
+      bool is_tx = false;
+      crypto::public_key pubkey;
+      if (!cryptonote::get_service_node_pubkey_from_tx_extra(tx.extra, pubkey))
+      {
+        continue;
+      }
+
+      {
+        tx_extra_service_node_register registration;
+        if(cryptonote::get_service_node_register_from_tx_extra(tx.extra, registration))
+        {
+          cryptonote::account_public_address address = cryptonote::account_public_address{ registration.m_public_spend_keys[0], registration.m_public_view_keys[0] };
+          COMMAND_RPC_ON_GET_STAKED_TXS::response::registration_tx reg_tx;
+          reg_tx.address = cryptonote::get_account_address_as_str(nettype(), false/*is_subaddress*/, address);
+          reg_tx.amount = service_nodes::portions_to_amount(registration.m_portions_for_operator, MAX_OPERATOR_V12 * COIN);
+          reg_tx.amount_open = service_nodes::get_staking_requirement(m_core.get_nettype(), m_core.get_current_blockchain_height()) - reg_tx.amount;
+          reg_tx.node_key = epee::string_tools::pod_to_hex(pubkey);
+
+          uint64_t burned_amount = cryptonote::get_burned_amount_from_tx_extra(tx.extra);
+          res.burnt_xeq += burned_amount;
+          res.reg_txs.push_back(reg_tx);
+          is_tx = true;
+        }
+      }
+
+      if(!is_tx){
+
+	    	cryptonote::account_public_address address;
+
+        if (cryptonote::get_service_node_contributor_from_tx_extra(tx.extra, address))
+        {
+            crypto::secret_key tx_key;
+            if (!cryptonote::get_tx_secret_key_from_tx_extra(tx.extra, tx_key))
+              continue;
+
+            crypto::key_derivation derivation;
+            if (!crypto::generate_key_derivation(address.m_view_public_key, tx_key, derivation))
+              continue;
+                    
+		        hw::device& hwdev = hw::get_device("default");
+
+            uint64_t transferred = 0;
+            for (size_t i = 0; i < tx.vout.size(); i++)
+            {
+
+            uint64_t unlock_time = tx.unlock_time;
+
+            if (tx.version >= cryptonote::transaction::version_3_per_output_unlock_times)
+              unlock_time = tx.output_unlock_times[i];
+
+              if (unlock_time < CRYPTONOTE_MAX_BLOCK_NUMBER && unlock_time >= req.block_height + service_nodes::get_staking_requirement_lock_blocks(nettype())) {
+                transferred += service_nodes::get_reg_tx_staking_output_contribution(tx, i, derivation, hwdev);
+              }
+            }
+
+            COMMAND_RPC_ON_GET_STAKED_TXS::response::staking_tx stake_tx;
+            stake_tx.amount = transferred;
+            stake_tx.address = cryptonote::get_account_address_as_str(nettype(), false/*is_subaddress*/, address);
+            stake_tx.node_key = epee::string_tools::pod_to_hex(pubkey);
+            uint64_t burned_amount = cryptonote::get_burned_amount_from_tx_extra(tx.extra);
+            res.burnt_xeq += burned_amount;
+            res.staked_txs.push_back(stake_tx);
+        }
+
+      }
+
+    }
+
+
+    return true;
+  }
   const command_line::arg_descriptor<std::string, false, true, 2> core_rpc_server::arg_rpc_bind_port = {
       "rpc-bind-port"
     , "Port for RPC server"

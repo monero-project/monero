@@ -3385,4 +3385,57 @@ namespace cryptonote
     typedef epee::misc_utils::struct_init<response_t> response;
   };
 
+  struct COMMAND_RPC_ON_GET_STAKED_TXS
+  {
+    struct request_t: public rpc_request_base
+    {
+      uint64_t block_height;
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(block_height)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<request_t> request;
+
+    struct response_t: public rpc_response_base
+    {
+      struct staking_tx {
+        uint64_t amount;
+        std::string address;
+        std::string node_key;
+        BEGIN_KV_SERIALIZE_MAP()
+          KV_SERIALIZE(amount)
+          KV_SERIALIZE(address)
+          KV_SERIALIZE(node_key)
+        END_KV_SERIALIZE_MAP()
+      };
+
+      struct registration_tx {
+        uint64_t amount;
+        uint64_t amount_open;
+        std::string address;
+        std::string node_key;
+
+        BEGIN_KV_SERIALIZE_MAP()
+          KV_SERIALIZE(amount)
+          KV_SERIALIZE(amount_open)
+          KV_SERIALIZE(address)
+          KV_SERIALIZE(node_key)
+
+        END_KV_SERIALIZE_MAP()
+      };
+
+      std::vector<staking_tx> staked_txs;
+      std::vector<registration_tx> reg_txs;
+      uint64_t burnt_xeq;
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(staked_txs)
+        KV_SERIALIZE(reg_txs)
+        KV_SERIALIZE(burnt_xeq)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<response_t> response;
+  };
+
+
+
 }
