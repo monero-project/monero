@@ -7802,10 +7802,10 @@ bool wallet2::check_stake_allowed(const crypto::public_key& sn_key, const crypto
   const bool full = use_fork_rules(10, 0) ? snode_info.contributors.size() >= MAX_NUMBER_OF_CONTRIBUTORS_V2 : snode_info.contributors.size() >= MAX_NUMBER_OF_CONTRIBUTORS;
 
   /// maximum to contribute (unless we have some amount reserved for us)
-  uint64_t max_contrib_total = snode_info.staking_requirement - snode_info.total_reserved;
+  uint64_t max_contrib_total = use_fork_rules(12,0) ? MAX_POOL_STAKERS_V12 * COIN - snode_info.total_reserved : snode_info.staking_requirement - snode_info.total_reserved;
 
   /// decrease if some reserved for us
-  uint64_t min_contrib_total = use_fork_rules(10, 0) ? std::min(snode_info.staking_requirement - snode_info.total_reserved, snode_info.staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS_V2) : std::min(snode_info.staking_requirement - snode_info.total_reserved, snode_info.staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS);
+  uint64_t min_contrib_total = use_fork_rules(10, 0) ? use_fork_rules(12,0) ? MIN_POOL_STAKERS_V12 * COIN: std::min(snode_info.staking_requirement - snode_info.total_reserved, snode_info.staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS_V2) : std::min(snode_info.staking_requirement - snode_info.total_reserved, snode_info.staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS);
 
   bool is_preexisting_contributor = false;
   for (const auto& contributor : snode_info.contributors)

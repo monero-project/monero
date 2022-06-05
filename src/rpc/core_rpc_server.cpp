@@ -3820,15 +3820,11 @@ namespace cryptonote
             uint64_t transferred = 0;
             for (size_t i = 0; i < tx.vout.size(); i++)
             {
-
-            uint64_t unlock_time = tx.unlock_time;
-
-            if (tx.version >= cryptonote::transaction::version_3_per_output_unlock_times)
-              unlock_time = tx.output_unlock_times[i];
-
-              if (unlock_time < CRYPTONOTE_MAX_BLOCK_NUMBER && unlock_time >= req.block_height + service_nodes::get_staking_requirement_lock_blocks(nettype())) {
+              uint64_t unlock_time = tx.unlock_time;
+              if (tx.version >= cryptonote::transaction::version_3_per_output_unlock_times)
+                unlock_time = tx.output_unlock_times[i];
+              if(unlock_time != 0)
                 transferred += service_nodes::get_reg_tx_staking_output_contribution(tx, i, derivation, hwdev);
-              }
             }
 
             COMMAND_RPC_ON_GET_STAKED_TXS::response::staking_tx stake_tx;
