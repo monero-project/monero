@@ -3390,7 +3390,7 @@ namespace tools
     if (!wal)
     {
       er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
-      er.message = "Failed to open wallet";
+      er.message = "Incorrect Password!";
       return false;
     }
 
