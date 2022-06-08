@@ -83,7 +83,9 @@ namespace cryptonote {
     return CRYPTONOTE_MAX_TX_SIZE;
   }
   int get_emission_speed_factor(uint8_t version){
-    if(version >= 12)
+    if(version >= 13) {
+      return EMISSION_SPEED_FACTOR_PER_MINUTE;
+    } else if(version == 12)
     {
       return EMISSION_SPEED_FACTOR_PER_MINUTE + 1;
     } else if(version >= 6 && version < 12) {
@@ -129,6 +131,7 @@ namespace cryptonote {
        already_generated_coins += BURN_2;
      }
 
+     std::cout << ((MONEY_SUPPLY - already_generated_coins) >> 20) << std::endl;
 	   uint64_t base_reward = (MONEY_SUPPLY - already_generated_coins) >> emission_speed_factor;
 
 
