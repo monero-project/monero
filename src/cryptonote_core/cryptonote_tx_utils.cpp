@@ -181,26 +181,27 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------
-  crypto::public_key get_destination_view_key_pub(const std::vector<tx_destination_entry> &destinations, const boost::optional<cryptonote::account_public_address>& change_addr)
+  crypto::public_key get_payment_id_encr_dest_view_key_pub(const std::vector<tx_destination_entry> &destinations, const boost::optional<cryptonote::account_public_address>& change_addr)
   {
     account_public_address addr = {null_pkey, null_pkey};
+    // TODO:? throw exception if destinations.size() == 0? in the ways this is currently used it's not possible but it would be useful for safety especially since this method is exposed in the header
     size_t count = 0;
     for (const auto &i : destinations)
     {
-      if (i.amount == 0)
+      if (i.amount == 0) // if this is a destination for fabricating a dummy output (0 amount), then the dummy dest would never be the recipient of the payment id
         continue;
-      if (change_addr && i.addr == *change_addr)
+      if (change_addr && i.addr == *change_addr) // ignore destinations with the change addr - and only if no other encryption destinations have been discovered and a change addr exists, then use it, at the end of this function
         continue;
-      if (i.addr == addr)
+      if (i.addr == addr) // if i.addr is null,null OR if i.addr is a duplicate of the one which has already been selected on a prior iteration - then at least this has the function of not incrementing count; as an aside, afaict, no destinations should be allowed to have a null .addr, so this if's condition probably is only intended to be true when i.addr has been found on a prior iteration
         continue;
-      if (count > 0)
+      if (count > 0) // if another addr has already been found for pid encryption, then explicitly return null so that the pid *cannot* be encrypted, since the encryption destination is ambiguous
         return null_pkey;
       addr = i.addr;
       ++count;
     }
     if (count == 0 && change_addr)
       return change_addr->m_view_public_key;
-    return addr.m_view_public_key;
+    return addr.m_view_public_key; // it's assumed that destinations has non-zero size() aside from change dests
   }
   //---------------------------------------------------------------
   bool construct_tx_with_tx_key(const account_keys& sender_account_keys, const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses, std::vector<tx_source_entry>& sources, std::vector<tx_destination_entry>& destinations, const boost::optional<cryptonote::account_public_address>& change_addr, const std::vector<uint8_t> &extra, transaction& tx, uint64_t unlock_time, const crypto::secret_key &tx_key, const std::vector<crypto::secret_key> &additional_tx_keys, bool rct, const rct::RCTConfig &rct_config, rct::multisig_out *msout, bool shuffle_outs, bool use_view_tags)
@@ -240,7 +241,7 @@ namespace cryptonote
         if (get_encrypted_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id8))
         {
           LOG_PRINT_L2("Encrypting payment id " << payment_id8);
-          crypto::public_key view_key_pub = get_destination_view_key_pub(destinations, change_addr);
+          crypto::public_key view_key_pub = get_payment_id_encr_dest_view_key_pub(destinations, change_addr);
           if (view_key_pub == null_pkey)
           {
             LOG_ERROR("Destinations have to have exactly one output to support encrypted payment ids");
@@ -280,7 +281,7 @@ namespace cryptonote
         // this should end up being the vast majority of txes as time goes on
         std::string extra_nonce;
         crypto::hash8 payment_id8 = null_hash8;
-        crypto::public_key view_key_pub = get_destination_view_key_pub(destinations, change_addr);
+        crypto::public_key view_key_pub = get_payment_id_encr_dest_view_key_pub(destinations, change_addr);
         if (view_key_pub == null_pkey)
         {
           LOG_ERROR("Failed to get key to encrypt dummy payment id with");
