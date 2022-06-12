@@ -1534,6 +1534,7 @@ bool Blockchain::create_block_template(block& b, const crypto::hash *from_block,
   seed_hash = crypto::null_hash;
 
   m_tx_pool.lock();
+  db_rtxn_guard rtxn_guard(m_db);
   const auto unlock_guard = epee::misc_utils::create_scope_leave_handler([&]() { m_tx_pool.unlock(); });
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
   if (m_btc_valid && !from_block) {

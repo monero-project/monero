@@ -1770,6 +1770,7 @@ namespace cryptonote
       return false;
     }
 
+    // TODO: move next_height, next_seed_hash under the protection of locks in Blockchain::create_block_template to guarantee consistent data
     uint64_t next_height;
     crypto::rx_seedheights(height, &seed_height, &next_height);
     if (next_height != seed_height)
@@ -1877,7 +1878,6 @@ namespace cryptonote
         return false;
       }
     }
-    db_rtxn_guard rtxn_guard(&m_core.get_blockchain_storage().get_db());
     crypto::hash seed_hash, next_seed_hash;
     if (!get_block_template(info.address, req.prev_block.empty() ? NULL : &prev_block, blob_reserve, reserved_offset, wdiff, res.height, res.expected_reward, b, res.seed_height, seed_hash, next_seed_hash, error_resp))
       return false;
