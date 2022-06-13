@@ -1156,7 +1156,7 @@ namespace service_nodes
 		for (const auto& info : m_service_nodes_infos)
 		{
 
-			if(hard_fork_version >= 12)
+			if(hard_fork_version == 12)
 			{
 				uint64_t amount_operator_needs_to_stake = portions_to_amount(info.second.portions_for_operator, info.second.staking_requirement);
 
