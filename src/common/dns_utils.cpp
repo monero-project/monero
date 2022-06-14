@@ -520,7 +520,7 @@ bool load_txt_records_from_dns(std::vector<std::string> &good_records, const std
 
   // send all requests in parallel
   std::deque<bool> avail(dns_urls.size(), false), valid(dns_urls.size(), false);
-  tools::threadpool& tpool = tools::threadpool::getInstance();
+  tools::threadpool& tpool = tools::threadpool::getInstanceForIO();
   tools::threadpool::waiter waiter(tpool);
   for (size_t n = 0; n < dns_urls.size(); ++n)
   {

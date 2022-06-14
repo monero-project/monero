@@ -2724,7 +2724,7 @@ void wallet2::process_parsed_blocks(uint64_t start_height, const std::vector<cry
   THROW_WALLET_EXCEPTION_IF(blocks.size() != parsed_blocks.size(), error::wallet_internal_error, "size mismatch");
   THROW_WALLET_EXCEPTION_IF(!m_blockchain.is_in_bounds(current_index), error::out_of_hashchain_bounds_error);
 
-  tools::threadpool& tpool = tools::threadpool::getInstance();
+  tools::threadpool& tpool = tools::threadpool::getInstanceForCompute();
   tools::threadpool::waiter waiter(tpool);
 
   size_t num_txes = 0;
@@ -2967,7 +2967,7 @@ void wallet2::pull_and_parse_next_blocks(uint64_t start_height, uint64_t &blocks
     pull_blocks(start_height, blocks_start_height, short_chain_history, blocks, o_indices, current_height);
     THROW_WALLET_EXCEPTION_IF(blocks.size() != o_indices.size(), error::wallet_internal_error, "Mismatched sizes of blocks and o_indices");
 
-    tools::threadpool& tpool = tools::threadpool::getInstance();
+    tools::threadpool& tpool = tools::threadpool::getInstanceForCompute();
     tools::threadpool::waiter waiter(tpool);
     parsed_blocks.resize(blocks.size());
     for (size_t i = 0; i < blocks.size(); ++i)
@@ -3464,7 +3464,7 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
   size_t try_count = 0;
   crypto::hash last_tx_hash_id = m_transfers.size() ? m_transfers.back().m_txid : null_hash;
   std::list<crypto::hash> short_chain_history;
-  tools::threadpool& tpool = tools::threadpool::getInstance();
+  tools::threadpool& tpool = tools::threadpool::getInstanceForCompute();
   tools::threadpool::waiter waiter(tpool);
   uint64_t blocks_start_height;
   std::vector<cryptonote::block_complete_entry> blocks;

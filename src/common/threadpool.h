@@ -42,8 +42,12 @@ namespace tools
 class threadpool
 {
 public:
-  static threadpool& getInstance() {
+  static threadpool& getInstanceForCompute() {
     static threadpool instance;
+    return instance;
+  }
+  static threadpool& getInstanceForIO() {
+    static threadpool instance(8);
     return instance;
   }
   static threadpool *getNewForUnitTests(unsigned max_threads = 0) {

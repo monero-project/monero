@@ -1013,7 +1013,7 @@ namespace cryptonote
 
     CRITICAL_REGION_LOCAL(m_incoming_tx_lock);
 
-    tools::threadpool& tpool = tools::threadpool::getInstance();
+    tools::threadpool& tpool = tools::threadpool::getInstanceForCompute();
     tools::threadpool::waiter waiter(tpool);
     epee::span<tx_blob_entry>::const_iterator it = tx_blobs.begin();
     for (size_t i = 0; i < tx_blobs.size(); i++, ++it) {
