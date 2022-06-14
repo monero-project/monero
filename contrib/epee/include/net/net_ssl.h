@@ -63,6 +63,7 @@ namespace net_utils
   {
     std::string private_key_path; //!< Private key used for authentication
     std::string certificate_path; //!< Certificate used for authentication to peer.
+    bool persistent;              //!< Whether key & cert should be saved to respective paths
 
     //! Load `private_key_path` and `certificate_path` into `ssl_context`.
     void use_ssl_certificate(boost::asio::ssl::context &ssl_context) const;
@@ -146,8 +147,8 @@ namespace net_utils
 	bool create_ec_ssl_certificate(EVP_PKEY *&pkey, X509 *&cert);
 	bool create_rsa_ssl_certificate(EVP_PKEY *&pkey, X509 *&cert);
 
-  //! Store private key for `ssl` at `base + ".key"` unencrypted and certificate for `ssl` at `base + ".crt"`.
-  boost::system::error_code store_ssl_keys(boost::asio::ssl::context& ssl, const boost::filesystem::path& base);
+  //! Extract private key and certificate from ssl context `ssl` and store into respective file locations, unencrypted
+  boost::system::error_code store_ssl_keys(boost::asio::ssl::context& ssl, const boost::filesystem::path& key_file, const boost::filesystem::path& cert_file);
 }
 }
 

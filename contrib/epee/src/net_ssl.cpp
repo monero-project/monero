@@ -357,31 +357,27 @@ boost::asio::ssl::context ssl_options_t::create_context() const
   }
 
   CHECK_AND_ASSERT_THROW_MES(auth.private_key_path.empty() == auth.certificate_path.empty(), "private key and certificate must be either both given or both empty");
+  const bool auth_paths_given = !auth.private_key_path.empty();
+  CHECK_AND_ASSERT_THROW_MES(!auth.persistent || auth_paths_given, "ssl persistence is set to true, but no key/cert paths are given");
 
-  const bool private_key_exists = epee::file_io_utils::is_file_exist(auth.private_key_path);
-  const bool certificate_exists = epee::file_io_utils::is_file_exist(auth.certificate_path);
+  const bool private_key_exists = auth_paths_given && epee::file_io_utils::is_file_exist(auth.private_key_path);
+  const bool certificate_exists = auth_paths_given && epee::file_io_utils::is_file_exist(auth.certificate_path);
   if (private_key_exists && !certificate_exists) {
     ASSERT_MES_AND_THROW("private key is present, but certificate file '" << auth.certificate_path << "' is missing");
   } else if (!private_key_exists && certificate_exists) {
     ASSERT_MES_AND_THROW("certificate is present, but private key file '" << auth.private_key_path << "' is missing");
   }
+  const bool auth_files_already_exist = private_key_exists;
 
-  if (auth.private_key_path.empty())
+  if (auth_files_already_exist)
+  {
+    auth.use_ssl_certificate(ssl_context);
+  }
+  else // Generate new key/cert pair and store in ssl_context
   {
     EVP_PKEY *pkey;
     X509 *cert;
     bool ok = false;
-
-#ifdef USE_EXTRA_EC_CERT
-    CHECK_AND_ASSERT_THROW_MES(create_ec_ssl_certificate(pkey, cert, NID_secp256k1), "Failed to create certificate");
-    CHECK_AND_ASSERT_THROW_MES(SSL_CTX_use_certificate(ctx, cert), "Failed to use generated certificate");
-    if (!SSL_CTX_use_PrivateKey(ctx, pkey))
-      MERROR("Failed to use generated EC private key for " << NID_secp256k1);
-    else
-      ok = true;
-    X509_free(cert);
-    EVP_PKEY_free(pkey);
-#endif
 
     CHECK_AND_ASSERT_THROW_MES(create_rsa_ssl_certificate(pkey, cert), "Failed to create certificate");
     CHECK_AND_ASSERT_THROW_MES(SSL_CTX_use_certificate(ctx, cert), "Failed to use generated certificate");
@@ -394,8 +390,12 @@ boost::asio::ssl::context ssl_options_t::create_context() const
 
     CHECK_AND_ASSERT_THROW_MES(ok, "Failed to use any generated certificate");
   }
-  else
-    auth.use_ssl_certificate(ssl_context);
+
+  if (auth.persistent && !auth_files_already_exist)
+  {
+    store_ssl_keys(ssl_context, auth.certificate_path, auth.private_key_path);
+  }
+
 
   return ssl_context;
 }
@@ -408,7 +408,12 @@ void ssl_authentication_t::use_ssl_certificate(boost::asio::ssl::context &ssl_co
     MERROR("Failed to load private key file '" << private_key_path << "' into SSL context");
     throw;
   }
-  ssl_context.use_certificate_chain_file(certificate_path);
+  try {
+    ssl_context.use_certificate_chain_file(certificate_path);
+  } catch (const boost::system::system_error&) {
+    MERROR("Failed to load certificate chain file '" << certificate_path << "' into SSL context");
+    throw;
+  }
 }
 
 bool is_ssl(const unsigned char *data, size_t len)
@@ -585,13 +590,13 @@ bool ssl_support_from_string(ssl_support_t &ssl, boost::string_ref s)
   return true;
 }
 
-boost::system::error_code store_ssl_keys(boost::asio::ssl::context& ssl, const boost::filesystem::path& base)
+boost::system::error_code store_ssl_keys(boost::asio::ssl::context& ssl, const boost::filesystem::path& key_file, const boost::filesystem::path& cert_file)
 {
   EVP_PKEY* ssl_key = nullptr;
   X509* ssl_cert = nullptr;
   const auto ctx = ssl.native_handle();
   CHECK_AND_ASSERT_MES(ctx, boost::system::error_code(EINVAL, boost::system::system_category()), "Context is null");
-  CHECK_AND_ASSERT_MES(base.has_filename(), boost::system::error_code(EINVAL, boost::system::system_category()), "Need filename");
+  CHECK_AND_ASSERT_MES(key_file.has_filename() && cert_file.has_filename(), boost::system::error_code(EINVAL, boost::system::system_category()), "Need filename");
   std::unique_ptr<SSL, decltype(&SSL_free)> dflt_SSL(SSL_new(ctx), SSL_free);
   if (!dflt_SSL || !(ssl_key = SSL_get_privatekey(dflt_SSL.get())) || !(ssl_cert = SSL_get_certificate(dflt_SSL.get())))
     return {EINVAL, boost::system::system_category()};
@@ -602,7 +607,6 @@ boost::system::error_code store_ssl_keys(boost::asio::ssl::context& ssl, const b
 
   // write key file unencrypted
   {
-    const boost::filesystem::path key_file{base.string() + ".key"};
     file.reset(std::fopen(key_file.string().c_str(), "wb"));
     if (!file)
     {
@@ -624,7 +628,6 @@ boost::system::error_code store_ssl_keys(boost::asio::ssl::context& ssl, const b
   }
 
   // write certificate file in standard SSL X.509 unencrypted
-  const boost::filesystem::path cert_file{base.string() + ".crt"};
   file.reset(std::fopen(cert_file.string().c_str(), "wb"));
   if (!file)
     return {errno, boost::system::system_category()};

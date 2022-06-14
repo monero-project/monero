@@ -4402,7 +4402,7 @@ namespace tools
     }
 
     ssl_options.auth = epee::net_utils::ssl_authentication_t{
-      std::move(req.ssl_private_key_path), std::move(req.ssl_certificate_path)
+      std::move(req.ssl_private_key_path), std::move(req.ssl_certificate_path), false
     };
 
     const bool verification_required =

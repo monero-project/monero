@@ -348,24 +348,26 @@ namespace cryptonote
     if (m_rpc_payment)
       m_net_server.add_idle_handler([this](){ return m_rpc_payment->on_idle(); }, 60 * 1000);
 
-    bool store_ssl_key = !restricted && rpc_config->ssl_options && rpc_config->ssl_options.auth.certificate_path.empty();
-    const auto ssl_base_path = (boost::filesystem::path{data_dir} / "rpc_ssl").string();
-    const bool ssl_cert_file_exists = boost::filesystem::exists(ssl_base_path + ".crt");
-    const bool ssl_pkey_file_exists = boost::filesystem::exists(ssl_base_path + ".key");
-    if (store_ssl_key)
+    // If SSL is enabled and we haven't explicity set SSL key/cert paths:
+    if (rpc_config->ssl_options && rpc_config->ssl_options.auth.certificate_path.empty())
     {
-      // .key files are often given different read permissions as their corresponding .crt files.
-      // Consequently, sometimes the .key file wont't get copied, while the .crt file will.
-      if (ssl_cert_file_exists != ssl_pkey_file_exists)
+      const auto ssl_base_path = (boost::filesystem::path{data_dir} / "rpc_ssl").string();
+      const auto ssl_pkey_path = ssl_base_path + ".key";
+      const auto ssl_cert_path = ssl_base_path + ".crt";
+
+      // Show a warning if SSL files are already generated but persistence is set to false, b/c they will not get used
+      // This can happen when old nodes upgrade to newer code without enabling persistence
+      const bool ssl_files_exist = boost::filesystem::exists(ssl_pkey_path) || boost::filesystem::exists(ssl_cert_path);
+      if (ssl_files_exist && !rpc_config->ssl_options.auth.persistent)
       {
-        MFATAL("Certificate (.crt) and private key (.key) files must both exist or both not exist at path: " << ssl_base_path);
-        return false;
+        MWARNING("rpc_ssl.* files exist in data directory, but are not being used. Use option --rpc-ssl-persistent or delete said files");
       }
-      else if (ssl_cert_file_exists) { // and ssl_pkey_file_exists
-        // load key from previous run, password prompted by OpenSSL
-        store_ssl_key = false;
-        rpc_config->ssl_options.auth =
-          epee::net_utils::ssl_authentication_t{ssl_base_path + ".key", ssl_base_path + ".crt"};
+
+      if (rpc_config->ssl_options.auth.persistent)
+      {
+        // Do not construct a new ssl_authentication_t object b/c we want to keep our `persistent` field
+        rpc_config->ssl_options.auth.private_key_path = ssl_pkey_path;
+        rpc_config->ssl_options.auth.certificate_path = ssl_cert_path;
       }
     }
 
@@ -378,14 +380,6 @@ namespace cryptonote
 
     m_net_server.get_config_object().m_max_content_length = MAX_RPC_CONTENT_LENGTH;
 
-    if (store_ssl_key && inited)
-    {
-      // new keys were generated, store for next run
-      const auto error = epee::net_utils::store_ssl_keys(m_net_server.get_ssl_context(), ssl_base_path);
-      if (error)
-        MFATAL("Failed to store HTTP SSL cert/key for " << (restricted ? "restricted " : "") << "RPC server: " << error.message());
-      return !bool(error);
-    }
     return inited;
   }
   //------------------------------------------------------------------------------------------------------------------------------

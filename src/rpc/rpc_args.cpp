@@ -81,7 +81,7 @@ namespace cryptonote
       }
 
       ssl_options.auth = epee::net_utils::ssl_authentication_t{
-        command_line::get_arg(vm, arg.rpc_ssl_private_key), command_line::get_arg(vm, arg.rpc_ssl_certificate)
+        command_line::get_arg(vm, arg.rpc_ssl_private_key), command_line::get_arg(vm, arg.rpc_ssl_certificate), command_line::get_arg(vm, arg.rpc_ssl_persistent)
       };
 
       return {std::move(ssl_options)};
@@ -102,6 +102,7 @@ namespace cryptonote
      , rpc_ssl_private_key({"rpc-ssl-private-key", rpc_args::tr("Path to a PEM format private key"), ""})
      , rpc_ssl_certificate({"rpc-ssl-certificate", rpc_args::tr("Path to a PEM format certificate"), ""})
      , rpc_ssl_ca_certificates({"rpc-ssl-ca-certificates", rpc_args::tr("Path to file containing concatenated PEM format certificate(s) to replace system CA(s)."), ""})
+     , rpc_ssl_persistent({"rpc-ssl-persistent", rpc_args::tr("Save/Load SSL certificate in data directory to maintain persistent identity across restarts"), false})
      , rpc_ssl_allowed_fingerprints({"rpc-ssl-allowed-fingerprints", rpc_args::tr("List of certificate fingerprints to allow")})
      , rpc_ssl_allow_chained({"rpc-ssl-allow-chained", rpc_args::tr("Allow user (via --rpc-ssl-certificates) chain certificates"), false})
      , rpc_ssl_allow_any_cert({"rpc-ssl-allow-any-cert", rpc_args::tr("Allow any peer certificate"), false})
@@ -126,6 +127,7 @@ namespace cryptonote
     command_line::add_arg(desc, arg.rpc_ssl_private_key);
     command_line::add_arg(desc, arg.rpc_ssl_certificate);
     command_line::add_arg(desc, arg.rpc_ssl_ca_certificates);
+    command_line::add_arg(desc, arg.rpc_ssl_persistent);
     command_line::add_arg(desc, arg.rpc_ssl_allowed_fingerprints);
     command_line::add_arg(desc, arg.rpc_ssl_allow_chained);
     command_line::add_arg(desc, arg.disable_rpc_ban);
