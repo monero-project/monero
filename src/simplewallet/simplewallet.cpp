@@ -150,7 +150,7 @@ typedef cryptonote::simple_wallet sw;
       fail_msg_writer() << tr("Multisig is disabled."); \
       fail_msg_writer() << tr("Multisig is an experimental feature and may have bugs. Things that could go wrong include: funds sent to a multisig wallet can't be spent at all, can only be spent with the participation of a malicious group member, or can be stolen by a malicious group member."); \
       fail_msg_writer() << tr("You can enable it with:"); \
-      fail_msg_writer() << tr("  set enable-multisig-experimental 1"); \
+      fail_msg_writer() << tr("  set enable-multisig-unsafe 1"); \
       return false; \
     } \
   } while(0)
@@ -3438,7 +3438,7 @@ simple_wallet::simple_wallet()
                                   "  The RPC payment credits balance to target (0 for default).\n "
                                   "show-wallet-name-when-locked <1|0>\n "
                                   "  Set this if you would like to display the wallet name when locked.\n "
-                                  "enable-multisig-experimental <1|0>\n "
+                                  "enable-multisig-unsafe <1|0>\n "
                                   "  Set this to allow multisig commands. Multisig may currently be exploitable if parties do not trust each other.\n "
                                   "inactivity-lock-timeout <unsigned int>\n "
                                   "  How many seconds to wait before locking the wallet (0 to disable)."));
@@ -3855,7 +3855,7 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
     success_msg_writer() << "auto-mine-for-rpc-payment-threshold = " << m_wallet->auto_mine_for_rpc_payment_threshold();
     success_msg_writer() << "credits-target = " << m_wallet->credits_target();
     success_msg_writer() << "load-deprecated-formats = " << m_wallet->load_deprecated_formats();
-    success_msg_writer() << "enable-multisig-experimental = " << m_wallet->is_multisig_enabled();
+    success_msg_writer() << "enable-multisig-unsafe = " << m_wallet->is_multisig_enabled();
     return true;
   }
   else
@@ -3922,7 +3922,7 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
     CHECK_SIMPLE_VARIABLE("persistent-rpc-client-id", set_persistent_rpc_client_id, tr("0 or 1"));
     CHECK_SIMPLE_VARIABLE("auto-mine-for-rpc-payment-threshold", set_auto_mine_for_rpc_payment_threshold, tr("floating point >= 0"));
     CHECK_SIMPLE_VARIABLE("credits-target", set_credits_target, tr("unsigned integer"));
-    CHECK_SIMPLE_VARIABLE("enable-multisig-experimental", set_enable_multisig, tr("0 or 1"));
+    CHECK_SIMPLE_VARIABLE("enable-multisig-unsafe", set_enable_multisig, tr("0 or 1"));
   }
   fail_msg_writer() << tr("set: unrecognized argument(s)");
   return true;
