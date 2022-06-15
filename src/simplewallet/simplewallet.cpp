@@ -148,7 +148,7 @@ typedef cryptonote::simple_wallet sw;
     if (!m_wallet->is_multisig_enabled()) \
     { \
       fail_msg_writer() << tr("Multisig is disabled."); \
-      fail_msg_writer() << tr("Multisig is an experimental feature and may have bugs. Things that could go wrong include: funds sent to a multisig wallet can't be spent at all, can only be spent with the participation of a malicious group member, or can be stolen by a malicious group member."); \
+      fail_msg_writer() << tr("Multisig is an unsafe feature which has bugs. Things that could go wrong include: funds sent to a multisig wallet can't be spent at all, can only be spent with the participation of a malicious group member, or can be stolen by a malicious group member."); \
       fail_msg_writer() << tr("You can enable it with:"); \
       fail_msg_writer() << tr("  set enable-multisig-unsafe 1"); \
       return false; \
