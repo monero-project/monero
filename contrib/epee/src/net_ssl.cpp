@@ -48,47 +48,28 @@
 #define MERROR_OPENSSL(msg) MERROR(msg << ": " << ERR_reason_error_string(ERR_get_error()))
 #define NET_SSL_CERT_LIFETIME 3600 * 24 * 365
 
+#ifndef X509_VERSION_3
+#define X509_VERSION_3 2
+#endif
+
 #ifdef _WIN32
 static void add_windows_root_certs(SSL_CTX *ctx) noexcept;
 #endif
 
 namespace
 {
-  struct openssl_pkey_free
-  {
-    void operator()(EVP_PKEY* ptr) const noexcept
-    {
-      EVP_PKEY_free(ptr);
-    }
+  // Automates boilerplate for creating unique_ptrs to C API objects
+  template<typename T, void (*freefunc)(T*)>
+  struct CDeleter {
+    void operator()(T* t) { freefunc(t); }
   };
-  using openssl_pkey = std::unique_ptr<EVP_PKEY, openssl_pkey_free>;
+  // In OpenSSL, the free functions for type X is always named X_free
+  #define OPENSSL_UNIQUE_PTR(ssltype) std::unique_ptr<ssltype, CDeleter<ssltype, ssltype ## _free>>
 
-  struct openssl_x509_free
-  {
-    void operator()(X509* ptr) const noexcept
-    {
-      X509_free(ptr);
-    }
-  };
-  using openssl_x509 = std::unique_ptr<X509, openssl_x509_free>;
-
-  struct openssl_pkey_ctx_free
-  {
-    void operator()(EVP_PKEY_CTX* ptr) const noexcept
-    {
-      EVP_PKEY_CTX_free(ptr);
-    }
-  };
-  using openssl_pkey_ctx = std::unique_ptr<EVP_PKEY_CTX, openssl_pkey_ctx_free>;
-
-  struct openssl_md_ctx_free
-  {
-    void operator()(EVP_MD_CTX* ptr) const noexcept
-    {
-      EVP_MD_CTX_free(ptr);
-    }
-  };
-  using openssl_md_ctx = std::unique_ptr<EVP_MD_CTX, openssl_md_ctx_free>;
+  using openssl_pkey = OPENSSL_UNIQUE_PTR(EVP_PKEY);
+  using openssl_x509 = OPENSSL_UNIQUE_PTR(X509);
+  using openssl_pkey_ctx = OPENSSL_UNIQUE_PTR(EVP_PKEY_CTX);
+  using openssl_md_ctx = OPENSSL_UNIQUE_PTR(EVP_MD_CTX);
 
   boost::system::error_code load_ca_file(boost::asio::ssl::context& ctx, const std::string& path)
   {
@@ -104,6 +85,65 @@ namespace
     }
     return boost::system::error_code{};
   }
+
+  //! @brief Generate prime256v1 elliptic curve key pair, returns nullptr on failure
+  EVP_PKEY* generate_ec_pkey() noexcept
+  {
+    // EVP_PKEY_keygen will segfault if pkey input is not initialized and != NULL
+    EVP_PKEY* res = nullptr;
+
+    // Generate key pair
+    openssl_pkey_ctx pctx{EVP_PKEY_CTX_new_id(EVP_PKEY_EC, nullptr)};
+    if (!pctx)
+    {
+      MERROR_OPENSSL("Failed to create new EC context");
+      return nullptr;
+    }
+    if (!EVP_PKEY_keygen_init(pctx.get()))
+    {
+      MERROR_OPENSSL("Error initializing EC context");
+      return nullptr;
+    }
+    if (!EVP_PKEY_CTX_set_ec_paramgen_curve_nid(pctx.get(), NID_X9_62_prime256v1))
+    {
+      MERROR_OPENSSL("Error setting curve to SECP256K1");
+      return nullptr;
+    }
+    if (!EVP_PKEY_keygen(pctx.get(), &res))
+    {
+      MERROR_OPENSSL("Error generating key pair with EC context");
+      return nullptr;
+    }
+
+    return res;
+  }
+
+  //! @brief Generate X509v3 certificate, unsigned and without pubkey set, returns nullptr on failure
+  X509* generate_empty_x509v3_cert() noexcept
+  {
+    // Alocate
+    X509* res = X509_new();
+    if (!res)
+    {
+      MERROR_OPENSSL("Failed to create new X509 certificate");
+      return nullptr;
+    }
+    openssl_x509 cert_deleter{res};
+
+    // Set version, serial number, names, and expiration dates
+    if (!X509_set_version(res, X509_VERSION_3)) {
+      MERROR_OPENSSL("Error setting certificate version");
+      return nullptr;
+    }
+    ASN1_INTEGER_set(X509_get_serialNumber(res), 1);
+    X509_gmtime_adj(X509_get_notBefore(res), 0);
+    X509_gmtime_adj(X509_get_notAfter(res), NET_SSL_CERT_LIFETIME);
+    X509_NAME *name = X509_get_subject_name(res);
+    X509_set_issuer_name(res, name);
+
+    cert_deleter.release();
+    return res;
+  }
 }
 
 namespace epee
@@ -115,53 +155,26 @@ bool create_ec_ssl_certificate(EVP_PKEY *&pkey, X509 *&cert) noexcept
 {
   MINFO("Generating SSL certificate");
 
-  // EVP_PKEY_keygen will segfault if pkey input is not initialized and != NULL
-  pkey = NULL;
-
-  // Generate key pair
-  openssl_pkey_ctx pctx{EVP_PKEY_CTX_new_id(EVP_PKEY_EC, NULL)};
-  if (!pctx)
+  pkey = generate_ec_pkey();
+  if (!pkey)
   {
-    MERROR_OPENSSL("Failed to create new EC context");
-    return false;
-  }
-  if (!EVP_PKEY_keygen_init(pctx.get()))
-  {
-    MERROR_OPENSSL("Error initializing EC context");
-    return false;
-  }
-  if (!EVP_PKEY_CTX_set_ec_paramgen_curve_nid(pctx.get(), NID_secp256k1))
-  {
-    MERROR_OPENSSL("Error setting curve to SECP256K1");
-    return false;
-  }
-  if (!EVP_PKEY_keygen(pctx.get(), &pkey))
-  {
-    MERROR_OPENSSL("Error generating key pair with EC context");
     return false;
   }
   openssl_pkey pkey_deleter{pkey};
 
-  // Create X509 certificate
-  cert = X509_new();
+  cert = generate_empty_x509v3_cert();
   if (!cert)
   {
-    MERROR_OPENSSL("Failed to create new X509 certificate");
     return false;
   }
   openssl_x509 cert_deleter{cert};
 
-  // Set certificate fields
-  ASN1_INTEGER_set(X509_get_serialNumber(cert), 1);
-  X509_gmtime_adj(X509_get_notBefore(cert), 0);
-  X509_gmtime_adj(X509_get_notAfter(cert), NET_SSL_CERT_LIFETIME);
+  // Set public key on certificate
   if (!X509_set_pubkey(cert, pkey))
   {
     MERROR_OPENSSL("Error setting pubkey on certificate");
     return false;
   }
-  X509_NAME *name = X509_get_subject_name(cert);
-  X509_set_issuer_name(cert, name);
 
   // Sign certificate
   if (!X509_sign(cert, pkey, EVP_sha256()))
@@ -223,7 +236,6 @@ boost::asio::ssl::context ssl_options_t::create_context() const
 #ifdef SSL_OP_CIPHER_SERVER_PREFERENCE
   SSL_CTX_set_options(ctx, SSL_OP_CIPHER_SERVER_PREFERENCE);
 #endif
-  SSL_CTX_set_ecdh_auto(ctx, 1);
 
   switch (verification)
   {
