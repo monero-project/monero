@@ -916,7 +916,7 @@ namespace cryptonote
       output_public_key = boost::get< txout_to_tagged_key >(out.target).key;
     else
     {
-      LOG_ERROR("Unexpected output target type found: " << out.target.type().name());
+      LOG_ERROR("Unexpected output target type found");
       return false;
     }
 
