@@ -13173,7 +13173,7 @@ size_t wallet2::import_outputs(const std::pair<uint64_t, std::vector<tools::wall
       bool needs_processing = false;
       if (!td.m_key_image_known)
         needs_processing = true;
-      else if (!(etd.m_internal_output_index == td.m_internal_output_index))
+      else if (!(etd.m_internal_output_index == td.m_internal_output_index) || td.m_tx.vout.empty())
         needs_processing = true;
       else if (!(etd.m_pubkey == td.get_public_key()))
         needs_processing = true;
