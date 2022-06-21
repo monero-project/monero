@@ -989,7 +989,7 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------
-  bool out_can_be_to_acc(const boost::optional<crypto::view_tag>& view_tag_opt, const crypto::key_derivation& derivation, const size_t output_index)
+  bool out_can_be_to_acc(const boost::optional<crypto::view_tag>& view_tag_opt, const crypto::key_derivation& derivation, const size_t output_index, hw::device* hwdev)
   {
     // If there is no view tag to check, the output can possibly belong to the account.
     // Will need to derive the output pub key to be certain whether or not the output belongs to the account.
@@ -1002,7 +1002,15 @@ namespace cryptonote
     // Therefore can fail out early to avoid expensive crypto ops needlessly deriving output public key to
     // determine if output belongs to the account.
     crypto::view_tag derived_view_tag;
-    crypto::derive_view_tag(derivation, output_index, derived_view_tag);
+    if (hwdev != nullptr)
+    {
+      bool r = hwdev->derive_view_tag(derivation, output_index, derived_view_tag);
+      CHECK_AND_ASSERT_MES(r, false, "Failed to derive view tag");
+    }
+    else
+    {
+      crypto::derive_view_tag(derivation, output_index, derived_view_tag);
+    }
     return view_tag == derived_view_tag;
   }
   //---------------------------------------------------------------
@@ -1012,7 +1020,7 @@ namespace cryptonote
     bool r = acc.get_device().generate_key_derivation(tx_pub_key, acc.m_view_secret_key, derivation);
     CHECK_AND_ASSERT_MES(r, false, "Failed to generate key derivation");
     crypto::public_key pk;
-    if (out_can_be_to_acc(view_tag_opt, derivation, output_index))
+    if (out_can_be_to_acc(view_tag_opt, derivation, output_index, &acc.get_device()))
     {
       r = acc.get_device().derive_public_key(derivation, output_index, acc.m_account_address.m_spend_public_key, pk);
       CHECK_AND_ASSERT_MES(r, false, "Failed to derive public key");
@@ -1026,7 +1034,7 @@ namespace cryptonote
       CHECK_AND_ASSERT_MES(output_index < additional_tx_pub_keys.size(), false, "wrong number of additional tx pubkeys");
       r = acc.get_device().generate_key_derivation(additional_tx_pub_keys[output_index], acc.m_view_secret_key, derivation);
       CHECK_AND_ASSERT_MES(r, false, "Failed to generate key derivation");
-      if (out_can_be_to_acc(view_tag_opt, derivation, output_index))
+      if (out_can_be_to_acc(view_tag_opt, derivation, output_index, &acc.get_device()))
       {
         r = acc.get_device().derive_public_key(derivation, output_index, acc.m_account_address.m_spend_public_key, pk);
         CHECK_AND_ASSERT_MES(r, false, "Failed to derive public key");
@@ -1040,7 +1048,7 @@ namespace cryptonote
   {
     // try the shared tx pubkey
     crypto::public_key subaddress_spendkey;
-    if (out_can_be_to_acc(view_tag_opt, derivation, output_index))
+    if (out_can_be_to_acc(view_tag_opt, derivation, output_index, &hwdev))
     {
       CHECK_AND_ASSERT_MES(hwdev.derive_subaddress_public_key(out_key, derivation, output_index, subaddress_spendkey), boost::none, "Failed to derive subaddress public key");
       auto found = subaddresses.find(subaddress_spendkey);
@@ -1052,7 +1060,7 @@ namespace cryptonote
     if (!additional_derivations.empty())
     {
       CHECK_AND_ASSERT_MES(output_index < additional_derivations.size(), boost::none, "wrong number of additional derivations");
-      if (out_can_be_to_acc(view_tag_opt, additional_derivations[output_index], output_index))
+      if (out_can_be_to_acc(view_tag_opt, additional_derivations[output_index], output_index, &hwdev))
       {
         CHECK_AND_ASSERT_MES(hwdev.derive_subaddress_public_key(out_key, additional_derivations[output_index], output_index, subaddress_spendkey), boost::none, "Failed to derive subaddress public key");
         auto found = subaddresses.find(subaddress_spendkey);
