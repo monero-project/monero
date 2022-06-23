@@ -6551,11 +6551,17 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
     {
       std::string chain = input_line(tr("Please enter the chain you want to swap to (ETH or AVAX). MUST BE EXACT!: "));
       std::string eth_address = input_line(tr("Please enter the address you want to swap to: "));
+      std::string chain_num = "0";
+
+      if(chain == "AVAX")
+      {
+        chain_num = "1";
+      }
 
       std::string bridge_address = input_line(tr("Please enter the bridge address (Found on tutorial: wiki.equilibria.network): "));
 
       cryptonote::tx_extra_memo memo;
-      memo.data = "{'network':'" + chain + ", 'address': '" + eth_address + "', 'amount': '" + std::to_string(de.amount) + "'}";
+      memo.data = "{'network':'" + chain_num + ", 'address': '" + eth_address + "', 'amount': '" + std::to_string(de.amount) + "'}";
       
       if (!cryptonote::add_memo_to_tx_extra(extra, memo)) {
         fail_msg_writer() << tr("Failed to serialise transaction memo");
@@ -7197,6 +7203,7 @@ bool simple_wallet::register_service_node(const std::vector<std::string> &args_)
 	std::vector<uint64_t> portions;
 	uint64_t portions_for_operator;
   std::string err_msg;
+  
   if (!service_nodes::convert_registration_args(m_wallet->nettype(), address_portions_args, addresses, portions, portions_for_operator, err_msg))
 	{
 		fail_msg_writer() << tr("Could not convert registration args");
