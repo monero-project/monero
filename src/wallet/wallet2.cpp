@@ -3159,14 +3159,18 @@ void wallet2::update_pool_state(std::vector<std::tuple<cryptonote::transaction, 
     }
   }
 
-  // get those txes
-  if (!txids.empty())
+  // get_transaction_pool_hashes.bin may return more transactions than we're allowed to request in restricted mode
+  const size_t SLICE_SIZE = 100; // RESTRICTED_TRANSACTIONS_COUNT as defined in rpc/core_rpc_server.cpp
+  for (size_t offset = 0; offset < txids.size(); offset += SLICE_SIZE)
   {
     cryptonote::COMMAND_RPC_GET_TRANSACTIONS::request req;
     cryptonote::COMMAND_RPC_GET_TRANSACTIONS::response res;
-    for (const auto &p: txids)
-      req.txs_hashes.push_back(epee::string_tools::pod_to_hex(p.first));
-    MDEBUG("asking for " << txids.size() << " transactions");
+
+    const size_t n_txids = std::min<size_t>(SLICE_SIZE, txids.size() - offset);
+    for (size_t n = offset; n < (offset + n_txids); ++n) {
+      req.txs_hashes.push_back(epee::string_tools::pod_to_hex(txids.at(n).first));
+    }
+    MDEBUG("asking for " << req.txs_hashes.size() << " transactions");
     req.decode_as_json = false;
     req.prune = true;
 
@@ -3183,7 +3187,7 @@ void wallet2::update_pool_state(std::vector<std::tuple<cryptonote::transaction, 
     MDEBUG("Got " << r << " and " << res.status);
     if (r && res.status == CORE_RPC_STATUS_OK)
     {
-      if (res.txs.size() == txids.size())
+      if (res.txs.size() == req.txs_hashes.size())
       {
         for (const auto &tx_entry: res.txs)
         {
@@ -3219,7 +3223,7 @@ void wallet2::update_pool_state(std::vector<std::tuple<cryptonote::transaction, 
       }
       else
       {
-        LOG_PRINT_L0("Expected " << txids.size() << " tx(es), got " << res.txs.size());
+        LOG_PRINT_L0("Expected " << n_txids << " out of " << txids.size() << " tx(es), got " << res.txs.size());
       }
     }
     else
