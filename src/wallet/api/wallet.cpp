@@ -1280,6 +1280,42 @@ bool WalletImpl::importOutputs(const string &filename)
     return true;
 }
 
+bool WalletImpl::scanTransactions(const std::vector<std::string> &txids)
+{
+    if (txids.empty())
+    {
+        setStatusError(string(tr("Failed to scan transactions: no transaction ids provided.")));
+        return false;
+    }
+
+    // Parse and dedup args
+    std::unordered_set<crypto::hash> txids_u;
+    for (const auto &s : txids)
+    {
+        crypto::hash txid;
+        if (!epee::string_tools::hex_to_pod(s, txid))
+        {
+            setStatusError(string(tr("Invalid txid specified: ")) + s);
+            return false;
+        }
+        txids_u.insert(txid);
+    }
+    std::vector<crypto::hash> txids_v(txids_u.begin(), txids_u.end());
+
+    try
+    {
+        m_wallet->scan_tx(txids_v);
+    }
+    catch (const std::exception &e)
+    {
+        LOG_ERROR("Failed to scan transaction: " << e.what());
+        setStatusError(string(tr("Failed to scan transaction: ")) + e.what());
+        return false;
+    }
+
+    return true;
+}
+
 void WalletImpl::addSubaddressAccount(const std::string& label)
 {
     m_wallet->add_subaddress_account(label);

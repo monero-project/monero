@@ -927,6 +927,13 @@ struct Wallet
      */
     virtual bool importOutputs(const std::string &filename) = 0;
 
+    /*!
+     * \brief scanTransactions - scan a list of transaction ids, this operation may reveal the txids to the remote node and affect your privacy
+     * \param txids            - list of transaction ids
+     * \return                 - true on success
+     */
+    virtual bool scanTransactions(const std::vector<std::string> &txids) = 0;
+
     virtual TransactionHistory * history() = 0;
     virtual AddressBook * addressBook() = 0;
     virtual Subaddress * subaddress() = 0;
