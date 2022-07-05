@@ -1,149 +1,175 @@
 # Anonymity Networks with Monero
 
-Currently only Tor and I2P have been integrated into Monero. The usage of
-these networks is still considered experimental - there are a few pessimistic
-cases where privacy is leaked. The design is intended to maximize privacy of
-the source of a transaction by broadcasting it over an anonymity network, while
-relying on IPv4 for the remainder of messages to make surrounding node attacks
-(via sybil) more difficult.
+
+Currently Tor/I2P is available. Anonymity networks (AN) wrap traffic and proxy it over several hops to the final destination, which can include some exit back into clearnet or be a hidden service inside the AN itself. The support is experimental and while anonymity networks conceal node information there will be corner-cases that could leak information.
 
 
-## Behavior
+## Table of Contents
 
-If _any_ anonymity network is enabled, transactions being broadcast that lack
-a valid "context" (i.e. the transaction did not come from a p2p connection),
-will only be sent to peers on anonymity networks. If an anonymity network is
-enabled but no peers over an anonymity network are available, an error is
-logged and the transaction is kept for future broadcasting over an anonymity
-network. The transaction will not be broadcast unless an anonymity connection
-is made or until `monerod` is shutdown and restarted with only public
-connections enabled.
+  - [Outbound connections](##Outbound-connections)
+     - [Proxy node traffic](###Proxy-node-traffic)
+    - [Connect to hidden services](###Connect-to-hidden-service)
+    - [Peer handling](###Peer-handling)
+  - [Inbound connections](##Inbound-connections)
+    - [Allow inbound RPC](###Allow-inbound-RPC-(Server))
+    - [Connect to remote daemon](###Connect-to-remote-daemon-(Client))
+  - [Default configurations examples](##Default-configurations)
+  - [Privacy Limitations](##Privacy-Limitations)
+  - [Using Tor on tails (whonix)](##Using-Tor-on-tails-(whonix))
+  - [Legacy options](##Legacy-options)
+    - [Wrapping-monerod-with-torsocks](###-Wrapping-monerod-with-torsocks-(now:-use---proxy))
+  
+Three major options configure `monerod` and differ in connection, traffic type and route:
 
-Anonymity networks can also be used with `monero-wallet-cli` and
-`monero-wallet-rpc` - the wallets will connect to a daemon through a proxy. The
-daemon must provide a hidden service for the RPC itself, which is separate from
-the hidden service for P2P connections.
+| Connection | Type   | Clearnet | Exit-Relay/I2PTunnel | .onions/.i2p        |
+|------------|--------|----------|----------------------|---------------------|
+| incoming   | tx     | default  |           -          | --anonymous-inbound |
+|            | blocks | default  |           -          | N/A                 |
+| outgoing   | tx     | default  | --proxy              | --tx-proxy          |
+|            | blocks | default  | "                    | N/A                 | 
 
+Clearnet (Ip4) is the default. Connections are hopened both ways and peers sync blocks and tx (handshakes, peer timed syncs and transactions). Setting up an AN with `--proxy`, relays blocks and peer transactions (p2p) over relays. Introducing hidden services for transactions increases anonymity. You can provide a service yourself `--anonymous-inbound` or connect to the hidden service of a peer.
 
-## P2P Commands
+If any anonymity network is enabled, transactions being broadcast that lack a valid "context" (i.e. the transaction did not come from a p2p connection), will only be sent to peers on anonymity networks. 
 
-Only handshakes, peer timed syncs and transaction broadcast messages are
-supported over anonymity networks. If one `--add-exclusive-node` p2p address
-is specified, then no syncing will take place and only transaction broadcasting
-can occur. It is therefore recommended that `--add-exclusive-node` be combined
-with additional exclusive IPv4 address(es).
+Block synchronisation via hidden services (.onions, .i2p) is currently not supported, while handshakes, peer timed syncs and local transactions are, see [--tx-proxy](##Conceal-local-rpc-transactions) for outgoing tx or option [--anonymous-inbound](##inbound-connections) for incoming connections to your own service. 
 
-
-## Usage
-
-### Outbound Connections
-
-Connecting to an anonymous address requires the command line option
-`--tx-proxy` which tells `monerod` the ip/port of a socks proxy provided by a
-separate process. On most systems the configuration will look like:
-
+To connect your local node to the AN, you need a running instance for a socket to enter.
 ```
---tx-proxy tor,127.0.0.1:9050,10
---tx-proxy i2p,127.0.0.1:9000
+apt info tor # apt install
+apt info i2p
 ```
 
-which tells `monerod` that ".onion" p2p addresses can be forwarded to a socks
-proxy at IP 127.0.0.1 port 9050 with a max of 10 outgoing connections and
+
+## Outbound connections
+
+### Proxy node traffic
+
+The option `--proxy` allows for outgoing connections to go over a local socket as an entry point into the AN
+```
+./monerod --proxy 127.0.0.1:5050 #tor
+./monerod --proxy 127.0.0.1:7657 #i2p
+``` 
+The `monerod` will use the proxy _and_ clearnet, unless you bind the p2p to localhost. You can close clearnet by binding p2p ip `0.0.0.0` to localhost.
+```
+# monero.conf 
+proxy 127.0.0.1:5050    # tor out(going)
+p2p-bind-ip 127.0.0.1   # no p2p outside ANs; default is INADDR_ANY
+```
+
+The option `--proxy` will also redirect DNS over AN, unless you set `--proxy-allow-dns-leaks` to use the default dns resolver, see [#7616 (comment)](https://github.com/monero-project/monero/pull/7616#issuecomment-892736115).
+
+
+### Connect to hidden service
+
+Hidden services are used for relaying transactions not blocks, be it from peers or local RPC. This adds the benefit of reaching a peer without revealing tx into clearnet (no exit relay).
+
+Add option `--tx-proxy` to connect to a hidden service,
+```
+proxy 127.0.0.1:5050           # tor in & out
+tx-proxy=tor,127.0.0.1:9050,16 # onions out; [,disable_noise]
+tx-proxy=i2p,127.0.0.1:9000    # i2p
+```
+which tells `monerod` that `.onion` p2p addresses can be forwarded to a socks
+proxy at IP 127.0.0.1 port 9050 with a max of 16 outgoing connections and
 ".b32.i2p" p2p addresses can be forwarded to a socks proxy at IP 127.0.0.1 port
-9000 with the default max outgoing connections.
+9000 with the default max outgoing connections. The local tx is now exclusively sent over onions and withholds until an onion peer is found.
 
-If desired, peers can be manually specified:
+Adding `disable_noise` will tell the peer to relay the tx over tor instead of onions. It disables Dandelion++ and makes network propagation faster, but degrades anonymity, because the tx will propagate outside the AN. 
 
+You can contribute to the network by running your own hidden service to allow inbound connections, see [Inbound connections](###-Inbound-connections).
+
+
+#### Peer handling
+
+If desired, outgoing peers can be specified manually:
 ```
---add-exclusive-node rveahdfho7wo4b2m.onion:28083
---add-peer rveahdfho7wo4b2m.onion:28083
+--add-peer 136.XXX.121.74
+--add-peer rveahdfho.onion:18083
+--add-peer cmeua5767.b32.i2p:5000
+
+--add-exclusive-node 136.XXX.121.74
+--add-exclusive-node rveahdfho.onion:18083
+--add-exclusive-node cmeua5767.b32.i2p:5000
 ```
+The option can be repeated and recognizes Tor, I2P, and IPv4 addresses. If you add a hidden service peer, the option `--tx-proxy` is mandatory. Using `--add-exclusive-node` will prevent the usage of seed nodes on _all_ networks, which will typically be undesirable.
 
-Either option can be listed multiple times, and can specify any mix of Tor,
-I2P, and IPv4 addresses. Using `--add-exclusive-node` will prevent the usage of
-seed nodes on ALL networks, which will typically be undesirable.
 
-### Inbound Connections
+## Inbound connections
 
-Receiving anonymity connections is done through the option
-`--anonymous-inbound`. This option tells `monerod` the inbound address, network
-type, and max connections:
-
+An anonymity network can be configured to forward incoming connections to `monerod`. Add the option
 ```
---anonymous-inbound rveahdfho7wo4b2m.onion:28083,127.0.0.1:28083,25
---anonymous-inbound cmeua5767mz2q5jsaelk2rxhf67agrwuetaso5dzbenyzwlbkg2q.b32.i2p:5000,127.0.0.1:30000
+--anonymous-inbound rveahdfho.onion:18083,127.0.0.1:18083,25
+--anonymous-inbound cmeua5767.b32.i2p:5000,127.0.0.1:30000
 ```
-
 which tells `monerod` that a max of 25 inbound Tor connections are being
-received at address "rveahdfho7wo4b2m.onion:28083" and forwarded to `monerod`
-localhost port 28083, and a default max I2P connections are being received at
-address "cmeua5767mz2q5jsaelk2rxhf67agrwuetaso5dzbenyzwlbkg2q.b32.i2p:5000" and
-forwarded to `monerod` localhost port 30000.
-These addresses will be shared with outgoing peers, over the same network type,
-otherwise the peer will not be notified of the peer address by the proxy.
+received at address `rveahdfho.onion:18083` and forwarded to `monerod`
+localhost port `18083`.  
+In this case for I2P, the default max. connections are being received at address `cmeua5767.b32.i2p:5000` and forwarded to `monerod` localhost port `30000`. The connecting hidden service address will be seeded to other peers on the AN.
 
-### Wallet RPC
-
-An anonymity network can be configured to forward incoming connections to a
-`monerod` RPC port - which is independent from the configuration for incoming
-P2P anonymity connections. The anonymity network (Tor/i2p) is
-[configured in the same manner](#configuration), except the localhost port
-must be the RPC port (typically 18081 for mainnet) instead of the p2p port:
-
+Incoming connections require a hidden service. Regards Tor, add
 ```
+# file /etc/tor/torrc
 HiddenServiceDir /var/lib/tor/data/monero
-HiddenServicePort 18081 127.0.0.1:18081
+# HiddenServicePort 18081 127.0.0.1:18081 # rpc port
+HiddenServicePort 18083 127.0.0.1:18083   # tx port
 ```
+and restart `sudo systemctl restart tor.service`. This will generate your `.onion` address in `/var/lib/tor/data/monero/hostname`. 
 
-Then the wallet will be configured to use a Tor/i2p address:
+I2P must be configured with a standard server tunnel. Configuration differs by I2P implementation.
+
+
+### Allow inbound RPC (Server)
+
+The clients `monero-wallet-cli` and `monero-wallet-rpc` can connect to a daemon over AN. The daemon must provide a hidden service on free port that redirects the request to your local rpc port `--rpc-bind-ip`.
 ```
---proxy 127.0.0.1:9050
---daemon-address rveahdfho7wo4b2m.onion
+HiddenServicePort 18081 127.0.0.1:18081 # rpc port
 ```
+Now not only localhost rpcs, but remote rpcs incoming from AN via port 18081 can use your service. Use with caution.
 
-The proxy must match the address type - a Tor proxy will not work properly with
-i2p addresses, etc.
+If you wish to run a public rpc service, further options for `monerod` are availble that restrict available commands, add rpc-ssl or require authentication. You can also require e.g. [Client Authoriztion](https://community.torproject.org/onion-services/advanced/) on the AN side.
 
-i2p and onion addresses provide the information necessary to authenticate and
-encrypt the connection from end-to-end. If desired, SSL can also be applied to
-the connection with `--daemon-address https://rveahdfho7wo4b2m.onion` which
-requires a server certificate that is signed by a "root" certificate on the
-machine running the wallet. Alternatively, `--daemon-cert-file` can be used to
-specify a certificate to authenticate the server.
+
+### Connect to remote daemon (Client)
+
+You can use a client to do rpc calls against a remote `monerod` peer. The wallet will be configured to use a onion/i2p address:
+```
+--proxy 127.0.0.1:9050             # tor or i2p entry port
+--daemon-address rveahdfho.onion   # tor or
+--daemon-address cmeua5767.b32.i2p # i2p
+```
+The onion and i2p addresses provide the information necessary to authenticate and encrypt the connection end-to-end, which is inherent to the address design. A _remote_ daemon is untrusted by default, unless `--trusted-daemon` is set. A _local_ daemon is trusted unless option `--untrusted-daemon` is set.
+
+If desired, SSL can also be applied to the connection with `--daemon-address https://rveahdfho.onion` which requires a server certificate that is signed by a "root" certificate on the machine running the wallet. Alternatively, `--daemon-cert-file` can be used to specify a certificate to authenticate the server.
 
 Proxies can also be used to connect to "clearnet" (ipv4 addresses or ICANN
 domains), but `--daemon-cert-file` _must_ be used for authentication and
 encryption.
 
-### Network Types
 
-#### Tor & I2P
+## Default configurations
 
-Options `--add-exclusive-node` and `--add-peer` recognize ".onion" and
-".b32.i2p" addresses, and will properly forward those addresses to the proxy
-provided with `--tx-proxy tor,...` or `--tx-proxy i2p,...`.
+These [terminal commands](https://www.debian.org/doc/manuals/debian-reference/ch05.en.html#_the_low_level_network_configuration) help you inspect your configuration results (interface/ip/port).
 
-Option `--anonymous-inbound` also recognizes ".onion" and ".b32.i2p" addresses,
-and will automatically be sent out to outgoing Tor/I2P connections so the peer
-can distribute the address to its other peers.
-
-##### Configuration
-
-Tor must be configured for hidden services. An example configuration ("torrc")
-might look like:
-
+### Example A: 
+This configuration puts together mentioned options.
 ```
-HiddenServiceDir /var/lib/tor/data/monero
-HiddenServicePort 28083 127.0.0.1:28083
+proxy=127.0.0.1:5050        # tor out
+tx-proxy=tor,127.0.0.1:9050,16 # onions out
+anonymous-inbound=123.onion:18084,127.0.0.1:18084,8 # onions in
+p2p-bind-ip=127.0.0.1  # no clearnet
+
+out-peers=32 # reduce outpeers
+in-peers=0  # meaningless, proxy is out and clearnet pulled localhost
+# add-peer=mybuddy.onion:18084
+
+# other
+# check-updates=disabled
+no-igd=1 # UPnP port forwa., pointless with tor
+no-zmq=1 # if not needed
 ```
+It proxies p2p traffic over tor port 5050 via exit-relays (outgoing connections). Local tx are sent to onions with max 16 outgoing peers. It also runs a local onion service to allow incoming peers to send tx. DNS goes over proxy. The p2p interface is bound to localhost and prevents clearnet traffic. Since proxy is outgoing only, in-peers is set to 0. The option `in-peers` does not affect # of services.
 
-This will store key information in `/var/lib/tor/data/monero` and will forward
-"Tor port" 28083 to port 28083 of ip 127.0.0.1. The file
-`/usr/lib/tor/data/monero/hostname` will contain the ".onion" address for use
-with `--anonymous-inbound`.
-
-I2P must be configured with a standard server tunnel. Configuration differs by
-I2P implementation.
 
 ## Privacy Limitations
 
@@ -231,3 +257,62 @@ leak information to hidden services if done improperly.
 At the current time, if users need to frequently make transactions, I2P/Tor
 will improve privacy from ISPs and other common adversaries, but still have
 some metadata leakages to unknown hidden service operators.
+
+
+
+## Using Tor on tails (whonix)
+
+If you wish to have an additional privacy layer, you can encapsulate the node in a short-lived environment that prevents personal data being visible in case a process breaches. The project (Whonix)[https://www.whonix.org/wiki/Monero] uses a virtual-machine approach (needs host OS), but has monero preinstalled.  
+In contrast, [Tails](https://tails.boum.org/) is a self-contained OS that can be run from an usb stick. It torifies as well but does not include monero binaries by default. Run the node with `--proxy 127.0.0.1:9050` and add an iptable rule if you wish to allow local rpc:
+```
+sudo iptables -I OUTPUT 2 -p tcp -dest 127.0.0.1 --dport 18081 -j ACCEPT
+```
+The kernel now allows tcp packages originating from local processes to reach the localhost rpc port. The `monero-wallet-cli` now connects as usual.
+
+
+## Legacy options
+
+Introducing new options can help get rid of previous setups.
+
+### Wrapping monerod with torsocks (now: use --proxy)
+
+Monerod can be used wrapped with torsocks, by setting the following configuration parameters and environment variables:
+
+* `--p2p-bind-ip 127.0.0.1` on the command line or `p2p-bind-ip=127.0.0.1` in
+  monerod.conf to disable listening for connections on external interfaces.
+* `--no-igd` on the command line or `no-igd=1` in monerod.conf to disable IGD
+  (UPnP port forwarding negotiation), which is pointless with Tor.
+* `DNS_PUBLIC=tcp` or `DNS_PUBLIC=tcp://x.x.x.x` where x.x.x.x is the IP of the
+  desired DNS server, for DNS requests to go over TCP, so that they are routed
+  through Tor. When IP is not specified, monerod uses the default list of
+  servers defined in [src/common/dns_utils.cpp](src/common/dns_utils.cpp).
+* `TORSOCKS_ALLOW_INBOUND=1` to tell torsocks to allow monerod to bind to interfaces
+   to accept connections from the wallet. On some Linux systems, torsocks
+   allows binding to localhost by default, so setting this variable is only
+   necessary to allow binding to local LAN/VPN interfaces to allow wallets to
+   connect from remote hosts. On other systems, it may be needed for local wallets
+   as well.
+* Do NOT pass `--detach` when running through torsocks with systemd, (see
+  [utils/systemd/monerod.service](utils/systemd/monerod.service) for details).
+* If you use the wallet with a Tor daemon via the loopback IP (eg, 127.0.0.1:9050),
+  then use `--untrusted-daemon` unless it is your own hidden service.
+
+Example command line to start monerod through Tor:
+
+```bash
+DNS_PUBLIC=tcp torsocks monerod --p2p-bind-ip 127.0.0.1 --no-igd
+```
+
+A helper script is in contrib/tor/monero-over-tor.sh. It assumes Tor is installed already, and runs Tor and Monero with the right configuration. More notes in the [TorifyHOWTO](https://gitlab.torproject.org/legacy/trac/-/wikis/doc/TorifyHOWTO#Howtotorifyspecificprograms) of torproject.
+
+#### Using Tor on Tails (now: use --proxy)
+
+TAILS ships with a very restrictive set of firewall rules. Therefore, you need
+to add a rule to allow this connection too, in addition to telling torsocks to
+allow inbound connections. Full example:
+
+```bash
+sudo iptables -I OUTPUT 2 -p tcp -d 127.0.0.1 -m tcp --dport 18081 -j ACCEPT
+DNS_PUBLIC=tcp torsocks ./monerod --p2p-bind-ip 127.0.0.1 --no-igd --rpc-bind-ip 127.0.0.1 \
+    --data-dir /home/amnesia/Persistent/your/directory/to/the/blockchain
+```

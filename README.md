@@ -21,7 +21,7 @@ Portions Copyright (c) 2012-2013 The Cryptonote developers.
   - [Compiling Monero from source](#compiling-monero-from-source)
     - [Dependencies](#dependencies)
   - [Internationalization](#Internationalization)
-  - [Using Tor](#using-tor)
+  - [Hide node in anonymity network (Tor/i2p)](#Hide-node-in-anonymity-network)
   - [Pruning](#Pruning)
   - [Debugging](#Debugging)
   - [Known issues](#known-issues)
@@ -694,56 +694,9 @@ monero-wallet-cli, and possibly monerod, if you get crashes refreshing.
 
 See [README.i18n.md](docs/README.i18n.md).
 
-## Using Tor
+## Hide node in anonymity network
 
-> There is a new, still experimental, [integration with Tor](docs/ANONYMITY_NETWORKS.md). The
-> feature allows connecting over IPv4 and Tor simultaneously - IPv4 is used for
-> relaying blocks and relaying transactions received by peers whereas Tor is
-> used solely for relaying transactions received over local RPC. This provides
-> privacy and better protection against surrounding node (sybil) attacks.
-
-While Monero isn't made to integrate with Tor, it can be used wrapped with torsocks, by
-setting the following configuration parameters and environment variables:
-
-* `--p2p-bind-ip 127.0.0.1` on the command line or `p2p-bind-ip=127.0.0.1` in
-  monerod.conf to disable listening for connections on external interfaces.
-* `--no-igd` on the command line or `no-igd=1` in monerod.conf to disable IGD
-  (UPnP port forwarding negotiation), which is pointless with Tor.
-* `DNS_PUBLIC=tcp` or `DNS_PUBLIC=tcp://x.x.x.x` where x.x.x.x is the IP of the
-  desired DNS server, for DNS requests to go over TCP, so that they are routed
-  through Tor. When IP is not specified, monerod uses the default list of
-  servers defined in [src/common/dns_utils.cpp](src/common/dns_utils.cpp).
-* `TORSOCKS_ALLOW_INBOUND=1` to tell torsocks to allow monerod to bind to interfaces
-   to accept connections from the wallet. On some Linux systems, torsocks
-   allows binding to localhost by default, so setting this variable is only
-   necessary to allow binding to local LAN/VPN interfaces to allow wallets to
-   connect from remote hosts. On other systems, it may be needed for local wallets
-   as well.
-* Do NOT pass `--detach` when running through torsocks with systemd, (see
-  [utils/systemd/monerod.service](utils/systemd/monerod.service) for details).
-* If you use the wallet with a Tor daemon via the loopback IP (eg, 127.0.0.1:9050),
-  then use `--untrusted-daemon` unless it is your own hidden service.
-
-Example command line to start monerod through Tor:
-
-```bash
-DNS_PUBLIC=tcp torsocks monerod --p2p-bind-ip 127.0.0.1 --no-igd
-```
-
-A helper script is in contrib/tor/monero-over-tor.sh. It assumes Tor is installed
-already, and runs Tor and Monero with the right configuration.
-
-### Using Tor on Tails
-
-TAILS ships with a very restrictive set of firewall rules. Therefore, you need
-to add a rule to allow this connection too, in addition to telling torsocks to
-allow inbound connections. Full example:
-
-```bash
-sudo iptables -I OUTPUT 2 -p tcp -d 127.0.0.1 -m tcp --dport 18081 -j ACCEPT
-DNS_PUBLIC=tcp torsocks ./monerod --p2p-bind-ip 127.0.0.1 --no-igd --rpc-bind-ip 127.0.0.1 \
-    --data-dir /home/amnesia/Persistent/your/directory/to/the/blockchain
-```
+Monero brings onchain anonymity but does not conceal network traffic inbetween nodes. A hard adversary could observe your traffic and force you to surrender the keys. Support for anonymous communication services like Tor or I2p is experimental, review [anonymity networks](docs/ANONYMITY_NETWORKS.md) for this matter. It also has notes on Tails (/whonix).
 
 ## Pruning
 
