@@ -89,20 +89,14 @@ namespace net_utils
     public i_service_endpoint,
     public connection_basic
   {
+  public:
+    typedef typename t_protocol_handler::connection_context t_connection_context;
   private:
-    using string_t = std::string;
-    using handler_t = t_protocol_handler;
-    using context_t = typename handler_t::connection_context;
-    using connection_t = connection<handler_t>;
+    using connection_t = connection<t_protocol_handler>;
     using connection_ptr = boost::shared_ptr<connection_t>;
     using ssl_support_t = epee::net_utils::ssl_support_t;
     using timer_t = boost::asio::steady_timer;
     using duration_t = timer_t::duration;
-    using lock_t = std::mutex;
-    using condition_t = std::condition_variable_any;
-    using lock_guard_t = std::lock_guard<lock_t>;
-    using unique_lock_t = std::unique_lock<lock_t>;
-    using byte_slice_t = epee::byte_slice;
     using ec_t = boost::system::error_code;
     using handshake_t = boost::asio::ssl::stream_base::handshake_type;
 
@@ -110,14 +104,14 @@ namespace net_utils
     using strand_t = boost::asio::io_service::strand;
     using socket_t = boost::asio::ip::tcp::socket;
 
-    using write_queue_t = std::deque<byte_slice_t>;
-    using read_buffer_t = std::array<uint8_t, 0x2000>;
     using network_throttle_t = epee::net_utils::network_throttle;
     using network_throttle_manager_t = epee::net_utils::network_throttle_manager;
 
     unsigned int host_count(int delta = 0);
     duration_t get_default_timeout();
     duration_t get_timeout_from_bytes_read(size_t bytes) const;
+
+    void state_status_check();
 
     void start_timer(duration_t duration, bool add = {});
     void async_wait_timer();
@@ -137,12 +131,20 @@ namespace net_utils
     void terminate();
     void on_terminating();
 
-    bool send(byte_slice_t message);
+    bool send(epee::byte_slice message);
     bool start_internal(
       bool is_income,
       bool is_multithreaded,
       boost::optional<network_address> real_remote
     );
+
+    enum status_t {
+      TERMINATED,
+      RUNNING,
+      INTERRUPTED,
+      TERMINATING,
+      WASTED,
+    };
 
     struct state_t {
       struct stat_t {
@@ -156,10 +158,10 @@ namespace net_utils
 
       struct data_t {
         struct {
-          read_buffer_t buffer;
+          std::array<uint8_t, 0x2000> buffer;
         } read;
         struct {
-          write_queue_t queue;
+          std::deque<epee::byte_slice> queue;
           bool wait_consume;
         } write;
       };
@@ -171,7 +173,7 @@ namespace net_utils
         bool handshaked;
       };
 
-      struct socket_t {
+      struct socket_status_t {
         bool connected;
 
         bool wait_handshake;
@@ -189,28 +191,20 @@ namespace net_utils
         bool cancel_shutdown;
       };
 
-      struct timer_t {
+      struct timer_status_t {
         bool wait_expire;
         bool cancel_expire;
         bool reset_expire;
       };
 
-      struct timers_t {
+      struct timers_status_t {
         struct throttle_t {
-          timer_t in;
-          timer_t out;
+          timer_status_t in;
+          timer_status_t out;
         };
 
-        timer_t general;
+        timer_status_t general;
         throttle_t throttle;
-      };
-
-      enum status_t {
-        TERMINATED,
-        RUNNING,
-        INTERRUPTED,
-        TERMINATING,
-        WASTED,
       };
 
       struct protocol_t {
@@ -223,18 +217,16 @@ namespace net_utils
         size_t wait_callback;
       };
 
-      lock_t lock;
-      condition_t condition;
+      std::mutex lock;
+      std::condition_variable_any condition;
       status_t status;
-      socket_t socket;
+      socket_status_t socket;
       ssl_t ssl;
-      timers_t timers;
+      timers_status_t timers;
       protocol_t protocol;
       stat_t stat;
       data_t data;
     };
-
-    using status_t = typename state_t::status_t;
 
     struct timers_t {
       timers_t(io_context_t &io_context):
@@ -254,19 +246,17 @@ namespace net_utils
       throttle_t throttle;
     };
 
-    io_context_t &io_context;
-    t_connection_type connection_type;
-    context_t context{};
-    strand_t strand;
-    timers_t timers;
+    io_context_t &m_io_context;
+    t_connection_type m_connection_type;
+    t_connection_context m_conn_context{};
+    strand_t m_strand;
+    timers_t m_timers;
     connection_ptr self{};
-    bool local{};
-    string_t host{};
-    state_t state{};
-    handler_t handler;
+    bool m_local{};
+    std::string m_host{};
+    state_t m_state{};
+    t_protocol_handler m_handler;
   public:
-    typedef typename t_protocol_handler::connection_context t_connection_context;
-
     struct shared_state : connection_basic_shared_state, t_protocol_handler::config_type
     {
       shared_state()
@@ -298,7 +288,7 @@ namespace net_utils
     // `real_remote` is the actual endpoint (if connection is to proxy, etc.)
     bool start(bool is_income, bool is_multithreaded, network_address real_remote);
 
-    void get_context(t_connection_context& context_){context_ = context;}
+    void get_context(t_connection_context& context_){context_ = m_conn_context;}
 
     void call_back_starter();
     

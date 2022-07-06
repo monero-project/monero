@@ -553,9 +553,6 @@ bool ssl_options_t::handshake(
     using ec_t = boost::system::error_code;
     using timer_t = boost::asio::steady_timer;
     using strand_t = boost::asio::io_service::strand;
-    using lock_t = std::mutex;
-    using lock_guard_t = std::lock_guard<lock_t>;
-    using condition_t = std::condition_variable_any;
     using socket_t = boost::asio::ip::tcp::socket;
 
     auto &io_context = GET_IO_SERVICE(socket);
@@ -565,8 +562,8 @@ bool ssl_options_t::handshake(
     timer_t deadline(io_context, timeout);
 
     struct state_t {
-      lock_t lock;
-      condition_t condition;
+      std::mutex lock;
+      std::condition_variable_any condition;
       ec_t result;
       bool wait_timer;
       bool wait_handshake;
@@ -577,10 +574,10 @@ bool ssl_options_t::handshake(
 
     state.wait_timer = true;
     auto on_timer = [&](const ec_t &ec){
-      lock_guard_t guard(state.lock);
+      std::lock_guard<std::mutex> guard(state.lock);
       state.wait_timer = false;
       state.condition.notify_all();
-      if (not state.cancel_timer) {
+      if (!state.cancel_timer) {
         state.cancel_handshake = true;
         ec_t ec;
         socket.next_layer().cancel(ec);
@@ -589,11 +586,11 @@ bool ssl_options_t::handshake(
 
     state.wait_handshake = true;
     auto on_handshake = [&](const ec_t &ec, size_t bytes_transferred){
-      lock_guard_t guard(state.lock);
+      std::lock_guard<std::mutex> guard(state.lock);
       state.wait_handshake = false;
       state.condition.notify_all();
       state.result = ec;
-      if (not state.cancel_handshake) {
+      if (!state.cancel_handshake) {
         state.cancel_timer = true;
         ec_t ec;
         deadline.cancel(ec);
@@ -614,15 +611,15 @@ bool ssl_options_t::handshake(
     while (!io_context.stopped())
     {
       io_context.poll_one();
-      lock_guard_t guard(state.lock);
+      std::lock_guard<std::mutex> guard(state.lock);
       state.condition.wait_for(
         state.lock,
         std::chrono::milliseconds(30),
         [&]{
-          return not state.wait_timer and not state.wait_handshake;
+          return !state.wait_timer && !state.wait_handshake;
         }
       );
-      if (not state.wait_timer and not state.wait_handshake)
+      if (!state.wait_timer && !state.wait_handshake)
         break;
     }
     if (state.result.value()) {

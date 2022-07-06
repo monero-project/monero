@@ -617,7 +617,7 @@ TEST(boosted_tcp_server, strand_deadlock)
     void after_init_connection()
     {
       unique_lock_t guard(lock);
-      if (not context.m_is_income) {
+      if (!context.m_is_income) {
         guard.unlock();
         socket->do_send(byte_slice_t{"."});
       }
@@ -628,7 +628,7 @@ TEST(boosted_tcp_server, strand_deadlock)
     bool handle_recv(const char *data, size_t bytes_transferred)
     {
       unique_lock_t guard(lock);
-      if (not context.m_is_income) {
+      if (!context.m_is_income) {
         if (context.m_recv_cnt == 1024) {
           guard.unlock();
           socket->do_send(byte_slice_t{"."});
@@ -652,9 +652,9 @@ TEST(boosted_tcp_server, strand_deadlock)
     void release_protocol()
     {
       unique_lock_t guard(lock);
-      if(not context.m_is_income
-        and context.m_recv_cnt == 1024
-        and context.m_send_cnt == 2
+      if(!context.m_is_income
+        && context.m_recv_cnt == 1024
+        && context.m_send_cnt == 2
       ) {
         guard.unlock();
         config.notify_success();
