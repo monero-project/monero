@@ -6,19 +6,20 @@ Currently Tor/I2P is available. Anonymity networks (AN) wrap traffic and proxy i
 
 ## Table of Contents
 
-  - [Outbound connections](##Outbound-connections)
-     - [Proxy node traffic](###Proxy-node-traffic)
-    - [Connect to hidden services](###Connect-to-hidden-service)
-    - [Peer handling](###Peer-handling)
-  - [Inbound connections](##Inbound-connections)
-    - [Allow inbound RPC](###Allow-inbound-RPC-(Server))
-    - [Connect to remote daemon](###Connect-to-remote-daemon-(Client))
-  - [Default configurations examples](##Default-configurations)
-  - [Privacy Limitations](##Privacy-Limitations)
-  - [Using Tor on tails (whonix)](##Using-Tor-on-tails-(whonix))
-  - [Legacy options](##Legacy-options)
-    - [Wrapping-monerod-with-torsocks](###-Wrapping-monerod-with-torsocks-(now:-use---proxy))
-  
+  - [Outbound connections](#outbound-connections)
+     - [Proxy node traffic](#proxy-node-traffic)
+    - [Connect to hidden services](#connect-to-hidden-service)
+    - [Peer handling](#peer-handling)
+  - [Inbound connections](#inbound-connections)
+    - [Allow inbound RPC (Server)](#allow-inbound-rpc)
+    - [Connect to remote daemon (Client)](#connect-to-remote-daemon)
+  - [Configuration examples](#configuration-examples)
+  - [Privacy Limitations](#privacy-limitations)
+  - [Using Tor on tails (whonix)](#using-tor-on-tails)
+  - [Legacy options](#legacy-options)
+    - [Torsocks and monerod](#wrapping-monerod-with-torsocks)
+    - [Torsocks and Tails](#torsocks-and-tails)
+
 Three major options configure `monerod` and differ in connection, traffic type and route:
 
 | Connection | Type   | Clearnet | Exit-Relay/I2PTunnel | .onions/.i2p        |
@@ -119,7 +120,7 @@ and restart `sudo systemctl restart tor.service`. This will generate your `.onio
 I2P must be configured with a standard server tunnel. Configuration differs by I2P implementation.
 
 
-### Allow inbound RPC (Server)
+### Allow inbound RPC
 
 The clients `monero-wallet-cli` and `monero-wallet-rpc` can connect to a daemon over AN. The daemon must provide a hidden service on free port that redirects the request to your local rpc port `--rpc-bind-ip`.
 ```
@@ -130,7 +131,7 @@ Now not only localhost rpcs, but remote rpcs incoming from AN via port 18081 can
 If you wish to run a public rpc service, further options for `monerod` are availble that restrict available commands, add rpc-ssl or require authentication. You can also require e.g. [Client Authoriztion](https://community.torproject.org/onion-services/advanced/) on the AN side.
 
 
-### Connect to remote daemon (Client)
+### Connect to remote daemon
 
 You can use a client to do rpc calls against a remote `monerod` peer. The wallet will be configured to use a onion/i2p address:
 ```
@@ -147,7 +148,7 @@ domains), but `--daemon-cert-file` _must_ be used for authentication and
 encryption.
 
 
-## Default configurations
+## Configuration examples
 
 These [terminal commands](https://www.debian.org/doc/manuals/debian-reference/ch05.en.html#_the_low_level_network_configuration) help you inspect your configuration results (interface/ip/port).
 
@@ -260,7 +261,7 @@ some metadata leakages to unknown hidden service operators.
 
 
 
-## Using Tor on tails (whonix)
+## Using Tor on tails
 
 If you wish to have an additional privacy layer, you can encapsulate the node in a short-lived environment that prevents personal data being visible in case a process breaches. The project (Whonix)[https://www.whonix.org/wiki/Monero] uses a virtual-machine approach (needs host OS), but has monero preinstalled.  
 In contrast, [Tails](https://tails.boum.org/) is a self-contained OS that can be run from an usb stick. It torifies as well but does not include monero binaries by default. Run the node with `--proxy 127.0.0.1:9050` and add an iptable rule if you wish to allow local rpc:
@@ -274,7 +275,7 @@ The kernel now allows tcp packages originating from local processes to reach the
 
 Introducing new options can help get rid of previous setups.
 
-### Wrapping monerod with torsocks (now: use --proxy)
+### Wrapping monerod with torsocks
 
 Monerod can be used wrapped with torsocks, by setting the following configuration parameters and environment variables:
 
@@ -305,7 +306,7 @@ DNS_PUBLIC=tcp torsocks monerod --p2p-bind-ip 127.0.0.1 --no-igd
 
 A helper script is in contrib/tor/monero-over-tor.sh. It assumes Tor is installed already, and runs Tor and Monero with the right configuration. More notes in the [TorifyHOWTO](https://gitlab.torproject.org/legacy/trac/-/wikis/doc/TorifyHOWTO#Howtotorifyspecificprograms) of torproject.
 
-#### Using Tor on Tails (now: use --proxy)
+#### Torsocks and tails
 
 TAILS ships with a very restrictive set of firewall rules. Therefore, you need
 to add a rule to allow this connection too, in addition to telling torsocks to
