@@ -17,7 +17,7 @@ env:
         ccache --set-config=compression=true
 
 jobs:
-  build-macos:
+  build-cross:
     runs-on: ubuntu-18.04
     env:
       CCACHE_TEMPDIR: /tmp/.ccache-temp
