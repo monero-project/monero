@@ -6221,15 +6221,51 @@ float wallet2::get_output_relatedness(const transfer_details &td0, const transfe
   return 0.0f;
 }
 //----------------------------------------------------------------------------------------------------
-size_t wallet2::pop_best_value_from(const transfer_container &transfers, std::vector<size_t> &unused_indices, const std::vector<size_t>& selected_transfers, bool smallest) const
+size_t wallet2::pop_best_value_from(const transfer_container &transfers, std::vector<size_t> &unused_indices, const std::vector<size_t>& selected_transfers, bool smallest, const std::vector<cryptonote::tx_destination_entry> &dsts) const
 {
   std::vector<size_t> candidates;
   float best_relatedness = 1.0f;
+
+  bool to_self = true;
+  for (const auto &dst: dsts)
+  {
+    if (m_subaddresses.find(dst.addr.m_spend_public_key) == m_subaddresses.end())
+    {
+      to_self = false;
+      break;
+    }
+  }
+
   for (size_t n = 0; n < unused_indices.size(); ++n)
   {
     const transfer_details &candidate = transfers[unused_indices[n]];
     float relatedness = 0.0f;
-    for (std::vector<size_t>::const_iterator i = selected_transfers.begin(); i != selected_transfers.end(); ++i)
+
+    if (!to_self)
+    {
+      // if this output is change from a tx that was sent to any address in dsts,
+      // we crank relatedness to the max to avoid a "returning customer" inference
+      for (const auto &ct: m_confirmed_txs)
+      {
+        const crypto::hash &txid = ct.first;
+        if (txid == candidate.m_txid)
+        {
+          // we found a confirmed transfer corresponding to the output under consideration:
+          // we check whether this transfer was to one of the addresses we're sending to
+          for (const auto &dst: ct.second.m_dests)
+          {
+            if (std::find_if(dsts.begin(), dsts.end(), [&dst](const cryptonote::tx_destination_entry &e){ return e.addr== dst.addr; }) != dsts.end())
+            {
+              MDEBUG("Output is from from a tx sent earlier to one of the destinations, we won't use it unless really necessary");
+              relatedness = 1.0f;
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    if (relatedness < 1.0f) for (std::vector<size_t>::const_iterator i = selected_transfers.begin(); i != selected_transfers.end(); ++i)
     {
       float r = get_output_relatedness(candidate, transfers[*i]);
       if (r > relatedness)
@@ -6270,29 +6306,9 @@ size_t wallet2::pop_best_value_from(const transfer_container &transfers, std::ve
   return pop_index (unused_indices, candidates[idx]);
 }
 //----------------------------------------------------------------------------------------------------
-size_t wallet2::pop_best_value(std::vector<size_t> &unused_indices, const std::vector<size_t>& selected_transfers, bool smallest) const
+size_t wallet2::pop_best_value(std::vector<size_t> &unused_indices, const std::vector<size_t>& selected_transfers, bool smallest, const std::vector<cryptonote::tx_destination_entry> &dsts) const
 {
-  return pop_best_value_from(m_transfers, unused_indices, selected_transfers, smallest);
-}
-//----------------------------------------------------------------------------------------------------
-// Select random input sources for transaction.
-// returns:
-//    direct return: amount of money found
-//    modified reference: selected_transfers, a list of iterators/indices of input sources
-uint64_t wallet2::select_transfers(uint64_t needed_money, std::vector<size_t> unused_transfers_indices, std::vector<size_t>& selected_transfers) const
-{
-  uint64_t found_money = 0;
-  selected_transfers.reserve(unused_transfers_indices.size());
-  while (found_money < needed_money && !unused_transfers_indices.empty())
-  {
-    size_t idx = pop_best_value(unused_transfers_indices, selected_transfers);
-
-    const transfer_container::const_iterator it = m_transfers.begin() + idx;
-    selected_transfers.push_back(idx);
-    found_money += it->amount();
-  }
-
-  return found_money;
+  return pop_best_value_from(m_transfers, unused_indices, selected_transfers, smallest, dsts);
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::add_unconfirmed_tx(const cryptonote::transaction& tx, uint64_t amount_in, const std::vector<cryptonote::tx_destination_entry> &dests, const crypto::hash &payment_id, uint64_t change_amount, uint32_t subaddr_account, const std::set<uint32_t>& subaddr_indices)
@@ -9980,7 +9996,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
     } else if ((dsts.empty() || dsts[0].amount == 0) && !adding_fee) {
       // the "make rct txes 2/2" case - we pick a small value output to "clean up" the wallet too
       std::vector<size_t> indices = get_only_rct(*unused_dust_indices, *unused_transfers_indices);
-      idx = pop_best_value(indices, tx.selected_transfers, true);
+      idx = pop_best_value(indices, tx.selected_transfers, true, original_dsts);
 
       // we might not want to add it if it's a large output and we don't have many left
       uint64_t min_output_value = m_min_output_value;
@@ -10008,7 +10024,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
       pop_if_present(*unused_transfers_indices, idx);
       pop_if_present(*unused_dust_indices, idx);
     } else
-      idx = pop_best_value(unused_transfers_indices->empty() ? *unused_dust_indices : *unused_transfers_indices, tx.selected_transfers);
+      idx = pop_best_value(unused_transfers_indices->empty() ? *unused_dust_indices : *unused_transfers_indices, tx.selected_transfers, false, original_dsts);
 
     const transfer_details &td = m_transfers[idx];
     LOG_PRINT_L2("Picking output " << idx << ", amount " << print_money(td.amount()) << ", ki " << td.m_key_image);
@@ -10494,6 +10510,10 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_from(const crypton
   accumulated_change = 0;
   needed_fee = 0;
 
+  // a synthetic one from the supplied address
+  std::vector<cryptonote::tx_destination_entry> dsts;
+  dsts.emplace_back(cryptonote::tx_destination_entry("", 0, address, false));
+
   // while we have something to send
   hwdev.set_mode(hw::device::TRANSACTION_CREATE_FAKE);
   while (!unused_dust_indices.empty() || !unused_transfers_indices.empty()) {
@@ -10515,12 +10535,12 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_from(const crypton
 
     size_t idx =
       unused_transfers_indices.empty()
-        ? pop_best_value(unused_dust_indices, tx.selected_transfers)
+        ? pop_best_value(unused_dust_indices, tx.selected_transfers, false, dsts)
       : unused_dust_indices.empty()
-        ? pop_best_value(unused_transfers_indices, tx.selected_transfers)
+        ? pop_best_value(unused_transfers_indices, tx.selected_transfers, false, dsts)
       : ((tx.selected_transfers.size() & 1) || accumulated_outputs > fee_dust_threshold)
-        ? pop_best_value(unused_dust_indices, tx.selected_transfers)
-      : pop_best_value(unused_transfers_indices, tx.selected_transfers);
+        ? pop_best_value(unused_dust_indices, tx.selected_transfers, false, dsts)
+      : pop_best_value(unused_transfers_indices, tx.selected_transfers, false, dsts);
 
     const transfer_details &td = m_transfers[idx];
     LOG_PRINT_L2("Picking output " << idx << ", amount " << print_money(td.amount()));
