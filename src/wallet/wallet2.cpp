@@ -12095,7 +12095,8 @@ bool wallet2::check_reserve_proof(const cryptonote::account_public_address &addr
     crypto::key_derivation derivation;
     THROW_WALLET_EXCEPTION_IF(!crypto::generate_key_derivation(proof.shared_secret, rct::rct2sk(rct::I), derivation), error::wallet_internal_error, "Failed to generate key derivation");
     crypto::public_key subaddr_spendkey;
-    crypto::derive_subaddress_public_key(output_public_key, derivation, proof.index_in_tx, subaddr_spendkey);
+    THROW_WALLET_EXCEPTION_IF(!crypto::derive_subaddress_public_key(output_public_key, derivation, proof.index_in_tx, subaddr_spendkey),
+        error::wallet_internal_error, "Failed to derive subaddress public key");
     THROW_WALLET_EXCEPTION_IF(subaddr_spendkeys.count(subaddr_spendkey) == 0, error::wallet_internal_error,
       "The address doesn't seem to have received the fund");
 
