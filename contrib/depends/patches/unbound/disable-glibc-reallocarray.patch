@@ -1,0 +1,14 @@
+diff --git a/configure.ac b/configure.ac
+index 5c7da197..e2b25288 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -1702,6 +1702,9 @@ AC_LINK_IFELSE([AC_LANG_SOURCE(AC_INCLUDES_DEFAULT
+ #ifndef _OPENBSD_SOURCE
+ #define _OPENBSD_SOURCE 1
+ #endif
++#ifdef __linux__
++# error reallocarray() is currently disabled on Linux to support glibc < 2.26
++#endif
+ #include <stdlib.h>
+ int main(void) {
+ 	void* p = reallocarray(NULL, 10, 100);
