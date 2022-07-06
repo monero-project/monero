@@ -6964,18 +6964,33 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::transfer(const std::vector<std::string> &args_)
 {
+  if (args_.size() < 1)
+  {
+    PRINT_USAGE(USAGE_TRANSFER);
+    return true;
+  }
   transfer_main(Transfer, args_, false);
   return true;
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::locked_transfer(const std::vector<std::string> &args_)
 {
+  if (args_.size() < 1)
+  {
+    PRINT_USAGE(USAGE_LOCKED_TRANSFER);
+    return true;
+  }
   transfer_main(TransferLocked, args_, false);
   return true;
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::locked_sweep_all(const std::vector<std::string> &args_)
 {
+  if (args_.size() < 1)
+  {
+    PRINT_USAGE(USAGE_LOCKED_SWEEP_ALL);
+    return true;
+  }
   sweep_main(m_current_subaddress_account, 0, true, args_);
   return true;
 }
@@ -7674,6 +7689,7 @@ bool simple_wallet::sweep_below(const std::vector<std::string> &args_)
   if (args_.size() < 1)
   {
     fail_msg_writer() << tr("missing threshold amount");
+    PRINT_USAGE(USAGE_SWEEP_BELOW);
     return true;
   }
   if (!cryptonote::parse_amount(below, args_[0]))
