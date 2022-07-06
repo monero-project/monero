@@ -154,18 +154,20 @@ struct Wallet2CallbackImpl : public tools::i_wallet2_callback
         }
     }
 
-    virtual void on_money_received(uint64_t height, const crypto::hash &txid, const cryptonote::transaction& tx, uint64_t amount, const cryptonote::subaddress_index& subaddr_index, bool is_change, uint64_t unlock_time)
+    virtual void on_money_received(uint64_t height, const crypto::hash &txid, const cryptonote::transaction& tx, uint64_t amount, uint64_t burnt, const cryptonote::subaddress_index& subaddr_index, bool is_change, uint64_t unlock_time)
     {
 
         std::string tx_hash =  epee::string_tools::pod_to_hex(txid);
 
         LOG_PRINT_L3(__FUNCTION__ << ": money received. height:  " << height
                      << ", tx: " << tx_hash
-                     << ", amount: " << print_money(amount)
+                     << ", amount: " << print_money(amount - burnt)
+                     << ", burnt: " << print_money(burnt)
+                     << ", raw_output_value: " << print_money(amount)
                      << ", idx: " << subaddr_index);
         // do not signal on received tx if wallet is not syncronized completely
         if (m_listener && m_wallet->synchronized()) {
-            m_listener->moneyReceived(tx_hash, amount);
+            m_listener->moneyReceived(tx_hash, amount - burnt);
             m_listener->updated();
         }
     }

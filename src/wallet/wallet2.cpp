@@ -2208,7 +2208,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
             }
 	    LOG_PRINT_L0("Received money: " << print_money(td.amount()) << ", with tx: " << txid);
 	    if (0 != m_callback)
-	      m_callback->on_money_received(height, txid, tx, td.m_amount, td.m_subaddr_index, spends_one_of_ours(tx), td.m_tx.unlock_time);
+	      m_callback->on_money_received(height, txid, tx, td.m_amount, 0, td.m_subaddr_index, spends_one_of_ours(tx), td.m_tx.unlock_time);
           }
           total_received_1 += amount;
           notify = true;
@@ -2242,7 +2242,8 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
           tx_money_got_in_outs[tx_scan_info[o].received->index] -= m_transfers[kit->second].amount();
 
           uint64_t amount = tx.vout[o].amount ? tx.vout[o].amount : tx_scan_info[o].amount;
-          uint64_t extra_amount = amount - m_transfers[kit->second].amount();
+          uint64_t burnt = m_transfers[kit->second].amount();
+          uint64_t extra_amount = amount - burnt;
           if (!pool)
           {
             transfer_details &td = m_transfers[kit->second];
@@ -2285,7 +2286,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
 
 	    LOG_PRINT_L0("Received money: " << print_money(td.amount()) << ", with tx: " << txid);
 	    if (0 != m_callback)
-	      m_callback->on_money_received(height, txid, tx, td.m_amount, td.m_subaddr_index, spends_one_of_ours(tx), td.m_tx.unlock_time);
+	      m_callback->on_money_received(height, txid, tx, td.m_amount, burnt, td.m_subaddr_index, spends_one_of_ours(tx), td.m_tx.unlock_time);
           }
           total_received_1 += extra_amount;
           notify = true;
