@@ -581,7 +581,7 @@ You can also cross-compile static binaries on Linux for Windows and macOS with t
 * ```make depends target=aarch64-linux-android``` for 64bit android binaries
 
 
-The required packages are the names for each toolchain on apt. Depending on your distro, they may have different names.
+The required packages are the names for each toolchain on apt. Depending on your distro, they may have different names. The `depends` system has been tested on Ubuntu 18.04 and 20.04.
 
 Using `depends` might also be easier to compile Monero on Windows than using MSYS. Activate Windows Subsystem for Linux (WSL) with a distro (for example Ubuntu), install the apt build-essentials and follow the `depends` steps as depicted above.
 
