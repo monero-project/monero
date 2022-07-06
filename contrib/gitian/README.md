@@ -133,7 +133,7 @@ Common setup part:
 su - gitianuser
 
 GH_USER=YOUR_GITHUB_USER_NAME
-VERSION=v0.17.3.2
+VERSION=v0.18.0.0
 ```
 
 Where `GH_USER` is your GitHub user name and `VERSION` is the version tag you want to build. 
