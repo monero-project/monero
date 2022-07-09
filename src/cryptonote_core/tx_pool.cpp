@@ -820,8 +820,10 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------------------------
-  void tx_memory_pool::set_relayed(const epee::span<const crypto::hash> hashes, const relay_method method)
+  void tx_memory_pool::set_relayed(const epee::span<const crypto::hash> hashes, const relay_method method, std::vector<bool> &just_broadcasted)
   {
+    just_broadcasted.clear();
+
     crypto::random_poisson_seconds embargo_duration{dandelionpp_embargo_average};
     const auto now = std::chrono::system_clock::now();
     uint64_t next_relay = uint64_t{std::numeric_limits<time_t>::max()};
@@ -831,12 +833,14 @@ namespace cryptonote
     LockedTXN lock(m_blockchain.get_db());
     for (const auto& hash : hashes)
     {
+      bool was_just_broadcasted = false;
       try
       {
         txpool_tx_meta_t meta;
         if (m_blockchain.get_txpool_tx_meta(hash, meta))
         {
           // txes can be received as "stem" or "fluff" in either order
+          const bool already_broadcasted = meta.matches(relay_category::broadcasted);
           meta.upgrade_relay_method(method);
           meta.relayed = true;
 
@@ -849,6 +853,9 @@ namespace cryptonote
             meta.last_relayed_time = std::chrono::system_clock::to_time_t(now);
 
           m_blockchain.update_txpool_tx(hash, meta);
+
+          // wait until db update succeeds to ensure tx is visible in the pool
+          was_just_broadcasted = !already_broadcasted && meta.matches(relay_category::broadcasted);
         }
       }
       catch (const std::exception &e)
@@ -856,6 +863,7 @@ namespace cryptonote
         MERROR("Failed to update txpool transaction metadata: " << e.what());
         // continue
       }
+      just_broadcasted.emplace_back(was_just_broadcasted);
     }
     lock.commit();
     set_if_less(m_next_check, time_t(next_relay));

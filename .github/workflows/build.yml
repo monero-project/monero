@@ -151,7 +151,7 @@ jobs:
     - name: install monero dependencies
       run: ${{env.APT_INSTALL_LINUX}}
     - name: install Python dependencies
-      run: pip install requests psutil monotonic
+      run: pip install requests psutil monotonic zmq
     - name: tests
       env:
         CTEST_OUTPUT_ON_FAILURE: ON

@@ -67,7 +67,7 @@ target_link_libraries(make_test_signature
 monero_add_minimal_executable(cpu_power_test cpu_power_test.cpp)
 find_program(PYTHON3_FOUND python3 REQUIRED)
 
-execute_process(COMMAND ${PYTHON3_FOUND} "-c" "import requests; import psutil; import monotonic; print('OK')" OUTPUT_VARIABLE REQUESTS_OUTPUT OUTPUT_STRIP_TRAILING_WHITESPACE)
+execute_process(COMMAND ${PYTHON3_FOUND} "-c" "import requests; import psutil; import monotonic; import zmq; print('OK')" OUTPUT_VARIABLE REQUESTS_OUTPUT OUTPUT_STRIP_TRAILING_WHITESPACE)
 if (REQUESTS_OUTPUT STREQUAL "OK")
   add_test(
     NAME    functional_tests_rpc
@@ -76,6 +76,6 @@ if (REQUESTS_OUTPUT STREQUAL "OK")
     NAME    check_missing_rpc_methods
     COMMAND ${PYTHON3_FOUND} "${CMAKE_CURRENT_SOURCE_DIR}/check_missing_rpc_methods.py" "${CMAKE_SOURCE_DIR}")
 else()
-  message(WARNING "functional_tests_rpc and check_missing_rpc_methods skipped, needs the 'requests', 'psutil' and 'monotonic' python modules")
+  message(WARNING "functional_tests_rpc and check_missing_rpc_methods skipped, needs the 'requests', 'psutil', 'monotonic', and 'zmq' python modules")
   set(CTEST_CUSTOM_TESTS_IGNORE ${CTEST_CUSTOM_TESTS_IGNORE} functional_tests_rpc check_missing_rpc_methods)
 endif()

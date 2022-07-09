@@ -1406,21 +1406,66 @@ namespace cryptonote
     return true;
   }
   //-----------------------------------------------------------------------------------------------
+  bool core::notify_txpool_event(const epee::span<const cryptonote::blobdata> tx_blobs, epee::span<const crypto::hash> tx_hashes, epee::span<const cryptonote::transaction> txs, const std::vector<bool> &just_broadcasted) const
+  {
+    if (!m_zmq_pub)
+      return true;
+
+    if (tx_blobs.size() != tx_hashes.size() || tx_blobs.size() != txs.size() || tx_blobs.size() != just_broadcasted.size())
+      return false;
+
+    /* Publish txs via ZMQ that are "just broadcasted" by the daemon. This is
+       done here in addition to `handle_incoming_txs` in order to guarantee txs
+       are pub'd via ZMQ when we know the daemon has/will broadcast to other
+       nodes & *after* the tx is visible in the pool. This should get called
+       when the user submits a tx to a daemon in the "fluff" epoch relaying txs
+       via a public network. */
+    if (std::count(just_broadcasted.begin(), just_broadcasted.end(), true) == 0)
+      return true;
+
+    std::vector<txpool_event> results{};
+    results.resize(tx_blobs.size());
+    for (std::size_t i = 0; i < results.size(); ++i)
+    {
+      results[i].tx = std::move(txs[i]);
+      results[i].hash = std::move(tx_hashes[i]);
+      results[i].blob_size = tx_blobs[i].size();
+      results[i].weight = results[i].tx.pruned ? get_pruned_transaction_weight(results[i].tx) : get_transaction_weight(results[i].tx, results[i].blob_size);
+      results[i].res = just_broadcasted[i];
+    }
+
+    m_zmq_pub(std::move(results));
+
+    return true;
+  }
+  //-----------------------------------------------------------------------------------------------
   void core::on_transactions_relayed(const epee::span<const cryptonote::blobdata> tx_blobs, const relay_method tx_relay)
   {
+    // lock ensures duplicate txs aren't pub'd via zmq
+    CRITICAL_REGION_LOCAL(m_incoming_tx_lock);
+
     std::vector<crypto::hash> tx_hashes{};
     tx_hashes.resize(tx_blobs.size());
 
+    std::vector<cryptonote::transaction> txs{};
+    txs.resize(tx_blobs.size());
+
     for (std::size_t i = 0; i < tx_blobs.size(); ++i)
     {
-      cryptonote::transaction tx{};
-      if (!parse_and_validate_tx_from_blob(tx_blobs[i], tx, tx_hashes[i]))
+      if (!parse_and_validate_tx_from_blob(tx_blobs[i], txs[i], tx_hashes[i]))
       {
         LOG_ERROR("Failed to parse relayed transaction");
         return;
       }
     }
-    m_mempool.set_relayed(epee::to_span(tx_hashes), tx_relay);
+
+    std::vector<bool> just_broadcasted{};
+    just_broadcasted.reserve(tx_hashes.size());
+
+    m_mempool.set_relayed(epee::to_span(tx_hashes), tx_relay, just_broadcasted);
+
+    if (m_zmq_pub && matches_category(tx_relay, relay_category::legacy))
+      notify_txpool_event(tx_blobs, epee::to_span(tx_hashes), epee::to_span(txs), just_broadcasted);
   }
   //-----------------------------------------------------------------------------------------------
   bool core::get_block_template(block& b, const account_public_address& adr, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash)
