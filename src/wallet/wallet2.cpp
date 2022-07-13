@@ -62,6 +62,7 @@ using namespace epee;
 #include "multisig/multisig.h"
 #include "multisig/multisig_account.h"
 #include "multisig/multisig_kex_msg.h"
+#include "multisig/multisig_tx_builder_ringct.h"
 #include "common/boost_serialization_helper.h"
 #include "common/command_line.h"
 #include "common/threadpool.h"
@@ -5050,7 +5051,6 @@ std::string wallet2::make_multisig(const epee::wipeable_string &password,
   m_multisig_rounds_passed = 1;
 
   // derivations stored (should be empty in last round)
-  // TODO: make use of the origins map for aggregation-style signing (instead of round-robin)
   m_multisig_derivations.clear();
   m_multisig_derivations.reserve(multisig_account.get_kex_keys_to_origins_map().size());
 
@@ -5107,7 +5107,6 @@ std::string wallet2::exchange_multisig_keys(const epee::wipeable_string &passwor
     expanded_msgs.emplace_back(msg);
 
   // reconstruct multisig account
-  crypto::public_key dummy;
   multisig::multisig_keyset_map_memsafe_t kex_origins_map;
 
   for (const auto &derivation : m_multisig_derivations)
@@ -5143,7 +5142,6 @@ std::string wallet2::exchange_multisig_keys(const epee::wipeable_string &passwor
       "Failed to update multisig wallet account due to bad keys");
 
   // derivations stored (should be empty in last round)
-  // TODO: make use of the origins map for aggregation-style signing (instead of round-robin)
   m_multisig_derivations.clear();
   m_multisig_derivations.reserve(multisig_account.get_kex_keys_to_origins_map().size());
 
@@ -6622,8 +6620,7 @@ bool wallet2::sign_tx(unsigned_tx_set &exported_txs, std::vector<wallet2::pendin
     rct::RCTConfig rct_config = sd.rct_config;
     crypto::secret_key tx_key;
     std::vector<crypto::secret_key> additional_tx_keys;
-    rct::multisig_out msout;
-    bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), m_subaddresses, sd.sources, sd.splitted_dsts, sd.change_dts.addr, sd.extra, ptx.tx, sd.unlock_time, tx_key, additional_tx_keys, sd.use_rct, rct_config, m_multisig ? &msout : NULL, sd.use_view_tags);
+    bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), m_subaddresses, sd.sources, sd.splitted_dsts, sd.change_dts.addr, sd.extra, ptx.tx, sd.unlock_time, tx_key, additional_tx_keys, sd.use_rct, rct_config, sd.use_view_tags);
     THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sd.sources, sd.splitted_dsts, sd.unlock_time, m_nettype);
     // we don't test tx size, because we don't know the current limit, due to not having a blockchain,
     // and it's a bit pointless to fail there anyway, since it'd be a (good) guess only. We sign anyway,
@@ -7131,77 +7128,113 @@ bool wallet2::sign_multisig_tx(multisig_tx_set &exported_txs, std::vector<crypto
 
   txids.clear();
 
-  // sign the transactions
+  // The 'exported_txs' contains a set of different transactions for the multisig group to try to sign. Each of those
+  //   transactions has a set of 'signing attempts' corresponding to all the possible signing groups within the multisig.
+  // - Here, we will partially sign as many of those signing attempts as possible, for each proposed transaction.
   for (size_t n = 0; n < exported_txs.m_ptx.size(); ++n)
   {
     tools::wallet2::pending_tx &ptx = exported_txs.m_ptx[n];
     THROW_WALLET_EXCEPTION_IF(ptx.multisig_sigs.empty(), error::wallet_internal_error, "No signatures found in multisig tx");
-    tools::wallet2::tx_construction_data &sd = ptx.construction_data;
-    LOG_PRINT_L1(" " << (n+1) << ": " << sd.sources.size() << " inputs, mixin " << (sd.sources[0].outputs.size()-1) <<
+    const tools::wallet2::tx_construction_data &sd = ptx.construction_data;
+    LOG_PRINT_L1(" " << (n+1) << ": " << sd.sources.size() << " inputs, ring size " << (sd.sources[0].outputs.size()) <<
         ", signed by " << exported_txs.m_signers.size() << "/" << m_multisig_threshold);
-    cryptonote::transaction tx;
-    rct::multisig_out msout = ptx.multisig_sigs.front().msout;
-    auto sources = sd.sources;
-    rct::RCTConfig rct_config = sd.rct_config;
-    bool shuffle_outs = false;
-    bool r = cryptonote::construct_tx_with_tx_key(m_account.get_keys(), m_subaddresses, sources, sd.splitted_dsts, ptx.change_dts.addr, sd.extra, tx, sd.unlock_time, ptx.tx_key, ptx.additional_tx_keys, sd.use_rct, rct_config, &msout, shuffle_outs, sd.use_view_tags);
-    THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sd.sources, sd.splitted_dsts, sd.unlock_time, m_nettype);
 
-    THROW_WALLET_EXCEPTION_IF(get_transaction_prefix_hash (tx) != get_transaction_prefix_hash(ptx.tx),
-        error::wallet_internal_error, "Transaction prefix does not match data");
+    // reconstruct the partially-signed transaction attempt to verify we are signing something that at least looks like a transaction
+    // note: the caller should further verify that the tx details are acceptable (inputs/outputs/memos/tx type)
+    multisig::signing::tx_builder_ringct_t multisig_tx_builder;
+    THROW_WALLET_EXCEPTION_IF(
+      not multisig_tx_builder.init(
+        m_account.get_keys(),
+        ptx.construction_data.extra,
+        ptx.construction_data.unlock_time,
+        ptx.construction_data.subaddr_account,
+        ptx.construction_data.subaddr_indices,
+        ptx.construction_data.sources,
+        ptx.construction_data.splitted_dsts,
+        ptx.construction_data.change_dts,
+        ptx.construction_data.rct_config,
+        ptx.construction_data.use_rct,
+        true,  //true = we are reconstructing the tx (it was first constructed by the tx proposer)
+        ptx.tx_key,
+        ptx.additional_tx_keys,
+        ptx.tx
+      ),
+      error::wallet_internal_error,
+      "error: multisig::signing::tx_builder_ringct_t::init"
+    );
 
-    // Tests passed, sign
-    std::vector<unsigned int> indices;
-    for (const auto &source: sources)
-      indices.push_back(source.real_output);
-
+    // go through each signing attempt for this transaction (each signing attempt corresponds to some subgroup of signers
+    //   of size 'threshold')
     for (auto &sig: ptx.multisig_sigs)
     {
+      // skip this partial tx if it's intended for a subgroup of signers that doesn't include the local signer
+      // note: this check can only weed out signers who provided multisig_infos to the multisig tx proposer's
+      //       (initial author's) last call to import_multisig() before making this tx proposal; all other signers
+      //       will encounter a 'need to export multisig' wallet error in get_multisig_k() below
+      // note2: the 'need to export multisig' wallet error can also appear if a bad/buggy tx proposer adds duplicate
+      //       'used_L' to the set of tx attempts, or if two different tx proposals use the same 'used_L' values and the
+      //       local signer calls this function on both of them
       if (sig.ignore.find(local_signer) == sig.ignore.end())
       {
-        ptx.tx.rct_signatures = sig.sigs;
-
-        rct::keyV k;
+        rct::keyM local_nonces_k(sd.selected_transfers.size(), rct::keyV(multisig::signing::kAlphaComponents));
         rct::key skey = rct::zero();
-        auto wiper = epee::misc_utils::create_scope_leave_handler([&](){ memwipe(k.data(), k.size() * sizeof(k[0])); memwipe(&skey, sizeof(skey)); });
+        auto wiper = epee::misc_utils::create_scope_leave_handler([&]{
+          for (auto& e: local_nonces_k)
+            memwipe(e.data(), e.size() * sizeof(rct::key));
+          memwipe(&skey, sizeof(rct::key));
+        });
 
-        for (size_t idx: sd.selected_transfers)
-          k.push_back(get_multisig_k(idx, sig.used_L));
-
-        for (const auto &msk: get_account().get_multisig_keys())
-        {
-          crypto::public_key pmsk = get_multisig_signing_public_key(msk);
-
-          if (sig.signing_keys.find(pmsk) == sig.signing_keys.end())
-          {
-            sc_add(skey.bytes, skey.bytes, rct::sk2rct(msk).bytes);
-            sig.signing_keys.insert(pmsk);
+        // get local signer's nonces for this transaction attempt's inputs
+        // note: whoever created 'exported_txs' has full power to match proposed tx inputs (selected_transfers)
+        //       with the public nonces of the multisig signers who call this function (via 'used_L' as identifiers), however
+        //       the local signer will only use a given nonce exactly once (even if a used_L is repeated)
+        for (std::size_t i = 0; i < local_nonces_k.size(); ++i) {
+          for (std::size_t j = 0; j < multisig::signing::kAlphaComponents; ++j) {
+            get_multisig_k(sd.selected_transfers[i], sig.used_L, local_nonces_k[i][j]);
           }
         }
-        THROW_WALLET_EXCEPTION_IF(!rct::signMultisig(ptx.tx.rct_signatures, indices, k, sig.msout, skey),
-            error::wallet_internal_error, "Failed signing, transaction likely malformed");
 
-        sig.sigs = ptx.tx.rct_signatures;
+        // round-robin signing: sign with all local multisig key shares that other signers have not signed with yet
+        for (const auto &multisig_skey: get_account().get_multisig_keys())
+        {
+          crypto::public_key multisig_pkey = get_multisig_signing_public_key(multisig_skey);
+
+          if (sig.signing_keys.find(multisig_pkey) == sig.signing_keys.end())
+          {
+            sc_add(skey.bytes, skey.bytes, rct::sk2rct(multisig_skey).bytes);
+            sig.signing_keys.insert(multisig_pkey);
+          }
+        }
+
+        THROW_WALLET_EXCEPTION_IF(
+          not multisig_tx_builder.next_partial_sign(sig.total_alpha_G, sig.total_alpha_H, local_nonces_k, skey, sig.c_0, sig.s),
+          error::wallet_internal_error,
+          "error: multisig::signing::tx_builder_ringct_t::next_partial_sign"
+        );
       }
     }
 
     const bool is_last = exported_txs.m_signers.size() + 1 >= m_multisig_threshold;
     if (is_last)
     {
-      // when the last signature on a multisig tx is made, we select the right
-      // signature to plug into the final tx
+      // if there are signatures from enough signers (assuming the local signer signed 1+ tx attempts), find the tx
+      //       attempt with a full set of signatures so this tx can be finalized
       bool found = false;
       for (const auto &sig: ptx.multisig_sigs)
       {
         if (sig.ignore.find(local_signer) == sig.ignore.end() && !keys_intersect(sig.ignore, exported_txs.m_signers))
         {
           THROW_WALLET_EXCEPTION_IF(found, error::wallet_internal_error, "More than one transaction is final");
-          ptx.tx.rct_signatures = sig.sigs;
+          THROW_WALLET_EXCEPTION_IF(
+            not multisig_tx_builder.finalize_tx(ptx.construction_data.sources, sig.c_0, sig.s, ptx.tx),
+            error::wallet_internal_error,
+            "error: multisig::signing::tx_builder_ringct_t::finalize_tx"
+          );
           found = true;
         }
       }
       THROW_WALLET_EXCEPTION_IF(!found, error::wallet_internal_error,
-          "Final signed transaction not found: this transaction was likely made without our export data, so we cannot sign it");
+          "Unable to finalize the transaction: the ignore sets for these tx attempts seem to be malformed.");
       const crypto::hash txid = get_transaction_hash(ptx.tx);
       if (store_tx_info())
       {
@@ -7212,7 +7245,8 @@ bool wallet2::sign_multisig_tx(multisig_tx_set &exported_txs, std::vector<crypto
     }
   }
 
-  // txes generated, get rid of used k values
+  // signatures generated, get rid of any unused k values (must do export_multisig() to make more tx attempts with the
+  //   inputs in the transactions worked on here)
   for (size_t n = 0; n < exported_txs.m_ptx.size(); ++n)
     for (size_t idx: exported_txs.m_ptx[n].construction_data.selected_transfers)
       memwipe(m_transfers[idx].m_multisig_k.data(), m_transfers[idx].m_multisig_k.size() * sizeof(m_transfers[idx].m_multisig_k[0]));
@@ -8738,9 +8772,8 @@ void wallet2::transfer_selected(const std::vector<cryptonote::tx_destination_ent
 
   crypto::secret_key tx_key;
   std::vector<crypto::secret_key> additional_tx_keys;
-  rct::multisig_out msout;
   LOG_PRINT_L2("constructing tx");
-  bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), m_subaddresses, sources, splitted_dsts, change_dts.addr, extra, tx, unlock_time, tx_key, additional_tx_keys, false, {}, m_multisig ? &msout : NULL, use_view_tags);
+  bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), m_subaddresses, sources, splitted_dsts, change_dts.addr, extra, tx, unlock_time, tx_key, additional_tx_keys, false, {}, use_view_tags);
   LOG_PRINT_L2("constructed tx, r="<<r);
   THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sources, splitted_dsts, unlock_time, m_nettype);
   THROW_WALLET_EXCEPTION_IF(upper_transaction_weight_limit <= get_transaction_weight(tx), error::tx_too_big, tx, upper_transaction_weight_limit);
@@ -8822,6 +8855,10 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
 
     // At this step we need to define set of participants available for signature,
     // i.e. those of them who exchanged with multisig info's
+    // note: The oldest unspent owned output's multisig info (in m_transfers) will contain the most recent result of
+    //       'import_multisig()', which means only 'fresh' multisig infos (public nonces) will be used to make tx attempts.
+    //       - If a signer's info was missing from the latest call to 'import_multisig()', then they won't be able to participate!
+    //       - If a newly-acquired output doesn't have enouch nonces from multisig infos, then it can't be spent!
     for (const crypto::public_key &signer: m_multisig_signers)
     {
       if (signer == local_signer)
@@ -8889,7 +8926,6 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
   LOG_PRINT_L2("preparing outputs");
   size_t i = 0, out_index = 0;
   std::vector<cryptonote::tx_source_entry> sources;
-  std::unordered_set<rct::key> used_L;
   for(size_t idx: selected_transfers)
   {
     sources.resize(sources.size()+1);
@@ -8932,10 +8968,8 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
     src.real_output_in_tx_index = td.m_internal_output_index;
     src.mask = td.m_mask;
     if (m_multisig)
-    {
-      auto ignore_set = ignore_sets.empty() ? std::unordered_set<crypto::public_key>() : ignore_sets.front();
-      src.multisig_kLRki = get_multisig_composite_kLRki(idx, ignore_set, used_L, used_L);
-    }
+      // note: multisig_kLRki is a legacy struct, currently only used as a key image shuttle into the multisig tx builder
+      src.multisig_kLRki = {.k = {}, .L = {}, .R = {}, .ki = rct::ki2rct(td.m_key_image)};
     else
       src.multisig_kLRki = rct::multisig_kLRki({rct::zero(), rct::zero(), rct::zero(), rct::zero()});
     detail::print_source_entry(src);
@@ -8972,12 +9006,41 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
 
   crypto::secret_key tx_key;
   std::vector<crypto::secret_key> additional_tx_keys;
-  rct::multisig_out msout;
   LOG_PRINT_L2("constructing tx");
   auto sources_copy = sources;
-  bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), m_subaddresses, sources, splitted_dsts, change_dts.addr, extra, tx, unlock_time, tx_key, additional_tx_keys, true, rct_config, m_multisig ? &msout : NULL, use_view_tags);
-  LOG_PRINT_L2("constructed tx, r="<<r);
-  THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sources, dsts, unlock_time, m_nettype);
+  multisig::signing::tx_builder_ringct_t multisig_tx_builder;
+  if (m_multisig) {
+    // prepare the core part of a multisig tx (many tx attempts for different signer groups can be spun off this core piece)
+    std::set<std::uint32_t> subaddr_minor_indices;
+    for (size_t idx: selected_transfers) {
+      subaddr_minor_indices.insert(m_transfers[idx].m_subaddr_index.minor);
+    }
+    THROW_WALLET_EXCEPTION_IF(
+      not multisig_tx_builder.init(m_account.get_keys(),
+        extra,
+        unlock_time,
+        subaddr_account,
+        subaddr_minor_indices,
+        sources,
+        splitted_dsts,
+        change_dts,
+        rct_config,
+        true,
+        false,
+        tx_key,
+        additional_tx_keys,
+        tx
+      ),
+      error::wallet_internal_error,
+      "error: multisig::signing::tx_builder_ringct_t::init"
+    );
+  }
+  else {
+    // make a normal tx
+    bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), m_subaddresses, sources, splitted_dsts, change_dts.addr, extra, tx, unlock_time, tx_key, additional_tx_keys, true, rct_config, use_view_tags);
+    LOG_PRINT_L2("constructed tx, r="<<r);
+    THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sources, dsts, unlock_time, m_nettype);
+  }
   THROW_WALLET_EXCEPTION_IF(upper_transaction_weight_limit <= get_transaction_weight(tx), error::tx_too_big, tx, upper_transaction_weight_limit);
 
   // work out the permutation done on sources
@@ -8995,42 +9058,77 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
   THROW_WALLET_EXCEPTION_IF(ins_order.size() != sources.size(), error::wallet_internal_error, "Failed to work out sources permutation");
 
   std::vector<tools::wallet2::multisig_sig> multisig_sigs;
-  if (m_multisig)
-  {
-    auto ignore = ignore_sets.empty() ? std::unordered_set<crypto::public_key>() : ignore_sets.front();
-    multisig_sigs.push_back({tx.rct_signatures, ignore, used_L, std::unordered_set<crypto::public_key>(), msout});
+  if (m_multisig) {
+    if (ignore_sets.empty())
+      ignore_sets.emplace_back();
+    const std::size_t num_multisig_attempts = ignore_sets.size();
+    multisig_sigs.resize(num_multisig_attempts);
+    std::unordered_set<rct::key> all_used_L;
+    std::unordered_set<crypto::public_key> signing_keys;
+    for (const crypto::secret_key &multisig_skey: get_account().get_multisig_keys())
+      signing_keys.insert(get_multisig_signing_public_key(multisig_skey));
+    const std::size_t num_sources = sources.size();
+    const std::size_t num_alpha_components = multisig::signing::kAlphaComponents;
 
-    if (m_multisig_threshold < m_multisig_signers.size())
-    {
-      const crypto::hash prefix_hash = cryptonote::get_transaction_prefix_hash(tx);
+    // initiate a multisig tx attempt for each unique set of signers that
+    // a) includes the local signer
+    // b) includes other signers who most recently sent the local signer LR public nonces via 'export_multisig() -> import_multisig()'
+    for (std::size_t i = 0; i < num_multisig_attempts; ++i) {
+      multisig_sig& sig = multisig_sigs[i];
+      sig.total_alpha_G.resize(num_sources, rct::keyV(num_alpha_components));
+      sig.total_alpha_H.resize(num_sources, rct::keyV(num_alpha_components));
+      sig.s.resize(num_sources);
+      sig.c_0.resize(num_sources);
 
-      // create the other versions, one for every other participant (the first one's already done above)
-      for (size_t ignore_index = 1; ignore_index < ignore_sets.size(); ++ignore_index)
-      {
-        std::unordered_set<rct::key> new_used_L;
-        size_t src_idx = 0;
-        THROW_WALLET_EXCEPTION_IF(selected_transfers.size() != sources.size(), error::wallet_internal_error, "mismatched selected_transfers and sources sixes");
-        for(size_t idx: selected_transfers)
-        {
-          cryptonote::tx_source_entry& src = sources_copy[src_idx];
-          src.multisig_kLRki = get_multisig_composite_kLRki(idx, ignore_sets[ignore_index], used_L, new_used_L);
-          ++src_idx;
+      // for each tx input, get public musig2-style nonces from
+      // a) temporary local-generated private nonces (used to make the local partial signatures on each tx attempt)
+      // b) other signers' public nonces, sent to the local signer via 'export_multisig() -> import_multisig()'
+      // - WARNING: If two multisig players initiate multisig tx attempts separately, but spend the same funds (and hence rely on the same LR public nonces),
+      //            then if two signers partially sign different tx attempt sets, then all attempts that require both signers will become garbage,
+      //            because LR nonces can only be used for one tx attempt.
+      for (std::size_t j = 0; j < num_sources; ++j) {
+        rct::keyV alpha(num_alpha_components);
+        auto alpha_wiper = epee::misc_utils::create_scope_leave_handler([&]{
+          memwipe(static_cast<rct::key *>(alpha.data()), alpha.size() * sizeof(rct::key));
+        });
+        for (std::size_t m = 0; m < num_alpha_components; ++m) {
+          const rct::multisig_kLRki kLRki = get_multisig_composite_kLRki(
+            selected_transfers[ins_order[j]],
+            ignore_sets[i],
+            all_used_L,  //collect all public L nonces used by this tx proposal (set of tx attempts) to avoid duplicates
+            sig.used_L   //record the public L nonces used by this tx input to this tx attempt, for coordination with other signers
+          );
+          alpha[m] = kLRki.k;
+          sig.total_alpha_G[j][m] = kLRki.L;
+          sig.total_alpha_H[j][m] = kLRki.R;
         }
 
-        LOG_PRINT_L2("Creating supplementary multisig transaction");
-        cryptonote::transaction ms_tx;
-        auto sources_copy_copy = sources_copy;
-        bool shuffle_outs = false;
-        bool r = cryptonote::construct_tx_with_tx_key(m_account.get_keys(), m_subaddresses, sources_copy_copy, splitted_dsts, change_dts.addr, extra, ms_tx, unlock_time,tx_key, additional_tx_keys, true, rct_config, &msout, shuffle_outs, use_view_tags);
-        LOG_PRINT_L2("constructed tx, r="<<r);
-        THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sources, splitted_dsts, unlock_time, m_nettype);
-        THROW_WALLET_EXCEPTION_IF(upper_transaction_weight_limit <= get_transaction_weight(tx), error::tx_too_big, tx, upper_transaction_weight_limit);
-        THROW_WALLET_EXCEPTION_IF(cryptonote::get_transaction_prefix_hash(ms_tx) != prefix_hash, error::wallet_internal_error, "Multisig txes do not share prefix");
-        multisig_sigs.push_back({ms_tx.rct_signatures, ignore_sets[ignore_index], new_used_L, std::unordered_set<crypto::public_key>(), msout});
-
-        ms_tx.rct_signatures = tx.rct_signatures;
-        THROW_WALLET_EXCEPTION_IF(cryptonote::get_transaction_hash(ms_tx) != cryptonote::get_transaction_hash(tx), error::wallet_internal_error, "Multisig txes differ by more than the signatures");
+        // local signer: initial partial signature on this tx input for this tx attempt
+        // note: sign here with sender-receiver secret component, subaddress component, and ALL of the local signer's multisig key shares
+        //       (this ultimately occurs deep in generate_key_image_helper_precomp())
+        THROW_WALLET_EXCEPTION_IF(
+          not multisig_tx_builder.first_partial_sign(j, sig.total_alpha_G[j], sig.total_alpha_H[j], alpha, sig.c_0[j], sig.s[j]),
+          error::wallet_internal_error,
+          "error: multisig::signing::tx_builder_ringct_t::first_partial_sign"
+        );
       }
+
+      // note: record the ignore set so when other signers go to add their signatures (sign_multisig_tx()), they
+      //       can skip this tx attempt if they aren't supposed to sign it; this only works for signers who provided
+      //       multisig_infos to the last 'import_multisig()' call by the local signer, all 'other signers' will encounter
+      //       a 'need to export multisig_info' wallet error if they try to sign this partial tx, which means if they want to sign a tx
+      //       they need to export_multisig() -> send to the local signer -> local signer calls import_multisig() with fresh
+      //       multisig_infos from all signers -> local signer makes completely new tx attempts (or a different signer makes tx attempts)
+      sig.ignore = ignore_sets[i];
+      sig.signing_keys = signing_keys;  //the local signer signed with ALL of their multisig key shares, record their pubkeys for reference by other signers
+    }
+    if (m_multisig_threshold <= 1) {
+      // local signer: finish signing the tx inputs if we are the only signer (ignore all but the first 'attempt')
+      THROW_WALLET_EXCEPTION_IF(
+        not multisig_tx_builder.finalize_tx(sources, multisig_sigs[0].c_0, multisig_sigs[0].s, tx),
+        error::wallet_internal_error,
+        "error: multisig::signing::tx_builder_ringct_t::finalize_tx"
+      );
     }
   }
 
@@ -13317,19 +13415,26 @@ crypto::public_key wallet2::get_multisig_signing_public_key(size_t idx) const
   return get_multisig_signing_public_key(get_account().get_multisig_keys()[idx]);
 }
 //----------------------------------------------------------------------------------------------------
-rct::key wallet2::get_multisig_k(size_t idx, const std::unordered_set<rct::key> &used_L) const
+void wallet2::get_multisig_k(size_t idx, const std::unordered_set<rct::key> &used_L, rct::key &nonce)
 {
   CHECK_AND_ASSERT_THROW_MES(m_multisig, "Wallet is not multisig");
   CHECK_AND_ASSERT_THROW_MES(idx < m_transfers.size(), "idx out of range");
-  for (const auto &k: m_transfers[idx].m_multisig_k)
+  for (auto &k: m_transfers[idx].m_multisig_k)
   {
+    if (k == rct::zero())
+      continue;
+
+    // decide whether or not to return a nonce just based on if its pubkey 'L = k*G' is attached to the transfer 'idx'
     rct::key L;
     rct::scalarmultBase(L, k);
     if (used_L.find(L) != used_L.end())
-      return k;
+    {
+      nonce = k;
+      memwipe(static_cast<rct::key *>(&k), sizeof(rct::key));  //CRITICAL: a nonce may only be used once!
+      return;
+    }
   }
   THROW_WALLET_EXCEPTION(tools::error::multisig_export_needed);
-  return rct::zero();
 }
 //----------------------------------------------------------------------------------------------------
 rct::multisig_kLRki wallet2::get_multisig_kLRki(size_t n, const rct::key &k) const
@@ -13395,15 +13500,23 @@ cryptonote::blobdata wallet2::export_multisig()
 
   const crypto::public_key signer = get_multisig_signer_public_key();
 
+  // For each transfer (output owned by the multisig wallet):
+  // 1) Record the output's partial key image (from the local signer), so other signers can assemble the output's full key image.
+  // 2) Prepare enough signing nonces for one signing attempt with each possible combination of 'threshold' signers
+  //    from the multisig group (only groups that include the local signer).
+  //    - Calling this function will reset any nonces recorded by the previous call to this function. Doing so will
+  //      invalidate any in-progress signing attempts that rely on the previous output of this function.
   info.resize(m_transfers.size());
   for (size_t n = 0; n < m_transfers.size(); ++n)
   {
     transfer_details &td = m_transfers[n];
     crypto::key_image ki;
-    memwipe(td.m_multisig_k.data(), td.m_multisig_k.size() * sizeof(td.m_multisig_k[0]));
+    if (td.m_multisig_k.size())
+      memwipe(td.m_multisig_k.data(), td.m_multisig_k.size() * sizeof(td.m_multisig_k[0]));
     info[n].m_LR.clear();
     info[n].m_partial_key_images.clear();
 
+    // record the partial key images
     for (size_t m = 0; m < get_account().get_multisig_keys().size(); ++m)
     {
       // we want to export the partial key image, not the full one, so we can't use td.m_key_image
@@ -13416,6 +13529,15 @@ cryptonote::blobdata wallet2::export_multisig()
     // if we have 2/4 wallet with signers: A, B, C, D and A is a transaction creator it will need to pick up 1 signer from 3 wallets left.
     // That means counting combinations for excluding 2-of-3 wallets (k = total signers count - threshold, n = total signers count - 1).
     size_t nlr = tools::combinations_count(m_multisig_signers.size() - m_multisig_threshold, m_multisig_signers.size() - 1);
+
+    // 'td.m_multisig_k' is an expansion of [{alpha_0, alpha_1, ...}, {alpha_0, alpha_1, ...}, {alpha_0, alpha_1, ...}],
+    //    - A '{alpha_0, alpha_1, ...}' tuple contains a set of 'kAlphaComponents' nonces, which can be used for one
+    //      signing attempt. Each output will gain 'nlr' tuples, so that every signing group can make one signing attempt.
+    //    - All tuples are always cleared after 1+ of them is used to sign a tx attempt (in sign_multisig_tx()), so
+    //      in practice, a call to this function only allows _one_ multisig signing cycle for each output (which can
+    //      include signing attempts for multiple signer groups).
+    nlr *= multisig::signing::kAlphaComponents;
+
     for (size_t m = 0; m < nlr; ++m)
     {
       td.m_multisig_k.push_back(rct::skGen());
