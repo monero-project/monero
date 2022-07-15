@@ -34,6 +34,7 @@
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "cryptonote_basic/account.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
+#include "cryptonote_config.h"
 #include "cryptonote_core/cryptonote_tx_utils.h"
 #include "device/device.hpp"
 #include "multisig_clsag_context.h"
@@ -47,6 +48,7 @@
 #include <cstring>
 #include <limits>
 #include <set>
+#include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -242,6 +244,80 @@ static bool set_tx_extra(
 }
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
+static void make_tx_secret_key_seed(const crypto::secret_key& tx_secret_key_entropy,
+  const std::vector<cryptonote::tx_source_entry>& sources,
+  crypto::secret_key& tx_secret_key_seed)
+{
+  // seed = H(H("domain separator"), entropy, {KI})
+  static const std::string domain_separator{config::HASH_KEY_MULTISIG_TX_PRIVKEYS_SEED};
+
+  rct::keyV hash_context;
+  hash_context.reserve(2 + sources.size());
+  auto hash_context_wiper = epee::misc_utils::create_scope_leave_handler([&]{
+      memwipe(hash_context.data(), hash_context.size());
+    });
+  hash_context.emplace_back();
+  rct::cn_fast_hash(hash_context.back(), domain_separator.data(), domain_separator.size());  //domain sep
+  hash_context.emplace_back(rct::sk2rct(tx_secret_key_entropy));  //entropy
+
+  for (const cryptonote::tx_source_entry& source : sources)
+    hash_context.emplace_back(source.multisig_kLRki.ki);  //{KI}
+
+  // set the seed
+  tx_secret_key_seed = rct::rct2sk(rct::cn_fast_hash(hash_context));
+}
+//----------------------------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
+static void make_tx_secret_keys(const crypto::secret_key& tx_secret_key_seed,
+  const std::size_t num_tx_keys,
+  std::vector<crypto::secret_key>& tx_secret_keys)
+{
+  // make tx secret keys as a hash chain of the seed
+  // h1 = H_n(seed || H("domain separator"))
+  // h2 = H_n(seed || h1)
+  // h3 = H_n(seed || h2)
+  // ...
+  static const std::string domain_separator{config::HASH_KEY_MULTISIG_TX_PRIVKEYS};
+
+  rct::keyV hash_context;
+  hash_context.resize(2);
+  auto hash_context_wiper = epee::misc_utils::create_scope_leave_handler([&]{
+      memwipe(hash_context.data(), hash_context.size());
+    });
+  hash_context[0] = rct::sk2rct(tx_secret_key_seed);
+  rct::cn_fast_hash(hash_context[1], domain_separator.data(), domain_separator.size());
+
+  tx_secret_keys.clear();
+  tx_secret_keys.resize(num_tx_keys);
+
+  for (crypto::secret_key& tx_secret_key : tx_secret_keys)
+  {
+    // advance the hash chain
+    hash_context[1] = rct::hash_to_scalar(hash_context);
+
+    // set this key
+    tx_secret_key = rct::rct2sk(hash_context[1]);
+  }
+}
+//----------------------------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
+static bool collect_tx_secret_keys(const std::vector<crypto::secret_key>& tx_secret_keys,
+  crypto::secret_key& tx_secret_key,
+  std::vector<crypto::secret_key>& tx_aux_secret_keys)
+{
+  if (tx_secret_keys.size() == 0)
+    return false;
+
+  tx_secret_key = tx_secret_keys[0];
+  tx_aux_secret_keys.clear();
+  tx_aux_secret_keys.reserve(tx_secret_keys.size() - 1);
+  for (std::size_t tx_key_index{1}; tx_key_index < tx_secret_keys.size(); ++tx_key_index)
+    tx_aux_secret_keys.emplace_back(tx_secret_keys[tx_key_index]);
+
+  return true;
+}
+//----------------------------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 static bool compute_keys_for_destinations(
   const cryptonote::account_keys& account_keys,
   const std::uint32_t subaddr_account,
@@ -250,6 +326,7 @@ static bool compute_keys_for_destinations(
   const std::vector<std::uint8_t>& extra,
   const bool use_view_tags,
   const bool reconstruction,
+  const crypto::secret_key& tx_secret_key_seed,
   crypto::secret_key& tx_secret_key,
   std::vector<crypto::secret_key>& tx_aux_secret_keys,
   rct::keyV& output_public_keys,
@@ -288,8 +365,35 @@ static bool compute_keys_for_destinations(
       unique_std_recipients.insert(dst_entr.addr);
   }
 
-  if (not reconstruction) {
-    tx_secret_key = rct::rct2sk(rct::skGen());
+  // figure out how many tx secret keys are needed
+  // - tx aux keys: add if there are > 1 non-change recipients, with at least one to a subaddress
+  const std::size_t num_destinations = destinations.size();
+  const bool need_tx_aux_keys = unique_subbaddr_recipients.size() + bool(unique_std_recipients.size()) > 1;
+
+  const std::size_t num_tx_keys = 1 + (need_tx_aux_keys ? num_destinations : 0);
+
+  // make tx secret keys
+  std::vector<crypto::secret_key> all_tx_secret_keys;
+  make_tx_secret_keys(tx_secret_key_seed, num_tx_keys, all_tx_secret_keys);
+
+  // split up tx secret keys
+  crypto::secret_key tx_secret_key_temp;
+  std::vector<crypto::secret_key> tx_aux_secret_keys_temp;
+  if (not collect_tx_secret_keys(all_tx_secret_keys, tx_secret_key_temp, tx_aux_secret_keys_temp))
+    return false;
+
+  if (reconstruction)
+  {
+    // when reconstructing, the tx secret keys should be reproducible from input seed
+    if (!(tx_secret_key == tx_secret_key_temp))
+      return false;
+    if (!(tx_aux_secret_keys == tx_aux_secret_keys_temp))
+      return false;
+  }
+  else
+  {
+    tx_secret_key = tx_secret_key_temp;
+    tx_aux_secret_keys = std::move(tx_aux_secret_keys_temp);
   }
 
   // tx pub key: R
@@ -312,17 +416,6 @@ static bool compute_keys_for_destinations(
   }
 
   // additional tx pubkeys: R_t
-  // - add if there are > 1 non-change recipients, with at least one to a subaddress
-  const std::size_t num_destinations = destinations.size();
-
-  const bool need_tx_aux_keys = unique_subbaddr_recipients.size() + bool(unique_std_recipients.size()) > 1;
-  if (not reconstruction and need_tx_aux_keys) {
-    tx_aux_secret_keys.clear();
-    tx_aux_secret_keys.reserve(num_destinations);
-    for(std::size_t i = 0; i < num_destinations; ++i)
-      tx_aux_secret_keys.push_back(rct::rct2sk(rct::skGen()));
-  }
-
   output_public_keys.resize(num_destinations);
   view_tags.resize(num_destinations);
   std::vector<crypto::public_key> tx_aux_public_keys;
@@ -738,6 +831,7 @@ bool tx_builder_ringct_t::init(
   const bool reconstruction,
   crypto::secret_key& tx_secret_key,
   std::vector<crypto::secret_key>& tx_aux_secret_keys,
+  crypto::secret_key& tx_secret_key_entropy,
   cryptonote::transaction& unsigned_tx
 )
 {
@@ -765,6 +859,23 @@ bool tx_builder_ringct_t::init(
   // sort inputs
   sort_sources(sources);
 
+  // prepare tx secret key seed (must be AFTER sorting sources)
+  // - deriving the seed from sources plus entropy ensures uniqueness for every new tx attempt
+  // - the goal is that two multisig txs added to the chain will never have outputs with the same onetime addresses,
+  //   which would burn funds (embedding the inputs' key images guarantees this)
+  //   - it is acceptable if two tx attempts use the same input set and entropy (only a malicious tx proposer will do
+  //     that, but all it can accomplish is leaking information about the recipients - which a malicious proposer can
+  //     easily do outside the signing ritual anyway)
+  if (not reconstruction)
+    tx_secret_key_entropy = rct::rct2sk(rct::skGen());
+
+  // expect not null (note: wallet serialization code may set this to null if handling an old partial tx)
+  if (tx_secret_key_entropy == crypto::null_skey)
+    return false;
+
+  crypto::secret_key tx_secret_key_seed;
+  make_tx_secret_key_seed(tx_secret_key_entropy, sources, tx_secret_key_seed);
+
   // get secret keys for signing input CLSAGs (multisig: or for the initial partial signature)
   rct::keyV input_secret_keys;
   auto input_secret_keys_wiper = epee::misc_utils::create_scope_leave_handler([&]{
@@ -791,6 +902,7 @@ bool tx_builder_ringct_t::init(
       extra,
       use_view_tags,
       reconstruction,
+      tx_secret_key_seed,
       tx_secret_key,
       tx_aux_secret_keys,
       output_public_keys,
@@ -921,6 +1033,7 @@ bool tx_builder_ringct_t::finalize_tx(
   cryptonote::transaction& unsigned_tx
 )
 {
+  // checks
   const std::size_t num_sources = sources.size();
   if (num_sources != unsigned_tx.rct_signatures.p.CLSAGs.size())
     return false;
@@ -928,6 +1041,8 @@ bool tx_builder_ringct_t::finalize_tx(
     return false;
   if (num_sources != s.size())
     return false;
+
+  // finalize tx signatures
   for (std::size_t i = 0; i < num_sources; ++i) {
     const std::size_t ring_size = unsigned_tx.rct_signatures.p.CLSAGs[i].s.size();
     if (sources[i].real_output >= ring_size)
@@ -935,6 +1050,7 @@ bool tx_builder_ringct_t::finalize_tx(
     unsigned_tx.rct_signatures.p.CLSAGs[i].s[sources[i].real_output] = s[i];
     unsigned_tx.rct_signatures.p.CLSAGs[i].c1 = c_0[i];
   }
+
   return true;
 }
 //----------------------------------------------------------------------------------------------------------------------
