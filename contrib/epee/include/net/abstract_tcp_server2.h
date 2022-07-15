@@ -44,12 +44,16 @@
 #include <cassert>
 #include <map>
 #include <memory>
+#include <condition_variable>
 
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
+#include <boost/asio/strand.hpp>
+#include <boost/asio/steady_timer.hpp>
 #include <boost/array.hpp>
 #include <boost/enable_shared_from_this.hpp>
 #include <boost/thread/thread.hpp>
+#include <boost/optional.hpp>
 #include "byte_slice.h"
 #include "net_utils_base.h"
 #include "syncobj.h"
@@ -87,7 +91,172 @@ namespace net_utils
   {
   public:
     typedef typename t_protocol_handler::connection_context t_connection_context;
+  private:
+    using connection_t = connection<t_protocol_handler>;
+    using connection_ptr = boost::shared_ptr<connection_t>;
+    using ssl_support_t = epee::net_utils::ssl_support_t;
+    using timer_t = boost::asio::steady_timer;
+    using duration_t = timer_t::duration;
+    using ec_t = boost::system::error_code;
+    using handshake_t = boost::asio::ssl::stream_base::handshake_type;
 
+    using io_context_t = boost::asio::io_service;
+    using strand_t = boost::asio::io_service::strand;
+    using socket_t = boost::asio::ip::tcp::socket;
+
+    using network_throttle_t = epee::net_utils::network_throttle;
+    using network_throttle_manager_t = epee::net_utils::network_throttle_manager;
+
+    unsigned int host_count(int delta = 0);
+    duration_t get_default_timeout();
+    duration_t get_timeout_from_bytes_read(size_t bytes) const;
+
+    void state_status_check();
+
+    void start_timer(duration_t duration, bool add = {});
+    void async_wait_timer();
+    void cancel_timer();
+
+    void start_handshake();
+    void start_read();
+    void start_write();
+    void start_shutdown();
+    void cancel_socket();
+
+    void cancel_handler();
+
+    void interrupt();
+    void on_interrupted();
+
+    void terminate();
+    void on_terminating();
+
+    bool send(epee::byte_slice message);
+    bool start_internal(
+      bool is_income,
+      bool is_multithreaded,
+      boost::optional<network_address> real_remote
+    );
+
+    enum status_t {
+      TERMINATED,
+      RUNNING,
+      INTERRUPTED,
+      TERMINATING,
+      WASTED,
+    };
+
+    struct state_t {
+      struct stat_t {
+        struct {
+          network_throttle_t throttle{"speed_in", "throttle_speed_in"};
+        } in;
+        struct {
+          network_throttle_t throttle{"speed_out", "throttle_speed_out"};
+        } out;
+      };
+
+      struct data_t {
+        struct {
+          std::array<uint8_t, 0x2000> buffer;
+        } read;
+        struct {
+          std::deque<epee::byte_slice> queue;
+          bool wait_consume;
+        } write;
+      };
+
+      struct ssl_t {
+        bool enabled;
+        bool forced;
+        bool detected;
+        bool handshaked;
+      };
+
+      struct socket_status_t {
+        bool connected;
+
+        bool wait_handshake;
+        bool cancel_handshake;
+
+        bool wait_read;
+        bool handle_read;
+        bool cancel_read;
+
+        bool wait_write;
+        bool handle_write;
+        bool cancel_write;
+
+        bool wait_shutdown;
+        bool cancel_shutdown;
+      };
+
+      struct timer_status_t {
+        bool wait_expire;
+        bool cancel_expire;
+        bool reset_expire;
+      };
+
+      struct timers_status_t {
+        struct throttle_t {
+          timer_status_t in;
+          timer_status_t out;
+        };
+
+        timer_status_t general;
+        throttle_t throttle;
+      };
+
+      struct protocol_t {
+        size_t reference_counter;
+        bool released;
+        bool initialized;
+
+        bool wait_release;
+        bool wait_init;
+        size_t wait_callback;
+      };
+
+      std::mutex lock;
+      std::condition_variable_any condition;
+      status_t status;
+      socket_status_t socket;
+      ssl_t ssl;
+      timers_status_t timers;
+      protocol_t protocol;
+      stat_t stat;
+      data_t data;
+    };
+
+    struct timers_t {
+      timers_t(io_context_t &io_context):
+        general(io_context),
+        throttle(io_context)
+      {}
+      struct throttle_t {
+        throttle_t(io_context_t &io_context):
+          in(io_context),
+          out(io_context)
+        {}
+        timer_t in;
+        timer_t out;
+      };
+
+      timer_t general;
+      throttle_t throttle;
+    };
+
+    io_context_t &m_io_context;
+    t_connection_type m_connection_type;
+    t_connection_context m_conn_context{};
+    strand_t m_strand;
+    timers_t m_timers;
+    connection_ptr self{};
+    bool m_local{};
+    std::string m_host{};
+    state_t m_state{};
+    t_protocol_handler m_handler;
+  public:
     struct shared_state : connection_basic_shared_state, t_protocol_handler::config_type
     {
       shared_state()
@@ -119,7 +288,7 @@ namespace net_utils
     // `real_remote` is the actual endpoint (if connection is to proxy, etc.)
     bool start(bool is_income, bool is_multithreaded, network_address real_remote);
 
-    void get_context(t_connection_context& context_){context_ = context;}
+    void get_context(t_connection_context& context_){context_ = m_conn_context;}
 
     void call_back_starter();
     
@@ -141,58 +310,6 @@ namespace net_utils
     virtual bool add_ref();
     virtual bool release();
     //------------------------------------------------------
-    bool do_send_chunk(byte_slice chunk); ///< will send (or queue) a part of data. internal use only
-
-    boost::shared_ptr<connection<t_protocol_handler> > safe_shared_from_this();
-    bool shutdown();
-    /// Handle completion of a receive operation.
-    void handle_receive(const boost::system::error_code& e,
-      std::size_t bytes_transferred);
-
-    /// Handle completion of a read operation.
-    void handle_read(const boost::system::error_code& e,
-      std::size_t bytes_transferred);
-
-    /// Handle completion of a write operation.
-    void handle_write(const boost::system::error_code& e, size_t cb);
-
-    /// reset connection timeout timer and callback
-    void reset_timer(boost::posix_time::milliseconds ms, bool add);
-    boost::posix_time::milliseconds get_default_timeout();
-    boost::posix_time::milliseconds get_timeout_from_bytes_read(size_t bytes);
-
-    /// host connection count tracking
-    unsigned int host_count(const std::string &host, int delta = 0);
-
-    /// Buffer for incoming data.
-    boost::array<char, 8192> buffer_;
-    size_t buffer_ssl_init_fill;
-
-    t_connection_context context;
-
-	// TODO what do they mean about wait on destructor?? --rfree :
-    //this should be the last one, because it could be wait on destructor, while other activities possible on other threads
-    t_protocol_handler m_protocol_handler;
-    //typename t_protocol_handler::config_type m_dummy_config;
-    size_t m_reference_count = 0; // reference count managed through add_ref/release support
-    boost::shared_ptr<connection<t_protocol_handler> > m_self_ref; // the reference to hold
-    critical_section m_self_refs_lock;
-    critical_section m_chunking_lock; // held while we add small chunks of the big do_send() to small do_send_chunk()
-    critical_section m_shutdown_lock; // held while shutting down
-    
-    t_connection_type m_connection_type;
-    
-    // for calculate speed (last 60 sec)
-    network_throttle m_throttle_speed_in;
-    network_throttle m_throttle_speed_out;
-    boost::mutex m_throttle_speed_in_mutex;
-    boost::mutex m_throttle_speed_out_mutex;
-
-    boost::asio::deadline_timer m_timer;
-    bool m_local;
-    bool m_ready_to_close;
-    std::string m_host;
-
 	public:
 			void setRpcStation();
   };
