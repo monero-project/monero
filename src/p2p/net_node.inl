@@ -779,8 +779,6 @@ namespace nodetool
 
     // for each hostname in the seed nodes list, attempt to DNS resolve and
     // add the result addresses as seed nodes
-    // TODO: at some point add IPv6 support, but that won't be relevant
-    // for some time yet.
 
     std::vector<std::vector<std::string>> dns_results;
     dns_results.resize(m_seed_nodes_list.size());
@@ -802,10 +800,12 @@ namespace nodetool
         // TODO: care about dnssec avail/valid
         bool avail, valid;
         std::vector<std::string> addr_list;
+        std::vector<std::string> addr_list_ipv4;
+        std::vector<std::string> addr_list_ipv6;
 
         try
         {
-          addr_list = tools::DNSResolver::instance().get_ipv4(addr_str, avail, valid);
+          addr_list_ipv4 = tools::DNSResolver::instance().get_ipv4(addr_str, avail, valid);
           MDEBUG("dns_threads[" << result_index << "] DNS resolve done");
           boost::this_thread::interruption_point();
         }
@@ -815,8 +815,29 @@ namespace nodetool
           // even if we now have results, finish thread without setting
           // result variables, which are now out of scope in main thread
           MWARNING("dns_threads[" << result_index << "] interrupted");
+        }
+
+        try
+        {
+          addr_list_ipv6 = tools::DNSResolver::instance().get_ipv6(addr_str, avail, valid);
+          MDEBUG("dns_threads[" << result_index << "] DNS resolve done");
+          boost::this_thread::interruption_point();
+        }
+        catch(const boost::thread_interrupted&)
+        {
+          // thread interruption request
+          // even if we now have results, finish thread without setting
+          // result variables, which are now out of scope in main thread
+          MWARNING("dns_threads[" << result_index << "] interrupted");
+        }
+
+        if (addr_list_ipv4.empty() && addr_list_ipv6.empty())
+        {
           return;
         }
+
+        addr_list.insert(addr_list.end(), addr_list_ipv4.begin(), addr_list_ipv4.end());
+        addr_list.insert(addr_list.end(), addr_list_ipv6.begin(), addr_list_ipv6.end());
 
         MINFO("dns_threads[" << result_index << "] addr_str: " << addr_str << "  number of results: " << addr_list.size());
         dns_results[result_index] = addr_list;

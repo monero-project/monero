@@ -42,7 +42,7 @@
 
 namespace po = boost::program_options;
 
-enum lookup_t { LOOKUP_A, LOOKUP_TXT };
+enum lookup_t { LOOKUP_A, LOOKUP_AAAA, LOOKUP_TXT };
 
 static std::vector<std::string> lookup(lookup_t type, const char *hostname)
 {
@@ -51,6 +51,7 @@ static std::vector<std::string> lookup(lookup_t type, const char *hostname)
   switch (type)
   {
     case LOOKUP_A: res = tools::DNSResolver::instance().get_ipv4(hostname, dnssec_available, dnssec_valid); break;
+    case LOOKUP_AAAA: res = tools::DNSResolver::instance().get_ipv6(hostname, dnssec_available, dnssec_valid); break;
     case LOOKUP_TXT: res = tools::DNSResolver::instance().get_txt_record(hostname, dnssec_available, dnssec_valid); break;
     default: MERROR("Invalid lookup type: " << (int)type); return {};
   }
@@ -130,6 +131,7 @@ int main(int argc, char* argv[])
   mlog_set_categories("+" MONERO_DEFAULT_LOG_CATEGORY ":INFO");
 
   lookup(LOOKUP_A, {"seeds.moneroseeds.se", "seeds.moneroseeds.ae.org", "seeds.moneroseeds.ch", "seeds.moneroseeds.li"});
+  lookup(LOOKUP_AAAA, {"seeds.moneroseeds.se", "seeds.moneroseeds.ae.org", "seeds.moneroseeds.ch", "seeds.moneroseeds.li"});
 
   lookup(LOOKUP_TXT, {"updates.moneropulse.org", "updates.moneropulse.net", "updates.moneropulse.co", "updates.moneropulse.se", "updates.moneropulse.fr", "updates.moneropulse.de", "updates.moneropulse.no", "updates.moneropulse.ch"});
 
