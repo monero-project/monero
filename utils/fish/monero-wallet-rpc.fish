@@ -38,7 +38,7 @@ complete -c monero-wallet-rpc -l rpc-bind-ipv4-address -r -d "Specify IPv4 addre
 complete -c monero-wallet-rpc -l rpc-bind-ipv6-address -r -d "Specify IPv6 address to bind RPC server. Default: ::1"
 complete -c monero-wallet-rpc -l rpc-restricted-bind-ipv4-address -r -d "Specify IPv4 address to bind restricted RPC server. Default: 127.0.0.1"
 complete -c monero-wallet-rpc -l rpc-restricted-bind-ipv6-address -r -d "Specify IPv6 address to bind restricted RPC server. Default: ::1"
-complete -c monero-wallet-rpc -l rpc-use-ipv6 -d "Allow IPv6 for RPC"
+complete -c monero-wallet-rpc -l rpc-ignore-ipv6 -d "Ignore unsuccessful IPv6 bind for RPC"
 complete -c monero-wallet-rpc -l rpc-ignore-ipv4 -d "Ignore unsuccessful IPv4 bind for RPC"
 complete -c monero-wallet-rpc -l rpc-login -r -d "Specify username[:password] required for RPC server"
 complete -c monero-wallet-rpc -l confirm-external-bind -d "Confirm rpc-bind-ipv4-address value is NOT a loopback (local) IP"

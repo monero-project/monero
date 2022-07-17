@@ -343,10 +343,10 @@ namespace net_utils
     void create_server_type_map();
 
     bool init_server(uint32_t port_ipv4, const std::string& address_ipv4 = "0.0.0.0",
-	uint32_t port_ipv6 = 0, const std::string& address_ipv6 = "::", bool use_ipv6 = false, bool require_ipv4 = true,
+	uint32_t port_ipv6 = 0, const std::string& address_ipv6 = "::", bool require_ipv6 = true, bool require_ipv4 = true,
 	ssl_options_t ssl_options = ssl_support_t::e_ssl_support_autodetect);
     bool init_server(const std::string port_ipv4, const std::string& address_ipv4 = "0.0.0.0",
-	const std::string port_ipv6 = "", const std::string address_ipv6 = "::", bool use_ipv6 = false, bool require_ipv4 = true,
+	const std::string port_ipv6 = "", const std::string address_ipv6 = "::", bool require_ipv6 = true, bool require_ipv4 = true,
 	ssl_options_t ssl_options = ssl_support_t::e_ssl_support_autodetect);
 
     /// Run the server's io_service loop.
@@ -473,7 +473,7 @@ namespace net_utils
     /// Handle completion of an asynchronous accept operation.
     void handle_accept_ipv4(const boost::system::error_code& e);
     void handle_accept_ipv6(const boost::system::error_code& e);
-    void handle_accept(const boost::system::error_code& e, bool ipv6 = false);
+    void handle_accept(const boost::system::error_code& e, bool ipv6 = true);
 
     bool is_thread_worker();
 
@@ -502,7 +502,7 @@ namespace net_utils
     uint32_t m_port_ipv6;
     std::string m_address_ipv4;
     std::string m_address_ipv6;
-    bool m_use_ipv6;
+    bool m_require_ipv6;
     bool m_require_ipv4;
     std::string m_thread_name_prefix; //TODO: change to enum server_type, now used
     size_t m_threads_count;

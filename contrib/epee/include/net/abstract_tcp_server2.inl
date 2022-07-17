@@ -1179,7 +1179,7 @@ namespace net_utils
   //---------------------------------------------------------------------------------
   template<class t_protocol_handler>
     bool boosted_tcp_server<t_protocol_handler>::init_server(uint32_t port_ipv4, const std::string& address_ipv4,
-	uint32_t port_ipv6, const std::string& address_ipv6, bool use_ipv6, bool require_ipv4,
+	uint32_t port_ipv6, const std::string& address_ipv6, bool require_ipv6, bool require_ipv4,
 	ssl_options_t ssl_options)
   {
     TRY_ENTRY();
@@ -1188,7 +1188,7 @@ namespace net_utils
     m_port_ipv6 = port_ipv6;
     m_address_ipv4 = address_ipv4;
     m_address_ipv6 = address_ipv6;
-    m_use_ipv6 = use_ipv6;
+    m_require_ipv6 = require_ipv6;
     m_require_ipv4 = require_ipv4;
 
     if (ssl_options)
@@ -1229,43 +1229,45 @@ namespace net_utils
       }
     }
 
-    if (use_ipv6)
+    try
     {
-      try
-      {
-        if (port_ipv6 == 0) port_ipv6 = port_ipv4; // default arg means bind to same port as ipv4
-        boost::asio::ip::tcp::resolver resolver(io_service_);
-        boost::asio::ip::tcp::resolver::query query(address_ipv6, boost::lexical_cast<std::string>(port_ipv6), boost::asio::ip::tcp::resolver::query::canonical_name);
-        boost::asio::ip::tcp::endpoint endpoint = *resolver.resolve(query);
-        acceptor_ipv6.open(endpoint.protocol());
+      if (port_ipv6 == 0) port_ipv6 = port_ipv4; // default arg means bind to same port as ipv4
+      boost::asio::ip::tcp::resolver resolver(io_service_);
+      boost::asio::ip::tcp::resolver::query query(address_ipv6, boost::lexical_cast<std::string>(port_ipv6), boost::asio::ip::tcp::resolver::query::canonical_name);
+      boost::asio::ip::tcp::endpoint endpoint = *resolver.resolve(query);
+      acceptor_ipv6.open(endpoint.protocol());
 #if !defined(_WIN32)
-        acceptor_ipv6.set_option(boost::asio::ip::tcp::acceptor::reuse_address(true));
+      acceptor_ipv6.set_option(boost::asio::ip::tcp::acceptor::reuse_address(true));
 #endif
-        acceptor_ipv6.set_option(boost::asio::ip::v6_only(true));
-        acceptor_ipv6.bind(endpoint);
-        acceptor_ipv6.listen();
-        boost::asio::ip::tcp::endpoint binded_endpoint = acceptor_ipv6.local_endpoint();
-        m_port_ipv6 = binded_endpoint.port();
-        MDEBUG("start accept (IPv6)");
-        new_connection_ipv6.reset(new connection<t_protocol_handler>(io_service_, m_state, m_connection_type, m_state->ssl_options().support));
-        acceptor_ipv6.async_accept(new_connection_ipv6->socket(),
-            boost::bind(&boosted_tcp_server<t_protocol_handler>::handle_accept_ipv6, this,
-              boost::asio::placeholders::error));
-      }
-      catch (const std::exception &e)
+      acceptor_ipv6.set_option(boost::asio::ip::v6_only(true));
+      acceptor_ipv6.bind(endpoint);
+      acceptor_ipv6.listen();
+      boost::asio::ip::tcp::endpoint binded_endpoint = acceptor_ipv6.local_endpoint();
+      m_port_ipv6 = binded_endpoint.port();
+      MDEBUG("start accept (IPv6)");
+      new_connection_ipv6.reset(new connection<t_protocol_handler>(io_service_, m_state, m_connection_type, m_state->ssl_options().support));
+      acceptor_ipv6.async_accept(new_connection_ipv6->socket(),
+          boost::bind(&boosted_tcp_server<t_protocol_handler>::handle_accept_ipv6, this,
+            boost::asio::placeholders::error));
+    }
+    catch (const std::exception &e)
+    {
+      ipv6_failed = e.what();
+    }
+
+    if (ipv6_failed != "")
+    {
+      MERROR("Failed to bind IPv6: " << ipv6_failed);
+      if (require_ipv6)
       {
-        ipv6_failed = e.what();
+        throw std::runtime_error("Failed to bind IPv6 (set to required)");
       }
     }
 
-      if (use_ipv6 && ipv6_failed != "")
-      {
-        MERROR("Failed to bind IPv6: " << ipv6_failed);
-        if (ipv4_failed != "")
-        {
-          throw std::runtime_error("Failed to bind IPv4 and IPv6");
-        }
-      }
+    if (ipv4_failed != "" && ipv6_failed != "")
+    {
+      throw std::runtime_error("Failed to bind IPv4 and IPv6");
+    }
 
     return true;
     }
@@ -1283,7 +1285,7 @@ namespace net_utils
   //-----------------------------------------------------------------------------
   template<class t_protocol_handler>
   bool boosted_tcp_server<t_protocol_handler>::init_server(const std::string port_ipv4, const std::string& address_ipv4,
-      const std::string port_ipv6, const std::string address_ipv6, bool use_ipv6, bool require_ipv4,
+      const std::string port_ipv6, const std::string address_ipv6, bool require_ipv6, bool require_ipv4,
       ssl_options_t ssl_options)
   {
     uint32_t p_ipv4 = 0;
@@ -1298,7 +1300,7 @@ namespace net_utils
       MERROR("Failed to convert port no = " << port_ipv6);
       return false;
     }
-    return this->init_server(p_ipv4, address_ipv4, p_ipv6, address_ipv6, use_ipv6, require_ipv4, std::move(ssl_options));
+    return this->init_server(p_ipv4, address_ipv4, p_ipv6, address_ipv6, require_ipv6, require_ipv4, std::move(ssl_options));
   }
   //---------------------------------------------------------------------------------
   template<class t_protocol_handler>
@@ -1389,7 +1391,7 @@ namespace net_utils
       {
         //some problems with the listening socket ?..
         _dbg1("Net service stopped without stop request, restarting...");
-        if(!this->init_server(m_port_ipv4, m_address_ipv4, m_port_ipv6, m_address_ipv6, m_use_ipv6, m_require_ipv4))
+        if(!this->init_server(m_port_ipv4, m_address_ipv4, m_port_ipv6, m_address_ipv6, m_require_ipv6, m_require_ipv4))
         {
           _dbg1("Reiniting service failed, exit.");
           return false;
@@ -1682,7 +1684,7 @@ namespace net_utils
     }
     catch (const boost::system::system_error& e)
     {
-      if (!m_use_ipv6 || (resolve_error != boost::asio::error::host_not_found &&
+      if (!m_require_ipv6 || (resolve_error != boost::asio::error::host_not_found &&
             resolve_error != boost::asio::error::host_not_found_try_again))
       {
         throw;
@@ -1699,7 +1701,7 @@ namespace net_utils
     boost::asio::ip::tcp::resolver::iterator end;
     if(iterator == end)
     {
-      if (!m_use_ipv6)
+      if (!m_require_ipv6)
       {
         _erro("Failed to resolve " << adr);
         return false;
@@ -1807,7 +1809,7 @@ namespace net_utils
     }
     catch (const boost::system::system_error& e)
     {
-      if (!m_use_ipv6 || (resolve_error != boost::asio::error::host_not_found &&
+      if (!m_require_ipv6 || (resolve_error != boost::asio::error::host_not_found &&
             resolve_error != boost::asio::error::host_not_found_try_again))
       {
         throw;

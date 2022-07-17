@@ -106,7 +106,8 @@ namespace nodetool
     command_line::add_arg(desc, arg_p2p_bind_ipv6_port, false);
     command_line::add_arg(desc, arg_p2p_bind_port, false); // DEPRECATED
     command_line::add_arg(desc, arg_p2p_bind_port_ipv6, false); // DEPRECATED
-    command_line::add_arg(desc, arg_p2p_use_ipv6);
+    command_line::add_arg(desc, arg_p2p_use_ipv6); // DEPRECATED
+    command_line::add_arg(desc, arg_p2p_ignore_ipv6);
     command_line::add_arg(desc, arg_p2p_ignore_ipv4);
     command_line::add_arg(desc, arg_p2p_external_port);
     command_line::add_arg(desc, arg_p2p_allow_local_ip);
@@ -471,8 +472,13 @@ namespace nodetool
       return false;
     }
     m_offline = command_line::get_arg(vm, cryptonote::arg_offline);
-    m_use_ipv6 = command_line::get_arg(vm, arg_p2p_use_ipv6);
+    m_require_ipv6 = !command_line::get_arg(vm, arg_p2p_ignore_ipv6);
     m_require_ipv4 = !command_line::get_arg(vm, arg_p2p_ignore_ipv4);
+
+    // DEPRECATED --p2p-use-ipv6
+    if (command_line::get_arg(vm, arg_p2p_use_ipv6))
+      MWARNING("--p2p-use-ipv6 is now DEPRECATED and has no effect");
+
     public_zone.m_notifier = cryptonote::levin::notify{
       public_zone.m_net_server.get_io_service(), public_zone.m_net_server.get_config_shared(), nullptr, epee::net_utils::zone::public_, pad_txs, m_payload_handler.get_core()
     };
@@ -1012,20 +1018,20 @@ namespace nodetool
         std::string ipv6_port = "";
         zone.second.m_net_server.set_connection_filter(this);
         MINFO("Binding (IPv4) on " << zone.second.m_bind_ipv4_address << ":" << zone.second.m_port_ipv4);
-        if (!zone.second.m_bind_ipv6_address.empty() && m_use_ipv6)
+        if (!zone.second.m_bind_ipv6_address.empty() && m_require_ipv6)
         {
           ipv6_addr = zone.second.m_bind_ipv6_address;
           ipv6_port = zone.second.m_port_ipv6;
           MINFO("Binding (IPv6) on " << zone.second.m_bind_ipv6_address << ":" << zone.second.m_port_ipv6);
         }
-        res = zone.second.m_net_server.init_server(zone.second.m_port_ipv4, zone.second.m_bind_ipv4_address, ipv6_port, ipv6_addr, m_use_ipv6, m_require_ipv4, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
+        res = zone.second.m_net_server.init_server(zone.second.m_port_ipv4, zone.second.m_bind_ipv4_address, ipv6_port, ipv6_addr, m_require_ipv6, m_require_ipv4, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
         CHECK_AND_ASSERT_MES(res, false, "Failed to bind server");
       }
     }
 
     m_listening_port_ipv4 = public_zone.m_net_server.get_binded_port_ipv4();
     MLOG_GREEN(el::Level::Info, "Net service bound (IPv4) to " << public_zone.m_bind_ipv4_address << ":" << m_listening_port_ipv4);
-    if (m_use_ipv6)
+    if (m_require_ipv6)
     {
       m_listening_port_ipv6 = public_zone.m_net_server.get_binded_port_ipv6();
       MLOG_GREEN(el::Level::Info, "Net service bound (IPv6) to " << public_zone.m_bind_ipv6_address << ":" << m_listening_port_ipv6);
@@ -1037,7 +1043,7 @@ namespace nodetool
     if(m_igd == igd)
     {
       add_upnp_port_mapping_v4(m_listening_port_ipv4);
-      if (m_use_ipv6)
+      if (m_require_ipv6)
       {
         add_upnp_port_mapping_v6(m_listening_port_ipv6);
       }

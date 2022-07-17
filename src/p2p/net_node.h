@@ -375,11 +375,11 @@ namespace nodetool
     bool is_peer_used(const peerlist_entry& peer);
     bool is_peer_used(const anchor_peerlist_entry& peer);
     bool is_addr_connected(const epee::net_utils::network_address& peer);
-    void add_upnp_port_mapping_impl(uint32_t port, bool ipv6=false);
+    void add_upnp_port_mapping_impl(uint32_t port, bool ipv6=true);
     void add_upnp_port_mapping_v4(uint32_t port);
     void add_upnp_port_mapping_v6(uint32_t port);
-    void add_upnp_port_mapping(uint32_t port, bool ipv4=true, bool ipv6=false);
-    void delete_upnp_port_mapping_impl(uint32_t port, bool ipv6=false);
+    void add_upnp_port_mapping(uint32_t port, bool ipv4=true, bool ipv6=true);
+    void delete_upnp_port_mapping_impl(uint32_t port, bool ipv6=true);
     void delete_upnp_port_mapping_v4(uint32_t port);
     void delete_upnp_port_mapping_v6(uint32_t port);
     void delete_upnp_port_mapping(uint32_t port);
@@ -457,7 +457,7 @@ namespace nodetool
     bool m_hide_my_port;
     igd_t m_igd;
     bool m_offline;
-    bool m_use_ipv6;
+    bool m_require_ipv6;
     bool m_require_ipv4;
     std::atomic<bool> is_closing;
     std::unique_ptr<boost::thread> mPeersLoggerThread;
@@ -527,7 +527,8 @@ namespace nodetool
     extern const command_line::arg_descriptor<std::string, false, true, 2> arg_p2p_bind_ipv6_port;
     extern const command_line::arg_descriptor<std::string> arg_p2p_bind_port; // DEPRECATED
     extern const command_line::arg_descriptor<std::string> arg_p2p_bind_port_ipv6; // DEPRECATED
-    extern const command_line::arg_descriptor<bool>        arg_p2p_use_ipv6;
+    extern const command_line::arg_descriptor<bool>        arg_p2p_use_ipv6; // DEPRECATED
+    extern const command_line::arg_descriptor<bool>        arg_p2p_ignore_ipv6;
     extern const command_line::arg_descriptor<bool>        arg_p2p_ignore_ipv4;
     extern const command_line::arg_descriptor<uint32_t>    arg_p2p_external_port;
     extern const command_line::arg_descriptor<bool>        arg_p2p_allow_local_ip;
