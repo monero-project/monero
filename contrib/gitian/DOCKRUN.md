@@ -57,7 +57,7 @@ The dockrun.sh script will do everything to build the binaries. Just specify the
 version to build as its only argument, e.g.
 
 ```bash
-./dockrun.sh v0.17.3.0
+./dockrun.sh v0.18.0.0
 ```
 
 The build should run to completion with no errors, and will display the SHA256 checksums
@@ -78,7 +78,7 @@ e.g.
 
 ```bash
 # Run build processes with 8 threads
-OPT="-j 8" ./dockrun.sh v0.17.3.0
+OPT="-j 8" ./dockrun.sh v0.18.0.0
 ```
 
 Post-build
@@ -98,16 +98,16 @@ more builder/var/install-linux.log
 more builder/var/build-linux.log
 ```
 
-You can find the compiled archives inside of the container at the following directory (be sure to replace `v0.17.3.0` with the version being built):
+You can find the compiled archives inside of the container at the following directory (be sure to replace `v0.18.0.0` with the version being built):
 
 ```bash
 docker exec -it gitrun /bin/bash
-ls -la out/v0.17.3.0/
+ls -la out/v0.18.0.0/
 ```
 
-To copy the compiled archives to the local host out of the Docker container, you can run the following (be sure to replace `v0.17.3.0` with the version being built):
+To copy the compiled archives to the local host out of the Docker container, you can run the following (be sure to replace `v0.18.0.0` with the version being built):
 
 ```bash
 mkdir out
-docker cp gitrun:/home/ubuntu/out/v0.17.3.0 out
+docker cp gitrun:/home/ubuntu/out/v0.18.0.0 out
 ```
