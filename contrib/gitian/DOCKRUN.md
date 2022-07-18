@@ -41,7 +41,6 @@ set your GitHub account name for the script to use:
 
 ```bash
 export GH_USER=<github account name>
-export VERSION=v0.18.0.0
 ```
 
 * PGP keys - if you don't have one already, you can use `gpg --quick-gen-key` to generate it.
@@ -58,6 +57,7 @@ The dockrun.sh script will do everything to build the binaries. Just specify the
 version to build as its only argument, e.g.
 
 ```bash
+VERSION=v0.18.0.0
 ./dockrun.sh $VERSION
 ```
 
