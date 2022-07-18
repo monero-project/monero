@@ -41,6 +41,7 @@ set your GitHub account name for the script to use:
 
 ```bash
 export GH_USER=<github account name>
+export VERSION=v0.18.0.0
 ```
 
 * PGP keys - if you don't have one already, you can use `gpg --quick-gen-key` to generate it.
@@ -57,7 +58,7 @@ The dockrun.sh script will do everything to build the binaries. Just specify the
 version to build as its only argument, e.g.
 
 ```bash
-./dockrun.sh v0.18.0.0
+./dockrun.sh $VERSION
 ```
 
 The build should run to completion with no errors, and will display the SHA256 checksums
@@ -78,7 +79,7 @@ e.g.
 
 ```bash
 # Run build processes with 8 threads
-OPT="-j 8" ./dockrun.sh v0.18.0.0
+OPT="-j 8" ./dockrun.sh $VERSION
 ```
 
 Post-build
@@ -98,16 +99,16 @@ more builder/var/install-linux.log
 more builder/var/build-linux.log
 ```
 
-You can find the compiled archives inside of the container at the following directory (be sure to replace `v0.18.0.0` with the version being built):
+You can find the compiled archives inside of the container at the following directory:
 
 ```bash
 docker exec -it gitrun /bin/bash
-ls -la out/v0.18.0.0/
+ls -la out/$VERSION/
 ```
 
-To copy the compiled archives to the local host out of the Docker container, you can run the following (be sure to replace `v0.18.0.0` with the version being built):
+To copy the compiled archives to the local host out of the Docker container, you can run the following:
 
 ```bash
 mkdir out
-docker cp gitrun:/home/ubuntu/out/v0.18.0.0 out
+docker cp gitrun:/home/ubuntu/out/$VERSION out
 ```
