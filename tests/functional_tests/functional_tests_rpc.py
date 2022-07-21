@@ -97,6 +97,8 @@ try:
   os.environ['MAKE_TEST_SIGNATURE'] = FUNCTIONAL_TESTS_DIRECTORY + '/make_test_signature'
   os.environ['SEEDHASH_EPOCH_BLOCKS'] = "8"
   os.environ['SEEDHASH_EPOCH_LAG'] = "4"
+  if not 'MINING_SILENT' in os.environ:
+    os.environ['MINING_SILENT'] = "1"
 
   for i in range(len(command_lines)):
     #print('Running: ' + str(command_lines[i]))
