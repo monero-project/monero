@@ -145,7 +145,7 @@ struct binary_archive<false> : public binary_archive_base<false>
   {
     auto current = bytes_.cbegin();
     auto end = bytes_.cend();
-    good_ &= (0 <= tools::read_varint(current, end, v));
+    good_ &= (0 < tools::read_varint(current, end, v));
     current = std::min(current, bytes_.cend());
     bytes_ = {current, std::size_t(bytes_.cend() - current)};
   }
