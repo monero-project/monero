@@ -147,10 +147,15 @@ public:
     std::string getMultisigInfo() const override;
     std::string makeMultisig(const std::vector<std::string>& info, uint32_t threshold) override;
     std::string exchangeMultisigKeys(const std::vector<std::string> &info) override;
-    bool exportMultisigImages(std::string& images) override;
+    bool finalizeMultisig(const std::vector<std::string>& extraMultisigInfo) override;
+    bool exportMultisigImages(std::string& images,std::string filename = "", bool ascii = false) override;
     size_t importMultisigImages(const std::vector<std::string>& images) override;
+    size_t importMultisigImages(std::string filename) override;
+    size_t importMultisigImagesAscii(std::string ascii) override;
     bool hasMultisigPartialKeyImages() const override;
+    PendingTransaction* loadMultisigTxFromFile(std::string filename) override;
     PendingTransaction*  restoreMultisigTransaction(const std::string& signData) override;
+    bool signMultisigTxFromFile(const std::string filename) override;
 
     PendingTransaction * createTransactionMultDest(const std::vector<std::string> &dst_addr, const std::string &payment_id,
                                         optional<std::vector<uint64_t>> amount, uint32_t mixin_count,

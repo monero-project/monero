@@ -58,6 +58,7 @@ public:
     std::string multisigSignData() override;
     void signMultisigTx() override;
     std::vector<std::string> signersKeys() const override;
+    std::vector<std::string> dest_addresses() const override;
 
 private:
     friend class WalletImpl;
