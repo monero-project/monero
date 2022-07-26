@@ -117,7 +117,7 @@ class test_sig_clsag
                 sk.dest = r[u];
                 sk.mask = s[u];
 
-                sigs.push_back(proveRctCLSAGSimple(messages[u],pubs,sk,s1[u],C_offsets[u],NULL,NULL,NULL,u,hw::get_device("default")));
+                sigs.push_back(proveRctCLSAGSimple(messages[u],pubs,sk,s1[u],C_offsets[u],u,hw::get_device("default")));
             }
 
             return true;

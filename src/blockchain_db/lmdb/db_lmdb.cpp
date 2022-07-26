@@ -25,13 +25,6 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#ifndef _WIN32
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <sys/mman.h>
-#include <fcntl.h>
-#endif
-
 #include "db_lmdb.h"
 
 #include <boost/filesystem.hpp>
@@ -1303,26 +1296,6 @@ BlockchainLMDB::BlockchainLMDB(bool batch_transactions): BlockchainDB()
   m_hardfork = nullptr;
 }
 
-void BlockchainLMDB::check_mmap_support()
-{
-#ifndef _WIN32
-  const boost::filesystem::path mmap_test_file = m_folder / boost::filesystem::unique_path();
-  int mmap_test_fd = ::open(mmap_test_file.string().c_str(), O_RDWR | O_CREAT, 0600);
-  if (mmap_test_fd < 0)
-    throw0(DB_ERROR((std::string("Failed to check for mmap support: open failed: ") + strerror(errno)).c_str()));
-  epee::misc_utils::auto_scope_leave_caller scope_exit_handler = epee::misc_utils::create_scope_leave_handler([mmap_test_fd, &mmap_test_file]() {
-    ::close(mmap_test_fd);
-    boost::filesystem::remove(mmap_test_file.string());
-  });
-  if (write(mmap_test_fd, "mmaptest", 8) != 8)
-    throw0(DB_ERROR((std::string("Failed to check for mmap support: write failed: ") + strerror(errno)).c_str()));
-  void *mmap_res = mmap(NULL, 8, PROT_READ, MAP_SHARED, mmap_test_fd, 0);
-  if (mmap_res == MAP_FAILED)
-    throw0(DB_ERROR("This filesystem does not support mmap: use --data-dir to place the blockchain on a filesystem which does"));
-  munmap(mmap_res, 8);
-#endif
-}
-
 void BlockchainLMDB::open(const std::string& filename, const int db_flags)
 {
   int result;
@@ -1334,14 +1307,8 @@ void BlockchainLMDB::open(const std::string& filename, const int db_flags)
     throw0(DB_OPEN_FAILURE("Attempted to open db, but it's already open"));
 
   boost::filesystem::path direc(filename);
-  if (boost::filesystem::exists(direc))
-  {
-    if (!boost::filesystem::is_directory(direc))
-      throw0(DB_OPEN_FAILURE("LMDB needs a directory path, but a file was passed"));
-  }
-  else
-  {
-    if (!boost::filesystem::create_directories(direc))
+  if (!boost::filesystem::exists(direc) &&
+      !boost::filesystem::create_directories(direc)) {
       throw0(DB_OPEN_FAILURE(std::string("Failed to create directory ").append(filename).c_str()));
   }
 
@@ -1363,9 +1330,6 @@ void BlockchainLMDB::open(const std::string& filename, const int db_flags)
   }
 
   m_folder = filename;
-
-  try { check_mmap_support(); }
-  catch(...) { MERROR("Failed to check for mmap support, proceeding"); }
 
 #ifdef __OpenBSD__
   if ((mdb_flags & MDB_WRITEMAP) == 0) {

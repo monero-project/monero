@@ -1042,7 +1042,7 @@ namespace cryptonote
     crypto::public_key subaddress_spendkey;
     if (out_can_be_to_acc(view_tag_opt, derivation, output_index))
     {
-      hwdev.derive_subaddress_public_key(out_key, derivation, output_index, subaddress_spendkey);
+      CHECK_AND_ASSERT_MES(hwdev.derive_subaddress_public_key(out_key, derivation, output_index, subaddress_spendkey), boost::none, "Failed to derive subaddress public key");
       auto found = subaddresses.find(subaddress_spendkey);
       if (found != subaddresses.end())
         return subaddress_receive_info{ found->second, derivation };
@@ -1054,7 +1054,7 @@ namespace cryptonote
       CHECK_AND_ASSERT_MES(output_index < additional_derivations.size(), boost::none, "wrong number of additional derivations");
       if (out_can_be_to_acc(view_tag_opt, additional_derivations[output_index], output_index))
       {
-        hwdev.derive_subaddress_public_key(out_key, additional_derivations[output_index], output_index, subaddress_spendkey);
+        CHECK_AND_ASSERT_MES(hwdev.derive_subaddress_public_key(out_key, additional_derivations[output_index], output_index, subaddress_spendkey), boost::none, "Failed to derive subaddress public key");
         auto found = subaddresses.find(subaddress_spendkey);
         if (found != subaddresses.end())
           return subaddress_receive_info{ found->second, additional_derivations[output_index] };

@@ -231,7 +231,27 @@ namespace tools
   bool is_privacy_preserving_network(const std::string &address);
   int vercmp(const char *v0, const char *v1); // returns < 0, 0, > 0, similar to strcmp, but more human friendly than lexical - does not attempt to validate
 
+  /**
+   * \brief Creates a SHA-256 digest of a data buffer
+   *
+   * \param[in] data pointer to the buffer
+   * \param[in] len size of the buffer in bytes
+   * \param[out] hash where message digest will be written to
+   *
+   * \returns true if successful, false otherwise
+   */
   bool sha256sum(const uint8_t *data, size_t len, crypto::hash &hash);
+
+  /**
+   * \brief Creates a SHA-256 digest of a file's contents, equivalent to the sha256sum command in Linux
+   *
+   * \param[in] filename path to target file
+   * \param[out] hash where message digest will be written to
+   *
+   * \returns true if successful, false if the file can not be opened or there is an OpenSSL failure
+   *
+   * \throws ios_base::failure if after the file is successfully opened, an error occurs during reading
+   */
   bool sha256sum(const std::string &filename, crypto::hash &hash);
 
   boost::optional<bool> is_hdd(const char *path);

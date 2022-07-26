@@ -31,8 +31,10 @@ def setup():
     subprocess.check_call(['git', 'checkout', 'c0f77ca018cb5332bfd595e0aff0468f77542c23'])
     os.makedirs('inputs', exist_ok=True)
     os.chdir('inputs')
-    if not os.path.isdir('monero'):
-        subprocess.check_call(['git', 'clone', args.url, 'monero'])
+    if os.path.isdir('monero'):
+        # Remove the potentially stale monero dir. Otherwise you might face submodule mismatches.
+        subprocess.check_call(['rm', 'monero', '-fR'])
+    subprocess.check_call(['git', 'clone', args.url, 'monero'])
     os.chdir('..')
     make_image_prog = ['bin/make-base-vm', '--suite', 'bionic', '--arch', 'amd64']
     if args.docker:

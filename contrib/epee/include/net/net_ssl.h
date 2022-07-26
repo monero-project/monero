@@ -110,6 +110,11 @@ namespace net_utils
     //! Search against internal fingerprints. Always false if `behavior() != user_certificate_check`.
     bool has_fingerprint(boost::asio::ssl::verify_context &ctx) const;
 
+    //! configure ssl_stream handshake verification
+    void configure(
+      boost::asio::ssl::stream<boost::asio::ip::tcp::socket> &socket,
+      boost::asio::ssl::stream_base::handshake_type type,
+      const std::string& host = {}) const;
     boost::asio::ssl::context create_context() const;
 
     /*! \note If `this->support == autodetect && this->verification != none`,

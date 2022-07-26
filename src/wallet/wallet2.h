@@ -137,7 +137,7 @@ private:
   public:
     // Full wallet callbacks
     virtual void on_new_block(uint64_t height, const cryptonote::block& block) {}
-    virtual void on_money_received(uint64_t height, const crypto::hash &txid, const cryptonote::transaction& tx, uint64_t amount, const cryptonote::subaddress_index& subaddr_index, bool is_change, uint64_t unlock_time) {}
+    virtual void on_money_received(uint64_t height, const crypto::hash &txid, const cryptonote::transaction& tx, uint64_t amount, uint64_t burnt, const cryptonote::subaddress_index& subaddr_index, bool is_change, uint64_t unlock_time) {}
     virtual void on_unconfirmed_money_received(uint64_t height, const crypto::hash &txid, const cryptonote::transaction& tx, uint64_t amount, const cryptonote::subaddress_index& subaddr_index) {}
     virtual void on_money_spent(uint64_t height, const crypto::hash &txid, const cryptonote::transaction& in_tx, uint64_t amount, const cryptonote::transaction& spend_tx, const cryptonote::subaddress_index& subaddr_index) {}
     virtual void on_skip_transaction(uint64_t height, const crypto::hash &txid, const cryptonote::transaction& tx) {}
@@ -349,6 +349,8 @@ private:
       uint64_t amount() const { return m_amount; }
       const crypto::public_key get_public_key() const {
         crypto::public_key output_public_key;
+        THROW_WALLET_EXCEPTION_IF(m_tx.vout.size() <= m_internal_output_index,
+          error::wallet_internal_error, "Too few outputs, outputs may be corrupted");
         THROW_WALLET_EXCEPTION_IF(!get_output_public_key(m_tx.vout[m_internal_output_index], output_public_key),
           error::wallet_internal_error, "Unable to get output public key from output");
         return output_public_key;
@@ -492,6 +494,7 @@ private:
 
     struct confirmed_transfer_details
     {
+      cryptonote::transaction_prefix m_tx;
       uint64_t m_amount_in;
       uint64_t m_amount_out;
       uint64_t m_change;
@@ -506,10 +509,12 @@ private:
 
       confirmed_transfer_details(): m_amount_in(0), m_amount_out(0), m_change((uint64_t)-1), m_block_height(0), m_payment_id(crypto::null_hash), m_timestamp(0), m_unlock_time(0), m_subaddr_account((uint32_t)-1) {}
       confirmed_transfer_details(const unconfirmed_transfer_details &utd, uint64_t height):
-        m_amount_in(utd.m_amount_in), m_amount_out(utd.m_amount_out), m_change(utd.m_change), m_block_height(height), m_dests(utd.m_dests), m_payment_id(utd.m_payment_id), m_timestamp(utd.m_timestamp), m_unlock_time(utd.m_tx.unlock_time), m_subaddr_account(utd.m_subaddr_account), m_subaddr_indices(utd.m_subaddr_indices), m_rings(utd.m_rings) {}
+        m_tx(utd.m_tx), m_amount_in(utd.m_amount_in), m_amount_out(utd.m_amount_out), m_change(utd.m_change), m_block_height(height), m_dests(utd.m_dests), m_payment_id(utd.m_payment_id), m_timestamp(utd.m_timestamp), m_unlock_time(utd.m_tx.unlock_time), m_subaddr_account(utd.m_subaddr_account), m_subaddr_indices(utd.m_subaddr_indices), m_rings(utd.m_rings) {}
 
       BEGIN_SERIALIZE_OBJECT()
-        VERSION_FIELD(0)
+        VERSION_FIELD(1)
+        if (version >= 1)
+          FIELD(m_tx)
         VARINT_FIELD(m_amount_in)
         VARINT_FIELD(m_amount_out)
         VARINT_FIELD(m_change)
@@ -594,13 +599,24 @@ private:
       std::unordered_set<crypto::public_key> signing_keys;
       rct::multisig_out msout;
 
+      rct::keyM total_alpha_G;
+      rct::keyM total_alpha_H;
+      rct::keyV c_0;
+      rct::keyV s;
+
       BEGIN_SERIALIZE_OBJECT()
-        VERSION_FIELD(0)
+        VERSION_FIELD(1)
+        if (version < 1)
+          return false;
         FIELD(sigs)
         FIELD(ignore)
         FIELD(used_L)
         FIELD(signing_keys)
         FIELD(msout)
+        FIELD(total_alpha_G)
+        FIELD(total_alpha_H)
+        FIELD(c_0)
+        FIELD(s)
       END_SERIALIZE()
     };
 
@@ -619,10 +635,12 @@ private:
       std::vector<crypto::secret_key> additional_tx_keys;
       std::vector<cryptonote::tx_destination_entry> dests;
       std::vector<multisig_sig> multisig_sigs;
+      crypto::secret_key multisig_tx_key_entropy;
 
       tx_construction_data construction_data;
 
       BEGIN_SERIALIZE_OBJECT()
+        VERSION_FIELD(1)
         FIELD(tx)
         FIELD(dust)
         FIELD(fee)
@@ -635,6 +653,12 @@ private:
         FIELD(dests)
         FIELD(construction_data)
         FIELD(multisig_sigs)
+        if (version < 1)
+        {
+          multisig_tx_key_entropy = crypto::null_skey;
+          return true;
+        }
+        FIELD(multisig_tx_key_entropy)
       END_SERIALIZE()
     };
 
@@ -1297,6 +1321,8 @@ private:
     void set_rpc_client_secret_key(const crypto::secret_key &key) { m_rpc_client_secret_key = key; m_node_rpc_proxy.set_client_secret_key(key); }
     uint64_t credits_target() const { return m_credits_target; }
     void credits_target(uint64_t threshold) { m_credits_target = threshold; }
+    bool is_multisig_enabled() const { return m_enable_multisig; }
+    void enable_multisig(bool enable) { m_enable_multisig = enable; }
 
     bool get_tx_key_cached(const crypto::hash &txid, crypto::secret_key &tx_key, std::vector<crypto::secret_key> &additional_tx_keys) const;
     void set_tx_key(const crypto::hash &txid, const crypto::secret_key &tx_key, const std::vector<crypto::secret_key> &additional_tx_keys, const boost::optional<cryptonote::account_public_address> &single_destination_subaddress = boost::none);
@@ -1678,7 +1704,7 @@ private:
     crypto::key_image get_multisig_composite_key_image(size_t n) const;
     rct::multisig_kLRki get_multisig_composite_kLRki(size_t n,  const std::unordered_set<crypto::public_key> &ignore_set, std::unordered_set<rct::key> &used_L, std::unordered_set<rct::key> &new_used_L) const;
     rct::multisig_kLRki get_multisig_kLRki(size_t n, const rct::key &k) const;
-    rct::key get_multisig_k(size_t idx, const std::unordered_set<rct::key> &used_L) const;
+    void get_multisig_k(size_t idx, const std::unordered_set<rct::key> &used_L, rct::key &nonce);
     void update_multisig_rescan_info(const std::vector<std::vector<rct::key>> &multisig_k, const std::vector<std::vector<tools::wallet2::multisig_info>> &info, size_t n);
     bool add_rings(const crypto::chacha_key &key, const cryptonote::transaction_prefix &tx);
     bool add_rings(const cryptonote::transaction_prefix &tx);
@@ -1814,6 +1840,7 @@ private:
     crypto::secret_key m_rpc_client_secret_key;
     rpc_payment_state_t m_rpc_payment_state;
     uint64_t m_credits_target;
+    bool m_enable_multisig;
 
     // Aux transaction data from device
     serializable_unordered_map<crypto::hash, std::string> m_tx_device;
@@ -1876,7 +1903,7 @@ BOOST_CLASS_VERSION(tools::wallet2::unsigned_tx_set, 0)
 BOOST_CLASS_VERSION(tools::wallet2::signed_tx_set, 1)
 BOOST_CLASS_VERSION(tools::wallet2::tx_construction_data, 4)
 BOOST_CLASS_VERSION(tools::wallet2::pending_tx, 3)
-BOOST_CLASS_VERSION(tools::wallet2::multisig_sig, 0)
+BOOST_CLASS_VERSION(tools::wallet2::multisig_sig, 1)
 
 namespace boost
 {
@@ -2314,6 +2341,12 @@ namespace boost
       a & x.used_L;
       a & x.signing_keys;
       a & x.msout;
+      if (ver < 1)
+        return;
+      a & x.total_alpha_G;
+      a & x.total_alpha_H;
+      a & x.c_0;
+      a & x.s;
     }
 
     template <class Archive>

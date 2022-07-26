@@ -4,6 +4,8 @@ $(package)_download_path=https://www.nlnetlabs.nl/downloads/$(package)/
 $(package)_file_name=$(package)-$($(package)_version).tar.gz
 $(package)_sha256_hash=a480dc6c8937447b98d161fe911ffc76cfaffa2da18788781314e81339f1126f
 $(package)_dependencies=openssl expat ldns
+$(package)_patches=disable-glibc-reallocarray.patch
+
 
 define $(package)_set_vars
   $(package)_config_opts=--disable-shared --enable-static --without-pyunbound --prefix=$(host_prefix) --with-libexpat=$(host_prefix) --with-ssl=$(host_prefix) --with-libevent=no --without-pythonmodule --disable-flto --with-pthreads --with-libunbound-only
@@ -12,8 +14,13 @@ define $(package)_set_vars
   $(package)_build_opts_mingw32=LDFLAGS="$($(package)_ldflags) -lpthread"
 endef
 
+define $(package)_preprocess_cmds
+  patch -p1 < $($(package)_patch_dir)/disable-glibc-reallocarray.patch &&\
+  autoconf
+endef
+
 define $(package)_config_cmds
-  $($(package)_autoconf)
+  $($(package)_autoconf) ac_cv_func_getentropy=no
 endef
 
 define $(package)_build_cmds

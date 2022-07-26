@@ -51,7 +51,6 @@ namespace epee
       {
         CHECK_AND_ASSERT_THROW_MES(recursion < EPEE_JSON_RECURSION_LIMIT_INTERNAL, "Wrong JSON data: recursion limitation (" << EPEE_JSON_RECURSION_LIMIT_INTERNAL << ") exceeded");
 
-        std::string::const_iterator sub_element_start;
         std::string name;        
         typename t_storage::harray h_array = nullptr;
         enum match_state

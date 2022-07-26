@@ -2416,7 +2416,10 @@ namespace wallet_rpc
   {
     struct request_t
     {
+      bool enable_multisig_experimental;
+
       BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE_OPT(enable_multisig_experimental, false)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;

@@ -154,18 +154,20 @@ struct Wallet2CallbackImpl : public tools::i_wallet2_callback
         }
     }
 
-    virtual void on_money_received(uint64_t height, const crypto::hash &txid, const cryptonote::transaction& tx, uint64_t amount, const cryptonote::subaddress_index& subaddr_index, bool is_change, uint64_t unlock_time)
+    virtual void on_money_received(uint64_t height, const crypto::hash &txid, const cryptonote::transaction& tx, uint64_t amount, uint64_t burnt, const cryptonote::subaddress_index& subaddr_index, bool is_change, uint64_t unlock_time)
     {
 
         std::string tx_hash =  epee::string_tools::pod_to_hex(txid);
 
         LOG_PRINT_L3(__FUNCTION__ << ": money received. height:  " << height
                      << ", tx: " << tx_hash
-                     << ", amount: " << print_money(amount)
+                     << ", amount: " << print_money(amount - burnt)
+                     << ", burnt: " << print_money(burnt)
+                     << ", raw_output_value: " << print_money(amount)
                      << ", idx: " << subaddr_index);
         // do not signal on received tx if wallet is not syncronized completely
         if (m_listener && m_wallet->synchronized()) {
-            m_listener->moneyReceived(tx_hash, amount);
+            m_listener->moneyReceived(tx_hash, amount - burnt);
             m_listener->updated();
         }
     }
@@ -1274,6 +1276,42 @@ bool WalletImpl::importOutputs(const string &filename)
     {
         LOG_ERROR("Failed to import outputs: " << e.what());
         setStatusError(string(tr("Failed to import outputs: ")) + e.what());
+        return false;
+    }
+
+    return true;
+}
+
+bool WalletImpl::scanTransactions(const std::vector<std::string> &txids)
+{
+    if (txids.empty())
+    {
+        setStatusError(string(tr("Failed to scan transactions: no transaction ids provided.")));
+        return false;
+    }
+
+    // Parse and dedup args
+    std::unordered_set<crypto::hash> txids_u;
+    for (const auto &s : txids)
+    {
+        crypto::hash txid;
+        if (!epee::string_tools::hex_to_pod(s, txid))
+        {
+            setStatusError(string(tr("Invalid txid specified: ")) + s);
+            return false;
+        }
+        txids_u.insert(txid);
+    }
+    std::vector<crypto::hash> txids_v(txids_u.begin(), txids_u.end());
+
+    try
+    {
+        m_wallet->scan_tx(txids_v);
+    }
+    catch (const std::exception &e)
+    {
+        LOG_ERROR("Failed to scan transaction: " << e.what());
+        setStatusError(string(tr("Failed to scan transaction: ")) + e.what());
         return false;
     }
 

@@ -133,10 +133,11 @@ Common setup part:
 su - gitianuser
 
 GH_USER=YOUR_GITHUB_USER_NAME
-VERSION=v0.17.2.0
+VERSION=v0.18.0.0
 ```
 
 Where `GH_USER` is your GitHub user name and `VERSION` is the version tag you want to build. 
+The `gitian-build.py`'s `--setup` switch will also refresh the environment of any stale files and submodules.
 
 Setup for LXC:
 
