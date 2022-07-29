@@ -800,6 +800,11 @@ struct Wallet
      */
     virtual std::string makeMultisig(const std::vector<std::string>& info, uint32_t threshold) = 0;
     /**
+     * @brief prepareMultisig - prepare a wallet for multisig by generating a multisig string to share with peers.
+     * @return multisig string to share with peers to create the multisig wallet.
+     */
+    virtual std::string prepareMultisig() = 0;
+    /**
      * @brief exchange_multisig_keys - provides additional key exchange round for arbitrary multisig schemes (like N-1/N, M/N)
      * @param info - base58 encoded key derivations returned by makeMultisig or exchangeMultisigKeys function call
      * @return new info string if more rounds required or an empty string if wallet creation is done

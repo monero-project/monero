@@ -1379,6 +1379,23 @@ string WalletImpl::getMultisigInfo() const {
     return string();
 }
 
+std::string WalletImpl::prepareMultisig() {
+    try {
+        clearStatus();
+
+        if (m_wallet->multisig()) {
+            throw runtime_error("Wallet is already multisig");
+        }
+
+        return m_wallet->get_multisig_first_kex_msg();
+    } catch (const exception& e) {
+        LOG_ERROR("Error on preparing multisig wallet: " << e.what());
+        setStatusError(string(tr("Failed to make multisig: ")) + e.what());
+    }
+
+    return string();
+}
+
 string WalletImpl::makeMultisig(const vector<string>& info, const uint32_t threshold) {
     try {
         clearStatus();
