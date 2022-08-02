@@ -1509,7 +1509,9 @@ size_t WalletImpl::importMultisigImages(string filename) {
 
         string data;
         std::vector<cryptonote::blobdata> images;
-        m_wallet->load_from_file(filename, data);
+        if(!m_wallet->load_from_file(filename, data)) {
+            throw runtime_error("Couldn't load from file");
+        }
         images.push_back(std::move(data));
         return m_wallet->import_multisig(images);
     } catch (const exception& e) {
