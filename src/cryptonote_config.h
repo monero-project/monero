@@ -49,7 +49,8 @@
 #define CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE             10
 
 #define BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW               60
-
+#define ORACLE_EON_PUBLISHERS                          11
+#define MIN_ORACLE_EON_RATERS                          11
 //Service nodes
 
 #define SERVICE_NODE_VERSION                            5
@@ -92,6 +93,11 @@ static_assert(STAKING_PORTIONS % 3 == 0, "Use a multiple of three, so that it di
 #define MINT_BRIDGE                                     ((uint64_t)167195840000) //16,719,584 XEQ MINT for Bridge
 #define BURN_2                                          ((uint64_t)40000000000) // 7,000,000 XEQ BURN
 
+
+
+
+#define XEQ_REQ                                         ((uint64_t) 10000)
+#define CORP_MINT                                       ((uint64_t)80000000000)
 
 
 #define EMISSION_SPEED_FACTOR_PER_MINUTE                (20)

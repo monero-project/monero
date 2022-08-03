@@ -1373,6 +1373,12 @@ bool Blockchain::allow_governance(uint64_t height)
     } else if(height == 841197)
     {
       return true;
+    }  else if(height == 892051)
+    {
+      return true;
+    } else if(height > 892051)
+    {
+      return false;
     }
   }
   else if(m_nettype == TESTNET)

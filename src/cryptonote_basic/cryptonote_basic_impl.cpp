@@ -131,7 +131,11 @@ namespace cryptonote {
        already_generated_coins += BURN_2;
      }
 
-     std::cout << ((MONEY_SUPPLY - already_generated_coins) >> 20) << std::endl;
+     if(version >= 13)
+     {
+      already_generated_coins -= CORP_MINT;
+     }
+
 	   uint64_t base_reward = (MONEY_SUPPLY - already_generated_coins) >> emission_speed_factor;
 
 
