@@ -401,9 +401,11 @@ private:
       } m_flags;
       uint64_t m_amount;
       std::vector<crypto::public_key> m_additional_tx_keys;
+      uint32_t m_subaddr_index_major;
+      uint32_t m_subaddr_index_minor;
 
       BEGIN_SERIALIZE_OBJECT()
-        VERSION_FIELD(0)
+        VERSION_FIELD(1)
         FIELD(m_pubkey)
         VARINT_FIELD(m_internal_output_index)
         VARINT_FIELD(m_global_output_index)
@@ -411,6 +413,8 @@ private:
         FIELD(m_flags.flags)
         VARINT_FIELD(m_amount)
         FIELD(m_additional_tx_keys)
+        VARINT_FIELD(m_subaddr_index_major)
+        VARINT_FIELD(m_subaddr_index_minor)
       END_SERIALIZE()
     };
 
