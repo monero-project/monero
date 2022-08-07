@@ -13241,7 +13241,7 @@ size_t wallet2::import_outputs(const std::pair<uint64_t, std::vector<tools::wall
     exported_transfer_details etd = outputs.second[i];
     transfer_details &td = m_transfers[i + offset];
 
-    // setup td with "cheao" loaded data
+    // setup td with "cheap" loaded data
     td.m_block_height = 0;
     td.m_txid = crypto::null_hash;
     td.m_global_output_index = etd.m_global_output_index;
@@ -13254,6 +13254,8 @@ size_t wallet2::import_outputs(const std::pair<uint64_t, std::vector<tools::wall
     td.m_key_image_known = etd.m_flags.m_key_image_known;
     td.m_key_image_request = etd.m_flags.m_key_image_request;
     td.m_key_image_partial = false;
+    td.m_subaddr_index.major = etd.m_subaddr_index_major;
+    td.m_subaddr_index.minor = etd.m_subaddr_index_minor;
 
     // skip those we've already imported, or which have different data
     if (i + offset < original_size)
