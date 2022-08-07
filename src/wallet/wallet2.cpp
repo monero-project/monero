@@ -6606,7 +6606,7 @@ bool wallet2::sign_tx(unsigned_tx_set &exported_txs, std::vector<wallet2::pendin
 {
   if (!exported_txs.new_transfers.second.empty())
     import_outputs(exported_txs.new_transfers);
-  else
+  else if (exported_txs.transfers.second.empty())
     import_outputs(exported_txs.transfers);
 
   // sign the transactions
@@ -13395,7 +13395,7 @@ size_t wallet2::import_outputs_from_str(const std::string &outputs_st)
       outputs.second = {};
     }
 
-    imported_outputs = new_outputs.second.empty() ? import_outputs(outputs) : import_outputs(new_outputs);
+    imported_outputs = !new_outputs.second.empty() ? import_outputs(new_outputs) : !outputs.second.empty() ? import_outputs(outputs) : 0;
   }
   catch (const std::exception &e)
   {
