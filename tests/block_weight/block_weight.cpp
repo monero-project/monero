@@ -141,7 +141,7 @@ static uint32_t lcg()
 
 static void test(test_t t, uint64_t blocks)
 {
-  PREFIX(10);
+  PREFIX(HF_VERSION_2021_SCALING);
 
   for (uint64_t h = 0; h < LONG_TERM_BLOCK_WEIGHT_WINDOW; ++h)
   {
@@ -180,8 +180,8 @@ static void test(test_t t, uint64_t blocks)
     }
     uint64_t ltw = bc->get_next_long_term_block_weight(w);
     cryptonote::block b;
-    b.major_version = 10;
-    b.minor_version = 10;
+    b.major_version = HF_VERSION_2021_SCALING;
+    b.minor_version = HF_VERSION_2021_SCALING;
     bc->get_db().add_block(std::make_pair(std::move(b), ""), w, ltw, bc->get_db().height(), bc->get_db().height(), {});
 
     if (!bc->update_next_cumulative_weight_limit())
