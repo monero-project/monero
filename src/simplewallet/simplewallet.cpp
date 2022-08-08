@@ -7131,22 +7131,36 @@ bool simple_wallet::sweep_main(uint32_t account, uint64_t below, bool locked, co
     return true;
 
   std::vector<std::string> local_args = args_;
-
+  auto index_iterator = std::find_if(local_args.begin(), local_args.end(), [](std::string &arg){return arg.find("index=") != std::string::npos;});
   std::set<uint32_t> subaddr_indices;
-  if (local_args.size() > 0 && local_args[0].substr(0, 6) == "index=")
+
+  if (index_iterator != local_args.end())
   {
-    if (local_args[0] == "index=all")
+    if (index_iterator != local_args.begin())
     {
-      for (uint32_t i = 0; i < m_wallet->get_num_subaddresses(m_current_subaddress_account); ++i)
-        subaddr_indices.insert(i);
-    }
-    else if (!parse_subaddress_indices(local_args[0], subaddr_indices))
-    {
+      fail_msg_writer() << tr("indexes should be the first arguments if given, transaction canceled");
       print_usage();
-      return true;
+      return false;
     }
-    local_args.erase(local_args.begin());
+    else
+    {
+      if (local_args[0].substr(0, 6) == "index=")
+      {
+        if (local_args[0] == "index=all")
+        {
+          for (uint32_t i = 0; i < m_wallet->get_num_subaddresses(m_current_subaddress_account); ++i)
+            subaddr_indices.insert(i);
+        }
+        else if (!parse_subaddress_indices(local_args[0], subaddr_indices))
+        {
+          print_usage();
+          return true;
+        }
+        local_args.erase(local_args.begin());
+      }
+    }
   }
+  
 
   uint32_t priority = 0;
   if (local_args.size() > 0 && parse_priority(local_args[0], priority))
