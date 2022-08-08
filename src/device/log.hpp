@@ -75,6 +75,7 @@ namespace hw {
 
         void check32(const std::string &msg, const std::string &info, const char *h, const char *d, bool crypted=false);
         void check8(const std::string &msg, const std::string &info, const char *h, const char *d,  bool crypted=false);
+        void check1(const std::string &msg, const std::string &info, const char *h, const char *d,  bool crypted=false);
 
         void set_check_verbose(bool verbose);
         #endif
