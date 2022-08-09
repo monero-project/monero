@@ -402,6 +402,19 @@ namespace cryptonote
     m_txpool_max_weight = bytes;
   }
   //---------------------------------------------------------------------------------
+  void tx_memory_pool::reduce_txpool_weight(size_t weight)
+  {
+    if (weight > m_txpool_weight)
+    {
+      MERROR("Underflow in txpool weight");
+      m_txpool_weight = 0;
+    }
+    else
+    {
+      m_txpool_weight -= weight;
+    }
+  }
+  //---------------------------------------------------------------------------------
   void tx_memory_pool::prune(size_t bytes)
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
@@ -423,8 +436,14 @@ namespace cryptonote
         txpool_tx_meta_t meta;
         if (!m_blockchain.get_txpool_tx_meta(txid, meta))
         {
-          MERROR("Failed to find tx_meta in txpool");
-          return;
+          static bool warned = false;
+          if (!warned)
+          {
+            MERROR("Failed to find tx_meta in txpool (will only print once)");
+            warned = true;
+          }
+          --it;
+          continue;
         }
         // don't prune the kept_by_block ones, they're likely added because we're adding a block with those
         if (meta.kept_by_block)
@@ -442,7 +461,7 @@ namespace cryptonote
         // remove first, in case this throws, so key images aren't removed
         MINFO("Pruning tx " << txid << " from txpool: weight: " << meta.weight << ", fee/byte: " << it->first.first);
         m_blockchain.remove_txpool_tx(txid);
-        m_txpool_weight -= meta.weight;
+        reduce_txpool_weight(meta.weight);
         remove_transaction_keyimages(tx, txid);
         MINFO("Pruned tx " << txid << " from txpool: weight: " << meta.weight << ", fee/byte: " << it->first.first);
         m_txs_by_fee_and_receive_time.erase(it--);
@@ -562,7 +581,7 @@ namespace cryptonote
 
       // remove first, in case this throws, so key images aren't removed
       m_blockchain.remove_txpool_tx(id);
-      m_txpool_weight -= tx_weight;
+      reduce_txpool_weight(tx_weight);
       remove_transaction_keyimages(tx, id);
       lock.commit();
     }
@@ -725,7 +744,7 @@ namespace cryptonote
           {
             // remove first, so we only remove key images if the tx removal succeeds
             m_blockchain.remove_txpool_tx(txid);
-            m_txpool_weight -= entry.second;
+            reduce_txpool_weight(entry.second);
             remove_transaction_keyimages(tx, txid);
           }
         }
