@@ -57,7 +57,7 @@ The dockrun.sh script will do everything to build the binaries. Just specify the
 version to build as its only argument, e.g.
 
 ```bash
-VERSION=v0.18.0.0
+VERSION=v0.18.1.0
 ./dockrun.sh $VERSION
 ```
 
