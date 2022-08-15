@@ -12739,7 +12739,8 @@ uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_imag
     return 0;
   }
 
-  req.key_images.reserve(signed_key_images.size());
+  static const size_t chunk_size = 250;
+  req.key_images.reserve(std::min(chunk_size, signed_key_images.size()));
 
   PERF_TIMER_START(import_key_images_A);
   for (size_t n = 0; n < signed_key_images.size(); ++n)
@@ -12764,7 +12765,6 @@ uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_imag
           + boost::lexical_cast<std::string>(signed_key_images.size()) + ", key image " + epee::string_tools::pod_to_hex(key_image)
           + ", signature " + epee::string_tools::pod_to_hex(signature) + ", pubkey " + epee::string_tools::pod_to_hex(*pkeys[0]));
     }
-    req.key_images.push_back(epee::string_tools::pod_to_hex(key_image));
   }
   PERF_TIMER_STOP(import_key_images_A);
 
@@ -12782,22 +12782,33 @@ uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_imag
   if(check_spent)
   {
     PERF_TIMER(import_key_images_RPC);
+    size_t done = 0;
+    while (done < signed_key_images.size())
     {
-      const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};
-      uint64_t pre_call_credits = m_rpc_payment_state.credits;
-      req.client = get_client_signature();
-      bool r = epee::net_utils::invoke_http_json("/is_key_image_spent", req, daemon_resp, *m_http_client, rpc_timeout);
-      THROW_ON_RPC_RESPONSE_ERROR_GENERIC(r, {},  daemon_resp, "is_key_image_spent");
-      THROW_WALLET_EXCEPTION_IF(daemon_resp.spent_status.size() != signed_key_images.size(), error::wallet_internal_error,
-        "daemon returned wrong response for is_key_image_spent, wrong amounts count = " +
-        std::to_string(daemon_resp.spent_status.size()) + ", expected " +  std::to_string(signed_key_images.size()));
-      check_rpc_cost("/is_key_image_spent", daemon_resp.credits, pre_call_credits, daemon_resp.spent_status.size() * COST_PER_KEY_IMAGE);
-    }
+      const size_t this_chunk_size = std::min(chunk_size, signed_key_images.size() - done);
+      req.key_images.clear();
+      for (size_t i = 0; i < this_chunk_size; ++i)
+        req.key_images.push_back(epee::string_tools::pod_to_hex(signed_key_images[done + i].first));
 
-    for (size_t n = 0; n < daemon_resp.spent_status.size(); ++n)
-    {
-      transfer_details &td = m_transfers[n + offset];
-      td.m_spent = daemon_resp.spent_status[n] != COMMAND_RPC_IS_KEY_IMAGE_SPENT::UNSPENT;
+      {
+        const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};
+        uint64_t pre_call_credits = m_rpc_payment_state.credits;
+        req.client = get_client_signature();
+        bool r = epee::net_utils::invoke_http_json("/is_key_image_spent", req, daemon_resp, *m_http_client, rpc_timeout);
+        THROW_ON_RPC_RESPONSE_ERROR_GENERIC(r, {},  daemon_resp, "is_key_image_spent");
+        THROW_WALLET_EXCEPTION_IF(daemon_resp.spent_status.size() != this_chunk_size, error::wallet_internal_error,
+          "daemon returned wrong response for is_key_image_spent, wrong amounts count = " +
+          std::to_string(daemon_resp.spent_status.size()) + ", expected " +  std::to_string(signed_key_images.size()));
+        check_rpc_cost("/is_key_image_spent", daemon_resp.credits, pre_call_credits, daemon_resp.spent_status.size() * COST_PER_KEY_IMAGE);
+      }
+
+      for (size_t n = 0; n < daemon_resp.spent_status.size(); ++n)
+      {
+        transfer_details &td = m_transfers[n + done + offset];
+        td.m_spent = daemon_resp.spent_status[n] != COMMAND_RPC_IS_KEY_IMAGE_SPENT::UNSPENT;
+      }
+
+      done += this_chunk_size;
     }
   }
   spent = 0;
@@ -12842,8 +12853,8 @@ uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_imag
       spent += amount;
     else
       unspent += amount;
-    LOG_PRINT_L2("Transfer " << i << ": " << print_money(amount) << " (" << td.m_global_output_index << "): "
-        << (td.m_spent ? "spent" : "unspent") << " (key image " << req.key_images[i] << ")");
+    LOG_PRINT_L2("Transfer " << (i + offset) << ": " << print_money(amount) << " (" << td.m_global_output_index << "): "
+        << (td.m_spent ? "spent" : "unspent") << " (key image " << signed_key_images[i].first << ")");
 
     if (i < daemon_resp.spent_status.size() && daemon_resp.spent_status[i] == COMMAND_RPC_IS_KEY_IMAGE_SPENT::SPENT_IN_BLOCKCHAIN)
     {
