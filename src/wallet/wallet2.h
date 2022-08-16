@@ -406,6 +406,8 @@ private:
 
       BEGIN_SERIALIZE_OBJECT()
         VERSION_FIELD(1)
+        if (version < 1)
+          return false;
         FIELD(m_pubkey)
         VARINT_FIELD(m_internal_output_index)
         VARINT_FIELD(m_global_output_index)
