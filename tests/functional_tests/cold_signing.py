@@ -35,12 +35,18 @@ from __future__ import print_function
 from framework.daemon import Daemon
 from framework.wallet import Wallet
 
+SEED = 'velvet lymph giddy number token physics poetry unquoted nibs useful sabotage limits benches lifestyle eden nitrogen anvil fewest avoid batch vials washing fences goat unquoted'
+STANDARD_ADDRESS = '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
+SUBADDRESS = '84QRUYawRNrU3NN1VpFRndSukeyEb3Xpv8qZjjsoJZnTYpDYceuUTpog13D7qPxpviS7J29bSgSkR11hFFoXWk2yNdsR9WF'
+
 class ColdSigningTest():
     def run_test(self):
         self.reset()
         self.create(0)
         self.mine()
         self.transfer()
+        self.self_transfer_to_subaddress()
+        self.transfer_after_empty_export_import()
 
     def reset(self):
         print('Resetting blockchain')
@@ -57,17 +63,15 @@ class ColdSigningTest():
         try: self.hot_wallet.close_wallet()
         except: pass
 
-        self.cold_wallet = Wallet(idx = 1)
+        self.cold_wallet = Wallet(idx = 5)
         # close the wallet if any, will throw if none is loaded
         try: self.cold_wallet.close_wallet()
         except: pass
 
-        seed = 'velvet lymph giddy number token physics poetry unquoted nibs useful sabotage limits benches lifestyle eden nitrogen anvil fewest avoid batch vials washing fences goat unquoted'
-        res = self.cold_wallet.restore_deterministic_wallet(seed = seed)
-        self.cold_wallet.set_daemon('127.0.0.1:11111', ssl_support = "disabled")
+        res = self.cold_wallet.restore_deterministic_wallet(seed = SEED)
         spend_key = self.cold_wallet.query_key("spend_key").key
         view_key = self.cold_wallet.query_key("view_key").key
-        res = self.hot_wallet.generate_from_keys(viewkey = view_key, address = '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm')
+        res = self.hot_wallet.generate_from_keys(viewkey = view_key, address = STANDARD_ADDRESS)
 
         ok = False
         try: res = self.hot_wallet.query_key("spend_key")
@@ -79,27 +83,29 @@ class ColdSigningTest():
         assert ok
         assert self.cold_wallet.query_key("view_key").key == view_key
         assert self.cold_wallet.get_address().address == self.hot_wallet.get_address().address
+        assert self.cold_wallet.get_address().address == STANDARD_ADDRESS
 
     def mine(self):
         print("Mining some blocks")
         daemon = Daemon()
         wallet = Wallet()
 
-        daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 80)
+        daemon.generateblocks(STANDARD_ADDRESS, 80)
         wallet.refresh()
 
-    def transfer(self):
-        daemon = Daemon()
-
-        print("Creating transaction in hot wallet")
-
-        dst = {'address': '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 'amount': 1000000000000}
-
+    def export_import(self):
         self.hot_wallet.refresh()
         res = self.hot_wallet.export_outputs()
         self.cold_wallet.import_outputs(res.outputs_data_hex)
         res = self.cold_wallet.export_key_images(True)
         self.hot_wallet.import_key_images(res.signed_key_images, offset = res.offset)
+
+    def create_tx(self, destination_addr):
+        daemon = Daemon()
+
+        dst = {'address': destination_addr, 'amount': 1000000000000}
+
+        self.export_import()
 
         res = self.hot_wallet.transfer([dst], ring_size = 16, get_tx_key = False)
         assert len(res.tx_hash) == 32*2
@@ -125,11 +131,11 @@ class ColdSigningTest():
         assert desc.unlock_time == 0
         assert desc.payment_id in ['', '0000000000000000']
         assert desc.change_amount == desc.amount_in - 1000000000000 - fee
-        assert desc.change_address == '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
+        assert desc.change_address == STANDARD_ADDRESS
         assert desc.fee == fee
         assert len(desc.recipients) == 1
         rec = desc.recipients[0]
-        assert rec.address == '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
+        assert rec.address == destination_addr
         assert rec.amount == 1000000000000
 
         res = self.cold_wallet.sign_transfer(unsigned_txset)
@@ -148,7 +154,7 @@ class ColdSigningTest():
         assert len([x for x in (res['pending'] if 'pending' in res else []) if x.txid == txid]) == 1
         assert len([x for x in (res['out'] if 'out' in res else []) if x.txid == txid]) == 0
 
-        daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 1)
+        daemon.generateblocks(STANDARD_ADDRESS, 1)
         self.hot_wallet.refresh()
 
         res = self.hot_wallet.get_transfers()
@@ -160,6 +166,47 @@ class ColdSigningTest():
         res = self.cold_wallet.get_tx_key(txid)
         assert len(res.tx_key) == 64
 
+        self.export_import()
+
+    def transfer(self):
+        print("Creating transaction in hot wallet")
+        self.create_tx(STANDARD_ADDRESS)
+
+        res = self.cold_wallet.get_address()
+        assert len(res['addresses']) == 1
+        assert res['addresses'][0].address == STANDARD_ADDRESS
+        assert res['addresses'][0].used
+
+        res = self.hot_wallet.get_address()
+        assert len(res['addresses']) == 1
+        assert res['addresses'][0].address == STANDARD_ADDRESS
+        assert res['addresses'][0].used
+
+    def self_transfer_to_subaddress(self):
+        print("Self-spending to subaddress in hot wallet")
+        self.create_tx(SUBADDRESS)
+
+        res = self.cold_wallet.get_address()
+        assert len(res['addresses']) == 2
+        assert res['addresses'][0].address == STANDARD_ADDRESS
+        assert res['addresses'][0].used
+        assert res['addresses'][1].address == SUBADDRESS
+        assert res['addresses'][1].used
+
+        res = self.hot_wallet.get_address()
+        assert len(res['addresses']) == 2
+        assert res['addresses'][0].address == STANDARD_ADDRESS
+        assert res['addresses'][0].used
+        assert res['addresses'][1].address == SUBADDRESS
+        assert res['addresses'][1].used
+
+    def transfer_after_empty_export_import(self):
+        print("Creating transaction in hot wallet after empty export & import")
+        start_len = len(self.hot_wallet.get_transfers()['in'])
+        self.export_import()
+        assert start_len == len(self.hot_wallet.get_transfers()['in'])
+        self.create_tx(STANDARD_ADDRESS)
+        assert start_len == len(self.hot_wallet.get_transfers()['in']) - 1
 
 class Guard:
     def __enter__(self):
