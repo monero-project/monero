@@ -1146,8 +1146,8 @@ UnsignedTransaction *WalletImpl::loadUnsignedTx(const std::string &unsigned_file
   
   // Check tx data and construct confirmation message
   std::string extra_message;
-  if (!transaction->m_unsigned_tx_set.transfers.second.empty())
-    extra_message = (boost::format("%u outputs to import. ") % (unsigned)transaction->m_unsigned_tx_set.transfers.second.size()).str();
+  if (!std::get<2>(transaction->m_unsigned_tx_set.transfers).empty())
+    extra_message = (boost::format("%u outputs to import. ") % (unsigned)std::get<2>(transaction->m_unsigned_tx_set.transfers).size()).str();
   transaction->checkLoadedTx([&transaction](){return transaction->m_unsigned_tx_set.txes.size();}, [&transaction](size_t n)->const tools::wallet2::tx_construction_data&{return transaction->m_unsigned_tx_set.txes[n];}, extra_message);
   setStatus(transaction->status(), transaction->errorString());
     

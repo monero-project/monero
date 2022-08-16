@@ -763,10 +763,13 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(get_languages)
 
-    def export_outputs(self):
+    def export_outputs(self, all = False, start = 0, count = 0xffffffff):
         export_outputs = {
             'method': 'export_outputs',
             'params': {
+                'all': all,
+                'start': start,
+                'count': count,
             },
             'jsonrpc': '2.0', 
             'id': '0'
