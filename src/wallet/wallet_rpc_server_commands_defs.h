@@ -1785,9 +1785,13 @@ namespace wallet_rpc
     struct request_t
     {
       bool all;
+      uint32_t start;
+      uint32_t count;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(all)
+        KV_SERIALIZE_OPT(start, 0u)
+        KV_SERIALIZE_OPT(count, 0xffffffffu)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;

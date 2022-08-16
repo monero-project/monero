@@ -34,6 +34,7 @@
 from __future__ import print_function
 from framework.daemon import Daemon
 from framework.wallet import Wallet
+import random
 
 SEED = 'velvet lymph giddy number token physics poetry unquoted nibs useful sabotage limits benches lifestyle eden nitrogen anvil fewest avoid batch vials washing fences goat unquoted'
 STANDARD_ADDRESS = '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
@@ -44,8 +45,10 @@ class ColdSigningTest():
         self.reset()
         self.create(0)
         self.mine()
-        self.transfer()
-        self.self_transfer_to_subaddress()
+        for piecemeal_output_export in [False, True]:
+            self.transfer(piecemeal_output_export)
+        for piecemeal_output_export in [False, True]:
+            self.self_transfer_to_subaddress(piecemeal_output_export)
         self.transfer_after_empty_export_import()
 
     def reset(self):
@@ -93,19 +96,42 @@ class ColdSigningTest():
         daemon.generateblocks(STANDARD_ADDRESS, 80)
         wallet.refresh()
 
-    def export_import(self):
+    def export_import(self, piecemeal_output_export):
         self.hot_wallet.refresh()
-        res = self.hot_wallet.export_outputs()
-        self.cold_wallet.import_outputs(res.outputs_data_hex)
+
+        if piecemeal_output_export:
+            res = self.hot_wallet.incoming_transfers()
+            num_outputs = len(res.transfers)
+            done = [False] * num_outputs
+            while len([x for x in done if not done[x]]) > 0:
+                start = int(random.random() * num_outputs)
+                if start == num_outputs:
+                    num_outputs -= 1
+                count = 1 + int(random.random() * 5)
+                res = self.hot_wallet.export_outputs(all = True, start = start, count = count)
+                try:
+                    self.cold_wallet.import_outputs(res.outputs_data_hex)
+                except Exception as e:
+                    # this just means we selected later outputs first, without filling
+                    # new outputs first
+                    if 'Imported outputs omit more outputs that we know of' not in str(e):
+                        raise
+                for i in range(start, start + count):
+                    if i < len(done):
+                        done[i] = True
+        else:
+            res = self.hot_wallet.export_outputs()
+            self.cold_wallet.import_outputs(res.outputs_data_hex)
+
         res = self.cold_wallet.export_key_images(True)
         self.hot_wallet.import_key_images(res.signed_key_images, offset = res.offset)
 
-    def create_tx(self, destination_addr):
+    def create_tx(self, destination_addr, piecemeal_output_export):
         daemon = Daemon()
 
         dst = {'address': destination_addr, 'amount': 1000000000000}
 
-        self.export_import()
+        self.export_import(piecemeal_output_export)
 
         res = self.hot_wallet.transfer([dst], ring_size = 16, get_tx_key = False)
         assert len(res.tx_hash) == 32*2
@@ -166,11 +192,11 @@ class ColdSigningTest():
         res = self.cold_wallet.get_tx_key(txid)
         assert len(res.tx_key) == 64
 
-        self.export_import()
+        self.export_import(piecemeal_output_export)
 
-    def transfer(self):
+    def transfer(self, piecemeal_output_export):
         print("Creating transaction in hot wallet")
-        self.create_tx(STANDARD_ADDRESS)
+        self.create_tx(STANDARD_ADDRESS, piecemeal_output_export)
 
         res = self.cold_wallet.get_address()
         assert len(res['addresses']) == 1
@@ -182,9 +208,9 @@ class ColdSigningTest():
         assert res['addresses'][0].address == STANDARD_ADDRESS
         assert res['addresses'][0].used
 
-    def self_transfer_to_subaddress(self):
+    def self_transfer_to_subaddress(self, piecemeal_output_export):
         print("Self-spending to subaddress in hot wallet")
-        self.create_tx(SUBADDRESS)
+        self.create_tx(SUBADDRESS, piecemeal_output_export)
 
         res = self.cold_wallet.get_address()
         assert len(res['addresses']) == 2
@@ -203,9 +229,9 @@ class ColdSigningTest():
     def transfer_after_empty_export_import(self):
         print("Creating transaction in hot wallet after empty export & import")
         start_len = len(self.hot_wallet.get_transfers()['in'])
-        self.export_import()
+        self.export_import(False)
         assert start_len == len(self.hot_wallet.get_transfers()['in'])
-        self.create_tx(STANDARD_ADDRESS)
+        self.create_tx(STANDARD_ADDRESS, False)
         assert start_len == len(self.hot_wallet.get_transfers()['in']) - 1
 
 class Guard:
