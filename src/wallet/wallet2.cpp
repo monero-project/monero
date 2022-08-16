@@ -6606,7 +6606,7 @@ bool wallet2::sign_tx(unsigned_tx_set &exported_txs, std::vector<wallet2::pendin
 {
   if (!exported_txs.new_transfers.second.empty())
     import_outputs(exported_txs.new_transfers);
-  else if (exported_txs.transfers.second.empty())
+  else if (!exported_txs.transfers.second.empty())
     import_outputs(exported_txs.transfers);
 
   // sign the transactions
@@ -13132,6 +13132,8 @@ std::pair<uint64_t, std::vector<tools::wallet2::exported_transfer_details>> wall
     etd.m_flags.m_key_image_partial = td.m_key_image_partial;
     etd.m_amount = td.m_amount;
     etd.m_additional_tx_keys = get_additional_tx_pub_keys_from_extra(td.m_tx);
+    etd.m_subaddr_index_major = td.m_subaddr_index.major;
+    etd.m_subaddr_index_minor = td.m_subaddr_index.minor;
 
     outs.push_back(etd);
   }
@@ -13162,7 +13164,7 @@ size_t wallet2::import_outputs(const std::pair<uint64_t, std::vector<tools::wall
 {
   PERF_TIMER(import_outputs);
 
-  THROW_WALLET_EXCEPTION_IF(watch_only(), error::wallet_internal_error, "Hot wallets cannot import outputs");
+  THROW_WALLET_EXCEPTION_IF(!m_offline, error::wallet_internal_error, "Hot wallets cannot import outputs");
 
   THROW_WALLET_EXCEPTION_IF(outputs.first > m_transfers.size(), error::wallet_internal_error,
       "Imported outputs omit more outputs that we know of");
@@ -13229,6 +13231,8 @@ process:
 size_t wallet2::import_outputs(const std::pair<uint64_t, std::vector<tools::wallet2::exported_transfer_details>> &outputs)
 {
   PERF_TIMER(import_outputs);
+
+  THROW_WALLET_EXCEPTION_IF(!m_offline, error::wallet_internal_error, "Hot wallets cannot import outputs");
 
   THROW_WALLET_EXCEPTION_IF(outputs.first > m_transfers.size(), error::wallet_internal_error,
       "Imported outputs omit more outputs that we know of. Try using export_outputs all.");
