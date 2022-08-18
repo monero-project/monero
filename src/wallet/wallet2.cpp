@@ -1218,7 +1218,8 @@ wallet2::wallet2(network_type nettype, uint64_t kdf_rounds, bool unattended, std
   m_export_format(ExportFormat::Binary),
   m_load_deprecated_formats(false),
   m_credits_target(0),
-  m_enable_multisig(false)
+  m_enable_multisig(false),
+  m_has_ever_refreshed_from_node(false)
 {
   set_rpc_client_secret_key(rct::rct2sk(rct::skGen()));
 }
@@ -3534,6 +3535,8 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
         else
           throw std::runtime_error("proxy exception in refresh thread");
       }
+
+      m_has_ever_refreshed_from_node = true;
 
       if(!first && blocks_start_height == next_blocks_start_height)
       {
@@ -13175,7 +13178,8 @@ size_t wallet2::import_outputs(const std::tuple<uint64_t, uint64_t, std::vector<
 {
   PERF_TIMER(import_outputs);
 
-  THROW_WALLET_EXCEPTION_IF(!m_offline, error::wallet_internal_error, "Hot wallets cannot import outputs");
+  THROW_WALLET_EXCEPTION_IF(m_has_ever_refreshed_from_node, error::wallet_internal_error,
+      "Hot wallets cannot import outputs");
 
   // we can now import piecemeal
   const size_t offset = std::get<0>(outputs);
@@ -13254,7 +13258,8 @@ size_t wallet2::import_outputs(const std::tuple<uint64_t, uint64_t, std::vector<
 {
   PERF_TIMER(import_outputs);
 
-  THROW_WALLET_EXCEPTION_IF(!m_offline, error::wallet_internal_error, "Hot wallets cannot import outputs");
+  THROW_WALLET_EXCEPTION_IF(m_has_ever_refreshed_from_node, error::wallet_internal_error,
+      "Hot wallets cannot import outputs");
 
   // we can now import piecemeal
   const size_t offset = std::get<0>(outputs);
