@@ -208,6 +208,14 @@ namespace string_tools
     }
     return s;
   }
+
+  //----------------------------------------------------------------------------
+  std::string pad_to_div_by(size_t d, std::string s)
+  {
+    auto r = s.size() % d;
+    if (!r) return s;
+    return pad_string(s, s.size() + d - r);
+  }
   
     std::string get_extension(const std::string& str)
 	{

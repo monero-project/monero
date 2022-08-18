@@ -733,6 +733,31 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(verify)
 
+    def encrypt(self, plaintext, authenticated):
+        encrypt = {
+            'method': 'encrypt',
+            'params' : {
+                'plaintext': plaintext,
+                'authenticated': authenticated,
+            },
+            'jsonrpc': '2.0',
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(encrypt)
+
+    def decrypt(self, ciphertext_z85, pad, authenticated):
+        decrypt = {
+            'method': 'decrypt',
+            'params' : {
+                'ciphertext_z85': ciphertext_z85,
+                'pad': pad,
+                'authenticated': authenticated,
+            },
+            'jsonrpc': '2.0',
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(decrypt)
+
     def get_height(self):
         get_height = {
             'method': 'get_height',

@@ -122,6 +122,8 @@ namespace tools
         MAP_JON_RPC_WE("get_transfer_by_txid", on_get_transfer_by_txid, wallet_rpc::COMMAND_RPC_GET_TRANSFER_BY_TXID)
         MAP_JON_RPC_WE("sign",               on_sign,               wallet_rpc::COMMAND_RPC_SIGN)
         MAP_JON_RPC_WE("verify",             on_verify,             wallet_rpc::COMMAND_RPC_VERIFY)
+        MAP_JON_RPC_WE("encrypt",            on_encrypt,            wallet_rpc::COMMAND_RPC_ENCRYPT)
+        MAP_JON_RPC_WE("decrypt",            on_decrypt,            wallet_rpc::COMMAND_RPC_DECRYPT)
         MAP_JON_RPC_WE("export_outputs",     on_export_outputs,     wallet_rpc::COMMAND_RPC_EXPORT_OUTPUTS)
         MAP_JON_RPC_WE("import_outputs",     on_import_outputs,     wallet_rpc::COMMAND_RPC_IMPORT_OUTPUTS)
         MAP_JON_RPC_WE("export_key_images",  on_export_key_images,  wallet_rpc::COMMAND_RPC_EXPORT_KEY_IMAGES)
@@ -213,6 +215,8 @@ namespace tools
       bool on_get_transfer_by_txid(const wallet_rpc::COMMAND_RPC_GET_TRANSFER_BY_TXID::request& req, wallet_rpc::COMMAND_RPC_GET_TRANSFER_BY_TXID::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
       bool on_sign(const wallet_rpc::COMMAND_RPC_SIGN::request& req, wallet_rpc::COMMAND_RPC_SIGN::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
       bool on_verify(const wallet_rpc::COMMAND_RPC_VERIFY::request& req, wallet_rpc::COMMAND_RPC_VERIFY::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
+      bool on_encrypt(const wallet_rpc::COMMAND_RPC_ENCRYPT::request& req, wallet_rpc::COMMAND_RPC_ENCRYPT::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
+      bool on_decrypt(const wallet_rpc::COMMAND_RPC_DECRYPT::request& req, wallet_rpc::COMMAND_RPC_DECRYPT::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
       bool on_export_outputs(const wallet_rpc::COMMAND_RPC_EXPORT_OUTPUTS::request& req, wallet_rpc::COMMAND_RPC_EXPORT_OUTPUTS::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
       bool on_import_outputs(const wallet_rpc::COMMAND_RPC_IMPORT_OUTPUTS::request& req, wallet_rpc::COMMAND_RPC_IMPORT_OUTPUTS::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
       bool on_export_key_images(const wallet_rpc::COMMAND_RPC_EXPORT_KEY_IMAGES::request& req, wallet_rpc::COMMAND_RPC_EXPORT_KEY_IMAGES::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);

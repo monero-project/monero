@@ -72,6 +72,7 @@ if (REQUESTS_OUTPUT STREQUAL "OK")
   add_test(
     NAME    functional_tests_rpc
     COMMAND ${PYTHON3_FOUND} "${CMAKE_CURRENT_SOURCE_DIR}/functional_tests_rpc.py" "${PYTHON3_FOUND}" "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_BINARY_DIR}" all)
+    message("ft: ${PYTHON3_FOUND} ${CMAKE_CURRENT_SOURCE_DIR}/functional_tests_rpc.py ${PYTHON3_FOUND} ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_BINARY_DIR} all")
   add_test(
     NAME    check_missing_rpc_methods
     COMMAND ${PYTHON3_FOUND} "${CMAKE_CURRENT_SOURCE_DIR}/check_missing_rpc_methods.py" "${CMAKE_SOURCE_DIR}")

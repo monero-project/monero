@@ -33,6 +33,7 @@
 #include <cstdio>
 #include <iostream>
 #include <vector>
+#include <zmq.h>
 #include <boost/foreach.hpp>
 #include <boost/archive/portable_binary_iarchive.hpp>
 #include "cryptonote_basic/cryptonote_basic.h"
@@ -756,6 +757,48 @@ TEST(Serialization, portability_wallet)
     ASSERT_TRUE(epee::string_tools::pod_to_hex(address_book_row->m_address.m_spend_public_key) == "9bc53a6ff7b0831c9470f71b6b972dbe5ad1e8606f72682868b1dda64e119fb3");
     ASSERT_TRUE(epee::string_tools::pod_to_hex(address_book_row->m_address.m_view_public_key) == "49fece1ef97dc0c0f7a5e2106e75e96edd910f7e86b56e1e308cd0cf734df191");
     ASSERT_TRUE(address_book_row->m_description == "testnet wallet 9y52S6");
+  }
+}
+
+TEST(Serialization, wallet2_encrypt_decrypt)
+{
+  const cryptonote::network_type nettype = cryptonote::TESTNET;
+  tools::wallet2 w(nettype);
+  const boost::filesystem::path wallet_file = unit_test::data_dir / "wallet_9svHk1";
+  string password = "test";
+  bool r = false;
+  try
+  {
+    w.load(wallet_file.string(), password);
+    r = true;
+  }
+  catch (const exception& e)
+  {}
+  ASSERT_TRUE(r);
+
+  crypto::secret_key secret_key;
+  epee::string_tools::hex_to_pod("339673bb1187e2f73ba7841ab6841c5553f96e9f13f8fe6612e69318db4e9d0a", secret_key);
+
+  for (const auto& text : std::array<std::string,4>{"Restricted","Restricted0","Restricted01","Restricted012"}) {
+    for (auto authenticated : std::array<bool,2>{false,true}) {
+      auto padded_plaintext = epee::string_tools::pad_to_div_by(4, text);
+      auto pad = padded_plaintext.size() - text.size();
+      auto ciphertext = w.encrypt(padded_plaintext, secret_key, authenticated );
+      const std::vector<uint8_t> binary(begin(ciphertext), end(ciphertext));
+      std::vector<char> z85(binary.size()*5/4 + 1);
+      auto encode_result = zmq_z85_encode(z85.data(), binary.data(), binary.size());
+      ASSERT_TRUE(encode_result);
+      std::string ciphertext_z85 = z85.data();
+
+      ASSERT_TRUE(ciphertext_z85.size() % 5 == 0);
+      std::vector<uint8_t> binary2(ciphertext_z85.size()*4/5);
+      auto decode_result = zmq_z85_decode(binary2.data(), ciphertext_z85.data());
+      ASSERT_TRUE(decode_result);
+      std::string binary_str(begin(binary2), end(binary2));
+      std::string newtext = w.decrypt(binary_str, secret_key, authenticated );
+      if (pad) newtext.resize(newtext.size() - pad);
+      ASSERT_TRUE( text == newtext );
+    }
   }
 }
 
