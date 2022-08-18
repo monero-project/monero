@@ -109,6 +109,15 @@ class ColdSigningTest():
                     num_outputs -= 1
                 count = 1 + int(random.random() * 5)
                 res = self.hot_wallet.export_outputs(all = True, start = start, count = count)
+
+                # the hot wallet cannot import outputs
+                ok = False
+                try:
+                    self.hot_wallet.import_outputs(res.outputs_data_hex)
+                except:
+                    ok = True
+                assert ok
+
                 try:
                     self.cold_wallet.import_outputs(res.outputs_data_hex)
                 except Exception as e:

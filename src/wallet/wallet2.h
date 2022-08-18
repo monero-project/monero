@@ -1229,11 +1229,17 @@ private:
       if(ver < 29)
         return;
       a & m_rpc_client_secret_key;
+      if(ver < 30)
+      {
+        m_has_ever_refreshed_from_node = false;
+        return;
+      }
+      a & m_has_ever_refreshed_from_node;
     }
 
     BEGIN_SERIALIZE_OBJECT()
       MAGIC_FIELD("monero wallet cache")
-      VERSION_FIELD(0)
+      VERSION_FIELD(1)
       FIELD(m_blockchain)
       FIELD(m_transfers)
       FIELD(m_account_public_address)
@@ -1259,6 +1265,12 @@ private:
       FIELD(m_device_last_key_image_sync)
       FIELD(m_cold_key_images)
       FIELD(m_rpc_client_secret_key)
+      if (version < 1)
+      {
+        m_has_ever_refreshed_from_node = false;
+        return true;
+      }
+      FIELD(m_has_ever_refreshed_from_node)
     END_SERIALIZE()
 
     /*!
@@ -1471,7 +1483,7 @@ private:
 
     // Import/Export wallet data
     std::tuple<uint64_t, uint64_t, std::vector<tools::wallet2::exported_transfer_details>> export_outputs(bool all = false, uint32_t start = 0, uint32_t count = 0xffffffff) const;
-    std::string export_outputs_to_str(bool all = false, uint32_t start = 0, uint32_t count = 0) const;
+    std::string export_outputs_to_str(bool all = false, uint32_t start = 0, uint32_t count = 0xffffffff) const;
     size_t import_outputs(const std::tuple<uint64_t, uint64_t, std::vector<tools::wallet2::exported_transfer_details>> &outputs);
     size_t import_outputs(const std::tuple<uint64_t, uint64_t, std::vector<tools::wallet2::transfer_details>> &outputs);
     size_t import_outputs_from_str(const std::string &outputs_st);
@@ -1906,11 +1918,13 @@ private:
     ExportFormat m_export_format;
     bool m_load_deprecated_formats;
 
+    bool m_has_ever_refreshed_from_node;
+
     static boost::mutex default_daemon_address_lock;
     static std::string default_daemon_address;
   };
 }
-BOOST_CLASS_VERSION(tools::wallet2, 29)
+BOOST_CLASS_VERSION(tools::wallet2, 30)
 BOOST_CLASS_VERSION(tools::wallet2::transfer_details, 12)
 BOOST_CLASS_VERSION(tools::wallet2::multisig_info, 1)
 BOOST_CLASS_VERSION(tools::wallet2::multisig_info::LR, 0)
