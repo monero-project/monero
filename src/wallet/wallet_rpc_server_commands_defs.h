@@ -1797,7 +1797,7 @@ namespace wallet_rpc
     struct response_t
     {
       std::string ciphertext_z85;
-      std::size_t pad;
+      uint64_t pad;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(ciphertext_z85);
@@ -1812,7 +1812,7 @@ namespace wallet_rpc
     struct request_t
     {
       std::string ciphertext_z85;
-      std::size_t pad;
+      uint64_t pad;
       bool authenticated;
 
       BEGIN_KV_SERIALIZE_MAP()
