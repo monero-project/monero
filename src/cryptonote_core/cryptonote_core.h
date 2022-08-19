@@ -437,6 +437,13 @@ namespace cryptonote
      void set_cryptonote_protocol(i_cryptonote_protocol* pprotocol);
 
      /**
+      * @copydoc Blockchain::get_checkpoints
+      *
+      * @note see Blockchain::get_checkpoints()
+      */
+     const checkpoints& get_checkpoints() const;
+
+     /**
       * @copydoc Blockchain::set_checkpoints
       *
       * @note see Blockchain::set_checkpoints()

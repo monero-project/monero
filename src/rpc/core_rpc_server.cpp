@@ -2290,6 +2290,12 @@ namespace cryptonote
         return m_bootstrap_daemon->handle_result(false, {});
       }
 
+      if (bootstrap_daemon_height < m_core.get_checkpoints().get_max_height())
+      {
+        MINFO("Bootstrap daemon height is lower than the latest checkpoint");
+        return m_bootstrap_daemon->handle_result(false, {});
+      }
+
       if (!m_p2p.get_payload_object().no_sync())
       {
         uint64_t top_height = m_core.get_current_blockchain_height();
