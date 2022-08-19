@@ -3868,7 +3868,7 @@ void Blockchain::get_dynamic_base_fee_estimate_2021_scaling(uint64_t grace_block
   epee::misc_utils::rolling_median_t<uint64_t> rm = m_long_term_block_weights_cache_rolling_median;
   for (size_t i = 0; i < grace_blocks; ++i)
     rm.insert(0);
-  const uint64_t Mlw_penalty_free_zone_for_wallet = std::max<uint64_t>(rm.median(), CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V5);
+  const uint64_t Mlw_penalty_free_zone_for_wallet = std::max<uint64_t>(rm.size() == 0 ? 0 : rm.median(), CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V5);
 
   // Msw: median over [100 - grace blocks] past + [grace blocks] future blocks
   CHECK_AND_ASSERT_THROW_MES(grace_blocks <= 100, "Grace blocks invalid In 2021 fee scaling estimate.");
