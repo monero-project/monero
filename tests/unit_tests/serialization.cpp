@@ -783,7 +783,7 @@ TEST(Serialization, wallet2_encrypt_decrypt)
     for (auto authenticated : std::array<bool,2>{false,true}) {
       auto padded_plaintext = epee::string_tools::pad_to_div_by(4, text);
       auto pad = padded_plaintext.size() - text.size();
-      auto ciphertext = w.encrypt(padded_plaintext, secret_key, authenticated );
+      auto ciphertext = w.encrypt(padded_plaintext, secret_key, authenticated);
       const std::vector<uint8_t> binary(begin(ciphertext), end(ciphertext));
       std::vector<char> z85(binary.size()*5/4 + 1);
       auto encode_result = zmq_z85_encode(z85.data(), binary.data(), binary.size());
@@ -795,7 +795,7 @@ TEST(Serialization, wallet2_encrypt_decrypt)
       auto decode_result = zmq_z85_decode(binary2.data(), ciphertext_z85.data());
       ASSERT_TRUE(decode_result);
       std::string binary_str(begin(binary2), end(binary2));
-      std::string newtext = w.decrypt(binary_str, secret_key, authenticated );
+      std::string newtext = w.decrypt(binary_str, secret_key, authenticated);
       if (pad) newtext.resize(newtext.size() - pad);
       ASSERT_TRUE( text == newtext );
     }
