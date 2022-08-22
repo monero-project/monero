@@ -3530,7 +3530,6 @@ namespace tools
         cryptonote::print_money(e.tx_amount() + e.fee())  %
         cryptonote::print_money(e.tx_amount()) %
         cryptonote::print_money(e.fee())).str();
-      er.message = e.what();
     }
     catch (const tools::error::not_enough_outs_to_mix& e)
     {
