@@ -42,7 +42,7 @@ from framework.wallet import Wallet
 class StringEncryptionTest():
     def run_test(self):
       self.create()
-      for text in ['Restricted', 'Restricted0', 'Restricted01', 'Restricted012']:
+      for text in ['', 'Restricted', 'Restricted0', 'Restricted01', 'Restricted012']:
         for authenticated in [False, True]:
           self.check_encrypt_decrypt(text, authenticated)
 
