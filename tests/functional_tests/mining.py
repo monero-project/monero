@@ -221,7 +221,7 @@ class MiningTest():
         available_ram = util_resources.available_ram_gb()
         threshold_ram = 3
         self.print_mining_info("Available RAM = " + str(round(available_ram, 1)) + " GB")
-        if available_ram < threshold_ram:
+        if available_ram < threshold_ram and not self.is_mining_silent():
             print("Warning! Available RAM =", round(available_ram, 1), 
                   "GB is less than the reasonable threshold =", threshold_ram,
                   ". The RX init might exceed the calculated timeout.")
@@ -255,7 +255,7 @@ class MiningTest():
             assert res.hash == block_hash
 
     def is_mining_silent(self):
-        return 'MINING_SILENT' in os.environ
+        return 'MINING_SILENT' in os.environ and os.environ['MINING_SILENT'] != "0"
 
     def print_mining_info(self, msg):
         if self.is_mining_silent():

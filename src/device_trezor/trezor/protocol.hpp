@@ -116,8 +116,7 @@ namespace ki {
    */
   bool key_image_data(wallet_shim * wallet,
                       const std::vector<tools::wallet2::transfer_details> & transfers,
-                      std::vector<MoneroTransferDetails> & res,
-                      bool need_all_additionals=false);
+                      std::vector<MoneroTransferDetails> & res);
 
   /**
    * Computes a hash over MoneroTransferDetails. Commitment used in the KI sync.
@@ -129,8 +128,7 @@ namespace ki {
    */
   void generate_commitment(std::vector<MoneroTransferDetails> & mtds,
                            const std::vector<tools::wallet2::transfer_details> & transfers,
-                           std::shared_ptr<messages::monero::MoneroKeyImageExportInitRequest> & req,
-                           bool need_subaddr_indices=false);
+                           std::shared_ptr<messages::monero::MoneroKeyImageExportInitRequest> & req);
 
   /**
    * Processes Live refresh step response, parses KI, checks the signature
@@ -166,7 +164,7 @@ namespace tx {
   ::crypto::secret_key compute_enc_key(const ::crypto::secret_key & private_view_key, const std::string & aux, const std::string & salt);
   std::string compute_sealing_key(const std::string & master_key, size_t idx, bool is_iv=false);
 
-  typedef boost::variant<rct::rangeSig, rct::Bulletproof> rsig_v;
+  typedef boost::variant<rct::Bulletproof, rct::BulletproofPlus> rsig_v;
 
   /**
    * Transaction signer state holder.
@@ -247,7 +245,7 @@ namespace tx {
     void compute_integrated_indices(TsxData * tsx_data);
     bool should_compute_bp_now() const;
     void compute_bproof(messages::monero::MoneroTransactionRsigData & rsig_data);
-    void process_bproof(rct::Bulletproof & bproof);
+    void process_bproof(rsig_v & bproof);
     void set_tx_input(MoneroTransactionSourceEntry * dst, size_t idx, bool need_ring_keys=false, bool need_ring_indices=false);
 
   public:
@@ -260,8 +258,6 @@ namespace tx {
     void step_set_input_ack(std::shared_ptr<const messages::monero::MoneroTransactionSetInputAck> ack);
 
     void sort_ki();
-    std::shared_ptr<messages::monero::MoneroTransactionInputsPermutationRequest> step_permutation();
-    void step_permutation_ack(std::shared_ptr<const messages::monero::MoneroTransactionInputsPermutationAck> ack);
 
     std::shared_ptr<messages::monero::MoneroTransactionInputViniRequest> step_set_vini_input(size_t idx);
     void step_set_vini_input_ack(std::shared_ptr<const messages::monero::MoneroTransactionInputViniAck> ack);
@@ -290,11 +286,15 @@ namespace tx {
       return m_client_version;
     }
 
-    bool is_simple() const {
+    uint8_t get_rv_type() const {
       if (!m_ct.rv){
         throw std::invalid_argument("RV not initialized");
       }
-      auto tp = m_ct.rv->type;
+      return m_ct.rv->type;
+    }
+
+    bool is_simple() const {
+      auto tp = get_rv_type();
       return tp == rct::RCTTypeSimple;
     }
 
@@ -302,12 +302,27 @@ namespace tx {
       return m_ct.tx_data.rct_config.range_proof_type != rct::RangeProofBorromean;
     }
 
+    bool is_req_clsag() const {
+      return is_req_bulletproof() && m_ct.tx_data.rct_config.bp_version >= 3;
+    }
+
+    bool is_req_bulletproof_plus() const {
+      return is_req_bulletproof() && m_ct.tx_data.rct_config.bp_version == 4;  // rct::genRctSimple
+    }
+
     bool is_bulletproof() const {
-      if (!m_ct.rv){
-        throw std::invalid_argument("RV not initialized");
-      }
-      auto tp = m_ct.rv->type;
-      return tp == rct::RCTTypeBulletproof || tp == rct::RCTTypeBulletproof2 || tp == rct::RCTTypeCLSAG;
+      auto tp = get_rv_type();
+      return rct::is_rct_bulletproof(tp) || rct::is_rct_bulletproof_plus(tp);
+    }
+
+    bool is_bulletproof_plus() const {
+      auto tp = get_rv_type();
+      return rct::is_rct_bulletproof_plus(tp);
+    }
+
+    bool is_clsag() const {
+      auto tp = get_rv_type();
+      return rct::is_rct_clsag(tp);
     }
 
     bool is_offloading() const {

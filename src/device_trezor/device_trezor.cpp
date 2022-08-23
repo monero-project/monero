@@ -324,8 +324,8 @@ namespace trezor {
 
       std::vector<protocol::ki::MoneroTransferDetails> mtds;
       std::vector<protocol::ki::MoneroExportedKeyImage> kis;
-      protocol::ki::key_image_data(wallet, transfers, mtds, client_version() <= 1);
-      protocol::ki::generate_commitment(mtds, transfers, req, client_version() <= 1);
+      protocol::ki::key_image_data(wallet, transfers, mtds);
+      protocol::ki::generate_commitment(mtds, transfers, req);
 
       EVENT_PROGRESS(0.);
       this->set_msg_addr<messages::monero::MoneroKeyImageExportInitRequest>(req.get());
@@ -635,11 +635,7 @@ namespace trezor {
       }
 
       // Step: sort
-      auto perm_req = signer->step_permutation();
-      if (perm_req){
-        auto perm_ack = this->client_exchange<messages::monero::MoneroTransactionInputsPermutationAck>(perm_req);
-        signer->step_permutation_ack(perm_ack);
-      }
+      signer->sort_ki();
       EVENT_PROGRESS(3, 1, 1);
 
       // Step: input_vini
@@ -697,13 +693,13 @@ namespace trezor {
     unsigned device_trezor::client_version()
     {
       auto trezor_version = get_version();
-      if (trezor_version <= pack_version(2, 0, 10)){
-        throw exc::TrezorException("Trezor firmware 2.0.10 and lower are not supported. Please update.");
+      if (trezor_version < pack_version(2, 4, 3)){
+        throw exc::TrezorException("Minimal Trezor firmware version is 2.4.3. Please update.");
       }
 
-      unsigned client_version = 1;
-      if (trezor_version >= pack_version(2, 3, 1)){
-        client_version = 3;
+      unsigned client_version = 3;
+      if (trezor_version >= pack_version(2, 5, 2)){
+        client_version = 4;
       }
 
 #ifdef WITH_TREZOR_DEBUGGING
@@ -739,14 +735,6 @@ namespace trezor {
       CHECK_AND_ASSERT_THROW_MES(init_msg, "TransactionInitRequest is empty");
       CHECK_AND_ASSERT_THROW_MES(init_msg->has_tsx_data(), "TransactionInitRequest has no transaction data");
       CHECK_AND_ASSERT_THROW_MES(m_features, "Device state not initialized");  // make sure the caller did not reset features
-      const bool nonce_required = init_msg->tsx_data().has_payment_id() && init_msg->tsx_data().payment_id().size() > 0;
-
-      if (nonce_required && init_msg->tsx_data().payment_id().size() == 8){
-        // Versions 2.0.9 and lower do not support payment ID
-        if (get_version() <= pack_version(2, 0, 9)) {
-          throw exc::TrezorException("Trezor firmware 2.0.9 and lower does not support transactions with short payment IDs or integrated addresses. Please update.");
-        }
-      }
     }
 
     void device_trezor::transaction_check(const protocol::tx::TData & tdata, const hw::tx_aux_data & aux_data)

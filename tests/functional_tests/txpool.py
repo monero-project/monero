@@ -35,6 +35,7 @@ from __future__ import print_function
 
 from framework.daemon import Daemon
 from framework.wallet import Wallet
+from framework.zmq import Zmq
 
 class TransferTest():
     def run_test(self):
@@ -105,6 +106,10 @@ class TransferTest():
     def check_txpool(self):
         daemon = Daemon()
         wallet = Wallet()
+        zmq = Zmq()
+
+        zmq_topic = "json-minimal-txpool_add"
+        zmq.sub(zmq_topic)
 
         res = daemon.get_info()
         height = res.height
@@ -141,6 +146,21 @@ class TransferTest():
             total_fee += x.fee
             min_bytes = min(min_bytes, x.blob_size)
             max_bytes = max(max_bytes, x.blob_size)
+
+        print('Checking all txs received via zmq')
+        for i in range(len(txes.keys())):
+            zmq_event = zmq.recv(zmq_topic)
+            assert len(zmq_event) == 1
+
+            zmq_tx = zmq_event[0]
+
+            x = [x for x in res.transactions if x.id_hash == zmq_tx["id"]]
+            assert len(x) == 1
+
+            x = x[0]
+            assert x.blob_size == zmq_tx["blob_size"]
+            assert x.weight == zmq_tx["weight"]
+            assert x.fee == zmq_tx["fee"]
 
         res = daemon.get_transaction_pool_hashes()
         assert sorted(res.tx_hashes) == sorted(txes.keys())

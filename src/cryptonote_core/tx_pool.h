@@ -266,7 +266,11 @@ namespace cryptonote
     void get_transaction_backlog(std::vector<tx_backlog_entry>& backlog, bool include_sensitive = false) const;
 
     /**
-     * @brief get (hash, weight, fee) for all transactions in the pool - the minimum required information to create a block template
+     * @brief get (hash, weight, fee) for transactions in the pool - the minimum required information to create a block template
+     *
+     * Not all transactions in the pool will be returned for performance reasons
+     * If there are too many transactions in the pool, only the highest-paying transactions
+     * will be returned - but enough for the miner to create a full block
      *
      * @param backlog return-by-reference that data
      * @param include_sensitive return stempool, anonymity-pool, and unrelayed txes
@@ -353,8 +357,10 @@ namespace cryptonote
      *
      * @param hashes list of tx hashes that are about to be relayed
      * @param tx_relay update how the tx left this node
+     * @param just_broadcasted true if a tx was just broadcasted
+     *
      */
-    void set_relayed(epee::span<const crypto::hash> hashes, relay_method tx_relay);
+    void set_relayed(epee::span<const crypto::hash> hashes, relay_method tx_relay, std::vector<bool> &just_broadcasted);
 
     /**
      * @brief get the total number of transactions in the pool
@@ -405,6 +411,13 @@ namespace cryptonote
      * @param bytes the max cumulative txpool weight in bytes
      */
     void set_txpool_max_weight(size_t bytes);
+
+    /**
+     * @brief reduce the cumulative txpool weight by the weight provided
+     *
+     * @param weight the weight to reduce the total txpool weight by
+     */
+    void reduce_txpool_weight(size_t weight);
 
 #define CURRENT_MEMPOOL_ARCHIVE_VER    11
 #define CURRENT_MEMPOOL_TX_DETAILS_ARCHIVE_VER    13

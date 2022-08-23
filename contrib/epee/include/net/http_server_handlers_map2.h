@@ -63,10 +63,6 @@
   bool handled = false; \
   if(false) return true; //just a stub to have "else if"
 
-#define MAP_URI2(pattern, callback)  else if(std::string::npos != query_info.m_URI.find(pattern)) return callback(query_info, response_info, &m_conn_context);
-
-#define MAP_URI_AUTO_XML2(s_pattern, callback_f, command_type) //TODO: don't think i ever again will use xml - ambiguous and "overtagged" format
-
 #define MAP_URI_AUTO_JON2_IF(s_pattern, callback_f, command_type, cond) \
     else if((query_info.m_URI == s_pattern) && (cond)) \
     { \
@@ -138,8 +134,6 @@
       response_info.m_header_info.m_content_type = " application/octet-stream"; \
       MDEBUG( s_pattern << "() processed with " << ticks1-ticks << "/"<< ticks2-ticks1 << "/" << ticks3-ticks2 << "ms"); \
     }
-
-#define CHAIN_URI_MAP2(callback) else {callback(query_info, response_info, m_conn_context);handled = true;}
 
 #define END_URI_MAP2() return handled;}
 
@@ -224,26 +218,6 @@
 }
 
 #define MAP_JON_RPC_WE(method_name, callback_f, command_type) MAP_JON_RPC_WE_IF(method_name, callback_f, command_type, true)
-
-#define MAP_JON_RPC_WERI(method_name, callback_f, command_type) \
-    else if(callback_name == method_name) \
-{ \
-  PREPARE_OBJECTS_FROM_JSON(command_type) \
-  epee::json_rpc::error_response fail_resp = AUTO_VAL_INIT(fail_resp); \
-  fail_resp.jsonrpc = "2.0"; \
-  fail_resp.id = req.id; \
-  MINFO(m_conn_context << "calling RPC method " << method_name); \
-  bool res = false; \
-  try { res = callback_f(req.params, resp.result, fail_resp.error, response_info, &m_conn_context); } \
-  catch (const std::exception &e) { MERROR(m_conn_context << "Failed to " << #callback_f << "(): " << e.what()); } \
-  if (!res) \
-  { \
-    epee::serialization::store_t_to_json(static_cast<epee::json_rpc::error_response&>(fail_resp), response_info.m_body); \
-    return true; \
-  } \
-  FINALIZE_OBJECTS_TO_JSON(method_name) \
-  return true;\
-}
 
 #define MAP_JON_RPC(method_name, callback_f, command_type) \
     else if(callback_name == method_name) \

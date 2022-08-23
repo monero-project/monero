@@ -1036,6 +1036,13 @@ namespace cryptonote
      bool relay_txpool_transactions();
 
      /**
+      * @brief sends notification of txpool events to subscribers
+      *
+      * @return true on success, false otherwise
+      */
+     bool notify_txpool_event(const epee::span<const cryptonote::blobdata> tx_blobs, epee::span<const crypto::hash> tx_hashes, epee::span<const cryptonote::transaction> txs, const std::vector<bool> &just_broadcasted) const;
+
+     /**
       * @brief checks DNS versions
       *
       * @return true on success, false otherwise

@@ -44,7 +44,7 @@ namespace hw {
 
     /* Minimal supported version */
     #define MINIMAL_APP_VERSION_MAJOR    1
-    #define MINIMAL_APP_VERSION_MINOR    6
+    #define MINIMAL_APP_VERSION_MINOR    8
     #define MINIMAL_APP_VERSION_MICRO    0
 
     #define VERSION(M,m,u)       ((M)<<16|(m)<<8|(u))
@@ -86,10 +86,6 @@ namespace hw {
     #define SW_INS_NOT_SUPPORTED                    0x6d00
     #define SW_PROTOCOL_NOT_SUPPORTED               0x6e00
     #define SW_UNKNOWN                              0x6f00
-
-    namespace {
-        bool apdu_verbose =true;
-    }
 
     void set_apdu_verbose(bool verbose);
 
@@ -249,6 +245,7 @@ namespace hw {
         bool  derive_public_key(const crypto::key_derivation &derivation, const std::size_t output_index, const crypto::public_key &pub,  crypto::public_key &derived_pub) override;
         bool  secret_key_to_public_key(const crypto::secret_key &sec, crypto::public_key &pub) override;
         bool  generate_key_image(const crypto::public_key &pub, const crypto::secret_key &sec, crypto::key_image &image) override;
+        bool  derive_view_tag(const crypto::key_derivation &derivation, const size_t output_index, crypto::view_tag &view_tag) override;
 
         /* ======================================================================= */
         /*                               TRANSACTION                               */
