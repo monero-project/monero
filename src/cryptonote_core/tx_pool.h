@@ -410,6 +410,13 @@ namespace cryptonote
      */
     void set_txpool_max_weight(size_t bytes);
 
+    /**
+     * @brief reduce the cumulative txpool weight by the weight provided
+     *
+     * @param weight the weight to reduce the total txpool weight by
+     */
+    void reduce_txpool_weight(size_t weight);
+
 #define CURRENT_MEMPOOL_ARCHIVE_VER    11
 #define CURRENT_MEMPOOL_TX_DETAILS_ARCHIVE_VER    13
 
