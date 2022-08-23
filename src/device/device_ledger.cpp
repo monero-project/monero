@@ -270,6 +270,7 @@ namespace hw {
     #define INS_DERIVE_PUBLIC_KEY               0x36
     #define INS_DERIVE_SECRET_KEY               0x38
     #define INS_GEN_KEY_IMAGE                   0x3A
+    #define INS_DERIVE_VIEW_TAG                 0x3B
     #define INS_SECRET_KEY_ADD                  0x3C
     #define INS_SECRET_KEY_SUB                  0x3E
     #define INS_GENERATE_KEYPAIR                0x40
@@ -1312,6 +1313,54 @@ namespace hw {
         return true;
     }
 
+    bool device_ledger::derive_view_tag(const crypto::key_derivation &derivation, const std::size_t output_index, crypto::view_tag &view_tag){
+      #ifdef DEBUG_HWDEVICE
+      crypto::key_derivation derivation_x;
+      if ((this->mode == TRANSACTION_PARSE) && has_view_key) {
+        derivation_x = derivation;
+      } else {
+        derivation_x = hw::ledger::decrypt(derivation);
+      }
+      const std::size_t            output_index_x = output_index;
+      crypto::view_tag             view_tag_x;
+      log_hexbuffer("derive_view_tag: [[IN]]  derivation  ", derivation_x.data, 32);
+      log_message  ("derive_view_tag: [[IN]]  output_index", std::to_string(output_index_x));
+      this->controle_device->derive_view_tag(derivation_x, output_index_x, view_tag_x);
+      log_hexbuffer("derive_view_tag: [[OUT]] view_tag ", &view_tag_x.data, 1);
+      #endif
+
+      if ((this->mode == TRANSACTION_PARSE) && has_view_key) {
+        //If we are in TRANSACTION_PARSE, the given derivation has been retrieved uncrypted (wihtout the help
+        //of the device), so continue that way.
+        MDEBUG( "derive_view_tag  : PARSE mode with known viewkey");
+        crypto::derive_view_tag(derivation, output_index, view_tag);
+      } else {
+        AUTO_LOCK_CMD();
+        int offset = set_command_header_noopt(INS_DERIVE_VIEW_TAG);
+        //derivation
+        this->send_secret((unsigned char*)derivation.data, offset);
+        //index
+        this->buffer_send[offset+0] = output_index>>24;
+        this->buffer_send[offset+1] = output_index>>16;
+        this->buffer_send[offset+2] = output_index>>8;
+        this->buffer_send[offset+3] = output_index>>0;
+        offset += 4;
+
+        this->buffer_send[4] = offset-5;
+        this->length_send = offset;
+        this->exchange();
+
+        //view tag
+        memmove(&view_tag.data, &this->buffer_recv[0], 1);
+      }
+
+      #ifdef DEBUG_HWDEVICE
+      hw::ledger::check1("derive_view_tag", "view_tag", &view_tag_x.data, &view_tag.data);
+      #endif
+
+      return true;
+    }
+
     /* ======================================================================= */
     /*                               TRANSACTION                               */
     /* ======================================================================= */
@@ -1552,7 +1601,6 @@ namespace hw {
       const size_t                             output_index_x                 = output_index;
       const bool                               need_additional_txkeys_x       = need_additional_txkeys;
       const bool                               use_view_tags_x                = use_view_tags;
-      const crypto::view_tag                   view_tag_x                     = view_tag;
       
       std::vector<crypto::secret_key>    additional_tx_keys_x;
       for (const auto &k: additional_tx_keys) {
@@ -1562,6 +1610,7 @@ namespace hw {
       std::vector<crypto::public_key>          additional_tx_public_keys_x;
       std::vector<rct::key>                    amount_keys_x;
       crypto::public_key                       out_eph_public_key_x;
+      crypto::view_tag                         view_tag_x;
 
       log_message  ("generate_output_ephemeral_keys: [[IN]] tx_version", std::to_string(tx_version_x));
       //log_hexbuffer("generate_output_ephemeral_keys: [[IN]] sender_account_keys.view", sender_account_keys.m_sview_secret_key.data, 32);
@@ -1579,10 +1628,14 @@ namespace hw {
       if(need_additional_txkeys_x) {
         log_hexbuffer("generate_output_ephemeral_keys: [[IN]] additional_tx_keys[oi]", additional_tx_keys_x[output_index].data, 32);
       }
+      log_message  ("generate_output_ephemeral_keys: [[IN]] use_view_tags",  std::to_string(use_view_tags_x));
       this->controle_device->generate_output_ephemeral_keys(tx_version_x, sender_account_keys_x, txkey_pub_x, tx_key_x, dst_entr_x, change_addr_x, output_index_x, need_additional_txkeys_x,  additional_tx_keys_x,
                                                             additional_tx_public_keys_x, amount_keys_x, out_eph_public_key_x, use_view_tags_x, view_tag_x);
       if(need_additional_txkeys_x) {
         log_hexbuffer("additional_tx_public_keys_x: [[OUT]] additional_tx_public_keys_x", additional_tx_public_keys_x.back().data, 32);
+      }
+      if(use_view_tags_x) {
+        log_hexbuffer("generate_output_ephemeral_keys: [[OUT]] view_tag", &view_tag_x.data, 1);
       }
       log_hexbuffer("generate_output_ephemeral_keys: [[OUT]] amount_keys ", (char*)amount_keys_x.back().bytes, 32);
       log_hexbuffer("generate_output_ephemeral_keys: [[OUT]] out_eph_public_key ", out_eph_public_key_x.data, 32);
@@ -1637,6 +1690,9 @@ namespace hw {
         memset(&this->buffer_send[offset], 0, 32);
         offset += 32;
       }
+      //use_view_tags
+      this->buffer_send[offset] = use_view_tags;
+      offset++;
 
       this->buffer_send[4] = offset-5;
       this->length_send = offset;
@@ -1667,6 +1723,14 @@ namespace hw {
         recv_len -= 32;
       }
 
+      if (use_view_tags)
+      {
+        ASSERT_X(recv_len>=1, "Not enough data from device");
+        memmove(&view_tag.data, &this->buffer_recv[offset], 1);
+        offset++;
+        recv_len -= 1;
+      }
+
       // add ABPkeys
       this->add_output_key_mapping(dst_entr.addr.m_view_public_key, dst_entr.addr.m_spend_public_key, dst_entr.is_subaddress, is_change,
                                    need_additional_txkeys, output_index,
@@ -1679,6 +1743,9 @@ namespace hw {
         hw::ledger::check32("generate_output_ephemeral_keys", "additional_tx_key", additional_tx_public_keys_x.back().data, additional_tx_public_keys.back().data);
       }
       hw::ledger::check32("generate_output_ephemeral_keys", "out_eph_public_key", out_eph_public_key_x.data, out_eph_public_key.data);
+      if (use_view_tags) {
+        hw::ledger::check1("generate_output_ephemeral_keys", "view_tag", &view_tag_x.data, &view_tag.data);
+      }
       #endif
 
       return true;
@@ -1864,7 +1931,7 @@ namespace hw {
 
         // ======  Aout, Bout, AKout, C, v, k ======
         kv_offset = data_offset;
-        if (type==rct::RCTTypeBulletproof2 || type==rct::RCTTypeCLSAG) {
+        if (type==rct::RCTTypeBulletproof2 || type==rct::RCTTypeCLSAG || type==rct::RCTTypeBulletproofPlus) {
           C_offset = kv_offset+ (8)*outputs_size;
         } else {
           C_offset = kv_offset+ (32+32)*outputs_size;
@@ -1881,7 +1948,7 @@ namespace hw {
           offset = set_command_header(INS_VALIDATE, 0x02, i+1);
           //options
           this->buffer_send[offset] = (i==outputs_size-1)? 0x00:0x80 ;
-          this->buffer_send[offset] |= (type==rct::RCTTypeBulletproof2 || type==rct::RCTTypeCLSAG)?0x02:0x00;
+          this->buffer_send[offset] |= (type==rct::RCTTypeBulletproof2 || type==rct::RCTTypeCLSAG || type==rct::RCTTypeBulletproofPlus)?0x02:0x00;
           offset += 1;
           //is_subaddress
           this->buffer_send[offset] = outKeys.is_subaddress;
@@ -1902,7 +1969,7 @@ namespace hw {
           memmove(this->buffer_send+offset, data+C_offset,32);
           offset += 32;
           C_offset += 32;
-          if (type==rct::RCTTypeBulletproof2 || type==rct::RCTTypeCLSAG) {
+          if (type==rct::RCTTypeBulletproof2 || type==rct::RCTTypeCLSAG || type==rct::RCTTypeBulletproofPlus) {
             //k
             memset(this->buffer_send+offset, 0, 32);
             offset += 32;
