@@ -137,6 +137,13 @@ namespace epee
       str_in.store(ps);
       return ps.store_to_binary(binary_buff);
     }
-
-  }
-}
+    //-----------------------------------------------------------------------------------------------------------
+    template<class t_struct>
+    bool store_t_to_binary(t_struct& str_in, std::string& bin_str, size_t initial_buffer_size = 8192)
+    {
+      portable_storage ps;
+      str_in.store(ps);
+      return ps.store_to_binary(bin_str, initial_buffer_size);
+    }
+  } // namespace serialization
+} // namespace epee

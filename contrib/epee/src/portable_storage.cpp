@@ -39,6 +39,30 @@
 #include <string>
 #include <sstream>
 
+namespace
+{
+  /**
+   * @brief Takes a std::string by reference and wraps it with ostream-like access
+   */
+  struct string_ref_stream
+  {
+    string_ref_stream(std::string& str_ref): m_str_ref(str_ref) {}
+
+    void write(const char* buf, const std::size_t len)
+    {
+      m_str_ref.insert(m_str_ref.size(), buf, len);
+    }
+
+    void write(const epee::span<const uint8_t>& buf_span)
+    {
+      write(reinterpret_cast<const char*>(buf_span.begin()), buf_span.size());
+    }
+
+    std::string& m_str_ref;
+  };
+
+} // anonymous namespace
+
 namespace epee
 {
 namespace serialization
@@ -57,6 +81,21 @@ namespace serialization
   bool portable_storage::store_to_binary(byte_stream& ss)
   {
     TRY_ENTRY();
+    storage_block_header sbh{};
+    sbh.m_signature_a = SWAP32LE(PORTABLE_STORAGE_SIGNATUREA);
+    sbh.m_signature_b = SWAP32LE(PORTABLE_STORAGE_SIGNATUREB);
+    sbh.m_ver = PORTABLE_STORAGE_FORMAT_VER;
+    ss.write(epee::as_byte_span(sbh));
+    pack_entry_to_buff(ss, m_root);
+    return true;
+    CATCH_ENTRY("portable_storage::store_to_binary", false);
+  }
+
+  bool portable_storage::store_to_binary(std::string& target, const std::size_t initial_buffer_size)
+  {
+    TRY_ENTRY();
+    target.reserve(initial_buffer_size);
+    string_ref_stream ss(target);
     storage_block_header sbh{};
     sbh.m_signature_a = SWAP32LE(PORTABLE_STORAGE_SIGNATUREA);
     sbh.m_signature_b = SWAP32LE(PORTABLE_STORAGE_SIGNATUREB);

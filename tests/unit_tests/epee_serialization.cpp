@@ -30,8 +30,25 @@
 #include <cstdint>
 #include <gtest/gtest.h>
 
+#include "byte_slice.h"
+#include "serialization/keyvalue_serialization.h"
 #include "storages/portable_storage.h"
+#include "storages/portable_storage_template_helper.h"
 #include "span.h"
+
+namespace
+{
+  struct ExampleData
+  {
+    int i;
+    std::string s;
+
+    BEGIN_KV_SERIALIZE_MAP()
+      KV_SERIALIZE(i)
+      KV_SERIALIZE(s)
+    END_KV_SERIALIZE_MAP()
+  };
+} // anonymous namespace
 
 TEST(epee_binary, two_keys)
 {
@@ -53,4 +70,14 @@ TEST(epee_binary, duplicate_key)
 
   epee::serialization::portable_storage storage{};
   EXPECT_FALSE(storage.load_from_binary(data));
+}
+
+TEST(epee_binary, to_string_conformity)
+{
+  const ExampleData& data{2023, "cereal"};
+  const epee::byte_slice expected_slice = epee::serialization::store_t_to_binary(data);
+  const std::string expected{reinterpret_cast<const char*>(expected_slice.data()), expected_slice.size()};
+  std::string actual;
+  EXPECT_TRUE(epee::serialization::store_t_to_binary(data, actual));
+  EXPECT_EQ(expected, actual);
 }
