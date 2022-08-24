@@ -13236,6 +13236,8 @@ process:
     THROW_WALLET_EXCEPTION_IF(td.m_internal_output_index >= td.m_tx.vout.size(),
         error::wallet_internal_error, "Internal index is out of range");
     crypto::public_key out_key = td.get_public_key();
+    if (should_expand(td.m_subaddr_index))
+      create_one_off_subaddress(td.m_subaddr_index);
     bool r = cryptonote::generate_key_image_helper(m_account.get_keys(), m_subaddresses, out_key, tx_pub_key, additional_tx_pub_keys, td.m_internal_output_index, in_ephemeral, td.m_key_image, m_account.get_device());
     THROW_WALLET_EXCEPTION_IF(!r, error::wallet_internal_error, "Failed to generate key image");
     if (should_expand(td.m_subaddr_index))
@@ -13340,6 +13342,8 @@ size_t wallet2::import_outputs(const std::tuple<uint64_t, uint64_t, std::vector<
     const crypto::public_key &tx_pub_key = etd.m_tx_pubkey;
     const std::vector<crypto::public_key> &additional_tx_pub_keys = etd.m_additional_tx_keys;
     const crypto::public_key& out_key = etd.m_pubkey;
+    if (should_expand(td.m_subaddr_index))
+      create_one_off_subaddress(td.m_subaddr_index);
     bool r = cryptonote::generate_key_image_helper(m_account.get_keys(), m_subaddresses, out_key, tx_pub_key, additional_tx_pub_keys, td.m_internal_output_index, in_ephemeral, td.m_key_image, m_account.get_device());
     THROW_WALLET_EXCEPTION_IF(!r, error::wallet_internal_error, "Failed to generate key image");
     if (should_expand(td.m_subaddr_index))
