@@ -94,8 +94,6 @@ namespace epee
         return load_from_binary(epee::strspan<uint8_t>(target), limits);
       }
 
-      template<class trace_policy>
-      bool		  dump_as_xml(std::string& targetObj, const std::string& root_name = "");
       bool		  dump_as_json(std::string& targetObj, size_t indent = 0, bool insert_newlines = true);
       bool		  load_from_json(const std::string& source);
 
@@ -107,23 +105,7 @@ namespace epee
       storage_entry* insert_new_entry_get_storage_entry(const std::string& pentry_name, hsection psection, entry_type&& entry);
 
       hsection    insert_new_section(const std::string& pentry_name, hsection psection);
-
-#pragma pack(push)
-#pragma pack(1)
-      struct storage_block_header
-      {
-        uint32_t m_signature_a;
-        uint32_t m_signature_b;
-        uint8_t  m_ver;
-      };
-#pragma pack(pop)
     };
-    
-    template<class trace_policy>
-    bool portable_storage::dump_as_xml(std::string& targetObj, const std::string& root_name)
-    {
-      return false;//TODO: don't think i ever again will use xml - ambiguous and "overtagged" format
-    }    
 
     template<class to_type>
     struct get_value_visitor: boost::static_visitor<void>

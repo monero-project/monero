@@ -42,15 +42,15 @@
 namespace
 {
   /**
-   * @brief Takes a std::string by reference and wraps it with ostream-like access
+   * @brief Wraps a std::string by mutable reference, giving it epee::byte_stream-like access
    */
   struct string_ref_stream
   {
-    string_ref_stream(std::string& str_ref): m_str_ref(str_ref) {}
+    constexpr string_ref_stream(std::string& str_ref): m_str_ref(str_ref) {}
 
     void write(const char* buf, const std::size_t len)
     {
-      m_str_ref.insert(m_str_ref.size(), buf, len);
+      m_str_ref.append(buf, len);
     }
 
     void write(const epee::span<const uint8_t>& buf_span)
@@ -61,6 +61,25 @@ namespace
     std::string& m_str_ref;
   };
 
+#pragma pack(push)
+#pragma pack(1)
+  struct storage_block_header
+  {
+    uint32_t m_signature_a;
+    uint32_t m_signature_b;
+    uint8_t  m_ver;
+  };
+#pragma pack(pop)
+
+  template <class t_ostream> inline
+  void write_storage_block_header(t_ostream& os)
+  {
+    storage_block_header sbh{};
+    sbh.m_signature_a = SWAP32LE(PORTABLE_STORAGE_SIGNATUREA);
+    sbh.m_signature_b = SWAP32LE(PORTABLE_STORAGE_SIGNATUREB);
+    sbh.m_ver = PORTABLE_STORAGE_FORMAT_VER;
+    os.write(epee::as_byte_span(sbh));
+  }
 } // anonymous namespace
 
 namespace epee
@@ -81,11 +100,7 @@ namespace serialization
   bool portable_storage::store_to_binary(byte_stream& ss)
   {
     TRY_ENTRY();
-    storage_block_header sbh{};
-    sbh.m_signature_a = SWAP32LE(PORTABLE_STORAGE_SIGNATUREA);
-    sbh.m_signature_b = SWAP32LE(PORTABLE_STORAGE_SIGNATUREB);
-    sbh.m_ver = PORTABLE_STORAGE_FORMAT_VER;
-    ss.write(epee::as_byte_span(sbh));
+    write_storage_block_header(ss);
     pack_entry_to_buff(ss, m_root);
     return true;
     CATCH_ENTRY("portable_storage::store_to_binary", false);
@@ -96,11 +111,7 @@ namespace serialization
     TRY_ENTRY();
     target.reserve(initial_buffer_size);
     string_ref_stream ss(target);
-    storage_block_header sbh{};
-    sbh.m_signature_a = SWAP32LE(PORTABLE_STORAGE_SIGNATUREA);
-    sbh.m_signature_b = SWAP32LE(PORTABLE_STORAGE_SIGNATUREB);
-    sbh.m_ver = PORTABLE_STORAGE_FORMAT_VER;
-    ss.write(epee::as_byte_span(sbh));
+    write_storage_block_header(ss);
     pack_entry_to_buff(ss, m_root);
     return true;
     CATCH_ENTRY("portable_storage::store_to_binary", false);
