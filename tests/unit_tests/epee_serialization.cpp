@@ -40,7 +40,7 @@ namespace
 {
   struct ExampleData
   {
-    int i;
+    int16_t i;
     std::string s;
 
     BEGIN_KV_SERIALIZE_MAP()
@@ -70,6 +70,22 @@ TEST(epee_binary, duplicate_key)
 
   epee::serialization::portable_storage storage{};
   EXPECT_FALSE(storage.load_from_binary(data));
+}
+
+TEST(epee_binary, to_string_correctness)
+{
+  static constexpr const std::uint8_t expected_binary[] = {
+    0x01, 0x11, 0x01, 0x01, 0x01, 0x01, 0x02, 0x01,
+    0x01, 0x08, 0x01,  'i', 0x03, 0xe7, 0x07, 0x01,
+     's', 0x0a, 0x18,  'c',  'e',  'r',  'e',  'a',
+      'l'
+  };
+
+  const ExampleData& data{2023, "cereal"};
+  const std::string expected{reinterpret_cast<const char*>(expected_binary), sizeof(expected_binary)};
+  std::string actual;
+  EXPECT_TRUE(epee::serialization::store_t_to_binary(data, actual));
+  EXPECT_EQ(expected, actual);
 }
 
 TEST(epee_binary, to_string_conformity)
