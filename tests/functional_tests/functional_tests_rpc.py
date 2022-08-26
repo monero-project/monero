@@ -55,7 +55,7 @@ monerod_extra = [
   ["--add-exclusive-node", "127.0.0.1:18283"],
   ["--add-exclusive-node", "127.0.0.1:18282"],
 ]
-wallet_base = [builddir + "/bin/monero-wallet-rpc", "--wallet-dir", WALLET_DIRECTORY, "--rpc-bind-port", "wallet_port", "--disable-rpc-login", "--rpc-ssl", "disabled", "--daemon-ssl", "disabled", "--log-level", "1"]
+wallet_base = [builddir + "/bin/monero-wallet-rpc", "--wallet-dir", WALLET_DIRECTORY, "--rpc-bind-port", "wallet_port", "--disable-rpc-login", "--rpc-ssl", "disabled", "--daemon-ssl", "disabled", "--log-level", "1", "--allow-mismatched-daemon-version"]
 wallet_extra = [
   ["--daemon-port", "18180"],
   ["--daemon-port", "18180"],

@@ -231,6 +231,11 @@ namespace cryptonote
      */
     uint64_t get_window_size() const { return window_size; }
 
+    /**
+     * @brief returns info for all known hard forks
+     */
+    const std::vector<hardfork_t>& get_hardforks() const { return heights; }
+
   private:
 
     uint8_t get_block_version(uint64_t height) const;

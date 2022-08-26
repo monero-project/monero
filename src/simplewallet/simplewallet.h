@@ -429,7 +429,6 @@ namespace cryptonote
     bool m_restore_deterministic_wallet;  // recover flag
     bool m_restore_multisig_wallet;  // recover flag
     bool m_non_deterministic;  // old 2-random generation
-    bool m_allow_mismatched_daemon_version;
     bool m_restoring;           // are we restoring, by whatever method?
     uint64_t m_restore_height;  // optional
     bool m_do_not_relay;

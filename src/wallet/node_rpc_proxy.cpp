@@ -82,18 +82,21 @@ void NodeRPCProxy::invalidate()
   m_rpc_payment_seed_hash = crypto::null_hash;
   m_rpc_payment_next_seed_hash = crypto::null_hash;
   m_height_time = 0;
+  m_target_height_time = 0;
   m_rpc_payment_diff = 0;
   m_rpc_payment_credits_per_hash_found = 0;
   m_rpc_payment_height = 0;
   m_rpc_payment_cookie = 0;
+  m_daemon_hard_forks.clear();
 }
 
-boost::optional<std::string> NodeRPCProxy::get_rpc_version(uint32_t &rpc_version)
+boost::optional<std::string> NodeRPCProxy::get_rpc_version(uint32_t &rpc_version, std::vector<std::pair<uint8_t, uint64_t>> &daemon_hard_forks, uint64_t &height, uint64_t &target_height)
 {
   if (m_offline)
     return boost::optional<std::string>("offline");
   if (m_rpc_version == 0)
   {
+    const time_t now = time(NULL);
     cryptonote::COMMAND_RPC_GET_VERSION::request req_t = AUTO_VAL_INIT(req_t);
     cryptonote::COMMAND_RPC_GET_VERSION::response resp_t = AUTO_VAL_INIT(resp_t);
     {
@@ -101,9 +104,28 @@ boost::optional<std::string> NodeRPCProxy::get_rpc_version(uint32_t &rpc_version
       bool r = net_utils::invoke_http_json_rpc("/json_rpc", "get_version", req_t, resp_t, m_http_client, rpc_timeout);
       RETURN_ON_RPC_RESPONSE_ERROR(r, epee::json_rpc::error{}, resp_t, "get_version");
     }
+
     m_rpc_version = resp_t.version;
+    m_daemon_hard_forks.clear();
+    for (const auto &hf : resp_t.hard_forks)
+      m_daemon_hard_forks.push_back(std::make_pair(hf.hf_version, hf.height));
+    if (resp_t.current_height > 0 || resp_t.target_height > 0)
+    {
+      m_height = resp_t.current_height;
+      m_target_height = resp_t.target_height;
+      m_height_time = now;
+      m_target_height_time = now;
+    }
   }
+
   rpc_version = m_rpc_version;
+  daemon_hard_forks = m_daemon_hard_forks;
+  boost::optional<std::string> result = get_height(height);
+  if (result)
+    return result;
+  result = get_target_height(target_height);
+  if (result)
+    return result;
   return boost::optional<std::string>();
 }
 
@@ -138,6 +160,7 @@ boost::optional<std::string> NodeRPCProxy::get_info()
     m_adjusted_time = resp_t.adjusted_time;
     m_get_info_time = now;
     m_height_time = now;
+    m_target_height_time = now;
   }
   return boost::optional<std::string>();
 }
@@ -160,6 +183,13 @@ boost::optional<std::string> NodeRPCProxy::get_height(uint64_t &height)
 
 boost::optional<std::string> NodeRPCProxy::get_target_height(uint64_t &height)
 {
+  const time_t now = time(NULL);
+  if (now < m_target_height_time + 30) // re-cache every 30 seconds
+  {
+    height = m_target_height;
+    return boost::optional<std::string>();
+  }
+
   auto res = get_info();
   if (res)
     return res;

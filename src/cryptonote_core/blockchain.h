@@ -900,6 +900,13 @@ namespace cryptonote
     uint64_t get_earliest_ideal_height_for_version(uint8_t version) const { return m_hardfork->get_earliest_ideal_height_for_version(version); }
 
     /**
+     * @brief returns info for all known hard forks
+     *
+     * @return the hardforks
+     */
+    const std::vector<hardfork_t>& get_hardforks() const { return m_hardfork->get_hardforks(); }
+
+    /**
      * @brief get information about hardfork voting for a version
      *
      * @param version the version in question

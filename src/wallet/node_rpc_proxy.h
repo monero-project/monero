@@ -48,7 +48,7 @@ public:
   void invalidate();
   void set_offline(bool offline) { m_offline = offline; }
 
-  boost::optional<std::string> get_rpc_version(uint32_t &version);
+  boost::optional<std::string> get_rpc_version(uint32_t &rpc_version, std::vector<std::pair<uint8_t, uint64_t>> &daemon_hard_forks, uint64_t &height, uint64_t &target_height);
   boost::optional<std::string> get_height(uint64_t &height);
   void set_height(uint64_t h);
   boost::optional<std::string> get_target_height(uint64_t &height);
@@ -103,6 +103,8 @@ private:
   crypto::hash m_rpc_payment_next_seed_hash;
   uint32_t m_rpc_payment_cookie;
   time_t m_height_time;
+  time_t m_target_height_time;
+  std::vector<std::pair<uint8_t, uint64_t>> m_daemon_hard_forks;
 };
 
 }
