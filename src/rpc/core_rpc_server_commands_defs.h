@@ -2722,4 +2722,31 @@ namespace cryptonote
     typedef epee::misc_utils::struct_init<response_t> response;
   };
 
+  struct COMMAND_RPC_GET_HEIGHT_BY_TIME
+  {
+    struct request_t: public rpc_access_request_base
+    {
+      uint64_t timestamp;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE_PARENT(rpc_access_request_base)
+        KV_SERIALIZE(timestamp)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<request_t> request;
+
+    struct response_t: public rpc_access_response_base
+    {
+      uint64_t height;
+      uint64_t timestamp;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE_PARENT(rpc_access_response_base)
+        KV_SERIALIZE(height)
+        KV_SERIALIZE(timestamp)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<response_t> response;
+  };
+
 }
