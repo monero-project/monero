@@ -439,6 +439,16 @@ namespace tools
       std::string to_string() const { return refresh_error::to_string(); }
     };
     //----------------------------------------------------------------------------------------------------
+    struct incorrect_fork_version : public refresh_error
+    {
+      explicit incorrect_fork_version(std::string&& loc, const std::string& message)
+        : refresh_error(std::move(loc), message)
+      {
+      }
+
+      std::string to_string() const { return refresh_error::to_string(); }
+    };
+    //----------------------------------------------------------------------------------------------------
     struct signature_check_failed : public wallet_logic_error
     {
       explicit signature_check_failed(std::string&& loc, const std::string& message)
