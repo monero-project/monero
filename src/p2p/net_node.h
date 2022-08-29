@@ -367,7 +367,7 @@ namespace nodetool
     bool is_peer_used(const anchor_peerlist_entry& peer);
     bool is_addr_connected(const epee::net_utils::network_address& peer);
     template<class t_callback>
-    bool try_ping(basic_node_data& node_data, p2p_connection_context& context, const t_callback &cb);
+    bool try_ping(basic_node_data& node_data, p2p_connection_context& context, t_callback &&cb);
     bool try_get_support_flags(const p2p_connection_context& context, std::function<void(p2p_connection_context&, const uint32_t&)> f);
     bool make_expected_connections_count(network_zone& zone, PeerType peer_type, size_t expected_connections);
     void record_addr_failed(const epee::net_utils::network_address& addr);
