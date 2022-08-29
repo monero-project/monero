@@ -150,13 +150,13 @@ void ZmqServer::serve()
       if (pub)
         MONERO_UNWRAP(net::zmq::retry_op(zmq_poll, sockets.data(), sockets.size(), -1));
 
-      if (sockets[0].revents)
+      if (sockets[0].revents & ZMQ_POLLIN)
         state->relay_to_pub(relay.get(), pub.get());
 
-      if (sockets[1].revents)
+      if (sockets[1].revents & ZMQ_POLLIN)
         state->sub_request(MONERO_UNWRAP(net::zmq::receive(pub.get(), ZMQ_DONTWAIT)));
 
-      if (!pub || sockets[2].revents)
+      if (!pub || (sockets[2].revents & ZMQ_POLLIN))
       {
         std::string message = MONERO_UNWRAP(net::zmq::receive(rep.get(), read_flags));
         MDEBUG("Received RPC request: \"" << message << "\"");
@@ -166,6 +166,9 @@ void ZmqServer::serve()
         MDEBUG("Sending RPC reply: \"" << response_view << "\"");
         MONERO_UNWRAP(net::zmq::send(std::move(response), rep.get()));
       }
+
+      for (zmq_pollitem_t& item : sockets)
+        item.revents = 0;
     }
   }
   catch (const std::system_error& e)
