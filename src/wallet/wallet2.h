@@ -794,7 +794,8 @@ private:
     };
 
     /*!
-     * \brief  Generates a wallet or restores one.
+     * \brief  Generates a wallet or restores one. Assumes the multisig setup
+      *        has already completed for the provided multisig info.
      * \param  wallet_              Name of wallet file
      * \param  password             Password of wallet file
      * \param  multisig_data        The multisig restore info and keys

@@ -171,7 +171,7 @@ static void make_wallets(std::vector<tools::wallet2>& wallets, unsigned int M)
 {
   ASSERT_TRUE(wallets.size() > 1 && wallets.size() <= KEYS_COUNT);
   ASSERT_TRUE(M <= wallets.size());
-  std::uint32_t total_rounds_required = multisig::multisig_kex_rounds_required(wallets.size(), M) + 1;
+  std::uint32_t total_rounds_required = multisig::multisig_setup_rounds_required(wallets.size(), M);
   std::uint32_t rounds_complete{0};
 
   // initialize wallets, get first round multisig kex msgs
