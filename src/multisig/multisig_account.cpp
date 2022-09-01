@@ -127,7 +127,7 @@ namespace multisig
   bool multisig_account::multisig_is_ready() const
   {
     if (main_kex_rounds_done())
-      return m_kex_rounds_complete >= multisig_kex_rounds_required(m_signers.size(), m_threshold) + 1;
+      return m_kex_rounds_complete >= multisig_setup_rounds_required(m_signers.size(), m_threshold);
     else
       return false;
   }
@@ -198,6 +198,13 @@ namespace multisig
     CHECK_AND_ASSERT_THROW_MES(num_signers >= threshold, "num_signers must be >= threshold");
     CHECK_AND_ASSERT_THROW_MES(threshold >= 1, "threshold must be >= 1");
     return num_signers - threshold + 1;
+  }
+  //----------------------------------------------------------------------------------------------------------------------
+  // EXTERNAL
+  //----------------------------------------------------------------------------------------------------------------------
+  std::uint32_t multisig_setup_rounds_required(const std::uint32_t num_signers, const std::uint32_t threshold)
+  {
+    return multisig_kex_rounds_required(num_signers, threshold) + 1;
   }
   //----------------------------------------------------------------------------------------------------------------------
 } //namespace multisig
