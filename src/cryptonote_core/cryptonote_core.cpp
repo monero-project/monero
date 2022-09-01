@@ -1563,7 +1563,8 @@ namespace cryptonote
       return false;
     }
     m_blockchain_storage.add_new_block(b, bvc);
-    cleanup_handle_incoming_blocks(true);
+    const bool force_sync = m_nettype != FAKECHAIN;
+    cleanup_handle_incoming_blocks(force_sync);
     //anyway - update miner template
     update_miner_block_template();
     m_miner.resume();
