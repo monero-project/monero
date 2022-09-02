@@ -30,7 +30,6 @@
 #include <array>
 #include <lmdb.h>
 #include <boost/algorithm/string.hpp>
-#include <boost/system/error_code.hpp>
 #include <boost/filesystem.hpp>
 #include "common/command_line.h"
 #include "common/pruning.h"
