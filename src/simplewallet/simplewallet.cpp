@@ -4134,6 +4134,17 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
     if(!ask_wallet_create_if_needed()) return false;
   }
 
+  bool enable_multisig = false;
+  if (m_restore_multisig_wallet) {
+    fail_msg_writer() << tr("Multisig is disabled.");
+    fail_msg_writer() << tr("Multisig is an experimental feature and may have bugs. Things that could go wrong include: funds sent to a multisig wallet can't be spent at all, can only be spent with the participation of a malicious group member, or can be stolen by a malicious group member.");
+    if (!command_line::is_yes(input_line("Do you want to continue restoring a multisig wallet?", true))) {
+      message_writer() << tr("You have canceled restoring a multisig wallet.");
+      return false;
+    }
+    enable_multisig = true;
+  }
+
   if (!m_generate_new.empty() || m_restoring)
   {
     if (!m_subaddress_lookahead.empty() && !parse_subaddress_lookahead(m_subaddress_lookahead))
@@ -4667,6 +4678,8 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
       }
       m_wallet->set_refresh_from_block_height(m_restore_height);
     }
+    if (enable_multisig)
+      m_wallet->enable_multisig(true);
     m_wallet->rewrite(m_wallet_file, password);
   }
   else
