@@ -4118,6 +4118,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
 
   epee::wipeable_string multisig_keys;
   epee::wipeable_string password;
+  epee::wipeable_string seed_pass;
 
   if (!handle_command_line(vm))
     return false;
@@ -4224,19 +4225,9 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
       auto pwd_container = password_prompter(tr("Enter seed offset passphrase, empty if none"), false);
       if (std::cin.eof() || !pwd_container)
         return false;
-      epee::wipeable_string seed_pass = pwd_container->password();
-      if (!seed_pass.empty())
-      {
-        if (m_restore_multisig_wallet)
-        {
-          crypto::secret_key key;
-          crypto::cn_slow_hash(seed_pass.data(), seed_pass.size(), (crypto::hash&)key);
-          sc_reduce32((unsigned char*)key.data);
-          multisig_keys = m_wallet->decrypt<epee::wipeable_string>(std::string(multisig_keys.data(), multisig_keys.size()), key, true);
-        }
-        else
-          m_recovery_key = cryptonote::decrypt_key(m_recovery_key, seed_pass);
-      }
+      seed_pass = pwd_container->password();
+      if (!seed_pass.empty() && !m_restore_multisig_wallet)
+        m_recovery_key = cryptonote::decrypt_key(m_recovery_key, seed_pass);
     }
     if (!m_generate_from_view_key.empty())
     {
@@ -4579,7 +4570,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
       m_wallet_file = m_generate_new;
       boost::optional<epee::wipeable_string> r;
       if (m_restore_multisig_wallet)
-        r = new_wallet(vm, multisig_keys, old_language);
+        r = new_wallet(vm, multisig_keys, seed_pass, old_language);
       else
         r = new_wallet(vm, m_recovery_key, m_restore_deterministic_wallet, m_non_deterministic, old_language);
       CHECK_AND_ASSERT_MES(r, false, tr("account creation failed"));
@@ -5070,7 +5061,7 @@ boost::optional<epee::wipeable_string> simple_wallet::new_wallet(const boost::pr
 }
 //----------------------------------------------------------------------------------------------------
 boost::optional<epee::wipeable_string> simple_wallet::new_wallet(const boost::program_options::variables_map& vm,
-    const epee::wipeable_string &multisig_keys, const std::string &old_language)
+    const epee::wipeable_string &multisig_keys, const epee::wipeable_string &seed_pass, const std::string &old_language)
 {
   std::pair<std::unique_ptr<tools::wallet2>, tools::password_container> rc;
   try { rc = tools::wallet2::make_new(vm, false, password_prompter); }
@@ -5104,7 +5095,16 @@ boost::optional<epee::wipeable_string> simple_wallet::new_wallet(const boost::pr
 
   try
   {
-    m_wallet->generate(m_wallet_file, std::move(rc.second).password(), multisig_keys, create_address_file);
+    if (seed_pass.empty())
+      m_wallet->generate(m_wallet_file, std::move(rc.second).password(), multisig_keys, create_address_file);
+    else
+    {
+      crypto::secret_key key;
+      crypto::cn_slow_hash(seed_pass.data(), seed_pass.size(), (crypto::hash&)key);
+      sc_reduce32((unsigned char*)key.data);
+      const epee::wipeable_string &msig_keys = m_wallet->decrypt<epee::wipeable_string>(std::string(multisig_keys.data(), multisig_keys.size()), key, true);
+      m_wallet->generate(m_wallet_file, std::move(rc.second).password(), msig_keys, create_address_file);
+    }
     bool ready;
     uint32_t threshold, total;
     if (!m_wallet->multisig(&ready, &threshold, &total) || !ready)
