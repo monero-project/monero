@@ -36,7 +36,7 @@
 #include "serde/json/deserializer.h"
 #include "serde/json/serializer.h"
 
-namespace epee::serialization
+namespace epee { namespace serialization
 {
     // json_buff reference must be non-const since ParseInsitu mutates buffer in place
     template<class t_struct>
@@ -183,4 +183,4 @@ namespace epee::serialization
         );
         return binary_buff;
     }
-} // namespace epee::serialization
+}} // namespace epee::serialization
