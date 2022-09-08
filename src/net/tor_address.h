@@ -36,15 +36,7 @@
 #include "common/expect.h"
 #include "net/enums.h"
 #include "net/error.h"
-
-namespace epee
-{
-namespace serialization
-{
-    class portable_storage;
-    struct section;
-}
-}
+#include "serde/model/serialize_default.h"
 
 namespace net
 {
@@ -56,6 +48,9 @@ namespace net
 
         //! Keep in private, `host.size()` has no runtime check
         tor_address(boost::string_ref host, std::uint16_t port) noexcept;
+
+        //! if string contains valid host, assign to host_, otherwise throw exception
+        void host_assert_and_assign(const std::string& host_str);
 
     public:
         //! \return Size of internal buffer for host.
@@ -77,11 +72,11 @@ namespace net
         */
         static expect<tor_address> make(boost::string_ref address, std::uint16_t default_port = 0);
 
-        //! Load from epee p2p format, and \return false if not valid tor address
-        bool _load(epee::serialization::portable_storage& src, epee::serialization::section* hparent);
+        SERIALIZE_OPERATOR_FRIEND(tor_address)
 
-        //! Store in epee p2p format
-        bool store(epee::serialization::portable_storage& dest, epee::serialization::section* hparent) const;
+        template <class AddrVariant>
+		static tor_address make_from_addr_variant(AddrVariant&& v)
+		{ return make(v.host, v.port); }
 
         // Moves and  copies are currently identical
 

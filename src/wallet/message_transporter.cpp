@@ -61,7 +61,7 @@ namespace bitmessage_rpc
       KV_SERIALIZE(toAddress)
       KV_SERIALIZE(read)
       KV_SERIALIZE(msgid)
-      KV_SERIALIZE(message);
+      KV_SERIALIZE(message)
       KV_SERIALIZE(fromAddress)
       KV_SERIALIZE(receivedTime)
       KV_SERIALIZE(subject)

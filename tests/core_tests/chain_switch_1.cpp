@@ -28,6 +28,8 @@
 // 
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
+#include <boost/foreach.hpp>
+
 #include "chaingen.h"
 #include "chain_switch_1.h"
 

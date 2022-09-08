@@ -28,13 +28,14 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #pragma once
-#include "serialization/keyvalue_serialization.h"
+
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "cryptonote_basic/cryptonote_boost_serialization.h"
 #include "cryptonote_basic/account_boost_serialization.h"
 #include "net/http_server_impl_base.h"
 #include "net/http_client.h"
 #include "net/abstract_http_client.h"
+#include "serde/epee_compat/keyvalue.h"
 #include "common/util.h"
 #include "wipeable_string.h"
 #include <vector>

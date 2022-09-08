@@ -225,12 +225,9 @@ namespace
             if (queue.front().command != T::ID)
                 throw std::logic_error{"Unexpected ID at front of message queue"};
 
-            epee::serialization::portable_storage storage{};
-            if(!storage.load_from_binary(epee::strspan<std::uint8_t>(queue.front().payload)))
-                throw std::logic_error{"Unable to parse epee binary format"};
-
             typename T::request request{};
-            if (!request.load(storage))
+            const auto payload_span = epee::strspan<std::uint8_t>(queue.front().payload);
+            if (!epee::serialization::load_t_from_binary(request, payload_span))
                 throw std::logic_error{"Unable to load into expected request"};
 
             boost::uuids::uuid connection = queue.front().connection;

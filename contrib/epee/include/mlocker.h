@@ -32,6 +32,9 @@
 #include <map>
 #include <boost/thread/mutex.hpp>
 
+#include "serde/blob/deserialize_as_blob.h"
+#include "serde/blob/serialize_as_blob.h"
+
 namespace epee
 {
   class mlocker
@@ -75,6 +78,8 @@ namespace epee
     mlocked(const mlocked<T> &&mt): T(mt) { mlocker::lock(this, sizeof(T)); }
     mlocked<T> &operator=(const mlocked<T> &mt) { T::operator=(mt); return *this; }
     ~mlocked() { try { mlocker::unlock(this, sizeof(T)); } catch (...) { /* do not propagate */ } }
+
+    BLOBBABLE_BASE(T)
   };
 
   template<typename T>

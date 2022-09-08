@@ -28,15 +28,13 @@
 
 #include "include_base_utils.h"
 #include "file_io_utils.h"
-#include "serialization/keyvalue_serialization.h"
-#include "storages/portable_storage_template_helper.h"
-#include "storages/portable_storage_base.h"
+#include "serde/epee_compat/keyvalue.h"
+#include "storages/serde_template_helper.h"
 #include "fuzzer.h"
 
 BEGIN_INIT_SIMPLE_FUZZER()
 END_INIT_SIMPLE_FUZZER()
 
 BEGIN_SIMPLE_FUZZER()
-  epee::serialization::portable_storage ps;
-  ps.load_from_json(std::string((const char*)buf, len));
+  // @TODO: fuzz test
 END_SIMPLE_FUZZER()

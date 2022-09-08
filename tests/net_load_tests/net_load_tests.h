@@ -39,7 +39,7 @@
 #include "string_tools.h"
 #include "net/levin_protocol_handler_async.h"
 #include "net/abstract_tcp_server2.h"
-#include "serialization/keyvalue_serialization.h"
+#include "serde/epee_compat/keyvalue.h"
 
 #include "../unit_tests/unit_tests_utils.h"
 

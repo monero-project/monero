@@ -31,9 +31,11 @@
 #pragma once
 
 #include <list>
-#include "serialization/keyvalue_serialization.h"
+
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "cryptonote_basic/blobdatatype.h"
+#include "serde/epee_compat/keyvalue.h"
+#include "serde/model/field.h"
 
 namespace cryptonote
 {
@@ -135,36 +137,12 @@ namespace cryptonote
     blobdata block;
     uint64_t block_weight;
     std::vector<tx_blob_entry> txs;
-    BEGIN_KV_SERIALIZE_MAP()
-      KV_SERIALIZE_OPT(pruned, false)
-      KV_SERIALIZE(block)
-      KV_SERIALIZE_OPT(block_weight, (uint64_t)0)
-      if (this_ref.pruned)
-      {
-        KV_SERIALIZE(txs)
-      }
-      else
-      {
-        std::vector<blobdata> txs;
-        if (is_store)
-        {
-          txs.reserve(this_ref.txs.size());
-          for (const auto &e: this_ref.txs) txs.push_back(e.blob);
-        }
-        epee::serialization::selector<is_store>::serialize(txs, stg, hparent_section, "txs");
-        if (!is_store)
-        {
-          block_complete_entry &self = const_cast<block_complete_entry&>(this_ref);
-          self.txs.clear();
-          self.txs.reserve(txs.size());
-          for (auto &e: txs) self.txs.push_back({std::move(e), crypto::null_hash});
-        }
-      }
-    END_KV_SERIALIZE_MAP()
 
     block_complete_entry(): pruned(false), block_weight(0) {}
   };
 
+  void serialize_default(const block_complete_entry&, serde::model::Serializer&);
+  bool deserialize_default(serde::model::Deserializer&, block_complete_entry&);
 
   /************************************************************************/
   /*                                                                      */
@@ -259,10 +237,7 @@ namespace cryptonote
     BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE(current_height)
       KV_SERIALIZE(cumulative_difficulty)
-      if (is_store)
-        KV_SERIALIZE(cumulative_difficulty_top64)
-      else
-        KV_SERIALIZE_OPT(cumulative_difficulty_top64, (uint64_t)0)
+      KV_SERIALIZE_OPT(cumulative_difficulty_top64, 0)
       KV_SERIALIZE_VAL_POD_AS_BLOB(top_id)
       KV_SERIALIZE_OPT(top_version, (uint8_t)0)
       KV_SERIALIZE_OPT(pruning_seed, (uint32_t)0)
@@ -304,10 +279,7 @@ namespace cryptonote
         KV_SERIALIZE(start_height)
         KV_SERIALIZE(total_height)
         KV_SERIALIZE(cumulative_difficulty)
-        if (is_store)
-          KV_SERIALIZE(cumulative_difficulty_top64)
-        else
-          KV_SERIALIZE_OPT(cumulative_difficulty_top64, (uint64_t)0)
+        KV_SERIALIZE_OPT(cumulative_difficulty_top64, 0)
         KV_SERIALIZE_CONTAINER_POD_AS_BLOB(m_block_ids)
         KV_SERIALIZE_CONTAINER_POD_AS_BLOB(m_block_weights)
         KV_SERIALIZE(first_block)
@@ -377,3 +349,116 @@ namespace cryptonote
   };
     
 }
+
+namespace
+{
+  struct blob_or_blob_entry
+  {
+    cryptonote::blobdata blob;
+    cryptonote::tx_blob_entry blob_entry;
+    bool is_entry;
+  };
+
+  struct BlobOrBlobEntryChoiceVisitor: public serde::model::RefVisitor<std::string>
+  {
+    BlobOrBlobEntryChoiceVisitor(std::string& value):
+      serde::model::RefVisitor<std::string>(value), visited_obj(false) {}
+    
+    std::string expecting() const { return "tx blob or tx blob entry object"; }
+
+    void visit_object(serde::optional<size_t>) override final
+    {
+      visited_obj = true;
+    }
+
+    void visit_bytes(const serde::const_byte_span& bytes)
+    {
+      this->visit({serde::internal::byte_span_to_string(bytes), {}, false});
+    }
+
+    bool visited_obj;
+  };
+
+  bool deserialize_default(serde::model::Deserializer& deserializer, blob_or_blob_entry& bobe)
+  {
+    BlobOrBlobEntryChoiceVisitor visitor(bobe.blob);
+    deserializer.deserialize_any(visitor);
+    if (!visitor.was_visited())
+    {
+      return false;
+    }
+
+    bobe.is_entry = visitor.visited_obj;
+
+    // If got string, stop. If started object, try partial deserialization
+    return !bobe.is_entry || deserialize_default(deserializer, bobe.blob_entry, true);
+  }
+
+  struct block_complete_entry_serialized
+  {
+    bool pruned;
+    cryptonote::blobdata block;
+    uint64_t block_weight;
+    std::vector<blob_or_blob_entry> txs;
+
+    BEGIN_KV_SERIALIZE_MAP()
+      KV_SERIALIZE(pruned)
+      KV_SERIALIZE(block)
+      KV_SERIALIZE(block_weight)
+      KV_SERIALIZE(txs)
+    END_KV_SERIALIZE_MAP()
+  };
+} // anonymous namespace
+
+namespace cryptonote
+{
+  inline
+  void serialize_default(const block_complete_entry& entry, serde::model::Serializer& serializer)
+  {
+    serializer.serialize_start_object(4); // pruned, block, block_weight, & txs
+      SERDE_FIELD_DIRECT_SERIALIZE(entry, pruned)
+      SERDE_FIELD_DIRECT_SERIALIZE(entry, block)
+      SERDE_FIELD_DIRECT_SERIALIZE(entry, block_weight)
+      if (entry.pruned)
+      {
+        SERDE_FIELD_DIRECT_SERIALIZE(entry, txs)
+      }
+      else
+      {
+        serializer.serialize_key(serde::internal::cstr_to_byte_span("txs"));
+        serializer.serialize_start_array(entry.txs.size());
+        for (const auto& tx : entry.txs) // doesn't copy blobs like old code does! :)
+        {
+          serializer.serialize_string(tx.blob);
+        }
+        serializer.serialize_end_array();
+      }
+    serializer.serialize_end_object();
+  }
+
+  inline
+  bool deserialize_default(serde::model::Deserializer& deserializer, block_complete_entry& entry)
+  {
+    block_complete_entry_serialized bces;
+    if (!deserialize_default(deserializer, bces)) return false;
+
+    entry.pruned = bces.pruned;
+    entry.block = bces.block;
+    entry.block_weight = bces.block_weight;
+    entry.txs.reserve(bces.txs.size());
+    for (auto bobe : bces.txs)
+    {
+      if (bobe.is_entry)
+      {
+        entry.txs.push_back(std::move(bobe.blob_entry));
+      }
+      else
+      {
+        tx_blob_entry constructed_entry{std::move(bobe.blob), {}};
+        entry.txs.push_back(std::move(constructed_entry));
+      }
+    }
+
+    return true;
+  }
+} // namespace cryptonote

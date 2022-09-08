@@ -39,6 +39,8 @@
 #include "rpc/rpc_handler.h"
 #include "common/varint.h"
 #include "common/perf_timer.h"
+#include "serde/model/field.h"
+#include "serde/model/field.h"
 
 namespace
 {
@@ -341,6 +343,8 @@ namespace cryptonote
 
     struct entry
     {
+      static constexpr uint64_t UNSET64 = std::numeric_limits<uint64_t>::max();
+
       std::string tx_hash;
       std::string as_hex;
       std::string pruned_as_hex;
@@ -356,6 +360,7 @@ namespace cryptonote
       std::vector<uint64_t> output_indices;
       bool relayed;
 
+      // @TODO: shrink serialized packets by not including certain fields based on `in_pool`
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(tx_hash)
         KV_SERIALIZE(as_hex)
@@ -365,18 +370,12 @@ namespace cryptonote
         KV_SERIALIZE(as_json)
         KV_SERIALIZE(in_pool)
         KV_SERIALIZE(double_spend_seen)
-        if (!this_ref.in_pool)
-        {
-          KV_SERIALIZE(block_height)
-          KV_SERIALIZE(confirmations)
-          KV_SERIALIZE(block_timestamp)
-          KV_SERIALIZE(output_indices)
-        }
-        else
-        {
-          KV_SERIALIZE(relayed)
-          KV_SERIALIZE(received_timestamp)
-        }
+        KV_SERIALIZE_OPT(block_height, UNSET64)
+        KV_SERIALIZE_OPT(confirmations, UNSET64)
+        KV_SERIALIZE_OPT(block_timestamp, UNSET64)
+        KV_SERIALIZE_OPT(output_indices, {})
+        KV_SERIALIZE_OPT(relayed, false)
+        KV_SERIALIZE_OPT(received_timestamp, UNSET64)
       END_KV_SERIALIZE_MAP()
     };
 
@@ -570,7 +569,7 @@ namespace cryptonote
       bool do_sanity_checks;
 
       BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE_PARENT(rpc_access_request_base);
+        KV_SERIALIZE_PARENT(rpc_access_request_base)
         KV_SERIALIZE(tx_as_hex)
         KV_SERIALIZE_OPT(do_not_relay, false)
         KV_SERIALIZE_OPT(do_sanity_checks, true)
@@ -644,7 +643,7 @@ namespace cryptonote
     struct request_t: public rpc_access_request_base
     {
       BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE_PARENT(rpc_access_request_base);
+        KV_SERIALIZE_PARENT(rpc_access_request_base)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
@@ -1165,7 +1164,7 @@ namespace cryptonote
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_access_request_base)
-        KV_SERIALIZE_OPT(fill_pow_hash, false);
+        KV_SERIALIZE_OPT(fill_pow_hash, false)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
@@ -1195,7 +1194,7 @@ namespace cryptonote
         KV_SERIALIZE_PARENT(rpc_access_request_base)
         KV_SERIALIZE(hash)
         KV_SERIALIZE(hashes)
-        KV_SERIALIZE_OPT(fill_pow_hash, false);
+        KV_SERIALIZE_OPT(fill_pow_hash, false)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
@@ -1224,7 +1223,7 @@ namespace cryptonote
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_access_request_base)
         KV_SERIALIZE(height)
-        KV_SERIALIZE_OPT(fill_pow_hash, false);
+        KV_SERIALIZE_OPT(fill_pow_hash, false)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
@@ -1253,7 +1252,7 @@ namespace cryptonote
         KV_SERIALIZE_PARENT(rpc_access_request_base)
         KV_SERIALIZE(hash)
         KV_SERIALIZE(height)
-        KV_SERIALIZE_OPT(fill_pow_hash, false);
+        KV_SERIALIZE_OPT(fill_pow_hash, false)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
@@ -1711,7 +1710,7 @@ namespace cryptonote
         KV_SERIALIZE_PARENT(rpc_access_request_base)
         KV_SERIALIZE(start_height)
         KV_SERIALIZE(end_height)
-        KV_SERIALIZE_OPT(fill_pow_hash, false);
+        KV_SERIALIZE_OPT(fill_pow_hash, false)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
@@ -2072,12 +2071,12 @@ namespace cryptonote
       uint64_t recent_cutoff;
 
       BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE_PARENT(rpc_access_request_base);
-        KV_SERIALIZE(amounts);
-        KV_SERIALIZE(min_count);
-        KV_SERIALIZE(max_count);
-        KV_SERIALIZE(unlocked);
-        KV_SERIALIZE(recent_cutoff);
+        KV_SERIALIZE_PARENT(rpc_access_request_base)
+        KV_SERIALIZE(amounts)
+        KV_SERIALIZE(min_count)
+        KV_SERIALIZE(max_count)
+        KV_SERIALIZE(unlocked)
+        KV_SERIALIZE(recent_cutoff)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
@@ -2090,10 +2089,10 @@ namespace cryptonote
       uint64_t recent_instances;
 
       BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(amount);
-        KV_SERIALIZE(total_instances);
-        KV_SERIALIZE(unlocked_instances);
-        KV_SERIALIZE(recent_instances);
+        KV_SERIALIZE(amount)
+        KV_SERIALIZE(total_instances)
+        KV_SERIALIZE(unlocked_instances)
+        KV_SERIALIZE(recent_instances)
       END_KV_SERIALIZE_MAP()
 
       entry(uint64_t amount, uint64_t total_instances, uint64_t unlocked_instances, uint64_t recent_instances):
@@ -2145,9 +2144,9 @@ namespace cryptonote
       uint64_t count;
 
       BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE_PARENT(rpc_access_request_base);
-        KV_SERIALIZE(height);
-        KV_SERIALIZE(count);
+        KV_SERIALIZE_PARENT(rpc_access_request_base)
+        KV_SERIALIZE(height)
+        KV_SERIALIZE(count)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
@@ -2396,42 +2395,12 @@ namespace cryptonote
     {
       rpc::output_distribution_data data;
       uint64_t amount;
-      std::string compressed_data;
+      mutable std::string compressed_data;
       bool binary;
       bool compress;
 
-      BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(amount)
-        KV_SERIALIZE_N(data.start_height, "start_height")
-        KV_SERIALIZE(binary)
-        KV_SERIALIZE(compress)
-        if (this_ref.binary)
-        {
-          if (is_store)
-          {
-            if (this_ref.compress)
-            {
-              const_cast<std::string&>(this_ref.compressed_data) = compress_integer_array(this_ref.data.distribution);
-              KV_SERIALIZE(compressed_data)
-            }
-            else
-              KV_SERIALIZE_CONTAINER_POD_AS_BLOB_N(data.distribution, "distribution")
-          }
-          else
-          {
-            if (this_ref.compress)
-            {
-              KV_SERIALIZE(compressed_data)
-              const_cast<std::vector<uint64_t>&>(this_ref.data.distribution) = decompress_integer_array<uint64_t>(this_ref.compressed_data);
-            }
-            else
-              KV_SERIALIZE_CONTAINER_POD_AS_BLOB_N(data.distribution, "distribution")
-          }
-        }
-        else
-          KV_SERIALIZE_N(data.distribution, "distribution")
-        KV_SERIALIZE_N(data.base, "base")
-      END_KV_SERIALIZE_MAP()
+      SERIALIZE_OPERATOR_FRIEND(distribution)
+      DESERIALIZE_OPERATOR_FRIEND(distribution)
     };
 
     struct response_t: public rpc_access_response_base
@@ -2445,6 +2414,49 @@ namespace cryptonote
     };
     typedef epee::misc_utils::struct_init<response_t> response;
   };
+
+  inline void serialize_default
+  (
+    const COMMAND_RPC_GET_OUTPUT_DISTRIBUTION::distribution& dist,
+    serde::model::Serializer& serializer
+  )
+  {
+    // 6 fields: data.base, data.start_height, amount, binary, compress, "distribution"
+    serializer.serialize_start_object(6);
+      SERDE_FIELD_DIRECT_SERIALIZE(dist, amount)
+      SERDE_FIELD_DIRECT_SERIALIZE(dist, binary)
+      SERDE_FIELD_DIRECT_SERIALIZE(dist, compress)
+      SERDE_FIELD_DIRECT_SERIALIZE(dist, amount)
+      SERDE_FIELD_DIRECT_SERIALIZE_N(dist.data.base, "base")
+      SERDE_FIELD_DIRECT_SERIALIZE_N(dist.data.start_height, "start_height")
+      serializer.serialize_key(serde::internal::cstr_to_byte_span("distribution"));
+      if (dist.binary)
+      {
+        if (dist.compress)
+        {
+          dist.compressed_data = compress_integer_array(dist.data.distribution);
+          serializer.serialize_string(dist.compressed_data);
+        }
+        else // binary but not compressed
+        {
+          serialize_as_blob(dist.data.distribution, serializer);
+        }
+      }
+      else // not binary
+      {
+        serialize_default(dist.data.distribution, serializer);
+      }
+    serializer.serialize_end_object();
+  }
+
+  inline bool deserialize_default
+  (
+    serde::model::Deserializer& deserializer,
+    COMMAND_RPC_GET_OUTPUT_DISTRIBUTION::distribution& dist
+  )
+  {
+    return false; // @TODO: fill in
+  }
 
   struct COMMAND_RPC_ACCESS_INFO
   {

@@ -36,8 +36,6 @@
 #include <limits>
 
 #include "net/error.h"
-#include "serialization/keyvalue_serialization.h"
-#include "storages/portable_storage.h"
 #include "string_tools_lexical.h"
 
 namespace net
@@ -67,17 +65,6 @@ namespace net
 
             return success();
         }
-
-        struct i2p_serialized
-        {
-            std::string host;
-            std::uint16_t port;
-
-            BEGIN_KV_SERIALIZE_MAP()
-                KV_SERIALIZE(host)
-                KV_SERIALIZE(port)
-            END_KV_SERIALIZE_MAP()
-        };
     }
 
     i2p_address::i2p_address(const boost::string_ref host, const std::uint16_t port) noexcept
@@ -120,26 +107,16 @@ namespace net
         return i2p_address{host, porti};
     }
 
-    bool i2p_address::_load(epee::serialization::portable_storage& src, epee::serialization::section* hparent)
+    void serialize_default(const i2p_address& value, serde::model::Serializer& serializer)
     {
-        i2p_serialized in{};
-        if (in._load(src, hparent) && in.host.size() < sizeof(host_) && (in.host == unknown_host || !host_check(in.host).has_error()))
-        {
-            std::memcpy(host_, in.host.data(), in.host.size());
-            std::memset(host_ + in.host.size(), 0, sizeof(host_) - in.host.size());
-            port_ = in.port;
-            return true;
-        }
-        static_assert(sizeof(unknown_host) <= sizeof(host_), "bad buffer size");
-        std::memcpy(host_, unknown_host, sizeof(unknown_host)); // include null terminator
-        port_ = 0;
-        return false;
-    }
-
-    bool i2p_address::store(epee::serialization::portable_storage& dest, epee::serialization::section* hparent) const
-    {
-        const i2p_serialized out{std::string{host_}, port_};
-        return out.store(dest, hparent);
+        const auto host_byte_ptr = reinterpret_cast<serde::const_byte_iterator>(value.host_);
+        const size_t host_len = std::strlen(value.host_);
+        serializer.serialize_start_object(2); // host and port
+        serializer.serialize_key(serde::internal::cstr_to_byte_span("host"));
+        serializer.serialize_bytes({host_byte_ptr, host_len});
+        serializer.serialize_key(serde::internal::cstr_to_byte_span("port"));
+        serializer.serialize_uint16(value.port_);
+        serializer.serialize_end_object();
     }
 
     i2p_address::i2p_address(const i2p_address& rhs) noexcept

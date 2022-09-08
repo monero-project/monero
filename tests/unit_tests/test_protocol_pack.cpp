@@ -32,7 +32,7 @@
 
 #include "include_base_utils.h"
 #include "cryptonote_protocol/cryptonote_protocol_defs.h"
-#include "storages/portable_storage_template_helper.h"
+#include "storages/serde_template_helper.h"
 
 TEST(protocol_pack, protocol_pack_command) 
 {

@@ -32,7 +32,7 @@
 
 #include "cryptonote_basic.h"
 #include "crypto/crypto.h"
-#include "serialization/keyvalue_serialization.h"
+#include "storages/serde_template_helper.h"
 
 namespace cryptonote
 {
@@ -51,8 +51,7 @@ namespace cryptonote
       KV_SERIALIZE_VAL_POD_AS_BLOB_FORCE(m_spend_secret_key)
       KV_SERIALIZE_VAL_POD_AS_BLOB_FORCE(m_view_secret_key)
       KV_SERIALIZE_CONTAINER_POD_AS_BLOB(m_multisig_keys)
-      const crypto::chacha_iv default_iv{{0, 0, 0, 0, 0, 0, 0, 0}};
-      KV_SERIALIZE_VAL_POD_AS_BLOB_OPT(m_encryption_iv, default_iv)
+      KV_SERIALIZE_VAL_POD_AS_BLOB_OPT(m_encryption_iv, {})
     END_KV_SERIALIZE_MAP()
 
     void encrypt(const crypto::chacha_key &key);

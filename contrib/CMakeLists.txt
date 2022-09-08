@@ -28,4 +28,4 @@
 
 monero_enable_coverage()
 add_subdirectory(epee)
-
+add_subdirectory(serde)

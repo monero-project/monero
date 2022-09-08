@@ -30,9 +30,9 @@
 #include <chrono>
 #include <string>
 #include "byte_slice.h"
-#include "portable_storage_template_helper.h"
 #include "net/http_base.h"
 #include "net/http_server_handlers_map2.h"
+#include "storages/serde_template_helper.h"
 
 namespace epee
 {
@@ -98,12 +98,7 @@ namespace epee
         return false;
       }
 
-      static const constexpr epee::serialization::portable_storage::limits_t default_http_bin_limits = {
-        65536 * 3, // objects
-        65536 * 3, // fields
-        65536 * 3, // strings
-      };
-      return serialization::load_t_from_binary(result_struct, epee::strspan<uint8_t>(pri->m_body), &default_http_bin_limits);
+      return serialization::load_t_from_binary(result_struct, serde::internal::string_to_byte_span(pri->m_body));
     }
 
     template<class t_request, class t_response, class t_transport>

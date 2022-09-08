@@ -34,6 +34,9 @@
 #include <array>
 #include <cstddef>
 
+#include "serde/blob/deserialize_as_blob.h"
+#include "serde/blob/serialize_as_blob.h"
+
 extern "C" {
 #endif
 
@@ -66,6 +69,8 @@ namespace tools {
                     "T cannot be auto-scrubbed. T must be trivially destructable.");
       memwipe(this, sizeof(T));
     }
+
+    BLOBBABLE_BASE(T)
   };
 
   template<typename T>

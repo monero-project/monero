@@ -91,7 +91,7 @@ namespace net_utils
 				return true;
 			}
 			virtual bool handle_recv(const void* ptr, size_t cb);
-			virtual bool handle_request(const http::http_request_info& query_info, http_response_info& response);
+			virtual bool handle_request(http::http_request_info& query_info, http_response_info& response);
 
 		private:
 			enum machine_state{
@@ -127,7 +127,7 @@ namespace net_utils
 			std::string get_response_header(const http_response_info& response);
 
 			//major function 
-			inline bool handle_request_and_send_response(const http::http_request_info& query_info);
+			inline bool handle_request_and_send_response(http::http_request_info& query_info);
 
 
 			std::string get_not_found_response_body(const std::string& URI);
@@ -152,7 +152,7 @@ namespace net_utils
 		struct i_http_server_handler
 		{
 			virtual ~i_http_server_handler(){}
-			virtual bool handle_http_request(const http_request_info& query_info,
+			virtual bool handle_http_request(http_request_info& query_info,
 																						 http_response_info& response,
 																						 t_connection_context& m_conn_context) = 0;
 			virtual bool init_server_thread(){return true;}
@@ -181,7 +181,7 @@ namespace net_utils
 					m_config(config),
 					m_auth(m_config.m_user ? http_server_auth{*m_config.m_user, config.rng} : http_server_auth{})
 			{}
-			inline bool handle_request(const http_request_info& query_info, http_response_info& response)
+			inline bool handle_request(http_request_info& query_info, http_response_info& response)
 			{
 				CHECK_AND_ASSERT_MES(m_config.m_phandler, false, "m_config.m_phandler is NULL!!!!");
 

@@ -28,14 +28,14 @@
 #pragma once 
 #include "http_base.h"
 #include "jsonrpc_structs.h"
-#include "storages/portable_storage.h"
-#include "storages/portable_storage_template_helper.h"
+#include "storages/serde_template_helper.h"
+#include "serde/json/value.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "net.http"
 
 
-#define CHAIN_HTTP_TO_MAP2(context_type) bool handle_http_request(const epee::net_utils::http::http_request_info& query_info, \
+#define CHAIN_HTTP_TO_MAP2(context_type) bool handle_http_request(epee::net_utils::http::http_request_info& query_info, \
               epee::net_utils::http::http_response_info& response, \
               context_type& m_conn_context) \
 {\
@@ -57,7 +57,7 @@
 }
 
 
-#define BEGIN_URI_MAP2()   template<class t_context> bool handle_http_request_map(const epee::net_utils::http::http_request_info& query_info, \
+#define BEGIN_URI_MAP2()   template<class t_context> bool handle_http_request_map(epee::net_utils::http::http_request_info& query_info, \
   epee::net_utils::http::http_response_info& response_info, \
   t_context& m_conn_context) { \
   bool handled = false; \
@@ -142,8 +142,12 @@
     { \
     uint64_t ticks = epee::misc_utils::get_tick_count(); \
     response_info.m_mime_tipe = "application/json"; \
-    epee::serialization::portable_storage ps; \
-    if(!ps.load_from_json(query_info.m_body)) \
+    serde::json::Document req_doc; \
+    try \
+    { \
+      req_doc = serde::json::parse_borrowed_document_from_cstr(&query_info.m_body.front()); \
+    } \
+    catch (const std::exception& e) \
     { \
        boost::value_initialized<epee::json_rpc::error_response> rsp; \
        static_cast<epee::json_rpc::error_response&>(rsp).jsonrpc = "2.0"; \
@@ -152,11 +156,17 @@
        epee::serialization::store_t_to_json(static_cast<epee::json_rpc::error_response&>(rsp), response_info.m_body); \
        return true; \
     } \
-    epee::serialization::storage_entry id_; \
-    id_ = epee::serialization::storage_entry(std::string()); \
-    ps.get_value("id", id_, nullptr); \
+    std::string id_ = "0"; \
+    if (req_doc.HasMember("id") && req_doc["id"].IsString()) \
+    { \
+      id_ = req_doc["id"].GetString(); \
+    } \
     std::string callback_name; \
-    if(!ps.get_value("method", callback_name, nullptr)) \
+    if (req_doc.HasMember("method") && req_doc["method"].IsString()) \
+    { \
+      callback_name = req_doc["method"].GetString(); \
+    } \
+    else \
     { \
       epee::json_rpc::error_response rsp; \
       rsp.jsonrpc = "2.0"; \
@@ -173,7 +183,7 @@
   response_info.m_mime_tipe = "application/json"; \
   boost::value_initialized<epee::json_rpc::request<command_type::request> > req_; \
   epee::json_rpc::request<command_type::request>& req = static_cast<epee::json_rpc::request<command_type::request>&>(req_);\
-  if(!req.load(ps)) \
+  if (!req_doc.HasMember("params") || !req_doc["params"].IsObject()) \
   { \
     epee::json_rpc::error_response fail_resp = AUTO_VAL_INIT(fail_resp); \
     fail_resp.jsonrpc = "2.0"; \
@@ -181,6 +191,20 @@
     fail_resp.error.code = -32602; \
     fail_resp.error.message = "Invalid params"; \
     epee::serialization::store_t_to_json(static_cast<epee::json_rpc::error_response&>(fail_resp), response_info.m_body); \
+  } \
+  try \
+  { \
+    serde::json::ValueDeserializer params_deserializer(req_doc["params"]); \
+    deserialize_default(params_deserializer, req); \
+  } \
+  catch (const std::exception& e)\
+  { \
+    epee::json_rpc::error_response fail_resp = AUTO_VAL_INIT(fail_resp); \
+    fail_resp.jsonrpc = "2.0"; \
+    fail_resp.id = req.id; \
+    fail_resp.error.code = -32602; \
+    fail_resp.error.message = std::string("Invalid params: ") + std::string(e.what()); \
+    epee::serialization::store_t_to_json(fail_resp, response_info.m_body); \
     return true; \
   } \
   uint64_t ticks1 = epee::misc_utils::get_tick_count(); \
@@ -250,5 +274,3 @@
   epee::serialization::store_t_to_json(static_cast<epee::json_rpc::error_response&>(rsp), response_info.m_body); \
   return true; \
 }
-
-
