@@ -37,7 +37,7 @@
 namespace serde { namespace internal
 {
     constexpr size_t BOOST_IPV6_ADDR_SIZE = sizeof(boost::asio::ip::address_v6::bytes_type);
-    static_assert(BOOST_IPV6_ADDR_SIZE == 16);
+    static_assert(BOOST_IPV6_ADDR_SIZE == 16, "boost address_v6::bytes_type is not 16 bytes");
 
     struct BoostIpv6AddressVisitor: public model::RefVisitor<boost::asio::ip::address_v6>
     {

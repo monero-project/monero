@@ -37,8 +37,8 @@ namespace serde { namespace json
     class JsonVisitorHandler: public rapidjson::BaseReaderHandler<rapidjson::UTF8<>>
     {
         typedef rapidjson::SizeType SizeType;
-        static_assert(std::is_same<int, int32_t>::value); // @TODO: provide contigencies
-        static_assert(std::is_same<unsigned int, uint32_t>::value); // @TODO: provide contigencies
+        static_assert(std::is_same<int, int32_t>::value, "int is not 32 bits");
+        static_assert(std::is_same<unsigned int, uint32_t>::value, "unsigned int is not 32 bits");
 
     public:
 
