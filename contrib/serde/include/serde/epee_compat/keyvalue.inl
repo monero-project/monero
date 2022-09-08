@@ -314,7 +314,7 @@ namespace serde { namespace internal
 namespace serde { namespace model
 {
     // Overload the serialize_default operator if type has the serde_struct_enabled typedef
-    template <class Struct, typename = typename Struct::serde_struct_enabled>
+    template <class Struct, typename>
     void serialize_default(const Struct& struct_ref, Serializer& serializer)
     {
         using serde_struct_map = typename Struct::template make_serde_fields<true>;
@@ -323,7 +323,7 @@ namespace serde { namespace model
     }
 
     // Overload the deserialize_default operator if type has the serde_struct_enabled typedef
-    template <class Struct, typename = typename Struct::serde_struct_enabled>
+    template <class Struct, typename>
     bool deserialize_default(Deserializer& deserializer, Struct& struct_ref, bool partial)
     {
         using serde_struct_map = typename Struct::template make_serde_fields<false>;
