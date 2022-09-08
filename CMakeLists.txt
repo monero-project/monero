@@ -606,6 +606,7 @@ add_definition_if_library_exists(c explicit_bzero "strings.h" HAVE_EXPLICIT_BZER
 add_definition_if_function_found(strptime HAVE_STRPTIME)
 
 add_definitions(-DAUTO_INITIALIZE_EASYLOGGINGPP)
+add_definitions(-D__STDC_FORMAT_MACROS=1)
 
 set(MONERO_GENERATED_HEADERS_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated_include")
 include_directories(${MONERO_GENERATED_HEADERS_DIR})
