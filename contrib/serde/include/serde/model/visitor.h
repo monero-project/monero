@@ -34,7 +34,7 @@
 
 #include "../internal/deps.h"
 
-namespace serde::model
+namespace serde { namespace model
 {
     struct Deserializer;
 
@@ -182,4 +182,4 @@ namespace serde::model
 
         Event m_event;
     }; // class ProbeVisitor
-} // namespace serde::model
+}} // namespace serde::model

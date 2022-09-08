@@ -34,7 +34,7 @@
 #include "../internal/deps.h"
 #include "../model/deserializer.h"
 
-namespace serde::json
+namespace serde { namespace json
 {
     class Deserializer: public model::SelfDescribingDeserializer
     {
@@ -63,4 +63,4 @@ namespace serde::json
         // Non-owning stream so buffer must remain valid the entire lifetime of the Deserializer.
         rapidjson::InsituStringStream m_istream;
     }; // class Deserializer
-} // namespace serde::json
+}} // namespace serde::json

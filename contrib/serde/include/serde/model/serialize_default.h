@@ -40,7 +40,7 @@
 #define SERIALIZE_OPERATOR_FRIEND(thisname)                                    \
     friend void serialize_default(const thisname&, serde::model::Serializer&); \
 
-namespace serde::model
+namespace serde { namespace model
 {
     ///////////////////////////////////////////////////////////////////////////
     // Default serialization interface                                       //
@@ -70,6 +70,6 @@ namespace serde::model
 
     template <typename Element>
     void serialize_default(const std::vector<Element>& cont, Serializer& serializer);
-}
+}}
 
 #include "../internal/serialize_default.inl"

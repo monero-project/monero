@@ -47,7 +47,7 @@ namespace serde
     using const_byte_iterator = const std::uint8_t*;
 } // namespace serde
 
-namespace serde::internal
+namespace serde { namespace internal
 {
     // make a byte_span from a std::string, same idea as epee::strspan
     const_byte_span string_to_byte_span(const std::string& s) noexcept;
@@ -60,7 +60,7 @@ namespace serde::internal
     }
 
     std::string byte_span_to_string(const const_byte_span& bytes);
-} // namespace serde::internal
+}} // namespace serde::internal
 
 ///////////////////////////////////////////////////////////////////////////////
 // SWAP64LE, SWAP32LE, BIG_ENDIAN, ...                                       //
@@ -85,7 +85,7 @@ namespace serde::internal
 #include <sstream>
 #include <stdexcept>
 
-namespace serde::internal
+namespace serde { namespace internal
 {
     // wrapper exception
     class safe_numeric_cast_exception: public std::runtime_error
@@ -112,7 +112,7 @@ namespace serde::internal
             throw safe_numeric_cast_exception(err_stream.str());
         }
     } // safe_numeric_cast
-} // namespace serde::internal
+}} // namespace serde::internal
 
 ///////////////////////////////////////////////////////////////////////////////
 // optional                                                                  //

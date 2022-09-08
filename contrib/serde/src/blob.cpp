@@ -29,7 +29,7 @@
 #include "serde/blob/deserialize_as_blob.h"
 #include "serde/blob/serialize_as_blob.h"
 
-namespace serde::model
+namespace serde { namespace model
 {
     ///////////////////////////////////////////////////////////////////////////
     // deserialize_as_blob.h                                                   //
@@ -50,4 +50,4 @@ namespace serde::model
     {
         serializer.serialize_bytes(internal::string_to_byte_span(value));
     }
-}
+}}

@@ -30,7 +30,8 @@
 
 #include "./visitor_specializations.h"
 
-namespace serde::model {
+namespace serde { namespace model
+{
     #define DEF_DESERIALIZE_DEFAULT_SPECIALIZATION_FOR_CONTAINER(contname)              \
         template <typename Element>                                                     \
         bool deserialize_default(Deserializer& deserializer, contname<Element>& values) \
@@ -48,4 +49,4 @@ namespace serde::model {
     DEF_DESERIALIZE_DEFAULT_SPECIALIZATION_FOR_CONTAINER(std::list)
     DEF_DESERIALIZE_DEFAULT_SPECIALIZATION_FOR_CONTAINER(std::set)
     DEF_DESERIALIZE_DEFAULT_SPECIALIZATION_FOR_CONTAINER(std::vector)
-} // namespace serde::model
+}} // namespace serde::model

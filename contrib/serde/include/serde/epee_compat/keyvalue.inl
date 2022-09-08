@@ -39,7 +39,7 @@
 #include "../model/deserialize_default.h"
 #include "../model/serialize_default.h"
 
-namespace serde::internal
+namespace serde { namespace internal
 {
     ///////////////////////////////////////////////////////////////////////////
     // Serialization and Deserialization Sides - Shared                      //
@@ -309,15 +309,15 @@ namespace serde::internal
             // @TODO: required check up etc 
         }
     }; // struct struct_serde
-}
+}} // namespace serde::internal
 
-namespace serde::model
+namespace serde { namespace model
 {
     // Overload the serialize_default operator if type has the serde_struct_enabled typedef
     template <class Struct, typename = typename Struct::serde_struct_enabled>
     void serialize_default(const Struct& struct_ref, Serializer& serializer)
     {
-        using serde_struct_map = typename Struct::make_serde_fields<true>;
+        using serde_struct_map = typename Struct::template make_serde_fields<true>;
         const auto fields = serde_struct_map()(struct_ref);
         internal::struct_serde<true>::call(fields, serializer);
     }
@@ -326,8 +326,8 @@ namespace serde::model
     template <class Struct, typename = typename Struct::serde_struct_enabled>
     bool deserialize_default(Deserializer& deserializer, Struct& struct_ref, bool partial)
     {
-        using serde_struct_map = typename Struct::make_serde_fields<false>;
+        using serde_struct_map = typename Struct::template make_serde_fields<false>;
         auto fields = serde_struct_map()(struct_ref);
         return internal::struct_serde<false>::call(fields, deserializer, partial);
     }
-}
+}} // namespace serde::model

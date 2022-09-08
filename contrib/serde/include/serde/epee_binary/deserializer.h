@@ -35,7 +35,7 @@
 #include "../model/deserializer.h"
 #include "../model/visitor.h"
 
-namespace serde::epee_binary
+namespace serde { namespace epee_binary
 {
     // forward declaration of internal function
     constexpr bool uint64_fits_size(uint64_t value);
@@ -348,4 +348,4 @@ namespace serde::epee_binary
             }
         }
     }; // class Deserializer
-} // namespace serde::epee_binary
+}} // namespace serde::epee_binary

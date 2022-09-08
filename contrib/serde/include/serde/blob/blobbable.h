@@ -39,7 +39,7 @@
 #define IS_BLOBBABLE(ty) IS_POD(ty) || serde::internal::has_blobbable_base<ty>::value
 #define BLOB_TYPE(ty) typename serde::internal::blobbable<ty>::blob_type
 
-namespace serde::internal
+namespace serde { namespace internal
 {
     /*
      * @brief checks for the existence of member type blobbable_base_type in type U
@@ -83,4 +83,4 @@ namespace serde::internal
         using ptr_type = blob_type*;
         using const_ptr_type = const blob_type*;
     };
-}
+}} // namespace serde::internal

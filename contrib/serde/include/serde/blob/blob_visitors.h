@@ -33,7 +33,7 @@
 #include "../internal/endianness.h"
 #include "../model/visitor.h"
 
-namespace serde::internal
+namespace serde { namespace internal
 {
     template <typename BlobValue, ENABLE_TPARAM_IF(IS_BLOBBABLE(BlobValue))>
     class BlobVisitor: public model::BasicVisitor
@@ -133,4 +133,4 @@ namespace serde::internal
             this->visit(std::move(container));
         }
     }; // struct BlobContainerVisitor
-} // namespace serde::internal
+}} // namespace serde::internal

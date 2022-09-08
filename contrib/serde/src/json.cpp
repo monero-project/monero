@@ -32,7 +32,7 @@
 #include "serde/json/value.h"
 #include "serde/model/visitor.h"
 
-namespace serde::json
+namespace serde { namespace json
 {
     class JsonVisitorHandler: public rapidjson::BaseReaderHandler<rapidjson::UTF8<>>
     {
@@ -103,4 +103,4 @@ namespace serde::json
         );
         return doc;
     }
-}
+}} // namespace serde::json

@@ -32,7 +32,7 @@
 #include "serde/model/deserialize_default.h"
 #include "serde/model/serialize_default.h"
 
-namespace serde::model
+namespace serde { namespace model
 {
     ///////////////////////////////////////////////////////////////////////////
     // deserialize_default.h                                                 //
@@ -261,4 +261,4 @@ namespace serde::model
         m_event.m_type = ProbeVisitor::EventType::Key;
         m_event.m_string = internal::byte_span_to_string(bytes);
     }
-} // namespace serde::model
+}} // namespace serde::model

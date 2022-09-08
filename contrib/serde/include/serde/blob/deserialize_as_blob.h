@@ -35,7 +35,7 @@
 #include "./blob_visitors.h"
 #include "../model/deserializer.h"
 
-namespace serde::model
+namespace serde { namespace model
 {
     bool deserialize_as_blob(Deserializer& deserializer, std::string& value);
 
@@ -61,4 +61,4 @@ namespace serde::model
     DEF_DESER_AS_BLOB_SPZTION_FOR_CONT(std::vector)
 
     // @TODO: contiguous specializations
-}
+}}

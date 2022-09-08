@@ -32,7 +32,7 @@
 
 #include "../model/visitor.h"
 
-namespace serde::json::internal
+namespace serde { namespace json { namespace internal
 {
     struct ValueObjectPair
     {
@@ -154,9 +154,9 @@ namespace serde::json::internal
         };
         bool m_is_object;
     }; // class ValueIteratorVariant
-} // namespace serde::json::internal
+}}} // namespace serde::json::internal
 
-namespace serde::json
+namespace serde { namespace json
 {
     class ValueDeserializer: public model::SelfDescribingDeserializer
     {
@@ -249,4 +249,4 @@ namespace serde::json
         bool m_root;
         bool m_finished;
     }; // class ValueDeserializer
-} // namespace serde::json
+}} // namespace serde::json

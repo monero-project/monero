@@ -29,7 +29,7 @@
 #include "serde/internal/deps.h"
 #include "serde/internal/visitor_specializations.h"
 
-namespace serde::internal
+namespace serde { namespace internal
 {
     const_byte_span string_to_byte_span(const std::string& s) noexcept
     {
@@ -71,4 +71,4 @@ namespace serde::internal
     DEF_EXPLICIT_SPECIALIZATION_FOR_NUMERIC_VISIT_BY_STRING(uint16_t)
     DEF_EXPLICIT_SPECIALIZATION_FOR_NUMERIC_VISIT_BY_STRING(uint8_t)
     DEF_EXPLICIT_SPECIALIZATION_FOR_NUMERIC_VISIT_BY_STRING(double)
-}
+}} // namespace serde::internal

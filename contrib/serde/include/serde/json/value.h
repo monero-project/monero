@@ -31,7 +31,7 @@
 #include "./deps.h"
 #include "../internal/deps.h"
 
-namespace serde::json
+namespace serde { namespace json
 {
     using Document = rapidjson::Document;
     using Value = rapidjson::Value;
@@ -39,6 +39,6 @@ namespace serde::json
     class ValueDeserializer;
 
     Document parse_borrowed_document_from_cstr(char* str);
-} // namespace serde::json
+}} // namespace serde::json
 
 #include "value.inl"

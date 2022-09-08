@@ -33,7 +33,8 @@
 #include "./limits.h"
 #include "../internal/deps.h"
 
-namespace serde::model {
+namespace serde { namespace model
+{
     struct BasicVisitor;
 
     struct Deserializer
@@ -113,4 +114,4 @@ namespace serde::model {
         void deserialize_key(BasicVisitor&) override final;
         void deserialize_end_object(BasicVisitor&) override final;
     };
-} // namespace serde::model
+}} // namespace serde::model

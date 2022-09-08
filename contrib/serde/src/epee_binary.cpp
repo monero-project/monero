@@ -30,7 +30,7 @@
 #include <cstdint>
 #include <limits>
 
-namespace serde::epee
+namespace serde { namespace epee_binary
 {
     constexpr bool uint64_fits_size(uint64_t v)
     {
@@ -45,4 +45,4 @@ namespace serde::epee
         const uintmax_t value = static_cast<uintmax_t>(v);
         return value <= uint64_max;
     }
-}
+}}

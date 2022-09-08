@@ -40,7 +40,7 @@
 #define DESERIALIZE_OPERATOR_FRIEND(thisname)                                \
     friend bool deserialize_default(serde::model::Deserializer&, thisname&); \
 
-namespace serde::model
+namespace serde { namespace model
 {
     ///////////////////////////////////////////////////////////////////////////
     // deserialize_default() interface                                       //
@@ -64,6 +64,6 @@ namespace serde::model
     bool deserialize_default(Deserializer& deserializer, std::set<T>& values);
     template <typename T>
     bool deserialize_default(Deserializer& deserializer, std::vector<T>& values);
-}
+}}
 
 #include "../internal/deserialize_default.inl"

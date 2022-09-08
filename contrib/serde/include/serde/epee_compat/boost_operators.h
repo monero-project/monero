@@ -34,7 +34,7 @@
 #include "../model/serializer.h"
 #include "../model/visitor.h"
 
-namespace serde::internal
+namespace serde { namespace internal
 {
     constexpr size_t BOOST_IPV6_ADDR_SIZE = sizeof(boost::asio::ip::address_v6::bytes_type);
     static_assert(BOOST_IPV6_ADDR_SIZE == 16);
@@ -63,9 +63,9 @@ namespace serde::internal
             this->visit(boost::asio::ip::address_v6(ipv6bytes));
         }
     };
-} // namesapce serde::internal
+}} // namesapce serde::internal
 
-namespace serde::model
+namespace serde { namespace model
 {
     inline void serialize_default(const boost::asio::ip::address_v6& value, Serializer& serializer)
     {
@@ -79,4 +79,4 @@ namespace serde::model
         deserializer.deserialize_bytes(addr_visitor);
         return addr_visitor.was_visited();
     }
-} // namespace serde::model
+}} // namespace serde::model

@@ -32,7 +32,7 @@
 
 #include "deps.h"
 
-namespace serde::internal
+namespace serde { namespace internal
 {
     template <typename T>
     struct le_conversion 
@@ -70,7 +70,7 @@ namespace serde::internal
     SPECIALIZE_INT_CONVERSION(32)
     SPECIALIZE_INT_CONVERSION(16)
     // @TODO: double endianness
-} // namespace serde::internal
+}} // namespace serde::internal
 
 // @TODO passthough if LE system
 #ifndef CONVERT_POD

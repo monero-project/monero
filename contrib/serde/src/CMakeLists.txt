@@ -32,7 +32,7 @@ monero_find_all_headers(SERDE_HEADERS_PUBLIC "${SERDE_INCLUDE_DIR_BASE}")
 
 monero_add_library(
     serde
-    blob.cpp epee_binary.cpp internal.cpp json.cpp model.cpp serializer.cpp
+    blob.cpp epee_binary.cpp internal.cpp json.cpp model.cpp
     ${EPEE_HEADERS_PUBLIC}
 )
 

@@ -35,7 +35,8 @@
 
 #include "./enable_if.h"
 
-namespace serde::internal {
+namespace serde { namespace internal
+{
     template <class Container> inline
     void container_reserve(Container& container, size_t new_capacity) {
         // by default, do nothing
@@ -68,4 +69,4 @@ namespace serde::internal {
     template <class Tuple, class Functor, size_t I = 0, size_t J = TUPLE_SIZE(Tuple)>
     ENABLE_IF(I >= J) tuple_for_each(Tuple& tup, Functor& f)
     {}
-}
+}} // namespace serde::internal

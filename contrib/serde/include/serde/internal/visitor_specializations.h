@@ -36,7 +36,7 @@
 #include "../model/deserializer.h"
 #include "../model/visitor.h"
 
-namespace serde::internal
+namespace serde { namespace internal
 {
     // Default Visitor for types which can be coerced using boost::numeric_cast
     template <typename Numeric>
@@ -96,4 +96,4 @@ namespace serde::internal
             this->visit(internal::byte_span_to_string(bytes));
         }
     }; // struct StringVisitor
-} // namespace serde::model
+}} // namespace serde::model

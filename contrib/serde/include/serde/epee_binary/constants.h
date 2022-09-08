@@ -51,8 +51,8 @@ constexpr std::uint8_t PORTABLE_STORAGE_SIG_AND_VER[9] = {1, 17, 1, 1, 1, 1, 2, 
 #define SERIALIZE_FLAG_ARRAY 0x80
 
 // @TODO: move all constants into serde::epee_binary namespace
-namespace serde::epee_binary
+namespace serde { namespace epee_binary
 {
     // Key lengths are represented by an unsigned byte and keys/string have no null terminator
     constexpr size_t MAX_KEY_LENGTH = 256;
-}
+}}

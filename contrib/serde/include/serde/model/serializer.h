@@ -32,7 +32,7 @@
 
 #include "../internal/deps.h"
 
-namespace serde::model
+namespace serde { namespace model
 {
     struct Serializer
     {
@@ -60,5 +60,4 @@ namespace serde::model
         virtual void serialize_key(const const_byte_span&)        = 0;
         virtual void serialize_end_object()                       = 0;
     };
-} // namespace serde::binary
-
+}} // namespace serde::binary

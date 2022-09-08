@@ -33,7 +33,7 @@
 #include <limits>
 #include <stdexcept>
 
-namespace serde::limits
+namespace serde { namespace limits
 {
     constexpr size_t DEFAULT_MAX_PACKET_SIZE = 100000000; // 100 MB
     constexpr size_t DEFAULT_MAX_TOTAL_CONTAINERS = 10000; // 10 thousand
@@ -129,4 +129,4 @@ namespace serde::limits
             return std::min(typed.max_depth, resource.max_depth_sanity);
         }
     }; // struct Limits
-} // namespace serde::limits
+}} // namespace serde::limits

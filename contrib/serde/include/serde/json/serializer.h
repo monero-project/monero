@@ -33,7 +33,8 @@
 
 #include "../model/serializer.h"
 
-namespace serde::json {
+namespace serde { namespace json
+{
     template<class t_ostream>
     class Serializer: public serde::model::Serializer {
     public:
@@ -222,4 +223,4 @@ namespace serde::json {
             m_stream.put(',');
         }
     }
-} // namespace serde::json
+}} // namespace serde::json

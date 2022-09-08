@@ -36,7 +36,7 @@
 #include "../internal/endianness.h"
 #include "../model/serializer.h"
 
-namespace serde::model
+namespace serde { namespace model
 {
     void serialize_as_blob(const std::string&, Serializer&);
 
@@ -74,4 +74,4 @@ namespace serde::model
 
     // @TODO: specialization for contiguous containers (remember vector<bool> evilness)
     // @TODO: should_convert_pod specialization for container
-}
+}}
