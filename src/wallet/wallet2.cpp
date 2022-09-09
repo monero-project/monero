@@ -1218,7 +1218,8 @@ wallet2::wallet2(network_type nettype, uint64_t kdf_rounds, bool unattended, std
   m_export_format(ExportFormat::Binary),
   m_load_deprecated_formats(false),
   m_credits_target(0),
-  m_enable_multisig(false)
+  m_enable_multisig(false),
+  m_has_ever_refreshed_from_node(false)
 {
   set_rpc_client_secret_key(rct::rct2sk(rct::skGen()));
 }
@@ -3538,6 +3539,8 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
         else
           throw std::runtime_error("proxy exception in refresh thread");
       }
+
+      m_has_ever_refreshed_from_node = true;
 
       if(!first && blocks_start_height == next_blocks_start_height)
       {
@@ -6608,9 +6611,9 @@ bool wallet2::sign_tx(const std::string &unsigned_filename, const std::string &s
 //----------------------------------------------------------------------------------------------------
 bool wallet2::sign_tx(unsigned_tx_set &exported_txs, std::vector<wallet2::pending_tx> &txs, signed_tx_set &signed_txes)
 {
-  if (!exported_txs.new_transfers.second.empty())
+  if (!std::get<2>(exported_txs.new_transfers).empty())
     import_outputs(exported_txs.new_transfers);
-  else
+  else if (!std::get<2>(exported_txs.transfers).empty())
     import_outputs(exported_txs.transfers);
 
   // sign the transactions
@@ -10804,7 +10807,7 @@ void wallet2::cold_sign_tx(const std::vector<pending_tx>& ptx_vector, signed_tx_
   {
     txs.txes.push_back(get_construction_data_with_decrypted_short_payment_id(tx, m_account.get_device()));
   }
-  txs.transfers = std::make_pair(0, m_transfers);
+  txs.transfers = std::make_tuple(0, m_transfers.size(), m_transfers);
 
   auto dev_cold = dynamic_cast<::hw::device_cold*>(&hwdev);
   CHECK_AND_ASSERT_THROW_MES(dev_cold, "Device does not implement cold signing interface");
@@ -13107,18 +13110,29 @@ void wallet2::import_blockchain(const std::tuple<size_t, crypto::hash, std::vect
   m_last_block_reward = cryptonote::get_outs_money_amount(genesis.miner_tx);
 }
 //----------------------------------------------------------------------------------------------------
-std::pair<uint64_t, std::vector<tools::wallet2::exported_transfer_details>> wallet2::export_outputs(bool all) const
+std::tuple<uint64_t, uint64_t, std::vector<tools::wallet2::exported_transfer_details>> wallet2::export_outputs(bool all, uint32_t start, uint32_t count) const
 {
   PERF_TIMER(export_outputs);
   std::vector<tools::wallet2::exported_transfer_details> outs;
+
+  // invalid cases
+  THROW_WALLET_EXCEPTION_IF(count == 0, error::wallet_internal_error, "Nothing requested");
+  THROW_WALLET_EXCEPTION_IF(!all && start > 0, error::wallet_internal_error, "Incremental mode is incompatible with non-zero start");
+
+  // valid cases:
+  // all: all outputs, subject to start/count
+  // !all: incremental, subject to count
+  // for convenience, start/count are allowed to go past the valid range, then nothing is returned
 
   size_t offset = 0;
   if (!all)
     while (offset < m_transfers.size() && (m_transfers[offset].m_key_image_known && !m_transfers[offset].m_key_image_request))
       ++offset;
+  else
+    offset = start;
 
   outs.reserve(m_transfers.size() - offset);
-  for (size_t n = offset; n < m_transfers.size(); ++n)
+  for (size_t n = offset; n < m_transfers.size() && n - offset < count; ++n)
   {
     const transfer_details &td = m_transfers[n];
 
@@ -13136,20 +13150,22 @@ std::pair<uint64_t, std::vector<tools::wallet2::exported_transfer_details>> wall
     etd.m_flags.m_key_image_partial = td.m_key_image_partial;
     etd.m_amount = td.m_amount;
     etd.m_additional_tx_keys = get_additional_tx_pub_keys_from_extra(td.m_tx);
+    etd.m_subaddr_index_major = td.m_subaddr_index.major;
+    etd.m_subaddr_index_minor = td.m_subaddr_index.minor;
 
     outs.push_back(etd);
   }
 
-  return std::make_pair(offset, outs);
+  return std::make_tuple(offset, m_transfers.size(), outs);
 }
 //----------------------------------------------------------------------------------------------------
-std::string wallet2::export_outputs_to_str(bool all) const
+std::string wallet2::export_outputs_to_str(bool all, uint32_t start, uint32_t count) const
 {
   PERF_TIMER(export_outputs_to_str);
 
   std::stringstream oss;
   binary_archive<true> ar(oss);
-  auto outputs = export_outputs(all);
+  auto outputs = export_outputs(all, start, count);
   THROW_WALLET_EXCEPTION_IF(!::serialization::serialize(ar, outputs), error::wallet_internal_error, "Failed to serialize output data");
 
   std::string magic(OUTPUT_EXPORT_FILE_MAGIC, strlen(OUTPUT_EXPORT_FILE_MAGIC));
@@ -13162,21 +13178,35 @@ std::string wallet2::export_outputs_to_str(bool all) const
   return magic + ciphertext;
 }
 //----------------------------------------------------------------------------------------------------
-size_t wallet2::import_outputs(const std::pair<uint64_t, std::vector<tools::wallet2::transfer_details>> &outputs)
+size_t wallet2::import_outputs(const std::tuple<uint64_t, uint64_t, std::vector<tools::wallet2::transfer_details>> &outputs)
 {
   PERF_TIMER(import_outputs);
 
-  THROW_WALLET_EXCEPTION_IF(outputs.first > m_transfers.size(), error::wallet_internal_error,
+  THROW_WALLET_EXCEPTION_IF(m_has_ever_refreshed_from_node, error::wallet_internal_error,
+      "Hot wallets cannot import outputs");
+
+  // we can now import piecemeal
+  const size_t offset = std::get<0>(outputs);
+  const size_t num_outputs = std::get<1>(outputs);
+  const std::vector<tools::wallet2::transfer_details> &output_array = std::get<2>(outputs);
+
+  THROW_WALLET_EXCEPTION_IF(offset > m_transfers.size(), error::wallet_internal_error,
       "Imported outputs omit more outputs that we know of");
 
-  const size_t offset = outputs.first;
+  THROW_WALLET_EXCEPTION_IF(offset >= num_outputs, error::wallet_internal_error,
+      "Offset is larger than total outputs");
+  THROW_WALLET_EXCEPTION_IF(output_array.size() > num_outputs - offset, error::wallet_internal_error,
+      "Offset is larger than total outputs");
+
   const size_t original_size = m_transfers.size();
-  m_transfers.resize(offset + outputs.second.size());
-  for (size_t i = 0; i < offset; ++i)
-    m_transfers[i].m_key_image_request = false;
-  for (size_t i = 0; i < outputs.second.size(); ++i)
+  if (offset + output_array.size() > m_transfers.size())
+    m_transfers.resize(offset + output_array.size());
+  else if (num_outputs < m_transfers.size())
+    m_transfers.resize(num_outputs);
+
+  for (size_t i = 0; i < output_array.size(); ++i)
   {
-    transfer_details td = outputs.second[i];
+    transfer_details td = output_array[i];
 
     // skip those we've already imported, or which have different data
     if (i + offset < original_size)
@@ -13210,6 +13240,8 @@ process:
     THROW_WALLET_EXCEPTION_IF(td.m_internal_output_index >= td.m_tx.vout.size(),
         error::wallet_internal_error, "Internal index is out of range");
     crypto::public_key out_key = td.get_public_key();
+    if (should_expand(td.m_subaddr_index))
+      create_one_off_subaddress(td.m_subaddr_index);
     bool r = cryptonote::generate_key_image_helper(m_account.get_keys(), m_subaddresses, out_key, tx_pub_key, additional_tx_pub_keys, td.m_internal_output_index, in_ephemeral, td.m_key_image, m_account.get_device());
     THROW_WALLET_EXCEPTION_IF(!r, error::wallet_internal_error, "Failed to generate key image");
     if (should_expand(td.m_subaddr_index))
@@ -13228,24 +13260,38 @@ process:
   return m_transfers.size();
 }
 //----------------------------------------------------------------------------------------------------
-size_t wallet2::import_outputs(const std::pair<uint64_t, std::vector<tools::wallet2::exported_transfer_details>> &outputs)
+size_t wallet2::import_outputs(const std::tuple<uint64_t, uint64_t, std::vector<tools::wallet2::exported_transfer_details>> &outputs)
 {
   PERF_TIMER(import_outputs);
 
-  THROW_WALLET_EXCEPTION_IF(outputs.first > m_transfers.size(), error::wallet_internal_error,
+  THROW_WALLET_EXCEPTION_IF(m_has_ever_refreshed_from_node, error::wallet_internal_error,
+      "Hot wallets cannot import outputs");
+
+  // we can now import piecemeal
+  const size_t offset = std::get<0>(outputs);
+  const size_t num_outputs = std::get<1>(outputs);
+  const std::vector<tools::wallet2::exported_transfer_details> &output_array = std::get<2>(outputs);
+
+  THROW_WALLET_EXCEPTION_IF(offset > m_transfers.size(), error::wallet_internal_error,
       "Imported outputs omit more outputs that we know of. Try using export_outputs all.");
 
-  const size_t offset = outputs.first;
+  THROW_WALLET_EXCEPTION_IF(offset >= num_outputs, error::wallet_internal_error,
+      "Offset is larger than total outputs");
+  THROW_WALLET_EXCEPTION_IF(output_array.size() > num_outputs - offset, error::wallet_internal_error,
+      "Offset is larger than total outputs");
+
   const size_t original_size = m_transfers.size();
-  m_transfers.resize(offset + outputs.second.size());
-  for (size_t i = 0; i < offset; ++i)
-    m_transfers[i].m_key_image_request = false;
-  for (size_t i = 0; i < outputs.second.size(); ++i)
+  if (offset + output_array.size() > m_transfers.size())
+    m_transfers.resize(offset + output_array.size());
+  else if (num_outputs < m_transfers.size())
+    m_transfers.resize(num_outputs);
+
+  for (size_t i = 0; i < output_array.size(); ++i)
   {
-    exported_transfer_details etd = outputs.second[i];
+    exported_transfer_details etd = output_array[i];
     transfer_details &td = m_transfers[i + offset];
 
-    // setup td with "cheao" loaded data
+    // setup td with "cheap" loaded data
     td.m_block_height = 0;
     td.m_txid = crypto::null_hash;
     td.m_global_output_index = etd.m_global_output_index;
@@ -13258,6 +13304,8 @@ size_t wallet2::import_outputs(const std::pair<uint64_t, std::vector<tools::wall
     td.m_key_image_known = etd.m_flags.m_key_image_known;
     td.m_key_image_request = etd.m_flags.m_key_image_request;
     td.m_key_image_partial = false;
+    td.m_subaddr_index.major = etd.m_subaddr_index_major;
+    td.m_subaddr_index.minor = etd.m_subaddr_index_minor;
 
     // skip those we've already imported, or which have different data
     if (i + offset < original_size)
@@ -13298,6 +13346,8 @@ size_t wallet2::import_outputs(const std::pair<uint64_t, std::vector<tools::wall
     const crypto::public_key &tx_pub_key = etd.m_tx_pubkey;
     const std::vector<crypto::public_key> &additional_tx_pub_keys = etd.m_additional_tx_keys;
     const crypto::public_key& out_key = etd.m_pubkey;
+    if (should_expand(td.m_subaddr_index))
+      create_one_off_subaddress(td.m_subaddr_index);
     bool r = cryptonote::generate_key_image_helper(m_account.get_keys(), m_subaddresses, out_key, tx_pub_key, additional_tx_pub_keys, td.m_internal_output_index, in_ephemeral, td.m_key_image, m_account.get_device());
     THROW_WALLET_EXCEPTION_IF(!r, error::wallet_internal_error, "Failed to generate key image");
     if (should_expand(td.m_subaddr_index))
@@ -13354,7 +13404,7 @@ size_t wallet2::import_outputs_from_str(const std::string &outputs_st)
   {
     std::string body(data, headerlen);
 
-    std::pair<uint64_t, std::vector<tools::wallet2::exported_transfer_details>> new_outputs;
+    std::tuple<uint64_t, uint64_t, std::vector<tools::wallet2::exported_transfer_details>> new_outputs;
     try
     {
       binary_archive<false> ar{epee::strspan<std::uint8_t>(body)};
@@ -13364,9 +13414,9 @@ size_t wallet2::import_outputs_from_str(const std::string &outputs_st)
     }
     catch (...) {}
     if (!loaded)
-      new_outputs.second.clear();
+      std::get<2>(new_outputs).clear();
 
-    std::pair<uint64_t, std::vector<tools::wallet2::transfer_details>> outputs;
+    std::tuple<uint64_t, uint64_t, std::vector<tools::wallet2::transfer_details>> outputs;
     if (!loaded) try
     {
       binary_archive<false> ar{epee::strspan<std::uint8_t>(body)};
@@ -13391,11 +13441,12 @@ size_t wallet2::import_outputs_from_str(const std::string &outputs_st)
 
     if (!loaded)
     {
-      outputs.first = 0;
-      outputs.second = {};
+      std::get<0>(outputs) = 0;
+      std::get<1>(outputs) = 0;
+      std::get<2>(outputs) = {};
     }
 
-    imported_outputs = new_outputs.second.empty() ? import_outputs(outputs) : import_outputs(new_outputs);
+    imported_outputs = !std::get<2>(new_outputs).empty() ? import_outputs(new_outputs) : !std::get<2>(outputs).empty() ? import_outputs(outputs) : 0;
   }
   catch (const std::exception &e)
   {
