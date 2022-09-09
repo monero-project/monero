@@ -63,6 +63,7 @@
 #include "serialization/crypto.h"
 #include "serialization/string.h"
 #include "serialization/pair.h"
+#include "serialization/tuple.h"
 #include "serialization/containers.h"
 
 #include "wallet_errors.h"
@@ -401,9 +402,13 @@ private:
       } m_flags;
       uint64_t m_amount;
       std::vector<crypto::public_key> m_additional_tx_keys;
+      uint32_t m_subaddr_index_major;
+      uint32_t m_subaddr_index_minor;
 
       BEGIN_SERIALIZE_OBJECT()
-        VERSION_FIELD(0)
+        VERSION_FIELD(1)
+        if (version < 1)
+          return false;
         FIELD(m_pubkey)
         VARINT_FIELD(m_internal_output_index)
         VARINT_FIELD(m_global_output_index)
@@ -411,6 +416,8 @@ private:
         FIELD(m_flags.flags)
         VARINT_FIELD(m_amount)
         FIELD(m_additional_tx_keys)
+        VARINT_FIELD(m_subaddr_index_major)
+        VARINT_FIELD(m_subaddr_index_minor)
       END_SERIALIZE()
     };
 
@@ -667,16 +674,32 @@ private:
     struct unsigned_tx_set
     {
       std::vector<tx_construction_data> txes;
-      std::pair<size_t, wallet2::transfer_container> transfers;
-      std::pair<size_t, std::vector<wallet2::exported_transfer_details>> new_transfers;
+      std::tuple<uint64_t, uint64_t, wallet2::transfer_container> transfers;
+      std::tuple<uint64_t, uint64_t, std::vector<wallet2::exported_transfer_details>> new_transfers;
 
       BEGIN_SERIALIZE_OBJECT()
-        VERSION_FIELD(1)
+        VERSION_FIELD(2)
         FIELD(txes)
-        if (version >= 1)
-          FIELD(new_transfers)
-        else
-          FIELD(transfers)
+        if (version == 0)
+        {
+          std::pair<size_t, wallet2::transfer_container> v0_transfers;
+          FIELD(v0_transfers);
+          std::get<0>(transfers) = std::get<0>(v0_transfers);
+          std::get<1>(transfers) = std::get<0>(v0_transfers) + std::get<1>(v0_transfers).size();
+          std::get<2>(transfers) = std::get<1>(v0_transfers);
+          return true;
+        }
+        if (version == 1)
+        {
+          std::pair<size_t, std::vector<wallet2::exported_transfer_details>> v1_transfers;
+          FIELD(v1_transfers);
+          std::get<0>(new_transfers) = std::get<0>(v1_transfers);
+          std::get<1>(new_transfers) = std::get<0>(v1_transfers) + std::get<1>(v1_transfers).size();
+          std::get<2>(new_transfers) = std::get<1>(v1_transfers);
+          return true;
+        }
+
+        FIELD(new_transfers)
       END_SERIALIZE()
     };
 
@@ -1206,11 +1229,17 @@ private:
       if(ver < 29)
         return;
       a & m_rpc_client_secret_key;
+      if(ver < 30)
+      {
+        m_has_ever_refreshed_from_node = false;
+        return;
+      }
+      a & m_has_ever_refreshed_from_node;
     }
 
     BEGIN_SERIALIZE_OBJECT()
       MAGIC_FIELD("monero wallet cache")
-      VERSION_FIELD(0)
+      VERSION_FIELD(1)
       FIELD(m_blockchain)
       FIELD(m_transfers)
       FIELD(m_account_public_address)
@@ -1236,6 +1265,12 @@ private:
       FIELD(m_device_last_key_image_sync)
       FIELD(m_cold_key_images)
       FIELD(m_rpc_client_secret_key)
+      if (version < 1)
+      {
+        m_has_ever_refreshed_from_node = false;
+        return true;
+      }
+      FIELD(m_has_ever_refreshed_from_node)
     END_SERIALIZE()
 
     /*!
@@ -1447,10 +1482,10 @@ private:
     bool verify_with_public_key(const std::string &data, const crypto::public_key &public_key, const std::string &signature) const;
 
     // Import/Export wallet data
-    std::pair<uint64_t, std::vector<tools::wallet2::exported_transfer_details>> export_outputs(bool all = false) const;
-    std::string export_outputs_to_str(bool all = false) const;
-    size_t import_outputs(const std::pair<uint64_t, std::vector<tools::wallet2::exported_transfer_details>> &outputs);
-    size_t import_outputs(const std::pair<uint64_t, std::vector<tools::wallet2::transfer_details>> &outputs);
+    std::tuple<uint64_t, uint64_t, std::vector<tools::wallet2::exported_transfer_details>> export_outputs(bool all = false, uint32_t start = 0, uint32_t count = 0xffffffff) const;
+    std::string export_outputs_to_str(bool all = false, uint32_t start = 0, uint32_t count = 0xffffffff) const;
+    size_t import_outputs(const std::tuple<uint64_t, uint64_t, std::vector<tools::wallet2::exported_transfer_details>> &outputs);
+    size_t import_outputs(const std::tuple<uint64_t, uint64_t, std::vector<tools::wallet2::transfer_details>> &outputs);
     size_t import_outputs_from_str(const std::string &outputs_st);
     payment_container export_payments() const;
     void import_payments(const payment_container &payments);
@@ -1883,11 +1918,13 @@ private:
     ExportFormat m_export_format;
     bool m_load_deprecated_formats;
 
+    bool m_has_ever_refreshed_from_node;
+
     static boost::mutex default_daemon_address_lock;
     static std::string default_daemon_address;
   };
 }
-BOOST_CLASS_VERSION(tools::wallet2, 29)
+BOOST_CLASS_VERSION(tools::wallet2, 30)
 BOOST_CLASS_VERSION(tools::wallet2::transfer_details, 12)
 BOOST_CLASS_VERSION(tools::wallet2::multisig_info, 1)
 BOOST_CLASS_VERSION(tools::wallet2::multisig_info::LR, 0)
@@ -1898,7 +1935,7 @@ BOOST_CLASS_VERSION(tools::wallet2::unconfirmed_transfer_details, 8)
 BOOST_CLASS_VERSION(tools::wallet2::confirmed_transfer_details, 6)
 BOOST_CLASS_VERSION(tools::wallet2::address_book_row, 18)
 BOOST_CLASS_VERSION(tools::wallet2::reserve_proof_entry, 0)
-BOOST_CLASS_VERSION(tools::wallet2::unsigned_tx_set, 0)
+BOOST_CLASS_VERSION(tools::wallet2::unsigned_tx_set, 1)
 BOOST_CLASS_VERSION(tools::wallet2::signed_tx_set, 1)
 BOOST_CLASS_VERSION(tools::wallet2::tx_construction_data, 4)
 BOOST_CLASS_VERSION(tools::wallet2::pending_tx, 3)
@@ -1908,6 +1945,17 @@ namespace boost
 {
   namespace serialization
   {
+    template<class Archive, class F, class S, class T>
+    inline void serialize(
+        Archive & ar,
+        std::tuple<F, S, T> & t,
+        const unsigned int /* file_version */
+    ){
+        ar & boost::serialization::make_nvp("f", std::get<0>(t));
+        ar & boost::serialization::make_nvp("s", std::get<1>(t));
+        ar & boost::serialization::make_nvp("t", std::get<2>(t));
+    }
+
     template <class Archive>
     inline typename std::enable_if<!Archive::is_loading::value, void>::type initialize_transfer_details(Archive &a, tools::wallet2::transfer_details &x, const boost::serialization::version_type ver)
     {
@@ -2268,7 +2316,17 @@ namespace boost
     inline void serialize(Archive &a, tools::wallet2::unsigned_tx_set &x, const boost::serialization::version_type ver)
     {
       a & x.txes;
-      a & x.transfers;
+      if (ver == 0)
+      {
+        // load old version
+        std::pair<size_t, tools::wallet2::transfer_container> old_transfers;
+        a & old_transfers;
+        std::get<0>(x.transfers) = std::get<0>(old_transfers);
+        std::get<1>(x.transfers) = std::get<0>(old_transfers) + std::get<1>(old_transfers).size();
+        std::get<2>(x.transfers) = std::get<1>(old_transfers);
+        return;
+      }
+      throw std::runtime_error("Boost serialization not supported for newest unsigned_tx_set");
     }
 
     template <class Archive>

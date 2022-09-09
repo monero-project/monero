@@ -230,8 +230,8 @@ namespace tx {
     }
 
     const tools::wallet2::transfer_details & get_transfer(size_t idx) const {
-      CHECK_AND_ASSERT_THROW_MES(idx < m_unsigned_tx->transfers.second.size() + m_unsigned_tx->transfers.first && idx >= m_unsigned_tx->transfers.first, "Invalid transfer index");
-      return m_unsigned_tx->transfers.second[idx - m_unsigned_tx->transfers.first];
+      CHECK_AND_ASSERT_THROW_MES(idx < std::get<2>(m_unsigned_tx->transfers).size() + std::get<0>(m_unsigned_tx->transfers) && idx >= std::get<0>(m_unsigned_tx->transfers), "Invalid transfer index");
+      return std::get<2>(m_unsigned_tx->transfers)[idx - std::get<0>(m_unsigned_tx->transfers)];
     }
 
     const tools::wallet2::transfer_details & get_source_transfer(size_t idx) const {
