@@ -13450,7 +13450,7 @@ size_t wallet2::import_outputs_from_str(const std::string &outputs_st)
   }
   catch (const std::exception &e)
   {
-    THROW_WALLET_EXCEPTION(error::wallet_internal_error, std::string("Failed to import outputs") + e.what());
+    THROW_WALLET_EXCEPTION(error::wallet_internal_error, std::string("Failed to import outputs: ") + e.what());
   }
 
   return imported_outputs;
