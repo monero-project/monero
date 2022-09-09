@@ -159,6 +159,13 @@ namespace cryptonote
     bool deinit();
 
     /**
+     * @brief get a set of blockchain checkpoint hashes
+     *
+     * @return set of blockchain checkpoint hashes
+     */
+    const checkpoints& get_checkpoints() const { return m_checkpoints; }
+
+    /**
      * @brief assign a set of blockchain checkpoint hashes
      *
      * @param chk_pts the set of checkpoints to assign
