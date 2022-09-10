@@ -328,4 +328,23 @@ boost::optional<std::string> NodeRPCProxy::get_transactions(const std::vector<cr
   return boost::optional<std::string>();
 }
 
+boost::optional<std::string> NodeRPCProxy::get_block_header_by_height(uint64_t height, cryptonote::block_header_response &block_header)
+{
+  if (m_offline)
+    return boost::optional<std::string>("offline");
+
+  cryptonote::COMMAND_RPC_GET_BLOCK_HEADER_BY_HEIGHT::request req_t = AUTO_VAL_INIT(req_t);
+  cryptonote::COMMAND_RPC_GET_BLOCK_HEADER_BY_HEIGHT::response resp_t = AUTO_VAL_INIT(resp_t);
+  req_t.height = height;
+
+  {
+    const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};
+    bool r = net_utils::invoke_http_json_rpc("/json_rpc", "getblockheaderbyheight", req_t, resp_t, m_http_client, rpc_timeout);
+    RETURN_ON_RPC_RESPONSE_ERROR(r, epee::json_rpc::error{}, resp_t, "getblockheaderbyheight");
+  }
+
+  block_header = std::move(resp_t.block_header);
+  return boost::optional<std::string>();
+}
+
 }

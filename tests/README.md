@@ -54,7 +54,7 @@ Functional tests are located under the `tests/functional_tests` directory.
 
 Building all the tests requires installing the following dependencies:
 ```bash
-pip install requests psutil monotonic zmq
+pip install requests psutil monotonic zmq deepdiff
 ```
 
 First, run a regtest daemon in the offline mode and with a fixed difficulty:

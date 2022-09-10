@@ -3011,7 +3011,6 @@ bool simple_wallet::scan_tx(const std::vector<std::string> &args)
     }
     txids.insert(txid);
   }
-  std::vector<crypto::hash> txids_v(txids.begin(), txids.end());
 
   if (!m_wallet->is_trusted_daemon()) {
     message_writer(console_color_red, true) << tr("WARNING: this operation may reveal the txids to the remote node and affect your privacy");
@@ -3024,7 +3023,9 @@ bool simple_wallet::scan_tx(const std::vector<std::string> &args)
   LOCK_IDLE_SCOPE();
   m_in_manual_refresh.store(true);
   try {
-    m_wallet->scan_tx(txids_v);
+    m_wallet->scan_tx(txids);
+  } catch (const tools::error::wont_reprocess_recent_txs_via_untrusted_daemon &e) {
+    fail_msg_writer() << e.what() << ". Either connect to a trusted daemon by passing --trusted-daemon when starting the wallet, or use rescan_bc to rescan the chain.";
   } catch (const std::exception &e) {
     fail_msg_writer() << e.what();
   }
