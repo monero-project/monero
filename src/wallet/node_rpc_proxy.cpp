@@ -392,4 +392,26 @@ boost::optional<std::string> NodeRPCProxy::get_rpc_payment_info(bool mining, boo
   return boost::none;
 }
 
+boost::optional<std::string> NodeRPCProxy::get_block_header_by_height(uint64_t height, cryptonote::block_header_response &block_header)
+{
+  if (m_offline)
+    return boost::optional<std::string>("offline");
+
+  cryptonote::COMMAND_RPC_GET_BLOCK_HEADER_BY_HEIGHT::request req_t = AUTO_VAL_INIT(req_t);
+  cryptonote::COMMAND_RPC_GET_BLOCK_HEADER_BY_HEIGHT::response resp_t = AUTO_VAL_INIT(resp_t);
+  req_t.height = height;
+
+  {
+    const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};
+    uint64_t pre_call_credits = m_rpc_payment_state.credits;
+    req_t.client = cryptonote::make_rpc_payment_signature(m_client_id_secret_key);
+    bool r = net_utils::invoke_http_json_rpc("/json_rpc", "getblockheaderbyheight", req_t, resp_t, m_http_client, rpc_timeout);
+    RETURN_ON_RPC_RESPONSE_ERROR(r, epee::json_rpc::error{}, resp_t, "getblockheaderbyheight");
+    check_rpc_cost(m_rpc_payment_state, "getblockheaderbyheight", resp_t.credits, pre_call_credits, COST_PER_BLOCK_HEADER);
+  }
+
+  block_header = std::move(resp_t.block_header);
+  return boost::optional<std::string>();
+}
+
 }

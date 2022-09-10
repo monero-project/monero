@@ -3167,7 +3167,7 @@ namespace tools
           return false;
       }
 
-      std::vector<crypto::hash> txids;
+      std::unordered_set<crypto::hash> txids;
       std::list<std::string>::const_iterator i = req.txids.begin();
       while (i != req.txids.end())
       {
@@ -3180,11 +3180,15 @@ namespace tools
           }
 
           crypto::hash txid = *reinterpret_cast<const crypto::hash*>(txid_blob.data());
-          txids.push_back(txid);
+          txids.insert(txid);
       }
 
       try {
           m_wallet->scan_tx(txids);
+      }  catch (const tools::error::wont_reprocess_recent_txs_via_untrusted_daemon &e) {
+          er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+          er.message = e.what() + std::string(". Either connect to a trusted daemon or rescan the chain.");
+          return false;
       } catch (const std::exception &e) {
           handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR);
           return false;

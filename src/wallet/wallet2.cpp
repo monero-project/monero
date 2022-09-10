@@ -1170,6 +1170,7 @@ wallet2::wallet2(network_type nettype, uint64_t kdf_rounds, bool unattended, std
   m_first_refresh_done(false),
   m_refresh_from_block_height(0),
   m_explicit_refresh_from_block_height(true),
+  m_skip_to_height(0),
   m_confirm_non_default_ring_size(true),
   m_ask_password(AskPasswordToDecrypt),
   m_max_reorg_depth(ORPHANED_BLOCKS_MAX_COUNT),
@@ -1624,14 +1625,13 @@ std::string wallet2::get_subaddress_label(const cryptonote::subaddress_index& in
   return m_subaddress_labels[index.major][index.minor];
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::scan_tx(const std::vector<crypto::hash> &txids)
+wallet2::tx_entry_data wallet2::get_tx_entries(const std::unordered_set<crypto::hash> &txids)
 {
-  // Get the transactions from daemon in batches and add them to a priority queue ordered in chronological order
-  auto cmp_tx_entry = [](const cryptonote::COMMAND_RPC_GET_TRANSACTIONS::entry& l, const cryptonote::COMMAND_RPC_GET_TRANSACTIONS::entry& r)
-  { return l.block_height > r.block_height; };
+  tx_entry_data tx_entries;
+  tx_entries.tx_entries.reserve(txids.size());
 
-  std::priority_queue<cryptonote::COMMAND_RPC_GET_TRANSACTIONS::entry, std::vector<COMMAND_RPC_GET_TRANSACTIONS::entry>, decltype(cmp_tx_entry)> txq(cmp_tx_entry);
   const size_t SLICE_SIZE =  100; // RESTRICTED_TRANSACTIONS_COUNT as defined in rpc/core_rpc_server.cpp, hardcoded in daemon code
+  std::unordered_set<crypto::hash>::const_iterator it = txids.begin();
   for(size_t slice = 0; slice < txids.size(); slice += SLICE_SIZE) {
     cryptonote::COMMAND_RPC_GET_TRANSACTIONS::request req = AUTO_VAL_INIT(req);
     cryptonote::COMMAND_RPC_GET_TRANSACTIONS::response res = AUTO_VAL_INIT(res);
@@ -1640,7 +1640,10 @@ void wallet2::scan_tx(const std::vector<crypto::hash> &txids)
 
     size_t ntxes = slice + SLICE_SIZE > txids.size() ? txids.size() - slice : SLICE_SIZE;
     for (size_t i = slice; i < slice + ntxes; ++i)
-     req.txs_hashes.push_back(epee::string_tools::pod_to_hex(txids[i]));
+    {
+      req.txs_hashes.push_back(epee::string_tools::pod_to_hex(*it));
+      ++it;
+    }
 
     {
       const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};
@@ -1651,17 +1654,255 @@ void wallet2::scan_tx(const std::vector<crypto::hash> &txids)
     }
 
     for (auto& tx_info : res.txs)
-      txq.push(tx_info);
+    {
+      if (!tx_info.in_pool)
+      {
+        tx_entries.lowest_height = std::min(tx_info.block_height, tx_entries.lowest_height);
+        tx_entries.highest_height = std::max(tx_info.block_height, tx_entries.highest_height);
+      }
+
+      cryptonote::transaction tx;
+      crypto::hash tx_hash;
+      THROW_WALLET_EXCEPTION_IF(!get_pruned_tx(tx_info, tx, tx_hash), error::wallet_internal_error, "Failed to get transaction from daemon");
+      tx_entries.tx_entries.emplace_back(process_tx_entry_t{ std::move(tx_info), std::move(tx), std::move(tx_hash) });
+    }
   }
 
-  // Process the transactions in chronologically ascending order
-  while(!txq.empty()) {
-    auto& tx_info = txq.top();
-    cryptonote::transaction tx;
-    crypto::hash tx_hash;
-    THROW_WALLET_EXCEPTION_IF(!get_pruned_tx(tx_info, tx, tx_hash), error::wallet_internal_error, "Failed to get transaction from daemon (2)");
-    process_new_transaction(tx_hash, tx, tx_info.output_indices, tx_info.block_height, 0, tx_info.block_timestamp, false, tx_info.in_pool, tx_info.double_spend_seen, {}, {});
-    txq.pop();
+  return tx_entries;
+}
+//----------------------------------------------------------------------------------------------------
+void wallet2::sort_scan_tx_entries(std::vector<process_tx_entry_t> &unsorted_tx_entries)
+{
+  // If any txs we're scanning have the same height, then we need to request the
+  // blocks those txs are in to see what order they appear in the chain. We
+  // need to scan txs in the same order they appear in the chain so that the
+  // `m_transfers` container holds entries in a consistently sorted order.
+  // This ensures that hot wallets <> cold wallets both maintain the same order
+  // of m_transfers, which they rely on when importing/exporting. Same goes
+  // for multisig wallets when they synchronize.
+  std::set<uint64_t> entry_heights;
+  std::set<uint64_t> entry_heights_requested;
+  COMMAND_RPC_GET_BLOCKS_BY_HEIGHT::request req;
+  COMMAND_RPC_GET_BLOCKS_BY_HEIGHT::response res;
+  for (const auto & tx_info : unsorted_tx_entries)
+  {
+    if (!tx_info.tx_entry.in_pool && !cryptonote::is_coinbase(tx_info.tx))
+    {
+      const uint64_t height = tx_info.tx_entry.block_height;
+      if (entry_heights.find(height) == entry_heights.end())
+      {
+        entry_heights.insert(height);
+      }
+      else if (entry_heights_requested.find(height) == entry_heights_requested.end())
+      {
+        req.heights.push_back(height);
+        entry_heights_requested.insert(height);
+      }
+    }
+  }
+
+  {
+    const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};
+    req.client = get_client_signature();
+    bool r = net_utils::invoke_http_bin("/getblocks_by_height.bin", req, res, *m_http_client, rpc_timeout);
+    THROW_WALLET_EXCEPTION_IF(!r, error::wallet_internal_error, "Failed to get blocks by height from daemon");
+    THROW_WALLET_EXCEPTION_IF(res.blocks.size() != req.heights.size(), error::wallet_internal_error, "Failed to get blocks by height from daemon");
+  }
+
+  std::unordered_map<uint64_t, cryptonote::block> parsed_blocks;
+  for (size_t i = 0; i < res.blocks.size(); ++i)
+  {
+    const auto &blk = res.blocks[i];
+    cryptonote::block parsed_block;
+    THROW_WALLET_EXCEPTION_IF(!cryptonote::parse_and_validate_block_from_blob(blk.block, parsed_block),
+        error::wallet_internal_error, "Failed to parse block");
+    parsed_blocks[req.heights[i]] = std::move(parsed_block);
+  }
+
+  // sort tx_entries in chronologically ascending order; pool txs to the back
+  auto cmp_tx_entry = [&](const process_tx_entry_t& l, const process_tx_entry_t& r)
+  {
+    if (l.tx_entry.in_pool)
+      return false;
+    else if (r.tx_entry.in_pool)
+      return true;
+    else if (l.tx_entry.block_height > r.tx_entry.block_height)
+      return false;
+    else if (l.tx_entry.block_height < r.tx_entry.block_height)
+      return true;
+    else // l.tx_entry.block_height == r.tx_entry.block_height
+    {
+      // coinbase tx is the first tx in a block
+      if (cryptonote::is_coinbase(l.tx))
+        return true;
+      if (cryptonote::is_coinbase(r.tx))
+        return false;
+
+      // see which tx hash comes first in the block
+      THROW_WALLET_EXCEPTION_IF(parsed_blocks.find(l.tx_entry.block_height) == parsed_blocks.end(),
+          error::wallet_internal_error, "Expected block not returned by daemon");
+      const auto &blk = parsed_blocks[l.tx_entry.block_height];
+      for (const auto &tx_hash : blk.tx_hashes)
+      {
+        if (tx_hash == l.tx_hash)
+          return true;
+        if (tx_hash == r.tx_hash)
+          return false;
+      }
+      THROW_WALLET_EXCEPTION(error::wallet_internal_error, "Tx hashes not found in block");
+      return false;
+    }
+  };
+  std::sort(unsorted_tx_entries.begin(), unsorted_tx_entries.end(), cmp_tx_entry);
+}
+//----------------------------------------------------------------------------------------------------
+void wallet2::process_scan_txs(const tx_entry_data &txs_to_scan, const tx_entry_data &txs_to_reprocess, const std::unordered_set<crypto::hash> &tx_hashes_to_reprocess, detached_blockchain_data &dbd)
+{
+  LOG_PRINT_L0("Processing " << txs_to_scan.tx_entries.size() << " txs, re-processing "
+      << txs_to_reprocess.tx_entries.size() << " txs");
+
+  // Sort the txs in chronologically ascending order they appear in the chain
+  std::vector<process_tx_entry_t> process_txs;
+  process_txs.reserve(txs_to_scan.tx_entries.size() + txs_to_reprocess.tx_entries.size());
+  process_txs.insert(process_txs.end(), txs_to_scan.tx_entries.begin(), txs_to_scan.tx_entries.end());
+  process_txs.insert(process_txs.end(), txs_to_reprocess.tx_entries.begin(), txs_to_reprocess.tx_entries.end());
+  sort_scan_tx_entries(process_txs);
+
+  for (const auto &tx_info : process_txs)
+  {
+    const auto &tx_entry = tx_info.tx_entry;
+
+    // Ignore callbacks when re-processing a tx to avoid confusing feedback to user
+    bool ignore_callbacks = tx_hashes_to_reprocess.find(tx_info.tx_hash) != tx_hashes_to_reprocess.end();
+    process_new_transaction(
+      tx_info.tx_hash,
+      tx_info.tx,
+      tx_entry.output_indices,
+      tx_entry.block_height,
+      0,
+      tx_entry.block_timestamp,
+      cryptonote::is_coinbase(tx_info.tx),
+      tx_entry.in_pool,
+      tx_entry.double_spend_seen,
+      {}, {}, // unused caches
+      ignore_callbacks);
+
+    // Re-set destination addresses if they were previously set
+    if (m_confirmed_txs.find(tx_info.tx_hash) != m_confirmed_txs.end() &&
+        dbd.detached_confirmed_txs_dests.find(tx_info.tx_hash) != dbd.detached_confirmed_txs_dests.end())
+    {
+      m_confirmed_txs[tx_info.tx_hash].m_dests = std::move(dbd.detached_confirmed_txs_dests[tx_info.tx_hash]);
+    }
+  }
+
+  LOG_PRINT_L0("Done processing " << txs_to_scan.tx_entries.size() << " txs and re-processing "
+      << txs_to_reprocess.tx_entries.size() << " txs");
+}
+//----------------------------------------------------------------------------------------------------
+void reattach_blockchain(hashchain &blockchain, wallet2::detached_blockchain_data &dbd)
+{
+  if (!dbd.detached_blockchain.empty())
+  {
+    LOG_PRINT_L0("Re-attaching " << dbd.detached_blockchain.size() << " blocks");
+    for (size_t i = 0; i < dbd.detached_blockchain.size(); ++i)
+      blockchain.push_back(dbd.detached_blockchain[i]);
+  }
+
+  THROW_WALLET_EXCEPTION_IF(blockchain.size() != dbd.original_chain_size,
+    error::wallet_internal_error, "Unexpected blockchain size after re-attaching");
+}
+//----------------------------------------------------------------------------------------------------
+bool has_nonrequested_tx_at_height_or_above_requested(uint64_t height, const std::unordered_set<crypto::hash> &requested_txids, const wallet2::transfer_container &transfers,
+    const wallet2::payment_container &payments, const serializable_unordered_map<crypto::hash, wallet2::confirmed_transfer_details> &confirmed_txs)
+{
+  for (const auto &td : transfers)
+    if (td.m_block_height >= height && requested_txids.find(td.m_txid) == requested_txids.end())
+      return true;
+
+  for (const auto &pmt : payments)
+    if (pmt.second.m_block_height >= height && requested_txids.find(pmt.second.m_tx_hash) == requested_txids.end())
+      return true;
+
+  for (const auto &ct : confirmed_txs)
+    if (ct.second.m_block_height >= height && requested_txids.find(ct.first) == requested_txids.end())
+      return true;
+
+  return false;
+}
+//----------------------------------------------------------------------------------------------------
+void wallet2::scan_tx(const std::unordered_set<crypto::hash> &txids)
+{
+  // Get the transactions from daemon in batches sorted lowest height to highest
+  tx_entry_data txs_to_scan = get_tx_entries(txids);
+  if (txs_to_scan.tx_entries.empty())
+    return;
+
+  // Re-process wallet's txs >= lowest scan_tx height. Re-processing ensures
+  // process_new_transaction is called with txs in chronological order. Say that
+  // tx2 spends an output from tx1, and the user calls scan_tx(tx1) *after* tx2
+  // has already been scanned. In this case, we will "re-process" tx2 *after*
+  // processing tx1 to ensure the wallet picks up that tx2 spends the output
+  // from tx1, and to ensure transfers are placed in the sorted transfers
+  // container in chronological order. Note: in the above example, if tx2 is
+  // a sweep to a different wallet's address, the wallet will not be able to
+  // detect tx2. The wallet would need to scan tx1 first in that case.
+  // TODO: handle this sweep case
+  detached_blockchain_data dbd;
+  dbd.original_chain_size = m_blockchain.size();
+  if (m_blockchain.size() > txs_to_scan.lowest_height)
+  {
+    // When connected to an untrusted daemon, if we will need to re-process 1+
+    // tx that the user did not request to scan, then we fail out because
+    // re-requesting those unexpected txs from the daemon poses a more severe
+    // and unintuitive privacy risk to the user
+    THROW_WALLET_EXCEPTION_IF(!is_trusted_daemon() &&
+      has_nonrequested_tx_at_height_or_above_requested(txs_to_scan.lowest_height, txids, m_transfers, m_payments, m_confirmed_txs),
+      error::wont_reprocess_recent_txs_via_untrusted_daemon
+    );
+
+    LOG_PRINT_L0("Re-processing wallet's existing txs (if any) starting from height " << txs_to_scan.lowest_height);
+    dbd = detach_blockchain(txs_to_scan.lowest_height);
+  }
+  std::unordered_set<crypto::hash> tx_hashes_to_reprocess;
+  tx_hashes_to_reprocess.reserve(dbd.detached_tx_hashes.size());
+  for (const auto &tx_hash : dbd.detached_tx_hashes)
+  {
+    if (txids.find(tx_hash) == txids.end())
+      tx_hashes_to_reprocess.insert(tx_hash);
+  }
+  // re-request txs from daemon to re-process with all tx data needed
+  tx_entry_data txs_to_reprocess = get_tx_entries(tx_hashes_to_reprocess);
+
+  process_scan_txs(txs_to_scan, txs_to_reprocess, tx_hashes_to_reprocess, dbd);
+  reattach_blockchain(m_blockchain, dbd);
+
+  // If the highest scan_tx height exceeds the wallet's known scan height, then
+  // the wallet should skip ahead to the scan_tx's height in order to service
+  // the request in a timely manner. Skipping unrequested transactions avoids
+  // generating sequences of calls to process_new_transaction which process
+  // transactions out-of-order, relative to their order in the blockchain, as
+  // the process_new_transaction implementation requires transactions to be
+  // processed in blockchain order. If a user misses a tx, they should either
+  // use rescan_bc, or manually scan missed txs with scan_tx.
+  uint64_t skip_to_height = txs_to_scan.highest_height + 1;
+  if (skip_to_height > m_blockchain.size())
+  {
+    m_skip_to_height = skip_to_height;
+    LOG_PRINT_L0("Skipping refresh to height " << skip_to_height);
+
+    // update last block reward here because the refresh loop won't necessarily set it
+    try
+    {
+      cryptonote::block_header_response block_header;
+      if (m_node_rpc_proxy.get_block_header_by_height(txs_to_scan.highest_height, block_header))
+        throw std::runtime_error("Failed to request block header by height");
+      m_last_block_reward = block_header.reward;
+    }
+    catch (...) { MERROR("Failed getting block header at height " << txs_to_scan.highest_height); }
+
+    // TODO: use fast_refresh instead of refresh to update m_blockchain. It needs refactoring to work correctly here.
+    // Or don't refresh at all, and let it update on the next refresh loop.
+    refresh(is_trusted_daemon());
   }
 }
 //----------------------------------------------------------------------------------------------------
@@ -1962,7 +2203,7 @@ bool wallet2::spends_one_of_ours(const cryptonote::transaction &tx) const
   return false;
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote::transaction& tx, const std::vector<uint64_t> &o_indices, uint64_t height, uint8_t block_version, uint64_t ts, bool miner_tx, bool pool, bool double_spend_seen, const tx_cache_data &tx_cache_data, std::map<std::pair<uint64_t, uint64_t>, size_t> *output_tracker_cache)
+void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote::transaction& tx, const std::vector<uint64_t> &o_indices, uint64_t height, uint8_t block_version, uint64_t ts, bool miner_tx, bool pool, bool double_spend_seen, const tx_cache_data &tx_cache_data, std::map<std::pair<uint64_t, uint64_t>, size_t> *output_tracker_cache, bool ignore_callbacks)
 {
   PERF_TIMER(process_new_transaction);
   // In this function, tx (probably) only contains the base information
@@ -2004,7 +2245,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
       if (pk_index > 1)
         break;
       LOG_PRINT_L0("Public key wasn't found in the transaction extra. Skipping transaction " << txid);
-      if(0 != m_callback)
+      if(!ignore_callbacks && 0 != m_callback)
 	m_callback->on_skip_transaction(height, txid, tx);
       break;
     }
@@ -2217,7 +2458,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
                 update_multisig_rescan_info(*m_multisig_rescan_k, *m_multisig_rescan_info, m_transfers.size() - 1);
             }
 	    LOG_PRINT_L0("Received money: " << print_money(td.amount()) << ", with tx: " << txid);
-	    if (0 != m_callback)
+	    if (!ignore_callbacks && 0 != m_callback)
 	      m_callback->on_money_received(height, txid, tx, td.m_amount, 0, td.m_subaddr_index, spends_one_of_ours(tx), td.m_tx.unlock_time);
           }
           total_received_1 += amount;
@@ -2295,7 +2536,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
 	    THROW_WALLET_EXCEPTION_IF(td.m_spent, error::wallet_internal_error, "Inconsistent spent status");
 
 	    LOG_PRINT_L0("Received money: " << print_money(td.amount()) << ", with tx: " << txid);
-	    if (0 != m_callback)
+	    if (!ignore_callbacks && 0 != m_callback)
 	      m_callback->on_money_received(height, txid, tx, td.m_amount, burnt, td.m_subaddr_index, spends_one_of_ours(tx), td.m_tx.unlock_time);
           }
           total_received_1 += extra_amount;
@@ -2349,7 +2590,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
       {
         LOG_PRINT_L0("Spent money: " << print_money(amount) << ", with tx: " << txid);
         set_spent(it->second, height);
-        if (0 != m_callback)
+        if (!ignore_callbacks && 0 != m_callback)
           m_callback->on_money_spent(height, txid, tx, amount, tx, td.m_subaddr_index);
       }
     }
@@ -2584,7 +2825,7 @@ void wallet2::process_outgoing(const crypto::hash &txid, const cryptonote::trans
 bool wallet2::should_skip_block(const cryptonote::block &b, uint64_t height) const
 {
   // seeking only for blocks that are not older then the wallet creation time plus 1 day. 1 day is for possible user incorrect time setup
-  return !(b.timestamp + 60*60*24 > m_account.get_createtime() && height >= m_refresh_from_block_height);
+  return !(b.timestamp + 60*60*24 > m_account.get_createtime() && height >= m_refresh_from_block_height && height >= m_skip_to_height);
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::process_new_blockchain_entry(const cryptonote::block& b, const cryptonote::block_complete_entry& bche, const parsed_block &parsed_block, const crypto::hash& bl_id, uint64_t height, const std::vector<tx_cache_data> &tx_cache_data, size_t tx_cache_data_offset, std::map<std::pair<uint64_t, uint64_t>, size_t> *output_tracker_cache)
@@ -2899,7 +3140,7 @@ void wallet2::process_parsed_blocks(uint64_t start_height, const std::vector<cry
         tr("reorg exceeds maximum allowed depth, use 'set max-reorg-depth N' to allow it, reorg depth: ") +
         std::to_string(reorg_depth));
 
-      detach_blockchain(current_index, output_tracker_cache);
+      handle_reorg(current_index, output_tracker_cache);
       process_new_blockchain_entry(bl, blocks[i], parsed_blocks[i], bl_id, current_index, tx_cache_data, tx_cache_data_offset, output_tracker_cache);
     }
     else
@@ -3477,9 +3718,9 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
   // pull the first set of blocks
   get_short_chain_history(short_chain_history, (m_first_refresh_done || trusted_daemon) ? 1 : FIRST_REFRESH_GRANULARITY);
   m_run.store(true, std::memory_order_relaxed);
-  if (start_height > m_blockchain.size() || m_refresh_from_block_height > m_blockchain.size()) {
+  if (start_height > m_blockchain.size() || m_refresh_from_block_height > m_blockchain.size() || m_skip_to_height > m_blockchain.size()) {
     if (!start_height)
-      start_height = m_refresh_from_block_height;
+      start_height = std::max(m_refresh_from_block_height, m_skip_to_height);;
     // we can shortcut by only pulling hashes up to the start_height
     fast_refresh(start_height, blocks_start_height, short_chain_history);
     // regenerate the history now that we've got a full set of hashes
@@ -3722,15 +3963,10 @@ bool wallet2::get_rct_distribution(uint64_t &start_height, std::vector<uint64_t>
   return true;
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::detach_blockchain(uint64_t height, std::map<std::pair<uint64_t, uint64_t>, size_t> *output_tracker_cache)
+wallet2::detached_blockchain_data wallet2::detach_blockchain(uint64_t height, std::map<std::pair<uint64_t, uint64_t>, size_t> *output_tracker_cache)
 {
   LOG_PRINT_L0("Detaching blockchain on height " << height);
-
-  // size  1 2 3 4 5 6 7 8 9
-  // block 0 1 2 3 4 5 6 7 8
-  //               C
-  THROW_WALLET_EXCEPTION_IF(height < m_blockchain.offset() && m_blockchain.size() > m_blockchain.offset(),
-      error::wallet_internal_error, "Daemon claims reorg below last checkpoint");
+  detached_blockchain_data dbd;
 
   size_t transfers_detached = 0;
 
@@ -3772,16 +4008,32 @@ void wallet2::detach_blockchain(uint64_t height, std::map<std::pair<uint64_t, ui
     THROW_WALLET_EXCEPTION_IF(it_pk == m_pub_keys.end(), error::wallet_internal_error, "public key not found");
     m_pub_keys.erase(it_pk);
   }
+
   transfers_detached = std::distance(it, m_transfers.end());
+  dbd.detached_tx_hashes.reserve(transfers_detached);
+  for (size_t i = i_start; i!=m_transfers.size();i++)
+    dbd.detached_tx_hashes.insert(std::move(m_transfers[i].m_txid));
+  MDEBUG(transfers_detached << " transfers detached / expected " << dbd.detached_tx_hashes.size());
   m_transfers.erase(it, m_transfers.end());
 
-  size_t blocks_detached = m_blockchain.size() - height;
-  m_blockchain.crop(height);
+  size_t blocks_detached = 0;
+  dbd.original_chain_size = m_blockchain.size();
+  if (height >= m_blockchain.offset())
+  {
+    for (size_t i = height; i < m_blockchain.size(); ++i)
+      dbd.detached_blockchain.push_back(m_blockchain[i]);
+    blocks_detached = m_blockchain.size() - height;
+    m_blockchain.crop(height);
+    MDEBUG(blocks_detached << " blocks detached / expected " << dbd.detached_blockchain.size());
+  }
 
   for (auto it = m_payments.begin(); it != m_payments.end(); )
   {
     if(height <= it->second.m_block_height)
+    {
+      dbd.detached_tx_hashes.insert(it->second.m_tx_hash);
       it = m_payments.erase(it);
+    }
     else
       ++it;
   }
@@ -3789,12 +4041,27 @@ void wallet2::detach_blockchain(uint64_t height, std::map<std::pair<uint64_t, ui
   for (auto it = m_confirmed_txs.begin(); it != m_confirmed_txs.end(); )
   {
     if(height <= it->second.m_block_height)
+    {
+      dbd.detached_tx_hashes.insert(it->first);
+      dbd.detached_confirmed_txs_dests[it->first] = std::move(it->second.m_dests);
       it = m_confirmed_txs.erase(it);
+    }
     else
       ++it;
   }
 
   LOG_PRINT_L0("Detached blockchain on height " << height << ", transfers detached " << transfers_detached << ", blocks detached " << blocks_detached);
+  return dbd;
+}
+//----------------------------------------------------------------------------------------------------
+void wallet2::handle_reorg(uint64_t height, std::map<std::pair<uint64_t, uint64_t>, size_t> *output_tracker_cache)
+{
+  // size  1 2 3 4 5 6 7 8 9
+  // block 0 1 2 3 4 5 6 7 8
+  //               C
+  THROW_WALLET_EXCEPTION_IF(height < m_blockchain.offset() && m_blockchain.size() > m_blockchain.offset(),
+      error::wallet_internal_error, "Daemon claims reorg below last checkpoint");
+  detach_blockchain(height, output_tracker_cache);
 }
 //----------------------------------------------------------------------------------------------------
 bool wallet2::deinit()
@@ -3826,6 +4093,7 @@ bool wallet2::clear()
   m_subaddress_labels.clear();
   m_multisig_rounds_passed = 0;
   m_device_last_key_image_sync = 0;
+  m_skip_to_height = 0;
   return true;
 }
 //----------------------------------------------------------------------------------------------------
@@ -3842,6 +4110,7 @@ void wallet2::clear_soft(bool keep_key_images)
   m_unconfirmed_payments.clear();
   m_scanned_pool_txs[0].clear();
   m_scanned_pool_txs[1].clear();
+  m_skip_to_height = 0;
 
   cryptonote::block b;
   generate_genesis(b);
@@ -3970,6 +4239,9 @@ boost::optional<wallet2::keys_file_data> wallet2::get_keys_file_data(const epee:
 
   value2.SetUint64(m_refresh_from_block_height);
   json.AddMember("refresh_height", value2, json.GetAllocator());
+
+  value2.SetUint64(m_skip_to_height);
+  json.AddMember("skip_to_height", value2, json.GetAllocator());
 
   value2.SetInt(m_confirm_non_default_ring_size ? 1 :0);
   json.AddMember("confirm_non_default_ring_size", value2, json.GetAllocator());
@@ -4200,6 +4472,7 @@ bool wallet2::load_keys_buf(const std::string& keys_buf, const epee::wipeable_st
     m_auto_refresh = true;
     m_refresh_type = RefreshType::RefreshDefault;
     m_refresh_from_block_height = 0;
+    m_skip_to_height = 0;
     m_confirm_non_default_ring_size = true;
     m_ask_password = AskPasswordToDecrypt;
     cryptonote::set_default_decimal_point(CRYPTONOTE_DISPLAY_DECIMAL_POINT);
@@ -4353,6 +4626,8 @@ bool wallet2::load_keys_buf(const std::string& keys_buf, const epee::wipeable_st
     }
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, refresh_height, uint64_t, Uint64, false, 0);
     m_refresh_from_block_height = field_refresh_height;
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, skip_to_height, uint64_t, Uint64, false, 0);
+    m_skip_to_height = field_skip_to_height;
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, confirm_non_default_ring_size, int, Int, false, true);
     m_confirm_non_default_ring_size = field_confirm_non_default_ring_size;
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, ask_password, AskPasswordType, Int, false, AskPasswordToDecrypt);
@@ -5748,27 +6023,16 @@ void wallet2::trim_hashchain()
   if (!m_blockchain.empty() && m_blockchain.size() == m_blockchain.offset())
   {
     MINFO("Fixing empty hashchain");
-    cryptonote::COMMAND_RPC_GET_BLOCK_HEADER_BY_HEIGHT::request req = AUTO_VAL_INIT(req);
-    cryptonote::COMMAND_RPC_GET_BLOCK_HEADER_BY_HEIGHT::response res = AUTO_VAL_INIT(res);
-
-    bool r;
+    try
     {
-      const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};
-      req.height = m_blockchain.size() - 1;
-      uint64_t pre_call_credits = m_rpc_payment_state.credits;
-      req.client = get_client_signature();
-      r = net_utils::invoke_http_json_rpc("/json_rpc", "getblockheaderbyheight", req, res, *m_http_client, rpc_timeout);
-      if (r && res.status == CORE_RPC_STATUS_OK)
-        check_rpc_cost("getblockheaderbyheight", res.credits, pre_call_credits, COST_PER_BLOCK_HEADER);
-    }
-
-    if (r && res.status == CORE_RPC_STATUS_OK)
-    {
+      cryptonote::block_header_response block_header;
+      if (m_node_rpc_proxy.get_block_header_by_height(m_blockchain.size() - 1, block_header))
+        throw std::runtime_error("Failed to request block header by height");
       crypto::hash hash;
-      epee::string_tools::hex_to_pod(res.block_header.hash, hash);
+      epee::string_tools::hex_to_pod(block_header.hash, hash);
       m_blockchain.refill(hash);
     }
-    else
+    catch(...)
     {
       MERROR("Failed to request block header from daemon, hash chain may be unable to sync till the wallet is loaded with a usable daemon");
     }
@@ -13893,7 +14157,7 @@ size_t wallet2::import_multisig(std::vector<cryptonote::blobdata> blobs)
     if (!td.m_key_image_partial)
       continue;
     MINFO("Multisig info importing from block height " << td.m_block_height);
-    detach_blockchain(td.m_block_height);
+    handle_reorg(td.m_block_height);
     break;
   }
 
