@@ -13078,31 +13078,15 @@ void wallet2::import_payments_out(const std::list<std::pair<crypto::hash,wallet2
   }
 }
 
-std::tuple<size_t,crypto::hash,std::vector<crypto::hash>> wallet2::export_blockchain() const
+const hashchain& wallet2::export_blockchain() const
 {
-  std::tuple<size_t, crypto::hash, std::vector<crypto::hash>> bc;
-  std::get<0>(bc) = m_blockchain.offset();
-  std::get<1>(bc) = m_blockchain.empty() ? crypto::null_hash: m_blockchain.genesis();
-  for (size_t n = m_blockchain.offset(); n < m_blockchain.size(); ++n)
-  {
-    std::get<2>(bc).push_back(m_blockchain[n]);
-  }
-  return bc;
+  return m_blockchain;
 }
 
-void wallet2::import_blockchain(const std::tuple<size_t, crypto::hash, std::vector<crypto::hash>> &bc)
+void wallet2::import_blockchain(const hashchain& bc)
 {
-  m_blockchain.clear();
-  if (std::get<0>(bc))
-  {
-    for (size_t n = std::get<0>(bc); n > 0; --n)
-      m_blockchain.push_back(std::get<1>(bc));
-    m_blockchain.trim(std::get<0>(bc));
-  }
-  for (auto const &b : std::get<2>(bc))
-  {
-    m_blockchain.push_back(b);
-  }
+  m_blockchain = bc;
+
   cryptonote::block genesis;
   generate_genesis(genesis);
   crypto::hash genesis_hash = get_block_hash(genesis);

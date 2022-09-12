@@ -190,6 +190,7 @@ private:
   {
   public:
     hashchain(): m_genesis(crypto::null_hash), m_offset(0) {}
+    hashchain(const hashchain& other) = default;
 
     size_t size() const { return m_blockchain.size() + m_offset; }
     size_t offset() const { return m_offset; }
@@ -201,7 +202,16 @@ private:
     void crop(size_t height) { m_blockchain.resize(height - m_offset); }
     void clear() { m_offset = 0; m_blockchain.clear(); }
     bool empty() const { return m_blockchain.empty() && m_offset == 0; }
-    void trim(size_t height) { while (height > m_offset && m_blockchain.size() > 1) { m_blockchain.pop_front(); ++m_offset; } m_blockchain.shrink_to_fit(); }
+    void trim(size_t height)
+    {
+      if (height <= m_offset || m_blockchain.size() <= 1)
+        return;
+      const size_t num_to_trim = std::min(height - m_offset, m_blockchain.size() - 1);
+      const auto bchain_begin = m_blockchain.begin();
+      m_blockchain.erase(bchain_begin, bchain_begin + num_to_trim); // erase first num_to_trim elements
+      m_offset += num_to_trim; // we're now missing num_to_trim more elements from the beginning of the chain
+      m_blockchain.shrink_to_fit();
+    }
     void refill(const crypto::hash &hash) { m_blockchain.push_back(hash); --m_offset; }
 
     template <class t_archive>
@@ -1490,8 +1500,8 @@ private:
     payment_container export_payments() const;
     void import_payments(const payment_container &payments);
     void import_payments_out(const std::list<std::pair<crypto::hash,wallet2::confirmed_transfer_details>> &confirmed_payments);
-    std::tuple<size_t, crypto::hash, std::vector<crypto::hash>> export_blockchain() const;
-    void import_blockchain(const std::tuple<size_t, crypto::hash, std::vector<crypto::hash>> &bc);
+    const hashchain& export_blockchain() const;
+    void import_blockchain(const hashchain& bc);
     bool export_key_images(const std::string &filename, bool all = false) const;
     std::pair<uint64_t, std::vector<std::pair<crypto::key_image, crypto::signature>>> export_key_images(bool all = false) const;
     uint64_t import_key_images(const std::vector<std::pair<crypto::key_image, crypto::signature>> &signed_key_images, size_t offset, uint64_t &spent, uint64_t &unspent, bool check_spent = true);
