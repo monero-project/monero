@@ -91,26 +91,6 @@ namespace misc_utils
     {
       return lut[(uint8_t)c] & 1;
     }
-
-    std::string transform_to_escape_sequence(const std::string& src);
-    /*
-      
-      \b  Backspace (ascii code 08)
-      \f  Form feed (ascii code 0C)
-      \n  New line
-      \r  Carriage return
-      \t  Tab
-      \v  Vertical tab
-      \'  Apostrophe or single quote
-      \"  Double quote
-      \\  Backslash character
-
-      */
-      void match_string2(std::string::const_iterator& star_end_string, std::string::const_iterator buf_end, std::string& val);
-
-      void match_number2(std::string::const_iterator& star_end_string, std::string::const_iterator buf_end, boost::string_ref& val, bool& is_float_val, bool& is_signed_val);
-
-      void match_word2(std::string::const_iterator& star_end_string, std::string::const_iterator buf_end, boost::string_ref& val);
   }
 }
 }
