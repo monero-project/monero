@@ -449,14 +449,11 @@ endif()
 # Check if we're on OpenBSD. See the README.md for build instructions.
 if(CMAKE_SYSTEM_NAME MATCHES "kOpenBSD.*|OpenBSD.*")
   set(OPENBSD TRUE)
+elseif(CMAKE_SYSTEM_NAME MATCHES "kNetBSD.*|NetBSD.*")
+  set(NETBSD TRUE)
+elseif(CMAKE_SYSTEM_NAME MATCHES ".*BSDI.*")
+  set(BSDI TRUE)
 endif()
-
-# TODO: check bsdi, NetBSD, to see if they need the same FreeBSD changes
-#
-# elseif(CMAKE_SYSTEM_NAME MATCHES "kNetBSD.*|NetBSD.*")
-#   set(NETBSD TRUE)
-# elseif(CMAKE_SYSTEM_NAME MATCHES ".*BSDI.*")
-#   set(BSDI TRUE)
 
 include_directories(external/rapidjson/include external/easylogging++ src contrib/epee/include external external/supercop/include)
 
@@ -531,7 +528,7 @@ add_definitions("-DBLOCKCHAIN_DB=${BLOCKCHAIN_DB}")
 # Can't install hook in static build on OSX, because OSX linker does not support --wrap
 # On ARM, having libunwind package (with .so's only) installed breaks static link.
 # When possible, avoid stack tracing using libunwind in favor of using easylogging++.
-if (APPLE)
+if (APPLE OR NETBSD)
   set(DEFAULT_STACK_TRACE OFF)
   set(LIBUNWIND_LIBRARIES "")
 elseif (DEPENDS AND NOT LINUX)
