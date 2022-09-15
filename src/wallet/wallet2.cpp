@@ -4691,7 +4691,8 @@ void wallet2::init_type(hw::device::device_type device_type)
 }
 
 /*!
- * \brief  Generates a wallet or restores one.
+ * \brief  Generates a wallet or restores one. Assumes the multisig setup
+ *         has already completed for the provided multisig info.
  * \param  wallet_              Name of wallet file
  * \param  password             Password of wallet file
  * \param  multisig_data        The multisig restore info and keys
@@ -4750,11 +4751,6 @@ void wallet2::generate(const std::string& wallet_, const epee::wipeable_string& 
   crypto::public_key local_signer;
   THROW_WALLET_EXCEPTION_IF(!crypto::secret_key_to_public_key(spend_secret_key, local_signer), error::invalid_multisig_seed);
   THROW_WALLET_EXCEPTION_IF(std::find(multisig_signers.begin(), multisig_signers.end(), local_signer) == multisig_signers.end(), error::invalid_multisig_seed);
-  rct::key skey = rct::zero();
-  for (const auto &msk: multisig_keys)
-    sc_add(skey.bytes, skey.bytes, rct::sk2rct(msk).bytes);
-  THROW_WALLET_EXCEPTION_IF(!(rct::rct2sk(skey) == spend_secret_key), error::invalid_multisig_seed);
-  memwipe(&skey, sizeof(rct::key));
 
   m_account.make_multisig(view_secret_key, spend_secret_key, spend_public_key, multisig_keys);
 
@@ -4765,6 +4761,8 @@ void wallet2::generate(const std::string& wallet_, const epee::wipeable_string& 
   m_multisig = true;
   m_multisig_threshold = threshold;
   m_multisig_signers = multisig_signers;
+  // wallet is assumed already finalized
+  m_multisig_rounds_passed = multisig::multisig_setup_rounds_required(m_multisig_signers.size(), m_multisig_threshold);
   setup_keys(password);
 
   create_keys_file(wallet_, false, password, m_nettype != MAINNET || create_address_file);
@@ -5215,7 +5213,7 @@ bool wallet2::multisig(bool *ready, uint32_t *threshold, uint32_t *total) const
   if (ready)
   {
     *ready = !(get_account().get_keys().m_account_address.m_spend_public_key == rct::rct2pk(rct::identity())) &&
-      (m_multisig_rounds_passed == multisig::multisig_kex_rounds_required(m_multisig_signers.size(), m_multisig_threshold) + 1);
+      (m_multisig_rounds_passed == multisig::multisig_setup_rounds_required(m_multisig_signers.size(), m_multisig_threshold));
   }
   return true;
 }

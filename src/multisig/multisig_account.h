@@ -245,4 +245,13 @@ namespace multisig
   * return: number of kex rounds required
   */
   std::uint32_t multisig_kex_rounds_required(const std::uint32_t num_signers, const std::uint32_t threshold);
+
+  /**
+  * brief: multisig_setup_rounds_required - The number of setup rounds required to produce an M-of-N shared key.
+  *    - A participant must complete all kex rounds and 1 initialization round.
+  * param: num_signers - number of participants in multisig (N)
+  * param: threshold - threshold of multisig (M)
+  * return: number of setup rounds required
+  */
+  std::uint32_t multisig_setup_rounds_required(const std::uint32_t num_signers, const std::uint32_t threshold);
 } //namespace multisig

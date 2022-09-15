@@ -74,7 +74,7 @@ namespace multisig
       "Multisig threshold may not be larger than number of signers.");
     CHECK_AND_ASSERT_THROW_MES(threshold > 0, "Multisig threshold must be > 0.");
     CHECK_AND_ASSERT_THROW_MES(round > 0, "Multisig kex round must be > 0.");
-    CHECK_AND_ASSERT_THROW_MES(round <= multisig_kex_rounds_required(num_signers, threshold) + 1,
+    CHECK_AND_ASSERT_THROW_MES(round <= multisig_setup_rounds_required(num_signers, threshold),
       "Trying to process multisig kex for an invalid round.");
   }
   //----------------------------------------------------------------------------------------------------------------------
