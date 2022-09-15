@@ -47,6 +47,7 @@
 using namespace epee;
 
 #include "cryptonote_config.h"
+#include "hardforks/hardforks.h"
 #include "cryptonote_core/tx_sanity_check.h"
 #include "wallet_rpc_helpers.h"
 #include "wallet2.h"
@@ -275,6 +276,7 @@ struct options {
   const command_line::arg_descriptor<bool> no_dns = {"no-dns", tools::wallet2::tr("Do not use DNS"), false};
   const command_line::arg_descriptor<bool> offline = {"offline", tools::wallet2::tr("Do not connect to a daemon, nor use DNS"), false};
   const command_line::arg_descriptor<std::string> extra_entropy = {"extra-entropy", tools::wallet2::tr("File containing extra entropy to initialize the PRNG (any data, aim for 256 bits of entropy to be useful, which typically means more than 256 bits of data)")};
+  const command_line::arg_descriptor<bool> allow_mismatched_daemon_version = {"allow-mismatched-daemon-version", tools::wallet2::tr("Allow communicating with a daemon that uses a different version"), false};
 };
 
 void do_prepare_file_names(const std::string& file_path, std::string& keys_file, std::string& wallet_file, std::string &mms_file)
@@ -483,6 +485,9 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
         tools::error::wallet_internal_error, "Failed to load extra entropy from " + extra_entropy);
     add_extra_entropy_thread_safe(data.data(), data.size());
   }
+
+  if (command_line::has_arg(vm, opts.allow_mismatched_daemon_version))
+    wallet->allow_mismatched_daemon_version(true);
 
   try
   {
@@ -1219,7 +1224,8 @@ wallet2::wallet2(network_type nettype, uint64_t kdf_rounds, bool unattended, std
   m_load_deprecated_formats(false),
   m_credits_target(0),
   m_enable_multisig(false),
-  m_has_ever_refreshed_from_node(false)
+  m_has_ever_refreshed_from_node(false),
+  m_allow_mismatched_daemon_version(false)
 {
   set_rpc_client_secret_key(rct::rct2sk(rct::skGen()));
 }
@@ -1279,6 +1285,7 @@ void wallet2::init_options(boost::program_options::options_description& desc_par
   command_line::add_arg(desc_params, opts.no_dns);
   command_line::add_arg(desc_params, opts.offline);
   command_line::add_arg(desc_params, opts.extra_entropy);
+  command_line::add_arg(desc_params, opts.allow_mismatched_daemon_version);
 }
 
 std::pair<std::unique_ptr<wallet2>, tools::password_container> wallet2::make_from_json(const boost::program_options::variables_map& vm, bool unattended, const std::string& json_file, const std::function<boost::optional<tools::password_container>(const char *, bool)> &password_prompter)
@@ -2915,6 +2922,26 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
   refresh(trusted_daemon, start_height, blocks_fetched, received_money);
 }
 //----------------------------------------------------------------------------------------------------
+void check_block_hard_fork_version(cryptonote::network_type nettype, uint8_t hf_version, uint64_t height, bool &wallet_is_outdated, bool &daemon_is_outdated)
+{
+  const size_t wallet_num_hard_forks = nettype == TESTNET ? num_testnet_hard_forks
+    : nettype == STAGENET ? num_stagenet_hard_forks : num_mainnet_hard_forks;
+  const hardfork_t *wallet_hard_forks = nettype == TESTNET ? testnet_hard_forks
+    : nettype == STAGENET ? stagenet_hard_forks : mainnet_hard_forks;
+
+  wallet_is_outdated = static_cast<size_t>(hf_version) > wallet_num_hard_forks;
+  if (wallet_is_outdated)
+    return;
+
+  // check block's height falls within wallet's expected range for block's given version
+  uint64_t start_height = hf_version == 1 ? 0 : wallet_hard_forks[hf_version - 1].height;
+  uint64_t end_height = static_cast<size_t>(hf_version) + 1 > wallet_num_hard_forks
+    ? std::numeric_limits<uint64_t>::max()
+    : wallet_hard_forks[hf_version].height;
+
+  daemon_is_outdated = height < start_height || height >= end_height;
+}
+//----------------------------------------------------------------------------------------------------
 void wallet2::pull_and_parse_next_blocks(uint64_t start_height, uint64_t &blocks_start_height, std::list<crypto::hash> &short_chain_history, const std::vector<cryptonote::block_complete_entry> &prev_blocks, const std::vector<parsed_block> &prev_parsed_blocks, std::vector<cryptonote::block_complete_entry> &blocks, std::vector<parsed_block> &parsed_blocks, bool &last, bool &error, std::exception_ptr &exception)
 {
   error = false;
@@ -2956,6 +2983,23 @@ void wallet2::pull_and_parse_next_blocks(uint64_t start_height, uint64_t &blocks
         error = true;
         break;
       }
+
+      if (!m_allow_mismatched_daemon_version)
+      {
+        // make sure block's hard fork version is expected at the block's height
+        uint8_t hf_version = parsed_blocks[i].block.major_version;
+        uint64_t height = blocks_start_height + i;
+        bool wallet_is_outdated = false;
+        bool daemon_is_outdated = false;
+        check_block_hard_fork_version(m_nettype, hf_version, height, wallet_is_outdated, daemon_is_outdated);
+        THROW_WALLET_EXCEPTION_IF(wallet_is_outdated || daemon_is_outdated, error::incorrect_fork_version,
+          "Unexpected hard fork version v" + std::to_string(hf_version) + " at height " + std::to_string(height) + ". " +
+          (wallet_is_outdated
+            ? "Make sure your wallet is up to date"
+            : "Make sure the node you are connected to is running the latest version")
+        );
+      }
+
       parsed_blocks[i].o_indices = std::move(o_indices[i]);
     }
 
@@ -3578,6 +3622,11 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
       THROW_WALLET_EXCEPTION_IF(!waiter.wait(), error::wallet_internal_error, "Exception in thread pool");
       throw;
     }
+    catch (const error::incorrect_fork_version&)
+    {
+      THROW_WALLET_EXCEPTION_IF(!waiter.wait(), error::wallet_internal_error, "Exception in thread pool");
+      throw;
+    }
     catch (const std::exception&)
     {
       blocks_fetched += added_blocks;
@@ -4188,6 +4237,7 @@ bool wallet2::load_keys_buf(const std::string& keys_buf, const epee::wipeable_st
     m_auto_mine_for_rpc_payment_threshold = -1.0f;
     m_credits_target = 0;
     m_enable_multisig = false;
+    m_allow_mismatched_daemon_version = false;
   }
   else if(json.IsObject())
   {
@@ -5329,7 +5379,7 @@ bool wallet2::prepare_file_names(const std::string& file_path)
   return true;
 }
 //----------------------------------------------------------------------------------------------------
-bool wallet2::check_connection(uint32_t *version, bool *ssl, uint32_t timeout)
+bool wallet2::check_connection(uint32_t *version, bool *ssl, uint32_t timeout, bool *wallet_is_outdated, bool *daemon_is_outdated)
 {
   THROW_WALLET_EXCEPTION_IF(!m_is_initialized, error::wallet_not_initialized);
 
@@ -5366,20 +5416,99 @@ bool wallet2::check_connection(uint32_t *version, bool *ssl, uint32_t timeout)
     }
   }
 
-  if (!m_rpc_version)
-  {
-    cryptonote::COMMAND_RPC_GET_VERSION::request req_t = AUTO_VAL_INIT(req_t);
-    cryptonote::COMMAND_RPC_GET_VERSION::response resp_t = AUTO_VAL_INIT(resp_t);
-    bool r = invoke_http_json_rpc("/json_rpc", "get_version", req_t, resp_t);
-    if(!r || resp_t.status != CORE_RPC_STATUS_OK) {
-      if(version)
-        *version = 0;
-      return false;
-    }
-    m_rpc_version = resp_t.version;
-  }
+  if (!m_rpc_version && !check_version(version, wallet_is_outdated, daemon_is_outdated))
+    return false;
   if (version)
     *version = m_rpc_version;
+
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
+bool wallet2::check_version(uint32_t *version, bool *wallet_is_outdated, bool *daemon_is_outdated)
+{
+  uint32_t rpc_version;
+  std::vector<std::pair<uint8_t, uint64_t>> daemon_hard_forks;
+  uint64_t height;
+  uint64_t target_height;
+  if (m_node_rpc_proxy.get_rpc_version(rpc_version, daemon_hard_forks, height, target_height))
+  {
+    if(version)
+      *version = 0;
+    return false;
+  }
+
+  // check wallet compatibility with daemon's hard fork version
+  if (!m_allow_mismatched_daemon_version)
+    if (!check_hard_fork_version(m_nettype, daemon_hard_forks, height, target_height, wallet_is_outdated, daemon_is_outdated))
+      return false;
+
+  m_rpc_version = rpc_version;
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
+bool wallet2::check_hard_fork_version(cryptonote::network_type nettype, const std::vector<std::pair<uint8_t, uint64_t>> &daemon_hard_forks, const uint64_t height, const uint64_t target_height, bool *wallet_is_outdated, bool *daemon_is_outdated)
+{
+  const size_t wallet_num_hard_forks = nettype == TESTNET ? num_testnet_hard_forks
+    : nettype == STAGENET ? num_stagenet_hard_forks : num_mainnet_hard_forks;
+  const hardfork_t *wallet_hard_forks = nettype == TESTNET ? testnet_hard_forks
+    : nettype == STAGENET ? stagenet_hard_forks : mainnet_hard_forks;
+
+  // First check if wallet or daemon is outdated (whether either are unaware of
+  // a hard fork). Then check if fork has passed rendering versions incompatible
+  if (daemon_hard_forks.size() > 0)
+  {
+    bool daemon_outdated = daemon_hard_forks.size() < wallet_num_hard_forks;
+    bool wallet_outdated = daemon_hard_forks.size() > wallet_num_hard_forks;
+
+    if (daemon_is_outdated)
+      *daemon_is_outdated = daemon_outdated;
+    if (wallet_is_outdated)
+      *wallet_is_outdated = wallet_outdated;
+
+    if (daemon_outdated)
+    {
+      uint64_t daemon_missed_fork_height = wallet_hard_forks[daemon_hard_forks.size()].height;
+
+      // If the daemon missed the fork, then technically it is no longer part of
+      // the Monero network. Don't connect.
+      bool daemon_missed_fork = height >= daemon_missed_fork_height || target_height >= daemon_missed_fork_height;
+      if (daemon_missed_fork)
+        return false;
+    }
+    else if (wallet_outdated)
+    {
+      uint64_t wallet_missed_fork_height = daemon_hard_forks[wallet_num_hard_forks].second;
+
+      // If the wallet missed the fork, then technically it is no longer able
+      // to communicate with the Monero network. Don't connect.
+      bool wallet_missed_fork = height >= wallet_missed_fork_height || target_height >= wallet_missed_fork_height;
+      if (wallet_missed_fork)
+        return false;
+    }
+  }
+  else
+  {
+    // Non-updated daemons won't return daemon_hard_forks in response to
+    // get_version. Fall back to extra call to get_hard_fork_info by version.
+    uint64_t daemon_fork_height;
+    get_hard_fork_info(wallet_num_hard_forks-1/* wallet expects "double fork" pattern */, daemon_fork_height);
+    bool daemon_outdated = daemon_fork_height == std::numeric_limits<uint64_t>::max();
+
+    if (daemon_is_outdated)
+      *daemon_is_outdated = daemon_outdated;
+
+    if (daemon_outdated)
+    {
+      uint64_t daemon_missed_fork_height = wallet_hard_forks[wallet_num_hard_forks-2].height;
+      bool daemon_missed_fork = height >= daemon_missed_fork_height || target_height >= daemon_missed_fork_height;
+      if (daemon_missed_fork)
+        return false;
+    }
+
+    // Don't need to check if wallet is outdated here because the daemons updated
+    // for a future hard fork will serve daemon_hard_forks above. The check for
+    // an outdated wallet is done above using daemon_hard_forks.
+  }
 
   return true;
 }

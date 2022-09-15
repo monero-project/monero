@@ -30,6 +30,7 @@ complete -c monero-wallet-rpc -l tx-notify -r -d "Run a program for each new inc
 complete -c monero-wallet-rpc -l no-dns -d "Do not use DNS"
 complete -c monero-wallet-rpc -l offline -d "Do not connect to a daemon, nor use DNS"
 complete -c monero-wallet-rpc -l extra-entropy -r -F -d "File containing extra entropy to initialize the PRNG (any data, aim for 256 bits of entropy to be useful, which typically means more than 256 bits of data)"
+complete -c monero-wallet-cli -l allow-mismatched-daemon-version -d "Allow communicating with a daemon that uses a different version"
 complete -c monero-wallet-rpc -l rpc-bind-port -r -d "Sets bind port for server"
 complete -c monero-wallet-rpc -l disable-rpc-login -d "Disable HTTP authentication for RPC connections served by this process"
 complete -c monero-wallet-rpc -l restricted-rpc -d "Restricts to view-only commands"

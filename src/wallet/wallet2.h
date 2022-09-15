@@ -1092,7 +1092,9 @@ private:
     bool sign_multisig_tx_to_file(multisig_tx_set &exported_txs, const std::string &filename, std::vector<crypto::hash> &txids);
     std::vector<pending_tx> create_unmixable_sweep_transactions();
     void discard_unmixable_outputs();
-    bool check_connection(uint32_t *version = NULL, bool *ssl = NULL, uint32_t timeout = 200000);
+    bool check_connection(uint32_t *version = NULL, bool *ssl = NULL, uint32_t timeout = 200000, bool *wallet_is_outdated = NULL, bool *daemon_is_outdated = NULL);
+    bool check_version(uint32_t *version, bool *wallet_is_outdated, bool *daemon_is_outdated);
+    bool check_hard_fork_version(cryptonote::network_type nettype, const std::vector<std::pair<uint8_t, uint64_t>> &daemon_hard_forks, const uint64_t height, const uint64_t target_height, bool *wallet_is_outdated, bool *daemon_is_outdated);
     void get_transfers(wallet2::transfer_container& incoming_transfers) const;
     void get_payments(const crypto::hash& payment_id, std::list<wallet2::payment_details>& payments, uint64_t min_height = 0, const boost::optional<uint32_t>& subaddr_account = boost::none, const std::set<uint32_t>& subaddr_indices = {}) const;
     void get_payments(std::list<std::pair<crypto::hash,wallet2::payment_details>>& payments, uint64_t min_height, uint64_t max_height = (uint64_t)-1, const boost::optional<uint32_t>& subaddr_account = boost::none, const std::set<uint32_t>& subaddr_indices = {}) const;
@@ -1359,6 +1361,8 @@ private:
     void credits_target(uint64_t threshold) { m_credits_target = threshold; }
     bool is_multisig_enabled() const { return m_enable_multisig; }
     void enable_multisig(bool enable) { m_enable_multisig = enable; }
+    bool is_mismatched_daemon_version_allowed() const { return m_allow_mismatched_daemon_version; }
+    void allow_mismatched_daemon_version(bool allow_mismatch) { m_allow_mismatched_daemon_version = allow_mismatch; }
 
     bool get_tx_key_cached(const crypto::hash &txid, crypto::secret_key &tx_key, std::vector<crypto::secret_key> &additional_tx_keys) const;
     void set_tx_key(const crypto::hash &txid, const crypto::secret_key &tx_key, const std::vector<crypto::secret_key> &additional_tx_keys, const boost::optional<cryptonote::account_public_address> &single_destination_subaddress = boost::none);
@@ -1876,6 +1880,7 @@ private:
     rpc_payment_state_t m_rpc_payment_state;
     uint64_t m_credits_target;
     bool m_enable_multisig;
+    bool m_allow_mismatched_daemon_version;
 
     // Aux transaction data from device
     serializable_unordered_map<crypto::hash, std::string> m_tx_device;
