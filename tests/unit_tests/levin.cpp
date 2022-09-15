@@ -365,8 +365,8 @@ namespace
         test_receiver receiver_;
         std::deque<test_connection> contexts_;
         test_core_events events_;
-    };
-}
+    }; // class levin_notify
+} // anonymous namespace
 
 TEST(make_header, no_expect_return)
 {
