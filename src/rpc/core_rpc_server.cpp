@@ -2861,6 +2861,10 @@ namespace cryptonote
 
     res.version = CORE_RPC_VERSION;
     res.release = MONERO_VERSION_IS_RELEASE;
+    res.current_height = m_core.get_current_blockchain_height();
+    res.target_height = m_p2p.get_payload_object().is_synchronized() ? 0 : m_core.get_target_blockchain_height();
+    for (const auto &hf : m_core.get_blockchain_storage().get_hardforks())
+       res.hard_forks.push_back({hf.version, hf.height});
     res.status = CORE_RPC_STATUS_OK;
     return true;
   }
