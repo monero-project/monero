@@ -72,16 +72,6 @@ namespace serde { namespace internal
         }
     };
 
-    template <> void NumericVisitor<int64_t> ::visit_bytes(const const_byte_span&);
-    template <> void NumericVisitor<int32_t> ::visit_bytes(const const_byte_span&);
-    template <> void NumericVisitor<int16_t> ::visit_bytes(const const_byte_span&);
-    template <> void NumericVisitor<int8_t>  ::visit_bytes(const const_byte_span&);
-    template <> void NumericVisitor<uint64_t>::visit_bytes(const const_byte_span&);
-    template <> void NumericVisitor<uint32_t>::visit_bytes(const const_byte_span&);
-    template <> void NumericVisitor<uint16_t>::visit_bytes(const const_byte_span&);
-    template <> void NumericVisitor<uint8_t> ::visit_bytes(const const_byte_span&);
-    template <> void NumericVisitor<double>  ::visit_bytes(const const_byte_span&);
-
     struct StringVisitor: public model::RefVisitor<std::string>
     {
         StringVisitor(std::string& val_ref): model::RefVisitor<std::string>(val_ref) {}
