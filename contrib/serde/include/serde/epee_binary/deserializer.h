@@ -37,9 +37,6 @@
 
 namespace serde { namespace epee_binary
 {
-    // forward declaration of internal function
-    constexpr bool uint64_fits_size(uint64_t value);
-
     class Deserializer: public model::SelfDescribingDeserializer
     {
     public:
@@ -155,12 +152,13 @@ namespace serde { namespace epee_binary
                 this->deserialize_raw_section(visitor);
                 break;
             default:
-                ASSERT_MES_AND_THROW("unrecognized type code: " << type_code);
+                ASSERT_MES_AND_THROW("unrecognized type code: " << (int) type_code);
             }
         }
 
         void deserialize_raw_section(model::BasicVisitor& visitor)
         {
+            this->doing_one_element_or_entry();
             const size_t obj_len = this->read_varint();
             this->push_object(obj_len);
             visitor.visit_object(obj_len);
@@ -179,6 +177,7 @@ namespace serde { namespace epee_binary
             const uint8_t type_code = *this->consume(1);
             if (type_code & SERIALIZE_FLAG_ARRAY)
             {
+                this->doing_one_element_or_entry();
                 const uint8_t scalar_type_code = type_code & ~SERIALIZE_FLAG_ARRAY;
                 size_t array_len = this->read_varint();
                 this->push_array(array_len, scalar_type_code);
@@ -287,7 +286,11 @@ namespace serde { namespace epee_binary
 
         void doing_one_element_or_entry()
         {
-            m_stack.back().remaining--;
+            if (!this->root())
+            {
+                m_stack.back().remaining--;
+                m_stack.back().expecting_key = !m_stack.back().expecting_key;
+            }
         }
 
     ///////////////////////////////////////////////////////////////////////////

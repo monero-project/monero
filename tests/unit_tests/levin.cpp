@@ -228,7 +228,27 @@ namespace
             typename T::request request{};
             const auto payload_span = epee::strspan<std::uint8_t>(queue.front().payload);
             if (!epee::serialization::load_t_from_binary(request, payload_span))
-                throw std::logic_error{"Unable to load into expected request"};
+            {
+                // If loading from binary fails, break down the process and have it fail more explicitly
+
+                // Print message which caused error
+                const std::string failed_buf_as_hex = epee::to_hex::string(payload_span);
+                std::cerr << "This message caused load from binary error: " << std::endl;
+                std::cerr << failed_buf_as_hex << std::endl;
+
+                // Let Deserializer dump exception with error message
+                serde::epee_binary::Deserializer deserializer(payload_span);
+                const bool has_data = deserialize_default(deserializer, request);
+                if (!has_data)
+                {
+                    throw std::logic_error("deserialize_default() in get_message() returned no data");
+                }
+                else
+                {
+                    // We shouldn't be here since the same messaged caused a failure
+                    throw std::logic_error("get_message(): unable to recreate failure to load from binary");
+                }
+            }
 
             boost::uuids::uuid connection = queue.front().connection;
             queue.pop_front();
@@ -291,12 +311,6 @@ namespace
         std::size_t notified_size() const noexcept
         {
             return notified_.size();
-        }
-
-        template<typename T>
-        std::pair<boost::uuids::uuid, typename T::request> get_invoked()
-        {
-            return get_message<T>(invoked_);
         }
 
         template<typename T>
