@@ -1346,6 +1346,7 @@ bool wallet2::set_daemon(std::string daemon_address, boost::optional<epee::net_u
     }
     m_rpc_payment_state.expected_spent = 0;
     m_rpc_payment_state.discrepancy = 0;
+    m_rpc_version = 0;
     m_node_rpc_proxy.invalidate();
   }
 
