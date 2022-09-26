@@ -4792,7 +4792,7 @@ bool simple_wallet::try_connect_to_daemon(bool silent, uint32_t* version)
   uint32_t version_ = 0;
   if (!version)
     version = &version_;
-  bool wallet_is_outdated, daemon_is_outdated = false;
+  bool wallet_is_outdated = false, daemon_is_outdated = false;
   if (!m_wallet->check_connection(version, NULL, 200000, &wallet_is_outdated, &daemon_is_outdated))
   {
     if (!silent)
