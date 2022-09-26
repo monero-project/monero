@@ -55,6 +55,9 @@ jobs:
           - name: "x86_64 Freebsd"
             host: "x86_64-unknown-freebsd"
             packages: "clang-8 gperf cmake python3-zmq libdbus-1-dev libharfbuzz-dev"
+          - name: "ARMv8 Android"
+            host: "aarch64-linux-android"
+            packages: "gperf cmake python3"
     name: ${{ matrix.toolchain.name }}
     steps:
     - uses: actions/checkout@v1
