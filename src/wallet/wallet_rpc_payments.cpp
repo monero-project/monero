@@ -144,7 +144,7 @@ bool wallet2::search_for_rpc_payment(uint64_t credits_target, uint32_t n_threads
       n_threads = boost::thread::hardware_concurrency();
 
     std::vector<crypto::hash> hash(n_threads);
-    tools::threadpool& tpool = tools::threadpool::getInstance();
+    tools::threadpool& tpool = tools::threadpool::getInstanceForCompute();
     tools::threadpool::waiter waiter(tpool);
 
     const uint32_t local_nonce = nonce += n_threads; // wrapping's OK
