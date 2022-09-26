@@ -1,4 +1,4 @@
-packages:=boost openssl zeromq libiconv expat ldns unbound
+packages:=boost openssl zeromq libiconv expat unbound
 
 # ccache is useless in gitian builds
 ifneq ($(GITIAN),1)
@@ -20,7 +20,6 @@ freebsd_packages = ncurses readline sodium
 
 linux_packages = eudev ncurses readline sodium $(hardware_packages)
 linux_native_packages = $(hardware_native_packages)
-qt_packages = qt
 
 ifeq ($(build_tests),ON)
 packages += gtest
