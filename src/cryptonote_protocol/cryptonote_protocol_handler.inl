@@ -537,6 +537,10 @@ namespace cryptonote
       MLOG_PEER_STATE("requesting chain");
     }
 
+    // load json & DNS checkpoints every 10min/hour respectively,
+    // and verify them with respect to what blocks we already have
+    CHECK_AND_ASSERT_MES(m_core.update_checkpoints(), 1, "One or more checkpoints loaded from json or dns conflicted with existing checkpoints.");
+
     return 1;
   }
   //------------------------------------------------------------------------------------------------------------------------
@@ -819,6 +823,10 @@ namespace cryptonote
           post_notify<NOTIFY_REQUEST_CHAIN>(r, context);
           MLOG_PEER_STATE("requesting chain");
         }            
+
+        // load json & DNS checkpoints every 10min/hour respectively,
+        // and verify them with respect to what blocks we already have
+        CHECK_AND_ASSERT_MES(m_core.update_checkpoints(), 1, "One or more checkpoints loaded from json or dns conflicted with existing checkpoints.");
       }
     } 
     else
