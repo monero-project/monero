@@ -778,7 +778,7 @@ inline bool do_replay_events_get_core(std::vector<test_event_entry>& events, cry
 
   t_test_class validator;
   bool ret = replay_events_through_core<t_test_class>(c, events, validator);
-  tools::threadpool::getInstance().recycle();
+  tools::threadpool::getInstanceForCompute().recycle();
 //  c.deinit();
   return ret;
 }
