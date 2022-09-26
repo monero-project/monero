@@ -5130,12 +5130,11 @@ std::string wallet2::make_multisig(const epee::wipeable_string &password,
 }
 //----------------------------------------------------------------------------------------------------
 std::string wallet2::exchange_multisig_keys(const epee::wipeable_string &password,
-  const std::vector<std::string> &kex_messages)
+  const std::vector<std::string> &kex_messages,
+  const bool force_update_use_with_caution /*= false*/)
 {
   bool ready{false};
   CHECK_AND_ASSERT_THROW_MES(multisig(&ready), "The wallet is not multisig");
-  CHECK_AND_ASSERT_THROW_MES(!ready, "Multisig wallet creation process has already been finished");
-  CHECK_AND_ASSERT_THROW_MES(kex_messages.size() > 0, "No key exchange messages passed in.");
 
   // decrypt account keys
   epee::misc_utils::auto_scope_leave_caller keys_reencryptor;
@@ -5153,13 +5152,6 @@ std::string wallet2::exchange_multisig_keys(const epee::wipeable_string &passwor
         }
       );
   }
-
-  // open kex messages
-  std::vector<multisig::multisig_kex_msg> expanded_msgs;
-  expanded_msgs.reserve(kex_messages.size());
-
-  for (const auto &msg : kex_messages)
-    expanded_msgs.emplace_back(msg);
 
   // reconstruct multisig account
   multisig::multisig_keyset_map_memsafe_t kex_origins_map;
@@ -5181,8 +5173,25 @@ std::string wallet2::exchange_multisig_keys(const epee::wipeable_string &passwor
       ""
     };
 
+  // KLUDGE: early return if there are no kex messages and main kex is complete (will return the post-kex verification round
+  //         message) (it's a kludge because this behavior would be more appropriate for a standalone wallet method)
+  if (kex_messages.size() == 0)
+  {
+    CHECK_AND_ASSERT_THROW_MES(multisig_account.main_kex_rounds_done(),
+      "Exchange multisig keys: there are no kex messages but the main kex rounds are not done.");
+
+    return multisig_account.get_next_kex_round_msg();
+  }
+
+  // open kex messages
+  std::vector<multisig::multisig_kex_msg> expanded_msgs;
+  expanded_msgs.reserve(kex_messages.size());
+
+  for (const auto &msg : kex_messages)
+    expanded_msgs.emplace_back(msg);
+
   // update multisig kex
-  multisig_account.kex_update(expanded_msgs);
+  multisig_account.kex_update(expanded_msgs, force_update_use_with_caution);
 
   // update wallet state
 

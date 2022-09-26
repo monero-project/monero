@@ -1396,12 +1396,12 @@ string WalletImpl::makeMultisig(const vector<string>& info, const uint32_t thres
     return string();
 }
 
-std::string WalletImpl::exchangeMultisigKeys(const std::vector<std::string> &info) {
+std::string WalletImpl::exchangeMultisigKeys(const std::vector<std::string> &info, const bool force_update_use_with_caution /*= false*/) {
     try {
         clearStatus();
         checkMultisigWalletNotReady(m_wallet);
 
-        return m_wallet->exchange_multisig_keys(epee::wipeable_string(m_password), info);
+        return m_wallet->exchange_multisig_keys(epee::wipeable_string(m_password), info, force_update_use_with_caution);
     } catch (const exception& e) {
         LOG_ERROR("Error on exchanging multisig keys: " << e.what());
         setStatusError(string(tr("Failed to exchange multisig keys: ")) + e.what());
