@@ -46,6 +46,7 @@ target_link_libraries(cryptonote_format_utils_basic
 
 set(cryptonote_basic_sources
   account.cpp
+  account_epee_serialization.cpp
   connection_context.cpp
   cryptonote_basic_impl.cpp
   cryptonote_format_utils.cpp

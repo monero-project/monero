@@ -31,6 +31,7 @@ include_directories(SYSTEM ${ZMQ_INCLUDE_PATH})
 set(rpc_base_sources
   rpc_args.cpp
   rpc_payment_signature.cpp
+  core_rpc_server_commands_serialization.cpp
   rpc_handler.cpp)
 
 set(rpc_sources

@@ -26,6 +26,9 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+monero_add_library(net_load_tests_serialization
+  net_load_tests_serialization.cpp)
+
 set(clt_sources
   clt.cpp)
 
@@ -40,6 +43,7 @@ target_link_libraries(net_load_tests_clt
     p2p
     cryptonote_core
     epee
+    net_load_tests_serialization
     ${GTEST_LIBRARIES}
     ${Boost_CHRONO_LIBRARY}
     ${Boost_DATE_TIME_LIBRARY}
@@ -62,6 +66,7 @@ target_link_libraries(net_load_tests_srv
     p2p
     cryptonote_core
     epee
+    net_load_tests_serialization
     ${GTEST_LIBRARIES}
     ${Boost_CHRONO_LIBRARY}
     ${Boost_DATE_TIME_LIBRARY}
