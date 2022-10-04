@@ -12,7 +12,7 @@ env:
         ccache --set-config=compression=true
 jobs:
   build-macos:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     env:
       CCACHE_TEMPDIR: /tmp/.ccache-temp
     strategy:
@@ -78,4 +78,4 @@ jobs:
       with:
         name: ${{ matrix.toolchain.name }}
         path: |
-          /home/runner/work/equilibria/equilibria/build/${{ matrix.toolchain.host }}/release/bin/*
+          /home/runner/work/Equilibria/Equilibria/build/${{ matrix.toolchain.host }}/release/bin/*
