@@ -26,6 +26,7 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#include "cryptonote_basic/cryptonote_format_utils.h"
 #include "node_rpc_proxy.h"
 #include "rpc/core_rpc_server_commands_defs.h"
 #include "rpc/rpc_payment_signature.h"
@@ -46,7 +47,154 @@
     CHECK_AND_ASSERT_MES(res.status == CORE_RPC_STATUS_OK, res.status, "Error calling " + std::string(method) + " daemon RPC"); \
   } while(0)
 
-using namespace epee;
+/**
+ * @brief Used to assert conditions and exit early. Logs an error message and returns the same string.
+ *
+ * @param cond expression which is expected to be truthy
+ * @param msg a "stream-like" expression which will feed into a std::stringstream.
+ *
+ * @return std::string when cond is false, otherwise does not return
+ */
+#define RETURN_ERROR_IF_FALSE(cond, msg)    \
+  do                                        \
+  {                                         \
+    if (!(cond))                            \
+    {                                       \
+      std::stringstream ss;                 \
+      ss << msg;                            \
+      const std::string err_msg = ss.str(); \
+      MERROR(err_msg);                      \
+      return err_msg;                       \
+    }                                       \
+  } while (0);                              \
+
+/**
+ * @brief Acquire RPC mutex, invoke /json_rpc endpoint, and return on error
+ *
+ * Only really useful within NodeRPCProxy because it assumes the existence of variables m_daemon_rpc_mutex,
+ * m_http_client, and rpc_timeout. The lock_guard is scoped so that it lives as short as possible.
+ *
+ * @param method JSON RPC method name as a string
+ * @param req cryptonote::COMMAND_RPC_x::request form which will be used with invoke_http_json_rpc
+ * @param res cryptonote::COMMAND_RPC_x::response form which will be used with invoke_http_json_rpc
+ *
+ * @return std::string on RPC error, otherwise does not return
+ */
+#define INVOKE_JSON_RPC_LOCK_AND_RET_ERR(method, req, res)                                                  \
+  do {                                                                                                      \
+    bool r = false;                                                                                         \
+    {                                                                                                       \
+      const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};                             \
+      r = epee::net_utils::invoke_http_json_rpc("/json_rpc", method, req, res, m_http_client, rpc_timeout); \
+    }                                                                                                       \
+    RETURN_ON_RPC_RESPONSE_ERROR(r, epee::json_rpc::error{}, resp_t, method);                               \
+  } while (0);                                                                                              \
+
+/**
+ * @brief Acquire RPC mutex, invoke /json_rpc endpoint, check RPC cost, and return on error
+ *
+ * Same as INVOKE_JSON_RPC_LOCK_AND_RET_ERR but checks that the credits changed correctly.
+ *
+ * @param method JSON RPC method name as a string
+ * @param req cryptonote::COMMAND_RPC_x::request form which will be used with invoke_http_json_rpc
+ * @param res cryptonote::COMMAND_RPC_x::response form which will be used with invoke_http_json_rpc
+ * @param rpc_price RPC credit cost for given method, usually specified in macros named COST_PER_x
+ *
+ * @return std::string on RPC error, otherwise does not return
+ */
+
+#define INVOKE_JSON_RPC_LOCK_AND_RET_ERR_CHECK_COST(method, req, res, rpc_price)                                 \
+  do {                                                                                                           \
+    req.client = cryptonote::make_rpc_payment_signature(m_client_id_secret_key);                                 \
+    {                                                                                                            \
+      const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};                                  \
+      const uint64_t pre_call_credits = m_rpc_payment_state.credits;                                             \
+      bool r = epee::net_utils::invoke_http_json_rpc("/json_rpc", method, req, res, m_http_client, rpc_timeout); \
+      RETURN_ON_RPC_RESPONSE_ERROR(r, epee::json_rpc::error{}, resp_t, method);                                  \
+      check_rpc_cost(m_rpc_payment_state, method, res.credits, pre_call_credits, rpc_price);                     \
+    }                                                                                                            \
+  } while (0);                                                                                                   \
+
+/**
+ * @brief Acquire RPC mutex, invoke json endpoint, check RPC cost, and return on error
+ *
+ * Only really useful within NodeRPCProxy because it assumes the existence of variables m_daemon_rpc_mutex,
+ * m_http_client, and rpc_timeout. The lock_guard is scoped so that it lives as short as possible.
+ * After RPC interaction, we check that the credits changed correctly.
+ *
+ * @param uri URI of json endpoint
+ * @param req cryptonote::COMMAND_RPC_x::request form which will be used with invoke_http_json_rpc
+ * @param res cryptonote::COMMAND_RPC_x::response form which will be used with invoke_http_json_rpc
+ * @param rpc_price RPC credit cost for given method, usually specified in macros named COST_PER_x
+ *
+ * @return on RPC error, otherwise does not return
+ */
+
+#define INVOKE_JSON_LOCK_AND_RET_ERR_CHECK_COST(uri, req, res, rpc_price)                    \
+  do {                                                                                       \
+    req.client = cryptonote::make_rpc_payment_signature(m_client_id_secret_key);             \
+    {                                                                                        \
+      const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};              \
+      const uint64_t pre_call_credits = m_rpc_payment_state.credits;                         \
+      bool r = epee::net_utils::invoke_http_json(uri, req, res, m_http_client, rpc_timeout); \
+      RETURN_ON_RPC_RESPONSE_ERROR(r, epee::json_rpc::error{}, res, uri);                    \
+      check_rpc_cost(m_rpc_payment_state, uri, res.credits, pre_call_credits, rpc_price);    \
+    }                                                                                        \
+  } while (0);                                                                               \
+
+namespace
+{
+static constexpr const size_t GET_TX_CHUNK_SIZE = 100; // Must be same as RESTRICTED_TRANSACTIONS_COUNT in rpc/core_rpc_server.cpp
+
+/**
+ * @brief Parse and validate pruned transaction entry into cryptonote::transaction and its hash.
+ *
+ * This function can be used on full AND pruned transaction entries, but is mostly used for pruned transaction entries.
+ * Takes tx version into account when parsing and validating. Also checks that actual hash values match with expected hash values.
+ * However, with v1 transactions, the hash check is skipped for pruned transactions since there is not a way to validate it statically.
+ *
+ * @param[in] entry Transaction entry response from RPC server with pruned=true, decode_as_json=false
+ * @param[out] tx the result of parsing the transaction entry
+ * @param[out] tx_hash the result of hashing the pruned transaction
+ * @return true on success, false otherwise
+ */
+bool get_pruned_tx(const cryptonote::COMMAND_RPC_GET_TRANSACTIONS::entry &entry, cryptonote::transaction &tx, crypto::hash &tx_hash)
+{
+  cryptonote::blobdata bd;
+
+  // easy case if we have the whole tx
+  if (!entry.as_hex.empty() || (!entry.prunable_as_hex.empty() && !entry.pruned_as_hex.empty()))
+  {
+    CHECK_AND_ASSERT_MES(epee::string_tools::parse_hexstr_to_binbuff(entry.as_hex.empty() ? entry.pruned_as_hex + entry.prunable_as_hex : entry.as_hex, bd), false, "Failed to parse tx data");
+    CHECK_AND_ASSERT_MES(cryptonote::parse_and_validate_tx_from_blob(bd, tx), false, "Invalid tx data");
+    tx_hash = cryptonote::get_transaction_hash(tx);
+    // if the hash was given, check it matches
+    CHECK_AND_ASSERT_MES(entry.tx_hash.empty() || epee::string_tools::pod_to_hex(tx_hash) == entry.tx_hash, false,
+        "Response claims a different hash than the data yields");
+    return true;
+  }
+  // case of a pruned tx with its prunable data hash
+  if (!entry.pruned_as_hex.empty() && !entry.prunable_hash.empty())
+  {
+    crypto::hash ph;
+    CHECK_AND_ASSERT_MES(epee::string_tools::hex_to_pod(entry.prunable_hash, ph), false, "Failed to parse prunable hash");
+    CHECK_AND_ASSERT_MES(epee::string_tools::parse_hexstr_to_binbuff(entry.pruned_as_hex, bd), false, "Failed to parse pruned data");
+    CHECK_AND_ASSERT_MES(parse_and_validate_tx_base_from_blob(bd, tx), false, "Invalid base tx data");
+    // only v2 txes can calculate their txid after pruned
+    if (bd[0] > 1)
+    {
+      tx_hash = cryptonote::get_pruned_transaction_hash(tx, ph);
+    }
+    else
+    {
+      // for v1, we trust the dameon
+      CHECK_AND_ASSERT_MES(epee::string_tools::hex_to_pod(entry.tx_hash, tx_hash), false, "Failed to parse tx hash");
+    }
+    return true;
+  }
+  return false;
+}
+} // anonymous namespace
 
 namespace tools
 {
@@ -99,11 +247,7 @@ boost::optional<std::string> NodeRPCProxy::get_rpc_version(uint32_t &rpc_version
     const time_t now = time(NULL);
     cryptonote::COMMAND_RPC_GET_VERSION::request req_t = AUTO_VAL_INIT(req_t);
     cryptonote::COMMAND_RPC_GET_VERSION::response resp_t = AUTO_VAL_INIT(resp_t);
-    {
-      const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};
-      bool r = net_utils::invoke_http_json_rpc("/json_rpc", "get_version", req_t, resp_t, m_http_client, rpc_timeout);
-      RETURN_ON_RPC_RESPONSE_ERROR(r, epee::json_rpc::error{}, resp_t, "get_version");
-    }
+    INVOKE_JSON_RPC_LOCK_AND_RET_ERR("get_version", req_t, resp_t);
 
     m_rpc_version = resp_t.version;
     m_daemon_hard_forks.clear();
@@ -144,15 +288,7 @@ boost::optional<std::string> NodeRPCProxy::get_info()
   {
     cryptonote::COMMAND_RPC_GET_INFO::request req_t = AUTO_VAL_INIT(req_t);
     cryptonote::COMMAND_RPC_GET_INFO::response resp_t = AUTO_VAL_INIT(resp_t);
-
-    {
-      const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};
-      uint64_t pre_call_credits = m_rpc_payment_state.credits;
-      req_t.client = cryptonote::make_rpc_payment_signature(m_client_id_secret_key);
-      bool r = net_utils::invoke_http_json_rpc("/json_rpc", "get_info", req_t, resp_t, m_http_client, rpc_timeout);
-      RETURN_ON_RPC_RESPONSE_ERROR(r, epee::json_rpc::error{}, resp_t, "get_info");
-      check_rpc_cost(m_rpc_payment_state, "get_info", resp_t.credits, pre_call_credits, COST_PER_GET_INFO);
-    }
+    INVOKE_JSON_RPC_LOCK_AND_RET_ERR_CHECK_COST("get_info", req_t, resp_t, COST_PER_GET_INFO);
 
     m_height = resp_t.height;
     m_target_height = resp_t.target_height;
@@ -224,15 +360,7 @@ boost::optional<std::string> NodeRPCProxy::get_earliest_height(uint8_t version, 
     cryptonote::COMMAND_RPC_HARD_FORK_INFO::request req_t = AUTO_VAL_INIT(req_t);
     cryptonote::COMMAND_RPC_HARD_FORK_INFO::response resp_t = AUTO_VAL_INIT(resp_t);
     req_t.version = version;
-
-    {
-      const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};
-      uint64_t pre_call_credits = m_rpc_payment_state.credits;
-      req_t.client = cryptonote::make_rpc_payment_signature(m_client_id_secret_key);
-      bool r = net_utils::invoke_http_json_rpc("/json_rpc", "hard_fork_info", req_t, resp_t, m_http_client, rpc_timeout);
-      RETURN_ON_RPC_RESPONSE_ERROR(r, epee::json_rpc::error{}, resp_t, "hard_fork_info");
-      check_rpc_cost(m_rpc_payment_state, "hard_fork_info", resp_t.credits, pre_call_credits, COST_PER_HARD_FORK_INFO);
-    }
+    INVOKE_JSON_RPC_LOCK_AND_RET_ERR_CHECK_COST("hard_fork_info", req_t, resp_t, COST_PER_HARD_FORK_INFO);
 
     m_earliest_height[version] = resp_t.earliest_height;
   }
@@ -256,15 +384,7 @@ boost::optional<std::string> NodeRPCProxy::get_dynamic_base_fee_estimate_2021_sc
     cryptonote::COMMAND_RPC_GET_BASE_FEE_ESTIMATE::request req_t = AUTO_VAL_INIT(req_t);
     cryptonote::COMMAND_RPC_GET_BASE_FEE_ESTIMATE::response resp_t = AUTO_VAL_INIT(resp_t);
     req_t.grace_blocks = grace_blocks;
-
-    {
-      const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};
-      uint64_t pre_call_credits = m_rpc_payment_state.credits;
-      req_t.client = cryptonote::make_rpc_payment_signature(m_client_id_secret_key);
-      bool r = net_utils::invoke_http_json_rpc("/json_rpc", "get_fee_estimate", req_t, resp_t, m_http_client, rpc_timeout);
-      RETURN_ON_RPC_RESPONSE_ERROR(r, epee::json_rpc::error{}, resp_t, "get_fee_estimate");
-      check_rpc_cost(m_rpc_payment_state, "get_fee_estimate", resp_t.credits, pre_call_credits, COST_PER_FEE_ESTIMATE);
-    }
+    INVOKE_JSON_RPC_LOCK_AND_RET_ERR_CHECK_COST("get_fee_estimate", req_t, resp_t, COST_PER_FEE_ESTIMATE);
 
     m_dynamic_base_fee_estimate = resp_t.fee;
     m_dynamic_base_fee_estimate_cached_height = height;
@@ -302,15 +422,7 @@ boost::optional<std::string> NodeRPCProxy::get_fee_quantization_mask(uint64_t &f
     cryptonote::COMMAND_RPC_GET_BASE_FEE_ESTIMATE::request req_t = AUTO_VAL_INIT(req_t);
     cryptonote::COMMAND_RPC_GET_BASE_FEE_ESTIMATE::response resp_t = AUTO_VAL_INIT(resp_t);
     req_t.grace_blocks = m_dynamic_base_fee_estimate_grace_blocks;
-
-    {
-      const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};
-      uint64_t pre_call_credits = m_rpc_payment_state.credits;
-      req_t.client = cryptonote::make_rpc_payment_signature(m_client_id_secret_key);
-      bool r = net_utils::invoke_http_json_rpc("/json_rpc", "get_fee_estimate", req_t, resp_t, m_http_client, rpc_timeout);
-      RETURN_ON_RPC_RESPONSE_ERROR(r, epee::json_rpc::error{}, resp_t, "get_fee_estimate");
-      check_rpc_cost(m_rpc_payment_state, "get_fee_estimate", resp_t.credits, pre_call_credits, COST_PER_FEE_ESTIMATE);
-    }
+    INVOKE_JSON_RPC_LOCK_AND_RET_ERR_CHECK_COST("get_fee_estimate", req_t, resp_t, COST_PER_FEE_ESTIMATE);
 
     m_dynamic_base_fee_estimate = resp_t.fee;
     m_dynamic_base_fee_estimate_cached_height = height;
@@ -337,7 +449,7 @@ boost::optional<std::string> NodeRPCProxy::get_rpc_payment_info(bool mining, boo
     {
       const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};
       req_t.client = cryptonote::make_rpc_payment_signature(m_client_id_secret_key);
-      bool r = net_utils::invoke_http_json_rpc("/json_rpc", "rpc_access_info", req_t, resp_t, m_http_client, rpc_timeout);
+      bool r = epee::net_utils::invoke_http_json_rpc("/json_rpc", "rpc_access_info", req_t, resp_t, m_http_client, rpc_timeout);
       RETURN_ON_RPC_RESPONSE_ERROR(r, epee::json_rpc::error{}, resp_t, "rpc_access_info");
       m_rpc_payment_state.stale = false;
     }
@@ -389,6 +501,160 @@ boost::optional<std::string> NodeRPCProxy::get_rpc_payment_info(bool mining, boo
   seed_hash = m_rpc_payment_seed_hash;
   next_seed_hash = m_rpc_payment_next_seed_hash;
   cookie = m_rpc_payment_cookie;
+  return boost::none;
+} // get_rpc_payment_info()
+
+boost::optional<std::string> NodeRPCProxy::get_transactions(const tx_cont_t<crypto::hash>& tx_hashes, tx_handler_t& cb)
+{
+  // We have to translate these crypto::hash into hex encoded std::string
+  std::vector<std::string> tx_str_hashes;
+  for (const auto& tx_hash : tx_hashes)
+  {
+    tx_str_hashes.push_back(epee::string_tools::pod_to_hex(tx_hash));
+  }
+
+  return get_transactions(std::move(tx_str_hashes), cb);
+}
+
+boost::optional<std::string> NodeRPCProxy::get_transactions(tx_cont_t<std::string>&& tx_hashes_ref, tx_handler_t& cb)
+{
+  // Setup chunking/no chunking
+  std::vector<std::string> tx_hashes = tx_hashes_ref;
+  const size_t num_txs = tx_hashes.size();
+  const bool can_do_in_one_chunk = num_txs <= GET_TX_CHUNK_SIZE;
+  if (can_do_in_one_chunk)
+  {
+    // If all of tx_hashes fits in one chunk, we can move the hash container instead of copying!
+    return get_transactions_one_chunk(std::move(tx_hashes), cb);
+  }
+
+  // Start chunking up (copying) tx_hashes into chunk_tx_hashes and call get_transactions_one_chunk for each chunk
+  for (size_t num_txs_done = 0; num_txs_done < num_txs; num_txs_done += GET_TX_CHUNK_SIZE)
+  {
+    const size_t txs_remaining = num_txs - num_txs_done;
+    const size_t this_chunk_size = std::min(txs_remaining, GET_TX_CHUNK_SIZE);
+
+    const auto chunk_hash_start = tx_hashes.begin() + num_txs_done;
+    const auto chunk_hash_end = chunk_hash_start + this_chunk_size;
+    std::vector<std::string> chunk_tx_hashes(chunk_hash_start, chunk_hash_end);
+
+    const auto result = get_transactions_one_chunk(std::move(chunk_tx_hashes), cb);
+    if (result)
+    {
+      return result;
+    }
+  }
+
+  return boost::none;
+}
+
+boost::optional<std::string> NodeRPCProxy::get_transaction(const crypto::hash& tx_hash, tx_t& tx_out, tx_entry_t& entry_out)
+{
+  tx_handler_t tx_passthru_assignment = [&tx_out, &entry_out]
+    (tx_t&& tx_m, tx_entry_t&& tx_entry_m, const tx_hash_t& ignored) -> bool
+  {
+    tx_out = tx_m;
+    entry_out = tx_entry_m;
+    return true;
+  };
+
+  return get_transactions_one_chunk({epee::string_tools::pod_to_hex(tx_hash)}, tx_passthru_assignment);
+}
+
+boost::optional<std::string> NodeRPCProxy::get_transaction(const crypto::hash& tx_hash, tx_t& tx_out)
+{
+  tx_handler_t tx_passthru_assignment = [&tx_out]
+    (tx_t&& tx_m, tx_entry_t&& ignored_1, const tx_hash_t& ignored_2) -> bool
+  {
+    tx_out = tx_m;
+    return true;
+  };
+
+  return get_transactions_one_chunk({epee::string_tools::pod_to_hex(tx_hash)}, tx_passthru_assignment);
+}
+
+boost::optional<std::string> NodeRPCProxy::get_transactions_one_chunk(tx_cont_t<std::string>&& tx_hashes_ref, tx_handler_t& cb)
+{
+  // Setup forms (excluding req_t.txs_hashes if can't fit all of them in one cunk)
+  cryptonote::COMMAND_RPC_GET_TRANSACTIONS::request req_t = AUTO_VAL_INIT(req_t);
+  cryptonote::COMMAND_RPC_GET_TRANSACTIONS::response resp_t = AUTO_VAL_INIT(resp_t);
+  req_t.txs_hashes = tx_hashes_ref;
+  req_t.decode_as_json = false;
+  req_t.prune = true;
+  req_t.split = false;
+
+  // Check chunk size
+  const size_t num_txs = req_t.txs_hashes.size();
+  RETURN_ERROR_IF_FALSE(num_txs <= GET_TX_CHUNK_SIZE, "Too many transactions for one chunk: " << num_txs << " > " << GET_TX_CHUNK_SIZE);
+
+  // Check if offline
+  if (m_offline)
+  {
+    return std::string("NodeRPCProxy offline");
+  }
+
+  // Do the request!
+  INVOKE_JSON_LOCK_AND_RET_ERR_CHECK_COST("/gettransactions", req_t, resp_t, COST_PER_TX);
+
+  // Check txs response field size so it matches with this_chunk_size
+  const size_t num_txs_received = resp_t.txs.size();
+  RETURN_ERROR_IF_FALSE(num_txs_received == num_txs, "Requested " << num_txs << " txs but got " << num_txs_received);
+
+  // Iterate through all tx entries in response, this works because we already checked that the size of the response is correct
+  for (size_t chunk_index = 0; chunk_index < num_txs; chunk_index++)
+  {
+    const auto& tx_entry = resp_t.txs[chunk_index];
+
+    // Check the returned tx_hash in the entry matches requested hash
+    const std::string& requested_hash_str = req_t.txs_hashes[chunk_index];
+    RETURN_ERROR_IF_FALSE
+    (
+      tx_entry.tx_hash == requested_hash_str,
+      "Received tx entry hash does not match requested hash: req='"
+        << requested_hash_str << "', resp='" << tx_entry.tx_hash << "'"
+    );
+
+    cryptonote::transaction tx;
+    crypto::hash calculated_tx_hash;
+
+    // Extract tx and check that the tx entry data logically looks like a real pruned tx
+    RETURN_ERROR_IF_FALSE
+    (
+      get_pruned_tx(tx_entry, tx, calculated_tx_hash),
+      "get_pruned_tx() failed on a transaction entry, exiting get_transactions()"
+    );
+
+    // Check that the corresponding request tx hash can be interpreted as a crypto::hash, used for next check
+    crypto::hash requested_hash;
+    RETURN_ERROR_IF_FALSE
+    (
+      epee::string_tools::hex_to_pod(requested_hash_str, requested_hash),
+      "given tx hash (hex string) cannot be interpreted as crypto::hash: '" << requested_hash_str << "'"
+    );
+
+    // Check that the tx hash calculated by get_pruned_tx matches the requested hash
+    RETURN_ERROR_IF_FALSE
+    (
+      calculated_tx_hash == requested_hash,
+      "calculated hash of tx returned by RPC does not match requested hash: req='"
+        << requested_hash_str << "', resp='" << epee::string_tools::pod_to_hex(calculated_tx_hash) << "'"
+    );
+
+    // This transaction is good. Try calling cb with transaction and its entry and check for cb success
+    try
+    {
+      RETURN_ERROR_IF_FALSE
+      (
+        cb(std::move(tx), std::move(resp_t.txs[chunk_index]), calculated_tx_hash),
+        "get_transactions() callback returned fail code on hash " << requested_hash_str
+      );
+    }
+    catch (const std::exception& e)
+    {
+      RETURN_ERROR_IF_FALSE(false, "get_transactions_one_chunk experienced exception from callback function: " << e.what());
+    }
+  } // for chunk_index ...
+
   return boost::none;
 }
 

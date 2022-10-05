@@ -60,6 +60,72 @@ public:
   boost::optional<std::string> get_fee_quantization_mask(uint64_t &fee_quantization_mask);
   boost::optional<std::string> get_rpc_payment_info(bool mining, bool &payment_required, uint64_t &credits, uint64_t &diff, uint64_t &credits_per_hash_found, cryptonote::blobdata &blob, uint64_t &height, uint64_t &seed_height, crypto::hash &seed_hash, crypto::hash &next_seed_hash, uint32_t &cookie);
 
+  // Type aliases used for get_tranaction[s]() methods
+  template <typename T>
+  using tx_cont_t = std::vector<T>;
+  using tx_t = cryptonote::transaction;
+  using tx_entry_t = cryptonote::COMMAND_RPC_GET_TRANSACTIONS::entry;
+  using tx_hash_t = crypto::hash;
+  using tx_handler_t = std::function<bool(tx_t&&, tx_entry_t&&, const tx_hash_t&)>;
+
+  /**
+   * @brief Invoke /get_transactions with list of hashes, and call handler for each entry.
+   *
+   * We make a /get_transactions request with the given txids encoded as hex strings,
+   * decode_as_json=false, pruned=true, and split=false. If there are too many txids for one RPC
+   * request, we chunk them up into multiple requests. The tx_handler_t callback takes three
+   * arguments: a tx_t&&, a tx_entry_t&&m and a const tx_hash&. RPC errors, transaction parsing
+   * errors, missing txids, and mismatched txids are all checked before invoking the callback, so
+   * the caller can assume base transaction validity. This method is thread-safe.
+   *
+   * This method is slower than the other get_transactions endpoint since the crypto::hash values
+   * have to be translated into std::strings before being sent over the wire.
+   *
+   * @param txids contains request txids
+   * @param cb tx_handler_t which processes received transactions
+   *
+   * @return boost::none on success, otherwise returns error message
+   */
+  boost::optional<std::string> get_transactions(const tx_cont_t<tx_hash_t>& txids, tx_handler_t& cb);
+
+  /**
+   * @brief Invoke /get_transactions with list of hashes, and call handler for each entry.
+   *
+   * Same as previous get_transactions() method, but txids container is moved instead of copied.
+   *
+   * @param txids contains request txids
+   * @param cb tx_handler_t which processes received transactions
+   *
+   * @return boost::none on success, otherwise returns error message
+   */
+  boost::optional<std::string> get_transactions(tx_cont_t<std::string>&& txids, tx_handler_t& cb);
+
+  /**
+   * @brief Invoke /get_transactions with one hash, and return parsed transaction.
+   *
+   * Same as previous get_transactions() method, but we modify the transaction by reference instead
+   * of using a callback.
+   *
+   * @param txids contains request txids
+   * @param[out] tx_res parsed transaction returned by /get_transactions
+   *
+   * @return boost::none on success, otherwise returns error message
+   */
+  boost::optional<std::string> get_transaction(const tx_hash_t& txid, tx_t& tx_res);
+
+  /**
+   * @brief Invoke /get_transactions  with one hash, and return parsed transaction.
+   *
+   * Same as previous get_transaction() method, but we also get a tx entry output paramter.
+   *
+   * @param txids contains request txids
+   * @param[out] tx_res parsed transaction returned by /get_transactions
+   * @param[out] tx_entry_res raw transaction entry received from response
+   *
+   * @return boost::none on success, otherwise returns error message
+   */
+  boost::optional<std::string> get_transaction(const tx_hash_t& txid, tx_t& tx_res, tx_entry_t& tx_entry_res);
+
 private:
   template<typename T> void handle_payment_changes(const T &res, std::true_type) {
     if (res.status == CORE_RPC_STATUS_OK || res.status == CORE_RPC_STATUS_PAYMENT_REQUIRED)
@@ -74,6 +140,18 @@ private:
 
 private:
   boost::optional<std::string> get_info();
+
+  /**
+   * @brief Invoke /get_transactions _once_ for one RPC chunk, chunk size is implementation detail
+   *
+   * Used internally by get_transaction[s]()
+   *
+   * @param txids contains request txids
+   * @param cb tx_handler_t which processes received transactions
+   *
+   * @return boost::none on success, otherwise returns error message
+   */
+  boost::optional<std::string> get_transactions_one_chunk(tx_cont_t<std::string>&& txids, tx_handler_t& cb);
 
   epee::net_utils::http::abstract_http_client &m_http_client;
   rpc_payment_state_t &m_rpc_payment_state;
