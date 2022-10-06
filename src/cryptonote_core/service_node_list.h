@@ -163,6 +163,7 @@ namespace service_nodes
 	{
 	public:
 		service_node_list(cryptonote::Blockchain& blockchain);
+		~service_node_list();
 		void block_added(const cryptonote::block& block, const std::vector<std::pair<cryptonote::transaction,cryptonote::blobdata>>& txs) override;
 		void blockchain_detached(uint64_t height) override;
 		void register_hooks(service_nodes::quorum_cop &quorum_cop);
@@ -325,9 +326,9 @@ namespace service_nodes
 		void clear(bool delete_db_entry = false);
 		bool load();
 
-		mutable boost::recursive_mutex m_sn_mutex;
-
 		using block_height = uint64_t;
+
+		mutable boost::recursive_mutex m_sn_mutex;
 
 		std::unordered_map<crypto::public_key, service_node_info> m_service_nodes_infos;
 		std::list<std::unique_ptr<rollback_event>> m_rollback_events;

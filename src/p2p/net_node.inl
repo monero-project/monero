@@ -69,7 +69,7 @@
 
 #define NET_MAKE_IP(b1,b2,b3,b4)  ((LPARAM)(((DWORD)(b1)<<24)+((DWORD)(b2)<<16)+((DWORD)(b3)<<8)+((DWORD)(b4))))
 
-#define MIN_WANTED_SEED_NODES 12
+#define MIN_WANTED_SEED_NODES 4
 
 namespace nodetool
 {
@@ -618,16 +618,9 @@ namespace nodetool
     }
     else
     {
-      full_addrs.insert("188.166.123.183:9230");
-      full_addrs.insert("161.35.152.20:9230");
-      full_addrs.insert("143.110.239.208:9230");
-      full_addrs.insert("143.198.56.51:9230");
-      full_addrs.insert("159.203.189.113:9230");
-      full_addrs.insert("198.199.82.27:9230");
-      full_addrs.insert("167.71.223.140:9230");
-      full_addrs.insert("167.71.214.42:9230");
-      full_addrs.insert("139.59.58.203:9230");
-      full_addrs.insert("143.110.247.104:9230");
+      full_addrs.insert("154.38.165.93:9230");
+      full_addrs.insert("38.242.135.157:9230");
+      full_addrs.insert("213.155.160.222:9230");
       full_addrs.insert("xeq.supporters.ml:9230");
       full_addrs.insert("xeq.gntl.uk:9230");
       full_addrs.insert("equilibria.fastnode.eu:9230");

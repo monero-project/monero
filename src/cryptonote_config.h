@@ -98,6 +98,7 @@ static_assert(STAKING_PORTIONS % 3 == 0, "Use a multiple of three, so that it di
 
 #define XEQ_REQ                                         ((uint64_t) 10000)
 #define CORP_MINT                                       ((uint64_t)80000000000)
+#define NEW_XEQ_BRIDGE                                  ((uint64_t)20000000000)
 
 
 #define EMISSION_SPEED_FACTOR_PER_MINUTE                (20)
@@ -290,6 +291,7 @@ namespace config
 
   std::string const GOVERNANCE_WALLET_ADDRESS = "TvziQSEi93chTMViBzw8Y4eerEjmGq2Q6ajekvgyTyqkGcsj97YJDzF8TMnTWdv7NXQ2ZXfeWJPwRAbVHUjbgFcN2AvU35KfX";
   std::string const BRIDGE_WALLET_ADDRESS = "Tw16wVGVwjqY2sSKx11UNjQ8NAosTSwzzitYZfVrXt3iP3DgL5beLz55quDcqpqUvoQTvjyNyRb7mUXf3JKDAyLd36AtDf2ei";
+  std::string const NEW_BRIDGE_WALLET_ADDRESS = "TvyjwByVHjgCqNKrngt4TQRDgJL7cazWnTXYHXmbFewsKMuN6ozKNcBVkgcpyQwVPRYZCyaAe1W7xN8SdgxqnT4S1UMStejYx";
 
   namespace testnet
   {
@@ -309,6 +311,7 @@ namespace config
 
   std::string const GOVERNANCE_WALLET_ADDRESS = "XT1mQ4qNhqARHKawpsC4DkCmJxGSiW6EfGej4jssjY7QEzKZgSHmkeuQYHsY3gRhDv4KMt8QQX8TEPBmJQe1SEea38fHATH5C";
   std::string const BRIDGE_WALLET_ADDRESS = "XT1mQ4qNhqARHKawpsC4DkCmJxGSiW6EfGej4jssjY7QEzKZgSHmkeuQYHsY3gRhDv4KMt8QQX8TEPBmJQe1SEea38fHATH5C";
+  std::string const NEW_BRIDGE_WALLET_ADDRESS = "XT2SoQm1yCJNJrp1c4fUMbFAXfsoVLkPnh85ut4BTexrWbet6DS5qBP2oDxX4aHVSNVTFXCPY1y34Hp3uG8E8EmF1qkkKBs3S";
 
 }
 
@@ -357,6 +360,7 @@ namespace cryptonote
     uint32_t const GENESIS_NONCE;
     std::string const *GOVERNANCE_WALLET_ADDRESS;
     std::string const *BRIDGE_WALLET_ADDRESS;
+    std::string const *NEW_BRIDGE_WALLET_ADDRESS;
 
   };
   inline const config_t& get_config(network_type nettype)
@@ -373,6 +377,7 @@ namespace cryptonote
       ::config::GENESIS_NONCE,
       &::config::GOVERNANCE_WALLET_ADDRESS,
       &::config::BRIDGE_WALLET_ADDRESS,
+      &::config::NEW_BRIDGE_WALLET_ADDRESS,
 
 
     };
@@ -388,6 +393,7 @@ namespace cryptonote
       ::config::testnet::GENESIS_NONCE,
       &::config::testnet::GOVERNANCE_WALLET_ADDRESS,
       &::config::testnet::BRIDGE_WALLET_ADDRESS,
+      &::config::testnet::NEW_BRIDGE_WALLET_ADDRESS,
 
     };
     static config_t stagenet = {

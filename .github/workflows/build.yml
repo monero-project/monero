@@ -10,7 +10,7 @@ jobs:
       with:
         submodules: recursive
     - name: update brew and install dependencies
-      run: brew update && brew install boost hidapi zmq libpgm miniupnpc ldns expat libunwind-headers protobuf
+      run: brew update && brew install boost hidapi zmq libpgm miniupnpc ldns expat libunwind-headers protobuf openssl@1.1
     - name: build
       run: make -j3
 

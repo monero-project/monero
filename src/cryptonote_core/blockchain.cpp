@@ -308,11 +308,11 @@ bool Blockchain::init(BlockchainDB* db, const network_type nettype, bool offline
   if (m_hardfork == nullptr)
   {
     if (m_nettype ==  FAKECHAIN || m_nettype == STAGENET)
-      m_hardfork = new HardFork(*db, 1, 0);
+      m_hardfork = new HardFork(*db, 1);
     else if (m_nettype == TESTNET)
-      m_hardfork = new HardFork(*db, 1, testnet_hard_fork_version_1_till);
+      m_hardfork = new HardFork(*db, 1);
     else
-      m_hardfork = new HardFork(*db, 1, mainnet_hard_fork_version_1_till);
+      m_hardfork = new HardFork(*db, 1);
   }
   if (m_nettype == FAKECHAIN)
   {
@@ -438,8 +438,8 @@ bool Blockchain::init(BlockchainDB* db, const network_type nettype, bool offline
     crypto::hash top_block_hash = get_tail_id(top_block_height);
     m_tx_pool.on_blockchain_dec(top_block_height, top_block_hash);
   }
-   for (InitHook* hook : m_init_hooks)
-    hook->init();
+
+  for(InitHook* hook : m_init_hooks) hook->init();
 
   if (test_options && test_options->long_term_block_weight_window)
   {
@@ -501,9 +501,6 @@ bool Blockchain::deinit()
 
 
   MTRACE("Stopping blockchain read/write activity");
-
-  m_service_node_list.store();
-  m_service_node_list.set_db_pointer(nullptr);
 
  // stop async service
   m_async_work_idle.reset();
@@ -662,6 +659,9 @@ bool Blockchain::reset_and_set_genesis_block(const block& b)
   m_db->reset();
   m_db->drop_alt_blocks();
   m_hardfork->init();
+
+  for(InitHook* hook : m_init_hooks)
+    hook->init();
 
   db_wtxn_guard wtxn_guard(m_db);
   block_verification_context bvc = {};
@@ -1293,8 +1293,15 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
         MERROR("Governance reward public key incorrect");
         return false;
       }
+    } else if(version < 14)
+    {
+      if (!validate_governance_reward_key(m_db->height(), *cryptonote::get_config(m_nettype).BRIDGE_WALLET_ADDRESS, b.miner_tx.vout.size() - 1, boost::get<txout_to_key>(b.miner_tx.vout.back().target).key, m_nettype))
+      {
+        MERROR("Governance reward public key incorrect");
+        return false;
+      }
     } else {
-        if (!validate_governance_reward_key(m_db->height(), *cryptonote::get_config(m_nettype).BRIDGE_WALLET_ADDRESS, b.miner_tx.vout.size() - 1, boost::get<txout_to_key>(b.miner_tx.vout.back().target).key, m_nettype))
+      if(!validate_governance_reward_key(m_db->height(), *cryptonote::get_config(m_nettype).NEW_BRIDGE_WALLET_ADDRESS, b.miner_tx.vout.size() - 1, boost::get<txout_to_key>(b.miner_tx.vout.back().target).key, m_nettype))
       {
         MERROR("Governance reward public key incorrect");
         return false;
@@ -1369,21 +1376,20 @@ bool Blockchain::allow_governance(uint64_t height)
     else if(height == 663269)
     {
       return true;
-      
     } else if(height == 841197)
     {
       return true;
-    }  else if(height == 898176)
+    } else if(height == 898176)
     {
       return true;
-    } else if(height > 898176)
+    } else if(height == (fork_height + 583654))
     {
-      return false;
+      return true;
     }
   }
   else if(m_nettype == TESTNET)
   {
-    fork_height = 3750;
+    fork_height = 250;
     if (height == fork_height)
     {
       return true;

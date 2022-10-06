@@ -43,7 +43,7 @@ if (IOS)
     INCLUDE(CmakeLists_IOS.txt)
 endif()
 
-cmake_minimum_required(VERSION 3.1)
+cmake_minimum_required(VERSION 3.10)
 message(STATUS "CMake version ${CMAKE_VERSION}")
 
 project(equilibria)
@@ -317,6 +317,10 @@ if(APPLE)
   endif()
 endif()
 
+if(POLICY CMP0074)
+  cmake_policy(SET CMP0074 NEW)
+endif()
+
 if(MSVC OR MINGW)
   set(DEFAULT_STATIC true)
 else()
@@ -464,11 +468,18 @@ ExternalProject_Add(generate_translations_header
   CMAKE_ARGS -DLRELEASE_PATH=${LRELEASE_PATH}
   INSTALL_COMMAND cmake -E echo "")
 include_directories("${CMAKE_CURRENT_BINARY_DIR}/translations")
+
+if(POLICY CMP0079)
+  cmake_policy(SET CMP0079 NEW)
+endif()
+
+add_library(libunbound INTERFACE)
+add_library(miniupnpc INTERFACE)
+
 add_subdirectory(external)
 
 # Final setup for libunbound
 include_directories(${UNBOUND_INCLUDE})
-link_directories(${UNBOUND_LIBRARY_DIRS})
 
 # Final setup for easylogging++
 include_directories(${EASYLOGGING_INCLUDE})

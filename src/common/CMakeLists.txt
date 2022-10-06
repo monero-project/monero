@@ -103,7 +103,7 @@ monero_add_library(common
 target_link_libraries(common
   PUBLIC
     cncrypto
-    ${UNBOUND_LIBRARY}
+    libunbound
     ${LIBUNWIND_LIBRARIES}
     ${Boost_DATE_TIME_LIBRARY}
     ${Boost_FILESYSTEM_LIBRARY}

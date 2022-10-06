@@ -135,6 +135,10 @@ namespace cryptonote {
      {
       already_generated_coins -= CORP_MINT;
      }
+     if(version >= 14)
+     {
+       already_generated_coins -= (NEW_XEQ_BRIDGE * 3);
+     }
 
 	   uint64_t base_reward = (MONEY_SUPPLY - already_generated_coins) >> emission_speed_factor;
 

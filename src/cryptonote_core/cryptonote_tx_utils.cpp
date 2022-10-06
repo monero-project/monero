@@ -181,11 +181,17 @@ namespace cryptonote
       } else if(height == 898176)
       {
         return CORP_MINT;
-      } 
+      } else if(height == (fork_height + 583654))
+      {
+        return NEW_XEQ_BRIDGE;
+      } else if(height > (fork_height + 583654) && (height % 21600 == 0))
+      {
+        return 200000 * COIN;
+      }
     }
     else if(nettype == TESTNET)
     {
-      fork_height = 3750;
+      fork_height = 250;
       if (height == fork_height && nettype == TESTNET)
       {
         return 1000000 * COIN;
@@ -213,6 +219,14 @@ namespace cryptonote
       else if(height == (fork_height + (6 * 216)))
       {
         return 1000000 * COIN;
+      }
+      else if(height == (fork_height + 7))
+      {
+        return NEW_XEQ_BRIDGE;
+      }
+      else if(height > (fork_height + 7) && (height % 10 == 0))
+      {
+        return 200000 * COIN;
       }
       else if(height == 500000)
       { //wXEQ + extra wXEQ 1M LP rewards!
@@ -399,8 +413,10 @@ namespace cryptonote
 			cryptonote::address_parse_info governance_wallet_address;
       if(hard_fork_version < 11) {
         cryptonote::get_account_address_from_str(governance_wallet_address, nettype, *cryptonote::get_config(nettype).GOVERNANCE_WALLET_ADDRESS);
-      } else {
+      } else if(hard_fork_version < 14) {
         cryptonote::get_account_address_from_str(governance_wallet_address, nettype, *cryptonote::get_config(nettype).BRIDGE_WALLET_ADDRESS);
+      } else {
+        cryptonote::get_account_address_from_str(governance_wallet_address, nettype, *cryptonote::get_config(nettype).NEW_BRIDGE_WALLET_ADDRESS);
       }
       crypto::public_key out_eph_public_key = AUTO_VAL_INIT(out_eph_public_key);
 

@@ -788,7 +788,7 @@ void BlockchainLMDB::add_block(const block& blk, size_t block_weight, uint64_t l
   bi.bi_diff_lo = (cumulative_difficulty & 0xffffffffffffffff).convert_to<uint64_t>();
   bi.bi_hash = blk_hash;
   bi.bi_cum_rct = num_rct_outs;
-  if (blk.major_version >= 4)
+  if (blk.major_version >= 8)
   {
     uint64_t last_height = m_height-1;
     MDB_val_set(h, last_height);
@@ -1339,7 +1339,7 @@ void BlockchainLMDB::open(const std::string& filename, const int db_flags)
   // set up lmdb environment
   if ((result = mdb_env_create(&m_env)))
     throw0(DB_ERROR(lmdb_error("Failed to create lmdb environment: ", result).c_str()));
-  if ((result = mdb_env_set_maxdbs(m_env, 32)))
+  if ((result = mdb_env_set_maxdbs(m_env, 36)))
     throw0(DB_ERROR(lmdb_error("Failed to set max number of dbs: ", result).c_str()));
 
   int threads = tools::get_max_concurrency();
