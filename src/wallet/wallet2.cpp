@@ -9468,14 +9468,13 @@ bool wallet2::light_wallet_login(bool &new_address)
   request.view_key = string_tools::pod_to_hex(get_account().get_keys().m_view_secret_key);
   // Always create account if it doesn't exist.
   request.create_account = true;
+  request.generated_locally = true;
   m_daemon_rpc_mutex.lock();
-  bool connected = invoke_http_json("/login", request, response, rpc_timeout, "POST");
+  m_light_wallet_connected = invoke_http_json("/login", request, response, rpc_timeout, "POST");
   m_daemon_rpc_mutex.unlock();
   // MyMonero doesn't send any status message. OpenMonero does. 
-  m_light_wallet_connected  = connected && (response.status.empty() || response.status == "success");
+  //m_light_wallet_connected  = connected && (response.status.empty() || response.status == "success");
   new_address = response.new_address;
-  MDEBUG("Status: " << response.status);
-  MDEBUG("Reason: " << response.reason);
   MDEBUG("New wallet: " << response.new_address);
   if(m_light_wallet_connected)
   {

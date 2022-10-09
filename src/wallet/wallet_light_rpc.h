@@ -258,25 +258,27 @@ namespace tools
         std::string address;
         std::string view_key;
         bool create_account;
+        bool generated_locally;
 
         BEGIN_KV_SERIALIZE_MAP()
           KV_SERIALIZE(address)
           KV_SERIALIZE(view_key) 
           KV_SERIALIZE(create_account) 
+          KV_SERIALIZE(generated_locally)
         END_KV_SERIALIZE_MAP()
       };
       typedef epee::misc_utils::struct_init<request_t> request;
 
       struct response_t
       {
-        std::string status;
-        std::string reason;
         bool new_address;
-        
+        bool generated_locally;
+        uint64_t start_height;
+
         BEGIN_KV_SERIALIZE_MAP()
-          KV_SERIALIZE(status)
-          KV_SERIALIZE(reason)
           KV_SERIALIZE(new_address)
+          KV_SERIALIZE_OPT(generated_locally, true)
+          KV_SERIALIZE_OPT(start_height, (uint64_t)0)
         END_KV_SERIALIZE_MAP()
       };
       typedef epee::misc_utils::struct_init<response_t> response;
