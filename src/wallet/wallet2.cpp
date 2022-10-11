@@ -1589,32 +1589,33 @@ std::string wallet2::get_subaddress_label(const cryptonote::subaddress_index& in
 //----------------------------------------------------------------------------------------------------
 void wallet2::scan_tx(const std::vector<crypto::hash> &txids)
 {
-  // Setup a priority queue, ordering txs, entries, and hashes in chronologically ascending order
+  // Setup a vector containing tuples of corresponding txs, tx entries, and tx hashes
   using txq_value_type = std::tuple<cryptonote::transaction, cryptonote::COMMAND_RPC_GET_TRANSACTIONS::entry, crypto::hash>;
-  using txq_cont_type = std::vector<txq_value_type>;
-  auto cmp_tx_entry = [](const txq_value_type& l, const txq_value_type& r)
-  { return std::get<1>(l).block_height > std::get<1>(r).block_height; };
-  std::priority_queue<txq_value_type, txq_cont_type, decltype(cmp_tx_entry)> txq(cmp_tx_entry);
+  std::vector<txq_value_type> txq;
+  txq.reserve(txids.size());
 
-  // Fetch transactions from daemon and add them to the priority queue
+  // Fetch transaction data from daemon and add them to the vector
   NodeRPCProxy::tx_handler_t add_to_pq = [&txq]
     (NodeRPCProxy::tx_t&& tx, NodeRPCProxy::tx_entry_t&& tx_entry, const NodeRPCProxy::tx_hash_t& tx_hash) -> bool
   {
-    txq.push({tx, tx_entry, tx_hash});
+    txq.push_back({tx, tx_entry, tx_hash});
     return true;
   };
   const auto fail_res = m_node_rpc_proxy.get_transactions(txids, add_to_pq);
   THROW_WALLET_EXCEPTION_IF(fail_res, error::wallet_internal_error, std::string("scan_tx: get_transactions error: ") + *fail_res);
 
-  // Process the transactions in chronologically ascending order
-  while(!txq.empty()) {
-    cryptonote::transaction tx;
-    cryptonote::COMMAND_RPC_GET_TRANSACTIONS::entry tx_info;
-    crypto::hash tx_hash;
-    std::tie(tx, tx_info, tx_hash) = txq.top(); // We have to copy here since std::priority queue doesn't allow by-reference access
+  // Sort the received transactions in chronologically ascending order
+  const auto cmp_tx_entry = [](const txq_value_type& l, const txq_value_type& r)
+  { return std::get<1>(l).block_height < std::get<1>(r).block_height; };
+  std::sort(txq.begin(), txq.end(), cmp_tx_entry);
+
+  // Process the transaction data in chronologically ascending order
+  for (const txq_value_type& txq_entry : txq) {
+    const cryptonote::transaction& tx = std::get<0>(txq_entry);
+    const cryptonote::COMMAND_RPC_GET_TRANSACTIONS::entry& tx_info = std::get<1>(txq_entry);;
+    const crypto::hash& tx_hash = std::get<2>(txq_entry);;
 
     process_new_transaction(tx_hash, tx, tx_info.output_indices, tx_info.block_height, 0, tx_info.block_timestamp, false, tx_info.in_pool, tx_info.double_spend_seen, {}, {});
-    txq.pop();
   }
 }
 //----------------------------------------------------------------------------------------------------
