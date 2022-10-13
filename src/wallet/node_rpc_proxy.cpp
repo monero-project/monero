@@ -69,8 +69,9 @@
 /**
  * @brief Acquire RPC mutex and invoke /json_rpc endpoint
  *
- * Only really useful within NodeRPCProxy because it assumes the existence of variables m_daemon_rpc_mutex,
- * m_http_client, and rpc_timeout. The lock_guard is scoped so that it lives as short as possible.
+ * Only really useful within NodeRPCProxy because it assumes the existence of variables
+ * m_daemon_rpc_mutex, m_http_client, and rpc_timeout. The lock_guard is scoped so that it lives as
+ * short as possible.
  *
  * @param method JSON RPC method name as a string
  * @param req cryptonote::COMMAND_RPC_x::request form which will be used with invoke_http_json_rpc
