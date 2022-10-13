@@ -152,50 +152,46 @@ static constexpr const size_t GET_TX_CHUNK_SIZE = 100; // Must be same as RESTRI
 /**
  * @brief Parse and validate pruned transaction entry into cryptonote::transaction and its hash.
  *
- * This function can be used on full AND pruned transaction entries, but is mostly used for pruned transaction entries.
- * Takes tx version into account when parsing and validating. Also checks that actual hash values match with expected hash values.
- * However, with v1 transactions, the hash check is skipped for pruned transactions since there is not a way to validate it statically.
+ * Takes tx version into account when parsing and validating. Also checks that actual hash values
+ * match with expected hash values. However, with v1 transactions, the hash check is skipped for
+ * pruned transactions since there is not a way to calculate it statically.
  *
  * @param[in] entry Transaction entry response from RPC server with pruned=true, decode_as_json=false
  * @param[out] tx the result of parsing the transaction entry
  * @param[out] tx_hash the result of hashing the pruned transaction
- * @return true on success, false otherwise
+ * @return boost::none on success, std::string error message otherwise
  */
-bool get_pruned_tx(const cryptonote::COMMAND_RPC_GET_TRANSACTIONS::entry &entry, cryptonote::transaction &tx, crypto::hash &tx_hash)
+boost::optional<std::string> get_pruned_tx(const cryptonote::COMMAND_RPC_GET_TRANSACTIONS::entry &entry, cryptonote::transaction &tx, crypto::hash &tx_hash)
 {
-  cryptonote::blobdata bd;
+  // Check that transaction entry contains pruned data
+  const bool has_pruned_tx_data = !entry.pruned_as_hex.empty();
+  const bool has_prunable_hash = !entry.prunable_hash.empty();
+  const bool entry_contains_pruned_tx = has_pruned_tx_data && has_prunable_hash;
+  RETURN_ERROR_IF_FALSE(entry_contains_pruned_tx, "Transaction entry does not contain pruned data");
 
-  // easy case if we have the whole tx
-  if (!entry.as_hex.empty() || (!entry.prunable_as_hex.empty() && !entry.pruned_as_hex.empty()))
+  // Decode prunable hash
+  crypto::hash ph;
+  RETURN_ERROR_IF_FALSE(epee::string_tools::hex_to_pod(entry.prunable_hash, ph), "Failed to decode prunable hex hash");
+
+  // Decode, parse, and validate pruned transaction blob
+  cryptonote::blobdata bd;
+  RETURN_ERROR_IF_FALSE(epee::string_tools::parse_hexstr_to_binbuff(entry.pruned_as_hex, bd), "Failed to decode pruned tx hex data");
+  RETURN_ERROR_IF_FALSE(parse_and_validate_tx_base_from_blob(bd, tx), "Failed to parse and validate base tx data");
+
+  // Assign tx_hash
+  const uint8_t tx_version = static_cast<uint8_t>(bd[0]);
+  if (tx_version > 1)
   {
-    CHECK_AND_ASSERT_MES(epee::string_tools::parse_hexstr_to_binbuff(entry.as_hex.empty() ? entry.pruned_as_hex + entry.prunable_as_hex : entry.as_hex, bd), false, "Failed to parse tx data");
-    CHECK_AND_ASSERT_MES(cryptonote::parse_and_validate_tx_from_blob(bd, tx), false, "Invalid tx data");
-    tx_hash = cryptonote::get_transaction_hash(tx);
-    // if the hash was given, check it matches
-    CHECK_AND_ASSERT_MES(entry.tx_hash.empty() || epee::string_tools::pod_to_hex(tx_hash) == entry.tx_hash, false,
-        "Response claims a different hash than the data yields");
-    return true;
-  }
-  // case of a pruned tx with its prunable data hash
-  if (!entry.pruned_as_hex.empty() && !entry.prunable_hash.empty())
-  {
-    crypto::hash ph;
-    CHECK_AND_ASSERT_MES(epee::string_tools::hex_to_pod(entry.prunable_hash, ph), false, "Failed to parse prunable hash");
-    CHECK_AND_ASSERT_MES(epee::string_tools::parse_hexstr_to_binbuff(entry.pruned_as_hex, bd), false, "Failed to parse pruned data");
-    CHECK_AND_ASSERT_MES(parse_and_validate_tx_base_from_blob(bd, tx), false, "Invalid base tx data");
     // only v2 txes can calculate their txid after pruned
-    if (bd[0] > 1)
-    {
-      tx_hash = cryptonote::get_pruned_transaction_hash(tx, ph);
-    }
-    else
-    {
-      // for v1, we trust the dameon
-      CHECK_AND_ASSERT_MES(epee::string_tools::hex_to_pod(entry.tx_hash, tx_hash), false, "Failed to parse tx hash");
-    }
-    return true;
+    tx_hash = cryptonote::get_pruned_transaction_hash(tx, ph);
   }
-  return false;
+  else
+  {
+    // for v1, we trust the dameon
+    RETURN_ERROR_IF_FALSE(epee::string_tools::hex_to_pod(entry.tx_hash, tx_hash), "Failed to decode tx hash");
+  }
+
+  return boost::none;
 }
 } // anonymous namespace
 
@@ -593,11 +589,11 @@ boost::optional<std::string> NodeRPCProxy::get_transactions_one_chunk(tx_cont_t<
     // Parse transaction entry to cryptnote::transaction and calculate txid
     cryptonote::transaction tx;
     crypto::hash calculated_tx_hash;
-    RETURN_ERROR_IF_FALSE
-    (
-      get_pruned_tx(tx_entry, tx, calculated_tx_hash),
-      "get_pruned_tx() failed on a transaction entry, exiting get_transactions()"
-    );
+    const auto pruned_parse_fail = get_pruned_tx(tx_entry, tx, calculated_tx_hash);
+    if (pruned_parse_fail)
+    {
+      return pruned_parse_fail;
+    }
 
     // Check that the tx hash calculated by get_pruned_tx matches the requested hash
     const crypto::hash& requested_hash = txid_check[chunk_index];
