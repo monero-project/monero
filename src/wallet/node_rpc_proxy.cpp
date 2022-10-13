@@ -56,10 +56,8 @@
  * @return std::string when cond is false, otherwise does not return
  */
 #define RETURN_ERROR_IF_FALSE(cond, msg)    \
-  do                                        \
-  {                                         \
-    if (!(cond))                            \
-    {                                       \
+  do {                                      \
+    if (!(cond)) {                          \
       std::stringstream ss;                 \
       ss << msg;                            \
       const std::string err_msg = ss.str(); \
@@ -69,7 +67,7 @@
   } while (0);                              \
 
 /**
- * @brief Acquire RPC mutex, invoke /json_rpc endpoint, and return on error
+ * @brief Acquire RPC mutex and invoke /json_rpc endpoint
  *
  * Only really useful within NodeRPCProxy because it assumes the existence of variables m_daemon_rpc_mutex,
  * m_http_client, and rpc_timeout. The lock_guard is scoped so that it lives as short as possible.
@@ -80,20 +78,23 @@
  *
  * @return std::string on RPC error, otherwise does not return
  */
-#define INVOKE_JSON_RPC_LOCK_AND_RET_ERR(method, req, res)                                                  \
-  do {                                                                                                      \
-    bool r = false;                                                                                         \
-    {                                                                                                       \
-      const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};                             \
-      r = epee::net_utils::invoke_http_json_rpc("/json_rpc", method, req, res, m_http_client, rpc_timeout); \
-    }                                                                                                       \
-    RETURN_ON_RPC_RESPONSE_ERROR(r, epee::json_rpc::error{}, resp_t, method);                               \
-  } while (0);                                                                                              \
+#define NRP_INVOKE_JSON_RPC(method, req, res)                                   \
+  do {                                                                          \
+    bool r = false;                                                             \
+    {                                                                           \
+      const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex}; \
+      r = epee::net_utils::invoke_http_json_rpc("/json_rpc", method, req, res,  \
+        m_http_client, rpc_timeout);                                            \
+    }                                                                           \
+    RETURN_ON_RPC_RESPONSE_ERROR(r, epee::json_rpc::error{}, resp_t, method);   \
+  } while (0);                                                                  \
 
 /**
- * @brief Acquire RPC mutex, invoke /json_rpc endpoint, check RPC cost, and return on error
+ * @brief Set client signature, acquire RPC mutex, invoke /json_rpc endpoint, and check RPC cost
  *
- * Same as INVOKE_JSON_RPC_LOCK_AND_RET_ERR but checks that the credits changed correctly.
+ * Only really useful within NodeRPCProxy because it assumes the existence of variables
+ * m_daemon_rpc_mutex, m_http_client, m_client_id_secret_key, and rpc_timeout. The lock_guard is
+ * scoped so that it lives as short as possible.
  *
  * @param method JSON RPC method name as a string
  * @param req cryptonote::COMMAND_RPC_x::request form which will be used with invoke_http_json_rpc
@@ -103,34 +104,35 @@
  * @return std::string on RPC error, otherwise does not return
  */
 
-#define INVOKE_JSON_RPC_LOCK_AND_RET_ERR_CHECK_COST(method, req, res, rpc_price)                                 \
-  do {                                                                                                           \
-    req.client = cryptonote::make_rpc_payment_signature(m_client_id_secret_key);                                 \
-    {                                                                                                            \
-      const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};                                  \
-      const uint64_t pre_call_credits = m_rpc_payment_state.credits;                                             \
-      bool r = epee::net_utils::invoke_http_json_rpc("/json_rpc", method, req, res, m_http_client, rpc_timeout); \
-      RETURN_ON_RPC_RESPONSE_ERROR(r, epee::json_rpc::error{}, resp_t, method);                                  \
-      check_rpc_cost(m_rpc_payment_state, method, res.credits, pre_call_credits, rpc_price);                     \
-    }                                                                                                            \
-  } while (0);                                                                                                   \
+#define NRP_INVOKE_JSON_RPC_WITH_PRICE(method, req, res, rpc_price)                          \
+  do {                                                                                       \
+    req.client = cryptonote::make_rpc_payment_signature(m_client_id_secret_key);             \
+    {                                                                                        \
+      const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};              \
+      const uint64_t pre_call_credits = m_rpc_payment_state.credits;                         \
+      const bool r = epee::net_utils::invoke_http_json_rpc("/json_rpc", method, req, res,    \
+        m_http_client, rpc_timeout);                                                         \
+      RETURN_ON_RPC_RESPONSE_ERROR(r, epee::json_rpc::error{}, resp_t, method);              \
+      check_rpc_cost(m_rpc_payment_state, method, res.credits, pre_call_credits, rpc_price); \
+    }                                                                                        \
+  } while (0);                                                                               \
 
 /**
- * @brief Acquire RPC mutex, invoke json endpoint, check RPC cost, and return on error
+ * @brief Set client signature, acquire RPC mutex, invoke json endpoint, and check RPC cost
  *
- * Only really useful within NodeRPCProxy because it assumes the existence of variables m_daemon_rpc_mutex,
- * m_http_client, and rpc_timeout. The lock_guard is scoped so that it lives as short as possible.
- * After RPC interaction, we check that the credits changed correctly.
+ * Only really useful within NodeRPCProxy because it assumes the existence of variables
+ * m_daemon_rpc_mutex, m_http_client, m_client_id_secret_key, and rpc_timeout. The lock_guard is
+ * scoped so that it lives as short as possible.
  *
  * @param uri URI of json endpoint
  * @param req cryptonote::COMMAND_RPC_x::request form which will be used with invoke_http_json_rpc
  * @param res cryptonote::COMMAND_RPC_x::response form which will be used with invoke_http_json_rpc
  * @param rpc_price RPC credit cost for given method, usually specified in macros named COST_PER_x
  *
- * @return on RPC error, otherwise does not return
+ * @return std::string on RPC error, otherwise does not return
  */
 
-#define INVOKE_JSON_LOCK_AND_RET_ERR_CHECK_COST(uri, req, res, rpc_price)                    \
+#define NRP_INVOKE_JSON_WITH_PRICE(uri, req, res, rpc_price)                                 \
   do {                                                                                       \
     req.client = cryptonote::make_rpc_payment_signature(m_client_id_secret_key);             \
     {                                                                                        \
@@ -247,7 +249,7 @@ boost::optional<std::string> NodeRPCProxy::get_rpc_version(uint32_t &rpc_version
     const time_t now = time(NULL);
     cryptonote::COMMAND_RPC_GET_VERSION::request req_t = AUTO_VAL_INIT(req_t);
     cryptonote::COMMAND_RPC_GET_VERSION::response resp_t = AUTO_VAL_INIT(resp_t);
-    INVOKE_JSON_RPC_LOCK_AND_RET_ERR("get_version", req_t, resp_t);
+    NRP_INVOKE_JSON_RPC("get_version", req_t, resp_t);
 
     m_rpc_version = resp_t.version;
     m_daemon_hard_forks.clear();
@@ -288,7 +290,7 @@ boost::optional<std::string> NodeRPCProxy::get_info()
   {
     cryptonote::COMMAND_RPC_GET_INFO::request req_t = AUTO_VAL_INIT(req_t);
     cryptonote::COMMAND_RPC_GET_INFO::response resp_t = AUTO_VAL_INIT(resp_t);
-    INVOKE_JSON_RPC_LOCK_AND_RET_ERR_CHECK_COST("get_info", req_t, resp_t, COST_PER_GET_INFO);
+    NRP_INVOKE_JSON_RPC_WITH_PRICE("get_info", req_t, resp_t, COST_PER_GET_INFO);
 
     m_height = resp_t.height;
     m_target_height = resp_t.target_height;
@@ -360,7 +362,7 @@ boost::optional<std::string> NodeRPCProxy::get_earliest_height(uint8_t version, 
     cryptonote::COMMAND_RPC_HARD_FORK_INFO::request req_t = AUTO_VAL_INIT(req_t);
     cryptonote::COMMAND_RPC_HARD_FORK_INFO::response resp_t = AUTO_VAL_INIT(resp_t);
     req_t.version = version;
-    INVOKE_JSON_RPC_LOCK_AND_RET_ERR_CHECK_COST("hard_fork_info", req_t, resp_t, COST_PER_HARD_FORK_INFO);
+    NRP_INVOKE_JSON_RPC_WITH_PRICE("hard_fork_info", req_t, resp_t, COST_PER_HARD_FORK_INFO);
 
     m_earliest_height[version] = resp_t.earliest_height;
   }
@@ -384,7 +386,7 @@ boost::optional<std::string> NodeRPCProxy::get_dynamic_base_fee_estimate_2021_sc
     cryptonote::COMMAND_RPC_GET_BASE_FEE_ESTIMATE::request req_t = AUTO_VAL_INIT(req_t);
     cryptonote::COMMAND_RPC_GET_BASE_FEE_ESTIMATE::response resp_t = AUTO_VAL_INIT(resp_t);
     req_t.grace_blocks = grace_blocks;
-    INVOKE_JSON_RPC_LOCK_AND_RET_ERR_CHECK_COST("get_fee_estimate", req_t, resp_t, COST_PER_FEE_ESTIMATE);
+    NRP_INVOKE_JSON_RPC_WITH_PRICE("get_fee_estimate", req_t, resp_t, COST_PER_FEE_ESTIMATE);
 
     m_dynamic_base_fee_estimate = resp_t.fee;
     m_dynamic_base_fee_estimate_cached_height = height;
@@ -422,7 +424,7 @@ boost::optional<std::string> NodeRPCProxy::get_fee_quantization_mask(uint64_t &f
     cryptonote::COMMAND_RPC_GET_BASE_FEE_ESTIMATE::request req_t = AUTO_VAL_INIT(req_t);
     cryptonote::COMMAND_RPC_GET_BASE_FEE_ESTIMATE::response resp_t = AUTO_VAL_INIT(resp_t);
     req_t.grace_blocks = m_dynamic_base_fee_estimate_grace_blocks;
-    INVOKE_JSON_RPC_LOCK_AND_RET_ERR_CHECK_COST("get_fee_estimate", req_t, resp_t, COST_PER_FEE_ESTIMATE);
+    NRP_INVOKE_JSON_RPC_WITH_PRICE("get_fee_estimate", req_t, resp_t, COST_PER_FEE_ESTIMATE);
 
     m_dynamic_base_fee_estimate = resp_t.fee;
     m_dynamic_base_fee_estimate_cached_height = height;
@@ -576,7 +578,7 @@ boost::optional<std::string> NodeRPCProxy::get_transactions_one_chunk(tx_cont_t<
   resp_t.txs.reserve(num_txs);
 
   // Do the request!
-  INVOKE_JSON_LOCK_AND_RET_ERR_CHECK_COST("/gettransactions", req_t, resp_t, req_t.txs_hashes.size() * COST_PER_TX);
+  NRP_INVOKE_JSON_WITH_PRICE("/gettransactions", req_t, resp_t, req_t.txs_hashes.size() * COST_PER_TX);
 
   // Check the number of transaction entries in reponse matches number of requested transactions
   const size_t num_txs_received = resp_t.txs.size();
