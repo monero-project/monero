@@ -504,41 +504,25 @@ boost::optional<std::string> NodeRPCProxy::get_rpc_payment_info(bool mining, boo
   return boost::none;
 } // get_rpc_payment_info()
 
-boost::optional<std::string> NodeRPCProxy::get_transactions(const tx_cont_t<crypto::hash>& tx_hashes, tx_handler_t& cb)
+boost::optional<std::string> NodeRPCProxy::get_transactions(const tx_cont_t<tx_hash_t>& txids, tx_handler_t& cb)
 {
-  // We have to translate these crypto::hash into hex encoded std::string
-  std::vector<std::string> tx_str_hashes;
-  for (const auto& tx_hash : tx_hashes)
-  {
-    tx_str_hashes.push_back(epee::string_tools::pod_to_hex(tx_hash));
-  }
-
-  return get_transactions(std::move(tx_str_hashes), cb);
-}
-
-boost::optional<std::string> NodeRPCProxy::get_transactions(tx_cont_t<std::string>&& tx_hashes_ref, tx_handler_t& cb)
-{
-  // Setup chunking/no chunking
-  std::vector<std::string> tx_hashes = tx_hashes_ref;
-  const size_t num_txs = tx_hashes.size();
-  const bool can_do_in_one_chunk = num_txs <= GET_TX_CHUNK_SIZE;
-  if (can_do_in_one_chunk)
-  {
-    // If all of tx_hashes fits in one chunk, we can move the hash container instead of copying!
-    return get_transactions_one_chunk(std::move(tx_hashes), cb);
-  }
-
-  // Start chunking up (copying) tx_hashes into chunk_tx_hashes and call get_transactions_one_chunk for each chunk
+  // Start chunking up and translating txids into chunk_txid_strs and call get_transactions_one_chunk for each chunk
+  const size_t num_txs = txids.size();
   for (size_t num_txs_done = 0; num_txs_done < num_txs; num_txs_done += GET_TX_CHUNK_SIZE)
   {
     const size_t txs_remaining = num_txs - num_txs_done;
     const size_t this_chunk_size = std::min(txs_remaining, GET_TX_CHUNK_SIZE);
 
-    const auto chunk_hash_start = tx_hashes.begin() + num_txs_done;
-    const auto chunk_hash_end = chunk_hash_start + this_chunk_size;
-    std::vector<std::string> chunk_tx_hashes(chunk_hash_start, chunk_hash_end);
+    // Translate this chunk of crypto::hash txids into hex-encoded strings 
+    std::vector<std::string> chunk_txid_strs;
+    chunk_txid_strs.reserve(this_chunk_size);
+    for (size_t chunk_index = 0; chunk_index < this_chunk_size; chunk_index++)
+    {
+      const crypto::hash& txid = txids[num_txs_done + chunk_index];
+      chunk_txid_strs.push_back(epee::string_tools::pod_to_hex(txid));
+    }
 
-    const auto result = get_transactions_one_chunk(std::move(chunk_tx_hashes), cb);
+    const auto result = get_transactions_one_chunk(std::move(chunk_txid_strs), &txids[num_txs_done], cb);
     if (result)
     {
       return result;
@@ -558,7 +542,7 @@ boost::optional<std::string> NodeRPCProxy::get_transaction(const crypto::hash& t
     return true;
   };
 
-  return get_transactions_one_chunk({epee::string_tools::pod_to_hex(tx_hash)}, tx_passthru_assignment);
+  return get_transactions_one_chunk({epee::string_tools::pod_to_hex(tx_hash)}, &tx_hash, tx_passthru_assignment);
 }
 
 boost::optional<std::string> NodeRPCProxy::get_transaction(const crypto::hash& tx_hash, tx_t& tx_out)
@@ -570,74 +554,55 @@ boost::optional<std::string> NodeRPCProxy::get_transaction(const crypto::hash& t
     return true;
   };
 
-  return get_transactions_one_chunk({epee::string_tools::pod_to_hex(tx_hash)}, tx_passthru_assignment);
+  return get_transactions_one_chunk({epee::string_tools::pod_to_hex(tx_hash)}, &tx_hash, tx_passthru_assignment);
 }
 
-boost::optional<std::string> NodeRPCProxy::get_transactions_one_chunk(tx_cont_t<std::string>&& tx_hashes_ref, tx_handler_t& cb)
+boost::optional<std::string> NodeRPCProxy::get_transactions_one_chunk(tx_cont_t<std::string>&& tx_hashes_ref, const tx_hash_t* txid_check, tx_handler_t& cb)
 {
-  // Setup forms (excluding req_t.txs_hashes if can't fit all of them in one cunk)
-  cryptonote::COMMAND_RPC_GET_TRANSACTIONS::request req_t = AUTO_VAL_INIT(req_t);
-  cryptonote::COMMAND_RPC_GET_TRANSACTIONS::response resp_t = AUTO_VAL_INIT(resp_t);
-  req_t.txs_hashes = tx_hashes_ref;
-  req_t.decode_as_json = false;
-  req_t.prune = true;
-  req_t.split = false;
-
-  // Check chunk size
-  const size_t num_txs = req_t.txs_hashes.size();
-  RETURN_ERROR_IF_FALSE(num_txs <= GET_TX_CHUNK_SIZE, "Too many transactions for one chunk: " << num_txs << " > " << GET_TX_CHUNK_SIZE);
-
   // Check if offline
   if (m_offline)
   {
     return std::string("NodeRPCProxy offline");
   }
 
-  // Do the request!
-  INVOKE_JSON_LOCK_AND_RET_ERR_CHECK_COST("/gettransactions", req_t, resp_t, COST_PER_TX);
+  // Setup request/response forms
+  const size_t num_txs = tx_hashes_ref.size();
+  cryptonote::COMMAND_RPC_GET_TRANSACTIONS::request req_t = AUTO_VAL_INIT(req_t);
+  cryptonote::COMMAND_RPC_GET_TRANSACTIONS::response resp_t = AUTO_VAL_INIT(resp_t);
+  req_t.txs_hashes = tx_hashes_ref;
+  req_t.decode_as_json = false;
+  req_t.prune = true;
+  req_t.split = false;
+  resp_t.txs.reserve(num_txs);
 
-  // Check txs response field size so it matches with this_chunk_size
+  // Do the request!
+  INVOKE_JSON_LOCK_AND_RET_ERR_CHECK_COST("/gettransactions", req_t, resp_t, req_t.txs_hashes.size() * COST_PER_TX);
+
+  // Check the number of transaction entries in reponse matches number of requested transactions
   const size_t num_txs_received = resp_t.txs.size();
   RETURN_ERROR_IF_FALSE(num_txs_received == num_txs, "Requested " << num_txs << " txs but got " << num_txs_received);
 
-  // Iterate through all tx entries in response, this works because we already checked that the size of the response is correct
+  // For each tx entry in response...
   for (size_t chunk_index = 0; chunk_index < num_txs; chunk_index++)
   {
     const auto& tx_entry = resp_t.txs[chunk_index];
 
-    // Check the returned tx_hash in the entry matches requested hash
-    const std::string& requested_hash_str = req_t.txs_hashes[chunk_index];
-    RETURN_ERROR_IF_FALSE
-    (
-      tx_entry.tx_hash == requested_hash_str,
-      "Received tx entry hash does not match requested hash: req='"
-        << requested_hash_str << "', resp='" << tx_entry.tx_hash << "'"
-    );
-
+    // Parse transaction entry to cryptnote::transaction and calculate txid
     cryptonote::transaction tx;
     crypto::hash calculated_tx_hash;
-
-    // Extract tx and check that the tx entry data logically looks like a real pruned tx
     RETURN_ERROR_IF_FALSE
     (
       get_pruned_tx(tx_entry, tx, calculated_tx_hash),
       "get_pruned_tx() failed on a transaction entry, exiting get_transactions()"
     );
 
-    // Check that the corresponding request tx hash can be interpreted as a crypto::hash, used for next check
-    crypto::hash requested_hash;
-    RETURN_ERROR_IF_FALSE
-    (
-      epee::string_tools::hex_to_pod(requested_hash_str, requested_hash),
-      "given tx hash (hex string) cannot be interpreted as crypto::hash: '" << requested_hash_str << "'"
-    );
-
     // Check that the tx hash calculated by get_pruned_tx matches the requested hash
+    const crypto::hash& requested_hash = txid_check[chunk_index];
     RETURN_ERROR_IF_FALSE
     (
       calculated_tx_hash == requested_hash,
-      "calculated hash of tx returned by RPC does not match requested hash: req='"
-        << requested_hash_str << "', resp='" << epee::string_tools::pod_to_hex(calculated_tx_hash) << "'"
+      "get_transactions() hash mismatch: " << epee::string_tools::pod_to_hex(requested_hash) << " vs "
+      << epee::string_tools::pod_to_hex(calculated_tx_hash)
     );
 
     // This transaction is good. Try calling cb with transaction and its entry and check for cb success
@@ -646,12 +611,13 @@ boost::optional<std::string> NodeRPCProxy::get_transactions_one_chunk(tx_cont_t<
       RETURN_ERROR_IF_FALSE
       (
         cb(std::move(tx), std::move(resp_t.txs[chunk_index]), calculated_tx_hash),
-        "get_transactions() callback returned fail code on hash " << requested_hash_str
+        "get_transactions() callback returned fail code on tx with id " << epee::string_tools::pod_to_hex(requested_hash)
       );
     }
     catch (const std::exception& e)
     {
-      RETURN_ERROR_IF_FALSE(false, "get_transactions_one_chunk experienced exception from callback function: " << e.what());
+      // If we catch a callback error, return error status string
+      RETURN_ERROR_IF_FALSE(false, "get_transactions_one_chunk() callback exception: " << e.what());
     }
   } // for chunk_index ...
 

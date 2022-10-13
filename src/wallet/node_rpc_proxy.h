@@ -89,18 +89,6 @@ public:
   boost::optional<std::string> get_transactions(const tx_cont_t<tx_hash_t>& txids, tx_handler_t& cb);
 
   /**
-   * @brief Invoke /get_transactions with list of hashes, and call handler for each entry.
-   *
-   * Same as previous get_transactions() method, but txids container is moved instead of copied.
-   *
-   * @param txids contains request txids
-   * @param cb tx_handler_t which processes received transactions
-   *
-   * @return boost::none on success, otherwise returns error message
-   */
-  boost::optional<std::string> get_transactions(tx_cont_t<std::string>&& txids, tx_handler_t& cb);
-
-  /**
    * @brief Invoke /get_transactions with one hash, and return parsed transaction.
    *
    * Same as previous get_transactions() method, but we modify the transaction by reference instead
@@ -114,7 +102,7 @@ public:
   boost::optional<std::string> get_transaction(const tx_hash_t& txid, tx_t& tx_res);
 
   /**
-   * @brief Invoke /get_transactions  with one hash, and return parsed transaction.
+   * @brief Invoke /get_transactions with one hash, and return parsed transaction.
    *
    * Same as previous get_transaction() method, but we also get a tx entry output paramter.
    *
@@ -146,12 +134,13 @@ private:
    *
    * Used internally by get_transaction[s]()
    *
-   * @param txids contains request txids
+   * @param txids contains request txid strings
+   * @param txid_check Pointer to block of crypto::hashes which has all the same IDs as txids
    * @param cb tx_handler_t which processes received transactions
    *
    * @return boost::none on success, otherwise returns error message
    */
-  boost::optional<std::string> get_transactions_one_chunk(tx_cont_t<std::string>&& txids, tx_handler_t& cb);
+  boost::optional<std::string> get_transactions_one_chunk(tx_cont_t<std::string>&& txids, const tx_hash_t* txid_check, tx_handler_t& cb);
 
   epee::net_utils::http::abstract_http_client &m_http_client;
   rpc_payment_state_t &m_rpc_payment_state;

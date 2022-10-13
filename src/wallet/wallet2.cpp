@@ -1609,7 +1609,7 @@ void wallet2::scan_tx(const std::vector<crypto::hash> &txids)
   { return std::get<1>(l).block_height < std::get<1>(r).block_height; };
   std::sort(txq.begin(), txq.end(), cmp_tx_entry);
 
-  // Process the transaction data in chronologically ascending order
+  // Process the transactions in chronologically ascending order
   for (const txq_value_type& txq_entry : txq) {
     const cryptonote::transaction& tx = std::get<0>(txq_entry);
     const cryptonote::COMMAND_RPC_GET_TRANSACTIONS::entry& tx_info = std::get<1>(txq_entry);;
@@ -7759,30 +7759,31 @@ bool wallet2::find_and_save_rings(bool force)
   MDEBUG("Finding and saving rings...");
 
   // get payments we made
-  std::vector<std::string> tx_hash_strs;
+  std::vector<crypto::hash> txs_hashes;
   std::list<std::pair<crypto::hash,wallet2::confirmed_transfer_details>> payments;
   get_payments_out(payments, 0, std::numeric_limits<uint64_t>::max(), boost::none, std::set<uint32_t>());
+  txs_hashes.reserve(payments.size());
   for (const std::pair<crypto::hash,wallet2::confirmed_transfer_details> &entry: payments)
   {
     const crypto::hash &txid = entry.first;
-    tx_hash_strs.push_back(epee::string_tools::pod_to_hex(txid));
+    txs_hashes.push_back(txid);
   }
 
-  MDEBUG("Found " << std::to_string(tx_hash_strs.size()) << " transactions");
+  MDEBUG("Found " << std::to_string(txs_hashes.size()) << " transactions");
 
-  // Define tx handler: for each tx received, pass it to this->add_rings
+  // Define tx handler: for each tx received, add it to the ringdb
   tools::wallet2& self = *this;
   NodeRPCProxy::tx_handler_t add_tx_rings = [&self]
     (NodeRPCProxy::tx_t&& tx, NodeRPCProxy::tx_entry_t&& tx_entry, const NodeRPCProxy::tx_hash_t& ignored) -> bool
   {
-    return self.add_rings(self.get_ringdb_key(), tx);
+    return self.add_rings(tx);
   };
 
   // Fetch txs from daemon
-  const auto fail_res = m_node_rpc_proxy.get_transactions(std::move(tx_hash_strs), add_tx_rings);
+  const auto fail_res = m_node_rpc_proxy.get_transactions(txs_hashes, add_tx_rings);
   THROW_WALLET_EXCEPTION_IF(fail_res, error::wallet_internal_error, std::string("RPC proxy: get_transactions failed: ") + *fail_res);
 
-  MINFO("Found and saved rings for " << tx_hash_strs.size() << " transactions");
+  MINFO("Found and saved rings for " << txs_hashes.size() << " transactions");
   m_ring_history_saved = true;
   return true;
 }
@@ -11932,13 +11933,17 @@ bool wallet2::check_reserve_proof(const cryptonote::account_public_address &addr
   crypto::cn_fast_hash(prefix_data.data(), prefix_data.size(), prefix_hash);
 
   // Collect txids from proofs
-  std::vector<std::string> proof_txids;
+  std::vector<crypto::hash> proof_txids;
+  proof_txids.reserve(proofs.size());
   for (const auto& proof : proofs)
-   proof_txids.push_back(epee::string_tools::pod_to_hex(proof.txid));
+  {
+    proof_txids.push_back(proof.txid);
+  }
 
-  // Setup transaction verifier and collector
+  // Setup transaction verifier and collector callback
   std::vector<cryptonote::transaction> proof_txs;
-  NodeRPCProxy::tx_handler_t verify_and_add_proof_tx = [&proof_txs]
+  proof_txs.reserve(proof_txids.size());
+  NodeRPCProxy::tx_handler_t collect_tx_if_confirmed = [&proof_txs]
     (NodeRPCProxy::tx_t&& tx, NodeRPCProxy::tx_entry_t&& tx_entry, const NodeRPCProxy::tx_hash_t& ignored) -> bool
   {
     THROW_WALLET_EXCEPTION_IF(tx_entry.in_pool, error::wallet_internal_error, "Tx is unconfirmed");
@@ -11947,7 +11952,7 @@ bool wallet2::check_reserve_proof(const cryptonote::account_public_address &addr
   };
 
   // Fetch txs from daemon
-  const auto fail_res = m_node_rpc_proxy.get_transactions(std::move(proof_txids), verify_and_add_proof_tx);
+  const auto fail_res = m_node_rpc_proxy.get_transactions(proof_txids, collect_tx_if_confirmed);
   THROW_WALLET_EXCEPTION_IF(fail_res, error::wallet_internal_error, std::string("check_reserve_proof error: ") + *fail_res);
 
   // check spent status
@@ -12683,15 +12688,12 @@ uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_imag
 
   if (check_spent)
   {
-    // Collect spent txids into moveable hash container
-    std::vector<std::string> spent_txid_strs;
-    for (const auto& spent_txid : spent_txids)
-      spent_txid_strs.push_back(epee::string_tools::pod_to_hex(spent_txid));
-
-    // Query outgoing txes
+    // Setup get_transactions() callback which collects the txs and tx_entries into respective containers
     std::vector<cryptonote::transaction> spent_txs;
     std::vector<cryptonote::COMMAND_RPC_GET_TRANSACTIONS::entry> spent_tx_entries;
-    NodeRPCProxy::tx_handler_t collect_tx_and_entry = [&spent_txs, &spent_tx_entries]
+    spent_txs.reserve(spent_txids.size());
+    spent_tx_entries.reserve(spent_txids.size());
+    NodeRPCProxy::tx_handler_t collect_tx_and_entry_if_confirmed = [&spent_txs, &spent_tx_entries]
       (NodeRPCProxy::tx_t&& tx, NodeRPCProxy::tx_entry_t&& tx_entry, const NodeRPCProxy::tx_hash_t& ignored) -> bool
     {
       THROW_WALLET_EXCEPTION_IF(tx_entry.in_pool, error::wallet_internal_error, "spent tx isn't supposed to be in txpool");
@@ -12700,9 +12702,12 @@ uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_imag
       return true;
     };
 
+    // Copy spent txids into vector from unordered_set
+    std::vector<crypto::hash> spent_txids_vec(spent_txids.begin(), spent_txids.end());
+
     // Fetch spent txs from daemon
     PERF_TIMER_START(import_key_images_E);
-    const auto fail_res = m_node_rpc_proxy.get_transactions(std::move(spent_txid_strs), collect_tx_and_entry);
+    const auto fail_res = m_node_rpc_proxy.get_transactions(spent_txids_vec, collect_tx_and_entry_if_confirmed);
     THROW_WALLET_EXCEPTION_IF(fail_res, error::wallet_internal_error, std::string("import_key_images error: ") + *fail_res);
     PERF_TIMER_STOP(import_key_images_E);
 
