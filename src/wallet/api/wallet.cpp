@@ -57,6 +57,40 @@ using namespace cryptonote;
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "WalletAPI"
 
+#define LOCK_REFRESH() \
+    bool refresh_enabled = m_refreshEnabled; \
+    m_refreshEnabled = false; \
+    m_wallet->stop(); \
+    m_refreshCV.notify_one(); \
+    boost::mutex::scoped_lock lock(m_refreshMutex); \
+    boost::mutex::scoped_lock lock2(m_refreshMutex2); \
+    epee::misc_utils::auto_scope_leave_caller scope_exit_handler = epee::misc_utils::create_scope_leave_handler([&](){ \
+        /* m_refreshMutex's still locked here */ \
+        if (refresh_enabled) \
+            startRefresh(); \
+    })
+
+#define PRE_VALIDATE_BACKGROUND_SYNC() \
+  do \
+  { \
+    clearStatus(); \
+    if (m_wallet->key_on_device()) \
+    { \
+        setStatusError(tr("HW wallet cannot use background sync")); \
+        return false; \
+    } \
+    if (m_wallet->watch_only()) \
+    { \
+        setStatusError(tr("View only wallet cannot use background sync")); \
+        return false; \
+    } \
+    if (m_wallet->multisig()) \
+    { \
+        setStatusError(tr("Multisig wallet cannot use background sync")); \
+        return false; \
+    } \
+  } while (0)
+
 namespace Monero {
 
 namespace {
@@ -763,6 +797,8 @@ bool WalletImpl::close(bool store)
 
 std::string WalletImpl::seed(const std::string& seed_offset) const
 {
+    if (checkBackgroundSync("cannot get seed"))
+        return std::string();
     epee::wipeable_string seed;
     if (m_wallet)
         m_wallet->get_seed(seed, seed_offset);
@@ -776,6 +812,8 @@ std::string WalletImpl::getSeedLanguage() const
 
 void WalletImpl::setSeedLanguage(const std::string &arg)
 {
+    if (checkBackgroundSync("cannot set seed language"))
+        return;
     m_wallet->set_seed_language(arg);
 }
 
@@ -799,6 +837,8 @@ void WalletImpl::statusWithErrorString(int& status, std::string& errorString) co
 
 bool WalletImpl::setPassword(const std::string &password)
 {
+    if (checkBackgroundSync("cannot change password"))
+        return false;
     clearStatus();
     try {
         m_wallet->change_password(m_wallet->get_wallet_file(), m_password, password);
@@ -928,6 +968,8 @@ bool WalletImpl::init(const std::string &daemon_address, uint64_t upper_transact
 
 void WalletImpl::setRefreshFromBlockHeight(uint64_t refresh_from_block_height)
 {
+    if (checkBackgroundSync("cannot change refresh height"))
+        return;
     m_wallet->set_refresh_from_block_height(refresh_from_block_height);
 }
 
@@ -1036,6 +1078,8 @@ void WalletImpl::refreshAsync()
 
 bool WalletImpl::rescanBlockchain()
 {
+    if (checkBackgroundSync("cannot rescan blockchain"))
+        return false;
     clearStatus();
     m_refreshShouldRescan = true;
     doRefresh();
@@ -1044,6 +1088,8 @@ bool WalletImpl::rescanBlockchain()
 
 void WalletImpl::rescanBlockchainAsync()
 {
+    if (checkBackgroundSync("cannot rescan blockchain"))
+        return;
     m_refreshShouldRescan = true;
     refreshAsync();
 }
@@ -1067,7 +1113,7 @@ int WalletImpl::autoRefreshInterval() const
 UnsignedTransaction *WalletImpl::loadUnsignedTx(const std::string &unsigned_filename) {
   clearStatus();
   UnsignedTransactionImpl * transaction = new UnsignedTransactionImpl(*this);
-  if (!m_wallet->load_unsigned_tx(unsigned_filename, transaction->m_unsigned_tx_set)){
+  if (checkBackgroundSync("cannot load tx") || !m_wallet->load_unsigned_tx(unsigned_filename, transaction->m_unsigned_tx_set)){
     setStatusError(tr("Failed to load unsigned transactions"));
     transaction->m_status = UnsignedTransaction::Status::Status_Error;
     transaction->m_errorString = errorString();
@@ -1087,6 +1133,8 @@ UnsignedTransaction *WalletImpl::loadUnsignedTx(const std::string &unsigned_file
 
 bool WalletImpl::submitTransaction(const string &fileName) {
   clearStatus();
+  if (checkBackgroundSync("cannot submit tx"))
+    return false;
   std::unique_ptr<PendingTransactionImpl> transaction(new PendingTransactionImpl(*this));
 
   bool r = m_wallet->load_tx(fileName, transaction->m_pending_tx);
@@ -1110,6 +1158,8 @@ bool WalletImpl::exportKeyImages(const string &filename, bool all)
     setStatusError(tr("Wallet is view only"));
     return false;
   }
+  if (checkBackgroundSync("cannot export key images"))
+    return false;
   
   try
   {
@@ -1130,6 +1180,8 @@ bool WalletImpl::exportKeyImages(const string &filename, bool all)
 
 bool WalletImpl::importKeyImages(const string &filename)
 {
+  if (checkBackgroundSync("cannot import key images"))
+    return false;
   if (!trustedDaemon()) {
     setStatusError(tr("Key images can only be imported with a trusted daemon"));
     return false;
@@ -1153,6 +1205,8 @@ bool WalletImpl::importKeyImages(const string &filename)
 
 bool WalletImpl::exportOutputs(const string &filename, bool all)
 {
+    if (checkBackgroundSync("cannot export outputs"))
+        return false;
     if (m_wallet->key_on_device())
     {
         setStatusError(string(tr("Not supported on HW wallets.")) + filename);
@@ -1183,6 +1237,8 @@ bool WalletImpl::exportOutputs(const string &filename, bool all)
 
 bool WalletImpl::importOutputs(const string &filename)
 {
+    if (checkBackgroundSync("cannot import outputs"))
+        return false;
     if (m_wallet->key_on_device())
     {
         setStatusError(string(tr("Not supported on HW wallets.")) + filename);
@@ -1215,6 +1271,8 @@ bool WalletImpl::importOutputs(const string &filename)
 
 bool WalletImpl::scanTransactions(const std::vector<std::string> &txids)
 {
+    if (checkBackgroundSync("cannot scan transactions"))
+        return false;
     if (txids.empty())
     {
         setStatusError(string(tr("Failed to scan transactions: no transaction ids provided.")));
@@ -1253,8 +1311,86 @@ bool WalletImpl::scanTransactions(const std::vector<std::string> &txids)
     return true;
 }
 
+bool WalletImpl::setupBackgroundSync(const Wallet::BackgroundSyncType background_sync_type, const std::string &wallet_password, const optional<std::string> &background_cache_password)
+{
+    try
+    {
+        PRE_VALIDATE_BACKGROUND_SYNC();
+
+        tools::wallet2::BackgroundSyncType bgs_type;
+        switch (background_sync_type)
+        {
+            case Wallet::BackgroundSync_Off: bgs_type = tools::wallet2::BackgroundSyncOff; break;
+            case Wallet::BackgroundSync_ReusePassword: bgs_type = tools::wallet2::BackgroundSyncReusePassword; break;
+            case Wallet::BackgroundSync_CustomPassword: bgs_type = tools::wallet2::BackgroundSyncCustomPassword; break;
+            default: setStatusError(tr("Unknown background sync type")); return false;
+        }
+
+        boost::optional<epee::wipeable_string> bgc_password = background_cache_password
+            ? boost::optional<epee::wipeable_string>(*background_cache_password)
+            : boost::none;
+
+        LOCK_REFRESH();
+        m_wallet->setup_background_sync(bgs_type, wallet_password, bgc_password);
+    }
+    catch (const std::exception &e)
+    {
+        LOG_ERROR("Failed to setup background sync: " << e.what());
+        setStatusError(string(tr("Failed to setup background sync: ")) + e.what());
+        return false;
+    }
+    return true;
+}
+
+Wallet::BackgroundSyncType WalletImpl::getBackgroundSyncType() const
+{
+    switch (m_wallet->background_sync_type())
+    {
+        case tools::wallet2::BackgroundSyncOff: return Wallet::BackgroundSync_Off;
+        case tools::wallet2::BackgroundSyncReusePassword: return Wallet::BackgroundSync_ReusePassword;
+        case tools::wallet2::BackgroundSyncCustomPassword: return Wallet::BackgroundSync_CustomPassword;
+        default: setStatusError(tr("Unknown background sync type")); return Wallet::BackgroundSync_Off;
+    }
+}
+
+bool WalletImpl::startBackgroundSync()
+{
+    try
+    {
+        PRE_VALIDATE_BACKGROUND_SYNC();
+        LOCK_REFRESH();
+        m_wallet->start_background_sync();
+    }
+    catch (const std::exception &e)
+    {
+        LOG_ERROR("Failed to start background sync: " << e.what());
+        setStatusError(string(tr("Failed to start background sync: ")) + e.what());
+        return false;
+    }
+    return true;
+}
+
+bool WalletImpl::stopBackgroundSync(const std::string &wallet_password)
+{
+    try
+    {
+        PRE_VALIDATE_BACKGROUND_SYNC();
+        LOCK_REFRESH();
+        m_wallet->stop_background_sync(epee::wipeable_string(wallet_password));
+    }
+    catch (const std::exception &e)
+    {
+        LOG_ERROR("Failed to stop background sync: " << e.what());
+        setStatusError(string(tr("Failed to stop background sync: ")) + e.what());
+        return false;
+    }
+    return true;
+}
+
 void WalletImpl::addSubaddressAccount(const std::string& label)
 {
+    if (checkBackgroundSync("cannot add account"))
+        return;
     m_wallet->add_subaddress_account(label);
 }
 size_t WalletImpl::numSubaddressAccounts() const
@@ -1267,10 +1403,14 @@ size_t WalletImpl::numSubaddresses(uint32_t accountIndex) const
 }
 void WalletImpl::addSubaddress(uint32_t accountIndex, const std::string& label)
 {
+    if (checkBackgroundSync("cannot add subbaddress"))
+        return;
     m_wallet->add_subaddress(accountIndex, label);
 }
 std::string WalletImpl::getSubaddressLabel(uint32_t accountIndex, uint32_t addressIndex) const
 {
+    if (checkBackgroundSync("cannot get subbaddress label"))
+        return "";
     try
     {
         return m_wallet->get_subaddress_label({accountIndex, addressIndex});
@@ -1284,6 +1424,8 @@ std::string WalletImpl::getSubaddressLabel(uint32_t accountIndex, uint32_t addre
 }
 void WalletImpl::setSubaddressLabel(uint32_t accountIndex, uint32_t addressIndex, const std::string &label)
 {
+    if (checkBackgroundSync("cannot set subbaddress label"))
+        return;
     try
     {
         return m_wallet->set_subaddress_label({accountIndex, addressIndex}, label);
@@ -1297,12 +1439,16 @@ void WalletImpl::setSubaddressLabel(uint32_t accountIndex, uint32_t addressIndex
 
 MultisigState WalletImpl::multisig() const {
     MultisigState state;
+    if (checkBackgroundSync("cannot use multisig"))
+        return state;
     state.isMultisig = m_wallet->multisig(&state.isReady, &state.threshold, &state.total);
 
     return state;
 }
 
 string WalletImpl::getMultisigInfo() const {
+    if (checkBackgroundSync("cannot use multisig"))
+        return string();
     try {
         clearStatus();
         return m_wallet->get_multisig_first_kex_msg();
@@ -1315,6 +1461,8 @@ string WalletImpl::getMultisigInfo() const {
 }
 
 string WalletImpl::makeMultisig(const vector<string>& info, const uint32_t threshold) {
+    if (checkBackgroundSync("cannot make multisig"))
+        return string();
     try {
         clearStatus();
 
@@ -1455,6 +1603,9 @@ PendingTransaction *WalletImpl::createTransactionMultDest(const std::vector<stri
     PendingTransactionImpl * transaction = new PendingTransactionImpl(*this);
 
     do {
+        if (checkBackgroundSync("cannot create transactions"))
+            break;
+
         std::vector<uint8_t> extra;
         std::string extra_nonce;
         vector<cryptonote::tx_destination_entry> dsts;
@@ -1621,6 +1772,9 @@ PendingTransaction *WalletImpl::createSweepUnmixableTransaction()
     PendingTransactionImpl * transaction = new PendingTransactionImpl(*this);
 
     do {
+        if (checkBackgroundSync("cannot sweep"))
+            break;
+
         try {
             transaction->m_pending_tx = m_wallet->create_unmixable_sweep_transactions();
             pendingTxPostProcess(transaction);
@@ -1754,11 +1908,15 @@ uint32_t WalletImpl::defaultMixin() const
 
 void WalletImpl::setDefaultMixin(uint32_t arg)
 {
+    if (checkBackgroundSync("cannot set default mixin"))
+        return;
     m_wallet->default_mixin(arg);
 }
 
 bool WalletImpl::setCacheAttribute(const std::string &key, const std::string &val)
 {
+    if (checkBackgroundSync("cannot set cache attribute"))
+        return false;
     m_wallet->set_attribute(key, val);
     return true;
 }
@@ -1772,6 +1930,8 @@ std::string WalletImpl::getCacheAttribute(const std::string &key) const
 
 bool WalletImpl::setUserNote(const std::string &txid, const std::string &note)
 {
+    if (checkBackgroundSync("cannot set user note"))
+        return false;
     cryptonote::blobdata txid_data;
     if(!epee::string_tools::parse_hexstr_to_binbuff(txid, txid_data) || txid_data.size() != sizeof(crypto::hash))
       return false;
@@ -1783,6 +1943,8 @@ bool WalletImpl::setUserNote(const std::string &txid, const std::string &note)
 
 std::string WalletImpl::getUserNote(const std::string &txid) const
 {
+    if (checkBackgroundSync("cannot get user note"))
+        return "";
     cryptonote::blobdata txid_data;
     if(!epee::string_tools::parse_hexstr_to_binbuff(txid, txid_data) || txid_data.size() != sizeof(crypto::hash))
       return "";
@@ -1793,6 +1955,9 @@ std::string WalletImpl::getUserNote(const std::string &txid) const
 
 std::string WalletImpl::getTxKey(const std::string &txid_str) const
 {
+    if (checkBackgroundSync("cannot get tx key"))
+        return "";
+
     crypto::hash txid;
     if(!epee::string_tools::hex_to_pod(txid_str, txid))
     {
@@ -1877,6 +2042,9 @@ bool WalletImpl::checkTxKey(const std::string &txid_str, std::string tx_key_str,
 
 std::string WalletImpl::getTxProof(const std::string &txid_str, const std::string &address_str, const std::string &message) const
 {
+    if (checkBackgroundSync("cannot get tx proof"))
+        return "";
+
     crypto::hash txid;
     if (!epee::string_tools::hex_to_pod(txid_str, txid))
     {
@@ -1933,6 +2101,9 @@ bool WalletImpl::checkTxProof(const std::string &txid_str, const std::string &ad
 }
 
 std::string WalletImpl::getSpendProof(const std::string &txid_str, const std::string &message) const {
+    if (checkBackgroundSync("cannot get spend proof"))
+        return "";
+
     crypto::hash txid;
     if(!epee::string_tools::hex_to_pod(txid_str, txid))
     {
@@ -1975,6 +2146,9 @@ bool WalletImpl::checkSpendProof(const std::string &txid_str, const std::string 
 }
 
 std::string WalletImpl::getReserveProof(bool all, uint32_t account_index, uint64_t amount, const std::string &message) const {
+    if (checkBackgroundSync("cannot get reserve proof"))
+        return "";
+
     try
     {
         clearStatus();
@@ -2021,6 +2195,9 @@ bool WalletImpl::checkReserveProof(const std::string &address, const std::string
 
 std::string WalletImpl::signMessage(const std::string &message, const std::string &address)
 {
+    if (checkBackgroundSync("cannot sign message"))
+        return "";
+
     if (address.empty()) {
         return m_wallet->sign(message, tools::wallet2::sign_with_spend_key);
     }
@@ -2147,6 +2324,16 @@ bool WalletImpl::isDeterministic() const
     return m_wallet->is_deterministic();
 }
 
+bool WalletImpl::isBackgroundSyncing() const
+{
+    return m_wallet->is_background_syncing();
+}
+
+bool WalletImpl::isBackgroundWallet() const
+{
+    return m_wallet->is_background_wallet();
+}
+
 void WalletImpl::clearStatus() const
 {
     boost::lock_guard<boost::mutex> l(m_statusMutex);
@@ -2215,9 +2402,7 @@ void WalletImpl::doRefresh()
             if(rescan)
                 m_wallet->rescan_blockchain(false);
             m_wallet->refresh(trustedDaemon());
-            if (!m_synchronized) {
-                m_synchronized = true;
-            }
+            m_synchronized = m_wallet->is_synced();
             // assuming if we have empty history, it wasn't initialized yet
             // for further history changes client need to update history in
             // "on_money_received" and "on_money_sent" callbacks
@@ -2320,6 +2505,24 @@ bool WalletImpl::doInit(const string &daemon_address, const std::string &proxy_a
     return true;
 }
 
+bool WalletImpl::checkBackgroundSync(const std::string &message) const
+{
+    clearStatus();
+    if (m_wallet->is_background_wallet())
+    {
+        LOG_ERROR("Background wallets " + message);
+        setStatusError(tr("Background wallets ") + message);
+        return true;
+    }
+    if (m_wallet->is_background_syncing())
+    {
+        LOG_ERROR(message + " while background syncing");
+        setStatusError(message + tr(" while background syncing. Stop background syncing first."));
+        return true;
+    }
+    return false;
+}
+
 bool WalletImpl::parse_uri(const std::string &uri, std::string &address, std::string &payment_id, uint64_t &amount, std::string &tx_description, std::string &recipient_name, std::vector<std::string> &unknown_parameters, std::string &error)
 {
     return m_wallet->parse_uri(uri, address, payment_id, amount, tx_description, recipient_name, unknown_parameters, error);
@@ -2338,6 +2541,8 @@ std::string WalletImpl::getDefaultDataDir() const
 bool WalletImpl::rescanSpent()
 {
   clearStatus();
+  if (checkBackgroundSync("cannot rescan spent"))
+    return false;
   if (!trustedDaemon()) {
     setStatusError(tr("Rescan spent can only be used with a trusted daemon"));
     return false;
