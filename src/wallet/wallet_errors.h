@@ -63,6 +63,7 @@ namespace tools
     //       invalid_password
     //       invalid_priority
     //       invalid_multisig_seed
+    //       invalid_spend_key
     //       refresh_error *
     //         acc_outs_lookup_error
     //         block_parse_error
@@ -96,6 +97,9 @@ namespace tools
     //       wallet_files_doesnt_correspond
     //       scan_tx_error *
     //         wont_reprocess_recent_txs_via_untrusted_daemon
+    //       background_sync_error *
+    //         background_wallet_already_open
+    //         background_custom_password_same_as_wallet_password
     //
     // * - class with protected ctor
 
@@ -297,6 +301,16 @@ namespace tools
     {
       explicit invalid_multisig_seed(std::string&& loc)
         : wallet_logic_error(std::move(loc), "invalid multisig seed")
+      {
+      }
+
+      std::string to_string() const { return wallet_logic_error::to_string(); }
+    };
+
+    struct invalid_spend_key : public wallet_logic_error
+    {
+      explicit invalid_spend_key(std::string&& loc)
+        : wallet_logic_error(std::move(loc), "invalid spend key")
       {
       }
 
@@ -940,6 +954,31 @@ namespace tools
     {
       explicit wont_reprocess_recent_txs_via_untrusted_daemon(std::string&& loc)
         : scan_tx_error(std::move(loc), "The wallet has already seen 1 or more recent transactions than the scanned tx")
+      {
+      }
+    };
+    //----------------------------------------------------------------------------------------------------
+    struct background_sync_error : public wallet_logic_error
+    {
+    protected:
+      explicit background_sync_error(std::string&& loc, const std::string& message)
+        : wallet_logic_error(std::move(loc), message)
+      {
+      }
+    };
+    //----------------------------------------------------------------------------------------------------
+    struct background_wallet_already_open : public background_sync_error
+    {
+      explicit background_wallet_already_open(std::string&& loc, const std::string& background_wallet_file)
+        : background_sync_error(std::move(loc), "background wallet " + background_wallet_file + " is already opened by another wallet program")
+      {
+      }
+    };
+    //----------------------------------------------------------------------------------------------------
+    struct background_custom_password_same_as_wallet_password : public background_sync_error
+    {
+      explicit background_custom_password_same_as_wallet_password(std::string&& loc)
+        : background_sync_error(std::move(loc), "custom background password must be different than wallet password")
       {
       }
     };
