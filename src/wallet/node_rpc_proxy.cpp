@@ -531,25 +531,13 @@ boost::optional<std::string> NodeRPCProxy::get_transactions(const tx_cont_t<tx_h
   return boost::none;
 }
 
-boost::optional<std::string> NodeRPCProxy::get_transaction(const crypto::hash& tx_hash, tx_t& tx_out, tx_entry_t& entry_out)
+boost::optional<std::string> NodeRPCProxy::get_transaction(const crypto::hash& tx_hash, tx_t* tx_out, tx_entry_t* entry_out)
 {
-  tx_handler_t tx_passthru_assignment = [&tx_out, &entry_out]
+  tx_handler_t tx_passthru_assignment = [tx_out, entry_out]
     (tx_t&& tx_m, tx_entry_t&& tx_entry_m, const tx_hash_t& ignored) -> bool
   {
-    tx_out = tx_m;
-    entry_out = tx_entry_m;
-    return true;
-  };
-
-  return get_transactions_one_chunk({epee::string_tools::pod_to_hex(tx_hash)}, &tx_hash, tx_passthru_assignment);
-}
-
-boost::optional<std::string> NodeRPCProxy::get_transaction(const crypto::hash& tx_hash, tx_t& tx_out)
-{
-  tx_handler_t tx_passthru_assignment = [&tx_out]
-    (tx_t&& tx_m, tx_entry_t&& ignored_1, const tx_hash_t& ignored_2) -> bool
-  {
-    tx_out = tx_m;
+    if (tx_out != nullptr) *tx_out = tx_m;
+    if (entry_out != nullptr) *entry_out = tx_entry_m;
     return true;
   };
 

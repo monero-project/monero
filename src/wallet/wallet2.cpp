@@ -7742,7 +7742,7 @@ bool wallet2::unset_ring(const crypto::hash &txid)
     return false;
 
   cryptonote::transaction tx;
-  const auto fail_res = m_node_rpc_proxy.get_transaction(txid, tx);
+  const auto fail_res = m_node_rpc_proxy.get_transaction(txid, &tx, nullptr);
   THROW_WALLET_EXCEPTION_IF(fail_res, error::wallet_internal_error, std::string("Failed to get transaction from daemon: ") + *fail_res);
 
   try { return m_ringdb->remove_rings(get_ringdb_key(), tx); }
@@ -11125,7 +11125,7 @@ bool wallet2::get_tx_key(const crypto::hash &txid, crypto::secret_key &tx_key, s
   if (tx_key_data.tx_prefix_hash.empty())
   {
     cryptonote::transaction tx;
-    const auto fail_res = m_node_rpc_proxy.get_transaction(txid, tx);
+    const auto fail_res = m_node_rpc_proxy.get_transaction(txid, &tx, nullptr);
     THROW_WALLET_EXCEPTION_IF(fail_res, error::wallet_internal_error, std::string("RPC proxy: get_transactions failed: ") + *fail_res);
 
     crypto::hash tx_prefix_hash;
@@ -11155,7 +11155,7 @@ bool wallet2::get_tx_key(const crypto::hash &txid, crypto::secret_key &tx_key, s
 void wallet2::set_tx_key(const crypto::hash &txid, const crypto::secret_key &tx_key, const std::vector<crypto::secret_key> &additional_tx_keys, const boost::optional<cryptonote::account_public_address> &single_destination_subaddress)
 {
   cryptonote::transaction tx;
-  const auto fail_res = m_node_rpc_proxy.get_transaction(txid, tx);
+  const auto fail_res = m_node_rpc_proxy.get_transaction(txid, &tx, nullptr);
   THROW_WALLET_EXCEPTION_IF(fail_res, error::wallet_internal_error, std::string("set_tx_key error: ") + *fail_res);
 
   std::vector<tx_extra_field> tx_extra_fields;
@@ -11197,7 +11197,7 @@ std::string wallet2::get_spend_proof(const crypto::hash &txid, const std::string
     "get_spend_proof requires spend secret key and is not available for a watch-only wallet");
 
   cryptonote::transaction tx;
-  const auto fail_res = m_node_rpc_proxy.get_transaction(txid, tx);
+  const auto fail_res = m_node_rpc_proxy.get_transaction(txid, &tx, nullptr);
   THROW_WALLET_EXCEPTION_IF(fail_res, error::wallet_internal_error, std::string("get_spend_proof error: ") + *fail_res);
 
   std::vector<std::vector<crypto::signature>> signatures;
@@ -11299,7 +11299,7 @@ bool wallet2::check_spend_proof(const crypto::hash &txid, const std::string &mes
 
   // fetch tx from daemon
   cryptonote::transaction tx;
-  const auto fail_res = m_node_rpc_proxy.get_transaction(txid, tx);
+  const auto fail_res = m_node_rpc_proxy.get_transaction(txid, &tx, nullptr);
   THROW_WALLET_EXCEPTION_IF(fail_res, error::wallet_internal_error, std::string("check_spend_proof error: ") + *fail_res);
 
   // check signature size
@@ -11449,7 +11449,7 @@ void wallet2::check_tx_key_helper(const crypto::hash &txid, const crypto::key_de
 
   cryptonote::transaction tx;
   cryptonote::COMMAND_RPC_GET_TRANSACTIONS::entry tx_entry;
-  const auto fail_res = m_node_rpc_proxy.get_transaction(txid, tx, tx_entry);
+  const auto fail_res = m_node_rpc_proxy.get_transaction(txid, &tx, &tx_entry);
   THROW_WALLET_EXCEPTION_IF(fail_res, error::wallet_internal_error, std::string("check_tx_key_helper error: ") + *fail_res);
 
   THROW_WALLET_EXCEPTION_IF(!additional_derivations.empty() && additional_derivations.size() != tx.vout.size(), error::wallet_internal_error,
@@ -11514,7 +11514,7 @@ bool wallet2::is_out_to_acc(const cryptonote::account_public_address &address, c
 std::string wallet2::get_tx_proof(const crypto::hash &txid, const cryptonote::account_public_address &address, bool is_subaddress, const std::string &message)
 {
   cryptonote::transaction tx;
-  const auto fail_res = m_node_rpc_proxy.get_transaction(txid, tx);
+  const auto fail_res = m_node_rpc_proxy.get_transaction(txid, &tx, nullptr);
   THROW_WALLET_EXCEPTION_IF(fail_res, error::wallet_internal_error, std::string("get_tx_proof error: ") + *fail_res);
 
     // determine if the address is found in the subaddress hash table (i.e. whether the proof is outbound or inbound)
@@ -11644,7 +11644,7 @@ bool wallet2::check_tx_proof(const crypto::hash &txid, const cryptonote::account
   // fetch tx pubkey from the daemon
   cryptonote::transaction tx;
   cryptonote::COMMAND_RPC_GET_TRANSACTIONS::entry tx_entry;
-  const auto fail_res = m_node_rpc_proxy.get_transaction(txid, tx, tx_entry);
+  const auto fail_res = m_node_rpc_proxy.get_transaction(txid, &tx, &tx_entry);
   THROW_WALLET_EXCEPTION_IF(fail_res, error::wallet_internal_error, std::string("check_tx_proof error: ") + *fail_res);
 
   if (!check_tx_proof(tx, address, is_subaddress, message, sig_str, received))

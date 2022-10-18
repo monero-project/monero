@@ -78,9 +78,6 @@ public:
    * errors, missing txids, and mismatched txids are all checked before invoking the callback, so
    * the caller can assume base transaction validity. This method is thread-safe.
    *
-   * This method is slower than the other get_transactions endpoint since the crypto::hash values
-   * have to be translated into std::strings before being sent over the wire.
-   *
    * @param txids contains request txids
    * @param cb tx_handler_t which processes received transactions
    *
@@ -89,30 +86,20 @@ public:
   boost::optional<std::string> get_transactions(const tx_cont_t<tx_hash_t>& txids, tx_handler_t& cb);
 
   /**
-   * @brief Invoke /get_transactions with one hash, and return parsed transaction.
+   * @brief Invoke /get_transactions with one hash, and get parsed transaction and raw entry.
    *
-   * Same as previous get_transactions() method, but we modify the transaction by reference instead
-   * of using a callback.
+   * We make a /get_transactions request with the given txid encoded as a hex string,
+   * decode_as_json=false, pruned=true, and split=false. RPC errors, transaction parsing
+   * errors, missing txids, and mismatched txids are all checked before setting the result, so
+   * the caller can assume base transaction validity. This method is thread-safe.
    *
-   * @param txids contains request txids
-   * @param[out] tx_res parsed transaction returned by /get_transactions
-   *
-   * @return boost::none on success, otherwise returns error message
-   */
-  boost::optional<std::string> get_transaction(const tx_hash_t& txid, tx_t& tx_res);
-
-  /**
-   * @brief Invoke /get_transactions with one hash, and return parsed transaction.
-   *
-   * Same as previous get_transaction() method, but we also get a tx entry output paramter.
-   *
-   * @param txids contains request txids
-   * @param[out] tx_res parsed transaction returned by /get_transactions
-   * @param[out] tx_entry_res raw transaction entry received from response
+   * @param txid contains request txid
+   * @param[out] tx_res if != nullptr, will be set to parsed cryptonote::transaction received
+   * @param[out] tx_entry_res if != nullptr, will be set to raw transaction entry received
    *
    * @return boost::none on success, otherwise returns error message
    */
-  boost::optional<std::string> get_transaction(const tx_hash_t& txid, tx_t& tx_res, tx_entry_t& tx_entry_res);
+  boost::optional<std::string> get_transaction(const tx_hash_t& txid, tx_t* tx_res, tx_entry_t* tx_entry_res);
 
 private:
   template<typename T> void handle_payment_changes(const T &res, std::true_type) {
