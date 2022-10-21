@@ -55,7 +55,7 @@ monerod_extra = [
   ["--add-exclusive-node", "127.0.0.1:18283"],
   ["--add-exclusive-node", "127.0.0.1:18282"],
 ]
-wallet_base = [builddir + "/bin/monero-wallet-rpc", "--wallet-dir", WALLET_DIRECTORY, "--rpc-bind-port", "wallet_port", "--disable-rpc-login", "--rpc-ssl", "disabled", "--daemon-ssl", "disabled", "--log-level", "1", "--allow-mismatched-daemon-version"]
+wallet_base = [builddir + "/bin/monero-wallet-rpc", "--wallet-dir", WALLET_DIRECTORY, "--rpc-bind-port", "$(wallet_port)", "--disable-rpc-login", "--rpc-ssl", "disabled", "--daemon-ssl", "disabled", "--log-level", "1", "--log-file", WALLET_DIRECTORY + "/wallet_$(wallet_port).log", "--allow-mismatched-daemon-version"]
 wallet_extra = [
   ["--daemon-port", "18180"],
   ["--daemon-port", "18180"],
@@ -78,7 +78,7 @@ for i in range(N_MONERODS):
   ports.append(18180+i)
 
 for i in range(N_WALLETS):
-  command_lines.append([str(18090+i) if x == "wallet_port" else x for x in wallet_base])
+  command_lines.append([x.replace("$(wallet_port)", str(18090+i)) for x in wallet_base])
   if i < len(wallet_extra):
     command_lines[-1] += wallet_extra[i]
   outputs.append(open(FUNCTIONAL_TESTS_DIRECTORY + '/wallet' + str(i) + '.log', 'a+'))
