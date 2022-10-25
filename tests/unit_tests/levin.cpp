@@ -792,25 +792,33 @@ TEST_F(levin_notify, local_without_padding)
     notifier.new_out_connection();
     io_service_.poll();
 
-    std::vector<cryptonote::blobdata> txs(2);
-    txs[0].resize(100, 'f');
-    txs[1].resize(200, 'e');
+    std::vector<cryptonote::blobdata> my_txs(2);
+    my_txs[0].resize(100, 'f');
+    my_txs[1].resize(200, 'e');
 
-    std::vector<cryptonote::blobdata> sorted_txs = txs;
-    std::sort(sorted_txs.begin(), sorted_txs.end());
+    std::vector<cryptonote::blobdata> their_txs{2};
+    their_txs[0].resize(300, 'g');
+    their_txs[1].resize(250, 'h');
+
+    std::vector<cryptonote::blobdata> my_sorted_txs = my_txs;
+    std::sort(my_sorted_txs.begin(), my_sorted_txs.end());
+
+    std::vector<cryptonote::blobdata> their_sorted_txs = their_txs;
+    std::sort(their_sorted_txs.begin(), their_sorted_txs.end());
 
     ASSERT_EQ(10u, contexts_.size());
     bool has_stemmed = false;
     bool has_fluffed = false;
     while (!has_stemmed || !has_fluffed)
     {
+        // run their "their" txes first
         auto context = contexts_.begin();
-        EXPECT_TRUE(notifier.send_txs(txs, context->get_id(), cryptonote::relay_method::local));
+        EXPECT_TRUE(notifier.send_txs(their_txs, context->get_id(), cryptonote::relay_method::stem));
 
         io_service_.reset();
         ASSERT_LT(0u, io_service_.poll());
         const bool is_stem = events_.has_stem_txes();
-        EXPECT_EQ(txs, events_.take_relayed(is_stem ? cryptonote::relay_method::stem : cryptonote::relay_method::fluff));
+        EXPECT_EQ(their_txs, events_.take_relayed(is_stem ? cryptonote::relay_method::stem : cryptonote::relay_method::fluff));
 
         if (!is_stem)
         {
@@ -836,12 +844,40 @@ TEST_F(levin_notify, local_without_padding)
         {
             auto notification = receiver_.get_notification<cryptonote::NOTIFY_NEW_TRANSACTIONS>().second;
 	    if (is_stem)
-	      EXPECT_EQ(txs, notification.txs);
+	      EXPECT_EQ(their_txs, notification.txs);
 	    else
-	      EXPECT_EQ(sorted_txs, notification.txs);
+	      EXPECT_EQ(their_sorted_txs, notification.txs);
             EXPECT_TRUE(notification._.empty());
             EXPECT_EQ(!is_stem, notification.dandelionpp_fluff);
         }
+
+        // run "my" txes which must always be stem
+        context = contexts_.begin();
+        EXPECT_TRUE(notifier.send_txs(my_txs, context->get_id(), cryptonote::relay_method::local));
+
+        io_service_.reset();
+        ASSERT_LT(0u, io_service_.poll());
+        EXPECT_TRUE(events_.has_stem_txes());
+        EXPECT_EQ(my_txs, events_.take_relayed(cryptonote::relay_method::stem));
+
+        send_count = 0;
+        EXPECT_EQ(0u, context->process_send_queue());
+        for (++context; context != contexts_.end(); ++context)
+        {
+            const std::size_t sent = context->process_send_queue();
+            if (sent)
+            {
+                EXPECT_EQ(1u, (context - contexts_.begin()) % 2);
+            }
+            send_count += sent;
+        }
+
+        EXPECT_EQ(1u, send_count);
+        EXPECT_EQ(1u, receiver_.notified_size());
+        auto notification = receiver_.get_notification<cryptonote::NOTIFY_NEW_TRANSACTIONS>().second;
+        EXPECT_EQ(my_txs, notification.txs);
+        EXPECT_TRUE(notification._.empty());
+        EXPECT_TRUE(!notification.dandelionpp_fluff);
 
         has_stemmed |= is_stem;
         has_fluffed |= !is_stem;
@@ -1170,22 +1206,27 @@ TEST_F(levin_notify, local_with_padding)
     notifier.new_out_connection();
     io_service_.poll();
 
-    std::vector<cryptonote::blobdata> txs(2);
-    txs[0].resize(100, 'e');
-    txs[1].resize(200, 'f');
+    std::vector<cryptonote::blobdata> my_txs(2);
+    my_txs[0].resize(100, 'e');
+    my_txs[1].resize(200, 'f');
+
+    std::vector<cryptonote::blobdata> their_txs{2};
+    their_txs[0].resize(300, 'g');
+    their_txs[1].resize(250, 'h');
 
     ASSERT_EQ(10u, contexts_.size());
     bool has_stemmed = false;
     bool has_fluffed = false;
     while (!has_stemmed || !has_fluffed)
     {
+      // run their "their" txes first
         auto context = contexts_.begin();
-        EXPECT_TRUE(notifier.send_txs(txs, context->get_id(), cryptonote::relay_method::local));
+        EXPECT_TRUE(notifier.send_txs(their_txs, context->get_id(), cryptonote::relay_method::stem));
 
         io_service_.reset();
         ASSERT_LT(0u, io_service_.poll());
         const bool is_stem = events_.has_stem_txes();
-        EXPECT_EQ(txs, events_.take_relayed(is_stem ? cryptonote::relay_method::stem : cryptonote::relay_method::fluff));
+        EXPECT_EQ(their_txs, events_.take_relayed(is_stem ? cryptonote::relay_method::stem : cryptonote::relay_method::fluff));
 
         if (!is_stem)
         {
@@ -1211,10 +1252,38 @@ TEST_F(levin_notify, local_with_padding)
         for (unsigned count = 0; count < (is_stem ? 1u : 9u); ++count)
         {
             auto notification = receiver_.get_notification<cryptonote::NOTIFY_NEW_TRANSACTIONS>().second;
-            EXPECT_EQ(txs, notification.txs);
+            EXPECT_EQ(their_txs, notification.txs);
             EXPECT_FALSE(notification._.empty());
             EXPECT_EQ(!is_stem, notification.dandelionpp_fluff);
         }
+
+        // run "my" txes which must always be stem
+        context = contexts_.begin();
+        EXPECT_TRUE(notifier.send_txs(my_txs, context->get_id(), cryptonote::relay_method::local));
+
+        io_service_.reset();
+        ASSERT_LT(0u, io_service_.poll());
+        EXPECT_TRUE(events_.has_stem_txes());
+        EXPECT_EQ(my_txs, events_.take_relayed(cryptonote::relay_method::stem));
+
+        send_count = 0;
+        EXPECT_EQ(0u, context->process_send_queue());
+        for (++context; context != contexts_.end(); ++context)
+        {
+            const std::size_t sent = context->process_send_queue();
+            if (sent)
+            {
+                EXPECT_EQ(1u, (context - contexts_.begin()) % 2);
+            }
+            send_count += sent;
+        }
+
+        EXPECT_EQ(1u, send_count);
+        EXPECT_EQ(1u, receiver_.notified_size());
+        auto notification = receiver_.get_notification<cryptonote::NOTIFY_NEW_TRANSACTIONS>().second;
+        EXPECT_EQ(my_txs, notification.txs);
+        EXPECT_FALSE(notification._.empty());
+        EXPECT_TRUE(!notification.dandelionpp_fluff);
 
         has_stemmed |= is_stem;
         has_fluffed |= !is_stem;

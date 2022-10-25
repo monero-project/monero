@@ -542,6 +542,7 @@ namespace levin
       i_core_events* core_;
       std::vector<blobdata> txs_;
       boost::uuids::uuid source_;
+      relay_method tx_relay;
 
       //! \pre Called in `zone_->strand`
       void operator()()
@@ -549,7 +550,7 @@ namespace levin
         if (!zone_ || !core_ || txs_.empty())
           return;
 
-        if (!zone_->fluffing)
+        if (!zone_->fluffing || tx_relay == relay_method::local)
         {
           core_->on_transactions_relayed(epee::to_span(txs_), relay_method::stem);
           for (int tries = 2; 0 < tries; tries--)
@@ -589,7 +590,7 @@ namespace levin
 
       change_channels(change_channels&&) = default;
       change_channels(const change_channels& source)
-        : zone_(source.zone_), map_(source.map_.clone())
+        : zone_(source.zone_), map_(source.map_.clone()), fluffing_(source.fluffing_)
       {}
 
       //! \pre Called within `zone_->strand`.
@@ -871,7 +872,7 @@ namespace levin
           {
             // this will change a local/forward tx to stem or fluff ...
             zone_->strand.dispatch(
-              dandelionpp_notify{zone_, core_, std::move(txs), source}
+              dandelionpp_notify{zone_, core_, std::move(txs), source, tx_relay}
             );
             break;
           }
