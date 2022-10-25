@@ -549,7 +549,7 @@ boost::optional<std::string> NodeRPCProxy::get_transactions_one_chunk(tx_cont_t<
   // Check if offline
   if (m_offline)
   {
-    return std::string("NodeRPCProxy offline");
+    return std::string("offline");
   }
 
   // Setup request/response forms
