@@ -775,7 +775,7 @@ bool t_rpc_command_executor::print_blockchain_info(int64_t start_block_index, ui
         return true;
       }
     }
-    if (start_block_index < 0 && (uint64_t)-start_block_index >= ires.height)
+    if ((uint64_t)-start_block_index >= ires.height)
     {
       tools::fail_msg_writer() << "start offset is larger than blockchain height";
       return true;
