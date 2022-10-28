@@ -1,15 +1,20 @@
+# Monero hard-fork release check-list
+
 - [ ] Security audit
 - [ ] Code audit
 - [ ] Ledger integration
-  - [ ] Implemented in Monero codebase (if needed)
-  - [ ] Ledger app integration coded by Ledger
+  - [ ] Ledger notified
+  - [ ] Pull request made against Monero codebase (if needed)
+  - [ ] Pull request merged into Monero codebase (if needed)
+  - [ ] Ledger app integration coded
   - [ ] Ledger Monero app update available
 - [ ] Trezor integration
-  - [ ] Implemented in Monero codebase (if needed)
-  - [ ] Trezor app integration coded by Trezor
-  - [ ] Trezor firmware update available (if needed)
+  - [ ] Trezor notified
+  - [ ] Pull request made against Monero codebase (if needed)
+  - [ ] Pull request merged into Monero codebase (if needed)
+  - [ ] Trezor firmware update coded
+  - [ ] Trezor firmware update available
 - [ ] Fork height set
-  - [ ] Monero-announce mailer notice
   - [ ] Twitter announcement
   - [ ] Reddit announcement
   - [ ] Getmonero.org announcement
@@ -26,13 +31,15 @@
   - [ ] Edge Wallet
   - [ ] Exodus
   - [ ] XMRWallet
+  - [ ] Feather Wallet
 - [ ] Notify exchanges
-  - [ ] https://web.getmonero.org/community/merchants/#exchanges
+  - [ ] https://www.getmonero.org/community/merchants/#exchanges
 - [ ] Notify 3rd party payment processors
-  - [ ] https://web.getmonero.org/community/merchants/#payment-gateways
+  - [ ] https://www.getmonero.org/community/merchants/#payment-gateways
+  - [ ] BTCPayServer
 - [ ] Notify mining pools
   - [ ] https://miningpoolstats.stream/monero
-- [ ] Release tagged
+- [ ] Release branch created
   - [ ] Update src/version.cpp.in with new version AND new name (if necessary)
   - [ ] Update Gitian YML files in contrib/gitian/ to the new version number
   - [ ] Update README.md with new fork table entry (or at least update the Recommended Monero version)
@@ -46,16 +53,21 @@
   - [ ] Trezor
   - [ ] Release-specific testing
   - [ ] RPC testing/update RPC documentation
+- [ ] Stagenet forked
+- [ ] Stagenet testing/verification
+  - [ ] Ledger
+  - [ ] Trezor
+  - [ ] Release-specific testing
 - [ ] CLI reproducible builds validated
 - [ ] CLI released
-  - [ ] https://web.getmonero.org/downloads/ updated
+  - [ ] https://www.getmonero.org/downloads/ updated
   - [ ] Update hashes.txt on website
   - [ ] Update downloads.yml on website
   - [ ] Update auto-update DNS records
   - [ ] Update redirects on downloads box
   - [ ] Update seed nodes
 - [ ] GUI released
-  - [ ] https://web.getmonero.org/downloads/ updated
+  - [ ] https://www.getmonero.org/downloads/ updated
   - [ ] Update hashes.txt on website
   - [ ] Update hashes.txt.sig on website
   - [ ] Update downloads.yml on website
