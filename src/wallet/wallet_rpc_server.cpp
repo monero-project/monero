@@ -60,6 +60,7 @@ using namespace epee;
 #define MONERO_DEFAULT_LOG_CATEGORY "wallet.rpc"
 
 #define DEFAULT_AUTO_REFRESH_PERIOD 20 // seconds
+#define REFRESH_INFICATIVE_BLOCK_CHUNK_SIZE 256    // just to split refresh in separate calls to play nicer with other threads
 
 #define CHECK_MULTISIG_ENABLED() \
   do \
@@ -79,6 +80,7 @@ namespace
   const command_line::arg_descriptor<bool> arg_restricted = {"restricted-rpc", "Restricts to view-only commands", false};
   const command_line::arg_descriptor<std::string> arg_wallet_dir = {"wallet-dir", "Directory for newly created wallets"};
   const command_line::arg_descriptor<bool> arg_prompt_for_password = {"prompt-for-password", "Prompts for password when not provided", false};
+  const command_line::arg_descriptor<bool> arg_no_initial_sync = {"no-initial-sync", "Skips the initial sync before listening for connections", false};
 
   constexpr const char default_rpc_username[] = "monero";
 
@@ -149,12 +151,17 @@ namespace tools
         return true;
       if (boost::posix_time::microsec_clock::universal_time() < m_last_auto_refresh_time + boost::posix_time::seconds(m_auto_refresh_period))
         return true;
+      uint64_t blocks_fetched = 0;
       try {
-        if (m_wallet) m_wallet->refresh(m_wallet->is_trusted_daemon());
+        bool received_money = false;
+        if (m_wallet) m_wallet->refresh(m_wallet->is_trusted_daemon(), 0, blocks_fetched, received_money, true, REFRESH_INFICATIVE_BLOCK_CHUNK_SIZE);
       } catch (const std::exception& ex) {
         LOG_ERROR("Exception at while refreshing, what=" << ex.what());
       }
-      m_last_auto_refresh_time = boost::posix_time::microsec_clock::universal_time();
+      // if we got the max amount of blocks, do not set the last refresh time, we did only part of the refresh and will
+      // continue asap, and only set the last refresh time once the refresh is actually finished
+      if (blocks_fetched < REFRESH_INFICATIVE_BLOCK_CHUNK_SIZE)
+        m_last_auto_refresh_time = boost::posix_time::microsec_clock::universal_time();
       return true;
     }, 1000);
     m_net_server.add_idle_handler([this](){
@@ -4521,6 +4528,7 @@ public:
       const auto password_file = command_line::get_arg(vm, arg_password_file);
       const auto prompt_for_password = command_line::get_arg(vm, arg_prompt_for_password);
       const auto password_prompt = prompt_for_password ? password_prompter : nullptr;
+      const auto no_initial_sync = command_line::get_arg(vm, arg_no_initial_sync);
 
       if(!wallet_file.empty() && !from_json.empty())
       {
@@ -4589,7 +4597,8 @@ public:
 
       try
       {
-        wal->refresh(wal->is_trusted_daemon());
+        if (!no_initial_sync)
+          wal->refresh(wal->is_trusted_daemon());
       }
       catch (const std::exception& e)
       {
@@ -4700,6 +4709,7 @@ int main(int argc, char** argv) {
   command_line::add_arg(desc_params, arg_wallet_dir);
   command_line::add_arg(desc_params, arg_prompt_for_password);
   command_line::add_arg(desc_params, arg_rpc_client_secret_key);
+  command_line::add_arg(desc_params, arg_no_initial_sync);
 
   daemonizer::init_options(hidden_options, desc_params);
   desc_params.add(hidden_options);
