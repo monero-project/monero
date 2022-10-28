@@ -49,7 +49,7 @@ namespace serialization
     byte_stream ss;
     ss.reserve(initial_buffer_size);
     store_to_binary(ss);
-    target = epee::byte_slice{std::move(ss)};
+    target = epee::byte_slice{std::move(ss), false};
     return true;
     CATCH_ENTRY("portable_storage::store_to_binary", false);
   }
