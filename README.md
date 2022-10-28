@@ -20,6 +20,7 @@ Portions Copyright (c) 2012-2013 The Cryptonote developers.
   - [Release staging schedule and protocol](#release-staging-schedule-and-protocol)
   - [Compiling Monero from source](#compiling-monero-from-source)
     - [Dependencies](#dependencies)
+    - [Gitian builds](#gitian-builds)
   - [Internationalization](#Internationalization)
   - [Using Tor](#using-tor)
   - [Pruning](#Pruning)
@@ -586,6 +587,10 @@ The required packages are the names for each toolchain on apt. Depending on your
 Using `depends` might also be easier to compile Monero on Windows than using MSYS. Activate Windows Subsystem for Linux (WSL) with a distro (for example Ubuntu), install the apt build-essentials and follow the `depends` steps as depicted above.
 
 The produced binaries still link libc dynamically. If the binary is compiled on a current distribution, it might not run on an older distribution with an older installation of libc. Passing `-DBACKCOMPAT=ON` to cmake will make sure that the binary will run on systems having at least libc version 2.17.
+
+### Gitian builds
+
+See [contrib/gitian/README.md](contrib/gitian/README.md).
 
 ## Installing Monero from a package
 
