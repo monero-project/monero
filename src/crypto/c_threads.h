@@ -31,6 +31,7 @@
 
 #ifdef _WIN32
 #include <windows.h>
+#include <synchapi.h>
 #define CTHR_MUTEX_TYPE	HANDLE
 #define CTHR_MUTEX_INIT	NULL
 #define CTHR_MUTEX_LOCK(x)	do { if (x == NULL) { \
@@ -44,6 +45,11 @@
 #define CTHR_THREAD_RETURN	return
 #define CTHR_THREAD_CREATE(thr, func, arg)	thr = (HANDLE)_beginthread(func, 0, arg)
 #define CTHR_THREAD_JOIN(thr)			WaitForSingleObject(thr, INFINITE)
+#define CTHR_RWLOCK_TYPE SRWLOCK
+#define CTHR_RWLOCK_LOCK(x, w) do { if (w) AcquireSRWLockExclusive(&x); else AcquireSRWLockShared(&x); } while(0)
+#define CTHR_RWLOCK_UNLOCK(x, w) do { if (w) ReleaseSRWLockExclusive(&x); else ReleaseSRWLockShared(&x); } while(0)
+#define CTHR_RWLOCK_INIT SRWLOCK_INIT
+
 #else
 #include <pthread.h>
 #define CTHR_MUTEX_TYPE pthread_mutex_t
@@ -55,4 +61,9 @@
 #define CTHR_THREAD_RETURN	return NULL
 #define CTHR_THREAD_CREATE(thr, func, arg)	pthread_create(&thr, NULL, func, arg)
 #define CTHR_THREAD_JOIN(thr)			pthread_join(thr, NULL)
+#define CTHR_RWLOCK_TYPE pthread_rwlock_t
+#define CTHR_RWLOCK_LOCK(x, w) do { if (w) pthread_rwlock_wrlock(&x); else pthread_rwlock_rdlock(&x); } while(0)
+#define CTHR_RWLOCK_UNLOCK(x, w) pthread_rwlock_unlock(&x)
+#define CTHR_RWLOCK_INIT PTHREAD_RWLOCK_INITIALIZER
+
 #endif
