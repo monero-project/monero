@@ -660,9 +660,6 @@ bool Blockchain::reset_and_set_genesis_block(const block& b)
   m_db->drop_alt_blocks();
   m_hardfork->init();
 
-  for(InitHook* hook : m_init_hooks)
-    hook->init();
-
   db_wtxn_guard wtxn_guard(m_db);
   block_verification_context bvc = {};
   add_new_block(b, bvc);
@@ -2420,20 +2417,7 @@ void Blockchain::get_output_key_mask_unlocked(const uint64_t& amount, const uint
 //------------------------------------------------------------------
 bool Blockchain::get_output_distribution(uint64_t amount, uint64_t from_height, uint64_t to_height, uint64_t &start_height, std::vector<uint64_t> &distribution, uint64_t &base) const
 {
-  // rct outputs don't exist before v4
-  if (amount == 0)
-  {
-    switch (m_nettype)
-    {
-      case STAGENET: start_height = stagenet_hard_forks[3].height; break;
-      case TESTNET: start_height = testnet_hard_forks[3].height; break;
-      case MAINNET: start_height = mainnet_hard_forks[3].height; break;
-      case FAKECHAIN: start_height = 0; break;
-      default: return false;
-    }
-  }
-  else
-    start_height = 0;
+  start_height = 0;
   base = 0;
 
   if (to_height > 0 && to_height < from_height)

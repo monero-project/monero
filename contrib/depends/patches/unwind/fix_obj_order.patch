@@ -1,9 +1,9 @@
---- config/ltmain.sh.O	2017-01-13 16:00:54.000000000 +0000
-+++ config/ltmain.sh	2019-11-17 06:46:51.994402494 +0000
-@@ -7957,6 +7957,8 @@
- 	    esac
- 	  done
+--- config/ltmain.sh.0	2020-11-10 17:25:26.000000000 +0100
++++ config/ltmain.sh	2021-09-11 19:39:36.000000000 +0200
+@@ -10768,6 +10768,8 @@
  	fi
+ 	func_to_tool_file "$oldlib" func_convert_file_msys_to_w32
+ 	tool_oldlib=$func_to_tool_file_result
 +	oldobjs=`for obj in $oldobjs; do echo $obj; done | sort`
 +	oldobjs=" `echo $oldobjs`"
  	eval cmds=\"$old_archive_cmds\"

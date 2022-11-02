@@ -1376,8 +1376,8 @@ namespace service_nodes
 
 	bool service_node_list::store()
 	{
+		if (!m_db) return false;
 
-		CHECK_AND_ASSERT_MES(m_db != nullptr, false, "Failed to store service node info, m_db == nullptr");
 		data_members_for_serialization data_to_store;
 		{
 			std::lock_guard<boost::recursive_mutex> lock(m_sn_mutex);
