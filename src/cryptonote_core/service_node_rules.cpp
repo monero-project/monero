@@ -31,10 +31,11 @@ namespace service_nodes {
 				return base + variable;
 			}
 		}
-		
+
 		if(height >= 841197)
 		{
-			return 100000 * COIN;
+			base = 100000 * COIN;
+			variable = 0;
 		}
 		else if (height >= 352846 && height < 841197)
 		{
