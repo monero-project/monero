@@ -59,7 +59,7 @@ if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
 	if (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "x86_64" OR ${CMAKE_SYSTEM_PROCESSOR} STREQUAL "x86_64")
 		set_source_files_properties(pow_hash/cn_slow_hash_intel_avx2.cpp PROPERTIES COMPILE_FLAGS "-mavx2")
 		set_source_files_properties(pow_hash/cn_slow_hard_intel.cpp PROPERTIES COMPILE_FLAGS "-msse2 -maes")
-	elseif (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "aarch64")
+	elseif (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "aarch64" AND NOT APPLE)
 		set_source_files_properties(pow_hash/cn_slow_hash_hard_arm.cpp PROPERTIES COMPILE_FLAGS "-march=armv8-a+crypto")
 	endif()
 endif()
@@ -73,18 +73,17 @@ set(crypto_private_headers
   crypto-ops.h
   crypto.h
   generic-ops.h
-    groestl.h
+  groestl.h
   groestl_tables.h
   hash-ops.h
   hash.h
-    jh.h
+  jh.h
   hmac-keccak.h
   initializer.h
   keccak.h
   skein_port.h
   oaes_config.h
   oaes_lib.h
-  pow_hash/cn_slow_hash.hpp
   random.h
   sha512.h)
 

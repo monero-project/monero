@@ -564,7 +564,7 @@ void cn_slow_hash<MEMORY, ITER, VERSION>::inner_hash_3()
 	}
 }
 
-#if defined(__aarch64__)
+#if defined(__aarch64__) && !defined(__APPLE__)
 template <size_t MEMORY, size_t ITER, size_t VERSION>
 void cn_slow_hash<MEMORY, ITER, VERSION>::hardware_hash_3(const void* in, size_t len, void* pout)
 {

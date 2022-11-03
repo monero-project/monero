@@ -54,7 +54,7 @@
 #define HAS_ARM
 #endif
 
-#if defined(__aarch64__)
+#if defined(__aarch64__) && !defined(__APPLE__)
 #include <asm/hwcap.h>
 #include <sys/auxv.h>
 #define HAS_ARM_HW

@@ -31,7 +31,7 @@ CC="@CC@"
 CXX="@CXX@"
 OBJC="${CC}"
 CCACHE=$depends_prefix/native/bin/ccache
-PYTHONPATH=$depends_prefix/native/lib/python/dist-packages:$PYTHONPATH
+PYTHONPATH=$depends_prefix/native/lib/python3/dist-packages:$PYTHONPATH
 
 if test -n "@AR@"; then
   AR=@AR@
