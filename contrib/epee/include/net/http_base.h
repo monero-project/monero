@@ -55,19 +55,7 @@ namespace net_utils
 			http_method_unknown
 		};
 
-		enum http_content_type
-		{
-			http_content_type_text_html,
-			http_content_type_image_gif, 
-			http_content_type_other,
-			http_content_type_not_set
-		};
-
 		typedef std::list<std::pair<std::string, std::string> > fields_list;
-
-		std::string get_value_from_fields_list(const std::string& param_name, const net_utils::http::fields_list& fields);
-
-		std::string get_value_from_uri_line(const std::string& param_name, const std::string& uri);
 
 		static inline void add_field(std::string& out, const boost::string_ref name, const boost::string_ref value)
 		{
