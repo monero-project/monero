@@ -29,22 +29,34 @@
 #pragma once
 
 #include <string>
-#include <boost/thread/mutex.hpp>
-#include <boost/thread/recursive_mutex.hpp>
+
+#include "connection_settings.h"
+#include "cryptonote_basic/blobdatatype.h"
 #include "include_base_utils.h"
-#include "net/abstract_http_client.h"
+#include "net/http.h"
 #include "rpc/core_rpc_server_commands_defs.h"
+#include "storages/http_abstract_invoke.h"
+
+namespace
+{
+template <class Res> void clear_status(Res& res);
+}
 
 namespace tools
 {
-
 class NodeRPCProxy
 {
 public:
-  NodeRPCProxy(epee::net_utils::http::abstract_http_client &http_client, boost::recursive_mutex &mutex);
+  NodeRPCProxy();
 
   void invalidate();
-  void set_offline(bool offline) { m_offline = offline; }
+  bool is_offline() const;
+  void set_offline(bool offline = true);
+  bool set_daemon(connection_settings&& conn_setts);
+  uint64_t get_bytes_sent() const;
+  uint64_t get_bytes_received() const;
+  bool try_connection_start(bool* using_ssl = nullptr);
+  const connection_settings& get_connection_settings() const;
 
   boost::optional<std::string> get_rpc_version(uint32_t &rpc_version, std::vector<std::pair<uint8_t, uint64_t>> &daemon_hard_forks, uint64_t &height, uint64_t &target_height);
   boost::optional<std::string> get_height(uint64_t &height);
@@ -57,11 +69,58 @@ public:
   boost::optional<std::string> get_dynamic_base_fee_estimate_2021_scaling(uint64_t grace_blocks, std::vector<uint64_t> &fees);
   boost::optional<std::string> get_fee_quantization_mask(uint64_t &fee_quantization_mask);
 
+  template <class Req, class Res>
+  bool invoke_http_json
+  (
+    const std::string& uri,
+    Req& req,
+    Res& res,
+    std::chrono::milliseconds timeout = default_timeout
+  )
+  {
+    clear_status(res);
+    return epee::net_utils::invoke_http_json(uri, req, res, get_transport_ref(), timeout);
+  }
+
+  template <class Req, class Res>
+  bool invoke_http_json_rpc
+  (
+    const std::string& rpc_method,
+    Req& req,
+    Res& res,
+    epee::json_rpc::error& error,
+    std::chrono::milliseconds timeout = default_timeout
+  )
+  {
+    clear_status(res);
+    return epee::net_utils::invoke_http_json_rpc("/json_rpc", rpc_method, req, res, error,
+      get_transport_ref(), timeout);
+  }
+
+  template <class Req, class Res>
+  bool invoke_http_bin
+  (
+    const std::string& uri,
+    Req& req,
+    Res& res,
+    std::chrono::milliseconds timeout = default_timeout
+  )
+  {
+    clear_status(res);
+    return epee::net_utils::invoke_http_bin(uri, req, res, get_transport_ref(), timeout);
+  }
+
 private:
   boost::optional<std::string> get_info();
 
-  epee::net_utils::http::abstract_http_client &m_http_client;
-  boost::recursive_mutex &m_daemon_rpc_mutex;
+  std::string sanitize_daemon_message(const std::string& msg) const;
+
+  epee::net_utils::http::abstract_http_transport& get_transport_ref();
+
+  static std::chrono::milliseconds default_timeout;
+
+  net::http::client m_http_client;
+  connection_settings m_connection_settings;
   bool m_offline;
 
   uint64_t m_height;
@@ -81,4 +140,36 @@ private:
   std::vector<std::pair<uint8_t, uint64_t>> m_daemon_hard_forks;
 };
 
+} // namespace tools
+
+namespace
+{
+// credits to yrp (https://stackoverflow.com/questions/87372/check-if-a-class-has-a-member-function-of-a-given-signature
+template <class Res>
+struct Statusable
+{
+  template<typename U, std::string (U::*)> struct SFINAE {};
+  template<typename U> static char Test(SFINAE<U, &U::status>*);
+  template<typename U> static int Test(...);
+  static constexpr bool is_rpc_resp_derived = std::is_base_of<cryptonote::rpc_response_base, Res>();
+  static constexpr bool has_status_member = sizeof(Test<Res>(0)) == sizeof(char);
+  static constexpr bool value = is_rpc_resp_derived || has_status_member;
+  using type = std::integral_constant<bool, value>;
+};
+
+template <class Res>
+void clear_status(Res& res, std::true_type)
+{
+  res.status.clear();
 }
+
+template <class Res>
+void clear_status(Res& res, std::false_type)
+{}
+
+template <class Res>
+void clear_status(Res& res)
+{
+  return clear_status(res, typename Statusable<Res>::type());
+}
+} // anonymous namespace

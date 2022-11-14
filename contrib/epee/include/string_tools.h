@@ -135,6 +135,19 @@ namespace string_tools
    std::wstring utf8_to_utf16(const std::string& str);
    std::string utf16_to_utf8(const std::wstring& wstr);
 #endif
+
+  /**
+   * @brief Takes an untrusted string input and removes weird characters and limits the length
+   *
+   * The only characters allowed in the result are alphanumeric characters, '+', '/', or ' '.
+   * This is to prevent unsanitized strings from modifiying the shell through escape sequences, etc.
+   *
+   * @param str input string
+   * @param max_len maximum length of resulting string. If 0, there is no limit
+   * @return std::string safe string
+   */
+
+  std::string mangle_untrusted_display_string(const std::string& str, size_t max_len = 0);
 }
 }
 #endif //_STRING_TOOLS_H_

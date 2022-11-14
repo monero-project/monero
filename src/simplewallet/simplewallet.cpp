@@ -5310,15 +5310,17 @@ bool simple_wallet::set_daemon(const std::vector<std::string>& args)
       return true;
     }
 
-    std::string trusted;
+    enum TrustOption { IMPLICIT, TRUSTED, UNTRUSTED, PROB_SPY };
+
+    TrustOption trusted = IMPLICIT;
     if (args.size() == 2)
     {
       if (args[1] == "trusted")
-        trusted = "trusted";
+        trusted = TRUSTED;
       else if (args[1] == "untrusted")
-        trusted = "untrusted";
+        trusted = UNTRUSTED;
       else if (args[1] == "this-is-probably-a-spy-node")
-        trusted = "this-is-probably-a-spy-node";
+        trusted = PROB_SPY;
       else
       {
         fail_msg_writer() << tr("Expected trusted, untrusted or this-is-probably-a-spy-node got ") << args[1];
@@ -5328,7 +5330,7 @@ bool simple_wallet::set_daemon(const std::vector<std::string>& args)
 
     if (!tools::is_privacy_preserving_network(parsed.host) && !tools::is_local_address(parsed.host))
     {
-      if (trusted == "untrusted" || trusted == "")
+      if (trusted == UNTRUSTED || trusted == IMPLICIT)
       {
         fail_msg_writer() << tr("This is not Tor/I2P address, and is not a trusted daemon.");
         fail_msg_writer() << tr("Either use your own trusted node, connect via Tor or I2P, or pass this-is-probably-a-spy-node and be spied on.");
@@ -5339,26 +5341,21 @@ bool simple_wallet::set_daemon(const std::vector<std::string>& args)
         message_writer(console_color_red) << tr("Warning: connecting to a non-local daemon without SSL, passive adversaries will be able to spy on you.");
     }
 
-    LOCK_IDLE_SCOPE();
-    m_wallet->init(daemon_url);
-
-    if (!trusted.empty())
+    try
     {
-      m_wallet->set_trusted_daemon(trusted == "trusted");
-    }
-    else
-    {
-      m_wallet->set_trusted_daemon(false);
-      try
+      if (trusted == IMPLICIT && tools::is_local_address(m_wallet->get_daemon_address()))
       {
-        if (tools::is_local_address(m_wallet->get_daemon_address()))
-        {
-          MINFO(tr("Daemon is local, assuming trusted"));
-          m_wallet->set_trusted_daemon(true);
-        }
+        MINFO(tr("Daemon is local, assuming trusted"));
+        trusted = TRUSTED;
       }
-      catch (const std::exception &e) { }
     }
+    catch (const std::exception &e) {}
+
+    LOCK_IDLE_SCOPE();
+    tools::connection_settings conn_setts = m_wallet->get_connection_settings();
+    conn_setts.address = daemon_url;
+    conn_setts.trusted = TRUSTED == trusted;
+    m_wallet->init(std::move(conn_setts));
 
     if (!try_connect_to_daemon())
     {

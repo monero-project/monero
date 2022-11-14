@@ -28,31 +28,36 @@
 
 #include "node_rpc_proxy.h"
 #include "rpc/core_rpc_server_commands_defs.h"
+#include "rpc/core_rpc_server_error_codes.h"
 #include "storages/http_abstract_invoke.h"
 
-#include <boost/thread.hpp>
+#define CHECK_AND_ASSERT_MES_SAME(cond, msg_expr) \
+  do { \
+    const std::string msg = msg_expr; \
+    CHECK_AND_ASSERT_MES(cond, msg, msg); \
+  } while (0); \
 
 #define RETURN_ON_RPC_RESPONSE_ERROR(r, error, res, method) \
   do { \
-    CHECK_AND_ASSERT_MES(error.code == 0, error.message, error.message); \
-    CHECK_AND_ASSERT_MES(r, std::string("Failed to connect to daemon"), "Failed to connect to daemon"); \
+    CHECK_AND_ASSERT_MES_SAME(error.code != CORE_RPC_ERROR_CODE_INVALID_CLIENT, "Daemon requires deprecated RPC payment"); \
+    CHECK_AND_ASSERT_MES_SAME(error.code == 0, sanitize_daemon_message(error.message)); \
+    CHECK_AND_ASSERT_MES_SAME(r, "Failed to connect to daemon"); \
     /* empty string -> not connection */ \
-    CHECK_AND_ASSERT_MES(!res.status.empty(), res.status, "No connection to daemon"); \
-    CHECK_AND_ASSERT_MES(res.status != CORE_RPC_STATUS_BUSY, res.status, "Daemon busy"); \
-    CHECK_AND_ASSERT_MES(res.status != CORE_RPC_STATUS_PAYMENT_REQUIRED, res.status, "Payment required"); \
-    CHECK_AND_ASSERT_MES(res.status == CORE_RPC_STATUS_OK, res.status, "Error calling " + std::string(method) + " daemon RPC"); \
+    CHECK_AND_ASSERT_MES_SAME(!res.status.empty(), "No connection to daemon"); \
+    CHECK_AND_ASSERT_MES_SAME(res.status != CORE_RPC_STATUS_BUSY, "Daemon busy"); \
+    CHECK_AND_ASSERT_MES_SAME(res.status != CORE_RPC_STATUS_PAYMENT_REQUIRED, "Daemon requires deprecated RPC payment"); \
+    CHECK_AND_ASSERT_MES_SAME(res.status == CORE_RPC_STATUS_OK, std::string(method) + " error: " + sanitize_daemon_message(res.status)); \
   } while(0)
 
 using namespace epee;
 
 namespace tools
 {
+std::chrono::milliseconds NodeRPCProxy::default_timeout = std::chrono::seconds(30);
 
-static const std::chrono::seconds rpc_timeout = std::chrono::minutes(3) + std::chrono::seconds(30);
-
-NodeRPCProxy::NodeRPCProxy(epee::net_utils::http::abstract_http_client &http_client, boost::recursive_mutex &mutex)
-  : m_http_client(http_client)
-  , m_daemon_rpc_mutex(mutex)
+NodeRPCProxy::NodeRPCProxy()
+  : m_http_client()
+  , m_connection_settings()
   , m_offline(false)
 {
   invalidate();
@@ -78,6 +83,78 @@ void NodeRPCProxy::invalidate()
   m_daemon_hard_forks.clear();
 }
 
+bool NodeRPCProxy::is_offline() const
+{
+  return m_offline;
+}
+
+void NodeRPCProxy::set_offline(bool offline)
+{
+  m_offline = offline;
+  m_http_client.set_auto_connect(!offline);
+  if (offline)
+  {
+    if (m_http_client.is_connected())
+    {
+      m_http_client.disconnect();
+    }
+  }
+}
+
+bool NodeRPCProxy::set_daemon(connection_settings&& conn_setts)
+{
+  if (m_http_client.is_connected())
+  {
+    m_http_client.disconnect();
+  }
+
+  const bool changed_address = m_connection_settings.address != conn_setts.address;
+  m_connection_settings = conn_setts;
+  if (changed_address)
+  {
+    invalidate();
+  }
+
+  MINFO("setting daemon to " << m_connection_settings.address);
+  return m_http_client.set_server
+  (
+    m_connection_settings.address, m_connection_settings.login, m_connection_settings.ssl_options
+  );
+}
+
+uint64_t NodeRPCProxy::get_bytes_sent() const
+{
+  return m_http_client.get_bytes_sent();
+}
+
+uint64_t NodeRPCProxy::get_bytes_received() const
+{
+  return m_http_client.get_bytes_received();
+}
+
+bool NodeRPCProxy::try_connection_start(bool* using_ssl)
+{
+  if (!m_http_client.is_connected(using_ssl))
+  {
+    invalidate();
+    if (!m_http_client.connect(default_timeout))
+    {
+      return false;
+    }
+    if (!m_http_client.is_connected(using_ssl))
+    {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+const connection_settings& NodeRPCProxy::get_connection_settings() const
+{
+  return m_connection_settings;
+}
+
 boost::optional<std::string> NodeRPCProxy::get_rpc_version(uint32_t &rpc_version, std::vector<std::pair<uint8_t, uint64_t>> &daemon_hard_forks, uint64_t &height, uint64_t &target_height)
 {
   if (m_offline)
@@ -87,11 +164,9 @@ boost::optional<std::string> NodeRPCProxy::get_rpc_version(uint32_t &rpc_version
     const time_t now = time(NULL);
     cryptonote::COMMAND_RPC_GET_VERSION::request req_t = AUTO_VAL_INIT(req_t);
     cryptonote::COMMAND_RPC_GET_VERSION::response resp_t = AUTO_VAL_INIT(resp_t);
-    {
-      const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};
-      bool r = net_utils::invoke_http_json_rpc("/json_rpc", "get_version", req_t, resp_t, m_http_client, rpc_timeout);
-      RETURN_ON_RPC_RESPONSE_ERROR(r, epee::json_rpc::error{}, resp_t, "get_version");
-    }
+    epee::json_rpc::error rpc_error;
+    const bool r = invoke_http_json_rpc("get_version", req_t, resp_t, rpc_error);
+    RETURN_ON_RPC_RESPONSE_ERROR(r, rpc_error, resp_t, "get_version");
 
     m_rpc_version = resp_t.version;
     m_daemon_hard_forks.clear();
@@ -132,12 +207,9 @@ boost::optional<std::string> NodeRPCProxy::get_info()
   {
     cryptonote::COMMAND_RPC_GET_INFO::request req_t = AUTO_VAL_INIT(req_t);
     cryptonote::COMMAND_RPC_GET_INFO::response resp_t = AUTO_VAL_INIT(resp_t);
-
-    {
-      const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};
-      bool r = net_utils::invoke_http_json_rpc("/json_rpc", "get_info", req_t, resp_t, m_http_client, rpc_timeout);
-      RETURN_ON_RPC_RESPONSE_ERROR(r, epee::json_rpc::error{}, resp_t, "get_info");
-    }
+    epee::json_rpc::error rpc_error;
+    const bool r = invoke_http_json_rpc("get_info", req_t, resp_t, rpc_error);
+    RETURN_ON_RPC_RESPONSE_ERROR(r, rpc_error, resp_t, "get_info");
 
     m_height = resp_t.height;
     m_target_height = resp_t.target_height;
@@ -148,6 +220,24 @@ boost::optional<std::string> NodeRPCProxy::get_info()
     m_target_height_time = now;
   }
   return boost::optional<std::string>();
+}
+
+std::string NodeRPCProxy::sanitize_daemon_message(const std::string& msg) const
+{
+  if (m_connection_settings.trusted)
+  {
+    return msg;
+  }
+  else
+  {
+    constexpr size_t MAX_DAEMON_MSG = 60;
+    return epee::string_tools::mangle_untrusted_display_string(msg, MAX_DAEMON_MSG);
+  }
+}
+
+epee::net_utils::http::abstract_http_transport& NodeRPCProxy::get_transport_ref()
+{
+  return m_http_client;
 }
 
 boost::optional<std::string> NodeRPCProxy::get_height(uint64_t &height)
@@ -209,12 +299,9 @@ boost::optional<std::string> NodeRPCProxy::get_earliest_height(uint8_t version, 
     cryptonote::COMMAND_RPC_HARD_FORK_INFO::request req_t = AUTO_VAL_INIT(req_t);
     cryptonote::COMMAND_RPC_HARD_FORK_INFO::response resp_t = AUTO_VAL_INIT(resp_t);
     req_t.version = version;
-
-    {
-      const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};
-      bool r = net_utils::invoke_http_json_rpc("/json_rpc", "hard_fork_info", req_t, resp_t, m_http_client, rpc_timeout);
-      RETURN_ON_RPC_RESPONSE_ERROR(r, epee::json_rpc::error{}, resp_t, "hard_fork_info");
-    }
+    epee::json_rpc::error rpc_error;
+    const bool r = invoke_http_json_rpc("hard_fork_info", req_t, resp_t, rpc_error);
+    RETURN_ON_RPC_RESPONSE_ERROR(r, rpc_error, resp_t, "hard_fork_info");
 
     m_earliest_height[version] = resp_t.earliest_height;
   }
@@ -238,12 +325,9 @@ boost::optional<std::string> NodeRPCProxy::get_dynamic_base_fee_estimate_2021_sc
     cryptonote::COMMAND_RPC_GET_BASE_FEE_ESTIMATE::request req_t = AUTO_VAL_INIT(req_t);
     cryptonote::COMMAND_RPC_GET_BASE_FEE_ESTIMATE::response resp_t = AUTO_VAL_INIT(resp_t);
     req_t.grace_blocks = grace_blocks;
-
-    {
-      const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};
-      bool r = net_utils::invoke_http_json_rpc("/json_rpc", "get_fee_estimate", req_t, resp_t, m_http_client, rpc_timeout);
-      RETURN_ON_RPC_RESPONSE_ERROR(r, epee::json_rpc::error{}, resp_t, "get_fee_estimate");
-    }
+    epee::json_rpc::error rpc_error;
+    const bool r = invoke_http_json_rpc("get_fee_estimate", req_t, resp_t, rpc_error);
+    RETURN_ON_RPC_RESPONSE_ERROR(r, rpc_error, resp_t, "get_fee_estimate");
 
     m_dynamic_base_fee_estimate = resp_t.fee;
     m_dynamic_base_fee_estimate_cached_height = height;
@@ -281,12 +365,9 @@ boost::optional<std::string> NodeRPCProxy::get_fee_quantization_mask(uint64_t &f
     cryptonote::COMMAND_RPC_GET_BASE_FEE_ESTIMATE::request req_t = AUTO_VAL_INIT(req_t);
     cryptonote::COMMAND_RPC_GET_BASE_FEE_ESTIMATE::response resp_t = AUTO_VAL_INIT(resp_t);
     req_t.grace_blocks = m_dynamic_base_fee_estimate_grace_blocks;
-
-    {
-      const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};
-      bool r = net_utils::invoke_http_json_rpc("/json_rpc", "get_fee_estimate", req_t, resp_t, m_http_client, rpc_timeout);
-      RETURN_ON_RPC_RESPONSE_ERROR(r, epee::json_rpc::error{}, resp_t, "get_fee_estimate");
-    }
+    epee::json_rpc::error rpc_error;
+    const bool r = invoke_http_json_rpc("get_fee_estimate", req_t, resp_t, rpc_error);
+    RETURN_ON_RPC_RESPONSE_ERROR(r, rpc_error, resp_t, "get_fee_estimate");
 
     m_dynamic_base_fee_estimate = resp_t.fee;
     m_dynamic_base_fee_estimate_cached_height = height;

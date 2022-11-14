@@ -265,6 +265,34 @@ namespace string_tools
     return str;
   }
 #endif
-}
-}
 
+  std::string mangle_untrusted_display_string(const std::string& str, size_t max_len)
+  {
+    if (!max_len)
+    {
+      max_len = std::numeric_limits<decltype(max_len)>::max();
+    }
+
+    std::string res;
+
+    for (size_t i = 0; i < str.size() && res.size() < max_len; ++i)
+    {
+      const char c = str.at(i);
+      if
+      (
+        (c >= 'A' && c <= 'Z')
+        || (c >= 'a' && c <= 'z')
+        || (c >= '0' && c <= '9')
+        || c == '+'
+        || c == '/'
+        || c == ' '
+      )
+      {
+        res.push_back(c);
+      }
+    }
+
+    return res;
+  }
+} // namespace string_tools
+} // namespace epee

@@ -115,27 +115,16 @@ namespace net_utils
 
     return result;
   }
-  //----------------------------------------------------------------------------------------------------
-  std::string convert_to_url_format_force_all(const std::string& uri)
-  {
-    std::string result;
-
-    for(size_t i = 0; i!= uri.size(); i++)
-    {
-        result += convert(uri[i]);
-    }
-    return result;
-  }
 
 namespace http
 {
   //----------------------------------------------------------------------------------------------------
-  bool epee::net_utils::http::abstract_http_client::set_server(const std::string& address, boost::optional<login> user, ssl_options_t ssl_options)
+  bool epee::net_utils::http::abstract_http_client::set_server(const std::string& address, boost::optional<login> user, ssl_options_t ssl_options, const std::string& virtual_host)
   {
     http::url_content parsed{};
     const bool r = parse_url(address, parsed);
     CHECK_AND_ASSERT_MES(r, false, "failed to parse url: " << address);
-    set_server(std::move(parsed.host), std::to_string(parsed.port), std::move(user), std::move(ssl_options));
+    set_server(std::move(parsed.host), std::to_string(parsed.port), std::move(user), std::move(ssl_options), virtual_host);
     return true;
   }
 

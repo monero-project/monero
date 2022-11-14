@@ -4418,7 +4418,12 @@ namespace tools
     if (!req.username.empty() || !req.password.empty())
       daemon_login.emplace(req.username, req.password);
 
-    if (!m_wallet->set_daemon(req.address, daemon_login, req.trusted, std::move(ssl_options)))
+    tools::connection_settings conn_setts = m_wallet->get_connection_settings();
+    conn_setts.address = req.address;
+    conn_setts.login = std::move(daemon_login);
+    conn_setts.trusted = req.trusted;
+    conn_setts.ssl_options = std::move(ssl_options);
+    if (!m_wallet->set_daemon(std::move(conn_setts)))
     {
       er.code = WALLET_RPC_ERROR_CODE_NO_DAEMON_CONNECTION;
       er.message = std::string("Unable to set daemon");

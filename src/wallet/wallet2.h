@@ -48,9 +48,6 @@
 #include "cryptonote_basic/account.h"
 #include "cryptonote_basic/account_boost_serialization.h"
 #include "cryptonote_basic/cryptonote_basic_impl.h"
-#include "net/http.h"
-#include "storages/http_abstract_invoke.h"
-#include "rpc/core_rpc_server_commands_defs.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "cryptonote_core/cryptonote_tx_utils.h"
 #include "common/unordered_containers_boost_serialization.h"
@@ -954,24 +951,16 @@ private:
     uint64_t max_reorg_depth() const {return m_max_reorg_depth;}
 
     bool deinit();
-    bool init(std::string daemon_address = "http://localhost:8080",
-      boost::optional<epee::net_utils::http::login> daemon_login = boost::none,
-      const std::string &proxy = "",
-      uint64_t upper_transaction_weight_limit = 0,
-      bool trusted_daemon = true,
-      epee::net_utils::ssl_options_t ssl_options = epee::net_utils::ssl_support_t::e_ssl_support_autodetect);
-    bool set_daemon(std::string daemon_address = "http://localhost:8080",
-      boost::optional<epee::net_utils::http::login> daemon_login = boost::none, bool trusted_daemon = true,
-      epee::net_utils::ssl_options_t ssl_options = epee::net_utils::ssl_support_t::e_ssl_support_autodetect);
-    bool set_proxy(const std::string &address);
+    bool init(connection_settings&& conn_setts, uint64_t upper_transaction_weight_limit = 0);
+    bool set_daemon(connection_settings&& conn_setts);
+    const connection_settings& get_connection_settings() const;
 
     void stop() { m_run.store(false, std::memory_order_relaxed); m_message_store.stop(); }
 
     i_wallet2_callback* callback() const { return m_callback; }
     void callback(i_wallet2_callback* callback) { m_callback = callback; }
 
-    bool is_trusted_daemon() const { return m_trusted_daemon; }
-    void set_trusted_daemon(bool trusted) { m_trusted_daemon = trusted; }
+    bool is_trusted_daemon() const;
 
     /*!
      * \brief Checks if deterministic wallet
@@ -1413,7 +1402,6 @@ private:
     std::string get_wallet_file() const;
     std::string get_keys_file() const;
     std::string get_daemon_address() const;
-    const boost::optional<epee::net_utils::http::login>& get_daemon_login() const { return m_daemon_login; }
     uint64_t get_daemon_blockchain_height(std::string& err);
     uint64_t get_daemon_blockchain_target_height(std::string& err);
     uint64_t get_daemon_adjusted_time();
@@ -1576,26 +1564,40 @@ private:
     crypto::public_key get_multisig_signing_public_key(size_t idx) const;
     crypto::public_key get_multisig_signing_public_key(const crypto::secret_key &skey) const;
 
-    template<class t_request, class t_response>
-    inline bool invoke_http_json(const boost::string_ref uri, const t_request& req, t_response& res, std::chrono::milliseconds timeout = std::chrono::seconds(15), const boost::string_ref http_method = "POST")
+    template <class Req, class Res>
+    bool invoke_http_json
+    (
+      const std::string& uri,
+      Req& req,
+      Res& res,
+      std::chrono::milliseconds timeout = rpc_timeout
+    )
     {
-      if (m_offline) return false;
-      boost::lock_guard<boost::recursive_mutex> lock(m_daemon_rpc_mutex);
-      return epee::net_utils::invoke_http_json(uri, req, res, *m_http_client, timeout, http_method);
+      return m_node_rpc_proxy.invoke_http_json(uri, req, res, timeout);
     }
-    template<class t_request, class t_response>
-    inline bool invoke_http_bin(const boost::string_ref uri, const t_request& req, t_response& res, std::chrono::milliseconds timeout = std::chrono::seconds(15), const boost::string_ref http_method = "POST")
+
+    template <class Req, class Res>
+    bool invoke_http_json_rpc
+    (
+      const std::string& rpc_method,
+      Req& req,
+      Res& res,
+      epee::json_rpc::error& error, std::chrono::milliseconds timeout = rpc_timeout
+    )
     {
-      if (m_offline) return false;
-      boost::lock_guard<boost::recursive_mutex> lock(m_daemon_rpc_mutex);
-      return epee::net_utils::invoke_http_bin(uri, req, res, *m_http_client, timeout, http_method);
+      return m_node_rpc_proxy.invoke_http_json_rpc(rpc_method, req, res, error, timeout);
     }
-    template<class t_request, class t_response>
-    inline bool invoke_http_json_rpc(const boost::string_ref uri, const std::string& method_name, const t_request& req, t_response& res, std::chrono::milliseconds timeout = std::chrono::seconds(15), const boost::string_ref http_method = "POST", const std::string& req_id = "0")
+
+    template <class Req, class Res>
+    bool invoke_http_bin
+    (
+      const std::string& uri,
+      Req& req,
+      Res& res,
+      std::chrono::milliseconds timeout = rpc_timeout
+    )
     {
-      if (m_offline) return false;
-      boost::lock_guard<boost::recursive_mutex> lock(m_daemon_rpc_mutex);
-      return epee::net_utils::invoke_http_json_rpc(uri, method_name, req, res, *m_http_client, timeout, http_method, req_id);
+      return m_node_rpc_proxy.invoke_http_bin(uri, req, res, timeout);
     }
 
     bool set_ring_database(const std::string &filename);
@@ -1647,9 +1649,7 @@ private:
     void finish_rescan_bc_keep_key_images(uint64_t transfer_height, const crypto::hash &hash);
     void enable_dns(bool enable) { m_use_dns = enable; }
     void set_offline(bool offline = true);
-    bool is_offline() const { return m_offline; }
-
-    static std::string get_default_daemon_address() { CRITICAL_REGION_LOCAL(default_daemon_address_lock); return default_daemon_address; }
+    bool is_offline() const;
 
   private:
     /*!
@@ -1727,6 +1727,7 @@ private:
     crypto::chacha_key get_ringdb_key();
     void setup_keys(const epee::wipeable_string &password);
     size_t get_transfer_details(const crypto::key_image &ki) const;
+    bool invoke_get_transactions(cryptonote::COMMAND_RPC_GET_TRANSACTIONS::request& req, cryptonote::COMMAND_RPC_GET_TRANSACTIONS::response& res, bool throw_on_fail = true);
 
     void register_devices();
     hw::device& lookup_device(const std::string & device_descriptor);
@@ -1756,12 +1757,9 @@ private:
     bool spends_one_of_ours(const cryptonote::transaction &tx) const;
 
     cryptonote::account_base m_account;
-    boost::optional<epee::net_utils::http::login> m_daemon_login;
-    std::string m_daemon_address;
     std::string m_wallet_file;
     std::string m_keys_file;
     std::string m_mms_file;
-    const std::unique_ptr<epee::net_utils::http::abstract_http_client> m_http_client;
     hashchain m_blockchain;
     serializable_unordered_map<crypto::hash, unconfirmed_transfer_details> m_unconfirmed_txs;
     serializable_unordered_map<crypto::hash, confirmed_transfer_details> m_confirmed_txs;
@@ -1788,9 +1786,6 @@ private:
 
     std::atomic<bool> m_run;
 
-    boost::recursive_mutex m_daemon_rpc_mutex;
-
-    bool m_trusted_daemon;
     i_wallet2_callback* m_callback;
     hw::device::device_type m_key_device_type;
     cryptonote::network_type m_nettype;
@@ -1845,8 +1840,6 @@ private:
     std::string m_device_derivation_path;
     uint64_t m_device_last_key_image_sync;
     bool m_use_dns;
-    bool m_offline;
-    uint32_t m_rpc_version;
     bool m_enable_multisig;
     bool m_allow_mismatched_daemon_version;
 
@@ -1893,9 +1886,6 @@ private:
     bool m_load_deprecated_formats;
 
     bool m_has_ever_refreshed_from_node;
-
-    static boost::mutex default_daemon_address_lock;
-    static std::string default_daemon_address;
   };
 }
 BOOST_CLASS_VERSION(tools::wallet2, 30)

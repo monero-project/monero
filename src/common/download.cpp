@@ -203,7 +203,7 @@ namespace tools
         MDEBUG("Asking for range: " << range);
         fields.push_back(std::make_pair("Range", range));
       }
-      if (!client.invoke_get(u_c.uri, std::chrono::seconds(30), "", &info, fields))
+      if (!client.invoke(u_c.uri, "GET", "", std::chrono::seconds(30), &info, fields))
       {
         boost::lock_guard<boost::mutex> lock(control->mutex);
         MERROR("Failed to connect to " << control->uri);

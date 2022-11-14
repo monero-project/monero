@@ -2190,7 +2190,9 @@ Wallet::ConnectionStatus WalletImpl::connected() const
 
 void WalletImpl::setTrustedDaemon(bool arg)
 {
-    m_wallet->set_trusted_daemon(arg);
+    tools::connection_settings conn_setts = m_wallet->get_connection_settings();
+    conn_setts.trusted = arg;
+    m_wallet->set_daemon(std::move(conn_setts));
 }
 
 bool WalletImpl::trustedDaemon() const
@@ -2200,7 +2202,9 @@ bool WalletImpl::trustedDaemon() const
 
 bool WalletImpl::setProxy(const std::string &address)
 {
-    return m_wallet->set_proxy(address);
+    tools::connection_settings conn_setts = m_wallet->get_connection_settings();
+    conn_setts.proxy = address;
+    return m_wallet->set_daemon(std::move(conn_setts));
 }
 
 bool WalletImpl::watchOnly() const
@@ -2363,7 +2367,12 @@ void WalletImpl::pendingTxPostProcess(PendingTransactionImpl * pending)
 
 bool WalletImpl::doInit(const string &daemon_address, const std::string &proxy_address, uint64_t upper_transaction_size_limit, bool ssl)
 {
-    if (!m_wallet->init(daemon_address, m_daemon_login, proxy_address, upper_transaction_size_limit))
+    tools::connection_settings conn_setts;
+    conn_setts.address = daemon_address;
+    conn_setts.login = m_daemon_login;
+    conn_setts.proxy = proxy_address;
+    conn_setts.trusted = Utils::isAddressLocal(daemon_address);
+    if (!m_wallet->init(std::move(conn_setts), upper_transaction_size_limit))
        return false;
 
     // in case new wallet, this will force fast-refresh (pulling hashes instead of blocks)
@@ -2378,10 +2387,8 @@ bool WalletImpl::doInit(const string &daemon_address, const std::string &proxy_a
       LOG_PRINT_L2(__FUNCTION__ << ": Rebuilding wallet cache, fast refresh until block " << m_wallet->get_refresh_from_block_height());
 
     if (Utils::isAddressLocal(daemon_address)) {
-        this->setTrustedDaemon(true);
         m_refreshIntervalMillis = DEFAULT_REFRESH_INTERVAL_MILLIS;
     } else {
-        this->setTrustedDaemon(false);
         m_refreshIntervalMillis = DEFAULT_REMOTE_NODE_REFRESH_INTERVAL_MILLIS;
     }
     return true;
