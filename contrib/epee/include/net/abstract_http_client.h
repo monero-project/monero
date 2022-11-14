@@ -63,9 +63,9 @@ namespace http
   public:
     abstract_http_client() {}
     virtual ~abstract_http_client() {}
-    bool set_server(const std::string& address, boost::optional<login> user, ssl_options_t ssl_options = ssl_support_t::e_ssl_support_autodetect);
+    bool set_server(const std::string& address, boost::optional<login> user, ssl_options_t ssl_options = ssl_support_t::e_ssl_support_autodetect, const std::string& virtual_host = {});
     virtual bool set_proxy(const std::string& address);
-    virtual void set_server(std::string host, std::string port, boost::optional<login> user, ssl_options_t ssl_options = ssl_support_t::e_ssl_support_autodetect) = 0;
+    virtual void set_server(std::string host, std::string port, boost::optional<login> user, ssl_options_t ssl_options = ssl_support_t::e_ssl_support_autodetect, const std::string& virtual_host = {}) = 0;
     virtual void set_auto_connect(bool auto_connect) = 0;
     virtual bool connect(std::chrono::milliseconds timeout) = 0;
     virtual bool disconnect() = 0;

@@ -128,7 +128,8 @@ namespace net_utils
 
 
 			net_client_type m_net_client;
-			std::string m_host_buff;
+			std::string m_host_buff;      // Host IP address
+			std::string m_virt_host_buff; // Value of 'Host:' header field
 			std::string m_port;
 			http_client_auth m_auth;
 			std::string m_header_cache;
@@ -148,6 +149,7 @@ namespace net_utils
 				: i_target_handler(), abstract_http_client()
 				, m_net_client()
 				, m_host_buff()
+				, m_virt_host_buff()
 				, m_port()
 				, m_auth()
 				, m_header_cache()
@@ -167,11 +169,12 @@ namespace net_utils
 
 			using abstract_http_client::set_server;
 
-			void set_server(std::string host, std::string port, boost::optional<login> user, ssl_options_t ssl_options = ssl_support_t::e_ssl_support_autodetect) override
+			void set_server(std::string host, std::string port, boost::optional<login> user, ssl_options_t ssl_options = ssl_support_t::e_ssl_support_autodetect, const std::string& virtual_host = {}) override
 			{
 				CRITICAL_REGION_LOCAL(m_lock);
 				disconnect();
 				m_host_buff = std::move(host);
+				m_virt_host_buff = !virtual_host.empty() ? virtual_host : m_host_buff; // Unless otherwise specified, virtual host matches host
 				m_port = std::move(port);
 				m_auth = user ? http_client_auth{std::move(*user)} : http_client_auth{};
 				m_net_client.set_ssl(std::move(ssl_options));
@@ -248,7 +251,7 @@ namespace net_utils
 				std::string req_buff{};
 				req_buff.reserve(2048);
 				req_buff.append(method.data(), method.size()).append(" ").append(uri.data(), uri.size()).append(" HTTP/1.1\r\n");
-				add_field(req_buff, "Host", m_host_buff);
+				add_field(req_buff, "Host", m_virt_host_buff);
 				add_field(req_buff, "Content-Length", std::to_string(body.size()));
 
 				//handle "additional_params"
