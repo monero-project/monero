@@ -2413,7 +2413,7 @@ namespace nodetool
         return false;
       }
       return true;
-    });
+    }, "0.0.0.0", m_ssl_support);
     if(!r)
     {
       LOG_WARNING_CC(context, "Failed to call connect_async, network error.");
