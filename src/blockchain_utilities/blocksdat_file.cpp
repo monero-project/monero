@@ -137,10 +137,14 @@ bool BlocksdatFile::store_blockchain_raw(Blockchain* _blockchain_storage, tx_mem
   uint64_t progress_interval = 100;
   block b;
 
-  uint64_t block_start = 0;
+  // Check requested_block_stop for validity
+  const bool has_explicit_block_stop = (requested_block_stop > 0) && (requested_block_stop < m_blockchain_storage->get_current_blockchain_height());
+  const bool is_hash_hash_aligned = (requested_block_stop + 1) % HASH_OF_HASHES_STEP == 0; // + 1 since inclusive range
+  CHECK_AND_ASSERT_MES(is_hash_hash_aligned || !has_explicit_block_stop, false, "Number of blocks (block-stop incl.) must be a multiple of " << HASH_OF_HASHES_STEP);
+
   uint64_t block_stop = 0;
   MINFO("source blockchain height: " <<  m_blockchain_storage->get_current_blockchain_height()-1);
-  if ((requested_block_stop > 0) && (requested_block_stop < m_blockchain_storage->get_current_blockchain_height()))
+  if (has_explicit_block_stop)
   {
     MINFO("Using requested block height: " << requested_block_stop);
     block_stop = requested_block_stop;
@@ -148,15 +152,17 @@ bool BlocksdatFile::store_blockchain_raw(Blockchain* _blockchain_storage, tx_mem
   else
   {
     block_stop = m_blockchain_storage->get_current_blockchain_height() - 1;
-    MINFO("Using block height of source blockchain: " << block_stop);
+    const uint64_t curr_height_unalignment = (block_stop + 1) % HASH_OF_HASHES_STEP;
+    block_stop -= curr_height_unalignment; // now [0, block_stop] range is multiple of HASH_OF_HASHES_STEP
+    MINFO("Using aligned block height of source blockchain: " << block_stop);
   }
-  MINFO("Storing blocks raw data...");
+  MINFO("Storing blocks raw data in blocks.dat format...");
   if (!BlocksdatFile::open_writer(output_file, block_stop))
   {
     MFATAL("failed to open raw file for write");
     return false;
   }
-  for (m_cur_height = block_start; m_cur_height <= block_stop; ++m_cur_height)
+  for (m_cur_height = 0; m_cur_height <= block_stop; ++m_cur_height)
   {
     // this method's height refers to 0-based height (genesis block = height 0)
     crypto::hash hash = m_blockchain_storage->get_block_id_by_height(m_cur_height);
