@@ -137,25 +137,40 @@ bool BlocksdatFile::store_blockchain_raw(Blockchain* _blockchain_storage, tx_mem
   uint64_t progress_interval = 100;
   block b;
 
-  // Check requested_block_stop for validity
-  const bool has_explicit_block_stop = (requested_block_stop > 0) && (requested_block_stop < m_blockchain_storage->get_current_blockchain_height());
-  const bool is_hash_hash_aligned = (requested_block_stop + 1) % HASH_OF_HASHES_STEP == 0; // + 1 since inclusive range
-  CHECK_AND_ASSERT_MES(is_hash_hash_aligned || !has_explicit_block_stop, false, "Number of blocks (block-stop incl.) must be a multiple of " << HASH_OF_HASHES_STEP);
+  constexpr const uint64_t minimum_required_block_stop = HASH_OF_HASHES_STEP - 1;
 
-  uint64_t block_stop = 0;
-  MINFO("source blockchain height: " <<  m_blockchain_storage->get_current_blockchain_height()-1);
+  // Get and check current blockchain height
+  const uint64_t current_blockchain_height = m_blockchain_storage->get_current_blockchain_height() - 1;
+  MINFO("Source blockchain height: " << current_blockchain_height);
+  CHECK_AND_ASSERT_MES(current_blockchain_height >= minimum_required_block_stop, false, "Blockchain must have height >= " << minimum_required_block_stop);
+
+  // Check requested_block_stop input
+  const bool has_explicit_block_stop = (requested_block_stop > 0) && (requested_block_stop < current_blockchain_height);
+  const bool is_valid_explicit_stop = requested_block_stop >= minimum_required_block_stop;
+  CHECK_AND_ASSERT_MES(is_valid_explicit_stop || !has_explicit_block_stop, false, "Block stop is too small. Will export nothing.");
+
+  // Set block_stop based on checked requested_block_stop and HASH_OF_HASHES_STEP alignment
+  const uint64_t unaligned_block_stop = has_explicit_block_stop ? requested_block_stop : current_blockchain_height;
+  const uint64_t block_stop_unalignment = (unaligned_block_stop + 1) % HASH_OF_HASHES_STEP; // +1 since inclusive range
+  const uint64_t block_stop = unaligned_block_stop - block_stop_unalignment;
+
+  // Tell the user about the block stop value we ended up with
   if (has_explicit_block_stop)
   {
-    MINFO("Using requested block height: " << requested_block_stop);
-    block_stop = requested_block_stop;
+    if (block_stop == requested_block_stop)
+    {
+      MINFO("Using requested block height: " << block_stop);
+    }
+    else
+    {
+      MWARNING("Requested block height was not aligned. Using block height " << block_stop << " instead");
+    }
   }
   else
   {
-    block_stop = m_blockchain_storage->get_current_blockchain_height() - 1;
-    const uint64_t curr_height_unalignment = (block_stop + 1) % HASH_OF_HASHES_STEP;
-    block_stop -= curr_height_unalignment; // now [0, block_stop] range is multiple of HASH_OF_HASHES_STEP
     MINFO("Using aligned block height of source blockchain: " << block_stop);
   }
+
   MINFO("Storing blocks raw data in blocks.dat format...");
   if (!BlocksdatFile::open_writer(output_file, block_stop))
   {
