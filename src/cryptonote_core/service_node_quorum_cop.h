@@ -28,13 +28,8 @@
 
 #pragma once
 
-#include "blockchain.h"
 #include "cryptonote_protocol/cryptonote_protocol_handler_common.h"
-
-namespace triton
-{
-	class deregister_vote_pool;
-};
+#include "cryptonote_basic/blobdatatype.h"
 
 namespace cryptonote
 {
@@ -44,21 +39,21 @@ namespace cryptonote
 namespace service_nodes
 {
 	class quorum_cop
-		: public cryptonote::Blockchain::BlockAddedHook,
-		public cryptonote::Blockchain::BlockchainDetachedHook,
-		public cryptonote::Blockchain::InitHook
+		: public cryptonote::BlockAddedHook,
+		  public cryptonote::BlockchainDetachedHook,
+		  public cryptonote::InitHook
 	{
 	public:
 		explicit quorum_cop(cryptonote::core& core);
 
 		void init() override;
-		void block_added(const cryptonote::block& block, const std::vector<std::pair<cryptonote::transaction, cryptonote::blobdata>>& txs) override;
+		void block_added(const cryptonote::block& block, const std::vector<cryptonote::transaction>& txs) override;
 		void blockchain_detached(uint64_t height) override;
 
 		bool handle_uptime_proof(const cryptonote::NOTIFY_UPTIME_PROOF::request &proof, bool &my_uptime_proof_confirmation);
 
 		static const uint64_t REORG_SAFETY_BUFFER_IN_BLOCKS = 20;
-		static_assert(REORG_SAFETY_BUFFER_IN_BLOCKS < triton::service_node_deregister::VOTE_LIFETIME_BY_HEIGHT,
+		static_assert(REORG_SAFETY_BUFFER_IN_BLOCKS < deregister_vote::VOTE_LIFETIME_BY_HEIGHT,
 			"Safety buffer should always be less than the vote lifetime");
 		bool prune_uptime_proof();
 

@@ -60,12 +60,10 @@
 #include "checkpoints/checkpoints.h"
 #include "cryptonote_basic/hardfork.h"
 #include "blockchain_db/blockchain_db.h"
+
 namespace service_nodes
 {
   class service_node_list;
-};
-namespace triton
-{
   class deregister_vote_pool;
 };
 
@@ -120,36 +118,13 @@ namespace cryptonote
       difficulty_type cumulative_difficulty; //!< the accumulated difficulty after that block
       uint64_t already_generated_coins; //!< the total coins minted after that block
     };
-    class BlockAddedHook
-   {
-   public:
-     virtual void block_added(const block& block, const std::vector<std::pair<transaction, blobdata>>& txs) = 0;
-   };
-
-   class BlockchainDetachedHook
-   {
-   public:
-     virtual void blockchain_detached(uint64_t height) = 0;
-   };
-
-   class InitHook
-   {
-   public:
-     virtual void init() = 0;
-   };
-
-   class ValidateMinerTxHook
-   {
-   public:
-	  virtual bool validate_miner_tx(const crypto::hash& prev_id, const cryptonote::transaction& miner_tx, uint64_t height, int hard_fork_version, block_reward_parts const &reward_parts) const = 0;
-   };
 
     /**
      * @brief Blockchain constructor
      *
      * @param tx_pool a reference to the transaction pool to be kept by the Blockchain
      */
-     Blockchain(tx_memory_pool& tx_pool, service_nodes::service_node_list& service_node_list, triton::deregister_vote_pool &deregister_vote_pool);
+     Blockchain(tx_memory_pool& tx_pool, service_nodes::service_node_list& service_node_list, service_nodes::deregister_vote_pool &deregister_vote_pool);
 
     /**
      * @brief Blockchain destructor
@@ -244,18 +219,6 @@ namespace cryptonote
      * @return the hash of the block at the requested height, or a zeroed hash if there is no such block
      */
     crypto::hash get_block_id_by_height(uint64_t height) const;
-
-    /**
-     * @brief gets a block's hash given a height
-     *
-     * Used only by prepare_handle_incoming_blocks. Will look in the list of incoming blocks
-     * if the height is contained there.
-     *
-     * @param height the height of the block
-     *
-     * @return the hash of the block at the requested height, or a zeroed hash if there is no such block
-     */
-    crypto::hash get_pending_block_id_by_height(uint64_t height) const;
 
     /**
      * @brief gets the block with a given hash
@@ -434,7 +397,6 @@ namespace cryptonote
      *
      * @param qblock_ids the foreign chain's "short history" (see get_short_chain_history)
      * @param hashes the hashes to be returned, return-by-reference
-     * @param weights the block weights to be returned, return-by-reference
      * @param start_height the start height, return-by-reference
      * @param current_height the current blockchain height, return-by-reference
      * @param clip_pruned whether to constrain results to unpruned data
@@ -451,7 +413,6 @@ namespace cryptonote
      * BLOCKS_IDS_SYNCHRONIZING_DEFAULT_COUNT additional (more recent) hashes.
      *
      * @param qblock_ids the foreign chain's "short history" (see get_short_chain_history)
-     * @param clip_pruned clip pruned blocks if true, include them otherwise
      * @param resp return-by-reference the split height and subsequent blocks' hashes
      *
      * @return true if a block found in common, else false
@@ -489,7 +450,7 @@ namespace cryptonote
      *
      * @return true if a block found in common or req_start_block specified, else false
      */
-    bool find_blockchain_supplement(const uint64_t req_start_block, const std::list<crypto::hash>& qblock_ids, std::vector<std::pair<std::pair<cryptonote::blobdata, crypto::hash>, std::vector<std::pair<crypto::hash, cryptonote::blobdata> > > >& blocks, uint64_t& total_height, uint64_t& start_height, bool pruned, bool get_miner_tx_hash, size_t max_count) const;
+    bool find_blockchain_supplement(const uint64_t req_start_block, const std::list<crypto::hash>& qblock_ids, std::vector<std::pair<std::pair<cryptonote::blobdata, crypto::hash>, std::vector<std::pair<crypto::hash, cryptonote::blobdata> > > >& blocks, uint64_t& total_height, uint64_t& start_height, bool pruned, bool get_miner_tx_hash, size_t max_block_count, size_t max_tx_count) const;
 
     /**
      * @brief retrieves a set of blocks and their transactions, and possibly other transactions
@@ -739,7 +700,7 @@ namespace cryptonote
      *
      * @return the difficulty
      */
-    difficulty_type block_difficulty(uint64_t i) const;
+    uint64_t block_difficulty(uint64_t i) const;
 
     /**
      * @brief gets blocks based on a list of block hashes
@@ -1076,10 +1037,10 @@ namespace cryptonote
     /**
     * @brief add a hook for processing new blocks and rollbacks for reorgs
     */
-   void hook_block_added(BlockAddedHook& block_added_hook);
-   void hook_blockchain_detached(BlockchainDetachedHook& blockchain_detached_hook);
-   void hook_init(InitHook& init_hook);
-   void hook_validate_miner_tx(ValidateMinerTxHook& validate_miner_tx_hook);
+    void hook_block_added        (BlockAddedHook& hook)         { m_block_added_hooks.push_back(&hook); }
+    void hook_blockchain_detached(BlockchainDetachedHook& hook) { m_blockchain_detached_hooks.push_back(&hook); }
+    void hook_init               (InitHook& hook)               { m_init_hooks.push_back(&hook); }
+    void hook_validate_miner_tx  (ValidateMinerTxHook& hook)    { m_validate_miner_tx_hooks.push_back(&hook); }
 
     /**
      * @brief returns the timestamps of the last N blocks
@@ -1131,7 +1092,7 @@ namespace cryptonote
     tx_memory_pool& m_tx_pool;
 
     service_nodes::service_node_list& m_service_node_list;
-    triton::deregister_vote_pool& m_deregister_vote_pool;
+    service_nodes::deregister_vote_pool& m_deregister_vote_pool;
 
     mutable epee::critical_section m_blockchain_lock; // TODO: add here reader/writer lock
 
@@ -1212,11 +1173,6 @@ namespace cryptonote
 
     std::shared_ptr<tools::Notify> m_block_notify;
     std::shared_ptr<tools::Notify> m_reorg_notify;
-    
-    // for prepare_handle_incoming_blocks
-    uint64_t m_prepare_height;
-    uint64_t m_prepare_nblocks;
-    std::vector<block> *m_prepare_blocks;
 
     /**
      * @brief collects the keys for all outputs being "spent" as an input

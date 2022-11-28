@@ -207,7 +207,11 @@ void keccak(const uint8_t *in, size_t inlen, uint8_t *md, int mdlen)
 	for(; inlen >= rsiz; inlen -= rsiz, in += rsiz)
 	{
 		for(i = 0; i < rsizw; i++)
-			st[i] ^= ((uint64_t *)in)[i];
+		{
+		  uint64_t ina;
+		  memcpy(&ina, in + i * 8, 8);
+		  st[i] ^= swap64le(ina);
+		}
 		keccakf(st);
 	}
 
@@ -217,7 +221,8 @@ void keccak(const uint8_t *in, size_t inlen, uint8_t *md, int mdlen)
 		local_abort("Bad keccak use");
 	}
 
-	memcpy(temp, in, inlen);
+  if (inlen > 0)
+    memcpy(temp, in, inlen);
 	temp[inlen++] = 1;
 	memset(temp + inlen, 0, rsiz - inlen);
 	temp[rsiz - 1] |= 0x80;
@@ -234,7 +239,6 @@ void keccak(const uint8_t *in, size_t inlen, uint8_t *md, int mdlen)
 #define KECCAK_BLOCKLEN 136
 #define KECCAK_WORDS 17
 #define KECCAK_DIGESTSIZE 32
-#define IS_ALIGNED_64(p) (0 == (7 & ((const char*)(p) - (const char*)0)))
 #define KECCAK_PROCESS_BLOCK(st, block) { \
     for (int i_ = 0; i_ < KECCAK_WORDS; i_++){ \
         ((st))[i_] ^= ((block))[i_]; \
@@ -266,17 +270,10 @@ void keccak_update(KECCAK_CTX * ctx, const uint8_t *in, size_t inlen){
         inlen -= left;
     }
 
-    const bool is_aligned = IS_ALIGNED_64(in);
     while (inlen >= KECCAK_BLOCKLEN) {
-        const uint64_t* aligned_message_block;
-        if (is_aligned) {
-            aligned_message_block = (uint64_t*)in;
-        } else {
-            memcpy(ctx->message, in, KECCAK_BLOCKLEN);
-            aligned_message_block = ctx->message;
-        }
+        memcpy(ctx->message, in, KECCAK_BLOCKLEN);
 
-        KECCAK_PROCESS_BLOCK(ctx->hash, aligned_message_block);
+        KECCAK_PROCESS_BLOCK(ctx->hash, ctx->message);
         in  += KECCAK_BLOCKLEN;
         inlen -= KECCAK_BLOCKLEN;
     }

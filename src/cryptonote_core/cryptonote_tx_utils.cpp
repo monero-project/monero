@@ -394,7 +394,7 @@ namespace cryptonote
 			tx_out out;
 
       if(hard_fork_version >= 12)
-      {          
+      {
         uint64_t reward_part = i == 0 ? reward_parts.operator_reward : reward_parts.staker_reward;
         summary_amounts += out.amount = get_portion_of_reward(service_node_info[i].second, reward_part);
       } else {
@@ -426,13 +426,13 @@ namespace cryptonote
 				return false;
 			}
       txout_to_key tk;
-			tk.key = out_eph_public_key;  
+			tk.key = out_eph_public_key;
       tx_out out;
 
       summary_amounts += out.amount = reward_parts.governance;
       out.target = tk;
 			tx.vout.push_back(out);
-			tx.output_unlock_times.push_back(height + CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW);
+			tx.output_unlock_times.push_back(height + 2);
   }
 
 	uint64_t expected_amount = reward_parts.miner_reward() + reward_parts.governance + reward_parts.service_node_paid;
@@ -489,8 +489,8 @@ namespace cryptonote
 	  if (miner_context.snode_winner_info.empty())
     {
       result.service_node_paid = calculate_sum_of_portions(service_nodes::null_winner, result, hard_fork_version);
-    } 
-    else                                        
+    }
+    else
     {
       result.service_node_paid = calculate_sum_of_portions(miner_context.snode_winner_info, result, hard_fork_version);
     }
@@ -922,7 +922,7 @@ namespace cryptonote
         tx.vout[i].amount = 0;
 
       crypto::hash tx_prefix_hash;
-      get_transaction_prefix_hash(tx, tx_prefix_hash, hwdev);
+      get_transaction_prefix_hash(tx, tx_prefix_hash);
       rct::ctkeyV outSk;
 
       if (use_simple_rct)
@@ -984,26 +984,22 @@ namespace cryptonote
   }
   
   //---------------------------------------------------------------
-  bool generate_genesis_block(
-      block& bl
-    , std::string const & genesis_tx
-    , uint32_t nonce
-    )
+  bool generate_genesis_block(block& bl)
   {
     //genesis block
-    bl = boost::value_initialized<block>();
+    bl = {};
 
-     blobdata tx_bl;
-     bool r = string_tools::parse_hexstr_to_binbuff(genesis_tx, tx_bl);
-     CHECK_AND_ASSERT_MES(r, false, "failed to parse coinbase tx from hard coded blob");
-     r = parse_and_validate_tx_from_blob(tx_bl, bl.miner_tx);
-     CHECK_AND_ASSERT_MES(r, false, "failed to parse coinbase tx from hard coded blob");
-     bl.major_version = CURRENT_BLOCK_MAJOR_VERSION;
-     bl.minor_version = CURRENT_BLOCK_MINOR_VERSION;
-     bl.timestamp = 0;
-     bl.nonce = nonce;
-     miner::find_nonce_for_given_block(bl, 1, 0);
-     bl.invalidate_hashes();
-     return true;
+    blobdata tx_bl;
+    bool r = string_tools::parse_hexstr_to_binbuff(config::GENESIS_TX, tx_bl);
+    CHECK_AND_ASSERT_MES(r, false, "failed to parse coinbase tx from hard coded blob");
+    r = parse_and_validate_tx_from_blob(tx_bl, bl.miner_tx);
+    CHECK_AND_ASSERT_MES(r, false, "failed to parse coinbase tx from hard coded blob");
+    bl.major_version = CURRENT_BLOCK_MAJOR_VERSION;
+    bl.minor_version = CURRENT_BLOCK_MINOR_VERSION;
+    bl.timestamp = 0;
+    bl.nonce = config::GENESIS_NONCE;
+    miner::find_nonce_for_given_block(bl, 1, 0);
+    bl.invalidate_hashes();
+    return true;
   }
 }

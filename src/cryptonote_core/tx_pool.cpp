@@ -276,7 +276,7 @@ namespace cryptonote
         meta.relayed = relayed;
         meta.set_relay_method(tx_relay);
 		    meta.double_spend_seen = (have_tx_keyimges_as_spent(tx, id) || have_deregister_tx_already(tx));
-        meta.pruned = tx.pruned;
+		    meta.pruned = tx.pruned;
         meta.bf_padding = 0;
         meta.is_deregister = tx.is_deregister_tx();
         memset(meta.padding, 0, sizeof(meta.padding));
@@ -1259,7 +1259,7 @@ namespace cryptonote
       {
         uint64_t delta_height = curr_height - deregister.block_height;
         const size_t hf_version = m_blockchain.get_hard_fork_version(curr_height);
-    	  const auto deregister_lifetime = hf_version >= 9 ? triton::service_node_deregister::DEREGISTER_LIFETIME_BY_HEIGHT_V2 : triton::service_node_deregister::DEREGISTER_LIFETIME_BY_HEIGHT;
+    	  const auto deregister_lifetime = hf_version >= 9 ? service_nodes::deregister_vote::DEREGISTER_LIFETIME_BY_HEIGHT_V2 : service_nodes::deregister_vote::DEREGISTER_LIFETIME_BY_HEIGHT;
 
         if (delta_height <= deregister_lifetime)
         {
@@ -1431,7 +1431,7 @@ namespace cryptonote
       }
       if (meta.pruned)
       {
-        LOG_PRINT_L2("  tx is pruned");
+        LOG_PRINT_L2(" tx is pruned");
         continue;
       }
 

@@ -32,7 +32,7 @@ set(cryptonote_core_sources
   service_node_rules.cpp
   service_node_list.cpp
   service_node_deregister.cpp
-  quorum_cop.cpp
+  service_node_quorum_cop.cpp
   tx_pool.cpp
   tx_sanity_check.cpp
   cryptonote_tx_utils.cpp)
@@ -42,11 +42,11 @@ set(cryptonote_core_headers)
 set(cryptonote_core_private_headers
   blockchain_storage_boost_serialization.h
   blockchain.h
-  cryptonote_core.h
   service_node_rules.h
   service_node_list.h
+  service_node_quorum_cop.h
+  cryptonote_core.h
   service_node_deregister.h
-  quorum_cop.h
   tx_pool.h
   tx_sanity_check.h
   cryptonote_tx_utils.h)

@@ -57,10 +57,6 @@
 namespace cryptonote
 {
   rpc_payment::client_info::client_info():
-    previous_seed_height(0),
-    seed_height(0),
-    previous_seed_hash(crypto::null_hash),
-    seed_hash(crypto::null_hash),
     cookie(0),
     top(crypto::null_hash),
     previous_top(crypto::null_hash),
@@ -130,7 +126,7 @@ namespace cryptonote
     return true;
   }
 
-  bool rpc_payment::get_info(const crypto::public_key &client, const std::function<bool(const cryptonote::blobdata&, cryptonote::block&, uint64_t &seed_height, crypto::hash &seed_hash)> &get_block_template, cryptonote::blobdata &hashing_blob, uint64_t &seed_height, crypto::hash &seed_hash, const crypto::hash &top, uint64_t &diff, uint64_t &credits_per_hash_found, uint64_t &credits, uint32_t &cookie)
+  bool rpc_payment::get_info(const crypto::public_key &client, const std::function<bool(const cryptonote::blobdata&, cryptonote::block&)> &get_block_template, cryptonote::blobdata &hashing_blob, const crypto::hash &top, uint64_t &diff, uint64_t &credits_per_hash_found, uint64_t &credits, uint32_t &cookie)
   {
     boost::lock_guard<boost::mutex> lock(mutex);
     client_info &info = m_client_info[client]; // creates if not found
@@ -139,10 +135,8 @@ namespace cryptonote
     if (need_template)
     {
       cryptonote::block new_block;
-      uint64_t new_seed_height;
-      crypto::hash new_seed_hash;
       cryptonote::blobdata extra_nonce("\x42\x42\x42\x42", 4);
-      if (!get_block_template(extra_nonce, new_block, new_seed_height, new_seed_hash))
+      if (!get_block_template(extra_nonce, new_block))
         return false;
       if(!remove_field_from_tx_extra(new_block.miner_tx.extra, typeid(cryptonote::tx_extra_nonce)))
         return false;
@@ -160,10 +154,6 @@ namespace cryptonote
       info.previous_hashing_blob = info.hashing_blob;
       info.hashing_blob = hashing_blob;
       info.previous_top = info.top;
-      info.previous_seed_height = info.seed_height;
-      info.seed_height = new_seed_height;
-      info.previous_seed_hash = info.seed_hash;
-      info.seed_hash = new_seed_hash;
       std::swap(info.previous_payments, info.payments);
       info.payments.clear();
       ++info.cookie;
@@ -175,8 +165,6 @@ namespace cryptonote
     diff = m_diff;
     credits_per_hash_found = m_credits_per_hash_found;
     credits = info.credits;
-    seed_height = info.seed_height;
-    seed_hash = info.seed_hash;
     cookie = info.cookie;
     return true;
   }
@@ -233,7 +221,6 @@ namespace cryptonote
       return false;
     }
 
-    block = is_current ? info.block : info.previous_block;
     *(uint32_t*)(hashing_blob.data() + 39) = SWAP32LE(nonce);
 
     cn_gpu_hash ctx;

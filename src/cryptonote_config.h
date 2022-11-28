@@ -48,9 +48,11 @@
 #define CRYPTONOTE_BLOCK_FUTURE_TIME_LIMIT              500
 #define CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE             10
 
+#define DEFAULT_TX_MIXIN                                15
+
 #define BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW               60
-#define ORACLE_EON_PUBLISHERS                          11
-#define MIN_ORACLE_EON_RATERS                          11
+#define ORACLE_EON_PUBLISHERS                           11
+#define MIN_ORACLE_EON_RATERS                           11
 //Service nodes
 
 #define SERVICE_NODE_VERSION                            5
@@ -93,13 +95,9 @@ static_assert(STAKING_PORTIONS % 3 == 0, "Use a multiple of three, so that it di
 #define MINT_BRIDGE                                     ((uint64_t)167195840000) //16,719,584 XEQ MINT for Bridge
 #define BURN_2                                          ((uint64_t)40000000000) // 7,000,000 XEQ BURN
 
-
-
-
-#define XEQ_REQ                                         ((uint64_t) 10000)
+#define XEQ_REQ                                         ((uint64_t)10000)
 #define CORP_MINT                                       ((uint64_t)80000000000)
 #define NEW_XEQ_BRIDGE                                  ((uint64_t)20000000000)
-
 
 #define EMISSION_SPEED_FACTOR_PER_MINUTE                (20)
 #define FINAL_SUBSIDY_PER_MINUTE                        ((uint64_t)0)
@@ -130,7 +128,6 @@ static_assert(STAKING_PORTIONS % 3 == 0, "Use a multiple of three, so that it di
 
 #define ORPHANED_BLOCKS_MAX_COUNT                       100
 
-
 #define DIFFICULTY_TARGET_V2                            180  // seconds
 #define DIFFICULTY_TARGET_V3                            120  // seconds
 #define DIFFICULTY_TARGET_V1                            60  // seconds - before first fork
@@ -142,15 +139,12 @@ static_assert(STAKING_PORTIONS % 3 == 0, "Use a multiple of three, so that it di
 
 #define DIFFICULTY_BLOCKS_COUNT_V3                      DIFFICULTY_WINDOW_V3 + 1
 
-
 #define CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_SECONDS_V1   DIFFICULTY_TARGET_V1 * CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_BLOCKS
 #define CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_SECONDS_V2   DIFFICULTY_TARGET_V2 * CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_BLOCKS
 #define CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_SECONDS_V3   DIFFICULTY_TARGET_V3 * CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_BLOCKS
 #define CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_BLOCKS       1
 
-
 #define DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN             DIFFICULTY_TARGET_V1 //just alias; used by tests
-
 
 #define BLOCKS_IDS_SYNCHRONIZING_DEFAULT_COUNT          10000  //by default, blocks ids count in synchronizing
 #define BLOCKS_SYNCHRONIZING_DEFAULT_COUNT_PRE_V4       100    //by default, blocks count in blocks downloading
@@ -159,7 +153,6 @@ static_assert(STAKING_PORTIONS % 3 == 0, "Use a multiple of three, so that it di
 
 #define CRYPTONOTE_MEMPOOL_TX_LIVETIME                    (86400*3) //seconds, three days
 #define CRYPTONOTE_MEMPOOL_TX_FROM_ALT_BLOCK_LIVETIME     604800 //seconds, one week
-
 
 #define CRYPTONOTE_DANDELIONPP_STEMS              2 // number of outgoing stem connections per epoch
 #define CRYPTONOTE_DANDELIONPP_FLUFF_PROBABILITY 10 // out of 100
@@ -179,6 +172,7 @@ static_assert(STAKING_PORTIONS % 3 == 0, "Use a multiple of three, so that it di
 #define CRYPTONOTE_MAX_FRAGMENTS                        20 // ~20 * NOISE_BYTES max payload size for covert/noise send
 
 #define COMMAND_RPC_GET_BLOCKS_FAST_MAX_COUNT           1000
+#define COMMAND_RPC_GET_BLOCKS_FAST_MAX_TX_COUNT        20000
 
 #define P2P_LOCAL_WHITE_PEERLIST_LIMIT                  1000
 #define P2P_LOCAL_GRAY_PEERLIST_LIMIT                   5000
@@ -207,7 +201,6 @@ static_assert(STAKING_PORTIONS % 3 == 0, "Use a multiple of three, so that it di
 #define P2P_SUPPORT_FLAGS                               P2P_SUPPORT_FLAG_FLUFFY_BLOCKS
 
 #define RPC_IP_FAILS_BEFORE_BLOCK                       3
-
 
 #define CRYPTONOTE_NAME                         "equilibria"
 #define CRYPTONOTE_POOLDATA_FILENAME            "poolstate.bin"
@@ -240,7 +233,7 @@ static_assert(STAKING_PORTIONS % 3 == 0, "Use a multiple of three, so that it di
 #define HF_VERSION_FEE_BURNING                  9
 
 
-#define PER_KB_FEE_QUANTIZATION_DECIMALS       4
+#define PER_KB_FEE_QUANTIZATION_DECIMALS        4
 
 #define HASH_OF_HASHES_STEP                     512
 
@@ -258,7 +251,7 @@ static_assert(STAKING_PORTIONS % 3 == 0, "Use a multiple of three, so that it di
 // New constants are intended to go here
 namespace config
 {
-  uint64_t const DEFAULT_FEE_ATOMIC_ITA_PER_KB = 500; // Just a placeholder!  Change me!
+    uint64_t const DEFAULT_FEE_ATOMIC_ITA_PER_KB = 500; // Just a placeholder!  Change me!
     uint8_t const FEE_CALCULATION_MAX_RETRIES = 10;
     uint64_t const DEFAULT_DUST_THRESHOLD = ((uint64_t)20); // 2 * pow(10, 9)
     uint64_t const BASE_REWARD_CLAMP_THRESHOLD = ((uint64_t)10000); // pow(10, 8)
@@ -287,8 +280,6 @@ namespace config
   const unsigned char HASH_KEY_MEMORY = 'k';
   const unsigned char HASH_KEY_MULTISIG[] = {'M', 'u', 'l', 't' , 'i', 's', 'i', 'g', 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
-  uint64_t const GOVERNANCE_REWARD_INTERVAL_IN_BLOCKS = 5;
-
   std::string const GOVERNANCE_WALLET_ADDRESS = "TvziQSEi93chTMViBzw8Y4eerEjmGq2Q6ajekvgyTyqkGcsj97YJDzF8TMnTWdv7NXQ2ZXfeWJPwRAbVHUjbgFcN2AvU35KfX";
   std::string const BRIDGE_WALLET_ADDRESS = "Tw16wVGVwjqY2sSKx11UNjQ8NAosTSwzzitYZfVrXt3iP3DgL5beLz55quDcqpqUvoQTvjyNyRb7mUXf3JKDAyLd36AtDf2ei";
   std::string const NEW_BRIDGE_WALLET_ADDRESS = "TvyjwByVHjgCqNKrngt4TQRDgJL7cazWnTXYHXmbFewsKMuN6ozKNcBVkgcpyQwVPRYZCyaAe1W7xN8SdgxqnT4S1UMStejYx";
@@ -296,22 +287,18 @@ namespace config
   namespace testnet
   {
     uint64_t const CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX = 0x536;
-   uint64_t const CRYPTONOTE_PUBLIC_INTEGRATED_ADDRESS_BASE58_PREFIX = 0x5bb8;
-   uint64_t const CRYPTONOTE_PUBLIC_SUBADDRESS_BASE58_PREFIX = 0xb6;
-   uint16_t const P2P_DEFAULT_PORT = 9330;
-   uint16_t const RPC_DEFAULT_PORT = 9331;
-   uint16_t const ZMQ_RPC_DEFAULT_PORT = 9332;
-   boost::uuids::uuid const NETWORK_ID = { {
+    uint64_t const CRYPTONOTE_PUBLIC_INTEGRATED_ADDRESS_BASE58_PREFIX = 0x5bb8;
+    uint64_t const CRYPTONOTE_PUBLIC_SUBADDRESS_BASE58_PREFIX = 0xb6;
+    uint16_t const P2P_DEFAULT_PORT = 9330;
+    uint16_t const RPC_DEFAULT_PORT = 9331;
+    uint16_t const ZMQ_RPC_DEFAULT_PORT = 9332;
+    boost::uuids::uuid const NETWORK_ID = { {
        0x17 ,0x19, 0xF5, 0x67 , 0x65, 0x03 , 0x42, 0x62, 0x15, 0x21, 0x01, 0x72, 0x14, 0xA3, 0xA5, 0x14
      } }; // Bender's daydream
-   std::string const GENESIS_TX = "013c01ff0001ffffff03029b2e4c0281c0b02e7c53291a94d1d0cbff8883f8024f5142ee494ffbbd08807121017767aafcde9be00dcfd098715ebcf7f410daebc582fda69d24a28e9d0bc890d1";
-   uint32_t const GENESIS_NONCE = 71;
 
-   uint64_t const GOVERNANCE_REWARD_INTERVAL_IN_BLOCKS = 5;
-
-  std::string const GOVERNANCE_WALLET_ADDRESS = "XT1mQ4qNhqARHKawpsC4DkCmJxGSiW6EfGej4jssjY7QEzKZgSHmkeuQYHsY3gRhDv4KMt8QQX8TEPBmJQe1SEea38fHATH5C";
-  std::string const BRIDGE_WALLET_ADDRESS = "XT1mQ4qNhqARHKawpsC4DkCmJxGSiW6EfGej4jssjY7QEzKZgSHmkeuQYHsY3gRhDv4KMt8QQX8TEPBmJQe1SEea38fHATH5C";
-  std::string const NEW_BRIDGE_WALLET_ADDRESS = "XT2SoQm1yCJNJrp1c4fUMbFAXfsoVLkPnh85ut4BTexrWbet6DS5qBP2oDxX4aHVSNVTFXCPY1y34Hp3uG8E8EmF1qkkKBs3S";
+    std::string const GOVERNANCE_WALLET_ADDRESS = "XT1mQ4qNhqARHKawpsC4DkCmJxGSiW6EfGej4jssjY7QEzKZgSHmkeuQYHsY3gRhDv4KMt8QQX8TEPBmJQe1SEea38fHATH5C";
+    std::string const BRIDGE_WALLET_ADDRESS = "XT1mQ4qNhqARHKawpsC4DkCmJxGSiW6EfGej4jssjY7QEzKZgSHmkeuQYHsY3gRhDv4KMt8QQX8TEPBmJQe1SEea38fHATH5C";
+    std::string const NEW_BRIDGE_WALLET_ADDRESS = "XT2SoQm1yCJNJrp1c4fUMbFAXfsoVLkPnh85ut4BTexrWbet6DS5qBP2oDxX4aHVSNVTFXCPY1y34Hp3uG8E8EmF1qkkKBs3S";
 
 }
 
@@ -326,10 +313,6 @@ namespace config
    boost::uuids::uuid const NETWORK_ID = { {
        0x14 ,0x20, 0xF3, 0x71 , 0x60, 0x01 , 0x30, 0x62, 0x16, 0x35, 0x02, 0x82, 0x15, 0xA2, 0xA1, 0x14
      } }; // Bender's daydream
-   std::string const GENESIS_TX = "013c01ff0001ffffffffffff0302df5d56da0c7d643ddd1ce61901c7bdc5fb1738bfe39fbe69c28a3a7032729c0f2101168d0c4ca86fb55a4cf6a36d31431be1c53a3bd7411bb24e8832410289fa6f3b";
-   uint32_t const GENESIS_NONCE = 72;
-
-   uint64_t const GOVERNANCE_REWARD_INTERVAL_IN_BLOCKS = 5;
 
   std::string const GOVERNANCE_WALLET_ADDRESS = "";
   std::string const BRIDGE_WALLET_ADDRESS = "";
@@ -389,8 +372,8 @@ namespace cryptonote
       ::config::testnet::RPC_DEFAULT_PORT,
       ::config::testnet::ZMQ_RPC_DEFAULT_PORT,
       ::config::testnet::NETWORK_ID,
-      ::config::testnet::GENESIS_TX,
-      ::config::testnet::GENESIS_NONCE,
+      ::config::GENESIS_TX,
+      ::config::GENESIS_NONCE,
       &::config::testnet::GOVERNANCE_WALLET_ADDRESS,
       &::config::testnet::BRIDGE_WALLET_ADDRESS,
       &::config::testnet::NEW_BRIDGE_WALLET_ADDRESS,
@@ -404,8 +387,8 @@ namespace cryptonote
       ::config::stagenet::RPC_DEFAULT_PORT,
       ::config::stagenet::ZMQ_RPC_DEFAULT_PORT,
       ::config::stagenet::NETWORK_ID,
-      ::config::stagenet::GENESIS_TX,
-      ::config::stagenet::GENESIS_NONCE,
+      ::config::GENESIS_TX,
+      ::config::GENESIS_NONCE,
       &::config::stagenet::GOVERNANCE_WALLET_ADDRESS,
       &::config::stagenet::BRIDGE_WALLET_ADDRESS,
     };

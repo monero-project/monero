@@ -132,7 +132,7 @@ bool txpool_tx_meta_t::upgrade_relay_method(relay_method method) noexcept
 const command_line::arg_descriptor<std::string> arg_db_sync_mode = {
   "db-sync-mode"
 , "Specify sync option, using format [safe|fast|fastest]:[sync|async]:[<nblocks_per_sync>[blocks]|<nbytes_per_sync>[bytes]]."
-, "fast:async:250000000bytes"
+, "fast:async:262144000bytes"
 };
 const command_line::arg_descriptor<bool> arg_db_salvage  = {
   "db-salvage"
@@ -195,15 +195,8 @@ void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const std::pair
     }
     else
     {
-      LOG_PRINT_L1("Unsupported input type, removing key images and aborting transaction addition");
-      for (const txin_v& tx_input : tx.vin)
-      {
-        if (tx_input.type() == typeid(txin_to_key))
-        {
-          remove_spent_key(boost::get<txin_to_key>(tx_input).k_image);
-        }
-      }
-      return;
+      LOG_PRINT_L1("Unsupported input type, aborting transaction addition");
+      throw std::runtime_error("Unexpected input type, aborting");
     }
   }
 
@@ -231,13 +224,11 @@ void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const std::pair
       cryptonote::tx_out vout = tx.vout[i];
       rct::key commitment = rct::zeroCommit(vout.amount);
       vout.amount = 0;
-      amount_output_indices[i] = add_output(tx_hash, vout, i, unlock_time,
-        &commitment);
+      amount_output_indices[i] = add_output(tx_hash, vout, i, unlock_time, &commitment);
     }
     else
     {
-      amount_output_indices[i] = add_output(tx_hash, tx.vout[i], i, unlock_time,
-        tx.version > 1 ? &tx.rct_signatures.outPk[i].mask : NULL);
+      amount_output_indices[i] = add_output(tx_hash, tx.vout[i], i, unlock_time, tx.version >= 2 ? &tx.rct_signatures.outPk[i].mask : NULL);
     }
   }
   add_tx_amount_output_indices(tx_id, amount_output_indices);
@@ -442,8 +433,12 @@ void BlockchainDB::show_stats()
 
 void BlockchainDB::fixup()
 {
+  if (is_read_only()) {
+    LOG_PRINT_L1("Database is opened read only - skipping fixup check");
+    return;
+  }
 
-
+  set_batch_transactions(true);
 }
 
 bool BlockchainDB::txpool_tx_matches_category(const crypto::hash& tx_hash, relay_category category)

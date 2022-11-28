@@ -205,11 +205,7 @@ namespace cryptonote
                                       std::vector<rct::key> &amount_keys,
                                       crypto::public_key &out_eph_public_key, bool &found_change, std::vector<uint64_t> &output_unlock_times, uint64_t unlock_time) ;
 
-  bool generate_genesis_block(
-	  block& bl
-	  , std::string const & genesis_tx
-	  , uint32_t nonce
-  );
+  bool generate_genesis_block(block& bl);
 
   class Blockchain;
 

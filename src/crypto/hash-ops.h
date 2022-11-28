@@ -96,9 +96,3 @@ enum
 void cn_fast_hash(const void *data, size_t length, char *hash);
 
 void tree_hash(const char (*hashes)[HASH_SIZE], size_t count, char *root_hash);
-
-#define RX_BLOCK_VERSION	12
-void rx_slow_hash_allocate_state(void);
-void rx_slow_hash_free_state(void);
-uint64_t rx_seedheight(const uint64_t height);
-void rx_slow_hash(const uint64_t mainheight, const uint64_t seedheight, const char *seedhash, const void *data, size_t length, char *hash, int miners, int is_alt);

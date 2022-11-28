@@ -47,10 +47,6 @@ namespace cryptonote
       cryptonote::block previous_block;
       cryptonote::blobdata hashing_blob;
       cryptonote::blobdata previous_hashing_blob;
-      uint64_t previous_seed_height;
-      uint64_t seed_height;
-      crypto::hash previous_seed_hash;
-      crypto::hash seed_hash;
       uint32_t cookie;
       crypto::hash top;
       crypto::hash previous_top;
@@ -76,10 +72,6 @@ namespace cryptonote
         a & previous_block;
         a & hashing_blob;
         a & previous_hashing_blob;
-        a & seed_height;
-        a & previous_seed_height;
-        a & seed_hash;
-        a & previous_seed_hash;
         a & cookie;
         a & top;
         a & previous_top;
@@ -102,7 +94,7 @@ namespace cryptonote
     rpc_payment(const cryptonote::account_public_address &address, uint64_t diff, uint64_t credits_per_hash_found);
     uint64_t balance(const crypto::public_key &client, int64_t delta = 0);
     bool pay(const crypto::public_key &client, uint64_t ts, uint64_t payment, const std::string &rpc, bool same_ts, uint64_t &credits);
-    bool get_info(const crypto::public_key &client, const std::function<bool(const cryptonote::blobdata&, cryptonote::block&, uint64_t &seed_height, crypto::hash &seed_hash)> &get_block_template, cryptonote::blobdata &hashing_blob, uint64_t &seed_height, crypto::hash &seed_hash, const crypto::hash &top, uint64_t &diff, uint64_t &credits_per_hash_found, uint64_t &credits, uint32_t &cookie);
+    bool get_info(const crypto::public_key &client, const std::function<bool(const cryptonote::blobdata&, cryptonote::block&)> &get_block_template, cryptonote::blobdata &hashing_blob, const crypto::hash &top, uint64_t &diff, uint64_t &credits_per_hash_found, uint64_t &credits, uint32_t &cookie);
     bool submit_nonce(const crypto::public_key &client, uint32_t nonce, const crypto::hash &top, int64_t &error_code, std::string &error_message, uint64_t &credits, crypto::hash &hash, cryptonote::block &block, uint32_t cookie, bool &stale);
     const cryptonote::account_public_address &get_payment_address() const { return m_address; }
     bool foreach(const std::function<bool(const crypto::public_key &client, const client_info &info)> &f) const;

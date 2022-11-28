@@ -41,11 +41,9 @@ struct hardfork_t
 };
 
 extern const hardfork_t mainnet_hard_forks[];
-extern const uint64_t mainnet_hard_fork_version_1_till;
 extern const size_t num_mainnet_hard_forks;
 
 extern const hardfork_t testnet_hard_forks[];
-extern const uint64_t testnet_hard_fork_version_1_till;
 extern const size_t num_testnet_hard_forks;
 
 extern const hardfork_t stagenet_hard_forks[];

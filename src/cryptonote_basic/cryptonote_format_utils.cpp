@@ -132,20 +132,6 @@ namespace cryptonote
 namespace cryptonote
 {
   //---------------------------------------------------------------
-  void get_transaction_prefix_hash(const transaction_prefix& tx, crypto::hash& h, hw::device &hwdev)
-  {
-    hwdev.get_transaction_prefix_hash(tx,h);    
-  }
-
-  //---------------------------------------------------------------  
-  crypto::hash get_transaction_prefix_hash(const transaction_prefix& tx, hw::device &hwdev)
-  {
-    crypto::hash h = null_hash;
-    get_transaction_prefix_hash(tx, h, hwdev);
-    return h;
-  }
-  
-  //---------------------------------------------------------------  
   void get_transaction_prefix_hash(const transaction_prefix& tx, crypto::hash& h)
   {
     std::ostringstream s;
@@ -261,7 +247,8 @@ namespace cryptonote
     tx.invalidate_hashes();
     //TODO: validate tx
 
-    return get_transaction_hash(tx, tx_hash);
+    get_transaction_hash(tx, tx_hash);
+    return true;
   }
   //---------------------------------------------------------------
   bool parse_and_validate_tx_from_blob(const blobdata& tx_blob, transaction& tx, crypto::hash& tx_hash, crypto::hash& tx_prefix_hash)
@@ -1245,7 +1232,7 @@ void add_tx_secret_key_to_tx_extra(std::vector<uint8_t>& tx_extra, const crypto:
 	  return buf;
   }
   //---------------------------------------------------------------
-  char const *print_vote_verification_context(vote_verification_context const &vvc, triton::service_node_deregister::vote const *vote)
+  char const *print_vote_verification_context(vote_verification_context const &vvc, service_nodes::deregister_vote const *vote)
   {
 	  static char buf[1024];
 	  buf[0] = 0;
@@ -1310,31 +1297,17 @@ void add_tx_secret_key_to_tx_extra(std::vector<uint8_t>& tx_extra, const crypto:
     }
   }
   //---------------------------------------------------------------
-  static void insert_money_decimal_point(std::string &s, unsigned int decimal_point)
+  std::string print_money(uint64_t amount, unsigned int decimal_point)
   {
     if (decimal_point == (unsigned int)-1)
       decimal_point = default_decimal_point;
+    std::string s = std::to_string(amount);
     if(s.size() < decimal_point+1)
     {
       s.insert(0, decimal_point+1 - s.size(), '0');
     }
     if (decimal_point > 0)
       s.insert(s.size() - decimal_point, ".");
-  }
-  //---------------------------------------------------------------
-  std::string print_money(uint64_t amount, unsigned int decimal_point)
-  {
-    std::string s = std::to_string(amount);
-    insert_money_decimal_point(s, decimal_point);
-    return s;
-  }
-  //---------------------------------------------------------------
-  std::string print_money(const boost::multiprecision::uint128_t &amount, unsigned int decimal_point)
-  {
-    std::stringstream ss;
-    ss << amount;
-    std::string s = ss.str();
-    insert_money_decimal_point(s, decimal_point);
     return s;
   }
   //---------------------------------------------------------------
@@ -1461,22 +1434,21 @@ void add_tx_secret_key_to_tx_extra(std::vector<uint8_t>& tx_extra, const crypto:
 
     // prefix
     get_transaction_prefix_hash(t, hashes[0]);
-    
-    //tx
-    transaction &tt = const_cast<transaction&>(t);
 
     const blobdata blob = tx_to_blob(t);
-    const unsigned int unprunable_size = t.unprunable_size;
-    const unsigned int prefix_size = t.prefix_size;
 
     // base rct
     if (!t.is_deregister)
-     {
-        CHECK_AND_ASSERT_MES(prefix_size <= unprunable_size && unprunable_size <= blob.size(), false, "Inconsistent transaction prefix, unprunable and blob sizes");
+    {
+      const unsigned int unprunable_size = t.unprunable_size;
+      const unsigned int prefix_size = t.prefix_size;
+
+      CHECK_AND_ASSERT_MES(prefix_size <= unprunable_size && unprunable_size <= blob.size(), false, "Inconsistent transaction prefix, unprunable and blob sizes in: " << __func__);
       cryptonote::get_blob_hash(epee::span<const char>(blob.data() + prefix_size, unprunable_size - prefix_size), hashes[1]);
     }
     else
     {
+      transaction &tt = const_cast<transaction&>(t);
       std::stringstream ss;
       binary_archive<true> ba(ss);
       const size_t inputs = t.vin.size();

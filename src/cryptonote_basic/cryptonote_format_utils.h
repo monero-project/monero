@@ -40,23 +40,20 @@
 #include "crypto/crypto.h"
 #include "crypto/hash.h"
 #include <unordered_map>
-#include <boost/multiprecision/cpp_int.hpp>
 
 namespace epee
 {
   class wipeable_string;
 }
-namespace triton { namespace service_node_deregister { struct vote; } }
+
+namespace service_nodes { struct deregister_vote; }
 
 namespace cryptonote
 {
 	struct tx_verification_context;
 	struct vote_verification_context;
 
-  
   //---------------------------------------------------------------
-  void get_transaction_prefix_hash(const transaction_prefix& tx, crypto::hash& h, hw::device &hwdev);
-  crypto::hash get_transaction_prefix_hash(const transaction_prefix& tx, hw::device &hwdev);
   void get_transaction_prefix_hash(const transaction_prefix& tx, crypto::hash& h);
   crypto::hash get_transaction_prefix_hash(const transaction_prefix& tx);
   bool parse_and_validate_tx_prefix_from_blob(const blobdata& tx_blob, transaction_prefix& tx);
@@ -177,10 +174,9 @@ const std::vector<uint64_t >& portions, uint64_t expiration_timestamp, const cry
   std::string get_unit(unsigned int decimal_point = -1);
 
   char const *print_tx_verification_context(tx_verification_context const &tvc, transaction const *tx = nullptr);
-  char const *print_vote_verification_context(vote_verification_context const &vvc, triton::service_node_deregister::vote const *vote = nullptr);
+  char const *print_vote_verification_context(vote_verification_context const &vvc, service_nodes::deregister_vote const *vote = nullptr);
 
   std::string print_money(uint64_t amount, unsigned int decimal_point = -1);
-  std::string print_money(const boost::multiprecision::uint128_t &amount, unsigned int decimal_point = -1);
   //---------------------------------------------------------------
   template<class t_object>
   bool t_serializable_object_from_blob(t_object& to, const blobdata& b_blob)

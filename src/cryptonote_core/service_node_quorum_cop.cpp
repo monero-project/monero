@@ -26,12 +26,12 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#include "service_node_quorum_cop.h"
 #include "service_node_deregister.h"
 #include "service_node_list.h"
 #include "cryptonote_config.h"
 #include "cryptonote_core.h"
 #include "version.h"
-#include "quorum_cop.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "quorum_cop"
@@ -60,7 +60,7 @@ namespace service_nodes
 		}
 	}
 
-	void quorum_cop::block_added(const cryptonote::block& block, const std::vector<std::pair<cryptonote::transaction, cryptonote::blobdata>>& txs)
+	void quorum_cop::block_added(const cryptonote::block& block, const std::vector<cryptonote::transaction>& txs)
 	{
 		uint64_t const height = cryptonote::get_block_height(block);
 
@@ -82,8 +82,8 @@ namespace service_nodes
 			return;
 		}
 
-	  	const size_t hf_version = m_core.get_hard_fork_version(height);
-    	const auto vote_lifetime = hf_version >= 8 ? triton::service_node_deregister::VOTE_LIFETIME_BY_HEIGHT_V2 : triton::service_node_deregister::VOTE_LIFETIME_BY_HEIGHT;
+	  const size_t hf_version = m_core.get_hard_fork_version(height);
+    const auto vote_lifetime = hf_version >= 8 ? service_nodes::deregister_vote::VOTE_LIFETIME_BY_HEIGHT_V2 : service_nodes::deregister_vote::VOTE_LIFETIME_BY_HEIGHT;
 
 
 		if (latest_height < vote_lifetime)
@@ -124,11 +124,11 @@ namespace service_nodes
 				if (!vote_off_node)
 					continue;
 
-				triton::service_node_deregister::vote vote = {};
+				service_nodes::deregister_vote vote = {};
 				vote.block_height = m_last_height;
 				vote.service_node_index = node_index;
 				vote.voters_quorum_index = my_index_in_quorum;
-				vote.signature = triton::service_node_deregister::sign_vote(vote.block_height, vote.service_node_index, my_pubkey, my_seckey);
+				vote.signature = service_nodes::deregister_vote::sign_vote(vote.block_height, vote.service_node_index, my_pubkey, my_seckey);
 
 				cryptonote::vote_verification_context vvc = {};
 				if (!m_core.add_deregister_vote(vote, vvc))

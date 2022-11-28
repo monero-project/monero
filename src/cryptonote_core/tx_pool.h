@@ -140,7 +140,6 @@ namespace cryptonote
      * @param relayed return-by-reference was transaction relayed to us by the network?
      * @param do_not_relay return-by-reference is transaction not to be relayed to the network?
      * @param double_spend_seen return-by-reference was a double spend seen for that transaction?
-     * @param pruned return-by-reference is the tx pruned
      *
      * @return true unless the transaction cannot be found in the pool
      */

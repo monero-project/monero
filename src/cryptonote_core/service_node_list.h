@@ -28,12 +28,14 @@
 
 #pragma once
 
-#include "blockchain.h"
 #include <boost/variant.hpp>
 #include "serialization/serialization.h"
 #include "cryptonote_core/service_node_rules.h"
+#include "cryptonote_core/service_node_deregister.h"
 // #include "eth_adapter/eth_adapter.h"
 #include <list>
+
+namespace cryptonote { class Blockchain; class BlockchainDB; }
 namespace service_nodes
 {
 	constexpr size_t QUORUM_SIZE = 10;
@@ -156,21 +158,20 @@ namespace service_nodes
 	static constexpr uint64_t QUEUE_SWARM_ID = 0;
 
 	class service_node_list
-		: public cryptonote::Blockchain::BlockAddedHook,
-		public cryptonote::Blockchain::BlockchainDetachedHook,
-		public cryptonote::Blockchain::InitHook,
-		public cryptonote::Blockchain::ValidateMinerTxHook
+		: public cryptonote::BlockAddedHook,
+  		public cryptonote::BlockchainDetachedHook,
+		  public cryptonote::InitHook,
+		  public cryptonote::ValidateMinerTxHook
 	{
 	public:
 		service_node_list(cryptonote::Blockchain& blockchain);
 		~service_node_list();
-		void block_added(const cryptonote::block& block, const std::vector<std::pair<cryptonote::transaction,cryptonote::blobdata>>& txs) override;
+		void block_added(const cryptonote::block& block, const std::vector<cryptonote::transaction>& txs) override;
 		void blockchain_detached(uint64_t height) override;
-		void register_hooks(service_nodes::quorum_cop &quorum_cop);
 		void init() override;
-		bool validate_miner_tx(const crypto::hash& prev_id, const cryptonote::transaction& miner_tx, uint64_t height, int hard_fork_version, cryptonote::block_reward_parts const &reward_parts) const override;
-		std::vector<std::pair<cryptonote::account_public_address, uint64_t>> get_winner_addresses_and_portions(const crypto::hash& prev_id, const uint64_t height) const;
-		crypto::public_key select_winner(const crypto::hash& prev_id) const;
+		bool validate_miner_tx(const crypto::hash& prev_id, const cryptonote::transaction& miner_tx, uint64_t height, uint8_t hard_fork_version, cryptonote::block_reward_parts const &reward_parts) const override;
+		std::vector<std::pair<cryptonote::account_public_address, uint64_t>> get_winner_addresses_and_portions() const;
+		crypto::public_key select_winner() const;
 
 		std::vector<crypto::public_key> get_service_nodes_pubkeys() const;
 		bool is_service_node(const crypto::public_key& pubkey) const;
@@ -314,7 +315,7 @@ namespace service_nodes
 		void process_contribution_tx(const cryptonote::transaction& tx, uint64_t block_height, uint32_t index, const crypto::public_key &new_pubkey = crypto::null_pkey);
 		bool process_deregistration_tx(const cryptonote::transaction& tx, uint64_t block_height);
 		bool process_swap_tx(const cryptonote::transaction& tx, uint64_t block_height, uint32_t index);
-		void block_added_generic(const cryptonote::block& blck, const std::vector<std::pair<cryptonote::transaction, cryptonote::blobdata>>& txs);
+		void process_block(const cryptonote::block& block, const std::vector<cryptonote::transaction>& txs);
 
 		bool contribution_tx_output_has_correct_unlock_time(const cryptonote::transaction& tx, size_t i, uint64_t block_height) const;
 
@@ -328,13 +329,12 @@ namespace service_nodes
 
 		using block_height = uint64_t;
 
-		mutable boost::recursive_mutex m_sn_mutex;
-
 		std::unordered_map<crypto::public_key, service_node_info> m_service_nodes_infos;
 		std::list<std::unique_ptr<rollback_event>> m_rollback_events;
 		cryptonote::Blockchain& m_blockchain;
-		bool m_hooks_registered;
 		block_height m_height;
+
+    mutable boost::recursive_mutex m_sn_mutex;
 
 		crypto::public_key const *m_service_node_pubkey;
 

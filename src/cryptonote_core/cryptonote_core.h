@@ -41,11 +41,11 @@
 #include "storages/portable_storage_template_helper.h"
 #include "common/download.h"
 #include "common/command_line.h"
-#include "service_node_deregister.h"
 #include "tx_pool.h"
 #include "blockchain.h"
+#include "service_node_deregister.h"
 #include "service_node_list.h"
-#include "quorum_cop.h"
+#include "service_node_quorum_cop.h"
 #include "cryptonote_basic/miner.h"
 #include "cryptonote_basic/connection_context.h"
 #include "warnings.h"
@@ -252,7 +252,7 @@ namespace cryptonote
      /**
     * @brief mark the deregister vote as having been relayed in the vote pool
     */
-   virtual void set_deregister_votes_relayed(const std::vector<triton::service_node_deregister::vote>& votes);
+   virtual void set_deregister_votes_relayed(const std::vector<service_nodes::deregister_vote>& votes);
      virtual void on_transactions_relayed(epee::span<const cryptonote::blobdata> tx_blobs, relay_method tx_relay) final;
 
 
@@ -572,7 +572,7 @@ namespace cryptonote
       *
       * @note see Blockchain::find_blockchain_supplement(const uint64_t, const std::list<crypto::hash>&, std::vector<std::pair<cryptonote::blobdata, std::vector<transaction> > >&, uint64_t&, uint64_t&, size_t) const
       */
-     bool find_blockchain_supplement(const uint64_t req_start_block, const std::list<crypto::hash>& qblock_ids, std::vector<std::pair<std::pair<cryptonote::blobdata, crypto::hash>, std::vector<std::pair<crypto::hash, cryptonote::blobdata> > > >& blocks, uint64_t& total_height, uint64_t& start_height, bool pruned, bool get_miner_tx_hash, size_t max_count) const;
+     bool find_blockchain_supplement(const uint64_t req_start_block, const std::list<crypto::hash>& qblock_ids, std::vector<std::pair<std::pair<cryptonote::blobdata, crypto::hash>, std::vector<std::pair<crypto::hash, cryptonote::blobdata> > > >& blocks, uint64_t& total_height, uint64_t& start_height, bool pruned, bool get_miner_tx_hash, size_t max_block_count, size_t max_tx_count) const;
 
      /**
       * @copydoc Blockchain::get_tx_outputs_gindexs
@@ -786,7 +786,7 @@ namespace cryptonote
       *
       * @return the number of blocks to sync in one go
       */
-     std::tuple<uint64_t ,boost::multiprecision::uint128_t, boost::multiprecision::uint128_t> get_coinbase_tx_sum(const uint64_t start_offset, const size_t count);
+     std::tuple<uint64_t, uint64_t, uint64_t> get_coinbase_tx_sum(const uint64_t start_offset, const size_t count);
      
      /**
       * @brief get the network type we're on
@@ -861,7 +861,7 @@ namespace cryptonote
      * @param vote The vote for deregistering a service node.
      * @return Whether the vote was added to the partial deregister pool
      */
-    bool add_deregister_vote(const triton::service_node_deregister::vote& vote, vote_verification_context &vvc);
+    bool add_deregister_vote(const service_nodes::deregister_vote& vote, vote_verification_context &vvc);
 
     /**
     * @brief Return the account associated to this service node.
@@ -918,18 +918,6 @@ namespace cryptonote
      bool check_blockchain_pruning();
 
      /**
-      * @brief checks whether a given block height is included in the precompiled block hash area
-      *
-      * @param height the height to check for
-      */
-     bool is_within_compiled_block_hash_area(uint64_t height) const;
-
-     /**
-      * @brief checks whether block weights are known for the given range
-      */
-     bool has_block_weights(uint64_t height, uint64_t nblocks) const;
-
-     /**
       * @brief flushes the bad txs cache
       */
      void flush_bad_txs_cache();
@@ -947,6 +935,18 @@ namespace cryptonote
       * @return true iff success, false otherwise
       */
      bool get_txpool_complement(const std::vector<crypto::hash> &hashes, std::vector<cryptonote::blobdata> &txes);
+
+     /**
+      * @brief checks whether a given block height is included in the precompiled block hash area
+      *
+      * @param height the height to check for
+      */
+     bool is_within_compiled_block_hash_area(uint64_t height) const;
+
+     /**
+      * @brief checks whether block weights are known for the given range
+      */
+     bool has_block_weights(uint64_t height, uint64_t nblocks) const;
 
    private:
 
@@ -1129,12 +1129,14 @@ namespace cryptonote
      bool m_test_drop_download = true; //!< whether or not to drop incoming blocks (for testing)
 
      uint64_t m_test_drop_download_height = 0; //!< height under which to drop incoming blocks, if doing so
-     triton::deregister_vote_pool m_deregister_vote_pool;
 
      tx_memory_pool m_mempool; //!< transaction pool instance
      Blockchain m_blockchain_storage; //!< Blockchain instance
+
+     service_nodes::deregister_vote_pool m_deregister_vote_pool;
      service_nodes::service_node_list m_service_node_list;
      service_nodes::quorum_cop m_quorum_cop;
+
      i_cryptonote_protocol* m_pprotocol; //!< cryptonote protocol instance
 
      epee::critical_section m_incoming_tx_lock; //!< incoming transaction lock

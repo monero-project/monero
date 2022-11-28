@@ -439,7 +439,6 @@ namespace cryptonote
   inline
   void transaction::set_null()
   {
-
     transaction_prefix::set_null();
     signatures.clear();
     rct_signatures = {};
