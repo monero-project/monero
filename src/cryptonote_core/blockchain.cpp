@@ -1715,7 +1715,8 @@ bool Blockchain::build_alt_chain(const crypto::hash &prev_id, std::list<block_ex
       CHECK_AND_ASSERT_MES(cryptonote::parse_and_validate_block_from_blob(blob, bei.bl), false, "Failed to parse alt block");
       bei.height = data.height;
       bei.block_cumulative_weight = data.cumulative_weight;
-      bei.cumulative_difficulty = data.cumulative_difficulty;
+      bei.cumulative_difficulty = data.cumulative_difficulty_high;
+      bei.cumulative_difficulty = (bei.cumulative_difficulty << 64) + data.cumulative_difficulty_low;
       bei.already_generated_coins = data.already_generated_coins;
       timestamps.push_back(bei.bl.timestamp);
       alt_chain.push_front(std::move(bei));
@@ -1863,7 +1864,8 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
     difficulty_type main_chain_cumulative_difficulty = m_db->get_block_cumulative_difficulty(m_db->height() - 1);
     if (alt_chain.size())
     {
-      bei.cumulative_difficulty = prev_data.cumulative_difficulty;
+      bei.cumulative_difficulty = prev_data.cumulative_difficulty_high;
+      bei.cumulative_difficulty = (bei.cumulative_difficulty << 64) + prev_data.cumulative_difficulty_low;
     }
     else
     {
@@ -1915,7 +1917,8 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
     cryptonote::alt_block_data_t data;
     data.height = bei.height;
     data.cumulative_weight = bei.block_cumulative_weight;
-    data.cumulative_difficulty = bei.cumulative_difficulty;
+    data.cumulative_difficulty_low = (bei.cumulative_difficulty & 0xffffffffffffffff).convert_to<uint64_t>();
+    data.cumulative_difficulty_high = ((bei.cumulative_difficulty >> 64) & 0xffffffffffffffff).convert_to<uint64_t>();
     data.already_generated_coins = bei.already_generated_coins;
     m_db->add_alt_block(id, data, cryptonote::block_to_blob(bei.bl));
     alt_chain.push_back(bei);
@@ -2498,7 +2501,7 @@ bool Blockchain::find_blockchain_supplement(const std::list<crypto::hash>& qbloc
   return true;
 }
 //------------------------------------------------------------------
-uint64_t Blockchain::block_difficulty(uint64_t i) const
+difficulty_type Blockchain::block_difficulty(uint64_t i) const
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   // WARNING: this function does not take m_blockchain_lock, and thus should only call read only
@@ -2781,7 +2784,11 @@ bool Blockchain::find_blockchain_supplement(const std::list<crypto::hash>& qbloc
 
   bool result = find_blockchain_supplement(qblock_ids, resp.m_block_ids, &resp.m_block_weights, resp.start_height, resp.total_height, clip_pruned);
   if (result)
-    resp.cumulative_difficulty = m_db->get_block_cumulative_difficulty(resp.total_height - 1);
+  {
+    cryptonote::difficulty_type wide_cumulative_difficulty = m_db->get_block_cumulative_difficulty(resp.total_height - 1);
+    resp.cumulative_difficulty = (wide_cumulative_difficulty & 0xffffffffffffffff).convert_to<uint64_t>();
+    resp.cumulative_difficulty_top64 = ((wide_cumulative_difficulty >> 64) & 0xffffffffffffffff).convert_to<uint64_t>();
+  }
 
   return result;
 }
@@ -5401,7 +5408,8 @@ std::vector<std::pair<Blockchain::block_extended_info,std::vector<crypto::hash>>
     {
       bei.height = data.height;
       bei.block_cumulative_weight = data.cumulative_weight;
-      bei.cumulative_difficulty = data.cumulative_difficulty;
+      bei.cumulative_difficulty = data.cumulative_difficulty_high;
+      bei.cumulative_difficulty = (bei.cumulative_difficulty << 64) + data.cumulative_difficulty_low;
       bei.already_generated_coins = data.already_generated_coins;
       alt_blocks.insert(std::make_pair(cryptonote::get_block_hash(bei.bl), std::move(bei)));
     }

@@ -143,7 +143,8 @@ struct alt_block_data_t
 {
   uint64_t height;
   uint64_t cumulative_weight;
-  uint64_t cumulative_difficulty;
+  uint64_t cumulative_difficulty_low;
+  uint64_t cumulative_difficulty_high;
   uint64_t already_generated_coins;
 };
 

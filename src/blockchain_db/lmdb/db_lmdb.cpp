@@ -289,7 +289,7 @@ typedef struct mdb_block_info_1
   uint64_t bi_timestamp;
   uint64_t bi_coins;
   uint64_t bi_weight; // a size_t really but we need 32-bit compat
-  difficulty_type bi_diff;
+  uint64_t bi_diff;
   crypto::hash bi_hash;
 } mdb_block_info_1;
 
@@ -299,7 +299,7 @@ typedef struct mdb_block_info_2
   uint64_t bi_timestamp;
   uint64_t bi_coins;
   uint64_t bi_weight; // a size_t really but we need 32-bit compat
-  difficulty_type bi_diff;
+  uint64_t bi_diff;
   crypto::hash bi_hash;
   uint64_t bi_cum_rct;
 } mdb_block_info_2;
@@ -310,7 +310,7 @@ typedef struct mdb_block_info_3
   uint64_t bi_timestamp;
   uint64_t bi_coins;
   uint64_t bi_weight; // a size_t really but we need 32-bit compat
-  difficulty_type bi_diff;
+  uint64_t bi_diff;
   crypto::hash bi_hash;
   uint64_t bi_cum_rct;
   uint64_t bi_long_term_block_weight;
@@ -322,7 +322,8 @@ typedef struct mdb_block_info_4
   uint64_t bi_timestamp;
   uint64_t bi_coins;
   uint64_t bi_weight;
-  difficulty_type bi_diff;
+  uint64_t bi_diff_lo;
+  uint64_t bi_diff_hi;
   crypto::hash bi_hash;
   uint64_t bi_cum_rct;
   uint64_t bi_long_term_block_weight;
@@ -784,7 +785,8 @@ void BlockchainLMDB::add_block(const block& blk, size_t block_weight, uint64_t l
   bi.bi_timestamp = blk.timestamp;
   bi.bi_coins = coins_generated;
   bi.bi_weight = block_weight;
-  bi.bi_diff = cumulative_difficulty;
+  bi.bi_diff_hi = ((cumulative_difficulty >> 64) & 0xffffffffffffffff).convert_to<uint64_t>();
+  bi.bi_diff_lo = (cumulative_difficulty & 0xffffffffffffffff).convert_to<uint64_t>();
   bi.bi_hash = blk_hash;
   bi.bi_cum_rct = num_rct_outs;
   if (blk.major_version >= 4)
@@ -2728,7 +2730,9 @@ difficulty_type BlockchainLMDB::get_block_cumulative_difficulty(const uint64_t& 
     throw0(DB_ERROR("Error attempting to retrieve a cumulative difficulty from the db"));
 
   mdb_block_info *bi = (mdb_block_info *)result.mv_data;
-  difficulty_type ret = bi->bi_diff;
+  difficulty_type ret = bi->bi_diff_hi;
+  ret <<= 64;
+  ret |= bi->bi_diff_lo;
   TXN_POSTFIX_RDONLY();
   return ret;
 }
@@ -5558,7 +5562,8 @@ void BlockchainLMDB::migrate_4_5()
       bi.bi_timestamp = bi_old->bi_timestamp;
       bi.bi_coins = bi_old->bi_coins;
       bi.bi_weight = bi_old->bi_weight;
-      bi.bi_diff = bi_old->bi_diff;
+      bi.bi_diff_lo = bi_old->bi_diff;
+      bi.bi_diff_hi = 0;
       bi.bi_hash = bi_old->bi_hash;
       bi.bi_cum_rct = bi_old->bi_cum_rct;
       bi.bi_long_term_block_weight = bi_old->bi_long_term_block_weight;

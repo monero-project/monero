@@ -124,8 +124,8 @@ bool BootstrapFile::initialize_file()
   *m_raw_data_file << blob;
 
   bootstrap::file_info bfi;
-  bfi.major_version = 0;
-  bfi.minor_version = 1;
+  bfi.major_version = 1;
+  bfi.minor_version = 0;
   bfi.header_size = header_size;
 
   bootstrap::blocks_info bbi;
@@ -323,7 +323,7 @@ bool BootstrapFile::store_blockchain_raw(Blockchain* _blockchain_storage, tx_mem
   return BootstrapFile::close();
 }
 
-uint64_t BootstrapFile::seek_to_first_chunk(std::ifstream& import_file)
+uint64_t BootstrapFile::seek_to_first_chunk(std::ifstream& import_file, uint8_t &major_version, uint8_t &minor_version)
 {
   uint32_t file_magic;
 
@@ -371,6 +371,8 @@ uint64_t BootstrapFile::seek_to_first_chunk(std::ifstream& import_file)
   uint64_t full_header_size = sizeof(file_magic) + bfi.header_size;
   import_file.seekg(full_header_size);
 
+  major_version = bfi.major_version;
+  minor_version = bfi.minor_version;
   return full_header_size;
 }
 
@@ -461,7 +463,8 @@ uint64_t BootstrapFile::count_blocks(const std::string& import_file_path, std::s
   }
 
   uint64_t full_header_size; // 4 byte magic + length of header structures
-  full_header_size = seek_to_first_chunk(import_file);
+  uint8_t major_version, minor_version;
+  full_header_size = seek_to_first_chunk(import_file, major_version, minor_version);
 
   MINFO("Scanning blockchain from bootstrap file...");
   bool quit = false;
