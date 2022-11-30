@@ -1,6 +1,6 @@
 packages:=boost openssl zeromq libiconv
 
-native_packages := native_ccache
+native_packages :=
 
 hardware_packages := hidapi protobuf libusb
 hardware_native_packages := native_protobuf

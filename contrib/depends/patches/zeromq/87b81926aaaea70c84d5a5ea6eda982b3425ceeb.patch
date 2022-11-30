@@ -1,0 +1,22 @@
+From 87b81926aaaea70c84d5a5ea6eda982b3425ceeb Mon Sep 17 00:00:00 2001
+From: thomas <thomas@altronix.com>
+Date: Sat, 10 Aug 2019 10:43:28 -0400
+Subject: [PATCH] no void pointer to store function pointer
+
+---
+ src/thread.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/thread.cpp b/src/thread.cpp
+index 2cad2adaa..4cc5944ef 100644
+--- a/src/thread.cpp
++++ b/src/thread.cpp
+@@ -120,7 +120,7 @@ struct thread_info_t
+ typedef struct _MY_EXCEPTION_REGISTRATION_RECORD
+ {
+     struct _MY_EXCEPTION_REGISTRATION_RECORD *Next;
+-    void *Handler;
++    EXCEPTION_DISPOSITION (*Handler) (EXCEPTION_RECORD*, void*, CONTEXT*, void*);
+ } MY_EXCEPTION_REGISTRATION_RECORD;
+ 
+ static EXCEPTION_DISPOSITION NTAPI continue_execution (EXCEPTION_RECORD *rec,
