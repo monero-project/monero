@@ -32,6 +32,7 @@
 
 #include "chaingen.h"
 #include "wallet/wallet2.h"
+#include "wallet/api/wallet.h"
 
 typedef struct {
   tools::wallet2::transfer_details * td;
@@ -55,6 +56,13 @@ public:
   static tools::wallet2::transfer_container & get_transfers(tools::wallet2 * wallet) { return wallet->m_transfers; }
   static subaddresses_t & get_subaddresses(tools::wallet2 * wallet) { return wallet->m_subaddresses; }
   static void process_parsed_blocks(tools::wallet2 * wallet, uint64_t start_height, const std::vector<cryptonote::block_complete_entry> &blocks, const std::vector<tools::wallet2::parsed_block> &parsed_blocks, uint64_t& blocks_added);
+};
+
+// Wallet API friend, direct access to required fields and private methods
+class WalletApiAccessorTest
+{
+public:
+  static void allow_mismatched_daemon_version(Monero::WalletImpl * wallet, bool allow_mismatch) { wallet->m_wallet->allow_mismatched_daemon_version(allow_mismatch); }
 };
 
 class wallet_tools

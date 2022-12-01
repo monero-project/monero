@@ -39,6 +39,7 @@
 #include <boost/thread/thread.hpp>
 #include <boost/thread/condition_variable.hpp>
 
+class WalletApiAccessorTest;
 
 namespace Monero {
 class TransactionHistoryImpl;
@@ -248,6 +249,7 @@ private:
     friend class AddressBookImpl;
     friend class SubaddressImpl;
     friend class SubaddressAccountImpl;
+    friend class ::WalletApiAccessorTest;
 
     std::unique_ptr<tools::wallet2> m_wallet;
     mutable boost::mutex m_statusMutex;
