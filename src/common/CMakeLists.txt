@@ -81,6 +81,9 @@ target_link_libraries(common
   PRIVATE
     ${OPENSSL_LIBRARIES}
     ${EXTRA_LIBRARIES})
+target_include_directories(common
+  PRIVATE
+    ${Boost_INCLUDE_DIRS})
 
 #monero_install_headers(common
 #  ${common_headers})

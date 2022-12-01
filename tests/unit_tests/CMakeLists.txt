@@ -90,6 +90,7 @@ set(unit_tests_sources
   hardfork.cpp
   unbound.cpp
   uri.cpp
+  variant.cpp
   varint.cpp
   ringct.cpp
   output_selection.cpp
