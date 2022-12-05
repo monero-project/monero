@@ -33,12 +33,12 @@
 #define TEST_INTEGRATED_ADDRESS "A4A1uPj4qaxj7xoVXytVH32R1pLZBk4VV4mZFGEh4wkXhDWqw1soPyf3fGixf1kni31VznEZkWNEza9d5TvjWwq5acaPMJfMbn3ReTsBpp"
 // included payment id: <f612cac0b6cb1cda>
 
-#define PARSE_URI(uri, expected) \
-  std::string address, payment_id, recipient_name, description, error; \
-  uint64_t amount; \
-  std::vector<std::string> unknown_parameters; \
-  tools::wallet2 w(cryptonote::TESTNET); \
-  bool ret = w.parse_uri(uri, address, payment_id, amount, description, recipient_name, unknown_parameters, error); \
+#define PARSE_URI(uri, expected)                                                               \
+  std::string payment_id, description, error;                                                  \
+  std::vector<std::string> unknown_parameters;                                                 \
+  std::vector<tools::wallet2::recipient_data> recipients;                                      \
+  tools::wallet2 w(cryptonote::TESTNET);                                                       \
+  bool ret = w.parse_uri(uri, recipients, payment_id, description, unknown_parameters, error); \
   ASSERT_EQ(ret, expected);
 
 TEST(uri, empty_string)
@@ -79,7 +79,7 @@ TEST(uri, bad_address)
 TEST(uri, good_address)
 {
   PARSE_URI("monero:" TEST_ADDRESS, true);
-  ASSERT_EQ(address, TEST_ADDRESS);
+  ASSERT_EQ(recipients[0].address, TEST_ADDRESS);
 }
 
 TEST(uri, good_integrated_address)
@@ -150,7 +150,7 @@ TEST(uri, short_payment_id)
 TEST(uri, long_payment_id)
 {
   PARSE_URI("monero:" TEST_ADDRESS"?tx_payment_id=1234567890123456789012345678901234567890123456789012345678901234", true);
-  ASSERT_EQ(address, TEST_ADDRESS);
+  ASSERT_EQ(recipients[0].address, TEST_ADDRESS);
   ASSERT_EQ(payment_id, "1234567890123456789012345678901234567890123456789012345678901234");
 }
 
@@ -168,7 +168,7 @@ TEST(uri, empty_description)
 TEST(uri, empty_recipient_name)
 {
   PARSE_URI("monero:" TEST_ADDRESS"?recipient_name=", true);
-  ASSERT_EQ(recipient_name, "");
+  ASSERT_EQ(recipients[0].recipient_name, "");
 }
 
 TEST(uri, non_empty_description)
@@ -180,7 +180,7 @@ TEST(uri, non_empty_description)
 TEST(uri, non_empty_recipient_name)
 {
   PARSE_URI("monero:" TEST_ADDRESS"?recipient_name=foo", true);
-  ASSERT_EQ(recipient_name, "foo");
+  ASSERT_EQ(recipients[0].recipient_name, "foo");
 }
 
 TEST(uri, url_encoding)
