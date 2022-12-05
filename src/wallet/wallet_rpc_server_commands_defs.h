@@ -47,7 +47,7 @@
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define WALLET_RPC_VERSION_MAJOR 1
-#define WALLET_RPC_VERSION_MINOR 26
+#define WALLET_RPC_VERSION_MINOR 27
 #define MAKE_WALLET_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define WALLET_RPC_VERSION MAKE_WALLET_RPC_VERSION(WALLET_RPC_VERSION_MAJOR, WALLET_RPC_VERSION_MINOR)
 namespace tools
@@ -1906,27 +1906,44 @@ namespace wallet_rpc
     typedef epee::misc_utils::struct_init<response_t> response;
   };
 
-  struct uri_spec
+  struct uri_payment
   {
     std::string address;
-    std::string payment_id;
     uint64_t amount;
-    std::string tx_description;
     std::string recipient_name;
 
     BEGIN_KV_SERIALIZE_MAP()
-      KV_SERIALIZE(address);
-      KV_SERIALIZE(payment_id);
-      KV_SERIALIZE(amount);
-      KV_SERIALIZE(tx_description);
-      KV_SERIALIZE(recipient_name);
+    KV_SERIALIZE(address);
+    KV_SERIALIZE_OPT(amount, (uint64_t)0);
+    KV_SERIALIZE(recipient_name);
+    END_KV_SERIALIZE_MAP()
+  };
+
+  struct uri_spec
+  {
+    std::vector<uri_payment> payments;
+    std::string tx_description;
+    std::string payment_id;
+
+    BEGIN_KV_SERIALIZE_MAP()
+    KV_SERIALIZE(payments);
+    KV_SERIALIZE(tx_description);
+    KV_SERIALIZE(payment_id);
     END_KV_SERIALIZE_MAP()
   };
 
   struct COMMAND_RPC_MAKE_URI
   {
-    struct request_t: public uri_spec
+    struct request_t
     {
+      std::vector<uri_payment> payments;
+      std::string tx_description;
+      std::string payment_id;
+      BEGIN_KV_SERIALIZE_MAP()
+      KV_SERIALIZE(payments);
+      KV_SERIALIZE(tx_description);
+      KV_SERIALIZE(payment_id);
+      END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
 
