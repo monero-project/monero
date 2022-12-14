@@ -603,7 +603,7 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------------------------
-  bool tx_memory_pool::get_transaction_info(const crypto::hash &txid, tx_details &td) const
+  bool tx_memory_pool::get_transaction_info(const crypto::hash &txid, tx_details &td, bool include_sensitive_data, bool include_blob) const
   {
     PERF_TIMER(get_transaction_info);
     CRITICAL_REGION_LOCAL(m_transactions_lock);
@@ -615,7 +615,12 @@ namespace cryptonote
       txpool_tx_meta_t meta;
       if (!m_blockchain.get_txpool_tx_meta(txid, meta))
       {
-        MERROR("Failed to find tx in txpool");
+        LOG_PRINT_L2("Failed to find tx in txpool: " << txid);
+        return false;
+      }
+      if (!include_sensitive_data && !meta.matches(relay_category::broadcasted))
+      {
+        // We don't want sensitive data && the tx is sensitive, so no need to return it
         return false;
       }
       cryptonote::blobdata txblob = m_blockchain.get_txpool_tx_blob(txid, relay_category::all);
@@ -641,12 +646,13 @@ namespace cryptonote
       td.kept_by_block = meta.kept_by_block;
       td.last_failed_height = meta.last_failed_height;
       td.last_failed_id = meta.last_failed_id;
-      td.receive_time = meta.receive_time;
-      td.last_relayed_time = meta.dandelionpp_stem ? 0 : meta.last_relayed_time;
+      td.receive_time = include_sensitive_data ? meta.receive_time : 0;
+      td.last_relayed_time = (include_sensitive_data && !meta.dandelionpp_stem) ? meta.last_relayed_time : 0;
       td.relayed = meta.relayed;
       td.do_not_relay = meta.do_not_relay;
       td.double_spend_seen = meta.double_spend_seen;
-      td.sensitive = !meta.matches(relay_category::broadcasted);
+      if (include_blob)
+        td.tx_blob = std::move(txblob);
     }
     catch (const std::exception &e)
     {
@@ -654,6 +660,25 @@ namespace cryptonote
       return false;
     }
 
+    return true;
+  }
+  //------------------------------------------------------------------
+  bool tx_memory_pool::get_transactions_info(const std::vector<crypto::hash>& txids, std::vector<std::pair<crypto::hash, tx_details>>& txs, bool include_sensitive) const
+  {
+    CRITICAL_REGION_LOCAL(m_transactions_lock);
+    CRITICAL_REGION_LOCAL1(m_blockchain);
+
+    txs.clear();
+
+    for (const auto &it: txids)
+    {
+      tx_details details;
+      bool success = get_transaction_info(it, details, include_sensitive, true/*include_blob*/);
+      if (success)
+      {
+        txs.push_back(std::make_pair(it, std::move(details)));
+      }
+    }
     return true;
   }
   //---------------------------------------------------------------------------------
@@ -929,7 +954,7 @@ namespace cryptonote
     }, false, category);
   }
   //------------------------------------------------------------------
-  bool tx_memory_pool::get_pool_info(time_t start_time, bool include_sensitive, std::vector<tx_details>& added_txs, std::vector<crypto::hash>& removed_txs, bool& incremental) const
+  bool tx_memory_pool::get_pool_info(time_t start_time, bool include_sensitive, size_t max_tx_count, std::vector<std::pair<crypto::hash, tx_details>>& added_txs, std::vector<crypto::hash>& remaining_added_txids, std::vector<crypto::hash>& removed_txs, bool& incremental) const
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     CRITICAL_REGION_LOCAL1(m_blockchain);
@@ -957,46 +982,39 @@ namespace cryptonote
     }
 
     added_txs.clear();
+    remaining_added_txids.clear();
     removed_txs.clear();
 
+    std::vector<crypto::hash> txids;
     if (!incremental)
     {
+      LOG_PRINT_L2("Giving back the whole pool");
       // Give back the whole pool in 'added_txs'; because calling 'get_transaction_info' right inside the
       // anonymous method somehow results in an LMDB error with transactions we have to build a list of
       // ids first and get the full info afterwards
-      std::vector<crypto::hash> txids;
-      const relay_category category = include_sensitive ? relay_category::all : relay_category::broadcasted;
-      m_blockchain.for_all_txpool_txes([&txids](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata_ref *bd){
-        txids.push_back(txid);
-        return true;
-      }, false, category);
-      tx_details details;
-      for (const auto &it: txids)
+      get_transaction_hashes(txids, include_sensitive);
+      if (txids.size() > max_tx_count)
       {
-        bool success = get_transaction_info(it, details);
-        if (success)
-        {
-          added_txs.push_back(std::move(details));
-        }
+        remaining_added_txids = std::vector<crypto::hash>(txids.begin() + max_tx_count, txids.end());
+        txids.erase(txids.begin() + max_tx_count, txids.end());
       }
+      get_transactions_info(txids, added_txs, include_sensitive);
       return true;
     }
 
     // Give back incrementally, based on time of entry into the map
-    tx_details details;
     for (const auto &pit : m_added_txs_by_id)
     {
       if (pit.second >= start_time)
-      {
-        bool success = get_transaction_info(pit.first, details);
-        if (success)
-        {
-          if (include_sensitive || !details.sensitive)
-          {
-            added_txs.push_back(std::move(details));
-          }
-        }
-      }
+        txids.push_back(pit.first);
+    }
+    get_transactions_info(txids, added_txs, include_sensitive);
+    if (added_txs.size() > max_tx_count)
+    {
+      remaining_added_txids.reserve(added_txs.size() - max_tx_count);
+      for (size_t i = max_tx_count; i < added_txs.size(); ++i)
+        remaining_added_txids.push_back(added_txs[i].first);
+      added_txs.erase(added_txs.begin() + max_tx_count, added_txs.end());
     }
 
     std::multimap<time_t, removed_tx_info>::const_iterator rit = m_removed_txs_by_time.lower_bound(start_time);

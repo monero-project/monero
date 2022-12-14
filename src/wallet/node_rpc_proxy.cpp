@@ -392,4 +392,34 @@ boost::optional<std::string> NodeRPCProxy::get_rpc_payment_info(bool mining, boo
   return boost::none;
 }
 
+boost::optional<std::string> NodeRPCProxy::get_transactions(const std::vector<crypto::hash> &txids, const std::function<void(const cryptonote::COMMAND_RPC_GET_TRANSACTIONS::request&, const cryptonote::COMMAND_RPC_GET_TRANSACTIONS::response&, bool)> &f)
+{
+  const size_t SLICE_SIZE = 100; // RESTRICTED_TRANSACTIONS_COUNT as defined in rpc/core_rpc_server.cpp
+  for (size_t offset = 0; offset < txids.size(); offset += SLICE_SIZE)
+  {
+    cryptonote::COMMAND_RPC_GET_TRANSACTIONS::request req_t = AUTO_VAL_INIT(req_t);
+    cryptonote::COMMAND_RPC_GET_TRANSACTIONS::response resp_t = AUTO_VAL_INIT(resp_t);
+
+    const size_t n_txids = std::min<size_t>(SLICE_SIZE, txids.size() - offset);
+    for (size_t n = offset; n < (offset + n_txids); ++n)
+      req_t.txs_hashes.push_back(epee::string_tools::pod_to_hex(txids[n]));
+    MDEBUG("asking for " << req_t.txs_hashes.size() << " transactions");
+    req_t.decode_as_json = false;
+    req_t.prune = true;
+
+    bool r = false;
+    {
+      const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};
+      uint64_t pre_call_credits = m_rpc_payment_state.credits;
+      req_t.client = cryptonote::make_rpc_payment_signature(m_client_id_secret_key);
+      r = net_utils::invoke_http_json("/gettransactions", req_t, resp_t, m_http_client, rpc_timeout);
+      if (r && resp_t.status == CORE_RPC_STATUS_OK)
+        check_rpc_cost(m_rpc_payment_state, "/gettransactions", resp_t.credits, pre_call_credits, resp_t.txs.size() * COST_PER_TX);
+    }
+
+    f(req_t, resp_t, r);
+  }
+  return boost::optional<std::string>();
+}
+
 }

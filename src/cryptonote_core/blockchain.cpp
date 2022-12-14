@@ -2044,7 +2044,7 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
       cryptonote::blobdata blob;
       if (m_tx_pool.have_tx(txid, relay_category::legacy))
       {
-        if (m_tx_pool.get_transaction_info(txid, td))
+        if (m_tx_pool.get_transaction_info(txid, td, true/*include_sensitive_data*/))
         {
           bei.block_cumulative_weight += td.weight;
         }
