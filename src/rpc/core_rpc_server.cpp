@@ -630,31 +630,34 @@ namespace cryptonote
       const bool restricted = m_restricted && ctx;
       const bool request_has_rpc_origin = ctx != NULL;
       const bool allow_sensitive = !request_has_rpc_origin || !restricted;
+      const size_t max_tx_count = restricted ? RESTRICTED_TRANSACTIONS_COUNT : std::numeric_limits<size_t>::max();
 
       bool incremental;
-      std::vector<tx_memory_pool::tx_details> added_pool_txs;
-      bool success = m_core.get_pool_info((time_t)req.pool_info_since, allow_sensitive, added_pool_txs, res.removed_pool_txids, incremental);
+      std::vector<std::pair<crypto::hash, tx_memory_pool::tx_details>> added_pool_txs;
+      bool success = m_core.get_pool_info((time_t)req.pool_info_since, allow_sensitive, max_tx_count, added_pool_txs, res.remaining_added_pool_txids, res.removed_pool_txids, incremental);
       if (success)
       {
         res.added_pool_txs.clear();
         if (m_rpc_payment)
         {
-          CHECK_PAYMENT_SAME_TS(req, res, added_pool_txs.size() * COST_PER_TX + res.removed_pool_txids.size() * COST_PER_POOL_HASH);
+          CHECK_PAYMENT_SAME_TS(req, res, added_pool_txs.size() * COST_PER_TX + (res.remaining_added_pool_txids.size() + res.removed_pool_txids.size()) * COST_PER_POOL_HASH);
         }
-        for (auto tx_detail: added_pool_txs)
+        for (const auto &added_pool_tx: added_pool_txs)
         {
           COMMAND_RPC_GET_BLOCKS_FAST::pool_tx_info info;
-          info.tx_hash = cryptonote::get_transaction_hash(tx_detail.tx);
+          info.tx_hash = added_pool_tx.first;
           std::stringstream oss;
           binary_archive<true> ar(oss);
-          bool r = ::serialization::serialize(ar, tx_detail.tx);
+          bool r = req.prune
+            ? const_cast<cryptonote::transaction&>(added_pool_tx.second.tx).serialize_base(ar)
+            : ::serialization::serialize(ar, const_cast<cryptonote::transaction&>(added_pool_tx.second.tx));
           if (!r)
           {
             res.status = "Failed to serialize transaction";
             return true;
           }
           info.tx_blob = oss.str();
-          info.double_spend_seen = tx_detail.double_spend_seen;
+          info.double_spend_seen = added_pool_tx.second.double_spend_seen;
           res.added_pool_txs.push_back(std::move(info));
         }
       }
@@ -993,17 +996,16 @@ namespace cryptonote
     // try the pool for any missing txes
     size_t found_in_pool = 0;
     std::unordered_set<crypto::hash> pool_tx_hashes;
-    std::unordered_map<crypto::hash, tx_info> per_tx_pool_tx_info;
+    std::unordered_map<crypto::hash, tx_memory_pool::tx_details> per_tx_pool_tx_details;
     if (!missed_txs.empty())
     {
-      std::vector<tx_info> pool_tx_info;
-      std::vector<spent_key_image_info> pool_key_image_info;
-      bool r = m_core.get_pool_transactions_and_spent_keys_info(pool_tx_info, pool_key_image_info, !request_has_rpc_origin || !restricted);
+      std::vector<std::pair<crypto::hash, tx_memory_pool::tx_details>> pool_txs;
+      bool r = m_core.get_pool_transactions_info(missed_txs, pool_txs, !request_has_rpc_origin || !restricted);
       if(r)
       {
         // sort to match original request
         std::vector<std::tuple<crypto::hash, cryptonote::blobdata, crypto::hash, cryptonote::blobdata>> sorted_txs;
-        std::vector<tx_info>::const_iterator i;
+        std::vector<std::pair<crypto::hash, tx_memory_pool::tx_details>>::const_iterator i;
         unsigned txs_processed = 0;
         for (const crypto::hash &h: vh)
         {
@@ -1023,36 +1025,23 @@ namespace cryptonote
             sorted_txs.push_back(std::move(txs[txs_processed]));
             ++txs_processed;
           }
-          else if ((i = std::find_if(pool_tx_info.begin(), pool_tx_info.end(), [h](const tx_info &txi) { return epee::string_tools::pod_to_hex(h) == txi.id_hash; })) != pool_tx_info.end())
+          else if ((i = std::find_if(pool_txs.begin(), pool_txs.end(), [h](const std::pair<crypto::hash, tx_memory_pool::tx_details> &pt) { return h == pt.first; })) != pool_txs.end())
           {
-            cryptonote::transaction tx;
-            if (!cryptonote::parse_and_validate_tx_from_blob(i->tx_blob, tx))
-            {
-              res.status = "Failed to parse and validate tx from blob";
-              return true;
-            }
+            const tx_memory_pool::tx_details &td = i->second;
             std::stringstream ss;
             binary_archive<true> ba(ss);
-            bool r = const_cast<cryptonote::transaction&>(tx).serialize_base(ba);
+            bool r = const_cast<cryptonote::transaction&>(td.tx).serialize_base(ba);
             if (!r)
             {
               res.status = "Failed to serialize transaction base";
               return true;
             }
             const cryptonote::blobdata pruned = ss.str();
-            const crypto::hash prunable_hash = tx.version == 1 ? crypto::null_hash : get_transaction_prunable_hash(tx);
-            sorted_txs.push_back(std::make_tuple(h, pruned, prunable_hash, std::string(i->tx_blob, pruned.size())));
+            const crypto::hash prunable_hash = td.tx.version == 1 ? crypto::null_hash : get_transaction_prunable_hash(td.tx);
+            sorted_txs.push_back(std::make_tuple(h, pruned, prunable_hash, std::string(td.tx_blob, pruned.size())));
             missed_txs.erase(std::find(missed_txs.begin(), missed_txs.end(), h));
             pool_tx_hashes.insert(h);
-            const std::string hash_string = epee::string_tools::pod_to_hex(h);
-            for (const auto &ti: pool_tx_info)
-            {
-              if (ti.id_hash == hash_string)
-              {
-                per_tx_pool_tx_info.insert(std::make_pair(h, ti));
-                break;
-              }
-            }
+            per_tx_pool_tx_details.insert(std::make_pair(h, td));
             ++found_in_pool;
           }
         }
@@ -1148,8 +1137,8 @@ namespace cryptonote
       {
         e.block_height = e.block_timestamp = std::numeric_limits<uint64_t>::max();
         e.confirmations = 0;
-        auto it = per_tx_pool_tx_info.find(tx_hash);
-        if (it != per_tx_pool_tx_info.end())
+        auto it = per_tx_pool_tx_details.find(tx_hash);
+        if (it != per_tx_pool_tx_details.end())
         {
           e.double_spend_seen = it->second.double_spend_seen;
           e.relayed = it->second.relayed;

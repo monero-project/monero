@@ -428,6 +428,7 @@ namespace cryptonote
     struct tx_details
     {
       transaction tx;  //!< the transaction
+      cryptonote::blobdata tx_blob; //!< the transaction's binary blob
       size_t blob_size;  //!< the transaction's size
       size_t weight;  //!< the transaction's weight
       uint64_t fee;  //!< the transaction's fee amount
@@ -461,13 +462,17 @@ namespace cryptonote
       bool do_not_relay; //!< to avoid relay this transaction to the network
 
       bool double_spend_seen; //!< true iff another tx was seen double spending this one
-      bool sensitive;
     };
 
     /**
      * @brief get infornation about a single transaction
      */
-    bool get_transaction_info(const crypto::hash &txid, tx_details &td) const;
+    bool get_transaction_info(const crypto::hash &txid, tx_details &td, bool include_sensitive_data, bool include_blob = false) const;
+
+    /**
+     * @brief get information about multiple transactions
+     */
+    bool get_transactions_info(const std::vector<crypto::hash>& txids, std::vector<std::pair<crypto::hash, tx_details>>& txs, bool include_sensitive_data = false) const;
 
     /**
      * @brief get transactions not in the passed set
@@ -479,7 +484,7 @@ namespace cryptonote
      *
      * @return true on success, false on error
      */
-    bool get_pool_info(time_t start_time, bool include_sensitive, std::vector<tx_details>& added_txs, std::vector<crypto::hash>& removed_txs, bool& incremental) const;
+    bool get_pool_info(time_t start_time, bool include_sensitive, size_t max_tx_count, std::vector<std::pair<crypto::hash, tx_details>>& added_txs, std::vector<crypto::hash>& remaining_added_txids, std::vector<crypto::hash>& removed_txs, bool& incremental) const;
 
   private:
 

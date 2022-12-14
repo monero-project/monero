@@ -236,6 +236,7 @@ namespace cryptonote
       uint64_t    daemon_time;
       uint8_t     pool_info_extent;
       std::vector<pool_tx_info> added_pool_txs;
+      std::vector<crypto::hash> remaining_added_pool_txids;
       std::vector<crypto::hash> removed_pool_txids;
 
       BEGIN_KV_SERIALIZE_MAP()
@@ -244,10 +245,17 @@ namespace cryptonote
         KV_SERIALIZE(start_height)
         KV_SERIALIZE(current_height)
         KV_SERIALIZE(output_indices)
-        KV_SERIALIZE(daemon_time)
-        KV_SERIALIZE(pool_info_extent)
-        KV_SERIALIZE(added_pool_txs)
-        KV_SERIALIZE_CONTAINER_POD_AS_BLOB(removed_pool_txids)
+        KV_SERIALIZE_OPT(daemon_time, (uint64_t) 0)
+        KV_SERIALIZE_OPT(pool_info_extent, (uint8_t) 0)
+        if (pool_info_extent != POOL_INFO_EXTENT::NONE)
+        {
+          KV_SERIALIZE(added_pool_txs)
+          KV_SERIALIZE_CONTAINER_POD_AS_BLOB(remaining_added_pool_txids)
+        }
+        if (pool_info_extent == POOL_INFO_EXTENT::INCREMENTAL)
+        {
+          KV_SERIALIZE_CONTAINER_POD_AS_BLOB(removed_pool_txids)
+        }
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;
