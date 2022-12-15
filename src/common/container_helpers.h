@@ -54,7 +54,7 @@ struct equals_from_less final
     template <typename T>
     bool operator()(const T &a, const T &b) { return !(a < b) && !(b < a); }
 };
-/// note: uniqueness uses 'equals_from_less' to match the use of operator< when testing if sorted
+/// note: test for sorted and uniqueness using the same criteria (operator<)
 template <typename T>
 bool is_sorted_and_unique(const T& container)
 {
@@ -67,6 +67,8 @@ bool is_sorted_and_unique(const T& container)
     return true;
 }
 /// convenience wrapper for checking if a mapped object is mapped to a key embedded in that object
+/// example: std::unorderd_map<rct::key, std::pair<rct::key, rct::xmr_amount>> where the map key is supposed to
+///   reproduce the pair's rct::key; use the predicate to get the pair's rct::key element
 template <typename KeyT, typename ValueT>
 bool keys_match_internal_values(const std::unordered_map<KeyT, ValueT> &map,
     const std::function<
