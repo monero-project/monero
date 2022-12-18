@@ -47,21 +47,20 @@
 namespace tools
 {
 
-/// use operator< to get operator==
-/// WARNING: equality is not always implied by operator<, depending on implementation
-struct equals_from_less final
+/// test if a container is sorted and unique according to a comparison criteria (defaults to operator<)
+template <typename T, typename ComparisonOpT = std::less<typename T::value_type>>
+bool is_sorted_and_unique(const T &container, const ComparisonOpT &ComparisonOp = ComparisonOpT{})
 {
-    template <typename T>
-    bool operator()(const T &a, const T &b) { return !(a < b) && !(b < a); }
-};
-/// note: test for sorted and uniqueness using the same criteria (operator<)
-template <typename T>
-bool is_sorted_and_unique(const T& container)
-{
-    if (!std::is_sorted(container.begin(), container.end()))
+    if (!std::is_sorted(container.begin(), container.end(), ComparisonOp))
         return false;
 
-    if (std::adjacent_find(container.begin(), container.end(), equals_from_less{}) != container.end())
+    if (std::adjacent_find(container.begin(),
+                container.end(),
+                [&ComparisonOp](const typename T::value_type &a, const typename T::value_type &b) -> bool
+                {
+                    return !ComparisonOp(a, b) && !ComparisonOp(b, a);
+                })
+            != container.end())
         return false;
 
     return true;
