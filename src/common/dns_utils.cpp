@@ -30,6 +30,8 @@
 // check local first (in the event of static or in-source compilation of libunbound)
 #include "unbound.h"
 
+#include <deque>
+#include <set>
 #include <stdlib.h>
 #include "include_base_utils.h"
 #include "common/threadpool.h"
