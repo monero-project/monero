@@ -47,7 +47,14 @@
 namespace tools
 {
 
+/// convert a binary comparison function to a functor
+template <typename T, typename ComparisonOpT = bool(const T &a, const T &b)>
+inline auto compare_func(const ComparisonOpT &comparison_function)
+{
+    return [&comparison_function](const T &a, const T &b) -> bool { return comparison_function(a, b); };
+}
 /// test if a container is sorted and unique according to a comparison criteria (defaults to operator<)
+/// NOTE: ComparisonOpT must establish 'strict weak ordering' https://en.cppreference.com/w/cpp/named_req/Compare
 template <typename T, typename ComparisonOpT = std::less<typename T::value_type>>
 bool is_sorted_and_unique(const T &container, const ComparisonOpT &ComparisonOp = ComparisonOpT{})
 {
@@ -64,6 +71,13 @@ bool is_sorted_and_unique(const T &container, const ComparisonOpT &ComparisonOp 
         return false;
 
     return true;
+}
+/// specialization for raw function pointers
+template <typename T>
+bool is_sorted_and_unique(const T &container,
+    bool (*const ComparisonOpFunc)(const typename T::value_type &a, const typename T::value_type &b))
+{
+    return is_sorted_and_unique(container, compare_func<typename T::value_type>(ComparisonOpFunc));
 }
 /// convenience wrapper for checking if a mapped object is mapped to a key embedded in that object
 /// example: std::unorderd_map<rct::key, std::pair<rct::key, rct::xmr_amount>> where the map key is supposed to
