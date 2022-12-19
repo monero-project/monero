@@ -3,16 +3,16 @@ name: continuous-integration/gh-actions/cli
 on: [push, pull_request]
 
 jobs:
-  build-macos:
-    runs-on: macOS-latest
+  build-macos-x64:
+    runs-on: macos-12
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v3
       with:
         submodules: recursive
     - name: update brew and install dependencies
-      run: brew update && brew install boost hidapi zmq libpgm miniupnpc ldns expat libunwind-headers protobuf openssl@1.1
+      run: brew update && brew install boost hidapi zmq libpgm miniupnpc ldns expat libunwind-headers openssl@1.1 unbound
     - name: build
-      run: make -j3
+      run: make release-static-mac-x64 -j3
 
   build-windows:
     runs-on: windows-latest
@@ -42,7 +42,7 @@ jobs:
         make release-static-win64 -j2
 
   build-ubuntu:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v1
       with:
@@ -62,7 +62,7 @@ jobs:
       run: make -j3
 
   libwallet-ubuntu:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v1
       with:
@@ -83,7 +83,7 @@ jobs:
 
   test-ubuntu:
     needs: build-ubuntu
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v1
       with:

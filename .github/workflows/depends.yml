@@ -12,7 +12,7 @@ env:
         ccache --set-config=compression=true
 jobs:
   build-macos:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     env:
       CCACHE_TEMPDIR: /tmp/.ccache-temp
     strategy:
@@ -21,7 +21,7 @@ jobs:
         toolchain:
           - name: "build-depends-armv7"
             host: "arm-linux-gnueabihf"
-            packages: "python3 gperf g++-arm-linux-gnueabihf gcc-arm-linux-gnueabihf"
+            packages: "python3 gperf g++-9-arm-linux-gnueabihf gcc-9-arm-linux-gnueabihf g++-arm-linux-gnueabihf gcc-arm-linux-gnueabihf"
           - name: "build-depends-armv8"
             host: "aarch64-linux-gnu"
             packages: "python3 gperf g++-aarch64-linux-gnu gcc-aarch64-linux-gnu"
@@ -69,6 +69,11 @@ jobs:
       run: |
         sudo update-alternatives --set ${{ matrix.toolchain.host }}-g++ $(which ${{ matrix.toolchain.host }}-g++-posix)
         sudo update-alternatives --set ${{ matrix.toolchain.host }}-gcc $(which ${{ matrix.toolchain.host }}-gcc-posix)
+    - name: prepare arm-linux-gnueabihf
+      if: ${{ matrix.toolchain.host == 'arm-linux-gnueabihf' }}
+      run: |
+        sudo update-alternatives --install $(which ${{ matrix.toolchain.host }}-g++) ${{ matrix.toolchain.host }}-g++ $(which ${{ matrix.toolchain.host }}-g++-9) 0
+        sudo update-alternatives --install $(which ${{ matrix.toolchain.host }}-gcc) ${{ matrix.toolchain.host }}-gcc $(which ${{ matrix.toolchain.host }}-gcc-9) 0
     - name: build
       run: |
         ${{env.CCACHE_SETTINGS}}

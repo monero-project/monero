@@ -1251,7 +1251,7 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
   block_reward_context.height                    = height;
 
 	block_reward_parts reward_parts;
-	if (!get_triton_block_reward(median_weight, cumulative_block_weight, already_generated_coins, version, reward_parts, block_reward_context, m_nettype))
+	if (!get_triton_block_reward(median_weight, cumulative_block_weight, already_generated_coins, version, reward_parts, block_reward_context, height, m_nettype))
 	{
 		MERROR_VER("block weight " << cumulative_block_weight << " is bigger than allowed for this blockchain");
 		return false;
@@ -1816,7 +1816,10 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
     bei.height = prev_height + 1;
     uint64_t block_reward = get_outs_money_amount(b.miner_tx);
     const uint64_t prev_generated_coins = alt_chain.size() ? prev_data.already_generated_coins : m_db->get_block_already_generated_coins(prev_height);
-    bei.already_generated_coins = (block_reward < (MONEY_SUPPLY - prev_generated_coins)) ? prev_generated_coins + block_reward : MONEY_SUPPLY;
+    uint64_t money_sup;
+    if (prev_height >= 991429) money_sup = MONEY_SUPPLY + (CORP_MINT * 5);
+    else money_sup = MONEY_SUPPLY;
+    bei.already_generated_coins = (block_reward < (money_sup - prev_generated_coins)) ? prev_generated_coins + block_reward : money_sup;
 
     // verify that the block's timestamp is within the acceptable range
     // (not earlier than the median of the last X blocks)
@@ -3819,7 +3822,7 @@ bool Blockchain::check_fee(size_t tx_weight, uint64_t fee) const
     median = m_current_block_cumul_weight_limit / 2;
     const uint64_t blockchain_height = m_db->height();
     already_generated_coins = blockchain_height ? m_db->get_block_already_generated_coins(blockchain_height - 1) : 0;
-    if (!get_block_reward(median, 1, already_generated_coins, base_reward, version))
+    if (!get_block_reward(median, 1, already_generated_coins, base_reward, version, blockchain_height))
       return false;
   }
 
@@ -3885,7 +3888,7 @@ uint64_t Blockchain::get_dynamic_base_fee_estimate(uint64_t grace_blocks) const
 
   uint64_t already_generated_coins = db_height ? m_db->get_block_already_generated_coins(db_height - 1) : 0;
   uint64_t base_reward;
-  if (!get_block_reward(m_current_block_cumul_weight_limit / 2, 1, already_generated_coins, base_reward, version))
+  if (!get_block_reward(m_current_block_cumul_weight_limit / 2, 1, already_generated_coins, base_reward, version, db_height))
   {
     MERROR("Failed to determine block reward, using placeholder " << print_money(BLOCK_REWARD_OVERESTIMATE) << " as a high bound");
     base_reward = BLOCK_REWARD_OVERESTIMATE;
@@ -4384,7 +4387,10 @@ leave:
   // coins will eventually exceed MONEY_SUPPLY and overflow a uint64. To prevent overflow, cap already_generated_coins
   // at MONEY_SUPPLY. already_generated_coins is only used to compute the block subsidy and MONEY_SUPPLY yields a
   // subsidy of 0 under the base formula and therefore the minimum subsidy >0 in the tail state.
-  already_generated_coins = base_reward < (MONEY_SUPPLY-already_generated_coins) ? already_generated_coins + base_reward : MONEY_SUPPLY;
+  uint64_t money_sup;
+  if (blockchain_height >= 991429) money_sup = MONEY_SUPPLY + (CORP_MINT * 5);
+  else money_sup = MONEY_SUPPLY;
+  already_generated_coins = base_reward < (money_sup - already_generated_coins) ? already_generated_coins + base_reward : money_sup;
   if(blockchain_height)
     cumulative_difficulty += m_db->get_block_cumulative_difficulty(blockchain_height - 1);
 

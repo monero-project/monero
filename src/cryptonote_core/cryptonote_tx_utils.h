@@ -112,7 +112,7 @@ namespace cryptonote
     uint64_t governance;
   };
 
-  bool get_triton_block_reward(size_t median_weight, size_t current_block_weight, uint64_t already_generated_coins, int hard_fork_version, block_reward_parts &result, const miner_reward_context &miner_context, const cryptonote::network_type nettype);
+  bool get_triton_block_reward(size_t median_weight, size_t current_block_weight, uint64_t already_generated_coins, uint8_t hard_fork_version, block_reward_parts &result, const miner_reward_context &miner_context, uint64_t height, const cryptonote::network_type nettype);
 
   struct tx_source_entry
   {
