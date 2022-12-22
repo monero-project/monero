@@ -48,7 +48,6 @@
 #include "file_io_utils.h"
 #include "int-util.h"
 #include "common/threadpool.h"
-#include "common/boost_serialization_helper.h"
 #include "warnings.h"
 #include "crypto/hash.h"
 #include "cryptonote_core.h"
