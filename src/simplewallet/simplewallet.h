@@ -296,19 +296,25 @@ namespace cryptonote
 
     struct transfer_view
     {
-      std::string type;
+      struct dest_output
+      {
+        std::string wallet_addr;
+        uint64_t    amount;
+        uint64_t    unlock_time;
+      };
+
       boost::variant<uint64_t, std::string> block;
       uint64_t timestamp;
-      std::string direction;
+      tools::pay_type type;
       bool confirmed;
       uint64_t amount;
       crypto::hash hash;
       std::string payment_id;
       uint64_t fee;
-      std::vector<std::pair<std::string, uint64_t>> outputs;
+      std::vector<dest_output> outputs;
       std::set<uint32_t> index;
       std::string note;
-      std::string unlocked;
+      std::string lock_msg;
     };
     bool get_transfers(std::vector<std::string>& args_, std::vector<transfer_view>& transfers);
 

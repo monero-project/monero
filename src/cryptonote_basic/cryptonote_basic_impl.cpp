@@ -95,7 +95,7 @@ namespace cryptonote {
     }
   }
   //-----------------------------------------------------------------------------------------------
-   bool get_block_reward(size_t median_weight, size_t current_block_weight, uint64_t already_generated_coins, uint64_t &reward, uint8_t version) {
+   bool get_block_reward(size_t median_weight, size_t current_block_weight, uint64_t already_generated_coins, uint64_t &reward, uint8_t version, uint64_t height) {
 	    if (version == 0) {
 		   reward = 0;
 		   return true;
@@ -140,7 +140,22 @@ namespace cryptonote {
        already_generated_coins -= (NEW_XEQ_BRIDGE * 3);
      }
 
-	   uint64_t base_reward = (MONEY_SUPPLY - already_generated_coins) >> emission_speed_factor;
+     if (version > 14)
+     {
+       already_generated_coins -= 400000000000;
+     }
+
+     uint64_t money_sup, base_reward;;
+     if (height >= 991429)
+     {
+       money_sup = MONEY_SUPPLY + (CORP_MINT * 5);
+       base_reward = 208207;
+     }
+     else
+     {
+       money_sup = MONEY_SUPPLY;
+       base_reward = (money_sup - already_generated_coins) >> emission_speed_factor;
+     }
 
 
     //emissions will be seperate from now on. A better system is needed in the future.

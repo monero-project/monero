@@ -1268,6 +1268,11 @@ namespace cryptonote
       total_fee_amount += tx_fee_amount;
       return true;
       });
+      if (start_offset <= 1 && 1 <= end)
+      {
+        uint64_t div = ((CORP_MINT * 5) + (NEW_XEQ_BRIDGE * 3));
+        emission_amount -= div;
+      }
     }
 
     return std::tuple<uint64_t, uint64_t, uint64_t>(burnt_xeq, emission_amount, total_fee_amount);

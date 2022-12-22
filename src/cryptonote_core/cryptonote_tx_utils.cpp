@@ -184,9 +184,15 @@ namespace cryptonote
       } else if(height == (fork_height + 583654))
       {
         return NEW_XEQ_BRIDGE;
-      } else if(height > (fork_height + 583654) && (height % 21600 == 0))
+      } else if(height > (fork_height + 583654) && (height % 21600 == 0) && height < 991430)
       {
         return 200000 * COIN;
+      } else if (height == (fork_height + 638584))
+      {
+        return CORP_MINT * 5;
+      } else if (height > (fork_height + 638584) && (height % 10800 == 0))
+      {
+        return 225000 * COIN;
       }
     }
     else if(nettype == TESTNET)
@@ -227,6 +233,14 @@ namespace cryptonote
       else if(height > (fork_height + 7) && (height % 10 == 0))
       {
         return 200000 * COIN;
+      }
+      else if (height == (fork_height + 50))
+      {
+        return CORP_MINT * 5;
+      }
+      else if (height > (fork_height + 50) && (height % 5 == 0))
+      {
+        return 225000 * COIN;
       }
       else if(height == 500000)
       { //wXEQ + extra wXEQ 1M LP rewards!
@@ -335,7 +349,6 @@ namespace cryptonote
 
   add_service_node_winner_to_tx_extra(tx.extra, service_node_key);
 
-
   txin_gen in;
   in.height = height;
 
@@ -345,7 +358,7 @@ namespace cryptonote
 	block_reward_context.snode_winner_info = miner_context.snode_winner_info;
 
 	block_reward_parts reward_parts;
-	if(!get_triton_block_reward(median_size, current_block_size, already_generated_coins, hard_fork_version, reward_parts, block_reward_context, nettype))
+	if(!get_triton_block_reward(median_size, current_block_size, already_generated_coins, hard_fork_version, reward_parts, block_reward_context, height, nettype))
   {
     LOG_PRINT_L0("Failed to calculate block reward");
     return false;
@@ -432,7 +445,7 @@ namespace cryptonote
       summary_amounts += out.amount = reward_parts.governance;
       out.target = tk;
 			tx.vout.push_back(out);
-			tx.output_unlock_times.push_back(height + 2);
+			tx.output_unlock_times.push_back(height + 4);
   }
 
 	uint64_t expected_amount = reward_parts.miner_reward() + reward_parts.governance + reward_parts.service_node_paid;
@@ -447,11 +460,11 @@ namespace cryptonote
 	return true;
   }
 
-  bool get_triton_block_reward(size_t median_weight, size_t current_block_weight, uint64_t already_generated_coins, int hard_fork_version, block_reward_parts &result, const miner_reward_context &miner_context, const cryptonote::network_type nettype)
+  bool get_triton_block_reward(size_t median_weight, size_t current_block_weight, uint64_t already_generated_coins, uint8_t hard_fork_version, block_reward_parts &result, const miner_reward_context &miner_context, uint64_t height, const cryptonote::network_type nettype)
   {
 	  result = {};
 	  uint64_t base_reward;
-	  if (!get_block_reward(median_weight, current_block_weight, already_generated_coins, base_reward, hard_fork_version))
+	  if (!get_block_reward(median_weight, current_block_weight, already_generated_coins, base_reward, hard_fork_version, miner_context.height))
 	  {
 		  MERROR("Failed to calculate base block reward");
 		  return false;
