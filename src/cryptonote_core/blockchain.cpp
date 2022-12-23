@@ -89,7 +89,7 @@ DISABLE_VS_WARNINGS(4267)
 
 //------------------------------------------------------------------
 Blockchain::Blockchain(tx_memory_pool& tx_pool, service_nodes::service_node_list& service_node_list, service_nodes::deregister_vote_pool& deregister_vote_pool) :
-  m_db(), m_tx_pool(tx_pool), m_hardfork(NULL), m_timestamps_and_difficulties_height(0), m_reset_timestamps_and_difficulties_height(false), m_current_block_cumul_weight_limit(0), m_current_block_cumul_weight_median(0),
+  m_db(), m_tx_pool(tx_pool), m_hardfork(NULL), m_timestamps_and_difficulties_height(0), m_reset_timestamps_and_difficulties_height(true), m_current_block_cumul_weight_limit(0), m_current_block_cumul_weight_median(0),
   m_enforce_dns_checkpoints(false), m_max_prepare_blocks_threads(4), m_db_sync_on_blocks(true), m_db_sync_threshold(1), m_db_sync_mode(db_async), m_db_default_sync(false), m_fast_sync(true), m_show_time_stats(false), m_sync_counter(0), m_bytes_to_sync(0), m_cancel(false),
   m_long_term_block_weights_window(CRYPTONOTE_LONG_TERM_BLOCK_WEIGHT_WINDOW_SIZE),
   m_long_term_effective_median_block_weight(0),
@@ -634,6 +634,7 @@ block Blockchain::pop_block_from_blockchain()
 
   m_blocks_longhash_table.clear();
   m_scan_table.clear();
+  m_blocks_txs_check.clear();
 
   CHECK_AND_ASSERT_THROW_MES(update_next_cumulative_weight_limit(), "Error updating next cumulative weight limit");
   uint64_t top_block_height;
@@ -649,7 +650,7 @@ bool Blockchain::reset_and_set_genesis_block(const block& b)
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
   m_timestamps_and_difficulties_height = 0;
-  //m_reset_timestamps_and_difficulties_height = true;
+  m_reset_timestamps_and_difficulties_height = true;
   invalidate_block_template_cache();
   m_db->reset();
   m_db->drop_alt_blocks();
@@ -2062,8 +2063,6 @@ bool Blockchain::handle_get_objects(NOTIFY_REQUEST_GET_OBJECTS::request& arg, NO
     //pack block
     e.block = std::move(bl.first);
     e.block_weight = 0;
-    if (arg.prune && m_db->block_exists(arg.blocks[i]))
-      e.block_weight = m_db->get_block_weight(m_db->get_block_height(arg.blocks[i]));
   }
 
   return true;
@@ -2800,7 +2799,7 @@ bool Blockchain::find_blockchain_supplement(const std::list<crypto::hash>& qbloc
 // find split point between ours and foreign blockchain (or start at
 // blockchain height <req_start_block>), and return up to max_count FULL
 // blocks by reference.
-bool Blockchain::find_blockchain_supplement(const uint64_t req_start_block, const std::list<crypto::hash>& qblock_ids, std::vector<std::pair<std::pair<cryptonote::blobdata, crypto::hash>, std::vector<std::pair<crypto::hash, cryptonote::blobdata> > > >& blocks, uint64_t& total_height, uint64_t& start_height, bool pruned, bool get_miner_tx_hash, size_t max_block_count, size_t max_tx_count) const
+bool Blockchain::find_blockchain_supplement(const uint64_t req_start_block, const std::list<crypto::hash>& qblock_ids, std::vector<std::pair<std::pair<cryptonote::blobdata, crypto::hash>, std::vector<std::pair<crypto::hash, cryptonote::blobdata> > > >& blocks, uint64_t& total_height, uint64_t& start_height, bool pruned, bool get_miner_tx_hash, size_t max_count) const
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
@@ -2825,8 +2824,8 @@ bool Blockchain::find_blockchain_supplement(const uint64_t req_start_block, cons
 
   db_rtxn_guard rtxn_guard(m_db);
   total_height = get_current_blockchain_height();
-  blocks.reserve(std::min(std::min(max_block_count, (size_t)10000), (size_t)(total_height - start_height)));
-  CHECK_AND_ASSERT_MES(m_db->get_blocks_from(start_height, 3, max_block_count, max_tx_count, FIND_BLOCKCHAIN_SUPPLEMENT_MAX_SIZE, blocks, pruned, true, get_miner_tx_hash), false, "Error getting blocks");
+  blocks.reserve(std::min(std::min(max_count, (size_t)10000), (size_t)(total_height - start_height)));
+  CHECK_AND_ASSERT_MES(m_db->get_blocks_from(start_height, 3, max_count, FIND_BLOCKCHAIN_SUPPLEMENT_MAX_SIZE, blocks, pruned, true, get_miner_tx_hash), false, "Error getting blocks");
 
   return true;
 }
@@ -3252,9 +3251,6 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
 	size_t sig_index = 0;
 	if (pmax_used_block_height)
 		*pmax_used_block_height = 0;
-
-  if (tx.pruned)
-    return true;
 
 	crypto::hash tx_prefix_hash = get_transaction_prefix_hash(tx);
 
@@ -4792,6 +4788,7 @@ bool Blockchain::cleanup_handle_incoming_blocks(bool force_sync)
   TIME_MEASURE_FINISH(t1);
   m_blocks_longhash_table.clear();
   m_scan_table.clear();
+  m_blocks_txs_check.clear();
 
   // when we're well clear of the precomputed hashes, free the memory
   if (!m_blocks_hash_check.empty() && m_db->height() > m_blocks_hash_check.size() + 4096)

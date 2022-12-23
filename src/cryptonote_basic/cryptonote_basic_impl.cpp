@@ -145,17 +145,19 @@ namespace cryptonote {
        already_generated_coins -= 400000000000;
      }
 
-     uint64_t money_sup, base_reward;;
+     uint64_t money_sup;
      if (height >= 991429)
      {
        money_sup = MONEY_SUPPLY + (CORP_MINT * 5);
-       base_reward = 208207;
+       reward = 208207;
+       return true;
      }
      else
      {
        money_sup = MONEY_SUPPLY;
-       base_reward = (money_sup - already_generated_coins) >> emission_speed_factor;
      }
+
+     uint64_t base_reward = (money_sup - already_generated_coins) >> emission_speed_factor;
 
 
     //emissions will be seperate from now on. A better system is needed in the future.

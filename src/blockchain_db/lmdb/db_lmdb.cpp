@@ -39,7 +39,6 @@
 #include "common/util.h"
 #include "common/pruning.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
-#include "cryptonote_config.h"
 #include "crypto/crypto.h"
 #include "profile_tools.h"
 #include "ringct/rctOps.h"
@@ -789,7 +788,7 @@ void BlockchainLMDB::add_block(const block& blk, size_t block_weight, uint64_t l
   bi.bi_diff_lo = (cumulative_difficulty & 0xffffffffffffffff).convert_to<uint64_t>();
   bi.bi_hash = blk_hash;
   bi.bi_cum_rct = num_rct_outs;
-  if (blk.major_version >= 4)
+  if (blk.major_version >= 8)
   {
     uint64_t last_height = m_height-1;
     MDB_val_set(h, last_height);
@@ -2606,9 +2605,8 @@ std::vector<uint64_t> BlockchainLMDB::get_block_info_64bit_fields(uint64_t start
   RCURSOR(block_info);
 
   const uint64_t h = height();
-  if (h != 0)
-    if (start_height >= h)
-      throw0(DB_ERROR(("Height " + std::to_string(start_height) + " not in blockchain").c_str()));
+  if (start_height >= h)
+    throw0(DB_ERROR(("Height " + std::to_string(start_height) + " not in blockchain").c_str()));
 
   std::vector<uint64_t> ret;
   ret.reserve(count);
@@ -3031,8 +3029,6 @@ bool BlockchainLMDB::get_tx_blob(const crypto::hash& h, cryptonote::blobdata &bd
     return false;
   else if (get_result)
     throw0(DB_ERROR(lmdb_error("DB error attempting to fetch tx from hash", get_result).c_str()));
-  else if (result1.mv_size == 0)
-    return false;
 
   bd.assign(reinterpret_cast<char*>(result0.mv_data), result0.mv_size);
   bd.append(reinterpret_cast<char*>(result1.mv_data), result1.mv_size);
@@ -3114,7 +3110,7 @@ bool BlockchainLMDB::get_pruned_tx_blobs_from(const crypto::hash& h, size_t coun
   return true;
 }
 
-bool BlockchainLMDB::get_blocks_from(uint64_t start_height, size_t min_block_count, size_t max_block_count, size_t max_tx_count, size_t max_size, std::vector<std::pair<std::pair<cryptonote::blobdata, crypto::hash>, std::vector<std::pair<crypto::hash, cryptonote::blobdata>>>>& blocks, bool pruned, bool skip_coinbase, bool get_miner_tx_hash) const
+bool BlockchainLMDB::get_blocks_from(uint64_t start_height, size_t min_count, size_t max_count, size_t max_size, std::vector<std::pair<std::pair<cryptonote::blobdata, crypto::hash>, std::vector<std::pair<crypto::hash, cryptonote::blobdata>>>>& blocks, bool pruned, bool skip_coinbase, bool get_miner_tx_hash) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -3128,15 +3124,14 @@ bool BlockchainLMDB::get_blocks_from(uint64_t start_height, size_t min_block_cou
     RCURSOR(txs_prunable);
   }
 
-  blocks.reserve(std::min<size_t>(max_block_count, 10000)); // guard against very large max count if only checking bytes
+  blocks.reserve(std::min<size_t>(max_count, 10000)); // guard against very large max count if only checking bytes
   const uint64_t blockchain_height = height();
   uint64_t size = 0;
-  size_t num_txes = 0;
   MDB_val_copy<uint64_t> key(start_height);
   MDB_val k, v, val_tx_id;
   uint64_t tx_id = ~0;
   MDB_cursor_op op = MDB_SET;
-  for(uint64_t h = start_height; h < blockchain_height && blocks.size() < max_block_count && (size < max_size || blocks.size() < min_block_count); ++h)
+  for(uint64_t h = start_height; h < blockchain_height && blocks.size() < max_count && (size < max_size || blocks.size() < min_count); ++h)
   {
     MDB_cursor_op op = h == start_height ? MDB_SET : MDB_NEXT;
     int result = mdb_cursor_get(m_cur_blocks, &key, &v, op);
@@ -3187,7 +3182,6 @@ bool BlockchainLMDB::get_blocks_from(uint64_t start_height, size_t min_block_cou
     op = MDB_NEXT;
 
     current_block.second.reserve(b.tx_hashes.size());
-    num_txes += b.tx_hashes.size() + (skip_coinbase ? 0 : 1);
     for (const auto &tx_hash: b.tx_hashes)
     {
       // get pruned data
@@ -3207,9 +3201,6 @@ bool BlockchainLMDB::get_blocks_from(uint64_t start_height, size_t min_block_cou
       current_block.second.push_back(std::make_pair(tx_hash, std::move(tx_blob)));
       size += current_block.second.back().second.size();
     }
-
-    if (blocks.size() >= min_block_count && num_txes >= max_tx_count)
-      break;
   }
 
   TXN_POSTFIX_RDONLY();
