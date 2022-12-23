@@ -485,8 +485,8 @@ namespace cryptonote
       context.m_state = cryptonote_connection_context::state_synchronizing;
       NOTIFY_REQUEST_CHAIN::request r = {};
       m_core.get_short_chain_history(r.block_ids);
-      handler_request_blocks_history( r.block_ids ); // change the limit(?), sleep(?)
       r.prune = m_sync_pruned_blocks;
+      handler_request_blocks_history( r.block_ids ); // change the limit(?), sleep(?)
       MLOG_P2P_MESSAGE("-->>NOTIFY_REQUEST_CHAIN: m_block_ids.size()=" << r.block_ids.size() );
       post_notify<NOTIFY_REQUEST_CHAIN>(r, context);
       MLOG_PEER_STATE("requesting chain");
@@ -2276,15 +2276,30 @@ skip:
         return true;
       }
 
-      const uint64_t blockchain_height = m_core.get_current_blockchain_height();
-      if(std::max(blockchain_height, m_block_queue.get_next_needed_height(blockchain_height)) >= m_core.get_target_blockchain_height())
-      {
+      // if we're still around, we might be at a point where the peer is pruned, so we could either
+      // drop it to make space for other peers, or ask for a span further down the line
+      const uint32_t next_stripe = get_next_needed_pruning_stripe().first;
+      const uint32_t peer_stripe = tools::get_pruning_stripe(context.m_pruning_seed);
+      const uint32_t local_stripe = tools::get_pruning_stripe(m_core.get_blockchain_pruning_seed());
+      if (!(m_sync_pruned_blocks && peer_stripe == local_stripe) && next_stripe && peer_stripe && next_stripe != peer_stripe)
+       {
+        // at this point, we have to either close the connection, or start getting blocks past the
+        // current point, or become dormant
+        MDEBUG(context << "this peer is pruned at seed " << epee::string_tools::to_string_hex(context.m_pruning_seed) <<
+            ", next stripe needed is " << next_stripe);
+        if (!context.m_is_income)
+        {
+          if (should_drop_connection(context, next_stripe))
+          {
+            m_p2p->add_used_stripe_peer(context);
+            return false; // drop outgoing connections
+          }
+        }
+        // we'll get back stuck waiting for the go ahead
         context.m_state = cryptonote_connection_context::state_normal;
         MLOG_PEER_STATE("Nothing to do for now, switching to normal state");
         return true;
       }
-      MLOG_PEER_STATE("We can download nothing from this peer, dropping");
-      return false;
     }
 
 skip:
