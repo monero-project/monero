@@ -36,10 +36,8 @@
 
 //standard headers
 #include <algorithm>
-#include <functional>
 #include <unordered_map>
 #include <utility>
-#include <vector>
 
 //forward declarations
 
@@ -49,23 +47,50 @@ namespace tools
 
 /// convert a binary comparison function to a functor
 template <typename T, typename ComparisonOpT = bool(const T &a, const T &b)>
-inline auto compare_func(const ComparisonOpT &comparison_function)
+inline auto compare_func(ComparisonOpT comparison_op_func)
 {
-    return [&comparison_function](const T &a, const T &b) -> bool { return comparison_function(a, b); };
+    static_assert(
+            std::is_same<
+                    bool,
+                    decltype(
+                        comparison_op_func(
+                            std::declval<std::remove_cv_t<T>>(),
+                            std::declval<std::remove_cv_t<T>>()
+                        )
+                    )
+                >::value,
+            "invalid callable - expected callable in form bool(T, T)"
+        );
+
+    return [func = std::move(comparison_op_func)] (const T &a, const T &b) -> bool { return func(a, b); };
 }
 /// test if a container is sorted and unique according to a comparison criteria (defaults to operator<)
 /// NOTE: ComparisonOpT must establish 'strict weak ordering' https://en.cppreference.com/w/cpp/named_req/Compare
 template <typename T, typename ComparisonOpT = std::less<typename T::value_type>>
-bool is_sorted_and_unique(const T &container, const ComparisonOpT &ComparisonOp = ComparisonOpT{})
+bool is_sorted_and_unique(const T &container, ComparisonOpT comparison_op = ComparisonOpT{})
 {
-    if (!std::is_sorted(container.begin(), container.end(), ComparisonOp))
+    using ValueT = typename T::value_type;
+    static_assert(
+            std::is_same<
+                    bool,
+                    decltype(
+                        comparison_op(
+                            std::declval<std::remove_cv_t<ValueT>>(),
+                            std::declval<std::remove_cv_t<ValueT>>()
+                        )
+                    )
+                >::value,
+            "invalid callable - expected callable in form bool(ValueT, ValueT)"
+        );
+
+    if (!std::is_sorted(container.begin(), container.end(), comparison_op))
         return false;
 
     if (std::adjacent_find(container.begin(),
                 container.end(),
-                [&ComparisonOp](const typename T::value_type &a, const typename T::value_type &b) -> bool
+                [comparison_op](const ValueT &a, const ValueT &b) -> bool
                 {
-                    return !ComparisonOp(a, b) && !ComparisonOp(b, a);
+                    return !comparison_op(a, b) && !comparison_op(b, a);
                 })
             != container.end())
         return false;
@@ -75,20 +100,28 @@ bool is_sorted_and_unique(const T &container, const ComparisonOpT &ComparisonOp 
 /// specialization for raw function pointers
 template <typename T>
 bool is_sorted_and_unique(const T &container,
-    bool (*const ComparisonOpFunc)(const typename T::value_type &a, const typename T::value_type &b))
+    bool (*const comparison_op_func)(const typename T::value_type &a, const typename T::value_type &b))
 {
-    return is_sorted_and_unique(container, compare_func<typename T::value_type>(ComparisonOpFunc));
+    return is_sorted_and_unique(container, compare_func<typename T::value_type>(comparison_op_func));
 }
 /// convenience wrapper for checking if a mapped object is mapped to a key embedded in that object
 /// example: std::unorderd_map<rct::key, std::pair<rct::key, rct::xmr_amount>> where the map key is supposed to
 ///   reproduce the pair's rct::key; use the predicate to get the pair's rct::key element
-template <typename KeyT, typename ValueT>
-bool keys_match_internal_values(const std::unordered_map<KeyT, ValueT> &map,
-    const std::function<
-            const typename std::unordered_map<KeyT, ValueT>::key_type&
-            (const typename std::unordered_map<KeyT, ValueT>::mapped_type&)
-        > &get_internal_key_func)
+template <typename KeyT, typename ValueT, typename PredT>
+bool keys_match_internal_values(const std::unordered_map<KeyT, ValueT> &map, PredT get_internal_key_func)
 {
+    static_assert(
+            std::is_same<
+                    std::remove_cv_t<std::remove_reference_t<
+                        KeyT
+                    >>,
+                    std::remove_cv_t<std::remove_reference_t<
+                        decltype(get_internal_key_func(std::declval<std::remove_cv_t<std::remove_reference_t<ValueT>>>()))
+                    >>
+                >::value,
+            "invalid callable - expected callable in form Key(Value)"
+        );
+
     for (const auto &map_element : map)
     {
         if (!(map_element.first == get_internal_key_func(map_element.second)))
@@ -105,10 +138,18 @@ typename ContainerT::value_type& add_element(ContainerT &container)
     return container.back();
 }
 /// convenience erasor for unordered maps: std::erase_if(std::unordered_map) is C++20
-template <typename KeyT, typename ValueT>
-void for_all_in_map_erase_if(std::unordered_map<KeyT, ValueT> &map_inout,
-    const std::function<bool(const typename std::unordered_map<KeyT, ValueT>::value_type&)> &predicate)
+template <typename KeyT, typename ValueT, typename PredT>
+void for_all_in_map_erase_if(std::unordered_map<KeyT, ValueT> &map_inout, PredT predicate)
 {
+    using MapValueT = typename std::unordered_map<KeyT, ValueT>::value_type;
+    static_assert(
+            std::is_same<
+                    bool,
+                    decltype(predicate(std::declval<std::remove_cv_t<std::remove_reference_t<MapValueT>>>()))
+                >::value,
+            "invalid callable - expected callable in form bool(Value)"
+        );
+
     for (auto map_it = map_inout.begin(); map_it != map_inout.end();)
     {
         if (predicate(*map_it))
