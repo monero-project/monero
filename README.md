@@ -18,18 +18,19 @@ Equilibria is a hybrid PoW/PoS decentralized oracle node network
 Use-cases span from stablecoins to eSports
 
 ### For announcements:
-[Website](https://equilibria.network)
-[Twitter](https://twitter.com/EquilibriaCC)  
-[Discord](https://discord.gg/pDyfUTs)
+[Website](https://equilibriacc.com/)
+[Announcements](https://t.me/EquilibriaAnnouncements)
+[Twitter](https://twitter.com/equilibriadevs)
+[Discord](https://discord.gg/Ps9pBmc2QX)
 
 
 # General Information
 Copyright (c) 2014-2019 The Monero Project.   
-Copyright (c) 2018-2019 Project Triton/Equilibria.
+Copyright (c) 2018-2022 Project Triton/Equilibria.
 Portions Copyright (c) 2012-2013 The Cryptonote developers.
 
 ## Current maintainer
-- Harrison Hesslink
+- John
 
 **Anyone is welcome to contribute to Equilibria's codebase!** If you have a fix or code change, feel free to submit it as a pull request directly to the "master" branch. In cases where the change is relatively small or does not affect other parts of the codebase it may be merged in immediately by any one of the collaborators. On the other hand, if the change is particularly large or complex, it is expected that it will be discussed at length either well in advance of the pull request being submitted, or even directly on the pull request.
 
@@ -115,7 +116,7 @@ invokes cmake commands as needed.
 * Change to the root of the source code directory, change to the most recent release branch, and build:
 
         cd equilibria
-        git checkout v9.0.3
+        git checkout v14.1.0
         make
 
     *Optional*: If your machine has several cores and enough memory, enable
@@ -163,6 +164,28 @@ Dependencies need to be built with -fPIC. Static libraries usually aren't, so yo
     HAVE_DOT=YES doxygen Doxyfile
     ```
 
+### Cross Compiling
+
+You can also cross-compile Equilibria static binaries on Linux for Windows with the `depends` system.
+
+* `make depends target=x86_64-linux-gnu` for 64-bit linux binaries.
+* `make depends target=x86_64-w64-mingw32` for 64-bit windows binaries. Requires: python3 g++-mingw-w64-x86-64 wine bc
+* `make depends target=arm-linux-gnueabihf` for armv7 binaries. Requires: g++-arm-linux-gnueabihf
+* `make depends target=aarch64-linux-gnu` for armv8 binaries. Requires: g++-aarch64-linux-gnu
+
+### Building portable statically linked binaries
+
+By default, in either dynamically or statically linked builds, binaries target the specific host processor on which the build happens and are not portable to other processors. Portable binaries can be built using the following targets:
+
+* `make release-static-linux-armv6` builds binaries on Linux portable across POSIX systems on armv6 processors
+* `make release-static-linux-armv7` builds binaries on Linux portable across POSIX systems on armv7 processors
+* `make release-static-linux-armv8` builds binaries on Linux portable across POSIX systems on armv8 processors
+* `make release-static-mac-x64` builds binaries on MacOS on x86_64 portable across POSIX systems on x86_64 processors
+* `make release-static-mac-arm64` builds binaries on MacOS on arm64 portable across POSIX systems on arm64 processors
+* `make release-static-win64` builds binaries on 64-bit Windows portable across 64-bit Windows systems
+* `make release-static-linux-x86_64` builds binaries on Linux on x86_64 portable across POSIX systems on x86_64 processors
+
+
 #### On the Raspberry Pi
 
 Tested on a Raspberry Pi Zero with a clean install of minimal Raspbian Stretch (2017-09-07 or later) from https://www.raspberrypi.org/downloads/raspbian/. If you are using Raspian Jessie, [please see note in the following section](#note-for-raspbian-jessie-users).
@@ -185,9 +208,9 @@ Tested on a Raspberry Pi Zero with a clean install of minimal Raspbian Stretch (
 * Clone monero and checkout the most recent release version:
 
     ```bash
-    git clone https://github.com/monero-project/monero.git
-    cd Equilibria
-    git checkout tags/v9.0.3
+    git clone https://github.com/equilibriacc/equilibria.git
+    cd equilibria
+    git checkout tags/v14.1.0
     ```
 
 * Build:
@@ -300,7 +323,7 @@ application.
 
         cd equilibria
 
-        git checkout v6.0.2
+        git checkout v14.1.0
 
 * If you are on a 64-bit system, run:
 
@@ -329,3 +352,6 @@ application.
     ```
 
 * The resulting executables can be found in `build/debug/bin`
+
+
+
