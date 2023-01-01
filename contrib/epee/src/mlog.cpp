@@ -338,9 +338,19 @@ bool is_stdout_a_tty()
   return is_a_tty.load(std::memory_order_relaxed);
 }
 
+static bool is_nocolor()
+{
+  static const char *no_color_var = getenv("NO_COLOR");
+  static const bool no_color = no_color_var && *no_color_var; // apparently, NO_COLOR=0 means no color too (as per no-color.org)
+  return no_color;
+}
+
 void set_console_color(int color, bool bright)
 {
   if (!is_stdout_a_tty())
+    return;
+
+  if (is_nocolor())
     return;
 
   switch(color)
@@ -459,6 +469,9 @@ void set_console_color(int color, bool bright)
 
 void reset_console_color() {
   if (!is_stdout_a_tty())
+    return;
+
+  if (is_nocolor())
     return;
 
 #ifdef WIN32
