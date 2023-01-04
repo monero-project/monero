@@ -1,0 +1,55 @@
+name: ci/gh-actions/copyright
+on:
+  schedule:
+    - cron: '0 0 1 1 *'
+jobs:
+  createPullRequest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Make changes to pull request
+        continue-on-error: true
+        shell: bash
+        run: |
+          year=$(date +%Y)
+          echo "YEAR=$(echo $year)" >> $GITHUB_ENV
+          find . -print0 | while IFS= read -r -d '' file
+          do
+              if [[ -d $file ]] || [[ $file == *".git"* ]]; then
+                  continue
+              fi
+              line=$(grep .*Copyright.*Monero.* $file || true)
+              if [[ -z $line ]]; then
+                  continue
+              fi
+              fromTo=$(grep -o "[0-9]\{4\}-[0-9]\{4\}" <<< $line || true)
+              if [[ ! -z $fromTo ]]; then
+                  # string contains "FROM-TO"
+                  # we need to replace FROM with current year
+                  to=$(awk '{split($0, array, "-"); print array[2]}' <<< ${fromTo})
+                  repl=${line/"$to"/"$year"}
+              else
+                  # we only have a FROM year
+                  # find occurance of 4 digits
+                  from=$(grep -o "[0-9]\{4\}" <<< $line || true)
+                  fromTo="${from}-${year}"
+                  # replace FROM with FROM-TO
+                  repl=${line/"$from"/"$fromTo"}
+              fi
+              sed -i "s|${line}|${repl}|g" $file
+          done
+      - name: Create Pull Request
+        id: cpr
+        uses: peter-evans/create-pull-request@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "Copyright: Update to ${{ env.YEAR }}"
+          committer: GitHub <noreply@github.com>
+          author: ${{ github.actor }} <${{ github.actor }}@users.noreply.github.com>
+          signoff: false
+          branch: bump-copyright-year
+          delete-branch: true
+          title: "Copyright: Update to ${{ env.YEAR }}"
+          body: |
+            Happy new year!
+          draft: false
