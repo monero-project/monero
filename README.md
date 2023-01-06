@@ -26,7 +26,7 @@ Use-cases span from stablecoins to eSports
 
 # General Information
 Copyright (c) 2014-2019 The Monero Project.   
-Copyright (c) 2018-2022 Project Triton/Equilibria.
+Copyright (c) 2018-2023 Project Triton/Equilibria.
 Portions Copyright (c) 2012-2013 The Cryptonote developers.
 
 ## Current maintainer
@@ -116,7 +116,7 @@ invokes cmake commands as needed.
 * Change to the root of the source code directory, change to the most recent release branch, and build:
 
         cd equilibria
-        git checkout v14.1.0
+        git checkout v16
         make
 
     *Optional*: If your machine has several cores and enough memory, enable
@@ -205,17 +205,18 @@ Tested on a Raspberry Pi Zero with a clean install of minimal Raspbian Stretch (
 
 * If using an external hard disk without an external power supply, ensure it gets enough power to avoid hardware issues when syncing, by adding the line "max_usb_current=1" to /boot/config.txt
 
-* Clone monero and checkout the most recent release version:
+* Clone Equilibria and checkout the most recent release version:
 
     ```bash
     git clone https://github.com/equilibriacc/equilibria.git
     cd equilibria
-    git checkout tags/v14.1.0
+    git checkout v16
     ```
 
 * Build:
 
     ```bash
+    git submodule init && git submodule update
     make release
     ```
 
@@ -323,7 +324,7 @@ application.
 
         cd equilibria
 
-        git checkout v14.1.0
+        git checkout v16
 
 * If you are on a 64-bit system, run:
 
