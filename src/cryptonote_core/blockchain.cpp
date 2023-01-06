@@ -545,10 +545,20 @@ void Blockchain::pop_blocks(uint64_t nblocks)
     const uint64_t blockchain_height = m_db->height();
     if (blockchain_height > 0)
       nblocks = std::min(nblocks, blockchain_height - 1);
-    while (i < nblocks)
+
+    uint64_t constexpr PERCENT_UPDATE = 10;
+    uint64_t const blocks_per_update = (nblocks / PERCENT_UPDATE);
+
+    tools::PerformanceTimer timer;
+    for (int progress = 0; i < nblocks; ++i)
     {
+      if (nblocks >= 720 && (i != 0 && (i % blocks_per_update == 0)))
+      {
+        MGINFO("... popping blocks " << (++progress * PERCENT_UPDATE) << "% completed, height: " << (blockchain_height - 1) << " (" << timer.seconds() << "s)");
+        timer.reset();
+      }
+
       pop_block_from_blockchain();
-      ++i;
     }
   }
   catch (const std::exception& e)
@@ -1157,7 +1167,7 @@ difficulty_type Blockchain::get_next_difficulty_for_alternative_chain(const std:
     size_t count = 0;
     size_t max_i = timestamps.size()-1;
     // get difficulties and timestamps from most recent blocks in alt chain
-    for (const auto bei: boost::adaptors::reverse(alt_chain))
+    for (const auto& bei: boost::adaptors::reverse(alt_chain))
     {
       timestamps[max_i - count] = bei.bl.timestamp;
       cumulative_difficulties[max_i - count] = bei.cumulative_difficulty;
@@ -5456,7 +5466,7 @@ void Blockchain::cancel()
 }
 
 #if defined(PER_BLOCK_CHECKPOINT)
-static const char expected_block_hashes_hash[] = "2694964161668f0e022d68057a7806ee902bb4a4f1a15f7bea8091594283ad3d";
+static const char expected_block_hashes_hash[] = "b28820e60fce5370342623f63192de61ff33fb2e0d332583014fe48ca5ab7a76";
 void Blockchain::load_compiled_in_block_hashes(const GetCheckpointsCallback& get_checkpoints)
 {
   if (get_checkpoints == nullptr || !m_fast_sync)

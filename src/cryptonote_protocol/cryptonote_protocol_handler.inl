@@ -339,6 +339,11 @@ namespace cryptonote
 
     if(m_core.have_block(hshd.top_id))
     {
+      if (target > m_core.get_current_blockchain_height())
+      {
+        MINFO(context << "peer is not ahead of us and we are syncing, disconnecting");
+        return false;
+      }
       context.m_state = cryptonote_connection_context::state_normal;
       if(is_initial && hshd.current_height >= target && target == m_core.get_current_blockchain_height())
         on_connection_synchronized();

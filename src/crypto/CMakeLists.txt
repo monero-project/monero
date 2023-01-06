@@ -84,6 +84,7 @@ set(crypto_private_headers
   skein_port.h
   oaes_config.h
   oaes_lib.h
+  pow_hash/cn_slow_hash.hpp
   random.h
   sha512.h)
 
