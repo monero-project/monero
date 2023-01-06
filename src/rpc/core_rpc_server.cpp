@@ -3353,7 +3353,7 @@ namespace cryptonote
       args.push_back(std::to_string(portions_cut));
     }
 
-    for (const auto contrib : req.contributions)
+    for (const auto& contrib : req.contributions)
     {
         uint64_t num_portions = service_nodes::get_portions_to_make_amount(staking_requirement, contrib.amount);
         args.push_back(contrib.address);
@@ -3435,7 +3435,6 @@ namespace cryptonote
 		  entry.last_reward_transaction_index = pubkey_info.info.last_reward_transaction_index;
 		  entry.last_uptime_proof = m_core.get_uptime_proof(pubkey_info.pubkey);
       entry.is_pool = entry.contributors.size() > 1;
-      
 
 		  entry.contributors.reserve(pubkey_info.info.contributors.size());
 		  for (service_nodes::service_node_info::contribution const &contributor : pubkey_info.info.contributors)

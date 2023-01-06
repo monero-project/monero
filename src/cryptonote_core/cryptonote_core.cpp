@@ -1225,7 +1225,7 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
   size_t core::get_block_sync_size(uint64_t height) const
   {
-    static const uint64_t quick_height = m_nettype == MAINNET ? 850000 : 0;
+    static const uint64_t quick_height = m_nettype == MAINNET ? 950000 : 0;
     if (block_sync_size > 0)
       return block_sync_size;
     if (height >= quick_height)
@@ -1550,7 +1550,7 @@ namespace cryptonote
     m_blockchain_storage.add_new_block(b, bvc);
     cleanup_handle_incoming_blocks(true);
     //anyway - update miner template
-    update_miner_block_template();
+    m_miner.on_block_chain_update();
     m_miner.resume();
 
 
@@ -1654,7 +1654,7 @@ namespace cryptonote
     }
     add_new_block(*b, bvc);
     if(update_miner_blocktemplate && bvc.m_added_to_main_chain)
-       update_miner_block_template();
+       m_miner.on_block_chain_update();
     return true;
 
     CATCH_ENTRY_L0("core::handle_incoming_block()", false);
@@ -1769,23 +1769,16 @@ namespace cryptonote
     return m_mempool.print_pool(short_format);
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::update_miner_block_template()
-  {
-    m_miner.on_block_chain_update();
-    return true;
-  }
-  //-----------------------------------------------------------------------------------------------
   void core::do_uptime_proof_call()
   {
-
 	  // wait one block before starting uptime proofs.
 	  std::vector<service_nodes::service_node_pubkey_info> const states = get_service_node_list_state({ m_service_node_pubkey });
 
-	  if (!states.empty() && states[0].info.registration_height + 1 < get_current_blockchain_height())
+	  if (!states.empty() && (states[0].info.registration_height + 1) < get_current_blockchain_height())
 	  {
 		  // Code snippet from Github @Jagerman
 		  m_check_uptime_proof_interval.do_call([&states, this]() {
-			  uint64_t last_uptime = m_quorum_cop.get_uptime_proof(states[0].pubkey);
+		    uint64_t last_uptime = m_quorum_cop.get_uptime_proof(states[0].pubkey);
 			  if (last_uptime <= static_cast<uint64_t>(time(nullptr) - UPTIME_PROOF_FREQUENCY_IN_SECONDS))
 				  this->submit_uptime_proof();
 

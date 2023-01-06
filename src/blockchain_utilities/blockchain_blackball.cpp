@@ -35,9 +35,8 @@
 #include "common/varint.h"
 #include "serialization/crypto.h"
 #include "cryptonote_basic/cryptonote_boost_serialization.h"
-#include "cryptonote_core/tx_pool.h"
 #include "cryptonote_core/cryptonote_core.h"
-#include "cryptonote_core/blockchain.h"
+#include "blockchain_objects.h"
 #include "blockchain_db/blockchain_db.h"
 #include "wallet/ringdb.h"
 #include "version.h"
@@ -1264,6 +1263,13 @@ int main(int argc, char* argv[])
   {
     LOG_PRINT_L0("No inputs given");
     return 1;
+  }
+
+  std::vector<Blockchain*> core_storage(inputs.size());
+  for (size_t n = 0; n < inputs.size(); ++n)
+  {
+    blockchain_objects_t *blockchain_objects = new blockchain_objects_t();
+    core_storage[n] = &(blockchain_objects->m_blockchain);
   }
 
   const std::string cache_dir = (output_file_path / "spent-outputs-cache").string();

@@ -9193,7 +9193,7 @@ bool simple_wallet::get_transfers(std::vector<std::string>& local_args, std::vec
         {{destination, pd.m_amount, pd.m_unlock_time}},
         {pd.m_subaddr_index.minor},
         note,
-        locked_msg,
+        locked_msg
       });
     }
   }
@@ -9211,7 +9211,7 @@ bool simple_wallet::get_transfers(std::vector<std::string>& local_args, std::vec
       {
         const tx_destination_entry &dest   = pd.m_dests[dest_index];
         transfer_view::dest_output &output = destinations[dest_index];
-        output.wallet_addr                 = get_account_address_as_str(m_wallet->nettype(), dest.is_subaddress, dest.addr);
+        output.wallet_addr                 = dest.address(m_wallet->nettype(), pd.m_payment_id);
         output.amount                      = dest.amount;
         output.unlock_time                 = (dest_index < pd.m_unlock_times.size()) ? pd.m_unlock_times[dest_index] : 0;
       }
@@ -9325,7 +9325,7 @@ bool simple_wallet::get_transfers(std::vector<std::string>& local_args, std::vec
       {
         const tx_destination_entry &dest   = pd.m_dests[dest_index];
         transfer_view::dest_output &output = destinations[dest_index];
-        output.wallet_addr                 = get_account_address_as_str(m_wallet->nettype(), dest.is_subaddress, dest.addr);
+        output.wallet_addr                 = dest.address(m_wallet->nettype(), pd.m_payment_id);
         output.amount                      = dest.amount;
       }
       std::string payment_id = string_tools::pod_to_hex(i->second.m_payment_id);

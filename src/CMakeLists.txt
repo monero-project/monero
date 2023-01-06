@@ -133,6 +133,7 @@ if(NOT IOS)
   add_subdirectory(simplewallet)
   add_subdirectory(daemonizer)
   add_subdirectory(daemon)
+  //add_subdirectory(blockchain_utilities)
 endif()
 
 if(BUILD_DEBUG_UTILITIES)

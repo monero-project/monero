@@ -120,7 +120,7 @@ namespace wallet_rpc
     typedef epee::misc_utils::struct_init<response_t> response;
   };
 
-    struct COMMAND_RPC_GET_ADDRESS
+  struct COMMAND_RPC_GET_ADDRESS
   {
     struct request_t
     {
@@ -427,24 +427,24 @@ namespace wallet_rpc
     typedef epee::misc_utils::struct_init<response_t> response;
   };
 
-    struct COMMAND_RPC_GET_HEIGHT
+  struct COMMAND_RPC_GET_HEIGHT
+  {
+    struct request_t
     {
-      struct request_t
-      {
-        BEGIN_KV_SERIALIZE_MAP()
-        END_KV_SERIALIZE_MAP()
-      };
-      typedef epee::misc_utils::struct_init<request_t> request;
-
-      struct response_t
-      {
-        uint64_t  height;
-        BEGIN_KV_SERIALIZE_MAP()
-          KV_SERIALIZE(height)
-        END_KV_SERIALIZE_MAP()
-      };
-      typedef epee::misc_utils::struct_init<response_t> response;
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
+
+    struct response_t
+    {
+      uint64_t  height;
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(height)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<response_t> response;
+  };
 
   struct transfer_destination
   {

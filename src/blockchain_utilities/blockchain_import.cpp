@@ -715,9 +715,9 @@ int main(int argc, char* argv[])
       "This is a DANGEROUS operation: if the file was tampered with in transit, or obtained from a malicious source,\n"
       "you could end up with a compromised database. It is recommended to NOT use " << arg_noverify.name << ".\n"
       "*****************************************************************************************\n"
-      "You have 90 seconds to press ^C or terminate this program before unverified import starts\n"
+      "You have 10 seconds to press ^C or terminate this program before unverified import starts\n"
       "*****************************************************************************************");
-    sleep(90);
+    sleep(10);
   }
 
   cryptonote::cryptonote_protocol_stub pr; //TODO: stub only for this kind of test, make real validation of relayed objects

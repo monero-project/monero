@@ -45,20 +45,13 @@
 
 #include "service_node_list.h"
 #include "service_node_rules.h"
+#include "service_node_swarm.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "service_nodes"
 
 namespace service_nodes
 {
-	static uint64_t uniform_distribution_portable(std::mt19937_64& mersenne_twister, uint64_t n)
-	{
-		uint64_t secureMax = mersenne_twister.max() - mersenne_twister.max() % n;
-		uint64_t x;
-		do x = mersenne_twister(); while (x >= secureMax);
-		return  x / (secureMax / n);
-	}
-
 	uint64_t service_node_info::get_min_contribution(uint64_t hf_version) const
 	{
 		uint64_t result = get_min_node_contribution(hf_version, staking_requirement, total_reserved);
@@ -211,7 +204,9 @@ namespace service_nodes
 	bool service_node_list::is_service_node(const crypto::public_key& pubkey) const
 	{
 		std::lock_guard<boost::recursive_mutex> lock(m_sn_mutex);
-		return m_service_nodes_infos.find(pubkey) != m_service_nodes_infos.end();
+		uint8_t hard_fork_version = m_blockchain.get_hard_fork_version(m_height);
+		auto it = m_service_nodes_infos.find(pubkey);
+		return it != m_service_nodes_infos.end() && ((hard_fork_version > 9 && it->second.is_valid()) || it->second.is_fully_funded());
 	}
 
 	bool service_node_list::contribution_tx_output_has_correct_unlock_time(const cryptonote::transaction& tx, size_t i, uint64_t block_height) const
@@ -331,171 +326,6 @@ namespace service_nodes
 		return true;
 	}
 
-	static uint64_t get_new_swarm_id(std::mt19937_64& mt, const std::vector<swarm_id_t>& ids)
-	{
-		uint64_t id_new = QUEUE_SWARM_ID;
-
-		while (id_new == QUEUE_SWARM_ID || (std::find(ids.begin(), ids.end(), id_new) != ids.end())) {
-			id_new = uniform_distribution_portable(mt, UINT64_MAX);
-		}
-
-		return id_new;
-	}
-
-	static std::vector<swarm_id_t> get_all_swarms(const std::map<swarm_id_t, std::vector<crypto::public_key>>& swarm_to_snodes)
-	{
-		std::vector<swarm_id_t> all_swarms;
-		all_swarms.reserve(swarm_to_snodes.size());
-		for (const auto& entry : swarm_to_snodes) {
-			all_swarms.push_back(entry.first);
-		}
-		return all_swarms;
-	}
-
-	static crypto::public_key pop_random_snode(std::mt19937_64& mt, std::vector<crypto::public_key>& vec)
-	{
-		const auto idx = uniform_distribution_portable(mt, vec.size());
-		const auto sn_pk = vec.at(idx);
-		auto it = vec.begin();
-		std::advance(it, idx);
-		vec.erase(it);
-		return sn_pk;
-	}
-
-
-	static void calc_swarm_changes(std::map<swarm_id_t, std::vector<crypto::public_key>>& swarm_to_snodes, uint64_t seed)
-	{
-		std::mt19937_64 mersenne_twister(seed);
-
-		std::vector<crypto::public_key> swarm_buffer = swarm_to_snodes[QUEUE_SWARM_ID];
-		swarm_to_snodes.erase(QUEUE_SWARM_ID);
-
-		auto all_swarms = get_all_swarms(swarm_to_snodes);
-		std::sort(all_swarms.begin(), all_swarms.end());
-
-		triton_shuffle(all_swarms, seed);
-
-		const auto cmp_swarm_sizes =
-			[&swarm_to_snodes](swarm_id_t lhs, swarm_id_t rhs) {
-			return swarm_to_snodes.at(lhs).size() < swarm_to_snodes.at(rhs).size();
-		};
-
-		/// 1. If there are any swarms that are about to dissapear -> try to fill them first
-		std::vector<swarm_id_t> starving_swarms;
-		{
-			std::copy_if(all_swarms.begin(),
-				all_swarms.end(),
-				std::back_inserter(starving_swarms),
-				[&swarm_to_snodes](swarm_id_t id) { return swarm_to_snodes.at(id).size() < MIN_SWARM_SIZE; });
-
-			for (const auto swarm_id : starving_swarms) {
-
-				const size_t needed = MIN_SWARM_SIZE - swarm_to_snodes.at(swarm_id).size();
-
-				for (auto j = 0u; j < needed && !swarm_buffer.empty(); ++j) {
-					const auto sn_pk = pop_random_snode(mersenne_twister, swarm_buffer);
-					swarm_to_snodes.at(swarm_id).push_back(sn_pk);
-				}
-
-				if (swarm_buffer.empty()) break;
-			}
-		}
-
-		/// 2. Any starving swarms still left? If yes, steal nodes from larger swarms
-		{
-			bool can_continue = true; /// whether there are still large swarms to steal from
-			for (const auto swarm_id : starving_swarms) {
-
-				if (swarm_to_snodes.at(swarm_id).size() == MIN_SWARM_SIZE) continue;
-
-				const auto needed = MIN_SWARM_SIZE - swarm_to_snodes.at(swarm_id).size();
-
-				for (auto i = 0u; i < needed; ++i) {
-
-					const auto large_swarm =
-						*std::max_element(all_swarms.begin(), all_swarms.end(), cmp_swarm_sizes);
-
-					if (swarm_to_snodes.at(large_swarm).size() <= MIN_SWARM_SIZE) {
-						can_continue = false;
-						break;
-					}
-
-					const crypto::public_key sn_pk = pop_random_snode(mersenne_twister, swarm_to_snodes.at(large_swarm));
-					swarm_to_snodes.at(swarm_id).push_back(sn_pk);
-				}
-
-				if (!can_continue) break;
-			}
-
-		}
-
-		/// 3. Fill in "unsaturated" swarms (with fewer than max nodes) starting from smallest
-		{
-			while (!swarm_buffer.empty() && !all_swarms.empty()) {
-
-				const swarm_id_t smallest_swarm = *std::min_element(all_swarms.begin(), all_swarms.end(), cmp_swarm_sizes);
-
-				std::vector<crypto::public_key>& swarm = swarm_to_snodes.at(smallest_swarm);
-
-				if (swarm.size() == MAX_SWARM_SIZE) break;
-
-				const auto sn_pk = pop_random_snode(mersenne_twister, swarm_buffer);
-				swarm.push_back(sn_pk);
-			}
-		}
-
-		/// 4. If there are still enough nodes for MAX_SWARM_SIZE + some safety buffer, create a new swarm
-		while (swarm_buffer.size() >= MAX_SWARM_SIZE + SWARM_BUFFER) {
-
-			/// shuffle the queue and select MAX_SWARM_SIZE last elements
-			const auto new_swarm_id = get_new_swarm_id(mersenne_twister, all_swarms);
-
-			triton_shuffle(swarm_buffer, seed + new_swarm_id);
-
-			std::vector<crypto::public_key> selected_snodes;
-
-			for (auto i = 0u; i < MAX_SWARM_SIZE; ++i) {
-
-				/// get next node from the buffer
-				const crypto::public_key fresh_snode = swarm_buffer.back();
-				swarm_buffer.pop_back();
-
-				/// Try replacing nodes in existing swarms
-				if (swarm_to_snodes.size() > 0) {
-					/// a. Select a random swarm
-					const uint64_t swarm_idx = uniform_distribution_portable(mersenne_twister, swarm_to_snodes.size());
-					auto it = swarm_to_snodes.begin();
-					std::advance(it, swarm_idx);
-					std::vector<crypto::public_key>& selected_swarm = it->second;
-
-					/// b. Select a random snode
-					const crypto::public_key snode = pop_random_snode(mersenne_twister, selected_swarm);
-
-					/// c. Swap that node with a node in the queue, the old node will form a new swarm
-					selected_snodes.push_back(snode);
-					selected_swarm.push_back(fresh_snode);
-				}
-				else {
-					/// If there are no existing swarms, create the first swarm directly from the queue
-					selected_snodes.push_back(fresh_snode);
-				}
-			}
-
-			swarm_to_snodes.insert({ new_swarm_id, std::move(selected_snodes) });
-		}
-
-		/// 5. If there is a swarm with less than MIN_SWARM_SIZE, decommission that swarm (should almost never happen due to the safety buffer).
-		for (auto entry : swarm_to_snodes) {
-			if (entry.second.size() < MIN_SWARM_SIZE) {
-				LOG_PRINT_L1("swarm " << entry.first << " is DECOMMISSIONED");
-				/// TODO: move data to other swarms, then put snodes back in the queue
-			}
-		}
-
-		/// 6. Put nodes from the buffer back to the "buffer agnostic" data structure
-		swarm_to_snodes.insert({ QUEUE_SWARM_ID, std::move(swarm_buffer) });
-	}
-
 	void service_node_list::update_swarms(uint64_t height) {
 
 		crypto::hash hash = m_blockchain.get_block_id_by_height(height);
@@ -503,7 +333,7 @@ namespace service_nodes
 		std::memcpy(&seed, hash.data, sizeof(seed));
 
 		/// Gather existing swarms from infos
-		std::map<swarm_id_t, std::vector<crypto::public_key>> existing_swarms;
+		swarm_snode_map_t existing_swarms;
 
 		for (const auto& entry : m_service_nodes_infos) {
 			const auto id = entry.second.swarm_id;
@@ -589,33 +419,26 @@ namespace service_nodes
 		if (service_node_addresses.size() + is_this_a_new_address > max_contribs)
 			return false;
 
+    if (hf_version < 12)
+    {
+      if (transferred < info.staking_requirement / max_contribs) return false;
+    }
 
-		if(hf_version >= 12)
+		if (hf_version >= 12 && block_height < 997800)
 		{
 			//check staking burn
 			uint64_t burned_amount = cryptonote::get_burned_amount_from_tx_extra(tx.extra);
 			uint64_t total_fee = tx.rct_signatures.txnFee;
 			uint64_t miner_fee = get_tx_miner_fee(tx, true);
-
 			uint64_t burn_fee = total_fee - miner_fee;
-
-			if(burned_amount < burn_fee)
-			{
-				return false;
-			}
-			if(transferred > MAX_OPERATOR_V12 * COIN)
-			{
-				return false;
-			}			
-
-			if(transferred < MIN_OPERATOR_V12 * COIN)
-			{
-				return false;
-			}
-		} else {
-			if (transferred < info.staking_requirement / max_contribs)
-				return false;
+			if(burned_amount < burn_fee) return false;
 		}
+
+		if (hf_version >= 12)
+		{
+			if (transferred > MAX_OPERATOR_V12 * COIN) return false;
+			if (transferred < MIN_OPERATOR_V12 * COIN) return false;
+    }
 
 		// don't actually process this contribution now, do it when we fall through later.
 
@@ -629,9 +452,10 @@ namespace service_nodes
 		info.total_contributed = 0;
 		info.total_reserved = 0;
 
-		if (hf_version >= 5) {
+		if (hf_version >= 5)
+		{
 			info.version = service_node_info::version_1_swarms;
-			info.swarm_id = QUEUE_SWARM_ID; /// new nodes go into a "queue swarm"
+			info.swarm_id = UNASSIGNED_SWARM_ID;
 		}
 
 		info.contributors.clear();
@@ -643,12 +467,12 @@ namespace service_nodes
 			if (iter != service_node_addresses.begin() + i)
 				return false;
 			uint64_t hi, lo, resulthi, resultlo;
-			if(hf_version >= 12)
+			if (hf_version < 12)
 			{
-				lo = mul128(MAX_OPERATOR_V12 * COIN, service_node_portions[i], &hi);
-				div128_64(hi, lo, STAKING_PORTIONS, &resulthi, &resultlo);
+			  lo = mul128(info.staking_requirement, service_node_portions[i], &hi);
+			  div128_64(hi, lo, STAKING_PORTIONS, &resulthi, &resultlo);
 			} else {
-				lo = mul128(info.staking_requirement, service_node_portions[i], &hi);
+				lo = mul128(MAX_OPERATOR_V12 * COIN, service_node_portions[i], &hi);
 				div128_64(hi, lo, STAKING_PORTIONS, &resulthi, &resultlo);
 			}
 
@@ -665,7 +489,7 @@ namespace service_nodes
 		service_node_info info = {};
 		if (!is_registration_tx(tx, block_timestamp, block_height, index, key, info))
 			return false;
-		
+
 		// NOTE: A node doesn't expire until registration_height + lock blocks excess now which acts as the grace period
 		// So it is possible to find the node still in our list.
 		bool registered_during_grace_period = false;
@@ -766,8 +590,8 @@ namespace service_nodes
 			if (contribution_tx_output_has_correct_unlock_time(tx, i, block_height))
 				transferred += get_reg_tx_staking_output_contribution(tx, i, derivation, hwdev);
 		}
-		
-	    rapidjson::Document d;
+
+	  rapidjson::Document d;
 
 		d.Parse(memo.data.c_str());
 
@@ -788,7 +612,7 @@ namespace service_nodes
 		return true;
 	}
 
-	void service_node_list::process_contribution_tx(const cryptonote::transaction& tx, uint64_t block_height, uint32_t index, const crypto::public_key &new_pubkey)
+	void service_node_list::process_contribution_tx(const cryptonote::transaction& tx, uint64_t block_height, uint32_t index)
 	{
 		crypto::public_key pubkey;
 		cryptonote::account_public_address address;
@@ -805,14 +629,14 @@ namespace service_nodes
 		const auto hf_version = m_blockchain.get_hard_fork_version(block_height);
 
 		const uint64_t block_for_unlock = hf_version >= 12 ? info.registration_height : block_height;
-		
+
 		if (!get_contribution(tx, block_for_unlock, address, transferred))
 			return;
 
 		if (info.is_fully_funded())
 			return;
 
-		if(hf_version >= 12)
+		if (hf_version >= 12 && block_height < 997800)
 		{
 			//check staking burn
 			uint64_t burned_amount = cryptonote::get_burned_amount_from_tx_extra(tx.extra);
@@ -820,21 +644,18 @@ namespace service_nodes
 			uint64_t miner_fee = get_tx_miner_fee(tx, true);
 			uint64_t burn_fee = total_fee - miner_fee;
 
-			if(burn_fee < transferred / 1000)
-				return;
+			if(burn_fee < transferred / 1000) return;
+			if(burned_amount < total_fee - miner_fee) return;
+		}
 
-			if(burned_amount < total_fee - miner_fee)
-				return;
-
-			if(transferred > MAX_POOL_STAKERS_V12 * COIN)
-				return;
-			
-			if(transferred < MIN_POOL_STAKERS_V12 * COIN)
-				return;
+		if (hf_version >= 12)
+    {
+			if (transferred > MAX_POOL_STAKERS_V12 * COIN) return;
+			if (transferred < MIN_POOL_STAKERS_V12 * COIN) return;
 		}
 
 		auto& contributors = info.contributors;
-		const auto max_contribs = hf_version > 9 ? hf_version >= 11 ? MAX_NUMBER_OF_CONTRIBUTORS_V3 : MAX_NUMBER_OF_CONTRIBUTORS_V2 : MAX_NUMBER_OF_CONTRIBUTORS;
+		const uint64_t max_contribs = hf_version >= 11 ? MAX_NUMBER_OF_CONTRIBUTORS_V3 : hf_version > 9 ? MAX_NUMBER_OF_CONTRIBUTORS_V2 : MAX_NUMBER_OF_CONTRIBUTORS;
 
 		// Only create a new contributor if they stake at least a quarter
 		// and if we don't already have the maximum
@@ -856,12 +677,10 @@ namespace service_nodes
 
 		service_node_info::contribution& contributor = *contrib_iter;
 
-		uint64_t staking_req = info.staking_requirement;
+		uint64_t staking_req;
 
-		if(hf_version >= 12)
-		{
-			staking_req = MAX_POOL_STAKERS_V12 * COIN;
-		}
+		if (hf_version < 12) staking_req = info.staking_requirement;
+		else staking_req = MAX_POOL_STAKERS_V12 * COIN;
 
 		// In this action, we cannot
 		// increase total_reserved so much that it is >= staking_requirement
@@ -893,8 +712,7 @@ namespace service_nodes
 		store();
 	}
 
-
-	void service_node_list::process_block(const cryptonote::block& block, const std::vector<cryptonote::transaction>&  txs)
+	void service_node_list::process_block(const cryptonote::block& block, const std::vector<cryptonote::transaction>& txs)
 	{
 		uint64_t block_height = cryptonote::get_block_height(block);
 		int hard_fork_version = m_blockchain.get_hard_fork_version(block_height);
@@ -943,11 +761,7 @@ namespace service_nodes
 		crypto::public_key winner_pubkey = cryptonote::get_service_node_winner_from_tx_extra(block.miner_tx.extra);
 		if (m_service_nodes_infos.count(winner_pubkey) == 1)
 		{
-			m_rollback_events.push_back(
-				std::unique_ptr<rollback_event>(
-					new rollback_change(block_height, winner_pubkey, m_service_nodes_infos[winner_pubkey])
-					)
-			);
+			m_rollback_events.push_back(std::unique_ptr<rollback_event>(new rollback_change(block_height, winner_pubkey, m_service_nodes_infos[winner_pubkey])));
 			// set the winner as though it was re-registering at transaction index=UINT32_MAX for this block
 			m_service_nodes_infos[winner_pubkey].last_reward_block_height = block_height;
 			m_service_nodes_infos[winner_pubkey].last_reward_transaction_index = UINT32_MAX;
@@ -963,7 +777,7 @@ namespace service_nodes
 				registrations++;
 			}
 
-			process_contribution_tx(tx, block_height, index, crypto::null_pkey);
+			process_contribution_tx(tx, block_height, index);
 
 			if (process_deregistration_tx(tx, block_height)) {
 				deregistrations++;
@@ -978,7 +792,7 @@ namespace service_nodes
 			update_swarms(block_height);
 		}
 
-    const auto deregister_lifetime = hard_fork_version >= 9 ? service_nodes::deregister_vote::DEREGISTER_LIFETIME_BY_HEIGHT_V2 : service_nodes::deregister_vote::DEREGISTER_LIFETIME_BY_HEIGHT;
+    const auto deregister_lifetime = hard_fork_version >= 8 ? service_nodes::deregister_vote::DEREGISTER_LIFETIME_BY_HEIGHT_V2 : service_nodes::deregister_vote::DEREGISTER_LIFETIME_BY_HEIGHT;
 
 		const size_t QUORUM_LIFETIME = (6 * deregister_lifetime);
 		// save six times the quorum lifetime, to be sure. also to help with debugging.
@@ -1135,7 +949,6 @@ namespace service_nodes
 		bool overPortioned = false;
 		for (const auto& info : m_service_nodes_infos)
 		{
-
 			if(hard_fork_version == 12)
 			{
 				uint64_t amount_operator_needs_to_stake = portions_to_amount(info.second.portions_for_operator, info.second.staking_requirement);
@@ -1194,9 +1007,8 @@ namespace service_nodes
 			size_t vout_index = i + 1;
 			uint64_t reward = 0;
 			uint64_t reward_part = i == 0 ? reward_parts.operator_reward : reward_parts.staker_reward;
-			
-			if(hard_fork_version >= 12)
-			{
+
+			if (hard_fork_version >= 12) {
 				reward = cryptonote::get_portion_of_reward(addresses_and_portions[i].second, reward_part);
 			} else {
 				reward = cryptonote::get_portion_of_reward(addresses_and_portions[i].second, total_service_node_reward);
@@ -1230,19 +1042,6 @@ namespace service_nodes
 			}
 		}
 		return true;
-	}
-
-	template<typename T>
-	void triton_shuffle(std::vector<T>& a, uint64_t seed)
-	{
-		if (a.size() <= 1) return;
-		std::mt19937_64 mersenne_twister(seed);
-		for (size_t i = 1; i < a.size(); i++)
-		{
-			size_t j = (size_t)uniform_distribution_portable(mersenne_twister, i + 1);
-			if (i != j)
-				std::swap(a[i], a[j]);
-		}
 	}
 
 	void service_node_list::store_quorum_state_from_rewards_list(uint64_t height)
@@ -1421,20 +1220,15 @@ namespace service_nodes
 	{
 		LOG_PRINT_L1("service_node_list::load()");
 		clear(false);
-		if (!m_db)
-		{
-			return false;
-		}
+		if (!m_db) return false;
+
 		std::stringstream ss;
 
 		data_members_for_serialization data_in;
 		std::string blob;
 
     cryptonote::db_rtxn_guard txn_guard(m_db);
-		if (!m_db->get_service_node_data(blob))
-		{
-			return false;
-		}
+		if (!m_db->get_service_node_data(blob)) return false;
 
 		ss << blob;
 		binary_archive<false> ba(ss);
@@ -1443,15 +1237,9 @@ namespace service_nodes
 
 		m_height = data_in.height;
 
-		for (const auto& quorum : data_in.quorum_states)
-		{
-			m_quorum_states[quorum.height] = std::make_shared<quorum_state>(quorum.state);
-		}
+		for (const auto& quorum : data_in.quorum_states) m_quorum_states[quorum.height] = std::make_shared<quorum_state>(quorum.state);
 
-		for (const auto& info : data_in.infos)
-		{
-			m_service_nodes_infos[info.key] = info.info;
-		}
+		for (const auto& info : data_in.infos) m_service_nodes_infos[info.key] = info.info;
 
 		for (const auto& event : data_in.events)
 		{
@@ -1524,7 +1312,7 @@ namespace service_nodes
                                  std::vector<uint64_t>& portions,
                                  uint64_t& portions_for_operator,
                                  boost::optional<std::string&> err_msg)	{
-		if (args.size() < 3 ||  args.size() > 3)
+		if (args.size() % 2 == 0 || args.size() < 3)
 		{
 			MERROR(tr("Usage: <address> <fraction>"));
 			return false;

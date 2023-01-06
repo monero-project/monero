@@ -10,9 +10,15 @@ jobs:
       with:
         submodules: recursive
     - name: update brew and install dependencies
-      run: brew update && brew install boost hidapi zmq libpgm miniupnpc ldns expat libunwind-headers openssl@1.1 unbound
+      run: HOMEBREW_NO_AUTO_UPDATE=1 brew install boost hidapi zmq libpgm miniupnpc ldns expat libunwind-headers openssl@1.1 unbound
     - name: build
       run: make release-static-mac-x64 -j3
+   
+    - name: Upload mac artifacts
+      uses: actions/upload-artifact@master
+      with:
+        name: macos
+        path: 'build/**/**/*'
 
   build-windows:
     runs-on: windows-latest
