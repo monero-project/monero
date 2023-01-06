@@ -7771,8 +7771,8 @@ bool wallet2::is_output_blackballed(const std::pair<uint64_t, uint64_t> &output)
   try { return m_ringdb->blackballed(output); }
   catch (const std::exception &e) { return false; }
 }
-bool wallet2::check_stake_allowed(const crypto::public_key& sn_key, const cryptonote::address_parse_info& addr_info, uint64_t& amount, uint64_t& reg_height) {
-
+bool wallet2::check_stake_allowed(const crypto::public_key& sn_key, const cryptonote::address_parse_info& addr_info, uint64_t& amount, uint64_t& reg_height)
+{
   if (addr_info.has_payment_id) {
     LOG_ERROR("Do not use payment ids for staking.");
     return false;
@@ -7805,7 +7805,7 @@ bool wallet2::check_stake_allowed(const crypto::public_key& sn_key, const crypto
   uint64_t max_contrib_total = use_fork_rules(12,0) ? MAX_POOL_STAKERS_V12 * COIN - snode_info.total_reserved : snode_info.staking_requirement - snode_info.total_reserved;
 
   /// decrease if some reserved for us
-  uint64_t min_contrib_total = use_fork_rules(10, 0) ? use_fork_rules(12,0) ? MIN_POOL_STAKERS_V12 * COIN: std::min(snode_info.staking_requirement - snode_info.total_reserved, snode_info.staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS_V2) : std::min(snode_info.staking_requirement - snode_info.total_reserved, snode_info.staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS);
+  uint64_t min_contrib_total = use_fork_rules(12, 0) ? MIN_POOL_STAKERS_V12 * COIN : use_fork_rules(10, 0) ? std::min(snode_info.staking_requirement - snode_info.total_reserved, snode_info.staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS_V2) : std::min(snode_info.staking_requirement - snode_info.total_reserved, snode_info.staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS);
 
   bool is_preexisting_contributor = false;
   for (const auto& contributor : snode_info.contributors)
@@ -7837,7 +7837,7 @@ bool wallet2::check_stake_allowed(const crypto::public_key& sn_key, const crypto
   }
 
   /// c. Check if the amount is too big
- if (amount > max_contrib_total)
+  if (amount > max_contrib_total)
   {
     LOG_ERROR("You may only contribute up to " << print_money(max_contrib_total) << tr(" more triton to this service node"));
     LOG_ERROR("Reducing your stake from " << print_money(amount) << tr(" to ") << print_money(max_contrib_total));
@@ -7851,8 +7851,7 @@ bool wallet2::check_stake_allowed(const crypto::public_key& sn_key, const crypto
 
 std::vector<wallet2::pending_tx> wallet2::create_stake_tx(const crypto::public_key& service_node_key, const cryptonote::address_parse_info& addr_info, uint64_t amount)
 {
-
-  uint64_t reg_height = 0; 
+  uint64_t reg_height = 0;
   /// check stake parameters (this might adjust the amount)
   if (!check_stake_allowed(service_node_key, addr_info, amount, reg_height)) {
     LOG_ERROR("Invalid stake parameters");
@@ -7864,9 +7863,14 @@ std::vector<wallet2::pending_tx> wallet2::create_stake_tx(const crypto::public_k
 
   const cryptonote::account_public_address& address = addr_info.address;
 
+  uint64_t to_burn = 0;
+  if (get_current_hard_fork() < 16) to_burn += (amount / 1000);
+  else to_burn += 1;
+
   std::vector<uint8_t> extra;
   add_service_node_pubkey_to_tx_extra(extra, service_node_key);
   add_service_node_contributor_to_tx_extra(extra, address);
+  add_burned_amount_to_tx_extra(extra, to_burn);
   vector<cryptonote::tx_destination_entry> dsts;
   cryptonote::tx_destination_entry de;
   de.addr = address;
@@ -7875,7 +7879,6 @@ std::vector<wallet2::pending_tx> wallet2::create_stake_tx(const crypto::public_k
   dsts.push_back(de);
 
   const uint64_t staking_requirement_lock_blocks = service_nodes::get_staking_requirement_lock_blocks(m_nettype);
-
   const uint64_t locked_blocks = staking_requirement_lock_blocks + STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS;
 
   std::string err, err2;
@@ -9856,11 +9859,13 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
     for (const auto& i : balance_per_subaddr)
       subaddr_indices.insert(i.first);
   }
+  uint64_t burning_amount = get_burned_amount_from_tx_extra(extra);
   // early out if we know we can't make it anyway
   // we could also check for being within FEE_PER_KB, but if the fee calculation
   // ever changes, this might be missed, so let this go through
-  uint64_t min_fee = fee_multiplier * base_fee * estimate_tx_size(use_rct, 1, fake_outs_count, 2, extra.size(), bulletproof);
-  if(!use_per_byte_fee) min_fee /= 1024;
+  uint64_t minimum_fee = fee_multiplier * base_fee * estimate_tx_size(use_rct, 1, fake_outs_count, 2, extra.size(), bulletproof);
+  if(!use_per_byte_fee) minimum_fee /= 1024;
+  uint64_t min_fee = minimum_fee + burning_amount;
   uint64_t balance_subtotal = 0;
   uint64_t unlocked_balance_subtotal = 0;
   for (uint32_t index_minor : subaddr_indices)
@@ -10134,7 +10139,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
       cryptonote::transaction test_tx;
       pending_tx test_ptx;
 
-      needed_fee += estimate_fee(use_per_byte_fee, use_rct ,tx.selected_transfers.size(), fake_outs_count, tx.dsts.size()+1, extra.size(), bulletproof, base_fee, fee_multiplier, fee_quantization_mask);
+      needed_fee += estimate_fee(use_per_byte_fee, use_rct ,tx.selected_transfers.size(), fake_outs_count, tx.dsts.size()+1, extra.size(), bulletproof, base_fee, fee_multiplier, fee_quantization_mask) + burning_amount;
 
       uint64_t inputs = 0, outputs = needed_fee;
       for (size_t idx: tx.selected_transfers) inputs += m_transfers[idx].amount();

@@ -424,18 +424,15 @@ namespace service_nodes
       if (transferred < info.staking_requirement / max_contribs) return false;
     }
 
-		if (hf_version >= 12 && block_height < 997800)
+		if (hf_version >= 12)
 		{
 			//check staking burn
 			uint64_t burned_amount = cryptonote::get_burned_amount_from_tx_extra(tx.extra);
 			uint64_t total_fee = tx.rct_signatures.txnFee;
 			uint64_t miner_fee = get_tx_miner_fee(tx, true);
 			uint64_t burn_fee = total_fee - miner_fee;
-			if(burned_amount < burn_fee) return false;
-		}
 
-		if (hf_version >= 12)
-		{
+			if (burned_amount < burn_fee) return false;
 			if (transferred > MAX_OPERATOR_V12 * COIN) return false;
 			if (transferred < MIN_OPERATOR_V12 * COIN) return false;
     }
@@ -636,20 +633,20 @@ namespace service_nodes
 		if (info.is_fully_funded())
 			return;
 
-		if (hf_version >= 12 && block_height < 997800)
+		if (hf_version >= 12)
 		{
 			//check staking burn
 			uint64_t burned_amount = cryptonote::get_burned_amount_from_tx_extra(tx.extra);
 			uint64_t total_fee = tx.rct_signatures.txnFee;
 			uint64_t miner_fee = get_tx_miner_fee(tx, true);
 			uint64_t burn_fee = total_fee - miner_fee;
+			uint64_t b_fee = 0;
 
-			if(burn_fee < transferred / 1000) return;
-			if(burned_amount < total_fee - miner_fee) return;
-		}
+			if (hf_version < 16) b_fee += (transferred / 1000);
+			else b_fee += 1;
 
-		if (hf_version >= 12)
-    {
+			if (burn_fee < b_fee) return;
+			if (burned_amount < total_fee - miner_fee) return;
 			if (transferred > MAX_POOL_STAKERS_V12 * COIN) return;
 			if (transferred < MIN_POOL_STAKERS_V12 * COIN) return;
 		}

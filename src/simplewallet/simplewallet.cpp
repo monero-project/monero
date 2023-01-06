@@ -6477,8 +6477,14 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
       return false;
     }
 
-    
-    if (transferType == txType::Swap) 
+    if (transferType == txType::Burn)
+    {
+      add_burned_amount_to_tx_extra(extra, de.amount);
+      burn_amount += de.amount;
+      de.amount = 1;
+    }
+
+    if (transferType == txType::Swap)
     {
       std::string chain = input_line(tr("Please enter the chain you want to swap to (ETH or AVAX). MUST BE EXACT!: "));
       std::string eth_address = input_line(tr("Please enter the address you want to swap to: "));
@@ -6493,7 +6499,7 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
 
       cryptonote::tx_extra_memo memo;
       memo.data = "{'network':'" + chain_num + ", 'address': '" + eth_address + "', 'amount': '" + std::to_string(de.amount) + "'}";
-      
+
       if (!cryptonote::add_memo_to_tx_extra(extra, memo)) {
         fail_msg_writer() << tr("Failed to serialise transaction memo");
         return false;
@@ -6506,7 +6512,7 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
     de.is_subaddress = info.is_subaddress;
     de.is_integrated = info.has_payment_id;
     num_subaddresses += info.is_subaddress;
-    
+
     if (info.has_payment_id || !payment_id_uri.empty())
     {
       if (payment_id_seen)
@@ -6924,9 +6930,7 @@ bool simple_wallet::register_service_node_main(
 
 	uint64_t unlock_block = bc_height + locked_blocks;
 
- 
   uint64_t expected_staking_requirement = MAX_OPERATOR_V12 * COIN;
-  
 
 	const uint64_t DUST = MAX_NUMBER_OF_CONTRIBUTORS;
 
@@ -6953,6 +6957,13 @@ bool simple_wallet::register_service_node_main(
 		return true;
 	}
 
+	uint64_t amount_burned = 0;
+	uint8_t hf_ver = m_wallet->get_current_hard_fork();
+
+	if (hf_ver < 16) amount_burned += (amount_payable_by_operator / 1000);
+	else amount_burned += 1;
+
+	add_burned_amount_to_tx_extra(extra, amount_burned);
 	vector<cryptonote::tx_destination_entry> dsts;
 	cryptonote::tx_destination_entry de;
 	de.addr = address;
@@ -7282,13 +7293,13 @@ bool simple_wallet::stake_main(
     if (amount == 0)
       amount = staking_req * amount_fraction;
 
-    const bool full = m_wallet->use_fork_rules(10, 0) ? m_wallet->use_fork_rules(12,0) ? snode_info.contributors.size() >= MAX_NUMBER_OF_CONTRIBUTORS_V3:  snode_info.contributors.size() >= MAX_NUMBER_OF_CONTRIBUTORS_V2 : snode_info.contributors.size() >= MAX_NUMBER_OF_CONTRIBUTORS;
+    const bool full = m_wallet->use_fork_rules(12, 0) ? snode_info.contributors.size() >= MAX_NUMBER_OF_CONTRIBUTORS_V3 : m_wallet->use_fork_rules(10, 0) ? snode_info.contributors.size() >= MAX_NUMBER_OF_CONTRIBUTORS_V2 : snode_info.contributors.size() >= MAX_NUMBER_OF_CONTRIBUTORS;
     uint64_t can_contrib_total = 0;
     uint64_t must_contrib_total = 0;
     if (!full)
     {
       can_contrib_total = staking_req - snode_info.total_reserved;
-      must_contrib_total = m_wallet->use_fork_rules(10, 0) ? m_wallet->use_fork_rules(12,0) ? MIN_POOL_STAKERS_V12 * COIN : std::min(snode_info.staking_requirement - snode_info.total_reserved, snode_info.staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS_V2) : std::min(snode_info.staking_requirement - snode_info.total_reserved, snode_info.staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS);
+      must_contrib_total = m_wallet->use_fork_rules(12, 0) ? MIN_POOL_STAKERS_V12 * COIN : m_wallet->use_fork_rules(10, 0) ? std::min(snode_info.staking_requirement - snode_info.total_reserved, snode_info.staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS_V2) : std::min(snode_info.staking_requirement - snode_info.total_reserved, snode_info.staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS);
     }
 
     unlock_block = m_wallet->use_fork_rules(12, 0) ? snode_info.registration_height + locked_blocks : bc_height + locked_blocks;
@@ -7361,11 +7372,16 @@ bool simple_wallet::stake_main(
   }
 
   std::vector<uint8_t> extra;
-
   add_service_node_pubkey_to_tx_extra(extra, service_node_key);
-
   add_service_node_contributor_to_tx_extra(extra, parse_info.address);
 
+  uint64_t to_burn = 0;
+  uint8_t hf_ver = m_wallet->get_current_hard_fork();
+
+  if (hf_ver < 16) to_burn += (amount / 1000);
+  else to_burn += 1;
+
+  add_burned_amount_to_tx_extra(extra, to_burn);
   vector<cryptonote::tx_destination_entry> dsts;
   cryptonote::tx_destination_entry de;
   de.addr = parse_info.address;
