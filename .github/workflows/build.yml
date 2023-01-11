@@ -158,6 +158,7 @@ jobs:
     - name: tests
       env:
         CTEST_OUTPUT_ON_FAILURE: ON
+        DNS_PUBLIC: tcp://9.9.9.9
       run: |
         ${{env.CCACHE_SETTINGS}}
         ${{env.BUILD_DEFAULT_LINUX}}
