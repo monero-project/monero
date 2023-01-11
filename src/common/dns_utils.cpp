@@ -326,11 +326,6 @@ std::vector<std::string> DNSResolver::get_record(const std::string& url, int rec
   dnssec_available = false;
   dnssec_valid = false;
 
-  if (!check_address_syntax(url.c_str()))
-  {
-    return addresses;
-  }
-
   // destructor takes care of cleanup
   ub_result_ptr result;
 
@@ -411,16 +406,6 @@ DNSResolver& DNSResolver::instance()
 DNSResolver DNSResolver::create()
 {
   return DNSResolver();
-}
-
-bool DNSResolver::check_address_syntax(const char *addr) const
-{
-  // if string doesn't contain a dot, we won't consider it a url for now.
-  if (strchr(addr,'.') == NULL)
-  {
-    return false;
-  }
-  return true;
 }
 
 namespace dns_utils
