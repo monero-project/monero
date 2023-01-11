@@ -32,7 +32,6 @@
 #include <boost/regex.hpp>
 #include <boost/optional/optional.hpp>
 #include <boost/utility/string_ref.hpp>
-//#include <mbstring.h>
 #include <algorithm>
 #include <cctype>
 #include <functional>
@@ -48,57 +47,13 @@
 #include "net_parse_helpers.h"
 #include "syncobj.h"
 
-//#include "shlwapi.h"
-
-//#pragma comment(lib, "shlwapi.lib")
-
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "net.http"
-
-extern epee::critical_section gregexp_lock;
-
 
 namespace epee
 {
 namespace net_utils
 {
-
-	/*struct url 
-	{
-	public:
-		void parse(const std::string& url_s)
-		{
-			const string prot_end("://");
-			string::const_iterator prot_i = search(url_s.begin(), url_s.end(),
-				prot_end.begin(), prot_end.end());
-			protocol_.reserve(distance(url_s.begin(), prot_i));
-			transform(url_s.begin(), prot_i,
-				back_inserter(protocol_),
-				ptr_fun<int,int>(tolower)); // protocol is icase
-			if( prot_i == url_s.end() )
-				return;
-			advance(prot_i, prot_end.length());
-			string::const_iterator path_i = find(prot_i, url_s.end(), '/');
-			host_.reserve(distance(prot_i, path_i));
-			transform(prot_i, path_i,
-				back_inserter(host_),
-				ptr_fun<int,int>(tolower)); // host is icase
-			string::const_iterator query_i = find(path_i, url_s.end(), '?');
-			path_.assign(path_i, query_i);
-			if( query_i != url_s.end() )
-				++query_i;
-			query_.assign(query_i, url_s.end());
-		}
-
-		std::string protocol_;
-		std::string host_;
-		std::string path_;
-		std::string query_;
-	};*/
-
-
-
-
 	//---------------------------------------------------------------------------
 	namespace http
 	{
@@ -135,7 +90,6 @@ namespace net_utils
 			http_response_info m_response_info;
 			size_t m_len_in_summary;
 			size_t m_len_in_remain;
-			//std::string* m_ptarget_buffer;
 			boost::shared_ptr<i_sub_handler> m_pcontent_encoding_handler;
 			reciev_machine_state m_state;
 			chunked_state m_chunked_state;
@@ -298,12 +252,6 @@ namespace net_utils
 				}
 				LOG_ERROR("Client has incorrect username/password for server requiring authentication");
 				return false;
-			}
-			//---------------------------------------------------------------------------
-			inline bool invoke_post(const boost::string_ref uri, const std::string& body, std::chrono::milliseconds timeout, const http_response_info** ppresponse_info = NULL, const fields_list& additional_params = fields_list()) override
-			{
-				CRITICAL_REGION_LOCAL(m_lock);
-				return invoke(uri, "POST", body, timeout, ppresponse_info, additional_params);
 			}
 			//---------------------------------------------------------------------------
 			bool test(const std::string &s, std::chrono::milliseconds timeout) // TEST FUNC ONLY
