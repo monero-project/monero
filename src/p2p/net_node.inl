@@ -645,20 +645,10 @@ namespace nodetool
   {
     using namespace boost::asio;
 
-    std::string host = addr;
+    // Split addr string into host string and port string
+    std::string host;
     std::string port = std::to_string(default_port);
-    size_t colon_pos = addr.find_last_of(':');
-    size_t dot_pos = addr.find_last_of('.');
-    size_t square_brace_pos = addr.find('[');
-
-    // IPv6 will have colons regardless.  IPv6 and IPv4 address:port will have a colon but also either a . or a [
-    // as IPv6 addresses specified as address:port are to be specified as "[addr:addr:...:addr]:port"
-    // One may also specify an IPv6 address as simply "[addr:addr:...:addr]" without the port; in that case
-    // the square braces will be stripped here.
-    if ((std::string::npos != colon_pos && std::string::npos != dot_pos) || std::string::npos != square_brace_pos)
-    {
-      net::get_network_address_host_and_port(addr, host, port);
-    }
+    net::get_network_address_host_and_port(addr, host, port);
     MINFO("Resolving node address: host=" << host << ", port=" << port);
 
     io_service io_srv;
