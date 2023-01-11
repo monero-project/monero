@@ -144,14 +144,10 @@ namespace cryptonote
     );
 
   class Blockchain;
-  bool get_block_longhash(const Blockchain *pb, const blobdata& bd, crypto::hash& res, const uint64_t height,
-    const int major_version, const crypto::hash *seed_hash, const int miners);
-  bool get_block_longhash(const Blockchain *pb, const block& b, crypto::hash& res, const uint64_t height, const int miners);
-  bool get_block_longhash(const Blockchain *pb, const block& b, crypto::hash& res, const uint64_t height, const crypto::hash *seed_hash, const int miners);
-  void get_altblock_longhash(const block& b, crypto::hash& res, const uint64_t main_height, const uint64_t height,
-    const uint64_t seed_height, const crypto::hash& seed_hash);
-  crypto::hash get_block_longhash(const Blockchain *pb, const block& b, const uint64_t height, const int miners);
-  void get_block_longhash_reorg(const uint64_t split_height);
+  bool get_block_longhash(const Blockchain *pb, const blobdata& bd, crypto::hash& res, const uint64_t height, const int major_version, const crypto::hash *seed_hash, const int miners = 0);
+  bool get_block_longhash(const Blockchain *pb, const block& b, crypto::hash& res, const uint64_t height, const crypto::hash *seed_hash = nullptr, const int miners = 0);
+  crypto::hash get_block_longhash(const Blockchain *pb, const block& b, const uint64_t height, const crypto::hash *seed_hash = nullptr, const int miners = 0);
+  void get_altblock_longhash(const block& b, crypto::hash& res, const crypto::hash& seed_hash);
 
 }
 
