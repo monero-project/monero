@@ -31,6 +31,7 @@
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/thread.hpp>
 #include <cstddef>
+#include <deque>
 #include <functional>
 #include <utility>
 #include <vector>
