@@ -1598,9 +1598,11 @@ namespace cryptonote
     /**
      * @brief sends new block notifications to ZMQ `miner_data` subscribers
      *
+     * @param height current blockchain height
+     * @param seed_hash seed hash to use for mining
      * @param prev_id hash of new blockchain tip
      * @param already_generated_coins total coins mined by the network so far
      */
-    void send_miner_notifications(const crypto::hash &prev_id, uint64_t already_generated_coins);
+    void send_miner_notifications(uint64_t height, const crypto::hash &seed_hash, const crypto::hash &prev_id, uint64_t already_generated_coins);
   };
 }  // namespace cryptonote
