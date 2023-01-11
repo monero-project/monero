@@ -671,7 +671,7 @@ namespace rct {
 
     //Elliptic Curve Diffie Helman: encodes and decodes the amount b and mask a
     // where C= aG + bH
-    static key ecdhHash(const key &k)
+    key genAmountEncodingFactor(const key &k)
     {
         char data[38];
         rct::key hash;
@@ -700,7 +700,7 @@ namespace rct {
         if (v2)
         {
           unmasked.mask = zero();
-          xor8(unmasked.amount, ecdhHash(sharedSec));
+          xor8(unmasked.amount, genAmountEncodingFactor(sharedSec));
         }
         else
         {
@@ -715,7 +715,7 @@ namespace rct {
         if (v2)
         {
           masked.mask = genCommitmentMask(sharedSec);
-          xor8(masked.amount, ecdhHash(sharedSec));
+          xor8(masked.amount, genAmountEncodingFactor(sharedSec));
         }
         else
         {
