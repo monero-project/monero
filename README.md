@@ -511,9 +511,9 @@ Monero is also available as a port or package as `monero-cli`.
 You will need to add a few packages to your system. `pkg_add cmake gmake zeromq libiconv boost`.
 
 The `doxygen` and `graphviz` packages are optional and require the xbase set.
-Running the test suite also requires `py-requests` package.
+Running the test suite also requires `py3-requests` package.
 
-Build monero: `env DEVELOPER_LOCAL_TOOLS=1 BOOST_ROOT=/usr/local gmake release-static`
+Build monero: `gmake`
 
 Note: you may encounter the following error when compiling the latest version of Monero as a normal user:
 
