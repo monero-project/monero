@@ -31,7 +31,9 @@ set(cryptonote_core_sources
   cryptonote_core.cpp
   tx_pool.cpp
   tx_sanity_check.cpp
-  cryptonote_tx_utils.cpp)
+  cryptonote_tx_utils.cpp
+  tx_verification_utils.cpp
+)
 
 set(cryptonote_core_headers)
 
