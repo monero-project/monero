@@ -1232,7 +1232,7 @@ namespace net_utils
       }
     }
 
-    if (use_ipv6)
+    if (use_ipv6 && address_ipv6 != "")
     {
       try
       {
