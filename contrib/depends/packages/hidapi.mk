@@ -1,8 +1,8 @@
 package=hidapi
-$(package)_version=0.11.0
-$(package)_download_path=https://github.com/libusb/hidapi/archive
+$(package)_version=0.13.1
+$(package)_download_path=https://github.com/libusb/hidapi/archive/refs/tags
 $(package)_file_name=$(package)-$($(package)_version).tar.gz
-$(package)_sha256_hash=391d8e52f2d6a5cf76e2b0c079cfefe25497ba1d4659131297081fc0cd744632
+$(package)_sha256_hash=476a2c9a4dc7d1fc97dd223b84338dbea3809a84caea2dcd887d9778725490e3
 $(package)_linux_dependencies=libusb eudev
 $(package)_patches=missing_win_include.patch
 
