@@ -38,6 +38,7 @@
 #include "crypto/crypto.h"
 #include <boost/thread/mutex.hpp>
 #include <boost/algorithm/string/join.hpp>
+#include <set>
 #include <boost/optional.hpp>
 #include <boost/utility/string_ref.hpp>
 using namespace epee;
