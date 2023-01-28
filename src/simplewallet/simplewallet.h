@@ -154,9 +154,6 @@ namespace cryptonote
     bool set_export_format(const std::vector<std::string> &args = std::vector<std::string>());
     bool set_load_deprecated_formats(const std::vector<std::string> &args = std::vector<std::string>());
     bool set_enable_multisig(const std::vector<std::string> &args = std::vector<std::string>());
-    bool set_persistent_rpc_client_id(const std::vector<std::string> &args = std::vector<std::string>());
-    bool set_auto_mine_for_rpc_payment_threshold(const std::vector<std::string> &args = std::vector<std::string>());
-    bool set_credits_target(const std::vector<std::string> &args = std::vector<std::string>());
     bool help(const std::vector<std::string> &args = std::vector<std::string>());
     bool apropos(const std::vector<std::string> &args);
     bool scan_tx(const std::vector<std::string> &args);
@@ -258,9 +255,6 @@ namespace cryptonote
     bool thaw(const std::vector<std::string>& args);
     bool frozen(const std::vector<std::string>& args);
     bool lock(const std::vector<std::string>& args);
-    bool rpc_payment_info(const std::vector<std::string> &args);
-    bool start_mining_for_rpc(const std::vector<std::string> &args);
-    bool stop_mining_for_rpc(const std::vector<std::string> &args);
     bool show_qr_code(const std::vector<std::string> &args);
     bool net_stats(const std::vector<std::string>& args);
     bool public_nodes(const std::vector<std::string>& args);
@@ -338,7 +332,6 @@ namespace cryptonote
     bool check_inactivity();
     bool check_refresh();
     bool check_mms();
-    bool check_rpc_payment();
 
     void handle_transfer_exception(const std::exception_ptr &e, bool trusted_daemon);
 
@@ -458,17 +451,6 @@ namespace cryptonote
     epee::math_helper::once_a_time_seconds<1> m_inactivity_checker;
     epee::math_helper::once_a_time_seconds_range<get_random_interval<80 * 1000000, 100 * 1000000>> m_refresh_checker;
     epee::math_helper::once_a_time_seconds_range<get_random_interval<90 * 1000000, 110 * 1000000>> m_mms_checker;
-    epee::math_helper::once_a_time_seconds_range<get_random_interval<90 * 1000000, 115 * 1000000>> m_rpc_payment_checker;
-    
-    std::atomic<bool> m_need_payment;
-    boost::posix_time::ptime m_last_rpc_payment_mining_time;
-    bool m_rpc_payment_mining_requested;
-    uint32_t m_rpc_payment_threads = 0;
-    bool m_daemon_rpc_payment_message_displayed;
-    float m_rpc_payment_hash_rate;
-    std::atomic<bool> m_suspend_rpc_payment_mining;
-
-    std::unordered_map<std::string, uint32_t> m_claimed_cph;
 
     // MMS
     mms::message_store& get_message_store() const { return m_wallet->get_message_store(); };
