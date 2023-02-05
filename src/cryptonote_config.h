@@ -206,6 +206,11 @@
 
 #define DNS_BLOCKLIST_LIFETIME (86400 * 8)
 
+//The limit is enough for the mandatory transaction content with 16 outputs (547 bytes),
+//a custom tag (1 byte) and up to 32 bytes of custom data for each recipient.
+// (1+32) + (1+1+16*32) + (1+16*32) = 1060
+#define MAX_TX_EXTRA_SIZE                       1060
+
 // New constants are intended to go here
 namespace config
 {
