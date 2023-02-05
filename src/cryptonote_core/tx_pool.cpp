@@ -218,6 +218,15 @@ namespace cryptonote
       return false;
     }
 
+    size_t tx_extra_size = tx.extra.size();
+    if (!kept_by_block && tx_extra_size > MAX_TX_EXTRA_SIZE)
+    {
+      LOG_PRINT_L1("transaction tx-extra is too big: " << tx_extra_size << " bytes, the limit is: " << MAX_TX_EXTRA_SIZE);
+      tvc.m_verifivation_failed = true;
+      tvc.m_tx_extra_too_big = true;
+      return false;
+    }
+
     // if the transaction came from a block popped from the chain,
     // don't check if we have its key images as spent.
     // TODO: Investigate why not?
