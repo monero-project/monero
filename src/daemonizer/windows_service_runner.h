@@ -146,9 +146,6 @@ namespace windows {
       m_handler.run();
 
       on_state_change_request_(SERVICE_CONTROL_STOP);
-
-      // Ensure that the service is uninstalled
-      uninstall_service(m_name);
     }
 
     static void WINAPI on_state_change_request(DWORD control_code)
