@@ -196,7 +196,7 @@ bool install_service(
       , 0
       //, GENERIC_EXECUTE | GENERIC_READ
       , SERVICE_WIN32_OWN_PROCESS
-      , SERVICE_DEMAND_START
+      , SERVICE_AUTO_START
       , SERVICE_ERROR_NORMAL
       , full_command.c_str()
       , nullptr
