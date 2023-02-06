@@ -46,6 +46,77 @@ using namespace cryptonote;
 
 static bool stop_requested = false;
 
+static bool do_inputs, do_outputs, do_ringsize, do_hours, do_emission, do_fees, do_diff;
+
+static struct tm prevtm, currtm;
+static uint64_t prevsz, currsz;
+static uint64_t prevtxs, currtxs;
+static uint64_t currblks;
+static uint64_t h;
+static uint64_t totins, totouts, totrings;
+static boost::multiprecision::uint128_t prevemission, prevfees;
+static boost::multiprecision::uint128_t emission, fees;
+static boost::multiprecision::uint128_t totdiff, mindiff, maxdiff;
+
+#define MAX_INOUT	0xffffffff
+#define MAX_RINGS	0xffffffff
+
+static uint32_t minins = MAX_INOUT, maxins;
+static uint32_t minouts = MAX_INOUT, maxouts;
+static uint32_t minrings = MAX_RINGS, maxrings;
+static uint32_t io, tottxs;
+static uint32_t txhr[24];
+
+static void doprint()
+{
+  char timebuf[64];
+
+  strftime(timebuf, sizeof(timebuf), "%Y-%m-%d", &prevtm);
+  prevtm = currtm;
+  std::cout << timebuf << "\t" << currblks << "\t" << h << "\t" << currtxs << "\t" << prevtxs + currtxs << "\t" << currsz << "\t" << prevsz + currsz;
+  prevsz += currsz;
+  currsz = 0;
+  prevtxs += currtxs;
+  currtxs = 0;
+  if (!tottxs)
+    tottxs = 1;
+  if (do_emission) {
+    std::cout << "\t" << print_money(emission) << "\t" << print_money(prevemission + emission);
+    prevemission += emission;
+    emission = 0;
+  }
+  if (do_fees) {
+    std::cout << "\t" << print_money(fees) << "\t" << print_money(prevfees + fees);
+    prevfees += fees;
+    fees = 0;
+  }
+  if (do_diff) {
+    std::cout << "\t" << (maxdiff ? mindiff : 0) << "\t" << maxdiff << "\t" << totdiff / currblks;
+    mindiff = 0; maxdiff = 0; totdiff = 0;
+  }
+  if (do_inputs) {
+    std::cout << "\t" << (maxins ? minins : 0) << "\t" << maxins << "\t" << totins * 1.0 / tottxs;
+    minins = MAX_INOUT; maxins = 0; totins = 0;
+  }
+  if (do_outputs) {
+    std::cout << "\t" << (maxouts ? minouts : 0) << "\t" << maxouts << "\t" << totouts * 1.0 / tottxs;
+    minouts = MAX_INOUT; maxouts = 0; totouts = 0;
+  }
+  if (do_ringsize) {
+    std::cout << "\t" << (maxrings ? minrings : 0) << "\t" << maxrings << "\t" << totrings * 1.0 / tottxs;
+    minrings = MAX_RINGS; maxrings = 0; totrings = 0;
+  }
+  if (do_hours) {
+    for (int i=0; i<24; i++) {
+      std::cout << "\t" << txhr[i];
+      txhr[i] = 0;
+    }
+  }
+  currblks = 0;
+  tottxs = 0;
+  std::cout << ENDL;
+}
+
 int main(int argc, char* argv[])
 {
   TRY_ENTRY();
@@ -123,13 +194,13 @@ int main(int argc, char* argv[])
   network_type net_type = opt_testnet ? TESTNET : opt_stagenet ? STAGENET : MAINNET;
   block_start = command_line::get_arg(vm, arg_block_start);
   block_stop = command_line::get_arg(vm, arg_block_stop);
-  bool do_inputs = command_line::get_arg(vm, arg_inputs);
-  bool do_outputs = command_line::get_arg(vm, arg_outputs);
-  bool do_ringsize = command_line::get_arg(vm, arg_ringsize);
-  bool do_hours = command_line::get_arg(vm, arg_hours);
-  bool do_emission = command_line::get_arg(vm, arg_emission);
-  bool do_fees = command_line::get_arg(vm, arg_fees);
-  bool do_diff = command_line::get_arg(vm, arg_diff);
+  do_inputs = command_line::get_arg(vm, arg_inputs);
+  do_outputs = command_line::get_arg(vm, arg_outputs);
+  do_ringsize = command_line::get_arg(vm, arg_ringsize);
+  do_hours = command_line::get_arg(vm, arg_hours);
+  do_emission = command_line::get_arg(vm, arg_emission);
+  do_fees = command_line::get_arg(vm, arg_fees);
+  do_diff = command_line::get_arg(vm, arg_diff);
 
   LOG_PRINT_L0("Initializing source blockchain (BlockchainDB)");
   std::unique_ptr<Blockchain> core_storage;
@@ -211,25 +282,7 @@ plot 'stats.csv' index "DATA" using (timecolumn(1,"%Y-%m-%d")):4 with lines, '' 
   }
   std::cout << ENDL;
 
-#define MAX_INOUT	0xffffffff
-#define MAX_RINGS	0xffffffff
-
-  struct tm prevtm = {0}, currtm;
-  uint64_t prevsz = 0, currsz = 0;
-  uint64_t prevtxs = 0, currtxs = 0;
-  uint64_t currblks = 0;
-  uint64_t totins = 0, totouts = 0, totrings = 0;
-  boost::multiprecision::uint128_t prevemission = 0, prevfees = 0;
-  boost::multiprecision::uint128_t emission = 0, fees = 0;
-  boost::multiprecision::uint128_t totdiff = 0, mindiff = 0, maxdiff = 0;
-  uint32_t minins = MAX_INOUT, maxins = 0;
-  uint32_t minouts = MAX_INOUT, maxouts = 0;
-  uint32_t minrings = MAX_RINGS, maxrings = 0;
-  uint32_t io, tottxs = 0;
-  uint32_t txhr[24] = {0};
-  unsigned int i;
-
-  for (uint64_t h = block_start; h < block_stop; ++h)
+  for (h = block_start; h < block_stop; ++h)
   {
     cryptonote::blobdata bd = db->get_block_blob_from_height(h);
     cryptonote::block blk;
@@ -239,7 +292,6 @@ plot 'stats.csv' index "DATA" using (timecolumn(1,"%Y-%m-%d")):4 with lines, '' 
       return 1;
     }
     time_t tt = blk.timestamp;
-    char timebuf[64];
     epee::misc_utils::get_gmt_time(tt, currtm);
     if (!prevtm.tm_year)
       prevtm = currtm;
@@ -247,54 +299,9 @@ plot 'stats.csv' index "DATA" using (timecolumn(1,"%Y-%m-%d")):4 with lines, '' 
     if (currtm.tm_mday > prevtm.tm_mday || (currtm.tm_mday == 1 && prevtm.tm_mday > 27))
     {
       // check for timestamp fudging around month ends
-      if (prevtm.tm_mday == 1 && currtm.tm_mday > 27)
-        goto skip;
-      strftime(timebuf, sizeof(timebuf), "%Y-%m-%d", &prevtm);
-      prevtm = currtm;
-      std::cout << timebuf << "\t" << currblks << "\t" << h << "\t" << currtxs << "\t" << prevtxs + currtxs << "\t" << currsz << "\t" << prevsz + currsz;
-      prevsz += currsz;
-      currsz = 0;
-      prevtxs += currtxs;
-      currtxs = 0;
-      if (!tottxs)
-        tottxs = 1;
-      if (do_emission) {
-        std::cout << "\t" << print_money(emission) << "\t" << print_money(prevemission + emission);
-        prevemission += emission;
-        emission = 0;
-      }
-      if (do_fees) {
-        std::cout << "\t" << print_money(fees) << "\t" << print_money(prevfees + fees);
-        prevfees += fees;
-        fees = 0;
-      }
-      if (do_diff) {
-        std::cout << "\t" << (maxdiff ? mindiff : 0) << "\t" << maxdiff << "\t" << totdiff / currblks;
-        mindiff = 0; maxdiff = 0; totdiff = 0;
-      }
-      if (do_inputs) {
-        std::cout << "\t" << (maxins ? minins : 0) << "\t" << maxins << "\t" << totins * 1.0 / tottxs;
-        minins = MAX_INOUT; maxins = 0; totins = 0;
-      }
-      if (do_outputs) {
-        std::cout << "\t" << (maxouts ? minouts : 0) << "\t" << maxouts << "\t" << totouts * 1.0 / tottxs;
-        minouts = MAX_INOUT; maxouts = 0; totouts = 0;
-      }
-      if (do_ringsize) {
-        std::cout << "\t" << (maxrings ? minrings : 0) << "\t" << maxrings << "\t" << totrings * 1.0 / tottxs;
-        minrings = MAX_RINGS; maxrings = 0; totrings = 0;
-      }
-      if (do_hours) {
-        for (i=0; i<24; i++) {
-          std::cout << "\t" << txhr[i];
-          txhr[i] = 0;
-        }
-      }
-      currblks = 0;
-      tottxs = 0;
-      std::cout << ENDL;
+      if (!(prevtm.tm_mday == 1 && currtm.tm_mday > 27))
+        doprint();
     }
-skip:
     currsz += bd.size();
     uint64_t coinbase_amount;
     uint64_t tx_fee_amount = 0;
@@ -371,6 +378,8 @@ skip:
     if (stop_requested)
       break;
   }
+  if (currblks)
+    doprint();
 
   core_storage->deinit();
   return 0;
