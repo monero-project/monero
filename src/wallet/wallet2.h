@@ -1230,8 +1230,8 @@ private:
       a & m_cold_key_images.parent();
       if(ver < 29)
         return;
-      crypto::secret_key m_rpc_client_secret_key; // Compatibility for old RPC payment system
-      a & m_rpc_client_secret_key;
+      crypto::secret_key dummy_rpc_client_secret_key; // Compatibility for old RPC payment system
+      a & dummy_rpc_client_secret_key;
       if(ver < 30)
       {
         m_has_ever_refreshed_from_node = false;
@@ -1267,8 +1267,8 @@ private:
       FIELD(m_tx_device)
       FIELD(m_device_last_key_image_sync)
       FIELD(m_cold_key_images)
-      crypto::secret_key m_rpc_client_secret_key; // Compatibility for old RPC payment system
-      FIELD(m_rpc_client_secret_key)
+      crypto::secret_key dummy_rpc_client_secret_key; // Compatibility for old RPC payment system
+      FIELD_N("m_rpc_client_secret_key", dummy_rpc_client_secret_key)
       if (version < 1)
       {
         m_has_ever_refreshed_from_node = false;

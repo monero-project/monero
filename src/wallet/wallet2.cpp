@@ -3589,7 +3589,6 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
     }
     catch (const error::deprecated_rpc_access&)
     {
-      // no point in trying again, it'd just eat up credits
       THROW_WALLET_EXCEPTION_IF(!waiter.wait(), error::wallet_internal_error, "Exception in thread pool");
       throw;
     }
@@ -4049,12 +4048,15 @@ boost::optional<wallet2::keys_file_data> wallet2::get_keys_file_data(const epee:
     json.AddMember("original_view_secret_key", value, json.GetAllocator());
   }
   
+  // This value is serialized for compatibility with wallets which support the pay-to-use RPC system
   value2.SetInt(0);
   json.AddMember("persistent_rpc_client_id", value2, json.GetAllocator());
 
+  // This value is serialized for compatibility with wallets which support the pay-to-use RPC system
   value2.SetFloat(0.0f);
   json.AddMember("auto_mine_for_rpc_payment", value2, json.GetAllocator());
 
+  // This value is serialized for compatibility with wallets which support the pay-to-use RPC system
   value2.SetUint64(0);
   json.AddMember("credits_target", value2, json.GetAllocator());
 
