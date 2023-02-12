@@ -62,7 +62,6 @@ namespace tools
 
 ////
 // variant: convenience wrapper around boost::variant with a cleaner interface
-// - the value may be assigned to but is otherwise read-only
 // - the variant is 'optional' - an empty variant will evaluate to 'false' and an initialized variant will be 'true'
 ///
 template <typename ResultT>
@@ -70,6 +69,7 @@ struct variant_static_visitor : public boost::static_visitor<ResultT>
 {
     /// provide visitation for empty variants
     /// - add this to your visitor with: using variant_static_visitor::operator();
+    [[noreturn]] ResultT operator()(const boost::blank)       { variant_static_visitor_blank_err(); }
     [[noreturn]] ResultT operator()(const boost::blank) const { variant_static_visitor_blank_err(); }
 };
 
@@ -107,14 +107,20 @@ public:
     template <typename T>
     bool is_type() const noexcept { return this->index() == this->type_index_of<T>(); }
 
-    /// try to get a read-only handle to the embedded value (return nullptr on failure)
+    /// try to get a handle to the embedded value (return nullptr on failure)
     template <typename T>
-    const T* try_unwrap() const
-    {
-        return boost::strict_get<T>(&m_value);
-    }
+          T* try_unwrap()       noexcept { return boost::strict_get<      T>(&m_value); }
+    template <typename T>
+    const T* try_unwrap() const noexcept { return boost::strict_get<const T>(&m_value); }
 
-    /// get a read-only handle to the embedded value
+    /// get a handle to the embedded value
+    template <typename T>
+    T& unwrap()
+    {
+        T *value_ptr{this->try_unwrap<T>()};
+        if (!value_ptr) variant_unwrap_err();
+        return *value_ptr;
+    }
     template <typename T>
     const T& unwrap() const
     {
@@ -131,7 +137,7 @@ public:
     static constexpr int type_index_of() noexcept
     {
         using types = boost::mpl::vector<boost::blank, Types...>;
-        using elem = typename boost::mpl::find<types, T>::type;
+        using elem  = typename boost::mpl::find<types, T>::type;
         using begin = typename boost::mpl::begin<types>::type;
         return boost::mpl::distance<begin, elem>::value;
     }
@@ -141,6 +147,11 @@ public:
     { return v1.index() == v2.index(); }
 
     /// apply a visitor to the variant
+    template <typename VisitorT>
+    typename VisitorT::result_type visit(VisitorT &&visitor)
+    {
+        return boost::apply_visitor(std::forward<VisitorT>(visitor), m_value);
+    }
     template <typename VisitorT>
     typename VisitorT::result_type visit(VisitorT &&visitor) const
     {

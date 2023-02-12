@@ -232,8 +232,10 @@ struct test_stringify_visitor: public variant_static_visitor<std::string>
         return test_stringify_visitor::stringify(t);
     }
 };
-} // anonymous namespace
 //-------------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------------
+} // anonymous namespace
+
 //-------------------------------------------------------------------------------------------------------------------
 TEST(variant, operatorbool)
 {
@@ -293,6 +295,25 @@ TEST(variant, unwrap)
     EXPECT_EQ(5252, v.unwrap<int16_t>());
     EXPECT_THROW(v.unwrap<uint16_t>(), std::runtime_error);
     EXPECT_THROW(v.unwrap<std::string>(), std::runtime_error);
+}
+//-------------------------------------------------------------------------------------------------------------------
+TEST(variant, mutation)
+{
+    variant<uint8_t> v;
+    v = (uint8_t) 5;
+    EXPECT_EQ(5, v.unwrap<uint8_t>());
+    uint8_t &intref{v.unwrap<uint8_t>()};
+    intref = 10;
+    EXPECT_EQ(10, v.unwrap<uint8_t>());
+    EXPECT_TRUE(v.try_unwrap<uint8_t>());
+    uint8_t *intptr{v.try_unwrap<uint8_t>()};
+    *intptr = 15;
+    EXPECT_EQ(15, v.unwrap<uint8_t>());
+
+    const variant<uint8_t> &v_ref{v};
+    EXPECT_EQ(15, v_ref.unwrap<uint8_t>());
+    EXPECT_TRUE(v_ref.try_unwrap<uint8_t>());
+    EXPECT_EQ(15, *(v_ref.try_unwrap<uint8_t>()));
 }
 //-------------------------------------------------------------------------------------------------------------------
 TEST(variant, index)
