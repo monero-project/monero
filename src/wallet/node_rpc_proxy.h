@@ -47,6 +47,13 @@ namespace tools
 class NodeRPCProxy
 {
 public:
+  struct invoke_mgmt
+  {
+    bool returned;
+
+    operator bool() const { return returned; }
+  };
+
   NodeRPCProxy();
 
   void invalidate();
@@ -70,7 +77,7 @@ public:
   boost::optional<std::string> get_fee_quantization_mask(uint64_t &fee_quantization_mask);
 
   template <class Req, class Res>
-  bool invoke_http_json
+  invoke_mgmt invoke_http_json
   (
     const std::string& uri,
     Req& req,
@@ -78,12 +85,14 @@ public:
     std::chrono::milliseconds timeout = default_timeout
   )
   {
+    invoke_mgmt im;
     clear_status(res);
-    return epee::net_utils::invoke_http_json(uri, req, res, get_transport_ref(), timeout);
+    im.returned = epee::net_utils::invoke_http_json(uri, req, res, get_transport_ref(), timeout);
+    return im;
   }
 
   template <class Req, class Res>
-  bool invoke_http_json_rpc
+  invoke_mgmt invoke_http_json_rpc
   (
     const std::string& rpc_method,
     Req& req,
@@ -92,13 +101,15 @@ public:
     std::chrono::milliseconds timeout = default_timeout
   )
   {
+    invoke_mgmt im;
     clear_status(res);
-    return epee::net_utils::invoke_http_json_rpc("/json_rpc", rpc_method, req, res, error,
+    im.returned = epee::net_utils::invoke_http_json_rpc("/json_rpc", rpc_method, req, res, error,
       get_transport_ref(), timeout);
+    return im;
   }
 
   template <class Req, class Res>
-  bool invoke_http_bin
+  invoke_mgmt invoke_http_bin
   (
     const std::string& uri,
     Req& req,
@@ -106,8 +117,10 @@ public:
     std::chrono::milliseconds timeout = default_timeout
   )
   {
+    invoke_mgmt im;
     clear_status(res);
-    return epee::net_utils::invoke_http_bin(uri, req, res, get_transport_ref(), timeout);
+    im.returned = epee::net_utils::invoke_http_bin(uri, req, res, get_transport_ref(), timeout);
+    return im;
   }
 
 private:
