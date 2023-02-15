@@ -152,16 +152,6 @@
        epee::serialization::store_t_to_json(static_cast<epee::json_rpc::error_response&>(rsp), response_info.m_body); \
        return true; \
     } \
-    epee::serialization::storage_entry se; \
-    if(ps.get_value("params", se, nullptr) && se.type() != typeid(epee::serialization::section)) \
-    { \
-       boost::value_initialized<epee::json_rpc::error_response> rsp; \
-       static_cast<epee::json_rpc::error_response&>(rsp).jsonrpc = "2.0"; \
-       static_cast<epee::json_rpc::error_response&>(rsp).error.code = -32701; \
-       static_cast<epee::json_rpc::error_response&>(rsp).error.message = "Params is not an object"; \
-       epee::serialization::store_t_to_json(static_cast<epee::json_rpc::error_response&>(rsp), response_info.m_body); \
-       return true; \
-    } \
     epee::serialization::storage_entry id_; \
     id_ = epee::serialization::storage_entry(std::string()); \
     ps.get_value("id", id_, nullptr); \
