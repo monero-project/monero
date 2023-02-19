@@ -595,11 +595,11 @@ namespace tools
       addresses.reserve(req.count);
       address_indices.reserve(req.count);
 
+      const uint32_t new_address_index = m_wallet->get_num_subaddresses(req.account_index);
+      m_wallet->add_subaddresses(req.account_index, req.label, req.count);
       for (uint32_t i = 0; i < req.count; i++) {
-        m_wallet->add_subaddress(req.account_index, req.label);
-        uint32_t new_address_index = m_wallet->get_num_subaddresses(req.account_index) - 1;
-        address_indices.push_back(new_address_index);
-        addresses.push_back(m_wallet->get_subaddress_as_str({req.account_index, new_address_index}));
+        address_indices.push_back(new_address_index + i);
+        addresses.push_back(m_wallet->get_subaddress_as_str({req.account_index, new_address_index + i}));
       }
 
       res.address = addresses[0];

@@ -1011,7 +1011,8 @@ private:
     void add_subaddress_account(const std::string& label);
     size_t get_num_subaddress_accounts() const { return m_subaddress_labels.size(); }
     size_t get_num_subaddresses(uint32_t index_major) const { return index_major < m_subaddress_labels.size() ? m_subaddress_labels[index_major].size() : 0; }
-    void add_subaddress(uint32_t index_major, const std::string& label); // throws when index is out of bound
+    void add_subaddresses(uint32_t index_major, const std::string& label, uint32_t count = 1); // throws when index is out of bound
+    void add_subaddress(uint32_t index_major, const std::string& label) { add_subaddresses(index_major, label, 1); }
     void expand_subaddresses(const cryptonote::subaddress_index& index);
     void create_one_off_subaddress(const cryptonote::subaddress_index& index);
     std::string get_subaddress_label(const cryptonote::subaddress_index& index) const;

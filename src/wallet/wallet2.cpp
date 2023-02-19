@@ -1551,12 +1551,14 @@ void wallet2::add_subaddress_account(const std::string& label)
   m_subaddress_labels[index_major][0] = label;
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::add_subaddress(uint32_t index_major, const std::string& label)
+void wallet2::add_subaddresses(uint32_t index_major, const std::string& label, uint32_t count)
 {
   THROW_WALLET_EXCEPTION_IF(index_major >= m_subaddress_labels.size(), error::account_index_outofbound);
   uint32_t index_minor = (uint32_t)get_num_subaddresses(index_major);
-  expand_subaddresses({index_major, index_minor});
-  m_subaddress_labels[index_major][index_minor] = label;
+  THROW_WALLET_EXCEPTION_IF(index_minor + count > 0xffffffff, error::account_index_outofbound);
+  expand_subaddresses({index_major, index_minor + count - 1});
+  while (count--)
+    m_subaddress_labels[index_major][index_minor + count] = label;
 }
 //----------------------------------------------------------------------------------------------------
 bool wallet2::should_expand(const cryptonote::subaddress_index &index) const
