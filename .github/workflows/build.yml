@@ -27,10 +27,10 @@ jobs:
     env:
       CCACHE_TEMPDIR: /tmp/.ccache-temp
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v3
       with:
         submodules: recursive
-    - uses: actions/cache@v2
+    - uses: actions/cache@v3
       with:
         path: /Users/runner/Library/Caches/ccache
         key: ccache-${{ runner.os }}-build-${{ github.sha }}
@@ -51,15 +51,15 @@ jobs:
       run:
         shell: msys2 {0}
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v3
       with:
         submodules: recursive
-    - uses: actions/cache@v2
+    - uses: actions/cache@v3
       with:
         path: C:\Users\runneradmin\.ccache
         key: ccache-${{ runner.os }}-build-${{ github.sha }}
         restore-keys: ccache-${{ runner.os }}-build-
-    - uses: eine/setup-msys2@v2
+    - uses: msys2/setup-msys2@v2
       with:
         update: true
         install: mingw-w64-x86_64-toolchain make mingw-w64-x86_64-cmake mingw-w64-x86_64-ccache mingw-w64-x86_64-boost mingw-w64-x86_64-openssl mingw-w64-x86_64-zeromq mingw-w64-x86_64-libsodium mingw-w64-x86_64-hidapi mingw-w64-x86_64-protobuf-c mingw-w64-x86_64-libusb mingw-w64-x86_64-unbound git
@@ -79,10 +79,10 @@ jobs:
       matrix:
         os: [ubuntu-22.04, ubuntu-20.04]
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v3
       with:
         submodules: recursive
-    - uses: actions/cache@v2
+    - uses: actions/cache@v3
       with:
         path: ~/.ccache
         key: ccache-${{ runner.os }}-build-${{ matrix.os }}-${{ github.sha }}
@@ -105,10 +105,10 @@ jobs:
     env:
       CCACHE_TEMPDIR: /tmp/.ccache-temp
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v3
       with:
         submodules: recursive
-    - uses: actions/cache@v2
+    - uses: actions/cache@v3
       with:
         path: ~/.ccache
         key: ccache-${{ runner.os }}-libwallet-${{ github.sha }}
@@ -133,11 +133,11 @@ jobs:
     env:
       CCACHE_TEMPDIR: /tmp/.ccache-temp
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v3
       with:
         submodules: recursive
     - name: ccache
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       with:
         path: ~/.ccache
         key: ccache-${{ runner.os }}-build-ubuntu-latest-${{ github.sha }}
@@ -167,8 +167,9 @@ jobs:
   source-archive:
     runs-on: ubuntu-20.04
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v3
       with:
+        fetch-depth: 0
         submodules: recursive
     - name: archive
       run: |
@@ -177,7 +178,7 @@ jobs:
         export OUTPUT="$VERSION.tar"
         echo "OUTPUT=$OUTPUT" >> $GITHUB_ENV
         /home/runner/.local/bin/git-archive-all --prefix "$VERSION/" --force-submodules "$OUTPUT"
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v3
       with:
         name: ${{ env.OUTPUT }}
         path: /home/runner/work/monero/monero/${{ env.OUTPUT }}

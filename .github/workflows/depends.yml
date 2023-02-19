@@ -57,19 +57,20 @@ jobs:
             packages: "clang-8 gperf cmake python3-zmq libdbus-1-dev libharfbuzz-dev"
     name: ${{ matrix.toolchain.name }}
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v3
       with:
+        fetch-depth: 0
         submodules: recursive
 # Most volatile cache
     - name: ccache
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       with:
         path: ~/.ccache
         key: ccache-${{ matrix.toolchain.host }}-${{ github.sha }}
         restore-keys: ccache-${{ matrix.toolchain.host }}-
 # Less volatile cache
     - name: depends cache
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       with:
         path: contrib/depends/built
         key: depends-${{ matrix.toolchain.host }}-${{ hashFiles('contrib/depends/packages/*') }}
@@ -78,7 +79,7 @@ jobs:
           depends-${{ matrix.toolchain.host }}-
 # Static cache
     - name: OSX SDK cache
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       with:
         path: contrib/depends/sdk-sources
         key: sdk-${{ matrix.toolchain.host }}-${{ matrix.toolchain.osx_sdk }}
@@ -96,7 +97,7 @@ jobs:
       run: |
         ${{env.CCACHE_SETTINGS}}
         make depends target=${{ matrix.toolchain.host }} -j2
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v3
       if: ${{ matrix.toolchain.host == 'x86_64-w64-mingw32' || matrix.toolchain.host == 'x86_64-apple-darwin11' || matrix.toolchain.host == 'x86_64-unknown-linux-gnu' }}
       with:
         name: ${{ matrix.toolchain.name }}
