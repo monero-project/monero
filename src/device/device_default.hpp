@@ -141,6 +141,9 @@ namespace hw {
             bool clsag_sign(const rct::key &c, const rct::key &a, const rct::key &p, const rct::key &z, const rct::key &mu_P, const rct::key &mu_C, rct::key &s) override;
 
             bool  close_tx(void) override;
+
+        private:
+            void get_subaddress_secret_key(const crypto::secret_key &a, const cryptonote::subaddress_index &index, crypto::secret_key &skey);
         };
 
     }

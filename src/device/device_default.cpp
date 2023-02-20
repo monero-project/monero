@@ -153,6 +153,7 @@ namespace hw {
                 "ge_frombytes_vartime failed to convert spend public key");
             ge_p3_to_cached(&cached, &p3);
 
+            crypto::secret_key m;
             for (uint32_t idx = begin; idx < end; ++idx)
             {
                 index.minor = idx;
@@ -161,7 +162,7 @@ namespace hw {
                     pkeys.push_back(keys.m_account_address.m_spend_public_key);
                     continue;
                 }
-                crypto::secret_key m = get_subaddress_secret_key(keys.m_view_secret_key, index);
+                get_subaddress_secret_key(keys.m_view_secret_key, index, m);
 
                 // M = m*G
                 ge_scalarmult_base(&p3, (const unsigned char*)m.data);
@@ -194,7 +195,7 @@ namespace hw {
             return address;
         }
 
-        crypto::secret_key  device_default::get_subaddress_secret_key(const crypto::secret_key &a, const cryptonote::subaddress_index &index) {
+        void device_default::get_subaddress_secret_key(const crypto::secret_key &a, const cryptonote::subaddress_index &index, crypto::secret_key &skey) {
             char data[sizeof(config::HASH_KEY_SUBADDRESS) + sizeof(crypto::secret_key) + 2 * sizeof(uint32_t)];
             memcpy(data, config::HASH_KEY_SUBADDRESS, sizeof(config::HASH_KEY_SUBADDRESS));
             memcpy(data + sizeof(config::HASH_KEY_SUBADDRESS), &a, sizeof(crypto::secret_key));
@@ -202,8 +203,13 @@ namespace hw {
             memcpy(data + sizeof(config::HASH_KEY_SUBADDRESS) + sizeof(crypto::secret_key), &idx, sizeof(uint32_t));
             idx = SWAP32LE(index.minor);
             memcpy(data + sizeof(config::HASH_KEY_SUBADDRESS) + sizeof(crypto::secret_key) + sizeof(uint32_t), &idx, sizeof(uint32_t));
+            crypto::hash_to_scalar(data, sizeof(data), skey);
+            memwipe(data, sizeof(data));
+        }
+
+        crypto::secret_key  device_default::get_subaddress_secret_key(const crypto::secret_key &a, const cryptonote::subaddress_index &index) {
             crypto::secret_key m;
-            crypto::hash_to_scalar(data, sizeof(data), m);
+            get_subaddress_secret_key(a, index, m);
             return m;
         }
 
