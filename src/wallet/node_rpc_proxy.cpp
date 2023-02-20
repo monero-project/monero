@@ -235,11 +235,6 @@ std::string NodeRPCProxy::sanitize_daemon_message(const std::string& msg) const
   }
 }
 
-epee::net_utils::http::abstract_http_transport& NodeRPCProxy::get_transport_ref()
-{
-  return m_http_client;
-}
-
 boost::optional<std::string> NodeRPCProxy::get_height(uint64_t &height)
 {
   const time_t now = time(NULL);

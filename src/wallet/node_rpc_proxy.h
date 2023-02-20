@@ -87,7 +87,7 @@ public:
   {
     invoke_mgmt im;
     clear_status(res);
-    im.returned = epee::net_utils::invoke_http_json(uri, req, res, get_transport_ref(), timeout);
+    im.returned = epee::net_utils::invoke_http_json(uri, req, res, m_http_client, timeout);
     return im;
   }
 
@@ -104,7 +104,7 @@ public:
     invoke_mgmt im;
     clear_status(res);
     im.returned = epee::net_utils::invoke_http_json_rpc("/json_rpc", rpc_method, req, res, error,
-      get_transport_ref(), timeout);
+      m_http_client, timeout);
     return im;
   }
 
@@ -119,7 +119,7 @@ public:
   {
     invoke_mgmt im;
     clear_status(res);
-    im.returned = epee::net_utils::invoke_http_bin(uri, req, res, get_transport_ref(), timeout);
+    im.returned = epee::net_utils::invoke_http_bin(uri, req, res, m_http_client, timeout);
     return im;
   }
 
@@ -127,8 +127,6 @@ private:
   boost::optional<std::string> get_info();
 
   std::string sanitize_daemon_message(const std::string& msg) const;
-
-  epee::net_utils::http::abstract_http_transport& get_transport_ref();
 
   static std::chrono::milliseconds default_timeout;
 
