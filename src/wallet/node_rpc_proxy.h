@@ -47,11 +47,14 @@ namespace tools
 class NodeRPCProxy
 {
 public:
-  struct invoke_mgmt
+  class InvokeMgmt
   {
-    bool returned;
+  public:
+    operator bool() const { return m_returned; }
 
-    operator bool() const { return returned; }
+  private:
+    bool m_returned;
+    friend class NodeRPCProxy;
   };
 
   NodeRPCProxy();
@@ -77,7 +80,7 @@ public:
   boost::optional<std::string> get_fee_quantization_mask(uint64_t &fee_quantization_mask);
 
   template <class Req, class Res>
-  invoke_mgmt invoke_http_json
+  InvokeMgmt invoke_http_json
   (
     const std::string& uri,
     Req& req,
@@ -85,14 +88,14 @@ public:
     std::chrono::milliseconds timeout = default_timeout
   )
   {
-    invoke_mgmt im;
+    InvokeMgmt im;
     clear_status(res);
-    im.returned = epee::net_utils::invoke_http_json(uri, req, res, m_http_client, timeout);
+    im.m_returned = epee::net_utils::invoke_http_json(uri, req, res, m_http_client, timeout);
     return im;
   }
 
   template <class Req, class Res>
-  invoke_mgmt invoke_http_json_rpc
+  InvokeMgmt invoke_http_json_rpc
   (
     const std::string& rpc_method,
     Req& req,
@@ -101,15 +104,15 @@ public:
     std::chrono::milliseconds timeout = default_timeout
   )
   {
-    invoke_mgmt im;
+    InvokeMgmt im;
     clear_status(res);
-    im.returned = epee::net_utils::invoke_http_json_rpc("/json_rpc", rpc_method, req, res, error,
+    im.m_returned = epee::net_utils::invoke_http_json_rpc("/json_rpc", rpc_method, req, res, error,
       m_http_client, timeout);
     return im;
   }
 
   template <class Req, class Res>
-  invoke_mgmt invoke_http_bin
+  InvokeMgmt invoke_http_bin
   (
     const std::string& uri,
     Req& req,
@@ -117,9 +120,9 @@ public:
     std::chrono::milliseconds timeout = default_timeout
   )
   {
-    invoke_mgmt im;
+    InvokeMgmt im;
     clear_status(res);
-    im.returned = epee::net_utils::invoke_http_bin(uri, req, res, m_http_client, timeout);
+    im.m_returned = epee::net_utils::invoke_http_bin(uri, req, res, m_http_client, timeout);
     return im;
   }
 

@@ -116,10 +116,14 @@ bool NodeRPCProxy::set_daemon(connection_settings&& conn_setts)
   }
 
   MINFO("setting daemon to " << m_connection_settings.address);
-  return m_http_client.set_server
+  const bool set_server_ok = m_http_client.set_server
   (
     m_connection_settings.address, m_connection_settings.login, m_connection_settings.ssl_options
   );
+
+  const bool set_proxy_ok = m_http_client.set_proxy(m_connection_settings.proxy);
+
+  return set_server_ok && set_proxy_ok;
 }
 
 uint64_t NodeRPCProxy::get_bytes_sent() const
