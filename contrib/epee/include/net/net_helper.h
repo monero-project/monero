@@ -29,8 +29,6 @@
 
 #pragma once
 
-//#include <Winsock2.h>
-//#include <Ws2tcpip.h>
 #include <atomic>
 #include <string>
 #include <boost/version.hpp>
@@ -51,11 +49,6 @@
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "net"
-
-#ifndef MAKE_IP
-#define MAKE_IP( a1, a2, a3, a4 )	(a1|(a2<<8)|(a3<<16)|(a4<<24))
-#endif
-
 
 namespace epee
 {
@@ -106,7 +99,6 @@ namespace net_utils
 				m_ssl_socket(new boost::asio::ssl::stream<boost::asio::ip::tcp::socket>(m_io_service, m_ctx)),
 				m_connector(direct_connect{}),
 				m_ssl_options(epee::net_utils::ssl_support_t::e_ssl_support_autodetect),
-				m_initialized(true),
 				m_connected(false),
 				m_deadline(m_io_service, std::chrono::steady_clock::time_point::max()),
 				m_shutdowned(false),
@@ -148,12 +140,6 @@ namespace net_utils
 				m_ctx = boost::asio::ssl::context(boost::asio::ssl::context::tlsv12);
 			m_ssl_options = std::move(ssl_options);
 		}
-
-    inline
-      bool connect(const std::string& addr, int port, std::chrono::milliseconds timeout)
-    {
-      return connect(addr, std::to_string(port), timeout);
-    }
 
     inline
 			try_connect_result_t try_connect(const std::string& addr, const std::string& port, std::chrono::milliseconds timeout)
@@ -333,64 +319,6 @@ namespace net_utils
 			return true;
 		}
 
-		inline 
-			bool send(const void* data, size_t sz)
-		{
-			try
-			{
-				/*
-				m_deadline.expires_from_now(boost::posix_time::milliseconds(m_reciev_timeout));
-
-				// Set up the variable that receives the result of the asynchronous
-				// operation. The error code is set to would_block to signal that the
-				// operation is incomplete. Asio guarantees that its asynchronous
-				// operations will never fail with would_block, so any other value in
-				// ec indicates completion.
-				boost::system::error_code ec = boost::asio::error::would_block;
-
-				// Start the asynchronous operation itself. The boost::lambda function
-				// object is used as a callback and will update the ec variable when the
-				// operation completes. The blocking_udp_client.cpp example shows how you
-				// can use boost::bind rather than boost::lambda.
-				boost::asio::async_write(m_socket, boost::asio::buffer(data, sz), boost::lambda::var(ec) = boost::lambda::_1);
-
-				// Block until the asynchronous operation has completed.
-				while (ec == boost::asio::error::would_block)
-				{
-					m_io_service.run_one();
-				}
-				*/
-				boost::system::error_code ec;
-
-				size_t writen = write(data, sz, ec);
-
-				if (!writen || ec)
-				{
-					LOG_PRINT_L3("Problems at write: " << ec.message());
-          m_connected = false;
-					return false;
-				}else
-				{
-					m_deadline.expires_at(std::chrono::steady_clock::time_point::max());
-					m_bytes_sent += sz;
-				}
-			}
-
-			catch(const boost::system::system_error& er)
-			{
-				LOG_ERROR("Some problems at send, message: " << er.what());
-        m_connected = false;
-				return false;
-			}
-			catch(...)
-			{
-				LOG_ERROR("Some fatal problems.");
-				return false;
-			}
-
-			return true;
-		}
-
 		bool is_connected(bool *ssl = NULL)
 		{
 			if (!m_connected || !m_ssl_socket->next_layer().is_open())
@@ -487,79 +415,6 @@ namespace net_utils
 
 		}
 
-		inline bool recv_n(std::string& buff, int64_t sz, std::chrono::milliseconds timeout)
-		{
-
-			try
-			{
-				// Set a deadline for the asynchronous operation. Since this function uses
-				// a composed operation (async_read_until), the deadline applies to the
-				// entire operation, rather than individual reads from the socket.
-				m_deadline.expires_from_now(timeout);
-
-				// Set up the variable that receives the result of the asynchronous
-				// operation. The error code is set to would_block to signal that the
-				// operation is incomplete. Asio guarantees that its asynchronous
-				// operations will never fail with would_block, so any other value in
-				// ec indicates completion.
-				//boost::system::error_code ec = boost::asio::error::would_block;
-
-				// Start the asynchronous operation itself. The boost::lambda function
-				// object is used as a callback and will update the ec variable when the
-				// operation completes. The blocking_udp_client.cpp example shows how you
-				// can use boost::bind rather than boost::lambda.
-
-				buff.resize(static_cast<size_t>(sz));
-				boost::system::error_code ec = boost::asio::error::would_block;
-				size_t bytes_transfered = 0;
-
-				
-				handler_obj hndlr(ec, bytes_transfered);
-				async_read((char*)buff.data(), buff.size(), boost::asio::transfer_at_least(buff.size()), hndlr);
-				
-				// Block until the asynchronous operation has completed.
-				while (ec == boost::asio::error::would_block && !m_shutdowned)
-				{
-					m_io_service.run_one(); 
-				}
-
-				if (ec)
-				{
-					LOG_PRINT_L3("Problems at read: " << ec.message());
-          m_connected = false;
-					return false;
-				}else
-				{
-					m_deadline.expires_at(std::chrono::steady_clock::time_point::max());
-				}
-
-				m_bytes_received += bytes_transfered;
-				if(bytes_transfered != buff.size())
-				{
-					LOG_ERROR("Transferred mismatch with transfer_at_least value: m_bytes_transferred=" << bytes_transfered << " at_least value=" << buff.size());
-					return false;
-				}
-
-				return true;
-			}
-
-			catch(const boost::system::system_error& er)
-			{
-				LOG_ERROR("Some problems at read, message: " << er.what());
-        m_connected = false;
-				return false;
-			}
-			catch(...)
-			{
-				LOG_ERROR("Some fatal problems at read.");
-				return false;
-			}
-
-
-
-			return false;
-		}
-		
 		bool shutdown()
 		{
 			m_deadline.cancel();
@@ -578,16 +433,6 @@ namespace net_utils
 			m_shutdowned = true;
       m_connected = false;
 			return true;
-		}
-		
-		boost::asio::io_service& get_io_service()
-		{
-			return m_io_service;
-		}
-
-		boost::asio::ip::tcp::socket& get_socket()
-		{
-			return m_ssl_socket->next_layer();
 		}
 
 		uint64_t get_bytes_sent() const
@@ -648,16 +493,6 @@ namespace net_utils
 		}
 		
 	protected:
-		bool write(const void* data, size_t sz, boost::system::error_code& ec)
-		{
-			bool success;
-			if(m_ssl_options.support != ssl_support_t::e_ssl_support_disabled)
-				success = boost::asio::write(*m_ssl_socket, boost::asio::buffer(data, sz), ec);
-			else
-				success = boost::asio::write(m_ssl_socket->next_layer(), boost::asio::buffer(data, sz), ec);
-			return success;
-		}
-		
 		void async_write(const void* data, size_t sz, boost::system::error_code& ec) 
 		{
 			if(m_ssl_options.support != ssl_support_t::e_ssl_support_disabled)
@@ -681,7 +516,6 @@ namespace net_utils
 		std::shared_ptr<boost::asio::ssl::stream<boost::asio::ip::tcp::socket>> m_ssl_socket;
 		std::function<connect_func> m_connector;
 		ssl_options_t m_ssl_options;
-		bool m_initialized;
 		bool m_connected;
 		boost::asio::steady_timer m_deadline;
 		std::atomic<bool> m_shutdowned;

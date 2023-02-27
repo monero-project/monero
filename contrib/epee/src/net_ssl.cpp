@@ -30,6 +30,7 @@
 #include <string.h>
 #include <thread>
 #include <boost/asio/ssl.hpp>
+#include <boost/asio/steady_timer.hpp>
 #include <boost/cerrno.hpp>
 #include <boost/filesystem/operations.hpp>
 #include <boost/asio/strand.hpp>
@@ -38,8 +39,8 @@
 #include <openssl/ssl.h>
 #include <openssl/pem.h>
 #include "misc_log_ex.h"
-#include "net/net_helper.h"
 #include "net/net_ssl.h"
+#include "net/net_utils_base.h"
 #include "file_io_utils.h" // to validate .crt and .key paths
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
