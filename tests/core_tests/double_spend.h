@@ -144,7 +144,7 @@ public:
   MAKE_ACCOUNT(events, bob_account);                                       \
   MAKE_ACCOUNT(events, alice_account);                                     \
   REWIND_BLOCKS(events, blk_0r, blk_0, miner_account);                     \
-  MAKE_TX(events, tx_0, miner_account, bob_account, send_amount, blk_0);   \
+  MAKE_TX(events, tx_0, miner_account, bob_account, send_amount, blk_0r);  \
   MAKE_NEXT_BLOCK_TX1(events, blk_1, blk_0r, miner_account, tx_0);         \
   REWIND_BLOCKS(events, blk_1r, blk_1, miner_account);
 

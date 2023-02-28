@@ -154,6 +154,7 @@ namespace trezor{
   // Helpers
   //
 
+#define PROTO_MAGIC_SIZE 3
 #define PROTO_HEADER_SIZE 6
 
   static size_t message_size(const google::protobuf::Message &req){
@@ -193,7 +194,7 @@ namespace trezor{
     }
 
     serialize_message_header(buff, msg_wire_num, msg_size);
-    if (!req.SerializeToArray(buff + 6, msg_size)){
+    if (!req.SerializeToArray(buff + PROTO_HEADER_SIZE, msg_size)){
       throw exc::EncodingException("Message serialization error");
     }
   }
@@ -252,16 +253,16 @@ namespace trezor{
       throw exc::CommunicationException("Read chunk has invalid size");
     }
 
-    if (memcmp(chunk_buff_raw, "?##", 3) != 0){
+    if (memcmp(chunk_buff_raw, "?##", PROTO_MAGIC_SIZE) != 0){
       throw exc::CommunicationException("Malformed chunk");
     }
 
     uint16_t tag;
     uint32_t len;
-    nread -= 3 + 6;
-    deserialize_message_header(chunk_buff_raw + 3, tag, len);
+    nread -= PROTO_MAGIC_SIZE + PROTO_HEADER_SIZE;
+    deserialize_message_header(chunk_buff_raw + PROTO_MAGIC_SIZE, tag, len);
 
-    epee::wipeable_string data_acc(chunk_buff_raw + 3 + 6, nread);
+    epee::wipeable_string data_acc(chunk_buff_raw + PROTO_MAGIC_SIZE + PROTO_HEADER_SIZE, nread);
     data_acc.reserve(len);
 
     while(nread < len){
@@ -482,7 +483,7 @@ namespace trezor{
     uint16_t msg_tag;
     uint32_t msg_len;
     deserialize_message_header(bin_data->data(), msg_tag, msg_len);
-    if (bin_data->size() != msg_len + 6){
+    if (bin_data->size() != msg_len + PROTO_HEADER_SIZE){
       throw exc::CommunicationException("Response is not well hexcoded");
     }
 
@@ -491,7 +492,7 @@ namespace trezor{
     }
 
     std::shared_ptr<google::protobuf::Message> msg_wrap(MessageMapper::get_message(msg_tag));
-    if (!msg_wrap->ParseFromArray(bin_data->data() + 6, msg_len)){
+    if (!msg_wrap->ParseFromArray(bin_data->data() + PROTO_HEADER_SIZE, msg_len)){
       throw exc::EncodingException("Response is not well hexcoded");
     }
     msg = msg_wrap;

@@ -24,6 +24,10 @@ env:
         ccache --max-size=150M
         ccache --set-config=compression=true
 
+concurrency:
+  group: ${{ github.repository }}-${{ github.head_ref || github.run_id }}-${{ github.workflow }}
+  cancel-in-progress: true
+
 jobs:
   build-macos:
     runs-on: macOS-latest
@@ -39,7 +43,9 @@ jobs:
         key: ccache-${{ runner.os }}-build-${{ github.sha }}
         restore-keys: ccache-${{ runner.os }}-build-
     - name: install dependencies
-      run: HOMEBREW_NO_AUTO_UPDATE=1 brew install boost hidapi openssl zmq libpgm miniupnpc expat libunwind-headers protobuf ccache
+      run: |
+        HOMEBREW_NO_AUTO_UPDATE=1 brew install boost hidapi openssl zmq libpgm miniupnpc expat libunwind-headers protobuf@21 ccache
+        brew link protobuf@21
     - name: build
       run: |
         ${{env.CCACHE_SETTINGS}}

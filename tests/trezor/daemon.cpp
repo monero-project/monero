@@ -309,11 +309,10 @@ void mock_daemon::stop_p2p()
     m_server.send_stop_signal();
 }
 
-void mock_daemon::mine_blocks(size_t num_blocks, const std::string &miner_address)
+void mock_daemon::mine_blocks(size_t num_blocks, const std::string &miner_address, std::chrono::seconds timeout)
 {
   bool blocks_mined = false;
   const uint64_t start_height = get_height();
-  const auto mining_timeout = std::chrono::seconds(360);
   MDEBUG("Current height before mining: " << start_height);
 
   start_mining(miner_address);
@@ -331,14 +330,14 @@ void mock_daemon::mine_blocks(size_t num_blocks, const std::string &miner_addres
     }
 
     auto current_time = std::chrono::system_clock::now();
-    if (mining_timeout < current_time - mining_started)
+    if (timeout < current_time - mining_started)
     {
       break;
     }
   }
 
   stop_mining();
-  CHECK_AND_ASSERT_THROW_MES(blocks_mined, "Mining failed in the time limit");
+  CHECK_AND_ASSERT_THROW_MES(blocks_mined, "Mining failed in the time limit: " << timeout.count());
 }
 
 constexpr const std::chrono::seconds mock_daemon::rpc_timeout;

@@ -102,7 +102,7 @@ namespace trezor {
 
       bool  has_ki_cold_sync() const override { return true; }
       bool  has_tx_cold_sign() const override { return true; }
-      void  set_network_type(cryptonote::network_type network_type) override { this->network_type = network_type; }
+      void  set_network_type(cryptonote::network_type network_type) override { this->m_network_type = network_type; }
       void  set_live_refresh_enabled(bool enabled) { m_live_refresh_enabled = enabled; }
       bool  live_refresh_enabled() const { return m_live_refresh_enabled; }
 

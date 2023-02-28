@@ -19,6 +19,10 @@ env:
         ccache --max-size=150M
         ccache --set-config=compression=true
 
+concurrency:
+  group: ${{ github.repository }}-${{ github.head_ref || github.run_id }}-${{ github.workflow }}
+  cancel-in-progress: true
+
 jobs:
   build-cross:
     runs-on: ubuntu-20.04

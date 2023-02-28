@@ -100,7 +100,7 @@ namespace trezor {
       boost::optional<epee::wipeable_string> m_passphrase;
       messages::MessageType m_last_msg_type;
 
-      cryptonote::network_type network_type;
+      cryptonote::network_type m_network_type;
       bool m_reply_with_empty_passphrase;
       bool m_always_use_empty_passphrase;
       bool m_seen_passphrase_entry_message;
@@ -227,9 +227,9 @@ namespace trezor {
         }
 
         if (network_type){
-          msg->set_network_type(static_cast<uint32_t>(network_type.get()));
+          msg->set_network_type(static_cast<messages::monero::MoneroNetworkType>(network_type.get()));
         } else {
-          msg->set_network_type(static_cast<uint32_t>(this->network_type));
+          msg->set_network_type(static_cast<messages::monero::MoneroNetworkType>(this->m_network_type));
         }
       }
 
@@ -318,7 +318,6 @@ namespace trezor {
     void on_button_pressed();
     void on_pin_request(GenericMessage & resp, const messages::common::PinMatrixRequest * msg);
     void on_passphrase_request(GenericMessage & resp, const messages::common::PassphraseRequest * msg);
-    void on_passphrase_state_request(GenericMessage & resp, const messages::common::Deprecated_PassphraseStateRequest * msg);
 
 #ifdef WITH_TREZOR_DEBUGGING
     void set_debug(bool debug){

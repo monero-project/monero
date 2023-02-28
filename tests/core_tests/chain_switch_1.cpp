@@ -72,37 +72,37 @@ bool gen_chain_switch_1::generate(std::vector<test_event_entry>& events) const
   MAKE_ACCOUNT(events, recipient_account_3);                                                      //  3
   MAKE_ACCOUNT(events, recipient_account_4);                                                      //  4
   REWIND_BLOCKS(events, blk_0r, blk_0, miner_account)                                             // <N blocks>
-  MAKE_TX(events, tx_00, miner_account, recipient_account_1, MK_COINS(5), blk_0);                 //  5 + N
+  MAKE_TX(events, tx_00, miner_account, recipient_account_1, MK_COINS(5), blk_0r);                //  5 + N
   MAKE_NEXT_BLOCK_TX1(events, blk_1, blk_0r, miner_account, tx_00);                               //  6 + N
   MAKE_NEXT_BLOCK(events, blk_2, blk_1, miner_account);                                           //  7 + N
   REWIND_BLOCKS(events, blk_2r, blk_2, miner_account)                                             // <N blocks>
 
   // Transactions to test account balances after switch
-  MAKE_TX_LIST_START(events, txs_blk_3, miner_account, recipient_account_2, MK_COINS(7), blk_2);  //  8 + 2N
-  MAKE_TX_LIST_START(events, txs_blk_4, miner_account, recipient_account_3, MK_COINS(11), blk_2); //  9 + 2N
-  MAKE_TX_LIST_START(events, txs_blk_5, miner_account, recipient_account_4, MK_COINS(13), blk_2); // 10 + 2N
+  MAKE_TX_LIST_START(events, txs_blk_3, miner_account, recipient_account_2, MK_COINS(7), blk_2r);  //  8 + 2N
+  MAKE_TX_LIST_START(events, txs_blk_4, miner_account, recipient_account_3, MK_COINS(11), blk_2r); //  9 + 2N
+  MAKE_TX_LIST_START(events, txs_blk_5, miner_account, recipient_account_4, MK_COINS(13), blk_2r); // 10 + 2N
   std::list<transaction> txs_blk_6;
   txs_blk_6.push_back(txs_blk_4.front());
 
   // Transactions, that has different order in alt block chains
-  MAKE_TX_LIST(events, txs_blk_3, miner_account, recipient_account_1, MK_COINS(1), blk_2);        // 11 + 2N
+  MAKE_TX_LIST(events, txs_blk_3, miner_account, recipient_account_1, MK_COINS(1), blk_2r);        // 11 + 2N
   txs_blk_5.push_back(txs_blk_3.back());
-  MAKE_TX_LIST(events, txs_blk_3, miner_account, recipient_account_1, MK_COINS(2), blk_2);        // 12 + 2N
+  MAKE_TX_LIST(events, txs_blk_3, miner_account, recipient_account_1, MK_COINS(2), blk_2r);        // 12 + 2N
   txs_blk_6.push_back(txs_blk_3.back());
 
-  MAKE_TX_LIST(events, txs_blk_3, miner_account, recipient_account_2, MK_COINS(1), blk_2);        // 13 + 2N
+  MAKE_TX_LIST(events, txs_blk_3, miner_account, recipient_account_2, MK_COINS(1), blk_2r);        // 13 + 2N
   txs_blk_5.push_back(txs_blk_3.back());
-  MAKE_TX_LIST(events, txs_blk_4, miner_account, recipient_account_2, MK_COINS(2), blk_2);        // 14 + 2N
+  MAKE_TX_LIST(events, txs_blk_4, miner_account, recipient_account_2, MK_COINS(2), blk_2r);        // 14 + 2N
   txs_blk_5.push_back(txs_blk_4.back());
 
-  MAKE_TX_LIST(events, txs_blk_3, miner_account, recipient_account_3, MK_COINS(1), blk_2);        // 15 + 2N
+  MAKE_TX_LIST(events, txs_blk_3, miner_account, recipient_account_3, MK_COINS(1), blk_2r);        // 15 + 2N
   txs_blk_6.push_back(txs_blk_3.back());
-  MAKE_TX_LIST(events, txs_blk_4, miner_account, recipient_account_3, MK_COINS(2), blk_2);        // 16 + 2N
+  MAKE_TX_LIST(events, txs_blk_4, miner_account, recipient_account_3, MK_COINS(2), blk_2r);        // 16 + 2N
   txs_blk_5.push_back(txs_blk_4.back());
 
-  MAKE_TX_LIST(events, txs_blk_4, miner_account, recipient_account_4, MK_COINS(1), blk_2);        // 17 + 2N
+  MAKE_TX_LIST(events, txs_blk_4, miner_account, recipient_account_4, MK_COINS(1), blk_2r);        // 17 + 2N
   txs_blk_5.push_back(txs_blk_4.back());
-  MAKE_TX_LIST(events, txs_blk_3, miner_account, recipient_account_4, MK_COINS(2), blk_2);        // 18 + 2N
+  MAKE_TX_LIST(events, txs_blk_3, miner_account, recipient_account_4, MK_COINS(2), blk_2r);        // 18 + 2N
   txs_blk_6.push_back(txs_blk_3.back());
 
   MAKE_NEXT_BLOCK_TX_LIST(events, blk_3, blk_2r, miner_account, txs_blk_3);                       // 19 + 2N

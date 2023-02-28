@@ -165,7 +165,7 @@ namespace trezor {
         auto res = get_address();
 
         cryptonote::address_parse_info info{};
-        bool r = cryptonote::get_account_address_from_str(info, this->network_type, res->address());
+        bool r = cryptonote::get_account_address_from_str(info, this->m_network_type, res->address());
         CHECK_AND_ASSERT_MES(r, false, "Could not parse returned address. Address parse failed: " + res->address());
         CHECK_AND_ASSERT_MES(!info.is_subaddress, false, "Trezor returned a sub address");
 
@@ -693,14 +693,11 @@ namespace trezor {
     unsigned device_trezor::client_version()
     {
       auto trezor_version = get_version();
-      if (trezor_version < pack_version(2, 4, 3)){
-        throw exc::TrezorException("Minimal Trezor firmware version is 2.4.3. Please update.");
+      if (trezor_version < pack_version(2, 5, 2)){
+        throw exc::TrezorException("Minimal Trezor firmware version is 2.5.2. Please update.");
       }
 
-      unsigned client_version = 3;
-      if (trezor_version >= pack_version(2, 5, 2)){
-        client_version = 4;
-      }
+      unsigned client_version = 4;  // since 2.5.2
 
 #ifdef WITH_TREZOR_DEBUGGING
       // Override client version for tests

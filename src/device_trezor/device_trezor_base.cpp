@@ -300,9 +300,6 @@ namespace trezor {
         case messages::MessageType_PassphraseRequest:
           on_passphrase_request(input, dynamic_cast<const messages::common::PassphraseRequest*>(input.m_msg.get()));
           return true;
-        case messages::MessageType_Deprecated_PassphraseStateRequest:
-          on_passphrase_state_request(input, dynamic_cast<const messages::common::Deprecated_PassphraseStateRequest*>(input.m_msg.get()));
-          return true;
         case messages::MessageType_PinMatrixRequest:
           on_pin_request(input, dynamic_cast<const messages::common::PinMatrixRequest*>(input.m_msg.get()));
           return true;
@@ -475,21 +472,9 @@ namespace trezor {
       CHECK_AND_ASSERT_THROW_MES(msg, "Empty message");
       MDEBUG("on_passhprase_request");
 
-      // Backward compatibility, migration clause.
-      if (msg->has__on_device() && msg->_on_device()){
-        messages::common::PassphraseAck m;
-        resp = call_raw(&m);
-        return;
-      }
-
       m_seen_passphrase_entry_message = true;
-      bool on_device = true;
-      if (msg->has__on_device() && !msg->_on_device()){
-        on_device = false;  // do not enter on device, old devices.
-      }
-
-      if (on_device && m_features && m_features->capabilities_size() > 0){
-        on_device = false;
+      bool on_device = false;
+      if (m_features){
         for (auto it = m_features->capabilities().begin(); it != m_features->capabilities().end(); it++) {
           if (*it == messages::management::Features::Capability_PassphraseEntry){
             on_device = true;
@@ -523,18 +508,6 @@ namespace trezor {
           memwipe(&(*m.mutable_passphrase())[0], m.mutable_passphrase()->size());
       });
 
-      resp = call_raw(&m);
-    }
-
-    void device_trezor_base::on_passphrase_state_request(GenericMessage & resp, const messages::common::Deprecated_PassphraseStateRequest * msg)
-    {
-      MDEBUG("on_passhprase_state_request");
-      CHECK_AND_ASSERT_THROW_MES(msg, "Empty message");
-
-      if (msg->has_state()) {
-        m_device_session_id = msg->state();
-      }
-      messages::common::Deprecated_PassphraseStateAck m;
       resp = call_raw(&m);
     }
 

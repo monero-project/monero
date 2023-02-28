@@ -3,8 +3,10 @@ $(package)_version=1.0.26
 $(package)_download_path=https://github.com/libusb/libusb/releases/download/v$($(package)_version)
 $(package)_file_name=$(package)-$($(package)_version).tar.bz2
 $(package)_sha256_hash=12ce7a61fc9854d1d2a1ffe095f7b5fac19ddba095c259e6067a46500381b5a5
+$(package)_patches=fix_osx_avail.patch
 
 define $(package)_preprocess_cmds
+  patch -p1 < $($(package)_patch_dir)/fix_osx_avail.patch &&\
   autoreconf -i
 endef
 
@@ -13,6 +15,7 @@ define $(package)_set_vars
   $(package)_config_opts_linux=--with-pic --disable-udev
   $(package)_config_opts_mingw32=--disable-udev
   $(package)_config_opts_darwin=--disable-udev
+  $(package)_config_opts_freebsd=--with-pic --disable-udev
 endef
 
 ifneq ($(host_os),darwin)

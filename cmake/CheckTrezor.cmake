@@ -34,29 +34,35 @@ endfunction()
 if (USE_DEVICE_TREZOR)
     # Protobuf is required to build protobuf messages for Trezor
     include(FindProtobuf OPTIONAL)
-    find_package(Protobuf)
+
+    FIND_PACKAGE(Protobuf CONFIG)
+    if (NOT Protobuf_FOUND)
+        FIND_PACKAGE(Protobuf)
+    endif()
+
     _trezor_protobuf_fix_vars()
 
     # Protobuf handling the cache variables set in docker.
     if(NOT Protobuf_FOUND AND NOT Protobuf_LIBRARY AND NOT Protobuf_PROTOC_EXECUTABLE AND NOT Protobuf_INCLUDE_DIR)
-        message(STATUS "Could not find Protobuf")
+        message(FATAL_ERROR "Trezor: Could not find Protobuf")
     elseif(NOT Protobuf_LIBRARY OR NOT EXISTS "${Protobuf_LIBRARY}")
-        message(STATUS "Protobuf library not found: ${Protobuf_LIBRARY}")
+        message(FATAL_ERROR "Trezor: Protobuf library not found: ${Protobuf_LIBRARY}")
         unset(Protobuf_FOUND)
     elseif(NOT Protobuf_PROTOC_EXECUTABLE OR NOT EXISTS "${Protobuf_PROTOC_EXECUTABLE}")
-        message(STATUS "Protobuf executable not found: ${Protobuf_PROTOC_EXECUTABLE}")
+        message(FATAL_ERROR "Trezor: Protobuf executable not found: ${Protobuf_PROTOC_EXECUTABLE}")
         unset(Protobuf_FOUND)
     elseif(NOT Protobuf_INCLUDE_DIR OR NOT EXISTS "${Protobuf_INCLUDE_DIR}")
-        message(STATUS "Protobuf include dir not found: ${Protobuf_INCLUDE_DIR}")
+        message(FATAL_ERROR "Trezor: Protobuf include dir not found: ${Protobuf_INCLUDE_DIR}")
         unset(Protobuf_FOUND)
     else()
-        message(STATUS "Protobuf lib: ${Protobuf_LIBRARY}, inc: ${Protobuf_INCLUDE_DIR}, protoc: ${Protobuf_PROTOC_EXECUTABLE}")
+        message(STATUS "Trezor: Protobuf lib: ${Protobuf_LIBRARY}, inc: ${Protobuf_INCLUDE_DIR}, protoc: ${Protobuf_PROTOC_EXECUTABLE}")
         set(Protobuf_INCLUDE_DIRS ${Protobuf_INCLUDE_DIR})
-        set(Protobuf_FOUND 1)  # override found if all rquired info was provided by variables
+        set(Protobuf_FOUND 1)  # override found if all required info was provided by variables
     endif()
 
     if(TREZOR_DEBUG)
         set(USE_DEVICE_TREZOR_DEBUG 1)
+        message(STATUS "Trezor: debug build enabled")
     endif()
 
     # Compile debugging support (for tests)
@@ -64,7 +70,7 @@ if (USE_DEVICE_TREZOR)
         add_definitions(-DWITH_TREZOR_DEBUGGING=1)
     endif()
 else()
-    message(STATUS "Trezor support disabled by USE_DEVICE_TREZOR")
+    message(STATUS "Trezor: support disabled by USE_DEVICE_TREZOR")
 endif()
 
 if(Protobuf_FOUND AND USE_DEVICE_TREZOR)
@@ -85,7 +91,7 @@ if(Protobuf_FOUND AND USE_DEVICE_TREZOR)
     endif()
 
     if(NOT TREZOR_PYTHON)
-        message(STATUS "Trezor: Python not found")
+        message(FATAL_ERROR "Trezor: Python not found")
     endif()
 endif()
 
@@ -93,7 +99,12 @@ endif()
 if(Protobuf_FOUND AND USE_DEVICE_TREZOR AND TREZOR_PYTHON)
     execute_process(COMMAND ${Protobuf_PROTOC_EXECUTABLE} -I "${CMAKE_CURRENT_LIST_DIR}" -I "${Protobuf_INCLUDE_DIR}" "${CMAKE_CURRENT_LIST_DIR}/test-protobuf.proto" --cpp_out ${CMAKE_BINARY_DIR} RESULT_VARIABLE RET OUTPUT_VARIABLE OUT ERROR_VARIABLE ERR)
     if(RET)
-        message(STATUS "Protobuf test generation failed: ${OUT} ${ERR}")
+        message(FATAL_ERROR "Trezor: Protobuf test generation failed: ${OUT} ${ERR}")
+    endif()
+
+    if(ANDROID)
+        set(CMAKE_TRY_COMPILE_LINKER_FLAGS "${CMAKE_TRY_COMPILE_LINKER_FLAGS} -llog")
+        set(CMAKE_TRY_COMPILE_LINK_LIBRARIES "${CMAKE_TRY_COMPILE_LINK_LIBRARIES} log")
     endif()
 
     try_compile(Protobuf_COMPILE_TEST_PASSED
@@ -102,13 +113,14 @@ if(Protobuf_FOUND AND USE_DEVICE_TREZOR AND TREZOR_PYTHON)
         "${CMAKE_BINARY_DIR}/test-protobuf.pb.cc"
         "${CMAKE_CURRENT_LIST_DIR}/test-protobuf.cpp"
         CMAKE_FLAGS
+        CMAKE_EXE_LINKER_FLAGS ${CMAKE_TRY_COMPILE_LINKER_FLAGS}
         "-DINCLUDE_DIRECTORIES=${Protobuf_INCLUDE_DIR};${CMAKE_BINARY_DIR}"
-        "-DCMAKE_CXX_STANDARD=11"
-        LINK_LIBRARIES ${Protobuf_LIBRARY}
+        "-DCMAKE_CXX_STANDARD=14"
+        LINK_LIBRARIES ${Protobuf_LIBRARY} ${CMAKE_TRY_COMPILE_LINK_LIBRARIES}
         OUTPUT_VARIABLE OUTPUT
     )
     if(NOT Protobuf_COMPILE_TEST_PASSED)
-        message(STATUS "Protobuf Compilation test failed: ${OUTPUT}.")
+        message(FATAL_ERROR "Trezor: Protobuf Compilation test failed: ${OUTPUT}.")
     endif()
 endif()
 
@@ -123,11 +135,11 @@ if(Protobuf_FOUND AND USE_DEVICE_TREZOR AND TREZOR_PYTHON AND Protobuf_COMPILE_T
     
     execute_process(COMMAND ${TREZOR_PYTHON} tools/build_protob.py ${TREZOR_PROTOBUF_PARAMS} WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/../src/device_trezor/trezor RESULT_VARIABLE RET OUTPUT_VARIABLE OUT ERROR_VARIABLE ERR)
     if(RET)
-        message(WARNING "Trezor protobuf messages could not be regenerated (err=${RET}, python ${PYTHON})."
+        message(FATAL_ERROR "Trezor: protobuf messages could not be regenerated (err=${RET}, python ${PYTHON})."
                 "OUT: ${OUT}, ERR: ${ERR}."
                 "Please read src/device_trezor/trezor/tools/README.md")
     else()
-        message(STATUS "Trezor protobuf messages regenerated out: \"${OUT}.\"")
+        message(STATUS "Trezor: protobuf messages regenerated out: \"${OUT}.\"")
         set(DEVICE_TREZOR_READY 1)
         add_definitions(-DDEVICE_TREZOR_READY=1)
         add_definitions(-DPROTOBUF_INLINE_NOT_IN_HEADERS=0)
@@ -137,6 +149,7 @@ if(Protobuf_FOUND AND USE_DEVICE_TREZOR AND TREZOR_PYTHON AND Protobuf_COMPILE_T
         endif()
 
         if(USE_DEVICE_TREZOR_UDP_RELEASE)
+            message(STATUS "Trezor: UDP transport enabled (emulator)")
             add_definitions(-DUSE_DEVICE_TREZOR_UDP_RELEASE=1)
         endif()
 
@@ -160,7 +173,9 @@ if(Protobuf_FOUND AND USE_DEVICE_TREZOR AND TREZOR_PYTHON AND Protobuf_COMPILE_T
         set(TREZOR_LIBUSB_LIBRARIES "")
         if(LibUSB_COMPILE_TEST_PASSED)
             list(APPEND TREZOR_LIBUSB_LIBRARIES ${LibUSB_LIBRARIES} ${LIBUSB_DEP_LINKER})
-            message(STATUS "Trezor compatible LibUSB found at: ${LibUSB_INCLUDE_DIRS}")
+            message(STATUS "Trezor: compatible LibUSB found at: ${LibUSB_INCLUDE_DIRS}")
+        elseif(USE_DEVICE_TREZOR_LIBUSB AND NOT ANDROID)
+            message(FATAL_ERROR "Trezor: LibUSB not found or test failed, please install libusb-1.0.26")
         endif()
 
         if (BUILD_GUI_DEPS)
