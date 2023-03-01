@@ -247,7 +247,23 @@ namespace nodetool
     if (it == m_blocked_hosts.end())
     {
       m_blocked_hosts[host_str] = limit;
-      added = true;
+
+      // if the host was already blocked due to being in a blocked subnet, let it be silent
+      bool matches_blocked_subnet = false;
+      if (addr.get_type_id() == epee::net_utils::address_type::ipv4)
+      {
+        auto ipv4_address = addr.template as<epee::net_utils::ipv4_network_address>();
+        for (auto jt = m_blocked_subnets.begin(); jt != m_blocked_subnets.end(); ++jt)
+        {
+          if (jt->first.matches(ipv4_address))
+          {
+            matches_blocked_subnet = true;
+            break;
+          }
+        }
+      }
+      if (!matches_blocked_subnet)
+        added = true;
     }
     else if (it->second < limit || !add_only)
       it->second = limit;
