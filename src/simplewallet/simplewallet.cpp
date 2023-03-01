@@ -10702,7 +10702,9 @@ int main(int argc, char* argv[])
     tools::signal_handler::install([&w](int type) {
       if (tools::password_container::is_prompting.load())
       {
-        // must be prompting for password so return and let the signal stop prompt
+        w.stop();
+        w.deinit();
+        _exit(0);
         return;
       }
 #ifdef WIN32
