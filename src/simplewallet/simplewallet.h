@@ -247,9 +247,6 @@ namespace cryptonote
     bool set_ring(const std::vector<std::string>& args);
     bool unset_ring(const std::vector<std::string>& args);
     bool save_known_rings(const std::vector<std::string>& args);
-    bool blackball(const std::vector<std::string>& args);
-    bool unblackball(const std::vector<std::string>& args);
-    bool blackballed(const std::vector<std::string>& args);
     bool freeze(const std::vector<std::string>& args);
     bool thaw(const std::vector<std::string>& args);
     bool frozen(const std::vector<std::string>& args);
