@@ -208,8 +208,6 @@ public:
     virtual bool parse_uri(const std::string &uri, std::string &address, std::string &payment_id, uint64_t &amount, std::string &tx_description, std::string &recipient_name, std::vector<std::string> &unknown_parameters, std::string &error) override;
     virtual std::string make_uri(const std::string &address, const std::string &payment_id, uint64_t amount, const std::string &tx_description, const std::string &recipient_name, std::string &error) const override;
     virtual std::string getDefaultDataDir() const override;
-    virtual bool lightWalletLogin(bool &isNewWallet) const override;
-    virtual bool lightWalletImportWalletRequest(std::string &payment_id, uint64_t &fee, bool &new_request, bool &request_fulfilled, std::string &payment_address, std::string &status) override;
     virtual bool blackballOutputs(const std::vector<std::string> &outputs, bool add) override;
     virtual bool blackballOutput(const std::string &amount, const std::string &offset) override;
     virtual bool unblackballOutput(const std::string &amount, const std::string &offset) override;
