@@ -59,6 +59,7 @@ using namespace epee;
 #define MONERO_DEFAULT_LOG_CATEGORY "wallet.rpc"
 
 #define DEFAULT_AUTO_REFRESH_PERIOD 20 // seconds
+#define REFRESH_BLOCKS_CHUNK_SIZE 2000
 
 namespace
 {
@@ -125,12 +126,15 @@ namespace tools
         return true;
       if (boost::posix_time::microsec_clock::universal_time() < m_last_auto_refresh_time + boost::posix_time::seconds(m_auto_refresh_period))
         return true;
+      uint64_t blocks_fetched = 0;
       try {
-        if (m_wallet) m_wallet->refresh(m_wallet->is_trusted_daemon());
+        bool received_money = false;
+        if (m_wallet) m_wallet->refresh(m_wallet->is_trusted_daemon(), 0, blocks_fetched, received_money, true, REFRESH_BLOCKS_CHUNK_SIZE);
       } catch (const std::exception& ex) {
         LOG_ERROR("Exception at while refreshing, what=" << ex.what());
       }
-      m_last_auto_refresh_time = boost::posix_time::microsec_clock::universal_time();
+      if (blocks_fetched < REFRESH_BLOCKS_CHUNK_SIZE)
+        m_last_auto_refresh_time = boost::posix_time::microsec_clock::universal_time();
       return true;
     }, 1000);
     m_net_server.add_idle_handler([this](){
