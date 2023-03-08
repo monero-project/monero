@@ -36,6 +36,7 @@ namespace daemonizer
 {
   void init_options(
       boost::program_options::options_description & hidden_options
+    , boost::program_options::options_description & system_options
     , boost::program_options::options_description & normal_options
     );
 

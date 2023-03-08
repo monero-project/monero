@@ -79,15 +79,16 @@ namespace daemonizer
 
   inline void init_options(
       boost::program_options::options_description & hidden_options
+    , boost::program_options::options_description & system_options
     , boost::program_options::options_description & normal_options
     )
   {
-    command_line::add_arg(normal_options, arg_install_service);
-    command_line::add_arg(normal_options, arg_uninstall_service);
-    command_line::add_arg(normal_options, arg_start_service);
-    command_line::add_arg(normal_options, arg_stop_service);
+    command_line::add_arg(system_options, arg_install_service);
+    command_line::add_arg(system_options, arg_uninstall_service);
+    command_line::add_arg(system_options, arg_start_service);
+    command_line::add_arg(system_options, arg_stop_service);
     command_line::add_arg(hidden_options, arg_is_service);
-    command_line::add_arg(hidden_options, arg_non_interactive);
+    command_line::add_arg(normal_options, arg_non_interactive);
   }
 
   inline boost::filesystem::path get_default_data_dir()

@@ -55,11 +55,12 @@ namespace daemonizer
 
   inline void init_options(
       boost::program_options::options_description & hidden_options
+    , boost::program_options::options_description & system_options
     , boost::program_options::options_description & normal_options
     )
   {
-    command_line::add_arg(normal_options, arg_detach);
-    command_line::add_arg(normal_options, arg_pidfile);
+    command_line::add_arg(system_options, arg_detach);
+    command_line::add_arg(system_options, arg_pidfile);
     command_line::add_arg(normal_options, arg_non_interactive);
   }
 

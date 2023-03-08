@@ -4701,7 +4701,7 @@ int main(int argc, char** argv) {
   command_line::add_arg(desc_params, arg_prompt_for_password);
   command_line::add_arg(desc_params, arg_rpc_client_secret_key);
 
-  daemonizer::init_options(hidden_options, desc_params);
+  daemonizer::init_options(hidden_options, desc_params, desc_params);
   desc_params.add(hidden_options);
 
   boost::optional<po::variables_map> vm;

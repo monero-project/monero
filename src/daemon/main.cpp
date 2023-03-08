@@ -160,7 +160,7 @@ int main(int argc, char const * argv[])
       command_line::add_arg(core_settings, daemon_args::arg_zmq_pub);
       command_line::add_arg(core_settings, daemon_args::arg_zmq_rpc_disabled);
 
-      daemonizer::init_options(hidden_options, visible_options);
+      daemonizer::init_options(hidden_options, visible_options, core_settings);
       daemonize::t_executor::init_options(core_settings);
 
       // Hidden options
