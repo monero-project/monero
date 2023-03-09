@@ -333,6 +333,7 @@ namespace nodetool
       limit = std::numeric_limits<time_t>::max();
     else
       limit = now + seconds;
+    const bool added = m_blocked_subnets.find(subnet) == m_blocked_subnets.end();
     m_blocked_subnets[subnet] = limit;
 
     // drop any connection to that subnet. This should only have to look into
@@ -365,7 +366,10 @@ namespace nodetool
       conns.clear();
     }
 
-    MCLOG_CYAN(el::Level::Info, "global", "Subnet " << subnet.host_str() << " blocked.");
+    if (added)
+      MCLOG_CYAN(el::Level::Info, "global", "Subnet " << subnet.host_str() << " blocked.");
+    else
+      MINFO("Subnet " << subnet.host_str() << " blocked.");
     return true;
   }
   //-----------------------------------------------------------------------------------
