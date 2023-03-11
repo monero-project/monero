@@ -47,10 +47,6 @@ namespace daemonizer
       "pidfile"
     , "File path to write the daemon's PID to (optional, requires --detach)"
     };
-    const command_line::arg_descriptor<bool> arg_non_interactive = {
-      "non-interactive"
-    , "Run non-interactive"
-    };
   }
 
   inline void init_options(
@@ -60,7 +56,6 @@ namespace daemonizer
   {
     command_line::add_arg(normal_options, arg_detach);
     command_line::add_arg(normal_options, arg_pidfile);
-    command_line::add_arg(normal_options, arg_non_interactive);
   }
 
   inline boost::filesystem::path get_default_data_dir()
