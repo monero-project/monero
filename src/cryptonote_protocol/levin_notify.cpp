@@ -98,6 +98,13 @@ namespace levin
       return std::chrono::steady_clock::duration{crypto::rand_range(rep(0), range.count())};
     }
 
+    bool set_connection_can_broadcast_txs_to_peer(std::shared_ptr<connections> p2p, boost::uuids::uuid conn, bool val) {
+        return p2p->for_connection(conn, [&](detail::p2p_context& context){
+           context.can_broadcast_txs_to_peer = val;
+           return true;
+         });
+      }
+
     uint64_t get_median_remote_height(connections& p2p)
     {
         std::vector<uint64_t> remote_heights;
@@ -643,12 +650,20 @@ namespace levin
         const auto start = std::chrono::steady_clock::now();
         noise_channel& channel = zone_->channels.at(channel_);
 
+        bool can_broadcast = true;
+        zone_->p2p->for_connection(channel.connection, [&](detail::p2p_context& context){
+            can_broadcast = context.can_broadcast_txs_to_peer;
+            return true;
+        });
+
         if (!channel.connection.is_nil())
         {
           epee::byte_slice message = nullptr;
-          if (!channel.active.empty())
+          if (can_broadcast && !channel.active.empty())
+          {
             message = channel.active.take_slice(zone_->noise.size());
-          else if (!channel.queue.empty())
+          }
+          else if (can_broadcast && !channel.queue.empty())
           {
             channel.active = channel.queue.front().clone();
             message = channel.active.take_slice(zone_->noise.size());
@@ -658,8 +673,12 @@ namespace levin
 
           if (zone_->p2p->send(std::move(message), channel.connection))
           {
-            if (!channel.queue.empty() && channel.active.empty())
+            if (can_broadcast && !channel.queue.empty() && channel.active.empty())
+            {
               channel.queue.pop_front();
+              if (zone_->nzone == epee::net_utils::zone::tor)
+                set_connection_can_broadcast_txs_to_peer(zone_->p2p, channel.connection, false);
+            }
           }
           else
           {
