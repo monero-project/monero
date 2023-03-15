@@ -1901,30 +1901,25 @@ namespace nodetool
         conn_count = new_conn_count;
       }
 
-      // extend when no connection is made, prevents immediate new connection after peer drop
-      if (get_outgoing_connections_count(zone.second) <= start_conn_count)
+      // max out connections set too high for available peers or connection issue
+      if (get_outgoing_connections_count(zone.second) <= start_conn_count && start_conn_count < zone.second.m_config.m_net_config.max_out_connection_count)
       {
-        if (start_conn_count < zone.second.m_config.m_net_config.max_out_connection_count)
+        // add check if tor and not yet ready to connecct, if so avoid trying seeds.
+        MINFO("Failed to connect to any, trying seeds");
+        if (!connect_to_seed(zone.first))
         {
-          // add check if tor and not yet ready to connecct, if so avoid trying seeds.
-          MINFO("Failed to connect to any, trying seeds");
-          if (!connect_to_seed(zone.first))
-          {
-            // maybe made connection
-            extend_make_next_connection_after(zone.first, true);
-            continue;
-          }
-          // maybe made connection
-          extend_make_next_connection_after(zone.first, true);
-        }
-        else
-        {
-          // usually maximum connections reached
+          // stop signal sent, extend as a precaution
           extend_make_next_connection_after(zone.first, false);
+          continue;
         }
       }
 
-      // not always accurate when using seeds
+      // extend when no connection is made, prevents immediate new connection after peer drop
+      // acquire peers false because usually this will be max connections reached or set too high for available peers
+      // this will make a temporary connection issue worse
+      extend_make_next_connection_after(zone.first, false);
+
+      // this is really stop_signal_not_sent
       one_succeeded = true;
     }
 
