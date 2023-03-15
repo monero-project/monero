@@ -34,6 +34,7 @@
 #include "string_tools.h"
 using namespace epee;
 
+#include "common/exp2.h"
 #include "common/apply_permutation.h"
 #include "cryptonote_tx_utils.h"
 #include "cryptonote_config.h"
@@ -111,6 +112,20 @@ namespace cryptonote
 
 		return correct_key == output_key;
   }
+  bool validate_dev_fund_reward_key(uint64_t height, const std::string& dev_fund_wallet_address_str, size_t output_index, const crypto::public_key& output_key, const cryptonote::network_type nettype)
+  {
+    keypair sn_key = get_deterministic_keypair_from_height(height);
+    cryptonote::address_parse_info dev_fund_wallet_address;
+    cryptonote::get_account_address_from_str(dev_fund_wallet_address, nettype, dev_fund_wallet_address_str);
+    crypto::public_key correct_key;
+    if(!get_deterministic_output_key(dev_fund_wallet_address.address, sn_key, output_index, correct_key))
+    {
+      MERROR("Failed to generate deterministic output key for dev fund wallet output validation");
+      return false;
+    }
+
+    return correct_key == output_key;
+  }
   //
   keypair get_deterministic_keypair_from_height(uint64_t height)
   {
@@ -132,6 +147,25 @@ namespace cryptonote
     generate_keys(k.pub, k.sec, k.sec, true);
 
     return k;
+  }
+
+  uint64_t allow_dev_fund(uint64_t height, cryptonote::network_type nettype)
+  {
+    uint64_t fork_height = 0;
+    if (nettype == MAINNET)
+    {
+      fork_height = 352846;
+      if (height == (fork_height + 703568))
+      {
+        return 125000 * COIN;
+      }
+      else if (height > (fork_height + 703568) && (height % 10800 == 0))
+      {
+        return 125000 * COIN;
+      }
+    }
+
+    return 0;
   }
 
   uint64_t allow_governance(uint64_t height, cryptonote::network_type nettype)
@@ -190,9 +224,12 @@ namespace cryptonote
       } else if (height == (fork_height + 638584))
       {
         return CORP_MINT * 5;
-      } else if (height > (fork_height + 638584) && (height % 10800 == 0))
+      } else if (height > (fork_height + 638584) && (height % 10800 == 0) && height < 1056414)
       {
         return 225000 * COIN;
+      } else if (height == (fork_height + 703568))
+      {
+        return (0x502f9000 / 0x2 * 0x3) / triton::exp2(0xfe014 / 130500.0) / 100 * 10e6;
       }
     }
     else if(nettype == TESTNET)
@@ -249,7 +286,7 @@ namespace cryptonote
     }
     else if (nettype == STAGENET)
     {
-      fork_height = 12000;  
+      fork_height = 12000;
     }
 
     return 0;
@@ -257,11 +294,13 @@ namespace cryptonote
   //---------------------------------------------------------------
   const int SERVICE_NODE_BASE_REWARD_DIVISOR = 2;
 
-  uint64_t service_node_reward_formula(uint64_t base_reward, int hard_fork_version)
+  uint64_t service_node_reward_formula(uint64_t base_reward, uint8_t hard_fork_version)
   {
     if(hard_fork_version > 11)
-      return (base_reward / 4) * 3;
-	  return hard_fork_version >= SERVICE_NODE_VERSION ? (base_reward / 2) : 0;
+      return base_reward / 4 * 3;
+    if(hard_fork_version >= SERVICE_NODE_VERSION)
+      return base_reward / 2;
+    return 0;
   }
 
   uint64_t get_portion_of_reward(uint64_t portions, uint64_t total_service_node_reward)
@@ -272,12 +311,16 @@ namespace cryptonote
 	  return rewardlo;
   }
 
-  static uint64_t calculate_sum_of_portions(const std::vector<std::pair<cryptonote::account_public_address, uint64_t>>& portions, block_reward_parts brr, size_t hf_version)
+  static uint64_t calculate_sum_of_portions(const std::vector<std::pair<cryptonote::account_public_address, uint64_t>>& portions, block_reward_parts brr, uint8_t hf_version)
   {
     uint64_t reward = 0;
     for (size_t i = 0; i < portions.size(); i++)
     {
-      if(hf_version >= 12)
+      if (hf_version >= 17)
+      {
+        reward += get_portion_of_reward(portions[i].second, brr.service_node_total);
+      }
+      else if (hf_version >= 12)
       {
         if(i == 0)
         {
@@ -304,7 +347,7 @@ namespace cryptonote
 
   //---------------------------------------------------------------
   bool construct_miner_tx(
-     size_t height,
+     uint64_t height,
      size_t median_size,
      uint64_t already_generated_coins,
      size_t current_block_size,
@@ -406,11 +449,17 @@ namespace cryptonote
 			tk.key = out_eph_public_key;
 			tx_out out;
 
-      if(hard_fork_version >= 12)
+      if (hard_fork_version >= 17)
+      {
+        summary_amounts += out.amount = get_portion_of_reward(service_node_info[i].second, reward_parts.service_node_total);
+      }
+      else if (hard_fork_version >= 12)
       {
         uint64_t reward_part = i == 0 ? reward_parts.operator_reward : reward_parts.staker_reward;
         summary_amounts += out.amount = get_portion_of_reward(service_node_info[i].second, reward_part);
-      } else {
+      }
+      else
+      {
         summary_amounts += out.amount = get_portion_of_reward(service_node_info[i].second, reward_parts.service_node_total);
       }
 
@@ -422,8 +471,7 @@ namespace cryptonote
 
   if(hard_fork_version >= 7 && reward_parts.governance > 0)
   {
-      std::string governance_wallet_address_str;
-			cryptonote::address_parse_info governance_wallet_address;
+      cryptonote::address_parse_info governance_wallet_address;
       if(hard_fork_version < 11) {
         cryptonote::get_account_address_from_str(governance_wallet_address, nettype, *cryptonote::get_config(nettype).GOVERNANCE_WALLET_ADDRESS);
       } else if(hard_fork_version < 14) {
@@ -448,7 +496,27 @@ namespace cryptonote
 			tx.output_unlock_times.push_back(height + 4);
   }
 
-	uint64_t expected_amount = reward_parts.miner_reward() + reward_parts.governance + reward_parts.service_node_paid;
+  if (hard_fork_version >= 17 && reward_parts.dev_fund > 0)
+  {
+    cryptonote::address_parse_info dev_fund_wallet_address;
+    cryptonote::get_account_address_from_str(dev_fund_wallet_address, nettype, *cryptonote::get_config(nettype).DEV_FUND_WALLET);
+    crypto::public_key out_eph_public_key = AUTO_VAL_INIT(out_eph_public_key);
+
+    if(!get_deterministic_output_key(dev_fund_wallet_address.address, sn_key, tx.vout.size(), out_eph_public_key))
+    {
+      MERROR("Failed to generate deterministic output key for dev_fund wallet output creation");
+      return false;
+    }
+    txout_to_key tk;
+    tk.key = out_eph_public_key;
+    tx_out out;
+    summary_amounts += out.amount = reward_parts.dev_fund;
+    out.target = tk;
+    tx.vout.push_back(out);
+    tx.output_unlock_times.push_back(height + CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW);
+  }
+
+	uint64_t expected_amount = reward_parts.miner_reward() + reward_parts.service_node_paid + reward_parts.governance + reward_parts.dev_fund;
 	CHECK_AND_ASSERT_MES(summary_amounts == expected_amount, false, "Failed to construct miner tx, summary_amounts = " << summary_amounts << " not equal total block_reward = " << expected_amount);
 
 	//lock
@@ -481,6 +549,17 @@ namespace cryptonote
 
     base_reward += result.governance;
 
+    if (hard_fork_version >= 17)
+    {
+      result.dev_fund = allow_dev_fund(miner_context.height, nettype);
+    }
+    else
+    {
+      result.dev_fund = 0;
+    }
+
+    base_reward += result.dev_fund;
+
 	  if (base_reward == 0)
 	  {
 		  MERROR("Unexpected base reward of 0");
@@ -494,19 +573,19 @@ namespace cryptonote
 	  }
 
 	  result.original_base_reward = base_reward;
-    result.adjusted_base_reward = result.original_base_reward - result.governance;
+	  result.adjusted_base_reward = result.original_base_reward - (result.governance + result.dev_fund);
 	  result.service_node_total = service_node_reward_formula(result.adjusted_base_reward, hard_fork_version);
-    result.operator_reward = result.service_node_total / 2;
-    result.staker_reward = result.service_node_total - result.operator_reward;
+	  result.operator_reward = result.service_node_total / 2;
+	  result.staker_reward = result.service_node_total - result.operator_reward;
 
 	  if (miner_context.snode_winner_info.empty())
-    {
-      result.service_node_paid = calculate_sum_of_portions(service_nodes::null_winner, result, hard_fork_version);
-    }
-    else
-    {
-      result.service_node_paid = calculate_sum_of_portions(miner_context.snode_winner_info, result, hard_fork_version);
-    }
+          {
+            result.service_node_paid = calculate_sum_of_portions(service_nodes::null_winner, result, hard_fork_version);
+          }
+          else
+          {
+            result.service_node_paid = calculate_sum_of_portions(miner_context.snode_winner_info, result, hard_fork_version);
+          }
 
 	  result.base_miner = result.adjusted_base_reward - result.service_node_total;
 	  result.base_miner_fee = miner_context.fee;
@@ -969,13 +1048,15 @@ namespace cryptonote
     if (need_additional_txkeys)
     {
       additional_tx_keys.clear();
-      for (const auto &d: destinations)
+      for (size_t i = 0; i < destinations.size(); ++i)
         additional_tx_keys.push_back(keypair::generate(sender_account_keys.get_device()).sec);
     }
 
     try {
-    if (is_staking_tx || is_swap_tx)
-      add_tx_secret_key_to_tx_extra(extra, tx_key);
+      if (is_staking_tx || is_swap_tx)
+      {
+        add_tx_secret_key_to_tx_extra(extra, tx_key);
+      }
 
       bool r = construct_tx_with_tx_key(sender_account_keys, subaddresses, sources, destinations, change_addr, extra, tx, unlock_time, tx_key, additional_tx_keys, rct, rct_config, msout, true, per_output_unlock, is_swap_tx);
       hwdev.close_tx();

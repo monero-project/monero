@@ -58,8 +58,8 @@ using namespace epee;
 #include "p2p/net_node.h"
 #include "version.h"
 
-#undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "daemon.rpc"
+#undef XEQ_DEFAULT_LOG_CATEGORY
+#define XEQ_DEFAULT_LOG_CATEGORY "daemon.rpc"
 
 #define MAX_RESTRICTED_FAKE_OUTS_COUNT 40
 #define MAX_RESTRICTED_GLOBAL_FAKE_OUTS_COUNT 5000
@@ -478,7 +478,7 @@ namespace cryptonote
     if (restricted)
       res.database_size = round_up(res.database_size, 5ull* 1024 * 1024 * 1024);
     res.update_available = restricted ? false : m_core.is_update_available();
-    res.version = restricted ? "" : MONERO_VERSION_FULL;
+    res.version = restricted ? "" : XEQ_VERSION_FULL;
 
     res.status = CORE_RPC_STATUS_OK;
     return true;
@@ -2762,7 +2762,7 @@ namespace cryptonote
       return r;
 
     res.version = CORE_RPC_VERSION;
-    res.release = MONERO_VERSION_IS_RELEASE;
+    res.release = XEQ_VERSION_IS_RELEASE;
     res.status = CORE_RPC_STATUS_OK;
     return true;
   }
@@ -2937,7 +2937,7 @@ namespace cryptonote
       res.status = "Error checking for updates";
       return true;
     }
-    if (tools::vercmp(version.c_str(), MONERO_VERSION) <= 0)
+    if (tools::vercmp(version.c_str(), XEQ_VERSION) <= 0)
     {
       res.update = false;
       res.status = CORE_RPC_STATUS_OK;

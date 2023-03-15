@@ -28,8 +28,8 @@
 
 #include "hardforks.h"
 
-#undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "blockchain.hardforks"
+#undef XEQ_DEFAULT_LOG_CATEGORY
+#define XEQ_DEFAULT_LOG_CATEGORY "blockchain.hardforks"
 
 const hardfork_t mainnet_hard_forks[] = {
   { 1,        1, 0, 1541014386 },
@@ -47,7 +47,8 @@ const hardfork_t mainnet_hard_forks[] = {
   { 13,  898176, 0, 1660873980 },
   { 14,  936500, 0, 1665518459 },
   { 15,  991430, 0, 1672174800 },
-  { 16, 1001320, 0, 1673377200 }
+  { 16, 1001320, 0, 1673377200 },
+  { 17, 1056414, 0, 1680070995 }
 };
 const size_t num_mainnet_hard_forks = sizeof(mainnet_hard_forks) / sizeof(mainnet_hard_forks[0]);
 

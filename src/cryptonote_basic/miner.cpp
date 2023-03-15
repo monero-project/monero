@@ -69,8 +69,8 @@
 #include <unistd.h>
 #endif
 
-#undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "miner"
+#undef XEQ_DEFAULT_LOG_CATEGORY
+#define XEQ_DEFAULT_LOG_CATEGORY "miner"
 
 using namespace epee;
 

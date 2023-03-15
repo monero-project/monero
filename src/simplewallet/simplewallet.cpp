@@ -110,8 +110,8 @@ using boost::lexical_cast;
 namespace po = boost::program_options;
 typedef cryptonote::simple_wallet sw;
 
-#undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "wallet.simplewallet"
+#undef XEQ_DEFAULT_LOG_CATEGORY
+#define XEQ_DEFAULT_LOG_CATEGORY "wallet.simplewallet"
 
 #define EXTENDED_LOGS_FILE "wallet_details.log"
 
@@ -256,7 +256,7 @@ namespace
   const char* USAGE_MMS("mms [<subcommand> [<subcommand_parameters>]]");
   const char* USAGE_MMS_INIT("mms init <required_signers>/<authorized_signers> <own_label> <own_transport_address>");
   const char* USAGE_MMS_INFO("mms info");
-  const char* USAGE_MMS_SIGNER("mms signer [<number> <label> [<transport_address> [<monero_address>]]]");
+  const char* USAGE_MMS_SIGNER("mms signer [<number> <label> [<transport_address> [<equilibria_address>]]]");
   const char* USAGE_MMS_LIST("mms list");
   const char* USAGE_MMS_NEXT("mms next [sync]");
   const char* USAGE_MMS_SYNC("mms sync");
@@ -2330,7 +2330,7 @@ bool simple_wallet::welcome(const std::vector<std::string> &args)
 
 bool simple_wallet::version(const std::vector<std::string> &args)
 {
-  message_writer() << "Equilibria '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")";
+  message_writer() << "Equilibria '" << XEQ_RELEASE_NAME << "' (v" << XEQ_VERSION_FULL << ")";
   return true;
 }
 
@@ -5780,15 +5780,15 @@ bool simple_wallet::estimate_sn_rewards(const std::vector<std::string>& args/* =
   }
 
   std::vector<std::string> empty;
-  uint64_t last_block_reward = m_wallet->get_last_block_reward() / 2;
+  uint64_t last_block_reward = (m_wallet->get_last_block_reward() * 35 / 100);
   try
   {
 	const auto& response = m_wallet->get_service_nodes(empty);
     if (response.service_node_states.size() != 1){
         success_msg_writer() << tr("Number of Service Nodes on Network: ") << response.service_node_states.size();
-        success_msg_writer() << tr("Expected Reward: (1 day) ") << print_money((480 / response.service_node_states.size()) * last_block_reward * num_nodes) << tr(" XTRI");
-        success_msg_writer() << tr("\t \t (7 day) ") << print_money(( 3360 / response.service_node_states.size()) * last_block_reward * num_nodes) << tr(" XTRI");
-        success_msg_writer() << tr("\t \t (31 day) ") << print_money(( 14880 / response.service_node_states.size()) * last_block_reward * num_nodes) << tr(" XTRI");
+        success_msg_writer() << tr("Expected Reward: (1 day) ") << print_money((720 / response.service_node_states.size()) * last_block_reward * num_nodes) << tr(" XEQ");
+        success_msg_writer() << tr("\t \t (7 day) ") << print_money(( 5040 / response.service_node_states.size()) * last_block_reward * num_nodes) << tr(" XEQ");
+        success_msg_writer() << tr("\t \t (31 day) ") << print_money(( 22320 / response.service_node_states.size()) * last_block_reward * num_nodes) << tr(" XEQ");
     }
   }
   catch (const std::exception &e)
@@ -6930,7 +6930,7 @@ bool simple_wallet::register_service_node_main(
 
 	uint64_t unlock_block = bc_height + locked_blocks;
 
-  uint64_t expected_staking_requirement = MAX_OPERATOR_V12 * COIN;
+	uint64_t expected_staking_requirement = std::max(service_nodes::get_staking_requirement(m_wallet->nettype(), bc_height), service_nodes::get_staking_requirement(m_wallet->nettype(), bc_height + STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS));
 
 	const uint64_t DUST = MAX_NUMBER_OF_CONTRIBUTORS;
 
@@ -7281,25 +7281,25 @@ bool simple_wallet::stake_main(
     }
 
     const auto& snode_info = response.service_node_states.front();
-    uint64_t staking_req = snode_info.staking_requirement;
+    uint8_t hf_ver = m_wallet->get_current_hard_fork();
+    uint64_t staking_req;
 
-    if(m_wallet->use_fork_rules(12, 0))
-    {
-      staking_req = MAX_POOL_STAKERS_V12 * COIN;
-    }
+    if (hf_ver < 12) staking_req = snode_info.staking_requirement;
+    else if (hf_ver < 17) staking_req = MAX_POOL_STAKERS_V12 * COIN;
+    else staking_req = snode_info.staking_requirement;
 
-    const uint64_t DUST = m_wallet->use_fork_rules(10, 0) ? MAX_NUMBER_OF_CONTRIBUTORS_V2 : MAX_NUMBER_OF_CONTRIBUTORS;
-    
+    const uint64_t DUST = (hf_ver >= 10) ? MAX_NUMBER_OF_CONTRIBUTORS_V2 : MAX_NUMBER_OF_CONTRIBUTORS;
+
     if (amount == 0)
       amount = staking_req * amount_fraction;
 
-    const bool full = m_wallet->use_fork_rules(12, 0) ? snode_info.contributors.size() >= MAX_NUMBER_OF_CONTRIBUTORS_V3 : m_wallet->use_fork_rules(10, 0) ? snode_info.contributors.size() >= MAX_NUMBER_OF_CONTRIBUTORS_V2 : snode_info.contributors.size() >= MAX_NUMBER_OF_CONTRIBUTORS;
+    const bool full = (hf_ver >= 12) ? snode_info.contributors.size() >= MAX_NUMBER_OF_CONTRIBUTORS_V3 : (hf_ver < 12 && hf_ver >= 10) ? snode_info.contributors.size() >= MAX_NUMBER_OF_CONTRIBUTORS_V2 : snode_info.contributors.size() >= MAX_NUMBER_OF_CONTRIBUTORS;
     uint64_t can_contrib_total = 0;
     uint64_t must_contrib_total = 0;
     if (!full)
     {
       can_contrib_total = staking_req - snode_info.total_reserved;
-      must_contrib_total = m_wallet->use_fork_rules(12, 0) ? MIN_POOL_STAKERS_V12 * COIN : m_wallet->use_fork_rules(10, 0) ? std::min(snode_info.staking_requirement - snode_info.total_reserved, snode_info.staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS_V2) : std::min(snode_info.staking_requirement - snode_info.total_reserved, snode_info.staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS);
+      must_contrib_total = (hf_ver >= 12) ? MIN_POOL_STAKERS_V12 * COIN : (hf_ver < 12 && hf_ver >= 10) ? std::min(snode_info.staking_requirement - snode_info.total_reserved, snode_info.staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS_V2) : std::min(snode_info.staking_requirement - snode_info.total_reserved, snode_info.staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS);
     }
 
     unlock_block = m_wallet->use_fork_rules(12, 0) ? snode_info.registration_height + locked_blocks : bc_height + locked_blocks;
@@ -8285,23 +8285,23 @@ bool simple_wallet::donate(const std::vector<std::string> &args_)
   {
     // if not mainnet, convert donation address string to the relevant network type
     address_parse_info info;
-    if (!cryptonote::get_account_address_from_str(info, cryptonote::MAINNET, MONERO_DONATION_ADDR))
+    if (!cryptonote::get_account_address_from_str(info, cryptonote::MAINNET, XEQ_DONATION_ADDR))
     {
-      fail_msg_writer() << tr("Failed to parse donation address: ") << MONERO_DONATION_ADDR;
+      fail_msg_writer() << tr("Failed to parse donation address: ") << XEQ_DONATION_ADDR;
       return true;
     }
     address_str = cryptonote::get_account_address_as_str(m_wallet->nettype(), info.is_subaddress, info.address);
   }
   else
   {
-    address_str = MONERO_DONATION_ADDR;
+    address_str = XEQ_DONATION_ADDR;
   }
   local_args.push_back(address_str);
   local_args.push_back(amount_str);
   if (!payment_id_str.empty())
     local_args.push_back(payment_id_str);
   if (m_wallet->nettype() == cryptonote::MAINNET)
-    message_writer() << (boost::format(tr("Donating %s %s to The Monero Project (donate.getmonero.org or %s).")) % amount_str % cryptonote::get_unit(cryptonote::get_default_decimal_point()) % MONERO_DONATION_ADDR).str();
+    message_writer() << (boost::format(tr("Donating %s %s to The Monero Project (donate.getmonero.org or %s).")) % amount_str % cryptonote::get_unit(cryptonote::get_default_decimal_point()) % XEQ_DONATION_ADDR).str();
   else
     message_writer() << (boost::format(tr("Donating %s %s to %s.")) % amount_str % cryptonote::get_unit(cryptonote::get_default_decimal_point()) % address_str).str();
   transfer(local_args);
@@ -8698,7 +8698,7 @@ bool simple_wallet::get_tx_proof(const std::vector<std::string> &args)
   try
   {
     std::string sig_str = m_wallet->get_tx_proof(txid, info.address, info.is_subaddress, args.size() == 3 ? args[2] : "");
-    const std::string filename = "monero_tx_proof";
+    const std::string filename = "equilibria_tx_proof";
     if (m_wallet->save_to_file(filename, sig_str, true))
       success_msg_writer() << tr("signature file saved to: ") << filename;
     else
@@ -8910,7 +8910,7 @@ bool simple_wallet::get_spend_proof(const std::vector<std::string> &args)
   try
   {
     const std::string sig_str = m_wallet->get_spend_proof(txid, args.size() == 2 ? args[1] : "");
-    const std::string filename = "monero_spend_proof";
+    const std::string filename = "equilibria_spend_proof";
     if (m_wallet->save_to_file(filename, sig_str, true))
       success_msg_writer() << tr("signature file saved to: ") << filename;
     else
@@ -8999,7 +8999,7 @@ bool simple_wallet::get_reserve_proof(const std::vector<std::string> &args)
   try
   {
     const std::string sig_str = m_wallet->get_reserve_proof(account_minreserve, args.size() == 2 ? args[1] : "");
-    const std::string filename = "monero_reserve_proof";
+    const std::string filename = "equilibria_reserve_proof";
     if (m_wallet->save_to_file(filename, sig_str, true))
       success_msg_writer() << tr("signature file saved to: ") << filename;
     else
@@ -11129,7 +11129,7 @@ void simple_wallet::commit_or_save(std::vector<tools::wallet2::pending_tx>& ptx_
       cryptonote::blobdata blob;
       tx_to_blob(ptx.tx, blob);
       const std::string blob_hex = epee::string_tools::buff_to_hex_nodelimer(blob);
-      const std::string filename = "raw_monero_tx" + (ptx_vector.size() == 1 ? "" : ("_" + std::to_string(i++)));
+      const std::string filename = "raw_equilibria_tx" + (ptx_vector.size() == 1 ? "" : ("_" + std::to_string(i++)));
       if (m_wallet->save_to_file(filename, blob_hex, true))
         success_msg_writer(true) << tr("Transaction successfully saved to ") << filename << tr(", txid ") << txid;
       else
@@ -11388,18 +11388,18 @@ void simple_wallet::list_signers(const std::vector<mms::authorized_signer> &sign
   {
     const mms::authorized_signer &signer = signers[i];
     std::string label = signer.label.empty() ? tr("<not set>") : signer.label;
-    std::string monero_address;
-    if (signer.monero_address_known)
+    std::string equilibria_address;
+    if (signer.equilibria_address_known)
     {
-      monero_address = get_account_address_as_str(m_wallet->nettype(), false, signer.monero_address);
+      equilibria_address = get_account_address_as_str(m_wallet->nettype(), false, signer.equilibria_address);
     }
     else
     {
-      monero_address = tr("<not set>");
+      equilibria_address = tr("<not set>");
     }
     std::string transport_address = signer.transport_address.empty() ? tr("<not set>") : signer.transport_address;
     message_writer() << boost::format("%2s %-20s %-s") % (i + 1) % label % transport_address;
-    message_writer() << boost::format("%2s %-20s %-s") % "" % signer.auto_config_token % monero_address;
+    message_writer() << boost::format("%2s %-20s %-s") % "" % signer.auto_config_token % equilibria_address;
     message_writer() << "";
   }
 }
@@ -11589,7 +11589,7 @@ void simple_wallet::mms_signer(const std::vector<std::string> &args)
   }
   if ((args.size() < 2) || (args.size() > 4))
   {
-    fail_msg_writer() << tr("mms signer [<number> <label> [<transport_address> [<monero_address>]]]");
+    fail_msg_writer() << tr("mms signer [<number> <label> [<transport_address> [<equilibria_address>]]]");
     return;
   }
 
@@ -11599,7 +11599,7 @@ void simple_wallet::mms_signer(const std::vector<std::string> &args)
   {
     transport_address = args[2];
   }
-  boost::optional<cryptonote::account_public_address> monero_address;
+  boost::optional<cryptonote::account_public_address> equilibria_address;
   LOCK_IDLE_SCOPE();
   mms::multisig_wallet_state state = get_multisig_wallet_state();
   if (args.size() == 4)
@@ -11611,7 +11611,7 @@ void simple_wallet::mms_signer(const std::vector<std::string> &args)
       fail_msg_writer() << tr("Invalid Monero address");
       return;
     }
-    monero_address = info.address;
+    equilibria_address = info.address;
     const std::vector<mms::message> &messages = ms.get_all_messages();
     if ((messages.size() > 0) || state.multisig)
     {
@@ -11619,7 +11619,7 @@ void simple_wallet::mms_signer(const std::vector<std::string> &args)
       return;
     }
   }
-  ms.set_signer(state, index, label, transport_address, monero_address);
+  ms.set_signer(state, index, label, transport_address, equilibria_address);
 }
 
 void simple_wallet::mms_list(const std::vector<std::string> &args)

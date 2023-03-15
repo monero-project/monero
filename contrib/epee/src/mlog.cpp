@@ -43,12 +43,12 @@
 #include "misc_os_dependent.h"
 #include "misc_log_ex.h"
 
-#undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "logging"
+#undef XEQ_DEFAULT_LOG_CATEGORY
+#define XEQ_DEFAULT_LOG_CATEGORY "logging"
 
 #define MLOG_BASE_FORMAT "%datetime{%Y-%M-%d %H:%m:%s.%g}\t%thread\t%level\t%logger\t%loc\t%msg"
 
-#define MLOG_LOG(x) CINFO(el::base::Writer,el::base::DispatchAction::FileOnlyLog,MONERO_DEFAULT_LOG_CATEGORY) << x
+#define MLOG_LOG(x) CINFO(el::base::Writer,el::base::DispatchAction::FileOnlyLog,XEQ_DEFAULT_LOG_CATEGORY) << x
 
 using namespace epee;
 

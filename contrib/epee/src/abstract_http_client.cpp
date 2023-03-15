@@ -2,8 +2,8 @@
 #include "net/http_base.h"
 #include "net/net_parse_helpers.h"
 
-#undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "net.http"
+#undef XEQ_DEFAULT_LOG_CATEGORY
+#define XEQ_DEFAULT_LOG_CATEGORY "net.http"
 
 namespace epee
 {

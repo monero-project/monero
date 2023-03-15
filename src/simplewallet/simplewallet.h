@@ -50,10 +50,10 @@
 #include "common/password.h"
 #include "crypto/crypto.h"  // for definition of crypto::secret_key
 
-#undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "wallet.simplewallet"
-// Hardcode Monero's donation address (see #1447)
-constexpr const char MONERO_DONATION_ADDR[] = "";
+#undef XEQ_DEFAULT_LOG_CATEGORY
+#define XEQ_DEFAULT_LOG_CATEGORY "wallet.simplewallet"
+// Hardcode Equilibria's donation address (see #1447)
+constexpr const char XEQ_DONATION_ADDR[] = "TvzdbKGga5fSr7fgCTuvR1GY4g9v3No28a6QrcdnnwBkFtisk4MKPLnARAunWBxQJ82L96nGS3ET7BQMhzM788Kp1pweuUfPD";
 /*!
  * \namespace cryptonote
  * \brief Holds cryptonote related classes and helpers.

@@ -47,8 +47,8 @@
 #include "service_node_rules.h"
 #include "service_node_swarm.h"
 
-#undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "service_nodes"
+#undef XEQ_DEFAULT_LOG_CATEGORY
+#define XEQ_DEFAULT_LOG_CATEGORY "service_nodes"
 
 namespace service_nodes
 {
@@ -371,7 +371,7 @@ namespace service_nodes
 		crypto::signature signature;
 		uint64_t portions_for_operator;
 
-		const auto hf_version = m_blockchain.get_hard_fork_version(block_height);
+		const uint8_t hf_version = m_blockchain.get_hard_fork_version(block_height);
 
 		if (!reg_tx_extract_fields(tx, service_node_addresses, portions_for_operator, service_node_portions, expiration_timestamp, service_node_key, signature, tx_pub_key)) {
 			return false;
@@ -386,7 +386,8 @@ namespace service_nodes
 			return false;
 		}
 
-		if (portions_for_operator > STAKING_PORTIONS){
+		if (portions_for_operator > STAKING_PORTIONS)
+		{
 			return false;
 		}
 
@@ -433,8 +434,12 @@ namespace service_nodes
 			uint64_t burn_fee = total_fee - miner_fee;
 
 			if (burned_amount < burn_fee) return false;
-			if (transferred > MAX_OPERATOR_V12 * COIN) return false;
 			if (transferred < MIN_OPERATOR_V12 * COIN) return false;
+    }
+
+    if (hf_version >= 12 && hf_version < 17)
+    {
+      if (transferred > MAX_OPERATOR_V12 * COIN) return false;
     }
 
 		// don't actually process this contribution now, do it when we fall through later.
@@ -468,9 +473,16 @@ namespace service_nodes
 			{
 			  lo = mul128(info.staking_requirement, service_node_portions[i], &hi);
 			  div128_64(hi, lo, STAKING_PORTIONS, &resulthi, &resultlo);
-			} else {
+			}
+			else if (hf_version < 17)
+			{
 				lo = mul128(MAX_OPERATOR_V12 * COIN, service_node_portions[i], &hi);
 				div128_64(hi, lo, STAKING_PORTIONS, &resulthi, &resultlo);
+			}
+			else
+			{
+			  lo = mul128(info.staking_requirement, service_node_portions[i], &hi);
+			  div128_64(hi, lo, STAKING_PORTIONS, &resulthi, &resultlo);
 			}
 
 			info.contributors.push_back(service_node_info::contribution(resultlo, service_node_addresses[i]));
@@ -493,7 +505,7 @@ namespace service_nodes
 		const auto iter = m_service_nodes_infos.find(key);
 		if (iter != m_service_nodes_infos.end())
 		{
-			int hard_fork_version = m_blockchain.get_hard_fork_version(block_height);
+			uint8_t hard_fork_version = m_blockchain.get_hard_fork_version(block_height);
 			if (hard_fork_version >= 5)
 			{
 				service_node_info const &old_info = iter->second;
@@ -623,7 +635,7 @@ namespace service_nodes
 			return;
 
 		service_node_info& info = iter->second;
-		const auto hf_version = m_blockchain.get_hard_fork_version(block_height);
+		const uint8_t hf_version = m_blockchain.get_hard_fork_version(block_height);
 
 		const uint64_t block_for_unlock = hf_version >= 12 ? info.registration_height : block_height;
 
@@ -647,12 +659,16 @@ namespace service_nodes
 
 			if (burn_fee < b_fee) return;
 			if (burned_amount < total_fee - miner_fee) return;
-			if (transferred > MAX_POOL_STAKERS_V12 * COIN) return;
 			if (transferred < MIN_POOL_STAKERS_V12 * COIN) return;
 		}
 
+		if (hf_version >= 12 && hf_version < 17)
+		{
+		  if (transferred > MAX_POOL_STAKERS_V12 * COIN) return;
+		}
+
 		auto& contributors = info.contributors;
-		const uint64_t max_contribs = hf_version >= 11 ? MAX_NUMBER_OF_CONTRIBUTORS_V3 : hf_version > 9 ? MAX_NUMBER_OF_CONTRIBUTORS_V2 : MAX_NUMBER_OF_CONTRIBUTORS;
+		const uint64_t max_contribs = (hf_version >= 11) ? MAX_NUMBER_OF_CONTRIBUTORS_V3 : (hf_version > 9) ? MAX_NUMBER_OF_CONTRIBUTORS_V2 : MAX_NUMBER_OF_CONTRIBUTORS;
 
 		// Only create a new contributor if they stake at least a quarter
 		// and if we don't already have the maximum
@@ -677,7 +693,8 @@ namespace service_nodes
 		uint64_t staking_req;
 
 		if (hf_version < 12) staking_req = info.staking_requirement;
-		else staking_req = MAX_POOL_STAKERS_V12 * COIN;
+		else if (hf_version < 17) staking_req = MAX_POOL_STAKERS_V12 * COIN;
+		else staking_req = info.staking_requirement;
 
 		// In this action, we cannot
 		// increase total_reserved so much that it is >= staking_requirement
@@ -712,7 +729,7 @@ namespace service_nodes
 	void service_node_list::process_block(const cryptonote::block& block, const std::vector<cryptonote::transaction>& txs)
 	{
 		uint64_t block_height = cryptonote::get_block_height(block);
-		int hard_fork_version = m_blockchain.get_hard_fork_version(block_height);
+		uint8_t hard_fork_version = m_blockchain.get_hard_fork_version(block_height);
 
 		if (hard_fork_version < 5)
 			return;
@@ -920,7 +937,9 @@ namespace service_nodes
 				{
 						resultlo += operator_portions;
 				} 
-			} else {
+			}
+			else if (hard_fork_version < 17)
+			{
 				const uint64_t usable_portions = STAKING_PORTIONS;
 				if (contributor.address == info.operator_address)
 				{
@@ -930,6 +949,12 @@ namespace service_nodes
 					lo = mul128(contributor.amount, usable_portions, &hi);
 					div128_64(hi, lo, MAX_POOL_STAKERS_V12 * COIN, &resulthi, &resultlo);
 				}
+			}
+			else
+			{
+			  const uint64_t usable_portions = STAKING_PORTIONS;
+			  lo = mul128(contributor.amount, usable_portions, &hi);
+			  div128_64(hi, lo, info.staking_requirement, &resulthi, &resultlo);
 			}
 
 			winners.push_back(std::make_pair(contributor.address, resultlo));
@@ -988,7 +1013,7 @@ namespace service_nodes
 		crypto::public_key check_winner_pubkey = cryptonote::get_service_node_winner_from_tx_extra(miner_tx.extra);
 		if (check_winner_pubkey != winner)
 		{
-			MERROR("Service Node Winner Pubkey not winner!");
+			MERROR("Service Node reward winner is incorrect! Expected: " << winner << ", block has: " << check_winner_pubkey);
 			return false;
 		}
 
@@ -1005,9 +1030,16 @@ namespace service_nodes
 			uint64_t reward = 0;
 			uint64_t reward_part = i == 0 ? reward_parts.operator_reward : reward_parts.staker_reward;
 
-			if (hard_fork_version >= 12) {
+			if (hard_fork_version >= 17)
+			{
+			  reward = cryptonote::get_portion_of_reward(addresses_and_portions[i].second, total_service_node_reward);
+			}
+			else if (hard_fork_version >= 12)
+			{
 				reward = cryptonote::get_portion_of_reward(addresses_and_portions[i].second, reward_part);
-			} else {
+			}
+			else
+			{
 				reward = cryptonote::get_portion_of_reward(addresses_and_portions[i].second, total_service_node_reward);
 			}
 
@@ -1379,7 +1411,7 @@ namespace service_nodes
 		catch (const std::exception &e)
 		{
 			if (err_msg) *err_msg = "invalid amount for contributor " + args[1];
-			MERROR(tr("Invalid portion amount: ") << args[1] << tr(". ") << tr("The operator must contribute at least 10,000 XEQ, all other contributors can have any amount open."));
+			MERROR(tr("Invalid portion amount: ") << args[1] << tr(". ") << tr("The operator must contribute at least 10000 XEQ, all other contributors can have any amount open."));
 			return false;
 		}
 

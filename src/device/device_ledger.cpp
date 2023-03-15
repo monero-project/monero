@@ -43,8 +43,8 @@ namespace hw {
 
   #ifdef WITH_DEVICE_LEDGER
 
-    #undef MONERO_DEFAULT_LOG_CATEGORY
-    #define MONERO_DEFAULT_LOG_CATEGORY "device.ledger"
+    #undef XEQ_DEFAULT_LOG_CATEGORY
+    #define XEQ_DEFAULT_LOG_CATEGORY "device.ledger"
 
     /* ===================================================================== */
     /* ===                           Debug                              ==== */
@@ -451,10 +451,10 @@ namespace hw {
     bool device_ledger::reset() {
       reset_buffer();
       int offset = set_command_header_noopt(INS_RESET);
-      const size_t verlen = strlen(MONERO_VERSION);
-      ASSERT_X(offset + verlen <= BUFFER_SEND_SIZE, "MONERO_VERSION is too long")
-      memmove(this->buffer_send+offset, MONERO_VERSION, verlen);
-      offset += strlen(MONERO_VERSION);
+      const size_t verlen = strlen(XEQ_VERSION);
+      ASSERT_X(offset + verlen <= BUFFER_SEND_SIZE, "XEQ_VERSION is too long")
+      memmove(this->buffer_send+offset, XEQ_VERSION, verlen);
+      offset += strlen(XEQ_VERSION);
       this->buffer_send[4] = offset-5;
       this->length_send = offset;
       this->exchange();

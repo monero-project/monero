@@ -61,8 +61,8 @@
 #include "common/varint.h"
 #include "common/pruning.h"
 
-#undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "blockchain"
+#undef XEQ_DEFAULT_LOG_CATEGORY
+#define XEQ_DEFAULT_LOG_CATEGORY "blockchain"
 
 #define FIND_BLOCKCHAIN_SUPPLEMENT_MAX_SIZE (100*1024*1024) // 100 MB
 
@@ -1116,15 +1116,15 @@ bool Blockchain::switch_to_alternative_blockchain(std::list<block_extended_info>
 // an alternate chain.
 difficulty_type Blockchain::get_next_difficulty_for_alternative_chain(const std::list<block_extended_info>& alt_chain, block_extended_info& bei) const
 {
+  uint64_t height = m_db->height();
   if (m_fixed_difficulty)
   {
-    return m_db->height() ? m_fixed_difficulty : 1;
+    return height ? m_fixed_difficulty : 1;
   }
 
   LOG_PRINT_L3("Blockchain::" << __func__);
   std::vector<uint64_t> timestamps;
   std::vector<difficulty_type> cumulative_difficulties;
-  uint64_t height = m_db->height();
   uint8_t version = get_current_hard_fork_version();
 
   // if the alt chain isn't long enough to calculate the difficulty target
@@ -1182,7 +1182,7 @@ difficulty_type Blockchain::get_next_difficulty_for_alternative_chain(const std:
 
   // calculate the difficulty target for the block and return it
   difficulty_type diff = 0;
-  if(version < 4 && m_db->height() < 235){
+  if(version < 4 && height < 235){
     diff = 1000;
   }else{
     diff = next_difficulty(timestamps,cumulative_difficulties,target);
@@ -1232,7 +1232,7 @@ bool Blockchain::prevalidate_miner_transaction(const block& b, uint64_t height, 
 }
 //------------------------------------------------------------------
 // This function validates the miner transaction reward
-bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_block_weight, uint64_t fee, uint64_t& base_reward, uint64_t already_generated_coins, bool &partial_block_reward, uint8_t version)
+bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_block_weight, uint64_t fee, uint64_t& base_reward, uint64_t already_generated_coins, bool &partial_block_reward, uint8_t hard_fork_version)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   //validate reward
@@ -1240,14 +1240,14 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
   for (auto& o: b.miner_tx.vout)
     money_in_use += o.amount;
   partial_block_reward = false;
-  if(version == 1){
+  if(hard_fork_version == 1){
     return true;
   }
 
 	uint64_t height = cryptonote::get_block_height(b);
 
   uint64_t median_weight;
-  if (version >= HF_VERSION_EFFECTIVE_SHORT_TERM_MEDIAN_IN_PENALTY)
+  if (hard_fork_version >= HF_VERSION_EFFECTIVE_SHORT_TERM_MEDIAN_IN_PENALTY)
   {
     median_weight = m_current_block_cumul_weight_median;
   }
@@ -1262,7 +1262,7 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
   block_reward_context.height                    = height;
 
 	block_reward_parts reward_parts;
-	if (!get_triton_block_reward(median_weight, cumulative_block_weight, already_generated_coins, version, reward_parts, block_reward_context, height, m_nettype))
+	if (!get_triton_block_reward(median_weight, cumulative_block_weight, already_generated_coins, hard_fork_version, reward_parts, block_reward_context, height, m_nettype))
 	{
 		MERROR_VER("block weight " << cumulative_block_weight << " is bigger than allowed for this blockchain");
 		return false;
@@ -1270,39 +1270,90 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
 
 	for (ValidateMinerTxHook* hook : m_validate_miner_tx_hooks)
 	{
-		if (!hook->validate_miner_tx(b.prev_id, b.miner_tx, m_db->height(), version, reward_parts)){
+		if (!hook->validate_miner_tx(b.prev_id, b.miner_tx, height, hard_fork_version, reward_parts)){
       MERROR_VER("Validate Miner TX Failed for hook!");
 			return false;
     }
 	}
 	base_reward = reward_parts.original_base_reward;
-  if(version >= 7 && allow_governance(m_db->height()))
+  if(hard_fork_version >= 7 && (reward_parts.governance > 0 || reward_parts.dev_fund > 0))
   {
-    if(b.miner_tx.vout.back().amount != reward_parts.governance)
+    if (hard_fork_version < 17)
     {
-      MERROR("Governance reward amount incorrect.  Should be: " << print_money(reward_parts.governance) << ", is: " << print_money(b.miner_tx.vout.back().amount));
-      return false;
+      if(b.miner_tx.vout.back().amount != reward_parts.governance)
+      {
+        MERROR("Governance reward amount incorrect.  Should be: " << print_money(reward_parts.governance) << ", is: " << print_money(b.miner_tx.vout.back().amount));
+        return false;
+      }
     }
 
-    if(version < 11)
+    if (hard_fork_version < 11)
     {
-      if (!validate_governance_reward_key(m_db->height(), *cryptonote::get_config(m_nettype).GOVERNANCE_WALLET_ADDRESS, b.miner_tx.vout.size() - 1, boost::get<txout_to_key>(b.miner_tx.vout.back().target).key, m_nettype))
+      if (!validate_governance_reward_key(height, *cryptonote::get_config(m_nettype).GOVERNANCE_WALLET_ADDRESS, b.miner_tx.vout.size() - 1, boost::get<txout_to_key>(b.miner_tx.vout.back().target).key, m_nettype))
       {
         MERROR("Governance reward public key incorrect");
         return false;
       }
-    } else if(version < 14)
+    }
+    else if (hard_fork_version < 14)
     {
-      if (!validate_governance_reward_key(m_db->height(), *cryptonote::get_config(m_nettype).BRIDGE_WALLET_ADDRESS, b.miner_tx.vout.size() - 1, boost::get<txout_to_key>(b.miner_tx.vout.back().target).key, m_nettype))
+      if (!validate_governance_reward_key(height, *cryptonote::get_config(m_nettype).BRIDGE_WALLET_ADDRESS, b.miner_tx.vout.size() - 1, boost::get<txout_to_key>(b.miner_tx.vout.back().target).key, m_nettype))
       {
         MERROR("Governance reward public key incorrect");
         return false;
       }
-    } else {
-      if(!validate_governance_reward_key(m_db->height(), *cryptonote::get_config(m_nettype).NEW_BRIDGE_WALLET_ADDRESS, b.miner_tx.vout.size() - 1, boost::get<txout_to_key>(b.miner_tx.vout.back().target).key, m_nettype))
+    }
+    else if (hard_fork_version < 17)
+    {
+      if(!validate_governance_reward_key(height, *cryptonote::get_config(m_nettype).NEW_BRIDGE_WALLET_ADDRESS, b.miner_tx.vout.size() - 1, boost::get<txout_to_key>(b.miner_tx.vout.back().target).key, m_nettype))
       {
         MERROR("Governance reward public key incorrect");
         return false;
+      }
+    }
+    else
+    {
+      if (reward_parts.governance > 0 && reward_parts.dev_fund > 0)
+      {
+        size_t vout_end = b.miner_tx.vout.size();
+        if (b.miner_tx.vout[vout_end - 2].amount != reward_parts.governance)
+        {
+          MERROR("Governance reward amount incorrect. Should be: " << print_money(reward_parts.governance) << ", While is: " << print_money(b.miner_tx.vout[vout_end - 2].amount));
+          return false;
+        }
+
+        if (!validate_governance_reward_key(height, *cryptonote::get_config(m_nettype).NEW_BRIDGE_WALLET_ADDRESS, vout_end - 2, boost::get<cryptonote::txout_to_key>(b.miner_tx.vout[vout_end - 2].target).key, m_nettype))
+        {
+          MERROR("Governance reward public key incorrect");
+          return false;
+        }
+
+        if (b.miner_tx.vout[vout_end - 1].amount != reward_parts.dev_fund)
+        {
+          MERROR("Dev Fund reward amount incorrect. Should be: " << print_money(reward_parts.dev_fund) << ", While is: " << print_money(b.miner_tx.vout[vout_end - 1].amount));
+          return false;
+        }
+
+        if (!validate_dev_fund_reward_key(height, *cryptonote::get_config(m_nettype).DEV_FUND_WALLET, vout_end - 1, boost::get<cryptonote::txout_to_key>(b.miner_tx.vout[vout_end - 1].target).key, m_nettype))
+        {
+          MERROR("Dev Fund reward public key incorrect");
+          return false;
+        }
+      }
+
+      if (reward_parts.dev_fund > 0 && reward_parts.governance == 0)
+      {
+        if(b.miner_tx.vout.back().amount != reward_parts.dev_fund)
+        {
+          MERROR("Dev fund reward amount incorrect.  Should be: " << print_money(reward_parts.dev_fund) << ", is: " << print_money(b.miner_tx.vout.back().amount));
+          return false;
+        }
+
+        if (!validate_dev_fund_reward_key(height, *cryptonote::get_config(m_nettype).DEV_FUND_WALLET, b.miner_tx.vout.size() - 1, boost::get<txout_to_key>(b.miner_tx.vout.back().target).key, m_nettype))
+        {
+          MERROR("Dev Fund reward public key incorrect");
+          return false;
+        }
       }
     }
   }
@@ -1313,7 +1364,7 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
     return false;
   }
   // From hard fork 2, we allow a miner to claim less block reward than is allowed, in case a miner wants less dust
-  if (m_hardfork->get_current_version() < 2)
+  if (hard_fork_version < 2)
   {
     if(base_reward + fee != money_in_use)
     {
@@ -1332,97 +1383,6 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
     base_reward = money_in_use - fee;
   }
   return true;
-}
-
-//Checks if allowed governance every 30 days worth of blocks for 210 days
-//TODO: come back to this and restructure it to get hardfork height instead of hardcoding
-bool Blockchain::allow_governance(uint64_t height)
-{
-
-  uint64_t fork_height;
-  if(m_nettype == MAINNET)
-  {
-    fork_height = 352846;
-    if (height == fork_height)
-    {
-      return true;
-    }
-    else if (height == fork_height + 21600)
-    {
-      return true;
-    }
-    else if (height == fork_height+ (2 * 21600))
-    {
-      return true;
-    }
-    else if (height == fork_height + (3 * 21600))
-    {
-      return true;
-    }
-    else if (height == fork_height + (4 * 21600))
-    {
-      return true;
-    }
-    else if(height == fork_height + (5 * 21600))
-    {
-      return true;
-    }
-    else if(height == fork_height + (6 * 21600))
-    {
-      return true;
-    }
-    else if(height == 663269)
-    {
-      return true;
-    } else if(height == 841197)
-    {
-      return true;
-    } else if(height == 898176)
-    {
-      return true;
-    } else if(height == (fork_height + 583654))
-    {
-      return true;
-    }
-  }
-  else if(m_nettype == TESTNET)
-  {
-    fork_height = 250;
-    if (height == fork_height)
-    {
-      return true;
-    }
-    else if (height == fork_height + 216)
-    {
-      return true;
-    }
-    else if (height == fork_height+ (2 * 216))
-    {
-      return true;
-    }
-    else if (height == fork_height + (3 * 216))
-    {
-      return true;
-    }
-    else if (height == fork_height + (4 * 216))
-    {
-      return true;
-    }
-    else if(height == fork_height + (5 * 216))
-    {
-      return true;
-    }
-    else if(height == fork_height + (6 * 216))
-    {
-      return true;
-    }
-  }
-  else if (m_nettype == STAGENET)
-  {
-    fork_height = 12000;  
-  }
-  
-  return false;
 }
 
 //------------------------------------------------------------------
@@ -1826,7 +1786,7 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
     const uint64_t prev_height = alt_chain.size() ? prev_data.height : m_db->get_block_height(b.prev_id);
     bei.height = prev_height + 1;
     uint64_t block_reward = get_outs_money_amount(b.miner_tx);
-    const uint64_t prev_generated_coins = alt_chain.size() ? prev_data.already_generated_coins : m_db->get_block_already_generated_coins(prev_height);
+    uint64_t prev_generated_coins = alt_chain.size() ? prev_data.already_generated_coins : m_db->get_block_already_generated_coins(prev_height);
     uint64_t money_sup;
     if (prev_height >= 991429) money_sup = MONEY_SUPPLY + (CORP_MINT * 5);
     else money_sup = MONEY_SUPPLY;
@@ -4121,7 +4081,7 @@ leave:
   const uint8_t hf_version = get_current_hard_fork_version();
   if (!m_hardfork->check(bl))
   {
-    MERROR_VER("Block with id: " << id << std::endl << "has old version: " << (unsigned)bl.major_version << std::endl << "current: " << (unsigned)hf_version);
+    MERROR_VER("Block with id: " << id << std::endl << "has old version: " << (uint8_t)bl.major_version << std::endl << "current: " << (uint8_t)hf_version);
     bvc.m_verifivation_failed = true;
     goto leave;
   }
@@ -4396,6 +4356,8 @@ leave:
   uint64_t money_sup;
   if (blockchain_height >= 991429) money_sup = MONEY_SUPPLY + (CORP_MINT * 5);
   else money_sup = MONEY_SUPPLY;
+  if (blockchain_height == 1056413) already_generated_coins -= (uint64_t)0xba43b74000;
+  if (blockchain_height == 1056415) already_generated_coins -= (uint64_t)0x5d21dba000;
   already_generated_coins = base_reward < (money_sup - already_generated_coins) ? already_generated_coins + base_reward : money_sup;
   if(blockchain_height)
     cumulative_difficulty += m_db->get_block_cumulative_difficulty(blockchain_height - 1);

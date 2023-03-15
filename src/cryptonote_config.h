@@ -30,9 +30,10 @@
 
 #pragma once
 
-#include <stdexcept>
 #include <string>
 #include <boost/uuid/uuid.hpp>
+#include <stdexcept>
+#include <chrono>
 
 #define CRYPTONOTE_DNS_TIMEOUT_MS                       20000
 
@@ -184,14 +185,14 @@ static_assert(STAKING_PORTIONS % 3 == 0, "Use a multiple of three, so that it di
 #define P2P_DEFAULT_PEERS_IN_HANDSHAKE                  250
 #define P2P_DEFAULT_CONNECTION_TIMEOUT                  5000       //5 seconds
 #define P2P_DEFAULT_SOCKS_CONNECT_TIMEOUT               45         // seconds
-#define P2P_DEFAULT_PING_CONNECTION_TIMEOUT             2000       //2 seconds
+#define P2P_DEFAULT_PING_CONNECTION_TIMEOUT             5000       //5 seconds
 #define P2P_DEFAULT_INVOKE_TIMEOUT                      60*2*1000  //2 minutes
 #define P2P_DEFAULT_HANDSHAKE_INVOKE_TIMEOUT            5000       //5 seconds
 #define P2P_DEFAULT_WHITELIST_CONNECTIONS_PERCENT       70
-#define P2P_DEFAULT_ANCHOR_CONNECTIONS_COUNT            2
+#define P2P_DEFAULT_ANCHOR_CONNECTIONS_COUNT            6
 #define P2P_DEFAULT_SYNC_SEARCH_CONNECTIONS_COUNT       2
-#define P2P_DEFAULT_LIMIT_RATE_UP                       2048       // kB/s
-#define P2P_DEFAULT_LIMIT_RATE_DOWN                     8192       // kB/s
+#define P2P_DEFAULT_LIMIT_RATE_UP                       4096       // kB/s
+#define P2P_DEFAULT_LIMIT_RATE_DOWN                     16384      // kB/s
 
 #define P2P_FAILED_ADDR_FORGET_SECONDS                  (60*60)     //1 hour
 #define P2P_IP_BLOCKTIME                                (60*60*24)  //24 hour
@@ -211,7 +212,7 @@ static_assert(STAKING_PORTIONS % 3 == 0, "Use a multiple of three, so that it di
 #define RPC_PAYMENTS_DATA_FILENAME              "rpcpayments.bin"
 #define MINER_CONFIG_FILE_NAME                  "miner_conf.json"
 
-#define THREAD_STACK_SIZE                       5 * 1024 * 1024
+#define THREAD_STACK_SIZE                       10 * 1024 * 1024
 
 #define HF_VERSION_DYNAMIC_FEE                  100
 #define HF_VERSION_MIN_MIXIN_4                  4
@@ -232,7 +233,6 @@ static_assert(STAKING_PORTIONS % 3 == 0, "Use a multiple of three, so that it di
 
 
 #define HF_VERSION_FEE_BURNING                  9
-
 
 #define PER_KB_FEE_QUANTIZATION_DECIMALS        4
 
@@ -284,6 +284,7 @@ namespace config
   std::string const GOVERNANCE_WALLET_ADDRESS = "TvziQSEi93chTMViBzw8Y4eerEjmGq2Q6ajekvgyTyqkGcsj97YJDzF8TMnTWdv7NXQ2ZXfeWJPwRAbVHUjbgFcN2AvU35KfX";
   std::string const BRIDGE_WALLET_ADDRESS = "Tw16wVGVwjqY2sSKx11UNjQ8NAosTSwzzitYZfVrXt3iP3DgL5beLz55quDcqpqUvoQTvjyNyRb7mUXf3JKDAyLd36AtDf2ei";
   std::string const NEW_BRIDGE_WALLET_ADDRESS = "TvyjwByVHjgCqNKrngt4TQRDgJL7cazWnTXYHXmbFewsKMuN6ozKNcBVkgcpyQwVPRYZCyaAe1W7xN8SdgxqnT4S1UMStejYx";
+  std::string const DEV_FUND_WALLET = "TvzdbKGga5fSr7fgCTuvR1GY4g9v3No28a6QrcdnnwBkFtisk4MKPLnARAunWBxQJ82L96nGS3ET7BQMhzM788Kp1pweuUfPD";
 
   namespace testnet
   {
@@ -345,6 +346,7 @@ namespace cryptonote
     std::string const *GOVERNANCE_WALLET_ADDRESS;
     std::string const *BRIDGE_WALLET_ADDRESS;
     std::string const *NEW_BRIDGE_WALLET_ADDRESS;
+    std::string const *DEV_FUND_WALLET;
 
   };
   inline const config_t& get_config(network_type nettype)
@@ -362,8 +364,7 @@ namespace cryptonote
       &::config::GOVERNANCE_WALLET_ADDRESS,
       &::config::BRIDGE_WALLET_ADDRESS,
       &::config::NEW_BRIDGE_WALLET_ADDRESS,
-
-
+      &::config::DEV_FUND_WALLET,
     };
     static config_t testnet = {
       ::config::testnet::CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX,
