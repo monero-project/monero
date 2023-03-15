@@ -436,7 +436,7 @@ namespace nodetool
     m_use_ipv6 = command_line::get_arg(vm, arg_p2p_use_ipv6);
     m_require_ipv4 = !command_line::get_arg(vm, arg_p2p_ignore_ipv4);
     public_zone.m_notifier = cryptonote::levin::notify{
-      public_zone.m_net_server.get_io_service(), public_zone.m_net_server.get_config_shared(), nullptr, epee::net_utils::zone::public_, pad_txs, m_payload_handler.get_core()
+      public_zone.m_net_server.get_io_service(), public_zone.m_net_server.get_config_shared(), nullptr, epee::net_utils::zone::public_, pad_txs, m_payload_handler.get_core(), !m_exclusive_peers.empty()
     };
 
     if (command_line::has_arg(vm, arg_p2p_add_peer))
@@ -589,7 +589,7 @@ namespace nodetool
       }
 
       zone.m_notifier = cryptonote::levin::notify{
-        zone.m_net_server.get_io_service(), zone.m_net_server.get_config_shared(), std::move(this_noise), proxy.zone, pad_txs, m_payload_handler.get_core()
+        zone.m_net_server.get_io_service(), zone.m_net_server.get_config_shared(), std::move(this_noise), proxy.zone, pad_txs, m_payload_handler.get_core(), !m_exclusive_peers.empty()
       };
     }
 
@@ -1808,17 +1808,15 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
-  void node_server<t_payload_net_handler>::extend_make_next_connection_after(epee::net_utils::zone zone,
+  bool node_server<t_payload_net_handler>::extend_make_next_connection_after(epee::net_utils::zone zone,
                                                                              bool acquire_peers) {
-    if (zone == epee::net_utils::zone::public_) {
-      return;
-    }
+    if (zone == epee::net_utils::zone::public_ || !m_exclusive_peers.empty())
+      return false;
 
     auto scaling_factor = 1;
     if (acquire_peers)
-    {
       scaling_factor = ::config::ACQUIRE_PEERS_RECONNECT_SCALING_FACTOR;
-    }
+
     auto offset = crypto::rand_range<time_t>(::config::RANDOM_CONNECTION_DROP_LOWER / scaling_factor,
                                              ::config::RANDOM_CONNECTION_DROP_UPPER / scaling_factor) / 1000000;
 
@@ -1826,14 +1824,16 @@ namespace nodetool
     {
       if (m_make_next_tor_connection_after > time(nullptr))
       {
-        return;
+        return false;
       }
       m_make_next_tor_connection_after = time(nullptr) + offset;
     }
     else if (zone == epee::net_utils::zone::i2p)
     {
-      ; // not implemented
+      return false; // not implemented
     }
+
+    return true;
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
@@ -2071,8 +2071,8 @@ namespace nodetool
     m_peerlist_store_interval.do_call(boost::bind(&node_server<t_payload_net_handler>::store_config, this));
     m_incoming_connections_interval.do_call(boost::bind(&node_server<t_payload_net_handler>::check_incoming_connections, this));
     m_dns_blocklist_interval.do_call(boost::bind(&node_server<t_payload_net_handler>::update_dns_blocklist, this));
-    m_drop_random_outgoing_tor_connection_interval.do_call(boost::bind(
-            &node_server<t_payload_net_handler>::drop_random_outgoing_tor_connection, this));
+    if (m_exclusive_peers.empty())
+      m_drop_random_outgoing_tor_connection_interval.do_call(boost::bind(&node_server<t_payload_net_handler>::drop_random_outgoing_tor_connection, this));
     return true;
   }
   //-----------------------------------------------------------------------------------

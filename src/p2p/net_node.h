@@ -287,7 +287,7 @@ namespace nodetool
     void get_public_peerlist(std::vector<peerlist_entry>& gray, std::vector<peerlist_entry>& white);
     void get_peerlist(std::vector<peerlist_entry>& gray, std::vector<peerlist_entry>& white);
 
-    void extend_make_next_connection_after(epee::net_utils::zone zone, bool acquire_peers);
+    bool extend_make_next_connection_after(epee::net_utils::zone zone, bool acquire_peers);
 
     void change_max_out_public_peers(size_t count);
     uint32_t get_max_out_public_peers() const;
