@@ -338,6 +338,10 @@ if(POLICY CMP0074)
   cmake_policy(SET CMP0074 NEW)
 endif()
 
+if(POLICY CMP0075)
+  cmake_policy(SET CMP0075 NEW)
+endif()
+
 if(MSVC OR MINGW)
   set(DEFAULT_STATIC true)
 else()
@@ -898,7 +902,7 @@ if(${BOOST_IGNORE_SYSTEM_PATHS} STREQUAL "ON")
 endif()
 
 set(OLD_LIB_SUFFIXES ${CMAKE_FIND_LIBRARY_SUFFIXES})
-if(APPLE)
+if(APPLE OR MINGW)
   set(Boost_NO_BOOST_CMAKE ON)
 endif()
 
@@ -944,7 +948,7 @@ endif()
 
 if(MINGW)
   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wa,-mbig-obj")
-  set(EXTRA_LIBRARIES mswsock ws2_32 iphlpapi crypt32 bcrypt)
+  set(EXTRA_LIBRARIES mswsock ws2_32 iphlpapi crypt32 bcrypt ssp)
   if(DEPENDS)
     set(ICU_LIBRARIES icuio icui18n icuuc icudata icutu iconv)
   else()
