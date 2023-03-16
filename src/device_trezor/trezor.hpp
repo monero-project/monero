@@ -27,8 +27,8 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 
-#ifndef MONERO_TREZOR_HPP
-#define MONERO_TREZOR_HPP
+#ifndef XEQ_TREZOR_HPP
+#define XEQ_TREZOR_HPP
 
 #include "trezor/trezor_defs.hpp"
 
@@ -41,4 +41,4 @@
 #include "trezor/protocol.hpp"
 #endif
 
-#endif //MONERO_TREZOR_HPP
+#endif //XEQ_TREZOR_HPP

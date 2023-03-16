@@ -33,8 +33,8 @@
 #include <boost/program_options/variables_map.hpp>
 #include <string>
 
-#undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "daemon"
+#undef XEQ_DEFAULT_LOG_CATEGORY
+#define XEQ_DEFAULT_LOG_CATEGORY "daemon"
 
 namespace daemonize
 {

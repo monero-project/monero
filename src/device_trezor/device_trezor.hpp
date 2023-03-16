@@ -27,8 +27,8 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 
-#ifndef MONERO_DEVICE_TREZOR_H
-#define MONERO_DEVICE_TREZOR_H
+#ifndef XEQ_DEVICE_TREZOR_H
+#define XEQ_DEVICE_TREZOR_H
 
 #include "trezor.hpp"
 #include "device/device.hpp"
@@ -211,4 +211,4 @@ namespace trezor {
 
 }
 }
-#endif //MONERO_DEVICE_TREZOR_H
+#endif //XEQ_DEVICE_TREZOR_H

@@ -33,8 +33,8 @@
 #include "cryptonote_core.h"
 #include "version.h"
 
-#undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "quorum_cop"
+#undef XEQ_DEFAULT_LOG_CATEGORY
+#define XEQ_DEFAULT_LOG_CATEGORY "quorum_cop"
 
 namespace service_nodes
 {
@@ -193,9 +193,9 @@ namespace service_nodes
 
 	void generate_uptime_proof_request(const crypto::public_key& pubkey, const crypto::secret_key& seckey, cryptonote::NOTIFY_UPTIME_PROOF::request& req)
 	{
-		req.snode_version_major = static_cast<uint16_t>(TRITON_VERSION_MAJOR);
-		req.snode_version_minor = static_cast<uint16_t>(TRITON_VERSION_MINOR);
-		req.snode_version_patch = static_cast<uint16_t>(TRITON_VERSION_PATCH);
+		req.snode_version_major = static_cast<uint16_t>(XEQ_VERSION_MAJOR);
+		req.snode_version_minor = static_cast<uint16_t>(XEQ_VERSION_MINOR);
+		req.snode_version_patch = static_cast<uint16_t>(XEQ_VERSION_PATCH);
 		req.timestamp = time(nullptr);
 		req.pubkey = pubkey;
 

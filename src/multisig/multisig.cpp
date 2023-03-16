@@ -35,8 +35,8 @@
 #include "multisig.h"
 #include "cryptonote_config.h"
 
-#undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "multisig"
+#undef XEQ_DEFAULT_LOG_CATEGORY
+#define XEQ_DEFAULT_LOG_CATEGORY "multisig"
 
 using namespace std;
 

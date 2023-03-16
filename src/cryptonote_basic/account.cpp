@@ -42,8 +42,8 @@ extern "C"
 #include "cryptonote_format_utils.h"
 #include "cryptonote_config.h"
 
-#undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "account"
+#undef XEQ_DEFAULT_LOG_CATEGORY
+#define XEQ_DEFAULT_LOG_CATEGORY "account"
 
 using namespace std;
 

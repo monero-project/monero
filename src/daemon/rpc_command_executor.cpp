@@ -48,8 +48,8 @@
 #include <string>
 #include <numeric>
 
-#undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "daemon"
+#undef XEQ_DEFAULT_LOG_CATEGORY
+#define XEQ_DEFAULT_LOG_CATEGORY "daemon"
 
 namespace daemonize {
 
@@ -2796,14 +2796,16 @@ bool t_rpc_command_executor::prepare_sn()
   }
 
   uint64_t min_contribution = MIN_OPERATOR_V12 * COIN;
-  uint64_t max_contribution = MAX_OPERATOR_V12 * COIN;
 
   uint64_t staking_requirement =
   std::max(service_nodes::get_staking_requirement(nettype, block_height),
             service_nodes::get_staking_requirement(nettype, block_height + 30 * 24)); // allow 1 day
 
+  uint64_t max_contribution = (hf_version >= 17) ? staking_requirement : MAX_OPERATOR_V12 * COIN;
+
   if(hf_version >= 12)
   {
+    DUST = MAX_NUMBER_OF_CONTRIBUTORS_V3;
     max_num_stakers = MAX_NUMBER_OF_CONTRIBUTORS_V3;
     min_portions = service_nodes::get_portions_to_make_amount(max_contribution, min_contribution);
   } else {
@@ -2845,7 +2847,7 @@ bool t_rpc_command_executor::prepare_sn()
   uint64_t portions = service_nodes::get_portions_to_make_amount(max_contribution, operator_cut);
   if(portions < min_contribution_portions)
   {
-    std::cout << "The operator needs to contribute at least 25% of the stake requirement (" << cryptonote::print_money(min_contribution) << " " << cryptonote::get_unit() << "). Aborted." << std::endl;
+    std::cout << "The operator needs to contribute at least: " << cryptonote::print_money(min_contribution) << " " << cryptonote::get_unit() << "). Aborted." << std::endl;
     return true;
   }
   else if(portions > portions_remaining)
@@ -2854,9 +2856,12 @@ bool t_rpc_command_executor::prepare_sn()
     portions = portions_remaining;
   }
 
-  if(operator_cut > max_contribution) {
-    std::cout << "Max staking amount for Operators is 35,000 XEQ!";
-    return true;
+  if (hf_version < 17)
+  {
+    if(operator_cut > max_contribution) {
+      std::cout << "Max staking amount for Operators is 35000 XEQ!";
+      return true;
+    }
   }
 
   contributions.push_back(portions);
@@ -2914,7 +2919,7 @@ bool t_rpc_command_executor::prepare_sn()
   for (size_t i = 0; i < number_participants; ++i)
   {
     const std::string participant_name = (i==0) ? "Operator" : "Contributor " + std::to_string(i);
-    uint64_t amount = get_actual_amount( (i==0) ? MAX_OPERATOR_V12 * COIN : MAX_POOL_STAKERS_V12 * COIN, contributions[i]);
+    uint64_t amount = get_actual_amount((hf_version >= 17) ? staking_requirement : (i==0) ? MAX_OPERATOR_V12 * COIN : MAX_POOL_STAKERS_V12 * COIN, contributions[i]);
     if (amount_left <= DUST && i == 0)
       amount += amount_left; // add dust to the operator.
     printf("%-16s%-9s%-19s\n", participant_name.c_str(), addresses[i].substr(0,6).c_str(), cryptonote::print_money(amount).c_str());

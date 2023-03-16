@@ -58,8 +58,8 @@ using namespace epee;
 #include "wipeable_string.h"
 #include "common/i18n.h"
 
-#undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "cn"
+#undef XEQ_DEFAULT_LOG_CATEGORY
+#define XEQ_DEFAULT_LOG_CATEGORY "cn"
 
 DISABLE_VS_WARNINGS(4355)
 
@@ -1266,13 +1266,12 @@ namespace cryptonote
 
       emission_amount += coinbase_amount - tx_fee_amount;
       total_fee_amount += tx_fee_amount;
+      if(b.major_version >= 17)
+      {
+        emission_amount -= (uint64_t)0x1176592e000;
+      }
       return true;
       });
-      if (start_offset <= 1 && 1 <= end)
-      {
-        uint64_t div = ((CORP_MINT * 5) + (NEW_XEQ_BRIDGE * 3));
-        emission_amount -= div;
-      }
     }
 
     return std::tuple<uint64_t, uint64_t, uint64_t>(burnt_xeq, emission_amount, total_fee_amount);
@@ -1881,7 +1880,7 @@ namespace cryptonote
     if (!tools::check_updates(software, buildtag, version, hash))
       return false;
 
-    if (tools::vercmp(version.c_str(), MONERO_VERSION) <= 0)
+    if (tools::vercmp(version.c_str(), XEQ_VERSION) <= 0)
     {
       m_update_available = false;
       return true;

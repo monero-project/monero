@@ -38,8 +38,8 @@
 
 #pragma comment(lib, "Ws2_32.lib")
 
-#undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "net"
+#undef XEQ_DEFAULT_LOG_CATEGORY
+#define XEQ_DEFAULT_LOG_CATEGORY "net"
 
 namespace epee 
 {

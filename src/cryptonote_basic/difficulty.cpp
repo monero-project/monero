@@ -40,8 +40,8 @@
 #include "difficulty.h"
 #include <boost/math/special_functions/round.hpp>
 
-#undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "difficulty"
+#undef XEQ_DEFAULT_LOG_CATEGORY
+#define XEQ_DEFAULT_LOG_CATEGORY "difficulty"
 
 namespace cryptonote {
 

@@ -43,8 +43,8 @@ using namespace epee;
 #include "int-util.h"
 #include "common/dns_utils.h"
 
-#undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "cn"
+#undef XEQ_DEFAULT_LOG_CATEGORY
+#define XEQ_DEFAULT_LOG_CATEGORY "cn"
 
 double triton_exp2(double);
 
@@ -95,54 +95,57 @@ namespace cryptonote {
     }
   }
   //-----------------------------------------------------------------------------------------------
-   bool get_block_reward(size_t median_weight, size_t current_block_weight, uint64_t already_generated_coins, uint64_t &reward, uint8_t version, uint64_t height) {
-	    if (version == 0) {
+  bool get_block_reward(size_t median_weight, size_t current_block_weight, uint64_t already_generated_coins, uint64_t &reward, uint8_t hard_fork_version, uint64_t height) {
+	    if (hard_fork_version == 0) {
 		   reward = 0;
 		   return true;
 	   }
      
 	   const uint64_t premine = TRITON_SWAP;
-	   if (median_weight > 0 && already_generated_coins < premine && version < 2) {
+	   if (median_weight > 0 && already_generated_coins < premine && hard_fork_version < 2) {
 		   reward = premine / 7;
 		   return true;
 	   }
 
      static_assert(DIFFICULTY_TARGET_V2 % 60 == 0 && DIFFICULTY_TARGET_V1 % 60 == 0, "difficulty targets must be a multiple of 60");
-	   int target = DIFFICULTY_TARGET_V2; 
+     int target;
 
-      if(version < 6)
+      if(hard_fork_version < 6)
       {
         target = DIFFICULTY_TARGET_V2;
-      }else if(version >= 6){
+      }else if(hard_fork_version >= 6){
         target = DIFFICULTY_TARGET_V3;
       }
       
-	   const int emission_speed_factor = get_emission_speed_factor(version);
+	   const int emission_speed_factor = get_emission_speed_factor(hard_fork_version);
 
 
      //Adds the burn amount to emission effectively burning the amount added.  
-     if (version > 10 && version < 12) {
+     if (hard_fork_version > 10 && hard_fork_version < 12) {
       already_generated_coins -= MINT_BRIDGE; //subtracts from already_generated_coins as we already burned ~10M
       already_generated_coins += BURN_1; //adds in the burn 
      }
 
-     if (version > 11)
+     if (hard_fork_version > 11)
      {
        already_generated_coins += BURN_2;
      }
 
-     if(version >= 13)
+     if (hard_fork_version > 12)
      {
-      already_generated_coins -= CORP_MINT;
-     }
-     if(version >= 14)
-     {
-       already_generated_coins -= (NEW_XEQ_BRIDGE * 3);
+       const uint64_t c_mint = CORP_MINT;
+       already_generated_coins -= c_mint;
      }
 
-     if (version > 14)
+     if (hard_fork_version > 13)
      {
-       already_generated_coins -= 400000000000;
+       const uint64_t xeq_bridge = NEW_XEQ_BRIDGE;
+       already_generated_coins -= (xeq_bridge * 3);
+     }
+
+     if (hard_fork_version > 14)
+     {
+       already_generated_coins -= (uint64_t)0x5d21dba000;
      }
 
      uint64_t money_sup;
@@ -161,11 +164,11 @@ namespace cryptonote {
 
 
     //emissions will be seperate from now on. A better system is needed in the future.
-    if (version >= 9 && version <= 10) {
+    if (hard_fork_version >= 9 && hard_fork_version <= 10) {
       base_reward -= (1 * COIN); // 720 XEQ reward for wXEQ staking. Should change to % so it never becomes negative. We are good for now though.
     }
 
-	   uint64_t full_reward_zone = get_min_block_weight(version);
+	   uint64_t full_reward_zone = get_min_block_weight(hard_fork_version);
 
 	   //make it soft
 	   if (median_weight < full_reward_zone) {
@@ -200,6 +203,7 @@ namespace cryptonote {
 	   assert(reward_lo < base_reward);
 
 	   reward = reward_lo;
+
 	   return true;
   }
   //------------------------------------------------------------------------------------
