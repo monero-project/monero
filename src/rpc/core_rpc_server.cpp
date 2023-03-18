@@ -1275,6 +1275,8 @@ namespace cryptonote
           add_reason(reason, "fee too low");
         if ((res.too_few_outputs = tvc.m_too_few_outputs))
           add_reason(reason, "too few outputs");
+        if ((res.tx_extra_too_big = tvc.m_tx_extra_too_big))
+          add_reason(reason, "tx-extra too big");
         const std::string punctuation = reason.empty() ? "" : ": ";
         if (tvc.m_verifivation_failed)
         {
