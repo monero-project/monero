@@ -30,7 +30,6 @@
 
 #include "misc_log_ex.h"
 #include "misc_language.h"
-#include "common/data_cache.h"
 #include "common/perf_timer.h"
 #include "common/threadpool.h"
 #include "common/util.h"
@@ -1577,42 +1576,6 @@ namespace rct {
         LOG_PRINT_L1("Error in verRctNonSemanticsSimple, but not an actual exception");
         return false;
       }
-    }
-
-    bool verRctNonSemanticsSimpleCached(const rctSig & rv)
-    {
-      // Hello future Monero dev! If you got this assert, read the following carefully:
-      //
-      // RCT cache assumes that this function will serialize and hash all rv's fields used for RingCT verification
-      // If you're about to add a new RCTType here, first you must check that binary_archive serialization writes all rv's fields to the binary blob
-      // If it's not the case, rewrite this function to serialize everything, even some "temporary" fields which are not serialized normally
-      CHECK_AND_ASSERT_MES_L1(rv.type <= RCTTypeBulletproofPlus, false, "Unknown RCT type. Make sure RCT cache works correctly with this type and then enable it in the code here.");
-
-      // Don't cache older (or newer) rctSig types
-      // This cache only makes sense when it caches data from mempool first,
-      // so only "current fork version-enabled" RCT types need to be cached
-      if (rv.type != RCTTypeBulletproofPlus)
-        return verRctNonSemanticsSimple(rv);
-
-      // Get the hash of rv
-      std::stringstream ss;
-      binary_archive<true> ar(ss);
-
-      ::do_serialize(ar, const_cast<rctSig&>(rv));
-
-      crypto::hash h;
-      cryptonote::get_blob_hash(ss.str(), h);
-
-      static tools::data_cache<crypto::hash, 8192> cache;
-
-      if (cache.has(h))
-        return true;
-
-      const bool res = verRctNonSemanticsSimple(rv);
-      if (res)
-        cache.add(h);
-
-      return res;
     }
 
     //RingCT protocol

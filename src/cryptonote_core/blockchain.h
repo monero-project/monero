@@ -57,6 +57,7 @@
 #include "rpc/core_rpc_server_commands_defs.h"
 #include "cryptonote_basic/difficulty.h"
 #include "cryptonote_tx_utils.h"
+#include "tx_verification_utils.h"
 #include "cryptonote_basic/verification_context.h"
 #include "crypto/hash.h"
 #include "checkpoints/checkpoints.h"
@@ -595,6 +596,15 @@ namespace cryptonote
      * @return true unless saving the blockchain fails
      */
     bool store_blockchain();
+
+    /**
+     * @brief expands v2 transaction data from blockchain
+     *
+     * RingCT transactions do not transmit some of their data if it
+     * can be reconstituted by the receiver. This function expands
+     * that implicit data.
+     */
+    static bool expand_transaction_2(transaction &tx, const crypto::hash &tx_prefix_hash, const std::vector<std::vector<rct::ctkey>> &pubkeys);
 
     /**
      * @brief validates a transaction's inputs
@@ -1222,6 +1232,9 @@ namespace cryptonote
     uint64_t m_prepare_nblocks;
     std::vector<block> *m_prepare_blocks;
 
+    // cache for verifying transaction RCT non semantics
+    mutable rct_ver_cache_t m_rct_ver_cache;
+
     /**
      * @brief collects the keys for all outputs being "spent" as an input
      *
@@ -1573,15 +1586,6 @@ namespace cryptonote
      * @param get_checkpoints if set, will be called to get checkpoints data
      */
     void load_compiled_in_block_hashes(const GetCheckpointsCallback& get_checkpoints);
-
-    /**
-     * @brief expands v2 transaction data from blockchain
-     *
-     * RingCT transactions do not transmit some of their data if it
-     * can be reconstituted by the receiver. This function expands
-     * that implicit data.
-     */
-    bool expand_transaction_2(transaction &tx, const crypto::hash &tx_prefix_hash, const std::vector<std::vector<rct::ctkey>> &pubkeys) const;
 
     /**
      * @brief invalidates any cached block template
