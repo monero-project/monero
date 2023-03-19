@@ -2931,15 +2931,20 @@ void check_block_hard_fork_version(cryptonote::network_type nettype, uint8_t hf_
   const hardfork_t *wallet_hard_forks = nettype == TESTNET ? testnet_hard_forks
     : nettype == STAGENET ? stagenet_hard_forks : mainnet_hard_forks;
 
-  wallet_is_outdated = static_cast<size_t>(hf_version) > wallet_num_hard_forks;
+  wallet_is_outdated = hf_version > wallet_hard_forks[wallet_num_hard_forks-1].version;
   if (wallet_is_outdated)
     return;
 
   // check block's height falls within wallet's expected range for block's given version
-  uint64_t start_height = hf_version == 1 ? 0 : wallet_hard_forks[hf_version - 1].height;
-  uint64_t end_height = static_cast<size_t>(hf_version) + 1 > wallet_num_hard_forks
+  size_t fork_index;
+  for (fork_index = 0; fork_index < wallet_num_hard_forks; ++fork_index)
+    if (wallet_hard_forks[fork_index].version == hf_version)
+      break;
+  THROW_WALLET_EXCEPTION_IF(fork_index == wallet_num_hard_forks, error::wallet_internal_error, "Fork not found in table");
+  uint64_t start_height = wallet_hard_forks[fork_index].height;
+  uint64_t end_height = fork_index == wallet_num_hard_forks - 1
     ? std::numeric_limits<uint64_t>::max()
-    : wallet_hard_forks[hf_version].height;
+    : wallet_hard_forks[fork_index + 1].height;
 
   daemon_is_outdated = height < start_height || height >= end_height;
 }
