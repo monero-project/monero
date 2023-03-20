@@ -488,18 +488,32 @@ namespace cryptonote
       m_core.resume_mine();
       return 1;
     }
-    for(auto tx_blob_it = arg.b.txs.begin(); tx_blob_it!=arg.b.txs.end();tx_blob_it++)
+
+    const size_t num_txes = arg.b.txs.size();
+    std::vector<tx_blob_entry> tx_blobs;
+    tx_blobs.reserve(num_txes);
+    std::vector<tx_verification_context> tvc;
+    tvc.reserve(num_txes);
+    for (auto &e: arg.b.txs)
     {
-      cryptonote::tx_verification_context tvc = AUTO_VAL_INIT(tvc);
-      m_core.handle_incoming_tx(*tx_blob_it, tvc, relay_method::block, true);
-      if(tvc.m_verifivation_failed)
-      {
-        LOG_PRINT_CCONTEXT_L1("Block verification failed: transaction verification failed, dropping connection");
-        drop_connection(context, false, false);
-        m_core.cleanup_handle_incoming_blocks();
-        m_core.resume_mine();
-        return 1;
-      }
+      tx_blobs.push_back({e.blob, e.prunable_hash});
+      tvc.push_back({});
+      tvc.back().m_relay = relay_method::none; // we might have some already, init to nop
+    }
+    bool ret = m_core.handle_incoming_txs({tx_blobs.data(), tx_blobs.size()}, {tvc.data(), tvc.size()}, relay_method::block, true);
+    if (ret)
+    {
+      for (const auto &e: tvc)
+        if (e.m_verifivation_failed)
+          { ret = false; break; }
+    }
+    if (!ret)
+    {
+      FAILCONNMSG(context, "Tx verification failed, dropping connection");
+      drop_connection(context, false, false);
+      m_core.cleanup_handle_incoming_blocks();
+      m_core.resume_mine();
+      return 1;
     }
 
     block_verification_context bvc = {};
@@ -557,7 +571,12 @@ namespace cryptonote
     }
     
     m_core.pause_mine();
-      
+
+    const size_t num_txes = arg.b.txs.size();
+    std::vector<tx_blob_entry> tx_blobs;
+    tx_blobs.reserve(num_txes);
+    std::vector<tx_verification_context> tvc;
+    tvc.reserve(num_txes);
     block new_block;
     transaction miner_tx;
     if(parse_and_validate_block_from_blob(arg.b.block, new_block))
@@ -566,7 +585,7 @@ namespace cryptonote
       if(!context.m_requested_objects.empty())
       {
         // What we asked for != to what we received ..
-        if(context.m_requested_objects.size() != arg.b.txs.size())
+        if(context.m_requested_objects.size() != num_txes)
         {
           LOG_ERROR_CCONTEXT
           (
@@ -662,15 +681,10 @@ namespace cryptonote
           // sent in our pool, so don't verify again..
           if(!m_core.pool_has_tx(tx_hash))
           {
+            tx_blobs.push_back({tx_blob.blob, tx_blob.prunable_hash});
+            tvc.push_back({});
+            tvc.back().m_relay = relay_method::none;
             MDEBUG("Incoming tx " << tx_hash << " not in pool, adding");
-            cryptonote::tx_verification_context tvc = AUTO_VAL_INIT(tvc);                        
-            if(!m_core.handle_incoming_tx(tx_blob, tvc, relay_method::block, true) || tvc.m_verifivation_failed)
-            {
-              LOG_PRINT_CCONTEXT_L1("Block verification failed: transaction verification failed, dropping connection");
-              drop_connection(context, false, false);
-              m_core.resume_mine();
-              return 1;
-            }
             
             //
             // future todo: 
@@ -769,6 +783,19 @@ namespace cryptonote
       else // whoo-hoo we've got em all ..
       {
         MDEBUG("We have all needed txes for this fluffy block");
+
+        bool ret = m_core.handle_incoming_txs({tx_blobs.data(), tx_blobs.size()}, {tvc.data(), tvc.size()}, relay_method::block, true);
+        if (ret)
+          for (const auto &e: tvc)
+            if (e.m_verifivation_failed)
+              { ret = false; break; }
+        if (!ret)
+        {
+          FAILCONNMSG(context, "Block verification failed: transaction verification failed, dropping connection");
+          drop_connection(context, false, false);
+          m_core.resume_mine();
+          return 1;
+        }
 
         block_complete_entry b;
         b.block = arg.b.block;
@@ -1017,25 +1044,35 @@ namespace cryptonote
     else
       stem_txs.reserve(arg.txs.size());
 
-    for (auto& tx : arg.txs)
+    const size_t num_txes = arg.txs.size();
+    std::vector<tx_blob_entry> tx_blobs;
+    tx_blobs.reserve(num_txes);
+    std::vector<tx_verification_context> tvc;
+    tvc.reserve(num_txes);
+    for (auto &e: arg.txs)
     {
-      tx_verification_context tvc{};
-      if (!m_core.handle_incoming_tx({tx, crypto::null_hash}, tvc, tx_relay, true))
-      {
-        LOG_PRINT_CCONTEXT_L1("Tx verification failed, dropping connection");
-        drop_connection(context, false, false);
-        return 1;
-      }
+      tx_blobs.push_back({std::move(e), crypto::null_hash});
+      tvc.push_back({});
+      tvc.back().m_relay = relay_method::none; // we might have some already, init to nop
+    }
+    if (!m_core.handle_incoming_txs({tx_blobs.data(), tx_blobs.size()}, {tvc.data(), tvc.size()}, tx_relay, true))
+    {
+      FAILCONNMSG(context, "Tx verification failed, dropping connection");
+      drop_connection(context, false, false);
+      return 1;
+    }
 
-      switch (tvc.m_relay)
+    for (size_t i = 0; i < num_txes; ++i)
+    {
+      switch (tvc[i].m_relay)
       {
         case relay_method::local:
         case relay_method::stem:
-          stem_txs.push_back(std::move(tx));
+          stem_txs.push_back(std::move(tx_blobs[i].blob));
           break;
         case relay_method::block:
         case relay_method::fluff:
-          fluff_txs.push_back(std::move(tx));
+          fluff_txs.push_back(std::move(tx_blobs[i].blob));
           break;
         default:
         case relay_method::forward: // not supposed to happen here

@@ -189,9 +189,8 @@ bool tests::proxy_core::handle_incoming_tx(const cryptonote::tx_blob_entry& tx_b
     return true;
 }
 
-bool tests::proxy_core::handle_incoming_txs(const std::vector<tx_blob_entry>& tx_blobs, std::vector<tx_verification_context>& tvc, cryptonote::relay_method tx_relay, bool relayed)
+bool tests::proxy_core::handle_incoming_txs(epee::span<const tx_blob_entry> tx_blobs, epee::span<tx_verification_context> tvc, cryptonote::relay_method tx_relay, bool relayed)
 {
-    tvc.resize(tx_blobs.size());
     size_t i = 0;
     for (const auto &tx_blob: tx_blobs)
     {
@@ -200,6 +199,12 @@ bool tests::proxy_core::handle_incoming_txs(const std::vector<tx_blob_entry>& tx
       ++i;
     }
     return true;
+}
+
+bool tests::proxy_core::handle_incoming_txs(const std::vector<tx_blob_entry>& tx_blobs, std::vector<tx_verification_context>& tvc, relay_method tx_relay, bool relayed)
+{
+  tvc.resize(tx_blobs.size());
+  return handle_incoming_txs(epee::to_span(tx_blobs), epee::to_mut_span(tvc), tx_relay, relayed);
 }
 
 bool tests::proxy_core::handle_incoming_block(const cryptonote::blobdata& block_blob, const cryptonote::block *block_, cryptonote::block_verification_context& bvc, bool update_miner_blocktemplate) {
