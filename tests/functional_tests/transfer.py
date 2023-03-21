@@ -52,6 +52,7 @@ class TransferTest():
         self.check_tx_notes()
         self.check_rescan()
         self.check_is_key_image_spent()
+        self.check_multiple_submissions()
 
     def reset(self):
         print('Resetting blockchain')
@@ -829,6 +830,39 @@ class TransferTest():
         res = daemon.is_key_image_spent(ki)
         assert res.spent_status == expected
 
+    def check_multiple_submissions(self):
+        daemon = Daemon()
+
+        print('Testing multiple submissions')
+
+        dst = {'address': '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 'amount': 1000000000000}
+
+        self.wallet[0].refresh()
+        res = self.wallet[0].get_balance()
+        balance = res.balance
+
+        res = self.wallet[0].transfer([dst], ring_size = 16, get_tx_key = False, get_tx_hex = False, get_tx_metadata = True)
+        tx_hex = res.tx_metadata
+        tx_fee = res.fee
+        res = self.wallet[0].relay_tx(tx_hex)
+
+        # submit again before mined
+        res = self.wallet[0].relay_tx(tx_hex)
+        daemon.generateblocks('44Kbx4sJ7JDRDV5aAhLJzQCjDz2ViLRduE3ijDZu3osWKBjMGkV1XPk4pfDUMqt1Aiezvephdqm6YD19GKFD9ZcXVUTp6BW', 1)
+
+        self.wallet[0].refresh()
+        res = self.wallet[0].get_balance()
+        assert res.balance == balance - tx_fee
+
+        balance = res.balance
+
+        # submit again after mined
+        res = self.wallet[0].relay_tx(tx_hex)
+        daemon.generateblocks('44Kbx4sJ7JDRDV5aAhLJzQCjDz2ViLRduE3ijDZu3osWKBjMGkV1XPk4pfDUMqt1Aiezvephdqm6YD19GKFD9ZcXVUTp6BW', 1)
+
+        self.wallet[0].refresh()
+        res = self.wallet[0].get_balance()
+        assert res.balance == balance
 
 if __name__ == '__main__':
     TransferTest().run_test()
