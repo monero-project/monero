@@ -6929,8 +6929,12 @@ bool simple_wallet::register_service_node_main(
 	}
 
 	uint64_t unlock_block = bc_height + locked_blocks;
+	uint8_t hf_ver = m_wallet->get_current_hard_fork();
+	uint64_t expected_staking_requirement;
 
-	uint64_t expected_staking_requirement = std::max(service_nodes::get_staking_requirement(m_wallet->nettype(), bc_height), service_nodes::get_staking_requirement(m_wallet->nettype(), bc_height + STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS));
+	if (hf_ver < 12) expected_staking_requirement = std::max(service_nodes::get_staking_requirement(m_wallet->nettype(), bc_height), service_nodes::get_staking_requirement(m_wallet->nettype(), bc_height + STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS));
+	else if (hf_ver < 17) expected_staking_requirement = MAX_OPERATOR_V12 * COIN;
+	else expected_staking_requirement = std::max(service_nodes::get_staking_requirement(m_wallet->nettype(), bc_height), service_nodes::get_staking_requirement(m_wallet->nettype(), bc_height + STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS));
 
 	const uint64_t DUST = MAX_NUMBER_OF_CONTRIBUTORS;
 
@@ -6958,7 +6962,6 @@ bool simple_wallet::register_service_node_main(
 	}
 
 	uint64_t amount_burned = 0;
-	uint8_t hf_ver = m_wallet->get_current_hard_fork();
 
 	if (hf_ver < 16) amount_burned += (amount_payable_by_operator / 1000);
 	else amount_burned += 1;
