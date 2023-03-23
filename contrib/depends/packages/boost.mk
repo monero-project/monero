@@ -4,7 +4,19 @@ $(package)_download_path=https://downloads.sourceforge.net/project/boost/boost/1
 $(package)_file_name=$(package)_$($(package)_version).tar.bz2
 $(package)_sha256_hash=7bcc5caace97baa948931d712ea5f37038dbb1c5d89b43ad4def4ed7cb683332
 $(package)_dependencies=libiconv
-$(package)_patches=fix_aroptions.patch fix_arm_arch.patch
+$(package)_patches=fix_aroptions.patch fix_arm_arch.patch fix_compile.patch
+
+#$(package)_version=1_81_0
+#$(package)_download_path=https://downloads.sourceforge.net/project/boost/boost/1.81.0/
+#$(package)_file_name=$(package)_$($(package)_version).tar.bz2
+#$(package)_sha256_hash=71feeed900fbccca04a3b4f2f84a7c217186f28a940ed8b7ed4725986baf99fa
+#$(package)_dependencies=libiconv
+
+#$(package)_version=1_76_0
+#$(package)_download_path=https://downloads.sourceforge.net/project/boost/boost/1.76.0/
+#$(package)_file_name=$(package)_$($(package)_version).tar.bz2
+#$(package)_sha256_hash=f0397ba6e982c4450f27bf32a2a83292aba035b827a5623a14636ea583318c41
+#$(package)_dependencies=libiconv
 
 define $(package)_set_vars
 $(package)_config_opts_release=variant=release
@@ -28,11 +40,22 @@ $(package)_cxxflags_linux=-fPIC
 $(package)_cxxflags_freebsd=-fPIC
 endef
 
+#define $(package)_preprocess_cmds
+#  echo "using $(boost_toolset_$(host_os)) : : $($(package)_cxx) : <cxxflags>\"$($(package)_cxxflags) $($(package)_cppflags)\" <linkflags>\"$($(package)_ldflags)\" <archiver>\"$(boost_archiver_$(host_os))\" <arflags>\"$($(package)_arflags)\" <striper>\"$(host_STRIP)\"  <ranlib>\"$(host_RANLIB)\" <rc>\"$(host_WINDRES)\" : ;" > user-config.jam
+#endef
+
 define $(package)_preprocess_cmds
   patch -p1 < $($(package)_patch_dir)/fix_aroptions.patch &&\
   patch -p1 < $($(package)_patch_dir)/fix_arm_arch.patch &&\
+  patch -p1 < $($(package)_patch_dir)/fix_compile.patch &&\
   echo "using $(boost_toolset_$(host_os)) : : $($(package)_cxx) : <cxxflags>\"$($(package)_cxxflags) $($(package)_cppflags)\" <linkflags>\"$($(package)_ldflags)\" <archiver>\"$(boost_archiver_$(host_os))\" <arflags>\"$($(package)_arflags)\" <striper>\"$(host_STRIP)\"  <ranlib>\"$(host_RANLIB)\" <rc>\"$(host_WINDRES)\" : ;" > user-config.jam
 endef
+
+#define $(package)_preprocess_cmds
+#  patch -p1 < $($(package)_patch_dir)/fix_aroptions.patch &&\
+#  patch -p1 < $($(package)_patch_dir)/fix_arm_arch.patch &&\
+#  echo "using $(boost_toolset_$(host_os)) : : $($(package)_cxx) : <cxxflags>\"$($(package)_cxxflags) $($(package)_cppflags)\" <linkflags>\"$($(package)_ldflags)\" <archiver>\"$(boost_archiver_$(host_os))\" <arflags>\"$($(package)_arflags)\" <striper>\"$(host_STRIP)\"  <ranlib>\"$(host_RANLIB)\" <rc>\"$(host_WINDRES)\" : ;" > user-config.jam
+#endef
 
 define $(package)_config_cmds
   ./bootstrap.sh --without-icu --with-libraries=$(boost_config_libraries)

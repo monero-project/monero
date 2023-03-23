@@ -1,0 +1,36 @@
+--- boost_1_64_0/tools/build/src/tools/darwin.py.O	2023-03-17 14:33:56
++++ boost_1_64_0/tools/build/src/tools/darwin.py	2023-03-17 14:34:05
+@@ -38,7 +38,7 @@
+
+ toolset.flags ('darwin.compile', 'OPTIONS', '<link>shared', ['-dynamic'])
+ toolset.flags ('darwin.compile', 'OPTIONS', None, ['-Wno-long-double', '-no-cpp-precomp'])
+-toolset.flags ('darwin.compile.c++', 'OPTIONS', None, ['-fcoalesce-templates'])
++# toolset.flags ('darwin.compile.c++', 'OPTIONS', None, ['-fcoalesce-templates'])
+
+ toolset.flags ('darwin.link', 'FRAMEWORK', '<framework>')
+
+--- boost_1_64_0/tools/build/src/tools/darwin.jam.O	2023-03-17 15:05:18
++++ boost_1_64_0/tools/build/src/tools/darwin.jam	2023-03-17 15:06:33
+@@ -138,15 +138,15 @@
+     common.handle-options darwin : $(condition) : $(command) : $(options) ;
+
+     # - GCC 4.0 and higher in Darwin does not have -fcoalesce-templates.
+-    if $(real-version) < "4.0.0"
+-    {
+-        flags darwin.compile.c++ OPTIONS $(condition) : -fcoalesce-templates ;
+-    }
++    #if $(real-version) < "4.0.0"
++    #{
++    #    flags darwin.compile.c++ OPTIONS $(condition) : -fcoalesce-templates ;
++    #}
+     # - GCC 4.2 and higher in Darwin does not have -Wno-long-double.
+-    if $(real-version) < "4.2.0"
+-    {
+-        flags darwin.compile OPTIONS $(condition) : -Wno-long-double ;
+-    }
++    #if $(real-version) < "4.2.0"
++    #{
++    #    flags darwin.compile OPTIONS $(condition) : -Wno-long-double ;
++    #}
+     # - GCC on Darwin with -pedantic, suppress unsupported long long warning
+     flags darwin.compile OPTIONS $(condition)/<warnings>all : -Wno-long-long ;
