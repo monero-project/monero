@@ -50,15 +50,20 @@ public:
   TestDB(size_t bc_height = test_distribution_size): blockchain_height(bc_height) { m_open = true; }
   virtual uint64_t height() const override { return blockchain_height; }
 
-  std::vector<uint64_t> get_block_cumulative_rct_outputs(const std::vector<uint64_t> &heights) const override
+  std::vector<uint64_t> get_block_cumulative_rct_outputs(uint64_t start_height, uint64_t end_height, uint64_t& base) const
   {
+    base = 0;
     std::vector<uint64_t> d;
-    for (uint64_t h: heights)
+    const uint64_t base_height = start_height == 0 ? 0 : start_height - 1;
+    for (uint64_t h = base_height; h <= end_height; ++h)
     {
       uint64_t c = 0;
       for (uint64_t i = 0; i <= h; ++i)
         c += test_distribution[i];
-      d.push_back(c);
+      if (h < start_height)
+        base = c;
+      else
+        d.push_back(c);
     }
     return d;
   }
