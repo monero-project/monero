@@ -207,6 +207,7 @@ namespace cryptonote
     {
       tvc.m_verifivation_failed = true;
       tvc.m_fee_too_low = true;
+      tvc.m_no_drop_offense = true;
       return false;
     }
 
@@ -225,6 +226,7 @@ namespace cryptonote
       LOG_PRINT_L1("transaction tx-extra is too big: " << tx_extra_size << " bytes, the limit is: " << MAX_TX_EXTRA_SIZE);
       tvc.m_verifivation_failed = true;
       tvc.m_tx_extra_too_big = true;
+      tvc.m_no_drop_offense = true;
       return false;
     }
 
