@@ -1022,8 +1022,18 @@ namespace cryptonote
       tx_verification_context tvc{};
       if (!m_core.handle_incoming_tx({tx, crypto::null_hash}, tvc, tx_relay, true))
       {
-        LOG_PRINT_CCONTEXT_L1("Tx verification failed, dropping connection");
-        drop_connection(context, false, false);
+        // Don't drop connections which send transactions with too big tx_extra
+        // It will only cause updated nodes to isolate themselves from the rest of the network
+        // This check can be removed as soon as updated nodes are the majority (both by hashrate and by total count)
+        if (tvc.m_tx_extra_too_big)
+        {
+          LOG_PRINT_CCONTEXT_L1("Tx verification failed (too big tx_extra)");
+        }
+        else
+        {
+          LOG_PRINT_CCONTEXT_L1("Tx verification failed, dropping connection");
+          drop_connection(context, false, false);
+        }
         return 1;
       }
 
