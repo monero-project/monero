@@ -42,10 +42,11 @@
 #define CTHR_RWLOCK_TRYLOCK_READ(x)	TryAcquireSRWLockShared(&x)
 
 #define CTHR_THREAD_TYPE	HANDLE
-#define CTHR_THREAD_RTYPE	void
-#define CTHR_THREAD_RETURN	return
-#define CTHR_THREAD_CREATE(thr, func, arg)	((thr = (HANDLE)_beginthread(func, 0, arg)) != -1L)
-#define CTHR_THREAD_JOIN(thr)			WaitForSingleObject((HANDLE)thr, INFINITE)
+#define CTHR_THREAD_RTYPE	unsigned __stdcall
+#define CTHR_THREAD_RETURN	_endthreadex(0); return 0;
+#define CTHR_THREAD_CREATE(thr, func, arg)	((thr = (HANDLE)_beginthreadex(0, 0, func, arg, 0, 0)) != 0L)
+#define CTHR_THREAD_JOIN(thr)			do { WaitForSingleObject(thr, INFINITE); CloseHandle(thr); } while(0)
+#define CTHR_THREAD_CLOSE(thr)			CloseHandle((HANDLE)thr);
 
 #else
 
@@ -64,5 +65,6 @@
 #define CTHR_THREAD_RETURN	return NULL
 #define CTHR_THREAD_CREATE(thr, func, arg)	(pthread_create(&thr, NULL, func, arg) == 0)
 #define CTHR_THREAD_JOIN(thr)			pthread_join(thr, NULL)
+#define CTHR_THREAD_CLOSE(thr)
 
 #endif
