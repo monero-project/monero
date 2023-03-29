@@ -332,7 +332,7 @@ static void rx_init_dataset(size_t max_threads) {
       local_abort("Couldn't start RandomX seed thread");
     }
   }
-  rx_seedthread(&si[n1]);
+  randomx_init_dataset(main_dataset, si[n1].si_cache, si[n1].si_start, si[n1].si_count);
   for (size_t i = 0; i < n1; ++i) CTHR_THREAD_JOIN(st[i]);
   CTHR_RWLOCK_UNLOCK_READ(main_cache_lock);
 
@@ -402,6 +402,7 @@ void rx_set_main_seedhash(const char *seedhash, size_t max_dataset_init_threads)
   if (!CTHR_THREAD_CREATE(t, rx_set_main_seedhash_thread, info)) {
     local_abort("Couldn't start RandomX seed thread");
   }
+  CTHR_THREAD_CLOSE(t);
 }
 
 void rx_slow_hash(const char *seedhash, const void *data, size_t length, char *result_hash) {
