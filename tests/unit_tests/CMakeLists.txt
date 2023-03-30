@@ -72,6 +72,7 @@ set(unit_tests_sources
   net.cpp
   node_server.cpp
   notify.cpp
+  one_span_compression.cpp
   output_distribution.cpp
   parse_amount.cpp
   pruning.cpp

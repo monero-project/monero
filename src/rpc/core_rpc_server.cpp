@@ -174,6 +174,13 @@ namespace cryptonote
     , m_was_bootstrap_ever_used(false)
     , disable_rpc_ban(false)
     , m_rpc_payment_allow_free_loopback(false)
+    , m_cb_out_dist_cache
+    (
+      cr.get_nettype(),
+      [&cr](uint64_t f, uint64_t t, uint64_t& s, std::vector<uint64_t>& d, uint64_t& b) -> bool {
+        return cr.get_blockchain_storage().get_rct_coinbase_output_distribution(f, t, s, d, b); },
+      [&cr](uint64_t h) -> crypto::hash { return cr.get_block_id_by_height(h); }
+    )
   {}
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::set_bootstrap_daemon(
@@ -3357,7 +3364,15 @@ namespace cryptonote
       const uint64_t req_to_height = req.to_height ? req.to_height : (m_core.get_current_blockchain_height() - 1);
       for (uint64_t amount: req.amounts)
       {
-        auto data = rpc::RpcHandler::get_output_distribution([this](uint64_t amount, uint64_t from, uint64_t to, uint64_t &start_height, std::vector<uint64_t> &distribution, uint64_t &base) { return m_core.get_output_distribution(amount, from, to, start_height, distribution, base); }, amount, req.from_height, req_to_height, [this](uint64_t height) { return m_core.get_blockchain_storage().get_db().get_block_hash_from_height(height); }, req.cumulative, m_core.get_current_blockchain_height());
+        auto data = rpc::RpcHandler::get_output_distribution
+        (
+          [this](uint64_t amount, uint64_t from, uint64_t to, uint64_t &start_height, std::vector<uint64_t> &distribution, uint64_t &base)
+            { return m_core.get_output_distribution(amount, from, to, start_height, distribution, base); },
+          amount, req.from_height, req_to_height, [this](uint64_t height)
+            { return m_core.get_blockchain_storage().get_db().get_block_hash_from_height(height); },
+          req.cumulative, m_core.get_current_blockchain_height()
+        );
+
         if (!data)
         {
           error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
@@ -3374,7 +3389,8 @@ namespace cryptonote
         out_dist.amount = 0;
         out_dist.binary = req.binary;
         out_dist.compress = req.compress;
-        if (!m_core.get_blockchain_storage().get_rct_coinbase_output_distribution(
+        out_dist.one_span = req.compress_one_span;
+        if (!m_cb_out_dist_cache.get_coinbase_output_distribution(
             req.from_height
           , req_to_height
           , out_dist.data.start_height
@@ -3386,14 +3402,10 @@ namespace cryptonote
           throw std::runtime_error("Failed to get rct coinbase output distribution");
         }
 
-        if (!req.cumulative && out_dist.data.distribution.size())
-        {
-          // The database stores this distribution as cumulative by default so decumulate
-          for (size_t i = out_dist.data.distribution.size() - 1; i >= 1; --i)
-          {
-            out_dist.data.distribution[i] -= out_dist.data.distribution[i - 1];
-          }
-        }
+        // The cache stores this distribution as non-cumulative by default so cumulate if needed
+        if (req.cumulative)
+          for (size_t i = 1; i < out_dist.data.distribution.size(); ++i)
+            out_dist.data.distribution[i] += out_dist.data.distribution[i - 1];
       }
     }
     catch (const std::exception &e)

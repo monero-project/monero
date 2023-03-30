@@ -37,40 +37,8 @@
 #include "cryptonote_basic/difficulty.h"
 #include "crypto/hash.h"
 #include "rpc/rpc_handler.h"
-#include "common/varint.h"
+#include "common/compress_uint.h"
 #include "common/perf_timer.h"
-
-namespace
-{
-  template<typename T>
-  std::string compress_integer_array(const std::vector<T> &v)
-  {
-    std::string s;
-    s.resize(v.size() * (sizeof(T) * 8 / 7 + 1));
-    char *ptr = (char*)s.data();
-    for (const T &t: v)
-      tools::write_varint(ptr, t);
-    s.resize(ptr - s.data());
-    return s;
-  }
-
-  template<typename T>
-  std::vector<T> decompress_integer_array(const std::string &s)
-  {
-    std::vector<T> v;
-    v.reserve(s.size());
-    int read = 0;
-    const std::string::const_iterator end = s.end();
-    for (std::string::const_iterator i = s.begin(); i != end; std::advance(i, read))
-    {
-      T t;
-      read = tools::read_varint(std::string::const_iterator(i), s.end(), t);
-      CHECK_AND_ASSERT_THROW_MES(read > 0 && read <= 256, "Error decompressing data");
-      v.push_back(t);
-    }
-    return v;
-  }
-}
 
 namespace cryptonote
 {
@@ -2447,6 +2415,7 @@ namespace cryptonote
       bool cumulative;
       bool binary;
       bool compress;
+      bool compress_one_span;
       bool get_rct_coinbase;
 
       BEGIN_KV_SERIALIZE_MAP()
@@ -2457,6 +2426,7 @@ namespace cryptonote
         KV_SERIALIZE_OPT(cumulative, false)
         KV_SERIALIZE_OPT(binary, true)
         KV_SERIALIZE_OPT(compress, false)
+        KV_SERIALIZE_OPT(compress_one_span, false)
         KV_SERIALIZE_OPT(get_rct_coinbase, false)
       END_KV_SERIALIZE_MAP()
     };
@@ -2469,19 +2439,28 @@ namespace cryptonote
       std::string compressed_data;
       bool binary;
       bool compress;
+      bool one_span; // Use one-span compression, good for coinbase output distributions
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(amount)
         KV_SERIALIZE_N(data.start_height, "start_height")
         KV_SERIALIZE(binary)
         KV_SERIALIZE(compress)
+        KV_SERIALIZE_OPT(one_span, false)
         if (this_ref.binary)
         {
           if (is_store)
           {
             if (this_ref.compress)
             {
-              const_cast<std::string&>(this_ref.compressed_data) = compress_integer_array(this_ref.data.distribution);
+              if (this_ref.one_span)
+              {
+                const_cast<std::string&>(this_ref.compressed_data) = tools::one_span_compress(this_ref.data.distribution);
+              }
+              else
+              {
+                const_cast<std::string&>(this_ref.compressed_data) = tools::varint_pack(this_ref.data.distribution);
+              }
               KV_SERIALIZE(compressed_data)
             }
             else
@@ -2492,7 +2471,14 @@ namespace cryptonote
             if (this_ref.compress)
             {
               KV_SERIALIZE(compressed_data)
-              const_cast<std::vector<uint64_t>&>(this_ref.data.distribution) = decompress_integer_array<uint64_t>(this_ref.compressed_data);
+              if (this_ref.one_span)
+              {
+                const_cast<std::vector<uint64_t>&>(this_ref.data.distribution) = tools::one_span_decompress(this_ref.compressed_data);
+              }
+              else
+              {
+                const_cast<std::vector<uint64_t>&>(this_ref.data.distribution) = tools::varint_unpack(this_ref.compressed_data);
+              }
             }
             else
               KV_SERIALIZE_CONTAINER_POD_AS_BLOB_N(data.distribution, "distribution")
@@ -2510,6 +2496,7 @@ namespace cryptonote
           && compressed_data == other.compressed_data
           && binary == other.binary
           && compress == other.compress
+          && one_span == other.one_span;
         ;
       }
     };

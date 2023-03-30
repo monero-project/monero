@@ -42,6 +42,7 @@
 #include "cryptonote_core/cryptonote_core.h"
 #include "p2p/net_node.h"
 #include "cryptonote_protocol/cryptonote_protocol_handler.h"
+#include "rpc_handler.h"
 #include "rpc_payment.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
@@ -301,6 +302,7 @@ private:
     std::unique_ptr<rpc_payment> m_rpc_payment;
     bool disable_rpc_ban;
     bool m_rpc_payment_allow_free_loopback;
+    rpc::CoinbaseOutputDistributionCache m_cb_out_dist_cache;
   };
 }
 
