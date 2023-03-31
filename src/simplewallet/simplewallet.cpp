@@ -7302,7 +7302,7 @@ bool simple_wallet::stake_main(
     if (!full)
     {
       can_contrib_total = staking_req - snode_info.total_reserved;
-      must_contrib_total = (hf_ver >= 12) ? MIN_POOL_STAKERS_V12 * COIN : (hf_ver < 12 && hf_ver >= 10) ? std::min(snode_info.staking_requirement - snode_info.total_reserved, snode_info.staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS_V2) : std::min(snode_info.staking_requirement - snode_info.total_reserved, snode_info.staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS);
+      must_contrib_total = (hf_ver < 17) ? MIN_POOL_STAKERS_V12 * COIN : service_nodes::get_min_node_contribution(hf_ver, snode_info.staking_requirement, snode_info.total_reserved);
     }
 
     unlock_block = m_wallet->use_fork_rules(12, 0) ? snode_info.registration_height + locked_blocks : bc_height + locked_blocks;
