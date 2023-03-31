@@ -7797,11 +7797,12 @@ bool wallet2::check_stake_allowed(const crypto::public_key& sn_key, const crypto
   }
 
   const auto& snode_info = response.service_node_states.front();
+  uint8_t hf_ver = get_current_hard_fork();
 
-  const bool full = use_fork_rules(10, 0) ? snode_info.contributors.size() >= MAX_NUMBER_OF_CONTRIBUTORS_V2 : snode_info.contributors.size() >= MAX_NUMBER_OF_CONTRIBUTORS;
+  bool full = false;
 
   /// maximum to contribute (unless we have some amount reserved for us)
-  uint64_t max_contrib_total = use_fork_rules(12,0) ? MAX_POOL_STAKERS_V12 * COIN - snode_info.total_reserved : snode_info.staking_requirement - snode_info.total_reserved;
+  uint64_t max_contrib_total = (hf_ver < 17) ? MAX_POOL_STAKERS_V12 * COIN - snode_info.total_reserved : snode_info.staking_requirement - snode_info.total_reserved;
 
   /// decrease if some reserved for us
   uint64_t min_contrib_total = use_fork_rules(12, 0) ? MIN_POOL_STAKERS_V12 * COIN : use_fork_rules(10, 0) ? std::min(snode_info.staking_requirement - snode_info.total_reserved, snode_info.staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS_V2) : std::min(snode_info.staking_requirement - snode_info.total_reserved, snode_info.staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS);
@@ -7843,6 +7844,12 @@ bool wallet2::check_stake_allowed(const crypto::public_key& sn_key, const crypto
     amount = max_contrib_total;
   }
 
+  if (max_contrib_total == 0)
+  {
+    LOG_ERROR("You may not contribute any more to this service node");
+    return false;
+  }
+
   reg_height = snode_info.registration_height;
 
   return true;
@@ -7861,9 +7868,11 @@ std::vector<wallet2::pending_tx> wallet2::create_stake_tx(const crypto::public_k
     return {};
 
   const cryptonote::account_public_address& address = addr_info.address;
+  uint8_t hf_ver = get_current_hard_fork();
 
   uint64_t to_burn = 0;
-  if (get_current_hard_fork() < 16) to_burn += (amount / 1000);
+
+  if (hf_ver < 16) to_burn += (amount / 1000);
   else to_burn += 1;
 
   std::vector<uint8_t> extra;
