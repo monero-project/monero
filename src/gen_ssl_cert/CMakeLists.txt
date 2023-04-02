@@ -36,7 +36,6 @@ target_link_libraries(gen_ssl_cert
     common
     epee
     version
-    ${EPEE_READLINE}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${Boost_FILESYSTEM_LIBRARY}
     ${CMAKE_THREAD_LIBS_INIT}

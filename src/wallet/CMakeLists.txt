@@ -103,7 +103,7 @@ if(NOT IOS)
       common
       version
       daemonizer
-      ${EPEE_READLINE}
+      epee
       ${Boost_CHRONO_LIBRARY}
       ${Boost_PROGRAM_OPTIONS_LIBRARY}
       ${Boost_FILESYSTEM_LIBRARY}

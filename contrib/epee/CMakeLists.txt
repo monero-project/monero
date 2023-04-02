@@ -27,4 +27,5 @@
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 add_subdirectory(src)
+target_include_directories(epee PUBLIC include)
 
