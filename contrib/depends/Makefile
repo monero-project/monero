@@ -2,8 +2,7 @@
 
 SOURCES_PATH ?= $(BASEDIR)/sources
 BASE_CACHE ?= $(BASEDIR)/built
-SDK_PATH ?= $(BASEDIR)/SDKs
-FALLBACK_DOWNLOAD_PATH ?= https://bitcoincore.org/depends-sources
+FALLBACK_DOWNLOAD_PATH ?=
 
 BUILD = $(shell ./config.guess)
 HOST ?= $(BUILD)
@@ -152,6 +151,9 @@ $(host_prefix)/share/config.site : config.site.in $(host_prefix)/.stamp_$(final_
             -e 's|@RANLIB@|$(toolchain_path)$(host_RANLIB)|' \
             -e 's|@NM@|$(toolchain_path)$(host_NM)|' \
             -e 's|@STRIP@|$(toolchain_path)$(host_STRIP)|' \
+            -e 's|@OTOOL@|$(toolchain_path)$(host_OTOOL)|' \
+            -e 's|@INSTALL_NAME_TOOL@|$(toolchain_path)$(host_INSTALL_NAME_TOOL)|' \
+            -e 's|@DSYMUTIL@|$(toolchain_path)$(host_DSYMUTIL)|' \
             -e 's|@build_os@|$(build_os)|' \
             -e 's|@host_os@|$(host_os)|' \
             -e 's|@CFLAGS@|$(strip $(host_CFLAGS) $(host_$(release_type)_CFLAGS))|' \
@@ -172,6 +174,9 @@ $(host_prefix)/share/toolchain.cmake : toolchain.cmake.in $(host_prefix)/.stamp_
             -e 's|@RANLIB@|$(toolchain_path)$(host_RANLIB)|' \
             -e 's|@NM@|$(toolchain_path)$(host_NM)|' \
             -e 's|@STRIP@|$(toolchain_path)$(host_STRIP)|' \
+            -e 's|@OTOOL@|$(toolchain_path)$(host_OTOOL)|' \
+            -e 's|@INSTALL_NAME_TOOL@|$(toolchain_path)$(host_INSTALL_NAME_TOOL)|' \
+            -e 's|@DSYMUTIL@|$(toolchain_path)$(host_DSYMUTIL)|' \
             -e 's|@build_os@|$(build_os)|' \
             -e 's|@host_os@|$(host_os)|' \
             -e 's|@CFLAGS@|$(strip $(host_CFLAGS) $(host_$(release_type)_CFLAGS))|' \
@@ -183,9 +188,8 @@ $(host_prefix)/share/toolchain.cmake : toolchain.cmake.in $(host_prefix)/.stamp_
             -e 's|@release_type@|$(release_type)|' \
             -e 's|@build_tests@|$(build_tests)|' \
             -e 's|@depends@|$(host_cmake)|' \
-            -e 's|@prefix@|$($(host_arch)_$(host_os)_prefix)|'\
-            -e 's|@sdk@|$(SDK_PATH)|'\
-            -e 's|@arch@|$(host_arch)|'\
+            -e 's|@prefix@|$($(host_arch)_$(host_os)_prefix)|' \
+            -e 's|@arch@|$(host_arch)|' \
             $< > $@
 	$(AT)touch $@
 
@@ -219,13 +223,15 @@ install: check-packages $(host_prefix)/share/toolchain.cmake
 download-one: check-sources $(all_sources)
 
 download-osx:
-	@$(MAKE) -s HOST=x86_64-apple-darwin11 download-one
+	@$(MAKE) -s HOST=x86_64-apple-darwin download-one
+download-osx-arm:
+	@$(MAKE) -s HOST=aarch64-apple-darwin download-one
 download-linux:
 	@$(MAKE) -s HOST=x86_64-unknown-linux-gnu download-one
 download-win:
 	@$(MAKE) -s HOST=x86_64-w64-mingw32 download-one
-download: download-osx download-linux download-win
+download: download-osx download-osx-arm download-linux download-win
 
  $(foreach package,$(all_packages),$(eval $(call ext_add_stages,$(package))))
 
-.PHONY: install cached download-one download-osx download-linux download-win download check-packages check-sources
+.PHONY: install cached download-one download-osx download-osx-arm download-linux download-win download check-packages check-sources

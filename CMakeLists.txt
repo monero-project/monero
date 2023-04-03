@@ -31,7 +31,7 @@
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 list(INSERT CMAKE_MODULE_PATH 0
-  "${CMAKE_SOURCE_DIR}/cmake")
+  "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(CheckCCompilerFlag)
 include(CheckCXXCompilerFlag)
 include(CheckLinkerFlag)
@@ -50,6 +50,8 @@ set(CMAKE_OSX_DEPLOYMENT_TARGET 10.14 CACHE STRING "macOS deployment target (App
 
 project(equilibria
   LANGUAGES CXX C)
+
+set(CMAKE_FIND_FRAMEWORK "LAST")
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -124,6 +126,15 @@ function (add_definition_if_library_exists library function header var)
   if(${${supported}})
     add_definitions("-D${var}")
   endif()
+endfunction()
+
+function(link_dep_libs target linktype libdirs)
+  foreach(lib ${ARGN})
+    find_library(link_lib-${lib} NAMES ${lib} PATHS ${libdirs})
+    if(link_lib-${lib})
+      target_link_libraries(${target} ${linktype} ${link_lib-${lib}})
+    endif()
+  endforeach()
 endfunction()
 
 if(NOT CMAKE_BUILD_TYPE)
@@ -328,30 +339,26 @@ include_directories(external/rapidjson/include external/easylogging++ src contri
 
 if(APPLE)
   include_directories(SYSTEM /usr/include/malloc)
-  if(POLICY CMP0042)
-    cmake_policy(SET CMP0042 NEW)
-  endif()
+  cmake_policy(SET CMP0042 NEW)
 endif()
 
 if(POLICY CMP0074)
   cmake_policy(SET CMP0074 NEW)
 endif()
 
-if(POLICY CMP0075)
-  cmake_policy(SET CMP0075 NEW)
-endif()
-
 if(MSVC OR MINGW)
   set(DEFAULT_STATIC true)
+  add_definitions(-D__STDC_FORMAT_MACROS)
 else()
   set(DEFAULT_STATIC false)
 endif()
 option(STATIC "Link libraries statically" ${DEFAULT_STATIC})
 
-# This is a CMake built-in switch that concerns internal libraries
-if (NOT DEFINED BUILD_SHARED_LIBS AND NOT STATIC AND CMAKE_BUILD_TYPE_LOWER STREQUAL "debug")
-    set(BUILD_SHARED_LIBS ON)
+set(BUILD_SHARED_LIBS_DEFAULT OFF)
+if(NOT STATIC AND CMAKE_BUILD_TYPE STREQUAL "Debug")
+  set(BUILD_SHARED_LIBS ON)
 endif()
+option(BUILD_SHARED_LIBS "Build internal libraries as shared" ${BUILD_SHARED_LIBS_DEFAULT})
 
 if (BUILD_SHARED_LIBS)
   message(STATUS "Building internal libraries with position independent code")
@@ -453,7 +460,6 @@ if (CMAKE_SYSTEM_NAME MATCHES "(SunOS|Solaris)")
 endif ()
 
 if (APPLE AND NOT IOS)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fvisibility=default")
   if (NOT OPENSSL_ROOT_DIR)
       EXECUTE_PROCESS(COMMAND brew --prefix openssl@1.1
         OUTPUT_VARIABLE OPENSSL_ROOT_DIR
@@ -494,7 +500,7 @@ ExternalProject_Add(generate_translations_header
   BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/translations"
   STAMP_DIR ${LRELEASE_PATH}
   CMAKE_ARGS -DLRELEASE_PATH=${LRELEASE_PATH}
-  INSTALL_COMMAND cmake -E echo "")
+  INSTALL_COMMAND ${CMAKE_COMMAND} -E echo "")
 include_directories("${CMAKE_CURRENT_BINARY_DIR}/translations")
 
 if(POLICY CMP0079)
@@ -521,7 +527,7 @@ include_directories(${LIBUNWIND_INCLUDE})
 link_directories(${LIBUNWIND_LIBRARY_DIRS})
 
 # Final setup for hid
-if (HIDAPI_FOUND) 
+if (HIDAPI_FOUND)
   message(STATUS "Using HIDAPI include dir at ${HIDAPI_INCLUDE_DIR}")
   add_definitions(-DHAVE_HIDAPI)
   include_directories(${HIDAPI_INCLUDE_DIR})
@@ -906,7 +912,7 @@ if(${BOOST_IGNORE_SYSTEM_PATHS} STREQUAL "ON")
 endif()
 
 set(OLD_LIB_SUFFIXES ${CMAKE_FIND_LIBRARY_SUFFIXES})
-if(APPLE OR MINGW)
+if(APPLE AND NOT DEPENDS)
   set(Boost_NO_BOOST_CMAKE ON)
 endif()
 
@@ -940,14 +946,7 @@ set(CMAKE_FIND_LIBRARY_SUFFIXES ${OLD_LIB_SUFFIXES})
 if(NOT Boost_FOUND)
   die("Could not find Boost libraries, please make sure you have installed Boost or libboost-all-dev >=1.62 or the equivalent")
 elseif(Boost_FOUND)
-  if(Boost_VERSION VERSION_LESS 1.62.0 AND NOT (OPENSSL_VERSION VERSION_LESS 1.1))
-    set(BOOST_BEFORE_1_62 true)
-  endif()
-  if(BOOST_BEFORE_1_62)
-    die("Boost ${Boost_VERSION_STRING} (older than 1.62) is too old to link with OpenSSL ${OPENSSL_VERSION} (1.1 or newer) found at ${OPENSSL_INCLUDE_DIR} and ${OPENSSL_LIBRARIES}. "
-        "Update Boost or install OpenSSL 1.0 and set path to it when running cmake: "
-        "cmake -DOPENSSL_ROOT_DIR='/usr/include/openssl-1.0'")
-  endif()
+  message(STATUS "Found Boost Version: ${Boost_VERSION} in ${Boost_LIBRARY_DIRS}")
 endif()
 
 if(MINGW)

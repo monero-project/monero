@@ -38,8 +38,6 @@
 #define BOOST_BIND_GLOBAL_PLACEHOLDERS 1
 #include <boost/bind.hpp>
 
-#include <locale.h>
-
 #include <thread>
 #include <iostream>
 #include <sstream>
@@ -97,6 +95,7 @@
 #ifdef WIN32
 #include <boost/locale.hpp>
 #include <boost/filesystem.hpp>
+#include <fcntl.h>
 #endif
 
 #ifdef HAVE_READLINE
