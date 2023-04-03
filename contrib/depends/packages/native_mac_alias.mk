@@ -1,15 +1,10 @@
 package=native_mac_alias
-$(package)_version=1.1.0
+$(package)_version=2.2.0
 $(package)_download_path=https://github.com/al45tair/mac_alias/archive/
 $(package)_download_file=v$($(package)_version).tar.gz
 $(package)_file_name=$(package)-$($(package)_version).tar.gz
-$(package)_sha256_hash=b10cb44ecb64fc25283fae7a9cf365d2829377d84e37b9c21100aca8757509be
+$(package)_sha256_hash=a853678621bab213fee1b338d351da9d53d1a20b9ad55da35b1129dcaca6c9df
 $(package)_install_libdir=$(build_prefix)/lib/python3/dist-packages
-$(package)_patches=python3.patch
-
-define $(package)_preprocess_cmds
-  patch -p1 < $($(package)_patch_dir)/python3.patch
-endef
 
 define $(package)_build_cmds
     python3 setup.py build

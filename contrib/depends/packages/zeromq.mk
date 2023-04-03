@@ -9,9 +9,9 @@ $(package)_patches=b3123a2fd1e77cbdceb5ee7a70e796063b5ee5b9.patch 87b81926aaaea7
 define $(package)_set_vars
   $(package)_config_opts=--without-docs --enable-static=yes --enable-shared=no --with-libsodium=yes --with-pgm=no --with-norm=no --disable-perf --disable-Werror --disable-drafts --enable-option-checking
   $(package)_config_opts_linux=--with-pic
-  $(package)_cxxflags_linux=-std=c++14
-  $(package)_cxxflags_mingw32=-std=c++14
-  $(package)_cxxflags_darwin=-std=c++14 -fvisibility=default
+  $(package)_cxxflags_linux=-std=c++17
+  $(package)_cxxflags_mingw32=-std=c++17
+  $(package)_cxxflags_darwin=-std=c++17
 endef
 
 define $(package)_preprocess_cmds
@@ -29,7 +29,7 @@ define $(package)_build_cmds
 endef
 
 define $(package)_stage_cmds
-  $(MAKE) DESTDIR=$($(package)_staging_dir) install
+  $(MAKE) DESTDIR=$($(package)_staging_dir) install-libLTLIBRARIES install-includeHEADERS install-pkgconfigDATA
 endef
 
 define $(package)_postprocess_cmds

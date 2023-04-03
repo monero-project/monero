@@ -7,19 +7,16 @@ $(package)_dependencies=ncurses
 
 define $(package)_set_vars
   $(package)_build_opts=CC="$($(package)_cc)"
-  $(package)_config_env=AR="$($(package)_ar)" RANLIB="$($(package)_ranlib)" CC="$($(package)_cc)" LDFLAGS="-L$(host_prefix)/lib" ARFLAGS=$($(package)_arflags)
-  $(package)_config_env_darwin=RANLIB="$(host_prefix)/native/bin/x86_64-apple-darwin11-ranlib" AR="$(host_prefix)/native/bin/x86_64-apple-darwin11-ar" CC="$(host_prefix)/native/bin/$($(package)_cc)"
   $(package)_config_opts+=--prefix=$(host_prefix)
   $(package)_config_opts+=--exec-prefix=$(host_prefix)
   $(package)_config_opts+=--host=$(HOST)
   $(package)_config_opts+=--disable-shared --with-curses
   $(package)_config_opts_release=--disable-debug-mode
-  $(package)_config_opts_darwin+=RANLIB="$(host_prefix)/native/bin/x86_64-apple-darwin11-ranlib" AR="$(host_prefix)/native/bin/x86_64-apple-darwin11-ar" CC="$(host_prefix)/native/bin/$($(package)_cc)"
   $(package)_build_opts=CFLAGS="$($(package)_cflags) $($(package)_cppflags) -fPIC"
 endef
 
 define $(package)_config_cmds
-  ./configure $($(package)_config_opts)
+  $($(package)_autoconf)
 endef
 
 define $(package)_build_cmds

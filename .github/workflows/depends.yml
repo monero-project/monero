@@ -11,7 +11,7 @@ env:
         ccache --max-size=150M
         ccache --set-config=compression=true
 jobs:
-  build-macos:
+  build-matrix:
     runs-on: ubuntu-20.04
     env:
       CCACHE_TEMPDIR: /tmp/.ccache-temp
@@ -21,23 +21,29 @@ jobs:
         toolchain:
           - name: "build-depends-armv7"
             host: "arm-linux-gnueabihf"
-            packages: "python3 gperf g++-9-arm-linux-gnueabihf gcc-9-arm-linux-gnueabihf g++-arm-linux-gnueabihf gcc-arm-linux-gnueabihf"
+            packages: "python3 gperf g++-arm-linux-gnueabihf"
           - name: "build-depends-armv8"
             host: "aarch64-linux-gnu"
-            packages: "python3 gperf g++-aarch64-linux-gnu gcc-aarch64-linux-gnu"
+            packages: "python3 gperf g++-aarch64-linux-gnu"
           - name: "build-depends-armv8 RPi"
             host: "aarch64-linux-gnu"
-            packages: "python3 gperf g++-aarch64-linux-gnu gcc-aarch64-linux-gnu"
+            packages: "python3 gperf g++-aarch64-linux-gnu"
             cmake_opts: "-DNO_AES=ON"
           - name: "build-depends-i686-linux"
             host: "i686-pc-linux-gnu"
-            packages: "gperf cmake g++-multilib gcc-multilib python3-zmq"
+            packages: "gperf cmake g++-multilib python3-zmq"
           - name: "build-depends-windows-x64"
             host: "x86_64-w64-mingw32"
-            packages: "cmake python3 g++-mingw-w64-x86-64 gcc-mingw-w64-x86-64"
+            packages: "cmake python3 g++-mingw-w64-x86-64 qttools5-dev-tools"
           - name: "build-depends-x86_64-linux"
             host: "x86_64-unknown-linux-gnu"
             packages: "gperf cmake python3-zmq libdbus-1-dev libharfbuzz-dev"
+          - name: "build-depends-macOS-x64"
+            host: "x86_64-apple-darwin"
+            packages: "cmake ccache imagemagick libcap-dev librsvg2-bin libz-dev libbz2-dev libtiff-tools libtinfo5 curl bsdmainutils python3-dev python3-setuptools"
+          - name: "build-depends-macOS-arm64"
+            host: "aarch64-apple-darwin"
+            packages: "cmake ccache imagemagick libcap-dev librsvg2-bin libz-dev libbz2-dev libtiff-tools libtinfo5 curl bsdmainutils python3-dev python3-setuptools"
     name: ${{ matrix.toolchain.name }}
     steps:
     - uses: actions/checkout@v1
@@ -69,17 +75,12 @@ jobs:
       run: |
         sudo update-alternatives --set ${{ matrix.toolchain.host }}-g++ $(which ${{ matrix.toolchain.host }}-g++-posix)
         sudo update-alternatives --set ${{ matrix.toolchain.host }}-gcc $(which ${{ matrix.toolchain.host }}-gcc-posix)
-    - name: prepare arm-linux-gnueabihf
-      if: ${{ matrix.toolchain.host == 'arm-linux-gnueabihf' }}
-      run: |
-        sudo update-alternatives --install $(which ${{ matrix.toolchain.host }}-g++) ${{ matrix.toolchain.host }}-g++ $(which ${{ matrix.toolchain.host }}-g++-9) 0
-        sudo update-alternatives --install $(which ${{ matrix.toolchain.host }}-gcc) ${{ matrix.toolchain.host }}-gcc $(which ${{ matrix.toolchain.host }}-gcc-9) 0
     - name: build
       run: |
         ${{env.CCACHE_SETTINGS}}
-        make depends target=${{ matrix.toolchain.host }} cmake_opts=${{ matrix.toolchain.cmake_opts }} -j2
+        make depends target=${{ matrix.toolchain.host }} cmake_opts=${{ matrix.toolchain.cmake_opts }}
     - uses: actions/upload-artifact@v2
-      if: ${{ matrix.toolchain.host == 'x86_64-w64-mingw32' || matrix.toolchain.host == 'x86_64-unknown-linux-gnu' || matrix.toolchain.host == 'aarch64-linux-gnu' || 'arm-linux-gnueabihf' }}
+      if: ${{ matrix.toolchain.host == 'x86_64-w64-mingw32' || matrix.toolchain.host == 'x86_64-unknown-linux-gnu' || matrix.toolchain.host == 'x86_64-apple-darwin' || matrix.toolchain.host == 'aarch64-apple-darwin' || matrix.toolchain.host == 'aarch64-linux-gnu' || 'arm-linux-gnueabihf' }}
       with:
         name: ${{ matrix.toolchain.name }}
         path: |

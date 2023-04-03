@@ -1,51 +1,88 @@
-depends_prefix="`dirname ${ac_site_file}`/.."
+# shellcheck shell=sh disable=SC2034 # Many variables set will be used in
+                                     # ./configure but shellcheck doesn't know
+                                     # that, hence: disable=SC2034
+
+true  # Dummy command because shellcheck treats all directives before first
+      # command as file-wide, and we only want to disable for one line.
+      #
+      # See: https://github.com/koalaman/shellcheck/wiki/Directive
+
+# shellcheck disable=SC2154
+depends_prefix="$(cd "$(dirname "$ac_site_file")/.." && pwd)"
 
 cross_compiling=maybe
-host_alias=@HOST@
-ac_tool_prefix=${host_alias}-
+host_alias="@HOST@"
+ac_tool_prefix="${host_alias}-"
 
-if test -z $with_boost; then
-  with_boost=$depends_prefix
+if test -z "$with_boost"; then
+  with_boost="$depends_prefix"
 fi
 
-if test x@host_os@ = xdarwin; then
+if test "@host_os@" = darwin; then
   BREW=no
   PORT=no
 fi
 
-PATH=$depends_prefix/native/bin:$PATH
-PKG_CONFIG="`which pkg-config` --static"
+PATH="${depends_prefix}/native/bin:$PATH"
+PKG_CONFIG="$(which pkg-config) --static"
 
 # These two need to remain exported because pkg-config does not see them
 # otherwise. That means they must be unexported at the end of configure.ac to
 # avoid ruining the cache. Sigh.
-export PKG_CONFIG_PATH=$depends_prefix/share/pkgconfig:$depends_prefix/lib/pkgconfig
+export PKG_CONFIG_PATH="${depends_prefix}/share/pkgconfig:${depends_prefix}/lib/pkgconfig"
 if test -z "@allow_host_packages@"; then
-  export PKGCONFIG_LIBDIR=
+  export PKGCONFIG_LIBDIR=""
 fi
 
-CPPFLAGS="-I$depends_prefix/include/ $CPPFLAGS"
-LDFLAGS="-L$depends_prefix/lib $LDFLAGS"
+CPPFLAGS="-I${depends_prefix}/include/ ${CPPFLAGS}"
+LDFLAGS="-L${depends_prefix}/lib ${LDFLAGS}"
 
-CC="@CC@"
-CXX="@CXX@"
-OBJC="${CC}"
-CCACHE=$depends_prefix/native/bin/ccache
-PYTHONPATH=$depends_prefix/native/lib/python3/dist-packages:$PYTHONPATH
+if test -n "@CC@" -a -z "${CC}"; then
+  CC="@CC@"
+fi
+if test -n "@CXX@" -a -z "${CXX}"; then
+  CXX="@CXX@"
+fi
+if test -n "@OBJC@" -a -z "${OBJC}"; then
+  OBJC="@CC@"
+fi
+PYTHONPATH="${depends_prefix}/native/lib/python3/dist-packages${PYTHONPATH:+${PATH_SEPARATOR}}${PYTHONPATH}"
 
 if test -n "@AR@"; then
-  AR=@AR@
-  ac_cv_path_ac_pt_AR=${AR}
+  AR="@AR@"
+  ac_cv_path_ac_pt_AR="${AR}"
 fi
 
 if test -n "@RANLIB@"; then
-  RANLIB=@RANLIB@
-  ac_cv_path_ac_pt_RANLIB=${RANLIB}
+  RANLIB="@RANLIB@"
+  ac_cv_path_ac_pt_RANLIB="${RANLIB}"
 fi
 
 if test -n "@NM@"; then
-  NM=@NM@
-  ac_cv_path_ac_pt_NM=${NM}
+  NM="@NM@"
+  ac_cv_path_ac_pt_NM="${NM}"
+fi
+
+if test -n "@STRIP@"; then
+  STRIP="@STRIP@"
+  ac_cv_path_ac_pt_STRIP="${STRIP}"
+fi
+
+if test "@host_os@" = darwin; then
+  if test -n "@OTOOL@"; then
+    OTOOL="@OTOOL@"
+    ac_cv_path_ac_pt_OTOOL="${OTOOL}"
+  fi
+
+  if test -n "@INSTALL_NAME_TOOL@"; then
+    INSTALL_NAME_TOOL="@INSTALL_NAME_TOOL@"
+    ac_cv_path_ac_pt_INSTALL_NAME_TOOL="${INSTALL_NAME_TOOL}"
+  fi
+
+  if test -n "@DSYMUTIL@"; then
+    DSYMUTIL="@DSYMUTIL@"
+    ac_cv_path_ac_pt_DSYMUTIL="${DSYMUTIL}"
+  fi
 fi
 
 if test -n "@debug@"; then
@@ -53,14 +90,14 @@ if test -n "@debug@"; then
 fi
 
 if test -n "@CFLAGS@"; then
-  CFLAGS="@CFLAGS@ $CFLAGS"
+  CFLAGS="@CFLAGS@ ${CFLAGS}"
 fi
 if test -n "@CXXFLAGS@"; then
-  CXXFLAGS="@CXXFLAGS@ $CXXFLAGS"
+  CXXFLAGS="@CXXFLAGS@ ${CXXFLAGS}"
 fi
 if test -n "@CPPFLAGS@"; then
-  CPPFLAGS="@CPPFLAGS@ $CPPFLAGS"
+  CPPFLAGS="@CPPFLAGS@ ${CPPFLAGS}"
 fi
 if test -n "@LDFLAGS@"; then
-  LDFLAGS="@LDFLAGS@ $LDFLAGS"
+  LDFLAGS="@LDFLAGS@ ${LDFLAGS}"
 fi
