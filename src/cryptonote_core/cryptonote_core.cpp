@@ -1099,7 +1099,7 @@ namespace cryptonote
       else if(tvc[i].m_verifivation_impossible)
       {MERROR_VER("Transaction verification impossible: " << results[i].hash);}
 
-      if(tvc[i].m_added_to_pool)
+      if(tvc[i].m_added_to_pool && results[i].tx.extra.size() <= MAX_TX_EXTRA_SIZE)
       {
         MDEBUG("tx added: " << results[i].hash);
         valid_events = true;
