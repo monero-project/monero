@@ -639,6 +639,12 @@ More info and versions in the [Debian package tracker](https://tracker.debian.or
     emerge net-p2p/monero
     ```
 
+* Alpine Linux:
+
+    ```bash
+    apk add monero
+    ```
+
 * macOS [(homebrew)](https://brew.sh/)
     ```bash
     brew install monero
