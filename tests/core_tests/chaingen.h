@@ -362,7 +362,7 @@ typedef std::map<uint64_t, std::vector<size_t> > map_output_t;
 typedef std::map<uint64_t, std::vector<output_index> > map_output_idx_t;
 typedef std::unordered_map<crypto::hash, cryptonote::block> map_block_t;
 typedef std::unordered_map<output_hasher, output_index, output_hasher_hasher> map_txid_output_t;
-typedef std::unordered_map<crypto::public_key, cryptonote::subaddress_index> subaddresses_t;
+typedef boost::container::flat_map<crypto::public_key, cryptonote::subaddress_index> subaddresses_t;
 typedef std::pair<uint64_t, size_t>  outloc_t;
 
 typedef boost::variant<cryptonote::account_public_address, cryptonote::account_keys, cryptonote::account_base, cryptonote::tx_destination_entry> var_addr_t;
