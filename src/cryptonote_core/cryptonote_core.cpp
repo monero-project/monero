@@ -1240,41 +1240,47 @@ namespace cryptonote
     return m_mempool.check_for_key_images(key_im, spent);
   }
   //-----------------------------------------------------------------------------------------------
-  std::tuple<uint64_t, uint64_t, uint64_t> core::get_coinbase_tx_sum(const uint64_t start_offset, const size_t count)
+  std::tuple<uint64_t, uint64_t, uint64_t, uint64_t> core::get_coinbase_tx_sum(const uint64_t start_offset, const size_t count)
   {
     uint64_t emission_amount = 0;
     uint64_t total_fee_amount = 0;
     uint64_t burnt_xeq = 0;
+    uint64_t token_swap = 0;
     if (count)
     {
       const uint64_t end = start_offset + count - 1;
       m_blockchain_storage.for_blocks_range(start_offset, end,
-        [this, &emission_amount, &total_fee_amount, &burnt_xeq](uint64_t, const crypto::hash& hash, const block& b){
+        [this, &emission_amount, &total_fee_amount, &burnt_xeq, &token_swap](uint64_t, const crypto::hash& hash, const block& b){
 		  std::vector <transaction> txs;
       std::vector<crypto::hash> missed_txs;
       uint64_t coinbase_amount = get_outs_money_amount(b.miner_tx);
       this->get_transactions(b.tx_hashes, txs, missed_txs);
       uint64_t tx_fee_amount = 0;
+      uint64_t b_xeq = 0;
       for(const auto& tx: txs)
       {
         tx_fee_amount += get_tx_miner_fee(tx, b.major_version >= HF_VERSION_FEE_BURNING);
         if(b.major_version >= HF_VERSION_FEE_BURNING)
         {
-          burnt_xeq += get_burned_amount_from_tx_extra(tx.extra);
+          b_xeq += get_burned_amount_from_tx_extra(tx.extra);
         }
       }
 
-      emission_amount += coinbase_amount - tx_fee_amount;
+      emission_amount += coinbase_amount - (tx_fee_amount + b_xeq);
       total_fee_amount += tx_fee_amount;
-      if(b.major_version >= 17)
-      {
-        emission_amount -= (uint64_t)0x1176592e000;
-      }
+      burnt_xeq += b_xeq;
       return true;
       });
+
+      const uint8_t hf_ver = m_blockchain_storage.get_current_hard_fork_version();
+      if (hf_ver > 16)
+      {
+        emission_amount -= (uint64_t)0x1176592e000;
+        token_swap += (uint64_t)0x2e90edd000;
+      }
     }
 
-    return std::tuple<uint64_t, uint64_t, uint64_t>(burnt_xeq, emission_amount, total_fee_amount);
+    return std::tuple<uint64_t, uint64_t, uint64_t, uint64_t>(burnt_xeq, emission_amount, total_fee_amount, token_swap);
   }
   //-----------------------------------------------------------------------------------------------
   bool core::check_tx_inputs_keyimages_diff(const transaction& tx) const

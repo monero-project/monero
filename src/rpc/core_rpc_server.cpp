@@ -2777,10 +2777,11 @@ namespace cryptonote
       return true;
     }
     CHECK_PAYMENT_MIN1(req, res, COST_PER_COINBASE_TX_SUM_BLOCK * req.count, false);
-    std::tuple<uint64_t, uint64_t, uint64_t> amounts = m_core.get_coinbase_tx_sum(req.height, req.count);
+    std::tuple<uint64_t, uint64_t, uint64_t, uint64_t> amounts = m_core.get_coinbase_tx_sum(req.height, req.count);
     res.emission_amount = std::get<1>(amounts);
     res.fee_amount = std::get<2>(amounts);
     res.burn_amount = std::get<0>(amounts);
+    res.token_amount = std::get<3>(amounts);
     res.status = CORE_RPC_STATUS_OK;
     return true;
   }

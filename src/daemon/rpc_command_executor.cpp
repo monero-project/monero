@@ -1954,12 +1954,14 @@ bool t_rpc_command_executor::print_coinbase_tx_sum(uint64_t height, uint64_t cou
     }
   }
 
-  tools::msg_writer() << "Sum of coinbase transactions between block heights ["
+  tools::msg_writer() << "Sum of coinbase transactions between block heights ("
     << height << ", " << (height + count) << ") is "
-    << cryptonote::print_money(res.emission_amount + res.fee_amount) << " "
+    << cryptonote::print_money(res.emission_amount + res.fee_amount) << " \n"
     << "consisting of " << cryptonote::print_money(res.emission_amount)
-    << " in emissions, and " << cryptonote::print_money(res.fee_amount)
-    << " in fees, and " << cryptonote::print_money(res.burn_amount) << " was burnt.";
+    << " in emissions,\nand " << cryptonote::print_money(res.fee_amount)
+    << " in fees,\nand " << cryptonote::print_money(res.burn_amount)
+    << " was burnt,\nand " << cryptonote::print_money(res.token_amount)
+    << " was locked at cross-chain bridge.";
   return true;
 }
 
