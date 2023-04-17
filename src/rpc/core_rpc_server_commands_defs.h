@@ -2528,12 +2528,14 @@ namespace cryptonote
       uint64_t emission_amount;
       uint64_t fee_amount;
       uint64_t burn_amount;
+      uint64_t token_amount;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_access_response_base)
         KV_SERIALIZE(emission_amount)
         KV_SERIALIZE(fee_amount)
         KV_SERIALIZE(burn_amount)
+        KV_SERIALIZE(token_amount)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;
