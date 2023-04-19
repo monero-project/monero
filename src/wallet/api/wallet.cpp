@@ -2048,7 +2048,7 @@ std::string WalletImpl::getReserveProof(bool all, uint32_t account_index, uint64
         {
             account_minreserve = std::make_pair(account_index, amount);
         }
-        return m_wallet->get_reserve_proof(account_minreserve, message);
+        return m_wallet->get_reserve_proof(account_minreserve, boost::none, message);
     }
     catch (const std::exception &e)
     {
@@ -2074,7 +2074,8 @@ bool WalletImpl::checkReserveProof(const std::string &address, const std::string
     try
     {
         clearStatus();
-        good = m_wallet->check_reserve_proof(info.address, message, signature, total, spent);
+        uint64_t actual_blockchain_height;
+        good = m_wallet->check_reserve_proof(info.address, boost::none, message, signature, total, spent, actual_blockchain_height);
         return true;
     }
     catch (const std::exception &e)
