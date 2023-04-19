@@ -2383,6 +2383,7 @@ bool simple_wallet::start_mining_for_rpc(const std::vector<std::string> &args)
   }
 
   m_rpc_payment_mining_requested = true;
+  m_rpc_payment_mining_manual_stop.store(false, std::memory_order_relaxed);
   m_rpc_payment_checker.trigger();
   const float cph = credits_per_hash_found / (float)diff;
   bool low = (diff > MAX_PAYMENT_DIFF || cph < MIN_PAYMENT_RATE);
@@ -2400,6 +2401,7 @@ bool simple_wallet::stop_mining_for_rpc(const std::vector<std::string> &args)
   m_rpc_payment_mining_requested = false;
   m_last_rpc_payment_mining_time = boost::posix_time::ptime(boost::gregorian::date(1970, 1, 1));
   m_rpc_payment_hash_rate = -1.0f;
+  m_rpc_payment_mining_manual_stop.store(true, std::memory_order_relaxed);
   return true;
 }
 
@@ -3252,6 +3254,7 @@ simple_wallet::simple_wallet()
   , m_daemon_rpc_payment_message_displayed(false)
   , m_rpc_payment_hash_rate(-1.0f)
   , m_suspend_rpc_payment_mining(false)
+  , m_rpc_payment_mining_manual_stop(false)
 {
   m_cmd_binder.set_handler("start_mining",
                            boost::bind(&simple_wallet::on_command, this, &simple_wallet::start_mining, _1),
@@ -9378,7 +9381,8 @@ bool simple_wallet::check_rpc_payment()
     };
     auto contfunc = [&,this](unsigned n_hashes)
     {
-      if (m_suspend_rpc_payment_mining.load(std::memory_order_relaxed))
+      if (m_suspend_rpc_payment_mining.load(std::memory_order_relaxed)
+        || m_rpc_payment_mining_manual_stop.load(std::memory_order_relaxed))
         return false;
       const boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
       m_last_rpc_payment_mining_time = now;
