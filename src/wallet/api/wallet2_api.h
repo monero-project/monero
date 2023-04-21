@@ -125,6 +125,8 @@ struct PendingTransaction
      * @return vector of base58-encoded signers' public keys
      */
     virtual std::vector<std::string> signersKeys() const = 0;
+    virtual std::vector<std::string> hex() const = 0;
+    virtual std::vector<std::string> txKey() const = 0;
 };
 
 /**
