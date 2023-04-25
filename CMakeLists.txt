@@ -412,7 +412,7 @@ if (CMAKE_BUILD_TYPE STREQUAL "Debug")
 else()
   set(DEFAULT_BUILD_DEBUG_UTILITIES OFF)
 endif()
-option(BUILD_DEBUG_UTILITIES "Build debug utilities." DEFAULT_BUILD_DEBUG_UTILITIES)
+option(BUILD_DEBUG_UTILITIES "Build debug utilities." ${DEFAULT_BUILD_DEBUG_UTILITIES})
 
 if(OSSFUZZ)
   message(STATUS "Using OSS-Fuzz fuzzing system")
