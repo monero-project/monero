@@ -91,7 +91,7 @@ namespace tools
     //         is_key_image_spent_error
     //         get_histogram_error
     //         get_output_distribution
-    //         payment_required
+    //         deprecated_rpc_access
     //       wallet_files_doesnt_correspond
     //
     // * - class with protected ctor
@@ -865,10 +865,11 @@ namespace tools
       }
     };
     //----------------------------------------------------------------------------------------------------
-    struct payment_required: public wallet_rpc_error
+    struct deprecated_rpc_access: public wallet_rpc_error
     {
-      explicit payment_required(std::string&& loc, const std::string& request)
-        : wallet_rpc_error(std::move(loc), "payment required", request)
+      // The daemon we connected to has enabled the old pay-to-access RPC feature
+      explicit deprecated_rpc_access(std::string&& loc, const std::string& request)
+        : wallet_rpc_error(std::move(loc), "daemon requires deprecated RPC payment", request)
       {
       }
     };
