@@ -218,3 +218,59 @@ TEST(select_outputs, same_distribution)
   MDEBUG("avg_dev: " << avg_dev);
   ASSERT_LT(avg_dev, 0.02);
 }
+
+TEST(select_outputs, exact_unlock_block)
+{
+  std::vector<uint64_t> offsets;
+  MKOFFSETS(300000, 1 + (crypto::rand<size_t>() & 0x1f));
+  tools::gamma_picker picker(offsets);
+
+  // Calculate output offset ranges for the very first block that is spendable.
+  // Since gamma_picker is passed data for EXISTING blocks. The last block it can select outputs
+  // from *inclusive* that is allowed by consensus is the
+  // -(CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE - 1)th block passed to the gamma picker.
+  // In the case that there is not unlock time limit enforced by the protocol, this pointer would
+  // point to rct_offsets.end() [the address of the element after the last existing element]
+  const uint64_t* const first_block_too_young = offsets.data() + offsets.size() - (std::max(CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE, 1) - 1);
+  const uint64_t exact_block_offsets_start_inclusive = *(first_block_too_young - 2);
+  const uint64_t exact_block_offsets_stop_exclusive = *(first_block_too_young - 1);
+
+  // if too low we may fail by not picking exact block
+  // if too high test is not as senstive as it could be
+  constexpr size_t NUM_PICK_TESTS = 1 << 20;
+
+  bool picked_exact_unlock_block = false;
+  for (size_t i = 0; i < NUM_PICK_TESTS; ++i)
+  {
+    const uint64_t picked_i = picker.pick();
+    if (picked_i >= n_outs) // routine bad pick, handle by looping
+      continue;
+
+    ASSERT_LT(picked_i, exact_block_offsets_stop_exclusive); // This pick is too young
+
+    if (picked_i >= exact_block_offsets_start_inclusive)
+    {
+      // this pick is for the youngest valid spendable block
+      picked_exact_unlock_block = true;
+      break;
+    }
+  }
+
+  EXPECT_TRUE(picked_exact_unlock_block);
+}
+
+TEST(select_outputs, exact_unlock_block_tiny)
+{
+  // Create chain of length CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE where there is one output in block 0
+  std::vector<uint64_t> offsets(std::max(CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE, 1), 0);
+  offsets[0] = 1;
+  tools::gamma_picker picker(offsets);
+
+  constexpr size_t MAX_PICK_TRIES = 10;
+  bool found_the_one_output = false;
+  for (size_t i = 0; i < MAX_PICK_TRIES; ++i)
+    if (picker.pick() == 0)
+      found_the_one_output = true;
+
+  EXPECT_TRUE(found_the_one_output);
+}

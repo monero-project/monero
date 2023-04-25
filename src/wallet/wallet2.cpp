@@ -1001,7 +1001,7 @@ gamma_picker::gamma_picker(const std::vector<uint64_t> &rct_offsets, double shap
     rct_offsets(rct_offsets)
 {
   gamma = std::gamma_distribution<double>(shape, scale);
-  THROW_WALLET_EXCEPTION_IF(rct_offsets.size() <= CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE, error::wallet_internal_error, "Bad offset calculation");
+  THROW_WALLET_EXCEPTION_IF(rct_offsets.size() < std::max(1, CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE), error::wallet_internal_error, "Bad offset calculation");
   const size_t blocks_in_a_year = 86400 * 365 / DIFFICULTY_TARGET_V2;
   const size_t blocks_to_consider = std::min<size_t>(rct_offsets.size(), blocks_in_a_year);
   const size_t outputs_to_consider = rct_offsets.back() - (blocks_to_consider < rct_offsets.size() ? rct_offsets[rct_offsets.size() - blocks_to_consider - 1] : 0);
@@ -8446,7 +8446,7 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
     if (has_rct)
     {
       // check we're clear enough of rct start, to avoid corner cases below
-      THROW_WALLET_EXCEPTION_IF(rct_offsets.size() <= CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE,
+      THROW_WALLET_EXCEPTION_IF(rct_offsets.size() < std::max(1, CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE),
           error::get_output_distribution, "Not enough rct outputs");
       THROW_WALLET_EXCEPTION_IF(rct_offsets.back() <= max_rct_index,
           error::get_output_distribution, "Daemon reports suspicious number of rct outputs");
