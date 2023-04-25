@@ -1067,7 +1067,7 @@ std::string get_nix_version_display_string()
     time_t tt = ts;
     struct tm tm;
     misc_utils::get_gmt_time(tt, tm);
-    strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", &tm);
+    strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%SZ", &tm);
     return std::string(buffer);
   }
 
