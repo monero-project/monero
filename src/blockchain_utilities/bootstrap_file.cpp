@@ -28,7 +28,6 @@
 
 #include "bootstrap_serialization.h"
 #include "serialization/binary_utils.h" // dump_binary(), parse_binary()
-#include "serialization/json_utils.h" // dump_json()
 
 #include "bootstrap_file.h"
 
