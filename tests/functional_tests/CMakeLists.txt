@@ -50,20 +50,6 @@ target_link_libraries(functional_tests
     ${CMAKE_THREAD_LIBS_INIT}
     ${EXTRA_LIBRARIES})
 
-set(make_test_signature_sources
-  make_test_signature.cc)
-
-monero_add_minimal_executable(make_test_signature
-  ${make_test_signature_sources})
-
-target_link_libraries(make_test_signature
-  PRIVATE
-    rpc_base
-    cncrypto
-    epee
-    ${CMAKE_THREAD_LIBS_INIT}
-    ${EXTRA_LIBRARIES})
-
 monero_add_minimal_executable(cpu_power_test cpu_power_test.cpp)
 find_program(PYTHON3_FOUND python3 REQUIRED)
 

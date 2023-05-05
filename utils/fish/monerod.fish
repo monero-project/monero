@@ -107,7 +107,3 @@ complete -c monerod -l rpc-ssl-allowed-fingerprints -r -d "List of certificate f
 complete -c monerod -l rpc-ssl-allow-chained -d "Allow user (via --rpc-ssl-certificates) chain certificates"
 complete -c monerod -l disable-rpc-ban -d "Do not ban hosts on RPC errors"
 complete -c monerod -l rpc-ssl-allow-any-cert -d "Allow any peer certificate"
-complete -c monerod -l rpc-payment-address -r -d "Restrict RPC to clients sending micropayment to this address"
-complete -c monerod -l rpc-payment-difficulty -r -d "Restrict RPC to clients sending micropayment at this difficulty. Default: 1000"
-complete -c monerod -l rpc-payment-credits -r -d "Restrict RPC to clients sending micropayment, yields that many credits per payment. Default: 100"
-complete -c monerod -l rpc-payment-allow-free-loopback -d "Allow free access from the loopback address (ie, the local host)"

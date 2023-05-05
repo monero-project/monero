@@ -170,8 +170,6 @@ public:
     const std::string &password,
     const std::string &proxy);
 
-  bool rpc_payments();
-
   bool flush_cache(bool bad_txs, bool invalid_blocks);
 };
 

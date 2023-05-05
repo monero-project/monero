@@ -944,16 +944,6 @@ bool t_command_parser_executor::pop_blocks(const std::vector<std::string>& args)
   return true;
 }
 
-bool t_command_parser_executor::rpc_payments(const std::vector<std::string>& args)
-{
-  if (args.size() != 0) {
-    std::cout << "Invalid syntax: No parameters expected. For more details, use the help command." << std::endl;
-    return true;
-  }
-
-  return m_executor.rpc_payments();
-}
-
 bool t_command_parser_executor::version(const std::vector<std::string>& args)
 {
   return m_executor.version();
