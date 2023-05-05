@@ -21,12 +21,10 @@ namespace cryptonote
   public:
     bootstrap_daemon(
       std::function<std::map<std::string, bool>()> get_public_nodes,
-      bool rpc_payment_enabled,
       const std::string &proxy);
     bootstrap_daemon(
       const std::string &address,
       boost::optional<epee::net_utils::http::login> credentials,
-      bool rpc_payment_enabled,
       const std::string &proxy);
 
     std::string address() const noexcept;
@@ -82,7 +80,6 @@ namespace cryptonote
 
   private:
     net::http::client m_http_client;
-    const bool m_rpc_payment_enabled;
     const std::unique_ptr<bootstrap_node::selector> m_selector;
     boost::mutex m_selector_mutex;
   };
