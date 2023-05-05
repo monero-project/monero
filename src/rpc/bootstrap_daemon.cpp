@@ -17,10 +17,8 @@ namespace cryptonote
 
   bootstrap_daemon::bootstrap_daemon(
     std::function<std::map<std::string, bool>()> get_public_nodes,
-    bool rpc_payment_enabled,
     const std::string &proxy)
     : m_selector(new bootstrap_node::selector_auto(std::move(get_public_nodes)))
-    , m_rpc_payment_enabled(rpc_payment_enabled)
   {
     set_proxy(proxy);
   }
@@ -28,10 +26,8 @@ namespace cryptonote
   bootstrap_daemon::bootstrap_daemon(
     const std::string &address,
     boost::optional<epee::net_utils::http::login> credentials,
-    bool rpc_payment_enabled,
     const std::string &proxy)
     : m_selector(nullptr)
-    , m_rpc_payment_enabled(rpc_payment_enabled)
   {
     set_proxy(proxy);
     if (!set_server(address, std::move(credentials)))
@@ -70,7 +66,7 @@ namespace cryptonote
 
   bool bootstrap_daemon::handle_result(bool success, const std::string &status)
   {
-    const bool failed = !success || (!m_rpc_payment_enabled && status == CORE_RPC_STATUS_PAYMENT_REQUIRED);
+    const bool failed = !success || (status == CORE_RPC_STATUS_PAYMENT_REQUIRED);
     if (failed && m_selector)
     {
       const std::string current_address = address();

@@ -75,45 +75,6 @@ std::unique_ptr<RpcServerBundle> initialise_rpc_server(cryptonote::core& dummy_c
   bundle->dummy_p2p = std::make_unique<nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core>>>(*bundle->proto_handler);
   bundle->rpc = std::make_unique<cryptonote::core_rpc_server>(dummy_core, *bundle->dummy_p2p);
 
-  // Set up dummy variable map for rpc initialisation with payment
-  if (need_payment) {
-    boost::program_options::variables_map vm;
-    boost::program_options::options_description desc{"fuzz"};
-    command_line::add_arg(desc, cryptonote::arg_data_dir);
-    command_line::add_arg(desc, cryptonote::arg_testnet_on);
-    command_line::add_arg(desc, cryptonote::arg_stagenet_on);
-    cryptonote::core_rpc_server::init_options(desc);
-
-    // Generate random address and use it if it is a valid address with valid format
-    std::string address_arg;
-    if (provider.remaining_bytes() > 95) {
-      std::string random_str = provider.ConsumeBytesAsString(95);
-      if (!random_str.empty() && std::all_of(random_str.begin(), random_str.end(), [](char c) {
-            return isalnum(c);
-          })) {
-        address_arg = "--rpc-payment-address=" + random_str;
-      }
-    }
-
-    // Fall back to default hardcoded address if generated address is invalid
-    if (address_arg.empty()) {
-      address_arg = "--rpc-payment-address=44AFFq5kSiGBoZKfRLKFY7bUuS5JxqLkZ3Zf1diYv5ZdfTP7hS5gZtSGdgjNXmYGFzRiV3yTgF8Yf4zrhGcq14D3z8PUnHT";
-    }
-
-    // Provide needed payment related configuration for init of core_rpc_server
-    std::vector<const char*> argv = {
-      "fuzz",
-      address_arg.c_str()
-    };
-    boost::program_options::store(boost::program_options::parse_command_line(argv.size(), argv.data(), desc), vm);
-    boost::program_options::notify(vm);
-    bool success = bundle->rpc->init(vm, true, "18089", true, "");
-    if (!success) {
-      // Revert back to a fresh core_rpc_server if payment module init is failed
-      bundle->rpc = std::make_unique<cryptonote::core_rpc_server>(dummy_core, *bundle->dummy_p2p);
-    }
-  }
-
   return bundle;
 }
 

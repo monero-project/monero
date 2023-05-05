@@ -13,7 +13,7 @@ USAGE = 'usage: functional_tests_rpc.py <python> <srcdir> <builddir> [<tests-to-
 DEFAULT_TESTS = [
   'address_book', 'bans', 'blockchain', 'cold_signing', 'daemon_info', 'get_output_distribution',
   'http_digest_auth', 'integrated_address', 'k_anonymity', 'mining', 'multisig', 'p2p', 'proofs',
-  'rpc_payment', 'sign_message', 'transfer', 'txpool', 'uri', 'validate_address', 'wallet'
+  'sign_message', 'transfer', 'txpool', 'uri', 'validate_address', 'wallet'
 ]
 try:
   python = sys.argv[1]
@@ -39,7 +39,6 @@ except:
   tests = DEFAULT_TESTS
 
 # a main offline monerod, does most of the tests
-# a restricted RPC monerod setup with RPC payment
 # two local online monerods connected to each other
 N_MONERODS = 5
 
@@ -56,7 +55,7 @@ monerod_base = [builddir + "/bin/monerod", "--regtest", "--fixed-difficulty", st
 
 monerod_extra = [
   ["--offline"],
-  ["--rpc-payment-address", "44SKxxLQw929wRF6BA9paQ1EWFshNnKhXM3qz6Mo3JGDE2YG3xyzVutMStEicxbQGRfrYvAAYxH6Fe8rnD56EaNwUiqhcwR", "--rpc-payment-difficulty", str(DIFFICULTY), "--rpc-payment-credits", "5000", "--offline"],
+  ["--offline"],
   ["--add-exclusive-node", "127.0.0.1:18283"],
   ["--add-exclusive-node", "127.0.0.1:18282"],
   ["--rpc-login", "md5_lover:Z1ON0101", "--offline"],
