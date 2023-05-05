@@ -1,0 +1,50 @@
+[Unit]
+Description=Monero Full Node
+After=network.target
+
+[Service]
+User=monero
+Group=monero
+WorkingDirectory=/var/lib/monero
+Type=simple
+ExecStart=/usr/local/bin/monerod --config-file /etc/monero/monerod.conf --non-interactive
+Environment="MONERO_RANDOMX_UMASK=8" # Disable RandomX JIT, needed for MemoryDenyWriteExecute=yes
+Environment="MONERO_RANDOMX_FULL_MEM=1" # Use full dataset to speed up verification
+Environment="LD_PRELOAD=/usr/local/lib/libhardened_malloc_default.so" # Protect from memory vulnerabilities, check https://github.com/GrapheneOS/hardened_malloc
+
+Restart=always
+RestartSec=5
+
+RemoveIPC=yes
+NoNewPrivileges=yes
+PrivateDevices=yes
+ProtectClock=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectKernelModules=yes
+SystemCallArchitectures=native
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+ProtectHostname=yes
+LockPersonality=yes
+ProtectKernelTunables=yes
+ProtectSystem=strict
+ReadWritePaths=/var/lib/monero /var/log/monero
+ProtectProc=invisible
+ProcSubset=pid
+ProtectHome=yes
+PrivateUsers=yes
+PrivateTmp=yes
+RestrictAddressFamilies=AF_INET AF_INET6
+RestrictRealtime=yes
+MemoryDenyWriteExecute=yes
+
+UMask=077 # We could use 177 but monerod need to create the lmdb dir
+CapabilityBoundingSet=
+SystemCallFilter=@system-service # Could be futher restricted with a custom syscall list
+SystemCallFilter=~ @resources @privileged memfd_create # memfd_create forbidden following systemd recommendations
+InaccessiblePaths=/dev/shm # follow recommendations here: https://www.freedesktop.org/software/systemd/man/systemd.exec.html#MemoryDenyWriteExecute=
+MemoryMax=8G # Cannot be set much smaller than 4GB without risking to crash the daemon, any free RAM will be used for LMDB caching, thus improving performance
+
+[Install]
+WantedBy=multi-user.target
