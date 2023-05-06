@@ -30,6 +30,7 @@
 
 #include <boost/utility/string_ref_fwd.hpp>
 #include <string>
+#include <cstdint>
 
 namespace epee 
 {
