@@ -8,9 +8,6 @@ Group=monero
 WorkingDirectory=/var/lib/monero
 Type=simple
 ExecStart=/usr/local/bin/monerod --config-file /etc/monero/monerod.conf --non-interactive
-Environment="MONERO_RANDOMX_UMASK=8" # Disable RandomX JIT, needed for MemoryDenyWriteExecute=yes
-Environment="MONERO_RANDOMX_FULL_MEM=1" # Use full dataset to speed up verification
-Environment="LD_PRELOAD=/usr/local/lib/libhardened_malloc_default.so" # Protect from memory vulnerabilities, check https://github.com/GrapheneOS/hardened_malloc
 
 Restart=always
 RestartSec=5
@@ -37,14 +34,30 @@ PrivateUsers=yes
 PrivateTmp=yes
 RestrictAddressFamilies=AF_INET AF_INET6
 RestrictRealtime=yes
-MemoryDenyWriteExecute=yes
 
 UMask=077 # We could use 177 but monerod need to create the lmdb dir
 CapabilityBoundingSet=
 SystemCallFilter=@system-service # Could be futher restricted with a custom syscall list
 SystemCallFilter=~ @resources @privileged memfd_create # memfd_create forbidden following systemd recommendations
 InaccessiblePaths=/dev/shm # follow recommendations here: https://www.freedesktop.org/software/systemd/man/systemd.exec.html#MemoryDenyWriteExecute=
-MemoryMax=8G # Cannot be set much smaller than 4GB without risking to crash the daemon, any free RAM will be used for LMDB caching, thus improving performance
+
+## Protect from memory vulnerabilities, cause a performance hit
+## Check https://github.com/GrapheneOS/hardened_malloc
+## The performance hit can be mitigated with MONERO_RANDOMX_FULL_MEM=1
+# Environment="LD_PRELOAD=/usr/local/lib/libhardened_malloc_default.so"
+
+## Protect from memory vulnerabilities, cause a performance hit
+## The performance hit can be mitigated with MONERO_RANDOMX_FULL_MEM=1
+# MemoryDenyWriteExecute=yes
+# Environment="MONERO_RANDOMX_UMASK=8" # Disable RandomX JIT, needed for MemoryDenyWriteExecute=yes
+
+## Use full RandomX dataset, speed up verification
+# Environment="MONERO_RANDOMX_FULL_MEM=1"
+
+## Can be used to protect the system from a monerod trigerred OOM
+## Cannot be set much smaller than 4GB without risking to crash the daemon
+## Any free RAM will be used for LMDB caching, thus improving performance
+# MemoryMax=8G
 
 [Install]
 WantedBy=multi-user.target
