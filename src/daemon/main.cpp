@@ -143,7 +143,6 @@ int main(int argc, char const * argv[])
 
       command_line::add_arg(visible_options, command_line::arg_help);
       command_line::add_arg(visible_options, command_line::arg_version);
-      command_line::add_arg(visible_options, daemon_args::arg_os_version);
       command_line::add_arg(visible_options, daemon_args::arg_config_file);
 
       // Settings
@@ -200,13 +199,6 @@ int main(int argc, char const * argv[])
     if (command_line::get_arg(vm, command_line::arg_version))
     {
       std::cout << "Monero '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")" << ENDL;
-      return 0;
-    }
-
-    // OS
-    if (command_line::get_arg(vm, daemon_args::arg_os_version))
-    {
-      std::cout << "OS: " << tools::get_os_version_string() << ENDL;
       return 0;
     }
 
