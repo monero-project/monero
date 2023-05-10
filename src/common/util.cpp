@@ -882,13 +882,6 @@ std::string get_nix_version_display_string()
 
   bool is_local_address(const std::string &address)
   {
-    // always assume Tor/I2P addresses to be untrusted by default
-    if (is_privacy_preserving_network(address))
-    {
-      MDEBUG("Address '" << address << "' is Tor/I2P, non local");
-      return false;
-    }
-
     // extract host
     epee::net_utils::http::url_content u_c;
     if (!epee::net_utils::parse_url(address, u_c))
@@ -899,6 +892,13 @@ std::string get_nix_version_display_string()
     if (u_c.host.empty())
     {
       MWARNING("Failed to determine whether address '" << address << "' is local, assuming not");
+      return false;
+    }
+
+    // always assume Tor/I2P addresses to be untrusted by default
+    if (is_privacy_preserving_network(u_c.host))
+    {
+      MDEBUG("Address '" << address << "' is Tor/I2P, non local");
       return false;
     }
 
