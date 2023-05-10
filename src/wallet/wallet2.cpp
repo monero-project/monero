@@ -437,6 +437,8 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
       std::string{"Invalid address specified for --"} + opts.proxy.name);
   }
 
+  bool use_dns = !command_line::get_arg(vm, opts.no_dns);
+
   boost::optional<bool> trusted_daemon;
   if (!command_line::is_arg_defaulted(vm, opts.trusted_daemon) || !command_line::is_arg_defaulted(vm, opts.untrusted_daemon))
     trusted_daemon = command_line::get_arg(vm, opts.trusted_daemon) && !command_line::get_arg(vm, opts.untrusted_daemon);
@@ -449,7 +451,7 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
     try
     {
       trusted_daemon = false;
-      if (tools::is_local_address(daemon_address))
+      if (tools::is_local_address(daemon_address, use_dns))
       {
         MINFO(tools::wallet2::tr("Daemon is local, assuming trusted"));
         trusted_daemon = true;
@@ -468,9 +470,7 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
   wallet->get_message_store().set_options(vm);
   wallet->device_name(device_name);
   wallet->device_derivation_path(device_derivation_path);
-
-  if (command_line::get_arg(vm, opts.no_dns))
-    wallet->enable_dns(false);
+  wallet->enable_dns(use_dns);
 
   if (command_line::get_arg(vm, opts.offline))
     wallet->set_offline();

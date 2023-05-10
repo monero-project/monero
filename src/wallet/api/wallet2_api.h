@@ -49,7 +49,7 @@ enum NetworkType : uint8_t {
 };
 
     namespace Utils {
-        bool isAddressLocal(const std::string &hostaddr);
+        bool isAddressLocal(const std::string &hostaddr, bool use_dns = false);
         void onStartup();
     }
 

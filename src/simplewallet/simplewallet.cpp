@@ -5328,7 +5328,7 @@ bool simple_wallet::set_daemon(const std::vector<std::string>& args)
       }
     }
 
-    if (!tools::is_privacy_preserving_network(parsed.host) && !tools::is_local_address(parsed.host))
+    if (!tools::is_privacy_preserving_network(parsed.host) && !tools::is_local_address(parsed.host, m_wallet->is_dns_enabled()))
     {
       if (trusted == "untrusted" || trusted == "")
       {
@@ -5353,7 +5353,7 @@ bool simple_wallet::set_daemon(const std::vector<std::string>& args)
       m_wallet->set_trusted_daemon(false);
       try
       {
-        if (tools::is_local_address(m_wallet->get_daemon_address()))
+        if (tools::is_local_address(m_wallet->get_daemon_address(), m_wallet->is_dns_enabled()))
         {
           MINFO(tr("Daemon is local, assuming trusted"));
           m_wallet->set_trusted_daemon(true);

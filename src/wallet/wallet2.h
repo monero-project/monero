@@ -1617,6 +1617,7 @@ private:
     uint64_t hash_m_transfers(boost::optional<uint64_t> transfer_height, crypto::hash &hash) const;
     void finish_rescan_bc_keep_key_images(uint64_t transfer_height, const crypto::hash &hash);
     void enable_dns(bool enable) { m_use_dns = enable; }
+    bool is_dns_enabled() { return m_use_dns; }
     void set_offline(bool offline = true);
     bool is_offline() const { return m_offline; }
 

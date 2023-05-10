@@ -38,10 +38,10 @@ using namespace std;
 namespace Monero {
 namespace Utils {
 
-bool isAddressLocal(const std::string &address)
+bool isAddressLocal(const std::string &address, bool use_dns)
 { 
     try {
-        return tools::is_local_address(address);
+        return tools::is_local_address(address, use_dns);
     } catch (const std::exception &e) {
         MERROR("error: " << e.what());
         return false;

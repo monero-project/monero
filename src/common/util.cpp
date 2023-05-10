@@ -880,7 +880,7 @@ std::string get_nix_version_display_string()
     return false;
   }
 
-  bool is_local_address(const std::string &address)
+  bool is_local_address(const std::string &address, bool use_dns)
   {
     // extract host
     epee::net_utils::http::url_content u_c;
@@ -899,6 +899,12 @@ std::string get_nix_version_display_string()
     if (is_privacy_preserving_network(u_c.host))
     {
       MDEBUG("Address '" << address << "' is Tor/I2P, non local");
+      return false;
+    }
+
+    if (!use_dns)
+    {
+      MDEBUG("Couldn't use DNS to determine if address '" << address << "' is local, assuming not");
       return false;
     }
 
