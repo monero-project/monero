@@ -437,7 +437,7 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
       std::string{"Invalid address specified for --"} + opts.proxy.name);
   }
 
-  bool use_dns = !command_line::get_arg(vm, opts.no_dns);
+  bool use_dns = !command_line::get_arg(vm, opts.no_dns) && !use_proxy;
 
   boost::optional<bool> trusted_daemon;
   if (!command_line::is_arg_defaulted(vm, opts.trusted_daemon) || !command_line::is_arg_defaulted(vm, opts.untrusted_daemon))

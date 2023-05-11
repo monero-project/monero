@@ -2293,6 +2293,8 @@ bool WalletImpl::doInit(const string &daemon_address, const std::string &proxy_a
     if (!m_wallet->init(daemon_address, m_daemon_login, proxy_address, upper_transaction_size_limit))
        return false;
 
+    m_wallet->enable_dns(proxy_address.empty());
+
     // in case new wallet, this will force fast-refresh (pulling hashes instead of blocks)
     // If daemon isn't synced a calculated block height will be used instead
     if (isNewWallet() && daemonSynced()) {
@@ -2303,7 +2305,7 @@ bool WalletImpl::doInit(const string &daemon_address, const std::string &proxy_a
     if (m_rebuildWalletCache)
       LOG_PRINT_L2(__FUNCTION__ << ": Rebuilding wallet cache, fast refresh until block " << m_wallet->get_refresh_from_block_height());
 
-    if (Utils::isAddressLocal(daemon_address)) {
+    if (Utils::isAddressLocal(daemon_address, m_wallet->is_dns_enabled())) {
         this->setTrustedDaemon(true);
         m_refreshIntervalMillis = DEFAULT_REFRESH_INTERVAL_MILLIS;
     } else {
