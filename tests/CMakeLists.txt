@@ -105,8 +105,6 @@ if (TREZOR_DEBUG)
   add_subdirectory(trezor)
 endif()
 
-# add_subdirectory(daemon_tests)
-
 set(hash_targets_sources
   hash-target.cpp)
 
