@@ -152,7 +152,6 @@ namespace cryptonote
     bool set_setup_background_mining(const std::vector<std::string> &args = std::vector<std::string>());
     bool set_device_name(const std::vector<std::string> &args = std::vector<std::string>());
     bool set_export_format(const std::vector<std::string> &args = std::vector<std::string>());
-    bool set_load_deprecated_formats(const std::vector<std::string> &args = std::vector<std::string>());
     bool set_enable_multisig(const std::vector<std::string> &args = std::vector<std::string>());
     bool help(const std::vector<std::string> &args = std::vector<std::string>());
     bool apropos(const std::vector<std::string> &args);

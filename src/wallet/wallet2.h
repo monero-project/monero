@@ -1338,8 +1338,6 @@ private:
     void device_derivation_path(const std::string &device_derivation_path) { m_device_derivation_path = device_derivation_path; }
     const ExportFormat & export_format() const { return m_export_format; }
     inline void set_export_format(const ExportFormat& export_format) { m_export_format = export_format; }
-    bool load_deprecated_formats() const { return m_load_deprecated_formats; }
-    void load_deprecated_formats(bool load) { m_load_deprecated_formats = load; }
     bool is_multisig_enabled() const { return m_enable_multisig; }
     void enable_multisig(bool enable) { m_enable_multisig = enable; }
     bool is_mismatched_daemon_version_allowed() const { return m_allow_mismatched_daemon_version; }
@@ -1853,7 +1851,6 @@ private:
     std::unique_ptr<wallet_device_callback> m_device_callback;
 
     ExportFormat m_export_format;
-    bool m_load_deprecated_formats;
 
     bool m_has_ever_refreshed_from_node;
 
