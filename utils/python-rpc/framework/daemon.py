@@ -47,6 +47,7 @@ class Daemon(object):
                 'wallet_address': address,
                 'reserve_size' : 1,
                 'prev_block' : prev_block,
+                'extra_nonce': ''
             },
             'jsonrpc': '2.0', 
             'id': '0'
@@ -56,6 +57,7 @@ class Daemon(object):
 
     def get_miner_data(self):
         get_miner_data = {
+            'params': {},
             'method': 'get_miner_data',
             'jsonrpc': '2.0', 
             'id': '0'
@@ -180,8 +182,10 @@ class Daemon(object):
 
     def get_connections(self, client = ""):
         get_connections = {
-            'client': client,
             'method': 'get_connections',
+            'params': {
+                'client': client
+            },
             'jsonrpc': '2.0', 
             'id': '0'
         }
@@ -204,6 +208,7 @@ class Daemon(object):
             'method': 'hard_fork_info',
             'params': {
                 'client': client,
+                'version':0
             },
             'jsonrpc': '2.0',
             'id': '0'
@@ -227,6 +232,7 @@ class Daemon(object):
 
     def get_height(self, client = ""):
         get_height = {
+                'params': {},
                 'method': 'get_height',
                 'jsonrpc': '2.0',
                 'id': '0'

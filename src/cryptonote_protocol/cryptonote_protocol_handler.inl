@@ -43,6 +43,7 @@
 #include "net/network_throttle-detail.hpp"
 #include "common/pruning.h"
 #include "common/util.h"
+#include "serialization/wire/epee/base.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "net.cn"
@@ -467,7 +468,13 @@ namespace cryptonote
   {
     CORE_SYNC_DATA hsd = {};
     get_payload_sync_data(hsd);
-    epee::serialization::store_t_to_binary(hsd, data);
+    epee::byte_stream buffer{};
+    if (std::error_code error = wire::epee_bin::to_bytes(buffer, hsd))
+    {
+      MERROR("Failed to convert sync_data to bytes: " << error.message());
+      return false;
+    }
+    data = epee::byte_slice{std::move(buffer)};
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------
@@ -2746,17 +2753,22 @@ skip:
     });
 
     // send fluffy ones first, we want to encourage people to run that
+    std::error_code error{};
     if (!fluffyConnections.empty())
     {
       epee::levin::message_writer fluffyBlob{32 * 1024};
-      epee::serialization::store_t_to_binary(fluffy_arg, fluffyBlob.buffer);
-      m_p2p->relay_notify_to_list(NOTIFY_NEW_FLUFFY_BLOCK::ID, std::move(fluffyBlob), std::move(fluffyConnections));
+      if ((error = wire::epee_bin::to_bytes(fluffyBlob.buffer, fluffy_arg)))
+        MERROR("Failed to convert to epee bytes: " << error.message());
+      else
+        m_p2p->relay_notify_to_list(NOTIFY_NEW_FLUFFY_BLOCK::ID, std::move(fluffyBlob), std::move(fluffyConnections));
     }
     if (!fullConnections.empty())
     {
       epee::levin::message_writer fullBlob{128 * 1024};
-      epee::serialization::store_t_to_binary(arg, fullBlob.buffer);
-      m_p2p->relay_notify_to_list(NOTIFY_NEW_BLOCK::ID, std::move(fullBlob), std::move(fullConnections));
+      if ((error = wire::epee_bin::to_bytes(fullBlob.buffer, arg)))
+        MERROR("Failed to convert to epee bytes: " << error.message());
+      else
+        m_p2p->relay_notify_to_list(NOTIFY_NEW_BLOCK::ID, std::move(fullBlob), std::move(fullConnections));
     }
 
     return true;

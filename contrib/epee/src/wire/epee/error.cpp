@@ -1,6 +1,4 @@
-// Copyright (c) 2020-2023, The Monero Project
-
-//
+// Copyright (c) 2023, The Monero Project
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without modification, are
@@ -27,30 +25,55 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include <cstdint>
-#include <gtest/gtest.h>
+#include "serialization/wire/epee/error.h"
 
-#include "storages/portable_storage.h"
-#include "span.h"
+#include <string>
 
-TEST(epee_binary, two_keys)
+namespace wire
 {
-  static constexpr const std::uint8_t data[] = {
-    0x01, 0x11, 0x01, 0x1, 0x01, 0x01, 0x02, 0x1, 0x1, 0x08, 0x01, 'a',
-    0x0B, 0x00, 0x01, 'b', 0x0B, 0x00
-  };
-
-  epee::serialization::portable_storage storage{};
-  EXPECT_TRUE(storage.load_from_binary(data));
-}
-
-TEST(epee_binary, duplicate_key)
+namespace error
 {
-  static constexpr const std::uint8_t data[] = {
-    0x01, 0x11, 0x01, 0x1, 0x01, 0x01, 0x02, 0x1, 0x1, 0x08, 0x01, 'a',
-    0x0B, 0x00, 0x01, 'a', 0x0B, 0x00
-  };
+  const char* get_string(const epee value) noexcept
+  {
+    switch (value)
+    {
+    default:
+      break;
+    case epee::invalid_tag:
+      return "Found an unknown epee type tag";
+    case epee::invalid_varint_type:
+      return "Found an unknown epee varint type tag";
+    case epee::key_size:
+      return "Epee writer encountered a name field that was too long";
+    case epee::not_enough_bytes:
+      return "Invalid epee encoding; not enough bytes";
+    case epee::signature:
+      return "Invalid epee binary header signature";
+    case epee::varint_size:
+      return "Epee writer encountered a length value that was too big";
+    case epee::version:
+      return "Invalid epee binary version";
+    }
 
-  epee::serialization::portable_storage storage{};
-  EXPECT_FALSE(storage.load_from_binary(data));
-}
+    return "Unknown epee parser error";
+  }
+
+  const std::error_category& epee_category() noexcept
+  {
+    struct category final : std::error_category
+    {
+      virtual const char* name() const noexcept override final
+      {
+        return "wire::error::epee_category()";
+      }
+
+      virtual std::string message(int value) const override final
+      {
+        return get_string(epee(value));
+      }
+    };
+    static const category instance{};
+    return instance;
+  }
+} // error
+} // wire

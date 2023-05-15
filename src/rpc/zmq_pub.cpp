@@ -30,15 +30,13 @@
 #include "zmq_pub.h"
 
 #include <algorithm>
+#include <boost/core/demangle.hpp>
 #include <boost/range/adaptor/filtered.hpp>
 #include <boost/range/adaptor/transformed.hpp>
 #include <boost/thread/locks.hpp>
 #include <cassert>
 #include <cstdint>
 #include <cstring>
-#include <rapidjson/document.h>
-#include <rapidjson/stringbuffer.h>
-#include <rapidjson/writer.h>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -48,7 +46,10 @@
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "cryptonote_basic/events.h"
 #include "misc_log_ex.h"
-#include "serialization/json_object.h"
+#include "serialization/wire/adapted/vector.h"
+#include "serialization/wire/json.h"
+#include "serialization/wire/wrapper/array.h"
+#include "serialization/wire/wrappers_impl.h"
 #include "ringct/rctTypes.h"
 #include "cryptonote_core/cryptonote_tx_utils.h"
 
@@ -59,9 +60,9 @@ namespace
 {
   constexpr const char txpool_signal[] = "tx_signal";
 
-  using chain_writer =  void(epee::byte_stream&, std::uint64_t, epee::span<const cryptonote::block>);
-  using miner_writer =  void(epee::byte_stream&, uint8_t, uint64_t, const crypto::hash&, const crypto::hash&, cryptonote::difficulty_type, uint64_t, uint64_t, const std::vector<cryptonote::tx_block_template_backlog_entry>&);
-  using txpool_writer = void(epee::byte_stream&, epee::span<const cryptonote::txpool_event>);
+  using chain_writer =  bool(std::string&, std::uint64_t, epee::span<const cryptonote::block>);
+  using miner_writer =  bool(std::string&, uint8_t, uint64_t, const crypto::hash&, const crypto::hash&, cryptonote::difficulty_type, uint64_t, uint64_t, const std::vector<cryptonote::tx_block_template_backlog_entry>&);
+  using txpool_writer = bool(std::string&, epee::span<const cryptonote::txpool_event>);
 
   template<typename F>
   struct context
@@ -98,19 +99,20 @@ namespace
       throw std::logic_error{name + std::string{" array is not properly sorted, see: "} + unsorted->name};
   }
 
-  void write_header(epee::byte_stream& buf, const boost::string_ref name)
+  void write_header(std::string& buf, const boost::string_ref name)
   {
-    buf.write(name.data(), name.size());
-    buf.put(':');
+    buf.append(name.data(), name.size());
+    buf.push_back(':');
   }
 
   //! \return `name:...` where `...` is JSON and `name` is directly copied (no quotes - not JSON).
   template<typename T>
-  void json_pub(epee::byte_stream& buf, const T value)
+  bool json_pub(std::string& buf, const T& value)
   {
-    rapidjson::Writer<epee::byte_stream> dest{buf};
-    using cryptonote::json::toJsonValue;
-    toJsonValue(dest, value);
+    const std::error_code error = wire_write::to_bytes<wire::json_string_writer>(buf, value);
+    if (error)
+      MERROR("Failed serializing " + boost::core::demangle(typeid(T).name()) + " to JSON: " << error.message());
+    return !error;
   }
 
   //! Object for "minimal" block serialization
@@ -143,7 +145,8 @@ namespace
     uint64_t fee;
   };
 
-  void toJsonValue(rapidjson::Writer<epee::byte_stream>& dest, const minimal_chain& self)
+  template<typename W>
+  void write_bytes(W& dest, const minimal_chain& self)
   {
     namespace adapt = boost::adaptors;
 
@@ -156,74 +159,75 @@ namespace
     };
 
     assert(!self.blocks.empty()); // checked in zmq_pub::send_chain_main
-
-    dest.StartObject();
-    INSERT_INTO_JSON_OBJECT(dest, first_height, self.height);
-    INSERT_INTO_JSON_OBJECT(dest, first_prev_id, self.blocks[0].prev_id);
-    INSERT_INTO_JSON_OBJECT(dest, ids, (self.blocks | adapt::transformed(to_block_id)));
-    dest.EndObject();
+    wire::object(dest,
+      wire::field("first_height", self.height),
+      wire::field("first_prev_id", std::ref(self.blocks[0].prev_id)),
+      wire::field("ids", wire::array(self.blocks | adapt::transformed(to_block_id)))
+    );
+  }
+  
+  template<typename W>
+  void write_bytes(W& dest, const miner_data& self)
+  {
+    wire::object(dest,
+      WIRE_FIELD_COPY(major_version),
+      WIRE_FIELD_COPY(height),
+      WIRE_FIELD(prev_id),
+      WIRE_FIELD(seed_hash),
+      wire::field("difficulty", cryptonote::hex(self.diff)),
+      WIRE_FIELD_COPY(median_weight),
+      WIRE_FIELD_COPY(already_generated_coins),
+      WIRE_FIELD(tx_backlog)
+    );
   }
 
-  void toJsonValue(rapidjson::Writer<epee::byte_stream>& dest, const miner_data& self)
+  template<typename W>
+  void write_bytes(W& dest, const minimal_txpool& self)
   {
-    dest.StartObject();
-    INSERT_INTO_JSON_OBJECT(dest, major_version, self.major_version);
-    INSERT_INTO_JSON_OBJECT(dest, height, self.height);
-    INSERT_INTO_JSON_OBJECT(dest, prev_id, self.prev_id);
-    INSERT_INTO_JSON_OBJECT(dest, seed_hash, self.seed_hash);
-    INSERT_INTO_JSON_OBJECT(dest, difficulty, cryptonote::hex(self.diff));
-    INSERT_INTO_JSON_OBJECT(dest, median_weight, self.median_weight);
-    INSERT_INTO_JSON_OBJECT(dest, already_generated_coins, self.already_generated_coins);
-    INSERT_INTO_JSON_OBJECT(dest, tx_backlog, self.tx_backlog);
-    dest.EndObject();
+    wire::object(dest,
+      wire::field("id", std::cref(self.hash)),
+      WIRE_FIELD_COPY(blob_size),
+      WIRE_FIELD_COPY(weight),
+      WIRE_FIELD_COPY(fee)
+    );
   }
 
-  void toJsonValue(rapidjson::Writer<epee::byte_stream>& dest, const minimal_txpool& self)
+  bool json_full_chain(std::string& buf, const std::uint64_t height, const epee::span<const cryptonote::block> blocks)
   {
-    dest.StartObject();
-    INSERT_INTO_JSON_OBJECT(dest, id, self.hash);
-    INSERT_INTO_JSON_OBJECT(dest, blob_size, self.blob_size);
-    INSERT_INTO_JSON_OBJECT(dest, weight, self.weight);
-    INSERT_INTO_JSON_OBJECT(dest, fee, self.fee);
-    dest.EndObject();
+    return json_pub(buf, blocks);
   }
 
-  void json_full_chain(epee::byte_stream& buf, const std::uint64_t height, const epee::span<const cryptonote::block> blocks)
+  bool json_minimal_chain(std::string& buf, const std::uint64_t height, const epee::span<const cryptonote::block> blocks)
   {
-    json_pub(buf, blocks);
+    return json_pub(buf, minimal_chain{height, blocks});
   }
 
-  void json_minimal_chain(epee::byte_stream& buf, const std::uint64_t height, const epee::span<const cryptonote::block> blocks)
+  bool json_miner_data(std::string& buf, uint8_t major_version, uint64_t height, const crypto::hash& prev_id, const crypto::hash& seed_hash, cryptonote::difficulty_type diff, uint64_t median_weight, uint64_t already_generated_coins, const std::vector<cryptonote::tx_block_template_backlog_entry>& tx_backlog)
   {
-    json_pub(buf, minimal_chain{height, blocks});
-  }
-
-  void json_miner_data(epee::byte_stream& buf, uint8_t major_version, uint64_t height, const crypto::hash& prev_id, const crypto::hash& seed_hash, cryptonote::difficulty_type diff, uint64_t median_weight, uint64_t already_generated_coins, const std::vector<cryptonote::tx_block_template_backlog_entry>& tx_backlog)
-  {
-    json_pub(buf, miner_data{major_version, height, prev_id, seed_hash, diff, median_weight, already_generated_coins, tx_backlog});
+    return json_pub(buf, miner_data{major_version, height, prev_id, seed_hash, diff, median_weight, already_generated_coins, tx_backlog});
   }
 
   // boost::adaptors are in place "views" - no copy/move takes place
   // moving transactions (via sort, etc.), is expensive!
 
-  void json_full_txpool(epee::byte_stream& buf, epee::span<const cryptonote::txpool_event> txes)
+  bool json_full_txpool(std::string& buf, epee::span<const cryptonote::txpool_event> txes)
   {
     namespace adapt = boost::adaptors;
-    const auto to_full_tx = [](const cryptonote::txpool_event& event)
+    const auto to_full_tx = [](const cryptonote::txpool_event& event) -> const cryptonote::transaction&
     {
       return event.tx;
     };
-    json_pub(buf, (txes | adapt::filtered(is_valid{}) | adapt::transformed(to_full_tx)));
+    return json_pub(buf, wire::array(txes | adapt::filtered(is_valid{}) | adapt::transformed(to_full_tx)));
   }
 
-  void json_minimal_txpool(epee::byte_stream& buf, epee::span<const cryptonote::txpool_event> txes)
+  bool json_minimal_txpool(std::string& buf, epee::span<const cryptonote::txpool_event> txes)
   {
     namespace adapt = boost::adaptors;
     const auto to_minimal_tx = [](const cryptonote::txpool_event& event)
     {
       return minimal_txpool{event.tx, event.hash, event.blob_size, event.weight, cryptonote::get_tx_fee(event.tx)};
     };
-    json_pub(buf, (txes | adapt::filtered(is_valid{}) | adapt::transformed(to_minimal_tx)));
+    return json_pub(buf, wire::array(txes | adapt::filtered(is_valid{}) | adapt::transformed(to_minimal_tx)));
   }
 
   constexpr const std::array<context<chain_writer>, 2> chain_contexts =
@@ -285,23 +289,25 @@ namespace
   template<std::size_t N, typename T, typename... U>
   std::array<epee::byte_slice, N> make_pubs(const std::array<std::size_t, N>& subs, const std::array<context<T>, N>& contexts, U&&... args)
   {
-    epee::byte_stream buf{};
+    std::string buf{};
+    buf.reserve(8192);
 
     std::size_t last_offset = 0;
+    std::array<epee::byte_slice, N> out{{}};
     std::array<std::size_t, N> offsets{{}};
     for (std::size_t i = 0; i < N; ++i)
     {
       if (subs[i])
       {
         write_header(buf, contexts[i].name);
-        contexts[i].generate_pub(buf, std::forward<U>(args)...);
+        if (!contexts[i].generate_pub(buf, std::forward<U>(args)...))
+          return out;
         offsets[i] = buf.size() - last_offset;
         last_offset = buf.size();
       }
     }
 
     epee::byte_slice bytes{std::move(buf)};
-    std::array<epee::byte_slice, N> out;
     for (std::size_t i = 0; i < N; ++i)
       out[i] = bytes.take_slice(offsets[i]);
 

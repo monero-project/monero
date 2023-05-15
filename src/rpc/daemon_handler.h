@@ -28,7 +28,9 @@
 
 #pragma once
 
+#include <boost/utility/string_ref.hpp>
 #include "byte_slice.h"
+#include "common/expect.h"
 #include "daemon_messages.h"
 #include "daemon_rpc_version.h"
 #include "rpc_handler.h"
@@ -133,7 +135,7 @@ class DaemonHandler : public RpcHandler
 
     void handle(const GetOutputDistribution::Request& req, GetOutputDistribution::Response& res);
 
-    epee::byte_slice handle(std::string&& request) override final;
+    expect<epee::byte_slice> handle(boost::string_ref request) override final;
 
   private:
 

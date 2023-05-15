@@ -33,20 +33,21 @@
 #include <iomanip>
 #include <boost/uuid/uuid.hpp>
 #include <boost/serialization/version.hpp>
-#include "serialization/keyvalue_serialization.h"
 #include "net/net_utils_base.h"
-#include "net/tor_address.h" // needed for serialization
-#include "net/i2p_address.h" // needed for serialization
 #include "misc_language.h"
+#include "serialization/keyvalue_serialization.h"
+#include "serialization/serialization.h"
+#include "serialization/wire/epee/base.h"
 #include "string_tools.h"
 #include "time_helper.h"
-#include "serialization/serialization.h"
 #include "cryptonote_config.h"
 
+namespace cryptonote { struct CORE_SYNC_DATA; }
 namespace nodetool
 {
   typedef boost::uuids::uuid uuid;
   typedef uint64_t peerid_type;
+  using peerlist_max = wire::max_element_count<P2P_MAX_PEERS_IN_HANDSHAKE>;
 
   static inline std::string peerid_to_string(peerid_type peer_id)
   {
@@ -233,11 +234,12 @@ namespace nodetool
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(node_data)
         KV_SERIALIZE(payload_data)
-        KV_SERIALIZE(local_peerlist_new)
+        KV_SERIALIZE_ARRAY(local_peerlist_new, peerlist_max)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;
   };
+  WIRE_EPEE_DECLARE_COMMAND(COMMAND_HANDSHAKE_T<cryptonote::CORE_SYNC_DATA>);
 
 
   /************************************************************************/
@@ -264,11 +266,12 @@ namespace nodetool
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(payload_data)
-        KV_SERIALIZE(local_peerlist_new)
+        KV_SERIALIZE_ARRAY(local_peerlist_new, peerlist_max)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;
   };
+  WIRE_EPEE_DECLARE_COMMAND(COMMAND_TIMED_SYNC_T<cryptonote::CORE_SYNC_DATA>);
 
   /************************************************************************/
   /*                                                                      */
@@ -306,6 +309,7 @@ namespace nodetool
     };
     typedef epee::misc_utils::struct_init<response_t> response;
   };
+  WIRE_EPEE_DECLARE_COMMAND(COMMAND_PING);
 
   
   /************************************************************************/
@@ -332,4 +336,5 @@ namespace nodetool
     };
     typedef epee::misc_utils::struct_init<response_t> response;
   };
+  WIRE_EPEE_DECLARE_COMMAND(COMMAND_REQUEST_SUPPORT_FLAGS);
 }

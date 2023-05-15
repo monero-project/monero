@@ -27,9 +27,14 @@
 
 #pragma once
 
-#include "net/http_base.h"
-#include "net/jsonrpc_structs.h"
+#include <boost/utility/string_ref.hpp>
+#include <chrono>
+#include <string>
+#include "byte_stream.h"
 #include "portable_storage_template_helper.h"
+#include "net/http_base.h"
+#include "net/http_server_handlers_map2.h"
+#include "serialization/wire/epee/base.h"
 
 namespace epee
 {
@@ -72,8 +77,8 @@ namespace epee
     template<class t_request, class t_response, class t_transport>
     bool invoke_http_bin(const boost::string_ref uri, const t_request& out_struct, t_response& result_struct, t_transport& transport, std::chrono::milliseconds timeout = std::chrono::seconds(15), const boost::string_ref method = "POST")
     {
-      byte_slice req_param;
-      if(!serialization::store_t_to_binary(out_struct, req_param, 16 * 1024))
+      byte_stream req_param;
+      if(wire::epee_bin::to_bytes(req_param, out_struct))
         return false;
 
       const http::http_response_info* pri = NULL;
@@ -95,43 +100,51 @@ namespace epee
         return false;
       }
 
-      static const constexpr epee::serialization::portable_storage::limits_t default_http_bin_limits = {
-        65536 * 3, // objects
-        65536 * 3, // fields
-        65536 * 3, // strings
-      };
-      return serialization::load_t_from_binary(result_struct, epee::strspan<uint8_t>(pri->m_body), &default_http_bin_limits);
+      return !wire::epee_bin::from_bytes(strspan<std::uint8_t>(pri->m_body), result_struct);
     }
 
     template<class t_request, class t_response, class t_transport>
-    bool invoke_http_json_rpc(const boost::string_ref uri, std::string method_name, const t_request& out_struct, t_response& result_struct, epee::json_rpc::error &error_struct, t_transport& transport, std::chrono::milliseconds timeout = std::chrono::seconds(15), const boost::string_ref http_method = "POST", const std::string& req_id = "0")
+    bool invoke_http_json_rpc(const boost::string_ref uri, std::string method_name, t_request&& out_struct, t_response& result_struct, epee::json_rpc::error &error_struct, t_transport& transport, std::chrono::milliseconds timeout = std::chrono::seconds(15), const boost::string_ref http_method = "POST", std::string req_id = "0")
     {
-      epee::json_rpc::request<t_request> req_t = AUTO_VAL_INIT(req_t);
+      epee::json_rpc::client_request<std::decay_t<t_request>> req_t{};
       req_t.jsonrpc = "2.0";
-      req_t.id = req_id;
+      req_t.id = {std::move(req_id)};
       req_t.method = std::move(method_name);
-      req_t.params = out_struct;
-      epee::json_rpc::response<t_response, epee::json_rpc::error> resp_t = AUTO_VAL_INIT(resp_t);
+      req_t.params = std::forward<t_request>(out_struct);
+      epee::json_rpc::response<t_response> resp_t{};
       if(!epee::net_utils::invoke_http_json(uri, req_t, resp_t, transport, timeout, http_method))
       {
         error_struct = {};
         return false;
       }
-      if(resp_t.error.code || resp_t.error.message.size())
+      if(resp_t.error_ && (resp_t.error_->code || resp_t.error_->message.size()))
       {
-        error_struct = resp_t.error;
-        LOG_ERROR("RPC call of \"" << req_t.method << "\" returned error: " << resp_t.error.code << ", message: " << resp_t.error.message);
+        error_struct = std::move(*resp_t.error_);
+        LOG_ERROR("RPC call of \"" << req_t.method << "\" returned error: " << error_struct.code << ", message: " << error_struct.message);
         return false;
       }
-      result_struct = resp_t.result;
+      if (!resp_t.result)
+      {
+	error_struct.message.assign("Missing \"result\" field");
+	LOG_ERROR("RPC call of \"" << req_t.method << "\" returned no \"result\" field");
+	return false;
+      }
+      result_struct = std::move(*resp_t.result);
       return true;
     }
 
     template<class t_request, class t_response, class t_transport>
-    bool invoke_http_json_rpc(const boost::string_ref uri, std::string method_name, const t_request& out_struct, t_response& result_struct, t_transport& transport, std::chrono::milliseconds timeout = std::chrono::seconds(15), const boost::string_ref http_method = "POST", const std::string& req_id = "0")
+    bool invoke_http_json_rpc(const boost::string_ref uri, std::string method_name, t_request&& out_struct, t_response& result_struct, t_transport& transport, std::chrono::milliseconds timeout = std::chrono::seconds(15), const boost::string_ref http_method = "POST", std::string req_id = "0")
     {
       epee::json_rpc::error error_struct;
-      return invoke_http_json_rpc(uri, method_name, out_struct, result_struct, error_struct, transport, timeout, http_method, req_id);
+      return invoke_http_json_rpc(uri, method_name, std::forward<t_request>(out_struct), result_struct, error_struct, transport, timeout, http_method, std::move(req_id));
     }
-  } // namespace net_utils
-} // namespace epee
+
+    template<class t_command, class t_transport>
+    bool invoke_http_json_rpc(const boost::string_ref uri, const typename t_command::request& out_struct, typename t_command::response& result_struct, t_transport& transport, std::chrono::milliseconds timeout = std::chrono::seconds(15), const boost::string_ref http_method = "POST", std::string req_id = "0")
+    {
+      return invoke_http_json_rpc(uri, t_command::methodname(), out_struct, result_struct, transport, timeout, http_method, std::move(req_id));
+    }
+
+  }
+}
