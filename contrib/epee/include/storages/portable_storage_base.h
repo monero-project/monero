@@ -28,11 +28,7 @@
 
 #pragma once 
 
-#include <boost/variant.hpp>
-#include <string>
-#include <vector>
-#include <deque>
-#include <map>
+#include <cstdint>
 
 #define PORTABLE_STORAGE_SIGNATUREA 0x01011101
 #define PORTABLE_STORAGE_SIGNATUREB 0x01020101 // bender's nightmare 
@@ -70,108 +66,14 @@ namespace epee
 {
   namespace serialization
   {
-    struct section;
-
-    template<typename T> struct entry_container { typedef std::vector<T> type; static void reserve(type &t, size_t n) { t.reserve(n); } };
-    template<> struct entry_container<bool> { typedef std::deque<bool> type; static void reserve(type &t, size_t n) {} };
-
-    /************************************************************************/
-    /*                                                                      */
-    /************************************************************************/
-    template<class t_entry_type>
-    struct array_entry_t
+#pragma pack(push)
+#pragma pack(1)
+    struct storage_block_header
     {
-      array_entry_t():m_it(m_array.end()){}        
-      array_entry_t(const array_entry_t& other):m_array(other.m_array), m_it(m_array.end()){}
-
-      array_entry_t& operator=(const array_entry_t& other)
-      {
-        m_array = other.m_array;
-        m_it = m_array.end();
-        return *this;
-      }
-
-      const t_entry_type* get_first_val() const 
-      {
-        m_it = m_array.begin();
-        return get_next_val();
-      }
-
-      t_entry_type* get_first_val() 
-      {
-        m_it = m_array.begin();
-        return get_next_val();
-      }
-
-
-      const t_entry_type* get_next_val() const 
-      {
-        if(m_it == m_array.end())
-          return nullptr;
-        return &(*(m_it++));
-      }
-
-      t_entry_type* get_next_val() 
-      {
-        if(m_it == m_array.end())
-          return nullptr;
-        return (t_entry_type*)&(*(m_it++));//fuckoff
-      }
-
-      t_entry_type& insert_first_val(t_entry_type&& v)
-      {
-        m_array.clear();
-        m_it = m_array.end();
-        return insert_next_value(std::move(v));
-      }
-
-      t_entry_type& insert_next_value(t_entry_type&& v)
-      {
-        m_array.push_back(std::move(v));
-        return m_array.back();
-      }
-
-      void reserve(size_t n)
-      {
-        entry_container<t_entry_type>::reserve(m_array, n);
-      }
-
-      typename entry_container<t_entry_type>::type m_array;
-      mutable typename entry_container<t_entry_type>::type::const_iterator m_it;
+      uint32_t m_signature_a;
+      uint32_t m_signature_b;
+      uint8_t  m_ver;
     };
-
-
-    typedef  boost::make_recursive_variant<
-      array_entry_t<section>, 
-      array_entry_t<uint64_t>, 
-      array_entry_t<uint32_t>, 
-      array_entry_t<uint16_t>, 
-      array_entry_t<uint8_t>, 
-      array_entry_t<int64_t>, 
-      array_entry_t<int32_t>, 
-      array_entry_t<int16_t>, 
-      array_entry_t<int8_t>, 
-      array_entry_t<double>, 
-      array_entry_t<bool>, 
-      array_entry_t<std::string>,
-      array_entry_t<section>, 
-      array_entry_t<boost::recursive_variant_> 
-    >::type array_entry;
-
-    typedef boost::variant<uint64_t, uint32_t, uint16_t, uint8_t, int64_t, int32_t, int16_t, int8_t, double, bool, std::string, section, array_entry> storage_entry;
-
-    typedef std::string binarybuffer;//it's ok      
-
-    /************************************************************************/
-    /*                                                                      */
-    /************************************************************************/
-    struct section
-    {
-      std::map<std::string, storage_entry> m_entries;
-    };
-
-    //handle-like aliases
-    typedef section*      hsection;  
-    typedef array_entry*  harray;
+#pragma pack(pop)
   }
 }

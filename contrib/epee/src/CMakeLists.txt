@@ -26,6 +26,8 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+add_subdirectory(wire)
+
 set(EPEE_INCLUDE_DIR_BASE "${CMAKE_CURRENT_SOURCE_DIR}/../include")
 
 # Add headers to the file list, to be able to search for them and autosave in IDEs.
@@ -33,10 +35,11 @@ monero_find_all_headers(EPEE_HEADERS_PUBLIC "${EPEE_INCLUDE_DIR_BASE}")
 
 monero_add_library(epee byte_slice.cpp byte_stream.cpp hex.cpp abstract_http_client.cpp http_auth.cpp mlog.cpp net_helper.cpp net_utils_base.cpp string_tools.cpp parserse_base_utils.cpp
     wipeable_string.cpp levin_base.cpp memwipe.c connection_basic.cpp network_throttle.cpp network_throttle-detail.cpp mlocker.cpp buffer.cpp net_ssl.cpp
-    int-util.cpp portable_storage.cpp
+    int-util.cpp
     misc_language.cpp
     file_io_utils.cpp
     net_parse_helpers.cpp
+    jsonrpc_structs.cpp
     ${EPEE_HEADERS_PUBLIC}
     )
 
@@ -64,6 +67,7 @@ endif()
 target_link_libraries(epee
   PUBLIC
     easylogging
+    epee_wire_epee
     ${Boost_CHRONO_LIBRARY}
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_THREAD_LIBRARY}
@@ -84,6 +88,7 @@ endif()
 
 target_include_directories(epee
   PUBLIC
+    "external/rapidjson/include"
     "${EPEE_INCLUDE_DIR_BASE}"
     "${OPENSSL_INCLUDE_DIR}")
 

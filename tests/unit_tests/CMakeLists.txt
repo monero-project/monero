@@ -73,6 +73,7 @@ set(unit_tests_sources
   node_server.cpp
   notify.cpp
   output_distribution.cpp
+  p2p_portable_scheme.cpp
   parse_amount.cpp
   pruning.cpp
   random.cpp
@@ -85,6 +86,7 @@ set(unit_tests_sources
   test_tx_utils.cpp
   test_peerlist.cpp
   test_protocol_pack.cpp
+  test_wire.cpp
   threadpool.cpp
   tx_proof.cpp
   hardfork.cpp
@@ -101,7 +103,7 @@ set(unit_tests_sources
   wipeable_string.cpp
   is_hdd.cpp
   aligned.cpp
-  rpc_version_str.cpp
+  rpc_version_str.cpp #test_epee_bin.cpp
   zmq_rpc.cpp)
 
 set(unit_tests_headers
@@ -117,11 +119,11 @@ target_link_libraries(unit_tests
     cryptonote_core
     daemon_messages
     daemon_rpc_server
+    epee_wire_epee
     blockchain_db
     lmdb_lib
     rpc
     net
-    serialization
     seraphis_crypto
     wallet
     p2p

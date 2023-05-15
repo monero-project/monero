@@ -148,6 +148,11 @@ namespace
 
 namespace cryptonote
 {
+  using http_mode = core_rpc_server::invoke_http_mode;
+
+  constexpr const http_mode::constant<http_mode::mode::JON> http_mode::JON;
+  constexpr const http_mode::constant<http_mode::mode::BIN> http_mode::BIN;
+  constexpr const http_mode::constant<http_mode::mode::JON_RPC> http_mode::JON_RPC;
 
   //-----------------------------------------------------------------------------------
   void core_rpc_server::init_options(boost::program_options::options_description& desc)
@@ -2401,8 +2406,29 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  template <typename COMMAND_TYPE>
-  bool core_rpc_server::use_bootstrap_daemon_if_necessary(const invoke_http_mode &mode, const std::string &command_name, const typename COMMAND_TYPE::request& req, typename COMMAND_TYPE::response& res, bool &r)
+  namespace
+  {
+    template<typename... T>
+    bool invoke_bootstrap(http_mode::constant<http_mode::mode::JON>, bootstrap_daemon& daemon, T&&... args)
+    {
+      return daemon.invoke_http_json(std::forward<T>(args)...);
+    }
+
+    template<typename... T>
+    bool invoke_bootstrap(http_mode::constant<http_mode::mode::BIN>, bootstrap_daemon& daemon, T&&... args)
+    {
+      return daemon.invoke_http_bin(std::forward<T>(args)...);
+    }
+
+    template<typename... T>
+    bool invoke_bootstrap(http_mode::constant<http_mode::mode::JON_RPC>, bootstrap_daemon& daemon, T&&... args)
+    {
+      return daemon.invoke_http_json_rpc(std::forward<T>(args)...);
+    }
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  template <typename COMMAND_TYPE, typename MODE>
+  bool core_rpc_server::use_bootstrap_daemon_if_necessary(const MODE& mode, const std::string &command_name, const typename COMMAND_TYPE::request& req, typename COMMAND_TYPE::response& res, bool &r)
   {
     res.untrusted = false;
     r = false;
@@ -2460,23 +2486,7 @@ namespace cryptonote
       }
     }
 
-    if (mode == invoke_http_mode::JON)
-    {
-      r = m_bootstrap_daemon->invoke_http_json(command_name, req, res);
-    }
-    else if (mode == invoke_http_mode::BIN)
-    {
-      r = m_bootstrap_daemon->invoke_http_bin(command_name, req, res);
-    }
-    else if (mode == invoke_http_mode::JON_RPC)
-    {
-      r = m_bootstrap_daemon->invoke_http_json_rpc(command_name, req, res);
-    }
-    else
-    {
-      MERROR("Unknown invoke_http_mode: " << mode);
-      return false;
-    }
+    r = invoke_bootstrap(mode, *m_bootstrap_daemon, command_name, req, res);
 
     {
       boost::upgrade_to_unique_lock<boost::shared_mutex> lock(upgrade_lock);

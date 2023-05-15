@@ -2,8 +2,6 @@
 #include <boost/optional/optional.hpp>
 #include <boost/range/adaptor/indexed.hpp>
 #include <gtest/gtest.h>
-#include <rapidjson/document.h>
-#include <rapidjson/writer.h>
 #include <vector>
 
 #include "byte_stream.h"
@@ -12,9 +10,12 @@
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "cryptonote_core/cryptonote_tx_utils.h"
-#include "serialization/json_object.h"
+#include "net/jsonrpc_structs.h"
 #include "rpc/daemon_messages.h"
-
+#include "serialization/wire/adapted/vector.h"
+#include "serialization/wire/json.h"
+#include "serialization/wire/wrapper/array.h"
+#include "serialization/wire/wrappers_impl.h"
 
 namespace test
 {
@@ -90,22 +91,16 @@ namespace
     template<typename T>
     T test_json(const T& value)
     {
-      epee::byte_stream buffer;
-      {
-        rapidjson::Writer<epee::byte_stream> dest{buffer};
-        cryptonote::json::toJsonValue(dest, value);
-      }
+        std::error_code error{};
+        std::string buffer{};
+        if ((error = wire_write::to_bytes<wire::json_string_writer>(buffer, value)))
+            throw std::system_error{error, "failed to serialize to json"};
 
-      rapidjson::Document doc;
-      doc.Parse(reinterpret_cast<const char*>(buffer.data()), buffer.size());
-      if (doc.HasParseError())
-      {
-        throw cryptonote::json::PARSE_FAIL();
-      }
+        T out{};
+        if ((error = wire_read::from_bytes<wire::json_reader>(epee::to_span(buffer), out)))
+            throw std::system_error{error, "failed to de-serialize from json"};
 
-      T out{};
-      cryptonote::json::fromJsonValue(doc, out);
-      return out;
+        return out;
     }
 } // anonymous
 
@@ -117,11 +112,11 @@ TEST(JsonSerialization, VectorBytes)
 
 TEST(JsonSerialization, InvalidVectorBytes)
 {
-    rapidjson::Document doc;
-    doc.SetString("1");
+    const std::string doc{"\"1\""};
 
-    std::vector<std::uint8_t> out;
-    EXPECT_THROW(cryptonote::json::fromJsonValue(doc, out), cryptonote::json::BAD_INPUT);
+    std::vector<std::string> out;
+    auto array = wire::array<wire::max_element_count<10>>(std::ref(out));
+    EXPECT_EQ(wire::error::schema::array, wire_read::from_bytes<wire::json_reader>(epee::to_span(doc), array));
 }
 
 TEST(JsonSerialization, DaemonInfo)
@@ -305,7 +300,11 @@ TEST(JsonSerialization, BulletproofTransaction)
 
 TEST(JsonRpcSerialization, HandlerFromJson)
 {
-  cryptonote::rpc::FullMessage req_full("{\"jsonrpc\":\"2.0\",\"method\":\"get_hashes_fast\",\"params\":[1]}", true);
-  cryptonote::rpc::GetHashesFast::Request request{};
-  EXPECT_THROW(request.fromJson(req_full.getMessage()), cryptonote::json::WRONG_TYPE);
+  static constexpr const char str[] =
+    "{\"jsonrpc\":\"2.0\",\"method\":\"get_hashes_fast\",\"params\":[1]}";
+
+  epee::json_rpc::request_specific<cryptonote::rpc::GetHashesFast::Request> request{};
+  const std::error_code error =
+    wire_read::from_bytes<wire::json_reader>(epee::span<const char>{str}, request);
+  EXPECT_TRUE(error == wire::error::schema::object);
 }
