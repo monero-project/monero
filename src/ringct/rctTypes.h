@@ -53,6 +53,8 @@ extern "C" {
 #include "serialization/debug_archive.h"
 #include "serialization/binary_archive.h"
 #include "serialization/json_archive.h"
+#include "serialization/wire/fwd.h"
+#include "serialization/wire/traits.h"
 
 
 //Define this flag when debugging to get additional info on the console
@@ -629,6 +631,23 @@ namespace rct {
           FIELD(p)
         END_SERIALIZE()
     };
+    void read_bytes(wire::reader&, rctSig&);
+    void write_bytes(wire::writer&, const rctSig&, bool prune = false);
+
+    template<typename T>
+    struct rctSigExtended
+    {
+      T value;
+      bool prune;
+    };
+
+    template<typename T>
+    inline void read_bytes(wire::reader& source, rctSigExtended<T> dest)
+    { read_bytes(source, dest.value); }
+
+    template<typename T>
+    inline void write_bytes(wire::writer& dest, rctSigExtended<T> source)
+    { write_bytes(dest, source.value, source.prune); }
 
     //other basepoint H = toPoint(cn_fast_hash(G)), G the basepoint
     static const key H = { {0x8b, 0x65, 0x59, 0x70, 0x15, 0x37, 0x99, 0xaf, 0x2a, 0xea, 0xdc, 0x9f, 0xf1, 0xad, 0xd0, 0xea, 0x6c, 0x72, 0x51, 0xd5, 0x41, 0x54, 0xcf, 0xa9, 0x2c, 0x17, 0x3a, 0x0d, 0xd3, 0x9c, 0x1f, 0x94} };
@@ -768,6 +787,9 @@ namespace std
 {
   template<> struct hash<rct::key> { std::size_t operator()(const rct::key &k) const { return reinterpret_cast<const std::size_t&>(k); } };
 }
+
+
+WIRE_DECLARE_BLOB(rct::key);
 
 BLOB_SERIALIZER(rct::key);
 BLOB_SERIALIZER(rct::key64);
