@@ -64,6 +64,7 @@ namespace cryptonote
       const command_line::arg_descriptor<std::string> rpc_ssl_private_key;
       const command_line::arg_descriptor<std::string> rpc_ssl_certificate;
       const command_line::arg_descriptor<std::string> rpc_ssl_ca_certificates;
+      const command_line::arg_descriptor<bool> rpc_ssl_persistent;
       const command_line::arg_descriptor<std::vector<std::string>> rpc_ssl_allowed_fingerprints;
       const command_line::arg_descriptor<bool> rpc_ssl_allow_chained;
       const command_line::arg_descriptor<bool> rpc_ssl_allow_any_cert;

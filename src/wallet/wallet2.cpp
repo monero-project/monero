@@ -364,7 +364,7 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
   }
 
   ssl_options.auth = epee::net_utils::ssl_authentication_t{
-    std::move(daemon_ssl_private_key), std::move(daemon_ssl_certificate)
+    std::move(daemon_ssl_private_key), std::move(daemon_ssl_certificate), false
   };
 
   THROW_WALLET_EXCEPTION_IF(!daemon_address.empty() && !daemon_host.empty() && 0 != daemon_port,
