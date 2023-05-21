@@ -67,6 +67,9 @@ namespace epee
       return out;
     }
 
+    //! Write `src` as hex to `out`. `out` must be exactly 2x in size.
+    static bool buffer(span<char> out, const span<const std::uint8_t> src) noexcept;
+
     //! Append `src` as hex to `out`.
     static void buffer(std::ostream& out, const span<const std::uint8_t> src);
 
