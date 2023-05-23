@@ -1,12 +1,12 @@
 package=icu4c
-$(package)_version=55.2
-$(package)_download_path=https://github.com/unicode-org/icu/releases/download/release-55-2/
-$(package)_file_name=$(package)-55_2-src.tgz
-$(package)_sha256_hash=eda2aa9f9c787748a2e2d310590720ca8bcc6252adf6b4cfb03b65bef9d66759
+$(package)_version=73.1
+$(package)_download_path=https://github.com/unicode-org/icu/releases/download/release-73-1/
+$(package)_file_name=$(package)-73_1-src.tgz
+$(package)_sha256_hash=a457431de164b4aa7eca00ed134d00dfbf88a77c6986a10ae7774fc076bb8c45
 $(package)_patches=icu-001-dont-build-static-dynamic-twice.patch
 
 define $(package)_set_vars
-  $(package)_build_opts=CFLAGS="$($(package)_cflags) $($(package)_cppflags) -DU_USING_ICU_NAMESPACE=0 -DU_STATIC_IMPLEMENTATION -DU_COMBINED_IMPLEMENTATION -fPIC -DENABLE_STATIC=YES -DPGKDATA_MODE=static"
+  $(package)_build_opts=CFLAGS="$($(package)_cflags) $($(package)_cppflags) -DU_USING_ICU_NAMESPACE=0 -DU_STATIC_IMPLEMENTATION -fPIC -DENABLE_STATIC=YES -DPGKDATA_MODE=static"
 endef
 
 define $(package)_config_cmds
