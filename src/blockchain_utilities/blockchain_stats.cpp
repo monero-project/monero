@@ -385,4 +385,5 @@ plot 'stats.csv' index "DATA" using (timecolumn(1,"%Y-%m-%d")):4 with lines, '' 
   return 0;
 
   CATCH_ENTRY("Stats reporting error", 1);
+  delete db;
 }
