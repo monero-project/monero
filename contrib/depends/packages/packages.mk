@@ -29,7 +29,7 @@ ifneq ($(host_arch),riscv64)
 linux_packages += unwind
 endif
 
-mingw32_packages = icu4c sodium $(hardware_packages)
+mingw32_packages = sodium $(hardware_packages)
 mingw32_native_packages = $(hardware_native_packages)
 
 ifneq ($(build_os),darwin)
