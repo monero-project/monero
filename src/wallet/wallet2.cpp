@@ -3712,6 +3712,7 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
         catch (const std::exception &e)
         {
           MERROR("Error parsing blocks: " << e.what());
+          exception = std::current_exception();
           error = true;
         }
         blocks_fetched += added_blocks;
