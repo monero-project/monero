@@ -36,6 +36,7 @@ import math
 import monotonic
 import util_resources
 import multiprocessing
+import string
 
 """Test daemon mining RPC calls
 
@@ -51,6 +52,11 @@ Control the behavior with these environment variables:
 
 from framework.daemon import Daemon
 from framework.wallet import Wallet
+
+def assert_non_null_hash(s):
+    assert len(s) == 64 # correct length
+    assert all((c in string.hexdigits for c in s)) # is parseable as hex
+    assert s != ('0' * 64) # isn't null hash
 
 class MiningTest():
     def run_test(self):
@@ -250,6 +256,8 @@ class MiningTest():
             block_hash = hashes[i]
             assert len(block_hash) == 64
             res = daemon.submitblock(blocks[i])
+            submitted_block_id = res.block_id
+            assert_non_null_hash(submitted_block_id)
             res = daemon.get_height()
             assert res.height == height + i + 1
             assert res.hash == block_hash
@@ -346,6 +354,8 @@ class MiningTest():
         t0 = time.time()
         for h in range(len(block_hashes)):
             res = daemon.submitblock(blocks[h])
+            submitted_block_id = res.block_id
+            assert_non_null_hash(submitted_block_id)
         t0 = time.time() - t0
         res = daemon.get_info()
         assert height == res.height
