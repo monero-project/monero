@@ -63,12 +63,10 @@ namespace cryptonote
   template<typename T>
   bool find_tx_extra_field_by_type(const std::vector<tx_extra_field>& tx_extra_fields, T& field, size_t index = 0)
   {
-    auto it = std::find_if(tx_extra_fields.begin(), tx_extra_fields.end(), [&index](const tx_extra_field& f) { return typeid(T) == f.type() && !index--; });
-    if(tx_extra_fields.end() == it)
+    if(index >= tx_extra_fields.size())
       return false;
 
-    field = boost::get<T>(*it);
-    return true;
+    return boost::apply_visitor(assignment_visitor<T>(field), tx_extra_fields[index]);
   }
 
   bool parse_tx_extra(const std::vector<uint8_t>& tx_extra, std::vector<tx_extra_field>& tx_extra_fields);

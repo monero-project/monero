@@ -112,6 +112,26 @@ namespace cryptonote {
 
   bool operator ==(const cryptonote::transaction& a, const cryptonote::transaction& b);
   bool operator ==(const cryptonote::block& a, const cryptonote::block& b);
+
+  template <typename T>
+  struct assignment_visitor: public boost::static_visitor<bool>
+  {
+    assignment_visitor(T& target): target(target), boost::static_visitor<bool>() {}
+
+    bool operator()(const T& val) const
+    {
+      target = val;
+      return true;
+    }
+
+    template <typename U>
+    bool operator()(const U&) const
+    {
+      return false;
+    }
+
+    T& target;
+  };
 }
 
 bool parse_hash256(const std::string &str_hash, crypto::hash& hash);
