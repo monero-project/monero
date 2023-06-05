@@ -397,6 +397,8 @@ private:
    * @param long_term_block_weight the long term block weight of the block (transactions and all)
    * @param cumulative_difficulty the accumulated difficulty after this block
    * @param coins_generated the number of coins generated total after this block
+   * @param num_rct_outs the number of total RCT tx outputs, including coinbase, in this block
+   * @param num_rct_outs_coinbase same as num_rct_outs, but ONLY including coinbase RCT outputs
    * @param blk_hash the hash of the block
    */
   virtual void add_block( const block& blk
@@ -405,6 +407,7 @@ private:
                 , const difficulty_type& cumulative_difficulty
                 , const uint64_t& coins_generated
                 , uint64_t num_rct_outs
+                , uint64_t num_rct_outs_coinbase
                 , const crypto::hash& blk_hash
                 ) = 0;
 
@@ -976,6 +979,24 @@ public:
    * @return the cumulative number of rct outputs
    */
   virtual std::vector<uint64_t> get_block_cumulative_rct_outputs(const std::vector<uint64_t> &heights) const = 0;
+
+  /**
+   * @brief fetch a block's cumulative number of rct *coinbase* outputs
+   *
+   * Same idea as get_block_cumulative_rct_outputs, but we include ONLY outputs from miner txs, and
+   * we perform the fetch on contiguous blocks in range [start_height, end_height).
+   *
+   * The subclass should return the numer of rct coinbase outputs in the blockchain
+   * up to the block with the given height (inclusive).
+   *
+   * If the block does not exist, the subclass should throw BLOCK_DNE
+   *
+   * @param begin_height the start height to fetch (inclusive)
+   * @param end_height the end height to fetch (exclusive)
+   *
+   * @return a list of the cumulative number of rct coinbase outputs per block
+   */
+  virtual std::vector<uint64_t> get_block_cumulative_rct_coinbase_outputs(uint64_t begin_height, uint64_t end_height) const = 0;
 
   /**
    * @brief fetch the top block's timestamp

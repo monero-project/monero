@@ -35,11 +35,14 @@ from __future__ import print_function
 from framework.daemon import Daemon
 from framework.wallet import Wallet
 
+import json
+
 class GetOutputDistributionTest():
     def run_test(self):
         self.reset()
         self.create()
         self.test_get_output_distribution()
+        self.test_get_rct_coinbase_output_distribution()
 
     def reset(self):
         print('Resetting blockchain')
@@ -212,6 +215,55 @@ class GetOutputDistributionTest():
         for h in range(len(d.distribution)):
             assert d.distribution[h] == 0
 
+    def test_get_rct_coinbase_output_distribution(self):
+        print("Test get_rct_coinbase_output_distribution")
+
+        daemon = Daemon()
+
+        # Check that we have some RCT blocks/transactions to test against
+        chain_height = daemon.get_height()['height']
+        top_header = daemon.get_block_header_by_height(chain_height - 1)
+        top_major_version = top_header['block_header']['major_version']
+        assert top_major_version >= 4
+
+        # Fetch the cumulative RCT coinbase distribution
+        res = daemon.get_output_distribution(get_rct_coinbase = True, cumulative = True, binary=False)
+        dist_info = res['rct_coinbase_distribution']
+        amount = dist_info['amount']
+        begin_height = dist_info['start_height']
+        base = dist_info['base']
+        dist = dist_info['distribution']
+        end_height = begin_height + len(dist)
+        assert amount == 0
+        assert begin_height < chain_height
+        assert end_height == chain_height
+        assert base == 0
+        assert len(dist) > 0
+        assert len(dist) == chain_height - begin_height # Check to_height=0 grabs whole chain after v4 fork
+        assert all((x >= 0 for x in dist)) # Check all elements of dist positive
+        assert all((dist[i - 1] <= dist[i] for i in range(1, len(dist)))) # Check cumulative
+
+        print("Found {} total RCT coinbase outputs".format(dist[-1]))
+
+        # Check that the non-cumulative distribution is valid to corresponding cumulative
+        res = daemon.get_output_distribution(get_rct_coinbase = True, cumulative = False, binary=False)
+        non_cum_dist = res['rct_coinbase_distribution']['distribution']
+        assert len(non_cum_dist) == len(dist)
+        assert dist[0] == non_cum_dist[0]
+        assert all(((dist[i] - dist[i - 1]) == non_cum_dist[i] for i in range(1, len(dist))))
+
+        # Scan the whole chain from begin_height and check values of RCT coinbase distribution
+        # for each block.
+        for h in range(begin_height, chain_height):
+            dist_index = h - begin_height
+            res = daemon.get_block(height = h)
+            block_body = json.loads(res['json'])
+            miner_tx = block_body['miner_tx']
+            is_rct_miner = miner_tx['version'] >= 2
+            if not is_rct_miner:
+                assert non_cum_dist[dist_index] == 0
+            else:
+                assert non_cum_dist[dist_index] == len(miner_tx['vout'])
 
 class Guard:
     def __enter__(self):

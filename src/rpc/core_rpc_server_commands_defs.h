@@ -2447,6 +2447,7 @@ namespace cryptonote
       bool cumulative;
       bool binary;
       bool compress;
+      bool get_rct_coinbase;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_access_request_base)
@@ -2456,6 +2457,7 @@ namespace cryptonote
         KV_SERIALIZE_OPT(cumulative, false)
         KV_SERIALIZE_OPT(binary, true)
         KV_SERIALIZE_OPT(compress, false)
+        KV_SERIALIZE_OPT(get_rct_coinbase, false)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
@@ -2500,15 +2502,27 @@ namespace cryptonote
           KV_SERIALIZE_N(data.distribution, "distribution")
         KV_SERIALIZE_N(data.base, "base")
       END_KV_SERIALIZE_MAP()
+
+      bool operator==(const distribution& other) const
+      {
+        return data == other.data
+          && amount == other.amount
+          && compressed_data == other.compressed_data
+          && binary == other.binary
+          && compress == other.compress
+        ;
+      }
     };
 
     struct response_t: public rpc_access_response_base
     {
       std::vector<distribution> distributions;
+      distribution rct_coinbase_distribution;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_access_response_base)
         KV_SERIALIZE(distributions)
+        KV_SERIALIZE_OPT(rct_coinbase_distribution, decltype(rct_coinbase_distribution)())
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;

@@ -218,6 +218,8 @@ public:
 
   virtual std::vector<uint64_t> get_block_cumulative_rct_outputs(const std::vector<uint64_t> &heights) const;
 
+  virtual std::vector<uint64_t> get_block_cumulative_rct_coinbase_outputs(uint64_t begin_height, uint64_t end_height) const;
+
   virtual uint64_t get_block_timestamp(const uint64_t& height) const;
 
   virtual uint64_t get_top_block_timestamp() const;
@@ -371,6 +373,7 @@ private:
                 , const difficulty_type& cumulative_difficulty
                 , const uint64_t& coins_generated
                 , uint64_t num_rct_outs
+                , uint64_t num_rct_outs_coinbase
                 , const crypto::hash& block_hash
                 );
 
@@ -442,6 +445,9 @@ private:
 
   // migrate from DB version 4 to 5
   void migrate_4_5();
+
+  // migrate from DB version 5 to 6: add field `bi_cum_rct_coinbase` to block_info table
+  void migrate_5_6();
 
   void cleanup_batch();
 

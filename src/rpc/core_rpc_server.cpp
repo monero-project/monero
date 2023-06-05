@@ -3312,18 +3312,44 @@ namespace cryptonote
     if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_GET_OUTPUT_DISTRIBUTION>(invoke_http_mode::JON_RPC, "get_output_distribution", req, res, r))
       return r;
 
+    return on_get_output_distribution_generalized(req, res, error_resp, ctx, &tracker);
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_get_output_distribution_bin(const COMMAND_RPC_GET_OUTPUT_DISTRIBUTION::request& req, COMMAND_RPC_GET_OUTPUT_DISTRIBUTION::response& res, const connection_context *ctx)
+  {
+    RPC_TRACKER(get_output_distribution_bin);
+
+    bool r;
+    if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_GET_OUTPUT_DISTRIBUTION>(invoke_http_mode::BIN, "/get_output_distribution.bin", req, res, r))
+      return r;
+
+    if (!req.binary)
+    {
+      res.status = "Binary only call";
+      return true;
+    }
+
+    epee::json_rpc::error error_resp;
+    return on_get_output_distribution_generalized(req, res, error_resp, ctx, &tracker);
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_get_output_distribution_generalized(const COMMAND_RPC_GET_OUTPUT_DISTRIBUTION::request& req, COMMAND_RPC_GET_OUTPUT_DISTRIBUTION::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx, void* tracker_erased)
+  {
     const bool restricted = m_restricted && ctx;
     if (restricted && req.amounts != std::vector<uint64_t>(1, 0))
     {
       error_resp.code = CORE_RPC_ERROR_CODE_RESTRICTED;
-      error_resp.message = "Restricted RPC can only get output distribution for rct outputs. Use your own node.";
+      error_resp.message = res.status = "Restricted RPC can only get output distribution for rct outputs. Use your own node.";
       return false;
     }
 
+    RPCTracker& tracker = *reinterpret_cast<RPCTracker*>(tracker_erased);
     size_t n_0 = 0, n_non0 = 0;
     for (uint64_t amount: req.amounts)
       if (amount) ++n_non0; else ++n_0;
     CHECK_PAYMENT_MIN1(req, res, n_0 * COST_PER_OUTPUT_DISTRIBUTION_0 + n_non0 * COST_PER_OUTPUT_DISTRIBUTION, false);
+
+    res.status = "Failed";
 
     try
     {
@@ -3335,71 +3361,46 @@ namespace cryptonote
         if (!data)
         {
           error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
-          error_resp.message = "Failed to get output distribution";
+          error_resp.message = res.status = "Failed to get output distribution";
           return false;
         }
 
         res.distributions.push_back({std::move(*data), amount, "", req.binary, req.compress});
       }
-    }
-    catch (const std::exception &e)
-    {
-      error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
-      error_resp.message = "Failed to get output distribution";
-      return false;
-    }
 
-    res.status = CORE_RPC_STATUS_OK;
-    return true;
-  }
-  //------------------------------------------------------------------------------------------------------------------------------
-  bool core_rpc_server::on_get_output_distribution_bin(const COMMAND_RPC_GET_OUTPUT_DISTRIBUTION::request& req, COMMAND_RPC_GET_OUTPUT_DISTRIBUTION::response& res, const connection_context *ctx)
-  {
-    RPC_TRACKER(get_output_distribution_bin);
-
-    bool r;
-    if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_GET_OUTPUT_DISTRIBUTION>(invoke_http_mode::BIN, "/get_output_distribution.bin", req, res, r))
-      return r;
-
-    const bool restricted = m_restricted && ctx;
-    if (restricted && req.amounts != std::vector<uint64_t>(1, 0))
-    {
-      res.status = "Restricted RPC can only get output distribution for rct outputs. Use your own node.";
-      return false;
-    }
-
-    size_t n_0 = 0, n_non0 = 0;
-    for (uint64_t amount: req.amounts)
-      if (amount) ++n_non0; else ++n_0;
-    CHECK_PAYMENT_MIN1(req, res, n_0 * COST_PER_OUTPUT_DISTRIBUTION_0 + n_non0 * COST_PER_OUTPUT_DISTRIBUTION, false);
-
-    res.status = "Failed";
-
-    if (!req.binary)
-    {
-      res.status = "Binary only call";
-      return true;
-    }
-    try
-    {
-      // 0 is placeholder for the whole chain
-      const uint64_t req_to_height = req.to_height ? req.to_height : (m_core.get_current_blockchain_height() - 1);
-      for (uint64_t amount: req.amounts)
+      if (req.get_rct_coinbase)
       {
-        auto data = rpc::RpcHandler::get_output_distribution([this](uint64_t amount, uint64_t from, uint64_t to, uint64_t &start_height, std::vector<uint64_t> &distribution, uint64_t &base) { return m_core.get_output_distribution(amount, from, to, start_height, distribution, base); }, amount, req.from_height, req_to_height, [this](uint64_t height) { return m_core.get_blockchain_storage().get_db().get_block_hash_from_height(height); }, req.cumulative, m_core.get_current_blockchain_height());
-        if (!data)
+        COMMAND_RPC_GET_OUTPUT_DISTRIBUTION::distribution& out_dist = res.rct_coinbase_distribution;
+        out_dist.amount = 0;
+        out_dist.binary = req.binary;
+        out_dist.compress = req.compress;
+        if (!m_core.get_blockchain_storage().get_rct_coinbase_output_distribution(
+            req.from_height
+          , req_to_height
+          , out_dist.data.start_height
+          , out_dist.data.distribution
+          , out_dist.data.base
+        ))
         {
-          res.status = "Failed to get output distribution";
-          return true;
+          // control flow switch to catch branch
+          throw std::runtime_error("Failed to get rct coinbase output distribution");
         }
 
-        res.distributions.push_back({std::move(*data), amount, "", req.binary, req.compress});
+        if (!req.cumulative && out_dist.data.distribution.size())
+        {
+          // The database stores this distribution as cumulative by default so decumulate
+          for (size_t i = out_dist.data.distribution.size() - 1; i >= 1; --i)
+          {
+            out_dist.data.distribution[i] -= out_dist.data.distribution[i - 1];
+          }
+        }
       }
     }
     catch (const std::exception &e)
     {
-      res.status = "Failed to get output distribution";
-      return true;
+      error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
+      error_resp.message = res.status = e.what();
+      return false;
     }
 
     res.status = CORE_RPC_STATUS_OK;
