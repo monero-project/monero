@@ -62,7 +62,7 @@ namespace tools
     while (1)
     {
       t1 = epee::misc_utils::get_ns_count();
-      if (t1 - t0 > 1*1000000000) break; // work one second
+      if (t1 - t0 > 1*100000000) break; // work 0.1 seconds
     }
 
     uint64_t r1 = get_tick_count();
