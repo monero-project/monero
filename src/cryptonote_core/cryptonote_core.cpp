@@ -256,6 +256,11 @@ namespace cryptonote
     else
       m_pprotocol = &m_protocol_stub;
   }
+  /-----------------------------------------------------------------------------------
+  const checkpoints& core::get_checkpoints() const
+  {
+    return m_blockchain_storage.get_checkpoints();
+  }
   //-----------------------------------------------------------------------------------
   void core::set_checkpoints(checkpoints&& chk_pts)
   {
