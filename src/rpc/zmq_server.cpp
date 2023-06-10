@@ -158,9 +158,9 @@ void ZmqServer::serve()
 
       if (!pub || sockets[2].revents)
       {
-        const std::string message = MONERO_UNWRAP(net::zmq::receive(rep.get(), read_flags));
+        std::string message = MONERO_UNWRAP(net::zmq::receive(rep.get(), read_flags));
         MDEBUG("Received RPC request: \"" << message << "\"");
-        epee::byte_slice response = handler.handle(message);
+        epee::byte_slice response = handler.handle(std::move(message));
 
         const boost::string_ref response_view{reinterpret_cast<const char*>(response.data()), response.size()};
         MDEBUG("Sending RPC reply: \"" << response_view << "\"");
