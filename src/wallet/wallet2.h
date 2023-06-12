@@ -1592,6 +1592,7 @@ private:
     void thaw(const crypto::key_image &ki);
     bool frozen(const crypto::key_image &ki) const;
     bool frozen(const transfer_details &td) const;
+    bool frozen(const multisig_tx_set& txs) const; // does partially signed txset contain frozen enotes?
 
     bool save_to_file(const std::string& path_to_file, const std::string& binary, bool is_printable = false) const;
     static bool load_from_file(const std::string& path_to_file, std::string& target_str, size_t max_size = 1000000000);

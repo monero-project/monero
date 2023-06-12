@@ -1732,6 +1732,36 @@ bool wallet2::frozen(size_t idx) const
   return td.m_frozen;
 }
 //----------------------------------------------------------------------------------------------------
+bool wallet2::frozen(const multisig_tx_set& txs) const
+{
+  // Each call to frozen(const key_image&) is O(N), so if we didn't use batching like we did here,
+  // this op would be O(M * N) instead of O(M + N). N = # wallet transfers, M = # key images in set.
+  // Step 1. Collect all key images from all pending txs into set
+  std::unordered_set<crypto::key_image> kis_to_sign;
+  for (const auto& ptx : txs.m_ptx)
+  {
+    const tools::wallet2::tx_construction_data& cd = ptx.construction_data;
+    CHECK_AND_ASSERT_THROW_MES(cd.sources.size() == ptx.tx.vin.size(), "mismatched multisg tx set source sizes");
+    for (size_t src_idx = 0; src_idx < cd.sources.size(); ++src_idx)
+    {
+      // Check that the key images are consistent between tx vin and construction data
+      const crypto::key_image multisig_ki = rct::rct2ki(cd.sources[src_idx].multisig_kLRki.ki);
+      CHECK_AND_ASSERT_THROW_MES(ptx.tx.vin[src_idx].type() == typeid(cryptonote::txin_to_key), "multisig tx cannot be miner");
+      const crypto::key_image vin_ki = boost::get<cryptonote::txin_to_key>(ptx.tx.vin[src_idx]).k_image;
+      CHECK_AND_ASSERT_THROW_MES(multisig_ki == vin_ki, "Mismatched key image b/t vin and construction data");
+
+      // Add key image to set
+      kis_to_sign.insert(multisig_ki);
+    }
+  }
+  // Step 2. Scan all transfers for frozen key images
+  for (const auto& td : m_transfers)
+    if (td.m_frozen && kis_to_sign.count(td.m_key_image))
+      return true;
+
+  return false;
+}
+//----------------------------------------------------------------------------------------------------
 void wallet2::freeze(const crypto::key_image &ki)
 {
   freeze(get_transfer_details(ki));
@@ -1752,8 +1782,13 @@ size_t wallet2::get_transfer_details(const crypto::key_image &ki) const
   for (size_t idx = 0; idx < m_transfers.size(); ++idx)
   {
     const transfer_details &td = m_transfers[idx];
-    if (td.m_key_image_known && td.m_key_image == ki)
-      return idx;
+    if (td.m_key_image == ki)
+    {
+      if (td.m_key_image_known)
+        return idx;
+      else if (td.m_key_image_partial)
+        CHECK_AND_ASSERT_THROW_MES(false, "Transfer detail lookups are not allowed for multisig partial key images");
+    }
   }
   CHECK_AND_ASSERT_THROW_MES(false, "Key image not found");
 }
@@ -7377,6 +7412,8 @@ bool wallet2::sign_multisig_tx(multisig_tx_set &exported_txs, std::vector<crypto
       error::wallet_internal_error, "Transaction was signed by too many signers");
   THROW_WALLET_EXCEPTION_IF(exported_txs.m_signers.size() == m_multisig_threshold,
       error::wallet_internal_error, "Transaction is already fully signed");
+  THROW_WALLET_EXCEPTION_IF(frozen(exported_txs),
+    error::wallet_internal_error, "Will not sign multisig tx containing frozen outputs")
 
   txids.clear();
 
