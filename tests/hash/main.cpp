@@ -157,7 +157,7 @@ int main(int argc, char *argv[]) {
   if (f == hash_blake2b) {
     // blake2b does use different format and has key for hashing.
     while (true) {
-      #define HASH_DATA_LEN 1024
+      static constexpr size_t HASH_DATA_LEN = 1024;
       // data = key[BLAKE2B_KEYBYTES] || hash data[HASH_DATA_LEN]
       char data[BLAKE2B_KEYBYTES + HASH_DATA_LEN] = { 0 };
       size_t datalen = 0;
