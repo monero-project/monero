@@ -77,6 +77,9 @@ class MultisigTest():
         txid = self.transfer([1, 2])
         self.import_multisig_info([0, 1, 2, 3], 6)
         self.check_transaction(txid)
+        txid = self.try_transfer_frozen([2, 3])
+        self.import_multisig_info([0, 1, 2, 3], 7)
+        self.check_transaction(txid)
 
     def reset(self):
         print('Resetting blockchain')
@@ -272,6 +275,104 @@ class MultisigTest():
         daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 1)
         for i in range(len(self.wallet)):
           self.wallet[i].refresh()
+
+        for i in range(len(signers[1:])):
+          print('Signing multisig transaction with wallet ' + str(signers[i+1]))
+          res = self.wallet[signers[i+1]].describe_transfer(multisig_txset = multisig_txset)
+          assert len(res.desc) == 1
+          desc = res.desc[0]
+          assert desc.amount_in >= amount + fee
+          assert desc.amount_out == desc.amount_in - fee
+          assert desc.ring_size == 16
+          assert desc.unlock_time == 0
+          assert not 'payment_id' in desc or desc.payment_id in ['', '0000000000000000']
+          assert desc.change_amount == desc.amount_in - 1000000000000 - fee
+          assert desc.change_address == self.wallet_address
+          assert desc.fee == fee
+          assert len(desc.recipients) == 1
+          rec = desc.recipients[0]
+          assert rec.address == '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
+          assert rec.amount == 1000000000000
+
+          res = self.wallet[signers[i+1]].sign_multisig(multisig_txset)
+          multisig_txset = res.tx_data_hex
+          assert len(res.tx_hash_list if 'tx_hash_list' in res else []) == (i == len(signers[1:]) - 1)
+
+          if i < len(signers[1:]) - 1:
+            print('Submitting multisig transaction prematurely with wallet ' + str(signers[-1]))
+            ok = False
+            try: self.wallet[signers[-1]].submit_multisig(multisig_txset)
+            except: ok = True
+            assert ok
+
+        print('Submitting multisig transaction with wallet ' + str(signers[-1]))
+        res = self.wallet[signers[-1]].submit_multisig(multisig_txset)
+        assert len(res.tx_hash_list) == 1
+        txid = res.tx_hash_list[0]
+
+        for i in range(len(self.wallet)):
+          self.wallet[i].refresh()
+          res = self.wallet[i].get_transfers()
+          assert len([x for x in (res['pending'] if 'pending' in res else []) if x.txid == txid]) == (1 if i == signers[-1] else 0)
+          assert len([x for x in (res['out'] if 'out' in res else []) if x.txid == txid]) == 0
+
+        daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 1)
+        return txid
+
+    def try_transfer_frozen(self, signers):
+        assert len(signers) >= 2
+
+        daemon = Daemon()
+
+        print("Creating multisig transaction from wallet " + str(signers[0]))
+
+        dst = {'address': '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 'amount': 1000000000000}
+        res = self.wallet[signers[0]].transfer([dst])
+        assert len(res.tx_hash) == 0 # not known yet
+        txid = res.tx_hash
+        assert len(res.tx_key) == 32*2
+        assert res.amount > 0
+        amount = res.amount
+        assert res.fee > 0
+        fee = res.fee
+        assert len(res.tx_blob) == 0
+        assert len(res.tx_metadata) == 0
+        assert len(res.multisig_txset) > 0
+        assert len(res.unsigned_txset) == 0
+        spent_key_images = res.spent_key_images.key_images
+        multisig_txset = res.multisig_txset
+
+        daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 1)
+        for i in range(len(self.wallet)):
+          self.wallet[i].refresh()
+
+        for i in range(len(signers[1:])):
+          # Check that each signer wallet has key image and it is not frozen
+          for ki in spent_key_images:
+            frozen = self.wallet[signers[i+1]].frozen(ki).frozen
+            assert not frozen
+
+        # Freeze key image involved with initiated transfer
+        assert len(spent_key_images)
+        ki0 = spent_key_images[0]
+        print("Freezing involved key image:", ki0)
+        self.wallet[signers[1]].freeze(ki0)
+        frozen = self.wallet[signers[1]].frozen(ki).frozen
+        assert frozen
+
+        # Try signing multisig (this operation should fail b/c of the frozen key image)
+        print("Attemping to sign with frozen key image. This should fail")
+        try:
+          res = self.wallet[signers[1]].sign_multisig(multisig_txset)
+          raise ValueError('sign_multisig should not have succeeded w/ fronzen enotes')
+        except AssertionError:
+          pass
+
+        # Thaw key image and continue transfer as normal
+        print("Thawing key image and continuing transfer as normal")
+        self.wallet[signers[1]].thaw(ki0)
+        frozen = self.wallet[signers[1]].frozen(ki).frozen
+        assert not frozen
 
         for i in range(len(signers[1:])):
           print('Signing multisig transaction with wallet ' + str(signers[i+1]))
