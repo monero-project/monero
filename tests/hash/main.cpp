@@ -28,6 +28,8 @@
 // 
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
+#include <algorithm>
+#include <cassert>
 #include <cstddef>
 #include <fstream>
 #include <iomanip>
@@ -35,10 +37,13 @@
 #include <string>
 #include <cfenv>
 
+#include <boost/algorithm/hex.hpp>
+
 #include "misc_log_ex.h"
 #include "warnings.h"
 #include "crypto/hash.h"
 #include "crypto/variant2_int_sqrt.h"
+#include "randomx/src/blake2/blake2.h"
 #include "../io.h"
 
 using namespace std;
@@ -74,6 +79,10 @@ extern "C" {
     const V4_Data* p = reinterpret_cast<const V4_Data*>(data);
     return cn_slow_hash(p->data, p->length, hash, 4/*variant*/, 0/*prehashed*/, p->height);
   }
+  static void hash_blake2b(const void *data, size_t length, char *hash_out){
+    // data = key[BLAKE2B_KEYBYTES] || hash data[HASH_DATA_LEN]
+    return (void) blake2b(hash_out, BLAKE2B_OUTBYTES, (char*) data + BLAKE2B_KEYBYTES, length, data, BLAKE2B_KEYBYTES);
+  }
 }
 POP_WARNINGS
 
@@ -84,7 +93,7 @@ struct hash_func {
 } hashes[] = {{"fast", cn_fast_hash}, {"slow", cn_slow_hash_0}, {"tree", hash_tree},
   {"extra-blake", hash_extra_blake}, {"extra-groestl", hash_extra_groestl},
   {"extra-jh", hash_extra_jh}, {"extra-skein", hash_extra_skein},
-  {"slow-1", cn_slow_hash_1}, {"slow-2", cn_slow_hash_2}, {"slow-4", cn_slow_hash_4}};
+  {"slow-1", cn_slow_hash_1}, {"slow-2", cn_slow_hash_2}, {"slow-4", cn_slow_hash_4}, {"blake2b", hash_blake2b}};
 
 int test_variant2_int_sqrt();
 int test_variant2_int_sqrt_ref();
@@ -144,6 +153,75 @@ int main(int argc, char *argv[]) {
     }
   }
   input.open(argv[2], ios_base::in);
+
+  if (f == hash_blake2b) {
+    // blake2b does use different format and has key for hashing.
+    while (true) {
+      #define HASH_DATA_LEN 1024
+      // data = key[BLAKE2B_KEYBYTES] || hash data[HASH_DATA_LEN]
+      char data[BLAKE2B_KEYBYTES + HASH_DATA_LEN] = { 0 };
+      size_t datalen = 0;
+      char hash_result[BLAKE2B_OUTBYTES] = { 0 };
+      char hash_expected[BLAKE2B_OUTBYTES] = { 0 };
+      std::string temp; // t as in temporary
+
+      input >> temp;
+      if (temp.empty()) {
+        break;
+      } else if (test) { // first hash record special, does not have any "in:" value
+        assert(temp == "in:");
+        input >> temp; // actual in data
+        temp = boost::algorithm::unhex(temp);
+        if(temp.size() > HASH_DATA_LEN) {
+          std::cerr << "For case number " << test
+                  << " input data to hash is more than maximum(" << HASH_DATA_LEN << ")";
+          return -1;
+        }
+        std::copy(temp.begin(), temp.end(), data + BLAKE2B_KEYBYTES);
+        datalen = temp.size();
+      }
+      ++test;
+
+      input >> temp;
+      assert(temp == "key:");
+      input >> temp; // actual keybytes data
+      temp = boost::algorithm::unhex(temp);
+      if(temp.size() != BLAKE2B_KEYBYTES) {
+        std::cerr << "For case number " << test
+                  << " key input does not have correct size.";
+        return -1;
+      }
+      std::copy(temp.begin(), temp.end(), data);
+
+      input >> temp;
+      assert(temp == "hash:");
+      input >> temp; // actual hashbytes data
+      temp = boost::algorithm::unhex(temp);
+      if(temp.size() != BLAKE2B_OUTBYTES) {
+        std::cerr << "For case number " << test
+                  << " hash input data does not have correct size.";
+        return -1;
+      }
+      std::copy(temp.begin(), temp.end(), hash_expected);
+
+      f(data, datalen, hash_result);
+
+      if (!std::equal(hash_result,
+                      hash_result + BLAKE2B_OUTBYTES,
+                      std::begin(hash_expected))) {
+        std::cerr << "For case number " << test
+                  << " computed hash value and given hash value does not match in blake2b";
+        return -1;
+      }
+
+      // Clean up the mess
+      memset(data, 0, sizeof(char) * (BLAKE2B_KEYBYTES + datalen));
+      memset(hash_result, 0, sizeof(char) * BLAKE2B_OUTBYTES);
+      memset(hash_expected, 0, sizeof(char) * BLAKE2B_OUTBYTES);
+    }
+    return 0;
+  }
+
   for (;;) {
     ++test;
     input.exceptions(ios_base::badbit);
