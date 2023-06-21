@@ -39,7 +39,6 @@
 #include <boost/algorithm/string/split.hpp>
 #include <boost/algorithm/string/join.hpp>
 #include <boost/algorithm/string/predicate.hpp>
-#include <boost/archive/binary_iarchive.hpp>
 #include <boost/asio/ip/address.hpp>
 #include <boost/filesystem/operations.hpp>
 #include <boost/range/adaptor/transformed.hpp>
@@ -52,6 +51,7 @@ using namespace epee;
 #include "hardforks/hardforks.h"
 #include "cryptonote_core/tx_sanity_check.h"
 #include "wallet2.h"
+#include "wallet2_basic/wallet2_constants.h"
 #include "wallet_args.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "net/parse.h"
@@ -99,6 +99,7 @@ extern "C"
 using namespace std;
 using namespace crypto;
 using namespace cryptonote;
+using namespace wallet2_basic;
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "wallet.wallet2"
@@ -122,9 +123,6 @@ using namespace cryptonote;
 
 #define SECOND_OUTPUT_RELATEDNESS_THRESHOLD 0.0f
 
-#define SUBADDRESS_LOOKAHEAD_MAJOR 50
-#define SUBADDRESS_LOOKAHEAD_MINOR 200
-
 #define KEY_IMAGE_EXPORT_FILE_MAGIC "Monero key image export\003"
 
 #define MULTISIG_EXPORT_FILE_MAGIC "Monero multisig export\001"
@@ -144,12 +142,87 @@ using namespace cryptonote;
 #define DEFAULT_MIN_OUTPUT_COUNT 5
 #define DEFAULT_MIN_OUTPUT_VALUE (2*COIN)
 
-#define DEFAULT_INACTIVITY_LOCK_TIMEOUT 90 // a minute and a half
-
 #define IGNORE_LONG_PAYMENT_ID_FROM_BLOCK_VERSION 12
 
 #define DEFAULT_UNLOCK_TIME (CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE * DIFFICULTY_TARGET_V2)
 #define RECENT_SPEND_WINDOW (15 * DIFFICULTY_TARGET_V2)
+
+// Map legacy wallet2 cache field names to new m_cache object
+#define m_blockchain                   m_cache.m_blockchain
+#define m_transfers                    m_cache.m_transfers
+#define m_account_public_address       m_cache.m_account_public_address
+#define m_key_images                   m_cache.m_key_images
+#define m_unconfirmed_txs              m_cache.m_unconfirmed_txs
+#define m_payments                     m_cache.m_payments
+#define m_tx_keys                      m_cache.m_tx_keys
+#define m_confirmed_txs                m_cache.m_confirmed_txs
+#define m_tx_notes                     m_cache.m_tx_notes
+#define m_unconfirmed_payments         m_cache.m_unconfirmed_payments
+#define m_pub_keys                     m_cache.m_pub_keys
+#define m_address_book                 m_cache.m_address_book
+#define m_scanned_pool_txs             m_cache.m_scanned_pool_txs
+#define m_subaddresses                 m_cache.m_subaddresses
+#define m_subaddress_labels            m_cache.m_subaddress_labels
+#define m_attributes                   m_cache.m_attributes
+#define m_account_tags                 m_cache.m_account_tags
+#define m_ring_history_saved           m_cache.m_ring_history_saved
+#define m_last_block_reward            m_cache.m_last_block_reward
+#define m_tx_device                    m_cache.m_tx_device
+#define m_device_last_key_image_sync   m_cache.m_device_last_key_image_sync
+#define m_cold_key_images              m_cache.m_cold_key_images
+#define m_has_ever_refreshed_from_node m_cache.m_has_ever_refreshed_from_node
+
+// Map legacy wallet2 keys field names to new m_keys_data object
+#define m_account                                     m_keys_data.m_account
+#define is_old_file_format                            m_keys_data.is_old_file_format
+#define m_watch_only                                  m_keys_data.m_watch_only
+#define m_multisig                                    m_keys_data.m_multisig
+#define seed_language                                 m_keys_data.seed_language
+#define m_nettype                                     m_keys_data.m_nettype
+#define m_multisig_threshold                          m_keys_data.m_multisig_threshold
+#define m_multisig_signers                            m_keys_data.m_multisig_signers
+#define m_multisig_rounds_passed                      m_keys_data.m_multisig_rounds_passed
+#define m_multisig_derivations                        m_keys_data.m_multisig_derivations
+#define m_always_confirm_transfers                    m_keys_data.m_always_confirm_transfers
+#define m_print_ring_members                          m_keys_data.m_print_ring_members
+#define m_store_tx_info                               m_keys_data.m_store_tx_info
+#define m_default_mixin                               m_keys_data.m_default_mixin
+#define m_default_priority                            m_keys_data.m_default_priority
+#define m_auto_refresh                                m_keys_data.m_auto_refresh
+#define m_refresh_type                                m_keys_data.m_refresh_type
+#define m_refresh_from_block_height                   m_keys_data.m_refresh_from_block_height
+#define m_skip_to_height                              m_keys_data.m_skip_to_height
+#define m_confirm_non_default_ring_size               m_keys_data.m_confirm_non_default_ring_size
+#define m_ask_password                                m_keys_data.m_ask_password
+#define m_max_reorg_depth                             m_keys_data.m_max_reorg_depth
+#define m_min_output_count                            m_keys_data.m_min_output_count
+#define m_min_output_value                            m_keys_data.m_min_output_value
+#define m_merge_destinations                          m_keys_data.m_merge_destinations
+#define m_confirm_backlog                             m_keys_data.m_confirm_backlog
+#define m_confirm_backlog_threshold                   m_keys_data.m_confirm_backlog_threshold
+#define m_confirm_export_overwrite                    m_keys_data.m_confirm_export_overwrite
+#define m_auto_low_priority                           m_keys_data.m_auto_low_priority
+#define m_segregate_pre_fork_outputs                  m_keys_data.m_segregate_pre_fork_outputs
+#define m_key_reuse_mitigation2                       m_keys_data.m_key_reuse_mitigation2
+#define m_segregation_height                          m_keys_data.m_segregation_height
+#define m_ignore_fractional_outputs                   m_keys_data.m_ignore_fractional_outputs
+#define m_ignore_outputs_above                        m_keys_data.m_ignore_outputs_above
+#define m_ignore_outputs_below                        m_keys_data.m_ignore_outputs_below
+#define m_track_uses                                  m_keys_data.m_track_uses
+#define m_show_wallet_name_when_locked                m_keys_data.m_show_wallet_name_when_locked
+#define m_inactivity_lock_timeout                     m_keys_data.m_inactivity_lock_timeout
+#define m_setup_background_mining                     m_keys_data.m_setup_background_mining
+#define m_subaddress_lookahead_major                  m_keys_data.m_subaddress_lookahead_major
+#define m_subaddress_lookahead_minor                  m_keys_data.m_subaddress_lookahead_minor
+#define m_original_keys_available                     m_keys_data.m_original_keys_available
+#define m_original_address                            m_keys_data.m_original_address
+#define m_original_view_secret_key                    m_keys_data.m_original_view_secret_key
+#define m_export_format                               m_keys_data.m_export_format
+#define m_load_deprecated_formats                     m_keys_data.m_load_deprecated_formats
+#define m_device_name                                 m_keys_data.m_device_name
+#define m_device_derivation_path                      m_keys_data.m_device_derivation_path
+#define m_enable_multisig                             m_keys_data.m_enable_multisig
+#define m_allow_mismatched_daemon_version             m_keys_data.m_allow_mismatched_daemon_version
 
 static const std::string MULTISIG_SIGNATURE_MAGIC = "SigMultisigPkV1";
 
@@ -1156,67 +1229,23 @@ wallet2::wallet2(network_type nettype, uint64_t kdf_rounds, bool unattended, std
   m_run(true),
   m_callback(0),
   m_trusted_daemon(false),
-  m_nettype(nettype),
-  m_multisig_rounds_passed(0),
-  m_always_confirm_transfers(true),
-  m_print_ring_members(false),
-  m_store_tx_info(true),
-  m_default_mixin(0),
-  m_default_priority(0),
-  m_refresh_type(RefreshOptimizeCoinbase),
-  m_auto_refresh(true),
   m_first_refresh_done(false),
-  m_refresh_from_block_height(0),
   m_explicit_refresh_from_block_height(true),
-  m_skip_to_height(0),
-  m_ask_password(AskPasswordToDecrypt),
-  m_max_reorg_depth(ORPHANED_BLOCKS_MAX_COUNT),
-  m_min_output_count(0),
-  m_min_output_value(0),
-  m_merge_destinations(false),
-  m_confirm_backlog(true),
-  m_confirm_backlog_threshold(0),
-  m_confirm_export_overwrite(true),
-  m_auto_low_priority(true),
-  m_segregate_pre_fork_outputs(true),
-  m_key_reuse_mitigation2(true),
-  m_segregation_height(0),
-  m_ignore_fractional_outputs(true),
-  m_ignore_outputs_above(MONEY_SUPPLY),
-  m_ignore_outputs_below(0),
-  m_track_uses(false),
-  m_show_wallet_name_when_locked(false),
-  m_inactivity_lock_timeout(DEFAULT_INACTIVITY_LOCK_TIMEOUT),
-  m_setup_background_mining(BackgroundMiningMaybe),
   m_is_initialized(false),
   m_kdf_rounds(kdf_rounds),
-  is_old_file_format(false),
-  m_watch_only(false),
-  m_multisig(false),
-  m_multisig_threshold(0),
   m_node_rpc_proxy(*m_http_client, m_daemon_rpc_mutex),
-  m_account_public_address{crypto::null_pkey, crypto::null_pkey},
-  m_subaddress_lookahead_major(SUBADDRESS_LOOKAHEAD_MAJOR),
-  m_subaddress_lookahead_minor(SUBADDRESS_LOOKAHEAD_MINOR),
-  m_original_keys_available(false),
   m_message_store(http_client_factory->create()),
-  m_key_device_type(hw::device::device_type::SOFTWARE),
-  m_ring_history_saved(false),
   m_ringdb(),
-  m_last_block_reward(0),
   m_unattended(unattended),
   m_devices_registered(false),
-  m_device_last_key_image_sync(0),
   m_use_dns(true),
   m_offline(false),
   m_rpc_version(0),
-  m_export_format(ExportFormat::Binary),
-  m_load_deprecated_formats(false),
-  m_enable_multisig(false),
   m_pool_info_query_time(0),
-  m_has_ever_refreshed_from_node(false),
-  m_allow_mismatched_daemon_version(false)
+  m_cache(),
+  m_keys_data()
 {
+  m_nettype = nettype;
 }
 
 wallet2::~wallet2()
@@ -4262,7 +4291,7 @@ bool wallet2::clear()
   m_unconfirmed_txs.clear();
   m_payments.clear();
   m_tx_keys.clear();
-  m_additional_tx_keys.clear();
+  m_cache.m_additional_tx_keys.clear();
   m_confirmed_txs.clear();
   m_unconfirmed_payments.clear();
   m_scanned_pool_txs[0].clear();
@@ -4308,13 +4337,26 @@ void wallet2::clear_soft(bool keep_key_images)
  */
 bool wallet2::store_keys(const std::string& keys_file_name, const epee::wipeable_string& password, bool watch_only)
 {
-  boost::optional<wallet2::keys_file_data> keys_file_data = get_keys_file_data(password, watch_only);
-  CHECK_AND_ASSERT_MES(keys_file_data != boost::none, false, "failed to generate wallet keys data");
+  const crypto::chacha_key keys_key = keys_data::pwd_to_keys_data_key(password.data(), password.size(), m_kdf_rounds);
+
+  const bool just_spend_key_is_encrypted = m_ask_password == AskPasswordToDecrypt && !m_unattended && !m_watch_only;
+  cryptonote::account_base old_account;
+  if (just_spend_key_is_encrypted)
+  {
+    old_account = m_account;
+    m_account.encrypt_viewkey(keys_key);
+    m_account.decrypt_keys(keys_key);
+  }
+
+  const std::string keys_buf = m_keys_data.store_to_memory(keys_key, watch_only);
+
+  if (just_spend_key_is_encrypted)
+  {
+    m_account = old_account;
+  }
 
   std::string tmp_file_name = keys_file_name + ".new";
-  std::string buf;
-  bool r = ::serialization::dump_binary(keys_file_data.get(), buf);
-  r = r && save_to_file(tmp_file_name, buf);
+  bool r = save_to_file(tmp_file_name, keys_buf);
   CHECK_AND_ASSERT_MES(r, false, "failed to generate wallet keys file " << tmp_file_name);
 
   unlock_keys_file();
@@ -4330,235 +4372,10 @@ bool wallet2::store_keys(const std::string& keys_file_name, const epee::wipeable
   return true;
 }
 //----------------------------------------------------------------------------------------------------
-boost::optional<wallet2::keys_file_data> wallet2::get_keys_file_data(const epee::wipeable_string& password, bool watch_only)
-{
-  epee::byte_slice account_data;
-  std::string multisig_signers;
-  std::string multisig_derivations;
-  cryptonote::account_base account = m_account;
-
-  crypto::chacha_key key;
-  crypto::generate_chacha_key(password.data(), password.size(), key, m_kdf_rounds);
-
-  if (m_ask_password == AskPasswordToDecrypt && !m_unattended && !m_watch_only)
-  {
-    account.encrypt_viewkey(key);
-    account.decrypt_keys(key);
-  }
-
-  if (watch_only)
-    account.forget_spend_key();
-
-  account.encrypt_keys(key);
-
-  bool r = epee::serialization::store_t_to_binary(account, account_data);
-  CHECK_AND_ASSERT_MES(r, boost::none, "failed to serialize wallet keys");
-  boost::optional<wallet2::keys_file_data> keys_file_data = (wallet2::keys_file_data) {};
-
-  // Create a JSON object with "key_data" and "seed_language" as keys.
-  rapidjson::Document json;
-  json.SetObject();
-  rapidjson::Value value(rapidjson::kStringType);
-  value.SetString(reinterpret_cast<const char*>(account_data.data()), account_data.size());
-  json.AddMember("key_data", value, json.GetAllocator());
-  if (!seed_language.empty())
-  {
-    value.SetString(seed_language.c_str(), seed_language.length());
-    json.AddMember("seed_language", value, json.GetAllocator());
-  }
-
-  rapidjson::Value value2(rapidjson::kNumberType);
-
-  value2.SetInt(m_key_device_type);
-  json.AddMember("key_on_device", value2, json.GetAllocator());
-
-  value2.SetInt(watch_only ? 1 :0); // WTF ? JSON has different true and false types, and not boolean ??
-  json.AddMember("watch_only", value2, json.GetAllocator());
-
-  value2.SetInt(m_multisig ? 1 :0);
-  json.AddMember("multisig", value2, json.GetAllocator());
-
-  value2.SetUint(m_multisig_threshold);
-  json.AddMember("multisig_threshold", value2, json.GetAllocator());
-
-  if (m_multisig)
-  {
-    bool r = ::serialization::dump_binary(m_multisig_signers, multisig_signers);
-    CHECK_AND_ASSERT_MES(r, boost::none, "failed to serialize wallet multisig signers");
-    value.SetString(multisig_signers.c_str(), multisig_signers.length());
-    json.AddMember("multisig_signers", value, json.GetAllocator());
-
-    r = ::serialization::dump_binary(m_multisig_derivations, multisig_derivations);
-    CHECK_AND_ASSERT_MES(r, boost::none, "failed to serialize wallet multisig derivations");
-    value.SetString(multisig_derivations.c_str(), multisig_derivations.length());
-    json.AddMember("multisig_derivations", value, json.GetAllocator());
-
-    value2.SetUint(m_multisig_rounds_passed);
-    json.AddMember("multisig_rounds_passed", value2, json.GetAllocator());
-  }
-
-  value2.SetInt(m_always_confirm_transfers ? 1 :0);
-  json.AddMember("always_confirm_transfers", value2, json.GetAllocator());
-
-  value2.SetInt(m_print_ring_members ? 1 :0);
-  json.AddMember("print_ring_members", value2, json.GetAllocator());
-
-  value2.SetInt(m_store_tx_info ? 1 :0);
-  json.AddMember("store_tx_info", value2, json.GetAllocator());
-
-  value2.SetUint(m_default_mixin);
-  json.AddMember("default_mixin", value2, json.GetAllocator());
-
-  value2.SetUint(m_default_priority);
-  json.AddMember("default_priority", value2, json.GetAllocator());
-
-  value2.SetInt(m_auto_refresh ? 1 :0);
-  json.AddMember("auto_refresh", value2, json.GetAllocator());
-
-  value2.SetInt(m_refresh_type);
-  json.AddMember("refresh_type", value2, json.GetAllocator());
-
-  value2.SetUint64(m_refresh_from_block_height);
-  json.AddMember("refresh_height", value2, json.GetAllocator());
-
-  value2.SetUint64(m_skip_to_height);
-  json.AddMember("skip_to_height", value2, json.GetAllocator());
-
-  value2.SetInt(1); // exists for deserialization backwards compatibility
-  json.AddMember("confirm_non_default_ring_size", value2, json.GetAllocator());
-
-  value2.SetInt(m_ask_password);
-  json.AddMember("ask_password", value2, json.GetAllocator());
-
-  value2.SetUint64(m_max_reorg_depth);
-  json.AddMember("max_reorg_depth", value2, json.GetAllocator());
-
-  value2.SetUint(m_min_output_count);
-  json.AddMember("min_output_count", value2, json.GetAllocator());
-
-  value2.SetUint64(m_min_output_value);
-  json.AddMember("min_output_value", value2, json.GetAllocator());
-
-  value2.SetInt(cryptonote::get_default_decimal_point());
-  json.AddMember("default_decimal_point", value2, json.GetAllocator());
-
-  value2.SetInt(m_merge_destinations ? 1 :0);
-  json.AddMember("merge_destinations", value2, json.GetAllocator());
-
-  value2.SetInt(m_confirm_backlog ? 1 :0);
-  json.AddMember("confirm_backlog", value2, json.GetAllocator());
-
-  value2.SetUint(m_confirm_backlog_threshold);
-  json.AddMember("confirm_backlog_threshold", value2, json.GetAllocator());
-
-  value2.SetInt(m_confirm_export_overwrite ? 1 :0);
-  json.AddMember("confirm_export_overwrite", value2, json.GetAllocator());
-
-  value2.SetInt(m_auto_low_priority ? 1 : 0);
-  json.AddMember("auto_low_priority", value2, json.GetAllocator());
-
-  value2.SetUint(m_nettype);
-  json.AddMember("nettype", value2, json.GetAllocator());
-
-  value2.SetInt(m_segregate_pre_fork_outputs ? 1 : 0);
-  json.AddMember("segregate_pre_fork_outputs", value2, json.GetAllocator());
-
-  value2.SetInt(m_key_reuse_mitigation2 ? 1 : 0);
-  json.AddMember("key_reuse_mitigation2", value2, json.GetAllocator());
-
-  value2.SetUint(m_segregation_height);
-  json.AddMember("segregation_height", value2, json.GetAllocator());
-
-  value2.SetInt(m_ignore_fractional_outputs ? 1 : 0);
-  json.AddMember("ignore_fractional_outputs", value2, json.GetAllocator());
-
-  value2.SetUint64(m_ignore_outputs_above);
-  json.AddMember("ignore_outputs_above", value2, json.GetAllocator());
-
-  value2.SetUint64(m_ignore_outputs_below);
-  json.AddMember("ignore_outputs_below", value2, json.GetAllocator());
-
-  value2.SetInt(m_track_uses ? 1 : 0);
-  json.AddMember("track_uses", value2, json.GetAllocator());
-
-  value2.SetInt(m_show_wallet_name_when_locked ? 1 : 0);
-  json.AddMember("show_wallet_name_when_locked", value2, json.GetAllocator());
-
-  value2.SetInt(m_inactivity_lock_timeout);
-  json.AddMember("inactivity_lock_timeout", value2, json.GetAllocator());
-
-  value2.SetInt(m_setup_background_mining);
-  json.AddMember("setup_background_mining", value2, json.GetAllocator());
-
-  value2.SetUint(m_subaddress_lookahead_major);
-  json.AddMember("subaddress_lookahead_major", value2, json.GetAllocator());
-
-  value2.SetUint(m_subaddress_lookahead_minor);
-  json.AddMember("subaddress_lookahead_minor", value2, json.GetAllocator());
-
-  value2.SetInt(m_original_keys_available ? 1 : 0);
-  json.AddMember("original_keys_available", value2, json.GetAllocator());
-
-  value2.SetInt(m_export_format);
-  json.AddMember("export_format", value2, json.GetAllocator());
-
-  value2.SetInt(m_load_deprecated_formats);
-  json.AddMember("load_deprecated_formats", value2, json.GetAllocator());
-
-  value2.SetUint(1);
-  json.AddMember("encrypted_secret_keys", value2, json.GetAllocator());
-
-  value.SetString(m_device_name.c_str(), m_device_name.size());
-  json.AddMember("device_name", value, json.GetAllocator());
-
-  value.SetString(m_device_derivation_path.c_str(), m_device_derivation_path.size());
-  json.AddMember("device_derivation_path", value, json.GetAllocator());
-
-  std::string original_address;
-  std::string original_view_secret_key;
-  if (m_original_keys_available)
-  {  
-    original_address = get_account_address_as_str(m_nettype, false, m_original_address);
-    value.SetString(original_address.c_str(), original_address.length());
-    json.AddMember("original_address", value, json.GetAllocator());
-    original_view_secret_key = epee::string_tools::pod_to_hex(m_original_view_secret_key);
-    value.SetString(original_view_secret_key.c_str(), original_view_secret_key.length());
-    json.AddMember("original_view_secret_key", value, json.GetAllocator());
-  }
-  
-  // This value is serialized for compatibility with wallets which support the pay-to-use RPC system
-  value2.SetInt(0);
-  json.AddMember("persistent_rpc_client_id", value2, json.GetAllocator());
-
-  // This value is serialized for compatibility with wallets which support the pay-to-use RPC system
-  value2.SetFloat(0.0f);
-  json.AddMember("auto_mine_for_rpc_payment", value2, json.GetAllocator());
-
-  // This value is serialized for compatibility with wallets which support the pay-to-use RPC system
-  value2.SetUint64(0);
-  json.AddMember("credits_target", value2, json.GetAllocator());
-
-  value2.SetInt(m_enable_multisig ? 1 : 0);
-  json.AddMember("enable_multisig", value2, json.GetAllocator());
-
-  // Serialize the JSON object
-  rapidjson::StringBuffer buffer;
-  rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-  json.Accept(writer);
-
-  // Encrypt the entire JSON object.
-  std::string cipher;
-  cipher.resize(buffer.GetSize());
-  keys_file_data.get().iv = crypto::rand<crypto::chacha_iv>();
-  crypto::chacha20(buffer.GetString(), buffer.GetSize(), key, keys_file_data.get().iv, &cipher[0]);
-  keys_file_data.get().account_data = cipher;
-  return keys_file_data;
-}
-//----------------------------------------------------------------------------------------------------
 void wallet2::setup_keys(const epee::wipeable_string &password)
 {
-  crypto::chacha_key key;
-  crypto::generate_chacha_key(password.data(), password.size(), key, m_kdf_rounds);
+  const crypto::chacha_key key = keys_data::pwd_to_keys_data_key(
+    password.data(), password.size(), m_kdf_rounds);
 
   // re-encrypt, but keep viewkey unencrypted
   if (m_ask_password == AskPasswordToDecrypt && !m_unattended && !m_watch_only)
@@ -4567,11 +4384,8 @@ void wallet2::setup_keys(const epee::wipeable_string &password)
     m_account.decrypt_viewkey(key);
   }
 
-  static_assert(HASH_SIZE == sizeof(crypto::chacha_key), "Mismatched sizes of hash and chacha key");
-  epee::mlocked<tools::scrubbed_arr<char, HASH_SIZE+1>> cache_key_data;
-  memcpy(cache_key_data.data(), &key, HASH_SIZE);
-  cache_key_data[HASH_SIZE] = config::HASH_KEY_WALLET_CACHE;
-  cn_fast_hash(cache_key_data.data(), HASH_SIZE+1, (crypto::hash&)m_cache_key);
+  m_cache_key = cache::pwd_to_cache_key(password.data(), password.size(), m_kdf_rounds);
+
   get_ringdb_key();
 }
 //----------------------------------------------------------------------------------------------------
@@ -4624,368 +4438,26 @@ bool wallet2::load_keys_buf(const std::string& keys_buf, const epee::wipeable_st
 }
 //----------------------------------------------------------------------------------------------------
 bool wallet2::load_keys_buf(const std::string& keys_buf, const epee::wipeable_string& password, boost::optional<crypto::chacha_key>& keys_to_encrypt) {
-
-  // Decrypt the contents
-  rapidjson::Document json;
-  wallet2::keys_file_data keys_file_data;
-  bool encrypted_secret_keys = false;
-  bool r = ::serialization::parse_binary(keys_buf, keys_file_data);
-  THROW_WALLET_EXCEPTION_IF(!r, error::wallet_internal_error, "internal error: failed to deserialize keys buffer");
-  crypto::chacha_key key;
-  crypto::generate_chacha_key(password.data(), password.size(), key, m_kdf_rounds);
-  std::string account_data;
-  account_data.resize(keys_file_data.account_data.size());
-  crypto::chacha20(keys_file_data.account_data.data(), keys_file_data.account_data.size(), key, keys_file_data.iv, &account_data[0]);
-  if (json.Parse(account_data.c_str()).HasParseError() || !json.IsObject())
-    crypto::chacha8(keys_file_data.account_data.data(), keys_file_data.account_data.size(), key, keys_file_data.iv, &account_data[0]);
-  // The contents should be JSON if the wallet follows the new format.
-  if (json.Parse(account_data.c_str()).HasParseError())
+  try
   {
-    is_old_file_format = true;
-    m_watch_only = false;
-    m_multisig = false;
-    m_multisig_threshold = 0;
-    m_multisig_signers.clear();
-    m_multisig_rounds_passed = 0;
-    m_multisig_derivations.clear();
-    m_always_confirm_transfers = false;
-    m_print_ring_members = false;
-    m_store_tx_info = true;
-    m_default_mixin = 0;
-    m_default_priority = 0;
-    m_auto_refresh = true;
-    m_refresh_type = RefreshType::RefreshDefault;
-    m_refresh_from_block_height = 0;
-    m_skip_to_height = 0;
-    m_ask_password = AskPasswordToDecrypt;
-    cryptonote::set_default_decimal_point(CRYPTONOTE_DISPLAY_DECIMAL_POINT);
-    m_max_reorg_depth = ORPHANED_BLOCKS_MAX_COUNT;
-    m_min_output_count = 0;
-    m_min_output_value = 0;
-    m_merge_destinations = false;
-    m_confirm_backlog = true;
-    m_confirm_backlog_threshold = 0;
-    m_confirm_export_overwrite = true;
-    m_auto_low_priority = true;
-    m_segregate_pre_fork_outputs = true;
-    m_key_reuse_mitigation2 = true;
-    m_segregation_height = 0;
-    m_ignore_fractional_outputs = true;
-    m_ignore_outputs_above = MONEY_SUPPLY;
-    m_ignore_outputs_below = 0;
-    m_track_uses = false;
-    m_show_wallet_name_when_locked = false;
-    m_inactivity_lock_timeout = DEFAULT_INACTIVITY_LOCK_TIMEOUT;
-    m_setup_background_mining = BackgroundMiningMaybe;
-    m_subaddress_lookahead_major = SUBADDRESS_LOOKAHEAD_MAJOR;
-    m_subaddress_lookahead_minor = SUBADDRESS_LOOKAHEAD_MINOR;
-    m_original_keys_available = false;
-    m_export_format = ExportFormat::Binary;
-    m_load_deprecated_formats = false;
-    m_device_name = "";
-    m_device_derivation_path = "";
-    m_key_device_type = hw::device::device_type::SOFTWARE;
-    encrypted_secret_keys = false;
-    m_enable_multisig = false;
-    m_allow_mismatched_daemon_version = false;
-  }
-  else if(json.IsObject())
-  {
-    if (!json.HasMember("key_data"))
+    const crypto::chacha_key keys_key = keys_data::pwd_to_keys_data_key(password.data(), password.size(), m_kdf_rounds);
+    m_keys_data = keys_data::load_from_memory(keys_buf, keys_key, m_nettype);
+    m_keys_data.setup_account_keys_and_devices(keys_key, get_device_callback());
+
+    if (!m_keys_data.keys_were_encrypted_on_load())
     {
-      LOG_ERROR("Field key_data not found in JSON");
-      return false;
-    }
-    if (!json["key_data"].IsString())
-    {
-      LOG_ERROR("Field key_data found in JSON, but not String");
-      return false;
-    }
-    const char *field_key_data = json["key_data"].GetString();
-    account_data = std::string(field_key_data, field_key_data + json["key_data"].GetStringLength());
-
-    if (json.HasMember("key_on_device"))
-    {
-      GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, key_on_device, int, Int, false, hw::device::device_type::SOFTWARE);
-      m_key_device_type = static_cast<hw::device::device_type>(field_key_on_device);
+      keys_to_encrypt = keys_key;
     }
 
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, seed_language, std::string, String, false, std::string());
-    if (field_seed_language_found)
-    {
-      set_seed_language(field_seed_language);
-    }
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, watch_only, int, Int, false, false);
-    m_watch_only = field_watch_only;
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, multisig, int, Int, false, false);
-    m_multisig = field_multisig;
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, multisig_threshold, unsigned int, Uint, m_multisig, 0);
-    m_multisig_threshold = field_multisig_threshold;
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, multisig_rounds_passed, unsigned int, Uint, false, 0);
-    m_multisig_rounds_passed = field_multisig_rounds_passed;
-    if (m_multisig)
-    {
-      if (!json.HasMember("multisig_signers"))
-      {
-        LOG_ERROR("Field multisig_signers not found in JSON");
-        return false;
-      }
-      if (!json["multisig_signers"].IsString())
-      {
-        LOG_ERROR("Field multisig_signers found in JSON, but not String");
-        return false;
-      }
-      const char *field_multisig_signers = json["multisig_signers"].GetString();
-      std::string multisig_signers = std::string(field_multisig_signers, field_multisig_signers + json["multisig_signers"].GetStringLength());
-      r = ::serialization::parse_binary(multisig_signers, m_multisig_signers);
-      if (!r)
-      {
-        LOG_ERROR("Field multisig_signers found in JSON, but failed to parse");
-        return false;
-      }
-
-      //previous version of multisig does not have this field
-      if (json.HasMember("multisig_derivations"))
-      {
-        if (!json["multisig_derivations"].IsString())
-        {
-          LOG_ERROR("Field multisig_derivations found in JSON, but not String");
-          return false;
-        }
-        const char *field_multisig_derivations = json["multisig_derivations"].GetString();
-        std::string multisig_derivations = std::string(field_multisig_derivations, field_multisig_derivations + json["multisig_derivations"].GetStringLength());
-        r = ::serialization::parse_binary(multisig_derivations, m_multisig_derivations);
-        if (!r)
-        {
-          LOG_ERROR("Field multisig_derivations found in JSON, but failed to parse");
-          return false;
-        }
-      }
-    }
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, always_confirm_transfers, int, Int, false, true);
-    m_always_confirm_transfers = field_always_confirm_transfers;
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, print_ring_members, int, Int, false, true);
-    m_print_ring_members = field_print_ring_members;
-    if (json.HasMember("store_tx_info"))
-    {
-      GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, store_tx_info, int, Int, true, true);
-      m_store_tx_info = field_store_tx_info;
-    }
-    else if (json.HasMember("store_tx_keys")) // backward compatibility
-    {
-      GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, store_tx_keys, int, Int, true, true);
-      m_store_tx_info = field_store_tx_keys;
-    }
-    else
-      m_store_tx_info = true;
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, default_mixin, unsigned int, Uint, false, 0);
-    m_default_mixin = field_default_mixin;
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, default_priority, unsigned int, Uint, false, 0);
-    if (field_default_priority_found)
-    {
-      m_default_priority = field_default_priority;
-    }
-    else
-    {
-      GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, default_fee_multiplier, unsigned int, Uint, false, 0);
-      if (field_default_fee_multiplier_found)
-        m_default_priority = field_default_fee_multiplier;
-      else
-        m_default_priority = 0;
-    }
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, auto_refresh, int, Int, false, true);
-    m_auto_refresh = field_auto_refresh;
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, refresh_type, int, Int, false, RefreshType::RefreshDefault);
-    m_refresh_type = RefreshType::RefreshDefault;
-    if (field_refresh_type_found)
-    {
-      if (field_refresh_type == RefreshFull || field_refresh_type == RefreshOptimizeCoinbase || field_refresh_type == RefreshNoCoinbase)
-        m_refresh_type = (RefreshType)field_refresh_type;
-      else
-        LOG_PRINT_L0("Unknown refresh-type value (" << field_refresh_type << "), using default");
-    }
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, refresh_height, uint64_t, Uint64, false, 0);
-    m_refresh_from_block_height = field_refresh_height;
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, skip_to_height, uint64_t, Uint64, false, 0);
-    m_skip_to_height = field_skip_to_height;
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, ask_password, AskPasswordType, Int, false, AskPasswordToDecrypt);
-    m_ask_password = field_ask_password;
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, default_decimal_point, int, Int, false, CRYPTONOTE_DISPLAY_DECIMAL_POINT);
-    cryptonote::set_default_decimal_point(field_default_decimal_point);
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, max_reorg_depth, uint64_t, Uint64, false, ORPHANED_BLOCKS_MAX_COUNT);
-    m_max_reorg_depth = field_max_reorg_depth;
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, min_output_count, uint32_t, Uint, false, 0);
-    m_min_output_count = field_min_output_count;
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, min_output_value, uint64_t, Uint64, false, 0);
-    m_min_output_value = field_min_output_value;
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, merge_destinations, int, Int, false, false);
-    m_merge_destinations = field_merge_destinations;
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, confirm_backlog, int, Int, false, true);
-    m_confirm_backlog = field_confirm_backlog;
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, confirm_backlog_threshold, uint32_t, Uint, false, 0);
-    m_confirm_backlog_threshold = field_confirm_backlog_threshold;
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, confirm_export_overwrite, int, Int, false, true);
-    m_confirm_export_overwrite = field_confirm_export_overwrite;
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, auto_low_priority, int, Int, false, true);
-    m_auto_low_priority = field_auto_low_priority;
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, nettype, uint8_t, Uint, false, static_cast<uint8_t>(m_nettype));
-    // The network type given in the program argument is inconsistent with the network type saved in the wallet
-    THROW_WALLET_EXCEPTION_IF(static_cast<uint8_t>(m_nettype) != field_nettype, error::wallet_internal_error,
-    (boost::format("%s wallet cannot be opened as %s wallet")
-    % (field_nettype == 0 ? "Mainnet" : field_nettype == 1 ? "Testnet" : "Stagenet")
-    % (m_nettype == MAINNET ? "mainnet" : m_nettype == TESTNET ? "testnet" : "stagenet")).str());
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, segregate_pre_fork_outputs, int, Int, false, true);
-    m_segregate_pre_fork_outputs = field_segregate_pre_fork_outputs;
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, key_reuse_mitigation2, int, Int, false, true);
-    m_key_reuse_mitigation2 = field_key_reuse_mitigation2;
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, segregation_height, int, Uint, false, 0);
-    m_segregation_height = field_segregation_height;
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, ignore_fractional_outputs, int, Int, false, true);
-    m_ignore_fractional_outputs = field_ignore_fractional_outputs;
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, ignore_outputs_above, uint64_t, Uint64, false, MONEY_SUPPLY);
-    m_ignore_outputs_above = field_ignore_outputs_above;
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, ignore_outputs_below, uint64_t, Uint64, false, 0);
-    m_ignore_outputs_below = field_ignore_outputs_below;
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, track_uses, int, Int, false, false);
-    m_track_uses = field_track_uses;
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, show_wallet_name_when_locked, int, Int, false, false);
-    m_show_wallet_name_when_locked = field_show_wallet_name_when_locked;
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, inactivity_lock_timeout, uint32_t, Uint, false, DEFAULT_INACTIVITY_LOCK_TIMEOUT);
-    m_inactivity_lock_timeout = field_inactivity_lock_timeout;
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, setup_background_mining, BackgroundMiningSetupType, Int, false, BackgroundMiningMaybe);
-    m_setup_background_mining = field_setup_background_mining;
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, subaddress_lookahead_major, uint32_t, Uint, false, SUBADDRESS_LOOKAHEAD_MAJOR);
-    m_subaddress_lookahead_major = field_subaddress_lookahead_major;
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, subaddress_lookahead_minor, uint32_t, Uint, false, SUBADDRESS_LOOKAHEAD_MINOR);
-    m_subaddress_lookahead_minor = field_subaddress_lookahead_minor;
-
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, encrypted_secret_keys, uint32_t, Uint, false, false);
-    encrypted_secret_keys = field_encrypted_secret_keys;
-
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, export_format, ExportFormat, Int, false, Binary);
-    m_export_format = field_export_format;
-
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, load_deprecated_formats, int, Int, false, false);
-    m_load_deprecated_formats = field_load_deprecated_formats;
-
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, device_name, std::string, String, false, std::string());
-    if (m_device_name.empty())
-    {
-      if (field_device_name_found)
-      {
-        m_device_name = field_device_name;
-      }
-      else
-      {
-        m_device_name = m_key_device_type == hw::device::device_type::LEDGER ? "Ledger" : "default";
-      }
-    }
-
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, device_derivation_path, std::string, String, false, std::string());
-    m_device_derivation_path = field_device_derivation_path;
-    
-    if (json.HasMember("original_keys_available"))
-    {
-      GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, original_keys_available, int, Int, false, false);
-      m_original_keys_available = field_original_keys_available;
-      if (m_original_keys_available)
-      {
-        GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, original_address, std::string, String, true, std::string());
-        address_parse_info info;
-        bool ok = get_account_address_from_str(info, m_nettype, field_original_address);
-        if (!ok)
-        {
-          LOG_ERROR("Failed to parse original_address from JSON");
-          return false;
-        }
-        m_original_address = info.address;
-        GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, original_view_secret_key, std::string, String, true, std::string());
-        ok = epee::string_tools::hex_to_pod(field_original_view_secret_key, m_original_view_secret_key);
-        if (!ok)
-        {
-          LOG_ERROR("Failed to parse original_view_secret_key from JSON");
-          return false;
-        }
-      }
-    }
-    else
-    {
-      m_original_keys_available = false;
-    }
-
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, enable_multisig, int, Int, false, false);
-    m_enable_multisig = field_enable_multisig;
-  }
-  else
-  {
-    THROW_WALLET_EXCEPTION(error::wallet_internal_error, "invalid password");
-    return false;
-  }
-
-  r = epee::serialization::load_t_from_binary(m_account, account_data);
-  THROW_WALLET_EXCEPTION_IF(!r, error::invalid_password);
-  if (m_key_device_type == hw::device::device_type::LEDGER || m_key_device_type == hw::device::device_type::TREZOR) {
-    LOG_PRINT_L0("Account on device. Initing device...");
-    hw::device &hwdev = lookup_device(m_device_name);
-    THROW_WALLET_EXCEPTION_IF(!hwdev.set_name(m_device_name), error::wallet_internal_error, "Could not set device name " + m_device_name);
-    hwdev.set_network_type(m_nettype);
-    hwdev.set_derivation_path(m_device_derivation_path);
-    hwdev.set_callback(get_device_callback());
-    THROW_WALLET_EXCEPTION_IF(!hwdev.init(), error::wallet_internal_error, "Could not initialize the device " + m_device_name);
-    THROW_WALLET_EXCEPTION_IF(!hwdev.connect(), error::wallet_internal_error, "Could not connect to the device " + m_device_name);
-    m_account.set_device(hwdev);
-
-    account_public_address device_account_public_address;
-    bool fetch_device_address = true;
-
-    ::hw::device_cold* dev_cold = nullptr;
-    if (m_key_device_type == hw::device::device_type::TREZOR && (dev_cold = dynamic_cast<::hw::device_cold*>(&hwdev)) != nullptr) {
-      THROW_WALLET_EXCEPTION_IF(!dev_cold->get_public_address_with_no_passphrase(device_account_public_address), error::wallet_internal_error, "Cannot get a device address");
-      if (device_account_public_address == m_account.get_keys().m_account_address) {
-        LOG_PRINT_L0("Wallet opened with an empty passphrase");
-        fetch_device_address = false;
-        dev_cold->set_use_empty_passphrase(true);
-      } else {
-        fetch_device_address = true;
-        LOG_PRINT_L0("Wallet opening with an empty passphrase failed. Retry again: " << fetch_device_address);
-        dev_cold->reset_session();
-      }
-    }
-
-    if (fetch_device_address) {
-      THROW_WALLET_EXCEPTION_IF(!hwdev.get_public_address(device_account_public_address), error::wallet_internal_error, "Cannot get a device address");
-    }
-
-    THROW_WALLET_EXCEPTION_IF(device_account_public_address != m_account.get_keys().m_account_address, error::wallet_internal_error, "Device wallet does not match wallet address. If the device uses the passphrase feature, please check whether the passphrase was entered correctly (it may have been misspelled - different passphrases generate different wallets, passphrase is case-sensitive). "
-                                                                                                                                     "Device address: " + cryptonote::get_account_address_as_str(m_nettype, false, device_account_public_address) +
-                                                                                                                                     ", wallet address: " + m_account.get_public_address_str(m_nettype));
-    LOG_PRINT_L0("Device inited...");
-  } else if (key_on_device()) {
-    THROW_WALLET_EXCEPTION(error::wallet_internal_error, "hardware device not supported");
-  }
-
-  if (r)
-  {
-    if (encrypted_secret_keys)
-    {
-      m_account.decrypt_keys(key);
-    }
-    else
-    {
-      keys_to_encrypt = key;
-    }
-  }
-  const cryptonote::account_keys& keys = m_account.get_keys();
-  hw::device &hwdev = m_account.get_device();
-  r = r && hwdev.verify_keys(keys.m_view_secret_key,  keys.m_account_address.m_view_public_key);
-  if (!m_watch_only && !m_multisig && hwdev.device_protocol() != hw::device::PROTOCOL_COLD)
-    r = r && hwdev.verify_keys(keys.m_spend_secret_key, keys.m_account_address.m_spend_public_key);
-  THROW_WALLET_EXCEPTION_IF(!r, error::wallet_files_doesnt_correspond, m_keys_file, m_wallet_file);
-
-  if (r)
     setup_keys(password);
 
-  return true;
+    return true;
+  }
+  catch (const std::exception& e)
+  {
+    MERROR("Error while trying to load keys from buffer: " << e.what());
+    return false;
+  }
 }
 
 /*!
@@ -5022,49 +4494,19 @@ bool wallet2::verify_password(const epee::wipeable_string& password)
  */
 bool wallet2::verify_password(const std::string& keys_file_name, const epee::wipeable_string& password, bool no_spend_key, hw::device &hwdev, uint64_t kdf_rounds)
 {
-  rapidjson::Document json;
-  wallet2::keys_file_data keys_file_data;
   std::string buf;
-  bool encrypted_secret_keys = false;
   bool r = load_from_file(keys_file_name, buf);
   THROW_WALLET_EXCEPTION_IF(!r, error::file_read_error, keys_file_name);
 
-  // Decrypt the contents
-  r = ::serialization::parse_binary(buf, keys_file_data);
-  THROW_WALLET_EXCEPTION_IF(!r, error::wallet_internal_error, "internal error: failed to deserialize \"" + keys_file_name + '\"');
-  crypto::chacha_key key;
-  crypto::generate_chacha_key(password.data(), password.size(), key, kdf_rounds);
-  std::string account_data;
-  account_data.resize(keys_file_data.account_data.size());
-  crypto::chacha20(keys_file_data.account_data.data(), keys_file_data.account_data.size(), key, keys_file_data.iv, &account_data[0]);
-  if (json.Parse(account_data.c_str()).HasParseError() || !json.IsObject())
-    crypto::chacha8(keys_file_data.account_data.data(), keys_file_data.account_data.size(), key, keys_file_data.iv, &account_data[0]);
-
-  // The contents should be JSON if the wallet follows the new format.
-  if (json.Parse(account_data.c_str()).HasParseError())
+  try
   {
-    // old format before JSON wallet key file format
+    const keys_data kd = keys_data::load_from_memory(buf, password, cryptonote::UNDEFINED, kdf_rounds);
+    return kd.verify_account_keys(no_spend_key, std::addressof(hwdev));
   }
-  else
+  catch (...)
   {
-    account_data = std::string(json["key_data"].GetString(), json["key_data"].GetString() +
-      json["key_data"].GetStringLength());
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, encrypted_secret_keys, uint32_t, Uint, false, false);
-    encrypted_secret_keys = field_encrypted_secret_keys;
+    return false;
   }
-
-  cryptonote::account_base account_data_check;
-
-  r = epee::serialization::load_t_from_binary(account_data_check, account_data);
-
-  if (encrypted_secret_keys)
-    account_data_check.decrypt_keys(key);
-
-  const cryptonote::account_keys& keys = account_data_check.get_keys();
-  r = r && hwdev.verify_keys(keys.m_view_secret_key,  keys.m_account_address.m_view_public_key);
-  if(!no_spend_key)
-    r = r && hwdev.verify_keys(keys.m_spend_secret_key, keys.m_account_address.m_spend_public_key);
-  return r;
 }
 
 void wallet2::encrypt_keys(const crypto::chacha_key &key)
@@ -5130,46 +4572,20 @@ void wallet2::create_keys_file(const std::string &wallet_, bool watch_only, cons
  */
 bool wallet2::query_device(hw::device::device_type& device_type, const std::string& keys_file_name, const epee::wipeable_string& password, uint64_t kdf_rounds)
 {
-  rapidjson::Document json;
-  wallet2::keys_file_data keys_file_data;
-  std::string buf;
-  bool r = load_from_file(keys_file_name, buf);
+  std::string keys_file_buf;
+  bool r = load_from_file(keys_file_name, keys_file_buf);
   THROW_WALLET_EXCEPTION_IF(!r, error::file_read_error, keys_file_name);
 
-  // Decrypt the contents
-  r = ::serialization::parse_binary(buf, keys_file_data);
-  THROW_WALLET_EXCEPTION_IF(!r, error::wallet_internal_error, "internal error: failed to deserialize \"" + keys_file_name + '\"');
-  crypto::chacha_key key;
-  crypto::generate_chacha_key(password.data(), password.size(), key, kdf_rounds);
-  std::string account_data;
-  account_data.resize(keys_file_data.account_data.size());
-  crypto::chacha20(keys_file_data.account_data.data(), keys_file_data.account_data.size(), key, keys_file_data.iv, &account_data[0]);
-  if (json.Parse(account_data.c_str()).HasParseError() || !json.IsObject())
-    crypto::chacha8(keys_file_data.account_data.data(), keys_file_data.account_data.size(), key, keys_file_data.iv, &account_data[0]);
-
-  device_type = hw::device::device_type::SOFTWARE;
-  // The contents should be JSON if the wallet follows the new format.
-  if (json.Parse(account_data.c_str()).HasParseError())
+  try
   {
-    // old format before JSON wallet key file format
+    const keys_data kd = keys_data::load_from_memory(keys_file_buf, password, cryptonote::UNDEFINED, kdf_rounds);
+    device_type = kd.m_key_device_type;
+    return true;
   }
-  else
+  catch (...)
   {
-    account_data = std::string(json["key_data"].GetString(), json["key_data"].GetString() +
-      json["key_data"].GetStringLength());
-
-    if (json.HasMember("key_on_device"))
-    {
-      GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, key_on_device, int, Int, false, hw::device::device_type::SOFTWARE);
-      device_type = static_cast<hw::device::device_type>(field_key_on_device);
-    }
+    return false;
   }
-
-  cryptonote::account_base account_data_check;
-
-  r = epee::serialization::load_t_from_binary(account_data_check, account_data);
-  if (!r) return false;
-  return true;
 }
 
 void wallet2::init_type(hw::device::device_type device_type)
@@ -5180,7 +4596,7 @@ void wallet2::init_type(hw::device::device_type device_type)
   m_multisig_threshold = 0;
   m_multisig_signers.clear();
   m_original_keys_available = false;
-  m_key_device_type = device_type;
+  m_keys_data.m_key_device_type = device_type;
 }
 
 /*!
@@ -6022,7 +5438,6 @@ void wallet2::load(const std::string& wallet_, const epee::wipeable_string& pass
   }
   else
   {
-    wallet2::cache_file_data cache_file_data;
     std::string cache_file_buf;
     bool r = true;
     if (use_fs)
@@ -6031,100 +5446,9 @@ void wallet2::load(const std::string& wallet_, const epee::wipeable_string& pass
       THROW_WALLET_EXCEPTION_IF(!r, error::file_read_error, m_wallet_file);
     }
 
-    // try to read it as an encrypted cache
-    try
-    {
-      LOG_PRINT_L1("Trying to decrypt cache data");
+    const std::string& cache_buf_to_use = use_fs ? cache_file_buf : cache_buf;
+    m_cache = cache::load_from_memory(cache_buf_to_use, password, m_account, m_kdf_rounds);
 
-      r = ::serialization::parse_binary(use_fs ? cache_file_buf : cache_buf, cache_file_data);
-      THROW_WALLET_EXCEPTION_IF(!r, error::wallet_internal_error, "internal error: failed to deserialize \"" + m_wallet_file + '\"');
-      std::string cache_data;
-      cache_data.resize(cache_file_data.cache_data.size());
-      crypto::chacha20(cache_file_data.cache_data.data(), cache_file_data.cache_data.size(), m_cache_key, cache_file_data.iv, &cache_data[0]);
-
-      try {
-        bool loaded = false;
-
-        try
-        {
-          binary_archive<false> ar{epee::strspan<std::uint8_t>(cache_data)};
-          if (::serialization::serialize(ar, *this))
-            if (::serialization::check_stream_state(ar))
-              loaded = true;
-          if (!loaded)
-          {
-            binary_archive<false> ar{epee::strspan<std::uint8_t>(cache_data)};
-            ar.enable_varint_bug_backward_compatibility();
-            if (::serialization::serialize(ar, *this))
-              if (::serialization::check_stream_state(ar))
-                loaded = true;
-          }
-        }
-        catch(...) { }
-
-        if (!loaded)
-        {
-          std::stringstream iss;
-          iss << cache_data;
-          boost::archive::portable_binary_iarchive ar(iss);
-          ar >> *this;
-        }
-      }
-      catch(...)
-      {
-        // try with previous scheme: direct from keys
-        crypto::chacha_key key;
-        generate_chacha_key_from_secret_keys(key);
-        crypto::chacha20(cache_file_data.cache_data.data(), cache_file_data.cache_data.size(), key, cache_file_data.iv, &cache_data[0]);
-        try {
-          std::stringstream iss;
-          iss << cache_data;
-          boost::archive::portable_binary_iarchive ar(iss);
-          ar >> *this;
-        }
-        catch (...)
-        {
-          crypto::chacha8(cache_file_data.cache_data.data(), cache_file_data.cache_data.size(), key, cache_file_data.iv, &cache_data[0]);
-          try
-          {
-            std::stringstream iss;
-            iss << cache_data;
-            boost::archive::portable_binary_iarchive ar(iss);
-            ar >> *this;
-          }
-          catch (...)
-          {
-            LOG_PRINT_L0("Failed to open portable binary, trying unportable");
-            if (use_fs) boost::filesystem::copy_file(m_wallet_file, m_wallet_file + ".unportable", boost::filesystem::copy_option::overwrite_if_exists);
-            std::stringstream iss;
-            iss.str("");
-            iss << cache_data;
-            boost::archive::binary_iarchive ar(iss);
-            ar >> *this;
-          }
-        }
-      }
-    }
-    catch (...)
-    {
-      LOG_PRINT_L1("Failed to load encrypted cache, trying unencrypted");
-      try {
-        std::stringstream iss;
-        iss << cache_file_buf;
-        boost::archive::portable_binary_iarchive ar(iss);
-        ar >> *this;
-      }
-      catch (...)
-      {
-        LOG_PRINT_L0("Failed to open portable binary, trying unportable");
-        if (use_fs) boost::filesystem::copy_file(m_wallet_file, m_wallet_file + ".unportable", boost::filesystem::copy_option::overwrite_if_exists);
-        std::stringstream iss;
-        iss.str("");
-        iss << cache_file_buf;
-        boost::archive::binary_iarchive ar(iss);
-        ar >> *this;
-      }
-    }
     THROW_WALLET_EXCEPTION_IF(
       m_account_public_address.m_spend_public_key != m_account.get_keys().m_account_address.m_spend_public_key ||
       m_account_public_address.m_view_public_key  != m_account.get_keys().m_account_address.m_view_public_key,
@@ -6255,10 +5579,6 @@ void wallet2::store_to(const std::string &path, const epee::wipeable_string &pas
     }
   }
 
-  // get wallet cache data
-  boost::optional<wallet2::cache_file_data> cache_file_data = get_cache_file_data(password);
-  THROW_WALLET_EXCEPTION_IF(cache_file_data == boost::none, error::wallet_internal_error, "failed to generate wallet cache data");
-
   const std::string new_file = same_file ? m_wallet_file + ".new" : path;
   const std::string old_file = m_wallet_file;
   const std::string old_keys_file = m_keys_file;
@@ -6303,24 +5623,9 @@ void wallet2::store_to(const std::string &path, const epee::wipeable_string &pas
     }
   } else {
     // save to new file
-#ifdef WIN32
-    // On Windows avoid using std::ofstream which does not work with UTF-8 filenames
-    // The price to pay is temporary higher memory consumption for string stream + binary archive
-    std::ostringstream oss;
-    binary_archive<true> oar(oss);
-    bool success = ::serialization::serialize(oar, cache_file_data.get());
-    if (success) {
-        success = save_to_file(new_file, oss.str());
-    }
-    THROW_WALLET_EXCEPTION_IF(!success, error::file_save_error, new_file);
-#else
-    std::ofstream ostr;
-    ostr.open(new_file, std::ios_base::binary | std::ios_base::out | std::ios_base::trunc);
-    binary_archive<true> oar(ostr);
-    bool success = ::serialization::serialize(oar, cache_file_data.get());
-    ostr.close();
-    THROW_WALLET_EXCEPTION_IF(!success || !ostr.good(), error::file_save_error, new_file);
-#endif
+    const std::string cache_buf = m_cache.store_to_memory(m_cache_key);
+    const bool save_success = epee::file_io_utils::save_string_to_file(new_file, cache_buf);
+    THROW_WALLET_EXCEPTION_IF(!save_success, error::file_save_error, new_file);
 
     // here we have "*.new" file, we need to rename it to be without ".new"
     std::error_code e = tools::replace_file(new_file, m_wallet_file);
@@ -6332,31 +5637,6 @@ void wallet2::store_to(const std::string &path, const epee::wipeable_string &pas
     // While the "m_message_store" object of course always exist, a file for the message
     // store should only exist if the MMS is really active
     m_message_store.write_to_file(get_multisig_wallet_state(), m_mms_file);
-  }
-}
-//----------------------------------------------------------------------------------------------------
-boost::optional<wallet2::cache_file_data> wallet2::get_cache_file_data(const epee::wipeable_string &passwords)
-{
-  trim_hashchain();
-  try
-  {
-    std::stringstream oss;
-    binary_archive<true> ar(oss);
-    if (!::serialization::serialize(ar, *this))
-      return boost::none;
-
-    boost::optional<wallet2::cache_file_data> cache_file_data = (wallet2::cache_file_data) {};
-    cache_file_data.get().cache_data = oss.str();
-    std::string cipher;
-    cipher.resize(cache_file_data.get().cache_data.size());
-    cache_file_data.get().iv = crypto::rand<crypto::chacha_iv>();
-    crypto::chacha20(cache_file_data.get().cache_data.data(), cache_file_data.get().cache_data.size(), m_cache_key, cache_file_data.get().iv, &cipher[0]);
-    cache_file_data.get().cache_data = cipher;
-    return cache_file_data;
-  }
-  catch(...)
-  {
-    return boost::none;
   }
 }
 //----------------------------------------------------------------------------------------------------
@@ -6968,7 +6248,7 @@ void wallet2::commit_tx(pending_tx& ptx)
   if (store_tx_info() && ptx.tx_key != crypto::null_skey)
   {
     m_tx_keys[txid] = ptx.tx_key;
-    m_additional_tx_keys[txid] = ptx.additional_tx_keys;
+    m_cache.m_additional_tx_keys[txid] = ptx.additional_tx_keys;
   }
 
   LOG_PRINT_L2("transaction " << txid << " generated ok and sent to daemon, key_images: [" << ptx.key_images << "]");
@@ -7078,7 +6358,7 @@ bool wallet2::parse_unsigned_tx_from_str(const std::string &unsigned_tx_st, unsi
     try
     {
       std::istringstream iss(s);
-      boost::archive::portable_binary_iarchive ar(iss);
+      boost::archive::polymorphic_portable_binary_iarchive ar(iss);
       ar >> exported_txs;
     }
     catch (...)
@@ -7100,7 +6380,7 @@ bool wallet2::parse_unsigned_tx_from_str(const std::string &unsigned_tx_st, unsi
       try
       {
         std::istringstream iss(s);
-        boost::archive::portable_binary_iarchive ar(iss);
+        boost::archive::polymorphic_portable_binary_iarchive ar(iss);
         ar >> exported_txs;
       }
       catch (...)
@@ -7190,7 +6470,7 @@ bool wallet2::sign_tx(unsigned_tx_set &exported_txs, std::vector<wallet2::pendin
     {
       const crypto::hash txid = get_transaction_hash(ptx.tx);
       m_tx_keys[txid] = tx_key;
-      m_additional_tx_keys[txid] = additional_tx_keys;
+      m_cache.m_additional_tx_keys[txid] = additional_tx_keys;
     }
 
     std::string key_images;
@@ -7394,7 +6674,7 @@ bool wallet2::parse_tx_from_str(const std::string &signed_tx_st, std::vector<too
     try
     {
       std::istringstream iss(s);
-      boost::archive::portable_binary_iarchive ar(iss);
+      boost::archive::polymorphic_portable_binary_iarchive ar(iss);
       ar >> signed_txs;
     }
     catch (...)
@@ -7416,7 +6696,7 @@ bool wallet2::parse_tx_from_str(const std::string &signed_tx_st, std::vector<too
       try
       {
         std::istringstream iss(s);
-        boost::archive::portable_binary_iarchive ar(iss);
+        boost::archive::polymorphic_portable_binary_iarchive ar(iss);
         ar >> signed_txs;
       }
       catch (...)
@@ -7583,7 +6863,7 @@ bool wallet2::parse_multisig_tx_from_str(std::string multisig_tx_st, multisig_tx
     if (!loaded && m_load_deprecated_formats)
     {
       std::istringstream iss(multisig_tx_st);
-      boost::archive::portable_binary_iarchive ar(iss);
+      boost::archive::polymorphic_portable_binary_iarchive ar(iss);
       ar >> exported_txs;
       loaded = true;
     }
@@ -7637,7 +6917,7 @@ bool wallet2::load_multisig_tx(cryptonote::blobdata s, multisig_tx_set &exported
       if (store_tx_info())
       {
         m_tx_keys[txid] = ptx.tx_key;
-        m_additional_tx_keys[txid] = ptx.additional_tx_keys;
+        m_cache.m_additional_tx_keys[txid] = ptx.additional_tx_keys;
       }
     }
   }
@@ -7798,7 +7078,7 @@ bool wallet2::sign_multisig_tx(multisig_tx_set &exported_txs, std::vector<crypto
       if (store_tx_info())
       {
         m_tx_keys[txid] = ptx.tx_key;
-        m_additional_tx_keys[txid] = ptx.additional_tx_keys;
+        m_cache.m_additional_tx_keys[txid] = ptx.additional_tx_keys;
       }
       txids.push_back(txid);
     }
@@ -11007,8 +10287,8 @@ bool wallet2::get_tx_key_cached(const crypto::hash &txid, crypto::secret_key &tx
   tx_key = i->second;
   if (tx_key == crypto::null_skey)
     return false;
-  const auto j = m_additional_tx_keys.find(txid);
-  if (j != m_additional_tx_keys.end())
+  const auto j = m_cache.m_additional_tx_keys.find(txid);
+  if (j != m_cache.m_additional_tx_keys.end())
     additional_tx_keys = j->second;
   return true;
 }
@@ -11150,7 +10430,7 @@ void wallet2::set_tx_key(const crypto::hash &txid, const crypto::secret_key &tx_
   find_tx_extra_field_by_type(tx_extra_fields, additional_tx_pub_keys);
   THROW_WALLET_EXCEPTION_IF(additional_tx_keys.size() != additional_tx_pub_keys.data.size(), error::wallet_internal_error, "The number of additional tx secret keys doesn't agree with the number of additional tx public keys in the blockchain" );
   m_tx_keys[txid] = tx_key;
-  m_additional_tx_keys[txid] = additional_tx_keys;
+  m_cache.m_additional_tx_keys[txid] = additional_tx_keys;
 }
 //----------------------------------------------------------------------------------------------------
 std::string wallet2::get_spend_proof(const crypto::hash &txid, const std::string &message)
@@ -11987,7 +11267,7 @@ bool wallet2::check_reserve_proof(const cryptonote::account_public_address &addr
   if (!loaded && m_load_deprecated_formats)
   {
     std::istringstream iss(sig_decoded);
-    boost::archive::portable_binary_iarchive ar(iss);
+    boost::archive::polymorphic_portable_binary_iarchive ar(iss);
     ar >> proofs >> subaddr_spendkeys.parent();
   }
 
@@ -13311,7 +12591,7 @@ size_t wallet2::import_outputs_from_str(const std::string &outputs_st)
       {
         std::stringstream iss;
         iss << body;
-        boost::archive::portable_binary_iarchive ar(iss);
+        boost::archive::polymorphic_portable_binary_iarchive ar(iss);
         ar >> outputs;
         loaded = true;
       }
@@ -13577,7 +12857,7 @@ size_t wallet2::import_multisig(std::vector<cryptonote::blobdata> blobs)
     if (!loaded && m_load_deprecated_formats)
     {
       std::istringstream iss(body);
-      boost::archive::portable_binary_iarchive ar(iss);
+      boost::archive::polymorphic_portable_binary_iarchive ar(iss);
       ar >> i;
       loaded = true;
     }

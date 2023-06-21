@@ -301,6 +301,24 @@ class WalletTest():
         except: ok = True
         assert ok
 
+        ####################################################################################################################
+        # This create->close->open pattern reveals if you have code which performs loading correctly but storing incorrectly
+
+        wallet.create_wallet('createcloseopen', password='NIST SP 800-90A -- Dual_EC_DRBG')
+        cco_addr = wallet.get_address().address
+        assert cco_addr != '44Kbx4sJ7JDRDV5aAhLJzQCjDz2ViLRduE3ijDZu3osWKBjMGkV1XPk4pfDUMqt1Aiezvephdqm6YD19GKFD9ZcXVUTp6BW' # what are the chances haha
+
+        wallet.close_wallet()
+        ok = False
+        try: wallet.get_address()
+        except: ok = True
+        assert ok
+
+        wallet.open_wallet('createcloseopen', password='NIST SP 800-90A -- Dual_EC_DRBG')
+        res = wallet.get_address()
+        assert res.address == cco_addr
+        ####################################################################################################################
+
         wallet.restore_deterministic_wallet(seed = 'velvet lymph giddy number token physics poetry unquoted nibs useful sabotage limits benches lifestyle eden nitrogen anvil fewest avoid batch vials washing fences goat unquoted')
         res = wallet.get_address()
         assert res.address == '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'

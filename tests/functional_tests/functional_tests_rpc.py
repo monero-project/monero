@@ -86,6 +86,9 @@ for i in range(N_WALLETS):
 
 print('Starting servers...')
 try:
+  # Setup directories
+  subprocess.Popen(['rm', '-rf', WALLET_DIRECTORY])
+
   PYTHONPATH = os.environ['PYTHONPATH'] if 'PYTHONPATH' in os.environ else ''
   if len(PYTHONPATH) > 0:
     PYTHONPATH += ':'

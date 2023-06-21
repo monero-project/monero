@@ -13,18 +13,18 @@ using namespace cryptonote;
 void wallet_accessor_test::set_account(tools::wallet2 * wallet, cryptonote::account_base& account)
 {
   wallet->clear();
-  wallet->m_account = account;
+  wallet->m_keys_data.m_account = account;
 
-  wallet->m_key_device_type = account.get_device().get_type();
-  wallet->m_account_public_address = account.get_keys().m_account_address;
-  wallet->m_watch_only = false;
-  wallet->m_multisig = false;
-  wallet->m_multisig_threshold = 0;
-  wallet->m_multisig_signers.clear();
-  wallet->m_device_name = account.get_device().get_name();
+  wallet->m_keys_data.m_key_device_type = account.get_device().get_type();
+  wallet->m_cache.m_account_public_address = account.get_keys().m_account_address;
+  wallet->m_keys_data.m_watch_only = false;
+  wallet->m_keys_data.m_multisig = false;
+  wallet->m_keys_data.m_multisig_threshold = 0;
+  wallet->m_keys_data.m_multisig_signers.clear();
+  wallet->m_keys_data.m_device_name = account.get_device().get_name();
 
-  wallet->m_subaddress_lookahead_major = 5;
-  wallet->m_subaddress_lookahead_minor = 20;
+  wallet->m_keys_data.m_subaddress_lookahead_major = 5;
+  wallet->m_keys_data.m_subaddress_lookahead_minor = 20;
 
   wallet->setup_new_blockchain();  // generates also subadress register
 }
