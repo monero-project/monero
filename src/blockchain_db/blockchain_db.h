@@ -1053,7 +1053,7 @@ public:
    * @brief fetch a block's already generated coins
    *
    * The subclass should return the total coins generated as of the block
-   * with the given height.
+   * with the given height, capped to a maximum value of MONEY_SUPPLY.
    *
    * If the block does not exist, the subclass should throw BLOCK_DNE
    *
