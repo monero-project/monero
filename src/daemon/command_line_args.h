@@ -86,10 +86,6 @@ namespace daemon_args
     "daemon_command"
   , "Hidden"
   };
-  const command_line::arg_descriptor<bool> arg_os_version = {
-    "os-version"
-  , "OS for which this executable was compiled"
-  };
   const command_line::arg_descriptor<unsigned> arg_max_concurrency = {
     "max-concurrency"
   , "Max number of threads to use for a parallel job"

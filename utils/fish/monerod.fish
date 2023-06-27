@@ -2,7 +2,6 @@ complete -c monerod -f
 
 complete -c monerod -l help -d "Produce help message"
 complete -c monerod -l version -d "Output version information"
-complete -c monerod -l os-version -d "OS for which this executable was compiled"
 complete -c monerod -l config-file -r -d "Specify configuration file"
 complete -c monerod -l detach -d "Run as daemon"
 complete -c monerod -l pidfile -r -F -d "File path to write the daemon's PID to (optional, requires --detach)"
