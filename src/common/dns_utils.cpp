@@ -340,6 +340,7 @@ std::vector<std::string> DNSResolver::get_record(const std::string& url, int rec
     dnssec_valid = result->secure && !result->bogus;
     if (dnssec_available && !dnssec_valid)
       MWARNING("Invalid DNSSEC " << get_record_name(record_type) << " record signature for " << url << ": " << result->why_bogus);
+      MWARNING("Possibly your DNS service is problematic. You can have monerod use an alternate via env variable DNS_PUBLIC. Example: DNS_PUBLIC=tcp://9.9.9.9");
     if (result->havedata)
     {
       for (size_t i=0; result->data[i] != NULL; i++)
