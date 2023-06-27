@@ -93,6 +93,8 @@ namespace tools
     //         get_output_distribution
     //         deprecated_rpc_access
     //       wallet_files_doesnt_correspond
+    //       scan_tx_error *
+    //         wont_reprocess_recent_txs_via_untrusted_daemon
     //
     // * - class with protected ctor
 
@@ -912,6 +914,23 @@ namespace tools
     {
       explicit bitmessage_api_error(std::string&& loc, const std::string& error_string)
         : mms_error(std::move(loc), "PyBitmessage returned " + error_string)
+      {
+      }
+    };
+    //----------------------------------------------------------------------------------------------------
+    struct scan_tx_error : public wallet_logic_error
+    {
+    protected:
+      explicit scan_tx_error(std::string&& loc, const std::string& message)
+        : wallet_logic_error(std::move(loc), message)
+      {
+      }
+    };
+    //----------------------------------------------------------------------------------------------------
+    struct wont_reprocess_recent_txs_via_untrusted_daemon : public scan_tx_error
+    {
+      explicit wont_reprocess_recent_txs_via_untrusted_daemon(std::string&& loc)
+        : scan_tx_error(std::move(loc), "The wallet has already seen 1 or more recent transactions than the scanned tx")
       {
       }
     };
