@@ -59,6 +59,7 @@ public:
   boost::optional<std::string> get_dynamic_base_fee_estimate_2021_scaling(uint64_t grace_blocks, std::vector<uint64_t> &fees);
   boost::optional<std::string> get_fee_quantization_mask(uint64_t &fee_quantization_mask);
   boost::optional<std::string> get_rpc_payment_info(bool mining, bool &payment_required, uint64_t &credits, uint64_t &diff, uint64_t &credits_per_hash_found, cryptonote::blobdata &blob, uint64_t &height, uint64_t &seed_height, crypto::hash &seed_hash, crypto::hash &next_seed_hash, uint32_t &cookie);
+  boost::optional<std::string> get_block_header_by_height(uint64_t height, cryptonote::block_header_response &block_header);
 
 private:
   template<typename T> void handle_payment_changes(const T &res, std::true_type) {

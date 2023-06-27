@@ -817,6 +817,30 @@ private:
       bool empty() const { return tx_extra_fields.empty() && primary.empty() && additional.empty(); }
     };
 
+    struct detached_blockchain_data
+    {
+      hashchain detached_blockchain;
+      size_t original_chain_size;
+      std::unordered_set<crypto::hash> detached_tx_hashes;
+      std::unordered_map<crypto::hash, std::vector<cryptonote::tx_destination_entry>> detached_confirmed_txs_dests;
+    };
+
+    struct process_tx_entry_t
+    {
+      cryptonote::COMMAND_RPC_GET_TRANSACTIONS::entry tx_entry;
+      cryptonote::transaction tx;
+      crypto::hash tx_hash;
+    };
+
+    struct tx_entry_data
+    {
+      std::vector<process_tx_entry_t> tx_entries;
+      uint64_t lowest_height;
+      uint64_t highest_height;
+
+      tx_entry_data(): lowest_height((uint64_t)-1), highest_height(0) {}
+    };
+
     /*!
      * \brief  Generates a wallet or restores one. Assumes the multisig setup
       *        has already completed for the provided multisig info.
@@ -1381,7 +1405,7 @@ private:
     std::string get_spend_proof(const crypto::hash &txid, const std::string &message);
     bool check_spend_proof(const crypto::hash &txid, const std::string &message, const std::string &sig_str);
 
-    void scan_tx(const std::vector<crypto::hash> &txids);
+    void scan_tx(const std::unordered_set<crypto::hash> &txids);
 
     /*!
      * \brief  Generates a proof that proves the reserve of unspent funds
@@ -1700,10 +1724,11 @@ private:
      */
     bool load_keys_buf(const std::string& keys_buf, const epee::wipeable_string& password);
     bool load_keys_buf(const std::string& keys_buf, const epee::wipeable_string& password, boost::optional<crypto::chacha_key>& keys_to_encrypt);
-    void process_new_transaction(const crypto::hash &txid, const cryptonote::transaction& tx, const std::vector<uint64_t> &o_indices, uint64_t height, uint8_t block_version, uint64_t ts, bool miner_tx, bool pool, bool double_spend_seen, const tx_cache_data &tx_cache_data, std::map<std::pair<uint64_t, uint64_t>, size_t> *output_tracker_cache = NULL);
+    void process_new_transaction(const crypto::hash &txid, const cryptonote::transaction& tx, const std::vector<uint64_t> &o_indices, uint64_t height, uint8_t block_version, uint64_t ts, bool miner_tx, bool pool, bool double_spend_seen, const tx_cache_data &tx_cache_data, std::map<std::pair<uint64_t, uint64_t>, size_t> *output_tracker_cache = NULL, bool ignore_callbacks = false);
     bool should_skip_block(const cryptonote::block &b, uint64_t height) const;
     void process_new_blockchain_entry(const cryptonote::block& b, const cryptonote::block_complete_entry& bche, const parsed_block &parsed_block, const crypto::hash& bl_id, uint64_t height, const std::vector<tx_cache_data> &tx_cache_data, size_t tx_cache_data_offset, std::map<std::pair<uint64_t, uint64_t>, size_t> *output_tracker_cache = NULL);
-    void detach_blockchain(uint64_t height, std::map<std::pair<uint64_t, uint64_t>, size_t> *output_tracker_cache = NULL);
+    detached_blockchain_data detach_blockchain(uint64_t height, std::map<std::pair<uint64_t, uint64_t>, size_t> *output_tracker_cache = NULL);
+    void handle_reorg(uint64_t height, std::map<std::pair<uint64_t, uint64_t>, size_t> *output_tracker_cache = NULL);
     void get_short_chain_history(std::list<crypto::hash>& ids, uint64_t granularity = 1) const;
     bool clear();
     void clear_soft(bool keep_key_images=false);
@@ -1754,6 +1779,9 @@ private:
     crypto::chacha_key get_ringdb_key();
     void setup_keys(const epee::wipeable_string &password);
     size_t get_transfer_details(const crypto::key_image &ki) const;
+    tx_entry_data get_tx_entries(const std::unordered_set<crypto::hash> &txids);
+    void sort_scan_tx_entries(std::vector<process_tx_entry_t> &unsorted_tx_entries);
+    void process_scan_txs(const tx_entry_data &txs_to_scan, const tx_entry_data &txs_to_reprocess, const std::unordered_set<crypto::hash> &tx_hashes_to_reprocess, detached_blockchain_data &dbd);
 
     void register_devices();
     hw::device& lookup_device(const std::string & device_descriptor);
@@ -1846,6 +1874,9 @@ private:
     // If m_refresh_from_block_height is explicitly set to zero we need this to differentiate it from the case that
     // m_refresh_from_block_height was defaulted to zero.*/
     bool m_explicit_refresh_from_block_height;
+    uint64_t m_skip_to_height;
+    // m_skip_to_height is useful when we don't want to modify the wallet's restore height.
+    // m_refresh_from_block_height is also a wallet's restore height which should remain constant unless explicitly modified by the user.
     bool m_confirm_non_default_ring_size;
     AskPasswordType m_ask_password;
     uint64_t m_max_reorg_depth;

@@ -1302,11 +1302,15 @@ bool WalletImpl::scanTransactions(const std::vector<std::string> &txids)
         }
         txids_u.insert(txid);
     }
-    std::vector<crypto::hash> txids_v(txids_u.begin(), txids_u.end());
 
     try
     {
-        m_wallet->scan_tx(txids_v);
+        m_wallet->scan_tx(txids_u);
+    }
+    catch (const tools::error::wont_reprocess_recent_txs_via_untrusted_daemon &e)
+    {
+        setStatusError(e.what());
+        return false;
     }
     catch (const std::exception &e)
     {
