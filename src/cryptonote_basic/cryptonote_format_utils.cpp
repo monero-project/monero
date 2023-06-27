@@ -1229,7 +1229,7 @@ namespace cryptonote
     char *end = NULL;
     errno = 0;
     const unsigned long long ull = strtoull(buf, &end, 10);
-    CHECK_AND_ASSERT_THROW_MES(ull != ULONG_MAX || errno == 0, "Failed to parse rounded amount: " << buf);
+    CHECK_AND_ASSERT_THROW_MES(ull != ULLONG_MAX || errno == 0, "Failed to parse rounded amount: " << buf);
     CHECK_AND_ASSERT_THROW_MES(ull != 0 || amount == 0, "Overflow in rounding");
     return ull;
   }
