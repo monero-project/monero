@@ -576,7 +576,11 @@ namespace cryptonote
         else if(options[0] == "fastest")
         {
           db_flags = DBF_FASTEST;
+#ifdef _WIN32
           sync_threshold = 1000; // default to fastest:async:1000
+#else
+          sync_threshold = 100000; // default to fastest:async:100000
+#endif
           sync_mode = db_sync_mode_is_default ? db_defaultsync : db_async;
         }
         else
