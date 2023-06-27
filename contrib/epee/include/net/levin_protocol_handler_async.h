@@ -102,7 +102,6 @@ public:
   uint64_t m_max_packet_size;
   uint64_t m_invoke_timeout;
 
-  int invoke(int command, message_writer in_msg, std::string& buff_out, boost::uuids::uuid connection_id);
   template<class callback_t>
   int invoke_async(int command, message_writer in_msg, boost::uuids::uuid connection_id, const callback_t &cb, size_t timeout = LEVIN_DEFAULT_TIMEOUT_PRECONFIGURED);
 
@@ -165,14 +164,6 @@ public:
   };
 
   std::atomic<bool> m_protocol_released;
-  std::atomic<bool> m_invoke_buf_ready;
-
-  volatile int m_invoke_result_code;
-
-  critical_section m_local_inv_buff_lock;
-  std::string m_local_inv_buff;
-
-  critical_section m_call_lock;
 
   std::atomic<uint32_t> m_wait_count;
   std::atomic<uint32_t> m_close_called;
@@ -318,8 +309,6 @@ public:
     m_wait_count = 0;
     m_oponent_protocol_ver = 0;
     m_connection_initialized = false;
-    m_invoke_buf_ready = false;
-    m_invoke_result_code = LEVIN_ERROR_CONNECTION;
   }
   virtual ~async_protocol_handler()
   {
@@ -521,21 +510,8 @@ public:
             }
             else
             {
-              invoke_response_handlers_guard.unlock();
-              //use sync call scenario
-              if(!m_wait_count && !m_close_called)
-              {
-                MERROR(m_connection_context << "no active invoke when response came, wtf?");
-                return false;
-              }else
-              {
-                CRITICAL_REGION_BEGIN(m_local_inv_buff_lock);
-                m_local_inv_buff = std::string((const char*)buff_to_invoke.data(), buff_to_invoke.size());
-                buff_to_invoke = epee::span<const uint8_t>((const uint8_t*)NULL, 0);
-                m_invoke_result_code = m_current_head.m_return_code;
-                CRITICAL_REGION_END();
-                m_invoke_buf_ready = true;
-              }
+              MERROR("Received levin response but have no invoke handlers");
+              return false;
             }
           }else
           {
@@ -639,9 +615,6 @@ public:
     int err_code = LEVIN_OK;
     do
     {
-      CRITICAL_REGION_LOCAL(m_call_lock);
-
-      m_invoke_buf_ready = false;
       CRITICAL_REGION_BEGIN(m_invoke_response_handlers_lock);
 
       if (command == m_connection_context.handshake_command())
@@ -671,55 +644,6 @@ public:
     }
 
     return true;
-  }
-
-  int invoke(int command, message_writer in_msg, std::string& buff_out)
-  {
-    misc_utils::auto_scope_leave_caller scope_exit_handler = misc_utils::create_scope_leave_handler(
-                                      boost::bind(&async_protocol_handler::finish_outer_call, this));
-
-    CRITICAL_REGION_LOCAL(m_call_lock);
-
-    m_invoke_buf_ready = false;
-
-    if (command == m_connection_context.handshake_command())
-      m_max_packet_size = m_config.m_max_packet_size;
-
-    if (!send_message(in_msg.finalize_invoke(command)))
-    {
-      LOG_ERROR_CC(m_connection_context, "Failed to send request");
-      return LEVIN_ERROR_CONNECTION;
-    }
-
-    uint64_t ticks_start = misc_utils::get_tick_count();
-    size_t prev_size = 0;
-
-    while(!m_invoke_buf_ready && !m_protocol_released)
-    {
-      if(m_cache_in_buffer.size() - prev_size >= MIN_BYTES_WANTED)
-      {
-        prev_size = m_cache_in_buffer.size();
-        ticks_start = misc_utils::get_tick_count();
-      }
-      if(misc_utils::get_tick_count() - ticks_start > m_config.m_invoke_timeout)
-      {
-        MWARNING(m_connection_context << "invoke timeout (" << m_config.m_invoke_timeout << "), closing connection ");
-        close();
-        return LEVIN_ERROR_CONNECTION_TIMEDOUT;
-      }
-      if(!m_pservice_endpoint->call_run_once_service_io())
-        return LEVIN_ERROR_CONNECTION_DESTROYED;
-    }
-
-    if(m_protocol_released)
-      return LEVIN_ERROR_CONNECTION_DESTROYED;
-
-    CRITICAL_REGION_BEGIN(m_local_inv_buff_lock);
-    buff_out.swap(m_local_inv_buff);
-    m_local_inv_buff.clear();
-    CRITICAL_REGION_END();
-
-    return m_invoke_result_code;
   }
 
   /*! Sends `message` without adding a levin header. The message must have been
@@ -825,14 +749,6 @@ int async_protocol_handler_config<t_connection_context>::find_and_lock_connectio
   if(!aph->start_outer_call())
     return LEVIN_ERROR_CONNECTION_DESTROYED;
   return LEVIN_OK;
-}
-//------------------------------------------------------------------------------------------
-template<class t_connection_context>
-int async_protocol_handler_config<t_connection_context>::invoke(int command, message_writer in_msg, std::string& buff_out, boost::uuids::uuid connection_id)
-{
-  async_protocol_handler<t_connection_context>* aph;
-  int r = find_and_lock_connection(connection_id, aph);
-  return LEVIN_OK == r ? aph->invoke(command, std::move(in_msg), buff_out) : r;
 }
 //------------------------------------------------------------------------------------------
 template<class t_connection_context> template<class callback_t>
