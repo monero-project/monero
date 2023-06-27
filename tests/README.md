@@ -43,10 +43,6 @@ ctest
 
 To run the same tests on a release build, replace `debug` with `release`.
 
-# Daemon tests
-
-[TODO]
-
 # Functional tests
 
 [TODO]
