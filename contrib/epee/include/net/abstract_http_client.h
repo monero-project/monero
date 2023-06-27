@@ -54,7 +54,6 @@ namespace net_utils
   std::string convert(char val);
   std::string conver_to_url_format(const std::string& uri);
   std::string convert_from_url_format(const std::string& uri);
-  std::string convert_to_url_format_force_all(const std::string& uri);
 
 namespace http
 {
