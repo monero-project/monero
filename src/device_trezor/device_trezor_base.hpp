@@ -32,13 +32,12 @@
 
 
 #include <cstddef>
+#include <mutex>
 #include <string>
 #include "device/device.hpp"
 #include "device/device_default.hpp"
 #include "device/device_cold.hpp"
 #include <boost/scope_exit.hpp>
-#include <boost/thread/mutex.hpp>
-#include <boost/thread/recursive_mutex.hpp>
 #include "cryptonote_config.h"
 #include "trezor.hpp"
 
@@ -49,12 +48,12 @@
 //automatic lock one more level on device ensuring the current thread is allowed to use it
 #define TREZOR_AUTO_LOCK_CMD() \
   /* lock both mutexes without deadlock*/ \
-  boost::lock(device_locker, command_locker); \
+  std::lock(device_locker, command_locker); \
   /* make sure both already-locked mutexes are unlocked at the end of scope */ \
-  boost::lock_guard<boost::recursive_mutex> lock1(device_locker, boost::adopt_lock); \
-  boost::lock_guard<boost::mutex> lock2(command_locker, boost::adopt_lock)
+  std::lock_guard<std::recursive_mutex> lock1(device_locker, std::adopt_lock); \
+  std::lock_guard<std::mutex> lock2(command_locker, std::adopt_lock)
 
-#define TREZOR_AUTO_LOCK_DEVICE() boost::lock_guard<boost::recursive_mutex> lock1_device(device_locker)
+#define TREZOR_AUTO_LOCK_DEVICE() std::lock_guard<std::recursive_mutex> lock1_device(device_locker)
 
 namespace hw {
 namespace trezor {
@@ -86,8 +85,8 @@ namespace trezor {
     protected:
 
       // Locker for concurrent access
-      mutable boost::recursive_mutex  device_locker;
-      mutable boost::mutex  command_locker;
+      mutable std::recursive_mutex  device_locker;
+      mutable std::mutex  command_locker;
 
       std::shared_ptr<Transport> m_transport;
       i_device_callback * m_callback;

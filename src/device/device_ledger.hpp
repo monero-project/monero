@@ -35,8 +35,7 @@
 #include "device.hpp"
 #include "log.hpp"
 #include "device_io_hid.hpp"
-#include <boost/thread/mutex.hpp>
-#include <boost/thread/recursive_mutex.hpp>
+#include <mutex>
 
 namespace hw {
 
@@ -140,8 +139,8 @@ namespace hw {
     class device_ledger : public hw::device {
     private:
         // Locker for concurrent access
-        mutable boost::recursive_mutex   device_locker;
-        mutable boost::mutex   command_locker;
+        mutable std::recursive_mutex   device_locker;
+        mutable std::mutex   command_locker;
 
         //IO
         hw::io::device_io_hid hw_device;
