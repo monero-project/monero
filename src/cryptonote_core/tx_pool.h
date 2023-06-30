@@ -98,14 +98,6 @@ namespace cryptonote
   {
   public:
     /**
-     * @brief Constructor
-     *
-     * @param bchs a Blockchain class instance, for getting chain info
-     */
-    tx_memory_pool(Blockchain& bchs);
-
-
-    /**
      * @copydoc add_tx(transaction&, tx_verification_context&, bool, bool, uint8_t)
      *
      * @param id the transaction's hash
@@ -489,6 +481,13 @@ namespace cryptonote
   private:
 
     /**
+     * @brief Constructor
+     *
+     * @param bchs a Blockchain class instance, for getting chain info
+     */
+    tx_memory_pool(Blockchain& bchs);
+
+    /**
      * @brief insert key images into m_spent_key_images
      *
      * @return true on success, false on error
@@ -676,6 +675,8 @@ private:
 
     //! Next timestamp that a DB check for relayable txes is allowed
     std::atomic<time_t> m_next_check;
+
+    friend class BlockchainAndPool;
   };
 }
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2020, The Monero Project
+// Copyright (c) 2023, The Monero Project
 //
 // All rights reserved.
 //
@@ -33,12 +33,26 @@
 
 #pragma once
 
-#include "cryptonote_core/blockchain.h"
-#include "cryptonote_core/tx_pool.h"
+#include <memory>
 
-struct BlockchainAndPool {
-  cryptonote::Blockchain blockchain;
-  cryptonote::tx_memory_pool tx_pool;
+#include "blockchain.h"
+#include "tx_pool.h"
 
-  BlockchainAndPool() : blockchain(tx_pool), tx_pool(blockchain) {}
+namespace cryptonote
+{
+/**
+ * @brief Container for safely constructing Blockchain and tx_memory_pool classes
+ * 
+ * The reason for this class existing is that the constructors for both Blockchain and
+ * tx_memory_pool take a reference for tx_memory_pool and Blockchain, respectively. Because of this
+ * circular reference, it is annoying/unsafe to construct these normally. This class guarantees that
+ * we don't make any silly mistakes with pointers / dangling references.
+ */
+struct BlockchainAndPool
+{
+    Blockchain blockchain;
+    tx_memory_pool tx_pool;
+  
+    BlockchainAndPool(): blockchain(tx_pool), tx_pool(blockchain) {}
 };
+}
