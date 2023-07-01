@@ -5921,7 +5921,7 @@ ATTENTION : Ne réutilisez pas vos clés Monero avec un autre fork, À MOINS QUE
     </message>
     <message>
         <location filename="../src/wallet/wallet2.cpp" line="289"/>
-        <source>File containing extra entropy to initialize the PRNG (any data, aim for 256 bits of entropy to be useful, wihch typically means more than 256 bits of data)</source>
+        <source>File containing extra entropy to initialize the PRNG (any data, aim for 256 bits of entropy to be useful, which typically means more than 256 bits of data)</source>
         <translation>Fichier contenant de l&apos;entropie supplémentaire pour initialiser le PRNG (n&apos;importe quelles données, visez 256 bits d&apos;entropie pour que cela soit utile, ce qui signifie typiquement plus de 256 bits de données)</translation>
     </message>
     <message>
