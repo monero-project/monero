@@ -5,14 +5,18 @@ $(package)_download_file=$($(package)_version).tar.gz
 $(package)_file_name=$(package)-$($(package)_version).tar.gz
 $(package)_sha256_hash=70a7189418c2086d20c299c5d59250cf5940782c778892ccc899c66516ed240e
 $(package)_build_subdir=cctools
-$(package)_dependencies=native_clang native_libtapi
 $(package)_patches=no-build-date.patch
+$(package)_dependencies=native_libtapi
 
 define $(package)_set_vars
 $(package)_config_opts=--target=$(host) --disable-lto-support --with-libtapi=$(host_prefix)
 $(package)_ldflags+=-Wl,-rpath=\\$$$$$$$$\$$$$$$$$ORIGIN/../lib
-$(package)_cc=$(host_prefix)/native/bin/clang
-$(package)_cxx=$(host_prefix)/native/bin/clang++
+$(package)_cc=$(clang_prog)
+$(package)_cxx=$(clangxx_prog)
+endef
+
+define $(package)_preprocess_cmds
+  cp -f $(BASEDIR)/config.guess $(BASEDIR)/config.sub cctools
 endef
 
 define $(package)_preprocess_cmds
