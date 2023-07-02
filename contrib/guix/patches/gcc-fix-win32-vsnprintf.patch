@@ -1,0 +1,83 @@
+https://gcc.gnu.org/bugzilla/show_bug.cgi?id=105935
+We can remove this patch when we drop support for i686-w64-mingw32
+
+diff --git a/libgfortran/configure.ac b/libgfortran/configure.ac
+index 8bd2af966c8..655858ebb15 100644
+--- a/libgfortran/configure.ac
++++ b/libgfortran/configure.ac
+@@ -321,8 +321,6 @@ if test "${hardwire_newlib:-0}" -eq 1; then
+    # link executables.
+    AC_DEFINE(HAVE_MKSTEMP, 1, [Define if you have mkstemp.])
+    AC_DEFINE(HAVE_STRTOF, 1, [Define if you have strtof.])
+-   AC_DEFINE(HAVE_SNPRINTF, 1, [Define if you have snprintf.])
+-   AC_DEFINE(HAVE_VSNPRINTF, 1, [Define if you have vsnprintf.])
+    AC_DEFINE(HAVE_LOCALTIME_R, 1, [Define if you have localtime_r.])
+    AC_DEFINE(HAVE_GMTIME_R, 1, [Define if you have gmtime_r.])
+    AC_DEFINE(HAVE_STRNLEN, 1, [Define if you have strnlen.])
+@@ -335,11 +333,11 @@ if test "${hardwire_newlib:-0}" -eq 1; then
+      AC_DEFINE(HAVE_STRTOLD, 1, [Define if you have strtold.])
+    fi
+ else
+-   AC_CHECK_FUNCS_ONCE(getrusage times mkstemp strtof strtold snprintf \
++   AC_CHECK_FUNCS_ONCE(getrusage times mkstemp strtof strtold \
+    ftruncate chsize chdir getentropy getlogin gethostname kill link symlink \
+    sleep ttyname sigaction waitpid \
+    alarm access fork posix_spawn setmode fcntl writev \
+-   gettimeofday stat fstat lstat getpwuid vsnprintf dup \
++   gettimeofday stat fstat lstat getpwuid dup \
+    getcwd localtime_r gmtime_r getpwuid_r ttyname_r clock_gettime \
+    getgid getpid getuid geteuid umask getegid \
+    secure_getenv __secure_getenv mkostemp strnlen strndup newlocale \
+diff --git a/libgfortran/libgfortran.h b/libgfortran/libgfortran.h
+index 6d92089e34b..b79718bb113 100644
+--- a/libgfortran/libgfortran.h
++++ b/libgfortran/libgfortran.h
+@@ -155,10 +155,6 @@ extern int __mingw_snprintf (char *, size_t, const char *, ...)
+      __attribute__ ((format (gnu_printf, 3, 4)));
+ #undef snprintf
+ #define snprintf __mingw_snprintf
+-/* Fallback to sprintf if target does not have snprintf.  */
+-#elif !defined(HAVE_SNPRINTF)
+-#undef snprintf
+-#define snprintf(str, size, ...) sprintf (str, __VA_ARGS__)
+ #endif
+ 
+ 
+diff --git a/libgfortran/runtime/error.c b/libgfortran/runtime/error.c
+index bc811c0387b..ccfdcda1c2f 100644
+--- a/libgfortran/runtime/error.c
++++ b/libgfortran/runtime/error.c
+@@ -136,33 +136,6 @@ estr_writev (const struct iovec *iov, int iovcnt)
+ }
+ 
+ 
+-#ifndef HAVE_VSNPRINTF
+-static int
+-gf_vsnprintf (char *str, size_t size, const char *format, va_list ap)
+-{
+-  int written;
+-
+-  written = vsprintf(buffer, format, ap);
+-
+-  if (written >= size - 1)
+-    {
+-      /* The error message was longer than our buffer.  Ouch.  Because
+-	 we may have messed up things badly, report the error and
+-	 quit.  */
+-#define ERROR_MESSAGE "Internal error: buffer overrun in gf_vsnprintf()\n"
+-      write (STDERR_FILENO, buffer, size - 1);
+-      write (STDERR_FILENO, ERROR_MESSAGE, strlen (ERROR_MESSAGE));
+-      sys_abort ();
+-#undef ERROR_MESSAGE
+-
+-    }
+-  return written;
+-}
+-
+-#define vsnprintf gf_vsnprintf
+-#endif
+-
+-
+ /* printf() like function for for printing to stderr.  Uses a stack
+    allocated buffer and doesn't lock stderr, so it should be safe to
+    use from within a signal handler.  */

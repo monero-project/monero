@@ -4,30 +4,16 @@ $(package)_download_path=https://github.com/tpoechtrager/apple-libtapi/archive
 $(package)_download_file=$($(package)_version).tar.gz
 $(package)_file_name=$(package)-$($(package)_version).tar.gz
 $(package)_sha256_hash=62e419c12d1c9fad67cc1cd523132bc00db050998337c734c15bc8d73cc02b61
-$(package)_build_subdir=build
-$(package)_dependencies=native_clang
 $(package)_patches=no_embed_git_rev.patch
 
 define $(package)_preprocess_cmds
   patch -p1 -i $($(package)_patch_dir)/no_embed_git_rev.patch
 endef
 
-define $(package)_config_cmds
-  echo -n $(build_prefix) > INSTALLPREFIX; \
-  CC=$(host_prefix)/native/bin/clang CXX=$(host_prefix)/native/bin/clang++ \
-  cmake -DCMAKE_INSTALL_PREFIX=$(build_prefix) \
-    -DLLVM_INCLUDE_TESTS=OFF \
-	-DCMAKE_BUILD_TYPE=RELEASE \
-	-DTAPI_REPOSITORY_STRING="1100.0.11" \
-	-DTAPI_FULL_VERSION="11.0.0" \
-	-DCMAKE_CXX_FLAGS="-I $($(package)_extract_dir)/src/llvm/projects/clang/include -I $($(package)_build_dir)/projects/clang/include" \
-	$($(package)_extract_dir)/src/llvm
-endef
-
 define $(package)_build_cmds
-  $(MAKE) clangBasic && $(MAKE) libtapi
+  CC=$(clang_prog) CXX=$(clangxx_prog) INSTALLPREFIX=$($(package)_staging_prefix_dir) ./build.sh
 endef
 
 define $(package)_stage_cmds
-  $(MAKE) DESTDIR=$($(package)_staging_dir) install-libtapi install-tapi-headers
+  ./install.sh
 endef

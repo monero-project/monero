@@ -1,0 +1,30 @@
+diff --git a/build/tools/make_standalone_toolchain.py b/build/tools/make_standalone_toolchain.py
+index b8172b2..19c0ad6 100755
+--- a/build/tools/make_standalone_toolchain.py
++++ b/build/tools/make_standalone_toolchain.py
+@@ -224,10 +224,10 @@ def make_clang_scripts(install_dir, triple, api, windows):
+         clang.write(textwrap.dedent("""\
+             #!/bin/bash
+             if [ "$1" != "-cc1" ]; then
+-                `dirname $0`/clang{version} {flags} "$@"
++                env -u C_INCLUDE_PATH -u CPLUS_INCLUDE_PATH -u OBJC_INCLUDE_PATH -u OBJCPLUS_INCLUDE_PATH -u CPATH -u LIBRARY_PATH `dirname $0`/clang{version} {flags} "$@"
+             else
+                 # target/triple already spelled out.
+-                `dirname $0`/clang{version} "$@"
++                env -u C_INCLUDE_PATH -u CPLUS_INCLUDE_PATH -u OBJC_INCLUDE_PATH -u OBJCPLUS_INCLUDE_PATH -u CPATH -u LIBRARY_PATH `dirname $0`/clang{version} "$@"
+             fi
+         """.format(version=version_number, flags=unix_flags)))
+ 
+@@ -239,10 +239,10 @@ def make_clang_scripts(install_dir, triple, api, windows):
+         clangpp.write(textwrap.dedent("""\
+             #!/bin/bash
+             if [ "$1" != "-cc1" ]; then
+-                `dirname $0`/clang{version}++ {flags} "$@"
++                env -u C_INCLUDE_PATH -u CPLUS_INCLUDE_PATH -u OBJC_INCLUDE_PATH -u OBJCPLUS_INCLUDE_PATH -u CPATH -u LIBRARY_PATH `dirname $0`/clang{version}++ {flags} "$@"
+             else
+                 # target/triple already spelled out.
+-                `dirname $0`/clang{version}++ "$@"
++                env -u C_INCLUDE_PATH -u CPLUS_INCLUDE_PATH -u OBJC_INCLUDE_PATH -u OBJCPLUS_INCLUDE_PATH -u CPATH -u LIBRARY_PATH `dirname $0`/clang{version}++ "$@"
+             fi
+         """.format(version=version_number, flags=unix_flags)))
+ 
