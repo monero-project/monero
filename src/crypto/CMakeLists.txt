@@ -33,6 +33,7 @@ set(crypto_sources
   crypto-ops-data.c
   crypto-ops.c
   crypto.cpp
+  generators.cpp
   groestl.c
   hash-extra-blake.c
   hash-extra-groestl.c
