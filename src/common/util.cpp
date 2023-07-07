@@ -610,13 +610,6 @@ namespace tools
 
   bool is_local_address(const std::string &address)
   {
-    // always assume Tor/I2P addresses to be untrusted by default
-    if (is_privacy_preserving_network(address))
-    {
-      MDEBUG("Address '" << address << "' is Tor/I2P, non local");
-      return false;
-    }
-
     // extract host
     epee::net_utils::http::url_content u_c;
     if (!epee::net_utils::parse_url(address, u_c))
@@ -630,20 +623,22 @@ namespace tools
       return false;
     }
 
-    // resolve to IP
-    boost::asio::io_service io_service;
-    boost::asio::ip::tcp::resolver resolver(io_service);
-    boost::asio::ip::tcp::resolver::query query(u_c.host, "");
-    boost::asio::ip::tcp::resolver::iterator i = resolver.resolve(query);
-    while (i != boost::asio::ip::tcp::resolver::iterator())
+    if (u_c.host == "localhost" || boost::ends_with(u_c.host, ".localhost")) { // RFC 6761 (6.3)
+      MDEBUG("Address '" << address << "' is local");
+      return true;
+    }
+
+    boost::system::error_code ec;
+    const auto parsed_ip = boost::asio::ip::address::from_string(u_c.host, ec);
+    if (ec) {
+      MDEBUG("Failed to parse '" << address << "' as IP address: " << ec.message() << ". Considering it not local");
+      return false;
+    }
+
+    if (parsed_ip.is_loopback())
     {
-      const boost::asio::ip::tcp::endpoint &ep = *i;
-      if (ep.address().is_loopback())
-      {
-        MDEBUG("Address '" << address << "' is local");
-        return true;
-      }
-      ++i;
+      MDEBUG("Address '" << address << "' is local");
+      return true;
     }
 
     MDEBUG("Address '" << address << "' is not local");
