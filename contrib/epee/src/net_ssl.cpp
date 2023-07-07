@@ -641,6 +641,56 @@ bool ssl_options_t::handshake(
   return true;
 }
 
+std::string get_hr_ssl_fingerprint(const X509 *cert, const EVP_MD *fdig)
+{
+  unsigned int j;
+  unsigned int n;
+  unsigned char md[EVP_MAX_MD_SIZE];
+  std::string fingerprint;
+
+  CHECK_AND_ASSERT_THROW_MES(cert && fdig, "Pointer args to get_hr_ssl_fingerprint cannot be null");
+
+  if (!X509_digest(cert, fdig, md, &n))
+  {
+    const unsigned long ssl_err_val = static_cast<int>(ERR_get_error());
+    const boost::system::error_code ssl_err_code = boost::asio::error::ssl_errors(static_cast<int>(ssl_err_val));
+    MERROR("Failed to create SSL fingerprint: " << ERR_reason_error_string(ssl_err_val));
+    throw boost::system::system_error(ssl_err_code, ERR_reason_error_string(ssl_err_val));
+  }
+  fingerprint.resize(n * 3 - 1);
+  char *out = &fingerprint[0];
+  for (j = 0; j < n; ++j)
+  {
+    snprintf(out, 3 + (j + 1 < n), "%02X%s", md[j], (j + 1 == n) ? "" : ":");
+    out += 3;
+  }
+  return fingerprint;
+}
+
+std::string get_hr_ssl_fingerprint_from_file(const std::string& cert_path, const EVP_MD *fdig) {
+  // Open file for reading
+  FILE* fp = fopen(cert_path.c_str(), "r");
+  if (!fp)
+  {
+    const boost::system::error_code err_code(errno, boost::system::system_category());
+    throw boost::system::system_error(err_code, "Failed to open certificate file '" + cert_path + "'");
+  }
+  std::unique_ptr<FILE, decltype(&fclose)> file(fp, &fclose);
+
+  // Extract certificate structure from file
+  X509* ssl_cert_handle = PEM_read_X509(file.get(), NULL, NULL, NULL);
+  if (!ssl_cert_handle) {
+    const unsigned long ssl_err_val = static_cast<int>(ERR_get_error());
+    const boost::system::error_code ssl_err_code = boost::asio::error::ssl_errors(static_cast<int>(ssl_err_val));
+    MERROR("OpenSSL error occurred while loading certificate at '" + cert_path + "'");
+    throw boost::system::system_error(ssl_err_code, ERR_reason_error_string(ssl_err_val));
+  }
+  std::unique_ptr<X509, decltype(&X509_free)> ssl_cert(ssl_cert_handle, &X509_free);
+
+  // Get the fingerprint from X509 structure
+  return get_hr_ssl_fingerprint(ssl_cert.get(), fdig);
+}
+
 bool ssl_support_from_string(ssl_support_t &ssl, boost::string_ref s)
 {
   if (s == "enabled")
@@ -705,6 +755,29 @@ boost::system::error_code store_ssl_keys(boost::asio::ssl::context& ssl, const b
     return boost::asio::error::ssl_errors(ERR_get_error());
   if (std::fclose(file.release()) != 0)
     return {errno, boost::system::system_category()};
+
+  // write SHA-256 fingerprint file
+  const boost::filesystem::path fp_file{base.string() + ".fingerprint"};
+  file.reset(std::fopen(fp_file.string().c_str(), "w"));
+  if (!file)
+    return {errno, boost::system::system_category()};
+  const auto fp_perms = (boost::filesystem::owner_read | boost::filesystem::group_read | boost::filesystem::others_read);
+  boost::filesystem::permissions(fp_file, fp_perms, error);
+  if (error)
+    return error;
+  try
+  {
+    const std::string fingerprint = get_hr_ssl_fingerprint(ssl_cert);
+    if (fingerprint.length() != fwrite(fingerprint.c_str(), sizeof(char), fingerprint.length(), file.get()))
+      return {errno, boost::system::system_category()};
+  }
+  catch (const boost::system::system_error& fperr)
+  {
+    return fperr.code();
+  }
+  if (std::fclose(file.release()) != 0)
+    return {errno, boost::system::system_category()};
+
   return error;
 }
 
