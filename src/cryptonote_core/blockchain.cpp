@@ -3709,7 +3709,7 @@ uint64_t Blockchain::get_dynamic_base_fee(uint64_t block_reward, size_t median_b
       div128_64(hi, lo, median_block_weight, &hi, &lo, NULL, NULL);
       assert(hi == 0);
       lo -= lo / 20;
-      return lo;
+      return lo == 0 ? 1 : lo;
     }
     else
     {
