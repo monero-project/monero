@@ -933,22 +933,32 @@ private:
     /*!
      * \brief store_to  Stores wallet to another file(s), deleting old ones
      * \param path      Path to the wallet file (keys and address filenames will be generated based on this filename)
-     * \param password  Password to protect new wallet (TODO: probably better save the password in the wallet object?)
+     * \param password  Password that currently locks the wallet
+     * \param force_rewrite_keys if true, always rewrite keys file
+     *
+     * Leave both "path" and "password" blank to restore the cache file to the current position in the disk
+     * (which is the same as calling `store()`). If you want to store the wallet with a new password,
+     * use the method `change_password()`.
+     *
+     * Normally the keys file is not overwritten when storing, except when force_rewrite_keys is true
+     * or when `path` is a new wallet file.
+     *
+     * \throw error::invalid_password If storing keys file and old password is incorrect
      */
-    void store_to(const std::string &path, const epee::wipeable_string &password);
+    void store_to(const std::string &path, const epee::wipeable_string &password, bool force_rewrite_keys = false);
     /*!
      * \brief get_keys_file_data  Get wallet keys data which can be stored to a wallet file.
-     * \param password            Password of the encrypted wallet buffer (TODO: probably better save the password in the wallet object?)
+     * \param password            Password that currently locks the wallet
      * \param watch_only          true to include only view key, false to include both spend and view keys
      * \return                    Encrypted wallet keys data which can be stored to a wallet file
+     * \throw                     error::invalid_password if password does not match current wallet
      */
     boost::optional<wallet2::keys_file_data> get_keys_file_data(const epee::wipeable_string& password, bool watch_only);
     /*!
      * \brief get_cache_file_data   Get wallet cache data which can be stored to a wallet file.
-     * \param password              Password to protect the wallet cache data (TODO: probably better save the password in the wallet object?)
-     * \return                      Encrypted wallet cache data which can be stored to a wallet file
+     * \return                      Encrypted wallet cache data which can be stored to a wallet file (using current password)
      */
-    boost::optional<wallet2::cache_file_data> get_cache_file_data(const epee::wipeable_string& password);
+    boost::optional<wallet2::cache_file_data> get_cache_file_data();
 
     std::string path() const;
 
