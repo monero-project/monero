@@ -104,6 +104,12 @@ ctest
 
 To run the same tests on a release build, replace `debug` with `release`.
 
+To run specific hash test, you can use `ctest` `-R` parameter. For exmaple to run only `blake2b` hash tests:
+
+```
+ctest -R hash-blake2b
+```
+
 # Libwallet API tests
 
 [TODO]
@@ -151,3 +157,4 @@ When writing new tests, please implement all functions in `.cpp` or `.c` files, 
 ## Writing fuzz tests
 
 [TODO]
+hash
