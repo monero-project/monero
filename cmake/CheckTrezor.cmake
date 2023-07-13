@@ -1,4 +1,5 @@
 OPTION(USE_DEVICE_TREZOR "Trezor support compilation" ON)
+OPTION(USE_DEVICE_TREZOR_PROTOBUF_TEST "Trezor Protobuf test" ON)
 OPTION(USE_DEVICE_TREZOR_LIBUSB "Trezor LibUSB compilation" ON)
 OPTION(USE_DEVICE_TREZOR_UDP_RELEASE "Trezor UdpTransport in release mode" OFF)
 OPTION(USE_DEVICE_TREZOR_DEBUG "Trezor Debugging enabled" OFF)
@@ -107,25 +108,34 @@ if(Protobuf_FOUND AND USE_DEVICE_TREZOR AND TREZOR_PYTHON)
         set(CMAKE_TRY_COMPILE_LINK_LIBRARIES "${CMAKE_TRY_COMPILE_LINK_LIBRARIES} log")
     endif()
 
-    try_compile(Protobuf_COMPILE_TEST_PASSED
-        "${CMAKE_BINARY_DIR}"
-        SOURCES
-        "${CMAKE_BINARY_DIR}/test-protobuf.pb.cc"
-        "${CMAKE_CURRENT_LIST_DIR}/test-protobuf.cpp"
-        CMAKE_FLAGS
-        CMAKE_EXE_LINKER_FLAGS ${CMAKE_TRY_COMPILE_LINKER_FLAGS}
-        "-DINCLUDE_DIRECTORIES=${Protobuf_INCLUDE_DIR};${CMAKE_BINARY_DIR}"
-        "-DCMAKE_CXX_STANDARD=14"
-        LINK_LIBRARIES ${Protobuf_LIBRARY} ${CMAKE_TRY_COMPILE_LINK_LIBRARIES}
-        OUTPUT_VARIABLE OUTPUT
-    )
-    if(NOT Protobuf_COMPILE_TEST_PASSED)
-        message(FATAL_ERROR "Trezor: Protobuf Compilation test failed: ${OUTPUT}.")
+    if(USE_DEVICE_TREZOR_PROTOBUF_TEST)
+        # For now, Protobuf v21 is the maximum supported version as v23 requires C++17. TODO: Remove once we move to C++17
+        if(${Protobuf_VERSION} GREATER 21)
+            message(FATAL_ERROR "Unsupported Protobuf version ${Protobuf_VERSION}. Please use Protobuf v21 or compile without Trezor support by using -DUSE_DEVICE_TREZOR=OFF.")
+        endif()
+        
+        try_compile(Protobuf_COMPILE_TEST_PASSED
+            "${CMAKE_BINARY_DIR}"
+            SOURCES
+            "${CMAKE_BINARY_DIR}/test-protobuf.pb.cc"
+            "${CMAKE_CURRENT_LIST_DIR}/test-protobuf.cpp"
+            CMAKE_FLAGS
+            CMAKE_EXE_LINKER_FLAGS ${CMAKE_TRY_COMPILE_LINKER_FLAGS}
+            "-DINCLUDE_DIRECTORIES=${Protobuf_INCLUDE_DIR};${CMAKE_BINARY_DIR}"
+            "-DCMAKE_CXX_STANDARD=${CMAKE_CXX_STANDARD}"
+            LINK_LIBRARIES ${Protobuf_LIBRARY} ${CMAKE_TRY_COMPILE_LINK_LIBRARIES}
+            OUTPUT_VARIABLE OUTPUT
+        )
+        if(NOT Protobuf_COMPILE_TEST_PASSED)
+            message(FATAL_ERROR "Trezor: Protobuf Compilation test failed: ${OUTPUT}.")
+        endif()
+    else ()
+        message(STATUS "Trezor: Protobuf Compilation test skipped, build may fail later")
     endif()
 endif()
 
 # Try to build protobuf messages
-if(Protobuf_FOUND AND USE_DEVICE_TREZOR AND TREZOR_PYTHON AND Protobuf_COMPILE_TEST_PASSED)
+if(Protobuf_FOUND AND USE_DEVICE_TREZOR AND TREZOR_PYTHON)
     set(ENV{PROTOBUF_INCLUDE_DIRS} "${Protobuf_INCLUDE_DIR}")
     set(ENV{PROTOBUF_PROTOC_EXECUTABLE} "${Protobuf_PROTOC_EXECUTABLE}")
     set(TREZOR_PROTOBUF_PARAMS "")
