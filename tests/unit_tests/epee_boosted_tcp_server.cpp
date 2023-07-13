@@ -63,7 +63,7 @@ namespace
     {
     }
 
-    void after_init_connection()
+    void after_init_connection(const epee::net_utils::encryption_mode&)
     {
     }
 
@@ -225,7 +225,7 @@ TEST(test_epee_connection, test_lifetime)
     auto create_connection = [&io_context, &endpoint, &shared_state] {
         connection_ptr conn(new connection_t(io_context, shared_state, {}, {}));
         conn->socket().connect(endpoint);
-        conn->start({}, {});
+        conn->start({}, {}, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
         context_t context;
         conn->get_context(context);
         auto tag = context.m_connection_id;
@@ -314,7 +314,7 @@ TEST(test_epee_connection, test_lifetime)
     );
     connection_ptr conn(new connection_t(io_context, shared_state, {}, {}));
     conn->socket().connect(endpoint);
-    conn->start({}, {});
+    conn->start({}, {}, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
     ASSERT_TRUE(shared_state->get_connections_count() == 1);
     shared_state->del_out_connections(1);
     ASSERT_TRUE(shared_state->get_connections_count() == 0);
@@ -346,7 +346,7 @@ TEST(test_epee_connection, test_lifetime)
       {
         connection_ptr conn(new connection_t(io_context, shared_state, {}, {}));
         conn->socket().connect(endpoint);
-        conn->start({}, {});
+        conn->start({}, {}, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
         lock_guard_t guard(shared_conn->lock);
         shared_conn->conn = conn;
       }
@@ -379,7 +379,7 @@ TEST(test_epee_connection, test_lifetime)
         for (auto i = 0; i < N * N; ++i) {
           connection_ptr conn(new connection_t(io_context, s, {}, {}));
           conn->socket().connect(endpoint);
-          conn->start({}, {});
+          conn->start({}, {}, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
           io_context.post([conn]{
             conn->cancel();
           });
@@ -397,13 +397,13 @@ TEST(test_epee_connection, test_lifetime)
         for (auto i = 0; i < N * N; ++i) {
           connection_ptr conn(new connection_t(io_context, s, {}, {}));
           conn->socket().connect(endpoint);
-          conn->start({}, {});
+          conn->start({}, {}, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
           conn->cancel();
           while (conn.use_count() > 1);
           s->foreach_connection([&io_context, &s, &endpoint, &conn](context_t& context){
             conn.reset(new connection_t(io_context, s, {}, {}));
             conn->socket().connect(endpoint);
-            conn->start({}, {});
+            conn->start({}, {}, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
             conn->cancel();
             while (conn.use_count() > 1);
             conn.reset();
@@ -421,7 +421,7 @@ TEST(test_epee_connection, test_lifetime)
         for (auto i = 0; i < N; ++i) {
           connection_ptr conn(new connection_t(io_context, s, {}, {}));
           conn->socket().connect(endpoint);
-          conn->start({}, {});
+          conn->start({}, {}, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
           context_t context;
           conn->get_context(context);
           auto tag = context.m_connection_id;
@@ -430,7 +430,7 @@ TEST(test_epee_connection, test_lifetime)
           s->for_connection(tag, [&io_context, &s, &endpoint, &conn](context_t& context){
             conn.reset(new connection_t(io_context, s, {}, {}));
             conn->socket().connect(endpoint);
-            conn->start({}, {});
+            conn->start({}, {}, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
             conn->cancel();
             while (conn.use_count() > 1);
             conn.reset();
@@ -448,7 +448,7 @@ TEST(test_epee_connection, test_lifetime)
         for (auto i = 0; i < N; ++i) {
           connection_ptr conn(new connection_t(io_context, s, {}, {}));
           conn->socket().connect(endpoint);
-          conn->start({}, {});
+          conn->start({}, {}, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
           context_t context;
           conn->get_context(context);
           auto tag = context.m_connection_id;
@@ -617,7 +617,7 @@ TEST(boosted_tcp_server, strand_deadlock)
       config(config),
       context(context)
     {}
-    void after_init_connection()
+    void after_init_connection(const epee::net_utils::encryption_mode&)
     {
       unique_lock_t guard(lock);
       if (!context.m_is_income) {

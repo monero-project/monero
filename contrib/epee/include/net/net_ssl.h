@@ -45,11 +45,12 @@ namespace epee
 {
 namespace net_utils
 {
+  // ssl_support_t
 	enum class ssl_support_t: uint8_t {
 		e_ssl_support_disabled,
 		e_ssl_support_enabled,
-		e_ssl_support_autodetect,
-	};
+		e_ssl_support_autodetect
+    };
 
   enum class ssl_verification_t : uint8_t
   {

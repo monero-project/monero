@@ -29,6 +29,7 @@
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/unordered_map.hpp>
 #include <boost/smart_ptr/make_shared.hpp>
+#include <boost/variant/get.hpp>
 
 #include <atomic>
 #include <deque>
@@ -36,9 +37,11 @@
 #include "levin_base.h"
 #include "buffer.h"
 #include "misc_language.h"
+#include "noise.h"
 #include "syncobj.h"
 #include "time_helper.h"
 #include "int-util.h"
+#include "net/encryption.h"
 
 #include <random>
 #include <chrono>
@@ -141,7 +144,13 @@ class async_protocol_handler
 
     message_writer::header head;
     std::memcpy(std::addressof(head), message.data(), sizeof(head));
-    if(!m_pservice_endpoint->do_send(std::move(message)))
+
+    if (m_noise)
+    {
+      if (!m_noise->encrypt(*m_pservice_endpoint, std::move(message)))
+        return false;
+    }
+    else if (!m_pservice_endpoint->do_send(std::move(message)))
       return false;
 
     on_levin_traffic(m_connection_context, true, true, false, head.m_cb, head.m_command);
@@ -173,6 +182,7 @@ public:
   t_connection_context& m_connection_context;
   std::atomic<uint64_t> m_max_packet_size;
 
+  boost::optional<noise::protocol> m_noise;
   net_utils::buffer m_cache_in_buffer;
   stream_state m_state;
 
@@ -300,6 +310,7 @@ public:
             m_pservice_endpoint(psnd_hndlr), 
             m_config(config), 
             m_connection_context(conn_context),
+            m_noise(), // empty by default
             m_max_packet_size(config.m_initial_max_packet_size),
             m_cache_in_buffer(4 * 1024),
             m_state(stream_state_head)
@@ -404,6 +415,23 @@ public:
       MERROR(m_connection_context << "Commands handler not set!");
       return false;
     }
+    //
+    if (m_noise)
+    {
+      auto decrypted = m_noise->decrypt(*m_pservice_endpoint, ptr, cb);
+      switch (decrypted.first)
+      {
+        default:
+        case noise::state::error:
+          return false;
+        case noise::state::buffering:
+          return true;
+        case noise::state::decrypted:
+          break;
+      }
+      m_cache_in_buffer = std::move(decrypted.second);
+    }
+
 
     // these should never fail, but do runtime check for safety
     const uint64_t max_packet_size = m_max_packet_size;
@@ -593,12 +621,15 @@ public:
     return true;
   }
 
-  bool after_init_connection()
+  bool after_init_connection(const net_utils::encryption_mode& e2e_mode)
   {
     if (!m_connection_initialized)
     {
       m_connection_initialized = true;
       m_config.add_connection(this);
+
+      if (boost::get<net_utils::noise_v0>(std::addressof(e2e_mode)))
+        m_noise.emplace(*m_pservice_endpoint, m_connection_context.m_is_income);
     }
     return true;
   }

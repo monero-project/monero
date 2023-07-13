@@ -33,10 +33,12 @@
 #include <iomanip>
 #include <boost/uuid/uuid.hpp>
 #include <boost/serialization/version.hpp>
+#include <boost/variant/variant.hpp>
 #include "serialization/keyvalue_serialization.h"
 #include "net/net_utils_base.h"
 #include "net/tor_address.h" // needed for serialization
 #include "net/i2p_address.h" // needed for serialization
+#include "net/encryption.h"
 #include "misc_language.h"
 #include "string_tools.h"
 #include "time_helper.h"
@@ -53,6 +55,16 @@ namespace nodetool
     std::ostringstream s;
     s << std::hex << peer_id;
     return epee::string_tools::pad_string(s.str(), 16, '0', true);
+  }
+
+  template<typename T>
+  inline epee::net_utils::encryption_mode get_p2p_encryption(const T& peer)
+  {
+    namespace net = epee::net_utils;
+    net::encryption_mode out{net::ssl_support_t::e_ssl_support_disabled};
+    if (peer.noise_v0)
+      out = net::noise_v0{};
+    return out;
   }
 
 #pragma pack (push, 1)
@@ -77,6 +89,7 @@ namespace nodetool
     uint32_t pruning_seed;
     uint16_t rpc_port;
     uint32_t rpc_credits_per_hash;
+    uint8_t noise_v0;
 
     BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE(adr)
@@ -85,6 +98,7 @@ namespace nodetool
       KV_SERIALIZE_OPT(pruning_seed, (uint32_t)0)
       KV_SERIALIZE_OPT(rpc_port, (uint16_t)0)
       KV_SERIALIZE_OPT(rpc_credits_per_hash, (uint32_t)0)
+      KV_SERIALIZE_OPT(noise_v0, (uint8_t)0)
     END_KV_SERIALIZE_MAP()
 
     BEGIN_SERIALIZE()
@@ -94,6 +108,7 @@ namespace nodetool
       VARINT_FIELD(pruning_seed)
       VARINT_FIELD(rpc_port)
       VARINT_FIELD(rpc_credits_per_hash)
+      VARINT_FIELD(noise_v0)
     END_SERIALIZE()
   };
   typedef peerlist_entry_base<epee::net_utils::network_address> peerlist_entry;
@@ -104,17 +119,20 @@ namespace nodetool
     AddressType adr;
     peerid_type id;
     int64_t first_seen;
+    uint8_t noise_v0;
 
     BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE(adr)
       KV_SERIALIZE(id)
       KV_SERIALIZE(first_seen)
+      KV_SERIALIZE_OPT(noise_v0, (uint8_t)0)
     END_KV_SERIALIZE_MAP()
 
     BEGIN_SERIALIZE()
       FIELD(adr)
       FIELD(id)
       VARINT_FIELD(first_seen)
+      VARINT_FIELD(noise_v0)
     END_SERIALIZE()
   };
   typedef anchor_peerlist_entry_base<epee::net_utils::network_address> anchor_peerlist_entry;

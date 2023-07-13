@@ -47,6 +47,26 @@ class buffer
 {
 public:
   buffer(size_t reserve = 0): offset(0) { storage.reserve(reserve); }
+  buffer(std::vector<uint8_t> initial) : storage(std::move(initial)), offset(0) {}
+
+  buffer(buffer&& rhs)
+    : storage(std::move(rhs.storage)), offset(rhs.offset)
+  {
+    rhs.storage.clear();
+    rhs.offset = 0;
+  }
+
+  buffer& operator=(buffer&& rhs)
+  {
+    if (std::addressof(rhs) != this)
+    {
+      storage = std::move(rhs.storage);
+      offset = rhs.offset;
+      rhs.offset = 0;
+      rhs.storage.clear();
+    }
+    return *this;
+  }
 
   void append(const void *data, size_t sz);
   void erase(size_t sz) { NET_BUFFER_LOG("erasing " << sz << "/" << size()); CHECK_AND_ASSERT_THROW_MES(offset + sz <= storage.size(), "erase: sz too large"); offset += sz; if (offset == storage.size()) { storage.resize(0); offset = 0; } }

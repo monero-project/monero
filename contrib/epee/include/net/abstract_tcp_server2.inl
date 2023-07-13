@@ -41,6 +41,7 @@
 #include <boost/thread/condition_variable.hpp> // TODO
 #include <boost/make_shared.hpp>
 #include <boost/thread.hpp>
+#include <boost/variant/get.hpp>
 #include "warnings.h"
 #include "string_tools_lexical.h"
 #include "misc_language.h"
@@ -71,6 +72,14 @@ namespace net_utils
   {
     CHECK_AND_ASSERT_THROW_MES(bool(ptr), "shared_state cannot be null");
     return *ptr;
+  }
+
+  inline ssl_support_t get_ssl_mode(const encryption_mode& e2e)
+  {
+    ssl_support_t const* const ssl = boost::get<ssl_support_t>(std::addressof(e2e));
+    if (ssl)
+      return *ssl;
+    return ssl_support_t::e_ssl_support_disabled;
   }
 
   /************************************************************************/
@@ -838,7 +847,8 @@ namespace net_utils
   bool connection<T>::start_internal(
     bool is_income,
     bool is_multithreaded,
-    boost::optional<network_address> real_remote
+    boost::optional<network_address> real_remote,
+    const encryption_mode& e2e_mode
   )
   {
     std::unique_lock<std::mutex> guard(m_state.lock);
@@ -915,7 +925,7 @@ namespace net_utils
     );
     m_state.protocol.wait_init = true;
     guard.unlock();
-    m_handler.after_init_connection();
+    m_handler.after_init_connection(e2e_mode);
     guard.lock();
     m_state.protocol.wait_init = false;
     m_state.protocol.initialized = true;
@@ -935,13 +945,13 @@ namespace net_utils
     io_context_t &io_context,
     std::shared_ptr<shared_state> shared_state,
     t_connection_type connection_type,
-    ssl_support_t ssl_support
+    const encryption_mode& e2e
   ):
     connection(
       std::move(socket_t{io_context}),
       std::move(shared_state),
       connection_type,
-      ssl_support
+      e2e
     )
   {
   }
@@ -951,9 +961,9 @@ namespace net_utils
     socket_t &&socket,
     std::shared_ptr<shared_state> shared_state,
     t_connection_type connection_type,
-    ssl_support_t ssl_support
+    const encryption_mode& e2e
   ):
-    connection_basic(std::move(socket), shared_state, ssl_support),
+    connection_basic(std::move(socket), shared_state, get_ssl_mode(e2e)),
     m_handler(this, *shared_state, m_conn_context),
     m_connection_type(connection_type),
     m_io_context{GET_IO_SERVICE(connection_basic::socket_)},
@@ -978,20 +988,22 @@ namespace net_utils
   template<typename T>
   bool connection<T>::start(
     bool is_income,
-    bool is_multithreaded
+    bool is_multithreaded,
+    const encryption_mode& e2e_mode
   )
   {
-    return start_internal(is_income, is_multithreaded, {});
+    return start_internal(is_income, is_multithreaded, {}, e2e_mode);
   }
 
   template<typename T>
   bool connection<T>::start(
     bool is_income,
     bool is_multithreaded,
-    network_address real_remote
+    network_address real_remote,
+    const encryption_mode& e2e_mode
   )
   {
-    return start_internal(is_income, is_multithreaded, real_remote);
+    return start_internal(is_income, is_multithreaded, real_remote, e2e_mode);
   }
 
   template<typename T>
@@ -1126,7 +1138,7 @@ namespace net_utils
   }
 
   template<class t_protocol_handler>
-  boosted_tcp_server<t_protocol_handler>::boosted_tcp_server( t_connection_type connection_type ) :
+  boosted_tcp_server<t_protocol_handler>::boosted_tcp_server( t_connection_type connection_type) :
     m_state(std::make_shared<typename connection<t_protocol_handler>::shared_state>()),
     m_io_service_local_instance(new worker()),
     io_service_(m_io_service_local_instance->io_service),
@@ -1137,6 +1149,7 @@ namespace net_utils
     m_threads_count(0),
     m_thread_index(0),
 		m_connection_type( connection_type ),
+    m_e2e_mode(ssl_support_t::e_ssl_support_disabled),
     new_connection_(),
     new_connection_ipv6()
   {
@@ -1155,6 +1168,7 @@ namespace net_utils
     m_threads_count(0),
     m_thread_index(0),
 		m_connection_type(connection_type),
+    m_e2e_mode(ssl_support_t::e_ssl_support_disabled),
     new_connection_(),
     new_connection_ipv6()
   {
@@ -1180,7 +1194,7 @@ namespace net_utils
   template<class t_protocol_handler>
     bool boosted_tcp_server<t_protocol_handler>::init_server(uint32_t port,  const std::string& address,
 	uint32_t port_ipv6, const std::string& address_ipv6, bool use_ipv6, bool require_ipv4,
-	ssl_options_t ssl_options)
+	encryption_options e2e_options)
   {
     TRY_ENTRY();
     m_stop_signal_sent = false;
@@ -1191,8 +1205,21 @@ namespace net_utils
     m_use_ipv6 = use_ipv6;
     m_require_ipv4 = require_ipv4;
 
-    if (ssl_options)
-      m_state->configure_ssl(std::move(ssl_options));
+    struct handle_e2e
+    {
+      boosted_tcp_server& self;
+      void operator()(ssl_options_t ssl_options) const
+      {
+        self.m_e2e_mode = ssl_options.support;
+        if (ssl_options)
+          self.m_state->configure_ssl(std::move(ssl_options));
+      }
+      void operator()(noise_v0 mode) const
+      {
+        self.m_e2e_mode = std::move(mode);
+      }
+    };
+    boost::apply_visitor(handle_e2e{*this}, std::move(e2e_options));
 
     std::string ipv4_failed = "";
     std::string ipv6_failed = "";
@@ -1284,7 +1311,7 @@ namespace net_utils
   template<class t_protocol_handler>
   bool boosted_tcp_server<t_protocol_handler>::init_server(const std::string port,  const std::string& address,
       const std::string port_ipv6, const std::string address_ipv6, bool use_ipv6, bool require_ipv4,
-      ssl_options_t ssl_options)
+      encryption_options e2e_options)
   {
     uint32_t p = 0;
     uint32_t p_ipv6 = 0;
@@ -1298,7 +1325,7 @@ namespace net_utils
       MERROR("Failed to convert port no = " << port_ipv6);
       return false;
     }
-    return this->init_server(p, address, p_ipv6, address_ipv6, use_ipv6, require_ipv4, std::move(ssl_options));
+    return this->init_server(p, address, p_ipv6, address_ipv6, use_ipv6, require_ipv4, std::move(e2e_options));
   }
   //---------------------------------------------------------------------------------
   template<class t_protocol_handler>
@@ -1507,9 +1534,9 @@ namespace net_utils
 
       bool res;
       if (default_remote.get_type_id() == net_utils::address_type::invalid)
-        res = conn->start(true, 1 < m_threads_count);
+        res = conn->start(true, 1 < m_threads_count, m_e2e_mode);
       else
-        res = conn->start(true, 1 < m_threads_count, default_remote);
+        res = conn->start(true, 1 < m_threads_count, default_remote, m_e2e_mode);
       if (!res)
       {
         conn->cancel();
@@ -1539,12 +1566,12 @@ namespace net_utils
   }
   //---------------------------------------------------------------------------------
   template<class t_protocol_handler>
-  bool boosted_tcp_server<t_protocol_handler>::add_connection(t_connection_context& out, boost::asio::ip::tcp::socket&& sock, network_address real_remote, epee::net_utils::ssl_support_t ssl_support)
+  bool boosted_tcp_server<t_protocol_handler>::add_connection(t_connection_context& out, boost::asio::ip::tcp::socket&& sock, network_address real_remote, encryption_mode e2e_mode)
   {
     if(std::addressof(get_io_service()) == std::addressof(GET_IO_SERVICE(sock)))
     {
-      connection_ptr conn(new connection<t_protocol_handler>(std::move(sock), m_state, m_connection_type, ssl_support));
-      if(conn->start(false, 1 < m_threads_count, std::move(real_remote)))
+      connection_ptr conn(new connection<t_protocol_handler>(std::move(sock), m_state, m_connection_type, e2e_mode));
+      if(conn->start(false, 1 < m_threads_count, std::move(real_remote), std::move(e2e_mode)))
       {
         conn->get_context(out);
         conn->save_dbg_log();
@@ -1657,11 +1684,11 @@ namespace net_utils
   }
   //---------------------------------------------------------------------------------
   template<class t_protocol_handler>
-  bool boosted_tcp_server<t_protocol_handler>::connect(const std::string& adr, const std::string& port, uint32_t conn_timeout, t_connection_context& conn_context, const std::string& bind_ip, epee::net_utils::ssl_support_t ssl_support)
+  bool boosted_tcp_server<t_protocol_handler>::connect(const std::string& adr, const std::string& port, uint32_t conn_timeout, t_connection_context& conn_context, const std::string& bind_ip, const encryption_mode& e2e_mode)
   {
     TRY_ENTRY();
 
-    connection_ptr new_connection_l(new connection<t_protocol_handler>(io_service_, m_state, m_connection_type, ssl_support) );
+    connection_ptr new_connection_l(new connection<t_protocol_handler>(io_service_, m_state, m_connection_type, e2e_mode) );
     connections_mutex.lock();
     connections_.insert(new_connection_l);
     MDEBUG("connections_ size now " << connections_.size());
@@ -1746,10 +1773,11 @@ namespace net_utils
     //boost::asio::ip::tcp::endpoint remote_endpoint(boost::asio::ip::address::from_string(addr.c_str()), port);
     boost::asio::ip::tcp::endpoint remote_endpoint(*iterator);
 
-    auto try_connect_result = try_connect(new_connection_l, adr, port, sock_, remote_endpoint, bind_ip_to_use, conn_timeout, ssl_support);
+    const auto ssl_mode = get_ssl_mode(e2e_mode);
+    auto try_connect_result = try_connect(new_connection_l, adr, port, sock_, remote_endpoint, bind_ip_to_use, conn_timeout, ssl_mode);
     if (try_connect_result == CONNECT_FAILURE)
       return false;
-    if (ssl_support == epee::net_utils::ssl_support_t::e_ssl_support_autodetect && try_connect_result == CONNECT_NO_SSL)
+    if (ssl_mode == epee::net_utils::ssl_support_t::e_ssl_support_autodetect && try_connect_result == CONNECT_NO_SSL)
     {
       // we connected, but could not connect with SSL, try without
       MERROR("SSL handshake failed on an autodetect connection, reconnecting without SSL");
@@ -1763,7 +1791,7 @@ namespace net_utils
     connections_mutex.lock();
     connections_.erase(new_connection_l);
     connections_mutex.unlock();
-    bool r = new_connection_l->start(false, 1 < m_threads_count);
+    bool r = new_connection_l->start(false, 1 < m_threads_count, e2e_mode);
     if (r)
     {
       new_connection_l->get_context(conn_context);
@@ -1783,10 +1811,10 @@ namespace net_utils
   }
   //---------------------------------------------------------------------------------
   template<class t_protocol_handler> template<class t_callback>
-  bool boosted_tcp_server<t_protocol_handler>::connect_async(const std::string& adr, const std::string& port, uint32_t conn_timeout, const t_callback &cb, const std::string& bind_ip, epee::net_utils::ssl_support_t ssl_support)
+  bool boosted_tcp_server<t_protocol_handler>::connect_async(const std::string& adr, const std::string& port, uint32_t conn_timeout, const t_callback &cb, const std::string& bind_ip, const encryption_mode& e2e_mode)
   {
     TRY_ENTRY();    
-    connection_ptr new_connection_l(new connection<t_protocol_handler>(io_service_, m_state, m_connection_type, ssl_support) );
+    connection_ptr new_connection_l(new connection<t_protocol_handler>(io_service_, m_state, m_connection_type, e2e_mode) );
     connections_mutex.lock();
     connections_.insert(new_connection_l);
     MDEBUG("connections_ size now " << connections_.size());
@@ -1895,7 +1923,7 @@ namespace net_utils
             connections_mutex.lock();
             connections_.erase(new_connection_l);
             connections_mutex.unlock();
-            bool r = new_connection_l->start(false, 1 < m_threads_count);
+            bool r = new_connection_l->start(false, 1 < m_threads_count, e2e_mode);
             if (r)
             {
               new_connection_l->get_context(conn_context);

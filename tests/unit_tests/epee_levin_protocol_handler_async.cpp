@@ -138,7 +138,7 @@ namespace
 
     void start()
     {
-      ASSERT_TRUE(m_protocol_handler.after_init_connection());
+      ASSERT_TRUE(m_protocol_handler.after_init_connection(epee::net_utils::ssl_support_t::e_ssl_support_disabled));
     }
 
     // Implement epee::net_utils::i_service_endpoint interface

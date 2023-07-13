@@ -365,8 +365,8 @@ TEST(cryptonote_protocol_handler, race_condition)
     io_context.run();
     acceptor.close(ec);
     EXPECT_EQ(ec.value(), 0);
-    EXPECT_TRUE(in->start(true, true));
-    EXPECT_TRUE(out->start(false, true));
+    EXPECT_TRUE(in->start(true, true, epee::net_utils::ssl_support_t::e_ssl_support_disabled));
+    EXPECT_TRUE(out->start(false, true, epee::net_utils::ssl_support_t::e_ssl_support_disabled));
     return std::make_pair<>(std::move(in), std::move(out));
   };
   auto get_conn_tag = [](connection_t &conn){
@@ -1085,7 +1085,7 @@ TEST(node_server, race_condition)
     endpoint_t endpoint(boost::asio::ip::address::from_string("127.0.0.1"), 48080);
     conn->socket().connect(endpoint);
     conn->socket().set_option(boost::asio::ip::tcp::socket::reuse_address(true));
-    conn->start({}, {});
+    conn->start({}, {}, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
     context_t context;
     conn->get_context(context);
     event_t handshaked;

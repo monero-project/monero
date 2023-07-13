@@ -58,7 +58,6 @@ namespace epee
 {
 namespace net_utils
 {
-
 	class connection_basic_shared_state
 	{
 		ssl_options_t ssl_options_;
