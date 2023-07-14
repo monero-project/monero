@@ -101,7 +101,6 @@ namespace wire
     void boolean(bool) override final;
 
     void integer(std::intmax_t) override final;
-
     void unsigned_integer(std::uintmax_t) override final;
 
     void real(double) override final;
