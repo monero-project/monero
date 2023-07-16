@@ -310,6 +310,53 @@ namespace cryptonote {
   bool operator ==(const cryptonote::block& a, const cryptonote::block& b) {
     return cryptonote::get_block_hash(a) == cryptonote::get_block_hash(b);
   }
+  //--------------------------------------------------------------------------------
+  int compare_hash32_reversed_nbits(const crypto::hash& ha, const crypto::hash& hb, unsigned int nbits)
+  {
+    static_assert(sizeof(uint64_t) * 4 == sizeof(crypto::hash), "hash is wrong size");
+
+    // We have to copy these buffers b/c of the strict aliasing rule
+    uint64_t va[4];
+    memcpy(va, &ha, sizeof(crypto::hash));
+    uint64_t vb[4];
+    memcpy(vb, &hb, sizeof(crypto::hash));
+
+    for (int n = 3; n >= 0 && nbits; --n)
+    {
+      const unsigned int msb_nbits = std::min<unsigned int>(64, nbits);
+      const uint64_t lsb_nbits_dropped = static_cast<uint64_t>(64 - msb_nbits);
+      const uint64_t van = SWAP64LE(va[n]) >> lsb_nbits_dropped;
+      const uint64_t vbn = SWAP64LE(vb[n]) >> lsb_nbits_dropped;
+      nbits -= msb_nbits;
+
+      if (van < vbn) return -1; else if (van > vbn) return 1;
+    }
+
+    return 0;
+  }
+
+  crypto::hash make_hash32_loose_template(unsigned int nbits, const crypto::hash& h)
+  {
+    static_assert(sizeof(uint64_t) * 4 == sizeof(crypto::hash), "hash is wrong size");
+
+    // We have to copy this buffer b/c of the strict aliasing rule
+    uint64_t vh[4];
+    memcpy(vh, &h, sizeof(crypto::hash));
+
+    for (int n = 3; n >= 0; --n)
+    {
+      const unsigned int msb_nbits = std::min<unsigned int>(64, nbits);
+      const uint64_t mask = msb_nbits ? (~((std::uint64_t(1) << (64 - msb_nbits)) - 1)) : 0;
+      nbits -= msb_nbits;
+
+      vh[n] &= SWAP64LE(mask);
+    }
+
+    crypto::hash res;
+    memcpy(&res, vh, sizeof(crypto::hash));
+    return res;
+  }
+  //--------------------------------------------------------------------------------
 }
 
 //--------------------------------------------------------------------------------

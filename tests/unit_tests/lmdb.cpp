@@ -30,10 +30,14 @@
 #include <boost/range/algorithm/equal.hpp>
 #include <gtest/gtest.h>
 
+#include "blockchain_db/lmdb/db_lmdb.h"
+#include "cryptonote_basic/cryptonote_basic_impl.h"
+#include "hex.h"
 #include "lmdb/database.h"
 #include "lmdb/table.h"
 #include "lmdb/transaction.h"
 #include "lmdb/util.h"
+#include "string_tools.h"
 
 namespace
 {
@@ -52,6 +56,24 @@ namespace
         MDB_val left_val = lmdb::to_val(left);
         MDB_val right_val = lmdb::to_val(right);
         return (*cmp)(&left_val, &right_val);
+    }
+
+    crypto::hash postfix_hex_to_hash(const std::string& hex)
+    {
+        if (hex.size() > 64) throw std::logic_error("postfix_hex_to_hash");
+        std::string decoded_bytes;
+        if (!epee::from_hex::to_string(decoded_bytes, hex)) throw std::logic_error("postfix_hex_to_hash");
+        crypto::hash res = crypto::null_hash;
+        memcpy(res.data + 32 - decoded_bytes.size(), decoded_bytes.data(), decoded_bytes.size());
+        return res;
+    }
+
+    void test_make_template(const std::string& input_hex, unsigned int nbits, const std::string& expected_hex)
+    {
+        const crypto::hash input = postfix_hex_to_hash(input_hex);
+        const crypto::hash expected = postfix_hex_to_hash(expected_hex);
+        const crypto::hash actual = cryptonote::make_hash32_loose_template(nbits, input);
+        ASSERT_EQ(expected, actual);
     }
 }
 
@@ -401,4 +423,164 @@ TEST(LMDB, InvalidKeyIterator)
     EXPECT_FALSE(test2 != test1);
 }
 
+TEST(LMDB_kanonymity, compare_hash32_reversed_nbits)
+{
+    static constexpr size_t NUM_RANDOM_HASHES = 128;
+    std::vector<crypto::hash> random_hashes;
+    random_hashes.reserve(500);
+    for (size_t i = 0; i < NUM_RANDOM_HASHES; ++i)
+        random_hashes.push_back(crypto::rand<crypto::hash>());
 
+    bool r = true;
+
+    // Compare behavior of compare_hash32_reversed_nbits(nbits=256) to BlockchainLMDB::compare_hash32
+    for (size_t i = 0; i < NUM_RANDOM_HASHES; ++i)
+    {
+        for (size_t j = 0; j < NUM_RANDOM_HASHES; ++j)
+        {
+            const crypto::hash& ha = random_hashes[i];
+            const crypto::hash& hb = random_hashes[j];
+            const MDB_val mva = {sizeof(crypto::hash), (void*)(&ha)};
+            const MDB_val mvb = {sizeof(crypto::hash), (void*)(&hb)};
+            const int expected = cryptonote::BlockchainLMDB::compare_hash32(&mva, &mvb);
+            const int actual = cryptonote::compare_hash32_reversed_nbits(ha, hb, 256);
+            if (actual != expected)
+            {
+                std::cerr << "Failed compare_hash32_reversed_nbits test case with hashes:" << std::endl;
+                std::cerr << "    " << epee::string_tools::pod_to_hex(ha) << std::endl;
+                std::cerr << "    " << epee::string_tools::pod_to_hex(hb) << std::endl;
+                r = false;
+            }
+            EXPECT_EQ(expected, actual);
+        }
+    }
+
+    ASSERT_TRUE(r);
+
+    const auto cmp_byte_rev = [](const crypto::hash& ha, const crypto::hash& hb, unsigned int nbytes) -> int
+    {
+        if (nbytes > sizeof(crypto::hash)) throw std::logic_error("can't compare with nbytes too big");
+        const uint8_t* va = (const uint8_t*)ha.data;
+        const uint8_t* vb = (const uint8_t*)hb.data;
+        for (size_t i = 31; nbytes; --i, --nbytes)
+        {
+            if (va[i] < vb[i]) return -1;
+            else if (va[i] > vb[i]) return 1;
+        }
+        return 0;
+    };
+
+    // Test partial hash compares w/o partial bytes
+    for (size_t i = 0; i < NUM_RANDOM_HASHES; ++i)
+    {
+        for (size_t j = 0; j < NUM_RANDOM_HASHES; ++j)
+        {
+            for (unsigned int nbytes = 0; nbytes <= 32; ++nbytes)
+            {
+                const crypto::hash& ha = random_hashes[i];
+                const crypto::hash& hb = random_hashes[j];
+                const int expected = cmp_byte_rev(ha, hb, nbytes);
+                const int actual = cryptonote::compare_hash32_reversed_nbits(ha, hb, nbytes * 8);
+                if (actual != expected)
+                {
+                    std::cerr << "Failed compare_hash32_reversed_nbits test case with hashes and args:" << std::endl;
+                    std::cerr << "    " << epee::string_tools::pod_to_hex(ha) << std::endl;
+                    std::cerr << "    " << epee::string_tools::pod_to_hex(hb) << std::endl;
+                    std::cerr << "    nbytes=" << nbytes << std::endl;
+                    r = false;
+                }
+                EXPECT_EQ(expected, actual);
+            }
+        }
+    }
+
+    ASSERT_TRUE(r);
+
+    // Test partial hash compares w/ partial bytes
+    for (size_t i = 0; i < NUM_RANDOM_HASHES; ++i)
+    {
+        const crypto::hash& ha = random_hashes[i];
+        for (size_t modnbytes = 0; modnbytes < 32; ++modnbytes)
+        {
+            for (size_t modbitpos = 0; modbitpos < 8; ++modbitpos)
+            {
+                const size_t modbytepos = 31 - modnbytes;
+                const uint8_t mask = 1 << modbitpos;
+                const bool bit_was_zero = 0 == (static_cast<uint8_t>(ha.data[modbytepos]) & mask);
+                const unsigned int modnbits = modnbytes * 8 + (7 - modbitpos);
+
+                // Create modified random hash by flipping one bit
+                crypto::hash hb = ha;
+                hb.data[modbytepos] = static_cast<uint8_t>(hb.data[modbytepos]) ^ mask;
+
+                for (unsigned int cmpnbits = 0; cmpnbits <= 256; ++cmpnbits)
+                {
+                    const int expected = cmpnbits <= modnbits ? 0 : bit_was_zero ? -1 : 1;
+                    const int actual = cryptonote::compare_hash32_reversed_nbits(ha, hb, cmpnbits);
+                    if (actual != expected)
+                    {
+                        std::cerr << "Failed compare_hash32_reversed_nbits test case with hashes and args:" << std::endl;
+                        std::cerr << "    " << epee::string_tools::pod_to_hex(ha) << std::endl;
+                        std::cerr << "    " << epee::string_tools::pod_to_hex(hb) << std::endl;
+                        std::cerr << "    modnbytes=" << modnbytes << std::endl;
+                        std::cerr << "    modbitpos=" << modbitpos << std::endl;
+                        std::cerr << "    cmpnbits=" << cmpnbits << std::endl;
+                        r = false;
+                    }
+                    EXPECT_EQ(expected, actual);
+                }
+            }
+        }
+    }
+
+    ASSERT_TRUE(r);
+
+    // Test equality
+    for (size_t i = 0; i < NUM_RANDOM_HASHES; ++i)
+    {
+        const crypto::hash& ha = random_hashes[i];
+        for (unsigned int nbits = 0; nbits <= 256; ++nbits)
+        {
+            const int actual = cryptonote::compare_hash32_reversed_nbits(ha, ha, nbits);
+            if (actual)
+            {
+                std::cerr << "Failed compare_hash32_reversed_nbits test case with hash and args:" << std::endl;
+                std::cerr << "    " << epee::string_tools::pod_to_hex(ha) << std::endl;
+                std::cerr << "    nbits=" << nbits << std::endl;
+                r = false;
+            }
+            EXPECT_EQ(0, actual);
+        }
+    }
+
+}
+
+TEST(LMDB_kanonymity, make_hash32_loose_template)
+{
+    const std::string example_1 = "0abcdef1234567890abcdef1234567890abcdef1234567890abcdef123456789";
+
+    test_make_template(example_1, 0, "");
+
+    test_make_template(example_1, 1, "80");
+    test_make_template(example_1, 2, "80");
+    test_make_template(example_1, 3, "80");
+    test_make_template(example_1, 4, "80");
+    test_make_template(example_1, 5, "88");
+    test_make_template(example_1, 6, "88");
+    test_make_template(example_1, 7, "88");
+    test_make_template(example_1, 8, "89");
+
+    test_make_template(example_1, 9, "0089");
+    test_make_template(example_1, 10, "4089");
+    test_make_template(example_1, 11, "6089");
+    test_make_template(example_1, 12, "6089");
+    test_make_template(example_1, 13, "6089");
+    test_make_template(example_1, 14, "6489");
+    test_make_template(example_1, 15, "6689");
+    test_make_template(example_1, 16, "6789");
+
+    test_make_template(example_1, 32, "23456789");
+    test_make_template(example_1, 64, "0abcdef123456789");
+    test_make_template(example_1, 128, "0abcdef1234567890abcdef123456789");
+    test_make_template(example_1, 256, example_1);
+}

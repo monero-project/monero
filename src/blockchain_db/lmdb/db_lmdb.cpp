@@ -3144,6 +3144,58 @@ bool BlockchainLMDB::get_pruned_tx_blobs_from(const crypto::hash& h, size_t coun
   return true;
 }
 
+std::vector<crypto::hash> BlockchainLMDB::get_txids_loose(const crypto::hash& txid_template, std::uint32_t bits, uint64_t max_num_txs)
+{
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  check_open();
+
+  std::vector<crypto::hash> matching_hashes;
+
+  TXN_PREFIX_RDONLY();  // Start a read-only transaction
+  RCURSOR(tx_indices);  // Open cursors to the tx_indices and txpool_meta databases
+  RCURSOR(txpool_meta);
+
+  // Search on-chain and pool transactions together, starting with on-chain txs
+  MDB_cursor* cursor = m_cur_tx_indices;
+  MDB_val k = zerokval; // tx_indicies DB uses a dummy key
+  MDB_val_set(v, txid_template); // tx_indicies DB indexes data values by crypto::hash value on front
+  MDB_cursor_op op = MDB_GET_BOTH_RANGE; // Set the cursor to the first key/value pair >= the given key
+  bool doing_chain = true; // this variable tells us whether we are processing chain or pool txs
+  while (1)
+  {
+    const int get_result = mdb_cursor_get(cursor, &k, &v, op);
+    op = doing_chain ? MDB_NEXT_DUP : MDB_NEXT; // Set the cursor to the next key/value pair
+    if (get_result && get_result != MDB_NOTFOUND)
+      throw0(DB_ERROR(lmdb_error("DB error attempting to fetch txid range", get_result).c_str()));
+
+    // In tx_indicies, the hash is stored at the data, in txpool_meta at the key
+    const crypto::hash* const p_dbtxid = (const crypto::hash*)(doing_chain ? v.mv_data : k.mv_data);
+
+    // Check if we reached the end of a DB or the hashes no longer match the template
+    if (get_result == MDB_NOTFOUND || compare_hash32_reversed_nbits(txid_template, *p_dbtxid, bits))
+    {
+      if (doing_chain) // done with chain processing, switch to pool processing
+      {
+        k.mv_size = sizeof(crypto::hash); // txpool_meta DB is indexed using crypto::hash as keys
+        k.mv_data = (void*) txid_template.data;
+        cursor = m_cur_txpool_meta; // switch databases
+        op = MDB_SET_RANGE; // Set the cursor to the first key >= the given key
+        doing_chain = false;
+        continue;
+      }
+      break; // if we get to this point, then we finished pool processing and we are done
+    }
+    else if (matching_hashes.size() >= max_num_txs && max_num_txs != 0)
+      throw0(TX_EXISTS("number of tx hashes in template range exceeds maximum"));
+
+    matching_hashes.push_back(*p_dbtxid);
+  }
+
+  TXN_POSTFIX_RDONLY();  // End the read-only transaction
+
+  return matching_hashes;
+}
+
 bool BlockchainLMDB::get_blocks_from(uint64_t start_height, size_t min_block_count, size_t max_block_count, size_t max_tx_count, size_t max_size, std::vector<std::pair<std::pair<cryptonote::blobdata, crypto::hash>, std::vector<std::pair<crypto::hash, cryptonote::blobdata>>>>& blocks, bool pruned, bool skip_coinbase, bool get_miner_tx_hash) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);

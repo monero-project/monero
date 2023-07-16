@@ -262,6 +262,8 @@ public:
   virtual bool get_prunable_tx_blob(const crypto::hash& h, cryptonote::blobdata &tx) const;
   virtual bool get_prunable_tx_hash(const crypto::hash& tx_hash, crypto::hash &prunable_hash) const;
 
+  virtual std::vector<crypto::hash> get_txids_loose(const crypto::hash& h, std::uint32_t bits, uint64_t max_num_txs = 0);
+
   virtual uint64_t get_tx_count() const;
 
   virtual std::vector<transaction> get_tx_list(const std::vector<crypto::hash>& hlist) const;
