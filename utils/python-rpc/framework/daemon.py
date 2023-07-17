@@ -375,7 +375,7 @@ class Daemon(object):
         }
         return self.rpc.send_json_rpc_request(get_coinbase_tx_sum)
 
-    def get_output_distribution(self, amounts = [], from_height = 0, to_height = 0, cumulative = False, binary = False, compress = False, client = ""):
+    def get_output_distribution(self, amounts = [], from_height = 0, to_height = 0, cumulative = False, binary = False, compress = False, client = "", get_rct_coinbase = False):
         get_output_distribution = {
             'method': 'get_output_distribution',
             'params': {
@@ -386,6 +386,7 @@ class Daemon(object):
                 'cumulative': cumulative,
                 'binary': binary,
                 'compress': compress,
+                'get_rct_coinbase': get_rct_coinbase
             },
             'jsonrpc': '2.0',
             'id': '0'

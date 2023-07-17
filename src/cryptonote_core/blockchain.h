@@ -573,6 +573,19 @@ namespace cryptonote
     bool get_output_distribution(uint64_t amount, uint64_t from_height, uint64_t to_height, uint64_t &start_height, std::vector<uint64_t> &distribution, uint64_t &base) const;
 
     /**
+     * @brief gets per-block distribution of rct coinbase outputs (cumulative)
+     *
+     * @param from_height the height before which we do not care about the data (inclusive)
+     * @param to_height the height after which we do not care about the data (inclusive)
+     * @param[out] start_height the height of the first rct coinbase output
+     * @param[out] distribution the number of rct coinbase outputs in each block starting from start_height (inclusive)
+     * @param[out] base how many rct coinbase outputs are before the stated distribution
+     *
+     * @return false if requested heights are not available or other failure, true for success
+     */
+    bool get_rct_coinbase_output_distribution(uint64_t from_height, uint64_t to_height, uint64_t &start_height, std::vector<uint64_t> &distribution, uint64_t &base) const;
+
+    /**
      * @brief gets the global indices for outputs from a given transaction
      *
      * This function gets the global indices for all outputs belonging

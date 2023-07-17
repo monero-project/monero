@@ -110,6 +110,8 @@ namespace cryptonote {
 
   bool is_coinbase(const transaction& tx);
 
+  uint64_t get_num_coinbase_rct_outputs(const block& b);
+
   bool operator ==(const cryptonote::transaction& a, const cryptonote::transaction& b);
   bool operator ==(const cryptonote::block& a, const cryptonote::block& b);
 }

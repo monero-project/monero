@@ -5,6 +5,8 @@
 
 #include "cryptonote_core/cryptonote_core.h"
 
+#define HF_VERSION_RCT HF_VERSION_DYNAMIC_FEE
+
 namespace cryptonote
 {
 namespace rpc
@@ -108,6 +110,125 @@ namespace rpc
       }
 
       return process_distribution(cumulative, start_height, std::move(distribution), base);
+  }
+
+  bool CoinbaseOutputDistributionCache::get_coinbase_output_distribution
+  (
+    const uint64_t start_height, // inclusive
+    const uint64_t stop_height, // inclusive
+    uint64_t& true_start_height,
+    std::vector<uint64_t>& num_cb_outs_per_block,
+    uint64_t& base,
+    bool* only_used_cache/* = nullptr*/
+  )
+  {
+    if (only_used_cache)
+      *only_used_cache = true;
+
+    CHECK_AND_ASSERT_MES(stop_height >= start_height, false, "stop_height < start_height");
+    CHECK_AND_ASSERT_MES(stop_height < CRYPTONOTE_MAX_BLOCK_NUMBER, false,
+      "Request for ridiculous height: " << stop_height);
+
+    // Start accessing the cache
+    std::lock_guard<decltype(m_mutex)> ll(m_mutex);
+
+    rollback_for_reorgs();
+
+    if (stop_height >= height_end()) // if missing information
+    {
+      if (only_used_cache)
+        *only_used_cache = false;
+
+      // Fetch new information
+      uint64_t start_height = 0, base = 0;
+      std::vector<uint64_t> dist_ext;
+      CHECK_AND_ASSERT_THROW_MES(m_get_rct_cb_dist(height_end(), stop_height, start_height, dist_ext, base),
+        "Failed to obtain RCT coinbase distribution");
+      CHECK_AND_ASSERT_THROW_MES(start_height == height_end() || height_end() == 0,
+        "Starting height of requested distribution is off");
+      CHECK_AND_ASSERT_THROW_MES(dist_ext.size() == stop_height - height_end() + 1,
+        "Mismatch in requested RCT coinbase distribution size");
+
+      // Decumulate distribution
+      for (size_t i = 0; i < dist_ext.size(); ++i)
+      {
+        dist_ext[i] -= base;
+        base += dist_ext[i];
+      }
+
+      // Extend cache
+      if (m_num_cb_outs_per_block.empty())
+        m_height_begin = start_height;
+      m_num_cb_outs_per_block.insert(m_num_cb_outs_per_block.end(), dist_ext.cbegin(), dist_ext.cend());
+      save_current_checkpoints();
+    }
+
+    CHECK_AND_ASSERT_MES(height_end() > stop_height, false, "internal bug: extend back");
+
+    true_start_height = std::max(start_height, m_height_begin);
+    if (true_start_height <= m_height_begin)
+      base = 0;
+    else
+      base = m_num_cb_outs_per_block.at(true_start_height - m_height_begin - 1);
+
+    const size_t num_queried_blocks = stop_height + 1 - true_start_height;
+    const auto res_begin = m_num_cb_outs_per_block.data() + (true_start_height - m_height_begin); 
+    const auto res_end = res_begin + num_queried_blocks;
+    num_cb_outs_per_block = std::vector<uint64_t>(res_begin, res_end);
+
+    return true;
+  }
+
+  void CoinbaseOutputDistributionCache::rollback_for_reorgs()
+  {
+    bool top_9_potent_invalid = false;
+    bool top_99_potent_invalid = false;
+    bool all_potent_invalid = false;
+
+    if (height_end() >= 1 && m_last_1_hash != m_get_block_id_by_height(height_end() - 1))
+    {
+      top_9_potent_invalid = true;
+      if (height_end() >= 10 && m_last_10_hash != m_get_block_id_by_height(height_end() - 10))
+      {
+        top_99_potent_invalid = true;
+        if (height_end() >= 100 && m_last_100_hash != m_get_block_id_by_height(height_end() - 100))
+        {
+          all_potent_invalid = true;
+        }
+      }
+    }
+
+    all_potent_invalid = all_potent_invalid
+      || (top_9_potent_invalid && m_num_cb_outs_per_block.size() <= 9)
+      || (top_99_potent_invalid && m_num_cb_outs_per_block.size() <= 99);
+
+    if (all_potent_invalid)
+    {
+      // Reset cache
+      m_height_begin = 0;
+      m_num_cb_outs_per_block.clear();
+    }
+    else if (top_99_potent_invalid)
+    {
+      for (size_t i = 0; i < 99; ++i) m_num_cb_outs_per_block.pop_back();
+      save_current_checkpoints();
+    }
+    else if (top_9_potent_invalid)
+    {
+      for (size_t i = 0; i < 9; ++i) m_num_cb_outs_per_block.pop_back();
+      save_current_checkpoints();
+    }
+    else
+    {
+      return; // Everything is valid! Nothing to do
+    }
+  }
+
+  void CoinbaseOutputDistributionCache::save_current_checkpoints()
+  {
+    if (height_end() >= 1) m_last_1_hash = m_get_block_id_by_height(height_end() - 1);
+    if (height_end() >= 10) m_last_10_hash = m_get_block_id_by_height(height_end() - 10);
+    if (height_end() >= 100) m_last_100_hash = m_get_block_id_by_height(height_end() - 100);
   }
 } // rpc
 } // cryptonote
