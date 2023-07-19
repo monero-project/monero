@@ -38,6 +38,7 @@
 #define MONERO_DEFAULT_LOG_CATEGORY "bcutil"
 
 namespace po = boost::program_options;
+using namespace cryptonote;
 using namespace epee;
 
 int main(int argc, char* argv[])

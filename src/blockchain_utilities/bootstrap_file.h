@@ -48,10 +48,6 @@
 
 #include "blockchain_utilities.h"
 
-
-using namespace cryptonote;
-
-
 class BootstrapFile
 {
 public:
@@ -66,9 +62,9 @@ public:
 
 protected:
 
-  Blockchain* m_blockchain_storage;
+  cryptonote::Blockchain* m_blockchain_storage;
 
-  tx_memory_pool* m_tx_pool;
+  cryptonote::tx_memory_pool* m_tx_pool;
   typedef std::vector<char> buffer_type;
   std::ofstream * m_raw_data_file;
   buffer_type m_buffer;
@@ -78,7 +74,7 @@ protected:
   bool open_writer(const boost::filesystem::path& file_path, uint64_t start_block, uint64_t stop_block);
   bool initialize_file(uint64_t start_block, uint64_t stop_block);
   bool close();
-  void write_block(block& block);
+  void write_block(cryptonote::block& block);
   void flush_chunk();
 
 private:
