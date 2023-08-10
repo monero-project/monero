@@ -30,7 +30,6 @@ Portions Copyright (c) 2012-2013 The Cryptonote developers.
 ## Development resources
 
 - Web: [getmonero.org](https://getmonero.org)
-- Forum: [forum.getmonero.org](https://forum.getmonero.org)
 - Mail: [dev@getmonero.org](mailto:dev@getmonero.org)
 - GitHub: [https://github.com/monero-project/monero](https://github.com/monero-project/monero)
 - IRC: [#monero-dev on Libera](https://web.libera.chat/#monero-dev)
