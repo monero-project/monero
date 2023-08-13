@@ -154,17 +154,35 @@ void ZmqServer::serve()
         state->relay_to_pub(relay.get(), pub.get());
 
       if (sockets[1].revents & ZMQ_POLLIN)
-        state->sub_request(MONERO_UNWRAP(net::zmq::receive(pub.get(), ZMQ_DONTWAIT)));
-
+      {
+        expect<std::string> message = net::zmq::receive(pub.get(), ZMQ_DONTWAIT);
+        if (!message)
+        {
+          if (message.error() != std::errc::resource_unavailable_try_again)
+            MONERO_THROW(message.error(), "Failed to read XPUB socket");
+          MWARNING("Spurious REVENT from XPUB socket");
+        }
+        else // if message
+          state->sub_request(std::move(*message));
+      }
       if (!pub || (sockets[2].revents & ZMQ_POLLIN))
       {
-        std::string message = MONERO_UNWRAP(net::zmq::receive(rep.get(), read_flags));
-        MDEBUG("Received RPC request: \"" << message << "\"");
-        epee::byte_slice response = handler.handle(std::move(message));
+        expect<std::string> message = net::zmq::receive(rep.get(), read_flags);
+        if (!message)
+        {
+          if (message.error() != std::errc::resource_unavailable_try_again)
+            MONERO_THROW(message.error(), "Failed to read REP socket");
+          MWARNING("Spurious REVENT from REP socket");
+        }
+        else // if message
+        {
+          MDEBUG("Received RPC request: \"" << *message << "\"");
+          epee::byte_slice response = handler.handle(std::move(*message));
 
-        const boost::string_ref response_view{reinterpret_cast<const char*>(response.data()), response.size()};
-        MDEBUG("Sending RPC reply: \"" << response_view << "\"");
-        MONERO_UNWRAP(net::zmq::send(std::move(response), rep.get()));
+          const boost::string_ref response_view{reinterpret_cast<const char*>(response.data()), response.size()};
+          MDEBUG("Sending RPC reply: \"" << response_view << "\"");
+          MONERO_UNWRAP(net::zmq::send(std::move(response), rep.get()));
+        }
       }
 
       for (zmq_pollitem_t& item : sockets)
