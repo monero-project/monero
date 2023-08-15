@@ -100,7 +100,7 @@ namespace cryptonote
 
     if (dest.in_pool)
     {
-      if (optional.received_timestamp && optional.block_timestamp)
+      if (optional.received_timestamp && optional.relayed)
       {
         dest.received_timestamp = *optional.received_timestamp;
         dest.relayed = *optional.relayed;
