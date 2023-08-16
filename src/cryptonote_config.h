@@ -59,8 +59,6 @@
 #define SERVICE_NODE_VERSION                            5
 
 #define STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS          20
-#define STAKING_REQUIREMENT_LOCK_BLOCKS                 (20160)
-#define STAKING_REQUIREMENT_LOCK_BLOCKS_TESTNET         (30*24*2)
 #define STAKING_RELOCK_WINDOW_BLOCKS                    (30*6)
 #define STAKING_PORTIONS                                UINT64_C(0xfffffffffffffffc)
 #define STAKING_AUTHORIZATION_EXPIRATION_WINDOW         (60*60*24*7*2)  // 2 weeks
@@ -76,7 +74,7 @@
 #define MIN_PORTIONS                                    (STAKING_PORTIONS / MAX_NUMBER_OF_CONTRIBUTORS)
 #define MIN_PORTIONS_V2                                 (STAKING_PORTIONS / MAX_NUMBER_OF_CONTRIBUTORS_V2)
 #define MIN_PORTIONS_V3                                 (STAKING_PORTIONS / MAX_NUMBER_OF_CONTRIBUTORS_V3)
-#define MEMPOOL_PRUNE_DEREGISTER_LIFETIME               (24 * 60 * 60) // seconds, 2 hours
+#define MEMPOOL_PRUNE_DEREGISTER_LIFETIME               (2 * 60 * 60) // seconds, 2 hours
 
 static_assert(STAKING_PORTIONS % MAX_NUMBER_OF_CONTRIBUTORS == 0, "Use a multiple of four, so that it divides easily by max number of contributors.");
 static_assert(STAKING_PORTIONS % 2 == 0, "Use a multiple of two, so that it divides easily by two contributors.");
@@ -139,6 +137,10 @@ static_assert(STAKING_PORTIONS % 3 == 0, "Use a multiple of three, so that it di
 #define DIFFICULTY_WINDOW_V3                            60 // blocks
 
 #define DIFFICULTY_BLOCKS_COUNT_V3                      DIFFICULTY_WINDOW_V3 + 1
+
+#define BLOCKS_EXPECTED_IN_HOURS(val)                   (((60 * 60) / DIFFICULTY_TARGET_V3) * (val))
+#define BLOCKS_EXPECTED_IN_DAYS(val)                    (BLOCKS_EXPECTED_IN_HOURS(24) * (val))
+#define BLOCKS_EXPECTED_IN_YEARS(val)                   (BLOCKS_EXPECTED_IN_DAYS(365) * (val))
 
 #define CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_SECONDS_V1   DIFFICULTY_TARGET_V1 * CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_BLOCKS
 #define CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_SECONDS_V2   DIFFICULTY_TARGET_V2 * CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_BLOCKS
@@ -209,7 +211,6 @@ static_assert(STAKING_PORTIONS % 3 == 0, "Use a multiple of three, so that it di
 #define CRYPTONOTE_BLOCKCHAINDATA_FILENAME      "data.mdb"
 #define CRYPTONOTE_BLOCKCHAINDATA_LOCK_FILENAME "lock.mdb"
 #define P2P_NET_DATA_FILENAME                   "p2pstate.bin"
-#define RPC_PAYMENTS_DATA_FILENAME              "rpcpayments.bin"
 #define MINER_CONFIG_FILE_NAME                  "miner_conf.json"
 
 #define THREAD_STACK_SIZE                       10 * 1024 * 1024
@@ -246,8 +247,6 @@ static_assert(STAKING_PORTIONS % 3 == 0, "Use a multiple of three, so that it di
 #define CRYPTONOTE_PRUNING_LOG_STRIPES          3 // the higher, the more space saved
 #define CRYPTONOTE_PRUNING_TIP_BLOCKS           5500 // the smaller, the more space saved
 //#define CRYPTONOTE_PRUNING_DEBUG_SPOOF_SEED
-
-#define RPC_CREDITS_PER_HASH_SCALE ((float)(1<<24))
 
 // New constants are intended to go here
 namespace config
@@ -324,6 +323,30 @@ namespace config
 
 namespace cryptonote
 {
+  enum network_version
+  {
+    network_version_1 = 1,
+    network_version_2,
+    network_version_3,
+    network_version_4,
+    network_version_5,
+    network_version_6,
+    network_version_7,
+    network_version_8,
+    network_version_9,
+    network_version_10,
+    network_version_11,
+    network_version_12,
+    network_version_13,
+    network_version_14,
+    network_version_15,
+    network_version_16,
+    network_version_17,
+    network_version_18,
+
+    network_version_count,
+  };
+
   enum network_type : uint8_t
   {
     MAINNET = 0,

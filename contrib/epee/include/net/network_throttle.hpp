@@ -60,7 +60,6 @@
 #include <boost/lambda/lambda.hpp>
 #include <boost/uuid/random_generator.hpp>
 #include <boost/chrono.hpp>
-#include <boost/utility/value_init.hpp>
 #include <boost/asio/deadline_timer.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/thread/thread.hpp> 

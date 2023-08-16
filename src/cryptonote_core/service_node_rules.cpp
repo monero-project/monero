@@ -7,8 +7,6 @@
 #include "service_node_rules.h"
 
 namespace service_nodes {
-
-
 	uint64_t get_staking_requirement(cryptonote::network_type m_nettype, uint64_t height)
 	{
 		uint64_t hardfork_height = m_nettype == cryptonote::MAINNET ? 106950 : 581 /* stagenet */;
@@ -23,11 +21,11 @@ namespace service_nodes {
 				return 100000 * COIN;
 			} else if(height >= 14) {
 				base = 70000 * COIN;
-				variable = (20000.0 * COIN) / triton::exp2(height_adjusted / 356446.0);
+				variable = (20000.0 * COIN) / equilibria::exp2(height_adjusted / 356446.0);
 				return base + variable;
 			} else {
 				base = 10000 * COIN;
-				variable = (30000.0 * COIN) / triton::exp2(height_adjusted / 129600.0);
+				variable = (30000.0 * COIN) / equilibria::exp2(height_adjusted / 129600.0);
 				return base + variable;
 			}
 		}
@@ -40,12 +38,12 @@ namespace service_nodes {
 		else if (height >= 352846 && height < 841197)
 		{
 			base = 70000 * COIN;
-			variable = (20000.0 * COIN) / triton::exp2(height_adjusted / 356446.0);
+			variable = (20000.0 * COIN) / equilibria::exp2(height_adjusted / 356446.0);
 		}
 		else
 		{
 			base = 10000 * COIN;
-			variable = (30000.0 * COIN) / triton::exp2(height_adjusted / 129600.0);
+			variable = (30000.0 * COIN) / equilibria::exp2(height_adjusted / 129600.0);
 		}
 
 		uint64_t result = base + variable;
@@ -62,15 +60,27 @@ namespace service_nodes {
 
 	bool check_service_node_portions(const std::vector<uint64_t>& portions, const uint64_t min_portions)
 	{
-		uint64_t portions_left = STAKING_PORTIONS;
+	  uint64_t portions_left = STAKING_PORTIONS;
 
-		for (const auto portion : portions) {
-			const uint64_t min_portions = std::min(portions_left, min_portions);
-			if (portion < min_portions || portion > portions_left) return false;
-			portions_left -= portion;
-		}
+	  for (const auto portion : portions)
+	  {
+	    const uint64_t min_portions = std::min(portions_left, min_portions);
+	    if (portion < min_portions || portion > portions_left)
+	      return false;
+	    portions_left -= portion;
+	  }
 
-		return true;
+	  return true;
+	}
+
+	uint64_t get_min_node_contribution(uint8_t hard_fork_version, uint64_t staking_requirement, uint64_t total_reserved)
+	{
+	  if (hard_fork_version < 10)
+	    return std::min(staking_requirement - total_reserved, staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS);
+	  else if (hard_fork_version < 12)
+	    return std::min(staking_requirement - total_reserved, staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS_V2);
+
+	  return MIN_POOL_STAKERS_V12;
 	}
 
 	uint64_t get_portions_to_make_amount(uint64_t staking_requirement, uint64_t amount)

@@ -190,7 +190,7 @@ namespace service_nodes
 	std::vector<deregister_vote> deregister_vote_pool::get_relayable_votes() const
 	{
 		CRITICAL_REGION_LOCAL(m_lock);
-		const cryptonote::cryptonote_connection_context fake_context = AUTO_VAL_INIT(fake_context);
+		const cryptonote::cryptonote_connection_context fake_context{};
 
 		// TODO(doyle): Rate-limiting: A better threshold value that follows suite with transaction relay time back-off
 		const time_t now = time(NULL);

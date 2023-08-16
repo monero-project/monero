@@ -679,7 +679,7 @@ namespace tools
   {
     if (!m_wallet) return not_open(er);
     const std::pair<std::map<std::string, std::string>, std::vector<std::string>> account_tags = m_wallet->get_account_tags();
-    for (const std::pair<std::string, std::string>& p : account_tags.first)
+    for (const std::pair<const std::string, std::string>& p : account_tags.first)
     {
       res.account_tags.resize(res.account_tags.size() + 1);
       auto& info = res.account_tags.back();
@@ -1143,22 +1143,49 @@ namespace tools
       return false;
     }
 
-    // NOTE(loki): Pre-emptively set subaddr_account to 0. We don't support onwards from Infinite Staking which is when this call was implemented.
-    std::vector<tools::wallet2::pending_tx> ptx_vector = m_wallet->create_stake_tx(snode_key, addr_info, req.amount);
-      // reject proposed transactions if there are more than one.  see on_transfer_split below.
-      if (ptx_vector.size() != 1)
-      {
-        er.code = WALLET_RPC_ERROR_CODE_TX_TOO_LARGE;
-        er.message = "Transaction would be too large. Use the sweep all function in your wallet. After 10 confirmations, try staking again.";
-        return false;
-      }
+    tools::wallet2::stake_result stake_result = m_wallet->create_stake_tx(snode_key, addr_info, req.amount, 0, req.priority, 0, req.subaddr_indices);
+    if (stake_result.status != tools::wallet2::stake_result_status::success)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_TX_NOT_POSSIBLE;
+      er.message = stake_result.msg;
+      return false;
+    }
 
-      return fill_response(ptx_vector, req.get_tx_key, res.tx_key, res.amount, res.fee, res.weight, res.multisig_txset, res.unsigned_txset, req.do_not_relay,
-          res.tx_hash, req.get_tx_hex, res.tx_blob, req.get_tx_metadata, res.tx_metadata, er);
+    std::vector<tools::wallet2::pending_tx> ptx_vector = {stake_result.ptx};
+    return fill_response(ptx_vector, req.get_tx_key, res.tx_key, res.amount, res.fee, res.weight, res.multisig_txset, res.unsigned_txset, req.do_not_relay, res.tx_hash, req.get_tx_hex, res.tx_blob, req.get_tx_metadata, res.tx_metadata, er);
   }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_register_service_node(const wallet_rpc::COMMAND_RPC_REGISTER_SERVICE_NODE::request& req, wallet_rpc::COMMAND_RPC_REGISTER_SERVICE_NODE::response& res, epee::json_rpc::error& er, const connection_context *ctx)
+  {
+    if (!m_wallet) return not_open(er);
+    if (m_restricted)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_DENIED;
+      er.message = "Register Service Node command is unavailable in restricted mode.";
+      return false;
+    }
 
+    std::vector<std::string> args;
+    boost::split(args, req.register_service_node_str, boost::is_any_of(" "));
 
-    //------------------------------------------------------------------------------------------------------------------------------
+    if (args.size() > 0)
+    {
+      if (args[0] == "register_service_node")
+        args.erase(args.begin());
+    }
+
+    tools::wallet2::register_service_node_result register_result = m_wallet->create_register_service_node_tx(args, 0);
+    if (register_result.status != tools::wallet2::register_service_node_result_status::success)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_TX_NOT_POSSIBLE;
+      er.message = register_result.msg;
+      return false;
+    }
+
+    std::vector<tools::wallet2::pending_tx> ptx_vector = {register_result.ptx};
+    return fill_response(ptx_vector, req.get_tx_key, res.tx_key, res.amount, res.fee, res.weight, res.multisig_txset, res.unsigned_txset, req.do_not_relay, res.tx_hash, req.get_tx_hex, res.tx_blob, req.get_tx_metadata, res.tx_metadata, er);
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::on_swap(const wallet_rpc::COMMAND_RPC_SWAP::request& req, wallet_rpc::COMMAND_RPC_SWAP::response& res, epee::json_rpc::error& er, const connection_context *ctx)
   {
     std::vector<cryptonote::tx_destination_entry> dsts;
@@ -3191,7 +3218,7 @@ namespace tools
       return false;
     }
 
-    cryptonote::COMMAND_RPC_START_MINING::request daemon_req = AUTO_VAL_INIT(daemon_req);
+    cryptonote::COMMAND_RPC_START_MINING::request daemon_req{};
     daemon_req.miner_address = m_wallet->get_account().get_public_address_str(m_wallet->nettype());
     daemon_req.threads_count        = req.threads_count;
     daemon_req.do_background_mining = req.do_background_mining;
@@ -4509,7 +4536,6 @@ public:
 
       const auto arg_wallet_file = wallet_args::arg_wallet_file();
       const auto arg_from_json = wallet_args::arg_generate_from_json();
-      const auto arg_rpc_client_secret_key = wallet_args::arg_rpc_client_secret_key();
 
       const auto wallet_file = command_line::get_arg(vm, arg_wallet_file);
       const auto from_json = command_line::get_arg(vm, arg_from_json);
@@ -4556,17 +4582,6 @@ public:
       if (!wal)
       {
         return false;
-      }
-
-      if (!command_line::is_arg_defaulted(vm, arg_rpc_client_secret_key))
-      {
-        crypto::secret_key client_secret_key;
-        if (!epee::string_tools::hex_to_pod(command_line::get_arg(vm, arg_rpc_client_secret_key), client_secret_key))
-        {
-          MERROR(arg_rpc_client_secret_key.name << ": RPC client secret key should be 32 byte in hex format");
-          return false;
-        }
-        wal->set_rpc_client_secret_key(client_secret_key);
       }
 
       bool quit = false;
@@ -4667,7 +4682,6 @@ int main(int argc, char** argv) {
 
   const auto arg_wallet_file = wallet_args::arg_wallet_file();
   const auto arg_from_json = wallet_args::arg_generate_from_json();
-  const auto arg_rpc_client_secret_key = wallet_args::arg_rpc_client_secret_key();
 
   po::options_description hidden_options("Hidden");
 
@@ -4681,7 +4695,6 @@ int main(int argc, char** argv) {
   command_line::add_arg(desc_params, arg_from_json);
   command_line::add_arg(desc_params, arg_wallet_dir);
   command_line::add_arg(desc_params, arg_prompt_for_password);
-  command_line::add_arg(desc_params, arg_rpc_client_secret_key);
 
   daemonizer::init_options(hidden_options, desc_params);
   desc_params.add(hidden_options);

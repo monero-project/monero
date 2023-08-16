@@ -363,7 +363,7 @@ namespace rpc
       return;
     }
 
-    tx_verification_context tvc = AUTO_VAL_INIT(tvc);
+    tx_verification_context tvc{};
 
     if(!m_core.handle_incoming_tx({tx_blob, crypto::null_hash}, tvc, (relay ? relay_method::local : relay_method::none), false) || tvc.m_verifivation_failed)
     {
@@ -416,6 +416,16 @@ namespace rpc
       {
         if (!res.error_details.empty()) res.error_details += " and ";
         res.error_details += "too few outputs";
+      }
+      if (tvc.m_key_image_locked_by_snode)
+      {
+        if (!res.error_details.empty()) res.error_details += " and ";
+        res.error_details = "tx uses outputs that are locked by the service node network";
+      }
+      if (tvc.m_key_image_blacklisted)
+      {
+        if (!res.error_details.empty()) res.error_details += " and ";
+        res.error_details = "tx uses a key image that has been temporarily blacklisted by the service node network";
       }
       if (res.error_details.empty())
       {

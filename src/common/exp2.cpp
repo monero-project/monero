@@ -23,6 +23,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.  */
 #include <cfloat>
 #include <cmath>
 
+#include <algorithm>
+#include <vector>
+
 /* Best possible approximation of log(2) as a 'double'.  */
 #define LOG2 0.693147180559945309417232121458176568075
 
@@ -41,7 +44,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.  */
 static_assert(std::numeric_limits<double>::is_iec559, "We require IEEE standard compliant doubles.");
 
 double
-triton::exp2(double x)
+equilibria::exp2(double x)
 {
 	/* exp2(x) = exp(x*log(2)).
 	If we would compute it like this, there would be rounding errors for
@@ -95,7 +98,7 @@ triton::exp2(double x)
 	truncate the series after the z^5 term.  */
 
 	{
-		double nm = triton::round(x * 256.0); /* = 256 * n + m */
+		double nm = equilibria::round(x * 256.0); /* = 256 * n + m */
 		double z = (x * 256.0 - nm) * (LOG2_BY_256 * 0.5);
 
 		/* Coefficients of the power series for tanh(z).  */
@@ -117,7 +120,7 @@ triton::exp2(double x)
 
 		double exp_y = (1.0 + tanh_z) / (1.0 - tanh_z);
 
-		int n = (int)triton::round(nm * (1.0 / 256.0));
+		int n = (int)equilibria::round(nm * (1.0 / 256.0));
 		int m = (int)nm - 256 * n;
 
 		/* exp_table[i] = exp((i - 128) * log(2)/256).
@@ -415,7 +418,7 @@ contain floating-point operations.  Pacify this compiler.  */
 #endif
 
 double
-triton::round(double x)
+equilibria::round(double x)
 {
 	/* 2^(DBL_MANT_DIG-1).  */
 	static const double TWO_MANT_DIG =
@@ -486,11 +489,11 @@ static const char zbase32_alpha[] = { 'y', 'b', 'n', 'd', 'r', 'f', 'g', '8',
 'a', '3', '4', '5', 'h', '7', '6', '9' };
 
 /// adapted from i2pd
-template <typename v, typename stack_t>
-const char* base32z_encode(const v& value, stack_t &stack)
+template <typename stack_t>
+const char* base32z_encode(const std::vector<uint8_t>& value, stack_t &stack)
 {
 	size_t ret = 0, pos = 1;
-	int bits = 8, tmp = value[0];
+	uint32_t bits = 8, tmp = value[0];
 	size_t len = value.size();
 	while (ret < sizeof(stack) && (bits > 0 || pos < len))
 	{
@@ -523,13 +526,40 @@ const char* base32z_encode(const v& value, stack_t &stack)
 	return &stack[0];
 }
 
-std::string triton::hex64_to_base32z(const std::string &src)
+constexpr uint8_t hex_to_nibble(const char & ch)
 {
-	assert(src.size() <= 64); // NOTE: Developer error, update function if you need more. This is intended for 64 char snode pubkeys
-	char buf[128] = {};
+  return ( ch >= '0' && ch <= '9') ? ch - 48 : ((ch >= 'A' && ch <= 'F' ) ? ch - 55 : ((ch >= 'a' && ch <= 'f' ) ? ch - 87 : 0));
+}
+
+constexpr uint8_t hexpair_to_byte(const char & hi, const char & lo)
+{
+  return hex_to_nibble(hi) << 4 | hex_to_nibble(lo);
+}
+
+std::string equilibria::hex64_to_base32z(const std::string &src)
+{
+	assert(src.size() <= 64);
+	// decode to binary
+	std::vector<uint8_t> bin;
+	// odd sized is invalid
+	if (src.size() & 1)
+	  return "";
+	{
+	  auto itr = src.begin();
+	  while (itr != src.end())
+	  {
+	    const char hi = *itr;
+	    ++itr;
+	    const char lo = *itr;
+	    ++itr;
+	    bin.emplace_back(hexpair_to_byte(hi, lo));
+	  }
+	}
+	// encode to base32z
+	char buf[64] = {0};
 	std::string result;
-	if (char const *dest = base32z_encode(src, buf))
-		result = dest;
+	if (char const *dest = base32z_encode(bin, buf))
+	  result = dest;
 
 	return result;
 }

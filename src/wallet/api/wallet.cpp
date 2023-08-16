@@ -2523,8 +2523,14 @@ PendingTransaction* WalletImpl::stakePending(const std::string& sn_key_str, cons
   /// Note(maxim): need to be careful to call `WalletImpl::disposeTransaction` when it is no longer needed
   PendingTransactionImpl * transaction = new PendingTransactionImpl(*this);
 
-  transaction->m_pending_tx = m_wallet->create_stake_tx(sn_key, addr_info, amount);
+  tools::wallet2::stake_result stake_result = m_wallet->create_stake_tx(sn_key, addr_info, amount);
+  if (stake_result.status != tools::wallet2::stake_result_status::success)
+  {
+    error_msg = "Failed to create stake transaction: " + stake_result.msg;
+    return nullptr;
+  }
 
+  transaction->m_pending_tx = {stake_result.ptx};
   return transaction;
 }
 

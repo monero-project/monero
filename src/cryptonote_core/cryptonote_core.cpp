@@ -233,7 +233,7 @@ namespace cryptonote
               m_blockchain_storage(m_mempool, m_service_node_list, m_deregister_vote_pool),
               m_quorum_cop(*this),
               m_miner(this),
-              m_miner_address(account_public_address{}),
+              m_miner_address{},
               m_starter_message_showed(false),
               m_target_blockchain_height(0),
               m_checkpoints_path(""),
@@ -1398,7 +1398,7 @@ namespace cryptonote
   {
     if (m_service_node)
     {
-    cryptonote_connection_context fake_context = AUTO_VAL_INIT(fake_context);
+    cryptonote_connection_context fake_context{};
     NOTIFY_UPTIME_PROOF::request r;
 	  service_nodes::generate_uptime_proof_request(m_service_node_pubkey, m_service_node_key, r);
 	  bool relayed = get_protocol()->relay_uptime_proof(r, fake_context);
@@ -1449,7 +1449,7 @@ namespace cryptonote
     req.votes = m_deregister_vote_pool.get_relayable_votes();
     if (!req.votes.empty())
     {
-      cryptonote_connection_context fake_context = AUTO_VAL_INIT(fake_context);
+      cryptonote_connection_context fake_context{};
       get_protocol()->relay_deregister_votes(req, fake_context);
     }
 
@@ -1494,6 +1494,11 @@ namespace cryptonote
   bool core::get_output_distribution(uint64_t amount, uint64_t from_height, uint64_t to_height, uint64_t &start_height, std::vector<uint64_t> &distribution, uint64_t &base) const
   {
     return m_blockchain_storage.get_output_distribution(amount, from_height, to_height, start_height, distribution, base);
+  }
+  //-----------------------------------------------------------------------------------------------
+  bool core::get_output_blacklist(std::vector<uint64_t> &blacklist) const
+  {
+    return m_blockchain_storage.get_output_blacklist(blacklist);
   }
   //-----------------------------------------------------------------------------------------------
   bool core::get_tx_outputs_gindexs(const crypto::hash& tx_id, std::vector<uint64_t>& indexs) const
@@ -1562,8 +1567,8 @@ namespace cryptonote
     CHECK_AND_ASSERT_MES(!bvc.m_verifivation_failed, false, "mined block failed verification");
     if(bvc.m_added_to_main_chain)
     {
-      cryptonote_connection_context exclude_context = {};
-      NOTIFY_NEW_BLOCK::request arg = AUTO_VAL_INIT(arg);
+      cryptonote_connection_context exclude_context{};
+      NOTIFY_NEW_BLOCK::request arg{};
       arg.current_blockchain_height = m_blockchain_storage.get_current_blockchain_height();
       std::vector<crypto::hash> missed_txs;
       std::vector<cryptonote::blobdata> txs;
@@ -2144,6 +2149,12 @@ namespace cryptonote
 	  return m_service_node_list.is_service_node(pubkey);
   }
   //-----------------------------------------------------------------------------------------------
+  const std::vector<service_nodes::key_image_blacklist_entry> &core::get_service_node_blacklisted_key_images() const
+  {
+    const auto &result = m_service_node_list.get_blacklisted_key_images();
+    return result;
+  }
+  //-----------------------------------------------------------------------------------------------
   std::vector<service_nodes::service_node_pubkey_info> core::get_service_node_list_state(const std::vector<crypto::public_key> &service_node_pubkeys) const
   {
 	  std::vector<service_nodes::service_node_pubkey_info> result = m_service_node_list.get_service_node_list_state(service_node_pubkeys);
@@ -2192,7 +2203,7 @@ namespace cryptonote
     bool result = m_deregister_vote_pool.add_vote(vote, vvc, *quorum_state, deregister_tx);
     if (result && vvc.m_full_tx_deregister_made)
     {
-      tx_verification_context tvc = AUTO_VAL_INIT(tvc);
+      tx_verification_context tvc{};
       blobdata const tx_blob = tx_to_blob(deregister_tx);
 
       result = handle_incoming_tx(tx_blob, tvc, relay_method::block, false /*relayed*/);

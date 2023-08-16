@@ -212,9 +212,9 @@ namespace tests
     int handle_1(int command, COMMAND_EXAMPLE_1::request& arg, COMMAND_EXAMPLE_1::response& rsp, const net_utils::connection_context_base& context)
     {
       LOG_PRINT_L0("on_command_1: id " << arg.example_id_data << "---->>");      
-      COMMAND_EXAMPLE_2::request arg_ = AUTO_VAL_INIT(arg_);
+      COMMAND_EXAMPLE_2::request arg_{};
       arg_.example_id_data = arg.example_id_data;
-      COMMAND_EXAMPLE_2::response rsp_ = AUTO_VAL_INIT(rsp_);
+      COMMAND_EXAMPLE_2::response rsp_{};
       invoke_async<COMMAND_EXAMPLE_2::response>(context.m_connection_id, COMMAND_EXAMPLE_2::ID, arg_, [](int code, const COMMAND_EXAMPLE_2::response& rsp, const net_utils::connection_context_base& context)
         {
           if(code < 0)
@@ -320,13 +320,13 @@ namespace tests
     wait_event.lock();
     while(true)
     {
-      net_utils::connection_context_base cntxt_local = AUTO_VAL_INIT(cntxt_local);
+      net_utils::connection_context_base cntxt_local{};
       bool r = srv.connect_async("127.0.0.1", string_tools::num_to_string_fast(port), 5000, [&srv, &port, &wait_event, &i, &cntxt_local](const net_utils::connection_context_base& cntxt, const boost::system::error_code& ec)
       {
         CHECK_AND_ASSERT_MES(!ec, void(), "Some problems at connect, message: " << ec.message() );
         cntxt_local = cntxt;
         LOG_PRINT_L0("Invoking command 1 to " << port);
-        COMMAND_EXAMPLE_1::request arg = AUTO_VAL_INIT(arg);
+        COMMAND_EXAMPLE_1::request arg{};
         arg.example_id_data = i;
         /*vc2010 workaround*/
         int port_ = port;

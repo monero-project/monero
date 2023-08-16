@@ -152,9 +152,6 @@ namespace cryptonote
     bool set_setup_background_mining(const std::vector<std::string> &args = std::vector<std::string>());
     bool set_device_name(const std::vector<std::string> &args = std::vector<std::string>());
     bool set_export_format(const std::vector<std::string> &args = std::vector<std::string>());
-    bool set_persistent_rpc_client_id(const std::vector<std::string> &args = std::vector<std::string>());
-    bool set_auto_mine_for_rpc_payment_threshold(const std::vector<std::string> &args = std::vector<std::string>());
-    bool set_credits_target(const std::vector<std::string> &args = std::vector<std::string>());
     bool help(const std::vector<std::string> &args = std::vector<std::string>());
     bool start_mining(const std::vector<std::string> &args);
     bool stop_mining(const std::vector<std::string> &args);
@@ -163,7 +160,6 @@ namespace cryptonote
     bool refresh(const std::vector<std::string> &args);
     bool show_balance_unlocked(bool detailed = false);
     bool show_balance(const std::vector<std::string> &args = std::vector<std::string>());
-    bool estimate_sn_rewards(const std::vector<std::string>& args);
     bool show_incoming_transfers(const std::vector<std::string> &args);
     bool show_payments(const std::vector<std::string> &args);
     bool show_blockchain_height(const std::vector<std::string> &args);
@@ -172,7 +168,12 @@ namespace cryptonote
     bool locked_transfer(const std::vector<std::string> &args);
     bool stake(const std::vector<std::string> &args_);
     bool register_service_node(const std::vector<std::string> &args_);
+    bool print_locked_stakes(const std::vector<std::string>&);
+    bool query_locked_stakes(bool print_result);
     bool locked_sweep_all(const std::vector<std::string> &args);
+
+    enum class sweep_type_t { stake, register_stake, all_or_below, single };
+    bool sweep_main_internal(sweep_type_t sweep_type, std::vector<tools::wallet2::pending_tx> &ptx_vector, cryptonote::address_parse_info const &dest);
     bool sweep_main(uint32_t account, uint64_t below, bool locked, const std::vector<std::string> &args);
     bool sweep_all(const std::vector<std::string> &args);
     bool sweep_account(const std::vector<std::string> &args);
@@ -258,15 +259,20 @@ namespace cryptonote
     bool thaw(const std::vector<std::string>& args);
     bool frozen(const std::vector<std::string>& args);
     bool lock(const std::vector<std::string>& args);
-    bool rpc_payment_info(const std::vector<std::string> &args);
-    bool start_mining_for_rpc(const std::vector<std::string> &args);
-    bool stop_mining_for_rpc(const std::vector<std::string> &args);
     bool net_stats(const std::vector<std::string>& args);
     bool public_nodes(const std::vector<std::string>& args);
     bool welcome(const std::vector<std::string>& args);
     bool version(const std::vector<std::string>& args);
-	  bool register_service_node_main(const std::vector<std::string>& service_node_key_as_str, uint64_t expiration_timestamp, const cryptonote::account_public_address& address, uint32_t priority, const std::vector<uint64_t >& portions, std::vector<uint8_t>& extra, std::set<uint32_t>& subaddr_indices);
-	  bool stake_main(const crypto::public_key& service_node_key, const cryptonote::address_parse_info& parse_info, uint32_t priority, std::set<uint32_t>& subaddr_indices, uint64_t amount, double amount_fraction);
+
+    bool register_service_node_main(const std::vector<std::string>& service_node_key_as_str,
+                                    const cryptonote::account_public_address& address,
+                                    uint32_t priority,
+                                    const std::vector<uint64_t>& portions,
+                                    const std::vector<uint8_t>& extra,
+                                    std::set<uint32_t>& subaddr_indices,
+                                    uint64_t bc_height,
+                                    uint64_t staking_requirement);
+
     bool on_unknown_command(const std::vector<std::string>& args);
 
     bool swap_request(const std::vector<std::string>& args);
@@ -350,12 +356,6 @@ namespace cryptonote
     bool check_inactivity();
     bool check_refresh();
     bool check_mms();
-    bool check_rpc_payment();
-
-    void handle_transfer_exception(const std::exception_ptr &e, bool trusted_daemon);
-
-    bool check_daemon_rpc_prices(const std::string &daemon_url, uint32_t &actual_cph, uint32_t &claimed_cph);
-
     //----------------- i_wallet2_callback ---------------------
     virtual void on_new_block(uint64_t height, const cryptonote::block& block);
     virtual void on_money_received(uint64_t height, const crypto::hash &txid, const cryptonote::transaction& tx, uint64_t amount, const cryptonote::subaddress_index& subaddr_index, bool is_change, uint64_t unlock_time);
@@ -446,6 +446,7 @@ namespace cryptonote
     uint64_t m_restore_height;  // optional
     bool m_do_not_relay;
     bool m_use_english_language_names;
+    bool m_has_locked_key_images;
 
     epee::console_handlers_binder m_cmd_binder;
 
@@ -471,16 +472,6 @@ namespace cryptonote
     epee::math_helper::once_a_time_seconds<1> m_inactivity_checker;
     epee::math_helper::once_a_time_seconds_range<get_random_interval<80 * 1000000, 100 * 1000000>> m_refresh_checker;
     epee::math_helper::once_a_time_seconds_range<get_random_interval<90 * 1000000, 110 * 1000000>> m_mms_checker;
-    epee::math_helper::once_a_time_seconds_range<get_random_interval<90 * 1000000, 115 * 1000000>> m_rpc_payment_checker;
-    
-    std::atomic<bool> m_need_payment;
-    boost::posix_time::ptime m_last_rpc_payment_mining_time;
-    bool m_rpc_payment_mining_requested;
-    bool m_daemon_rpc_payment_message_displayed;
-    float m_rpc_payment_hash_rate;
-    std::atomic<bool> m_suspend_rpc_payment_mining;
-
-    std::unordered_map<std::string, uint32_t> m_claimed_cph;
 
     // MMS
     mms::message_store& get_message_store() const { return m_wallet->get_message_store(); };

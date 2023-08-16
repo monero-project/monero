@@ -621,6 +621,8 @@ namespace cryptonote
       */
      bool get_output_distribution(uint64_t amount, uint64_t from_height, uint64_t to_height, uint64_t &start_height, std::vector<uint64_t> &distribution, uint64_t &base) const;
 
+     bool get_output_blacklist(std::vector<uint64_t> &blacklist) const;
+
      /**
       * @copydoc miner::pause
       *
@@ -839,7 +841,10 @@ namespace cryptonote
      * @return Null shared ptr if quorum has not been determined yet for height
      */
 	 const std::shared_ptr<const service_nodes::quorum_state> get_quorum_state(uint64_t height) const;
-	/**
+
+	 const std::vector<service_nodes::key_image_blacklist_entry> &get_service_node_blacklisted_key_images() const;
+
+  /**
 	* @brief Get a snapshot of the service node list state at the time of the call.
 	*
 	* @param service_node_pubkeys pubkeys to search, if empty this indicates get all the pubkeys

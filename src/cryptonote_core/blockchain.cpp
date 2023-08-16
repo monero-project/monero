@@ -341,7 +341,7 @@ bool Blockchain::init(BlockchainDB* db, const network_type nettype, bool offline
   {
     MINFO("Blockchain not loaded, generating genesis block.");
     block bl;
-    block_verification_context bvc = {};
+    block_verification_context bvc{};
     generate_genesis_block(bl);
     db_wtxn_guard wtxn_guard(m_db);
     add_new_block(bl, bvc);
@@ -620,7 +620,7 @@ block Blockchain::pop_block_from_blockchain()
     }
     if (!is_coinbase(tx))
     {
-      cryptonote::tx_verification_context tvc = AUTO_VAL_INIT(tvc);
+      cryptonote::tx_verification_context tvc{};
 
       // FIXME: HardFork
       // Besides the below, popping a block should also remove the last entry
@@ -669,7 +669,7 @@ bool Blockchain::reset_and_set_genesis_block(const block& b)
   for (InitHook* hook : m_init_hooks) hook->init();
 
   db_wtxn_guard wtxn_guard(m_db);
-  block_verification_context bvc = {};
+  block_verification_context bvc{};
   add_new_block(b, bvc);
   if (!update_next_cumulative_weight_limit())
     return false;
@@ -828,14 +828,12 @@ difficulty_type Blockchain::get_difficulty_for_next_block()
 
   std::stringstream ss;
 
-  int done = 0;
   ss << "get_difficulty_for_next_block: height " << m_db->height() << std::endl;
   if (m_fixed_difficulty)
   {
     return m_db->height() ? m_fixed_difficulty : 1;
   }
 
-start:
   difficulty_type D = 0;
 
   crypto::hash top_hash = get_tail_id();
@@ -986,7 +984,7 @@ bool Blockchain::rollback_blockchain_switching(std::list<block>& original_chain,
   //return back original chain
   for (auto& bl : original_chain)
   {
-    block_verification_context bvc = {};
+    block_verification_context bvc{};
     bool r = handle_block_to_main_chain(bl, bvc, false);
     CHECK_AND_ASSERT_MES(r && bvc.m_added_to_main_chain, false, "PANIC! failed to add (again) block while chain switching during the rollback!");
   }
@@ -1036,7 +1034,7 @@ bool Blockchain::switch_to_alternative_blockchain(std::list<block_extended_info>
   for(auto alt_ch_iter = alt_chain.begin(); alt_ch_iter != alt_chain.end(); alt_ch_iter++)
   {
     const auto &bei = *alt_ch_iter;
-    block_verification_context bvc = {};
+    block_verification_context bvc{};
 
     // add block to main chain
     bool r = handle_block_to_main_chain(bei.bl, bvc, false);
@@ -1079,7 +1077,7 @@ bool Blockchain::switch_to_alternative_blockchain(std::list<block_extended_info>
     //pushing old chain as alternative chain
     for (auto& old_ch_ent : disconnected_chain)
     {
-      block_verification_context bvc = {};
+      block_verification_context bvc{};
       bool r = handle_alternative_block(old_ch_ent, get_block_hash(old_ch_ent), bvc);
       if(!r)
       {
@@ -1518,7 +1516,7 @@ bool Blockchain::create_block_template(block& b, const crypto::hash *from_block,
 
     //we have new block in alternative chain
     std::list<block_extended_info> alt_chain;
-    block_verification_context bvc = {};
+    block_verification_context bvc{};
     std::vector<uint64_t> timestamps;
     if (!build_alt_chain(*from_block, alt_chain, timestamps, bvc))
       return false;
@@ -1552,7 +1550,7 @@ bool Blockchain::create_block_template(block& b, const crypto::hash *from_block,
     }
 
     // FIXME: consider moving away from block_extended_info at some point
-    block_extended_info bei = {};
+    block_extended_info bei{};
     bei.bl = b;
     bei.height = alt_chain.size() ? prev_data.height + 1 : m_db->get_block_height(*from_block) + 1;
 
@@ -2300,8 +2298,8 @@ bool Blockchain::get_random_rct_outs(const COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS::r
 		LOG_PRINT_L0("Out of RCT inputs (" << res.outs.size() << "/" << req.outs_count << "), using regular ones");
 
 		// TODO: arbitrary selection, needs better
-		COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::request req2 = AUTO_VAL_INIT(req2);
-		COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::response res2 = AUTO_VAL_INIT(res2);
+		COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::request req2{};
+		COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::response res2{};
 		req2.outs_count = req.outs_count - res.outs.size();
 		static const uint64_t amounts[] = { 1, 10, 20, 50, 100, 200, 500, 1000, 10000 };
 		for (uint64_t a : amounts)
@@ -2414,6 +2412,11 @@ bool Blockchain::get_output_distribution(uint64_t amount, uint64_t from_height, 
   {
     return m_db->get_output_distribution(amount, start_height, to_height, distribution, base);
   }
+}
+//------------------------------------------------------------------
+bool Blockchain::get_output_blacklist(std::vector<uint64_t> &blacklist) const
+{
+  return m_db->get_output_blacklist(blacklist);
 }
 //------------------------------------------------------------------
 // This function takes a list of block hashes from another node
@@ -2803,7 +2806,7 @@ bool Blockchain::find_blockchain_supplement(const uint64_t req_start_block, cons
 bool Blockchain::add_block_as_invalid(const block& bl, const crypto::hash& h)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
-  block_extended_info bei = AUTO_VAL_INIT(bei);
+  block_extended_info bei{};
   bei.bl = bl;
   return add_block_as_invalid(bei, h);
 }
@@ -3413,12 +3416,34 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
       }
     }
 
+    if (hf_version >= 18)
+    {
+      const std::vector<service_nodes::key_image_blacklist_entry> &blacklist = m_service_node_list.get_blacklisted_key_images();
+      for (const auto &entry : blacklist)
+      {
+        if (in_to_key.k_image == entry.key_image)
+        {
+          MERROR_VER("Key image: " << epee::string_tools::pod_to_hex(entry.key_image) << " is blacklisted");
+          tvc.m_key_image_blacklisted = true;
+          return false;
+        }
+      }
+
+      uint64_t unlock_height = 0;
+      if (m_service_node_list.is_key_image_locked(in_to_key.k_image, &unlock_height))
+      {
+        MERROR_VER("Key image: " << epee::string_tools::pod_to_hex(in_to_key.k_image) << " is locked in stake until height: " << unlock_height);
+        tvc.m_key_image_locked_by_snode = true;
+        return false;
+      }
+    }
+
     sig_index++;
   }
 	if (tx.version == 1 && threads > 1)
 		waiter.wait(&tpool);
 
-if (tx.version == 1)
+  if (tx.version == 1)
   {
     if (threads > 1)
     {
@@ -3694,8 +3719,7 @@ if (tx.version == 1)
 				continue;
 			}
 
-			if (existing_deregister_quorum_state->nodes_to_test[existing_deregister.service_node_index] ==
-				quorum_state->nodes_to_test[deregister.service_node_index])
+			if (existing_deregister_quorum_state->nodes_to_test[existing_deregister.service_node_index] == quorum_state->nodes_to_test[deregister.service_node_index])
 			{
 				tvc.m_double_spend = true;
 				return false;
@@ -4003,7 +4027,7 @@ void Blockchain::return_tx_to_pool(std::vector<std::pair<cryptonote::transaction
   uint8_t version = get_current_hard_fork_version();
   for (auto& tx : txs)
   {
-    cryptonote::tx_verification_context tvc = AUTO_VAL_INIT(tvc);
+    cryptonote::tx_verification_context tvc{};
     // We assume that if they were in a block, the transactions are already
     // known to the network as a whole. However, if we had mined that block,
     // that might not be always true. Unlikely though, and always relaying
@@ -4281,7 +4305,7 @@ leave:
 #endif
     {
       // validate that transaction inputs and the keys spending them are correct.
-      tx_verification_context tvc;
+      tx_verification_context tvc{};
       if(!check_tx_inputs(tx, tvc))
       {
         MERROR_VER("Block with id: " << id  << " has at least one transaction (id: " << tx_id << ") with wrong inputs.");
@@ -5044,7 +5068,7 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
       std::advance(it, 1);
     }
 
-      if (!blocks_exist)
+    if (!blocks_exist)
     {
       m_blocks_longhash_table.clear();
       uint64_t thread_height = height;

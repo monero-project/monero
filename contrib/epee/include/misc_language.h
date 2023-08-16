@@ -30,7 +30,6 @@
 
 #include <limits>
 #include <boost/thread.hpp>
-#include <boost/utility/value_init.hpp>
 namespace epee
 {
 #define STD_TRY_BEGIN() try {
@@ -49,8 +48,6 @@ namespace epee
 	}
 
 
-
-#define AUTO_VAL_INIT(v)   boost::value_initialized<decltype(v)>()
 
 namespace misc_utils
 {
@@ -110,7 +107,7 @@ namespace misc_utils
   type_vec_type median(std::vector<type_vec_type> &v)
   {
     if(v.empty())
-      return boost::value_initialized<type_vec_type>();
+      return type_vec_type{};
     if(v.size() == 1)
       return v[0];
 

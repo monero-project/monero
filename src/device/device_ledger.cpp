@@ -1527,12 +1527,12 @@ namespace hw {
     }
 
 
-    bool device_ledger::generate_output_ephemeral_keys(const size_t tx_version, const cryptonote::account_keys &sender_account_keys, const crypto::public_key &txkey_pub,  const crypto::secret_key &tx_key,
-                                                       const cryptonote::tx_destination_entry &dst_entr, const boost::optional<cryptonote::tx_destination_entry> &change_addr, const size_t output_index,
-                                                       const bool &need_additional_txkeys,  const std::vector<crypto::secret_key> &additional_tx_keys,
+    bool device_ledger::generate_output_ephemeral_keys(const size_t tx_version, bool &found_change, const cryptonote::account_keys &sender_account_keys,
+                                                       const crypto::public_key &txkey_pub, const crypto::secret_key &tx_key,
+                                                       const cryptonote::tx_destination_entry &dst_entr, const boost::optional<cryptonote::tx_destination_entry> &change_addr,
+                                                       const size_t output_index, const bool &need_additional_txkeys,  const std::vector<crypto::secret_key> &additional_tx_keys,
                                                        std::vector<crypto::public_key> &additional_tx_public_keys,
-                                                       std::vector<rct::key> &amount_keys,
-                                                       crypto::public_key &out_eph_public_key, bool &found_change, std::vector<uint64_t> &output_unlock_times, uint64_t unlock_time) {
+                                                       std::vector<rct::key> &amount_keys, crypto::public_key &out_eph_public_key) {
       AUTO_LOCK_CMD();
 
       #ifdef DEBUG_HWDEVICE
@@ -1543,7 +1543,7 @@ namespace hw {
       const crypto::public_key                 txkey_pub_x                    = txkey_pub;
       const crypto::secret_key                 tx_key_x                       = hw::ledger::decrypt(tx_key);
       const cryptonote::tx_destination_entry   dst_entr_x                     = dst_entr;
-      const boost::optional<cryptonote::account_public_address> change_addr_x = change_addr;
+      const boost::optional<cryptonote::tx_destination_entry> change_addr_x   = change_addr;
       const size_t                             output_index_x                 = output_index;
       const bool                               need_additional_txkeys_x       = need_additional_txkeys;
       
@@ -1589,6 +1589,10 @@ namespace hw {
           additional_txkey.sec = additional_tx_keys[output_index];
       }
 
+      bool &is_change = found_change;
+      if (change_addr && dst_entr == *change_addr && !is_change)
+        is_change = true;
+
       int offset = set_command_header_noopt(INS_GEN_TXOUT_KEYS);
       //tx_version
       this->buffer_send[offset+0] = tx_version>>24;
@@ -1614,7 +1618,6 @@ namespace hw {
       this->buffer_send[offset+3] = output_index>>0;
       offset += 4;
       //is_change,
-      bool is_change = (change_addr && *change_addr == dst_entr);
       this->buffer_send[offset] = is_change;
       offset++;
       //is_subaddress

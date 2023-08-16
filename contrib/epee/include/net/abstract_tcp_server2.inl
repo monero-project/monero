@@ -32,7 +32,6 @@
 
 
 
-#include <boost/foreach.hpp>
 #include <boost/uuid/random_generator.hpp>
 #include <boost/chrono.hpp>
 #include <boost/utility/value_init.hpp>
@@ -1210,7 +1209,7 @@ POP_WARNINGS
   {
     TRY_ENTRY();
     CRITICAL_REGION_LOCAL(m_threads_lock);
-    BOOST_FOREACH(boost::shared_ptr<boost::thread>& thp,  m_threads)
+    for (auto &thp : m_threads)
     {
       if(thp->get_id() == boost::this_thread::get_id())
         return true;
@@ -1680,7 +1679,7 @@ POP_WARNINGS
     //start async connect
     sock_.async_connect(remote_endpoint, [=](const boost::system::error_code& ec_)
       {
-        t_connection_context conn_context = AUTO_VAL_INIT(conn_context);
+        t_connection_context conn_context{};
         boost::system::error_code ignored_ec;
         boost::asio::ip::tcp::socket::endpoint_type lep = new_connection_l->socket().local_endpoint(ignored_ec);
         if(!ec_)

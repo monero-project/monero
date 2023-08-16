@@ -229,8 +229,7 @@ bool t_command_parser_executor::print_sn(const std::vector<std::string>& args)
 }
 bool t_command_parser_executor::print_sn_status(const std::vector<std::string>& args)
 {
-	if (!args.empty()) return false;
-	bool result = m_executor.print_sn_status();
+	bool result = m_executor.print_sn_status(args);
 	return result;
 }
 bool t_command_parser_executor::set_log_level(const std::vector<std::string>& args)
@@ -860,13 +859,6 @@ bool t_command_parser_executor::pop_blocks(const std::vector<std::string>& args)
     std::cout << "number of blocks must be a number greater than 0" << std::endl;
   }
   return false;
-}
-
-bool t_command_parser_executor::rpc_payments(const std::vector<std::string>& args)
-{
-  if (args.size() != 0) return false;
-
-  return m_executor.rpc_payments();
 }
 
 bool t_command_parser_executor::version(const std::vector<std::string>& args)

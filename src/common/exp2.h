@@ -28,16 +28,19 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#ifndef TRITON_H
-#define TRITON_H
+#ifndef EQUILIBRIA_H
+#define EQUILIBRIA_H
 
 #include <string>
 
-namespace triton
+namespace equilibria
 {
 	double      round(double);
 	double      exp2(double);
 	std::string hex64_to_base32z(std::string const& src);
-}; // namespace triton
 
-#endif // TRITON_H
+	template <typename T, size_t N>
+	constexpr size_t array_count(T (&)[N]) { return N; }
+}; // namespace equilibria
+
+#endif // EQUILIBRIA_H

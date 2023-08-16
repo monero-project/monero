@@ -396,7 +396,7 @@ namespace nodetool
       std::vector<std::string> perrs = command_line::get_arg(vm, arg_p2p_add_peer);
       for(const std::string& pr_str: perrs)
       {
-        nodetool::peerlist_entry pe = AUTO_VAL_INIT(pe);
+        nodetool::peerlist_entry pe{};
         pe.id = crypto::rand<uint64_t>();
         const uint16_t default_port = cryptonote::get_config(m_nettype).P2P_DEFAULT_PORT;
         expect<epee::net_utils::network_address> adr = net::get_network_address(pr_str, default_port);
@@ -1056,10 +1056,9 @@ namespace nodetool
 
         pi = context.peer_id = rsp.node_data.peer_id;
         context.m_rpc_port = rsp.node_data.rpc_port;
-        context.m_rpc_credits_per_hash = rsp.node_data.rpc_credits_per_hash;
         const auto azone = context.m_remote_address.get_zone();
         network_zone& zone = m_network_zones.at(azone);
-        zone.m_peerlist.set_peer_just_seen(rsp.node_data.peer_id, context.m_remote_address, context.m_pruning_seed, context.m_rpc_port, context.m_rpc_credits_per_hash);
+        zone.m_peerlist.set_peer_just_seen(rsp.node_data.peer_id, context.m_remote_address, context.m_pruning_seed, context.m_rpc_port);
 
         // move
         if(azone == epee::net_utils::zone::public_ && rsp.node_data.peer_id == zone.m_config.m_peer_id)
@@ -1102,7 +1101,7 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::do_peer_timed_sync(const epee::net_utils::connection_context_base& context_, peerid_type peer_id)
   {
-    typename COMMAND_TIMED_SYNC::request arg = AUTO_VAL_INIT(arg);
+    typename COMMAND_TIMED_SYNC::request arg{};
     m_payload_handler.get_payload_sync_data(arg.payload_data);
 
     network_zone& zone = m_network_zones.at(context_.m_remote_address.get_zone());
@@ -1123,7 +1122,7 @@ namespace nodetool
         add_host_fail(context.m_remote_address);
       }
       if(!context.m_is_income)
-        m_network_zones.at(context.m_remote_address.get_zone()).m_peerlist.set_peer_just_seen(context.peer_id, context.m_remote_address, context.m_pruning_seed, context.m_rpc_port, context.m_rpc_credits_per_hash);
+        m_network_zones.at(context.m_remote_address.get_zone()).m_peerlist.set_peer_just_seen(context.peer_id, context.m_remote_address, context.m_pruning_seed, context.m_rpc_port);
       if (!m_payload_handler.process_payload_sync_data(rsp.payload_data, context, false))
       {
         m_network_zones.at(context.m_remote_address.get_zone()).m_net_server.get_config_object().close(context.m_connection_id );
@@ -1268,7 +1267,7 @@ namespace nodetool
     }
 
     con->m_anchor = peer_type == anchor;
-    peerid_type pi = AUTO_VAL_INIT(pi);
+    peerid_type pi{};
     bool res = do_handshake_with_peer(pi, *con, just_take_peerlist);
 
     if(!res)
@@ -1288,7 +1287,7 @@ namespace nodetool
       return true;
     }
 
-    peerlist_entry pe_local = AUTO_VAL_INIT(pe_local);
+    peerlist_entry pe_local{};
     pe_local.adr = na;
     pe_local.id = pi;
     time_t last_seen;
@@ -1296,11 +1295,10 @@ namespace nodetool
     pe_local.last_seen = static_cast<int64_t>(last_seen);
     pe_local.pruning_seed = con->m_pruning_seed;
     pe_local.rpc_port = con->m_rpc_port;
-    pe_local.rpc_credits_per_hash = con->m_rpc_credits_per_hash;
     zone.m_peerlist.append_with_peer_white(pe_local);
     //update last seen and push it to peerlist manager
 
-    anchor_peerlist_entry ape = AUTO_VAL_INIT(ape);
+    anchor_peerlist_entry ape{};
     ape.adr = na;
     ape.id = pi;
     ape.first_seen = first_seen_stamp ? first_seen_stamp : time(nullptr);
@@ -1334,7 +1332,7 @@ namespace nodetool
     }
 
     con->m_anchor = false;
-    peerid_type pi = AUTO_VAL_INIT(pi);
+    peerid_type pi{};
     const bool res = do_handshake_with_peer(pi, *con, true);
     if (!res) {
       bool is_priority = is_priority_node(na);
@@ -1509,7 +1507,7 @@ namespace nodetool
         continue;
 
       tried_peers.insert(random_index);
-      peerlist_entry pe = AUTO_VAL_INIT(pe);
+      peerlist_entry pe{};
       bool r = use_white_list ? zone.m_peerlist.get_white_peer_by_index(pe, random_index):zone.m_peerlist.get_gray_peer_by_index(pe, random_index);
       CHECK_AND_ASSERT_MES(r, false, "Failed to get random peer from peerlist(white:" << use_white_list << ")");
 
@@ -1959,7 +1957,6 @@ namespace nodetool
     else
       node_data.my_port = 0;
     node_data.rpc_port = zone.m_can_pingback ? m_rpc_port : 0;
-    node_data.rpc_credits_per_hash = zone.m_can_pingback ? m_rpc_credits_per_hash : 0;
     node_data.network_id = m_network_id;
     return true;
   }
@@ -2327,7 +2324,6 @@ namespace nodetool
     context.peer_id = arg.node_data.peer_id;
     context.m_in_timedsync = false;
     context.m_rpc_port = arg.node_data.rpc_port;
-    context.m_rpc_credits_per_hash = arg.node_data.rpc_credits_per_hash;
 
     if(arg.node_data.my_port && zone.m_can_pingback)
     {
@@ -2355,7 +2351,6 @@ namespace nodetool
         pe.id = peer_id_l;
         pe.pruning_seed = context.m_pruning_seed;
         pe.rpc_port = context.m_rpc_port;
-        pe.rpc_credits_per_hash = context.m_rpc_credits_per_hash;
         this->m_network_zones.at(context.m_remote_address.get_zone()).m_peerlist.append_with_peer_white(pe);
         LOG_DEBUG_CC(context, "PING SUCCESS " << context.m_remote_address.host_str() << ":" << port_l);
       });
@@ -2434,7 +2429,7 @@ namespace nodetool
   {
     network_zone& zone = m_network_zones.at(context.m_remote_address.get_zone());
     if (!zone.m_net_server.is_stop_signal_sent() && !context.m_is_income) {
-      epee::net_utils::network_address na = AUTO_VAL_INIT(na);
+      epee::net_utils::network_address na{};
       na = context.m_remote_address;
 
       zone.m_peerlist.remove_from_peer_anchor(na);
@@ -2675,7 +2670,7 @@ namespace nodetool
       }
       else
       {
-        zone.second.m_peerlist.set_peer_just_seen(pe.id, pe.adr, pe.pruning_seed, pe.rpc_port, pe.rpc_credits_per_hash);
+        zone.second.m_peerlist.set_peer_just_seen(pe.id, pe.adr, pe.pruning_seed, pe.rpc_port);
         LOG_PRINT_L2("PEER PROMOTED TO WHITE PEER LIST IP address: " << pe.adr.host_str() << " Peer ID: " << peerid_to_string(pe.id));
       }
     }
