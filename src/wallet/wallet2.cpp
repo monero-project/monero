@@ -3299,7 +3299,7 @@ void check_block_hard_fork_version(cryptonote::network_type nettype, uint8_t hf_
     if (wallet_hard_forks[fork_index].version == hf_version)
       break;
   THROW_WALLET_EXCEPTION_IF(fork_index == wallet_num_hard_forks, error::wallet_internal_error, "Fork not found in table");
-  uint64_t start_height = wallet_hard_forks[fork_index].height;
+  uint64_t start_height = hf_version == 1 ? 0 : wallet_hard_forks[fork_index].height;
   uint64_t end_height = fork_index == wallet_num_hard_forks - 1
     ? std::numeric_limits<uint64_t>::max()
     : wallet_hard_forks[fork_index + 1].height;
