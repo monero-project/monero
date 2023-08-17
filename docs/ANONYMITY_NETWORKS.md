@@ -11,7 +11,7 @@ relying on IPv4 for the remainder of messages to make surrounding node attacks
 ## Behavior
 
 If _any_ anonymity network is enabled, transactions being broadcast that lack
-a valid "context" (i.e. the transaction did not come from a p2p connection),
+a valid "context" (i.e. the transaction did not come from a P2P connection),
 will only be sent to peers on anonymity networks. If an anonymity network is
 enabled but no peers over an anonymity network are available, an error is
 logged and the transaction is kept for future broadcasting over an anonymity
@@ -28,7 +28,7 @@ the hidden service for P2P connections.
 ## P2P Commands
 
 Only handshakes, peer timed syncs and transaction broadcast messages are
-supported over anonymity networks. If one `--add-exclusive-node` p2p address
+supported over anonymity networks. If one `--add-exclusive-node` P2P address
 is specified, then no syncing will take place and only transaction broadcasting
 can occur. It is therefore recommended that `--add-exclusive-node` be combined
 with additional exclusive IPv4 address(es).
@@ -47,16 +47,16 @@ separate process. On most systems the configuration will look like:
 --tx-proxy i2p,127.0.0.1:9000
 ```
 
-which tells `monerod` that ".onion" p2p addresses can be forwarded to a socks
+which tells `monerod` that ".onion" P2P addresses can be forwarded to a socks
 proxy at IP 127.0.0.1 port 9050 with a max of 10 outgoing connections and
-".b32.i2p" p2p addresses can be forwarded to a socks proxy at IP 127.0.0.1 port
+".b32.i2p" P2P addresses can be forwarded to a socks proxy at IP 127.0.0.1 port
 9000 with the default max outgoing connections.
 
 If desired, peers can be manually specified:
 
 ```
---add-exclusive-node rveahdfho7wo4b2m.onion:28083
---add-peer rveahdfho7wo4b2m.onion:28083
+--add-exclusive-node 5tymba6faziy36md5ffy42vatbjzlye4vyr3gyz6lcvdfximnvwpmwqd.onion:28083
+--add-peer 5tymba6faziy36md5ffy42vatbjzlye4vyr3gyz6lcvdfximnvwpmwqd.onion:28083
 ```
 
 Either option can be listed multiple times, and can specify any mix of Tor,
@@ -70,12 +70,12 @@ Receiving anonymity connections is done through the option
 type, and max connections:
 
 ```
---anonymous-inbound rveahdfho7wo4b2m.onion:28083,127.0.0.1:28083,25
+--anonymous-inbound 5tymba6faziy36md5ffy42vatbjzlye4vyr3gyz6lcvdfximnvwpmwqd.onion:28083,127.0.0.1:28083,25
 --anonymous-inbound cmeua5767mz2q5jsaelk2rxhf67agrwuetaso5dzbenyzwlbkg2q.b32.i2p:5000,127.0.0.1:30000
 ```
 
 which tells `monerod` that a max of 25 inbound Tor connections are being
-received at address "rveahdfho7wo4b2m.onion:28083" and forwarded to `monerod`
+received at address "5tymba6faziy36md5ffy42vatbjzlye4vyr3gyz6lcvdfximnvwpmwqd.onion:28083" and forwarded to `monerod`
 localhost port 28083, and a default max I2P connections are being received at
 address "cmeua5767mz2q5jsaelk2rxhf67agrwuetaso5dzbenyzwlbkg2q.b32.i2p:5000" and
 forwarded to `monerod` localhost port 30000.
@@ -86,32 +86,32 @@ otherwise the peer will not be notified of the peer address by the proxy.
 
 An anonymity network can be configured to forward incoming connections to a
 `monerod` RPC port - which is independent from the configuration for incoming
-P2P anonymity connections. The anonymity network (Tor/i2p) is
+P2P anonymity connections. The anonymity network (Tor/I2P) is
 [configured in the same manner](#configuration), except the localhost port
-must be the RPC port (typically 18081 for mainnet) instead of the p2p port:
+must be the RPC port (typically 18081 for mainnet) instead of the P2P port:
 
 ```
 HiddenServiceDir /var/lib/tor/data/monero
 HiddenServicePort 18081 127.0.0.1:18081
 ```
 
-Then the wallet will be configured to use a Tor/i2p address:
+Then the wallet will be configured to use a Tor/I2P address:
 ```
 --proxy 127.0.0.1:9050
---daemon-address rveahdfho7wo4b2m.onion
+--daemon-address 5tymba6faziy36md5ffy42vatbjzlye4vyr3gyz6lcvdfximnvwpmwqd.onion
 ```
 
 The proxy must match the address type - a Tor proxy will not work properly with
-i2p addresses, etc.
+I2P addresses, etc.
 
-i2p and onion addresses provide the information necessary to authenticate and
+I2P hidden service (b32.i2p) and Tor Hidden service (.onion) addresses provide the information necessary to authenticate and
 encrypt the connection from end-to-end. If desired, SSL can also be applied to
-the connection with `--daemon-address https://rveahdfho7wo4b2m.onion` which
+the connection with `--daemon-address https://5tymba6faziy36md5ffy42vatbjzlye4vyr3gyz6lcvdfximnvwpmwqd.onion` which
 requires a server certificate that is signed by a "root" certificate on the
 machine running the wallet. Alternatively, `--daemon-cert-file` can be used to
 specify a certificate to authenticate the server.
 
-Proxies can also be used to connect to "clearnet" (ipv4 addresses or ICANN
+Proxies can also be used to connect to "clearnet" (IPv4 addresses or ICANN
 domains), but `--daemon-cert-file` _must_ be used for authentication and
 encryption.
 
@@ -204,7 +204,7 @@ If a single I2P/Tor stream is used 2+ times for transmitting a transaction, the
 operator of the hidden service can conclude that both transactions came from the
 same source. If the subsequent transactions spend a change output from the
 earlier transactions, this will also reveal the "real" spend in the ring
-signature. This issue was (primarily) raised by @secparam on Twitter.
+signature. This issue was (primarily) raised by @secparam on [Twitter](https://twitter.com/secparam/status/1153411657214910469).
 
 #### Mitigation
 
@@ -219,7 +219,7 @@ most cases. However, the number of outgoing connections is typically a small
 fixed number, so there is a decent probability of re-use with the same public
 key identity.
 
-@secparam (twitter) recommended changing circuits (Tor) as an additional
+@secparam ([Twitter](https://twitter.com/secparam/status/1153411968147042304)) recommended changing circuits (Tor) as an additional
 precaution. This is likely not a good idea - forcibly requesting Tor to change
 circuits is observable by the ISP. Instead, `monerod` should likely disconnect
 from peers occasionally. Tor will rotate circuits every ~10 minutes, so
