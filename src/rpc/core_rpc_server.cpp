@@ -2216,7 +2216,8 @@ namespace cryptonote
     // Fixing of high orphan issue for most pools
     // Thanks Boolberry!
     block b;
-    if(!parse_and_validate_block_from_blob(blockblob, b))
+    crypto::hash blk_id;
+    if(!parse_and_validate_block_from_blob(blockblob, b, blk_id))
     {
       error_resp.code = CORE_RPC_ERROR_CODE_WRONG_BLOCKBLOB;
       error_resp.message = "Wrong block blob";
@@ -2239,6 +2240,7 @@ namespace cryptonote
       error_resp.message = "Block not accepted";
       return false;
     }
+    res.block_id = epee::string_tools::pod_to_hex(blk_id);
     res.status = CORE_RPC_STATUS_OK;
     return true;
   }
