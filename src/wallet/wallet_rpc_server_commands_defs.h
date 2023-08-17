@@ -2262,6 +2262,7 @@ namespace wallet_rpc
       std::string password;
       std::string language;
       bool autosave_current;
+      bool enable_multisig_experimental;
 
       BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE_OPT(restore_height, (uint64_t)0)
@@ -2271,6 +2272,7 @@ namespace wallet_rpc
       KV_SERIALIZE(password)
       KV_SERIALIZE(language)
       KV_SERIALIZE_OPT(autosave_current, true)
+      KV_SERIALIZE_OPT(enable_multisig_experimental, false)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;

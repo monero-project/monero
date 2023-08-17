@@ -986,6 +986,21 @@ bool get_pruned_tx(const cryptonote::COMMAND_RPC_GET_TRANSACTIONS::entry &entry,
   return false;
 }
 
+// Given M (threshold) and N (total), calculate the number of private multisig keys each
+// signer should have. This value is equal to (N - 1) choose (N - M)
+// Prereq: M >= 1 && N >= M && N <= 16
+uint64_t num_priv_multisig_keys_post_setup(uint64_t threshold, uint64_t total)
+{
+  THROW_WALLET_EXCEPTION_IF(threshold < 1 || total < threshold || threshold > 16,
+    tools::error::wallet_internal_error, "Invalid arguments to num_priv_multisig_keys_post_setup");
+
+  uint64_t n_multisig_keys = 1;
+  for (uint64_t i = 2; i <= total - 1; ++i) n_multisig_keys *= i; // multiply by (N - 1)!
+  for (uint64_t i = 2; i <= total - threshold; ++i) n_multisig_keys /= i; // divide by (N - M)!
+  for (uint64_t i = 2; i <= threshold - 1; ++i) n_multisig_keys /= i; // divide by ((N - 1) - (N - M))!
+  return n_multisig_keys;
+}
+
   //-----------------------------------------------------------------
 } //namespace
 
@@ -1394,7 +1409,7 @@ bool wallet2::get_seed(epee::wipeable_string& electrum_words, const epee::wipeab
   return true;
 }
 //----------------------------------------------------------------------------------------------------
-bool wallet2::get_multisig_seed(epee::wipeable_string& seed, const epee::wipeable_string &passphrase, bool raw) const
+bool wallet2::get_multisig_seed(epee::wipeable_string& seed, const epee::wipeable_string &passphrase) const
 {
   bool ready;
   uint32_t threshold, total;
@@ -1408,15 +1423,14 @@ bool wallet2::get_multisig_seed(epee::wipeable_string& seed, const epee::wipeabl
     std::cout << "This multisig wallet is not yet finalized" << std::endl;
     return false;
   }
-  if (!raw && seed_language.empty())
-  {
-    std::cout << "seed_language not set" << std::endl;
-    return false;
-  }
+
+  const uint64_t num_expected_ms_keys = num_priv_multisig_keys_post_setup(threshold, total);
 
   crypto::secret_key skey;
   crypto::public_key pkey;
   const account_keys &keys = get_account().get_keys();
+  THROW_WALLET_EXCEPTION_IF(num_expected_ms_keys != keys.m_multisig_keys.size(),
+    error::wallet_internal_error, "Unexpected number of private multisig keys")
   epee::wipeable_string data;
   data.append((const char*)&threshold, sizeof(uint32_t));
   data.append((const char*)&total, sizeof(uint32_t));
@@ -1441,18 +1455,7 @@ bool wallet2::get_multisig_seed(epee::wipeable_string& seed, const epee::wipeabl
     data = encrypt(data, key, true);
   }
 
-  if (raw)
-  {
-    seed = epee::to_hex::wipeable_string({(const unsigned char*)data.data(), data.size()});
-  }
-  else
-  {
-    if (!crypto::ElectrumWords::bytes_to_words(data.data(), data.size(), seed, seed_language))
-    {
-      std::cout << "Failed to encode seed";
-      return false;
-    }
-  }
+  seed = epee::to_hex::wipeable_string({(const unsigned char*)data.data(), data.size()});
 
   return true;
 }
@@ -5212,9 +5215,11 @@ void wallet2::generate(const std::string& wallet_, const epee::wipeable_string& 
   offset += sizeof(uint32_t);
   uint32_t total = *(uint32_t*)(multisig_data.data() + offset);
   offset += sizeof(uint32_t);
-  THROW_WALLET_EXCEPTION_IF(threshold < 2, error::invalid_multisig_seed);
-  THROW_WALLET_EXCEPTION_IF(total != threshold && total != threshold + 1, error::invalid_multisig_seed);
-  const size_t n_multisig_keys =  total == threshold ? 1 : threshold;
+
+  THROW_WALLET_EXCEPTION_IF(threshold < 1, error::invalid_multisig_seed);
+  THROW_WALLET_EXCEPTION_IF(total < threshold, error::invalid_multisig_seed);
+  THROW_WALLET_EXCEPTION_IF(threshold > 16, error::invalid_multisig_seed); // doing N choose (N - M + 1) might overflow
+  const uint64_t n_multisig_keys = num_priv_multisig_keys_post_setup(threshold, total);
   THROW_WALLET_EXCEPTION_IF(multisig_data.size() != 8 + 32 * (4 + n_multisig_keys + total), error::invalid_multisig_seed);
 
   std::vector<crypto::secret_key> multisig_keys;

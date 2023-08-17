@@ -297,7 +297,7 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(query_key)
 
-    def restore_deterministic_wallet(self, seed = '', seed_offset = '', filename = '', restore_height = 0, password = '', language = '', autosave_current = True):
+    def restore_deterministic_wallet(self, seed = '', seed_offset = '', filename = '', restore_height = 0, password = '', language = '', autosave_current = True, enable_multisig_experimental = False):
         restore_deterministic_wallet = {
             'method': 'restore_deterministic_wallet',
             'params' : {
@@ -308,6 +308,7 @@ class Wallet(object):
                 'password': password,
                 'language': language,
                 'autosave_current': autosave_current,
+                'enable_multisig_experimental': enable_multisig_experimental
             },
             'jsonrpc': '2.0', 
             'id': '0'
