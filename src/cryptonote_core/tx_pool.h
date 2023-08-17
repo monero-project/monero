@@ -428,6 +428,7 @@ namespace cryptonote
     struct tx_details
     {
       transaction tx;  //!< the transaction
+      cryptonote::blobdata tx_blob; //!< the transaction's binary blob
       size_t blob_size;  //!< the transaction's size
       size_t weight;  //!< the transaction's weight
       uint64_t fee;  //!< the transaction's fee amount
@@ -466,12 +467,24 @@ namespace cryptonote
     /**
      * @brief get infornation about a single transaction
      */
-    bool get_transaction_info(const crypto::hash &txid, tx_details &td) const;
+    bool get_transaction_info(const crypto::hash &txid, tx_details &td, bool include_sensitive_data, bool include_blob = false) const;
+
+    /**
+     * @brief get information about multiple transactions
+     */
+    bool get_transactions_info(const std::vector<crypto::hash>& txids, std::vector<std::pair<crypto::hash, tx_details>>& txs, bool include_sensitive_data = false) const;
 
     /**
      * @brief get transactions not in the passed set
      */
     bool get_complement(const std::vector<crypto::hash> &hashes, std::vector<cryptonote::blobdata> &txes) const;
+
+    /**
+     * @brief get info necessary for update of pool-related info in a wallet, preferably incremental
+     *
+     * @return true on success, false on error
+     */
+    bool get_pool_info(time_t start_time, bool include_sensitive, size_t max_tx_count, std::vector<std::pair<crypto::hash, tx_details>>& added_txs, std::vector<crypto::hash>& remaining_added_txids, std::vector<crypto::hash>& removed_txs, bool& incremental) const;
 
   private:
 
@@ -577,6 +590,10 @@ namespace cryptonote
      */
     void prune(size_t bytes = 0);
 
+    void add_tx_to_transient_lists(const crypto::hash& txid, double fee, time_t receive_time);
+    void remove_tx_from_transient_lists(const cryptonote::sorted_tx_container::iterator& sorted_it, const crypto::hash& txid, bool sensitive);
+    void track_removed_tx(const crypto::hash& txid, bool sensitive);
+
     //TODO: confirm the below comments and investigate whether or not this
     //      is the desired behavior
     //! map key images to transactions which spent them
@@ -608,6 +625,26 @@ private:
     sorted_tx_container m_txs_by_fee_and_receive_time;
 
     std::atomic<uint64_t> m_cookie; //!< incremented at each change
+
+    // Info when transactions entered the pool, accessible by txid
+    std::unordered_map<crypto::hash, time_t> m_added_txs_by_id;
+
+    // Info at what time the pool started to track the adding of transactions
+    time_t m_added_txs_start_time;
+
+    struct removed_tx_info
+    {
+      crypto::hash txid;
+      bool sensitive;
+    };
+
+    // Info about transactions that were removed from the pool, ordered by the time
+    // of deletion
+    std::multimap<time_t, removed_tx_info> m_removed_txs_by_time;
+
+    // Info how far back in time the list of removed tx ids currently reaches
+    // (it gets shorted periodically to prevent overflow)
+    time_t m_removed_txs_start_time;
 
     /**
      * @brief get an iterator to a transaction in the sorted container
