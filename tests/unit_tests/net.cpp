@@ -74,6 +74,8 @@ namespace
         "xmrto2bturnore26.onion";
     static constexpr const char v3_onion[] =
         "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion";
+    static constexpr const char v3_onion_2[] =
+        "zpv4fa3szgel7vf6jdjeugizdclq2vzkelscs2bhbgnlldzzggcen3ad.onion";
 }
 
 TEST(tor_address, constants)
@@ -94,12 +96,10 @@ TEST(tor_address, invalid)
     EXPECT_TRUE(net::tor_address::make(":").has_error());
     EXPECT_TRUE(net::tor_address::make(".onion").has_error());
     EXPECT_TRUE(net::tor_address::make(".onion:").has_error());
-    EXPECT_TRUE(net::tor_address::make(v2_onion + 1).has_error());
     EXPECT_TRUE(net::tor_address::make(v3_onion + 1).has_error());
-    EXPECT_TRUE(net::tor_address::make(boost::string_ref{v2_onion, sizeof(v2_onion) - 2}).has_error());
     EXPECT_TRUE(net::tor_address::make(boost::string_ref{v3_onion, sizeof(v3_onion) - 2}).has_error());
-    EXPECT_TRUE(net::tor_address::make(std::string{v2_onion} + ":-").has_error());
-    EXPECT_TRUE(net::tor_address::make(std::string{v2_onion} + ":900a").has_error());
+    EXPECT_TRUE(net::tor_address::make(std::string{v3_onion} + ":-").has_error());
+    EXPECT_TRUE(net::tor_address::make(std::string{v3_onion} + ":900a").has_error());
     EXPECT_TRUE(net::tor_address::make(std::string{v3_onion} + ":65536").has_error());
     EXPECT_TRUE(net::tor_address::make(std::string{v3_onion} + ":-1").has_error());
 
@@ -163,11 +163,11 @@ TEST(tor_address, valid)
     EXPECT_FALSE(address2.less(*address1));
     EXPECT_FALSE(address1->less(address2));
 
-    address2 = MONERO_UNWRAP(net::tor_address::make(std::string{v2_onion} + ":6545"));
+    address2 = MONERO_UNWRAP(net::tor_address::make(std::string{v3_onion_2} + ":6545"));
 
     EXPECT_EQ(6545, address2.port());
-    EXPECT_STREQ(v2_onion, address2.host_str());
-    EXPECT_EQ(std::string{v2_onion} + ":6545", address2.str().c_str());
+    EXPECT_STREQ(v3_onion_2, address2.host_str());
+    EXPECT_EQ(std::string{v3_onion_2} + ":6545", address2.str().c_str());
     EXPECT_TRUE(address2.is_blockable());
     EXPECT_FALSE(address2.equal(*address1));
     EXPECT_FALSE(address1->equal(address2));
@@ -242,57 +242,6 @@ namespace
             KV_SERIALIZE(tor);
         END_KV_SERIALIZE_MAP()
     };
-}
-
-TEST(tor_address, epee_serializev_v2)
-{
-    epee::byte_slice buffer{};
-    {
-        test_command_tor command{MONERO_UNWRAP(net::tor_address::make(v2_onion, 10))};
-        EXPECT_FALSE(command.tor.is_unknown());
-        EXPECT_NE(net::tor_address{}, command.tor);
-        EXPECT_STREQ(v2_onion, command.tor.host_str());
-        EXPECT_EQ(10u, command.tor.port());
-
-        epee::serialization::portable_storage stg{};
-        EXPECT_TRUE(command.store(stg));
-        EXPECT_TRUE(stg.store_to_binary(buffer));
-    }
-
-    test_command_tor command{};
-    {
-        EXPECT_TRUE(command.tor.is_unknown());
-        EXPECT_EQ(net::tor_address{}, command.tor);
-        EXPECT_STREQ(net::tor_address::unknown_str(), command.tor.host_str());
-        EXPECT_EQ(0u, command.tor.port());
-
-        epee::serialization::portable_storage stg{};
-        EXPECT_TRUE(stg.load_from_binary(epee::to_span(buffer)));
-        EXPECT_TRUE(command.load(stg));
-    }
-    EXPECT_FALSE(command.tor.is_unknown());
-    EXPECT_NE(net::tor_address{}, command.tor);
-    EXPECT_STREQ(v2_onion, command.tor.host_str());
-    EXPECT_EQ(10u, command.tor.port());
-
-    // make sure that exceeding max buffer doesn't destroy tor_address::_load
-    {
-        epee::serialization::portable_storage stg{};
-        stg.load_from_binary(epee::to_span(buffer));
-
-        std::string host{};
-        ASSERT_TRUE(stg.get_value("host", host, stg.open_section("tor", nullptr, false)));
-        EXPECT_EQ(std::strlen(v2_onion), host.size());
-
-        host.push_back('k');
-        EXPECT_TRUE(stg.set_value("host", std::move(host), stg.open_section("tor", nullptr, false)));
-        EXPECT_TRUE(command.load(stg)); // poor error reporting from `KV_SERIALIZE`
-    }
-
-    EXPECT_TRUE(command.tor.is_unknown());
-    EXPECT_EQ(net::tor_address{}, command.tor);
-    EXPECT_STREQ(net::tor_address::unknown_str(), command.tor.host_str());
-    EXPECT_EQ(0u, command.tor.port());
 }
 
 TEST(tor_address, epee_serializev_v3)
@@ -397,41 +346,6 @@ TEST(tor_address, epee_serialize_unknown)
     EXPECT_EQ(0u, command.tor.port());
 }
 
-TEST(tor_address, boost_serialize_v2)
-{
-    std::string buffer{};
-    {
-        const net::tor_address tor = MONERO_UNWRAP(net::tor_address::make(v2_onion, 10));
-        EXPECT_FALSE(tor.is_unknown());
-        EXPECT_NE(net::tor_address{}, tor);
-        EXPECT_STREQ(v2_onion, tor.host_str());
-        EXPECT_EQ(10u, tor.port());
-
-        std::ostringstream stream{};
-        {
-            boost::archive::portable_binary_oarchive archive{stream};
-            archive << tor;
-        }
-        buffer = stream.str();
-    }
-
-    net::tor_address tor{};
-    {
-        EXPECT_TRUE(tor.is_unknown());
-        EXPECT_EQ(net::tor_address{}, tor);
-        EXPECT_STREQ(net::tor_address::unknown_str(), tor.host_str());
-        EXPECT_EQ(0u, tor.port());
-
-        std::istringstream stream{buffer};
-        boost::archive::portable_binary_iarchive archive{stream};
-        archive >> tor;
-    }
-    EXPECT_FALSE(tor.is_unknown());
-    EXPECT_NE(net::tor_address{}, tor);
-    EXPECT_STREQ(v2_onion, tor.host_str());
-    EXPECT_EQ(10u, tor.port());
-}
-
 TEST(tor_address, boost_serialize_v3)
 {
     std::string buffer{};
@@ -509,6 +423,9 @@ TEST(get_network_address, onion)
     EXPECT_EQ(net::error::unsupported_address, address);
 
     address = net::get_network_address(".onion", 0);
+    EXPECT_EQ(net::error::invalid_tor_address, address);
+
+    address = net::get_network_address(v2_onion, 1000);
     EXPECT_EQ(net::error::invalid_tor_address, address);
 
     address = net::get_network_address(v3_onion, 1000);
