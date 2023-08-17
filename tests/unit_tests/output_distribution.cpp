@@ -30,10 +30,7 @@
 #include "gtest/gtest.h"
 #include "misc_log_ex.h"
 #include "rpc/rpc_handler.h"
-#include "blockchain_db/blockchain_db.h"
 #include "cryptonote_core/cryptonote_core.h"
-#include "cryptonote_core/tx_pool.h"
-#include "cryptonote_core/blockchain.h"
 #include "blockchain_db/testdb.h"
 
 static const uint64_t test_distribution[32] = {
@@ -77,9 +74,6 @@ public:
 
 bool get_output_distribution(uint64_t amount, uint64_t from, uint64_t to, uint64_t &start_height, std::vector<uint64_t> &distribution, uint64_t &base)
 {
-  std::unique_ptr<cryptonote::Blockchain> bc;
-  cryptonote::tx_memory_pool txpool(*bc);
-  bc.reset(new cryptonote::Blockchain(txpool));
   struct get_test_options {
     const std::pair<uint8_t, uint64_t> hard_forks[2];
     const cryptonote::test_options test_options = {
@@ -87,9 +81,9 @@ bool get_output_distribution(uint64_t amount, uint64_t from, uint64_t to, uint64
     };
     get_test_options():hard_forks{std::make_pair((uint8_t)1, (uint64_t)0), std::make_pair((uint8_t)0, (uint64_t)0)}{}
   } opts;
-  cryptonote::Blockchain *blockchain = bc.get();
-  bool r = blockchain->init(new TestDB(test_distribution_size), cryptonote::FAKECHAIN, true, &opts.test_options, 0, NULL);
-  return r && bc->get_output_distribution(amount, from, to, start_height, distribution, base);
+  cryptonote::BlockchainAndPool bap;
+  bool r = bap.blockchain.init(new TestDB(test_distribution_size), cryptonote::FAKECHAIN, true, &opts.test_options, 0, NULL);
+  return r && bap.blockchain.get_output_distribution(amount, from, to, start_height, distribution, base);
 }
 
 crypto::hash get_block_hash(uint64_t height)
