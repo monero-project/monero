@@ -50,10 +50,6 @@
 
 #include "blockchain_utilities.h"
 
-
-using namespace cryptonote;
-
-
 class BlocksdatFile
 {
 public:
@@ -63,7 +59,7 @@ public:
 
 protected:
 
-  Blockchain* m_blockchain_storage;
+  cryptonote::Blockchain* m_blockchain_storage;
 
   std::ofstream * m_raw_data_file;
 
