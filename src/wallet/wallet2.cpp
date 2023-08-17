@@ -1718,21 +1718,26 @@ void wallet2::sort_scan_tx_entries(std::vector<process_tx_entry_t> &unsorted_tx_
     else // l.tx_entry.block_height == r.tx_entry.block_height
     {
       // coinbase tx is the first tx in a block
+      if (cryptonote::is_coinbase(r.tx))
+        return false;
       if (cryptonote::is_coinbase(l.tx))
         return true;
-      if (cryptonote::is_coinbase(r.tx))
+
+      // in case std::sort is comparing elem to itself
+      if (l.tx_hash == r.tx_hash)
         return false;
 
       // see which tx hash comes first in the block
       THROW_WALLET_EXCEPTION_IF(parsed_blocks.find(l.tx_entry.block_height) == parsed_blocks.end(),
-          error::wallet_internal_error, "Expected block not returned by daemon");
+          error::wallet_internal_error, std::string("Expected block not returned by daemon, ") +
+          "left tx: " + string_tools::pod_to_hex(l.tx_hash) + ", right tx: " + string_tools::pod_to_hex(r.tx_hash));
       const auto &blk = parsed_blocks[l.tx_entry.block_height];
       for (const auto &tx_hash : blk.tx_hashes)
       {
-        if (tx_hash == l.tx_hash)
-          return true;
         if (tx_hash == r.tx_hash)
           return false;
+        if (tx_hash == l.tx_hash)
+          return true;
       }
       THROW_WALLET_EXCEPTION(error::wallet_internal_error, "Tx hashes not found in block");
       return false;
