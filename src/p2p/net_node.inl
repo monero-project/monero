@@ -702,32 +702,45 @@ namespace nodetool
     std::set<std::string> full_addrs;
     if (m_nettype == cryptonote::TESTNET)
     {
-      full_addrs.insert("176.9.0.187:28080");
-      full_addrs.insert("88.99.173.38:28080");
-      full_addrs.insert("51.79.173.165:28080");
-      full_addrs.insert("192.99.8.110:28080");
-      full_addrs.insert("37.187.74.171:28080");
+
+      full_addrs.insert("67.223.119.64:25740");
+      full_addrs.insert("198.27.80.146:25740");
+      full_addrs.insert("15.204.240.127:25740");
+      full_addrs.insert("67.223.119.65:25740");
+      full_addrs.insert("51.81.70.195:25740");
+      full_addrs.insert("135.148.142.176:25740");
+      full_addrs.insert("51.81.70.196:25740");
+      full_addrs.insert("135.148.142.177:25740");
+
     }
     else if (m_nettype == cryptonote::STAGENET)
     {
-      full_addrs.insert("176.9.0.187:38080");
-      full_addrs.insert("88.99.173.38:38080");
-      full_addrs.insert("51.79.173.165:38080");
-      full_addrs.insert("192.99.8.110:38080");
-      full_addrs.insert("37.187.74.171:38080");
+
+      full_addrs.insert("67.223.119.64:35740");
+      full_addrs.insert("198.27.80.146:35740");
+      full_addrs.insert("15.204.240.127:35740");
+      full_addrs.insert("67.223.119.65:35740");
+      full_addrs.insert("51.81.70.195:35740");
+      full_addrs.insert("135.148.142.176:35740");
+      full_addrs.insert("51.81.70.196:35740");
+      full_addrs.insert("135.148.142.177:35740");
+
     }
     else if (m_nettype == cryptonote::FAKECHAIN)
     {
     }
     else
     {
-      full_addrs.insert("176.9.0.187:18080");
-      full_addrs.insert("88.198.163.90:18080");
-      full_addrs.insert("66.85.74.134:18080");
-      full_addrs.insert("88.99.173.38:18080");
-      full_addrs.insert("51.79.173.165:18080");
-      full_addrs.insert("192.99.8.110:18080");
-      full_addrs.insert("37.187.74.171:18080");
+
+      full_addrs.insert("67.223.119.64:15740");
+      full_addrs.insert("198.27.80.146:15740");
+      full_addrs.insert("15.204.240.127:15740");
+      full_addrs.insert("67.223.119.65:15740");
+      full_addrs.insert("51.81.70.195:15740");
+      full_addrs.insert("135.148.142.176:15740");
+      full_addrs.insert("51.81.70.196:15740");
+      full_addrs.insert("135.148.142.177:15740");
+
     }
     return full_addrs;
   }
