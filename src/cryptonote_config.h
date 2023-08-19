@@ -228,7 +228,7 @@ namespace config
   boost::uuids::uuid const NETWORK_ID = { {
       0xF1 ,0x03, 0xA2, 0x24 , 0xA1, 0xF4 , 0x06, 0x64, 0x07, 0x01, 0x19, 0xF7, 0xA6, 0xA7, 0xF5, 0x11
     } }; // Bender's nightmare
-  std::string const GENESIS_TX = "011401ff0001ffffffffffff05023c1e16efd1da4c02297cfb8eade53b9d6d5dab867e102192117f285e9c3d357e2101067c5401887ce4fe1198ba6668b046a39d41a20b4107af27c366440f63be9780";
+  std::string const GENESIS_TX = "017801ff0001ffffffffffff05023c1e16efd1da4c02297cfb8eade53b9d6d5dab867e102192117f285e9c3d357e2101067c5401887ce4fe1198ba6668b046a39d41a20b4107af27c366440f63be9780";
   uint32_t const GENESIS_NONCE = 16301;
 
   // Hash domain separators
@@ -269,7 +269,7 @@ namespace config
     boost::uuids::uuid const NETWORK_ID = { {
       0xF1 ,0x03, 0xA2, 0x24 , 0xA1, 0xF4 , 0x06, 0x64, 0x07, 0x01, 0x19, 0xF7, 0xA6, 0xA7, 0xF5, 0x12
       } }; // Bender's daydream
-    std::string const GENESIS_TX = "011401ff0001ffffffffffff05023c1e16efd1da4c02297cfb8eade53b9d6d5dab867e102192117f285e9c3d357e2101067c5401887ce4fe1198ba6668b046a39d41a20b4107af27c366440f63be9780";
+    std::string const GENESIS_TX = "017801ff0001ffffffffffff05023c1e16efd1da4c02297cfb8eade53b9d6d5dab867e102192117f285e9c3d357e2101067c5401887ce4fe1198ba6668b046a39d41a20b4107af27c366440f63be9780";
     uint32_t const GENESIS_NONCE = 16302;
   }
 
@@ -284,7 +284,7 @@ namespace config
     boost::uuids::uuid const NETWORK_ID = { {
       0xF1 ,0x03, 0xA2, 0x24 , 0xA1, 0xF4 , 0x06, 0x64, 0x07, 0x01, 0x19, 0xF7, 0xA6, 0xA7, 0xF5, 0x13
       } }; // Bender's daydream
-    std::string const GENESIS_TX = "011401ff0001ffffffffffff05023c1e16efd1da4c02297cfb8eade53b9d6d5dab867e102192117f285e9c3d357e21011f02aa8f03ec8a4db30c3837d0cc3bba960ef6d7bd63461b55007eb7add0f5c0";
+    std::string const GENESIS_TX = "017801ff0001ffffffffffff05023c1e16efd1da4c02297cfb8eade53b9d6d5dab867e102192117f285e9c3d357e21011f02aa8f03ec8a4db30c3837d0cc3bba960ef6d7bd63461b55007eb7add0f5c0";
     uint32_t const GENESIS_NONCE = 16303;
   }
 }
