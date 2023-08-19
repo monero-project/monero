@@ -242,13 +242,13 @@ pkg install git gmake cmake pkgconf boost-libs libzmq4 libsodium unbound
 Clone recursively to pull-in needed submodule(s):
 
 ```
-git clone --recursive https://github.com/monero-project/monero
+git clone --recursive https://github.com/xnitc/avalynx
 ```
 
 If you already have a repo cloned, initialize and update:
 
 ```
-cd monero && git submodule init && git submodule update
+cd avalynx && git submodule init && git submodule update
 ```
 
 *Note*: If there are submodule differences between branches, you may need 
