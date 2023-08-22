@@ -262,6 +262,49 @@ struct AddressBook
     virtual int lookupPaymentID(const std::string &payment_id) const = 0;
 };
 
+/**
+ * @brief The CoinsInfo - interface for displaying coins information
+ */
+struct CoinsInfo
+{
+    virtual ~CoinsInfo() = 0;
+
+    virtual uint64_t blockHeight() const = 0;
+    virtual std::string hash() const = 0;
+    virtual size_t internalOutputIndex() const = 0;
+    virtual uint64_t globalOutputIndex() const = 0;
+    virtual bool spent() const = 0;
+    virtual bool frozen() const = 0;
+    virtual uint64_t spentHeight() const = 0;
+    virtual uint64_t amount() const = 0;
+    virtual bool rct() const = 0;
+    virtual bool keyImageKnown() const = 0;
+    virtual size_t pkIndex() const = 0;
+    virtual uint32_t subaddrIndex() const = 0;
+    virtual uint32_t subaddrAccount() const = 0;
+    virtual std::string address() const = 0;
+    virtual std::string addressLabel() const = 0;
+    virtual std::string keyImage() const = 0;
+    virtual uint64_t unlockTime() const = 0;
+    virtual bool unlocked() const = 0;
+    virtual std::string pubKey() const = 0;
+    virtual bool coinbase() const = 0;
+    virtual std::string description() const = 0;
+};
+
+struct Coins
+{
+    virtual ~Coins() = 0;
+    virtual int count() const = 0;
+    virtual CoinsInfo * coin(int index)  const = 0;
+    virtual std::vector<CoinsInfo*> getAll() const = 0;
+    virtual void refresh() = 0;
+    virtual void setFrozen(int index) = 0;
+    virtual void thaw(int index) = 0;
+    virtual bool isTransferUnlocked(uint64_t unlockTime, uint64_t blockHeight) = 0;
+    virtual void setDescription(int index, const std::string &description) = 0;
+};
+
 struct SubaddressRow {
 public:
     SubaddressRow(std::size_t _rowId, const std::string &_address, const std::string &_label):
@@ -836,6 +879,7 @@ struct Wallet
      * \param subaddr_account           subaddress account from which the input funds are taken
      * \param subaddr_indices           set of subaddress indices to use for transfer or sweeping. if set empty, all are chosen when sweeping, and one or more are automatically chosen when transferring. after execution, returns the set of actually used indices
      * \param priority
+     * \param preferred_inputs  optional set of key_image strings from preferred inputs
      * \return                          PendingTransaction object. caller is responsible to check PendingTransaction::status()
      *                                  after object returned
      */
@@ -844,7 +888,7 @@ struct Wallet
                                                    optional<std::vector<uint64_t>> amount, uint32_t mixin_count,
                                                    PendingTransaction::Priority = PendingTransaction::Priority_Low,
                                                    uint32_t subaddr_account = 0,
-                                                   std::set<uint32_t> subaddr_indices = {}) = 0;
+                                                   std::set<uint32_t> subaddr_indices = {}, const std::set<std::string> &preferred_inputs = {}) = 0;
 
     /*!
      * \brief createTransaction creates transaction. if dst_addr is an integrated address, payment_id is ignored
@@ -855,6 +899,7 @@ struct Wallet
      * \param subaddr_account   subaddress account from which the input funds are taken
      * \param subaddr_indices   set of subaddress indices to use for transfer or sweeping. if set empty, all are chosen when sweeping, and one or more are automatically chosen when transferring. after execution, returns the set of actually used indices
      * \param priority
+     * \param preferred_inputs  optional set of key_image strings from preferred inputs
      * \return                  PendingTransaction object. caller is responsible to check PendingTransaction::status()
      *                          after object returned
      */
@@ -863,7 +908,8 @@ struct Wallet
                                                    optional<uint64_t> amount, uint32_t mixin_count,
                                                    PendingTransaction::Priority = PendingTransaction::Priority_Low,
                                                    uint32_t subaddr_account = 0,
-                                                   std::set<uint32_t> subaddr_indices = {}) = 0;
+                                                   std::set<uint32_t> subaddr_indices = {},
+                                                   const std::set<std::string> &preferred_inputs = {}) = 0;
 
     /*!
      * \brief createSweepUnmixableTransaction creates transaction with unmixable outputs.
@@ -939,6 +985,7 @@ struct Wallet
 
     virtual TransactionHistory * history() = 0;
     virtual AddressBook * addressBook() = 0;
+    virtual Coins * coins() = 0;
     virtual Subaddress * subaddress() = 0;
     virtual SubaddressAccount * subaddressAccount() = 0;
     virtual void setListener(WalletListener *) = 0;
