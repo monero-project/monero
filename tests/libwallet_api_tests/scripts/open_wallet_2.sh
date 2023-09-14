@@ -1,5 +1,4 @@
-#!/bin/bash
+#!/bin/bash -e
 
-
-rlwrap monero-wallet-cli --wallet-file wallet_02.bin --password "" --testnet --trusted-daemon --daemon-address localhost:38081  --log-file wallet_01.log
+./open_wallet_par.sh wallet_2
 
