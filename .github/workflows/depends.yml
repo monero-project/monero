@@ -9,6 +9,11 @@ on:
     paths-ignore:
       - 'docs/**'
       - '**/README.md'
+concurrency:
+  # Documentation suggests ${{ github.head_ref }}, but that's only available on pull_request/pull_request_target triggers, so using ${{ github.ref }}.
+  # On master, we want all builds to complete even if merging happens faster to make it easier to discover at which point something broke.
+  group: deps-${{ github.ref == 'refs/heads/master' && format('ci-master-{0}', github.sha) || format('ci-{0}', github.ref) }}
+  cancel-in-progress: true
 
 env:
   APT_SET_CONF: |
@@ -102,7 +107,7 @@ jobs:
     - name: build
       run: |
         ${{env.CCACHE_SETTINGS}}
-        make depends target=${{ matrix.toolchain.host }} -j2
+        make depends target=${{ matrix.toolchain.host }} -j2 || (cat "/home/runner/work/monero/monero/build/${{ matrix.toolchain.host }}/release/CMakeFiles/CMakeError.log" ; false)
     - uses: actions/upload-artifact@v3
       if: ${{ matrix.toolchain.host == 'x86_64-w64-mingw32' || matrix.toolchain.host == 'x86_64-apple-darwin11' || matrix.toolchain.host == 'x86_64-unknown-linux-gnu' }}
       with:

@@ -9,6 +9,12 @@ on:
     paths-ignore:
       - 'docs/**'
       - '**/README.md'
+concurrency:
+  # Documentation suggests ${{ github.head_ref }}, but that's only available on pull_request/pull_request_target triggers, so using ${{ github.ref }}.
+  # On master, we want all builds to complete even if merging happens faster to make it easier to discover at which point something broke.
+  group: build-${{ github.ref == 'refs/heads/master' && format('ci-master-{0}', github.sha) || format('ci-{0}', github.ref) }}
+  cancel-in-progress: true
+
 
 # The below variables reduce repetitions across similar targets
 env:
@@ -39,11 +45,11 @@ jobs:
         key: ccache-${{ runner.os }}-build-${{ github.sha }}
         restore-keys: ccache-${{ runner.os }}-build-
     - name: install dependencies
-      run: HOMEBREW_NO_AUTO_UPDATE=1 brew install boost hidapi openssl zmq libpgm miniupnpc expat libunwind-headers protobuf ccache
+      run: HOMEBREW_NO_AUTO_UPDATE=1 brew install boost hidapi openssl zmq libpgm miniupnpc expat libunwind-headers protobuf ccache libusb
     - name: build
       run: |
         ${{env.CCACHE_SETTINGS}}
-        make -j3
+        make -j3 || (cat "/home/runner/work/monero/monero/build/${{ matrix.toolchain.host }}/release/CMakeFiles/CMakeError.log" ; false)
 
   build-windows:
     runs-on: windows-latest
