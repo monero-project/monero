@@ -1682,6 +1682,60 @@ namespace wallet_rpc
     typedef epee::misc_utils::struct_init<response_t> response;
   };
 
+  struct COMMAND_RPC_ENCRYPT
+  {
+    struct request_t
+    {
+      std::string plaintext;
+      bool authenticated;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(plaintext);
+        KV_SERIALIZE(authenticated);
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<request_t> request;
+
+    struct response_t
+    {
+      std::string ciphertext_z85;
+      uint64_t pad;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(ciphertext_z85);
+        KV_SERIALIZE(pad);
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<response_t> response;
+  };
+
+  struct COMMAND_RPC_DECRYPT
+  {
+    struct request_t
+    {
+      std::string ciphertext_z85;
+      uint64_t pad;
+      bool authenticated;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(ciphertext_z85);
+        KV_SERIALIZE(pad);
+        KV_SERIALIZE(authenticated);
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<request_t> request;
+
+    struct response_t
+    {
+      std::string plaintext;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(plaintext);
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<response_t> response;
+  };
+
   struct COMMAND_RPC_EXPORT_OUTPUTS
   {
     struct request_t

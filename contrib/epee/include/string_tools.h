@@ -88,6 +88,7 @@ namespace string_tools
     return str;
   }
   std::string pad_string(std::string s, size_t n, char c = ' ', bool prepend = false);
+  std::string pad_to_div_by(size_t d, std::string s);
   
   //----------------------------------------------------------------------------
   template<class t_pod_type>

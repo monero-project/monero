@@ -33,6 +33,7 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/preprocessor/stringize.hpp>
 #include <cstdint>
+#include <zmq.h>
 #include "include_base_utils.h"
 using namespace epee;
 
@@ -2212,6 +2213,71 @@ namespace tools
       case tools::wallet2::sign_with_view_key: res.signature_type = "view"; break;
       default: res.signature_type = "invalid"; break;
     }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_encrypt(const wallet_rpc::COMMAND_RPC_ENCRYPT::request& req, wallet_rpc::COMMAND_RPC_ENCRYPT::response& res, epee::json_rpc::error& er, const connection_context *ctx)
+  {
+    if (!m_wallet) return not_open(er);
+    if (m_restricted)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_DENIED;
+      er.message = "Command unavailable in restricted mode.";
+      return false;
+    }
+
+    try
+    {
+      const auto& secret_key = m_wallet->get_account().get_keys().m_spend_secret_key;
+      auto padded_plaintext = string_tools::pad_to_div_by(4, req.plaintext);
+      res.pad = padded_plaintext.size() - req.plaintext.size();
+      auto ciphertext = m_wallet->encrypt(padded_plaintext, secret_key, req.authenticated);
+      const std::vector<uint8_t> binary(begin(ciphertext), end(ciphertext));
+      std::vector<char> z85(binary.size()*5/4 + 1);
+      if (not zmq_z85_encode(z85.data(), binary.data(), binary.size())) {
+        throw std::logic_error("z85 encode unsuccessful");
+      }
+      res.ciphertext_z85 = z85.data();
+    }
+    catch (const std::exception& e)
+    {
+      handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_ENCRYPT);
+      return false;
+    }
+
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_decrypt(const wallet_rpc::COMMAND_RPC_DECRYPT::request& req, wallet_rpc::COMMAND_RPC_DECRYPT::response& res, epee::json_rpc::error& er, const connection_context *ctx)
+  {
+    if (!m_wallet) return not_open(er);
+    if (m_restricted)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_DENIED;
+      er.message = "Command unavailable in restricted mode.";
+      return false;
+    }
+
+    try
+    {
+      if (req.ciphertext_z85.size() % 5 != 0) {
+        throw std::logic_error("ciphertext size to decrypt must be divisble by 5");
+      }
+      std::vector<uint8_t> binary(req.ciphertext_z85.size()*4/5);
+      if (not zmq_z85_decode(binary.data(), req.ciphertext_z85.data())) {
+        throw std::logic_error("z85 decode unsuccessful");
+      }
+      std::string binary_str(begin(binary), end(binary));
+      const auto& secret_key = m_wallet->get_account().get_keys().m_spend_secret_key;
+      res.plaintext = m_wallet->decrypt(binary_str, secret_key, req.authenticated);
+      if (req.pad) res.plaintext.resize(res.plaintext.size() - req.pad);
+    }
+    catch (const std::exception& e)
+    {
+      handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_DECRYPT);
+      return false;
+    }
+
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
