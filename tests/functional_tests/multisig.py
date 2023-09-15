@@ -37,100 +37,61 @@ import random
 from framework.daemon import Daemon
 from framework.wallet import Wallet
 
-MULTISIG_PUB_ADDRS = [
-  '45J58b7PmKJFSiNPFFrTdtfMcFGnruP7V4CMuRpX7NsH4j3jGHKAjo3YJP2RePX6HMaSkbvTbrWUFhDNcNcHgtNmQ3gr7sG', # 2/2
-  '44G2TQNfsiURKkvxp7gbgaJY8WynZvANnhmyMAwv6WeEbAvyAWMfKXRhh3uBXT2UAKhAsUJ7Fg5zjjF2U1iGciFk5duN94i', # 2/3
-  '41mro238grj56GnrWkakAKTkBy2yDcXYsUZ2iXCM9pe5Ueajd2RRc6Fhh3uBXT2UAKhAsUJ7Fg5zjjF2U1iGciFk5ief4ZP', # 3/3
-  '44vZSprQKJQRFe6t1VHgU4ESvq2dv7TjBLVGE7QscKxMdFSiyyPCEV64NnKUQssFPyWxc2meyt7j63F2S2qtCTRL6dakeff', # 3/4
-  '47puypSwsV1gvUDratmX4y58fSwikXVehEiBhVLxJA1gRCxHyrRgTDr4NnKUQssFPyWxc2meyt7j63F2S2qtCTRL6aRPj5U', # 2/4
-  '4A8RnBQixry4VXkqeWhmg8L7vWJVDJj4FN9PV4E7Mgad5ZZ6LKQdn8dYJP2RePX6HMaSkbvTbrWUFhDNcNcHgtNmQ4S8RSB'  # 1/2
+TEST_CASES = \
+[
+#  M  N  Primary Address
+  [2, 2, '45J58b7PmKJFSiNPFFrTdtfMcFGnruP7V4CMuRpX7NsH4j3jGHKAjo3YJP2RePX6HMaSkbvTbrWUFhDNcNcHgtNmQ3gr7sG'],
+  [2, 3, '44G2TQNfsiURKkvxp7gbgaJY8WynZvANnhmyMAwv6WeEbAvyAWMfKXRhh3uBXT2UAKhAsUJ7Fg5zjjF2U1iGciFk5duN94i'],
+  [3, 3, '41mro238grj56GnrWkakAKTkBy2yDcXYsUZ2iXCM9pe5Ueajd2RRc6Fhh3uBXT2UAKhAsUJ7Fg5zjjF2U1iGciFk5ief4ZP'],
+  [3, 4, '44vZSprQKJQRFe6t1VHgU4ESvq2dv7TjBLVGE7QscKxMdFSiyyPCEV64NnKUQssFPyWxc2meyt7j63F2S2qtCTRL6dakeff'],
+  [2, 4, '47puypSwsV1gvUDratmX4y58fSwikXVehEiBhVLxJA1gRCxHyrRgTDr4NnKUQssFPyWxc2meyt7j63F2S2qtCTRL6aRPj5U'],
+  [1, 2, '4A8RnBQixry4VXkqeWhmg8L7vWJVDJj4FN9PV4E7Mgad5ZZ6LKQdn8dYJP2RePX6HMaSkbvTbrWUFhDNcNcHgtNmQ4S8RSB']
 ]
+
+PUB_ADDRS = [case[2] for case in TEST_CASES]
 
 class MultisigTest():
     def run_test(self):
         self.reset()
-        for pub_addr in MULTISIG_PUB_ADDRS:
-          self.mine(pub_addr, 4)
+        for pub_addr in PUB_ADDRS:
+            self.mine(pub_addr, 4)
         self.mine('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 80)
 
         self.test_states()
 
-        self.fund_addrs_with_normal_wallet(MULTISIG_PUB_ADDRS)
+        self.fund_addrs_with_normal_wallet(PUB_ADDRS)
 
-        self.create_multisig_wallets(2, 2, '45J58b7PmKJFSiNPFFrTdtfMcFGnruP7V4CMuRpX7NsH4j3jGHKAjo3YJP2RePX6HMaSkbvTbrWUFhDNcNcHgtNmQ3gr7sG')
-        self.import_multisig_info([1, 0], 5)
-        txid = self.transfer([1, 0])
-        self.import_multisig_info([0, 1], 6)
-        self.check_transaction(txid)
+        for M, N, pub_addr in TEST_CASES:
+            assert M <= N
+            shuffled_participants = list(range(N))
+            random.shuffle(shuffled_participants)
+            shuffled_signers = shuffled_participants[:M]
 
-        self.remake_some_multisig_wallets_by_multsig_seed(2)
-        self.import_multisig_info([0, 1], 6) # six outputs, same as before
-        txid = self.transfer([0, 1])
-        self.import_multisig_info([0, 1], 7) # seven outputs b/c we're dest plus change
-        self.check_transaction(txid)
+            expected_outputs = 5 # each wallet owns four mined outputs & one transferred output
 
-        self.create_multisig_wallets(2, 3, '44G2TQNfsiURKkvxp7gbgaJY8WynZvANnhmyMAwv6WeEbAvyAWMfKXRhh3uBXT2UAKhAsUJ7Fg5zjjF2U1iGciFk5duN94i')
-        self.import_multisig_info([0, 2], 5)
-        txid = self.transfer([0, 2])
-        self.import_multisig_info([0, 1, 2], 6)
-        self.check_transaction(txid)
+            # Create multisig wallet and test transferring
+            self.create_multisig_wallets(M, N, pub_addr)
+            self.import_multisig_info(shuffled_signers if M != 1 else shuffled_participants, expected_outputs)
+            txid = self.transfer(shuffled_signers)
+            expected_outputs += 1
+            self.import_multisig_info(shuffled_participants, expected_outputs)
+            self.check_transaction(txid)
 
-        self.remake_some_multisig_wallets_by_multsig_seed(2)
-        self.import_multisig_info([0, 2], 6) # six outputs, same as before
-        txid = self.transfer([0, 2])
-        self.import_multisig_info([0, 1, 2], 7) # seven outputs b/c we're dest plus change
-        self.check_transaction(txid)
+            # If more than 1 signer, try to freeze key image of one signer, make tx using that key
+            # image on another signer, then have first signer sign multisg_txset. Should fail
+            if M != 1:
+                txid = self.try_transfer_frozen(shuffled_signers)
+                expected_outputs += 1
+                self.import_multisig_info(shuffled_participants, expected_outputs)
+                self.check_transaction(txid)
 
-        self.create_multisig_wallets(3, 3, '41mro238grj56GnrWkakAKTkBy2yDcXYsUZ2iXCM9pe5Ueajd2RRc6Fhh3uBXT2UAKhAsUJ7Fg5zjjF2U1iGciFk5ief4ZP')
-        self.import_multisig_info([2, 0, 1], 5)
-        txid = self.transfer([2, 1, 0])
-        self.import_multisig_info([0, 2, 1], 6)
-        self.check_transaction(txid)
-
-        self.remake_some_multisig_wallets_by_multsig_seed(3)
-        self.import_multisig_info([2, 0, 1], 6) # six outputs, same as before
-        txid = self.transfer([2, 1, 0])
-        self.import_multisig_info([0, 2, 1], 7) # seven outputs b/c we're dest plus change
-        self.check_transaction(txid)
-
-        self.create_multisig_wallets(3, 4, '44vZSprQKJQRFe6t1VHgU4ESvq2dv7TjBLVGE7QscKxMdFSiyyPCEV64NnKUQssFPyWxc2meyt7j63F2S2qtCTRL6dakeff')
-        self.import_multisig_info([0, 2, 3], 5)
-        txid = self.transfer([0, 2, 3])
-        self.import_multisig_info([0, 1, 2, 3], 6)
-        self.check_transaction(txid)
-
-        self.remake_some_multisig_wallets_by_multsig_seed(3)
-        self.import_multisig_info([0, 2, 3], 6) # six outputs, same as before
-        txid = self.transfer([0, 2, 3])
-        self.import_multisig_info([0, 1, 2, 3], 7) # seven outputs b/c we're dest plus change
-        self.check_transaction(txid)
-
-        self.create_multisig_wallets(2, 4, '47puypSwsV1gvUDratmX4y58fSwikXVehEiBhVLxJA1gRCxHyrRgTDr4NnKUQssFPyWxc2meyt7j63F2S2qtCTRL6aRPj5U')
-        self.import_multisig_info([1, 2], 5)
-        txid = self.transfer([1, 2])
-        self.import_multisig_info([0, 1, 2, 3], 6)
-        self.check_transaction(txid)
-        txid = self.try_transfer_frozen([2, 3])
-        self.import_multisig_info([0, 1, 2, 3], 7)
-        self.check_transaction(txid)
-
-        self.remake_some_multisig_wallets_by_multsig_seed(2)
-        self.import_multisig_info([0, 1, 2, 3], 6) # six outputs, same as before
-        txid = self.transfer([2, 3])
-        self.import_multisig_info([0, 1, 2, 3], 7) # seven outputs b/c we're dest plus change
-        self.check_transaction(txid)
-
-        self.create_multisig_wallets(1, 2, '4A8RnBQixry4VXkqeWhmg8L7vWJVDJj4FN9PV4E7Mgad5ZZ6LKQdn8dYJP2RePX6HMaSkbvTbrWUFhDNcNcHgtNmQ4S8RSB')
-        self.import_multisig_info([0, 1], 5)
-        txid = self.transfer([0])
-        self.import_multisig_info([0, 1], 6)
-        self.check_transaction(txid)
-
-        self.remake_some_multisig_wallets_by_multsig_seed(1)
-        self.import_multisig_info([0, 1], 6) # six outputs, same as before
-        txid = self.transfer([1])
-        self.import_multisig_info([0, 1], 7) # seven outputs b/c we're dest plus change
-        self.check_transaction(txid)
+            # Recreate wallet from multisig seed and test transferring
+            self.remake_some_multisig_wallets_by_multsig_seed(M)
+            self.import_multisig_info(shuffled_signers if M != 1 else shuffled_participants, expected_outputs)
+            txid = self.transfer(shuffled_signers)
+            expected_outputs += 1
+            self.import_multisig_info(shuffled_participants, expected_outputs)
+            self.check_transaction(txid)
 
     def reset(self):
         print('Resetting blockchain')
@@ -262,10 +223,10 @@ class MultisigTest():
 
     def remake_some_multisig_wallets_by_multsig_seed(self, threshold):
       N = len(self.wallet)
-      signers_to_remake = set()
       num_signers_to_remake = random.randint(1, N) # Do at least one
-      while len(signers_to_remake) < num_signers_to_remake:
-        signers_to_remake.add(random.randint(0, N - 1))
+      signers_to_remake = list(range(N))
+      random.shuffle(signers_to_remake)
+      signers_to_remake = signers_to_remake[:num_signers_to_remake]
 
       for i in signers_to_remake:
         print("Remaking {}/{} multsig wallet from multisig seed: #{}".format(threshold, N, i+1))
@@ -501,7 +462,7 @@ class MultisigTest():
         print("Attemping to sign with frozen key image. This should fail")
         try:
           res = self.wallet[signers[1]].sign_multisig(multisig_txset)
-          raise ValueError('sign_multisig should not have succeeded w/ fronzen enotes')
+          raise ValueError('sign_multisig should not have succeeded w/ frozen enotes')
         except AssertionError:
           pass
 
