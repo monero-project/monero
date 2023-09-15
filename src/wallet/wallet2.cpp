@@ -1001,6 +1001,24 @@ uint64_t num_priv_multisig_keys_post_setup(uint64_t threshold, uint64_t total)
   return n_multisig_keys;
 }
 
+/**
+ * @brief Derives the chacha key to encrypt wallet cache files given the chacha key to encrypt the wallet keys files
+ *
+ * @param keys_data_key the chacha key that encrypts wallet keys files
+ * @return crypto::chacha_key the chacha key that encrypts the wallet cache files
+ */
+crypto::chacha_key derive_cache_key(const crypto::chacha_key& keys_data_key)
+{
+  static_assert(HASH_SIZE == sizeof(crypto::chacha_key), "Mismatched sizes of hash and chacha key");
+
+  crypto::chacha_key cache_key;
+  epee::mlocked<tools::scrubbed_arr<char, HASH_SIZE+1>> cache_key_data;
+  memcpy(cache_key_data.data(), &keys_data_key, HASH_SIZE);
+  cache_key_data[HASH_SIZE] = config::HASH_KEY_WALLET_CACHE;
+  cn_fast_hash(cache_key_data.data(), HASH_SIZE+1, (crypto::hash&) cache_key);
+
+  return cache_key;
+}
   //-----------------------------------------------------------------
 } //namespace
 
@@ -4348,6 +4366,10 @@ boost::optional<wallet2::keys_file_data> wallet2::get_keys_file_data(const epee:
   crypto::chacha_key key;
   crypto::generate_chacha_key(password.data(), password.size(), key, m_kdf_rounds);
 
+  // We use m_cache_key as a deterministic test to see if given key corresponds to original password
+  const crypto::chacha_key cache_key = derive_cache_key(key);
+  THROW_WALLET_EXCEPTION_IF(cache_key != m_cache_key, error::invalid_password);
+
   if (m_ask_password == AskPasswordToDecrypt && !m_unattended && !m_watch_only)
   {
     account.encrypt_viewkey(key);
@@ -4575,11 +4597,8 @@ void wallet2::setup_keys(const epee::wipeable_string &password)
     m_account.decrypt_viewkey(key);
   }
 
-  static_assert(HASH_SIZE == sizeof(crypto::chacha_key), "Mismatched sizes of hash and chacha key");
-  epee::mlocked<tools::scrubbed_arr<char, HASH_SIZE+1>> cache_key_data;
-  memcpy(cache_key_data.data(), &key, HASH_SIZE);
-  cache_key_data[HASH_SIZE] = config::HASH_KEY_WALLET_CACHE;
-  cn_fast_hash(cache_key_data.data(), HASH_SIZE+1, (crypto::hash&)m_cache_key);
+  m_cache_key = derive_cache_key(key);
+
   get_ringdb_key();
 }
 //----------------------------------------------------------------------------------------------------
@@ -4588,9 +4607,8 @@ void wallet2::change_password(const std::string &filename, const epee::wipeable_
   if (m_ask_password == AskPasswordToDecrypt && !m_unattended && !m_watch_only)
     decrypt_keys(original_password);
   setup_keys(new_password);
-  rewrite(filename, new_password);
   if (!filename.empty())
-    store();
+    store_to(filename, new_password, true); // force rewrite keys file to possible new location
 }
 //----------------------------------------------------------------------------------------------------
 /*!
@@ -5083,6 +5101,10 @@ void wallet2::encrypt_keys(const crypto::chacha_key &key)
 
 void wallet2::decrypt_keys(const crypto::chacha_key &key)
 {
+  // We use m_cache_key as a deterministic test to see if given key corresponds to original password
+  const crypto::chacha_key cache_key = derive_cache_key(key);
+  THROW_WALLET_EXCEPTION_IF(cache_key != m_cache_key, error::invalid_password);
+
   m_account.encrypt_viewkey(key);
   m_account.decrypt_keys(key);
 }
@@ -6230,22 +6252,32 @@ void wallet2::store()
     store_to("", epee::wipeable_string());
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::store_to(const std::string &path, const epee::wipeable_string &password)
+void wallet2::store_to(const std::string &path, const epee::wipeable_string &password, bool force_rewrite_keys)
 {
   trim_hashchain();
 
+  const bool had_old_wallet_files = !m_wallet_file.empty();
+  THROW_WALLET_EXCEPTION_IF(!had_old_wallet_files && path.empty(), error::wallet_internal_error,
+    "Cannot resave wallet to current file since wallet was not loaded from file to begin with");
+
   // if file is the same, we do:
-  // 1. save wallet to the *.new file
-  // 2. remove old wallet file
-  // 3. rename *.new to wallet_name
+  // 1. overwrite the keys file iff force_rewrite_keys is specified
+  // 2. save cache to the *.new file
+  // 3. rename *.new to wallet_name, replacing old cache file
+  // else we do:
+  // 1. prepare new file names with "path" variable
+  // 2. store new keys files
+  // 3. remove old keys file
+  // 4. store new cache file
+  // 5. remove old cache file
 
   // handle if we want just store wallet state to current files (ex store() replacement);
-  bool same_file = true;
-  if (!path.empty())
+  bool same_file = had_old_wallet_files && path.empty();
+  if (had_old_wallet_files && !path.empty())
   {
-    std::string canonical_path = boost::filesystem::canonical(m_wallet_file).string();
-    size_t pos = canonical_path.find(path);
-    same_file = pos != std::string::npos;
+    const std::string canonical_old_path = boost::filesystem::canonical(m_wallet_file).string();
+    const std::string canonical_new_path = boost::filesystem::weakly_canonical(path).string();
+    same_file = canonical_old_path == canonical_new_path;
   }
 
 
@@ -6266,7 +6298,7 @@ void wallet2::store_to(const std::string &path, const epee::wipeable_string &pas
   }
 
   // get wallet cache data
-  boost::optional<wallet2::cache_file_data> cache_file_data = get_cache_file_data(password);
+  boost::optional<wallet2::cache_file_data> cache_file_data = get_cache_file_data();
   THROW_WALLET_EXCEPTION_IF(cache_file_data == boost::none, error::wallet_internal_error, "failed to generate wallet cache data");
 
   const std::string new_file = same_file ? m_wallet_file + ".new" : path;
@@ -6275,12 +6307,20 @@ void wallet2::store_to(const std::string &path, const epee::wipeable_string &pas
   const std::string old_address_file = m_wallet_file + ".address.txt";
   const std::string old_mms_file = m_mms_file;
 
-  // save keys to the new file
-  // if we here, main wallet file is saved and we only need to save keys and address files
-  if (!same_file) {
+  if (!same_file)
+  {
     prepare_file_names(path);
+  }
+
+  if (!same_file || force_rewrite_keys)
+  {
     bool r = store_keys(m_keys_file, password, false);
     THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, m_keys_file);
+  }
+
+  if (!same_file && had_old_wallet_files)
+  {
+    bool r = false;
     if (boost::filesystem::exists(old_address_file))
     {
       // save address to the new file
@@ -6292,11 +6332,6 @@ void wallet2::store_to(const std::string &path, const epee::wipeable_string &pas
       if (!r) {
         LOG_ERROR("error removing file: " << old_address_file);
       }
-    }
-    // remove old wallet file
-    r = boost::filesystem::remove(old_file);
-    if (!r) {
-      LOG_ERROR("error removing file: " << old_file);
     }
     // remove old keys file
     r = boost::filesystem::remove(old_keys_file);
@@ -6311,8 +6346,9 @@ void wallet2::store_to(const std::string &path, const epee::wipeable_string &pas
         LOG_ERROR("error removing file: " << old_mms_file);
       }
     }
-  } else {
-    // save to new file
+  }
+
+  // Save cache to new file. If storing to the same file, the temp path has the ".new" extension
 #ifdef WIN32
     // On Windows avoid using std::ofstream which does not work with UTF-8 filenames
     // The price to pay is temporary higher memory consumption for string stream + binary archive
@@ -6332,9 +6368,19 @@ void wallet2::store_to(const std::string &path, const epee::wipeable_string &pas
     THROW_WALLET_EXCEPTION_IF(!success || !ostr.good(), error::file_save_error, new_file);
 #endif
 
+  if (same_file)
+  {
     // here we have "*.new" file, we need to rename it to be without ".new"
     std::error_code e = tools::replace_file(new_file, m_wallet_file);
     THROW_WALLET_EXCEPTION_IF(e, error::file_save_error, m_wallet_file, e);
+  }
+  else if (!same_file && had_old_wallet_files)
+  {
+    // remove old wallet file
+    bool r = boost::filesystem::remove(old_file);
+    if (!r) {
+      LOG_ERROR("error removing file: " << old_file);
+    }
   }
   
   if (m_message_store.get_active())
@@ -6345,7 +6391,7 @@ void wallet2::store_to(const std::string &path, const epee::wipeable_string &pas
   }
 }
 //----------------------------------------------------------------------------------------------------
-boost::optional<wallet2::cache_file_data> wallet2::get_cache_file_data(const epee::wipeable_string &passwords)
+boost::optional<wallet2::cache_file_data> wallet2::get_cache_file_data()
 {
   trim_hashchain();
   try
