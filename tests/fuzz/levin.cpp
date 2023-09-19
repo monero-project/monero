@@ -56,7 +56,8 @@ namespace
   {
     static constexpr int handshake_command() noexcept { return 1001; }
     static constexpr bool handshake_complete() noexcept { return true; }
-    size_t get_max_bytes(int command) const { return LEVIN_DEFAULT_MAX_PACKET_SIZE; }
+    static constexpr size_t pad_max(int command) noexcept { return 0; }
+    static constexpr size_t get_max_bytes(int command) noexcept { return LEVIN_DEFAULT_MAX_PACKET_SIZE; }
   };
 
   typedef epee::levin::async_protocol_handler_config<test_levin_connection_context> test_levin_protocol_handler_config;
@@ -151,7 +152,7 @@ namespace
     void start()
     {
       using base_type = epee::net_utils::connection_context_base;
-      static_cast<base_type&>(context) = base_type{boost::uuids::random_generator{}(), {}, true, false};
+      static_cast<base_type&>(context) = base_type{boost::uuids::random_generator{}(), {}, true, epee::net_utils::ssl_support_t::e_ssl_support_disabled};
       m_protocol_handler.m_config.after_init_connection(shared_from_this());
     }
 

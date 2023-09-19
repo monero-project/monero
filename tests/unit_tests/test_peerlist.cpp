@@ -82,7 +82,7 @@ TEST(peer_list, rejects_ipv4_link_local_by_default)
   const nodetool::peerlist_entry public_peer{
     epee::net_utils::ipv4_network_address{MAKE_IP(123, 45, 67, 89), 18080}, 2, 0};
   ASSERT_TRUE(plm.merge_peerlist({link_local, public_peer}));
-  ASSERT_TRUE(plm.append_with_peer_white(link_local));
+  ASSERT_TRUE(bool(plm.append_with_peer_white(link_local)));
 
   std::vector<nodetool::peerlist_entry> gray;
   std::vector<nodetool::peerlist_entry> white;
