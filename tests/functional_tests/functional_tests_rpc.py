@@ -51,14 +51,14 @@ WALLET_DIRECTORY = builddir + "/functional-tests-directory"
 FUNCTIONAL_TESTS_DIRECTORY = builddir + "/tests/functional_tests"
 DIFFICULTY = 10
 
-monerod_base = [builddir + "/bin/monerod", "--regtest", "--fixed-difficulty", str(DIFFICULTY), "--p2p-bind-port", "monerod_p2p_port", "--rpc-bind-port", "monerod_rpc_port", "--zmq-rpc-bind-port", "monerod_zmq_port", "--zmq-pub", "monerod_zmq_pub", "--non-interactive", "--disable-dns-checkpoints", "--check-updates", "disabled", "--rpc-ssl", "disabled", "--data-dir", "monerod_data_dir", "--log-level", "1", "--rpc-max-connections-per-private-ip", "100", "--rpc-max-connections", "100"]
+monerod_base = [builddir + "/bin/monerod", "--regtest", "--fixed-difficulty", str(DIFFICULTY), "--p2p-bind-port", "monerod_p2p_port", "--rpc-bind-port", "monerod_rpc_port", "--zmq-rpc-bind-port", "monerod_zmq_port", "--zmq-pub", "monerod_zmq_pub", "--non-interactive", "--disable-dns-checkpoints", "--check-updates", "disabled", "--rpc-ssl", "disabled", "--data-dir", "monerod_data_dir", "--log-level", "1", "--rpc-max-connections-per-private-ip", "100", "--rpc-max-connections", "100", "--max-connections-per-ip", "10"]
 
 monerod_extra = [
   ["--offline"],
   ["--offline"],
-  ["--add-exclusive-node", "127.0.0.1:18283"],
-  ["--add-exclusive-node", "127.0.0.1:18282"],
-  ["--rpc-login", "md5_lover:Z1ON0101", "--offline"],
+  ["--add-exclusive-node", "127.0.0.1:18283", "--add-exclusive-node", "127.0.0.1:18284", "--p2p-disable-encryption"],
+  ["--add-exclusive-node", "127.0.0.1:18282", "--add-exclusive-node", "127.0.0.1:18284"],
+  ["--rpc-login", "md5_lover:Z1ON0101", "--add-exclusive-node", "127.0.0.1:18282,no_encryption", "--add-exclusive-node", "127.0.0.1:18283"],
 ]
 wallet_base = [builddir + "/bin/monero-wallet-rpc", "--wallet-dir", WALLET_DIRECTORY, "--rpc-bind-port", "wallet_port", "--rpc-ssl", "disabled", "--daemon-ssl", "disabled", "--log-level", "1", "--allow-mismatched-daemon-version"]
 wallet_extra = [
