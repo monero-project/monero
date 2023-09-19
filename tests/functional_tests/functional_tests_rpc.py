@@ -56,9 +56,9 @@ monerod_base = [builddir + "/bin/monerod", "--regtest", "--fixed-difficulty", st
 monerod_extra = [
   ["--offline"],
   ["--rpc-payment-address", "44SKxxLQw929wRF6BA9paQ1EWFshNnKhXM3qz6Mo3JGDE2YG3xyzVutMStEicxbQGRfrYvAAYxH6Fe8rnD56EaNwUiqhcwR", "--rpc-payment-difficulty", str(DIFFICULTY), "--rpc-payment-credits", "5000", "--offline"],
-  ["--add-exclusive-node", "127.0.0.1:18283"],
-  ["--add-exclusive-node", "127.0.0.1:18282"],
-  ["--rpc-login", "md5_lover:Z1ON0101", "--offline"],
+  ["--add-exclusive-node", "127.0.0.1:18283", "--add-exclusive-node", "127.0.0.1:18284", "--p2p-disable-encryption"],
+  ["--add-exclusive-node", "127.0.0.1:18282", "--add-exclusive-node", "127.0.0.1:18284"],
+  ["--rpc-login", "md5_lover:Z1ON0101", "--add-exclusive-node", "127.0,0,1:18282,no_encryption", "--add-exclusive-node", "127.0.0.1:18283"],
 ]
 wallet_base = [builddir + "/bin/monero-wallet-rpc", "--wallet-dir", WALLET_DIRECTORY, "--rpc-bind-port", "wallet_port", "--rpc-ssl", "disabled", "--daemon-ssl", "disabled", "--log-level", "1", "--allow-mismatched-daemon-version"]
 wallet_extra = [
