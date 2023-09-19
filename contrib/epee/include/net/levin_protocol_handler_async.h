@@ -526,7 +526,7 @@ public:
               if (m_current_head.m_command == m_connection_context.handshake_command() && m_connection_context.handshake_complete())
                 m_max_packet_size = m_config.m_max_packet_size;
 
-              if(!send_message(return_message.finalize_response(m_current_head.m_command, return_code)))
+              if(!send_message(return_message.finalize_response(m_current_head.m_command, return_code, m_connection_context.should_pad())))
                 return false;
             }
             else
@@ -620,7 +620,7 @@ public:
       if (command == m_connection_context.handshake_command())
         m_max_packet_size = m_config.m_max_packet_size;
 
-      if(!send_message(in_msg.finalize_invoke(command)))
+      if(!send_message(in_msg.finalize_invoke(command, m_connection_context.should_pad())))
       {
         LOG_ERROR_CC(m_connection_context, "Failed to do_send");
         err_code = LEVIN_ERROR_CONNECTION;
