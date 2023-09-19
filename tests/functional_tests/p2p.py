@@ -59,6 +59,7 @@ class P2PTest():
         txid = self.test_p2p_tx_propagation()
         self.test_p2p_block_propagation_new(txid)
         self.bench_p2p_heavy_block_propagation_speed()
+        self.test_p2p_ssl()
 
     def reset(self):
         print('Resetting blockchain')
@@ -92,6 +93,8 @@ class P2PTest():
         daemon3 = Daemon(idx = 3)
 
         # give sync some time
+        daemon2.stop_mining()
+        daemon3.stop_mining()
         time.sleep(1)
 
         res = daemon2.get_info()
@@ -106,7 +109,9 @@ class P2PTest():
 
         # disconnect daemons and mine separately on both
         daemon2.out_peers(0)
+        daemon2.in_peers(0)
         daemon3.out_peers(0)
+        daemon3.in_peers(0)
 
         res = daemon2.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 2)
         res = daemon3.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 3)
@@ -123,7 +128,9 @@ class P2PTest():
 
         # reconnect, daemon2 will now switch to daemon3's chain
         daemon2.out_peers(8)
+        daemon2.in_peers(8)
         daemon3.out_peers(8)
+        daemon3.in_peers(8)
         time.sleep(10)
         res = daemon2.get_info()
         assert res.height == height + 3
@@ -131,7 +138,9 @@ class P2PTest():
 
         # disconect, mine on daemon2 again more than daemon3
         daemon2.out_peers(0)
+        daemon2.in_peers(0)
         daemon3.out_peers(0)
+        daemon3.in_peers(0)
 
         res = daemon2.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 3)
         res = daemon3.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 2)
@@ -148,7 +157,9 @@ class P2PTest():
 
         # reconnect, daemon3 will now switch to daemon2's chain
         daemon2.out_peers(8)
+        daemon2.in_peers(8)
         daemon3.out_peers(8)
+        daemon3.in_peers(8)
         time.sleep(5)
         res = daemon3.get_info()
         assert res.height == height + 6
@@ -156,12 +167,16 @@ class P2PTest():
 
         # disconnect and mine a lot on daemon3
         daemon2.out_peers(0)
+        daemon2.in_peers(0)
         daemon3.out_peers(0)
+        daemon2.in_peers(0)
         res = daemon3.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 500)
 
         # reconnect and wait for sync
         daemon2.out_peers(8)
+        daemon2.in_peers(8)
         daemon3.out_peers(8)
+        daemon3.in_peers(8)
         deadline = time.monotonic() + 240
         result = None
         while result is None:
@@ -182,6 +197,9 @@ class P2PTest():
         for daemon in daemons:
             res = daemon.get_transaction_pool_hashes()
             assert len(res.get('tx_hashes', [])) == 0
+
+        for daemon in daemons:
+            daemon.stop_mining()
 
         self.wallet.refresh()
         res = self.wallet.get_balance()
@@ -453,6 +471,30 @@ class P2PTest():
         print('        Median mining time: {:.2f}'.format(median_mining))
         print('        Average block propagation time: {:.2f}'.format(avg_prop))
         print('        Median block propagation time: {:.2f}'.format(median_prop))
+
+    def test_p2p_ssl(self):
+        print('Testing P2P SSL')
+        daemon2 = Daemon(idx = 2)
+        daemon3 = Daemon(idx = 3)
+        daemon4 = Daemon(idx = 4, username="md5_lover", password="Z1ON0101")
+
+        connections = daemon2.get_connections().connections
+        for connection in connections:
+            assert connection.ssl == 0
+
+        connections = daemon3.get_connections().connections
+        for connection in connections:
+            if connection.port == "18282":
+                assert connection.ssl == 0
+            elif connection.port == "18284":
+                assert connection.ssl == 2
+
+        connections = daemon4.get_connections().connections
+        for connection in connections:
+            if connection.port == "18282":
+                assert connection.ssl == 0
+            elif connection.port == "18283":
+                assert connection.ssl == 2
 
 if __name__ == '__main__':
     P2PTest().run_test()

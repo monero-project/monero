@@ -111,7 +111,8 @@ namespace epee
       levin::message_writer to_send;
       stg.store_to_binary(to_send.buffer);
 
-      int res = transport.send(to_send.finalize_notify(command), conn_id);
+      const bool ssl = (context.m_ssl != ssl_support_t::e_ssl_support_disabled);
+      int res = transport.send(to_send.finalize_notify(command, ssl), conn_id);
       if(res <=0 )
       {
         MERROR("Failed to notify command " << command << " return code " << res);
