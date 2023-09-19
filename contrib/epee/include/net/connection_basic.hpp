@@ -118,12 +118,11 @@ class connection_basic { // not-templated base class for rapid development of so
     boost::asio::io_context::strand strand_;
     /// Socket for the connection.
     boost::asio::ssl::stream<boost::asio::ip::tcp::socket> socket_;
-    ssl_support_t m_ssl_support;
 
 	public:
 		// first counter is the ++/-- count of current sockets, the other socket_number is only-increasing ++ number generator
-		connection_basic(boost::asio::io_context &context, boost::asio::ip::tcp::socket&& sock, std::shared_ptr<connection_basic_shared_state> state, ssl_support_t ssl_support);
-		connection_basic(boost::asio::io_context &context, std::shared_ptr<connection_basic_shared_state> state, ssl_support_t ssl_support);
+		connection_basic(boost::asio::io_context &context, boost::asio::ip::tcp::socket&& sock, std::shared_ptr<connection_basic_shared_state> state);
+		connection_basic(boost::asio::io_context &context, std::shared_ptr<connection_basic_shared_state> state);
 
 		virtual ~connection_basic() noexcept(false);
 
@@ -131,41 +130,6 @@ class connection_basic { // not-templated base class for rapid development of so
 		connection_basic_shared_state& get_state() noexcept { return *m_state; /* verified in constructor */ }
 
 		boost::asio::ip::tcp::socket& socket() { return socket_.next_layer(); }
-		ssl_support_t get_ssl_support() const { return m_ssl_support; }
-		void disable_ssl() { m_ssl_support = epee::net_utils::ssl_support_t::e_ssl_support_disabled; }
-
-		bool handshake(boost::asio::ssl::stream_base::handshake_type type, boost::asio::const_buffer buffer = {})
-		{
-			//m_state != nullptr verified in constructor
-			return m_state->ssl_options().handshake(strand_.context(), socket_, type, buffer);
-		}
-
-		template<typename MutableBufferSequence, typename ReadHandler>
-		void async_read_some(const MutableBufferSequence &buffers, ReadHandler &&handler)
-		{
-			if (m_ssl_support == epee::net_utils::ssl_support_t::e_ssl_support_enabled)
-				socket_.async_read_some(buffers, std::forward<ReadHandler>(handler));
-			else
-				socket().async_read_some(buffers, std::forward<ReadHandler>(handler));
-		}
-
-		template<typename ConstBufferSequence, typename WriteHandler>
-		void async_write_some(const ConstBufferSequence &buffers, WriteHandler &&handler)
-		{
-			if (m_ssl_support == epee::net_utils::ssl_support_t::e_ssl_support_enabled)
-				socket_.async_write_some(buffers, std::forward<WriteHandler>(handler));
-			else
-				socket().async_write_some(buffers, std::forward<WriteHandler>(handler));
-		}
-
-		template<typename ConstBufferSequence, typename WriteHandler>
-		void async_write(const ConstBufferSequence &buffers, WriteHandler &&handler)
-		{
-			if (m_ssl_support == epee::net_utils::ssl_support_t::e_ssl_support_enabled)
-				boost::asio::async_write(socket_, buffers, std::forward<WriteHandler>(handler));
-			else
-				boost::asio::async_write(socket(), buffers, std::forward<WriteHandler>(handler));
-		}
 
 		// various handlers to be called from connection class:
 

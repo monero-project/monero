@@ -30,6 +30,9 @@
 
 set(MONERO_WALLET_CRYPTO_BENCH "auto" CACHE STRING "Select wallet crypto libraries for benchmarking")
 
+#add_executable(serialization_verify serialization_verify.cpp)
+#target_link_libraries(serialization_verify epee serialization)
+
 # The docs say this only affects grouping in IDEs
 set(folder "tests")
 set(TEST_DATA_DIR "${CMAKE_CURRENT_BINARY_DIR}/data")

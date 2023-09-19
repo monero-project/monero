@@ -42,7 +42,7 @@
 #include <boost/multi_index/member.hpp>
 #include <boost/optional/optional.hpp>
 #include <boost/range/adaptor/reversed.hpp>
-
+#include <optional>
 
 #include "crypto/crypto.h"
 #include "cryptonote_config.h"
@@ -108,10 +108,10 @@ namespace nodetool
     void get_peerlist(peerlist_types& peers);
     template<typename F> bool foreach(bool white, const F &f);
     void evict_host_from_peerlist(bool white, const peerlist_entry& pr);
-    bool append_with_peer_white(const peerlist_entry& pr, bool trust_last_seen = false);
+    std::optional<peerlist_entry> append_with_peer_white(peerlist_entry pr, bool trust_last_seen = false, bool from_cli = false, bool keep_existing_ssl = false);
     bool append_with_peer_gray(const peerlist_entry& pr);
     bool append_with_peer_anchor(const anchor_peerlist_entry& ple);
-    bool set_peer_just_seen(peerid_type peer, const epee::net_utils::network_address& addr, uint32_t pruning_seed, uint16_t rpc_port, uint32_t rpc_credits_per_hash);
+    bool set_peer_just_seen(peerid_type peer, const epee::net_utils::network_address& addr, uint32_t pruning_seed, uint16_t rpc_port, uint32_t rpc_credits_per_hash, std::string finger, const uint8_t encryption_mode);
     bool is_host_allowed(const epee::net_utils::network_address &address);
     bool get_random_gray_peer(peerlist_entry& pe);
     bool remove_from_peer_gray(const peerlist_entry& pe);
@@ -268,28 +268,27 @@ namespace nodetool
   }
   //--------------------------------------------------------------------------------------------------
   inline
-  bool peerlist_manager::set_peer_just_seen(peerid_type peer, const epee::net_utils::network_address& addr, uint32_t pruning_seed, uint16_t rpc_port, uint32_t rpc_credits_per_hash)
+  bool peerlist_manager::set_peer_just_seen(peerid_type peer, const epee::net_utils::network_address& addr, uint32_t pruning_seed, uint16_t rpc_port, uint32_t rpc_credits_per_hash, std::string finger, const uint8_t encryption_mode)
   {
     TRY_ENTRY();
     CRITICAL_REGION_LOCAL(m_peerlist_lock);
     //find in white list
-    peerlist_entry ple;
-    ple.adr = addr;
-    ple.id = peer;
+    peerlist_entry ple{addr, std::move(finger), peer};
     ple.last_seen = time(NULL);
     ple.pruning_seed = pruning_seed;
     ple.rpc_port = rpc_port;
     ple.rpc_credits_per_hash = rpc_credits_per_hash;
-    return append_with_peer_white(ple, true);
+    ple.encryption_mode = encryption_mode;
+    return bool(append_with_peer_white(ple, true)); // could be forced ssl or clearnet
     CATCH_ENTRY_L0("peerlist_manager::set_peer_just_seen()", false);
   }
   //--------------------------------------------------------------------------------------------------
   inline
-  bool peerlist_manager::append_with_peer_white(const peerlist_entry& ple, bool trust_last_seen)
+  std::optional<peerlist_entry> peerlist_manager::append_with_peer_white(peerlist_entry ple, const bool trust_last_seen, const bool from_cli, const bool keep_existing_ssl)
   {
     TRY_ENTRY();
     if(!is_host_allowed(ple.adr))
-      return true;
+      return ple;
 
      CRITICAL_REGION_LOCAL(m_peerlist_lock);
     //find in white list
@@ -302,15 +301,19 @@ namespace nodetool
       trim_white_peerlist();
     }else
     {
-      //update record in white list
-      peerlist_entry new_ple = ple;
       if (by_addr_it_wt->pruning_seed && ple.pruning_seed == 0) // guard against older nodes not passing pruning info around
-        new_ple.pruning_seed = by_addr_it_wt->pruning_seed;
+        ple.pruning_seed = by_addr_it_wt->pruning_seed;
       if (by_addr_it_wt->rpc_port && ple.rpc_port == 0) // guard against older nodes not passing RPC port around
-        new_ple.rpc_port = by_addr_it_wt->rpc_port;
+        ple.rpc_port = by_addr_it_wt->rpc_port;
       if (!trust_last_seen)
-        new_ple.last_seen = by_addr_it_wt->last_seen; // do not overwrite the last seen timestamp, incoming peer lists are untrusted
-      m_peers_white.replace(by_addr_it_wt, new_ple);
+        ple.last_seen = by_addr_it_wt->last_seen; // do not overwrite the last seen timestamp, incoming peer lists are untrusted
+      if (keep_existing_ssl || (!from_cli && by_addr_it_wt->ssl_override))
+      {
+        ple.ssl_override = by_addr_it_wt->ssl_override;
+        ple.encryption_mode = by_addr_it_wt->encryption_mode;
+        ple.cert_finger = by_addr_it_wt->cert_finger;
+      }
+      m_peers_white.replace(by_addr_it_wt, ple);
     }
     //remove from gray list, if need
     auto by_addr_it_gr = m_peers_gray.get<by_addr>().find(ple.adr);
@@ -318,8 +321,8 @@ namespace nodetool
     {
       m_peers_gray.erase(by_addr_it_gr);
     }
-    return true;
-    CATCH_ENTRY_L0("peerlist_manager::append_with_peer_white()", false);
+    return ple;
+    CATCH_ENTRY_L0("peerlist_manager::append_with_peer_white()", std::nullopt);
   }
   //--------------------------------------------------------------------------------------------------
   inline
@@ -337,20 +340,30 @@ namespace nodetool
 
     //update gray list
     auto by_addr_it_gr = m_peers_gray.get<by_addr>().find(ple.adr);
+
+    peerlist_entry new_ple = ple;
+    
     if(by_addr_it_gr == m_peers_gray.get<by_addr>().end())
     {
-      //put new record into white list
-      m_peers_gray.insert(ple);
+      // Do not trust encryption information from 3rd parties
+      new_ple.encryption_mode = emode_ssl_autodetect;
+      new_ple.cert_finger.clear();
+
+      m_peers_gray.insert(new_ple);
       trim_gray_peerlist();    
     }else
     {
       //update record in gray list
-      peerlist_entry new_ple = ple;
       if (by_addr_it_gr->pruning_seed && ple.pruning_seed == 0) // guard against older nodes not passing pruning info around
         new_ple.pruning_seed = by_addr_it_gr->pruning_seed;
       if (by_addr_it_gr->rpc_port && ple.rpc_port == 0) // guard against older nodes not passing RPC port around
         new_ple.rpc_port = by_addr_it_gr->rpc_port;
       new_ple.last_seen = by_addr_it_gr->last_seen; // do not overwrite the last seen timestamp, incoming peer list are untrusted
+
+      // use existing values for encryption on replace
+      new_ple.encryption_mode = by_addr_it_gr->encryption_mode;
+      new_ple.cert_finger = by_addr_it_gr->cert_finger;
+
       m_peers_gray.replace(by_addr_it_gr, new_ple);
     }
     return true;
@@ -361,7 +374,6 @@ namespace nodetool
   bool peerlist_manager::append_with_peer_anchor(const anchor_peerlist_entry& ple)
   {
     TRY_ENTRY();
-
     CRITICAL_REGION_LOCAL(m_peerlist_lock);
 
     auto by_addr_it_anchor = m_peers_anchor.get<by_addr>().find(ple.adr);

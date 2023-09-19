@@ -49,7 +49,7 @@ namespace epee
 namespace net_utils
 {
 	enum class ssl_support_t: uint8_t {
-		e_ssl_support_disabled,
+		e_ssl_support_disabled = 0,
 		e_ssl_support_enabled,
 		e_ssl_support_autodetect,
 	};
@@ -61,6 +61,8 @@ namespace net_utils
     user_certificates,//!< Verify peer via specific (non-chain) certificate(s) only.
     user_ca           //!< Verify peer via specific (possibly chain) certificate(s) only.
   };
+
+  enum class ssl_public_t : uint8_t { rsa4096 = 0, ed25519, ed448 };
 
   struct ssl_authentication_t
   {
@@ -85,6 +87,7 @@ namespace net_utils
     ssl_authentication_t auth;
     ssl_support_t support;
     ssl_verification_t verification;
+    ssl_public_t local_cert_type;
 
     //! Verification is set to system ca unless SSL is disabled.
     ssl_options_t(ssl_support_t support)
@@ -92,7 +95,8 @@ namespace net_utils
         ca_path(),
         auth(),
         support(support),
-        verification(support == ssl_support_t::e_ssl_support_disabled ? ssl_verification_t::none : ssl_verification_t::system_ca)
+        verification(support == ssl_support_t::e_ssl_support_disabled ? ssl_verification_t::none : ssl_verification_t::system_ca),
+        local_cert_type(ssl_public_t::ed448)
     {}
 
     //! Provide user fingerprints and/or ca path. Enables SSL and user_certificate verification
@@ -110,6 +114,9 @@ namespace net_utils
     //! \return True if `host` can be verified using `this` configuration WITHOUT system "root" CAs.
     bool has_strong_verification(boost::string_ref host) const noexcept;
 
+    //! \return All fingerprints
+    const std::vector<std::vector<std::uint8_t>>& fingerprints() const noexcept { return fingerprints_; }
+
     //! Search against internal fingerprints. Always false if `behavior() != user_certificate_check`.
     bool has_fingerprint(boost::asio::ssl::verify_context &ctx) const;
 
@@ -118,6 +125,7 @@ namespace net_utils
       boost::asio::ssl::stream<boost::asio::ip::tcp::socket> &socket,
       boost::asio::ssl::stream_base::handshake_type type,
       const std::string& host = {}) const;
+
     boost::asio::ssl::context create_context() const;
 
     /*! \note If `this->support == autodetect && this->verification != none`,
@@ -158,7 +166,32 @@ namespace net_utils
 	bool is_ssl(const unsigned char *data, size_t len);
 	bool ssl_support_from_string(ssl_support_t &ssl, boost::string_ref s);
 
-	bool create_rsa_ssl_certificate(EVP_PKEY *&pkey, X509 *&cert);
+  //! See cpp for discussion on certificate type
+	bool create_ssl_certificate(EVP_PKEY *&pkey, X509 *&cert, ssl_public_t type);
+
+  std::vector<std::uint8_t> convert_fingerprint(const boost::string_ref id);
+
+  /**
+   * @brief Create a binary X509 certificate fingerprint
+   *
+   * @param[in] cert The certificate which will be used to create the fingerprint
+   * @param[in] fdig The digest algorithm to use, defaults to SHA-256 b/c that is what ssl_options_t uses
+   * @return The binary fingerprint string
+   *
+   * @throw boost::system_error if there is an OpenSSL error
+   */
+  std::string get_ssl_fingerprint(const X509 *cert, const EVP_MD *fdig = EVP_sha256());
+
+  /**
+   * @brief Create a binary X509 certificate fingerprint
+   *
+   * @param[in] context The context for the current certificate.
+   * @param[in] fdig The digest algorithm to use, defaults to SHA-256 b/c that is what ssl_options_t uses
+   * @return The binary fingerprint string
+   *
+   * @throw boost::system_error if there is an OpenSSL error
+   */
+  std::string get_ssl_fingerprint(boost::asio::ssl::context& context, const EVP_MD *fdig = EVP_sha256());
 
   /**
    * @brief Create a human-readable X509 certificate fingerprint
