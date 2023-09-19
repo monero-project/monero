@@ -56,6 +56,7 @@ namespace
 
   struct test_connection_context : public epee::net_utils::connection_context_base
   {
+    static constexpr size_t pad_max(int) noexcept { return 0; }
   };
 
   struct test_protocol_handler_config
@@ -172,6 +173,7 @@ TEST(boosted_tcp_server, bound_ports_reflect_successful_listeners)
 TEST(test_epee_connection, test_lifetime)
 {
   struct context_t: epee::net_utils::connection_context_base {
+    static constexpr size_t pad_max(int) noexcept { return 0; }
     static constexpr size_t get_max_bytes(int) noexcept { return -1; }
     static constexpr int handshake_command() noexcept { return 1001; }
     static constexpr bool handshake_complete() noexcept { return true; }
@@ -269,7 +271,7 @@ TEST(test_epee_connection, test_lifetime)
     auto create_connection = [&io_context, &endpoint, &shared_state] {
         connection_ptr conn(new connection_t(io_context, shared_state, {}, {}));
         conn->socket().connect(endpoint);
-        EXPECT_TRUE(conn->start({}, {}));
+        EXPECT_TRUE(conn->start({}, {}, epee::net_utils::ssl_support_t::e_ssl_support_disabled));
         context_t context;
         conn->get_context(context);
         auto tag = context.m_connection_id;
@@ -358,7 +360,7 @@ TEST(test_epee_connection, test_lifetime)
     );
     connection_ptr conn(new connection_t(io_context, shared_state, {}, {}));
     conn->socket().connect(endpoint);
-    conn->start({}, {});
+    conn->start({}, {}, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
     ASSERT_TRUE(shared_state->get_connections_count() == 1);
     shared_state->del_out_connections(1);
     ASSERT_TRUE(shared_state->get_connections_count() == 0);
@@ -392,7 +394,7 @@ TEST(test_epee_connection, test_lifetime)
         boost::system::error_code connect_error;
         conn->socket().connect(endpoint, connect_error);
         ASSERT_FALSE(connect_error);
-        conn->start({}, {});
+        conn->start({}, {}, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
         lock_guard_t guard(shared_conn->lock);
         shared_conn->conn = conn;
       }
@@ -430,7 +432,7 @@ TEST(test_epee_connection, test_lifetime)
         for (auto i = 0; i < N * N; ++i) {
           connection_ptr conn(new connection_t(io_context, s, {}, {}));
           conn->socket().connect(endpoint);
-          conn->start({}, {});
+          conn->start({}, {}, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
           boost::asio::post(io_context, [conn] { conn->cancel(); });
           conn.reset();
           s->del_out_connections(1);
@@ -446,13 +448,13 @@ TEST(test_epee_connection, test_lifetime)
         for (auto i = 0; i < N * N; ++i) {
           connection_ptr conn(new connection_t(io_context, s, {}, {}));
           conn->socket().connect(endpoint);
-          conn->start({}, {});
+          conn->start({}, {}, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
           conn->cancel();
           while (conn.use_count() > 1);
           s->foreach_connection([&io_context, &s, &endpoint, &conn](context_t& context){
             conn.reset(new connection_t(io_context, s, {}, {}));
             conn->socket().connect(endpoint);
-            conn->start({}, {});
+            conn->start({}, {}, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
             conn->cancel();
             while (conn.use_count() > 1);
             conn.reset();
@@ -470,7 +472,7 @@ TEST(test_epee_connection, test_lifetime)
         for (auto i = 0; i < N; ++i) {
           connection_ptr conn(new connection_t(io_context, s, {}, {}));
           conn->socket().connect(endpoint);
-          conn->start({}, {});
+          conn->start({}, {}, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
           context_t context;
           conn->get_context(context);
           auto tag = context.m_connection_id;
@@ -479,7 +481,7 @@ TEST(test_epee_connection, test_lifetime)
           s->for_connection(tag, [&io_context, &s, &endpoint, &conn](context_t& context){
             conn.reset(new connection_t(io_context, s, {}, {}));
             conn->socket().connect(endpoint);
-            conn->start({}, {});
+            conn->start({}, {}, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
             conn->cancel();
             while (conn.use_count() > 1);
             conn.reset();
@@ -497,7 +499,7 @@ TEST(test_epee_connection, test_lifetime)
         for (auto i = 0; i < N; ++i) {
           connection_ptr conn(new connection_t(io_context, s, {}, {}));
           conn->socket().connect(endpoint);
-          conn->start({}, {});
+          conn->start({}, {}, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
           context_t context;
           conn->get_context(context);
           auto tag = context.m_connection_id;
@@ -528,6 +530,7 @@ TEST(test_epee_connection, test_lifetime)
 TEST(test_epee_connection, ssl_shutdown)
 {
   struct context_t: epee::net_utils::connection_context_base {
+    static constexpr size_t pad_max(int) noexcept { return 0; }
     static constexpr size_t get_max_bytes(int) noexcept { return -1; }
     static constexpr int handshake_command() noexcept { return 1001; }
     static constexpr bool handshake_complete() noexcept { return true; }
@@ -638,6 +641,7 @@ namespace
 {
   struct shutdown_handler_t;
   struct shutdown_context_t: epee::net_utils::connection_context_base {
+    static constexpr size_t pad_max(int) noexcept { return 0; }
     static constexpr size_t get_max_bytes(int) noexcept { return -1; }
     static constexpr int handshake_command() noexcept { return 1001; }
     static constexpr bool handshake_complete() noexcept { return true; }
@@ -723,7 +727,7 @@ TEST(boosted_tcp_server, shutdown)
           server.connect(
             endpoint.address().to_string(),
             std::to_string(endpoint.port()),
-            5,
+            std::chrono::milliseconds{5},
             context,
             "0.0.0.0",
             epee::net_utils::ssl_support_t::e_ssl_support_disabled
@@ -810,10 +814,9 @@ namespace
       socket.async_connect(acceptor.local_endpoint(), [](auto error) { EXPECT_FALSE(error); });
       ASSERT_EQ(2u, context.run());
       connection = std::make_shared<connection_t>(
-        context, std::move(socket), shared, GetParam(),
-        epee::net_utils::ssl_support_t::e_ssl_support_disabled
+        context, std::move(socket), shared, GetParam()
       );
-      ASSERT_TRUE(connection->start(false, true));
+      ASSERT_TRUE(connection->start(false, true, epee::net_utils::ssl_support_t::e_ssl_support_disabled));
       // Leave the io_context stopped so queued writes cannot drain. This makes
       // queue boundaries independent of socket buffers and worker scheduling.
     }
@@ -957,8 +960,7 @@ TEST(boosted_tcp_server, slow_reader_is_not_dropped_mid_response)
     context,
     std::move(out_socket),
     shared,
-    epee::net_utils::e_connection_type_RPC,
-    epee::net_utils::ssl_support_t::e_ssl_support_disabled
+    epee::net_utils::e_connection_type_RPC
   );
 
   // A loopback peer is granted NEW_CONNECTION_TIMEOUT_LOCAL, which is too long
@@ -966,7 +968,8 @@ TEST(boosted_tcp_server, slow_reader_is_not_dropped_mid_response)
   uint32_t ip = 0;
   ASSERT_TRUE(epee::string_tools::get_ip_int32_from_string(ip, "8.8.8.8"));
   ASSERT_TRUE(out_connection->start(false, true,
-    epee::net_utils::ipv4_network_address{ip, endpoint.port()}
+    epee::net_utils::ipv4_network_address{ip, endpoint.port()},
+    epee::net_utils::ssl_support_t::e_ssl_support_disabled
   ));
 
   // RPC messages are queued unchunked, so this is a single async_write that
@@ -1060,10 +1063,10 @@ namespace
           acceptor.accept(socket);
         }
         connections.push_back(std::make_shared<connection_t>(context, std::move(socket), shared,
-          epee::net_utils::e_connection_type_RPC, epee::net_utils::ssl_support_t::e_ssl_support_disabled));
+          epee::net_utils::e_connection_type_RPC));
         if (i < same_host)
         {
-          EXPECT_TRUE(connections.back()->start(true, false, remote));
+          EXPECT_TRUE(connections.back()->start(true, false, remote, epee::net_utils::ssl_support_t::e_ssl_support_disabled));
         }
       }
     }
@@ -1112,7 +1115,7 @@ TEST_P(rpc_handler_timeout, response_is_not_dropped)
     shared->response_size = 8 * 1024 * 1024;
   auto queued = shared->queued.get_future();
   const auto connection = std::make_shared<connection_t>(context, std::move(socket), shared,
-    epee::net_utils::e_connection_type_RPC, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
+    epee::net_utils::e_connection_type_RPC);
   uint32_t ip = 0;
   ASSERT_TRUE(epee::string_tools::get_ip_int32_from_string(ip, "8.8.4.4"));
   const epee::net_utils::ipv4_network_address remote{ip, acceptor.local_endpoint().port()};
@@ -1121,7 +1124,7 @@ TEST_P(rpc_handler_timeout, response_is_not_dropped)
   std::unique_ptr<rpc_timeout_load> load;
   if (shared->pipelined)
     load.reset(new rpc_timeout_load(acceptor, shared, remote, 3));
-  ASSERT_TRUE(connection->start(true, true, remote));
+  ASSERT_TRUE(connection->start(true, true, remote, epee::net_utils::ssl_support_t::e_ssl_support_disabled));
   boost::asio::write(peer, boost::asio::buffer("?", 1));
 
   std::vector<std::thread> workers;
@@ -1193,7 +1196,7 @@ TEST_P(rpc_write_timeout, pending_response)
   ASSERT_TRUE(epee::string_tools::get_ip_int32_from_string(ip, "8.8.4.4"));
   const epee::net_utils::ipv4_network_address remote{ip, acceptor.local_endpoint().port()};
   const auto connection = std::make_shared<connection_t>(context, std::move(socket), shared,
-    epee::net_utils::e_connection_type_RPC, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
+    epee::net_utils::e_connection_type_RPC);
 
   const bool delayed_completion = GetParam() == rpc_write_case::delayed_completion;
   const bool delayed_read_brief = GetParam() == rpc_write_case::delayed_read_brief;
@@ -1205,7 +1208,7 @@ TEST_P(rpc_write_timeout, pending_response)
   const bool unresponsive = unresponsive_busy || queued_replies || slow_handler;
   // Nine same-host connections cap the timeout at 300s / 256.
   rpc_timeout_load load{acceptor, shared, remote, 8};
-  ASSERT_TRUE(connection->start(true, false, remote));
+  ASSERT_TRUE(connection->start(true, false, remote, epee::net_utils::ssl_support_t::e_ssl_support_disabled));
 
   epee::net_utils::i_service_endpoint& endpoint = *connection;
   // A drained reply must restore the allowance for another worker stall.
