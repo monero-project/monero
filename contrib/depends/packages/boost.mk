@@ -3,7 +3,6 @@ $(package)_version=1_64_0
 $(package)_download_path=https://downloads.sourceforge.net/project/boost/boost/1.64.0/
 $(package)_file_name=$(package)_$($(package)_version).tar.bz2
 $(package)_sha256_hash=7bcc5caace97baa948931d712ea5f37038dbb1c5d89b43ad4def4ed7cb683332
-$(package)_dependencies=libiconv
 $(package)_patches=fix_aroptions.patch fix_arm_arch.patch
 
 define $(package)_set_vars
@@ -22,7 +21,8 @@ $(package)_toolset_$(host_os)=gcc
 $(package)_archiver_$(host_os)=$($(package)_ar)
 $(package)_toolset_darwin=darwin
 $(package)_archiver_darwin=$($(package)_libtool)
-$(package)_config_libraries=chrono,filesystem,program_options,system,thread,test,date_time,regex,serialization,locale
+$(package)_config_libraries_$(host_os)="chrono,filesystem,program_options,system,thread,test,date_time,regex,serialization"
+$(package)_config_libraries_mingw32="chrono,filesystem,program_options,system,thread,test,date_time,regex,serialization,locale"
 $(package)_cxxflags=-std=c++11
 $(package)_cxxflags_linux=-fPIC
 $(package)_cxxflags_freebsd=-fPIC
@@ -35,7 +35,7 @@ define $(package)_preprocess_cmds
 endef
 
 define $(package)_config_cmds
-  ./bootstrap.sh --without-icu --with-libraries=$(boost_config_libraries)
+  ./bootstrap.sh --without-icu --with-libraries=$(boost_config_libraries_$(host_os))
 endef
 
 define $(package)_build_cmds
