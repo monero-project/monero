@@ -68,21 +68,6 @@ $(host_arch)_$(host_os)_prefix=$(BASEDIR)/$(host)
 $(host_arch)_$(host_os)_host=$(host)
 host_prefix=$($(host_arch)_$(host_os)_prefix)
 build_prefix=$(host_prefix)/native
-ifeq ($(host_os),mingw32)
-host_cmake=Windows
-endif
-ifeq ($(host_os),linux)
-host_cmake=Linux
-endif
-ifeq ($(host_os),freebsd)
-host_cmake=FreeBSD
-endif
-ifeq ($(host_os),darwin)
-host_cmake=Darwin
-endif
-ifeq ($(host_os),android)
-host_cmake=Android
-endif
 
 AT_$(V):=
 AT_:=@
@@ -151,7 +136,7 @@ $(host_prefix)/share/toolchain.cmake : toolchain.cmake.in $(host_prefix)/.stamp_
             -e 's|@debug@|$(DEBUG)|' \
             -e 's|@release_type@|$(release_type)|' \
             -e 's|@build_tests@|$(build_tests)|' \
-            -e 's|@depends@|$(host_cmake)|' \
+            -e 's|@cmake_system_name@|$($(host_os)_cmake_system)|' \
             -e 's|@prefix@|$($(host_arch)_$(host_os)_prefix)|'\
             -e 's|@arch@|$(host_arch)|'\
             $< > $@
