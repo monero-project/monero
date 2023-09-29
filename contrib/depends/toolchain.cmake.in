@@ -27,12 +27,6 @@ SET(Terminfo_LIBRARY @prefix@/lib/libtinfo.a)
 SET(UNBOUND_INCLUDE_DIR @prefix@/include)
 SET(UNBOUND_LIBRARIES @prefix@/lib/libunbound.a)
 
-if(NOT CMAKE_SYSTEM_NAME STREQUAL "Android")
-SET(LIBUNWIND_INCLUDE_DIR @prefix@/include)
-SET(LIBUNWIND_LIBRARIES @prefix@/lib/libunwind.a)
-SET(LIBUNWIND_LIBRARY_DIRS @prefix@/lib)
-
-if(NOT CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
 SET(LIBUSB-1.0_LIBRARY @prefix@/lib/libusb-1.0.a)
 SET(LIBUDEV_LIBRARY @prefix@/lib/libudev.a)
 
@@ -41,8 +35,11 @@ SET(Protobuf_PROTOC_EXECUTABLE @prefix@/native/bin/protoc CACHE FILEPATH "Path t
 SET(Protobuf_INCLUDE_DIR @prefix@/include CACHE PATH "Protobuf include dir")
 SET(Protobuf_INCLUDE_DIRS @prefix@/include CACHE PATH "Protobuf include dir")
 SET(Protobuf_LIBRARY @prefix@/lib/libprotobuf.a CACHE FILEPATH "Protobuf library")
-endif()
 
+if(NOT CMAKE_SYSTEM_NAME STREQUAL "Android")
+SET(LIBUNWIND_INCLUDE_DIR @prefix@/include)
+SET(LIBUNWIND_LIBRARIES @prefix@/lib/libunwind.a)
+SET(LIBUNWIND_LIBRARY_DIRS @prefix@/lib)
 endif()
 
 SET(ZMQ_INCLUDE_PATH @prefix@/include)

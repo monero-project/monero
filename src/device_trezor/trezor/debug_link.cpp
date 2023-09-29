@@ -67,7 +67,7 @@ namespace trezor{
 
   void DebugLink::input_button(bool button){
     messages::debug::DebugLinkDecision decision;
-    decision.set_yes_no(button);
+    decision.set_button(button ? messages::debug::DebugLinkDecision_DebugButton_YES : messages::debug::DebugLinkDecision_DebugButton_NO);
     call(decision, boost::none, true);
   }
 

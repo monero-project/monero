@@ -913,15 +913,6 @@ inline bool do_replay_file(const std::string& filename)
   }                                                                                   \
   VEC_EVENTS.push_back(BLK_NAME);
 
-#define MAKE_NEXT_BLOCK_TX1_HF(VEC_EVENTS, BLK_NAME, PREV_BLOCK, MINER_ACC, TX1, HF)         \
-  cryptonote::block BLK_NAME;                                                           \
-  {                                                                                   \
-    std::list<cryptonote::transaction> tx_list;                                         \
-    tx_list.push_back(TX1);                                                           \
-    generator.construct_block(BLK_NAME, PREV_BLOCK, MINER_ACC, tx_list, HF);              \
-  }                                                                                   \
-  VEC_EVENTS.push_back(BLK_NAME);
-
 #define MAKE_NEXT_BLOCK_TX_LIST(VEC_EVENTS, BLK_NAME, PREV_BLOCK, MINER_ACC, TXLIST)  \
   cryptonote::block BLK_NAME;                                                           \
   generator.construct_block(BLK_NAME, PREV_BLOCK, MINER_ACC, TXLIST);                 \
@@ -946,16 +937,10 @@ inline bool do_replay_file(const std::string& filename)
 
 #define REWIND_BLOCKS_N(VEC_EVENTS, BLK_NAME, PREV_BLOCK, MINER_ACC, COUNT) REWIND_BLOCKS_N_HF(VEC_EVENTS, BLK_NAME, PREV_BLOCK, MINER_ACC, COUNT, boost::none)
 #define REWIND_BLOCKS(VEC_EVENTS, BLK_NAME, PREV_BLOCK, MINER_ACC) REWIND_BLOCKS_N(VEC_EVENTS, BLK_NAME, PREV_BLOCK, MINER_ACC, CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW)
-#define REWIND_BLOCKS_HF(VEC_EVENTS, BLK_NAME, PREV_BLOCK, MINER_ACC, HF) REWIND_BLOCKS_N_HF(VEC_EVENTS, BLK_NAME, PREV_BLOCK, MINER_ACC, CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW, HF)
 
 #define MAKE_TX_MIX(VEC_EVENTS, TX_NAME, FROM, TO, AMOUNT, NMIX, HEAD)                       \
   cryptonote::transaction TX_NAME;                                                             \
   construct_tx_to_key(VEC_EVENTS, TX_NAME, HEAD, FROM, TO, AMOUNT, TESTS_DEFAULT_FEE, NMIX); \
-  VEC_EVENTS.push_back(TX_NAME);
-
-#define MAKE_TX_MIX_RCT(VEC_EVENTS, TX_NAME, FROM, TO, AMOUNT, NMIX, HEAD)                       \
-  cryptonote::transaction TX_NAME;                                                             \
-  construct_tx_to_key(VEC_EVENTS, TX_NAME, HEAD, FROM, TO, AMOUNT, TESTS_DEFAULT_FEE, NMIX, true, rct::RangeProofPaddedBulletproof); \
   VEC_EVENTS.push_back(TX_NAME);
 
 #define MAKE_TX(VEC_EVENTS, TX_NAME, FROM, TO, AMOUNT, HEAD) MAKE_TX_MIX(VEC_EVENTS, TX_NAME, FROM, TO, AMOUNT, 0, HEAD)
@@ -968,35 +953,11 @@ inline bool do_replay_file(const std::string& filename)
     VEC_EVENTS.push_back(t);                                                             \
   }
 
-#define MAKE_TX_MIX_LIST_RCT(VEC_EVENTS, SET_NAME, FROM, TO, AMOUNT, NMIX, HEAD) \
-        MAKE_TX_MIX_LIST_RCT_EX(VEC_EVENTS, SET_NAME, FROM, TO, AMOUNT, NMIX, HEAD, rct::RangeProofPaddedBulletproof, 1)
-#define MAKE_TX_MIX_LIST_RCT_EX(VEC_EVENTS, SET_NAME, FROM, TO, AMOUNT, NMIX, HEAD, RCT_TYPE, BP_VER)  \
-  {                                                                                      \
-    cryptonote::transaction t;                                                           \
-    construct_tx_to_key(VEC_EVENTS, t, HEAD, FROM, TO, AMOUNT, TESTS_DEFAULT_FEE, NMIX, true, RCT_TYPE, BP_VER); \
-    SET_NAME.push_back(t);                                                               \
-    VEC_EVENTS.push_back(t);                                                             \
-  }
-
-#define MAKE_TX_MIX_DEST_LIST_RCT(VEC_EVENTS, SET_NAME, FROM, TO, NMIX, HEAD)            \
-        MAKE_TX_MIX_DEST_LIST_RCT_EX(VEC_EVENTS, SET_NAME, FROM, TO, NMIX, HEAD, rct::RangeProofPaddedBulletproof, 1)
-#define MAKE_TX_MIX_DEST_LIST_RCT_EX(VEC_EVENTS, SET_NAME, FROM, TO, NMIX, HEAD, RCT_TYPE, BP_VER)  \
-  {                                                                                      \
-    cryptonote::transaction t;                                                           \
-    construct_tx_to_key(VEC_EVENTS, t, HEAD, FROM, TO, TESTS_DEFAULT_FEE, NMIX, true, RCT_TYPE, BP_VER); \
-    SET_NAME.push_back(t);                                                               \
-    VEC_EVENTS.push_back(t);                                                             \
-  }
-
 #define MAKE_TX_LIST(VEC_EVENTS, SET_NAME, FROM, TO, AMOUNT, HEAD) MAKE_TX_MIX_LIST(VEC_EVENTS, SET_NAME, FROM, TO, AMOUNT, 0, HEAD)
 
 #define MAKE_TX_LIST_START(VEC_EVENTS, SET_NAME, FROM, TO, AMOUNT, HEAD) \
     std::list<cryptonote::transaction> SET_NAME; \
     MAKE_TX_LIST(VEC_EVENTS, SET_NAME, FROM, TO, AMOUNT, HEAD);
-
-#define MAKE_TX_LIST_START_RCT(VEC_EVENTS, SET_NAME, FROM, TO, AMOUNT, NMIX, HEAD) \
-    std::list<cryptonote::transaction> SET_NAME; \
-    MAKE_TX_MIX_LIST_RCT(VEC_EVENTS, SET_NAME, FROM, TO, AMOUNT, NMIX, HEAD);
 
 #define MAKE_MINER_TX_AND_KEY_AT_HF_MANUALLY(TX, BLK, HF_VERSION, KEY)                                    \
   transaction TX;                                                                                         \

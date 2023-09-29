@@ -590,6 +590,16 @@ Using `depends` might also be easier to compile Monero on Windows than using MSY
 
 The produced binaries still link libc dynamically. If the binary is compiled on a current distribution, it might not run on an older distribution with an older installation of libc. Passing `-DBACKCOMPAT=ON` to cmake will make sure that the binary will run on systems having at least libc version 2.17.
 
+### Trezor hardware wallet support
+
+If you have an issue with building Monero with Trezor support, you can disable it by setting `USE_DEVICE_TREZOR=OFF`, e.g., 
+
+```bash
+USE_DEVICE_TREZOR=OFF make release
+```
+
+For more information, please check out Trezor [src/device_trezor/README.md](src/device_trezor/README.md).
+
 ### Gitian builds
 
 See [contrib/gitian/README.md](contrib/gitian/README.md).
