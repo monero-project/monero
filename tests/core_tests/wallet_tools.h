@@ -68,12 +68,14 @@ public:
 class wallet_tools
 {
 public:
-  static void gen_tx_src(size_t mixin, uint64_t cur_height, const tools::wallet2::transfer_details & td, cryptonote::tx_source_entry & src, block_tracker &bt);
+  static void gen_tx_src(size_t mixin, uint64_t cur_height, const tools::wallet2::transfer_details & td, cryptonote::tx_source_entry & src, block_tracker &bt, const boost::optional<fnc_accept_output_t>& fnc_accept = boost::none);
   static void gen_block_data(block_tracker &bt, const cryptonote::block *bl, const map_hash2tx_t & mtx, cryptonote::block_complete_entry &bche, tools::wallet2::parsed_block &parsed_block, uint64_t &height);
   static void compute_subaddresses(std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddresses, cryptonote::account_base & creds, size_t account, size_t minors);
   static void process_transactions(tools::wallet2 * wallet, const std::vector<test_event_entry>& events, const cryptonote::block& blk_head, block_tracker &bt, const boost::optional<crypto::hash>& blk_tail=boost::none);
+  static void process_transactions(const std::vector<tools::wallet2*>& wallets, const std::vector<test_event_entry>& events, const cryptonote::block& blk_head, block_tracker &bt, const boost::optional<crypto::hash>& blk_tail=boost::none);
   static void process_transactions(tools::wallet2 * wallet, const std::vector<const cryptonote::block*>& blockchain, const map_hash2tx_t & mtx, block_tracker &bt);
-  static bool fill_tx_sources(tools::wallet2 * wallet, std::vector<cryptonote::tx_source_entry>& sources, size_t mixin, const boost::optional<size_t>& num_utxo, const boost::optional<uint64_t>& min_amount, block_tracker &bt, std::vector<size_t> &selected, uint64_t cur_height, ssize_t offset=0, int step=1, const boost::optional<fnc_accept_tx_source_t>& fnc_accept=boost::none);
+  static void process_transactions(const std::vector<tools::wallet2*>& wallets, const std::vector<const cryptonote::block*>& blockchain, const map_hash2tx_t & mtx, block_tracker &bt);
+  static bool fill_tx_sources(tools::wallet2 * wallet, std::vector<cryptonote::tx_source_entry>& sources, size_t mixin, const boost::optional<size_t>& num_utxo, const boost::optional<uint64_t>& min_amount, block_tracker &bt, std::vector<size_t> &selected, uint64_t cur_height, ssize_t offset=0, int step=1, const boost::optional<fnc_accept_tx_source_t>& fnc_accept=boost::none, const boost::optional<fnc_accept_output_t>& fnc_in_accept = boost::none);
 };
 
 cryptonote::account_public_address get_address(const tools::wallet2*);
