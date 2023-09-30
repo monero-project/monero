@@ -31,6 +31,9 @@
 #include "parserse_base_utils.h"
 #include "file_io_utils.h"
 
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "serialization"
+
 #define EPEE_JSON_RECURSION_LIMIT_INTERNAL 100
 
 namespace epee
