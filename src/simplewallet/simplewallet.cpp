@@ -5610,7 +5610,7 @@ bool simple_wallet::refresh_main(uint64_t start_height, enum ResetType reset, bo
     // For manual refresh don't allow incremental checking of the pool: Because we did not process the txs
     // for us in the pool during automatic refresh we could miss some of them if we checked the pool
     // incrementally here
-    m_wallet->refresh(m_wallet->is_trusted_daemon(), start_height, fetched_blocks, received_money, true, false);
+    m_wallet->refresh(m_wallet->is_trusted_daemon(), start_height, fetched_blocks, received_money, true, std::numeric_limits<uint64_t>::max(), false);
 
     if (reset == ResetSoftKeepKI)
     {
