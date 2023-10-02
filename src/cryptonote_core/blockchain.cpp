@@ -4615,40 +4615,9 @@ bool Blockchain::update_next_cumulative_weight_limit(uint64_t *long_term_effecti
   }
   else
   {
-    const uint64_t block_weight = m_db->get_block_weight(db_height - 1);
+    const uint64_t nblocks = std::min<uint64_t>(m_long_term_block_weights_window, db_height);
+    const uint64_t long_term_median = get_long_term_block_weight_median(db_height - nblocks, nblocks);
 
-    uint64_t long_term_median;
-    if (db_height == 1)
-    {
-      long_term_median = CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V5;
-    }
-    else
-    {
-      uint64_t nblocks = std::min<uint64_t>(m_long_term_block_weights_window, db_height);
-      if (nblocks == db_height)
-        --nblocks;
-      long_term_median = get_long_term_block_weight_median(db_height - nblocks - 1, nblocks);
-    }
-
-    m_long_term_effective_median_block_weight = std::max<uint64_t>(CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V5, long_term_median);
-
-    uint64_t short_term_constraint = m_long_term_effective_median_block_weight;
-    if (hf_version >= HF_VERSION_2021_SCALING)
-      short_term_constraint += m_long_term_effective_median_block_weight * 7 / 10;
-    else
-      short_term_constraint += m_long_term_effective_median_block_weight * 2 / 5;
-    uint64_t long_term_block_weight = std::min<uint64_t>(block_weight, short_term_constraint);
-
-    if (db_height == 1)
-    {
-      long_term_median = long_term_block_weight;
-    }
-    else
-    {
-      m_long_term_block_weights_cache_tip_hash = m_db->get_block_hash_from_height(db_height - 1);
-      m_long_term_block_weights_cache_rolling_median.insert(long_term_block_weight);
-      long_term_median = m_long_term_block_weights_cache_rolling_median.median();
-    }
     m_long_term_effective_median_block_weight = std::max<uint64_t>(CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V5, long_term_median);
 
     std::vector<uint64_t> weights;
