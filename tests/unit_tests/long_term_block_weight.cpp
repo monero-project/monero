@@ -407,3 +407,38 @@ TEST(long_term_block_weight, long_growth_spike_and_drop)
   ASSERT_GT(long_term_effective_median_block_weight, 300000 * 1.07);
   ASSERT_LT(long_term_effective_median_block_weight, 300000 * 1.09);
 }
+
+TEST(long_term_block_weight, cache_matches_true_value)
+{
+  PREFIX(16);
+
+  // Add big blocks to increase the block weight limit 
+  for (uint64_t h = 0; h <= 2000; ++h)
+  {
+    size_t w = bc->get_current_cumulative_block_weight_limit();
+    uint64_t ltw = bc->get_next_long_term_block_weight(w);
+    bc->get_db().add_block(std::make_pair(cryptonote::block(), ""), w, ltw, h, h, {});
+    bc->update_next_cumulative_weight_limit();
+  }
+
+  ASSERT_GT(bc->get_current_cumulative_block_weight_limit() * 10/17 , 300000);
+
+  // Add small blocks to the top of the chain
+  for (uint64_t h = 2000; h <= 5001; ++h)
+  {
+    size_t w = (bc->get_current_cumulative_block_weight_median() * 10/17) - 1000;
+    uint64_t ltw = bc->get_next_long_term_block_weight(w);
+    bc->get_db().add_block(std::make_pair(cryptonote::block(), ""), w, ltw, h, h, {});
+    bc->update_next_cumulative_weight_limit();
+  }
+ 
+  // get the weight limit
+  uint64_t weight_limit = bc->get_current_cumulative_block_weight_limit();
+  // refresh the cache
+  bc->m_long_term_block_weights_cache_rolling_median.clear();
+  bc->get_long_term_block_weight_median(bc->get_db().height() - TEST_LONG_TERM_BLOCK_WEIGHT_WINDOW, TEST_LONG_TERM_BLOCK_WEIGHT_WINDOW);
+  bc->update_next_cumulative_weight_limit();
+
+  // make sure the weight limit is the same
+  ASSERT_EQ(weight_limit, bc->get_current_cumulative_block_weight_limit());
+}
