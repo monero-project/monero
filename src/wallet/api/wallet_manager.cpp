@@ -127,6 +127,22 @@ Wallet *WalletManagerImpl::createWalletFromKeys(const std::string &path,
     return wallet;
 }
 
+Wallet *WalletManagerImpl::createDeterministicWalletFromSpendKey(const std::string &path,
+                                                                 const std::string &password,
+                                                                 const std::string &language,
+                                                                 NetworkType nettype,
+                                                                 uint64_t restoreHeight,
+                                                                 const std::string &spendkey_string,
+                                                                 uint64_t kdf_rounds)
+{
+    WalletImpl * wallet = new WalletImpl(nettype, kdf_rounds);
+    if(restoreHeight > 0){
+        wallet->setRefreshFromBlockHeight(restoreHeight);
+    }
+    wallet->recoverDeterministicWalletFromSpendKey(path, password, language, spendkey_string);
+    return wallet;
+}
+
 Wallet *WalletManagerImpl::createWalletFromDevice(const std::string &path,
                                                   const std::string &password,
                                                   NetworkType nettype,

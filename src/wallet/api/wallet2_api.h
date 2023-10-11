@@ -1253,6 +1253,25 @@ struct WalletManager
         return createWalletFromKeys(path, password, language, testnet ? TESTNET : MAINNET, restoreHeight, addressString, viewKeyString, spendKeyString);
     }
 
+    /*!
+     * \brief  recover deterministic wallet from spend key.
+     * \param  path           Name of wallet file to be created
+     * \param  password       Password of wallet file
+     * \param  language       language
+     * \param  nettype        Network type
+     * \param  restoreHeight  restore from start height
+     * \param  spendKeyString spend key
+     * \param  kdf_rounds     Number of rounds for key derivation function
+     * \return                Wallet instance (Wallet::status() needs to be called to check if recovered successfully)
+     */
+    virtual Wallet * createDeterministicWalletFromSpendKey(const std::string &path,
+                                                           const std::string &password,
+                                                           const std::string &language,
+                                                           NetworkType nettype,
+                                                           uint64_t restoreHeight,
+                                                           const std::string &spendKeyString,
+                                                           uint64_t kdf_rounds = 1) = 0;
+
    /*!
     * \deprecated this method creates a wallet WITHOUT a passphrase, use createWalletFromKeys(..., password, ...) instead
     * \brief  recovers existing wallet using keys. Creates a view only wallet if spend key is omitted

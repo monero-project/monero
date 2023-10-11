@@ -764,6 +764,35 @@ bool WalletImpl::recover(const std::string &path, const std::string &password, c
     return status() == Status_Ok;
 }
 
+bool WalletImpl::recoverDeterministicWalletFromSpendKey(const std::string &path, const std::string &password, const std::string &language, const std::string &spendkey_string)
+{
+    clearStatus();
+    m_errorString.clear();
+
+    m_recoveringFromSeed = true;
+    m_recoveringFromDevice = false;
+
+    // parse spend key
+    crypto::secret_key spendkey;
+    if (!spendkey_string.empty()) {
+        cryptonote::blobdata spendkey_data;
+        if(!epee::string_tools::parse_hexstr_to_binbuff(spendkey_string, spendkey_data) || spendkey_data.size() != sizeof(crypto::secret_key))
+        {
+            setStatusError(tr("failed to parse secret spend key"));
+            return false;
+        }
+        spendkey = *reinterpret_cast<const crypto::secret_key*>(spendkey_data.data());
+    }
+
+    try {
+        m_wallet->generate(path, password, spendkey, true, false);
+        setSeedLanguage(language);
+    } catch (const std::exception &e) {
+        setStatusCritical(e.what());
+    }
+    return status() == Status_Ok;
+}
+
 bool WalletImpl::close(bool store)
 {
 

@@ -67,6 +67,13 @@ public:
                                                     const std::string &addressString,
                                                     const std::string &viewKeyString,
                                                     const std::string &spendKeyString = "") override;
+    virtual Wallet * createDeterministicWalletFromSpendKey(const std::string &path,
+                                                               const std::string &password,
+                                                               const std::string &language,
+                                                               NetworkType nettype,
+                                                               uint64_t restoreHeight,
+                                                               const std::string &spendkey_string,
+                                                               uint64_t kdf_rounds) override;
     virtual Wallet * createWalletFromDevice(const std::string &path,
                                             const std::string &password,
                                             NetworkType nettype,

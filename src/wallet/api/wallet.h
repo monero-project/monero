@@ -77,6 +77,10 @@ public:
                             const std::string &address_string, 
                             const std::string &viewkey_string,
                             const std::string &spendkey_string = "");
+    bool recoverDeterministicWalletFromSpendKey(const std::string &path,
+                                                    const std::string &password,
+                                                    const std::string &language,
+                                                    const std::string &spendkey_string);
     bool recoverFromDevice(const std::string &path,
                            const std::string &password,
                            const std::string &device_name);
