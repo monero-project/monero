@@ -142,23 +142,27 @@ elements in the *CROD*.
 
 ### *CROD* Setup
 
-Everytime the *CROD* changes, we need to set two variables: `average_output_flow` and `num_usable_rct_outputs`. `average_output_flow` is meant to quantify the average number of new transaction outputs per second
-over the last year or so of chain data. `num_usable_rct_outputs` is the total number of on-chain RingCT
-outputs that *will be* (not currently) at least 10 blocks old when the next block is mined. Non-coinbase outputs of this age will not be locked due to the default 10-block-lock concensus rule. :memo: **Note**: Just because outputs are at least 10 blocks old does not guaranteed that they can be unlocked;
-coinbase outputs are [locked for 60 blocks](https://github.com/monero-project/monero/blob/67d190ce7c33602b6a3b804f633ee1ddb7fbb4a1/src/cryptonote_config.h#L43), and any transaction can specify
-[any arbitrary additional lock time](https://www.getmonero.org/resources/moneropedia/unlocktime.html).
+Everytime the *CROD* changes, we need to set two variables: `average_output_delay` and `num_usable_rct_outputs`.
+`average_output_delay` is meant to quantify the average number of seconds between new transaction outputs over the last
+year or so of chain data. `num_usable_rct_outputs` is the total number of on-chain RingCT outputs that *will be*
+(not currently) at least 10 blocks old when the next block is mined. Non-coinbase outputs of this age will not be locked
+due to the default 10-block-lock concensus rule. :memo: **Note**: Just because outputs are at least 10 blocks old does
+not guaranteed that they can be unlocked; coinbase outputs are
+[locked for 60 blocks](https://github.com/monero-project/monero/blob/67d190ce7c33602b6a3b804f633ee1ddb7fbb4a1/src/cryptonote_config.h#L43),
+and any transaction can specify [any arbitrary additional lock time](https://www.getmonero.org/resources/moneropedia/unlocktime.html).
 
-#### How to calculate `average_output_flow`
+#### How to calculate `average_output_delay`
 
 1. Count the number of blocks in a year, or the number of blocks in *CROD*, whichever is fewer
-    * `num_blocks_to_consider_for_flow = min(CROD_length, BLOCKS_IN_A_YEAR)`
-2. Count the number of outputs within the newest `num_blocks_to_consider_for_flow` blocks, including the top block:
-    - If `CROD_length > num_blocks_to_consider_for_flow` (this should always be the case a year after the RingCT fork):
-      * `num_outputs_to_consider_for_flow = CROD[CROD_length - 1] - CROD[CROD_length - 1 - num_blocks_to_consider_for_flow]`
+    * `num_blocks_to_consider_for_delay = min(CROD_length, BLOCKS_IN_A_YEAR)`
+2. Count the number of outputs within the newest `num_blocks_to_consider_for_delay` blocks, including the top block:
+    - If `CROD_length > num_blocks_to_consider_for_delay` (this should always be the case a year after the RingCT fork):
+      * `num_outputs_to_consider_for_delay = CROD[CROD_length - 1] - CROD[CROD_length - 1 - num_blocks_to_consider_for_delay]`
     - Otherwise the oldest RingCT output is less than a year old:
-      * `num_outputs_to_consider_for_flow = CROD[CROD_length - 1]`
-3. Calculate the average number of RingCT outputs per second for the last year
-    * `average_output_flow = DIFFICULTY_TARGET_V2 * num_blocks_to_consider_for_flow / num_outputs_to_consider_for_flow`
+      * `num_outputs_to_consider_for_delay = CROD[CROD_length - 1]`
+3. Calculate the average number of seconds between RingCT outputs for the last year
+    * `average_output_delay = DIFFICULTY_TARGET_V2 * num_blocks_to_consider_for_delay / num_outputs_to_consider_for_delay`
+    * :memo: **Note**: This is the number of seconds per output, *not* the number of outputs per second
 
 [source](https://github.com/monero-project/monero/blob/67d190ce7c33602b6a3b804f633ee1ddb7fbb4a1/src/wallet/wallet2.cpp#L1033-L1042)
 
@@ -184,20 +188,20 @@ DIFFICULTY_TARGET_V2 = 120
 SECONDS_IN_A_YEAR =  60 * 60 * 24 * 365
 BLOCKS_IN_A_YEAR = SECONDS_IN_A_YEAR // DIFFICULTY_TARGET_V2
 
-def calculate_average_output_flow(crod):
+def calculate_average_output_delay(crod):
     # 1
-    num_blocks_to_consider_for_flow = min(len(crod), BLOCKS_IN_A_YEAR)
+    num_blocks_to_consider_for_delay = min(len(crod), BLOCKS_IN_A_YEAR)
 
     # 2
-    if len(crod) > num_blocks_to_consider_for_flow:
-        num_outputs_to_consider_for_flow = crod[-1] - crod[-(num_blocks_to_consider_for_flow + 1)]
+    if len(crod) > num_blocks_to_consider_for_delay:
+        num_outputs_to_consider_for_delay = crod[-1] - crod[-(num_blocks_to_consider_for_delay + 1)]
     else:
-        num_outputs_to_consider_for_flow = crod[-1]
+        num_outputs_to_consider_for_delay = crod[-1]
     
     # 3
-    average_output_flow = DIFFICULTY_TARGET_V2 * num_blocks_to_consider_for_flow / num_outputs_to_consider_for_flow
+    average_output_delay = DIFFICULTY_TARGET_V2 * num_blocks_to_consider_for_delay / num_outputs_to_consider_for_delay
 
-    return average_output_flow
+    return average_output_delay
 
 def calculate_num_usable_rct_outputs(crod):
     # 1
@@ -223,7 +227,7 @@ until we have built up a set of global output indices of a certain desired size.
 3. Next, we want to transform this age value into an amount of time that an output has been unlocked. If the target output age is less than the default unlock time, we uniformly randomly pick a duration in the "recent spend window".
     * If `target_output_age > DEFAULT_UNLOCK_TIME`, then `target_post_unlock_output_age = target_output_age - DEFAULT_UNLOCK_TIME`, else `target_post_unlock_output_age ~ U(0, RECENT_SPEND_WINDOW - 1)`, where `U(a, b)` is a [discrete uniform distribution](https://en.wikipedia.org/wiki/Discrete_uniform_distribution) and `n = b - a + 1`
 4. Since we have a time-based index for our pick, we need to somehow convert this time-based index into an integer-based output index. We do this by dividing the age since the default unlock time by the average number of outputs per second.
-    * `target_num_outputs_post_unlock = floor(target_post_unlock_output_age / average_output_flow)`
+    * `target_num_outputs_post_unlock = floor(target_post_unlock_output_age / average_output_delay)`
 5. Here is the first point in which a gamma pick can fail: if the target output index post-unlock is greater than the number of usable outputs on chain:
     * If `target_num_outputs_post_unlock >= num_usable_rct_outputs`, then restart the gamma pick operation from step 1.
 6. Now we get what I call a "psuedo global output index". This value *could* be used as a global output index, but since we want all outputs within the same block to have the same chance of being picked, we instead use this global output index to "pick" a block.
@@ -257,7 +261,7 @@ RECENT_SPEND_WINDOW = 15 * DIFFICULTY_TARGET_V2
 
 rng = np.random.Generator(np.random.PCG64(seed=None))
 
-def gamma_pick(crod, average_output_flow, num_usable_rct_outputs):
+def gamma_pick(crod, average_output_delay, num_usable_rct_outputs):
     while True:
         # 1
         x = rng.gamma(GAMMA_SHAPE, GAMMA_SCALE) # parameterized by scale, not rate!
@@ -272,7 +276,7 @@ def gamma_pick(crod, average_output_flow, num_usable_rct_outputs):
             target_post_unlock_output_age = np.floor(rng.uniform(0.0, RECENT_SPEND_WINDOW))
 
         # 4
-        target_num_outputs_post_unlock = int(target_post_unlock_output_age / average_output_flow)
+        target_num_outputs_post_unlock = int(target_post_unlock_output_age / average_output_delay)
 
         # 5
         if target_num_outputs_post_unlock >= num_usable_rct_outputs:

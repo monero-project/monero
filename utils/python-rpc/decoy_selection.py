@@ -29,21 +29,21 @@ RECENT_SPEND_WINDOW = 15 * DIFFICULTY_TARGET_V2
 SECONDS_IN_A_YEAR =  60 * 60 * 24 * 365
 BLOCKS_IN_A_YEAR = SECONDS_IN_A_YEAR // DIFFICULTY_TARGET_V2
 
-# Section: "How to calculate `average_output_flow`"
-def calculate_average_output_flow(crod):
+# Section: "How to calculate `average_output_delay`"
+def calculate_average_output_delay(crod):
     # 1
-    num_blocks_to_consider_for_flow = min(len(crod), BLOCKS_IN_A_YEAR)
+    num_blocks_to_consider_for_delay = min(len(crod), BLOCKS_IN_A_YEAR)
 
     # 2
-    if len(crod) > num_blocks_to_consider_for_flow:
-        num_outputs_to_consider_for_flow = crod[-1] - crod[-(num_blocks_to_consider_for_flow + 1)]
+    if len(crod) > num_blocks_to_consider_for_delay:
+        num_outputs_to_consider_for_delay = crod[-1] - crod[-(num_blocks_to_consider_for_delay + 1)]
     else:
-        num_outputs_to_consider_for_flow = crod[-1]
+        num_outputs_to_consider_for_delay = crod[-1]
     
     # 3
-    average_output_flow = DIFFICULTY_TARGET_V2 * num_blocks_to_consider_for_flow / num_outputs_to_consider_for_flow
+    average_output_delay = DIFFICULTY_TARGET_V2 * num_blocks_to_consider_for_delay / num_outputs_to_consider_for_delay
 
-    return average_output_flow
+    return average_output_delay
 
 # Section: "How to calculate `num_usable_rct_outputs`"
 def calculate_num_usable_rct_outputs(crod):
@@ -56,7 +56,7 @@ def calculate_num_usable_rct_outputs(crod):
     return num_usable_rct_outputs
 
 # Section: "The Gamma Pick"
-def gamma_pick(crod, average_output_flow, num_usable_rct_outputs):
+def gamma_pick(crod, average_output_delay, num_usable_rct_outputs):
     while True:
         # 1
         x = rng.gamma(GAMMA_SHAPE, GAMMA_SCALE) # parameterized by scale, not rate!
@@ -71,7 +71,7 @@ def gamma_pick(crod, average_output_flow, num_usable_rct_outputs):
             target_post_unlock_output_age = np.floor(rng.uniform(0.0, RECENT_SPEND_WINDOW))
 
         # 4
-        target_num_outputs_post_unlock = int(target_post_unlock_output_age / average_output_flow)
+        target_num_outputs_post_unlock = int(target_post_unlock_output_age / average_output_delay)
 
         # 5
         if target_num_outputs_post_unlock >= num_usable_rct_outputs:
@@ -130,19 +130,19 @@ def main():
     print("The start height of the CROD is {}, and the top height is {}.".format(
         rct_dist_info['start_height'], rct_dist_info['start_height'] + len(crod) - 1))
 
-    # Calculate average_output_flow & num_usable_rct_outputs for given CROD
-    average_output_flow = calculate_average_output_flow(crod)
+    # Calculate average_output_delay & num_usable_rct_outputs for given CROD
+    average_output_delay = calculate_average_output_delay(crod)
     num_usable_rct_outputs = calculate_num_usable_rct_outputs(crod)
 
     # Do gamma picking and write output
     print("Performing {} picks and writing output to '{}'...".format(args.num_picks, args.output_file))
-    print_period = args.num_picks // 1000
+    print_period = args.num_picks // 1000 if args.num_picks >= 1000 else 1
     with open(args.output_file, 'w') as outf:
         for i in range(args.num_picks):
             if (i+1) % print_period == 0:
                 progress = (i+1) / args.num_picks * 100
                 print("Progress: {:.1f}%".format(progress), end='\r')
-            pick = gamma_pick(crod, average_output_flow, num_usable_rct_outputs)
+            pick = gamma_pick(crod, average_output_delay, num_usable_rct_outputs)
             print(pick, file=outf)
         print()
 
