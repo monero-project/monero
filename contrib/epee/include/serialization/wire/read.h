@@ -60,12 +60,25 @@ namespace wire
   {
     std::size_t depth_; //!< Tracks number of recursive objects and arrays
 
-  protected:
-    epee::span<const std::uint8_t> remaining_; //!< Derived class tracks unprocessed bytes here
-
     //! \throw wire::exception if max depth is reached
     void increment_depth();
-    void decrement_depth() noexcept { --depth_; }
+    //! \throw std::logic_error if already `depth() == 0`.
+    void decrement_depth();
+
+    /*! \param min_element_size of each array element in any format - if known.
+          Derived types with explicit element count should verify available
+          space, and throw a `wire::exception` on issues.
+        \throw wire::exception if next value not array
+        \throw wire::exception if not enough bytes for all array elements
+          (with epee/msgpack which has specified number of elements).
+        \return Number of values to read before calling `is_array_end()`. */
+    virtual std::size_t do_start_array(std::size_t min_element_size) = 0;
+
+    //! \throw wire::exception if not object begin. \return State to be given to `key(...)` function.
+    virtual std::size_t do_start_object() = 0;
+
+  protected:
+    epee::span<const std::uint8_t> remaining_; //!< Derived class tracks unprocessed bytes here
 
     reader(const epee::span<const std::uint8_t> remaining) noexcept
       : depth_(0), remaining_(remaining)
@@ -75,7 +88,7 @@ namespace wire
     reader(reader&&) = delete;
     reader& operator=(const reader&) = delete;
     reader& operator=(reader&&) = delete;
-
+ 
   public:
     struct key_map
     {
@@ -142,7 +155,7 @@ namespace wire
         \throw wire::exception if not enough bytes for all array elements
           (with epee/msgpack which has specified number of elements).
         \return Number of values to read before calling `is_array_end()`. */
-    virtual std::size_t start_array(std::size_t min_element_size) = 0;
+    std::size_t start_array(std::size_t min_element_size);
 
     //! \return True if there is another element to read.
     virtual bool is_array_end(std::size_t count) = 0;
@@ -151,7 +164,7 @@ namespace wire
 
 
     //! \throw wire::exception if not object begin. \return State to be given to `key(...)` function.
-    virtual std::size_t start_object() = 0;
+    std::size_t start_object();
 
     /*! Read a key of an object field and match against a known list of keys.
        Skips or throws exceptions on unknown fields depending on implementation

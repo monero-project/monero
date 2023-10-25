@@ -35,6 +35,25 @@ void wire::reader::increment_depth()
     WIRE_DLOG_THROW_(error::schema::maximum_depth);
 }
 
+void wire::reader::decrement_depth()
+{
+  if (!depth_)
+    throw std::logic_error{"reader::decrement_depth() already at zero"};
+  --depth_;
+}
+
+std::size_t wire::reader::start_array(std::size_t min_element_size)
+{
+  increment_depth();
+  return do_start_array(min_element_size);
+}
+
+std::size_t wire::reader::start_object()
+{
+  increment_depth();
+  return do_start_object();
+}
+
 [[noreturn]] void wire::integer::throw_exception(const std::intmax_t source, const std::intmax_t min, const std::intmax_t max)
 {
   static_assert(0 <= std::numeric_limits<std::intmax_t>::max(), "expected 0 <= intmax_t::max");
