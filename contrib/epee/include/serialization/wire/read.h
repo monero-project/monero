@@ -160,7 +160,7 @@ namespace wire
     //! \return True if there is another element to read.
     virtual bool is_array_end(std::size_t count) = 0;
 
-    void end_array() noexcept { decrement_depth(); }
+    void end_array() { decrement_depth(); }
 
 
     //! \throw wire::exception if not object begin. \return State to be given to `key(...)` function.
@@ -183,7 +183,7 @@ namespace wire
      */
     virtual bool key(epee::span<const key_map> map, std::size_t& state, std::size_t& index) = 0;
 
-    void end_object() noexcept { decrement_depth(); }
+    void end_object() { decrement_depth(); }
   };
 
   template<typename R>
