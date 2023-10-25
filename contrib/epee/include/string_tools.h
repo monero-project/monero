@@ -127,7 +127,6 @@ namespace string_tools
 		return s;
 	}
   
-  bool validate_hex(uint64_t length, const std::string& str);
   std::string get_extension(const std::string& str);
   std::string cut_off_extension(const std::string& str);
   
