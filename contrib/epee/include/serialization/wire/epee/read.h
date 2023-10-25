@@ -76,6 +76,13 @@ namespace wire
     //! Skips next value. \throw wire::exception if invalid encoding
     void skip_next();
 
+    /*! \post Last tag is set to inner type.
+        \throw wire::exception if last tag not start of array */
+    std::size_t do_start_array(std::size_t min_element_size) override final;
+
+    //! \throw wire::exception if last tag not an object
+    std::size_t do_start_object() override final;
+
   public:
     //! Enable array optimizations (element count always specified before elements).
     static constexpr std::false_type delimited_arrays() noexcept { return {}; }
@@ -132,17 +139,8 @@ namespace wire
       \return Number of bytes read into `dest`. */
     std::size_t binary(epee::span<std::uint8_t> dest, bool exact) override final;
 
-
-    /*! \post Last tag is set to inner type.
-        \throw wire::exception if last tag not start of array */
-    std::size_t start_array(std::size_t min_element_size) override final;
-
     //! Sets last tag to array if `count == 0`. \return True if end of array (`count == 0`).
     bool is_array_end(std::size_t count) override final;
-
-
-    //! \throw wire::exception if last tag not an object
-    std::size_t start_object() override final;
 
     /*! \throw wire::exception if next token not key or `}`.
         \param[out] index of key match within `map`.
