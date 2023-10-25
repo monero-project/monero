@@ -221,6 +221,22 @@ namespace wire
     read_next_value(accept_all);
   }
 
+  std::size_t json_reader::do_start_array(std::size_t)
+  {
+    if (get_next_token() != '[')
+      WIRE_DLOG_THROW_(error::schema::array);
+    remaining_.remove_prefix(1);
+    return 0;
+  }
+
+  std::size_t json_reader::do_start_object()
+  {
+    if (get_next_token() != '{')
+      WIRE_DLOG_THROW_(error::schema::object);
+    remaining_.remove_prefix(1);
+    return 0;
+  }
+
   json_reader::json_reader(epee::span<const char> source)
     : reader({reinterpret_cast<const std::uint8_t*>(source.data()), source.size()}),
       str_buffer_(),
@@ -364,15 +380,6 @@ namespace wire
     return dest.size();
   }
 
-  std::size_t json_reader::start_array(std::size_t)
-  {
-    if (get_next_token() != '[')
-      WIRE_DLOG_THROW_(error::schema::array);
-    remaining_.remove_prefix(1);
-    increment_depth();
-    return 0;
-  }
-
   bool json_reader::is_array_end(const std::size_t count)
   {
     const char next = get_next_token();
@@ -391,15 +398,6 @@ namespace wire
       remaining_.remove_prefix(1);
     }
     return false;
-  }
-
-  std::size_t json_reader::start_object()
-  {
-    if (get_next_token() != '{')
-      WIRE_DLOG_THROW_(error::schema::object);
-    remaining_.remove_prefix(1);
-    increment_depth();
-    return 0;
   }
 
   bool json_reader::key(const epee::span<const key_map> map, std::size_t& state, std::size_t& index)

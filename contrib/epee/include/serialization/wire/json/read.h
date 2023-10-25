@@ -54,6 +54,12 @@ namespace wire
     //! Skips next value. \throw wire::exception if invalid JSON syntax.
     void skip_value();
 
+    //! \throw wire::exception if next token not `[`.
+    std::size_t do_start_array(std::size_t) override final;
+
+    //! \throw wire::exception if next token not `{`.
+    std::size_t do_start_object() override final;
+
   public:
     //! `source` must "outlive" `json_reader`.
     explicit json_reader(epee::span<const char> source);
@@ -103,17 +109,9 @@ namespace wire
          from wire). */
     std::size_t binary(epee::span<std::uint8_t> dest, bool exact) override final;
 
-
-    //! \throw wire::exception if next token not `[`.
-    std::size_t start_array(std::size_t) override final;
-
     //! Skips whitespace to next token. \return True if next token is eof or ']'.
     bool is_array_end(std::size_t count) override final;
-
-
-    //! \throw wire::exception if next token not `{`.
-    std::size_t start_object() override final;
-
+ 
     /*! \throw wire::exception if next token not key or `}`.
         \param[out] index of key match within `map`.
         \return True if another value to read. */

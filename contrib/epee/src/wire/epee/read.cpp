@@ -200,6 +200,36 @@ namespace wire
     } // while (1)
   }
 
+  std::size_t epee_reader::do_start_array(std::size_t min_element_size)
+  {
+    // also called from `skip_next`
+
+    if (last_tag() == SERIALIZE_TYPE_ARRAY)
+      last_tag_ = read_tag();
+
+    if (!(last_tag() & SERIALIZE_FLAG_ARRAY))
+      WIRE_DLOG_THROW_(error::schema::array);
+
+    last_tag_ &= ~SERIALIZE_FLAG_ARRAY;
+
+    const std::size_t count = read_varint();
+    const std::size_t remaining = std::min(array_space_, remaining_.size());
+    min_element_size = std::max(min_wire_size(last_tag()), min_element_size);
+    if (min_element_size && ((remaining / min_element_size) < count))
+      WIRE_DLOG_THROW(error::schema::array_min_size, count << " array elements of at least " << min_element_size << " bytes each exceeds " << remaining << " remaining bytes");
+    array_space_ = remaining - (count * min_element_size);
+    return count;
+  }
+
+  std::size_t epee_reader::do_start_object()
+  {
+    // also called from `skip_next`
+    if (last_tag() != SERIALIZE_TYPE_OBJECT)
+      WIRE_DLOG_THROW_(error::schema::object);
+    last_tag_ = 0;
+    return read_varint();
+  }
+
   epee_reader::epee_reader(const epee::span<const std::uint8_t> source)
     : reader(source),
       skip_stack_(),
@@ -311,44 +341,13 @@ namespace wire
     return value.size();
   }
 
-  std::size_t epee_reader::start_array(std::size_t min_element_size)
-  {
-    // also called from `skip_next`
-    increment_depth();
-
-    if (last_tag() == SERIALIZE_TYPE_ARRAY)
-      last_tag_ = read_tag();
-
-    if (!(last_tag() & SERIALIZE_FLAG_ARRAY))
-      WIRE_DLOG_THROW_(error::schema::array);
-
-    last_tag_ &= ~SERIALIZE_FLAG_ARRAY;
-
-    const std::size_t count = read_varint();
-    const std::size_t remaining = std::min(array_space_, remaining_.size());
-    min_element_size = std::max(min_wire_size(last_tag()), min_element_size);
-    if (min_element_size && ((remaining / min_element_size) < count))
-      WIRE_DLOG_THROW(error::schema::array_min_size, count << " array elements of at least " << min_element_size << " bytes each exceeds " << remaining << " remaining bytes");
-    array_space_ = remaining - (count * min_element_size);
-    return count;
-  }
-
+  
   bool epee_reader::is_array_end(const std::size_t count)
   {
     // also called from `skip_next`
     if (!count)
       last_tag_ = SERIALIZE_TYPE_ARRAY;
     return count == 0;
-  }
-
-  std::size_t epee_reader::start_object()
-  {
-    // also called from `skip_next`
-    increment_depth();
-    if (last_tag() != SERIALIZE_TYPE_OBJECT)
-      WIRE_DLOG_THROW_(error::schema::object);
-    last_tag_ = 0;
-    return read_varint();
   }
 
   bool epee_reader::key(const epee::span<const reader::key_map> map, std::size_t& state, std::size_t& index)
