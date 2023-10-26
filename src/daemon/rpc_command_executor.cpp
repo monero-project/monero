@@ -2428,7 +2428,7 @@ static void append_printable_service_node_list_entry(cryptonote::network_type ne
 	{
 	  uint64_t const now = time(nullptr);
 	  uint64_t expiry_height = entry.registration_height + service_nodes::staking_num_lock_blocks(nettype);
-	  if (hard_fork_version >= cryptonote::network_version_5) expiry_height =+ STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS;
+	  if (hard_fork_version >= cryptonote::network_version_5) expiry_height += STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS;
 
 		uint64_t delta_height = expiry_height - curr_height;
 		uint64_t expiry_epoch_time = now + (delta_height * DIFFICULTY_TARGET_V3);
@@ -2439,15 +2439,29 @@ static void append_printable_service_node_list_entry(cryptonote::network_type ne
 		buffer.append(" / ");
 		buffer.append(std::to_string(expiry_height));
 		buffer.append(" (in ");
-		buffer.append(std::to_string(delta_height));
-		buffer.append(") blocks\n");
+		if (curr_height)
+		{
+		  buffer.append(std::to_string(delta_height));
+		  buffer.append(") blocks\n");
+		}
+		else
+		{
+		  buffer.append("?? blocks\n");
+		}
 
 		buffer.append(indent2);
 		buffer.append("Expiry Date (Est. UTC): ");
 		buffer.append(get_date_time(expiry_epoch_time));
-		buffer.append(" (");
-		buffer.append(get_human_time_ago(expiry_epoch_time, now));
-		buffer.append(")\n");
+		if (curr_height)
+		{
+		  buffer.append(" (");
+		  buffer.append(get_human_time_ago(expiry_epoch_time, now));
+		  buffer.append(")\n");
+		}
+		else
+		{
+		  buffer.append(" ?? (Could not get current blockchain height)\n");
+		}
 	}
 
 	if (is_registered) // Print reward status
