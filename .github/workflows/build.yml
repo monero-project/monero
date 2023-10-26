@@ -91,7 +91,7 @@ jobs:
     - name: Boost 1.77.0 and ICU 69
       run: |
         pacman --noconfirm -U https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-icu-69.1-1-any.pkg.tar.zst
-        pacman --noconfirm -U https://repo.msys2.org/mingw/x86_64/mingw-w64-x86_64-boost-1.77.0-3-any.pkg.tar.zst
+        pacman --noconfirm -U https://repo.msys2.org/mingw/x86_64/mingw-w64-x86_64-boost-1.78.0-1-any.pkg.tar.zst
     - name: build
       run: |
         ccache --max-size=150M
