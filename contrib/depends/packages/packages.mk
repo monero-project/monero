@@ -25,10 +25,6 @@ ifeq ($(build_tests),ON)
 packages += gtest
 endif
 
-ifneq ($(host_arch),riscv64)
-linux_packages += unwind
-endif
-
 mingw32_packages = sodium $(hardware_packages)
 mingw32_native_packages = $(hardware_native_packages)
 
