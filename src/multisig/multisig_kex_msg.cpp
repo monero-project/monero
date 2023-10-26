@@ -206,8 +206,13 @@ namespace multisig
   //----------------------------------------------------------------------------------------------------------------------
   void multisig_kex_msg::parse_and_validate_msg()
   {
+    CHECK_AND_ASSERT_THROW_MES(MULTISIG_KEX_MSG_V2_MAGIC_1.size() == MULTISIG_KEX_MSG_V2_MAGIC_N.size(),
+      "Multisig kex msg magic inconsistency.");
+    CHECK_AND_ASSERT_THROW_MES(MULTISIG_KEX_MSG_V2_MAGIC_1.size() >= MULTISIG_KEX_V1_MAGIC.size(),
+      "Multisig kex msg magic inconsistency.");
+
     // check message type
-    CHECK_AND_ASSERT_THROW_MES(m_msg.size() > 0, "Kex message unexpectedly empty.");
+    CHECK_AND_ASSERT_THROW_MES(m_msg.size() >= MULTISIG_KEX_MSG_V2_MAGIC_1.size(), "Kex message unexpectedly small.");
     CHECK_AND_ASSERT_THROW_MES(m_msg.substr(0, MULTISIG_KEX_V1_MAGIC.size()) != MULTISIG_KEX_V1_MAGIC,
       "V1 multisig kex messages are deprecated (unsafe).");
     CHECK_AND_ASSERT_THROW_MES(m_msg.substr(0, MULTISIG_KEX_MSG_V1_MAGIC.size()) != MULTISIG_KEX_MSG_V1_MAGIC,
@@ -215,8 +220,6 @@ namespace multisig
 
     // deserialize the message
     std::string msg_no_magic;
-    CHECK_AND_ASSERT_THROW_MES(MULTISIG_KEX_MSG_V2_MAGIC_1.size() == MULTISIG_KEX_MSG_V2_MAGIC_N.size(),
-      "Multisig kex msg magic inconsistency.");
     CHECK_AND_ASSERT_THROW_MES(tools::base58::decode(m_msg.substr(MULTISIG_KEX_MSG_V2_MAGIC_1.size()), msg_no_magic),
       "Multisig kex msg decoding error.");
     binary_archive<false> b_archive{epee::strspan<std::uint8_t>(msg_no_magic)};
