@@ -594,17 +594,21 @@ namespace cryptonote
   {
     if (hard_fork_version < cryptonote::network_version_5)
       return txversion::v1;
-    if (hard_fork_version >= cryptonote::network_version_5 && hard_fork_version <= cryptonote::network_version_17)
+    if (hard_fork_version < cryptonote::network_version_18)
       return txversion::v2;
+
     return txversion::v4;
   }
 
   inline txversion transaction_prefix::get_max_version_for_hf(uint8_t hard_fork_version)
   {
+    if (hard_fork_version < cryptonote::network_version_4)
+      return txversion::v1;
     if (hard_fork_version < cryptonote::network_version_5)
       return txversion::v2;
-    if (hard_fork_version >= cryptonote::network_version_5 && hard_fork_version <= cryptonote::network_version_17)
+    if (hard_fork_version < cryptonote::network_version_18)
       return txversion::v3;
+
     return txversion::v4;
   }
 

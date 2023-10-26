@@ -366,9 +366,7 @@ namespace cryptonote
 	  tx.extra.clear();
 	  tx.output_unlock_times.clear();
 	  tx.type = txtype::standard;
-    if (hard_fork_version >= SERVICE_NODE_VERSION) tx.version = txversion::v3;
-    if (hard_fork_version == network_version_4) tx.version = txversion::v2;
-    if (hard_fork_version <= network_version_3) tx.version = txversion::v1;
+	  tx.version = transaction::get_max_version_for_hf(hard_fork_version);
 
 	  const network_type                                             nettype = miner_context.nettype;
 	  const crypto::public_key                                       &service_node_key = miner_context.snode_winner_key;
@@ -376,17 +374,14 @@ namespace cryptonote
 
 	  keypair txkey = keypair::generate(hw::get_device("default"));
 	  add_tx_pub_key_to_extra(tx, txkey.pub);
-	  if (!extra_nonce.empty())
-		if (!add_extra_nonce_to_tx_extra(tx.extra, extra_nonce))
-			return false;
+    if (!extra_nonce.empty())
+      if (!add_extra_nonce_to_tx_extra(tx.extra, extra_nonce))
+        return false;
 	  if (!sort_tx_extra(tx.extra, tx.extra))
 		  return false;
 
 	keypair sn_key = get_deterministic_keypair_from_height(height); // NOTE: Always need since we use same key for service node
-	if (already_generated_coins != 0)
-	{
-		add_tx_pub_key_to_extra(tx, sn_key.pub);
-	}
+	add_tx_pub_key_to_extra(tx, sn_key.pub);
 
   add_service_node_winner_to_tx_extra(tx.extra, service_node_key);
 
@@ -631,7 +626,7 @@ namespace cryptonote
       msout->c.clear();
     }
 
-    tx.version = transaction::get_min_version_for_hf(tx_params.hard_fork_version);
+    tx.version = transaction::get_max_version_for_hf(tx_params.hard_fork_version);
     tx.type = tx_params.tx_type;
 
     if (tx.version <= txversion::v2)

@@ -1200,7 +1200,7 @@ bool Blockchain::prevalidate_miner_transaction(const block& b, uint64_t height, 
     return true;
   CHECK_AND_ASSERT_MES(b.miner_tx.vin.size() == 1, false, "coinbase transaction in the block has no inputs");
   CHECK_AND_ASSERT_MES(b.miner_tx.vin[0].type() == typeid(txin_gen), false, "coinbase transaction in the block has the wrong type");
-  CHECK_AND_ASSERT_MES(b.miner_tx.version >= txversion::v2 || hf_version < HF_VERSION_MIN_V2_COINBASE_TX, false, "Invalid coinbase transaction version");
+  CHECK_AND_ASSERT_MES(b.miner_tx.version > txversion::v3 || hf_version < 18, false, "Invalid coinbase transaction version");
 
   // for v2 txes (ringct), we only accept empty rct signatures for miner transactions,
   if (hf_version >= HF_VERSION_REJECT_SIGS_IN_COINBASE && b.miner_tx.version >= txversion::v2)
@@ -1356,7 +1356,7 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
     }
   }
 
-  if (hard_fork_version >= network_version_18)
+  if (hard_fork_version >= cryptonote::network_version_18)
   {
     if (b.miner_tx.type != txtype::standard)
     {
@@ -1369,7 +1369,7 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
 
     if (b.miner_tx.version < min_version || b.miner_tx.version > max_version)
     {
-      MERROR_VER("Coinbase transaction invalid version: " << b.miner_tx.version << " for hardfork: " << hard_fork_version);
+      MERROR_VER("Coinbase transaction invalid version: " << b.miner_tx.version << " for hardfork: " << (int)hard_fork_version << " min/max version: " << min_version << "/" << max_version);
       return false;
     }
   }
