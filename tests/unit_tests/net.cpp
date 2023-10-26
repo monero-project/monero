@@ -239,7 +239,7 @@ namespace
         net::tor_address tor;
 
         BEGIN_KV_SERIALIZE_MAP()
-            KV_SERIALIZE(tor);
+            KV_SERIALIZE(tor)
         END_KV_SERIALIZE_MAP()
     };
 }
@@ -611,7 +611,7 @@ namespace
         net::i2p_address i2p;
 
         BEGIN_KV_SERIALIZE_MAP()
-            KV_SERIALIZE(i2p);
+            KV_SERIALIZE(i2p)
         END_KV_SERIALIZE_MAP()
     };
 }
