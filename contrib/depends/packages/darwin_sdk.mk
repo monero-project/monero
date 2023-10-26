@@ -1,8 +1,8 @@
 package=darwin_sdk
-$(package)_version=11.1
-$(package)_download_path=https://github.com/phracker/MacOSX-SDKs/releases/download/11.3/
-$(package)_file_name=MacOSX$($(package)_version).sdk.tar.xz
-$(package)_sha256_hash=68797baaacb52f56f713400de306a58a7ca00b05c3dc6d58f0a8283bcac721f8
+$(package)_version=12.2
+$(package)_download_path=https://bitcoincore.org/depends-sources/sdks
+$(package)_file_name=Xcode-12.2-12B45b-extracted-SDK-with-libcxx-headers.tar.gz
+$(package)_sha256_hash=df75d30ecafc429e905134333aeae56ac65fac67cb4182622398fd717df77619
 
 define $(package)_stage_cmds
   mkdir -p $($(package)_staging_dir)/$(host_prefix)/native/SDK &&\
