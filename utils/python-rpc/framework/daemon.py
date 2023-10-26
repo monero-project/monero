@@ -590,6 +590,18 @@ class Daemon(object):
         }
         return self.rpc.send_json_rpc_request(flush_cache)
 
+    def get_txids_loose(self, txid_template, num_matching_bits):
+        get_txids_loose = {
+            'method': 'get_txids_loose',
+            'params': {
+                'txid_template': txid_template,
+                'num_matching_bits': num_matching_bits
+            },
+            'jsonrpc': '2.0',
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(get_txids_loose)
+
     def sync_txpool(self):
         sync_txpool = {
             'method': 'sync_txpool',

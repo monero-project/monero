@@ -112,6 +112,41 @@ namespace cryptonote {
 
   bool operator ==(const cryptonote::transaction& a, const cryptonote::transaction& b);
   bool operator ==(const cryptonote::block& a, const cryptonote::block& b);
+
+  /************************************************************************/
+  /* K-anonymity helper functions                                         */
+  /************************************************************************/
+
+  /**
+   * @brief Compares two hashes up to `nbits` bits in reverse byte order ("LMDB key order")
+   *
+   * The comparison essentially goes from the 31th, 30th, 29th, ..., 0th byte and compares the MSBs
+   * to the LSBs in each byte, up to `nbits` bits. If we use up `nbits` bits before finding a
+   * difference in the bits between the two hashes, we return 0. If we encounter a zero bit in `ha`
+   * where `hb` has a one in that bit place, then we reutrn -1. If the converse scenario happens,
+   * we return a 1. When `nbits` == 256 (there are 256 bits in `crypto::hash`), calling this is
+   * functionally identical to `BlockchainLMDB::compare_hash32`.
+   *
+   * @param ha left hash
+   * @param hb right hash
+   * @param nbits the number of bits to consider, a higher value means a finer comparison
+   * @return int 0 if ha == hb, -1 if ha < hb, 1 if ha > hb
+   */
+  int compare_hash32_reversed_nbits(const crypto::hash& ha, const crypto::hash& hb, unsigned int nbits);
+
+  /**
+   * @brief Make a template which matches `h` in LMDB order up to `nbits` bits, safe for k-anonymous fetching
+   *
+   * To be more technical, this function creates a hash which satifies the following property:
+   *     For all `H_prime` s.t. `0 == compare_hash32_reversed_nbits(real_hash, H_prime, nbits)`,
+   *     `1 > compare_hash32_reversed_nbits(real_hash, H_prime, 256)`.
+   * In other words, we return the "least" hash nbit-equal to `real_hash`.
+   *
+   * @param nbits The number of "MSB" bits to include in the template
+   * @param real_hash The original hash which contains more information than we want to disclose
+   * @return crypto::hash hash template that contains `nbits` bits matching real_hash and no more
+   */
+  crypto::hash make_hash32_loose_template(unsigned int nbits, const crypto::hash& real_hash);
 }
 
 bool parse_hash256(const std::string &str_hash, crypto::hash& hash);

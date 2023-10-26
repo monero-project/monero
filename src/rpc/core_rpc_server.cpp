@@ -3535,6 +3535,82 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_get_txids_loose(const COMMAND_RPC_GET_TXIDS_LOOSE::request& req, COMMAND_RPC_GET_TXIDS_LOOSE::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx)
+  {
+    RPC_TRACKER(get_txids_loose);
+
+    // Maybe don't use bootstrap since this endpoint is meant to retreive TXIDs w/ k-anonymity,
+    // so shunting this request to a random node seems counterproductive.
+
+#if BYTE_ORDER == LITTLE_ENDIAN
+    const uint64_t max_num_txids = RESTRICTED_SPENT_KEY_IMAGES_COUNT * (m_restricted ? 1 : 10);
+
+    // Sanity check parameters
+    if (req.num_matching_bits > 256)
+    {
+      error_resp.code = CORE_RPC_ERROR_CODE_WRONG_PARAM;
+      error_resp.message = "There are only 256 bits in a hash, you gave too many";
+      return false;
+    }
+
+    // Attempt to guess when bit count is too low before fetching, within a certain margin of error
+    const uint64_t num_txs_ever = m_core.get_blockchain_storage().get_db().get_tx_count();
+    const uint64_t num_expected_fetch = (num_txs_ever >> std::min((int) req.num_matching_bits, 63));
+    const uint64_t max_num_txids_with_margin = 2 * max_num_txids;
+    if (num_expected_fetch > max_num_txids_with_margin)
+    {
+      error_resp.code = CORE_RPC_ERROR_CODE_WRONG_PARAM;
+      error_resp.message = "Trying to search with too few matching bits, detected before fetching";
+      return false;
+    }
+
+    // Convert txid template to a crypto::hash
+    crypto::hash search_hash;
+    if (!epee::string_tools::hex_to_pod(req.txid_template, search_hash))
+    {
+      error_resp.code = CORE_RPC_ERROR_CODE_WRONG_PARAM;
+      error_resp.message = "Could not decode hex txid";
+      return false;
+    }
+    // Check that txid template is zeroed correctly for number of given matchign bits
+    else if (search_hash != make_hash32_loose_template(req.num_matching_bits, search_hash))
+    {
+      error_resp.code = CORE_RPC_ERROR_CODE_WRONG_PARAM;
+      error_resp.message = "Txid template is not zeroed correctly for number of bits. You could be leaking true txid!";
+      return false;
+    }
+
+    try
+    {
+      // Do the DB fetch
+      const auto txids = m_core.get_blockchain_storage().get_db().get_txids_loose(search_hash, req.num_matching_bits, max_num_txids);
+      // Fill out response form
+      for (const auto& txid : txids)
+        res.txids.emplace_back(epee::string_tools::pod_to_hex(txid));
+    }
+    catch (const TX_EXISTS&)
+    {
+      error_resp.code = CORE_RPC_ERROR_CODE_WRONG_PARAM;
+      error_resp.message = "Trying to search with too few matching bits";
+      return false;
+    }
+    catch (const std::exception& e)
+    {
+      error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
+      error_resp.message = std::string("Error during get_txids_loose: ") + e.what();
+      return false;
+    }
+
+    res.status = CORE_RPC_STATUS_OK;
+    return true;
+#else // BYTE_ORDER == BIG_ENDIAN
+    // BlockchainLMDB::compare_hash32 has different key ordering (thus different txid templates) on BE systems
+    error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
+    error_resp.message = "Due to implementation details, this feature is not available on big-endian daemons";
+    return false;
+#endif
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_rpc_access_submit_nonce(const COMMAND_RPC_ACCESS_SUBMIT_NONCE::request& req, COMMAND_RPC_ACCESS_SUBMIT_NONCE::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx)
   {
     RPC_TRACKER(rpc_access_submit_nonce);
