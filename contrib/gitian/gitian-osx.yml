@@ -29,7 +29,7 @@ remotes:
 files: []
 script: |
   WRAP_DIR=$HOME/wrapped
-  HOSTS="x86_64-apple-darwin11 aarch64-apple-darwin11"
+  HOSTS="x86_64-apple-darwin aarch64-apple-darwin"
   FAKETIME_HOST_PROGS=""
   FAKETIME_PROGS="ar ranlib date dmg genisoimage python"
 
