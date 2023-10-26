@@ -1,19 +1,14 @@
 package=zeromq
-$(package)_version=4.3.4
+$(package)_version=4.3.5
 $(package)_download_path=https://github.com/zeromq/libzmq/releases/download/v$($(package)_version)/
 $(package)_file_name=$(package)-$($(package)_version).tar.gz
-$(package)_sha256_hash=c593001a89f5a85dd2ddf564805deb860e02471171b3f204944857336295c3e5
-$(package)_patches=06aba27b04c5822cb88a69677382a0f053367143.patch
+$(package)_sha256_hash=6653ef5910f17954861fe72332e68b03ca6e4d9c7160eb3a8de5a5a913bfab43
 
 define $(package)_set_vars
   $(package)_config_opts=--without-documentation --disable-shared --without-libsodium --disable-curve
   $(package)_config_opts_linux=--with-pic
   $(package)_config_opts_freebsd=--with-pic
   $(package)_cxxflags=-std=c++11
-endef
-
-define $(package)_preprocess_cmds
-  patch -p1 < $($(package)_patch_dir)/06aba27b04c5822cb88a69677382a0f053367143.patch
 endef
 
 define $(package)_config_cmds
